@@ -10,6 +10,8 @@ private struct Command: Decodable {
     let x: CGFloat?
     let y: CGFloat?
     let durationMs: Double?
+    let width: CGFloat?
+    let height: CGFloat?
 }
 
 private struct Particle {
@@ -95,6 +97,11 @@ private final class CursorController {
     private var dillydallyCenterGlobal: CGPoint?
     private var dillydallyStartedAt: TimeInterval = 0
     private var dillydallyDuration: TimeInterval = 0
+    private var orbitCenterGlobal: CGPoint?
+    private var orbitStartGlobal = CGPoint.zero
+    private var orbitStartedAt: TimeInterval = 0
+    private var orbitDuration: TimeInterval = 0
+    private var orbitRadius = CGSize.zero
     private var lastIntentAt: TimeInterval = 0
     private var idleBurstEmitted = false
     private var lastTrailGlobal: CGPoint?
@@ -220,6 +227,7 @@ private final class CursorController {
 
     func move(to target: CGPoint, durationMs: Double) {
         settleDillydally()
+        settleOrbit()
         let fallback = surfaces.first.map {
             CGPoint(x: $0.quartzFrame.midX, y: $0.quartzFrame.midY)
         } ?? target
@@ -234,6 +242,7 @@ private final class CursorController {
     }
 
     func dillydally(at target: CGPoint, durationMs: Double) {
+        settleOrbit()
         moveDuration = 0
         dillydallyCenterGlobal = target
         dillydallyStartedAt = ProcessInfo.processInfo.systemUptime
@@ -251,6 +260,28 @@ private final class CursorController {
         setGlobalPoint(center, emitTrail: false)
     }
 
+    func orbit(around center: CGPoint, width: CGFloat, height: CGFloat, durationMs: Double) {
+        settleDillydally()
+        moveDuration = 0
+        orbitCenterGlobal = center
+        orbitStartGlobal = currentGlobal ?? center
+        orbitStartedAt = ProcessInfo.processInfo.systemUptime
+        orbitDuration = max(0.4, durationMs / 1000)
+        orbitRadius = CGSize(
+            width: min(76, max(13, width / 2 + 8)),
+            height: min(52, max(11, height / 2 + 8))
+        )
+        lastIntentAt = orbitStartedAt
+        idleBurstEmitted = false
+    }
+
+    func settleOrbit() {
+        guard orbitCenterGlobal != nil else { return }
+        orbitCenterGlobal = nil
+        orbitDuration = 0
+        lastIntentAt = ProcessInfo.processInfo.systemUptime
+    }
+
     func setPressed(_ pressed: Bool) {
         guard let index = activeSurface else { return }
         surfaces[index].view.isPressed = pressed
@@ -261,9 +292,7 @@ private final class CursorController {
         guard let index = activeSurface else { return }
         lastIntentAt = ProcessInfo.processInfo.systemUptime
         idleBurstEmitted = false
-        let surface = surfaces[index]
-        for _ in 0..<9 { emitParticle(at: surface.view.pointer, in: surface.view, burst: true) }
-        surface.view.needsDisplay = true
+        surfaces[index].view.needsDisplay = true
     }
 
     func hide() {
@@ -278,6 +307,8 @@ private final class CursorController {
         lastTrailGlobal = nil
         dillydallyCenterGlobal = nil
         dillydallyDuration = 0
+        orbitCenterGlobal = nil
+        orbitDuration = 0
         idleBurstEmitted = false
     }
 
@@ -305,7 +336,39 @@ private final class CursorController {
 
     private func tick() {
         let now = ProcessInfo.processInfo.systemUptime
-        if let center = dillydallyCenterGlobal {
+        if let center = orbitCenterGlobal {
+            let elapsed = now - orbitStartedAt
+            let t = min(1, max(0, elapsed / orbitDuration))
+            // Ease from the click point onto the presentation ring, make one
+            // measured clockwise lap around the clicked control's full bounds,
+            // then settle back where the trusted click actually landed.
+            let ringStart = CGPoint(x:center.x, y:center.y - orbitRadius.height)
+            let point: CGPoint
+            if t < 0.16 {
+                let k = t / 0.16
+                point = CGPoint(
+                    x:orbitStartGlobal.x + (ringStart.x - orbitStartGlobal.x) * k,
+                    y:orbitStartGlobal.y + (ringStart.y - orbitStartGlobal.y) * k
+                )
+            } else if t < 0.88 {
+                let angle = -Double.pi / 2 + ((t - 0.16) / 0.72) * Double.pi * 2
+                point = CGPoint(x:center.x + cos(angle) * orbitRadius.width,
+                                y:center.y + sin(angle) * orbitRadius.height)
+            } else {
+                let k = (t - 0.88) / 0.12
+                point = CGPoint(
+                    x:ringStart.x + (orbitStartGlobal.x - ringStart.x) * k,
+                    y:ringStart.y + (orbitStartGlobal.y - ringStart.y) * k
+                )
+            }
+            setGlobalPoint(point, emitTrail:false)
+            if t >= 1 {
+                orbitCenterGlobal = nil
+                orbitDuration = 0
+                lastIntentAt = now
+                setGlobalPoint(orbitStartGlobal, emitTrail:false)
+            }
+        } else if let center = dillydallyCenterGlobal {
             let elapsed = now - dillydallyStartedAt
             if dillydallyDuration > 0 && elapsed >= dillydallyDuration {
                 settleDillydally()
@@ -393,6 +456,11 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
                 at: CGPoint(x: x, y: y),
                 durationMs: command.durationMs ?? 0
             )
+        case "orbit":
+            guard let x = command.x, let y = command.y,
+                  let width = command.width, let height = command.height else { return }
+            controller?.orbit(around: CGPoint(x:x, y:y), width:width, height:height,
+                              durationMs:command.durationMs ?? 1150)
         case "settle": controller?.settleDillydally()
         case "down": controller?.setPressed(true)
         case "up": controller?.setPressed(false)

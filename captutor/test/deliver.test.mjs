@@ -1,7 +1,22 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { fullDesktopCrop } from "../lib/deliver.mjs";
+import { captionCacheKey, fullDesktopCrop } from "../lib/deliver.mjs";
+
+test("caption cache identity changes with rendered copy", () => {
+  const options = {
+    width:1200, px:58, font:"Arial.ttf", color:null,
+  };
+  const first = captionCacheKey({
+    ...options, words:[{ text:"The" }, { text:"circular" }, { text:"point" }],
+  });
+  assert.equal(first, captionCacheKey({
+    ...options, words:[{ text:"The" }, { text:"circular" }, { text:"point" }],
+  }));
+  assert.notEqual(first, captionCacheKey({
+    ...options, words:[{ text:"The" }, { text:"circular" }, { text:"connection" }, { text:"point" }],
+  }));
+});
 
 test("full-desktop delivery preserves an exact-size Stage negative", () => {
   assert.equal(

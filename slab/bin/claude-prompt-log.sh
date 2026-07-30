@@ -68,7 +68,8 @@ if [[ -n "$input" ]]; then
             --arg ts "$ts" \
             --arg started "$started_at" \
             --arg sum "$summary" \
-            '{session_id: $sid, cwd: .cwd, subject: (.prompt | tostring | .[0:140]), summary: $sum, tty: $tty, claude_pid: ($pid | tonumber? // 0), agent_pid: ($pid | tonumber? // 0), agent_type: "claude", transcript_path: (.transcript_path // ""), started_at: $started, updated: $ts, state: "working"}' \
+            --arg contact "${SLAB_LOOPBOY_CONTACT:-}" \
+            '{session_id: $sid, cwd: .cwd, subject: (.prompt | tostring | .[0:140]), summary: $sum, tty: $tty, claude_pid: ($pid | tonumber? // 0), agent_pid: ($pid | tonumber? // 0), agent_type: "claude", transcript_path: (.transcript_path // ""), started_at: $started, updated: $ts, state: "working", loopboy_contact: $contact}' \
             > "$ACTIVE_DIR/$session_id" 2>/dev/null
 
         # Live terminal title: write OSC 0 ("set window + icon name") direct

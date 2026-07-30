@@ -5,7 +5,7 @@
   <link rel="alternate" type="text/html" href="https://papers.aesthetic.computer/"/>
   <link rel="self" type="application/atom+xml" href="https://papers.aesthetic.computer/feed.xml"/>
   <id>https://papers.aesthetic.computer/</id>
-  <updated>2026-07-28T14:53:04.000Z</updated>
+  <updated>2026-07-28T06:12:05.198Z</updated>
   <author>
     <name>@jeffrey</name>
     <uri>https://prompt.ac/@jeffrey</uri>
@@ -13,20 +13,29 @@
   <icon>https://papers.aesthetic.computer/papers-og.jpg</icon>
   <rights>CC BY 4.0 unless noted otherwise.</rights>
   <entry>
-    <title>The Keymap Is the Score</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/the-keymap-is-the-score-essay.pdf"/>
-    <id>https://papers.aesthetic.computer/the-keymap-is-the-score-essay.pdf</id>
-    <updated>2026-07-28T14:53:04.000Z</updated>
-    <published>2026-07-27T00:00:00.000Z</published>
+    <title>Whistlegraph</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/whistlegraph-26-arxiv.pdf"/>
+    <id>https://papers.aesthetic.computer/whistlegraph-26-arxiv.pdf</id>
+    <updated>2026-07-28T06:12:05.198Z</updated>
+    <published>2026-03-21T00:00:00.000Z</published>
     <category term="arXiv"/>
     <author><name>@jeffrey</name></author>
-    <summary type="text">A plain-spoken companion to Keymaps as Social Software · essay — A keymap is more than a hidden preference table: it is an agreement that travels between people, programs, and machines. This essay names the inherited AWSED piano layout, introduces notepat&apos;s notes-that-name-themselves alternative, and follows that argument into the hand-assembled Scores for Social Software edition at UCLA.</summary>
+    <summary type="text">Drawing, Singing, and the Graphic Score as Viral Form · arXiv 4pp — Whistlegraph explores drawing, singing, and score-making as forms that can spread like software. The paper links graphic notation to performance, remix, and browser-native sharing.</summary>
+  </entry>
+  <entry>
+    <title>The Media Estate</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/media-estate-26-deck.pdf"/>
+    <id>https://papers.aesthetic.computer/media-estate-26-deck.pdf</id>
+    <updated>2026-07-28T06:12:04.803Z</updated>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+    <summary type="text">One Funnel, Nine Surfaces · 16:9 deck 10pp — An overview deck of the Aesthetic Computer and whistlegraph media estate: twelve accounts across nine surfaces, which can be posted to by script today, and the build-out plan. The whistlegraph archive still moves tens of thousands of views a day; the deck argues the work is connecting that audience to the new instrument, starting with Instagram.</summary>
   </entry>
   <entry>
     <title>A Record in the Mail</title>
     <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/a-record-in-the-mail-essay.pdf"/>
     <id>https://papers.aesthetic.computer/a-record-in-the-mail-essay.pdf</id>
-    <updated>2026-07-18T18:43:30.990Z</updated>
+    <updated>2026-07-28T06:12:04.800Z</updated>
     <category term="arXiv"/>
     <author><name>@jeffrey</name></author>
     <summary type="text">An essay on API-made vinyl and cassette fulfillment · podcast — A podcast asks to become an object. This essay maps two routes from an Aesthetic Computer episode to the mailbox: Kunaki&apos;s product-and-order API for one-off vinyl, and Tape On Demand&apos;s more human cassette workflow. It argues for a shared physical-release manifest, a deliberate payment gate, and a side B that can turn physical media into correspondence.</summary>
@@ -35,9 +44,64 @@
     <title>The Console Has a Browser</title>
     <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/the-console-has-a-browser-essay.pdf"/>
     <id>https://papers.aesthetic.computer/the-console-has-a-browser-essay.pdf</id>
-    <updated>2026-07-18T18:43:30.989Z</updated>
+    <updated>2026-07-28T06:12:04.798Z</updated>
     <category term="arXiv"/>
     <author><name>@jeffrey</name></author>
+  </entry>
+  <entry>
+    <title>&apos;Sup w/ July 10?</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/aesthetic-july-10-26-essay.pdf"/>
+    <id>https://papers.aesthetic.computer/aesthetic-july-10-26-essay.pdf</id>
+    <updated>2026-07-28T06:12:04.791Z</updated>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+    <summary type="text">Essay · ~2pp · mid-month postcard · podcast — A mid-month postcard from July 10th --- not the monthly essay but a check-in written because someone asked how it was going. The answer: living in two times at once. Told as three scenes: excavating Whistlegraph, an artform made years ago with a friend, now counted (963 videos transcribed, 424 songs clustered, ~1.72 billion views) and given a hand-lettered legal-pad home at whistlegraph.org; a brand-new fighting game, fight, born in two days with its rollback safety net built before its network floor; and Menuband bounced from App Store review for naming macOS in its subtitle, then let through after learning to say one word less. Also available as a spoken reading in @jeffrey&apos;s voice.</summary>
+  </entry>
+  <entry>
+    <title>Aesthetic June &apos;26</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/aesthetic-june-26-essay.pdf"/>
+    <id>https://papers.aesthetic.computer/aesthetic-june-26-essay.pdf</id>
+    <updated>2026-07-28T06:12:04.788Z</updated>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+    <summary type="text">Essay · ~3pp · podcast — Aesthetic June &apos;26 is the storytelling companion to May. Where May was the modal mood, June is the answer, delivered as four hundred and fifty-seven commits --- the word carrying both its meanings, version control and Juno&apos;s oath. Told as scenes: the songs that caught up, the whistle found a perfect fifth sharp, the ring of native wizards learning one sign-in, and a Danish learn-the-clock community getting its own front door on the chat. Also available as a spoken reading in @jeffrey&apos;s voice.</summary>
+  </entry>
+  <entry>
+    <title>Aesthinema</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/aesthinema-26-arxiv.pdf"/>
+    <id>https://papers.aesthetic.computer/aesthinema-26-arxiv.pdf</id>
+    <updated>2026-07-28T06:12:03.751Z</updated>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+  </entry>
+  <entry>
+    <title>Stack of the Summer &apos;26</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/stack-of-the-summer-26-arxiv.pdf"/>
+    <id>https://papers.aesthetic.computer/stack-of-the-summer-26-arxiv.pdf</id>
+    <updated>2026-07-28T06:12:03.700Z</updated>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+    <summary type="text">A Nine-Vector Platform Report · arXiv-style · Summer 2026 — Stack of the Summer &apos;26 cuts through Aesthetic Computer&apos;s living platform: the piece lifecycle and creative runtime, user data and backend choices, realtime and deployment, KidLisp publishing, shared services, desktop and bare-metal embodiments, engineering quality, privacy boundaries, and architectural history. It distinguishes canonical, transitional, and experimental layers, then names the priorities that can thicken the platform without losing its narrow creative waist.</summary>
+  </entry>
+  <entry>
+    <title>The Keymap Is the Score</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/the-keymap-is-the-score-essay.pdf"/>
+    <id>https://papers.aesthetic.computer/the-keymap-is-the-score-essay.pdf</id>
+    <updated>2026-07-28T06:08:34.000Z</updated>
+    <published>2026-07-27T00:00:00.000Z</published>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+    <summary type="text">A plain-spoken companion to Keymaps as Social Software · essay — A keymap is more than a hidden preference table: it is an agreement that travels between people, programs, and machines. This essay names the inherited AWSED piano layout, introduces notepat&apos;s notes-that-name-themselves alternative, and follows that argument into the hand-assembled Scores for Social Software edition at UCLA.</summary>
+  </entry>
+  <entry>
+    <title>Equal Enough to Draw</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/hott-kidlisp-26-arxiv.pdf"/>
+    <id>https://papers.aesthetic.computer/hott-kidlisp-26-arxiv.pdf</id>
+    <updated>2026-07-23T00:00:00.000Z</updated>
+    <published>2026-07-23T00:00:00.000Z</published>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+    <summary type="text">Paths, Equivalence, and Evidence in a Tiny Creative Language · arXiv 7pp — Equal Enough to Draw studies what homotopy type theory can honestly contribute to KidLisp without pretending the live language is a proof assistant. It separates source, AST, render, trace, contextual, and type-level identity; defines bounded observational equivalence over a host, input trace, frame horizon, and tolerance; and proposes content-addressed path certificates beside the permissive paint loop.</summary>
   </entry>
   <entry>
     <title>The Record Is a Better Interface</title>
@@ -60,15 +124,6 @@
     <summary type="text">Expressive Control and the Impoverishment of Consumer Playback · arXiv 10pp — A record scratch gives you continuous, gestural, real-time control over a recording; YouTube and Spotify give you a dropdown of round speeds, and some give nothing at all. This paper names that gap &apos;granularity,&apos; grounds it in the theory of directness and the mature craft of turntablism and elastic audio, and shows that Aesthetic Computer already ships the alternative across its players. The real opening is not that the instrument is impossible, but that it lives everywhere except the default transport of the apps you actually listen and watch through.</summary>
   </entry>
   <entry>
-    <title>&apos;Sup w/ July 10?</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/aesthetic-july-10-26-essay.pdf"/>
-    <id>https://papers.aesthetic.computer/aesthetic-july-10-26-essay.pdf</id>
-    <updated>2026-07-10T22:52:39.924Z</updated>
-    <category term="arXiv"/>
-    <author><name>@jeffrey</name></author>
-    <summary type="text">Essay · ~2pp · mid-month postcard · podcast — A mid-month postcard from July 10th --- not the monthly essay but a check-in written because someone asked how it was going. The answer: living in two times at once. Told as three scenes: excavating Whistlegraph, an artform made years ago with a friend, now counted (963 videos transcribed, 424 songs clustered, ~1.72 billion views) and given a hand-lettered legal-pad home at whistlegraph.org; a brand-new fighting game, fight, born in two days with its rollback safety net built before its network floor; and Menuband bounced from App Store review for naming macOS in its subtitle, then let through after learning to say one word less. Also available as a spoken reading in @jeffrey&apos;s voice.</summary>
-  </entry>
-  <entry>
     <title>Aesthetic July 4 &apos;26</title>
     <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/aesthetic-july-4-26-essay.pdf"/>
     <id>https://papers.aesthetic.computer/aesthetic-july-4-26-essay.pdf</id>
@@ -77,15 +132,6 @@
     <category term="arXiv"/>
     <author><name>@jeffrey</name></author>
     <summary type="text">Essay · ~4pp · Independence Day special — An Independence Day special between the June and July essays, written on the Declaration&apos;s 250th anniversary. Independence is a hanging word --- in + dependere, not to hang from --- and the essay follows it in the abstract: declarations versus definitions in C and in Philadelphia, the personal computer as an independence movement the cloud quietly reversed, artists who built their own rooms (a library in a church, folk songs as open-source software, an artwork designed to scan badly), and an honest ledger of which way one small platform hangs --- a podcast hung from a host, Menuband submitted to App Store review on the holiday weekend itself, and the CNAME record as infrastructure&apos;s most truthful sentence.</summary>
-  </entry>
-  <entry>
-    <title>Aesthetic June &apos;26</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/aesthetic-june-26-essay.pdf"/>
-    <id>https://papers.aesthetic.computer/aesthetic-june-26-essay.pdf</id>
-    <updated>2026-07-03T17:52:48.466Z</updated>
-    <category term="arXiv"/>
-    <author><name>@jeffrey</name></author>
-    <summary type="text">Essay · ~3pp · podcast — Aesthetic June &apos;26 is the storytelling companion to May. Where May was the modal mood, June is the answer, delivered as four hundred and fifty-seven commits --- the word carrying both its meanings, version control and Juno&apos;s oath. Told as scenes: the songs that caught up, the whistle found a perfect fifth sharp, the ring of native wizards learning one sign-in, and a Danish learn-the-clock community getting its own front door on the chat. Also available as a spoken reading in @jeffrey&apos;s voice.</summary>
   </entry>
   <entry>
     <title>Aesthetic Computer &apos;26</title>
@@ -166,16 +212,6 @@
     <category term="arXiv"/>
     <author><name>@jeffrey</name></author>
     <summary type="text">From Keyboard Toy to System Front Door · arXiv 5pp — notepat.com is framed as a keyboard-first front door to the system. The paper follows the toy-like input surface as it grows into a fuller creative interface.</summary>
-  </entry>
-  <entry>
-    <title>Whistlegraph</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/whistlegraph-26-arxiv.pdf"/>
-    <id>https://papers.aesthetic.computer/whistlegraph-26-arxiv.pdf</id>
-    <updated>2026-07-03T07:57:35.155Z</updated>
-    <published>2026-03-21T00:00:00.000Z</published>
-    <category term="arXiv"/>
-    <author><name>@jeffrey</name></author>
-    <summary type="text">Drawing, Singing, and the Graphic Score as Viral Form · arXiv 4pp — Whistlegraph explores drawing, singing, and score-making as forms that can spread like software. The paper links graphic notation to performance, remix, and browser-native sharing.</summary>
   </entry>
   <entry>
     <title>Sucking on the Complex</title>
@@ -601,33 +637,6 @@
     <author><name>@jeffrey</name></author>
   </entry>
   <entry>
-    <title>KidLisp (ELS 2026)</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/kidlisp-els-2026.pdf"/>
-    <id>https://papers.aesthetic.computer/kidlisp-els-2026.pdf</id>
-    <updated>2026-06-11T06:06:38.492Z</updated>
-    <category term="ELS"/>
-    <author><name>@jeffrey</name></author>
-    <summary type="text">A Minimal Lisp for Generative Art with Social Composition · ELS ACM SIGS 4pp — An ELS conference version of KidLisp that emphasizes social composition. It positions the language as a shared practice rather than a solo scripting environment.</summary>
-  </entry>
-  <entry>
-    <title>KidLisp &apos;26</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/kidlisp-26-joss.pdf"/>
-    <id>https://papers.aesthetic.computer/kidlisp-26-joss.pdf</id>
-    <updated>2026-06-11T06:06:38.482Z</updated>
-    <category term="JOSS"/>
-    <author><name>@jeffrey</name></author>
-    <summary type="text">JOSS Summary · 3pp — A compact JOSS summary of KidLisp for archival and citation purposes. It frames the language as a small but expressive tool for generative art.</summary>
-  </entry>
-  <entry>
-    <title>Aesthetic Computer &apos;26</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/aesthetic-computer-26-joss.pdf"/>
-    <id>https://papers.aesthetic.computer/aesthetic-computer-26-joss.pdf</id>
-    <updated>2026-06-11T06:06:38.412Z</updated>
-    <category term="JOSS"/>
-    <author><name>@jeffrey</name></author>
-    <summary type="text">JOSS Summary · 2pp — A compact JOSS summary of Aesthetic Computer for archival and citation purposes. It distills the platform into a conventional software paper format.</summary>
-  </entry>
-  <entry>
     <title>The Hand and the Loop</title>
     <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/hand-and-loop-26-arxiv.pdf"/>
     <id>https://papers.aesthetic.computer/hand-and-loop-26-arxiv.pdf</id>
@@ -646,5 +655,32 @@
     <category term="arXiv"/>
     <author><name>@jeffrey</name></author>
     <summary type="text">Goodiepalian Approaches in Aesthetic Computer · arXiv 5pp — This paper treats Goodiepalian practice as a model for radical computer art. It emphasizes play, notation, and the social life of systems over polished product design.</summary>
+  </entry>
+  <entry>
+    <title>Aesthetic Computer &apos;26</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/aesthetic-computer-26-joss.pdf"/>
+    <id>https://papers.aesthetic.computer/aesthetic-computer-26-joss.pdf</id>
+    <updated>2026-05-02T22:01:58.000Z</updated>
+    <category term="JOSS"/>
+    <author><name>@jeffrey</name></author>
+    <summary type="text">JOSS Summary · 2pp — A compact JOSS summary of Aesthetic Computer for archival and citation purposes. It distills the platform into a conventional software paper format.</summary>
+  </entry>
+  <entry>
+    <title>KidLisp &apos;26</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/kidlisp-26-joss.pdf"/>
+    <id>https://papers.aesthetic.computer/kidlisp-26-joss.pdf</id>
+    <updated>2026-05-02T22:01:58.000Z</updated>
+    <category term="JOSS"/>
+    <author><name>@jeffrey</name></author>
+    <summary type="text">JOSS Summary · 3pp — A compact JOSS summary of KidLisp for archival and citation purposes. It frames the language as a small but expressive tool for generative art.</summary>
+  </entry>
+  <entry>
+    <title>KidLisp (ELS 2026)</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/kidlisp-els-2026.pdf"/>
+    <id>https://papers.aesthetic.computer/kidlisp-els-2026.pdf</id>
+    <updated>2026-05-02T22:01:58.000Z</updated>
+    <category term="ELS"/>
+    <author><name>@jeffrey</name></author>
+    <summary type="text">A Minimal Lisp for Generative Art with Social Composition · ELS ACM SIGS 4pp — An ELS conference version of KidLisp that emphasizes social composition. It positions the language as a shared practice rather than a solo scripting environment.</summary>
   </entry>
 </feed>

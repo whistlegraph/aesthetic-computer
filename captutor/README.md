@@ -13,7 +13,38 @@ node bin/from-docs.mjs apps/quickstart   # a docs page → a screenplay draft
 node bin/stage.mjs render <screenplay>   # reversible HiDPI clean-stage filming mode
 node bin/stage.mjs --vertical render <screenplay> --format vertical
 node bin/brand-video.mjs --input take.mp4 --format docs --theme themes/fuser.mjs
+node bin/fuser-frame.mjs --locale en --compact  # semantic DOM/state frame
+node bin/fuser-frame.mjs --infer                # add screenshot-based visual QA
+node bin/fuser-atlas.mjs --source ~/Developer/fuser # all nodes, settings, behaviors
+node bin/fuser-pack.mjs                         # dry-run a measured tidy layout
+node bin/app-intelligence.mjs describe fuser imagePassthrough --locale en
+node bin/app-intelligence.mjs verify fuser --source ~/Developer/fuser
 ```
+
+## App intelligence
+
+`app-intelligence/` gives Captutor client-specific product understanding without
+putting client logic into the recorder. A definition binds localized vocabulary,
+stable selectors, behavior intent, source evidence, and teaching constraints.
+Both screenplays and semantic frame readers consume it.
+
+Fuser's implementation powers `bin/fuser-frame.mjs`. Its compact JSON combines
+the generic CDP frame with editor-specific node and port roles, selection,
+viewport state, interaction-zone geometry, source provenance, confidence checks,
+and an explicit distinction between visible UI and underlying data fields. Pass
+`--infer` to compare a compositor screenshot against that semantic frame with an
+OpenAI vision model before an autonomous agent acts.
+
+`bin/fuser-atlas.mjs` compiles Fuser's generated node manifest, Settings
+registry, Editor options, and source-audited interaction behavior into one
+LLM-sized contract. The current registry contains 121 nodes in eight categories;
+the mission contract requires one exact visit per entry and records gated nodes
+instead of substituting fuzzy picker results. Fuser's native annotation tour
+(`@tour N Title`) supplies ordered focus and viewport restoration. The editor
+also supplies 16×16 snap-to-grid, grouping, selection modes, and Fit View, but
+no graph-level auto-layout command. `bin/fuser-pack.mjs` fills that gap at the
+automation layer by producing a deterministic, non-overlapping drag plan from
+live node rectangles; it is dry-run by default.
 
 `--outbox` (or `CAPTUTOR_OUTBOX`) publishes only the finished, burned-caption
 MP4 and its VTT sidecar. A `captutor-outbox/v1` JSON manifest lands last, after
@@ -84,6 +115,68 @@ Two consequences worth knowing:
 The smoke test proves this on purpose: its fixture stalls 3.2s on "Fuse", and the
 final beat lands at 17.0s instead of the planned ~15.1s — in sync.
 
+### Director monitor
+
+Panda can publish the active Iris mission and Captutor beat to a private overlay
+on Chicken while Panda records a clean Stage. A small, click-through panel at
+Chicken's right edge shows the current line, word timing, next line, and beat.
+Panda also plays the
+same cached Jeffrey narration live; ScreenCaptureKit records no system audio,
+and the final voice and captions are still composed from source timings.
+
+```sh
+# Chicken: install the authenticated native overlay
+node bin/director-monitor.mjs --install --token "$CAPTUTOR_DIRECTOR_TOKEN"
+
+# Panda: workers inherit these from ~/.hermes/.env
+CAPTUTOR_DIRECTOR_URL=http://chicken:47831/state
+CAPTUTOR_DIRECTOR_TOKEN=…
+```
+
+Publishing is fail-open with a sub-second timeout. Recording continues if
+Chicken is asleep, disconnected, or closes the view. Set
+`CAPTUTOR_MONITOR_VOICE=0` to keep the visual monitor but mute live playback.
+`ops/director-bridge.mjs --install` keeps the overlay alive between takes by
+republishing Iris progress every 2.5 seconds. Captutor's own heartbeat takes
+priority while recording, then the Iris bridge resumes automatically.
+
+### Canonical bake-time fold
+
+Generative work has one recurring editorial state: the model is genuinely busy,
+but another minute of an unchanged spinner does not teach anything. Mark that
+boundary with `bakeTime` instead of hiding it behind a guessed sleep:
+
+```js
+{
+  say: "Generate the video, and Fuser animates the still image.",
+  do: async ({ bakeTime, cdp, click }) => {
+    await click("[data-action=generate]");
+    await bakeTime(
+      () => cdp.waitFor("document.querySelector('video')?.readyState >= 2"),
+      { id:"video-generation", label:"Baking the video" },
+    );
+  },
+},
+{
+  say: "And here it is — ready to play.",
+  do: async ({ cdp }) => cdp.eval("document.querySelector('video').play()"),
+}
+```
+
+Captutor records `bake-time-start` / `bake-time-end` on the source timeline,
+keeps four honest seconds of the live wait, folds out only an inert middle of at
+least eight seconds, and returns on the first result frame through the standard
+`bake-time-fold` dip. Narration, captions, later beats, action telemetry, and the
+storyboard receipt are remapped to the condensed timeline. The untouched
+`clip.mp4` remains the camera negative; `clip-bake-time.mp4` is the edited
+negative. The receipt lists every folded source interval and total seconds
+removed, so the transition is reviewable rather than a hidden jump cut.
+
+Keep result narration in the beat *after* `bakeTime`. That makes “here it is”
+begin after the real readiness condition, never over an unfinished node. Options
+`liveLeadSec`, `resultLeadSec`, `minimumFoldSec`, and `transitionSec` can tune an
+unusual model, while the preset defaults should remain the house style.
+
 ## Pieces
 
 | Piece | Where | What |
@@ -118,8 +211,9 @@ without coordination the video would show a dead pointer parked in a corner whil
 buttons depressed by themselves. `bin/stage.mjs` is the production path: it
 compiles a transparent, click-through Swift cursor overlay and moves its exact
 arrow-tip hotspot to the same coordinate as each trusted CDP click. The native
-overlay eases at 120 Hz, leaves a restrained particle trail, and emits a small
-click burst. It is capture-visible but never participates in browser hit-testing;
+overlay eases at 120 Hz and makes a slow, bounding-box-aware orbit around the
+control it just activated. It is capture-visible but never participates in
+browser hit-testing;
 `CAPTUTOR_REAL_CURSOR=1` remains available for explicitly human-driven takes.
 
 Stage Mode is a reversible transaction around any Captutor command. It saves the
@@ -210,7 +304,7 @@ that can quietly spend:
 | Guard | Default | Override |
 |---|---|---|
 | warn | below 2,000✦ | `CAPTUTOR_CREDIT_WARN` |
-| **refuse to record** | below 1,000✦ | `CAPTUTOR_CREDIT_FLOOR` |
+| **refuse to record** | below 500✦ | `CAPTUTOR_CREDIT_FLOOR` |
 | **take cap** | 5 takes / 60 min | `CAPTUTOR_MAX_TAKES`, `CAPTUTOR_TAKE_WINDOW_MIN` |
 
 The cap is persisted (`out/takes.json`), not in-process, because the thing to be
@@ -247,6 +341,18 @@ that call `attach()` and forget to close the socket. Programmatic probes should
 use `withSession()` from `lib/cdp.mjs`, or close a directly owned session in a
 `finally` block. The CLI has a 15-second hard ceiling and always closes CDP, so
 pathfinding cannot silently turn into repeated 120-second tool timeouts.
+
+For live visual inspection, hold the exact 2× HiDPI Stage rehearsal open:
+
+```sh
+node bin/stage.mjs --brand fuser preflight talking-taco --hold-ms 60000
+```
+
+Stage renders also save a passive full-display Frame JPEG after every click,
+drag, and completed text entry. These captures use `--no-ocr --quiet-overlay`
+with no cursor, targets, or preview window, so they verify the visible result
+without adding any Frame-owned pixels to the tutorial recording. Set
+`CAPTUTOR_PASSIVE_FRAME_AUDIT=0` only for local timing diagnostics.
 
 Captutor also enables Chrome's renderer-crash event before setup and runs a
 bounded page heartbeat immediately before recording and throughout every take.
@@ -376,9 +482,6 @@ absent in production.
   variant that drops `muted`/`loop`, keeps `controls`, and wires the
   already-present-but-empty `<track kind="captions" />` to our `.vtt`. That is a
   change in the *client* repo — not made yet.
-- **Long waits are filmed in real time.** A 40s generation stays 40s. The offsets
-  are all recorded, so a speed-ramp (ffmpeg `setpts` over a marked beat, then
-  recompute) is straightforward — just not built.
 - **Remote recording assumes one clock.** `since` and the beat stamps must share
   an epoch, which holds on one machine. Filming on `chicken` while driving from
   here would need clock-skew correction.

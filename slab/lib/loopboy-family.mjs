@@ -4,14 +4,13 @@
 
 export const IRIS_ADDRESS = "agent:iris@panda";
 
-export const IRIS_JOEYDON_RESPONSIBILITY = Object.freeze({
-  id: "fuser-joeydon-recovery",
-  priority: "blocking",
-  executionHost: "chicken",
-  preserveOriginal: true,
-  original: "UGC Deal Tracker",
-  verification: "deployed chunked-resource path",
-  guardrail: "Unrelated Iris backlog must not outrank this recovery.",
+export const IRIS_TUTORIAL_RESPONSIBILITY = Object.freeze({
+  id: "fuser-tutorial-recording",
+  priority: "primary",
+  executionHost: "panda",
+  focus: "recording tutorial videos",
+  verification: "rendered tutorial inspected at delivery size",
+  guardrail: "Completed recovery missions stay closed unless explicitly reopened.",
 });
 
 export function agentAddress(name, machine) {
@@ -47,7 +46,7 @@ export function makeIrisContact() {
     machine: "panda",
     ledgerId: "iris",
     capabilities: ["bounded-accountability-nudge", "status"],
-    responsibility: { ...IRIS_JOEYDON_RESPONSIBILITY },
+    responsibility: { ...IRIS_TUTORIAL_RESPONSIBILITY },
   };
 }
 

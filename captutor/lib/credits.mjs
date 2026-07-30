@@ -11,7 +11,7 @@
 // Three guards, in increasing order of how much they hurt:
 //
 //   WARN  (default 2000) — loud, but the take proceeds.
-//   FLOOR (default 1000) — `render` REFUSES. A take shot with too few credits
+//   FLOOR (default 500) — `render` REFUSES. A take shot with too few credits
 //         produces a broken tutorial anyway (the generation fails on camera), so
 //         failing before the camera rolls is strictly better than after.
 //   CAP   (default 5 takes/hour) — the backstop that does not depend on anyone
@@ -42,7 +42,7 @@ const LEDGER = join(HERE, "..", "out", "takes.json");
 const num = (v, d) => (Number.isFinite(+v) && v !== "" ? +v : d);
 
 export const WARN_BELOW = num(process.env.CAPTUTOR_CREDIT_WARN, 2000);
-export const FLOOR = num(process.env.CAPTUTOR_CREDIT_FLOOR, 1000);
+export const FLOOR = num(process.env.CAPTUTOR_CREDIT_FLOOR, 500);
 export const MAX_TAKES = num(process.env.CAPTUTOR_MAX_TAKES, 5);
 export const WINDOW_MIN = num(process.env.CAPTUTOR_TAKE_WINDOW_MIN, 60);
 

@@ -1,5 +1,39 @@
 # No Paint: Construct Recovery and Aesthetic Computer Migration
 
+## No Paint 3.0 — AC-backed implementation status
+
+No Paint 3.0 is the living Aesthetic Computer implementation. Construct is a
+preserved historical runtime at `nopaint.art/classic`, not a dependency of the
+new work.
+
+Shipped in the AC conductor:
+
+- Versioned deterministic proposal scores encoded by the `nopaint:<seed>` URL.
+- Explicit `No`, `Paint`, pause, and save/share actions over AC's proposal
+  buffer and persistent painting.
+- Decision-score persistence in `nopaint:session` alongside the AC painting:
+  version, seed, proposal number, operation, and `no`/`paint` decision.
+- Recovered weighting: Box appears twice, Softy has weight 1.5, and Walker is
+  rare at 0.2.
+- Native renderers for Box, Ellipse, Line, Wipe, Camera, Softy, Bubbles, Grid
+  Worm, Walker, Banner, and Wafer.
+- A machine-readable ledger of all 35 recovered operations in
+  `lib/nopaint-proposals.mjs`, so migration completeness is testable.
+
+Remaining 3.0 implementation:
+
+1. Port the other 10 authored brushes: Build, Dark Window, Aura, Triangle,
+   Breathe, Vignette, Caterpillar, Frame, Stamp, and Rainbow.
+2. Port the other 15 transforms: Blur, Sharpen, Mirror, Noise, Flip, Saturate,
+   Invert, Scroll, Contrast, Zoom, Recurse, Quicksand, Spin, Light Bump, Turn.
+3. Build the 1,197-image stamp/profile manifest and connect it to AC handles.
+4. Restore server saving through an AC endpoint with an explicit contribution
+   license; retain the old 32,184 paintings as an immutable archive generation.
+5. Recover playlists, sounds, parameter strings, painter stories, and profile
+   presentation on top of the same proposal/decision API.
+6. Make `nopaint.art` launch 3.0, keeping `/classic`, `/gallery`, and `/story`
+   as the historical and interpretive routes.
+
 ## Source recovered
 
 - Dropbox source: `/Apps/Construct 3/No Paint/No Paint.c3p`

@@ -226,7 +226,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 #endif
     private var quietFocusRunCount = 0
     private var lastQuietFocusTapAt: CFTimeInterval = 0
-    /// Max gap between the two taps of the right-⌘ double.
+    /// Physical side of the last clean Command down edge. A qualifying pair
+    /// must repeat the same side; left-right remains an ordinary two-hand move.
+    private var lastQuietFocusSide: UInt16?
+    /// Max gap between two same-side Command taps.
     private static let quietFocusTapWindow: CFTimeInterval = 0.50
 
     // (The visualizer's right-⌘ TRIPLE-tap gesture was removed: it had claimed
@@ -1668,11 +1671,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // (see the localCapture Esc handler). Keeps the gesture a pure
         // "bring me into play" action that can't accidentally drop focus.
         guard !localCapture.isArmed else { return }
-        // Arm focus capture WITHOUT touching the popover — the blue glow +
+        // Arm focus capture WITHOUT touching the popover — the red glow +
         // rising bell are the "it landed" cue. keepPopoverOpen:true leaves an
         // already-open popover as-is rather than closing it.
         beginFocusCaptureFromShortcut(keepPopoverOpen: true)
-        FocusFlashOverlay.shared.flash(rising: true)
+        FocusFlashOverlay.shared.flash(rising: false)
         menuBand.playFocusCue(rising: true)
     }
 
@@ -2105,14 +2108,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         ) { event in handler(event); return event }
     }
 
-    /// Double-tap the RIGHT ⌘ → toggle focus capture. Two bare right-⌘ down
+    /// Double-tap either physical ⌘ → toggle focus capture. Two bare same-side ⌘ down
     /// edges inside `quietFocusTapWindow` arm / disarm the menubar piano for
     /// typing. A single bare ⌘ does nothing, so ⌘ stays free as a normal
     /// modifier for the rest of the system. The toggle fires a dry click on the
     /// qualifying second press so the user feels the gesture land.
     ///
-    /// RIGHT ⌘ specifically, and LEFT ⌘ breaks the run rather than merely not
-    /// counting — otherwise ordinary two-handed ⌘ use would trip the gesture.
+    /// Left-left and right-right are equivalent. Switching sides restarts the
+    /// run so ordinary two-handed Command use cannot trip the gesture.
     ///
     /// (History worth keeping: this WAS a right-⌘ double-tap, then a right-⌘
     /// TRIPLE-tap visualizer gesture took the key, so focus was moved onto an
@@ -2168,6 +2171,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self.commandKeysHeld = commandState
             let sideIsHeld = side == Self.leftCommandKeyCode
                 ? commandState.left : commandState.right
+            self.menuBand.setVisualControlKey(side, isDown: sideIsHeld)
 #if !MAC_APP_STORE
             let bothHeld = commandState.left && commandState.right
             // Releasing either ⌘ cancels a count-in in progress.
@@ -2187,18 +2191,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 #endif
             // Otherwise: bare-⌘ double-tap tracking for PLAY.
             guard mask == .command else { self.quietFocusRunCount = 0; return }
-            // Left ⌘ breaks the run (leaves left-⌘⌘ free for Shapedown).
-            guard side == Self.rightCommandKeyCode else { self.quietFocusRunCount = 0; return }
             let now = CACurrentMediaTime()
-            let inWindow = now - self.lastQuietFocusTapAt <= Self.quietFocusTapWindow
+            let sameSide = self.lastQuietFocusSide == side
+            let inWindow = sameSide && now - self.lastQuietFocusTapAt <= Self.quietFocusTapWindow
             self.quietFocusRunCount = (inWindow && self.quietFocusRunCount > 0)
                 ? self.quietFocusRunCount + 1
                 : 1
             self.lastQuietFocusTapAt = now
+            self.lastQuietFocusSide = side
             guard self.quietFocusRunCount >= 2 else { return }
-            // Right-⌘ DOUBLE = PLAY (arm the keyboard).
+            // Same-side ⌘ DOUBLE = PLAY (arm the keyboard).
             self.quietFocusRunCount = 0
             self.lastQuietFocusTapAt = 0
+            self.lastQuietFocusSide = nil
             FocusCueBeep.shared.click()
             self.toggleQuietFocusFromCommandTap()
         }

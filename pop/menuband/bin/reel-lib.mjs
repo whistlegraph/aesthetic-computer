@@ -289,6 +289,13 @@ export function stripKeyX(rig, midi, rect) {
   const k = rig.keys.get(foldToStrip(midi));
   return rect.x + rect.w * (k ? k.cx : 0.5);
 }
+export function stripKeyRect(rig, midi, rect) {
+  const k = rig.keys.get(foldToStrip(midi));
+  if (!k) return { x: rect.x + rect.w * 0.48, w: rect.w * 0.04 };
+  const x0 = rect.x + rect.w * (k.x0 / rig.idle.width);
+  const x1 = rect.x + rect.w * (k.x1 / rig.idle.width);
+  return { x: x0, w: x1 - x0 };
+}
 export function stripKeyColor(rig, midi) {
   return rig.keys.get(foldToStrip(midi))?.color ?? INK_RGB;
 }

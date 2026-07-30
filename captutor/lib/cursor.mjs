@@ -140,15 +140,55 @@ async function pointWithin(cdp, selector, { anchorX = 0.5, anchorY = 0.5 } = {})
   if (selector.startsWith("text=") || selector.startsWith("js=")) {
     throw new Error("anchored cursor points require a CSS selector");
   }
-  return cdp.eval(`(() => {
+  const point = await cdp.eval(`(() => {
     const element = document.querySelector(${JSON.stringify(selector)});
     if (!element) return null;
     const rect = element.getBoundingClientRect();
-    return {
+    const preferred = {
       x: rect.left + rect.width * ${Number(anchorX)},
       y: rect.top + rect.height * ${Number(anchorY)},
     };
+    const ownsHit = (point) => {
+      const hit = document.elementFromPoint(point.x, point.y);
+      return hit === element || element.contains(hit);
+    };
+    if (ownsHit(preferred)) return { ...preferred, adjusted:false };
+
+    // A pane fills the viewport *behind* floating controls. A mathematically
+    // valid anchor can therefore land on the credit counter, chat composer, or
+    // another overlay. Search outward for the nearest point whose topmost hit
+    // really belongs to the requested element; never click through an overlay.
+    const step = 24;
+    for (let radius = 1; radius <= 14; radius += 1) {
+      for (let dx = -radius; dx <= radius; dx += 1) {
+        for (const dy of [-radius, radius]) {
+          const candidate = {
+            x:Math.max(rect.left + 4, Math.min(rect.right - 4, preferred.x + dx * step)),
+            y:Math.max(rect.top + 4, Math.min(rect.bottom - 4, preferred.y + dy * step)),
+          };
+          if (ownsHit(candidate)) return { ...candidate, adjusted:true, requested:preferred };
+        }
+      }
+      for (let dy = -radius + 1; dy < radius; dy += 1) {
+        for (const dx of [-radius, radius]) {
+          const candidate = {
+            x:Math.max(rect.left + 4, Math.min(rect.right - 4, preferred.x + dx * step)),
+            y:Math.max(rect.top + 4, Math.min(rect.bottom - 4, preferred.y + dy * step)),
+          };
+          if (ownsHit(candidate)) return { ...candidate, adjusted:true, requested:preferred };
+        }
+      }
+    }
+    return { blocked:true, requested:preferred,
+      hit:document.elementFromPoint(preferred.x, preferred.y)?.outerHTML?.slice(0, 240) || '' };
   })()`);
+  if (!point || point.blocked) {
+    const error = new Error(`target is visually occluded: ${selector} ${JSON.stringify(point)}`);
+    error.code = "OCCLUDED_TARGET";
+    error.telemetry = { selector, point };
+    throw error;
+  }
+  return point;
 }
 
 /// Glide the native pointer to an element and land a TRUSTED click at the same
@@ -156,7 +196,8 @@ async function pointWithin(cdp, selector, { anchorX = 0.5, anchorY = 0.5 } = {})
 export async function clickOn(
   cdp,
   selector,
-  { moveMs = 520, settleMs = 140, anchorX = 0.5, anchorY = 0.5 } = {},
+  { moveMs = 520, settleMs = 140, orbitMs = 1150,
+    anchorX = 0.5, anchorY = 0.5 } = {},
 ) {
   // Measure, glide, then MEASURE AGAIN before committing the click.
   //
@@ -166,6 +207,9 @@ export async function clickOn(
   // slid into that spot. (drive-ui.md hit the same edge and added a stray node.)
   // A trusted click goes to a POINT, not to an element, so the point has to be
   // fresh. The cursor lands wherever the target ended up.
+  const geometry = (!REAL_CURSOR && !NO_CURSOR) ? await cdp.eval(`({
+    screenX, screenY, outerWidth, outerHeight, innerWidth, innerHeight
+  })`) : null;
   const first = await pointWithin(cdp, selector, { anchorX, anchorY });
   if (REAL_CURSOR) {
     await moveRealPointer(cdp, first, moveMs);
@@ -173,15 +217,21 @@ export async function clickOn(
     // Let it drain before the trusted CDP click, or that late event can land on
     // the canvas pane and immediately clear the node selection we just made.
     await new Promise((resolve) => setTimeout(resolve, 180));
-  } else if (!NO_CURSOR) await moveNativePointer(cdp, first, moveMs);
+  } else if (!NO_CURSOR) await moveNativePointer(cdp, first, moveMs, geometry);
 
   const now = await pointWithin(cdp, selector, { anchorX, anchorY });
   if (Math.hypot(now.x - first.x, now.y - first.y) > 2) {
     if (REAL_CURSOR) {
       await moveRealPointer(cdp, now, 120);
       await new Promise((resolve) => setTimeout(resolve, 180));
-    } else if (!NO_CURSOR) await moveNativePointer(cdp, now, 120);
+    } else if (!NO_CURSOR) await moveNativePointer(cdp, now, 120, geometry);
   }
+
+  // Measure before the trusted click. Picker result cards intentionally
+  // disappear when chosen, but their pre-click bounds are the exact shape the
+  // cursor should present afterward.
+  const presentationBounds = (!REAL_CURSOR && !NO_CURSOR && orbitMs > 0)
+    ? await cdp.bounds(selector, { waitMs:1500 }) : null;
 
   nativeCommand("down");
   try {
@@ -192,6 +242,18 @@ export async function clickOn(
     nativeCommand("up");
   }
   nativeCommand("click");
+  if (presentationBounds && presentationBounds.width <= 600 && presentationBounds.height <= 300) {
+    const rect = presentationBounds;
+    const topLeft = pagePointToScreen(geometry, { x:rect.x, y:rect.y });
+    nativeCommand("orbit", {
+      x:topLeft.x + rect.width / 2,
+      y:topLeft.y + rect.height / 2,
+      width:rect.width,
+      height:rect.height,
+      durationMs:orbitMs,
+    });
+    await sleep(orbitMs);
+  }
   await new Promise((r) => setTimeout(r, settleMs));
   return now;   // where the action landed — the vertical cut crops to follow it
 }
@@ -238,6 +300,15 @@ export async function dragBetween(
   // and React can settle the target node during the approach.
   const from = await cdp.center(fromSelector, { waitMs: 1500 });
   const to = await cdp.center(toSelector, { waitMs: 1500 });
+  const viewport = await cdp.eval(`({ width:innerWidth, height:innerHeight })`);
+  if (from.x < 0 || from.y < 0 || from.x > viewport.width || from.y > viewport.height) {
+    const error = new Error(
+      `drag start is outside the browser viewport: ${JSON.stringify({ from, viewport, fromSelector })}`,
+    );
+    error.code = "OFFSCREEN_DRAG_START";
+    error.telemetry = { from, to, viewport, fromSelector, toSelector };
+    throw error;
+  }
   const geometry = (REAL_CURSOR || !NO_CURSOR)
     ? await cdp.eval(`({ screenX, screenY, outerWidth, outerHeight, innerWidth, innerHeight })`)
     : null;
@@ -288,7 +359,7 @@ export async function dragBetween(
     nativeCommand("up");
   }
   await new Promise((resolve) => setTimeout(resolve, settleMs));
-  return { from, to };
+  return { from, to, viewport };
 }
 
 /// Click, then type into the focused field at a legible cadence.

@@ -1,9 +1,13 @@
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
+
+const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
+const RECEIPT_CLI = join(ROOT, "bin", "storyboard-receipt.mjs");
 
 test("builds an accepted PDF from screenplay-owned QA checks", () => {
   const work = mkdtempSync(join(tmpdir(), "captutor-receipt-test-"));
@@ -30,7 +34,7 @@ test("builds an accepted PDF from screenplay-owned QA checks", () => {
     events:[{ kind:"check", name:"route_complete", atSec:0.7, evidence:{ pass:true, edgeCount:1 } }],
   }));
   const result = JSON.parse(execFileSync(process.execPath, [
-    "captutor/bin/storyboard-receipt.mjs", "--video", video,
+    RECEIPT_CLI, "--video", video,
     "--storyboard", storyboard, "--out", pdf,
   ], { encoding:"utf8" }));
   assert.equal(result.accepted, true);
@@ -62,12 +66,16 @@ test("prints English QA copy alongside non-English captions", () => {
     events:[{ kind:"check", name:"route_complete", atSec:0.7, evidence:{ pass:true } }],
   }));
   const result = JSON.parse(execFileSync(process.execPath, [
-    "captutor/bin/storyboard-receipt.mjs", "--video", video,
+    RECEIPT_CLI, "--video", video,
     "--storyboard", storyboard, "--out", pdf,
   ], { encoding:"utf8" }));
   assert.equal(result.accepted, true);
-  const text = execFileSync("pdftotext", [pdf, "-"], { encoding:"utf8" });
-  assert.match(text, /Introduction to Fuser/);
+  assert.equal(readFileSync(pdf).subarray(0, 4).toString(), "%PDF");
+  const extraction = spawnSync("pdftotext", [pdf, "-"], { encoding:"utf8" });
+  if (extraction.error?.code === "ENOENT") return;
+  assert.equal(extraction.status, 0, extraction.stderr);
+  const text = extraction.stdout;
+  assert.match(text, /Introduction\s+to\s+Fuser/);
   assert.match(text, /Route the image into the video node/);
   assert.match(text, /Caption \(hi\)/);
 });

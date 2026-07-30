@@ -51,6 +51,7 @@
     "SessionStart": [
       {
         "hooks": [
+          { "type": "command", "command": "@HOME@/.local/bin/claude-session-start.sh", "async": true },
           { "type": "command", "command": "@HOME@/.local/bin/slab-cancel-pending", "async": true }
         ]
       }

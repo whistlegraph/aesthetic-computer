@@ -4,6 +4,8 @@
 // nodes/primitive/image docs. This lesson does not generate, so it spends no
 // credits and can be repeated safely for every localized UI.
 
+import { fuserEditor, fuserNodePickerResult } from "../app-intelligence/fuser.mjs";
+
 const WORKSPACE = "https://app.fuser.studio/w/me";
 const line = (en, es, fr) => ({ en, es, fr });
 
@@ -55,9 +57,9 @@ export default {
     },
     {
       say: line(
-        "Choose Add a Node and search for Image using the name shown in your current language.",
-        "Elige Añadir un nodo y busca Imagen usando el nombre que aparece en tu idioma actual.",
-        "Choisissez Ajouter un nœud et recherchez Image avec le nom affiché dans votre langue actuelle.",
+        "Open Add a Node, then search using the localized node name.",
+        "Abre Añadir un nodo y busca usando el nombre localizado del nodo.",
+        "Ouvrez Ajouter un nœud, puis recherchez avec le nom localisé du nœud.",
       ),
       do: async ({ click, cdp, type, s }) => {
         await click(s.addNode);
@@ -67,68 +69,84 @@ export default {
     },
     {
       say: line(
-        "Press Enter to add the Image node, then return the canvas to one hundred percent so every control stays readable.",
-        "Pulsa Intro para añadir el nodo Imagen y vuelve al cien por cien para que todos los controles sigan siendo legibles.",
-        "Appuyez sur Entrée pour ajouter le nœud Image, puis revenez à cent pour cent afin que chaque commande reste lisible.",
+        "Choose the exact primitive result, then return the canvas to one hundred percent so every control stays readable.",
+        "Elige el resultado primitivo exacto y vuelve al cien por cien para que todos los controles sigan siendo legibles.",
+        "Choisissez le résultat primitif exact, puis revenez à cent pour cent afin que chaque commande reste lisible.",
       ),
-      do: async ({ cdp, click, s }) => {
-        await cdp.key("Enter", "Enter", 13);
-        await cdp.waitFor("document.querySelectorAll('.react-flow__node').length > 0");
+      do: async ({ cdp, click, s, t }) => {
+        const app = fuserEditor(t);
+        const result = fuserNodePickerResult(s.imageNodeQuery);
+        await cdp.waitFor(`document.querySelector(${JSON.stringify(result)})`);
+        await click(result);
+        await cdp.waitFor(`document.querySelector(${JSON.stringify(app.image.node.selector)})`);
+        await cdp.waitFor(`document.querySelector(${JSON.stringify(app.image.input.selector)})`);
+        await cdp.waitFor(`document.querySelector(${JSON.stringify(app.image.passthrough.selector)})`);
         await click(s.zoomButton);
         await click(s.zoom100);
       },
     },
     {
       say: line(
-        "An Image node can display PNG, JPEG, WebP, or GIF media. You can paste, drag and drop, or upload an image up to fifty megabytes.",
-        "Un nodo Imagen puede mostrar archivos PNG, JPEG, WebP o GIF. Puedes pegar, arrastrar y soltar, o subir una imagen de hasta cincuenta megabytes.",
-        "Un nœud Image peut afficher des fichiers PNG, JPEG, WebP ou GIF. Vous pouvez coller, glisser-déposer ou importer une image jusqu’à cinquante mégaoctets.",
+        "This node can display PNG, JPEG, WebP, or GIF media. You can paste, drag and drop, or upload an image up to fifty megabytes.",
+        "Este nodo puede mostrar archivos PNG, JPEG, WebP o GIF. Puedes pegar, arrastrar y soltar, o subir una imagen de hasta cincuenta megabytes.",
+        "Ce nœud peut afficher des fichiers PNG, JPEG, WebP ou GIF. Vous pouvez coller, glisser-déposer ou importer une image jusqu’à cinquante mégaoctets.",
       ),
-      do: async ({ click, spotlight, s }) => {
-        await click(s.firstNode);
-        await spotlight(s.firstNode, {
-          label: "Image media", dim: 0.30, ring: true,
+      do: async ({ click, spotlight, t }) => {
+        const app = fuserEditor(t);
+        await click(app.image.node.selector);
+        await spotlight(app.image.node.selector, {
+          label: app.image.node.label, dim: 0.30, ring: true,
           feather: 30, durationMs: 3400,
         });
       },
     },
     {
       say: line(
-        "The socket on the left accepts image data from an upload, a generator, or another compatible node.",
-        "El conector de la izquierda recibe imágenes desde una carga, un generador u otro nodo compatible.",
-        "Le connecteur de gauche reçoit une image importée, produite par un générateur ou transmise par un autre nœud compatible.",
+        "The circular point on the left accepts image data from an upload, a generator, or another compatible node.",
+        "El punto circular de la izquierda recibe imágenes desde una carga, un generador u otro nodo compatible.",
+        "Le point circulaire à gauche reçoit une image importée, produite par un générateur ou transmise par un autre nœud compatible.",
       ),
-      do: async ({ point, outline, s }) => {
-        await point(s.firstNode, { moveMs: 480 });
-        await outline(s.firstNode, { label: "Image input", feather: 28, durationMs: 2800 });
+      do: async ({ point, outline, t }) => {
+        const app = fuserEditor(t);
+        await point(app.image.input.selector, { moveMs: 480 });
+        await outline(app.image.input.selector, {
+          feather: 20, durationMs: 2800,
+        });
       },
     },
     {
       say: line(
-        "The socket on the right passes the stored image onward, so the same visual can feed a caption, video, three-dimensional, or editing workflow.",
-        "El conector de la derecha envía la imagen guardada a otros nodos, para usarla en subtítulos, vídeo, tres dimensiones o edición.",
-        "Le connecteur de droite transmet l’image stockée à d’autres nœuds pour le sous-titrage, la vidéo, la trois dimensions ou la retouche.",
+        "The triangle on the right is an input passthrough. It carries the displayed image onward.",
+        "El triángulo de la derecha es un paso de entrada. Envía la imagen mostrada hacia adelante.",
+        "Le triangle à droite est un passage d’entrée. Il transmet l’image affichée vers la suite.",
       ),
-      do: async ({ outline, s }) => {
-        await outline(s.firstNode, { label: "Reusable image output", feather: 28, durationMs: 3000 });
+      do: async ({ point, outline, t }) => {
+        const app = fuserEditor(t);
+        await point(app.image.passthrough.selector, { moveMs: 480 });
+        await outline(app.image.passthrough.selector, {
+          feather: 20, durationMs: 3000,
+        });
       },
     },
     {
       say: line(
-        "Select a populated Image node to download its original media. Keeping the image in a node also makes the source and every downstream use visible on the canvas.",
-        "Selecciona un nodo Imagen con contenido para descargar el archivo original. Guardarlo en un nodo también deja visibles la fuente y todos sus usos posteriores.",
-        "Sélectionnez un nœud Image rempli pour télécharger le média original. Le conserver dans un nœud rend aussi visibles sa source et toutes ses utilisations en aval.",
+        "Notice three zones. The tiny symbol starts a connection; its padded halo reveals the hover tooltip; the surrounding card selects or moves the node.",
+        "Observa tres zonas. El símbolo pequeño inicia una conexión; su halo acolchado muestra la ayuda al pasar el puntero; la tarjeta selecciona o mueve el nodo.",
+        "Observez trois zones. Le petit symbole démarre une connexion ; sa zone rembourrée révèle l’infobulle ; la carte autour sélectionne ou déplace le nœud.",
       ),
-      do: async ({ spotlight, s }) => spotlight(s.firstNode, {
-        label: "One source · many uses", dim: 0.28,
-        ring: true, feather: 32, durationMs: 3400,
-      }),
+      do: async ({ point, sleep, t }) => {
+        const app = fuserEditor(t);
+        await point(app.image.input.selector, { moveMs: 620 });
+        await sleep(1200);
+        await point(app.image.passthrough.selector, { moveMs: 760 });
+        await sleep(1600);
+      },
     },
     {
       say: line(
-        "That is the Image node: a simple, reusable home for visual media anywhere in your Fuser project.",
-        "Eso es el nodo Imagen: un lugar sencillo y reutilizable para tus recursos visuales en cualquier proyecto de Fuser.",
-        "Voilà le nœud Image : un espace simple et réutilisable pour vos médias visuels dans chaque projet Fuser.",
+        "This node is a simple home for visual media anywhere in your Fuser project.",
+        "Este nodo es un lugar sencillo para recursos visuales en cualquier proyecto de Fuser.",
+        "Ce nœud est un espace simple pour vos médias visuels dans chaque projet Fuser.",
       ),
       do: async ({ point }) => point(".react-flow__pane", { moveMs: 720 }),
     },

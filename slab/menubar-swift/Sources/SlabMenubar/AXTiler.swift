@@ -121,6 +121,7 @@ enum AXTiler {
         var rawCount = 0
         var minimizedCount = 0
         var subroleCount = 0
+        var zombieCount = 0
         var geometryCount = 0
         var identityCount = 0
         for app in apps {
@@ -131,6 +132,16 @@ enum AXTiler {
             readSucceeded = true
             rawCount += list.count
             for w in list {
+                if bundleId == "com.apple.Terminal", terminalWindowHasNoTabContent(w) {
+                    // Terminal retains closed windows as ordinary AXWindow +
+                    // live CGWindowID objects. Their content child changes to
+                    // an empty AXTabGroup, and AppleScript can no longer read
+                    // `selected tab`. Moving one of these objects revives its
+                    // blank surface in the wall, so reject it before identity
+                    // matching or cache admission.
+                    zombieCount += 1
+                    continue
+                }
                 if boolAttr(w, kAXMinimizedAttribute) == true {
                     minimizedCount += 1
                     continue
@@ -187,14 +198,14 @@ enum AXTiler {
         let appPIDs = Set(apps.map(\.processIdentifier))
         let ownedLiveIDs = liveWindows.filter { appPIDs.contains($0.pid) }.map(\.id).sorted()
         if out.isEmpty, !ownedLiveIDs.isEmpty {
-            let anomaly = "\(bundleId)|\(ownedLiveIDs.map(String.init).joined(separator: ","))|\(rawCount)|\(minimizedCount)|\(subroleCount)|\(geometryCount)|\(identityCount)"
+            let anomaly = "\(bundleId)|\(ownedLiveIDs.map(String.init).joined(separator: ","))|\(rawCount)|\(minimizedCount)|\(subroleCount)|\(zombieCount)|\(geometryCount)|\(identityCount)"
             cacheLock.lock()
             let firstReport = loggedAnomalies.insert(anomaly).inserted
             cacheLock.unlock()
             if firstReport {
-                NSLog("🧩 [tile-census] bundle=%@ cg=%@ rawAX=%d minimized=%d subrole=%d geometry=%d identity=%d",
+                NSLog("🧩 [tile-census] bundle=%@ cg=%@ rawAX=%d minimized=%d subrole=%d zombie=%d geometry=%d identity=%d",
                       bundleId, ownedLiveIDs.map(String.init).joined(separator: ","), rawCount,
-                      minimizedCount, subroleCount, geometryCount, identityCount)
+                      minimizedCount, subroleCount, zombieCount, geometryCount, identityCount)
             }
         }
 
@@ -243,8 +254,13 @@ enum AXTiler {
     }
 
     private static func liveWindowList() -> [LiveWindow] {
+        // The tiler owns only the active Space. `optionAll` also returns
+        // off-Space and closing Terminal surfaces; intersecting AX against
+        // that global set can "resurrect" a just-closed window by moving its
+        // still-registered surface back into the grid. On-screen Window
+        // Server membership is the authoritative lifecycle boundary here.
         guard let infos = CGWindowListCopyWindowInfo(
-            [.optionAll, .excludeDesktopElements], kCGNullWindowID
+            [.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID
         ) as? [[String: Any]] else { return [] }
         return infos.compactMap { info in
             guard (info[kCGWindowLayer as String] as? Int) == 0 else { return nil }
@@ -318,6 +334,28 @@ enum AXTiler {
         var ref: CFTypeRef?
         guard AXUIElementCopyAttributeValue(el, attr as CFString, &ref) == .success else { return nil }
         return ref as? Bool
+    }
+
+    /// A closed Terminal window can remain in both AX and Window Server for
+    /// minutes. On this host its former content is represented by an empty
+    /// AXTabGroup; live one- and multi-tab windows expose real content instead.
+    /// Fail open on an unreadable hierarchy so a transient AX error does not
+    /// evict a healthy window.
+    private static func terminalWindowHasNoTabContent(_ window: AXUIElement) -> Bool {
+        var ref: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(
+            window, kAXChildrenAttribute as CFString, &ref) == .success,
+              let children = ref as? [AXUIElement]
+        else { return false }
+        for child in children where stringAttr(child, kAXRoleAttribute) == kAXTabGroupRole as String {
+            var tabRef: CFTypeRef?
+            guard AXUIElementCopyAttributeValue(
+                child, kAXChildrenAttribute as CFString, &tabRef) == .success,
+                  let tabs = tabRef as? [AXUIElement]
+            else { return false }
+            return tabs.isEmpty
+        }
+        return false
     }
 
     private static func stringAttr(_ el: AXUIElement, _ attr: String) -> String? {

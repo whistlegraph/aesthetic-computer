@@ -304,7 +304,11 @@ private final class PromptParticleEffect {
 
     func close() {
         view.isEmitting = false
-        panel.orderOut(nil)
+        // `orderOut` only hides the surface. A normal-level borderless panel
+        // can remain registered with Window Server after its terminal dies,
+        // where macOS window tiling exposes it as a blank full-screen ghost.
+        // Closing retires the surface before the final strong reference goes.
+        panel.close()
     }
 }
 
@@ -344,10 +348,23 @@ final class PromptFocusHighlight {
         precondition(Thread.isMainThread)
         guard running else { return }
 
+        // tty bindings intentionally decay slowly across transient AppleScript
+        // failures, but a closed terminal must retire its particle surface on
+        // the next animation tick. Window Server is authoritative for that
+        // lifecycle: never keep or create an effect for a stale binding.
+        let visibleTerminalIDs = onScreenTerminalWindowIDs()
         let targets = PromptSigilOverlayController.shared.promptParticleTargets
+            .filter { visibleTerminalIDs.contains($0.windowID) }
         let liveIDs = Set(targets.map(\.windowID))
         let focusedID = focusedWindowID()
         let stackAnchorID = frontmostWindowID(in: liveIDs)
+
+        // Reap first so a dead full-desktop surface cannot be raised above a
+        // surviving terminal during this refresh.
+        let staleIDs = effects.keys.filter { !liveIDs.contains($0) }
+        for id in staleIDs {
+            effects.removeValue(forKey: id)?.close()
+        }
 
         for target in targets {
             let effect = effects[target.windowID] ?? makeEffect(for: target.windowID)
@@ -384,11 +401,6 @@ final class PromptFocusHighlight {
             }
         }
 
-        let staleIDs = effects.keys.filter { !liveIDs.contains($0) }
-        for id in staleIDs {
-            effects.removeValue(forKey: id)?.close()
-        }
-
     }
 
     private func makeEffect(for windowID: Int) -> PromptParticleEffect {
@@ -403,7 +415,9 @@ final class PromptFocusHighlight {
         panel.level = .normal
         panel.ignoresMouseEvents = true
         panel.hidesOnDeactivate = false
-        panel.collectionBehavior = [.canJoinAllSpaces, .stationary,
+        // `.transient` keeps this visual-only canvas out of Mission Control
+        // and macOS window-tiling candidates. It is never a user window.
+        panel.collectionBehavior = [.canJoinAllSpaces, .stationary, .transient,
                                     .ignoresCycle, .fullScreenAuxiliary]
         let view = PromptParticleView()
         panel.contentView = view
@@ -418,6 +432,32 @@ final class PromptFocusHighlight {
         var id = CGWindowID(0)
         guard _FocusAXUIElementGetWindow(focused, &id) == .success, id != 0 else { return nil }
         return Int(id)
+    }
+
+    /// Current on-screen, normal-level Terminal/iTerm windows. Prompt-rock
+    /// tty bindings may briefly outlive a closed window; this direct Window
+    /// Server census prevents those stale ids from retaining particle panels.
+    private func onScreenTerminalWindowIDs() -> Set<Int> {
+        let terminalPIDs = Set(NSWorkspace.shared.runningApplications.compactMap { app -> pid_t? in
+            switch app.bundleIdentifier {
+            case "com.apple.Terminal", "com.googlecode.iterm2":
+                return app.processIdentifier
+            default:
+                return nil
+            }
+        })
+        guard !terminalPIDs.isEmpty,
+              let infos = CGWindowListCopyWindowInfo(
+                [.optionOnScreenOnly], kCGNullWindowID) as? [[String: Any]]
+        else { return [] }
+        return Set(infos.compactMap { info -> Int? in
+            guard let layer = info[kCGWindowLayer as String] as? Int, layer == 0,
+                  let pid = info[kCGWindowOwnerPID as String] as? pid_t,
+                  terminalPIDs.contains(pid),
+                  let number = info[kCGWindowNumber as String] as? Int
+            else { return nil }
+            return number
+        })
     }
 
     /// CGWindowList is front-to-back. Pick the first tracked terminal so all

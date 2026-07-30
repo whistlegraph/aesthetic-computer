@@ -17,7 +17,7 @@
 // degrade to screenshot-only smoke and `state()` returns null.
 
 import puppeteer from "puppeteer";
-import { mkdirSync } from "node:fs";
+import { mkdirSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -28,12 +28,27 @@ export const CONFIG = {
   headed: process.env.AC_HEADED === "1",
   slowMo: parseInt(process.env.AC_SLOWMO || "0", 10) || 0,
   shotDir: process.env.AC_SHOT_DIR || join(HERE, "__screens__"),
+  viewportWidth: parseInt(process.env.AC_VIEWPORT_WIDTH || "1200", 10),
+  // A headed content viewport must leave room for macOS + Chrome chrome.
+  // Blueberry's 881 px display cannot physically show a 900 px page.
+  viewportHeight: parseInt(
+    process.env.AC_VIEWPORT_HEIGHT || (process.env.AC_HEADED === "1" ? "720" : "900"),
+    10,
+  ),
 };
+
+const HEADED_CHROME_HEIGHT = 120;
+
+function percentile(sorted, fraction) {
+  if (sorted.length === 0) return null;
+  return sorted[Math.min(sorted.length - 1, Math.ceil(sorted.length * fraction) - 1)];
+}
 
 export class ACSession {
   browser = null;
   page = null;
   shots = [];
+  downloadDir = null;
 
   // One Chrome instance only (this laptop is 8 GB — never run parallel).
   static async open() {
@@ -47,16 +62,41 @@ export class ACSession {
         "--disable-setuid-sandbox",
         "--ignore-certificate-errors", // local https://localhost:8888
         "--disable-web-security",
-        "--window-size=900,1200",
+        `--window-size=${CONFIG.viewportWidth},${
+          CONFIG.viewportHeight + (CONFIG.headed ? HEADED_CHROME_HEIGHT : 0)
+        }`,
       ],
     });
     s.page = await s.browser.newPage();
-    await s.page.setViewport({ width: 900, height: 1200 });
+    await s.page.setViewport({ width: CONFIG.viewportWidth, height: CONFIG.viewportHeight });
     // Surface the test hook at boot (prompt.mjs gates it on acDEBUG).
     await s.page.evaluateOnNewDocument(() => {
       window.acDEBUG = true;
+      let snapshot = null;
+      const testChannel = new BroadcastChannel("ac-nopaint-test");
+      testChannel.onmessage = ({ data }) => {
+        if (data?.version) snapshot = data;
+      };
+      window.__acNoPaintTest = () => snapshot;
+      const originalURL = new URL(location.href);
+      const requestedSeed = originalURL.searchParams.get("seed");
+      if (requestedSeed) {
+        const timer = setInterval(() => {
+          testChannel.postMessage({ type: "configure", seed: requestedSeed });
+        }, 100);
+        setTimeout(() => clearInterval(timer), 5000);
+      }
     });
-    s.page.on("pageerror", (e) => console.warn("  ⚠️  pageerror:", e.message));
+    s.page.on("pageerror", (e) => console.warn(
+      "  ⚠️  pageerror:",
+      e?.message || String(e || "unknown browser error"),
+    ));
+    s.downloadDir = join(CONFIG.shotDir, "downloads", String(Date.now()));
+    mkdirSync(s.downloadDir, { recursive: true });
+    await s.page._client().send("Page.setDownloadBehavior", {
+      behavior: "allow",
+      downloadPath: s.downloadDir,
+    });
     return s;
   }
 
@@ -71,6 +111,8 @@ export class ACSession {
       await this.page.waitForFunction(
         () =>
           typeof window.__acPromptTest === "function" ||
+          (typeof window.__acNoPaintTest === "function" &&
+            window.__acNoPaintTest()?.ready === true) ||
           window.acBOOT_START_TIME,
         { timeout: 20000 },
       );
@@ -145,8 +187,108 @@ export class ACSession {
     );
   }
 
+  async nopaintState() {
+    return await this.page.evaluate(() =>
+      typeof window.__acNoPaintTest === "function"
+        ? window.__acNoPaintTest()
+        : null,
+    );
+  }
+
+  // Measure real presentation frames. This stays in the test harness so the
+  // profiler adds no cost to production No Paint sessions.
+  async performanceProfile({ durationMs = 1500 } = {}) {
+    const raw = await this.page.evaluate((duration) => new Promise((resolve) => {
+      const frameTimes = [];
+      const longTasks = [];
+      const memoryBefore = performance.memory ? {
+        usedJSHeapSize: performance.memory.usedJSHeapSize,
+        totalJSHeapSize: performance.memory.totalJSHeapSize,
+        jsHeapSizeLimit: performance.memory.jsHeapSizeLimit,
+      } : null;
+      let observer = null;
+      if (typeof PerformanceObserver !== "undefined") {
+        try {
+          observer = new PerformanceObserver((list) => {
+            for (const entry of list.getEntries()) {
+              longTasks.push({ startTime: entry.startTime, duration: entry.duration });
+            }
+          });
+          observer.observe({ type: "longtask", buffered: true });
+        } catch {}
+      }
+      const startedAt = performance.now();
+      let previous = null;
+      const tick = (now) => {
+        if (previous !== null) frameTimes.push(now - previous);
+        previous = now;
+        if (now - startedAt < duration) return requestAnimationFrame(tick);
+        observer?.disconnect();
+        resolve({
+          elapsedMs: now - startedAt,
+          frameTimes,
+          longTasks: longTasks.filter((task) => task.startTime >= startedAt),
+          memoryBefore,
+          memoryAfter: performance.memory ? {
+            usedJSHeapSize: performance.memory.usedJSHeapSize,
+            totalJSHeapSize: performance.memory.totalJSHeapSize,
+            jsHeapSizeLimit: performance.memory.jsHeapSizeLimit,
+          } : null,
+        });
+      };
+      requestAnimationFrame(tick);
+    }), durationMs);
+    const sorted = raw.frameTimes.slice().sort((a, b) => a - b);
+    const totalFrameTime = raw.frameTimes.reduce((sum, value) => sum + value, 0);
+    return {
+      sampledAt: new Date().toISOString(), elapsedMs: raw.elapsedMs,
+      frames: raw.frameTimes.length,
+      fps: totalFrameTime > 0 ? raw.frameTimes.length * 1000 / totalFrameTime : 0,
+      frameTimeMs: {
+        average: raw.frameTimes.length ? totalFrameTime / raw.frameTimes.length : null,
+        p50: percentile(sorted, 0.5), p95: percentile(sorted, 0.95),
+        max: sorted.at(-1) ?? null,
+      },
+      slowFrames: raw.frameTimes.filter((value) => value > 1000 / 30).length,
+      longTasks: raw.longTasks,
+      longTaskTotalMs: raw.longTasks.reduce((sum, task) => sum + task.duration, 0),
+      memory: raw.memoryBefore && raw.memoryAfter ? {
+        ...raw.memoryAfter,
+        usedJSHeapDelta: raw.memoryAfter.usedJSHeapSize - raw.memoryBefore.usedJSHeapSize,
+      } : null,
+    };
+  }
+
+  // Input-to-next-proposal latency, measured entirely on the renderer clock.
+  async measureNopaintDecision(key, { timeoutMs = 5000 } = {}) {
+    const before = await this.nopaintState();
+    const startedAt = await this.page.evaluate(() => performance.now());
+    await this.page.keyboard.press(key);
+    await this.page.waitForFunction(
+      (number) => window.__acNoPaintTest?.()?.proposalNumber > number,
+      { timeout: timeoutMs }, before?.proposalNumber ?? 0,
+    );
+    const endedAt = await this.page.evaluate(() => performance.now());
+    return { key, fromProposal: before?.proposalNumber ?? null,
+      toProposal: (await this.nopaintState())?.proposalNumber ?? null,
+      latencyMs: endedAt - startedAt };
+  }
+
+  async waitForDownload({ timeoutMs = 10000 } = {}) {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      const files = readdirSync(this.downloadDir).filter(
+        (name) => !name.endsWith(".crdownload"),
+      );
+      if (files.length > 0) return files;
+      await this.wait(100);
+    }
+    return [];
+  }
+
   async shot(name) {
     const path = join(CONFIG.shotDir, `${name}.png`);
+    mkdirSync(dirname(path), { recursive: true });
     await this.page.screenshot({ path });
     this.shots.push(path);
     console.log(`  📸 ${path}`);

@@ -43,6 +43,11 @@ const assetsDir = `${dirname(BASE)}/chrome-assets`;
 mkdirSync(assetsDir, { recursive: true });
 
 const W = 1080, H = 1920, FPS = parseInt(flags.fps || 30, 10);
+// Scale only the decorative Pals/title movement. Audio-envelope glow stays at
+// real time. Short instructional reels can pass 0.25–0.4 to avoid cramming the
+// default campaign reel's full wiggle vocabulary into a few seconds.
+const MOTION_RATE = Math.max(0, parseFloat(flags["motion-rate"] ?? "1") || 0);
+const INTRO_PULSE = flags["intro-pulse"] !== "0";
 // total duration from the base mp4
 const durProbe = spawnSync("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "default=nw=1:nk=1", BASE], { encoding: "utf8" });
 const TOTAL = parseFloat((durProbe.stdout || "0").trim()) || 10;
@@ -126,12 +131,22 @@ if (!cmdTimeline.length || cmdTimeline[0].t > 0.1) cmdTimeline.unshift({ t: 0, d
 const charSet = new Map();
 for (const d of [...new Set(cmdTimeline.map((c) => c.display))]) charSet.set(d, await prerenderTitleChars({ text: d, ptSize: 96, palette: ["#FFFFFF"], shadowColor: null, assetsDir }));
 const currentCmdAt = (t) => { let c = cmdTimeline[0]; for (const e of cmdTimeline) if (e.t <= t) c = e; return c; };
-const flashAt = (t) => { let last = -999; for (const e of cmdTimeline) if (e.t <= t) last = e.t; const age = t - last, D = 0.75; return age >= 0 && age < D ? (1 - age / D) ** 1.4 : 0; };
+const flashAt = (t) => {
+  let last = -999;
+  for (const e of cmdTimeline) if (e.t <= t) last = e.t;
+  // A static reel title is already present on its first frame. Callers can
+  // suppress the generic command-change entrance so it doesn't appear to
+  // inflate abruptly during the opening beat.
+  if (!INTRO_PULSE && last === cmdTimeline[0]?.t) return 0;
+  const age = t - last, D = 0.75;
+  return age >= 0 && age < D ? (1 - age / D) ** 1.4 : 0;
+};
 console.log(`  ${cmdTimeline.length} command changes → dynamic side stamps`);
 
 const PALS_S = 145, PALS_HALF = PALS_S / 2, PALS_EDGE_X = 64, CHARS_EDGE_X = PALS_EDGE_X + 12;
 const CHAR_SCALE = 0.42;
-const CHAR_SPAN = 360, BOUNCE_BUF = 26; // fixed nominal span so the pals don't jump per command
+const CHAR_SPAN = 360;
+const BOUNCE_BUF = Math.max(0, parseFloat(flags["stamp-gap"] ?? "26") || 0);
 const LEFT_CHARS_CY = H * 0.78, RIGHT_CHARS_CY = H * 0.22;
 const LEFT_PALS_CY = LEFT_CHARS_CY - CHAR_SPAN / 2 - BOUNCE_BUF - PALS_HALF;
 const RIGHT_PALS_CY = RIGHT_CHARS_CY + CHAR_SPAN / 2 + BOUNCE_BUF + PALS_HALF;
@@ -187,15 +202,16 @@ const palsTinted = (c, src) => tintInto(wmCanvas, wmCtx, src, c);
 const tintCharGlyph = (img, c) => tintInto(charTintCanvas, charTintCtx, img, c);
 
 function drawWatermark(audioT) {
-  const u = audioT * FPS / FRAMES, TAU = Math.PI * 2, col = sectionTcRgb(audioT);
+  const mt = audioT * MOTION_RATE;
+  const u = audioT * FPS / FRAMES * MOTION_RATE, TAU = Math.PI * 2, col = sectionTcRgb(audioT);
   const flash = flashAt(audioT);
   const s = PALS_S * (1 + flash * 0.3);              // scale bump on command change
   const e = Math.min(1, envAt(audioT)), glow = Math.max(e * e, flash);
   const ledCol = col.map((c) => Math.round(c + (255 - c) * glow * 0.6));
   const shk = flash * 22;                             // shake on change
-  const wig = 13 * Math.sin(TAU * 24 * u + 0.7) + 4 * Math.sin(TAU * 9 * u) + shk * Math.sin(audioT * 61);
-  const bob = 3 * Math.sin(TAU * 17 * u + 2.1) + 1.5 * Math.sin(TAU * 31 * u) + shk * Math.sin(audioT * 53 + 1);
-  const swiv = 0.05 * Math.sin(TAU * 19 * u) + 0.025 * Math.sin(TAU * 38 * u + 1.4) + flash * 0.2 * Math.sin(audioT * 47);
+  const wig = 13 * Math.sin(TAU * 24 * u + 0.7) + 4 * Math.sin(TAU * 9 * u) + shk * Math.sin(mt * 61);
+  const bob = 3 * Math.sin(TAU * 17 * u + 2.1) + 1.5 * Math.sin(TAU * 31 * u) + shk * Math.sin(mt * 53 + 1);
+  const swiv = 0.05 * Math.sin(TAU * 19 * u) + 0.025 * Math.sin(TAU * 38 * u + 1.4) + flash * 0.2 * Math.sin(mt * 47);
   const spots = [
     { cx: PALS_EDGE_X - wig, cy: LEFT_PALS_CY + bob, rot: Math.PI / 2 + swiv },
     { cx: W - PALS_EDGE_X + wig, cy: RIGHT_PALS_CY - bob, rot: -Math.PI / 2 - swiv },
@@ -222,10 +238,11 @@ function drawWatermark(audioT) {
 }
 
 function drawTitleChars(audioT) {
-  const u = audioT * FPS / FRAMES, TAU = Math.PI * 2;
+  const mt = audioT * MOTION_RATE;
+  const u = audioT * FPS / FRAMES * MOTION_RATE, TAU = Math.PI * 2;
   const cmd = currentCmdAt(audioT), set = charSet.get(cmd.display); if (!set) return;
   const chars = set.chars, flash = flashAt(audioT), shk = flash * 16;
-  const wig = 11 * Math.sin(TAU * 30 * u + 3.6) + 4 * Math.sin(TAU * 12 * u + 1.1) + shk * Math.sin(audioT * 58);
+  const wig = 11 * Math.sin(TAU * 30 * u + 3.6) + 4 * Math.sin(TAU * 12 * u + 1.1) + shk * Math.sin(mt * 58);
   const span = set.totalWidth * CHAR_SCALE, palsRgb = sectionTcRgb(audioT), startX = -span / 2;
   const spots = [
     { charsCx: CHARS_EDGE_X - wig, cy: LEFT_CHARS_CY, rot: Math.PI / 2 },
@@ -238,10 +255,10 @@ function drawTitleChars(audioT) {
       const ch = chars[i]; if (!ch.img) continue;
       const x = startX + ch.prefixWidth * CHAR_SCALE, dw = ch.img.width * CHAR_SCALE, dh = ch.img.height * CHAR_SCALE;
       const charEnv = envAt(audioT - i * 0.03);
-      const lift = 4 * Math.sin(audioT * 4.0 + i * 0.8) * (0.3 + charEnv) + flash * 11 * Math.sin(audioT * 42 + i), y = -dh / 2 + lift;
-      const charRot = 0.03 * Math.sin(audioT * 3.1 + i * 1.15) + flash * 0.14 * Math.sin(audioT * 45 + i * 2);
+      const lift = 4 * Math.sin(mt * 4.0 + i * 0.8) * (0.3 + charEnv) + flash * 11 * Math.sin(mt * 42 + i), y = -dh / 2 + lift;
+      const charRot = 0.03 * Math.sin(mt * 3.1 + i * 1.15) + flash * 0.14 * Math.sin(mt * 45 + i * 2);
       ctx.save(); ctx.translate(x + dw / 2, y + dh / 2); ctx.rotate(charRot); ctx.translate(-(x + dw / 2), -(y + dh / 2));
-      const sh = 0.5 + 0.5 * Math.sin(audioT * 3.2 - i * 0.7);
+      const sh = 0.5 + 0.5 * Math.sin(mt * 3.2 - i * 0.7);
       const charRgb = palsRgb.map((c) => Math.round(c + (255 - c) * sh * 0.35));
       ctx.save(); ctx.globalCompositeOperation = "source-over"; ctx.globalAlpha = 0.26;
       ctx.drawImage(tintCharGlyph(ch.img, [0, 0, 0]), x + 3, y + 4, dw, dh); ctx.restore();

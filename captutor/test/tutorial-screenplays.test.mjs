@@ -4,6 +4,7 @@ import test from "node:test";
 import basic from "../screenplays/basic-tutorial.mjs";
 import imageGeneration from "../screenplays/image-generation-workflow.mjs";
 import imageNode from "../screenplays/image-node-tutorial.mjs";
+import editorSettings from "../screenplays/editor-settings-tour.mjs";
 
 const LOCALES = ["en", "es", "fr"];
 
@@ -18,6 +19,14 @@ for (const screenplay of [basic, imageNode]) {
     }
   });
 }
+
+test("editor-settings tour is English-first, non-billable, and evidence-gated", () => {
+  assert.equal(editorSettings.billable, false);
+  assert.ok(editorSettings.beats.length >= 8);
+  assert.ok(editorSettings.acceptance.requiredChecks.includes("selection_mode_visible"));
+  assert.ok(editorSettings.acceptance.requiredChecks.includes("settings_returned_to_canvas"));
+  assert.match(editorSettings.beats.map((beat) => beat.say).join(" "), /connecting, disconnecting/i);
+});
 
 test("image-generation-workflow has complete English and Chinese narration", () => {
   assert.equal(imageGeneration.billable, true);

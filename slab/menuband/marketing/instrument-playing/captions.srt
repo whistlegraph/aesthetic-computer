@@ -1,0 +1,7 @@
+1
+00:00:00,000 --> 00:00:02,150
+Double tap Command for Menu Band.
+
+2
+00:00:08,700 --> 00:00:10,650
+Press Escape to get back to your Mac.

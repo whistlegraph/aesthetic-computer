@@ -1,0 +1,145 @@
+body.tier-3 { color: #f7f0e6; background: #121210; }
+
+.tier-3 .site-header {
+  min-height: 118px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 34px;
+  padding: 28px clamp(24px, 4vw, 62px);
+  border-bottom: 1px solid #4a4741;
+}
+.tier-3 .site-wordmark img { width: 170px; filter: invert(1); }
+.tier-3 .site-nav { display: flex; gap: clamp(18px, 2.5vw, 38px); }
+.tier-3 .site-nav a {
+  padding: 12px 0;
+  color: #928b81;
+  border-bottom: 2px solid transparent;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.tier-3 .site-nav a.active { color: #fff; border-bottom-color: #fff; }
+
+.tier-3 .page-shell { padding: 0 0 120px; }
+.tier-3 .claim-row {
+  min-height: 42vh;
+  display: grid;
+  grid-template-columns: 140px minmax(0, 1fr);
+  align-items: end;
+  gap: 24px;
+  padding: clamp(70px, 10vw, 150px) clamp(24px, 6vw, 92px) 58px;
+}
+.tier-3 .claim-index {
+  padding-bottom: 14px;
+  color: #8f887e;
+  font-size: 11px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+}
+.tier-3 .page-title {
+  max-width: 1080px;
+  font-size: clamp(72px, 12vw, 180px);
+  line-height: 0.78;
+  letter-spacing: -0.035em;
+}
+.tier-3 .hero-media {
+  display: grid;
+  place-items: center;
+  min-height: 76vh;
+  padding: clamp(30px, 5vw, 76px);
+  background: #050504;
+}
+.tier-3 .hero-media img {
+  width: auto;
+  max-width: min(1260px, 100%);
+  max-height: 72vh;
+  object-fit: contain;
+}
+.tier-3.page-beyond .hero-media img,
+.tier-3.page-bookshelf .hero-media img,
+.tier-3.page-about .hero-media img { width: 100%; aspect-ratio: 16 / 7; object-fit: cover; }
+.tier-3.page-about .hero-media img { object-position: center 28%; }
+.tier-3 .hero-media figcaption { color: #aaa197; justify-self: start; }
+.tier-3 .intro {
+  max-width: 68ch;
+  margin: 0;
+  padding: 76px clamp(24px, 11vw, 170px) 110px;
+  color: #26231f;
+  background: var(--cream);
+  font: 400 clamp(20px, 2vw, 30px)/1.5 var(--serif);
+}
+.tier-3 .gallery {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 2px;
+  padding: 2px;
+  background: #3b3935;
+}
+.tier-3 .gallery figure { padding: clamp(28px, 5vw, 72px); background: #121210; }
+.tier-3 .gallery img { height: 58vh; object-fit: contain; }
+.tier-3.page-beyond .gallery img { object-fit: cover; }
+.tier-3.page-bookshelf .gallery { grid-template-columns: repeat(4, 1fr); }
+.tier-3.page-bookshelf .gallery figure { padding: 42px 24px; }
+.tier-3.page-bookshelf .gallery img { height: 46vh; object-fit: contain; }
+.tier-3 .gallery figcaption { color: #aaa197; }
+
+.tier-3.page-home .page-shell {
+  min-height: calc(100vh - 160px);
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(360px, 0.65fr);
+  align-items: stretch;
+  padding: 0;
+}
+.tier-3.page-home .hero-media { min-height: 0; padding: 5vw; }
+.tier-3.page-home .hero-media img { width: 100%; max-height: none; }
+.tier-3.page-home .home-index {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: clamp(50px, 7vw, 100px);
+  color: #25221e;
+  background: var(--cream);
+}
+.tier-3.page-home .home-index::before {
+  content: "Thomas Lawson";
+  margin-bottom: 48px;
+  font: 400 clamp(46px, 5vw, 84px)/0.9 var(--serif);
+}
+.tier-3 .route-list { counter-reset: route; }
+.tier-3 .route-list a {
+  position: relative;
+  padding: 17px 0 17px 38px;
+  border-top: 1px solid rgba(37, 34, 30, 0.28);
+}
+.tier-3 .route-list a::before {
+  counter-increment: route;
+  content: counter(route);
+  position: absolute;
+  left: 0;
+  top: 22px;
+  font-size: 10px;
+}
+.tier-3 .route-list strong { font: 400 clamp(23px, 2vw, 32px)/1.05 var(--serif); }
+.tier-3 .route-list span { margin-top: 5px; color: #6e675f; font-size: 11px; }
+.tier-3 .site-footer {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 36px;
+  margin: 0 clamp(24px, 6vw, 92px);
+  padding: 34px 0 56px;
+  color: #aaa197;
+  font-size: 12px;
+  line-height: 1.55;
+}
+.tier-3 .site-footer p:first-child { max-width: 500px; }
+
+@media (max-width: 850px) {
+  .tier-3 .site-header { align-items: flex-start; }
+  .tier-3 .site-nav { display: none; }
+  .tier-3 .claim-row { min-height: 32vh; grid-template-columns: 1fr; align-items: end; }
+  .tier-3.page-home .page-shell { grid-template-columns: 1fr; }
+  .tier-3.page-home .home-index { padding: 42px 20px 60px; }
+  .tier-3 .gallery, .tier-3.page-bookshelf .gallery { grid-template-columns: 1fr; }
+  .tier-3 .gallery img, .tier-3.page-bookshelf .gallery img { height: auto; max-height: 70vh; }
+  .tier-3 .site-footer { grid-template-columns: 1fr; }
+}

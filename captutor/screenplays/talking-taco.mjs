@@ -33,6 +33,9 @@ const EXECUTE = '[data-ph-capture-attribute-node-toolbar-action="execute_node"]'
 // FIRST of them (Add Node, Assets, Terminal, Templates, Settings, in that
 // fixed order), so an index is the stable handle rather than a pixel guess.
 const ADD_NODE = `js=document.querySelectorAll('[data-is-toolbar-item="true"]')[0]`;
+const nodeResult = (title) => `[role="option"][aria-label=${JSON.stringify(title)}]`;
+const GEMINI_RESULT = nodeResult("Gemini Image");
+const KLING_RESULT = nodeResult("Kling 3.0 Video");
 
 const TACO_IMAGE_PROMPT =
   "A cheerful cartoon taco character with big googly eyes and a wide open " +
@@ -42,28 +45,20 @@ const TACO_MOTION_PROMPT =
   "The taco opens and closes its mouth as if talking excitedly, waving its " +
   "arms, gentle bobbing motion, no camera movement";
 
-// Fuser renders each node property as a row: a label (exact text, no
-// children) beside a pair of connector handles. Matching the LABEL and
-// walking up to the nearest handle survives node reflows, hidden-properties
-// toggles, and property reordering — a fixed handle index would not. Reused
-// for both the image node's single true output and the video node's single
-// true image-input, each confirmed by hand against the live DOM before this
-// screenplay was written.
-const handleNear = (nodeSelector, labelText, handleClass) => `js=(() => {
-  const node = document.querySelector(${JSON.stringify(nodeSelector)});
+// Connector identity comes from React Flow topology and Fuser's media-type
+// color, not transient visible labels. The generated-image output is the one
+// green source with no same-id input partner; Kling exposes exactly one green
+// (image) target. Both survive the result label disappearing after generation.
+const GEMINI_OUTPUT_HANDLE = `js=(() => {
+  const node = document.querySelector(${JSON.stringify(GEMINI_NODE)});
   if (!node) return null;
-  const label = [...node.querySelectorAll('*')].find((el) =>
-    el.children.length === 0 && (el.textContent || '').trim() === ${JSON.stringify(labelText)});
-  let row = label, hops = 0;
-  while (row && hops < 6) {
-    const handle = row.querySelector(${JSON.stringify(handleClass)});
-    if (handle) return handle;
-    row = row.parentElement; hops += 1;
-  }
-  return null;
+  const sources = [...node.querySelectorAll('.react-flow__handle-right.source.border-green-500')];
+  return sources.find((source) => {
+    const id = source.getAttribute('data-handleid');
+    return !node.querySelector('.react-flow__handle-left.target[data-handleid="' + CSS.escape(id) + '"]');
+  }) || null;
 })()`;
-const GEMINI_OUTPUT_HANDLE = handleNear(GEMINI_NODE, "Generated Image", ".react-flow__handle-right.source");
-const KLING_IMAGE_INPUT_HANDLE = handleNear(KLING_NODE, "Image", ".react-flow__handle-left.target");
+const KLING_IMAGE_INPUT_HANDLE = `${KLING_NODE} .react-flow__handle-left.target.border-green-500`;
 
 let creditsBeforeRun = "";
 
@@ -213,6 +208,10 @@ export default {
   desktopFrame: true,
   match: "fuser.studio",
   theme: "light",
+  // Clicking the bottom-left credit chip opens /settings over the canvas. No
+  // teaching action belongs there; stop on the offending action so Frame can
+  // explain the path instead of letting later beats operate under an inert UI.
+  forbiddenRouteFragments: ["/settings"],
   effectTheme: fuserEffectTheme,
   brandChrome: fuserBrandChrome,
   billable: true,
@@ -221,6 +220,7 @@ export default {
   subtitle: "A fresh project → a generated image → a generated video",
   openingCard: {
     title: "Learn Fuser",
+    showMark: false,
     durationMs: 2400,
     transition: "slide",
   },
@@ -327,14 +327,11 @@ export default {
       },
     },
     {
-      say: "Press Enter, and it drops right onto the canvas.",
+      say: "Choose Gemini Image, and it drops right onto the canvas.",
       do: async (ctx) => {
-        const { cdp, check, click, s, sleep } = ctx;
-        // Refocus the search field before Enter — a prior click elsewhere can
-        // steal focus, and a synthetic Enter with no field focused submits
-        // nothing (see drive-ui.md).
-        await click(s.nodeSearch);
-        await cdp.key("Enter", "Enter", 13);
+        const { cdp, check, click, sleep } = ctx;
+        await cdp.waitFor(`document.querySelector(${JSON.stringify(GEMINI_RESULT)})`);
+        await click(GEMINI_RESULT);
         await cdp.waitFor("document.querySelectorAll('.react-flow__node').length === 1");
         await sleep(500);
         await setTutorialZoom(ctx, 80);
@@ -357,7 +354,7 @@ export default {
     {
       say: "Generate — and Fuser turns that prompt into a real image in seconds.",
       do: async (ctx) => {
-        const { cdp, check } = ctx;
+        const { bakeTime, cdp, check } = ctx;
         creditsBeforeRun = await cdp.eval(creditsExpr);
         const started = `(() => {
           const credits = ${creditsExpr};
@@ -367,19 +364,19 @@ export default {
         })()`;
         await runNode(ctx, GEMINI_NODE, started);
         check("image_generation_started", { creditsBeforeRun });
+        await bakeTime(() => cdp.waitFor(
+          `(() => {
+            const image = document.querySelector(${JSON.stringify(GEMINI_GENERATED_IMAGE)});
+            return !!image?.complete && image.naturalWidth > 0;
+          })()`,
+          { timeoutMs:120000, everyMs:250 },
+        ), { id:"gemini-image", label:"Baking the taco image" });
       },
     },
     {
       say: "There it is — a fresh, generated talking taco, ready to bring to life.",
       do: async (ctx) => {
         const { cdp, check, click, point, spotlight, sleep } = ctx;
-        await cdp.waitFor(
-          `(() => {
-            const image = document.querySelector(${JSON.stringify(GEMINI_GENERATED_IMAGE)});
-            return !!image?.complete && image.naturalWidth > 0;
-          })()`,
-          { timeoutMs: 120000, everyMs: 250 },
-        );
         const returned = await cdp.eval(`(() => {
           const image = document.querySelector(${JSON.stringify(GEMINI_GENERATED_IMAGE)});
           return { src: image.currentSrc || image.src, width: image.naturalWidth, height: image.naturalHeight };
@@ -399,20 +396,25 @@ export default {
     {
       say: "Now add a second node: Kling 3.0 Video, Fuser's image-to-video model.",
       do: async ({ cdp, click, type, s, t }) => {
+        await cdp.waitFor(`(() => {
+          const image = document.querySelector(${JSON.stringify(GEMINI_GENERATED_IMAGE)});
+          return !!image?.complete && image.naturalWidth > 0;
+        })()`);
+        await new Promise((resolve) => setTimeout(resolve, 900));
         await click(ADD_NODE);
         await cdp.waitFor(`document.querySelector('${s.nodeSearch}')`);
         await type(s.nodeSearch, t("flow.nodes.FalKling30VideoNode.name"));
       },
     },
     {
-      say: "Press Enter to add it, then slide it next to the image so both stay in view.",
+      say: "Choose Kling, then slide it next to the image so both stay in view.",
       do: async (ctx) => {
-        const { cdp, check, click, s, sleep } = ctx;
-        await click(s.nodeSearch);
-        await cdp.key("Enter", "Enter", 13);
+        const { cdp, check, click, sleep } = ctx;
+        await cdp.waitFor(`document.querySelector(${JSON.stringify(KLING_RESULT)})`);
+        await click(KLING_RESULT);
         await cdp.waitFor("document.querySelectorAll('.react-flow__node').length === 2");
         await sleep(500);
-        await click(".react-flow__pane", { moveMs: 260, anchorX: 0.06, anchorY: 0.94 });
+        await click(".react-flow__pane", { moveMs: 260, anchorX: 0.18, anchorY: 0.78 });
         await sleep(300);
         await setTutorialZoom(ctx, 80);
         await sleep(320);
@@ -463,7 +465,7 @@ export default {
     {
       say: "Generate the video, and Fuser animates that still image into motion.",
       do: async (ctx) => {
-        const { cdp, check } = ctx;
+        const { bakeTime, cdp, check } = ctx;
         creditsBeforeRun = await cdp.eval(creditsExpr);
         const started = `(() => {
           const credits = ${creditsExpr};
@@ -473,24 +475,35 @@ export default {
         })()`;
         await runNode(ctx, KLING_NODE, started);
         check("video_generation_started", { creditsBeforeRun });
+        await bakeTime(() => cdp.waitFor(
+          `(() => {
+            const video = document.querySelector(${JSON.stringify(KLING_GENERATED_VIDEO)});
+            return !!video && video.readyState >= 2 && !!(video.currentSrc || video.src);
+          })()`,
+          { timeoutMs:600000, everyMs:1000 },
+        ), { id:"kling-video", label:"Baking the talking-taco video" });
       },
     },
     {
       say: "And here it is — the taco, talking and gesturing, generated straight from the image you made a moment ago.",
       do: async (ctx) => {
         const { cdp, check, click, point, spotlight, sleep } = ctx;
-        await cdp.waitFor(
-          `(() => {
-            const video = document.querySelector(${JSON.stringify(KLING_GENERATED_VIDEO)});
-            return !!video && video.readyState >= 2 && !!(video.currentSrc || video.src);
-          })()`,
-          { timeoutMs: 600000, everyMs: 1000 },
-        );
         const returned = await cdp.eval(`(() => {
           const video = document.querySelector(${JSON.stringify(KLING_GENERATED_VIDEO)});
           return { src: video.currentSrc || video.src, duration: video.duration };
         })()`);
         check("generated_video_returned", returned);
+        await cdp.eval(`(async () => {
+          const video = document.querySelector(${JSON.stringify(KLING_GENERATED_VIDEO)});
+          video.currentTime = 0;
+          video.muted = true;
+          await video.play();
+          return { playing:!video.paused, currentTime:video.currentTime };
+        })()`);
+        check("generated_video_playback_started", await cdp.eval(`(() => {
+          const video = document.querySelector(${JSON.stringify(KLING_GENERATED_VIDEO)});
+          return { paused:video.paused, currentTime:video.currentTime, duration:video.duration };
+        })()`));
         await frameTutorialNodes(ctx, [
           { selector:GEMINI_NODE, title:"Gemini Image" },
           { selector:KLING_NODE, title:"Kling 3.0 Video" },

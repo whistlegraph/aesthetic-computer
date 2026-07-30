@@ -1,0 +1,153 @@
+{
+  "schema": "thomas-lawson-visual-direction/v1",
+  "createdAt": "2026-07-28T03:06:36.543Z",
+  "tier": "tier-1-refine",
+  "requestedModel": "gpt-5.6-luna",
+  "returnedModel": "gpt-5.6-luna",
+  "reasoningEffort": "low",
+  "implementationCeiling": "CSS only. Preserve WordPress, Elementor DOM, page order, copy, images, and interactions. No new assets. The result should be shippable as a narrow polish pass.",
+  "responseId": "resp_0c004b6784f5bde9016a681c9f86c88199b5ad4a0ea4f66645",
+  "usage": {
+    "input_tokens": 9121,
+    "input_tokens_details": {
+      "cache_write_tokens": 9118,
+      "cached_tokens": 0
+    },
+    "output_tokens": 3211,
+    "output_tokens_details": {
+      "reasoning_tokens": 22
+    },
+    "total_tokens": 12332
+  },
+  "direction": {
+    "directionName": "Measured Archive",
+    "claim": "Thomas Lawson's site is an authored archive: one consistent editorial frame lets paintings, public projects, books, and biography carry the visual weight.",
+    "contract": {
+      "intendedUse": "A CSS-only polish pass for the existing WordPress and Elementor pages, preserving page order, copy, images, captions, interactions, cream/black identity, and authorship while making each page read as part of one calm archive.",
+      "governingRule": "Use a shared editorial grid: generous cream margins, black type, thin rules, restrained navigation, and one dominant evidence image followed by clearly grouped text or collections.",
+      "mustNever": "Do not absorb the artwork's color, crop the author's face or artwork-critical details, turn the site into a gallery-style card grid, add decorative UI, rewrite hierarchy through invented labels, or replace readable copy with image-only treatments."
+    },
+    "visualGrammar": {
+      "density": "Low density at the top of each page, then compact editorial groupings below; maintain visible breathing room without creating oversized empty bands.",
+      "imageScale": "Use one dominant full-width or near-full-width image per interior page, with object-fit: cover only where the current image already functions as a banner; use contain or intrinsic proportions for artworks, book covers, and image evidence that must not be clipped.",
+      "typography": "Keep the existing serif display face for page titles and wordmark, paired with the existing sans-serif for navigation, body copy, metadata, and captions. Use clamp-based headings, 1.45-1.6 body line-height, and a readable text measure of roughly 60-78ch.",
+      "primaryAction": "The active page route is the primary action: identify it with black text plus a subtle underline or 1px rule, while secondary navigation remains quiet and text-only.",
+      "exclusions": [
+        "No new color system beyond cream, black, and colors already present in source imagery",
+        "No rounded cards, shadows, gradients, badges, carousels, floating controls, or decorative icons",
+        "No all-caps treatment for long copy",
+        "No full-bleed image crop that removes artwork edges, captions, or the subject's face",
+        "No justified body text or body text narrower than approximately 45ch on desktop"
+      ]
+    },
+    "foundations": [
+      "Set a shared page background near the existing warm cream and use a single black text color with sufficient contrast.",
+      "Use one site-wide content container: width:min(1320px, calc(100vw - 9.5rem)) on desktop, reduced to calc(100vw - 2.5rem) on mobile.",
+      "Make the header consistent across all pages: fixed-height or stable padding, wordmark left, About and Contact right, and no page-specific vertical offset.",
+      "Use CSS custom properties for --cream, --ink, --rule, --content, --gutter, --serif, and --sans so the polish remains maintainable in Elementor custom CSS.",
+      "Replace accidental clipping with overflow:visible for text and intentional overflow:hidden only on explicitly designated banner image wrappers.",
+      "Keep focus-visible outlines, semantic link hit areas, alt text, captions, and keyboard order untouched; use underline and contrast rather than color alone for active states."
+    ],
+    "pagePlans": [
+      {
+        "page": "Home",
+        "claim": "The home page introduces the artist through one artwork and a compact map of the archive.",
+        "composition": "Retain the two-column hero: artwork on the left and the News/archive route list on the right. Move the hero upward and reduce the excessive empty header-to-image gap. Keep the footer rule and biography block, but prevent the lower footer content from being clipped.",
+        "type": "Use a large but restrained sans-serif route list with short supporting descriptions beneath each route. Make the current or hovered route visibly underlined without changing the existing copy.",
+        "image": "Preserve the artwork's complete rectangular framing at desktop; use width:100%; height:auto on mobile rather than forcing the desktop crop.",
+        "spacing": "Desktop hero grid gap: clamp(2rem, 6vw, 7rem); hero top margin: clamp(3rem, 9vh, 7rem); footer padding-block: 3rem. On mobile, stack image before routes with 2.5rem spacing.",
+        "cssTactics": [
+          ".home-hero { display:grid; grid-template-columns:minmax(0,1.15fr) minmax(18rem,.75fr); align-items:center; gap:clamp(2rem,6vw,7rem); }",
+          ".home-hero img { display:block; width:100%; height:auto; object-fit:contain; }",
+          ".home-routes a { display:block; text-decoration-thickness:1px; text-underline-offset:.18em; }",
+          ".home-footer { border-top:1px solid var(--rule); overflow:visible; }",
+          "@media (max-width: 700px) { .home-hero { grid-template-columns:1fr; } .home-routes { padding-top:0; } }"
+        ],
+        "mustNot": "Do not turn every route into a boxed tile or allow the dominant artwork to become a small thumbnail at desktop."
+      },
+      {
+        "page": "In the Studio",
+        "claim": "The studio page explains the transformation from collected imagery to painting.",
+        "composition": "Keep the panoramic artwork banner, then place the title, rule, and explanatory paragraph in the shared content container. Reduce the banner's aggressive crop and ensure the title is not pushed below the first viewport by excess header spacing.",
+        "type": "Use the serif title at a responsive display size and sans-serif body copy. Keep the paragraph as one editorial block with a controlled measure rather than stretching it across the entire viewport.",
+        "image": "Use the current banner image at a stable aspect ratio, approximately 3:1 to 4:1 on desktop, with object-position:center; on mobile use a taller ratio such as 16:9 to preserve material detail.",
+        "spacing": "Title block padding-block: clamp(2rem, 4vw, 4rem); rule margin-block: 1rem 1.5rem; following gallery content begins after at least 3rem.",
+        "cssTactics": [
+          ".studio-hero { aspect-ratio:4 / 1; overflow:hidden; }",
+          ".studio-hero img { width:100%; height:100%; object-fit:cover; object-position:center; }",
+          ".studio-intro { max-width:78ch; margin-inline:auto; }",
+          ".studio-title { font-size:clamp(2.5rem,5vw,4.5rem); line-height:.98; }",
+          "@media (max-width:700px) { .studio-hero { aspect-ratio:16 / 9; } .studio-title { font-size:clamp(2.25rem,12vw,3.5rem); } }"
+        ],
+        "mustNot": "Do not let the hero image crop away the painterly evidence solely to create a shallow cinematic strip."
+      },
+      {
+        "page": "Beyond the Studio",
+        "claim": "This page extends the practice into public space and projects beyond private studio work.",
+        "composition": "Retain the wide project image, title, explanatory copy, and two-column project grouping. Align the project headings and image tops to a common grid, and make the section introduction visibly distinct from project metadata.",
+        "type": "Use serif for the page title, sans-serif for the introduction and project labels, and consistent caption sizing below or above each image according to the existing DOM.",
+        "image": "Preserve the public-work banner's environmental context; avoid horizontal cropping that removes the building, installation, or boat. Project images should use intrinsic ratios where possible.",
+        "spacing": "Keep 1.5rem between title rule and introduction, 3rem between introduction and project headings, and 1.25rem between labels and images. Collapse to one column below 760px.",
+        "cssTactics": [
+          ".beyond-projects { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:clamp(2rem,4vw,5rem); align-items:start; }",
+          ".beyond-projects img { display:block; width:100%; height:auto; }",
+          ".beyond-project-title { min-height:1.5em; text-align:center; }",
+          ".beyond-intro { max-width:86ch; }",
+          "@media (max-width:760px) { .beyond-projects { grid-template-columns:1fr; gap:3rem; } }"
+        ],
+        "mustNot": "Do not impose a uniform fixed-height crop on project documentation or make the public-work section look like generic portfolio cards."
+      },
+      {
+        "page": "Bookshelf",
+        "claim": "The bookshelf presents publishing and reading as a material archive rather than a generic resource list.",
+        "composition": "Keep the bookshelf photograph as the page's opening evidence, followed by title and existing introductory copy, then preserve the centered collection heading and book-cover sequence. Correct the current imbalance where the image dominates before the content has context.",
+        "type": "Use the serif title and collection heading, with sans-serif explanatory copy and captions. Ensure book labels remain readable and are not reduced below accessible text sizes.",
+        "image": "Use the shelf image as a banner with a slightly taller mobile ratio; keep book covers in their natural portrait proportions and avoid cropping spines or cover edges.",
+        "spacing": "Place the title block directly after the banner with 2.5-4rem padding. Add at least 3rem before collection headings and 1.5rem before cover rows.",
+        "cssTactics": [
+          ".bookshelf-hero { aspect-ratio:3.6 / 1; overflow:hidden; }",
+          ".bookshelf-hero img { width:100%; height:100%; object-fit:cover; object-position:center; }",
+          ".book-row { display:grid; grid-template-columns:repeat(auto-fit,minmax(100px,1fr)); gap:12px; align-items:end; }",
+          ".book-row img { width:100%; height:auto; aspect-ratio:2 / 3; object-fit:contain; }",
+          "@media (max-width:700px) { .bookshelf-hero { aspect-ratio:16 / 9; } .book-row { grid-template-columns:repeat(3,minmax(0,1fr)); } }"
+        ],
+        "mustNot": "Do not turn the covers into a dense, edge-to-edge catalog that loses their individual identities."
+      },
+      {
+        "page": "About",
+        "claim": "The About page places the artist's own portrait and writing at the center of the site.",
+        "composition": "Keep the portrait immediately below the shared header, then use a contained title and text column. Remove the inconsistent blue title treatment and align the title/rule system with the other interior pages. Preserve the quoted text as a distinct typographic block.",
+        "type": "Use black serif for the page title, sans-serif for the first-person biography, and italic styling only where already present in the quote. Increase line-height and prevent the narrow text column from becoming difficult to scan.",
+        "image": "Preserve the portrait subject's face and studio context. Use object-position:center top if a responsive crop is unavoidable, with a taller mobile frame.",
+        "spacing": "Desktop portrait height should remain substantial but not consume the whole page; title block padding: 2rem 0 3rem; text column width: min(100%, 62ch); quote margin-top: 3rem.",
+        "cssTactics": [
+          ".about-hero { aspect-ratio:2.8 / 1; overflow:hidden; }",
+          ".about-hero img { width:100%; height:100%; object-fit:cover; object-position:center top; }",
+          ".about-content { max-width:62ch; margin-inline:auto; }",
+          ".about-title { color:var(--ink); font-family:var(--serif); font-size:clamp(2.5rem,5vw,4.5rem); }",
+          ".about-content p { line-height:1.55; }",
+          "@media (max-width:700px) { .about-hero { aspect-ratio:4 / 3; } .about-content { max-width:none; } }"
+        ],
+        "mustNot": "Do not use blue or another isolated accent for the title, and do not crop the portrait into an anonymous headshot."
+      }
+    ],
+    "risks": [
+      "The screenshots show inconsistent page navigation: interior pages expose only About and Contact while the home page exposes archive routes; active-route visibility may therefore remain unclear unless existing DOM links can be styled consistently.",
+      "The studio and beyond pages use very shallow banner crops that visibly clip artwork and environmental context; a CSS ratio change may alter the intended composition and should be checked against source image dimensions.",
+      "The About page has a blue title that conflicts with the cream/black identity and may be an intentional legacy style; confirm that removing it does not encode missing semantic meaning.",
+      "The home footer appears clipped at the viewport bottom, and several lower-page sections are only partially visible in the screenshots; verify full document flow rather than treating viewport clipping as content clipping.",
+      "Long introductory paragraphs currently run close to the full desktop width, reducing readability and weakening hierarchy.",
+      "Mobile navigation, image behavior, and line wrapping are not shown, so responsive rules must be tested rather than inferred from desktop alone."
+    ],
+    "validation": [
+      "At a 10% desktop thumbnail, verify that the cream field, dominant evidence image, page title or home route list, and active route remain identifiable.",
+      "Compare all five desktop pages at the same viewport width: header height, wordmark position, nav baseline, content container edges, title scale, rule weight, and cream color must match.",
+      "Test at 1440px, 1024px, 768px, and 390px widths; confirm no horizontal scrolling, clipped headings, clipped footer text, or inaccessible image captions.",
+      "Keyboard-tab through navigation and page links; focus indicators must remain visible and active routes must be distinguishable without relying on color alone.",
+      "Check body copy at 200% browser zoom and with increased text spacing; paragraphs must not overlap images or become hidden by fixed heights.",
+      "Inspect every banner crop against its source image: artwork-critical marks, public-project context, bookshelf covers, and the About subject's face must remain present.",
+      "Verify that portrait and book-cover images retain meaningful ratios on mobile, while banner images use only intentional, documented object-position cropping.",
+      "Run a contrast check for cream/black text and ensure the About title uses the same readable black treatment as the other page titles."
+    ]
+  }
+}

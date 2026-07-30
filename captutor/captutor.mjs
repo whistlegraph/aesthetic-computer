@@ -54,6 +54,12 @@ import * as credits from "./lib/credits.mjs";
 import { publishToOutbox } from "./lib/outbox.mjs";
 import { presentSignboard, setAmbient } from "./lib/signboard.mjs";
 import { assertHiDPIStage } from "./lib/stage-contract.mjs";
+import {
+  BAKE_TIME_PRESET, condenseBakeTimeVideo, planBakeTime,
+} from "./lib/bake-time.mjs";
+import {
+  DirectorChannel, directorBeatState, resolveDirectorGoal,
+} from "./lib/director-channel.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
@@ -77,12 +83,20 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const now = () => Date.now() / 1000;
 const REAL_CURSOR = process.env.CAPTUTOR_REAL_CURSOR === "1";
 const STAGE_MODE = process.env.CAPTUTOR_STAGE_MODE === "1";
+const PREFLIGHT_ONLY = process.env.CAPTUTOR_PREFLIGHT_ONLY === "1"
+  || process.argv[2] === "preflight";
 // CAPTUTOR_TASK_GID is present on every Iris mission, including a worker that
 // was already running when this invariant was deployed. Local development
 // renders remain possible without Stage; fleet takes do not.
 const REQUIRE_HIDPI = process.env.CAPTUTOR_REQUIRE_HIDPI === "1"
   || Boolean(process.env.CAPTUTOR_TASK_GID);
 const VERTICAL_MODE = process.env.CAPTUTOR_VERTICAL_MODE === "1";
+// A Stage take is also a visual audit. Frame reads the complete display after
+// each consequential interaction, but does so without OCR, cursor, targets,
+// previews, or overlay windows. Those passive JPEGs prove that the visible UI
+// followed the DOM/action receipt without putting tooling into the recording.
+const PASSIVE_FRAME_AUDIT = STAGE_MODE
+  && process.env.CAPTUTOR_PASSIVE_FRAME_AUDIT !== "0";
 
 // Frame's native OCR/target surfaces live above app windows, so even a window
 // capture can film one. Retire every Frame-owned transient immediately before
@@ -201,6 +215,30 @@ function logBrowserFailure({ sp, locale, format, attempt, error, beat, elapsed, 
   return record;
 }
 
+function logOperationalFailure({ sp, locale, format, attempt, phase, error, before, after }) {
+  mkdirSync(dirname(FAILURE_LOG), { recursive: true });
+  const normalized = String(error.message || error)
+    .replace(/\b-?\d+(?:\.\d+)?\b/g, "#").slice(0, 500);
+  const record = {
+    schema:"captutor-failure/v2",
+    at:new Date().toISOString(),
+    screenplay:sp.slug,
+    locale,
+    format,
+    attempt,
+    phase,
+    reason:error.code || error.name || "operational-error",
+    message:String(error.message || error),
+    signature:`${phase}:${error.code || error.name || "error"}:${normalized}`,
+    actionTelemetry:error.captutorTelemetry || error.telemetry || null,
+    before,
+    after,
+    action:"inspect-state-before-retry",
+  };
+  appendFileSync(FAILURE_LOG, `${JSON.stringify(record)}\n`);
+  return record;
+}
+
 // `since` is the load-bearing value: the wall-clock instant the recorder's first
 // frame exists, on the same machine and the same epoch as our own Date.now().
 // Every beat offset is measured against it, so audio and video share an origin.
@@ -305,6 +343,19 @@ async function cmdRender(sp, workDir, locale, format, attempt = 1) {
   const s = selectors(t);
   const F = FORMATS[format];
   if (!F) throw new Error(`unknown format: ${format}`);
+  const director = new DirectorChannel({
+    goal:resolveDirectorGoal(say(sp.title, locale)),
+    screenplay:sp.slug,
+    locale,
+    format,
+  });
+  director.publish({
+    phase:"preparing",
+    status:"working",
+    beatCount:beats.length,
+    currentLine:"Preparing the take",
+    nextLine:beats[0]?.say || "",
+  });
 
   console.log(`\n⇢ attaching to ${sp.window || "browser"} over CDP`);
   const cdp = await attach(sp.match || sp.baseURL);
@@ -357,26 +408,96 @@ async function cmdRender(sp, workDir, locale, format, attempt = 1) {
   // reusable effectTheme; a beat's local options are the most specific layer.
   const themedEffectOptions = (opts = {}) => ({ ...(sp.effectTheme || {}), ...opts });
   let traceSince = null;
+  let bakeTimeSequence = 0;
   const storyboardEvents = [];
   const trace = (kind, details = {}) => {
     if (traceSince == null) return;
     storyboardEvents.push({ kind, atSec:+(now() - traceSince).toFixed(3), ...details });
   };
+  const uiSnapshot = async () => {
+    try {
+      const frame = await cdp.frame();
+      return {
+        capturedAt:frame.capturedAt,
+        url:frame.url,
+        viewport:frame.viewport,
+        focus:frame.focus,
+        graph:frame.graph,
+      };
+    } catch (error) {
+      return { unavailable:String(error.message || error) };
+    }
+  };
+  const frameAuditDir = join(workDir, "frame-audit", String(Date.now()));
+  let frameAuditSequence = 0;
+  const passiveFrameAudit = (kind) => {
+    if (!PASSIVE_FRAME_AUDIT || !["click", "drag", "type"].includes(kind)) return null;
+    if (!existsSync(FRAME)) {
+      throw new Error("passive Frame audit is required in Stage Mode but Frame is unavailable");
+    }
+    mkdirSync(frameAuditDir, { recursive:true });
+    const sequence = String(++frameAuditSequence).padStart(3, "0");
+    const image = join(frameAuditDir, `${sequence}-${kind}.jpg`);
+    let envelope;
+    try {
+      envelope = JSON.parse(execFileSync(process.execPath, [
+        FRAME, "local", "--screen", "--no-ocr", "--quiet-overlay",
+        "--out", image, "--json",
+      ], { encoding:"utf8", timeout:15_000, stdio:["ignore", "pipe", "pipe"] }));
+    } catch (error) {
+      throw new Error(`passive Frame audit failed after ${kind}: ${error.message}`);
+    }
+    if (!existsSync(image)) {
+      throw new Error(`passive Frame audit returned no pixels after ${kind}`);
+    }
+    return {
+      schema:"captutor-passive-frame-audit/v1",
+      image,
+      capture:envelope.capture || "ok",
+      frontmost:envelope.meta?.frontmost || null,
+      screen:envelope.meta?.screen || null,
+    };
+  };
   const perform = async (kind, details, action) => {
     const startedAt = now();
-    const result = await action();
-    trace(kind, {
-      ...details,
-      durationSec:+(now() - startedAt).toFixed(3),
-      result,
-    });
-    return result;
+    const before = await uiSnapshot();
+    let frameAudit = null;
+    try {
+      const result = await action();
+      const after = await uiSnapshot();
+      frameAudit = passiveFrameAudit(kind);
+      const forbiddenRoute = (sp.forbiddenRouteFragments || []).find((fragment) => {
+        try { return new URL(after.url).pathname.includes(fragment); }
+        catch { return false; }
+      });
+      if (forbiddenRoute) {
+        const error = new Error(
+          `unexpected route after ${kind}: ${after.url} (forbidden ${forbiddenRoute})`,
+        );
+        error.code = "UNEXPECTED_ROUTE";
+        throw error;
+      }
+      trace(kind, {
+        ...details,
+        durationSec:+(now() - startedAt).toFixed(3),
+        result,
+        ui:{ before, after },
+        frameAudit,
+      });
+      return result;
+    } catch (error) {
+      const after = await uiSnapshot();
+      error.captutorTelemetry = {
+        kind, details, durationSec:+(now() - startedAt).toFixed(3), before, after, frameAudit,
+      };
+      throw error;
+    }
   };
   const localizeCard = (card) => Object.fromEntries(Object.entries(card || {}).map(
-    ([key, value]) => [key, key === "durationMs" ? value : say(value, locale)],
+    ([key, value]) => [key, typeof value === "string" ? say(value, locale) : value],
   ));
   const englishCard = (card) => Object.fromEntries(Object.entries(card || {}).map(
-    ([key, value]) => [key, key === "durationMs" ? value : say(value, "en")],
+    ([key, value]) => [key, typeof value === "string" ? say(value, "en") : value],
   ));
   const ctx = {
     cdp,
@@ -388,7 +509,8 @@ async function cmdRender(sp, workDir, locale, format, attempt = 1) {
       () => pointAt(cdp, sel, opts)),
     dillydally: (point, opts) => perform("dillydally", { point, options:opts },
       () => dillydallyAtPoint(cdp, point, opts)),
-    type: (sel, text) => typeInto(cdp, sel, text),
+    type: (sel, text) => perform("type", { selector:sel, textLength:String(text).length },
+      () => typeInto(cdp, sel, text)),
     spotlight: (sel, opts) => perform("spotlight", { selector:sel, options:opts },
       () => spotlight(cdp, sel, themedEffectOptions(opts))),
     outline: (sel, opts) => perform("outline", { selector:sel, options:opts },
@@ -404,6 +526,29 @@ async function cmdRender(sp, workDir, locale, format, attempt = 1) {
       card:localizeCard(card), options,
     }, () => presentSignboard(cdp, localizeCard(card), options)),
     check: (name, evidence = {}) => trace("check", { name, evidence }),
+    // A model wait is real capture evidence, but its inert middle is not useful
+    // teaching time. Mark the exact async boundary; composition keeps a short
+    // live lead, applies the canonical bake-time fold, then returns on the
+    // result frame. The promise/function itself remains ordinary screenplay
+    // code, and failures still propagate normally.
+    bakeTime: async (waiter, options = {}) => {
+      const id = options.id || `bake-${++bakeTimeSequence}`;
+      const details = {
+        id,
+        label:options.label || "Model is generating",
+        preset:BAKE_TIME_PRESET.name,
+        liveLeadSec:options.liveLeadSec ?? BAKE_TIME_PRESET.liveLeadSec,
+        resultLeadSec:options.resultLeadSec ?? BAKE_TIME_PRESET.resultLeadSec,
+        minimumFoldSec:options.minimumFoldSec ?? BAKE_TIME_PRESET.minimumFoldSec,
+        transitionSec:options.transitionSec ?? BAKE_TIME_PRESET.transitionSec,
+      };
+      trace("bake-time-start", details);
+      try {
+        return await (typeof waiter === "function" ? waiter() : waiter);
+      } finally {
+        trace("bake-time-end", { id, label:details.label, preset:details.preset });
+      }
+    },
     effects: {
       spotlight: (sel, opts) => spotlight(cdp, sel, themedEffectOptions(opts)),
       outline: (sel, opts) => outline(cdp, sel, themedEffectOptions(opts)),
@@ -450,7 +595,18 @@ async function cmdRender(sp, workDir, locale, format, attempt = 1) {
   // language) BEFORE the camera rolls, so none of it lands in the tutorial.
   if (sp.setup) {
     console.log("  running setup…");
-    await sp.setup(ctx);
+    const before = await uiSnapshot();
+    try {
+      await sp.setup(ctx);
+    } catch (error) {
+      const after = await uiSnapshot();
+      logOperationalFailure({
+        sp, locale, format, attempt, phase:"setup", error, before, after,
+      });
+      await director.close({ phase:"failed", status:"failed", currentLine:error.message, nextLine:"" });
+      await cdp.close();
+      throw error;
+    }
   }
 
   // Pin the theme preference, or a tutorial set will not look like one set.
@@ -492,7 +648,50 @@ async function cmdRender(sp, workDir, locale, format, attempt = 1) {
   // have settled; doing this in setup can be invalidated by either operation.
   if (sp.beforeRecord) {
     console.log("  finalizing shot…");
-    await sp.beforeRecord(ctx);
+    const before = await uiSnapshot();
+    try {
+      await sp.beforeRecord(ctx);
+    } catch (error) {
+      const after = await uiSnapshot();
+      const failure = logOperationalFailure({
+        sp, locale, format, attempt, phase:"before-record",
+        error, before, after,
+      });
+      console.error(`  ↳ failure receipt ${failure.signature}`);
+      await director.close({ phase:"failed", status:"failed", currentLine:error.message, nextLine:"" });
+      await cdp.close();
+      throw error;
+    }
+  }
+
+  if (PREFLIGHT_ONLY) {
+    const state = await uiSnapshot();
+    const preflight = join(workDir, "preflight.json");
+    writeFileSync(preflight, JSON.stringify({
+      schema:"captutor-preflight/v1",
+      at:new Date().toISOString(),
+      screenplay:sp.slug,
+      locale,
+      format,
+      state,
+    }, null, 2) + "\n");
+    const holdIndex = rest.indexOf("--hold-ms");
+    const holdMs = holdIndex === -1 ? 0 : Number(rest[holdIndex + 1]);
+    if (!Number.isFinite(holdMs) || holdMs < 0 || holdMs > 600_000) {
+      throw new Error("--hold-ms must be between 0 and 600000");
+    }
+    if (holdMs > 0) {
+      console.log(`  holding 2× HiDPI preflight for live inspection (${holdMs}ms)…`);
+      await sleep(holdMs);
+    }
+    if (sp.teardown) await sp.teardown(ctx);
+    await cdp.close();
+    await director.close({
+      phase:"ready", status:"complete", currentLine:"Preflight accepted", nextLine:"",
+      words:[], beatStartedAt:null,
+    });
+    console.log(`✓ preflight accepted — ${preflight}`);
+    return { preflight, state };
   }
 
   // Raise the window we are about to film. Not cosmetic: Chrome throttles
@@ -521,6 +720,7 @@ async function cmdRender(sp, workDir, locale, format, attempt = 1) {
       screen,
     });
   } catch (error) {
+    await director.close({ phase:"failed", status:"failed", currentLine:error.message, nextLine:"" });
     await cdp.close();
     throw error;
   }
@@ -544,11 +744,13 @@ async function cmdRender(sp, workDir, locale, format, attempt = 1) {
     });
   } catch (error) {
     stopNativeCursor();
+    await director.close({ phase:"failed", status:"failed", currentLine:error.message, nextLine:"" });
     throw error;
   }
   const since = state.since;
   if (!since) {
     stopNativeCursor();
+    await director.close({ phase:"failed", status:"failed", currentLine:"Recorder did not start", nextLine:"" });
     throw new Error("reel did not report a start time — cannot sync audio");
   }
   traceSince = since;
@@ -558,6 +760,7 @@ async function cmdRender(sp, workDir, locale, format, attempt = 1) {
   const stopRecording = (out) => {
     if (!recording) return out;
     recording = false;
+    director.stopVoice();
     stopNativeCursor();
     return reelStop(out);
   };
@@ -578,6 +781,8 @@ async function cmdRender(sp, workDir, locale, format, attempt = 1) {
     for (const beat of beats) {
       activeBeat = beat.index;
       const startedAt = now();
+      director.publish(directorBeatState(beats, beat.index, startedAt * 1000));
+      director.playVoice(beat.mp3);
       const offsetSec = startedAt - since;
       trace("beat", { index:beat.index, narration:beat.say });
       process.stdout.write(
@@ -593,6 +798,10 @@ async function cmdRender(sp, workDir, locale, format, attempt = 1) {
       result.push({ ...beat, offsetSec });
     }
     if (sp.closingCard) {
+      director.publish({
+        phase:"closing", status:"recording", currentLine:say(sp.closingCard.title, locale),
+        nextLine:"", words:[], beatStartedAt:null,
+      });
       const card = {
         phase: "end", ...localizeCard(sp.closingCard),
       };
@@ -648,8 +857,10 @@ async function cmdRender(sp, workDir, locale, format, attempt = 1) {
       }
       cdp.close();
       if (attempt > AUTO_RETRIES) {
+        await director.close({ phase:"failed", status:"failed", currentLine:err.message, nextLine:"" });
         throw new Error(`${err.message}; automatic retry limit (${AUTO_RETRIES}) exhausted`);
       }
+      await director.close({ phase:"retrying", status:"working", currentLine:"Restarting the take", nextLine:"" });
       console.warn(`\n↻ logged and discarded interrupted take; retrying cleanly (${attempt}/${AUTO_RETRIES})`);
       await sleep(900);
       return cmdRender(sp, workDir, locale, format, attempt + 1);
@@ -671,13 +882,22 @@ async function cmdRender(sp, workDir, locale, format, attempt = 1) {
         });
       }
       await cdp.close();
+      await director.close({ phase:"failed", status:"failed", currentLine:err.message, nextLine:"" });
       throw err;
     }
 
     console.error(`\n✗ beat ${activeBeat + 1} failed: ${err.message}`);
+    const after = await uiSnapshot();
+    logOperationalFailure({
+      sp, locale, format, attempt, phase:`beat-${activeBeat + 1}`,
+      error:err,
+      before:err.captutorTelemetry?.before || null,
+      after,
+    });
     stopRecording(join(workDir, "aborted.mp4"));
     if (purse) await credits.settle(cdp, purse, { slug: sp.slug, locale, format, aborted: true });
     cdp.close();
+    await director.close({ phase:"failed", status:"failed", currentLine:err.message, nextLine:"" });
     throw err;
   }
 
@@ -693,27 +913,58 @@ async function cmdRender(sp, workDir, locale, format, attempt = 1) {
   if (sp.teardown) await sp.teardown(ctx);
   cdp.close();
 
+  let compositionClip = clip;
+  let compositionTimed = timed;
+  let receiptEvents = storyboardEvents;
+  let bakeTime = null;
+  const sourceDurationSec = Number(probe(clip).format.duration);
+  const bakePlan = planBakeTime({ events:storyboardEvents, durationSec:sourceDurationSec });
+  if (bakePlan.edits.length) {
+    compositionClip = join(workDir, "clip-bake-time.mp4");
+    console.log(`  folding ${bakePlan.edits.length} bake-time wait${bakePlan.edits.length === 1 ? "" : "s"}…`);
+    condenseBakeTimeVideo({ input:clip, output:compositionClip, plan:bakePlan, fps:sp.fps || 60 });
+    compositionTimed = timed.map((beat) => ({
+      ...beat,
+      sourceOffsetSec:beat.offsetSec,
+      offsetSec:bakePlan.mapTime(beat.offsetSec),
+    }));
+    receiptEvents = storyboardEvents.map((event) => ({
+      ...event,
+      sourceAtSec:event.atSec,
+      atSec:bakePlan.mapTime(event.atSec),
+    }));
+    bakeTime = {
+      preset:bakePlan.preset,
+      sourceDurationSec:+bakePlan.sourceDurationSec.toFixed(3),
+      outputDurationSec:+bakePlan.outputDurationSec.toFixed(3),
+      removedSec:+(bakePlan.sourceDurationSec - bakePlan.outputDurationSec).toFixed(3),
+      edits:bakePlan.edits.map((edit) => Object.fromEntries(
+        Object.entries(edit).map(([key, value]) => [key, typeof value === "number" ? +value.toFixed(3) : value]),
+      )),
+    };
+  }
+
   const outMp4 = join(workDir, `${sp.slug}.mp4`);
   const outVtt = join(workDir, `${sp.slug}.vtt`);
   console.log("\n⧉ composing");
 
   // Captions first — the mux embeds them as a subtitle track, so they have to
   // exist before ffmpeg runs.
-  const n = writeVTT(timed, outVtt);
+  const n = writeVTT(compositionTimed, outVtt);
 
   // Keep the measured offsets. They are the only record of when each beat
   // actually happened, and without them a re-compose would mean a re-shoot.
   writeFileSync(join(workDir, "cues.json"), JSON.stringify(
-    timed.map(({ index, say, offsetSec, durationSec, mp3, words }) =>
-      ({ index, say, offsetSec, durationSec, mp3, words })), null, 2));
+    compositionTimed.map(({ index, say, offsetSec, sourceOffsetSec, durationSec, mp3, words }) =>
+      ({ index, say, offsetSec, sourceOffsetSec, durationSec, mp3, words })), null, 2));
 
-  mux({ clip, beats: timed, out: outMp4, vtt: outVtt });
+  mux({ clip:compositionClip, beats:compositionTimed, out:outMp4, vtt:outVtt });
   console.log(`  → ${outMp4} (soft subs)`);
   console.log(`  → ${outVtt} (${n} caption cues)`);
 
   const burned = join(workDir, `${sp.slug}.${format}.mp4`);
   const r = deliver({
-    clip:outMp4, cues:timed, format, out:burned, workDir, locale,
+    clip:outMp4, cues:compositionTimed, format, out:burned, workDir, locale,
     brandChrome:sp.brandChrome || null,
   });
   const p = probe(burned);
@@ -757,16 +1008,18 @@ async function cmdRender(sp, workDir, locale, format, attempt = 1) {
       after:settlement?.after?.spendable ?? null,
       spent:settlement?.spent ?? null,
     } : null,
-    beats:timed.map((beat) => ({
+    bakeTime,
+    beats:compositionTimed.map((beat) => ({
       index:beat.index,
       offsetSec:+beat.offsetSec.toFixed(3),
+      sourceOffsetSec:beat.sourceOffsetSec == null ? null : +beat.sourceOffsetSec.toFixed(3),
       durationSec:+beat.durationSec.toFixed(3),
       narration:beat.say,
       logic:sp.beats[beat.index].logic ? say(sp.beats[beat.index].logic, locale) : null,
       cursorIntent:sp.beats[beat.index].cursorIntent
         ? say(sp.beats[beat.index].cursorIntent, locale) : null,
     })),
-    events:storyboardEvents,
+    events:receiptEvents,
   }, null, 2) + "\n");
   const receipt = join(workDir, `${sp.slug}.${format}.storyboard-receipt.pdf`);
   const receiptResult = JSON.parse(execFileSync(process.execPath, [
@@ -774,9 +1027,17 @@ async function cmdRender(sp, workDir, locale, format, attempt = 1) {
     "--video", burned, "--storyboard", storyboard, "--out", receipt,
   ], { encoding:"utf8" }));
   if (!receiptResult.accepted) {
+    await director.close({
+      phase:"review", status:"failed", currentLine:"Storyboard receipt needs review", nextLine:"",
+      words:[], beatStartedAt:null,
+    });
     throw new Error(`storyboard QA requires review: ${receipt}`);
   }
   console.log(`  → ${receipt} (storyboard + QA receipt)`);
+  await director.close({
+    phase:"complete", status:"complete", currentLine:"Take complete", nextLine:"",
+    words:[], beatStartedAt:null,
+  });
   return { outMp4, outVtt, burned, storyboard, receipt };
 }
 
@@ -864,7 +1125,7 @@ if (cmd === "login" || cmd === "balance") {
 }
 
 if (!cmd || !ref) {
-  console.log("usage: captutor <render|narrate|deliver|publish> <screenplay> [--format docs,youtube,reel] [--outbox <dir>]");
+  console.log("usage: captutor <render|preflight|narrate|deliver|publish> <screenplay> [--format docs,youtube,reel] [--outbox <dir>] [--hold-ms N]");
   console.log("       captutor <login|balance>");
   process.exit(ref ? 1 : 0);
 }
@@ -888,6 +1149,13 @@ const workDir = join(HERE, "out", `${sp.slug}.${locale}.${format}`);
 mkdirSync(workDir, { recursive: true });
 
 if (cmd === "narrate") await cmdNarrate(sp, workDir, locale);
+else if (cmd === "preflight") {
+  await cmdRender(sp, workDir, locale, format);
+  // Preflight intentionally stops before the recorder lifecycle. Some Node
+  // builds retain an idle native WebSocket handle after CDP closes; do not
+  // strand Stage Mode waiting for an otherwise-finished diagnostic child.
+  process.exit(0);
+}
 else if (cmd === "render") {
   const rendered = await cmdRender(sp, workDir, locale, format);
   const oi = rest.indexOf("--outbox");

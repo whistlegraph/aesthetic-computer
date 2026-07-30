@@ -1,4 +1,4 @@
-This is XeTeX, Version 3.141592653-2.6-0.999998 (TeX Live 2026) (preloaded format=xelatex 2026.3.1)  18 JUN 2026 22:17
+This is XeTeX, Version 3.141592653-2.6-0.999998 (TeX Live 2026) (preloaded format=xelatex 2026.3.1)  28 JUL 2026 06:10
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -1679,11 +1679,20 @@ Underfull \vbox (badness 10000) has occurred while \output is active []
 
 
 ]
-File: figures/butterfly-cosplayer-score.png Graphic file (type bmp)
-<figures/butterfly-cosplayer-score.png>
 
+! LaTeX Error: File `butterfly-cosplayer-score' not found.
 
-LaTeX Warning: `h' float specifier changed to `ht'.
+See the LaTeX manual or LaTeX Companion for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.152 ...0.9\linewidth]{butterfly-cosplayer-score}
+                                                  
+I could not locate the file with any of these extensions:
+.pdf,.PDF,.ai,.AI,.png,.PNG,.jpg,.JPG,.jpeg,.JPEG,.jp2,.JP2,.jpf,.JPF,.bmp,.BMP
+,.ps,.PS,.eps,.EPS,.mps,.MPS
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
 
 
 Underfull \hbox (badness 2809) in paragraph at lines 157--158
@@ -1706,16 +1715,13 @@ Underfull \hbox (badness 1331) in paragraph at lines 163--164
  []
 
 
-Underfull \vbox (badness 4441) has occurred while \output is active []
+Underfull \vbox (badness 10000) has occurred while \output is active []
 
  [2]
 Underfull \hbox (badness 3148) in paragraph at lines 189--190
 []\TU/LatinModernRoman(0)/m/sc/10 TikTok’s dominant content formats—dance chal-
 
  []
-
-
-Underfull \vbox (badness 10000) has occurred while \output is active []
 
 
 Underfull \hbox (badness 1748) in paragraph at lines 212--212
@@ -1753,39 +1759,175 @@ Underfull \hbox (badness 10000) in paragraph at lines 212--212
  []
 
 
+LaTeX Warning: `h' float specifier changed to `ht'.
+
+
+Underfull \vbox (badness 10000) has occurred while \output is active []
+
+
 Underfull \hbox (badness 2111) in paragraph at lines 219--220
 []\TU/LatinModernRoman(0)/m/sc/10 The Feral File exhibition [[][]Whistlegraph[]
 [], [][]2022[][]]—
  []
 
-File: figures/butterfly-cosplayer-score.png Graphic file (type bmp)
-<figures/butterfly-cosplayer-score.png>
-File: figures/time-to-grow-score.png Graphic file (type bmp)
-<figures/time-to-grow-score.png>
-File: figures/i-dont-need-an-iphone-score.png Graphic file (type bmp)
-<figures/i-dont-need-an-iphone-score.png>
-File: figures/lately-when-i-fly-score.png Graphic file (type bmp)
-<figures/lately-when-i-fly-score.png>
-File: figures/loner-score.png Graphic file (type bmp)
-<figures/loner-score.png>
-File: figures/mommy-wow-score.png Graphic file (type bmp)
-<figures/mommy-wow-score.png>
-File: figures/people-pleaser-score.png Graphic file (type bmp)
-<figures/people-pleaser-score.png>
-File: figures/slinky-dog-score.png Graphic file (type bmp)
-<figures/slinky-dog-score.png>
-File: figures/puzzle-score.png Graphic file (type bmp)
-<figures/puzzle-score.png>
-File: figures/whats-inside-your-heart-score.png Graphic file (type bmp)
-<figures/whats-inside-your-heart-score.png>
-[3]
+
+! LaTeX Error: File `butterfly-cosplayer-score' not found.
+
+See the LaTeX manual or LaTeX Companion for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.223 ....19\textwidth]{butterfly-cosplayer-score}
+                                                  
+I could not locate the file with any of these extensions:
+.pdf,.PDF,.ai,.AI,.png,.PNG,.jpg,.JPG,.jpeg,.JPEG,.jp2,.JP2,.jpf,.JPF,.bmp,.BMP
+,.ps,.PS,.eps,.EPS,.mps,.MPS
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
+
+
+! LaTeX Error: File `time-to-grow-score' not found.
+
+See the LaTeX manual or LaTeX Companion for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.224 ...width=0.19\textwidth]{time-to-grow-score}
+                                                  
+I could not locate the file with any of these extensions:
+.pdf,.PDF,.ai,.AI,.png,.PNG,.jpg,.JPG,.jpeg,.JPEG,.jp2,.JP2,.jpf,.JPF,.bmp,.BMP
+,.ps,.PS,.eps,.EPS,.mps,.MPS
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
+
+
+! LaTeX Error: File `i-dont-need-an-iphone-score' not found.
+
+See the LaTeX manual or LaTeX Companion for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.225 ...9\textwidth]{i-dont-need-an-iphone-score}
+                                                  
+I could not locate the file with any of these extensions:
+.pdf,.PDF,.ai,.AI,.png,.PNG,.jpg,.JPG,.jpeg,.JPEG,.jp2,.JP2,.jpf,.JPF,.bmp,.BMP
+,.ps,.PS,.eps,.EPS,.mps,.MPS
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
+
+
+! LaTeX Error: File `lately-when-i-fly-score' not found.
+
+See the LaTeX manual or LaTeX Companion for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.226 ...=0.19\textwidth]{lately-when-i-fly-score}
+                                                  
+I could not locate the file with any of these extensions:
+.pdf,.PDF,.ai,.AI,.png,.PNG,.jpg,.JPG,.jpeg,.JPEG,.jp2,.JP2,.jpf,.JPF,.bmp,.BMP
+,.ps,.PS,.eps,.EPS,.mps,.MPS
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
+
+
+! LaTeX Error: File `loner-score' not found.
+
+See the LaTeX manual or LaTeX Companion for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.227 ...aphics[width=0.19\textwidth]{loner-score}
+                                                  \\[0.3em]
+I could not locate the file with any of these extensions:
+.pdf,.PDF,.ai,.AI,.png,.PNG,.jpg,.JPG,.jpeg,.JPEG,.jp2,.JP2,.jpf,.JPF,.bmp,.BMP
+,.ps,.PS,.eps,.EPS,.mps,.MPS
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
+
+
+! LaTeX Error: File `mommy-wow-score' not found.
+
+See the LaTeX manual or LaTeX Companion for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.228 ...cs[width=0.19\textwidth]{mommy-wow-score}
+                                                  
+I could not locate the file with any of these extensions:
+.pdf,.PDF,.ai,.AI,.png,.PNG,.jpg,.JPG,.jpeg,.JPEG,.jp2,.JP2,.jpf,.JPF,.bmp,.BMP
+,.ps,.PS,.eps,.EPS,.mps,.MPS
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
+
+
+! LaTeX Error: File `people-pleaser-score' not found.
+
+See the LaTeX manual or LaTeX Companion for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.229 ...dth=0.19\textwidth]{people-pleaser-score}
+                                                  
+I could not locate the file with any of these extensions:
+.pdf,.PDF,.ai,.AI,.png,.PNG,.jpg,.JPG,.jpeg,.JPEG,.jp2,.JP2,.jpf,.JPF,.bmp,.BMP
+,.ps,.PS,.eps,.EPS,.mps,.MPS
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
+
+
+! LaTeX Error: File `slinky-dog-score' not found.
+
+See the LaTeX manual or LaTeX Companion for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.230 ...s[width=0.19\textwidth]{slinky-dog-score}
+                                                  
+I could not locate the file with any of these extensions:
+.pdf,.PDF,.ai,.AI,.png,.PNG,.jpg,.JPG,.jpeg,.JPEG,.jp2,.JP2,.jpf,.JPF,.bmp,.BMP
+,.ps,.PS,.eps,.EPS,.mps,.MPS
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
+
+
+! LaTeX Error: File `puzzle-score' not found.
+
+See the LaTeX manual or LaTeX Companion for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.231 ...phics[width=0.19\textwidth]{puzzle-score}
+                                                  
+I could not locate the file with any of these extensions:
+.pdf,.PDF,.ai,.AI,.png,.PNG,.jpg,.JPG,.jpeg,.JPEG,.jp2,.JP2,.jpf,.JPF,.bmp,.BMP
+,.ps,.PS,.eps,.EPS,.mps,.MPS
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
+
+
+! LaTeX Error: File `whats-inside-your-heart-score' not found.
+
+See the LaTeX manual or LaTeX Companion for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.232 ...textwidth]{whats-inside-your-heart-score}
+                                                  
+I could not locate the file with any of these extensions:
+.pdf,.PDF,.ai,.AI,.png,.PNG,.jpg,.JPG,.jpeg,.JPEG,.jp2,.JP2,.jpf,.JPF,.bmp,.BMP
+,.ps,.PS,.eps,.EPS,.mps,.MPS
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
+
+
+Underfull \vbox (badness 10000) has occurred while \output is active []
+
+ [3]
 Underfull \hbox (badness 4981) in paragraph at lines 249--250
 \TU/LatinModernRoman(0)/m/sc/10 The whistlegraph’s core properties—reproducibil
 ity,
  []
-
-
-Underfull \vbox (badness 10000) has occurred while \output is active []
 
 
 Underfull \hbox (badness 1281) in paragraph at lines 253--254
@@ -1807,11 +1949,13 @@ Underfull \hbox (badness 2359) in paragraph at lines 258--259
 
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
- [4]
+
 (./whistlegraph.bbl
 LaTeX Font Info:    Font shape `TU/LatinModernMono(0)/m/n' will be
 (Font)              scaled to size 8.50006pt on input line 16.
-) [5] (./whistlegraph.aux)
+ [4]) [5
+
+] (./whistlegraph.aux)
  ***********
 LaTeX2e <2025-11-01>
 L3 programming layer <2026-01-19>
@@ -1824,10 +1968,10 @@ Package rerunfilecheck Info: File `whistlegraph.out' has not changed.
 (rerunfilecheck)             Checksum: B89969A9232B344E44B9713469F5379E;1995.
  ) 
 Here is how much of TeX's memory you used:
- 19871 strings out of 469709
- 371355 string characters out of 5466024
- 974061 words of memory out of 5000000
- 48245 multiletter control sequences out of 15000+600000
+ 20141 strings out of 469709
+ 378607 string characters out of 5466024
+ 970061 words of memory out of 5000000
+ 48515 multiletter control sequences out of 15000+600000
  630284 words of font info for 101 fonts, out of 8000000 for 9000
  319 hyphenation exceptions out of 8191
  86i,12n,107p,1144b,668s stack positions out of 10000i,1000n,20000p,200000b,200000s
