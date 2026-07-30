@@ -880,7 +880,7 @@ function pasteImageIntoConversation(imagePath) {
   const script = `
 on run argv
   set imageFile to POSIX file (item 1 of argv)
-  set savedClipboard to the clipboard as record
+  set savedClipboard to the clipboard
   try
     set the clipboard to (read imageFile as JPEG picture)
     tell application "Messages" to activate
@@ -904,7 +904,7 @@ end run`;
 function pasteTextIntoConversation(value) {
   const script = `
 on run argv
-  set savedClipboard to the clipboard as record
+  set savedClipboard to the clipboard
   try
     set the clipboard to item 1 of argv
     tell application "Messages" to activate

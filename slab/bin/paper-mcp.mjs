@@ -473,9 +473,12 @@ async function toolFigureTableQaCheck({ paper, build = false, dpi = 180, page } 
     "Intent and placement: the visual appears where the narrative requires it; lead art actually leads.",
     "Reading size: body, labels, captions, code, and table text remain legible at normal PDF size; no data display below footnote size.",
     "Geometry: no clipping, collision, accidental wrap, broken rule, orphaned caption, or misleading whitespace.",
+    "Column balance: ordinary multi-column pages must finish within about 10% of live page height; any exception must be visibly compositional, not merely called a natural ending.",
+    "Negative space: reject float-queue gaps, sparse float-only pages, half-empty interior pages, and unconsolidated final pages.",
     "Tables: intentional widths; aligned values; semantic color; clean outlined cells; consistent headers; no avoidable line wrapping.",
     "Figures and embeddings: unambiguous hierarchy and flow; sufficient contrast; caption and numbering match the prose.",
-    "Page composition: floats do not strand headings, reorder evidence, or create visibly unfinished pages.",
+    "Repeated-grid symmetry: cards, logos, and peer nodes use equal dimensions, baselines, and visible gutters; peer borders never touch unless a labeled container groups them; reject missing-card holes, uneven final rows, arbitrary centering, and unstated branch asymmetry.",
+    "Page composition: floats stay near their claims and do not strand headings, split numbered procedures, reorder evidence, or create visibly unfinished pages.",
   ];
   const manifestPath = join(qaDir, "Figure-Table-QA-Check.md");
   const manifest = [
@@ -494,7 +497,7 @@ async function toolFigureTableQaCheck({ paper, build = false, dpi = 180, page } 
     "",
     ...rubric.map((item) => `- ${item}`),
     "",
-    "A successful TeX build is not a pass. Inspect the overview and every page containing an inventoried item at full resolution, revise every failure, rebuild, and rerun this check.",
+    "A successful TeX build is not a pass. Inspect the overview, every page containing an inventoried item, and every page that appears imbalanced or unusually empty at full resolution. Revise every failure, rebuild, and rerun this check.",
   ].join("\n");
   await writeFile(manifestPath, `${manifest}\n`, "utf8");
 

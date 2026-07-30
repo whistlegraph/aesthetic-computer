@@ -108,7 +108,12 @@ function publish() {
     const recovery = state?.recovery;
     const recovering = recovery && [
       "checking-browser", "reloading-browser", "queued", "relaunching",
-    ].includes(recovery.status);
+    ].includes(recovery.status) && (
+      state?.active?.taskGid === recovery.taskGid
+      || state?.done?.[recovery.taskGid]?.status === "failed"
+      || (state?.priorityMission?.taskGid === recovery.taskGid
+        && state.priorityMission.status !== "complete")
+    );
     const failure = latestFailure(state);
     payload = recovering ? {
       schema:"iris-agent-progress/v1",

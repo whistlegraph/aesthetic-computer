@@ -278,8 +278,10 @@ async function toolSend({
     const acct = await signalAccount(machine);
     const sendArgs = ["-a", acct, "send"];
     if (message) sendArgs.push("-m", message);
-    for (const file of files) sendArgs.push("-a", file.path);
     sendArgs.push(rcpt.id);
+    // signal-cli's attachment option has nargs="*" and therefore consumes
+    // every following token. Keep the positional recipient before it.
+    for (const file of files) sendArgs.push("--attachment", file.path);
     const { stdout } = await runSignalCli(sendArgs, machine, { timeoutMs: 60000 });
     // Best effort: if this is the conversation Slab watches, replying is also
     // an acknowledgement. Other conversations keep independent cursors.

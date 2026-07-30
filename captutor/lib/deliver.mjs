@@ -17,6 +17,7 @@
 // is for platforms that autoplay muted and strip tracks — reels, shorts, feeds.
 
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { captionPhrases, isHighlightableCaptionToken } from "./captions.mjs";
@@ -189,6 +190,18 @@ export const FORMATS = {
 };
 
 const metricCache = new Map();
+
+// Caption art is expensive enough to cache, but its filename must carry the
+// words and layout that produced it. Index-only names reused stale PNGs after a
+// screenplay edit: fresh timings then composited old copy, causing ghost text
+// and collisions that appeared only in a previously rendered format.
+export function captionCacheKey({ words, width, px, font, color }) {
+  return createHash("sha256").update(JSON.stringify({
+    style:CAPTION_STYLE,
+    words:words.map((word) => word.text),
+    width, px, font, color:color || null,
+  })).digest("hex").slice(0, 16);
+}
 
 function textMetrics(text, px) {
   const key = `${FONT}\0${px}\0${text}`;
@@ -367,7 +380,10 @@ export function deliver({
   const cuts = captionPhrases(cues);
   const pngs = cuts.map((c, i) => {
     const stem = String(i).padStart(3, "0");
-    const base = join(capDir, `${stem}-base.png`);
+    const cacheKey = captionCacheKey({
+      words:c.words, width:band, px:capPx, font:FONT, color:c.color,
+    });
+    const base = join(capDir, `${stem}-${cacheKey}-base.png`);
     if (!existsSync(base)) cuePng(c.words, {
       width:band, px:capPx, out:base, color:c.color,
     });
@@ -375,7 +391,8 @@ export function deliver({
       .map((word, wordIndex) => ({ word, wordIndex }))
       .filter(({ word }) => isHighlightableCaptionToken(word.text))
       .map(({ word, wordIndex }) => {
-        const png = join(capDir, `${stem}-word-${String(wordIndex).padStart(2, "0")}.png`);
+        const png = join(capDir,
+          `${stem}-${cacheKey}-word-${String(wordIndex).padStart(2, "0")}.png`);
         if (!existsSync(png)) {
           cuePng(c.words, {
             width:band, px:capPx, out:png, activeIndex:wordIndex,

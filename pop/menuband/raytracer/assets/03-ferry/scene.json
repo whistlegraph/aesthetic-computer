@@ -1,0 +1,10 @@
+{
+  "id": "03-ferry",
+  "duration": 60,
+  "scoreWidth": 2048,
+  "scoreHeight": 8400,
+  "keyboardWidth": 2048,
+  "keyboardHeight": 140,
+  "scorePath": "pop/menuband/out/menu-band-waltzes/03-ferry/03-ferry.notes.json",
+  "notes": 309
+}

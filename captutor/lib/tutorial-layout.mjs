@@ -125,7 +125,7 @@ function placementExpression(nodeSelector, index, count, options) {
 // Drive React Flow's continuous pinch-zoom path rather than opening its menu.
 // This lets the teaching layout land around 80% (large enough to read, small
 // enough to clear the chat composer) without filming a mystery menu detour.
-export async function setTutorialZoom(ctx, target = 80) {
+export async function setTutorialZoom(ctx, target = 80, { tolerance = 5 } = {}) {
   const { cdp } = ctx;
   const zoomValue = async () => Number(await cdp.eval(`(() => {
     const button = [...document.querySelectorAll('button')].find((element) =>
@@ -133,10 +133,23 @@ export async function setTutorialZoom(ctx, target = 80) {
     return button ? parseInt(button.innerText, 10) : NaN;
   })()`));
 
+  // Start from React Flow's own fitted graph. Stage changes the viewport after
+  // project hydration; zooming around a pane corner from the saved transform
+  // can otherwise throw the only node's title above the viewport, where no
+  // honest pointer drag can recover it. Fuser exposes Zoom to Fit as ⌘0.
+  if (await cdp.eval("document.querySelectorAll('.react-flow__node').length > 0")) {
+    await cdp.key("0", "Digit0", 48, 4);
+    await new Promise((resolve) => setTimeout(resolve, 420));
+  }
+
   for (let attempt = 0; attempt < 8; attempt += 1) {
     const current = await zoomValue();
     if (!Number.isFinite(current)) throw new Error("Fuser zoom control is unavailable");
-    if (Math.abs(current - target) <= 3) return current;
+    // Fuser rounds fit-view to discrete zoom stops. Treat the requested value
+    // as a composition target, not an exact invariant; the subsequent
+    // ui-legibility and balanced-layout scores decide whether the frame is
+    // actually teachable. In practice a fitted 76% view is equivalent to 80%.
+    if (Math.abs(current - target) <= tolerance) return current;
     // React Flow's wheel curve is approximately exp(-0.0138 * deltaY).
     // Clamp extreme fit-view recovery into a few smooth, bounded events.
     const deltaY = Math.max(-80, Math.min(80,
@@ -145,7 +158,20 @@ export async function setTutorialZoom(ctx, target = 80) {
       const pane = document.querySelector('.react-flow__pane');
       const rect = pane?.getBoundingClientRect();
       if (!rect) return [{ x:innerWidth / 2, y:innerHeight / 2 }];
+      const nodes = [...document.querySelectorAll('.react-flow__node')]
+        .map((node) => node.getBoundingClientRect())
+        .filter((node) => node.width > 0 && node.height > 0 &&
+          node.bottom > 0 && node.right > 0 && node.top < innerHeight && node.left < innerWidth);
+      const graphAnchor = nodes.length ? {
+        x:Math.max(24, Math.min(innerWidth - 24,
+          (Math.min(...nodes.map((node) => node.left)) +
+           Math.max(...nodes.map((node) => node.right))) / 2)),
+        y:Math.max(24, Math.min(innerHeight - 24,
+          (Math.min(...nodes.map((node) => node.top)) +
+           Math.max(...nodes.map((node) => node.bottom))) / 2)),
+      } : null;
       return [
+        ...(graphAnchor ? [graphAnchor] : []),
         { x:rect.left + 36, y:rect.bottom - 36 },
         { x:rect.right - 36, y:rect.top + 36 },
         { x:rect.right - 36, y:rect.bottom - 36 },
@@ -169,7 +195,7 @@ export async function setTutorialZoom(ctx, target = 80) {
     }
     if (!changed) continue;
   }
-  throw new Error(`Could not reach tutorial zoom near ${target}%`);
+  throw new Error(`Could not reach tutorial zoom near ${target}% (±${tolerance}%)`);
 }
 
 export async function frameTutorialNodes(ctx, nodes, {

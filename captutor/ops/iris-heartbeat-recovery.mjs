@@ -6,6 +6,7 @@
 // to Iris.
 
 import { execFileSync } from "node:child_process";
+import https from "node:https";
 import {
   existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync,
 } from "node:fs";
@@ -24,6 +25,8 @@ const captutor = process.env.CAPTUTOR_HOME || join(home, "Developer", "captutor"
 const node = process.env.CAPTUTOR_NODE || "/opt/homebrew/bin/node";
 const maxRetries = Number(process.env.IRIS_CAPTUTOR_RECOVERY_RETRIES || 1);
 const reloadWaitMs = Number(process.env.IRIS_BROWSER_RELOAD_WAIT_MS || 5_000);
+const asanaToken = process.env.ASANA_ACCESS_TOKEN || "";
+const irisUserGid = process.env.ASANA_USER_GID || "1216250551404992";
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -119,6 +122,83 @@ export function queueRecovery(state, failure, now = Date.now()) {
   return state.recovery;
 }
 
+export function validateAssignedCaptutorTask(task, taskGid, userGid = irisUserGid) {
+  if (!task || String(task.gid) !== String(taskGid)) {
+    throw new Error(`Asana did not return task ${taskGid}`);
+  }
+  if (task.completed) throw new Error(`task ${taskGid} is already complete`);
+  if (String(task.assignee?.gid || "") !== String(userGid)) {
+    throw new Error(`task ${taskGid} is not assigned to Iris`);
+  }
+  const tags = new Set((task.tags || []).map((tag) => String(tag.name || "").toLowerCase()));
+  if (!tags.has("mission") || !tags.has("captutor")) {
+    throw new Error(`task ${taskGid} is not a Captutor mission`);
+  }
+  return task;
+}
+
+export function rearmRecovery(state, taskGid, now = Date.now()) {
+  if (state?.active) {
+    throw new Error(`cannot rearm while ${state.active.name || state.active.taskGid || "a worker"} is active`);
+  }
+  const failure = state?.done?.[taskGid];
+  if (!failure || failure.kind !== "captutor" || failure.status !== "failed") {
+    throw new Error(`task ${taskGid} has no failed Captutor tombstone to rearm`);
+  }
+  state.recoveries ||= {};
+  const previous = state.recoveries[taskGid] || {};
+  const manualRearms = Number(previous.manualRearms || 0) + 1;
+  state.recoveries[taskGid] = {
+    ...previous,
+    manualRearms,
+    lastManualRearmAt:now,
+    lastManualRearmReason:failure.reason || "missing-outbox-artifacts",
+  };
+  state.recovery = {
+    taskGid,
+    mission:failure.name,
+    status:"manually-rearmed",
+    attempts:Number(previous.attempts || 0),
+    maximum:Number(state.recovery?.maximum || maxRetries),
+    manualRearms,
+    reason:failure.reason || "missing-outbox-artifacts",
+    detail:failure.detail || "No verified Captutor outbox delivery.",
+    updatedAt:now,
+    activity:"Manual rearm verified Asana ownership and browser health; queued for the next orchestrator tick.",
+  };
+  delete state.done[taskGid];
+  return state.recovery;
+}
+
+function asanaTask(taskGid) {
+  if (!asanaToken) return Promise.reject(new Error("ASANA_ACCESS_TOKEN is required for manual rearm"));
+  const fields = encodeURIComponent("name,completed,assignee.gid,tags.name");
+  return new Promise((resolve, reject) => {
+    const req = https.request({
+      hostname:"app.asana.com",
+      path:`/api/1.0/tasks/${encodeURIComponent(taskGid)}?opt_fields=${fields}`,
+      headers:{ Authorization:`Bearer ${asanaToken}` },
+      timeout:15_000,
+    }, (res) => {
+      let body = "";
+      res.on("data", (chunk) => { body += chunk; });
+      res.on("end", () => {
+        let json;
+        try { json = JSON.parse(body); }
+        catch { reject(new Error(`Asana returned invalid JSON (${res.statusCode || "?"})`)); return; }
+        if ((res.statusCode || 500) >= 400 || json.errors) {
+          reject(new Error(json.errors?.[0]?.message || `Asana returned ${res.statusCode}`));
+          return;
+        }
+        resolve(json.data);
+      });
+    });
+    req.on("error", reject);
+    req.on("timeout", () => req.destroy(new Error("Asana assignment check timed out")));
+    req.end();
+  });
+}
+
 function browserProbe() {
   try {
     execFileSync(node, [join(captutor, "bin", "cdp-frame.mjs"),
@@ -194,8 +274,68 @@ export async function runRecovery() {
   }
 }
 
+export async function runManualRearm(taskGid) {
+  if (!/^\d+$/.test(String(taskGid || ""))) throw new Error("manual rearm requires an exact numeric Asana task gid");
+  let locked = false;
+  try {
+    mkdirSync(lockPath);
+    locked = true;
+  } catch {
+    throw new Error("recovery supervisor is busy");
+  }
+  try {
+    let state = readJson(statePath);
+    if (!state) throw new Error(`orchestrator state is unavailable: ${statePath}`);
+    // Validate the local target before making a network request. The same
+    // validation runs again after browser recovery to avoid overwriting a task
+    // the orchestrator may have claimed while this command was checking.
+    if (state.active) throw new Error(`cannot rearm while ${state.active.name || state.active.taskGid || "a worker"} is active`);
+    const failure = state.done?.[taskGid];
+    if (!failure || failure.kind !== "captutor" || failure.status !== "failed") {
+      throw new Error(`task ${taskGid} has no failed Captutor tombstone to rearm`);
+    }
+    const task = validateAssignedCaptutorTask(await asanaTask(taskGid), taskGid);
+    state.recovery = {
+      taskGid,
+      mission:failure.name,
+      status:"manual-rearm-checking-browser",
+      attempts:recoveryAttempts(state, taskGid),
+      maximum:Number(state.recovery?.maximum || maxRetries),
+      reason:failure.reason || "missing-outbox-artifacts",
+      detail:failure.detail || "No verified Captutor outbox delivery.",
+      updatedAt:Date.now(),
+      activity:"Manual rearm verified Asana ownership; checking the Fuser renderer.",
+    };
+    atomicWriteJson(statePath, state);
+    const health = await recoverBrowser(state);
+    if (!health.healthy) {
+      state.recovery.status = "manual-rearm-blocked";
+      state.recovery.activity = `Manual rearm kept the failure tombstone: ${health.message}`;
+      state.recovery.updatedAt = Date.now();
+      atomicWriteJson(statePath, state);
+      throw new Error(state.recovery.activity);
+    }
+    state = readJson(statePath);
+    if (!state) throw new Error(`orchestrator state disappeared: ${statePath}`);
+    const recovery = rearmRecovery(state, taskGid);
+    atomicWriteJson(statePath, state);
+    log(`${task.name}: ${recovery.activity}`);
+    return { action:"manually-rearmed", task:{ gid:task.gid, name:task.name }, health, recovery };
+  } finally {
+    if (locked && existsSync(lockPath)) rmSync(lockPath, { recursive:true, force:true });
+  }
+}
+
 const isMain = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
 if (isMain) {
-  const result = await runRecovery();
-  console.log(JSON.stringify(result));
+  try {
+    const rearmIndex = process.argv.indexOf("--rearm");
+    const result = rearmIndex >= 0
+      ? await runManualRearm(process.argv[rearmIndex + 1])
+      : await runRecovery();
+    console.log(JSON.stringify(result));
+  } catch (error) {
+    console.error(JSON.stringify({ action:"error", error:error.message }));
+    process.exitCode = 1;
+  }
 }

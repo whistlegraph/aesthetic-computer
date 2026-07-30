@@ -1,0 +1,359 @@
+% !TEX program = xelatex
+% CultureHub LA Residency Interview — A Briefing
+% Prepared for Jeffrey Alan Scudder (@jeffrey), 28 July 2026.
+% Private working artifact. Do not publish.
+\documentclass[11pt,letterpaper]{article}
+
+\usepackage[top=0.88in,bottom=0.9in,left=0.95in,right=0.95in]{geometry}
+\usepackage{fontspec}
+\usepackage{unicode-math}
+\setmainfont{lmroman10-regular.otf}[
+  BoldFont=lmroman10-bold.otf,
+  ItalicFont=lmroman10-italic.otf,
+  BoldItalicFont=lmroman10-bolditalic.otf]
+\setsansfont{lmsans10-regular.otf}[
+  BoldFont=lmsans10-bold.otf,
+  ItalicFont=lmsans10-oblique.otf]
+\newfontfamily\acbold{ywft-processing-bold}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\newfontfamily\aclight{ywft-processing-light}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\setmonofont{lmmono10-regular.otf}[Scale=0.85,
+  BoldFont=lmmonolt10-bold.otf,
+  ItalicFont=lmmono10-italic.otf]
+
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{fancyhdr}
+\usepackage{graphicx}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{hyperref}
+\usepackage{xurl}
+
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{112,112,112}
+\definecolor{acwarn}{RGB}{176,96,40}
+\definecolor{acgreen}{RGB}{66,122,86}
+
+\hypersetup{colorlinks=true,linkcolor=acpurple,urlcolor=acpurple,
+  pdftitle={CultureHub LA Residency Interview --- A Briefing},
+  pdfauthor={@jeffrey / Aesthetic Computer},
+  pdfsubject={Prepared for Jeffrey Alan Scudder --- 28 July 2026}}
+
+\titleformat{\section}{\acbold\large\color{acdark}}{\thesection.}{0.6em}{}
+\titlespacing{\section}{0pt}{1.25em}{0.4em}
+\titleformat{\subsection}{\bfseries\normalsize\color{acdark}}{}{0em}{}
+\titlespacing{\subsection}{0pt}{0.8em}{0.15em}
+
+\pagestyle{fancy}\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[L]{\footnotesize\color{acpink}\textsc{Briefing}}
+\fancyhead[R]{\footnotesize\color{acgray}Prepared for Jeffrey Alan Scudder \,\textbullet\, 28 July 2026}
+\fancyfoot[C]{\footnotesize\color{acgray}\thepage}
+
+\setlist[itemize]{leftmargin=1.3em,itemsep=0.18em,topsep=0.22em}
+\setlist[enumerate]{leftmargin=1.45em,itemsep=0.25em,topsep=0.22em}
+\setlength{\parindent}{1.05em}
+\setlength{\parskip}{0.3em}
+\newcommand{\soft}[1]{{\color{acwarn}\footnotesize\textsc{[#1]}}}
+\newcommand{\ready}[1]{{\color{acgreen}\textbf{#1}}}
+
+\begin{document}
+\thispagestyle{empty}
+
+\begin{center}
+\includegraphics[height=4em]{../arxiv-ac/figures/pals.pdf}\par
+\vspace{1.2em}
+{\acbold\fontsize{31pt}{35pt}\selectfont\color{acdark} CultureHub LA}\par
+\vspace{0.35em}
+{\aclight\fontsize{17pt}{20pt}\selectfont\color{acpink} Residency Interview — A Briefing}\par
+\vspace{0.65em}
+{\fontsize{10.5pt}{13pt}\selectfont\color{acgray}
+The project you submitted, the room they are selecting for,\\
+the technical truth, and how to use thirty minutes}\par
+\vspace{1.7em}
+\colorbox{acdark}{\hspace{0.65em}\rule[-0.55em]{0pt}{1.7em}%
+{\acbold\fontsize{12pt}{12pt}\selectfont\color{white} PREPARED FOR JEFFREY ALAN SCUDDER \,/\, @JEFFREY}\hspace{0.65em}}\par
+\vspace{0.85em}
+{\fontsize{11pt}{13pt}\selectfont\color{acgray}
+Tuesday, 28 July 2026 \,\textbullet\, 10:30--11:00 PDT \,\textbullet\, Zoom}\par
+\vspace{1.8em}
+\rule{0.45\textwidth}{0.5pt}\par
+\vspace{0.7em}
+{\normalsize\color{acpurple}\href{https://prompt.ac/@jeffrey}{@jeffrey}} \quad\textbullet\quad
+{\normalsize\color{acgray} Aesthetic Computer}\par
+\vspace{0.3em}
+{\footnotesize\color{acgray} Shortlisted proposal \,\textbullet\, Notepat Jam \,\textbullet\, private working brief}\par
+\end{center}
+\vspace{1.25em}
+
+\noindent\textbf{Why this exists.}\quad
+CultureHub shortlisted \textit{Notepat Jam} and asked for one thing: come
+prepared to explain how you will use the time in residence. This is not a second
+application and they explicitly said not to draft new materials. The job is to
+make three things easy to believe: the room is essential, the work is ready for
+residency-scale development, and the remaining risks are understood. This brief
+keeps the submitted project separate from an earlier proposal draft and marks
+the technical ground that is not yet proven.
+
+\section{The short version}
+
+\begin{itemize}
+  \item \textbf{Lead with the audience in the room.} Six salvaged laptops become
+  six spatial voices; the audience sits inside the instrument.
+  \item \textbf{The fit is unusually literal.} CultureHub names immersive audio,
+  ecological responsibility, old-plus-new technology, localized networks, and
+  human connection. Your project's structure answers all five.
+  \item \textbf{Separate the working foundation from the residency research.}
+  notepat and AC Native work. Local-only multi-machine synchronization, the
+  six-source signal path, and the composition in their room are the next stage.
+  \item \textbf{Promise arrival readiness.} You arrive with six imaged machines
+  and a tested synchronization prototype. The residency begins with room
+  integration and composition, not basic operating-system development.
+  \item \textbf{Mattie is a producer.} Speak first about experience, schedule,
+  public value, and feasibility. Technical specifications support those claims;
+  they are not the opening.
+\end{itemize}
+
+\section{The project you actually submitted}
+
+The canonical project is \textbf{Notepat Jam}: a roughly thirty-minute spatial
+composition performed solo on six aging laptops revived with AC Native. Each
+machine runs notepat and contributes one voice to CultureHub LA's surround
+field. The audience sits inside the speaker array. The residency has three
+publicly legible movements:
+
+\begin{enumerate}
+  \item \textbf{Build and calibrate.} Image the machines, establish the local
+  clock and routing, and tune the configuration in the room.
+  \item \textbf{Open the process.} Invite people to boot a laptop from USB and
+  encounter the computer as an instrument rather than a desktop.
+  \item \textbf{Compose and perform.} Write and rehearse the spatial parts in the
+  actual field, then present the concert and release its multitrack and system
+  image.
+\end{enumerate}
+
+\noindent The six laptops are not a visual conceit. Each is object, instrument,
+and sound source. The ecological claim is therefore structural: the discarded
+machine is not represented by the work; it is what the work is made from.
+
+\soft{correction} Do not discuss \textit{The Score Is the Software} unless they
+introduce it. That was an earlier development route. The submitted project and
+the interview are about \textit{Notepat Jam}.
+
+\section{What CultureHub is selecting for}
+
+CultureHub LA says the residency is for getting new work ``on its feet and in
+front of an audience.'' Three artists receive one or two weeks of space,
+technical support, and presentation opportunity. Preference goes to a clear use
+of the physical studio and to technology that reveals the creative crux of the
+work. The studio offers reconfigurable audio, video, lighting, projection, and a
+5.1 Kalio Audio system.
+
+Your answer should therefore keep returning to one sentence:
+
+\begin{quote}
+\color{acdark}\large
+The room is not where the piece is shown after it is made; the room is where the
+piece can finally be composed.
+\end{quote}
+
+The site already has a precedent for technically specific, participatory,
+multichannel instrument work: Ivana Dama's \textit{Signal Distance} combined a
+custom synthesizer, multichannel audio, physical interaction, and collective
+authorship. The useful distinction is simple: your instrument is distributed
+across rescued general-purpose computers, and the public method is bootable and
+open-source.
+
+\section{The technical truth}
+
+\begin{tabularx}{\textwidth}{@{}>{\bfseries}p{0.21\textwidth}X@{}}
+\toprule
+Working now & notepat in the browser and on AC Native; bootable USB images;
+native synthesis and audio; keyboard and MIDI performance; clock and UDP
+foundations. \\
+\midrule
+Before residency & Source and test six compatible laptops; implement and soak-test
+a local clock leader; prove two-to-six-machine cueing; choose the physical audio
+and network topology. \\
+\midrule
+In the room & Integrate with CultureHub's matrix; measure drift and latency;
+calibrate levels and audience placement; compose, rehearse, workshop, perform,
+and document. \\
+\bottomrule
+\end{tabularx}
+
+\subsection{The mismatch to name honestly}
+The submitted proposal says the network is local: no internet, no cloud. The
+current native notepat clock can synchronize from Aesthetic Computer's public
+clock endpoint, and its UDP path currently reaches the session server. Those are
+useful building blocks, but they are not yet the promised local-only ensemble
+clock. Describe that local leader as a pre-residency milestone, not as finished
+infrastructure.
+
+\subsection{The 5.1 catch}
+A ``5.1'' system may expose five full-range channels plus a bass-managed or
+low-frequency-effects path; it does not automatically mean six equivalent
+full-range voices. \soft{verify with CultureHub} Ask whether the `.1' input is
+independently addressable, what their matrix accepts, and whether they prefer
+six analog sources or a single multichannel interface. Until then, say
+\emph{six-machine spatial system} rather than promising six equal speaker voices.
+
+\subsection{A credible reliability posture}
+Use one machine as the local clock leader, prefer wired networking, timestamp
+section cues, correct drift regularly, and compose material that requires
+musical synchronization rather than sample-phase identity. Keep a central
+multichannel render as documentation and emergency playback, but do not let the
+fallback replace the six-machine premise.
+
+\section{Your opening — about forty-five seconds}
+
+\begin{quote}
+\color{acdark}
+\textit{Notepat Jam is a spatial composition for six salvaged laptops. Each
+laptop boots from USB into AC Native—an operating system I built that turns the
+computer into a single-purpose instrument running notepat—and feeds one part of
+CultureHub LA's surround system. I perform from the center with the audience
+inside the sound field. I would use the residency to integrate the system with
+the room, compose and rehearse a thirty-minute work, open the process through a
+bring-a-laptop workshop, and present the performance. The instrument and
+operating system already work; the residency turns them into a room-scale
+composition.}
+\end{quote}
+
+Then stop. Let them choose the first depth: artistic, technical, public, or
+logistical. Do not turn the opening into a portfolio tour.
+
+\section{The answer spine}
+
+\subsection{Why six machines?}
+Each computer is simultaneously a rescued object, an instrument, and a physical
+voice in the room. The distributed hardware makes the ecological and network
+ideas audible.
+
+\subsection{Why CultureHub?}
+The piece cannot be authored correctly in headphones. Their surround system and
+modular studio determine the composition, audience placement, and performance.
+Technical support lets six independently booted machines act as one room-scale
+instrument.
+
+\subsection{What is the artistic risk?}
+The instrument exists. The productive risk is composing across independent
+machines without hiding them behind one conventional production computer. The
+mitigation is a local clock leader, pre-tested hardware, wired networking where
+possible, regular resynchronization, and music that tolerates small timing
+differences.
+
+\subsection{What happens during the residency?}
+Arrive ready; integrate and calibrate; compose in the field; open the process;
+rehearse; perform; document and release. If they want days: setup and measurement
+first, composition and workshop in the middle, rehearsal and public offering at
+the end.
+
+\subsection{What does success look like?}
+A convincing spatial performance, a stable and reproducible six-machine
+configuration, a safe workshop method, and open documentation that lets the
+work travel beyond one evening.
+
+\subsection{What do you need from them?}
+Access to the surround matrix and room; a technical orientation; help with
+signal routing, calibration, documentation, and audience configuration; clarity
+about public-program scheduling. The stipend covers laptop sourcing, adapters,
+cabling, and workshop media.
+
+\section{Openings}
+
+\subsection{1. Make the arrival line explicit.}
+Say: \textbf{I will arrive with six imaged, tested machines and a working
+synchronization prototype.} This converts the project from an attractive build
+proposal into a residency-ready artistic experiment.
+
+\subsection{2. Ask the room question.}
+\textbf{How is the Kalio system routed—is the `.1' path independently
+addressable or bass-managed, and would your team prefer six discrete analog
+sources or one multichannel interface?} This demonstrates preparation and gives
+you information you actually need.
+
+\subsection{3. Resolve the two-event promise.}
+CultureHub guarantees one public offering; the submitted proposal names open
+programming and a concert. Ask whether the workshop can be an informal open
+studio alongside the final concert, or whether they would prefer one combined
+event. Flexibility reads as production awareness, not retreat.
+
+\subsection{4. Ask what support means in practice.}
+Ask who would orient the audio system, how many access hours residents normally
+receive, and what documentation CultureHub typically captures. Mattie can answer
+this as a producer.
+
+\subsection{5. Keep one demonstration ready, not running.}
+Open notepat and test audio before the call. If invited, play for thirty seconds
+and stop. A live instrument is evidence; troubleshooting on Zoom is not.
+
+\section{Do not spend the meeting on}
+
+\begin{itemize}
+  \item code line counts, sample rates, or the whole Aesthetic Computer history;
+  \item the discarded score-card proposal;
+  \item pretending the local ensemble clock is already finished;
+  \item treating six salvaged laptops as interchangeable without a compatibility
+  and spare-machine plan;
+  \item promising two separately produced public events before confirming that
+  CultureHub can schedule them;
+  \item reading this document aloud.
+\end{itemize}
+
+\soft{calendar note} The invitation's reference to a different fellowship
+appears to be reused Calendly copy. The sender, subject, shortlist email, and
+organizer all identify this as the CultureHub residency interview. Ignore it
+unless Mattie raises it.
+
+\section{The final twenty minutes before joining}
+
+\begin{enumerate}
+  \item Say the opening twice without reading.
+  \item Rehearse the six answers above as one-minute responses.
+  \item Open notepat, test audio, and close every unrelated tab.
+  \item Put the three questions on paper: Kalio routing, technical access, and
+  public-offering format.
+  \item Join five minutes early. Leave the remaining minute empty.
+\end{enumerate}
+
+\section{Sources}
+
+\footnotesize
+\textbf{CultureHub} ---
+\url{https://www.culturehub.org/residency} (2026 LA call, criteria, support) ·
+\url{https://www.culturehub.org/los-angeles} (studio and team) ·
+\url{https://www.culturehub.org/signal-distance} (multichannel residency
+precedent and CultureHub production credits).
+
+\textbf{Submitted project} ---
+\url{https://aesthetic.computer/culture-hub-2026} · local source
+\path{system/public/culture-hub-2026/index.html}.
+
+\textbf{Instrument and system} --- local source
+\path{system/public/aesthetic.computer/disks/notepat.mjs} ·
+\path{fedac/native/pieces/notepat.mjs} ·
+\path{fedac/native/src/udp-client.c} ·
+\path{papers/arxiv-notepat/notepat.tex} ·
+\path{papers/arxiv-os/os.tex} ·
+\path{papers/arxiv-plork/plork.tex}.
+
+\textbf{Occasion} --- CultureHub shortlist email received 23 July 2026 and
+calendar invitation received 24 July 2026. Private correspondence; not
+reproduced here.
+
+\normalsize
+\vspace{0.9em}
+\noindent\rule{\textwidth}{0.5pt}\par
+\vspace{0.45em}
+{\footnotesize\color{acgray}
+Prepared for Jeffrey Alan Scudder (\href{https://prompt.ac/@jeffrey}{@jeffrey}) ·
+Aesthetic Computer · 28 July 2026. Private working artifact. Claims marked
+\soft{verify} require confirmation in the room.}
+
+\end{document}

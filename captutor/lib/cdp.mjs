@@ -280,6 +280,33 @@ export class Session {
     }
   }
 
+  /// Live bounding box for presentation-aware pointer choreography. Unlike a
+  /// remembered click point, this lets the native cursor acknowledge the whole
+  /// control it just chose (for example by orbiting a node-result card).
+  async bounds(selector, { waitMs = 10000 } = {}) {
+    const elementExpression = selector.startsWith("js=")
+      ? `(${selector.slice(3)})`
+      : selector.startsWith("text=")
+      ? `([...document.querySelectorAll('button,[role=button],a,[role=option],[role=menuitem]')]
+          .find((element) => ((element.innerText || '').trim().toLowerCase())
+            .startsWith(${JSON.stringify(selector.slice(5).toLowerCase())})))`
+      : `document.querySelector(${JSON.stringify(selector)})`;
+    const expression = `(() => {
+      const element=${elementExpression};
+      if (!element) return null;
+      const rect=element.getBoundingClientRect();
+      return { x:rect.left, y:rect.top, width:rect.width, height:rect.height,
+        cx:rect.left + rect.width / 2, cy:rect.top + rect.height / 2 };
+    })()`;
+    const deadline = Date.now() + waitMs;
+    for (;;) {
+      const rect = await this.eval(expression);
+      if (rect?.width > 0 && rect?.height > 0) return rect;
+      if (Date.now() > deadline) throw new Error(`no element bounds: ${selector}`);
+      await new Promise((resolve) => setTimeout(resolve, 120));
+    }
+  }
+
   async mouse(type, x, y, button = "left") {
     await this.send("Input.dispatchMouseEvent", {
       type, x, y, button,
@@ -352,12 +379,31 @@ export class Session {
         'button,a,input,textarea,select,[role=button],[role=option],[role=menuitem],[role=dialog]'
       )].filter(visible).slice(0, 180).map(describe);
       const nodes = [...document.querySelectorAll('.react-flow__node')]
-        .filter(visible).map((node) => ({
+        .map((node) => {
+          const nodeBox = box(node);
+          // Fuser's editable node title exposes its real name through the
+          // textbox aria-label. Prefer that semantic hook over the first leaf:
+          // collaborator/avatar leaves such as "I" can otherwise masquerade
+          // as the title and poison off-screen/layout telemetry.
+          const accessibleTitle = [...node.querySelectorAll('[role="textbox"][aria-label]')]
+            .find((element) => clean(element.getAttribute('aria-label'), 80).length > 1);
+          const title = accessibleTitle || [...node.querySelectorAll('*')].find((element) =>
+            element.children.length === 0 && clean(element.textContent, 80).length > 1);
+          const titleBox = title ? box(title) : null;
+          const titleText = accessibleTitle
+            ? clean(accessibleTitle.getAttribute('aria-label'), 80)
+            : (title ? clean(title.textContent, 80) : '');
+          return {
           id: node.getAttribute('data-id') || node.id || '',
           type: [...node.classList].find((name) => name.startsWith('react-flow__node-'))
             ?.replace('react-flow__node-', '') || '',
           text: clean(node.innerText || node.textContent, 220),
-          rect: box(node),
+          rect: nodeBox,
+          visible: visible(node),
+          title: titleText,
+          titleRect: titleBox,
+          titleOnscreen: Boolean(titleBox && titleBox.cx >= 0 && titleBox.cy >= 0 &&
+            titleBox.cx <= innerWidth && titleBox.cy <= innerHeight),
           handles: [...node.querySelectorAll('.react-flow__handle')].filter(visible).map((handle) => ({
             id: handle.getAttribute('data-handleid') || handle.getAttribute('data-nodeid') || '',
             kind: handle.classList.contains('source') ? 'source'
@@ -366,7 +412,7 @@ export class Session {
             ariaLabel: clean(handle.getAttribute('aria-label')),
             rect: box(handle),
           })),
-        }));
+        }; });
       const focus = document.activeElement && document.activeElement !== document.body
         ? describe(document.activeElement) : null;
       return {
@@ -382,10 +428,57 @@ export class Session {
           present: Boolean(document.querySelector('.react-flow')),
           nodeCount: nodes.length,
           edgeCount: document.querySelectorAll('.react-flow__edge').length,
+          viewportTransform:getComputedStyle(
+            document.querySelector('.react-flow__viewport') || document.documentElement,
+          ).transform,
+          zoomLabel:[...document.querySelectorAll('button')]
+            .map((button) => (button.innerText || '').trim())
+            .find((text) => /^\\d+\\s*%$/.test(text)) || '',
           nodes,
         },
       };
     })()`);
+  }
+
+  // DOM-backed half of Frame's wanderer/wiggler. Pixel diffs reveal that a
+  // surface changed; this records why it is actionable: the hit-test stack,
+  // computed cursor, role/label, and React Flow ownership at every no-click
+  // probe. The caller can persist the returned atlas with a failure receipt.
+  async explore(points, { settleMs = 100 } = {}) {
+    const probes = [];
+    for (const raw of points) {
+      const x = Math.round(Number(raw.x));
+      const y = Math.round(Number(raw.y));
+      if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
+      await this.send("Input.dispatchMouseEvent", {
+        type:"mouseMoved", x, y, button:"none", buttons:0,
+      });
+      await new Promise((resolve) => setTimeout(resolve, settleMs));
+      const evidence = await this.eval(`(() => {
+        const x=${x}, y=${y};
+        const clean=(value)=>String(value || '').replace(/\\s+/g, ' ').trim().slice(0, 100);
+        return {
+          x, y,
+          stack:document.elementsFromPoint(x, y).slice(0, 8).map((element) => {
+            const style=getComputedStyle(element);
+            const node=element.closest('.react-flow__node');
+            return {
+              tag:element.tagName.toLowerCase(),
+              role:element.getAttribute('role') || '',
+              text:clean(element.innerText || element.textContent),
+              ariaLabel:clean(element.getAttribute('aria-label')),
+              cursor:style.cursor,
+              pointerEvents:style.pointerEvents,
+              nodeId:node?.getAttribute('data-id') || '',
+              nodeType:node ? [...node.classList].find((name) =>
+                name.startsWith('react-flow__node-'))?.replace('react-flow__node-', '') || '' : '',
+            };
+          }),
+        };
+      })()`);
+      probes.push(evidence);
+    }
+    return { schema:"captutor-dom-hover-atlas/v1", probes };
   }
 
   // Page.captureScreenshot reads the compositor invisibly. Unlike fleet Frame,

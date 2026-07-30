@@ -22,9 +22,11 @@ private struct CardState: Decodable, Equatable {
     let title: String?
     let subtitle: String?
     let footer: String?
+    let showMark: Bool?
 
     static let ambient = CardState(
-        phase: "ambient", kicker: nil, title: nil, subtitle: nil, footer: nil
+        phase: "ambient", kicker: nil, title: nil, subtitle: nil, footer: nil,
+        showMark: nil
     )
 }
 
@@ -339,7 +341,7 @@ private final class MetaballRenderer {
         multisampleTexture = nil
         let logoScale = min(max(bounds.width / 1280, 0.78), 1.30) * renderScale
         instances = specs.enumerated().map { index, spec in
-            let opacity: Float = spec.2 > 100 ? 0.72 : 0.58
+            let opacity: Float = spec.2 > 100 ? 0.72 : (spec.2 > 60 ? 0.58 : 0.48)
             return MetaballInstance(
                 placement: SIMD4(Float(spec.0), Float(spec.1), Float(spec.2 * logoScale), opacity),
                 motion: SIMD4(Float(spec.3), Float(spec.4), Float(spec.5 * renderScale),
@@ -591,7 +593,7 @@ private final class FuserDimensionalView: NSView {
         let variant: Int
     }
 
-    private static let specs = [
+    private static let anchorSpecs = [
         // A fixed staggered 4×4 field. Small phase offsets soften the rows while
         // the shared 48-second rise keeps every protected gap invariant.
         MarkSpec(x: 0.07, phase: 0.04, size: 138, riseSeconds: 48, turnSeconds: 25, sway: 12, variant: 0),
@@ -614,6 +616,33 @@ private final class FuserDimensionalView: NSView {
         MarkSpec(x: 0.68, phase: 0.77, size: 64, riseSeconds: 48, turnSeconds: 20, sway: 9, variant: 2),
         MarkSpec(x: 0.93, phase: 0.81, size: 126, riseSeconds: 48, turnSeconds: 29, sway: 12, variant: 0),
     ]
+
+    // The browser deliberately owns most of the Stage, leaving only narrow
+    // bands of wallpaper visible. A sparse field therefore reads as random
+    // blobs instead of Fuser. Keep the sixteen large anchors above, then add a
+    // deterministic constellation of small complete marks: enough of the
+    // twelve-node silhouette is always visible around the window to make the
+    // identity instantly legible without competing with the tutorial.
+    private static let microSpecs: [MarkSpec] = (0..<96).map { index in
+        let column = index % 16
+        let row = index / 16
+        let jitter = CGFloat((index * 7) % 11) / 11 - 0.5
+        let x = (CGFloat(column) + 0.5 + jitter * 0.42) / 16
+        let phase = (CGFloat(row) / 6
+                     + CGFloat((index * 13) % 29) / 29 * 0.12)
+            .truncatingRemainder(dividingBy: 1)
+        return MarkSpec(
+            x: x,
+            phase: phase,
+            size: CGFloat(18 + (index * 5) % 19),
+            riseSeconds: TimeInterval(34 + (index * 3) % 15),
+            turnSeconds: TimeInterval(9 + (index * 5) % 12),
+            sway: CGFloat(3 + (index * 2) % 6),
+            variant: index % 3
+        )
+    }
+
+    private static let specs = anchorSpecs + microSpecs
 
     private let background = CAGradientLayer()
     private let glowA = CAGradientLayer()
@@ -806,6 +835,7 @@ private final class FuserDimensionalView: NSView {
         cardPayload = data
         card = decoded
         cardTitle.string = decoded.title ?? ""
+        cardMark.opacity = decoded.showMark == false ? 0 : 1
         CATransaction.begin()
         CATransaction.setAnimationDuration(0.48)
         ambient.opacity = decoded.phase == "ambient" ? 1 : 0.10

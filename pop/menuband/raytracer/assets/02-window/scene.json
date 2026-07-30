@@ -1,0 +1,10 @@
+{
+  "id": "02-window",
+  "duration": 60,
+  "scoreWidth": 2048,
+  "scoreHeight": 8400,
+  "keyboardWidth": 2048,
+  "keyboardHeight": 140,
+  "scorePath": "pop/menuband/out/menu-band-waltzes/02-window/02-window.notes.json",
+  "notes": 270
+}

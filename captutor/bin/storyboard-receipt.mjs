@@ -1,13 +1,15 @@
 #!/usr/bin/env node
 // Build a /papers-style visual receipt from an accepted MP4 + Captutor trace.
 
-import { execFileSync, spawnSync } from "node:child_process";
+import { execFileSync, spawn, spawnSync } from "node:child_process";
 import {
   existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { pathToFileURL } from "node:url";
+import { setTimeout as delay } from "node:timers/promises";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
@@ -48,6 +50,37 @@ function escapeTex(value) {
     .replaceAll("}", "\\}").replaceAll("~", "\\textasciitilde{}")
     .replaceAll("^", "\\textasciicircum{}")
     .replaceAll("→", "\\ensuremath{\\rightarrow}");
+}
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+function imageData(path) {
+  return `data:image/jpeg;base64,${readFileSync(path).toString("base64")}`;
+}
+
+function commandWorks(file) {
+  const result = spawnSync(file, ["--version"], { encoding:"utf8" });
+  return !result.error && result.status === 0;
+}
+
+function findChrome() {
+  const candidates = [
+    process.env.CAPTUTOR_CHROME,
+    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+    "/Applications/Chromium.app/Contents/MacOS/Chromium",
+    "google-chrome",
+    "chromium",
+    "chromium-browser",
+  ].filter(Boolean);
+  return candidates.find((candidate) =>
+    (candidate.startsWith("/") ? existsSync(candidate) : commandWorks(candidate))) || null;
 }
 
 const usesDevanagari = /^hi(?:-|$)/i.test(story.locale || "");
@@ -279,10 +312,148 @@ ${beatPages}
 const texPath = join(work, "receipt.tex");
 writeFileSync(texPath, tex);
 mkdirSync(dirname(out), { recursive:true });
-for (let pass = 0; pass < 2; pass += 1) {
-  run("xelatex", ["-interaction=nonstopmode", "-halt-on-error", "-output-directory", work, texPath]);
-}
 const built = join(work, "receipt.pdf");
-writeFileSync(out, readFileSync(built));
-console.log(JSON.stringify({ out, accepted, validations:validations.map(([name, pass]) => ({ name, pass })) }, null, 2));
-rmSync(work, { recursive:true, force:true });
+const requestedEngine = process.env.CAPTUTOR_RECEIPT_ENGINE || "auto";
+const hasXelatex = commandWorks("xelatex");
+let engine = requestedEngine === "auto" ? (hasXelatex ? "xelatex" : "chrome") : requestedEngine;
+
+async function buildWithChrome() {
+  const chrome = findChrome();
+  if (!chrome) {
+    throw new Error("receipt needs xelatex or Google Chrome/Chromium; neither is available");
+  }
+  const validationRows = validations.map(([name, pass, evidence]) => `
+    <tr><td class="mark ${pass ? "pass" : "fail"}">${pass ? "✓" : "×"}</td>
+      <th>${escapeHtml(name)}</th><td>${escapeHtml(evidence)}</td></tr>`).join("");
+  const cardBlocks = storyboardCards.map((card, index) => `
+    <figure><img src="${imageData(card.frame)}" alt="${escapeHtml(card.role || `card ${index + 1}`)}">
+      <figcaption>${escapeHtml((card.role === "opening"
+        ? receiptEnglish?.openingCard?.title
+        : receiptEnglish?.closingCard?.title) || card.card?.title || "Concept card")}</figcaption></figure>`).join("");
+  const beatBlocks = beatFrames.map((beat) => {
+    const english = englishBeat(beat);
+    const eventText = beat.event
+      ? `${beat.event.kind} at ${beat.event.atSec.toFixed(2)}s`
+      : "timed narration frame";
+    return `<section class="page beat">
+      <header><h1>Beat ${beat.index + 1}</h1><time>${beat.at.toFixed(2)}s</time></header>
+      <img class="evidence" src="${imageData(beat.frame)}" alt="Frame evidence for beat ${beat.index + 1}">
+      <dl>
+        <dt>English</dt><dd>${escapeHtml(english?.narration || beat.narration)}</dd>
+        ${nonEnglish ? `<dt>Caption (${escapeHtml(story.locale)})</dt><dd>${escapeHtml(beat.narration)}</dd>` : ""}
+        <dt>Logic</dt><dd>${escapeHtml(english?.logic || beat.logic || "—")}</dd>
+        <dt>Cursor</dt><dd>${escapeHtml(english?.cursorIntent || beat.cursorIntent || "—")}</dd>
+        <dt>Trace</dt><dd>${escapeHtml(eventText)}</dd>
+      </dl>
+    </section>`;
+  }).join("");
+  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8">
+    <title>${escapeHtml(englishTitle)} — storyboard receipt</title>
+    <style>
+      @page { size: letter; margin: 0.55in 0.62in; }
+      * { box-sizing: border-box; }
+      body { margin: 0; color: #282430; font: 12px/1.35 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      .page { break-after: page; min-height: 9.8in; }
+      .page:last-child { break-after: auto; }
+      h1, h2, p { margin: 0; }
+      .cover > header { text-align: center; border-bottom: 2px solid #b44887; padding: 0.2in 0 0.18in; }
+      .cover h1 { font-size: 28px; line-height: 1.05; }
+      .subtitle { color: #6e6a74; font-size: 16px; margin-top: 6px; }
+      .meta { color: #6e6a74; margin-top: 8px; }
+      .verdict { color: ${accepted ? "#1f8b55" : "#c03741"}; font-size: 22px; font-weight: 800; text-align: center; margin: 18px 0 12px; }
+      table { border-collapse: collapse; width: 100%; }
+      th, td { border-bottom: 1px solid #ddd9e1; padding: 5px 7px; text-align: left; vertical-align: top; }
+      th { width: 27%; }
+      .mark { width: 24px; font-size: 16px; font-weight: 800; }
+      .pass { color: #1f8b55; } .fail { color: #c03741; }
+      h2 { font-size: 16px; margin: 16px 0 7px; }
+      .cards { display: flex; gap: 12px; }
+      figure { flex: 1; margin: 0; }
+      figure img { display: block; width: 100%; max-height: 2.05in; object-fit: contain; border: 1px solid #ddd9e1; }
+      figcaption { color: #6e6a74; margin-top: 4px; }
+      .media { display: grid; grid-template-columns: max-content 1fr max-content 1fr; gap: 4px 10px; }
+      .media b { color: #6e6a74; }
+      .beat header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 12px; }
+      .beat h1 { font-size: 24px; }
+      .beat time { color: #6e6a74; font-size: 14px; }
+      .evidence { display: block; width: 100%; height: 5.15in; object-fit: contain; border: 1px solid #ddd9e1; background: #111; }
+      dl { display: grid; grid-template-columns: 0.75in 1fr; gap: 5px 9px; margin: 13px 0 0; }
+      dt { color: #6e6a74; font-weight: 700; } dd { margin: 0; }
+    </style></head><body>
+    <section class="page cover"><header><h1>${escapeHtml(englishTitle)}</h1>
+      <p class="subtitle">${escapeHtml(englishSubtitle)}</p>
+      <p class="meta">${escapeHtml(story.locale)} · ${escapeHtml(story.format)} · ${escapeHtml(basename(video))}</p></header>
+      <p class="verdict">${accepted ? "ACCEPTED" : "REVIEW REQUIRED"}</p>
+      <table><tbody>${validationRows}</tbody></table>
+      <h2>Programmed cards</h2><div class="cards">${cardBlocks || "No signboard events recorded."}</div>
+      <h2>Media receipt</h2><div class="media">
+        <b>Resolution</b><span>${videoStream?.width}×${videoStream?.height}</span>
+        <b>Duration</b><span>${duration.toFixed(2)} s</span>
+        <b>Video</b><span>${escapeHtml(videoStream?.codec_name)} ${escapeHtml(videoStream?.r_frame_rate)}</span>
+        <b>Audio</b><span>${escapeHtml(audioStream?.codec_name)} ${escapeHtml(audioStream?.sample_rate)} Hz</span>
+        <b>Beats</b><span>${story.beats.length}</span><b>Trace events</b><span>${story.events.length}</span>
+      </div></section>${beatBlocks}</body></html>`;
+  const htmlPath = join(work, "receipt.html");
+  writeFileSync(htmlPath, html);
+  const child = spawn(chrome, [
+    "--headless=new", "--disable-gpu", "--disable-dev-shm-usage",
+    `--user-data-dir=${join(work, "chrome-profile")}`,
+    "--no-pdf-header-footer", `--print-to-pdf=${built}`,
+    pathToFileURL(htmlPath).href,
+  ], { stdio:["ignore", "ignore", "pipe"] });
+  let stderr = "";
+  let exited = false;
+  child.stderr.on("data", (chunk) => {
+    stderr = (stderr + chunk).slice(-8_000);
+  });
+  child.once("exit", () => { exited = true; });
+
+  // Chrome on macOS can finish --print-to-pdf yet retain an idle browser
+  // process. Treat a stable, valid PDF as completion and reap only the
+  // isolated process that owns this receipt's temporary profile.
+  const deadline = Date.now() + 30_000;
+  let lastSize = -1;
+  let stableReads = 0;
+  while (Date.now() < deadline) {
+    if (existsSync(built)) {
+      const bytes = readFileSync(built);
+      if (bytes.length > 1_000 && bytes.subarray(0, 4).toString() === "%PDF") {
+        stableReads = bytes.length === lastSize ? stableReads + 1 : 0;
+        lastSize = bytes.length;
+        if (stableReads >= 2) break;
+      }
+    }
+    if (exited && !existsSync(built)) break;
+    await delay(120);
+  }
+  const valid = existsSync(built) && readFileSync(built).length > 1_000 &&
+    readFileSync(built).subarray(0, 4).toString() === "%PDF";
+  if (!exited) {
+    child.kill("SIGTERM");
+    for (let wait = 0; wait < 10 && !exited; wait += 1) await delay(100);
+    if (!exited) child.kill("SIGKILL");
+  }
+  if (!valid) {
+    throw new Error(`Chrome receipt build failed: ${stderr || "no valid PDF was written"}`);
+  }
+}
+
+try {
+  if (engine === "xelatex") {
+    if (!hasXelatex) throw new Error("CAPTUTOR_RECEIPT_ENGINE=xelatex but xelatex is unavailable");
+    for (let pass = 0; pass < 2; pass += 1) {
+      run("xelatex", ["-interaction=nonstopmode", "-halt-on-error", "-output-directory", work, texPath]);
+    }
+  } else if (engine === "chrome") {
+    await buildWithChrome();
+  } else {
+    throw new Error(`unknown receipt engine: ${engine}`);
+  }
+  writeFileSync(out, readFileSync(built));
+  console.log(JSON.stringify({
+    out, accepted, engine,
+    validations:validations.map(([name, pass]) => ({ name, pass })),
+  }, null, 2));
+} finally {
+  rmSync(work, { recursive:true, force:true });
+}

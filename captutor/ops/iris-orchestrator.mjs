@@ -19,6 +19,10 @@ import https from "node:https";
 import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import {
+  classifyAssignedTask, nextRunnableTask, prioritySort, readMissionApproval, readMissionReceipt,
+  shouldPreempt, unresolvedBlockingTask,
+} from "./iris-mission-policy.mjs";
 
 const H = homedir();
 const DIR = join(H, ".hermes");
@@ -36,8 +40,10 @@ const FUSER = process.env.FUSER_REPO || join(H, "Developer", "fuser");
 const CAPTUTOR = process.env.CAPTUTOR_HOME || join(H, "Developer", "captutor");
 const OUTBOX = process.env.CAPTUTOR_OUTBOX || join(H, "Desktop", "outbox");
 const DESK_CLEANUP = process.env.IRIS_DESK_CLEANUP || join(H, ".local", "bin", "iris-desk-cleanup");
-const WORKER_RUN = join(DIR, "bin", "worker-run.sh");
+const WORKER_RUN = process.env.IRIS_WORKER_RUN || join(DIR, "bin", "worker-run.sh");
 const WORKTREES = join(DIR, "worktrees");
+const RECEIPTS = join(DIR, "receipts");
+const APPROVALS = process.env.IRIS_MISSION_APPROVALS || join(DIR, "mission-approvals.json");
 const GH_ENV = { ...process.env, GH_CONFIG_DIR: join(H, ".config", "gh-iris") };
 const BASE_REF = process.env.ORCH_BASE_REF || "origin/staging";
 const POLL_MS = parseInt(process.env.ORCH_POLL_MS || "60000", 10);
@@ -85,14 +91,13 @@ async function assignedTasks() {
   if (j.errors) throw new Error(j.errors[0]?.message || "asana error");
   return (j.data || []).filter((t) => !t.completed).map((t) => {
     const tags = (t.tags || []).map((tag) => String(tag.name || "").toLowerCase());
-    return {
+    return classifyAssignedTask({
       gid: t.gid,
       name: t.name || "(untitled)",
       notes: t.notes || "",
       url: t.permalink_url || null,
       tags,
-      kind: tags.includes("mission") && tags.includes("captutor") ? "captutor" : "pr",
-    };
+    });
   });
 }
 
@@ -286,6 +291,8 @@ function writeMission(active, tasks, done) {
   // Completed work stays in orchestrator state for audit/deduplication, but an
   // idle mission should actually look clear instead of carrying old trophies.
   const remaining = tasks.filter((t) => !done[t.gid]);
+  const blocking = tasks.find((t) => t.priority === "blocking"
+    && done?.[t.gid]?.status !== "done");
   const recent = active || tasks.length ? Object.values(done).slice(-2) : [];
   for (const d of recent) items.push({
     text: `${d.name} (${d.status === "failed" ? "needs attention" : d.kind === "captutor" ? "rendered" : "shipped"})`,
@@ -299,8 +306,11 @@ function writeMission(active, tasks, done) {
     lastHeartbeat,
     heartbeatIntervalSeconds:300,
   } : {
-    mission: active?.kind === "captutor" ? "rendering a product demo"
+    mission: active?.kind === "mission" ? `blocking recovery on ${active.executionHost}`
+      : active?.kind === "captutor" ? "rendering a product demo"
       : active ? "working PRs (one at a time)"
+      : blocking && done?.[blocking.gid]?.status === "failed" ? "blocking recovery needs heartbeat"
+      : blocking ? "blocking recovery queued"
       : recent.some((d) => d.status === "failed") ? "mission needs attention"
       : remaining.some((t) => t.kind === "captutor") ? "product demos queued"
       : remaining.length ? "queued PRs" : "idle — no assigned tasks",
@@ -368,12 +378,65 @@ async function reviewPass(s, assigned) {
   return false;
 }
 
+async function acceptMissionReceipt(s, task, receipt) {
+  log(`blocking mission ${task.name} completed with verified receipt`);
+  await asanaComment(task.gid,
+    `iris completed the blocking recovery on ${receipt.executionHost}. Repaired candidate: ${receipt.candidateAssetId}. Owner project: ${receipt.ownerHandoff.projectId}. Original preserved: yes. Chunked resources verified: yes.`);
+  await asanaComplete(task.gid);
+  await slack(`✅ completed blocking mission *${task.name}* on ${receipt.executionHost}.`);
+  s.done[task.gid] = { name:task.name, kind:"mission", status:"done", receipt, at:Date.now() };
+  s.priorityMission = { ...s.priorityMission, status:"complete", updatedAt:Date.now() };
+  delete s.recovery;
+}
+
 async function tick() {
   if (!ASANA) { log("no ASANA token"); return; }
   let tasks;
-  try { tasks = await assignedTasks(); } catch (e) { log("asana poll err: " + e.message); return; }
+  try { tasks = prioritySort(await assignedTasks()); } catch (e) { log("asana poll err: " + e.message); return; }
   const assigned = new Set(tasks.map((t) => t.gid));
   const s = loadState();
+  const blocking = unresolvedBlockingTask(tasks, s.done);
+  if (blocking) {
+    const previous = s.priorityMission?.taskGid === blocking.gid ? s.priorityMission : {};
+    const status = s.active?.taskGid === blocking.gid ? "active"
+      : s.done?.[blocking.gid]?.status === "failed" ? "failed" : "queued";
+    s.priorityMission = {
+      ...previous,
+      taskGid:blocking.gid, missionId:blocking.missionId, name:blocking.name,
+      priority:"blocking", executionHost:blocking.executionHost,
+      status,
+      updatedAt:previous.status === status ? Number(previous.updatedAt || Date.now()) : Date.now(),
+    };
+  } else if (s.priorityMission && s.done?.[s.priorityMission.taskGid]?.status === "done") {
+    s.priorityMission.status = "complete";
+    s.priorityMission.updatedAt = Date.now();
+  }
+
+  // A resumed worker or asynchronous browser operation can land its verified
+  // receipt after the original print-mode worker has exited. Accept that late
+  // receipt before heartbeat retry/exhaustion logic keeps the mission parked.
+  if (!s.active && blocking && s.done?.[blocking.gid]?.status === "failed") {
+    try {
+      const receipt = readMissionReceipt(RECEIPTS, blocking);
+      if (receipt) {
+        await acceptMissionReceipt(s, blocking, receipt);
+        saveState(s);
+        writeMission(null, tasks, s.done);
+        return;
+      }
+    } catch (error) {
+      log(`late mission receipt rejected: ${error.message}`);
+    }
+  }
+
+  if (shouldPreempt(s.active, blocking)) {
+    log(`blocking mission ${blocking.name} preempts ${s.active.name}`);
+    stopActiveWorker(s.active);
+    releaseActiveWorkspace(s.active);
+    await slack(`🛑 parked *${s.active.name}* — blocking mission *${blocking.name}* takes priority.`);
+    s.active = null;
+    saveState(s);
+  }
 
   // Guardrail: active task unassigned → stand down. (Review-fix items carry the
   // taskGid they were gated on; a plain item with no taskGid is skipped here.)
@@ -388,7 +451,38 @@ async function tick() {
   // Progress the active work. For a review fix the PR already exists, so
   // completion is the worker finishing (not a PR appearing).
   if (s.active) {
-    if (s.active.kind === "captutor") {
+    if (s.active.kind === "mission") {
+      const exit = workerExit(s.active.log);
+      if (exit !== null) {
+        let receipt = null;
+        let receiptError = "worker did not produce a valid mission receipt";
+        if (exit === 0) {
+          try { receipt = readMissionReceipt(RECEIPTS, s.active); }
+          catch (error) { receiptError = error.message; }
+        }
+        if (receipt) {
+          await acceptMissionReceipt(s, s.active, receipt);
+        } else {
+          const detail = exit === 0 ? receiptError : `worker exited ${exit}`;
+          log(`blocking mission ${s.active.name} failed: ${detail}`);
+          await asanaComment(s.active.taskGid,
+            `iris has not completed this blocking mission: ${detail}. The heartbeat will bump it before lower-priority work can resume. Log: ${s.active.log}`);
+          await slack(`⚠️ blocking mission *${s.active.name}* needs another pass — heartbeat recovery is armed.`);
+          s.done[s.active.taskGid] = {
+            name:s.active.name, kind:"mission", priority:"blocking", status:"failed",
+            reason:"missing-mission-receipt", detail, executionHost:s.active.executionHost,
+            log:s.active.log, at:Date.now(),
+          };
+          s.priorityMission = { ...s.priorityMission, status:"failed", updatedAt:Date.now() };
+        }
+        s.active = null;
+        saveState(s);
+      } else if (Date.now() - s.active.startedAt > STALL_MS && !s.active.stallNoted) {
+        await progressSlack(`⏳ blocking mission *${s.active.name}* has been active ${Math.round((Date.now() - s.active.startedAt) / 60000)}m; heartbeat bump is armed.`);
+        s.active.stallNoted = true;
+        saveState(s);
+      }
+    } else if (s.active.kind === "captutor") {
       const exit = workerExit(s.active.log);
       if (exit !== null) {
         const deliveries = exit === 0
@@ -499,29 +593,73 @@ async function tick() {
   // Watch iris's open PRs for teammate feedback and (gated) address it before
   // starting new work — a requested change on an in-flight PR outranks a fresh
   // task. Notify-only until ORCH_REVIEW_AUTOFIX is on.
-  if (!s.active) { try { await reviewPass(s, assigned); } catch (e) { log("reviewPass err: " + e.message); } }
+  if (!s.active && !blocking) { try { await reviewPass(s, assigned); } catch (e) { log("reviewPass err: " + e.message); } }
 
   // Pick up the next assigned task (one at a time).
   if (!s.active) {
-    const next = tasks.find((t) => !s.done[t.gid]);
+    const next = nextRunnableTask(tasks, s.done, s.active);
     if (next) {
       const name = `${slug(next.name)}-${next.gid.slice(-6)}`;
       const logf = join(DIR, "logs", `worker-${name}.log`);
       const promptFile = join(DIR, `worker-${name}.prompt`);
+      if (next.kind === "mission") {
+        if (next.priority !== "blocking") throw new Error("operational missions must declare blocking priority");
+        if (!next.executionHost) throw new Error("operational mission requires EXECUTION_HOST");
+        if (!next.approvedBy) throw new Error("operational mission requires APPROVED_BY");
+        const approval = readMissionApproval(APPROVALS, next);
+        if (!approval) throw new Error(`operational mission requires independent approval in ${APPROVALS}`);
+        mkdirSync(RECEIPTS, { recursive:true });
+        const receiptPath = join(RECEIPTS, `${next.gid}.json`);
+        const prompt =
+          `Execute this approved blocking Fuser recovery mission end to end. Do not edit code, create a branch, commit, push, or open a PR.\n\n` +
+          `Task: ${next.name}\n${next.notes ? next.notes + "\n" : ""}${next.url ? "Asana: " + next.url + "\n" : ""}\n` +
+          `Independent operator approval was validated outside Asana from ${APPROVALS}: ` +
+          `${approval.approvedBy} at ${approval.approvedAt}. This is an approved production UI recovery on Chicken, not development on Chicken. ` +
+          `All live Fuser inspection and action must occur on ${next.executionHost}; do not use Panda or Neo's browser. ` +
+          `Use the existing Frame/Puppet MCP target for that machine. Preserve the original app and project. ` +
+          `Use Repair App to create a fresh review candidate through the deployed chunked-resource path; do not reuse an incomplete historical fork. ` +
+          `Inspect the candidate before approving the owner handoff. Verify the original still exists unchanged, connected resources load from the copied deployed bundle, and the new owner project is a private draft. ` +
+          `Do not mark Asana complete yourself. On success, write ${receiptPath} as JSON with schema iris-mission-receipt/v1, ` +
+          `taskGid, missionId, status=complete, executionHost, originalAssetId, originalPreserved=true, ` +
+          `chunkedResourceVerified=true, candidateAssetId, and ownerHandoff={approved:true,projectId}. ` +
+          `If any invariant cannot be verified, write no receipt, report the exact blocker, and exit nonzero.`;
+        try {
+          s.active = {
+            gid:next.gid, taskGid:next.gid, missionId:next.missionId, name:next.name,
+            kind:"mission", priority:"blocking", executionHost:next.executionHost,
+            originalAssetId:next.originalAssetId, cwd:FUSER, log:logf,
+            startedAt:Date.now(),
+          };
+          s.priorityMission = { ...s.priorityMission, status:"active", updatedAt:Date.now() };
+          saveState(s);
+          try { writeFileSync(logf, ""); } catch {}
+          s.active.pid = launchWorker(FUSER, logf, prompt, promptFile, {
+            IRIS_MISSION_RECEIPT:receiptPath,
+          });
+          saveState(s);
+          log(`launched blocking mission ${next.name} for ${next.executionHost}`);
+          await progressSlack(`🛡️ starting blocking mission *${next.name}* on ${next.executionHost}; lower-priority work is parked.`);
+        } catch (e) { log("blocking mission spawn err: " + e.message); }
+        writeMission(s.active, tasks, s.done);
+        return;
+      }
       if (next.kind === "captutor") {
         const expectedFormats = captutorExpectedFormats(next.notes);
         const prompt =
           `Execute this assigned Captutor product-demo mission end to end on Panda. DO NOT edit the Fuser repo, create a branch, commit, push, or open a PR.\n\n` +
           `Task: ${next.name}\n${next.notes ? next.notes + "\n" : ""}${next.url ? "Asana: " + next.url + "\n" : ""}\n` +
           `You are already in the current Captutor workspace. Read README.md first. Verify the recorder, GUI Chrome/CDP session, login, and credits as applicable. ` +
-          `For UI pathfinding, use the bounded internal frame (\`CDP_PORT=9333 node bin/cdp-frame.mjs --match fuser.studio\`, optionally with \`--screenshot /tmp/preflight.png\`). ` +
-          `It returns controls plus React Flow nodes/handles/edges without visible tooling and closes CDP cleanly; do not write ad-hoc attach scripts or repeatedly map unrelated UI. ` +
-          `Keep the filmed interaction on Fuser's canvas. Treat the right-side node properties inspector as off-camera setup only: close it before Reel and do not open it during a take unless the task explicitly teaches that inspector. ` +
+          `Before pathfinding, run \`node bin/app-intelligence.mjs verify fuser --source ~/Developer/fuser\`; do not guess a covered Fuser term, selector, or behavior when the source contract fails. ` +
+          `For UI pathfinding, use the semantic frame (\`CDP_PORT=9333 node bin/fuser-frame.mjs --locale ${next.notes?.match(/CAPTUTOR_LOCALE:\s*([^\s]+)/)?.[1] || "en"} --compact\`, optionally with \`--screenshot /tmp/preflight.png --infer\`). ` +
+          `It combines controls, React Flow topology, interaction-zone geometry, localized vocabulary, source-backed intent, and confidence without visible tooling; do not write ad-hoc attach scripts or repeatedly map unrelated UI. ` +
+          `Keep the filmed interaction on Fuser's canvas. Treat the right-side Properties panel as off-camera setup only: close it before Reel and do not open it during a take unless the task explicitly teaches Properties. ` +
           `Before Stage, verify System Events Accessibility and the SlabMenubar recording bridge. If macOS presents an in-scope System Settings, Accessibility, Automation, or Screen Recording permission prompt, approve it off camera and verify the grant before continuing; never film a permission dialog. ` +
           `Run Captutor in the FOREGROUND. Invoke the Stage render as a direct foreground child of this worker with a long enough shell timeout. Do not use Monitor, a subagent, a background job, nohup, or a scheduled check-in for the render; remain attached until the command exits and the required outbox files have been verified. ` +
           `Pathfind on the ordinary desktop, but perform every actual take in Captutor's true 2x HiDPI Stage. Render with \`node bin/stage.mjs render <screenplay> --outbox "$CAPTUTOR_OUTBOX"\`; never invoke \`captutor.mjs render\` directly for a mission. ` +
           `The environment already sets CAPTUTOR_TASK_GID and CAPTUTOR_REQUIRE_HIDPI for this task, and Captutor will refuse to start Reel unless Stage and its real 2x display geometry are active. ` +
           `Success means Captutor writes a complete captutor-outbox/v1 manifest plus its MP4 and VTT for every requested format to the outbox. ` +
+          `After inspecting every requested format, print CAPTUTOR_MISSION_ACCEPTED on a line by itself only when every acceptance condition passes. ` +
+          `The worker wrapper treats a missing sentinel as failure even when files exist. Do not print it while explaining a blocker. ` +
           `Do not substitute an old render. If blocked, explain the exact blocker and exit nonzero.`;
         try {
           if (!existsSync(CAPTUTOR)) throw new Error(`missing Captutor workspace: ${CAPTUTOR}`);

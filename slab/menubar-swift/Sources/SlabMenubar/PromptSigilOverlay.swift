@@ -8,8 +8,8 @@
 // id + current prompt, so the stone re-forms whenever the session moves on to a
 // new prompt. Its MOTION is the status channel — spin speed and direction say
 // working / awaiting / complete, and a poke from a peer makes it blink and
-// rattle. It carries a pet name in bubble lettering, and pointing at it
-// reveals a slowly evolving account of the session.
+// rattle. It carries a pet name in bubble lettering; pointing wakes its
+// seeded percussion voice, and clicking reveals the inferred session summary.
 //
 // Each rock is a borderless, click-through companion surface one level above
 // ordinary application windows. It can never fall behind its own terminal when
@@ -338,6 +338,48 @@ final class PlatformTargetAwarenessIdentifierBadgeView: NSView {
     }
 }
 
+/// Mouse surface paired with a visually separate, click-through prompt rock.
+/// Keeping interaction in its own transparent panel means AppKit can provide
+/// a real cursor rect and first-click delivery without making the rendered
+/// companion window steal focus from Terminal.
+final class PromptRockInteractionView: NSView {
+    var onHoverChange: ((Bool) -> Void)?
+    var onClick: (() -> Void)?
+    private var tracking: NSTrackingArea?
+
+    override func updateTrackingAreas() {
+        if let tracking { removeTrackingArea(tracking) }
+        let next = NSTrackingArea(
+            rect: bounds,
+            options: [.mouseEnteredAndExited, .cursorUpdate, .activeAlways, .inVisibleRect],
+            owner: self,
+            userInfo: nil)
+        addTrackingArea(next)
+        tracking = next
+        super.updateTrackingAreas()
+    }
+
+    override func resetCursorRects() {
+        addCursorRect(bounds, cursor: .pointingHand)
+    }
+
+    override func cursorUpdate(with event: NSEvent) {
+        NSCursor.pointingHand.set()
+    }
+
+    override func mouseEntered(with event: NSEvent) {
+        NSCursor.pointingHand.set()
+        onHoverChange?(true)
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        onHoverChange?(false)
+    }
+
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+    override func mouseDown(with event: NSEvent) { onClick?() }
+}
+
 /// One borderless, click-through badge window holding a session's per-prompt
 /// sigil — a PromptRock — parked top-right under the title bar of its terminal window. The
 /// sigil image is still (shape + strata = which prompt); the badge spins it
@@ -399,6 +441,10 @@ final class PromptSigilOverlay {
     /// shared by every stone). Down-right shadow ⇒ light from the upper-left.
     private let shadowDrop = CGSize(width: 3, height: -3)
     private let window: NSWindow
+    /// AppKit-owned pointer/click surface aligned to `hitRect`. The rendered
+    /// window remains mouse-transparent and never needs Input Monitoring.
+    private let interactionWindow: NSPanel
+    private let interactionView: PromptRockInteractionView
     /// Full-width Loopboy cadence strip, parked just below Terminal's title
     /// bar like an Instagram story timer. Separate from the gem window so it
     /// can span the pane without changing the prox's hit or animation bounds.
@@ -433,7 +479,13 @@ final class PromptSigilOverlay {
     var tooltipEdition: String = "PROMPT ROCK  •  LIVING MEMORY"
     var tooltipStatus: String = ""
     var tooltipStats: String = ""
+    /// The same seed that generated the current rock graphic also generates
+    /// its hover percussion voice.
+    var soundSeed: UInt64 = 0
+    var onHoverChange: ((PromptSigilOverlay, Bool) -> Void)?
+    var onClick: ((PromptSigilOverlay) -> Void)?
     var tooltipAccent: NSColor { shadowColor ?? .systemGray }
+    var keyboardLabelForeground: NSColor { labelForeground }
     var tooltipImage: NSImage? {
         // The terminal badge deliberately plays a chunky 30px sprite. The
         // collectible card gets the original high-resolution render instead:
@@ -460,6 +512,24 @@ final class PromptSigilOverlay {
         window.ignoresMouseEvents = true
         window.level = promptCompanionWindowLevel
         window.collectionBehavior = [.fullScreenAuxiliary]
+
+        let interactionInitial = NSRect(
+            x: -2000, y: -2000,
+            width: size, height: labelH + pad + size)
+        interactionWindow = NSPanel(
+            contentRect: interactionInitial,
+            styleMask: [.borderless, .nonactivatingPanel],
+            backing: .buffered, defer: false)
+        interactionWindow.isOpaque = false
+        interactionWindow.backgroundColor = .clear
+        interactionWindow.hasShadow = false
+        interactionWindow.ignoresMouseEvents = false
+        interactionWindow.level = promptCompanionWindowLevel
+        interactionWindow.hidesOnDeactivate = false
+        interactionWindow.collectionBehavior = [.fullScreenAuxiliary]
+        interactionView = PromptRockInteractionView(
+            frame: NSRect(origin: .zero, size: interactionInitial.size))
+        interactionWindow.contentView = interactionView
 
         let heartbeatInitial = NSRect(x: -2000, y: -2000, width: 160, height: 40)
         heartbeatWindow = NSWindow(contentRect: heartbeatInitial, styleMask: [.borderless],
@@ -633,6 +703,14 @@ final class PromptSigilOverlay {
         container.layer?.addSublayer(stateLayer)
 
         window.contentView = container
+        interactionView.onHoverChange = { [weak self] hovering in
+            guard let self else { return }
+            self.onHoverChange?(self, hovering)
+        }
+        interactionView.onClick = { [weak self] in
+            guard let self else { return }
+            self.onClick?(self)
+        }
     }
 
     /// Set the rock's name label. `dark` is unused now — MacPal's white-fill
@@ -836,6 +914,30 @@ final class PromptSigilOverlay {
         shadowLayer.opacity = h ? 0.72 : 0.9
     }
 
+    func playHoverSound() {
+        PromptRockSound.play(graphicSeed: soundSeed, name: name)
+    }
+
+    /// A keyboard strike uses the hover voice with a brief blink/rattle that
+    /// leaves the rock's persistent status motion intact.
+    func playKeyboardSound() {
+        playHoverSound()
+        let blink = CAKeyframeAnimation(keyPath: "opacity")
+        blink.values = [1.0, 0.28, 1.0]
+        blink.keyTimes = [0, 0.45, 1]
+        blink.duration = 0.16
+        rockLayer.add(blink, forKey: "keyboardStrikeBlink")
+        nameLayer.add(blink, forKey: "keyboardStrikeBlink")
+
+        let rattle = CAKeyframeAnimation(keyPath: "position.x")
+        rattle.values = [0, -3, 3, -2, 0]
+        rattle.keyTimes = [0, 0.2, 0.48, 0.75, 1]
+        rattle.duration = 0.16
+        rattle.isAdditive = true
+        rockLayer.add(rattle, forKey: "keyboardStrikeRattle")
+        shadowLayer.add(rattle, forKey: "keyboardStrikeRattle")
+    }
+
     /// "Someone is reading this prompt right now." Layered ON TOP of the
     /// status motion (which stays the baseline): the stone blinks (opacity
     /// pulse), rattles (a tight position shake), and tumbles much faster —
@@ -968,6 +1070,13 @@ final class PromptSigilOverlay {
         let f = window.frame
         return NSRect(x: f.origin.x + pad, y: f.origin.y,
                       width: size, height: labelH + pad + size)
+    }
+
+    /// Exact screen-space footprint of the stone, excluding its pet name.
+    var graphicRect: NSRect {
+        let f = window.frame
+        return NSRect(x: f.origin.x + pad, y: f.origin.y + labelH + pad,
+                      width: size, height: size)
     }
 
     /// Install freshly rendered sprite sheets (chunky rock + crisp shadow) and
@@ -1194,6 +1303,8 @@ final class PromptSigilOverlay {
         if currentOrigin == nil {                 // first appearance: snap there
             currentOrigin = t
             window.setFrameOrigin(t)
+            interactionWindow.setFrameOrigin(
+                NSPoint(x: t.x + pad, y: t.y))
         }
 
         // A slim inset keeps the story-style strip aligned to the pane's
@@ -1284,9 +1395,11 @@ final class PromptSigilOverlay {
                     platformTarget platformTargetVisible: Bool) {
         if rockVisible {
             if !window.isVisible { window.orderFrontRegardless() }
+            if !interactionWindow.isVisible { interactionWindow.orderFrontRegardless() }
         } else {
             setHovered(false)   // a covered rock stops reacting to the pointer
             if window.isVisible { window.orderOut(nil) }
+            if interactionWindow.isVisible { interactionWindow.orderOut(nil) }
         }
         if loopboyStyled && heartbeatVisible {
             if !heartbeatWindow.isVisible { heartbeatWindow.orderFrontRegardless() }
@@ -1314,11 +1427,20 @@ final class PromptSigilOverlay {
     func advance(dt: CGFloat) -> Bool {
         guard let target = targetOrigin else { return false }
         guard var cur = currentOrigin else {
-            currentOrigin = target; window.setFrameOrigin(target); return false
+            currentOrigin = target
+            window.setFrameOrigin(target)
+            interactionWindow.setFrameOrigin(
+                NSPoint(x: target.x + pad, y: target.y))
+            return false
         }
         let dx = target.x - cur.x, dy = target.y - cur.y
         if abs(dx) < 0.4 && abs(dy) < 0.4 {
-            if cur != target { window.setFrameOrigin(target); currentOrigin = target }
+            if cur != target {
+                window.setFrameOrigin(target)
+                interactionWindow.setFrameOrigin(
+                    NSPoint(x: target.x + pad, y: target.y))
+                currentOrigin = target
+            }
             return false
         }
         // Tight follow: near-immediate tracking with just a whisper of
@@ -1330,6 +1452,8 @@ final class PromptSigilOverlay {
         cur.y += dy * alpha
         currentOrigin = cur
         window.setFrameOrigin(cur)
+        interactionWindow.setFrameOrigin(
+            NSPoint(x: cur.x + pad, y: cur.y))
         return true
     }
 
@@ -1340,15 +1464,19 @@ final class PromptSigilOverlay {
         guard let target = targetOrigin else { return }
         currentOrigin = target
         window.setFrameOrigin(target)
+        interactionWindow.setFrameOrigin(
+            NSPoint(x: target.x + pad, y: target.y))
     }
 
     func hide() {
         if window.isVisible { window.orderOut(nil) }
+        if interactionWindow.isVisible { interactionWindow.orderOut(nil) }
         if heartbeatWindow.isVisible { heartbeatWindow.orderOut(nil) }
         if platformTargetBadgeWindow.isVisible { platformTargetBadgeWindow.orderOut(nil) }
     }
     func close() {
         window.orderOut(nil)
+        interactionWindow.orderOut(nil)
         heartbeatWindow.orderOut(nil)
         platformTargetBadgeWindow.orderOut(nil)
     }
@@ -1409,10 +1537,9 @@ final class ShareCardPanel: NSPanel {
     override var canBecomeKey: Bool { true }
 }
 
-/// The collectible summary card a rock reveals on hover or click. It carries
+/// The collectible summary card a rock reveals on click. It carries
 /// the rock itself as card art, a status-colour frame and badge, the living
-/// memoir as flavour text, and an uptime/activity/agent stat strip. One shared
-/// instance; it floats above everything and never takes the mouse.
+/// memoir as flavour text, and an uptime/activity/agent stat strip.
 final class SigilBubble: NSObject, NSSharingServicePickerDelegate {
     private let window: ShareCardPanel
     private let container = ShareableCardView()
@@ -1813,6 +1940,9 @@ final class PromptSigilOverlayController {
     private var bubbleFor: String?
     private var bubblePinned = false
     private let bubble = SigilBubble()
+    private lazy var keyboardFocus = PromptRockKeyboardFocus { [weak self] sessionId in
+        self?.overlays[sessionId]?.playKeyboardSound()
+    }
 
     /// Non-capturing AX callback → route on main. Lexically inside the class so
     /// it may reach the private singleton; captures nothing local, so it
@@ -1874,6 +2004,26 @@ final class PromptSigilOverlayController {
         reposition()
         for ov in overlays.values { ov.snapToTarget() }
         promote()
+    }
+
+    /// Give every visible prompt rock a freshly shuffled QWERTY key. The
+    /// full-screen focus layer owns those letters until Escape releases it.
+    func beginKeyboardFocus() {
+        reposition()
+        let targets = overlays.values.compactMap { overlay -> PromptRockKeyTarget? in
+            guard overlay.isOnScreen else { return nil }
+            return PromptRockKeyTarget(
+                sessionId: overlay.sessionId,
+                graphicRect: overlay.graphicRect,
+                accent: overlay.tooltipAccent,
+                foreground: overlay.keyboardLabelForeground)
+        }
+        NSLog("🪨 [keyboard-focus] activate targets=\(targets.count)")
+        _ = keyboardFocus.begin(targets: targets)
+    }
+
+    func endKeyboardFocus() {
+        keyboardFocus.end()
     }
 
     /// Read an AXValue geometry attribute (point or size) off an element.
@@ -1938,9 +2088,6 @@ final class PromptSigilOverlayController {
         if let move = NSEvent.addGlobalMonitorForEvents(matching: .mouseMoved, handler: { [weak self] _ in
             self?.handleMouseMoved()
         }) { mouseMonitors.append(move) }
-        if let click = NSEvent.addGlobalMonitorForEvents(matching: .leftMouseDown, handler: { [weak self] _ in
-            self?.handleMouseDown()
-        }) { mouseMonitors.append(click) }
         // Clicks received by Slab's own non-activating card panel do not reach
         // a global monitor. Keep a local twin so card → native share is
         // reliable regardless of which side of macOS's event routing wins.
@@ -2003,32 +2150,38 @@ final class PromptSigilOverlayController {
         if hit?.sessionId == hoverTarget { return }
         if let old = hoverTarget, let oldOv = overlays[old] { oldOv.setHovered(false) }
         hoverTarget = hit?.sessionId
-        hit?.setHovered(true)
+        if let hit {
+            hit.setHovered(true)
+            hit.playHoverSound()
+        }
     }
 
-    /// Click a rock → reveal (pinned, survives mouse-out); click it again or
-    /// anywhere else → dismiss. The click still lands in the terminal too
-    /// (the badge is mouse-transparent), which is what you want: focus the
-    /// window you're asking about.
-    private func handleMouseDown() {
-        if bubbleFor != nil, bubble.contains(NSEvent.mouseLocation) {
-            // Fallback for systems that route the click through the
-            // non-activating panel to its underlying app.
-            bubble.sharePNG()
-            return
+    /// Primary AppKit interaction path. Unlike the global event monitor, this
+    /// survives signing/TCC changes and supplies a real pointing-hand cursor.
+    private func handleDirectHover(_ ov: PromptSigilOverlay, hovering: Bool) {
+        guard ov.isOnScreen else { return }
+        if hovering {
+            if hoverTarget == ov.sessionId { return }
+            if let old = hoverTarget, let oldOv = overlays[old] { oldOv.setHovered(false) }
+            hoverTarget = ov.sessionId
+            ov.setHovered(true)
+            ov.playHoverSound()
+        } else if hoverTarget == ov.sessionId {
+            hoverTarget = nil
+            ov.setHovered(false)
         }
-        if let ov = overlayAt(NSEvent.mouseLocation) {
-            if bubblePinned, bubbleFor == ov.sessionId {
-                bubblePinned = false; bubbleFor = nil
-                bubble.hide()
-            } else {
-                bubblePinned = true
-                bubbleFor = ov.sessionId
-                showBubble(for: ov)
-            }
-        } else if bubblePinned {
-            bubblePinned = false; bubbleFor = nil
+    }
+
+    private func handleDirectClick(_ ov: PromptSigilOverlay) {
+        guard ov.isOnScreen else { return }
+        if bubblePinned, bubbleFor == ov.sessionId {
+            bubblePinned = false
+            bubbleFor = nil
             bubble.hide()
+        } else {
+            bubblePinned = true
+            bubbleFor = ov.sessionId
+            showBubble(for: ov)
         }
     }
 
@@ -2296,6 +2449,12 @@ final class PromptSigilOverlayController {
             } else {
                 overlays[s.sessionId]?.close()
                 ov = PromptSigilOverlay(sessionId: s.sessionId, tty: bare)
+                ov.onHoverChange = { [weak self] rock, hovering in
+                    self?.handleDirectHover(rock, hovering: hovering)
+                }
+                ov.onClick = { [weak self] rock in
+                    self?.handleDirectClick(rock)
+                }
                 overlays[s.sessionId] = ov
                 membershipChanged = true
             }
@@ -2304,6 +2463,7 @@ final class PromptSigilOverlayController {
             // "yes", blank); the prompt makes the rock re-form as the session
             // moves to a new prompt.
             let seed = SigilRenderer.seed(for: s.sessionId + "\u{1}" + s.subject)
+            ov.soundSeed = seed
             // Re-render the sprite sheet only when the rock or the sun moved.
             let loopboyContact = loopContacts[s.sessionId]
             let loopboy = loopboyContact != nil
@@ -2430,6 +2590,7 @@ final class PromptSigilOverlayController {
     }
 
     private func teardown() {
+        keyboardFocus.end(animated: false)
         timer?.invalidate(); timer = nil
         for (_, ov) in overlays { ov.close() }
         overlays.removeAll()

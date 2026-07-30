@@ -125,6 +125,19 @@ func resolveWindow(named name: String) -> WinRef? {
 
 func windowFrame(named name: String) -> CGRect? { resolveWindow(named: name)?.frame }
 
+// A bare activate() can return before the mirror is truly frontmost. In that
+// state macOS consumes the next click to focus the window instead of sending a
+// touch to iOS. Keep activation and input in this process and wait for AppKit's
+// active-state confirmation.
+func activateForInput(_ app: NSRunningApplication) {
+  for _ in 0..<20 {
+    app.activate(options: [.activateAllWindows, .activateIgnoringOtherApps])
+    if app.isActive { break }
+    usleep(100_000)
+  }
+  usleep(200_000)
+}
+
 func clickAt(_ point: CGPoint) {
   let saved = CGEvent(source: nil)?.location
   let down = CGEvent(mouseEventSource: nil, mouseType: .leftMouseDown,
@@ -168,16 +181,62 @@ func scrollWheel(in win: WinRef, ticks: Int, atFx: Double, atFy: Double) {
   let saved = CGEvent(source: nil)?.location
   CGWarpMouseCursorPosition(here)
   usleep(60_000)
-  let dir = ticks < 0 ? -1 : 1
-  for _ in 0..<abs(ticks) {
-    CGEvent(scrollWheelEvent2Source: nil, units: .pixel, wheelCount: 1,
-            wheel1: Int32(dir * 40), wheel2: 0, wheel3: 0)?.post(tap: .cghidEventTap)
-    usleep(12_000)
+  let direction = ticks < 0 ? -1 : 1
+  let weights = [2, 5, 12, 24, 34, 32, 26, 18, 10, 5, 2, 1]
+  let weightTotal = weights.reduce(0, +)
+  let distance = max(abs(ticks) * 40, 40)
+  let hidSource = CGEventSource(stateID: .hidSystemState)
+  for (index, weight) in weights.enumerated() {
+    let delta = direction * max(1, Int(round(Double(distance * weight) / Double(weightTotal))))
+    guard let event = CGEvent(scrollWheelEvent2Source: hidSource, units: .pixel, wheelCount: 1,
+                              wheel1: Int32(delta), wheel2: 0, wheel3: 0) else { continue }
+    event.setIntegerValueField(.scrollWheelEventIsContinuous, value: 1)
+    event.setIntegerValueField(.scrollWheelEventPointDeltaAxis1, value: Int64(delta))
+    event.setIntegerValueField(.scrollWheelEventScrollPhase,
+                               value: index == 0 ? 1 : (index == weights.count - 1 ? 4 : 2))
+    event.post(tap: .cghidEventTap)
+    usleep(16_000)
   }
+  usleep(400_000)
   if let saved = saved { CGWarpMouseCursorPosition(saved) }
 }
 
 // ---- commands ------------------------------------------------------------
+
+struct OCRHit {
+  let text: String
+  let conf: Float
+  let x: CGFloat
+  let y: CGFloat
+  let w: CGFloat
+  let h: CGFloat
+}
+
+func captureWindow(_ win: WinRef, to outPath: String) {
+  let proc = Process()
+  proc.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
+  proc.arguments = ["-x", "-o", "-l\(win.id)", outPath]
+  do { try proc.run(); proc.waitUntilExit() } catch { fail("screencapture failed: \(error)") }
+  if proc.terminationStatus != 0 { fail("screencapture exit \(proc.terminationStatus)") }
+}
+
+func recognize(_ inPath: String) -> (CGFloat, CGFloat, [OCRHit]) {
+  guard let src = CGImageSourceCreateWithURL(URL(fileURLWithPath: inPath) as CFURL, nil),
+        let cg = CGImageSourceCreateImageAtIndex(src, 0, nil) else { fail("cannot read image: \(inPath)") }
+  let request = VNRecognizeTextRequest()
+  request.recognitionLevel = .accurate
+  request.usesLanguageCorrection = false
+  let handler = VNImageRequestHandler(cgImage: cg, options: [:])
+  do { try handler.perform([request]) } catch { fail("ocr failed: \(error)") }
+  let hits = (request.results ?? []).compactMap { obs -> OCRHit? in
+    guard let top = obs.topCandidates(1).first else { return nil }
+    let b = obs.boundingBox
+    return OCRHit(text: top.string, conf: top.confidence,
+                  x: b.origin.x, y: 1.0 - (b.origin.y + b.height),
+                  w: b.width, h: b.height)
+  }
+  return (CGFloat(cg.width), CGFloat(cg.height), hits)
+}
 
 func cmdFrame() {
   guard let f = windowFrame(named: windowName) else { fail("window not found: \(windowName)") }
@@ -189,36 +248,16 @@ func cmdShot(_ outPath: String) {
   // Capture by window id (-l), not screen region: grabs THIS window's own live
   // pixels even when it's on another Space or behind other windows, so the user
   // can park the mirror anywhere. -o drops the drop-shadow.
-  let proc = Process()
-  proc.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
-  proc.arguments = ["-x", "-o", "-l\(win.id)", outPath]
-  do { try proc.run(); proc.waitUntilExit() } catch { fail("screencapture failed: \(error)") }
-  if proc.terminationStatus != 0 { fail("screencapture exit \(proc.terminationStatus)") }
+  captureWindow(win, to: outPath)
   let f = win.frame
   emit(["x": f.minX, "y": f.minY, "w": f.width, "h": f.height, "id": Int(win.id), "path": outPath])
 }
 
 func cmdOcr(_ inPath: String) {
-  guard let src = CGImageSourceCreateWithURL(URL(fileURLWithPath: inPath) as CFURL, nil),
-        let cg = CGImageSourceCreateImageAtIndex(src, 0, nil) else { fail("cannot read image: \(inPath)") }
-  let imgW = CGFloat(cg.width), imgH = CGFloat(cg.height)
-  let request = VNRecognizeTextRequest()
-  request.recognitionLevel = .accurate
-  request.usesLanguageCorrection = false
-  let handler = VNImageRequestHandler(cgImage: cg, options: [:])
-  do { try handler.perform([request]) } catch { fail("ocr failed: \(error)") }
-  var lines: [[String: Any]] = []
-  for obs in (request.results ?? []) {
-    guard let top = obs.topCandidates(1).first else { continue }
-    let b = obs.boundingBox  // normalized, BOTTOM-left origin
-    lines.append([
-      "text": top.string,
-      "conf": top.confidence,
-      "x": b.origin.x,
-      "y": 1.0 - (b.origin.y + b.height),  // → TOP-left origin
-      "w": b.width,
-      "h": b.height,
-    ])
+  let (imgW, imgH, hits) = recognize(inPath)
+  let lines: [[String: Any]] = hits.map { hit in
+    ["text": hit.text, "conf": hit.conf, "x": hit.x, "y": hit.y,
+     "w": hit.w, "h": hit.h]
   }
   emit(["w": imgW, "h": imgH, "lines": lines])
 }
@@ -231,11 +270,9 @@ func cmdTap(_ fx: Double, _ fy: Double) {
   // first (brings its Space/window forward), then re-resolve in case that moved
   // it, then click. --no-activate skips this when the caller keeps it frontmost.
   if !noActivate {
-    NSRunningApplication(processIdentifier: win.pid)?.activate(options: [])
-    // Settle long enough to cover a Space-switch animation when the mirror was
-    // parked on another desktop — otherwise the click lands mid-transition and
-    // misses. Cheap insurance; taps are paced seconds apart anyway.
-    usleep(450_000)
+    if let app = NSRunningApplication(processIdentifier: win.pid) {
+      activateForInput(app)
+    }
   }
   let f = (noActivate ? win : (resolveWindow(named: windowName) ?? win)).frame
   let target = CGPoint(x: f.minX + f.width * CGFloat(fx), y: f.minY + f.height * CGFloat(fy))
@@ -245,12 +282,115 @@ func cmdTap(_ fx: Double, _ fy: Double) {
   emit(["tapped": ["x": target.x, "y": target.y], "fx": fx, "fy": fy, "id": Int(win.id)])
 }
 
+// Run a short, timed tap transaction while iPhone Mirroring stays active.
+// This matters for modal iOS sheets, which can disappear when separate CLI
+// invocations briefly hand focus back to the calling terminal.
+func cmdTapSequence(_ steps: [(Double, Double, Int)]) {
+  guard let win = resolveWindow(named: windowName) else { fail("window not found: \(windowName)") }
+  let prev = NSWorkspace.shared.frontmostApplication
+  guard let app = NSRunningApplication(processIdentifier: win.pid) else {
+    fail("application not found for window: \(windowName)")
+  }
+  activateForInput(app)
+  let live = resolveWindow(named: windowName) ?? win
+  let saved = CGEvent(source: nil)?.location
+  for (fx, fy, waitMs) in steps {
+    let target = CGPoint(
+      x: live.frame.minX + live.frame.width * CGFloat(fx),
+      y: live.frame.minY + live.frame.height * CGFloat(fy)
+    )
+    clickAt(target)
+    usleep(useconds_t(max(waitMs, 0) * 1000))
+  }
+  if let saved = saved { CGWarpMouseCursorPosition(saved) }
+  if restoreFocus { prev?.activate(options: []) }
+  emit(["steps": steps.count, "id": Int(live.id)])
+}
+
+// Tap one known control, then locate and tap exact OCR labels without letting
+// the mirror lose focus between modal-sheet steps. When duplicate labels exist
+// (for example the Only you tab and sheet row), the lowest match wins.
+func cmdTapTextSequence(_ fx: Double, _ fy: Double, _ waitMs: Int,
+                        _ targets: [(String, Int)]) {
+  guard let win = resolveWindow(named: windowName) else { fail("window not found: \(windowName)") }
+  guard let app = NSRunningApplication(processIdentifier: win.pid) else {
+    fail("application not found for window: \(windowName)")
+  }
+  activateForInput(app)
+  var live = resolveWindow(named: windowName) ?? win
+  clickAt(CGPoint(x: live.frame.minX + live.frame.width * CGFloat(fx),
+                  y: live.frame.minY + live.frame.height * CGFloat(fy)))
+  usleep(useconds_t(max(waitMs, 0) * 1000))
+
+  var tapped: [String] = []
+  let probe = "/tmp/iphone-tap-text-sequence.png"
+  for (label, delayMs) in targets {
+    live = resolveWindow(named: windowName) ?? live
+    captureWindow(live, to: probe)
+    let (_, _, hits) = recognize(probe)
+    let matches = hits.filter {
+      $0.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        .caseInsensitiveCompare(label) == .orderedSame
+    }
+    guard let hit = matches.max(by: { $0.y + $0.h / 2 < $1.y + $1.h / 2 }) else {
+      fail("text not found after \(tapped.joined(separator: ", ")): \(label)")
+    }
+    let target = CGPoint(x: live.frame.minX + live.frame.width * (hit.x + hit.w / 2),
+                         y: live.frame.minY + live.frame.height * (hit.y + hit.h / 2))
+    clickAt(target)
+    tapped.append(label)
+    usleep(useconds_t(max(delayMs, 0) * 1000))
+  }
+  emit(["tappedText": tapped, "id": Int(live.id)])
+}
+
+func textMatches(_ hit: OCRHit, _ label: String) -> Bool {
+  let text = hit.text.trimmingCharacters(in: .whitespacesAndNewlines)
+  if label.caseInsensitiveCompare("Next") == .orderedSame {
+    return text.range(of: #"^Next\s*\(\d+\)$"#, options: [.regularExpression, .caseInsensitive]) != nil
+  }
+  return text.caseInsensitiveCompare(label) == .orderedSame
+}
+
+// OCR and tap every step while the mirror remains active. The lowest matching
+// label wins so modal controls take precedence over same-named page tabs.
+func cmdTextSequence(_ targets: [(String, Int)]) {
+  guard let win = resolveWindow(named: windowName) else { fail("window not found: \(windowName)") }
+  guard let app = NSRunningApplication(processIdentifier: win.pid) else {
+    fail("application not found for window: \(windowName)")
+  }
+  activateForInput(app)
+  var live = resolveWindow(named: windowName) ?? win
+  var tapped: [String] = []
+  let probe = "/tmp/iphone-tap-text-sequence.png"
+  for (label, delayMs) in targets {
+    live = resolveWindow(named: windowName) ?? live
+    captureWindow(live, to: probe)
+    let (_, _, hits) = recognize(probe)
+    let matches = hits.filter { textMatches($0, label) }
+    guard let hit = matches.max(by: { $0.y + $0.h / 2 < $1.y + $1.h / 2 }) else {
+      fail("text not found after \(tapped.joined(separator: ", ")): \(label)")
+    }
+    // iPhone Mirroring exposes the iOS sheet image without its 52-point Mac
+    // toolbar inset, while CGWindow bounds used for input include that inset.
+    // The first control (Next) is on the page; subsequent controls are in the
+    // sheet and need the inset removed from their global click coordinate.
+    let sheetInset: CGFloat = tapped.isEmpty ? 0 : 52
+    clickAt(CGPoint(x: live.frame.minX + live.frame.width * (hit.x + hit.w / 2),
+                    y: live.frame.minY + live.frame.height * (hit.y + hit.h / 2) - sheetInset))
+    tapped.append(label)
+    usleep(useconds_t(max(delayMs, 0) * 1000))
+  }
+  emit(["tappedText": tapped, "id": Int(live.id)])
+}
+
 func cmdSwipe(_ fx1: Double, _ fy1: Double, _ fx2: Double, _ fy2: Double, durationMs: Int) {
   guard let win = resolveWindow(named: windowName) else { fail("window not found: \(windowName)") }
   let prev = NSWorkspace.shared.frontmostApplication
   if !noActivate {
-    NSRunningApplication(processIdentifier: win.pid)?.activate(options: [])
-    usleep(450_000)
+    if let app = NSRunningApplication(processIdentifier: win.pid) {
+      activateForInput(app)
+    }
   }
   let f = (noActivate ? win : (resolveWindow(named: windowName) ?? win)).frame
   let a = CGPoint(x: f.minX + f.width * CGFloat(fx1), y: f.minY + f.height * CGFloat(fy1))
@@ -265,8 +405,9 @@ func cmdScroll(_ ticks: Int) {
   guard let win = resolveWindow(named: windowName) else { fail("window not found: \(windowName)") }
   let prev = NSWorkspace.shared.frontmostApplication
   if !noActivate {
-    NSRunningApplication(processIdentifier: win.pid)?.activate(options: [])
-    usleep(450_000)
+    if let app = NSRunningApplication(processIdentifier: win.pid) {
+      activateForInput(app)
+    }
   }
   let live = (noActivate ? win : (resolveWindow(named: windowName) ?? win))
   scrollWheel(in: live, ticks: ticks, atFx: 0.5, atFy: 0.55)
@@ -275,10 +416,86 @@ func cmdScroll(_ ticks: Int) {
   emit(["scrolled": ticks, "id": Int(live.id)])
 }
 
+final class EventLogContext {
+  let file: FileHandle
+  let frame: CGRect
+  let started = ProcessInfo.processInfo.systemUptime
+  var lastMove = 0.0
+
+  init(file: FileHandle, frame: CGRect) {
+    self.file = file
+    self.frame = frame
+  }
+
+  func write(_ object: [String: Any]) {
+    guard let data = try? JSONSerialization.data(withJSONObject: object),
+          var line = String(data: data, encoding: .utf8) else { return }
+    line.append("\n")
+    file.write(line.data(using: .utf8)!)
+  }
+}
+
+let recordCallback: CGEventTapCallBack = { _, type, event, userInfo in
+  guard let userInfo else { return Unmanaged.passUnretained(event) }
+  let context = Unmanaged<EventLogContext>.fromOpaque(userInfo).takeUnretainedValue()
+  let now = ProcessInfo.processInfo.systemUptime
+  if type == .mouseMoved && now - context.lastMove < 0.05 {
+    return Unmanaged.passUnretained(event)
+  }
+  if type == .mouseMoved { context.lastMove = now }
+
+  let point = event.location
+  let frame = context.frame
+  guard frame.contains(point) else { return Unmanaged.passUnretained(event) }
+  let names: [CGEventType: String] = [
+    .leftMouseDown: "tap-down", .leftMouseUp: "tap-up",
+    .leftMouseDragged: "drag", .mouseMoved: "move", .scrollWheel: "scroll",
+  ]
+  var row: [String: Any] = [
+    "t": now - context.started,
+    "event": names[type] ?? "other",
+    "x": point.x,
+    "y": point.y,
+    "fx": (point.x - frame.minX) / frame.width,
+    "fy": (point.y - frame.minY) / frame.height,
+  ]
+  if type == .scrollWheel {
+    row["deltaY"] = event.getIntegerValueField(.scrollWheelEventDeltaAxis1)
+    row["pointDeltaY"] = event.getIntegerValueField(.scrollWheelEventPointDeltaAxis1)
+    row["continuous"] = event.getIntegerValueField(.scrollWheelEventIsContinuous)
+  }
+  context.write(row)
+  return Unmanaged.passUnretained(event)
+}
+
+func cmdRecordEvents(_ outPath: String) {
+  guard let win = resolveWindow(named: windowName) else { fail("window not found: \(windowName)") }
+  FileManager.default.createFile(atPath: outPath, contents: nil)
+  guard let file = FileHandle(forWritingAtPath: outPath) else { fail("cannot write: \(outPath)") }
+  let context = EventLogContext(file: file, frame: win.frame)
+  context.write(["t": 0, "event": "start", "x": win.frame.minX, "y": win.frame.minY,
+                 "w": win.frame.width, "h": win.frame.height])
+  let retained = Unmanaged.passRetained(context)
+  let types: [CGEventType] = [.leftMouseDown, .leftMouseUp, .leftMouseDragged, .mouseMoved, .scrollWheel]
+  let mask = types.reduce(CGEventMask(0)) { $0 | (CGEventMask(1) << CGEventMask($1.rawValue)) }
+  guard let tap = CGEvent.tapCreate(tap: .cgSessionEventTap, place: .tailAppendEventTap,
+                                    options: .listenOnly, eventsOfInterest: mask,
+                                    callback: recordCallback, userInfo: retained.toOpaque()) else {
+    retained.release()
+    fail("event tap unavailable; grant Accessibility permission to the terminal")
+  }
+  let source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
+  CFRunLoopAddSource(CFRunLoopGetCurrent(), source, .commonModes)
+  CGEvent.tapEnable(tap: tap, enable: true)
+  emit(["recording": outPath, "frame": ["x": win.frame.minX, "y": win.frame.minY,
+                                        "w": win.frame.width, "h": win.frame.height]])
+  CFRunLoopRun()
+}
+
 // ---- dispatch ------------------------------------------------------------
 
 guard let verb = rawArgs.first else {
-  fail("usage: iphone-tap <frame|shot OUT.png|ocr IN.png|tap FX FY> [--window NAME]")
+  fail("usage: iphone-tap <frame|shot OUT.png|ocr IN.png|tap FX FY|tap-sequence FX FY WAIT_MS ...|tap-text-sequence FX FY WAIT_MS TEXT WAIT_MS ...|text-sequence TEXT WAIT_MS ...|record-events OUT.jsonl> [--window NAME]")
 }
 rawArgs.removeFirst()
 
@@ -296,6 +513,45 @@ case "tap":
     fail("tap needs FX FY (fractions 0..1)")
   }
   cmdTap(fx, fy)
+case "tap-sequence":
+  guard rawArgs.count >= 3, rawArgs.count % 3 == 0 else {
+    fail("tap-sequence needs repeating FX FY WAIT_MS triples")
+  }
+  var steps: [(Double, Double, Int)] = []
+  for i in stride(from: 0, to: rawArgs.count, by: 3) {
+    guard let fx = Double(rawArgs[i]), let fy = Double(rawArgs[i + 1]),
+          let waitMs = Int(rawArgs[i + 2]) else {
+      fail("tap-sequence needs repeating FX FY WAIT_MS triples")
+    }
+    steps.append((fx, fy, waitMs))
+  }
+  cmdTapSequence(steps)
+case "tap-text-sequence":
+  guard rawArgs.count >= 5, (rawArgs.count - 3) % 2 == 0,
+        let fx = Double(rawArgs[0]), let fy = Double(rawArgs[1]),
+        let waitMs = Int(rawArgs[2]) else {
+    fail("tap-text-sequence needs FX FY WAIT_MS then TEXT WAIT_MS pairs")
+  }
+  var targets: [(String, Int)] = []
+  for i in stride(from: 3, to: rawArgs.count, by: 2) {
+    guard let targetWaitMs = Int(rawArgs[i + 1]) else {
+      fail("tap-text-sequence needs FX FY WAIT_MS then TEXT WAIT_MS pairs")
+    }
+    targets.append((rawArgs[i], targetWaitMs))
+  }
+  cmdTapTextSequence(fx, fy, waitMs, targets)
+case "text-sequence":
+  guard rawArgs.count >= 2, rawArgs.count % 2 == 0 else {
+    fail("text-sequence needs repeating TEXT WAIT_MS pairs")
+  }
+  var targets: [(String, Int)] = []
+  for i in stride(from: 0, to: rawArgs.count, by: 2) {
+    guard let targetWaitMs = Int(rawArgs[i + 1]) else {
+      fail("text-sequence needs repeating TEXT WAIT_MS pairs")
+    }
+    targets.append((rawArgs[i], targetWaitMs))
+  }
+  cmdTextSequence(targets)
 case "swipe":
   guard rawArgs.count >= 4,
         let fx1 = Double(rawArgs[0]), let fy1 = Double(rawArgs[1]),
@@ -306,6 +562,9 @@ case "swipe":
 case "scroll":
   guard let n = Int(rawArgs.first ?? "") else { fail("scroll needs TICKS (negative scrolls content up)") }
   cmdScroll(n)
+case "record-events":
+  guard let out = rawArgs.first else { fail("record-events needs OUT.jsonl") }
+  cmdRecordEvents(out)
 default:
   fail("unknown command: \(verb)")
 }

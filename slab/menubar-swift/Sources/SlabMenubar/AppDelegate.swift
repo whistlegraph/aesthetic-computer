@@ -157,6 +157,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// app's menu shortcuts only fire when it's frontmost, so ⌘⌥S would
     /// otherwise be swallowed by whatever terminal has focus (see tileHotkey).
     private var scatterHotkey: GlobalHotkey?
+    /// System-wide ⌘⌥X → give every visible prompt rock a random QWERTY key
+    /// and capture those keys until Escape releases the mode.
+    private var promptRockFocusHotkey: GlobalHotkey?
     /// System-wide ⌃⌥⌘A → toggle Dark Mode across this host + tailscale macs.
     private var appearanceHotkey: GlobalHotkey?
     /// System-wide ⌘⌥← → ↑ ↓ → walk focus spatially across the tiled terminal
@@ -272,6 +275,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             scatterHotkey = scatterHK
         }
 
+        // Global ⌘⌥X enters Prompt Rock keyboard focus. Unlike tile/scatter,
+        // it never changes terminal geometry; Escape is its explicit release.
+        let rockFocusHK = GlobalHotkey(id: 8) { [weak self] in self?.focusPromptRocks() }
+        if rockFocusHK.register(keyCode: UInt32(kVK_ANSI_X),
+                                modifiers: UInt32(cmdKey | optionKey)) {
+            promptRockFocusHotkey = rockFocusHK
+        } else {
+            NSLog("slab prompt rocks: failed to register global ⌘⌥X")
+        }
+
         // Global ⌃⌥⌘A toggles Dark Mode on this host + the tailscale macs.
         // Distinct id so it can't collide with the tiling hotkey's slot.
         let appHotkey = GlobalHotkey(id: 2) { [weak self] in self?.toggleAppearance() }
@@ -356,8 +369,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     func applicationWillTerminate(_ notification: Notification) {
         tileHotkey?.unregister()
         scatterHotkey?.unregister()
+        promptRockFocusHotkey?.unregister()
         appearanceHotkey?.unregister()
         navHotkeys.forEach { $0.unregister() }
+        PromptSigilOverlayController.shared.endKeyboardFocus()
         PromptFocusHighlight.shared.stop()
         terminalFontZoomGuard?.stop()
         imsgTimer?.invalidate()
@@ -3371,6 +3386,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// Menu / hotkey entry point: an explicit tile, which DOES reset each
     /// Terminal window's font zoom so the grid-derived size actually lands.
     @objc func tileNow() { tileNowImpl(resetZoom: true) }
+
+    @objc func focusPromptRocks() {
+        PromptSigilOverlayController.shared.beginKeyboardFocus()
+    }
 
     /// Known launch/close boundaries get a short eager census window. The
     /// repeating timer remains cheap at rest (usually only a Date comparison)

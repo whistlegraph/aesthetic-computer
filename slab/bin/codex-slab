@@ -89,7 +89,6 @@ if [[ -n "${SLAB_LOOPBOY_CONTACT:-}" ]]; then
         -c 'mcp_servers.puppet.enabled=false'
         -c 'mcp_servers.frame.enabled=false'
         -c 'mcp_servers.fleet.enabled=false'
-        -c 'mcp_servers.emacs.enabled=false'
         --disable browser_use
         --disable browser_use_external
         --disable browser_use_full_cdp_access

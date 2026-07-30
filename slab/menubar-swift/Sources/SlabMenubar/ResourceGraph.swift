@@ -206,19 +206,37 @@ final class ResourceGraph: NSObject {
     private var hoverLocalMonitor: Any?
 
     private let sampleInterval: TimeInterval = 1.0 / 4.0
-    private let meterWidth: CGFloat = 38
+    private let barSectionBaseWidth: CGFloat = 13.5
+    private let graphInset: CGFloat = 2
+    private let graphGap: CGFloat = 1
     private let historyLimit = 60        // 15 seconds at 4 Hz.
     private let networkStride = 2        // Network reads at 2 Hz to calm short bursts.
     private let gpuStride = 8            // IOKit once per two seconds.
     private let diskStride = 40          // statfs once per ten seconds.
 
+    /// MenuBand scales its 13.5pt semitone keys with this same factor.
+    private var displayScale: CGFloat {
+        let baseHeight: CGFloat = 22
+        return max(1.0, min(1.6,
+            (NSStatusBar.system.thickness - 0.5) / baseHeight))
+    }
+
+    private var barSectionWidth: CGFloat {
+        barSectionBaseWidth * displayScale
+    }
+
+    private var meterWidth: CGFloat {
+        let count = CGFloat(Metric.allCases.count)
+        let graphWidth = graphInset * 2 + barSectionWidth * count
+            + graphGap * CGFloat(max(0, Metric.allCases.count - 1))
+        return graphWidth + 2
+    }
+
     /// Match Menu Band's live status-bar sizing: start with its 22pt base
     /// height, then grow into roomier/notched menu bars without clipping.
     private var displayHeight: CGFloat {
         let baseHeight: CGFloat = 22
-        let scale = max(1.0, min(1.6,
-            (NSStatusBar.system.thickness - 0.5) / baseHeight))
-        return ceil(baseHeight * scale)
+        return ceil(baseHeight * displayScale)
     }
 
     var enabled: Bool { FileManager.default.fileExists(atPath: Paths.resourceGraphFlag) }
@@ -350,13 +368,11 @@ final class ResourceGraph: NSObject {
         frame.lineWidth = 0.7
         frame.stroke()
 
-        let content = frameRect.insetBy(dx: 2, dy: 2)
-        let gap: CGFloat = 1
-        let cellWidth = (content.width - gap * CGFloat(max(0, metrics.count - 1))) /
-            CGFloat(metrics.count)
+        let content = frameRect.insetBy(dx: graphInset, dy: graphInset)
+        let cellWidth = barSectionWidth
 
         for (index, metric) in metrics.enumerated() {
-            let stripe = NSRect(x: content.minX + CGFloat(index) * (cellWidth + gap),
+            let stripe = NSRect(x: content.minX + CGFloat(index) * (cellWidth + graphGap),
                                 y: content.minY,
                                 width: cellWidth,
                                 height: content.height)

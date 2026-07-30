@@ -1,0 +1,182 @@
+{
+  "schema": "menu-band-waltzes/v1",
+  "title": "Menu Band Waltzes",
+  "baseDir": "../../..",
+  "defaults": {
+    "durationSec": 60,
+    "meter": "3/4",
+    "melodyOnly": true,
+    "startsOnScreen": true,
+    "revealAtSec": 0.5,
+    "revealDurationSec": 1.2,
+    "exitAtSec": 58.2,
+    "exitDurationSec": 1.4,
+    "visual": {
+      "reveal": {
+        "curtainAlpha": 0
+      },
+      "motion": {
+        "stripWidth": 0.94,
+        "centerY": 0.5,
+        "breathPx": 5,
+        "bouncePx": 28,
+        "bounceDecay": 6.2,
+        "bounceFrequency": 16,
+        "floatFrequency": 0.42,
+        "floatTilt": 0.0022,
+        "swayPx": 30,
+        "swayFrequency": 1.35,
+        "swayHarmonic": 0.18,
+        "swayTilt": 0.006,
+        "shadowAlpha": 0.16,
+        "shadowBlur": 18
+      },
+      "particles": {
+        "density": 0.72,
+        "gravity": 315,
+        "drift": 38,
+        "spin": 0.55,
+        "size": 0.92
+      },
+      "lighting": {
+        "strength": 0.9,
+        "radius": 340,
+        "globalAlpha": 0.09,
+        "hold": 0.2,
+        "keyHold": 0.18
+      },
+      "highway": {
+        "enabled": true,
+        "layout": "paper-loop-3d",
+        "travelSec": 1.35,
+        "loopSec": 9.6,
+        "paperStraight": 6.2,
+        "paperRadius": 1.28,
+        "paperHalfWidth": 5.55,
+        "paperSlices": 112,
+        "paperBackBlurPx": 2.2,
+        "paperCameraDistance": 14.4,
+        "paperCameraFocal": 1.14,
+        "paperCameraTourSec": 10,
+        "paperCameraYawRad": 0.34,
+        "paperCameraTiltRad": 0.15,
+        "paperCameraRollRad": 0.075,
+        "paperCameraZoomRange": 1.8,
+        "loopWidth": 0.46,
+        "loopLift": 0.245,
+        "loopDepth": 0.15,
+        "loopBackDarken": 0.72,
+        "loopBackBlurPx": 4.5,
+        "cameraRotateSpeed": 0.22,
+        "cameraRotateRad": 0.018,
+        "keyInsetPx": 3,
+        "radiusPx": 10,
+        "alpha": 0.94,
+        "glowAlpha": 0.4,
+        "glowPx": 16,
+        "guides": true,
+        "dotPx": 3,
+        "dashPx": 14,
+        "dashGapPx": 9,
+        "dashSpeedPx": 54,
+        "guideWidthPx": 2.5,
+        "guideAlpha": 0.72
+      }
+    }
+  },
+  "variations": [
+    {
+      "id": "01-lantern",
+      "name": "Lantern",
+      "seed": 1031,
+      "bpm": 72,
+      "bars": 24,
+      "tonic": "C",
+      "mode": "major",
+      "instrumentProgram": 0,
+      "instrumentName": "Acoustic Grand Piano",
+      "development": "lift",
+      "harmonyDegrees": [0, 3, 4, 0, 5, 3, 4, 0],
+      "melodyBars": [
+        [7, 9, 11], [9, 7, 4], [5, 7, 9], [7, 4, 2],
+        [4, 5, 7, 9], [9, 7, 5], [4, 2, 1], [0]
+      ],
+      "notesPath": "pop/menuband/out/menu-band-waltzes/01-lantern/01-lantern.notes.json",
+      "audioPath": "pop/menuband/out/menu-band-waltzes/01-lantern/01-lantern.wav",
+      "outPath": "pop/menuband/out/menu-band-waltzes/01-lantern/01-lantern.mp4",
+      "visual": {
+        "palette": ["#fff4db", "#efc987", "#b780aa"],
+        "motion": {
+          "floatFrequency": 0.34,
+          "floatTilt": 0.0018,
+          "swayPx": 22,
+          "swayFrequency": 1.05,
+          "swayHarmonic": 0.12,
+          "swayTilt": 0.004
+        }
+      }
+    },
+    {
+      "id": "02-window",
+      "name": "Window",
+      "seed": 2053,
+      "bpm": 84,
+      "bars": 28,
+      "tonic": "A",
+      "mode": "minor",
+      "instrumentProgram": 4,
+      "instrumentName": "Electric Piano 1",
+      "development": "mirror",
+      "harmonyDegrees": [0, 5, 3, 4, 0, 3, 4, 0],
+      "melodyBars": [
+        [7, 8, 9], [11, 9, 8], [7, 5, 4], [5, 7],
+        [8, 9, 11, 9], [8, 7, 5], [4, 5, 7], [7]
+      ],
+      "notesPath": "pop/menuband/out/menu-band-waltzes/02-window/02-window.notes.json",
+      "audioPath": "pop/menuband/out/menu-band-waltzes/02-window/02-window.wav",
+      "outPath": "pop/menuband/out/menu-band-waltzes/02-window/02-window.mp4",
+      "visual": {
+        "palette": ["#eef5fb", "#b9cede", "#737c9f"],
+        "motion": {
+          "floatFrequency": 0.28,
+          "floatTilt": 0.0028,
+          "swayPx": 32,
+          "swayFrequency": 1.55,
+          "swayHarmonic": 0.2,
+          "swayTilt": 0.007
+        }
+      }
+    },
+    {
+      "id": "03-ferry",
+      "name": "Ferry",
+      "seed": 3089,
+      "bpm": 96,
+      "bars": 32,
+      "tonic": "D",
+      "mode": "dorian",
+      "instrumentProgram": 21,
+      "instrumentName": "Accordion",
+      "development": "turn",
+      "harmonyDegrees": [0, 3, 0, 4, 5, 3, 4, 0],
+      "melodyBars": [
+        [7, 9, 8], [7, 5, 4], [5, 7, 9], [8, 7],
+        [4, 5, 7, 8], [9, 8, 7], [5, 4, 2], [0]
+      ],
+      "notesPath": "pop/menuband/out/menu-band-waltzes/03-ferry/03-ferry.notes.json",
+      "audioPath": "pop/menuband/out/menu-band-waltzes/03-ferry/03-ferry.wav",
+      "outPath": "pop/menuband/out/menu-band-waltzes/03-ferry/03-ferry.mp4",
+      "visual": {
+        "palette": ["#e7f1f0", "#91b8b5", "#315f72"],
+        "motion": {
+          "floatFrequency": 0.5,
+          "floatTilt": 0.0034,
+          "swayPx": 42,
+          "swayFrequency": 2.15,
+          "swayHarmonic": 0.28,
+          "swayTilt": 0.01
+        }
+      }
+    }
+  ]
+}

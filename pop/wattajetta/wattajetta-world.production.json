@@ -1,0 +1,177 @@
+{
+  "track": "wattajetta-world",
+  "relationship": "non-destructive audition derived from wattajetta",
+  "renderer": "node bin/render-wattajetta.mjs --world",
+  "outputs": {
+    "preview": "out/wattajetta-world.mp3",
+    "masterAudition": "out/wattajetta-world-AUDITION.wav",
+    "cover": "out/cover.png"
+  },
+  "qc": {
+    "durationSec": 159.085125,
+    "integratedLufs": -14.7,
+    "loudnessRangeLu": 11.9,
+    "truePeakDbtp": -1.3,
+    "sampleRate": 48000,
+    "masterBitDepth": 24
+  },
+  "features": [
+    {
+      "request": "an opening with a world already present",
+      "implementation": "four-bar rain, submerged E pedal, morphing bell, bubbles, and hat pickup"
+    },
+    {
+      "request": "spatialize it within a world",
+      "implementation": "moving high-passed water-room returns with a mono-stable dry center"
+    },
+    {
+      "request": "scratches play the track continuously like a voice",
+      "implementation": "scattered sixteenth-grid gestures that move through the current bar in quarter- or half-beat playhead steps"
+    },
+    {
+      "request": "bells become staccato and return while sounding",
+      "implementation": "continuous sustained-to-retriggered-to-sustained crossfade using each bell's own attack"
+    },
+    {
+      "request": "bubbles, splashes, rain, and deep thunder",
+      "implementation": "clustered deep particle bubbles of varied length, occasional high pinpricks, broad rain bands, and low thunder swells"
+    },
+    {
+      "request": "clippy snares and hats keep a beat through breaks",
+      "implementation": "two/four snares beginning at 1:25 and eighth-note hats through breath sections"
+    },
+    {
+      "request": "deeper kicks, reverse kicks, and better headphone distribution mix",
+      "implementation": "34 Hz kick body, reverse-kick swells at landings, mono low end, frequency-dependent side width, low-mid control, darker air shelf, glue compression, and true-peak limiting"
+    },
+    {
+      "request": "shorter, more harmonious FEM bells with some bit crunch and high glocks",
+      "implementation": "short shared FEM run sources, consistent silver bowl anchors, 10% harmonic spine, selective 7-bit/sample-hold blend, and sparse E-minor-pentatonic bing-bing pairs"
+    },
+    {
+      "request": "shorter ending",
+      "implementation": "mist reduced to eight bars with five slowing tolls and one final glass E"
+    }
+  ],
+  "externalSamples": {
+    "streetFighter6": "not used; written Capcom sample clearance required for a release",
+    "thirdPartyAudio": false
+  },
+  "nextRender": {
+    "renderer": "node bin/render-wattajetta.mjs --next",
+    "outputs": {
+      "preview": "out/wattajetta-world-v2.mp3",
+      "masterAudition": "out/wattajetta-world-v2-AUDITION.wav"
+    },
+    "status": "ready_for_listening",
+    "qc": {
+      "durationSec": 150,
+      "integratedLufs": -14.6,
+      "loudnessRangeLu": 14.5,
+      "truePeakDbtp": -2.5,
+      "sampleRate": 48000,
+      "masterBitDepth": 24,
+      "midMeanDb": -15.6,
+      "sideMeanDb": -34.0,
+      "introMeanDbByEightSeconds": [-27.4, -23.8, -22.6, -13.3],
+      "monoCompatibility": "dry center and low end preserved; physical spin is a side-only return"
+    },
+    "todos": [
+      {
+        "request": "start around the current 1:24 pickup",
+        "status": "implemented",
+        "implementation": "revised to begin at the exact five-second point of v2: 89.0 seconds into the accepted world audition"
+      },
+      {
+        "request": "make the initial drop more epic with thicker throat / thwub bass",
+        "status": "implemented",
+        "implementation": "reverse inhale, 29 Hz impact, sustained E sub, moving throat-formant harmonics, and per-beat pitch-diving thwubs"
+      },
+      {
+        "request": "bring in power saw on the melody's second pass",
+        "status": "implemented",
+        "implementation": "quiet octave-down detuned saw stacks, band-limited to 5 kHz, follow the scored bell notes in bars 54–60"
+      },
+      {
+        "request": "let bubbles outline the melody",
+        "status": "implemented",
+        "implementation": "pitched bubble rises follow every selected glass-bell strike in bars 52–56"
+      },
+      {
+        "request": "add trap-style t t sssssssss tt t",
+        "status": "implemented",
+        "implementation": "explicit sixteenth/32nd tick pattern repeats through the steel drop"
+      },
+      {
+        "request": "keep scratches later in the track",
+        "status": "implemented",
+        "implementation": "continuous scratch voice waits until bar 60, the next super scratch arrives at bar 69, and the removed five-second pickup returns later in quarter-beat forward/reverse cells"
+      },
+      {
+        "request": "try a physical spin like Special Sign",
+        "status": "implemented",
+        "implementation": "slow 1.5-orbit moving-source return with wobbly irregular azimuth, opposing ear delays, Doppler bend, distance damping, and mono-stable dry anchor"
+      },
+      {
+        "request": "taper the air in the track",
+        "status": "implemented",
+        "implementation": "progressive high-band taper above 5.2 kHz retains opening articulation and darkens toward the rotations and ending"
+      },
+      {
+        "request": "bake it all to a vinyl material",
+        "status": "implemented",
+        "implementation": "the complete stereo arrangement passes through slow platter wow, motor flutter, groove saturation, channel bleed, synthetic surface grain, sparse crackle, and low rumble"
+      },
+      {
+        "request": "make it a longer 2:30 track",
+        "status": "implemented",
+        "implementation": "150-second five-chapter sequence revisits impact, rotation, discarded intro/scratch material, deeper-saw hook, and coda with two-second equal-power joins"
+      },
+      {
+        "request": "sampled string intonation from a physically modeled ukulele string",
+        "status": "implemented",
+        "implementation": "Aquauke uses sustained baritone D3-G3-B3-E4 nylon Karplus–Strong waveguides for an E-minor-pentatonic single-note melody that grows into fretted Em7, G, Am, and Dsus2 harmony, with finger-body thumps, audible fret slides, attack-sharp bends, per-pluck intonation offsets, slow waveguide loss, deep wooden modes, and water reflections before the vinyl bake"
+      },
+      {
+        "request": "humanize and swing the Wattajetta beat",
+        "status": "implemented",
+        "implementation": "the centered kick remains firm while aquauke picking and upper percussion use swung off-eighths, microtiming drift, velocity variation, and human downstroke spreads"
+      },
+      {
+        "request": "rather than start with a bang",
+        "status": "implemented",
+        "implementation": "a 14-bar slow build uses only isolated aquauke and hats before resolving into the former opening; repeated middle chapters are tightened to preserve 2:30"
+      },
+      {
+        "request": "make the build more rhythmic",
+        "status": "implemented",
+        "implementation": "the aquauke is progressively ungated from sparse two-beat statements to full swung picking while hats grow from two offbeats per bar to swung eighths and final-bar sixteenths"
+      },
+      {
+        "request": "musically connect the prelude to the drop and turn the uke into FEM bells",
+        "status": "implemented",
+        "implementation": "one E-minor-pentatonic motif passes from single baritone string to chord voicings to steel FEM bells; the last modeled E5 rings across the quiet pocket into the E-centered drop"
+      },
+      {
+        "request": "keep the dramatic drop alive and let the uke persist inside it",
+        "status": "implemented",
+        "implementation": "revised after audition: the prelude and inherited source groove share the 138 BPM grid, but the Aquauke stem now ends before the landing so it cannot compete with the drop harmony; the existing kick, bass, thwubs, and bells carry the section without redundant reinforcement"
+      },
+      {
+        "request": "pare down the intro and break/drop junction",
+        "status": "implemented",
+        "implementation": "one monophonic nylon line rises in three density stages, straight hats state 138 BPM, eight sparse FEM answers complete the handoff, and the final bar carries only a soft quarter-note count over the inherited track at roughly one-tenth level"
+      },
+      {
+        "request": "turn toward abrasive late-20th-century industrial sound around 0:45",
+        "status": "implemented",
+        "implementation": "original synthesized machine rhythm begins at 45 seconds with distorted inharmonic low-metal strikes and a slow irregular stereo orbit; no artist recording or external sample is used"
+      },
+      {
+        "request": "white-noise low-tone waves that feel like drowning",
+        "status": "implemented",
+        "implementation": "five generated wave events collapse white noise toward low filtered pressure and sub undertow while temporarily muffling and spatially covering the song"
+      }
+    ]
+  }
+}

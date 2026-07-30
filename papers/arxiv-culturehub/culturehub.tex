@@ -1,0 +1,230 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+
+\usepackage[top=0.72in,bottom=0.72in,left=0.72in,right=0.72in]{geometry}
+\usepackage{fontspec}
+\setmainfont{lmroman10-regular.otf}[BoldFont=lmroman10-bold.otf,ItalicFont=lmroman10-italic.otf,BoldItalicFont=lmroman10-bolditalic.otf]
+\setsansfont{lmsans10-regular.otf}[BoldFont=lmsans10-bold.otf,ItalicFont=lmsans10-oblique.otf]
+\newfontfamily\acbold{ywft-processing-bold}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\newfontfamily\aclight{ywft-processing-light}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\usepackage{xcolor,titlesec,enumitem,booktabs,tabularx,fancyhdr,hyperref,xurl,graphicx,ragged2e,microtype,natbib,float,multicol}
+\usepackage[colorspec=0.92]{draftwatermark}
+\graphicspath{{figures/}{../../papers/arxiv-ac/figures/}}
+
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{105,105,105}
+\DraftwatermarkOptions{text=WORKING DRAFT,fontsize=3cm,color=acpink!15,angle=45}
+\hypersetup{colorlinks=true,linkcolor=acpurple,urlcolor=acpurple,citecolor=acpurple,pdftitle={CultureHub: A Dossier}}
+
+\titleformat{\section}{\normalfont\bfseries\normalsize\raggedright}{\thesection.}{0.5em}{\MakeUppercase}
+\titlespacing{\section}{0pt}{1.05em}{0.25em}
+\titleformat{\subsection}{\normalfont\bfseries\small}{\thesubsection}{0.5em}{}
+\titlespacing{\subsection}{0pt}{0.7em}{0.15em}
+\pagestyle{fancy}\fancyhf{}\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{acpink}\textit{Working Draft --- not for citation}}
+\fancyfoot[C]{\footnotesize\thepage}
+\setlist[itemize]{nosep,leftmargin=1.2em,itemsep=0.1em}
+\setlength{\columnsep}{1.7em}\setlength{\parindent}{1em}\setlength{\parskip}{0.25em}
+\tolerance=900\emergencystretch=1.2em
+\newcommand{\papercreated}{2026-07-28}
+\newcommand{\paperrevision}{1}
+
+\begin{document}
+\twocolumn[{%
+\noindent
+\begin{minipage}[t]{0.5\textwidth}\raggedright
+\includegraphics[height=3em]{pals}
+\end{minipage}%
+\begin{minipage}[t]{0.5\textwidth}\raggedleft
+{\footnotesize\acbold\color{acpink} /papers · dossier lane}
+\end{minipage}\par
+\vspace{0.6em}
+\begin{center}
+{\acbold\fontsize{40pt}{44pt}\selectfont\color{acdark} CultureHub}\par
+\vspace{0.15em}
+{\aclight\fontsize{20pt}{23pt}\selectfont\color{acpink} A Dossier}\par
+\vspace{0.4em}
+{\aclight\fontsize{11pt}{13pt}\selectfont\color{acgray} Institution, network, programs, people, money, and the Los Angeles residency}\par
+\vspace{0.45em}
+{\normalsize\href{https://prompt.ac/@jeffrey}{@jeffrey}}\par
+{\small\color{acgray}Aesthetic.Computer · \href{https://orcid.org/0009-0007-4460-4913}{ORCID 0009-0007-4460-4913}}\par
+\vspace{0.3em}
+{\footnotesize\color{acgray}Created \papercreated{} · Revision \paperrevision}\par
+\vspace{0.5em}\rule{\textwidth}{1.4pt}\vspace{0.35em}
+\end{center}
+\begin{quote}
+\small\noindent\textbf{Note.} This is a dossier, not an argument. It assembles the public record of CultureHub: its legal form, institutional network, programs, people, finances, and current Los Angeles residency. The organization describes itself as a global art-and-technology community founded by La MaMa Experimental Theatre Club and Seoul Institute of the Arts in 2009~\citep{chabout}. IRS filings establish the U.S. nonprofit's legal and financial spine~\citep{ch990}. Partner-site language is preserved rather than treated as proof that all five studios are branches of one consolidated entity. There is no verdict and no conclusion section.
+\end{quote}
+\vspace{0.25em}
+}]
+
+\section{Identity and legal form}
+
+CultureHub works at the intersection of emerging technology, performance, education, and international exchange. Its public mission is enacted through artist residencies, live productions, education, and networked collaboration~\citep{chabout}. It was formed from a long-running relationship between \textbf{La MaMa Experimental Theatre Club} in New York and the \textbf{Seoul Institute of the Arts} in Korea; the current organization dates its founding to \textbf{2009}~\citep{chabout}.
+
+The U.S. entity is \textbf{Culturehub}, EIN \texttt{26-4692107}, a 501(c)(3) public charity with an IRS ruling date of June 2010. Its NTEE classification is A25, Arts Education, and its fiscal year ends in June. The legal address in the latest filing is \textbf{47 Great Jones Street, New York, NY 10012}~\citep{ch990}.
+
+This yields two simultaneous descriptions. Legally, CultureHub is a small New York nonprofit. Operationally, it is a network of studios embedded in or linked to larger host institutions. The website names five locations: New York, Los Angeles, Korea, Italy, and Indonesia~\citep{chabout}. Public sources do not show that all five are financially consolidated inside the U.S. Form 990.
+
+\section{The network}
+
+\begin{table}[H]
+\footnotesize\centering\setlength{\tabcolsep}{3pt}
+\begin{tabularx}{\columnwidth}{lX}
+\toprule
+\textbf{Site} & \textbf{Host and public function}\\
+\midrule
+New York & At La MaMa, 47 Great Jones St.; headquarters and 900-sq-ft networked production studio.\\
+Los Angeles & At The Reef, 1933 S Broadway; studio, Kalio 5.1 audio, modular exhibition environment.\\
+Korea & At SeoulArts ATEC in Ansan; creative production, R\&D, education.\\
+Italy & Linked to La MaMa Umbria at Cantiere Oberdan, Spoleto; residencies, workshops, telematic research.\\
+Indonesia & At Bandung Institute of Technology; visual art, design, and technology studio.\\
+\bottomrule
+\end{tabularx}
+\caption{CultureHub's public network. Sources: \citet{chny,chla,chkorea,chitaly,chindonesia}.}
+\end{table}
+
+The location model is institutional rather than franchise-like. New York is physically based at La MaMa; Korea and Indonesia are housed at universities; Italy is linked to La MaMa Umbria; Los Angeles occupies a studio at The Reef. CultureHub's distinctive capability is the connection among these rooms: people, images, sound, and performances can move across a common network while local partners retain their own context.
+
+\section{Programs}
+
+\begin{description}
+\item[Residency.] Time, space, technical support, presentation, and stipends for artists developing emerging-technology work~\citep{chresidency}.
+\item[Re--Fest.] Annual festival for artists, activists, and technologists. Themes have included Re--Generation, Re--Circulation, Re--Unification, Re--New, Re--Source, Re--Collect, and 2026's Re--Mapping~\citep{chrefest}.
+\item[Experiments in Digital Storytelling.] An anti-disciplinary series joining La MaMa's performance lineage to new media and hybrid storytelling~\citep{cheds}.
+\item[CoLab.] Free art-and-technology learning through intensives, micro-courses, and workshops~\citep{chcolab}.
+\item[LiveLab.] A free, open-source, browser-based WebRTC media router for multi-location rehearsal and performance. The public credit names Olivia Jack as lead software developer~\citep{chlivelab}.
+\end{description}
+
+These are not isolated departments. The same work can pass from residency development to public presentation, education, documentation, and a networked broadcast. \emph{Signal Distance} (2025), for example, combined a resident artist's custom instrument and multichannel installation with Producing, Artistic, Emerging Media, and Technical staff~\citep{chsignal}.
+
+\section{Los Angeles residency}
+
+The 2026 LA call selects \textbf{three residents}. Each receives one to two weeks in the studio, a \textbf{\$2,000 stipend}, technical and marketing support, documentation, and a culminating public offering. The room is described as flexible, with a Kalio 5.1 surround system and modular exhibition infrastructure~\citep{chresidency,chla}.
+
+The call emphasizes ecological responsibility, ethical relations with technology, combinations of old and new tools, localized networks, human connection, and sustainable practice. It is therefore both an artistic-development program and a test of whether a work can become a coherent public encounter in the actual room.
+
+The submitted \emph{Notepat Jam} proposal places six salvaged laptops inside that frame. Each machine boots AC Native, runs the notepat instrument, and voices one channel of the surround field; a public workshop precedes the performance, and the software image and multitrack are released openly~\citep{notepatjam}. The match is unusually literal: reclaimed computers are the instruments, spatial audio is the form, and opening the system is part of the audience experience.
+
+\section{Who is in the conversation}
+
+\subsection{Mattie Barber-Bockelman}
+
+Mattie Barber-Bockelman is CultureHub New York's \textbf{Producing Director}. Her official profile says she plans and executes CultureHub's programming across Re--Fest, the Residency, Experiments in Digital Storytelling, and CoLab~\citep{chmattie}. She also developed and hosted \emph{Downtown Variety}, begun March 20, 2020, which presented roughly 200 artists from 12 countries, and she performs with La MaMa's Great Jones Repertory Company.
+
+That record puts her at the junction of artist, program, schedule, production, audience, and institution. \textit{Operational reading, not reported fact:} in a residency conversation she is likely evaluating whether the artistic proposition is clear, whether it fits the program, what the public will experience, and whether the support and schedule can make it real. She is not the listed LA technician.
+
+\subsection{Likely production chain}
+
+\begin{table}[H]
+\footnotesize\centering\setlength{\tabcolsep}{3pt}
+\begin{tabularx}{\columnwidth}{lX}
+\toprule
+\textbf{Person} & \textbf{Public role / relevance}\\
+\midrule
+Mattie Barber-Bockelman & Producing Director; program-wide planning and execution.\\
+Billy Clark & Artistic Director; artistic, education, and community programs since 2009.\\
+Sangmin Chae & Emerging Media Director; video and telepresence systems.\\
+DeAndra Anthony & Technical Director; video, lighting, sound, and LiveLab production.\\
+Raquel (Rock) Bell & Los Angeles technician.\\
+Jared Marshall & Los Angeles technician.\\
+\bottomrule
+\end{tabularx}
+\caption{The public roster around an LA residency. The actual assignment chain should be confirmed. Sources: \citet{chny,chla,chabout}.}
+\end{table}
+
+Two website discrepancies are worth preserving. The New York team page calls Blair Johnson \emph{Development Director}; the individual profile calls her \emph{Development Associate}. The current board page spells the treasurer \emph{Jon Lefkowitz}; the FY2025 filing transcription appears as \emph{Jonathan Leifkowitz}~\citep{chabout,ch990}. Neither changes the residency reading.
+
+\section{Governance}
+
+The current website lists Catherine Filloux (President), Jon Lefkowitz (Treasurer), Frank Carucci (Secretary), Billy Clark, Claire Conceison, Jamil Ellis, Alexa Jordan, Mia Lee, Ralph Samuelson, Paul Slee Rodriguez, and Alex Suh as directors~\citep{chabout}. The FY2025 Form 990 lists the officers as uncompensated and reports no executive compensation. Billy Clark appears both as Artistic Director and board member~\citep{ch990}.
+
+This is a working board around a small staff, not a museum-scale governance layer. The staff page identifies artistic, producing, emerging-media, technical, development, finance, and communications functions; the LA page lists two technicians~\citep{chny,chla}.
+
+\section{Money}
+
+\begin{table}[H]
+\footnotesize\centering\setlength{\tabcolsep}{3pt}
+\begin{tabular}{lrrr}
+\toprule
+\textbf{FY} & \textbf{Revenue} & \textbf{Expenses} & \textbf{Net assets}\\
+\midrule
+2025 & \$846,390 & \$745,968 & \$341,685\\
+2024 & 576,318 & 578,599 & 241,263\\
+2023 & 687,536 & 635,143 & 243,544\\
+2022 & 499,544 & 495,889 & 191,151\\
+2021 & 416,035 & 436,765 & 187,496\\
+2020 & 407,859 & 424,291 & 208,226\\
+2019 & 436,870 & 416,228 & 224,658\\
+2018 & 454,825 & 397,467 & 219,016\\
+2015 & 375,992 & 367,980 & 95,859\\
+2011 & 121,489 & 97,120 & 39,993\\
+\bottomrule
+\end{tabular}
+\caption{Selected fiscal years; year ends in June. Exact 2011--2025 series is in \texttt{data/financials.csv}. Source: IRS Form 990 via \citet{ch990}.}
+\end{table}
+
+FY2025 is the largest extracted revenue year in the 2011--2025 series. Contributions supplied \textbf{\$768,292}, or \textbf{90.8\%} of revenue; program-service revenue supplied \$77,324. Salaries and wages were \$376,909, or \textbf{50.5\%} of expenses. Assets were \$404,855 against liabilities of \$63,170~\citep{ch990}.
+
+The long view is growth without institutional bloat: revenue rose from \$121,489 in FY2011 to \$846,390 in FY2025, while the organization remained below \$1 million in annual revenue and carried modest net assets. Contributions dominate the latest year, so foundation and public support remain structurally important.
+
+\section{Public support}
+
+The public record identifies the National Endowment for the Arts, New York State Council on the Arts, Howard Gilman Foundation, SeoulArts, La MaMa, and the Emma A. Sheafer Charitable Trust among supporters~\citep{chabout,gilman2025}. Two traceable examples show what funders underwrite:
+
+\begin{itemize}
+\item NYSCA's FY2020 record lists \$15,000 for CoLab 2019 and \$20,000 in general operating support~\citep{nysca2020}.
+\item An NEA record describes a \$30,000 grant for artist residency and facilities access supporting digital storytelling, VR, networked performance, and web-based work~\citep{nea2023}.
+\end{itemize}
+
+These are examples, not a full grant ledger. Form 990 contribution totals do not identify every donor, and the website funder marks do not state award amounts.
+
+\section{Reading the institution}
+
+The public evidence supports five concise readings:
+
+\begin{itemize}
+\item \textbf{Network before venue.} Its durable asset is the relationship among rooms, institutions, artists, and media systems.
+\item \textbf{Production is artistic infrastructure.} Producing, technical, and emerging-media roles recur together in program credits.
+\item \textbf{Small organization, international surface.} The U.S. entity's budget is under \$1 million; its reach is multiplied by institutional hosts.
+\item \textbf{Open tools are native to the culture.} LiveLab is free and open source; CoLab is free; residency calls explicitly address ethical and sustainable technology.
+\item \textbf{LA is a specific room inside the network.} Its surround system and modular environment matter, but so do the public offering, documentation, and connection back to the wider organization.
+\end{itemize}
+
+\section{Questions the record leaves open}
+
+For a live conversation, the useful unresolved facts are operational:
+
+\begin{itemize}
+\item Who is the day-to-day LA producer, and when do Rock Bell or Jared Marshall enter the process?
+\item Is the Kalio system exposed as six discrete inputs, and what interface or routing is already installed?
+\item What does the \$2,000 stipend need to cover, and what equipment or documentation is provided separately?
+\item Which public format best fits the room: seated concert, open studio, workshop, livestream, or a combination?
+\item How much setup, rehearsal, audience capacity, and strike time belongs to a one- or two-week residency?
+\item What rights, credits, and archive materials does CultureHub expect from the public offering?
+\end{itemize}
+
+\section{What this dossier is not}
+
+\begin{itemize}
+\item \textbf{Not a verdict.} It does not rank CultureHub or predict a selection decision.
+\item \textbf{Not a consolidated audit.} The international studios' public host relationships are not evidence that their finances sit inside CultureHub's U.S. Form 990.
+\item \textbf{Not a complete grant ledger.} Named examples are preserved separately from total contributed revenue.
+\item \textbf{Not a substitute for production confirmation.} Public equipment, address, staffing, and calendar details can change; confirm them before arrival or build.
+\end{itemize}
+
+\section{Source map}
+
+The legal and financial spine is the IRS Form 990 series via ProPublica~\citep{ch990}. Current roles, locations, and programs come from CultureHub's own pages~\citep{chabout,chny,chla,chresidency}. Grant examples come from the awarding agencies~\citep{nea2023,nysca2020}. The reproducible extracts are in \texttt{data/}; discrepancies remain explicit rather than silently resolved.
+
+\vspace{0.4em}
+\noindent\textbf{ORCID:} \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}
+
+\onecolumn
+\begin{multicols}{2}
+\bibliographystyle{plainnat}
+{\footnotesize\bibliography{references}}
+\end{multicols}
+\end{document}

@@ -28,6 +28,13 @@ try{
 
 echo "$(date -u +%FT%TZ) ♥ beat · gateway=$GW · board=$BOARD" >> "$LOG"
 
+# Bump a stalled blocking mission before considering ordinary Captutor
+# recovery. The priority supervisor is bounded and keeps lower work parked.
+PRIORITY="$HOME/Developer/captutor/ops/iris-priority-heartbeat.mjs"
+if [[ -f "$PRIORITY" ]]; then
+  /opt/homebrew/bin/node "$PRIORITY" >> "$LOG" 2>&1
+fi
+
 # Save a recoverable Captutor mission from a worker/browser stoppage. This is a
 # strict one-retry supervisor by default, and it never draws Frame/Puppet UI.
 RECOVERY="$HOME/Developer/captutor/ops/iris-heartbeat-recovery.mjs"
