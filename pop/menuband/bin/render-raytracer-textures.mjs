@@ -5,7 +5,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createCanvas, registerFont } from "canvas";
-import { STRIP_MIDIS, loadStripRig, drawStrip, stripKeyRect, stripKeyColor } from "./reel-lib.mjs";
+import { STRIP_MIDIS, loadStripRig, stripKeyRect, stripKeyColor } from "./reel-lib.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, "../../..");
@@ -38,20 +38,8 @@ const scoreCanvas = createCanvas(scoreWidth, scoreHeight);
 const scoreContext = scoreCanvas.getContext("2d");
 scoreContext.clearRect(0, 0, scoreWidth, scoreHeight);
 
-// Boundary marks live between lanes. The transparent texture lets the Metal
-// paper material remain physically opaque beneath the printed ink.
-scoreContext.save();
-scoreContext.strokeStyle = "rgba(28,22,40,0.11)";
-scoreContext.lineWidth = 2;
-scoreContext.setLineDash([4, 12]);
-for (const midi of STRIP_MIDIS) {
-  const rect = stripKeyRect(rig, midi, { x: 0, w: scoreWidth });
-  scoreContext.beginPath();
-  scoreContext.moveTo(rect.x, 0);
-  scoreContext.lineTo(rect.x, scoreHeight);
-  scoreContext.stroke();
-}
-scoreContext.restore();
+// The score texture is empty except for notes. The Metal renderer uses its
+// alpha as physical occupancy, so the loop itself stays transparent.
 
 for (const note of score.notes || []) {
   const midi = Number(note.displayMidi ?? note.keyMidi ?? note.visualMidi ?? note.midi);
@@ -68,33 +56,15 @@ for (const note of score.notes || []) {
   roundedRect(scoreContext, x, top, width, height, Math.min(14, width * 0.12));
   scoreContext.fill();
 
-  scoreContext.save();
-  scoreContext.strokeStyle = color[0] * 0.299 + color[1] * 0.587 + color[2] * 0.114 > 155
-    ? "rgba(28,22,40,0.75)" : "rgba(255,255,255,0.82)";
-  scoreContext.lineWidth = 3;
-  scoreContext.setLineDash([5, 12]);
-  scoreContext.beginPath();
-  scoreContext.moveTo(x + 2, top + 8); scoreContext.lineTo(x + 2, bottom - 8);
-  scoreContext.moveTo(x + width - 2, top + 8); scoreContext.lineTo(x + width - 2, bottom - 8);
-  scoreContext.stroke();
-  scoreContext.restore();
-
   const label = labels.get(midi);
-  const capHeight = Math.min(72, Math.max(34, Math.min(height - 10, width * 0.68)));
-  if (label && capHeight >= 32) {
-    const capWidth = Math.min(width - 12, capHeight * 0.92);
-    const capX = x + (width - capWidth) / 2;
-    const capY = Math.max(top + 5, bottom - capHeight - 8);
-    scoreContext.fillStyle = "rgba(255,255,255,0.97)";
-    scoreContext.strokeStyle = "rgba(27,21,39,0.94)";
-    scoreContext.lineWidth = 3;
-    roundedRect(scoreContext, capX, capY, capWidth, capHeight, 10);
-    scoreContext.fill(); scoreContext.stroke();
-    scoreContext.fillStyle = "rgb(25,19,37)";
-    scoreContext.font = `900 ${Math.floor(capHeight * 0.68)}px MBSansRounded`;
+  const labelSize = Math.min(68, Math.max(30, Math.min(height * 0.52, width * 0.54)));
+  if (label && labelSize >= 30) {
+    const luminance = color[0] * 0.299 + color[1] * 0.587 + color[2] * 0.114;
+    scoreContext.fillStyle = luminance > 155 ? "rgba(25,19,37,0.94)" : "rgba(255,255,255,0.96)";
+    scoreContext.font = `900 ${Math.floor(labelSize)}px MBSansRounded`;
     scoreContext.textAlign = "center";
     scoreContext.textBaseline = "middle";
-    scoreContext.fillText(label, capX + capWidth / 2, capY + capHeight * 0.52);
+    scoreContext.fillText(label, x + width / 2, Math.max(top + labelSize * 0.65, bottom - labelSize * 0.72));
   }
 }
 writeFileSync(resolve(outDir, "score.png"), scoreCanvas.toBuffer("image/png"));
@@ -103,15 +73,22 @@ const keyboardWidth = 2048;
 const keyboardHeight = Math.ceil(keyboardWidth / rig.aspect);
 const keyboardCanvas = createCanvas(keyboardWidth, keyboardHeight);
 const keyboardContext = keyboardCanvas.getContext("2d");
-drawStrip(keyboardContext, rig, [], 0, 0, keyboardWidth);
+keyboardContext.clearRect(0, 0, keyboardWidth, keyboardHeight);
 for (const midi of STRIP_MIDIS) {
   const rect = stripKeyRect(rig, midi, { x: 0, w: keyboardWidth });
   const label = labels.get(midi);
-  keyboardContext.fillStyle = "rgba(24,18,36,0.74)";
-  keyboardContext.font = `800 ${Math.max(28, Math.min(62, rect.w * 0.48))}px MBSansRounded`;
+  const capHeight = keyboardHeight * 0.52;
+  const capWidth = Math.min(rect.w * 0.62, capHeight * 0.88);
+  const capX = rect.x + (rect.w - capWidth) / 2;
+  const capY = keyboardHeight * 0.24;
+  keyboardContext.fillStyle = "rgba(255,255,255,0.92)";
+  roundedRect(keyboardContext, capX, capY, capWidth, capHeight, capWidth * 0.22);
+  keyboardContext.fill();
+  keyboardContext.fillStyle = "rgba(24,18,36,0.96)";
+  keyboardContext.font = `900 ${Math.max(28, Math.min(62, rect.w * 0.48))}px MBSansRounded`;
   keyboardContext.textAlign = "center";
   keyboardContext.textBaseline = "middle";
-  keyboardContext.fillText(label, rect.x + rect.w / 2, keyboardHeight * 0.72);
+  keyboardContext.fillText(label, rect.x + rect.w / 2, capY + capHeight * 0.52);
 }
 writeFileSync(resolve(outDir, "keyboard.png"), keyboardCanvas.toBuffer("image/png"));
 

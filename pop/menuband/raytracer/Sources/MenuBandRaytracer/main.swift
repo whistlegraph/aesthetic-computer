@@ -49,6 +49,7 @@ if arguments.flags.contains("--help") {
     MenuBandRaytracer
       --score <score.png> --keyboard <keyboard.png>
       --out <frame.png> --time <seconds> --size <WxH> --spp <samples>
+      --shape <wheel|strip>
       --frame-start <n> --frame-end <n> --fps <n> --out-dir <directory>
       --shard-index <n> --shard-count <n>
     """)
@@ -63,6 +64,8 @@ func absoluteURL(_ value: String) -> URL {
 
 let scoreURL = absoluteURL(arguments.string("--score", "assets/01-lantern/score.png"))
 let keyboardURL = absoluteURL(arguments.string("--keyboard", "assets/01-lantern/keyboard.png"))
+let shape = arguments.string("--shape", "wheel").lowercased()
+guard shape == "wheel" || shape == "strip" else { fatalError("--shape must be wheel or strip") }
 let sizeParts = arguments.string("--size", "1080x1920").lowercased().split(separator: "x")
 guard sizeParts.count == 2, let width = Int(sizeParts[0]), let height = Int(sizeParts[1]), width > 0, height > 0 else {
     fatalError("--size must be WxH")
@@ -70,7 +73,7 @@ guard sizeParts.count == 2, let width = Int(sizeParts[0]), let height = Int(size
 let samples = max(1, arguments.int("--spp", 8))
 let duration = arguments.float("--duration", 60)
 let loopSeconds = arguments.float("--loop-seconds", 9.6)
-let exposure = arguments.float("--exposure", 1.05)
+let exposure = arguments.float("--exposure", 0.80)
 let fps = max(1, arguments.int("--fps", 60))
 let shardCount = max(1, arguments.int("--shard-count", 1))
 let shardIndex = min(shardCount - 1, max(0, arguments.int("--shard-index", 0)))
@@ -88,7 +91,8 @@ guard let shaderURL = Bundle.module.url(forResource: "MenuBand", withExtension: 
     fatalError("bundled Metal shader missing")
 }
 let shaderSource = try String(contentsOf: shaderURL, encoding: .utf8)
-let library = try device.makeLibrary(source: shaderSource, options: nil)
+let shapeDefine = shape == "strip" ? "#define MENU_BAND_STRIP 1\n" : "#define MENU_BAND_STRIP 0\n"
+let library = try device.makeLibrary(source: shapeDefine + shaderSource, options: nil)
 guard let function = library.makeFunction(name: "renderMenuBand") else { fatalError("renderMenuBand shader missing") }
 let pipeline = try device.makeComputePipelineState(function: function)
 guard let queue = device.makeCommandQueue() else { fatalError("Metal command queue unavailable") }
