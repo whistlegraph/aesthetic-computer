@@ -16,6 +16,7 @@ test -d "$BUNDLE"
 /usr/bin/install -m 0755 "$BUILD_BIN/JukeWizard" "$INSTALL_ROOT/JukeWizard"
 /usr/bin/ditto "$BUNDLE" "$INSTALL_ROOT/JukeWizard_JukeWizard.bundle"
 /usr/bin/install -m 0755 "$ROOT/bin/juke-cloud.mjs" "$INSTALL_ROOT/juke-cloud.mjs"
+/usr/bin/install -m 0755 "$ROOT/../tezos/ac-login.mjs" "$INSTALL_ROOT/ac-login.mjs"
 /usr/bin/install -m 0755 "$ROOT/bin/jukewizard-installed" "$BIN_DIR/jukewizard"
 
 echo "installed JukeWizard -> $INSTALL_ROOT/JukeWizard"
