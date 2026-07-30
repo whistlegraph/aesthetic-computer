@@ -12,6 +12,7 @@ import { loadNarrationSource, loadNarrationTimeline, sceneStart } from "./timing
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
 const OUT = resolve(ROOT, "out");
+const STILLS_CUT = process.argv.includes("--stills-cut");
 const RETIMED_VIDEO = resolve(OUT, "unboxing-spine-retimed.mp4");
 const VIDEO = existsSync(RETIMED_VIDEO) ? RETIMED_VIDEO : resolve(OUT, "unboxing-spine-realtime.mp4");
 const narrationSource = loadNarrationSource(ROOT);
@@ -19,7 +20,9 @@ const timing = loadNarrationTimeline(ROOT);
 const VOICE = narrationSource.audio;
 const BED = resolve(OUT, "sine-bed.wav");
 const MIX = resolve(OUT, "narration-sine-mix.wav");
-const OUTPUT = resolve(OUT, "scores-for-social-software-captioned-08.mp4");
+const OUTPUT = resolve(OUT, STILLS_CUT
+  ? "scores-for-social-software-stills-captioned-09.mp4"
+  : "scores-for-social-software-captioned-08.mp4");
 const words = JSON.parse(readFileSync(resolve(OUT, "words.json"), "utf8"));
 const narratorSpec = JSON.parse(readFileSync(resolve(ROOT, "narrator-spec.json"), "utf8"));
 const pronunciationReview = JSON.parse(readFileSync(resolve(ROOT, "pronunciations.json"), "utf8"));
@@ -54,6 +57,8 @@ for (let i = 0; i < words.length;) {
 const SOURCE_W = 1620;
 const canvas = createCanvas(W, H), ctx = canvas.getContext("2d");
 const videoCanvas = createCanvas(SOURCE_W, H), videoCtx = videoCanvas.getContext("2d");
+const softBlurCanvas = createCanvas(360, 640), softBlurCtx = softBlurCanvas.getContext("2d");
+const deepBlurCanvas = createCanvas(180, 320), deepBlurCtx = deepBlurCanvas.getContext("2d");
 // The public event page carries the full 4080x3072 SS-227 original. Treat it
 // as three editorial shots—room, audience, and right-hand gathering—rather
 // than enlarging the 480px catalog derivatives that were used in early cuts.
@@ -129,6 +134,69 @@ const colorsFor = (index) => {
   };
 };
 const chapterIndexAt = (ms) => Math.max(0, chapters.findLastIndex((chapter) => ms >= chapter.fromMs));
+const stillManifest = STILLS_CUT
+  ? JSON.parse(readFileSync(resolve(ROOT, "stills.json"), "utf8"))
+  : { chapters: {} };
+const mediaIndex = STILLS_CUT
+  ? JSON.parse(readFileSync(resolve(ROOT, "index/manifest.json"), "utf8"))
+  : { items: [] };
+const mediaByName = new Map(mediaIndex.items.map((item) => [item.filename.toLocaleLowerCase(), item]));
+const originalRoots = [
+  resolve(OUT, "iphone-originals"),
+  "/Users/jas/Downloads",
+  "/Users/jas/Documents/Shelf/scores-for-social-software/raw-working",
+  "/Users/jas/.Trash/Scores-for-Social-Software-Raw-2026-07-16",
+];
+const stillRenderCache = resolve(OUT, "iphone-render-cache");
+const resolveStill = (filename) => {
+  for (const root of originalRoots) {
+    const exact = resolve(root, filename);
+    if (existsSync(exact)) return { path: exact, fallback: false };
+  }
+  const indexed = mediaByName.get(filename.toLocaleLowerCase());
+  if (!indexed) throw new Error(`canonical still is not indexed: ${filename}`);
+  return { path: resolve(ROOT, "index", indexed.thumbnail), fallback: true };
+};
+const renderableStill = (source, filename) => {
+  if (!/\.hei[cf]$/i.test(source.path)) return source.path;
+  mkdirSync(stillRenderCache, { recursive: true });
+  const cached = resolve(stillRenderCache, filename.replace(/\.hei[cf]$/i, ".jpg"));
+  const conversion = spawnSync("sips", [
+    "-s", "format", "jpeg", "-s", "formatOptions", "best",
+    source.path, "--out", cached,
+  ], { encoding: "utf8" });
+  if (conversion.status !== 0) {
+    throw new Error(`could not decode canonical still ${filename}: ${conversion.stderr.trim()}`);
+  }
+  return cached;
+};
+const prepareStillImage = async (path) => {
+  const decoded = await loadImage(path);
+  const scale = Math.min(1, 1600 / Math.max(decoded.width, decoded.height));
+  if (scale === 1) return decoded;
+  const prepared = createCanvas(
+    Math.round(decoded.width * scale),
+    Math.round(decoded.height * scale),
+  );
+  const preparedCtx = prepared.getContext("2d");
+  preparedCtx.imageSmoothingEnabled = true;
+  preparedCtx.imageSmoothingQuality = "high";
+  preparedCtx.drawImage(decoded, 0, 0, prepared.width, prepared.height);
+  return prepared;
+};
+const stillsByChapter = new Map();
+if (STILLS_CUT) {
+  for (const [id, filenames] of Object.entries(stillManifest.chapters)) {
+    const loaded = await Promise.all(filenames.map(async (filename) => {
+      const source = resolveStill(filename);
+      const renderPath = renderableStill(source, filename);
+      return { filename, ...source, renderPath, image: await prepareStillImage(renderPath) };
+    }));
+    stillsByChapter.set(id, loaded);
+  }
+  const fallbacks = [...stillsByChapter.values()].flat().filter((entry) => entry.fallback);
+  console.log(`stills cut · ${[...stillsByChapter.values()].flat().length} canonical frames · ${fallbacks.length} thumbnail fallbacks`);
+}
 
 // Artist and work credits now live inside the first spoken caption rather than
 // in a separate title card. Artist words are salmon; work titles are teal.
@@ -450,6 +518,93 @@ function drawVideo(ms) {
   ctx.drawImage(videoCanvas, sx, sy, sw, sh, 0, 0, W, H);
 }
 
+const smoothstep = (value) => {
+  const x = Math.max(0, Math.min(1, value));
+  return x * x * (3 - 2 * x);
+};
+
+function softenTour(ms, alpha, chapterIndex) {
+  if (alpha <= 0) return;
+  softBlurCtx.clearRect(0, 0, softBlurCanvas.width, softBlurCanvas.height);
+  deepBlurCtx.clearRect(0, 0, deepBlurCanvas.width, deepBlurCanvas.height);
+  softBlurCtx.imageSmoothingEnabled = true;
+  softBlurCtx.imageSmoothingQuality = "high";
+  deepBlurCtx.imageSmoothingEnabled = true;
+  deepBlurCtx.imageSmoothingQuality = "high";
+  softBlurCtx.drawImage(canvas, 0, 0, softBlurCanvas.width, softBlurCanvas.height);
+  deepBlurCtx.drawImage(canvas, 0, 0, deepBlurCanvas.width, deepBlurCanvas.height);
+
+  // Crossfade between two low-pass scales. The blend—not the still—breathes
+  // on a slow sine, so the tour remains alive while its evidence stays sharp.
+  const sine = 0.5 + 0.5 * Math.sin(ms / 1000 * Math.PI * 2 / 6.4 + chapterIndex * 0.67);
+  ctx.save();
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+  ctx.globalAlpha = alpha * 0.92;
+  ctx.drawImage(softBlurCanvas, 0, 0, W, H);
+  ctx.globalAlpha = alpha * (0.16 + sine * 0.30);
+  ctx.drawImage(deepBlurCanvas, 0, 0, W, H);
+  ctx.globalAlpha = alpha * 0.16;
+  ctx.fillStyle = "#06131d";
+  ctx.fillRect(0, 0, W, H);
+  ctx.restore();
+}
+
+function drawStill(image, alpha, progress, direction = 1) {
+  if (alpha <= 0) return;
+  const maxW = 952;
+  const maxH = 1080;
+  const baseScale = Math.min(maxW / image.width, maxH / image.height);
+  const zoom = 1.012 + smoothstep(progress) * 0.018;
+  const width = image.width * baseScale * zoom;
+  const height = image.height * baseScale * zoom;
+  const x = (W - width) / 2 + direction * (smoothstep(progress) - 0.5) * 10;
+  const y = 104 + (maxH - height) / 2 - smoothstep(progress) * 8;
+  const matte = 9;
+
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.shadowColor = "rgba(0, 8, 15, 0.44)";
+  ctx.shadowBlur = 30;
+  ctx.shadowOffsetY = 14;
+  ctx.fillStyle = "rgba(247, 245, 238, 0.96)";
+  ctx.fillRect(x - matte, y - matte, width + matte * 2, height + matte * 2);
+  ctx.shadowColor = "transparent";
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(image, x, y, width, height);
+  ctx.restore();
+}
+
+function drawWorkStills(ms) {
+  if (!STILLS_CUT) return false;
+  const index = chapterIndexAt(ms);
+  if (index < 1 || index > 10) return false;
+  const id = `SSF-${String(index).padStart(2, "0")}`;
+  const stills = stillsByChapter.get(id);
+  if (!stills?.length) return false;
+
+  const from = chapters[index].fromMs;
+  const to = chapters[index + 1]?.fromMs ?? duration * 1000;
+  const chapterProgress = Math.max(0, Math.min(1, (ms - from) / Math.max(1, to - from)));
+  // Establish the tour, leave it for the photographs, then return before the
+  // next contribution. Smoothstep keeps both handoffs free of speed jumps.
+  const enter = smoothstep((chapterProgress - 0.14) / 0.09);
+  const leave = 1 - smoothstep((chapterProgress - 0.78) / 0.09);
+  const alpha = enter * leave;
+  if (alpha <= 0.002) return false;
+
+  softenTour(ms, alpha, index);
+  const local = Math.max(0, Math.min(0.999999, (chapterProgress - 0.18) / 0.60));
+  const position = local * stills.length;
+  const slot = Math.min(stills.length - 1, Math.floor(position));
+  const slotProgress = position - slot;
+  const cross = slot < stills.length - 1 ? smoothstep((slotProgress - 0.82) / 0.18) : 0;
+  drawStill(stills[slot].image, alpha * (1 - cross), slotProgress, slot % 2 ? -1 : 1);
+  if (cross > 0) drawStill(stills[slot + 1].image, alpha * cross, 0, (slot + 1) % 2 ? -1 : 1);
+  return true;
+}
+
 function drawEditionEvidence(ms) {
   const index = chapterIndexAt(ms);
   const evidence = editionEvidence.get(index);
@@ -560,7 +715,7 @@ for await (const chunk of dec.stdout) {
       const ms = (fi / FPS) * 1000;
       if (!drawEventDocumentation(ms)) {
         drawVideo(ms);
-        drawEditionEvidence(ms);
+        if (!drawWorkStills(ms)) drawEditionEvidence(ms);
       }
       drawCaptions(ms);
       const identityEnvelope = Math.max(0, Math.sin(ms / 1000 * Math.PI * 2 * 1.8)) ** 5;
@@ -586,7 +741,9 @@ const qaUnits = timing.lines.map((line) => ({
   start: line.startSec,
   end: line.endSec,
 }));
-const qaPath = resolve(OUT, "scores-for-social-software-speech-qa.json");
+const qaPath = resolve(OUT, STILLS_CUT
+  ? "scores-for-social-software-stills-speech-qa.json"
+  : "scores-for-social-software-speech-qa.json");
 const speechQa = verifySpeech({
   audioPath: OUTPUT,
   units: qaUnits,

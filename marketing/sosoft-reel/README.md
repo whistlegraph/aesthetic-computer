@@ -85,6 +85,26 @@ the screenplay in `out/scores-for-social-software-speech-qa.json`. The separate
 human approval even when the automatic round-trip matches them; visible spelling
 never changes to accommodate TTS.
 
+## Stills cut
+
+`stills.json` selects one to three iPhone stills for every contribution. Each
+chapter moves from the tour to the stills over a breathing blur, then returns to
+the tour. Build the separate delivery without replacing the canonical cut:
+
+```bash
+node marketing/sosoft-reel/caption-and-mix.mjs --stills-cut
+node marketing/sosoft-reel/export-delivery.mjs --stills-cut
+```
+
+The renderer prefers matching camera originals in `out/iphone-originals/` and
+falls back to the preserved catalog derivatives. With an unlocked, trusted
+iPhone connected, import the originals with:
+
+```bash
+xcrun swift marketing/sosoft-reel/import-iphone-stills.swift \
+  marketing/sosoft-reel/out/iphone-originals
+```
+
 ## Social derivatives
 
 - `node identity-proof.mjs [seconds]` renders a short proof of the animated
