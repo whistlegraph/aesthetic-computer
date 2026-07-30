@@ -232,30 +232,8 @@
         <img src="/letters/10-p.png" alt="" width="106" height="173" style="left:83.059%;top:16.917%;width:6.987%">
         <img src="/letters/11-h.png" alt="" width="136" height="178" style="left:91.035%;top:32.707%;width:8.965%">
       </div>
-      <div class="est">A drawing you sing &nbsp;<b>·</b>&nbsp; Est. 2019</div>
     </header>
-
-    <hr class="thick">
-
-    <blockquote>
-      A whistlegraph is a drawing you sing. You draw it while you sing it, and the
-      finished picture is a <em>score</em> — it teaches you how to play it. I started
-      making them in 2019; the trio drew millions of them onto TikTok. This is the
-      index.
-    </blockquote>
-
-    <div class="note">
-      <b>Every whistlegraph has a code.</b><br>
-      Type <code id="egCode">imab</code> at <a id="egAC" href="https://aesthetic.computer">aesthetic.computer</a>
-      to perform it — or open <a id="egWG" href="/imab">whistlegraph.org/imab</a>.
-      A short code for a whole song.
-    </div>
-
-    <hr>
-    <h2>Index</h2>
-    <p class="dim" style="font-size:12.5px;margin-top:-2px"><span id="idxCount">…</span> <span id="idxType">confirmed whistlegraph works</span> recovered so far. Still being combed.</p>
     <div class="sectionbar" id="sectionbar" aria-label="Archive section">
-      <span class="sl">Browse:</span>
       <button data-section="works" class="on">Whistlegraphs</button>
       <button data-section="archive">Posts</button>
     </div>
@@ -597,8 +575,6 @@ function pump(){
 }
 function renderReset(scrollTop){
   buildView();
-  document.getElementById("idxCount").textContent=curSection==="archive"?ARCHIVE_POSTS.length:WORKS.length;
-  document.getElementById("idxType").textContent=curSection==="archive"?"individual archive posts":"confirmed whistlegraph works";
   document.querySelector("#idx tbody").innerHTML=""; SHOWN=0;
   document.getElementById("idxEmpty").style.display=VIEW.length?"none":"";
   // On a user sort/search change, jump back to the top of the list first — else
@@ -618,8 +594,6 @@ function selectSection(section,scrollTop=false){
   document.getElementById("archiveSortbar").style.display=archive?"":"none";
   document.getElementById("idxSearch").placeholder=archive?"Search posts, works, or IDs…":"Search title or code…";
   if(archive){
-    document.getElementById("idxCount").textContent="…";
-    document.getElementById("idxType").textContent="individual archive posts";
     document.querySelector("#idx tbody").innerHTML=""; SHOWN=0;
     loadPosts().then(()=>renderReset(scrollTop));
   }else renderReset(scrollTop);
@@ -709,15 +683,6 @@ Promise.all([
   const search=document.getElementById("idxSearch");
   search.addEventListener("input",()=>{ curQuery=search.value; renderReset(true); });
   renderReset();
-  // The example code randomizes each load — always one of the featured ten —
-  // and its links follow the drawn code.
-  (function(){
-    const pool=WORKS.slice(0,CURATED_N); if(!pool.length) return;
-    const w=pool[Math.floor(Math.random()*pool.length)];
-    const c=document.getElementById("egCode"); if(c)c.textContent=w.code;
-    const ac=document.getElementById("egAC"); if(ac)ac.href=`https://aesthetic.computer/${w.code}`;
-    const wg=document.getElementById("egWG"); if(wg){wg.href=`/${w.code}`;wg.textContent=`whistlegraph.org/${w.code}`;}
-  })();
   document.querySelectorAll("#workSortbar button").forEach(b=>b.addEventListener("click",()=>{
     document.querySelectorAll("#workSortbar button").forEach(x=>x.classList.remove("on"));
     b.classList.add("on");
@@ -735,7 +700,7 @@ Promise.all([
   document.querySelectorAll("#sectionbar button").forEach(b=>b.addEventListener("click",()=>{
     const section=b.dataset.section;
     history.pushState({section},"",section==="archive"?"/archive":"/");
-    selectSection(section,true);
+    selectSection(section);
   }));
   routeLocation();
   // Counts and thumbnails are materialized by the curation API, so the heavy
