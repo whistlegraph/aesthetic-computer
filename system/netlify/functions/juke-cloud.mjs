@@ -164,7 +164,11 @@ export async function handler(event) {
       ACL: "public-read",
     }), { expiresIn: 15 * 60 });
     const track = trackFromObject({ Key: key, Size: bytes, LastModified: new Date() });
-    return respond(200, { uploadURL, headers: { "Content-Type": contentType }, track });
+    return respond(200, {
+      uploadURL,
+      headers: { "Content-Type": contentType, "Content-Disposition": "inline" },
+      track,
+    });
   } catch (error) {
     console.error("juke-cloud failed", error?.message || error);
     return respond(503, { error: "Juke cloud is temporarily unavailable." });

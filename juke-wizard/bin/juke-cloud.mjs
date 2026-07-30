@@ -63,7 +63,10 @@ async function push(path) {
     body: Readable.toWeb(createReadStream(absolute)),
     duplex: "half",
   });
-  if (!response.ok) throw new Error(`Upload failed (${response.status})`);
+  if (!response.ok) {
+    const detail = (await response.text()).match(/<Message>([^<]+)<\/Message>/)?.[1];
+    throw new Error(`Upload failed (${response.status})${detail ? `: ${detail}` : ""}`);
+  }
   return prepared.track;
 }
 

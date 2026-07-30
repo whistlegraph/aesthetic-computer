@@ -87,10 +87,14 @@ final class JukeCloudClient {
         upload.httpMethod = "PUT"
         for (name, value) in prepared.headers { upload.setValue(value, forHTTPHeaderField: name) }
         upload.setValue(String(bytes), forHTTPHeaderField: "Content-Length")
-        let (_, response) = try await session.upload(for: upload, fromFile: file)
+        let (uploadData, response) = try await session.upload(for: upload, fromFile: file)
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
         guard (200..<300).contains(status) else {
-            throw JukeCloudClientError.response("Upload failed (\(status)).")
+            let body = String(data: uploadData, encoding: .utf8) ?? ""
+            let detail = body.components(separatedBy: "<Message>").dropFirst().first?
+                .components(separatedBy: "</Message>").first
+            throw JukeCloudClientError.response(
+                "Upload failed (\(status))\(detail.map { ": \($0)" } ?? ".")")
         }
         return prepared.track
     }
