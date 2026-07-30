@@ -19,6 +19,7 @@ private struct JukeCloudPreparedUpload: Codable {
     let track: JukeCloudTrack
 }
 private struct JukeCloudDownload: Codable { let url: URL }
+private struct JukeCloudPublished: Codable { let published: Bool }
 private struct JukeCloudError: Codable { let error: String }
 
 enum JukeCloudClientError: LocalizedError {
@@ -96,6 +97,11 @@ final class JukeCloudClient {
             throw JukeCloudClientError.response(
                 "Upload failed (\(status))\(detail.map { ": \($0)" } ?? ".")")
         }
+        let publishRequest = try request("POST", body: [
+            "action": "publish", "key": prepared.track.key,
+        ])
+        let (publishData, publishResponse) = try await session.data(for: publishRequest)
+        _ = try decode(JukeCloudPublished.self, data: publishData, response: publishResponse)
         return prepared.track
     }
 
