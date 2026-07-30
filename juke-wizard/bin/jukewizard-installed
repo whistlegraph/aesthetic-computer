@@ -4,7 +4,8 @@ set -eu
 INSTALL_ROOT="${JUKEWIZARD_HOME:-$HOME/.local/lib/jukewizard}"
 if [ "${1:-}" = "login" ]; then
   shift
-  exec ac-login "$@"
+  if command -v ac-login >/dev/null 2>&1; then exec ac-login "$@"; fi
+  exec node "$INSTALL_ROOT/ac-login.mjs" "$@"
 fi
 if [ "${1:-}" = "cloud" ]; then
   shift

@@ -23,7 +23,8 @@ REPO="$(cd "$WIZ/.." && pwd)"
 
 if [ "${1:-}" = "login" ]; then
   shift
-  exec ac-login "$@"
+  if command -v ac-login >/dev/null 2>&1; then exec ac-login "$@"; fi
+  exec node "$REPO/tezos/ac-login.mjs" "$@"
 fi
 if [ "${1:-}" = "cloud" ]; then
   shift
