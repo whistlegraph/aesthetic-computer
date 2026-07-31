@@ -26,7 +26,7 @@ taking the usual day.
 **PUBLISHED — v1.5.4 (build 155) went live on 2026-07-16.** The next patch will
 also replace the duplicated 1.5.4 screenshot assets; see the review log below.
 
-**SUBMITTED — v1.5.5 (build 156), 2026-07-18, `WAITING_FOR_REVIEW`.** Lane
+**PUBLISHED — v1.5.5 (build 156), 2026-07-18.** Lane
 order ran as documented (`meta → shots → upload → ship`), but the version
 still inherited duplicated screenshot assets (00×2, 01×3 — `shots` even added
 a third `01-reel` copy). Fixed via the API before submitting: while the
@@ -34,6 +34,12 @@ version is `PREPARE_FOR_SUBMISSION`, `DELETE /v1/appScreenshots/{id}` works —
 listed the set's assets with their `sourceFileChecksum`s, kept the first of
 each, deleted the rest. `bin/asc.mjs` (new) wraps the JWT + common queries:
 `status` / `get <path>` / `sales` / `analytics`.
+
+**PUBLISHED — v1.6.5 (build 165), 2026-07-24.** App Store Connect reports
+`READY_FOR_SALE`. The next candidate is v1.6.6 (build 166); its gated hitlist is
+[`RELEASE-1.6.6.md`](RELEASE-1.6.6.md). In particular, the direct build's new
+percussion trackpad cannot be advertised in the store until its private
+MultitouchSupport input is replaced by the public focused-window `NSTouch` path.
 
 ### Review log
 

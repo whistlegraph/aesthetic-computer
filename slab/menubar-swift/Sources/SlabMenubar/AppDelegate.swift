@@ -2954,6 +2954,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let memoKey = "\(name)|\(color.0),\(color.1),\(color.2)"
         if lastDesktopTint == memoKey { return }
         lastDesktopTint = memoKey
+        DesktopTint.publish(color: color, dark: dark)
         let screens = NSScreen.screens
         DispatchQueue.global(qos: .utility).async {
             guard let path = DesktopTint.ensure(name: name, color: color)
@@ -2996,6 +2997,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let memoKey = "idle|\(name)|\(color.0),\(color.1),\(color.2)"
         if lastDesktopTint == memoKey { return }
         lastDesktopTint = memoKey
+        DesktopTint.publish(color: color, dark: dark)
         let screens = NSScreen.screens
         DispatchQueue.global(qos: .utility).async {
             guard let path = DesktopTint.ensure(name: name, color: color)

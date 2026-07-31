@@ -18,14 +18,12 @@ fi
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 
-/usr/bin/usdcat "$PALS_GLB" -o build/pals-mesh.usdc
-swiftc -O -framework AppKit -framework Metal -framework SceneKit \
-    render-sprites.swift -o build/render-pals-sprites
-build/render-pals-sprites build/pals-mesh.usdc "$APP/Contents/Resources"
+/usr/bin/usdcat "$PALS_GLB" -o "$APP/Contents/Resources/pals-mesh.usdc"
 
 swiftc -O \
     -framework AppKit \
     -framework QuartzCore \
+    -framework SceneKit \
     Sources/main.swift \
     -o "$APP/Contents/MacOS/BlueberryWallpaper"
 

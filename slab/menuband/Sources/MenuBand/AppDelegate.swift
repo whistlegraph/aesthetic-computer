@@ -226,10 +226,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 #endif
     private var quietFocusRunCount = 0
     private var lastQuietFocusTapAt: CFTimeInterval = 0
-    /// Physical side of the last clean Command down edge. A qualifying pair
-    /// must repeat the same side; left-right remains an ordinary two-hand move.
-    private var lastQuietFocusSide: UInt16?
-    /// Max gap between two same-side Command taps.
+    /// Max gap between the two taps of the right-⌘ double.
     private static let quietFocusTapWindow: CFTimeInterval = 0.50
 
     // (The visualizer's right-⌘ TRIPLE-tap gesture was removed: it had claimed
@@ -372,15 +369,36 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// note changes / legato — for as long as this is true; it only
     /// springs back once the last finger lifts.
     private var trackpadTouchActive = false
-    /// Absolute-position fx mode. Toggled with Tab MID-bend: instead of the
-    /// default relative-delta gesture, the finger's raw trackpad position maps
-    /// 1:1 onto the fx grid (grid geometry == trackpad geometry). Driven by the
-    /// private MultitouchSupport tap (see `MultitouchTrackpad`), so it only does
-    /// anything on the non-sandboxed direct-download build.
-    private var pitchBendAbsoluteMode = false
+    /// The physical drum skin is the default trackpad instrument. Tab cycles
+    /// the open surface through skin, synthetic surface, FX, and kit; Shift
+    /// momentarily exposes sliding FX from either continuous surface.
+    private enum TrackpadPadMode { case fx, kit, skin, synth }
+    private var trackpadPadMode: TrackpadPadMode = .skin
+    private var trackpadPercussionState = TrackpadPercussionPad.State()
+    private var trackpadPercussionGroups: [TrackpadPercussionPad.Voice: UInt64] = [:]
+    private var trackpadSkinTouches: [CGPoint] = []
+    private var trackpadContactsByID: [Int32: CGPoint] = [:]
+    private var trackpadSkinFrameTimestamp: Double = 0
+    /// Stabilized lengths-per-second for membrane friction. Raw per-frame
+    /// distances inherit trackpad quantization and callback jitter, which made
+    /// a steady drag sound as though it were repeatedly accelerating.
+    private var trackpadScratchSpeed: Double?
+    private var trackpadSurfaceEnergy = TrackpadSurfaceEnergy()
+    private var trackpadEnergyTimer: Timer?
+    private var trackpadOverlayLastDraw: Double = 0
+    /// Keep the last percussion surface readable after the final lift, like
+    /// the menubar key-label ghost, before easing the chart away.
+    private static let trackpadOverlayIdleHold: TimeInterval = 1.6
+    private static let trackpadOverlayFadeDuration: TimeInterval = 0.38
+    private var trackpadLatencyLogCounter = 0
+    private var trackpadLatencySamples: [Double] = []
+    private var trackpadDetectedBegins = 0
+    private var trackpadTriggeredArticulations = 0
+    private var trackpadRecoveredReplacements = 0
+    private var trackpadUntriggeredBeginFrames = 0
     /// Latest set of fingers on the trackpad (normalized 0…1, origin
-    /// bottom-left) from the MultitouchSupport tap — drives the absolute fx
-    /// mapping and the touch dots painted on the overlay. Empty on the App
+    /// bottom-left) from the MultitouchSupport tap — drives both performance
+    /// surfaces and the touch dots painted on the overlay. Empty on the App
     /// Store build (no tap).
     private var mtTouches: [CGPoint] = []
     /// True only where the private MultitouchSupport tap is compiled in.
@@ -390,6 +408,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// MultitouchSupport frames; while its wall is up, `handleTrackpadFrame`
     /// routes fingers here instead of into the pitch-bend fx pad.
     private let shapedown = Shapedown()
+    /// While the percussion pad owns the trackpad, keep physical clicks and
+    /// scroll gestures from leaking into the app beneath the frozen cursor.
+    /// Keyboard events pass through, including Tab and Escape.
+    private let trackpadPercussionGestureTap = ShapedownGestureTap()
+    /// Accessibility-independent fallback for clicks whose frozen pointer
+    /// lands back on Menu Band itself. A session CGEventTap can be denied or
+    /// invalidated after re-signing; local AppKit events still arrive before
+    /// the status item's piano-key action and can be consumed here.
+    private var trackpadPercussionLocalClickShield: Any?
     /// Record gesture (folded into the quiet-focus ⌘ monitor): hold both the
     /// left and right Command keys through the full count-in.
     /// Scheduled count-in beats + the final record-start, so releasing a ⌘
@@ -402,17 +429,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// True from the moment recording starts until it's dumped — drives the red
     /// keys.
     private var recordModeActive = false
-    /// Session CGEventTap that swallows Tab WHILE a bend is live, so the macOS
+    /// Session CGEventTap that swallows Tab WHILE a trackpad pad is live, so the macOS
     /// ⌘-Tab app switcher (owned by the Dock, above any normal key handler) and
-    /// plain focus traversal can't steal the gesture — Tab drives the
-    /// absolute-pad toggle instead. Needs Accessibility (same as TYPE mode);
+    /// plain focus traversal can't steal the gesture — Tab cycles the pad
+    /// modes instead. Needs Accessibility (same as TYPE mode);
     /// when it can't install, the local-monitor plain-Tab path still toggles
     /// (it just can't suppress ⌘-Tab). `pitchBendCursorPushed` is read from the
     /// tap thread — a Bool set on main; a one-frame stale read is harmless.
     private lazy var bendTabTap: KeyEventTap = KeyEventTap { [weak self] keyCode, isDown, isRepeat, _ in
         guard let self = self, keyCode == 48 /* Tab */, isDown,
               self.pitchBendCursorPushed else { return false }
-        if !isRepeat { DispatchQueue.main.async { self.toggleAbsoluteFxMode() } }
+        if !isRepeat { DispatchQueue.main.async { self.cycleTrackpadPadMode() } }
         return true  // consume — don't let ⌘-Tab / focus traversal fire
     }
     #else
@@ -443,11 +470,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// hides leak across app sessions, so this guards a 1-to-1
     /// pairing.
     private var pitchBendSystemCursorHidden = false
-    /// Screen position the cursor was at when the bend lock
-    /// engaged. The overlay window anchors here for the duration
-    /// of the gesture (the real cursor is detached by
-    /// CGAssociateMouseAndMouseCursorPosition so position doesn't
-    /// drift).
+    /// Screen position the cursor occupied when the bend lock engaged. The
+    /// display normally anchors beneath Menu Band; this remains its fallback
+    /// if the status item's window is temporarily unavailable.
     private var pitchBendLockScreenPoint: NSPoint = .zero
     /// Short grace timer that ends the pitch-bend graphic after the last
     /// keyboard note lifts. A small delay so a fast legato note change
@@ -542,11 +567,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         #endif
         #if !MAC_APP_STORE
         // Global trackpad tap via private MultitouchSupport — the
-        // focus-independent input source for the absolute fx pad (NSTouch never
+        // focus-independent input source for the trackpad pad (NSTouch never
         // reaches this non-activating menubar panel). Frames arrive on the main
         // thread; route them through the bend/fx + overlay handler.
-        MultitouchTrackpad.shared.onFrame = { [weak self] touches in
-            self?.handleTrackpadFrame(touches)
+        MultitouchTrackpad.shared.onFrame = {
+            [weak self] contacts, timestamp, callbackTime in
+            self?.handleTrackpadFrame(contacts, timestamp: timestamp,
+                                      callbackTime: callbackTime)
         }
         MultitouchTrackpad.shared.start()
         // Arm the global double-tap-⌘ listener for the Shapedown wall.
@@ -700,7 +727,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     // NSWindow.setFrameOrigin expects.
                     self.pitchBendLockScreenPoint = NSEvent.mouseLocation
                 }
-            } else if self.pitchBendModeLatched {
+            } else if self.pitchBendModeLatched && self.trackpadPadMode == .fx {
                 // No keyboard note held anymore. The pitch-shift graphic is
                 // a hold-to-bend visual, so tear it down once the last key
                 // lifts — after a short grace so a quick legato hand-off
@@ -1167,7 +1194,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // user sees the layout dynamically appear while typing.
         localCapture.onKey = { [weak self] keyCode, isDown, isRepeat, flags in
             guard let self = self else { return false }
-            // PLAIN Tab toggles the absolute trackpad fx mode — but only
+            // PLAIN Tab cycles the open trackpad surfaces — but only
             // mid-bend (the overlay is up) and only where the MultitouchSupport
             // tap exists. Modified Tab (⌘-Tab app switcher, ⌃-Tab, …) must pass
             // straight through, so require no command/option/control here.
@@ -1175,7 +1202,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                self.pitchBendCursorPushed,
                !flags.contains(.command), !flags.contains(.option),
                !flags.contains(.control) {
-                if isDown && !isRepeat { self.toggleAbsoluteFxMode() }
+                if isDown && !isRepeat { self.cycleTrackpadPadMode() }
                 return true
             }
             // Escape disarms capture explicitly. Useful when the user
@@ -1671,11 +1698,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // (see the localCapture Esc handler). Keeps the gesture a pure
         // "bring me into play" action that can't accidentally drop focus.
         guard !localCapture.isArmed else { return }
-        // Arm focus capture WITHOUT touching the popover — the red glow +
+        // Arm focus capture WITHOUT touching the popover — the blue glow +
         // rising bell are the "it landed" cue. keepPopoverOpen:true leaves an
         // already-open popover as-is rather than closing it.
         beginFocusCaptureFromShortcut(keepPopoverOpen: true)
-        FocusFlashOverlay.shared.flash(rising: false)
+        FocusFlashOverlay.shared.flash(rising: true)
         menuBand.playFocusCue(rising: true)
     }
 
@@ -1717,6 +1744,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         focusCaptureArmedByShortcut = true
         localCapture.arm()
+        activateDefaultTrackpadDrum()
         updateIcon()
         updatePianoWaveformWindow()
     }
@@ -2108,14 +2136,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         ) { event in handler(event); return event }
     }
 
-    /// Double-tap either physical ⌘ → toggle focus capture. Two bare same-side ⌘ down
+    /// Double-tap the RIGHT ⌘ → toggle focus capture. Two bare right-⌘ down
     /// edges inside `quietFocusTapWindow` arm / disarm the menubar piano for
     /// typing. A single bare ⌘ does nothing, so ⌘ stays free as a normal
     /// modifier for the rest of the system. The toggle fires a dry click on the
     /// qualifying second press so the user feels the gesture land.
     ///
-    /// Left-left and right-right are equivalent. Switching sides restarts the
-    /// run so ordinary two-handed Command use cannot trip the gesture.
+    /// RIGHT ⌘ specifically, and LEFT ⌘ breaks the run rather than merely not
+    /// counting — otherwise ordinary two-handed ⌘ use would trip the gesture.
     ///
     /// (History worth keeping: this WAS a right-⌘ double-tap, then a right-⌘
     /// TRIPLE-tap visualizer gesture took the key, so focus was moved onto an
@@ -2171,7 +2199,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self.commandKeysHeld = commandState
             let sideIsHeld = side == Self.leftCommandKeyCode
                 ? commandState.left : commandState.right
-            self.menuBand.setVisualControlKey(side, isDown: sideIsHeld)
 #if !MAC_APP_STORE
             let bothHeld = commandState.left && commandState.right
             // Releasing either ⌘ cancels a count-in in progress.
@@ -2191,19 +2218,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 #endif
             // Otherwise: bare-⌘ double-tap tracking for PLAY.
             guard mask == .command else { self.quietFocusRunCount = 0; return }
+            // Left ⌘ breaks the run (leaves left-⌘⌘ free for Shapedown).
+            guard side == Self.rightCommandKeyCode else { self.quietFocusRunCount = 0; return }
             let now = CACurrentMediaTime()
-            let sameSide = self.lastQuietFocusSide == side
-            let inWindow = sameSide && now - self.lastQuietFocusTapAt <= Self.quietFocusTapWindow
+            let inWindow = now - self.lastQuietFocusTapAt <= Self.quietFocusTapWindow
             self.quietFocusRunCount = (inWindow && self.quietFocusRunCount > 0)
                 ? self.quietFocusRunCount + 1
                 : 1
             self.lastQuietFocusTapAt = now
-            self.lastQuietFocusSide = side
             guard self.quietFocusRunCount >= 2 else { return }
-            // Same-side ⌘ DOUBLE = PLAY (arm the keyboard).
+            // Right-⌘ DOUBLE = PLAY (arm the keyboard).
             self.quietFocusRunCount = 0
             self.lastQuietFocusTapAt = 0
-            self.lastQuietFocusSide = nil
             FocusCueBeep.shared.click()
             self.toggleQuietFocusFromCommandTap()
         }
@@ -2437,6 +2463,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        #if !MAC_APP_STORE
+        setTrackpadFighterSuppressed(false)
+        #endif
         pianoWaveformWindowDelegate.dismiss(reason: .programmatic)
         menuBand.shutdown()
         // If we crashed (or were killed) mid-pitch-bend, the system
@@ -3019,18 +3048,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Menubar piano taps play the note ONLY — no floating
         // panel pop-up. Reserve the panel for the popover-paired
         // flow and the explicit LED-chip / shortcut entry points.
-        // Arm sandbox-friendly local capture on a real piano click;
-        // skip arming when global TYPE mode is already on so the
-        // global tap doesn't double-trigger.
-        if !menuBand.typeMode {
-            localCapture.arm()
-            // Refresh the panel's lit state in case it's already
-            // visible (popover-paired), but do not call
-            // `updatePianoWaveformWindow()` — that path runs
-            // `showIfNeeded()` which would auto-open the panel
-            // here, which is exactly what the user doesn't want.
-            pianoWaveformWindowDelegate.refresh()
-        }
         while let next = NSApp.nextEvent(
             matching: [.leftMouseDragged, .leftMouseUp],
             until: .distantFuture,
@@ -3058,6 +3075,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             } else if let c = currentPlayed, let display = currentDisplay {
                 let (_, p) = NoteExpression.values(for: display, at: pt)
                 menuBand.updateTapPan(c, pan: p)
+            }
+        }
+
+        // Arm sandbox-friendly local capture only after AppKit has finished
+        // tracking the status-item press. On some Macs, activating the hidden
+        // key panel during mouseDown is undone when the status bar processes
+        // mouseUp and restores the previously active app; the panel then
+        // resigns immediately and typing produces only the initial tap's drum.
+        // Deferring one main-loop turn makes the piano click the final focus
+        // transition. Skip it when global TYPE mode is already active so the
+        // global tap cannot double-trigger.
+        if !menuBand.typeMode {
+            DispatchQueue.main.async { [weak self] in
+                guard let self = self, !self.menuBand.typeMode else { return }
+                self.localCapture.arm()
+                // Refresh the panel's lit state in case it is already visible
+                // (popover-paired), without auto-opening it.
+                self.pianoWaveformWindowDelegate.refresh()
             }
         }
     }
@@ -3598,6 +3633,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let lead = (obj["lead"] as? Double) ?? 3.0
         let epoch = String(format: "%.3f", Date().timeIntervalSince1970 + max(0.3, lead))
         NSLog("🎼 mbscore host play: \(obj["title"] as? String ?? url.lastPathComponent) — \(voices.count) voice(s)")
+        // Lab scores can request a local synth-only take. Recording begins
+        // before the shared downbeat and stops after the longest declared
+        // track, producing a concrete WAV/DMG for level and sidechain QA.
+        #if !MAC_APP_STORE
+        if obj["record"] as? Bool == true {
+            let beat = 60.0 / max(1, Double(bpm) ?? 120)
+            let longestBeats = voices.flatMap { voice in
+                ["notes", "notes2", "notes3", "notes4"].compactMap {
+                    voice[$0] as? String
+                }
+            }.map { spec in
+                spec.split(separator: ",").reduce(0.0) { total, token in
+                    let parts = token.split(separator: ":")
+                    return total + (parts.count == 2 ? (Double(parts[1]) ?? 0) : 0)
+                }
+            }.max() ?? 0
+            menuBand.startSynthOnlyRecording()
+            let stopAfter = max(0.3, lead) + longestBeats * beat + 0.8
+            DispatchQueue.main.asyncAfter(deadline: .now() + stopAfter) { [weak self] in
+                guard let self else { return }
+                self.menuBand.stopTapeNow()
+                DispatchQueue.global(qos: .userInitiated).async {
+                    let saved = self.menuBand.saveStoppedTakeToDesktop()
+                    NSLog("MenuBand mix-test take saved → \(saved?.path ?? "none")")
+                }
+            }
+        }
+        #endif
         let title = obj["title"] as? String
         for voice in voices {
             var info: [String: String] = ["bpm": bpm, "startEpoch": epoch]
@@ -4391,10 +4454,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Main-thread sink for every MultitouchSupport frame (direct-download
     /// build only). Maintains the live touch set, drives the reliable
     /// finger-down/up gate the dead NSTouch sensor never could, feeds the
-    /// absolute fx mapping when that mode is latched, and keeps the overlay's
-    /// touch dots fresh.
-    private func handleTrackpadFrame(_ touches: [CGPoint]) {
+    /// performance-surface transitions when a mode owns it, and keeps the
+    /// overlay's touch dots fresh.
+    private func handleTrackpadFrame(_ contacts: [TrackpadContact], timestamp: Double,
+                                     callbackTime: Double) {
+        let changes = TrackpadContactChanges.resolve(
+            previous: trackpadContactsByID, contacts: contacts
+        )
+        trackpadContactsByID = changes.activeByID
+        let touches = changes.active.map(\.point)
+        let priorTouchCount = mtTouches.count
         mtTouches = touches
+        trackpadDetectedBegins += changes.began.count
+        if changes.sameCountReplacement { trackpadRecoveredReplacements += 1 }
 #if !MAC_APP_STORE
         // Shapedown wall takes over the trackpad while it's up — the fingers
         // draw shapes, they don't bend pitch.
@@ -4405,27 +4477,232 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 #endif
         let active = !touches.isEmpty
         if active != trackpadTouchActive { setTrackpadTouchActive(active) }
-        if pitchBendAbsoluteMode, pitchBendCursorPushed, let p = touches.first {
-            applyAbsoluteFx(point: p)
+        // The default skin owns unmodified touches. Shift borrows the same
+        // surface for the original sliding FX and mirrors the current touch
+        // set into the skin memory so releasing Shift cannot create a false
+        // "new finger" strike.
+        let continuousSurface = trackpadPadMode == .skin || trackpadPadMode == .synth
+        let shiftSlides = continuousSurface
+            && NSEvent.modifierFlags.contains(.shift)
+        let articulationCountBefore = trackpadTriggeredArticulations
+        if trackpadPadMode == .kit, pitchBendCursorPushed {
+            updateTrackpadPercussion(touches, began: changes.began,
+                                     callbackTime: callbackTime)
+        } else if shiftSlides {
+            trackpadSkinTouches = touches
+            trackpadSkinFrameTimestamp = timestamp
+            trackpadScratchSpeed = nil
+            menuBand.stopTrackpadDrumSkinScratch()
+        } else if continuousSurface, pitchBendCursorPushed {
+            updateTrackpadSurface(touches, timestamp: timestamp,
+                                  callbackTime: callbackTime,
+                                  began: changes.began,
+                                  lifted: changes.lifted,
+                                  synthetic: trackpadPadMode == .synth)
         }
-        if pitchBendCursorPushed { updatePitchBendOverlayImage() }
+        if pitchBendCursorPushed, !changes.began.isEmpty,
+           trackpadTriggeredArticulations == articulationCountBefore,
+           !shiftSlides {
+            trackpadUntriggeredBeginFrames += 1
+        }
+        if pitchBendCursorPushed {
+            if !touches.isEmpty {
+                // Focus arms the instrument but does not advertise it. The
+                // first real hardware contact reveals the surface instantly;
+                // subsequent frames stay coalesced to display cadence.
+                if pitchBendOverlay?.isVisible != true {
+                    showPitchBendOverlay()
+                }
+                updateTrackpadOverlayIfDue(
+                    force: touches.count != priorTouchCount
+                )
+            } else if priorTouchCount > 0 {
+                // Preserve the final contact/energy state long enough to read,
+                // then ease it away on the same rhythm as the key-label ghost.
+                pitchBendOverlay?.fadeOut(
+                    after: Self.trackpadOverlayIdleHold,
+                    duration: Self.trackpadOverlayFadeDuration
+                )
+            }
+        }
     }
 
-    /// Map a finger's absolute trackpad position (0…1) straight onto the fx
-    /// grid: X = bipolar space/echo axis, Y = pitch-bend. The grid the user
-    /// sees now mirrors the trackpad they're touching, 1:1.
-    private func applyAbsoluteFx(point p: CGPoint) {
-        let fxMax: Float = Self.fxEchoEnabled ? 1 : 0
-        fxX = max(Float(-1), min(fxMax, Float(p.x - 0.5) * 2))
-        echoAmount = Self.fxEchoEnabled ? max(Float(0), fxX) : 0
-        spaceAmount = max(Float(0), -fxX)
-        cancelFxRelease()
-        bendGestureTarget = max(-Self.bendRange,
-                                min(Self.bendRange, Float(p.y - 0.5) * 2 * Self.bendRange))
-        startBendEase()
-        menuBand.setSpace(amount: spaceAmount)
-        menuBand.setEcho(amount: echoAmount)
-        pushStaffPitchShift()
+    /// Trigger only newly entered articulations. Two bottom fingers hold the
+    /// open hat; removing either closes it without firing the remaining pad.
+    private func updateTrackpadPercussion(_ touches: [CGPoint],
+                                          began: [CGPoint] = [],
+                                          callbackTime: Double) {
+        let transition = TrackpadPercussionPad.transition(
+            from: trackpadPercussionState, touches: touches, began: began
+        )
+
+        for voice in transition.exited {
+            if let group = trackpadPercussionGroups.removeValue(forKey: voice) {
+                menuBand.percussionNoteOff(group)
+            }
+        }
+
+        let hasArticulation = !transition.entered.isEmpty || !transition.exited.isEmpty
+        if hasArticulation {
+            menuBand.markTrackpadInput(at: callbackTime)
+        }
+        for voice in transition.entered {
+            switch voice {
+            case .kick:
+                trackpadPercussionGroups[voice] = menuBand.percussionNoteOn(
+                    .kick, velocity: 112, pan: voice.pan
+                )
+            case .reverseKick:
+                menuBand.trackpadReverseKick(velocity: 108, pan: voice.pan)
+            case .snare:
+                trackpadPercussionGroups[voice] = menuBand.percussionNoteOn(
+                    .snare, velocity: 104, pan: voice.pan
+                )
+            case .hatClosed:
+                trackpadPercussionGroups[voice] = menuBand.percussionNoteOn(
+                    .hatClosed, velocity: 92, pan: voice.pan
+                )
+            case .hatOpen:
+                trackpadPercussionGroups[voice] = menuBand.percussionNoteOn(
+                    .hatOpen, velocity: 96, pan: voice.pan
+                )
+            }
+        }
+        trackpadPercussionState = transition.state
+        trackpadTriggeredArticulations += transition.entered.count
+        if hasArticulation { scheduleTrackpadLatencySample() }
+    }
+
+    private func releaseTrackpadPercussion() {
+        for group in trackpadPercussionGroups.values {
+            menuBand.percussionNoteOff(group)
+        }
+        trackpadPercussionGroups.removeAll(keepingCapacity: true)
+        trackpadPercussionState = TrackpadPercussionPad.State()
+        trackpadScratchSpeed = nil
+        menuBand.stopTrackpadDrumSkinScratch()
+    }
+
+    /// Existing contacts constrain the membrane; only newly added contacts
+    /// strike it. Count-based matching avoids retriggering when a held finger
+    /// moves to change the boundary shape.
+    private func updateTrackpadSurface(_ touches: [CGPoint], timestamp: Double,
+                                       callbackTime: Double,
+                                       began explicitBegins: [CGPoint]? = nil,
+                                       lifted explicitLifts: [CGPoint]? = nil,
+                                       synthetic: Bool) {
+        let now = CACurrentMediaTime()
+        let lifts = explicitLifts ?? TrackpadDrumSkinPad.liftedTouches(
+            previous: trackpadSkinTouches, current: touches)
+        if !lifts.isEmpty { menuBand.markTrackpadInput(at: callbackTime) }
+        for lift in lifts {
+            let retained = trackpadSurfaceEnergy.energy(at: lift, now: now)
+            let downVelocity = MenuBandPercussion.surfaceVelocity(
+                at: lift, anchors: touches, inertia: retained
+            )
+            let upVelocity = UInt8(max(36, Int(Double(downVelocity) * 0.62)))
+            menuBand.trackpadSurfaceLift(at: lift, anchors: touches,
+                                         velocity: upVelocity, synthetic: synthetic)
+        }
+        let strikes = explicitBegins ?? TrackpadDrumSkinPad.newStrikes(
+            previous: trackpadSkinTouches, current: touches)
+        for strike in strikes {
+            menuBand.markTrackpadInput(at: callbackTime)
+            let anchors = touches.filter { $0 != strike }
+            let retained = trackpadSurfaceEnergy.energy(at: strike, now: now)
+            let velocity = MenuBandPercussion.surfaceVelocity(
+                at: strike, anchors: anchors, inertia: retained
+            )
+            if synthetic {
+                menuBand.trackpadSynthSurface(strike: strike, anchors: anchors,
+                                              velocity: velocity)
+            } else {
+                menuBand.trackpadDrumSkin(strike: strike, anchors: anchors,
+                                          velocity: velocity)
+            }
+            trackpadSurfaceEnergy.energize(
+                at: strike,
+                amount: 0.22 + Double(velocity) / 127.0 * 0.34,
+                now: now
+            )
+        }
+        if touches.isEmpty {
+            trackpadScratchSpeed = nil
+            menuBand.stopTrackpadDrumSkinScratch()
+        } else if !trackpadSkinTouches.isEmpty, trackpadSkinFrameTimestamp > 0 {
+            let dt = max(1.0 / 240.0, min(0.050, timestamp - trackpadSkinFrameTimestamp))
+            if let scratch = TrackpadDrumSkinPad.dominantScratch(
+                previous: trackpadSkinTouches, current: touches
+            ) {
+                let measuredSpeed = Double(scratch.movement) / dt
+                // A short time-constant removes frame quantization without
+                // adding an accelerating ramp at gesture onset: the first
+                // measured frame seeds the filter directly.
+                let alpha = 1.0 - exp(-dt / 0.040)
+                let speed = trackpadScratchSpeed.map {
+                    $0 + alpha * (measuredSpeed - $0)
+                } ?? measuredSpeed
+                trackpadScratchSpeed = speed
+                trackpadSurfaceEnergy.constrain(with: scratch.anchors,
+                                                duration: dt, now: now)
+                trackpadSurfaceEnergy.energize(
+                    at: scratch.point, amount: min(0.035, speed * 0.008), now: now
+                )
+                let retained = trackpadSurfaceEnergy.energy(at: scratch.point,
+                                                            now: now)
+                menuBand.trackpadDrumSkinScratch(
+                    at: scratch.point,
+                    speed: speed,
+                    anchors: scratch.anchors,
+                    direction: scratch.delta,
+                    surfaceEnergy: retained,
+                    synthetic: synthetic
+                )
+            }
+        }
+        trackpadSkinTouches = touches
+        trackpadSkinFrameTimestamp = timestamp
+        trackpadTriggeredArticulations += strikes.count
+        if !strikes.isEmpty || !lifts.isEmpty {
+            scheduleTrackpadLatencySample()
+        }
+    }
+
+    /// Collect a bounded, rolling callback→audio-render latency distribution.
+    /// The delayed read occurs after even the former 512-frame buffer would
+    /// have rendered, and does no work on the realtime audio thread.
+    private func scheduleTrackpadLatencySample() {
+        trackpadLatencyLogCounter += 1
+        let sampleNumber = trackpadLatencyLogCounter
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.020) { [weak self] in
+            guard let self else { return }
+            let inputMs = self.menuBand.trackpadInputToRenderMs()
+            guard inputMs > 0 else { return }
+            self.trackpadLatencySamples.append(inputMs)
+            if self.trackpadLatencySamples.count > 64 {
+                self.trackpadLatencySamples.removeFirst(
+                    self.trackpadLatencySamples.count - 64
+                )
+            }
+            guard sampleNumber % 8 == 0 else { return }
+            let sorted = self.trackpadLatencySamples.sorted()
+            guard !sorted.isEmpty else { return }
+            let pressure = self.menuBand.percussionVoicePressure()
+            func percentile(_ fraction: Double) -> Double {
+                let index = min(sorted.count - 1,
+                    Int((Double(sorted.count - 1) * fraction).rounded()))
+                return sorted[index]
+            }
+            NSLog(String(format:
+                "MenuBand trackpad latency: input→render p50/p95/max=%.2f/%.2f/%.2fms · stage→render=%.2fms · n=%d · contacts=%d triggers=%d replacements=%d untriggered=%d · voices=%d steals=%llu drops=%llu",
+                percentile(0.50), percentile(0.95), sorted.last ?? 0,
+                self.menuBand.percussionTriggerHandoffMs(), sorted.count,
+                self.trackpadDetectedBegins,
+                self.trackpadTriggeredArticulations,
+                self.trackpadRecoveredReplacements,
+                self.trackpadUntriggeredBeginFrames,
+                pressure.active, pressure.steals, pressure.drops))
+        }
     }
 
 #if !MAC_APP_STORE
@@ -4544,15 +4821,119 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 #endif
 
-    /// Toggle the absolute trackpad fx mode (Tab, mid-bend). Snaps onto the
-    /// finger's current position when entering so there's no jump.
-    private func toggleAbsoluteFxMode() {
-        pitchBendAbsoluteMode.toggle()
-        if pitchBendAbsoluteMode, let p = mtTouches.first {
-            applyAbsoluteFx(point: p)
+    private func startTrackpadEnergyDisplay() {
+        trackpadEnergyTimer?.invalidate()
+        let timer = Timer(timeInterval: 1.0 / 30.0, repeats: true) {
+            [weak self] timer in
+            guard let self, self.pitchBendModeLatched else {
+                timer.invalidate()
+                return
+            }
+            self.trackpadSurfaceEnergy.decay(to: CACurrentMediaTime())
+            if self.trackpadPadMode == .skin || self.trackpadPadMode == .synth {
+                self.updateTrackpadOverlayIfDue()
+            }
+        }
+        timer.tolerance = 1.0 / 120.0
+        RunLoop.main.add(timer, forMode: .common)
+        trackpadEnergyTimer = timer
+    }
+
+    /// Make the physical skin immediately playable when Menu Band's quiet
+    /// focus is summoned. The cursor lock is the boundary of the global drum:
+    /// Escape/focus loss restores the ordinary pointer and ends percussion.
+    private func activateDefaultTrackpadDrum() {
+#if !MAC_APP_STORE
+        guard trackpadFxAvailable else { return }
+        setTrackpadFighterSuppressed(true)
+        trackpadPadMode = .skin
+        trackpadSurfaceEnergy.reset(at: CACurrentMediaTime())
+        trackpadScratchSpeed = nil
+        startTrackpadEnergyDisplay()
+        menuBand.setTrackpadPerformanceActive(true)
+        releaseTrackpadPercussion()
+        trackpadSkinTouches.removeAll()
+        cancelFxRelease()
+        stopBendEase()
+        bendAmount = 0
+        bendGestureTarget = 0
+        spaceAmount = 0
+        echoAmount = 0
+        fxX = 0
+        menuBand.setBend(amount: 0, allChannels: true)
+        menuBand.setSpace(amount: 0)
+        menuBand.setEcho(amount: 0)
+
+        if !pitchBendCursorLocked {
+            CGAssociateMouseAndMouseCursorPosition(0)
+            pitchBendCursorLocked = true
+            pitchBendLockScreenPoint = NSEvent.mouseLocation
+        }
+        pitchBendModeLatched = true
+        if !pitchBendCursorPushed {
+            PitchBendCursor.neutral.push()
+            pitchBendCursorPushed = true
+            hideSystemCursorIfNeeded()
+        }
+        startTrackpadPercussionLocalClickShield()
+        let globalClickShield = trackpadPercussionGestureTap.start()
+        // Quiet focus: the global drum is already live, but its chart appears
+        // only after the user actually touches the trackpad.
+        pitchBendOverlay?.dismiss()
+        debugLog("trackpad pad mode = skin (focus default) clickShieldGlobal=\(globalClickShield)")
+#endif
+    }
+
+    /// Cycle an open trackpad through physical skin, synthetic surface, FX,
+    /// and the quadrant kit.
+    /// Entering percussion neutralizes the FX so the drum kit is not silently
+    /// pitch-shifted; returning to FX requires a fresh movement or note.
+    private func cycleTrackpadPadMode() {
+        switch trackpadPadMode {
+        case .fx: trackpadPadMode = .kit
+        case .kit: trackpadPadMode = .skin
+        case .skin: trackpadPadMode = .synth
+        case .synth: trackpadPadMode = .fx
+        }
+        if trackpadPadMode != .fx {
+            pitchBendEndTimer?.invalidate()
+            pitchBendEndTimer = nil
+            pitchBendReleaseGraceUntil = nil
+            stopBendEase()
+            cancelFxRelease()
+            bendAmount = 0
+            bendGestureTarget = 0
+            spaceAmount = 0
+            echoAmount = 0
+            fxX = 0
+            menuBand.setBend(amount: 0, allChannels: true)
+            menuBand.setSpace(amount: 0)
+            menuBand.setEcho(amount: 0)
+            #if !MAC_APP_STORE
+            _ = trackpadPercussionGestureTap.start()
+            #endif
+            if trackpadPadMode == .kit {
+                trackpadSkinTouches.removeAll()
+                updateTrackpadPercussion(mtTouches,
+                                         callbackTime: CACurrentMediaTime())
+            } else {
+                releaseTrackpadPercussion()
+                trackpadSkinTouches.removeAll()
+                let now = CACurrentMediaTime()
+                updateTrackpadSurface(mtTouches, timestamp: now,
+                                      callbackTime: now,
+                                      synthetic: trackpadPadMode == .synth)
+            }
+        } else {
+            releaseTrackpadPercussion()
+            trackpadSkinTouches.removeAll()
+            #if !MAC_APP_STORE
+            trackpadPercussionGestureTap.stop()
+            #endif
+            if !menuBand.keyboardNotesHeld { scheduleGraphicEndIfNoKeyHeld() }
         }
         updatePitchBendOverlayImage()
-        debugLog("absolute fx mode = \(pitchBendAbsoluteMode)")
+        debugLog("trackpad pad mode = \(trackpadPadMode)")
     }
 
     func setTrackpadTouchActive(_ active: Bool) {
@@ -4565,7 +4946,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // bend/space/echo where they set them so pitch + ambience don't
         // drift on their own. The next finger touch (or note release)
         // is the right time to change them.
-        if !menuBand.keyboardNotesHeld {
+        if !menuBand.keyboardNotesHeld && trackpadPadMode == .fx {
             endPitchBendSession()
         }
     }
@@ -4613,10 +4994,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // so engage the gesture even with no key held.
         guard menuBand.keyboardNotesHeld || shift || inReleaseGrace
                 || menuBand.isRewinding else { return }
-        // In absolute mode the finger's raw trackpad position drives the grid
-        // (see handleTrackpadFrame); ignore relative mouse deltas so the two
-        // sources don't fight over bend/fxX.
-        if pitchBendAbsoluteMode { return }
+        // Shift momentarily puts either continuous surface onto the original
+        // sliding FX. Kit remains exclusive; Tab can select FX persistently.
+        let momentarySurfaceFx = (trackpadPadMode == .skin
+            || trackpadPadMode == .synth) && shift
+        if trackpadPadMode != .fx && !momentarySurfaceFx { return }
         let dy = Float(event.deltaY)
         let dx = Float(event.deltaX)
         guard dy != 0 || dx != 0 else { return }
@@ -4760,52 +5142,79 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // closer/tinier proximity filter. Normalize bend by bendRange so
         // the puck reaches the grid edge exactly at the ±bendRange cap
         // (PitchBendCursor clamps the normalized value to ±1 internally).
-        PitchBendCursor.image(forBend: bendAmount / Self.bendRange, echo: fxX,
-                              keyDown: menuBand.keyboardNotesHeld,
-                              touches: mtTouches, absolute: pitchBendAbsoluteMode)
+        let continuousSurface = trackpadPadMode == .skin || trackpadPadMode == .synth
+        let energy = continuousSurface
+            ? trackpadSurfaceEnergy.snapshot(at: CACurrentMediaTime()) : []
+        let momentarySurfaceFx = continuousSurface
+            && NSEvent.modifierFlags.contains(.shift)
+        if trackpadPadMode == .kit {
+            return TrackpadPercussionPad.image(touches: mtTouches,
+                                                state: trackpadPercussionState)
+        } else if trackpadPadMode == .skin && !momentarySurfaceFx {
+            return TrackpadDrumSkinPad.image(touches: mtTouches, energy: energy)
+        } else if trackpadPadMode == .synth && !momentarySurfaceFx {
+            return TrackpadSynthPad.image(touches: mtTouches, energy: energy)
+        }
+        return PitchBendCursor.image(forBend: bendAmount / Self.bendRange, echo: fxX,
+                                     keyDown: menuBand.keyboardNotesHeld,
+                                     touches: mtTouches)
     }
 
     private func showPitchBendOverlay() {
+        if (trackpadPadMode == .skin || trackpadPadMode == .synth),
+           trackpadEnergyTimer == nil {
+            trackpadSurfaceEnergy.reset(at: CACurrentMediaTime())
+            startTrackpadEnergyDisplay()
+        }
         let overlay = ensurePitchBendOverlay()
-        overlay.show(image: currentFxCursorImage(),
-                     atScreenPoint: safePitchBendAnchor(for: pitchBendLockScreenPoint))
+        let image = currentFxCursorImage()
+        overlay.show(image: image,
+                     atScreenPoint: trackpadOverlayAnchor(
+                        imageSize: image.size, fallback: pitchBendLockScreenPoint))
     }
 
-    /// The XY-pad chart normally anchors directly under the frozen
-    /// cursor. But if that point is up in the system menu bar — or the
-    /// chart (centered on the point) would poke up across the menu bar
-    /// and over the Menu Band keys — drop it just below the menu bar
-    /// while staying under the cursor's horizontal position, so the grid
-    /// stays local to the mouse without crossing the menu bar or
-    /// overlapping the keys. The bend gesture reads relative trackpad
-    /// motion, not the chart position, so this is purely visual.
-    private func safePitchBendAnchor(for point: NSPoint) -> NSPoint {
-        let screen = NSScreen.screens.first { NSMouseInRect(point, $0.frame, false) }
+    /// Keep every trackpad surface directly beneath Menu Band itself. The
+    /// pointer remains frozen where the gesture began, but no longer decides
+    /// where the performance display lives.
+    private func trackpadOverlayAnchor(imageSize: NSSize,
+                                       fallback: NSPoint) -> NSPoint {
+        guard let button = statusItem?.button,
+              let buttonWindow = button.window else { return fallback }
+        let buttonFrame = buttonWindow.convertToScreen(button.frame)
+        let screen = buttonWindow.screen
+            ?? NSScreen.screens.first {
+                NSMouseInRect(NSPoint(x: buttonFrame.midX, y: buttonFrame.midY),
+                              $0.frame, false)
+            }
             ?? NSScreen.main
-            ?? NSScreen.screens.first
-        guard let screen else { return point }
+        guard let screen else { return fallback }
         let visible = screen.visibleFrame
-        // Chart top edge in bottom-left-origin coords = point.y + half.
-        // The menu bar occupies the band above `visible.maxY`.
-        let halfHeight = PitchBendCursor.cursorSize.height / 2
-        let halfWidth = PitchBendCursor.cursorSize.width / 2
-        if point.y + halfHeight > visible.maxY {
-            // Tuck the chart just under the menu bar, keeping it under
-            // the cursor's x (clamped so it stays fully on screen).
-            let gap: CGFloat = 8
-            let y = visible.maxY - halfHeight - gap
-            let x = min(max(point.x, visible.minX + halfWidth),
-                        visible.maxX - halfWidth)
-            return NSPoint(x: x, y: y)
-        }
-        return point
+        let halfHeight = imageSize.height / 2
+        let halfWidth = imageSize.width / 2
+        let gap: CGFloat = 8
+        let x = min(max(buttonFrame.midX, visible.minX + halfWidth),
+                    visible.maxX - halfWidth)
+        let y = max(visible.minY + halfHeight,
+                    buttonFrame.minY - gap - halfHeight)
+        return NSPoint(x: x, y: y)
     }
 
     private func updatePitchBendOverlayImage() {
         guard let overlay = pitchBendOverlay, overlay.isVisible else { return }
-        // Chart is frozen at the lock point; only the puck inside
-        // moves, so a single image swap each tick is enough.
-        overlay.update(image: currentFxCursorImage())
+        trackpadOverlayLastDraw = CACurrentMediaTime()
+        let image = currentFxCursorImage()
+        overlay.update(image: image,
+                       atScreenPoint: trackpadOverlayAnchor(
+                        imageSize: image.size, fallback: pitchBendLockScreenPoint))
+    }
+
+    /// Touch frames remain at the hardware's full 125 Hz for sound, while the
+    /// small chart coalesces to display cadence. This prevents image drawing
+    /// from delaying the next input callback by a complete 8 ms touch frame.
+    private func updateTrackpadOverlayIfDue(force: Bool = false) {
+        let now = CACurrentMediaTime()
+        guard force || now - trackpadOverlayLastDraw >= 1.0 / 60.0 else { return }
+        updatePitchBendOverlayImage()
     }
 
     /// Cancel any in-flight post-release sequence (hold OR ramp),
@@ -4943,9 +5352,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Esc / focus-loss always fully exits, even if the lock flag was
         // somehow already cleared.
         pitchBendModeLatched = false
-        // Absolute fx mode is per-gesture; always revert to the default
-        // relative bend for the next session.
-        pitchBendAbsoluteMode = false
+        #if !MAC_APP_STORE
+        setTrackpadFighterSuppressed(false)
+        #endif
+        releaseTrackpadPercussion()
+        trackpadSkinTouches.removeAll()
+        trackpadEnergyTimer?.invalidate()
+        trackpadEnergyTimer = nil
+        menuBand.setTrackpadPerformanceActive(false)
+        #if !MAC_APP_STORE
+        trackpadPercussionGestureTap.stop()
+        stopTrackpadPercussionLocalClickShield()
+        #endif
+        // Every new Menu Band focus begins on the zero-step drum surface.
+        trackpadPadMode = .skin
         guard pitchBendCursorLocked else {
             // Mode was latched but cursor not currently locked — still
             // make sure the overlay is gone and fx spring back.
@@ -4967,6 +5387,52 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         pitchBendOverlay?.dismiss()
         startFxRelease()
     }
+
+    #if !MAC_APP_STORE
+    private func startTrackpadPercussionLocalClickShield() {
+        guard trackpadPercussionLocalClickShield == nil else { return }
+        let clickEvents: NSEvent.EventTypeMask = [
+            .leftMouseDown, .leftMouseUp, .leftMouseDragged,
+            .rightMouseDown, .rightMouseUp, .rightMouseDragged,
+            .otherMouseDown, .otherMouseUp, .otherMouseDragged,
+        ]
+        trackpadPercussionLocalClickShield = NSEvent.addLocalMonitorForEvents(
+            matching: clickEvents
+        ) { [weak self] event in
+            guard let self, self.pitchBendModeLatched else { return event }
+            // Trackpad percussion already receives contact/lift from MTouch.
+            // A mouse button event here is only the mechanical click leaking
+            // through at the locked cursor position; never let it play a
+            // second menubar piano note (often W on Blueberry).
+            return nil
+        }
+    }
+
+    private func stopTrackpadPercussionLocalClickShield() {
+        if let shield = trackpadPercussionLocalClickShield {
+            NSEvent.removeMonitor(shield)
+            trackpadPercussionLocalClickShield = nil
+        }
+    }
+
+    /// Cross-process ownership signal for the fleet Trackpad Fighter watcher.
+    /// The watcher validates this PID, so a crash cannot leave its four-corner
+    /// launch gesture permanently disabled.
+    private func setTrackpadFighterSuppressed(_ suppressed: Bool) {
+        let directory = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".local/share/menuband", isDirectory: true)
+        let owner = directory.appendingPathComponent("trackpad-owner")
+        let pid = String(ProcessInfo.processInfo.processIdentifier)
+        if suppressed {
+            try? FileManager.default.createDirectory(at: directory,
+                                                     withIntermediateDirectories: true)
+            try? pid.write(to: owner, atomically: true, encoding: .utf8)
+        } else if (try? String(contentsOf: owner, encoding: .utf8)
+            .trimmingCharacters(in: .whitespacesAndNewlines)) == pid {
+            try? FileManager.default.removeItem(at: owner)
+        }
+    }
+    #endif
 
     /// Begin the post-release sequence: a `fxHoldDuration` dead zone
     /// where bend/space/echo stay fully engaged (so resuming play

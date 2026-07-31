@@ -1,4 +1,6 @@
 import AVFoundation
+import CoreGraphics
+import Darwin
 import Foundation
 import QuartzCore
 
@@ -108,9 +110,9 @@ final class MenuBandPercussion {
     /// Master headroom so a fistful of simultaneous drums doesn't slam the
     /// limiter — the kit's raw layer volumes sum well past 1.0 by design.
     /// `outputLevel` is the user's independent percussion trim: 1.0 retains
-    /// the kit's historical loudness, while fresh installs begin at 0.75.
+    /// the kit's historical loudness, while fresh installs begin at 0.58.
     private let masterGain: Float = 0.34
-    private var outputLevel: Float = 0.75
+    private var outputLevel: Float = 0.58
 
     /// Set the independent percussion trim. Snapshot under the same tiny lock
     /// used for staged hits so the audio thread sees one stable value per
@@ -162,10 +164,55 @@ final class MenuBandPercussion {
     /// percussion-specific slice of keypress→sound latency.
     private var pendingStageTime: Double = 0
     private var lastHandoffSec: Double = 0
+    private var pendingTrackpadInputTime: Double = 0
+    private var lastTrackpadInputToRenderSec: Double = 0
+    private var totalVoiceSteals: UInt64 = 0
+    private var totalVoiceDrops: UInt64 = 0
+    private var lastActiveVoiceCount = 0
+    /// Continuous finger-on-head friction. Control writes target level/timbre;
+    /// the render thread smooths it sample-by-sample, so every nonzero drag
+    /// contributes without spawning a voice per hardware frame.
+    private var scratchTarget = 0.0
+    private var scratchCutoff = 1_600.0
+    private var scratchResonance = 150.0
+    private var scratchRoughness = 0.5
+    private var scratchRelease = 0.014
+    private var scratchPan = 0.0
+    private var scratchSynthetic = false
+    private var scratchControlTime = 0.0
+    private var scratchLevel = 0.0
+    private var scratchNoiseState = 0.0
+    private var scratchSlowNoiseState = 0.0
+    private var scratchSeed: UInt32 = 0x51a7c4d3
+    private var scratchPhase = 0.0
     /// Most recent trigger→render handoff in milliseconds (≤ one buffer).
     func triggerHandoffMs() -> Double {
         lock.lock(); defer { lock.unlock() }
         return lastHandoffSec * 1000.0
+    }
+
+    func markTrackpadInput(at callbackTime: Double) {
+        lock.lock()
+        pendingTrackpadInputTime = callbackTime
+        lock.unlock()
+    }
+
+    func trackpadInputToRenderMs() -> Double {
+        lock.lock(); defer { lock.unlock() }
+        return lastTrackpadInputToRenderSec * 1000.0
+    }
+
+    struct VoicePressure {
+        let active: Int
+        let steals: UInt64
+        let drops: UInt64
+    }
+
+    func voicePressure() -> VoicePressure {
+        lock.lock(); defer { lock.unlock() }
+        return VoicePressure(active: lastActiveVoiceCount,
+                             steals: totalVoiceSteals,
+                             drops: totalVoiceDrops)
     }
 
     init() {
@@ -210,9 +257,538 @@ final class MenuBandPercussion {
         let now = CACurrentMediaTime()
         let level = min(1.0, max(0.0, Double(velocity) / 127.0))
         lock.lock()
-        for s in voices where pending.count < maxVoices { pending.append(s) }
+        pending.append(contentsOf: voices)
         pulses[drum.rawValue] = DrumPulse(at: now, level: level)
         lock.unlock()
+    }
+
+    /// Reverse-kick swell: low sine body and filtered air rise almost their
+    /// entire duration, then cut at the peak. Kept outside Drum so the twelve
+    /// pitch-class slots used by the keyboard remain unchanged.
+    func playReverseKick(velocity: UInt8, pan: Double) {
+        let v = max(0.1, min(2.2, Double(velocity) / 100.0))
+        let voices = [
+            makeVoice(.noise, 1800, 0.34, 0.26 * v, 0.29, 0.035, pan),
+            makeVoice(.sine, 48, 0.38, 1.15 * v, 0.33, 0.045, pan),
+            makeVoice(.sine, 92, 0.30, 0.46 * v, 0.24, 0.045, pan),
+        ]
+        let now = CACurrentMediaTime()
+        lock.lock()
+        pending.append(contentsOf: voices)
+        pulses[Drum.kick.rawValue] = DrumPulse(
+            at: now, level: min(1.0, Double(velocity) / 127.0)
+        )
+        pendingStageTime = now
+        lock.unlock()
+    }
+
+    /// Modal circular-membrane synth. Frequencies come from the first roots of
+    /// J_m for an ideal clamped drumhead. The strike excites each eigenmode at
+    /// its local mode-shape value; resting fingers damp that mode at their own
+    /// contact points and raise effective tension. A rimshot annulus separates
+    /// the membrane from the outer edge, where short noise/square modes become
+    /// the hat.
+    func playDrumSkin(strike: CGPoint, anchors: [CGPoint], velocity: UInt8) {
+        struct Mode { let m: Int32; let root: Double; let gain: Double }
+        let modes = [
+            Mode(m: 0, root: 2.4048, gain: 0.46),
+            Mode(m: 1, root: 3.8317, gain: 0.70),
+            Mode(m: 2, root: 5.1356, gain: 0.58),
+            Mode(m: 0, root: 5.5201, gain: 0.34),
+            Mode(m: 3, root: 6.3802, gain: 0.40),
+            Mode(m: 1, root: 7.0156, gain: 0.34),
+            Mode(m: 4, root: 7.5883, gain: 0.29),
+            Mode(m: 2, root: 8.4172, gain: 0.24),
+            Mode(m: 0, root: 8.6537, gain: 0.15),
+            Mode(m: 5, root: 8.7715, gain: 0.18),
+        ]
+        let v = max(0.1, min(2.2, Double(velocity) / 100.0))
+        let sx = Double(strike.x - 0.5) * 2
+        let sy = Double(strike.y - 0.5) * 2
+        // Normalized depth from the centroid to the actual rounded-rectangle
+        // boundary: 0 at center, 1 at every side/corner edge. The physical
+        // aspect ratio matters, so equal normalized X/Y movement need not
+        // cross material bands at the same rate.
+        let radius = Self.roundedTrackpadDistance(sx: sx, sy: sy)
+        let theta = atan2(sy * 0.50, sx * 0.82)
+        // The centroid carries the head's full energy; perimeter materials
+        // are progressively quieter so bright rim/edge spectra do not win the
+        // mix merely through perceived loudness.
+        let strikeLevel = v * (1.0 - 0.38 * smoothstep(0.46, 1.0, radius))
+        // Material contours: compact head/snare, then progressively more
+        // room for the rim, playable hat, and final chassis-click rail.
+        let edge = smoothstep(0.62, 0.70, radius)
+        let outerClick = smoothstep(0.88, 0.965, radius)
+        let hatEdge = edge * (1.0 - outerClick * 0.94)
+        // A broad inset contour between the center body and metal rim. It excites
+        // a short filtered-noise "wire" layer so the radial travel reads as
+        // kick/body → snare → hat instead of body fading straight into hat.
+        let snareBand = smoothstep(0.23, 0.31, radius)
+            * (1.0 - smoothstep(0.40, 0.48, radius))
+        let rimBand = smoothstep(0.40, 0.48, radius)
+            * (1.0 - smoothstep(0.62, 0.70, radius))
+        let tension = 1.0 + min(0.45, Double(anchors.count) * 0.10)
+        let fingerDamping = min(0.68, Double(anchors.count) * 0.13)
+        // A taut, shallow hand-drum head rather than a deep timpani body.
+        // The elevated fundamental and deliberately quiet (0,1) mode keep a
+        // center strike light; the short tails avoid reading as reverb.
+        let fundamental = (104.0 + radius * 28.0) * tension
+        let pan = max(-1.0, min(1.0, sx * 0.72))
+        var voices: [Voice] = []
+
+        // At the deepest part of the surface, anchor the physical model with
+        // the default kit kick's beater, descending body, and sub. Membrane
+        // modes are nearly absent at the exact centroid, removing the hollow
+        // modal tail; they blend back in toward the snare contour.
+        let centerKick = 1.0 - smoothstep(0.10, 0.38, radius)
+        if centerKick > 0.01 {
+            let k = centerKick * strikeLevel
+            voices.append(makeVoice(.noise, 2500, 0.0025, 0.48 * k,
+                                    0.0002, 0.0022, pan))
+            voices.append(makeVoice(.sine, 200, 0.012, 0.90 * k,
+                                    0.0005, 0.011, pan))
+            voices.append(makeVoice(.sine, 150, 0.045, 1.05 * k,
+                                    0.001, 0.044, pan))
+            voices.append(makeVoice(.sine, 90, 0.080, 0.70 * k,
+                                    0.002, 0.078, pan))
+            voices.append(makeVoice(.sine, 55, 0.17, 0.74 * k,
+                                    0.003, 0.164, pan))
+        }
+
+        let membraneBlend = 0.12 + 0.88 * smoothstep(0.12, 0.40, radius)
+
+        for (index, mode) in modes.enumerated() {
+            let strikeShape = abs(jn(mode.m, mode.root * radius)
+                * cos(Double(mode.m) * theta))
+            var constraint = 1.0
+            for anchor in anchors {
+                let ax = Double(anchor.x - 0.5) * 2
+                let ay = Double(anchor.y - 0.5) * 2
+                let ar = Self.roundedTrackpadDistance(sx: ax, sy: ay)
+                let at = atan2(ay * 0.50, ax * 0.82)
+                let shape = abs(jn(mode.m, mode.root * ar)
+                    * cos(Double(mode.m) * at))
+                constraint *= max(0.18, 1.0 - shape * 0.72)
+            }
+            let amplitude = mode.gain * strikeShape * constraint
+                * (1 - edge) * strikeLevel * membraneBlend
+            guard amplitude > 0.004 else { continue }
+            let ratio = mode.root / modes[0].root
+            let duration = max(0.060, (0.285 - Double(index) * 0.019)
+                * (1.0 - fingerDamping))
+            voices.append(makeVoice(.sine, fundamental * ratio, duration,
+                                    amplitude * 0.82, 0.0008,
+                                    duration * 0.94, pan))
+        }
+
+        // Contact texture crosses into a hat band, then collapses to a dry
+        // click over the final few percent of the physical perimeter.
+        let contactDuration = 0.012 + hatEdge * 0.014
+        voices.append(makeVoice(.noise, 2400 + hatEdge * 6200,
+                                contactDuration,
+                                (0.22 + hatEdge * 0.09)
+                                    * (1.0 - outerClick * 0.58) * strikeLevel,
+                                0.0002, contactDuration * 0.92, pan))
+        if snareBand > 0.01 {
+            voices.append(makeVoice(.noise, 4300, 0.064,
+                                    0.24 * snareBand * strikeLevel, 0.0003,
+                                    0.060, pan))
+            voices.append(makeVoice(.square, 196 * tension, 0.038,
+                                    0.045 * snareBand * strikeLevel, 0.0004,
+                                    0.035, pan))
+        }
+        if rimBand > 0.01 {
+            voices.append(makeVoice(.triangle, 760 * tension, 0.030,
+                                    0.13 * rimBand * strikeLevel, 0.0003,
+                                    0.027, pan))
+            voices.append(makeVoice(.noise, 5600, 0.020,
+                                    0.10 * rimBand * strikeLevel, 0.0002,
+                                    0.018, pan))
+        }
+        if hatEdge > 0.02 {
+            for frequency in Self.hatFreqs {
+                voices.append(makeVoice(.square, frequency,
+                                        0.008 + hatEdge * 0.014,
+                                        0.035 * hatEdge * strikeLevel, 0.0002,
+                                        0.007 + hatEdge * 0.012, pan))
+            }
+        }
+        if outerClick > 0.01 {
+            // The chassis click carries its own energy instead of inheriting
+            // the membrane's edge attenuation. A compact low-mid knock makes
+            // it punch on laptop speakers; the short bright layer preserves
+            // the final-perimeter distinction from the hat immediately inboard.
+            let click = outerClick * v
+            voices.append(makeVoice(.noise, 7_200, 0.0020,
+                                    0.50 * click, 0.00005, 0.00165, pan))
+            voices.append(makeVoice(.triangle, 1_650 * tension, 0.0040,
+                                    0.38 * click, 0.00008, 0.0035, pan))
+            voices.append(makeVoice(.sine, 520 * tension, 0.0055,
+                                    0.20 * click, 0.0001, 0.0048, pan))
+        }
+
+        let now = CACurrentMediaTime()
+        lock.lock()
+        // Stage every onset. The render thread owns the bounded 96-voice
+        // policy and records any pressure; capping here could silently erase
+        // the last finger of a same-frame multitouch strike.
+        pending.append(contentsOf: voices)
+        let pulseDrum: Drum = edge > 0.55 ? .hatClosed
+            : (rimBand > 0.45 ? .block
+                : (snareBand > 0.45 ? .snare : .kick))
+        pulses[pulseDrum.rawValue] = DrumPulse(
+            at: now, level: min(1.0, Double(velocity) / 127.0)
+        )
+        pendingStageTime = now
+        lock.unlock()
+    }
+
+    /// Finger-up articulation for the continuous surfaces. It is deliberately
+    /// lighter than a strike: skin lifts make a low dry tack, the hat band a
+    /// tiny closure, and the last perimeter strip a near-instant click.
+    func playSurfaceLift(at point: CGPoint, anchors: [CGPoint],
+                         velocity: UInt8, synthetic: Bool) {
+        let sx = Double(point.x - 0.5) * 2
+        let sy = Double(point.y - 0.5) * 2
+        let distance = Self.roundedTrackpadDistance(sx: sx, sy: sy)
+        let v = max(0.08, min(1.0, Double(velocity) / 127.0))
+        let pan = max(-1.0, min(1.0, sx * 0.72))
+        let separations = anchors.map {
+            min(1.0, hypot(Double($0.x - point.x) * 1.64,
+                           Double($0.y - point.y)))
+        }
+        let proximity = separations.isEmpty ? 0
+            : separations.reduce(0) { $0 + (1 - $1) } / Double(separations.count)
+        let tension = 1.0 + min(0.62,
+            Double(anchors.count) * 0.12 + proximity * 0.26)
+        let damping = max(0.45,
+            1.0 - Double(anchors.count) * 0.09 - proximity * 0.22)
+        let edge = smoothstep(0.62, 0.70, distance)
+        let outerClick = smoothstep(0.88, 0.965, distance)
+        let centerKick = 1.0 - smoothstep(0.10, 0.38, distance)
+        let snareBand = smoothstep(0.23, 0.31, distance)
+            * (1.0 - smoothstep(0.40, 0.48, distance))
+        let rimBand = smoothstep(0.40, 0.48, distance)
+            * (1.0 - smoothstep(0.62, 0.70, distance))
+        var voices: [Voice] = []
+
+        if synthetic {
+            let tone = (125 + distance * 330) * tension
+            voices.append(makeVoice(.sine, tone * 0.82,
+                                    0.030 * damping, 0.13 * v,
+                                    0.0002, 0.028 * damping, pan))
+            voices.append(makeVoice(.triangle, tone * 1.48,
+                                    0.014 * damping, 0.07 * v,
+                                    0.0001, 0.012 * damping, pan))
+            voices.append(makeVoice(.noise, 1_500 + distance * 2_000,
+                                    0.0028, 0.035 * v, 0.00005, 0.0024, pan))
+        } else {
+            if centerKick > 0.01 {
+                voices.append(makeVoice(.sine, 70 * tension,
+                                        0.045 * damping,
+                                        0.18 * centerKick * v,
+                                        0.0005, 0.043 * damping, pan))
+                voices.append(makeVoice(.noise, 1_450,
+                                        0.003, 0.07 * centerKick * v,
+                                        0.0001, 0.0027, pan))
+            }
+            if snareBand > 0.01 {
+                voices.append(makeVoice(.noise, 3_500 * tension,
+                                        0.006 * damping,
+                                        0.12 * snareBand * v,
+                                        0.0001, 0.0055 * damping, pan))
+                voices.append(makeVoice(.triangle, 190 * tension,
+                                        0.016 * damping,
+                                        0.065 * snareBand * v,
+                                        0.0002, 0.014 * damping, pan))
+            }
+            if rimBand > 0.01 {
+                voices.append(makeVoice(.triangle, 820 * tension,
+                                        0.009 * damping,
+                                        0.09 * rimBand * v,
+                                        0.0001, 0.008 * damping, pan))
+            }
+            let hatLift = edge * (1.0 - outerClick * 0.92)
+            if hatLift > 0.01 {
+                for frequency in Self.hatFreqs {
+                    voices.append(makeVoice(.square, frequency, 0.005,
+                                            0.014 * hatLift * v,
+                                            0.0001, 0.0045, pan))
+                }
+            }
+            if outerClick > 0.01 {
+                voices.append(makeVoice(.noise, 7_800, 0.0016,
+                                        0.32 * outerClick * v,
+                                        0.00004, 0.0013, pan))
+                voices.append(makeVoice(.triangle, 1_900 * tension, 0.0030,
+                                        0.24 * outerClick * v,
+                                        0.00005, 0.0025, pan))
+                voices.append(makeVoice(.sine, 600 * tension, 0.0040,
+                                        0.12 * outerClick * v,
+                                        0.00008, 0.0034, pan))
+            }
+        }
+
+        let now = CACurrentMediaTime()
+        lock.lock()
+        pending.append(contentsOf: voices)
+        pendingStageTime = now
+        lock.unlock()
+    }
+
+    /// Clean electronic sibling of the membrane surface. Rounded-rectangle
+    /// position moves continuously through kick, tom, snare, and high-tom
+    /// colors; anchors tune and damp the same field. Strong low-mid partials
+    /// keep it audible on tiny speakers without a crunchy wide-noise layer.
+    func playSynthSurface(strike: CGPoint, anchors: [CGPoint], velocity: UInt8) {
+        let v = max(0.1, min(2.2, Double(velocity) / 100.0))
+        let sx = Double(strike.x - 0.5) * 2
+        let sy = Double(strike.y - 0.5) * 2
+        let distance = Self.roundedTrackpadDistance(sx: sx, sy: sy)
+        let anchorTension = 1.0 + min(0.75, Double(anchors.count) * 0.16)
+        let anchorDamping = min(0.72, Double(anchors.count) * 0.14)
+        let edgeGain = 1.0 - 0.32 * smoothstep(0.40, 1.0, distance)
+        let pan = max(-1.0, min(1.0, sx * 0.72))
+        let base = (112.0 + 285.0 * distance) * anchorTension
+        let duration = max(0.045, (0.19 - distance * 0.055)
+            * (1.0 - anchorDamping * 0.60))
+        let centerKick = 1.0 - smoothstep(0.18, 0.48, distance)
+        let snareBand = smoothstep(0.28, 0.46, distance)
+            * (1.0 - smoothstep(0.62, 0.80, distance))
+        let highTom = smoothstep(0.58, 0.90, distance)
+        var voices: [Voice] = []
+
+        voices.append(makeVoice(.sine, base, duration,
+                                0.68 * edgeGain * v, 0.0005,
+                                duration * 0.94, pan))
+        voices.append(makeVoice(.triangle, base * 1.50, duration * 0.62,
+                                0.23 * edgeGain * v, 0.0004,
+                                duration * 0.58, pan))
+        voices.append(makeVoice(.sine, base * 2.02, duration * 0.36,
+                                0.10 * edgeGain * v, 0.0003,
+                                duration * 0.33, pan))
+        if centerKick > 0.01 {
+            voices.append(makeVoice(.sine, 92 * anchorTension, 0.105,
+                                    0.48 * centerKick * v, 0.0008, 0.10, pan))
+            voices.append(makeVoice(.triangle, 184 * anchorTension, 0.024,
+                                    0.22 * centerKick * v, 0.0002, 0.022, pan))
+        }
+        if snareBand > 0.01 {
+            voices.append(makeVoice(.noise, 2_100, 0.026,
+                                    0.11 * snareBand * v, 0.0002, 0.024, pan))
+            voices.append(makeVoice(.triangle, 285 * anchorTension, 0.034,
+                                    0.12 * snareBand * v, 0.0003, 0.031, pan))
+        }
+        if highTom > 0.01 {
+            voices.append(makeVoice(.triangle, base * 1.24, 0.026,
+                                    0.12 * highTom * edgeGain * v,
+                                    0.0002, 0.024, pan))
+        }
+        voices.append(makeVoice(.noise, 1_450 + distance * 2_400,
+                                0.0035, 0.055 * edgeGain * v,
+                                0.00008, 0.0031, pan))
+
+        let now = CACurrentMediaTime()
+        lock.lock()
+        pending.append(contentsOf: voices)
+        pulses[Drum.snap.rawValue] = DrumPulse(
+            at: now, level: min(1.0, Double(velocity) / 127.0)
+        )
+        pendingStageTime = now
+        lock.unlock()
+    }
+
+    /// Rub/drag the drum lid. `speed` is normalized trackpad lengths per
+    /// second and maps continuously from zero—there is no motion dead zone.
+    /// The rounded-rectangle material coordinate brightens the friction from
+    /// skin through wires/rim to the outer metal edge.
+    func setDrumSkinScratch(at point: CGPoint, speed: Double,
+                            anchors: [CGPoint] = [],
+                            direction: CGVector = .zero,
+                            surfaceEnergy: Double = 0,
+                            synthetic: Bool = false) {
+        let sx = Double(point.x - 0.5) * 2
+        let sy = Double(point.y - 0.5) * 2
+        let distance = Self.roundedTrackpadDistance(
+            sx: sx, sy: sy
+        )
+        let separations = anchors.map {
+            min(1.0, hypot(Double($0.x - point.x) * 1.64,
+                           Double($0.y - point.y)))
+        }
+        let proximity = separations.isEmpty ? 0
+            : separations.reduce(0) { $0 + (1 - $1) } / Double(separations.count)
+        let tension = 1.0 + Double(anchors.count) * 0.14 + proximity * 0.30
+        let levelScale = synthetic ? 0.080 : 0.052
+        let levelCeiling = synthetic ? 0.22 : 0.14
+        let energyGain = 0.76 + min(1, max(0, surfaceEnergy)) * 0.24
+        var level = min(levelCeiling, max(0, speed) * levelScale) * energyGain
+        // 0 = traveling along a contour; 1 = crossing it perpendicularly.
+        // Normalize by physical travel so gesture speed cannot leak into this
+        // orientation measurement.
+        let crossing = Self.scratchContourCrossing(at: point,
+                                                   direction: direction)
+        let seamActivity = [0.30, 0.46, 0.64, 0.88].reduce(0.0) {
+            max($0, exp(-pow((distance - $1) / 0.045, 2)))
+        }
+        if !synthetic {
+            level = min(levelCeiling,
+                        level * (1.0 + crossing * (0.12 + seamActivity * 0.24)))
+        }
+        // Skin stays dry and covered: mostly low-mid friction with only a
+        // little extra tooth near the perimeter. The electronic surface keeps
+        // the much wider, brighter sweep.
+        func mix(_ a: Double, _ b: Double, _ amount: Double) -> Double {
+            a + (b - a) * amount
+        }
+        let toSnare = smoothstep(0.23, 0.31, distance)
+        let toRim = smoothstep(0.40, 0.48, distance)
+        let toHat = smoothstep(0.62, 0.70, distance)
+        let toClick = smoothstep(0.88, 0.965, distance)
+        var materialCutoff = mix(175, 430, toSnare)
+        materialCutoff = mix(materialCutoff, 680, toRim)
+        materialCutoff = mix(materialCutoff, 1_250, toHat)
+        materialCutoff = mix(materialCutoff, 2_050, toClick)
+        let cutoff = synthetic
+            ? 1_200.0 + 9_000.0 * distance
+            : materialCutoff * (0.88 + tension * 0.12)
+                * (1.0 + crossing * seamActivity * 0.20)
+        var resonance = synthetic
+            ? 1_100.0 + cutoff * 0.42
+            : mix(mix(mix(mix(48, 90, toSnare), 185, toRim),
+                          360, toHat), 560, toClick) * tension
+        if !synthetic {
+            let pathVariation = 1.0 + 0.055 * sin((sx * 2.7 + sy * 3.9) * .pi)
+            // Trackpad speed advances at a constant rate through perceived
+            // pitch (octaves), with enough range to be unmistakable. Direction
+            // uses only the unit vector, never delta magnitude, so callback
+            // jitter cannot masquerade as acceleration.
+            let speedLift = Self.scratchPitchMultiplier(speed: speed)
+            let directionMagnitude = max(0.000_001,
+                hypot(Double(direction.dx), Double(direction.dy)))
+            let directionBend = 1.0 + max(-0.06, min(0.06,
+                (Double(direction.dx) * 0.045 + Double(direction.dy) * 0.030)
+                    / directionMagnitude
+            ))
+            resonance *= pathVariation * speedLift * directionBend
+                * (1.0 + crossing * seamActivity * 0.14)
+                * (0.90 + min(1, max(0, surfaceEnergy)) * 0.16)
+        } else {
+            // The electro surface follows the same steady gesture law over a
+            // smaller range so its already-bright carrier remains useful.
+            resonance *= Self.scratchPitchMultiplier(speed: speed,
+                                                      octaveSpan: 1.20)
+        }
+        var materialRoughness = mix(0.30, 0.78, toSnare)
+        materialRoughness = mix(materialRoughness, 0.48, toRim)
+        materialRoughness = mix(materialRoughness, 0.70, toHat)
+        materialRoughness = mix(materialRoughness, 0.38, toClick)
+        let roughness = synthetic ? 0.5
+            : min(1.0, materialRoughness + proximity * 0.26
+                + crossing * seamActivity * 0.24)
+        let release = synthetic ? 0.018
+            : max(0.004, 0.010 - Double(anchors.count) * 0.0012 - proximity * 0.003)
+        let pan = max(-1.0, min(1.0, Double(point.x - 0.5) * 1.45))
+        lock.lock()
+        scratchTarget = level
+        scratchCutoff = cutoff
+        scratchResonance = resonance
+        scratchRoughness = roughness
+        scratchRelease = release
+        scratchPan = pan
+        scratchSynthetic = synthetic
+        scratchControlTime = CACurrentMediaTime()
+        lock.unlock()
+    }
+
+    /// Linear in musical pitch rather than hertz: equal additions of gesture
+    /// speed produce equal octave movement. At the default span a brisk drag
+    /// traverses 2.25 octaves instead of the former sub-octave ceiling.
+    static func scratchPitchMultiplier(speed: Double,
+                                       octaveSpan: Double = 2.25) -> Double {
+        let octavePosition = min(octaveSpan, max(0, speed) * 0.82)
+        return exp2(octavePosition)
+    }
+
+    static func scratchContourCrossing(at point: CGPoint,
+                                       direction: CGVector) -> Double {
+        let currentDistance = roundedTrackpadDistance(
+            sx: Double(point.x - 0.5) * 2,
+            sy: Double(point.y - 0.5) * 2
+        )
+        let previousPoint = CGPoint(x: point.x - direction.dx,
+                                    y: point.y - direction.dy)
+        let previousDistance = roundedTrackpadDistance(
+            sx: Double(previousPoint.x - 0.5) * 2,
+            sy: Double(previousPoint.y - 0.5) * 2
+        )
+        let normalizedTravel = hypot(Double(direction.dx) * 3.28,
+                                     Double(direction.dy) * 2.0)
+        guard normalizedTravel > 0.000_001 else { return 0 }
+        return min(1.0, abs(currentDistance - previousDistance) / normalizedTravel)
+    }
+
+    func stopDrumSkinScratch() {
+        lock.lock()
+        scratchTarget = 0
+        scratchControlTime = CACurrentMediaTime()
+        lock.unlock()
+    }
+
+    enum DrumSkinZone: String { case center, snare, rim, hat, click }
+
+    static func drumSkinZone(at strike: CGPoint) -> DrumSkinZone {
+        let distance = roundedTrackpadDistance(
+            sx: Double(strike.x - 0.5) * 2,
+            sy: Double(strike.y - 0.5) * 2
+        )
+        if distance < 0.30 { return .center }
+        if distance < 0.46 { return .snare }
+        if distance < 0.64 { return .rim }
+        if distance < 0.88 { return .hat }
+        return .click
+    }
+
+    static func surfaceVelocityEnergy(at point: CGPoint, anchors: [CGPoint],
+                                      inertia: Double = 0) -> Double {
+        let sx = Double(point.x - 0.5) * 2
+        let sy = Double(point.y - 0.5) * 2
+        let depth = 1.0 - roundedTrackpadDistance(sx: sx, sy: sy)
+        let contour = 0.36 + 0.64 * pow(max(0, depth), 0.62)
+        let modal = 0.91 + 0.09 * cos(sx * .pi) * cos(sy * .pi)
+        let anchorGain = 1.0 - min(0.30, Double(anchors.count) * 0.055)
+        let base = contour * modal * anchorGain
+        return min(1, max(0.22, base + min(1, max(0, inertia)) * 0.28))
+    }
+
+    static func surfaceVelocity(at point: CGPoint, anchors: [CGPoint],
+                                inertia: Double = 0) -> UInt8 {
+        let energy = surfaceVelocityEnergy(at: point, anchors: anchors,
+                                           inertia: inertia)
+        return UInt8(max(1, min(127, Int((42 + energy * 85).rounded()))))
+    }
+
+    /// Rounded-rectangle inset coordinate for the physical trackpad. Uses a
+    /// 1.64:1 surface and a modest corner radius; standard signed-distance
+    /// geometry keeps every contour parallel to the real perimeter.
+    private static func roundedTrackpadDistance(sx: Double, sy: Double) -> Double {
+        let halfWidth = 0.82
+        let halfHeight = 0.50
+        let corner = 0.055
+        let px = abs(sx) * halfWidth
+        let py = abs(sy) * halfHeight
+        let qx = px - (halfWidth - corner)
+        let qy = py - (halfHeight - corner)
+        let outside = hypot(max(qx, 0), max(qy, 0))
+        let inside = min(max(qx, qy), 0)
+        let signedDistance = outside + inside - corner
+        let inwardDepth = max(0, -signedDistance)
+        return 1.0 - min(1.0, inwardDepth / halfHeight)
+    }
+
+    private func smoothstep(_ edge0: Double, _ edge1: Double, _ x: Double) -> Double {
+        let t = max(0, min(1, (x - edge0) / (edge1 - edge0)))
+        return t * t * (3 - 2 * t)
     }
 
     /// Key-down: fire the drum and return a group token. Held voices (open
@@ -236,7 +812,7 @@ final class MenuBandPercussion {
         let now = CACurrentMediaTime()
         let level = min(1.0, max(0.0, Double(velocity) / 127.0))
         lock.lock()
-        for s in down where pending.count < maxVoices { pending.append(s) }
+        pending.append(contentsOf: down)
         if !dv.release.isEmpty { releaseStore[g] = dv.release }
         pulses[drum.rawValue] = DrumPulse(at: now, level: min(1.0, level * (accent ? 1.2 : 1.0)))
         pendingStageTime = now
@@ -291,7 +867,7 @@ final class MenuBandPercussion {
         guard group != 0 else { return }
         lock.lock()
         if let bursts = releaseStore.removeValue(forKey: group) {
-            for s in bursts where pending.count < maxVoices { pending.append(s) }
+            pending.append(contentsOf: bursts)
         }
         pendingReleases.append(group)
         lock.unlock()
@@ -574,18 +1150,77 @@ final class MenuBandPercussion {
         lock.lock()
         let level = outputLevel
         if flushRequested { active.removeAll(keepingCapacity: true); flushRequested = false }
+        // Retire voices that ended exactly at the prior block before deciding
+        // whether the new onset fits. Previously these occupied slots until
+        // after pending voices were admitted, causing avoidable whole-hit loss.
+        var liveWrite = 0
+        for index in active.indices {
+            let voice = active[index]
+            let alive = voice.releasing
+                ? voice.releaseElapsed < voice.releaseFade
+                : (voice.held || voice.elapsed < voice.duration)
+            if alive {
+                active[liveWrite] = voice
+                liveWrite += 1
+            }
+        }
+        if liveWrite < active.count {
+            active.removeLast(active.count - liveWrite)
+        }
         if !pending.isEmpty {
-            for p in pending where active.count < maxVoices { active.append(p) }
+            // New attacks must win over inaudible old tails. Steal the oldest
+            // finite voices first, never a held open-hat voice. This keeps a
+            // rapid kick/snare roll articulate even when each physical hit
+            // contributes many membrane modes.
+            var needed = max(0, active.count + pending.count - maxVoices)
+            if needed > 0 {
+                var keepWrite = 0
+                for index in active.indices {
+                    let voice = active[index]
+                    if needed > 0, !voice.held {
+                        needed -= 1
+                        totalVoiceSteals &+= 1
+                    } else {
+                        active[keepWrite] = voice
+                        keepWrite += 1
+                    }
+                }
+                if keepWrite < active.count {
+                    active.removeLast(active.count - keepWrite)
+                }
+            }
+            let available = max(0, maxVoices - active.count)
+            let accepted = min(available, pending.count)
+            if accepted > 0 { active.append(contentsOf: pending.prefix(accepted)) }
+            if accepted < pending.count {
+                totalVoiceDrops &+= UInt64(pending.count - accepted)
+            }
             pending.removeAll(keepingCapacity: true)
             // Trigger→render handoff: how long staged voices waited for this
             // render cycle (≤ one buffer) — the percussion latency probe.
-            if pendingStageTime > 0 { lastHandoffSec = max(0, now - pendingStageTime) }
+            if pendingStageTime > 0 {
+                lastHandoffSec = max(0, now - pendingStageTime)
+                pendingStageTime = 0
+            }
+            if pendingTrackpadInputTime > 0 {
+                lastTrackpadInputToRenderSec = max(0, now - pendingTrackpadInputTime)
+                pendingTrackpadInputTime = 0
+            }
         }
+        lastActiveVoiceCount = active.count
         var releases: Set<UInt64> = []
         if !pendingReleases.isEmpty {
             releases = Set(pendingReleases)
             pendingReleases.removeAll(keepingCapacity: true)
         }
+        let scratchFresh = now - scratchControlTime < 0.050
+        let scratchTargetNow = scratchFresh ? scratchTarget : 0
+        let scratchCutoffNow = scratchCutoff
+        let scratchResonanceNow = scratchResonance
+        let scratchRoughnessNow = scratchRoughness
+        let scratchReleaseNow = scratchRelease
+        let scratchPanNow = scratchPan
+        let scratchSyntheticNow = scratchSynthetic
         lock.unlock()
 
         // Flip newly-released held voices into their fade-out. Noise voices
@@ -603,7 +1238,7 @@ final class MenuBandPercussion {
                 }
             }
         }
-        if active.isEmpty { return }
+        if active.isEmpty && scratchLevel < 0.000_01 && scratchTargetNow == 0 { return }
 
         let dt = 1.0 / sampleRate
         let g = Double(masterGain * level)
@@ -663,5 +1298,46 @@ final class MenuBandPercussion {
             }
         }
         if w < active.count { active.removeLast(active.count - w) }
+
+        // Continuous membrane friction after the finite modal voices. The
+        // physical surface uses a tight band between two low-pass states,
+        // nonlinear grip, and a tension-controlled head resonance; synthetic
+        // mode retains its broad ring-modulated noise.
+        let attackSeconds = scratchSyntheticNow ? 0.006 : 0.0025
+        let attackA = 1.0 - exp(-1.0 / (sampleRate * attackSeconds))
+        let releaseA = 1.0 - exp(-1.0 / (sampleRate * scratchReleaseNow))
+        let filterA = 1.0 - exp(-2.0 * .pi * scratchCutoffNow / sampleRate)
+        let slowFilterA = 1.0 - exp(
+            -2.0 * .pi * max(35.0, scratchCutoffNow * 0.18) / sampleRate
+        )
+        let p = max(-1.0, min(1.0, scratchPanNow))
+        let panTheta = (p + 1) * 0.25 * .pi
+        let scratchL = cos(panTheta)
+        let scratchR = sin(panTheta)
+        for i in 0..<frameCount {
+            let smoothing = scratchTargetNow > scratchLevel ? attackA : releaseA
+            scratchLevel += smoothing * (scratchTargetNow - scratchLevel)
+            let white = Double(xorshift(&scratchSeed)) / Double(UInt32.max) * 2.0 - 1.0
+            scratchNoiseState += filterA * (white - scratchNoiseState)
+            scratchSlowNoiseState += slowFilterA * (white - scratchSlowNoiseState)
+            let frictionBand = scratchNoiseState - scratchSlowNoiseState
+            let pitchMotion = scratchSyntheticNow ? 1.0
+                : 1.0 + tanh(frictionBand * 8.0) * 0.055
+            scratchPhase += scratchResonanceNow * pitchMotion / sampleRate
+            if scratchPhase >= 1 { scratchPhase -= floor(scratchPhase) }
+            let carrier = sin(2.0 * .pi * scratchPhase)
+            let texture: Double
+            if scratchSyntheticNow {
+                texture = scratchNoiseState * carrier * 1.35
+            } else {
+                let gnarl = tanh(frictionBand * (5.0 + scratchRoughnessNow * 5.0))
+                texture = gnarl * 0.44
+                    + carrier * (0.08 + abs(gnarl)
+                        * (0.42 + scratchRoughnessNow * 0.30))
+            }
+            let sample = texture * scratchLevel * g
+            left[i] += Float(sample * scratchL)
+            right[i] += Float(sample * scratchR)
+        }
     }
 }

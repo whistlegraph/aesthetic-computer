@@ -46,19 +46,19 @@ static const char *BELL_PATH = "/Users/jas/aesthetic-computer/pop/hellsine/sampl
 #define N_SHOUTS 6
 static const char *SHOUT_KEY[N_SHOUTS] = { "wake", "real", "hold", "let", "rabbit", "now" };
 static const char *SHOUT_J[N_SHOUTS] = {
-  "/Users/jas/aesthetic-computer/pop/maytrax/out/shouts/wake_up.wav",
-  "/Users/jas/aesthetic-computer/pop/maytrax/out/shouts/it_s_real.wav",
-  "/Users/jas/aesthetic-computer/pop/maytrax/out/shouts/hold_on.wav",
-  "/Users/jas/aesthetic-computer/pop/maytrax/out/shouts/let_go.wav",
-  "/Users/jas/aesthetic-computer/pop/maytrax/out/shouts/follow_the_white_rabbit.wav",
-  "/Users/jas/aesthetic-computer/pop/maytrax/out/shouts/now.wav",
+  "",
+  "",
+  "",
+  "",
+  "",
+  "",
 };
 static const char *SHOUT_A[N_SHOUTS] = {
-  "/Users/jas/aesthetic-computer/pop/maytrax/out/shouts/wake_up-say-sung.wav",
-  "/Users/jas/aesthetic-computer/pop/maytrax/out/shouts/it_s_real-say-sung.wav",
-  "/Users/jas/aesthetic-computer/pop/maytrax/out/shouts/hold_on-say-sung.wav",
-  "/Users/jas/aesthetic-computer/pop/maytrax/out/shouts/let_go-say-sung.wav",
-  "/Users/jas/aesthetic-computer/pop/maytrax/out/shouts/follow_the_white_rabbit-say-sung.wav",
-  "/Users/jas/aesthetic-computer/pop/maytrax/out/shouts/now-say-sung.wav",
+  "",
+  "",
+  "",
+  "",
+  "",
+  "",
 };
 

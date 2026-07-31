@@ -2,7 +2,30 @@
 /**
  * Plugin Name: TL — Fía polish pass
  * Description: CSS+JS polish on top of the existing TL theme + Elementor build, per Fía's notes (2026-05-19 + her two replies later that night). Header chrome (no underline / no rule_ hrs / no Home), cream-everywhere, home laid out as a 5-up desktop strip (vertical stack on mobile) in Fía's section order with subtitles, divider widgets dropped on the homepage, Notes image-width capped, In-the-Studio + About years reversed newest-first (with !important on the flex parent so the reorder actually applies), Beyond-the-Studio collapsed to one column with centered subsection labels, 1980-82 caption normalisation, and a JS-injected horizontal cover preview strip per shelf on /bookshelf/.
- * Version: 1.8.0
+ * Version: 1.9.1
+ *
+ * v1.9.1 — Fía's 2026-07-30 corrections:
+ *  - Replace the logo-like all-caps display face with a clean mixed-case face.
+ *  - Place doorway titles directly on their images, without a grey plaque,
+ *    and cover the Studio/About intros that missed the first overlay pass.
+ *  - Give every Bookshelf detail its actual subsection title and one aligned,
+ *    underline-free item system with a small arrow reserved for PDF links.
+ *
+ * v1.9.0 — Fía's 2026-07-29 editorial pass:
+ *  - Give News and archive subheads a quieter ceremonial display face while
+ *    moving long copy to a more legible bookish serif.
+ *  - Align intro copy, captions, and doorway cues; enlarge section image bands
+ *    and let their titles sit on the image as an entrance to each archive.
+ *  - Normalize Studio ranges and Bookshelf labels, punctuation, italics, and
+ *    subsection spacing; add clear air above the footer.
+ *
+ * v1.8.1 — keyboard and lightbox accessibility:
+ *  - Make every Studio artwork opener keyboard reachable, including images
+ *    that Elementor did not wrap in a link.
+ *  - Treat the artwork overlay as a modal dialog, move focus to its close
+ *    button, restore focus on exit, and keep Tab inside the overlay.
+ *  - Give Bookshelf covers, More links, and the lightbox close button a
+ *    visible focus ring without changing their resting presentation.
  *
  * v1.8.0 — Fía's 2026-07-27 follow-up:
  *  - Clarify Studio period ranges with larger labels and a trailing rule.
@@ -1574,6 +1597,11 @@ body.page-id-808 .tl-shelf-cover {
     flex: 0 0 auto;
     scroll-snap-align: start;
 }
+body.page-id-808 :is(.tl-shelf-cover, .tl-shelf-more):focus-visible,
+.tl-lightbox-close:focus-visible {
+    outline: 3px solid #9b2f5f !important;
+    outline-offset: 4px;
+}
 body.page-id-808 .tl-shelf-strip img {
     display: block !important;
     width: auto !important;
@@ -1582,6 +1610,172 @@ body.page-id-808 .tl-shelf-strip img {
 body.page-id-808 .tl-shelf-cover:first-child,
 body.page-id-808 .tl-shelf-cover:last-child {
     margin-inline: 0 !important;
+}
+
+/* ---------------------------------------------------------------- *
+ * 15. Fía's 2026-07-29 ceremonial archive pass
+ * ---------------------------------------------------------------- */
+body:is(.page-id-68, .page-id-140, .page-id-808, .page-id-1147, .page-id-1177, .page-id-1898) {
+    --tl-display-face: "Gotham", "Helvetica Neue", Arial, sans-serif;
+    --tl-body-face: Georgia, "Times New Roman", serif;
+}
+body:is(.page-id-68, .page-id-140, .page-id-808, .page-id-1147, .page-id-1177, .page-id-1898)
+    :is(.elementor-widget-text-editor, .elementor-widget-text-editor p) {
+    font-family: var(--tl-body-face) !important;
+    font-size: clamp(1.02rem, 1.25vw, 1.14rem) !important;
+    line-height: 1.68 !important;
+    letter-spacing: 0.002em !important;
+}
+body.page-id-1898 .elementor-top-section:not(.elementor-element-1553c2e)
+    .elementor-widget-heading .elementor-heading-title,
+body.page-id-140 .elementor-top-section:not(.elementor-element-71fa6aa)
+    .elementor-inner-column:has(.elementor-widget-heading) .elementor-heading-title,
+body.page-id-808 .elementor-top-section:not(.elementor-element-825b6e9) .elementor-heading-title,
+body.page-id-68 :is(.elementor-element-1024859, .elementor-element-f90ea8e, .elementor-element-e7f58e2,
+    .elementor-element-c387832, .elementor-element-81b61fa, .elementor-element-6041595) .elementor-heading-title {
+    font-family: var(--tl-display-face) !important;
+    font-style: normal !important;
+    font-weight: 400 !important;
+    letter-spacing: -0.012em !important;
+    text-transform: none !important;
+}
+body.page-id-1898 .elementor-top-section:not(.elementor-element-1553c2e)
+    .elementor-widget-heading .elementor-heading-title {
+    font-size: clamp(1.12rem, 1.8vw, 1.45rem) !important;
+    line-height: 1.3 !important;
+}
+
+/* The title becomes the doorway sign; intro prose remains aligned below it. */
+body .tl-archive-doorway .elementor-widget-image .elementor-widget-container {
+    position: relative !important;
+}
+body .tl-archive-doorway .elementor-widget-image img {
+    width: 100% !important;
+    height: clamp(300px, 43vw, 520px) !important;
+    object-fit: cover !important;
+}
+body .tl-archive-doorway .tl-doorway-source { display: none !important; }
+body .tl-archive-doorway .tl-doorway-sign {
+    position: absolute !important;
+    z-index: 2;
+    left: 56% !important;
+    bottom: clamp(1.35rem, 4vw, 3.25rem) !important;
+    transform: translateX(-50%);
+    width: auto !important;
+    max-width: calc(100% - clamp(2rem, 6vw, 4rem)) !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    color: #fffdf7 !important;
+    background: transparent !important;
+    font-family: var(--tl-display-face) !important;
+    font-weight: 400 !important;
+    letter-spacing: -0.025em !important;
+    text-transform: none !important;
+    text-shadow: 0 2px 14px rgba(0,0,0,.78), 0 1px 3px rgba(0,0,0,.9);
+}
+body .tl-archive-doorway :is(.elementor-widget-text-editor, .elementor-widget-text-editor p) {
+    text-align: left !important;
+}
+
+body.page-id-140 .elementor-top-section:not(.elementor-element-71fa6aa)
+    .elementor-inner-column:has(.elementor-widget-heading) > .elementor-widget-wrap {
+    gap: 0.3rem !important;
+}
+body.page-id-140 .elementor-top-section:not(.elementor-element-71fa6aa)
+    .elementor-inner-column:has(.elementor-widget-heading)
+    .elementor-widget-heading:last-child .elementor-heading-title::before {
+    content: "\2013";
+    margin-inline: 0.2em 0.28em;
+}
+body.page-id-808 .elementor-top-section:not(.elementor-element-825b6e9) {
+    margin-bottom: clamp(2.5rem, 5vw, 4.5rem) !important;
+}
+body.page-id-808 .elementor-top-section:not(.elementor-element-825b6e9)
+    :is(.elementor-heading-title, .elementor-heading-title a) {
+    font-style: normal !important;
+}
+body :is(.elementor-image-box-description, figcaption, .wp-caption-text) {
+    text-align: left !important;
+    font-style: normal !important;
+    line-height: 1.45 !important;
+}
+body :is(.elementor-icon, .elementor-icon-list-icon) {
+    vertical-align: text-bottom !important;
+}
+body .site-footer { margin-top: clamp(5rem, 10vw, 9rem) !important; }
+
+/* Studio's header art is a CSS background rather than an image widget. */
+body.page-id-140 .elementor-element-71fa6aa {
+    min-height: clamp(300px, 43vw, 520px) !important;
+    display: flex !important;
+    align-items: flex-end !important;
+    position: relative !important;
+}
+body.page-id-140 .elementor-element-71fa6aa > .elementor-container {
+    position: relative !important;
+    z-index: 2;
+}
+body.page-id-140 .elementor-element-71fa6aa .elementor-heading-title {
+    width: max-content !important;
+    max-width: 88vw !important;
+    margin: 0 auto clamp(1.35rem, 4vw, 3.25rem) !important;
+    color: #fffdf7 !important;
+    font-family: var(--tl-display-face) !important;
+    font-weight: 400 !important;
+    text-align: center !important;
+    text-transform: none !important;
+    text-shadow: 0 2px 14px rgba(0,0,0,.78), 0 1px 3px rgba(0,0,0,.9);
+}
+
+/* Bookshelf details: one calm card grammar, with arrows only for PDFs. */
+body.tl-bookshelf-detail a,
+body.tl-bookshelf-detail a:visited,
+body.tl-bookshelf-detail a:hover {
+    text-decoration: none !important;
+    border-bottom: 0 !important;
+}
+body.tl-bookshelf-detail a[href$=".pdf" i]::after {
+    content: " \2197";
+    display: inline-block;
+    margin-left: 0.22em;
+    font-family: var(--tl-display-face);
+    font-size: 0.82em;
+    font-style: normal;
+}
+body.tl-bookshelf-detail .elementor-top-section:not(:first-child) > .elementor-container {
+    align-items: stretch !important;
+}
+body.tl-bookshelf-detail .elementor-top-section:not(:first-child) .elementor-column,
+body.tl-bookshelf-detail .elementor-inner-column {
+    display: flex !important;
+    align-items: stretch !important;
+}
+body.tl-bookshelf-detail .elementor-top-section:not(:first-child) .elementor-column > .elementor-widget-wrap,
+body.tl-bookshelf-detail .elementor-inner-column > .elementor-widget-wrap {
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: flex-start !important;
+    align-items: stretch !important;
+    gap: 0.2rem !important;
+    padding-bottom: clamp(2.5rem, 5vw, 4.5rem) !important;
+}
+body.tl-bookshelf-detail .elementor-widget-image {
+    min-height: 280px !important;
+    display: flex !important;
+    align-items: flex-end !important;
+    justify-content: center !important;
+}
+body.tl-bookshelf-detail .elementor-widget-heading .elementor-widget-container {
+    padding: 0 !important;
+}
+
+@media (max-width: 720px) {
+    body .tl-archive-doorway .elementor-widget-image img {
+        height: clamp(230px, 68vw, 360px) !important;
+    }
+    body .tl-archive-doorway .tl-doorway-sign { left: 50% !important; }
+    body.page-id-140 .elementor-element-71fa6aa { min-height: clamp(230px, 68vw, 360px) !important; }
+    body.tl-bookshelf-detail .elementor-widget-image { min-height: 220px !important; }
 }
 
 /* Writing and exhibition details: large source images remain untouched;
@@ -1726,6 +1920,7 @@ body.tl-exhibition-detail .elementor-widget-heading .elementor-heading-title {
 }
 
 function tl_fia_polish_js() {
+    tl_fia_polish_js_july29_editorial();
     // Studio-detail lightbox runs on slug-matched detail pages
     // (tl-studio-detail body class is set in PHP by post-slug prefix).
     global $post;
@@ -1922,15 +2117,127 @@ function tl_fia_polish_js() {
 <?php
 }
 
+/** Exact editorial corrections and non-destructive doorway hooks (2026-07-29). */
+function tl_fia_polish_js_july29_editorial() {
+    ?>
+<script id="tl-fia-july29-editorial">
+(function () {
+    function clean(value) {
+        return value.replace(/[\u200B-\u200D\uFEFF]/g, '').replace(/\s+/g, ' ').trim();
+    }
+
+    /* Preserve authored content; only touch the exact labels Fía named. */
+    if (document.body.classList.contains('page-id-808')) {
+        document.querySelectorAll('.elementor-heading-title').forEach(function (heading) {
+            var label = clean(heading.textContent);
+            if (label === 'Publications') heading.textContent = 'East of Borneo';
+        });
+
+        var headings = Array.from(document.querySelectorAll('.elementor-heading-title'));
+        headings.forEach(function (heading, index) {
+            if (clean(heading.textContent).toUpperCase() !== 'OTHER') return;
+            var next = headings.slice(index + 1).find(function (candidate) {
+                return candidate.offsetParent !== null || clean(candidate.textContent) === 'Anthologies';
+            });
+            if (next && clean(next.textContent) === 'Anthologies') {
+                var widget = heading.closest('.elementor-widget-heading');
+                if (widget) widget.remove(); else heading.remove();
+            }
+        });
+    }
+
+    /* Remove placeholder punctuation, not meaningful dashes inside prose. */
+    document.querySelectorAll('.elementor-heading-title, figcaption, .wp-caption-text').forEach(function (node) {
+        if (/^[-\u2013\u2014]+$/.test(clean(node.textContent))) {
+            var widget = node.closest('.elementor-widget-heading');
+            if (widget) widget.remove(); else node.remove();
+            return;
+        }
+        node.innerHTML = node.innerHTML
+            .replace(/\s+([,.;:!?])/g, '$1')
+            .replace(/(<br\s*\/?>(?:\s|&nbsp;)*){2,}/gi, '<br>');
+    });
+
+    /* Mark image-led intros and their title without cloning or moving content. */
+    var intros = {
+        'page-id-1898': '.elementor-element-1553c2e',
+        'page-id-808': '.elementor-element-825b6e9',
+        'page-id-1147': '.elementor-element-ba54885',
+        'page-id-1177': '.elementor-element-1b54d5a',
+        'page-id-68': '.elementor-element-3d58b5f'
+    };
+    function installDoorway() {
+      Object.keys(intros).some(function (bodyClass) {
+        if (!document.body.classList.contains(bodyClass)) return false;
+        var intro = document.querySelector(intros[bodyClass]);
+        if (!intro || !intro.querySelector('.elementor-widget-image')) return true;
+        var title = intro.querySelector('.elementor-heading-title');
+        var imageContainer = intro.querySelector('.elementor-widget-image .elementor-widget-container');
+        intro.classList.add('tl-archive-doorway');
+        if (title && imageContainer && !imageContainer.querySelector('.tl-doorway-sign')) {
+            var sign = title.cloneNode(true);
+            sign.classList.add('tl-doorway-sign');
+            if (bodyClass === 'page-id-1898' && /^notes$/i.test(clean(sign.textContent))) {
+                sign.textContent = 'News';
+            }
+            imageContainer.appendChild(sign);
+            var sourceWidget = title.closest('.elementor-widget-heading');
+            if (sourceWidget) {
+                sourceWidget.classList.add('tl-doorway-source');
+                sourceWidget.setAttribute('aria-hidden', 'true');
+            }
+        }
+        return true;
+      });
+    }
+    installDoorway();
+    /* About's title is authored by the later page-specific script. */
+    setTimeout(installDoorway, 0);
+
+    /* Keep icon/caption rows on the same left edge as their associated copy. */
+    document.querySelectorAll('.elementor-widget-image').forEach(function (imageWidget) {
+        var caption = imageWidget.querySelector('figcaption, .wp-caption-text');
+        if (caption) caption.style.removeProperty('text-align');
+    });
+})();
+</script>
+    <?php
+}
+
 /** Normalise the one authored all-caps page label without rewriting captions. */
 function tl_fia_polish_js_bookshelf_detail() {
+    global $post;
+    $slug = ($post && isset($post->post_name)) ? $post->post_name : '';
+    $labels = [
+        'bookshelf_artforum' => 'Artforum',
+        'bookshelf_afterall' => 'Afterall',
+        'afterall' => 'Afterall',
+        'bookshelf_eastofborneo' => 'East of Borneo',
+        'bookshelf-reallife' => 'REALLIFE',
+        'bookshelf-anthologies' => 'Anthologies',
+        'bookshelf_writingsabouttl' => 'Writings About Thomas Lawson',
+        'writingsabouttl' => 'Writings About Thomas Lawson',
+        'elementor-1796' => 'Interviews',
+        'elementor-395' => 'Writing'
+    ];
+    $label = isset($labels[$slug]) ? $labels[$slug] : '';
     ?>
 <script id="tl-fia-bookshelf-detail">
 (function () {
     if (!document.body.classList.contains('tl-bookshelf-detail')) return;
-    document.querySelectorAll('h1, h2').forEach(function (heading) {
-        if (heading.textContent.replace(/\s+/g, ' ').trim() === 'PUBLICATIONS') {
-            heading.textContent = 'Publications';
+    var subsectionTitle = <?php echo wp_json_encode($label); ?>;
+    var headings = Array.from(document.querySelectorAll('h1, h2'));
+    var alreadyNamed = subsectionTitle && headings.some(function (heading) {
+        return heading.textContent.replace(/\s+/g, ' ').trim().toLowerCase() === subsectionTitle.toLowerCase();
+    });
+    headings.forEach(function (heading) {
+        if (/^publications$/i.test(heading.textContent.replace(/\s+/g, ' ').trim())) {
+            if (alreadyNamed) {
+                var widget = heading.closest('.elementor-widget-heading');
+                if (widget) widget.remove(); else heading.remove();
+            } else {
+                heading.textContent = subsectionTitle || 'Bookshelf';
+            }
         }
     });
 })();
@@ -2266,9 +2573,12 @@ function tl_fia_polish_js_studio_lightbox() {
         return src;
     }
 
-    function openLightbox(src) {
+    function openLightbox(src, opener) {
         var ov = document.createElement('div');
         ov.className = 'tl-lightbox';
+        ov.setAttribute('role', 'dialog');
+        ov.setAttribute('aria-modal', 'true');
+        ov.setAttribute('aria-label', 'Artwork preview');
         var img = document.createElement('img');
         img.src = src;
         img.alt = '';
@@ -2278,16 +2588,25 @@ function tl_fia_polish_js_studio_lightbox() {
         close.setAttribute('aria-label', 'Close');
         close.textContent = '×';
         ov.appendChild(close);
-        ov.addEventListener('click', function (e) {
-            if (e.target === img) return;
+        function closeLightbox() {
             ov.remove();
             document.removeEventListener('keydown', onKey);
+            if (opener && document.contains(opener)) opener.focus();
+        }
+        ov.addEventListener('click', function (e) {
+            if (e.target === img) return;
+            closeLightbox();
         });
         function onKey(e) {
-            if (e.key === 'Escape') { ov.remove(); document.removeEventListener('keydown', onKey); }
+            if (e.key === 'Escape') closeLightbox();
+            if (e.key === 'Tab') {
+                e.preventDefault();
+                close.focus();
+            }
         }
         document.addEventListener('keydown', onKey);
         document.body.appendChild(ov);
+        close.focus();
     }
 
     var imgs = document.querySelectorAll('.elementor-widget-image img');
@@ -2297,11 +2616,20 @@ function tl_fia_polish_js_studio_lightbox() {
         if (parentLink) {
             parentLink.addEventListener('click', function (e) {
                 e.preventDefault();
-                openLightbox(fullSize(img));
+                openLightbox(fullSize(img), parentLink);
             });
         } else {
+            img.setAttribute('tabindex', '0');
+            img.setAttribute('role', 'button');
+            img.setAttribute('aria-label', img.alt ? 'Open ' + img.alt : 'Open artwork preview');
             img.addEventListener('click', function () {
-                openLightbox(fullSize(img));
+                openLightbox(fullSize(img), img);
+            });
+            img.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    openLightbox(fullSize(img), img);
+                }
             });
         }
     });

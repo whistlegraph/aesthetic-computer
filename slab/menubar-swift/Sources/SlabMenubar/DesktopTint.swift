@@ -10,6 +10,25 @@ import UniformTypeIdentifiers
 /// stateless CoreGraphics enum), but writes a PNG to disk because macOS
 /// wallpaper takes a file path, not a color.
 enum DesktopTint {
+    static let didChangeNotification = Notification.Name("computer.aesthetic.slab.desktop-tint.changed")
+    static var currentColorFile: String { "\(Paths.desktopWallpaperDir)/current-color.json" }
+
+    /// Share Slab's resolved aggregate prompt colour with companion desktop
+    /// surfaces. Persistence gives late starters the current tone; the
+    /// distributed notification updates live renderers immediately.
+    static func publish(color: (Int, Int, Int), dark: Bool) {
+        let payload: [String: Any] = [
+            "red": color.0, "green": color.1, "blue": color.2, "dark": dark,
+        ]
+        try? FileManager.default.createDirectory(
+            atPath: Paths.desktopWallpaperDir, withIntermediateDirectories: true)
+        if let data = try? JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys]) {
+            try? data.write(to: URL(fileURLWithPath: currentColorFile), options: .atomic)
+        }
+        DistributedNotificationCenter.default().postNotificationName(
+            didChangeNotification, object: nil, userInfo: payload, deliverImmediately: true)
+    }
+
     /// Ensure the flat-color PNG named `name` filled with `color`
     /// (AppleScript 0–65535 RGB) exists, and return its path.
     /// Content-addressed: the color is hashed into the filename, so a
