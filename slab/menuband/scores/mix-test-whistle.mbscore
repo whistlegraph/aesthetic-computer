@@ -1,0 +1,23 @@
+{
+  "title": "Whistle Sidechain Mix Test",
+  "composer": "Menu Band lab",
+  "machines": 1,
+  "bpm": 120,
+  "lead": 1.0,
+  "record": true,
+  "description": "Program 79 whistle over dense kick, snare, clap, and hat percussion for automix QA.",
+  "voices": [
+    {
+      "name": "whistle and dense kit",
+      "program": 79,
+      "velocity": 104,
+      "notes": "k:0.5,k:0.5,k:0.5,k:0.5,k:0.5,k:0.5,k:0.5,k:0.5,k:0.5,k:0.5,k:0.5,k:0.5,k:0.5,k:0.5,k:0.5,k:0.5,k:0.5,k:0.5,k:0.5,k:0.5,k:0.5,k:0.5,k:0.5,k:0.5,k:0.5,k:0.5,k:0.5,k:0.5,k:0.5,k:0.5,k:0.5,k:0.5",
+      "notes2": "r:1,s:1,r:1,c:1,r:1,s:1,r:1,c:1,r:1,s:1,r:1,c:1,r:1,s:1,r:1,c:1",
+      "velocity2": 96,
+      "notes3": "h:0.25,h:0.25,h:0.25,h:0.25,h:0.25,h:0.25,h:0.25,h:0.25,h:0.25,h:0.25,h:0.25,h:0.25,h:0.25,h:0.25,h:0.25,h:0.25,h:0.25,h:0.25,h:0.25,h:0.25,h:0.25,h:0.25,h:0.25,h:0.25,h:0.25,h:0.25,h:0.25,h:0.25,h:0.25,h:0.25,h:0.25,h:0.25,h:0.25,h:0.25,h:0.25,h:0.25,h:0.25,h:0.25,h:0.25,h:0.25,h:0.25,h:0.25,h:0.25,h:0.25,h:0.25,h:0.25,h:0.25,h:0.25,h:0.25,h:0.25,h:0.25,h:0.25,h:0.25,h:0.25,h:0.25,h:0.25,h:0.25,h:0.25,h:0.25,h:0.25,h:0.25,h:0.25,h:0.25,h:0.25",
+      "velocity3": 76,
+      "notes4": "79:1,83:1,86:2,83:1,81:1,79:2,74:1,79:1,83:2,86:1,83:1,81:2",
+      "velocity4": 88
+    }
+  ]
+}

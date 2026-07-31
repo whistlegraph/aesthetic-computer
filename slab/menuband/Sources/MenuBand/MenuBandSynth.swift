@@ -206,7 +206,7 @@ final class MenuBandSynth {
     /// scheduling jitter, so it popped constantly. 5.3 ms is still well below
     /// the perceptual threshold for a keyboard instrument; bump it back down
     /// only on a machine with headroom to spare.
-    private static let targetIOBufferFrames: UInt32 = 512
+    private static let targetIOBufferFrames: UInt32 = 128
     /// True once we've successfully taken hog mode on the active
     /// output device. Tracks the device ID alongside so we can
     /// release the right one on shutdown / device switch.
@@ -286,7 +286,12 @@ final class MenuBandSynth {
     /// BEFORE the limiter means lowering the slider also pulls the
     /// peak-limit threshold down proportionally — the slider is the
     /// user's "max volume" knob in a literal sense.
-    private var masterVolume: Float = 1.0
+    /// Baseline melodic trim; percussion sidechain automation moves beneath it.
+    private var masterVolume: Float = 0.82
+    private var melodicDuckGain: Float = 1
+    private var melodicDuckTarget: Float = 1
+    private var melodicDuckHoldUntil: CFTimeInterval = 0
+    private var melodicDuckTimer: Timer?
 
     /// External callers (the controller's hover-preview path) read this
     /// to decide whether they need to wait for the bank-swap settle delay
@@ -1615,6 +1620,53 @@ final class MenuBandSynth {
         preLimiterMixer.outputVolume = clamped
     }
 
+    /// Fast musical sidechain on the melodic bus. Kick-like events make the
+    /// deepest pocket; brighter percussion makes a lighter one. Chords duck a
+    /// little further than single notes so polyphony cannot mask the groove.
+    private func triggerMelodicDuck(depth: Float, velocity: UInt8,
+                                    hold: TimeInterval) {
+        let velocityScale = Float(velocity) / 127
+        let polyphony = max(0, activeNotes.count - 1)
+        let polyphonyDepth = min(Float(0.12), Float(polyphony) * 0.03)
+        let scaledDepth = depth * (0.55 + 0.45 * velocityScale) + polyphonyDepth
+        let target = max(Float(0.48), 1 - scaledDepth)
+        let apply = { [weak self] in
+            guard let self else { return }
+            self.melodicDuckTarget = min(self.melodicDuckTarget, target)
+            self.melodicDuckHoldUntil = max(
+                self.melodicDuckHoldUntil, CACurrentMediaTime() + hold
+            )
+            self.startMelodicDuckTimerIfNeeded()
+        }
+        if Thread.isMainThread { apply() }
+        else { DispatchQueue.main.async(execute: apply) }
+    }
+
+    private func startMelodicDuckTimerIfNeeded() {
+        guard melodicDuckTimer == nil else { return }
+        let timer = Timer(timeInterval: 1.0 / 120.0, repeats: true) {
+            [weak self] timer in
+            guard let self else { timer.invalidate(); return }
+            let held = CACurrentMediaTime() < self.melodicDuckHoldUntil
+            if !held { self.melodicDuckTarget = 1 }
+            let target: Float = held ? self.melodicDuckTarget : 1
+            // Near-instant attack, slower transparent recovery.
+            let rate: Float = target < self.melodicDuckGain ? 0.48 : 0.055
+            self.melodicDuckGain += (target - self.melodicDuckGain) * rate
+            self.proximityEQ.globalGain = 20 * log10(max(0.001, self.melodicDuckGain))
+            if !held, abs(self.melodicDuckGain - 1) < 0.001 {
+                self.melodicDuckGain = 1
+                self.melodicDuckTarget = 1
+                self.proximityEQ.globalGain = 0
+                timer.invalidate()
+                self.melodicDuckTimer = nil
+            }
+        }
+        timer.tolerance = 1.0 / 480.0
+        RunLoop.main.add(timer, forMode: .common)
+        melodicDuckTimer = timer
+    }
+
     /// Read the current master volume (last persisted or set value).
     var currentMasterVolume: Float { masterVolume }
 
@@ -2029,11 +2081,80 @@ final class MenuBandSynth {
         // it (and cancel any pending suspend) before staging the voices.
         _ = resumeAudioEngineIfNeeded()
         let p = max(-1.0, min(1.0, (Double(pan) - 64.0) / 63.0))
+        let depth: Float
+        let hold: TimeInterval
+        switch drum {
+        case .kick: depth = 0.42; hold = 0.105
+        case .snare, .clap: depth = 0.25; hold = 0.075
+        case .snap, .cowbell, .block: depth = 0.16; hold = 0.055
+        default: depth = 0.10; hold = 0.040
+        }
+        triggerMelodicDuck(depth: depth, velocity: velocity, hold: hold)
         percussion.play(drum, velocity: velocity, pan: p)
         // Keep the engine awake long enough for the drum tail to ring out,
         // since `activeNotes` stays empty. Re-arm the idle suspend timer so
         // it can't fire mid-tail.
         scheduleIdleSuspendAfterPercussion()
+    }
+
+    /// A rising, suction-like bass-drum envelope for the trackpad's
+    /// two-finger upper-half gesture.
+    func playReverseKick(velocity: UInt8, pan: UInt8) {
+        guard started else { return }
+        _ = resumeAudioEngineIfNeeded()
+        let p = max(-1.0, min(1.0, (Double(pan) - 64.0) / 63.0))
+        triggerMelodicDuck(depth: 0.38, velocity: velocity, hold: 0.12)
+        percussion.playReverseKick(velocity: velocity, pan: p)
+        scheduleIdleSuspendAfterPercussion()
+    }
+
+    func playDrumSkin(strike: CGPoint, anchors: [CGPoint], velocity: UInt8) {
+        guard started else { return }
+        _ = resumeAudioEngineIfNeeded()
+        let zone = MenuBandPercussion.drumSkinZone(at: strike)
+        let depth: Float = zone == .center ? 0.40
+            : (zone == .snare ? 0.25 : (zone == .rim ? 0.16 : 0.10))
+        triggerMelodicDuck(depth: depth, velocity: velocity,
+                           hold: zone == .center ? 0.10 : 0.06)
+        percussion.playDrumSkin(strike: strike, anchors: anchors, velocity: velocity)
+        scheduleIdleSuspendAfterPercussion()
+    }
+
+    func playSynthSurface(strike: CGPoint, anchors: [CGPoint], velocity: UInt8) {
+        guard started else { return }
+        _ = resumeAudioEngineIfNeeded()
+        let zone = MenuBandPercussion.drumSkinZone(at: strike)
+        triggerMelodicDuck(depth: zone == .center ? 0.34 : 0.16,
+                           velocity: velocity, hold: 0.07)
+        percussion.playSynthSurface(strike: strike, anchors: anchors, velocity: velocity)
+        scheduleIdleSuspendAfterPercussion()
+    }
+
+    func playSurfaceLift(at point: CGPoint, anchors: [CGPoint],
+                         velocity: UInt8, synthetic: Bool) {
+        guard started else { return }
+        _ = resumeAudioEngineIfNeeded()
+        triggerMelodicDuck(depth: 0.10, velocity: velocity, hold: 0.04)
+        percussion.playSurfaceLift(at: point, anchors: anchors,
+                                   velocity: velocity, synthetic: synthetic)
+        scheduleIdleSuspendAfterPercussion()
+    }
+
+    func setDrumSkinScratch(at point: CGPoint, speed: Double,
+                            anchors: [CGPoint] = [],
+                            direction: CGVector = .zero,
+                            surfaceEnergy: Double = 0,
+                            synthetic: Bool = false) {
+        guard started else { return }
+        percussion.setDrumSkinScratch(at: point, speed: speed,
+                                      anchors: anchors,
+                                      direction: direction,
+                                      surfaceEnergy: surfaceEnergy,
+                                      synthetic: synthetic)
+    }
+
+    func stopDrumSkinScratch() {
+        percussion.stopDrumSkinScratch()
     }
 
     /// Key-down for a split drum. Returns a group token the caller passes to
@@ -2052,6 +2173,10 @@ final class MenuBandSynth {
             _ = resumeAudioEngineIfNeeded()
         }
         let p = max(-1.0, min(1.0, (Double(pan) - 64.0) / 63.0))
+        let depth: Float = drum == .kick ? 0.42
+            : ((drum == .snare || drum == .clap) ? 0.25 : 0.11)
+        triggerMelodicDuck(depth: depth, velocity: velocity,
+                           hold: drum == .kick ? 0.105 : 0.055)
         let g = percussion.noteOn(drum, velocity: velocity, pan: p, accent: accent)
         if !keepEngineWarm { scheduleIdleSuspendAfterPercussion() }
         return g
@@ -2060,6 +2185,20 @@ final class MenuBandSynth {
     /// Most recent percussion trigger→render handoff (ms) — the drum-
     /// specific latency, ≤ one IO buffer.
     func percussionTriggerHandoffMs() -> Double { percussion.triggerHandoffMs() }
+
+    /// Mark the raw MultitouchSupport callback that produced the next staged
+    /// percussion voice, preserving the complete input→render measurement.
+    func markTrackpadInput(at callbackTime: Double) {
+        percussion.markTrackpadInput(at: callbackTime)
+    }
+
+    func trackpadInputToRenderMs() -> Double {
+        percussion.trackpadInputToRenderMs()
+    }
+
+    func percussionVoicePressure() -> MenuBandPercussion.VoicePressure {
+        percussion.voicePressure()
+    }
 
     /// Key-up for a split drum — damps held voices (open hat) and fires the
     /// release burst (closed hat). Harmless for one-shot drums.

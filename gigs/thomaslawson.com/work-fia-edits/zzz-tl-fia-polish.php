@@ -2,7 +2,59 @@
 /**
  * Plugin Name: TL — Fía polish pass
  * Description: CSS+JS polish on top of the existing TL theme + Elementor build, per Fía's notes (2026-05-19 + her two replies later that night). Header chrome (no underline / no rule_ hrs / no Home), cream-everywhere, home laid out as a 5-up desktop strip (vertical stack on mobile) in Fía's section order with subtitles, divider widgets dropped on the homepage, Notes image-width capped, In-the-Studio + About years reversed newest-first (with !important on the flex parent so the reorder actually applies), Beyond-the-Studio collapsed to one column with centered subsection labels, 1980-82 caption normalisation, and a JS-injected horizontal cover preview strip per shelf on /bookshelf/.
+<<<<<<< HEAD
  * Version: 1.5.2
+=======
+ * Version: 1.9.1
+ *
+ * v1.9.1 — Fía's 2026-07-30 corrections:
+ *  - Replace the logo-like all-caps display face with a clean mixed-case face.
+ *  - Place doorway titles directly on their images, without a grey plaque,
+ *    and cover the Studio/About intros that missed the first overlay pass.
+ *  - Give every Bookshelf detail its actual subsection title and one aligned,
+ *    underline-free item system with a small arrow reserved for PDF links.
+ *
+ * v1.9.0 — Fía's 2026-07-29 editorial pass:
+ *  - Give News and archive subheads a quieter ceremonial display face while
+ *    moving long copy to a more legible bookish serif.
+ *  - Align intro copy, captions, and doorway cues; enlarge section image bands
+ *    and let their titles sit on the image as an entrance to each archive.
+ *  - Normalize Studio ranges and Bookshelf labels, punctuation, italics, and
+ *    subsection spacing; add clear air above the footer.
+ *
+ * v1.8.1 — keyboard and lightbox accessibility:
+ *  - Make every Studio artwork opener keyboard reachable, including images
+ *    that Elementor did not wrap in a link.
+ *  - Treat the artwork overlay as a modal dialog, move focus to its close
+ *    button, restore focus on exit, and keep Tab inside the overlay.
+ *  - Give Bookshelf covers, More links, and the lightbox close button a
+ *    visible focus ring without changing their resting presentation.
+ *
+ * v1.8.0 — Fía's 2026-07-27 follow-up:
+ *  - Clarify Studio period ranges with larger labels and a trailing rule.
+ *  - Align Bookshelf to the archive gutter; enlarge and link every preview
+ *    cover to its verified section and add one restrained More → action.
+ *  - Normalize publication and exhibition detail captions for legibility,
+ *    including a one-column publication layout on narrow screens.
+ *  - Match About's title to the archive system and identify trajectory cards
+ *    by concise item type while preserving titles, years, artwork, and order.
+ *
+ * v1.7.0 — Fía's 2026-07-27 archive-page notes:
+ *  - Give About, News, Studio, Beyond, Bookshelf, and Broader Context one
+ *    shared content width, gutter, heading language, and mobile rhythm.
+ *  - Rebuild Studio periods as compact chronological artwork grids without
+ *    cropping source images; align Bookshelf headings with their cover strips.
+ *  - Remove the About header image bleed, decorative all-caps and stray
+ *    italics, and add sourced venue + year context to exhibition cards.
+ *
+ * v1.6.0 — Fía's 2026-07-27 homepage direction:
+ *  - Replace the veiled text-over-painting landing page with a split layout:
+ *    the complete Tree painting beside the section menu, never underneath it.
+ *  - Unify homepage titles and descriptions in the site's sans-serif design
+ *    language, left aligned with a consistent scale, rhythm, and hit area.
+ *  - Stack artwork then navigation on narrow screens so neither image nor type
+ *    competes for legibility; keep the mobile wordmark and footer in frame.
+>>>>>>> 769cb20ebd (Checkpoint current studio work and live Pals wallpaper)
  *
  * v1.5.2 — Fía's 2026-06-08 catch:
  *  - Mobile header was rendering Tom's wordmark twice — the `.custom-logo`
@@ -1150,11 +1202,677 @@ body.page-id-1527 .tl-contact-mailto:visited {
 body.page-id-1527 .tl-contact-mailto:hover {
     opacity: 0.6;
 }
+<<<<<<< HEAD
+=======
+
+/* ---------------------------------------------------------------- *
+ * 14. Archive pages — shared editorial system (Fía, 2026-07-27)
+ * ---------------------------------------------------------------- */
+body:is(.page-id-68, .page-id-140, .page-id-808, .page-id-1147, .page-id-1177, .page-id-1898) {
+    --tl-content-width: 1120px;
+    --tl-reading-width: 820px;
+    --tl-gutter: clamp(1.25rem, 4vw, 3rem);
+    --tl-rule: rgba(24, 22, 19, 0.42);
+    background-color: #fff9ef !important;
+}
+body.page-id-68 {
+    background-image: none !important;
+}
+body.page-id-68 #page {
+    margin-top: 0 !important;
+}
+body.page-id-68 #masthead {
+    position: relative !important;
+    z-index: 2 !important;
+    background: #fff9ef !important;
+}
+body:is(.page-id-68, .page-id-140, .page-id-808, .page-id-1147, .page-id-1177, .page-id-1898)
+    [data-elementor-type="wp-page"] > .elementor-top-section > .elementor-container {
+    width: min(100%, var(--tl-content-width)) !important;
+    max-width: var(--tl-content-width) !important;
+    padding-inline: var(--tl-gutter) !important;
+    box-sizing: border-box !important;
+}
+body:is(.page-id-68, .page-id-140, .page-id-808, .page-id-1147, .page-id-1177, .page-id-1898)
+    .elementor-heading-title {
+    font-family: "Poppins", sans-serif !important;
+    font-style: normal !important;
+    text-transform: none !important;
+    letter-spacing: -0.01em !important;
+}
+body:is(.page-id-140, .page-id-808, .page-id-1147, .page-id-1177, .page-id-1898)
+    [data-elementor-type="wp-page"] > .elementor-top-section:first-child .elementor-heading-title,
+body.page-id-68 .tl-about-heading .elementor-heading-title {
+    font-size: clamp(2.25rem, 5vw, 4rem) !important;
+    line-height: 1.05 !important;
+    font-weight: 500 !important;
+    letter-spacing: -0.035em !important;
+}
+
+/* News */
+body.page-id-1898 .elementor-top-section:not(.elementor-element-1553c2e) {
+    margin-bottom: 3rem !important;
+}
+body.page-id-1898 .elementor-widget-wrap {
+    max-width: var(--tl-reading-width) !important;
+}
+body.page-id-1898 .elementor-top-section:not(.elementor-element-1553c2e)
+    .elementor-widget-heading .elementor-heading-title {
+    text-align: left !important;
+    font-size: 0.95rem !important;
+    font-weight: 400 !important;
+    font-style: normal !important;
+    line-height: 1.4 !important;
+    letter-spacing: 0 !important;
+    margin: 0 0 0.65rem !important;
+}
+
+/* In the Studio */
+body.page-id-140 .elementor-top-section:not(.elementor-element-71fa6aa) {
+    margin: 0 0 clamp(3rem, 6vw, 5rem) !important;
+    padding: 0 !important;
+}
+body.page-id-140 .elementor-top-section:not(.elementor-element-71fa6aa)
+    > .elementor-container > .elementor-column > .elementor-widget-wrap {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 1.25rem 1.5rem !important;
+    align-items: start !important;
+}
+body.page-id-140 .elementor-top-section:not(.elementor-element-71fa6aa) .elementor-inner-section,
+body.page-id-140 .elementor-top-section:not(.elementor-element-71fa6aa) .elementor-inner-section > .elementor-container {
+    display: contents !important;
+}
+body.page-id-140 .elementor-top-section:not(.elementor-element-71fa6aa) .elementor-inner-column {
+    width: auto !important;
+    max-width: none !important;
+    min-width: 0 !important;
+    flex: none !important;
+}
+body.page-id-140 .elementor-top-section:not(.elementor-element-71fa6aa)
+    .elementor-inner-column:has(.elementor-widget-heading) {
+    grid-column: 1 / -1 !important;
+}
+body.page-id-140 .elementor-top-section:not(.elementor-element-71fa6aa)
+    .elementor-inner-column:has(.elementor-widget-heading) > .elementor-widget-wrap {
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.45rem !important;
+    border-top: 0 !important;
+    padding: 0 !important;
+}
+body.page-id-140 .elementor-top-section:not(.elementor-element-71fa6aa)
+    .elementor-inner-column:has(.elementor-widget-heading) > .elementor-widget-wrap::after {
+    content: "";
+    display: block;
+    height: 1px;
+    min-width: 2rem;
+    flex: 1 1 auto;
+    margin-left: 0.75rem;
+    background: var(--tl-rule);
+}
+body.page-id-140 .elementor-top-section:not(.elementor-element-71fa6aa)
+    .elementor-inner-column:has(.elementor-widget-heading) .elementor-widget-divider {
+    display: none !important;
+}
+body.page-id-140 .elementor-top-section:not(.elementor-element-71fa6aa)
+    .elementor-inner-column:has(.elementor-widget-heading) .elementor-heading-title {
+    font-size: clamp(1.65rem, 2.4vw, 2.05rem) !important;
+    font-weight: 400 !important;
+    line-height: 1.15 !important;
+    margin: 0 !important;
+    letter-spacing: -0.025em !important;
+}
+body.page-id-140 .elementor-top-section:not(.elementor-element-71fa6aa)
+    .elementor-inner-column:has(.elementor-widget-heading) .elementor-widget-heading {
+    width: auto !important;
+    max-width: none !important;
+    flex: 0 0 auto !important;
+    align-self: baseline !important;
+    margin: 0 !important;
+}
+body.page-id-140 .elementor-top-section:not(.elementor-element-71fa6aa)
+    .elementor-inner-column:has(.elementor-widget-heading) .elementor-widget-heading .elementor-widget-container {
+    margin: 0 !important;
+    padding: 0 !important;
+}
+body.page-id-140 .elementor-top-section:not(.elementor-element-71fa6aa)
+    .elementor-inner-column:has(.elementor-widget-heading)
+    .elementor-widget-heading:last-child .elementor-heading-title::before {
+    content: "– ";
+}
+body.page-id-140 .elementor-top-section:not(.elementor-element-71fa6aa) .elementor-widget-image,
+body.page-id-140 .elementor-top-section:not(.elementor-element-71fa6aa) .elementor-widget-image .elementor-widget-container {
+    width: 100% !important;
+    min-width: 0 !important;
+}
+body.page-id-140 .elementor-top-section:not(.elementor-element-71fa6aa) .elementor-widget-image img {
+    display: block !important;
+    width: auto !important;
+    max-width: 100% !important;
+    height: auto !important;
+    max-height: 280px !important;
+    margin: 0 auto !important;
+    object-fit: contain !important;
+}
+
+/* About */
+body.page-id-68 .tl-about-heading,
+body.page-id-68 .tl-about-heading .elementor-widget-container {
+    max-width: none !important;
+    margin-inline: 0 !important;
+}
+body.page-id-68 .tl-about-heading .elementor-heading-title {
+    color: #24211d !important;
+}
+body.page-id-68 .elementor-element-3d58b5f {
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+}
+body.page-id-68 :is(
+    .elementor-element-1024859,
+    .elementor-element-f90ea8e,
+    .elementor-element-e7f58e2,
+    .elementor-element-c387832,
+    .elementor-element-81b61fa,
+    .elementor-element-6041595
+) {
+    margin-top: clamp(3rem, 7vw, 6rem) !important;
+    padding-top: 0 !important;
+}
+body.page-id-68 :is(
+    .elementor-element-1024859,
+    .elementor-element-f90ea8e,
+    .elementor-element-e7f58e2,
+    .elementor-element-c387832,
+    .elementor-element-81b61fa,
+    .elementor-element-6041595
+) .elementor-widget-divider {
+    display: none !important;
+}
+body.page-id-68 :is(
+    .elementor-element-1024859,
+    .elementor-element-f90ea8e,
+    .elementor-element-e7f58e2,
+    .elementor-element-c387832,
+    .elementor-element-81b61fa,
+    .elementor-element-6041595
+) .elementor-heading-title {
+    border-top: 1px solid var(--tl-rule) !important;
+    padding-top: 0.8rem !important;
+    font-size: 1.65rem !important;
+    font-weight: 500 !important;
+    line-height: 1.15 !important;
+    text-transform: lowercase !important;
+}
+body.page-id-68 :is(
+    .elementor-element-1024859,
+    .elementor-element-f90ea8e,
+    .elementor-element-e7f58e2,
+    .elementor-element-c387832,
+    .elementor-element-81b61fa,
+    .elementor-element-6041595
+) .elementor-widget-text-editor,
+body.page-id-68 :is(
+    .elementor-element-1024859,
+    .elementor-element-f90ea8e,
+    .elementor-element-e7f58e2,
+    .elementor-element-c387832,
+    .elementor-element-81b61fa,
+    .elementor-element-6041595
+) .elementor-widget-text-editor p {
+    font-style: normal !important;
+    line-height: 1.55 !important;
+}
+body.page-id-68 .tl-about-card-title,
+body.page-id-68 .tl-about-card-meta {
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    text-align: left !important;
+    text-transform: none !important;
+    text-decoration: none !important;
+    font-style: normal !important;
+    letter-spacing: 0 !important;
+}
+body.page-id-68 .tl-about-card-title {
+    margin-top: 0.7rem !important;
+    font-size: 0.92rem !important;
+    font-weight: 500 !important;
+    line-height: 1.3 !important;
+}
+body.page-id-68 .tl-about-card-meta {
+    margin-top: 0.18rem !important;
+    color: #625c53 !important;
+    font-size: 0.78rem !important;
+    font-weight: 400 !important;
+    line-height: 1.35 !important;
+}
+
+/* Beyond the Studio and Art in a Broader Context */
+body:is(.page-id-1147, .page-id-1177)
+    .elementor-top-section:not(.elementor-element-ba54885):not(.elementor-element-1b54d5a)
+    .elementor-widget-heading .elementor-heading-title {
+    text-align: left !important;
+    font-size: 1rem !important;
+    font-weight: 500 !important;
+    font-style: normal !important;
+    line-height: 1.3 !important;
+    letter-spacing: 0 !important;
+    margin: 0 0 0.65rem !important;
+}
+body.page-id-1147 .tl-context-venue-year {
+    display: block;
+    margin-top: 0.22rem;
+    color: #5e584f;
+    font-size: 0.78rem;
+    font-weight: 400;
+    line-height: 1.35;
+    letter-spacing: 0;
+}
+body:is(.page-id-1147, .page-id-1177)
+    .elementor-top-section:not(.elementor-element-ba54885):not(.elementor-element-1b54d5a)
+    .elementor-column {
+    padding: 0 var(--tl-gutter) clamp(2.5rem, 5vw, 4rem) !important;
+}
+
+/* Bookshelf */
+body.page-id-808 .elementor-element-825b6e9 > .elementor-container > .elementor-column > .elementor-widget-wrap {
+    max-width: none !important;
+}
+body.page-id-808 .elementor-element-825b6e9 :is(.elementor-widget-heading, .elementor-widget-text-editor) {
+    max-width: var(--tl-reading-width) !important;
+    margin-left: 0 !important;
+    margin-right: auto !important;
+}
+body.page-id-808 .elementor-top-section:not(.elementor-element-825b6e9) {
+    width: min(100%, var(--tl-content-width)) !important;
+    max-width: var(--tl-content-width) !important;
+    margin-inline: auto !important;
+    padding-inline: var(--tl-gutter) !important;
+    box-sizing: border-box !important;
+}
+body.page-id-808 .elementor-top-section:not(.elementor-element-825b6e9) > .elementor-container,
+body.page-id-808 .elementor-top-section:not(.elementor-element-825b6e9) > .elementor-container > .elementor-column,
+body.page-id-808 .elementor-top-section:not(.elementor-element-825b6e9) > .elementor-container > .elementor-column > .elementor-widget-wrap {
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding-inline: 0 !important;
+}
+body.page-id-808 .elementor-top-section:not(.elementor-element-825b6e9)
+    .elementor-widget-heading .elementor-widget-container {
+    margin: 0 !important;
+    padding: 0 !important;
+}
+body.page-id-808 .elementor-top-section:not(.elementor-element-825b6e9) .elementor-widget-heading,
+body.page-id-808 .elementor-top-section:not(.elementor-element-825b6e9) .elementor-heading-title {
+    width: 100% !important;
+    margin: 0 !important;
+    text-align: left !important;
+}
+body.page-id-808 .elementor-top-section:not(.elementor-element-825b6e9) .elementor-heading-title {
+    display: flex !important;
+    align-items: baseline !important;
+    justify-content: space-between !important;
+    gap: 1rem !important;
+    border-top: 0 !important;
+    padding-top: 0 !important;
+    font-size: 1.45rem !important;
+    font-weight: 500 !important;
+    line-height: 1.2 !important;
+}
+body.page-id-808 .tl-shelf-more,
+body.page-id-808 .tl-shelf-more:visited,
+body.page-id-808 .tl-shelf-more:hover {
+    display: inline-flex !important;
+    align-items: center;
+    min-height: 44px;
+    flex: 0 0 auto;
+    color: inherit !important;
+    border: 0 !important;
+    text-decoration: none !important;
+    font-size: 0.82rem !important;
+    font-weight: 500 !important;
+    letter-spacing: 0.01em !important;
+}
+body.page-id-808 .tl-shelf-strip {
+    gap: 1rem !important;
+    margin: 0.85rem 0 clamp(3rem, 6vw, 5rem) !important;
+    padding: 0 0 1rem !important;
+    border-bottom: 1px solid var(--tl-rule);
+}
+body.page-id-808 .tl-shelf-cover {
+    display: block;
+    flex: 0 0 auto;
+    scroll-snap-align: start;
+}
+body.page-id-808 :is(.tl-shelf-cover, .tl-shelf-more):focus-visible,
+.tl-lightbox-close:focus-visible {
+    outline: 3px solid #9b2f5f !important;
+    outline-offset: 4px;
+}
+body.page-id-808 .tl-shelf-strip img {
+    display: block !important;
+    width: auto !important;
+    height: 210px !important;
+}
+body.page-id-808 .tl-shelf-cover:first-child,
+body.page-id-808 .tl-shelf-cover:last-child {
+    margin-inline: 0 !important;
+}
+
+/* ---------------------------------------------------------------- *
+ * 15. Fía's 2026-07-29 ceremonial archive pass
+ * ---------------------------------------------------------------- */
+body:is(.page-id-68, .page-id-140, .page-id-808, .page-id-1147, .page-id-1177, .page-id-1898) {
+    --tl-display-face: "Gotham", "Helvetica Neue", Arial, sans-serif;
+    --tl-body-face: Georgia, "Times New Roman", serif;
+}
+body:is(.page-id-68, .page-id-140, .page-id-808, .page-id-1147, .page-id-1177, .page-id-1898)
+    :is(.elementor-widget-text-editor, .elementor-widget-text-editor p) {
+    font-family: var(--tl-body-face) !important;
+    font-size: clamp(1.02rem, 1.25vw, 1.14rem) !important;
+    line-height: 1.68 !important;
+    letter-spacing: 0.002em !important;
+}
+body.page-id-1898 .elementor-top-section:not(.elementor-element-1553c2e)
+    .elementor-widget-heading .elementor-heading-title,
+body.page-id-140 .elementor-top-section:not(.elementor-element-71fa6aa)
+    .elementor-inner-column:has(.elementor-widget-heading) .elementor-heading-title,
+body.page-id-808 .elementor-top-section:not(.elementor-element-825b6e9) .elementor-heading-title,
+body.page-id-68 :is(.elementor-element-1024859, .elementor-element-f90ea8e, .elementor-element-e7f58e2,
+    .elementor-element-c387832, .elementor-element-81b61fa, .elementor-element-6041595) .elementor-heading-title {
+    font-family: var(--tl-display-face) !important;
+    font-style: normal !important;
+    font-weight: 400 !important;
+    letter-spacing: -0.012em !important;
+    text-transform: none !important;
+}
+body.page-id-1898 .elementor-top-section:not(.elementor-element-1553c2e)
+    .elementor-widget-heading .elementor-heading-title {
+    font-size: clamp(1.12rem, 1.8vw, 1.45rem) !important;
+    line-height: 1.3 !important;
+}
+
+/* The title becomes the doorway sign; intro prose remains aligned below it. */
+body .tl-archive-doorway .elementor-widget-image .elementor-widget-container {
+    position: relative !important;
+}
+body .tl-archive-doorway .elementor-widget-image img {
+    width: 100% !important;
+    height: clamp(300px, 43vw, 520px) !important;
+    object-fit: cover !important;
+}
+body .tl-archive-doorway .tl-doorway-source { display: none !important; }
+body .tl-archive-doorway .tl-doorway-sign {
+    position: absolute !important;
+    z-index: 2;
+    left: 56% !important;
+    bottom: clamp(1.35rem, 4vw, 3.25rem) !important;
+    transform: translateX(-50%);
+    width: auto !important;
+    max-width: calc(100% - clamp(2rem, 6vw, 4rem)) !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    color: #fffdf7 !important;
+    background: transparent !important;
+    font-family: var(--tl-display-face) !important;
+    font-weight: 400 !important;
+    letter-spacing: -0.025em !important;
+    text-transform: none !important;
+    text-shadow: 0 2px 14px rgba(0,0,0,.78), 0 1px 3px rgba(0,0,0,.9);
+}
+body .tl-archive-doorway :is(.elementor-widget-text-editor, .elementor-widget-text-editor p) {
+    text-align: left !important;
+}
+
+body.page-id-140 .elementor-top-section:not(.elementor-element-71fa6aa)
+    .elementor-inner-column:has(.elementor-widget-heading) > .elementor-widget-wrap {
+    gap: 0.3rem !important;
+}
+body.page-id-140 .elementor-top-section:not(.elementor-element-71fa6aa)
+    .elementor-inner-column:has(.elementor-widget-heading)
+    .elementor-widget-heading:last-child .elementor-heading-title::before {
+    content: "\2013";
+    margin-inline: 0.2em 0.28em;
+}
+body.page-id-808 .elementor-top-section:not(.elementor-element-825b6e9) {
+    margin-bottom: clamp(2.5rem, 5vw, 4.5rem) !important;
+}
+body.page-id-808 .elementor-top-section:not(.elementor-element-825b6e9)
+    :is(.elementor-heading-title, .elementor-heading-title a) {
+    font-style: normal !important;
+}
+body :is(.elementor-image-box-description, figcaption, .wp-caption-text) {
+    text-align: left !important;
+    font-style: normal !important;
+    line-height: 1.45 !important;
+}
+body :is(.elementor-icon, .elementor-icon-list-icon) {
+    vertical-align: text-bottom !important;
+}
+body .site-footer { margin-top: clamp(5rem, 10vw, 9rem) !important; }
+
+/* Studio's header art is a CSS background rather than an image widget. */
+body.page-id-140 .elementor-element-71fa6aa {
+    min-height: clamp(300px, 43vw, 520px) !important;
+    display: flex !important;
+    align-items: flex-end !important;
+    position: relative !important;
+}
+body.page-id-140 .elementor-element-71fa6aa > .elementor-container {
+    position: relative !important;
+    z-index: 2;
+}
+body.page-id-140 .elementor-element-71fa6aa .elementor-heading-title {
+    width: max-content !important;
+    max-width: 88vw !important;
+    margin: 0 auto clamp(1.35rem, 4vw, 3.25rem) !important;
+    color: #fffdf7 !important;
+    font-family: var(--tl-display-face) !important;
+    font-weight: 400 !important;
+    text-align: center !important;
+    text-transform: none !important;
+    text-shadow: 0 2px 14px rgba(0,0,0,.78), 0 1px 3px rgba(0,0,0,.9);
+}
+
+/* Bookshelf details: one calm card grammar, with arrows only for PDFs. */
+body.tl-bookshelf-detail a,
+body.tl-bookshelf-detail a:visited,
+body.tl-bookshelf-detail a:hover {
+    text-decoration: none !important;
+    border-bottom: 0 !important;
+}
+body.tl-bookshelf-detail a[href$=".pdf" i]::after {
+    content: " \2197";
+    display: inline-block;
+    margin-left: 0.22em;
+    font-family: var(--tl-display-face);
+    font-size: 0.82em;
+    font-style: normal;
+}
+body.tl-bookshelf-detail .elementor-top-section:not(:first-child) > .elementor-container {
+    align-items: stretch !important;
+}
+body.tl-bookshelf-detail .elementor-top-section:not(:first-child) .elementor-column,
+body.tl-bookshelf-detail .elementor-inner-column {
+    display: flex !important;
+    align-items: stretch !important;
+}
+body.tl-bookshelf-detail .elementor-top-section:not(:first-child) .elementor-column > .elementor-widget-wrap,
+body.tl-bookshelf-detail .elementor-inner-column > .elementor-widget-wrap {
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: flex-start !important;
+    align-items: stretch !important;
+    gap: 0.2rem !important;
+    padding-bottom: clamp(2.5rem, 5vw, 4.5rem) !important;
+}
+body.tl-bookshelf-detail .elementor-widget-image {
+    min-height: 280px !important;
+    display: flex !important;
+    align-items: flex-end !important;
+    justify-content: center !important;
+}
+body.tl-bookshelf-detail .elementor-widget-heading .elementor-widget-container {
+    padding: 0 !important;
+}
+
+@media (max-width: 720px) {
+    body .tl-archive-doorway .elementor-widget-image img {
+        height: clamp(230px, 68vw, 360px) !important;
+    }
+    body .tl-archive-doorway .tl-doorway-sign { left: 50% !important; }
+    body.page-id-140 .elementor-element-71fa6aa { min-height: clamp(230px, 68vw, 360px) !important; }
+    body.tl-bookshelf-detail .elementor-widget-image { min-height: 220px !important; }
+}
+
+/* Writing and exhibition details: large source images remain untouched;
+   this pass only normalises the page claim and image-caption relationship. */
+body:is(.tl-bookshelf-detail, .tl-exhibition-detail) {
+    --tl-content-width: 1120px;
+    --tl-gutter: clamp(1.25rem, 4vw, 3rem);
+    background: #fff9ef !important;
+}
+body:is(.tl-bookshelf-detail, .tl-exhibition-detail)
+    [data-elementor-type="wp-page"] > .elementor-top-section > .elementor-container {
+    width: min(100%, var(--tl-content-width)) !important;
+    max-width: var(--tl-content-width) !important;
+    margin-inline: auto !important;
+    padding-inline: var(--tl-gutter) !important;
+    box-sizing: border-box !important;
+}
+body:is(.tl-bookshelf-detail, .tl-exhibition-detail) .elementor-heading-title {
+    font-family: "Poppins", sans-serif !important;
+    color: #24211d !important;
+    text-align: left !important;
+    text-transform: none !important;
+    text-decoration: none !important;
+    font-style: normal !important;
+    letter-spacing: 0 !important;
+}
+body:is(.tl-bookshelf-detail, .tl-exhibition-detail)
+    .elementor-widget-heading .elementor-widget-container {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+}
+body.tl-bookshelf-detail
+    .elementor-top-section:first-child .elementor-heading-title {
+    font-size: clamp(2.25rem, 5vw, 4rem) !important;
+    font-weight: 500 !important;
+    line-height: 1.05 !important;
+    letter-spacing: -0.035em !important;
+}
+body.tl-bookshelf-detail
+    .elementor-top-section:first-child .elementor-widget-heading + .elementor-widget-heading .elementor-heading-title {
+    margin-top: 0.5rem !important;
+    font-size: clamp(1.25rem, 2vw, 1.6rem) !important;
+    font-weight: 500 !important;
+    line-height: 1.2 !important;
+    letter-spacing: -0.01em !important;
+}
+body.tl-bookshelf-detail
+    .elementor-top-section:not(:first-child) .elementor-column > .elementor-widget-wrap {
+    width: min(100%, 420px) !important;
+    max-width: 420px !important;
+    margin-inline: auto !important;
+    align-content: start !important;
+}
+body.tl-bookshelf-detail .elementor-inner-column > .elementor-widget-wrap {
+    width: min(100%, 420px) !important;
+    max-width: 420px !important;
+    margin-inline: auto !important;
+}
+body.tl-bookshelf-detail
+    .elementor-top-section:not(:first-child) .elementor-widget-heading .elementor-heading-title {
+    width: 100% !important;
+    margin: 0.7rem 0 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    font-size: 0.95rem !important;
+    font-weight: 500 !important;
+    line-height: 1.35 !important;
+}
+body.tl-bookshelf-detail
+    .elementor-top-section:not(:first-child) .elementor-widget-heading + .elementor-widget-heading .elementor-heading-title {
+    margin-top: 0.15rem !important;
+    color: #625c53 !important;
+    font-size: 0.8rem !important;
+    font-weight: 400 !important;
+}
+body.tl-bookshelf-detail .elementor-widget-image,
+body.tl-bookshelf-detail .elementor-widget-image .elementor-widget-container {
+    width: 100% !important;
+}
+body.tl-bookshelf-detail .elementor-widget-image img {
+    display: block !important;
+    width: min(100%, 260px) !important;
+    max-width: 100% !important;
+    height: auto !important;
+    margin-inline: auto !important;
+    object-fit: contain !important;
+}
+body.tl-exhibition-detail .elementor-widget-heading,
+body.tl-exhibition-detail .elementor-widget-heading .elementor-widget-container,
+body.tl-exhibition-detail .elementor-widget-heading .elementor-heading-title {
+    width: 100% !important;
+    margin-left: 0 !important;
+    text-align: left !important;
+}
+
+@media (max-width: 720px) {
+    body:is(.page-id-68, .page-id-140, .page-id-808, .page-id-1147, .page-id-1177, .page-id-1898) {
+        --tl-gutter: 1.25rem;
+    }
+    body.page-id-140 .elementor-top-section:not(.elementor-element-71fa6aa)
+        > .elementor-container > .elementor-column > .elementor-widget-wrap {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 1rem !important;
+    }
+    body.page-id-140 .elementor-top-section:not(.elementor-element-71fa6aa) .elementor-widget-image img {
+        max-height: 230px !important;
+    }
+    body:is(.page-id-1147, .page-id-1177)
+        .elementor-top-section:not(.elementor-element-ba54885):not(.elementor-element-1b54d5a)
+        .elementor-column {
+        width: 100% !important;
+        max-width: 100% !important;
+        flex-basis: 100% !important;
+    }
+    body.page-id-808 .elementor-top-section:not(.elementor-element-825b6e9) .elementor-heading-title {
+        font-size: 1.25rem !important;
+    }
+    body.page-id-808 .tl-shelf-strip img {
+        height: 180px !important;
+    }
+    body.tl-bookshelf-detail .elementor-inner-column,
+    body.tl-bookshelf-detail .elementor-top-section:not(:first-child) .elementor-column {
+        width: 100% !important;
+        max-width: 100% !important;
+        flex-basis: 100% !important;
+    }
+    body.tl-bookshelf-detail
+        .elementor-top-section:not(:first-child) .elementor-column > .elementor-widget-wrap {
+        width: min(100%, 340px) !important;
+        max-width: 340px !important;
+        margin-bottom: 2.5rem !important;
+    }
+    body.tl-bookshelf-detail .elementor-inner-column > .elementor-widget-wrap {
+        width: min(100%, 340px) !important;
+        max-width: 340px !important;
+        margin-inline: auto !important;
+        margin-bottom: 2.5rem !important;
+    }
+}
+>>>>>>> 769cb20ebd (Checkpoint current studio work and live Pals wallpaper)
 </style>
 <?php
 }
 
 function tl_fia_polish_js() {
+    tl_fia_polish_js_july29_editorial();
     // Studio-detail lightbox runs on slug-matched detail pages
     // (tl-studio-detail body class is set in PHP by post-slug prefix).
     global $post;
@@ -1320,6 +2038,137 @@ function tl_fia_polish_js() {
 <?php
 }
 
+<<<<<<< HEAD
+=======
+/** Exact editorial corrections and non-destructive doorway hooks (2026-07-29). */
+function tl_fia_polish_js_july29_editorial() {
+    ?>
+<script id="tl-fia-july29-editorial">
+(function () {
+    function clean(value) {
+        return value.replace(/[\u200B-\u200D\uFEFF]/g, '').replace(/\s+/g, ' ').trim();
+    }
+
+    /* Preserve authored content; only touch the exact labels Fía named. */
+    if (document.body.classList.contains('page-id-808')) {
+        document.querySelectorAll('.elementor-heading-title').forEach(function (heading) {
+            var label = clean(heading.textContent);
+            if (label === 'Publications') heading.textContent = 'East of Borneo';
+        });
+
+        var headings = Array.from(document.querySelectorAll('.elementor-heading-title'));
+        headings.forEach(function (heading, index) {
+            if (clean(heading.textContent).toUpperCase() !== 'OTHER') return;
+            var next = headings.slice(index + 1).find(function (candidate) {
+                return candidate.offsetParent !== null || clean(candidate.textContent) === 'Anthologies';
+            });
+            if (next && clean(next.textContent) === 'Anthologies') {
+                var widget = heading.closest('.elementor-widget-heading');
+                if (widget) widget.remove(); else heading.remove();
+            }
+        });
+    }
+
+    /* Remove placeholder punctuation, not meaningful dashes inside prose. */
+    document.querySelectorAll('.elementor-heading-title, figcaption, .wp-caption-text').forEach(function (node) {
+        if (/^[-\u2013\u2014]+$/.test(clean(node.textContent))) {
+            var widget = node.closest('.elementor-widget-heading');
+            if (widget) widget.remove(); else node.remove();
+            return;
+        }
+        node.innerHTML = node.innerHTML
+            .replace(/\s+([,.;:!?])/g, '$1')
+            .replace(/(<br\s*\/?>(?:\s|&nbsp;)*){2,}/gi, '<br>');
+    });
+
+    /* Mark image-led intros and their title without cloning or moving content. */
+    var intros = {
+        'page-id-1898': '.elementor-element-1553c2e',
+        'page-id-808': '.elementor-element-825b6e9',
+        'page-id-1147': '.elementor-element-ba54885',
+        'page-id-1177': '.elementor-element-1b54d5a',
+        'page-id-68': '.elementor-element-3d58b5f'
+    };
+    function installDoorway() {
+      Object.keys(intros).some(function (bodyClass) {
+        if (!document.body.classList.contains(bodyClass)) return false;
+        var intro = document.querySelector(intros[bodyClass]);
+        if (!intro || !intro.querySelector('.elementor-widget-image')) return true;
+        var title = intro.querySelector('.elementor-heading-title');
+        var imageContainer = intro.querySelector('.elementor-widget-image .elementor-widget-container');
+        intro.classList.add('tl-archive-doorway');
+        if (title && imageContainer && !imageContainer.querySelector('.tl-doorway-sign')) {
+            var sign = title.cloneNode(true);
+            sign.classList.add('tl-doorway-sign');
+            if (bodyClass === 'page-id-1898' && /^notes$/i.test(clean(sign.textContent))) {
+                sign.textContent = 'News';
+            }
+            imageContainer.appendChild(sign);
+            var sourceWidget = title.closest('.elementor-widget-heading');
+            if (sourceWidget) {
+                sourceWidget.classList.add('tl-doorway-source');
+                sourceWidget.setAttribute('aria-hidden', 'true');
+            }
+        }
+        return true;
+      });
+    }
+    installDoorway();
+    /* About's title is authored by the later page-specific script. */
+    setTimeout(installDoorway, 0);
+
+    /* Keep icon/caption rows on the same left edge as their associated copy. */
+    document.querySelectorAll('.elementor-widget-image').forEach(function (imageWidget) {
+        var caption = imageWidget.querySelector('figcaption, .wp-caption-text');
+        if (caption) caption.style.removeProperty('text-align');
+    });
+})();
+</script>
+    <?php
+}
+
+/** Normalise the one authored all-caps page label without rewriting captions. */
+function tl_fia_polish_js_bookshelf_detail() {
+    global $post;
+    $slug = ($post && isset($post->post_name)) ? $post->post_name : '';
+    $labels = [
+        'bookshelf_artforum' => 'Artforum',
+        'bookshelf_afterall' => 'Afterall',
+        'afterall' => 'Afterall',
+        'bookshelf_eastofborneo' => 'East of Borneo',
+        'bookshelf-reallife' => 'REALLIFE',
+        'bookshelf-anthologies' => 'Anthologies',
+        'bookshelf_writingsabouttl' => 'Writings About Thomas Lawson',
+        'writingsabouttl' => 'Writings About Thomas Lawson',
+        'elementor-1796' => 'Interviews',
+        'elementor-395' => 'Writing'
+    ];
+    $label = isset($labels[$slug]) ? $labels[$slug] : '';
+    ?>
+<script id="tl-fia-bookshelf-detail">
+(function () {
+    if (!document.body.classList.contains('tl-bookshelf-detail')) return;
+    var subsectionTitle = <?php echo wp_json_encode($label); ?>;
+    var headings = Array.from(document.querySelectorAll('h1, h2'));
+    var alreadyNamed = subsectionTitle && headings.some(function (heading) {
+        return heading.textContent.replace(/\s+/g, ' ').trim().toLowerCase() === subsectionTitle.toLowerCase();
+    });
+    headings.forEach(function (heading) {
+        if (/^publications$/i.test(heading.textContent.replace(/\s+/g, ' ').trim())) {
+            if (alreadyNamed) {
+                var widget = heading.closest('.elementor-widget-heading');
+                if (widget) widget.remove(); else heading.remove();
+            } else {
+                heading.textContent = subsectionTitle || 'Bookshelf';
+            }
+        }
+    });
+})();
+</script>
+    <?php
+}
+
+>>>>>>> 769cb20ebd (Checkpoint current studio work and live Pals wallpaper)
 /**
  * Homepage (page-id-10): rename the Notes tile to News, then stack the five
  * section titles into one centred block overlaid on the veiled painting
@@ -1617,9 +2466,12 @@ function tl_fia_polish_js_studio_lightbox() {
         return src;
     }
 
-    function openLightbox(src) {
+    function openLightbox(src, opener) {
         var ov = document.createElement('div');
         ov.className = 'tl-lightbox';
+        ov.setAttribute('role', 'dialog');
+        ov.setAttribute('aria-modal', 'true');
+        ov.setAttribute('aria-label', 'Artwork preview');
         var img = document.createElement('img');
         img.src = src;
         img.alt = '';
@@ -1629,16 +2481,25 @@ function tl_fia_polish_js_studio_lightbox() {
         close.setAttribute('aria-label', 'Close');
         close.textContent = '×';
         ov.appendChild(close);
-        ov.addEventListener('click', function (e) {
-            if (e.target === img) return;
+        function closeLightbox() {
             ov.remove();
             document.removeEventListener('keydown', onKey);
+            if (opener && document.contains(opener)) opener.focus();
+        }
+        ov.addEventListener('click', function (e) {
+            if (e.target === img) return;
+            closeLightbox();
         });
         function onKey(e) {
-            if (e.key === 'Escape') { ov.remove(); document.removeEventListener('keydown', onKey); }
+            if (e.key === 'Escape') closeLightbox();
+            if (e.key === 'Tab') {
+                e.preventDefault();
+                close.focus();
+            }
         }
         document.addEventListener('keydown', onKey);
         document.body.appendChild(ov);
+        close.focus();
     }
 
     var imgs = document.querySelectorAll('.elementor-widget-image img');
@@ -1648,11 +2509,20 @@ function tl_fia_polish_js_studio_lightbox() {
         if (parentLink) {
             parentLink.addEventListener('click', function (e) {
                 e.preventDefault();
-                openLightbox(fullSize(img));
+                openLightbox(fullSize(img), parentLink);
             });
         } else {
+            img.setAttribute('tabindex', '0');
+            img.setAttribute('role', 'button');
+            img.setAttribute('aria-label', img.alt ? 'Open ' + img.alt : 'Open artwork preview');
             img.addEventListener('click', function () {
-                openLightbox(fullSize(img));
+                openLightbox(fullSize(img), img);
+            });
+            img.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    openLightbox(fullSize(img), img);
+                }
             });
         }
     });
