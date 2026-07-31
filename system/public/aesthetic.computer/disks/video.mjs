@@ -705,13 +705,13 @@ function paint({
     
     if (!postedTapeCode && tapeWithinDurationLimit && !isSynthTape) {
       if (!postBtn) {
-        postBtn = new ui.TextButton("POST", { right: 6, bottom: 6, screen });
+        postBtn = new ui.TextButton("Done", { right: 6, bottom: 6, screen });
       }
       
-      if (postBtn.txt !== "POST") {
-        postBtn.txt = "POST";
+      if (postBtn.txt !== "Done") {
+        postBtn.txt = "Done";
       }
-      postBtn.reposition({ right: 6, bottom: 6, screen }, "POST");
+      postBtn.reposition({ right: 6, bottom: 6, screen }, "Done");
       postBtn.disabled = disableExports;
       postBtn.paint(api);
     } else {
@@ -1303,7 +1303,15 @@ function paint({
     const bh = 14; // Button height
     const bgap = 2;
     const bx0 = screen.width - SAFE_R - bw;
-    let by = screen.height - SAFE_B - DECK.length * (bh + bgap);
+    const deckHeight = DECK.length * bh + (DECK.length - 1) * bgap;
+    const deckTop = Math.max(
+      SAFE_T + 48,
+      Math.min(
+        screen.height - SAFE_B - deckHeight - 28,
+        Math.floor((screen.height - deckHeight) / 2),
+      ),
+    );
+    let by = deckTop;
     for (const row of DECK) {
       const cw = Math.floor((bw - (row.length - 1) * bgap) / row.length);
       row.forEach((cell, ci) => {
@@ -1346,7 +1354,7 @@ function paint({
     if (pitchSemis !== 0) {
       ink(200, 160, 255).write(
         `${pitchSemis > 0 ? "+" : ""}${pitchSemis}st`,
-        { x: bx0 - 4, y: screen.height - 12 - 4 * (bh + bgap) + 4, right: true },
+        { x: bx0 - 4, y: deckTop + bh + bgap + 4, right: true },
         undefined,
         undefined,
         false,

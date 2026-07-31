@@ -45,6 +45,14 @@ import * as WebGPU from "./lib/webgpu.mjs";
 import { initGPU, switchBackend } from "./lib/gpu/index.mjs"; // 🎨 New backend system (auto-registers backends)
 import { createWebGLBlitter } from "./lib/webgl-blit.mjs";
 import { handleFightRtcMessage } from "./lib/fight/rtc-main.mjs";
+import {
+  measureCaptureAVSync,
+  shouldResumeCaptureRecorder,
+} from "./lib/capture-session.mjs";
+import {
+  attachSoundtrackToFrames,
+  frameIndexForSoundtrackProgress,
+} from "./lib/sound-on-film.mjs";
 
 // import * as TwoD from "./lib/2d.mjs"; // 🆕 2D GPU Renderer.
 const TwoD = undefined;
@@ -911,12 +919,46 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   let mediaRecorderDuration = 0,
     mediaRecorderStartTime,
     mediaRecorderFrameCount = 0; // Frame counter for performance optimization
+  let recorderGeneration = 0;
   let needs$creenshot = false; // Flag when a capture is requested.
   
   // Raw audio capture for tape playback
   let rawAudioProcessor = null;
   let rawAudioData = [];
   let rawAudioSampleRate = 44100;
+  let rawAudioConnected = false;
+  let rawAudioStartInterval = null;
+  let rawAudioStartTimeout = null;
+  let captureSession = null;
+
+  function clearRawAudioCapture(clearData = true) {
+    if (rawAudioStartInterval) clearInterval(rawAudioStartInterval);
+    if (rawAudioStartTimeout) clearTimeout(rawAudioStartTimeout);
+    rawAudioStartInterval = null;
+    rawAudioStartTimeout = null;
+    if (rawAudioProcessor) {
+      try { sfxStreamGain?.disconnect(rawAudioProcessor); } catch {}
+      try { micStreamGain?.disconnect(rawAudioProcessor); } catch {}
+      try { rawAudioProcessor.disconnect(); } catch {}
+    }
+    rawAudioProcessor = null;
+    rawAudioConnected = false;
+    if (clearData) rawAudioData = [];
+  }
+
+  function reportCaptureAVSync() {
+    if (!captureSession || captureSession.reported) return;
+    const result = measureCaptureAVSync(
+      captureSession.firstVideoMs,
+      captureSession.firstAudioMs,
+    );
+    if (!result) return;
+    captureSession.reported = true;
+    send({
+      type: "recorder:av-sync",
+      content: { sessionId: captureSession.id, ...result },
+    });
+  }
   
   // Dynamic FPS detection for display-rate independent recording
   let detectedDisplayFPS = 60; // Default fallback
@@ -939,6 +981,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   // Register core signal handlers
   whens["recorder:cut"] = async function() {
+    let rollingEndedSent = false;
+    const cutGeneration = recorderGeneration;
     
     if (!mediaRecorder) {
       console.warn(`No mediaRecorder available during cut - sending rolling:ended anyway`);
@@ -995,13 +1039,20 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             sampleRate: rawAudioSampleRate,
             totalSamples: totalSamples
           };
-          
-          console.log(`🎵 Created raw audio arrays: ${totalSamples} samples, ${totalSamples / rawAudioSampleRate}s duration`);
+          attachSoundtrackToFrames(recordedFrames, totalSamples);
+
+          console.log(`🎞️ Sound-on-film attached: ${recordedFrames.length} frames, ${totalSamples} audio samples`);
         } catch (error) {
           console.error("Error creating raw audio arrays:", error);
         }
       }
-      
+      clearRawAudioCapture(false);
+
+      // The live frames and soundtrack are ready now. Hand cap off to video
+      // immediately; IndexedDB persistence can finish without holding the UI.
+      send({ type: "recorder:rolling:ended" });
+      rollingEndedSent = true;
+
       try {
         // Don't store frames in IndexedDB to avoid memory issues with long recordings
         // Frames are kept in memory (recordedFrames) for the current session only
@@ -1021,6 +1072,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             },
           },
         });
+        if (cutGeneration !== recorderGeneration) await Store.del("tape");
 
         if (debug && logs.recorder) console.log("📼 Stored tape to IndexedDB (without frame data)");
       } catch (storageError) {
@@ -1028,13 +1080,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         // Continue despite storage error
       }
 
-      // Ensure the rolling:ended signal is sent which triggers the cutCallback
-      send({ type: "recorder:rolling:ended" });
-      
     } catch (error) {
       console.error("Error in cut operation:", error);
       // Still send the ended signal even if something fails
-      send({ type: "recorder:rolling:ended" });
+      if (!rollingEndedSent) send({ type: "recorder:rolling:ended" });
     }
   };
 
@@ -2760,6 +2809,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   const sfx = {}; // Buffers of sound effects that have been loaded.
   const sfxPlaying = {}; // Sound sources that are currently playing.
+  const sfxProgress = {}; // Latest AudioWorklet read-head report by sound id.
   const sfxLoaded = {}; // Sound sources that have been buffered and loaded.
   const sfxCompletionCallbacks = {}; // Completion callbacks for sound effects.
   // NOTE: streamAudio is now at module scope for master volume control
@@ -3454,11 +3504,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
           return {
             progress: () => {
-              // console.log("🟠 Get progress of sound...", sound);
               speakerProcessor.port.postMessage({
                 type: "get-progress",
                 content: sound.id,
               });
+              return sfxProgress[sound.id]?.progress;
             },
             kill: (fade) => {
               killSound(sound.id, fade);
@@ -3596,6 +3646,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           }
 
           if (msg.type === "progress") {
+            sfxProgress[msg.content.id] = msg.content;
             // Send sound progress to the disk.
             // console.log("Received progress for:", msg);
             send({
@@ -3606,6 +3657,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           }
 
           if (msg.type === "killed") {
+            delete sfxProgress[msg.content.id];
             // Call the completion callback if it exists
             const completionCallback = sfxCompletionCallbacks[msg.content.id];
             if (completionCallback) {
@@ -14951,6 +15003,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   // Audio-visual recording of the main audio track and microphone.
   if (type === "recorder:rolling") {
+    recorderGeneration += 1;
     // mediaRecorderBlob = null; // Clear the current blob when we start recording.
 
     // Store recording metadata for filename generation
@@ -14969,7 +15022,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         frameCount: content.frameCount || null, // Store target frame count
         kidlispFps: content.kidlispFps || null, // Store KidLisp framerate from fps function
         cleanMode: content.cleanMode || false, // Store clean mode flag (no overlays, no progress bar)
-        showTezosStamp: content.showTezosStamp || false // Store Tezos stamp visibility
+        showTezosStamp: content.showTezosStamp || false, // Store Tezos stamp visibility
+        freshSession: content.freshSession === true,
+        avSync: content.avSync === true,
       };
       actualContent = content.type || "video";
     } else {
@@ -14981,7 +15036,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         intendedDuration: null,
         mystery: false,
         cleanMode: false, // Default to false for legacy recordings
-        kidlispFps: null // Initialize for KidLisp framerate updates
+        kidlispFps: null, // Initialize for KidLisp framerate updates
+        freshSession: false,
+        avSync: false,
       };
       actualContent = content;
     }
@@ -15011,7 +15068,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       console.log("🎬 Cleared underlay from previous playback");
     }
 
-    if (mediaRecorder && mediaRecorder.state === "paused") {
+    if (mediaRecorder && shouldResumeCaptureRecorder(
+      mediaRecorder.state,
+      recordingOptions.freshSession,
+    )) {
         mediaRecorder.resume();
         mediaRecorderStartTime = performance.now();
         // Initialize recording start timestamp for frame recording if not already set
@@ -15030,7 +15090,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         return;
       }
 
-      if (mediaRecorder && mediaRecorder.state !== "paused") {
+      if (mediaRecorder) {
         stop();
       }
 
@@ -15038,6 +15098,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         
         // Properly stop and clean up MediaRecorder before trashing it
         if (mediaRecorder && mediaRecorder.state !== "inactive") {
+          mediaRecorder.onstop = null;
           mediaRecorder.stop();
         }
         mediaRecorder = undefined; // ❌ Trash the recorder.
@@ -15045,16 +15106,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         mediaRecorderDuration = undefined; // Reset to undefined for clean initialization
         mediaRecorderChunks.length = 0;
         
-        // Clean up raw audio processor
-        if (rawAudioProcessor) {
-          try {
-            rawAudioProcessor.disconnect();
-            rawAudioProcessor = null;
-          } catch (error) {
-            console.warn("Error disconnecting raw audio processor:", error);
-          }
-        }
-        rawAudioData = [];
+        clearRawAudioCapture();
+        captureSession = null;
         
         // Clear recording timestamp for next recording
         if (window.recordingStartTimestamp) {
@@ -15117,8 +15170,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             
             // Create a script processor node to capture raw audio
             rawAudioProcessor = audioContext.createScriptProcessor(4096, 2, 2);
-            let rawAudioStartOffset = 0; // Track when audio capture actually starts
-            
             rawAudioProcessor.onaudioprocess = function(event) {
               // Only start capturing after MediaRecorder has started
               if (mediaRecorderStartTime === undefined) return;
@@ -15127,11 +15178,18 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               const leftChannel = inputBuffer.getChannelData(0);
               const rightChannel = inputBuffer.getChannelData(1);
               
+              const callbackMs = performance.now();
+              const chunkStartMs = callbackMs - inputBuffer.duration * 1000;
+              if (captureSession && captureSession.firstAudioMs === null) {
+                captureSession.firstAudioMs = chunkStartMs;
+                reportCaptureAVSync();
+              }
+
               // Store the audio data with timing information
               rawAudioData.push({
                 left: new Float32Array(leftChannel),
                 right: new Float32Array(rightChannel),
-                timestamp: performance.now() - mediaRecorderStartTime // Relative to recording start
+                timestamp: chunkStartMs - mediaRecorderStartTime,
               });
             };
             
@@ -15148,92 +15206,57 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         mediaRecorder.onstart = function () {
           // mediaRecorderResized = false;
           mediaRecorderStartTime = performance.now();
+          captureSession = {
+            id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            firstVideoMs: null,
+            firstAudioMs: null,
+            reported: false,
+          };
           // Initialize recording start timestamp for frame recording
           window.recordingStartTimestamp = Date.now();
           window.currentTapeProgress = 0;
           window.lastVideoProgress = 0;
           
-          // DON'T connect raw audio processor immediately anymore
-          // We'll connect it when we detect actual audio playback starting
-          // This accounts for pieces like wipppps that have audio start detection delays
           if (rawAudioProcessor && sfxStreamGain) {
-            console.log("🎵 Raw audio processor ready - will connect when audio actually starts");
-            
-            // Set up audio start detection to sync raw audio capture properly
-            let audioConnected = false;
-            let audioStartDetectionInterval;
-            let audioStartDetectionTimeout;
-            let detectionStartTime = performance.now();
-            
-            // Monitor for actual audio playback by checking multiple indicators
-            audioStartDetectionInterval = setInterval(() => {
+            const connectRawAudio = (reason) => {
+              if (rawAudioConnected || !rawAudioProcessor) return;
               try {
-                if (!audioConnected) {
-                  let shouldConnect = false;
-                  
-                  // Method 1: Check if tape progress is advancing (indicates actual playback)
-                  if (window.currentTapeProgress && window.currentTapeProgress > 0) {
-                    shouldConnect = true;
-                    console.log("🎵 Audio detected via tape progress:", window.currentTapeProgress);
-                  }
-                  
-                  // Method 2: Check the sfxStreamGain for connected nodes (actual audio flow)
-                  if (!shouldConnect && sfxStreamGain && sfxStreamGain.numberOfOutputs > 0) {
-                    // Audio nodes are connected to sfxStreamGain, indicating audio is flowing
-                    shouldConnect = true;
-                    console.log("🎵 Audio detected via sfxStreamGain connections");
-                  }
-                  
-                  // Method 3: Simple delay-based fallback - after 100ms, assume audio is starting
-                  // This handles cases where we can't detect programmatically but need to stay close
-                  const detectionTime = performance.now() - detectionStartTime;
-                  if (!shouldConnect && detectionTime > 100) {
-                    shouldConnect = true;
-                    console.log("🎵 Audio connection triggered by 100ms fallback");
-                  }
-                  
-                  if (shouldConnect) {
-                    // Audio is actually playing - connect the processor now
-                    sfxStreamGain.connect(rawAudioProcessor);
-                    // ALSO connect microphone stream if available for mic audio capture
-                    if (micStreamGain) {
-                      micStreamGain.connect(rawAudioProcessor);
-                      console.log("🎵 Microphone stream connected to raw audio capture");
-                    }
-                    rawAudioProcessor.connect(audioContext.destination);
-                    audioConnected = true;
-                    
-                    const detectionDelay = performance.now() - mediaRecorderStartTime;
-                    console.log(`🎵 Raw audio capture connected after ${detectionDelay.toFixed(1)}ms detection delay`);
-                    
-                    // Clean up detection
-                    clearInterval(audioStartDetectionInterval);
-                    clearTimeout(audioStartDetectionTimeout);
-                  }
-                }
+                sfxStreamGain.connect(rawAudioProcessor);
+                micStreamGain?.connect(rawAudioProcessor);
+                rawAudioProcessor.connect(audioContext.destination);
+                rawAudioConnected = true;
+                if (rawAudioStartInterval) clearInterval(rawAudioStartInterval);
+                if (rawAudioStartTimeout) clearTimeout(rawAudioStartTimeout);
+                rawAudioStartInterval = null;
+                rawAudioStartTimeout = null;
+                console.log(`🎵 Raw audio capture connected (${reason})`);
               } catch (error) {
-                console.warn("Audio start detection error:", error);
+                console.warn("Raw audio capture connection failed:", error);
               }
-            }, 16);
-            
-            // Fallback: Connect after 1 second regardless to prevent lost audio
-            audioStartDetectionTimeout = setTimeout(() => {
-              if (!audioConnected && rawAudioProcessor && sfxStreamGain) {
-                try {
-                  sfxStreamGain.connect(rawAudioProcessor);
-                  // ALSO connect microphone stream if available for mic audio capture
-                  if (micStreamGain) {
-                    micStreamGain.connect(rawAudioProcessor);
-                    console.log("🎵 Microphone stream connected to raw audio capture (fallback)");
-                  }
-                  rawAudioProcessor.connect(audioContext.destination);
-                  console.log("🎵 Raw audio capture connected after 1s timeout fallback");
-                } catch (error) {
-                  console.error("Fallback audio connection failed:", error);
+            };
+
+            if (recordingOptions.avSync) {
+              // Camera takes capture from the recorder epoch. Waiting 100ms here
+              // used to shift its entire soundtrack ahead of the film frames.
+              connectRawAudio("camera recorder epoch");
+            } else {
+              const detectionStartTime = performance.now();
+              rawAudioStartInterval = setInterval(() => {
+                const progressStarted = window.currentTapeProgress > 0;
+                const audioRouted = sfxStreamGain.numberOfOutputs > 0;
+                if (
+                  progressStarted ||
+                  audioRouted ||
+                  performance.now() - detectionStartTime > 100
+                ) {
+                  connectRawAudio("audio detected");
                 }
-              }
-              clearInterval(audioStartDetectionInterval);
-            }, 1000);
+              }, 16);
+              rawAudioStartTimeout = setTimeout(
+                () => connectRawAudio("timeout"),
+                1000,
+              );
+            }
           }
           
           // Clear KidLisp FPS timeline for new recording
@@ -15863,6 +15886,29 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               tapeSoundId = startTapeAudioLoop(audioPosition);
             }
 
+            // 🎞️ Sound-on-film: once the worklet reports its sample read head,
+            // that sample range owns the displayed frame. Audio is the single
+            // clock, so RAF jitter and repeated loops cannot drift picture away.
+            let soundOnFilmProgress = null;
+            if (!render && !isScrubbing && recordedFrames[0]?.[3]) {
+              const activeTapeSoundId =
+                tapeSoundId ||
+                Object.keys(sfxPlaying).find((id) => id.startsWith("tape:audio_"));
+              const audioProgress = activeTapeSoundId
+                ? sfxPlaying[activeTapeSoundId]?.progress?.()
+                : null;
+              if (Number.isFinite(audioProgress)) {
+                soundOnFilmProgress = ((audioProgress % 1) + 1) % 1;
+                const filmFrame = frameIndexForSoundtrackProgress(
+                  recordedFrames,
+                  soundOnFilmProgress,
+                );
+                if (filmFrame >= 0) f = filmFrame;
+                playbackProgress = soundOnFilmProgress * playbackDurationMs;
+                playbackStart = performance.now() - playbackProgress;
+              }
+            }
+
             // Resize fctx here if the width and
             // height is different.
             const pic = recordedFrames[f][1];
@@ -15942,7 +15988,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             }
             
             // Advance frames while playback has progressed past the current frame's time
-            if (isScrubbing && !render) {
+            if (soundOnFilmProgress !== null && !render) {
+              // The soundtrack read head selected `f` above.
+            } else if (isScrubbing && !render) {
               // While the piece is speed-scrubbing, its seeks own the frame
               // index — the RAF clock must not advance frames at 1× between
               // seeks (at slow rates that read as jitter and inaccuracy).
@@ -16113,7 +16161,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                 window.lastVideoProgress = currentProgress;
               } else {
                 // For normal playback, use time-based progress
-                currentProgress = playbackProgress / playbackDurationMs;
+                currentProgress =
+                  soundOnFilmProgress ?? playbackProgress / playbackDurationMs;
               }
               
               // Store global progress for overlay breathing pattern
@@ -16159,8 +16208,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           update();
         };
 
-        startTapePlayback();
-
         // CRITICAL: Clear freeze frame that would layer above the underlay video (z-index 3 > 0)
         if (freezeFrame || freezeFrameFrozen || wrapper.contains(freezeFrameCan)) {
           freezeFrameCan.remove();
@@ -16176,6 +16223,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         underlayFrame.appendChild(frameCan);
         // Insert at the very beginning of body to ensure it's below the wrapper
         document.body.insertBefore(underlayFrame, document.body.firstChild);
+        // Start only after the first frame canvas is in the document. This makes
+        // cap → video reveal frame zero in the same presentation turn.
+        startTapePlayback();
         
         // Hide only the opaque compositor layers during presentation
         // Keep the main canvas visible - the piece uses wipe(0,0,0,0) for transparency
@@ -17370,9 +17420,28 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     if (type === "recorder:slate") {
-      // Always clear cached tape data when slating, regardless of media type
+      recorderGeneration += 1;
+      stopTapePlayback?.();
+      if (mediaRecorder && mediaRecorder.state !== "inactive") {
+        mediaRecorder.onstop = null;
+        mediaRecorder.stop();
+      }
+      mediaRecorder = undefined;
+      mediaRecorderStartTime = undefined;
+      mediaRecorderDuration = 0;
+      mediaRecorderFrameCount = 0;
+      mediaRecorderChunks.length = 0;
+      recordedFrames.length = 0;
+      recordedPieceChanges.length = 0;
+      clearRawAudioCapture();
+      captureSession = null;
+      delete sfx["tape:audio"];
+      delete window.recordingStartTimestamp;
+      delete window.currentTapeProgress;
+      delete window.lastVideoProgress;
+      underlayFrame?.remove();
+      underlayFrame = undefined;
       await Store.del("tape");
-      mediaRecorder?.stop();
       return;
     }
 
@@ -19586,6 +19655,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           
           // Update recording progress for tape progress bar breathing pattern
           const relativeTimestamp = performance.now() - mediaRecorderStartTime;
+          if (captureSession && captureSession.firstVideoMs === null) {
+            captureSession.firstVideoMs = mediaRecorderStartTime + relativeTimestamp;
+            reportCaptureAVSync();
+          }
           const targetDuration = window.currentRecordingOptions?.duration || 3000; // Default 3 seconds if not set
           window.currentTapeProgress = Math.min(1, relativeTimestamp / targetDuration);
           
@@ -21381,6 +21454,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
       let settings, stream, videoTrack;
       let facingModeChange = false;
+      let torchEnabled = false;
 
       try {
         // Grab video from the user using a requested width and height based
@@ -21432,11 +21506,21 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
           video.srcObject = stream;
           videoTrack = stream.getVideoTracks()[0];
-          // const capabilities = videoTrack.getCapabilities();
+          const capabilities = videoTrack.getCapabilities?.() || {};
           settings = videoTrack.getSettings();
 
           // Update global facingMode in case different from requested.
           facingMode = videoTrack.getConstraints().facingMode;
+          torchEnabled = false;
+          const actualFacing = settings?.facingMode || facingModeChoice;
+          send({
+            type: "camera:capabilities",
+            content: {
+              torch: actualFacing === "environment" && capabilities.torch === true,
+              enabled: false,
+              facingMode: actualFacing,
+            },
+          });
 
           // 📊 Send camera debug telemetry to the worker so pieces (e.g. cap)
           // can console.log() it and the piece-runs silo captures it.
@@ -21461,6 +21545,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                 aspectRatio: settings?.aspectRatio ?? null,
                 facingMode: settings?.facingMode ?? null,
                 frameRate: settings?.frameRate ?? null,
+                torch: capabilities.torch === true,
               },
               facingMode,
               iOS,
@@ -21511,10 +21596,54 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         );
 
         // Resizing the video after creation. (Window resize or device rotate.)
-        videoResize = async function ({ width, height, facing }) {
+        videoResize = async function ({ width, height, facing, torch }) {
           cancelAnimationFrame(getAnimationRequest());
 
           try {
+            if (typeof torch === "boolean") {
+              const capabilities = videoTrack?.getCapabilities?.() || {};
+              const actualFacing = settings?.facingMode || facingMode;
+              if (actualFacing !== "environment" || capabilities.torch !== true) {
+                send({
+                  type: "camera:torch",
+                  content: {
+                    available: false,
+                    enabled: false,
+                    facingMode: actualFacing,
+                  },
+                });
+                process();
+                return;
+              }
+              try {
+                await videoTrack.applyConstraints({ advanced: [{ torch }] });
+                torchEnabled = torch;
+                settings = videoTrack.getSettings();
+                send({
+                  type: "camera:torch",
+                  content: {
+                    available: true,
+                    enabled: torchEnabled,
+                    facingMode: actualFacing,
+                  },
+                });
+              } catch (torchError) {
+                send({
+                  type: "camera:torch",
+                  content: {
+                    available: true,
+                    enabled: torchEnabled,
+                    facingMode: actualFacing,
+                    error: torchError?.message || String(torchError),
+                  },
+                });
+              }
+              if (width === undefined && height === undefined && !facing) {
+                process();
+                return;
+              }
+            }
+
             const sizeChange = !isNaN(width) && !isNaN(height);
 
             if (sizeChange) {
@@ -21548,7 +21677,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               }
             }
 
-            if (settings.facingMode !== facing) {
+            if (facing && settings?.facingMode !== facing) {
+              if (torchEnabled) {
+                try {
+                  await videoTrack.applyConstraints({ advanced: [{ torch: false }] });
+                } catch {}
+                torchEnabled = false;
+              }
               facingModeChange = true;
               await getDevice(facing);
               facingModeChange = false;
