@@ -24,7 +24,7 @@ escape the defined tool set — no sandbox needed.
 
 ### Stack
 
-- **Node.js 22 + Express** (same pattern as silo, oven)
+- **Node.js 24 + Express** (same pattern as silo, oven)
 - **Caddy** (HTTPS reverse proxy, auto-certs)
 - **MongoDB** (via silo — user keys, conversation history, tool permissions)
 - **Systemd** (service management)
@@ -220,7 +220,7 @@ Create `help/deploy.fish` following the judge/oven pattern:
 
 1. SSH into droplet (need to add SSH key first)
 2. Wipe judge files: `rm -rf /opt/judge`, stop ollama
-3. Install/update Node.js 22
+3. Install/update Node.js 24
 4. Create `/opt/help` directory
 5. Upload `server.mjs`, `dashboard.html`, `package.json`, `.env`
 6. Install npm dependencies
@@ -312,7 +312,7 @@ We don't run NanoClaw — we build our own simpler service.
 
 ### Phase 1: Foundation (DONE)
 - [x] Recreated droplet with SSH key (destroyed old judge, new ID 552385566)
-- [x] Installed Node.js 22 + Caddy 2.10
+- [x] Installed Node.js 24 + Caddy 2.10
 - [x] Built minimal Express server with Caddy reverse proxy
 - [x] Auth0 integration (same client as silo)
 - [x] Landing page with sign-in + API key input

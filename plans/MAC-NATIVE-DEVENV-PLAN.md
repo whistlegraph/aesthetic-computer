@@ -74,9 +74,9 @@ demand per sub-project. This is the "lightweight laptop" divergence point.
 **Node toolchain** — match the devcontainer exactly so `npm ci` works:
 
 ```sh
-fnm install lts-jod
+fnm install 24.18.1
 fnm install 20.5.0
-fnm default lts-jod
+fnm default 24.18.1
 ```
 
 Add `fnm env --use-on-cd --shell fish | source` to fish config (handled in
@@ -349,7 +349,7 @@ What it does (13 phases, ~4 min on a fresh machine, ~30s on a re-run):
    stripe, doctl, gnupg, pinentry-mac, …)
 4. Creates `/etc/synthetic.conf` and triggers `apfs.util -t` for `/workspaces`
 5. Installs the scoped NOPASSWD sudoers file
-6. Installs node LTS-jod + 20.5.0 via fnm
+6. Installs Node 24.18.1 + legacy Nanos 20.5.0 via fnm
 7. npm globals: `@anthropic-ai/claude-code`, `netlify-cli`, `concurrently`,
    `kill-port`, … + native `claude` binary from `claude.ai/install.sh`
 8. Adds `/opt/homebrew/bin/fish` to `/etc/shells` and `dscl`-changes the
@@ -372,10 +372,9 @@ Vault unlock is **not** part of the bootstrap — run
 
 - **`/workspaces` symlink requires sudo** and must survive reboots. APFS
   preserves it, but if FileVault / boot-arg changes reset `/`, re-create it.
-- **`fnm` + fish auto-switch**: `.nvmrc` files in `lith/` or `session-server/`
-  will auto-switch node versions on `cd`. That's fine, but `ac-pack` / `ac-ship`
-  assume lts-jod — sanity check `node -v` if a command suddenly errors with
-  unknown syntax.
+- **`fnm` + fish auto-switch**: `.node-version` files switch Node on `cd`.
+  Active tooling assumes 24.18.1; `nanos/` deliberately switches to its legacy
+  20.5.0 runtime. Sanity-check `node -v` if a command suddenly errors.
 - **Apple GPG vs Homebrew GPG**: `vault-tool.fish` expects `gpg` with
   `pinentry-mac` configured. If vault-unlock loops on passphrase prompts,
   `brew install gnupg pinentry-mac` and wire

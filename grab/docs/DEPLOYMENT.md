@@ -112,7 +112,7 @@ Cloudflare automatically handles:
 - Browser Rendering enabled in your Cloudflare account
 - Wrangler CLI installed globally (`npm i -g wrangler`)
 - Access to `/aesthetic-computer-vault/grab/` secrets
-- Node.js 20+ installed
+- Node.js 24.18.1 installed
 
 ---
 

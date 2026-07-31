@@ -3,6 +3,9 @@
   "version": "0.0.1",
   "type": "module",
   "description": "ATProto experiments and introspective tools for Aesthetic Computer",
+  "engines": {
+    "node": ">=24.18.1 <25"
+  },
   "scripts": {
     "dev:user-pages": "node scripts/dev-user-pages.mjs",
     "query:profile": "node query-profile.mjs",

@@ -14,7 +14,7 @@ fish deploy.fish
 
 This automated script will:
 1. ✅ Create DigitalOcean droplet (2GB RAM, 2 vCPU, $18/month)
-2. ✅ Install Node.js 20, ffmpeg, and Caddy
+2. ✅ Install Node.js 24, ffmpeg, and Caddy
 3. ✅ Deploy oven service code
 4. ✅ Configure HTTPS with automatic certificates
 5. ✅ Set up systemd service for auto-restart  

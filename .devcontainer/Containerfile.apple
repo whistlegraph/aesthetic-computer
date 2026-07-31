@@ -122,8 +122,8 @@ ENV PATH="/home/me/.fnm:${PATH}"
 RUN echo 'fnm env --use-on-cd --shell fish | source' > /home/me/.config/fish/conf.d/fnm.fish && \
     export PATH="/home/me/.fnm:${PATH}" && \
     eval "$(/home/me/.fnm/fnm env --use-on-cd)" && \
-    /home/me/.fnm/fnm install lts-jod && \
-    /home/me/.fnm/fnm default lts-jod && \
+    /home/me/.fnm/fnm install 24.18.1 && \
+    /home/me/.fnm/fnm default 24.18.1 && \
     npm i -g prettier typescript typescript-language-server npm-check-updates @anthropic-ai/claude-code netlify-cli wrangler
 
 # --- SBCL / Quicklisp --------------------------------------------------------
@@ -146,7 +146,7 @@ ENV PATH="/home/me/.deno/bin:${PATH}"
 # --- Fish config -------------------------------------------------------------
 RUN echo 'set -gx PATH /home/me/.fnm /home/me/.deno/bin /home/me/.local/bin /home/me/.cargo/bin $PATH' >> /home/me/.config/fish/config.fish && \
     echo 'fnm env --use-on-cd --shell fish | source' >> /home/me/.config/fish/config.fish && \
-    echo 'fnm use lts-jod --silent-if-unchanged 2>/dev/null' >> /home/me/.config/fish/config.fish && \
+    echo 'fnm use 24.18.1 --silent-if-unchanged 2>/dev/null' >> /home/me/.config/fish/config.fish && \
     echo 'set -U fish_greeting ""' >> /home/me/.config/fish/config.fish
 
 # Default working directory for aesthetic-computer

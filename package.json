@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "The header package for the whole aesthetic.computer codebase.",
   "type": "module",
+  "engines": {
+    "node": ">=24.18.1 <25"
+  },
   "scripts": {
     "platform": "devcontainer up --workspace-folder .; devcontainer exec --workspace-folder . fish -c 'aesthetic'",
     "test": "node run-tests.mjs",

@@ -38,7 +38,7 @@ Release the Aesthetic Computer Electron app and create a download experience at 
 6. **GitHub Actions Multi-Platform CI/CD**
    - Workflow: `.github/workflows/electron-release.yml`
    - Builds for macOS, Windows, Linux (AppImage, deb, rpm)
-   - Uses Node 22 + Python 3.11 with setuptools
+   - Uses Node 24 + Python 3.11 with setuptools
    - GH_TOKEN set as repository secret
 
 7. **Package.json Updates (ac-electron)**

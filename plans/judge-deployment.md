@@ -74,7 +74,7 @@ Deploy the `/judge` Ollama-based chat moderation system as a subdomain service (
 │  • Ubuntu 22.04 LTS                                            │
 │                                                                 │
 │ Software Stack:                                                │
-│  • Node.js 22                                                  │
+│  • Node.js 24                                                  │
 │  • Ollama (with gemma2:2b model)                               │
 │  • Caddy (HTTPS + auto-certs)                                  │
 │  • systemd service (judge.service)                             │
@@ -167,7 +167,7 @@ echo "════════════════════════�
 # (Similar to oven/deploy.fish implementation)
 
 # Step 2: Install dependencies
-#  - Node.js 22
+#  - Node.js 24
 #  - Ollama
 #  - Caddy
 #  - MongoDB client libraries

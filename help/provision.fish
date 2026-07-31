@@ -30,7 +30,7 @@ if not ssh -i $SSH_KEY -o StrictHostKeyChecking=no -o ConnectTimeout=10 $HELP_US
     exit 1
 end
 
-echo -e "$GREEN-> Installing Node.js 22...$NC"
+echo -e "$GREEN-> Installing Node.js 24...$NC"
 ssh -i $SSH_KEY -o StrictHostKeyChecking=no $HELP_USER@$HELP_HOST '
     # Clean up any judge remnants
     systemctl stop judge 2>/dev/null || true
@@ -40,9 +40,9 @@ ssh -i $SSH_KEY -o StrictHostKeyChecking=no $HELP_USER@$HELP_HOST '
     rm -rf /opt/judge
     rm -f /etc/systemd/system/judge.service
 
-    # Install Node.js 22
-    if ! command -v node &>/dev/null || [[ "$(node --version)" != v22* ]]; then
-        curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
+    # Install Node.js 24
+    if ! command -v node &>/dev/null || [[ "$(node --version)" != v24* ]]; then
+        curl -fsSL https://deb.nodesource.com/setup_24.x | bash -
         apt-get install -y nodejs
     fi
     echo "node $(node --version)"

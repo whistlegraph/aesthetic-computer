@@ -4,6 +4,9 @@
   "type": "module",
   "description": "Data & storage dashboard for aesthetic.computer",
   "main": "server.mjs",
+  "engines": {
+    "node": ">=24.18.1 <25"
+  },
   "scripts": {
     "start": "node server.mjs",
     "dev": "nodemon -I --watch server.mjs server.mjs"

@@ -95,13 +95,13 @@ rm -f "$SUDOERS_TMP"
 ok "sudoers file installed at $SUDOERS_FILE"
 
 # -----------------------------------------------------------------------------
-step "6. fnm + Node (lts-jod & 20.5.0)"
+step "6. fnm + Node (24.18.1 & legacy Nanos 20.5.0)"
 # -----------------------------------------------------------------------------
 eval "$(fnm env --shell bash)"
-fnm install lts-jod
+fnm install 24.18.1
 fnm install 20.5.0
-fnm default lts-jod
-fnm use lts-jod
+fnm default 24.18.1
+fnm use 24.18.1
 ok "node $(node --version) via fnm ($(fnm current))"
 
 # -----------------------------------------------------------------------------

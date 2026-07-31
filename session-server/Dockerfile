@@ -1,4 +1,4 @@
-FROM node:lts-iron
+FROM node:24.18.1
 WORKDIR /app
 COPY .env .
 COPY session.mjs .

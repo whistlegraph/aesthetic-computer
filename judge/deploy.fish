@@ -153,9 +153,9 @@ echo "📦 Updating system packages..."
 apt-get update
 apt-get upgrade -y
 
-# Install Node.js 22
-echo "📦 Installing Node.js 22..."
-curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
+# Install Node.js 24
+echo "📦 Installing Node.js 24..."
+curl -fsSL https://deb.nodesource.com/setup_24.x | bash -
 apt-get install -y nodejs
 
 # Install Ollama

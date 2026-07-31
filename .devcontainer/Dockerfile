@@ -244,12 +244,12 @@ ENV PATH="/home/me/.fnm:${PATH}"
 RUN echo 'fnm env --use-on-cd --shell fish | source' > /home/me/.config/fish/conf.d/fnm.fish && \
     export PATH="/home/me/.fnm:${PATH}" && \
     eval "$(/home/me/.fnm/fnm env --use-on-cd)" && \
-    /home/me/.fnm/fnm install lts-jod && \
+    /home/me/.fnm/fnm install 24.18.1 && \
     /home/me/.fnm/fnm install 20.5.0 && \
-    /home/me/.fnm/fnm default lts-jod && \
-    /home/me/.fnm/fnm use lts-jod && \
+    /home/me/.fnm/fnm default 24.18.1 && \
+    /home/me/.fnm/fnm use 24.18.1 && \
     npm i -g prettier typescript typescript-language-server npm-check-updates @anthropic-ai/claude-code @openai/codex netlify-cli wrangler && \
-    echo 'fnm use lts-jod' >> /home/me/.config/fish/config.fish && \
+    echo 'fnm use 24.18.1' >> /home/me/.config/fish/config.fish && \
     chown -R me:me /home/me/.config/fish
 
 # --- ATProto dependencies for /at directory ------------------------------------

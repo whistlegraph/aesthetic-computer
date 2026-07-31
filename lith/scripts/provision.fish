@@ -58,8 +58,8 @@ ssh root@$DROPLET_IP "
     apt-get update -qq
     apt-get install -y -qq caddy
 
-    # Node.js 22 LTS
-    curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
+    # Node.js 24 LTS
+    curl -fsSL https://deb.nodesource.com/setup_24.x | bash -
     apt-get install -y -qq nodejs
 
     # Sharp + Puppeteer deps

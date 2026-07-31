@@ -102,7 +102,7 @@ Deploy NanoClaw itself to a VPS. The help channel runs as part of NanoClaw, alon
 
 **Deployment steps:**
 1. Provision new VPS (or reuse help droplet after paying DO balance)
-2. Install Docker + Node.js 22
+2. Install Docker + Node.js 24
 3. Clone `whistlegraph/aestheticant` (private fork)
 4. Clone `whistlegraph/aesthetic-computer` (for codebase mount)
 5. Copy `.env` with all credentials

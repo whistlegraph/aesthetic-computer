@@ -6,6 +6,9 @@
   "author": "Aesthetic Computer <hi@aesthetic.computer>",
   "license": "MIT",
   "main": "main.js",
+  "engines": {
+    "node": ">=24.18.1 <25"
+  },
   "scripts": {
     "start": "electron . --inspect=9229 --remote-debugging-port=9222",
     "start:prod": "electron . --inspect=9229 --remote-debugging-port=9222",

@@ -4,6 +4,9 @@
   "description": "A per session-backend implementation for aesthetic.computer.",
   "main": "session.mjs",
   "type": "module",
+  "engines": {
+    "node": ">=24.18.1 <25"
+  },
   "scripts": {
     "start": "node session.mjs",
     "start-do": "PORT=80 node session.mjs",

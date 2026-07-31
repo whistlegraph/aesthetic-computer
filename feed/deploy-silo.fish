@@ -62,9 +62,9 @@ if test $SETUP = true
         id -u dp1feed &>/dev/null || useradd -r -s /bin/false dp1feed
         chown -R dp1feed:dp1feed $REMOTE_DIR
 
-        # Install Node.js 22 if not present
-        if ! command -v node &>/dev/null || [ \$(node -v | cut -d. -f1 | tr -d v) -lt 22 ]; then
-            curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
+        # Install Node.js 24 if not present
+        if ! command -v node &>/dev/null || [ \$(node -v | cut -d. -f1 | tr -d v) -lt 24 ]; then
+            curl -fsSL https://deb.nodesource.com/setup_24.x | bash -
             apt-get install -y nodejs
         fi
         echo 'Node:' \$(node -v)

@@ -30,7 +30,7 @@ Updated via `npx ncu -u` on June 2025:
 The v20 breaking changes are **LOW IMPACT** for this project:
 - V2 API array serialization changes - Only affects `/v2` endpoints (not used here)
 - V2 Event namespace moves - Not using V2 events
-- Node.js 16+ required - Already on Node 20+
+- Node.js 16+ required - Running on Node 24
 
 Usage locations reviewed:
 - `system/netlify/functions/email.js` - customers.search, customers.update
@@ -94,7 +94,7 @@ Located at `/workspaces/aesthetic-computer/Dockerfile`:
 | redli | v0.15.0 | 0.15.x | ✅ OK |
 | mkcert | v1.4.4 | 1.4.4 | ✅ OK |
 | doctl | 1.149.0 | 1.149.x | ✅ **UPDATED** |
-| Node (fnm) | lts-jod + 20.5.0 | 22.x LTS | ⚠️ Consider update |
+| Node (fnm) | 24.18.1 + legacy Nanos 20.5.0 | 24.18.1 LTS | ✅ **UPDATED** |
 | SmartPy | 0.22.0 | 0.23.x+ | ⚠️ Check |
 | pytezos | >=3.9.0,<4 | 3.x | ✅ OK |
 | Octez | v20.3-1 | v21.x+ | ⚠️ Check |
@@ -103,10 +103,10 @@ Located at `/workspaces/aesthetic-computer/Dockerfile`:
 - [x] Update Stripe CLI: v1.30.0 → v1.34.0
 - [x] Update doctl: 1.109.0 → 1.149.0  
 - [x] Update Deno: v2.4.5 → v2.6.6
+- [x] Update active Node.js toolchains and services to 24.18.1 LTS
 
 ### Action Required
 - [ ] Rebuild devcontainer to apply Dockerfile changes
-- [ ] Consider Node.js 22 LTS upgrade
 
 ---
 
@@ -173,4 +173,3 @@ Most vulnerabilities stem from blockchain/wallet dependencies:
 | Date | Changes |
 |------|---------|
 | 2025-06 | Initial dependency audit, package.json updates via ncu, npm install completed |
-

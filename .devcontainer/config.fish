@@ -19,7 +19,7 @@ set -gx PATH /home/me/.deno/bin $PATH
 if test -f $HOME/.fnm/fnm
     set -gx PATH $HOME/.fnm $PATH
     fnm env --use-on-cd --log-level=quiet | source
-    fnm use lts-jod --silent-if-unchanged 2>/dev/null
+    fnm use 24.18.1 --silent-if-unchanged 2>/dev/null
 end
 
 # Symlink a VSCode workspace as needed.

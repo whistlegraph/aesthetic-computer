@@ -40,8 +40,8 @@ Why s-2vcpu-4gb ($24/mo):
 # Caddy (automatic HTTPS, reverse proxy)
 apt install -y caddy
 
-# Node.js 22 LTS
-curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
+# Node.js 24 LTS
+curl -fsSL https://deb.nodesource.com/setup_24.x | bash -
 apt install -y nodejs
 
 # Sharp dependencies

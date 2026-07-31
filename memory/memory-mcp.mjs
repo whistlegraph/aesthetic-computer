@@ -209,7 +209,7 @@ function execFileAsync(file, args, { cwd, input, timeoutMs } = {}) {
 // a failure. A search that silently dropped a sleeping Mac would be worse than
 // useless — you'd conclude the prompt was never written.
 // A login shell on a fleet Mac is not a clean pipe: neo's node version manager
-// greets every non-interactive command with "Using Node for alias lts-jod" on
+// greets every non-interactive command with the active fnm Node alias on
 // STDOUT. So take the JSON envelope, not the whole stream — parse from the first
 // brace/bracket. If there's none, the remote said something that isn't a result
 // (usage text, a stack trace); surface its first line as the error.

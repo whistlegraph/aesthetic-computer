@@ -186,16 +186,16 @@ Meshed via toolchain/macos/fleet (ssh-mesh, stats-sync); tailnet network path.
 \toprule
 \textbf{project} & \textbf{runtime} & \textbf{deploys to} \\
 \midrule
-system & Node & lith (Express+Caddy) \\
-session-server & Node 20 & DO droplet (systemd) \\
+system & Node 24 & lith (Express+Caddy) \\
+session-server & Node 24 & DO droplet (systemd) \\
 lith & Node ESM (express 5) & the monolith itself \\
-oven & Node $\geq$20 (express 4) & oven droplet \\
+oven & Node 24 (express 4) & oven droplet \\
 dp1-feed & Cloudflare Worker + Go & wrangler / systemd \\
 grab & CF Worker (Browser Rendering) & grab.aesthetic.computer \\
 oven-edge & CF Worker + R2 & os.aesthetic.computer \\
 ac-electron & Electron 39 & releases.aesthetic.computer \\
 vscode-extension & VS Code ext & Marketplace (v1.274) \\
-mcp-server & Node $\geq$18 & npm @aesthetic.computer/mcp \\
+mcp-server & Node 24 & npm @aesthetic.computer/mcp \\
 nanos & Node 20 unikernel & NanoVMs ops $\rightarrow$ GCP/DO \\
 \bottomrule
 \end{tabular}

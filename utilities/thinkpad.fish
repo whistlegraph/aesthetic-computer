@@ -66,9 +66,9 @@ echo "🟣 Sourcing fish config"
 # reload fish configuration, which will add brew and cargo to path, etc.
 source ~/.config/fish/config.fish
 
-# Set the default Node.js version to most recent LTS
-fnm install lts/iron
-fnm default lts/iron
+# Set the fleet Node.js baseline.
+fnm install 24.18.1
+fnm default 24.18.1
 
 echo "🟣 Installing `devcontainer` cli"
 
