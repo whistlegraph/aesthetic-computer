@@ -32,6 +32,7 @@ import {
   Safari,
   Aesthetic,
   AestheticExtension,
+  AestheticIOSApp,
 } from "./lib/platform.mjs";
 import { headers } from "./lib/headers.mjs";
 import { logs, log } from "./lib/logs.mjs";
@@ -21331,6 +21332,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       //       for multiple videos can be routed simultaneously.
       const video = document.createElement("video");
 
+      // The native iPhone WKWebView replaces its UA with the exact string
+      // "Aesthetic", so the ordinary iOS detector cannot see it. Camera
+      // capture must still use the mobile constraint/restart/mirroring path;
+      // otherwise WKWebView reports portrait dimensions around sideways
+      // sensor pixels and our dimension-based rotation check cannot recover.
+      const cameraIOS = iOS || AestheticIOSApp;
+      const mobileCamera = cameraIOS || Android;
+
       // Camera properties.
       let facingMode = options.facing || "user",
         zoom = 1;
@@ -21402,7 +21411,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           // getUserMedia time. We then rotate the canvas in process()
           // below to fit the portrait buffer.
           if (
-            (iOS || Android) &&
+            mobileCamera &&
             typeof window !== "undefined" &&
             window.matchMedia?.("(orientation: portrait)")?.matches &&
             (facingModeChoice === "environment" ||
@@ -21460,6 +21469,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               },
               facingMode,
               iOS,
+              cameraIOS,
+              AestheticIOSApp,
               Android,
               isPortrait,
               orientationAngle,
@@ -21531,7 +21542,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                 { once: true },
               );
 
-              if (iOS || Android) {
+              if (mobileCamera) {
                 await getDevice(facing);
               } else {
                 video.srcObject = null; // Refresh the video `srcObject`.
@@ -21694,7 +21705,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         }
         // Mirror the front camera for selfie framing. Desktop webcams are
         // conventionally mirrored too. Mobile rear camera stays unmirrored.
-        const needsMirror = facingMode === "user" || (!iOS && !Android);
+        const needsMirror = facingMode === "user" || !mobileCamera;
         // EXIF orientation 6 — the convention iPhone (and most Android
         // devices) tag portrait camera captures with — means "rotate 90°
         // CW for display". The raw landscape sensor buffer has the
