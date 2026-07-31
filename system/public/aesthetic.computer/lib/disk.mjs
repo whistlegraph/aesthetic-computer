@@ -9356,7 +9356,12 @@ async function load(
     // https://codepen.io/oceangermanique/pen/LqaPgO
 
     if (videoSwitching === false) {
-      if (type === "camera:update") {
+      const torchOnly =
+        type === "camera:update" &&
+        options &&
+        Object.keys(options).length === 1 &&
+        typeof options.torch === "boolean";
+      if (type === "camera:update" && !torchOnly) {
         lastActiveVideo = activeVideo || lastActiveVideo;
         activeVideo = null;
       }
@@ -9366,7 +9371,7 @@ async function load(
         send({ type: "video", content: { type, options } });
       }, 50);
 
-      if (type === "camera:update") videoSwitching = true;
+      if (type === "camera:update" && !torchOnly) videoSwitching = true;
     }
 
     // Return an object that can grab whatever the most recent frame of
@@ -11812,6 +11817,21 @@ async function makeFrame({ data: { type, content } }) {
 
   if (type === "camera:denied") {
     actAlerts.push("camera:denied");
+    return;
+  }
+
+  if (type === "camera:capabilities" || type === "camera:torch") {
+    actAlerts.push({ name: type, content });
+    return;
+  }
+
+  if (type === "recorder:av-sync") {
+    const status = content?.aligned ? "PASS" : "FAIL";
+    console.log(
+      `🎞️ A/V sync ${status}: ${content?.offsetMs?.toFixed?.(1)}ms ` +
+        `(tolerance ±${content?.toleranceMs}ms)`,
+    );
+    actAlerts.push({ name: type, content });
     return;
   }
 

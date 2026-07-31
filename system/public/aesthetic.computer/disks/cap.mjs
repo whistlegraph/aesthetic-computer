@@ -38,8 +38,11 @@ let recordingStarted = false;
 let videoInitialized = false;
 
 // UI elements
-let swapBtn, timer, micLevel;
+let swapBtn, flashBtn, timer, micLevel;
 let mic; // Microphone reference
+let torchAvailable = false;
+let torchEnabled = false;
+let torchPending = false;
 
 // Recording config
 const DEFAULT_DURATION = 30; // Max recording duration in seconds
@@ -61,6 +64,26 @@ const zoomSensitivity = 240;
 
 // 🥾 Boot
 function boot({ ui, params, colon, system, rec, notice }) {
+  // Piece modules persist between visits. A re-shoot must never inherit the
+  // previous camera frame, recorder flags, or pressed controls.
+  vid = undefined;
+  frame = undefined;
+  facing = "environment";
+  capturing = true;
+  isRecording = false;
+  recordingStarted = false;
+  videoInitialized = false;
+  swapBtn = undefined;
+  flashBtn = undefined;
+  mic = undefined;
+  micConnected = false;
+  pendingRecordStart = false;
+  torchAvailable = false;
+  torchEnabled = false;
+  torchPending = false;
+  zoom = 1;
+  zoomStartY = null;
+
   // Parse parameters
   if (params[0] === "me" || params[0] === "selfie") facing = "user";
   if (colon[0] === "selfie" || colon[0] === "s") facing = "user";
@@ -156,6 +179,28 @@ function paint({
       }
       swapBtn.reposition({ right: 6, top: 6, screen }, "Swap");
       swapBtn.paint($);
+    }
+
+    // Rear-camera torch. It stays available while rolling and lives on the
+    // uncaptured overlay, like a camera's physical light switch.
+    if (facing === "environment" && torchAvailable) {
+      const flashRight = cameras > 1 && !isRecording && !pendingRecordStart
+        ? (swapBtn?.width || 42) + 12
+        : 6;
+      const flashLabel = torchEnabled ? "Flash off" : "Flash";
+      if (!flashBtn) {
+        flashBtn = new ui.TextButton(flashLabel, {
+          right: flashRight,
+          top: 6,
+          screen,
+        });
+        flashBtn.btn.stickyScrubbing = true;
+      }
+      flashBtn.reposition({ right: flashRight, top: 6, screen }, flashLabel);
+      flashBtn.disabled = torchPending;
+      flashBtn.paint($);
+    } else {
+      flashBtn = undefined;
     }
 
     // Recording indicator and timer
@@ -300,6 +345,8 @@ function startRecording(rec, sound, notice) {
       cleanMode: false,
       showTezosStamp: false,
       mystery: false,
+      freshSession: true,
+      avSync: true,
     },
     (time) => {
       // Recording started callback
@@ -332,6 +379,27 @@ function act({ event: e, jump, video, cameras, sound, rec, notice, leaving, hud 
   if (e.is("camera:debug:frame")) {
     console.log("📷 cam/frame:", JSON.stringify(e));
   }
+  if (e.is("camera:capabilities")) {
+    torchAvailable = e.content?.torch === true;
+    torchEnabled = e.content?.enabled === true;
+    torchPending = false;
+  }
+  if (e.is("camera:torch")) {
+    torchAvailable = e.content?.available === true;
+    torchEnabled = e.content?.enabled === true;
+    torchPending = false;
+    if (e.content?.error) {
+      console.warn("📷 Flash update failed:", e.content.error);
+      notice("FLASH UNAVAILABLE", ["yellow", "red"]);
+    }
+  }
+  if (e.is("recorder:av-sync")) {
+    const offset = e.content?.offsetMs;
+    console.log(
+      `🎞️ cap A/V ${e.content?.aligned ? "PASS" : "FAIL"}: ` +
+        `${Number.isFinite(offset) ? offset.toFixed(1) : "?"}ms`,
+    );
+  }
 
   // Handle microphone connection events
   if (e.is("microphone-connect:success")) {
@@ -353,6 +421,18 @@ function act({ event: e, jump, video, cameras, sound, rec, notice, leaving, hud 
     notice("MIC DENIED - RECORDING WITHOUT AUDIO", ["yellow", "red"]);
   }
 
+  const flashWasDown = flashBtn?.down === true;
+  if (flashBtn && facing === "environment" && torchAvailable) {
+    flashBtn.act(e, {
+      down: () => sounds.down(sound),
+      push: () => {
+        sounds.push(sound);
+        torchPending = true;
+        video("camera:update", { torch: !torchEnabled });
+      },
+    });
+  }
+
   // Swap camera button — only fires when the touch is on the swap button
   // itself, so it doesn't compete with the fullscreen hold-to-record gesture.
   if (cameras > 1 && swapBtn && !isRecording && !pendingRecordStart) {
@@ -371,8 +451,9 @@ function act({ event: e, jump, video, cameras, sound, rec, notice, leaving, hud 
   // button or HUD label starts recording; releasing stops + jumps to video.
   if (e.is("touch") && !leaving()) {
     const onSwapBtn = swapBtn?.btn?.box?.contains(e);
+    const onFlashBtn = flashBtn?.btn?.box?.contains(e);
     const onHud = hud?.currentLabel()?.btn?.down;
-    if (!onSwapBtn && !onHud && !isRecording && !pendingRecordStart) {
+    if (!onSwapBtn && !onFlashBtn && !onHud && !isRecording && !pendingRecordStart) {
       // Anchor zoom slider at the touch-down Y so the very first drag
       // pixel is treated as zoom = 1, no jumps.
       zoomStartY = e.y;
@@ -391,9 +472,9 @@ function act({ event: e, jump, video, cameras, sound, rec, notice, leaving, hud 
   }
 
   if (e.is("lift") && !leaving()) {
-    if (isRecording) {
+    if (isRecording && !flashWasDown) {
       stopRecording(rec, sound, jump);
-    } else if (pendingRecordStart) {
+    } else if (pendingRecordStart && !flashWasDown) {
       // User released before the mic was ready — cancel the queued start.
       pendingRecordStart = false;
       notice("CANCELLED", ["yellow", "black"]);
@@ -422,12 +503,17 @@ function act({ event: e, jump, video, cameras, sound, rec, notice, leaving, hud 
   // Camera mode events
   if (e.is("camera:mode:user")) {
     facing = "user";
+    torchAvailable = false;
+    torchEnabled = false;
+    torchPending = false;
     if (swapBtn) swapBtn.disabled = false;
     capturing = true;
   }
 
   if (e.is("camera:mode:environment")) {
     facing = "environment";
+    torchEnabled = false;
+    torchPending = false;
     if (swapBtn) swapBtn.disabled = false;
     capturing = true;
   }
@@ -466,7 +552,8 @@ function beat({ sound: { microphone } }) {
 }
 
 // Handle leaving the piece while recording
-function leave({ rec, jump }) {
+function leave({ rec, jump, video }) {
+  if (torchEnabled) video("camera:update", { torch: false });
   if (isRecording) {
     stopRecording(rec, null, jump);
   }
