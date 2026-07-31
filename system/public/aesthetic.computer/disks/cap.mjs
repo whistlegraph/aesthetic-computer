@@ -19,11 +19,7 @@
   - [x] Jump to video piece on completion
 #endregion */
 
-import {
-  RecordingTimer,
-  MicLevel,
-  sounds,
-} from "./common/cap-ui.mjs";
+import { RecordingTimer, MicLevel } from "./common/cap-ui.mjs";
 
 const { floor, min, max, sqrt } = Math;
 
@@ -312,7 +308,7 @@ function sim({ sound: { microphone }, rec }) {
   }
 }
 
-function startRecording(rec, sound, notice) {
+function startRecording(rec, notice) {
   if (isRecording) return;
   
   // If mic isn't connected yet, queue the recording start
@@ -326,7 +322,6 @@ function startRecording(rec, sound, notice) {
   isRecording = true;
   recordingStarted = true;
   pendingRecordStart = false;
-  sounds.recordStart(sound);
 
   // Start the visual timer
   timer.start(MAX_DURATION);
@@ -357,13 +352,11 @@ function startRecording(rec, sound, notice) {
   // Recording status is shown via recording UI overlay (not captured in tape)
 }
 
-function stopRecording(rec, sound, jump) {
+function stopRecording(rec, jump) {
   if (!isRecording) return;
 
   isRecording = false;
   timer.stop();
-
-  if (sound) sounds.recordStop(sound);
 
   // Cut the recording and jump to video piece
   rec.cut(() => {
@@ -371,7 +364,7 @@ function stopRecording(rec, sound, jump) {
   });
 }
 
-function act({ event: e, jump, video, cameras, sound, rec, notice, leaving, hud }) {
+function act({ event: e, jump, video, cameras, rec, notice, leaving, hud }) {
   // 📊 Camera diagnostics from bios.mjs → piece-runs via console.log.
   if (e.is("camera:debug")) {
     console.log("📷 cam/init:", JSON.stringify(e));
@@ -410,7 +403,7 @@ function act({ event: e, jump, video, cameras, sound, rec, notice, leaving, hud 
     // start it now.
     if (pendingRecordStart && !isRecording) {
       console.log("🎤 Mic ready - starting queued recording");
-      startRecording(rec, sound, notice);
+      startRecording(rec, notice);
     }
   }
 
@@ -424,9 +417,7 @@ function act({ event: e, jump, video, cameras, sound, rec, notice, leaving, hud 
   const flashWasDown = flashBtn?.down === true;
   if (flashBtn && facing === "environment" && torchAvailable) {
     flashBtn.act(e, {
-      down: () => sounds.down(sound),
       push: () => {
-        sounds.push(sound);
         torchPending = true;
         video("camera:update", { torch: !torchEnabled });
       },
@@ -437,9 +428,7 @@ function act({ event: e, jump, video, cameras, sound, rec, notice, leaving, hud 
   // itself, so it doesn't compete with the fullscreen hold-to-record gesture.
   if (cameras > 1 && swapBtn && !isRecording && !pendingRecordStart) {
     swapBtn.act(e, {
-      down: () => sounds.down(sound),
       push: () => {
-        sounds.push(sound);
         swapBtn.disabled = true;
         const faceTo = facing === "user" ? "environment" : "user";
         vid = video("camera:update", { facing: faceTo });
@@ -457,7 +446,7 @@ function act({ event: e, jump, video, cameras, sound, rec, notice, leaving, hud 
       // Anchor zoom slider at the touch-down Y so the very first drag
       // pixel is treated as zoom = 1, no jumps.
       zoomStartY = e.y;
-      startRecording(rec, sound, notice);
+      startRecording(rec, notice);
     }
   }
 
@@ -473,7 +462,7 @@ function act({ event: e, jump, video, cameras, sound, rec, notice, leaving, hud 
 
   if (e.is("lift") && !leaving()) {
     if (isRecording && !flashWasDown) {
-      stopRecording(rec, sound, jump);
+      stopRecording(rec, jump);
     } else if (pendingRecordStart && !flashWasDown) {
       // User released before the mic was ready — cancel the queued start.
       pendingRecordStart = false;
@@ -486,15 +475,15 @@ function act({ event: e, jump, video, cameras, sound, rec, notice, leaving, hud 
   // Keyboard shortcut: space toggles record (useful for desktop testing).
   if (e.is("keyboard:down: ")) {
     if (!isRecording && !pendingRecordStart) {
-      startRecording(rec, sound, notice);
+      startRecording(rec, notice);
     } else {
-      stopRecording(rec, sound, jump);
+      stopRecording(rec, jump);
     }
   }
 
   if (e.is("keyboard:down:escape")) {
     if (isRecording) {
-      stopRecording(rec, sound, jump);
+      stopRecording(rec, jump);
     } else {
       jump("prompt");
     }
@@ -555,7 +544,7 @@ function beat({ sound: { microphone } }) {
 function leave({ rec, jump, video }) {
   if (torchEnabled) video("camera:update", { torch: false });
   if (isRecording) {
-    stopRecording(rec, null, jump);
+    stopRecording(rec, jump);
   }
 }
 

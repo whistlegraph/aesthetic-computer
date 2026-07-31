@@ -48,29 +48,6 @@ export const sounds = {
     });
   },
 
-  recordStart(sound) {
-    // Beep to indicate recording started
-    sound.synth({
-      type: "sine",
-      tone: 1200,
-      attack: 0.01,
-      decay: 0.3,
-      volume: 0.4,
-      duration: 0.1,
-    });
-  },
-
-  recordStop(sound) {
-    // Double beep to indicate recording stopped
-    sound.synth({
-      type: "sine",
-      tone: 800,
-      attack: 0.01,
-      decay: 0.5,
-      volume: 0.3,
-      duration: 0.08,
-    });
-  },
 };
 
 /**
