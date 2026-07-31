@@ -1,0 +1,1025 @@
+{
+  "schema": "menuband-reel-variations/v1",
+  "defaults": {
+    "durationSec": 32,
+    "format": "1080x1920@60fps",
+    "content": "performance only; no text, logo, captions, framing devices, or unrelated imagery",
+    "pitchRangeMidi": [
+      60,
+      83
+    ],
+    "marks": "musical notes for tones and distinct percussion glyphs for drums; full opacity; gravity-driven; never fade or clear at section changes; remove only after crossing below the frame",
+    "stereo": "pan from exact MenuBand letter position; attenuate with distance from horizontal center",
+    "staging": "begin offstage, reveal the board through motion, include a percussion transformation, return to melody, and finish with the board fully below frame"
+  },
+  "variations": [
+    {
+      "id": "moonlit",
+      "name": "Moonlit",
+      "seed": 904731,
+      "durationSec": 32,
+      "bpm": 72,
+      "key": "D",
+      "mode": "Dorian",
+      "meter": "4/4",
+      "instrument": {
+        "program": 79,
+        "name": "Whistle"
+      },
+      "riff": "a breath-spaced rising sixth answered by a three-note descending turn",
+      "form": "0-4 distant hats; 4-11 sparse theme; 11-19 left ostinato plus displaced answer; 19-24 brushed half-time break; 24-30 ornamented reprise; 30-32 falling cadence",
+      "density": "0.6 to 2.2 notes/beat; mostly monophonic, brief two-note echoes",
+      "percussion": "soft closed hats, rim clicks, and one low kick; restrained half-time break",
+      "visual": {
+        "palette": [
+          "#07111f",
+          "#17375e",
+          "#7ba6c9",
+          "#d8ecff"
+        ],
+        "spotlight": "cool lunar pools with dim blue global bounce",
+        "motion": "long eased slides, shallow breathing bounce, one soft lateral tremor",
+        "reveal": "performance marks begin offstage; board eases fully into view after the opening phrase",
+        "transitions": "motion-led section changes with percussion transformation; board fully clears below frame before the final beat",
+        "particles": "tone notes and drum-specific glyphs remain fully opaque, never clear at transitions, fall under gravity, and are removed only below frame"
+      }
+    },
+    {
+      "id": "glass-orchard",
+      "name": "Glass Orchard",
+      "startsOnScreen": true,
+      "melodyOnly": true,
+      "seed": 183047,
+      "durationSec": 32,
+      "bpm": 96,
+      "key": "E",
+      "mode": "Lydian",
+      "meter": "6/8",
+      "instrument": {
+        "program": 1,
+        "name": "Acoustic Grand Piano"
+      },
+      "riff": "bright 1-2-sharp4 arpeggio blooming into contrary-motion thirds",
+      "form": "0-3 isolated shaker seeds; 3-10 celesta germ; 10-17 two-voice canopy; 17-23 rolling tom 6/8; 23-29 inverted bloom; 29-32 high suspended release",
+      "density": "1.0 to 3.0 notes/beat; crystalline two-voice counterpoint",
+      "percussion": "seed-shaker triplets, muted tom arcs, occasional triangle",
+      "visual": {
+        "palette": [
+          "#081617",
+          "#164a43",
+          "#74d6ba",
+          "#e8fff1"
+        ],
+        "spotlight": "small mint prisms that overlap into pale glass",
+        "motion": "buoyant vertical springs and slow orchard-like sway",
+        "reveal": "performance marks begin offstage; board eases fully into view after the opening phrase",
+        "transitions": "motion-led section changes with percussion transformation; board fully clears below frame before the final beat",
+        "particles": "tone notes and drum-specific glyphs remain fully opaque, never clear at transitions, fall under gravity, and are removed only below frame"
+      }
+    },
+    {
+      "id": "blue-raga",
+      "name": "Blue Raga",
+      "seed": 662914,
+      "durationSec": 32,
+      "bpm": 84,
+      "key": "D",
+      "mode": "Mixolydian",
+      "meter": "4/4",
+      "instrument": {
+        "program": 105,
+        "name": "Sitar"
+      },
+      "riff": "drone-centered bends implied by rapid 2-flat3-2 turns and a long flat7 descent",
+      "form": "0-5 hand-drum pulse; 5-12 alap-like single line; 12-20 drone ostinato with ornaments; 20-25 tabla-style tihai break; 25-30 accelerated return; 30-32 open fifth",
+      "density": "0.4 to 3.5 notes/beat; ornamental bursts around sustained centers",
+      "percussion": "dry tabla illusion using high/low toms, rim, and hand clap; three-cycle cadences",
+      "visual": {
+        "palette": [
+          "#06152c",
+          "#0e4d78",
+          "#28a8b8",
+          "#f3b85c"
+        ],
+        "spotlight": "deep cyan field with narrow saffron note flares",
+        "motion": "slow pitch-like tilts interrupted by three quick nods",
+        "reveal": "performance marks begin offstage; board eases fully into view after the opening phrase",
+        "transitions": "motion-led section changes with percussion transformation; board fully clears below frame before the final beat",
+        "particles": "tone notes and drum-specific glyphs remain fully opaque, never clear at transitions, fall under gravity, and are removed only below frame"
+      }
+    },
+    {
+      "id": "copper-steps",
+      "name": "Copper Steps",
+      "seed": 417205,
+      "durationSec": 32,
+      "bpm": 118,
+      "key": "A",
+      "mode": "Aeolian",
+      "meter": "7/8 (2+2+3)",
+      "instrument": {
+        "program": 13,
+        "name": "Marimba"
+      },
+      "riff": "descending fourths locked to a 2+2+3 bass staircase",
+      "form": "0-3 wood clicks; 3-9 staircase stated; 9-16 octave interlock; 16-22 asymmetric kick-and-tom break; 22-29 staircase displaced by one eighth; 29-32 unison descent",
+      "density": "1.5 to 3.5 notes/beat; tight two-hand interlock",
+      "percussion": "woody rim, low tom, compact kick; accents expose 2+2+3",
+      "visual": {
+        "palette": [
+          "#1c0f0b",
+          "#71341f",
+          "#c56a33",
+          "#ffd094"
+        ],
+        "spotlight": "warm copper pools with low amber floor bounce",
+        "motion": "precise stepped drops and ratcheted micro-bounces",
+        "reveal": "performance marks begin offstage; board eases fully into view after the opening phrase",
+        "transitions": "motion-led section changes with percussion transformation; board fully clears below frame before the final beat",
+        "particles": "tone notes and drum-specific glyphs remain fully opaque, never clear at transitions, fall under gravity, and are removed only below frame"
+      }
+    },
+    {
+      "id": "velvet-current",
+      "name": "Velvet Current",
+      "seed": 751392,
+      "durationSec": 32,
+      "bpm": 86,
+      "key": "E-flat",
+      "mode": "Major",
+      "meter": "4/4",
+      "instrument": {
+        "program": 5,
+        "name": "Electric Piano 1"
+      },
+      "riff": "syncopated ninth-chord shells under a lazy pentatonic upper answer",
+      "form": "0-4 brushed hat pocket; 4-11 chord-shell hook; 11-19 bass-tone and answer dialogue; 19-24 swung neo-soul break; 24-30 reharmonized hook; 30-32 soft major-sixth seal",
+      "density": "1.0 to 2.8 notes/beat; two- and three-note voicings",
+      "percussion": "behind-the-beat kick, brushed snare, loose hats, one ghost clap",
+      "visual": {
+        "palette": [
+          "#180b22",
+          "#542756",
+          "#a95f92",
+          "#ffd0df"
+        ],
+        "spotlight": "wide wine-magenta velvet wash with pearly key halos",
+        "motion": "viscous side-to-side drift and delayed elastic rebounds",
+        "reveal": "performance marks begin offstage; board eases fully into view after the opening phrase",
+        "transitions": "motion-led section changes with percussion transformation; board fully clears below frame before the final beat",
+        "particles": "tone notes and drum-specific glyphs remain fully opaque, never clear at transitions, fall under gravity, and are removed only below frame"
+      }
+    },
+    {
+      "id": "paper-lantern",
+      "name": "Paper Lantern",
+      "startsOnScreen": true,
+      "melodyOnly": true,
+      "seed": 290684,
+      "durationSec": 32,
+      "bpm": 92,
+      "key": "A",
+      "mode": "Major pentatonic",
+      "meter": "5/4 (3+2)",
+      "instrument": {
+        "program": 1,
+        "name": "Acoustic Grand Piano"
+      },
+      "riff": "five-tone plucks arranged as a 3+2 question and a 2+3 answer",
+      "form": "0-4 tiny bell taps; 4-11 pentatonic question; 11-18 overlapping 3+2 canons; 18-24 taiko-like break; 24-30 answer expanded upward; 30-32 solitary tonic",
+      "density": "0.8 to 2.4 notes/beat; separated plucks and two-note canons",
+      "percussion": "deep floor tom, woodblock, sparse bell; broad 3+2 gestures",
+      "visual": {
+        "palette": [
+          "#20120c",
+          "#8d3b27",
+          "#ed8a45",
+          "#fff0b8"
+        ],
+        "spotlight": "floating orange lantern circles with warm paper diffusion",
+        "motion": "gentle pendulum arcs and momentary upward catches",
+        "reveal": "performance marks begin offstage; board eases fully into view after the opening phrase",
+        "transitions": "motion-led section changes with percussion transformation; board fully clears below frame before the final beat",
+        "particles": "tone notes and drum-specific glyphs remain fully opaque, never clear at transitions, fall under gravity, and are removed only below frame"
+      }
+    },
+    {
+      "id": "night-ferry",
+      "name": "Night Ferry",
+      "seed": 846103,
+      "durationSec": 32,
+      "bpm": 110,
+      "key": "C",
+      "mode": "Harmonic minor",
+      "meter": "3/4",
+      "instrument": {
+        "program": 22,
+        "name": "Accordion"
+      },
+      "riff": "minor waltz sigh with raised-seventh pickup and chromatic inner voice",
+      "form": "0-3 dock-chain ticks; 3-10 waltz theme; 10-17 bass-chord ferry pulse; 17-23 snare-and-floor-tom storm; 23-29 theme in close canon; 29-32 slowing minor cadence",
+      "density": "1.3 to 3.0 notes/beat; melody over alternating bass/chords",
+      "percussion": "brush swirls, chain-like rim, floor tom; storm peaks then vanishes",
+      "visual": {
+        "palette": [
+          "#070d16",
+          "#1c3550",
+          "#5d829b",
+          "#f0d8b0"
+        ],
+        "spotlight": "cold harbor blue crossed by narrow tungsten glints",
+        "motion": "boatlike roll, slow heave, brief storm shake",
+        "reveal": "performance marks begin offstage; board eases fully into view after the opening phrase",
+        "transitions": "motion-led section changes with percussion transformation; board fully clears below frame before the final beat",
+        "particles": "tone notes and drum-specific glyphs remain fully opaque, never clear at transitions, fall under gravity, and are removed only below frame"
+      }
+    },
+    {
+      "id": "rain-code",
+      "name": "Rain Code",
+      "seed": 535718,
+      "durationSec": 32,
+      "bpm": 132,
+      "key": "F-sharp",
+      "mode": "Dorian",
+      "meter": "4/4",
+      "instrument": {
+        "program": 12,
+        "name": "Vibraphone"
+      },
+      "riff": "four-note cell repeated at changing offsets against a two-note pedal",
+      "form": "0-3 granular hats; 3-9 coded cell; 9-16 offset repetitions; 16-23 broken-beat rain break; 23-29 cell augmentation over pedal; 29-32 unresolved ninth",
+      "density": "1.8 to 4.0 notes/beat; phased cells with restrained dyads",
+      "percussion": "skipping kick, clipped snare, 16th hats with deliberate holes",
+      "visual": {
+        "palette": [
+          "#07131c",
+          "#174a63",
+          "#4ea2b8",
+          "#c8f5ef"
+        ],
+        "spotlight": "thin aqua shafts and wet cyan global reflection",
+        "motion": "downward rain impulses, offset ripples, no hard rotation",
+        "reveal": "performance marks begin offstage; board eases fully into view after the opening phrase",
+        "transitions": "motion-led section changes with percussion transformation; board fully clears below frame before the final beat",
+        "particles": "tone notes and drum-specific glyphs remain fully opaque, never clear at transitions, fall under gravity, and are removed only below frame"
+      }
+    },
+    {
+      "id": "sunken-chapel",
+      "name": "Sunken Chapel",
+      "seed": 120977,
+      "durationSec": 32,
+      "bpm": 60,
+      "key": "G",
+      "mode": "Phrygian",
+      "meter": "6/4",
+      "instrument": {
+        "program": 20,
+        "name": "Church Organ"
+      },
+      "riff": "solemn half-step invocation over open-fifth pedal tones",
+      "form": "0-5 distant low bell; 5-12 invocation; 12-19 parallel organum; 19-25 monumental tom procession; 25-30 invocation in upper register; 30-32 bare fifth",
+      "density": "0.3 to 1.5 notes/beat; sustained dyads and parallel fourths",
+      "percussion": "sub kick, concert bass drum, low tom, rare crash; immense negative space",
+      "visual": {
+        "palette": [
+          "#040b10",
+          "#112b32",
+          "#315c5e",
+          "#a4c8bd"
+        ],
+        "spotlight": "submerged teal columns with faint stone-colored bloom",
+        "motion": "near-still descent, heavy slow recoil, single tectonic shake",
+        "reveal": "performance marks begin offstage; board eases fully into view after the opening phrase",
+        "transitions": "motion-led section changes with percussion transformation; board fully clears below frame before the final beat",
+        "particles": "tone notes and drum-specific glyphs remain fully opaque, never clear at transitions, fall under gravity, and are removed only below frame"
+      }
+    },
+    {
+      "id": "comet-trail",
+      "name": "Comet Trail",
+      "startsOnScreen": true,
+      "melodyOnly": true,
+      "seed": 978426,
+      "durationSec": 32,
+      "bpm": 148,
+      "key": "B",
+      "mode": "Aeolian",
+      "meter": "12/8",
+      "instrument": {
+        "program": 1,
+        "name": "Acoustic Grand Piano"
+      },
+      "riff": "fleet arpeggio tail chasing a dotted-quarter melody",
+      "form": "0-3 ticking ride; 3-9 comet motif; 9-16 chase canon; 16-22 rolling DnB-in-12 break; 22-29 motif stretched over triplets; 29-32 upward vapor trail",
+      "density": "2.0 to 4.5 notes/beat; rapid monophonic trails and short canons",
+      "percussion": "triplet ride, rolling snare, two-speed kicks; airborne rather than heavy",
+      "visual": {
+        "palette": [
+          "#080720",
+          "#322175",
+          "#7d57d7",
+          "#d9d4ff"
+        ],
+        "spotlight": "violet comet cores with long indigo illumination",
+        "motion": "fast diagonal sweeps, orbital overshoot, clean deceleration",
+        "reveal": "performance marks begin offstage; board eases fully into view after the opening phrase",
+        "transitions": "motion-led section changes with percussion transformation; board fully clears below frame before the final beat",
+        "particles": "tone notes and drum-specific glyphs remain fully opaque, never clear at transitions, fall under gravity, and are removed only below frame"
+      }
+    },
+    {
+      "id": "quiet-machinery",
+      "name": "Quiet Machinery",
+      "seed": 304615,
+      "durationSec": 32,
+      "bpm": 100,
+      "key": "A",
+      "mode": "Aeolian",
+      "meter": "4/4",
+      "instrument": {
+        "program": 11,
+        "name": "Music Box"
+      },
+      "riff": "two interlocking five-note loops whose shared note shifts phase",
+      "form": "0-4 clock hats; 4-10 loop A; 10-17 loop B enters; 17-23 gear-tooth percussion fugue; 23-30 loops reunite one step apart; 30-32 mechanism winds down",
+      "density": "1.8 to 3.2 notes/beat; even mechanical counterpoint",
+      "percussion": "dry ticks, claves, muted kick, tiny snare; clockwork polyrhythm",
+      "visual": {
+        "palette": [
+          "#111419",
+          "#36414a",
+          "#9ba9ad",
+          "#f5e8ce"
+        ],
+        "spotlight": "small steel pools warmed by ivory contact glow",
+        "motion": "meshed phase rotations, precise clicks, controlled wind-down",
+        "reveal": "performance marks begin offstage; board eases fully into view after the opening phrase",
+        "transitions": "motion-led section changes with percussion transformation; board fully clears below frame before the final beat",
+        "particles": "tone notes and drum-specific glyphs remain fully opaque, never clear at transitions, fall under gravity, and are removed only below frame"
+      }
+    },
+    {
+      "id": "moss-circuit",
+      "name": "Moss Circuit",
+      "seed": 713860,
+      "durationSec": 32,
+      "bpm": 124,
+      "key": "C",
+      "mode": "Lydian",
+      "meter": "5/8 (2+3)",
+      "instrument": {
+        "program": 55,
+        "name": "Synth Voice"
+      },
+      "riff": "soft synthetic syllables hopping 1-sharp4-3 across a 2+3 loop",
+      "form": "0-3 filtered hats; 3-9 circuit seed; 9-16 layered 2+3 rounds; 16-22 glitch-tom break; 22-29 half-speed vocal arc; 29-32 luminous cluster release",
+      "density": "1.2 to 3.8 notes/beat; overlapping short voices",
+      "percussion": "bitten hats, tuned toms, soft electronic clap; asymmetric but buoyant",
+      "visual": {
+        "palette": [
+          "#07150b",
+          "#1c5528",
+          "#62a842",
+          "#c8ff88"
+        ],
+        "spotlight": "acid-green circuitry softened by deep moss ambient light",
+        "motion": "branching lateral twitches inside broad organic sway",
+        "reveal": "performance marks begin offstage; board eases fully into view after the opening phrase",
+        "transitions": "motion-led section changes with percussion transformation; board fully clears below frame before the final beat",
+        "particles": "tone notes and drum-specific glyphs remain fully opaque, never clear at transitions, fall under gravity, and are removed only below frame"
+      }
+    },
+    {
+      "id": "amber-waltz",
+      "name": "Amber Waltz",
+      "seed": 449281,
+      "durationSec": 32,
+      "bpm": 90,
+      "key": "D",
+      "mode": "Major",
+      "meter": "3/4",
+      "instrument": {
+        "program": 25,
+        "name": "Acoustic Guitar (nylon)"
+      },
+      "riff": "descending campanella melody over alternating open-string thirds",
+      "form": "0-4 fingertip taps; 4-11 melody alone; 11-18 bass-third waltz; 18-23 cajon-style break; 23-29 melody reharmonized in sixths; 29-32 natural-harmonic close",
+      "density": "0.9 to 2.6 notes/beat; plucked melody with light dyads",
+      "percussion": "cajon kick, rim slap, brushed hand; intimate three-beat lilt",
+      "visual": {
+        "palette": [
+          "#1c1005",
+          "#6d3a12",
+          "#c77a2b",
+          "#ffe0a0"
+        ],
+        "spotlight": "candle-amber ellipses with honey-colored floor glow",
+        "motion": "small circular waltz, fingertip bounce, gracious bow",
+        "reveal": "performance marks begin offstage; board eases fully into view after the opening phrase",
+        "transitions": "motion-led section changes with percussion transformation; board fully clears below frame before the final beat",
+        "particles": "tone notes and drum-specific glyphs remain fully opaque, never clear at transitions, fall under gravity, and are removed only below frame"
+      }
+    },
+    {
+      "id": "chrome-sparrow",
+      "name": "Chrome Sparrow",
+      "startsOnScreen": true,
+      "melodyOnly": true,
+      "seed": 827544,
+      "durationSec": 32,
+      "bpm": 160,
+      "key": "E",
+      "mode": "Aeolian",
+      "meter": "2/4",
+      "instrument": {
+        "program": 1,
+        "name": "Acoustic Grand Piano"
+      },
+      "riff": "staccato minor-third calls answered by darting sixteenth-note zigzags",
+      "form": "0-3 winglike hats; 3-8 call motif; 8-15 rapid zigzag flights; 15-21 clipped jungle break; 21-28 call-and-flight compression; 28-32 one long descending glide",
+      "density": "1.5 to 5.0 notes/beat; extreme staccato bursts",
+      "percussion": "sharp rim, crisp snare, fast hat chatter, nimble kick syncopation",
+      "visual": {
+        "palette": [
+          "#0a0d12",
+          "#3b4654",
+          "#9db1c9",
+          "#f7fbff"
+        ],
+        "spotlight": "hard silver pinlights with cool chrome reflections",
+        "motion": "quick pecks, short banking angles, one smooth final glide",
+        "reveal": "performance marks begin offstage; board eases fully into view after the opening phrase",
+        "transitions": "motion-led section changes with percussion transformation; board fully clears below frame before the final beat",
+        "particles": "tone notes and drum-specific glyphs remain fully opaque, never clear at transitions, fall under gravity, and are removed only below frame"
+      }
+    },
+    {
+      "id": "salt-lines",
+      "name": "Salt Lines",
+      "seed": 596032,
+      "durationSec": 32,
+      "bpm": 68,
+      "key": "C-sharp",
+      "mode": "Aeolian",
+      "meter": "4/4 with rubato phrasing",
+      "instrument": {
+        "program": 78,
+        "name": "Shakuhachi"
+      },
+      "riff": "breathy minor-second approach tones opening into solitary fourths",
+      "form": "0-5 sparse shell clicks; 5-12 free-breath phrase; 12-19 call across two registers; 19-24 ceremonial drum break; 24-30 varied exhale; 30-32 silence-bound low tonic",
+      "density": "0.2 to 1.3 notes/beat; long rests and isolated grace notes",
+      "percussion": "shell-like rim, deep taiko pair, one sand-shaker sweep",
+      "visual": {
+        "palette": [
+          "#11191b",
+          "#45626a",
+          "#9eb8b4",
+          "#f3f0dd"
+        ],
+        "spotlight": "desaturated sea-glass light with chalk-white note halos",
+        "motion": "wind-bent drift, breath expansion, measured ceremonial jolt",
+        "reveal": "performance marks begin offstage; board eases fully into view after the opening phrase",
+        "transitions": "motion-led section changes with percussion transformation; board fully clears below frame before the final beat",
+        "particles": "tone notes and drum-specific glyphs remain fully opaque, never clear at transitions, fall under gravity, and are removed only below frame"
+      }
+    },
+    {
+      "id": "afterimage",
+      "name": "Afterimage",
+      "seed": 238509,
+      "durationSec": 32,
+      "bpm": 76,
+      "key": "A-flat",
+      "mode": "Major",
+      "meter": "4/4",
+      "instrument": {
+        "program": 49,
+        "name": "String Ensemble 1"
+      },
+      "riff": "slowly resolving suspended chords leaving single-note echoes behind",
+      "form": "0-4 felt mallet pulse; 4-11 suspended field; 11-18 inner-voice ascent; 18-24 cinematic low-drum break; 24-30 inversions resolve by semitone; 30-32 luminous major third",
+      "density": "0.7 to 2.0 notes/beat; sustained triadic fragments",
+      "percussion": "felt kick, distant gran casa, soft cymbal swells; no sharp transients",
+      "visual": {
+        "palette": [
+          "#120b1b",
+          "#44305f",
+          "#9678ba",
+          "#f2deff"
+        ],
+        "spotlight": "lavender residual glows layered into a soft global afterimage",
+        "motion": "slow follow-through, delayed ghost recoil, weightless exit",
+        "reveal": "performance marks begin offstage; board eases fully into view after the opening phrase",
+        "transitions": "motion-led section changes with percussion transformation; board fully clears below frame before the final beat",
+        "particles": "tone notes and drum-specific glyphs remain fully opaque, never clear at transitions, fall under gravity, and are removed only below frame"
+      }
+    },
+    {
+      "id": "switchyard",
+      "name": "Switchyard",
+      "seed": 681753,
+      "durationSec": 32,
+      "bpm": 126,
+      "key": "G",
+      "mode": "Mixolydian",
+      "meter": "4/4 shuffle",
+      "instrument": {
+        "program": 23,
+        "name": "Harmonica"
+      },
+      "riff": "bent blues pickup feeding a rail-like repeated fifth and flat-seventh answer",
+      "form": "0-3 train hats; 3-9 hook; 9-16 call-and-response shuffle; 16-22 rail-yard snare break; 22-29 hook with octave swaps; 29-32 whistle-like tonic fall",
+      "density": "1.2 to 3.0 notes/beat; swung single line and compact dyads",
+      "percussion": "train shuffle, cross-stick, stomping kick, open-hat steam release",
+      "visual": {
+        "palette": [
+          "#17100c",
+          "#5c3821",
+          "#ae6d2e",
+          "#f5d36f"
+        ],
+        "spotlight": "rust and sodium-yellow rails behind each active key",
+        "motion": "forward chug, switch-point snaps, accelerating wheel bounce",
+        "reveal": "performance marks begin offstage; board eases fully into view after the opening phrase",
+        "transitions": "motion-led section changes with percussion transformation; board fully clears below frame before the final beat",
+        "particles": "tone notes and drum-specific glyphs remain fully opaque, never clear at transitions, fall under gravity, and are removed only below frame"
+      }
+    },
+    {
+      "id": "orbital-pizzicato",
+      "name": "Orbital Pizzicato",
+      "startsOnScreen": true,
+      "melodyOnly": true,
+      "seed": 915274,
+      "durationSec": 32,
+      "bpm": 140,
+      "key": "B",
+      "mode": "Dorian",
+      "meter": "7/8 (3+2+2)",
+      "instrument": {
+        "program": 1,
+        "name": "Acoustic Grand Piano"
+      },
+      "riff": "plucked 3+2+2 orbit circling a fixed center pitch at expanding intervals",
+      "form": "0-3 satellite ticks; 3-9 orbit one; 9-16 counter-orbit; 16-22 zero-gravity DnB break; 22-29 intervals contract home; 29-32 center pitch alone",
+      "density": "1.8 to 4.0 notes/beat; two interleaved pluck lanes",
+      "percussion": "weightless kick gaps, rim satellites, quick snare doubles; 3+2+2 accents",
+      "visual": {
+        "palette": [
+          "#050817",
+          "#19275c",
+          "#526ed1",
+          "#d2dcff"
+        ],
+        "spotlight": "cobalt orbital rings and pale periwinkle contact flares",
+        "motion": "elliptical arcs, counter-rotation, magnetic recentering",
+        "reveal": "performance marks begin offstage; board eases fully into view after the opening phrase",
+        "transitions": "motion-led section changes with percussion transformation; board fully clears below frame before the final beat",
+        "particles": "tone notes and drum-specific glyphs remain fully opaque, never clear at transitions, fall under gravity, and are removed only below frame"
+      }
+    },
+    {
+      "id": "low-tide",
+      "name": "Low Tide",
+      "seed": 372861,
+      "durationSec": 32,
+      "bpm": 66,
+      "key": "F",
+      "mode": "Aeolian",
+      "meter": "4/4",
+      "instrument": {
+        "program": 70,
+        "name": "English Horn"
+      },
+      "riff": "low descending fifth followed by a patient minor-sixth return",
+      "form": "0-5 distant pebble clicks; 5-12 low theme; 12-19 undertow pedal and response; 19-25 sparse surf-drum break; 25-30 theme narrowed to thirds; 30-32 receding fifth",
+      "density": "0.3 to 1.4 notes/beat; lyrical single line over rare pedal tones",
+      "percussion": "low brushed drum, soft rim pebbles, slow cymbal wash",
+      "visual": {
+        "palette": [
+          "#061116",
+          "#173846",
+          "#4f7b83",
+          "#bed3ca"
+        ],
+        "spotlight": "low sea-green horizon with subdued foam-colored circles",
+        "motion": "long tidal pull, gentle return, nearly imperceptible roll",
+        "reveal": "performance marks begin offstage; board eases fully into view after the opening phrase",
+        "transitions": "motion-led section changes with percussion transformation; board fully clears below frame before the final beat",
+        "particles": "tone notes and drum-specific glyphs remain fully opaque, never clear at transitions, fall under gravity, and are removed only below frame"
+      }
+    },
+    {
+      "id": "polar-bells",
+      "name": "Polar Bells",
+      "seed": 744196,
+      "durationSec": 32,
+      "bpm": 80,
+      "key": "E-flat",
+      "mode": "Lydian",
+      "meter": "6/8",
+      "instrument": {
+        "program": 15,
+        "name": "Tubular Bells"
+      },
+      "riff": "widely spaced bell fifths pierced by a raised-fourth three-note signal",
+      "form": "0-4 ice ticks; 4-11 bell signal; 11-18 overlapping long fifths; 18-24 glacial tom break; 24-30 signal in mirrored contour; 30-32 one decaying strike",
+      "density": "0.4 to 1.6 notes/beat; broad spacing and controlled overlap",
+      "percussion": "ice-block clicks, low tom creaks, sparse suspended cymbal",
+      "visual": {
+        "palette": [
+          "#06101d",
+          "#244a6b",
+          "#82b6d8",
+          "#edfbff"
+        ],
+        "spotlight": "icy blue columns with sharp white strike bloom",
+        "motion": "slow pendulum swings, glacial torque, crisp impact recoil",
+        "reveal": "performance marks begin offstage; board eases fully into view after the opening phrase",
+        "transitions": "motion-led section changes with percussion transformation; board fully clears below frame before the final beat",
+        "particles": "tone notes and drum-specific glyphs remain fully opaque, never clear at transitions, fall under gravity, and are removed only below frame"
+      }
+    },
+    {
+      "id": "neon-canopy",
+      "name": "Neon Canopy",
+      "seed": 109638,
+      "durationSec": 32,
+      "bpm": 112,
+      "key": "C-sharp",
+      "mode": "Dorian",
+      "meter": "4/4",
+      "instrument": {
+        "program": 81,
+        "name": "Lead 1 (square)"
+      },
+      "riff": "syncopated square-wave fifths under a curling minor-third lead",
+      "form": "0-3 electronic hats; 3-9 bass hook; 9-16 canopy melody; 16-22 electro break with left-right hocket; 22-29 hook and melody exchange roles; 29-32 filtered unison fall",
+      "density": "1.5 to 3.8 notes/beat; hocketed two-lane synth writing",
+      "percussion": "tight electronic kick, clap, 16th hats, tom laser accents",
+      "visual": {
+        "palette": [
+          "#090617",
+          "#4b176b",
+          "#d12f9c",
+          "#66ffe0"
+        ],
+        "spotlight": "magenta canopy crossed by cyan key beams",
+        "motion": "elastic neon bends, lateral hockets, clean recoil snaps",
+        "reveal": "performance marks begin offstage; board eases fully into view after the opening phrase",
+        "transitions": "motion-led section changes with percussion transformation; board fully clears below frame before the final beat",
+        "particles": "tone notes and drum-specific glyphs remain fully opaque, never clear at transitions, fall under gravity, and are removed only below frame"
+      }
+    },
+    {
+      "id": "cedar-spiral",
+      "name": "Cedar Spiral",
+      "startsOnScreen": true,
+      "melodyOnly": true,
+      "seed": 463720,
+      "durationSec": 32,
+      "bpm": 104,
+      "key": "G",
+      "mode": "Major",
+      "meter": "9/8 (2+2+2+3)",
+      "instrument": {
+        "program": 1,
+        "name": "Acoustic Grand Piano"
+      },
+      "riff": "hammered triad fragments spiraling upward through 2+2+2+3",
+      "form": "0-3 woodblock taps; 3-10 spiral seed; 10-17 braided upper/lower spirals; 17-23 frame-drum break; 23-29 spiral reverses downward; 29-32 open-string cadence",
+      "density": "1.6 to 3.6 notes/beat; ringing repeated tones and parallel fragments",
+      "percussion": "frame drum, woodblock, ankle-bell triplets; grounded folk pulse",
+      "visual": {
+        "palette": [
+          "#171109",
+          "#4f3a1c",
+          "#9b7438",
+          "#dbe49b"
+        ],
+        "spotlight": "cedar brown pools edged with leaf-green glints",
+        "motion": "continuous corkscrew sway with hand-hammer micro-bounce",
+        "reveal": "performance marks begin offstage; board eases fully into view after the opening phrase",
+        "transitions": "motion-led section changes with percussion transformation; board fully clears below frame before the final beat",
+        "particles": "tone notes and drum-specific glyphs remain fully opaque, never clear at transitions, fall under gravity, and are removed only below frame"
+      }
+    },
+    {
+      "id": "smoke-signal",
+      "name": "Smoke Signal",
+      "seed": 850341,
+      "durationSec": 32,
+      "bpm": 88,
+      "key": "B-flat",
+      "mode": "Aeolian",
+      "meter": "5/4 (2+3)",
+      "instrument": {
+        "program": 76,
+        "name": "Pan Flute"
+      },
+      "riff": "two-note calls separated by air, answered by a rising three-note plume",
+      "form": "0-4 heartbeat drum; 4-11 call; 11-18 layered plume responses; 18-24 signal-drum break; 24-30 calls overlap at the octave; 30-32 breathy descent",
+      "density": "0.5 to 2.0 notes/beat; antiphonal single lines",
+      "percussion": "heartbeat kick, hand drum, dry clap; coded 2+3 signal phrases",
+      "visual": {
+        "palette": [
+          "#160d0b",
+          "#5f2925",
+          "#a85145",
+          "#d7bbb0"
+        ],
+        "spotlight": "muted ember circles diffusing into charcoal-red haze",
+        "motion": "vertical smoke curls, suspended pauses, drum-led shudders",
+        "reveal": "performance marks begin offstage; board eases fully into view after the opening phrase",
+        "transitions": "motion-led section changes with percussion transformation; board fully clears below frame before the final beat",
+        "particles": "tone notes and drum-specific glyphs remain fully opaque, never clear at transitions, fall under gravity, and are removed only below frame"
+      }
+    },
+    {
+      "id": "mercury-reed",
+      "name": "Mercury Reed",
+      "seed": 627495,
+      "durationSec": 32,
+      "bpm": 116,
+      "key": "F",
+      "mode": "Dorian",
+      "meter": "4/4",
+      "instrument": {
+        "program": 65,
+        "name": "Soprano Sax"
+      },
+      "riff": "fluid chromatic enclosure of the minor third over a clipped two-note bass answer",
+      "form": "0-3 brushed ride; 3-9 reed hook; 9-16 chromatic answer chain; 16-22 liquid funk break; 22-29 hook stretched across bar lines; 29-32 upward ninth release",
+      "density": "1.1 to 3.4 notes/beat; legato runs against short replies",
+      "percussion": "ghosted snare, compact kick, loose ride bell; fluid funk pocket",
+      "visual": {
+        "palette": [
+          "#101216",
+          "#424b56",
+          "#8da2a8",
+          "#e3f4ee"
+        ],
+        "spotlight": "mercurial silver puddles with faint seafoam reflections",
+        "motion": "liquid lateral flow, slippery overshoot, soft snapback",
+        "reveal": "performance marks begin offstage; board eases fully into view after the opening phrase",
+        "transitions": "motion-led section changes with percussion transformation; board fully clears below frame before the final beat",
+        "particles": "tone notes and drum-specific glyphs remain fully opaque, never clear at transitions, fall under gravity, and are removed only below frame"
+      }
+    },
+    {
+      "id": "threaded-air",
+      "name": "Threaded Air",
+      "seed": 215806,
+      "durationSec": 32,
+      "bpm": 136,
+      "key": "A",
+      "mode": "Major",
+      "meter": "6/8",
+      "instrument": {
+        "program": 75,
+        "name": "Recorder"
+      },
+      "riff": "two braided scalar strands crossing on every second dotted beat",
+      "form": "0-3 soft tambourine; 3-9 strand one; 9-16 braided duet; 16-22 skipping folk break; 22-29 strands swap contour; 29-32 shared high-to-low cadence",
+      "density": "1.8 to 4.2 notes/beat; agile two-line imitation",
+      "percussion": "tambourine, small kick, bright snare, hand claps on crossed accents",
+      "visual": {
+        "palette": [
+          "#0c1720",
+          "#22516d",
+          "#5ab0bd",
+          "#f1e4b6"
+        ],
+        "spotlight": "air-blue ribbons with pale gold crossing points",
+        "motion": "braided figure-eights, light hops, seamless strand exchanges",
+        "reveal": "performance marks begin offstage; board eases fully into view after the opening phrase",
+        "transitions": "motion-led section changes with percussion transformation; board fully clears below frame before the final beat",
+        "particles": "tone notes and drum-specific glyphs remain fully opaque, never clear at transitions, fall under gravity, and are removed only below frame"
+      }
+    },
+    {
+      "id": "dark-bloom",
+      "name": "Dark Bloom",
+      "startsOnScreen": true,
+      "melodyOnly": true,
+      "seed": 793154,
+      "durationSec": 32,
+      "bpm": 70,
+      "key": "E",
+      "mode": "Phrygian",
+      "meter": "3/2",
+      "instrument": {
+        "program": 1,
+        "name": "Acoustic Grand Piano"
+      },
+      "riff": "low half-step seed widening one interval per phrase into a dark blossom",
+      "form": "0-5 bass-drum breath; 5-12 seed; 12-19 interval bloom; 19-25 ritual triple-half-note break; 25-30 bloom contracts; 30-32 low semitone closes",
+      "density": "0.3 to 1.8 notes/beat; sustained low melody and stark dyads",
+      "percussion": "concert bass drum, low tom, gong-like crash; ritual three-pulse spans",
+      "visual": {
+        "palette": [
+          "#100610",
+          "#38133b",
+          "#762d69",
+          "#c887b8"
+        ],
+        "spotlight": "black-violet petals opening under restrained plum illumination",
+        "motion": "slow expansion, deep weighted bows, petal-like contraction",
+        "reveal": "performance marks begin offstage; board eases fully into view after the opening phrase",
+        "transitions": "motion-led section changes with percussion transformation; board fully clears below frame before the final beat",
+        "particles": "tone notes and drum-specific glyphs remain fully opaque, never clear at transitions, fall under gravity, and are removed only below frame"
+      }
+    },
+    {
+      "id": "static-garden",
+      "name": "Static Garden",
+      "seed": 348927,
+      "durationSec": 32,
+      "bpm": 122,
+      "key": "D",
+      "mode": "Aeolian",
+      "meter": "4/4",
+      "instrument": {
+        "program": 27,
+        "name": "Electric Guitar (jazz)"
+      },
+      "riff": "muted minor-seventh chord jabs surrounding a thorny chromatic single-note line",
+      "form": "0-3 vinyl-like hats; 3-9 chord jab hook; 9-16 thorn melody; 16-22 angular post-punk break; 22-29 hook fractures into counterpoint; 29-32 clean minor-sixth tail",
+      "density": "1.3 to 3.5 notes/beat; clipped dyads and chromatic line",
+      "percussion": "dry kick, gated snare, rigid hats, offbeat floor tom",
+      "visual": {
+        "palette": [
+          "#09120c",
+          "#27432d",
+          "#65894e",
+          "#d0db88"
+        ],
+        "spotlight": "olive static fields punctured by pale thorn flashes",
+        "motion": "angular nods, restrained electrical jitter, sudden stillness",
+        "reveal": "performance marks begin offstage; board eases fully into view after the opening phrase",
+        "transitions": "motion-led section changes with percussion transformation; board fully clears below frame before the final beat",
+        "particles": "tone notes and drum-specific glyphs remain fully opaque, never clear at transitions, fall under gravity, and are removed only below frame"
+      }
+    },
+    {
+      "id": "tin-constellation",
+      "name": "Tin Constellation",
+      "seed": 571408,
+      "durationSec": 32,
+      "bpm": 156,
+      "key": "C",
+      "mode": "Major",
+      "meter": "7/8 (2+2+3)",
+      "instrument": {
+        "program": 10,
+        "name": "Glockenspiel"
+      },
+      "riff": "tiny triad stars connected by a descending 2+2+3 scalar line",
+      "form": "0-3 triangle sparks; 3-8 star cluster; 8-15 constellation chain; 15-21 metallic DnB break; 21-28 chain rotates through inversions; 28-32 sparse twinkling close",
+      "density": "1.7 to 4.6 notes/beat; rapid pointillist clusters",
+      "percussion": "triangle, metallic rim, brisk snare, kick in asymmetric gaps",
+      "visual": {
+        "palette": [
+          "#060914",
+          "#242d55",
+          "#7888bd",
+          "#fff4d1"
+        ],
+        "spotlight": "navy sky with compact tin-white starbursts",
+        "motion": "constellation-to-constellation snaps with tiny rotational twinkle",
+        "reveal": "performance marks begin offstage; board eases fully into view after the opening phrase",
+        "transitions": "motion-led section changes with percussion transformation; board fully clears below frame before the final beat",
+        "particles": "tone notes and drum-specific glyphs remain fully opaque, never clear at transitions, fall under gravity, and are removed only below frame"
+      }
+    },
+    {
+      "id": "hollow-sun",
+      "name": "Hollow Sun",
+      "seed": 936215,
+      "durationSec": 32,
+      "bpm": 74,
+      "key": "F-sharp",
+      "mode": "Mixolydian",
+      "meter": "4/4",
+      "instrument": {
+        "program": 77,
+        "name": "Blown Bottle"
+      },
+      "riff": "hollow tonic-fifth calls colored by a drifting flat seventh",
+      "form": "0-5 bottle taps; 5-12 hollow call; 12-19 open-fifth drone dialogue; 19-25 cavernous hand-drum break; 25-30 call in descending sequence; 30-32 empty tonic breath",
+      "density": "0.3 to 1.5 notes/beat; hollow monophony and open intervals",
+      "percussion": "glass taps, hand drum, low kick, soft shaker; cavernous spacing",
+      "visual": {
+        "palette": [
+          "#181207",
+          "#604811",
+          "#b78a29",
+          "#f4d775"
+        ],
+        "spotlight": "dim ochre halo with a deliberately dark center",
+        "motion": "slow solar orbit, hollow inward pulse, gradual settling",
+        "reveal": "performance marks begin offstage; board eases fully into view after the opening phrase",
+        "transitions": "motion-led section changes with percussion transformation; board fully clears below frame before the final beat",
+        "particles": "tone notes and drum-specific glyphs remain fully opaque, never clear at transitions, fall under gravity, and are removed only below frame"
+      }
+    },
+    {
+      "id": "red-meridian",
+      "name": "Red Meridian",
+      "startsOnScreen": true,
+      "melodyOnly": true,
+      "seed": 405769,
+      "durationSec": 32,
+      "bpm": 108,
+      "key": "A",
+      "mode": "Harmonic minor",
+      "meter": "4/4",
+      "instrument": {
+        "program": 1,
+        "name": "Acoustic Grand Piano"
+      },
+      "riff": "bold raised-seventh fanfare cut by syncopated minor-third replies",
+      "form": "0-3 military rim ghost; 3-9 fanfare; 9-16 answer sequence; 16-22 breakbeat march; 22-29 fanfare reharmonized over pedal; 29-32 muted downward salute",
+      "density": "0.9 to 3.0 notes/beat; declarative calls and short runs",
+      "percussion": "march snare fractured by breakbeat kick, low tom punctuation, short crash",
+      "visual": {
+        "palette": [
+          "#190708",
+          "#6c171e",
+          "#c43a3c",
+          "#ffb36b"
+        ],
+        "spotlight": "crimson meridian line with hot coral brass blooms",
+        "motion": "upright salutes, diagonal thrusts, disciplined recoil",
+        "reveal": "performance marks begin offstage; board eases fully into view after the opening phrase",
+        "transitions": "motion-led section changes with percussion transformation; board fully clears below frame before the final beat",
+        "particles": "tone notes and drum-specific glyphs remain fully opaque, never clear at transitions, fall under gravity, and are removed only below frame"
+      }
+    },
+    {
+      "id": "snow-engine",
+      "name": "Snow Engine",
+      "seed": 864520,
+      "durationSec": 32,
+      "bpm": 128,
+      "key": "E-flat",
+      "mode": "Aeolian",
+      "meter": "8/8 (3+3+2)",
+      "instrument": {
+        "program": 52,
+        "name": "Synth Strings 1"
+      },
+      "riff": "cold three-note pulses in 3+3+2 under a slowly descending sustained line",
+      "form": "0-3 frosted hats; 3-9 pulse engine; 9-16 sustained line enters; 16-22 icy DnB break; 22-29 pulse thins while line ascends; 29-32 engine coasts to a fifth",
+      "density": "1.4 to 3.8 notes/beat; pulsed lower lane plus legato upper lane",
+      "percussion": "crystalline hats, deep kick, brittle snare, double-time left lane",
+      "visual": {
+        "palette": [
+          "#071018",
+          "#243b52",
+          "#7194ad",
+          "#e9f7ff"
+        ],
+        "spotlight": "frost-blue engine glow and diffuse white global illumination",
+        "motion": "steady 3+3+2 piston travel, smooth belt drift, gradual coast",
+        "reveal": "performance marks begin offstage; board eases fully into view after the opening phrase",
+        "transitions": "motion-led section changes with percussion transformation; board fully clears below frame before the final beat",
+        "particles": "tone notes and drum-specific glyphs remain fully opaque, never clear at transitions, fall under gravity, and are removed only below frame"
+      }
+    },
+    {
+      "id": "last-light",
+      "name": "Last Light",
+      "seed": 157943,
+      "durationSec": 32,
+      "bpm": 82,
+      "key": "B",
+      "mode": "Major",
+      "meter": "5/4 (3+2)",
+      "instrument": {
+        "program": 47,
+        "name": "Orchestral Harp"
+      },
+      "riff": "descending five-note glissando fragments answered by ascending two-note harmonics",
+      "form": "0-4 soft finger taps; 4-11 glissando fragment; 11-18 interleaved 3+2 arpeggios; 18-24 low ceremonial pulse; 24-30 fragments lengthen into a final arc; 30-32 two solitary harmonics",
+      "density": "0.7 to 3.2 notes/beat; sweeping monophonic fragments with light dyads",
+      "percussion": "felt mallet, low frame drum, sparse finger cymbal; luminous restraint",
+      "visual": {
+        "palette": [
+          "#130c1c",
+          "#55365f",
+          "#b36e82",
+          "#ffd29a"
+        ],
+        "spotlight": "dusky violet field warming to a narrow peach horizon",
+        "motion": "harp-like downward sweeps, gentle upward plucks, complete quiet exit",
+        "reveal": "performance marks begin offstage; board eases fully into view after the opening phrase",
+        "transitions": "motion-led section changes with percussion transformation; board fully clears below frame before the final beat",
+        "particles": "tone notes and drum-specific glyphs remain fully opaque, never clear at transitions, fall under gravity, and are removed only below frame"
+      }
+    }
+  ]
+}

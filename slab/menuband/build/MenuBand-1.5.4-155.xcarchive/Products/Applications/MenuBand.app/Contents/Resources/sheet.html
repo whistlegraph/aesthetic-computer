@@ -1,0 +1,910 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Score</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: transparent;
+      color: #1a1410;
+      font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+      overflow: hidden;
+    }
+    body {
+      /* Inset the page so the 2px hard drop shadow has room to
+         render — body { overflow: hidden } would otherwise clip
+         the bottom-right edge. */
+      padding: 2px 4px 4px 2px;
+      box-sizing: border-box;
+    }
+    #page {
+      background: #f8efd9;
+      /* Sharp Riso-misregister drop shadow. The surface BEHIND the
+         shadow is painted by SheetMusicView's host layer (a dark
+         neutral tray, NOT the popover's voice-tinted glass) so the
+         shadow always lands on a contrasting color regardless of
+         which instrument family the popover is tinted to. */
+      box-shadow: 2px 2px 0 0 rgba(40, 28, 14, 0.55),
+                  0 1px 0 rgba(120, 95, 60, 0.18) inset,
+                  0 0 0 0.5px rgba(120, 95, 60, 0.35);
+      border-radius: 3px;
+      box-sizing: border-box;
+      overflow: hidden;
+      position: relative;
+    }
+    #page::before {
+      /* Subtle paper grain — SVG noise, no external assets. */
+      content: '';
+      position: absolute; inset: 0;
+      pointer-events: none;
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.55  0 0 0 0 0.45  0 0 0 0 0.30  0 0 0 0.06 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+      mix-blend-mode: multiply;
+      opacity: 0.7;
+    }
+    /* `.exporting` lives permanently on <body> in the OFFSCREEN
+       export pane (set by Swift right after the page finishes
+       loading via setUpExportWebView). The visible pane never sets
+       this class, so no flicker. The export pane uses these rules
+       to render a clean white-paper PDF: no noise filter, no drop
+       shadow, no rounded corners, no body padding (so the SVG sits
+       flush against the page edge). Light/dark mode in the visible
+       pane is independent — the export pane is always white. */
+    body.exporting {
+      padding: 0;
+    }
+    body.exporting #page {
+      background: #ffffff;
+      box-shadow: none;
+      border-radius: 0;
+    }
+    body.exporting #page::before { display: none; }
+    body.exporting #status { display: none; }
+    #score {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      /* Isolate paint + layout so each rerender doesn't bubble up
+         and repaint #page's noise filter / inset box-shadow on
+         every keypress — that's the flicker source. */
+      contain: layout paint style;
+      transform: translateZ(0);
+      will-change: contents;
+      backface-visibility: hidden;
+    }
+    #score svg {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+    /* `#status` perf readout removed at jas's request — the live
+       "X notes · Yms" timing badge was useful during the verovio
+       rendering work and is now noise. The element stays in the
+       DOM (the rerender function still writes to it for ad-hoc
+       debugging) but is hidden in production. */
+    #status {
+      display: none;
+    }
+    /* PDF drag-back-in playback highlight. `.playback-on` is toggled
+       on a `g.note` (and its descendants) by Sheet.playbackOn / Off
+       in step with the synth — gives the user visual sync between
+       the audio replay and the staff. */
+    #score svg g.note.playback-on,
+    #score svg g.note.playback-on * {
+      fill: #d33a2c !important;
+      stroke: #d33a2c;
+    }
+    /* Dark-mode staff. WKWebView follows the OS appearance via
+       prefers-color-scheme automatically, so the staff inverts the
+       moment the system flips dark — no Swift-side toggle needed.
+       Verovio paints everything in pure black by default; we
+       repaint its glyphs in the same cream the light-mode page
+       used as a background so the staff reads as "dark sheet
+       music" instead of jet black notes drowning in a dark page.
+       Export path (body.exporting) keeps the light white-paper
+       look so printed / drag-out PDFs stay legible. */
+    @media (prefers-color-scheme: dark) {
+      html, body {
+        color: #f4ead0;
+      }
+      #page {
+        /* Cocoa-dark paper — same warm hue family as the cream
+           light mode, just shifted into the shadows so the
+           palette feels intentional rather than inverted. */
+        background: #1c1610;
+        /* Sharp drop shadow uses a darker shade than the page
+           (almost pure black) so the page still reads as floating
+           over the popover backdrop. */
+        box-shadow: 2px 2px 0 0 rgba(0, 0, 0, 0.7),
+                    0 1px 0 rgba(255, 235, 200, 0.08) inset,
+                    0 0 0 0.5px rgba(255, 235, 200, 0.18);
+      }
+      #page::before {
+        /* Switch the multiply paper-noise to screen so the same
+           SVG grain reads as lit dust over the dark paper instead
+           of compounding into pure black. */
+        background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.95  0 0 0 0 0.88  0 0 0 0 0.72  0 0 0 0.08 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+        mix-blend-mode: screen;
+        opacity: 0.55;
+      }
+      /* Repaint every Verovio glyph in cream. Verovio emits
+         monochrome black SVG (fill="#000" or no fill / currentColor
+         on text), so blanket-setting fill + stroke on g.note,
+         g.rest, g.staff, g.layer covers the engraving without
+         touching our .playback-on highlight (which sets fill
+         !important and beats this rule). */
+      #score svg g.note, #score svg g.note *,
+      #score svg g.rest, #score svg g.rest *,
+      #score svg g.staff, #score svg g.staff *,
+      #score svg g.layer, #score svg g.layer *,
+      #score svg g.measure path,
+      #score svg g.barLine, #score svg g.barLine *,
+      #score svg g.clef, #score svg g.clef *,
+      #score svg g.keySig, #score svg g.keySig *,
+      #score svg g.meterSig, #score svg g.meterSig *,
+      #score svg g.beam, #score svg g.beam *,
+      #score svg g.stem, #score svg g.stem *,
+      #score svg g.flag, #score svg g.flag *,
+      #score svg g.accid, #score svg g.accid *,
+      #score svg g.tuplet, #score svg g.tuplet *,
+      #score svg text {
+        fill: #f4ead0;
+        stroke: #f4ead0;
+      }
+      #status {
+        color: rgba(244, 234, 208, 0.5);
+      }
+      /* Export pass overrides the cream glyph repaint so drag-out
+         PDFs always render as black-on-white. The .exporting body
+         class is toggled by Swift right before createPDF; CSS
+         specificity (body.exporting prefix) beats the dark glyph
+         rules above. */
+      body.exporting #page {
+        background: #ffffff;
+        box-shadow: none;
+      }
+      body.exporting #score svg g.note,
+      body.exporting #score svg g.note *,
+      body.exporting #score svg g.rest,
+      body.exporting #score svg g.rest *,
+      body.exporting #score svg g.staff,
+      body.exporting #score svg g.staff *,
+      body.exporting #score svg g.layer,
+      body.exporting #score svg g.layer *,
+      body.exporting #score svg g.barLine,
+      body.exporting #score svg g.barLine *,
+      body.exporting #score svg g.clef,
+      body.exporting #score svg g.clef *,
+      body.exporting #score svg g.keySig,
+      body.exporting #score svg g.keySig *,
+      body.exporting #score svg g.meterSig,
+      body.exporting #score svg g.meterSig *,
+      body.exporting #score svg g.beam,
+      body.exporting #score svg g.beam *,
+      body.exporting #score svg g.stem,
+      body.exporting #score svg g.stem *,
+      body.exporting #score svg g.flag,
+      body.exporting #score svg g.flag *,
+      body.exporting #score svg g.accid,
+      body.exporting #score svg g.accid *,
+      body.exporting #score svg g.tuplet,
+      body.exporting #score svg g.tuplet *,
+      body.exporting #score svg text {
+        fill: #000 !important;
+        stroke: #000 !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="page">
+    <div id="score"></div>
+    <div id="status">loading…</div>
+  </div>
+  <script src="verovio-toolkit-wasm.js"></script>
+  <script>
+    /*
+     * Live-transcription bridge. Swift posts events via:
+     *   window.webkit.messageHandlers ... NO — we use the simpler
+     *   path of evaluateJavaScript('Sheet.noteOn(...)') from Swift.
+     *
+     * Each note onset gets pushed onto a flat list; the score is
+     * rendered as one part with continuous quarter notes (treated
+     * as a single 4/4 stream that auto-wraps at the page width).
+     * Held duration determines `type` (whole/half/quarter/eighth/16th).
+     */
+    const Sheet = (function () {
+      let toolkit = null;
+      const notes = []; // [{pitch, isSharp, onsetAt, releasedAt, beatAtOnset?}]
+      let renderQueued = false;
+      let lastRenderAt = 0;
+      // Drag-back-in state. When a PDF carrying MusicXML is dropped in,
+      // we render the staff DIRECTLY from that XML (bypassing the
+      // notes[] buffer). Until the user records a fresh live note we
+      // freeze the rerender path — otherwise a coalesced live-render
+      // queued from a recent recordNote fires 30ms later, sees the
+      // empty notes buffer, and overwrites the loaded staff with a
+      // blank XML build.
+      let staticLoaded = false;
+      // Per-pitch index of rendered g.note SVG elements, populated by
+      // loadXMLAndExportMIDI. Lets playbackOn(midi)/playbackOff(midi)
+      // light up successive notes of the same pitch in source order.
+      let playbackElements = []; // [{midi, el}], document order
+      let playbackCursor = {};   // midi → index of next on/off target
+      // Metronome clock — Swift calls Sheet.beat() on every
+      // metronome tick (= one quarter note). Free-tempo if no
+      // beats have arrived in the last 4 seconds.
+      let beatIndex = 0;          // total beats observed
+      let lastBeatAt = 0;         // performance.now()/1000 of last tick
+      let beatInterval = 0;       // seconds between the last two beats
+      const BEAT_TIMEOUT = 4.0;   // free-tempo fallback after this gap
+
+      function metronomeActive(now) {
+        if (lastBeatAt <= 0) return false;
+        return (now - lastBeatAt) <= BEAT_TIMEOUT && beatInterval > 0;
+      }
+
+      function midiToStep(m) {
+        const sharps = [false, true, false, true, false, false, true, false, true, false, true, false];
+        const stepLetters = ['C','C','D','D','E','F','F','G','G','A','A','B'];
+        const pc = m % 12;
+        const oct = Math.floor(m / 12) - 1;
+        return {
+          letter: stepLetters[pc],
+          alter: sharps[pc] ? 1 : 0,
+          octave: oct,
+        };
+      }
+
+      // Map a held-duration in seconds to MusicXML type + tick count
+      // (divisions=4 → quarter=4 ticks, 16th=1 tick, whole=16 ticks).
+      // When the metronome is running we use beat-relative thresholds
+      // (fractions of a beat); otherwise wall-clock thresholds tuned
+      // for ~120bpm-ish playing.
+      function durationOf(secs, now) {
+        if (metronomeActive(now)) {
+          const beats = secs / beatInterval;
+          if (beats < 0.375) return { type: '16th',    ticks: 1 };
+          if (beats < 0.75)  return { type: 'eighth',  ticks: 2 };
+          if (beats < 1.5)   return { type: 'quarter', ticks: 4 };
+          if (beats < 3.0)   return { type: 'half',    ticks: 8 };
+          return                    { type: 'whole',   ticks: 16 };
+        }
+        if (secs < 0.18) return { type: '16th',    ticks: 1 };
+        if (secs < 0.40) return { type: 'eighth',  ticks: 2 };
+        if (secs < 0.85) return { type: 'quarter', ticks: 4 };
+        if (secs < 1.60) return { type: 'half',    ticks: 8 };
+        return                  { type: 'whole',   ticks: 16 };
+      }
+
+      function buildMusicXML() {
+        const PARTS_HEAD = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 3.1 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">
+<score-partwise version="3.1">
+  <part-list>
+    <score-part id="P1"><part-name>Live</part-name></score-part>
+  </part-list>
+  <part id="P1">`;
+
+        const TICKS_PER_BEAT = 4;
+        const TICKS_PER_MEASURE = 16;
+        const now = performance.now() / 1000;
+
+        // ---- Tempo first. Onset positions AND held-duration tick
+        // counts both depend on seconds-per-tick at the inferred
+        // BPM, so we have to fix the grid before placing notes.
+        //
+        // Two sources of truth for "the user's tempo":
+        //   1. Active metronome → 60 / beatInterval is the BPM.
+        //   2. Free play → take the median real-time onset gap as
+        //      a quarter note. This makes "the user's most common
+        //      pulse" map to a quarter regardless of whether they
+        //      were playing at 60 or 180 BPM. Earlier inference
+        //      compared real time against `durationOf(heldFor)`
+        //      which itself uses 120 BPM thresholds — circular,
+        //      and badly wrong on slow legato playing.
+        let inferredBpm = 120;
+        if (metronomeActive(now) && beatInterval > 0) {
+          inferredBpm = Math.round(60 / beatInterval);
+        } else if (notes.length >= 2) {
+          const realGaps = [];
+          for (let i = 1; i < notes.length; i++) {
+            const real = notes[i].onsetAt - notes[i - 1].onsetAt;
+            // Drop chord-mate co-onsets (~0) and absurd pauses
+            // (>4s) so they don't pull the median around.
+            if (real <= 0.05 || real > 4.0) continue;
+            realGaps.push(real);
+          }
+          if (realGaps.length >= 1) {
+            realGaps.sort((a, b) => a - b);
+            const median = realGaps[Math.floor(realGaps.length / 2)];
+            const bpm = Math.round(60 / median);
+            inferredBpm = Math.max(40, Math.min(200, bpm));
+          }
+        }
+        const SECS_PER_TICK = 60 / inferredBpm / TICKS_PER_BEAT;
+
+        // ---- Place each note on the tick grid.
+        // Sparse map keyed by absolute tick → chord items + duration.
+        const placed = {};
+        const firstOnset = notes.length > 0 ? notes[0].onsetAt : 0;
+
+        for (const n of notes) {
+          const heldFor = Math.max(0, (n.releasedAt ?? now) - n.onsetAt);
+          let onsetTick;
+          if (metronomeActive(now) && n.beatAtOnset != null) {
+            // Metronome path: snap onset to the nearest 16th
+            // within its captured beat (preserves bar/beat sync).
+            const fracIntoBeat = clamp((n.onsetAt - n.beatStartedAt) / beatInterval, 0, 0.999);
+            const subBeat = Math.round(fracIntoBeat * TICKS_PER_BEAT);
+            onsetTick = n.beatAtOnset * TICKS_PER_BEAT + subBeat;
+          } else {
+            // Free-tempo: anchor to the first onset and round each
+            // subsequent onset to the nearest 16th. Sparse playing
+            // now spreads across the staff with rests between
+            // notes — used to pack tight back-to-back regardless
+            // of the wall-clock gap.
+            onsetTick = Math.max(0, Math.round((n.onsetAt - firstOnset) / SECS_PER_TICK));
+          }
+          // Held duration → ticks → snap to the nearest standard
+          // note value (16th/eighth/quarter/half/whole). Using a
+          // raw rounded tick count would emit non-standard
+          // durations (3, 5, 7) that ticksToType lies about.
+          let durTicks = Math.max(1, Math.round(heldFor / SECS_PER_TICK));
+          durTicks = snapToStandardDuration(durTicks);
+          if (!placed[onsetTick]) placed[onsetTick] = { items: [], duration: durTicks };
+          placed[onsetTick].items.push({ ...n });
+          // For a chord (multiple onsets at same tick) keep the
+          // longest duration so the bar doesn't get truncated.
+          placed[onsetTick].duration = Math.max(placed[onsetTick].duration, durTicks);
+        }
+
+        const ticks = Object.keys(placed).map(Number).sort((a, b) => a - b);
+
+        // Truncate each placed slot's duration so it never overruns
+        // the next placed onset. Without this an over-held note
+        // chews through the rest of the bar and the next onset
+        // gets skipped by the cursor walk below.
+        for (let i = 0; i < ticks.length - 1; i++) {
+          const t = ticks[i];
+          const next = ticks[i + 1];
+          placed[t].duration = Math.min(placed[t].duration, next - t);
+          // Re-snap so the truncated value stays a valid note type.
+          placed[t].duration = snapToStandardDuration(placed[t].duration);
+        }
+
+        const lastTick = ticks.length
+          ? ticks[ticks.length - 1] + (placed[ticks[ticks.length - 1]].duration || 1)
+          : 0;
+        // Predraw enough empty measures to fill the page roughly
+        // 4 rows deep at the current scale. Fewer measures = more
+        // breathing room per bar (bigger notes after CSS upscales),
+        // which the user explicitly asked for. Page grows beyond
+        // this when the user plays past the end.
+        const MIN_MEASURES = 8;
+        const measureCount = Math.max(
+          MIN_MEASURES,
+          Math.ceil(lastTick / TICKS_PER_MEASURE)
+        );
+
+        let measuresXml = '';
+        let cursor = 0;
+        for (let m = 0; m < measureCount; m++) {
+          const measureStart = m * TICKS_PER_MEASURE;
+          const measureEnd = measureStart + TICKS_PER_MEASURE;
+          let body = '';
+          while (cursor < measureEnd) {
+            if (placed[cursor]) {
+              const slot = placed[cursor];
+              const useTicks = Math.min(slot.duration, measureEnd - cursor);
+              body += chordOrNoteXml(slot.items, useTicks);
+              cursor += useTicks;
+            } else {
+              // Find next placed tick within this measure (or measure end).
+              let next = measureEnd;
+              for (const t of ticks) {
+                if (t > cursor && t < measureEnd) { next = t; break; }
+              }
+              // Fill the gap with beat-aligned rests (one per
+              // quarter beat) so each beat has its own SVG element
+              // for the playhead to anchor against. Otherwise an
+              // empty bar collapses to a single whole-rest glyph
+              // and the playhead has to interpolate on a single
+              // box instead of snapping to per-beat positions.
+              while (cursor < next) {
+                const beatBoundary =
+                  cursor + (TICKS_PER_BEAT - (cursor % TICKS_PER_BEAT));
+                const segEnd = Math.min(beatBoundary, next);
+                const restTicks = segEnd - cursor;
+                body += `
+      <note>
+        <rest/>
+        <duration>${restTicks}</duration>
+        <type>${ticksToType(restTicks)}</type>
+      </note>`;
+                cursor = segEnd;
+              }
+            }
+          }
+          const head = (m === 0) ? `
+      <attributes>
+        <divisions>${TICKS_PER_BEAT}</divisions>
+        <key><fifths>0</fifths></key>
+        <time><beats>4</beats><beat-type>4</beat-type></time>
+        <clef><sign>G</sign><line>2</line></clef>
+      </attributes>
+      <direction placement="above">
+        <direction-type>
+          <metronome><beat-unit>quarter</beat-unit><per-minute>${inferredBpm}</per-minute></metronome>
+        </direction-type>
+        <sound tempo="${inferredBpm}"/>
+      </direction>` : '';
+          measuresXml += `\n    <measure number="${m + 1}">${head}${body}\n    </measure>`;
+        }
+
+        return PARTS_HEAD + measuresXml + '\n  </part>\n</score-partwise>';
+      }
+
+      // Snap a raw tick count to the nearest power-of-two duration
+      // so the emitted <duration> always matches a single, valid
+      // note type (16th/eighth/quarter/half/whole). Verovio renders
+      // off-grid durations as tied notes which complicate the
+      // playback-highlight index (one onset → multiple g.note
+      // elements). Power-of-two only is the simplest invariant
+      // that keeps the index 1:1.
+      function snapToStandardDuration(t) {
+        const standards = [1, 2, 4, 8, 16];
+        let best = standards[0];
+        let bestDist = Math.abs(t - best);
+        for (const s of standards) {
+          const d = Math.abs(t - s);
+          if (d < bestDist) { best = s; bestDist = d; }
+        }
+        return best;
+      }
+
+      function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+      // Render a chord (multiple items) or single note at the given
+      // tick span. Subsequent notes inside a chord get the <chord/>
+      // marker so MusicXML stacks them on the same beat.
+      function chordOrNoteXml(items, ticks) {
+        const type = ticksToType(ticks);
+        return items.map((n, i) => {
+          const s = midiToStep(n.pitch);
+          const chordTag = (i > 0) ? '\n        <chord/>' : '';
+          const accTag = s.alter ? '\n        <accidental>sharp</accidental>' : '';
+          return `
+      <note>${chordTag}
+        <pitch>
+          <step>${s.letter}</step>${s.alter ? `<alter>${s.alter}</alter>` : ''}
+          <octave>${s.octave}</octave>
+        </pitch>
+        <duration>${ticks}</duration>
+        <type>${type}</type>${accTag}
+      </note>`;
+        }).join('');
+      }
+
+      function ticksToType(t) {
+        if (t >= 16) return 'whole';
+        if (t >=  8) return 'half';
+        if (t >=  4) return 'quarter';
+        if (t >=  2) return 'eighth';
+        return '16th';
+      }
+
+      function rerender() {
+        if (!toolkit) return;
+        // Don't wipe a directly-loaded staff with an empty live build.
+        // See `staticLoaded` doc — coalesced live rerenders pile up
+        // under recordNote bursts and would overwrite the loaded XML
+        // immediately after a PDF drop.
+        if (staticLoaded && notes.length === 0) return;
+        const t0 = performance.now();
+        try {
+          const xml = buildMusicXML();
+          toolkit.loadData(xml);
+          const svg = toolkit.renderToSVG(1, {});
+          // Atomic swap. innerHTML is *mostly* atomic, but in
+          // WKWebView a long Verovio render combined with the
+          // surrounding paper-noise filter on #page was leaking a
+          // visible flash on every keypress. Parsing the SVG into
+          // a detached fragment and swapping with replaceChild
+          // (or appending when the score div is still empty)
+          // keeps the new SVG fully formed before it enters the
+          // DOM, so the old SVG stays on screen until the new one
+          // takes its place in a single layout pass.
+          const score = document.getElementById('score');
+          const tmp = document.createElement('div');
+          tmp.innerHTML = svg;
+          const newSvg = tmp.firstElementChild;
+          if (newSvg) {
+            const oldSvg = score.firstElementChild;
+            if (oldSvg) {
+              score.replaceChild(newSvg, oldSvg);
+            } else {
+              score.appendChild(newSvg);
+            }
+          }
+          const dt = (performance.now() - t0).toFixed(0);
+          document.getElementById('status').textContent =
+            `${notes.length} notes · ${dt}ms`;
+          lastRenderAt = performance.now();
+          postMeasureBoxes();
+        } catch (e) {
+          document.getElementById('status').textContent = 'render error: ' + e.message;
+          console.error(e);
+        }
+      }
+
+      // For each rendered measure, post both the FULL measure
+      // bounding box (used for staff Y/height) AND the inner
+      // <g class="layer"> box (used for the playhead's X range).
+      // The layer is the actual notation content — excludes the
+      // leading clef/key/time signature and the trailing barline
+      // padding, so the playhead's left/right edges match where
+      // beats actually live. Called after every render.
+      function postMeasureBoxes() {
+        const handler = window.webkit?.messageHandlers?.sheet;
+        if (!handler) return;
+        const score = document.getElementById('score');
+        const svg = score.querySelector('svg');
+        if (!svg) return;
+        const pageRect = document.getElementById('page').getBoundingClientRect();
+        const measures = [];
+        svg.querySelectorAll('g.measure').forEach((m, idx) => {
+          const mRect = m.getBoundingClientRect();
+          const layer = m.querySelector('g.layer');
+          const lRect = (layer ? layer.getBoundingClientRect() : mRect);
+          const staff = m.querySelector('g.staff');
+          const sRect = (staff ? staff.getBoundingClientRect() : mRect);
+          // Per-beat anchor X — the x of each note/rest/chord
+          // element in this measure. Predraw fills empty bars
+          // with one rest per beat, so this gives 4 anchors per
+          // 4/4 measure that exactly match where notation lands.
+          // Falls back to evenly-divided layer width when the
+          // measure is shorter than 4 musical events.
+          const beats = [];
+          if (layer) {
+            layer.querySelectorAll(
+              'g.note, g.rest, g.chord, g.mRest'
+            ).forEach((el) => {
+              const r = el.getBoundingClientRect();
+              beats.push(r.left + r.width / 2 - pageRect.left);
+            });
+          }
+          measures.push({
+            index: idx,
+            layerX: lRect.left - pageRect.left,
+            layerWidth: lRect.width,
+            staffY: sRect.top - pageRect.top,
+            staffHeight: sRect.height,
+            beats,
+            x: mRect.left - pageRect.left,
+            y: mRect.top - pageRect.top,
+            width: mRect.width,
+            height: mRect.height,
+          });
+        });
+        handler.postMessage({
+          type: 'layout',
+          pageWidth: pageRect.width,
+          pageHeight: pageRect.height,
+          measures,
+          // Snapshot MusicXML on every layout so Swift always has
+          // a fresh cached copy when the user drags the page off.
+          // Eager export means the drag-source no longer depends on
+          // an async getMusicXML() round-trip after the popover
+          // (and the WKWebView) may have already torn down.
+          musicXML: buildMusicXML(),
+        });
+      }
+
+      function queueRender() {
+        if (renderQueued) return;
+        renderQueued = true;
+        // Coalesce rapid bursts (chords). 30ms gives chords time to
+        // assemble into one render pass without feeling laggy.
+        setTimeout(() => {
+          renderQueued = false;
+          rerender();
+        }, 30);
+      }
+
+      // ---- public API (called via webview.evaluateJavaScript) ----
+
+      // `t` is an optional Swift-supplied timestamp (seconds in
+      // CACurrentMediaTime base). Swift captures the time at the
+      // input event itself — passing it in avoids the WebKit
+      // bridge's variable 5-50ms delivery latency, which otherwise
+      // jitters every recorded onsetAt and ruins playback timing.
+      // Falls back to performance.now() for callers that don't
+      // supply a time (test harnesses, future direct-from-JS
+      // input paths).
+      function noteOn(pitch, t) {
+        // First fresh live note after a PDF drag-in: drop out of
+        // static mode so subsequent recordings rerender normally.
+        if (staticLoaded) {
+          staticLoaded = false;
+          playbackResetHighlight();
+        }
+        const now = (typeof t === 'number') ? t : performance.now() / 1000;
+        notes.push({
+          pitch,
+          isSharp: midiToStep(pitch).alter === 1,
+          onsetAt: now,
+          releasedAt: null,
+          beatAtOnset: metronomeActive(now) ? beatIndex - 1 : null,
+          beatStartedAt: lastBeatAt || now,
+        });
+        queueRender();
+      }
+
+      // Called once per metronome tick from Swift. Each tick is one
+      // quarter note in 4/4 time. The interval between successive
+      // calls feeds the duration estimator + the onset-snap logic.
+      function beat() {
+        const now = performance.now() / 1000;
+        if (lastBeatAt > 0) {
+          beatInterval = now - lastBeatAt;
+        }
+        lastBeatAt = now;
+        beatIndex += 1;
+        // No re-render needed on bare ticks — we re-render whenever
+        // the next note onset/release fires.
+      }
+
+      function noteOff(pitch, t) {
+        const now = (typeof t === 'number') ? t : performance.now() / 1000;
+        for (let i = notes.length - 1; i >= 0; i--) {
+          if (notes[i].pitch === pitch && notes[i].releasedAt == null) {
+            notes[i].releasedAt = now;
+            break;
+          }
+        }
+        queueRender();
+      }
+
+      function clear() {
+        notes.length = 0;
+        staticLoaded = false;
+        playbackResetHighlight();
+        queueRender();
+      }
+
+      // Verovio render options. Tuned for a small live page —
+      // tight margins, a single system, and the system width
+      // capped to the page so multi-measure scores wrap.
+      function setOptions() {
+        // Letter portrait (8.5×11") = 2159×2794 1/10 mm. CSS
+        // layer scales the SVG to fill the popover host (which
+        // is also at 8.5:11 aspect), so the page reads as a real
+        // sheet of paper at popover width.
+        toolkit.setOptions({
+          // Aggressive scale-up: small logical page at scale 100
+          // means each glyph takes a big % of the page, and CSS
+          // stretches that to the popover host. Combined with a
+          // small MIN_MEASURES below, the staff reads big and
+          // breathy — fewer notes per row, more room per measure.
+          pageWidth: 1100,
+          pageHeight: 1424,
+          pageMarginTop: 60,
+          pageMarginLeft: 60,
+          pageMarginRight: 60,
+          pageMarginBottom: 60,
+          scale: 100,
+          adjustPageHeight: false,
+          breaks: 'auto',
+          font: 'Bravura',
+          // Strip Verovio's default footer + header watermarks.
+          footer: 'none',
+          header: 'none',
+        });
+      }
+
+      function ready() {
+        if (typeof verovio === 'undefined') {
+          document.getElementById('status').textContent = 'verovio missing';
+          return;
+        }
+        verovio.module.onRuntimeInitialized = function () {
+          toolkit = new verovio.toolkit();
+          setOptions();
+          rerender();
+          window.addEventListener('resize', () => {
+            setOptions();
+            rerender();
+          });
+        };
+      }
+
+      // Expose the current MusicXML representation so Swift can
+      // embed it in exported PDFs (drag-out → desktop) and later
+      // restore the score from a PDF dragged back in.
+      function getMusicXML() {
+        return buildMusicXML();
+      }
+
+      // Sample-accurate playback events. The notation system
+      // quantises durations to the 16th-grid which is great for
+      // legibility but loses the user's wall-clock timing on
+      // playback (notes pack back-to-back at their notated
+      // duration). Swift uses this list to schedule note-on/off
+      // at the EXACT relative seconds the user actually played,
+      // so dragging a PDF back in replays the original
+      // performance precisely — even when no notation could
+      // capture that rhythm. Times are seconds-from-first-onset.
+      function getPlaybackEvents() {
+        if (notes.length === 0) return '[]';
+        const t0 = notes[0].onsetAt;
+        const out = notes.map(n => {
+          // Held notes export with off:null so Swift can clamp
+          // the duration at extract time (= "still held until
+          // the user dragged the score off"). Without this the
+          // exported sustain was a hardcoded 0.25s placeholder
+          // and held notes played back as staccatos.
+          const offRel = (n.releasedAt != null)
+            ? +(n.releasedAt - t0).toFixed(4)
+            : null;
+          return {
+            midi: n.pitch,
+            on: +(n.onsetAt - t0).toFixed(4),
+            off: offRel,
+          };
+        });
+        return JSON.stringify(out);
+      }
+
+      // Drag-back-in entry: parse a MusicXML payload (from a
+      // previously-exported Menu Band PDF), re-render the staff
+      // visually, and emit a MIDI rendering of the same content
+      // so Swift can replay it through the synth (mirrors the
+      // .mid drop flow). Returns base64-encoded MIDI bytes; an
+      // empty string signals a Verovio failure (we still render
+      // the SVG best-effort so the staff at least shows the
+      // notation, but playback is skipped).
+      //
+      // Important: clear the local `notes` buffer FIRST so the
+      // dropped score replaces (not overlays) what was on screen.
+      // We bypass `clear()`'s queueRender so the next rerender
+      // doesn't overwrite our directly-loaded XML with an empty
+      // build from the (now-empty) notes array — the rebuild
+      // races with our renderToSVG and the staff goes blank.
+      function loadXMLAndExportMIDI(xml) {
+        notes.length = 0;
+        playbackResetHighlight();
+        try {
+          toolkit.loadData(xml);
+          document.getElementById('score').innerHTML =
+            toolkit.renderToSVG(1, {});
+        } catch (e) {
+          console.error('loadXMLAndExportMIDI: SVG render failed', e);
+          return '';
+        }
+        // Freeze the rerender path so a stale queueRender from prior
+        // live activity doesn't blank the staff after this returns.
+        staticLoaded = true;
+        // Build the pitch-ordered g.note index so playbackOn / Off
+        // can light up successive notes in step with the synth.
+        indexPlaybackElements(xml);
+        // Push fresh layout to Swift so the playhead overlay + the
+        // drag-out cache see the loaded score (rerender is the usual
+        // call site — we bypassed it via renderToSVG).
+        try { postMeasureBoxes(); } catch (e) {
+          console.warn('loadXMLAndExportMIDI: postMeasureBoxes failed', e);
+        }
+        try {
+          return toolkit.renderToMIDI();
+        } catch (e) {
+          console.error('loadXMLAndExportMIDI: MIDI render failed', e);
+          return '';
+        }
+      }
+
+      // Parse the loaded MusicXML to recover pitch-in-source-order, then
+      // pair each pitch with the corresponding rendered g.note SVG
+      // element. Verovio emits notes in source order so the i-th
+      // <pitch> matches the i-th g.note in the rendered SVG.
+      function indexPlaybackElements(xml) {
+        playbackElements = [];
+        playbackCursor = {};
+        const stepMidi = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+        let pitches = [];
+        try {
+          const doc = new DOMParser().parseFromString(xml, 'application/xml');
+          const noteEls = doc.querySelectorAll('part note');
+          noteEls.forEach((n) => {
+            // Skip rests + chord-inner attachments (chord <note>s with
+            // <chord/> still carry their own pitch and Verovio renders
+            // them as their own g.note, so include them).
+            if (n.querySelector('rest')) return;
+            const pitch = n.querySelector('pitch');
+            if (!pitch) return;
+            const step = (pitch.querySelector('step')?.textContent || 'C').toUpperCase();
+            const alter = parseInt(pitch.querySelector('alter')?.textContent || '0', 10);
+            const oct = parseInt(pitch.querySelector('octave')?.textContent || '4', 10);
+            const base = stepMidi[step] ?? 0;
+            pitches.push((oct + 1) * 12 + base + alter);
+          });
+        } catch (e) {
+          console.warn('indexPlaybackElements: parse failed', e);
+          return;
+        }
+        const els = document.querySelectorAll('#score svg g.note');
+        const n = Math.min(els.length, pitches.length);
+        for (let i = 0; i < n; i++) {
+          els[i].setAttribute('data-midi', String(pitches[i]));
+          playbackElements.push({ midi: pitches[i], el: els[i] });
+        }
+      }
+
+      // Light up the next un-lit g.note matching `midi` in source
+      // order. Per-pitch cursor advances on each call so a repeated
+      // pitch hits successive notes instead of re-flashing the first.
+      function playbackOn(midi) {
+        if (!staticLoaded || playbackElements.length === 0) return;
+        const start = playbackCursor[midi] || 0;
+        for (let i = start; i < playbackElements.length; i++) {
+          const e = playbackElements[i];
+          if (e.midi === midi && !e.el.classList.contains('playback-on')) {
+            e.el.classList.add('playback-on');
+            playbackCursor[midi] = i + 1;
+            return;
+          }
+        }
+      }
+
+      // Release the most-recent on for `midi`. Walks back from the
+      // cursor so chords + overlapping releases unwind cleanly.
+      function playbackOff(midi) {
+        if (!staticLoaded || playbackElements.length === 0) return;
+        const cursor = playbackCursor[midi] || 0;
+        for (let i = cursor - 1; i >= 0; i--) {
+          const e = playbackElements[i];
+          if (e.midi === midi && e.el.classList.contains('playback-on')) {
+            e.el.classList.remove('playback-on');
+            return;
+          }
+        }
+      }
+
+      function playbackResetHighlight() {
+        document.querySelectorAll('#score svg g.note.playback-on')
+          .forEach((el) => el.classList.remove('playback-on'));
+        playbackCursor = {};
+      }
+
+      // Replace the current note buffer with a list parsed from a
+      // re-imported PDF. Items are {pitch, onsetAt, releasedAt,
+      // beatAtOnset, beatStartedAt}; we accept relative timestamps
+      // (anchored at performance.now()) and rerender immediately.
+      function loadNotes(items) {
+        notes.length = 0;
+        staticLoaded = false;
+        playbackResetHighlight();
+        const base = performance.now() / 1000;
+        for (const n of items) {
+          notes.push({
+            pitch: n.pitch,
+            isSharp: midiToStep(n.pitch).alter === 1,
+            onsetAt: base + (n.onset || 0),
+            releasedAt: n.release != null ? base + n.release : null,
+            beatAtOnset: n.beatAtOnset ?? null,
+            beatStartedAt: n.beatStartedAt != null ? base + n.beatStartedAt : 0,
+          });
+        }
+        rerender();
+      }
+
+      return { noteOn, noteOff, beat, clear, ready, getMusicXML,
+               getPlaybackEvents, loadXMLAndExportMIDI, loadNotes,
+               playbackOn, playbackOff };
+    }());
+
+    Sheet.ready();
+    window.Sheet = Sheet;
+  </script>
+</body>
+</html>

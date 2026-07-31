@@ -1,0 +1,1270 @@
+manifest /Users/aesthetic/aesthetic-computer/pop/menuband/variations/variations-32.json
+selected 32; pending 31; existing 1; jobs 2
+[00:moonlit] skip existing /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/moonlit/moonlit.mp4
+[01:glass-orchard] start Glass Orchard
+[01:glass-orchard] score
+[02:blue-raga] start Blue Raga
+[02:blue-raga] score
+[02:blue-raga:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:504:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[02:blue-raga:score] 502 |                                         bankLSB: UInt8(kAUSampler_DefaultBankLSB))
+[02:blue-raga:score] 503 |     sampler.stereoPan = menuBandPan(midi)
+[02:blue-raga:score] 504 |     sampler.masterGain = menuBandDistanceGain(midi)
+[02:blue-raga:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[02:blue-raga:score] 505 |     engine.connect(sampler, to: toneMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[02:blue-raga:score] 506 |     toneSamplers[midi] = sampler
+[02:blue-raga:score] 
+[01:glass-orchard:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:504:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[01:glass-orchard:score] 502 |                                         bankLSB: UInt8(kAUSampler_DefaultBankLSB))
+[01:glass-orchard:score] 503 |     sampler.stereoPan = menuBandPan(midi)
+[01:glass-orchard:score] 504 |     sampler.masterGain = menuBandDistanceGain(midi)
+[01:glass-orchard:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[01:glass-orchard:score] 505 |     engine.connect(sampler, to: toneMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[01:glass-orchard:score] 506 |     toneSamplers[midi] = sampler
+[01:glass-orchard:score] 
+[02:blue-raga:score] 2026-07-28 16:06:44.667 swift-frontend[91805:2939968] Audio files cannot be non-interleaved. Ignoring setting AVLinearPCMIsNonInterleaved YES.
+[01:glass-orchard:score] 2026-07-28 16:06:44.667 swift-frontend[91804:2939969] Audio files cannot be non-interleaved. Ignoring setting AVLinearPCMIsNonInterleaved YES.
+[01:glass-orchard:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:513:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[01:glass-orchard:score] 511 |     try sampler.loadSoundBankInstrument(at: bank, program: 0, bankMSB: 0x78, bankLSB: 0)
+[01:glass-orchard:score] 512 |     sampler.stereoPan = menuBandPan(midi)
+[01:glass-orchard:score] 513 |     sampler.masterGain = menuBandDistanceGain(midi)
+[01:glass-orchard:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[01:glass-orchard:score] 514 |     engine.connect(sampler, to: drumMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[01:glass-orchard:score] 515 |     drumSamplers[midi] = sampler
+[01:glass-orchard:score] 
+[01:glass-orchard:score] [#DeprecatedDeclaration]: <https://docs.swift.org/compiler/documentation/diagnostics/deprecated-declaration>
+[02:blue-raga:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:513:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[02:blue-raga:score] 511 |     try sampler.loadSoundBankInstrument(at: bank, program: 0, bankMSB: 0x78, bankLSB: 0)
+[02:blue-raga:score] 512 |     sampler.stereoPan = menuBandPan(midi)
+[02:blue-raga:score] 513 |     sampler.masterGain = menuBandDistanceGain(midi)
+[02:blue-raga:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[02:blue-raga:score] 514 |     engine.connect(sampler, to: drumMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[02:blue-raga:score] 515 |     drumSamplers[midi] = sampler
+[02:blue-raga:score] 
+[02:blue-raga:score] [#DeprecatedDeclaration]: <https://docs.swift.org/compiler/documentation/diagnostics/deprecated-declaration>
+[01:glass-orchard:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/glass-orchard/glass-orchard.wav (32.00s)
+[01:glass-orchard:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/glass-orchard/glass-orchard.notes.json (177 events, all visual MIDI 60...83)
+[01:glass-orchard:score]   #2 · 9 Celesta · 0-3 isolated shaker seeds; 3-10 celesta germ; 10-17 two-voice canopy; 17-23 rolling tom 6/8; 23-29 inverted bloom; 29-32 high suspended release · Lydian · jungle · seed 183047
+[02:blue-raga:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/blue-raga/blue-raga.wav (32.00s)
+[02:blue-raga:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/blue-raga/blue-raga.notes.json (152 events, all visual MIDI 60...83)
+[02:blue-raga:score]   #3 · 105 Sitar · 0-5 hand-drum pulse; 5-12 alap-like single line; 12-20 drone ostinato with ornaments; 20-25 tabla-style tihai break; 25-30 accelerated return; 30-32 open fifth · Mixolydian · half-time · seed 662914
+[01:glass-orchard] video
+[02:blue-raga] video
+[02:blue-raga:video] node:internal/modules/esm/resolve:272
+[02:blue-raga:video]     throw new ERR_MODULE_NOT_FOUND(
+[02:blue-raga:video]           ^
+[02:blue-raga:video] 
+[02:blue-raga:video] Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/Users/aesthetic/aesthetic-computer/pop/lib/preview-shared.mjs' imported from /Users/aesthetic/aesthetic-computer/pop/menuband/bin/reel-lib.mjs
+[02:blue-raga:video]     at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+[02:blue-raga:video]     at moduleResolve (node:internal/modules/esm/resolve:879:10)
+[02:blue-raga:video]     at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+[02:blue-raga:video]     at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+[02:blue-raga:video]     at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+[02:blue-raga:video]     at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+[02:blue-raga:video]     at #resolve (node:internal/modules/esm/loader:690:17)
+[02:blue-raga:video]     at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+[02:blue-raga:video]     at ModuleJob.syncLink (node:internal/modules/esm/module_job:277:33)
+[02:blue-raga:video]     at ModuleJob.link (node:internal/modules/esm/module_job:389:17) {
+[02:blue-raga:video]   code: 'ERR_MODULE_NOT_FOUND',
+[02:blue-raga:video]   url: 'file:///Users/aesthetic/aesthetic-computer/pop/lib/preview-shared.mjs'
+[02:blue-raga:video] }
+[02:blue-raga:video] 
+[02:blue-raga:video] Node.js v26.5.0
+[01:glass-orchard:video] node:internal/modules/esm/resolve:272
+[01:glass-orchard:video]     throw new ERR_MODULE_NOT_FOUND(
+[01:glass-orchard:video]           ^
+[01:glass-orchard:video] 
+[01:glass-orchard:video] Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/Users/aesthetic/aesthetic-computer/pop/lib/preview-shared.mjs' imported from /Users/aesthetic/aesthetic-computer/pop/menuband/bin/reel-lib.mjs
+[01:glass-orchard:video]     at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+[01:glass-orchard:video]     at moduleResolve (node:internal/modules/esm/resolve:879:10)
+[01:glass-orchard:video]     at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+[01:glass-orchard:video]     at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+[01:glass-orchard:video]     at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+[01:glass-orchard:video]     at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+[01:glass-orchard:video]     at #resolve (node:internal/modules/esm/loader:690:17)
+[01:glass-orchard:video]     at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+[01:glass-orchard:video]     at ModuleJob.syncLink (node:internal/modules/esm/module_job:277:33)
+[01:glass-orchard:video]     at ModuleJob.link (node:internal/modules/esm/module_job:389:17) {
+[01:glass-orchard:video]   code: 'ERR_MODULE_NOT_FOUND',
+[01:glass-orchard:video]   url: 'file:///Users/aesthetic/aesthetic-computer/pop/lib/preview-shared.mjs'
+[01:glass-orchard:video] }
+[01:glass-orchard:video] 
+[01:glass-orchard:video] Node.js v26.5.0
+[02:blue-raga] failed: exited 1
+[03:copper-steps] start Copper Steps
+[03:copper-steps] score
+[01:glass-orchard] failed: exited 1
+[04:velvet-current] start Velvet Current
+[04:velvet-current] score
+[04:velvet-current:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:504:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[04:velvet-current:score] 502 |                                         bankLSB: UInt8(kAUSampler_DefaultBankLSB))
+[04:velvet-current:score] 503 |     sampler.stereoPan = menuBandPan(midi)
+[04:velvet-current:score] 504 |     sampler.masterGain = menuBandDistanceGain(midi)
+[04:velvet-current:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[04:velvet-current:score] 505 |     engine.connect(sampler, to: toneMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[04:velvet-current:score] 506 |     toneSamplers[midi] = sampler
+[04:velvet-current:score] 
+[03:copper-steps:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:504:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[03:copper-steps:score] 502 |                                         bankLSB: UInt8(kAUSampler_DefaultBankLSB))
+[03:copper-steps:score] 503 |     sampler.stereoPan = menuBandPan(midi)
+[03:copper-steps:score] 504 |     sampler.masterGain = menuBandDistanceGain(midi)
+[03:copper-steps:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[03:copper-steps:score] 505 |     engine.connect(sampler, to: toneMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[03:copper-steps:score] 506 |     toneSamplers[midi] = sampler
+[03:copper-steps:score] 
+[04:velvet-current:score] 2026-07-28 16:06:46.488 swift-frontend[91895:2940437] Audio files cannot be non-interleaved. Ignoring setting AVLinearPCMIsNonInterleaved YES.
+[03:copper-steps:score] 2026-07-28 16:06:46.489 swift-frontend[91894:2940438] Audio files cannot be non-interleaved. Ignoring setting AVLinearPCMIsNonInterleaved YES.
+[04:velvet-current:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:513:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[04:velvet-current:score] 511 |     try sampler.loadSoundBankInstrument(at: bank, program: 0, bankMSB: 0x78, bankLSB: 0)
+[04:velvet-current:score] 512 |     sampler.stereoPan = menuBandPan(midi)
+[04:velvet-current:score] 513 |     sampler.masterGain = menuBandDistanceGain(midi)
+[04:velvet-current:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[04:velvet-current:score] 514 |     engine.connect(sampler, to: drumMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[04:velvet-current:score] 515 |     drumSamplers[midi] = sampler
+[04:velvet-current:score] 
+[04:velvet-current:score] [#DeprecatedDeclaration]: <https://docs.swift.org/compiler/documentation/diagnostics/deprecated-declaration>
+[03:copper-steps:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:513:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[03:copper-steps:score] 511 |     try sampler.loadSoundBankInstrument(at: bank, program: 0, bankMSB: 0x78, bankLSB: 0)
+[03:copper-steps:score] 512 |     sampler.stereoPan = menuBandPan(midi)
+[03:copper-steps:score] 513 |     sampler.masterGain = menuBandDistanceGain(midi)
+[03:copper-steps:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[03:copper-steps:score] 514 |     engine.connect(sampler, to: drumMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[03:copper-steps:score] 515 |     drumSamplers[midi] = sampler
+[03:copper-steps:score] 
+[03:copper-steps:score] [#DeprecatedDeclaration]: <https://docs.swift.org/compiler/documentation/diagnostics/deprecated-declaration>
+[04:velvet-current:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/velvet-current/velvet-current.wav (32.00s)
+[04:velvet-current:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/velvet-current/velvet-current.notes.json (167 events, all visual MIDI 60...83)
+[04:velvet-current:score]   #5 · 5 Electric Piano 1 · 0-4 brushed hat pocket; 4-11 chord-shell hook; 11-19 bass-tone and answer dialogue; 19-24 swung neo-soul break; 24-30 reharmonized hook; 30-32 soft major-sixth seal · Major · motorik · seed 751392
+[04:velvet-current] video
+[03:copper-steps:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/copper-steps/copper-steps.wav (32.00s)
+[03:copper-steps:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/copper-steps/copper-steps.notes.json (196 events, all visual MIDI 60...83)
+[03:copper-steps:score]   #4 · 13 Marimba · 0-3 wood clicks; 3-9 staircase stated; 9-16 octave interlock; 16-22 asymmetric kick-and-tom break; 22-29 staircase displaced by one eighth; 29-32 unison descent · Aeolian · minimal · seed 417205
+[03:copper-steps] video
+[04:velvet-current:video] node:internal/modules/esm/resolve:272
+[04:velvet-current:video]     throw new ERR_MODULE_NOT_FOUND(
+[04:velvet-current:video]           ^
+[04:velvet-current:video] 
+[04:velvet-current:video] Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/Users/aesthetic/aesthetic-computer/pop/lib/preview-shared.mjs' imported from /Users/aesthetic/aesthetic-computer/pop/menuband/bin/reel-lib.mjs
+[04:velvet-current:video]     at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+[04:velvet-current:video]     at moduleResolve (node:internal/modules/esm/resolve:879:10)
+[04:velvet-current:video]     at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+[04:velvet-current:video]     at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+[04:velvet-current:video]     at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+[04:velvet-current:video]     at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+[04:velvet-current:video]     at #resolve (node:internal/modules/esm/loader:690:17)
+[04:velvet-current:video]     at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+[04:velvet-current:video]     at ModuleJob.syncLink (node:internal/modules/esm/module_job:277:33)
+[04:velvet-current:video]     at ModuleJob.link (node:internal/modules/esm/module_job:389:17) {
+[04:velvet-current:video]   code: 'ERR_MODULE_NOT_FOUND',
+[04:velvet-current:video]   url: 'file:///Users/aesthetic/aesthetic-computer/pop/lib/preview-shared.mjs'
+[04:velvet-current:video] }
+[04:velvet-current:video] 
+[04:velvet-current:video] Node.js v26.5.0
+[04:velvet-current] failed: exited 1
+[05:paper-lantern] start Paper Lantern
+[05:paper-lantern] score
+[03:copper-steps:video] node:internal/modules/esm/resolve:272
+[03:copper-steps:video]     throw new ERR_MODULE_NOT_FOUND(
+[03:copper-steps:video]           ^
+[03:copper-steps:video] 
+[03:copper-steps:video] Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/Users/aesthetic/aesthetic-computer/pop/lib/preview-shared.mjs' imported from /Users/aesthetic/aesthetic-computer/pop/menuband/bin/reel-lib.mjs
+[03:copper-steps:video]     at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+[03:copper-steps:video]     at moduleResolve (node:internal/modules/esm/resolve:879:10)
+[03:copper-steps:video]     at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+[03:copper-steps:video]     at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+[03:copper-steps:video]     at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+[03:copper-steps:video]     at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+[03:copper-steps:video]     at #resolve (node:internal/modules/esm/loader:690:17)
+[03:copper-steps:video]     at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+[03:copper-steps:video]     at ModuleJob.syncLink (node:internal/modules/esm/module_job:277:33)
+[03:copper-steps:video]     at ModuleJob.link (node:internal/modules/esm/module_job:389:17) {
+[03:copper-steps:video]   code: 'ERR_MODULE_NOT_FOUND',
+[03:copper-steps:video]   url: 'file:///Users/aesthetic/aesthetic-computer/pop/lib/preview-shared.mjs'
+[03:copper-steps:video] }
+[03:copper-steps:video] 
+[03:copper-steps:video] Node.js v26.5.0
+[03:copper-steps] failed: exited 1
+[06:night-ferry] start Night Ferry
+[06:night-ferry] score
+[06:night-ferry:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:504:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[06:night-ferry:score] 502 |                                         bankLSB: UInt8(kAUSampler_DefaultBankLSB))
+[06:night-ferry:score] 503 |     sampler.stereoPan = menuBandPan(midi)
+[06:night-ferry:score] 504 |     sampler.masterGain = menuBandDistanceGain(midi)
+[06:night-ferry:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[06:night-ferry:score] 505 |     engine.connect(sampler, to: toneMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[06:night-ferry:score] 506 |     toneSamplers[midi] = sampler
+[06:night-ferry:score] 
+[05:paper-lantern:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:504:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[05:paper-lantern:score] 502 |                                         bankLSB: UInt8(kAUSampler_DefaultBankLSB))
+[05:paper-lantern:score] 503 |     sampler.stereoPan = menuBandPan(midi)
+[05:paper-lantern:score] 504 |     sampler.masterGain = menuBandDistanceGain(midi)
+[05:paper-lantern:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[05:paper-lantern:score] 505 |     engine.connect(sampler, to: toneMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[05:paper-lantern:score] 506 |     toneSamplers[midi] = sampler
+[05:paper-lantern:score] 
+[06:night-ferry:score] 2026-07-28 16:06:48.288 swift-frontend[91922:2940564] Audio files cannot be non-interleaved. Ignoring setting AVLinearPCMIsNonInterleaved YES.
+[05:paper-lantern:score] 2026-07-28 16:06:48.289 swift-frontend[91917:2940563] Audio files cannot be non-interleaved. Ignoring setting AVLinearPCMIsNonInterleaved YES.
+[06:night-ferry:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:513:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[06:night-ferry:score] 511 |     try sampler.loadSoundBankInstrument(at: bank, program: 0, bankMSB: 0x78, bankLSB: 0)
+[06:night-ferry:score] 512 |     sampler.stereoPan = menuBandPan(midi)
+[06:night-ferry:score] 513 |     sampler.masterGain = menuBandDistanceGain(midi)
+[06:night-ferry:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[06:night-ferry:score] 514 |     engine.connect(sampler, to: drumMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[06:night-ferry:score] 515 |     drumSamplers[midi] = sampler
+[06:night-ferry:score] 
+[06:night-ferry:score] [#DeprecatedDeclaration]: <https://docs.swift.org/compiler/documentation/diagnostics/deprecated-declaration>
+[05:paper-lantern:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:513:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[05:paper-lantern:score] 511 |     try sampler.loadSoundBankInstrument(at: bank, program: 0, bankMSB: 0x78, bankLSB: 0)
+[05:paper-lantern:score] 512 |     sampler.stereoPan = menuBandPan(midi)
+[05:paper-lantern:score] 513 |     sampler.masterGain = menuBandDistanceGain(midi)
+[05:paper-lantern:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[05:paper-lantern:score] 514 |     engine.connect(sampler, to: drumMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[05:paper-lantern:score] 515 |     drumSamplers[midi] = sampler
+[05:paper-lantern:score] 
+[05:paper-lantern:score] [#DeprecatedDeclaration]: <https://docs.swift.org/compiler/documentation/diagnostics/deprecated-declaration>
+[06:night-ferry:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/night-ferry/night-ferry.wav (32.00s)
+[06:night-ferry:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/night-ferry/night-ferry.notes.json (196 events, all visual MIDI 60...83)
+[06:night-ferry:score]   #7 · 22 Accordion · 0-3 dock-chain ticks; 3-10 waltz theme; 10-17 bass-chord ferry pulse; 17-23 snare-and-floor-tom storm; 23-29 theme in close canon; 29-32 slowing minor cadence · Harmonic minor · broken-beat · seed 846103
+[06:night-ferry] video
+[05:paper-lantern:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/paper-lantern/paper-lantern.wav (32.00s)
+[05:paper-lantern:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/paper-lantern/paper-lantern.notes.json (166 events, all visual MIDI 60...83)
+[05:paper-lantern:score]   #6 · 108 Koto · 0-4 tiny bell taps; 4-11 pentatonic question; 11-18 overlapping 3+2 canons; 18-24 taiko-like break; 24-30 answer expanded upward; 30-32 solitary tonic · Major pentatonic · breakbeat · seed 290684
+[05:paper-lantern] video
+[06:night-ferry:video] node:internal/modules/esm/resolve:272
+[06:night-ferry:video]     throw new ERR_MODULE_NOT_FOUND(
+[06:night-ferry:video]           ^
+[06:night-ferry:video] 
+[06:night-ferry:video] Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/Users/aesthetic/aesthetic-computer/pop/lib/preview-shared.mjs' imported from /Users/aesthetic/aesthetic-computer/pop/menuband/bin/reel-lib.mjs
+[06:night-ferry:video]     at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+[06:night-ferry:video]     at moduleResolve (node:internal/modules/esm/resolve:879:10)
+[06:night-ferry:video]     at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+[06:night-ferry:video]     at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+[06:night-ferry:video]     at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+[06:night-ferry:video]     at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+[06:night-ferry:video]     at #resolve (node:internal/modules/esm/loader:690:17)
+[06:night-ferry:video]     at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+[06:night-ferry:video]     at ModuleJob.syncLink (node:internal/modules/esm/module_job:277:33)
+[06:night-ferry:video]     at ModuleJob.link (node:internal/modules/esm/module_job:389:17) {
+[06:night-ferry:video]   code: 'ERR_MODULE_NOT_FOUND',
+[06:night-ferry:video]   url: 'file:///Users/aesthetic/aesthetic-computer/pop/lib/preview-shared.mjs'
+[06:night-ferry:video] }
+[06:night-ferry:video] 
+[06:night-ferry:video] Node.js v26.5.0
+[06:night-ferry] failed: exited 1
+[07:rain-code] start Rain Code
+[07:rain-code] score
+[05:paper-lantern:video] node:internal/modules/esm/resolve:272
+[05:paper-lantern:video]     throw new ERR_MODULE_NOT_FOUND(
+[05:paper-lantern:video]           ^
+[05:paper-lantern:video] 
+[05:paper-lantern:video] Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/Users/aesthetic/aesthetic-computer/pop/lib/preview-shared.mjs' imported from /Users/aesthetic/aesthetic-computer/pop/menuband/bin/reel-lib.mjs
+[05:paper-lantern:video]     at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+[05:paper-lantern:video]     at moduleResolve (node:internal/modules/esm/resolve:879:10)
+[05:paper-lantern:video]     at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+[05:paper-lantern:video]     at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+[05:paper-lantern:video]     at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+[05:paper-lantern:video]     at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+[05:paper-lantern:video]     at #resolve (node:internal/modules/esm/loader:690:17)
+[05:paper-lantern:video]     at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+[05:paper-lantern:video]     at ModuleJob.syncLink (node:internal/modules/esm/module_job:277:33)
+[05:paper-lantern:video]     at ModuleJob.link (node:internal/modules/esm/module_job:389:17) {
+[05:paper-lantern:video]   code: 'ERR_MODULE_NOT_FOUND',
+[05:paper-lantern:video]   url: 'file:///Users/aesthetic/aesthetic-computer/pop/lib/preview-shared.mjs'
+[05:paper-lantern:video] }
+[05:paper-lantern:video] 
+[05:paper-lantern:video] Node.js v26.5.0
+[05:paper-lantern] failed: exited 1
+[08:sunken-chapel] start Sunken Chapel
+[08:sunken-chapel] score
+[07:rain-code:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:504:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[07:rain-code:score] 502 |                                         bankLSB: UInt8(kAUSampler_DefaultBankLSB))
+[07:rain-code:score] 503 |     sampler.stereoPan = menuBandPan(midi)
+[07:rain-code:score] 504 |     sampler.masterGain = menuBandDistanceGain(midi)
+[07:rain-code:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[07:rain-code:score] 505 |     engine.connect(sampler, to: toneMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[07:rain-code:score] 506 |     toneSamplers[midi] = sampler
+[07:rain-code:score] 
+[08:sunken-chapel:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:504:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[08:sunken-chapel:score] 502 |                                         bankLSB: UInt8(kAUSampler_DefaultBankLSB))
+[08:sunken-chapel:score] 503 |     sampler.stereoPan = menuBandPan(midi)
+[08:sunken-chapel:score] 504 |     sampler.masterGain = menuBandDistanceGain(midi)
+[08:sunken-chapel:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[08:sunken-chapel:score] 505 |     engine.connect(sampler, to: toneMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[08:sunken-chapel:score] 506 |     toneSamplers[midi] = sampler
+[08:sunken-chapel:score] 
+[08:sunken-chapel:score] 2026-07-28 16:06:50.094 swift-frontend[91962:2940740] Audio files cannot be non-interleaved. Ignoring setting AVLinearPCMIsNonInterleaved YES.
+[07:rain-code:score] 2026-07-28 16:06:50.095 swift-frontend[91958:2940739] Audio files cannot be non-interleaved. Ignoring setting AVLinearPCMIsNonInterleaved YES.
+[08:sunken-chapel:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:513:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[08:sunken-chapel:score] 511 |     try sampler.loadSoundBankInstrument(at: bank, program: 0, bankMSB: 0x78, bankLSB: 0)
+[08:sunken-chapel:score] 512 |     sampler.stereoPan = menuBandPan(midi)
+[08:sunken-chapel:score] 513 |     sampler.masterGain = menuBandDistanceGain(midi)
+[08:sunken-chapel:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[08:sunken-chapel:score] 514 |     engine.connect(sampler, to: drumMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[08:sunken-chapel:score] 515 |     drumSamplers[midi] = sampler
+[08:sunken-chapel:score] 
+[08:sunken-chapel:score] [#DeprecatedDeclaration]: <https://docs.swift.org/compiler/documentation/diagnostics/deprecated-declaration>
+[08:sunken-chapel:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/sunken-chapel/sunken-chapel.wav (32.00s)
+[08:sunken-chapel:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/sunken-chapel/sunken-chapel.notes.json (129 events, all visual MIDI 60...83)
+[08:sunken-chapel:score]   #9 · 20 Church Organ · 0-5 distant low bell; 5-12 invocation; 12-19 parallel organum; 19-25 monumental tom procession; 25-30 invocation in upper register; 30-32 bare fifth · Phrygian · two-step · seed 120977
+[08:sunken-chapel] video
+[07:rain-code:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:513:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[07:rain-code:score] 511 |     try sampler.loadSoundBankInstrument(at: bank, program: 0, bankMSB: 0x78, bankLSB: 0)
+[07:rain-code:score] 512 |     sampler.stereoPan = menuBandPan(midi)
+[07:rain-code:score] 513 |     sampler.masterGain = menuBandDistanceGain(midi)
+[07:rain-code:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[07:rain-code:score] 514 |     engine.connect(sampler, to: drumMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[07:rain-code:score] 515 |     drumSamplers[midi] = sampler
+[07:rain-code:score] 
+[07:rain-code:score] [#DeprecatedDeclaration]: <https://docs.swift.org/compiler/documentation/diagnostics/deprecated-declaration>
+[07:rain-code:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/rain-code/rain-code.wav (32.00s)
+[07:rain-code:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/rain-code/rain-code.notes.json (246 events, all visual MIDI 60...83)
+[07:rain-code:score]   #8 · 12 Vibraphone · 0-3 granular hats; 3-9 coded cell; 9-16 offset repetitions; 16-23 broken-beat rain break; 23-29 cell augmentation over pedal; 29-32 unresolved ninth · Dorian · garage · seed 535718
+[07:rain-code] video
+[08:sunken-chapel:video] node:internal/modules/esm/resolve:272
+[08:sunken-chapel:video]     throw new ERR_MODULE_NOT_FOUND(
+[08:sunken-chapel:video]           ^
+[08:sunken-chapel:video] 
+[08:sunken-chapel:video] Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/Users/aesthetic/aesthetic-computer/pop/lib/preview-shared.mjs' imported from /Users/aesthetic/aesthetic-computer/pop/menuband/bin/reel-lib.mjs
+[08:sunken-chapel:video]     at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+[08:sunken-chapel:video]     at moduleResolve (node:internal/modules/esm/resolve:879:10)
+[08:sunken-chapel:video]     at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+[08:sunken-chapel:video]     at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+[08:sunken-chapel:video]     at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+[08:sunken-chapel:video]     at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+[08:sunken-chapel:video]     at #resolve (node:internal/modules/esm/loader:690:17)
+[08:sunken-chapel:video]     at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+[08:sunken-chapel:video]     at ModuleJob.syncLink (node:internal/modules/esm/module_job:277:33)
+[08:sunken-chapel:video]     at ModuleJob.link (node:internal/modules/esm/module_job:389:17) {
+[08:sunken-chapel:video]   code: 'ERR_MODULE_NOT_FOUND',
+[08:sunken-chapel:video]   url: 'file:///Users/aesthetic/aesthetic-computer/pop/lib/preview-shared.mjs'
+[08:sunken-chapel:video] }
+[08:sunken-chapel:video] 
+[08:sunken-chapel:video] Node.js v26.5.0
+[08:sunken-chapel] failed: exited 1
+[09:comet-trail] start Comet Trail
+[09:comet-trail] score
+[07:rain-code:video] node:internal/modules/esm/resolve:272
+[07:rain-code:video]     throw new ERR_MODULE_NOT_FOUND(
+[07:rain-code:video]           ^
+[07:rain-code:video] 
+[07:rain-code:video] Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/Users/aesthetic/aesthetic-computer/pop/lib/preview-shared.mjs' imported from /Users/aesthetic/aesthetic-computer/pop/menuband/bin/reel-lib.mjs
+[07:rain-code:video]     at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+[07:rain-code:video]     at moduleResolve (node:internal/modules/esm/resolve:879:10)
+[07:rain-code:video]     at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+[07:rain-code:video]     at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+[07:rain-code:video]     at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+[07:rain-code:video]     at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+[07:rain-code:video]     at #resolve (node:internal/modules/esm/loader:690:17)
+[07:rain-code:video]     at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+[07:rain-code:video]     at ModuleJob.syncLink (node:internal/modules/esm/module_job:277:33)
+[07:rain-code:video]     at ModuleJob.link (node:internal/modules/esm/module_job:389:17) {
+[07:rain-code:video]   code: 'ERR_MODULE_NOT_FOUND',
+[07:rain-code:video]   url: 'file:///Users/aesthetic/aesthetic-computer/pop/lib/preview-shared.mjs'
+[07:rain-code:video] }
+[07:rain-code:video] 
+[07:rain-code:video] Node.js v26.5.0
+[07:rain-code] failed: exited 1
+[10:quiet-machinery] start Quiet Machinery
+[10:quiet-machinery] score
+[09:comet-trail:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:504:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[09:comet-trail:score] 502 |                                         bankLSB: UInt8(kAUSampler_DefaultBankLSB))
+[09:comet-trail:score] 503 |     sampler.stereoPan = menuBandPan(midi)
+[09:comet-trail:score] 504 |     sampler.masterGain = menuBandDistanceGain(midi)
+[09:comet-trail:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[09:comet-trail:score] 505 |     engine.connect(sampler, to: toneMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[09:comet-trail:score] 506 |     toneSamplers[midi] = sampler
+[09:comet-trail:score] 
+[10:quiet-machinery:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:504:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[10:quiet-machinery:score] 502 |                                         bankLSB: UInt8(kAUSampler_DefaultBankLSB))
+[10:quiet-machinery:score] 503 |     sampler.stereoPan = menuBandPan(midi)
+[10:quiet-machinery:score] 504 |     sampler.masterGain = menuBandDistanceGain(midi)
+[10:quiet-machinery:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[10:quiet-machinery:score] 505 |     engine.connect(sampler, to: toneMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[10:quiet-machinery:score] 506 |     toneSamplers[midi] = sampler
+[10:quiet-machinery:score] 
+[09:comet-trail:score] 2026-07-28 16:06:51.867 swift-frontend[92005:2940905] Audio files cannot be non-interleaved. Ignoring setting AVLinearPCMIsNonInterleaved YES.
+[10:quiet-machinery:score] 2026-07-28 16:06:51.873 swift-frontend[92013:2940907] Audio files cannot be non-interleaved. Ignoring setting AVLinearPCMIsNonInterleaved YES.
+[09:comet-trail:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:513:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[09:comet-trail:score] 511 |     try sampler.loadSoundBankInstrument(at: bank, program: 0, bankMSB: 0x78, bankLSB: 0)
+[09:comet-trail:score] 512 |     sampler.stereoPan = menuBandPan(midi)
+[09:comet-trail:score] 513 |     sampler.masterGain = menuBandDistanceGain(midi)
+[09:comet-trail:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[09:comet-trail:score] 514 |     engine.connect(sampler, to: drumMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[09:comet-trail:score] 515 |     drumSamplers[midi] = sampler
+[09:comet-trail:score] 
+[09:comet-trail:score] [#DeprecatedDeclaration]: <https://docs.swift.org/compiler/documentation/diagnostics/deprecated-declaration>
+[09:comet-trail:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/comet-trail/comet-trail.wav (32.00s)
+[09:comet-trail:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/comet-trail/comet-trail.notes.json (257 events, all visual MIDI 60...83)
+[09:comet-trail:score]   #10 · 80 Ocarina · 0-3 ticking ride; 3-9 comet motif; 9-16 chase canon; 16-22 rolling DnB-in-12 break; 22-29 motif stretched over triplets; 29-32 upward vapor trail · Aeolian · jungle · seed 978426
+[09:comet-trail] video
+[10:quiet-machinery:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:513:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[10:quiet-machinery:score] 511 |     try sampler.loadSoundBankInstrument(at: bank, program: 0, bankMSB: 0x78, bankLSB: 0)
+[10:quiet-machinery:score] 512 |     sampler.stereoPan = menuBandPan(midi)
+[10:quiet-machinery:score] 513 |     sampler.masterGain = menuBandDistanceGain(midi)
+[10:quiet-machinery:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[10:quiet-machinery:score] 514 |     engine.connect(sampler, to: drumMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[10:quiet-machinery:score] 515 |     drumSamplers[midi] = sampler
+[10:quiet-machinery:score] 
+[10:quiet-machinery:score] [#DeprecatedDeclaration]: <https://docs.swift.org/compiler/documentation/diagnostics/deprecated-declaration>
+[10:quiet-machinery:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/quiet-machinery/quiet-machinery.wav (32.00s)
+[10:quiet-machinery:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/quiet-machinery/quiet-machinery.notes.json (188 events, all visual MIDI 60...83)
+[10:quiet-machinery:score]   #11 · 11 Music Box · 0-4 clock hats; 4-10 loop A; 10-17 loop B enters; 17-23 gear-tooth percussion fugue; 23-30 loops reunite one step apart; 30-32 mechanism winds down · Aeolian · half-time · seed 304615
+[10:quiet-machinery] video
+[09:comet-trail:video] node:internal/modules/esm/resolve:272
+[09:comet-trail:video]     throw new ERR_MODULE_NOT_FOUND(
+[09:comet-trail:video]           ^
+[09:comet-trail:video] 
+[09:comet-trail:video] Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/Users/aesthetic/aesthetic-computer/pop/lib/preview-shared.mjs' imported from /Users/aesthetic/aesthetic-computer/pop/menuband/bin/reel-lib.mjs
+[09:comet-trail:video]     at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+[09:comet-trail:video]     at moduleResolve (node:internal/modules/esm/resolve:879:10)
+[09:comet-trail:video]     at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+[09:comet-trail:video]     at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+[09:comet-trail:video]     at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+[09:comet-trail:video]     at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+[09:comet-trail:video]     at #resolve (node:internal/modules/esm/loader:690:17)
+[09:comet-trail:video]     at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+[09:comet-trail:video]     at ModuleJob.syncLink (node:internal/modules/esm/module_job:277:33)
+[09:comet-trail:video]     at ModuleJob.link (node:internal/modules/esm/module_job:389:17) {
+[09:comet-trail:video]   code: 'ERR_MODULE_NOT_FOUND',
+[09:comet-trail:video]   url: 'file:///Users/aesthetic/aesthetic-computer/pop/lib/preview-shared.mjs'
+[09:comet-trail:video] }
+[09:comet-trail:video] 
+[09:comet-trail:video] Node.js v26.5.0
+[09:comet-trail] failed: exited 1
+[11:moss-circuit] start Moss Circuit
+[11:moss-circuit] score
+[10:quiet-machinery:video] node:internal/modules/esm/resolve:272
+[10:quiet-machinery:video]     throw new ERR_MODULE_NOT_FOUND(
+[10:quiet-machinery:video]           ^
+[10:quiet-machinery:video] 
+[10:quiet-machinery:video] Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/Users/aesthetic/aesthetic-computer/pop/lib/preview-shared.mjs' imported from /Users/aesthetic/aesthetic-computer/pop/menuband/bin/reel-lib.mjs
+[10:quiet-machinery:video]     at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+[10:quiet-machinery:video]     at moduleResolve (node:internal/modules/esm/resolve:879:10)
+[10:quiet-machinery:video]     at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+[10:quiet-machinery:video]     at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+[10:quiet-machinery:video]     at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+[10:quiet-machinery:video]     at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+[10:quiet-machinery:video]     at #resolve (node:internal/modules/esm/loader:690:17)
+[10:quiet-machinery:video]     at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+[10:quiet-machinery:video]     at ModuleJob.syncLink (node:internal/modules/esm/module_job:277:33)
+[10:quiet-machinery:video]     at ModuleJob.link (node:internal/modules/esm/module_job:389:17) {
+[10:quiet-machinery:video]   code: 'ERR_MODULE_NOT_FOUND',
+[10:quiet-machinery:video]   url: 'file:///Users/aesthetic/aesthetic-computer/pop/lib/preview-shared.mjs'
+[10:quiet-machinery:video] }
+[10:quiet-machinery:video] 
+[10:quiet-machinery:video] Node.js v26.5.0
+[10:quiet-machinery] failed: exited 1
+[12:amber-waltz] start Amber Waltz
+[12:amber-waltz] score
+[11:moss-circuit:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:504:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[11:moss-circuit:score] 502 |                                         bankLSB: UInt8(kAUSampler_DefaultBankLSB))
+[11:moss-circuit:score] 503 |     sampler.stereoPan = menuBandPan(midi)
+[11:moss-circuit:score] 504 |     sampler.masterGain = menuBandDistanceGain(midi)
+[11:moss-circuit:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[11:moss-circuit:score] 505 |     engine.connect(sampler, to: toneMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[11:moss-circuit:score] 506 |     toneSamplers[midi] = sampler
+[11:moss-circuit:score] 
+[12:amber-waltz:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:504:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[12:amber-waltz:score] 502 |                                         bankLSB: UInt8(kAUSampler_DefaultBankLSB))
+[12:amber-waltz:score] 503 |     sampler.stereoPan = menuBandPan(midi)
+[12:amber-waltz:score] 504 |     sampler.masterGain = menuBandDistanceGain(midi)
+[12:amber-waltz:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[12:amber-waltz:score] 505 |     engine.connect(sampler, to: toneMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[12:amber-waltz:score] 506 |     toneSamplers[midi] = sampler
+[12:amber-waltz:score] 
+[11:moss-circuit:score] 2026-07-28 16:06:53.601 swift-frontend[92028:2941023] Audio files cannot be non-interleaved. Ignoring setting AVLinearPCMIsNonInterleaved YES.
+[12:amber-waltz:score] 2026-07-28 16:06:53.603 swift-frontend[92036:2941025] Audio files cannot be non-interleaved. Ignoring setting AVLinearPCMIsNonInterleaved YES.
+[12:amber-waltz:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:513:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[12:amber-waltz:score] 511 |     try sampler.loadSoundBankInstrument(at: bank, program: 0, bankMSB: 0x78, bankLSB: 0)
+[12:amber-waltz:score] 512 |     sampler.stereoPan = menuBandPan(midi)
+[12:amber-waltz:score] 513 |     sampler.masterGain = menuBandDistanceGain(midi)
+[12:amber-waltz:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[12:amber-waltz:score] 514 |     engine.connect(sampler, to: drumMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[12:amber-waltz:score] 515 |     drumSamplers[midi] = sampler
+[12:amber-waltz:score] 
+[12:amber-waltz:score] [#DeprecatedDeclaration]: <https://docs.swift.org/compiler/documentation/diagnostics/deprecated-declaration>
+[11:moss-circuit:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:513:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[11:moss-circuit:score] 511 |     try sampler.loadSoundBankInstrument(at: bank, program: 0, bankMSB: 0x78, bankLSB: 0)
+[11:moss-circuit:score] 512 |     sampler.stereoPan = menuBandPan(midi)
+[11:moss-circuit:score] 513 |     sampler.masterGain = menuBandDistanceGain(midi)
+[11:moss-circuit:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[11:moss-circuit:score] 514 |     engine.connect(sampler, to: drumMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[11:moss-circuit:score] 515 |     drumSamplers[midi] = sampler
+[11:moss-circuit:score] 
+[11:moss-circuit:score] [#DeprecatedDeclaration]: <https://docs.swift.org/compiler/documentation/diagnostics/deprecated-declaration>
+[12:amber-waltz:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/amber-waltz/amber-waltz.wav (32.00s)
+[12:amber-waltz:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/amber-waltz/amber-waltz.notes.json (163 events, all visual MIDI 60...83)
+[12:amber-waltz:score]   #13 · 25 Acoustic Guitar (nylon) · 0-4 fingertip taps; 4-11 melody alone; 11-18 bass-third waltz; 18-23 cajon-style break; 23-29 melody reharmonized in sixths; 29-32 natural-harmonic close · Major · motorik · seed 449281
+[12:amber-waltz] video
+[11:moss-circuit:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/moss-circuit/moss-circuit.wav (32.00s)
+[11:moss-circuit:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/moss-circuit/moss-circuit.notes.json (195 events, all visual MIDI 60...83)
+[11:moss-circuit:score]   #12 · 55 Synth Voice · 0-3 filtered hats; 3-9 circuit seed; 9-16 layered 2+3 rounds; 16-22 glitch-tom break; 22-29 half-speed vocal arc; 29-32 luminous cluster release · Lydian · minimal · seed 713860
+[11:moss-circuit] video
+[12:amber-waltz:video] node:internal/modules/esm/resolve:272
+[12:amber-waltz:video]     throw new ERR_MODULE_NOT_FOUND(
+[12:amber-waltz:video]           ^
+[12:amber-waltz:video] 
+[12:amber-waltz:video] Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/Users/aesthetic/aesthetic-computer/pop/lib/preview-shared.mjs' imported from /Users/aesthetic/aesthetic-computer/pop/menuband/bin/reel-lib.mjs
+[12:amber-waltz:video]     at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+[12:amber-waltz:video]     at moduleResolve (node:internal/modules/esm/resolve:879:10)
+[12:amber-waltz:video]     at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+[12:amber-waltz:video]     at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+[12:amber-waltz:video]     at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+[12:amber-waltz:video]     at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+[12:amber-waltz:video]     at #resolve (node:internal/modules/esm/loader:690:17)
+[12:amber-waltz:video]     at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+[12:amber-waltz:video]     at ModuleJob.syncLink (node:internal/modules/esm/module_job:277:33)
+[12:amber-waltz:video]     at ModuleJob.link (node:internal/modules/esm/module_job:389:17) {
+[12:amber-waltz:video]   code: 'ERR_MODULE_NOT_FOUND',
+[12:amber-waltz:video]   url: 'file:///Users/aesthetic/aesthetic-computer/pop/lib/preview-shared.mjs'
+[12:amber-waltz:video] }
+[12:amber-waltz:video] 
+[12:amber-waltz:video] Node.js v26.5.0
+[12:amber-waltz] failed: exited 1
+[13:chrome-sparrow] start Chrome Sparrow
+[13:chrome-sparrow] score
+[11:moss-circuit:video] node:internal/modules/esm/resolve:272
+[11:moss-circuit:video]     throw new ERR_MODULE_NOT_FOUND(
+[11:moss-circuit:video]           ^
+[11:moss-circuit:video] 
+[11:moss-circuit:video] Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/Users/aesthetic/aesthetic-computer/pop/lib/preview-shared.mjs' imported from /Users/aesthetic/aesthetic-computer/pop/menuband/bin/reel-lib.mjs
+[11:moss-circuit:video]     at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+[11:moss-circuit:video]     at moduleResolve (node:internal/modules/esm/resolve:879:10)
+[11:moss-circuit:video]     at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+[11:moss-circuit:video]     at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+[11:moss-circuit:video]     at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+[11:moss-circuit:video]     at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+[11:moss-circuit:video]     at #resolve (node:internal/modules/esm/loader:690:17)
+[11:moss-circuit:video]     at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+[11:moss-circuit:video]     at ModuleJob.syncLink (node:internal/modules/esm/module_job:277:33)
+[11:moss-circuit:video]     at ModuleJob.link (node:internal/modules/esm/module_job:389:17) {
+[11:moss-circuit:video]   code: 'ERR_MODULE_NOT_FOUND',
+[11:moss-circuit:video]   url: 'file:///Users/aesthetic/aesthetic-computer/pop/lib/preview-shared.mjs'
+[11:moss-circuit:video] }
+[11:moss-circuit:video] 
+[11:moss-circuit:video] Node.js v26.5.0
+[11:moss-circuit] failed: exited 1
+[14:salt-lines] start Salt Lines
+[14:salt-lines] score
+[13:chrome-sparrow:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:504:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[13:chrome-sparrow:score] 502 |                                         bankLSB: UInt8(kAUSampler_DefaultBankLSB))
+[13:chrome-sparrow:score] 503 |     sampler.stereoPan = menuBandPan(midi)
+[13:chrome-sparrow:score] 504 |     sampler.masterGain = menuBandDistanceGain(midi)
+[13:chrome-sparrow:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[13:chrome-sparrow:score] 505 |     engine.connect(sampler, to: toneMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[13:chrome-sparrow:score] 506 |     toneSamplers[midi] = sampler
+[13:chrome-sparrow:score] 
+[14:salt-lines:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:504:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[14:salt-lines:score] 502 |                                         bankLSB: UInt8(kAUSampler_DefaultBankLSB))
+[14:salt-lines:score] 503 |     sampler.stereoPan = menuBandPan(midi)
+[14:salt-lines:score] 504 |     sampler.masterGain = menuBandDistanceGain(midi)
+[14:salt-lines:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[14:salt-lines:score] 505 |     engine.connect(sampler, to: toneMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[14:salt-lines:score] 506 |     toneSamplers[midi] = sampler
+[14:salt-lines:score] 
+[14:salt-lines:score] 2026-07-28 16:06:55.399 swift-frontend[92074:2941180] Audio files cannot be non-interleaved. Ignoring setting AVLinearPCMIsNonInterleaved YES.
+[13:chrome-sparrow:score] 2026-07-28 16:06:55.400 swift-frontend[92069:2941179] Audio files cannot be non-interleaved. Ignoring setting AVLinearPCMIsNonInterleaved YES.
+[14:salt-lines:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:513:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[14:salt-lines:score] 511 |     try sampler.loadSoundBankInstrument(at: bank, program: 0, bankMSB: 0x78, bankLSB: 0)
+[14:salt-lines:score] 512 |     sampler.stereoPan = menuBandPan(midi)
+[14:salt-lines:score] 513 |     sampler.masterGain = menuBandDistanceGain(midi)
+[14:salt-lines:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[14:salt-lines:score] 514 |     engine.connect(sampler, to: drumMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[14:salt-lines:score] 515 |     drumSamplers[midi] = sampler
+[14:salt-lines:score] 
+[14:salt-lines:score] [#DeprecatedDeclaration]: <https://docs.swift.org/compiler/documentation/diagnostics/deprecated-declaration>
+[14:salt-lines:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/salt-lines/salt-lines.wav (32.00s)
+[14:salt-lines:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/salt-lines/salt-lines.notes.json (127 events, all visual MIDI 60...83)
+[14:salt-lines:score]   #15 · 78 Shakuhachi · 0-5 sparse shell clicks; 5-12 free-breath phrase; 12-19 call across two registers; 19-24 ceremonial drum break; 24-30 varied exhale; 30-32 silence-bound low tonic · Aeolian · broken-beat · seed 596032
+[14:salt-lines] video
+[13:chrome-sparrow:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:513:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[13:chrome-sparrow:score] 511 |     try sampler.loadSoundBankInstrument(at: bank, program: 0, bankMSB: 0x78, bankLSB: 0)
+[13:chrome-sparrow:score] 512 |     sampler.stereoPan = menuBandPan(midi)
+[13:chrome-sparrow:score] 513 |     sampler.masterGain = menuBandDistanceGain(midi)
+[13:chrome-sparrow:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[13:chrome-sparrow:score] 514 |     engine.connect(sampler, to: drumMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[13:chrome-sparrow:score] 515 |     drumSamplers[midi] = sampler
+[13:chrome-sparrow:score] 
+[13:chrome-sparrow:score] [#DeprecatedDeclaration]: <https://docs.swift.org/compiler/documentation/diagnostics/deprecated-declaration>
+[13:chrome-sparrow:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/chrome-sparrow/chrome-sparrow.wav (32.00s)
+[13:chrome-sparrow:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/chrome-sparrow/chrome-sparrow.notes.json (256 events, all visual MIDI 60...83)
+[13:chrome-sparrow:score]   #14 · 73 Piccolo · 0-3 winglike hats; 3-8 call motif; 8-15 rapid zigzag flights; 15-21 clipped jungle break; 21-28 call-and-flight compression; 28-32 one long descending glide · Aeolian · breakbeat · seed 827544
+[13:chrome-sparrow] video
+[14:salt-lines:video] node:internal/modules/esm/resolve:272
+[14:salt-lines:video]     throw new ERR_MODULE_NOT_FOUND(
+[14:salt-lines:video]           ^
+[14:salt-lines:video] 
+[14:salt-lines:video] Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/Users/aesthetic/aesthetic-computer/pop/lib/preview-shared.mjs' imported from /Users/aesthetic/aesthetic-computer/pop/menuband/bin/reel-lib.mjs
+[14:salt-lines:video]     at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+[14:salt-lines:video]     at moduleResolve (node:internal/modules/esm/resolve:879:10)
+[14:salt-lines:video]     at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+[14:salt-lines:video]     at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+[14:salt-lines:video]     at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+[14:salt-lines:video]     at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+[14:salt-lines:video]     at #resolve (node:internal/modules/esm/loader:690:17)
+[14:salt-lines:video]     at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+[14:salt-lines:video]     at ModuleJob.syncLink (node:internal/modules/esm/module_job:277:33)
+[14:salt-lines:video]     at ModuleJob.link (node:internal/modules/esm/module_job:389:17) {
+[14:salt-lines:video]   code: 'ERR_MODULE_NOT_FOUND',
+[14:salt-lines:video]   url: 'file:///Users/aesthetic/aesthetic-computer/pop/lib/preview-shared.mjs'
+[14:salt-lines:video] }
+[14:salt-lines:video] 
+[14:salt-lines:video] Node.js v26.5.0
+[14:salt-lines] failed: exited 1
+[15:afterimage] start Afterimage
+[15:afterimage] score
+[13:chrome-sparrow:video] node:internal/modules/esm/resolve:272
+[13:chrome-sparrow:video]     throw new ERR_MODULE_NOT_FOUND(
+[13:chrome-sparrow:video]           ^
+[13:chrome-sparrow:video] 
+[13:chrome-sparrow:video] Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/Users/aesthetic/aesthetic-computer/pop/lib/preview-shared.mjs' imported from /Users/aesthetic/aesthetic-computer/pop/menuband/bin/reel-lib.mjs
+[13:chrome-sparrow:video]     at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+[13:chrome-sparrow:video]     at moduleResolve (node:internal/modules/esm/resolve:879:10)
+[13:chrome-sparrow:video]     at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+[13:chrome-sparrow:video]     at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+[13:chrome-sparrow:video]     at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+[13:chrome-sparrow:video]     at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+[13:chrome-sparrow:video]     at #resolve (node:internal/modules/esm/loader:690:17)
+[13:chrome-sparrow:video]     at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+[13:chrome-sparrow:video]     at ModuleJob.syncLink (node:internal/modules/esm/module_job:277:33)
+[13:chrome-sparrow:video]     at ModuleJob.link (node:internal/modules/esm/module_job:389:17) {
+[13:chrome-sparrow:video]   code: 'ERR_MODULE_NOT_FOUND',
+[13:chrome-sparrow:video]   url: 'file:///Users/aesthetic/aesthetic-computer/pop/lib/preview-shared.mjs'
+[13:chrome-sparrow:video] }
+[13:chrome-sparrow:video] 
+[13:chrome-sparrow:video] Node.js v26.5.0
+[13:chrome-sparrow] failed: exited 1
+[16:switchyard] start Switchyard
+[16:switchyard] score
+[15:afterimage:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:504:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[15:afterimage:score] 502 |                                         bankLSB: UInt8(kAUSampler_DefaultBankLSB))
+[15:afterimage:score] 503 |     sampler.stereoPan = menuBandPan(midi)
+[15:afterimage:score] 504 |     sampler.masterGain = menuBandDistanceGain(midi)
+[15:afterimage:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[15:afterimage:score] 505 |     engine.connect(sampler, to: toneMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[15:afterimage:score] 506 |     toneSamplers[midi] = sampler
+[15:afterimage:score] 
+[16:switchyard:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:504:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[16:switchyard:score] 502 |                                         bankLSB: UInt8(kAUSampler_DefaultBankLSB))
+[16:switchyard:score] 503 |     sampler.stereoPan = menuBandPan(midi)
+[16:switchyard:score] 504 |     sampler.masterGain = menuBandDistanceGain(midi)
+[16:switchyard:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[16:switchyard:score] 505 |     engine.connect(sampler, to: toneMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[16:switchyard:score] 506 |     toneSamplers[midi] = sampler
+[16:switchyard:score] 
+[15:afterimage:score] 2026-07-28 16:06:57.180 swift-frontend[92092:2941305] Audio files cannot be non-interleaved. Ignoring setting AVLinearPCMIsNonInterleaved YES.
+[16:switchyard:score] 2026-07-28 16:06:57.180 swift-frontend[92100:2941306] Audio files cannot be non-interleaved. Ignoring setting AVLinearPCMIsNonInterleaved YES.
+[15:afterimage:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:513:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[15:afterimage:score] 511 |     try sampler.loadSoundBankInstrument(at: bank, program: 0, bankMSB: 0x78, bankLSB: 0)
+[15:afterimage:score] 512 |     sampler.stereoPan = menuBandPan(midi)
+[15:afterimage:score] 513 |     sampler.masterGain = menuBandDistanceGain(midi)
+[15:afterimage:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[15:afterimage:score] 514 |     engine.connect(sampler, to: drumMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[15:afterimage:score] 515 |     drumSamplers[midi] = sampler
+[15:afterimage:score] 
+[15:afterimage:score] [#DeprecatedDeclaration]: <https://docs.swift.org/compiler/documentation/diagnostics/deprecated-declaration>
+[15:afterimage:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/afterimage/afterimage.wav (32.00s)
+[15:afterimage:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/afterimage/afterimage.notes.json (148 events, all visual MIDI 60...83)
+[15:afterimage:score]   #16 · 49 String Ensemble 1 · 0-4 felt mallet pulse; 4-11 suspended field; 11-18 inner-voice ascent; 18-24 cinematic low-drum break; 24-30 inversions resolve by semitone; 30-32 luminous major third · Major · garage · seed 238509
+[16:switchyard:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:513:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[16:switchyard:score] 511 |     try sampler.loadSoundBankInstrument(at: bank, program: 0, bankMSB: 0x78, bankLSB: 0)
+[16:switchyard:score] 512 |     sampler.stereoPan = menuBandPan(midi)
+[16:switchyard:score] 513 |     sampler.masterGain = menuBandDistanceGain(midi)
+[16:switchyard:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[16:switchyard:score] 514 |     engine.connect(sampler, to: drumMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[16:switchyard:score] 515 |     drumSamplers[midi] = sampler
+[16:switchyard:score] 
+[16:switchyard:score] [#DeprecatedDeclaration]: <https://docs.swift.org/compiler/documentation/diagnostics/deprecated-declaration>
+[15:afterimage] video
+[16:switchyard:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/switchyard/switchyard.wav (32.00s)
+[16:switchyard:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/switchyard/switchyard.notes.json (218 events, all visual MIDI 60...83)
+[16:switchyard:score]   #17 · 23 Harmonica · 0-3 train hats; 3-9 hook; 9-16 call-and-response shuffle; 16-22 rail-yard snare break; 22-29 hook with octave swaps; 29-32 whistle-like tonic fall · Mixolydian · two-step · seed 681753
+[16:switchyard] video
+[15:afterimage:video] node:internal/modules/esm/resolve:272
+[15:afterimage:video]     throw new ERR_MODULE_NOT_FOUND(
+[15:afterimage:video]           ^
+[15:afterimage:video] 
+[15:afterimage:video] Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/Users/aesthetic/aesthetic-computer/pop/lib/preview-shared.mjs' imported from /Users/aesthetic/aesthetic-computer/pop/menuband/bin/reel-lib.mjs
+[15:afterimage:video]     at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+[15:afterimage:video]     at moduleResolve (node:internal/modules/esm/resolve:879:10)
+[15:afterimage:video]     at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+[15:afterimage:video]     at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+[15:afterimage:video]     at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+[15:afterimage:video]     at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+[15:afterimage:video]     at #resolve (node:internal/modules/esm/loader:690:17)
+[15:afterimage:video]     at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+[15:afterimage:video]     at ModuleJob.syncLink (node:internal/modules/esm/module_job:277:33)
+[15:afterimage:video]     at ModuleJob.link (node:internal/modules/esm/module_job:389:17) {
+[15:afterimage:video]   code: 'ERR_MODULE_NOT_FOUND',
+[15:afterimage:video]   url: 'file:///Users/aesthetic/aesthetic-computer/pop/lib/preview-shared.mjs'
+[15:afterimage:video] }
+[15:afterimage:video] 
+[15:afterimage:video] Node.js v26.5.0
+[15:afterimage] failed: exited 1
+[17:orbital-pizzicato] start Orbital Pizzicato
+[17:orbital-pizzicato] score
+[16:switchyard:video] node:internal/modules/esm/resolve:272
+[16:switchyard:video]     throw new ERR_MODULE_NOT_FOUND(
+[16:switchyard:video]           ^
+[16:switchyard:video] 
+[16:switchyard:video] Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/Users/aesthetic/aesthetic-computer/pop/lib/preview-shared.mjs' imported from /Users/aesthetic/aesthetic-computer/pop/menuband/bin/reel-lib.mjs
+[16:switchyard:video]     at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+[16:switchyard:video]     at moduleResolve (node:internal/modules/esm/resolve:879:10)
+[16:switchyard:video]     at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+[16:switchyard:video]     at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+[16:switchyard:video]     at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+[16:switchyard:video]     at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+[16:switchyard:video]     at #resolve (node:internal/modules/esm/loader:690:17)
+[16:switchyard:video]     at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+[16:switchyard:video]     at ModuleJob.syncLink (node:internal/modules/esm/module_job:277:33)
+[16:switchyard:video]     at ModuleJob.link (node:internal/modules/esm/module_job:389:17) {
+[16:switchyard:video]   code: 'ERR_MODULE_NOT_FOUND',
+[16:switchyard:video]   url: 'file:///Users/aesthetic/aesthetic-computer/pop/lib/preview-shared.mjs'
+[16:switchyard:video] }
+[16:switchyard:video] 
+[16:switchyard:video] Node.js v26.5.0
+[16:switchyard] failed: exited 1
+[18:low-tide] start Low Tide
+[18:low-tide] score
+[18:low-tide:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:504:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[18:low-tide:score] 502 |                                         bankLSB: UInt8(kAUSampler_DefaultBankLSB))
+[18:low-tide:score] 503 |     sampler.stereoPan = menuBandPan(midi)
+[18:low-tide:score] 504 |     sampler.masterGain = menuBandDistanceGain(midi)
+[18:low-tide:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[18:low-tide:score] 505 |     engine.connect(sampler, to: toneMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[18:low-tide:score] 506 |     toneSamplers[midi] = sampler
+[18:low-tide:score] 
+[17:orbital-pizzicato:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:504:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[17:orbital-pizzicato:score] 502 |                                         bankLSB: UInt8(kAUSampler_DefaultBankLSB))
+[17:orbital-pizzicato:score] 503 |     sampler.stereoPan = menuBandPan(midi)
+[17:orbital-pizzicato:score] 504 |     sampler.masterGain = menuBandDistanceGain(midi)
+[17:orbital-pizzicato:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[17:orbital-pizzicato:score] 505 |     engine.connect(sampler, to: toneMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[17:orbital-pizzicato:score] 506 |     toneSamplers[midi] = sampler
+[17:orbital-pizzicato:score] 
+[17:orbital-pizzicato:score] 2026-07-28 16:06:58.977 swift-frontend[92133:2941466] Audio files cannot be non-interleaved. Ignoring setting AVLinearPCMIsNonInterleaved YES.
+[18:low-tide:score] 2026-07-28 16:06:58.978 swift-frontend[92141:2941467] Audio files cannot be non-interleaved. Ignoring setting AVLinearPCMIsNonInterleaved YES.
+[17:orbital-pizzicato:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:513:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[17:orbital-pizzicato:score] 511 |     try sampler.loadSoundBankInstrument(at: bank, program: 0, bankMSB: 0x78, bankLSB: 0)
+[17:orbital-pizzicato:score] 512 |     sampler.stereoPan = menuBandPan(midi)
+[17:orbital-pizzicato:score] 513 |     sampler.masterGain = menuBandDistanceGain(midi)
+[17:orbital-pizzicato:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[17:orbital-pizzicato:score] 514 |     engine.connect(sampler, to: drumMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[17:orbital-pizzicato:score] 515 |     drumSamplers[midi] = sampler
+[17:orbital-pizzicato:score] 
+[17:orbital-pizzicato:score] [#DeprecatedDeclaration]: <https://docs.swift.org/compiler/documentation/diagnostics/deprecated-declaration>
+[18:low-tide:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:513:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[18:low-tide:score] 511 |     try sampler.loadSoundBankInstrument(at: bank, program: 0, bankMSB: 0x78, bankLSB: 0)
+[18:low-tide:score] 512 |     sampler.stereoPan = menuBandPan(midi)
+[18:low-tide:score] 513 |     sampler.masterGain = menuBandDistanceGain(midi)
+[18:low-tide:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[18:low-tide:score] 514 |     engine.connect(sampler, to: drumMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[18:low-tide:score] 515 |     drumSamplers[midi] = sampler
+[18:low-tide:score] 
+[18:low-tide:score] [#DeprecatedDeclaration]: <https://docs.swift.org/compiler/documentation/diagnostics/deprecated-declaration>
+[17:orbital-pizzicato:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/orbital-pizzicato/orbital-pizzicato.wav (32.00s)
+[17:orbital-pizzicato:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/orbital-pizzicato/orbital-pizzicato.notes.json (238 events, all visual MIDI 60...83)
+[17:orbital-pizzicato:score]   #18 · 46 Pizzicato Strings · 0-3 satellite ticks; 3-9 orbit one; 9-16 counter-orbit; 16-22 zero-gravity DnB break; 22-29 intervals contract home; 29-32 center pitch alone · Dorian · jungle · seed 915274
+[17:orbital-pizzicato] video
+[18:low-tide:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/low-tide/low-tide.wav (32.00s)
+[18:low-tide:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/low-tide/low-tide.notes.json (133 events, all visual MIDI 60...83)
+[18:low-tide:score]   #19 · 70 English Horn · 0-5 distant pebble clicks; 5-12 low theme; 12-19 undertow pedal and response; 19-25 sparse surf-drum break; 25-30 theme narrowed to thirds; 30-32 receding fifth · Aeolian · half-time · seed 372861
+[18:low-tide] video
+[17:orbital-pizzicato:video] node:internal/modules/esm/resolve:272
+[17:orbital-pizzicato:video]     throw new ERR_MODULE_NOT_FOUND(
+[17:orbital-pizzicato:video]           ^
+[17:orbital-pizzicato:video] 
+[17:orbital-pizzicato:video] Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/Users/aesthetic/aesthetic-computer/pop/lib/preview-shared.mjs' imported from /Users/aesthetic/aesthetic-computer/pop/menuband/bin/reel-lib.mjs
+[17:orbital-pizzicato:video]     at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+[17:orbital-pizzicato:video]     at moduleResolve (node:internal/modules/esm/resolve:879:10)
+[17:orbital-pizzicato:video]     at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+[17:orbital-pizzicato:video]     at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+[17:orbital-pizzicato:video]     at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+[17:orbital-pizzicato:video]     at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+[17:orbital-pizzicato:video]     at #resolve (node:internal/modules/esm/loader:690:17)
+[17:orbital-pizzicato:video]     at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+[17:orbital-pizzicato:video]     at ModuleJob.syncLink (node:internal/modules/esm/module_job:277:33)
+[17:orbital-pizzicato:video]     at ModuleJob.link (node:internal/modules/esm/module_job:389:17) {
+[17:orbital-pizzicato:video]   code: 'ERR_MODULE_NOT_FOUND',
+[17:orbital-pizzicato:video]   url: 'file:///Users/aesthetic/aesthetic-computer/pop/lib/preview-shared.mjs'
+[17:orbital-pizzicato:video] }
+[17:orbital-pizzicato:video] 
+[17:orbital-pizzicato:video] Node.js v26.5.0
+[17:orbital-pizzicato] failed: exited 1
+[19:polar-bells] start Polar Bells
+[19:polar-bells] score
+[18:low-tide:video] node:internal/modules/esm/resolve:272
+[18:low-tide:video]     throw new ERR_MODULE_NOT_FOUND(
+[18:low-tide:video]           ^
+[18:low-tide:video] 
+[18:low-tide:video] Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/Users/aesthetic/aesthetic-computer/pop/lib/preview-shared.mjs' imported from /Users/aesthetic/aesthetic-computer/pop/menuband/bin/reel-lib.mjs
+[18:low-tide:video]     at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+[18:low-tide:video]     at moduleResolve (node:internal/modules/esm/resolve:879:10)
+[18:low-tide:video]     at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+[18:low-tide:video]     at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+[18:low-tide:video]     at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+[18:low-tide:video]     at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+[18:low-tide:video]     at #resolve (node:internal/modules/esm/loader:690:17)
+[18:low-tide:video]     at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+[18:low-tide:video]     at ModuleJob.syncLink (node:internal/modules/esm/module_job:277:33)
+[18:low-tide:video]     at ModuleJob.link (node:internal/modules/esm/module_job:389:17) {
+[18:low-tide:video]   code: 'ERR_MODULE_NOT_FOUND',
+[18:low-tide:video]   url: 'file:///Users/aesthetic/aesthetic-computer/pop/lib/preview-shared.mjs'
+[18:low-tide:video] }
+[18:low-tide:video] 
+[18:low-tide:video] Node.js v26.5.0
+[18:low-tide] failed: exited 1
+[20:neon-canopy] start Neon Canopy
+[20:neon-canopy] score
+[20:neon-canopy:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:504:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[20:neon-canopy:score] 502 |                                         bankLSB: UInt8(kAUSampler_DefaultBankLSB))
+[20:neon-canopy:score] 503 |     sampler.stereoPan = menuBandPan(midi)
+[20:neon-canopy:score] 504 |     sampler.masterGain = menuBandDistanceGain(midi)
+[20:neon-canopy:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[20:neon-canopy:score] 505 |     engine.connect(sampler, to: toneMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[20:neon-canopy:score] 506 |     toneSamplers[midi] = sampler
+[20:neon-canopy:score] 
+[19:polar-bells:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:504:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[19:polar-bells:score] 502 |                                         bankLSB: UInt8(kAUSampler_DefaultBankLSB))
+[19:polar-bells:score] 503 |     sampler.stereoPan = menuBandPan(midi)
+[19:polar-bells:score] 504 |     sampler.masterGain = menuBandDistanceGain(midi)
+[19:polar-bells:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[19:polar-bells:score] 505 |     engine.connect(sampler, to: toneMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[19:polar-bells:score] 506 |     toneSamplers[midi] = sampler
+[19:polar-bells:score] 
+[19:polar-bells:score] 2026-07-28 16:07:00.760 swift-frontend[92173:2941631] Audio files cannot be non-interleaved. Ignoring setting AVLinearPCMIsNonInterleaved YES.
+[20:neon-canopy:score] 2026-07-28 16:07:00.762 swift-frontend[92182:2941632] Audio files cannot be non-interleaved. Ignoring setting AVLinearPCMIsNonInterleaved YES.
+[20:neon-canopy:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:513:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[20:neon-canopy:score] 511 |     try sampler.loadSoundBankInstrument(at: bank, program: 0, bankMSB: 0x78, bankLSB: 0)
+[20:neon-canopy:score] 512 |     sampler.stereoPan = menuBandPan(midi)
+[20:neon-canopy:score] 513 |     sampler.masterGain = menuBandDistanceGain(midi)
+[20:neon-canopy:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[20:neon-canopy:score] 514 |     engine.connect(sampler, to: drumMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[20:neon-canopy:score] 515 |     drumSamplers[midi] = sampler
+[20:neon-canopy:score] 
+[20:neon-canopy:score] [#DeprecatedDeclaration]: <https://docs.swift.org/compiler/documentation/diagnostics/deprecated-declaration>
+[19:polar-bells:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:513:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[19:polar-bells:score] 511 |     try sampler.loadSoundBankInstrument(at: bank, program: 0, bankMSB: 0x78, bankLSB: 0)
+[19:polar-bells:score] 512 |     sampler.stereoPan = menuBandPan(midi)
+[19:polar-bells:score] 513 |     sampler.masterGain = menuBandDistanceGain(midi)
+[19:polar-bells:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[19:polar-bells:score] 514 |     engine.connect(sampler, to: drumMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[19:polar-bells:score] 515 |     drumSamplers[midi] = sampler
+[19:polar-bells:score] 
+[19:polar-bells:score] [#DeprecatedDeclaration]: <https://docs.swift.org/compiler/documentation/diagnostics/deprecated-declaration>
+[20:neon-canopy:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/neon-canopy/neon-canopy.wav (32.00s)
+[20:neon-canopy:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/neon-canopy/neon-canopy.notes.json (205 events, all visual MIDI 60...83)
+[20:neon-canopy:score]   #21 · 81 Lead 1 (square) · 0-3 electronic hats; 3-9 bass hook; 9-16 canopy melody; 16-22 electro break with left-right hocket; 22-29 hook and melody exchange roles; 29-32 filtered unison fall · Dorian · motorik · seed 109638
+[20:neon-canopy] video
+[19:polar-bells:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/polar-bells/polar-bells.wav (32.00s)
+[19:polar-bells:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/polar-bells/polar-bells.notes.json (143 events, all visual MIDI 60...83)
+[19:polar-bells:score]   #20 · 15 Tubular Bells · 0-4 ice ticks; 4-11 bell signal; 11-18 overlapping long fifths; 18-24 glacial tom break; 24-30 signal in mirrored contour; 30-32 one decaying strike · Lydian · minimal · seed 744196
+[19:polar-bells] video
+[20:neon-canopy:video] node:internal/modules/esm/resolve:272
+[20:neon-canopy:video]     throw new ERR_MODULE_NOT_FOUND(
+[20:neon-canopy:video]           ^
+[20:neon-canopy:video] 
+[20:neon-canopy:video] Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/Users/aesthetic/aesthetic-computer/pop/lib/preview-shared.mjs' imported from /Users/aesthetic/aesthetic-computer/pop/menuband/bin/reel-lib.mjs
+[20:neon-canopy:video]     at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+[20:neon-canopy:video]     at moduleResolve (node:internal/modules/esm/resolve:879:10)
+[20:neon-canopy:video]     at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+[20:neon-canopy:video]     at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+[20:neon-canopy:video]     at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+[20:neon-canopy:video]     at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+[20:neon-canopy:video]     at #resolve (node:internal/modules/esm/loader:690:17)
+[20:neon-canopy:video]     at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+[20:neon-canopy:video]     at ModuleJob.syncLink (node:internal/modules/esm/module_job:277:33)
+[20:neon-canopy:video]     at ModuleJob.link (node:internal/modules/esm/module_job:389:17) {
+[20:neon-canopy:video]   code: 'ERR_MODULE_NOT_FOUND',
+[20:neon-canopy:video]   url: 'file:///Users/aesthetic/aesthetic-computer/pop/lib/preview-shared.mjs'
+[20:neon-canopy:video] }
+[20:neon-canopy:video] 
+[20:neon-canopy:video] Node.js v26.5.0
+[20:neon-canopy] failed: exited 1
+[21:cedar-spiral] start Cedar Spiral
+[21:cedar-spiral] score
+[19:polar-bells:video] node:internal/modules/esm/resolve:272
+[19:polar-bells:video]     throw new ERR_MODULE_NOT_FOUND(
+[19:polar-bells:video]           ^
+[19:polar-bells:video] 
+[19:polar-bells:video] Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/Users/aesthetic/aesthetic-computer/pop/lib/preview-shared.mjs' imported from /Users/aesthetic/aesthetic-computer/pop/menuband/bin/reel-lib.mjs
+[19:polar-bells:video]     at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+[19:polar-bells:video]     at moduleResolve (node:internal/modules/esm/resolve:879:10)
+[19:polar-bells:video]     at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+[19:polar-bells:video]     at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+[19:polar-bells:video]     at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+[19:polar-bells:video]     at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+[19:polar-bells:video]     at #resolve (node:internal/modules/esm/loader:690:17)
+[19:polar-bells:video]     at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+[19:polar-bells:video]     at ModuleJob.syncLink (node:internal/modules/esm/module_job:277:33)
+[19:polar-bells:video]     at ModuleJob.link (node:internal/modules/esm/module_job:389:17) {
+[19:polar-bells:video]   code: 'ERR_MODULE_NOT_FOUND',
+[19:polar-bells:video]   url: 'file:///Users/aesthetic/aesthetic-computer/pop/lib/preview-shared.mjs'
+[19:polar-bells:video] }
+[19:polar-bells:video] 
+[19:polar-bells:video] Node.js v26.5.0
+[19:polar-bells] failed: exited 1
+[22:smoke-signal] start Smoke Signal
+[22:smoke-signal] score
+[21:cedar-spiral:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:504:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[21:cedar-spiral:score] 502 |                                         bankLSB: UInt8(kAUSampler_DefaultBankLSB))
+[21:cedar-spiral:score] 503 |     sampler.stereoPan = menuBandPan(midi)
+[21:cedar-spiral:score] 504 |     sampler.masterGain = menuBandDistanceGain(midi)
+[21:cedar-spiral:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[21:cedar-spiral:score] 505 |     engine.connect(sampler, to: toneMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[21:cedar-spiral:score] 506 |     toneSamplers[midi] = sampler
+[21:cedar-spiral:score] 
+[22:smoke-signal:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:504:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[22:smoke-signal:score] 502 |                                         bankLSB: UInt8(kAUSampler_DefaultBankLSB))
+[22:smoke-signal:score] 503 |     sampler.stereoPan = menuBandPan(midi)
+[22:smoke-signal:score] 504 |     sampler.masterGain = menuBandDistanceGain(midi)
+[22:smoke-signal:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[22:smoke-signal:score] 505 |     engine.connect(sampler, to: toneMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[22:smoke-signal:score] 506 |     toneSamplers[midi] = sampler
+[22:smoke-signal:score] 
+[21:cedar-spiral:score] 2026-07-28 16:07:02.587 swift-frontend[92193:2941721] Audio files cannot be non-interleaved. Ignoring setting AVLinearPCMIsNonInterleaved YES.
+[22:smoke-signal:score] 2026-07-28 16:07:02.588 swift-frontend[92194:2941720] Audio files cannot be non-interleaved. Ignoring setting AVLinearPCMIsNonInterleaved YES.
+[21:cedar-spiral:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:513:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[21:cedar-spiral:score] 511 |     try sampler.loadSoundBankInstrument(at: bank, program: 0, bankMSB: 0x78, bankLSB: 0)
+[21:cedar-spiral:score] 512 |     sampler.stereoPan = menuBandPan(midi)
+[21:cedar-spiral:score] 513 |     sampler.masterGain = menuBandDistanceGain(midi)
+[21:cedar-spiral:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[21:cedar-spiral:score] 514 |     engine.connect(sampler, to: drumMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[21:cedar-spiral:score] 515 |     drumSamplers[midi] = sampler
+[21:cedar-spiral:score] 
+[21:cedar-spiral:score] [#DeprecatedDeclaration]: <https://docs.swift.org/compiler/documentation/diagnostics/deprecated-declaration>
+[22:smoke-signal:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:513:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[22:smoke-signal:score] 511 |     try sampler.loadSoundBankInstrument(at: bank, program: 0, bankMSB: 0x78, bankLSB: 0)
+[22:smoke-signal:score] 512 |     sampler.stereoPan = menuBandPan(midi)
+[22:smoke-signal:score] 513 |     sampler.masterGain = menuBandDistanceGain(midi)
+[22:smoke-signal:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[22:smoke-signal:score] 514 |     engine.connect(sampler, to: drumMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[22:smoke-signal:score] 515 |     drumSamplers[midi] = sampler
+[22:smoke-signal:score] 
+[22:smoke-signal:score] [#DeprecatedDeclaration]: <https://docs.swift.org/compiler/documentation/diagnostics/deprecated-declaration>
+[21:cedar-spiral:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/cedar-spiral/cedar-spiral.wav (32.00s)
+[21:cedar-spiral:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/cedar-spiral/cedar-spiral.notes.json (180 events, all visual MIDI 60...83)
+[21:cedar-spiral:score]   #22 · 16 Dulcimer · 0-3 woodblock taps; 3-10 spiral seed; 10-17 braided upper/lower spirals; 17-23 frame-drum break; 23-29 spiral reverses downward; 29-32 open-string cadence · Major · breakbeat · seed 463720
+[22:smoke-signal:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/smoke-signal/smoke-signal.wav (32.00s)
+[22:smoke-signal:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/smoke-signal/smoke-signal.notes.json (171 events, all visual MIDI 60...83)
+[22:smoke-signal:score]   #23 · 76 Pan Flute · 0-4 heartbeat drum; 4-11 call; 11-18 layered plume responses; 18-24 signal-drum break; 24-30 calls overlap at the octave; 30-32 breathy descent · Aeolian · broken-beat · seed 850341
+[21:cedar-spiral] video
+[22:smoke-signal] video
+[21:cedar-spiral:video] node:internal/modules/esm/resolve:272
+[21:cedar-spiral:video]     throw new ERR_MODULE_NOT_FOUND(
+[21:cedar-spiral:video]           ^
+[21:cedar-spiral:video] 
+[21:cedar-spiral:video] Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/Users/aesthetic/aesthetic-computer/pop/lib/preview-shared.mjs' imported from /Users/aesthetic/aesthetic-computer/pop/menuband/bin/reel-lib.mjs
+[21:cedar-spiral:video]     at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+[21:cedar-spiral:video]     at moduleResolve (node:internal/modules/esm/resolve:879:10)
+[21:cedar-spiral:video]     at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+[21:cedar-spiral:video]     at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+[21:cedar-spiral:video]     at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+[21:cedar-spiral:video]     at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+[21:cedar-spiral:video]     at #resolve (node:internal/modules/esm/loader:690:17)
+[21:cedar-spiral:video]     at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+[21:cedar-spiral:video]     at ModuleJob.syncLink (node:internal/modules/esm/module_job:277:33)
+[21:cedar-spiral:video]     at ModuleJob.link (node:internal/modules/esm/module_job:389:17) {
+[21:cedar-spiral:video]   code: 'ERR_MODULE_NOT_FOUND',
+[21:cedar-spiral:video]   url: 'file:///Users/aesthetic/aesthetic-computer/pop/lib/preview-shared.mjs'
+[21:cedar-spiral:video] }
+[21:cedar-spiral:video] 
+[21:cedar-spiral:video] Node.js v26.5.0
+[21:cedar-spiral] failed: exited 1
+[23:mercury-reed] start Mercury Reed
+[23:mercury-reed] score
+[22:smoke-signal:video] node:internal/modules/esm/resolve:272
+[22:smoke-signal:video]     throw new ERR_MODULE_NOT_FOUND(
+[22:smoke-signal:video]           ^
+[22:smoke-signal:video] 
+[22:smoke-signal:video] Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/Users/aesthetic/aesthetic-computer/pop/lib/preview-shared.mjs' imported from /Users/aesthetic/aesthetic-computer/pop/menuband/bin/reel-lib.mjs
+[22:smoke-signal:video]     at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+[22:smoke-signal:video]     at moduleResolve (node:internal/modules/esm/resolve:879:10)
+[22:smoke-signal:video]     at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+[22:smoke-signal:video]     at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+[22:smoke-signal:video]     at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+[22:smoke-signal:video]     at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+[22:smoke-signal:video]     at #resolve (node:internal/modules/esm/loader:690:17)
+[22:smoke-signal:video]     at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+[22:smoke-signal:video]     at ModuleJob.syncLink (node:internal/modules/esm/module_job:277:33)
+[22:smoke-signal:video]     at ModuleJob.link (node:internal/modules/esm/module_job:389:17) {
+[22:smoke-signal:video]   code: 'ERR_MODULE_NOT_FOUND',
+[22:smoke-signal:video]   url: 'file:///Users/aesthetic/aesthetic-computer/pop/lib/preview-shared.mjs'
+[22:smoke-signal:video] }
+[22:smoke-signal:video] 
+[22:smoke-signal:video] Node.js v26.5.0
+[22:smoke-signal] failed: exited 1
+[24:threaded-air] start Threaded Air
+[24:threaded-air] score
+[23:mercury-reed:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:504:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[23:mercury-reed:score] 502 |                                         bankLSB: UInt8(kAUSampler_DefaultBankLSB))
+[23:mercury-reed:score] 503 |     sampler.stereoPan = menuBandPan(midi)
+[23:mercury-reed:score] 504 |     sampler.masterGain = menuBandDistanceGain(midi)
+[23:mercury-reed:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[23:mercury-reed:score] 505 |     engine.connect(sampler, to: toneMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[23:mercury-reed:score] 506 |     toneSamplers[midi] = sampler
+[23:mercury-reed:score] 
+[24:threaded-air:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:504:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[24:threaded-air:score] 502 |                                         bankLSB: UInt8(kAUSampler_DefaultBankLSB))
+[24:threaded-air:score] 503 |     sampler.stereoPan = menuBandPan(midi)
+[24:threaded-air:score] 504 |     sampler.masterGain = menuBandDistanceGain(midi)
+[24:threaded-air:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[24:threaded-air:score] 505 |     engine.connect(sampler, to: toneMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[24:threaded-air:score] 506 |     toneSamplers[midi] = sampler
+[24:threaded-air:score] 
+[23:mercury-reed:score] 2026-07-28 16:07:04.394 swift-frontend[92234:2941884] Audio files cannot be non-interleaved. Ignoring setting AVLinearPCMIsNonInterleaved YES.
+[24:threaded-air:score] 2026-07-28 16:07:04.395 swift-frontend[92238:2941883] Audio files cannot be non-interleaved. Ignoring setting AVLinearPCMIsNonInterleaved YES.
+[23:mercury-reed:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:513:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[23:mercury-reed:score] 511 |     try sampler.loadSoundBankInstrument(at: bank, program: 0, bankMSB: 0x78, bankLSB: 0)
+[23:mercury-reed:score] 512 |     sampler.stereoPan = menuBandPan(midi)
+[23:mercury-reed:score] 513 |     sampler.masterGain = menuBandDistanceGain(midi)
+[23:mercury-reed:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[23:mercury-reed:score] 514 |     engine.connect(sampler, to: drumMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[23:mercury-reed:score] 515 |     drumSamplers[midi] = sampler
+[23:mercury-reed:score] 
+[23:mercury-reed:score] [#DeprecatedDeclaration]: <https://docs.swift.org/compiler/documentation/diagnostics/deprecated-declaration>
+[24:threaded-air:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:513:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[24:threaded-air:score] 511 |     try sampler.loadSoundBankInstrument(at: bank, program: 0, bankMSB: 0x78, bankLSB: 0)
+[24:threaded-air:score] 512 |     sampler.stereoPan = menuBandPan(midi)
+[24:threaded-air:score] 513 |     sampler.masterGain = menuBandDistanceGain(midi)
+[24:threaded-air:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[24:threaded-air:score] 514 |     engine.connect(sampler, to: drumMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[24:threaded-air:score] 515 |     drumSamplers[midi] = sampler
+[24:threaded-air:score] 
+[24:threaded-air:score] [#DeprecatedDeclaration]: <https://docs.swift.org/compiler/documentation/diagnostics/deprecated-declaration>
+[23:mercury-reed:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/mercury-reed/mercury-reed.wav (32.00s)
+[23:mercury-reed:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/mercury-reed/mercury-reed.notes.json (202 events, all visual MIDI 60...83)
+[23:mercury-reed:score]   #24 · 65 Soprano Sax · 0-3 brushed ride; 3-9 reed hook; 9-16 chromatic answer chain; 16-22 liquid funk break; 22-29 hook stretched across bar lines; 29-32 upward ninth release · Dorian · garage · seed 627495
+[23:mercury-reed] video
+[24:threaded-air:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/threaded-air/threaded-air.wav (32.00s)
+[24:threaded-air:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/threaded-air/threaded-air.notes.json (237 events, all visual MIDI 60...83)
+[24:threaded-air:score]   #25 · 75 Recorder · 0-3 soft tambourine; 3-9 strand one; 9-16 braided duet; 16-22 skipping folk break; 22-29 strands swap contour; 29-32 shared high-to-low cadence · Major · two-step · seed 215806
+[24:threaded-air] video
+[23:mercury-reed:video] node:internal/modules/esm/resolve:272
+[23:mercury-reed:video]     throw new ERR_MODULE_NOT_FOUND(
+[23:mercury-reed:video]           ^
+[23:mercury-reed:video] 
+[23:mercury-reed:video] Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/Users/aesthetic/aesthetic-computer/pop/lib/preview-shared.mjs' imported from /Users/aesthetic/aesthetic-computer/pop/menuband/bin/reel-lib.mjs
+[23:mercury-reed:video]     at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+[23:mercury-reed:video]     at moduleResolve (node:internal/modules/esm/resolve:879:10)
+[23:mercury-reed:video]     at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+[23:mercury-reed:video]     at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+[23:mercury-reed:video]     at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+[23:mercury-reed:video]     at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+[23:mercury-reed:video]     at #resolve (node:internal/modules/esm/loader:690:17)
+[23:mercury-reed:video]     at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+[23:mercury-reed:video]     at ModuleJob.syncLink (node:internal/modules/esm/module_job:277:33)
+[23:mercury-reed:video]     at ModuleJob.link (node:internal/modules/esm/module_job:389:17) {
+[23:mercury-reed:video]   code: 'ERR_MODULE_NOT_FOUND',
+[23:mercury-reed:video]   url: 'file:///Users/aesthetic/aesthetic-computer/pop/lib/preview-shared.mjs'
+[23:mercury-reed:video] }
+[23:mercury-reed:video] 
+[23:mercury-reed:video] Node.js v26.5.0
+[23:mercury-reed] failed: exited 1
+[25:dark-bloom] start Dark Bloom
+[25:dark-bloom] score
+[24:threaded-air:video] node:internal/modules/esm/resolve:272
+[24:threaded-air:video]     throw new ERR_MODULE_NOT_FOUND(
+[24:threaded-air:video]           ^
+[24:threaded-air:video] 
+[24:threaded-air:video] Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/Users/aesthetic/aesthetic-computer/pop/lib/preview-shared.mjs' imported from /Users/aesthetic/aesthetic-computer/pop/menuband/bin/reel-lib.mjs
+[24:threaded-air:video]     at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+[24:threaded-air:video]     at moduleResolve (node:internal/modules/esm/resolve:879:10)
+[24:threaded-air:video]     at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+[24:threaded-air:video]     at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+[24:threaded-air:video]     at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+[24:threaded-air:video]     at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+[24:threaded-air:video]     at #resolve (node:internal/modules/esm/loader:690:17)
+[24:threaded-air:video]     at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+[24:threaded-air:video]     at ModuleJob.syncLink (node:internal/modules/esm/module_job:277:33)
+[24:threaded-air:video]     at ModuleJob.link (node:internal/modules/esm/module_job:389:17) {
+[24:threaded-air:video]   code: 'ERR_MODULE_NOT_FOUND',
+[24:threaded-air:video]   url: 'file:///Users/aesthetic/aesthetic-computer/pop/lib/preview-shared.mjs'
+[24:threaded-air:video] }
+[24:threaded-air:video] 
+[24:threaded-air:video] Node.js v26.5.0
+[24:threaded-air] failed: exited 1
+[26:static-garden] start Static Garden
+[26:static-garden] score
+[25:dark-bloom:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:504:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[25:dark-bloom:score] 502 |                                         bankLSB: UInt8(kAUSampler_DefaultBankLSB))
+[25:dark-bloom:score] 503 |     sampler.stereoPan = menuBandPan(midi)
+[25:dark-bloom:score] 504 |     sampler.masterGain = menuBandDistanceGain(midi)
+[25:dark-bloom:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[25:dark-bloom:score] 505 |     engine.connect(sampler, to: toneMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[25:dark-bloom:score] 506 |     toneSamplers[midi] = sampler
+[25:dark-bloom:score] 
+[26:static-garden:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:504:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[26:static-garden:score] 502 |                                         bankLSB: UInt8(kAUSampler_DefaultBankLSB))
+[26:static-garden:score] 503 |     sampler.stereoPan = menuBandPan(midi)
+[26:static-garden:score] 504 |     sampler.masterGain = menuBandDistanceGain(midi)
+[26:static-garden:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[26:static-garden:score] 505 |     engine.connect(sampler, to: toneMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[26:static-garden:score] 506 |     toneSamplers[midi] = sampler
+[26:static-garden:score] 
+[25:dark-bloom:score] 2026-07-28 16:07:06.204 swift-frontend[92257:2942003] Audio files cannot be non-interleaved. Ignoring setting AVLinearPCMIsNonInterleaved YES.
+[26:static-garden:score] 2026-07-28 16:07:06.204 swift-frontend[92261:2942004] Audio files cannot be non-interleaved. Ignoring setting AVLinearPCMIsNonInterleaved YES.
+[25:dark-bloom:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:513:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[25:dark-bloom:score] 511 |     try sampler.loadSoundBankInstrument(at: bank, program: 0, bankMSB: 0x78, bankLSB: 0)
+[25:dark-bloom:score] 512 |     sampler.stereoPan = menuBandPan(midi)
+[25:dark-bloom:score] 513 |     sampler.masterGain = menuBandDistanceGain(midi)
+[25:dark-bloom:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[25:dark-bloom:score] 514 |     engine.connect(sampler, to: drumMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[25:dark-bloom:score] 515 |     drumSamplers[midi] = sampler
+[25:dark-bloom:score] 
+[25:dark-bloom:score] [#DeprecatedDeclaration]: <https://docs.swift.org/compiler/documentation/diagnostics/deprecated-declaration>
+[26:static-garden:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:513:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[26:static-garden:score] 511 |     try sampler.loadSoundBankInstrument(at: bank, program: 0, bankMSB: 0x78, bankLSB: 0)
+[26:static-garden:score] 512 |     sampler.stereoPan = menuBandPan(midi)
+[26:static-garden:score] 513 |     sampler.masterGain = menuBandDistanceGain(midi)
+[26:static-garden:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[26:static-garden:score] 514 |     engine.connect(sampler, to: drumMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[26:static-garden:score] 515 |     drumSamplers[midi] = sampler
+[26:static-garden:score] 
+[26:static-garden:score] [#DeprecatedDeclaration]: <https://docs.swift.org/compiler/documentation/diagnostics/deprecated-declaration>
+[25:dark-bloom:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/dark-bloom/dark-bloom.wav (32.00s)
+[25:dark-bloom:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/dark-bloom/dark-bloom.notes.json (143 events, all visual MIDI 60...83)
+[25:dark-bloom:score]   #26 · 43 Cello · 0-5 bass-drum breath; 5-12 seed; 12-19 interval bloom; 19-25 ritual triple-half-note break; 25-30 bloom contracts; 30-32 low semitone closes · Phrygian · jungle · seed 793154
+[25:dark-bloom] video
+[26:static-garden:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/static-garden/static-garden.wav (32.00s)
+[26:static-garden:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/static-garden/static-garden.notes.json (204 events, all visual MIDI 60...83)
+[26:static-garden:score]   #27 · 27 Electric Guitar (jazz) · 0-3 vinyl-like hats; 3-9 chord jab hook; 9-16 thorn melody; 16-22 angular post-punk break; 22-29 hook fractures into counterpoint; 29-32 clean minor-sixth tail · Aeolian · half-time · seed 348927
+[26:static-garden] video
+[25:dark-bloom:video] node:internal/modules/esm/resolve:272
+[25:dark-bloom:video]     throw new ERR_MODULE_NOT_FOUND(
+[25:dark-bloom:video]           ^
+[25:dark-bloom:video] 
+[25:dark-bloom:video] Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/Users/aesthetic/aesthetic-computer/pop/lib/preview-shared.mjs' imported from /Users/aesthetic/aesthetic-computer/pop/menuband/bin/reel-lib.mjs
+[25:dark-bloom:video]     at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+[25:dark-bloom:video]     at moduleResolve (node:internal/modules/esm/resolve:879:10)
+[25:dark-bloom:video]     at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+[25:dark-bloom:video]     at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+[25:dark-bloom:video]     at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+[25:dark-bloom:video]     at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+[25:dark-bloom:video]     at #resolve (node:internal/modules/esm/loader:690:17)
+[25:dark-bloom:video]     at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+[25:dark-bloom:video]     at ModuleJob.syncLink (node:internal/modules/esm/module_job:277:33)
+[25:dark-bloom:video]     at ModuleJob.link (node:internal/modules/esm/module_job:389:17) {
+[25:dark-bloom:video]   code: 'ERR_MODULE_NOT_FOUND',
+[25:dark-bloom:video]   url: 'file:///Users/aesthetic/aesthetic-computer/pop/lib/preview-shared.mjs'
+[25:dark-bloom:video] }
+[25:dark-bloom:video] 
+[25:dark-bloom:video] Node.js v26.5.0
+[25:dark-bloom] failed: exited 1
+[27:tin-constellation] start Tin Constellation
+[27:tin-constellation] score
+[26:static-garden:video] node:internal/modules/esm/resolve:272
+[26:static-garden:video]     throw new ERR_MODULE_NOT_FOUND(
+[26:static-garden:video]           ^
+[26:static-garden:video] 
+[26:static-garden:video] Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/Users/aesthetic/aesthetic-computer/pop/lib/preview-shared.mjs' imported from /Users/aesthetic/aesthetic-computer/pop/menuband/bin/reel-lib.mjs
+[26:static-garden:video]     at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+[26:static-garden:video]     at moduleResolve (node:internal/modules/esm/resolve:879:10)
+[26:static-garden:video]     at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+[26:static-garden:video]     at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+[26:static-garden:video]     at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+[26:static-garden:video]     at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+[26:static-garden:video]     at #resolve (node:internal/modules/esm/loader:690:17)
+[26:static-garden:video]     at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+[26:static-garden:video]     at ModuleJob.syncLink (node:internal/modules/esm/module_job:277:33)
+[26:static-garden:video]     at ModuleJob.link (node:internal/modules/esm/module_job:389:17) {
+[26:static-garden:video]   code: 'ERR_MODULE_NOT_FOUND',
+[26:static-garden:video]   url: 'file:///Users/aesthetic/aesthetic-computer/pop/lib/preview-shared.mjs'
+[26:static-garden:video] }
+[26:static-garden:video] 
+[26:static-garden:video] Node.js v26.5.0
+[26:static-garden] failed: exited 1
+[28:hollow-sun] start Hollow Sun
+[28:hollow-sun] score
+[28:hollow-sun:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:504:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[28:hollow-sun:score] 502 |                                         bankLSB: UInt8(kAUSampler_DefaultBankLSB))
+[28:hollow-sun:score] 503 |     sampler.stereoPan = menuBandPan(midi)
+[28:hollow-sun:score] 504 |     sampler.masterGain = menuBandDistanceGain(midi)
+[28:hollow-sun:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[28:hollow-sun:score] 505 |     engine.connect(sampler, to: toneMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[28:hollow-sun:score] 506 |     toneSamplers[midi] = sampler
+[28:hollow-sun:score] 
+[27:tin-constellation:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:504:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[27:tin-constellation:score] 502 |                                         bankLSB: UInt8(kAUSampler_DefaultBankLSB))
+[27:tin-constellation:score] 503 |     sampler.stereoPan = menuBandPan(midi)
+[27:tin-constellation:score] 504 |     sampler.masterGain = menuBandDistanceGain(midi)
+[27:tin-constellation:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[27:tin-constellation:score] 505 |     engine.connect(sampler, to: toneMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[27:tin-constellation:score] 506 |     toneSamplers[midi] = sampler
+[27:tin-constellation:score] 
+[28:hollow-sun:score] 2026-07-28 16:07:08.001 swift-frontend[92299:2942163] Audio files cannot be non-interleaved. Ignoring setting AVLinearPCMIsNonInterleaved YES.
+[27:tin-constellation:score] 2026-07-28 16:07:08.003 swift-frontend[92298:2942162] Audio files cannot be non-interleaved. Ignoring setting AVLinearPCMIsNonInterleaved YES.
+[28:hollow-sun:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:513:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[28:hollow-sun:score] 511 |     try sampler.loadSoundBankInstrument(at: bank, program: 0, bankMSB: 0x78, bankLSB: 0)
+[28:hollow-sun:score] 512 |     sampler.stereoPan = menuBandPan(midi)
+[28:hollow-sun:score] 513 |     sampler.masterGain = menuBandDistanceGain(midi)
+[28:hollow-sun:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[28:hollow-sun:score] 514 |     engine.connect(sampler, to: drumMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[28:hollow-sun:score] 515 |     drumSamplers[midi] = sampler
+[28:hollow-sun:score] 
+[28:hollow-sun:score] [#DeprecatedDeclaration]: <https://docs.swift.org/compiler/documentation/diagnostics/deprecated-declaration>
+[28:hollow-sun:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/hollow-sun/hollow-sun.wav (32.00s)
+[28:hollow-sun:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/hollow-sun/hollow-sun.notes.json (153 events, all visual MIDI 60...83)
+[28:hollow-sun:score]   #29 · 77 Blown Bottle · 0-5 bottle taps; 5-12 hollow call; 12-19 open-fifth drone dialogue; 19-25 cavernous hand-drum break; 25-30 call in descending sequence; 30-32 empty tonic breath · Mixolydian · motorik · seed 936215
+[28:hollow-sun] video
+[27:tin-constellation:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:513:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[27:tin-constellation:score] 511 |     try sampler.loadSoundBankInstrument(at: bank, program: 0, bankMSB: 0x78, bankLSB: 0)
+[27:tin-constellation:score] 512 |     sampler.stereoPan = menuBandPan(midi)
+[27:tin-constellation:score] 513 |     sampler.masterGain = menuBandDistanceGain(midi)
+[27:tin-constellation:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[27:tin-constellation:score] 514 |     engine.connect(sampler, to: drumMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[27:tin-constellation:score] 515 |     drumSamplers[midi] = sampler
+[27:tin-constellation:score] 
+[27:tin-constellation:score] [#DeprecatedDeclaration]: <https://docs.swift.org/compiler/documentation/diagnostics/deprecated-declaration>
+[28:hollow-sun:video] node:internal/modules/esm/resolve:272
+[28:hollow-sun:video]     throw new ERR_MODULE_NOT_FOUND(
+[28:hollow-sun:video]           ^
+[28:hollow-sun:video] 
+[28:hollow-sun:video] Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/Users/aesthetic/aesthetic-computer/pop/lib/preview-shared.mjs' imported from /Users/aesthetic/aesthetic-computer/pop/menuband/bin/reel-lib.mjs
+[28:hollow-sun:video]     at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+[28:hollow-sun:video]     at moduleResolve (node:internal/modules/esm/resolve:879:10)
+[28:hollow-sun:video]     at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+[28:hollow-sun:video]     at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+[28:hollow-sun:video]     at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+[28:hollow-sun:video]     at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+[28:hollow-sun:video]     at #resolve (node:internal/modules/esm/loader:690:17)
+[28:hollow-sun:video]     at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+[28:hollow-sun:video]     at ModuleJob.syncLink (node:internal/modules/esm/module_job:277:33)
+[28:hollow-sun:video]     at ModuleJob.link (node:internal/modules/esm/module_job:389:17) {
+[28:hollow-sun:video]   code: 'ERR_MODULE_NOT_FOUND',
+[28:hollow-sun:video]   url: 'file:///Users/aesthetic/aesthetic-computer/pop/lib/preview-shared.mjs'
+[28:hollow-sun:video] }
+[28:hollow-sun:video] 
+[28:hollow-sun:video] Node.js v26.5.0
+[27:tin-constellation:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/tin-constellation/tin-constellation.wav (32.00s)
+[27:tin-constellation:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/tin-constellation/tin-constellation.notes.json (238 events, all visual MIDI 60...83)
+[27:tin-constellation:score]   #28 · 10 Glockenspiel · 0-3 triangle sparks; 3-8 star cluster; 8-15 constellation chain; 15-21 metallic DnB break; 21-28 chain rotates through inversions; 28-32 sparse twinkling close · Major · minimal · seed 571408
+[28:hollow-sun] failed: exited 1
+[29:red-meridian] start Red Meridian
+[29:red-meridian] score
+[27:tin-constellation] video
+[27:tin-constellation:video] node:internal/modules/esm/resolve:272
+[27:tin-constellation:video]     throw new ERR_MODULE_NOT_FOUND(
+[27:tin-constellation:video]           ^
+[27:tin-constellation:video] 
+[27:tin-constellation:video] Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/Users/aesthetic/aesthetic-computer/pop/lib/preview-shared.mjs' imported from /Users/aesthetic/aesthetic-computer/pop/menuband/bin/reel-lib.mjs
+[27:tin-constellation:video]     at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+[27:tin-constellation:video]     at moduleResolve (node:internal/modules/esm/resolve:879:10)
+[27:tin-constellation:video]     at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+[27:tin-constellation:video]     at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+[27:tin-constellation:video]     at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+[27:tin-constellation:video]     at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+[27:tin-constellation:video]     at #resolve (node:internal/modules/esm/loader:690:17)
+[27:tin-constellation:video]     at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+[27:tin-constellation:video]     at ModuleJob.syncLink (node:internal/modules/esm/module_job:277:33)
+[27:tin-constellation:video]     at ModuleJob.link (node:internal/modules/esm/module_job:389:17) {
+[27:tin-constellation:video]   code: 'ERR_MODULE_NOT_FOUND',
+[27:tin-constellation:video]   url: 'file:///Users/aesthetic/aesthetic-computer/pop/lib/preview-shared.mjs'
+[27:tin-constellation:video] }
+[27:tin-constellation:video] 
+[27:tin-constellation:video] Node.js v26.5.0
+[27:tin-constellation] failed: exited 1
+[30:snow-engine] start Snow Engine
+[30:snow-engine] score
+[29:red-meridian] failed: terminated by SIGTERM
+[30:snow-engine] failed: terminated by SIGTERM
+summary selected=32 succeeded=0 skipped=1 failed=30

@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<!-- Apple Help metadata — required for Help Viewer registration. -->
+	<meta name="AppleTitle" content="Menu Band Tips">
+	<meta name="AppleIcon" content="MenuBand.help/Contents/Resources/en.lproj/icon.png">
+	<meta name="robots" content="anchor index">
+	<meta name="description" content="How to play Menu Band — the macOS menu-bar instrument.">
+	<title>Menu Band Tips</title>
+	<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header>
+	<h1>Menu Band Tips</h1>
+	<p class="lede">Menu Band is a playable instrument that lives in your menu
+	bar. Click the little keyboard up top to play; open the popover (the ♪
+	chip) for instruments, chords, sampling, and more.</p>
+</header>
+
+<nav aria-label="Contents">
+	<ul>
+		<li><a href="#basics">The basics</a></li>
+		<li><a href="#playing">Playing notes</a></li>
+		<li><a href="#chords">Chords</a></li>
+		<li><a href="#sampling">Sampling</a></li>
+		<li><a href="#squawk">Squawk — voice dictation</a></li>
+		<li><a href="#instruments">Instruments, MIDI &amp; radio</a></li>
+		<li><a href="#shortcuts">Keyboard shortcuts</a></li>
+		<li><a href="#llms">Play with an LLM</a></li>
+		<li><a href="#more">More help</a></li>
+	</ul>
+</nav>
+
+<section id="basics">
+	<h2>The basics</h2>
+	<p>The status item in your menu bar <em>is</em> the keyboard — its keys
+	draw inline and light up as you play. Two surfaces open from there:</p>
+	<ul>
+		<li><b>The popover</b> — click the ♪ chip. Holds the General&nbsp;MIDI
+		instrument chooser, the QWERTY key map, and the special cells
+		(MIDI&nbsp;OUT, SAMPLE, radio, and 🦜 Squawk).</li>
+		<li><b>The floating panel</b> — a larger liquid-glass keyboard with the
+		waveform, held-note pills, and the layout / Gamepad / LLMs controls.</li>
+	</ul>
+</section>
+
+<section id="playing">
+	<h2>Playing notes</h2>
+	<p>Play with the mouse on the menu-bar keys, or with your computer
+	keyboard. The QWERTY map in the popover shows which physical key plays
+	which note; the home row is a melodic run and the number row shifts you
+	up an octave.</p>
+	<p>Two keymaps are available from the floating panel's mode row:
+	<b>Menu&nbsp;Band</b> (the default melodic layout) and <b>AWSED</b>
+	(a conventional piano-style mapping). Use the arrow cluster under the
+	instrument grid to step through voices while you audition them.</p>
+</section>
+
+<section id="chords">
+	<h2>Chords</h2>
+	<p>Hold a note and add a modifier to voice a whole triad from one finger.
+	The grammar is designed so <kbd>⌃</kbd> alters the shape you're already
+	holding — major's fifth goes up, minor's down, sus2's second lifts to a
+	fourth:</p>
+	<table>
+		<tr><th>Modifier</th><th>Chord</th></tr>
+		<tr><td><kbd>⌘</kbd></td><td>Major</td></tr>
+		<tr><td><kbd>⌥</kbd></td><td>Minor</td></tr>
+		<tr><td><kbd>⌃</kbd></td><td>Augmented</td></tr>
+		<tr><td><kbd>⌘⌥</kbd></td><td>Suspended 2nd (sus2)</td></tr>
+		<tr><td><kbd>⌥⌃</kbd></td><td>Diminished</td></tr>
+		<tr><td><kbd>⌘⌥⌃</kbd></td><td>Suspended 4th (sus4)</td></tr>
+	</table>
+	<p>The chord name shows in the popover as you hold it.</p>
+</section>
+
+<section id="sampling">
+	<h2>Sampling</h2>
+	<p>Pick the <b>SAMPLE</b> cell (right end of the top row in the instrument
+	grid), then <b>hold the <kbd>`</kbd> backtick key</b> to record a short
+	clip from your microphone. Release to stop. Your recording becomes the
+	instrument — every key plays it back, pitched to that note. It's
+	speed-independent, so high notes don't chipmunk.</p>
+</section>
+
+<section id="squawk">
+	<h2>Squawk — voice dictation</h2>
+	<p>Squawk turns your voice into text and types it into whatever app is in
+	front — handy for talking into a terminal or a chat without leaving the
+	keyboard. Transcription runs <b>on your Mac</b> (offline, no account).</p>
+	<ol>
+		<li>Open <b>About Menu Band → Advanced</b> and tick
+		<b>Squawk — voice dictation</b>.</li>
+		<li><b>Hold <kbd>⌘⌃⌥`</kbd></b> and talk; release to insert the text.
+		(The 🦜 cell in the popover and the <b>Squawk</b> button on the floating
+		panel also toggle it with a click.)</li>
+		<li>The first time, macOS asks for Microphone and Speech Recognition
+		permission — allow both.</li>
+	</ol>
+	<p class="note">Typing into other apps is available in the direct-download
+	version. The Mac App Store version can transcribe but, per sandbox rules,
+	cannot type into other apps.</p>
+</section>
+
+<section id="instruments">
+	<h2>Instruments, MIDI &amp; radio</h2>
+	<ul>
+		<li><b>Instruments</b> — the numbered grid is all 128 General&nbsp;MIDI
+		voices, colored by family. Click to choose; drag to audition.</li>
+		<li><b>MIDI OUT</b> — pick the <b>0&nbsp;MIDI&nbsp;OUT</b> cell to send
+		notes to a DAW or hardware over a virtual MIDI port instead of the
+		built-in synth.</li>
+		<li><b>Radio</b> — the strip along the bottom tunes a live internet
+		radio station in as a playable "voice&nbsp;−1".</li>
+	</ul>
+</section>
+
+<section id="shortcuts">
+	<h2>Keyboard shortcuts</h2>
+	<table>
+		<tr><th>Shortcut</th><th>Does</th></tr>
+		<tr><td><kbd>⌘⌃⌥`</kbd></td><td>Squawk — hold to talk (voice dictation)</td></tr>
+		<tr><td><kbd>⌘⌃⌥P</kbd></td><td>Type Mode — turn your typing into notes system-wide</td></tr>
+		<tr><td>double-tap right <kbd>⌘</kbd></td><td>Arm / disarm focused play</td></tr>
+		<tr><td>hold <kbd>`</kbd></td><td>Record a microphone sample (with the SAMPLE cell active)</td></tr>
+		<tr><td><kbd>[</kbd> &nbsp;<kbd>]</kbd></td><td>Latch the left / right percussion halves</td></tr>
+	</table>
+</section>
+
+<section id="llms">
+	<h2>Play with an LLM</h2>
+	<p>Menu Band exposes its whole performance surface as macOS
+	notifications, so a model like Claude can drive it — autoplay melodies,
+	conduct the live engine, speak, and relay parts across machines. Open the
+	floating panel and click <b>LLMs</b> to copy a ready-made guide you can
+	paste into Claude.</p>
+</section>
+
+<section id="more">
+	<h2>More help</h2>
+	<p>For DAW setup, troubleshooting, and contact, see
+	<a href="https://menuband.app/support.html">menuband.app/support.html</a>.
+	Curious why the layouts are shaped the way they are? The <b>?</b> button on
+	the floating panel opens the keymaps paper.</p>
+	<p class="colophon">Menu Band — by <a href="https://aesthetic.computer">aesthetic.computer</a>.</p>
+</section>
+
+</body>
+</html>

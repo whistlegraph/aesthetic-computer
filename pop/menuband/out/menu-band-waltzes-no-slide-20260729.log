@@ -1,0 +1,85 @@
+Menu Band Waltzes · 3/3 pending · 3 jobs
+[02-window:video] ▸ MenuBand variation 2/3 · 02-window · 3600 frames · 60.0s · 1080x1920@60
+[03-ferry:video] ▸ MenuBand variation 3/3 · 03-ferry · 3600 frames · 60.0s · 1080x1920@60
+[01-lantern:video] ▸ MenuBand variation 1/3 · 01-lantern · 3600 frames · 60.0s · 1080x1920@60
+[03-ferry:video] Truncating packet of size 8294400 to 65536
+[02-window:video] Truncating packet of size 8294400 to 65536
+[01-lantern:video] Truncating packet of size 8294400 to 65536
+[03-ferry:video]   0/3600 · 0s
+[02-window:video]   0/3600 · 0s
+[01-lantern:video]   0/3600 · 0s
+[03-ferry:video]   150/3600 · 13s
+[02-window:video]   150/3600 · 13s
+[01-lantern:video]   150/3600 · 14s
+[01-lantern:video]   300/3600 · 28s
+[02-window:video]   300/3600 · 28s
+[03-ferry:video]   300/3600 · 29s
+[01-lantern:video]   450/3600 · 42s
+[03-ferry:video]   450/3600 · 44s
+[02-window:video]   450/3600 · 44s
+[01-lantern:video]   600/3600 · 57s
+[02-window:video]   600/3600 · 59s
+[03-ferry:video]   600/3600 · 59s
+[01-lantern:video]   750/3600 · 72s
+[02-window:video]   750/3600 · 73s
+[03-ferry:video]   750/3600 · 74s
+[01-lantern:video]   900/3600 · 86s
+[02-window:video]   900/3600 · 87s
+[03-ferry:video]   900/3600 · 89s
+[02-window:video]   1050/3600 · 100s
+[01-lantern:video]   1050/3600 · 100s
+[03-ferry:video]   1050/3600 · 103s
+[01-lantern:video]   1200/3600 · 113s
+[02-window:video]   1200/3600 · 113s
+[03-ferry:video]   1200/3600 · 119s
+[01-lantern:video]   1350/3600 · 128s
+[02-window:video]   1350/3600 · 128s
+[03-ferry:video]   1350/3600 · 135s
+[01-lantern:video]   1500/3600 · 142s
+[02-window:video]   1500/3600 · 143s
+[03-ferry:video]   1500/3600 · 149s
+[01-lantern:video]   1650/3600 · 157s
+[02-window:video]   1650/3600 · 159s
+[03-ferry:video]   1650/3600 · 163s
+[01-lantern:video]   1800/3600 · 172s
+[02-window:video]   1800/3600 · 172s
+[03-ferry:video]   1800/3600 · 177s
+[01-lantern:video]   1950/3600 · 187s
+[02-window:video]   1950/3600 · 188s
+[03-ferry:video]   1950/3600 · 192s
+[02-window:video]   2100/3600 · 201s
+[01-lantern:video]   2100/3600 · 201s
+[03-ferry:video]   2100/3600 · 208s
+[01-lantern:video]   2250/3600 · 215s
+[02-window:video]   2250/3600 · 217s
+[03-ferry:video]   2250/3600 · 225s
+[01-lantern:video]   2400/3600 · 230s
+[02-window:video]   2400/3600 · 232s
+[03-ferry:video]   2400/3600 · 239s
+[01-lantern:video]   2550/3600 · 245s
+[02-window:video]   2550/3600 · 247s
+[03-ferry:video]   2550/3600 · 254s
+[01-lantern:video]   2700/3600 · 259s
+[02-window:video]   2700/3600 · 262s
+[03-ferry:video]   2700/3600 · 269s
+[01-lantern:video]   2850/3600 · 274s
+[02-window:video]   2850/3600 · 276s
+[03-ferry:video]   2850/3600 · 284s
+[01-lantern:video]   3000/3600 · 289s
+[02-window:video]   3000/3600 · 289s
+[03-ferry:video]   3000/3600 · 300s
+[01-lantern:video]   3150/3600 · 302s
+[02-window:video]   3150/3600 · 304s
+[03-ferry:video]   3150/3600 · 315s
+[01-lantern:video]   3300/3600 · 318s
+[02-window:video]   3300/3600 · 319s
+[03-ferry:video]   3300/3600 · 329s
+[01-lantern:video]   3450/3600 · 333s
+[02-window:video]   3450/3600 · 335s
+[03-ferry:video]   3450/3600 · 345s
+[01-lantern:video] ✓ base /Users/aesthetic/aesthetic-computer/pop/menuband/out/menu-band-waltzes/01-lantern/01-lantern.mp4
+[02-window:video] ✓ base /Users/aesthetic/aesthetic-computer/pop/menuband/out/menu-band-waltzes/02-window/02-window.mp4
+[03-ferry:video] ✓ base /Users/aesthetic/aesthetic-computer/pop/menuband/out/menu-band-waltzes/03-ferry/03-ferry.mp4
+✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/menu-band-waltzes/01-lantern/01-lantern.mp4
+✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/menu-band-waltzes/02-window/02-window.mp4
+✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/menu-band-waltzes/03-ferry/03-ferry.mp4

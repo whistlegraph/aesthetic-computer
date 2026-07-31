@@ -1,0 +1,68 @@
+manifest /Users/aesthetic/aesthetic-computer/pop/menuband/variations/variations-32.json
+selected 32; pending 31; existing 1; jobs 2
+[00:moonlit] skip existing /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/moonlit/moonlit.mp4
+[01:glass-orchard] start Glass Orchard
+[01:glass-orchard] score
+[02:blue-raga] start Blue Raga
+[02:blue-raga] score
+[01:glass-orchard:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:504:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[01:glass-orchard:score] 502 |                                         bankLSB: UInt8(kAUSampler_DefaultBankLSB))
+[01:glass-orchard:score] 503 |     sampler.stereoPan = menuBandPan(midi)
+[01:glass-orchard:score] 504 |     sampler.masterGain = menuBandDistanceGain(midi)
+[01:glass-orchard:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[01:glass-orchard:score] 505 |     engine.connect(sampler, to: toneMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[01:glass-orchard:score] 506 |     toneSamplers[midi] = sampler
+[01:glass-orchard:score] 
+[02:blue-raga:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:504:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[02:blue-raga:score] 502 |                                         bankLSB: UInt8(kAUSampler_DefaultBankLSB))
+[02:blue-raga:score] 503 |     sampler.stereoPan = menuBandPan(midi)
+[02:blue-raga:score] 504 |     sampler.masterGain = menuBandDistanceGain(midi)
+[02:blue-raga:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[02:blue-raga:score] 505 |     engine.connect(sampler, to: toneMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[02:blue-raga:score] 506 |     toneSamplers[midi] = sampler
+[02:blue-raga:score] 
+[01:glass-orchard:score] 2026-07-28 16:08:59.590 swift-frontend[93720:2948389] Audio files cannot be non-interleaved. Ignoring setting AVLinearPCMIsNonInterleaved YES.
+[02:blue-raga:score] 2026-07-28 16:08:59.591 swift-frontend[93721:2948388] Audio files cannot be non-interleaved. Ignoring setting AVLinearPCMIsNonInterleaved YES.
+[01:glass-orchard:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:513:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[01:glass-orchard:score] 511 |     try sampler.loadSoundBankInstrument(at: bank, program: 0, bankMSB: 0x78, bankLSB: 0)
+[01:glass-orchard:score] 512 |     sampler.stereoPan = menuBandPan(midi)
+[01:glass-orchard:score] 513 |     sampler.masterGain = menuBandDistanceGain(midi)
+[01:glass-orchard:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[01:glass-orchard:score] 514 |     engine.connect(sampler, to: drumMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[01:glass-orchard:score] 515 |     drumSamplers[midi] = sampler
+[01:glass-orchard:score] 
+[01:glass-orchard:score] [#DeprecatedDeclaration]: <https://docs.swift.org/compiler/documentation/diagnostics/deprecated-declaration>
+[02:blue-raga:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:513:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[02:blue-raga:score] 511 |     try sampler.loadSoundBankInstrument(at: bank, program: 0, bankMSB: 0x78, bankLSB: 0)
+[02:blue-raga:score] 512 |     sampler.stereoPan = menuBandPan(midi)
+[02:blue-raga:score] 513 |     sampler.masterGain = menuBandDistanceGain(midi)
+[02:blue-raga:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[02:blue-raga:score] 514 |     engine.connect(sampler, to: drumMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[02:blue-raga:score] 515 |     drumSamplers[midi] = sampler
+[02:blue-raga:score] 
+[02:blue-raga:score] [#DeprecatedDeclaration]: <https://docs.swift.org/compiler/documentation/diagnostics/deprecated-declaration>
+[01:glass-orchard:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/glass-orchard/glass-orchard.wav (32.00s)
+[01:glass-orchard:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/glass-orchard/glass-orchard.notes.json (177 events, all visual MIDI 60...83)
+[01:glass-orchard:score]   #2 · 9 Celesta · 0-3 isolated shaker seeds; 3-10 celesta germ; 10-17 two-voice canopy; 17-23 rolling tom 6/8; 23-29 inverted bloom; 29-32 high suspended release · Lydian · jungle · seed 183047
+[01:glass-orchard] video
+[02:blue-raga:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/blue-raga/blue-raga.wav (32.00s)
+[02:blue-raga:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/blue-raga/blue-raga.notes.json (152 events, all visual MIDI 60...83)
+[02:blue-raga:score]   #3 · 105 Sitar · 0-5 hand-drum pulse; 5-12 alap-like single line; 12-20 drone ostinato with ornaments; 20-25 tabla-style tihai break; 25-30 accelerated return; 30-32 open fifth · Mixolydian · half-time · seed 662914
+[02:blue-raga] video
+[02:blue-raga:video] ▸ MenuBand variation 3/32 · blue-raga · 1920 frames · 32.0s · 1080x1920@60
+[01:glass-orchard:video] ▸ MenuBand variation 2/32 · glass-orchard · 1920 frames · 32.0s · 1080x1920@60
+[01:glass-orchard:video] Truncating packet of size 8294400 to 65536
+[02:blue-raga:video] Truncating packet of size 8294400 to 65536
+[02:blue-raga:video]   0/1920 · 0s
+[01:glass-orchard:video]   0/1920 · 0s
+[02:blue-raga:video]   150/1920 · 3s
+[01:glass-orchard:video]   150/1920 · 3s
+[02:blue-raga:video]   300/1920 · 8s
+[01:glass-orchard:video]   300/1920 · 14s
+[02:blue-raga:video]   450/1920 · 20s
+[01:glass-orchard:video]   450/1920 · 21s
+[01:glass-orchard:video]   600/1920 · 23s
+[02:blue-raga:video]   600/1920 · 25s
+[02:blue-raga] failed: terminated by SIGTERM
+[01:glass-orchard] failed: terminated by SIGTERM
+summary selected=32 succeeded=0 skipped=1 failed=2

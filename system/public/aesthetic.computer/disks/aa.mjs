@@ -144,6 +144,7 @@ async function boot({ api, debug, send, hud, handle, user, authorize }) {
   }
 
   await chat.boot(api, client.system, {
+    maxChars: 4096,
     submitHandler: async (text) => {
       if (!isAdmin || !token) { pushSystem("not authorized."); return; }
       if (text === "/reset") return reset();

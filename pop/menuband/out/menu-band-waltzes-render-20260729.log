@@ -1,0 +1,127 @@
+Menu Band Waltzes · 3/3 pending · 3 jobs
+[02-window:audio] 2026-07-29 15:11:27.660 swift-frontend[58767:6515389] Audio files cannot be non-interleaved. Ignoring setting AVLinearPCMIsNonInterleaved YES.
+[03-ferry:audio] 2026-07-29 15:11:27.661 swift-frontend[58768:6515388] Audio files cannot be non-interleaved. Ignoring setting AVLinearPCMIsNonInterleaved YES.
+[01-lantern:audio] 2026-07-29 15:11:27.662 swift-frontend[58766:6515390] Audio files cannot be non-interleaved. Ignoring setting AVLinearPCMIsNonInterleaved YES.
+[02-window:audio] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-menu-band-waltz.swift:288:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+286 |     )
+287 |     sampler.stereoPan = menuBandPan(midi)
+288 |     sampler.masterGain = -2.5 * abs(menuBandPan(midi)) / 0.78
+    |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+289 |     engine.connect(sampler, to: dryMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+290 |     samplers[midi] = sampler
+
+[#DeprecatedDeclaration]: <https://docs.swift.org/compiler/documentation/diagnostics/deprecated-declaration>
+[02-window:audio] ✓ 02-window · Window · 28 bars · 60.0s · 270 notes
+✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/menu-band-waltzes/02-window/02-window.raw.wav
+✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/menu-band-waltzes/02-window/02-window.notes.json
+[03-ferry:audio] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-menu-band-waltz.swift:288:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+286 |     )
+287 |     sampler.stereoPan = menuBandPan(midi)
+288 |     sampler.masterGain = -2.5 * abs(menuBandPan(midi)) / 0.78
+    |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+289 |     engine.connect(sampler, to: dryMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+290 |     samplers[midi] = sampler
+
+[#DeprecatedDeclaration]: <https://docs.swift.org/compiler/documentation/diagnostics/deprecated-declaration>
+[03-ferry:audio] ✓ 03-ferry · Ferry · 32 bars · 60.0s · 309 notes
+✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/menu-band-waltzes/03-ferry/03-ferry.raw.wav
+✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/menu-band-waltzes/03-ferry/03-ferry.notes.json
+[01-lantern:audio] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-menu-band-waltz.swift:288:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+286 |     )
+287 |     sampler.stereoPan = menuBandPan(midi)
+288 |     sampler.masterGain = -2.5 * abs(menuBandPan(midi)) / 0.78
+    |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+289 |     engine.connect(sampler, to: dryMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+290 |     samplers[midi] = sampler
+[01-lantern:audio] 
+[#DeprecatedDeclaration]: <https://docs.swift.org/compiler/documentation/diagnostics/deprecated-declaration>
+[01-lantern:audio] ✓ 01-lantern · Lantern · 24 bars · 60.0s · 234 notes
+✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/menu-band-waltzes/01-lantern/01-lantern.raw.wav
+✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/menu-band-waltzes/01-lantern/01-lantern.notes.json
+[01-lantern:video] ▸ MenuBand variation 1/3 · 01-lantern · 3600 frames · 60.0s · 1080x1920@60
+[02-window:video] ▸ MenuBand variation 2/3 · 02-window · 3600 frames · 60.0s · 1080x1920@60
+[03-ferry:video] ▸ MenuBand variation 3/3 · 03-ferry · 3600 frames · 60.0s · 1080x1920@60
+[01-lantern:video] Truncating packet of size 8294400 to 65536
+[02-window:video] Truncating packet of size 8294400 to 65536
+[01-lantern:video]   0/3600 · 0s
+[02-window:video]   0/3600 · 0s
+[03-ferry:video] Truncating packet of size 8294400 to 65536
+[03-ferry:video]   0/3600 · 0s
+[03-ferry:video]   150/3600 · 12s
+[02-window:video]   150/3600 · 12s
+[01-lantern:video]   150/3600 · 12s
+[01-lantern:video]   300/3600 · 27s
+[02-window:video]   300/3600 · 27s
+[03-ferry:video]   300/3600 · 27s
+[01-lantern:video]   450/3600 · 41s
+[03-ferry:video]   450/3600 · 43s
+[02-window:video]   450/3600 · 43s
+[01-lantern:video]   600/3600 · 56s
+[02-window:video]   600/3600 · 58s
+[03-ferry:video]   600/3600 · 58s
+[01-lantern:video]   750/3600 · 71s
+[02-window:video]   750/3600 · 72s
+[03-ferry:video]   750/3600 · 73s
+[01-lantern:video]   900/3600 · 85s
+[02-window:video]   900/3600 · 85s
+[03-ferry:video]   900/3600 · 88s
+[02-window:video]   1050/3600 · 98s
+[01-lantern:video]   1050/3600 · 99s
+[03-ferry:video]   1050/3600 · 102s
+[01-lantern:video]   1200/3600 · 112s
+[02-window:video]   1200/3600 · 112s
+[03-ferry:video]   1200/3600 · 117s
+[01-lantern:video]   1350/3600 · 127s
+[02-window:video]   1350/3600 · 127s
+[03-ferry:video]   1350/3600 · 133s
+[01-lantern:video]   1500/3600 · 141s
+[02-window:video]   1500/3600 · 141s
+[03-ferry:video]   1500/3600 · 147s
+[01-lantern:video]   1650/3600 · 155s
+[02-window:video]   1650/3600 · 157s
+[03-ferry:video]   1650/3600 · 162s
+[01-lantern:video]   1800/3600 · 170s
+[02-window:video]   1800/3600 · 171s
+[03-ferry:video]   1800/3600 · 176s
+[01-lantern:video]   1950/3600 · 185s
+[02-window:video]   1950/3600 · 186s
+[03-ferry:video]   1950/3600 · 191s
+[02-window:video]   2100/3600 · 200s
+[01-lantern:video]   2100/3600 · 200s
+[03-ferry:video]   2100/3600 · 206s
+[01-lantern:video]   2250/3600 · 213s
+[02-window:video]   2250/3600 · 216s
+[03-ferry:video]   2250/3600 · 223s
+[01-lantern:video]   2400/3600 · 229s
+[02-window:video]   2400/3600 · 230s
+[03-ferry:video]   2400/3600 · 237s
+[01-lantern:video]   2550/3600 · 243s
+[02-window:video]   2550/3600 · 245s
+[03-ferry:video]   2550/3600 · 252s
+[01-lantern:video]   2700/3600 · 258s
+[02-window:video]   2700/3600 · 260s
+[03-ferry:video]   2700/3600 · 268s
+[01-lantern:video]   2850/3600 · 273s
+[02-window:video]   2850/3600 · 275s
+[03-ferry:video]   2850/3600 · 283s
+[01-lantern:video]   3000/3600 · 287s
+[02-window:video]   3000/3600 · 288s
+[03-ferry:video]   3000/3600 · 298s
+[01-lantern:video]   3150/3600 · 300s
+[02-window:video]   3150/3600 · 303s
+[03-ferry:video]   3150/3600 · 313s
+[01-lantern:video]   3300/3600 · 316s
+[02-window:video]   3300/3600 · 318s
+[03-ferry:video]   3300/3600 · 328s
+[01-lantern:video]   3450/3600 · 331s
+[02-window:video]   3450/3600 · 334s
+[03-ferry:video]   3450/3600 · 343s
+[01-lantern:video] ✓ base /Users/aesthetic/aesthetic-computer/pop/menuband/out/menu-band-waltzes/01-lantern/01-lantern.mp4
+[02-window:video] ✓ base /Users/aesthetic/aesthetic-computer/pop/menuband/out/menu-band-waltzes/02-window/02-window.mp4
+[03-ferry:video] ✓ base /Users/aesthetic/aesthetic-computer/pop/menuband/out/menu-band-waltzes/03-ferry/03-ferry.mp4
+✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/menu-band-waltzes/01-lantern/01-lantern.wav
+✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/menu-band-waltzes/01-lantern/01-lantern.mp4
+✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/menu-band-waltzes/02-window/02-window.wav
+✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/menu-band-waltzes/02-window/02-window.mp4
+✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/menu-band-waltzes/03-ferry/03-ferry.wav
+✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/menu-band-waltzes/03-ferry/03-ferry.mp4

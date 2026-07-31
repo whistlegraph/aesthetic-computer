@@ -1,0 +1,153 @@
+manifest /Users/aesthetic/aesthetic-computer/pop/menuband/variations/variations-32.json
+selected 32; pending 32; existing 0; jobs 2
+[00:moonlit] start Moonlit
+[00:moonlit] score
+[01:glass-orchard] start Glass Orchard
+[01:glass-orchard] score
+[00:moonlit:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:507:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[00:moonlit:score] 505 |                                         bankLSB: UInt8(kAUSampler_DefaultBankLSB))
+[00:moonlit:score] 506 |     sampler.stereoPan = menuBandPan(midi)
+[00:moonlit:score] 507 |     sampler.masterGain = menuBandDistanceGain(midi)
+[00:moonlit:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[00:moonlit:score] 508 |     engine.connect(sampler, to: toneMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[00:moonlit:score] 509 |     toneSamplers[midi] = sampler
+[00:moonlit:score] 
+[01:glass-orchard:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:507:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[01:glass-orchard:score] 505 |                                         bankLSB: UInt8(kAUSampler_DefaultBankLSB))
+[01:glass-orchard:score] 506 |     sampler.stereoPan = menuBandPan(midi)
+[01:glass-orchard:score] 507 |     sampler.masterGain = menuBandDistanceGain(midi)
+[01:glass-orchard:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[01:glass-orchard:score] 508 |     engine.connect(sampler, to: toneMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[01:glass-orchard:score] 509 |     toneSamplers[midi] = sampler
+[01:glass-orchard:score] 
+[01:glass-orchard:score] 2026-07-28 17:13:01.394 swift-frontend[40947:3122816] Audio files cannot be non-interleaved. Ignoring setting AVLinearPCMIsNonInterleaved YES.
+[00:moonlit:score] 2026-07-28 17:13:01.395 swift-frontend[40946:3122815] Audio files cannot be non-interleaved. Ignoring setting AVLinearPCMIsNonInterleaved YES.
+[00:moonlit:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:516:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[00:moonlit:score] 514 |     try sampler.loadSoundBankInstrument(at: bank, program: 0, bankMSB: 0x78, bankLSB: 0)
+[00:moonlit:score] 515 |     sampler.stereoPan = menuBandPan(midi)
+[00:moonlit:score] 516 |     sampler.masterGain = menuBandDistanceGain(midi)
+[00:moonlit:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[00:moonlit:score] 517 |     engine.connect(sampler, to: drumMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[00:moonlit:score] 518 |     drumSamplers[midi] = sampler
+[00:moonlit:score] 
+[00:moonlit:score] [#DeprecatedDeclaration]: <https://docs.swift.org/compiler/documentation/diagnostics/deprecated-declaration>
+[00:moonlit:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/moonlit/moonlit.wav (32.00s)
+[00:moonlit:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/moonlit/moonlit.notes.json (147 events, all visual MIDI 60...83)
+[00:moonlit:score]   #1 · 79 Whistle · 0-4 distant hats; 4-11 sparse theme; 11-19 left ostinato plus displaced answer; 19-24 brushed half-time break; 24-30 ornamented reprise; 30-32 falling cadence · Dorian · two-step · seed 904731
+[01:glass-orchard:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:516:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[01:glass-orchard:score] 514 |     try sampler.loadSoundBankInstrument(at: bank, program: 0, bankMSB: 0x78, bankLSB: 0)
+[01:glass-orchard:score] 515 |     sampler.stereoPan = menuBandPan(midi)
+[01:glass-orchard:score] 516 |     sampler.masterGain = menuBandDistanceGain(midi)
+[01:glass-orchard:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[01:glass-orchard:score] 517 |     engine.connect(sampler, to: drumMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[01:glass-orchard:score] 518 |     drumSamplers[midi] = sampler
+[01:glass-orchard:score] 
+[01:glass-orchard:score] [#DeprecatedDeclaration]: <https://docs.swift.org/compiler/documentation/diagnostics/deprecated-declaration>
+[00:moonlit] video
+[01:glass-orchard:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/glass-orchard/glass-orchard.wav (32.00s)
+[01:glass-orchard:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/glass-orchard/glass-orchard.notes.json (177 events, all visual MIDI 60...83)
+[01:glass-orchard:score]   #2 · 9 Celesta · 0-3 isolated shaker seeds; 3-10 celesta germ; 10-17 two-voice canopy; 17-23 rolling tom 6/8; 23-29 inverted bloom; 29-32 high suspended release · Lydian · jungle · seed 183047
+[01:glass-orchard] video
+[01:glass-orchard:video] ▸ MenuBand variation 2/32 · glass-orchard · 1920 frames · 32.0s · 1080x1920@60
+[00:moonlit:video] ▸ MenuBand variation 1/32 · moonlit · 1920 frames · 32.0s · 1080x1920@60
+[01:glass-orchard:video] Truncating packet of size 8294400 to 65536
+[01:glass-orchard:video]   0/1920 · 0s
+[00:moonlit:video] Truncating packet of size 8294400 to 65536
+[00:moonlit:video]   0/1920 · 0s
+[01:glass-orchard:video]   150/1920 · 3s
+[00:moonlit:video]   150/1920 · 3s
+[00:moonlit:video]   300/1920 · 9s
+[01:glass-orchard:video]   300/1920 · 12s
+[01:glass-orchard:video]   450/1920 · 18s
+[01:glass-orchard:video]   600/1920 · 20s
+[00:moonlit:video]   450/1920 · 20s
+[00:moonlit:video]   600/1920 · 29s
+[01:glass-orchard:video]   750/1920 · 36s
+[00:moonlit:video]   750/1920 · 39s
+[01:glass-orchard:video]   900/1920 · 53s
+[00:moonlit:video]   900/1920 · 56s
+[00:moonlit:video]   1050/1920 · 73s
+[01:glass-orchard:video]   1050/1920 · 74s
+[00:moonlit:video]   1200/1920 · 93s
+[01:glass-orchard:video]   1200/1920 · 99s
+[00:moonlit:video]   1350/1920 · 113s
+[01:glass-orchard:video]   1350/1920 · 124s
+[00:moonlit:video]   1500/1920 · 131s
+[00:moonlit:video]   1650/1920 · 138s
+[01:glass-orchard:video]   1500/1920 · 139s
+[00:moonlit:video]   1800/1920 · 144s
+[01:glass-orchard:video]   1650/1920 · 146s
+[00:moonlit:video] ✓ base /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/moonlit/moonlit.mp4
+[00:moonlit] done 154.2s
+[02:blue-raga] start Blue Raga
+[02:blue-raga] score
+[01:glass-orchard:video]   1800/1920 · 152s
+[02:blue-raga:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:507:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[02:blue-raga:score] 505 |                                         bankLSB: UInt8(kAUSampler_DefaultBankLSB))
+[02:blue-raga:score] 506 |     sampler.stereoPan = menuBandPan(midi)
+[02:blue-raga:score] 507 |     sampler.masterGain = menuBandDistanceGain(midi)
+[02:blue-raga:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[02:blue-raga:score] 508 |     engine.connect(sampler, to: toneMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[02:blue-raga:score] 509 |     toneSamplers[midi] = sampler
+[02:blue-raga:score] 
+[02:blue-raga:score] 2026-07-28 17:15:35.616 swift-frontend[42942:3130182] Audio files cannot be non-interleaved. Ignoring setting AVLinearPCMIsNonInterleaved YES.
+[02:blue-raga:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:516:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[02:blue-raga:score] 514 |     try sampler.loadSoundBankInstrument(at: bank, program: 0, bankMSB: 0x78, bankLSB: 0)
+[02:blue-raga:score] 515 |     sampler.stereoPan = menuBandPan(midi)
+[02:blue-raga:score] 516 |     sampler.masterGain = menuBandDistanceGain(midi)
+[02:blue-raga:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[02:blue-raga:score] 517 |     engine.connect(sampler, to: drumMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[02:blue-raga:score] 518 |     drumSamplers[midi] = sampler
+[02:blue-raga:score] 
+[02:blue-raga:score] [#DeprecatedDeclaration]: <https://docs.swift.org/compiler/documentation/diagnostics/deprecated-declaration>
+[02:blue-raga:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/blue-raga/blue-raga.wav (32.00s)
+[02:blue-raga:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/blue-raga/blue-raga.notes.json (152 events, all visual MIDI 60...83)
+[02:blue-raga:score]   #3 · 105 Sitar · 0-5 hand-drum pulse; 5-12 alap-like single line; 12-20 drone ostinato with ornaments; 20-25 tabla-style tihai break; 25-30 accelerated return; 30-32 open fifth · Mixolydian · half-time · seed 662914
+[02:blue-raga] video
+[02:blue-raga:video] ▸ MenuBand variation 3/32 · blue-raga · 1920 frames · 32.0s · 1080x1920@60
+[02:blue-raga:video] Truncating packet of size 8294400 to 65536
+[02:blue-raga:video]   0/1920 · 0s
+[02:blue-raga:video]   150/1920 · 3s
+[01:glass-orchard:video] ✓ base /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/glass-orchard/glass-orchard.mp4
+[01:glass-orchard] done 161.5s
+[03:copper-steps] start Copper Steps
+[03:copper-steps] score
+[03:copper-steps:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:507:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[03:copper-steps:score] 505 |                                         bankLSB: UInt8(kAUSampler_DefaultBankLSB))
+[03:copper-steps:score] 506 |     sampler.stereoPan = menuBandPan(midi)
+[03:copper-steps:score] 507 |     sampler.masterGain = menuBandDistanceGain(midi)
+[03:copper-steps:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[03:copper-steps:score] 508 |     engine.connect(sampler, to: toneMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[03:copper-steps:score] 509 |     toneSamplers[midi] = sampler
+[03:copper-steps:score] 
+[03:copper-steps:score] 2026-07-28 17:15:42.994 swift-frontend[43107:3130767] Audio files cannot be non-interleaved. Ignoring setting AVLinearPCMIsNonInterleaved YES.
+[03:copper-steps:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:516:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[03:copper-steps:score] 514 |     try sampler.loadSoundBankInstrument(at: bank, program: 0, bankMSB: 0x78, bankLSB: 0)
+[03:copper-steps:score] 515 |     sampler.stereoPan = menuBandPan(midi)
+[03:copper-steps:score] 516 |     sampler.masterGain = menuBandDistanceGain(midi)
+[03:copper-steps:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[03:copper-steps:score] 517 |     engine.connect(sampler, to: drumMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[03:copper-steps:score] 518 |     drumSamplers[midi] = sampler
+[03:copper-steps:score] 
+[03:copper-steps:score] [#DeprecatedDeclaration]: <https://docs.swift.org/compiler/documentation/diagnostics/deprecated-declaration>
+[03:copper-steps:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/copper-steps/copper-steps.wav (32.00s)
+[03:copper-steps:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/copper-steps/copper-steps.notes.json (196 events, all visual MIDI 60...83)
+[03:copper-steps:score]   #4 · 13 Marimba · 0-3 wood clicks; 3-9 staircase stated; 9-16 octave interlock; 16-22 asymmetric kick-and-tom break; 22-29 staircase displaced by one eighth; 29-32 unison descent · Aeolian · minimal · seed 417205
+[03:copper-steps] video
+[02:blue-raga:video]   300/1920 · 7s
+[03:copper-steps:video] ▸ MenuBand variation 4/32 · copper-steps · 1920 frames · 32.0s · 1080x1920@60
+[03:copper-steps:video] Truncating packet of size 8294400 to 65536
+[03:copper-steps:video]   0/1920 · 0s
+[03:copper-steps:video]   150/1920 · 3s
+[02:blue-raga:video]   450/1920 · 17s
+[03:copper-steps:video]   300/1920 · 14s
+[02:blue-raga:video]   600/1920 · 22s
+[02:blue-raga:video]   750/1920 · 27s
+[03:copper-steps:video]   450/1920 · 23s
+[03:copper-steps:video]   600/1920 · 29s
+[02:blue-raga:video]   900/1920 · 43s
+[03:copper-steps:video]   750/1920 · 49s
+[02:blue-raga:video]   1050/1920 · 60s
+[03:copper-steps] failed: terminated by SIGTERM
+[02:blue-raga] failed: terminated by SIGTERM
+summary selected=32 succeeded=2 skipped=0 failed=2

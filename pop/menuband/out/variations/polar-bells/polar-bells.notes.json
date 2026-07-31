@@ -1,0 +1,1168 @@
+{
+  "barSec" : 3,
+  "beatSec" : 0.75,
+  "bpm" : 80,
+  "drumStyle" : "minimal",
+  "durationSec" : 32,
+  "exitAtSec" : 30.5,
+  "exitDurationSec" : 1.1,
+  "form" : "0-4 ice ticks; 4-11 bell signal; 11-18 overlapping long fifths; 18-24 glacial tom break; 24-30 signal in mirrored contour; 30-32 one decaying strike",
+  "fullPercussionAtSec" : 18,
+  "id" : "polar-bells",
+  "index" : 19,
+  "leadPreset" : "15 Tubular Bells",
+  "leadProgram" : 14,
+  "mode" : "Lydian",
+  "notes" : [
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 79,
+      "soundMidi" : 42,
+      "t" : 0.22,
+      "vel" : 0.72
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 79,
+      "soundMidi" : 42,
+      "t" : 0.64,
+      "vel" : 0.58
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 79,
+      "soundMidi" : 42,
+      "t" : 1.06,
+      "vel" : 0.72
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 79,
+      "soundMidi" : 42,
+      "t" : 1.48,
+      "vel" : 0.58
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 79,
+      "soundMidi" : 46,
+      "t" : 1.9,
+      "vel" : 0.72
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 79,
+      "soundMidi" : 42,
+      "t" : 2.32,
+      "vel" : 0.58
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 79,
+      "soundMidi" : 42,
+      "t" : 2.7399999999999998,
+      "vel" : 0.72
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 79,
+      "soundMidi" : 42,
+      "t" : 3.1599999999999997,
+      "vel" : 0.58
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 79,
+      "soundMidi" : 42,
+      "t" : 3.5799999999999996,
+      "vel" : 0.72
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 79,
+      "soundMidi" : 46,
+      "t" : 3.9999999999999996,
+      "vel" : 0.58
+    },
+    {
+      "dur" : 0.6375,
+      "lane" : "tone",
+      "midi" : 65,
+      "soundMidi" : 65,
+      "t" : 4.12,
+      "vel" : 0.1764607377924948
+    },
+    {
+      "dur" : 0.27156891790991416,
+      "lane" : "tone",
+      "midi" : 77,
+      "soundMidi" : 77,
+      "t" : 4.12,
+      "vel" : 0.43248917344935267
+    },
+    {
+      "dur" : 0.3681174178861153,
+      "lane" : "tone",
+      "midi" : 76,
+      "soundMidi" : 76,
+      "t" : 4.523125,
+      "vel" : 0.4465878762520519
+    },
+    {
+      "dur" : 0.22729303582113625,
+      "lane" : "tone",
+      "midi" : 67,
+      "soundMidi" : 67,
+      "t" : 4.87,
+      "vel" : 0.42232962949553043
+    },
+    {
+      "dur" : 0.39382936331073465,
+      "lane" : "tone",
+      "midi" : 76,
+      "soundMidi" : 76,
+      "t" : 5.273125,
+      "vel" : 0.41100847630864257
+    },
+    {
+      "dur" : 0.34505299182062166,
+      "lane" : "tone",
+      "midi" : 60,
+      "soundMidi" : 60,
+      "t" : 5.62,
+      "vel" : 0.4773264300520803
+    },
+    {
+      "dur" : 0.6375,
+      "lane" : "tone",
+      "midi" : 72,
+      "soundMidi" : 72,
+      "t" : 5.62,
+      "vel" : 0.16964038199479706
+    },
+    {
+      "dur" : 0.41968188992194555,
+      "lane" : "tone",
+      "midi" : 76,
+      "soundMidi" : 76,
+      "t" : 6.023125,
+      "vel" : 0.5111001049265047
+    },
+    {
+      "dur" : 0.37389030846546534,
+      "lane" : "tone",
+      "midi" : 77,
+      "soundMidi" : 77,
+      "t" : 6.37,
+      "vel" : 0.45387154725407236
+    },
+    {
+      "dur" : 0.3905215032756644,
+      "lane" : "tone",
+      "midi" : 72,
+      "soundMidi" : 72,
+      "t" : 6.773125,
+      "vel" : 0.4191305830669903
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 72,
+      "soundMidi" : 36,
+      "t" : 11,
+      "vel" : 0.5570740155673012
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 79,
+      "soundMidi" : 42,
+      "t" : 11,
+      "vel" : 0.2790015588615741
+    },
+    {
+      "dur" : 0.19639465881301174,
+      "lane" : "tone",
+      "midi" : 77,
+      "soundMidi" : 77,
+      "t" : 11,
+      "vel" : 0.31684927767462456
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 79,
+      "soundMidi" : 42,
+      "t" : 11.403125,
+      "vel" : 0.23011939234202017
+    },
+    {
+      "dur" : 0.4187710756798789,
+      "lane" : "tone",
+      "midi" : 76,
+      "soundMidi" : 76,
+      "t" : 11.403125,
+      "vel" : 0.29792403813587526
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 79,
+      "soundMidi" : 42,
+      "t" : 11.75,
+      "vel" : 0.3441117695283113
+    },
+    {
+      "dur" : 0.17258085138809173,
+      "lane" : "tone",
+      "midi" : 79,
+      "soundMidi" : 79,
+      "t" : 11.75,
+      "vel" : 0.48134627952064185
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 79,
+      "soundMidi" : 42,
+      "t" : 12.153125,
+      "vel" : 0.2965099446852904
+    },
+    {
+      "dur" : 0.3546695927187054,
+      "lane" : "tone",
+      "midi" : 76,
+      "soundMidi" : 76,
+      "t" : 12.153125,
+      "vel" : 0.3538508150165374
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 74,
+      "soundMidi" : 38,
+      "t" : 12.5,
+      "vel" : 0.4706580113432592
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 79,
+      "soundMidi" : 42,
+      "t" : 12.5,
+      "vel" : 0.33006782970139004
+    },
+    {
+      "dur" : 0.37698950496648165,
+      "lane" : "tone",
+      "midi" : 60,
+      "soundMidi" : 60,
+      "t" : 12.5,
+      "vel" : 0.30833839874035274
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 79,
+      "soundMidi" : 42,
+      "t" : 12.903125,
+      "vel" : 0.27507425140519776
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 76,
+      "soundMidi" : 39,
+      "t" : 13.25,
+      "vel" : 0.31
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 79,
+      "soundMidi" : 42,
+      "t" : 13.25,
+      "vel" : 0.25224010924619467
+    },
+    {
+      "dur" : 0.34107699939983227,
+      "lane" : "tone",
+      "midi" : 77,
+      "soundMidi" : 77,
+      "t" : 13.25,
+      "vel" : 0.2786286920194387
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 79,
+      "soundMidi" : 46,
+      "t" : 13.653125,
+      "vel" : 0.3369131335382263
+    },
+    {
+      "dur" : 0.29514230677491865,
+      "lane" : "tone",
+      "midi" : 72,
+      "soundMidi" : 72,
+      "t" : 13.653125,
+      "vel" : 0.3132615213351841
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 72,
+      "soundMidi" : 36,
+      "t" : 14,
+      "vel" : 0.4884431327878715
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 79,
+      "soundMidi" : 42,
+      "t" : 14,
+      "vel" : 0.27702532312984884
+    },
+    {
+      "dur" : 0.3659753102909997,
+      "lane" : "tone",
+      "midi" : 72,
+      "soundMidi" : 72,
+      "t" : 14,
+      "vel" : 0.4519512864516032
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 79,
+      "soundMidi" : 42,
+      "t" : 14.403125,
+      "vel" : 0.32504163369941996
+    },
+    {
+      "dur" : 0.3561286900449626,
+      "lane" : "tone",
+      "midi" : 65,
+      "soundMidi" : 65,
+      "t" : 14.403125,
+      "vel" : 0.2730336415722542
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 79,
+      "soundMidi" : 42,
+      "t" : 14.75,
+      "vel" : 0.32383415230124113
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 79,
+      "soundMidi" : 42,
+      "t" : 15.153125,
+      "vel" : 0.27496782239538026
+    },
+    {
+      "dur" : 0.19278440853778003,
+      "lane" : "tone",
+      "midi" : 60,
+      "soundMidi" : 60,
+      "t" : 15.153125,
+      "vel" : 0.40470531744079974
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 74,
+      "soundMidi" : 38,
+      "t" : 15.5,
+      "vel" : 0.491984914080409
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 79,
+      "soundMidi" : 42,
+      "t" : 15.5,
+      "vel" : 0.2529045691464683
+    },
+    {
+      "dur" : 0.2649027072195963,
+      "lane" : "tone",
+      "midi" : 76,
+      "soundMidi" : 76,
+      "t" : 15.5,
+      "vel" : 0.29414770490503656
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 79,
+      "soundMidi" : 42,
+      "t" : 15.903125,
+      "vel" : 0.24030157137182487
+    },
+    {
+      "dur" : 0.3956489961184027,
+      "lane" : "tone",
+      "midi" : 67,
+      "soundMidi" : 67,
+      "t" : 15.903125,
+      "vel" : 0.3248517251911306
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 76,
+      "soundMidi" : 39,
+      "t" : 16.25,
+      "vel" : 0.31
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 79,
+      "soundMidi" : 42,
+      "t" : 16.25,
+      "vel" : 0.3216676668804347
+    },
+    {
+      "dur" : 0.20625301756809325,
+      "lane" : "tone",
+      "midi" : 76,
+      "soundMidi" : 76,
+      "t" : 16.25,
+      "vel" : 0.29166250317048015
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 79,
+      "soundMidi" : 46,
+      "t" : 16.653125,
+      "vel" : 0.253675939241474
+    },
+    {
+      "dur" : 0.39737603275072386,
+      "lane" : "tone",
+      "midi" : 77,
+      "soundMidi" : 77,
+      "t" : 16.653125,
+      "vel" : 0.3913495814486624
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 72,
+      "soundMidi" : 36,
+      "t" : 17,
+      "vel" : 0.5209158401026965
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 79,
+      "soundMidi" : 42,
+      "t" : 17,
+      "vel" : 0.24914712298939382
+    },
+    {
+      "dur" : 0.2667871164624763,
+      "lane" : "tone",
+      "midi" : 79,
+      "soundMidi" : 79,
+      "t" : 17,
+      "vel" : 0.34132573495690033
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 79,
+      "soundMidi" : 42,
+      "t" : 17.403125,
+      "vel" : 0.2512081840143602
+    },
+    {
+      "dur" : 0.1850651538663386,
+      "lane" : "tone",
+      "midi" : 76,
+      "soundMidi" : 76,
+      "t" : 17.403125,
+      "vel" : 0.3932694258270144
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 79,
+      "soundMidi" : 42,
+      "t" : 17.75,
+      "vel" : 0.2636203932570452
+    },
+    {
+      "dur" : 0.3461298852967826,
+      "lane" : "tone",
+      "midi" : 60,
+      "soundMidi" : 60,
+      "t" : 17.75,
+      "vel" : 0.391622871950305
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 60,
+      "soundMidi" : 36,
+      "t" : 18,
+      "vel" : 0.52
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 67,
+      "soundMidi" : 42,
+      "t" : 18,
+      "vel" : 0.46
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 72,
+      "soundMidi" : 36,
+      "t" : 18,
+      "vel" : 0.55
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 79,
+      "soundMidi" : 42,
+      "t" : 18,
+      "vel" : 0.33
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 67,
+      "soundMidi" : 42,
+      "t" : 18.1875,
+      "vel" : 0.29
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 62,
+      "soundMidi" : 38,
+      "t" : 18.375,
+      "vel" : 0.47
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 67,
+      "soundMidi" : 42,
+      "t" : 18.375,
+      "vel" : 0.29
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 60,
+      "soundMidi" : 36,
+      "t" : 18.5625,
+      "vel" : 0.52
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 67,
+      "soundMidi" : 42,
+      "t" : 18.5625,
+      "vel" : 0.29
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 67,
+      "soundMidi" : 42,
+      "t" : 18.75,
+      "vel" : 0.46
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 74,
+      "soundMidi" : 38,
+      "t" : 18.75,
+      "vel" : 0.5
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 79,
+      "soundMidi" : 42,
+      "t" : 18.75,
+      "vel" : 0.33
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 64,
+      "soundMidi" : 39,
+      "t" : 18.9375,
+      "vel" : 0.34
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 67,
+      "soundMidi" : 42,
+      "t" : 18.9375,
+      "vel" : 0.29
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 62,
+      "soundMidi" : 38,
+      "t" : 19.125,
+      "vel" : 0.47
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 67,
+      "soundMidi" : 42,
+      "t" : 19.125,
+      "vel" : 0.29
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 60,
+      "soundMidi" : 36,
+      "t" : 19.3125,
+      "vel" : 0.52
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 67,
+      "soundMidi" : 46,
+      "t" : 19.3125,
+      "vel" : 0.29
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 67,
+      "soundMidi" : 42,
+      "t" : 19.5,
+      "vel" : 0.46
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 72,
+      "soundMidi" : 36,
+      "t" : 19.5,
+      "vel" : 0.55
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 79,
+      "soundMidi" : 42,
+      "t" : 19.5,
+      "vel" : 0.33
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 62,
+      "soundMidi" : 38,
+      "t" : 19.6875,
+      "vel" : 0.47
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 67,
+      "soundMidi" : 42,
+      "t" : 19.6875,
+      "vel" : 0.29
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 60,
+      "soundMidi" : 36,
+      "t" : 19.875,
+      "vel" : 0.52
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 67,
+      "soundMidi" : 42,
+      "t" : 19.875,
+      "vel" : 0.29
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 67,
+      "soundMidi" : 42,
+      "t" : 20.0625,
+      "vel" : 0.29
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 60,
+      "soundMidi" : 36,
+      "t" : 20.25,
+      "vel" : 0.52
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 67,
+      "soundMidi" : 42,
+      "t" : 20.25,
+      "vel" : 0.46
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 74,
+      "soundMidi" : 38,
+      "t" : 20.25,
+      "vel" : 0.5
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 79,
+      "soundMidi" : 42,
+      "t" : 20.25,
+      "vel" : 0.33
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 64,
+      "soundMidi" : 39,
+      "t" : 20.4375,
+      "vel" : 0.34
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 67,
+      "soundMidi" : 42,
+      "t" : 20.4375,
+      "vel" : 0.29
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 62,
+      "soundMidi" : 38,
+      "t" : 20.625,
+      "vel" : 0.47
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 67,
+      "soundMidi" : 42,
+      "t" : 20.625,
+      "vel" : 0.29
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 60,
+      "soundMidi" : 36,
+      "t" : 20.8125,
+      "vel" : 0.52
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 67,
+      "soundMidi" : 46,
+      "t" : 20.8125,
+      "vel" : 0.29
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 67,
+      "soundMidi" : 42,
+      "t" : 21,
+      "vel" : 0.46
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 72,
+      "soundMidi" : 36,
+      "t" : 21,
+      "vel" : 0.55
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 79,
+      "soundMidi" : 42,
+      "t" : 21,
+      "vel" : 0.33
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 67,
+      "soundMidi" : 42,
+      "t" : 21.1875,
+      "vel" : 0.29
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 62,
+      "soundMidi" : 38,
+      "t" : 21.375,
+      "vel" : 0.47
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 67,
+      "soundMidi" : 42,
+      "t" : 21.375,
+      "vel" : 0.29
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 60,
+      "soundMidi" : 36,
+      "t" : 21.5625,
+      "vel" : 0.52
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 67,
+      "soundMidi" : 42,
+      "t" : 21.5625,
+      "vel" : 0.29
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 67,
+      "soundMidi" : 42,
+      "t" : 21.75,
+      "vel" : 0.46
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 74,
+      "soundMidi" : 38,
+      "t" : 21.75,
+      "vel" : 0.5
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 79,
+      "soundMidi" : 42,
+      "t" : 21.75,
+      "vel" : 0.33
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 62,
+      "soundMidi" : 38,
+      "t" : 21.9375,
+      "vel" : 0.47
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 64,
+      "soundMidi" : 39,
+      "t" : 21.9375,
+      "vel" : 0.34
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 67,
+      "soundMidi" : 42,
+      "t" : 21.9375,
+      "vel" : 0.29
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 60,
+      "soundMidi" : 36,
+      "t" : 22.125,
+      "vel" : 0.52
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 67,
+      "soundMidi" : 42,
+      "t" : 22.125,
+      "vel" : 0.29
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 67,
+      "soundMidi" : 46,
+      "t" : 22.3125,
+      "vel" : 0.29
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 60,
+      "soundMidi" : 36,
+      "t" : 22.5,
+      "vel" : 0.52
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 67,
+      "soundMidi" : 42,
+      "t" : 22.5,
+      "vel" : 0.46
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 72,
+      "soundMidi" : 36,
+      "t" : 22.5,
+      "vel" : 0.55
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 79,
+      "soundMidi" : 42,
+      "t" : 22.5,
+      "vel" : 0.33
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 67,
+      "soundMidi" : 42,
+      "t" : 22.6875,
+      "vel" : 0.29
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 62,
+      "soundMidi" : 38,
+      "t" : 22.875,
+      "vel" : 0.47
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 67,
+      "soundMidi" : 42,
+      "t" : 22.875,
+      "vel" : 0.29
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 60,
+      "soundMidi" : 36,
+      "t" : 23.0625,
+      "vel" : 0.52
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 67,
+      "soundMidi" : 42,
+      "t" : 23.0625,
+      "vel" : 0.29
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 67,
+      "soundMidi" : 42,
+      "t" : 23.25,
+      "vel" : 0.46
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 74,
+      "soundMidi" : 38,
+      "t" : 23.25,
+      "vel" : 0.5
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 79,
+      "soundMidi" : 42,
+      "t" : 23.25,
+      "vel" : 0.33
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 64,
+      "soundMidi" : 39,
+      "t" : 23.4375,
+      "vel" : 0.34
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 67,
+      "soundMidi" : 42,
+      "t" : 23.4375,
+      "vel" : 0.29
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 62,
+      "soundMidi" : 38,
+      "t" : 23.625,
+      "vel" : 0.47
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 67,
+      "soundMidi" : 42,
+      "t" : 23.625,
+      "vel" : 0.29
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 60,
+      "soundMidi" : 36,
+      "t" : 23.8125,
+      "vel" : 0.52
+    },
+    {
+      "dur" : 0.12,
+      "lane" : "drum",
+      "midi" : 67,
+      "soundMidi" : 46,
+      "t" : 23.8125,
+      "vel" : 0.29
+    },
+    {
+      "dur" : 0.5537777777777777,
+      "lane" : "tone",
+      "midi" : 77,
+      "soundMidi" : 77,
+      "t" : 24.12,
+      "vel" : 0.42000000000000004
+    },
+    {
+      "dur" : 0.5537777777777777,
+      "lane" : "tone",
+      "midi" : 76,
+      "soundMidi" : 76,
+      "t" : 24.812222222222225,
+      "vel" : 0.34
+    },
+    {
+      "dur" : 0.5537777777777777,
+      "lane" : "tone",
+      "midi" : 67,
+      "soundMidi" : 67,
+      "t" : 25.504444444444445,
+      "vel" : 0.34
+    },
+    {
+      "dur" : 0.5537777777777777,
+      "lane" : "tone",
+      "midi" : 76,
+      "soundMidi" : 76,
+      "t" : 26.196666666666665,
+      "vel" : 0.34
+    },
+    {
+      "dur" : 0.5537777777777777,
+      "lane" : "tone",
+      "midi" : 60,
+      "soundMidi" : 60,
+      "t" : 26.88888888888889,
+      "vel" : 0.34
+    },
+    {
+      "dur" : 0.5537777777777777,
+      "lane" : "tone",
+      "midi" : 76,
+      "soundMidi" : 76,
+      "t" : 27.581111111111113,
+      "vel" : 0.34
+    },
+    {
+      "dur" : 0.5537777777777777,
+      "lane" : "tone",
+      "midi" : 77,
+      "soundMidi" : 77,
+      "t" : 28.273333333333333,
+      "vel" : 0.34
+    },
+    {
+      "dur" : 1.2459999999999998,
+      "lane" : "tone",
+      "midi" : 72,
+      "soundMidi" : 72,
+      "t" : 28.965555555555554,
+      "vel" : 0.34
+    },
+    {
+      "dur" : 1.15,
+      "lane" : "tone",
+      "midi" : 65,
+      "soundMidi" : 65,
+      "t" : 30.1,
+      "vel" : 0.48
+    }
+  ],
+  "openingPercussionOffAtSec" : 4,
+  "percussionOffAtSec" : 24,
+  "revealAtSec" : 4.8,
+  "revealDurationSec" : 1.15,
+  "seed" : 744196,
+  "splitAtSec" : 11
+}

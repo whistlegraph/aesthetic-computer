@@ -1,0 +1,266 @@
+manifest /Users/aesthetic/aesthetic-computer/pop/menuband/variations/variations-32.json
+selected 30; pending 30; existing 0; jobs 4
+[02:blue-raga] start Blue Raga
+[02:blue-raga] score
+[03:copper-steps] start Copper Steps
+[03:copper-steps] score
+[04:velvet-current] start Velvet Current
+[04:velvet-current] score
+[05:paper-lantern] start Paper Lantern
+[05:paper-lantern] score
+[02:blue-raga:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:507:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[02:blue-raga:score] 505 |                                         bankLSB: UInt8(kAUSampler_DefaultBankLSB))
+[02:blue-raga:score] 506 |     sampler.stereoPan = menuBandPan(midi)
+[02:blue-raga:score] 507 |     sampler.masterGain = menuBandDistanceGain(midi)
+[02:blue-raga:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[02:blue-raga:score] 508 |     engine.connect(sampler, to: toneMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[02:blue-raga:score] 509 |     toneSamplers[midi] = sampler
+[02:blue-raga:score] 
+[03:copper-steps:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:507:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[03:copper-steps:score] 505 |                                         bankLSB: UInt8(kAUSampler_DefaultBankLSB))
+[03:copper-steps:score] 506 |     sampler.stereoPan = menuBandPan(midi)
+[03:copper-steps:score] 507 |     sampler.masterGain = menuBandDistanceGain(midi)
+[03:copper-steps:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[03:copper-steps:score] 508 |     engine.connect(sampler, to: toneMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[03:copper-steps:score] 509 |     toneSamplers[midi] = sampler
+[03:copper-steps:score] 
+[05:paper-lantern:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:507:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[05:paper-lantern:score] 505 |                                         bankLSB: UInt8(kAUSampler_DefaultBankLSB))
+[05:paper-lantern:score] 506 |     sampler.stereoPan = menuBandPan(midi)
+[05:paper-lantern:score] 507 |     sampler.masterGain = menuBandDistanceGain(midi)
+[05:paper-lantern:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[05:paper-lantern:score] 508 |     engine.connect(sampler, to: toneMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[05:paper-lantern:score] 509 |     toneSamplers[midi] = sampler
+[05:paper-lantern:score] 
+[04:velvet-current:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:507:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[04:velvet-current:score] 505 |                                         bankLSB: UInt8(kAUSampler_DefaultBankLSB))
+[04:velvet-current:score] 506 |     sampler.stereoPan = menuBandPan(midi)
+[04:velvet-current:score] 507 |     sampler.masterGain = menuBandDistanceGain(midi)
+[04:velvet-current:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[04:velvet-current:score] 508 |     engine.connect(sampler, to: toneMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[04:velvet-current:score] 509 |     toneSamplers[midi] = sampler
+[04:velvet-current:score] 
+[04:velvet-current:score] 2026-07-28 17:16:56.512 swift-frontend[43979:3134154] Audio files cannot be non-interleaved. Ignoring setting AVLinearPCMIsNonInterleaved YES.
+[02:blue-raga:score] 2026-07-28 17:16:56.513 swift-frontend[43977:3134153] Audio files cannot be non-interleaved. Ignoring setting AVLinearPCMIsNonInterleaved YES.
+[03:copper-steps:score] 2026-07-28 17:16:56.513 swift-frontend[43978:3134155] Audio files cannot be non-interleaved. Ignoring setting AVLinearPCMIsNonInterleaved YES.
+[05:paper-lantern:score] 2026-07-28 17:16:56.514 swift-frontend[43980:3134156] Audio files cannot be non-interleaved. Ignoring setting AVLinearPCMIsNonInterleaved YES.
+[04:velvet-current:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:516:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[04:velvet-current:score] 514 |     try sampler.loadSoundBankInstrument(at: bank, program: 0, bankMSB: 0x78, bankLSB: 0)
+[04:velvet-current:score] 515 |     sampler.stereoPan = menuBandPan(midi)
+[04:velvet-current:score] 516 |     sampler.masterGain = menuBandDistanceGain(midi)
+[04:velvet-current:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[04:velvet-current:score] 517 |     engine.connect(sampler, to: drumMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[04:velvet-current:score] 518 |     drumSamplers[midi] = sampler
+[04:velvet-current:score] 
+[04:velvet-current:score] [#DeprecatedDeclaration]: <https://docs.swift.org/compiler/documentation/diagnostics/deprecated-declaration>
+[04:velvet-current:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/velvet-current/velvet-current.wav (32.00s)
+[04:velvet-current:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/velvet-current/velvet-current.notes.json (167 events, all visual MIDI 60...83)
+[04:velvet-current:score]   #5 · 5 Electric Piano 1 · 0-4 brushed hat pocket; 4-11 chord-shell hook; 11-19 bass-tone and answer dialogue; 19-24 swung neo-soul break; 24-30 reharmonized hook; 30-32 soft major-sixth seal · Major · motorik · seed 751392
+[04:velvet-current] video
+[05:paper-lantern:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:516:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[05:paper-lantern:score] 514 |     try sampler.loadSoundBankInstrument(at: bank, program: 0, bankMSB: 0x78, bankLSB: 0)
+[05:paper-lantern:score] 515 |     sampler.stereoPan = menuBandPan(midi)
+[05:paper-lantern:score] 516 |     sampler.masterGain = menuBandDistanceGain(midi)
+[05:paper-lantern:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[05:paper-lantern:score] 517 |     engine.connect(sampler, to: drumMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[05:paper-lantern:score] 518 |     drumSamplers[midi] = sampler
+[05:paper-lantern:score] 
+[05:paper-lantern:score] [#DeprecatedDeclaration]: <https://docs.swift.org/compiler/documentation/diagnostics/deprecated-declaration>
+[03:copper-steps:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:516:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[03:copper-steps:score] 514 |     try sampler.loadSoundBankInstrument(at: bank, program: 0, bankMSB: 0x78, bankLSB: 0)
+[03:copper-steps:score] 515 |     sampler.stereoPan = menuBandPan(midi)
+[03:copper-steps:score] 516 |     sampler.masterGain = menuBandDistanceGain(midi)
+[03:copper-steps:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[03:copper-steps:score] 517 |     engine.connect(sampler, to: drumMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[03:copper-steps:score] 518 |     drumSamplers[midi] = sampler
+[03:copper-steps:score] 
+[03:copper-steps:score] [#DeprecatedDeclaration]: <https://docs.swift.org/compiler/documentation/diagnostics/deprecated-declaration>
+[02:blue-raga:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:516:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[02:blue-raga:score] 514 |     try sampler.loadSoundBankInstrument(at: bank, program: 0, bankMSB: 0x78, bankLSB: 0)
+[02:blue-raga:score] 515 |     sampler.stereoPan = menuBandPan(midi)
+[02:blue-raga:score] 516 |     sampler.masterGain = menuBandDistanceGain(midi)
+[02:blue-raga:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[02:blue-raga:score] 517 |     engine.connect(sampler, to: drumMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[02:blue-raga:score] 518 |     drumSamplers[midi] = sampler
+[02:blue-raga:score] 
+[02:blue-raga:score] [#DeprecatedDeclaration]: <https://docs.swift.org/compiler/documentation/diagnostics/deprecated-declaration>
+[05:paper-lantern:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/paper-lantern/paper-lantern.wav (32.00s)
+[05:paper-lantern:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/paper-lantern/paper-lantern.notes.json (166 events, all visual MIDI 60...83)
+[05:paper-lantern:score]   #6 · 108 Koto · 0-4 tiny bell taps; 4-11 pentatonic question; 11-18 overlapping 3+2 canons; 18-24 taiko-like break; 24-30 answer expanded upward; 30-32 solitary tonic · Major pentatonic · breakbeat · seed 290684
+[03:copper-steps:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/copper-steps/copper-steps.wav (32.00s)
+[03:copper-steps:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/copper-steps/copper-steps.notes.json (196 events, all visual MIDI 60...83)
+[03:copper-steps:score]   #4 · 13 Marimba · 0-3 wood clicks; 3-9 staircase stated; 9-16 octave interlock; 16-22 asymmetric kick-and-tom break; 22-29 staircase displaced by one eighth; 29-32 unison descent · Aeolian · minimal · seed 417205
+[02:blue-raga:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/blue-raga/blue-raga.wav (32.00s)
+[02:blue-raga:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/blue-raga/blue-raga.notes.json (152 events, all visual MIDI 60...83)
+[02:blue-raga:score]   #3 · 105 Sitar · 0-5 hand-drum pulse; 5-12 alap-like single line; 12-20 drone ostinato with ornaments; 20-25 tabla-style tihai break; 25-30 accelerated return; 30-32 open fifth · Mixolydian · half-time · seed 662914
+[03:copper-steps] video
+[02:blue-raga] video
+[05:paper-lantern] video
+[04:velvet-current:video] ▸ MenuBand variation 5/32 · velvet-current · 1920 frames · 32.0s · 1080x1920@60
+[04:velvet-current:video] Truncating packet of size 8294400 to 65536
+[05:paper-lantern:video] ▸ MenuBand variation 6/32 · paper-lantern · 1920 frames · 32.0s · 1080x1920@60
+[04:velvet-current:video]   0/1920 · 0s
+[02:blue-raga:video] ▸ MenuBand variation 3/32 · blue-raga · 1920 frames · 32.0s · 1080x1920@60
+[03:copper-steps:video] ▸ MenuBand variation 4/32 · copper-steps · 1920 frames · 32.0s · 1080x1920@60
+[05:paper-lantern:video] Truncating packet of size 8294400 to 65536
+[05:paper-lantern:video]   0/1920 · 0s
+[03:copper-steps:video] Truncating packet of size 8294400 to 65536
+[02:blue-raga:video] Truncating packet of size 8294400 to 65536
+[02:blue-raga:video]   0/1920 · 0s
+[03:copper-steps:video]   0/1920 · 0s
+[02:blue-raga:video]   150/1920 · 3s
+[05:paper-lantern:video]   150/1920 · 3s
+[04:velvet-current:video]   150/1920 · 3s
+[03:copper-steps:video]   150/1920 · 4s
+[02:blue-raga:video]   300/1920 · 7s
+[05:paper-lantern:video]   300/1920 · 8s
+[04:velvet-current:video]   300/1920 · 9s
+[03:copper-steps:video]   300/1920 · 15s
+[02:blue-raga:video]   450/1920 · 18s
+[05:paper-lantern:video]   450/1920 · 18s
+[04:velvet-current:video]   450/1920 · 21s
+[05:paper-lantern:video]   600/1920 · 21s
+[02:blue-raga:video]   600/1920 · 23s
+[03:copper-steps:video]   450/1920 · 24s
+[04:velvet-current:video]   600/1920 · 27s
+[02:blue-raga:video]   750/1920 · 28s
+[05:paper-lantern:video]   750/1920 · 30s
+[03:copper-steps:video]   600/1920 · 31s
+[04:velvet-current:video]   750/1920 · 37s
+[02:blue-raga:video]   900/1920 · 45s
+[05:paper-lantern:video]   900/1920 · 47s
+[03:copper-steps:video]   750/1920 · 51s
+[04:velvet-current:video]   900/1920 · 58s
+[02:blue-raga:video]   1050/1920 · 62s
+[05:paper-lantern:video]   1050/1920 · 64s
+[03:copper-steps:video]   900/1920 · 70s
+[04:velvet-current:video]   1050/1920 · 78s
+[02:blue-raga:video]   1200/1920 · 80s
+[05:paper-lantern:video]   1200/1920 · 86s
+[03:copper-steps:video]   1050/1920 · 95s
+[04:velvet-current:video]   1200/1920 · 99s
+[02:blue-raga:video]   1350/1920 · 103s
+[05:paper-lantern:video]   1350/1920 · 111s
+[04:velvet-current:video]   1350/1920 · 122s
+[02:blue-raga:video]   1500/1920 · 127s
+[03:copper-steps:video]   1200/1920 · 128s
+[05:paper-lantern:video]   1500/1920 · 133s
+[05:paper-lantern:video]   1650/1920 · 140s
+[02:blue-raga:video]   1650/1920 · 141s
+[04:velvet-current:video]   1500/1920 · 144s
+[05:paper-lantern:video]   1800/1920 · 150s
+[02:blue-raga:video]   1800/1920 · 155s
+[04:velvet-current:video]   1650/1920 · 158s
+[03:copper-steps:video]   1350/1920 · 163s
+[04:velvet-current:video]   1800/1920 · 176s
+[03:copper-steps:video]   1500/1920 · 184s
+[05:paper-lantern:video] ✓ base /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/paper-lantern/paper-lantern.mp4
+[05:paper-lantern] done 192.2s
+[06:night-ferry] start Night Ferry
+[06:night-ferry] score
+[06:night-ferry:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:507:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[06:night-ferry:score] 505 |                                         bankLSB: UInt8(kAUSampler_DefaultBankLSB))
+[06:night-ferry:score] 506 |     sampler.stereoPan = menuBandPan(midi)
+[06:night-ferry:score] 507 |     sampler.masterGain = menuBandDistanceGain(midi)
+[06:night-ferry:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[06:night-ferry:score] 508 |     engine.connect(sampler, to: toneMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[06:night-ferry:score] 509 |     toneSamplers[midi] = sampler
+[06:night-ferry:score] 
+[06:night-ferry:score] 2026-07-28 17:20:09.185 swift-frontend[46151:3142688] Audio files cannot be non-interleaved. Ignoring setting AVLinearPCMIsNonInterleaved YES.
+[06:night-ferry:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:516:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[06:night-ferry:score] 514 |     try sampler.loadSoundBankInstrument(at: bank, program: 0, bankMSB: 0x78, bankLSB: 0)
+[06:night-ferry:score] 515 |     sampler.stereoPan = menuBandPan(midi)
+[06:night-ferry:score] 516 |     sampler.masterGain = menuBandDistanceGain(midi)
+[06:night-ferry:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[06:night-ferry:score] 517 |     engine.connect(sampler, to: drumMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[06:night-ferry:score] 518 |     drumSamplers[midi] = sampler
+[06:night-ferry:score] 
+[06:night-ferry:score] [#DeprecatedDeclaration]: <https://docs.swift.org/compiler/documentation/diagnostics/deprecated-declaration>
+[06:night-ferry:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/night-ferry/night-ferry.wav (32.00s)
+[06:night-ferry:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/night-ferry/night-ferry.notes.json (196 events, all visual MIDI 60...83)
+[06:night-ferry:score]   #7 · 22 Accordion · 0-3 dock-chain ticks; 3-10 waltz theme; 10-17 bass-chord ferry pulse; 17-23 snare-and-floor-tom storm; 23-29 theme in close canon; 29-32 slowing minor cadence · Harmonic minor · broken-beat · seed 846103
+[06:night-ferry] video
+[06:night-ferry:video] ▸ MenuBand variation 7/32 · night-ferry · 1920 frames · 32.0s · 1080x1920@60
+[06:night-ferry:video] Truncating packet of size 8294400 to 65536
+[06:night-ferry:video]   0/1920 · 0s
+[02:blue-raga:video] ✓ base /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/blue-raga/blue-raga.mp4
+[02:blue-raga] done 200.9s
+[07:rain-code] start Rain Code
+[07:rain-code] score
+[07:rain-code:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:507:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[07:rain-code:score] 505 |                                         bankLSB: UInt8(kAUSampler_DefaultBankLSB))
+[07:rain-code:score] 506 |     sampler.stereoPan = menuBandPan(midi)
+[07:rain-code:score] 507 |     sampler.masterGain = menuBandDistanceGain(midi)
+[07:rain-code:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[07:rain-code:score] 508 |     engine.connect(sampler, to: toneMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[07:rain-code:score] 509 |     toneSamplers[midi] = sampler
+[07:rain-code:score] 
+[07:rain-code:score] 2026-07-28 17:20:17.267 swift-frontend[46268:3143181] Audio files cannot be non-interleaved. Ignoring setting AVLinearPCMIsNonInterleaved YES.
+[07:rain-code:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:516:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[07:rain-code:score] 514 |     try sampler.loadSoundBankInstrument(at: bank, program: 0, bankMSB: 0x78, bankLSB: 0)
+[07:rain-code:score] 515 |     sampler.stereoPan = menuBandPan(midi)
+[07:rain-code:score] 516 |     sampler.masterGain = menuBandDistanceGain(midi)
+[07:rain-code:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[07:rain-code:score] 517 |     engine.connect(sampler, to: drumMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[07:rain-code:score] 518 |     drumSamplers[midi] = sampler
+[07:rain-code:score] 
+[07:rain-code:score] [#DeprecatedDeclaration]: <https://docs.swift.org/compiler/documentation/diagnostics/deprecated-declaration>
+[07:rain-code:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/rain-code/rain-code.wav (32.00s)
+[07:rain-code:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/rain-code/rain-code.notes.json (246 events, all visual MIDI 60...83)
+[07:rain-code:score]   #8 · 12 Vibraphone · 0-3 granular hats; 3-9 coded cell; 9-16 offset repetitions; 16-23 broken-beat rain break; 23-29 cell augmentation over pedal; 29-32 unresolved ninth · Dorian · garage · seed 535718
+[07:rain-code] video
+[03:copper-steps:video]   1650/1920 · 201s
+[07:rain-code:video] ▸ MenuBand variation 8/32 · rain-code · 1920 frames · 32.0s · 1080x1920@60
+[07:rain-code:video] Truncating packet of size 8294400 to 65536
+[07:rain-code:video]   0/1920 · 0s
+[06:night-ferry:video]   150/1920 · 12s
+[07:rain-code:video]   150/1920 · 12s
+[04:velvet-current:video] ✓ base /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/velvet-current/velvet-current.mp4
+[04:velvet-current] done 215.8s
+[08:sunken-chapel] start Sunken Chapel
+[08:sunken-chapel] score
+[08:sunken-chapel:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:507:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[08:sunken-chapel:score] 505 |                                         bankLSB: UInt8(kAUSampler_DefaultBankLSB))
+[08:sunken-chapel:score] 506 |     sampler.stereoPan = menuBandPan(midi)
+[08:sunken-chapel:score] 507 |     sampler.masterGain = menuBandDistanceGain(midi)
+[08:sunken-chapel:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[08:sunken-chapel:score] 508 |     engine.connect(sampler, to: toneMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[08:sunken-chapel:score] 509 |     toneSamplers[midi] = sampler
+[08:sunken-chapel:score] 
+[08:sunken-chapel:score] 2026-07-28 17:20:32.213 swift-frontend[46475:3143978] Audio files cannot be non-interleaved. Ignoring setting AVLinearPCMIsNonInterleaved YES.
+[08:sunken-chapel:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:516:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[08:sunken-chapel:score] 514 |     try sampler.loadSoundBankInstrument(at: bank, program: 0, bankMSB: 0x78, bankLSB: 0)
+[08:sunken-chapel:score] 515 |     sampler.stereoPan = menuBandPan(midi)
+[08:sunken-chapel:score] 516 |     sampler.masterGain = menuBandDistanceGain(midi)
+[08:sunken-chapel:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[08:sunken-chapel:score] 517 |     engine.connect(sampler, to: drumMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[08:sunken-chapel:score] 518 |     drumSamplers[midi] = sampler
+[08:sunken-chapel:score] 
+[08:sunken-chapel:score] [#DeprecatedDeclaration]: <https://docs.swift.org/compiler/documentation/diagnostics/deprecated-declaration>
+[08:sunken-chapel:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/sunken-chapel/sunken-chapel.wav (32.00s)
+[08:sunken-chapel:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/sunken-chapel/sunken-chapel.notes.json (129 events, all visual MIDI 60...83)
+[08:sunken-chapel:score]   #9 · 20 Church Organ · 0-5 distant low bell; 5-12 invocation; 12-19 parallel organum; 19-25 monumental tom procession; 25-30 invocation in upper register; 30-32 bare fifth · Phrygian · two-step · seed 120977
+[08:sunken-chapel] video
+[08:sunken-chapel:video] ▸ MenuBand variation 9/32 · sunken-chapel · 1920 frames · 32.0s · 1080x1920@60
+[08:sunken-chapel:video] Truncating packet of size 8294400 to 65536
+[08:sunken-chapel:video]   0/1920 · 0s
+[03:copper-steps:video]   1800/1920 · 216s
+[06:night-ferry:video]   300/1920 · 28s
+[08:sunken-chapel:video]   150/1920 · 5s
+[07:rain-code:video]   300/1920 · 23s
+[08:sunken-chapel:video]   300/1920 · 17s
+[06:night-ferry:video]   450/1920 · 42s
+[07:rain-code:video]   450/1920 · 38s
+[03:copper-steps:video] ✓ base /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/copper-steps/copper-steps.mp4
+[03:copper-steps] done 245.6s
+[09:comet-trail] start Comet Trail
+[09:comet-trail] score
+[09:comet-trail] failed: terminated by SIGTERM
+[08:sunken-chapel] failed: terminated by SIGTERM
+[07:rain-code] failed: terminated by SIGTERM
+[06:night-ferry] failed: terminated by SIGTERM
+summary selected=30 succeeded=4 skipped=0 failed=4
+[07:rain-code:video] [rawvideo @ 0xca6c1d500] Invalid buffer size, packet size 5308416 < expected frame_size 8294400
+[07:rain-code:video] [vist#0:0/rawvideo @ 0xca6c0c180] [dec:rawvideo @ 0xca6c10640] Error submitting packet to decoder: Invalid argument
+[06:night-ferry:video] [rawvideo @ 0xa36c1d500] Invalid buffer size, packet size 4456448 < expected frame_size 8294400
+[06:night-ferry:video] [vist#0:0/rawvideo @ 0xa36c0c180] [dec:rawvideo @ 0xa36c14640] Error submitting packet to decoder: Invalid argument

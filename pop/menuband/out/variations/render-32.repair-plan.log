@@ -1,0 +1,37 @@
+manifest /Users/aesthetic/aesthetic-computer/pop/menuband/variations/variations-32.json
+selected 32; pending 2; existing 30; jobs 1
+[00:moonlit] skip existing /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/moonlit/moonlit.mp4
+[03:copper-steps] skip existing /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/copper-steps/copper-steps.mp4
+[04:velvet-current] skip existing /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/velvet-current/velvet-current.mp4
+[05:paper-lantern] skip existing /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/paper-lantern/paper-lantern.mp4
+[06:night-ferry] skip existing /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/night-ferry/night-ferry.mp4
+[07:rain-code] skip existing /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/rain-code/rain-code.mp4
+[08:sunken-chapel] skip existing /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/sunken-chapel/sunken-chapel.mp4
+[09:comet-trail] skip existing /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/comet-trail/comet-trail.mp4
+[10:quiet-machinery] skip existing /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/quiet-machinery/quiet-machinery.mp4
+[11:moss-circuit] skip existing /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/moss-circuit/moss-circuit.mp4
+[12:amber-waltz] skip existing /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/amber-waltz/amber-waltz.mp4
+[13:chrome-sparrow] skip existing /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/chrome-sparrow/chrome-sparrow.mp4
+[14:salt-lines] skip existing /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/salt-lines/salt-lines.mp4
+[15:afterimage] skip existing /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/afterimage/afterimage.mp4
+[16:switchyard] skip existing /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/switchyard/switchyard.mp4
+[17:orbital-pizzicato] skip existing /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/orbital-pizzicato/orbital-pizzicato.mp4
+[18:low-tide] skip existing /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/low-tide/low-tide.mp4
+[19:polar-bells] skip existing /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/polar-bells/polar-bells.mp4
+[20:neon-canopy] skip existing /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/neon-canopy/neon-canopy.mp4
+[21:cedar-spiral] skip existing /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/cedar-spiral/cedar-spiral.mp4
+[22:smoke-signal] skip existing /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/smoke-signal/smoke-signal.mp4
+[23:mercury-reed] skip existing /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/mercury-reed/mercury-reed.mp4
+[24:threaded-air] skip existing /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/threaded-air/threaded-air.mp4
+[25:dark-bloom] skip existing /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/dark-bloom/dark-bloom.mp4
+[26:static-garden] skip existing /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/static-garden/static-garden.mp4
+[27:tin-constellation] skip existing /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/tin-constellation/tin-constellation.mp4
+[28:hollow-sun] skip existing /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/hollow-sun/hollow-sun.mp4
+[29:red-meridian] skip existing /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/red-meridian/red-meridian.mp4
+[30:snow-engine] skip existing /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/snow-engine/snow-engine.mp4
+[31:last-light] skip existing /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/last-light/last-light.mp4
+[dry-run 01:glass-orchard:score] "/Users/aesthetic/.local/bin/swift" "/Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift" "--manifest" "/Users/aesthetic/aesthetic-computer/pop/menuband/variations/variations-32.json" "--index" "1"
+[dry-run 01:glass-orchard:video] "/opt/homebrew/Cellar/node/26.5.0/bin/node" "/Users/aesthetic/aesthetic-computer/pop/menuband/bin/sim-piano-variation.mjs" "--manifest" "/Users/aesthetic/aesthetic-computer/pop/menuband/variations/variations-32.json" "--index" "1"
+[dry-run 02:blue-raga:score] "/Users/aesthetic/.local/bin/swift" "/Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift" "--manifest" "/Users/aesthetic/aesthetic-computer/pop/menuband/variations/variations-32.json" "--index" "2"
+[dry-run 02:blue-raga:video] "/opt/homebrew/Cellar/node/26.5.0/bin/node" "/Users/aesthetic/aesthetic-computer/pop/menuband/bin/sim-piano-variation.mjs" "--manifest" "/Users/aesthetic/aesthetic-computer/pop/menuband/variations/variations-32.json" "--index" "2"
+summary selected=32 planned=2 skipped=30 failed=0

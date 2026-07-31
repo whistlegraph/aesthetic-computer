@@ -151,6 +151,7 @@ function stripInlineColorCodes(s) {
 }
 
 let input, inputBtn, handleBtn, token, currentUserSub;
+let chatMaxChars = 128; // Default chat char limit; overridable via options.maxChars
 let messagesNeedLayout = true;
 let tapState = null;
 let inputTypefaceName; // Store the typeface name for text input
@@ -536,6 +537,8 @@ async function boot(
 ) {
   // Clear handle colors cache on each boot so edits are picked up.
   handleColorsCache.clear();
+  chatMaxChars = options?.maxChars || 128;
+  send({ type: "keyboard:set-max-chars", content: chatMaxChars });
 
   // Capture send/notice for receive() (tape upload callbacks land there).
   sendApi = send;
@@ -2262,7 +2265,7 @@ function paint(
     input.paint(api, false, previewFrame);
 
     // Character limit and font picker - centered at bottom of preview frame
-    const len = 128;
+    const len = chatMaxChars;
     const charCountText = `${input.text.length}/${len}`;
     const charCountWidth = text.width(charCountText); // Normal font
     
@@ -2272,7 +2275,7 @@ function paint(
     const fontBtnLabel = "Aa";
     const fontBtnLabelWidth = text.width(fontBtnLabel);
     
-    // Total width of "Aa  0/128" centered
+    // Total width of "Aa  0/N" centered
     const gap = 8; // Gap between Aa and count
     const totalWidth = fontBtnW + gap + charCountWidth;
     const centerX = Math.floor(screen.width / 2);
@@ -4773,7 +4776,8 @@ function computeMessagesHeight({ text, screen, typeface }, chat, defaultTypeface
     message.tb = tb;
     message.fullMessage = fullMessage;
     // Cache parsed elements on the message object (reused in paint + layout + act)
-    message._parsedElements = parseMessageElements(fullMessage);
+    // AI assistant messages are markdown, not AC chat syntax — skip painting/handle parsing
+    message._parsedElements = message.from === "aa" ? [] : parseMessageElements(fullMessage);
     // Add height for all lines in the message
     // Each line is msgRowHeight tall (per-message font height)
     // Plus add lineGap between lines within the message and after the message

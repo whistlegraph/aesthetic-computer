@@ -1,0 +1,138 @@
+#!/bin/bash
+set -euo pipefail
+
+HANDOFF="$HOME/.config/slab/deskflow-handoff.json"
+STATE="$HOME/.config/slab/deskflow.json"
+EPOCH_FILE="$HOME/.config/slab/deskflow-role-epoch"
+CLIENT_CONF="$HOME/Library/Deskflow/Deskflow-client-role.conf"
+SET_ROLE="$HOME/.local/bin/deskflow-set-role"
+RETARGET="$HOME/.local/bin/deskflow-retarget-client"
+LOCK="$HOME/.config/slab/deskflow-reconcile.lock"
+LOG="$HOME/Library/Logs/deskflow-handoff.log"
+
+if [[ ! -f "$HANDOFF" || ! -f "$STATE" ]]; then
+  exit 0
+fi
+
+VALUES=()
+while IFS= read -r value; do VALUES+=("$value"); done < <(
+  /usr/bin/python3 - "$HANDOFF" "$STATE" "$EPOCH_FILE" "$CLIENT_CONF" <<'PY'
+import json, pathlib, re, sys
+handoff_path, state_path, epoch_path, client_path = map(pathlib.Path, sys.argv[1:])
+try: handoff = json.loads(handoff_path.read_text())
+except Exception: handoff = {}
+try: state = json.loads(state_path.read_text())
+except Exception: state = {}
+try: epoch = int(epoch_path.read_text().strip())
+except Exception: epoch = 0
+try:
+    match = re.search(r"^remoteHost=(.*)$", client_path.read_text(), re.MULTILINE)
+    remote = match.group(1).strip() if match else ""
+except Exception: remote = ""
+print(str(bool(handoff.get("controller", False))).lower())
+print(state.get("role", "client"))
+print(handoff.get("address", ""))
+print(epoch)
+print(remote)
+for peer in handoff.get("clients", []): print(peer)
+PY
+)
+
+CONTROLLER=${VALUES[0]:-false}
+ROLE=${VALUES[1]:-client}
+ADDRESS=${VALUES[2]:-}
+EPOCH=${VALUES[3]:-0}
+REMOTE_HOST=${VALUES[4]:-}
+PEERS=("${VALUES[@]:5}")
+
+[[ "$CONTROLLER" == "true" ]] || exit 0
+[[ ${#PEERS[@]} -ge 1 && -n "$ADDRESS" ]] || exit 0
+
+if ! mkdir "$LOCK" 2>/dev/null; then
+  exit 0
+fi
+trap 'rmdir "$LOCK" 2>/dev/null || true' EXIT
+
+SSH_OPTS=(-o BatchMode=yes -o ConnectTimeout=4 -o ConnectionAttempts=1
+          -o ControlMaster=no -o ControlPath=none)
+PEER_CONTROLLER=${PEERS[0]}
+PEER_JSON=""
+for attempt in 1 2 3; do
+  if PEER_JSON=$(ssh "${SSH_OPTS[@]}" "$PEER_CONTROLLER" \
+      '~/.local/bin/deskflow-role-state' 2>/dev/null); then
+    break
+  fi
+  PEER_JSON=""
+  [[ "$attempt" == "3" ]] || sleep "$attempt"
+done
+
+PEER_VALUES=()
+if [[ -n "$PEER_JSON" ]]; then
+  while IFS= read -r value; do PEER_VALUES+=("$value"); done < <(
+    /usr/bin/python3 - "$PEER_JSON" <<'PY'
+import json, sys
+try: data = json.loads(sys.argv[1])
+except Exception: data = {}
+print(data.get("role", ""))
+print(data.get("epoch", 0))
+print(data.get("address", ""))
+print(data.get("remoteHost", ""))
+print(str(bool(data.get("controller", False))).lower())
+PY
+  )
+fi
+PEER_ROLE=${PEER_VALUES[0]:-}
+PEER_EPOCH=${PEER_VALUES[1]:-0}
+PEER_ADDRESS=${PEER_VALUES[2]:-}
+PEER_REMOTE=${PEER_VALUES[3]:-}
+PEER_IS_CONTROLLER=${PEER_VALUES[4]:-false}
+
+if ! [[ "$EPOCH" =~ ^[0-9]+$ ]]; then EPOCH=0; fi
+if ! [[ "$PEER_EPOCH" =~ ^[0-9]+$ ]]; then PEER_EPOCH=0; fi
+
+# A controller that learns about a newer server generation follows it. With an
+# equal generation, the lexically smaller stable address wins, preventing an
+# impossible-but-recoverable tie from leaving two servers alive forever.
+if [[ "$ROLE" == "server" && "$PEER_IS_CONTROLLER" == "true" ]]; then
+  if [[ "$PEER_ROLE" == "server" && -n "$PEER_ADDRESS" ]] && \
+     { [[ "$PEER_EPOCH" -gt "$EPOCH" ]] || \
+       { [[ "$PEER_EPOCH" -eq "$EPOCH" ]] && [[ "$PEER_ADDRESS" < "$ADDRESS" ]]; }; }; then
+    "$SET_ROLE" client "$PEER_ADDRESS" "$PEER_EPOCH"
+    printf '%s reconciled local server to newer peer=%s epoch=%s\n' \
+      "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$PEER_ADDRESS" "$PEER_EPOCH" >> "$LOG"
+    exit 0
+  fi
+
+  if [[ "$PEER_ROLE" == "client" && "$PEER_EPOCH" -gt "$EPOCH" ]]; then
+    if [[ "$PEER_REMOTE" == "$ADDRESS" ]]; then
+      EPOCH=$PEER_EPOCH
+      "$SET_ROLE" server "" "$EPOCH" >/dev/null
+    elif [[ -n "$PEER_REMOTE" ]]; then
+      "$SET_ROLE" client "$PEER_REMOTE" "$PEER_EPOCH"
+      printf '%s followed newer client generation target=%s epoch=%s\n' \
+        "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$PEER_REMOTE" "$PEER_EPOCH" >> "$LOG"
+      exit 0
+    fi
+  fi
+fi
+
+# Client controllers do not invent a generation during resume. If their
+# expected server is alive, the exact-socket health check is sufficient; the
+# server's watchdog owns fleet fan-out.
+[[ "$ROLE" == "server" ]] || exit 0
+
+pids=()
+targets=()
+if [[ "$PEER_ROLE" != "client" || "$PEER_REMOTE" != "$ADDRESS" || "$PEER_EPOCH" -lt "$EPOCH" ]]; then
+  targets+=("$PEER_CONTROLLER")
+fi
+for peer in "${PEERS[@]:1}"; do targets+=("$peer"); done
+
+for peer in "${targets[@]}"; do
+  "$RETARGET" "$peer" "$ADDRESS" "$EPOCH" >> "$LOG" 2>&1 &
+  pids+=("$!")
+done
+
+status=0
+for pid in "${pids[@]}"; do wait "$pid" || status=1; done
+exit "$status"

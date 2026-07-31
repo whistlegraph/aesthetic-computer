@@ -1,0 +1,406 @@
+manifest /Users/aesthetic/aesthetic-computer/pop/menuband/variations/variations-32.json
+selected 26; pending 26; existing 0; jobs 6
+[06:night-ferry] start Night Ferry
+[06:night-ferry] score
+[07:rain-code] start Rain Code
+[07:rain-code] score
+[08:sunken-chapel] start Sunken Chapel
+[08:sunken-chapel] score
+[09:comet-trail] start Comet Trail
+[09:comet-trail] score
+[10:quiet-machinery] start Quiet Machinery
+[10:quiet-machinery] score
+[11:moss-circuit] start Moss Circuit
+[11:moss-circuit] score
+[06:night-ferry:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:507:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[06:night-ferry:score] 505 |                                         bankLSB: UInt8(kAUSampler_DefaultBankLSB))
+[06:night-ferry:score] 506 |     sampler.stereoPan = menuBandPan(midi)
+[06:night-ferry:score] 507 |     sampler.masterGain = menuBandDistanceGain(midi)
+[06:night-ferry:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[06:night-ferry:score] 508 |     engine.connect(sampler, to: toneMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[06:night-ferry:score] 509 |     toneSamplers[midi] = sampler
+[06:night-ferry:score] 
+[07:rain-code:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:507:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[07:rain-code:score] 505 |                                         bankLSB: UInt8(kAUSampler_DefaultBankLSB))
+[07:rain-code:score] 506 |     sampler.stereoPan = menuBandPan(midi)
+[07:rain-code:score] 507 |     sampler.masterGain = menuBandDistanceGain(midi)
+[07:rain-code:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[07:rain-code:score] 508 |     engine.connect(sampler, to: toneMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[07:rain-code:score] 509 |     toneSamplers[midi] = sampler
+[07:rain-code:score] 
+[10:quiet-machinery:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:507:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[10:quiet-machinery:score] 505 |                                         bankLSB: UInt8(kAUSampler_DefaultBankLSB))
+[10:quiet-machinery:score] 506 |     sampler.stereoPan = menuBandPan(midi)
+[10:quiet-machinery:score] 507 |     sampler.masterGain = menuBandDistanceGain(midi)
+[10:quiet-machinery:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[10:quiet-machinery:score] 508 |     engine.connect(sampler, to: toneMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[10:quiet-machinery:score] 509 |     toneSamplers[midi] = sampler
+[10:quiet-machinery:score] 
+[09:comet-trail:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:507:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[09:comet-trail:score] 505 |                                         bankLSB: UInt8(kAUSampler_DefaultBankLSB))
+[09:comet-trail:score] 506 |     sampler.stereoPan = menuBandPan(midi)
+[09:comet-trail:score] 507 |     sampler.masterGain = menuBandDistanceGain(midi)
+[09:comet-trail:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[09:comet-trail:score] 508 |     engine.connect(sampler, to: toneMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[09:comet-trail:score] 509 |     toneSamplers[midi] = sampler
+[09:comet-trail:score] 
+[11:moss-circuit:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:507:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[11:moss-circuit:score] 505 |                                         bankLSB: UInt8(kAUSampler_DefaultBankLSB))
+[11:moss-circuit:score] 506 |     sampler.stereoPan = menuBandPan(midi)
+[11:moss-circuit:score] 507 |     sampler.masterGain = menuBandDistanceGain(midi)
+[11:moss-circuit:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[11:moss-circuit:score] 508 |     engine.connect(sampler, to: toneMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[11:moss-circuit:score] 509 |     toneSamplers[midi] = sampler
+[11:moss-circuit:score] 
+[08:sunken-chapel:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:507:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[08:sunken-chapel:score] 505 |                                         bankLSB: UInt8(kAUSampler_DefaultBankLSB))
+[08:sunken-chapel:score] 506 |     sampler.stereoPan = menuBandPan(midi)
+[08:sunken-chapel:score] 507 |     sampler.masterGain = menuBandDistanceGain(midi)
+[08:sunken-chapel:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[08:sunken-chapel:score] 508 |     engine.connect(sampler, to: toneMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[08:sunken-chapel:score] 509 |     toneSamplers[midi] = sampler
+[08:sunken-chapel:score] 
+[10:quiet-machinery:score] 2026-07-28 17:21:13.403 swift-frontend[46999:3146002] Audio files cannot be non-interleaved. Ignoring setting AVLinearPCMIsNonInterleaved YES.
+[06:night-ferry:score] 2026-07-28 17:21:13.403 swift-frontend[46995:3146003] Audio files cannot be non-interleaved. Ignoring setting AVLinearPCMIsNonInterleaved YES.
+[11:moss-circuit:score] 2026-07-28 17:21:13.406 swift-frontend[47000:3146004] Audio files cannot be non-interleaved. Ignoring setting AVLinearPCMIsNonInterleaved YES.
+[08:sunken-chapel:score] 2026-07-28 17:21:13.416 swift-frontend[46997:3146006] Audio files cannot be non-interleaved. Ignoring setting AVLinearPCMIsNonInterleaved YES.
+[09:comet-trail:score] 2026-07-28 17:21:13.416 swift-frontend[46998:3146005] Audio files cannot be non-interleaved. Ignoring setting AVLinearPCMIsNonInterleaved YES.
+[07:rain-code:score] 2026-07-28 17:21:13.417 swift-frontend[46996:3146001] Audio files cannot be non-interleaved. Ignoring setting AVLinearPCMIsNonInterleaved YES.
+[06:night-ferry:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:516:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[06:night-ferry:score] 514 |     try sampler.loadSoundBankInstrument(at: bank, program: 0, bankMSB: 0x78, bankLSB: 0)
+[06:night-ferry:score] 515 |     sampler.stereoPan = menuBandPan(midi)
+[06:night-ferry:score] 516 |     sampler.masterGain = menuBandDistanceGain(midi)
+[06:night-ferry:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[06:night-ferry:score] 517 |     engine.connect(sampler, to: drumMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[06:night-ferry:score] 518 |     drumSamplers[midi] = sampler
+[06:night-ferry:score] 
+[06:night-ferry:score] [#DeprecatedDeclaration]: <https://docs.swift.org/compiler/documentation/diagnostics/deprecated-declaration>
+[06:night-ferry:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/night-ferry/night-ferry.wav (32.00s)
+[06:night-ferry:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/night-ferry/night-ferry.notes.json (196 events, all visual MIDI 60...83)
+[06:night-ferry:score]   #7 · 22 Accordion · 0-3 dock-chain ticks; 3-10 waltz theme; 10-17 bass-chord ferry pulse; 17-23 snare-and-floor-tom storm; 23-29 theme in close canon; 29-32 slowing minor cadence · Harmonic minor · broken-beat · seed 846103
+[06:night-ferry] video
+[08:sunken-chapel:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:516:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[08:sunken-chapel:score] 514 |     try sampler.loadSoundBankInstrument(at: bank, program: 0, bankMSB: 0x78, bankLSB: 0)
+[08:sunken-chapel:score] 515 |     sampler.stereoPan = menuBandPan(midi)
+[08:sunken-chapel:score] 516 |     sampler.masterGain = menuBandDistanceGain(midi)
+[08:sunken-chapel:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[08:sunken-chapel:score] 517 |     engine.connect(sampler, to: drumMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[08:sunken-chapel:score] 518 |     drumSamplers[midi] = sampler
+[08:sunken-chapel:score] 
+[08:sunken-chapel:score] [#DeprecatedDeclaration]: <https://docs.swift.org/compiler/documentation/diagnostics/deprecated-declaration>
+[08:sunken-chapel:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/sunken-chapel/sunken-chapel.wav (32.00s)
+[08:sunken-chapel:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/sunken-chapel/sunken-chapel.notes.json (129 events, all visual MIDI 60...83)
+[08:sunken-chapel:score]   #9 · 20 Church Organ · 0-5 distant low bell; 5-12 invocation; 12-19 parallel organum; 19-25 monumental tom procession; 25-30 invocation in upper register; 30-32 bare fifth · Phrygian · two-step · seed 120977
+[08:sunken-chapel] video
+[09:comet-trail:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:516:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[09:comet-trail:score] 514 |     try sampler.loadSoundBankInstrument(at: bank, program: 0, bankMSB: 0x78, bankLSB: 0)
+[09:comet-trail:score] 515 |     sampler.stereoPan = menuBandPan(midi)
+[09:comet-trail:score] 516 |     sampler.masterGain = menuBandDistanceGain(midi)
+[09:comet-trail:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[09:comet-trail:score] 517 |     engine.connect(sampler, to: drumMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[09:comet-trail:score] 518 |     drumSamplers[midi] = sampler
+[09:comet-trail:score] 
+[09:comet-trail:score] [#DeprecatedDeclaration]: <https://docs.swift.org/compiler/documentation/diagnostics/deprecated-declaration>
+[09:comet-trail:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/comet-trail/comet-trail.wav (32.00s)
+[09:comet-trail:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/comet-trail/comet-trail.notes.json (257 events, all visual MIDI 60...83)
+[09:comet-trail:score]   #10 · 80 Ocarina · 0-3 ticking ride; 3-9 comet motif; 9-16 chase canon; 16-22 rolling DnB-in-12 break; 22-29 motif stretched over triplets; 29-32 upward vapor trail · Aeolian · jungle · seed 978426
+[11:moss-circuit:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:516:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[11:moss-circuit:score] 514 |     try sampler.loadSoundBankInstrument(at: bank, program: 0, bankMSB: 0x78, bankLSB: 0)
+[11:moss-circuit:score] 515 |     sampler.stereoPan = menuBandPan(midi)
+[11:moss-circuit:score] 516 |     sampler.masterGain = menuBandDistanceGain(midi)
+[11:moss-circuit:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[11:moss-circuit:score] 517 |     engine.connect(sampler, to: drumMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[11:moss-circuit:score] 518 |     drumSamplers[midi] = sampler
+[11:moss-circuit:score] 
+[11:moss-circuit:score] [#DeprecatedDeclaration]: <https://docs.swift.org/compiler/documentation/diagnostics/deprecated-declaration>
+[09:comet-trail] video
+[07:rain-code:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:516:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[07:rain-code:score] 514 |     try sampler.loadSoundBankInstrument(at: bank, program: 0, bankMSB: 0x78, bankLSB: 0)
+[07:rain-code:score] 515 |     sampler.stereoPan = menuBandPan(midi)
+[07:rain-code:score] 516 |     sampler.masterGain = menuBandDistanceGain(midi)
+[07:rain-code:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[07:rain-code:score] 517 |     engine.connect(sampler, to: drumMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[07:rain-code:score] 518 |     drumSamplers[midi] = sampler
+[07:rain-code:score] 
+[07:rain-code:score] [#DeprecatedDeclaration]: <https://docs.swift.org/compiler/documentation/diagnostics/deprecated-declaration>
+[11:moss-circuit:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/moss-circuit/moss-circuit.wav (32.00s)
+[11:moss-circuit:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/moss-circuit/moss-circuit.notes.json (195 events, all visual MIDI 60...83)
+[11:moss-circuit:score]   #12 · 55 Synth Voice · 0-3 filtered hats; 3-9 circuit seed; 9-16 layered 2+3 rounds; 16-22 glitch-tom break; 22-29 half-speed vocal arc; 29-32 luminous cluster release · Lydian · minimal · seed 713860
+[11:moss-circuit] video
+[10:quiet-machinery:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:516:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[10:quiet-machinery:score] 514 |     try sampler.loadSoundBankInstrument(at: bank, program: 0, bankMSB: 0x78, bankLSB: 0)
+[10:quiet-machinery:score] 515 |     sampler.stereoPan = menuBandPan(midi)
+[10:quiet-machinery:score] 516 |     sampler.masterGain = menuBandDistanceGain(midi)
+[10:quiet-machinery:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[10:quiet-machinery:score] 517 |     engine.connect(sampler, to: drumMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[10:quiet-machinery:score] 518 |     drumSamplers[midi] = sampler
+[10:quiet-machinery:score] 
+[10:quiet-machinery:score] [#DeprecatedDeclaration]: <https://docs.swift.org/compiler/documentation/diagnostics/deprecated-declaration>
+[07:rain-code:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/rain-code/rain-code.wav (32.00s)
+[07:rain-code:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/rain-code/rain-code.notes.json (246 events, all visual MIDI 60...83)
+[07:rain-code:score]   #8 · 12 Vibraphone · 0-3 granular hats; 3-9 coded cell; 9-16 offset repetitions; 16-23 broken-beat rain break; 23-29 cell augmentation over pedal; 29-32 unresolved ninth · Dorian · garage · seed 535718
+[07:rain-code] video
+[10:quiet-machinery:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/quiet-machinery/quiet-machinery.wav (32.00s)
+[10:quiet-machinery:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/quiet-machinery/quiet-machinery.notes.json (188 events, all visual MIDI 60...83)
+[10:quiet-machinery:score]   #11 · 11 Music Box · 0-4 clock hats; 4-10 loop A; 10-17 loop B enters; 17-23 gear-tooth percussion fugue; 23-30 loops reunite one step apart; 30-32 mechanism winds down · Aeolian · half-time · seed 304615
+[10:quiet-machinery] video
+[08:sunken-chapel:video] ▸ MenuBand variation 9/32 · sunken-chapel · 1920 frames · 32.0s · 1080x1920@60
+[11:moss-circuit:video] ▸ MenuBand variation 12/32 · moss-circuit · 1920 frames · 32.0s · 1080x1920@60
+[06:night-ferry:video] ▸ MenuBand variation 7/32 · night-ferry · 1920 frames · 32.0s · 1080x1920@60
+[08:sunken-chapel:video] Truncating packet of size 8294400 to 65536
+[09:comet-trail:video] ▸ MenuBand variation 10/32 · comet-trail · 1920 frames · 32.0s · 1080x1920@60
+[08:sunken-chapel:video]   0/1920 · 0s
+[06:night-ferry:video] Truncating packet of size 8294400 to 65536
+[11:moss-circuit:video] Truncating packet of size 8294400 to 65536
+[07:rain-code:video] ▸ MenuBand variation 8/32 · rain-code · 1920 frames · 32.0s · 1080x1920@60
+[06:night-ferry:video]   0/1920 · 0s
+[11:moss-circuit:video]   0/1920 · 0s
+[10:quiet-machinery:video] ▸ MenuBand variation 11/32 · quiet-machinery · 1920 frames · 32.0s · 1080x1920@60
+[09:comet-trail:video] Truncating packet of size 8294400 to 65536
+[09:comet-trail:video]   0/1920 · 0s
+[07:rain-code:video] Truncating packet of size 8294400 to 65536
+[10:quiet-machinery:video] Truncating packet of size 8294400 to 65536
+[07:rain-code:video]   0/1920 · 0s
+[10:quiet-machinery:video]   0/1920 · 0s
+[08:sunken-chapel:video]   150/1920 · 6s
+[07:rain-code:video]   150/1920 · 6s
+[11:moss-circuit:video]   150/1920 · 6s
+[06:night-ferry:video]   150/1920 · 6s
+[09:comet-trail:video]   150/1920 · 6s
+[10:quiet-machinery:video]   150/1920 · 7s
+[08:sunken-chapel:video]   300/1920 · 15s
+[10:quiet-machinery:video]   300/1920 · 19s
+[07:rain-code:video]   300/1920 · 21s
+[11:moss-circuit:video]   300/1920 · 22s
+[06:night-ferry:video]   300/1920 · 22s
+[09:comet-trail:video]   300/1920 · 23s
+[08:sunken-chapel:video]   450/1920 · 30s
+[11:moss-circuit:video]   450/1920 · 36s
+[06:night-ferry:video]   450/1920 · 36s
+[07:rain-code:video]   450/1920 · 37s
+[10:quiet-machinery:video]   450/1920 · 38s
+[09:comet-trail:video]   450/1920 · 40s
+[06:night-ferry:video]   600/1920 · 47s
+[08:sunken-chapel:video]   600/1920 · 48s
+[10:quiet-machinery:video]   600/1920 · 50s
+[11:moss-circuit:video]   600/1920 · 51s
+[07:rain-code:video]   600/1920 · 52s
+[09:comet-trail:video]   600/1920 · 56s
+[08:sunken-chapel:video]   750/1920 · 57s
+[06:night-ferry:video]   750/1920 · 69s
+[11:moss-circuit:video]   750/1920 · 69s
+[10:quiet-machinery:video]   750/1920 · 71s
+[08:sunken-chapel:video]   900/1920 · 72s
+[07:rain-code:video]   750/1920 · 77s
+[09:comet-trail:video]   750/1920 · 86s
+[08:sunken-chapel:video]   1050/1920 · 89s
+[11:moss-circuit:video]   900/1920 · 91s
+[06:night-ferry:video]   900/1920 · 92s
+[10:quiet-machinery:video]   900/1920 · 95s
+[07:rain-code:video]   900/1920 · 104s
+[08:sunken-chapel:video]   1200/1920 · 106s
+[06:night-ferry:video]   1050/1920 · 118s
+[11:moss-circuit:video]   1050/1920 · 118s
+[09:comet-trail:video]   900/1920 · 119s
+[10:quiet-machinery:video]   1050/1920 · 121s
+[08:sunken-chapel:video]   1350/1920 · 127s
+[07:rain-code:video]   1050/1920 · 135s
+[08:sunken-chapel:video]   1500/1920 · 149s
+[06:night-ferry:video]   1200/1920 · 149s
+[10:quiet-machinery:video]   1200/1920 · 153s
+[11:moss-circuit:video]   1200/1920 · 155s
+[09:comet-trail:video]   1050/1920 · 155s
+[08:sunken-chapel:video]   1650/1920 · 162s
+[07:rain-code:video]   1200/1920 · 172s
+[08:sunken-chapel:video]   1800/1920 · 172s
+[06:night-ferry:video]   1350/1920 · 181s
+[10:quiet-machinery:video]   1350/1920 · 186s
+[11:moss-circuit:video]   1350/1920 · 192s
+[08:sunken-chapel:video] ✓ base /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/sunken-chapel/sunken-chapel.mp4
+[08:sunken-chapel] done 196.5s
+[12:amber-waltz] start Amber Waltz
+[12:amber-waltz] score
+[12:amber-waltz:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:507:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[12:amber-waltz:score] 505 |                                         bankLSB: UInt8(kAUSampler_DefaultBankLSB))
+[12:amber-waltz:score] 506 |     sampler.stereoPan = menuBandPan(midi)
+[12:amber-waltz:score] 507 |     sampler.masterGain = menuBandDistanceGain(midi)
+[12:amber-waltz:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[12:amber-waltz:score] 508 |     engine.connect(sampler, to: toneMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[12:amber-waltz:score] 509 |     toneSamplers[midi] = sampler
+[12:amber-waltz:score] 
+[09:comet-trail:video]   1200/1920 · 195s
+[12:amber-waltz:score] 2026-07-28 17:24:31.081 swift-frontend[49587:3155524] Audio files cannot be non-interleaved. Ignoring setting AVLinearPCMIsNonInterleaved YES.
+[12:amber-waltz:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:516:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[12:amber-waltz:score] 514 |     try sampler.loadSoundBankInstrument(at: bank, program: 0, bankMSB: 0x78, bankLSB: 0)
+[12:amber-waltz:score] 515 |     sampler.stereoPan = menuBandPan(midi)
+[12:amber-waltz:score] 516 |     sampler.masterGain = menuBandDistanceGain(midi)
+[12:amber-waltz:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[12:amber-waltz:score] 517 |     engine.connect(sampler, to: drumMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[12:amber-waltz:score] 518 |     drumSamplers[midi] = sampler
+[12:amber-waltz:score] 
+[12:amber-waltz:score] [#DeprecatedDeclaration]: <https://docs.swift.org/compiler/documentation/diagnostics/deprecated-declaration>
+[12:amber-waltz:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/amber-waltz/amber-waltz.wav (32.00s)
+[12:amber-waltz:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/amber-waltz/amber-waltz.notes.json (163 events, all visual MIDI 60...83)
+[12:amber-waltz:score]   #13 · 25 Acoustic Guitar (nylon) · 0-4 fingertip taps; 4-11 melody alone; 11-18 bass-third waltz; 18-23 cajon-style break; 23-29 melody reharmonized in sixths; 29-32 natural-harmonic close · Major · motorik · seed 449281
+[12:amber-waltz] video
+[12:amber-waltz:video] ▸ MenuBand variation 13/32 · amber-waltz · 1920 frames · 32.0s · 1080x1920@60
+[12:amber-waltz:video] Truncating packet of size 8294400 to 65536
+[12:amber-waltz:video]   0/1920 · 0s
+[06:night-ferry:video]   1500/1920 · 201s
+[11:moss-circuit:video]   1500/1920 · 209s
+[12:amber-waltz:video]   150/1920 · 12s
+[07:rain-code:video]   1350/1920 · 210s
+[10:quiet-machinery:video]   1500/1920 · 211s
+[06:night-ferry:video]   1650/1920 · 219s
+[11:moss-circuit:video]   1650/1920 · 227s
+[12:amber-waltz:video]   300/1920 · 30s
+[10:quiet-machinery:video]   1650/1920 · 230s
+[09:comet-trail:video]   1350/1920 · 233s
+[06:night-ferry:video]   1800/1920 · 238s
+[07:rain-code:video]   1500/1920 · 239s
+[11:moss-circuit:video]   1800/1920 · 245s
+[10:quiet-machinery:video]   1800/1920 · 251s
+[12:amber-waltz:video]   450/1920 · 54s
+[09:comet-trail:video]   1500/1920 · 259s
+[07:rain-code:video]   1650/1920 · 263s
+[12:amber-waltz:video]   600/1920 · 77s
+[09:comet-trail:video]   1650/1920 · 286s
+[07:rain-code:video]   1800/1920 · 291s
+[06:night-ferry:video] ✓ base /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/night-ferry/night-ferry.mp4
+[06:night-ferry] done 298.9s
+[13:chrome-sparrow] start Chrome Sparrow
+[13:chrome-sparrow] score
+[13:chrome-sparrow:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:507:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[13:chrome-sparrow:score] 505 |                                         bankLSB: UInt8(kAUSampler_DefaultBankLSB))
+[13:chrome-sparrow:score] 506 |     sampler.stereoPan = menuBandPan(midi)
+[13:chrome-sparrow:score] 507 |     sampler.masterGain = menuBandDistanceGain(midi)
+[13:chrome-sparrow:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[13:chrome-sparrow:score] 508 |     engine.connect(sampler, to: toneMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[13:chrome-sparrow:score] 509 |     toneSamplers[midi] = sampler
+[13:chrome-sparrow:score] 
+[13:chrome-sparrow:score] 2026-07-28 17:26:12.754 swift-frontend[50791:3159976] Audio files cannot be non-interleaved. Ignoring setting AVLinearPCMIsNonInterleaved YES.
+[13:chrome-sparrow:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:516:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[13:chrome-sparrow:score] 514 |     try sampler.loadSoundBankInstrument(at: bank, program: 0, bankMSB: 0x78, bankLSB: 0)
+[13:chrome-sparrow:score] 515 |     sampler.stereoPan = menuBandPan(midi)
+[13:chrome-sparrow:score] 516 |     sampler.masterGain = menuBandDistanceGain(midi)
+[13:chrome-sparrow:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[13:chrome-sparrow:score] 517 |     engine.connect(sampler, to: drumMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[13:chrome-sparrow:score] 518 |     drumSamplers[midi] = sampler
+[13:chrome-sparrow:score] 
+[13:chrome-sparrow:score] [#DeprecatedDeclaration]: <https://docs.swift.org/compiler/documentation/diagnostics/deprecated-declaration>
+[13:chrome-sparrow:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/chrome-sparrow/chrome-sparrow.wav (32.00s)
+[13:chrome-sparrow:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/chrome-sparrow/chrome-sparrow.notes.json (256 events, all visual MIDI 60...83)
+[13:chrome-sparrow:score]   #14 · 73 Piccolo · 0-3 winglike hats; 3-8 call motif; 8-15 rapid zigzag flights; 15-21 clipped jungle break; 21-28 call-and-flight compression; 28-32 one long descending glide · Aeolian · breakbeat · seed 827544
+[13:chrome-sparrow] video
+[13:chrome-sparrow:video] ▸ MenuBand variation 14/32 · chrome-sparrow · 1920 frames · 32.0s · 1080x1920@60
+[13:chrome-sparrow:video] Truncating packet of size 8294400 to 65536
+[13:chrome-sparrow:video]   0/1920 · 1s
+[11:moss-circuit:video] ✓ base /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/moss-circuit/moss-circuit.mp4
+[11:moss-circuit] done 303.7s
+[14:salt-lines] start Salt Lines
+[14:salt-lines] score
+[12:amber-waltz:video]   750/1920 · 103s
+[14:salt-lines:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:507:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[14:salt-lines:score] 505 |                                         bankLSB: UInt8(kAUSampler_DefaultBankLSB))
+[14:salt-lines:score] 506 |     sampler.stereoPan = menuBandPan(midi)
+[14:salt-lines:score] 507 |     sampler.masterGain = menuBandDistanceGain(midi)
+[14:salt-lines:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[14:salt-lines:score] 508 |     engine.connect(sampler, to: toneMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[14:salt-lines:score] 509 |     toneSamplers[midi] = sampler
+[14:salt-lines:score] 
+[14:salt-lines:score] 2026-07-28 17:26:16.992 swift-frontend[50856:3160326] Audio files cannot be non-interleaved. Ignoring setting AVLinearPCMIsNonInterleaved YES.
+[14:salt-lines:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:516:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[14:salt-lines:score] 514 |     try sampler.loadSoundBankInstrument(at: bank, program: 0, bankMSB: 0x78, bankLSB: 0)
+[14:salt-lines:score] 515 |     sampler.stereoPan = menuBandPan(midi)
+[14:salt-lines:score] 516 |     sampler.masterGain = menuBandDistanceGain(midi)
+[14:salt-lines:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[14:salt-lines:score] 517 |     engine.connect(sampler, to: drumMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[14:salt-lines:score] 518 |     drumSamplers[midi] = sampler
+[14:salt-lines:score] 
+[14:salt-lines:score] [#DeprecatedDeclaration]: <https://docs.swift.org/compiler/documentation/diagnostics/deprecated-declaration>
+[14:salt-lines:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/salt-lines/salt-lines.wav (32.00s)
+[14:salt-lines:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/salt-lines/salt-lines.notes.json (127 events, all visual MIDI 60...83)
+[14:salt-lines:score]   #15 · 78 Shakuhachi · 0-5 sparse shell clicks; 5-12 free-breath phrase; 12-19 call across two registers; 19-24 ceremonial drum break; 24-30 varied exhale; 30-32 silence-bound low tonic · Aeolian · broken-beat · seed 596032
+[14:salt-lines] video
+[14:salt-lines:video] ▸ MenuBand variation 15/32 · salt-lines · 1920 frames · 32.0s · 1080x1920@60
+[14:salt-lines:video] Truncating packet of size 8294400 to 65536
+[14:salt-lines:video]   0/1920 · 0s
+[10:quiet-machinery:video] ✓ base /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/quiet-machinery/quiet-machinery.mp4
+[10:quiet-machinery] done 309.6s
+[15:afterimage] start Afterimage
+[15:afterimage] score
+[15:afterimage:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:507:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[15:afterimage:score] 505 |                                         bankLSB: UInt8(kAUSampler_DefaultBankLSB))
+[15:afterimage:score] 506 |     sampler.stereoPan = menuBandPan(midi)
+[15:afterimage:score] 507 |     sampler.masterGain = menuBandDistanceGain(midi)
+[15:afterimage:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[15:afterimage:score] 508 |     engine.connect(sampler, to: toneMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[15:afterimage:score] 509 |     toneSamplers[midi] = sampler
+[15:afterimage:score] 
+[15:afterimage:score] 2026-07-28 17:26:22.916 swift-frontend[50940:3160695] Audio files cannot be non-interleaved. Ignoring setting AVLinearPCMIsNonInterleaved YES.
+[15:afterimage:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:516:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[15:afterimage:score] 514 |     try sampler.loadSoundBankInstrument(at: bank, program: 0, bankMSB: 0x78, bankLSB: 0)
+[15:afterimage:score] 515 |     sampler.stereoPan = menuBandPan(midi)
+[15:afterimage:score] 516 |     sampler.masterGain = menuBandDistanceGain(midi)
+[15:afterimage:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[15:afterimage:score] 517 |     engine.connect(sampler, to: drumMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[15:afterimage:score] 518 |     drumSamplers[midi] = sampler
+[15:afterimage:score] 
+[15:afterimage:score] [#DeprecatedDeclaration]: <https://docs.swift.org/compiler/documentation/diagnostics/deprecated-declaration>
+[15:afterimage:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/afterimage/afterimage.wav (32.00s)
+[15:afterimage:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/afterimage/afterimage.notes.json (148 events, all visual MIDI 60...83)
+[15:afterimage:score]   #16 · 49 String Ensemble 1 · 0-4 felt mallet pulse; 4-11 suspended field; 11-18 inner-voice ascent; 18-24 cinematic low-drum break; 24-30 inversions resolve by semitone; 30-32 luminous major third · Major · garage · seed 238509
+[15:afterimage] video
+[09:comet-trail:video]   1800/1920 · 309s
+[15:afterimage:video] ▸ MenuBand variation 16/32 · afterimage · 1920 frames · 32.0s · 1080x1920@60
+[15:afterimage:video] Truncating packet of size 8294400 to 65536
+[15:afterimage:video]   0/1920 · 0s
+[13:chrome-sparrow:video]   150/1920 · 13s
+[14:salt-lines:video]   150/1920 · 14s
+[15:afterimage:video]   150/1920 · 14s
+[12:amber-waltz:video]   900/1920 · 129s
+[13:chrome-sparrow:video]   300/1920 · 33s
+[14:salt-lines:video]   300/1920 · 31s
+[07:rain-code:video] ✓ base /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/rain-code/rain-code.mp4
+[07:rain-code] done 338.6s
+[16:switchyard] start Switchyard
+[16:switchyard] score
+[16:switchyard:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:507:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[16:switchyard:score] 505 |                                         bankLSB: UInt8(kAUSampler_DefaultBankLSB))
+[16:switchyard:score] 506 |     sampler.stereoPan = menuBandPan(midi)
+[16:switchyard:score] 507 |     sampler.masterGain = menuBandDistanceGain(midi)
+[16:switchyard:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[16:switchyard:score] 508 |     engine.connect(sampler, to: toneMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[16:switchyard:score] 509 |     toneSamplers[midi] = sampler
+[16:switchyard:score] 
+[16:switchyard:score] 2026-07-28 17:26:52.168 swift-frontend[51243:3161908] Audio files cannot be non-interleaved. Ignoring setting AVLinearPCMIsNonInterleaved YES.
+[16:switchyard:score] /Users/aesthetic/aesthetic-computer/pop/menuband/bin/render-variation-score.swift:516:13: warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[16:switchyard:score] 514 |     try sampler.loadSoundBankInstrument(at: bank, program: 0, bankMSB: 0x78, bankLSB: 0)
+[16:switchyard:score] 515 |     sampler.stereoPan = menuBandPan(midi)
+[16:switchyard:score] 516 |     sampler.masterGain = menuBandDistanceGain(midi)
+[16:switchyard:score]     |             `- warning: 'masterGain' was deprecated in macOS 12.0 [#DeprecatedDeclaration]
+[16:switchyard:score] 517 |     engine.connect(sampler, to: drumMixer, fromBus: 0, toBus: AVAudioNodeBus(bus), format: nil)
+[16:switchyard:score] 518 |     drumSamplers[midi] = sampler
+[16:switchyard:score] 
+[16:switchyard:score] [#DeprecatedDeclaration]: <https://docs.swift.org/compiler/documentation/diagnostics/deprecated-declaration>
+[16:switchyard:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/switchyard/switchyard.wav (32.00s)
+[16:switchyard:score] ✓ /Users/aesthetic/aesthetic-computer/pop/menuband/out/variations/switchyard/switchyard.notes.json (218 events, all visual MIDI 60...83)
+[16:switchyard:score]   #17 · 23 Harmonica · 0-3 train hats; 3-9 hook; 9-16 call-and-response shuffle; 16-22 rail-yard snare break; 22-29 hook with octave swaps; 29-32 whistle-like tonic fall · Mixolydian · two-step · seed 681753
+[16:switchyard] video
+[16:switchyard:video] ▸ MenuBand variation 17/32 · switchyard · 1920 frames · 32.0s · 1080x1920@60
+[16:switchyard:video] Truncating packet of size 8294400 to 65536
+[16:switchyard:video]   0/1920 · 0s
+[15:afterimage:video]   300/1920 · 31s
+[16:switchyard] failed: terminated by SIGTERM
+[14:salt-lines] failed: terminated by SIGTERM
+[15:afterimage] failed: terminated by SIGTERM
+[13:chrome-sparrow] failed: terminated by SIGTERM
+[16:switchyard:video] [rawvideo @ 0xa04c1d500] Invalid buffer size, packet size 65536 < expected frame_size 8294400
+[16:switchyard:video] [vist#0:0/rawvideo @ 0xa04c0c180] [dec:rawvideo @ 0xa04c14640] Error submitting packet to decoder: Invalid argument
+[13:chrome-sparrow:video] [rawvideo @ 0xaef025500] Invalid buffer size, packet size 65536 < expected frame_size 8294400
+[13:chrome-sparrow:video] [vist#0:0/rawvideo @ 0xaef014180] [dec:rawvideo @ 0xaeec14640] Error submitting packet to decoder: Invalid argument
+[09:comet-trail] failed: terminated by SIGTERM
+[12:amber-waltz] failed: terminated by SIGTERM
+summary selected=26 succeeded=5 skipped=0 failed=6
+[14:salt-lines:video] [rawvideo @ 0x7d8811500] Invalid buffer size, packet size 65536 < expected frame_size 8294400
+[14:salt-lines:video] [vist#0:0/rawvideo @ 0x7d8800180] [dec:rawvideo @ 0x7d8804640] Error submitting packet to decoder: Invalid argument

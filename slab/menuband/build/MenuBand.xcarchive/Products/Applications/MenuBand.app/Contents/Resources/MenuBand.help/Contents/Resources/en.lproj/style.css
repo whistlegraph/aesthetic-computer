@@ -1,0 +1,70 @@
+/* Menu Band Help — Help Viewer stylesheet. Follows the system light/dark
+   appearance so the book matches the rest of macOS. */
+:root {
+	color-scheme: light dark;
+	--fg: #1d1d1f;
+	--muted: #6e6e73;
+	--accent: #a78bfa;      /* AC purple */
+	--rule: #e3e3e6;
+	--chip: #f2f2f4;
+	--kbd-bg: #ffffff;
+	--kbd-br: #c9c9ce;
+}
+@media (prefers-color-scheme: dark) {
+	:root {
+		--fg: #f5f5f7;
+		--muted: #a1a1a6;
+		--rule: #333336;
+		--chip: #2a2a2d;
+		--kbd-bg: #3a3a3d;
+		--kbd-br: #545457;
+	}
+}
+
+* { box-sizing: border-box; }
+body {
+	font: 14px/1.55 -apple-system, "SF Pro Text", system-ui, sans-serif;
+	color: var(--fg);
+	margin: 0 auto;
+	padding: 28px 30px 48px;
+	max-width: 640px;
+}
+
+h1 { font-size: 26px; font-weight: 700; margin: 0 0 6px; letter-spacing: -0.02em; }
+h2 {
+	font-size: 17px; font-weight: 650; margin: 30px 0 8px;
+	padding-top: 18px; border-top: 1px solid var(--rule);
+	scroll-margin-top: 12px;
+}
+.lede { color: var(--muted); font-size: 15px; margin: 0; }
+
+nav { margin: 22px 0 4px; }
+nav ul { list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 6px 10px; }
+nav a {
+	display: inline-block; padding: 4px 11px; border-radius: 999px;
+	background: var(--chip); color: var(--fg); text-decoration: none; font-size: 12.5px;
+}
+nav a:hover { background: var(--accent); color: #fff; }
+
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+ul, ol { padding-left: 22px; }
+li { margin: 4px 0; }
+
+table { border-collapse: collapse; margin: 12px 0; width: 100%; }
+th, td { text-align: left; padding: 7px 12px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+th { font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+td:first-child { white-space: nowrap; }
+
+kbd {
+	font: 12px/1 ui-monospace, "SF Mono", Menlo, monospace;
+	background: var(--kbd-bg); border: 1px solid var(--kbd-br);
+	border-radius: 5px; padding: 2px 6px; box-shadow: 0 1px 0 var(--kbd-br);
+}
+
+.note {
+	font-size: 12.5px; color: var(--muted);
+	border-left: 3px solid var(--accent); padding: 2px 0 2px 12px; margin: 12px 0;
+}
+.colophon { color: var(--muted); font-size: 12.5px; margin-top: 24px; }

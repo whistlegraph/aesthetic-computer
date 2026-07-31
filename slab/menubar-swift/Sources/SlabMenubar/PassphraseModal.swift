@@ -1,6 +1,8 @@
 import AppKit
 
 enum PassphraseModal {
+    private static let speaker = NSSpeechSynthesizer()
+
     static func prompt(label: String) -> String? {
         assert(Thread.isMainThread, "PassphraseModal must run on the main thread")
 
@@ -17,6 +19,8 @@ enum PassphraseModal {
 
         NSApp.activate(ignoringOtherApps: true)
         alert.window.initialFirstResponder = field
+        speaker.stopSpeaking()
+        speaker.startSpeaking("Jeffrey, slab needs your passphrase for \(label).")
 
         let response = alert.runModal()
         guard response == .alertFirstButtonReturn else { return nil }

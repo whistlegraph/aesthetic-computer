@@ -909,6 +909,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   let diskSupervisor;
   let currentPiece = null; // Gets set to a path after `loaded`.
   let currentPieceHasKeyboard = false;
+  let keyboardMaxChars = 256; // Default; pieces can override via keyboard:set-max-chars
 
   // Media Recorder
   let mediaRecorder;
@@ -12885,20 +12886,19 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                     selLen > 0 ? end : start,
                   );
 
-                  // Enforce 256 character limit for prompt input
-                  const PROMPT_CHAR_LIMIT = 256;
+                  // Enforce character limit for prompt input
                   const currentLen = beforeCursor.length + afterCursor.length;
-                  const availableSpace = Math.max(0, PROMPT_CHAR_LIMIT - currentLen);
+                  const availableSpace = Math.max(0, keyboardMaxChars - currentLen);
                   if (pastedText.length > availableSpace) {
                     pastedText = pastedText.slice(0, availableSpace);
                   }
 
                   keyboard.input.value =
                     beforeCursor + pastedText + afterCursor;
-                  
+
                   // Also enforce limit on final result
-                  if (keyboard.input.value.length > PROMPT_CHAR_LIMIT) {
-                    keyboard.input.value = keyboard.input.value.slice(0, PROMPT_CHAR_LIMIT);
+                  if (keyboard.input.value.length > keyboardMaxChars) {
+                    keyboard.input.value = keyboard.input.value.slice(0, keyboardMaxChars);
                   }
 
                   const newCursorPosition = start + pastedText.length;
@@ -13603,10 +13603,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             .replace(/[\u2018\u2019]/g, "'")
             .replace(/[\u201C\u201D]/g, '"');
 
-          // Enforce 256 character limit for prompt input
-          const PROMPT_CHAR_LIMIT = 256;
-          if (text.length > PROMPT_CHAR_LIMIT) {
-            text = text.slice(0, PROMPT_CHAR_LIMIT);
+          // Enforce character limit for prompt input
+          if (text.length > keyboardMaxChars) {
+            text = text.slice(0, keyboardMaxChars);
           }
 
           e.target.value = text;
@@ -13615,7 +13614,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             type: "prompt:text:replace",
             content: {
               text: text,
-              cursor: Math.min(input.selectionStart, PROMPT_CHAR_LIMIT),
+              cursor: Math.min(input.selectionStart, keyboardMaxChars),
             },
           });
 
@@ -14052,6 +14051,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
       
       currentPiece = content.path;
+      keyboardMaxChars = 256; // Reset to default on each piece load
       // console.log("🎮 currentPiece SET TO:", currentPiece);
       
       // 🎬 Track piece changes during recording
@@ -14469,6 +14469,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     if (type === "keyboard:unlock") {
       keyboardFocusLock = false;
       if (logs.hid && debug) console.log("⌨️ Virtual Keyboard: Unlocked");
+      return;
+    }
+
+    if (type === "keyboard:set-max-chars") {
+      keyboardMaxChars = typeof content === "number" && content > 0 ? content : 256;
       return;
     }
 
