@@ -83,12 +83,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private lazy var squawk = MenuBandSquawk()
     private var popoverPanel: MenuBandPopoverPanel?
     private var popoverVC: MenuBandPopoverViewController?
-    /// Indirect-touch sensor embedded in the popover so trackpad
-    /// pitch-bend still engages while the popover is the key window
-    /// (the off-screen capture sensor only sees fingers when IT is key,
-    /// which it isn't once the popover takes focus). First-responder of
-    /// the popover panel; mouse passes straight through (hitTest → nil).
-    private var popoverTouchSensor: TouchSensorView?
     // [v1 cutoff] KidLisp TV panel + its `$` piece chooser cache + amp
     // provider state removed. The shared KidLispState + the About-opened
     // aesthetic.computer web window survive on their own.
@@ -390,6 +384,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// distances inherit trackpad quantization and callback jitter, which made
     /// a steady drag sound as though it were repeatedly accelerating.
     private var trackpadScratchSpeed: Double?
+    /// Scratch must be an uninterrupted drag, never a by-product of fingers
+    /// alternately tapping the membrane. Begins/lifts reset this candidate;
+    /// only sustained travel across several hardware frames arms friction.
+    private var trackpadScratchCandidateTravel: CGFloat = 0
+    private var trackpadScratchCandidateFrames = 0
+    private var trackpadScratchArmed = false
     private var trackpadSurfaceEnergy = TrackpadSurfaceEnergy()
     private var trackpadEnergyTimer: Timer?
     private var trackpadOverlayLastDraw: Double = 0
@@ -450,7 +450,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return true  // consume — don't let ⌘-Tab / focus traversal fire
     }
     #else
-    private let trackpadFxAvailable = false
+    // Public NSTouch frames make the focused percussion surface available in
+    // the sandbox. It remains deliberately focus-local; no global HID tap.
+    private let trackpadFxAvailable = true
     #endif
     /// Tracks the last lit-note count we observed in `onLitChanged`
     /// so we can detect the all-notes-released edge and trigger
@@ -1263,16 +1265,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // been retired (use the on-screen ArrowKeysIndicator
             // chevrons in the floating panel for mouse-driven
             // stepping).
-            // Keep the popover's touch sensor as first responder while
-            // the user plays — a stray mouse click on a popover control
-            // could otherwise move first-responder and stop indirect
-            // touches from routing to the sensor mid-phrase, silently
-            // breaking trackpad pitch-bend. Cheap to re-assert; only
-            // acts when it isn't already first responder.
-            if isDown, let sensor = self.popoverTouchSensor,
-               sensor.window?.firstResponder !== sensor {
-                sensor.window?.makeFirstResponder(sensor)
-            }
             let consumed = self.menuBand.handleLocalKey(
                 keyCode: keyCode, isDown: isDown, isRepeat: isRepeat, flags: flags
             )
@@ -1299,6 +1291,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         localCapture.onTrackpadTouchActiveChanged = { [weak self] active in
             self?.setTrackpadTouchActive(active)
         }
+        #if MAC_APP_STORE
+        localCapture.onTrackpadFrame = { [weak self] contacts, timestamp, callbackTime in
+            self?.handleTrackpadFrame(contacts, timestamp: timestamp,
+                                      callbackTime: callbackTime)
+        }
+        #endif
 
         // Bluetooth game controller. The Menu button toggles the popover
         // (showPopover already closes it when shown). The gamepad config UI
@@ -3512,8 +3510,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // resting-finger flag so a held bend doesn't strand once the
         // sensor that was reporting it is gone (the capture-panel sensor
         // takes over again if the user keeps playing with notes held).
-        popoverTouchSensor?.removeFromSuperview()
-        popoverTouchSensor = nil
         if !menuBand.keyboardNotesHeld { setTrackpadTouchActive(false) }
         // [v1 cutoff] KidLisp TV panel removed — no child panel to tear down.
         if let panel = panelToFade {
@@ -3884,17 +3880,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                         // person is drumming (not a silent engine hit).
                         let litNote = AppDelegate.drumLightNote(for: sym)
                         let onEpoch = downbeatEpoch + (onAt - leadIn)
+                        let offEpoch = onEpoch + max(0.025, dur * 0.9)
                         DispatchQueue.main.asyncAfter(deadline: at(onEpoch)) { [weak self] in
                             guard let self = self, self.playGeneration == gen else { return }
-                            _ = self.menuBand.percussionNoteOn(drum, velocity: vel,
-                                                               pan: 64, accent: false)
+                            let group = self.menuBand.percussionNoteOn(
+                                drum, velocity: vel, pan: 64, accent: false
+                            )
                             self.menuBand.drumLitOn(litNote)
                             if syncEpoch != nil { self.fleetHits.append((onEpoch, Date().timeIntervalSince1970)) }
-                        }
-                        // Drums are one-shots — hold the pad light briefly.
-                        let offEpoch = onEpoch + min(dur, 0.12)
-                        DispatchQueue.main.asyncAfter(deadline: at(offEpoch)) { [weak self] in
-                            self?.menuBand.drumLitOff(litNote)
+                            DispatchQueue.main.asyncAfter(deadline: at(offEpoch)) { [weak self] in
+                                self?.menuBand.percussionNoteOff(group)
+                                self?.menuBand.drumLitOff(litNote)
+                            }
                         }
                     } else if let midi = UInt8(sym) {
                         // Melodic note via the real tap path (lights keys + waveform).
@@ -4370,24 +4367,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // first-responder; once it moved to the floating panel
             // nothing was capturing arrows for the controller.
             if !localCapture.isArmed { localCapture.arm() }
+            #if MAC_APP_STORE
+            // The sandbox has no global focus gesture. Opening the focused
+            // popover is the explicit user action that arms its public
+            // NSTouch percussion surface; closing/unfocusing tears it down.
+            activateDefaultTrackpadDrum()
+            #endif
             DispatchQueue.main.async { [weak panel] in
                 panel?.makeKey()
             }
 
-            // Embed a trackpad-touch sensor in the popover (the now-key
-            // window) so resting fingers are detected here and the
-            // trackpad pitch-bend gesture engages while the popover is
-            // open. Made first responder so indirect touches route to it;
-            // it never steals the mouse (hitTest → nil), so the keys,
-            // buttons, and chooser grid underneath stay fully clickable.
-            let sensor = TouchSensorView(frame: panel.chrome.bounds)
-            sensor.autoresizingMask = [.width, .height]
-            sensor.onActiveChanged = { [weak self] active in
+            // Public NSTouch delivery follows the hit-tested view's ancestry,
+            // so capture on the popover chrome rather than an invisible sibling.
+            panel.chrome.onTrackpadActiveChanged = { [weak self] active in
                 self?.setTrackpadTouchActive(active)
             }
-            panel.chrome.addSubview(sensor)
-            panel.makeFirstResponder(sensor)
-            popoverTouchSensor = sensor
+            #if MAC_APP_STORE
+            panel.chrome.onTrackpadFrame = { [weak self] contacts, timestamp, callbackTime in
+                self?.handleTrackpadFrame(contacts, timestamp: timestamp,
+                                          callbackTime: callbackTime)
+            }
+            #endif
             // Click-away monitor: clicks on OTHER apps close the popover.
             // In-app clicks (status item button, the popover itself) don't
             // fire global monitors and therefore don't dismiss — that's how
@@ -4526,6 +4526,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             trackpadSkinTouches = touches
             trackpadSkinFrameTimestamp = timestamp
             trackpadScratchSpeed = nil
+            trackpadScratchCandidateTravel = 0
+            trackpadScratchCandidateFrames = 0
+            trackpadScratchArmed = false
             menuBand.stopTrackpadDrumSkinScratch()
         } else if continuousSurface, pitchBendCursorPushed {
             updateTrackpadSurface(touches, timestamp: timestamp,
@@ -4660,14 +4663,38 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 now: now
             )
         }
+        let contactChanged = !strikes.isEmpty || !lifts.isEmpty
+            || touches.count != trackpadSkinTouches.count
+        if contactChanged {
+            trackpadScratchSpeed = nil
+            trackpadScratchCandidateTravel = 0
+            trackpadScratchCandidateFrames = 0
+            trackpadScratchArmed = false
+            menuBand.stopTrackpadDrumSkinScratch()
+        }
         if touches.isEmpty {
             trackpadScratchSpeed = nil
+            trackpadScratchCandidateTravel = 0
+            trackpadScratchCandidateFrames = 0
+            trackpadScratchArmed = false
             menuBand.stopTrackpadDrumSkinScratch()
-        } else if !trackpadSkinTouches.isEmpty, trackpadSkinFrameTimestamp > 0 {
+        } else if !contactChanged, !trackpadSkinTouches.isEmpty,
+                  trackpadSkinFrameTimestamp > 0 {
             let dt = max(1.0 / 240.0, min(0.050, timestamp - trackpadSkinFrameTimestamp))
             if let scratch = TrackpadDrumSkinPad.dominantScratch(
                 previous: trackpadSkinTouches, current: touches
             ) {
+                if !trackpadScratchArmed {
+                    trackpadScratchCandidateFrames += 1
+                    trackpadScratchCandidateTravel += scratch.movement
+                    trackpadScratchArmed = trackpadScratchCandidateFrames >= 3
+                        && trackpadScratchCandidateTravel >= 0.018
+                }
+                guard trackpadScratchArmed else {
+                    trackpadSkinTouches = touches
+                    trackpadSkinFrameTimestamp = timestamp
+                    return
+                }
                 let measuredSpeed = Double(scratch.movement) / dt
                 // A short time-constant removes frame quantization without
                 // adding an accelerating ramp at gesture onset: the first
@@ -4877,9 +4904,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// focus is summoned. The cursor lock is the boundary of the global drum:
     /// Escape/focus loss restores the ordinary pointer and ends percussion.
     private func activateDefaultTrackpadDrum() {
-#if !MAC_APP_STORE
         guard trackpadFxAvailable else { return }
+        #if !MAC_APP_STORE
         setTrackpadFighterSuppressed(true)
+        #endif
         trackpadPadMode = .skin
         trackpadSurfaceEnergy.reset(at: CACurrentMediaTime())
         trackpadScratchSpeed = nil
@@ -4898,24 +4926,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menuBand.setSpace(amount: 0)
         menuBand.setEcho(amount: 0)
 
+        #if !MAC_APP_STORE
         if !pitchBendCursorLocked {
             CGAssociateMouseAndMouseCursorPosition(0)
             pitchBendCursorLocked = true
             pitchBendLockScreenPoint = NSEvent.mouseLocation
         }
+        #endif
         pitchBendModeLatched = true
         if !pitchBendCursorPushed {
+            #if !MAC_APP_STORE
             PitchBendCursor.neutral.push()
-            pitchBendCursorPushed = true
             hideSystemCursorIfNeeded()
+            #endif
+            pitchBendCursorPushed = true
         }
+        #if !MAC_APP_STORE
         startTrackpadPercussionLocalClickShield()
         let globalClickShield = trackpadPercussionGestureTap.start()
+        #endif
         // Quiet focus: the global drum is already live, but its chart appears
         // only after the user actually touches the trackpad.
         pitchBendOverlay?.dismiss()
+        #if !MAC_APP_STORE
         debugLog("trackpad pad mode = skin (focus default) clickShieldGlobal=\(globalClickShield)")
-#endif
+        #else
+        debugLog("trackpad pad mode = skin (focused NSTouch App Store path)")
+        #endif
     }
 
     /// Cycle an open trackpad through physical skin, synthetic surface, FX,

@@ -16,6 +16,7 @@
 // arrow into the body.
 
 import AppKit
+import QuartzCore
 
 final class MenuBandPopoverPanel: NSPanel {
     static let arrowHeight: CGFloat = 11
@@ -122,6 +123,10 @@ final class MenuBandPopoverPanel: NSPanel {
 }
 
 final class MenuBandPopoverChrome: NSView {
+    var onTrackpadActiveChanged: ((Bool) -> Void)?
+    var onTrackpadFrame: (([TrackpadContact], Double, Double) -> Void)?
+    private var trackpadActive = false
+    private var loggedTrackpadFrames = 0
     /// The single backdrop surface for the whole popover (body + arrow).
     /// On macOS 26 this is a real liquid-glass `NSGlassEffectView`; on
     /// older systems it falls back to the `.popover` `NSVisualEffectView`.
@@ -158,6 +163,8 @@ final class MenuBandPopoverChrome: NSView {
             self.legacyVisualEffect = ve
         }
         super.init(frame: .zero)
+        allowedTouchTypes = [.indirect]
+        wantsRestingTouches = true
         wantsLayer = true
         layer?.masksToBounds = false
 
@@ -185,6 +192,42 @@ final class MenuBandPopoverChrome: NSView {
 
         backdrop.layer?.mask = maskLayer
         content.layer?.mask = contentMaskLayer
+    }
+
+    // AppKit targets indirect-touch gestures using the ordinary mouse hit-test
+    // ancestry. Capturing on the chrome (an ancestor of every popover control)
+    // keeps buttons clickable and still receives NSTouch without private APIs.
+    override func touchesBegan(with event: NSEvent) { reportTrackpad(event) }
+    override func touchesMoved(with event: NSEvent) { reportTrackpad(event) }
+    override func touchesEnded(with event: NSEvent) { reportTrackpad(event) }
+    override func touchesCancelled(with event: NSEvent) { reportTrackpad(event) }
+
+    private func reportTrackpad(_ event: NSEvent) {
+        let touching = event.touches(matching: .touching, in: self)
+            .filter { $0.type == .indirect }
+        let began = Set(event.touches(matching: .began, in: self).map {
+            ObjectIdentifier($0.identity as AnyObject)
+        })
+        let contacts = touching.map { touch in
+            let identity = ObjectIdentifier(touch.identity as AnyObject)
+            return TrackpadContact(
+                identifier: Int32(truncatingIfNeeded: identity.hashValue),
+                point: touch.normalizedPosition,
+                state: began.contains(identity) ? 3 : 4
+            )
+        }
+        if loggedTrackpadFrames < 24 {
+            loggedTrackpadFrames += 1
+            NSLog("MenuBand popover NSTouch: event=%@ contacts=%d key=%@",
+                  String(describing: event.type), contacts.count,
+                  window?.isKeyWindow == true ? "yes" : "no")
+        }
+        onTrackpadFrame?(contacts, event.timestamp, CACurrentMediaTime())
+        let active = !contacts.isEmpty
+        if active != trackpadActive {
+            trackpadActive = active
+            onTrackpadActiveChanged?(active)
+        }
     }
 
     /// Force the legacy NSVisualEffectView to re-tint against the

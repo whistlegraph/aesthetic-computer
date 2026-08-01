@@ -41,6 +41,10 @@ settings:
     MARKETING_VERSION: "1.6.6"
     CURRENT_PROJECT_VERSION: "166"
 
+packages:
+  ACMacAudio:
+    path: ../macos-audio
+
 targets:
   MenuBand:
     type: application
@@ -101,6 +105,8 @@ targets:
       - path: Sources/CGMSynth/gm_synth.c
 
     dependencies:
+      - package: ACMacAudio
+        product: ACMacAudio
       # Package.swift links IOKit explicitly (used without a Swift import);
       # everything else (AppKit, AVFoundation, CoreMIDI, CoreAudio, Metal,
       # MetalKit, WebKit, Carbon) auto-links from its `import`.

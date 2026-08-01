@@ -1030,14 +1030,14 @@ final class MenuBandController {
         return UInt8(max(0, min(127, raw)))
     }
 
-    /// Persistent melodic baseline, 0.0…1.0. Default 0.82; percussion-driven
+    /// Persistent joined-output level, 0.0…1.0. Default 1.0; percussion-driven
     /// sidechain automation ducks beneath it dynamically during drum attacks.
-    /// Lives on the pre-limiter sum bus inside the synth so every backend
+    /// Lives on the joined post-FX bus inside the synth so every backend
     /// scales together — drag the popover slider and the whole mix moves.
     var masterVolume: Float {
         get {
             if UserDefaults.standard.object(forKey: masterVolumeKey) == nil {
-                return 0.82
+                return 1.0
             }
             let raw = UserDefaults.standard.double(forKey: masterVolumeKey)
             return Float(max(0.0, min(1.0, raw)))
@@ -1050,12 +1050,12 @@ final class MenuBandController {
     }
 
     /// Persistent percussion-only output trim. 100% is the kit's historical
-    /// fixed loudness; fresh installs start at 58% so drum transients lead the
+    /// fixed loudness; fresh installs start at 80% so drum transients lead the
     /// melodic voice without masking its body.
     var percussionVolume: Float {
         get {
             if UserDefaults.standard.object(forKey: percussionVolumeKey) == nil {
-                return 0.58
+                return 0.80
             }
             let raw = UserDefaults.standard.double(forKey: percussionVolumeKey)
             return Float(max(0.0, min(1.0, raw)))

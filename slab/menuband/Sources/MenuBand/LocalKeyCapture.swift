@@ -1,4 +1,5 @@
 import AppKit
+import QuartzCore
 
 /// Sandbox-friendly key capture: an invisible 1×1 NSPanel that becomes the
 /// key window after the user clicks the menubar piano. A local NSEvent
@@ -30,6 +31,9 @@ final class LocalKeyCapture {
     /// long as a finger is down, instead of springing back on a
     /// silence timeout or a note release.
     var onTrackpadTouchActiveChanged: ((Bool) -> Void)?
+    /// Public, sandbox-safe multi-contact frames from NSTouch. Available only
+    /// while Menu Band owns the focused window/responder chain.
+    var onTrackpadFrame: (([TrackpadContact], Double, Double) -> Void)?
     var cancelShortcut: MenuBandShortcut?
 
     private var panel: NSPanel?
@@ -141,6 +145,9 @@ final class LocalKeyCapture {
         sensor.onActiveChanged = { [weak self] active in
             self?.onTrackpadTouchActiveChanged?(active)
         }
+        sensor.onFrame = { [weak self] contacts, timestamp, callbackTime in
+            self?.onTrackpadFrame?(contacts, timestamp, callbackTime)
+        }
         p.contentView = sensor
         // Rob ⌘/⌥/⌃+letter combos from the system. The local keyDown monitor
         // (above) doesn't reliably see modifier key-equivalents, and the
@@ -176,17 +183,23 @@ final class TouchSensorView: NSView {
     /// bottom-left), nil when no finger touches — the clean signal for a
     /// flat-mapped XY pad (no pointer acceleration).
     var onTouchXY: ((CGPoint?) -> Void)?
+    /// Complete public NSTouch contact frame, using stable identities so the
+    /// shared transition engine can distinguish held, new, and lifted fingers.
+    var onFrame: (([TrackpadContact], Double, Double) -> Void)?
     private var lastActive = false
     private var loggedCount = 0
+    private var loggedFrameCount = 0
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
+        acceptsTouchEvents = true
         allowedTouchTypes = [.indirect]
         wantsRestingTouches = true
     }
 
     required init?(coder: NSCoder) {
         super.init(coder: coder)
+        acceptsTouchEvents = true
         allowedTouchTypes = [.indirect]
         wantsRestingTouches = true
     }
@@ -207,6 +220,25 @@ final class TouchSensorView: NSView {
 
     private func recompute(_ event: NSEvent) {
         let touches = event.touches(matching: .touching, in: self)
+        let beganIdentities = Set(event.touches(matching: .began, in: self).map {
+            ObjectIdentifier($0.identity as AnyObject)
+        })
+        let contacts = touches.filter { $0.type == .indirect }.map { touch in
+            let identity = ObjectIdentifier(touch.identity as AnyObject)
+            return TrackpadContact(
+                identifier: Int32(truncatingIfNeeded: identity.hashValue),
+                point: touch.normalizedPosition,
+                state: beganIdentities.contains(identity) ? 3 : 4
+            )
+        }
+        if loggedFrameCount < 24 {
+            loggedFrameCount += 1
+            NSLog("MenuBand NSTouch frame: event=%@ contacts=%d firstResponder=%@ key=%@",
+                  String(describing: event.type), contacts.count,
+                  (window?.firstResponder === self) ? "yes" : "no",
+                  window?.isKeyWindow == true ? "yes" : "no")
+        }
+        onFrame?(contacts, event.timestamp, CACurrentMediaTime())
         let active = !touches.isEmpty
         // [prototype] Report + log the primary finger's absolute position so we
         // can confirm whether indirect-touch delivery actually reaches this view

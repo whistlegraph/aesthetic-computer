@@ -75,10 +75,14 @@ final class MenuBandSynth {
     /// directly and a chord across melodic + drums + midiSynth could exceed
     /// 0 dBFS at the output (audible clipping/crackle).
     private let preLimiterMixer = AVAudioMixerNode()
-    /// Sums the fx-processed melodic bus with the DRY percussion bus right
-    /// before the compressor. Percussion routes here instead of through
+    /// Realtime gain stage after melodic compression. Percussion-triggered
+    /// automation moves this node without disturbing the proximity EQ's own
+    /// user-controlled makeup gain.
+    private let melodicDuckMixer = AVAudioMixerNode()
+    /// Sums the compressed/ducked melodic bus with the DRY percussion bus
+    /// immediately before the final limiter. Percussion routes here instead of through
     /// echo/reverb/proximity, so the trackpad fx (and pitch-bend) never
-    /// touch the drums — they still get the master compressor + limiter and
+    /// touch the drums — they still get master volume + final limiting and
     /// are captured by the tape (which taps `mainMixerNode`, downstream).
     private let postFxMixer = AVAudioMixerNode()
     /// Apple PeakLimiter on the master path. Catches transient peaks from
@@ -286,8 +290,9 @@ final class MenuBandSynth {
     /// BEFORE the limiter means lowering the slider also pulls the
     /// peak-limit threshold down proportionally — the slider is the
     /// user's "max volume" knob in a literal sense.
-    /// Baseline melodic trim; percussion sidechain automation moves beneath it.
-    private var masterVolume: Float = 0.82
+    /// Baseline joined-output trim; percussion sidechain automation moves the
+    /// independent melodic bus beneath it.
+    private var masterVolume: Float = 1.0
     private var melodicDuckGain: Float = 1
     private var melodicDuckTarget: Float = 1
     private var melodicDuckHoldUntil: CFTimeInterval = 0
@@ -398,6 +403,7 @@ final class MenuBandSynth {
         engine.attach(echo)
         engine.attach(spaceReverb)
         engine.attach(proximityEQ)
+        engine.attach(melodicDuckMixer)
         engine.attach(postFxMixer)
         engine.attach(compressor)
         engine.attach(limiter)
@@ -490,10 +496,10 @@ final class MenuBandSynth {
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
             self?.measuredOutputLatency()
         }
-        // Apply the persisted master volume now that preLimiterMixer is
+        // Apply the persisted master volume now that the joined output bus is
         // attached + connected (setting outputVolume before attach is a
         // silent no-op on AVAudioMixerNode).
-        preLimiterMixer.outputVolume = masterVolume
+        postFxMixer.outputVolume = masterVolume
 
         // Recover from audio-device changes (aux cable, headphones,
         // AirPods, sample-rate switch). See `configChangeObserver`.
@@ -780,27 +786,29 @@ final class MenuBandSynth {
     private func connectLimiterIfNeeded() {
         guard !limiterConnected else { return }
         // preLimiterMixer → echo → spaceReverb → proximityEQ → compressor →
-        // limiter → main. Echo is first so the reverb washes its repeats
+        // melodicDuckMixer → postFxMixer (+ dry percussion) → limiter → main.
+        // Echo is first so the reverb washes its repeats
         // (not vice-versa); proximityEQ (left-axis "closer/tinier") sits
         // last in the fx group so it shrinks the whole wet+dry blend. All
-        // sit pre-compressor so their tails are leveled + peak-controlled
-        // and pre-master so the volume slider scales them with everything.
-        // The compressor does the loudness normalization (glue + makeup gain);
+        // sit pre-compressor so melodic tails are leveled before the selective
+        // duck. Dry percussion joins only after that automation, so compressor
+        // makeup cannot restore the pocket. The joined mixer owns master gain.
         // the PeakLimiter remains the final brick wall at 0 dBFS.
         engine.connect(preLimiterMixer, to: echo, format: nil)
         engine.connect(echo, to: spaceReverb, format: nil)
         engine.connect(spaceReverb, to: proximityEQ, format: nil)
-        engine.connect(proximityEQ, to: postFxMixer, format: nil)
-        engine.connect(postFxMixer, to: compressor, format: nil)
-        engine.connect(compressor, to: limiter, format: nil)
+        engine.connect(proximityEQ, to: compressor, format: nil)
+        engine.connect(compressor, to: melodicDuckMixer, format: nil)
+        engine.connect(melodicDuckMixer, to: postFxMixer, format: nil)
+        engine.connect(postFxMixer, to: limiter, format: nil)
         engine.connect(limiter, to: engine.mainMixerNode, format: nil)
 
         // "Glued master" compressor: pull quiet notes up and tame loud
         // chords toward a common level, then makeup-gain the whole bus so
-        // ordinary playing sits near 0 dBFS. Soft knee (HeadRoom) keeps it
-        // musical rather than slammed; +9 dB makeup is what actually makes
-        // it "as loud as it can be" — the downstream limiter absorbs any
-        // overshoot so the makeup can be generous without clipping.
+        // ordinary playing stays controlled. Soft knee (HeadRoom) keeps it
+        // musical rather than slammed. Makeup remains neutral because this
+        // compressor now belongs only to the melodic bus; boosting it here
+        // would overwhelm the dry percussion that joins downstream.
         // Expansion left at defaults (ExpansionThreshold ≈ -100 dB) so the
         // low-end expander never acts as a noise gate on soft tails.
         let cAU = compressor.audioUnit
@@ -818,10 +826,10 @@ final class MenuBandSynth {
         // audible pumping on sustained pads/chords.
         AudioUnitSetParameter(cAU, kDynamicsProcessorParam_ReleaseTime,
                               kAudioUnitScope_Global, 0, 0.18, 0)
-        // Makeup gain — the "normalize to max" stage. (kDynamicsProcessorParam
-        // _MasterGain is spelled _OverallGain in the Swift-imported header.)
+        // Neutral makeup. (kDynamicsProcessorParam_MasterGain is spelled
+        // _OverallGain in the Swift-imported header.)
         AudioUnitSetParameter(cAU, kDynamicsProcessorParam_OverallGain,
-                              kAudioUnitScope_Global, 0, 9.0, 0)
+                              kAudioUnitScope_Global, 0, 0.0, 0)
 
         let au = limiter.audioUnit
         // Fast attack catches chord/transient peaks; medium release avoids
@@ -1608,7 +1616,7 @@ final class MenuBandSynth {
 
     // MARK: - Public API
 
-    /// Master output gain, 0.0…1.0. Stored on the pre-limiter sum bus
+    /// Master output gain, 0.0…1.0. Stored on the joined post-FX bus
     /// so every backend scales together. Idempotent — safe to call
     /// before or after `start()`. Clamped to [0, 1].
     func setMasterVolume(_ value: Float) {
@@ -1617,7 +1625,7 @@ final class MenuBandSynth {
         // outputVolume is realtime-safe — AVAudioEngine ramps it to
         // the new target rather than snapping, so dragging the slider
         // doesn't click.
-        preLimiterMixer.outputVolume = clamped
+        postFxMixer.outputVolume = clamped
     }
 
     /// Fast musical sidechain on the melodic bus. Kick-like events make the
@@ -1653,11 +1661,11 @@ final class MenuBandSynth {
             // Near-instant attack, slower transparent recovery.
             let rate: Float = target < self.melodicDuckGain ? 0.48 : 0.055
             self.melodicDuckGain += (target - self.melodicDuckGain) * rate
-            self.proximityEQ.globalGain = 20 * log10(max(0.001, self.melodicDuckGain))
+            self.melodicDuckMixer.outputVolume = self.melodicDuckGain
             if !held, abs(self.melodicDuckGain - 1) < 0.001 {
                 self.melodicDuckGain = 1
                 self.melodicDuckTarget = 1
-                self.proximityEQ.globalGain = 0
+                self.melodicDuckMixer.outputVolume = 1
                 timer.invalidate()
                 self.melodicDuckTimer = nil
             }

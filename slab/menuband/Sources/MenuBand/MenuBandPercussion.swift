@@ -110,9 +110,9 @@ final class MenuBandPercussion {
     /// Master headroom so a fistful of simultaneous drums doesn't slam the
     /// limiter — the kit's raw layer volumes sum well past 1.0 by design.
     /// `outputLevel` is the user's independent percussion trim: 1.0 retains
-    /// the kit's historical loudness, while fresh installs begin at 0.58.
+    /// the kit's historical loudness, while fresh installs begin at 0.80.
     private let masterGain: Float = 0.34
-    private var outputLevel: Float = 0.58
+    private var outputLevel: Float = 0.80
 
     /// Set the independent percussion trim. Snapshot under the same tiny lock
     /// used for staged hits so the audio thread sees one stable value per
