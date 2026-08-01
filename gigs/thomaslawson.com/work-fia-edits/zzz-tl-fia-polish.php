@@ -2,9 +2,6 @@
 /**
  * Plugin Name: TL — Fía polish pass
  * Description: CSS+JS polish on top of the existing TL theme + Elementor build, per Fía's notes (2026-05-19 + her two replies later that night). Header chrome (no underline / no rule_ hrs / no Home), cream-everywhere, home laid out as a 5-up desktop strip (vertical stack on mobile) in Fía's section order with subtitles, divider widgets dropped on the homepage, Notes image-width capped, In-the-Studio + About years reversed newest-first (with !important on the flex parent so the reorder actually applies), Beyond-the-Studio collapsed to one column with centered subsection labels, 1980-82 caption normalisation, and a JS-injected horizontal cover preview strip per shelf on /bookshelf/.
-<<<<<<< HEAD
- * Version: 1.5.2
-=======
  * Version: 1.9.1
  *
  * v1.9.1 — Fía's 2026-07-30 corrections:
@@ -54,7 +51,6 @@
  *    language, left aligned with a consistent scale, rhythm, and hit area.
  *  - Stack artwork then navigation on narrow screens so neither image nor type
  *    competes for legibility; keep the mobile wordmark and footer in frame.
->>>>>>> 769cb20ebd (Checkpoint current studio work and live Pals wallpaper)
  *
  * v1.5.2 — Fía's 2026-06-08 catch:
  *  - Mobile header was rendering Tom's wordmark twice — the `.custom-logo`
@@ -245,9 +241,25 @@ add_filter('body_class', 'tl_fia_polish_body_class');
  */
 function tl_fia_polish_body_class($classes) {
     global $post;
-    if ($post && isset($post->post_name) &&
-        strpos($post->post_name, 'inthestudio_') === 0) {
-        $classes[] = 'tl-studio-detail';
+    if ($post && isset($post->post_name)) {
+        $slug = $post->post_name;
+        if (strpos($slug, 'inthestudio_') === 0) {
+            $classes[] = 'tl-studio-detail';
+        }
+        if (strpos($slug, 'bookshelf_') === 0 ||
+            strpos($slug, 'bookshelf-') === 0 ||
+            in_array($slug, ['elementor-1796', 'elementor-395'], true)) {
+            $classes[] = 'tl-bookshelf-detail';
+        }
+        if (strpos($slug, 'art-in-context-') === 0 ||
+            in_array($slug, [
+                'elementor-1878',
+                'critical-perspectives-art-in-context',
+                'reallife-magazine-presents-whitecolumns-art-in-context',
+                'pat-douthewaite-art-in-context'
+            ], true)) {
+            $classes[] = 'tl-exhibition-detail';
+        }
     }
     return $classes;
 }
@@ -368,12 +380,10 @@ li.menu-item-home {
 }
 
 /* ---------------------------------------------------------------- *
- * 2. Home (page-id-10) — section titles centred over the painting
- *    (Fía, 2026-05-22: bring the overlap back; larger, centred titles)
+ * 2. Home (page-id-10) — artwork and navigation remain separate
  * ---------------------------------------------------------------- */
 
-/* The painting returns as a veiled backdrop behind the titles — see the
-   .tl-home-layout rules below. The page itself just stays cream. */
+/* The page stays cream behind the split artwork-and-navigation composition. */
 body.page-id-10 {
     background-color: #fff9ef;
 }
@@ -409,18 +419,15 @@ body.page-id-10 .elementor-element-a258823 > .elementor-widget-container {
     margin-top: 0 !important;
 }
 
-/* All five tile headings centred + enlarged for readability — the
-   vertical stack reads as a clean menu (Fía, 2026-05-22). */
+/* One typographic language for the entire homepage menu. */
 body.page-id-10 .tl-home-titles .elementor-heading-title {
-    text-align: center !important;
-    font-size: 2.4rem !important;
-    line-height: 1.1 !important;
+    font-family: 'Poppins', sans-serif !important;
+    text-align: left !important;
+    font-size: clamp(1.3rem, 1.7vw, 1.75rem) !important;
+    font-weight: 500 !important;
+    line-height: 1.18 !important;
+    letter-spacing: -0.015em !important;
     margin: 0 !important;
-}
-@media (max-width: 880px) {
-    body.page-id-10 .tl-home-titles .elementor-heading-title {
-        font-size: 1.7rem !important;
-    }
 }
 
 /* Section subtitles via ::after on each heading widget data-id. */
@@ -430,13 +437,14 @@ body.page-id-10 .elementor-element-f9919d8 .elementor-heading-title::after,
 body.page-id-10 .elementor-element-264abbc .elementor-heading-title::after,
 body.page-id-10 .elementor-element-a258823 .elementor-heading-title::after {
     display: block;
-    margin-top: 0.35em;
-    font-style: italic;
+    margin-top: 0.28rem;
+    font-family: 'Poppins', sans-serif;
+    font-style: normal;
     font-weight: 400;
-    font-size: 0.46em;
-    line-height: 1.3;
-    letter-spacing: 0.01em;
-    color: #2e2a24;
+    font-size: 0.78rem;
+    line-height: 1.45;
+    letter-spacing: 0;
+    color: #5e584f;
 }
 body.page-id-10 .elementor-element-04d4a58 .elementor-heading-title::after { content: "curatorial projects and pedagogy"; }
 body.page-id-10 .elementor-element-2e51480 .elementor-heading-title::after { content: "writings and publications"; }
@@ -444,16 +452,11 @@ body.page-id-10 .elementor-element-f9919d8 .elementor-heading-title::after { con
 body.page-id-10 .elementor-element-264abbc .elementor-heading-title::after { content: "artworks"; }
 body.page-id-10 .elementor-element-a258823 .elementor-heading-title::after { content: "plus selections from the archive"; }
 
-/* Fía (2026-05-22): the painting comes back behind the titles — a single
-   centred block, the five section titles stacked and overlaid on a veiled
-   crop of Tom's 2010 "Tree". tl_fia_polish_js_home() builds .tl-home-layout
-   and moves the five tile columns into .tl-home-titles; the now-empty
-   original sections are hidden. */
-/* The painting+titles block sits vertically centred in the page — Fía
-   flagged it was reading a bit above centre (2026-05-22 pm). */
+/* The page is one quiet composition: complete artwork at left, navigation at
+   right. There is no veil and no type over the image. */
 body.page-id-10 [data-elementor-type="wp-page"] {
     min-height: calc(100vh - 230px);
-    padding: 2rem 1rem;
+    padding: clamp(2rem, 5vw, 5rem) clamp(1.5rem, 6vw, 6rem);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -462,26 +465,29 @@ body.page-id-10 [data-elementor-type="wp-page"] > .elementor-section {
     display: none !important;
 }
 body.page-id-10 .tl-home-layout {
-    position: relative;
     width: 100%;
-    max-width: 760px;
+    max-width: 1180px;
     margin: 0 auto;
-    padding: 4.2rem 2.6rem;
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: minmax(0, 1.18fr) minmax(290px, 0.82fr);
     align-items: center;
-    justify-content: center;
-    background-image:
-        linear-gradient(rgba(255, 249, 239, 0.7), rgba(255, 249, 239, 0.7)),
-        url('https://www.thomaslawson.com/wp-content/uploads/2022/09/2010_Tree_HR.jpg');
-    background-size: cover;
-    background-position: center;
-    background-repeat: no-repeat;
+    gap: clamp(3rem, 7vw, 7rem);
+}
+body.page-id-10 .tl-home-artwork {
+    margin: 0;
+    width: 100%;
+}
+body.page-id-10 .tl-home-artwork img {
+    display: block;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 720 / 556;
+    object-fit: contain;
 }
 body.page-id-10 .tl-home-titles {
     display: flex;
     flex-direction: column;
-    gap: 1.5rem;
+    gap: clamp(1.1rem, 2.2vh, 1.65rem);
     width: 100%;
 }
 body.page-id-10 .tl-home-titles .elementor-column {
@@ -491,6 +497,7 @@ body.page-id-10 .tl-home-titles .elementor-column {
     min-width: 0 !important;
     margin: 0 !important;
     cursor: pointer;
+    transition: opacity 160ms ease;
 }
 body.page-id-10 .tl-home-titles .elementor-column .elementor-widget-wrap {
     padding: 0 !important;
@@ -503,7 +510,22 @@ body.page-id-10 .elementor-element-b1d6555 { order: 3 !important; } /* Beyond th
 body.page-id-10 .elementor-element-623a2c4 { order: 4 !important; } /* Art in a Broader Context */
 body.page-id-10 .elementor-element-5e1a885 { order: 5 !important; } /* Bookshelf */
 @media (max-width: 880px) {
-    body.page-id-10 .tl-home-layout { max-width: 92vw; padding: 2.4rem 1.4rem; }
+    body.page-id-10 [data-elementor-type="wp-page"] {
+        min-height: 0;
+        padding: 2rem 1.25rem 3.5rem;
+        align-items: flex-start;
+    }
+    body.page-id-10 .tl-home-layout {
+        grid-template-columns: 1fr;
+        gap: 2.25rem;
+        max-width: 680px;
+    }
+    body.page-id-10 .tl-home-titles {
+        gap: 1.25rem;
+    }
+    body.page-id-10 .tl-home-titles .elementor-heading-title {
+        font-size: 1.4rem !important;
+    }
 }
 
 /* ---------------------------------------------------------------- *
@@ -542,6 +564,35 @@ body.page-id-10 .elementor-element-5e1a885 { order: 5 !important; } /* Bookshelf
 }
 .site-footer-section-2 .footer-widget-area {
     margin-left: 0 !important;
+}
+@media (max-width: 880px) {
+    /* Astra gives the mobile identity a negative left margin; reset it so the
+       complete Thomas Lawson wordmark stays inside the viewport. */
+    .ast-mobile-header-wrap .ast-site-identity {
+        margin-left: 0 !important;
+    }
+    .ast-mobile-header-wrap .site-header-primary-section-left {
+        padding-left: 1.25rem !important;
+    }
+
+    /* The desktop left/right footer becomes a readable stack on phones. */
+    .ast-builder-footer-grid-columns {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 1.5rem !important;
+        padding-right: 0 !important;
+    }
+    .site-footer-section-2,
+    .site-footer-section-4 {
+        width: 100% !important;
+        max-width: none !important;
+        margin-left: 0 !important;
+        justify-content: flex-start !important;
+        text-align: left !important;
+    }
+    .site-footer-section-4 * {
+        text-align: left !important;
+    }
 }
 
 /* ---------------------------------------------------------------- *
@@ -1202,8 +1253,6 @@ body.page-id-1527 .tl-contact-mailto:visited {
 body.page-id-1527 .tl-contact-mailto:hover {
     opacity: 0.6;
 }
-<<<<<<< HEAD
-=======
 
 /* ---------------------------------------------------------------- *
  * 14. Archive pages — shared editorial system (Fía, 2026-07-27)
@@ -1866,7 +1915,6 @@ body.tl-exhibition-detail .elementor-widget-heading .elementor-heading-title {
         margin-bottom: 2.5rem !important;
     }
 }
->>>>>>> 769cb20ebd (Checkpoint current studio work and live Pals wallpaper)
 </style>
 <?php
 }
@@ -1879,6 +1927,12 @@ function tl_fia_polish_js() {
     $is_studio_detail = ($post && isset($post->post_name)
         && strpos($post->post_name, 'inthestudio_') === 0);
     if ($is_studio_detail) { tl_fia_polish_js_studio_lightbox(); return; }
+    $is_bookshelf_detail = ($post && isset($post->post_name) && (
+        strpos($post->post_name, 'bookshelf_') === 0 ||
+        strpos($post->post_name, 'bookshelf-') === 0 ||
+        in_array($post->post_name, ['elementor-1796', 'elementor-395'], true)
+    ));
+    if ($is_bookshelf_detail) { tl_fia_polish_js_bookshelf_detail(); return; }
 
     if (is_page(10))   { tl_fia_polish_js_home();    return; }
     if (is_page(1898)) { tl_fia_polish_js_news();    return; }
@@ -2014,18 +2068,43 @@ function tl_fia_polish_js() {
         var section = document.querySelector('.elementor-element-' + sid);
         if (!section) return;
         if (section.querySelector('.tl-shelf-strip')) return; // already injected
+        var head = section.querySelector('.elementor-widget-heading');
+        var headingTitle = head && head.querySelector('.elementor-heading-title');
+        var headingLink = headingTitle && headingTitle.querySelector('a[href]');
+        var shelfHref = headingLink ? headingLink.href : null;
+        var shelfName = headingTitle
+            ? headingTitle.textContent.replace(/\s+/g, ' ').trim()
+            : 'publication section';
+
+        if (shelfHref && headingTitle && !headingTitle.querySelector('.tl-shelf-more')) {
+            var more = document.createElement('a');
+            more.className = 'tl-shelf-more';
+            more.href = shelfHref;
+            more.textContent = 'More →';
+            more.setAttribute('aria-label', 'More from ' + shelfName);
+            headingTitle.appendChild(more);
+        }
+
         var strip = document.createElement('div');
         strip.className = 'tl-shelf-strip';
-        shelves[sid].forEach(function (url) {
+        shelves[sid].forEach(function (url, index) {
             var img = document.createElement('img');
             img.src = url;
             img.loading = 'lazy';
-            img.alt = '';
-            strip.appendChild(img);
+            img.alt = shelfName + ' preview ' + (index + 1);
+            if (shelfHref) {
+                var cover = document.createElement('a');
+                cover.className = 'tl-shelf-cover';
+                cover.href = shelfHref;
+                cover.setAttribute('aria-label', 'Open ' + shelfName);
+                cover.appendChild(img);
+                strip.appendChild(cover);
+            } else {
+                strip.appendChild(img);
+            }
         });
         // Place the strip directly after the shelf's subheading so it
         // stacks beneath it, never beside it (Fía, 2026-05-22).
-        var head = section.querySelector('.elementor-widget-heading');
         if (head && head.parentNode) {
             head.parentNode.insertBefore(strip, head.nextSibling);
         } else {
@@ -2038,8 +2117,6 @@ function tl_fia_polish_js() {
 <?php
 }
 
-<<<<<<< HEAD
-=======
 /** Exact editorial corrections and non-destructive doorway hooks (2026-07-29). */
 function tl_fia_polish_js_july29_editorial() {
     ?>
@@ -2168,13 +2245,10 @@ function tl_fia_polish_js_bookshelf_detail() {
     <?php
 }
 
->>>>>>> 769cb20ebd (Checkpoint current studio work and live Pals wallpaper)
 /**
- * Homepage (page-id-10): rename the Notes tile to News, then stack the five
- * section titles into one centred block overlaid on the veiled painting
- * (Fía, 2026-05-22 — overlap restored). With the cover images hidden by CSS
- * the headings would lose their links, so each column's href is re-homed
- * onto its heading + the whole column.
+ * Homepage (page-id-10): rename the Notes tile to News, place the complete
+ * Tree painting beside the five section links, and re-home each image link
+ * onto its heading + whole column.
  */
 function tl_fia_polish_js_home() {
     ?>
@@ -2194,19 +2268,31 @@ function tl_fia_polish_js_home() {
         });
     }
 
-    // Build the centred block: the five section titles stacked over the
-    // veiled painting (Fía, 2026-05-22 — overlap restored). The painting
-    // is a CSS background on .tl-home-layout, so no <img> is needed here.
+    // Build the split composition: artwork first, navigation second. Keeping
+    // them as siblings prevents type from ever competing with the painting.
     if (!page.querySelector('.tl-home-layout')) {
         var layout = document.createElement('div');
         layout.className = 'tl-home-layout';
+
+        var artwork = document.createElement('figure');
+        artwork.className = 'tl-home-artwork';
+        var painting = document.createElement('img');
+        painting.src = 'https://www.thomaslawson.com/wp-content/uploads/2022/09/2010_Tree_HR.jpg';
+        painting.alt = 'Tree, 2010, by Thomas Lawson';
+        painting.width = 720;
+        painting.height = 556;
+        artwork.appendChild(painting);
+
         var titles = document.createElement('div');
         titles.className = 'tl-home-titles';
+        titles.setAttribute('role', 'navigation');
+        titles.setAttribute('aria-label', 'Explore Thomas Lawson');
         // Move the five tile columns into the titles block, in Fía's order.
         ['05de656','6b3030e','b1d6555','623a2c4','5e1a885'].forEach(function (id) {
             var col = page.querySelector('.elementor-element-' + id);
             if (col) titles.appendChild(col);
         });
+        layout.appendChild(artwork);
         layout.appendChild(titles);
         page.appendChild(layout);
     }
@@ -2329,6 +2415,23 @@ function tl_fia_polish_js_artctx() {
     var page = document.querySelector('[data-elementor-type="wp-page"]');
     if (!page) return;
     var intro = document.querySelector('.elementor-element-ba54885');
+    var normalize = function (value) {
+        return value.replace(/\u200b/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+    };
+    var venues = {
+        'art school': 'CalArts, Valencia, California',
+        'dissent': 'LACE, Los Angeles',
+        'the experimental impulse': 'REDCAT, Los Angeles',
+        'hot coffee': 'Artists Space, New York',
+        'shimmer': 'Municipal Art Gallery at Barnsdall Park, Los Angeles',
+        'the british art show': 'Manchester · Edinburgh · Cardiff',
+        'nostalgia as resistance': 'P.S.1 and The Clocktower, New York',
+        'livin in the usa': 'Damon Brandt Gallery, New York',
+        'critical perspectives': 'P.S.1, New York',
+        'reallife whitecolumns': 'White Columns, New York',
+        'reallife magazine presents': 'Nigel Greenwood Gallery, London',
+        'pat douthwaite': 'St Andrews Festival, St Andrews'
+    };
     var tiles = [];
     var sections = [].slice.call(page.children).filter(function (el) {
         return el !== intro && el.classList && el.classList.contains('elementor-section');
@@ -2367,7 +2470,11 @@ function tl_fia_polish_js_artctx() {
                 var nameNode = heads[0].querySelector('.elementor-heading-title');
                 if (nameNode && !nameNode.dataset.tlAcMerged) {
                     nameNode.dataset.tlAcMerged = '1';
-                    nameNode.textContent = name + ', ' + year;
+                    nameNode.textContent = name;
+                    var context = document.createElement('span');
+                    context.className = 'tl-context-venue-year';
+                    context.textContent = [venues[normalize(name)], year].filter(Boolean).join(' · ');
+                    nameNode.appendChild(context);
                 }
                 heads[1].classList.add('tl-ac-year-merged');
             }
@@ -2572,20 +2679,63 @@ function tl_fia_polish_js_about() {
     wrap.appendChild(inner);
     var widgetWrap = textCol.querySelector('.elementor-widget-wrap') || textCol;
     widgetWrap.insertBefore(wrap, widgetWrap.firstChild);
+
+    // The trajectory is a mixed practice, not a single all-caps medium.
+    // Keep the authored titles and years, but give each card one readable
+    // title and one factual type/year line (Fía, 2026-07-27).
+    var cards = {
+        'GOLD DOG': ['Gold Dog', 'Artwork'],
+        'REALLIFE COVER': ['REALLIFE Cover', 'Magazine cover'],
+        'FORMANESQUE DRAWING WALL': ['Formanesque Drawing Wall', 'Installation'],
+        'RED SHOE': ['Red Shoe', 'Painting'],
+        'LAST EXIT': ['Last Exit', 'Artforum essay'],
+        'SHOT FOR A BIKE': ['Shot for a Bike', 'Painting'],
+        'THE BRITISH ART SHOW': ['The British Art Show', 'Exhibition'],
+        'BROAD STUDIOS': ['Broad Studios', 'Art-school project'],
+        'LOS ANGELES PAINTING': ['Los Angeles Painting', 'Painting'],
+        'SUBURBAN INSTALL': ['Suburban Install', 'Installation'],
+        'PATRICK CAUFIELD ESSAY': ['Patrick Caulfield Essay', 'Essay'],
+        'PARTICIPANT INSTALL': ['Participant Install', 'Installation'],
+        'THE JOURNEY WEST': ['The Journey West', 'East of Borneo essay'],
+        'PATTERN OF THOUGHT': ['Pattern of Thought', 'Painting'],
+        'DREAMS OF THE ARROGANT PRINCE': ['Dreams of the Arrogant Prince', 'Painting'],
+        'STUDIO': ['Studio', 'Studio view'],
+        'MICHAEL ASHER': ['Michael Asher', 'East of Borneo essay'],
+        'DISCARDED PROTECTION': ['Discarded Protection', 'Artwork']
+    };
+    document.querySelectorAll('body.page-id-68 h5.elementor-heading-title').forEach(function (title) {
+        var key = title.textContent.replace(/[\u200B-\u200D\uFEFF]/g, '').replace(/\s+/g, ' ').trim().toUpperCase();
+        var card = cards[key];
+        if (!card) return;
+        var column = title.closest('.elementor-column');
+        var meta = column && column.querySelector('h6.elementor-heading-title');
+        var year = meta ? meta.textContent.replace(/\s+/g, ' ').trim() : '';
+        title.textContent = card[0];
+        title.classList.add('tl-about-card-title');
+        if (meta) {
+            meta.textContent = card[1] + (year && year !== '-' ? ' · ' + year : '');
+            meta.classList.add('tl-about-card-meta');
+        }
+    });
 })();
 </script>
 <style id="tl-fia-about-style">
 body.page-id-68 .tl-about-heading {
-    width: 100% !important;
-    max-width: 820px !important;
-    margin: 0 auto !important;
+    width: calc(100% + var(--tl-gutter)) !important;
+    max-width: none !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    transform: translateX(calc(0px - var(--tl-gutter)));
 }
 body.page-id-68 .tl-about-heading .elementor-heading-title {
-    font-size: 2.4rem !important;
-    font-weight: 600 !important;
+    font-family: "Poppins", sans-serif !important;
+    font-size: clamp(2.25rem, 5vw, 4rem) !important;
+    font-weight: 500 !important;
+    line-height: 1.05 !important;
     margin: 0.4rem 0 1rem !important;
     text-align: left !important;
-    letter-spacing: -0.005em;
+    letter-spacing: -0.035em !important;
+    color: #24211d !important;
 }
 body.page-id-68 .elementor-element-3d58b5f .elementor-widget-text-editor {
     max-width: 820px !important;

@@ -109,9 +109,6 @@ final class MenuBandPercussion {
 
     /// Master headroom so a fistful of simultaneous drums doesn't slam the
     /// limiter — the kit's raw layer volumes sum well past 1.0 by design.
-<<<<<<< HEAD
-    private let masterGain: Float = 0.34
-=======
     /// `outputLevel` is the user's independent percussion trim: 1.0 retains
     /// the kit's historical loudness, while fresh installs begin at 0.58.
     private let masterGain: Float = 0.34
@@ -126,7 +123,6 @@ final class MenuBandPercussion {
         outputLevel = max(0, min(1, value))
         lock.unlock()
     }
->>>>>>> 769cb20ebd (Checkpoint current studio work and live Pals wallpaper)
 
     /// Global pitch multiplier applied to every voice's phase increment
     /// (and noise LPF cutoff) so the trackpad pitch-bend warps the whole
@@ -1152,6 +1148,7 @@ final class MenuBandPercussion {
         let pitch = pitchScale
         // Drain staged voices, releases, and honor a flush request.
         lock.lock()
+        let level = outputLevel
         if flushRequested { active.removeAll(keepingCapacity: true); flushRequested = false }
         // Retire voices that ended exactly at the prior block before deciding
         // whether the new onset fits. Previously these occupied slots until
@@ -1244,7 +1241,7 @@ final class MenuBandPercussion {
         if active.isEmpty && scratchLevel < 0.000_01 && scratchTargetNow == 0 { return }
 
         let dt = 1.0 / sampleRate
-        let g = Double(masterGain)
+        let g = Double(masterGain * level)
         var w = 0
         for idx in 0..<active.count {
             var v = active[idx]
