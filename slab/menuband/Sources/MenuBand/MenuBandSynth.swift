@@ -1628,6 +1628,11 @@ final class MenuBandSynth {
         postFxMixer.outputVolume = clamped
     }
 
+    /// Independent percussion trim before the joined master bus.
+    func setPercussionVolume(_ value: Float) {
+        percussion.setOutputLevel(max(0, min(1, value)))
+    }
+
     /// Fast musical sidechain on the melodic bus. Kick-like events make the
     /// deepest pocket; brighter percussion makes a lighter one. Chords duck a
     /// little further than single notes so polyphony cannot mask the groove.

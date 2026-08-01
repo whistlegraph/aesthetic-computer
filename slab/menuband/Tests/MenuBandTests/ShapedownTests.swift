@@ -209,6 +209,55 @@ final class ShapedownTests: XCTestCase {
         XCTAssertFalse(changes.sameCountReplacement)
     }
 
+    func testRepeatedTapFramesRetriggerAfterEveryCompleteLift() {
+        let point = CGPoint(x: 0.48, y: 0.52)
+        var active: [Int32: CGPoint] = [:]
+        for identifier: Int32 in [21, 22, 23, 24] {
+            let down = TrackpadContactChanges.resolve(
+                previous: active,
+                contacts: [TrackpadContact(identifier: identifier,
+                                            point: point, state: 3)]
+            )
+            XCTAssertEqual(down.began, [point])
+            active = down.activeByID
+
+            let up = TrackpadContactChanges.resolve(previous: active, contacts: [])
+            XCTAssertEqual(up.lifted, [point])
+            XCTAssertTrue(up.activeByID.isEmpty)
+            active = up.activeByID
+        }
+    }
+
+    func testOverlappingFingerTapsEachProduceTheirOwnBeginAndLift() {
+        let first = CGPoint(x: 0.30, y: 0.55)
+        let second = CGPoint(x: 0.70, y: 0.55)
+        let oneDown = TrackpadContactChanges.resolve(
+            previous: [:],
+            contacts: [TrackpadContact(identifier: 31, point: first, state: 3)]
+        )
+        let twoDown = TrackpadContactChanges.resolve(
+            previous: oneDown.activeByID,
+            contacts: [
+                TrackpadContact(identifier: 31, point: first, state: 4),
+                TrackpadContact(identifier: 32, point: second, state: 3),
+            ]
+        )
+        XCTAssertEqual(twoDown.began, [second])
+        XCTAssertTrue(twoDown.lifted.isEmpty)
+
+        let firstUp = TrackpadContactChanges.resolve(
+            previous: twoDown.activeByID,
+            contacts: [TrackpadContact(identifier: 32, point: second, state: 4)]
+        )
+        XCTAssertEqual(firstUp.lifted, [first])
+
+        let secondUp = TrackpadContactChanges.resolve(
+            previous: firstUp.activeByID, contacts: []
+        )
+        XCTAssertEqual(secondUp.lifted, [second])
+        XCTAssertTrue(secondUp.activeByID.isEmpty)
+    }
+
     func testSamePadReplacementRetriggersKitVoice() {
         let first = CGPoint(x: 0.30, y: 0.80)
         let down = TrackpadPercussionPad.transition(

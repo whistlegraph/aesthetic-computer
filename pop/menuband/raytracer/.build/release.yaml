@@ -1,0 +1,77 @@
+client:
+  name: basic
+  file-system: device-agnostic
+tools: {}
+targets:
+  "MenuBandRaytracer-arm64-apple-macosx-release.exe": ["<MenuBandRaytracer-arm64-apple-macosx-release.exe>"]
+  "MenuBandRaytracer-arm64-apple-macosx-release.module": ["<MenuBandRaytracer-arm64-apple-macosx-release.module>"]
+  "PackageStructure": ["<PackageStructure>"]
+  "main": ["<MenuBandRaytracer-arm64-apple-macosx-release.exe>","<MenuBandRaytracer-arm64-apple-macosx-release.module>"]
+  "test": ["<MenuBandRaytracer-arm64-apple-macosx-release.exe>","<MenuBandRaytracer-arm64-apple-macosx-release.module>"]
+default: "main"
+nodes:
+  "/Users/jas/aesthetic-computer/pop/menuband/raytracer/Sources/MenuBandRaytracer/":
+    is-directory-structure: true
+    content-exclusion-patterns: [".git",".build"]
+commands:
+  "/Users/jas/aesthetic-computer/pop/menuband/raytracer/.build/arm64-apple-macosx/release/MenuBandRaytracer.build/sources":
+    tool: write-auxiliary-file
+    inputs: ["<sources-file-list>","/Users/jas/aesthetic-computer/pop/menuband/raytracer/Sources/MenuBandRaytracer/main.swift","/Users/jas/aesthetic-computer/pop/menuband/raytracer/.build/arm64-apple-macosx/release/MenuBandRaytracer.build/DerivedSources/resource_bundle_accessor.swift"]
+    outputs: ["/Users/jas/aesthetic-computer/pop/menuband/raytracer/.build/arm64-apple-macosx/release/MenuBandRaytracer.build/sources"]
+    description: "Write auxiliary file /Users/jas/aesthetic-computer/pop/menuband/raytracer/.build/arm64-apple-macosx/release/MenuBandRaytracer.build/sources"
+
+  "/Users/jas/aesthetic-computer/pop/menuband/raytracer/.build/arm64-apple-macosx/release/MenuBandRaytracer.product/Objects.LinkFileList":
+    tool: write-auxiliary-file
+    inputs: ["<link-file-list>","/Users/jas/aesthetic-computer/pop/menuband/raytracer/.build/arm64-apple-macosx/release/MenuBandRaytracer.build/main.swift.o","/Users/jas/aesthetic-computer/pop/menuband/raytracer/.build/arm64-apple-macosx/release/MenuBandRaytracer.build/resource_bundle_accessor.swift.o"]
+    outputs: ["/Users/jas/aesthetic-computer/pop/menuband/raytracer/.build/arm64-apple-macosx/release/MenuBandRaytracer.product/Objects.LinkFileList"]
+    description: "Write auxiliary file /Users/jas/aesthetic-computer/pop/menuband/raytracer/.build/arm64-apple-macosx/release/MenuBandRaytracer.product/Objects.LinkFileList"
+
+  "/Users/jas/aesthetic-computer/pop/menuband/raytracer/.build/arm64-apple-macosx/release/MenuBandRaytracer_MenuBandRaytracer.bundle/MenuBand.metal":
+    tool: copy-tool
+    inputs: ["/Users/jas/aesthetic-computer/pop/menuband/raytracer/Sources/MenuBandRaytracer/MenuBand.metal"]
+    outputs: ["/Users/jas/aesthetic-computer/pop/menuband/raytracer/.build/arm64-apple-macosx/release/MenuBandRaytracer_MenuBandRaytracer.bundle/MenuBand.metal"]
+    description: "Copying /Users/jas/aesthetic-computer/pop/menuband/raytracer/Sources/MenuBandRaytracer/MenuBand.metal"
+
+  "/Users/jas/aesthetic-computer/pop/menuband/raytracer/.build/arm64-apple-macosx/release/swift-version--58304C5D6DBC2206.txt":
+    tool: write-auxiliary-file
+    inputs: ["<swift-get-version>","/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc"]
+    outputs: ["/Users/jas/aesthetic-computer/pop/menuband/raytracer/.build/arm64-apple-macosx/release/swift-version--58304C5D6DBC2206.txt"]
+    always-out-of-date: "true"
+    description: "Write auxiliary file /Users/jas/aesthetic-computer/pop/menuband/raytracer/.build/arm64-apple-macosx/release/swift-version--58304C5D6DBC2206.txt"
+
+  "<MenuBandRaytracer-arm64-apple-macosx-release.exe>":
+    tool: phony
+    inputs: ["/Users/jas/aesthetic-computer/pop/menuband/raytracer/.build/arm64-apple-macosx/release/MenuBandRaytracer"]
+    outputs: ["<MenuBandRaytracer-arm64-apple-macosx-release.exe>"]
+
+  "<MenuBandRaytracer-arm64-apple-macosx-release.module>":
+    tool: phony
+    inputs: ["/Users/jas/aesthetic-computer/pop/menuband/raytracer/.build/arm64-apple-macosx/release/MenuBandRaytracer.build/main.swift.o","/Users/jas/aesthetic-computer/pop/menuband/raytracer/.build/arm64-apple-macosx/release/MenuBandRaytracer.build/resource_bundle_accessor.swift.o","/Users/jas/aesthetic-computer/pop/menuband/raytracer/.build/arm64-apple-macosx/release/Modules/MenuBandRaytracer.swiftmodule"]
+    outputs: ["<MenuBandRaytracer-arm64-apple-macosx-release.module>"]
+
+  "C.MenuBandRaytracer-arm64-apple-macosx-release.exe":
+    tool: shell
+    inputs: ["/Users/jas/aesthetic-computer/pop/menuband/raytracer/.build/arm64-apple-macosx/release/MenuBandRaytracer.build/main.swift.o","/Users/jas/aesthetic-computer/pop/menuband/raytracer/.build/arm64-apple-macosx/release/MenuBandRaytracer.build/resource_bundle_accessor.swift.o","/Users/jas/aesthetic-computer/pop/menuband/raytracer/.build/arm64-apple-macosx/release/MenuBandRaytracer.product/Objects.LinkFileList"]
+    outputs: ["/Users/jas/aesthetic-computer/pop/menuband/raytracer/.build/arm64-apple-macosx/release/MenuBandRaytracer"]
+    description: "Linking ./.build/arm64-apple-macosx/release/MenuBandRaytracer"
+    args: ["/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc","-L","/Users/jas/aesthetic-computer/pop/menuband/raytracer/.build/arm64-apple-macosx/release","-o","/Users/jas/aesthetic-computer/pop/menuband/raytracer/.build/arm64-apple-macosx/release/MenuBandRaytracer","-module-name","MenuBandRaytracer","-Xlinker","-no_warn_duplicate_libraries","-emit-executable","-Xlinker","-dead_strip","-Xlinker","-alias","-Xlinker","_MenuBandRaytracer_main","-Xlinker","_main","-Xlinker","-rpath","-Xlinker","@loader_path","@/Users/jas/aesthetic-computer/pop/menuband/raytracer/.build/arm64-apple-macosx/release/MenuBandRaytracer.product/Objects.LinkFileList","-Xlinker","-rpath","-Xlinker","/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift-6.2/macosx","-target","arm64-apple-macosx14.0","-plugin-path","/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing","-sdk","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk","-F","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks","-I","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib","-L","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib","-g"]
+
+  "C.MenuBandRaytracer-arm64-apple-macosx-release.module":
+    tool: shell
+    inputs: ["/Users/jas/aesthetic-computer/pop/menuband/raytracer/Sources/MenuBandRaytracer/main.swift","/Users/jas/aesthetic-computer/pop/menuband/raytracer/.build/arm64-apple-macosx/release/MenuBandRaytracer.build/DerivedSources/resource_bundle_accessor.swift","/Users/jas/aesthetic-computer/pop/menuband/raytracer/.build/arm64-apple-macosx/release/swift-version--58304C5D6DBC2206.txt","<MenuBandRaytracer-arm64-apple-macosx-release.module-resources>","/Users/jas/aesthetic-computer/pop/menuband/raytracer/.build/arm64-apple-macosx/release/MenuBandRaytracer.build/sources"]
+    outputs: ["/Users/jas/aesthetic-computer/pop/menuband/raytracer/.build/arm64-apple-macosx/release/MenuBandRaytracer.build/main.swift.o","/Users/jas/aesthetic-computer/pop/menuband/raytracer/.build/arm64-apple-macosx/release/MenuBandRaytracer.build/resource_bundle_accessor.swift.o","/Users/jas/aesthetic-computer/pop/menuband/raytracer/.build/arm64-apple-macosx/release/Modules/MenuBandRaytracer.swiftmodule"]
+    description: "Compiling Swift Module 'MenuBandRaytracer' (2 sources)"
+    args: ["/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc","-module-name","MenuBandRaytracer","-emit-dependencies","-emit-module","-emit-module-path","/Users/jas/aesthetic-computer/pop/menuband/raytracer/.build/arm64-apple-macosx/release/Modules/MenuBandRaytracer.swiftmodule","-output-file-map","/Users/jas/aesthetic-computer/pop/menuband/raytracer/.build/arm64-apple-macosx/release/MenuBandRaytracer.build/output-file-map.json","-whole-module-optimization","-num-threads","6","-c","@/Users/jas/aesthetic-computer/pop/menuband/raytracer/.build/arm64-apple-macosx/release/MenuBandRaytracer.build/sources","-I","/Users/jas/aesthetic-computer/pop/menuband/raytracer/.build/arm64-apple-macosx/release/Modules","-target","arm64-apple-macosx14.0","-whole-module-optimization","-num-threads","6","-serialize-diagnostics","-O","-j6","-DSWIFT_PACKAGE","-DSWIFT_MODULE_RESOURCE_BUNDLE_AVAILABLE","-module-cache-path","/Users/jas/aesthetic-computer/pop/menuband/raytracer/.build/arm64-apple-macosx/release/ModuleCache","-parseable-output","-Xfrontend","-entry-point-function-name","-Xfrontend","MenuBandRaytracer_main","-swift-version","6","-plugin-path","/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing","-sdk","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk","-F","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks","-I","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib","-L","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib","-g","-Xcc","-isysroot","-Xcc","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk","-Xcc","-F","-Xcc","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks","-Xcc","-fPIC","-Xcc","-g","-package-name","raytracer"]
+
+  "MenuBandRaytracer-arm64-apple-macosx-release.module-resources":
+    tool: phony
+    inputs: ["/Users/jas/aesthetic-computer/pop/menuband/raytracer/.build/arm64-apple-macosx/release/MenuBandRaytracer_MenuBandRaytracer.bundle/MenuBand.metal"]
+    outputs: ["<MenuBandRaytracer-arm64-apple-macosx-release.module-resources>"]
+
+  "PackageStructure":
+    tool: package-structure-tool
+    inputs: ["/Users/jas/aesthetic-computer/pop/menuband/raytracer/Sources/MenuBandRaytracer/","/Users/jas/aesthetic-computer/pop/menuband/raytracer/Package.swift","/Users/jas/aesthetic-computer/pop/menuband/raytracer/Package.resolved"]
+    outputs: ["<PackageStructure>"]
+    description: "Planning build"
+    allow-missing-inputs: true
+

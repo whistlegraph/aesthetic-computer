@@ -1,0 +1,267 @@
+{
+  "builtTestProducts" : [
+
+  ],
+  "copyCommands" : {
+    "/Users/jas/aesthetic-computer/pop/menuband/raytracer/.build/arm64-apple-macosx/release/MenuBandRaytracer_MenuBandRaytracer.bundle/MenuBand.metal" : {
+      "inputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/jas/aesthetic-computer/pop/menuband/raytracer/Sources/MenuBandRaytracer/MenuBand.metal"
+        }
+      ],
+      "outputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/jas/aesthetic-computer/pop/menuband/raytracer/.build/arm64-apple-macosx/release/MenuBandRaytracer_MenuBandRaytracer.bundle/MenuBand.metal"
+        }
+      ]
+    }
+  },
+  "explicitTargetDependencyImportCheckingMode" : {
+    "none" : {
+
+    }
+  },
+  "generatedSourceTargetSet" : [
+
+  ],
+  "pluginDescriptions" : [
+
+  ],
+  "swiftCommands" : {
+    "C.MenuBandRaytracer-arm64-apple-macosx-release.module" : {
+      "executable" : "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
+      "fileList" : "/Users/jas/aesthetic-computer/pop/menuband/raytracer/.build/arm64-apple-macosx/release/MenuBandRaytracer.build/sources",
+      "importPath" : "/Users/jas/aesthetic-computer/pop/menuband/raytracer/.build/arm64-apple-macosx/release/Modules",
+      "inputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/jas/aesthetic-computer/pop/menuband/raytracer/Sources/MenuBandRaytracer/main.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/jas/aesthetic-computer/pop/menuband/raytracer/.build/arm64-apple-macosx/release/MenuBandRaytracer.build/DerivedSources/resource_bundle_accessor.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/jas/aesthetic-computer/pop/menuband/raytracer/.build/arm64-apple-macosx/release/swift-version--58304C5D6DBC2206.txt"
+        },
+        {
+          "kind" : "virtual",
+          "name" : "<MenuBandRaytracer-arm64-apple-macosx-release.module-resources>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/jas/aesthetic-computer/pop/menuband/raytracer/.build/arm64-apple-macosx/release/MenuBandRaytracer.build/sources"
+        }
+      ],
+      "isLibrary" : false,
+      "moduleName" : "MenuBandRaytracer",
+      "moduleOutputPath" : "/Users/jas/aesthetic-computer/pop/menuband/raytracer/.build/arm64-apple-macosx/release/Modules/MenuBandRaytracer.swiftmodule",
+      "objects" : [
+        "/Users/jas/aesthetic-computer/pop/menuband/raytracer/.build/arm64-apple-macosx/release/MenuBandRaytracer.build/main.swift.o",
+        "/Users/jas/aesthetic-computer/pop/menuband/raytracer/.build/arm64-apple-macosx/release/MenuBandRaytracer.build/resource_bundle_accessor.swift.o"
+      ],
+      "otherArguments" : [
+        "-target",
+        "arm64-apple-macosx14.0",
+        "-whole-module-optimization",
+        "-num-threads",
+        "6",
+        "-serialize-diagnostics",
+        "-O",
+        "-j6",
+        "-DSWIFT_PACKAGE",
+        "-DSWIFT_MODULE_RESOURCE_BUNDLE_AVAILABLE",
+        "-module-cache-path",
+        "/Users/jas/aesthetic-computer/pop/menuband/raytracer/.build/arm64-apple-macosx/release/ModuleCache",
+        "-parseable-output",
+        "-Xfrontend",
+        "-entry-point-function-name",
+        "-Xfrontend",
+        "MenuBandRaytracer_main",
+        "-swift-version",
+        "6",
+        "-plugin-path",
+        "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing",
+        "-sdk",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk",
+        "-F",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+        "-I",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+        "-L",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+        "-g",
+        "-Xcc",
+        "-isysroot",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk",
+        "-Xcc",
+        "-F",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+        "-Xcc",
+        "-fPIC",
+        "-Xcc",
+        "-g",
+        "-package-name",
+        "raytracer"
+      ],
+      "outputFileMapPath" : "/Users/jas/aesthetic-computer/pop/menuband/raytracer/.build/arm64-apple-macosx/release/MenuBandRaytracer.build/output-file-map.json",
+      "outputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/jas/aesthetic-computer/pop/menuband/raytracer/.build/arm64-apple-macosx/release/MenuBandRaytracer.build/main.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/jas/aesthetic-computer/pop/menuband/raytracer/.build/arm64-apple-macosx/release/MenuBandRaytracer.build/resource_bundle_accessor.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/jas/aesthetic-computer/pop/menuband/raytracer/.build/arm64-apple-macosx/release/Modules/MenuBandRaytracer.swiftmodule"
+        }
+      ],
+      "prepareForIndexing" : false,
+      "sources" : [
+        "/Users/jas/aesthetic-computer/pop/menuband/raytracer/Sources/MenuBandRaytracer/main.swift",
+        "/Users/jas/aesthetic-computer/pop/menuband/raytracer/.build/arm64-apple-macosx/release/MenuBandRaytracer.build/DerivedSources/resource_bundle_accessor.swift"
+      ],
+      "tempsPath" : "/Users/jas/aesthetic-computer/pop/menuband/raytracer/.build/arm64-apple-macosx/release/MenuBandRaytracer.build",
+      "wholeModuleOptimization" : true
+    }
+  },
+  "swiftFrontendCommands" : {
+
+  },
+  "swiftTargetScanArgs" : {
+    "MenuBandRaytracer" : [
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
+      "-module-name",
+      "MenuBandRaytracer",
+      "-package-name",
+      "raytracer",
+      "-c",
+      "/Users/jas/aesthetic-computer/pop/menuband/raytracer/Sources/MenuBandRaytracer/main.swift",
+      "/Users/jas/aesthetic-computer/pop/menuband/raytracer/.build/arm64-apple-macosx/release/MenuBandRaytracer.build/DerivedSources/resource_bundle_accessor.swift",
+      "-I",
+      "/Users/jas/aesthetic-computer/pop/menuband/raytracer/.build/arm64-apple-macosx/release/Modules",
+      "-target",
+      "arm64-apple-macosx14.0",
+      "-whole-module-optimization",
+      "-num-threads",
+      "6",
+      "-serialize-diagnostics",
+      "-O",
+      "-j6",
+      "-DSWIFT_PACKAGE",
+      "-DSWIFT_MODULE_RESOURCE_BUNDLE_AVAILABLE",
+      "-module-cache-path",
+      "/Users/jas/aesthetic-computer/pop/menuband/raytracer/.build/arm64-apple-macosx/release/ModuleCache",
+      "-parseable-output",
+      "-Xfrontend",
+      "-entry-point-function-name",
+      "-Xfrontend",
+      "MenuBandRaytracer_main",
+      "-swift-version",
+      "6",
+      "-plugin-path",
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing",
+      "-sdk",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk",
+      "-F",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+      "-I",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+      "-L",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+      "-g",
+      "-Xcc",
+      "-isysroot",
+      "-Xcc",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk",
+      "-Xcc",
+      "-F",
+      "-Xcc",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+      "-Xcc",
+      "-fPIC",
+      "-Xcc",
+      "-g",
+      "-package-name",
+      "raytracer",
+      "-driver-use-frontend-path",
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc"
+    ]
+  },
+  "targetDependencyMap" : {
+    "MenuBandRaytracer" : [
+
+    ]
+  },
+  "testDiscoveryCommands" : {
+
+  },
+  "testEntryPointCommands" : {
+
+  },
+  "traitConfiguration" : {
+    "default" : {
+
+    }
+  },
+  "writeCommands" : {
+    "/Users/jas/aesthetic-computer/pop/menuband/raytracer/.build/arm64-apple-macosx/release/MenuBandRaytracer.build/sources" : {
+      "alwaysOutOfDate" : false,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<sources-file-list>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/jas/aesthetic-computer/pop/menuband/raytracer/Sources/MenuBandRaytracer/main.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/jas/aesthetic-computer/pop/menuband/raytracer/.build/arm64-apple-macosx/release/MenuBandRaytracer.build/DerivedSources/resource_bundle_accessor.swift"
+        }
+      ],
+      "outputFilePath" : "/Users/jas/aesthetic-computer/pop/menuband/raytracer/.build/arm64-apple-macosx/release/MenuBandRaytracer.build/sources"
+    },
+    "/Users/jas/aesthetic-computer/pop/menuband/raytracer/.build/arm64-apple-macosx/release/MenuBandRaytracer.product/Objects.LinkFileList" : {
+      "alwaysOutOfDate" : false,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<link-file-list>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/jas/aesthetic-computer/pop/menuband/raytracer/.build/arm64-apple-macosx/release/MenuBandRaytracer.build/main.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/jas/aesthetic-computer/pop/menuband/raytracer/.build/arm64-apple-macosx/release/MenuBandRaytracer.build/resource_bundle_accessor.swift.o"
+        }
+      ],
+      "outputFilePath" : "/Users/jas/aesthetic-computer/pop/menuband/raytracer/.build/arm64-apple-macosx/release/MenuBandRaytracer.product/Objects.LinkFileList"
+    },
+    "/Users/jas/aesthetic-computer/pop/menuband/raytracer/.build/arm64-apple-macosx/release/swift-version--58304C5D6DBC2206.txt" : {
+      "alwaysOutOfDate" : true,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<swift-get-version>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc"
+        }
+      ],
+      "outputFilePath" : "/Users/jas/aesthetic-computer/pop/menuband/raytracer/.build/arm64-apple-macosx/release/swift-version--58304C5D6DBC2206.txt"
+    }
+  }
+}

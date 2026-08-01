@@ -22,6 +22,16 @@ final class MenuBandPopoverPanel: NSPanel {
     static let arrowHeight: CGFloat = 11
     static let arrowWidth: CGFloat = 22
     static let cornerRadius: CGFloat = 10
+    private static var windowStyle: NSWindow.StyleMask {
+        #if MAC_APP_STORE
+        // Public NSTouch delivery requires a genuinely activating key window.
+        // A nonactivating panel can look key after `makeKey`, yet AppKit keeps
+        // routing indirect touches to the previously active application.
+        return [.borderless]
+        #else
+        return [.borderless, .nonactivatingPanel]
+        #endif
+    }
 
     let chrome: MenuBandPopoverChrome
 
@@ -33,7 +43,7 @@ final class MenuBandPopoverPanel: NSPanel {
         chrome = MenuBandPopoverChrome(content: content)
         super.init(
             contentRect: NSRect(origin: .zero, size: totalSize),
-            styleMask: [.borderless, .nonactivatingPanel],
+            styleMask: Self.windowStyle,
             backing: .buffered,
             defer: false
         )

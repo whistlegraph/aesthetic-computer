@@ -1,0 +1,19 @@
+{
+  "": {
+    "dependencies": "/Users/jas/aesthetic-computer/pop/menuband/raytracer/.build/arm64-apple-macosx/release/MenuBandRaytracer.build/MenuBandRaytracer.d",
+    "object": "/Users/jas/aesthetic-computer/pop/menuband/raytracer/.build/arm64-apple-macosx/release/MenuBandRaytracer.build/MenuBandRaytracer.o",
+    "swift-dependencies": "/Users/jas/aesthetic-computer/pop/menuband/raytracer/.build/arm64-apple-macosx/release/MenuBandRaytracer.build/primary.swiftdeps"
+  },
+  "/Users/jas/aesthetic-computer/pop/menuband/raytracer/Sources/MenuBandRaytracer/main.swift": {
+    "object": "/Users/jas/aesthetic-computer/pop/menuband/raytracer/.build/arm64-apple-macosx/release/MenuBandRaytracer.build/main.swift.o",
+    "swiftmodule": "/Users/jas/aesthetic-computer/pop/menuband/raytracer/.build/arm64-apple-macosx/release/MenuBandRaytracer.build/main~partial.swiftmodule",
+    "swift-dependencies": "/Users/jas/aesthetic-computer/pop/menuband/raytracer/.build/arm64-apple-macosx/release/MenuBandRaytracer.build/main.swiftdeps",
+    "diagnostics": "/Users/jas/aesthetic-computer/pop/menuband/raytracer/.build/arm64-apple-macosx/release/MenuBandRaytracer.build/main.dia"
+  },
+  "/Users/jas/aesthetic-computer/pop/menuband/raytracer/.build/arm64-apple-macosx/release/MenuBandRaytracer.build/DerivedSources/resource_bundle_accessor.swift": {
+    "object": "/Users/jas/aesthetic-computer/pop/menuband/raytracer/.build/arm64-apple-macosx/release/MenuBandRaytracer.build/resource_bundle_accessor.swift.o",
+    "swiftmodule": "/Users/jas/aesthetic-computer/pop/menuband/raytracer/.build/arm64-apple-macosx/release/MenuBandRaytracer.build/resource_bundle_accessor~partial.swiftmodule",
+    "swift-dependencies": "/Users/jas/aesthetic-computer/pop/menuband/raytracer/.build/arm64-apple-macosx/release/MenuBandRaytracer.build/resource_bundle_accessor.swiftdeps",
+    "diagnostics": "/Users/jas/aesthetic-computer/pop/menuband/raytracer/.build/arm64-apple-macosx/release/MenuBandRaytracer.build/resource_bundle_accessor.dia"
+  }
+}
