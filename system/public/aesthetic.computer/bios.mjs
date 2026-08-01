@@ -9062,74 +9062,69 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           `📏 Creating tape ZIP at original resolution: ${originalWidth}x${originalHeight}`,
         );
 
-        // Create a canvas for frame processing
-        const canvas = document.createElement("canvas");
-        const ctx = canvas.getContext("2d");
-        canvas.width = originalWidth;
-        canvas.height = originalHeight;
-
         // Timing data for timing.json
-        const timingData = [];
-        let totalDuration = 0;
-
-        // Process each frame and add to ZIP
-        for (let i = 0; i < content.frames.length; i++) {
-          const frame = content.frames[i];
-
-          // Update progress (10-75%)
-          const progress = (i / content.frames.length) * 0.65 + 0.1;
-          
-          // Send detailed status updates
-          if (i % 10 === 0 || i === content.frames.length - 1) {
-            send({
-              type: "recorder:export-status",
-              content: {
-                message: `PROCESSING FRAME ${i + 1}/${content.frames.length}`,
-                phase: "processing",
-              },
-            });
-          console.log(
-            `🖼️ Processing frame ${i + 1}/${content.frames.length} (${Math.round(progress * 100)}%)`,
-          );
-        }
-        
-        const progressMessage = {
-          type: "recorder:transcode-progress",
-          content: progress,
-        };
-        console.log("📤 BIOS sending progress message:", progressMessage);
-        send(progressMessage);          // Create ImageData from frame data
-          const imageData = new ImageData(
-            new Uint8ClampedArray(frame.data),
-            frame.width,
-            frame.height,
-          );
-
-          // Clear canvas and put original frame
-          ctx.clearRect(0, 0, originalWidth, originalHeight);
-          ctx.putImageData(imageData, 0, 0);
-          
-          // Note: No stamp or overlay for tape recording - just pure original frames
-          
-          // Convert to PNG blob (original resolution)
-          const pngBlob = await new Promise((resolve) => {
-            canvas.toBlob((blob) => resolve(blob), "image/png");
-          });
-
-          // Add to ZIP with frame number
+        const timingData = content.frames.map((frame, i) => {
           const filename = `frame-${String(i).padStart(5, "0")}.png`;
-          zip.file(filename, pngBlob);
-
-          // Add timing info
-          timingData.push({
+          return {
             frame: i,
             filename,
             duration: frame.duration,
             timestamp: frame.timestamp,
-          });
-          
-          totalDuration += frame.duration;
-        }
+          };
+        });
+        const totalDuration = timingData.reduce(
+          (sum, frame) => sum + frame.duration,
+          0,
+        );
+
+        // PNG encoding dominates posting time on phones. Use a small,
+        // bounded pool so modern devices can encode several frames at once
+        // without multiplying memory use across the whole recording.
+        const workerCount = Math.min(
+          content.frames.length,
+          (navigator.hardwareConcurrency || 2) >= 6 ? 3 : 2,
+        );
+        let nextFrame = 0;
+        let completedFrames = 0;
+        const encodeWorker = async () => {
+          const canvas = document.createElement("canvas");
+          canvas.width = originalWidth;
+          canvas.height = originalHeight;
+          const ctx = canvas.getContext("2d");
+          while (nextFrame < content.frames.length) {
+            const i = nextFrame++;
+            const frame = content.frames[i];
+            ctx.putImageData(
+              new ImageData(
+                new Uint8ClampedArray(frame.data),
+                frame.width,
+                frame.height,
+              ),
+              0,
+              0,
+            );
+            const pngBlob = await new Promise((resolve, reject) => {
+              canvas.toBlob(
+                (blob) => blob ? resolve(blob) : reject(new Error("PNG encoding failed")),
+                "image/png",
+              );
+            });
+            zip.file(timingData[i].filename, pngBlob);
+            completedFrames += 1;
+            if (completedFrames % 10 === 0 || completedFrames === content.frames.length) {
+              const progress = (completedFrames / content.frames.length) * 0.65 + 0.1;
+              send({
+                type: "recorder:export-status",
+                content: {
+                  message: `PROCESSING FRAME ${completedFrames}/${content.frames.length}`,
+                  phase: "processing",
+                },
+              });
+              send({ type: "recorder:transcode-progress", content: progress });
+            }
+          }
+        };
+        await Promise.all(Array.from({ length: workerCount }, encodeWorker));
 
         // Add timing.json (75-80%)
         send({

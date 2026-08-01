@@ -1296,7 +1296,9 @@ function paint({
     const bh = 14; // Button height
     const bgap = 2;
     const bx0 = screen.width - SAFE_R - bw;
-    const deckTop = SAFE_T + 48;
+    // In jam mode the volume group occupies through SAFE_T + 87, including
+    // its numeric readout. Keep the deck below that complete widget.
+    const deckTop = jamChannel ? SAFE_T + 91 : SAFE_T + 48;
     let by = deckTop;
     for (const row of DECK) {
       const cw = Math.floor((bw - (row.length - 1) * bgap) / row.length);
