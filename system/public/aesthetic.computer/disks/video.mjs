@@ -679,15 +679,9 @@ function paint({
       ink(255, 200).write("||", { center: "xy" });
       ink(255, 75).box(0, 0, screen.width, screen.height, "inline");
     }
-    ink(0, 0, 0, 105).box(
-      0,
-      screen.height - CONTROL_RAIL_HEIGHT,
-      screen.width,
-      CONTROL_RAIL_HEIGHT,
-    );
-    // Thin progress bar above the control rail.
+    // Thin progress bar at the bottom edge, behind the controls.
     const barH = 2;
-    const barY = screen.height - CONTROL_RAIL_HEIGHT - barH;
+    const barY = screen.height - barH;
     ink(255, 40).box(0, barY, screen.width, barH);
     ink(255, 200, 0).box(0, barY, Math.floor(mp4Progress * screen.width), barH);
 
@@ -705,15 +699,6 @@ function paint({
     // Paused: subtle overlay without a black background
     ink(255, 200).write("||", { center: "xy" });
     ink(255, 75).box(0, 0, screen.width, screen.height, "inline");
-  }
-
-  if (exportAvailable && !isPrinting) {
-    ink(0, 0, 0, 105).box(
-      0,
-      screen.height - CONTROL_RAIL_HEIGHT,
-      screen.width,
-      CONTROL_RAIL_HEIGHT,
-    );
   }
 
   // Draw export buttons - reposition every frame (simple!)
@@ -1030,7 +1015,8 @@ function paint({
       "MatrixChunky8",
     );
 
-    // 🔴 One playback timeline sits above the Back/Done control rail.
+    // 🔴 One playback timeline sits on the bottom edge, behind the
+    // Back/Done controls.
     // position — drawn from live state so it never lies. It blinks white
     // on every UTC bar boundary, a silent visual click for timing up.
     const livePos = scrubDriven
@@ -1044,7 +1030,7 @@ function paint({
       (audioDiag.latencyMs || 0) / 1000 / (tapeInfo?.totalDuration || 8);
     let needlePos = livePos - latComp;
     needlePos = ((needlePos % 1) + 1) % 1;
-    const timelineY = screen.height - CONTROL_RAIL_HEIGHT - 2;
+    const timelineY = screen.height - 2;
     ink(255, 255, 255, 45).box(0, timelineY, screen.width, 2);
     ink(255, 51, 68, 170).box(
       0,
@@ -1294,12 +1280,12 @@ function paint({
     // ON — glide across pads notepat-style to trigger them.
     const DECK = [
       [
-        { key: "jumpL", label: "<", color: [90, 130, 200] },
-        { key: "jumpR", label: ">", color: [90, 130, 200] },
-      ],
-      [
         { key: "pitchD", label: "p-", color: [150, 110, 200] },
         { key: "pitchU", label: "p+", color: [150, 110, 200] },
+      ],
+      [
+        { key: "jumpL", label: "<", color: [90, 130, 200] },
+        { key: "jumpR", label: ">", color: [90, 130, 200] },
       ],
       [{ key: "chop4", label: "1/4 chop", color: [220, 150, 40] }],
       [{ key: "chop8", label: "1/8 chop", color: [255, 120, 180] }],
@@ -1310,14 +1296,7 @@ function paint({
     const bh = 14; // Button height
     const bgap = 2;
     const bx0 = screen.width - SAFE_R - bw;
-    const deckHeight = DECK.length * bh + (DECK.length - 1) * bgap;
-    const deckTop = Math.max(
-      SAFE_T + 48,
-      Math.min(
-        screen.height - SAFE_B - deckHeight - 28,
-        Math.floor((screen.height - deckHeight) / 2),
-      ),
-    );
+    const deckTop = SAFE_T + 48;
     let by = deckTop;
     for (const row of DECK) {
       const cw = Math.floor((bw - (row.length - 1) * bgap) / row.length);
@@ -1361,7 +1340,7 @@ function paint({
     if (pitchSemis !== 0) {
       ink(200, 160, 255).write(
         `${pitchSemis > 0 ? "+" : ""}${pitchSemis}st`,
-        { y: deckTop + bh + bgap + 4, right: screen.width - bx0 + 4 },
+        { y: deckTop + 4, right: screen.width - bx0 + 4 },
         undefined,
         undefined,
         false,
@@ -2907,7 +2886,8 @@ function act({
       // while the tempo, needle, and grid stay exactly where they are.
       const nudgePitch = (d) => {
         pitchSemis = Math.max(-12, Math.min(12, pitchSemis + d));
-        send({ type: "tape:audio-pitch", content: Math.pow(2, pitchSemis / 12) });
+        // The worklet's delay ratio runs opposite to musical semitones.
+        send({ type: "tape:audio-pitch", content: Math.pow(2, -pitchSemis / 12) });
         triggerRender();
       };
       legendBtns?.pitchD?.act(e, { down: () => nudgePitch(-2) });

@@ -3189,6 +3189,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           echoCancellation: data?.echoCancellation ?? false,
           noiseSuppression: data?.noiseSuppression ?? false,
           autoGainControl: data?.autoGainControl ?? false,
+          volume: data?.volume ?? 1,
           latency: data?.latency ?? 0,
         };
         

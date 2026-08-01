@@ -50,13 +50,17 @@ let pendingRecordStart = false; // Track if user wants to record but mic isn't r
 // `zoom` scales the camera frame around the screen center. 1 = no zoom.
 // `zoomStartY` is the Y position of the touch that began recording.
 // `zoomMax` caps how far the user can zoom in via slide.
-// `zoomSensitivity` is the screen-pixels-per-zoom-unit: at 240 px/unit
-// a comfy thumb slide of half a phone height (~400px) gives ~1.7x zoom.
+// A short upward slide zooms quickly; recent finger velocity projects the
+// gesture forward so fast throws feel more extreme than slow positioning.
 let zoom = 1;
 let zoomStartY = null;
-const zoomMax = 4;
+let zoomLastY = null;
+let zoomLastAt = 0;
+let zoomVelocity = 0;
+const zoomMax = 6;
 const zoomMin = 1;
-const zoomSensitivity = 240;
+const zoomSensitivity = 120;
+const zoomInertiaMs = 180;
 
 // 🥾 Boot
 function boot({ ui, params, colon, system, rec, notice }) {
@@ -79,6 +83,9 @@ function boot({ ui, params, colon, system, rec, notice }) {
   torchPending = false;
   zoom = 1;
   zoomStartY = null;
+  zoomLastY = null;
+  zoomLastAt = 0;
+  zoomVelocity = 0;
 
   // Parse parameters
   if (params[0] === "me" || params[0] === "selfie") facing = "user";
@@ -446,6 +453,9 @@ function act({ event: e, jump, video, cameras, rec, notice, leaving, hud }) {
       // Anchor zoom slider at the touch-down Y so the very first drag
       // pixel is treated as zoom = 1, no jumps.
       zoomStartY = e.y;
+      zoomLastY = e.y;
+      zoomLastAt = performance.now();
+      zoomVelocity = 0;
       startRecording(rec, notice);
     }
   }
@@ -455,9 +465,16 @@ function act({ event: e, jump, video, cameras, rec, notice, leaving, hud }) {
   // Y delta each draw event — this means the user can swing freely
   // up and down without accumulating drift across pauses.
   if (e.is("draw") && isRecording && zoomStartY !== null) {
+    const now = performance.now();
+    const dt = Math.max(1, now - zoomLastAt);
+    const instantVelocity = (zoomLastY - e.y) / dt;
+    zoomVelocity += (instantVelocity - zoomVelocity) * 0.55;
     const dy = zoomStartY - e.y; // up is positive
-    const target = 1 + dy / zoomSensitivity;
+    const projectedDy = dy + zoomVelocity * zoomInertiaMs;
+    const target = 1 + projectedDy / zoomSensitivity;
     zoom = Math.max(zoomMin, Math.min(zoomMax, target));
+    zoomLastY = e.y;
+    zoomLastAt = now;
   }
 
   if (e.is("lift") && !leaving()) {
@@ -469,6 +486,9 @@ function act({ event: e, jump, video, cameras, rec, notice, leaving, hud }) {
       notice("CANCELLED", ["yellow", "black"]);
     }
     zoomStartY = null;
+    zoomLastY = null;
+    zoomLastAt = 0;
+    zoomVelocity = 0;
     zoom = 1;
   }
 
@@ -536,6 +556,7 @@ function beat({ sound: { microphone } }) {
       echoCancellation: false,
       noiseSuppression: false,
       autoGainControl: true,
+      volume: 1,
     });
   }
 }
