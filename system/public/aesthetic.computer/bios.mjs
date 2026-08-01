@@ -8993,17 +8993,19 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
           const rawAudio = window.postRawAudio;
           const piece = window.postPiece;
+          const draftOnly = window.postDraftOnly;
 
           delete window.postFrameChunks;
           delete window.postTotalChunks;
           delete window.postReceivedChunks;
           delete window.postRawAudio;
           delete window.postPiece;
+          delete window.postDraftOnly;
 
           receivedChange({
             data: {
               type: "create-and-post-tape",
-              content: { frames: allFrames, rawAudio, piece }
+              content: { frames: allFrames, rawAudio, piece, draftOnly }
             }
           });
         }
@@ -9013,6 +9015,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     // 🎬 Create ZIP and POST tape to cloud (MongoDB + ATProto)
     if (type === "create-and-post-tape") {
+      if (content.draftOnly) cancelTapeDraftRequested = false;
       if (content.totalChunks && content.totalChunks > 1) {
         console.log(
           `📼 Receiving POST frames in chunks (1/${content.totalChunks}):`,
@@ -9024,6 +9027,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         window.postReceivedChunks = 1;
         window.postRawAudio = content.rawAudio; // Store rawAudio from first chunk
         window.postPiece = content.piece; // Store piece name from first chunk
+        window.postDraftOnly = content.draftOnly === true;
         return;
       }
 
@@ -9250,20 +9254,24 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           content: 0.90,
         });
         
-        // Use existing receivedUpload pattern with metadata
-        receivedUpload(
-          { filename, data: zipBlob },
-          "tape:posted",  // Success callback type
-          metadata,       // Pass metadata for database
-        );
+        if (content.draftOnly) {
+          receivedTapeDraftUpload(zipBlob, metadata);
+        } else {
+          // Use existing receivedUpload pattern with metadata
+          receivedUpload(
+            { filename, data: zipBlob },
+            "tape:posted",  // Success callback type
+            metadata,       // Pass metadata for database
+          );
+        }
 
         console.log("📼 Tape ZIP created and queued for upload!");
         
       } catch (error) {
         console.error("Error creating/posting tape:", error);
-        send({ 
-          type: "tape:post-error", 
-          content: { error: error.message } 
+        send({
+          type: content.draftOnly ? "tape:draft-error" : "tape:post-error",
+          content: { error: error.message },
         });
       }
       return;
@@ -17451,6 +17459,45 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
 
+    if (type === "tape:draft-finalize") {
+      const token = await authorize().catch(() => null);
+      const headers = { "Content-Type": "application/json" };
+      if (token) headers.Authorization = `Bearer ${token}`;
+      try {
+        const response = await fetch("/api/tape-draft", {
+          method: "PUT",
+          headers,
+          body: JSON.stringify(content),
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || `HTTP ${response.status}`);
+        activeTapeDraft = null;
+        activeTapeDraftXHR = null;
+        send({ type: "tape:posted", content: { result: "success", ...result } });
+      } catch (error) {
+        send({ type: "tape:post-error", content: { error: error.message } });
+      }
+      return;
+    }
+
+    if (type === "tape:draft-cancel") {
+      cancelTapeDraftRequested = true;
+      activeTapeDraftXHR?.abort();
+      activeTapeDraftXHR = null;
+      const draft = content?.id ? content : activeTapeDraft;
+      activeTapeDraft = null;
+      if (!draft?.id || !draft?.token) return;
+      const token = await authorize().catch(() => null);
+      const headers = { "Content-Type": "application/json" };
+      if (token) headers.Authorization = `Bearer ${token}`;
+      fetch("/api/tape-draft", {
+        method: "DELETE",
+        headers,
+        body: JSON.stringify({ id: draft.id, token: draft.token }),
+      }).catch((error) => console.warn("📌 Draft cleanup failed:", error));
+      return;
+    }
+
     // Request recorded frames for export
     if (type === "recorder:request-frames") {
       if (recordedFrames.length > 0) {
@@ -20107,6 +20154,66 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   } // End of receivedChange function
 
   // 📤 Reads a file and uploads it to the server.
+  let activeTapeDraft = null;
+  let activeTapeDraftXHR = null;
+  let cancelTapeDraftRequested = false;
+
+  async function receivedTapeDraftUpload(zipBlob, metadata) {
+    if (cancelTapeDraftRequested) return;
+    const authToken = await authorize().catch(() => null);
+    const headers = {};
+    if (authToken) headers.Authorization = `Bearer ${authToken}`;
+    try {
+      const create = await fetch("/api/tape-draft", { method: "POST", headers });
+      const draft = await create.json();
+      if (!create.ok || !draft.uploadURL) {
+        throw new Error(draft.error || `HTTP ${create.status}`);
+      }
+      activeTapeDraft = draft;
+      if (cancelTapeDraftRequested) {
+        const deleteHeaders = { "Content-Type": "application/json", ...headers };
+        fetch("/api/tape-draft", {
+          method: "DELETE",
+          headers: deleteHeaders,
+          body: JSON.stringify({ id: draft.id, token: draft.token }),
+        }).catch(() => {});
+        activeTapeDraft = null;
+        return;
+      }
+      const xhr = new XMLHttpRequest();
+      activeTapeDraftXHR = xhr;
+      xhr.open("PUT", draft.uploadURL, true);
+      xhr.setRequestHeader("Content-Type", "application/zip");
+      xhr.setRequestHeader("Content-Disposition", "inline");
+      xhr.upload.addEventListener("progress", (event) => {
+        if (event.lengthComputable) {
+          send({ type: "tape:draft-progress", content: event.loaded / event.total });
+        }
+      });
+      xhr.onerror = () => {
+        send({ type: "tape:draft-error", content: { error: "Draft upload failed" } });
+      };
+      xhr.onreadystatechange = () => {
+        if (xhr.readyState !== XMLHttpRequest.DONE) return;
+        if (xhr.status >= 200 && xhr.status < 300) {
+          activeTapeDraftXHR = null;
+          send({
+            type: "tape:draft-ready",
+            content: { id: draft.id, token: draft.token, slug: draft.slug, metadata },
+          });
+        } else if (xhr.status !== 0) {
+          send({
+            type: "tape:draft-error",
+            content: { error: `Draft upload HTTP ${xhr.status}` },
+          });
+        }
+      };
+      xhr.send(zipBlob);
+    } catch (error) {
+      send({ type: "tape:draft-error", content: { error: error.message } });
+    }
+  }
+
   async function receivedUpload(
     { filename, data, bucket },
     callbackMessage = "upload",

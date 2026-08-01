@@ -58,6 +58,9 @@ let printProgress = 0; // Export progress (0-1)
 let ellipsisTicker;
 let postedTapeCode = null; // Store the tape code after posting for button transformation
 let frameCount = 0; // Frame counter for animations like button blinking
+let tapeDraft = null; // Private pre-upload descriptor returned by bios.
+let tapeDraftState = "idle"; // idle, preparing, uploading, ready, error, finalizing
+let finalizeWhenReady = false;
 
 let isExportingGIF = false;
 let isExportingFrames = false;
@@ -425,6 +428,9 @@ function boot({ wipe, rec, gizmo, jump, notice, store, params, send, hud }) {
   currentExportType = "";
   printed = false;
   postedTapeCode = null; // Reset tape code from previous session
+  tapeDraft = null;
+  tapeDraftState = "idle";
+  finalizeWhenReady = false;
   tapeInfo = null; // Reset tape info for new recording
   isScrubbing = false;
   inertiaActive = false;
@@ -617,9 +623,82 @@ function boot({ wipe, rec, gizmo, jump, notice, store, params, send, hud }) {
     });
     
     rec.present(); // Visually present a recording right away if one exists.
+    if (rec.recorded) beginTapeDraft(rec, send);
   }
   
   ellipsisTicker = new gizmo.EllipsisTicker();
+}
+
+function beginTapeDraft(rec, send) {
+  if (tapeDraftState !== "idle" || !rec?.recorded) return;
+  tapeDraftState = "preparing";
+  rec.requestFrames((frameData) => {
+    if (!frameData?.frames?.length || tapeDraftState === "idle") {
+      tapeDraftState = "error";
+      if (finalizeWhenReady) {
+        finalizeWhenReady = false;
+        isPostingTape = false;
+        isPrinting = false;
+        if (postBtn) postBtn.disabled = false;
+      }
+      requestPaint();
+      return;
+    }
+    const frames = frameData.frames.map((frame, index) => {
+      const [timestamp, imageData] = frame;
+      const nextTimestamp = frameData.frames[index + 1]?.[0];
+      return {
+        timestamp,
+        duration: nextTimestamp ? Math.max(10, nextTimestamp - timestamp) : 16.67,
+        width: imageData.width,
+        height: imageData.height,
+        data: imageData.data,
+      };
+    });
+    tapeDraftState = "uploading";
+    const chunkSize = 500;
+    const totalChunks = Math.ceil(frames.length / chunkSize);
+    send({
+      type: "create-and-post-tape",
+      content: {
+        frames: frames.slice(0, chunkSize),
+        piece: "video",
+        rawAudio: frameData.rawAudio,
+        draftOnly: true,
+        totalChunks,
+      },
+    });
+    for (let i = 1; i < totalChunks; i++) {
+      send({
+        type: "create-and-post-tape-chunk",
+        content: { frames: frames.slice(i * chunkSize, (i + 1) * chunkSize) },
+      });
+    }
+  });
+}
+
+function finalizeTapeDraft(send) {
+  if (!tapeDraft || tapeDraftState !== "ready") return false;
+  tapeDraftState = "finalizing";
+  send({
+    type: "tape:draft-finalize",
+    content: {
+      id: tapeDraft.id,
+      token: tapeDraft.token,
+      metadata: tapeDraft.metadata,
+    },
+  });
+  return true;
+}
+
+function cancelTapeDraft(send) {
+  send({
+    type: "tape:draft-cancel",
+    content: tapeDraft ? { id: tapeDraft.id, token: tapeDraft.token } : {},
+  });
+  tapeDraft = null;
+  tapeDraftState = "idle";
+  finalizeWhenReady = false;
 }
 
 // 🎨 Paint (Executes every display frame)
@@ -1831,6 +1910,7 @@ function act({
     // 🔙 Back to cap so the user can immediately re-shoot.
     backBtn?.act(e, {
       push: () => {
+        cancelTapeDraft(send);
         // Drop the current tape and any cached export / playback state
         // so cap.mjs starts clean and stale UI (progress bar, scrub
         // strip, post button) doesn't bleed through to the next visit.
@@ -2279,6 +2359,30 @@ function act({
         }
         
         if (isPostingTape) return; // Prevent double-posting
+
+        // The review screen prepares and privately uploads this tape in the
+        // background. Done either finalizes immediately or waits for only the
+        // unfinished tail of that work.
+        if (tapeDraftState === "ready") {
+          isPostingTape = true;
+          isPrinting = true;
+          currentExportType = "post";
+          exportStatusMessage = "FINALIZING TAPE";
+          postBtn.disabled = true;
+          finalizeTapeDraft(send);
+          triggerRender();
+          return;
+        }
+        if (tapeDraftState === "preparing" || tapeDraftState === "uploading") {
+          finalizeWhenReady = true;
+          isPostingTape = true;
+          isPrinting = true;
+          currentExportType = "post";
+          exportStatusMessage = "FINISHING PRE-UPLOAD";
+          postBtn.disabled = true;
+          triggerRender();
+          return;
+        }
         
         isPostingTape = true;
         isPrinting = true;
@@ -3219,6 +3323,42 @@ function handleSystemMessage({ event: e, rec, needsPaint, jump }) {
     requestPaint();
     return true;
   }
+
+  if (e.is("tape:draft-progress")) {
+    tapeDraftState = "uploading";
+    if (finalizeWhenReady) {
+      printProgress = 0.85 + Math.max(0, Math.min(1, e.content || 0)) * 0.1;
+      requestPaint();
+    }
+    return true;
+  }
+
+  if (e.is("tape:draft-ready")) {
+    tapeDraft = e.content;
+    tapeDraftState = "ready";
+    if (finalizeWhenReady) {
+      exportStatusMessage = "FINALIZING TAPE";
+      finalizeTapeDraft(apiSend);
+    }
+    requestPaint();
+    return true;
+  }
+
+  if (e.is("tape:draft-error")) {
+    console.warn("📌 Tape pre-upload failed; Done will use the normal path:", e.content);
+    tapeDraft = null;
+    tapeDraftState = "error";
+    if (finalizeWhenReady) {
+      finalizeWhenReady = false;
+      isPostingTape = false;
+      isPrinting = false;
+      if (postBtn) postBtn.disabled = false;
+      completionMessage = "PRE-UPLOAD FAILED — TAP DONE TO RETRY";
+      completionMessageTimer = 180;
+    }
+    requestPaint();
+    return true;
+  }
   
   // Handle tape:posted callback (successful tape upload)
   if (e.is("tape:posted")) {
@@ -3228,6 +3368,9 @@ function handleSystemMessage({ event: e, rec, needsPaint, jump }) {
     
     // Store the code for HUD label display
     postedTapeCode = code;
+    tapeDraft = null;
+    tapeDraftState = "idle";
+    finalizeWhenReady = false;
     
     // Complete the export flow (sets progress to 100%)
     completeExport("post", code ? `POSTED! !${code}` : "POSTED!");
@@ -3717,6 +3860,7 @@ function receive(e) {
 // Called when leaving the video disk (e.g., pressing escape to go back to prompt)
 function leave({ send, rec }) {
   console.log("📼 Leaving video disk - stopping tape playback");
+  if (!postedTapeCode) cancelTapeDraft(send);
   // End the presentation properly — otherwise rec.presenting stays true
   // and the bottom progress bar cursor haunts the next piece (prompt).
   rec?.unpresent?.();
