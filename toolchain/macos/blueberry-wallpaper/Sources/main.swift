@@ -2,258 +2,269 @@ import AppKit
 import QuartzCore
 import SceneKit
 
-private let bundleID = "computer.aesthetic.blueberry-wallpaper"
-private let slabTintNotification = Notification.Name("computer.aesthetic.slab.desktop-tint.changed")
-
-private struct SlabTint: Decodable {
-    let red: Int
-    let green: Int
-    let blue: Int
-
-    static func current() -> NSColor? {
-        let slabHome = ProcessInfo.processInfo.environment["SLAB_HOME"]
-            ?? "\(NSHomeDirectory())/.local/share/slab"
-        let url = URL(fileURLWithPath: "\(slabHome)/wallpaper/desktop/current-color.json")
-        guard let data = try? Data(contentsOf: url),
-              let tint = try? JSONDecoder().decode(Self.self, from: data)
-        else { return nil }
-        return NSColor(srgbRed: CGFloat(tint.red) / 65535,
-                       green: CGFloat(tint.green) / 65535,
-                       blue: CGFloat(tint.blue) / 65535, alpha: 1)
-    }
-}
-
-private func accentField(dark: Bool) -> NSColor {
-    let target: NSColor = dark ? .black : .white
-    let amount: CGFloat = dark ? 0.68 : 0.72
-    return NSColor.controlAccentColor.blended(withFraction: amount, of: target)
-        ?? NSColor.controlAccentColor
-}
-
-private struct MarkSpec {
+private struct PalsSpec {
     let x: CGFloat
-    let phase: Double
-    let width: CGFloat
-    let riseSeconds: Double
-    let spinSeconds: Double
+    let scale: CGFloat
+    let riseSeconds: TimeInterval
+    let turnSeconds: TimeInterval
+    let phase: CGFloat
     let sway: CGFloat
     let reverse: Bool
-    let variant: Int
-}
-
-private struct LiveMark {
-    let node: SCNNode
-    let spec: MarkSpec
 }
 
 private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
-    private static let verticalSpan: CGFloat = 12
-    private static let peakOpacity: CGFloat = 0.48
-    /// A toroidal blue-noise layout: vertical neighbors jump seven of the
-    /// eighteen horizontal lanes. Every mark shares one rise period, so that
-    /// separation remains invariant rather than drifting into collisions.
-    private static let palsSpecs: [MarkSpec] = (0..<18).map { i in
-        let lane = (i * 7) % 18
-        let widths: [CGFloat] = [52, 64, 76, 58, 84, 68]
-        return MarkSpec(
-            // The outer lanes sit directly on the display boundary so those
-            // meshes crop naturally and the field reads as continuing beyond
-            // the screen instead of stopping at an inset margin.
-            x: CGFloat(lane) / 17,
-            phase: Double(i) / 18,
-            width: widths[i % widths.count],
-            riseSeconds: 54,
-            spinSeconds: Double(22 + (i * 5) % 17),
-            sway: CGFloat(6 + (i * 3) % 7),
-            reverse: i.isMultiple(of: 2),
-            variant: i % 5)
+    private struct Placement {
+        let model: SCNNode
+        var x: CGFloat
+        var y: CGFloat
+        let width: CGFloat
+        let height: CGFloat
     }
-    private let sceneView: SCNView
+
+    private static let stageHalfHeight: CGFloat = 2.35
+    private static let markScale: CGFloat = 0.90
+    private static let specs = [
+        PalsSpec(x: -0.82, scale: 0.62, riseSeconds: 34, turnSeconds: 23, phase: 0.02, sway: 0.030, reverse: false),
+        PalsSpec(x: -0.42, scale: 1.00, riseSeconds: 42, turnSeconds: 31, phase: 0.14, sway: 0.044, reverse: true),
+        PalsSpec(x: 0.00, scale: 1.30, riseSeconds: 48, turnSeconds: 38, phase: 0.27, sway: 0.032, reverse: false),
+        PalsSpec(x: 0.42, scale: 0.75, riseSeconds: 36, turnSeconds: 25, phase: 0.39, sway: 0.046, reverse: true),
+        PalsSpec(x: 0.82, scale: 1.10, riseSeconds: 44, turnSeconds: 34, phase: 0.51, sway: 0.034, reverse: false),
+        PalsSpec(x: -0.62, scale: 1.18, riseSeconds: 46, turnSeconds: 36, phase: 0.63, sway: 0.038, reverse: true),
+        PalsSpec(x: -0.20, scale: 0.55, riseSeconds: 31, turnSeconds: 20, phase: 0.74, sway: 0.050, reverse: false),
+        PalsSpec(x: 0.22, scale: 0.90, riseSeconds: 40, turnSeconds: 28, phase: 0.85, sway: 0.028, reverse: true),
+        PalsSpec(x: 0.68, scale: 0.68, riseSeconds: 35, turnSeconds: 22, phase: 0.94, sway: 0.042, reverse: false),
+    ]
+
+    private let background = CAGradientLayer()
+    private let sceneView = SCNView(frame: .zero)
     private let scene = SCNScene()
-    private var marks: [LiveMark] = []
-    private var aspect: CGFloat = 1
-    private var lastSize = CGSize.zero
-    private var loadedDark: Bool?
+    private let camera = SCNNode()
+    private var models: [SCNNode] = []
+    private var materials: [SCNMaterial] = []
+    private var stageAspect: CGFloat = 1.6
+    private var motionEpoch: TimeInterval?
+    private var modelWidth: CGFloat = 1
+    private var modelHeight: CGFloat = 1
 
     override init(frame: NSRect) {
-        sceneView = SCNView(frame: frame)
         super.init(frame: frame)
-        let isNeo = ProcessInfo.processInfo.hostName
-            .lowercased().split(separator: ".").first == "neo"
         wantsLayer = true
+        let root = CALayer()
+        root.masksToBounds = true
+        layer = root
+        root.addSublayer(background)
+
+        sceneView.frame = bounds
         sceneView.autoresizingMask = [.width, .height]
         sceneView.scene = scene
         sceneView.delegate = self
-        sceneView.isPlaying = true
-        // Neo shares an interactive pointer seat and must never let an
-        // always-on desktop render contend with input. It keeps the same scene
-        // at half cadence and without MSAA; Blueberry has the full treatment.
-        sceneView.preferredFramesPerSecond = isNeo ? 15 : 30
-        sceneView.antialiasingMode = isNeo ? .none : .multisampling2X
-        sceneView.rendersContinuously = true
         sceneView.backgroundColor = .clear
+        sceneView.antialiasingMode = .multisampling2X
+        sceneView.preferredFramesPerSecond = 30
+        sceneView.rendersContinuously = true
+        sceneView.isPlaying = true
         addSubview(sceneView)
-        buildScene()
-        updateAppearance()
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(systemColorsDidChange),
+            name: NSColor.systemColorsDidChangeNotification, object: nil)
+
+        loadModel()
+        buildCameraAndLights()
+        updateAppearance(animated: false)
     }
 
     required init?(coder: NSCoder) { nil }
 
+    deinit { NotificationCenter.default.removeObserver(self) }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        guard let scale = window?.backingScaleFactor else { return }
+        sceneView.layer?.contentsScale = scale
+    }
+
     override func viewDidChangeEffectiveAppearance() {
         super.viewDidChangeEffectiveAppearance()
-        updateAppearance()
+        updateAppearance(animated: true)
+    }
+
+    @objc private func systemColorsDidChange() {
+        applyAccentColor(animated: true)
     }
 
     override func layout() {
         super.layout()
-        guard bounds.size != lastSize, bounds.height > 0 else { return }
-        lastSize = bounds.size
-        aspect = bounds.width / bounds.height
-        resizeMarks()
+        background.frame = bounds
+        guard bounds.width > 0, bounds.height > 0 else { return }
+
+        let aspect = bounds.width / bounds.height
+        stageAspect = aspect
+        let halfHeight = Self.stageHalfHeight
+        camera.camera?.orthographicScale = Double(halfHeight)
     }
 
-    func refreshAccent() { updateAppearance(force: true) }
-    func refreshPromptColor() { updateAppearance(force: true) }
-    func pauseAnimations() { sceneView.isPlaying = false }
-    func resumeAnimations() { sceneView.isPlaying = true }
+    func pauseAnimations() {
+        scene.isPaused = true
+        sceneView.rendersContinuously = false
+    }
 
-    private func buildScene() {
-        let camera = SCNNode()
-        camera.camera = SCNCamera()
-        camera.camera?.usesOrthographicProjection = true
-        camera.camera?.orthographicScale = Self.verticalSpan
-        camera.camera?.wantsHDR = false
-        camera.position = SCNVector3(0, 0, 10)
-        scene.rootNode.addChildNode(camera)
-        sceneView.pointOfView = camera
+    func resumeAnimations() {
+        scene.isPaused = false
+        sceneView.rendersContinuously = true
+        sceneView.isPlaying = true
+    }
 
-        let ambient = SCNNode()
-        ambient.light = SCNLight()
-        ambient.light?.type = .ambient
-        ambient.light?.intensity = 180
-        scene.rootNode.addChildNode(ambient)
-        let key = SCNNode()
-        key.light = SCNLight()
-        key.light?.type = .directional
-        key.light?.intensity = 520
-        key.eulerAngles = SCNVector3(-0.55, 0.62, 0)
-        scene.rootNode.addChildNode(key)
-        let rim = SCNNode()
-        rim.light = SCNLight()
-        rim.light?.type = .omni
-        rim.light?.intensity = 240
-        rim.position = SCNVector3(-2, 2, 6)
-        scene.rootNode.addChildNode(rim)
-
-        guard let modelURL = Bundle.main.url(forResource: "pals-mesh", withExtension: "usdc"),
-              let imported = try? SCNScene(url: modelURL, options: nil)
+    private func loadModel() {
+        guard let url = Bundle.main.url(
+                  forResource: "pals-mesh", withExtension: "usdc",
+                  subdirectory: "PalsModel"),
+              let imported = try? SCNScene(url: url, options: nil)
         else {
-            fputs("missing live Pals model\n", stderr)
+            fputs("could not load bundled Pals GLB geometry\n", stderr)
             return
         }
-        let template = normalizedTemplate(from: imported)
-        for spec in Self.palsSpecs {
-            let node = template.clone()
-            makeMaterialsUnique(in: node)
-            scene.rootNode.addChildNode(node)
-            marks.append(LiveMark(node: node, spec: spec))
+
+        let prototype = SCNNode()
+        for child in imported.rootNode.childNodes {
+            child.removeFromParentNode()
+            prototype.addChildNode(child)
+        }
+        applyOriginalGLBMaterials(to: prototype)
+        let (lo, hi) = prototype.boundingBox
+        modelWidth = max(CGFloat(hi.x - lo.x), 0.001)
+        modelHeight = max(CGFloat(hi.y - lo.y), 0.001)
+        prototype.pivot = SCNMatrix4MakeTranslation(
+            (lo.x + hi.x) * 0.5,
+            (lo.y + hi.y) * 0.5,
+            (lo.z + hi.z) * 0.5)
+
+        for spec in Self.specs {
+            let model = prototype.clone()
+            let scale = spec.scale * Self.markScale
+            model.scale = SCNVector3(scale, scale, scale)
+            model.eulerAngles = SCNVector3(-0.055, spec.phase * .pi * 2, 0)
+            let angle = (spec.reverse ? -1 : 1) * CGFloat.pi * 2
+            let turn = SCNAction.rotateBy(x: 0, y: angle, z: 0, duration: spec.turnSeconds)
+            turn.timingMode = .linear
+            model.runAction(.repeatForever(turn), forKey: "fullResolutionTurn")
+            scene.rootNode.addChildNode(model)
+            models.append(model)
         }
     }
 
-    private func normalizedTemplate(from imported: SCNScene) -> SCNNode {
-        let content = SCNNode()
-        for child in imported.rootNode.childNodes { content.addChildNode(child.clone()) }
-        let (lo, hi) = content.boundingBox
-        content.position = SCNVector3(-(lo.x + hi.x) / 2,
-                                      -(lo.y + hi.y) / 2,
-                                      -(lo.z + hi.z) / 2)
-        let span = max(max(hi.x - lo.x, hi.y - lo.y), hi.z - lo.z)
-        let scale = 1 / max(span, 0.001)
-        content.scale = SCNVector3(scale, scale, scale)
-        let outer = SCNNode()
-        outer.addChildNode(content)
-        outer.eulerAngles.x = -0.08
-        return outer
-    }
+    func renderer(_ renderer: SCNSceneRenderer, updateAtTime time: TimeInterval) {
+        if motionEpoch == nil { motionEpoch = time }
+        let elapsed = time - (motionEpoch ?? time)
+        let halfHeight = Self.stageHalfHeight
+        let halfWidth = halfHeight * stageAspect
+        let padding: CGFloat = 0.13
+        var candidates: [Placement] = []
 
-    private func makeMaterialsUnique(in node: SCNNode) {
-        node.enumerateChildNodes { child, _ in
-            guard let geometry = child.geometry else { return }
-            geometry.materials = geometry.materials.map { ($0.copy() as? SCNMaterial) ?? $0 }
+        for (model, spec) in zip(models, Self.specs) {
+            let raw = CGFloat(elapsed / spec.riseSeconds) + spec.phase
+            let progress = raw - floor(raw)
+            let scale = spec.scale * Self.markScale
+            let width = modelWidth * scale * 1.08
+            let height = modelHeight * scale * 1.08
+            let margin = height * 0.62
+            let low = -halfHeight - margin
+            let high = halfHeight + margin
+            let buoyant = progress * 0.75 + progress * progress * 0.25
+            let xLimit = max(0, halfWidth - width * 0.5 - padding)
+            let desiredX = spec.x * halfWidth
+                + sin(progress * .pi * 2 + spec.phase * .pi) * halfWidth * spec.sway
+            let x = min(max(desiredX, -xLimit), xLimit)
+            candidates.append(Placement(
+                model: model, x: x, y: low + (high - low) * buoyant,
+                width: width, height: height))
+        }
+
+        candidates.sort { $0.y < $1.y }
+        var placed: [Placement] = []
+        for var candidate in candidates {
+            var passes = 0
+            while let collision = placed.first(where: {
+                abs(candidate.x - $0.x) < (candidate.width + $0.width) * 0.5 + padding
+                    && abs(candidate.y - $0.y) < (candidate.height + $0.height) * 0.5 + padding
+            }), passes < placed.count + 1 {
+                candidate.y = collision.y
+                    + (candidate.height + collision.height) * 0.5 + padding
+                passes += 1
+            }
+            placed.append(candidate)
+        }
+
+        for placement in placed {
+            placement.model.position = SCNVector3(placement.x, placement.y, 0)
         }
     }
 
-    private func resizeMarks() {
-        for mark in marks {
-            let pixels = min(mark.spec.width * 0.85, bounds.width * 0.26)
-            let world = pixels / bounds.height * Self.verticalSpan
-            mark.node.scale = SCNVector3(world, world, world)
-        }
-    }
-
-    private func updateAppearance(force: Bool = false) {
-        let dark = effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-        if !force, loadedDark == dark { return }
-        loadedDark = dark
-        SCNTransaction.begin()
-        SCNTransaction.animationDuration = force ? 0.65 : 0
-        scene.background.contents = accentField(dark: dark)
-        let palette = materialPalette(dark: dark)
-        for mark in marks {
-            let color = palette[mark.spec.variant % palette.count]
-            mark.node.enumerateChildNodes { child, _ in
-                for material in child.geometry?.materials ?? [] {
-                    material.lightingModel = .physicallyBased
-                    material.diffuse.contents = color
-                    material.multiply.contents = NSColor.white
-                    material.roughness.contents = 0.42
-                    material.metalness.contents = 0.04
-                    material.specular.contents = NSColor(white: 0.55, alpha: 1)
+    private func applyOriginalGLBMaterials(to model: SCNNode) {
+        model.enumerateChildNodes { node, _ in
+            for material in node.geometry?.materials ?? [] {
+                material.fillMode = .lines
+                material.lightingModel = .constant
+                material.diffuse.contents = NSColor.controlAccentColor
+                material.emission.contents = nil
+                material.multiply.contents = nil
+                material.normal.contents = nil
+                material.metalness.contents = nil
+                material.roughness.contents = nil
+                material.specular.contents = nil
+                material.transparency = 0.68
+                if !materials.contains(where: { $0 === material }) {
+                    materials.append(material)
                 }
             }
+        }
+        applyAccentColor(animated: false)
+    }
+
+    private func applyAccentColor(animated: Bool) {
+        let accent = NSColor.controlAccentColor.usingColorSpace(.sRGB) ?? .systemBlue
+        let faded = accent.blended(withFraction: 0.34, of: .white) ?? accent
+        SCNTransaction.begin()
+        SCNTransaction.animationDuration = animated ? 0.45 : 0
+        for material in materials {
+            material.diffuse.contents = faded
         }
         SCNTransaction.commit()
     }
 
-    private func materialPalette(dark: Bool) -> [NSColor] {
-        let accent = NSColor.controlAccentColor.usingColorSpace(.sRGB)
-            ?? NSColor.controlAccentColor
-        let prompt = SlabTint.current() ?? accent
-        let promptMix = accent.blended(withFraction: 0.42, of: prompt) ?? accent
-        let base = promptMix.blended(withFraction: 0.18, of: .systemTeal) ?? promptMix
-        let shade: NSColor = dark ? NSColor(white: 0.72, alpha: 1) : .black
-        return [
-            base.blended(withFraction: dark ? 0.10 : 0.24, of: shade) ?? base,
-            base.blended(withFraction: dark ? 0.18 : 0.31, of: shade) ?? base,
-            base.blended(withFraction: 0.24, of: .systemBlue) ?? base,
-            base.blended(withFraction: 0.26, of: .systemTeal) ?? base,
-            base.blended(withFraction: 0.18, of: .systemIndigo) ?? base,
-        ]
+    private func buildCameraAndLights() {
+        camera.camera = SCNCamera()
+        camera.camera?.usesOrthographicProjection = true
+        camera.camera?.wantsHDR = false
+        camera.position = SCNVector3(0, 0, 4)
+        scene.rootNode.addChildNode(camera)
+        sceneView.pointOfView = camera
+
     }
 
-    func renderer(_ renderer: any SCNSceneRenderer, updateAtTime time: TimeInterval) {
-        let screenHeight = max(bounds.height, 1)
-        let worldWidth = Self.verticalSpan * aspect
-        for mark in marks {
-            let spec = mark.spec
-            var progress = time / spec.riseSeconds + spec.phase
-            progress -= floor(progress)
-            let width = min(spec.width * 0.85, bounds.width * 0.26)
-            let margin = width / screenHeight * Self.verticalSpan * 0.75
-            let low = -Self.verticalSpan / 2 - margin
-            let high = Self.verticalSpan / 2 + margin
-            let sway = spec.sway / screenHeight * Self.verticalSpan
-            let x = (spec.x - 0.5) * worldWidth
-                + sway * sin(CGFloat(progress) * .pi * 4)
-            let y = low + (high - low) * CGFloat(progress)
-            mark.node.position = SCNVector3(x, y, 0)
-            let edge = min(CGFloat(progress) / 0.08,
-                           CGFloat(1 - progress) / 0.10, 1)
-            mark.node.opacity = max(0, edge) * Self.peakOpacity
-            let direction: CGFloat = spec.reverse ? -1 : 1
-            let turn = CGFloat(time / spec.spinSeconds) * .pi * 2 * direction
-            mark.node.eulerAngles.y = turn
+    private func updateAppearance(animated: Bool) {
+        applyAccentColor(animated: animated)
+        let dark = effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        let accent = NSColor.controlAccentColor.usingColorSpace(.sRGB) ?? .systemBlue
+        let bases: [NSColor] = dark ? [
+            NSColor(srgbRed: 0.010, green: 0.018, blue: 0.080, alpha: 1),
+            NSColor(srgbRed: 0.028, green: 0.072, blue: 0.225, alpha: 1),
+            NSColor(srgbRed: 0.105, green: 0.082, blue: 0.300, alpha: 1),
+        ] : [
+            NSColor(srgbRed: 0.92, green: 0.96, blue: 1.00, alpha: 1),
+            NSColor(srgbRed: 0.74, green: 0.84, blue: 0.96, alpha: 1),
+            NSColor(srgbRed: 0.84, green: 0.83, blue: 0.98, alpha: 1),
+        ]
+        let strengths: [CGFloat] = dark ? [0.07, 0.12, 0.10] : [0.08, 0.13, 0.10]
+        let colors = zip(bases, strengths).map {
+            $0.0.blended(withFraction: $0.1, of: accent) ?? $0.0
         }
+        CATransaction.begin()
+        CATransaction.setAnimationDuration(animated ? 0.65 : 0)
+        background.startPoint = CGPoint(x: 0.03, y: 0.94)
+        background.endPoint = CGPoint(x: 0.98, y: 0.05)
+        background.colors = colors.map(\.cgColor)
+        background.locations = [0.0, 0.56, 1.0]
+        CATransaction.commit()
     }
 }
 
@@ -263,25 +274,13 @@ private final class WallpaperDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         rebuildWindows()
-        NotificationCenter.default.addObserver(
-            self, selector: #selector(systemColorsDidChange),
-            name: NSColor.systemColorsDidChangeNotification, object: nil)
-        DistributedNotificationCenter.default().addObserver(
-            self, selector: #selector(promptColorDidChange),
-            name: slabTintNotification, object: nil)
-        NotificationCenter.default.addObserver(
-            self, selector: #selector(rebuildWindows),
+        NotificationCenter.default.addObserver(self, selector: #selector(rebuildWindows),
             name: NSApplication.didChangeScreenParametersNotification, object: nil)
-        NSWorkspace.shared.notificationCenter.addObserver(
-            self, selector: #selector(screensDidSleep),
+        NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(screensDidSleep),
             name: NSWorkspace.screensDidSleepNotification, object: nil)
-        NSWorkspace.shared.notificationCenter.addObserver(
-            self, selector: #selector(screensDidWake),
+        NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(screensDidWake),
             name: NSWorkspace.screensDidWakeNotification, object: nil)
     }
-
-    @objc private func systemColorsDidChange() { views.forEach { $0.refreshAccent() } }
-    @objc private func promptColorDidChange() { views.forEach { $0.refreshPromptColor() } }
 
     @objc private func rebuildWindows() {
         windows.forEach { $0.close() }
@@ -296,16 +295,18 @@ private final class WallpaperDelegate: NSObject, NSApplicationDelegate {
             window.ignoresMouseEvents = true
             window.hasShadow = false
             window.isOpaque = true
-            window.backgroundColor = accentField(dark: dark)
+            window.backgroundColor = dark
+                ? NSColor(srgbRed: 0.01, green: 0.02, blue: 0.08, alpha: 1)
+                : NSColor(srgbRed: 0.92, green: 0.96, blue: 1.00, alpha: 1)
             window.isReleasedWhenClosed = false
             let view = PalsWallpaperView(frame: NSRect(origin: .zero, size: screen.frame.size))
             view.autoresizingMask = [.width, .height]
             window.contentView = view
             window.orderFrontRegardless()
-            print("screen=\(Int(screen.frame.width))x\(Int(screen.frame.height)) "
-                + "scale=\(screen.backingScaleFactor) window=\(window.windowNumber) "
-                + "level=\(window.level.rawValue) renderer=live-scenekit "
-                + "pals=18")
+            let pixelsWide = Int(screen.frame.width * screen.backingScaleFactor)
+            let pixelsHigh = Int(screen.frame.height * screen.backingScaleFactor)
+            print("screen=\(pixelsWide)x\(pixelsHigh) scale=\(screen.backingScaleFactor) " +
+                  "window=\(window.windowNumber) level=\(window.level.rawValue) renderer=live-glb")
             fflush(stdout)
             windows.append(window)
             views.append(view)

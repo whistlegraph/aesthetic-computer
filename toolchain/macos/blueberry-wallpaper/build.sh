@@ -18,7 +18,14 @@ fi
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 
-/usr/bin/usdcat "$PALS_GLB" -o "$APP/Contents/Resources/pals-mesh.usdc"
+MODEL_DIR="$APP/Contents/Resources/PalsModel"
+mkdir -p "$MODEL_DIR"
+/usr/bin/usdextract "$PALS_GLB" -o "$MODEL_DIR"
+/usr/bin/usdcat "$MODEL_DIR/pals-mesh-nat-amethyst.usdc" -o build/pals-mesh.usda
+/usr/bin/sed -E -i '' 's|@[^@]*pals-mesh-nat-amethyst\.glb\[([^]]+)\]@|@\1@|g' build/pals-mesh.usda
+/usr/bin/usdcat build/pals-mesh.usda -o "$MODEL_DIR/pals-mesh.usdc"
+rm "$MODEL_DIR/pals-mesh-nat-amethyst.usdc"
+cp "$PALS_GLB" "$APP/Contents/Resources/pals-mesh.glb"
 
 swiftc -O \
     -framework AppKit \

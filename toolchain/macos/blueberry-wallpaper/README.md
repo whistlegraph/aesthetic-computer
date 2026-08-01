@@ -1,25 +1,19 @@
 # Blueberry Wallpaper
 
-A lightweight live desktop for the Fuser seat machines, using the exact Meshy
-v6 AC Pals model recovered for the Xbox native app:
+A lightweight live desktop for the fleet machine `blueberry`, using the exact
+Meshy v6 AC Pals model recovered for the Xbox native app:
 `xbox/assets/pals-mesh-nat-amethyst.glb`.
 
-The build converts the GLB to USD for SceneKit while preserving its real
-geometry. Eighteen small translucent live mesh instances rise through a
-collision-resistant, full-bleed blue-noise field and rotate continuously at
-30 fps. The outer lanes crop at the display edges so the field continues beyond
-the frame.
+The app bundles the original GLB and a SceneKit-readable USD conversion of the
+same mesh. SceneKit renders that geometry live at each display's native backing
+resolution. Varied-size Pals marks rotate independently while buoyant
+acceleration and a gentle sway carry them upward. Every instance uses shared
+live mesh data rather than a bitmap sprite; its triangle topology is drawn as a
+translucent system-accent wireframe without surface textures or lighting.
 
-Dark mode uses luminous cobalt, azure, periwinkle, and ice blue Pals; light mode
-uses darker versions of the same family. The material palette blends the host's
-macOS accent with Slab's current aggregate prompt/status colour, while the flat
-field uses the system accent darkened or lightened for the current appearance.
-Accent, appearance, and prompt-state changes update live. The window sits
-beneath Finder's desktop icons, ignores input, joins every Space, and pauses
-while the display sleeps. Restrained lighting, 2× antialiasing, and the 30 fps
-cap keep the always-on layer inexpensive on battery. Neo uses the same scene at
-15 fps without MSAA to protect the interactive pointer seat; Blueberry uses
-30 fps with 2× MSAA.
+The model keeps its original amethyst textures over a blueberry field that
+responds to macOS appearance. The window sits beneath Finder's desktop icons,
+ignores input, joins every Space, and pauses while the display sleeps.
 
 Until the Xbox recovery commit lands in the main checkout, `build.sh` also finds
 the GLB in `.worktrees/xbox-native-v11/`.
