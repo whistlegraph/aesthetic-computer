@@ -51,6 +51,7 @@ import {
 import {
   attachSoundtrackToFrames,
   frameIndexForSoundtrackProgress,
+  normalizeTapeAudio,
 } from "./lib/sound-on-film.mjs";
 
 // import * as TwoD from "./lib/2d.mjs"; // 🆕 2D GPU Renderer.
@@ -1017,6 +1018,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       let rawAudioArrays = null;
       if (rawAudioData.length > 0 && audioContext) {
         try {
+          const normalization = normalizeTapeAudio([
+            ...rawAudioData.map((chunk) => chunk.left),
+            ...rawAudioData.map((chunk) => chunk.right),
+          ]);
+          console.log(
+            `🎚️ Tape audio normalization: ${normalization.gain.toFixed(2)}x ` +
+              `(RMS ${normalization.rms.toFixed(4)}, peak ${normalization.peak.toFixed(4)})`,
+          );
           const totalSamples = rawAudioData.length * 4096; // 4096 samples per chunk
           const leftChannelData = new Float32Array(totalSamples);
           const rightChannelData = new Float32Array(totalSamples);

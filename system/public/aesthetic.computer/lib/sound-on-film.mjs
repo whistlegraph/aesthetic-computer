@@ -1,3 +1,41 @@
+export function normalizeTapeAudio(
+  channels,
+  {
+    targetRms = 10 ** (-18 / 20),
+    peakCeiling = 10 ** (-1 / 20),
+    maxBoost = 6,
+    silenceRms = 0.001,
+  } = {},
+) {
+  const samples = (channels || []).filter((channel) => channel?.length);
+  let count = 0;
+  let sumSquares = 0;
+  let peak = 0;
+
+  for (const channel of samples) {
+    for (let i = 0; i < channel.length; i += 1) {
+      const sample = Number.isFinite(channel[i]) ? channel[i] : 0;
+      sumSquares += sample * sample;
+      peak = Math.max(peak, Math.abs(sample));
+      count += 1;
+    }
+  }
+
+  const rms = count ? Math.sqrt(sumSquares / count) : 0;
+  if (!count || rms < silenceRms || peak === 0) {
+    return { gain: 1, rms, peak, normalized: false };
+  }
+
+  const gain = Math.min(maxBoost, targetRms / rms, peakCeiling / peak);
+  for (const channel of samples) {
+    for (let i = 0; i < channel.length; i += 1) {
+      channel[i] = Math.max(-peakCeiling, Math.min(peakCeiling, channel[i] * gain));
+    }
+  }
+
+  return { gain, rms, peak, normalized: Math.abs(gain - 1) > 0.001 };
+}
+
 export function attachSoundtrackToFrames(frames, totalSamples) {
   if (!Array.isArray(frames) || frames.length === 0 || totalSamples <= 0) {
     return frames;
