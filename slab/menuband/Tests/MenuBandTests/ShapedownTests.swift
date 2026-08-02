@@ -304,6 +304,41 @@ final class ShapedownTests: XCTestCase {
         ))
     }
 
+    func testAbsoluteTrackpadFXMapsCenterToNeutral() {
+        let values = AppDelegate.absoluteTrackpadFXValues(
+            at: CGPoint(x: 0.5, y: 0.5), bendRange: 2, echoEnabled: true
+        )
+        XCTAssertEqual(values.bend, 0, accuracy: 0.000_001)
+        XCTAssertEqual(values.fxX, 0, accuracy: 0.000_001)
+        XCTAssertEqual(values.space, 0, accuracy: 0.000_001)
+        XCTAssertEqual(values.echo, 0, accuracy: 0.000_001)
+    }
+
+    func testAbsoluteTrackpadFXMapsCornersToPitchAndEffects() {
+        let upperRight = AppDelegate.absoluteTrackpadFXValues(
+            at: CGPoint(x: 1, y: 1), bendRange: 2, echoEnabled: true
+        )
+        XCTAssertEqual(upperRight.bend, 2, accuracy: 0.000_001)
+        XCTAssertEqual(upperRight.echo, 1, accuracy: 0.000_001)
+        XCTAssertEqual(upperRight.space, 0, accuracy: 0.000_001)
+
+        let lowerLeft = AppDelegate.absoluteTrackpadFXValues(
+            at: CGPoint(x: 0, y: 0), bendRange: 2, echoEnabled: true
+        )
+        XCTAssertEqual(lowerLeft.bend, -2, accuracy: 0.000_001)
+        XCTAssertEqual(lowerLeft.echo, 0, accuracy: 0.000_001)
+        XCTAssertEqual(lowerLeft.space, 1, accuracy: 0.000_001)
+    }
+
+    func testAbsoluteTrackpadFXKeepsDisabledEchoHalfNeutral() {
+        let values = AppDelegate.absoluteTrackpadFXValues(
+            at: CGPoint(x: 1, y: 0.5), bendRange: 2, echoEnabled: false
+        )
+        XCTAssertEqual(values.fxX, 0, accuracy: 0.000_001)
+        XCTAssertEqual(values.echo, 0, accuracy: 0.000_001)
+        XCTAssertEqual(values.space, 0, accuracy: 0.000_001)
+    }
+
     func testSamePadReplacementRetriggersKitVoice() {
         let first = CGPoint(x: 0.30, y: 0.80)
         let down = TrackpadPercussionPad.transition(

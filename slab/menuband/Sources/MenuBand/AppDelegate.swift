@@ -4561,6 +4561,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if trackpadPadMode == .kit, pitchBendCursorPushed {
             updateTrackpadPercussion(touches, began: changes.began,
                                      callbackTime: callbackTime)
+        } else if trackpadPadMode == .fx, pitchBendCursorPushed,
+                  let primaryTouch = touches.first {
+            applyAbsoluteTrackpadFX(at: primaryTouch)
         } else if shiftSlides {
             trackpadSkinTouches = touches
             trackpadSkinFrameTimestamp = timestamp
@@ -4578,7 +4581,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         if pitchBendCursorPushed, !changes.began.isEmpty,
            trackpadTriggeredArticulations == articulationCountBefore,
-           !shiftSlides {
+           !shiftSlides, trackpadPadMode != .fx {
             trackpadUntriggeredBeginFrames += 1
         }
         if pitchBendCursorPushed {
@@ -5102,6 +5105,47 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     static func shouldAutoEndTrackpadFX(performanceSessionActive: Bool,
                                         keyboardNotesHeld: Bool) -> Bool {
         !performanceSessionActive && !keyboardNotesHeld
+    }
+
+    static func absoluteTrackpadFXValues(at point: CGPoint,
+                                         bendRange: Float,
+                                         echoEnabled: Bool)
+        -> (bend: Float, fxX: Float, space: Float, echo: Float) {
+        let normalizedX = max(Float(-1), min(Float(1),
+            (Float(point.x) - 0.5) * 2
+        ))
+        let fxX = echoEnabled ? normalizedX : min(Float(0), normalizedX)
+        let bend = max(-bendRange, min(bendRange,
+            (Float(point.y) - 0.5) * 2 * bendRange
+        ))
+        return (
+            bend: bend,
+            fxX: fxX,
+            space: max(Float(0), -fxX),
+            echo: echoEnabled ? max(Float(0), fxX) : 0
+        )
+    }
+
+    /// The Tab-selected FX page is an absolute trackpad surface: vertical
+    /// position controls pitch and the two horizontal halves select space or
+    /// echo. MultitouchSupport and the App Store NSTouch path both arrive here
+    /// through `handleTrackpadFrame`, so neither build depends on mouse deltas.
+    private func applyAbsoluteTrackpadFX(at point: CGPoint) {
+        let values = Self.absoluteTrackpadFXValues(
+            at: point,
+            bendRange: Self.bendRange,
+            echoEnabled: Self.fxEchoEnabled
+        )
+        fxX = values.fxX
+        spaceAmount = values.space
+        echoAmount = values.echo
+        bendGestureTarget = values.bend
+        bendEaseAllChannels = false
+        cancelFxRelease()
+        startBendEase()
+        menuBand.setSpace(amount: spaceAmount)
+        menuBand.setEcho(amount: echoAmount)
+        pushStaffPitchShift()
     }
 
     private func handlePitchBendCursorMove(event: NSEvent) {
