@@ -18,6 +18,7 @@
 //   node pop/wattajetta/bin/render-wattajetta.mjs          → out/wattajetta.mp3
 //   node pop/wattajetta/bin/render-wattajetta.mjs --world  → separate spatial/rhythmic audition
 //   node pop/wattajetta/bin/render-wattajetta.mjs --next   → 1:24 pickup / powersaw audition
+//   node pop/wattajetta/bin/render-wattajetta.mjs --industrial → disciplined steel/stone cut
 //   node pop/wattajetta/bin/render-wattajetta.mjs --score  → print the engine score
 //
 // Arc (bars):
@@ -46,7 +47,10 @@ mkdirSync(OUT, { recursive: true });
 const BELL_CACHE = resolve(OUT, ".wattajetta-bell-cache-v1");
 mkdirSync(BELL_CACHE, { recursive: true });
 const NEXT = process.argv.includes("--next");
+const INDUSTRIAL = process.argv.includes("--industrial");
 const WORLD = NEXT || process.argv.includes("--world");
+const outputStem = INDUSTRIAL ? "wattajetta-industrial"
+  : NEXT ? "wattajetta-world-v2" : WORLD ? "wattajetta-world" : "wattajetta";
 
 const SR = 48000;
 const TAU = 2 * Math.PI;
@@ -191,7 +195,6 @@ if (WORLD) {
     sines.push([bar(b), 3.2, 62, 27, -19, 0.08, 2.7, -0.12, 0.12, 1.7, 5]);
   }
 }
-
 // ── kicks: halftime 1+3 early (the part we loved), then the flight
 //    ramps — drop C flips to four-on-the-floor halfway, and the steel
 //    and stone drops drive full trance 4/4 ────────────────────────────
@@ -272,15 +275,17 @@ function bellRun(b, d) {
   let idx = Math.floor(rnd() * DROP_NOTES.length);
   for (let e = 0; e < 8; e++) {
     idx = Math.max(0, Math.min(DROP_NOTES.length - 1, idx + (rnd() < 0.5 ? -1 : 1)));
-    if (rnd() < d.density * (WORLD ? 0.82 : 1))
+    if (rnd() < d.density * (WORLD ? 0.82 : INDUSTRIAL ? 0.58 : 1))
       bells.push({
         t: bar(b) + e * 0.5 * BEAT,
         note: DROP_NOTES[idx],
         vel: 0.55 + rnd() * 0.3,
         pan: (rnd() * 2 - 1) * 0.7,
         gain: Math.pow(10, d.gainDb / 20),
-        material: d.mat, geometry: "glass",
+        material: INDUSTRIAL ? (b < 40 ? "steel" : "stone") : d.mat,
+        geometry: "glass",
         dur: WORLD ? [0.42, 0.68, 0.95][Math.floor(rnd() * 3)]
+                   : INDUSTRIAL ? [0.55, 0.8, 1.15][Math.floor(rnd() * 3)]
                    : d.durs[Math.floor(rnd() * d.durs.length)],
         ...(WORLD ? { renderDur: 0.95 } : {}),
         crush: WORLD && rnd() < 0.18,
@@ -342,8 +347,11 @@ function chimeCluster(t, count, db) {
     tt += 0.03 + rnd() * 0.09;
   }
 }
-for (const b of BREATHS) { chimeCluster(bar(b) + BEAT, 5, -20); chimeCluster(bar(b + 2) + 2 * BEAT, 4, -22); }
-for (const b of [82, 86, 91]) chimeCluster(bar(b), 3, -23);
+for (const b of BREATHS) {
+  chimeCluster(bar(b) + BEAT, INDUSTRIAL ? 2 : 5, INDUSTRIAL ? -24 : -20);
+  chimeCluster(bar(b + 2) + 2 * BEAT, INDUSTRIAL ? 2 : 4, INDUSTRIAL ? -25 : -22);
+}
+if (!INDUSTRIAL) for (const b of [82, 86, 91]) chimeCluster(bar(b), 3, -23);
 
 // Sparse upper-register "bing bing" answers: short steel/glass glocks,
 // locked to E minor pentatonic so sparkle never becomes broadband haze.
@@ -435,6 +443,25 @@ flyby(bar(29), -1);
 flyby(bar(53), 1);
 flyby(bar(70), -1);
 
+// Industrial cut: a restrained press line occupies one two-bar cell at a
+// time. Low steel impacts establish the grid; short pneumatic releases answer
+// it. Alternating cells are intentionally empty so the machinery has room.
+if (INDUSTRIAL) {
+  for (let b = 0; b < 80; b += 2) {
+    const root = ROOTS[(b / 2) % ROOTS.length];
+    for (const beat of [0, 2.5]) {
+      const t = bar(b) + beat * BEAT;
+      sines.push([t, 0.26, root * 5.1, root * 2.15, -10.5, 0.002, 0.18,
+                  beat ? 0.18 : -0.18, beat ? -0.1 : 0.1, 0, 0]);
+      noises.push([t, 0.16, 2400, 310, 1.8, -14.5, 0.001, 0.11,
+                   beat ? 0.22 : -0.22]);
+    }
+    if (b % 8 === 4)
+      noises.push([bar(b) + 3.25 * BEAT, 0.42, 5200, 780, 1.15, -19,
+                   0.008, 0.34, 0.35]);
+  }
+}
+
 // ── spray, whisper level: a steam breath at each drop, an exhale out ──
 for (const d of DROPS) noises.push([bar(d.a), 2.0, 2000, 300, 0.8, -23, 0.015, 1.8, 0]);
 noises.push([bar(80), (WORLD ? 8 : 16) * BAR + 2, 3000, 500, 0.8, -27,
@@ -455,13 +482,13 @@ const score = [
   `noise ${noises.length}`, fmt(noises),
 ].join("\n") + "\n";
 
-const scorePath = resolve(OUT, "wattajetta.score.txt");
+const scorePath = resolve(OUT, `${outputStem}.score.txt`);
 writeFileSync(scorePath, score);
 if (process.argv.includes("--score")) { console.log(score); process.exit(0); }
 console.log(`baked ${kicks.length} kicks, ${sines.length} sines, ${noises.length} sprays, ${bells.length} bells`);
 
-const rawPath = resolve(OUT, "wattajetta.f32.raw");
-const kickPath = resolve(OUT, "wattajetta.kick.f32.raw");
+const rawPath = resolve(OUT, `${outputStem}.f32.raw`);
+const kickPath = resolve(OUT, `${outputStem}.kick.f32.raw`);
 const r = spawnSync("node", [resolve(HERE, "../c/run-c.mjs"), scorePath, "--raw", rawPath, "--kickraw", kickPath], { stdio: "inherit" });
 if (r.status !== 0) process.exit(1);
 
@@ -883,6 +910,17 @@ if (WORLD) {
       scratchVoiceGesture(t, tBar, from, to, gainDb + (downbeat ? 1 : 0), pan,
                           downbeat ? 0.24 : 0.18 + rnd() * 0.06);
     }
+  }
+}
+if (INDUSTRIAL) {
+  // One compact transformer gesture every two bars: audible turntablism,
+  // disciplined like a machine interlock rather than a continuous spray.
+  for (let b = 2; b < 80; b += 2) {
+    const tBar = bar(b);
+    const reverse = (b / 2) % 2 === 0;
+    scratchVoiceGesture(tBar + 1.5 * BEAT, tBar,
+                        reverse ? 0.58 : 0.32, reverse ? 0.34 : 0.52,
+                        -16.5, reverse ? -0.24 : 0.24, 0.19);
   }
 }
 const E = BEAT / 2; // an eighth
@@ -1451,7 +1489,6 @@ if (NEXT) {
   }
 }
 
-const outputStem = NEXT ? "wattajetta-world-v2" : WORLD ? "wattajetta-world" : "wattajetta";
 const mixedPath = resolve(OUT, `${outputStem}.mixed.f32.raw`);
 writeFileSync(mixedPath, Buffer.from(outputMix.buffer, outputMix.byteOffset, outputMix.length * 4));
 
@@ -1463,6 +1500,7 @@ const MASTER = [
   "equalizer=f=50:t=q:w=1.2:g=2.5", // the boom under the kick — no treble boost; laptop speakers read it as tang
   ...(WORLD ? ["equalizer=f=285:t=q:w=0.85:g=-1.6"] : []), // normalize low-mid buildup for headphones
   ...(WORLD ? ["highshelf=f=5500:g=-2dB"] : []), // keep the water world, lose excess upper-air haze
+  ...(INDUSTRIAL ? ["equalizer=f=240:t=q:w=1.1:g=-1.2", "highshelf=f=6200:g=-2.5dB"] : []),
   "alimiter=limit=0.96:attack=4:release=70",
   ...(WORLD ? ["volume=-1.5dB"] : []), // leave the spatial audition at about -1 dBTP
   // The accelerando leaves dead source at the legacy tail. The fixed 2:30
@@ -1473,7 +1511,7 @@ const mp3 = resolve(OUT, `${outputStem}.mp3`);
 const ff = spawnSync("ffmpeg", ["-hide_banner", "-y", "-loglevel", "error",
   "-f", "f32le", "-ar", String(SR), "-ac", "2", "-i", mixedPath,
   "-af", MASTER.join(","), "-c:a", "libmp3lame", "-q:a", "2",
-  "-metadata", `title=${NEXT ? "wattajetta — vinyl material audition" : WORLD ? "wattajetta — world audition" : "wattajetta"}`,
+  "-metadata", `title=${INDUSTRIAL ? "wattajetta — industrial" : NEXT ? "wattajetta — vinyl material audition" : WORLD ? "wattajetta — world audition" : "wattajetta"}`,
   "-metadata", "album=pixsies",
   mp3], { stdio: "inherit" });
 if (ff.status !== 0) { console.error("✗ ffmpeg failed"); process.exit(1); }
@@ -1487,4 +1525,4 @@ if (WORLD) {
   console.log(`✓ ${wav} (24-bit spatial audition)`);
 }
 for (const p of [rawPath, kickPath, mixedPath]) { try { unlinkSync(p); } catch {} }
-console.log(`✓ ${mp3} (glass↔staccato transmogrification · rhythmic scratch voice · water world)`);
+console.log(`✓ ${mp3} (${INDUSTRIAL ? "steel/stone press line · disciplined scratches · negative space" : "glass↔staccato transmogrification · rhythmic scratch voice · water world"})`);

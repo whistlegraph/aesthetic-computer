@@ -21,7 +21,17 @@ export async function handler(event, context) {
     const paintings = database.db.collection("paintings");
 
     // Query by code or slug
-    const query = code ? { code } : { slug };
+    const escapedSlug = slug?.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const query = code
+      ? { code }
+      : {
+          $or: [
+            { slug },
+            // Anonymous paintings with recordings store IMAGE:RECORDING.
+            // The image resolver addresses the IMAGE half independently.
+            { slug: new RegExp(`^${escapedSlug}:`) },
+          ],
+        };
     const painting = await paintings.findOne(query);
 
     await database.disconnect();

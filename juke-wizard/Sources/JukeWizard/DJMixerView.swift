@@ -385,6 +385,12 @@ final class DJDeckPlayer: NSObject {
 
     func resetBPM() { setBPM(sourceBPM) }
 
+    func setRate(_ value: Double) {
+        targetBPM = sourceBPM * max(0.5, min(1.5, value))
+        applyRate()
+        onStateChange?()
+    }
+
     func setGain(_ value: Float) {
         gain = max(0, min(1, value))
         engine.mainMixerNode.outputVolume = gain

@@ -270,18 +270,34 @@ final class MenuBandController {
     /// a live keyboard. The key codes are the keymap's own inverse — whichever
     /// physical key would have sounded that note. `spaceHeld` lights the space
     /// bar too, for the reverse-playback demo.
-    func captureHold(notes: Set<UInt8>, spaceHeld: Bool = false) {
+    func captureHold(notes: Set<UInt8>, spaceHeld: Bool = false,
+                     extraKeyCodes: Set<UInt16> = []) {
         litNotes = notes
         var codes = Set<UInt16>()
         for keyCode in UInt16(0)..<128 {
+            // Score-driven promo captures teach the canonical keyboard at
+            // zero shift; they must not inherit this Mac's persisted octave
+            // preference or the corresponding QWERTY cap can disappear.
             if let midi = MenuBandLayout.midiNote(forKeyCode: keyCode,
-                                                 octaveShift: octaveShift,
+                                                 octaveShift: 0,
                                                  keymap: keymap), notes.contains(midi) {
                 codes.insert(keyCode)
             }
         }
         if spaceHeld { codes.insert(49) }   // kVK_Space
+        codes.formUnion(extraKeyCodes)
         captureHeldKeyCodes = codes
+    }
+
+    /// Feed physical non-note state into the same live key snapshot used by
+    /// QwertyLayoutView. Command arrives through flagsChanged rather than the
+    /// note handler, so AppDelegate calls this explicitly for keycodes 54/55.
+    func setVisualControlKey(_ keyCode: UInt16, isDown: Bool) {
+        heldLock.lock()
+        if isDown { heldControlKeys.insert(keyCode) }
+        else { heldControlKeys.remove(keyCode) }
+        heldLock.unlock()
+        onChange?()
     }
 
     /// Pose the spacebar reverse-replay state for a headless render — the scope

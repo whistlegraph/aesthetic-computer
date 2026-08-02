@@ -1132,11 +1132,13 @@ app.all("/media/*rest", async (req, res) => {
         return res.redirect(302, `https://${bucket}.sfo3.digitaloceanspaces.com/${key}`);
       }
     } catch {}
+    res.set("Cache-Control", "no-store, max-age=0");
     return res.status(404).send("Tape not found");
   }
 
   // /media/paintings/CODE → get-painting function → redirect
   if (parts[0] === "paintings" && parts[1]) {
+    const requestedExt = /\.(png|zip)$/.exec(parts[1])?.[1] || "png";
     const code = parts[1].replace(/\.(png|zip)$/, "");
     try {
       // painting.mjs requests media by slug (e.g. qwfV8wDk), but short codes
@@ -1158,6 +1160,15 @@ app.all("/media/*rest", async (req, res) => {
         return res.redirect(302, `https://${bucket}.sfo3.digitaloceanspaces.com/${key}`);
       }
     } catch {}
+    // Legacy anonymous recording ZIPs have object slugs but no tape row.
+    if (requestedExt === "zip" && /^[A-Za-z0-9_-]{6,64}$/.test(code)) {
+      return res.redirect(302,
+        `https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/${code}.zip`);
+    }
+    // A freshly uploaded object and its Mongo record become visible on
+    // separate network hops. Never let Cloudflare turn that brief race into a
+    // cached one-hour failure for a valid new #code.
+    res.set("Cache-Control", "no-store, max-age=0");
     return res.status(404).send("Painting not found");
   }
 

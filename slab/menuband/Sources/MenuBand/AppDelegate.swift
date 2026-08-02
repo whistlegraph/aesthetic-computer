@@ -227,7 +227,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 #endif
     private var quietFocusRunCount = 0
     private var lastQuietFocusTapAt: CFTimeInterval = 0
-    /// Max gap between the two taps of the right-⌘ double.
+    /// Physical side of the last clean Command down edge. A qualifying pair
+    /// must repeat the same side; left-right remains an ordinary two-hand move.
+    private var lastQuietFocusSide: UInt16?
+    /// Max gap between two same-side Command taps.
     private static let quietFocusTapWindow: CFTimeInterval = 0.50
 
     // (The visualizer's right-⌘ TRIPLE-tap gesture was removed: it had claimed
@@ -480,6 +483,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Band loses focus. Releasing keys no longer ends it — only those
     /// two explicit exits do.
     private var pitchBendModeLatched = false
+    /// True when quiet focus (or the App Store popover) explicitly owns the
+    /// trackpad as an instrument. Tab may cycle this session through FX, but
+    /// only Escape/focus loss should tear it down. Ordinary hold-a-note pitch
+    /// bending remains transient and may still auto-end after release.
+    private var trackpadPerformanceSessionActive = false
     /// Floating window that draws the bend wheel above every app.
     /// Used in lockstep with `CGDisplayHideCursor` so the real
     /// system cursor is invisible during pitch bend — that's what
@@ -752,7 +760,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     // NSWindow.setFrameOrigin expects.
                     self.pitchBendLockScreenPoint = NSEvent.mouseLocation
                 }
-            } else if self.pitchBendModeLatched && self.trackpadPadMode == .fx {
+            } else if self.pitchBendModeLatched && self.trackpadPadMode == .fx,
+                      Self.shouldAutoEndTrackpadFX(
+                        performanceSessionActive: self.trackpadPerformanceSessionActive,
+                        keyboardNotesHeld: false
+                      ) {
                 // No keyboard note held anymore. The pitch-shift graphic is
                 // a hold-to-bend visual, so tear it down once the last key
                 // lifts — after a short grace so a quick legato hand-off
@@ -1722,11 +1734,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // (see the localCapture Esc handler). Keeps the gesture a pure
         // "bring me into play" action that can't accidentally drop focus.
         guard !localCapture.isArmed else { return }
-        // Arm focus capture WITHOUT touching the popover — the blue glow +
+        // Arm focus capture WITHOUT touching the popover — the red glow +
         // rising bell are the "it landed" cue. keepPopoverOpen:true leaves an
         // already-open popover as-is rather than closing it.
         beginFocusCaptureFromShortcut(keepPopoverOpen: true)
-        FocusFlashOverlay.shared.flash(rising: true)
+        FocusFlashOverlay.shared.flash(rising: false)
         menuBand.playFocusCue(rising: true)
     }
 
@@ -2187,14 +2199,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         ) { event in handler(event); return event }
     }
 
-    /// Double-tap the RIGHT ⌘ → toggle focus capture. Two bare right-⌘ down
+    /// Double-tap either physical ⌘ → toggle focus capture. Two bare same-side ⌘ down
     /// edges inside `quietFocusTapWindow` arm / disarm the menubar piano for
     /// typing. A single bare ⌘ does nothing, so ⌘ stays free as a normal
     /// modifier for the rest of the system. The toggle fires a dry click on the
     /// qualifying second press so the user feels the gesture land.
     ///
-    /// RIGHT ⌘ specifically, and LEFT ⌘ breaks the run rather than merely not
-    /// counting — otherwise ordinary two-handed ⌘ use would trip the gesture.
+    /// Left-left and right-right are equivalent. Switching sides restarts the
+    /// run so ordinary two-handed Command use cannot trip the gesture.
     ///
     /// (History worth keeping: this WAS a right-⌘ double-tap, then a right-⌘
     /// TRIPLE-tap visualizer gesture took the key, so focus was moved onto an
@@ -2250,6 +2262,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self.commandKeysHeld = commandState
             let sideIsHeld = side == Self.leftCommandKeyCode
                 ? commandState.left : commandState.right
+            self.menuBand.setVisualControlKey(side, isDown: sideIsHeld)
 #if !MAC_APP_STORE
             let bothHeld = commandState.left && commandState.right
             // Releasing either ⌘ cancels a count-in in progress.
@@ -2269,18 +2282,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 #endif
             // Otherwise: bare-⌘ double-tap tracking for PLAY.
             guard mask == .command else { self.quietFocusRunCount = 0; return }
-            // Left ⌘ breaks the run (leaves left-⌘⌘ free for Shapedown).
-            guard side == Self.rightCommandKeyCode else { self.quietFocusRunCount = 0; return }
             let now = CACurrentMediaTime()
-            let inWindow = now - self.lastQuietFocusTapAt <= Self.quietFocusTapWindow
+            let sameSide = self.lastQuietFocusSide == side
+            let inWindow = sameSide && now - self.lastQuietFocusTapAt <= Self.quietFocusTapWindow
             self.quietFocusRunCount = (inWindow && self.quietFocusRunCount > 0)
                 ? self.quietFocusRunCount + 1
                 : 1
             self.lastQuietFocusTapAt = now
+            self.lastQuietFocusSide = side
             guard self.quietFocusRunCount >= 2 else { return }
-            // Right-⌘ DOUBLE = PLAY (arm the keyboard).
+            // Same-side ⌘ DOUBLE = PLAY (arm the keyboard).
             self.quietFocusRunCount = 0
             self.lastQuietFocusTapAt = 0
+            self.lastQuietFocusSide = nil
             FocusCueBeep.shared.click()
             self.toggleQuietFocusFromCommandTap()
         }
@@ -3530,6 +3544,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // sensor that was reporting it is gone (the capture-panel sensor
         // takes over again if the user keeps playing with notes held).
         if !menuBand.keyboardNotesHeld { setTrackpadTouchActive(false) }
+        #if MAC_APP_STORE
+        // The sandboxed percussion surface is explicitly scoped to the open
+        // popover. Do not leave its warm audio/session state behind after the
+        // only public NSTouch responder goes away.
+        if pitchBendModeLatched { endPitchBendSession() }
+        #endif
         // [v1 cutoff] KidLisp TV panel removed — no child panel to tear down.
         if let panel = panelToFade {
             NSAnimationContext.runAnimationGroup({ ctx in
@@ -4982,6 +5002,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         #endif
         pitchBendModeLatched = true
+        trackpadPerformanceSessionActive = true
         if !pitchBendCursorPushed {
             #if !MAC_APP_STORE
             PitchBendCursor.neutral.push()
@@ -5049,7 +5070,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             #if !MAC_APP_STORE
             trackpadPercussionGestureTap.stop()
             #endif
-            if !menuBand.keyboardNotesHeld { scheduleGraphicEndIfNoKeyHeld() }
+            if Self.shouldAutoEndTrackpadFX(
+                performanceSessionActive: trackpadPerformanceSessionActive,
+                keyboardNotesHeld: menuBand.keyboardNotesHeld
+            ) {
+                scheduleGraphicEndIfNoKeyHeld()
+            }
         }
         updatePitchBendOverlayImage()
         debugLog("trackpad pad mode = \(trackpadPadMode)")
@@ -5065,9 +5091,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // bend/space/echo where they set them so pitch + ambience don't
         // drift on their own. The next finger touch (or note release)
         // is the right time to change them.
-        if !menuBand.keyboardNotesHeld && trackpadPadMode == .fx {
+        if trackpadPadMode == .fx && Self.shouldAutoEndTrackpadFX(
+            performanceSessionActive: trackpadPerformanceSessionActive,
+            keyboardNotesHeld: menuBand.keyboardNotesHeld
+        ) {
             endPitchBendSession()
         }
+    }
+
+    static func shouldAutoEndTrackpadFX(performanceSessionActive: Bool,
+                                        keyboardNotesHeld: Bool) -> Bool {
+        !performanceSessionActive && !keyboardNotesHeld
     }
 
     private func handlePitchBendCursorMove(event: NSEvent) {
@@ -5471,6 +5505,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Esc / focus-loss always fully exits, even if the lock flag was
         // somehow already cleared.
         pitchBendModeLatched = false
+        trackpadPerformanceSessionActive = false
         #if !MAC_APP_STORE
         setTrackpadFighterSuppressed(false)
         #endif

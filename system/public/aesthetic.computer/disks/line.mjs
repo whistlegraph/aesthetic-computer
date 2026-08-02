@@ -254,6 +254,64 @@ function bake() {
   strokeToBake?.();
 }
 
+// Machine-readable No Paint proposal contract. This lives beside the real
+// brush so the surfer does not maintain a second imitation of Line.
+const nopaintProposal = Object.freeze({
+  version: 1,
+  slug: "line",
+  label: "Line",
+  compatible: true,
+  parameters: Object.freeze({
+    color: Object.freeze({ type: "rgba", alpha: [24, 192] }),
+    thickness: Object.freeze({ type: "integer", min: 1, max: 50 }),
+    points: Object.freeze({ type: "path", min: 4, max: 18 }),
+    durationFrames: Object.freeze({ type: "integer", min: 24, max: 120 }),
+  }),
+  generate({ random, width, height, base }) {
+    const pointCount = 4 + Math.floor(random() * 15);
+    const start = { x: base.x, y: base.y };
+    const end = {
+      x: Math.min(width - 1, base.x + base.w),
+      y: Math.min(height - 1, base.y + base.h),
+    };
+    const points = Array.from({ length: pointCount }, (_, index) => {
+      const t = pointCount === 1 ? 0 : index / (pointCount - 1);
+      const sway = Math.sin(t * Math.PI * (1 + Math.floor(random() * 4))) * base.drift;
+      return Object.freeze({
+        x: Math.max(0, Math.min(width - 1,
+          Math.round(start.x + (end.x - start.x) * t + sway))),
+        y: Math.max(0, Math.min(height - 1,
+          Math.round(start.y + (end.y - start.y) * t - sway * 0.65))),
+      });
+    });
+    const thickness = 1 + Math.floor(random() * 50);
+    const alpha = 24 + Math.floor(random() * 169);
+    const color = Object.freeze([base.color[0], base.color[1], base.color[2], alpha]);
+    const durationFrames = 24 + Math.floor(random() * 97);
+    return Object.freeze({
+      ...base,
+      color,
+      thickness,
+      points: Object.freeze(points),
+      brush: Object.freeze({
+        slug: "line",
+        params: Object.freeze(color.map(String)),
+        colon: Object.freeze([String(thickness)]),
+        parameters: Object.freeze({ thickness, alpha, pointCount, durationFrames }),
+      }),
+    });
+  },
+  render({ ink }, score, frame) {
+    const duration = score.brush.parameters.durationFrames;
+    const visible = Math.max(2, Math.ceil(score.points.length * Math.min(1, frame / duration)));
+    for (let index = 1; index < visible; index += 1) {
+      const from = score.points[index - 1];
+      const to = score.points[index];
+      ink(score.color).line(from.x, from.y, to.x, to.y, score.thickness);
+    }
+  },
+});
+
 function meta() {
   return {
     title: "Line",
@@ -265,7 +323,7 @@ function meta() {
   };
 }
 
-export { boot, act, paint, bake, meta, system };
+export { boot, act, paint, bake, meta, nopaintProposal, system };
 
 // ── Helpers ──
 

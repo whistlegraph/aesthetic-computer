@@ -163,6 +163,14 @@ final class LedgerStore {
         guard prompt.count <= 4_000 else {
             return ["ok": false, "error": "prompt exceeds 4000 characters"]
         }
+        let localHost = ProcessInfo.processInfo.hostName
+            .lowercased().split(separator: ".").first.map(String.init) ?? ""
+        if localHost == "neo" && isHeavyBuildPrompt(prompt) {
+            return [
+                "ok": false,
+                "error": "neo is an 8 GB interactive-only prompt host; run builds and typechecks on blueberry, panda, or chicken",
+            ]
+        }
         let loopboyContact = ((body["loopboyContact"] as? String) ?? "").lowercased()
         if !loopboyContact.isEmpty,
            loopboyContact.range(of: "^[a-z0-9_-]{1,40}$", options: .regularExpression) == nil {
@@ -201,9 +209,9 @@ final class LedgerStore {
             // Terminal focus-report sequences as literal Codex input, while
             // Slab can already focus and wake the exact tty directly.
             command = "cd \(shellQuote(cwd)) && "
-                + "SLAB_TERMINAL_TTY=$(basename \"$(tty)\") "
+                + "exec env SLAB_TERMINAL_TTY=$(basename \"$(tty)\") "
                 + "SLAB_LOOPBOY_CONTACT=\(shellQuote(loopboyContact)) "
-                + "exec \(shellQuote(binary))"
+                + "\(shellQuote(binary))"
         } else {
             command = "cd \(shellQuote(cwd)) && exec \(shellQuote(binary))"
         }
@@ -258,6 +266,23 @@ final class LedgerStore {
         }
         return ["ok": true, "host": selfIdentity().host, "agent": agent, "cwd": cwd,
                 "loopboyContact": loopboyContact, "nudgeScreen": nudgeScreen]
+    }
+
+    /// Neo is the seat's 8 GB controller. Parallel compilers drive it deeply
+    /// into swap, so reject explicitly requested heavy jobs before launching
+    /// an agent. Ordinary coding and diagnostic prompts remain available.
+    private static func isHeavyBuildPrompt(_ prompt: String) -> Bool {
+        let text = prompt.lowercased()
+        let patterns = [
+            #"\btype[ -]?checks?\b"#,
+            #"\btsc\b"#,
+            #"\b(?:npm|pnpm|yarn|bun)\s+(?:run\s+)?(?:build|test|typecheck)\b"#,
+            #"\b(?:swift|cargo)\s+build\b"#,
+            #"\bxcodebuild\b"#,
+        ]
+        return patterns.contains { pattern in
+            text.range(of: pattern, options: .regularExpression) != nil
+        }
     }
 
     private static func shellQuote(_ value: String) -> String {

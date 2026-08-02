@@ -114,7 +114,7 @@
     for (; shown < end; shown++) {
       const p = view[shown];
       const a = document.createElement("a");
-      a.className = "cell" + (p.unsafe ? " unsafe" : ""); a.href = CDN + p.id + ".png"; a.target = "_blank";
+      a.className = "cell" + (p.unsafe ? " unsafe" : ""); a.href = "/" + encodeURIComponent(p.id);
       const img = document.createElement("img");
       img.loading = "lazy"; img.decoding = "async";
       img.src = THUMB + p.id + ".webp";

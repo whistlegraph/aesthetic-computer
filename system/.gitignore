@@ -1,2 +1,5 @@
 .env.backup
 public/.commit-ref
+
+# Local Netlify folder
+.netlify

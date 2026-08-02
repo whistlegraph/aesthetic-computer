@@ -9132,8 +9132,11 @@ async function load(
           return;
         }
 
-        send({ type: "sfx:load", content: path });
         preloadPromises[path] = { resolve, reject };
+        // Register the receiver before asking BIOS to load. BIOS deliberately
+        // acknowledges an HTMLAudioElement immediately, so sending first can
+        // race the reply and leave this promise pending forever.
+        send({ type: "sfx:load", content: path });
 
         options.signal?.addEventListener("abort", () => {
           rejection(reject);

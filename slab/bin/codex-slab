@@ -80,12 +80,13 @@ stop_agent() {
 trap cleanup EXIT
 trap stop_agent INT TERM
 
-# Loopboys are background client loops, never fleet/UI operators. Remove every
-# browser, frame, pointer, and remote-machine surface at process startup; an
-# auto-response route authorizes its named messaging helper, not GUI control.
+# Loopboys are background client loops, never fleet/UI operators. Remove the
+# browser surfaces at process startup; the proxy separately scopes its private
+# inbox to the named contact and session identity.
 codex_guard_args=()
 if [[ -n "${SLAB_LOOPBOY_CONTACT:-}" ]]; then
     codex_guard_args+=(
+        -c 'mcp_servers.prox={url="http://127.0.0.1:7773/mcp", env_http_headers={"x-slab-loopboy-contact"="SLAB_LOOPBOY_CONTACT", "x-slab-prompt-session-id"="SLAB_PROMPT_SESSION_ID"}}'
         -c 'mcp_servers.puppet.enabled=false'
         -c 'mcp_servers.frame.enabled=false'
         -c 'mcp_servers.fleet.enabled=false'

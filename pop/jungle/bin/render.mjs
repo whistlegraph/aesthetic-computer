@@ -276,6 +276,7 @@ function barB(pat) {
 
 // ── main render ───────────────────────────────────────────────────────
 function render(slug) {
+  mkdirSync(`${LANE}/out`, { recursive: true });
   const def = DEFAULTS[slug] || DEFAULTS.raggasol;
   const STYLE = String(flags.style || def.style);
   const BPM = Number(flags.bpm ?? def.bpm);

@@ -2,13 +2,23 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  NOPAINT_MAX_RANDOM_ALPHA,
   NOPAINT_LOOP_STATES,
   NOPAINT_PROPOSAL_CATALOG,
+  NOPAINT_VERSION,
   makeProposal,
   pickWeightedProposal,
   seededRandom,
 } from "../public/aesthetic.computer/lib/nopaint-proposals.mjs";
 import * as nopaintPiece from "../public/aesthetic.computer/disks/nopaint.mjs";
+
+test("fresh launch accepts query and piece arguments without mistaking false for true", () => {
+  assert.equal(nopaintPiece.freshLaunchRequested(new URL("https://aesthetic.computer/nopaint?fresh=1")), true);
+  assert.equal(nopaintPiece.freshLaunchRequested(new URL("https://aesthetic.computer/nopaint?fresh")), true);
+  assert.equal(nopaintPiece.freshLaunchRequested(new URL("https://aesthetic.computer/nopaint?fresh=false")), false);
+  assert.equal(nopaintPiece.freshLaunchRequested(null, ["fresh"], []), true);
+  assert.equal(nopaintPiece.freshLaunchRequested(null, [], ["new"]), true);
+});
 import { nopaint_act } from "../public/aesthetic.computer/systems/nopaint.mjs";
 
 test("native No Paint exposes the recovered loop states", () => {
@@ -24,10 +34,20 @@ test("native No Paint exposes the recovered loop states", () => {
 test("the first native catalog retains the recovered duplicate Box weight", () => {
   const rect = NOPAINT_PROPOSAL_CATALOG.find(({ name }) => name === "rect");
   assert.equal(rect.weight, 2);
-  assert.equal(
-    NOPAINT_PROPOSAL_CATALOG.reduce((sum, proposal) => sum + proposal.weight, 0),
-    6,
-  );
+  assert.equal(NOPAINT_VERSION, "3.0");
+  assert.equal(NOPAINT_PROPOSAL_CATALOG.length, 33);
+  assert.equal(NOPAINT_PROPOSAL_CATALOG.some(({ name }) => name === "camera"), false);
+  assert.equal(NOPAINT_PROPOSAL_CATALOG.find(({ name }) => name === "softy").weight, 1.5);
+  assert.equal(NOPAINT_PROPOSAL_CATALOG.find(({ name }) => name === "walker").weight, 0.2);
+});
+
+test("random proposals are always translucent and wipe is a non-destructive Wash", () => {
+  for (let seed = 1; seed <= 128; seed += 1) {
+    const proposal = makeProposal(seededRandom(seed), 640, 480);
+    assert.ok(proposal.color[3] > 0);
+    assert.ok(proposal.color[3] <= NOPAINT_MAX_RANDOM_ALPHA);
+  }
+  assert.equal(NOPAINT_PROPOSAL_CATALOG.find(({ name }) => name === "wipe").label, "Wash");
 });
 
 test("the same session seed produces the same proposal sequence", () => {
@@ -41,11 +61,14 @@ test("the same session seed produces the same proposal sequence", () => {
 });
 
 test("weighted proposal boundaries select every first-pass operation", () => {
-  const total = 6;
-  const at = (weightedPosition) => pickWeightedProposal(
-    () => weightedPosition / total,
-    NOPAINT_PROPOSAL_CATALOG,
-  );
+  const catalog = [
+    { name: "rect", weight: 2 },
+    { name: "oval", weight: 1 },
+    { name: "line", weight: 1 },
+    { name: "wipe", weight: 1 },
+    { name: "camera", weight: 1 },
+  ];
+  const at = (weightedPosition) => pickWeightedProposal(() => weightedPosition / 6, catalog);
 
   assert.equal(at(0), "rect");
   assert.equal(at(1.99), "rect");
@@ -53,6 +76,13 @@ test("weighted proposal boundaries select every first-pass operation", () => {
   assert.equal(at(3), "line");
   assert.equal(at(4), "wipe");
   assert.equal(at(5), "camera");
+});
+
+test("No Paint 3.0 includes the first recovered authored brush set", () => {
+  const names = new Set(NOPAINT_PROPOSAL_CATALOG.map(({ name }) => name));
+  for (const name of ["softy", "bubbles", "grid-worm", "walker", "banner", "wafer"]) {
+    assert.equal(names.has(name), true, `${name} is in the proposal catalog`);
+  }
 });
 
 test("Paint commits the proposal buffer while No only discards it", () => {
@@ -119,14 +149,28 @@ test("Paint commits the proposal buffer while No only discards it", () => {
   };
 
   nopaintPiece.boot(common);
+  assert.equal(store["painting:resolution-lock"], true);
   nopaintPiece.act({
     ...common,
     event: { is: (name) => name === "keyboard:down:enter" },
   });
+  nopaintPiece.act({
+    ...common,
+    event: { is: (name) => name === "keyboard:up:enter" },
+  });
 
   assert.deepEqual([...painting.pixels], new Array(16).fill(90));
   assert.equal(undoCount, 1);
-  assert.equal(persistCount, 1);
+  assert.equal(persistCount, 3);
+  assert.deepEqual(store["nopaint:session"], {
+    version: "3.0",
+    seed: store["nopaint:session"].seed,
+    decisions: [{
+      number: 1,
+      operation: store["nopaint:session"].decisions[0].operation,
+      decision: "paint",
+    }],
+  });
   assert.deepEqual([...buffer.pixels], new Array(16).fill(0));
 
   buffer.pixels.fill(180);
@@ -134,9 +178,22 @@ test("Paint commits the proposal buffer while No only discards it", () => {
     ...common,
     event: { is: (name) => name === "keyboard:down:n" },
   });
+  nopaintPiece.act({
+    ...common,
+    event: { is: (name) => name === "keyboard:up:n" },
+  });
 
   assert.deepEqual([...painting.pixels], new Array(16).fill(90));
   assert.equal(undoCount, 1);
+  assert.equal(persistCount, 4);
+  assert.deepEqual(store["nopaint:session"].decisions, [
+    {
+      number: 1,
+      operation: store["nopaint:session"].decisions[0].operation,
+      decision: "paint",
+    },
+    { number: 2, operation: store["nopaint:session"].decisions[1].operation, decision: "no" },
+  ]);
   assert.deepEqual([...buffer.pixels], new Array(16).fill(0));
 });
 
@@ -147,12 +204,15 @@ test("pointer Paint survives inherited touch/lift handling before module act", (
       this.width = 40;
       this.btn = {
         down: false,
-        act: (event, push) => {
+        act: (event, handlers) => {
           if (event.target !== this.label) return;
-          if (event.is("touch:1")) this.btn.down = true;
+          if (event.is("touch:1")) {
+            this.btn.down = true;
+            handlers.down?.();
+          }
           if (event.is("lift:1") && this.btn.down) {
             this.btn.down = false;
-            push();
+            handlers.push?.();
           }
         },
       };

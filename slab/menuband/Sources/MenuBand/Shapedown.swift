@@ -4,7 +4,7 @@ import CoreGraphics
 import QuartzCore
 import ScreenCaptureKit
 
-// Shapedown — double-tap LEFT ⌘ and the whole screen turns into a glass
+// Shapedown — the whole screen turns into a glass
 // wall you draw on with the trackpad. The trackpad maps 1:1 onto the display,
 // so every finger is a vertex somewhere on screen, and the *set* of fingers
 // is one filled, colored shape:
@@ -21,7 +21,8 @@ import ScreenCaptureKit
 // lifting lets the fullest version settle into the display like a puddle,
 // sustain, then fade. A physical click pins that shape until the wall closes.
 // Notepat note keys choose the ink color (C is red, D orange, and so on).
-// Double-tap ⌘ again (or press Escape) to leave.
+// Press Escape to leave. The former left-⌘⌘ entry gesture was retired so both
+// physical Command keys can share Menu Band's universal ⌘⌘ play gesture.
 //
 // Input is the same focus-independent MultitouchSupport tap the pitch-bend fx
 // pad uses (`MultitouchTrackpad`) — NSTouch never reaches a non-activating
@@ -35,27 +36,14 @@ final class Shapedown {
     private var canvas: ShapedownCanvas?
     private var displayCapture: AnyObject?
 
-    /// Global modifier/key monitor. flagsChanged carries the ⌘ taps; keyDown
-    /// carries Escape while the wall is up. Global monitors can't consume, but
-    /// we never want to — ⌘ still means ⌘ to everyone else.
+    /// Global key monitor carries Escape while the wall is up.
     private var monitor: Any?
-    /// Time of the last CLEAN left-⌘ tap (⌘ pressed and released with no other
-    /// key or modifier touched in between). Two of these inside the window are
-    /// the gesture.
-    private var lastCleanTap: TimeInterval = 0
-    /// True from a lone left-⌘ press until either it's released cleanly or
-    /// something else is pressed during the hold, which dirties it — so
-    /// ⌘C, ⌘V, ⌘⇧…, ⌘Tab, etc. never count toward the double-tap.
-    private var commandClean = false
     /// Balances CGDisplayHideCursor/ShowCursor (they nest a hide count, so an
     /// unmatched show would leak the pointer back mid-draw).
     private var cursorHidden = false
     /// Swallows scroll + trackpad gestures WHILE the wall is up so fingers only
     /// ever draw shapes — no scroll, pinch-zoom, rotate, or swipe underneath.
     private let gestureTap = ShapedownGestureTap()
-
-    /// Two left-⌘ presses closer than this count as the double-tap gesture.
-    private static let doubleTapWindow: TimeInterval = 0.4
 
     /// True while the wall is showing — AppDelegate checks this to route
     /// trackpad frames here instead of into the pitch-bend fx pad.
@@ -95,63 +83,19 @@ final class Shapedown {
         flashCue(rising: true)
     }
 
-    /// Arm the global ⌘ listener. Idempotent. Needs Accessibility (same grant
-    /// TYPE mode already asks for); silently inert until it's given.
+    /// Arm the Escape listener. Idempotent.
     func start() {
         guard monitor == nil else { return }
-        monitor = NSEvent.addGlobalMonitorForEvents(
-            matching: [.flagsChanged, .keyDown]
-        ) { [weak self] event in
+        monitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
             self?.handle(event)
         }
     }
 
     private func handle(_ event: NSEvent) {
-        let mods = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-        switch event.type {
-        case .flagsChanged:
-            if event.keyCode == 55 {                   // left ⌘ itself
-                if mods.contains(.command) {
-                    // Pressed. A clean tap can only start from a LONE ⌘ —
-                    // if ⇧/⌥/⌃ are already down, it's a chord, not a tap.
-                    commandClean = (mods == .command)
-                } else {
-                    // Released. Two clean taps inside the window = the gesture.
-                    if commandClean { registerCleanTap() }
-                    commandClean = false
-                }
-            } else if mods.contains(.command) {
-                // Another modifier toggled while ⌘ is held → dirty the hold.
-                commandClean = false
-            }
-        case .keyDown:
-            // Any REAL key struck while ⌘ is held (⌘C, ⌘Tab, …) dirties the
-            // hold. Exclude the ⌘ keycodes themselves — a modifier's own keycode
-            // can arrive as a synthesized keyDown and must not cancel the run.
-            let isCommandKey = event.keyCode == 55 || event.keyCode == 54
-            if mods.contains(.command), !isCommandKey { commandClean = false }
-            if event.keyCode == 53, isActive {         // Escape closes the wall
-                DispatchQueue.main.async { [weak self] in self?.hide() }
-            }
-        default:
-            break
+        if event.type == .keyDown, event.keyCode == 53, isActive {
+            DispatchQueue.main.async { [weak self] in self?.hide() }
         }
     }
-
-    private func registerCleanTap() {
-        let now = ProcessInfo.processInfo.systemUptime
-        if now - lastCleanTap < Self.doubleTapWindow {
-            lastCleanTap = 0
-            DispatchQueue.main.async { [weak self] in
-                self?.clickCue()         // same registration tick as Menu Band focus
-                self?.toggle()
-            }
-        } else {
-            lastCleanTap = now
-        }
-    }
-
-    private func toggle() { isActive ? hide() : show() }
 
     /// Close the wall without cues — used when the ⌘⌘↩ record gesture starts
     /// and a left-⌘⌘ had just opened it as a side effect.

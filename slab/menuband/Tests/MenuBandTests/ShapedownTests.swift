@@ -286,6 +286,24 @@ final class ShapedownTests: XCTestCase {
             clicked: true), 1.55, accuracy: 0.000_001)
     }
 
+    func testTabCycledPerformanceFXDoesNotAutoEndWithoutHeldNote() {
+        XCTAssertFalse(AppDelegate.shouldAutoEndTrackpadFX(
+            performanceSessionActive: true,
+            keyboardNotesHeld: false
+        ))
+    }
+
+    func testOrdinaryPitchBendFXStillEndsAfterRelease() {
+        XCTAssertTrue(AppDelegate.shouldAutoEndTrackpadFX(
+            performanceSessionActive: false,
+            keyboardNotesHeld: false
+        ))
+        XCTAssertFalse(AppDelegate.shouldAutoEndTrackpadFX(
+            performanceSessionActive: false,
+            keyboardNotesHeld: true
+        ))
+    }
+
     func testSamePadReplacementRetriggersKitVoice() {
         let first = CGPoint(x: 0.30, y: 0.80)
         let down = TrackpadPercussionPad.transition(
