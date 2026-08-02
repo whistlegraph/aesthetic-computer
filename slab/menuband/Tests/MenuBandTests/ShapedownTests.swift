@@ -286,11 +286,18 @@ final class ShapedownTests: XCTestCase {
             clicked: true), 1.55, accuracy: 0.000_001)
     }
 
-    func testTabCycledPerformanceFXDoesNotAutoEndWithoutHeldNote() {
+    func testTabSelectedPerformanceFXDoesNotAutoEndWithoutHeldNote() {
         XCTAssertFalse(AppDelegate.shouldAutoEndTrackpadFX(
             performanceSessionActive: true,
             keyboardNotesHeld: false
         ))
+    }
+
+    func testTabOnlyTogglesPhysicalSkinAndPitchBend() {
+        XCTAssertEqual(AppDelegate.trackpadPadModeAfterTab(.skin), .fx)
+        XCTAssertEqual(AppDelegate.trackpadPadModeAfterTab(.fx), .skin)
+        XCTAssertEqual(AppDelegate.trackpadPadModeAfterTab(.synth), .fx)
+        XCTAssertEqual(AppDelegate.trackpadPadModeAfterTab(.kit), .fx)
     }
 
     func testOrdinaryPitchBendFXStillEndsAfterRelease() {

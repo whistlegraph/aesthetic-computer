@@ -373,10 +373,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// note changes / legato — for as long as this is true; it only
     /// springs back once the last finger lifts.
     private var trackpadTouchActive = false
-    /// The physical drum skin is the default trackpad instrument. Tab cycles
-    /// the open surface through skin, synthetic surface, FX, and kit; Shift
-    /// momentarily exposes sliding FX from either continuous surface.
-    private enum TrackpadPadMode { case fx, kit, skin, synth }
+    /// The physical drum skin is the default trackpad instrument. Tab toggles
+    /// between that skin and pitch-bend FX; Shift momentarily exposes sliding
+    /// FX from a continuous surface.
+    enum TrackpadPadMode { case fx, kit, skin, synth }
     private var trackpadPadMode: TrackpadPadMode = .skin
     private var trackpadPercussionState = TrackpadPercussionPad.State()
     private var trackpadPercussionGroups: [TrackpadPercussionPad.Voice: UInt64] = [:]
@@ -453,15 +453,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var recordModeActive = false
     /// Session CGEventTap that swallows Tab WHILE a trackpad pad is live, so the macOS
     /// ⌘-Tab app switcher (owned by the Dock, above any normal key handler) and
-    /// plain focus traversal can't steal the gesture — Tab cycles the pad
-    /// modes instead. Needs Accessibility (same as TYPE mode);
+    /// plain focus traversal can't steal the gesture — Tab toggles percussion
+    /// and pitch bend instead. Needs Accessibility (same as TYPE mode);
     /// when it can't install, the local-monitor plain-Tab path still toggles
     /// (it just can't suppress ⌘-Tab). `pitchBendCursorPushed` is read from the
     /// tap thread — a Bool set on main; a one-frame stale read is harmless.
     private lazy var bendTabTap: KeyEventTap = KeyEventTap { [weak self] keyCode, isDown, isRepeat, _ in
         guard let self = self, keyCode == 48 /* Tab */, isDown,
               self.pitchBendCursorPushed else { return false }
-        if !isRepeat { DispatchQueue.main.async { self.cycleTrackpadPadMode() } }
+        if !isRepeat { DispatchQueue.main.async { self.toggleTrackpadPadMode() } }
         return true  // consume — don't let ⌘-Tab / focus traversal fire
     }
     #else
@@ -1231,7 +1231,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // user sees the layout dynamically appear while typing.
         localCapture.onKey = { [weak self] keyCode, isDown, isRepeat, flags in
             guard let self = self else { return false }
-            // PLAIN Tab cycles the open trackpad surfaces — but only
+            // PLAIN Tab toggles percussion and pitch bend — but only
             // mid-bend (the overlay is up) and only where the MultitouchSupport
             // tap exists. Modified Tab (⌘-Tab app switcher, ⌃-Tab, …) must pass
             // straight through, so require no command/option/control here.
@@ -1239,7 +1239,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                self.pitchBendCursorPushed,
                !flags.contains(.command), !flags.contains(.option),
                !flags.contains(.control) {
-                if isDown && !isRepeat { self.cycleTrackpadPadMode() }
+                if isDown && !isRepeat { self.toggleTrackpadPadMode() }
                 return true
             }
             // Escape disarms capture explicitly. Useful when the user
@@ -5029,18 +5029,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         #endif
     }
 
-    /// Cycle an open trackpad through physical skin, synthetic surface, FX,
-    /// and the quadrant kit.
-    /// Entering percussion neutralizes the FX so the drum kit is not silently
-    /// pitch-shifted; returning to FX requires a fresh movement or note.
-    private func cycleTrackpadPadMode() {
+    /// Toggle an open trackpad between physical percussion and pitch bend.
+    /// Returning to percussion neutralizes FX so the skin is never silently
+    /// pitch-shifted.
+    private func toggleTrackpadPadMode() {
         trackpadFXPrimaryContact.reset()
-        switch trackpadPadMode {
-        case .fx: trackpadPadMode = .kit
-        case .kit: trackpadPadMode = .skin
-        case .skin: trackpadPadMode = .synth
-        case .synth: trackpadPadMode = .fx
-        }
+        trackpadPadMode = Self.trackpadPadModeAfterTab(trackpadPadMode)
         if trackpadPadMode != .fx {
             pitchBendEndTimer?.invalidate()
             pitchBendEndTimer = nil
@@ -5085,6 +5079,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         updatePitchBendOverlayImage()
         debugLog("trackpad pad mode = \(trackpadPadMode)")
+    }
+
+    static func trackpadPadModeAfterTab(_ mode: TrackpadPadMode) -> TrackpadPadMode {
+        mode == .fx ? .skin : .fx
     }
 
     func setTrackpadTouchActive(_ active: Bool) {
@@ -5194,8 +5192,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // so engage the gesture even with no key held.
         guard menuBand.keyboardNotesHeld || shift || inReleaseGrace
                 || menuBand.isRewinding else { return }
-        // Shift momentarily puts either continuous surface onto the original
-        // sliding FX. Kit remains exclusive; Tab can select FX persistently.
+        // Shift momentarily puts a continuous surface onto the original
+        // sliding FX; Tab selects FX persistently.
         let momentarySurfaceFx = (trackpadPadMode == .skin
             || trackpadPadMode == .synth) && shift
         if trackpadPadMode != .fx && !momentarySurfaceFx { return }
