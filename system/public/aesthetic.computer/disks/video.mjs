@@ -2403,7 +2403,23 @@ function act({
         try {
           // Request frames from the recording system for tape posting
           rec.requestFrames(async (frameData) => {
-            if (frameData.frames && frameData.frames.length > 0) {
+            if (frameData.video?.blob) {
+              // Camera clips are already browser-encoded MP4s. Upload the
+              // same compressed bytes used for review; no frame ZIP or
+              // client-side transcode is needed.
+              exportStatusMessage = "UPLOADING TAPE";
+              currentExportPhase = "uploading";
+              send({
+                type: "upload-video-tape",
+                content: {
+                  data: frameData.video.blob,
+                  mime: frameData.video.mime,
+                  duration: frameData.video.duration,
+                  source: "web-camera",
+                  callback: "tape:posted",
+                },
+              });
+            } else if (frameData.frames && frameData.frames.length > 0) {
               // Convert frames to format expected by create-and-post-tape
               const frameRecord = [];
               
@@ -3308,6 +3324,12 @@ function handleSystemMessage({ event: e, rec, needsPaint, jump }) {
       rec.tapeProgress = 0;
     }
   };
+
+  if (e.is("recorder:compact")) {
+    console.log("🎥 compact:", JSON.stringify(e.content));
+    requestPaint();
+    return true;
+  }
   
   // Handle upload progress (from 90% to 100% as file uploads)
   if (e.is("upload:progress")) {

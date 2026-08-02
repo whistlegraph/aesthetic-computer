@@ -11835,6 +11835,11 @@ async function makeFrame({ data: { type, content } }) {
     return;
   }
 
+  if (type === "recorder:compact") {
+    actAlerts.push({ name: type, content });
+    return;
+  }
+
   // 📊 Camera diagnostics from bios — log directly here so they land in
   // the piece-runs silo via the patched console. Avoids needing to wire
   // every diagnostic type into the actAlerts queue (which only carries
