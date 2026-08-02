@@ -21,7 +21,7 @@
 
 import { RecordingTimer, MicLevel } from "./common/cap-ui.mjs";
 
-const { floor, min, max, sqrt } = Math;
+const { floor, min, max } = Math;
 
 // Recording state
 let vid,
@@ -113,7 +113,6 @@ function paint({
   painting,
   recordingUI,
   ui,
-  num: { randIntRange, clamp, rand },
 }) {
   // Initialize video feed to match screen dimensions (not painting)
   if (!vid) {
@@ -129,18 +128,9 @@ function paint({
 
   // Draw the video on each frame
   if (capturing) {
-    frame = vid(function shader({ x, y }, c) {
-      // Light vignette effect based on frame dimensions
-      const cx = screen.width / 2;
-      const cy = screen.height / 2;
-      const maxDist = sqrt(cx * cx + cy * cy);
-      const dist = sqrt((x - cx) ** 2 + (y - cy) ** 2);
-      const vignette = 1 - (dist / maxDist) * 0.1;
-
-      c[0] = clamp(floor(c[0] * vignette), 0, 255);
-      c[1] = clamp(floor(c[1] * vignette), 0, 255);
-      c[2] = clamp(floor(c[2] * vignette), 0, 255);
-    });
+    // Keep preview pixels unchanged. The former per-pixel vignette walked the
+    // entire camera frame in the worker for every update.
+    frame = vid();
   }
 
   // Paste the video centered on screen, scaled by the current zoom factor.
@@ -342,6 +332,10 @@ function startRecording(rec, notice) {
       mystery: false,
       freshSession: true,
       avSync: true,
+      // Prefer a browser-native encoded stream for camera clips. BIOS falls
+      // back to the frame tape when canvas capture or MP4 MediaRecorder is
+      // unavailable, so the rest of AC's recording API stays unchanged.
+      compactVideo: true,
     },
     (time) => {
       // Recording started callback

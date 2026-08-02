@@ -46,6 +46,7 @@ import { initGPU, switchBackend } from "./lib/gpu/index.mjs"; // 🎨 New backen
 import { createWebGLBlitter } from "./lib/webgl-blit.mjs";
 import { handleFightRtcMessage } from "./lib/fight/rtc-main.mjs";
 import {
+  chooseCompactVideoMime,
   measureCaptureAVSync,
   shouldResumeCaptureRecorder,
 } from "./lib/capture-session.mjs";
@@ -920,6 +921,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     mediaRecorderStartTime,
     mediaRecorderFrameCount = 0; // Frame counter for performance optimization
   let recorderGeneration = 0;
+  let compactVideoRecording = false;
+  let compactRecorderStream = null;
+  let recordedVideoBlob = null;
+  let recordedVideoMime = "";
+  let compactPlaybackUrl = null;
   let needs$creenshot = false; // Flag when a capture is requested.
   
   // Raw audio capture for tape playback
@@ -944,6 +950,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     rawAudioProcessor = null;
     rawAudioConnected = false;
     if (clearData) rawAudioData = [];
+  }
+
+  function clearCompactRecorderStream() {
+    compactRecorderStream?.getTracks?.().forEach((track) => {
+      try { track.stop(); } catch {}
+    });
+    compactRecorderStream = null;
+    compactVideoRecording = false;
   }
 
   function reportCaptureAVSync() {
@@ -1003,7 +1017,59 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           mediaRecorderDuration = 100; // Fallback to 100ms
         }
       }
-      
+
+      // Camera clips can stay compressed from capture through review and
+      // upload. MediaRecorder guarantees the final dataavailable event before
+      // stop, so wait for stop instead of building a partial Blob after pause.
+      if (compactVideoRecording) {
+        const recorder = mediaRecorder;
+        const mime = recorder.mimeType || recordedVideoMime || "video/mp4";
+
+        await new Promise((resolve, reject) => {
+          recorder.onstop = null;
+          recorder.addEventListener("stop", resolve, { once: true });
+          recorder.addEventListener(
+            "error",
+            (event) => reject(event.error || new Error("Video recorder failed")),
+            { once: true },
+          );
+          recorder.stop();
+        });
+
+        recordedVideoBlob = new Blob(mediaRecorderChunks, { type: mime });
+        recordedVideoMime = mime;
+        clearCompactRecorderStream();
+        mediaRecorder = undefined;
+        mediaRecorderStartTime = undefined;
+        mediaRecorderChunks.length = 0;
+
+        send({ type: "recorder:rolling:ended" });
+        rollingEndedSent = true;
+
+        try {
+          await receivedChange({
+            data: {
+              type: "store:persist",
+              content: {
+                key: "tape",
+                method: "local:db",
+                data: {
+                  kind: "video",
+                  blob: recordedVideoBlob,
+                  mime: recordedVideoMime,
+                  duration: mediaRecorderDuration,
+                  timestamp: Date.now(),
+                },
+              },
+            },
+          });
+          if (cutGeneration !== recorderGeneration) await Store.del("tape");
+        } catch (storageError) {
+          console.error("Error storing compact video tape:", storageError);
+        }
+        return;
+      }
+
       // mediaRecorder?.stop();
       mediaRecorder?.pause(); // Single clips for now.
       hdTapeStop(); // 🖼️📼 Finalize the hd recording (blob lands in onstop).
@@ -12216,7 +12282,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       const info = {
         frameCount: recordedFrames.length,
         totalDuration: 0,
-        hasAudio: !!window.tapeAudioArrayBuffer,
+        hasAudio: !!recordedVideoBlob || !!window.tapeAudioArrayBuffer,
+        kind: recordedVideoBlob ? "video" : "frames",
         // Source of the recording, so the video piece can tell KidLisp
         // $code tapes (which get the GIF/MP4/ZIP export trio) from others.
         pieceName: window.currentRecordingOptions?.pieceName || null,
@@ -12254,6 +12321,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           mp4PlaybackVideo.load();
         } catch {}
         mp4PlaybackVideo = undefined;
+        if (compactPlaybackUrl) {
+          URL.revokeObjectURL(compactPlaybackUrl);
+          compactPlaybackUrl = null;
+        }
         underlayFrame?.remove();
         underlayFrame = undefined;
       }
@@ -12629,6 +12700,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         const v =
           typeof content === "number" ? Math.max(0, Math.min(1, content)) : 1;
         sfxPlaying[tapeAudioId].update({ volume: v, duration: 0.08 });
+      } else if (mp4PlaybackVideo) {
+        mp4PlaybackVideo.volume =
+          typeof content === "number" ? Math.max(0, Math.min(1, content)) : 1;
       }
       return;
     }
@@ -12656,6 +12730,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       if (tapeAudioId && sfxPlaying[tapeAudioId]) {
         const p = typeof content === "number" ? Math.max(0, Math.min(1, content)) : 0;
         sfxPlaying[tapeAudioId].update({ samplePosition: p });
+      } else if (
+        mp4PlaybackVideo &&
+        Number.isFinite(mp4PlaybackVideo.duration) &&
+        mp4PlaybackVideo.duration > 0
+      ) {
+        const p = typeof content === "number" ? Math.max(0, Math.min(1, content)) : 0;
+        mp4PlaybackVideo.currentTime = p * mp4PlaybackVideo.duration;
       }
       return;
     }
@@ -12669,6 +12750,18 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       if (tapeAudioId && sfxPlaying[tapeAudioId]) {
         const rate = typeof content === "number" ? content : 1;
         sfxPlaying[tapeAudioId].update({ sampleSpeed: rate });
+      } else if (mp4PlaybackVideo) {
+        const rate = typeof content === "number" ? content : 1;
+        if (rate > 0) {
+          mp4PlaybackVideo.preservesPitch = false;
+          mp4PlaybackVideo.playbackRate = Math.max(0.25, Math.min(4, rate));
+          mp4PlaybackVideo.play().catch(() => {});
+        } else {
+          // HTMLMediaElement has no reverse playback. The video piece still
+          // seeks frames explicitly while dragging backward; pause native
+          // audio here instead of letting it run in the wrong direction.
+          mp4PlaybackVideo.pause();
+        }
       }
       return;
     }
@@ -14914,7 +15007,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // metadata)) but the data is the already-encoded clip bytes, so there's
     // no frame/zip step. track-tape mints a !code and marks kind "mp4".
     if (type === "upload-video-tape") {
-      const { data, mime, duration, callback } = content || {};
+      const { data, mime, duration, callback, source } = content || {};
       // Logged-in users get a dotted-timestamp filename (no "-" so the
       // presigned server sorts it under {sub}/<ts>.mp4, mirroring zip tapes);
       // guests fall back to a generic name and the server mints a nanoid.
@@ -14932,7 +15025,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         filename = "tape.mp4";
       }
       const blob = new Blob([data], { type: mime || "video/mp4" });
-      const metadata = { totalDuration: duration || 0, source: "camera-roll" };
+      const metadata = {
+        totalDuration: duration || 0,
+        source: source || "camera-roll",
+      };
       receivedUpload(
         { filename, data: blob },
         callback || "tape:posted",
@@ -15038,6 +15134,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         showTezosStamp: content.showTezosStamp || false, // Store Tezos stamp visibility
         freshSession: content.freshSession === true,
         avSync: content.avSync === true,
+        compactVideo: content.compactVideo === true,
       };
       actualContent = content.type || "video";
     } else {
@@ -15052,6 +15149,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         kidlispFps: null, // Initialize for KidLisp framerate updates
         freshSession: false,
         avSync: false,
+        compactVideo: false,
       };
       actualContent = content;
     }
@@ -15068,6 +15166,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // (Must happen before the paused check to avoid early return skipping cleanup)
     recordedFrames.length = 0;
     recordedPieceChanges.length = 0; // Clear piece changes tracking
+    recordedVideoBlob = null;
+    recordedVideoMime = "";
+    if (compactPlaybackUrl) {
+      URL.revokeObjectURL(compactPlaybackUrl);
+      compactPlaybackUrl = null;
+    }
+    clearCompactRecorderStream();
     startTapePlayback = undefined;
     hdTapeReset(); // 🖼️📼 Fresh hd-tape state; arms itself on the first hd frame.
     console.log("🎬 Initialized recording state");
@@ -15120,6 +15225,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         mediaRecorderChunks.length = 0;
         
         clearRawAudioCapture();
+        clearCompactRecorderStream();
         captureSession = null;
         
         // Clear recording timestamp for next recording
@@ -15166,17 +15272,66 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       let options = { mimeType };
 
       if (actualContent === "video") {
-        // Start recording audio.
-        try {
-          mediaRecorder = new MediaRecorder(audioStreamDest.stream, options);
-          console.log("🎬 MediaRecorder created successfully:", mediaRecorder.state);
-        } catch (error) {
-          console.error("MediaRecorder creation failed:", error);
-          return;
+        // Camera recordings use the browser encoder over the already-rendered
+        // AC canvas. This preserves cap's crop/mirror/zoom while avoiding a
+        // second getImageData plus an unbounded array of RGBA frames.
+        if (
+          recordingOptions.compactVideo &&
+          typeof canvas.captureStream === "function" &&
+          typeof MediaStream === "function"
+        ) {
+          const compactMime = chooseCompactVideoMime(
+            MediaRecorder.isTypeSupported.bind(MediaRecorder),
+          );
+
+          if (compactMime) {
+            try {
+              const canvasStream = canvas.captureStream(30);
+              compactRecorderStream = new MediaStream();
+              canvasStream.getVideoTracks().forEach((track) =>
+                compactRecorderStream.addTrack(track),
+              );
+              audioStreamDest?.stream?.getAudioTracks().forEach((track) =>
+                compactRecorderStream.addTrack(track.clone()),
+              );
+
+              const pixelsPerSecond = canvas.width * canvas.height * 30;
+              const videoBitsPerSecond = Math.min(
+                8_000_000,
+                Math.max(1_500_000, Math.round(pixelsPerSecond * 0.12)),
+              );
+              mediaRecorder = new MediaRecorder(compactRecorderStream, {
+                mimeType: compactMime,
+                videoBitsPerSecond,
+              });
+              compactVideoRecording = true;
+              recordedVideoMime = compactMime;
+              console.log("🎬 Compact video recorder ready:", {
+                mime: compactMime,
+                videoBitsPerSecond,
+              });
+            } catch (error) {
+              console.warn("Compact video recording unavailable; using frame tape:", error);
+              clearCompactRecorderStream();
+              mediaRecorder = undefined;
+            }
+          }
         }
-        
-        // Set up raw audio capture for playback - but don't connect yet
-        if (audioContext && sfxStreamGain) {
+
+        // Feature-detection fallback: retain the existing audio + frame tape.
+        if (!mediaRecorder) {
+          try {
+            mediaRecorder = new MediaRecorder(audioStreamDest.stream, options);
+            console.log("🎬 MediaRecorder created successfully:", mediaRecorder.state);
+          } catch (error) {
+            console.error("MediaRecorder creation failed:", error);
+            return;
+          }
+        }
+
+        // Frame tapes need raw PCM for their custom scrub player. Compact
+        // videos carry their audio in the encoded media stream.
+        if (!compactVideoRecording && audioContext && sfxStreamGain) {
           try {
             rawAudioData = [];
             rawAudioSampleRate = audioContext.sampleRate;
@@ -15504,13 +15659,126 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       mediaRecorderFrameCount = 0; // Reset frame capture counter for optimization
 
       console.log("🎬 Starting MediaRecorder, state before start:", mediaRecorder.state);
-      mediaRecorder.start(100);
+      // One-second encoded chunks keep event overhead low for compact camera
+      // clips. Frame tapes retain their existing cadence for compatibility.
+      mediaRecorder.start(compactVideoRecording ? 1000 : 100);
       console.log("🎬 MediaRecorder.start() called, state after start:", mediaRecorder.state);
       //}
       return;
     }
 
     if (type === "recorder:present") {
+      // Compact camera tapes are already playable media. Present the Blob
+      // directly instead of rebuilding a timeline from retained ImageData.
+      if (!recordedVideoBlob) {
+        try {
+          const cachedTape = await Store.get("tape");
+          if (cachedTape?.kind === "video" && cachedTape.blob) {
+            recordedVideoBlob = cachedTape.blob;
+            recordedVideoMime = cachedTape.mime || cachedTape.blob.type || "video/mp4";
+            mediaRecorderDuration = cachedTape.duration || 0;
+          }
+        } catch (error) {
+          console.warn("Could not restore compact video tape:", error);
+        }
+      }
+
+      if (recordedVideoBlob) {
+        stopTapePlayback?.();
+        underlayFrame?.remove();
+        underlayFrame = document.createElement("div");
+        underlayFrame.id = "underlay";
+        underlayFrame.style.cssText =
+          "position: fixed; top: 0; left: 0; width: 100%; height: 100%; " +
+          "z-index: -1; pointer-events: none; background: black;";
+
+        const video = document.createElement("video");
+        mp4PlaybackVideo = video;
+        if (compactPlaybackUrl) URL.revokeObjectURL(compactPlaybackUrl);
+        compactPlaybackUrl = URL.createObjectURL(recordedVideoBlob);
+        video.src = compactPlaybackUrl;
+        video.playsInline = true;
+        video.setAttribute("playsinline", "");
+        video.loop = true;
+        video.muted = false;
+        video.controls = false;
+        video.preload = "auto";
+        video.style.cssText =
+          "position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain;";
+
+        let playbackFrame = 0;
+        const transmitProgress = () => {
+          if (mp4PlaybackVideo !== video || !video.isConnected) return;
+          if (Number.isFinite(video.duration) && video.duration > 0) {
+            send({
+              type: "recorder:present-progress",
+              content: video.currentTime / video.duration,
+            });
+          }
+          playbackFrame = requestAnimationFrame(transmitProgress);
+        };
+
+        stopTapePlayback = () => {
+          cancelAnimationFrame(playbackFrame);
+          try { video.pause(); } catch {}
+        };
+        pauseTapePlayback = () => video.pause();
+        resumeTapePlayback = () => video.play().catch(() => {});
+        seekTapePlayback = (progress) => {
+          if (!Number.isFinite(video.duration) || video.duration <= 0) return;
+          video.currentTime = Math.max(0, Math.min(1, progress)) * video.duration;
+        };
+
+        video.onloadedmetadata = () => {
+          const duration = Number.isFinite(video.duration)
+            ? video.duration
+            : mediaRecorderDuration / 1000;
+          send({
+            type: "tape:info-reply",
+            content: {
+              frameCount: 0,
+              totalDuration: duration,
+              hasAudio: true,
+              kind: "video",
+              pieceName: window.currentRecordingOptions?.pieceName || "cap",
+            },
+          });
+        };
+        video.onplay = () => send({ type: "recorder:present-playing" });
+        video.onpause = () => send({ type: "recorder:present-paused" });
+        video.onerror = () => {
+          console.error("Compact video tape failed to load");
+          send({ type: "recorder:presented:failure" });
+        };
+
+        underlayFrame.appendChild(video);
+        document.body.insertBefore(underlayFrame, document.body.firstChild);
+
+        if (freezeFrame || freezeFrameFrozen || wrapper.contains(freezeFrameCan)) {
+          freezeFrameCan.remove();
+          freezeFrame = false;
+          freezeFrameGlaze = false;
+          freezeFrameFrozen = false;
+        }
+        const glazeCan = Glaze.getCan();
+        if (glazeCan) glazeCan.style.display = "none";
+        if (webglCompositeCanvas) webglCompositeCanvas.style.display = "none";
+        if (overlayCan) overlayCan.style.display = "none";
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        canvas.style.visibility = "visible";
+        document.body.style.background = "transparent";
+        document.body.style.backgroundImage = "none";
+        wrapper.style.background = "transparent";
+
+        send({ type: "recorder:presented" });
+        playbackFrame = requestAnimationFrame(transmitProgress);
+        if (!content?.noplay) video.play().catch(() => {
+          send({ type: "recorder:present-paused" });
+        });
+        else send({ type: "recorder:present-paused" });
+        return;
+      }
+
       // Check for cached video if no active recording AND no recorded frames
       if (
         (!mediaRecorder || mediaRecorder.state !== "paused") &&
@@ -16303,6 +16571,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       if (underlayFrame) {
         const media = underlayFrame.querySelector("video, audio");
         if (media?.src) URL.revokeObjectURL(media.src);
+        if (media === mp4PlaybackVideo) mp4PlaybackVideo = undefined;
+        if (compactPlaybackUrl) {
+          URL.revokeObjectURL(compactPlaybackUrl);
+          compactPlaybackUrl = null;
+        }
         underlayFrame?.remove();
         underlayFrame = undefined;
         
@@ -17447,6 +17720,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       recordedFrames.length = 0;
       recordedPieceChanges.length = 0;
       clearRawAudioCapture();
+      clearCompactRecorderStream();
+      recordedVideoBlob = null;
+      recordedVideoMime = "";
+      if (compactPlaybackUrl) {
+        URL.revokeObjectURL(compactPlaybackUrl);
+        compactPlaybackUrl = null;
+      }
       captureSession = null;
       delete sfx["tape:audio"];
       delete window.recordingStartTimestamp;
@@ -17460,6 +17740,34 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     // Request recorded frames for export
     if (type === "recorder:request-frames") {
+      if (!recordedVideoBlob) {
+        try {
+          const cachedTape = await Store.get("tape");
+          if (cachedTape?.kind === "video" && cachedTape.blob) {
+            recordedVideoBlob = cachedTape.blob;
+            recordedVideoMime = cachedTape.mime || cachedTape.blob.type || "video/mp4";
+            mediaRecorderDuration = cachedTape.duration || 0;
+          }
+        } catch (error) {
+          console.warn("Could not retrieve compact video tape:", error);
+        }
+      }
+
+      if (recordedVideoBlob) {
+        send({
+          type: "recorder:frames-response",
+          content: {
+            frames: [],
+            video: {
+              blob: recordedVideoBlob,
+              mime: recordedVideoMime || recordedVideoBlob.type || "video/mp4",
+              duration: mediaRecorderDuration / 1000,
+            },
+          },
+        });
+        return;
+      }
+
       if (recordedFrames.length > 0) {
         // Try to get raw audio from cached tape
         let rawAudio = null;
@@ -19661,7 +19969,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         }
 
         // 📼 Capture frame data AFTER HUD overlays but BEFORE tape progress bar (including HUD in recording)
-        if (isRecording) {
+        if (isRecording && !compactVideoRecording) {
           // 🎯 Capture EVERY frame - no time-based throttling for maximum quality
           // GIF export will downsample to 30fps, MP4 will use all frames
           mediaRecorderFrameCount = (mediaRecorderFrameCount || 0) + 1;
@@ -21466,6 +21774,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                       opacity: 0;`;
 
       let settings, stream, videoTrack;
+      let lastProcessedVideoTime = -1;
       let facingModeChange = false;
       let torchEnabled = false;
 
@@ -21518,6 +21827,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           });
 
           video.srcObject = stream;
+          lastProcessedVideoTime = -1;
           videoTrack = stream.getVideoTracks()[0];
           const capabilities = videoTrack.getCapabilities?.() || {};
           settings = videoTrack.getSettings();
@@ -21813,6 +22123,18 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       function process() {
         cancelAnimationFrame(getAnimationRequest());
         if (facingModeChange) return;
+        // Camera tracks commonly deliver 30fps while display RAF runs at 60
+        // or 120Hz. Avoid redrawing, reading, and transferring the same camera
+        // frame two to four times.
+        if (video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) {
+          animationRequest = requestAnimationFrame(process);
+          return;
+        }
+        if (video.currentTime === lastProcessedVideoTime) {
+          animationRequest = requestAnimationFrame(process);
+          return;
+        }
+        lastProcessedVideoTime = video.currentTime;
         // cancelAnimationFrame(getAnimationRequest());
         // TODO: Video effects / filter kernels could be added here...
         // 💡 For GPU backed visuals. 23.04.29.20.47
