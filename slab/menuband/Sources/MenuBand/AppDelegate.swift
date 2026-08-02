@@ -382,6 +382,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var trackpadPercussionGroups: [TrackpadPercussionPad.Voice: UInt64] = [:]
     private var trackpadSkinTouches: [CGPoint] = []
     private var trackpadContactsByID: [Int32: CGPoint] = [:]
+    private var trackpadFXPrimaryContact = TrackpadPrimaryContact()
     private var trackpadSkinFrameTimestamp: Double = 0
     /// Stabilized lengths-per-second for membrane friction. Raw per-frame
     /// distances inherit trackpad quantization and callback jitter, which made
@@ -419,9 +420,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var trackpadRecoveredReplacements = 0
     private var trackpadUntriggeredBeginFrames = 0
     /// Latest set of fingers on the trackpad (normalized 0…1, origin
-    /// bottom-left) from the MultitouchSupport tap — drives both performance
-    /// surfaces and the touch dots painted on the overlay. Empty on the App
-    /// Store build (no tap).
+    /// bottom-left) from the direct-build MultitouchSupport tap or the focused
+    /// App Store NSTouch path. Drives the multitouch performance surfaces.
     private var mtTouches: [CGPoint] = []
     /// True only where the private MultitouchSupport tap is compiled in.
     #if !MAC_APP_STORE
@@ -4561,9 +4561,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if trackpadPadMode == .kit, pitchBendCursorPushed {
             updateTrackpadPercussion(touches, began: changes.began,
                                      callbackTime: callbackTime)
-        } else if trackpadPadMode == .fx, pitchBendCursorPushed,
-                  let primaryTouch = touches.first {
-            applyAbsoluteTrackpadFX(at: primaryTouch)
+        } else if trackpadPadMode == .fx, pitchBendCursorPushed {
+            if let primaryTouch = trackpadFXPrimaryContact.update(changes.active) {
+                applyAbsoluteTrackpadFX(at: primaryTouch)
+            }
         } else if shiftSlides {
             trackpadSkinTouches = touches
             trackpadSkinFrameTimestamp = timestamp
@@ -4980,6 +4981,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         setTrackpadFighterSuppressed(true)
         #endif
         trackpadPadMode = .skin
+        trackpadFXPrimaryContact.reset()
         trackpadSurfaceEnergy.reset(at: CACurrentMediaTime())
         trackpadScratchSpeed = nil
         startTrackpadEnergyDisplay()
@@ -5032,6 +5034,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Entering percussion neutralizes the FX so the drum kit is not silently
     /// pitch-shifted; returning to FX requires a fresh movement or note.
     private func cycleTrackpadPadMode() {
+        trackpadFXPrimaryContact.reset()
         switch trackpadPadMode {
         case .fx: trackpadPadMode = .kit
         case .kit: trackpadPadMode = .skin
@@ -5353,8 +5356,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return TrackpadSynthPad.image(touches: mtTouches, energy: energy)
         }
         return PitchBendCursor.image(forBend: bendAmount / Self.bendRange, echo: fxX,
-                                     keyDown: menuBand.keyboardNotesHeld,
-                                     touches: mtTouches)
+                                     keyDown: menuBand.keyboardNotesHeld)
     }
 
     private func showPitchBendOverlay() {
@@ -5542,6 +5544,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         pitchBendEndTimer?.invalidate()
         pitchBendEndTimer = nil
         pitchBendReleaseGraceUntil = nil
+        trackpadFXPrimaryContact.reset()
         // Stop the bend easer so it can't keep nudging pitch after teardown;
         // the fx spring-back (startFxRelease below) owns `bendAmount` now.
         stopBendEase()

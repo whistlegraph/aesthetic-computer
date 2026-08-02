@@ -339,6 +339,35 @@ final class ShapedownTests: XCTestCase {
         XCTAssertEqual(values.space, 0, accuracy: 0.000_001)
     }
 
+    func testPitchBendKeepsOnePrimaryTrackpadContact() {
+        var primary = TrackpadPrimaryContact()
+        let first = TrackpadContact(
+            identifier: 41, point: CGPoint(x: 0.2, y: 0.3), state: 3
+        )
+        let extra = TrackpadContact(
+            identifier: 42, point: CGPoint(x: 0.8, y: 0.9), state: 3
+        )
+        XCTAssertEqual(primary.update([first]), first.point)
+        XCTAssertEqual(primary.update([extra, first]), first.point)
+        XCTAssertEqual(primary.identifier, first.identifier)
+    }
+
+    func testPitchBendDoesNotHandOffUntilEveryFingerLifts() {
+        var primary = TrackpadPrimaryContact()
+        let first = TrackpadContact(
+            identifier: 51, point: CGPoint(x: 0.2, y: 0.3), state: 3
+        )
+        let extra = TrackpadContact(
+            identifier: 52, point: CGPoint(x: 0.8, y: 0.9), state: 4
+        )
+        _ = primary.update([first])
+        XCTAssertNil(primary.update([extra]))
+        XCTAssertEqual(primary.identifier, first.identifier)
+        XCTAssertNil(primary.update([]))
+        XCTAssertNil(primary.identifier)
+        XCTAssertEqual(primary.update([extra]), extra.point)
+    }
+
     func testSamePadReplacementRetriggersKitVoice() {
         let first = CGPoint(x: 0.30, y: 0.80)
         let down = TrackpadPercussionPad.transition(

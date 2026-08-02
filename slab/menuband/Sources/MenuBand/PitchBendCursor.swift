@@ -709,10 +709,9 @@ enum PitchBendCursor {
         buildImage(bend: CGFloat(amount), echo: 0, keyDown: false)
     }
 
-    static func image(forBend bend: Float, echo: Float, keyDown: Bool = false,
-                      touches: [CGPoint] = []) -> NSImage {
-        buildImage(bend: CGFloat(bend), echo: CGFloat(echo), keyDown: keyDown,
-                   touches: touches)
+    static func image(forBend bend: Float, echo: Float,
+                      keyDown: Bool = false) -> NSImage {
+        buildImage(bend: CGFloat(bend), echo: CGFloat(echo), keyDown: keyDown)
     }
 
     static func cursor(forBend amount: Float) -> NSCursor {
@@ -723,8 +722,8 @@ enum PitchBendCursor {
         NSCursor(image: image(forBend: bend, echo: echo), hotSpot: hotSpot)
     }
 
-    private static func buildImage(bend: CGFloat, echo: CGFloat, keyDown: Bool,
-                                   touches: [CGPoint] = []) -> NSImage {
+    private static func buildImage(bend: CGFloat, echo: CGFloat,
+                                   keyDown: Bool) -> NSImage {
         let bendC = max(-1, min(1, bend))
         // `echo` is the bipolar fx-X driver in [-1, +1]: positive
         // (right) is echo, negative (left) is space/reverb. We keep
@@ -742,19 +741,18 @@ enum PitchBendCursor {
             if #available(macOS 11.0, *) {
                 appearance.performAsCurrentDrawingAppearance {
                     drawChart(in: rect, bend: bendC, echo: xC, isDark: isDark,
-                              keyDown: keyDown, touches: touches)
+                              keyDown: keyDown)
                 }
             } else {
                 drawChart(in: rect, bend: bendC, echo: xC, isDark: isDark,
-                          keyDown: keyDown, touches: touches)
+                          keyDown: keyDown)
             }
             return true
         }
     }
 
     private static func drawChart(in rect: NSRect, bend: CGFloat, echo: CGFloat,
-                                  isDark: Bool, keyDown: Bool,
-                                  touches: [CGPoint] = []) {
+                                  isDark: Bool, keyDown: Bool) {
         // A Menu Band keycap plate, cleanly divided into four quadrants by a
         // single thin cross (no axis labels, no arrowheads, no end-caps). The
         // puck carries the live bend (Y) / echo (X) and lights up with the
@@ -830,24 +828,6 @@ enum PitchBendCursor {
                  : NSColor.black.withAlphaComponent(0.9)).setStroke()
         knob.lineWidth = keyDown ? 1.0 : 0.8
         knob.stroke()
-
-        // Live trackpad touches (private MultitouchSupport tap). Each finger's
-        // absolute normalized position is mapped straight into the chart, so
-        // the pad reads as a tiny mirror of the trackpad.
-        if !touches.isEmpty {
-            let dotR: CGFloat = 3
-            for t in touches {
-                let px = chart.minX + max(0, min(1, CGFloat(t.x))) * chart.width
-                let py = chart.minY + max(0, min(1, CGFloat(t.y))) * chart.height
-                let dot = NSBezierPath(ovalIn: NSRect(x: px - dotR, y: py - dotR,
-                                                      width: dotR * 2, height: dotR * 2))
-                accent.withAlphaComponent(0.30).setFill()
-                dot.fill()
-                accent.withAlphaComponent(0.6).setStroke()
-                dot.lineWidth = 0.8
-                dot.stroke()
-            }
-        }
 
         // Keycap outline last so the whole pad is framed like a key.
         let edge = isDark
