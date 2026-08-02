@@ -38,8 +38,12 @@ settings:
     # sat a build behind through the whole 1.5.3 release.
     # The direct-download build keeps its own literals in Info.plist (SwiftPM
     # never sees these settings); bump both when releasing.
-    MARKETING_VERSION: "1.5.5"
-    CURRENT_PROJECT_VERSION: "156"
+    MARKETING_VERSION: "1.6.7"
+    CURRENT_PROJECT_VERSION: "168"
+
+packages:
+  ACMacAudio:
+    path: ../macos-audio
 
 targets:
   MenuBand:
@@ -101,6 +105,8 @@ targets:
       - path: Sources/CGMSynth/gm_synth.c
 
     dependencies:
+      - package: ACMacAudio
+        product: ACMacAudio
       # Package.swift links IOKit explicitly (used without a Swift import);
       # everything else (AppKit, AVFoundation, CoreMIDI, CoreAudio, Metal,
       # MetalKit, WebKit, Carbon) auto-links from its `import`.

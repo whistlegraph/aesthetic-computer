@@ -29,6 +29,8 @@ extension Float {
 final class MenuBandController {
     private let midi = MenuBandMIDI()
     private let synth = MenuBandSynth()
+    private let mixAnalysis = MenuBandMixAnalysis()
+    private var trackpadPerformanceActive = false
     /// Optional shared room transmitter. It is fed from the synth's existing
     /// mixer tap alongside the tape recorder, never from a second tap.
     private var roomAudioSender: ACAudioRoomSender?
@@ -180,6 +182,7 @@ final class MenuBandController {
     private let percussionLeftKey = KeyboardIconRenderer.percussionLeftDefaultsKey
     private let percussionRightKey = KeyboardIconRenderer.percussionRightDefaultsKey
     private let percussionVolumeKey = "notepat.percussionVolume"
+    private let percussionVolume90MigrationKey = "notepat.percussionVolume90Migration"
     private let masterVolumeKey = "notepat.masterVolume"
     /// Active instrument backend: `"gm"` for the General MIDI bank, or
     /// `"gb"` for a GarageBand sampler patch. Default is GM. Stored as a
@@ -777,7 +780,7 @@ final class MenuBandController {
     private func applyPercussionSideEffects() {
         releaseAllHeldNotes()
         if !percussionLeft && !percussionRight { synth.percussion.silence() }
-        synth.keepEngineWarm = percussionLeft || percussionRight
+        synth.keepEngineWarm = percussionLeft || percussionRight || trackpadPerformanceActive
         onChange?()
     }
 
@@ -828,15 +831,87 @@ final class MenuBandController {
     @discardableResult
     func percussionNoteOn(_ drum: MenuBandPercussion.Drum,
                           velocity: UInt8, pan: UInt8, accent: Bool = false) -> UInt64 {
-        synth.percussionNoteOn(drum, velocity: velocity, pan: pan, accent: accent)
+        mixAnalysis.mark("kit-\(drum)")
+        return synth.percussionNoteOn(drum, velocity: velocity, pan: pan, accent: accent)
     }
 
     /// Drum trigger→render latency (ms) for the debug latency readout.
     func percussionTriggerHandoffMs() -> Double { synth.percussionTriggerHandoffMs() }
 
+    func markTrackpadInput(at callbackTime: Double) {
+        synth.markTrackpadInput(at: callbackTime)
+    }
+
+    func trackpadInputToRenderMs() -> Double {
+        synth.trackpadInputToRenderMs()
+    }
+
+    func percussionVoicePressure() -> MenuBandPercussion.VoicePressure {
+        synth.percussionVoicePressure()
+    }
+
     /// Key/click-up for a split drum (hi-hat foot-pedal release).
     func percussionNoteOff(_ group: UInt64) {
         synth.percussionNoteOff(group)
+    }
+
+    /// Fire a finite drum hit from the trackpad pad. Bass drum and snare do
+    /// not need a matching lift event; the hat uses percussionNoteOn/Off so a
+    /// finger can hold its shimmer open.
+    func trackpadPercussionHit(_ drum: MenuBandPercussion.Drum,
+                               velocity: UInt8, pan: UInt8) {
+        mixAnalysis.mark("kit-\(drum)")
+        synth.playPercussion(drum, velocity: velocity, pan: pan)
+    }
+
+    func trackpadReverseKick(velocity: UInt8, pan: UInt8) {
+        synth.playReverseKick(velocity: velocity, pan: pan)
+    }
+
+    func trackpadDrumSkin(strike: CGPoint, anchors: [CGPoint], velocity: UInt8) {
+        mixAnalysis.mark("skin-\(MenuBandPercussion.drumSkinZone(at: strike).rawValue)")
+        synth.playDrumSkin(strike: strike, anchors: anchors, velocity: velocity)
+    }
+
+    func trackpadSuperKick(strike: CGPoint, anchors: [CGPoint]) {
+        mixAnalysis.mark("skin-super-kick")
+        synth.playSuperKick(strike: strike, anchors: anchors)
+    }
+
+    func trackpadSynthSurface(strike: CGPoint, anchors: [CGPoint], velocity: UInt8) {
+        mixAnalysis.mark("synth-\(MenuBandPercussion.drumSkinZone(at: strike).rawValue)")
+        synth.playSynthSurface(strike: strike, anchors: anchors, velocity: velocity)
+    }
+
+    func trackpadSurfaceLift(at point: CGPoint, anchors: [CGPoint],
+                             velocity: UInt8, synthetic: Bool) {
+        let prefix = synthetic ? "synth-up" : "skin-up"
+        mixAnalysis.mark("\(prefix)-\(MenuBandPercussion.drumSkinZone(at: point).rawValue)")
+        synth.playSurfaceLift(at: point, anchors: anchors,
+                              velocity: velocity, synthetic: synthetic)
+    }
+
+    func trackpadDrumSkinScratch(at point: CGPoint, speed: Double,
+                                 anchors: [CGPoint] = [],
+                                 direction: CGVector = .zero,
+                                 surfaceEnergy: Double = 0,
+                                 synthetic: Bool = false) {
+        synth.setDrumSkinScratch(at: point, speed: speed, anchors: anchors,
+                                 direction: direction,
+                                 surfaceEnergy: surfaceEnergy,
+                                 synthetic: synthetic)
+    }
+
+    func stopTrackpadDrumSkinScratch() {
+        synth.stopDrumSkinScratch()
+    }
+
+    /// Pin the audio graph while a global trackpad surface is open. This
+    /// removes cold-engine startup from the first strike while preserving the
+    /// keyboard split's independent warm pin.
+    func setTrackpadPerformanceActive(_ active: Bool) {
+        trackpadPerformanceActive = active
+        synth.keepEngineWarm = percussionLeft || percussionRight || active
     }
 
     /// Live per-pitch-class drum hit pulses driving the menubar key vibe.
@@ -961,8 +1036,9 @@ final class MenuBandController {
         return UInt8(max(0, min(127, raw)))
     }
 
-    /// Persistent master output gain, 0.0…1.0. Default 1.0 (full volume).
-    /// Lives on the pre-limiter sum bus inside the synth so every backend
+    /// Persistent joined-output level, 0.0…1.0. Default 1.0; percussion-driven
+    /// sidechain automation ducks beneath it dynamically during drum attacks.
+    /// Lives on the joined post-FX bus inside the synth so every backend
     /// scales together — drag the popover slider and the whole mix moves.
     var masterVolume: Float {
         get {
@@ -980,14 +1056,23 @@ final class MenuBandController {
     }
 
     /// Persistent percussion-only output trim. 100% is the kit's historical
-    /// fixed loudness; fresh installs start at 75% so drums have room to move
-    /// above or below the melodic/system-volume mix.
+    /// fixed loudness; fresh installs start at 80% so drum transients lead the
+    /// melodic voice without masking its body.
     var percussionVolume: Float {
         get {
             if UserDefaults.standard.object(forKey: percussionVolumeKey) == nil {
-                return 0.75
+                return 0.90
             }
-            let raw = UserDefaults.standard.double(forKey: percussionVolumeKey)
+            var raw = UserDefaults.standard.double(forKey: percussionVolumeKey)
+            if !UserDefaults.standard.bool(forKey: percussionVolume90MigrationKey) {
+                // Lift only the former untouched default. Preserve every
+                // deliberate user setting above or below it.
+                if abs(raw - 0.80) < 0.000_1 {
+                    raw = 0.90
+                    UserDefaults.standard.set(raw, forKey: percussionVolumeKey)
+                }
+                UserDefaults.standard.set(true, forKey: percussionVolume90MigrationKey)
+            }
             return Float(max(0.0, min(1.0, raw)))
         }
         set {
@@ -1795,6 +1880,7 @@ final class MenuBandController {
         synth.onWaveformBuffer = { [weak self] buffer in
             self?.tape.ingestSynth(buffer)
             self?.roomAudioSender?.send(buffer)
+            self?.mixAnalysis.ingest(buffer)
         }
         synth.onMicInputBuffer = { [weak self] buffer in
             self?.tape.ingestMic(buffer)
@@ -1803,6 +1889,7 @@ final class MenuBandController {
         // carries editable notes (a .mid drops onto an Ableton MIDI track).
         synth.onNoteEvent = { [weak self] note, vel, on, ch, pan in
             self?.tape.ingestNote(note, velocity: vel, on: on, channel: ch, pan: pan)
+            if on { self?.mixAnalysis.mark("melody") }
         }
         // Block-based observer so the controller (a plain Swift class,
         // not NSObject) can register without inheriting from

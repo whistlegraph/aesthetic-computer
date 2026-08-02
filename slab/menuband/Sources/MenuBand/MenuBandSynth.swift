@@ -75,10 +75,14 @@ final class MenuBandSynth {
     /// directly and a chord across melodic + drums + midiSynth could exceed
     /// 0 dBFS at the output (audible clipping/crackle).
     private let preLimiterMixer = AVAudioMixerNode()
-    /// Sums the fx-processed melodic bus with the DRY percussion bus right
-    /// before the compressor. Percussion routes here instead of through
+    /// Realtime gain stage after melodic compression. Percussion-triggered
+    /// automation moves this node without disturbing the proximity EQ's own
+    /// user-controlled makeup gain.
+    private let melodicDuckMixer = AVAudioMixerNode()
+    /// Sums the compressed/ducked melodic bus with the DRY percussion bus
+    /// immediately before the final limiter. Percussion routes here instead of through
     /// echo/reverb/proximity, so the trackpad fx (and pitch-bend) never
-    /// touch the drums — they still get the master compressor + limiter and
+    /// touch the drums — they still get master volume + final limiting and
     /// are captured by the tape (which taps `mainMixerNode`, downstream).
     private let postFxMixer = AVAudioMixerNode()
     /// Apple PeakLimiter on the master path. Catches transient peaks from
@@ -206,7 +210,7 @@ final class MenuBandSynth {
     /// scheduling jitter, so it popped constantly. 5.3 ms is still well below
     /// the perceptual threshold for a keyboard instrument; bump it back down
     /// only on a machine with headroom to spare.
-    private static let targetIOBufferFrames: UInt32 = 512
+    private static let targetIOBufferFrames: UInt32 = 128
     /// True once we've successfully taken hog mode on the active
     /// output device. Tracks the device ID alongside so we can
     /// release the right one on shutdown / device switch.
@@ -286,7 +290,13 @@ final class MenuBandSynth {
     /// BEFORE the limiter means lowering the slider also pulls the
     /// peak-limit threshold down proportionally — the slider is the
     /// user's "max volume" knob in a literal sense.
+    /// Baseline joined-output trim; percussion sidechain automation moves the
+    /// independent melodic bus beneath it.
     private var masterVolume: Float = 1.0
+    private var melodicDuckGain: Float = 1
+    private var melodicDuckTarget: Float = 1
+    private var melodicDuckHoldUntil: CFTimeInterval = 0
+    private var melodicDuckTimer: Timer?
 
     /// External callers (the controller's hover-preview path) read this
     /// to decide whether they need to wait for the bank-swap settle delay
@@ -393,6 +403,7 @@ final class MenuBandSynth {
         engine.attach(echo)
         engine.attach(spaceReverb)
         engine.attach(proximityEQ)
+        engine.attach(melodicDuckMixer)
         engine.attach(postFxMixer)
         engine.attach(compressor)
         engine.attach(limiter)
@@ -485,10 +496,10 @@ final class MenuBandSynth {
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
             self?.measuredOutputLatency()
         }
-        // Apply the persisted master volume now that preLimiterMixer is
+        // Apply the persisted master volume now that the joined output bus is
         // attached + connected (setting outputVolume before attach is a
         // silent no-op on AVAudioMixerNode).
-        preLimiterMixer.outputVolume = masterVolume
+        postFxMixer.outputVolume = masterVolume
 
         // Recover from audio-device changes (aux cable, headphones,
         // AirPods, sample-rate switch). See `configChangeObserver`.
@@ -775,27 +786,29 @@ final class MenuBandSynth {
     private func connectLimiterIfNeeded() {
         guard !limiterConnected else { return }
         // preLimiterMixer → echo → spaceReverb → proximityEQ → compressor →
-        // limiter → main. Echo is first so the reverb washes its repeats
+        // melodicDuckMixer → postFxMixer (+ dry percussion) → limiter → main.
+        // Echo is first so the reverb washes its repeats
         // (not vice-versa); proximityEQ (left-axis "closer/tinier") sits
         // last in the fx group so it shrinks the whole wet+dry blend. All
-        // sit pre-compressor so their tails are leveled + peak-controlled
-        // and pre-master so the volume slider scales them with everything.
-        // The compressor does the loudness normalization (glue + makeup gain);
+        // sit pre-compressor so melodic tails are leveled before the selective
+        // duck. Dry percussion joins only after that automation, so compressor
+        // makeup cannot restore the pocket. The joined mixer owns master gain.
         // the PeakLimiter remains the final brick wall at 0 dBFS.
         engine.connect(preLimiterMixer, to: echo, format: nil)
         engine.connect(echo, to: spaceReverb, format: nil)
         engine.connect(spaceReverb, to: proximityEQ, format: nil)
-        engine.connect(proximityEQ, to: postFxMixer, format: nil)
-        engine.connect(postFxMixer, to: compressor, format: nil)
-        engine.connect(compressor, to: limiter, format: nil)
+        engine.connect(proximityEQ, to: compressor, format: nil)
+        engine.connect(compressor, to: melodicDuckMixer, format: nil)
+        engine.connect(melodicDuckMixer, to: postFxMixer, format: nil)
+        engine.connect(postFxMixer, to: limiter, format: nil)
         engine.connect(limiter, to: engine.mainMixerNode, format: nil)
 
         // "Glued master" compressor: pull quiet notes up and tame loud
         // chords toward a common level, then makeup-gain the whole bus so
-        // ordinary playing sits near 0 dBFS. Soft knee (HeadRoom) keeps it
-        // musical rather than slammed; +9 dB makeup is what actually makes
-        // it "as loud as it can be" — the downstream limiter absorbs any
-        // overshoot so the makeup can be generous without clipping.
+        // ordinary playing stays controlled. Soft knee (HeadRoom) keeps it
+        // musical rather than slammed. Makeup remains neutral because this
+        // compressor now belongs only to the melodic bus; boosting it here
+        // would overwhelm the dry percussion that joins downstream.
         // Expansion left at defaults (ExpansionThreshold ≈ -100 dB) so the
         // low-end expander never acts as a noise gate on soft tails.
         let cAU = compressor.audioUnit
@@ -813,10 +826,11 @@ final class MenuBandSynth {
         // audible pumping on sustained pads/chords.
         AudioUnitSetParameter(cAU, kDynamicsProcessorParam_ReleaseTime,
                               kAudioUnitScope_Global, 0, 0.18, 0)
-        // Makeup gain — the "normalize to max" stage. (kDynamicsProcessorParam
-        // _MasterGain is spelled _OverallGain in the Swift-imported header.)
+        // Gentle solo normalization. The percussion-triggered duck downstream
+        // still makes room when both buses play, while a lone key/voice no
+        // longer feels recessed against the system output.
         AudioUnitSetParameter(cAU, kDynamicsProcessorParam_OverallGain,
-                              kAudioUnitScope_Global, 0, 9.0, 0)
+                              kAudioUnitScope_Global, 0, 1.5, 0)
 
         let au = limiter.audioUnit
         // Fast attack catches chord/transient peaks; medium release avoids
@@ -1603,7 +1617,7 @@ final class MenuBandSynth {
 
     // MARK: - Public API
 
-    /// Master output gain, 0.0…1.0. Stored on the pre-limiter sum bus
+    /// Master output gain, 0.0…1.0. Stored on the joined post-FX bus
     /// so every backend scales together. Idempotent — safe to call
     /// before or after `start()`. Clamped to [0, 1].
     func setMasterVolume(_ value: Float) {
@@ -1612,18 +1626,64 @@ final class MenuBandSynth {
         // outputVolume is realtime-safe — AVAudioEngine ramps it to
         // the new target rather than snapping, so dragging the slider
         // doesn't click.
-        preLimiterMixer.outputVolume = clamped
+        postFxMixer.outputVolume = clamped
+    }
+
+    /// Independent percussion trim before the joined master bus.
+    func setPercussionVolume(_ value: Float) {
+        percussion.setOutputLevel(max(0, min(1, value)))
+    }
+
+    /// Fast musical sidechain on the melodic bus. Kick-like events make the
+    /// deepest pocket; brighter percussion makes a lighter one. Chords duck a
+    /// little further than single notes so polyphony cannot mask the groove.
+    private func triggerMelodicDuck(depth: Float, velocity: UInt8,
+                                    hold: TimeInterval,
+                                    floor: Float = 0.48) {
+        let velocityScale = Float(velocity) / 127
+        let polyphony = max(0, activeNotes.count - 1)
+        let polyphonyDepth = min(Float(0.12), Float(polyphony) * 0.03)
+        let scaledDepth = depth * (0.55 + 0.45 * velocityScale) + polyphonyDepth
+        let target = max(floor, 1 - scaledDepth)
+        let apply = { [weak self] in
+            guard let self else { return }
+            self.melodicDuckTarget = min(self.melodicDuckTarget, target)
+            self.melodicDuckHoldUntil = max(
+                self.melodicDuckHoldUntil, CACurrentMediaTime() + hold
+            )
+            self.startMelodicDuckTimerIfNeeded()
+        }
+        if Thread.isMainThread { apply() }
+        else { DispatchQueue.main.async(execute: apply) }
+    }
+
+    private func startMelodicDuckTimerIfNeeded() {
+        guard melodicDuckTimer == nil else { return }
+        let timer = Timer(timeInterval: 1.0 / 120.0, repeats: true) {
+            [weak self] timer in
+            guard let self else { timer.invalidate(); return }
+            let held = CACurrentMediaTime() < self.melodicDuckHoldUntil
+            if !held { self.melodicDuckTarget = 1 }
+            let target: Float = held ? self.melodicDuckTarget : 1
+            // Near-instant attack, slower transparent recovery.
+            let rate: Float = target < self.melodicDuckGain ? 0.48 : 0.055
+            self.melodicDuckGain += (target - self.melodicDuckGain) * rate
+            self.melodicDuckMixer.outputVolume = self.melodicDuckGain
+            if !held, abs(self.melodicDuckGain - 1) < 0.001 {
+                self.melodicDuckGain = 1
+                self.melodicDuckTarget = 1
+                self.melodicDuckMixer.outputVolume = 1
+                timer.invalidate()
+                self.melodicDuckTimer = nil
+            }
+        }
+        timer.tolerance = 1.0 / 480.0
+        RunLoop.main.add(timer, forMode: .common)
+        melodicDuckTimer = timer
     }
 
     /// Read the current master volume (last persisted or set value).
     var currentMasterVolume: Float { masterVolume }
-
-    /// Independent drum-kit trim. Percussion intentionally bypasses the
-    /// melodic pre-FX/master mixer, so this leaves keys at the normal macOS
-    /// output level while allowing the kit to sit above or below them.
-    func setPercussionVolume(_ value: Float) {
-        percussion.setOutputLevel(value)
-    }
 
     /// Switch the current melodic program. Instant when MIDISynth is ready
     /// (sub-millisecond MIDI Program Change); blocks ~100 ms otherwise
@@ -2036,11 +2096,100 @@ final class MenuBandSynth {
         // it (and cancel any pending suspend) before staging the voices.
         _ = resumeAudioEngineIfNeeded()
         let p = max(-1.0, min(1.0, (Double(pan) - 64.0) / 63.0))
+        let depth: Float
+        let hold: TimeInterval
+        switch drum {
+        case .kick: depth = 0.42; hold = 0.105
+        case .snare, .clap: depth = 0.25; hold = 0.075
+        case .snap, .cowbell, .block: depth = 0.16; hold = 0.055
+        default: depth = 0.10; hold = 0.040
+        }
+        triggerMelodicDuck(depth: depth, velocity: velocity, hold: hold)
         percussion.play(drum, velocity: velocity, pan: p)
         // Keep the engine awake long enough for the drum tail to ring out,
         // since `activeNotes` stays empty. Re-arm the idle suspend timer so
         // it can't fire mid-tail.
         scheduleIdleSuspendAfterPercussion()
+    }
+
+    /// A rising, suction-like bass-drum envelope for the trackpad's
+    /// two-finger upper-half gesture.
+    func playReverseKick(velocity: UInt8, pan: UInt8) {
+        guard started else { return }
+        _ = resumeAudioEngineIfNeeded()
+        let p = max(-1.0, min(1.0, (Double(pan) - 64.0) / 63.0))
+        triggerMelodicDuck(depth: 0.38, velocity: velocity, hold: 0.12)
+        percussion.playReverseKick(velocity: velocity, pan: p)
+        scheduleIdleSuspendAfterPercussion()
+    }
+
+    func playDrumSkin(strike: CGPoint, anchors: [CGPoint], velocity: UInt8) {
+        guard started else { return }
+        _ = resumeAudioEngineIfNeeded()
+        let zone = MenuBandPercussion.drumSkinZone(at: strike)
+        let depth: Float = zone == .kick ? 0.40
+            : (zone == .tom ? 0.30 : (zone == .snare ? 0.22 : 0.10))
+        triggerMelodicDuck(depth: depth, velocity: velocity,
+                           hold: zone == .kick ? 0.10 : 0.06)
+        percussion.playDrumSkin(strike: strike, anchors: anchors, velocity: velocity)
+        scheduleIdleSuspendAfterPercussion()
+    }
+
+    /// Pressure-stage kick: reinforce the acoustic hit, then pulse the melodic
+    /// bus twice during recovery for an intentional pump/wobble.
+    func playSuperKick(strike: CGPoint, anchors: [CGPoint]) {
+        guard started else { return }
+        _ = resumeAudioEngineIfNeeded()
+        triggerMelodicDuck(depth: 0.72, velocity: 127, hold: 0.075,
+                           floor: 0.28)
+        percussion.playDrumSkin(strike: strike, anchors: anchors, velocity: 127)
+        percussion.play(.kick, velocity: 127, pan: 0)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.090) { [weak self] in
+            self?.triggerMelodicDuck(depth: 0.46, velocity: 127, hold: 0.045,
+                                     floor: 0.38)
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.180) { [weak self] in
+            self?.triggerMelodicDuck(depth: 0.30, velocity: 116, hold: 0.035,
+                                     floor: 0.44)
+        }
+        scheduleIdleSuspendAfterPercussion()
+    }
+
+    func playSynthSurface(strike: CGPoint, anchors: [CGPoint], velocity: UInt8) {
+        guard started else { return }
+        _ = resumeAudioEngineIfNeeded()
+        let zone = MenuBandPercussion.drumSkinZone(at: strike)
+        triggerMelodicDuck(depth: zone == .kick ? 0.34 : 0.16,
+                           velocity: velocity, hold: 0.07)
+        percussion.playSynthSurface(strike: strike, anchors: anchors, velocity: velocity)
+        scheduleIdleSuspendAfterPercussion()
+    }
+
+    func playSurfaceLift(at point: CGPoint, anchors: [CGPoint],
+                         velocity: UInt8, synthetic: Bool) {
+        guard started else { return }
+        _ = resumeAudioEngineIfNeeded()
+        triggerMelodicDuck(depth: 0.10, velocity: velocity, hold: 0.04)
+        percussion.playSurfaceLift(at: point, anchors: anchors,
+                                   velocity: velocity, synthetic: synthetic)
+        scheduleIdleSuspendAfterPercussion()
+    }
+
+    func setDrumSkinScratch(at point: CGPoint, speed: Double,
+                            anchors: [CGPoint] = [],
+                            direction: CGVector = .zero,
+                            surfaceEnergy: Double = 0,
+                            synthetic: Bool = false) {
+        guard started else { return }
+        percussion.setDrumSkinScratch(at: point, speed: speed,
+                                      anchors: anchors,
+                                      direction: direction,
+                                      surfaceEnergy: surfaceEnergy,
+                                      synthetic: synthetic)
+    }
+
+    func stopDrumSkinScratch() {
+        percussion.stopDrumSkinScratch()
     }
 
     /// Key-down for a split drum. Returns a group token the caller passes to
@@ -2059,6 +2208,10 @@ final class MenuBandSynth {
             _ = resumeAudioEngineIfNeeded()
         }
         let p = max(-1.0, min(1.0, (Double(pan) - 64.0) / 63.0))
+        let depth: Float = drum == .kick ? 0.42
+            : ((drum == .snare || drum == .clap) ? 0.25 : 0.11)
+        triggerMelodicDuck(depth: depth, velocity: velocity,
+                           hold: drum == .kick ? 0.105 : 0.055)
         let g = percussion.noteOn(drum, velocity: velocity, pan: p, accent: accent)
         if !keepEngineWarm { scheduleIdleSuspendAfterPercussion() }
         return g
@@ -2067,6 +2220,20 @@ final class MenuBandSynth {
     /// Most recent percussion trigger→render handoff (ms) — the drum-
     /// specific latency, ≤ one IO buffer.
     func percussionTriggerHandoffMs() -> Double { percussion.triggerHandoffMs() }
+
+    /// Mark the raw MultitouchSupport callback that produced the next staged
+    /// percussion voice, preserving the complete input→render measurement.
+    func markTrackpadInput(at callbackTime: Double) {
+        percussion.markTrackpadInput(at: callbackTime)
+    }
+
+    func trackpadInputToRenderMs() -> Double {
+        percussion.trackpadInputToRenderMs()
+    }
+
+    func percussionVoicePressure() -> MenuBandPercussion.VoicePressure {
+        percussion.voicePressure()
+    }
 
     /// Key-up for a split drum — damps held voices (open hat) and fires the
     /// release burst (closed hat). Harmless for one-shot drums.

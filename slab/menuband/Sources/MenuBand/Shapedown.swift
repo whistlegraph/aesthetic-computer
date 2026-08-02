@@ -321,6 +321,8 @@ final class ShapedownGestureTap {
     /// Fired (on main) when the trackpad is physically clicked in — the wall
     /// uses it to pin the current shape permanently.
     var onClick: (() -> Void)?
+    /// Full ordinary button state for clients that need click-and-hold.
+    var onPhysicalClickChanged: ((Bool) -> Void)?
     /// Note keys pass through untouched, but Shapedown sees key-down first so
     /// TYPE mode (which consumes musical keys later in the event chain) cannot
     /// prevent the wall from selecting the matching Notepat color.
@@ -347,7 +349,14 @@ final class ShapedownGestureTap {
                 return Unmanaged.passUnretained(event)
             }
             if type == .leftMouseDown {
-                DispatchQueue.main.async { me.onClick?() }
+                DispatchQueue.main.async {
+                    me.onClick?()
+                    me.onPhysicalClickChanged?(true)
+                }
+            } else if type == .leftMouseUp {
+                DispatchQueue.main.async {
+                    me.onPhysicalClickChanged?(false)
+                }
             } else if type == .keyDown {
                 let keyCode = UInt16(event.getIntegerValueField(.keyboardEventKeycode))
                 DispatchQueue.main.async { me.onKeyDown?(keyCode) }
