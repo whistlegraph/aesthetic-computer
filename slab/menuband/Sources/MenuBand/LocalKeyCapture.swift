@@ -34,6 +34,8 @@ final class LocalKeyCapture {
     /// Public, sandbox-safe multi-contact frames from NSTouch. Available only
     /// while Menu Band owns the focused window/responder chain.
     var onTrackpadFrame: (([TrackpadContact], Double, Double) -> Void)?
+    /// Ordinary registered primary-button state from a physical trackpad click.
+    var onTrackpadPhysicalClick: ((Bool) -> Void)?
     var cancelShortcut: MenuBandShortcut?
 
     private var panel: NSPanel?
@@ -71,8 +73,18 @@ final class LocalKeyCapture {
             panel.makeFirstResponder(sensor)
         }
         if monitor == nil {
-            monitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .keyUp]) { [weak self] event in
+            monitor = NSEvent.addLocalMonitorForEvents(
+                matching: [.keyDown, .keyUp, .leftMouseDown, .leftMouseUp]
+            ) { [weak self] event in
                 guard let self = self else { return event }
+                if event.type == .leftMouseDown {
+                    self.onTrackpadPhysicalClick?(true)
+                    return event
+                }
+                if event.type == .leftMouseUp {
+                    self.onTrackpadPhysicalClick?(false)
+                    return event
+                }
                 let isDown = (event.type == .keyDown)
                 if isDown, self.cancelShortcut?.matches(event: event) == true {
                     self.disarm(reason: .cancelled)

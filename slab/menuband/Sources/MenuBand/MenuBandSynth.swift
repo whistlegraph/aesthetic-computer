@@ -826,10 +826,11 @@ final class MenuBandSynth {
         // audible pumping on sustained pads/chords.
         AudioUnitSetParameter(cAU, kDynamicsProcessorParam_ReleaseTime,
                               kAudioUnitScope_Global, 0, 0.18, 0)
-        // Neutral makeup. (kDynamicsProcessorParam_MasterGain is spelled
-        // _OverallGain in the Swift-imported header.)
+        // Gentle solo normalization. The percussion-triggered duck downstream
+        // still makes room when both buses play, while a lone key/voice no
+        // longer feels recessed against the system output.
         AudioUnitSetParameter(cAU, kDynamicsProcessorParam_OverallGain,
-                              kAudioUnitScope_Global, 0, 0.0, 0)
+                              kAudioUnitScope_Global, 0, 1.5, 0)
 
         let au = limiter.audioUnit
         // Fast attack catches chord/transient peaks; medium release avoids
@@ -1637,12 +1638,13 @@ final class MenuBandSynth {
     /// deepest pocket; brighter percussion makes a lighter one. Chords duck a
     /// little further than single notes so polyphony cannot mask the groove.
     private func triggerMelodicDuck(depth: Float, velocity: UInt8,
-                                    hold: TimeInterval) {
+                                    hold: TimeInterval,
+                                    floor: Float = 0.48) {
         let velocityScale = Float(velocity) / 127
         let polyphony = max(0, activeNotes.count - 1)
         let polyphonyDepth = min(Float(0.12), Float(polyphony) * 0.03)
         let scaledDepth = depth * (0.55 + 0.45 * velocityScale) + polyphonyDepth
-        let target = max(Float(0.48), 1 - scaledDepth)
+        let target = max(floor, 1 - scaledDepth)
         let apply = { [weak self] in
             guard let self else { return }
             self.melodicDuckTarget = min(self.melodicDuckTarget, target)
@@ -2125,11 +2127,31 @@ final class MenuBandSynth {
         guard started else { return }
         _ = resumeAudioEngineIfNeeded()
         let zone = MenuBandPercussion.drumSkinZone(at: strike)
-        let depth: Float = zone == .center ? 0.40
-            : (zone == .snare ? 0.25 : (zone == .rim ? 0.16 : 0.10))
+        let depth: Float = zone == .kick ? 0.40
+            : (zone == .tom ? 0.30 : (zone == .snare ? 0.22 : 0.10))
         triggerMelodicDuck(depth: depth, velocity: velocity,
-                           hold: zone == .center ? 0.10 : 0.06)
+                           hold: zone == .kick ? 0.10 : 0.06)
         percussion.playDrumSkin(strike: strike, anchors: anchors, velocity: velocity)
+        scheduleIdleSuspendAfterPercussion()
+    }
+
+    /// Pressure-stage kick: reinforce the acoustic hit, then pulse the melodic
+    /// bus twice during recovery for an intentional pump/wobble.
+    func playSuperKick(strike: CGPoint, anchors: [CGPoint]) {
+        guard started else { return }
+        _ = resumeAudioEngineIfNeeded()
+        triggerMelodicDuck(depth: 0.72, velocity: 127, hold: 0.075,
+                           floor: 0.28)
+        percussion.playDrumSkin(strike: strike, anchors: anchors, velocity: 127)
+        percussion.play(.kick, velocity: 127, pan: 0)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.090) { [weak self] in
+            self?.triggerMelodicDuck(depth: 0.46, velocity: 127, hold: 0.045,
+                                     floor: 0.38)
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.180) { [weak self] in
+            self?.triggerMelodicDuck(depth: 0.30, velocity: 116, hold: 0.035,
+                                     floor: 0.44)
+        }
         scheduleIdleSuspendAfterPercussion()
     }
 
@@ -2137,7 +2159,7 @@ final class MenuBandSynth {
         guard started else { return }
         _ = resumeAudioEngineIfNeeded()
         let zone = MenuBandPercussion.drumSkinZone(at: strike)
-        triggerMelodicDuck(depth: zone == .center ? 0.34 : 0.16,
+        triggerMelodicDuck(depth: zone == .kick ? 0.34 : 0.16,
                            velocity: velocity, hold: 0.07)
         percussion.playSynthSurface(strike: strike, anchors: anchors, velocity: velocity)
         scheduleIdleSuspendAfterPercussion()

@@ -110,9 +110,9 @@ final class MenuBandPercussion {
     /// Master headroom so a fistful of simultaneous drums doesn't slam the
     /// limiter — the kit's raw layer volumes sum well past 1.0 by design.
     /// `outputLevel` is the user's independent percussion trim: 1.0 retains
-    /// the kit's historical loudness, while fresh installs begin at 0.80.
+    /// the kit's historical loudness, while fresh installs begin at 0.90.
     private let masterGain: Float = 0.34
-    private var outputLevel: Float = 0.80
+    private var outputLevel: Float = 0.90
 
     /// Set the independent percussion trim. Snapshot under the same tiny lock
     /// used for staged hits so the audio thread sees one stable value per
@@ -320,12 +320,10 @@ final class MenuBandPercussion {
         let edge = smoothstep(0.62, 0.70, radius)
         let outerClick = smoothstep(0.88, 0.965, radius)
         let hatEdge = edge * (1.0 - outerClick * 0.94)
-        // A broad inset contour between the center body and metal rim. It excites
-        // a short filtered-noise "wire" layer so the radial travel reads as
-        // kick/body → snare → hat instead of body fading straight into hat.
-        let snareBand = smoothstep(0.23, 0.31, radius)
+        // Five concentric instruments: kick, tom, snare, hat, click.
+        let tomBand = smoothstep(0.23, 0.31, radius)
             * (1.0 - smoothstep(0.40, 0.48, radius))
-        let rimBand = smoothstep(0.40, 0.48, radius)
+        let snareBand = smoothstep(0.40, 0.48, radius)
             * (1.0 - smoothstep(0.62, 0.70, radius))
         let tension = 1.0 + min(0.45, Double(anchors.count) * 0.10)
         let fingerDamping = min(0.68, Double(anchors.count) * 0.13)
@@ -336,10 +334,8 @@ final class MenuBandPercussion {
         let pan = max(-1.0, min(1.0, sx * 0.72))
         var voices: [Voice] = []
 
-        // At the deepest part of the surface, anchor the physical model with
-        // the default kit kick's beater, descending body, and sub. Membrane
-        // modes are nearly absent at the exact centroid, removing the hollow
-        // modal tail; they blend back in toward the snare contour.
+        // A compact kick anchors the centroid; the modal membrane immediately
+        // around it supplies the pitched tom ring.
         let centerKick = 1.0 - smoothstep(0.10, 0.38, radius)
         if centerKick > 0.01 {
             let k = centerKick * strikeLevel
@@ -389,6 +385,14 @@ final class MenuBandPercussion {
                                 (0.22 + hatEdge * 0.09)
                                     * (1.0 - outerClick * 0.58) * strikeLevel,
                                 0.0002, contactDuration * 0.92, pan))
+        if tomBand > 0.01 {
+            voices.append(makeVoice(.sine, 148 * tension, 0.105,
+                                    0.25 * tomBand * strikeLevel, 0.0005,
+                                    0.098, pan))
+            voices.append(makeVoice(.triangle, 222 * tension, 0.052,
+                                    0.12 * tomBand * strikeLevel, 0.0003,
+                                    0.048, pan))
+        }
         if snareBand > 0.01 {
             voices.append(makeVoice(.noise, 4300, 0.064,
                                     0.24 * snareBand * strikeLevel, 0.0003,
@@ -396,14 +400,6 @@ final class MenuBandPercussion {
             voices.append(makeVoice(.square, 196 * tension, 0.038,
                                     0.045 * snareBand * strikeLevel, 0.0004,
                                     0.035, pan))
-        }
-        if rimBand > 0.01 {
-            voices.append(makeVoice(.triangle, 760 * tension, 0.030,
-                                    0.13 * rimBand * strikeLevel, 0.0003,
-                                    0.027, pan))
-            voices.append(makeVoice(.noise, 5600, 0.020,
-                                    0.10 * rimBand * strikeLevel, 0.0002,
-                                    0.018, pan))
         }
         if hatEdge > 0.02 {
             for frequency in Self.hatFreqs {
@@ -434,8 +430,8 @@ final class MenuBandPercussion {
         // the last finger of a same-frame multitouch strike.
         pending.append(contentsOf: voices)
         let pulseDrum: Drum = edge > 0.55 ? .hatClosed
-            : (rimBand > 0.45 ? .block
-                : (snareBand > 0.45 ? .snare : .kick))
+            : (snareBand > 0.45 ? .snare
+                : (tomBand > 0.45 ? .block : .kick))
         pulses[pulseDrum.rawValue] = DrumPulse(
             at: now, level: min(1.0, Double(velocity) / 127.0)
         )
@@ -466,9 +462,9 @@ final class MenuBandPercussion {
         let edge = smoothstep(0.62, 0.70, distance)
         let outerClick = smoothstep(0.88, 0.965, distance)
         let centerKick = 1.0 - smoothstep(0.10, 0.38, distance)
-        let snareBand = smoothstep(0.23, 0.31, distance)
+        let tomBand = smoothstep(0.23, 0.31, distance)
             * (1.0 - smoothstep(0.40, 0.48, distance))
-        let rimBand = smoothstep(0.40, 0.48, distance)
+        let snareBand = smoothstep(0.40, 0.48, distance)
             * (1.0 - smoothstep(0.62, 0.70, distance))
         var voices: [Voice] = []
 
@@ -492,6 +488,12 @@ final class MenuBandPercussion {
                                         0.003, 0.07 * centerKick * v,
                                         0.0001, 0.0027, pan))
             }
+            if tomBand > 0.01 {
+                voices.append(makeVoice(.sine, 148 * tension,
+                                        0.022 * damping,
+                                        0.10 * tomBand * v,
+                                        0.0002, 0.020 * damping, pan))
+            }
             if snareBand > 0.01 {
                 voices.append(makeVoice(.noise, 3_500 * tension,
                                         0.006 * damping,
@@ -501,12 +503,6 @@ final class MenuBandPercussion {
                                         0.016 * damping,
                                         0.065 * snareBand * v,
                                         0.0002, 0.014 * damping, pan))
-            }
-            if rimBand > 0.01 {
-                voices.append(makeVoice(.triangle, 820 * tension,
-                                        0.009 * damping,
-                                        0.09 * rimBand * v,
-                                        0.0001, 0.008 * damping, pan))
             }
             let hatLift = edge * (1.0 - outerClick * 0.92)
             if hatLift > 0.01 {
@@ -735,16 +731,16 @@ final class MenuBandPercussion {
         lock.unlock()
     }
 
-    enum DrumSkinZone: String { case center, snare, rim, hat, click }
+    enum DrumSkinZone: String { case kick, tom, snare, hat, click }
 
     static func drumSkinZone(at strike: CGPoint) -> DrumSkinZone {
         let distance = roundedTrackpadDistance(
             sx: Double(strike.x - 0.5) * 2,
             sy: Double(strike.y - 0.5) * 2
         )
-        if distance < 0.30 { return .center }
-        if distance < 0.46 { return .snare }
-        if distance < 0.64 { return .rim }
+        if distance < 0.30 { return .kick }
+        if distance < 0.46 { return .tom }
+        if distance < 0.64 { return .snare }
         if distance < 0.88 { return .hat }
         return .click
     }

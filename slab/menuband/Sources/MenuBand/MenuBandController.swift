@@ -182,6 +182,7 @@ final class MenuBandController {
     private let percussionLeftKey = KeyboardIconRenderer.percussionLeftDefaultsKey
     private let percussionRightKey = KeyboardIconRenderer.percussionRightDefaultsKey
     private let percussionVolumeKey = "notepat.percussionVolume"
+    private let percussionVolume90MigrationKey = "notepat.percussionVolume90Migration"
     private let masterVolumeKey = "notepat.masterVolume"
     /// Active instrument backend: `"gm"` for the General MIDI bank, or
     /// `"gb"` for a GarageBand sampler patch. Default is GM. Stored as a
@@ -872,6 +873,11 @@ final class MenuBandController {
         synth.playDrumSkin(strike: strike, anchors: anchors, velocity: velocity)
     }
 
+    func trackpadSuperKick(strike: CGPoint, anchors: [CGPoint]) {
+        mixAnalysis.mark("skin-super-kick")
+        synth.playSuperKick(strike: strike, anchors: anchors)
+    }
+
     func trackpadSynthSurface(strike: CGPoint, anchors: [CGPoint], velocity: UInt8) {
         mixAnalysis.mark("synth-\(MenuBandPercussion.drumSkinZone(at: strike).rawValue)")
         synth.playSynthSurface(strike: strike, anchors: anchors, velocity: velocity)
@@ -1055,9 +1061,18 @@ final class MenuBandController {
     var percussionVolume: Float {
         get {
             if UserDefaults.standard.object(forKey: percussionVolumeKey) == nil {
-                return 0.80
+                return 0.90
             }
-            let raw = UserDefaults.standard.double(forKey: percussionVolumeKey)
+            var raw = UserDefaults.standard.double(forKey: percussionVolumeKey)
+            if !UserDefaults.standard.bool(forKey: percussionVolume90MigrationKey) {
+                // Lift only the former untouched default. Preserve every
+                // deliberate user setting above or below it.
+                if abs(raw - 0.80) < 0.000_1 {
+                    raw = 0.90
+                    UserDefaults.standard.set(raw, forKey: percussionVolumeKey)
+                }
+                UserDefaults.standard.set(true, forKey: percussionVolume90MigrationKey)
+            }
             return Float(max(0.0, min(1.0, raw)))
         }
         set {

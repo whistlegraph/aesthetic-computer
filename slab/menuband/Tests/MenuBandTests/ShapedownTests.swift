@@ -57,11 +57,11 @@ final class ShapedownTests: XCTestCase {
 
     func testDrumSkinZonesFollowRoundedTrackpadInsets() {
         XCTAssertEqual(MenuBandPercussion.drumSkinZone(
-            at: CGPoint(x: 0.5, y: 0.5)), .center)
+            at: CGPoint(x: 0.5, y: 0.5)), .kick)
         XCTAssertEqual(MenuBandPercussion.drumSkinZone(
-            at: CGPoint(x: 0.5, y: 0.70)), .snare)
+            at: CGPoint(x: 0.5, y: 0.70)), .tom)
         XCTAssertEqual(MenuBandPercussion.drumSkinZone(
-            at: CGPoint(x: 0.5, y: 0.80)), .rim)
+            at: CGPoint(x: 0.5, y: 0.80)), .snare)
         XCTAssertEqual(MenuBandPercussion.drumSkinZone(
             at: CGPoint(x: 0.5, y: 0.88)), .hat)
         XCTAssertEqual(MenuBandPercussion.drumSkinZone(
@@ -71,11 +71,11 @@ final class ShapedownTests: XCTestCase {
         // from normalized center than Y; this is trackpad geometry, not a
         // circular or diamond approximation.
         XCTAssertEqual(MenuBandPercussion.drumSkinZone(
-            at: CGPoint(x: 0.75, y: 0.5)), .center)
+            at: CGPoint(x: 0.75, y: 0.5)), .kick)
         XCTAssertEqual(MenuBandPercussion.drumSkinZone(
-            at: CGPoint(x: 0.82, y: 0.5)), .snare)
+            at: CGPoint(x: 0.82, y: 0.5)), .tom)
         XCTAssertEqual(MenuBandPercussion.drumSkinZone(
-            at: CGPoint(x: 0.88, y: 0.5)), .rim)
+            at: CGPoint(x: 0.88, y: 0.5)), .snare)
         XCTAssertEqual(MenuBandPercussion.drumSkinZone(
             at: CGPoint(x: 0.93, y: 0.5)), .hat)
         XCTAssertEqual(MenuBandPercussion.drumSkinZone(
@@ -256,6 +256,34 @@ final class ShapedownTests: XCTestCase {
         )
         XCTAssertEqual(secondUp.lifted, [second])
         XCTAssertTrue(secondUp.activeByID.isEmpty)
+    }
+
+    func testFreshTrackpadContactCancelsOverlayFadeAndRestoresOpacity() {
+        let overlay = PitchBendCursorOverlayWindow()
+        overlay.show(image: NSImage(size: NSSize(width: 20, height: 20)),
+                     atScreenPoint: .zero)
+        overlay.fadeOut(after: 1, duration: 1)
+        XCTAssertTrue(overlay.isFadeScheduled)
+        overlay.alphaValue = 0.35
+
+        overlay.resumeFromFade()
+
+        XCTAssertFalse(overlay.isFadeScheduled)
+        XCTAssertEqual(overlay.alphaValue, 1)
+        overlay.dismiss()
+    }
+
+    func testScratchArmsSoonerButNeverFromOneMovementFrame() {
+        XCTAssertFalse(AppDelegate.shouldArmTrackpadScratch(frames: 1, travel: 0.20))
+        XCTAssertFalse(AppDelegate.shouldArmTrackpadScratch(frames: 2, travel: 0.0119))
+        XCTAssertTrue(AppDelegate.shouldArmTrackpadScratch(frames: 2, travel: 0.012))
+    }
+
+    func testPhysicalClickBoostsScratchButRestingTouchDoesNot() {
+        XCTAssertEqual(AppDelegate.physicalClickScratchMultiplier(
+            clicked: false), 1, accuracy: 0.000_001)
+        XCTAssertEqual(AppDelegate.physicalClickScratchMultiplier(
+            clicked: true), 1.55, accuracy: 0.000_001)
     }
 
     func testSamePadReplacementRetriggersKitVoice() {

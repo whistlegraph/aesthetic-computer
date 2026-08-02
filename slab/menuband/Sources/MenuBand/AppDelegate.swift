@@ -390,6 +390,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var trackpadScratchCandidateTravel: CGFloat = 0
     private var trackpadScratchCandidateFrames = 0
     private var trackpadScratchArmed = false
+    /// Ordinary registered button state, separate from touch contacts so a
+    /// light tap never enters the physically-clicked expression layer.
+    private var trackpadPhysicalClickHeld = false
+    static func shouldArmTrackpadScratch(frames: Int, travel: CGFloat) -> Bool {
+        frames >= 2 && travel >= 0.012
+    }
+    static func physicalClickScratchMultiplier(clicked: Bool) -> Double {
+        // A physical click should reveal more skin detail, not pitch the
+        // friction into a cartoon/vinyl chirp. Keep the boost modest because
+        // gesture speed also drives the scratch's octave lift.
+        clicked ? 1.55 : 1.0
+    }
     private var trackpadSurfaceEnergy = TrackpadSurfaceEnergy()
     private var trackpadEnergyTimer: Timer?
     private var trackpadOverlayLastDraw: Double = 0
@@ -575,6 +587,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         MenuBandLoginItem.apply()
         #endif
         #if !MAC_APP_STORE
+        trackpadPercussionGestureTap.onPhysicalClickChanged = {
+            [weak self] clicked in
+            self?.handleTrackpadPhysicalClick(clicked)
+        }
         // Global trackpad tap via private MultitouchSupport — the
         // focus-independent input source for the trackpad pad (NSTouch never
         // reaches this non-activating menubar panel). Frames arrive on the main
@@ -1290,6 +1306,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         localCapture.onTrackpadTouchActiveChanged = { [weak self] active in
             self?.setTrackpadTouchActive(active)
+        }
+        localCapture.onTrackpadPhysicalClick = { [weak self] clicked in
+            self?.handleTrackpadPhysicalClick(clicked)
         }
         #if MAC_APP_STORE
         localCapture.onTrackpadFrame = { [weak self] contacts, timestamp, callbackTime in
@@ -4544,6 +4563,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         if pitchBendCursorPushed {
             if !touches.isEmpty {
+                if !changes.began.isEmpty {
+                    pitchBendOverlay?.resumeFromFade()
+                }
                 // Focus arms the instrument but does not advertise it. The
                 // first real hardware contact reveals the surface instantly;
                 // subsequent frames stay coalesced to display cadence.
@@ -4561,6 +4583,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     duration: Self.trackpadOverlayFadeDuration
                 )
             }
+        }
+    }
+
+    /// A registered button-down adds expression without changing ordinary
+    /// touch semantics. Its rising edge fires once; holding boosts scratch.
+    private func handleTrackpadPhysicalClick(_ clicked: Bool) {
+        let wasHeld = trackpadPhysicalClickHeld
+        trackpadPhysicalClickHeld = clicked
+        debugLog("trackpad physical click = \(clicked ? "down" : "up") contacts=\(mtTouches.count)")
+        guard pitchBendCursorPushed, clicked, !wasHeld,
+              let strike = mtTouches.first(where: {
+                  MenuBandPercussion.drumSkinZone(at: $0) == .kick
+              }) else { return }
+        if MenuBandPercussion.drumSkinZone(at: strike) == .kick {
+            let anchors = mtTouches.filter { $0 != strike }
+            debugLog("trackpad physical click triggered super-kick")
+            menuBand.trackpadSuperKick(strike: strike, anchors: anchors)
+            trackpadSurfaceEnergy.energize(
+                at: strike, amount: 0.90, now: CACurrentMediaTime()
+            )
+            updateTrackpadOverlayIfDue(force: true)
         }
     }
 
@@ -4687,8 +4730,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 if !trackpadScratchArmed {
                     trackpadScratchCandidateFrames += 1
                     trackpadScratchCandidateTravel += scratch.movement
-                    trackpadScratchArmed = trackpadScratchCandidateFrames >= 3
-                        && trackpadScratchCandidateTravel >= 0.018
+                    trackpadScratchArmed = Self.shouldArmTrackpadScratch(
+                        frames: trackpadScratchCandidateFrames,
+                        travel: trackpadScratchCandidateTravel
+                    )
                 }
                 guard trackpadScratchArmed else {
                     trackpadSkinTouches = touches
@@ -4711,9 +4756,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 )
                 let retained = trackpadSurfaceEnergy.energy(at: scratch.point,
                                                             now: now)
+                let expressiveSpeed = speed * Self.physicalClickScratchMultiplier(
+                    clicked: trackpadPhysicalClickHeld
+                )
                 menuBand.trackpadDrumSkinScratch(
                     at: scratch.point,
-                    speed: speed,
+                    speed: expressiveSpeed,
                     anchors: scratch.anchors,
                     direction: scratch.delta,
                     surfaceEnergy: retained,

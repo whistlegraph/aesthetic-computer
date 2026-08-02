@@ -432,7 +432,7 @@ enum TrackpadDrumSkinPad {
         let body = NSBezierPath(roundedRect: chart, xRadius: 8, yRadius: 8)
         let accent = NSColor.controlAccentColor
         // These insets mirror the synthesis thresholds in
-        // MenuBandPercussion.drumSkinZone: click → hat → rim → snare → kick.
+        // MenuBandPercussion.drumSkinZone: click → hat → snare → tom → kick.
         // Equal pixel insets are geometrically correct because the chart and
         // physical trackpad share the same 1.64:1 aspect ratio.
         func insetZone(_ inset: CGFloat) -> NSBezierPath {
@@ -466,13 +466,12 @@ enum TrackpadDrumSkinPad {
         body.addClip()
         clickColor.setFill(); body.fill()
         hatColor.setFill(); hatZone.fill()
-        rimColor.setFill(); rimZone.fill()
-        snareColor.setFill(); snareZone.fill()
+        snareColor.setFill(); rimZone.fill()
 
         // Dense parallel wires immediately read as the snare material. The
-        // kick fill below masks them out of the center without adding labels.
+        // inner tom and kick fills below mask them out of the center.
         NSGraphicsContext.saveGraphicsState()
-        snareZone.addClip()
+        rimZone.addClip()
         let wires = NSBezierPath()
         stride(from: chart.minX - chart.height,
                through: chart.maxX, by: 6).forEach { x in
@@ -485,6 +484,7 @@ enum TrackpadDrumSkinPad {
         wires.stroke()
         NSGraphicsContext.restoreGraphicsState()
 
+        rimColor.setFill(); snareZone.fill()
         kickColor.setFill(); kickZone.fill()
 
         // Hat teeth span the widened playable metal band; the final bright rail is
@@ -912,6 +912,17 @@ final class PitchBendCursorOverlayWindow: NSPanel {
         anchorScreenPoint = screenPoint
         apply(image: image)
     }
+
+    /// A new hardware contact reclaims a surface that is still visible but
+    /// partway through its idle fade. Image updates alone must not inherit the
+    /// old alpha or allow the old timer to keep dissolving the new gesture.
+    func resumeFromFade() {
+        fadeTimer?.invalidate()
+        fadeTimer = nil
+        alphaValue = 1
+    }
+
+    var isFadeScheduled: Bool { fadeTimer != nil }
 
     private func apply(image: NSImage) {
         let size = image.size
