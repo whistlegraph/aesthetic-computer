@@ -11820,7 +11820,11 @@ async function makeFrame({ data: { type, content } }) {
     return;
   }
 
-  if (type === "camera:capabilities" || type === "camera:torch") {
+  if (
+    type === "camera:capabilities" ||
+    type === "camera:torch" ||
+    type === "camera:zoom"
+  ) {
     actAlerts.push({ name: type, content });
     return;
   }

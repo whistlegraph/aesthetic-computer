@@ -39,6 +39,7 @@ let mic; // Microphone reference
 let torchAvailable = false;
 let torchEnabled = false;
 let torchPending = false;
+let nativeZoomAvailable = false;
 
 // Recording config
 const DEFAULT_DURATION = 30; // Max recording duration in seconds
@@ -54,6 +55,7 @@ let pendingRecordStart = false; // Track if user wants to record but mic isn't r
 // instead of touch-event velocity so irregular mobile event timing cannot
 // make the camera scale jump ahead and snap back.
 let zoom = 1;
+let lastSentZoom = 1;
 let zoomStartY = null;
 const zoomMax = 6;
 const zoomMin = 1;
@@ -78,7 +80,9 @@ function boot({ ui, params, colon, system, rec, notice }) {
   torchAvailable = false;
   torchEnabled = false;
   torchPending = false;
+  nativeZoomAvailable = false;
   zoom = 1;
+  lastSentZoom = 1;
   zoomStartY = null;
 
   // Parse parameters
@@ -140,12 +144,13 @@ function paint({
   // recenter so the camera image stays anchored to the screen center as
   // the user slides up to zoom in. Off-screen pixels clip naturally.
   if (frame) {
-    const drawW = frame.width * zoom;
-    const drawH = frame.height * zoom;
+    const displayZoom = nativeZoomAvailable ? 1 : zoom;
+    const drawW = frame.width * displayZoom;
+    const drawH = frame.height * displayZoom;
     const offsetX = floor((screen.width - drawW) / 2);
     const offsetY = floor((screen.height - drawH) / 2);
     wipe(0); // Clear first
-    paste(frame, offsetX, offsetY, zoom);
+    paste(frame, offsetX, offsetY, displayZoom);
   }
 
   // 🎬 Draw UI elements to a recording UI overlay (NOT captured in tape).
@@ -370,6 +375,7 @@ function act({ event: e, jump, video, cameras, rec, notice, leaving, hud }) {
   }
   if (e.is("camera:capabilities")) {
     torchAvailable = e.content?.torch === true;
+    nativeZoomAvailable = !!e.content?.zoom;
     torchEnabled = e.content?.enabled === true;
     torchPending = false;
   }
@@ -381,6 +387,9 @@ function act({ event: e, jump, video, cameras, rec, notice, leaving, hud }) {
       console.warn("📷 Flash update failed:", e.content.error);
       notice("FLASH UNAVAILABLE", ["yellow", "red"]);
     }
+  }
+  if (e.is("camera:zoom")) {
+    console.log("📷 zoom:", JSON.stringify(e.content));
   }
   if (e.is("recorder:av-sync")) {
     const offset = e.content?.offsetMs;
@@ -457,6 +466,10 @@ function act({ event: e, jump, video, cameras, rec, notice, leaving, hud }) {
     const dy = zoomStartY - e.y; // up is positive
     const target = 1 + dy / zoomSensitivity;
     zoom = Math.max(zoomMin, Math.min(zoomMax, target));
+    if (Math.abs(zoom - lastSentZoom) >= 0.04) {
+      video("camera:update", { zoom });
+      lastSentZoom = zoom;
+    }
   }
 
   if (e.is("lift") && !leaving()) {

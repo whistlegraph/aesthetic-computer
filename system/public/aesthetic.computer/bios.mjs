@@ -4346,6 +4346,54 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     return id;
   }
 
+  function stopTapeAudioLoops() {
+    Object.keys(sfxPlaying).forEach((id) => {
+      if (!id.startsWith("tape:audio_")) return;
+      sfxPlaying[id]?.kill();
+      delete sfxPlaying[id];
+    });
+  }
+
+  function startPreparedTapeAudio(fromPosition = 0) {
+    stopTapeAudioLoops();
+    const position = Math.max(0, Math.min(1, fromPosition));
+    currentTapePosition = position;
+    if (
+      !sfx["tape:audio"] ||
+      window.audioWorkletReady !== true ||
+      audioContext?.state !== "running"
+    ) {
+      return null;
+    }
+    return startTapeAudioLoop(position);
+  }
+
+  async function prepareMp4TapeAudio(source, label = "mp4 tape") {
+    const arrayBuffer =
+      source instanceof ArrayBuffer
+        ? source
+        : source?.arrayBuffer
+          ? await source.arrayBuffer()
+          : await (async () => {
+              const response = await fetch(source);
+              if (!response.ok) throw new Error(`HTTP ${response.status}`);
+              return response.arrayBuffer();
+            })();
+    window.tapeAudioArrayBuffer = arrayBuffer.slice(0);
+    const decodeContext =
+      audioContext && audioContext.state !== "closed"
+        ? audioContext
+        : new OfflineAudioContext(1, 1, 48000);
+    const decoded = await decodeContext.decodeAudioData(arrayBuffer.slice(0));
+    delete sfxLoaded["tape:audio"];
+    sfx["tape:audio"] = decoded;
+    console.log(
+      `📼 ${label} audio prepared for sfx: ${decoded.duration.toFixed(2)}s, ` +
+        `${decoded.numberOfChannels}ch @ ${decoded.sampleRate}Hz`,
+    );
+    return decoded;
+  }
+
   speakAPI.playSfx = playSfx;
 
   // TODO: Add mute
@@ -12240,7 +12288,22 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       video.playsInline = true;
       video.setAttribute("playsinline", "");
       video.loop = true;
-      video.muted = false;
+      let tapeAudioReady = false;
+      try {
+        const decoded = await prepareMp4TapeAudio(mp4Url, "posted MP4");
+        tapeAudioReady = true;
+        send({
+          type: "tape:audio-context-state",
+          content: {
+            state: audioContext?.state || "suspended",
+            hasAudio: true,
+            duration: decoded.duration,
+          },
+        });
+      } catch (error) {
+        console.warn("📼 Posted MP4 audio decode failed; using media element audio:", error);
+      }
+      video.muted = tapeAudioReady;
       video.controls = false;
       video.preload = "auto";
 
@@ -12261,6 +12324,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
       video.ontimeupdate = () => {
         if (!video.duration) return;
+        currentTapePosition = video.currentTime / video.duration;
         send({
           type: "tape:playback-progress",
           content: { progress: video.currentTime / video.duration },
@@ -12272,11 +12336,35 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         send({ type: "tape:error", content: "MP4 tape failed to load" });
       };
 
+      stopTapePlayback = () => {
+        stopTapeAudioLoops();
+        try { video.pause(); } catch {}
+      };
+      pauseTapePlayback = () => {
+        stopTapeAudioLoops();
+        video.pause();
+      };
+      resumeTapePlayback = () => {
+        const progress = video.duration > 0 ? video.currentTime / video.duration : 0;
+        video.play().catch(() => {});
+        if (tapeAudioReady) startPreparedTapeAudio(progress);
+      };
+      seekTapePlayback = (progress, { speedScrub = false } = {}) => {
+        if (!Number.isFinite(video.duration) || video.duration <= 0) return;
+        const clamped = Math.max(0, Math.min(1, progress));
+        currentTapePosition = clamped;
+        video.currentTime = clamped * video.duration;
+        if (!speedScrub && tapeAudioReady && !video.paused) {
+          startPreparedTapeAudio(clamped);
+        }
+      };
+
       // Autoplay (best-effort — browsers may block until a user gesture, in
       // which case the first tap in the video piece resumes it).
       video.play().catch((err) => {
         console.warn("📼 MP4 autoplay blocked (will resume on tap):", err?.message || err);
       });
+      if (tapeAudioReady) startPreparedTapeAudio(0);
 
       send({ type: "tape:mp4-ready", content: { mp4Url } });
       return;
@@ -12287,10 +12375,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       const video = mp4PlaybackVideo;
       if (!video) return;
       if (video.paused) {
-        video.play().catch(() => {});
+        resumeTapePlayback?.();
         send({ type: "tape:mp4-playing" });
       } else {
-        video.pause();
+        pauseTapePlayback?.();
         send({ type: "tape:mp4-paused" });
       }
       return;
@@ -15747,6 +15835,33 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
 
       if (recordedVideoBlob) {
+        let tapeAudioReady = false;
+        try {
+          const decoded = await prepareMp4TapeAudio(
+            recordedVideoBlob,
+            "fresh compact tape",
+          );
+          tapeAudioReady = true;
+          send({
+            type: "recorder:compact",
+            content: {
+              phase: "audio-ready",
+              duration: decoded.duration,
+              channels: decoded.numberOfChannels,
+              sampleRate: decoded.sampleRate,
+            },
+          });
+          send({
+            type: "tape:audio-context-state",
+            content: {
+              state: audioContext?.state || "suspended",
+              hasAudio: true,
+              duration: decoded.duration,
+            },
+          });
+        } catch (error) {
+          console.warn("📼 Compact tape audio decode failed; using media element audio:", error);
+        }
         stopTapePlayback?.();
         underlayFrame?.remove();
         underlayFrame = document.createElement("div");
@@ -15763,7 +15878,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         video.playsInline = true;
         video.setAttribute("playsinline", "");
         video.loop = true;
-        video.muted = false;
+        video.muted = tapeAudioReady;
         video.controls = false;
         video.preload = "auto";
         video.style.cssText =
@@ -15776,6 +15891,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         const transmitProgress = () => {
           if (mp4PlaybackVideo !== video || !video.isConnected) return;
           if (Number.isFinite(video.duration) && video.duration > 0) {
+            currentTapePosition = video.currentTime / video.duration;
             send({
               type: "recorder:present-progress",
               content: video.currentTime / video.duration,
@@ -15786,13 +15902,26 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
         stopTapePlayback = () => {
           cancelAnimationFrame(playbackFrame);
+          stopTapeAudioLoops();
           try { video.pause(); } catch {}
         };
-        pauseTapePlayback = () => video.pause();
-        resumeTapePlayback = () => video.play().catch(() => {});
-        seekTapePlayback = (progress) => {
+        pauseTapePlayback = () => {
+          stopTapeAudioLoops();
+          video.pause();
+        };
+        resumeTapePlayback = () => {
+          const progress = video.duration > 0 ? video.currentTime / video.duration : 0;
+          video.play().catch(() => {});
+          if (tapeAudioReady) startPreparedTapeAudio(progress);
+        };
+        seekTapePlayback = (progress, { speedScrub = false } = {}) => {
           if (!Number.isFinite(video.duration) || video.duration <= 0) return;
-          video.currentTime = Math.max(0, Math.min(1, progress)) * video.duration;
+          const clamped = Math.max(0, Math.min(1, progress));
+          currentTapePosition = clamped;
+          video.currentTime = clamped * video.duration;
+          if (!speedScrub && tapeAudioReady && !video.paused) {
+            startPreparedTapeAudio(clamped);
+          }
         };
 
         video.onloadedmetadata = () => {
@@ -15852,6 +15981,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           send({ type: "recorder:present-paused" });
         });
         else send({ type: "recorder:present-paused" });
+        if (!content?.noplay && tapeAudioReady) startPreparedTapeAudio(0);
         return;
       }
 
@@ -22034,6 +22164,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               torch: actualFacing === "environment" && capabilities.torch === true,
               enabled: false,
               facingMode: actualFacing,
+              zoom: capabilities.zoom
+                ? {
+                    min: capabilities.zoom.min,
+                    max: capabilities.zoom.max,
+                    step: capabilities.zoom.step,
+                    current: settings?.zoom ?? 1,
+                  }
+                : null,
             },
           });
 
@@ -22061,6 +22199,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                 facingMode: settings?.facingMode ?? null,
                 frameRate: settings?.frameRate ?? null,
                 torch: capabilities.torch === true,
+                zoom: settings?.zoom ?? null,
               },
               facingMode,
               iOS,
@@ -22112,10 +22251,53 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         );
 
         // Resizing the video after creation. (Window resize or device rotate.)
-        videoResize = async function ({ width, height, facing, torch }) {
+        videoResize = async function ({ width, height, facing, torch, zoom: requestedZoom }) {
           cancelAnimationFrame(getAnimationRequest());
 
           try {
+            if (Number.isFinite(requestedZoom)) {
+              const tracks = [
+                videoTrack,
+                ...(recordedVideoSource === "camera-track"
+                  ? compactRecorderStream?.getVideoTracks?.() || []
+                  : []),
+              ].filter((track, index, all) => track && all.indexOf(track) === index);
+              let appliedZoom = null;
+              let zoomAvailable = false;
+              for (const track of tracks) {
+                const trackZoom = track.getCapabilities?.().zoom;
+                if (!trackZoom) continue;
+                zoomAvailable = true;
+                const target = Math.max(
+                  trackZoom.min ?? 1,
+                  Math.min(trackZoom.max ?? requestedZoom, requestedZoom),
+                );
+                await track.applyConstraints({ advanced: [{ zoom: target }] });
+                appliedZoom = target;
+              }
+              if (appliedZoom !== null) {
+                zoom = appliedZoom;
+                settings = videoTrack.getSettings();
+              }
+              send({
+                type: "camera:zoom",
+                content: {
+                  requested: requestedZoom,
+                  applied: appliedZoom,
+                  available: zoomAvailable,
+                },
+              });
+              if (
+                width === undefined &&
+                height === undefined &&
+                !facing &&
+                typeof torch !== "boolean"
+              ) {
+                process();
+                return;
+              }
+            }
+
             if (typeof torch === "boolean") {
               const capabilities = videoTrack?.getCapabilities?.() || {};
               const actualFacing = settings?.facingMode || facingMode;
@@ -22154,7 +22336,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                   },
                 });
               }
-              if (width === undefined && height === undefined && !facing) {
+              if (
+                width === undefined &&
+                height === undefined &&
+                !facing &&
+                !Number.isFinite(requestedZoom)
+              ) {
                 process();
                 return;
               }
