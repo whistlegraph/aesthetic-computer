@@ -20,6 +20,29 @@ import { defaultTemplateStringProcessor as html } from "../../public/aesthetic.c
 import { networkInterfaces } from "os";
 const dev = process.env.CONTEXT === "dev" || process.env.NETLIFY_DEV === "true";
 const BARE_KIDLISP_CODE = /^[0-9A-Za-z]{3,64}$/;
+const POSTHOG_CLOUD_HOSTS = new Set([
+  "https://us.i.posthog.com",
+  "https://eu.i.posthog.com",
+]);
+
+function postHogBrowserConfig() {
+  const projectToken = process.env.POSTHOG_PROJECT_TOKEN?.trim();
+  const apiHost = process.env.POSTHOG_API_HOST?.trim() || "https://us.i.posthog.com";
+  if (!projectToken?.startsWith("phc_") || !POSTHOG_CLOUD_HOSTS.has(apiHost)) {
+    return null;
+  }
+  return {
+    projectToken,
+    apiHost,
+    uiHost: apiHost.startsWith("https://eu.")
+      ? "https://eu.posthog.com"
+      : "https://us.posthog.com",
+  };
+}
+
+function serializeBrowserConfig(config) {
+  return JSON.stringify(config).replaceAll("<", "\\u003c");
+}
 
 // Fire-and-forget piece hit tracking (don't await, don't block page load)
 async function trackPieceHit(piece, type) {
@@ -803,6 +826,7 @@ async function fun(event, context) {
   //      in the request url qury params...
   const qsp = event.queryStringParameters || {};
   const previewOrIcon = "icon" in qsp || "preview" in qsp;
+  const posthogConfig = previewOrIcon ? null : postHogBrowserConfig();
 
   const body = html`
     <!doctype html>
@@ -1191,6 +1215,13 @@ async function fun(event, context) {
             }
           });
         </script>
+        <script>
+          window.acPostHogConfig = ${serializeBrowserConfig(posthogConfig)};
+        </script>
+        <script
+          src="/aesthetic.computer/lib/product-analytics.mjs"
+          type="module"
+        ></script>
         <script
           src="/aesthetic.computer/boot.mjs"
           type="module"

@@ -54,6 +54,7 @@ import { fileURLToPath, pathToFileURL } from "url";
 import { createServer as createHttpsServer } from "https";
 import { createServer as createHttpServer } from "http";
 import { resolveFunctionName } from "./route-resolution.mjs";
+import { createEndpointAnalytics } from "./product-analytics.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SYSTEM = join(__dirname, "..", "system");
@@ -72,6 +73,8 @@ if (existsSync(envPath)) {
     if (key && !process.env[key]) process.env[key] = val;
   }
 }
+
+const endpointAnalytics = createEndpointAnalytics();
 
 const PORT = process.env.PORT || 8888;
 const DEV = process.env.NODE_ENV !== "production";
@@ -138,6 +141,8 @@ function recordCall(name, ms, status, path, method, error) {
     errorLog.unshift({ time: s.lastError, fn: name, status, error: error || `HTTP ${status}`, path, method });
     if (errorLog.length > MAX_ERROR_LOG) errorLog.length = MAX_ERROR_LOG;
   }
+
+  endpointAnalytics.capture(name, ms, status, method);
 }
 
 function captureRawBody(req, _res, buf) {
@@ -162,6 +167,21 @@ app.use((req, res, next) => {
   );
   res.set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
   if (req.method === "OPTIONS") return res.sendStatus(204);
+  next();
+});
+
+// Count only reviewed Lith-native product surfaces. The analytics adapter maps
+// the path to a static name and discards params, queries, headers and bodies.
+app.use((req, res, next) => {
+  const startedAt = Date.now();
+  res.once("finish", () => {
+    endpointAnalytics.captureSurface(
+      req.path,
+      Date.now() - startedAt,
+      res.statusCode,
+      req.method,
+    );
+  });
   next();
 });
 
