@@ -10,6 +10,7 @@
 //   jukewizard --spotify-search "artist or track"  headless Spotify search
 //   jukewizard --primpats  open DJ mode with two floating bass-sine records
 //   jukewizard --beats     open one floating C-rendered scratch lab record
+//   jukewizard --background  start resident without raising the full window
 //   (no args → opens ~/Desktop/MASTER-playlist.m3u8 if present)
 //
 //   --watch <dir>   auto-pop: when a fresh audio file lands here, add it
@@ -29,6 +30,7 @@ final class JukeAppDelegate: NSObject, NSApplicationDelegate {
         var spotifySearch: String? = nil
         var startPrimpats = false
         var startBeats = false
+        var launchInBackground = false
         var i = 0
         while i < args.count {
             if args[i] == "--watch", i + 1 < args.count { watch.append(args[i + 1]); i += 2; continue }
@@ -36,6 +38,7 @@ final class JukeAppDelegate: NSObject, NSApplicationDelegate {
             if args[i] == "--spotify-search", i + 1 < args.count { spotifySearch = args[i + 1]; i += 2; continue }
             if args[i] == "--primpats" { startPrimpats = true; i += 1; continue }
             if args[i] == "--beats" { startBeats = true; i += 1; continue }
+            if args[i] == "--background" { launchInBackground = true; i += 1; continue }
             paths.append(args[i]); i += 1
         }
         var root = URL(fileURLWithPath: #filePath)
@@ -80,14 +83,20 @@ final class JukeAppDelegate: NSObject, NSApplicationDelegate {
             controlServer = JukeControlServer(controller: controller)
             controlServer?.start()
         }
-        controller?.showWindow(nil)
-        if controller?.window?.isMiniaturized == true { controller?.window?.deminiaturize(nil) }
-        controller?.window?.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
+        if launchInBackground {
+            controller?.window?.orderOut(nil)
+        } else {
+            controller?.showWindow(nil)
+            if controller?.window?.isMiniaturized == true { controller?.window?.deminiaturize(nil) }
+            controller?.window?.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+        }
         // Launch Services can re-apply the previous process's minimized Dock
         // state just after didFinishLaunching. Restore once more on the next
         // run-loop turn so a relaunch can never masquerade as a crash.
-        if startBeats {
+        if launchInBackground {
+            return
+        } else if startBeats {
             DispatchQueue.main.async { [weak self] in self?.controller?.showDetachedBeats() }
         } else if startPrimpats {
             DispatchQueue.main.async { [weak self] in self?.controller?.showDetachedPrimpats() }

@@ -1,11 +1,11 @@
 import AppKit
 
-/// JukeWizard's compact menu-bar presence: one artwork CD that spins only
-/// while this JukeWizard instance is playing. Its title lives in the tooltip,
-/// keeping the status item narrow and distinct from Menu Band's CDJ deck.
+/// JukeWizard's compact menu-bar presence: current artist and track beside an
+/// artwork CD that spins only while this JukeWizard instance is playing.
 final class MenuBarCD {
     struct DeckState {
         let id: String
+        let artist: String?
         let title: String
         let art: NSImage?
         let accent: NSColor
@@ -27,6 +27,7 @@ final class MenuBarCD {
     private var timer: Timer?
     private var decks: [VisibleDeck] = []
     private let side: CGFloat = 20
+    private let maximumCreditWidth: CGFloat = 260
     private let beatsPerRevolution: Double = 8
 
     var onClick: (() -> Void)?
@@ -40,6 +41,8 @@ final class MenuBarCD {
             button.image = baseImage
             button.imagePosition = .imageOnly
             button.imageScaling = .scaleProportionallyDown
+            button.font = .systemFont(ofSize: 12, weight: .medium)
+            button.lineBreakMode = .byTruncatingTail
             button.toolTip = "JukeWizard"
             button.target = self
             button.action = #selector(clicked)
@@ -80,11 +83,12 @@ final class MenuBarCD {
 
     @objc private func clicked() { onClick?() }
 
-    func setSingleDeck(title: String, art: NSImage?, bpm: Double?, playing: Bool) {
+    func setSingleDeck(artist: String?, title: String, art: NSImage?, bpm: Double?, playing: Bool) {
         baseImage = art.map { Self.marked(CDArtworkRenderer.disc(from: $0, side: side)) }
             ?? fallbackImage
-        setDecks([DeckState(id: "single", title: title, art: art, accent: Palette.gold,
+        setDecks([DeckState(id: "single", artist: artist, title: title, art: art, accent: Palette.gold,
                             bpm: bpm ?? 120, playing: playing)])
+        updateCredit(Self.credit(artist: artist, title: title))
     }
 
     func setDecks(_ states: [DeckState]) {
@@ -94,19 +98,33 @@ final class MenuBarCD {
             let bpm = min(240, max(30, candidate))
             let image = state.art.map { Self.marked(CDArtworkRenderer.disc(from: $0, side: side)) }
                 ?? Self.record(side: side, accent: state.accent)
-            return VisibleDeck(id: state.id, title: state.title, image: image,
+            return VisibleDeck(id: state.id, title: Self.credit(artist: state.artist, title: state.title), image: image,
                                bpm: bpm, angle: previousAngles[state.id] ?? 0)
         }
-        statusItem.length = decks.count > 1 ? 40 : 24
-        statusItem.button?.toolTip = decks.isEmpty
-            ? "JukeWizard"
-            : decks.map(\.title).joined(separator: " + ")
+        updateCredit(decks.map(\.title).joined(separator: " + "))
         if decks.isEmpty {
             stopSpin()
         } else {
             renderDecks()
             startSpin()
         }
+    }
+
+    static func credit(artist: String?, title: String) -> String {
+        let artist = artist?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let title = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        return [artist, title].filter { !$0.isEmpty }.joined(separator: " — ")
+    }
+
+    private func updateCredit(_ credit: String) {
+        guard let button = statusItem.button else { return }
+        button.title = credit
+        button.imagePosition = credit.isEmpty ? .imageOnly : .imageLeading
+        button.toolTip = credit.isEmpty ? "JukeWizard" : credit
+        let iconWidth: CGFloat = decks.count > 1 ? 40 : 24
+        let measured = (credit as NSString).size(withAttributes: [.font: button.font!]).width
+        let creditWidth = credit.isEmpty ? 0 : min(maximumCreditWidth, ceil(measured) + 10)
+        statusItem.length = iconWidth + creditWidth
     }
 
     private func startSpin() {

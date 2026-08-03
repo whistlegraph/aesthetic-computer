@@ -207,7 +207,7 @@ final class JukeController: NSWindowController, NSWindowDelegate,
         speedLabel.stringValue = String(format: "%.2f×", speedSlider.doubleValue)
         relayout()
         menuBar = MenuBarCD()
-        menuBar?.onClick = { [weak self] in self?.quickOpenFull() }
+        menuBar?.onClick = { [weak self] in self?.quickToggleFull() }
         roomAudio.onState = { [weak self] state in
             DispatchQueue.main.async { self?.renderRoomState(state) }
         }
@@ -773,18 +773,27 @@ final class JukeController: NSWindowController, NSWindowDelegate,
         let playing = djMode ? djMixer.isPlaying
             : (spotifyMode ? (spotifyState?.isPlaying ?? false) : wave.isPlaying)
         let title = djMode ? djMixer.dominantTitle
-            : (spotifyMode ? (spotifyState?.title ?? "Spotify") : (track?.title ?? "JukeWizard"))
+            : (spotifyMode ? (spotifyState?.title ?? "") : (track?.title ?? ""))
+        let artist = spotifyMode
+            ? spotifyState?.artists
+            : track.map { $0.meta?.artist ?? "Aesthetic Dot Computer" }
         if djMode {
             menuBar?.setDecks([
-                .init(id: "A", title: djMixer.deckA.deck.track?.title ?? "Deck A",
+                .init(id: "A", artist: djMixer.deckA.deck.track.map {
+                          $0.meta?.artist ?? "Aesthetic Dot Computer"
+                      },
+                      title: djMixer.deckA.deck.track?.title ?? "Deck A",
                       art: Self.artwork(for: djMixer.deckA.deck.track), accent: Palette.teal,
                       bpm: djMixer.deckA.deck.targetBPM, playing: djMixer.deckA.deck.isPlaying),
-                .init(id: "B", title: djMixer.deckB.deck.track?.title ?? "Deck B",
+                .init(id: "B", artist: djMixer.deckB.deck.track.map {
+                          $0.meta?.artist ?? "Aesthetic Dot Computer"
+                      },
+                      title: djMixer.deckB.deck.track?.title ?? "Deck B",
                       art: Self.artwork(for: djMixer.deckB.deck.track), accent: Palette.coral,
                       bpm: djMixer.deckB.deck.targetBPM, playing: djMixer.deckB.deck.isPlaying),
             ])
         } else {
-            menuBar?.setSingleDeck(title: title, art: currentArt, bpm: bpm, playing: playing)
+            menuBar?.setSingleDeck(artist: artist, title: title, art: currentArt, bpm: bpm, playing: playing)
         }
         DockIcon.setNowPlaying(art: currentArt, playing: playing, bpm: bpm)
         miniPlayer?.refresh()
@@ -998,6 +1007,14 @@ final class JukeController: NSWindowController, NSWindowDelegate,
 
     private func renderSpotifyState(_ state: SpotifyPlaybackState?) {
         spotifyState = state
+        // `juked` can already be playing when the resident JukeWizard starts
+        // (for example after Spotify Connect hands playback to its device).
+        // Follow that live source so the menu-bar CD does not remain parked on
+        // an idle Aesthetic-library selection.
+        if state?.isPlaying == true, !spotifyMode, !djMode, !wave.isPlaying {
+            activateSpotifyMode()
+            return
+        }
         guard spotifyMode, let state else { return }
         titleLabel.stringValue = state.title
         titleLabel.textColor = NSColor(srgbRed: 0.11, green: 0.73, blue: 0.33, alpha: 1)
@@ -1058,6 +1075,16 @@ final class JukeController: NSWindowController, NSWindowDelegate,
         if w.isMiniaturized { w.deminiaturize(nil) }
         w.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+    }
+
+    @objc func quickToggleFull() {
+        guard let w = window else { return }
+        if w.isVisible, !w.isMiniaturized {
+            miniPopover?.close()
+            w.orderOut(nil)
+        } else {
+            quickOpenFull()
+        }
     }
 
     @objc func quickTogglePlay() { togglePlay(); miniPlayer?.refresh() }
