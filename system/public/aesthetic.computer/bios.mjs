@@ -46,6 +46,7 @@ import { initGPU, switchBackend } from "./lib/gpu/index.mjs"; // 🎨 New backen
 import { createWebGLBlitter } from "./lib/webgl-blit.mjs";
 import {
   chooseCompactVideoMime,
+  getCameraCaptureSize,
   measureCaptureAVSync,
   shouldResumeCaptureRecorder,
 } from "./lib/capture-session.mjs";
@@ -926,6 +927,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   let compactRecorderStream = null;
   let recordedVideoBlob = null;
   let recordedVideoMime = "";
+  let recordedVideoSource = "";
   let compactPlaybackUrl = null;
   let needs$creenshot = false; // Flag when a capture is requested.
   
@@ -1046,6 +1048,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             mime,
             bytes: recordedVideoBlob.size,
             duration: mediaRecorderDuration / 1000,
+            source: recordedVideoSource,
           },
         });
         clearCompactRecorderStream();
@@ -1067,6 +1070,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                   kind: "video",
                   blob: recordedVideoBlob,
                   mime: recordedVideoMime,
+                  source: recordedVideoSource,
                   duration: mediaRecorderDuration,
                   timestamp: Date.now(),
                 },
@@ -15187,6 +15191,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     recordedPieceChanges.length = 0; // Clear piece changes tracking
     recordedVideoBlob = null;
     recordedVideoMime = "";
+    recordedVideoSource = "";
     if (compactPlaybackUrl) {
       URL.revokeObjectURL(compactPlaybackUrl);
       compactPlaybackUrl = null;
@@ -15296,7 +15301,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         // second getImageData plus an unbounded array of RGBA frames.
         if (
           recordingOptions.compactVideo &&
-          typeof canvas.captureStream === "function" &&
           typeof MediaStream === "function"
         ) {
           const compactMime = chooseCompactVideoMime(
@@ -15305,16 +15309,34 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
           if (compactMime) {
             try {
-              const canvasStream = canvas.captureStream(30);
+              const cameraVideo = document.getElementById("camera-feed");
+              const cameraTrack = cameraVideo?.srcObject
+                ?.getVideoTracks?.()
+                ?.find((track) => track.readyState === "live");
+              let videoTrack;
+              if (cameraTrack) {
+                videoTrack = cameraTrack.clone();
+                recordedVideoSource = "camera-track";
+              } else {
+                if (typeof canvas.captureStream !== "function") {
+                  throw new Error("no live camera track or canvas capture stream");
+                }
+                const canvasStream = canvas.captureStream(30);
+                videoTrack = canvasStream.getVideoTracks()[0];
+                recordedVideoSource = "canvas";
+              }
+              if (!videoTrack) throw new Error("compact recorder has no video track");
+
               compactRecorderStream = new MediaStream();
-              canvasStream.getVideoTracks().forEach((track) =>
-                compactRecorderStream.addTrack(track),
-              );
+              compactRecorderStream.addTrack(videoTrack);
               audioStreamDest?.stream?.getAudioTracks().forEach((track) =>
                 compactRecorderStream.addTrack(track.clone()),
               );
 
-              const pixelsPerSecond = canvas.width * canvas.height * 30;
+              const videoSettings = videoTrack.getSettings?.() || {};
+              const videoWidth = videoSettings.width || canvas.width;
+              const videoHeight = videoSettings.height || canvas.height;
+              const pixelsPerSecond = videoWidth * videoHeight * 30;
               const videoBitsPerSecond = Math.min(
                 8_000_000,
                 Math.max(1_500_000, Math.round(pixelsPerSecond * 0.12)),
@@ -15330,9 +15352,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                 content: {
                   phase: "ready",
                   mime: compactMime,
+                  source: recordedVideoSource,
                   videoBitsPerSecond,
-                  width: canvas.width,
-                  height: canvas.height,
+                  width: videoWidth,
+                  height: videoHeight,
                   fps: 30,
                 },
               });
@@ -15715,6 +15738,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           if (cachedTape?.kind === "video" && cachedTape.blob) {
             recordedVideoBlob = cachedTape.blob;
             recordedVideoMime = cachedTape.mime || cachedTape.blob.type || "video/mp4";
+            recordedVideoSource = cachedTape.source || "canvas";
             mediaRecorderDuration = cachedTape.duration || 0;
           }
         } catch (error) {
@@ -15744,7 +15768,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         video.preload = "auto";
         video.style.cssText =
           "position: absolute; inset: 0; width: 100%; height: 100%; " +
-          "object-fit: contain; image-rendering: pixelated;";
+          `object-fit: contain; image-rendering: ${
+            recordedVideoSource === "camera-track" ? "auto" : "pixelated"
+          };`;
 
         let playbackFrame = 0;
         const transmitProgress = () => {
@@ -15780,6 +15806,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               mime: recordedVideoMime || recordedVideoBlob.type || "video/mp4",
               bytes: recordedVideoBlob.size,
               duration,
+              source: recordedVideoSource,
             },
           });
           send({
@@ -17772,6 +17799,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       clearCompactRecorderStream();
       recordedVideoBlob = null;
       recordedVideoMime = "";
+      recordedVideoSource = "";
       if (compactPlaybackUrl) {
         URL.revokeObjectURL(compactPlaybackUrl);
         compactPlaybackUrl = null;
@@ -17834,6 +17862,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           if (cachedTape?.kind === "video" && cachedTape.blob) {
             recordedVideoBlob = cachedTape.blob;
             recordedVideoMime = cachedTape.mime || cachedTape.blob.type || "video/mp4";
+            recordedVideoSource = cachedTape.source || "canvas";
             mediaRecorderDuration = cachedTape.duration || 0;
           }
         } catch (error) {
@@ -17850,6 +17879,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               blob: recordedVideoBlob,
               mime: recordedVideoMime || recordedVideoBlob.type || "video/mp4",
               duration: mediaRecorderDuration / 1000,
+              source: recordedVideoSource,
             },
           },
         });
@@ -21883,6 +21913,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       
       // Fit mode: "cover" crops to fill, "contain" letterboxes to fit
       const fitMode = options.fit || "cover";
+      const recordingCamera = options.recording === true;
 
       video.id = "camera-feed";
       video.autoplay = true; // Allow video footage to play automatically.
@@ -21961,6 +21992,19 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             reqHeight = tmp;
           }
 
+          // `cap` records the native camera MediaStreamTrack directly. Ask
+          // for real camera resolution while retaining the small worker
+          // buffer below for AC's interactive preview and effects.
+          if (recordingCamera) {
+            const captureSize = getCameraCaptureSize(
+              reqWidth,
+              reqHeight,
+              window.devicePixelRatio,
+            );
+            reqWidth = captureSize.width;
+            reqHeight = captureSize.height;
+          }
+
           constraints.width = { ideal: reqWidth };
           constraints.height = { ideal: reqHeight };
 
@@ -22023,6 +22067,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               cameraIOS,
               AestheticIOSApp,
               Android,
+              recordingCamera,
               isPortrait,
               orientationAngle,
               userAgent:

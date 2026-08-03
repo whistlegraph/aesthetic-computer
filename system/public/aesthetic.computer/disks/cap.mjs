@@ -123,6 +123,7 @@ function paint({
       height: screen.height,
       facing,
       fit: "contain", // Show full camera view (letterboxed if needed)
+      recording: true, // Keep the native camera track suitable for MP4 capture.
     });
     videoInitialized = true;
   }

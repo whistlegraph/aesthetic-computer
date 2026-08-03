@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   chooseCompactVideoMime,
+  getCameraCaptureSize,
   measureCaptureAVSync,
   shouldResumeCaptureRecorder,
 } from "../system/public/aesthetic.computer/lib/capture-session.mjs";
@@ -37,4 +38,15 @@ test("compact camera capture prefers explicit H264 and AAC", () => {
     chooseCompactVideoMime(() => true),
     "video/mp4;codecs=avc1.42E01E,mp4a.40.2",
   );
+});
+
+test("recording camera constraints request a useful native resolution", () => {
+  assert.deepEqual(getCameraCaptureSize(395, 203, 3), {
+    width: 1280,
+    height: 658,
+  });
+  assert.deepEqual(getCameraCaptureSize(1920, 1080, 3), {
+    width: 1920,
+    height: 1080,
+  });
 });
