@@ -713,6 +713,18 @@
         file_server
     }
 
+    # --- sitemap.aesthetic.computer ---
+    # The sitemap is a static network index, not the generic AC prompt shell.
+    @sitemaproot {
+        host sitemap.aesthetic.computer
+        path /
+    }
+    handle @sitemaproot {
+        root * /opt/ac/system/public
+        rewrite * /sitemap.html
+        file_server
+    }
+
     @mainspa host aesthetic.computer www.aesthetic.computer lith.aesthetic.computer notepat.com www.notepat.com wipppps.world www.wipppps.world p5.aesthetic.computer sitemap.aesthetic.computer
     handle @mainspa {
         # Assets → DO Spaces CDN. The bucket root maps directly to
