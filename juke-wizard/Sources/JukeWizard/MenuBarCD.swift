@@ -305,6 +305,12 @@ final class MenuBarCD {
         if changedTrack, let button = statusItem.button { MenuBarNoteBurst.emit(from: button) }
     }
 
+    static func credit(artist: String?, title: String) -> String {
+        let artist = artist?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let title = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        return [artist, title].filter { !$0.isEmpty }.joined(separator: " — ")
+    }
+
     // Feed the current track tempo; clamped to a sane spin range.
     func setBPM(_ b: Double?) {
         let v = b ?? 120

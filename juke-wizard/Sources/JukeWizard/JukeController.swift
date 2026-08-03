@@ -195,7 +195,7 @@ final class JukeController: NSWindowController, NSWindowDelegate,
         relayout()
         // the spinning-CD menu-bar presence (persists when the window is closed)
         menuBar = MenuBarCD()
-        menuBar?.onOpen = { [weak self] in self?.quickOpenFull() }
+        menuBar?.onOpen = { [weak self] in self?.quickToggleFull() }
         menuBar?.onVolumeChanged = { [weak self] value in self?.setQuickVolume(value) }
         menuBar?.setVolume(quickVolume)
         roomAudio.onState = { [weak self] state in
@@ -741,7 +741,12 @@ final class JukeController: NSWindowController, NSWindowDelegate,
         let playing = djMode ? djMixer.isPlaying
             : (spotifyMode ? (spotifyState?.isPlaying ?? false) : wave.isPlaying)
         let title = djMode ? djMixer.dominantTitle
-            : (spotifyMode ? (spotifyState?.title ?? "") : (track?.title ?? ""))
+            : (spotifyMode
+                ? MenuBarCD.credit(artist: spotifyState?.artists,
+                                   title: spotifyState?.title ?? "")
+                : MenuBarCD.credit(
+                    artist: track.map { $0.meta?.artist ?? "Aesthetic Dot Computer" },
+                    title: track?.title ?? ""))
         menuBar?.setBPM(bpm)
         menuBar?.setNowPlaying(title: title, art: currentArt)
         menuBar?.setPlaying(playing)
@@ -997,6 +1002,16 @@ final class JukeController: NSWindowController, NSWindowDelegate,
         if w.isMiniaturized { w.deminiaturize(nil) }
         w.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+    }
+
+    @objc func quickToggleFull() {
+        guard let w = window else { return }
+        if w.isVisible, !w.isMiniaturized {
+            miniPopover?.close()
+            w.orderOut(nil)
+        } else {
+            quickOpenFull()
+        }
     }
 
     @objc func quickTogglePlay() { togglePlay(); miniPlayer?.refresh() }
