@@ -1,0 +1,15 @@
+interface:
+  display_name: "PostHog On Demand"
+  short_description: "Load PostHog workflows only when needed"
+  default_prompt: "Use $posthog-on-demand to load the right PostHog workflow and complete this task."
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "posthog"
+      description: "PostHog data and Skills Store MCP"
+      transport: "streamable_http"
+      url: "https://mcp.posthog.com/mcp"
+    - type: "mcp"
+      value: "posthog-skills"
+      description: "On-demand access to cached PostHog workflows"
+      transport: "stdio"
