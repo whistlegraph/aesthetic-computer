@@ -6,13 +6,14 @@ import { respond } from "../../backend/http.mjs";
 export async function handler(event, context) {
   const apiDocs = {
     title: "aesthetic.computer Public API",
-    version: "1.0",
-    description: "Public APIs for publishing creative works anonymously to aesthetic.computer",
+    version: "1.1.0",
+    updated: "2026-08-03",
+    description: "Supported public APIs for publishing creative work and reading public Aesthetic Computer data",
     baseURL: "https://aesthetic.computer",
 
     mcp: {
       title: "MCP Server",
-      description: "Model Context Protocol server for AI assistants (Claude, GPT-4, etc.) to interact with aesthetic.computer APIs",
+      description: "Model Context Protocol server for compatible assistants to create, validate, and publish Aesthetic Computer pieces",
       package: "@aesthetic.computer/mcp",
       install: "npx @aesthetic.computer/mcp",
       repository: "https://tangled.org/aesthetic.computer/core/tree/main/mcp-server",
@@ -41,6 +42,12 @@ export async function handler(event, context) {
           description: "Fetch the full API documentation",
           input: {},
           output: "API documentation object"
+        },
+        {
+          name: "preview_kidlisp",
+          description: "Validate KidLisp syntax without publishing",
+          input: { source: "string" },
+          output: { valid: "boolean", errors: "string[]", warnings: "string[]", stats: "object" }
         }
       ],
 
@@ -52,6 +59,10 @@ export async function handler(event, context) {
         {
           uri: "aesthetic-computer://kidlisp-reference",
           description: "Quick reference guide for KidLisp syntax and common functions"
+        },
+        {
+          uri: "aesthetic-computer://piece-examples",
+          description: "Examples drawn from popular published pieces"
         }
       ],
 
@@ -60,6 +71,11 @@ export async function handler(event, context) {
           name: "create-piece",
           description: "Guided prompt for creating an aesthetic.computer piece",
           arguments: ["name (required)", "description (required)"]
+        },
+        {
+          name: "create-kidlisp",
+          description: "Guided prompt for creating a KidLisp piece",
+          arguments: ["description (required)"]
         }
       ],
 
@@ -79,7 +95,7 @@ export async function handler(event, context) {
   "mcpServers": {
     "aesthetic-computer": {
       "command": "npx",
-      "args": ["-y", "@aesthetic-computer/mcp"]
+      "args": ["-y", "@aesthetic.computer/mcp"]
     }
   }
 }`,
@@ -87,7 +103,7 @@ export async function handler(event, context) {
   "mcpServers": {
     "aesthetic-computer": {
       "command": "npx",
-      "args": ["-y", "@aesthetic-computer/mcp"]
+      "args": ["-y", "@aesthetic.computer/mcp"]
     }
   }
 }`
@@ -249,9 +265,9 @@ print(f"Listen at: https://aesthetic.computer/clock~{data['code']}")`,
         queryParameters: {
           instance: {
             type: "string",
-            enum: ["system", "clock"],
+            enum: ["system", "clock", "all"],
             default: "system",
-            description: "Chat channel to read. `system` = main chat, `clock` = laer-klokken."
+            description: "Chat channel to read. `all` spans both channels when `search` or `q` is present."
           },
           limit: {
             type: "number",
@@ -263,11 +279,22 @@ print(f"Listen at: https://aesthetic.computer/clock~{data['code']}")`,
             type: "string",
             required: false,
             description: "ISO-8601 timestamp. Returns messages strictly older than this — pass the `nextBefore` from the previous response to page back."
+          },
+          search: {
+            type: "string",
+            required: false,
+            description: "Case-insensitive substring search over message text. Search results are newest first."
+          },
+          q: {
+            type: "string",
+            required: false,
+            description: "Alias for `search`."
           }
         },
         responseBody: {
           schema: {
             instance: { type: "string", description: "Echoes the queried channel." },
+            search: { type: "string", description: "Echoes the search term when supplied; omitted otherwise." },
             count: { type: "number", description: "Number of messages in this page." },
             messages: {
               type: "array",
@@ -277,6 +304,7 @@ print(f"Listen at: https://aesthetic.computer/clock~{data['code']}")`,
                 from: { type: "string", description: "`@handle` of the sender, or `anon` if unresolved." },
                 text: { type: "string", description: "Message body as posted." },
                 when: { type: "string", description: "ISO timestamp." },
+                instance: { type: "string", description: "Source channel for this message." },
                 hearts: { type: "number", description: "Heart-reaction count from the shared `hearts` collection." }
               }
             },
@@ -307,11 +335,19 @@ for m in data["messages"]:
   "https://aesthetic.computer/api/chat-messages?instance=clock&limit=100"
 );
 const { messages, nextBefore } = await res.json();
-console.log(messages.length, "messages; older page cursor:", nextBefore);`
+console.log(messages.length, "messages; older page cursor:", nextBefore);`,
+            python: `import requests
+
+data = requests.get(
+    "https://aesthetic.computer/api/chat-messages",
+    params={"instance": "clock", "limit": 100},
+).json()
+print(len(data["messages"]), "messages; older page cursor:", data["nextBefore"])`
           },
           {
             title: "Paginate back through older messages",
             description: "Use `nextBefore` from each response to walk back in time.",
+            curl: `curl "https://aesthetic.computer/api/chat-messages?instance=clock&limit=100&before=2026-04-20T00%3A00%3A00Z"`,
             javascript: `async function* allClockMessages() {
   let before;
   while (true) {
@@ -340,10 +376,26 @@ def all_clock_messages():
             break
         yield page["messages"]
         before = page["nextBefore"]`
+          },
+          {
+            title: "Search both public chat channels",
+            curl: `curl "https://aesthetic.computer/api/chat-messages?instance=all&search=music&limit=25"`,
+            javascript: `const url = new URL("https://aesthetic.computer/api/chat-messages");
+url.search = new URLSearchParams({ instance: "all", search: "music", limit: "25" });
+const { messages } = await fetch(url).then((res) => res.json());
+console.log(messages);`,
+            python: `import requests
+
+data = requests.get(
+    "https://aesthetic.computer/api/chat-messages",
+    params={"instance": "all", "search": "music", "limit": 25},
+).json()
+print(data["messages"])`
           }
         ],
         notes: [
-          "Responses are cached in Redis for 2 minutes, keyed on (instance, limit, before).",
+          "Responses are cached in Redis for 2 minutes, keyed on instance, limit, before, and search.",
+          "Pages without a search term are chronological; search results are newest first.",
           "`from` falls back to `anon` when a message's author has no resolved `@handle`.",
           "`hearts` comes from the shared `hearts` collection (`type: chat-<instance>`)."
         ]
@@ -361,7 +413,7 @@ def all_clock_messages():
             source: {
               type: "string",
               required: true,
-              description: "JavaScript piece source code (max 100,000 characters). Must contain at least one lifecycle function export.",
+              description: "JavaScript piece source code (max 100,000 characters). Must contain a supported lifecycle export or a default export.",
               example: "export function boot($) { $.wipe('blue'); }\nexport function paint($) { $.ink('red'); $.box(10, 10, 50, 50); }"
             },
             name: {
@@ -451,7 +503,7 @@ print(f"View at: {data['url']}")`,
             title: "Publish Interactive Piece",
             description: "Create a piece with user interaction",
             curl: `curl -X POST https://aesthetic.computer/api/store-piece \\
-  -H "Content-Type: "application/json" \\
+  -H "Content-Type: application/json" \\
   -d '{
     "source": "let x = 0;\\n\\nexport function boot($) {\\n  x = $.screen.width / 2;\\n}\\n\\nexport function paint($) {\\n  $.wipe(\"black\");\\n  $.ink(\"yellow\");\\n  $.circle(x, $.screen.height / 2, 20);\\n}\\n\\nexport function act($) {\\n  if ($.event.is(\"touch\")) x = $.event.x;\\n}"
   }'`,
@@ -520,7 +572,7 @@ print(f"View at: {data['url']}")`,
         name: "Track Media (Publish Artwork)",
         method: "POST",
         path: "/api/track-media",
-        description: "Publish a painting (PNG), JavaScript piece (MJS), or recording tape (ZIP) anonymously. Note: Files must be uploaded to S3/storage before calling this endpoint.",
+        description: "Register an uploaded painting, piece, or tape and receive a short code. The file must already exist in Aesthetic Computer storage.",
         authentication: "Optional (Bearer token for authenticated users)",
         requestBody: {
           contentType: "application/json",
@@ -533,8 +585,8 @@ print(f"View at: {data['url']}")`,
             ext: {
               type: "string",
               required: true,
-              enum: ["png", "mjs", "zip"],
-              description: "File extension: 'png' for paintings, 'mjs' for JavaScript pieces, 'zip' for tapes"
+              enum: ["png", "mjs", "lisp", "lua", "zip", "mp4"],
+              description: "Media type: PNG painting; MJS, Lisp, or Lua piece; ZIP web tape; or finished MP4 native tape"
             },
             metadata: {
               type: "object",
@@ -692,22 +744,26 @@ print(f"Watch at: https://aesthetic.computer/{data['code']}")`,
     ],
 
     notes: [
-      "✨ All endpoints support anonymous (guest) publishing without authentication",
-      "🔑 To associate uploads with your account, include a Bearer token in the Authorization header",
-      "🎨 KidLisp is a creative coding language - visit https://kidlisp.com for documentation",
-      "💾 /api/store-piece handles storage automatically - no S3 credentials needed",
-      "📦 For /api/track-media: Files must be uploaded to S3/storage first (contact admins for credentials)",
-      "📏 Maximum source code lengths: KidLisp 50,000 chars, JavaScript pieces 100,000 chars",
-      "⏱️ Maximum clock melody length: 10,000 characters",
-      "🎬 Maximum tape duration: 30 seconds",
-      "♻️ Duplicate content is automatically deduplicated (same content returns same code)",
-      "🔧 JavaScript pieces must export at least one lifecycle function: boot, paint, sim, or act"
+      "Publishing works anonymously. Add an Authorization: Bearer header to associate new work with an account.",
+      "/api/store-piece stores source directly; /api/track-media registers a file that is already in Aesthetic Computer storage.",
+      "Source limits: KidLisp 50,000 characters, JavaScript 100,000 characters, clock melodies 10,000 characters.",
+      "Tape duration is limited to 30 seconds.",
+      "Store endpoints deduplicate identical source.",
+      "JavaScript pieces must export boot, paint, sim, act, or a default function."
     ],
 
     relatedResources: [
       {
         name: "KidLisp Documentation",
         url: "https://kidlisp.com"
+      },
+      {
+        name: "Piece API Documentation",
+        url: "https://aesthetic.computer/docs"
+      },
+      {
+        name: "Sitemap",
+        url: "https://sitemap.aesthetic.computer"
       },
       {
         name: "aesthetic.computer Main Site",
@@ -719,16 +775,17 @@ print(f"Watch at: https://aesthetic.computer/{data['code']}")`,
   // Content negotiation: HTML for browsers, JSON for APIs/LLMs
   const acceptHeader = event.headers?.accept || "";
   const format = event.queryStringParameters?.format;
+  const jsonPath = event.path?.endsWith(".json");
 
   // Explicit format parameter takes precedence
-  const wantsHTML = format === "html" ||
-                    (!format && acceptHeader.includes("text/html"));
+  const wantsHTML = !jsonPath && (format === "html" ||
+                    (!format && acceptHeader.includes("text/html")));
 
   if (wantsHTML) {
     // Serve HTML documentation for browsers
     const html = generateHTML(apiDocs);
     return respond(200, html, {
-      "Content-Type": "text/html",
+      "Content-Type": "text/html; charset=UTF-8",
       "Access-Control-Allow-Origin": "*"
     });
   }
@@ -806,15 +863,6 @@ function generateHTML(docs) {
       padding: 1.5em;
       margin-bottom: 1em;
       background: var(--bg-alt);
-    }
-
-    .ascii-art {
-      font-size: 10px;
-      line-height: 1.2;
-      color: var(--text-dim);
-      margin-bottom: 1em;
-      white-space: pre;
-      font-family: monospace;
     }
 
     h1 {
@@ -1031,23 +1079,28 @@ function generateHTML(docs) {
       margin: 2em 0;
     }
 
+    .contract {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      padding: 0.75em;
+      margin: 0.75em 0;
+    }
+
+    .contract dt { font-weight: bold; }
+    .contract dd { margin: 0 0 0.65em 1em; }
+
     @media (max-width: 768px) {
       body { padding: 0.5em; font-size: 13px; }
       .header { padding: 1em; }
       .section { padding: 1em; }
-      .ascii-art { font-size: 8px; }
     }
   </style>
 </head>
 <body>
   <div class="header">
-    <div class="ascii-art"> ___  ____  ____
-/ __)(  _ \\(_  _)
-\\__ \\ ) __/ _)(_
-(___/(__)  (____)</div>
     <h1>${docs.title}</h1>
     <p class="tagline">${docs.description}</p>
-    <div class="version">version ${docs.version}</div>
+    <div class="version">version ${docs.version} · updated ${docs.updated}</div>
     <div class="quick-links">
       <a href="?format=json" class="btn btn-secondary">[ view json ]</a>
       <a href="https://aesthetic.computer" class="btn">[ home ]</a>
@@ -1056,8 +1109,7 @@ function generateHTML(docs) {
   </div>
 
   <div class="section">
-    <h2>// MCP Server</h2>
-    <p><strong>${docs.mcp.title}</strong></p>
+    <h2>MCP Server</h2>
     <p>${docs.mcp.description}</p>
     <p><strong>package:</strong> <code>${docs.mcp.package}</code></p>
     <p><strong>install:</strong> <code>${docs.mcp.install}</code></p>
@@ -1089,13 +1141,34 @@ function generateHTML(docs) {
   </div>
 
   <div class="section">
-    <h2>// HTTP endpoints</h2>
+    <h2>HTTP endpoints</h2>
 
     ${docs.endpoints.map((endpoint, idx) => `
       <div class="endpoint-card">
         <h3><span class="method">${endpoint.method}</span> ${endpoint.name}</h3>
         <p><code class="path">${docs.baseURL}${endpoint.path}</code></p>
         <p>${endpoint.description}</p>
+        <p><strong>Authentication:</strong> ${endpoint.authentication}</p>
+
+        ${endpoint.queryParameters ? `
+          <h4>Query parameters</h4>
+          <dl class="contract">
+            ${Object.entries(endpoint.queryParameters).map(([name, field]) => `
+              <dt><code>${name}</code> · ${field.type}${field.required ? ' · required' : ''}</dt>
+              <dd>${field.description}${field.default !== undefined ? ` Default: <code>${field.default}</code>.` : ''}${field.enum ? ` Values: <code>${field.enum.join(', ')}</code>.` : ''}</dd>
+            `).join('')}
+          </dl>
+        ` : ''}
+
+        ${endpoint.requestBody ? `
+          <h4>Request body · ${endpoint.requestBody.contentType}</h4>
+          <pre><code>${escapeHTML(JSON.stringify(endpoint.requestBody.schema, null, 2))}</code></pre>
+        ` : ''}
+
+        ${endpoint.responseBody ? `
+          <h4>Response</h4>
+          <pre><code>${escapeHTML(JSON.stringify(endpoint.responseBody.schema, null, 2))}</code></pre>
+        ` : ''}
 
         ${(endpoint.examples || []).map((example, exIdx) => `
           <h3>${example.title || ''}</h3>
@@ -1120,12 +1193,17 @@ function generateHTML(docs) {
           ${example.response ? `<h4>response:</h4>
           <pre><code>${escapeHTML(JSON.stringify(example.response.body ?? example.response, null, 2))}</code></pre>` : ''}
         `).join('')}
+
+        ${endpoint.notes ? `
+          <h4>Notes</h4>
+          <ul>${endpoint.notes.map(note => `<li>${note}</li>`).join('')}</ul>
+        ` : ''}
       </div>
     `).join('')}
   </div>
 
   <div class="notes">
-    <h3>// important notes</h3>
+    <h3>Limits and behavior</h3>
     <ul>
       ${docs.notes.map(note => `<li>${note}</li>`).join('')}
     </ul>

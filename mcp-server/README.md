@@ -43,7 +43,7 @@ Add to your `~/Library/Application Support/Claude/claude_desktop_config.json` (m
   "mcpServers": {
     "aesthetic-computer": {
       "command": "npx",
-      "args": ["-y", "@aesthetic-computer/mcp"],
+      "args": ["-y", "@aesthetic.computer/mcp"],
       "env": {
         "AC_TOKEN": "your-auth0-bearer-token-here"
       }
@@ -61,7 +61,7 @@ Add to your `.vscode/mcp.json` or `~/.claude/mcp.json`:
   "mcpServers": {
     "aesthetic-computer": {
       "command": "npx",
-      "args": ["-y", "@aesthetic-computer/mcp"],
+      "args": ["-y", "@aesthetic.computer/mcp"],
       "env": {
         "AC_TOKEN": "your-auth0-bearer-token-here"
       }
@@ -79,28 +79,11 @@ Add to your Cursor MCP settings:
   "mcpServers": {
     "aesthetic-computer": {
       "command": "npx",
-      "args": ["-y", "@aesthetic-computer/mcp"]
-    }
-  }
-}
-```
-
-### ChatGPT Developer Mode
-
-ChatGPT now supports MCP servers! Add to your ChatGPT configuration:
-
-```json
-{
-  "mcpServers": {
-    "aesthetic-computer": {
-      "command": "npx",
       "args": ["-y", "@aesthetic.computer/mcp"]
     }
   }
 }
 ```
-
-See [ChatGPT Developer Mode docs](https://platform.openai.com/docs/guides/developer-mode) for setup instructions.
 
 ### Authentication (Optional)
 
@@ -176,6 +159,10 @@ Publish a clock melody.
 
 Fetch the full API documentation.
 
+### `preview_kidlisp`
+
+Validate KidLisp source without publishing it. Returns syntax errors, warnings, and a summary of functions and interactive or animated behavior found in the source.
+
 ## Available Resources
 
 ### `aesthetic-computer://piece-template`
@@ -186,6 +173,10 @@ Returns a starter template for a new aesthetic.computer piece with all lifecycle
 
 Quick reference guide for KidLisp syntax and common functions.
 
+### `aesthetic-computer://piece-examples`
+
+Examples drawn from popular published pieces.
+
 ## Available Prompts
 
 ### `create-piece`
@@ -194,6 +185,13 @@ A guided prompt for creating an aesthetic.computer piece.
 
 **Arguments:**
 - `name` (required): Name of the piece
+- `description` (required): What the piece should do
+
+### `create-kidlisp`
+
+A guided prompt for creating and publishing a KidLisp piece.
+
+**Arguments:**
 - `description` (required): What the piece should do
 
 ## Why Use This?
@@ -237,7 +235,7 @@ The AI will use the MCP tools to create and publish pieces automatically, return
 
 ```bash
 # Clone the repo
-git clone https://github.com/whistlegraph/aesthetic-computer
+git clone git@knot.aesthetic.computer:aesthetic.computer/core
 cd aesthetic-computer/mcp-server
 
 # Install dependencies
@@ -255,7 +253,7 @@ node dist/index.js
 - 🌐 [aesthetic.computer](https://aesthetic.computer)
 - 📖 [API Documentation](https://aesthetic.computer/api)
 - 🎨 [KidLisp Documentation](https://kidlisp.com)
-- 📝 [Write a Piece Guide](https://github.com/whistlegraph/aesthetic-computer/blob/main/WRITE-A-PIECE.md)
+- 📝 [Write a Piece Guide](https://tangled.org/aesthetic.computer/core/tree/main/WRITE-A-PIECE.md)
 - 🔧 [MCP Specification](https://modelcontextprotocol.io)
 
 ## License

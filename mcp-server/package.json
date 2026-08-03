@@ -24,7 +24,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/whistlegraph/aesthetic-computer.git",
+    "url": "git+ssh://git@knot.aesthetic.computer/aesthetic.computer/core",
     "directory": "mcp-server"
   },
   "dependencies": {
