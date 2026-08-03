@@ -278,16 +278,16 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
         applyAccentColor(animated: animated)
         let dark = effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
         let accent = NSColor.controlAccentColor.usingColorSpace(.sRGB) ?? .systemBlue
-        let bases: [NSColor] = dark ? [
-            NSColor(srgbRed: 0.010, green: 0.018, blue: 0.080, alpha: 1),
+        let bases: [NSColor] = dark ? Array(repeating:
             NSColor(srgbRed: 0.028, green: 0.072, blue: 0.225, alpha: 1),
-            NSColor(srgbRed: 0.105, green: 0.082, blue: 0.300, alpha: 1),
-        ] : [
+            count: 3) : [
             NSColor(srgbRed: 0.92, green: 0.96, blue: 1.00, alpha: 1),
             NSColor(srgbRed: 0.74, green: 0.84, blue: 0.96, alpha: 1),
             NSColor(srgbRed: 0.84, green: 0.83, blue: 0.98, alpha: 1),
         ]
-        let strengths: [CGFloat] = dark ? [0.07, 0.12, 0.10] : [0.08, 0.13, 0.10]
+        let strengths: [CGFloat] = dark
+            ? Array(repeating: 0.12, count: 3)
+            : [0.08, 0.13, 0.10]
         let colors = zip(bases, strengths).map {
             $0.0.blended(withFraction: $0.1, of: accent) ?? $0.0
         }
@@ -302,11 +302,7 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
         // a differently coloured fringe around antialiased geometry.
         fogOverlay.startPoint = CGPoint(x: 0.12, y: 0.98)
         fogOverlay.endPoint = CGPoint(x: 0.88, y: 0.02)
-        fogOverlay.colors = dark ? [
-            NSColor(srgbRed: 0.30, green: 0.43, blue: 0.78, alpha: 0.05).cgColor,
-            NSColor(srgbRed: 0.48, green: 0.54, blue: 0.88, alpha: 0.14).cgColor,
-            NSColor(srgbRed: 0.20, green: 0.32, blue: 0.68, alpha: 0.07).cgColor,
-        ] : [
+        fogOverlay.colors = dark ? Array(repeating: NSColor.clear.cgColor, count: 3) : [
             NSColor(srgbRed: 0.88, green: 0.94, blue: 1.00, alpha: 0.08).cgColor,
             NSColor(srgbRed: 0.76, green: 0.84, blue: 0.98, alpha: 0.18).cgColor,
             NSColor(srgbRed: 0.90, green: 0.90, blue: 1.00, alpha: 0.10).cgColor,
