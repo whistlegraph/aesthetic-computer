@@ -22256,12 +22256,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
           try {
             if (Number.isFinite(requestedZoom)) {
-              const tracks = [
-                videoTrack,
-                ...(recordedVideoSource === "camera-track"
+              // Never constrain the live source track on iOS: WebKit can
+              // replace its frames with a solid red surface. Zoom only the
+              // cloned MediaRecorder track; cap keeps its preview zoomed in
+              // the worker so the source stream remains stable.
+              const tracks =
+                recordedVideoSource === "camera-track"
                   ? compactRecorderStream?.getVideoTracks?.() || []
-                  : []),
-              ].filter((track, index, all) => track && all.indexOf(track) === index);
+                  : [];
               let appliedZoom = null;
               let zoomAvailable = false;
               for (const track of tracks) {
@@ -22277,7 +22279,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               }
               if (appliedZoom !== null) {
                 zoom = appliedZoom;
-                settings = videoTrack.getSettings();
               }
               send({
                 type: "camera:zoom",

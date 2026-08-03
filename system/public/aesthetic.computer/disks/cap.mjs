@@ -39,7 +39,6 @@ let mic; // Microphone reference
 let torchAvailable = false;
 let torchEnabled = false;
 let torchPending = false;
-let nativeZoomAvailable = false;
 
 // Recording config
 const DEFAULT_DURATION = 30; // Max recording duration in seconds
@@ -80,7 +79,6 @@ function boot({ ui, params, colon, system, rec, notice }) {
   torchAvailable = false;
   torchEnabled = false;
   torchPending = false;
-  nativeZoomAvailable = false;
   zoom = 1;
   lastSentZoom = 1;
   zoomStartY = null;
@@ -144,7 +142,10 @@ function paint({
   // recenter so the camera image stays anchored to the screen center as
   // the user slides up to zoom in. Off-screen pixels clip naturally.
   if (frame) {
-    const displayZoom = nativeZoomAvailable ? 1 : zoom;
+    // Keep the live preview independent from iOS hardware constraints. The
+    // recorder clone receives hardware zoom; AC renders the matching digital
+    // crop here so zoom cannot corrupt or stall the source camera track.
+    const displayZoom = zoom;
     const drawW = frame.width * displayZoom;
     const drawH = frame.height * displayZoom;
     const offsetX = floor((screen.width - drawW) / 2);
@@ -375,7 +376,6 @@ function act({ event: e, jump, video, cameras, rec, notice, leaving, hud }) {
   }
   if (e.is("camera:capabilities")) {
     torchAvailable = e.content?.torch === true;
-    nativeZoomAvailable = !!e.content?.zoom;
     torchEnabled = e.content?.enabled === true;
     torchPending = false;
   }
