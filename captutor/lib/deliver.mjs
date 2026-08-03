@@ -413,7 +413,7 @@ function renderTerminalCard({ clip, card, durationSec, width, height, workDir })
 export function deliver({
   clip, cues, format, out, workDir, locale = "en", brandChrome = null,
   geometry = null, captionPx = null, captionY = null, chapters = null,
-  terminalCard = null, title = null,
+  terminalCard = null, title = null, shortTitle = null,
 }) {
   FONT = fontFor(locale);  // brand face for Latin, script-capable fallback otherwise
   const F = FORMATS[format];
@@ -586,11 +586,25 @@ export function deliver({
       );
       last = trackLabel;
     });
-    const fillColor = chapterColor(ordered[0]?.color, "#a58cbc");
+    chain.push(
+      `color=c=black@0.0:s=${W}x${bh}:r=${F.fps || 30}:d=${dur.toFixed(3)},` +
+      `format=rgba[chapter-fill-base]`,
+    );
+    let fillStrip = "chapter-fill-base";
+    ordered.forEach((chapter, index) => {
+      const x0 = index === 0 ? 0 : Math.round(W * chapter.startSec / dur);
+      const endSec = ordered[index + 1]?.startSec ?? dur;
+      const x1 = index === ordered.length - 1 ? W : Math.round(W * endSec / dur);
+      const fillLabel = `chapter-fill-${index}`;
+      chain.push(
+        `[${fillStrip}]drawbox=x=${x0}:y=0:w=${Math.max(1, x1 - x0)}:h=${bh}` +
+        `:color=${chapterColor(chapter.color, "#a58cbc")}@0.94:t=fill[${fillLabel}]`,
+      );
+      fillStrip = fillLabel;
+    });
     const progressLabel = "chapter-progressed";
     chain.push(
-      `color=c=${fillColor}@0.92:s=${W}x${bh}:r=${F.fps || 30}:d=${dur.toFixed(3)},` +
-      `format=rgba,scale=w='max(1,iw*t/${dur.toFixed(3)})':h=ih:eval=frame[chapter-progress]`,
+      `[${fillStrip}]scale=w='max(1,iw*t/${dur.toFixed(3)})':h=ih:eval=frame[chapter-progress]`,
       `[${last}][chapter-progress]overlay=0:${H - bh}:eval=frame:shortest=1[${progressLabel}]`,
     );
     last = progressLabel;
@@ -664,7 +678,7 @@ export function deliver({
     try {
       applyBrandChrome({
         input:encodedOut, out, theme:brandChrome, workDir, format,
-        context:{ title, chapters:chapterList },
+        context:{ title:shortTitle || title, chapters:chapterList },
       });
     } finally {
       if (existsSync(encodedOut)) unlinkSync(encodedOut);

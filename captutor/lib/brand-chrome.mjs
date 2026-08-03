@@ -70,6 +70,7 @@ export function layoutBrandChrome(theme, {
     labelStrokeFraction: clamp(finite(merged.labelStrokeFraction, 0.03), 0, 0.08),
     labelShadow: merged.labelShadow !== false,
     sectionLabel: Boolean(merged.sectionLabel),
+    unifiedSectionStamp: Boolean(merged.unifiedSectionStamp),
     sectionLabelPx: Math.round(short * finite(merged.sectionLabelPxFraction, 0.014)),
     sectionLabelGapPx: Math.round(short * finite(merged.sectionLabelGapFraction, 0.018)),
     sectionLabelOpacity: clamp(finite(merged.sectionLabelOpacity, 0.84), 0.1, 1),
@@ -433,6 +434,20 @@ export function separateBrandChromeFilter(layout, characterCount = 0, outputLabe
   ].join(";");
 }
 
+export function unifiedSectionStampBaseFilter(layout, outputLabel = "brandbase") {
+  const phase = "2*PI*t/" + layout.periodSec.toFixed(3);
+  const leftX = `${layout.edgePx}-overlay_w/2`;
+  const rightX = `main_w-${layout.edgePx}-overlay_w/2`;
+  const leftY = `main_h*${layout.leftMarkCenterY.toFixed(5)}-overlay_h/2+${layout.bobPx}*sin(${phase})`;
+  const rightY = `main_h*${layout.rightMarkCenterY.toFixed(5)}-overlay_h/2-${layout.bobPx}*sin(${phase})`;
+  return [
+    `[1:v]format=rgba,colorchannelmixer=aa=${layout.opacity.toFixed(3)}[ml]`,
+    `[2:v]format=rgba,colorchannelmixer=aa=${layout.opacity.toFixed(3)}[mr]`,
+    `[0:v][ml]overlay=x='${leftX}+${layout.driftPx}*sin(${phase})':y='${leftY}':eval=frame:shortest=1[a]`,
+    `[a][mr]overlay=x='${rightX}-${layout.driftPx}*sin(${phase}+.6)':y='${rightY}':eval=frame:shortest=1[${outputLabel}]`,
+  ].join(";");
+}
+
 function mixSectionColor(base, tint, amount = 0.46) {
   const parse = (value, fallback) => /^#[0-9a-f]{6}$/i.test(String(value || ""))
     ? [1, 3, 5].map((at) => parseInt(String(value).slice(at, at + 2), 16))
@@ -454,15 +469,20 @@ function renderSectionLabels(layout, { title, chapters, duration }, workDir) {
     const flat = join(workDir, `${stem}.png`);
     const left = join(workDir, `${stem}-left.png`);
     const right = join(workDir, `${stem}-right.png`);
-    const copy = `: ${title} · ${chapter.title || `Chapter ${index + 1}`}`;
+    const sectionTitle = chapter.shortTitle || chapter.title || `Chapter ${index + 1}`;
+    const copy = layout.unifiedSectionStamp
+      ? `${layout.label}: ${title} - ${sectionTitle}`
+      : `: ${title} · ${sectionTitle}`;
     const color = mixSectionColor(
       layout.labelColor,
       chapter.wallpaperColor || chapter.color || layout.labelColor,
+      layout.unifiedSectionStamp ? 0.78 : 0.46,
     );
     execFileSync("magick", [
       "-background", "none", "-fill", color,
-      "-font", layout.font, "-pointsize", String(layout.sectionLabelPx * 2),
-      "-weight", "600", `label:${copy}`, "-resize", "50%", flat,
+      "-font", layout.font,
+      "-pointsize", String((layout.unifiedSectionStamp ? layout.labelPx : layout.sectionLabelPx) * 2),
+      "-weight", String(layout.labelWeight), `label:${copy}`, "-resize", "50%", flat,
     ], { stdio:"pipe" });
     execFileSync("magick", [flat, "-background", "none", "-rotate", "90", left], { stdio:"pipe" });
     execFileSync("magick", [flat, "-background", "none", "-rotate", "-90", right], { stdio:"pipe" });
@@ -522,9 +542,12 @@ export function applyBrandChrome({
         duration:media.duration,
       }, assetsDir)
     : [];
+  const unifiedSectionStamp = Boolean(layout.unifiedSectionStamp && sectionLabels.length);
   mkdirSync(dirname(out), { recursive: true });
   const baseOverlayInputs = lockups.kind === "separate"
-    ? lockups.labelLeftChars?.length
+    ? unifiedSectionStamp
+      ? [lockups.markLeft, lockups.markRight]
+      : lockups.labelLeftChars?.length
       ? [lockups.markLeft, ...lockups.labelLeftChars, lockups.markRight, ...lockups.labelRightChars]
       : [lockups.markLeft, lockups.labelLeft, lockups.markRight, lockups.labelRight]
     : [lockups.left, lockups.right];
@@ -532,8 +555,9 @@ export function applyBrandChrome({
     ...baseOverlayInputs,
     ...sectionLabels.flatMap((section) => [section.left, section.right]),
   ];
+  const animatedMarkInputs = unifiedSectionStamp ? [0, 1] : [0, 2];
   const ffmpegInputs = overlayInputs.flatMap((path, index) =>
-    lockups.animatedMark && (index === 0 || index === 2)
+    lockups.animatedMark && animatedMarkInputs.includes(index)
       ? ["-stream_loop", "-1", "-i", path]
       : ["-loop", "1", "-i", path]);
   execFileSync(FFMPEG, [
@@ -541,11 +565,13 @@ export function applyBrandChrome({
     "-filter_complex_threads", "1",
     "-filter_complex", lockups.kind === "separate"
       ? [
-          separateBrandChromeFilter(
-            layout,
-            lockups.labelLeftChars?.length || 0,
-            sectionLabels.length ? "brandbase" : "outv",
-          ),
+          unifiedSectionStamp
+            ? unifiedSectionStampBaseFilter(layout, "brandbase")
+            : separateBrandChromeFilter(
+                layout,
+                lockups.labelLeftChars?.length || 0,
+                sectionLabels.length ? "brandbase" : "outv",
+              ),
           sectionLabelFilter(layout, sectionLabels, 1 + baseOverlayInputs.length, "brandbase"),
         ].filter(Boolean).join(";")
       : brandChromeFilter(layout),

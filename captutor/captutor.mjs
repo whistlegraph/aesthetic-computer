@@ -1006,6 +1006,7 @@ async function cmdRender(sp, workDir, locale, format, attempt = 1) {
   const r = deliver({
     clip:outMp4, cues:compositionTimed, format, out:burned, workDir, locale,
     title:sp.title ? say(sp.title, locale) : null,
+    shortTitle:sp.shortTitle ? say(sp.shortTitle, locale) : null,
     brandChrome:sp.brandChrome || null,
     chapters,
     terminalCard:null,
@@ -1039,6 +1040,7 @@ async function cmdRender(sp, workDir, locale, format, attempt = 1) {
     theme,
     effectTheme:sp.effectTheme || null,
     title:sp.title ? say(sp.title, locale) : null,
+    shortTitle:sp.shortTitle ? say(sp.shortTitle, locale) : null,
     subtitle:sp.subtitle ? say(sp.subtitle, locale) : null,
     // QA receipts are operational documents, not localized deliverables. Keep
     // an English copy beside the filmed language so reviewers can always read
@@ -1155,6 +1157,7 @@ async function cmdDeliver(sp, workDir, formats, locale) {
       clip, cues, format, out, workDir,
       locale,
       title: say(sp.title, locale),
+      shortTitle: sp.shortTitle ? say(sp.shortTitle, locale) : null,
       subtitle: say(sp.subtitle, locale),
       brandChrome:sp.brandChrome || null,
       chapters,

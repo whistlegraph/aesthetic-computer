@@ -79,6 +79,7 @@ mux({ clip, beats:cues, out:composed, vtt });
 deliver({
   clip:composed, cues, format, out:output, workDir, locale,
   title:say(sp.title),
+  shortTitle:sp.shortTitle ? say(sp.shortTitle) : null,
   brandChrome:sp.brandChrome || null,
   chapters,
   terminalCard:null,

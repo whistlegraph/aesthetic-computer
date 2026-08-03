@@ -5,6 +5,7 @@ import basic from "../screenplays/basic-tutorial.mjs";
 import imageGeneration from "../screenplays/image-generation-workflow.mjs";
 import imageNode from "../screenplays/image-node-tutorial.mjs";
 import editorSettings from "../screenplays/editor-settings-tour.mjs";
+import appsQuickstart from "../screenplays/apps-quickstart.mjs";
 
 const LOCALES = ["en", "es", "fr"];
 
@@ -43,4 +44,16 @@ test("image-generation-workflow has complete English and Chinese narration", () 
   }
   assert.match(imageGeneration.beats.map((beat) => beat.say.en).join(" "), /image-to-image generation/i);
   assert.match(imageGeneration.beats.map((beat) => beat.say["zh-CN"]).join(" "), /图生图/);
+});
+
+test("apps quickstart gives every chapter a distinct compact color identity", () => {
+  assert.equal(appsQuickstart.shortTitle, "First app");
+  assert.equal(new Set(appsQuickstart.chapters.map((chapter) => chapter.color)).size,
+    appsQuickstart.chapters.length);
+  assert.equal(new Set(appsQuickstart.chapters.map((chapter) => chapter.wallpaperColor)).size,
+    appsQuickstart.chapters.length);
+  for (const chapter of appsQuickstart.chapters) {
+    assert.ok(chapter.shortTitle.length <= 12);
+    assert.notEqual(chapter.color, chapter.wallpaperColor);
+  }
 });
