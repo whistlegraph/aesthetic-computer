@@ -54,14 +54,14 @@ if updated != text:
     path.write_text(updated)
 PY
 
-if ! codex mcp get posthog >/dev/null 2>&1; then
-  codex mcp add posthog --url "$POSTHOG_MCP"
-fi
-
 if codex mcp get posthog-skills >/dev/null 2>&1; then
   codex mcp remove posthog-skills
 fi
 codex mcp add posthog-skills -- node "$SKILL_TARGET/scripts/posthog-skills-mcp.mjs"
+
+if ! codex mcp get posthog >/dev/null 2>&1; then
+  codex mcp add posthog --url "$POSTHOG_MCP"
+fi
 
 codex plugin list | awk '$1 == "posthog@posthog" { print }'
 codex mcp list | awk '$1 == "posthog" || $1 == "posthog-skills" { print }'
