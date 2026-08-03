@@ -46,7 +46,6 @@ import { initGPU, switchBackend } from "./lib/gpu/index.mjs"; // 🎨 New backen
 import { createWebGLBlitter } from "./lib/webgl-blit.mjs";
 import {
   chooseCompactVideoMime,
-  getCompactVideoSize,
   measureCaptureAVSync,
   shouldResumeCaptureRecorder,
 } from "./lib/capture-session.mjs";
@@ -925,8 +924,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   let recorderGeneration = 0;
   let compactVideoRecording = false;
   let compactRecorderStream = null;
-  let compactRecorderCanvas = null;
-  let compactRecorderFrameTimer = null;
   let recordedVideoBlob = null;
   let recordedVideoMime = "";
   let compactPlaybackUrl = null;
@@ -957,13 +954,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   }
 
   function clearCompactRecorderStream() {
-    if (compactRecorderFrameTimer) clearInterval(compactRecorderFrameTimer);
-    compactRecorderFrameTimer = null;
     compactRecorderStream?.getTracks?.().forEach((track) => {
       try { track.stop(); } catch {}
     });
     compactRecorderStream = null;
-    compactRecorderCanvas = null;
     compactVideoRecording = false;
   }
 
@@ -15311,41 +15305,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
           if (compactMime) {
             try {
-              const compactSize = getCompactVideoSize(
-                canvas.width,
-                canvas.height,
-                window.devicePixelRatio,
-              );
-              compactRecorderCanvas = document.createElement("canvas");
-              compactRecorderCanvas.width = compactSize.width;
-              compactRecorderCanvas.height = compactSize.height;
-              const compactContext = compactRecorderCanvas.getContext("2d", {
-                alpha: false,
-                desynchronized: true,
-              });
-              if (!compactContext) throw new Error("compact recorder canvas unavailable");
-
-              const drawCompactFrame = () => {
-                compactContext.imageSmoothingEnabled = false;
-                compactContext.fillStyle = "black";
-                compactContext.fillRect(
-                  0,
-                  0,
-                  compactRecorderCanvas.width,
-                  compactRecorderCanvas.height,
-                );
-                compactContext.drawImage(
-                  canvas,
-                  0,
-                  0,
-                  compactRecorderCanvas.width,
-                  compactRecorderCanvas.height,
-                );
-              };
-              drawCompactFrame();
-              compactRecorderFrameTimer = setInterval(drawCompactFrame, 1000 / 30);
-
-              const canvasStream = compactRecorderCanvas.captureStream(30);
+              const canvasStream = canvas.captureStream(30);
               compactRecorderStream = new MediaStream();
               canvasStream.getVideoTracks().forEach((track) =>
                 compactRecorderStream.addTrack(track),
@@ -15354,8 +15314,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                 compactRecorderStream.addTrack(track.clone()),
               );
 
-              const pixelsPerSecond =
-                compactRecorderCanvas.width * compactRecorderCanvas.height * 30;
+              const pixelsPerSecond = canvas.width * canvas.height * 30;
               const videoBitsPerSecond = Math.min(
                 8_000_000,
                 Math.max(1_500_000, Math.round(pixelsPerSecond * 0.12)),
@@ -15372,10 +15331,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                   phase: "ready",
                   mime: compactMime,
                   videoBitsPerSecond,
-                  width: compactRecorderCanvas.width,
-                  height: compactRecorderCanvas.height,
-                  sourceWidth: canvas.width,
-                  sourceHeight: canvas.height,
+                  width: canvas.width,
+                  height: canvas.height,
                   fps: 30,
                 },
               });
