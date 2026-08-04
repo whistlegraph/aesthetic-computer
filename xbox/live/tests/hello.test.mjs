@@ -11,7 +11,7 @@ function createFight() {
   const noOp = () => {};
   const fight = new Function(
     "runtime", "gamepad", "telemetry", "gameSignal", "drum", "wipe", "box", "line", "write", "systemWrite",
-    `${source}\nreturn { boot, sim, players, grenades, runnerGeometry, runnerDistanceToPoint, roundState: () => ({ roundResult, roundElapsedUs, matchOver }) };`
+    `${source}\nreturn { boot, sim, players, grenades, runnerWorldGeometry, runnerDistanceToPoint, roundState: () => ({ roundResult, roundElapsedUs, matchOver }) };`
   )(
     () => ({ monotonicUs: now }),
     (index = 0) => ({ ...pads[index], down: pads[index].down.slice() }),
@@ -63,24 +63,24 @@ test("player lands on the center platform", () => {
   const { fight, tick } = createFight();
   const player = fight.players[0];
   player.x = 6000;
-  player.y = 610;
+  player.y = 10200;
   player.vy = 300;
   player.grounded = false;
   for (let step = 0; step < 10 && !player.grounded; step++) tick(40000);
-  assert.equal(player.y, 665);
+  assert.equal(player.y, 10400);
   assert.equal(player.grounded, true);
 });
 
 test("hit detection follows the animated runner geometry", () => {
   const { fight } = createFight();
   const player = fight.players[0];
-  const resting = fight.runnerGeometry(player, 0);
-  const breathing = fight.runnerGeometry(player, .5);
+  const resting = fight.runnerWorldGeometry(player, 0);
+  const breathing = fight.runnerWorldGeometry(player, .5);
   assert.notEqual(resting.head.y, breathing.head.y);
   assert.equal(fight.runnerDistanceToPoint(
-    player, 0, resting.head.x, resting.head.y), 0);
+    player, 0, resting.head.x, resting.head.y, resting.head.z), 0);
   assert.ok(fight.runnerDistanceToPoint(
-    player, 0, resting.head.x + 40, resting.head.y) > 20);
+    player, 0, resting.head.x + 140, resting.head.y, resting.head.z) > 60);
 });
 
 test("grenade hit radius expands over time", () => {

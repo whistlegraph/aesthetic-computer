@@ -16,8 +16,7 @@
       { "box": { "id": "port-label", "maxclass": "comment", "text": "OSC :51338", "fontsize": 14, "textcolor": [0.95, 0.95, 0.95, 1.0], "patching_rect": [235, 15, 110, 22], "presentation": 1, "presentation_rect": [235, 15, 110, 22] } },
       { "box": { "id": "map-label", "maxclass": "comment", "text": "BULLET 42   GRENADE 36   BLAST 35   MOVE 46   JUMP 48   DASH 50", "fontsize": 11, "textcolor": [0.78, 0.78, 0.78, 1.0], "patching_rect": [15, 55, 335, 20], "presentation": 1, "presentation_rect": [15, 55, 335, 20] } },
       { "box": { "id": "cc-label", "maxclass": "comment", "text": "CANCEL 44   KO 60   ROUND 62   MATCH 64   TIE 65", "fontsize": 11, "textcolor": [0.78, 0.78, 0.78, 1.0], "patching_rect": [15, 82, 330, 20], "presentation": 1, "presentation_rect": [15, 82, 330, 20] } },
-      { "box": { "id": "udp", "maxclass": "newobj", "text": "udpreceive 51338", "numinlets": 0, "numoutlets": 1, "outlettype": ["FullPacket"], "patching_rect": [20, 160, 120, 22] } },
-      { "box": { "id": "osc", "maxclass": "newobj", "text": "oscparse", "numinlets": 1, "numoutlets": 1, "outlettype": ["list"], "patching_rect": [20, 200, 65, 22] } },
+      { "box": { "id": "udp", "maxclass": "newobj", "text": "udpreceive 51338 @defer 1 @outputformat message", "numinlets": 0, "numoutlets": 1, "outlettype": [""], "patching_rect": [20, 180, 280, 22] } },
       { "box": { "id": "route", "maxclass": "newobj", "text": "route /oskiewar/bullet /oskiewar/grenade /oskiewar/blast /oskiewar/move /oskiewar/jump /oskiewar/ultrajump /oskiewar/dash /oskiewar/fastdrop /oskiewar/cancel /oskiewar/ko /oskiewar/roundwin /oskiewar/matchwin /oskiewar/tie /oskiewar/hello", "numinlets": 1, "numoutlets": 15, "outlettype": ["", "", "", "", "", "", "", "", "", "", "", "", "", "", ""], "patching_rect": [20, 240, 980, 22] } },
       { "box": { "id": "n42", "maxclass": "message", "text": "42", "numinlets": 2, "numoutlets": 1, "patching_rect": [20, 290, 35, 22] } },
       { "box": { "id": "n36", "maxclass": "message", "text": "36", "numinlets": 2, "numoutlets": 1, "patching_rect": [65, 290, 35, 22] } },
@@ -37,8 +36,7 @@
       { "box": { "id": "noteout", "maxclass": "newobj", "text": "noteout", "numinlets": 3, "numoutlets": 0, "patching_rect": [20, 380, 60, 22] } }
     ],
     "lines": [
-      { "patchline": { "source": ["udp", 0], "destination": ["osc", 0] } },
-      { "patchline": { "source": ["osc", 0], "destination": ["route", 0] } },
+      { "patchline": { "source": ["udp", 0], "destination": ["route", 0] } },
       { "patchline": { "source": ["route", 0], "destination": ["n42", 0] } },
       { "patchline": { "source": ["route", 1], "destination": ["n36", 0] } },
       { "patchline": { "source": ["route", 2], "destination": ["n35", 0] } },
