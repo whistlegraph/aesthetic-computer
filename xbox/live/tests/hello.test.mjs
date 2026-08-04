@@ -65,6 +65,22 @@ test("character select offers the four AC fighters and waits for both pads", () 
   assert.equal(fight.selectionState().selecting, false);
 });
 
+test("P1 X toggles P2 between controller and dummy on character select", () => {
+  const { fight, pads, tick } = createFight(false);
+  pads[0].down = ["X"];
+  tick();
+  assert.equal(fight.players[1].name, "DUMMY");
+  assert.equal(fight.players[1].npc, true);
+  assert.equal(fight.selectionState().ready[1], true);
+  pads[0].down = [];
+  tick();
+  pads[0].down = ["X"];
+  tick();
+  assert.equal(fight.players[1].name, "@OSKIE");
+  assert.equal(fight.players[1].npc, false);
+  assert.equal(fight.selectionState().ready[1], false);
+});
+
 test("perspective intro never submits invalid ground triangles", () => {
   const { fight, pads, triangles, tick } = createFight(false);
   pads[0].down = ["A"];

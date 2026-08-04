@@ -341,6 +341,18 @@ function updateSelect(now) {
     }
     const previous = selectionPrevious[player.pad];
     const pressed = (button) => down.includes(button) && !previous.includes(button);
+    if (player.pad === 0 && pressed("X")) {
+      const opponent = players[1];
+      opponent.npc = !opponent.npc;
+      if (opponent.npc) {
+        applyRoster(opponent, -1);
+        selectionReady[1] = true;
+      } else {
+        applyRoster(opponent, 2);
+        selectionReady[1] = false;
+      }
+      drum("clap", .8, 0);
+    }
     if (pressed("B") && selectionReady[player.pad]) selectionReady[player.pad] = false;
     if (!selectionReady[player.pad] && (pressed("ArrowLeft") || pressed("ArrowRight"))) {
       applyRoster(player, player.rosterIndex + (pressed("ArrowRight") ? 1 : -1));
@@ -1313,7 +1325,8 @@ function drawSelectionScreen(t, ink, panel) {
     typeWrite(player.npc ? "NON-PLAYER" : "P" + (player.pad + 1),
       left + 355, 805, 24, ...ink);
   }
-  write("LEFT RIGHT SELECT     A READY     B BACK", 430, 965, 29, ...ink);
+  write("LEFT RIGHT SELECT     A READY     X P2 / DUMMY     B BACK",
+    290, 965, 26, ...ink);
 }
 
 function paint() {
