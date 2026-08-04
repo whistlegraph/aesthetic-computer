@@ -165,7 +165,8 @@ async function deployKidLisp(code) {
 
 function logs(tail = "80") {
   const count = Math.max(1, Math.min(5000, Number.parseInt(tail, 10) || 80));
-  const content = curl(["-u", autoAuth, appFileUrl(installed(), "ac-native-bios.log")]);
+  const content = curl(["-u", autoAuth, "-H", "Range: bytes=-1048576",
+    appFileUrl(installed(), "ac-native-bios.log")]);
   console.log(content.trimEnd().split(/\r?\n/).slice(-count).join("\n"));
 }
 
