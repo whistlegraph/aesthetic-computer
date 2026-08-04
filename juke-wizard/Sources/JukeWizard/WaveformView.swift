@@ -18,6 +18,7 @@ final class WaveformView: NSView, AVAudioPlayerDelegate {
     private var player: AVAudioPlayer?
     private var loadedURL: URL?
     private var peaks: [Float] = []
+    private var tempoMap: [(time: Double, bpm: Double)] = []
     private var peaksToken = 0
     private var timer: Timer?
     private var preferredVolume: Float = 0.8
@@ -26,6 +27,10 @@ final class WaveformView: NSView, AVAudioPlayerDelegate {
     var duration: Double { player?.duration ?? 0 }
     var currentTime: Double { player?.currentTime ?? 0 }
     var isPlaying: Bool { player?.isPlaying ?? false }
+    var detectedBPM: Double? {
+        guard !tempoMap.isEmpty else { return nil }
+        return tempoMap.min(by: { abs($0.time - currentTime) < abs($1.time - currentTime) })?.bpm
+    }
     var volume: Float {
         get { player?.volume ?? preferredVolume }
         set {
@@ -50,6 +55,7 @@ final class WaveformView: NSView, AVAudioPlayerDelegate {
         stop()
         loadedURL = url
         peaks = []
+        tempoMap = []
         openPlayer(url: url)
         needsDisplay = true
         computePeaks(url: url)
@@ -137,10 +143,32 @@ final class WaveformView: NSView, AVAudioPlayerDelegate {
             }
             let mx = out.max() ?? 1
             if mx > 0 { for i in 0..<bins { out[i] = out[i] / mx } }
+
+            // Active tempo map: estimate overlapping 30-second windows every
+            // 10 seconds. This follows gradual accelerandos instead of pinning
+            // the whole track to one average BPM.
+            let sampleRate = fmt.sampleRate
+            let windowFrames = max(Int(sampleRate * 8), Int(sampleRate * 30))
+            let stepFrames = max(1, Int(sampleRate * 10))
+            var tempos: [(time: Double, bpm: Double)] = []
+            var center = min(n / 2, windowFrames / 2)
+            while center < n {
+                let start = max(0, min(n - 1, center - windowFrames / 2))
+                let end = min(n, start + windowFrames)
+                if end - start > Int(sampleRate * 4) {
+                    let mono = Array(UnsafeBufferPointer(start: ch[0] + start, count: end - start))
+                    if let bpm = DJTempoAnalyzer.estimate(samples: mono, sampleRate: sampleRate) {
+                        tempos.append((time: Double(center) / sampleRate, bpm: bpm))
+                    }
+                }
+                center += stepFrames
+            }
             DispatchQueue.main.async {
                 guard let self, token == self.peaksToken else { return }
                 self.peaks = out
+                self.tempoMap = tempos
                 self.needsDisplay = true
+                self.delegate?.waveformTick()
             }
         }
     }

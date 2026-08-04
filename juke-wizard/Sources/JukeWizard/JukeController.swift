@@ -48,6 +48,7 @@ final class JukeController: NSWindowController, NSWindowDelegate,
     var activityPollInFlight = false
     var watchMtimes: [String: Date] = [:]
     var keyMonitor: Any?
+    var lastDisplayedBPM: Double?
 
     // sort
     enum SortMode: Int, CaseIterable {
@@ -737,7 +738,7 @@ final class JukeController: NSWindowController, NSWindowDelegate,
     // Keep the bar disc's tempo + spin in step with playback.
     private func refreshMenuBar() {
         let bpm = djMode ? djMixer.dominantBPM
-            : (spotifyMode ? nil : track?.meta?.bpm.map(Double.init))
+            : (spotifyMode ? nil : track?.meta?.bpm.map(Double.init) ?? wave.detectedBPM)
         let playing = djMode ? djMixer.isPlaying
             : (spotifyMode ? (spotifyState?.isPlaying ?? false) : wave.isPlaying)
         let title = djMode ? djMixer.dominantTitle
@@ -1176,6 +1177,7 @@ final class JukeController: NSWindowController, NSWindowDelegate,
         commitNotes()
         let old = current
         current = i
+        lastDisplayedBPM = nil
         let t = library.tracks[i]
         titleLabel.stringValue = t.title
         titleLabel.textColor = Self.statusColor(t.meta?.status)
@@ -1360,12 +1362,21 @@ final class JukeController: NSWindowController, NSWindowDelegate,
 
     // ── waveform delegate ───────────────────────────────────────────────────
     func waveformDidFinish() { playButton.title = "▶"; nextTrack(); refreshMenuBar() }
-    func waveformTick() { updateTime() }
+    func waveformTick() {
+        updateTime()
+        let bpm = track?.meta?.bpm.map(Double.init) ?? wave.detectedBPM
+        if abs((bpm ?? 0) - (lastDisplayedBPM ?? 0)) >= 0.5 {
+            lastDisplayedBPM = bpm
+            refreshMenuBar()
+        }
+    }
     private func updateTime() {
         if let state = spotifyMode ? spotifyState : nil {
             ledLabel.stringValue = "\(Self.mmss(state.position)) / \(Self.mmss(state.duration))"
         } else {
-            ledLabel.stringValue = "\(Self.mmss(wave.currentTime)) / \(Self.mmss(wave.duration))"
+            let bpm = track?.meta?.bpm.map(Double.init) ?? wave.detectedBPM
+            let tempo = bpm.map { String(format: " · ≈%.1f BPM", $0) } ?? ""
+            ledLabel.stringValue = "\(Self.mmss(wave.currentTime)) / \(Self.mmss(wave.duration))\(tempo)"
         }
     }
 

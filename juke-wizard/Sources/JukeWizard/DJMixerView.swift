@@ -21,7 +21,10 @@ enum DJPlatterGeometry {
 enum DJTempoAnalyzer {
     static func estimate(samples: [Float], sampleRate: Double) -> Double? {
         guard sampleRate > 0, samples.count > Int(sampleRate * 4) else { return nil }
-        let hop = 512
+        // Keep the onset envelope near 200 Hz. A fixed 512-frame hop made
+        // tempo resolution depend heavily on the source sample rate (and could
+        // quantize 128 BPM down near 125 BPM).
+        let hop = max(32, Int((sampleRate / 200).rounded()))
         let limit = min(samples.count, Int(sampleRate * 90))
         var novelty: [Double] = []
         novelty.reserveCapacity(limit / hop)
@@ -41,19 +44,22 @@ enum DJTempoAnalyzer {
         guard novelty.count > 64 else { return nil }
 
         let stepsPerSecond = sampleRate / Double(hop)
-        var bestBPM = 0.0
+        var bestLag = 0
         var bestScore = 0.0
-        for bpmStep in 700...1800 {
-            let bpm = Double(bpmStep) / 10
-            let lag = Int((60 / bpm * stepsPerSecond).rounded())
-            guard lag > 1, lag < novelty.count / 2 else { continue }
+        let minimumLag = max(2, Int((60 / 180 * stepsPerSecond).rounded()))
+        let maximumLag = min(novelty.count / 2 - 1,
+                             Int((60 / 70 * stepsPerSecond).rounded()))
+        guard minimumLag <= maximumLag else { return nil }
+        for lag in minimumLag...maximumLag {
             var score = 0.0
             for index in lag..<novelty.count { score += novelty[index] * novelty[index - lag] }
             // A slight musical-range prior resolves common half-time ties.
+            let bpm = 60 * stepsPerSecond / Double(lag)
             if bpm >= 90, bpm <= 150 { score *= 1.06 }
-            if score > bestScore { bestScore = score; bestBPM = bpm }
+            if score > bestScore { bestScore = score; bestLag = lag }
         }
-        return bestScore > 0.000_001 ? bestBPM : nil
+        guard bestScore > 0.000_001, bestLag > 0 else { return nil }
+        return 60 * stepsPerSecond / Double(bestLag)
     }
 }
 

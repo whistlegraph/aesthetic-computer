@@ -41,6 +41,39 @@ BIN="$WIZ/.build/release/JukeWizard"
 LIB="$REPO/pop/out/pop-library.json"
 node "$REPO/pop/bin/pop-library.mjs" >/dev/null 2>&1 || true   # refresh the index
 
+# JukeWizard deliberately remains resident after its last window closes, so a
+# second CLI launch would otherwise create another invisible audio engine.
+# The installed copy is launchd-owned for menu-bar residency, so killing it
+# here would race KeepAlive and can produce two players again. Raise the one
+# resident instance and let its menu-bar/library UI remain authoritative.
+JUKE_PID="$(pgrep -x JukeWizard | head -n 1 || true)"
+if [ -n "$JUKE_PID" ]; then
+  osascript \
+    -e 'on run argv' \
+    -e 'tell application "System Events" to set frontmost of first process whose unix id is (item 1 of argv as integer) to true' \
+    -e 'end run' "$JUKE_PID" >/dev/null 2>&1 || true
+  echo "JukeWizard is already running; raised the resident menu-bar instance." >&2
+  exit 0
+fi
+
+# Close the small gap between the process check above and AppKit registering
+# the new process. This matters when launchd and a CLI queue arrive together.
+JUKE_LOCK="${TMPDIR:-/tmp}/computer.aesthetic.jukewizard.launching"
+if ! mkdir "$JUKE_LOCK" 2>/dev/null; then
+  for _juke_wait in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
+    JUKE_PID="$(pgrep -x JukeWizard | head -n 1 || true)"
+    [ -n "$JUKE_PID" ] && break
+    sleep 0.05
+  done
+  if [ -n "$JUKE_PID" ]; then
+    echo "JukeWizard is already launching; using the resident menu-bar instance." >&2
+    exit 0
+  fi
+  rmdir "$JUKE_LOCK" 2>/dev/null || true
+  mkdir "$JUKE_LOCK" 2>/dev/null || exit 0
+fi
+trap 'rmdir "$JUKE_LOCK" 2>/dev/null || true' EXIT HUP INT TERM
+
 # Focused queue mode: use only the following loose files/folders/playlists,
 # preserving their command-line order. This makes `--queue a.mp3 b.mp3` a
 # real two-track listening session instead of burying those tracks inside the
@@ -53,12 +86,14 @@ if [ "${1:-}" = "--queue" ]; then
   fi
   FIRST="$1"
   case "$FIRST" in /*) SEL="$FIRST";; *) SEL="$(pwd)/$FIRST";; esac
-  exec "$BIN" "$@" --select "$SEL"
+  "$BIN" "$@" --select "$SEL"
+  exit $?
 fi
 
 # No args → just the master library.
 if [ "$#" -eq 0 ]; then
-  exec "$BIN" "$LIB"
+  "$BIN" "$LIB"
+  exit $?
 fi
 
 # A specific audio file → load the master library AND select/play it
@@ -66,8 +101,9 @@ fi
 # fresh draft not in the index yet).
 if [ -f "$1" ]; then
   case "$1" in /*) SEL="$1";; *) SEL="$(pwd)/$1";; esac
-  exec "$BIN" "$LIB" "$@" --select "$SEL"
+  "$BIN" "$LIB" "$@" --select "$SEL"
+  exit $?
 fi
 
 # A folder / playlist / flags → load the master library and add them too.
-exec "$BIN" "$LIB" "$@"
+"$BIN" "$LIB" "$@"
