@@ -7,15 +7,22 @@ const source = await readFile(new URL("../hello.js", import.meta.url), "utf8");
 function createFight(startImmediately = true) {
   let now = 0;
   const signals = [];
+  const triangles = [];
   const pads = [0, 1].map(() => ({ connected: true, down: [], leftX: 0, leftY: 0 }));
   const noOp = () => {};
+  const drawTriangle = (...values) => {
+    for (const value of values.slice(0, 6))
+      assert.ok(Number.isFinite(value) && Math.abs(value) <= 32768);
+    triangles.push(values);
+  };
   const fight = new Function(
-    "runtime", "gamepad", "telemetry", "gameSignal", "drum", "wipe", "box", "line", "write", "systemWrite",
-    `${source}\nreturn { boot, sim, players, ball, runnerWorldGeometry, runnerDistanceToPoint, disableBall: () => { ballEnabled = false; ball.active = false; }, enableBall: () => { ballEnabled = true; ball.active = true; ball.serveAt = 0; }, setWind: (value) => { windAcceleration = value; }, wackBall: () => { players[0].attackKind = "KICK"; returnBall(players[0], runtime().monotonicUs, false); }, crossWackBall: (contact = 1) => crossWackBall(players.map((player) => ({ player, contact })), runtime().monotonicUs), startFight: () => { selecting = false; resetRound(runtime().monotonicUs, true); }, selectionState: () => ({ selecting, ready: selectionReady.slice() }), cameraState: () => ({ cameraWidth, cameraCenterY }), roundState: () => ({ roundResult, roundElapsedUs, matchOver }) };`
+    "runtime", "gamepad", "telemetry", "gameSignal", "drum", "wipe", "box", "line", "triangle", "write", "systemWrite",
+    `${source}\nreturn { boot, sim, paint, players, ball, runnerWorldGeometry, runnerDistanceToPoint, disableBall: () => { ballEnabled = false; ball.active = false; }, enableBall: () => { ballEnabled = true; ball.active = true; ball.serveAt = 0; ball.safeUntil = 0; ball.safePlayers = 0; }, setWind: (value) => { windAcceleration = value; }, wackBall: () => { players[0].attackKind = "KICK"; returnBall(players[0], runtime().monotonicUs, false); }, crossWackBall: (contact = 1) => crossWackBall(players.map((player) => ({ player, contact })), runtime().monotonicUs), startFight: () => { selecting = false; resetRound(runtime().monotonicUs, true); }, selectionState: () => ({ selecting, ready: selectionReady.slice() }), cameraState: () => ({ cameraWidth, cameraCenterY }), roundState: () => ({ roundResult, roundElapsedUs, matchOver }) };`
   )(
     () => ({ monotonicUs: now }),
     (index = 0) => ({ ...pads[index], down: pads[index].down.slice() }),
-    noOp, (...signal) => signals.push(signal), noOp, noOp, noOp, noOp, noOp, noOp
+    noOp, (...signal) => signals.push(signal), noOp, noOp, noOp, noOp,
+    drawTriangle, noOp, noOp
   );
   fight.boot();
 
@@ -35,7 +42,7 @@ function createFight(startImmediately = true) {
     fight.startFight();
     tick(3000001);
   }
-  return { fight, pads, signals, tick, tap, now: () => now };
+  return { fight, pads, signals, triangles, tick, tap, now: () => now };
 }
 
 test("character select offers the four AC fighters and waits for both pads", () => {
@@ -50,6 +57,16 @@ test("character select offers the four AC fighters and waits for both pads", () 
   assert.equal(fight.selectionState().selecting, false);
   assert.equal(fight.players[1].name, "DUMMY");
   assert.equal(fight.players[1].npc, true);
+});
+
+test("perspective intro never submits invalid ground triangles", () => {
+  const { fight, pads, triangles, tick } = createFight(false);
+  pads[0].down = ["A"];
+  tick();
+  fight.paint();
+  tick(500000);
+  fight.paint();
+  assert.equal(triangles.length % 144, 0);
 });
 
 test("melee and movement edges emit bounded Ableton signals", () => {

@@ -1239,16 +1239,23 @@ function paint() {
   const floorBase = mixColor([17, 22, 36], [188, 181, 164], visualTheme.light);
   const floorAlt = mixColor([21, 27, 43], [174, 167, 151], visualTheme.light);
   const edgeWidth = Math.max(2, wallThickness * cameraScale() * .14);
-  for (let x = worldLeft, column = 0; x < worldRight; x += 1000, column++) {
-    for (let z = worldNear, row = 0; z < worldFar; z += 600, row++) {
-      const a = projectPoint(x, floorY, z);
-      const b = projectPoint(Math.min(worldRight, x + 1000), floorY, z);
-      const c = projectPoint(Math.min(worldRight, x + 1000), floorY,
-        Math.min(worldFar, z + 600));
-      const d = projectPoint(x, floorY, Math.min(worldFar, z + 600));
-      const color = (column + row) % 2 ? floorAlt : floorBase;
-      triangle(a.x, a.y, b.x, b.y, c.x, c.y, ...color);
-      triangle(a.x, a.y, c.x, c.y, d.x, d.y, ...color);
+  if (cameraDoll.perspective < .55) {
+    const floorPoint = (x, z) => {
+      const point = projectPoint(x, floorY, z);
+      return { x: clamp(point.x, -4096, 6016),
+        y: clamp(point.y, -4096, 5176) };
+    };
+    for (let x = worldLeft, column = 0; x < worldRight; x += 1000, column++) {
+      for (let z = worldNear, row = 0; z < worldFar; z += 600, row++) {
+        const a = floorPoint(x, z);
+        const b = floorPoint(Math.min(worldRight, x + 1000), z);
+        const c = floorPoint(Math.min(worldRight, x + 1000),
+          Math.min(worldFar, z + 600));
+        const d = floorPoint(x, Math.min(worldFar, z + 600));
+        const color = (column + row) % 2 ? floorAlt : floorBase;
+        triangle(a.x, a.y, b.x, b.y, c.x, c.y, ...color);
+        triangle(a.x, a.y, c.x, c.y, d.x, d.y, ...color);
+      }
     }
   }
   for (const z of [worldNear, worldFar]) {
