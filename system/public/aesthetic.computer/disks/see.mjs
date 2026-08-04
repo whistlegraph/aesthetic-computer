@@ -1,7 +1,6 @@
 // see, 26.04.23
-// Free image generation via NVIDIA NIM FLUX.1 schnell, with two AC style
-// presets baked into the proxy at /api/flux. Drop a prompt and a bitmap
-// shows up — the model does the rest.
+// Image generation via NVIDIA NIM FLUX.1 schnell, with a bounded GPT Image
+// fallback and two AC style presets baked into the proxy at /api/flux.
 //
 // Usage:
 //   see                              — show usage
@@ -20,6 +19,7 @@ let bitmap = null;        // { width, height, pixels: Uint8ClampedArray }
 let errorMsg = "";
 let seedNum = null;       // null = let server roll
 let elapsedMs = 0;
+let providerName = "";
 let ellipsis = 0;
 let frame = 0;
 let abortController = null;
@@ -67,19 +67,25 @@ async function generate() {
         data.reason === "filtered"
           ? "blocked by safety filter — try different wording"
           : data.reason === "no_key"
-          ? "server has no NVIDIA_API_KEY"
+          ? "server has no image provider key"
           : data.reason === "timeout"
           ? "timed out — NVIDIA may be slow, tap to retry"
           : data.reason === "temporarily_unavailable"
           ? `NVIDIA is unavailable — retry in ${data.retry_after || 60}s`
+          : data.reason === "fallback_budget_exhausted"
+          ? `image budget resets in ${data.retry_after || 60}s`
           : data.reason === "upstream"
           ? "NVIDIA error — tap to retry"
+          : data.reason === "fallback_upstream"
+          ? "fallback error — tap to retry"
           : `error: ${data.reason || "unknown"}`;
       return;
     }
 
     elapsedMs = data.elapsed_ms;
-    seedNum = parseInt(data.seed, 10);
+    const nextSeed = parseInt(data.seed, 10);
+    seedNum = Number.isInteger(nextSeed) ? nextSeed : null;
+    providerName = data.provider || "nvidia";
     bitmap = await dataUrlToBitmap(data.png);
     state = "ready";
   } catch (err) {
@@ -126,7 +132,8 @@ function paint({ wipe, ink, paste, write, screen }) {
     paste(bitmap, x, y, { scale });
 
     // Subtle status footer
-    const footer = `${elapsedMs}ms · seed ${seedNum} · ${presetName}`;
+    const seedLabel = seedNum === null ? "" : ` · seed ${seedNum}`;
+    const footer = `${elapsedMs}ms · ${providerName}${seedLabel} · ${presetName}`;
     ink(80).write(footer, { x: 6, y: h - 14 });
     ink(180).write("tap to roll", { x: w - 70, y: h - 14 });
     return;
