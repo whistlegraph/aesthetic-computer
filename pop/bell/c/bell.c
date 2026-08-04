@@ -327,7 +327,7 @@ int bell_material_preset(BellMaterial *mat, const char *name) {
       {"steel", 200e9, 7850.0, 0.30, 1.2e-4},
       {"aluminum", 69e9, 2700.0, 0.33, 8.0e-4},
       {"silver", 83e9, 10490.0, 0.37, 5.0e-4},
-      {"glass", 70e9, 2500.0, 0.22, 6.0e-5}, // long shimmering ring
+      {"glass", 70e9, 2500.0, 0.22, 2.5e-5}, // studio glass: very long, clear ring
       {"gold", 79e9, 19300.0, 0.42, 9.0e-4},
       {"stone", 60e9, 2750.0, 0.25, 1.2e-3}, // granite lithophone — short, clinking ring
   };
@@ -390,7 +390,9 @@ int bell_geometry_preset(BellGeometry *g, const char *name) {
   else if (strcmp(name, "bowl") == 0)
     build_profile(g, "bowl", 0.11, 0.07, 1.0, 0.006, 0.006, 1.0, 2);
   else if (strcmp(name, "glass") == 0)
-    build_profile(g, "glass", 0.045, 0.12, 0.55, 0.0018, 0.0014, 1.4, 0);
+    // A thin, gently flared casting: fewer metallic high-order clusters and
+    // enough compliance for the low modes to bloom instead of clink.
+    build_profile(g, "glass", 0.050, 0.13, 0.58, 0.0015, 0.0011, 1.25, 0);
   else
     return -1;
   return 0;
@@ -645,6 +647,7 @@ void bell_retune(BellModes *modes, double target_freq) {
 // a pure deterministic modal sum for the compare.mjs JS-parity harness.
 static int g_strike = 1; // add the clapper-contact noise transient
 static int g_norm = 1;   // peak-normalize the final mix
+static int g_glass_strike = 0; // softer contact for brittle glass bodies
 
 long bell_render(const BellModes *modes, double strike_vel, double sr,
                  double dur, float *L, float *R, long nsamp) {
@@ -687,12 +690,13 @@ long bell_render(const BellModes *modes, double strike_vel, double sr,
   if (g_strike) {
     uint32_t rng = 0x1234567u;
     double lp = 0.0;
-    long clk = (long)(0.006 * sr); // ~6 ms
-    double camp = 0.18 * strike_vel;
+    long clk = (long)((g_glass_strike ? 0.004 : 0.006) * sr);
+    double camp = (g_glass_strike ? 0.10 : 0.18) * strike_vel;
     for (long i = 0; i < clk && i < N; i++) {
       rng = rng * 1664525u + 1013904223u;
       double white = ((double)rng / 4294967296.0) * 2.0 - 1.0;
-      lp = 0.35 * white + 0.65 * lp;
+      double contact = g_glass_strike ? 0.22 : 0.35;
+      lp = contact * white + (1.0 - contact) * lp;
       double env = exp(-(double)i / (0.0018 * sr));
       double s = camp * env * lp;
       L[i] += (float)s;
@@ -858,6 +862,7 @@ int main(int argc, char **argv) {
     fprintf(stderr, "bell: unknown material '%s'\n", material);
     return 2;
   }
+  g_glass_strike = strcmp(material, "glass") == 0;
 
   BellModes modes;
   int nm = bell_solve_modes(&g, &mat, maxM, maxModes, &modes);

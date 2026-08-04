@@ -62,6 +62,9 @@ EOF
 uid="$(/usr/bin/id -u)"
 /bin/launchctl bootout "gui/$uid/$LAUNCH_LABEL" 2>/dev/null || true
 /usr/bin/pkill -x JukeWizard 2>/dev/null || true
+# A prior deliberate Quit can leave the label disabled even after bootout;
+# bootstrap then fails with launchd error 5 until the label is re-enabled.
+/bin/launchctl enable "gui/$uid/$LAUNCH_LABEL"
 /bin/launchctl bootstrap "gui/$uid" "$LAUNCH_AGENT"
 
 echo "installed JukeWizard -> $INSTALL_ROOT/JukeWizard"
