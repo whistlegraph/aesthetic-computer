@@ -6,6 +6,11 @@ import UniformTypeIdentifiers
 // the standalone exporter only needs their tiny surface and never calls it.
 struct ClaudeSession { let sessionId: String }
 enum Paths { static let loopboyConfig = "" }
+struct LoopboyRoute { let name: String }
+enum LoopboyRoutes {
+    static func verifiedContact(for session: ClaudeSession) -> String? { nil }
+    static func all() -> [String: LoopboyRoute] { [:] }
+}
 
 guard CommandLine.arguments.count >= 3,
       let seed = UInt64(CommandLine.arguments[1], radix: 16) else {
