@@ -22,6 +22,8 @@ const introDurationUs = 3000000;
 const matchWins = 5;
 const replayTickUs = 16667;
 const replayCheckpointUs = 1000000;
+const instantReplayStepUs = 33333;
+const instantReplayMaxFrames = 240;
 const replayButtons = ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown",
   "A", "B", "X", "Y"];
 let cameraCenter = (worldLeft + worldRight) / 2;
@@ -51,7 +53,12 @@ class FightCamDoll {
   }
 
   track(spec, dt, speed = 5) {
-    const amount = Math.min(1, dt * speed);
+    // Zooming out is a safety action: snap immediately so no fighter can run
+    // beyond the frame. Moving closer may still ease for readable camerawork.
+    const targetShift = Math.hypot(spec.target.x - this.target.x,
+      spec.target.y - this.target.y);
+    const amount = spec.width > this.width || targetShift > spec.width * .01
+      ? 1 : Math.min(1, dt * speed);
     for (const axis of ["x", "y", "z"]) {
       this.position[axis] = lerp(this.position[axis], spec.position[axis], amount);
       this.target[axis] = lerp(this.target[axis], spec.target[axis], amount);
@@ -156,6 +163,7 @@ const players = [
     grounded: true, ducking: false, previous: [], lastButton: "NONE",
     lastButtonAt: -10000000, color: [190, 42, 58], hit: 0,
     alive: true, respawnAt: 0, score: 0, inputX: 0, inputY: 0,
+    suppressedDirections: [],
     lastTap: {}, lastRelease: {}, dashUntil: 0, dashVx: 0, roundWins: 0,
     attackKind: "", attackStartedAt: 0,
     attackUntil: 0, attackHit: false, blocking: false, blockFlash: 0,
@@ -166,6 +174,7 @@ const players = [
     grounded: true, ducking: false, previous: [], lastButton: "NONE",
     lastButtonAt: -10000000, color: [38, 82, 176], hit: 0,
     alive: true, respawnAt: 0, score: 0, inputX: 0, inputY: 0,
+    suppressedDirections: [],
     lastTap: {}, lastRelease: {}, dashUntil: 0, dashVx: 0, roundWins: 0,
     attackKind: "", attackStartedAt: 0,
     attackUntil: 0, attackHit: false, blocking: false, blockFlash: 0,
@@ -196,6 +205,10 @@ let replay = null;
 let replayLastCommand = [-1, -1];
 let replayNextCheckpointAt = 0;
 let matchName = "";
+let roundReplayFrames = [];
+let roundReplayLastAt = 0;
+let instantReplay = null;
+let replayOfferPrevious = [];
 
 function pronounceableMatchName() {
   const consonants = "bdfgklmnprstvz";
@@ -271,6 +284,105 @@ function recordReplayCheckpoint(now, force = false) {
     Math.round(ball.vx), Math.round(ball.vy), ball.active ? 1 : 0,
     Math.round(cameraCenter), Math.round(cameraCenterY), Math.round(cameraWidth));
   replay.checkpoints.push(values);
+}
+
+function makeRoundReplayFrame(now) {
+  const poseTime = (now - startedAt) / 1000000;
+  return {
+    players: players.map((player) => ({
+      x: player.x, y: player.y, z: player.z,
+      vx: player.vx, vy: player.vy, vz: player.vz,
+      facing: player.facing, grounded: player.grounded,
+      ducking: player.ducking, alive: player.alive,
+      blocking: player.blocking, blockFlash: player.blockFlash, hit: player.hit,
+      attackKind: player.attackKind,
+      attackStartedOffset: player.attackStartedAt - now,
+      attackUntilOffset: player.attackUntil - now,
+      geometry: runnerWorldGeometry(player, poseTime),
+    })),
+    ball: { x: ball.x, y: ball.y, z: ball.z, vx: ball.vx, vy: ball.vy,
+      active: ball.active },
+    camera: { center: cameraCenter, centerY: cameraCenterY, width: cameraWidth },
+  };
+}
+
+function captureRoundReplay(now, force = false) {
+  if (!force && now - roundReplayLastAt < instantReplayStepUs) return;
+  roundReplayLastAt = now;
+  roundReplayFrames.push(makeRoundReplayFrame(now));
+  while (roundReplayFrames.length > instantReplayMaxFrames)
+    roundReplayFrames.shift();
+}
+
+function applyRoundReplayFrame(frame, now) {
+  for (let index = 0; index < players.length; index++) {
+    const player = players[index];
+    const state = frame.players[index];
+    for (const key of ["x", "y", "z", "vx", "vy", "vz", "facing",
+      "grounded", "ducking", "alive", "blocking", "blockFlash", "hit",
+      "attackKind"]) player[key] = state[key];
+    player.attackStartedAt = now + state.attackStartedOffset;
+    player.attackUntil = now + state.attackUntilOffset;
+    player.replayGeometry = state.geometry;
+  }
+  for (const key of ["x", "y", "z", "vx", "vy", "active"])
+    ball[key] = frame.ball[key];
+  cameraCenter = frame.camera.center;
+  cameraCenterY = frame.camera.centerY;
+  cameraWidth = frame.camera.width;
+}
+
+function finishInstantReplay(now) {
+  if (!instantReplay) return;
+  applyRoundReplayFrame(instantReplay.endFrame, now);
+  for (const player of players) delete player.replayGeometry;
+  instantReplay = null;
+  roundOverAt = now;
+  replayOfferPrevious = padSnapshots[0]?.down?.slice() || [];
+}
+
+function startInstantReplay(now) {
+  if (roundReplayFrames.length < 2) return false;
+  const frames = roundReplayFrames.slice();
+  instantReplay = { frames, cursor: 0, lastAt: now, paused: false,
+    previous: padSnapshots[0]?.down?.slice() || [],
+    endFrame: frames[frames.length - 1] };
+  impacts.length = 0;
+  applyRoundReplayFrame(frames[0], now);
+  telemetry("ROUND_REPLAY", "start frames=" + frames.length);
+  return true;
+}
+
+function updateInstantReplay(now, dt) {
+  if (!instantReplay) return;
+  const down = padSnapshots[0]?.down || [];
+  const pressed = (button) => down.includes(button) &&
+    !instantReplay.previous.includes(button);
+  if (pressed("B")) {
+    finishInstantReplay(now);
+    return;
+  }
+  if (pressed("A")) instantReplay.paused = !instantReplay.paused;
+  if (pressed("ArrowLeft") || pressed("ArrowRight")) {
+    instantReplay.paused = true;
+    instantReplay.cursor += pressed("ArrowLeft") ? -15 : 15;
+  }
+  if (!instantReplay.paused)
+    instantReplay.cursor += (now - instantReplay.lastAt) / instantReplayStepUs;
+  instantReplay.lastAt = now;
+  instantReplay.cursor = clamp(instantReplay.cursor, 0,
+    instantReplay.frames.length);
+  if (instantReplay.cursor >= instantReplay.frames.length) {
+    finishInstantReplay(now);
+    return;
+  }
+  applyRoundReplayFrame(instantReplay.frames[Math.floor(instantReplay.cursor)], now);
+  instantReplay.previous = down.slice();
+  const target = { x: cameraCenter, y: cameraCenterY, z: 0 };
+  cameraDoll.track({ target,
+    position: { x: cameraCenter - cameraWidth * .06,
+      y: cameraCenterY - cameraWidth * .04, z: -cameraWidth * 1.35 },
+    width: cameraWidth, perspective: 0, fov: 55 }, dt, 18);
 }
 
 function finishReplay(now) {
@@ -426,6 +538,10 @@ function boot() {
 
 function resetRound(now, resetMatch = false) {
   impacts.length = 0;
+  roundReplayFrames = [];
+  roundReplayLastAt = 0;
+  instantReplay = null;
+  replayOfferPrevious = [];
   for (const player of players) {
     applyRoster(player, player.rosterIndex);
     player.x = player.spawnX;
@@ -454,6 +570,8 @@ function resetRound(now, resetMatch = false) {
     player.windVx = 0;
     player.knockVx = 0;
     player.previous = padSnapshots[player.pad]?.down?.slice() || [];
+    player.suppressedDirections = player.previous.filter((button) =>
+      button.startsWith("Arrow"));
     player.lastButton = "NONE";
     player.lastButtonAt = -10000000;
   }
@@ -481,8 +599,9 @@ function updateCamera(dt) {
     (floorY - ceilingY) * cameraAspect);
   const desiredWidth = Math.max(1800, Math.min(maxWidth,
     Math.max(right - left + 900, (bottom - top + 450) * cameraAspect)));
-  const widthBlend = Math.min(1, dt * 3.2);
-  cameraWidth += (desiredWidth - cameraWidth) * widthBlend;
+  const widthBlend = Math.min(1, dt * 10);
+  cameraWidth = desiredWidth > cameraWidth ? desiredWidth
+    : cameraWidth + (desiredWidth - cameraWidth) * widthBlend;
   const halfWidth = cameraWidth / 2;
   const halfHeight = cameraWidth / cameraAspect / 2;
   const desiredCenter = cameraWidth >= worldRight - worldLeft
@@ -493,8 +612,8 @@ function updateCamera(dt) {
     ? (ceilingY + floorY) / 2
     : Math.max(ceilingY + halfHeight,
       Math.min(floorY - halfHeight, (top + bottom) / 2));
-  cameraCenter += (desiredCenter - cameraCenter) * Math.min(1, dt * 4.5);
-  cameraCenterY += (desiredCenterY - cameraCenterY) * Math.min(1, dt * 4.5);
+  cameraCenter += (desiredCenter - cameraCenter) * Math.min(1, dt * 12);
+  cameraCenterY += (desiredCenterY - cameraCenterY) * Math.min(1, dt * 12);
   if (cameraWidth < worldRight - worldLeft)
     cameraCenter = Math.max(worldLeft + halfWidth,
       Math.min(worldRight - halfWidth, cameraCenter));
@@ -556,11 +675,12 @@ function updateCameraDoll(dt, now) {
   cameraDoll.track({ target,
     position: { x: cameraCenter - cameraWidth * .06,
       y: cameraCenterY - cameraWidth * .04, z: -cameraWidth * 1.35 },
-    width: cameraWidth, perspective: 0, fov: 55 }, dt, 4.5);
+    width: cameraWidth, perspective: 0, fov: 55 }, dt, 14);
 }
 
 function finishRound(now) {
   if (roundResult) return;
+  captureRoundReplay(now, true);
   let roundPan = 0;
   if (players[0].score === players[1].score) {
     roundResult = "TIE";
@@ -581,12 +701,13 @@ function finishRound(now) {
   if (matchOver) finishReplay(now);
 }
 
-function quantizedInput(pad) {
+function quantizedInput(pad, suppressed = []) {
   const held = pad.down;
-  let horizontal = (held.includes("ArrowRight") ? 1 : 0) -
-    (held.includes("ArrowLeft") ? 1 : 0);
-  let vertical = (held.includes("ArrowUp") ? 1 : 0) -
-    (held.includes("ArrowDown") ? 1 : 0);
+  const active = (button) => held.includes(button) && !suppressed.includes(button);
+  let horizontal = (active("ArrowRight") ? 1 : 0) -
+    (active("ArrowLeft") ? 1 : 0);
+  let vertical = (active("ArrowUp") ? 1 : 0) -
+    (active("ArrowDown") ? 1 : 0);
   if (!horizontal && Math.abs(pad.leftX) >= 0.48) horizontal = pad.leftX > 0 ? 1 : -1;
   if (!vertical && Math.abs(pad.leftY) >= 0.48) vertical = pad.leftY > 0 ? 1 : -1;
   return { horizontal, vertical };
@@ -888,7 +1009,9 @@ function updatePlayer(player, pad, dt, now) {
     }
     return;
   }
-  const input = quantizedInput(pad);
+  player.suppressedDirections = player.suppressedDirections.filter((button) =>
+    pad.down.includes(button));
+  const input = quantizedInput(pad, player.suppressedDirections);
   const inputChanged = input.horizontal !== player.inputX ||
     input.vertical !== player.inputY;
   if (inputChanged &&
@@ -985,6 +1108,14 @@ function sim() {
   padSnapshots[1] = gamepad(1);
   recordReplayCommands(now);
   if (roundResult) {
+    if (instantReplay) {
+      updateInstantReplay(now, dt);
+      return;
+    }
+    const replayDown = padSnapshots[0]?.down || [];
+    if (replayDown.includes("Y") && !replayOfferPrevious.includes("Y") &&
+        startInstantReplay(now)) return;
+    replayOfferPrevious = replayDown.slice();
     updateCameraDoll(dt, now);
     const resultDuration = matchOver ? matchResultUs : roundResultUs;
     if (now - roundOverAt >= resultDuration) {
@@ -1010,6 +1141,7 @@ function sim() {
   resolveMelee(now);
   updateCamera(dt);
   updateCameraDoll(dt, now);
+  captureRoundReplay(now);
   recordReplayCheckpoint(now);
   for (const impact of impacts) impact.life -= dt;
   while (impacts.length && impacts[0].life <= 0) impacts.shift();
@@ -1096,7 +1228,10 @@ function runnerWorldGeometry(player, t) {
 }
 
 function runnerGeometry(player, t) {
-  const world = runnerWorldGeometry(player, t);
+  return projectRunnerWorldGeometry(runnerWorldGeometry(player, t));
+}
+
+function projectRunnerWorldGeometry(world) {
   const headPoint = projectPoint(world.head.x, world.head.y, world.head.z);
   return {
     head: { x: headPoint.x, y: headPoint.y,
@@ -1244,7 +1379,9 @@ function drawFace(player, head, color, t) {
 
 function drawRunner(player, t, showLabel = true) {
   if (!player.alive && !roundResult) return;
-  const geometry = runnerGeometry(player, t);
+  const geometry = player.replayGeometry
+    ? projectRunnerWorldGeometry(player.replayGeometry)
+    : runnerGeometry(player, t);
   const color = player.hit > 0 ? [255, 255, 255] : player.color;
   circle(geometry.head.x, geometry.head.y, geometry.head.radius, 3, color);
   drawFace(player, geometry.head, color, t);
@@ -1460,12 +1597,24 @@ function paint() {
     typeWrite(windLabel, 960 - windLabel.length * 7.5, 932, 25, ...titleInk);
   }
   if (roundResult) {
-    const cause = roundCause || "ROUND";
-    const causeWidth = cause.length * 78;
-    box((1920 - causeWidth) / 2 - 36, 790, causeWidth + 72, 126, ...titlePanel);
-    typeWrite(cause, (1920 - causeWidth) / 2, 810, 92, ...titleInk);
-    const resultWidth = roundResult.length * 28;
-    typeWrite(roundResult, (1920 - resultWidth) / 2, 930, 34, ...titleInk);
+    if (instantReplay) {
+      const frame = Math.min(instantReplay.frames.length,
+        Math.floor(instantReplay.cursor) + 1);
+      const replayLabel = "REPLAY  " + frame + "/" + instantReplay.frames.length;
+      typeWrite(replayLabel, 960 - replayLabel.length * 10, 820, 30, ...titleInk);
+      const controls = instantReplay.paused
+        ? "PAUSED   A PLAY   LEFT RIGHT SCRUB   B EXIT"
+        : "A PAUSE   LEFT RIGHT SCRUB   B EXIT";
+      typeWrite(controls, 960 - controls.length * 7.5, 948, 23, ...titleInk);
+    } else {
+      const cause = roundCause || "ROUND";
+      const causeWidth = cause.length * 78;
+      box((1920 - causeWidth) / 2 - 36, 790, causeWidth + 72, 126, ...titlePanel);
+      typeWrite(cause, (1920 - causeWidth) / 2, 810, 92, ...titleInk);
+      const resultWidth = roundResult.length * 28;
+      typeWrite(roundResult, (1920 - resultWidth) / 2, 930, 34, ...titleInk);
+      typeWrite("Y REPLAY", 904, 982, 22, ...titleInk);
+    }
   }
   drawPlayerHud(players[0], 20, padSnapshots[0]);
   drawPlayerHud(players[1], 1275, padSnapshots[1]);

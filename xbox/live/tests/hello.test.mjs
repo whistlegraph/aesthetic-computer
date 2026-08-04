@@ -18,7 +18,7 @@ function createFight(startImmediately = true) {
   };
   const fight = new Function(
     "runtime", "gamepad", "telemetry", "gameSignal", "saveReplay", "drum", "wipe", "box", "line", "triangle", "write", "systemWrite",
-    `${source}\nreturn { boot, sim, paint, players, ball, runnerWorldGeometry, runnerDistanceToPoint, disableBall: () => { ballEnabled = false; ball.active = false; }, enableBall: () => { ballEnabled = true; ball.active = true; ball.serveAt = 0; ball.safeUntil = 0; ball.safePlayers = 0; }, setWind: (value) => { windAcceleration = value; }, windState: () => ({ direction: windDirection, mph: windMph }), nextRound: () => resetRound(runtime().monotonicUs, false), wackBall: () => { players[0].attackKind = "KICK"; returnBall(players[0], runtime().monotonicUs, false); }, crossWackBall: (contact = 1) => crossWackBall(players.map((player) => ({ player, contact })), runtime().monotonicUs), startFight: () => { selecting = false; startReplay(runtime().monotonicUs); resetRound(runtime().monotonicUs, true); }, selectionState: () => ({ selecting, ready: selectionReady.slice() }), cameraState: () => ({ cameraWidth, cameraCenterY }), roundState: () => ({ roundResult, roundElapsedUs, matchOver }) };`
+    `${source}\nreturn { boot, sim, paint, players, ball, runnerWorldGeometry, runnerDistanceToPoint, disableBall: () => { ballEnabled = false; ball.active = false; }, enableBall: () => { ballEnabled = true; ball.active = true; ball.serveAt = 0; ball.safeUntil = 0; ball.safePlayers = 0; }, setWind: (value) => { windAcceleration = value; }, windState: () => ({ direction: windDirection, mph: windMph }), nextRound: () => resetRound(runtime().monotonicUs, false), wackBall: () => { players[0].attackKind = "KICK"; returnBall(players[0], runtime().monotonicUs, false); }, crossWackBall: (contact = 1) => crossWackBall(players.map((player) => ({ player, contact })), runtime().monotonicUs), startFight: () => { selecting = false; startReplay(runtime().monotonicUs); resetRound(runtime().monotonicUs, true); }, selectionState: () => ({ selecting, ready: selectionReady.slice() }), cameraState: () => ({ cameraWidth, cameraCenter, cameraCenterY }), roundState: () => ({ roundResult, roundElapsedUs, matchOver }), instantReplayState: () => instantReplay ? { active: true, paused: instantReplay.paused, cursor: instantReplay.cursor, frames: instantReplay.frames.length } : { active: false }, replayFrameCount: () => roundReplayFrames.length };`
   )(
     () => ({ monotonicUs: now, unixMs: 1785870000000 + Math.floor(now / 1000) }),
     (index = 0) => ({ ...pads[index], down: pads[index].down.slice() }),
@@ -126,6 +126,20 @@ test("holding one direction never becomes a double-tap dash", () => {
   for (let frame = 0; frame < 30; frame++) tick(16667);
   assert.notEqual(fight.players[0].lastButton, "DASH LEFT");
   assert.equal(fight.players[0].dashUntil, 0);
+});
+
+test("a direction held across round reset waits for a real release", () => {
+  const { fight, pads, tick } = createFight();
+  pads[0].down = ["ArrowRight"];
+  tick();
+  fight.nextRound();
+  tick(3000001);
+  assert.ok(fight.players[0].vx < 500);
+  pads[0].down = [];
+  tick();
+  pads[0].down = ["ArrowRight"];
+  tick();
+  assert.ok(fight.players[0].vx > 1000);
 });
 
 test("X shield blocks melee geometry", () => {
@@ -258,6 +272,34 @@ test("round clock can end in a tie and resets", () => {
   assert.equal(fight.roundState().roundResult, "");
   assert.equal(fight.players[0].score, 0);
   assert.equal(fight.players[1].score, 0);
+});
+
+test("round result offers an instant replay with pause, scrub, and exit", () => {
+  const { fight, pads, tick } = createFight();
+  for (let frame = 0; frame < 220; frame++) tick(33334);
+  assert.ok(fight.replayFrameCount() > 100);
+  fight.players[0].score = 1;
+  for (let frame = 0; frame < 680; frame++) tick(33334);
+  assert.match(fight.roundState().roundResult, /WINS ROUND/);
+  pads[0].down = ["Y"];
+  tick();
+  assert.equal(fight.instantReplayState().active, true);
+  pads[0].down = [];
+  tick();
+  pads[0].down = ["A"];
+  tick();
+  assert.equal(fight.instantReplayState().paused, true);
+  const beforeScrub = fight.instantReplayState().cursor;
+  pads[0].down = [];
+  tick();
+  pads[0].down = ["ArrowRight"];
+  tick();
+  assert.ok(fight.instantReplayState().cursor > beforeScrub);
+  pads[0].down = [];
+  tick();
+  pads[0].down = ["B"];
+  tick();
+  assert.equal(fight.instantReplayState().active, false);
 });
 
 test("first to five round wins takes the match", () => {
