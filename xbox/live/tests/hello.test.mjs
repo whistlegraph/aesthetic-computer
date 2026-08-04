@@ -71,6 +71,18 @@ test("holding one direction never becomes a double-tap dash", () => {
   assert.equal(fight.players[0].dashUntil, 0);
 });
 
+test("X shield blocks melee geometry", () => {
+  const { fight, pads, signals, tick } = createFight();
+  fight.players[0].x = 5000;
+  fight.players[1].x = 5100;
+  pads[0].down = ["A"];
+  pads[1].down = ["X"];
+  for (let frame = 0; frame < 5; frame++) tick(16667);
+  assert.equal(fight.players[1].alive, true);
+  assert.equal(fight.players[0].score, 0);
+  assert.ok(signals.some(([event, player]) => event === "block" && player === 1));
+});
+
 test("player lands on the center platform", () => {
   const { fight, tick } = createFight();
   const player = fight.players[0];

@@ -73,7 +73,8 @@ const players = [
     alive: true, respawnAt: 0, score: 0, inputX: 0, inputY: 0,
     lastTap: {}, lastRelease: {}, dashUntil: 0, dashVx: 0, roundWins: 0,
     attackKind: "", attackStartedAt: 0,
-    attackUntil: 0, attackHit: false },
+    attackUntil: 0, attackHit: false, blocking: false, blockFlash: 0,
+    windVx: 0 },
   { name: "OSKIE", pad: 1, spawnX: 10000, x: 10000, y: floorY, z: 0,
     vx: 0, vy: 0, vz: 0, facing: -1,
     grounded: true, ducking: false, previous: [], lastButton: "NONE",
@@ -81,7 +82,8 @@ const players = [
     alive: true, respawnAt: 0, score: 0, inputX: 0, inputY: 0,
     lastTap: {}, lastRelease: {}, dashUntil: 0, dashVx: 0, roundWins: 0,
     attackKind: "", attackStartedAt: 0,
-    attackUntil: 0, attackHit: false },
+    attackUntil: 0, attackHit: false, blocking: false, blockFlash: 0,
+    windVx: 0 },
 ];
 const impacts = [];
 let padSnapshots = [null, null];
@@ -91,11 +93,22 @@ let roundElapsedUs = 0;
 let roundOverAt = 0;
 let roundResult = "";
 let matchOver = false;
-const botState = { nextAttackAt: 0, nextJumpAt: 0, attackWithKick: true };
+let windMph = 0;
+let windDirection = 1;
+let windAcceleration = 0;
+const botState = { nextAttackAt: 0, nextJumpAt: 0, attackWithKick: true,
+  seenAttackAt: 0, defendNext: false, blockUntil: 0 };
 let botEnabled = true;
 
 function emitSignal(event, player = -1, value = 0, value2 = 0) {
   if (typeof gameSignal === "function") gameSignal(event, player, value, value2);
+}
+
+function rollWind() {
+  windMph = 4 + Math.floor(Math.random() * 21);
+  windDirection = Math.random() < .5 ? -1 : 1;
+  windAcceleration = windDirection * windMph * 16;
+  emitSignal("wind", -1, windDirection, windMph);
 }
 
 const buttonLabel = (button) => ({
@@ -109,6 +122,7 @@ function boot() {
   lastSimAt = startedAt;
   roundElapsedUs = 0;
   emitSignal("hello", -1, 1, 0);
+  rollWind();
 }
 
 function resetRound(now, resetMatch = false) {
@@ -135,6 +149,9 @@ function resetRound(now, resetMatch = false) {
     player.attackKind = "";
     player.attackUntil = 0;
     player.attackHit = false;
+    player.blocking = false;
+    player.blockFlash = 0;
+    player.windVx = 0;
     player.previous = padSnapshots[player.pad]?.down?.slice() || [];
     player.lastButton = "NONE";
     player.lastButtonAt = -10000000;
@@ -145,6 +162,9 @@ function resetRound(now, resetMatch = false) {
   lastSimAt = now;
   botState.nextAttackAt = now + 450000;
   botState.nextJumpAt = now + 250000;
+  botState.seenAttackAt = 0;
+  botState.blockUntil = 0;
+  rollWind();
   cameraCenter = (worldLeft + worldRight) / 2;
   cameraWidth = worldRight - worldLeft;
   cameraCenterY = floorY - cameraWidth / cameraAspect / 2;
@@ -221,12 +241,20 @@ function botPad(now) {
   const down = [];
   const dx = target.x - bot.x;
   const dy = target.y - bot.y;
+  if (target.attackStartedAt !== botState.seenAttackAt) {
+    botState.seenAttackAt = target.attackStartedAt;
+    botState.defendNext = !botState.defendNext;
+    if (botState.defendNext && Math.abs(dx) < 320 && Math.abs(dy) < 240)
+      botState.blockUntil = target.attackUntil;
+  }
+  if (now < botState.blockUntil) down.push("X");
   if (Math.abs(dx) > 150) down.push(dx > 0 ? "ArrowRight" : "ArrowLeft");
   if (dy < -170 && now >= botState.nextJumpAt) {
     down.push("ArrowUp");
     botState.nextJumpAt = now + 330000;
   }
-  if (Math.abs(dx) < 250 && Math.abs(dy) < 210 && now >= botState.nextAttackAt) {
+  if (now >= botState.blockUntil && Math.abs(dx) < 250 && Math.abs(dy) < 210 &&
+      now >= botState.nextAttackAt) {
     down.push(botState.attackWithKick ? "A" : "B");
     botState.attackWithKick = !botState.attackWithKick;
     botState.nextAttackAt = now + 480000;
@@ -242,9 +270,9 @@ function remember(player, button) {
 
 function playButtonDrum(button, player) {
   const pan = panPlayer(player);
-  if (button === "X") drum("hat", 0.9, pan);
-  else if (button === "Y") drum("clap", 0.95, pan);
-  else if (button !== "A" && button !== "B" && !button.startsWith("Arrow"))
+  if (button === "Y") drum("clap", 0.95, pan);
+  else if (button !== "A" && button !== "B" && button !== "X" &&
+      !button.startsWith("Arrow"))
     drum("block", 0.75, pan);
 }
 
@@ -330,7 +358,14 @@ function resolveMelee(now) {
       attacker.attackHit = true;
       impacts.push({ x: strike.x, y: strike.y, z: strike.z,
         life: .2, duration: .2, death: false, explosion: false });
-      killPlayer(target, attacker.pad, now);
+      if (target.blocking) {
+        target.blockFlash = 1;
+        target.lastButton = "BLOCK";
+        target.lastButtonAt = now;
+        attacker.vx = -attacker.facing * 420;
+        drum("block", 1.2, panPlayer(target));
+        emitSignal("block", target.pad, attacker.pad, 1);
+      } else killPlayer(target, attacker.pad, now);
     }
   }
 }
@@ -345,6 +380,7 @@ function updatePlayer(player, pad, dt, now) {
       player.vx = 0;
       player.vy = 0;
       player.vz = 0;
+      player.windVx = 0;
       player.grounded = true;
       player.ducking = false;
       player.inputX = 0;
@@ -361,6 +397,7 @@ function updatePlayer(player, pad, dt, now) {
   player.pendingMoveLabel = "";
   const upPressed = input.vertical > 0 && !player.previous.includes("MOVE_UP");
   player.ducking = input.vertical < 0 && player.grounded;
+  player.blocking = pad.down.includes("X");
 
   if (player.inputX && input.horizontal !== player.inputX)
     player.lastRelease[player.inputX > 0 ? "RIGHT" : "LEFT"] = now;
@@ -374,9 +411,12 @@ function updatePlayer(player, pad, dt, now) {
   if (input.horizontal) player.facing = input.horizontal;
   // Fighting-game directions are digital: full movement begins and ends on
   // the sampled edge. The analog stick is only an eight-way gate.
-  player.vx = now < player.dashUntil
+  if (player.grounded) player.windVx *= Math.max(0, 1 - dt * 10);
+  else player.windVx = clamp(player.windVx + windAcceleration * dt, -900, 900);
+  const controlledVx = player.blocking ? 0 : now < player.dashUntil
     ? player.dashVx
     : player.ducking ? 0 : input.horizontal * 1500;
+  player.vx = controlledVx + player.windVx;
 
   if (upPressed) {
     player.vy = Math.min(player.vy, -1050);
@@ -390,8 +430,13 @@ function updatePlayer(player, pad, dt, now) {
     if (!player.previous.includes(button)) {
       remember(player, button);
       playButtonDrum(button, player);
-      if (button === "A") startMelee(player, "KICK", now);
-      else if (button === "B") startMelee(player, "PUNCH", now);
+      if (button === "X") {
+        player.pendingMoveLabel = "SHIELD";
+        drum("block", .7, panPlayer(player));
+        emitSignal("shield", player.pad, 1, 0);
+      }
+      else if (!player.blocking && button === "A") startMelee(player, "KICK", now);
+      else if (!player.blocking && button === "B") startMelee(player, "PUNCH", now);
     }
   }
   if (player.pendingMoveLabel) remember(player, player.pendingMoveLabel);
@@ -413,6 +458,7 @@ function updatePlayer(player, pad, dt, now) {
   }
   resolveRunnerBounds(player, (now - startedAt) / 1000000);
   player.hit = Math.max(0, player.hit - dt * 4);
+  player.blockFlash = Math.max(0, player.blockFlash - dt * 6);
   player.previous = pad.down.slice();
   if (input.vertical > 0) player.previous.push("MOVE_UP");
   player.inputX = input.horizontal;
@@ -603,6 +649,17 @@ function drawRunner(player, t) {
   circle(geometry.head.x, geometry.head.y, geometry.head.radius, 3, color);
   for (const segment of geometry.segments)
     line(segment.x1, segment.y1, segment.x2, segment.y2, segment.width, ...color);
+  if (player.blocking) {
+    const shield = projectPoint(player.x, player.y - 90, player.z);
+    const radius = Math.max(18, 112 * cameraScale());
+    const shieldColor = player.blockFlash > 0 ? [255, 255, 255] : player.color;
+    circle(shield.x, shield.y, radius, Math.max(3, 9 * cameraScale()), shieldColor);
+    circle(shield.x, shield.y, radius * .78,
+      Math.max(2, 5 * cameraScale()), shieldColor);
+    line(shield.x + player.facing * radius * .25, shield.y - radius * .72,
+      shield.x + player.facing * radius * .72, shield.y + radius * .72,
+      Math.max(2, 6 * cameraScale()), ...shieldColor);
+  }
 
   const labelSize = Math.max(10, Math.min(16, Math.round(cameraScale() * 48)));
   const labelX = geometry.head.x - player.name.length * labelSize * .3;
@@ -695,6 +752,9 @@ function paint() {
   const clockInk = remaining <= 10 ? [255, 105, 190] : titleInk;
   box(850, 218, 220, 78, ...titlePanel);
   write(String(remaining).padStart(2, "0"), 912, 226, 56, ...clockInk);
+  const windText = (windDirection < 0 ? "<  " : ">  ") +
+    "WIND " + windMph + " MPH";
+  systemWrite(windText, 872, 306, 18, ...titleInk);
   for (const impact of impacts) {
     const point = projectPoint(impact.x, impact.y, impact.z || 0);
     const radius = (30 + (1 - impact.life / impact.duration) *
