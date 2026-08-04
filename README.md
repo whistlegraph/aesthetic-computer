@@ -1,5 +1,7 @@
 # Aesthetic Computer
 
+[![MCP Toplist](https://mcptoplist.com/badge/io.github.whistlegraph%2Faesthetic-computer.svg)](https://mcptoplist.com/server/io.github.whistlegraph%2Faesthetic-computer)
+
 <img width="200" src="https://assets.aesthetic.computer/aesthetic-inc/pals.png">
 
 https://aesthetic.computer
