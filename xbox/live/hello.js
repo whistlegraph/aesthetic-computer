@@ -106,7 +106,7 @@ const panPlayer = (player) => panAt(player.x, player.z);
 let visualTheme = { light: 0, sunset: 0 };
 
 const fighterRoster = [
-  { handle: "@JEFFREY", color: [255, 105, 190], colors: [
+  { handle: "@JEFFREY", color: [190, 42, 58], colors: [
     [255,105,190],[111,232,210],[255,105,190],[255,232,92],
     [130,150,255],[255,105,190],[111,232,210],[255,232,92]],
     mood: "New Media Instruments",
@@ -114,7 +114,7 @@ const fighterRoster = [
   { handle: "@FIFI", color: [209, 100, 216], colors: [
     [209,100,216],[204,253,71],[35,100,255],[82,67,17],[5,249,137]],
     mood: "nap", lastChat: "" },
-  { handle: "@OSKIE", color: [255, 232, 92], colors: [
+  { handle: "@OSKIE", color: [38, 82, 176], colors: [
     [255,232,92],[255,105,190],[111,232,210],[255,232,92],[130,150,255],[255,105,190]],
     mood: "", lastChat: "" },
   { handle: "@SAT", color: [130, 204, 213], colors: [
@@ -154,7 +154,7 @@ const players = [
     pad: 0, spawnX: 2000, x: 2000, y: floorY, z: 0,
     vx: 0, vy: 0, vz: 0, facing: 1,
     grounded: true, ducking: false, previous: [], lastButton: "NONE",
-    lastButtonAt: -10000000, color: [255, 105, 190], hit: 0,
+    lastButtonAt: -10000000, color: [190, 42, 58], hit: 0,
     alive: true, respawnAt: 0, score: 0, inputX: 0, inputY: 0,
     lastTap: {}, lastRelease: {}, dashUntil: 0, dashVx: 0, roundWins: 0,
     attackKind: "", attackStartedAt: 0,
@@ -164,7 +164,7 @@ const players = [
     pad: 1, spawnX: 10000, x: 10000, y: floorY, z: 0,
     vx: 0, vy: 0, vz: 0, facing: -1,
     grounded: true, ducking: false, previous: [], lastButton: "NONE",
-    lastButtonAt: -10000000, color: [255, 232, 92], hit: 0,
+    lastButtonAt: -10000000, color: [38, 82, 176], hit: 0,
     alive: true, respawnAt: 0, score: 0, inputX: 0, inputY: 0,
     lastTap: {}, lastRelease: {}, dashUntil: 0, dashVx: 0, roundWins: 0,
     attackKind: "", attackStartedAt: 0,
@@ -195,6 +195,21 @@ let windAcceleration = 0;
 let replay = null;
 let replayLastCommand = [-1, -1];
 let replayNextCheckpointAt = 0;
+let matchName = "";
+
+function pronounceableMatchName() {
+  const consonants = "bdfgklmnprstvz";
+  const vowels = "aeiou";
+  const word = () => {
+    let result = "";
+    for (let index = 0; index < 6; index++) {
+      const alphabet = index % 2 === 0 ? consonants : vowels;
+      result += alphabet[Math.floor(Math.random() * alphabet.length)];
+    }
+    return result;
+  };
+  return word() + "-" + word() + "-" + word();
+}
 
 function demoTick(now) {
   return replay ? Math.max(0, Math.round((now - replay.startedMonotonicUs) /
@@ -203,13 +218,12 @@ function demoTick(now) {
 
 function startReplay(now) {
   const run = runtime();
-  const unixMs = run.unixMs || 0;
+  matchName = pronounceableMatchName();
   replay = {
     format: "ac.oskiedemo", version: 1, game: "oskiewar",
     simulation: "oskiewar-physics-1", tickRate: 60,
-    matchId: "ow-" + Math.max(0, unixMs).toString(36) + "-" +
-      Math.floor(Math.random() * 0x1000000).toString(36),
-    startedAt: unixMs, startedMonotonicUs: now,
+    matchId: "ow-" + matchName, matchName,
+    startedAt: run.unixMs || 0, startedMonotonicUs: now,
     fighters: players.map((player) => player.name),
     commands: [], events: [], checkpoints: [], rounds: [],
   };
@@ -875,7 +889,9 @@ function updatePlayer(player, pad, dt, now) {
     return;
   }
   const input = quantizedInput(pad);
-  if ((input.horizontal !== player.inputX || input.vertical !== player.inputY) &&
+  const inputChanged = input.horizontal !== player.inputX ||
+    input.vertical !== player.inputY;
+  if (inputChanged &&
       (input.horizontal || input.vertical))
     emitSignal("move", player.pad, input.horizontal, input.vertical);
   player.pendingMoveLabel = "";
@@ -898,10 +914,21 @@ function updatePlayer(player, pad, dt, now) {
   if (player.grounded) player.windVx *= Math.max(0, 1 - dt * 10);
   else player.windVx = clamp(player.windVx + windAcceleration * dt, -900, 900);
   player.knockVx *= Math.max(0, 1 - dt * (player.grounded ? 7 : 1.8));
-  const controlledVx = player.blocking ? 0 : now < player.dashUntil
+  const controlledVx = now < player.dashUntil && Math.abs(player.dashVx) > 0
     ? player.dashVx
     : player.ducking ? 0 : input.horizontal * 1500;
   player.vx = controlledVx + player.windVx + player.knockVx;
+  if (inputChanged) telemetry("FIGHT_MOVE", player.name +
+    " pad=" + (player.pad + 1) +
+    " held=" + (pad.down.filter((button) => button.startsWith("Arrow")).join("+") || "NONE") +
+    " stick=" + pad.leftX.toFixed(2) + "," + pad.leftY.toFixed(2) +
+    " quant=" + input.horizontal + "," + input.vertical +
+    " controlled=" + Math.round(controlledVx) +
+    " shield=" + (player.blocking ? 1 : 0) +
+    " wind=" + Math.round(player.windVx) +
+    " knock=" + Math.round(player.knockVx) +
+    " vx=" + Math.round(player.vx) +
+    " x=" + Math.round(player.x));
 
   if (upPressed) {
     player.vy = Math.min(player.vy, -1050);
@@ -1376,6 +1403,7 @@ function paint() {
   const clockInk = remaining <= 10 ? [255, 105, 190] : titleInk;
   typeWrite(String(remaining).padStart(2, "0"), 928, 5, 48, ...clockInk);
   drawWindFlag(t, titleInk);
+  typeWrite(matchName.toUpperCase(), 806, 82, 14, ...titleInk);
   if (ball.active) {
     const point = projectPoint(ball.x, ball.y, ball.z);
     const radius = Math.max(8, ball.radius * cameraScale());

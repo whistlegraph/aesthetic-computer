@@ -141,6 +141,16 @@ test("X shield blocks melee geometry", () => {
   assert.ok(signals.some(([event, player]) => event === "block" && player === 1));
 });
 
+test("P2 horizontal control remains active while shielding", () => {
+  const { fight, pads, tick } = createFight();
+  pads[1].down = ["X", "ArrowLeft"];
+  tick();
+  assert.ok(fight.players[1].vx < -1000);
+  pads[1].down = ["X", "ArrowRight"];
+  tick();
+  assert.ok(fight.players[1].vx > 1000);
+});
+
 test("player lands on the center platform", () => {
   const { fight, tick } = createFight();
   const player = fight.players[0];
@@ -269,6 +279,9 @@ test("first to five round wins takes the match", () => {
   assert.equal(demo.format, "ac.oskiedemo");
   assert.equal(demo.version, 1);
   assert.equal(demo.winner, "@JEFFREY");
+  assert.match(demo.matchName,
+    /^(?:[bdfgklmnprstvz][aeiou]){3}-(?:[bdfgklmnprstvz][aeiou]){3}-(?:[bdfgklmnprstvz][aeiou]){3}$/);
+  assert.equal(demo.matchId, "ow-" + demo.matchName);
   assert.ok(demo.commands.length > 0);
   assert.ok(demo.checkpoints.length > 0);
 });

@@ -7,6 +7,8 @@ import { respond } from "../../backend/http.mjs";
 
 const COLLECTION = "oskiewar-replays";
 const MAX_BYTES = 524288;
+const MATCH_WORD = "[bdfgklmnprstvz][aeiou][bdfgklmnprstvz][aeiou][bdfgklmnprstvz][aeiou]";
+const MATCH_NAME = new RegExp(`^${MATCH_WORD}-${MATCH_WORD}-${MATCH_WORD}$`);
 
 const finite = (value, limit = 1000000000) =>
   Number.isFinite(value) && Math.abs(value) <= limit;
@@ -17,7 +19,10 @@ export function validateDemo(value) {
   if (!value || value.format !== "ac.oskiedemo" || value.version !== 1 ||
       value.game !== "oskiewar" || value.simulation !== "oskiewar-physics-1" ||
       value.tickRate !== 60) return "Unsupported demo format";
-  if (!/^ow-[a-z0-9]+-[a-z0-9]+$/.test(value.matchId || ""))
+  const namedMatch = typeof value.matchName === "string";
+  if (namedMatch && (!MATCH_NAME.test(value.matchName) ||
+      value.matchId !== "ow-" + value.matchName)) return "Invalid match name";
+  if (!namedMatch && !/^ow-[a-z0-9]+-[a-z0-9]+$/.test(value.matchId || ""))
     return "Invalid matchId";
   if (!finite(value.startedAt, 10000000000000) ||
       !Number.isInteger(value.durationTicks) || value.durationTicks < 0 ||
