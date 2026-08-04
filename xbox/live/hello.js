@@ -1,10 +1,10 @@
 const floorY = 815;
 const worldLeft = 0;
-const worldRight = 7200;
+const worldRight = 12000;
 const stageLeft = 55;
 const stageRight = 1865;
-const platformLeft = 2700;
-const platformRight = 4500;
+const platformLeft = 4500;
+const platformRight = 7500;
 const platformY = 665;
 const doubleTapUs = 280000;
 const grenadeBlastDuration = .68;
@@ -16,12 +16,12 @@ const matchWins = 5;
 const worldScale = (stageRight - stageLeft) / (worldRight - worldLeft);
 const screenX = (x) => stageLeft + (x - worldLeft) * worldScale;
 const players = [
-  { name: "JEFFREY", pad: 0, spawnX: 1200, x: 1200, y: floorY, vx: 0, vy: 0, facing: 1,
+  { name: "JEFFREY", pad: 0, spawnX: 2000, x: 2000, y: floorY, vx: 0, vy: 0, facing: 1,
     grounded: true, ducking: false, previous: [], lastButton: "NONE",
     lastButtonAt: -10000000, color: [255, 105, 190], hit: 0,
     alive: true, respawnAt: 0, score: 0, inputX: 0, inputY: 0,
     lastTap: {}, dashUntil: 0, dashVx: 0, roundWins: 0 },
-  { name: "OSKIE", pad: 1, spawnX: 6000, x: 6000, y: floorY, vx: 0, vy: 0, facing: -1,
+  { name: "OSKIE", pad: 1, spawnX: 10000, x: 10000, y: floorY, vx: 0, vy: 0, facing: -1,
     grounded: true, ducking: false, previous: [], lastButton: "NONE",
     lastButtonAt: -10000000, color: [255, 232, 92], hit: 0,
     alive: true, respawnAt: 0, score: 0, inputX: 0, inputY: 0,
@@ -132,7 +132,7 @@ function playButtonDrum(button, player) {
 function fire(player) {
   bullets.push({
     x: player.x + player.facing * 70,
-    y: player.y - (player.ducking ? 32 : 56),
+    y: player.y - (player.ducking ? 22 : 36),
     vx: player.facing * 2100,
     owner: player.pad,
     life: 1.6,
@@ -143,7 +143,7 @@ function fire(player) {
 
 function throwGrenade(player) {
   grenades.push({ x: player.x + player.facing * 65,
-    y: player.y - (player.ducking ? 38 : 64), vx: player.facing * 1850,
+    y: player.y - (player.ducking ? 25 : 42), vx: player.facing * 1850,
     vy: -720, owner: player.pad, fuse: 1.15, alive: true,
     exploding: false, blastAge: 0, blastRadius: 0 });
   while (grenades.length > 12) grenades.shift();
@@ -184,7 +184,7 @@ function killPlayer(target, killerPad, now) {
   target.lastButtonAt = now;
   if (killerPad !== target.pad) players[killerPad].score += 1;
   emitSignal("ko", killerPad, target.pad, players[killerPad]?.score || 0);
-  impacts.push({ x: target.x, y: target.y - 52, life: .55,
+  impacts.push({ x: target.x, y: target.y - 36, life: .55,
     duration: .55, death: true, explosion: false });
   drum("snare", 1.15, target.pad === 0 ? -0.4 : 0.4);
 }
@@ -396,42 +396,42 @@ function runnerGeometry(player, t) {
   const speed = Math.min(1, Math.abs(player.vx) / 1500);
   const idle = player.grounded && !player.ducking && speed < .03;
   const breath = idle ? Math.sin(t * 2.4 + player.pad * .7) : 0;
-  const idleSway = idle ? Math.sin(t * 1.55 + player.pad) * 3 : 0;
-  const stride = Math.sin(t * (7 + speed * 9) + player.pad * Math.PI) * 13 * speed;
-  const height = player.ducking ? 40 : 72;
-  const lean = player.facing * speed * 5;
+  const idleSway = idle ? Math.sin(t * 1.55 + player.pad) * 2 : 0;
+  const stride = Math.sin(t * (7 + speed * 9) + player.pad * Math.PI) * 9 * speed;
+  const height = player.ducking ? 30 : 50;
+  const lean = player.facing * speed * 3.5;
   const x = screenX(player.x);
   const feet = player.y;
-  const hipY = feet - (player.ducking ? 15 : 23);
+  const hipY = feet - (player.ducking ? 11 : 16);
   const neckX = x + lean;
-  const neckY = feet - height + 22 - breath * 1.5;
-  const head = { x: neckX + lean * .2, y: feet - height + 9 - breath * 2.3, radius: 9 };
+  const neckY = feet - height + 15 - breath;
+  const head = { x: neckX + lean * .2, y: feet - height + 6 - breath * 1.6, radius: 6 };
   const segments = [];
   const segment = (x1, y1, x2, y2, width) => segments.push({ x1, y1, x2, y2, width });
-  segment(neckX, neckY, x, hipY, 5);
+  segment(neckX, neckY, x, hipY, 3);
   if (player.ducking) {
-    segment(x, hipY, x - 15, feet - 9, 5);
-    segment(x - 15, feet - 9, x - 2, feet, 5);
-    segment(x, hipY, x + 15, feet - 8, 5);
-    segment(x + 15, feet - 8, x + 24, feet, 5);
+    segment(x, hipY, x - 10, feet - 6, 3);
+    segment(x - 10, feet - 6, x - 1, feet, 3);
+    segment(x, hipY, x + 10, feet - 6, 3);
+    segment(x + 10, feet - 6, x + 16, feet, 3);
   } else if (player.grounded) {
-    segment(x, hipY, x - 5 + stride * .45, feet - 11, 5);
-    segment(x - 5 + stride * .45, feet - 11, x + stride, feet, 5);
-    segment(x, hipY, x + 5 - stride * .45, feet - 11, 5);
-    segment(x + 5 - stride * .45, feet - 11, x - stride, feet, 5);
+    segment(x, hipY, x - 3 + stride * .45, feet - 8, 3);
+    segment(x - 3 + stride * .45, feet - 8, x + stride, feet, 3);
+    segment(x, hipY, x + 3 - stride * .45, feet - 8, 3);
+    segment(x + 3 - stride * .45, feet - 8, x - stride, feet, 3);
   } else {
-    segment(x, hipY, x - 13, feet - 13, 5);
-    segment(x - 13, feet - 13, x - 3, feet - 5, 5);
-    segment(x, hipY, x + 13, feet - 17, 5);
-    segment(x + 13, feet - 17, x + 20, feet - 8, 5);
+    segment(x, hipY, x - 9, feet - 9, 3);
+    segment(x - 9, feet - 9, x - 2, feet - 3, 3);
+    segment(x, hipY, x + 9, feet - 12, 3);
+    segment(x + 9, feet - 12, x + 14, feet - 6, 3);
   }
-  const arm = idle ? idleSway : player.grounded ? -stride * .7 : 17;
-  const elbowY = feet - (player.ducking ? 29 : 37) - breath;
-  const handY = feet - (player.ducking ? 20 : 26) - breath * .5;
-  segment(neckX, neckY + 5, x - 10 + arm * .65, elbowY, 4);
-  segment(x - 10 + arm * .65, elbowY, x - 4 + arm * .65, handY, 4);
-  segment(neckX, neckY + 5, x + 10 - arm * .65, elbowY, 4);
-  segment(x + 10 - arm * .65, elbowY, x + 4 - arm * .65, handY, 4);
+  const arm = idle ? idleSway : player.grounded ? -stride * .7 : 12;
+  const elbowY = feet - (player.ducking ? 21 : 26) - breath;
+  const handY = feet - (player.ducking ? 14 : 18) - breath * .5;
+  segment(neckX, neckY + 3, x - 7 + arm * .65, elbowY, 3);
+  segment(x - 7 + arm * .65, elbowY, x - 3 + arm * .65, handY, 3);
+  segment(neckX, neckY + 3, x + 7 - arm * .65, elbowY, 3);
+  segment(x + 7 - arm * .65, elbowY, x + 3 - arm * .65, handY, 3);
   return { head, segments };
 }
 
@@ -460,12 +460,12 @@ function drawRunner(player, t) {
   if (!player.alive) return;
   const geometry = runnerGeometry(player, t);
   const color = player.hit > 0 ? [255, 255, 255] : player.color;
-  circle(geometry.head.x, geometry.head.y, geometry.head.radius, 4, color);
+  circle(geometry.head.x, geometry.head.y, geometry.head.radius, 3, color);
   for (const segment of geometry.segments)
     line(segment.x1, segment.y1, segment.x2, segment.y2, segment.width, ...color);
 
-  const labelX = geometry.head.x - (player.name === "JEFFREY" ? 46 : 34);
-  systemWrite(player.name, labelX, geometry.head.y - 38, 22, ...color);
+  const labelX = geometry.head.x - (player.name === "JEFFREY" ? 34 : 25);
+  systemWrite(player.name, labelX, geometry.head.y - 27, 16, ...color);
 }
 
 function drawPlayerHud(player, x, pad) {
