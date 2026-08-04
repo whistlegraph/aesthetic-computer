@@ -70,6 +70,8 @@ async function generate() {
           ? "server has no NVIDIA_API_KEY"
           : data.reason === "timeout"
           ? "timed out — NVIDIA may be slow, tap to retry"
+          : data.reason === "temporarily_unavailable"
+          ? `NVIDIA is unavailable — retry in ${data.retry_after || 60}s`
           : data.reason === "upstream"
           ? "NVIDIA error — tap to retry"
           : `error: ${data.reason || "unknown"}`;

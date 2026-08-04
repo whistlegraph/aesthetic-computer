@@ -20,6 +20,27 @@ import { respond } from "../../backend/http.mjs";
 
 const FLUX_URL =
   "https://ai.api.nvidia.com/v1/genai/black-forest-labs/flux.1-schnell";
+const FLUX_TIMEOUT_MS = 30000;
+const FLUX_OUTAGE_COOLDOWN_MS = 60000;
+
+let outageUntil = 0;
+
+function temporarilyUnavailable(retryAfterMs = FLUX_OUTAGE_COOLDOWN_MS) {
+  const retryAfter = Math.max(1, Math.ceil(retryAfterMs / 1000));
+  return respond(
+    503,
+    { ok: false, reason: "temporarily_unavailable", retry_after: retryAfter },
+    { "Retry-After": String(retryAfter) },
+  );
+}
+
+function openOutageCircuit(now = Date.now()) {
+  outageUntil = now + FLUX_OUTAGE_COOLDOWN_MS;
+}
+
+export function resetFluxOutageCircuit() {
+  outageUntil = 0;
+}
 
 // Two filter-safe AC style suffixes. The bisect that pinned these down lives
 // in ~/Desktop/nvidia-flux-log/README.md — short version: NVIDIA's safety
@@ -87,11 +108,16 @@ export async function handler(event) {
     ? body.seed
     : Math.floor(Math.random() * 1e9);
 
+  const now = Date.now();
+  if (outageUntil > now) {
+    return temporarilyUnavailable(outageUntil - now);
+  }
+
   // 30s timeout — FLUX schnell normally returns in 1-4s. NVIDIA has been
   // observed hanging for minutes before 504'ing during outages; fail fast
   // so the piece can show an error and let the user retry.
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 30000);
+  const timeoutId = setTimeout(() => controller.abort(), FLUX_TIMEOUT_MS);
 
   const t0 = Date.now();
   let upstream;
@@ -116,10 +142,13 @@ export async function handler(event) {
     });
   } catch (err) {
     if (err.name === "AbortError") {
-      return respond(504, { ok: false, reason: "timeout" });
+      openOutageCircuit();
+      console.warn("flux: upstream timed out; outage circuit opened");
+      return temporarilyUnavailable();
     }
     console.error("flux: upstream fetch failed", err);
-    return respond(502, { ok: false, reason: "network", detail: err.message });
+    openOutageCircuit();
+    return temporarilyUnavailable();
   } finally {
     clearTimeout(timeoutId);
   }
@@ -127,11 +156,14 @@ export async function handler(event) {
   if (!upstream.ok) {
     const detail = await upstream.text().catch(() => "");
     console.error("flux: upstream", upstream.status, detail.slice(0, 300));
+    if (upstream.status === 429 || upstream.status >= 500) {
+      openOutageCircuit();
+      return temporarilyUnavailable();
+    }
     return respond(502, {
       ok: false,
       reason: "upstream",
       status: upstream.status,
-      detail: detail.slice(0, 300),
     });
   }
 

@@ -12,6 +12,11 @@ import {
   SOTCE_NET_SMTP_PASS,
   SOTCE_NET_SMTP_USER,
 } from "../../backend/sotce-net-constants.mjs";
+import {
+  invoiceProductId,
+  stripeId,
+  subscriptionProductId,
+} from "../../backend/stripe-product.mjs";
 const dev = process.env.CONTEXT === "dev";
 
 // 💲 A utility function to calculate the order amount
@@ -302,11 +307,23 @@ export async function handler(event, context) {
 
       const subscription = hookEvent.data.object;
 
-      // Retrieve the invoice to get the product information
-      const invoice = await stripe.invoices.retrieve(
-        subscription.latest_invoice,
-      );
-      const productId = invoice.lines.data[0].price.product;
+      // Stripe moved invoice-line product data from `price.product` to
+      // `pricing.price_details.product`. Prefer the subscription item, then
+      // retrieve the invoice only when the webhook does not include it.
+      let productId = subscriptionProductId(subscription);
+      const latestInvoiceId = stripeId(subscription.latest_invoice);
+
+      if (!productId && latestInvoiceId) {
+        const invoice = await stripe.invoices.retrieve(latestInvoiceId);
+        productId = invoiceProductId(invoice);
+      }
+
+      if (!productId) {
+        console.warn("ticket: subscription update has no product; ignored");
+        return respond(200, {
+          message: "Webhook ignored: subscription product unavailable",
+        });
+      }
 
       if (productId === sotceNetProductId) {
         console.log("🟢 Subscription update for `sotce-net`.");

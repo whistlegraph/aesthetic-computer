@@ -104,11 +104,24 @@ async function fun(event, context) {
     // TODO: Return a 500 or 404 for everything that does not exist...
     //       - [] Like for example if the below import fails...
 
-    if (
-      event.path === "/favicon.ico" ||
-      event.path === "/requestProvider.js.map"
-    ) {
-      return { statusCode: 500 };
+    if (event.path === "/favicon.ico") {
+      return {
+        statusCode: 302,
+        headers: {
+          "Cache-Control": "public, max-age=86400",
+          "Content-Type": "text/plain; charset=utf-8",
+          Location: "/purple-pals.svg",
+        },
+        body: "",
+      };
+    }
+
+    if (event.path === "/requestProvider.js.map") {
+      return {
+        statusCode: 404,
+        headers: { "Content-Type": "text/plain; charset=utf-8" },
+        body: "Not found",
+      };
     }
 
   // Serve system .mjs files directly as static assets
