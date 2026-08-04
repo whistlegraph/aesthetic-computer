@@ -1,4 +1,6 @@
 import AppKit
+import Metal
+import MetalKit
 
 /// Sparse inertial energy field shared by the physical and electronic
 /// surfaces. Charges persist, merge locally, and decay; audio and drawing read
@@ -94,6 +96,125 @@ struct TrackpadSurfaceEnergy {
     }
 }
 
+/// A damped, rim-fixed membrane advanced from the same touch clock as the
+/// instrument. Every cell exchanges velocity with its neighbors, so a strike
+/// bends and rings the whole sheet instead of moving an isolated decoration.
+struct TrackpadMembraneSimulation {
+    struct Snapshot {
+        let columns: Int
+        let rows: Int
+        let heights: [Double]
+
+        var isFlat: Bool {
+            !heights.contains { abs($0) > 0.000_5 }
+        }
+
+        func height(at point: CGPoint) -> CGFloat {
+            let x = max(0, min(1, point.x)) * CGFloat(columns - 1)
+            let y = max(0, min(1, point.y)) * CGFloat(rows - 1)
+            let x0 = min(columns - 1, Int(floor(x)))
+            let y0 = min(rows - 1, Int(floor(y)))
+            let x1 = min(columns - 1, x0 + 1)
+            let y1 = min(rows - 1, y0 + 1)
+            let tx = Double(x - CGFloat(x0))
+            let ty = Double(y - CGFloat(y0))
+            func sample(_ column: Int, _ row: Int) -> Double {
+                heights[row * columns + column]
+            }
+            let bottom = sample(x0, y0) * (1 - tx) + sample(x1, y0) * tx
+            let top = sample(x0, y1) * (1 - tx) + sample(x1, y1) * tx
+            return CGFloat(bottom * (1 - ty) + top * ty)
+        }
+    }
+
+    private let columns = 23
+    private let rows = 15
+    private var heights: [Double] = Array(repeating: 0, count: 23 * 15)
+    private var velocities: [Double] = Array(repeating: 0, count: 23 * 15)
+    private var lastTime: Double = 0
+
+    mutating func reset(at now: Double) {
+        heights = Array(repeating: 0, count: columns * rows)
+        velocities = Array(repeating: 0, count: columns * rows)
+        lastTime = now
+    }
+
+    mutating func impulse(at point: CGPoint, amount: Double) {
+        for row in 1..<(rows - 1) {
+            for column in 1..<(columns - 1) {
+                let normalized = CGPoint(
+                    x: CGFloat(column) / CGFloat(columns - 1),
+                    y: CGFloat(row) / CGFloat(rows - 1)
+                )
+                let dx = Double(normalized.x - point.x) * 1.64
+                let dy = Double(normalized.y - point.y)
+                let falloff = exp(-(dx * dx + dy * dy) / (2 * 0.105 * 0.105))
+                // Taut fabric takes a compact shove instead of a broad fluid
+                // splash. The stronger damping in `step` turns this into one
+                // readable rebound rather than a long train of ripples.
+                velocities[row * columns + column] += max(0, amount) * falloff * 6.2
+            }
+        }
+    }
+
+    mutating func advance(to now: Double, touches: [CGPoint]) {
+        if lastTime == 0 { lastTime = now; return }
+        let elapsed = max(0, min(0.080, now - lastTime))
+        lastTime = now
+        guard elapsed > 0 else { return }
+        let stepCount = max(1, Int(ceil(elapsed / (1.0 / 240.0))))
+        let dt = elapsed / Double(stepCount)
+        for _ in 0..<stepCount { step(dt: dt, touches: touches) }
+    }
+
+    private mutating func step(dt: Double, touches: [CGPoint]) {
+        var nextHeights = heights
+        var nextVelocities = velocities
+        for row in 1..<(rows - 1) {
+            for column in 1..<(columns - 1) {
+                let index = row * columns + column
+                let horizontal = heights[index - 1] + heights[index + 1]
+                    - 2 * heights[index]
+                let vertical = heights[index - columns] + heights[index + columns]
+                    - 2 * heights[index]
+                // The rectangular grid has more columns solely to preserve
+                // physical sampling density; both axes carry equal tension.
+                let point = CGPoint(
+                    x: CGFloat(column) / CGFloat(columns - 1),
+                    y: CGFloat(row) / CGFloat(rows - 1)
+                )
+                // The middle gives under a finger, while tension rises sharply
+                // into the clamped rim. Strong velocity + displacement damping
+                // permits one short rebound without pond-like travelling waves.
+                let edgeDistance = min(min(Double(point.x), 1 - Double(point.x)),
+                                       min(Double(point.y), 1 - Double(point.y)))
+                let rim = 1 - min(1, edgeDistance / 0.5)
+                let rimSquared = rim * rim
+                let tension = 235 + 215 * rimSquared
+                let damping = 23 + 8 * rimSquared
+                let spring = 48 + 52 * rimSquared
+                var acceleration = tension * (horizontal + vertical)
+                    - damping * velocities[index] - spring * heights[index]
+                for touch in touches {
+                    let dx = Double(point.x - touch.x) * 1.64
+                    let dy = Double(point.y - touch.y)
+                    let pressure = exp(-(dx * dx + dy * dy) / (2 * 0.115 * 0.115))
+                    acceleration += pressure * (0.72 - heights[index]) * 165
+                }
+                let velocity = velocities[index] + acceleration * dt
+                nextVelocities[index] = velocity
+                nextHeights[index] = heights[index] + velocity * dt
+            }
+        }
+        heights = nextHeights
+        velocities = nextVelocities
+    }
+
+    func snapshot() -> Snapshot {
+        Snapshot(columns: columns, rows: rows, heights: heights)
+    }
+}
+
 private enum TrackpadEnergyVisual {
     static func draw(_ charges: [TrackpadSurfaceEnergy.Charge],
                      in chart: NSRect, accent: NSColor) {
@@ -116,6 +237,71 @@ private enum TrackpadEnergyVisual {
                 oval.fill()
             }
         }
+    }
+}
+
+/// Lights the original drum chart as a height field. Geometry never slides:
+/// local slope produces a moving highlight and shadow over the existing ink.
+private enum TrackpadMembraneLighting {
+    static func draw(_ membrane: TrackpadMembraneSimulation.Snapshot?,
+                     in chart: NSRect) {
+        guard let membrane, !membrane.isFlat else { return }
+        // Render in the simulation's normalized coordinate grid and let
+        // AppKit scale the tiny texture. The old code rasterized every logical
+        // chart point on every frame (and Retina scaled it once more), doing
+        // ~10,000 bilinear samples and allocating ~42 KB at 60 Hz. A 2× grid
+        // retains smooth slopes while keeping this decoration out of the
+        // notation surface's frame budget.
+        let width = max(2, membrane.columns * 2 - 1)
+        let height = max(2, membrane.rows * 2 - 1)
+        guard let bitmap = NSBitmapImageRep(
+            bitmapDataPlanes: nil, pixelsWide: width, pixelsHigh: height,
+            bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true,
+            isPlanar: false, colorSpaceName: .deviceRGB,
+            bitmapFormat: [], bytesPerRow: 0, bitsPerPixel: 0
+        ), let data = bitmap.bitmapData else { return }
+        let dx = 1 / CGFloat(width - 1)
+        let dy = 1 / CGFloat(height - 1)
+        for row in 0..<height {
+            for column in 0..<width {
+                let point = CGPoint(
+                    x: CGFloat(column) / CGFloat(max(1, width - 1)),
+                    y: CGFloat(row) / CGFloat(max(1, height - 1))
+                )
+                let left = membrane.height(at: CGPoint(x: point.x - dx, y: point.y))
+                let right = membrane.height(at: CGPoint(x: point.x + dx, y: point.y))
+                let below = membrane.height(at: CGPoint(x: point.x, y: point.y - dy))
+                let above = membrane.height(at: CGPoint(x: point.x, y: point.y + dy))
+                let center = membrane.height(at: point)
+                // A high, upper-left light reveals slope; a small ambient
+                // term makes a held depression retain weight at its center.
+                let light = Double((left - right) * 1.9 + (above - below) * 2.7
+                                   - center * 0.10)
+                let alpha = UInt8(min(46, abs(light) * 210))
+                // NSBitmapImageRep stores its first scanline at the top while
+                // trackpad/AppKit normalized coordinates originate at bottom-
+                // left. Flip only the storage row so tap and highlight share
+                // the exact same X/Y transform on both 1× and Retina screens.
+                let storageRow = height - 1 - row
+                let offset = storageRow * bitmap.bytesPerRow + column * 4
+                // NSBitmapImageRep defaults to premultiplied alpha: a white
+                // overlay stores alpha in RGB as well, never an unbounded 255.
+                let channel: UInt8 = light >= 0 ? alpha : 0
+                data[offset] = channel
+                data[offset + 1] = channel
+                data[offset + 2] = channel
+                data[offset + 3] = alpha
+            }
+        }
+        let lighting = NSImage(size: NSSize(width: width, height: height))
+        lighting.addRepresentation(bitmap)
+        let context = NSGraphicsContext.current
+        let priorInterpolation = context?.imageInterpolation
+        context?.imageInterpolation = .high
+        lighting.draw(in: chart,
+                      from: NSRect(x: 0, y: 0, width: width, height: height),
+                      operation: .sourceOver, fraction: 1)
+        if let priorInterpolation { context?.imageInterpolation = priorInterpolation }
     }
 }
 
@@ -406,26 +592,35 @@ enum TrackpadDrumSkinPad {
     }
 
     static func image(touches: [CGPoint],
-                      energy: [TrackpadSurfaceEnergy.Charge] = []) -> NSImage {
+                      energy: [TrackpadSurfaceEnergy.Charge] = [],
+                      membrane: TrackpadMembraneSimulation.Snapshot? = nil,
+                      appearance: NSAppearance? = nil) -> NSImage {
         // 1.64:1, matching the physical trackpad rather than the square FX
         // cursor. Large enough to read the four inset material contours.
         let size = NSSize(width: 140, height: 88)
-        let appearance = NSApp.effectiveAppearance
+        // Overlay panels can live on a screen whose appearance differs from
+        // NSApp's cached effective appearance. Resolve from the presenting
+        // view when supplied so light mode never receives a dark skin texture.
+        let appearance = appearance ?? NSApp.effectiveAppearance
         let isDark = appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
         return NSImage(size: size, flipped: false) { rect in
             if #available(macOS 11.0, *) {
                 appearance.performAsCurrentDrawingAppearance {
-                    draw(in: rect, touches: touches, energy: energy, isDark: isDark)
+                    draw(in: rect, touches: touches, energy: energy,
+                         membrane: membrane, isDark: isDark)
                 }
             } else {
-                draw(in: rect, touches: touches, energy: energy, isDark: isDark)
+                draw(in: rect, touches: touches, energy: energy,
+                     membrane: membrane, isDark: isDark)
             }
             return true
         }
     }
 
     private static func draw(in rect: NSRect, touches: [CGPoint],
-                             energy: [TrackpadSurfaceEnergy.Charge], isDark: Bool) {
+                             energy: [TrackpadSurfaceEnergy.Charge],
+                             membrane: TrackpadMembraneSimulation.Snapshot?,
+                             isDark: Bool) {
         // Match the physical trackpad's wide rounded rectangle instead of
         // depicting the synthesis surface as a circular drum.
         let chart = rect.insetBy(dx: 4, dy: 4)
@@ -447,21 +642,23 @@ enum TrackpadDrumSkinPad {
         let rimZone = insetZone(14.4)
         let snareZone = insetZone(21.6)
         let kickZone = insetZone(28)
+        // Preserve the original natural material palette. System accent is a
+        // performance signal on the rim and contacts, not the skin's pigment.
         let clickColor = isDark
-            ? NSColor(white: 0.82, alpha: 1)
-            : NSColor(srgbRed: 0.98, green: 0.95, blue: 0.82, alpha: 1)
+            ? NSColor(srgbRed: 0.48, green: 0.43, blue: 0.34, alpha: 1)
+            : NSColor(srgbRed: 0.97, green: 0.91, blue: 0.77, alpha: 1) // cream
         let hatColor = isDark
-            ? NSColor(white: 0.29, alpha: 1)
-            : NSColor(srgbRed: 0.66, green: 0.68, blue: 0.65, alpha: 1)
+            ? NSColor(srgbRed: 0.34, green: 0.39, blue: 0.29, alpha: 1)
+            : NSColor(srgbRed: 0.72, green: 0.77, blue: 0.62, alpha: 1) // sage
         let rimColor = isDark
-            ? NSColor(srgbRed: 0.58, green: 0.31, blue: 0.16, alpha: 1)
-            : NSColor(srgbRed: 0.70, green: 0.38, blue: 0.18, alpha: 1)
+            ? NSColor(srgbRed: 0.43, green: 0.34, blue: 0.20, alpha: 1)
+            : NSColor(srgbRed: 0.84, green: 0.68, blue: 0.40, alpha: 1) // ochre
         let snareColor = isDark
-            ? NSColor(srgbRed: 0.38, green: 0.22, blue: 0.15, alpha: 1)
-            : NSColor(srgbRed: 0.80, green: 0.58, blue: 0.38, alpha: 1)
+            ? NSColor(srgbRed: 0.43, green: 0.25, blue: 0.17, alpha: 1)
+            : NSColor(srgbRed: 0.76, green: 0.45, blue: 0.30, alpha: 1) // terracotta
         let kickColor = isDark
-            ? NSColor(srgbRed: 0.075, green: 0.055, blue: 0.045, alpha: 1)
-            : NSColor(srgbRed: 0.34, green: 0.20, blue: 0.13, alpha: 1)
+            ? NSColor(srgbRed: 0.24, green: 0.15, blue: 0.10, alpha: 1)
+            : NSColor(srgbRed: 0.48, green: 0.29, blue: 0.19, alpha: 1) // umber
         NSGraphicsContext.saveGraphicsState()
         body.addClip()
         clickColor.setFill(); body.fill()
@@ -517,8 +714,9 @@ enum TrackpadDrumSkinPad {
         clickRail.stroke()
 
         TrackpadEnergyVisual.draw(energy, in: chart, accent: accent)
+        TrackpadMembraneLighting.draw(membrane, in: chart)
         let boundaryColor = (isDark ? NSColor.white : NSColor.black)
-            .withAlphaComponent(0.32)
+            .withAlphaComponent(isDark ? 0.32 : 0.50)
         boundaryColor.setStroke()
         for (zone, width) in [(hatZone, 0.9), (rimZone, 2.0),
                               (snareZone, 0.9), (kickZone, 1.3)] {
@@ -709,10 +907,9 @@ enum PitchBendCursor {
         buildImage(bend: CGFloat(amount), echo: 0, keyDown: false)
     }
 
-    static func image(forBend bend: Float, echo: Float, keyDown: Bool = false,
-                      touches: [CGPoint] = []) -> NSImage {
-        buildImage(bend: CGFloat(bend), echo: CGFloat(echo), keyDown: keyDown,
-                   touches: touches)
+    static func image(forBend bend: Float, echo: Float,
+                      keyDown: Bool = false) -> NSImage {
+        buildImage(bend: CGFloat(bend), echo: CGFloat(echo), keyDown: keyDown)
     }
 
     static func cursor(forBend amount: Float) -> NSCursor {
@@ -723,8 +920,8 @@ enum PitchBendCursor {
         NSCursor(image: image(forBend: bend, echo: echo), hotSpot: hotSpot)
     }
 
-    private static func buildImage(bend: CGFloat, echo: CGFloat, keyDown: Bool,
-                                   touches: [CGPoint] = []) -> NSImage {
+    private static func buildImage(bend: CGFloat, echo: CGFloat,
+                                   keyDown: Bool) -> NSImage {
         let bendC = max(-1, min(1, bend))
         // `echo` is the bipolar fx-X driver in [-1, +1]: positive
         // (right) is echo, negative (left) is space/reverb. We keep
@@ -742,19 +939,18 @@ enum PitchBendCursor {
             if #available(macOS 11.0, *) {
                 appearance.performAsCurrentDrawingAppearance {
                     drawChart(in: rect, bend: bendC, echo: xC, isDark: isDark,
-                              keyDown: keyDown, touches: touches)
+                              keyDown: keyDown)
                 }
             } else {
                 drawChart(in: rect, bend: bendC, echo: xC, isDark: isDark,
-                          keyDown: keyDown, touches: touches)
+                          keyDown: keyDown)
             }
             return true
         }
     }
 
     private static func drawChart(in rect: NSRect, bend: CGFloat, echo: CGFloat,
-                                  isDark: Bool, keyDown: Bool,
-                                  touches: [CGPoint] = []) {
+                                  isDark: Bool, keyDown: Bool) {
         // A Menu Band keycap plate, cleanly divided into four quadrants by a
         // single thin cross (no axis labels, no arrowheads, no end-caps). The
         // puck carries the live bend (Y) / echo (X) and lights up with the
@@ -831,24 +1027,6 @@ enum PitchBendCursor {
         knob.lineWidth = keyDown ? 1.0 : 0.8
         knob.stroke()
 
-        // Live trackpad touches (private MultitouchSupport tap). Each finger's
-        // absolute normalized position is mapped straight into the chart, so
-        // the pad reads as a tiny mirror of the trackpad.
-        if !touches.isEmpty {
-            let dotR: CGFloat = 3
-            for t in touches {
-                let px = chart.minX + max(0, min(1, CGFloat(t.x))) * chart.width
-                let py = chart.minY + max(0, min(1, CGFloat(t.y))) * chart.height
-                let dot = NSBezierPath(ovalIn: NSRect(x: px - dotR, y: py - dotR,
-                                                      width: dotR * 2, height: dotR * 2))
-                accent.withAlphaComponent(0.30).setFill()
-                dot.fill()
-                accent.withAlphaComponent(0.6).setStroke()
-                dot.lineWidth = 0.8
-                dot.stroke()
-            }
-        }
-
         // Keycap outline last so the whole pad is framed like a key.
         let edge = isDark
             ? NSColor.black.withAlphaComponent(0.85)
@@ -864,6 +1042,7 @@ enum PitchBendCursor {
 /// cursor so the chart visibly replaces it.
 final class PitchBendCursorOverlayWindow: NSPanel {
     private let imageView = NSImageView()
+    private let tracktrampView = TracktrampMetalView()
     private var anchorScreenPoint = NSPoint.zero
     private var fadeTimer: Timer?
 
@@ -889,6 +1068,9 @@ final class PitchBendCursorOverlayWindow: NSPanel {
         imageView.frame = frame
         imageView.imageScaling = .scaleNone
         contentView?.addSubview(imageView)
+        tracktrampView.frame = frame
+        tracktrampView.isHidden = true
+        contentView?.addSubview(tracktrampView)
     }
 
     /// `screenPoint` is the absolute center chosen by AppDelegate, normally
@@ -897,6 +1079,8 @@ final class PitchBendCursorOverlayWindow: NSPanel {
         fadeTimer?.invalidate()
         fadeTimer = nil
         anchorScreenPoint = screenPoint
+        tracktrampView.isHidden = true
+        imageView.isHidden = false
         apply(image: image)
         alphaValue = 1
         if !isVisible { orderFrontRegardless() }
@@ -905,12 +1089,50 @@ final class PitchBendCursorOverlayWindow: NSPanel {
     /// Update only the chart image (puck position changes); window
     /// position stays put unless the caller supplies a refreshed anchor.
     func update(image: NSImage) {
+        tracktrampView.isHidden = true
+        imageView.isHidden = false
         apply(image: image)
     }
 
     func update(image: NSImage, atScreenPoint screenPoint: NSPoint) {
         anchorScreenPoint = screenPoint
+        tracktrampView.isHidden = true
+        imageView.isHidden = false
         apply(image: image)
+    }
+
+    /// Present the physical skin through the cached Metal texture. Only the
+    /// small height field changes between frames; no NSImage is constructed.
+    func showTracktramp(_ membrane: TrackpadMembraneSimulation.Snapshot,
+                        touches: [CGPoint],
+                        atScreenPoint screenPoint: NSPoint) {
+        fadeTimer?.invalidate()
+        fadeTimer = nil
+        anchorScreenPoint = screenPoint
+        applyTracktrampFrame()
+        imageView.isHidden = true
+        tracktrampView.isHidden = false
+        tracktrampView.update(membrane, touches: touches)
+        alphaValue = 1
+        if !isVisible { orderFrontRegardless() }
+    }
+
+    func updateTracktramp(_ membrane: TrackpadMembraneSimulation.Snapshot,
+                          touches: [CGPoint],
+                          atScreenPoint screenPoint: NSPoint) {
+        anchorScreenPoint = screenPoint
+        applyTracktrampFrame()
+        imageView.isHidden = true
+        tracktrampView.isHidden = false
+        tracktrampView.update(membrane, touches: touches)
+    }
+
+    private func applyTracktrampFrame() {
+        let size = TracktrampMetalView.logicalSize
+        setFrame(NSRect(x: anchorScreenPoint.x - size.width / 2,
+                        y: anchorScreenPoint.y - size.height / 2,
+                        width: size.width, height: size.height), display: false)
+        tracktrampView.frame = NSRect(origin: .zero, size: size)
     }
 
     /// A new hardware contact reclaims a surface that is still visible but
@@ -966,7 +1188,237 @@ final class PitchBendCursorOverlayWindow: NSPanel {
         fadeTimer?.invalidate()
         fadeTimer = nil
         alphaValue = 1
+        tracktrampView.pause()
         orderOut(nil)
+    }
+}
+
+/// GPU presentation for the physical drum skin. The AppKit artwork is cached
+/// as a texture and a single fragment pass backward-warps its pixels from the
+/// membrane slope. This view has no clock of its own: the existing 60 Hz
+/// presentation timer supplies snapshots, while touch/audio callbacks remain
+/// entirely outside the renderer.
+final class TracktrampMetalView: MTKView, MTKViewDelegate {
+    static let logicalSize = NSSize(width: 140, height: 88)
+
+    private struct Uniforms {
+        var columns: UInt32
+        var rows: UInt32
+        // A restrained fabric pull, not a lens/refraction effect.
+        var warp: Float = 0.046
+        var lighting: Float = 0.14
+        var touchCount: UInt32 = 0
+        var _padding: UInt32 = 0
+        var accent = SIMD4<Float>(0.2, 0.48, 1, 1)
+        // kick, tom, snare, hat; click follows separately for 16-byte layout.
+        var zoneLevels = SIMD4<Float>(repeating: 0)
+        var clickLevel: Float = 0
+        var _zonePadding = SIMD3<Float>(repeating: 0)
+    }
+
+    private var queue: MTLCommandQueue?
+    private var pipeline: MTLRenderPipelineState?
+    private var baseTexture: MTLTexture?
+    private var heightBuffer: MTLBuffer?
+    private var touchBuffer: MTLBuffer?
+    private var uniforms = Uniforms(columns: 1, rows: 1)
+    private var cachedScale: CGFloat = 0
+    private var drewFlatFrame = false
+    private var zoneLevels = [Float](repeating: 0, count: 5)
+    private var lastZoneUpdate = CACurrentMediaTime()
+
+    init() {
+        let device = MTLCreateSystemDefaultDevice()
+        super.init(frame: NSRect(origin: .zero, size: Self.logicalSize),
+                   device: device)
+        wantsLayer = true
+        // MTKView's CAMetalLayer defaults to opaque even when the render-pass
+        // clear color has zero alpha. That exposes the whole drawable as a
+        // dark square around our rounded shader mask.
+        layer?.isOpaque = false
+        layer?.backgroundColor = NSColor.clear.cgColor
+        clearColor = MTLClearColor(red: 0, green: 0, blue: 0, alpha: 0)
+        framebufferOnly = true
+        enableSetNeedsDisplay = true
+        isPaused = true
+        preferredFramesPerSecond = 60
+        delegate = self
+        queue = device?.makeCommandQueue()
+        if let device { buildPipeline(device) }
+    }
+
+    required init(coder: NSCoder) {
+        fatalError("TracktrampMetalView is code-only")
+    }
+
+    override var isOpaque: Bool { false }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        rebuildTextureIfNeeded(force: true)
+    }
+
+    override func viewDidChangeBackingProperties() {
+        super.viewDidChangeBackingProperties()
+        rebuildTextureIfNeeded(force: true)
+    }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        rebuildTextureIfNeeded(force: true)
+    }
+
+    func update(_ snapshot: TrackpadMembraneSimulation.Snapshot,
+                touches: [CGPoint]) {
+        guard !isHidden, window?.isVisible == true, let device else { return }
+        rebuildTextureIfNeeded(force: false)
+        let byteCount = snapshot.heights.count * MemoryLayout<Float>.stride
+        if heightBuffer == nil || heightBuffer!.length < byteCount {
+            heightBuffer = device.makeBuffer(length: byteCount, options: .storageModeShared)
+        }
+        guard let heightBuffer else { return }
+        let destination = heightBuffer.contents().bindMemory(to: Float.self,
+                                                             capacity: snapshot.heights.count)
+        for index in snapshot.heights.indices {
+            destination[index] = Float(snapshot.heights[index])
+        }
+        uniforms.columns = UInt32(snapshot.columns)
+        uniforms.rows = UInt32(snapshot.rows)
+        let visibleTouches = touches.prefix(10)
+        let touchBytes = max(1, visibleTouches.count) * MemoryLayout<SIMD2<Float>>.stride
+        if touchBuffer == nil || touchBuffer!.length < touchBytes {
+            touchBuffer = device.makeBuffer(length: touchBytes, options: .storageModeShared)
+        }
+        if let touchBuffer {
+            let destination = touchBuffer.contents().bindMemory(
+                to: SIMD2<Float>.self, capacity: max(1, visibleTouches.count))
+            for (index, touch) in visibleTouches.enumerated() {
+                destination[index] = SIMD2(Float(touch.x), Float(touch.y))
+            }
+        }
+        uniforms.touchCount = UInt32(visibleTouches.count)
+        let now = CACurrentMediaTime()
+        let elapsed = min(0.1, max(0, now - lastZoneUpdate))
+        lastZoneUpdate = now
+        let decay = Float(exp(-elapsed / 0.24))
+        for index in zoneLevels.indices { zoneLevels[index] *= decay }
+        for touch in visibleTouches {
+            let index: Int
+            switch MenuBandPercussion.drumSkinZone(at: touch) {
+            case .kick: index = 0
+            case .tom: index = 1
+            case .snare: index = 2
+            case .hat: index = 3
+            case .click: index = 4
+            }
+            zoneLevels[index] = 1
+        }
+        uniforms.zoneLevels = SIMD4(zoneLevels[0], zoneLevels[1],
+                                    zoneLevels[2], zoneLevels[3])
+        uniforms.clickLevel = zoneLevels[4]
+        let accent = KeyboardIconRenderer.accent.usingColorSpace(.sRGB)
+            ?? NSColor.controlAccentColor
+        uniforms.accent = SIMD4(Float(accent.redComponent), Float(accent.greenComponent),
+                                Float(accent.blueComponent), Float(accent.alphaComponent))
+        // Paint one final undistorted frame, then stop submitting GPU work.
+        if snapshot.isFlat && visibleTouches.isEmpty
+            && (zoneLevels.max() ?? 0) < 0.01 {
+            guard !drewFlatFrame else { return }
+            drewFlatFrame = true
+        } else {
+            drewFlatFrame = false
+        }
+        // MTKView is paused and dirty-driven; draw exactly when the existing
+        // capped presentation path hands us a fresh visual snapshot.
+        draw()
+    }
+
+    func pause() { drewFlatFrame = false }
+
+    private func buildPipeline(_ device: MTLDevice) {
+        do {
+            let library: MTLLibrary
+            if let url = Bundle.appResources.url(forResource: "TracktrampShaders",
+                                                  withExtension: "metalsource"),
+               let source = try? String(contentsOf: url, encoding: .utf8) {
+                library = try device.makeLibrary(source: source, options: nil)
+            } else {
+                library = try device.makeDefaultLibrary(bundle: .module)
+            }
+            let descriptor = MTLRenderPipelineDescriptor()
+            descriptor.vertexFunction = library.makeFunction(name: "tracktramp_vertex")
+            descriptor.fragmentFunction = library.makeFunction(name: "tracktramp_fragment")
+            descriptor.colorAttachments[0].pixelFormat = colorPixelFormat
+            descriptor.colorAttachments[0].isBlendingEnabled = true
+            descriptor.colorAttachments[0].sourceRGBBlendFactor = .sourceAlpha
+            descriptor.colorAttachments[0].destinationRGBBlendFactor = .oneMinusSourceAlpha
+            descriptor.colorAttachments[0].sourceAlphaBlendFactor = .one
+            descriptor.colorAttachments[0].destinationAlphaBlendFactor = .oneMinusSourceAlpha
+            pipeline = try device.makeRenderPipelineState(descriptor: descriptor)
+        } catch {
+            NSLog("MenuBand: tracktramp Metal pipeline failed: \(error)")
+        }
+    }
+
+    private func rebuildTextureIfNeeded(force: Bool) {
+        guard let device else { return }
+        let scale = window?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 2
+        guard force || baseTexture == nil || scale != cachedScale else { return }
+        cachedScale = scale
+        let image = TrackpadDrumSkinPad.image(touches: [], energy: [], membrane: nil,
+                                              appearance: effectiveAppearance)
+        let pixelWidth = max(1, Int(ceil(Self.logicalSize.width * scale)))
+        let pixelHeight = max(1, Int(ceil(Self.logicalSize.height * scale)))
+        guard let bitmap = NSBitmapImageRep(bitmapDataPlanes: nil,
+                                            pixelsWide: pixelWidth,
+                                            pixelsHigh: pixelHeight,
+                                            bitsPerSample: 8,
+                                            samplesPerPixel: 4,
+                                            hasAlpha: true,
+                                            isPlanar: false,
+                                            colorSpaceName: .deviceRGB,
+                                            // Keep the cached artwork in the
+                                            // standard RGBA layout expected by
+                                            // MTKTextureLoader. `.alphaFirst`
+                                            // was being sampled as color data,
+                                            // turning the tan skin dark blue.
+                                            bitmapFormat: [],
+                                            bytesPerRow: 0,
+                                            bitsPerPixel: 0),
+              let context = NSGraphicsContext(bitmapImageRep: bitmap) else { return }
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current = context
+        context.cgContext.scaleBy(x: scale, y: scale)
+        image.draw(in: NSRect(origin: .zero, size: Self.logicalSize),
+                   from: .zero, operation: .copy, fraction: 1)
+        NSGraphicsContext.restoreGraphicsState()
+        guard let cgImage = bitmap.cgImage else { return }
+        baseTexture = try? MTKTextureLoader(device: device).newTexture(
+            cgImage: cgImage,
+            options: [.SRGB: true, .origin: MTKTextureLoader.Origin.topLeft]
+        )
+        drewFlatFrame = false
+    }
+
+    func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {}
+
+    func draw(in view: MTKView) {
+        guard let drawable = currentDrawable,
+              let pass = currentRenderPassDescriptor,
+              let queue, let pipeline, let baseTexture, let heightBuffer,
+              let touchBuffer,
+              let command = queue.makeCommandBuffer(),
+              let encoder = command.makeRenderCommandEncoder(descriptor: pass) else { return }
+        encoder.setRenderPipelineState(pipeline)
+        encoder.setFragmentTexture(baseTexture, index: 0)
+        encoder.setFragmentBuffer(heightBuffer, offset: 0, index: 0)
+        encoder.setFragmentBytes(&uniforms, length: MemoryLayout<Uniforms>.stride,
+                                 index: 1)
+        encoder.setFragmentBuffer(touchBuffer, offset: 0, index: 2)
+        encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
+        encoder.endEncoding()
+        command.present(drawable)
+        command.commit()
     }
 }
 

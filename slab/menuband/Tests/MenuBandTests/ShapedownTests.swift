@@ -129,9 +129,20 @@ final class ShapedownTests: XCTestCase {
 
     func testDrumSkinChartRendersAtPhysicalAspectRatio() throws {
         _ = NSApplication.shared
+        var membrane = TrackpadMembraneSimulation()
+        membrane.reset(at: 1)
+        membrane.impulse(at: CGPoint(x: 0.50, y: 0.50), amount: 0.9)
+        membrane.advance(to: 1.085,
+                         touches: [CGPoint(x: 0.50, y: 0.50),
+                                   CGPoint(x: 0.94, y: 0.52)])
         let image = TrackpadDrumSkinPad.image(
             touches: [CGPoint(x: 0.50, y: 0.50),
-                      CGPoint(x: 0.94, y: 0.52)]
+                      CGPoint(x: 0.94, y: 0.52)],
+            energy: [
+                .init(point: CGPoint(x: 0.50, y: 0.50), level: 0.88),
+                .init(point: CGPoint(x: 0.24, y: 0.72), level: 0.34),
+            ],
+            membrane: membrane.snapshot()
         )
         XCTAssertEqual(image.size.width / image.size.height,
                        140.0 / 88.0, accuracy: 0.000_001)
@@ -172,6 +183,39 @@ final class ShapedownTests: XCTestCase {
         XCTAssertGreaterThan(built,
                              field.energy(at: CGPoint(x: 0.95, y: 0.95), now: 1))
         XCTAssertLessThan(field.energy(at: point, now: 3), built)
+    }
+
+    func testMembraneSimulationPinsRimAndPropagatesAcrossSurface() {
+        var membrane = TrackpadMembraneSimulation()
+        membrane.reset(at: 1)
+        membrane.impulse(at: CGPoint(x: 0.5, y: 0.5), amount: 1)
+        membrane.advance(to: 1.12, touches: [])
+        let snapshot = membrane.snapshot()
+        XCTAssertEqual(snapshot.height(at: CGPoint(x: 0, y: 0.5)), 0,
+                       accuracy: 0.000_001)
+        XCTAssertGreaterThan(abs(snapshot.height(at: CGPoint(x: 0.5, y: 0.5))),
+                             0.01)
+        XCTAssertGreaterThan(abs(snapshot.height(at: CGPoint(x: 0.65, y: 0.5))),
+                             0.000_1)
+    }
+
+    func testReleasedMembraneRingsDownWithoutInstability() {
+        var membrane = TrackpadMembraneSimulation()
+        membrane.reset(at: 1)
+        membrane.impulse(at: CGPoint(x: 0.42, y: 0.58), amount: 1)
+        var now = 1.0
+        for _ in 0..<18 {
+            now += 1.0 / 60.0
+            membrane.advance(to: now, touches: [])
+        }
+        let earlyPeak = membrane.snapshot().heights.map(abs).max() ?? 0
+        for _ in 0..<180 {
+            now += 1.0 / 60.0
+            membrane.advance(to: now, touches: [])
+        }
+        let late = membrane.snapshot().heights
+        XCTAssertTrue(late.allSatisfy(\.isFinite))
+        XCTAssertLessThan(late.map(abs).max() ?? 0, earlyPeak)
     }
 
     func testFullestShapeSurvivesStaggeredFourFingerLift() {
@@ -284,6 +328,124 @@ final class ShapedownTests: XCTestCase {
             clicked: false), 1, accuracy: 0.000_001)
         XCTAssertEqual(AppDelegate.physicalClickScratchMultiplier(
             clicked: true), 1.55, accuracy: 0.000_001)
+    }
+
+    func testTabSelectedPerformanceFXDoesNotAutoEndWithoutHeldNote() {
+        XCTAssertFalse(AppDelegate.shouldAutoEndTrackpadFX(
+            performanceSessionActive: true,
+            keyboardNotesHeld: false
+        ))
+    }
+
+    func testTabOnlyTogglesPhysicalSkinAndPitchBend() {
+        XCTAssertEqual(AppDelegate.trackpadPadModeAfterTab(.skin), .fx)
+        XCTAssertEqual(AppDelegate.trackpadPadModeAfterTab(.fx), .skin)
+        XCTAssertEqual(AppDelegate.trackpadPadModeAfterTab(.synth), .fx)
+        XCTAssertEqual(AppDelegate.trackpadPadModeAfterTab(.kit), .fx)
+    }
+
+    func testOrdinaryPitchBendFXStillEndsAfterRelease() {
+        XCTAssertTrue(AppDelegate.shouldAutoEndTrackpadFX(
+            performanceSessionActive: false,
+            keyboardNotesHeld: false
+        ))
+        XCTAssertFalse(AppDelegate.shouldAutoEndTrackpadFX(
+            performanceSessionActive: false,
+            keyboardNotesHeld: true
+        ))
+    }
+
+    func testTransientKeyboardDrumSurfaceEndsAfterRelease() {
+        XCTAssertTrue(AppDelegate.shouldOpenTransientTrackpadSurface(
+            keyboardNotesHeld: true,
+            modeLatched: false
+        ))
+        XCTAssertTrue(AppDelegate.shouldPersistKeyboardOpenedTrackpadSurface(
+            localCaptureArmed: true
+        ), "menubar-key focus must keep the drum alive between taps")
+        XCTAssertFalse(AppDelegate.shouldPersistKeyboardOpenedTrackpadSurface(
+            localCaptureArmed: false
+        ), "a global TYPE-mode note should remain transient")
+        XCTAssertTrue(AppDelegate.shouldEndTrackpadSessionAfterNoteChange(
+            isLatched: true,
+            performanceSessionActive: false,
+            keyboardNotesHeld: false
+        ), "a note-opened drum surface must restore the system cursor")
+        XCTAssertFalse(AppDelegate.shouldEndTrackpadSessionAfterNoteChange(
+            isLatched: true,
+            performanceSessionActive: true,
+            keyboardNotesHeld: false
+        ), "explicit quiet focus owns the drum surface until focus exits")
+        XCTAssertFalse(AppDelegate.shouldFadeTrackpadOverlayAfterLift(
+            performanceSessionActive: true
+        ), "a focused drum chart should remain visible between taps")
+        XCTAssertTrue(AppDelegate.shouldFadeTrackpadOverlayAfterLift(
+            performanceSessionActive: false
+        ))
+    }
+
+    func testAbsoluteTrackpadFXMapsCenterToNeutral() {
+        let values = AppDelegate.absoluteTrackpadFXValues(
+            at: CGPoint(x: 0.5, y: 0.5), bendRange: 2, echoEnabled: true
+        )
+        XCTAssertEqual(values.bend, 0, accuracy: 0.000_001)
+        XCTAssertEqual(values.fxX, 0, accuracy: 0.000_001)
+        XCTAssertEqual(values.space, 0, accuracy: 0.000_001)
+        XCTAssertEqual(values.echo, 0, accuracy: 0.000_001)
+    }
+
+    func testAbsoluteTrackpadFXMapsCornersToPitchAndEffects() {
+        let upperRight = AppDelegate.absoluteTrackpadFXValues(
+            at: CGPoint(x: 1, y: 1), bendRange: 2, echoEnabled: true
+        )
+        XCTAssertEqual(upperRight.bend, 2, accuracy: 0.000_001)
+        XCTAssertEqual(upperRight.echo, 1, accuracy: 0.000_001)
+        XCTAssertEqual(upperRight.space, 0, accuracy: 0.000_001)
+
+        let lowerLeft = AppDelegate.absoluteTrackpadFXValues(
+            at: CGPoint(x: 0, y: 0), bendRange: 2, echoEnabled: true
+        )
+        XCTAssertEqual(lowerLeft.bend, -2, accuracy: 0.000_001)
+        XCTAssertEqual(lowerLeft.echo, 0, accuracy: 0.000_001)
+        XCTAssertEqual(lowerLeft.space, 1, accuracy: 0.000_001)
+    }
+
+    func testAbsoluteTrackpadFXKeepsDisabledEchoHalfNeutral() {
+        let values = AppDelegate.absoluteTrackpadFXValues(
+            at: CGPoint(x: 1, y: 0.5), bendRange: 2, echoEnabled: false
+        )
+        XCTAssertEqual(values.fxX, 0, accuracy: 0.000_001)
+        XCTAssertEqual(values.echo, 0, accuracy: 0.000_001)
+        XCTAssertEqual(values.space, 0, accuracy: 0.000_001)
+    }
+
+    func testPitchBendKeepsOnePrimaryTrackpadContact() {
+        var primary = TrackpadPrimaryContact()
+        let first = TrackpadContact(
+            identifier: 41, point: CGPoint(x: 0.2, y: 0.3), state: 3
+        )
+        let extra = TrackpadContact(
+            identifier: 42, point: CGPoint(x: 0.8, y: 0.9), state: 3
+        )
+        XCTAssertEqual(primary.update([first]), first.point)
+        XCTAssertEqual(primary.update([extra, first]), first.point)
+        XCTAssertEqual(primary.identifier, first.identifier)
+    }
+
+    func testPitchBendDoesNotHandOffUntilEveryFingerLifts() {
+        var primary = TrackpadPrimaryContact()
+        let first = TrackpadContact(
+            identifier: 51, point: CGPoint(x: 0.2, y: 0.3), state: 3
+        )
+        let extra = TrackpadContact(
+            identifier: 52, point: CGPoint(x: 0.8, y: 0.9), state: 4
+        )
+        _ = primary.update([first])
+        XCTAssertNil(primary.update([extra]))
+        XCTAssertEqual(primary.identifier, first.identifier)
+        XCTAssertNil(primary.update([]))
+        XCTAssertNil(primary.identifier)
+        XCTAssertEqual(primary.update([extra]), extra.point)
     }
 
     func testSamePadReplacementRetriggersKitVoice() {

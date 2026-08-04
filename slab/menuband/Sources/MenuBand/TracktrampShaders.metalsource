@@ -1,0 +1,157 @@
+#include <metal_stdlib>
+using namespace metal;
+
+struct TracktrampVertexOut {
+    float4 position [[position]];
+    float2 uv;
+};
+
+struct TracktrampUniforms {
+    uint columns;
+    uint rows;
+    float warp;
+    float lighting;
+    uint touchCount;
+    uint padding;
+    float4 accent;
+    float4 zoneLevels;
+    float clickLevel;
+    float3 zonePadding;
+};
+
+vertex TracktrampVertexOut tracktramp_vertex(uint id [[vertex_id]]) {
+    const float2 positions[4] = {
+        float2(-1.0, -1.0), float2(1.0, -1.0),
+        float2(-1.0,  1.0), float2(1.0,  1.0)
+    };
+    TracktrampVertexOut out;
+    out.position = float4(positions[id], 0.0, 1.0);
+    out.uv = positions[id] * 0.5 + 0.5; // normalized, bottom-left
+    return out;
+}
+
+static float membraneHeight(device const float *heights, uint columns,
+                             uint rows, float2 uv) {
+    float2 grid = clamp(uv, 0.0, 1.0) * float2(columns - 1, rows - 1);
+    uint2 a = uint2(floor(grid));
+    uint2 b = min(a + 1, uint2(columns - 1, rows - 1));
+    float2 f = fract(grid);
+    float bottom = mix(heights[a.y * columns + a.x],
+                       heights[a.y * columns + b.x], f.x);
+    float top = mix(heights[b.y * columns + a.x],
+                    heights[b.y * columns + b.x], f.x);
+    return mix(bottom, top, f.y);
+}
+
+fragment float4 tracktramp_fragment(
+    TracktrampVertexOut in [[stage_in]],
+    texture2d<float> base [[texture(0)]],
+    device const float *heights [[buffer(0)]],
+    constant TracktrampUniforms &u [[buffer(1)]],
+    device const float2 *touches [[buffer(2)]]) {
+    constexpr sampler linearSampler(coord::normalized, address::clamp_to_edge,
+                                    filter::linear);
+    float2 cell = 1.0 / float2(u.columns - 1, u.rows - 1);
+    float left = membraneHeight(heights, u.columns, u.rows,
+                                in.uv - float2(cell.x, 0));
+    float right = membraneHeight(heights, u.columns, u.rows,
+                                 in.uv + float2(cell.x, 0));
+    float below = membraneHeight(heights, u.columns, u.rows,
+                                 in.uv - float2(0, cell.y));
+    float above = membraneHeight(heights, u.columns, u.rows,
+                                 in.uv + float2(0, cell.y));
+    float centerHeight = membraneHeight(heights, u.columns, u.rows, in.uv);
+    float2 gradient = float2(right - left, above - below);
+
+    // The fixed rim smoothly kills displacement across the outer 12%.
+    float rimDistance = min(min(in.uv.x, 1.0 - in.uv.x),
+                            min(in.uv.y, 1.0 - in.uv.y));
+    float freeSkin = smoothstep(0.0, 0.12, rimDistance);
+    float2 warped = clamp(in.uv - gradient * u.warp * freeSkin, 0.0, 1.0);
+
+    // AppKit/CG textures have a top-left first row. This is the sole Y flip;
+    // simulation, touches, gradients, and shader UVs remain bottom-left.
+    float4 color = base.sample(linearSampler, float2(warped.x, 1.0 - warped.y));
+
+    // Enforce the 132×80pt chart's 8pt rounded silhouette in the final Metal
+    // pass. Texture filtering and alpha-first bitmap conversion must never be
+    // able to turn the transparent outer corners into a square panel.
+    float2 point = in.uv * float2(140.0, 88.0);
+    float2 center = float2(70.0, 44.0);
+    float2 halfSize = float2(66.0, 40.0);
+    float radius = 8.0;
+    float2 rounded = abs(point - center) - (halfSize - radius);
+    float signedDistance = length(max(rounded, 0.0))
+                         + min(max(rounded.x, rounded.y), 0.0) - radius;
+    float roundedMask = 1.0 - smoothstep(-0.65, 0.65, signedDistance);
+    color *= roundedMask;
+    float light = dot(gradient, normalize(float2(-0.55, 0.84)))
+                  * u.lighting * freeSkin;
+    // Accent follows symmetric membrane energy, not the directional lighting
+    // slope. This keeps the colored impact centered beneath the physical XY
+    // cursor instead of appearing offset toward the virtual light source.
+    float membraneEnergy = abs(centerHeight) * 0.42 + length(gradient) * 1.65;
+    float accentWave = clamp(membraneEnergy, 0.0, 0.44)
+                     * freeSkin * color.a;
+    color.rgb = mix(color.rgb, u.accent.rgb, accentWave);
+    color.rgb *= 1.0 + min(light, 0.0) * 2.2;
+    color.rgb = clamp(color.rgb, 0.0, 1.0);
+
+    // Illuminate the complete instrument band that was struck. These five
+    // levels decay on the CPU, so even a very quick tap leaves a readable
+    // accent afterglow over its nested rounded region.
+    float2 surface = (in.uv - 0.5) * 2.0;
+    const float halfWidth = 0.82;
+    const float halfHeight = 0.50;
+    const float corner = 0.055;
+    float2 roundedPoint = abs(surface) * float2(halfWidth, halfHeight);
+    float2 zoneQ = roundedPoint - float2(halfWidth - corner,
+                                        halfHeight - corner);
+    float zoneOutside = length(max(zoneQ, 0.0));
+    float zoneInside = min(max(zoneQ.x, zoneQ.y), 0.0);
+    float zoneSignedDistance = zoneOutside + zoneInside - corner;
+    float zoneDistance = 1.0 - clamp(max(0.0, -zoneSignedDistance)
+                                     / halfHeight, 0.0, 1.0);
+    float zoneLevel = zoneDistance < 0.30 ? u.zoneLevels.x
+                    : zoneDistance < 0.46 ? u.zoneLevels.y
+                    : zoneDistance < 0.64 ? u.zoneLevels.z
+                    : zoneDistance < 0.88 ? u.zoneLevels.w
+                                          : u.clickLevel;
+    color.rgb = mix(color.rgb, u.accent.rgb,
+                    zoneLevel * 0.28 * roundedMask * color.a);
+
+    // Tie the chassis to the same accent used by Menu Band's active keys.
+    // Restrict tinting to a narrow band of already-opaque rim pixels so the
+    // transparent rounded corners remain clean.
+    float accentRim = (1.0 - smoothstep(0.045, 0.075, rimDistance)) * color.a;
+    color.rgb = mix(color.rgb, u.accent.rgb, accentRim * 0.22);
+
+    // Crisp cursor-like contacts stay in physical bottom-left XY space; they
+    // identify the finger, while the ink underneath shows the deformation.
+    float contactOutline = 0.0;
+    float contactWhite = 0.0;
+    float contactCore = 0.0;
+    for (uint i = 0; i < u.touchCount; ++i) {
+        // Preserve the true normalized touch for membrane physics, but inset
+        // the cursor's visual center by its outer radius. Edge contacts remain
+        // fully visible instead of losing half their high-contrast ring beyond
+        // the drawable/rounded silhouette.
+        const float cursorRadius = 6.8;
+        float2 cursorInset = cursorRadius / float2(140.0, 88.0);
+        float2 cursorTouch = clamp(touches[i], cursorInset, 1.0 - cursorInset);
+        float2 pixelDelta = (in.uv - cursorTouch) * float2(140.0, 88.0);
+        float distance = length(pixelDelta);
+        contactOutline = max(contactOutline,
+                             1.0 - smoothstep(5.9, 6.45, distance));
+        contactWhite = max(contactWhite,
+                           1.0 - smoothstep(4.35, 4.85, distance));
+        contactCore = max(contactCore,
+                          1.0 - smoothstep(2.0, 2.5, distance));
+    }
+    color.rgb = mix(color.rgb, float3(0.025), contactOutline);
+    float3 contactTint = mix(float3(1.0), u.accent.rgb, 0.24);
+    color.rgb = mix(color.rgb, contactTint, contactWhite);
+    color.rgb = mix(color.rgb, u.accent.rgb, contactCore);
+    color.a = max(color.a, contactOutline);
+    return color;
+}

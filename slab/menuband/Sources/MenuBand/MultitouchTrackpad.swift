@@ -41,6 +41,31 @@ struct TrackpadContactChanges {
     }
 }
 
+/// Keeps an absolute-control surface tied to the finger that started it.
+/// Additional contacts are ignored, and an already-resting contact cannot
+/// take over when the primary lifts; all fingers must lift before re-arming.
+struct TrackpadPrimaryContact {
+    private(set) var identifier: Int32?
+
+    mutating func update(_ contacts: [TrackpadContact]) -> CGPoint? {
+        let active = contacts.filter(\.isActive)
+        if let identifier {
+            if let primary = active.first(where: { $0.identifier == identifier }) {
+                return primary.point
+            }
+            if active.isEmpty { self.identifier = nil }
+            return nil
+        }
+        guard let primary = active.first else { return nil }
+        identifier = primary.identifier
+        return primary.point
+    }
+
+    mutating func reset() {
+        identifier = nil
+    }
+}
+
 // MultitouchTrackpad — global trackpad-finger tap via Apple's PRIVATE
 // MultitouchSupport.framework. Unlike NSTouch (which only reaches the
 // frontmost app's first responder), this receives every finger on every
