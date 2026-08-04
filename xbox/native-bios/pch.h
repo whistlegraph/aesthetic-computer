@@ -29,7 +29,10 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
+#include <cstring>
+#include <cctype>
 #include <cwctype>
+#include <deque>
 #include <functional>
 #include <limits>
 #include <memory>

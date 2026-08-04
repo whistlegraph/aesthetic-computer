@@ -101,6 +101,40 @@ static std::int64_t SystemUnixMs() {
     (ticks.QuadPart - 116444736000000000ULL) / 10000ULL);
 }
 
+static void OscString(std::vector<uint8_t>& packet, const std::string& value) {
+  packet.insert(packet.end(), value.begin(), value.end());
+  packet.push_back(0);
+  while (packet.size() % 4) packet.push_back(0);
+}
+
+static void OscInt(std::vector<uint8_t>& packet, std::int32_t value) {
+  const auto bits = static_cast<std::uint32_t>(value);
+  packet.push_back(static_cast<uint8_t>(bits >> 24));
+  packet.push_back(static_cast<uint8_t>(bits >> 16));
+  packet.push_back(static_cast<uint8_t>(bits >> 8));
+  packet.push_back(static_cast<uint8_t>(bits));
+}
+
+static void OscFloat(std::vector<uint8_t>& packet, float value) {
+  std::uint32_t bits = 0;
+  static_assert(sizeof(bits) == sizeof(value), "OSC float size");
+  std::memcpy(&bits, &value, sizeof(bits));
+  OscInt(packet, static_cast<std::int32_t>(bits));
+}
+
+static std::vector<uint8_t> GameSignalPacket(std::string_view event, int player,
+    float value, float value2, std::uint32_t sequence) {
+  std::vector<uint8_t> packet;
+  packet.reserve(80);
+  OscString(packet, "/oskiewar/" + std::string(event));
+  OscString(packet, ",iffi");
+  OscInt(packet, player);
+  OscFloat(packet, value);
+  OscFloat(packet, value2);
+  OscInt(packet, static_cast<std::int32_t>(sequence));
+  return packet;
+}
+
 // Howard Hinnant's civil-date transform, used here to parse the fixed ISO-8601
 // response from /api/clock without depending on locale-sensitive date parsing.
 static std::int64_t ParseIsoUnixMs(const std::string& value) {
@@ -314,12 +348,22 @@ public:
     };
     m_sound->get_rate = [this]() { return static_cast<int>(m_sampleRate); };
     m_api = std::make_unique<Api>(Api{{1920, 1080, 1}, {}, {}, {}, *m_graphics, *m_sound, {}});
-    m_api->system.version = "1.0.0.28";
+    m_api->system.version = "1.0.0.29";
     m_api->telemetry = [](std::string_view line) {
       std::string safe(line);
       for (auto& character : safe) if (character == '\n' || character == '\r') character = ' ';
       if (safe.size() > 1024) safe.resize(1024);
       LogTelemetry("AC_NATIVE_" + safe);
+    };
+    m_api->game_signal = [this](std::string_view event, int player, float value,
+        float value2) {
+      std::lock_guard<std::mutex> lock(m_gameSignalMutex);
+      if (m_gameSignalQueue.size() >= 64) {
+        ++m_gameSignalsDropped;
+        return;
+      }
+      m_gameSignalQueue.push_back(GameSignalPacket(event, player, value, value2,
+        ++m_gameSignalSequence));
     };
     m_photoDisc = std::make_unique<PhotoDiscService>(*m_api,
       [this](std::shared_ptr<const PhotoDiscImage> image) {
@@ -328,6 +372,7 @@ public:
       }, [](const std::string& line) { LogTelemetry(line); });
     InitializeMidi();
     InitializeNetworkMidi();
+    InitializeGameSignals();
     RefreshCapabilities(true);
     RefreshAcData(true);
     RefreshNetworkClock(true);
@@ -345,7 +390,9 @@ public:
   }
 
   virtual void Load(String^) {}
-  virtual void Uninitialize() { DestroyNetworkMidi(); DestroyMidi(); DestroyAudio(); }
+  virtual void Uninitialize() {
+    DestroyGameSignals(); DestroyNetworkMidi(); DestroyMidi(); DestroyAudio();
+  }
 
   virtual void Run() {
     Render({0.025f, 0.02f, 0.04f, 1.0f});
@@ -363,6 +410,7 @@ public:
       PollController();
       PollMidi();
       PollLivePiece();
+      FlushGameSignals();
       RefreshClock();
       RefreshAudioPerformance();
       m_frameRects.clear();
@@ -469,6 +517,12 @@ private:
     desc.AlphaMode = DXGI_ALPHA_MODE_IGNORE;
     Check(factory->CreateSwapChainForCoreWindow(
       m_device.Get(), reinterpret_cast<IUnknown*>(m_window), &desc, nullptr, &m_swapChain));
+    ComPtr<IDXGISwapChain2> latencySwapChain;
+    if (SUCCEEDED(m_swapChain.As(&latencySwapChain))) {
+      const auto latencyResult = latencySwapChain->SetMaximumFrameLatency(1);
+      LogTelemetry("AC_NATIVE_FRAME_LATENCY max=1 status=" +
+        std::to_string(static_cast<long>(latencyResult)));
+    }
 
     Check(m_swapChain->GetBuffer(0, IID_PPV_ARGS(&m_backBuffer)));
     D3D11_TEXTURE2D_DESC backBufferDesc{};
@@ -1117,6 +1171,58 @@ private:
     m_midiNetworkSocket = nullptr;
   }
 
+  void InitializeGameSignals() {
+    if (m_gameSignalSocket) return;
+    m_gameSignalSocket = ref new DatagramSocket();
+    auto host = ref new Windows::Networking::HostName(L"255.255.255.255");
+    create_task(m_gameSignalSocket->GetOutputStreamAsync(host, ref new String(L"51338")))
+      .then([this](task<IOutputStream^> completed) {
+        try {
+          m_gameSignalOutput = completed.get();
+          LogTelemetry("AC_NATIVE_OSKIEWAR_SIGNAL ready=1 host=255.255.255.255 port=51338 protocol=osc");
+        } catch (Exception^ error) {
+          LogTelemetry("AC_NATIVE_OSKIEWAR_SIGNAL_ERROR " + Utf8(error->Message));
+        }
+      });
+  }
+
+  void FlushGameSignals() {
+    if (!m_gameSignalOutput || m_gameSignalWriteInFlight.load()) return;
+    std::vector<uint8_t> packet;
+    {
+      std::lock_guard<std::mutex> lock(m_gameSignalMutex);
+      if (m_gameSignalQueue.empty()) return;
+      packet = std::move(m_gameSignalQueue.front());
+      m_gameSignalQueue.pop_front();
+    }
+    bool expected = false;
+    if (!m_gameSignalWriteInFlight.compare_exchange_strong(expected, true)) return;
+    auto writer = ref new DataWriter(m_gameSignalOutput);
+    writer->WriteBytes(ref new Array<uint8_t>(packet.data(),
+      static_cast<unsigned>(packet.size())));
+    create_task(writer->StoreAsync()).then([this, writer](task<unsigned> completed) {
+      try { completed.get(); }
+      catch (Exception^ error) {
+        LogTelemetry("AC_NATIVE_OSKIEWAR_SIGNAL_SEND_ERROR " + Utf8(error->Message));
+      }
+      writer->DetachStream();
+      delete writer;
+      m_gameSignalWriteInFlight = false;
+    });
+  }
+
+  void DestroyGameSignals() {
+    if (m_api) m_api->game_signal = {};
+    m_gameSignalOutput = nullptr;
+    if (m_gameSignalSocket) {
+      delete m_gameSignalSocket;
+      m_gameSignalSocket = nullptr;
+    }
+    const auto dropped = m_gameSignalsDropped.load();
+    if (dropped) LogTelemetry("AC_NATIVE_OSKIEWAR_SIGNAL dropped=" +
+      std::to_string(dropped));
+  }
+
   void OnNetworkMidiMessage(DatagramSocket^, DatagramSocketMessageReceivedEventArgs^ args) {
     if (!args) return;
     try {
@@ -1326,15 +1432,24 @@ private:
   }
 
   void PollController() {
+    LARGE_INTEGER pollStart{}, pollEnd{}, frequency{};
+    QueryPerformanceCounter(&pollStart);
+    QueryPerformanceFrequency(&frequency);
     const auto pads = Gamepad::Gamepads;
     m_api->gamepad.down.clear();
     m_api->gamepad.pads.clear();
     if (pads->Size == 0) {
       m_previousButtons = 0;
+      m_previousLatencyButtons.fill(0);
+      m_previousLatencyGateX.fill(0);
+      m_previousLatencyGateY.fill(0);
       m_api->gamepad.connected = false;
       m_api->gamepad.left_x = m_api->gamepad.left_y = 0;
       m_api->gamepad.right_x = m_api->gamepad.right_y = 0;
       m_api->gamepad.left_trigger = m_api->gamepad.right_trigger = 0;
+      QueryPerformanceCounter(&pollEnd);
+      m_lastControllerPollUs = (pollEnd.QuadPart - pollStart.QuadPart) *
+        1000000.0 / frequency.QuadPart;
       return;
     }
     struct ButtonName { GamepadButtons bit; const char* name; };
@@ -1351,6 +1466,8 @@ private:
     };
 
     unsigned buttons = 0;
+    bool latencyEdge = false;
+    unsigned latencyPad = 0;
     for (unsigned index = 0; index < pads->Size; ++index) {
       const auto reading = pads->GetAt(index)->GetCurrentReading();
       PadState state;
@@ -1362,10 +1479,30 @@ private:
       state.left_trigger = static_cast<float>(reading.LeftTrigger);
       state.right_trigger = static_cast<float>(reading.RightTrigger);
       const unsigned padButtons = static_cast<unsigned>(reading.Buttons);
+      const int gateX = std::abs(state.left_x) >= .48f ? (state.left_x > 0 ? 1 : -1) : 0;
+      const int gateY = std::abs(state.left_y) >= .48f ? (state.left_y > 0 ? 1 : -1) : 0;
+      if (index < m_previousLatencyButtons.size()) {
+        if (padButtons != m_previousLatencyButtons[index] ||
+            gateX != m_previousLatencyGateX[index] || gateY != m_previousLatencyGateY[index]) {
+          latencyEdge = true;
+          latencyPad = index;
+        }
+        m_previousLatencyButtons[index] = padButtons;
+        m_previousLatencyGateX[index] = gateX;
+        m_previousLatencyGateY[index] = gateY;
+      }
       for (const auto& named : names)
         if (padButtons & static_cast<unsigned>(named.bit)) state.down.insert(named.name);
       if (index == 0) buttons = padButtons;
       m_api->gamepad.pads.push_back(std::move(state));
+    }
+    QueryPerformanceCounter(&pollEnd);
+    m_lastControllerPollUs = (pollEnd.QuadPart - pollStart.QuadPart) *
+      1000000.0 / frequency.QuadPart;
+    if (latencyEdge) {
+      m_lastControllerEdgeQpc = pollEnd.QuadPart;
+      m_lastControllerEdgePad = latencyPad;
+      m_controllerEdgePending = true;
     }
 
     const auto& first = m_api->gamepad.pads.front();
@@ -1443,7 +1580,7 @@ private:
     if (!m_networkClockRequestInFlight.compare_exchange_strong(expected, true)) return;
     const auto sentAt = SystemUnixMs();
     auto client = ref new HttpClient();
-    client->DefaultRequestHeaders->UserAgent->ParseAdd("AC-Native-BIOS/1.0.0.27 Xbox ClockSync");
+    client->DefaultRequestHeaders->UserAgent->ParseAdd("AC-Native-BIOS/1.0.0.29 Xbox ClockSync");
     create_task(client->GetStringAsync(
       ref new Uri(L"https://aesthetic.computer/api/clock")))
       .then([this, client, sentAt](task<String^> completed) {
@@ -1550,7 +1687,7 @@ private:
     if (!m_acRequestInFlight.compare_exchange_strong(expected, true)) return;
 
     auto client = ref new HttpClient();
-    client->DefaultRequestHeaders->UserAgent->ParseAdd("AC-Native-BIOS/1.0.0.17 Xbox");
+    client->DefaultRequestHeaders->UserAgent->ParseAdd("AC-Native-BIOS/1.0.0.29 Xbox");
     std::vector<task<String^>> requests;
     requests.push_back(create_task(client->GetStringAsync(
       ref new Uri(L"https://aesthetic.computer/api/mood/moods-of-the-day"))));
@@ -2013,6 +2150,17 @@ private:
       1000.0 / frequency.QuadPart;
     m_lastPresentMs = (afterPresent.QuadPart - beforePresent.QuadPart) *
       1000.0 / frequency.QuadPart;
+    if (m_controllerEdgePending) {
+      const auto edgeToPresentMs = (afterPresent.QuadPart - m_lastControllerEdgeQpc) *
+        1000.0 / frequency.QuadPart;
+      LogTelemetry("AC_NATIVE_INPUT_LATENCY pad=" +
+        std::to_string(m_lastControllerEdgePad + 1) + " edgeToPresentMs=" +
+        std::to_string(edgeToPresentMs) + " pollUs=" +
+        std::to_string(m_lastControllerPollUs) + " renderCpuMs=" +
+        std::to_string(m_lastRenderCpuMs) + " presentMs=" +
+        std::to_string(m_lastPresentMs));
+      m_controllerEdgePending = false;
+    }
     if (FAILED(hr) && hr != DXGI_STATUS_OCCLUDED) Check(hr);
   }
 
@@ -2020,6 +2168,13 @@ private:
   bool m_closed = false;
   bool m_needsIdleFrame = false;
   unsigned m_previousButtons = 0;
+  std::array<unsigned, 4> m_previousLatencyButtons{};
+  std::array<int, 4> m_previousLatencyGateX{};
+  std::array<int, 4> m_previousLatencyGateY{};
+  long long m_lastControllerEdgeQpc = 0;
+  unsigned m_lastControllerEdgePad = 0;
+  bool m_controllerEdgePending = false;
+  double m_lastControllerPollUs = 0;
   unsigned m_flashFrames = 0;
   unsigned m_rateIndex = 1;
   unsigned long long m_livePieceSignature = 0;
@@ -2118,6 +2273,13 @@ private:
   std::atomic_bool m_midiNetworkFailed{false};
   std::atomic_bool m_midiNetworkActive{false};
   std::atomic_uint64_t m_midiNetworkPackets{0};
+  DatagramSocket^ m_gameSignalSocket = nullptr;
+  IOutputStream^ m_gameSignalOutput = nullptr;
+  std::mutex m_gameSignalMutex;
+  std::deque<std::vector<uint8_t>> m_gameSignalQueue;
+  std::atomic_bool m_gameSignalWriteInFlight{false};
+  std::atomic_uint64_t m_gameSignalsDropped{0};
+  std::uint32_t m_gameSignalSequence = 0;
   std::vector<int16_t> m_samples;
   std::vector<int16_t> m_oscSamples;
   std::vector<uint32_t> m_cpuFrame;

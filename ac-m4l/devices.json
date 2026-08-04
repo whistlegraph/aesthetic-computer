@@ -1,6 +1,16 @@
 {
   "devices": [
     {
+      "name": "OSKIEWAR",
+      "piece": "oskiewar",
+      "description": "Receives OSKIEWAR OSC from Xbox over the local network and emits MIDI notes plus position/clock CCs for sound design.",
+      "width": 360,
+      "height": 120,
+      "type": "midi",
+      "source": "AC-OSKIEWAR.amxd.json",
+      "version": "1.0.0"
+    },
+    {
       "name": "notepat.com",
       "piece": "notepat-remote",
       "description": "Play the notepat keyboard in any Ableton MIDI track — stacked octaves, qwerty pads, live track-color theming. Primary distribution @ https://notepat.com/amxd.",

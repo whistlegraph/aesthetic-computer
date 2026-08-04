@@ -444,6 +444,31 @@ JSValue Telemetry(JSContext* context, JSValueConst, int argc, JSValueConst* argv
   return JS_UNDEFINED;
 }
 
+JSValue GameSignal(JSContext* context, JSValueConst, int argc, JSValueConst* argv) {
+  auto* scope = static_cast<CallScope*>(JS_GetContextOpaque(context));
+  if (!scope || !scope->api || !scope->api->game_signal || argc < 1)
+    return JS_UNDEFINED;
+  const char* rawEvent = JS_ToCString(context, argv[0]);
+  if (!rawEvent) return JS_EXCEPTION;
+  std::string event(rawEvent);
+  JS_FreeCString(context, rawEvent);
+  if (event.empty() || event.size() > 32 ||
+      !std::all_of(event.begin(), event.end(), [](unsigned char character) {
+        return std::isalnum(character) || character == '_' || character == '-';
+      })) return JS_ThrowRangeError(context, "invalid game signal event");
+  int32_t player = -1;
+  double value = 0, value2 = 0;
+  if ((argc > 1 && JS_ToInt32(context, &player, argv[1])) ||
+      (argc > 2 && JS_ToFloat64(context, &value, argv[2])) ||
+      (argc > 3 && JS_ToFloat64(context, &value2, argv[3]))) return JS_EXCEPTION;
+  if (player < -1 || player > 3 || !std::isfinite(value) || !std::isfinite(value2) ||
+      std::abs(value) > 1000000 || std::abs(value2) > 1000000)
+    return JS_ThrowRangeError(context, "invalid game signal payload");
+  scope->api->game_signal(event, player, static_cast<float>(value),
+    static_cast<float>(value2));
+  return JS_UNDEFINED;
+}
+
 JSValue RuntimeInfo(JSContext* context, JSValueConst, int, JSValueConst*) {
   auto* scope = static_cast<CallScope*>(JS_GetContextOpaque(context));
   if (!scope || !scope->api) return JS_EXCEPTION;
@@ -675,6 +700,7 @@ class QuickJsPiece final : public JsPiece {
     JS_SetPropertyStr(context_, global, "stampPainting", JS_NewCFunction(context_, StampPainting, "stampPainting", 4));
     JS_SetPropertyStr(context_, global, "blur", JS_NewCFunction(context_, Blur, "blur", 1));
     JS_SetPropertyStr(context_, global, "telemetry", JS_NewCFunction(context_, Telemetry, "telemetry", 2));
+    JS_SetPropertyStr(context_, global, "gameSignal", JS_NewCFunction(context_, GameSignal, "gameSignal", 4));
     JS_SetPropertyStr(context_, global, "runtime", JS_NewCFunction(context_, RuntimeInfo, "runtime", 0));
     JS_SetPropertyStr(context_, global, "gamepad", JS_NewCFunction(context_, GamepadState, "gamepad", 1));
     JS_SetPropertyStr(context_, global, "controllers", JS_NewCFunction(context_, Controllers, "controllers", 0));

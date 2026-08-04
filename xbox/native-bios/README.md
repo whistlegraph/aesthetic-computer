@@ -22,7 +22,9 @@ Current bindings are `wipe`, queued `box`, `line`, bitmap `write`, native
 MenuBand-derived `drum`, continuous `oscillator` / `oscillatorStop`, `controllers`,
 indexed `gamepad(0)` / `gamepad(1)` snapshots (plain `gamepad()` remains Player 1),
 `capabilities`, `runtime`, the host-mediated `ac` feed, and bounded structured
-`telemetry`. Revision 25 adds the host-mediated `disc`, `discScan`, `discShow`,
+`telemetry`. Revision 29 adds bounded `gameSignal(event, player, value, value2)`
+OSC output to UDP `51338`; the host fixes the LAN broadcast destination and
+pieces never receive a general socket. Revision 25 adds the host-mediated `disc`, `discScan`, `discShow`,
 `discPhoto`, and `discCopy` photo-disc surface. The `ac` snapshot polls only declared Aesthetic Computer mood,
 clock-chat, and painting endpoints; sandboxed pieces do not receive a general
 HTTP primitive. Runtime failures roll back to the last known good piece.
@@ -58,6 +60,11 @@ swift xbox/tools/midi-bridge.swift <xbox-host> reface
 The bridge reads CoreMIDI, prints the live event stream, and sends one compact
 UDP datagram per musical event. The Xbox HUD changes from
 `NETWORK-LISTENING :51337` to `NETWORK: REFACE YC` after the first packet.
+
+Revision 29 also caps the DXGI frame queue at one and records controller-edge
+to-present latency as `AC_NATIVE_INPUT_LATENCY`. OSKIEWAR emits OSC addresses
+under `/oskiewar/*` on UDP `51338`; `ac-m4l/AC-OSKIEWAR.amxd.json` turns combat
+events into notes and player position / round clock into CC20–24.
 
 Revision 13 also exposes bounded `stampPainting` and `blur` primitives to the
 trusted host-side KidLisp compiler. See [`../KIDLISP-NATIVE.md`](../KIDLISP-NATIVE.md)

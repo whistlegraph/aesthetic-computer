@@ -214,6 +214,9 @@ struct Api {
   // Sandboxed pieces can emit structured diagnostic lines without receiving
   // filesystem, process, Device Portal, or arbitrary WinRT access.
   std::function<void(std::string_view)> telemetry = {};
+  // A bounded, host-routed game signal. The host owns the destination and wire
+  // protocol; pieces can only choose a short event name and numeric payload.
+  std::function<void(std::string_view, int, float, float)> game_signal = {};
 };
 
 class Piece {

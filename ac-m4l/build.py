@@ -795,7 +795,15 @@ def build_all(production: bool = False, device_filter: str = None, install: bool
         
         # Install if requested
         if install:
-            install_path = Path.home() / "Music" / "Ableton" / "User Library" / "Presets" / "Audio Effects" / "Max Audio Effect"
+            install_subdirs = {
+                "effect": ("Audio Effects", "Max Audio Effect"),
+                "midi": ("MIDI Effects", "Max MIDI Effect"),
+                "instrument": ("Instruments", "Max Instrument"),
+            }
+            category, max_folder = install_subdirs.get(
+                device_type, install_subdirs["instrument"])
+            install_path = (Path.home() / "Music" / "Ableton" / "User Library" /
+                            "Presets" / category / max_folder)
             if install_path.exists():
                 import shutil
                 dest = install_path / filename
