@@ -11,13 +11,14 @@ function createFight() {
   const noOp = () => {};
   const fight = new Function(
     "runtime", "gamepad", "telemetry", "gameSignal", "drum", "wipe", "box", "line", "write", "systemWrite",
-    `${source}\nreturn { boot, sim, players, bullets, grenades, pickups, runnerWorldGeometry, runnerDistanceToPoint, cameraState: () => ({ cameraWidth, cameraCenterY }), roundState: () => ({ roundResult, roundElapsedUs, matchOver }) };`
+    `${source}\nreturn { boot, sim, players, runnerWorldGeometry, runnerDistanceToPoint, disableBot: () => { botEnabled = false; }, cameraState: () => ({ cameraWidth, cameraCenterY }), roundState: () => ({ roundResult, roundElapsedUs, matchOver }) };`
   )(
     () => ({ monotonicUs: now }),
     (index = 0) => ({ ...pads[index], down: pads[index].down.slice() }),
     noOp, (...signal) => signals.push(signal), noOp, noOp, noOp, noOp, noOp, noOp
   );
   fight.boot();
+  fight.disableBot();
 
   const tick = (elapsedUs = 16667) => {
     now += elapsedUs;
@@ -33,25 +34,15 @@ function createFight() {
   return { fight, pads, signals, tick, tap, now: () => now };
 }
 
-test("combat and movement edges emit bounded Ableton signals", () => {
-  const { fight, signals, tap } = createFight();
+test("melee and movement edges emit bounded Ableton signals", () => {
+  const { signals, tap } = createFight();
   tap(0, "A");
   assert.ok(signals.some(([event, player]) => event === "kick" && player === 0));
-  fight.players[0].gunAmmo = 1;
-  tap(0, "A");
-  assert.ok(signals.some(([event, player]) => event === "bullet" && player === 0));
+  tap(0, "B");
+  assert.ok(signals.some(([event, player]) => event === "punch" && player === 0));
   tap(0, "ArrowRight");
   assert.ok(signals.some(([event, player, horizontal]) =>
     event === "move" && player === 0 && horizontal === 1));
-});
-
-test("gun fire follows quantized diagonal aim", () => {
-  const { fight, pads, tick } = createFight();
-  fight.players[0].gunAmmo = 1;
-  pads[0].down = ["ArrowUp", "A"];
-  tick();
-  assert.ok(fight.bullets[0].vx > 0);
-  assert.ok(fight.bullets[0].vy < 0);
 });
 
 test("double-tap directions trigger dash, ultra-jump, and fast-drop", () => {
@@ -102,20 +93,6 @@ test("hit detection follows the animated runner geometry", () => {
     player, 0, resting.head.x, resting.head.y, resting.head.z), 0);
   assert.ok(fight.runnerDistanceToPoint(
     player, 0, resting.head.x + 140, resting.head.y, resting.head.z) > 60);
-});
-
-test("grenade hit radius expands over time", () => {
-  const { fight, tap, tick } = createFight();
-  fight.players[0].grenadeAmmo = 1;
-  tap(0, "B");
-  const grenade = fight.grenades[0];
-  while (!grenade.exploding) tick(40000);
-  assert.equal(grenade.blastRadius, 0);
-  tick(40000);
-  const earlyRadius = grenade.blastRadius;
-  assert.ok(earlyRadius > 0 && earlyRadius < 620);
-  tick(200000);
-  assert.ok(grenade.blastRadius > earlyRadius && grenade.blastRadius < 620);
 });
 
 test("round clock can end in a tie and resets", () => {
