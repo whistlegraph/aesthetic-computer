@@ -14,12 +14,14 @@ const platformLeft = 4500;
 const platformRight = 7500;
 const platformY = 10400;
 const doubleTapUs = 280000;
+const doubleTapReleaseUs = 40000;
 const grenadeBlastDuration = .68;
 const grenadeBlastRadius = 620;
 const roundDurationUs = 30000000;
 const roundResultUs = 3000000;
 const matchResultUs = 5000000;
 const matchWins = 5;
+const pickupRespawnUs = 7000000;
 let cameraCenter = (worldLeft + worldRight) / 2;
 let cameraWidth = worldRight - worldLeft;
 let cameraCenterY = floorY - cameraWidth / cameraAspect / 2;
@@ -40,17 +42,34 @@ const players = [
     grounded: true, ducking: false, previous: [], lastButton: "NONE",
     lastButtonAt: -10000000, color: [255, 105, 190], hit: 0,
     alive: true, respawnAt: 0, score: 0, inputX: 0, inputY: 0,
-    lastTap: {}, dashUntil: 0, dashVx: 0, roundWins: 0 },
+    lastTap: {}, lastRelease: {}, dashUntil: 0, dashVx: 0, roundWins: 0,
+    gunAmmo: 0, grenadeAmmo: 0, attackKind: "", attackStartedAt: 0,
+    attackUntil: 0, attackHit: false },
   { name: "OSKIE", pad: 1, spawnX: 10000, x: 10000, y: floorY, z: 0,
     vx: 0, vy: 0, vz: 0, facing: -1,
     grounded: true, ducking: false, previous: [], lastButton: "NONE",
     lastButtonAt: -10000000, color: [255, 232, 92], hit: 0,
     alive: true, respawnAt: 0, score: 0, inputX: 0, inputY: 0,
-    lastTap: {}, dashUntil: 0, dashVx: 0, roundWins: 0 },
+    lastTap: {}, lastRelease: {}, dashUntil: 0, dashVx: 0, roundWins: 0,
+    gunAmmo: 0, grenadeAmmo: 0, attackKind: "", attackStartedAt: 0,
+    attackUntil: 0, attackHit: false },
 ];
 const bullets = [];
 const grenades = [];
 const impacts = [];
+const pickups = [
+  { type: "gun", amount: 6, x: 3000, y: floorY - 70, z: 0 },
+  { type: "grenade", amount: 2, x: 4200, y: floorY - 70, z: 0 },
+  { type: "gun", amount: 6, x: 9000, y: floorY - 70, z: 0 },
+  { type: "grenade", amount: 2, x: 7800, y: floorY - 70, z: 0 },
+  { type: "gun", amount: 4, x: 6000, y: platformY - 70, z: 0 },
+  { type: "grenade", amount: 2, x: 3500, y: 7200, z: 0 },
+  { type: "gun", amount: 4, x: 8500, y: 4400, z: 0 },
+];
+for (const pickup of pickups) {
+  pickup.active = true;
+  pickup.respawnAt = 0;
+}
 let padSnapshots = [null, null];
 let startedAt = 0;
 let lastSimAt = 0;
@@ -96,10 +115,21 @@ function resetRound(now, resetMatch = false) {
     if (resetMatch) player.roundWins = 0;
     player.inputX = 0;
     player.inputY = 0;
+    player.lastTap = {};
+    player.lastRelease = {};
     player.dashUntil = 0;
+    player.gunAmmo = 0;
+    player.grenadeAmmo = 0;
+    player.attackKind = "";
+    player.attackUntil = 0;
+    player.attackHit = false;
     player.previous = padSnapshots[player.pad]?.down?.slice() || [];
     player.lastButton = "NONE";
     player.lastButtonAt = -10000000;
+  }
+  for (const pickup of pickups) {
+    pickup.active = true;
+    pickup.respawnAt = 0;
   }
   roundResult = "";
   matchOver = false;
@@ -117,8 +147,8 @@ function updateCamera(dt) {
   const bottom = Math.max(players[0].y, players[1].y);
   const maxWidth = Math.max(worldRight - worldLeft,
     (floorY - ceilingY) * cameraAspect);
-  const desiredWidth = Math.max(5200, Math.min(maxWidth,
-    Math.max(right - left + 2400, (bottom - top + 1500) * cameraAspect)));
+  const desiredWidth = Math.max(1800, Math.min(maxWidth,
+    Math.max(right - left + 900, (bottom - top + 450) * cameraAspect)));
   const widthBlend = Math.min(1, dt * 3.2);
   cameraWidth += (desiredWidth - cameraWidth) * widthBlend;
   const halfWidth = cameraWidth / 2;
@@ -181,24 +211,31 @@ function remember(player, button) {
 
 function playButtonDrum(button, player) {
   const pan = player.pad === 0 ? -0.4 : 0.4;
-  if (button === "A") drum("hat", 1.05, pan);
-  else if (button === "B") drum("kick", 0.95, pan);
-  else if (button === "X") drum("hat", 0.9, pan);
+  if (button === "X") drum("hat", 0.9, pan);
   else if (button === "Y") drum("clap", 0.95, pan);
-  else if (!button.startsWith("Arrow")) drum("block", 0.75, pan);
+  else if (button !== "A" && button !== "B" && !button.startsWith("Arrow"))
+    drum("block", 0.75, pan);
 }
 
-function fire(player) {
+function fire(player, input) {
+  const aimX = input.horizontal || player.facing;
+  const aimY = -input.vertical;
+  const length = Math.hypot(aimX, aimY) || 1;
+  const dx = aimX / length;
+  const dy = aimY / length;
   bullets.push({
-    x: player.x + player.facing * 200,
-    y: player.y - (player.ducking ? 75 : 130),
+    x: player.x + dx * 180,
+    y: player.y - (player.ducking ? 75 : 130) + dy * 80,
     z: player.z,
-    vx: player.facing * 2100,
+    vx: dx * 2100,
+    vy: dy * 2100,
     owner: player.pad,
     life: 1.6,
   });
   while (bullets.length > 24) bullets.shift();
-  emitSignal("bullet", player.pad, player.facing, player.ducking ? 1 : 0);
+  player.gunAmmo -= 1;
+  drum("hat", 1.05, player.pad === 0 ? -.4 : .4);
+  emitSignal("bullet", player.pad, aimX, aimY);
 }
 
 function throwGrenade(player) {
@@ -208,13 +245,46 @@ function throwGrenade(player) {
     vy: -720, owner: player.pad, fuse: 1.15, alive: true,
     exploding: false, blastAge: 0, blastRadius: 0 });
   while (grenades.length > 12) grenades.shift();
+  player.grenadeAmmo -= 1;
+  drum("kick", .95, player.pad === 0 ? -.4 : .4);
   emitSignal("grenade", player.pad, player.facing, player.ducking ? 1 : 0);
+}
+
+function startMelee(player, kind, now) {
+  player.attackKind = kind;
+  player.attackStartedAt = now;
+  player.attackUntil = now + 220000;
+  player.attackHit = false;
+  player.pendingMoveLabel = kind;
+  const pan = player.pad === 0 ? -.4 : .4;
+  drum(kind === "KICK" ? "kick" : "snare", 1.05, pan);
+  emitSignal(kind.toLowerCase(), player.pad, player.facing, 0);
+}
+
+function meleePulse(player, now) {
+  if (now >= player.attackUntil || player.attackUntil <= player.attackStartedAt) return 0;
+  const phase = (now - player.attackStartedAt) /
+    (player.attackUntil - player.attackStartedAt);
+  return Math.sin(Math.max(0, Math.min(1, phase)) * Math.PI);
+}
+
+function meleeStrike(player, now) {
+  const pulse = meleePulse(player, now);
+  const reach = 70 + 150 * pulse;
+  return {
+    x: player.x + player.facing * reach,
+    y: player.y - (player.attackKind === "KICK" ? 55 : 115),
+    z: player.z,
+    radius: player.attackKind === "KICK" ? 35 : 28,
+  };
 }
 
 function directionTap(player, direction, now) {
   const previousTap = player.lastTap[direction] || -10000000;
+  const releasedAt = player.lastRelease[direction] || -10000000;
   player.lastTap[direction] = now;
-  if (now - previousTap > doubleTapUs) return;
+  if (now - previousTap > doubleTapUs || releasedAt <= previousTap ||
+      now - releasedAt < doubleTapReleaseUs) return;
   player.lastTap[direction] = -10000000;
   player.pendingMoveLabel = direction === "UP" ? "ULTRA JUMP" : "DASH " + direction;
   drum("clap", 1.05, player.pad === 0 ? -0.4 : 0.4);
@@ -250,6 +320,47 @@ function killPlayer(target, killerPad, now) {
   drum("snare", 1.15, target.pad === 0 ? -0.4 : 0.4);
 }
 
+function resolveMelee(now) {
+  const poseTime = (now - startedAt) / 1000000;
+  for (const attacker of players) {
+    if (!attacker.alive || attacker.attackHit || now >= attacker.attackUntil) continue;
+    const target = players[attacker.pad === 0 ? 1 : 0];
+    if (!target.alive) continue;
+    const strike = meleeStrike(attacker, now);
+    if (runnerDistanceToPoint(target, poseTime,
+      strike.x, strike.y, strike.z) <= strike.radius) {
+      attacker.attackHit = true;
+      impacts.push({ x: strike.x, y: strike.y, z: strike.z,
+        life: .2, duration: .2, death: false, explosion: false });
+      killPlayer(target, attacker.pad, now);
+    }
+  }
+}
+
+function updatePickups(now) {
+  const poseTime = (now - startedAt) / 1000000;
+  for (const pickup of pickups) {
+    if (!pickup.active) {
+      if (now >= pickup.respawnAt) pickup.active = true;
+      else continue;
+    }
+    for (const player of players) {
+      if (!player.alive || runnerDistanceToPoint(player, poseTime,
+        pickup.x, pickup.y, pickup.z) > 90) continue;
+      if (pickup.type === "gun") player.gunAmmo = Math.min(12,
+        player.gunAmmo + pickup.amount);
+      else player.grenadeAmmo = Math.min(4, player.grenadeAmmo + pickup.amount);
+      pickup.active = false;
+      pickup.respawnAt = now + pickupRespawnUs;
+      remember(player, pickup.type.toUpperCase() + " +" + pickup.amount);
+      drum("clap", 1.1, player.pad === 0 ? -.4 : .4);
+      emitSignal("pickup", player.pad, pickup.type === "gun" ? 1 : 2,
+        pickup.amount);
+      break;
+    }
+  }
+}
+
 function updatePlayer(player, pad, dt, now) {
   if (!player.alive) {
     player.previous = pad.down.slice();
@@ -277,6 +388,10 @@ function updatePlayer(player, pad, dt, now) {
   const upPressed = input.vertical > 0 && !player.previous.includes("MOVE_UP");
   player.ducking = input.vertical < 0 && player.grounded;
 
+  if (player.inputX && input.horizontal !== player.inputX)
+    player.lastRelease[player.inputX > 0 ? "RIGHT" : "LEFT"] = now;
+  if (player.inputY && input.vertical !== player.inputY)
+    player.lastRelease[player.inputY > 0 ? "UP" : "DOWN"] = now;
   if (input.horizontal && input.horizontal !== player.inputX)
     directionTap(player, input.horizontal > 0 ? "RIGHT" : "LEFT", now);
   if (input.vertical && input.vertical !== player.inputY)
@@ -301,8 +416,14 @@ function updatePlayer(player, pad, dt, now) {
     if (!player.previous.includes(button)) {
       remember(player, button);
       playButtonDrum(button, player);
-      if (button === "A") fire(player);
-      else if (button === "B") throwGrenade(player);
+      if (button === "A") {
+        if (player.gunAmmo > 0) fire(player, input);
+        else startMelee(player, "KICK", now);
+      }
+      else if (button === "B") {
+        if (player.grenadeAmmo > 0) throwGrenade(player);
+        else startMelee(player, "PUNCH", now);
+      }
     }
   }
   if (player.pendingMoveLabel) remember(player, player.pendingMoveLabel);
@@ -344,14 +465,18 @@ function sim() {
   roundElapsedUs += dt * 1000000;
   updatePlayer(players[0], padSnapshots[0], dt, now);
   updatePlayer(players[1], padSnapshots[1], dt, now);
+  resolveMelee(now);
+  updatePickups(now);
   updateCamera(dt);
 
   for (const bullet of bullets) {
     bullet.x += bullet.vx * dt;
+    bullet.y += bullet.vy * dt;
     bullet.life -= dt;
     if (bullet.x - 24 <= worldLeft + wallThickness ||
         bullet.x + 24 >= worldRight - wallThickness ||
-        bullet.y - 24 <= ceilingY + wallThickness) bullet.life = 0;
+        bullet.y - 24 <= ceilingY + wallThickness ||
+        bullet.y + 24 >= floorY - wallThickness) bullet.life = 0;
   }
 
   for (let left = 0; left < bullets.length; left++) {
@@ -475,13 +600,20 @@ function runnerWorldGeometry(player, t) {
   const hipY = feet - (player.ducking ? 40 : 58);
   const neckX = x + lean;
   const neckY = feet - height + 54 - breath;
+  const attackPulse = meleePulse(player, runtime().monotonicUs);
   const head = { x: neckX + lean * .2, y: feet - height + 22 - breath * 1.6,
     z, radius: 22 };
   const segments = [];
   const segment = (x1, y1, x2, y2, width) =>
     segments.push({ x1, y1, z1: z, x2, y2, z2: z, width });
   segment(neckX, neckY, x, hipY, 10);
-  if (player.ducking) {
+  if (player.attackKind === "KICK" && attackPulse > 0) {
+    const footX = x + player.facing * (70 + 150 * attackPulse);
+    segment(x, hipY, x + player.facing * 88, feet - 76, 12);
+    segment(x + player.facing * 88, feet - 76, footX, feet - 55, 12);
+    segment(x, hipY, x - player.facing * 28, feet - 32, 10);
+    segment(x - player.facing * 28, feet - 32, x - player.facing * 8, feet, 10);
+  } else if (player.ducking) {
     segment(x, hipY, x - 36, feet - 22, 10);
     segment(x - 36, feet - 22, x - 4, feet, 10);
     segment(x, hipY, x + 36, feet - 22, 10);
@@ -500,10 +632,22 @@ function runnerWorldGeometry(player, t) {
   const arm = idle ? idleSway : player.grounded ? -stride * .7 : 12;
   const elbowY = feet - (player.ducking ? 76 : 94) - breath;
   const handY = feet - (player.ducking ? 50 : 65) - breath * .5;
-  segment(neckX, neckY + 11, x - 25 + arm * .65, elbowY, 10);
-  segment(x - 25 + arm * .65, elbowY, x - 11 + arm * .65, handY, 10);
-  segment(neckX, neckY + 11, x + 25 - arm * .65, elbowY, 10);
-  segment(x + 25 - arm * .65, elbowY, x + 11 - arm * .65, handY, 10);
+  if (player.attackKind === "PUNCH" && attackPulse > 0) {
+    const handX = x + player.facing * (70 + 150 * attackPulse);
+    const punchY = feet - 115;
+    segment(neckX, neckY + 11,
+      x + player.facing * (42 + 48 * attackPulse), punchY + 12, 12);
+    segment(x + player.facing * (42 + 48 * attackPulse), punchY + 12,
+      handX, punchY, 12);
+    segment(neckX, neckY + 11, x - player.facing * 28, elbowY, 10);
+    segment(x - player.facing * 28, elbowY,
+      x - player.facing * 12, handY, 10);
+  } else {
+    segment(neckX, neckY + 11, x - 25 + arm * .65, elbowY, 10);
+    segment(x - 25 + arm * .65, elbowY, x - 11 + arm * .65, handY, 10);
+    segment(neckX, neckY + 11, x + 25 - arm * .65, elbowY, 10);
+    segment(x + 25 - arm * .65, elbowY, x + 11 - arm * .65, handY, 10);
+  }
   return { head, segments };
 }
 
@@ -608,8 +752,9 @@ function drawPlayerHud(player, x, pad) {
     player.roundWins + "/" + matchWins, x + 24, 226, 30, ...color);
   systemWrite(player.lastButton, x + 24, 270, 28, ...color);
   const held = pad.down.length ? pad.down.map(buttonLabel).join(" ") : "NONE";
-  systemWrite("KOS " + player.score, x + 350, 229, 19, ...color);
-  systemWrite("HELD " + held, x + 350, 270, 17, 195, 210, 230);
+  systemWrite("KOS " + player.score + "  GUN " + player.gunAmmo +
+    "  GREN " + player.grenadeAmmo, x + 330, 229, 17, ...color);
+  systemWrite("HELD " + held, x + 330, 270, 15, 195, 210, 230);
   systemWrite(pad.connected ? "READY" : "CONNECT",
     x + 610, 230, 18, pad.connected ? 115 : 255, pad.connected ? 225 : 105,
     pad.connected ? 165 : 105);
@@ -619,6 +764,31 @@ function worldLine(x1, y1, z1, x2, y2, z2, width, color) {
   const a = projectPoint(x1, y1, z1);
   const b = projectPoint(x2, y2, z2);
   line(a.x, a.y, b.x, b.y, width, ...color);
+}
+
+function drawPickup(pickup, t) {
+  if (!pickup.active) return;
+  const bobY = pickup.y + Math.sin(t * 3 + pickup.x * .001) * 24;
+  const point = projectPoint(pickup.x, bobY, pickup.z);
+  if (point.x < stageLeft || point.x > stageRight ||
+      point.y < stageTop || point.y > stageBottom) return;
+  const scale = cameraScale();
+  const color = pickup.type === "gun" ? [245, 248, 255] : [255, 232, 92];
+  if (pickup.type === "gun") {
+    worldLine(pickup.x - 62, bobY, pickup.z,
+      pickup.x + 62, bobY, pickup.z, Math.max(3, 13 * scale), color);
+    worldLine(pickup.x + 5, bobY, pickup.z,
+      pickup.x + 35, bobY + 52, pickup.z, Math.max(3, 12 * scale), color);
+  } else {
+    circle(point.x, point.y, Math.max(4, 34 * scale),
+      Math.max(2, 10 * scale), color);
+    worldLine(pickup.x, bobY - 34, pickup.z,
+      pickup.x + 28, bobY - 62, pickup.z, Math.max(2, 8 * scale), color);
+  }
+  const labelSize = Math.max(10, Math.min(18, Math.round(42 * scale)));
+  systemWrite(pickup.type === "gun" ? "GUN" : "GREN",
+    point.x - labelSize * 1.25, point.y - Math.max(18, 65 * scale),
+    labelSize, ...color);
 }
 
 function paint() {
@@ -662,6 +832,7 @@ function paint() {
     platformLeft, platformY, platformFar, 5, worldInk);
   worldLine(platformRight, platformY, platformNear,
     platformRight, platformY, platformFar, 5, worldInk);
+  for (const pickup of pickups) drawPickup(pickup, t);
   const remaining = roundResult ? 0 : Math.max(0,
     Math.ceil((roundDurationUs - roundElapsedUs) / 1000000));
   const clockInk = remaining <= 10 ? [255, 105, 190] : [245, 248, 255];
@@ -671,8 +842,9 @@ function paint() {
     if (bullet.life <= 0) continue;
     const color = players[bullet.owner].color;
     const point = projectPoint(bullet.x, bullet.y, bullet.z);
-    const tail = projectPoint(bullet.x - Math.sign(bullet.vx) * 120,
-      bullet.y, bullet.z);
+    const speed = Math.hypot(bullet.vx, bullet.vy) || 1;
+    const tail = projectPoint(bullet.x - bullet.vx / speed * 120,
+      bullet.y - bullet.vy / speed * 120, bullet.z);
     const radius = Math.max(3, 24 * cameraScale());
     line(tail.x, tail.y, point.x, point.y, Math.max(2, radius * .7), ...color);
     box(point.x - radius, point.y - radius, radius * 2, radius * 2, ...color);
