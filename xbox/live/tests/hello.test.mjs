@@ -11,7 +11,7 @@ function createFight(startImmediately = true) {
   const noOp = () => {};
   const fight = new Function(
     "runtime", "gamepad", "telemetry", "gameSignal", "drum", "wipe", "box", "line", "write", "systemWrite",
-    `${source}\nreturn { boot, sim, players, runnerWorldGeometry, runnerDistanceToPoint, disableBall: () => { ballEnabled = false; ball.active = false; }, startFight: () => { selecting = false; resetRound(runtime().monotonicUs, true); }, selectionState: () => ({ selecting, ready: selectionReady.slice() }), cameraState: () => ({ cameraWidth, cameraCenterY }), roundState: () => ({ roundResult, roundElapsedUs, matchOver }) };`
+    `${source}\nreturn { boot, sim, players, ball, runnerWorldGeometry, runnerDistanceToPoint, disableBall: () => { ballEnabled = false; ball.active = false; }, enableBall: () => { ballEnabled = true; ball.active = true; ball.serveAt = 0; }, setWind: (value) => { windAcceleration = value; }, wackBall: () => { players[0].attackKind = "KICK"; returnBall(players[0], runtime().monotonicUs, false); }, crossWackBall: (contact = 1) => crossWackBall(players.map((player) => ({ player, contact })), runtime().monotonicUs), startFight: () => { selecting = false; resetRound(runtime().monotonicUs, true); }, selectionState: () => ({ selecting, ready: selectionReady.slice() }), cameraState: () => ({ cameraWidth, cameraCenterY }), roundState: () => ({ roundResult, roundElapsedUs, matchOver }) };`
   )(
     () => ({ monotonicUs: now }),
     (index = 0) => ({ ...pads[index], down: pads[index].down.slice() }),
@@ -47,13 +47,9 @@ test("character select offers the four AC fighters and waits for both pads", () 
   assert.equal(fight.players[0].name, "@FIFI");
   pads[0].down = ["A"];
   tick();
-  pads[0].down = [];
-  tick();
-  assert.deepEqual(fight.selectionState().ready, [true, false]);
-  pads[1].down = ["A"];
-  tick();
   assert.equal(fight.selectionState().selecting, false);
-  assert.equal(fight.players[1].name, "@OSKIE");
+  assert.equal(fight.players[1].name, "DUMMY");
+  assert.equal(fight.players[1].npc, true);
 });
 
 test("melee and movement edges emit bounded Ableton signals", () => {
@@ -95,6 +91,7 @@ test("holding one direction never becomes a double-tap dash", () => {
 
 test("X shield blocks melee geometry", () => {
   const { fight, pads, signals, tick } = createFight();
+  fight.players[1].npc = false;
   fight.players[0].x = 5000;
   fight.players[1].x = 5100;
   pads[0].down = ["A"];
@@ -127,6 +124,65 @@ test("hit detection follows the animated runner geometry", () => {
     player, 0, resting.head.x, resting.head.y, resting.head.z), 0);
   assert.ok(fight.runnerDistanceToPoint(
     player, 0, resting.head.x + 140, resting.head.y, resting.head.z) > 60);
+});
+
+test("a grounded ball ignores wind", () => {
+  const { fight, signals, tick } = createFight();
+  fight.enableBall();
+  fight.setWind(1200);
+  fight.ball.x = 6000;
+  fight.ball.y = 12000 - fight.ball.radius;
+  fight.ball.vx = 0;
+  fight.ball.vy = 0;
+  tick(16667);
+  assert.equal(fight.ball.vx, 0);
+  assert.equal(signals.some(([event]) => event === "boot"), false);
+});
+
+test("running into a grounded ball boots it instead of killing the player", () => {
+  const { fight, signals, tick } = createFight();
+  const player = fight.players[0];
+  fight.enableBall();
+  fight.ball.x = player.x;
+  fight.ball.y = 12000 - fight.ball.radius;
+  fight.ball.vx = 0;
+  fight.ball.vy = 0;
+  player.vx = 900;
+  tick(16667);
+  assert.equal(player.alive, true);
+  assert.equal(player.lastButton, "BOOT");
+  assert.ok(fight.ball.vx > 0);
+  assert.ok(signals.some(([event, pad]) => event === "boot" && pad === 0));
+});
+
+test("melee returns label and signal the ball as WACK", () => {
+  const { fight, signals } = createFight();
+  const player = fight.players[0];
+  fight.enableBall();
+  fight.ball.x = player.x + 185;
+  fight.ball.y = player.y - 55;
+  fight.ball.vx = -500;
+  fight.ball.vy = -220;
+  fight.wackBall();
+  assert.equal(player.lastButton, "WACK");
+  assert.ok(Math.abs(fight.ball.vx) >= 1300);
+  assert.ok(signals.some(([event, pad]) => event === "wack" && pad === 0));
+});
+
+test("a close simultaneous punch and kick produce a stronger CROSS WACK", () => {
+  const { fight, signals } = createFight();
+  fight.enableBall();
+  fight.ball.vx = 0;
+  fight.ball.vy = 0;
+  fight.players[0].x = 5800;
+  fight.players[1].x = 6200;
+  fight.players[0].facing = 1;
+  fight.players[1].facing = -1;
+  fight.crossWackBall(1);
+  assert.equal(fight.players[0].lastButton, "CROSS WACK");
+  assert.equal(fight.players[1].lastButton, "CROSS WACK");
+  assert.ok(Math.abs(fight.ball.vx) > 5000);
+  assert.ok(signals.some(([event, pad]) => event === "crosswack" && pad === -1));
 });
 
 test("round clock can end in a tie and resets", () => {

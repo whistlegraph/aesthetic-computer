@@ -117,6 +117,9 @@ const fighterRoster = [
     [130,204,213],[161,232,0],[253,122,2],[222,90,205]],
     mood: "i hope its not ai generated", lastChat: "meow" },
 ];
+const npcFighter = { handle: "DUMMY", color: [105, 125, 150],
+  colors: [[105,125,150],[135,155,180],[105,125,150]],
+  mood: "TRAINING DUMMY · NO BOT AI", lastChat: "" };
 
 function losAngelesSun() {
   const radians = Math.PI / 180;
@@ -153,7 +156,7 @@ const players = [
     attackKind: "", attackStartedAt: 0,
     attackUntil: 0, attackHit: false, blocking: false, blockFlash: 0,
     windVx: 0, knockVx: 0 },
-  { name: "@OSKIE", rosterIndex: 2, handleColors: fighterRoster[2].colors,
+  { name: "DUMMY", rosterIndex: -1, handleColors: npcFighter.colors, npc: true,
     pad: 1, spawnX: 10000, x: 10000, y: floorY, z: 0,
     vx: 0, vy: 0, vz: 0, facing: -1,
     grounded: true, ducking: false, previous: [], lastButton: "NONE",
@@ -166,7 +169,8 @@ const players = [
 ];
 const impacts = [];
 const ball = { x: 6000, y: floorY - 55, z: 0, vx: 0, vy: 0,
-  radius: 55, active: true, serveAt: 0, lastHitBy: -1, safeUntil: 0 };
+  radius: 55, active: true, serveAt: 0, lastHitBy: -1, safeUntil: 0,
+  safePlayers: 0 };
 let ballEnabled = true;
 let padSnapshots = [null, null];
 let startedAt = 0;
@@ -193,7 +197,8 @@ function fighterProfile(handle) {
   const live = Array.isArray(acFeed.fighters)
     ? acFeed.fighters.find((profile) => profile.handle.toUpperCase() === handle.toUpperCase())
     : null;
-  const fallback = fighterRoster.find((profile) => profile.handle === handle);
+  const fallback = handle === "DUMMY" ? npcFighter
+    : fighterRoster.find((profile) => profile.handle === handle);
   return {
     mood: live?.mood || (handle === "@JEFFREY" && acFeed.moodHandle === "@jeffrey"
       ? acFeed.mood : "") || fallback?.mood || "",
@@ -205,6 +210,13 @@ function fighterProfile(handle) {
 }
 
 function applyRoster(player, index) {
+  if (player.npc) {
+    player.rosterIndex = -1;
+    player.name = npcFighter.handle;
+    player.color = npcFighter.color.slice();
+    player.handleColors = npcFighter.colors;
+    return;
+  }
   const rosterIndex = (index + fighterRoster.length) % fighterRoster.length;
   const fighter = fighterRoster[rosterIndex];
   const profile = fighterProfile(fighter.handle);
@@ -217,7 +229,7 @@ function applyRoster(player, index) {
 function beginSelect(now) {
   selecting = true;
   selectionReady[0] = false;
-  selectionReady[1] = false;
+  selectionReady[1] = true;
   selectionPrevious[0] = [];
   selectionPrevious[1] = [];
   roundResult = "";
@@ -235,6 +247,10 @@ function beginSelect(now) {
 function updateSelect(now) {
   for (const player of players) {
     const down = padSnapshots[player.pad]?.down || [];
+    if (player.npc) {
+      selectionPrevious[player.pad] = down.slice();
+      continue;
+    }
     const previous = selectionPrevious[player.pad];
     const pressed = (button) => down.includes(button) && !previous.includes(button);
     if (pressed("B") && selectionReady[player.pad]) selectionReady[player.pad] = false;
@@ -273,6 +289,7 @@ function resetBall(now) {
   ball.serveAt = now + introDurationUs + 850000;
   ball.lastHitBy = target === 0 ? 1 : 0;
   ball.safeUntil = ball.serveAt;
+  ball.safePlayers = 1 << ball.lastHitBy;
   emitSignal("ballserve", -1, target, windMph);
 }
 
@@ -499,13 +516,13 @@ function meleeStrike(player, now) {
   };
 }
 
-function returnBall(player, now, shielded) {
+function returnBall(player, now, shielded, intensity = 1) {
   const incomingVx = ball.vx;
   const incomingVy = ball.vy;
   const direction = ball.x >= player.x ? 1 : -1;
   const currentSpeed = Math.hypot(ball.vx, ball.vy);
-  const speed = Math.min(3600, currentSpeed * (shielded ? 1.02 : 1.14) +
-    (shielded ? 80 : 210));
+  const speed = Math.min(4800, (currentSpeed * (shielded ? 1.05 : 1.34) +
+    (shielded ? 120 : 720)) * intensity);
   ball.vx = direction * speed;
   const lift = player.inputY > 0 ? .58
     : shielded ? .14 : player.attackKind === "KICK" ? .34 : .2;
@@ -514,7 +531,12 @@ function returnBall(player, now, shielded) {
   ball.y = Math.min(ball.y, player.y - 55);
   ball.lastHitBy = player.pad;
   ball.safeUntil = now + 140000;
-  if (!shielded) player.attackHit = true;
+  ball.safePlayers = 1 << player.pad;
+  if (!shielded) {
+    player.attackHit = true;
+    player.lastButton = "WACK";
+    player.lastButtonAt = now;
+  }
   else {
     player.blockFlash = 1;
     player.knockVx += incomingVx * .55;
@@ -525,13 +547,61 @@ function returnBall(player, now, shielded) {
     life: .22, duration: .22, death: false, explosion: false });
   drum(shielded ? "block" : "clap", shielded ? 1.1 : 1.25,
     panAt(ball.x, ball.z));
-  emitSignal(shielded ? "ballblock" : "ballhit", player.pad,
+  emitSignal(shielded ? "ballblock" : "wack", player.pad,
     direction, Math.round(speed));
+}
+
+function crossWackBall(hitters, now) {
+  const first = hitters[0];
+  const second = hitters[1];
+  const fighterDistance = Math.abs(first.player.x - second.player.x);
+  const convergence = clamp(1 - fighterDistance / 520, 0, 1);
+  const contact = (first.contact + second.contact) * .5;
+  const currentSpeed = Math.hypot(ball.vx, ball.vy);
+  const speed = Math.min(7600, 4100 + currentSpeed * .72 +
+    convergence * 2300 + contact * 900);
+  const stronger = first.contact >= second.contact ? first.player : second.player;
+  const direction = Math.sign(ball.vx) || stronger.facing || 1;
+  ball.vx = direction * speed;
+  ball.vy = -speed * (.3 + convergence * .18);
+  ball.x += direction * 35;
+  ball.y = Math.min(ball.y, floorY - ball.radius - 8);
+  ball.lastHitBy = -1;
+  ball.safeUntil = now + 180000;
+  ball.safePlayers = 3;
+  for (const hit of hitters) {
+    hit.player.attackHit = true;
+    hit.player.lastButton = "CROSS WACK";
+    hit.player.lastButtonAt = now;
+  }
+  impacts.push({ x: ball.x, y: ball.y, z: ball.z,
+    life: .32, duration: .32, death: false, explosion: true });
+  drum("clap", 1.55, panAt(ball.x, ball.z));
+  emitSignal("crosswack", -1, direction, Math.round(speed));
+}
+
+function bootBall(player, now) {
+  const direction = Math.sign(ball.x - player.x) || player.facing || 1;
+  const speed = Math.min(3600, 1150 + Math.abs(player.vx) * .95);
+  ball.vx = direction * speed;
+  ball.vy = -Math.max(220, speed * .2);
+  ball.x = player.x + direction * (ball.radius + 58);
+  ball.y = Math.min(ball.y, floorY - ball.radius - 2);
+  ball.lastHitBy = player.pad;
+  ball.safeUntil = now + 180000;
+  ball.safePlayers = 1 << player.pad;
+  player.lastButton = "BOOT";
+  player.lastButtonAt = now;
+  impacts.push({ x: ball.x, y: ball.y, z: ball.z,
+    life: .16, duration: .16, death: false, explosion: false });
+  drum("kick", 1.12, panAt(ball.x, ball.z));
+  emitSignal("boot", player.pad, direction, Math.round(speed));
 }
 
 function updateBall(dt, now) {
   if (!ball.active || now < ball.serveAt) return;
-  ball.vx += windAcceleration * .45 * dt;
+  const grounded = ball.y >= floorY - ball.radius - 1 && Math.abs(ball.vy) < 180;
+  if (!grounded) ball.vx += windAcceleration * .45 * dt;
   ball.vy += 1900 * dt;
   ball.x += ball.vx * dt;
   ball.y += ball.vy * dt;
@@ -551,20 +621,40 @@ function updateBall(dt, now) {
     ball.vy = Math.abs(ball.vy) > 180 ? -Math.abs(ball.vy) * .62 : 0;
     ball.vx *= .992;
   }
+  const onFloor = ball.y >= floorY - ball.radius - 1 && Math.abs(ball.vy) < 180;
   const poseTime = (now - startedAt) / 1000000;
+  const hitters = [];
   for (const player of players) {
-    if (!player.alive || (player.pad === ball.lastHitBy && now < ball.safeUntil))
+    if (!player.alive || ((ball.safePlayers & (1 << player.pad)) &&
+        now < ball.safeUntil))
       continue;
     if (!player.attackHit && now < player.attackUntil) {
       const strike = meleeStrike(player, now);
-      if (Math.hypot(ball.x - strike.x, ball.y - strike.y,
-        ball.z - strike.z) <= ball.radius + strike.radius) {
-        returnBall(player, now, false);
-        return;
-      }
+      const distance = Math.hypot(ball.x - strike.x, ball.y - strike.y,
+        ball.z - strike.z);
+      if (distance <= ball.radius + strike.radius)
+        hitters.push({ player, contact: clamp(1 - distance /
+          (ball.radius + strike.radius), 0, 1) });
     }
+  }
+  if (hitters.length >= 2) {
+    crossWackBall(hitters, now);
+    return;
+  }
+  if (hitters.length === 1) {
+    returnBall(hitters[0].player, now, false, .92 + hitters[0].contact * .38);
+    return;
+  }
+  for (const player of players) {
+    if (!player.alive || ((ball.safePlayers & (1 << player.pad)) &&
+        now < ball.safeUntil))
+      continue;
     if (runnerDistanceToPoint(player, poseTime,
       ball.x, ball.y, ball.z) > ball.radius) continue;
+    if (onFloor) {
+      bootBall(player, now);
+      return;
+    }
     if (player.blocking) {
       returnBall(player, now, true);
       return;
@@ -771,7 +861,9 @@ function sim() {
   }
   roundElapsedUs += dt * 1000000;
   updatePlayer(players[0], padSnapshots[0], dt, now);
-  updatePlayer(players[1], padSnapshots[1], dt, now);
+  updatePlayer(players[1], players[1].npc
+    ? { connected: true, down: [], leftX: 0, leftY: 0 }
+    : padSnapshots[1], dt, now);
   updateBall(dt, now);
   resolveMelee(now);
   updateCamera(dt);
@@ -940,7 +1032,8 @@ function runnerDistanceToPoint(player, t, px, py, pz = 0) {
 }
 
 function handleWidth(handle, size) {
-  return handle.length ? size * .88 + (handle.length - 1) * size * .58 : 0;
+  return handle.length ? size * (handle[0] === "@" ? .88 : .58) +
+    (handle.length - 1) * size * .58 : 0;
 }
 
 function typeWrite(text, x, y, size, ...color) {
@@ -1047,7 +1140,7 @@ function drawPlayerHud(player, x, pad) {
     x, 14, 24, ...color);
   const held = pad.down.length ? pad.down.map(buttonLabel).join(" ") : "NONE";
   const secondary = mixColor([195, 210, 230], [48, 58, 78], visualTheme.light);
-  const status = pad.connected ? "READY" : "CONNECT";
+  const status = player.npc ? "DUMMY" : pad.connected ? "READY" : "CONNECT";
   typeWrite(player.lastButton + "  ·  " + held + "  ·  " + status,
     x, 48, 16, ...(status === "CONNECT" ? [255, 105, 105] : secondary));
 }
@@ -1097,8 +1190,7 @@ function drawSelectPortrait(player, x, y, scale, t) {
 }
 
 function drawSelectionScreen(t, ink, panel) {
-  write("OSKIEWAR", 740, 62, 64, ...ink);
-  typeWrite("CHOOSE YOUR FIGHTER", 735, 152, 32, ...ink);
+  typeWrite("CHOOSE YOUR FIGHTER", 735, 76, 32, ...ink);
   for (let index = 0; index < fighterRoster.length; index++) {
     const fighter = fighterRoster[index];
     const selected = players.some((player) => player.rosterIndex === index);
@@ -1116,9 +1208,9 @@ function drawSelectionScreen(t, ink, panel) {
     const mood = profile.mood ? "MOOD  " + profile.mood.slice(0, 30) : "MOOD  —";
     const chat = profile.lastChat ? "CHAT  " + profile.lastChat.slice(0, 37) : "CHAT  —";
     typeWrite(mood + "\n" + chat, left + 355, 490, 22, ...ink);
-    write(selectionReady[player.pad] ? "READY" : "SELECT",
+    write(player.npc ? "STANDING BY" : selectionReady[player.pad] ? "READY" : "SELECT",
       left + 355, 720, 52, ...player.color);
-    typeWrite("P" + (player.pad + 1), left + 355, 805, 24, ...ink);
+    typeWrite(player.npc ? "NON-PLAYER" : "P1", left + 355, 805, 24, ...ink);
   }
   write("LEFT RIGHT SELECT     A READY     B BACK", 430, 965, 29, ...ink);
 }
@@ -1138,24 +1230,27 @@ function paint() {
   const titleInk = mixColor([245, 248, 255], [24, 35, 72], visualTheme.light);
   wipe(...sky);
   box(0, 0, 1920, 1080, ...arena);
-  for (let i = 0; i < 8; i++) {
-    const x = ((i * 310 + t * (38 + i * 3)) % 2300) - 190;
-    const stripe = mixColor([20 + i * 3, 32 + i * 4, 72 + i * 6],
-      [132 + i * 3, 178 + i * 2, 215 + i * 2], visualTheme.light);
-    box(x, 0, 5, 1080, ...stripe);
-  }
   if (selecting) {
     drawSelectionScreen(t, titleInk, titlePanel);
     return;
   }
   cameraDoll.prepare();
   const worldInk = mixColor([72, 90, 125], [45, 63, 92], visualTheme.light);
-  const gridInk = mixColor([35, 49, 82], [160, 181, 205], visualTheme.light);
+  const floorBase = mixColor([17, 22, 36], [188, 181, 164], visualTheme.light);
+  const floorAlt = mixColor([21, 27, 43], [174, 167, 151], visualTheme.light);
   const edgeWidth = Math.max(2, wallThickness * cameraScale() * .14);
-  for (let x = worldLeft; x <= worldRight; x += 2000)
-    worldLine(x, floorY, worldNear, x, floorY, worldFar, 2, gridInk);
-  for (let z = worldNear; z <= worldFar; z += 600)
-    worldLine(worldLeft, floorY, z, worldRight, floorY, z, 2, gridInk);
+  for (let x = worldLeft, column = 0; x < worldRight; x += 1000, column++) {
+    for (let z = worldNear, row = 0; z < worldFar; z += 600, row++) {
+      const a = projectPoint(x, floorY, z);
+      const b = projectPoint(Math.min(worldRight, x + 1000), floorY, z);
+      const c = projectPoint(Math.min(worldRight, x + 1000), floorY,
+        Math.min(worldFar, z + 600));
+      const d = projectPoint(x, floorY, Math.min(worldFar, z + 600));
+      const color = (column + row) % 2 ? floorAlt : floorBase;
+      triangle(a.x, a.y, b.x, b.y, c.x, c.y, ...color);
+      triangle(a.x, a.y, c.x, c.y, d.x, d.y, ...color);
+    }
+  }
   for (const z of [worldNear, worldFar]) {
     worldLine(worldLeft, ceilingY, z, worldRight, ceilingY, z, edgeWidth, worldInk);
     worldLine(worldLeft, floorY, z, worldRight, floorY, z, edgeWidth, worldInk);

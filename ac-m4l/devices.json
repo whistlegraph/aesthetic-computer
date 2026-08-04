@@ -1,14 +1,15 @@
 {
   "devices": [
     {
-      "name": "OSKIEWAR",
+      "name": "GAME SIGNALS",
       "piece": "oskiewar",
-      "description": "Receives bounded OSKIEWAR combat and movement OSC events from Xbox over the local network and emits MIDI notes for sound design.",
+      "filename": "game-signals",
+      "description": "Receives bounded combat and movement OSC events over the local network. Stable MIDI notes drive Drum Racks; raw player, direction, force, and sequence values are available at ac-game-signals-osc.",
       "width": 360,
       "height": 120,
       "type": "midi",
-      "source": "AC-OSKIEWAR.amxd.json",
-      "version": "1.0.6"
+      "source": "AC-GameSignals.amxd.json",
+      "version": "1.1.1"
     },
     {
       "name": "notepat.com",

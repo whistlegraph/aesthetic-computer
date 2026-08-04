@@ -79,14 +79,16 @@ export async function handler(event, context) {
         if (before) baseFilter.when = { $lt: before };
         if (searching) baseFilter.text = { $regex: escaped, $options: "i" };
         if (fromRaw) {
-          const sender = await database.db.collection("@handles").findOne({
+          const senders = await database.db.collection("@handles").find({
             handle: { $regex: new RegExp(`^${fromRaw.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i") },
-          });
-          if (!sender) {
+          }).project({ _id: 1 }).toArray();
+          if (senders.length === 0) {
             await database.disconnect();
             return { instance, from: `@${fromRaw}`, count: 0, messages: [], nextBefore: null };
           }
-          baseFilter.user = sender._id;
+          // A handle can have sister auth-provider records. Match every known
+          // sub so sender filtering agrees with normal handle hydration.
+          baseFilter.user = { $in: senders.map((sender) => sender._id) };
         }
 
         // Gather from each instance, tagging the source.

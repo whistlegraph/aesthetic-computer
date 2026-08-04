@@ -348,7 +348,7 @@ public:
     };
     m_sound->get_rate = [this]() { return static_cast<int>(m_sampleRate); };
     m_api = std::make_unique<Api>(Api{{1920, 1080, 1}, {}, {}, {}, *m_graphics, *m_sound, {}});
-    m_api->system.version = "1.0.0.31";
+    m_api->system.version = "1.0.0.32";
     m_api->telemetry = [](std::string_view line) {
       std::string safe(line);
       for (auto& character : safe) if (character == '\n' || character == '\r') character = ' ';
@@ -867,7 +867,7 @@ private:
     stencil.FrontFace.StencilFunc = D3D11_COMPARISON_EQUAL;
     stencil.BackFace = stencil.FrontFace;
     Check(m_device->CreateDepthStencilState(&stencil, &m_postStencilState));
-    LogTelemetry("AC_NATIVE_POST ready=1 filter=point effects=chromatic,scan,dither,vignette stencil=d24s8-write overlay=off");
+    LogTelemetry("AC_NATIVE_POST ready=1 filter=point effects=scan,dither,vignette stencil=d24s8-write overlay=off");
   }
 
   void UpdatePostConstants(float stencilPass) {
@@ -1715,7 +1715,7 @@ private:
     if (!m_acRequestInFlight.compare_exchange_strong(expected, true)) return;
 
     auto client = ref new HttpClient();
-    client->DefaultRequestHeaders->UserAgent->ParseAdd("AC-Native-BIOS/1.0.0.31 Xbox");
+    client->DefaultRequestHeaders->UserAgent->ParseAdd("AC-Native-BIOS/1.0.0.32 Xbox");
     std::vector<task<String^>> requests;
     const auto safeGet = [client](const std::wstring& url) {
       return create_task(client->GetStringAsync(ref new Uri(ref new String(url.c_str()))))

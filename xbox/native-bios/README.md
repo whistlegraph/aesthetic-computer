@@ -63,7 +63,7 @@ UDP datagram per musical event. The Xbox HUD changes from
 
 Revision 30 caps the DXGI device frame queue at one and records controller-edge
 to-present latency as `AC_NATIVE_INPUT_LATENCY`. OSKIEWAR emits OSC addresses
-under `/oskiewar/*` on UDP `51338`; `ac-m4l/AC-OSKIEWAR.amxd.json` turns bounded
+under `/oskiewar/*` on UDP `51338`; `ac-m4l/AC-GameSignals.amxd.json` turns bounded
 combat and movement-edge events into MIDI notes.
 
 Revision 31 adds the allowlisted OSKIEWAR fighter profile feed for `@jeffrey`,
@@ -72,6 +72,9 @@ latest public system-chat text. The sandbox still receives only the immutable
 `ac()` snapshot and has no general network access. It also packages the existing
 YWFT Processing face and exposes it through bounded `ywftWrite`; `write` remains
 the native AC block face and `systemWrite` remains the Xbox system face.
+
+Revision 32 removes the global chromatic channel offset. The point-sampled
+scan, one-pixel dither, and vignette remain without separating RGB edges.
 
 Revision 13 also exposes bounded `stampPainting` and `blur` primitives to the
 trusted host-side KidLisp compiler. See [`../KIDLISP-NATIVE.md`](../KIDLISP-NATIVE.md)

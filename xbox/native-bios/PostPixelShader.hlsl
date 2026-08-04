@@ -15,14 +15,8 @@ struct PixelInput {
 float4 main(PixelInput input) : SV_TARGET {
   const float2 centered = input.uv * 2.0 - 1.0;
   const float radial = dot(centered, centered);
-  const float offset = 0.55 + radial * 1.35;
   const float3 center = sceneTexture.Sample(pointSampler, input.uv).rgb;
-  float3 color;
-  color.r = sceneTexture.Sample(pointSampler,
-    input.uv + float2(texel.x * offset, 0.0)).r;
-  color.g = center.g;
-  color.b = sceneTexture.Sample(pointSampler,
-    input.uv - float2(texel.x * offset, 0.0)).b;
+  float3 color = center;
 
   // Stable one-pixel dither and a very light scan modulation keep the output
   // alive without hiding pixel art or softening nearest-neighbour sprites.

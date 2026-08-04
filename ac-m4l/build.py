@@ -763,6 +763,7 @@ def build_all(production: bool = False, device_filter: str = None, install: bool
     built = []
     for device in devices:
         piece = device["piece"]
+        filename_piece = device.get("filename", piece)
         # Skip devices with slashes in piece names (can't be filenames)
         if '/' in piece:
             print(f"\n⏭️  Skipping {piece} (slash in name)")
@@ -775,11 +776,11 @@ def build_all(production: bool = False, device_filter: str = None, install: bool
         icon = icons.get(device_type, "🟪")
         # Source-based devices (like knob-map) use the same name in dev and prod
         if device.get("source"):
-            filename = f"AC {icon} {piece} (aesthetic.computer).amxd"
+            filename = f"AC {icon} {filename_piece} (aesthetic.computer).amxd"
         elif production:
-            filename = f"AC {icon} {piece} (aesthetic.computer).amxd"
+            filename = f"AC {icon} {filename_piece} (aesthetic.computer).amxd"
         else:
-            filename = f"AC {icon} {piece} (localhost:8888).amxd"
+            filename = f"AC {icon} {filename_piece} (localhost:8888).amxd"
         
         # Build device
         data = build_device(device, defaults, production)
