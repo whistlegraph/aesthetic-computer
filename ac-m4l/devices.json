@@ -3,7 +3,7 @@
     {
       "name": "OSKIEWAR",
       "piece": "oskiewar",
-      "description": "Receives OSKIEWAR OSC from Xbox over the local network and emits MIDI notes plus position/clock CCs for sound design.",
+      "description": "Receives bounded OSKIEWAR combat and movement OSC events from Xbox over the local network and emits MIDI notes for sound design.",
       "width": 360,
       "height": 120,
       "type": "midi",

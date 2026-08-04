@@ -37,7 +37,6 @@ let roundElapsedUs = 0;
 let roundOverAt = 0;
 let roundResult = "";
 let matchOver = false;
-let signalElapsed = 0;
 
 function emitSignal(event, player = -1, value = 0, value2 = 0) {
   if (typeof gameSignal === "function") gameSignal(event, player, value, value2);
@@ -81,7 +80,6 @@ function resetRound(now, resetMatch = false) {
   }
   roundResult = "";
   matchOver = false;
-  signalElapsed = 0;
   roundElapsedUs = 0;
   lastSimAt = now;
 }
@@ -209,6 +207,9 @@ function updatePlayer(player, pad, dt, now) {
     return;
   }
   const input = quantizedInput(pad);
+  if ((input.horizontal !== player.inputX || input.vertical !== player.inputY) &&
+      (input.horizontal || input.vertical))
+    emitSignal("move", player.pad, input.horizontal, input.vertical);
   player.pendingMoveLabel = "";
   const upPressed = input.vertical > 0 && !player.previous.includes("MOVE_UP");
   player.ducking = input.vertical < 0 && player.grounded;
@@ -286,15 +287,6 @@ function sim() {
   roundElapsedUs += dt * 1000000;
   updatePlayer(players[0], padSnapshots[0], dt, now);
   updatePlayer(players[1], padSnapshots[1], dt, now);
-  signalElapsed += dt;
-  if (signalElapsed >= .1) {
-    signalElapsed %= .1;
-    for (const player of players)
-      emitSignal("state", player.pad, player.x / worldRight, player.y / floorY);
-    emitSignal("clock", -1,
-      Math.max(0, 1 - roundElapsedUs / roundDurationUs),
-      Math.max(0, Math.ceil((roundDurationUs - roundElapsedUs) / 1000000)));
-  }
 
   for (const bullet of bullets) {
     bullet.x += bullet.vx * dt;

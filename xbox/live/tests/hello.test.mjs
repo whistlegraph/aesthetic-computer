@@ -32,15 +32,13 @@ function createFight() {
   return { fight, pads, signals, tick, tap, now: () => now };
 }
 
-test("combat and live state emit bounded Ableton signals", () => {
-  const { signals, tap, tick } = createFight();
+test("combat and movement edges emit bounded Ableton signals", () => {
+  const { signals, tap } = createFight();
   tap(0, "A");
   assert.ok(signals.some(([event, player]) => event === "bullet" && player === 0));
-  tick(40000);
-  tick(40000);
-  tick(40000);
-  assert.ok(signals.some(([event, player]) => event === "state" && player === 0));
-  assert.ok(signals.some(([event]) => event === "clock"));
+  tap(0, "ArrowRight");
+  assert.ok(signals.some(([event, player, horizontal]) =>
+    event === "move" && player === 0 && horizontal === 1));
 });
 
 test("double-tap directions trigger dash, ultra-jump, and fast-drop", () => {

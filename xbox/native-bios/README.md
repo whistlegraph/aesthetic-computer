@@ -63,8 +63,8 @@ UDP datagram per musical event. The Xbox HUD changes from
 
 Revision 30 caps the DXGI device frame queue at one and records controller-edge
 to-present latency as `AC_NATIVE_INPUT_LATENCY`. OSKIEWAR emits OSC addresses
-under `/oskiewar/*` on UDP `51338`; `ac-m4l/AC-OSKIEWAR.amxd.json` turns combat
-events into notes and player position / round clock into CC20–24.
+under `/oskiewar/*` on UDP `51338`; `ac-m4l/AC-OSKIEWAR.amxd.json` turns bounded
+combat and movement-edge events into MIDI notes.
 
 Revision 13 also exposes bounded `stampPainting` and `blur` primitives to the
 trusted host-side KidLisp compiler. See [`../KIDLISP-NATIVE.md`](../KIDLISP-NATIVE.md)
