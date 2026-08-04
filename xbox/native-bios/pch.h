@@ -10,6 +10,7 @@
 #include <d2d1_1helper.h>
 #include <dwrite.h>
 #include <dxgi1_2.h>
+#include <dxgi1_3.h>
 #include <xaudio2.h>
 #include <windows.networking.connectivity.h>
 #include <windows.networking.sockets.h>
