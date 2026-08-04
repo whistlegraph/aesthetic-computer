@@ -1340,32 +1340,7 @@ function paint() {
   }
   cameraDoll.prepare();
   const worldInk = mixColor([72, 90, 125], [45, 63, 92], visualTheme.light);
-  const floorBase = mixColor([17, 22, 36], [188, 181, 164], visualTheme.light);
-  const floorAlt = mixColor([21, 27, 43], [174, 167, 151], visualTheme.light);
   const edgeWidth = Math.max(2, wallThickness * cameraScale() * .14);
-  if (cameraDoll.perspective < .08) {
-    const floorPoint = (x, z) => {
-      const point = projectPoint(x, floorY, z);
-      return { x: clamp(point.x, -4096, 6016),
-        y: clamp(point.y, -4096, 5176) };
-    };
-    for (let x = worldLeft, column = 0; x < worldRight; x += 1000, column++) {
-      for (let z = worldNear, row = 0; z < worldFar; z += 600, row++) {
-        const a = floorPoint(x, z);
-        const b = floorPoint(Math.min(worldRight, x + 1000), z);
-        const c = floorPoint(Math.min(worldRight, x + 1000),
-          Math.min(worldFar, z + 600));
-        const d = floorPoint(x, Math.min(worldFar, z + 600));
-        const color = (column + row) % 2 ? floorAlt : floorBase;
-        const left = clamp(Math.min(a.x, b.x, c.x, d.x), 0, 1920);
-        const right = clamp(Math.max(a.x, b.x, c.x, d.x), 0, 1920);
-        const top = clamp(Math.min(a.y, b.y, c.y, d.y), stageTop, stageBottom);
-        const bottom = clamp(Math.max(a.y, b.y, c.y, d.y), stageTop, stageBottom);
-        if (right > left && bottom > top)
-          box(left, top, right - left + 1, bottom - top + 1, ...color);
-      }
-    }
-  }
   for (const z of [worldNear, worldFar]) {
     worldLine(worldLeft, ceilingY, z, worldRight, ceilingY, z, edgeWidth, worldInk);
     worldLine(worldLeft, floorY, z, worldRight, floorY, z, edgeWidth, worldInk);
