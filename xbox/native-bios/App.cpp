@@ -348,7 +348,7 @@ public:
     };
     m_sound->get_rate = [this]() { return static_cast<int>(m_sampleRate); };
     m_api = std::make_unique<Api>(Api{{1920, 1080, 1}, {}, {}, {}, *m_graphics, *m_sound, {}});
-    m_api->system.version = "1.0.0.30";
+    m_api->system.version = "1.0.0.31";
     m_api->telemetry = [](std::string_view line) {
       std::string safe(line);
       for (auto& character : safe) if (character == '\n' || character == '\r') character = ' ';
@@ -552,6 +552,22 @@ private:
     m_d2dContext->SetTarget(m_d2dTarget.Get());
     Check(DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED, __uuidof(IDWriteFactory),
       reinterpret_cast<IUnknown**>(m_dwriteFactory.GetAddressOf())));
+    const auto package = Windows::ApplicationModel::Package::Current->InstalledLocation->Path;
+    std::wstring ywftPath(package->Data());
+    ywftPath += L"\\Assets\\ywft-processing-regular.ttf";
+    BOOL supported = FALSE;
+    DWRITE_FONT_FILE_TYPE fileType = DWRITE_FONT_FILE_TYPE_UNKNOWN;
+    DWRITE_FONT_FACE_TYPE faceType = DWRITE_FONT_FACE_TYPE_UNKNOWN;
+    UINT32 faceCount = 0;
+    if (SUCCEEDED(m_dwriteFactory->CreateFontFileReference(ywftPath.c_str(), nullptr,
+        &m_ywftFontFile)) && SUCCEEDED(m_ywftFontFile->Analyze(&supported,
+        &fileType, &faceType, &faceCount)) && supported && faceCount > 0) {
+      IDWriteFontFile* files[] = {m_ywftFontFile.Get()};
+      const auto fontResult = m_dwriteFactory->CreateFontFace(faceType, 1, files, 0,
+        DWRITE_FONT_SIMULATIONS_NONE, &m_ywftFontFace);
+      LogTelemetry("AC_NATIVE_YWFT status=" +
+        std::to_string(static_cast<long>(fontResult)));
+    } else LogTelemetry("AC_NATIVE_YWFT status=unavailable");
     Check(m_d2dContext->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::White),
       &m_textBrush));
     CreateTrianglePipeline();
@@ -1197,13 +1213,29 @@ private:
     writer->WriteBytes(ref new Array<uint8_t>(packet.data(),
       static_cast<unsigned>(packet.size())));
     create_task(writer->StoreAsync()).then([this, writer](task<unsigned> completed) {
-      try { completed.get(); }
+      try {
+        completed.get();
+        const auto sent = ++m_gameSignalsSent;
+        if (sent % 64 == 0) {
+          std::size_t queued = 0;
+          {
+            std::lock_guard<std::mutex> lock(m_gameSignalMutex);
+            queued = m_gameSignalQueue.size();
+          }
+          LogTelemetry("AC_NATIVE_OSKIEWAR_SIGNAL sent=" + std::to_string(sent) +
+            " queued=" + std::to_string(queued) + " dropped=" +
+            std::to_string(m_gameSignalsDropped.load()));
+        }
+      }
       catch (Exception^ error) {
         LogTelemetry("AC_NATIVE_OSKIEWAR_SIGNAL_SEND_ERROR " + Utf8(error->Message));
       }
       writer->DetachStream();
       delete writer;
       m_gameSignalWriteInFlight = false;
+      // Drain bursts as fast as StoreAsync completes instead of waiting for the
+      // next video frame before each following datagram.
+      FlushGameSignals();
     });
   }
 
@@ -1683,14 +1715,26 @@ private:
     if (!m_acRequestInFlight.compare_exchange_strong(expected, true)) return;
 
     auto client = ref new HttpClient();
-    client->DefaultRequestHeaders->UserAgent->ParseAdd("AC-Native-BIOS/1.0.0.30 Xbox");
+    client->DefaultRequestHeaders->UserAgent->ParseAdd("AC-Native-BIOS/1.0.0.31 Xbox");
     std::vector<task<String^>> requests;
-    requests.push_back(create_task(client->GetStringAsync(
-      ref new Uri(L"https://aesthetic.computer/api/mood/moods-of-the-day"))));
-    requests.push_back(create_task(client->GetStringAsync(
-      ref new Uri(L"https://aesthetic.computer/api/chat-messages?instance=clock&limit=12"))));
-    requests.push_back(create_task(client->GetStringAsync(
-      ref new Uri(L"https://aesthetic.computer/media-collection?for=%40jeffrey%2Fpainting"))));
+    const auto safeGet = [client](const std::wstring& url) {
+      return create_task(client->GetStringAsync(ref new Uri(ref new String(url.c_str()))))
+        .then([](task<String^> response) -> String^ {
+          try { return response.get(); }
+          catch (...) { return ref new String(L"{}"); }
+        });
+    };
+    requests.push_back(safeGet(L"https://aesthetic.computer/api/mood/moods-of-the-day"));
+    requests.push_back(safeGet(L"https://aesthetic.computer/api/chat-messages?instance=clock&limit=12"));
+    requests.push_back(safeGet(L"https://aesthetic.computer/media-collection?for=%40jeffrey%2Fpainting"));
+    static const std::array<std::wstring, 4> fighterHandles = {
+      L"jeffrey", L"fifi", L"oskie", L"sat"
+    };
+    for (const auto& handle : fighterHandles) {
+      requests.push_back(safeGet(L"https://aesthetic.computer/api/mood/%40" + handle));
+      requests.push_back(safeGet(L"https://aesthetic.computer/api/handle-colors?handle=" + handle));
+      requests.push_back(safeGet(L"https://aesthetic.computer/api/chat-messages?instance=system&limit=1&from=%40" + handle));
+    }
 
     when_all(requests.begin(), requests.end()).then(
       [this, client](task<std::vector<String^>> completed) {
@@ -1719,6 +1763,36 @@ private:
               snapshot->painting_handle = "@jeffrey";
             }
           }
+          for (unsigned index = 0; index < fighterHandles.size(); ++index) {
+            AcSnapshot::FighterProfile profile;
+            profile.handle = "@" + Utf8(ref new String(fighterHandles[index].c_str()));
+            const auto offset = 3 + index * 3;
+            const auto profileMood = JsonObject::Parse(bodies[offset]);
+            if (profileMood->HasKey(L"mood"))
+              profile.mood = Utf8(profileMood->GetNamedString(L"mood"));
+            const auto profileColors = JsonObject::Parse(bodies[offset + 1]);
+            if (profileColors->HasKey(L"colors") &&
+                profileColors->GetNamedValue(L"colors")->ValueType == JsonValueType::Array) {
+              const auto colors = profileColors->GetNamedArray(L"colors");
+              for (unsigned colorIndex = 0; colorIndex < colors->Size; ++colorIndex) {
+                const auto color = colors->GetObjectAt(colorIndex);
+                profile.colors.push_back({
+                  static_cast<uint8_t>(color->GetNamedNumber(L"r", 255)),
+                  static_cast<uint8_t>(color->GetNamedNumber(L"g", 255)),
+                  static_cast<uint8_t>(color->GetNamedNumber(L"b", 255)), 255});
+              }
+            }
+            const auto profileChat = JsonObject::Parse(bodies[offset + 2]);
+            if (profileChat->HasKey(L"messages")) {
+              const auto messages = profileChat->GetNamedArray(L"messages");
+              if (messages->Size > 0) {
+                const auto latest = messages->GetObjectAt(messages->Size - 1);
+                if (latest->HasKey(L"text"))
+                  profile.last_chat = Utf8(latest->GetNamedString(L"text"));
+              }
+            }
+            snapshot->fighters.push_back(std::move(profile));
+          }
           FILETIME fileTime{};
           GetSystemTimeAsFileTime(&fileTime);
           ULARGE_INTEGER ticks{};
@@ -1732,7 +1806,8 @@ private:
           DownloadPainting("latest-painting", snapshot->painting_url);
           LogTelemetry("AC_NATIVE_AC_READY mood=" + snapshot->mood_handle +
             " clock=" + snapshot->clock_from +
-            " painting=" + std::to_string(!snapshot->painting_url.empty()));
+            " painting=" + std::to_string(!snapshot->painting_url.empty()) +
+            " fighters=" + std::to_string(snapshot->fighters.size()));
         } catch (Exception^ error) {
           snapshot->status = "error: " + Utf8(error->Message);
           std::atomic_store(&m_api->ac,
@@ -2104,8 +2179,54 @@ private:
           m_d2dContext->DrawText(value.data(), static_cast<UINT32>(value.size()),
             format.Get(), area, m_textBrush.Get());
         };
-        for (const auto& text : m_frameSystemTexts)
-          drawText(Wide(text.value), L"Segoe UI", text.x, text.y, text.size, text.color);
+        const auto drawYwft = [this, scaleX, scaleY](const std::wstring& value,
+            float x, float y, float size, Color color) {
+          if (!m_ywftFontFace) return;
+          const float emSize = (std::max)(6.0f, (std::min)(256.0f,
+            std::round(size * scaleY))));
+          DWRITE_FONT_METRICS fontMetrics{};
+          m_ywftFontFace->GetMetrics(&fontMetrics);
+          const float designScale = emSize / fontMetrics.designUnitsPerEm;
+          m_textBrush->SetColor(D2D1::ColorF(color.r / 255.0f, color.g / 255.0f,
+            color.b / 255.0f, color.a / 255.0f));
+          float baselineY = y * scaleY + fontMetrics.ascent * designScale;
+          std::vector<UINT32> codepoints;
+          const auto flush = [&]() {
+            if (codepoints.empty()) return;
+            std::vector<UINT16> glyphs(codepoints.size());
+            std::vector<DWRITE_GLYPH_METRICS> metrics(codepoints.size());
+            std::vector<FLOAT> advances(codepoints.size());
+            if (FAILED(m_ywftFontFace->GetGlyphIndicesW(codepoints.data(),
+                static_cast<UINT32>(codepoints.size()), glyphs.data())) ||
+                FAILED(m_ywftFontFace->GetDesignGlyphMetrics(glyphs.data(),
+                static_cast<UINT32>(glyphs.size()), metrics.data()))) return;
+            for (std::size_t index = 0; index < metrics.size(); ++index)
+              advances[index] = metrics[index].advanceWidth * designScale;
+            DWRITE_GLYPH_RUN run{};
+            run.fontFace = m_ywftFontFace.Get();
+            run.fontEmSize = emSize;
+            run.glyphCount = static_cast<UINT32>(glyphs.size());
+            run.glyphIndices = glyphs.data();
+            run.glyphAdvances = advances.data();
+            m_d2dContext->DrawGlyphRun(D2D1::Point2F(x * scaleX, baselineY),
+              &run, m_textBrush.Get(), DWRITE_MEASURING_MODE_NATURAL);
+            codepoints.clear();
+          };
+          for (const auto character : value) {
+            if (character == L'\r') continue;
+            if (character == L'\n') {
+              flush();
+              baselineY += emSize * 1.22f;
+            } else codepoints.push_back(static_cast<UINT32>(character));
+          }
+          flush();
+        };
+        for (const auto& text : m_frameSystemTexts) {
+          if (text.family == "YWFT Processing" && m_ywftFontFace)
+            drawYwft(Wide(text.value), text.x, text.y, text.size, text.color);
+          else drawText(Wide(text.value), L"Segoe UI", text.x, text.y,
+            text.size, text.color);
+        }
         for (const auto& glyph : m_frameSystemGlyphs) {
           const std::wstring symbol(1, Mdl2Glyph(glyph.name));
           drawText(symbol, L"Segoe MDL2 Assets", glyph.x, glyph.y, glyph.size, glyph.color);
@@ -2230,6 +2351,8 @@ private:
   ComPtr<ID2D1Bitmap1> m_d2dTarget;
   ComPtr<ID2D1SolidColorBrush> m_textBrush;
   ComPtr<IDWriteFactory> m_dwriteFactory;
+  ComPtr<IDWriteFontFile> m_ywftFontFile;
+  ComPtr<IDWriteFontFace> m_ywftFontFace;
   std::unordered_map<std::wstring, ComPtr<IDWriteTextFormat>> m_textFormats;
   ComPtr<ID3D11VertexShader> m_triangleVertexShader;
   ComPtr<ID3D11PixelShader> m_trianglePixelShader;
@@ -2274,6 +2397,7 @@ private:
   std::mutex m_gameSignalMutex;
   std::deque<std::vector<uint8_t>> m_gameSignalQueue;
   std::atomic_bool m_gameSignalWriteInFlight{false};
+  std::atomic_uint64_t m_gameSignalsSent{0};
   std::atomic_uint64_t m_gameSignalsDropped{0};
   std::uint32_t m_gameSignalSequence = 0;
   std::vector<int16_t> m_samples;

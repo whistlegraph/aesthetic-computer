@@ -289,6 +289,11 @@ print(f"Listen at: https://aesthetic.computer/clock~{data['code']}")`,
             type: "string",
             required: false,
             description: "Alias for `search`."
+          },
+          from: {
+            type: "string",
+            required: false,
+            description: "Only return messages sent by this `@handle`."
           }
         },
         responseBody: {
@@ -327,6 +332,18 @@ for (const m of messages) console.log(m.when, m.from, m.text);`,
 data = requests.get("https://aesthetic.computer/api/chat-messages").json()
 for m in data["messages"]:
     print(m["when"], m["from"], m["text"])`
+          },
+          {
+            title: "Latest chat from one fighter",
+            curl: `curl "https://aesthetic.computer/api/chat-messages?from=%40jeffrey&limit=1"`,
+            javascript: `const res = await fetch("https://aesthetic.computer/api/chat-messages?from=%40jeffrey&limit=1");
+const { messages } = await res.json();
+console.log(messages.at(-1));`,
+            python: `import requests
+
+data = requests.get("https://aesthetic.computer/api/chat-messages",
+                    params={"from": "@jeffrey", "limit": 1}).json()
+print(data["messages"][-1] if data["messages"] else None)`
           },
           {
             title: "Latest 100 from the laer-klokken (clock) channel",

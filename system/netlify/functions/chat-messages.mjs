@@ -9,6 +9,7 @@
 //   search/q  — case-insensitive substring filter over message text.
 //               When set, results are newest-first relevance (no reverse) and
 //               `instance=all` searches both chat-system and chat-clock.
+//   from      — optional @handle sender filter.
 // Response is chronological (oldest → newest) per page UNLESS searching.
 // Redis caching: 2 min TTL, keyed on (instance, limit, before, search).
 
@@ -54,9 +55,10 @@ export async function handler(event, context) {
     const searchRaw = (params.search || params.q || "").trim();
     const searching = searchRaw.length > 0;
     const escaped = searchRaw.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const fromRaw = (params.from || "").trim().replace(/^@+/, "");
 
     // Cache key includes instance, limit, pagination cursor, and search
-    const cacheKey = `give:chat:${instance}:${limit}:${before ? before.toISOString() : "head"}:${searching ? "q=" + searchRaw.toLowerCase() : "noq"}`;
+    const cacheKey = `give:chat:${instance}:${limit}:${before ? before.toISOString() : "head"}:${searching ? "q=" + searchRaw.toLowerCase() : "noq"}:${fromRaw ? "from=" + fromRaw.toLowerCase() : "anyone"}`;
 
     const result = await getOrCompute(
       cacheKey,
@@ -76,6 +78,16 @@ export async function handler(event, context) {
         const baseFilter = {};
         if (before) baseFilter.when = { $lt: before };
         if (searching) baseFilter.text = { $regex: escaped, $options: "i" };
+        if (fromRaw) {
+          const sender = await database.db.collection("@handles").findOne({
+            handle: { $regex: new RegExp(`^${fromRaw.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i") },
+          });
+          if (!sender) {
+            await database.disconnect();
+            return { instance, from: `@${fromRaw}`, count: 0, messages: [], nextBefore: null };
+          }
+          baseFilter.user = sender._id;
+        }
 
         // Gather from each instance, tagging the source.
         let gathered = [];
@@ -160,6 +172,7 @@ export async function handler(event, context) {
 
         return {
           instance,
+          from: fromRaw ? `@${fromRaw}` : undefined,
           search: searching ? searchRaw : undefined,
           count: messagesWithHandles.length,
           messages: messagesWithHandles,

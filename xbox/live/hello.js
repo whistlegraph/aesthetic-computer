@@ -5,10 +5,10 @@ const worldLeft = 0;
 const worldRight = 12000;
 const worldNear = -1800;
 const worldFar = 1800;
-const stageLeft = 55;
-const stageRight = 1865;
-const stageTop = 350;
-const stageBottom = 1020;
+const stageLeft = 0;
+const stageRight = 1920;
+const stageTop = 112;
+const stageBottom = 1032;
 const cameraAspect = (stageRight - stageLeft) / (stageBottom - stageTop);
 const platformLeft = 4500;
 const platformRight = 7500;
@@ -18,21 +18,81 @@ const doubleTapReleaseUs = 40000;
 const roundDurationUs = 30000000;
 const roundResultUs = 3000000;
 const matchResultUs = 5000000;
+const introDurationUs = 3000000;
 const matchWins = 5;
 let cameraCenter = (worldLeft + worldRight) / 2;
 let cameraWidth = worldRight - worldLeft;
 let cameraCenterY = floorY - cameraWidth / cameraAspect / 2;
-const cameraScale = () => (stageRight - stageLeft) / cameraWidth;
 const clamp = (value, low, high) => Math.max(low, Math.min(high, value));
 const mixColor = (dark, light, amount) => dark.map((value, index) =>
   Math.round(value + (light[index] - value) * amount));
+const lerp = (from, to, amount) => from + (to - from) * amount;
+const normalize3 = (point) => {
+  const length = Math.hypot(point.x, point.y, point.z) || 1;
+  return { x: point.x / length, y: point.y / length, z: point.z / length };
+};
+const cross3 = (a, b) => ({ x: a.y * b.z - a.z * b.y,
+  y: a.z * b.x - a.x * b.z, z: a.x * b.y - a.y * b.x });
+const dot3 = (a, b) => a.x * b.x + a.y * b.y + a.z * b.z;
+
+class FightCamDoll {
+  constructor() {
+    this.position = { x: cameraCenter, y: cameraCenterY, z: -cameraWidth * 1.4 };
+    this.target = { x: cameraCenter, y: cameraCenterY, z: 0 };
+    this.width = cameraWidth;
+    this.perspective = 0;
+    this.fov = 55;
+    this.dirty = true;
+    this.view = null;
+  }
+
+  track(spec, dt, speed = 5) {
+    const amount = Math.min(1, dt * speed);
+    for (const axis of ["x", "y", "z"]) {
+      this.position[axis] = lerp(this.position[axis], spec.position[axis], amount);
+      this.target[axis] = lerp(this.target[axis], spec.target[axis], amount);
+    }
+    this.width = lerp(this.width, spec.width, amount);
+    this.perspective = lerp(this.perspective, spec.perspective, amount);
+    this.fov = lerp(this.fov, spec.fov || 55, amount);
+    this.dirty = true;
+  }
+
+  prepare() {
+    const forward = normalize3({ x: this.target.x - this.position.x,
+      y: this.target.y - this.position.y, z: this.target.z - this.position.z });
+    const right = normalize3(cross3(forward, { x: 0, y: -1, z: 0 }));
+    const up = normalize3(cross3(right, forward));
+    this.view = { forward, right, up,
+      centerX: (stageLeft + stageRight) / 2,
+      centerY: (stageTop + stageBottom) / 2,
+      orthoScale: (stageRight - stageLeft) / this.width,
+      focal: (stageRight - stageLeft) /
+        (2 * Math.tan(this.fov * Math.PI / 360)) };
+    this.dirty = false;
+  }
+
+  project(point) {
+    if (this.dirty || !this.view) this.prepare();
+    const { forward, right, up, centerX, centerY, orthoScale, focal } = this.view;
+    const delta = { x: point.x - this.position.x, y: point.y - this.position.y,
+      z: point.z - this.position.z };
+    const viewX = dot3(delta, right);
+    const viewY = dot3(delta, up);
+    const viewZ = Math.max(80, dot3(delta, forward));
+    const orthoX = centerX + viewX * orthoScale;
+    const orthoY = centerY - viewY * orthoScale;
+    const perspectiveX = centerX + viewX * focal / viewZ;
+    const perspectiveY = centerY - viewY * focal / viewZ;
+    return { x: lerp(orthoX, perspectiveX, this.perspective),
+      y: lerp(orthoY, perspectiveY, this.perspective) };
+  }
+}
+
+const cameraDoll = new FightCamDoll();
+const cameraScale = () => (stageRight - stageLeft) / cameraDoll.width;
 function projectPoint(x, y, z = 0) {
-  return {
-    x: (stageLeft + stageRight) / 2 +
-      (x - cameraCenter + z * .32) * cameraScale(),
-    y: (stageTop + stageBottom) / 2 +
-      (y - cameraCenterY - z * .18) * cameraScale(),
-  };
+  return cameraDoll.project({ x, y, z });
 }
 const screenX = (x, z = 0) => projectPoint(x, cameraCenterY, z).x;
 const screenY = (y, z = 0) => projectPoint(cameraCenter, y, z).y;
@@ -40,6 +100,23 @@ const panAt = (x, z = 0) => clamp(
   (projectPoint(x, cameraCenterY, z).x - 960) / 905, -1, 1);
 const panPlayer = (player) => panAt(player.x, player.z);
 let visualTheme = { light: 0, sunset: 0 };
+
+const fighterRoster = [
+  { handle: "@JEFFREY", color: [255, 105, 190], colors: [
+    [255,105,190],[111,232,210],[255,105,190],[255,232,92],
+    [130,150,255],[255,105,190],[111,232,210],[255,232,92]],
+    mood: "New Media Instruments",
+    lastChat: "hmm this chat could use some ui love" },
+  { handle: "@FIFI", color: [209, 100, 216], colors: [
+    [209,100,216],[204,253,71],[35,100,255],[82,67,17],[5,249,137]],
+    mood: "nap", lastChat: "" },
+  { handle: "@OSKIE", color: [255, 232, 92], colors: [
+    [255,232,92],[255,105,190],[111,232,210],[255,232,92],[130,150,255],[255,105,190]],
+    mood: "", lastChat: "" },
+  { handle: "@SAT", color: [130, 204, 213], colors: [
+    [130,204,213],[161,232,0],[253,122,2],[222,90,205]],
+    mood: "i hope its not ai generated", lastChat: "meow" },
+];
 
 function losAngelesSun() {
   const radians = Math.PI / 180;
@@ -66,7 +143,8 @@ function losAngelesSun() {
   return { light: light * light * (3 - 2 * light), sunset };
 }
 const players = [
-  { name: "JEFFREY", pad: 0, spawnX: 2000, x: 2000, y: floorY, z: 0,
+  { name: "@JEFFREY", rosterIndex: 0, handleColors: fighterRoster[0].colors,
+    pad: 0, spawnX: 2000, x: 2000, y: floorY, z: 0,
     vx: 0, vy: 0, vz: 0, facing: 1,
     grounded: true, ducking: false, previous: [], lastButton: "NONE",
     lastButtonAt: -10000000, color: [255, 105, 190], hit: 0,
@@ -74,8 +152,9 @@ const players = [
     lastTap: {}, lastRelease: {}, dashUntil: 0, dashVx: 0, roundWins: 0,
     attackKind: "", attackStartedAt: 0,
     attackUntil: 0, attackHit: false, blocking: false, blockFlash: 0,
-    windVx: 0 },
-  { name: "OSKIE", pad: 1, spawnX: 10000, x: 10000, y: floorY, z: 0,
+    windVx: 0, knockVx: 0 },
+  { name: "@OSKIE", rosterIndex: 2, handleColors: fighterRoster[2].colors,
+    pad: 1, spawnX: 10000, x: 10000, y: floorY, z: 0,
     vx: 0, vy: 0, vz: 0, facing: -1,
     grounded: true, ducking: false, previous: [], lastButton: "NONE",
     lastButtonAt: -10000000, color: [255, 232, 92], hit: 0,
@@ -83,25 +162,97 @@ const players = [
     lastTap: {}, lastRelease: {}, dashUntil: 0, dashVx: 0, roundWins: 0,
     attackKind: "", attackStartedAt: 0,
     attackUntil: 0, attackHit: false, blocking: false, blockFlash: 0,
-    windVx: 0 },
+    windVx: 0, knockVx: 0 },
 ];
 const impacts = [];
+const ball = { x: 6000, y: floorY - 55, z: 0, vx: 0, vy: 0,
+  radius: 55, active: true, serveAt: 0, lastHitBy: -1, safeUntil: 0 };
+let ballEnabled = true;
 let padSnapshots = [null, null];
 let startedAt = 0;
+let roundStartedAt = 0;
 let lastSimAt = 0;
 let roundElapsedUs = 0;
 let roundOverAt = 0;
 let roundResult = "";
 let matchOver = false;
+let roundCause = "";
+let acFeed = {};
+let selecting = true;
+const selectionReady = [false, false];
+const selectionPrevious = [[], []];
 let windMph = 0;
 let windDirection = 1;
 let windAcceleration = 0;
-const botState = { nextAttackAt: 0, nextJumpAt: 0, attackWithKick: true,
-  seenAttackAt: 0, defendNext: false, blockUntil: 0 };
-let botEnabled = true;
 
 function emitSignal(event, player = -1, value = 0, value2 = 0) {
   if (typeof gameSignal === "function") gameSignal(event, player, value, value2);
+}
+
+function fighterProfile(handle) {
+  const live = Array.isArray(acFeed.fighters)
+    ? acFeed.fighters.find((profile) => profile.handle.toUpperCase() === handle.toUpperCase())
+    : null;
+  const fallback = fighterRoster.find((profile) => profile.handle === handle);
+  return {
+    mood: live?.mood || (handle === "@JEFFREY" && acFeed.moodHandle === "@jeffrey"
+      ? acFeed.mood : "") || fallback?.mood || "",
+    lastChat: live?.lastChat || fallback?.lastChat || "",
+    colors: live?.colors?.length
+      ? live.colors.map((color) => [color.r, color.g, color.b])
+      : fallback?.colors || [],
+  };
+}
+
+function applyRoster(player, index) {
+  const rosterIndex = (index + fighterRoster.length) % fighterRoster.length;
+  const fighter = fighterRoster[rosterIndex];
+  const profile = fighterProfile(fighter.handle);
+  player.rosterIndex = rosterIndex;
+  player.name = fighter.handle;
+  player.color = fighter.color.slice();
+  player.handleColors = profile.colors;
+}
+
+function beginSelect(now) {
+  selecting = true;
+  selectionReady[0] = false;
+  selectionReady[1] = false;
+  selectionPrevious[0] = [];
+  selectionPrevious[1] = [];
+  roundResult = "";
+  roundCause = "";
+  matchOver = false;
+  roundElapsedUs = 0;
+  roundStartedAt = now;
+  for (const player of players) {
+    player.roundWins = 0;
+    player.score = 0;
+    player.alive = true;
+  }
+}
+
+function updateSelect(now) {
+  for (const player of players) {
+    const down = padSnapshots[player.pad]?.down || [];
+    const previous = selectionPrevious[player.pad];
+    const pressed = (button) => down.includes(button) && !previous.includes(button);
+    if (pressed("B") && selectionReady[player.pad]) selectionReady[player.pad] = false;
+    if (!selectionReady[player.pad] && (pressed("ArrowLeft") || pressed("ArrowRight"))) {
+      applyRoster(player, player.rosterIndex + (pressed("ArrowRight") ? 1 : -1));
+      drum("hat", .8, player.pad === 0 ? -.65 : .65);
+    }
+    if (!selectionReady[player.pad] && pressed("A")) {
+      selectionReady[player.pad] = true;
+      drum("clap", 1, player.pad === 0 ? -.65 : .65);
+    }
+    selectionPrevious[player.pad] = down.slice();
+  }
+  if (selectionReady[0] && selectionReady[1]) {
+    selecting = false;
+    resetRound(now, true);
+    emitSignal("fighters", -1, players[0].rosterIndex, players[1].rosterIndex);
+  }
 }
 
 function rollWind() {
@@ -109,6 +260,20 @@ function rollWind() {
   windDirection = Math.random() < .5 ? -1 : 1;
   windAcceleration = windDirection * windMph * 16;
   emitSignal("wind", -1, windDirection, windMph);
+}
+
+function resetBall(now) {
+  const target = Math.random() < .5 ? 0 : 1;
+  ball.x = (worldLeft + worldRight) / 2;
+  ball.y = floorY - ball.radius;
+  ball.z = 0;
+  ball.vx = target === 0 ? -900 : 900;
+  ball.vy = 0;
+  ball.active = ballEnabled;
+  ball.serveAt = now + introDurationUs + 850000;
+  ball.lastHitBy = target === 0 ? 1 : 0;
+  ball.safeUntil = ball.serveAt;
+  emitSignal("ballserve", -1, target, windMph);
 }
 
 const buttonLabel = (button) => ({
@@ -119,15 +284,17 @@ const buttonLabel = (button) => ({
 
 function boot() {
   startedAt = runtime().monotonicUs;
+  roundStartedAt = startedAt;
   lastSimAt = startedAt;
   roundElapsedUs = 0;
   emitSignal("hello", -1, 1, 0);
-  rollWind();
+  beginSelect(startedAt);
 }
 
 function resetRound(now, resetMatch = false) {
   impacts.length = 0;
   for (const player of players) {
+    applyRoster(player, player.rosterIndex);
     player.x = player.spawnX;
     player.y = floorY;
     player.z = 0;
@@ -152,19 +319,19 @@ function resetRound(now, resetMatch = false) {
     player.blocking = false;
     player.blockFlash = 0;
     player.windVx = 0;
+    player.knockVx = 0;
     player.previous = padSnapshots[player.pad]?.down?.slice() || [];
     player.lastButton = "NONE";
     player.lastButtonAt = -10000000;
   }
   roundResult = "";
+  roundCause = "";
   matchOver = false;
   roundElapsedUs = 0;
   lastSimAt = now;
-  botState.nextAttackAt = now + 450000;
-  botState.nextJumpAt = now + 250000;
-  botState.seenAttackAt = 0;
-  botState.blockUntil = 0;
+  roundStartedAt = now;
   rollWind();
+  resetBall(now);
   cameraCenter = (worldLeft + worldRight) / 2;
   cameraWidth = worldRight - worldLeft;
   cameraCenterY = floorY - cameraWidth / cameraAspect / 2;
@@ -203,6 +370,60 @@ function updateCamera(dt) {
   else cameraCenterY = (ceilingY + floorY) / 2;
 }
 
+function updateCameraDoll(dt, now) {
+  const introAge = now - roundStartedAt;
+  if (roundResult) {
+    const victim = players.find((player) => !player.alive);
+    const age = Math.max(0, (now - roundOverAt) / 1000000);
+    if (!victim) {
+      const target = { x: (players[0].x + players[1].x) / 2,
+        y: (players[0].y + players[1].y) / 2 - 90, z: 0 };
+      cameraDoll.track({ target,
+        position: { x: target.x + Math.sin(age) * 900,
+          y: target.y - 160, z: -2200 },
+        width: Math.abs(players[1].x - players[0].x) + 1100,
+        perspective: clamp(age / .7, 0, .8), fov: 52 }, dt, 6);
+      return;
+    }
+    const angle = age * 1.35;
+    const radius = 720;
+    const target = { x: victim.x, y: victim.y - 95, z: victim.z };
+    cameraDoll.track({ target,
+      position: { x: target.x + Math.sin(angle) * radius,
+        y: target.y - 80 + Math.sin(age * .8) * 55,
+        z: target.z - Math.cos(angle) * radius },
+      width: 680, perspective: clamp(age / .55, 0, 1), fov: 48 }, dt, 7);
+    return;
+  }
+  if (introAge < introDurationUs) {
+    const age = introAge / 1000000;
+    if (age < 1.9) {
+      const index = age < .95 ? 0 : 1;
+      const local = (age % .95) / .95;
+      const player = players[index];
+      const target = { x: player.x, y: player.y - 92, z: player.z };
+      const angle = (index === 0 ? -.72 : .72) + (local - .5) * .42;
+      cameraDoll.track({ target,
+        position: { x: target.x + Math.sin(angle) * 820,
+          y: target.y - 55, z: target.z - Math.cos(angle) * 820 },
+        width: 650, perspective: clamp(local / .42, 0, 1), fov: 46 }, dt, 10);
+    } else {
+      const target = { x: (players[0].x + players[1].x) / 2,
+        y: (players[0].y + players[1].y) / 2 - 90, z: 0 };
+      const span = Math.abs(players[1].x - players[0].x) + 900;
+      cameraDoll.track({ target,
+        position: { x: target.x, y: target.y - 180, z: -span * .62 },
+        width: span, perspective: 1, fov: 53 }, dt, 8);
+    }
+    return;
+  }
+  const target = { x: cameraCenter, y: cameraCenterY, z: 0 };
+  cameraDoll.track({ target,
+    position: { x: cameraCenter - cameraWidth * .06,
+      y: cameraCenterY - cameraWidth * .04, z: -cameraWidth * 1.35 },
+    width: cameraWidth, perspective: 0, fov: 55 }, dt, 4.5);
+}
+
 function finishRound(now) {
   if (roundResult) return;
   let roundPan = 0;
@@ -233,33 +454,6 @@ function quantizedInput(pad) {
   if (!horizontal && Math.abs(pad.leftX) >= 0.48) horizontal = pad.leftX > 0 ? 1 : -1;
   if (!vertical && Math.abs(pad.leftY) >= 0.48) vertical = pad.leftY > 0 ? 1 : -1;
   return { horizontal, vertical };
-}
-
-function botPad(now) {
-  const bot = players[1];
-  const target = players[0];
-  const down = [];
-  const dx = target.x - bot.x;
-  const dy = target.y - bot.y;
-  if (target.attackStartedAt !== botState.seenAttackAt) {
-    botState.seenAttackAt = target.attackStartedAt;
-    botState.defendNext = !botState.defendNext;
-    if (botState.defendNext && Math.abs(dx) < 320 && Math.abs(dy) < 240)
-      botState.blockUntil = target.attackUntil;
-  }
-  if (now < botState.blockUntil) down.push("X");
-  if (Math.abs(dx) > 150) down.push(dx > 0 ? "ArrowRight" : "ArrowLeft");
-  if (dy < -170 && now >= botState.nextJumpAt) {
-    down.push("ArrowUp");
-    botState.nextJumpAt = now + 330000;
-  }
-  if (now >= botState.blockUntil && Math.abs(dx) < 250 && Math.abs(dy) < 210 &&
-      now >= botState.nextAttackAt) {
-    down.push(botState.attackWithKick ? "A" : "B");
-    botState.attackWithKick = !botState.attackWithKick;
-    botState.nextAttackAt = now + 480000;
-  }
-  return { connected: true, down, leftX: 0, leftY: 0 };
 }
 
 function remember(player, button) {
@@ -305,6 +499,86 @@ function meleeStrike(player, now) {
   };
 }
 
+function returnBall(player, now, shielded) {
+  const incomingVx = ball.vx;
+  const incomingVy = ball.vy;
+  const direction = ball.x >= player.x ? 1 : -1;
+  const currentSpeed = Math.hypot(ball.vx, ball.vy);
+  const speed = Math.min(3600, currentSpeed * (shielded ? 1.02 : 1.14) +
+    (shielded ? 80 : 210));
+  ball.vx = direction * speed;
+  const lift = player.inputY > 0 ? .58
+    : shielded ? .14 : player.attackKind === "KICK" ? .34 : .2;
+  ball.vy = -speed * lift;
+  ball.x = player.x + direction * (ball.radius + 85);
+  ball.y = Math.min(ball.y, player.y - 55);
+  ball.lastHitBy = player.pad;
+  ball.safeUntil = now + 140000;
+  if (!shielded) player.attackHit = true;
+  else {
+    player.blockFlash = 1;
+    player.knockVx += incomingVx * .55;
+    player.vy = Math.min(player.vy + incomingVy * .16, -Math.max(520, speed * .28));
+    player.grounded = false;
+  }
+  impacts.push({ x: ball.x, y: ball.y, z: ball.z,
+    life: .22, duration: .22, death: false, explosion: false });
+  drum(shielded ? "block" : "clap", shielded ? 1.1 : 1.25,
+    panAt(ball.x, ball.z));
+  emitSignal(shielded ? "ballblock" : "ballhit", player.pad,
+    direction, Math.round(speed));
+}
+
+function updateBall(dt, now) {
+  if (!ball.active || now < ball.serveAt) return;
+  ball.vx += windAcceleration * .45 * dt;
+  ball.vy += 1900 * dt;
+  ball.x += ball.vx * dt;
+  ball.y += ball.vy * dt;
+  const inset = wallThickness + ball.radius;
+  if (ball.x < worldLeft + inset) {
+    ball.x = worldLeft + inset;
+    ball.vx = Math.abs(ball.vx);
+  } else if (ball.x > worldRight - inset) {
+    ball.x = worldRight - inset;
+    ball.vx = -Math.abs(ball.vx);
+  }
+  if (ball.y < ceilingY + inset) {
+    ball.y = ceilingY + inset;
+    ball.vy = Math.abs(ball.vy);
+  } else if (ball.y > floorY - ball.radius) {
+    ball.y = floorY - ball.radius;
+    ball.vy = Math.abs(ball.vy) > 180 ? -Math.abs(ball.vy) * .62 : 0;
+    ball.vx *= .992;
+  }
+  const poseTime = (now - startedAt) / 1000000;
+  for (const player of players) {
+    if (!player.alive || (player.pad === ball.lastHitBy && now < ball.safeUntil))
+      continue;
+    if (!player.attackHit && now < player.attackUntil) {
+      const strike = meleeStrike(player, now);
+      if (Math.hypot(ball.x - strike.x, ball.y - strike.y,
+        ball.z - strike.z) <= ball.radius + strike.radius) {
+        returnBall(player, now, false);
+        return;
+      }
+    }
+    if (runnerDistanceToPoint(player, poseTime,
+      ball.x, ball.y, ball.z) > ball.radius) continue;
+    if (player.blocking) {
+      returnBall(player, now, true);
+      return;
+    }
+    else {
+      ball.active = false;
+      const scorer = ball.lastHitBy >= 0 && ball.lastHitBy !== player.pad
+        ? ball.lastHitBy : player.pad === 0 ? 1 : 0;
+      killPlayer(player, scorer, now, "BALLED");
+      return;
+    }
+  }
+}
+
 function directionTap(player, direction, now) {
   const previousTap = player.lastTap[direction] || -10000000;
   const releasedAt = player.lastRelease[direction] || -10000000;
@@ -331,16 +605,18 @@ function directionTap(player, direction, now) {
   }
 }
 
-function killPlayer(target, killerPad, now) {
+function killPlayer(target, killerPad, now, cause = "KO") {
   if (!target.alive) return;
   target.alive = false;
   target.respawnAt = now + 1200000;
   target.vx = 0;
   target.vy = 0;
-  target.lastButton = "KO";
+  target.lastButton = cause;
   target.lastButtonAt = now;
   if (killerPad !== target.pad) players[killerPad].score += 1;
-  emitSignal("ko", killerPad, target.pad, players[killerPad]?.score || 0);
+  emitSignal(cause === "BALLED" ? "balled" : "ko",
+    killerPad, target.pad, players[killerPad]?.score || 0);
+  roundCause = cause;
   impacts.push({ x: target.x, y: target.y - 120, z: target.z, life: .55,
     duration: .55, death: true, explosion: false });
   drum("snare", 1.15, panPlayer(target));
@@ -358,13 +634,16 @@ function resolveMelee(now) {
       attacker.attackHit = true;
       impacts.push({ x: strike.x, y: strike.y, z: strike.z,
         life: .2, duration: .2, death: false, explosion: false });
-      if (target.blocking) {
+      const away = Math.sign(target.x - attacker.x) || -attacker.facing;
+      const backBlocking = target.inputX === away;
+      if (target.blocking || backBlocking) {
         target.blockFlash = 1;
-        target.lastButton = "BLOCK";
+        target.lastButton = target.blocking ? "BLOCK" : "BACK BLOCK";
         target.lastButtonAt = now;
+        target.vx = 0;
         attacker.vx = -attacker.facing * 420;
         drum("block", 1.2, panPlayer(target));
-        emitSignal("block", target.pad, attacker.pad, 1);
+        emitSignal("block", target.pad, attacker.pad, target.blocking ? 1 : 2);
       } else killPlayer(target, attacker.pad, now);
     }
   }
@@ -381,6 +660,7 @@ function updatePlayer(player, pad, dt, now) {
       player.vy = 0;
       player.vz = 0;
       player.windVx = 0;
+      player.knockVx = 0;
       player.grounded = true;
       player.ducking = false;
       player.inputX = 0;
@@ -413,10 +693,11 @@ function updatePlayer(player, pad, dt, now) {
   // the sampled edge. The analog stick is only an eight-way gate.
   if (player.grounded) player.windVx *= Math.max(0, 1 - dt * 10);
   else player.windVx = clamp(player.windVx + windAcceleration * dt, -900, 900);
+  player.knockVx *= Math.max(0, 1 - dt * (player.grounded ? 7 : 1.8));
   const controlledVx = player.blocking ? 0 : now < player.dashUntil
     ? player.dashVx
     : player.ducking ? 0 : input.horizontal * 1500;
-  player.vx = controlledVx + player.windVx;
+  player.vx = controlledVx + player.windVx + player.knockVx;
 
   if (upPressed) {
     player.vy = Math.min(player.vy, -1050);
@@ -470,17 +751,31 @@ function sim() {
   const dt = Math.min(0.04, Math.max(0.001, (now - lastSimAt) / 1000000));
   lastSimAt = now;
   padSnapshots[0] = gamepad(0);
-  padSnapshots[1] = botEnabled ? botPad(now) : gamepad(1);
+  padSnapshots[1] = gamepad(1);
   if (roundResult) {
+    updateCameraDoll(dt, now);
     const resultDuration = matchOver ? matchResultUs : roundResultUs;
-    if (now - roundOverAt >= resultDuration) resetRound(now, matchOver);
+    if (now - roundOverAt >= resultDuration) {
+      if (matchOver) beginSelect(now);
+      else resetRound(now, false);
+    }
+    return;
+  }
+  if (selecting) {
+    updateSelect(now);
+    return;
+  }
+  if (now - roundStartedAt < introDurationUs) {
+    updateCameraDoll(dt, now);
     return;
   }
   roundElapsedUs += dt * 1000000;
   updatePlayer(players[0], padSnapshots[0], dt, now);
   updatePlayer(players[1], padSnapshots[1], dt, now);
+  updateBall(dt, now);
   resolveMelee(now);
   updateCamera(dt);
+  updateCameraDoll(dt, now);
   for (const impact of impacts) impact.life -= dt;
   while (impacts.length && impacts[0].life <= 0) impacts.shift();
   if (players.some((player) => !player.alive) || roundElapsedUs >= roundDurationUs)
@@ -603,11 +898,13 @@ function resolveRunnerBounds(player, t) {
   if (bounds.left < leftWall) {
     player.x += leftWall - bounds.left;
     player.vx = Math.max(0, player.vx);
+    player.knockVx = Math.max(0, player.knockVx);
     bounds = runnerBounds(player, t);
   }
   if (bounds.right > rightWall) {
     player.x -= bounds.right - rightWall;
     player.vx = Math.min(0, player.vx);
+    player.knockVx = Math.min(0, player.knockVx);
     bounds = runnerBounds(player, t);
   }
   const ceiling = ceilingY + wallThickness;
@@ -642,11 +939,79 @@ function runnerDistanceToPoint(player, t, px, py, pz = 0) {
   return distance;
 }
 
-function drawRunner(player, t) {
-  if (!player.alive) return;
+function handleWidth(handle, size) {
+  return handle.length ? size * .88 + (handle.length - 1) * size * .58 : 0;
+}
+
+function typeWrite(text, x, y, size, ...color) {
+  if (typeof ywftWrite === "function") ywftWrite(text, x, y, size, ...color);
+  else systemWrite(text, x, y, size, ...color);
+}
+
+function drawHandle(handle, x, y, size, colors, fallback) {
+  let cursor = x;
+  for (let index = 0; index < handle.length; index++) {
+    const color = colors?.[index] || fallback;
+    typeWrite(handle[index], cursor, y, size, ...color);
+    cursor += size * (handle[index] === "@" ? .88 : .58);
+  }
+}
+
+function drawFace(player, head, color, t) {
+  if (head.radius < 5) return;
+  const r = head.radius;
+  const direction = player.facing || 1;
+  const eyeY = head.y - r * .18;
+  const eyeGap = r * .34;
+  const eyeWidth = Math.max(1.4, r * .1);
+  const lineWidth = Math.max(1.2, r * .1);
+  const blink = player.alive && !player.blocking && !player.attackKind &&
+    Math.sin(t * .73 + player.pad * 2.1) > .985;
+  if (!player.alive || player.hit > .6) {
+    for (const offset of [-eyeGap, eyeGap]) {
+      line(head.x + offset - eyeWidth, eyeY - eyeWidth,
+        head.x + offset + eyeWidth, eyeY + eyeWidth, lineWidth, ...color);
+      line(head.x + offset + eyeWidth, eyeY - eyeWidth,
+        head.x + offset - eyeWidth, eyeY + eyeWidth, lineWidth, ...color);
+    }
+  } else if (player.blocking || blink) {
+    line(head.x - eyeGap - eyeWidth, eyeY, head.x - eyeGap + eyeWidth,
+      eyeY, lineWidth, ...color);
+    line(head.x + eyeGap - eyeWidth, eyeY, head.x + eyeGap + eyeWidth,
+      eyeY, lineWidth, ...color);
+  } else {
+    line(head.x - eyeGap, eyeY - eyeWidth, head.x - eyeGap,
+      eyeY + eyeWidth, lineWidth, ...color);
+    line(head.x + eyeGap, eyeY - eyeWidth, head.x + eyeGap,
+      eyeY + eyeWidth, lineWidth, ...color);
+  }
+  const mouthY = head.y + r * .3;
+  if (player.attackKind && meleePulse(player, runtime().monotonicUs) > 0) {
+    circle(head.x + direction * r * .12, mouthY, Math.max(1.8, r * .13),
+      lineWidth, color);
+  } else if (player.blocking) {
+    line(head.x - r * .26, mouthY, head.x + r * .26, mouthY,
+      lineWidth, ...color);
+  } else if (!player.alive || player.hit > .6) {
+    line(head.x - r * .24, mouthY + r * .08, head.x,
+      mouthY - r * .06, lineWidth, ...color);
+    line(head.x, mouthY - r * .06, head.x + r * .24,
+      mouthY + r * .08, lineWidth, ...color);
+  } else {
+    const smile = Math.sin(t * 2.4 + player.pad) * r * .035;
+    line(head.x - r * .23, mouthY - smile, head.x,
+      mouthY + r * .09, lineWidth, ...color);
+    line(head.x, mouthY + r * .09, head.x + r * .23,
+      mouthY - smile, lineWidth, ...color);
+  }
+}
+
+function drawRunner(player, t, showLabel = true) {
+  if (!player.alive && !roundResult) return;
   const geometry = runnerGeometry(player, t);
   const color = player.hit > 0 ? [255, 255, 255] : player.color;
   circle(geometry.head.x, geometry.head.y, geometry.head.radius, 3, color);
+  drawFace(player, geometry.head, color, t);
   for (const segment of geometry.segments)
     line(segment.x1, segment.y1, segment.x2, segment.y2, segment.width, ...color);
   if (player.blocking) {
@@ -661,34 +1026,38 @@ function drawRunner(player, t) {
       Math.max(2, 6 * cameraScale()), ...shieldColor);
   }
 
-  const labelSize = Math.max(10, Math.min(16, Math.round(cameraScale() * 48)));
-  const labelX = geometry.head.x - player.name.length * labelSize * .3;
-  systemWrite(player.name, labelX, geometry.head.y - labelSize - 8,
-    labelSize, ...color);
+  if (showLabel) {
+    const labelSize = Math.max(10, Math.min(16, Math.round(cameraScale() * 48)));
+    const labelX = geometry.head.x - handleWidth(player.name, labelSize) / 2;
+    drawHandle(player.name, labelX, geometry.head.y - labelSize - 8,
+      labelSize, player.handleColors, color);
+  }
 }
 
 function drawPlayerHud(player, x, pad) {
+  pad = pad || { connected: false, down: [] };
   const age = (runtime().monotonicUs - player.lastButtonAt) / 1000000;
   const pulse = Math.max(0, 1 - age * 2.2);
   const color = visualTheme.light > .55
     ? player.pad === 0 ? [155, 34, 108] : [105, 78, 0]
     : player.color;
-  const panel = mixColor(
-    [14 + Math.round(pulse * 20), 18, 45 + Math.round(pulse * 35)],
-    [238, 243, 249], visualTheme.light * .92);
-  box(x, 210, 740, 112, ...panel);
-  box(x, 210, 740, 8, ...player.color);
-  systemWrite("P" + (player.pad + 1) + "  " + player.name + "  " +
-    player.roundWins + "/" + matchWins, x + 24, 226, 30, ...color);
-  systemWrite(player.lastButton, x + 24, 270, 28, ...color);
+  line(x, 8, x + 625, 8, 5 + pulse * 4, ...player.color);
+  typeWrite("P" + (player.pad + 1) + " " + player.name + "  " +
+    player.roundWins + "/" + matchWins + "  PTS " + player.score,
+    x, 14, 24, ...color);
   const held = pad.down.length ? pad.down.map(buttonLabel).join(" ") : "NONE";
-  systemWrite("KOS " + player.score, x + 330, 229, 19, ...color);
   const secondary = mixColor([195, 210, 230], [48, 58, 78], visualTheme.light);
-  systemWrite("HELD " + held, x + 330, 270, 15, ...secondary);
-  const status = player.pad === 1 ? "BOT" : pad.connected ? "READY" : "CONNECT";
-  systemWrite(status, x + 610, 230, 18,
-    status === "CONNECT" ? 255 : 115, status === "CONNECT" ? 105 : 225,
-    status === "CONNECT" ? 105 : 165);
+  const status = pad.connected ? "READY" : "CONNECT";
+  typeWrite(player.lastButton + "  ·  " + held + "  ·  " + status,
+    x, 48, 16, ...(status === "CONNECT" ? [255, 105, 105] : secondary));
+}
+
+function drawFighterData(player, x) {
+  const profile = fighterProfile(player.name);
+  const mood = profile.mood ? "M " + profile.mood.slice(0, 24) : "M —";
+  const chat = profile.lastChat ? "CHAT " + profile.lastChat.slice(0, 34) : "CHAT —";
+  const ink = mixColor([190, 205, 235], [55, 66, 90], visualTheme.light);
+  typeWrite(mood + "  ·  " + chat, x, 82, 15, ...ink);
 }
 
 function worldLine(x1, y1, z1, x2, y2, z2, width, color) {
@@ -697,29 +1066,89 @@ function worldLine(x1, y1, z1, x2, y2, z2, width, color) {
   line(a.x, a.y, b.x, b.y, width, ...color);
 }
 
+function drawWindFlag(t, color) {
+  const poleX = 820;
+  const poleTop = 18;
+  const poleBottom = 72;
+  const direction = windDirection;
+  const length = 30 + windMph * 3;
+  const gust = Math.sin(t * (4 + windMph * .16)) * (3 + windMph * .22);
+  const tipX = poleX + direction * length;
+  const tipY = poleTop + 10 + gust;
+  line(poleX, poleTop, poleX, poleBottom, 3, ...color);
+  line(poleX, poleTop + 2, tipX, tipY, 4, ...color);
+  line(tipX, tipY, poleX, poleTop + 24, 4, ...color);
+  line(poleX, poleTop + 24, poleX, poleTop + 2, 4, ...color);
+  line(poleX - 8, poleBottom, poleX + 8, poleBottom, 3, ...color);
+  const textX = direction < 0 ? 842 : 705;
+  typeWrite(windMph + " MPH", textX, 38, 17, ...color);
+}
+
+function drawSelectPortrait(player, x, y, scale, t) {
+  const color = player.color;
+  const head = { x, y: y - 130 * scale, radius: 34 * scale };
+  circle(head.x, head.y, head.radius, Math.max(3, 5 * scale), color);
+  line(x, y - 94 * scale, x, y + 20 * scale, 12 * scale, ...color);
+  line(x, y - 65 * scale, x - 62 * scale, y - 8 * scale, 10 * scale, ...color);
+  line(x, y - 65 * scale, x + 62 * scale, y - 8 * scale, 10 * scale, ...color);
+  line(x, y + 20 * scale, x - 48 * scale, y + 112 * scale, 11 * scale, ...color);
+  line(x, y + 20 * scale, x + 48 * scale, y + 112 * scale, 11 * scale, ...color);
+  drawFace(player, head, color, t);
+}
+
+function drawSelectionScreen(t, ink, panel) {
+  write("OSKIEWAR", 740, 62, 64, ...ink);
+  typeWrite("CHOOSE YOUR FIGHTER", 735, 152, 32, ...ink);
+  for (let index = 0; index < fighterRoster.length; index++) {
+    const fighter = fighterRoster[index];
+    const selected = players.some((player) => player.rosterIndex === index);
+    typeWrite(fighter.handle, 270 + index * 390, 235, selected ? 31 : 23,
+      ...(selected ? fighter.color : mixColor([105,115,145],[130,140,155],visualTheme.light)));
+  }
+  for (const player of players) {
+    const left = player.pad === 0 ? 90 : 990;
+    const profile = fighterProfile(player.name);
+    box(left, 320, 840, 570, ...panel);
+    box(left, 320, 840, 8, ...player.color);
+    drawSelectPortrait(player, left + 190, 590, 1.35, t);
+    drawHandle(player.name, left + 355, 395, 46,
+      profile.colors, player.color);
+    const mood = profile.mood ? "MOOD  " + profile.mood.slice(0, 30) : "MOOD  —";
+    const chat = profile.lastChat ? "CHAT  " + profile.lastChat.slice(0, 37) : "CHAT  —";
+    typeWrite(mood + "\n" + chat, left + 355, 490, 22, ...ink);
+    write(selectionReady[player.pad] ? "READY" : "SELECT",
+      left + 355, 720, 52, ...player.color);
+    typeWrite("P" + (player.pad + 1), left + 355, 805, 24, ...ink);
+  }
+  write("LEFT RIGHT SELECT     A READY     B BACK", 430, 965, 29, ...ink);
+}
+
 function paint() {
   const run = runtime();
   const t = (run.monotonicUs - startedAt) / 1000000;
+  if (typeof ac === "function") acFeed = ac();
+  for (const player of players) player.handleColors = fighterProfile(player.name).colors;
   visualTheme = losAngelesSun();
   const skyDay = mixColor([176, 215, 245], [255, 160, 112],
     visualTheme.sunset * .7);
   const sky = mixColor([7, 8, 28], skyDay, visualTheme.light);
-  const arena = mixColor([10, 13, 30], [230, 239, 247], visualTheme.light);
+  const arenaDay = mixColor([230, 239, 247], skyDay, visualTheme.sunset * .55);
+  const arena = mixColor([10, 13, 30], arenaDay, visualTheme.light);
   const titlePanel = mixColor([22, 28, 104], [245, 248, 252], visualTheme.light);
   const titleInk = mixColor([245, 248, 255], [24, 35, 72], visualTheme.light);
-  const titleX = 785 + Math.sin(t * 1.05) * 55;
-  const titleY = 88 + Math.sin(t * 2.1) * 5;
   wipe(...sky);
+  box(0, 0, 1920, 1080, ...arena);
   for (let i = 0; i < 8; i++) {
     const x = ((i * 310 + t * (38 + i * 3)) % 2300) - 190;
     const stripe = mixColor([20 + i * 3, 32 + i * 4, 72 + i * 6],
       [132 + i * 3, 178 + i * 2, 215 + i * 2], visualTheme.light);
     box(x, 0, 5, 1080, ...stripe);
   }
-  box(titleX - 14, titleY - 13, 365, 74, ...titlePanel);
-  write("OSKIEWAR", titleX, titleY, 48, ...titleInk);
-
-  box(35, 202, 1850, stageBottom - 202, ...arena);
+  if (selecting) {
+    drawSelectionScreen(t, titleInk, titlePanel);
+    return;
+  }
+  cameraDoll.prepare();
   const worldInk = mixColor([72, 90, 125], [45, 63, 92], visualTheme.light);
   const gridInk = mixColor([35, 49, 82], [160, 181, 205], visualTheme.light);
   const edgeWidth = Math.max(2, wallThickness * cameraScale() * .14);
@@ -750,11 +1179,33 @@ function paint() {
   const remaining = roundResult ? 0 : Math.max(0,
     Math.ceil((roundDurationUs - roundElapsedUs) / 1000000));
   const clockInk = remaining <= 10 ? [255, 105, 190] : titleInk;
-  box(850, 218, 220, 78, ...titlePanel);
-  write(String(remaining).padStart(2, "0"), 912, 226, 56, ...clockInk);
-  const windText = (windDirection < 0 ? "<  " : ">  ") +
-    "WIND " + windMph + " MPH";
-  systemWrite(windText, 872, 306, 18, ...titleInk);
+  typeWrite(String(remaining).padStart(2, "0"), 928, 5, 48, ...clockInk);
+  drawWindFlag(t, titleInk);
+  if (ball.active) {
+    const point = projectPoint(ball.x, ball.y, ball.z);
+    const radius = Math.max(8, ball.radius * cameraScale());
+    const speed = Math.hypot(ball.vx, ball.vy) || 1;
+    const tail = projectPoint(ball.x - ball.vx / speed * 150,
+      ball.y - ball.vy / speed * 150, ball.z);
+    line(tail.x, tail.y, point.x, point.y, Math.max(3, radius * .35),
+      255, 105, 190);
+    circle(point.x, point.y, radius, Math.max(3, radius * .22), [245, 248, 255]);
+    const inner = [];
+    for (let side = 0; side < 5; side++) {
+      const angle = -Math.PI / 2 + side * Math.PI * 2 / 5 + t * 1.4;
+      inner.push({ x: point.x + Math.cos(angle) * radius * .38,
+        y: point.y + Math.sin(angle) * radius * .38 });
+    }
+    for (let side = 0; side < 5; side++) {
+      const next = (side + 1) % 5;
+      line(inner[side].x, inner[side].y, inner[next].x, inner[next].y,
+        Math.max(2, radius * .12), 255, 105, 190);
+      line(inner[side].x, inner[side].y,
+        point.x + (inner[side].x - point.x) * 2.15,
+        point.y + (inner[side].y - point.y) * 2.15,
+        Math.max(2, radius * .09), 255, 105, 190);
+    }
+  }
   for (const impact of impacts) {
     const point = projectPoint(impact.x, impact.y, impact.z || 0);
     const radius = (30 + (1 - impact.life / impact.duration) *
@@ -768,17 +1219,35 @@ function paint() {
     line(point.x + radius * .7, point.y - radius * .7,
       point.x - radius * .7, point.y + radius * .7, 4, 255, 105, 190);
   }
-  drawRunner(players[0], t);
-  drawRunner(players[1], t);
-  if (roundResult) {
-    const resultSize = 72;
-    const resultWidth = roundResult.length * 60;
-    const resultX = (1920 - resultWidth) / 2;
-    box(resultX - 36, 432, resultWidth + 72, 126, ...titlePanel);
-    write(roundResult, resultX, 454, resultSize, ...titleInk);
+  const introAge = run.monotonicUs - roundStartedAt;
+  const showRunnerLabels = Boolean(roundResult) || introAge >= introDurationUs;
+  drawRunner(players[0], t, showRunnerLabels);
+  drawRunner(players[1], t, showRunnerLabels);
+  if (!roundResult && introAge < introDurationUs) {
+    const introSeconds = introAge / 1000000;
+    const introText = introSeconds < .95 ? players[0].name
+      : introSeconds < 1.9 ? players[1].name
+      : players[0].name + "  VS  " + players[1].name;
+    const size = introSeconds < 1.9 ? 76 : 62;
+    const width = introText.length * size * .62;
+    box((1920 - width) / 2 - 30, 824, width + 60, 145, ...titlePanel);
+    typeWrite(introText, (1920 - width) / 2, 838, size, ...titleInk);
+    const windLabel = windMph + " MPH WIND " +
+      (windDirection < 0 ? "LEFT" : "RIGHT");
+    typeWrite(windLabel, 960 - windLabel.length * 7.5, 932, 25, ...titleInk);
   }
-  drawPlayerHud(players[0], 55, padSnapshots[0]);
-  drawPlayerHud(players[1], 1125, padSnapshots[1]);
+  if (roundResult) {
+    const cause = roundCause || "ROUND";
+    const causeWidth = cause.length * 78;
+    box((1920 - causeWidth) / 2 - 36, 790, causeWidth + 72, 126, ...titlePanel);
+    typeWrite(cause, (1920 - causeWidth) / 2, 810, 92, ...titleInk);
+    const resultWidth = roundResult.length * 28;
+    typeWrite(roundResult, (1920 - resultWidth) / 2, 930, 34, ...titleInk);
+  }
+  drawPlayerHud(players[0], 20, padSnapshots[0]);
+  drawPlayerHud(players[1], 1275, padSnapshots[1]);
+  drawFighterData(players[0], 20);
+  drawFighterData(players[1], 1035);
 }
 
 function act() {}

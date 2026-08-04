@@ -4,21 +4,20 @@ import test from "node:test";
 
 const source = await readFile(new URL("../hello.js", import.meta.url), "utf8");
 
-function createFight() {
+function createFight(startImmediately = true) {
   let now = 0;
   const signals = [];
   const pads = [0, 1].map(() => ({ connected: true, down: [], leftX: 0, leftY: 0 }));
   const noOp = () => {};
   const fight = new Function(
     "runtime", "gamepad", "telemetry", "gameSignal", "drum", "wipe", "box", "line", "write", "systemWrite",
-    `${source}\nreturn { boot, sim, players, runnerWorldGeometry, runnerDistanceToPoint, disableBot: () => { botEnabled = false; }, cameraState: () => ({ cameraWidth, cameraCenterY }), roundState: () => ({ roundResult, roundElapsedUs, matchOver }) };`
+    `${source}\nreturn { boot, sim, players, runnerWorldGeometry, runnerDistanceToPoint, disableBall: () => { ballEnabled = false; ball.active = false; }, startFight: () => { selecting = false; resetRound(runtime().monotonicUs, true); }, selectionState: () => ({ selecting, ready: selectionReady.slice() }), cameraState: () => ({ cameraWidth, cameraCenterY }), roundState: () => ({ roundResult, roundElapsedUs, matchOver }) };`
   )(
     () => ({ monotonicUs: now }),
     (index = 0) => ({ ...pads[index], down: pads[index].down.slice() }),
     noOp, (...signal) => signals.push(signal), noOp, noOp, noOp, noOp, noOp, noOp
   );
   fight.boot();
-  fight.disableBot();
 
   const tick = (elapsedUs = 16667) => {
     now += elapsedUs;
@@ -31,8 +30,31 @@ function createFight() {
     tick();
     tick(gapUs);
   };
+  fight.disableBall();
+  if (startImmediately) {
+    fight.startFight();
+    tick(3000001);
+  }
   return { fight, pads, signals, tick, tap, now: () => now };
 }
+
+test("character select offers the four AC fighters and waits for both pads", () => {
+  const { fight, pads, tick } = createFight(false);
+  pads[0].down = ["ArrowRight"];
+  tick();
+  pads[0].down = [];
+  tick();
+  assert.equal(fight.players[0].name, "@FIFI");
+  pads[0].down = ["A"];
+  tick();
+  pads[0].down = [];
+  tick();
+  assert.deepEqual(fight.selectionState().ready, [true, false]);
+  pads[1].down = ["A"];
+  tick();
+  assert.equal(fight.selectionState().selecting, false);
+  assert.equal(fight.players[1].name, "@OSKIE");
+});
 
 test("melee and movement edges emit bounded Ableton signals", () => {
   const { signals, tap } = createFight();
@@ -125,8 +147,9 @@ test("first to five round wins takes the match", () => {
     assert.equal(fight.players[0].roundWins, round);
     assert.equal(fight.roundState().matchOver, round === 5);
     assert.equal(fight.roundState().roundResult,
-      round === 5 ? "JEFFREY WINS MATCH" : "JEFFREY WINS ROUND");
+      round === 5 ? "@JEFFREY WINS MATCH" : "@JEFFREY WINS ROUND");
     tick(round === 5 ? 5000001 : 3000001);
+    if (round < 5) tick(3000001);
   }
   assert.equal(fight.players[0].roundWins, 0);
   assert.equal(fight.roundState().roundResult, "");

@@ -341,7 +341,8 @@ JSValue TexturedTriangles3d(JSContext* context, JSValueConst, int argc,
   return JS_NewInt32(context, static_cast<int32_t>(requestedCount));
 }
 
-JSValue SystemWrite(JSContext* context, JSValueConst, int argc, JSValueConst* argv) {
+JSValue QueueSystemWrite(JSContext* context, int argc, JSValueConst* argv,
+    const char* family) {
   auto* scope = static_cast<CallScope*>(JS_GetContextOpaque(context));
   if (!scope || !scope->api || argc < 1) return JS_EXCEPTION;
   const char* value = JS_ToCString(context, argv[0]);
@@ -354,11 +355,19 @@ JSValue SystemWrite(JSContext* context, JSValueConst, int argc, JSValueConst* ar
   if (argc > 4) JS_ToInt32(context, &r, argv[4]);
   if (argc > 5) JS_ToInt32(context, &g, argv[5]);
   if (argc > 6) JS_ToInt32(context, &b, argv[6]);
-  scope->api->graphics.system_write({value, "Segoe UI", static_cast<float>(x),
+  scope->api->graphics.system_write({value, family, static_cast<float>(x),
     static_cast<float>(y), static_cast<float>(size),
     {static_cast<uint8_t>(r), static_cast<uint8_t>(g), static_cast<uint8_t>(b), 255}});
   JS_FreeCString(context, value);
   return JS_UNDEFINED;
+}
+
+JSValue SystemWrite(JSContext* context, JSValueConst, int argc, JSValueConst* argv) {
+  return QueueSystemWrite(context, argc, argv, "Segoe UI");
+}
+
+JSValue YwftWrite(JSContext* context, JSValueConst, int argc, JSValueConst* argv) {
+  return QueueSystemWrite(context, argc, argv, "YWFT Processing");
 }
 
 JSValue SystemGlyph(JSContext* context, JSValueConst, int argc, JSValueConst* argv) {
@@ -598,6 +607,26 @@ JSValue AcData(JSContext* context, JSValueConst, int, JSValueConst*) {
   JS_SetPropertyStr(context, result, "paintingHandle", JS_NewString(context, snapshot->painting_handle.c_str()));
   JS_SetPropertyStr(context, result, "status", JS_NewString(context, snapshot->status.c_str()));
   JS_SetPropertyStr(context, result, "refreshedUnixMs", JS_NewInt64(context, snapshot->refreshed_unix_ms));
+  JSValue fighters = JS_NewArray(context);
+  for (uint32_t index = 0; index < snapshot->fighters.size(); ++index) {
+    const auto& profile = snapshot->fighters[index];
+    JSValue fighter = JS_NewObject(context);
+    JS_SetPropertyStr(context, fighter, "handle", JS_NewString(context, profile.handle.c_str()));
+    JS_SetPropertyStr(context, fighter, "mood", JS_NewString(context, profile.mood.c_str()));
+    JS_SetPropertyStr(context, fighter, "lastChat", JS_NewString(context, profile.last_chat.c_str()));
+    JSValue colors = JS_NewArray(context);
+    for (uint32_t colorIndex = 0; colorIndex < profile.colors.size(); ++colorIndex) {
+      const auto& color = profile.colors[colorIndex];
+      JSValue value = JS_NewObject(context);
+      JS_SetPropertyStr(context, value, "r", JS_NewInt32(context, color.r));
+      JS_SetPropertyStr(context, value, "g", JS_NewInt32(context, color.g));
+      JS_SetPropertyStr(context, value, "b", JS_NewInt32(context, color.b));
+      JS_SetPropertyUint32(context, colors, colorIndex, value);
+    }
+    JS_SetPropertyStr(context, fighter, "colors", colors);
+    JS_SetPropertyUint32(context, fighters, index, fighter);
+  }
+  JS_SetPropertyStr(context, result, "fighters", fighters);
   return result;
 }
 
@@ -695,6 +724,7 @@ class QuickJsPiece final : public JsPiece {
     JS_SetPropertyStr(context_, global, "sprites3d", JS_NewCFunction(context_, Sprites3d, "sprites3d", 2));
     JS_SetPropertyStr(context_, global, "texturedTriangles3d", JS_NewCFunction(context_, TexturedTriangles3d, "texturedTriangles3d", 2));
     JS_SetPropertyStr(context_, global, "systemWrite", JS_NewCFunction(context_, SystemWrite, "systemWrite", 7));
+    JS_SetPropertyStr(context_, global, "ywftWrite", JS_NewCFunction(context_, YwftWrite, "ywftWrite", 7));
     JS_SetPropertyStr(context_, global, "systemGlyph", JS_NewCFunction(context_, SystemGlyph, "systemGlyph", 7));
     JS_SetPropertyStr(context_, global, "painting", JS_NewCFunction(context_, Painting, "painting", 4));
     JS_SetPropertyStr(context_, global, "stampPainting", JS_NewCFunction(context_, StampPainting, "stampPainting", 4));

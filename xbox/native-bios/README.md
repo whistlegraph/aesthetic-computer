@@ -66,6 +66,13 @@ to-present latency as `AC_NATIVE_INPUT_LATENCY`. OSKIEWAR emits OSC addresses
 under `/oskiewar/*` on UDP `51338`; `ac-m4l/AC-OSKIEWAR.amxd.json` turns bounded
 combat and movement-edge events into MIDI notes.
 
+Revision 31 adds the allowlisted OSKIEWAR fighter profile feed for `@jeffrey`,
+`@fifi`, `@oskie`, and `@sat`: current mood, per-character handle colors, and
+latest public system-chat text. The sandbox still receives only the immutable
+`ac()` snapshot and has no general network access. It also packages the existing
+YWFT Processing face and exposes it through bounded `ywftWrite`; `write` remains
+the native AC block face and `systemWrite` remains the Xbox system face.
+
 Revision 13 also exposes bounded `stampPainting` and `blur` primitives to the
 trusted host-side KidLisp compiler. See [`../KIDLISP-NATIVE.md`](../KIDLISP-NATIVE.md)
 for the supported subset and `$obk` wire-deploy flow.

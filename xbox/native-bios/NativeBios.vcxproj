@@ -63,6 +63,12 @@
   <ItemGroup><Content Include="smoke_piece.js"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content></ItemGroup>
   <ItemGroup><Content Include="Assets\JeffreyTexture.rgba"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content></ItemGroup>
   <ItemGroup>
+    <Content Include="..\..\system\public\type\webfonts\ywft-processing-regular.ttf">
+      <Link>Assets\ywft-processing-regular.ttf</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+  <ItemGroup>
     <FxCompile Include="TriangleVertexShader.hlsl">
       <ShaderType>Vertex</ShaderType><ShaderModel>5.0</ShaderModel><EntryPointName>main</EntryPointName>
     </FxCompile>

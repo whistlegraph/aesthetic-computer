@@ -158,6 +158,12 @@ struct System {
 };
 
 struct AcSnapshot {
+  struct FighterProfile {
+    std::string handle;
+    std::string mood;
+    std::string last_chat;
+    std::vector<Color> colors;
+  };
   std::string mood;
   std::string mood_handle;
   std::string clock_from;
@@ -166,6 +172,7 @@ struct AcSnapshot {
   std::string painting_handle;
   std::string status = "loading";
   std::int64_t refreshed_unix_ms = 0;
+  std::vector<FighterProfile> fighters;
 };
 
 // Read-only view of a host-mediated photo disc. Pieces can request a scan,
