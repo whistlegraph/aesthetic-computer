@@ -20,7 +20,7 @@
 //
 // Hand-rolled JSON-RPC over stdio, matching the house style of the sibling
 // frame-mcp / puppet-mcp — no SDK, only node builtins + the shared front.
-import { readFile, readdir, writeFile, mkdir } from "node:fs/promises";
+import { readFile, readdir, writeFile, mkdir, copyFile, chmod } from "node:fs/promises";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { join } from "node:path";
@@ -41,6 +41,41 @@ const LOOPBOY_CONFIG = join(homedir(), ".config", "slab", "loopboy.json");
 // by sessionId (== the ledger entry `id`), so prox_close can find the terminal.
 const SLAB_HOME = process.env.SLAB_HOME || join(homedir(), ".local", "share", "slab");
 const MARKER_DIRS = [join(SLAB_HOME, "state", "active-prompts"), join(SLAB_HOME, "state", "awaiting-prompts")];
+
+const shellQuote = (s) => `'${String(s).replaceAll("'", `'"'"'`)}'`;
+
+async function findFile(root, suffix) {
+  let entries;
+  try { entries = await readdir(root, { withFileTypes: true }); } catch { return null; }
+  for (const entry of entries) {
+    const path = join(root, entry.name);
+    if (entry.isFile() && entry.name.endsWith(suffix)) return path;
+    if (entry.isDirectory()) {
+      const hit = await findFile(path, suffix);
+      if (hit) return hit;
+    }
+  }
+  return null;
+}
+
+async function transcriptFor(rock, marker) {
+  if (marker?.transcript_path) return marker.transcript_path;
+  const agent = marker?.agent_type || rock.agentType || "claude";
+  const providerId = marker?.provider_session_id || marker?.codex_session_id || rock.id;
+  if (agent === "codex") {
+    return findFile(join(homedir(), ".codex", "sessions"), `${providerId}.jsonl`);
+  }
+  return findFile(join(homedir(), ".claude", "projects"), `${rock.id}.jsonl`);
+}
+
+async function renderRockBundle(seed, bundle) {
+  if (!seed) return false;
+  const exporter = join(import.meta.dirname, "prox-sigil-export");
+  try {
+    await pexec(exporter, [seed, bundle, "dark"], { timeout: 60_000 });
+    return true;
+  } catch { return false; }
+}
 
 // ── load the fleet ledger off disk ──────────────────────────────────────────
 async function readJson(path) {
@@ -236,6 +271,65 @@ async function toolPoke({ handle, by }) {
   return [{ type: "text", text: `poked ${r.host}:${r.name} as «${poker}» — its rock should blink + rattle (HTTP ${res.status}).` }];
 }
 
+async function toolDump({ handle, destination } = {}) {
+  if (!handle) throw new Error("`handle` is required (a local `host:name` or fuzzy name; see prox_find).");
+  const hits = resolve(await allRocks(), handle);
+  if (!hits.length) throw new Error(`no rock resolves «${handle}» to dump.`);
+  if (hits.length > 1) {
+    return [{ type: "text", text: `«${handle}» is ambiguous (${hits.map((r) => `${r.host}:${r.name}`).join(", ")}). Dump a specific host:name.` }];
+  }
+  const r = hits[0];
+  if (!r.self) throw new Error(`${r.host}:${r.name} runs on another machine — prox_dump is local-only so raw session state never crosses the ledger server. Run it from ${r.host}.`);
+  const marker = await readMarker(r.id);
+  if (!marker) throw new Error(`no local session marker remains for ${r.host}:${r.name}.`);
+  const transcript = await transcriptFor(r, marker);
+  if (!transcript) throw new Error(`could not locate the persisted transcript for ${r.host}:${r.name}.`);
+
+  const agent = marker.agent_type || r.agentType || "claude";
+  const providerId = marker.provider_session_id || marker.codex_session_id || r.id;
+  const base = destination ? String(destination) : join(homedir(), "Desktop");
+  const safeName = `${r.host}-${r.name}`.replace(/[^a-zA-Z0-9._-]+/g, "-");
+  const out = join(base, `${safeName}.prox`);
+  await mkdir(out, { recursive: false, mode: 0o700 });
+  await copyFile(transcript, join(out, "transcript.jsonl"));
+  await chmod(join(out, "transcript.jsonl"), 0o600);
+  const manifest = {
+    format: "computer.aesthetic.prox-dump/v1",
+    dumpedAt: new Date().toISOString(),
+    host: r.host, name: r.name, sessionId: r.id, providerSessionId: providerId,
+    agent, cwd: marker.cwd || r.cwd || "", subject: marker.subject || r.subject || "",
+    seed: r.seed || "", status: r.status || marker.state || "",
+  };
+  await writeFile(join(out, "manifest.json"), JSON.stringify(manifest, null, 2) + "\n", { mode: 0o600 });
+
+  const resume = agent === "codex" ? `#!/bin/sh
+set -eu
+bundle=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+day=$(date +%Y/%m/%d)
+store="$HOME/.codex/sessions/$day"
+mkdir -p "$store"
+cp "$bundle/transcript.jsonl" "$store/rollout-prox-${providerId}.jsonl"
+cd ${shellQuote(marker.cwd || r.cwd || homedir())} 2>/dev/null || cd "$HOME"
+exec codex resume ${shellQuote(providerId)}
+` : `#!/bin/sh
+set -eu
+bundle=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+project=${shellQuote((marker.cwd || r.cwd || homedir()).replaceAll("/", "-") || "-")}
+store="$HOME/.claude/projects/$project"
+mkdir -p "$store"
+cp "$bundle/transcript.jsonl" "$store/${r.id}.jsonl"
+cd ${shellQuote(marker.cwd || r.cwd || homedir())} 2>/dev/null || cd "$HOME"
+exec claude --resume ${shellQuote(r.id)}
+`;
+  await writeFile(join(out, "resume.sh"), resume, { mode: 0o700 });
+  await chmod(join(out, "resume.sh"), 0o700);
+  await writeFile(join(out, "README.txt"),
+    `Portable prox state for ${r.host}:${r.name}\n\nRun ./resume.sh to install the transcript into ${agent}'s native session store and resume it.\nThe animated sigil.gif is rendered from the prompt rock's exact seeded 3D model.\nThis bundle contains raw private agent history, including tool results and local paths. Do not publish it.\n`,
+    { mode: 0o600 });
+  const rendered = await renderRockBundle(r.seed, out);
+  return [{ type: "text", text: `dumped ${r.host}:${r.name} → ${out}\nagent: ${agent}\nresume id: ${providerId}\nrock: ${rendered ? "animated exact-model sigil.gif + Finder icon" : "renderer unavailable; state bundle is still complete"}\nprivate raw transcript included; move the .prox folder as one bundle.` }];
+}
+
 async function toolLaunch({ host, agent, cwd, prompt = "", by, loopboyContact = "" }) {
   const wanted = String(host || "").trim().toLowerCase().replace(/\.local$/, "");
   if (!wanted) throw new Error("`host` is required (for example, poorslice).");
@@ -426,6 +520,19 @@ const TOOLS = [
     },
   },
   {
+    name: "prox_dump",
+    description:
+      "Export one local prompt rock as a portable, resumable private bundle. Copies the raw native transcript plus session/cwd metadata and writes a resume.sh installer. Defaults to ~/Desktop/<host>-<name>.prox. Raw transcripts can contain tool output and local paths, so the bundle must remain private. Local machine only; no transcript data is sent over the fleet ledger.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        handle: { type: "string", description: "A local host:name, session id, or unambiguous fuzzy name." },
+        destination: { type: "string", description: "Optional existing destination directory. Defaults to ~/Desktop." },
+      },
+      required: ["handle"],
+    },
+  },
+  {
     name: "prox_launch",
     description:
       "Launch a new interactive Claude or Codex prompt in Terminal.app on a Slab fleet host. SIDE EFFECT: opens a live agent session and may consume account usage. The target accepts only the fixed claude/codex launchers, limits cwd to that user's home folder, and binds the endpoint to its tailnet IP; no arbitrary command is accepted.",
@@ -467,6 +574,7 @@ async function callTool(name, args) {
     case "prox_launch": return toolLaunch(args || {});
     case "prox_bind_notification": return toolBindNotification(args || {});
     case "prox_close": return toolClose(args || {});
+    case "prox_dump": return toolDump(args || {});
     default: throw new Error(`Unknown tool: ${name}`);
   }
 }
@@ -508,4 +616,4 @@ async function handleMessage(message) {
 
 const port = httpPort(process.argv, 7773);
 if (port) serveHttp({ handleMessage, port, banner: "🪨 prox shared daemon" });
-else serveStdio({ handleMessage, banner: "🪨 prox started (prox_list, prox_find, prox_poke, prox_launch, prox_close)" });
+else serveStdio({ handleMessage, banner: "🪨 prox started (prox_list, prox_find, prox_poke, prox_launch, prox_close, prox_dump)" });

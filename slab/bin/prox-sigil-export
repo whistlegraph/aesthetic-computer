@@ -1,0 +1,23 @@
+#!/bin/sh
+set -eu
+
+here=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+source_root="$here/../menubar-swift/Sources/SlabMenubar"
+cache_root="${XDG_CACHE_HOME:-$HOME/.cache}/slab/prox-sigil-export"
+binary="$cache_root/prox-sigil-export"
+main="$here/prox-sigil-export-main.swift"
+
+mkdir -p "$cache_root"
+if [ ! -x "$binary" ] || [ "$main" -nt "$binary" ] || \
+   [ "$source_root/SigilRenderer.swift" -nt "$binary" ] || \
+   [ "$source_root/SigilMesh.swift" -nt "$binary" ] || \
+   [ "$source_root/SigilRockFrames.swift" -nt "$binary" ]; then
+  cp "$main" "$cache_root/main.swift"
+  xcrun swiftc -O \
+    "$source_root/SigilRenderer.swift" \
+    "$source_root/SigilMesh.swift" \
+    "$source_root/SigilRockFrames.swift" \
+    "$cache_root/main.swift" \
+    -o "$binary"
+fi
+exec "$binary" "$@"
