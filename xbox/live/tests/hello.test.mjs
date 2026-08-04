@@ -7,6 +7,7 @@ const source = await readFile(new URL("../hello.js", import.meta.url), "utf8");
 function createFight(startImmediately = true) {
   let now = 0;
   const signals = [];
+  const replays = [];
   const triangles = [];
   const pads = [0, 1].map(() => ({ connected: true, down: [], leftX: 0, leftY: 0 }));
   const noOp = () => {};
@@ -16,12 +17,13 @@ function createFight(startImmediately = true) {
     triangles.push(values);
   };
   const fight = new Function(
-    "runtime", "gamepad", "telemetry", "gameSignal", "drum", "wipe", "box", "line", "triangle", "write", "systemWrite",
-    `${source}\nreturn { boot, sim, paint, players, ball, runnerWorldGeometry, runnerDistanceToPoint, disableBall: () => { ballEnabled = false; ball.active = false; }, enableBall: () => { ballEnabled = true; ball.active = true; ball.serveAt = 0; ball.safeUntil = 0; ball.safePlayers = 0; }, setWind: (value) => { windAcceleration = value; }, wackBall: () => { players[0].attackKind = "KICK"; returnBall(players[0], runtime().monotonicUs, false); }, crossWackBall: (contact = 1) => crossWackBall(players.map((player) => ({ player, contact })), runtime().monotonicUs), startFight: () => { selecting = false; resetRound(runtime().monotonicUs, true); }, selectionState: () => ({ selecting, ready: selectionReady.slice() }), cameraState: () => ({ cameraWidth, cameraCenterY }), roundState: () => ({ roundResult, roundElapsedUs, matchOver }) };`
+    "runtime", "gamepad", "telemetry", "gameSignal", "saveReplay", "drum", "wipe", "box", "line", "triangle", "write", "systemWrite",
+    `${source}\nreturn { boot, sim, paint, players, ball, runnerWorldGeometry, runnerDistanceToPoint, disableBall: () => { ballEnabled = false; ball.active = false; }, enableBall: () => { ballEnabled = true; ball.active = true; ball.serveAt = 0; ball.safeUntil = 0; ball.safePlayers = 0; }, setWind: (value) => { windAcceleration = value; }, windState: () => ({ direction: windDirection, mph: windMph }), nextRound: () => resetRound(runtime().monotonicUs, false), wackBall: () => { players[0].attackKind = "KICK"; returnBall(players[0], runtime().monotonicUs, false); }, crossWackBall: (contact = 1) => crossWackBall(players.map((player) => ({ player, contact })), runtime().monotonicUs), startFight: () => { selecting = false; startReplay(runtime().monotonicUs); resetRound(runtime().monotonicUs, true); }, selectionState: () => ({ selecting, ready: selectionReady.slice() }), cameraState: () => ({ cameraWidth, cameraCenterY }), roundState: () => ({ roundResult, roundElapsedUs, matchOver }) };`
   )(
-    () => ({ monotonicUs: now }),
+    () => ({ monotonicUs: now, unixMs: 1785870000000 + Math.floor(now / 1000) }),
     (index = 0) => ({ ...pads[index], down: pads[index].down.slice() }),
-    noOp, (...signal) => signals.push(signal), noOp, noOp, noOp, noOp,
+    noOp, (...signal) => signals.push(signal), (payload) => replays.push(payload),
+    noOp, noOp, noOp, noOp,
     drawTriangle, noOp, noOp
   );
   fight.boot();
@@ -42,7 +44,7 @@ function createFight(startImmediately = true) {
     fight.startFight();
     tick(3000001);
   }
-  return { fight, pads, signals, triangles, tick, tap, now: () => now };
+  return { fight, pads, signals, replays, triangles, tick, tap, now: () => now };
 }
 
 test("character select offers the four AC fighters and waits for both pads", () => {
@@ -156,6 +158,22 @@ test("a grounded ball ignores wind", () => {
   assert.equal(signals.some(([event]) => event === "boot"), false);
 });
 
+test("each round serves the ball in the air above the center platform", () => {
+  const { fight } = createFight();
+  assert.equal(fight.ball.x, 6000);
+  assert.ok(fight.ball.y < 10400 - fight.ball.radius);
+  assert.equal(fight.ball.vy, 0);
+});
+
+test("wind rerolls and reverses direction every round", () => {
+  const { fight } = createFight();
+  const first = fight.windState();
+  fight.nextRound();
+  const second = fight.windState();
+  assert.equal(second.direction, -first.direction);
+  assert.ok(second.mph >= 4 && second.mph <= 24);
+});
+
 test("running into a grounded ball boots it instead of killing the player", () => {
   const { fight, signals, tick } = createFight();
   const player = fight.players[0];
@@ -213,7 +231,7 @@ test("round clock can end in a tie and resets", () => {
 });
 
 test("first to five round wins takes the match", () => {
-  const { fight, tick } = createFight();
+  const { fight, replays, tick } = createFight();
   for (let round = 1; round <= 5; round++) {
     fight.players[0].score = 1;
     for (let frame = 0; frame < 750; frame++) tick(40000);
@@ -226,4 +244,11 @@ test("first to five round wins takes the match", () => {
   }
   assert.equal(fight.players[0].roundWins, 0);
   assert.equal(fight.roundState().roundResult, "");
+  assert.equal(replays.length, 1);
+  const demo = JSON.parse(replays[0]);
+  assert.equal(demo.format, "ac.oskiedemo");
+  assert.equal(demo.version, 1);
+  assert.equal(demo.winner, "@JEFFREY");
+  assert.ok(demo.commands.length > 0);
+  assert.ok(demo.checkpoints.length > 0);
 });

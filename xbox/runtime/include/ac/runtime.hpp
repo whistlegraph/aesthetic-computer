@@ -224,6 +224,9 @@ struct Api {
   // A bounded, host-routed game signal. The host owns the destination and wire
   // protocol; pieces can only choose a short event name and numeric payload.
   std::function<void(std::string_view, int, float, float)> game_signal = {};
+  // A bounded, host-routed replay artifact. The host validates and uploads the
+  // complete demo; pieces do not receive a URL, credential, or response body.
+  std::function<void(std::string_view)> replay_save = {};
 };
 
 class Piece {

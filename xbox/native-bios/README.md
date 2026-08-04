@@ -76,6 +76,11 @@ the native AC block face and `systemWrite` remains the Xbox system face.
 Revision 32 removes the global chromatic channel offset. The point-sampled
 scan, one-pixel dither, and vignette remain without separating RGB edges.
 
+Revision 33 exposes bounded `saveReplay` for versioned `.oskiedemo` match
+streams. The host accepts one JSON object up to 512 KiB and uploads it to the
+fixed AC replay endpoint; pieces receive neither arbitrary networking nor
+storage credentials.
+
 Revision 13 also exposes bounded `stampPainting` and `blur` primitives to the
 trusted host-side KidLisp compiler. See [`../KIDLISP-NATIVE.md`](../KIDLISP-NATIVE.md)
 for the supported subset and `$obk` wire-deploy flow.

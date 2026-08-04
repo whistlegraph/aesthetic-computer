@@ -348,7 +348,7 @@ public:
     };
     m_sound->get_rate = [this]() { return static_cast<int>(m_sampleRate); };
     m_api = std::make_unique<Api>(Api{{1920, 1080, 1}, {}, {}, {}, *m_graphics, *m_sound, {}});
-    m_api->system.version = "1.0.0.32";
+    m_api->system.version = "1.0.0.33";
     m_api->telemetry = [](std::string_view line) {
       std::string safe(line);
       for (auto& character : safe) if (character == '\n' || character == '\r') character = ' ';
@@ -358,12 +358,25 @@ public:
     m_api->game_signal = [this](std::string_view event, int player, float value,
         float value2) {
       std::lock_guard<std::mutex> lock(m_gameSignalMutex);
-      if (m_gameSignalQueue.size() >= 64) {
+      constexpr std::size_t copies = 3;
+      if (m_gameSignalQueue.size() + copies > 192) {
         ++m_gameSignalsDropped;
         return;
       }
-      m_gameSignalQueue.push_back(GameSignalPacket(event, player, value, value2,
-        ++m_gameSignalSequence));
+      const auto packet = GameSignalPacket(event, player, value, value2,
+        ++m_gameSignalSequence);
+      for (std::size_t copy = 0; copy < copies; ++copy)
+        m_gameSignalQueue.push_back(packet);
+    };
+    m_api->replay_save = [this](std::string_view payload) {
+      std::lock_guard<std::mutex> lock(m_replayMutex);
+      if (m_replayQueue.size() >= 4) {
+        ++m_replaysDropped;
+        return;
+      }
+      m_replayQueue.emplace_back(payload);
+      LogTelemetry("AC_NATIVE_REPLAY queued=1 bytes=" +
+        std::to_string(payload.size()));
     };
     m_photoDisc = std::make_unique<PhotoDiscService>(*m_api,
       [this](std::shared_ptr<const PhotoDiscImage> image) {
@@ -391,7 +404,7 @@ public:
 
   virtual void Load(String^) {}
   virtual void Uninitialize() {
-    DestroyGameSignals(); DestroyNetworkMidi(); DestroyMidi(); DestroyAudio();
+    DestroyReplayUploads(); DestroyGameSignals(); DestroyNetworkMidi(); DestroyMidi(); DestroyAudio();
   }
 
   virtual void Run() {
@@ -411,6 +424,7 @@ public:
       PollMidi();
       PollLivePiece();
       FlushGameSignals();
+      FlushReplayUploads();
       RefreshClock();
       RefreshAudioPerformance();
       m_frameRects.clear();
@@ -1224,7 +1238,7 @@ private:
           }
           LogTelemetry("AC_NATIVE_OSKIEWAR_SIGNAL sent=" + std::to_string(sent) +
             " queued=" + std::to_string(queued) + " dropped=" +
-            std::to_string(m_gameSignalsDropped.load()));
+            std::to_string(m_gameSignalsDropped.load()) + " copies=3");
         }
       }
       catch (Exception^ error) {
@@ -1249,6 +1263,51 @@ private:
     const auto dropped = m_gameSignalsDropped.load();
     if (dropped) LogTelemetry("AC_NATIVE_OSKIEWAR_SIGNAL dropped=" +
       std::to_string(dropped));
+  }
+
+  void FlushReplayUploads() {
+    if (m_replayWriteInFlight.load()) return;
+    std::string payload;
+    {
+      std::lock_guard<std::mutex> lock(m_replayMutex);
+      if (m_replayQueue.empty()) return;
+      payload = std::move(m_replayQueue.front());
+      m_replayQueue.pop_front();
+    }
+    bool expected = false;
+    if (!m_replayWriteInFlight.compare_exchange_strong(expected, true)) return;
+    auto client = ref new HttpClient();
+    auto content = ref new HttpStringContent(
+      ref new String(Wide(payload).c_str()), UnicodeEncoding::Utf8,
+      ref new String(L"application/json"));
+    auto uri = ref new Uri(L"https://aesthetic.computer/api/oskiewar-replays");
+    create_task(client->PostAsync(uri, content)).then(
+      [this, client, content](task<HttpResponseMessage^> completed) {
+        try {
+          auto response = completed.get();
+          if (response->IsSuccessStatusCode) {
+            const auto uploaded = ++m_replaysUploaded;
+            LogTelemetry("AC_NATIVE_REPLAY uploaded=" +
+              std::to_string(uploaded) + " status=" +
+              std::to_string(static_cast<int>(response->StatusCode)));
+          } else {
+            ++m_replaysDropped;
+            LogTelemetry("AC_NATIVE_REPLAY_UPLOAD_ERROR status=" +
+              std::to_string(static_cast<int>(response->StatusCode)));
+          }
+        } catch (Exception^ error) {
+          ++m_replaysDropped;
+          LogTelemetry("AC_NATIVE_REPLAY_UPLOAD_ERROR " + Utf8(error->Message));
+        }
+        m_replayWriteInFlight = false;
+        FlushReplayUploads();
+      });
+  }
+
+  void DestroyReplayUploads() {
+    if (m_api) m_api->replay_save = {};
+    std::lock_guard<std::mutex> lock(m_replayMutex);
+    m_replayQueue.clear();
   }
 
   void OnNetworkMidiMessage(DatagramSocket^, DatagramSocketMessageReceivedEventArgs^ args) {
@@ -1608,7 +1667,7 @@ private:
     if (!m_networkClockRequestInFlight.compare_exchange_strong(expected, true)) return;
     const auto sentAt = SystemUnixMs();
     auto client = ref new HttpClient();
-    client->DefaultRequestHeaders->UserAgent->ParseAdd("AC-Native-BIOS/1.0.0.30 Xbox ClockSync");
+    client->DefaultRequestHeaders->UserAgent->ParseAdd("AC-Native-BIOS/1.0.0.33 Xbox ClockSync");
     create_task(client->GetStringAsync(
       ref new Uri(L"https://aesthetic.computer/api/clock")))
       .then([this, client, sentAt](task<String^> completed) {
@@ -1715,7 +1774,7 @@ private:
     if (!m_acRequestInFlight.compare_exchange_strong(expected, true)) return;
 
     auto client = ref new HttpClient();
-    client->DefaultRequestHeaders->UserAgent->ParseAdd("AC-Native-BIOS/1.0.0.32 Xbox");
+    client->DefaultRequestHeaders->UserAgent->ParseAdd("AC-Native-BIOS/1.0.0.33 Xbox");
     std::vector<task<String^>> requests;
     const auto safeGet = [client](const std::wstring& url) {
       return create_task(client->GetStringAsync(ref new Uri(ref new String(url.c_str()))))
@@ -2196,7 +2255,7 @@ private:
             std::vector<UINT16> glyphs(codepoints.size());
             std::vector<DWRITE_GLYPH_METRICS> metrics(codepoints.size());
             std::vector<FLOAT> advances(codepoints.size());
-            if (FAILED(m_ywftFontFace->GetGlyphIndicesW(codepoints.data(),
+            if (FAILED(m_ywftFontFace->GetGlyphIndices(codepoints.data(),
                 static_cast<UINT32>(codepoints.size()), glyphs.data())) ||
                 FAILED(m_ywftFontFace->GetDesignGlyphMetrics(glyphs.data(),
                 static_cast<UINT32>(glyphs.size()), metrics.data()))) return;
@@ -2400,6 +2459,11 @@ private:
   std::atomic_uint64_t m_gameSignalsSent{0};
   std::atomic_uint64_t m_gameSignalsDropped{0};
   std::uint32_t m_gameSignalSequence = 0;
+  std::mutex m_replayMutex;
+  std::deque<std::string> m_replayQueue;
+  std::atomic_bool m_replayWriteInFlight{false};
+  std::atomic_uint64_t m_replaysUploaded{0};
+  std::atomic_uint64_t m_replaysDropped{0};
   std::vector<int16_t> m_samples;
   std::vector<int16_t> m_oscSamples;
   std::vector<uint32_t> m_cpuFrame;

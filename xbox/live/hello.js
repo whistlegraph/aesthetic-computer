@@ -20,6 +20,10 @@ const roundResultUs = 3000000;
 const matchResultUs = 5000000;
 const introDurationUs = 3000000;
 const matchWins = 5;
+const replayTickUs = 16667;
+const replayCheckpointUs = 1000000;
+const replayButtons = ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown",
+  "A", "B", "X", "Y"];
 let cameraCenter = (worldLeft + worldRight) / 2;
 let cameraWidth = worldRight - worldLeft;
 let cameraCenterY = floorY - cameraWidth / cameraAspect / 2;
@@ -188,8 +192,92 @@ const selectionPrevious = [[], []];
 let windMph = 0;
 let windDirection = 1;
 let windAcceleration = 0;
+let replay = null;
+let replayLastCommand = [-1, -1];
+let replayNextCheckpointAt = 0;
+
+function demoTick(now) {
+  return replay ? Math.max(0, Math.round((now - replay.startedMonotonicUs) /
+    replayTickUs)) : 0;
+}
+
+function startReplay(now) {
+  const run = runtime();
+  const unixMs = run.unixMs || 0;
+  replay = {
+    format: "ac.oskiedemo", version: 1, game: "oskiewar",
+    simulation: "oskiewar-physics-1", tickRate: 60,
+    matchId: "ow-" + Math.max(0, unixMs).toString(36) + "-" +
+      Math.floor(Math.random() * 0x1000000).toString(36),
+    startedAt: unixMs, startedMonotonicUs: now,
+    fighters: players.map((player) => player.name),
+    commands: [], events: [], checkpoints: [], rounds: [],
+  };
+  replayLastCommand = [-1, -1];
+  replayNextCheckpointAt = now;
+}
+
+function inputCommand(pad) {
+  const input = quantizedInput(pad);
+  let mask = 0;
+  if (input.horizontal < 0) mask |= 1;
+  if (input.horizontal > 0) mask |= 2;
+  if (input.vertical > 0) mask |= 4;
+  if (input.vertical < 0) mask |= 8;
+  for (let index = 4; index < replayButtons.length; index++)
+    if (pad.down.includes(replayButtons[index])) mask |= 1 << index;
+  return mask;
+}
+
+function recordReplayCommands(now) {
+  if (!replay) return;
+  for (let pad = 0; pad < players.length; pad++) {
+    const command = players[pad].npc ? 0 : inputCommand(padSnapshots[pad]);
+    if (command !== replayLastCommand[pad]) {
+      replay.commands.push([demoTick(now), pad, command]);
+      replayLastCommand[pad] = command;
+    }
+  }
+}
+
+function replayFlags(player) {
+  return (player.alive ? 1 : 0) | (player.grounded ? 2 : 0) |
+    (player.ducking ? 4 : 0) | (player.blocking ? 8 : 0);
+}
+
+function recordReplayCheckpoint(now, force = false) {
+  if (!replay || (!force && now < replayNextCheckpointAt)) return;
+  replayNextCheckpointAt = now + replayCheckpointUs;
+  const values = [demoTick(now)];
+  for (const player of players) values.push(
+    Math.round(player.x), Math.round(player.y), Math.round(player.z),
+    Math.round(player.vx), Math.round(player.vy), replayFlags(player),
+    player.score, player.roundWins);
+  values.push(Math.round(ball.x), Math.round(ball.y), Math.round(ball.z),
+    Math.round(ball.vx), Math.round(ball.vy), ball.active ? 1 : 0,
+    Math.round(cameraCenter), Math.round(cameraCenterY), Math.round(cameraWidth));
+  replay.checkpoints.push(values);
+}
+
+function finishReplay(now) {
+  if (!replay) return;
+  recordReplayCheckpoint(now, true);
+  replay.durationTicks = demoTick(now);
+  replay.winner = players[0].roundWins >= matchWins ? players[0].name
+    : players[1].roundWins >= matchWins ? players[1].name : null;
+  replay.finalRoundWins = players.map((player) => player.roundWins);
+  delete replay.startedMonotonicUs;
+  const payload = JSON.stringify(replay);
+  if (payload.length <= 524288 && typeof saveReplay === "function") {
+    saveReplay(payload);
+    telemetry("REPLAY", "queued " + replay.matchId + " bytes=" + payload.length);
+  } else telemetry("REPLAY", "not-saved bytes=" + payload.length);
+  replay = null;
+}
 
 function emitSignal(event, player = -1, value = 0, value2 = 0) {
+  if (replay) replay.events.push([demoTick(runtime().monotonicUs), event,
+    player, Math.round(value * 1000) / 1000, Math.round(value2 * 1000) / 1000]);
   if (typeof gameSignal === "function") gameSignal(event, player, value, value2);
 }
 
@@ -266,6 +354,7 @@ function updateSelect(now) {
   }
   if (selectionReady[0] && selectionReady[1]) {
     selecting = false;
+    startReplay(now);
     resetRound(now, true);
     emitSignal("fighters", -1, players[0].rosterIndex, players[1].rosterIndex);
   }
@@ -273,7 +362,8 @@ function updateSelect(now) {
 
 function rollWind() {
   windMph = 4 + Math.floor(Math.random() * 21);
-  windDirection = Math.random() < .5 ? -1 : 1;
+  windDirection = windAcceleration === 0
+    ? (Math.random() < .5 ? -1 : 1) : -windDirection;
   windAcceleration = windDirection * windMph * 16;
   emitSignal("wind", -1, windDirection, windMph);
 }
@@ -281,9 +371,9 @@ function rollWind() {
 function resetBall(now) {
   const target = Math.random() < .5 ? 0 : 1;
   ball.x = (worldLeft + worldRight) / 2;
-  ball.y = floorY - ball.radius;
+  ball.y = platformY - 720;
   ball.z = 0;
-  ball.vx = target === 0 ? -900 : 900;
+  ball.vx = target === 0 ? -650 : 650;
   ball.vy = 0;
   ball.active = ballEnabled;
   ball.serveAt = now + introDurationUs + 850000;
@@ -349,6 +439,8 @@ function resetRound(now, resetMatch = false) {
   roundStartedAt = now;
   rollWind();
   resetBall(now);
+  if (replay) replay.rounds.push([demoTick(now), windDirection, windMph,
+    ball.vx < 0 ? 0 : 1]);
   cameraCenter = (worldLeft + worldRight) / 2;
   cameraWidth = worldRight - worldLeft;
   cameraCenterY = floorY - cameraWidth / cameraAspect / 2;
@@ -460,6 +552,7 @@ function finishRound(now) {
   roundOverAt = now;
   for (const player of players) player.vx = 0;
   drum("clap", 1.2, roundPan);
+  if (matchOver) finishReplay(now);
 }
 
 function quantizedInput(pad) {
@@ -603,6 +696,7 @@ function updateBall(dt, now) {
   const grounded = ball.y >= floorY - ball.radius - 1 && Math.abs(ball.vy) < 180;
   if (!grounded) ball.vx += windAcceleration * .45 * dt;
   ball.vy += 1900 * dt;
+  const previousY = ball.y;
   ball.x += ball.vx * dt;
   ball.y += ball.vy * dt;
   const inset = wallThickness + ball.radius;
@@ -616,6 +710,14 @@ function updateBall(dt, now) {
   if (ball.y < ceilingY + inset) {
     ball.y = ceilingY + inset;
     ball.vy = Math.abs(ball.vy);
+  }
+  const platformTop = platformY - ball.radius;
+  if (ball.vy >= 0 && previousY <= platformTop && ball.y >= platformTop &&
+      ball.x >= platformLeft + ball.radius &&
+      ball.x <= platformRight - ball.radius) {
+    ball.y = platformTop;
+    ball.vy = Math.abs(ball.vy) > 180 ? -Math.abs(ball.vy) * .58 : 0;
+    ball.vx *= .994;
   } else if (ball.y > floorY - ball.radius) {
     ball.y = floorY - ball.radius;
     ball.vy = Math.abs(ball.vy) > 180 ? -Math.abs(ball.vy) * .62 : 0;
@@ -842,6 +944,7 @@ function sim() {
   lastSimAt = now;
   padSnapshots[0] = gamepad(0);
   padSnapshots[1] = gamepad(1);
+  recordReplayCommands(now);
   if (roundResult) {
     updateCameraDoll(dt, now);
     const resultDuration = matchOver ? matchResultUs : roundResultUs;
@@ -868,6 +971,7 @@ function sim() {
   resolveMelee(now);
   updateCamera(dt);
   updateCameraDoll(dt, now);
+  recordReplayCheckpoint(now);
   for (const impact of impacts) impact.life -= dt;
   while (impacts.length && impacts[0].life <= 0) impacts.shift();
   if (players.some((player) => !player.alive) || roundElapsedUs >= roundDurationUs)
@@ -1239,7 +1343,7 @@ function paint() {
   const floorBase = mixColor([17, 22, 36], [188, 181, 164], visualTheme.light);
   const floorAlt = mixColor([21, 27, 43], [174, 167, 151], visualTheme.light);
   const edgeWidth = Math.max(2, wallThickness * cameraScale() * .14);
-  if (cameraDoll.perspective < .55) {
+  if (cameraDoll.perspective < .08) {
     const floorPoint = (x, z) => {
       const point = projectPoint(x, floorY, z);
       return { x: clamp(point.x, -4096, 6016),
@@ -1253,8 +1357,12 @@ function paint() {
           Math.min(worldFar, z + 600));
         const d = floorPoint(x, Math.min(worldFar, z + 600));
         const color = (column + row) % 2 ? floorAlt : floorBase;
-        triangle(a.x, a.y, b.x, b.y, c.x, c.y, ...color);
-        triangle(a.x, a.y, c.x, c.y, d.x, d.y, ...color);
+        const left = clamp(Math.min(a.x, b.x, c.x, d.x), 0, 1920);
+        const right = clamp(Math.max(a.x, b.x, c.x, d.x), 0, 1920);
+        const top = clamp(Math.min(a.y, b.y, c.y, d.y), stageTop, stageBottom);
+        const bottom = clamp(Math.max(a.y, b.y, c.y, d.y), stageTop, stageBottom);
+        if (right > left && bottom > top)
+          box(left, top, right - left + 1, bottom - top + 1, ...color);
       }
     }
   }

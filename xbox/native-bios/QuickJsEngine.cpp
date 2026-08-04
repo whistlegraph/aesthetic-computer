@@ -478,6 +478,22 @@ JSValue GameSignal(JSContext* context, JSValueConst, int argc, JSValueConst* arg
   return JS_UNDEFINED;
 }
 
+JSValue SaveReplay(JSContext* context, JSValueConst, int argc, JSValueConst* argv) {
+  auto* scope = static_cast<CallScope*>(JS_GetContextOpaque(context));
+  if (!scope || !scope->api || !scope->api->replay_save || argc < 1)
+    return JS_UNDEFINED;
+  size_t length = 0;
+  const char* raw = JS_ToCStringLen(context, &length, argv[0]);
+  if (!raw) return JS_EXCEPTION;
+  if (length < 2 || length > 524288 || raw[0] != '{') {
+    JS_FreeCString(context, raw);
+    return JS_ThrowRangeError(context, "replay must be a JSON object under 512 KiB");
+  }
+  scope->api->replay_save(std::string_view(raw, length));
+  JS_FreeCString(context, raw);
+  return JS_UNDEFINED;
+}
+
 JSValue RuntimeInfo(JSContext* context, JSValueConst, int, JSValueConst*) {
   auto* scope = static_cast<CallScope*>(JS_GetContextOpaque(context));
   if (!scope || !scope->api) return JS_EXCEPTION;
@@ -731,6 +747,7 @@ class QuickJsPiece final : public JsPiece {
     JS_SetPropertyStr(context_, global, "blur", JS_NewCFunction(context_, Blur, "blur", 1));
     JS_SetPropertyStr(context_, global, "telemetry", JS_NewCFunction(context_, Telemetry, "telemetry", 2));
     JS_SetPropertyStr(context_, global, "gameSignal", JS_NewCFunction(context_, GameSignal, "gameSignal", 4));
+    JS_SetPropertyStr(context_, global, "saveReplay", JS_NewCFunction(context_, SaveReplay, "saveReplay", 1));
     JS_SetPropertyStr(context_, global, "runtime", JS_NewCFunction(context_, RuntimeInfo, "runtime", 0));
     JS_SetPropertyStr(context_, global, "gamepad", JS_NewCFunction(context_, GamepadState, "gamepad", 1));
     JS_SetPropertyStr(context_, global, "controllers", JS_NewCFunction(context_, Controllers, "controllers", 0));
