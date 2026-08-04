@@ -92,10 +92,10 @@ export function createEndpointAnalytics({
     flushing = (async () => {
       const batch = [...pending.values()].map(({ count, ...properties }) => ({
         event: "ac endpoint completed",
+        distinct_id: "ac-lith-endpoint-aggregate",
         properties: {
           ...properties,
           count,
-          distinct_id: "ac-lith-endpoint-aggregate",
           $process_person_profile: false,
           $geoip_disable: true,
         },

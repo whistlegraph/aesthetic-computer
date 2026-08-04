@@ -78,6 +78,8 @@ test("server capture is opt-in, batched, anonymous, and payload-free", async () 
     (event) => event.properties.endpoint === "device-token",
   );
   assert.equal(endpointEvent.properties.count, 2);
+  assert.equal(endpointEvent.distinct_id, "ac-lith-endpoint-aggregate");
+  assert.equal(Object.hasOwn(endpointEvent.properties, "distinct_id"), false);
   assert.equal(body.batch[0].properties.$process_person_profile, false);
   assert.equal(body.batch[0].properties.$geoip_disable, true);
   assert.equal(Object.hasOwn(body.batch[0].properties, "path"), false);
