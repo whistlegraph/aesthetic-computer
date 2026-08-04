@@ -103,11 +103,13 @@ test("melee and movement edges emit bounded Ableton signals", () => {
 });
 
 test("double-tap directions trigger dash, ultra-jump, and fast-drop", () => {
-  const { fight, tap } = createFight();
+  const { fight, tap, tick } = createFight();
   tap(0, "ArrowRight");
   tap(0, "ArrowRight");
   assert.equal(fight.players[0].lastButton, "DASH RIGHT");
   assert.ok(fight.players[0].vx > 2000);
+  tick(40000);
+  assert.ok(Math.abs(fight.players[0].vx) < 100);
 
   tap(0, "ArrowUp");
   tap(0, "ArrowUp");
@@ -125,6 +127,23 @@ test("holding one direction never becomes a double-tap dash", () => {
   pads[0].down = ["ArrowLeft"];
   for (let frame = 0; frame < 30; frame++) tick(16667);
   assert.notEqual(fight.players[0].lastButton, "DASH LEFT");
+  assert.equal(fight.players[0].dashUntil, 0);
+});
+
+test("opposite input and wall contact cancel dash lock immediately", () => {
+  const { fight, pads, tap, tick } = createFight();
+  tap(0, "ArrowRight");
+  tap(0, "ArrowRight");
+  pads[0].down = ["ArrowLeft"];
+  tick();
+  assert.equal(fight.players[0].dashUntil, 0);
+  assert.ok(fight.players[0].vx < 0);
+
+  fight.players[0].x = 12000;
+  fight.players[0].dashUntil = Number.MAX_SAFE_INTEGER;
+  fight.players[0].dashVx = 2400;
+  pads[0].down = ["ArrowRight"];
+  tick();
   assert.equal(fight.players[0].dashUntil, 0);
 });
 

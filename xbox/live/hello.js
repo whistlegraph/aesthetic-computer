@@ -53,15 +53,15 @@ class FightCamDoll {
   }
 
   track(spec, dt, speed = 5) {
-    // Zooming out is a safety action: snap immediately so no fighter can run
-    // beyond the frame. Moving closer may still ease for readable camerawork.
-    const targetShift = Math.hypot(spec.target.x - this.target.x,
-      spec.target.y - this.target.y);
-    const amount = spec.width > this.width || targetShift > spec.width * .01
-      ? 1 : Math.min(1, dt * speed);
+    // Translate the rig with its target exactly. Relative orbit and zoom may
+    // ease, but following never lags into a wall clamp or catches at an edge.
+    for (const axis of ["x", "y", "z"])
+      this.position[axis] += spec.target[axis] - this.target[axis];
+    this.target = { ...spec.target };
+    // Zooming out is a containment action and must be immediate.
+    const amount = spec.width > this.width ? 1 : Math.min(1, dt * speed);
     for (const axis of ["x", "y", "z"]) {
       this.position[axis] = lerp(this.position[axis], spec.position[axis], amount);
-      this.target[axis] = lerp(this.target[axis], spec.target[axis], amount);
     }
     this.width = lerp(this.width, spec.width, amount);
     this.perspective = lerp(this.perspective, spec.perspective, amount);
@@ -612,8 +612,19 @@ function updateCamera(dt) {
     ? (ceilingY + floorY) / 2
     : Math.max(ceilingY + halfHeight,
       Math.min(floorY - halfHeight, (top + bottom) / 2));
-  cameraCenter += (desiredCenter - cameraCenter) * Math.min(1, dt * 12);
-  cameraCenterY += (desiredCenterY - cameraCenterY) * Math.min(1, dt * 12);
+  const centerBlend = Math.min(1, dt * 10);
+  cameraCenter += (desiredCenter - cameraCenter) * centerBlend;
+  cameraCenterY += (desiredCenterY - cameraCenterY) * centerBlend;
+  // Ease while there is spare framing, but never let smoothing leave either
+  // fighter outside the safe action area.
+  const containLeft = right + 450 - halfWidth;
+  const containRight = left - 450 + halfWidth;
+  if (containLeft <= containRight)
+    cameraCenter = clamp(cameraCenter, containLeft, containRight);
+  const containTop = bottom + 225 - halfHeight;
+  const containBottom = top - 225 + halfHeight;
+  if (containTop <= containBottom)
+    cameraCenterY = clamp(cameraCenterY, containTop, containBottom);
   if (cameraWidth < worldRight - worldLeft)
     cameraCenter = Math.max(worldLeft + halfWidth,
       Math.min(worldRight - halfWidth, cameraCenter));
@@ -672,10 +683,12 @@ function updateCameraDoll(dt, now) {
     return;
   }
   const target = { x: cameraCenter, y: cameraCenterY, z: 0 };
+  const swivel = Math.sin(now / 4200000) * .035;
+  const tilt = .045 + Math.cos(now / 5100000) * .012;
   cameraDoll.track({ target,
-    position: { x: cameraCenter - cameraWidth * .06,
-      y: cameraCenterY - cameraWidth * .04, z: -cameraWidth * 1.35 },
-    width: cameraWidth, perspective: 0, fov: 55 }, dt, 14);
+    position: { x: cameraCenter - cameraWidth * swivel,
+      y: cameraCenterY - cameraWidth * tilt, z: -cameraWidth * 1.35 },
+    width: cameraWidth, perspective: .1, fov: 55 }, dt, 10);
 }
 
 function finishRound(now) {
@@ -938,8 +951,8 @@ function directionTap(player, direction, now) {
     emitSignal("fastdrop", player.pad, 1, 0);
   } else {
     player.facing = direction === "RIGHT" ? 1 : -1;
-    player.dashVx = player.facing * 2800;
-    player.dashUntil = now + 190000;
+    player.dashVx = player.facing * 2400;
+    player.dashUntil = now + 110000;
     emitSignal("dash", player.pad, player.facing, 0);
   }
 }
@@ -1037,9 +1050,14 @@ function updatePlayer(player, pad, dt, now) {
   if (player.grounded) player.windVx *= Math.max(0, 1 - dt * 10);
   else player.windVx = clamp(player.windVx + windAcceleration * dt, -900, 900);
   player.knockVx *= Math.max(0, 1 - dt * (player.grounded ? 7 : 1.8));
+  if (now < player.dashUntil && input.horizontal &&
+      Math.sign(player.dashVx) !== input.horizontal) {
+    player.dashUntil = 0;
+    player.dashVx = 0;
+  }
   const controlledVx = now < player.dashUntil && Math.abs(player.dashVx) > 0
     ? player.dashVx
-    : player.ducking ? 0 : input.horizontal * 1500;
+    : player.ducking ? 0 : input.horizontal * 1250;
   player.vx = controlledVx + player.windVx + player.knockVx;
   if (inputChanged) telemetry("FIGHT_MOVE", player.name +
     " pad=" + (player.pad + 1) +
@@ -1262,24 +1280,30 @@ function runnerBounds(player, t) {
 }
 
 function resolveRunnerBounds(player, t) {
-  let bounds = runnerBounds(player, t);
+  // Walls use a stable fighting-game pushbox. Animated hands and feet remain
+  // the actual hit geometry, but cannot shove the root back and forth at an
+  // arena edge as a pose changes.
+  const halfWidth = player.ducking ? 76 : 62;
   const leftWall = worldLeft + wallThickness;
   const rightWall = worldRight - wallThickness;
-  if (bounds.left < leftWall) {
-    player.x += leftWall - bounds.left;
+  if (player.x - halfWidth < leftWall) {
+    player.x = leftWall + halfWidth;
     player.vx = Math.max(0, player.vx);
     player.knockVx = Math.max(0, player.knockVx);
-    bounds = runnerBounds(player, t);
+    player.dashUntil = 0;
+    player.dashVx = 0;
   }
-  if (bounds.right > rightWall) {
-    player.x -= bounds.right - rightWall;
+  if (player.x + halfWidth > rightWall) {
+    player.x = rightWall - halfWidth;
     player.vx = Math.min(0, player.vx);
     player.knockVx = Math.min(0, player.knockVx);
-    bounds = runnerBounds(player, t);
+    player.dashUntil = 0;
+    player.dashVx = 0;
   }
   const ceiling = ceilingY + wallThickness;
-  if (bounds.top < ceiling) {
-    player.y += ceiling - bounds.top;
+  const standingTop = player.y - (player.ducking ? 132 : 174);
+  if (standingTop < ceiling) {
+    player.y += ceiling - standingTop;
     if (player.vy < 0) player.vy = 0;
   }
 }
