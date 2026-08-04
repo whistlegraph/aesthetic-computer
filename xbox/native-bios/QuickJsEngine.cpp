@@ -39,6 +39,27 @@ JSValue Synth(JSContext* context, JSValueConst, int argc, JSValueConst* argv) {
   return JS_UNDEFINED;
 }
 
+JSValue Drum(JSContext* context, JSValueConst, int argc, JSValueConst* argv) {
+  auto* scope = static_cast<CallScope*>(JS_GetContextOpaque(context));
+  if (!scope || !scope->api || argc < 1) return JS_EXCEPTION;
+  const char* name = JS_ToCString(context, argv[0]);
+  if (!name) return JS_EXCEPTION;
+  double velocity = 1.0, pan = 0.0;
+  if (argc > 1 && JS_ToFloat64(context, &velocity, argv[1])) {
+    JS_FreeCString(context, name); return JS_EXCEPTION;
+  }
+  if (argc > 2 && JS_ToFloat64(context, &pan, argv[2])) {
+    JS_FreeCString(context, name); return JS_EXCEPTION;
+  }
+  const std::string drum(name);
+  JS_FreeCString(context, name);
+  static constexpr std::string_view allowed[] = {"kick", "snare", "clap", "hat", "block"};
+  if (std::find(std::begin(allowed), std::end(allowed), drum) == std::end(allowed))
+    return JS_ThrowRangeError(context, "unknown drum");
+  scope->api->sound.drum(drum, static_cast<float>(velocity), static_cast<float>(pan));
+  return JS_UNDEFINED;
+}
+
 JSValue Oscillator(JSContext* context, JSValueConst, int argc, JSValueConst* argv) {
   auto* scope = static_cast<CallScope*>(JS_GetContextOpaque(context));
   double frequency = 220.0, volume = .12;
@@ -455,22 +476,32 @@ JSValue RuntimeInfo(JSContext* context, JSValueConst, int, JSValueConst*) {
   return result;
 }
 
-JSValue GamepadState(JSContext* context, JSValueConst, int, JSValueConst*) {
-  auto* scope = static_cast<CallScope*>(JS_GetContextOpaque(context));
-  if (!scope || !scope->api) return JS_EXCEPTION;
-  const auto& pad = scope->api->gamepad;
+JSValue PadObject(JSContext* context, const PadState& pad, int index) {
   JSValue result = JS_NewObject(context);
+  JS_SetPropertyStr(context, result, "index", JS_NewInt32(context, index));
+  JS_SetPropertyStr(context, result, "connected", JS_NewBool(context, pad.connected));
   JS_SetPropertyStr(context, result, "leftX", JS_NewFloat64(context, pad.left_x));
   JS_SetPropertyStr(context, result, "leftY", JS_NewFloat64(context, pad.left_y));
   JS_SetPropertyStr(context, result, "rightX", JS_NewFloat64(context, pad.right_x));
   JS_SetPropertyStr(context, result, "rightY", JS_NewFloat64(context, pad.right_y));
   JS_SetPropertyStr(context, result, "leftTrigger", JS_NewFloat64(context, pad.left_trigger));
   JS_SetPropertyStr(context, result, "rightTrigger", JS_NewFloat64(context, pad.right_trigger));
-  JSValue down = JS_NewArray(context); uint32_t index = 0;
+  JSValue down = JS_NewArray(context); uint32_t downIndex = 0;
   for (const auto& button : pad.down)
-    JS_SetPropertyUint32(context, down, index++, JS_NewString(context, button.c_str()));
+    JS_SetPropertyUint32(context, down, downIndex++, JS_NewString(context, button.c_str()));
   JS_SetPropertyStr(context, result, "down", down);
   return result;
+}
+
+JSValue GamepadState(JSContext* context, JSValueConst, int argc, JSValueConst* argv) {
+  auto* scope = static_cast<CallScope*>(JS_GetContextOpaque(context));
+  if (!scope || !scope->api) return JS_EXCEPTION;
+  if (argc < 1) return PadObject(context, scope->api->gamepad, 0);
+  int32_t index = 0;
+  if (JS_ToInt32(context, &index, argv[0])) return JS_EXCEPTION;
+  if (index >= 0 && static_cast<std::size_t>(index) < scope->api->gamepad.pads.size())
+    return PadObject(context, scope->api->gamepad.pads[static_cast<std::size_t>(index)], index);
+  return PadObject(context, PadState{}, index);
 }
 
 JSValue Controllers(JSContext* context, JSValueConst, int, JSValueConst*) {
@@ -627,6 +658,7 @@ class QuickJsPiece final : public JsPiece {
     JSValue global = JS_GetGlobalObject(context_);
     JS_SetPropertyStr(context_, global, "wipe", JS_NewCFunction(context_, Wipe, "wipe", 3));
     JS_SetPropertyStr(context_, global, "synth", JS_NewCFunction(context_, Synth, "synth", 2));
+    JS_SetPropertyStr(context_, global, "drum", JS_NewCFunction(context_, Drum, "drum", 3));
     JS_SetPropertyStr(context_, global, "oscillator", JS_NewCFunction(context_, Oscillator, "oscillator", 2));
     JS_SetPropertyStr(context_, global, "oscillatorStop", JS_NewCFunction(context_, OscillatorStop, "oscillatorStop", 0));
     JS_SetPropertyStr(context_, global, "write", JS_NewCFunction(context_, Write, "write", 7));
@@ -644,7 +676,7 @@ class QuickJsPiece final : public JsPiece {
     JS_SetPropertyStr(context_, global, "blur", JS_NewCFunction(context_, Blur, "blur", 1));
     JS_SetPropertyStr(context_, global, "telemetry", JS_NewCFunction(context_, Telemetry, "telemetry", 2));
     JS_SetPropertyStr(context_, global, "runtime", JS_NewCFunction(context_, RuntimeInfo, "runtime", 0));
-    JS_SetPropertyStr(context_, global, "gamepad", JS_NewCFunction(context_, GamepadState, "gamepad", 0));
+    JS_SetPropertyStr(context_, global, "gamepad", JS_NewCFunction(context_, GamepadState, "gamepad", 1));
     JS_SetPropertyStr(context_, global, "controllers", JS_NewCFunction(context_, Controllers, "controllers", 0));
     JS_SetPropertyStr(context_, global, "capabilities", JS_NewCFunction(context_, Capabilities, "capabilities", 0));
     JS_SetPropertyStr(context_, global, "ac", JS_NewCFunction(context_, AcData, "ac", 0));

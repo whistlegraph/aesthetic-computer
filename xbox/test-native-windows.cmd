@@ -11,6 +11,7 @@ if exist "%BUILD%" rmdir /s /q "%BUILD%"
 mkdir "%BUILD%" || exit /b 2
 
 node --check "%ROOT%\xbox\live\controller-probe.js" || exit /b 1
+node --check "%ROOT%\xbox\live\hello.js" || exit /b 1
 node --check "%ROOT%\xbox\live\native-showcase.js" || exit /b 1
 node --check "%ROOT%\xbox\live\photo-disc.js" || exit /b 1
 node "%ROOT%\xbox\live\tests\controller-probe.test.mjs" || exit /b 1

@@ -232,6 +232,7 @@ class HostSound final : public Sound {
   std::function<void()> on_stop;
   std::function<void(float, float)> on_oscillator;
   std::function<void()> on_oscillator_stop;
+  std::function<void(std::string_view, float, float)> on_drum;
   std::function<int()> get_rate;
   void synth(const SynthVoice& voice) override { if (on_synth) on_synth(voice); }
   void stop_all() override { if (on_stop) on_stop(); }
@@ -240,6 +241,9 @@ class HostSound final : public Sound {
     if (on_oscillator) on_oscillator(frequency, volume);
   }
   void oscillator_stop() override { if (on_oscillator_stop) on_oscillator_stop(); }
+  void drum(std::string_view name, float velocity, float pan) override {
+    if (on_drum) on_drum(name, velocity, pan);
+  }
 };
 
 static void Check(HRESULT hr) {
@@ -305,9 +309,12 @@ public:
       SetOscillator(frequency, volume);
     };
     m_sound->on_oscillator_stop = [this]() { StopOscillator(); };
+    m_sound->on_drum = [this](std::string_view name, float velocity, float pan) {
+      PlayDrum(name, velocity, pan);
+    };
     m_sound->get_rate = [this]() { return static_cast<int>(m_sampleRate); };
     m_api = std::make_unique<Api>(Api{{1920, 1080, 1}, {}, {}, {}, *m_graphics, *m_sound, {}});
-    m_api->system.version = "1.0.0.27";
+    m_api->system.version = "1.0.0.28";
     m_api->telemetry = [](std::string_view line) {
       std::string safe(line);
       for (auto& character : safe) if (character == '\n' || character == '\r') character = ' ';
@@ -919,6 +926,107 @@ private:
     TriggerAudio(0);
   }
 
+  void PlayDrum(std::string_view name, float velocity, float pan) {
+    if (!m_voice || m_sampleRate == 0) return;
+    (void)pan; // The current game-effects voice is mono; preserve the API for a stereo pool.
+    enum class Wave { Sine, Triangle, Square, Noise };
+    struct Layer {
+      Wave wave;
+      double frequency, duration, volume, attack, decay;
+    };
+    std::vector<Layer> layers;
+    if (name == "kick") {
+      layers = {
+        {Wave::Noise, 2500, .0025, .50, .0002, .0022},
+        {Wave::Sine, 200, .012, 1.10, .0005, .011},
+        {Wave::Sine, 150, .045, 1.30, .001, .044},
+        {Wave::Sine, 90, .080, .85, .002, .078},
+        {Wave::Sine, 55, .35, 1.00, .003, .345},
+      };
+    } else if (name == "snare") {
+      layers = {
+        {Wave::Noise, 3500, .004, .95, .0001, .004},
+        {Wave::Sine, 238, .030, .35, .0003, .029},
+        {Wave::Sine, 476, .030, .28, .0003, .029},
+        {Wave::Noise, 3500, .11, .85, .0005, .108},
+        {Wave::Noise, 1800, .07, .38, .0008, .068},
+        {Wave::Triangle, 180, .025, .22, .001, .024},
+      };
+    } else if (name == "clap") {
+      layers = {
+        {Wave::Noise, 1000, .025, .90, .005, .020},
+        {Wave::Noise, 1100, .035, .95, .015, .020},
+        {Wave::Noise, 900, .045, .85, .025, .020},
+        {Wave::Noise, 3000, .008, .55, .001, .007},
+        {Wave::Noise, 1000, .14, .85, .045, .095},
+      };
+    } else if (name == "hat") {
+      layers = {
+        {Wave::Square, 800, .008, .18, .0005, .0075},
+        {Wave::Square, 540, .008, .18, .0005, .0075},
+        {Wave::Square, 522.7, .008, .18, .0005, .0075},
+        {Wave::Square, 369.6, .008, .18, .0005, .0075},
+        {Wave::Noise, 8000, .040, .38, .0005, .038},
+      };
+    } else {
+      layers = {
+        {Wave::Noise, 5000, .002, .35, .0001, .0018},
+        {Wave::Triangle, 2500, .050, .52, .0003, .048},
+        {Wave::Triangle, 1250, .050, .18, .0005, .048},
+      };
+    }
+
+    const double hit = (std::max)(.1, (std::min)(1.5, static_cast<double>(velocity)));
+    double duration = 0;
+    for (const auto& layer : layers) duration = (std::max)(duration, layer.duration);
+    const auto frames = static_cast<uint32_t>(m_sampleRate * duration);
+    std::vector<double> mixed(frames, 0.0);
+    constexpr double tau = 6.2831853071795864769;
+    uint32_t seed = static_cast<uint32_t>(GetTickCount64()) | 1u;
+    for (const auto& layer : layers) {
+      double phase = 0, filteredNoise = 0;
+      const double phaseStep = layer.frequency / m_sampleRate;
+      const double noiseAlpha = 1.0 - std::exp(-tau *
+        (std::min)(layer.frequency, m_sampleRate * .45) / m_sampleRate);
+      const auto layerFrames = static_cast<uint32_t>(m_sampleRate * layer.duration);
+      for (uint32_t index = 0; index < layerFrames && index < frames; ++index) {
+        const double time = static_cast<double>(index) / m_sampleRate;
+        double envelope = 1.0;
+        if (layer.attack > 0 && time < layer.attack) envelope = time / layer.attack;
+        const double decayStart = (std::max)(0.0, layer.duration - layer.decay);
+        if (layer.decay > 0 && time > decayStart)
+          envelope *= 1.0 - (time - decayStart) / layer.decay;
+        double sample = 0;
+        if (layer.wave == Wave::Noise) {
+          seed ^= seed << 13; seed ^= seed >> 17; seed ^= seed << 5;
+          const double noise = static_cast<double>(seed) / UINT32_MAX * 2.0 - 1.0;
+          filteredNoise += noiseAlpha * (noise - filteredNoise);
+          sample = filteredNoise;
+        } else {
+          phase += phaseStep;
+          phase -= std::floor(phase);
+          if (layer.wave == Wave::Sine) sample = std::sin(tau * phase);
+          else if (layer.wave == Wave::Square) sample = phase < .5 ? 1.0 : -1.0;
+          else sample = 1.0 - 4.0 * std::abs(phase - .5);
+        }
+        mixed[index] += sample * envelope * layer.volume;
+      }
+    }
+
+    m_voice->Stop(0);
+    m_voice->FlushSourceBuffers();
+    m_samples.resize(frames);
+    for (uint32_t index = 0; index < frames; ++index) {
+      const double sample = (std::max)(-1.0, (std::min)(1.0, mixed[index] * hit * .28));
+      m_samples[index] = static_cast<int16_t>(sample * 32767.0);
+    }
+    m_buffer = {};
+    m_buffer.AudioBytes = static_cast<UINT32>(m_samples.size() * sizeof(int16_t));
+    m_buffer.pAudioData = reinterpret_cast<const BYTE*>(m_samples.data());
+    m_buffer.Flags = XAUDIO2_END_OF_STREAM;
+    TriggerAudio(0);
+  }
+
   void SetOscillator(float frequency, float volume) {
     if (!m_oscVoice) return;
     frequency = (std::max)(20.0f, (std::min)(5000.0f, frequency));
@@ -1220,21 +1328,15 @@ private:
   void PollController() {
     const auto pads = Gamepad::Gamepads;
     m_api->gamepad.down.clear();
+    m_api->gamepad.pads.clear();
     if (pads->Size == 0) {
       m_previousButtons = 0;
+      m_api->gamepad.connected = false;
       m_api->gamepad.left_x = m_api->gamepad.left_y = 0;
       m_api->gamepad.right_x = m_api->gamepad.right_y = 0;
       m_api->gamepad.left_trigger = m_api->gamepad.right_trigger = 0;
       return;
     }
-    const auto reading = pads->GetAt(0)->GetCurrentReading();
-    const unsigned buttons = static_cast<unsigned>(reading.Buttons);
-    m_api->gamepad.left_x = static_cast<float>(reading.LeftThumbstickX);
-    m_api->gamepad.left_y = static_cast<float>(reading.LeftThumbstickY);
-    m_api->gamepad.right_x = static_cast<float>(reading.RightThumbstickX);
-    m_api->gamepad.right_y = static_cast<float>(reading.RightThumbstickY);
-    m_api->gamepad.left_trigger = static_cast<float>(reading.LeftTrigger);
-    m_api->gamepad.right_trigger = static_cast<float>(reading.RightTrigger);
     struct ButtonName { GamepadButtons bit; const char* name; };
     static constexpr ButtonName names[] = {
       {GamepadButtons::A, "A"}, {GamepadButtons::B, "B"},
@@ -1247,8 +1349,34 @@ private:
       {GamepadButtons::LeftThumbstick, "LeftStick"},
       {GamepadButtons::RightThumbstick, "RightStick"}
     };
-    for (const auto& named : names)
-      if (buttons & static_cast<unsigned>(named.bit)) m_api->gamepad.down.insert(named.name);
+
+    unsigned buttons = 0;
+    for (unsigned index = 0; index < pads->Size; ++index) {
+      const auto reading = pads->GetAt(index)->GetCurrentReading();
+      PadState state;
+      state.connected = true;
+      state.left_x = static_cast<float>(reading.LeftThumbstickX);
+      state.left_y = static_cast<float>(reading.LeftThumbstickY);
+      state.right_x = static_cast<float>(reading.RightThumbstickX);
+      state.right_y = static_cast<float>(reading.RightThumbstickY);
+      state.left_trigger = static_cast<float>(reading.LeftTrigger);
+      state.right_trigger = static_cast<float>(reading.RightTrigger);
+      const unsigned padButtons = static_cast<unsigned>(reading.Buttons);
+      for (const auto& named : names)
+        if (padButtons & static_cast<unsigned>(named.bit)) state.down.insert(named.name);
+      if (index == 0) buttons = padButtons;
+      m_api->gamepad.pads.push_back(std::move(state));
+    }
+
+    const auto& first = m_api->gamepad.pads.front();
+    m_api->gamepad.connected = true;
+    m_api->gamepad.left_x = first.left_x;
+    m_api->gamepad.left_y = first.left_y;
+    m_api->gamepad.right_x = first.right_x;
+    m_api->gamepad.right_y = first.right_y;
+    m_api->gamepad.left_trigger = first.left_trigger;
+    m_api->gamepad.right_trigger = first.right_trigger;
+    m_api->gamepad.down = first.down;
     const unsigned pressed = buttons & ~m_previousButtons;
     m_previousButtons = buttons;
     if (!pressed) return;

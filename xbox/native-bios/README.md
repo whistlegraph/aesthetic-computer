@@ -19,7 +19,8 @@ globals.
 
 Current bindings are `wipe`, queued `box`, `line`, bitmap `write`, native
 `systemWrite`, Segoe MDL2 `systemGlyph`, latest AC `painting`, one-shot `synth`,
-continuous `oscillator` / `oscillatorStop`, `controllers`, `gamepad`,
+MenuBand-derived `drum`, continuous `oscillator` / `oscillatorStop`, `controllers`,
+indexed `gamepad(0)` / `gamepad(1)` snapshots (plain `gamepad()` remains Player 1),
 `capabilities`, `runtime`, the host-mediated `ac` feed, and bounded structured
 `telemetry`. Revision 25 adds the host-mediated `disc`, `discScan`, `discShow`,
 `discPhoto`, and `discCopy` photo-disc surface. The `ac` snapshot polls only declared Aesthetic Computer mood,

@@ -33,14 +33,18 @@ struct ControllerInfo {
   std::uint16_t switches = 0;
   bool gamepad = false;
 };
-struct GamepadState {
+struct PadState {
   float left_x = 0, left_y = 0, right_x = 0, right_y = 0;
   float left_trigger = 0, right_trigger = 0;
   std::unordered_set<std::string> down;
-  std::vector<ControllerInfo> controllers;
+  bool connected = false;
   [[nodiscard]] bool pressed(std::string_view button) const {
     return down.find(std::string(button)) != down.end();
   }
+};
+struct GamepadState : PadState {
+  std::vector<PadState> pads;
+  std::vector<ControllerInfo> controllers;
 };
 
 struct Color { std::uint8_t r, g, b, a = 255; };
@@ -107,6 +111,7 @@ class Sound {
   virtual int sample_rate() const = 0;
   virtual void oscillator(float, float) {}
   virtual void oscillator_stop() {}
+  virtual void drum(std::string_view, float = 1.0f, float = 0.0f) {}
 };
 
 struct Clock {
