@@ -160,7 +160,7 @@ const players = [
     attackKind: "", attackStartedAt: 0,
     attackUntil: 0, attackHit: false, blocking: false, blockFlash: 0,
     windVx: 0, knockVx: 0 },
-  { name: "DUMMY", rosterIndex: -1, handleColors: npcFighter.colors, npc: true,
+  { name: "@OSKIE", rosterIndex: 2, handleColors: fighterRoster[2].colors, npc: false,
     pad: 1, spawnX: 10000, x: 10000, y: floorY, z: 0,
     vx: 0, vy: 0, vz: 0, facing: -1,
     grounded: true, ducking: false, previous: [], lastButton: "NONE",
@@ -317,7 +317,7 @@ function applyRoster(player, index) {
 function beginSelect(now) {
   selecting = true;
   selectionReady[0] = false;
-  selectionReady[1] = true;
+  selectionReady[1] = false;
   selectionPrevious[0] = [];
   selectionPrevious[1] = [];
   roundResult = "";
@@ -1233,12 +1233,9 @@ function drawRunner(player, t, showLabel = true) {
 
 function drawPlayerHud(player, x, pad) {
   pad = pad || { connected: false, down: [] };
-  const age = (runtime().monotonicUs - player.lastButtonAt) / 1000000;
-  const pulse = Math.max(0, 1 - age * 2.2);
   const color = visualTheme.light > .55
     ? player.pad === 0 ? [155, 34, 108] : [105, 78, 0]
     : player.color;
-  line(x, 8, x + 625, 8, 5 + pulse * 4, ...player.color);
   typeWrite("P" + (player.pad + 1) + " " + player.name + "  " +
     player.roundWins + "/" + matchWins + "  PTS " + player.score,
     x, 14, 24, ...color);
@@ -1305,7 +1302,6 @@ function drawSelectionScreen(t, ink, panel) {
     const left = player.pad === 0 ? 90 : 990;
     const profile = fighterProfile(player.name);
     box(left, 320, 840, 570, ...panel);
-    box(left, 320, 840, 8, ...player.color);
     drawSelectPortrait(player, left + 190, 590, 1.35, t);
     drawHandle(player.name, left + 355, 395, 46,
       profile.colors, player.color);
@@ -1314,7 +1310,8 @@ function drawSelectionScreen(t, ink, panel) {
     typeWrite(mood + "\n" + chat, left + 355, 490, 22, ...ink);
     write(player.npc ? "STANDING BY" : selectionReady[player.pad] ? "READY" : "SELECT",
       left + 355, 720, 52, ...player.color);
-    typeWrite(player.npc ? "NON-PLAYER" : "P1", left + 355, 805, 24, ...ink);
+    typeWrite(player.npc ? "NON-PLAYER" : "P" + (player.pad + 1),
+      left + 355, 805, 24, ...ink);
   }
   write("LEFT RIGHT SELECT     A READY     B BACK", 430, 965, 29, ...ink);
 }

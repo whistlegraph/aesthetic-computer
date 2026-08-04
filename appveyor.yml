@@ -18,6 +18,7 @@ clone_script:
   - cmd: echo xbox/tools/>>.git\info\sparse-checkout
   - cmd: echo xbox/test-native-windows.cmd>>.git\info\sparse-checkout
   - cmd: echo system/backend/kidlisp-ast.mjs>>.git\info\sparse-checkout
+  - cmd: echo system/public/type/webfonts/ywft-processing-regular.ttf>>.git\info\sparse-checkout
   - cmd: echo appveyor.yml>>.git\info\sparse-checkout
   - cmd: git fetch --depth=1 --filter=blob:none origin %APPVEYOR_REPO_COMMIT%
   - cmd: git checkout --detach FETCH_HEAD

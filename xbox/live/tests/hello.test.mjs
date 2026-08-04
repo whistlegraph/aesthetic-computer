@@ -56,9 +56,13 @@ test("character select offers the four AC fighters and waits for both pads", () 
   assert.equal(fight.players[0].name, "@FIFI");
   pads[0].down = ["A"];
   tick();
+  assert.equal(fight.selectionState().selecting, true);
+  assert.equal(fight.players[1].name, "@OSKIE");
+  assert.equal(fight.players[1].npc, false);
+  pads[0].down = [];
+  pads[1].down = ["A"];
+  tick();
   assert.equal(fight.selectionState().selecting, false);
-  assert.equal(fight.players[1].name, "DUMMY");
-  assert.equal(fight.players[1].npc, true);
 });
 
 test("perspective intro never submits invalid ground triangles", () => {
