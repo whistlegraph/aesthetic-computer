@@ -472,30 +472,31 @@ function drawPlayerHud(player, x, pad) {
   const age = (runtime().monotonicUs - player.lastButtonAt) / 1000000;
   const pulse = Math.max(0, 1 - age * 2.2);
   const color = player.color;
-  box(x, 842, 790, 176, 14 + Math.round(pulse * 20), 18, 45 + Math.round(pulse * 35));
-  systemWrite(player.name + "  " + player.roundWins + "/" + matchWins,
-    x + 36, 862, 34, ...color);
-  write(player.lastButton, x + 36, 920, 54 + Math.round(pulse * 10), ...color);
+  box(x, 210, 740, 112, 14 + Math.round(pulse * 20), 18, 45 + Math.round(pulse * 35));
+  box(x, 210, 740, 8, ...color);
+  systemWrite("P" + (player.pad + 1) + "  " + player.name + "  " +
+    player.roundWins + "/" + matchWins, x + 24, 226, 30, ...color);
+  systemWrite(player.lastButton, x + 24, 270, 28, ...color);
   const held = pad.down.length ? pad.down.map(buttonLabel).join(" ") : "NONE";
-  write("KOS " + player.score, x + 300, 876, 24, ...color);
-  write("HELD " + held, x + 450, 876, 24, 195, 210, 230);
-  write(pad.connected ? "CONTROLLER " + (player.pad + 1) : "CONNECT CONTROLLER " + (player.pad + 1),
-    x + 450, 936, 20, pad.connected ? 115 : 255, pad.connected ? 225 : 105,
+  systemWrite("KOS " + player.score, x + 350, 229, 19, ...color);
+  systemWrite("HELD " + held, x + 350, 270, 17, 195, 210, 230);
+  systemWrite(pad.connected ? "READY" : "CONNECT",
+    x + 610, 230, 18, pad.connected ? 115 : 255, pad.connected ? 225 : 105,
     pad.connected ? 165 : 105);
 }
 
 function paint() {
   const run = runtime();
   const t = (run.monotonicUs - startedAt) / 1000000;
-  const titleX = 720 + Math.sin(t * 1.05) * 80;
-  const titleY = 76 + Math.sin(t * 2.1) * 7;
+  const titleX = 785 + Math.sin(t * 1.05) * 55;
+  const titleY = 88 + Math.sin(t * 2.1) * 5;
   wipe(7, 8, 28);
   for (let i = 0; i < 8; i++) {
     const x = ((i * 310 + t * (38 + i * 3)) % 2300) - 190;
     box(x, 0, 5, 1080, 20 + i * 3, 32 + i * 4, 72 + i * 6);
   }
-  box(titleX - 20, titleY - 18, 475, 96, 22, 28, 104);
-  write("OSKIEWAR", titleX, titleY, 64, 245, 248, 255);
+  box(titleX - 14, titleY - 13, 365, 74, 22, 28, 104);
+  write("OSKIEWAR", titleX, titleY, 48, 245, 248, 255);
 
   box(35, 202, 1850, 633, 10, 13, 30);
   box(stageLeft, floorY, stageRight - stageLeft, 20, 72, 90, 125);
@@ -550,8 +551,8 @@ function paint() {
     box(resultX - 36, 432, resultWidth + 72, 126, 22, 28, 104);
     write(roundResult, resultX, 454, resultSize, 245, 248, 255);
   }
-  drawPlayerHud(players[0], 120, padSnapshots[0]);
-  drawPlayerHud(players[1], 1010, padSnapshots[1]);
+  drawPlayerHud(players[0], 55, padSnapshots[0]);
+  drawPlayerHud(players[1], 1125, padSnapshots[1]);
 }
 
 function act() {}
