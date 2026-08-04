@@ -2242,7 +2242,7 @@ private:
             float x, float y, float size, Color color) {
           if (!m_ywftFontFace) return;
           const float emSize = (std::max)(6.0f, (std::min)(256.0f,
-            std::round(size * scaleY))));
+            std::round(size * scaleY)));
           DWRITE_FONT_METRICS fontMetrics{};
           m_ywftFontFace->GetMetrics(&fontMetrics);
           const float designScale = emSize / fontMetrics.designUnitsPerEm;
