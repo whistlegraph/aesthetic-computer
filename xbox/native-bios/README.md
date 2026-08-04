@@ -64,7 +64,14 @@ UDP datagram per musical event. The Xbox HUD changes from
 Revision 30 caps the DXGI device frame queue at one and records controller-edge
 to-present latency as `AC_NATIVE_INPUT_LATENCY`. OSKIEWAR emits OSC addresses
 under `/oskiewar/*` on UDP `51338`; `ac-m4l/AC-GameSignals.amxd.json` turns bounded
-combat and movement-edge events into MIDI notes.
+combat and movement-edge events into MIDI notes. The sender starts a datagram
+when `gameSignal` is called, drains its three consecutive reliability copies as
+each asynchronous write completes, and reports enqueue-to-`StoreAsync`
+completion as `AC_NATIVE_OSKIEWAR_SIGNAL_LATENCY`. This measures the native send
+queue, not UDP delivery or Ableton's audio output latency. The Max receiver uses
+the sequence field to collapse each consecutive three-copy group and caps its
+own queue at 256 datagrams so overload drops signals instead of playing a long
+stale backlog.
 
 Revision 31 adds the allowlisted OSKIEWAR fighter profile feed for `@jeffrey`,
 `@fifi`, `@oskie`, and `@sat`: current mood, per-character handle colors, and
@@ -80,6 +87,10 @@ Revision 33 exposes bounded `saveReplay` for versioned `.oskiedemo` match
 streams. The host accepts one JSON object up to 512 KiB and uploads it to the
 fixed AC replay endpoint; pieces receive neither arbitrary networking nor
 storage credentials.
+
+Revision 34 starts each OSKIEWAR OSC datagram immediately, preserves the
+three-copy reliability group without a queue race, and reports native
+enqueue-to-send latency for live Ableton diagnosis.
 
 Revision 13 also exposes bounded `stampPainting` and `blur` primitives to the
 trusted host-side KidLisp compiler. See [`../KIDLISP-NATIVE.md`](../KIDLISP-NATIVE.md)

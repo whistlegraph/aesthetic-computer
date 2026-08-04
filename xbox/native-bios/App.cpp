@@ -348,7 +348,7 @@ public:
     };
     m_sound->get_rate = [this]() { return static_cast<int>(m_sampleRate); };
     m_api = std::make_unique<Api>(Api{{1920, 1080, 1}, {}, {}, {}, *m_graphics, *m_sound, {}});
-    m_api->system.version = "1.0.0.33";
+    m_api->system.version = "1.0.0.34";
     m_api->telemetry = [](std::string_view line) {
       std::string safe(line);
       for (auto& character : safe) if (character == '\n' || character == '\r') character = ' ';
@@ -357,16 +357,24 @@ public:
     };
     m_api->game_signal = [this](std::string_view event, int player, float value,
         float value2) {
-      std::lock_guard<std::mutex> lock(m_gameSignalMutex);
       constexpr std::size_t copies = 3;
-      if (m_gameSignalQueue.size() + copies > 192) {
-        ++m_gameSignalsDropped;
-        return;
+      LARGE_INTEGER queuedAt{};
+      QueryPerformanceCounter(&queuedAt);
+      {
+        std::lock_guard<std::mutex> lock(m_gameSignalMutex);
+        if (m_gameSignalQueue.size() + copies > 192) {
+          ++m_gameSignalsDropped;
+          return;
+        }
+        const auto packet = GameSignalPacket(event, player, value, value2,
+          ++m_gameSignalSequence);
+        for (std::size_t copy = 0; copy < copies; ++copy) {
+          m_gameSignalQueue.push_back({packet, copy == 0, queuedAt.QuadPart});
+        }
       }
-      const auto packet = GameSignalPacket(event, player, value, value2,
-        ++m_gameSignalSequence);
-      for (std::size_t copy = 0; copy < copies; ++copy)
-        m_gameSignalQueue.push_back(packet);
+      // gameSignal is called after the render-loop flush point. Start the
+      // first datagram now instead of adding a full video frame of latency.
+      FlushGameSignals();
     };
     m_api->replay_save = [this](std::string_view payload) {
       std::lock_guard<std::mutex> lock(m_replayMutex);
@@ -1213,23 +1221,44 @@ private:
   }
 
   void FlushGameSignals() {
-    if (!m_gameSignalOutput || m_gameSignalWriteInFlight.load()) return;
-    std::vector<uint8_t> packet;
-    {
-      std::lock_guard<std::mutex> lock(m_gameSignalMutex);
-      if (m_gameSignalQueue.empty()) return;
-      packet = std::move(m_gameSignalQueue.front());
-      m_gameSignalQueue.pop_front();
-    }
+    if (!m_gameSignalOutput) return;
     bool expected = false;
     if (!m_gameSignalWriteInFlight.compare_exchange_strong(expected, true)) return;
+    PendingGameSignalDatagram datagram;
+    {
+      std::lock_guard<std::mutex> lock(m_gameSignalMutex);
+      if (m_gameSignalQueue.empty()) {
+        m_gameSignalWriteInFlight = false;
+        return;
+      }
+      datagram = std::move(m_gameSignalQueue.front());
+      m_gameSignalQueue.pop_front();
+    }
     auto writer = ref new DataWriter(m_gameSignalOutput);
-    writer->WriteBytes(ref new Array<uint8_t>(packet.data(),
-      static_cast<unsigned>(packet.size())));
-    create_task(writer->StoreAsync()).then([this, writer](task<unsigned> completed) {
+    writer->WriteBytes(ref new Array<uint8_t>(datagram.packet.data(),
+      static_cast<unsigned>(datagram.packet.size())));
+    create_task(writer->StoreAsync()).then([this, writer, datagram](task<unsigned> completed) {
       try {
         completed.get();
         const auto sent = ++m_gameSignalsSent;
+        if (datagram.primary) {
+          LARGE_INTEGER now{}, frequency{};
+          QueryPerformanceCounter(&now);
+          QueryPerformanceFrequency(&frequency);
+          const auto enqueueToStoreUs = static_cast<std::uint64_t>(
+            (now.QuadPart - datagram.queuedAtQpc) * 1000000LL / frequency.QuadPart);
+          auto previousMax = m_gameSignalMaxEnqueueToStoreUs.load();
+          while (enqueueToStoreUs > previousMax &&
+              !m_gameSignalMaxEnqueueToStoreUs.compare_exchange_weak(
+                previousMax, enqueueToStoreUs)) {}
+          const auto events = ++m_gameSignalEventsSent;
+          if (events == 1 || events % 32 == 0) {
+            LogTelemetry("AC_NATIVE_OSKIEWAR_SIGNAL_LATENCY events=" +
+              std::to_string(events) + " enqueueToStoreUs=" +
+              std::to_string(enqueueToStoreUs) + " maxEnqueueToStoreUs=" +
+              std::to_string(m_gameSignalMaxEnqueueToStoreUs.load()));
+          }
+        }
         if (sent % 64 == 0) {
           std::size_t queued = 0;
           {
@@ -1667,7 +1696,7 @@ private:
     if (!m_networkClockRequestInFlight.compare_exchange_strong(expected, true)) return;
     const auto sentAt = SystemUnixMs();
     auto client = ref new HttpClient();
-    client->DefaultRequestHeaders->UserAgent->ParseAdd("AC-Native-BIOS/1.0.0.33 Xbox ClockSync");
+    client->DefaultRequestHeaders->UserAgent->ParseAdd("AC-Native-BIOS/1.0.0.34 Xbox ClockSync");
     create_task(client->GetStringAsync(
       ref new Uri(L"https://aesthetic.computer/api/clock")))
       .then([this, client, sentAt](task<String^> completed) {
@@ -1774,7 +1803,7 @@ private:
     if (!m_acRequestInFlight.compare_exchange_strong(expected, true)) return;
 
     auto client = ref new HttpClient();
-    client->DefaultRequestHeaders->UserAgent->ParseAdd("AC-Native-BIOS/1.0.0.33 Xbox");
+    client->DefaultRequestHeaders->UserAgent->ParseAdd("AC-Native-BIOS/1.0.0.34 Xbox");
     std::vector<task<String^>> requests;
     const auto safeGet = [client](const std::wstring& url) {
       return create_task(client->GetStringAsync(ref new Uri(ref new String(url.c_str()))))
@@ -2453,10 +2482,17 @@ private:
   std::atomic_uint64_t m_midiNetworkPackets{0};
   DatagramSocket^ m_gameSignalSocket = nullptr;
   IOutputStream^ m_gameSignalOutput = nullptr;
+  struct PendingGameSignalDatagram {
+    std::vector<uint8_t> packet;
+    bool primary = false;
+    long long queuedAtQpc = 0;
+  };
   std::mutex m_gameSignalMutex;
-  std::deque<std::vector<uint8_t>> m_gameSignalQueue;
+  std::deque<PendingGameSignalDatagram> m_gameSignalQueue;
   std::atomic_bool m_gameSignalWriteInFlight{false};
   std::atomic_uint64_t m_gameSignalsSent{0};
+  std::atomic_uint64_t m_gameSignalEventsSent{0};
+  std::atomic_uint64_t m_gameSignalMaxEnqueueToStoreUs{0};
   std::atomic_uint64_t m_gameSignalsDropped{0};
   std::uint32_t m_gameSignalSequence = 0;
   std::mutex m_replayMutex;

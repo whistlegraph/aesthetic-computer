@@ -78,3 +78,18 @@ Or edit directly in Max:
 2. Click the wrench icon to edit in Max
 3. Make changes and save
 4. Extract updated JSON with: `cat "AC Notepat.amxd" | tail -c +37 > updated.json`
+
+## GAME SIGNALS
+
+Build and install the MIDI receiver plus its sample-free Drum Rack:
+
+```bash
+python3 build.py oskiewar --install
+python3 build-game-signals-rack.py --install
+```
+
+Put `AC 🎹 game-signals (aesthetic.computer)` before `GAME SIGNALS` on one
+MIDI track. The rack has labeled pads for every stable `/oskiewar/*` event on
+MIDI notes 36–56. Drop a sample or instrument on any pad; the preset contains
+no copyrighted or machine-local audio. Rebuilds validate the rack map against
+the Max patch so the two artifacts cannot silently drift.
