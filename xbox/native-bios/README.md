@@ -61,7 +61,7 @@ The bridge reads CoreMIDI, prints the live event stream, and sends one compact
 UDP datagram per musical event. The Xbox HUD changes from
 `NETWORK-LISTENING :51337` to `NETWORK: REFACE YC` after the first packet.
 
-Revision 29 also caps the DXGI frame queue at one and records controller-edge
+Revision 30 caps the DXGI device frame queue at one and records controller-edge
 to-present latency as `AC_NATIVE_INPUT_LATENCY`. OSKIEWAR emits OSC addresses
 under `/oskiewar/*` on UDP `51338`; `ac-m4l/AC-OSKIEWAR.amxd.json` turns combat
 events into notes and player position / round clock into CC20–24.

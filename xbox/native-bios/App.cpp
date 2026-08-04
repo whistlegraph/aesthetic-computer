@@ -348,7 +348,7 @@ public:
     };
     m_sound->get_rate = [this]() { return static_cast<int>(m_sampleRate); };
     m_api = std::make_unique<Api>(Api{{1920, 1080, 1}, {}, {}, {}, *m_graphics, *m_sound, {}});
-    m_api->system.version = "1.0.0.29";
+    m_api->system.version = "1.0.0.30";
     m_api->telemetry = [](std::string_view line) {
       std::string safe(line);
       for (auto& character : safe) if (character == '\n' || character == '\r') character = ' ';
@@ -499,6 +499,9 @@ private:
     ComPtr<IDXGIAdapter> adapter;
     ComPtr<IDXGIFactory2> factory;
     Check(m_device.As(&dxgiDevice));
+    const auto latencyResult = dxgiDevice->SetMaximumFrameLatency(1);
+    LogTelemetry("AC_NATIVE_FRAME_LATENCY max=1 status=" +
+      std::to_string(static_cast<long>(latencyResult)));
     Check(dxgiDevice->GetAdapter(&adapter));
     Check(adapter->GetParent(IID_PPV_ARGS(&factory)));
 
@@ -517,13 +520,6 @@ private:
     desc.AlphaMode = DXGI_ALPHA_MODE_IGNORE;
     Check(factory->CreateSwapChainForCoreWindow(
       m_device.Get(), reinterpret_cast<IUnknown*>(m_window), &desc, nullptr, &m_swapChain));
-    ComPtr<IDXGISwapChain2> latencySwapChain;
-    if (SUCCEEDED(m_swapChain.As(&latencySwapChain))) {
-      const auto latencyResult = latencySwapChain->SetMaximumFrameLatency(1);
-      LogTelemetry("AC_NATIVE_FRAME_LATENCY max=1 status=" +
-        std::to_string(static_cast<long>(latencyResult)));
-    }
-
     Check(m_swapChain->GetBuffer(0, IID_PPV_ARGS(&m_backBuffer)));
     D3D11_TEXTURE2D_DESC backBufferDesc{};
     m_backBuffer->GetDesc(&backBufferDesc);
@@ -1580,7 +1576,7 @@ private:
     if (!m_networkClockRequestInFlight.compare_exchange_strong(expected, true)) return;
     const auto sentAt = SystemUnixMs();
     auto client = ref new HttpClient();
-    client->DefaultRequestHeaders->UserAgent->ParseAdd("AC-Native-BIOS/1.0.0.29 Xbox ClockSync");
+    client->DefaultRequestHeaders->UserAgent->ParseAdd("AC-Native-BIOS/1.0.0.30 Xbox ClockSync");
     create_task(client->GetStringAsync(
       ref new Uri(L"https://aesthetic.computer/api/clock")))
       .then([this, client, sentAt](task<String^> completed) {
@@ -1687,7 +1683,7 @@ private:
     if (!m_acRequestInFlight.compare_exchange_strong(expected, true)) return;
 
     auto client = ref new HttpClient();
-    client->DefaultRequestHeaders->UserAgent->ParseAdd("AC-Native-BIOS/1.0.0.29 Xbox");
+    client->DefaultRequestHeaders->UserAgent->ParseAdd("AC-Native-BIOS/1.0.0.30 Xbox");
     std::vector<task<String^>> requests;
     requests.push_back(create_task(client->GetStringAsync(
       ref new Uri(L"https://aesthetic.computer/api/mood/moods-of-the-day"))));
