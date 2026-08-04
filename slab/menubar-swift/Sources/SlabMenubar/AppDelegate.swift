@@ -2955,9 +2955,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let raw = min(fontByH, fontByW)
         // Far = legible from a typical sitting distance (the auto-fit
         // baseline). Near ≈ 75% — denser when sitting close. Tiny ≈ 60%
-        // — tightest pack. The floors are the load-bearing rule: a tiled
-        // wall must ALWAYS stay readable, so even the densest pack never
-        // drops below ~10pt (Monaspace Argon's comfortable lower bound).
+        // — tightest pack. Cap the auto-fit baseline at 18pt so a lone
+        // full-screen prompt stays comfortable instead of ballooning to the
+        // 28–35pt that its oversized cell could accommodate. The floors are
+        // the other load-bearing rule: a dense wall must remain readable.
         let scale: Double
         let floor: Int
         switch size {
@@ -2965,7 +2966,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         case .near: scale = 0.85;  floor = 9
         case .tiny: scale = 0.7;   floor = 8
         }
-        let fontSize = max(floor, Int((raw * scale).rounded()))
+        let cappedRaw = min(raw, 18.0)
+        let fontSize = max(floor, Int((cappedRaw * scale).rounded()))
 
         return TileLayout(
             rowCounts: rowCounts,
