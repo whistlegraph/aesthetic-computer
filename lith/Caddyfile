@@ -859,11 +859,60 @@ oskiewar.com {
         protocols tls1.2 tls1.3
     }
     encode zstd gzip
-    @oskiewarindex path /
-    handle @oskiewarindex {
-        rewrite * /oskiewar
+
+    # The game publishes live snapshots to the spectator piece. Keep both the
+    # new readable route and the original colon URL working for old QR codes.
+    @oskiewarwatchmatch path_regexp oskiewarwatchmatch ^/watch/([^/]+)/?$
+    handle @oskiewarwatchmatch {
+        rewrite * /oskiewar:{re.oskiewarwatchmatch.1}
+        import lith_proxy
     }
-    import lith_proxy
+    @oskiewarwatchroot path /watch /watch/
+    handle @oskiewarwatchroot {
+        rewrite * /oskiewar
+        import lith_proxy
+    }
+    handle /oskiewar* {
+        import lith_proxy
+    }
+
+    # AC runtime services used by the spectator route.
+    handle /api/* {
+        import lith_proxy
+    }
+    handle /.netlify/functions/* {
+        import lith_proxy
+    }
+    handle /media/* {
+        import lith_proxy
+    }
+    handle /manifest.json {
+        import lith_proxy
+    }
+    handle /aesthetic.computer/* {
+        root * /opt/ac/system/public
+        file_server
+    }
+    handle /type/* {
+        root * /opt/ac/system/public
+        file_server
+    }
+    handle /sw.js {
+        root * /opt/ac/system/public
+        file_server
+    }
+
+    # Playable Canvas/Web Audio build shared with the desktop test harness.
+    @oskiewargame path /
+    handle @oskiewargame {
+        root * /opt/ac/xbox/live
+        rewrite * /mac-test.html
+        file_server
+    }
+    handle {
+        root * /opt/ac/xbox/live
+        file_server
+    }
 }
 
 www.oskiewar.com {

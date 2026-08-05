@@ -1114,6 +1114,20 @@ if (!window.acPACK_MODE && !window.acSPIDER) {
   sluggedUrl = window.acSTARTING_PIECE;
 }
 
+// oskiewar.com serves the playable browser build at `/`; live match
+// spectators use a dedicated, shareable `/watch/<match-name>` route.
+if (
+  location.hostname === "oskiewar.com" ||
+  location.hostname === "www.oskiewar.com"
+) {
+  const watchMatch = location.pathname.match(/^\/watch\/([^/]+)\/?$/);
+  if (location.pathname === "/watch" || location.pathname === "/watch/") {
+    sluggedUrl = "oskiewar";
+  } else if (watchMatch) {
+    sluggedUrl = `oskiewar:${watchMatch[1]}`;
+  }
+}
+
 const rawHashCandidate =
   typeof window !== "undefined" && window.location && window.location.hash
     ? window.location.hash.slice(1)

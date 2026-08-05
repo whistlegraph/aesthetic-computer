@@ -63,6 +63,11 @@ test("control copy follows the native host platform", () => {
   assert.doesNotMatch(mac.select, /A READY/);
 });
 
+test("spectator QR uses the dedicated oskiewar.com watch route", () => {
+  assert.match(source, /https:\/\/oskiewar\.com\/watch\//);
+  assert.doesNotMatch(source, /https:\/\/aesthetic\.computer\/oskiewar:/);
+});
+
 test("boot selector opens the blank two-pad NEW GAME input lab", () => {
   const { fight, pads, tick } = createFight(false, false);
   assert.equal(fight.shellState().mode, "MENU");

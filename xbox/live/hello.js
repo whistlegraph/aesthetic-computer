@@ -287,7 +287,7 @@ function startReplay(now) {
   liveSequence = 0;
   liveNextAt = now;
   spectatorQr = typeof qrcode === "function"
-    ? qrcode("https://oskiewar.com/oskiewar:" + matchName,
+    ? qrcode("https://oskiewar.com/watch/" + matchName,
       { errorCorrectLevel: 1 }) : null;
 }
 
@@ -1959,8 +1959,7 @@ function typeWrite(text, x, y, size, ...color) {
 
 function controlLocale() {
   const caps = typeof capabilities === "function" ? capabilities() : {};
-  const keyboard = caps.inputFamily === "keyboard" ||
-    caps.platform === "macos" || caps.platform === "web";
+  const keyboard = caps.inputFamily === "keyboard";
   return keyboard ? {
     menu: "A D SELECT     F OPEN",
     select: "P1 A/D + F     P2 LEFT/RIGHT + K     H P2/DUMMY     G BACK",

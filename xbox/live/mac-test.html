@@ -3,11 +3,13 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>OSKIEWAR — Mac Test</title>
+  <title>OSKIEWAR</title>
+  <meta name="description" content="Play OSKIEWAR in your browser with a keyboard or two gamepads.">
+  <meta name="theme-color" content="#07081c">
   <style>
     @font-face {
       font-family: "YWFT Processing";
-      src: url("./ywft-processing-regular.ttf") format("truetype");
+      src: url("/type/webfonts/ywft-processing-regular.ttf") format("truetype");
       font-display: block;
     }
     * { box-sizing: border-box; }
@@ -177,8 +179,10 @@
     }
     function capabilities() {
       const mac = navigator.userAgent.includes("Mac");
+      const hasGamepad = Array.from(navigator.getGamepads?.() || []).some(Boolean);
       return { platform: mac ? "macos" : "web",
-        inputFamily: "keyboard", productName: mac ? "MACOS" : "WEB",
+        inputFamily: hasGamepad ? "xbox" : "keyboard",
+        productName: mac ? "MACOS" : "WEB",
         version: "CROSS-PLATFORM", graphics: "CANVAS2D", audio: "WEB AUDIO" };
     }
 
@@ -292,7 +296,10 @@
       write, systemWrite, ywftWrite,
     };
   </script>
-  <script>
+  <script type="module">
+    import { qrcode } from "/aesthetic.computer/dep/@akamfoad/qr/qr.mjs";
+    globalThis.qrcode = qrcode;
+
     async function start() {
       const source = globalThis.__fightPieceSource ||
         await fetch("./hello.js", { cache: "no-store" }).then((response) => response.text());
