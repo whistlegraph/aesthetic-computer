@@ -18,7 +18,7 @@ function createFight(startImmediately = true) {
   };
   const fight = new Function(
     "runtime", "gamepad", "telemetry", "gameSignal", "saveReplay", "drum", "wipe", "box", "line", "triangle", "write", "systemWrite",
-    `${source}\nreturn { boot, sim, paint, players, ball, runnerWorldGeometry, runnerDistanceToPoint, disableBall: () => { ballEnabled = false; ball.active = false; }, enableBall: () => { ballEnabled = true; ball.active = true; ball.serveAt = 0; ball.safeUntil = 0; ball.safePlayers = 0; }, setWind: (value) => { windAcceleration = value; }, windState: () => ({ direction: windDirection, mph: windMph }), nextRound: () => resetRound(runtime().monotonicUs, false), wackBall: () => { players[0].attackKind = "KICK"; returnBall(players[0], runtime().monotonicUs, false); }, crossWackBall: (contact = 1) => crossWackBall(players.map((player) => ({ player, contact })), runtime().monotonicUs), startFight: () => { selecting = false; startReplay(runtime().monotonicUs); resetRound(runtime().monotonicUs, true); }, selectionState: () => ({ selecting, ready: selectionReady.slice() }), cameraState: () => ({ cameraWidth, cameraCenter, cameraCenterY }), roundState: () => ({ roundResult, roundElapsedUs, matchOver }), instantReplayState: () => instantReplay ? { active: true, paused: instantReplay.paused, cursor: instantReplay.cursor, frames: instantReplay.frames.length } : { active: false }, replayFrameCount: () => roundReplayFrames.length };`
+    `${source}\nreturn { boot, sim, paint, players, ball, bullets, gunPickups, runnerWorldGeometry, runnerDistanceToPoint, disableBall: () => { ballEnabled = false; ball.active = false; }, enableBall: () => { ballEnabled = true; ball.active = true; ball.serveAt = 0; ball.safeUntil = 0; ball.safePlayers = 0; }, setWind: (value) => { windAcceleration = value; }, windState: () => ({ direction: windDirection, mph: windMph }), nextRound: () => resetRound(runtime().monotonicUs, false), wackBall: () => { players[0].attackKind = "KICK"; returnBall(players[0], runtime().monotonicUs, false); }, crossWackBall: (contact = 1) => crossWackBall(players.map((player) => ({ player, contact })), runtime().monotonicUs), startFight: () => { selecting = false; startReplay(runtime().monotonicUs); resetRound(runtime().monotonicUs, true); }, selectionState: () => ({ selecting, ready: selectionReady.slice() }), cameraState: () => ({ cameraWidth, cameraCenter, cameraCenterY }), roundState: () => ({ roundResult, roundElapsedUs, matchOver }), instantReplayState: () => instantReplay ? { active: true, paused: instantReplay.paused, cursor: instantReplay.cursor, frames: instantReplay.frames.length } : { active: false }, replayFrameCount: () => roundReplayFrames.length };`
   )(
     () => ({ monotonicUs: now, unixMs: 1785870000000 + Math.floor(now / 1000) }),
     (index = 0) => ({ ...pads[index], down: pads[index].down.slice() }),
@@ -100,6 +100,33 @@ test("melee and movement edges emit bounded Ableton signals", () => {
   tap(0, "ArrowRight");
   assert.ok(signals.some(([event, player, horizontal]) =>
     event === "move" && player === 0 && horizontal === 1));
+});
+
+test("gun drops grant ammo and A fires in the quantized aim direction", () => {
+  const { fight, pads, signals, tick } = createFight();
+  const player = fight.players[0];
+  const pickup = fight.gunPickups[0];
+  pickup.x = player.x;
+  pickup.y = player.y - 70;
+  tick();
+  assert.equal(player.gunAmmo, pickup.amount);
+  pads[0].down = ["ArrowUp", "ArrowRight", "A"];
+  tick();
+  assert.equal(player.gunAmmo, pickup.amount - 1);
+  assert.equal(fight.bullets.length, 1);
+  assert.ok(fight.bullets[0].vx > 0);
+  assert.ok(fight.bullets[0].vy < 0);
+  assert.ok(signals.some(([event, pad]) => event === "bullet" && pad === 0));
+});
+
+test("opposing bullets cancel one another", () => {
+  const { fight, tick } = createFight();
+  fight.bullets.push(
+    { x: 5900, y: 8000, z: 0, vx: 2600, vy: 0, owner: 0, life: 1 },
+    { x: 6100, y: 8000, z: 0, vx: -2600, vy: 0, owner: 1, life: 1 },
+  );
+  tick(40000);
+  assert.equal(fight.bullets.length, 0);
 });
 
 test("double-tap directions trigger dash, ultra-jump, and fast-drop", () => {

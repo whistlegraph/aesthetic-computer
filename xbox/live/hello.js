@@ -20,6 +20,7 @@ const roundResultUs = 3000000;
 const matchResultUs = 5000000;
 const introDurationUs = 3000000;
 const matchWins = 5;
+const pickupRespawnUs = 7000000;
 const replayTickUs = 16667;
 const replayCheckpointUs = 1000000;
 const instantReplayStepUs = 33333;
@@ -158,7 +159,7 @@ function losAngelesSun() {
 }
 const players = [
   { name: "@JEFFREY", rosterIndex: 0, handleColors: fighterRoster[0].colors,
-    pad: 0, spawnX: 2000, x: 2000, y: floorY, z: 0,
+    pad: 0, spawnX: 5150, x: 5150, y: floorY, z: 0,
     vx: 0, vy: 0, vz: 0, facing: 1,
     grounded: true, ducking: false, previous: [], lastButton: "NONE",
     lastButtonAt: -10000000, color: [190, 42, 58], hit: 0,
@@ -167,9 +168,9 @@ const players = [
     lastTap: {}, lastRelease: {}, dashUntil: 0, dashVx: 0, roundWins: 0,
     attackKind: "", attackStartedAt: 0,
     attackUntil: 0, attackHit: false, blocking: false, blockFlash: 0,
-    windVx: 0, knockVx: 0 },
+    windVx: 0, knockVx: 0, gunAmmo: 0 },
   { name: "@OSKIE", rosterIndex: 2, handleColors: fighterRoster[2].colors, npc: false,
-    pad: 1, spawnX: 10000, x: 10000, y: floorY, z: 0,
+    pad: 1, spawnX: 6850, x: 6850, y: floorY, z: 0,
     vx: 0, vy: 0, vz: 0, facing: -1,
     grounded: true, ducking: false, previous: [], lastButton: "NONE",
     lastButtonAt: -10000000, color: [38, 82, 176], hit: 0,
@@ -178,9 +179,21 @@ const players = [
     lastTap: {}, lastRelease: {}, dashUntil: 0, dashVx: 0, roundWins: 0,
     attackKind: "", attackStartedAt: 0,
     attackUntil: 0, attackHit: false, blocking: false, blockFlash: 0,
-    windVx: 0, knockVx: 0 },
+    windVx: 0, knockVx: 0, gunAmmo: 0 },
 ];
 const impacts = [];
+const bullets = [];
+const gunPickups = [
+  { amount: 6, x: 3000, y: floorY - 70, z: 0 },
+  { amount: 6, x: 9000, y: floorY - 70, z: 0 },
+  { amount: 4, x: 6000, y: platformY - 70, z: 0 },
+  { amount: 4, x: 3500, y: 7200, z: 0 },
+  { amount: 4, x: 8500, y: 4400, z: 0 },
+];
+for (const pickup of gunPickups) {
+  pickup.active = true;
+  pickup.respawnAt = 0;
+}
 const ball = { x: 6000, y: floorY - 55, z: 0, vx: 0, vy: 0,
   radius: 55, active: true, serveAt: 0, lastHitBy: -1, safeUntil: 0,
   safePlayers: 0 };
@@ -538,6 +551,7 @@ function boot() {
 
 function resetRound(now, resetMatch = false) {
   impacts.length = 0;
+  bullets.length = 0;
   roundReplayFrames = [];
   roundReplayLastAt = 0;
   instantReplay = null;
@@ -569,11 +583,16 @@ function resetRound(now, resetMatch = false) {
     player.blockFlash = 0;
     player.windVx = 0;
     player.knockVx = 0;
+    player.gunAmmo = 0;
     player.previous = padSnapshots[player.pad]?.down?.slice() || [];
     player.suppressedDirections = player.previous.filter((button) =>
       button.startsWith("Arrow"));
     player.lastButton = "NONE";
     player.lastButtonAt = -10000000;
+  }
+  for (const pickup of gunPickups) {
+    pickup.active = true;
+    pickup.respawnAt = 0;
   }
   roundResult = "";
   roundCause = "";
@@ -586,7 +605,7 @@ function resetRound(now, resetMatch = false) {
   if (replay) replay.rounds.push([demoTick(now), windDirection, windMph,
     ball.vx < 0 ? 0 : 1]);
   cameraCenter = (worldLeft + worldRight) / 2;
-  cameraWidth = worldRight - worldLeft;
+  cameraWidth = 2600;
   cameraCenterY = floorY - cameraWidth / cameraAspect / 2;
 }
 
@@ -738,6 +757,92 @@ function playButtonDrum(button, player) {
   else if (button !== "A" && button !== "B" && button !== "X" &&
       !button.startsWith("Arrow"))
     drum("block", 0.75, pan);
+}
+
+function fireGun(player, input) {
+  const aimX = input.horizontal || player.facing;
+  const aimY = -input.vertical;
+  const length = Math.hypot(aimX, aimY) || 1;
+  const dx = aimX / length;
+  const dy = aimY / length;
+  bullets.push({
+    x: player.x + dx * 180,
+    y: player.y - (player.ducking ? 75 : 130) + dy * 80,
+    z: player.z, vx: dx * 2600, vy: dy * 2600,
+    owner: player.pad, life: 1.8,
+  });
+  while (bullets.length > 24) bullets.shift();
+  player.gunAmmo -= 1;
+  player.pendingMoveLabel = "FIRE " + player.gunAmmo;
+  drum("hat", 1.05, panPlayer(player));
+  emitSignal("bullet", player.pad, aimX, aimY);
+}
+
+function updateGunPickups(now) {
+  const poseTime = (now - startedAt) / 1000000;
+  for (const pickup of gunPickups) {
+    if (!pickup.active) {
+      if (now >= pickup.respawnAt) pickup.active = true;
+      else continue;
+    }
+    for (const player of players) {
+      if (!player.alive || runnerDistanceToPoint(player, poseTime,
+        pickup.x, pickup.y, pickup.z) > 90) continue;
+      player.gunAmmo = Math.min(12, player.gunAmmo + pickup.amount);
+      pickup.active = false;
+      pickup.respawnAt = now + pickupRespawnUs;
+      remember(player, "GUN +" + pickup.amount);
+      drum("clap", 1.1, panPlayer(player));
+      emitSignal("pickup", player.pad, 1, pickup.amount);
+      break;
+    }
+  }
+}
+
+function updateBullets(dt, now) {
+  for (const bullet of bullets) {
+    if (bullet.life <= 0) continue;
+    bullet.vx += windAcceleration * .12 * dt;
+    bullet.x += bullet.vx * dt;
+    bullet.y += bullet.vy * dt;
+    bullet.life -= dt;
+    if (bullet.x - 24 <= worldLeft + wallThickness ||
+        bullet.x + 24 >= worldRight - wallThickness ||
+        bullet.y - 24 <= ceilingY + wallThickness ||
+        bullet.y + 24 >= floorY - wallThickness) bullet.life = 0;
+  }
+  for (let left = 0; left < bullets.length; left++) {
+    const a = bullets[left];
+    if (a.life <= 0) continue;
+    for (let right = left + 1; right < bullets.length; right++) {
+      const b = bullets[right];
+      if (b.life <= 0 || a.owner === b.owner) continue;
+      if (Math.abs(a.x - b.x) <= 96 && Math.abs(a.y - b.y) <= 52 &&
+          Math.abs(a.z - b.z) <= 48) {
+        a.life = 0;
+        b.life = 0;
+        impacts.push({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2,
+          z: (a.z + b.z) / 2, life: .18, duration: .18,
+          death: false, explosion: false });
+        drum("hat", 1, 0);
+        emitSignal("cancel", -1, a.owner, b.owner);
+        break;
+      }
+    }
+  }
+  const poseTime = (now - startedAt) / 1000000;
+  for (const bullet of bullets) {
+    if (bullet.life <= 0) continue;
+    const target = players[bullet.owner === 0 ? 1 : 0];
+    if (!target.alive) continue;
+    if (runnerDistanceToPoint(target, poseTime,
+      bullet.x, bullet.y, bullet.z) <= 24) {
+      bullet.life = 0;
+      killPlayer(target, bullet.owner, now, "SHOT");
+    }
+  }
+  for (let index = bullets.length - 1; index >= 0; index--)
+    if (bullets[index].life <= 0) bullets.splice(index, 1);
 }
 
 function startMelee(player, kind, now) {
@@ -1088,7 +1193,10 @@ function updatePlayer(player, pad, dt, now) {
         drum("block", .7, panPlayer(player));
         emitSignal("shield", player.pad, 1, 0);
       }
-      else if (!player.blocking && button === "A") startMelee(player, "KICK", now);
+      else if (!player.blocking && button === "A") {
+        if (player.gunAmmo > 0) fireGun(player, input);
+        else startMelee(player, "KICK", now);
+      }
       else if (!player.blocking && button === "B") startMelee(player, "PUNCH", now);
     }
   }
@@ -1155,6 +1263,8 @@ function sim() {
   updatePlayer(players[1], players[1].npc
     ? { connected: true, down: [], leftX: 0, leftY: 0 }
     : padSnapshots[1], dt, now);
+  updateGunPickups(now);
+  updateBullets(dt, now);
   updateBall(dt, now);
   resolveMelee(now);
   updateCamera(dt);
@@ -1444,6 +1554,8 @@ function drawPlayerHud(player, x, pad) {
   const status = player.npc ? "DUMMY" : pad.connected ? "READY" : "CONNECT";
   typeWrite(player.lastButton + "  ·  " + held + "  ·  " + status,
     x, 48, 16, ...(status === "CONNECT" ? [255, 105, 105] : secondary));
+  if (player.gunAmmo > 0)
+    typeWrite("GUN " + player.gunAmmo, x + 430, 14, 20, ...color);
 }
 
 function drawFighterData(player, x) {
@@ -1458,6 +1570,32 @@ function worldLine(x1, y1, z1, x2, y2, z2, width, color) {
   const a = projectPoint(x1, y1, z1);
   const b = projectPoint(x2, y2, z2);
   line(a.x, a.y, b.x, b.y, width, ...color);
+}
+
+function drawGunPickup(pickup, t) {
+  if (!pickup.active) return;
+  const bobY = pickup.y + Math.sin(t * 3 + pickup.x * .001) * 24;
+  const point = projectPoint(pickup.x, bobY, pickup.z);
+  const scale = cameraScale();
+  const color = [235, 240, 250];
+  worldLine(pickup.x - 62, bobY, pickup.z,
+    pickup.x + 62, bobY, pickup.z, Math.max(3, 13 * scale), color);
+  worldLine(pickup.x + 5, bobY, pickup.z,
+    pickup.x + 35, bobY + 52, pickup.z, Math.max(3, 12 * scale), color);
+  const labelSize = Math.max(10, Math.min(18, Math.round(42 * scale)));
+  typeWrite("GUN", point.x - labelSize, point.y - Math.max(18, 65 * scale),
+    labelSize, ...color);
+}
+
+function drawBullet(bullet) {
+  const color = players[bullet.owner].color;
+  const point = projectPoint(bullet.x, bullet.y, bullet.z);
+  const speed = Math.hypot(bullet.vx, bullet.vy) || 1;
+  const tail = projectPoint(bullet.x - bullet.vx / speed * 130,
+    bullet.y - bullet.vy / speed * 130, bullet.z);
+  line(tail.x, tail.y, point.x, point.y, Math.max(3, 13 * cameraScale()), ...color);
+  circle(point.x, point.y, Math.max(3, 15 * cameraScale()),
+    Math.max(2, 6 * cameraScale()), color);
 }
 
 function drawWindFlag(t, color) {
@@ -1565,6 +1703,8 @@ function paint() {
   typeWrite(String(remaining).padStart(2, "0"), 928, 5, 48, ...clockInk);
   drawWindFlag(t, titleInk);
   typeWrite(matchName.toUpperCase(), 806, 82, 14, ...titleInk);
+  for (const pickup of gunPickups) drawGunPickup(pickup, t);
+  for (const bullet of bullets) drawBullet(bullet);
   if (ball.active) {
     const point = projectPoint(ball.x, ball.y, ball.z);
     const radius = Math.max(8, ball.radius * cameraScale());
