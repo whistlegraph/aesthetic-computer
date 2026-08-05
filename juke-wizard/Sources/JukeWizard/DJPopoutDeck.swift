@@ -8,11 +8,19 @@ import JukeDSP
 /// and release to resume the state it had before the touch.
 final class DJPopoutDeckController: NSWindowController, NSWindowDelegate {
     private let recordView: DJRadialRecordView
+    private let player: DJDeckPlayer
     private let deckName: String
     private var displayTimer: Timer?
     private var hasPositioned = false
+    private var masterGain: Float = 0.8
+    private var channelGain: Float = 1
+    private(set) var trackTitle = "record"
+    var onClose: (() -> Void)?
+    var onStateChange: (() -> Void)?
+    var isPlaying: Bool { player.isPlaying }
 
     init(deck: DJDeckPlayer, name: String, accent: NSColor) {
+        player = deck
         deckName = name
         recordView = DJRadialRecordView(frame: NSRect(x: 0, y: 0, width: 350, height: 350))
         recordView.deck = deck
@@ -25,7 +33,7 @@ final class DJPopoutDeckController: NSWindowController, NSWindowDelegate {
             backing: .buffered,
             defer: false
         )
-        window.title = "JukeWizard · Deck \(name)"
+        window.title = "Menu Band Juke · Deck \(name)"
         window.isMovableByWindowBackground = true
         window.level = .floating
         window.collectionBehavior = [.fullScreenAuxiliary, .moveToActiveSpace]
@@ -38,6 +46,7 @@ final class DJPopoutDeckController: NSWindowController, NSWindowDelegate {
         super.init(window: window)
         window.delegate = self
         recordView.onClose = { [weak window] in window?.performClose(nil) }
+        player.onStateChange = { [weak self] in self?.onStateChange?() }
     }
 
     required init?(coder: NSCoder) { fatalError() }
@@ -45,16 +54,46 @@ final class DJPopoutDeckController: NSWindowController, NSWindowDelegate {
 
     func show(track: Track?) {
         if let track { recordView.load(track) }
-        window?.title = "JukeWizard · \(deckName) · \(track?.title ?? "record")"
+        trackTitle = track?.title ?? "record"
+        window?.title = "Menu Band Juke · \(deckName) · \(track?.title ?? "record")"
         positionOnce()
         showWindow(nil)
         window?.orderFrontRegardless()
         startDisplay()
     }
 
+    func show(track: Track?, near point: NSPoint) {
+        if let track { recordView.load(track) }
+        trackTitle = track?.title ?? "record"
+        window?.title = "Menu Band Juke · \(deckName) · \(track?.title ?? "record")"
+        showWindow(nil)
+        if let window {
+            let origin = NSPoint(x: point.x - window.frame.width / 2,
+                                 y: point.y - window.frame.height / 2)
+            window.setFrameOrigin(origin)
+        }
+        window?.orderFrontRegardless()
+        hasPositioned = true
+        startDisplay()
+    }
+
+    func setMasterGain(_ gain: Float) {
+        masterGain = max(0, min(1, gain))
+        applyGain()
+    }
+    func setChannelGain(_ gain: Float) {
+        channelGain = max(0, min(1, gain))
+        applyGain()
+    }
+    func toggle() { player.toggle() }
+    func pause() { player.pause() }
+
+    private func applyGain() { player.setGain(masterGain * channelGain) }
+
     func trackChanged(_ track: Track) {
+        trackTitle = track.title
         recordView.load(track)
-        window?.title = "JukeWizard · \(deckName) · \(track.title)"
+        window?.title = "Menu Band Juke · \(deckName) · \(track.title)"
     }
 
     private func startDisplay() {
@@ -83,9 +122,11 @@ final class DJPopoutDeckController: NSWindowController, NSWindowDelegate {
     }
 
     func windowWillClose(_ notification: Notification) {
+        player.pause()
         recordView.cancelTrackpadLock()
         displayTimer?.invalidate()
         displayTimer = nil
+        onClose?()
     }
 
     func windowDidResignKey(_ notification: Notification) {

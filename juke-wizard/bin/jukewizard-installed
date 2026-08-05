@@ -1,18 +1,69 @@
 #!/bin/sh
-# Stable launcher for a JukeWizard installed by ../install.sh.
+# Installed compatibility command for Juke inside Menu Band. It never launches
+# a separate JukeWizard process.
 set -eu
-INSTALL_ROOT="${JUKEWIZARD_HOME:-$HOME/.local/lib/jukewizard}"
-if [ "${1:-}" = "login" ]; then
-  shift
-  if command -v ac-login >/dev/null 2>&1; then exec ac-login "$@"; fi
-  exec node "$INSTALL_ROOT/ac-login.mjs" "$@"
-fi
-if [ "${1:-}" = "cloud" ]; then
-  shift
-  exec node "$INSTALL_ROOT/juke-cloud.mjs" "$@"
-fi
-if [ "${1:-}" = "--help" ] || [ "${1:-}" = "help" ]; then
-  node "$INSTALL_ROOT/juke-cloud.mjs" --help
-  exit 0
-fi
-exec "$INSTALL_ROOT/JukeWizard" "$@"
+
+INSTALL_ROOT="${MENU_BAND_JUKE_CLI_HOME:-$HOME/.local/lib/menuband-juke}"
+MENU_BAND_APP="${MENU_BAND_APP:-$HOME/Applications/Menu Band.app}"
+CONTROL="$INSTALL_ROOT/jukewizard-control.mjs"
+
+usage() {
+  echo "usage: jukewizard [open|status|list|play|select|pause|toggle|seek|speed|next|previous|source|detach|login|cloud]"
+}
+
+open_juke() {
+  if [ -d "$MENU_BAND_APP" ]; then
+    /usr/bin/open -g "$MENU_BAND_APP"
+  else
+    /usr/bin/open -g -b computer.aestheticcomputer.menuband
+  fi
+  i=0
+  while [ "$i" -lt 50 ]; do
+    if [ $((i % 5)) -eq 0 ]; then
+      /usr/bin/osascript <<'APPLESCRIPT'
+use framework "Foundation"
+current application's NSDistributedNotificationCenter's defaultCenter()'s postNotificationName:"computer.aestheticcomputer.menuband.showJuke" object:(missing value)
+delay 0.1
+APPLESCRIPT
+    fi
+    if node "$CONTROL" status >/dev/null 2>&1; then
+      return 0
+    fi
+    /bin/sleep 0.1
+    i=$((i + 1))
+  done
+  return 1
+}
+
+run_control() {
+  if ! node "$CONTROL" status >/dev/null 2>&1; then
+    open_juke
+  fi
+  exec node "$CONTROL" "$@"
+}
+
+case "${1:-open}" in
+  open)
+    open_juke
+    ;;
+  login)
+    shift
+    if command -v ac-login >/dev/null 2>&1; then exec ac-login "$@"; fi
+    exec node "$INSTALL_ROOT/ac-login.mjs" "$@"
+    ;;
+  cloud)
+    shift
+    exec node "$INSTALL_ROOT/juke-cloud.mjs" "$@"
+    ;;
+  status|list|play|select|pause|toggle|seek|speed|next|previous|prev|source|detach)
+    run_control "$@"
+    ;;
+  help|--help|-h)
+    usage
+    ;;
+  *)
+    usage >&2
+    echo "jukewizard: Juke is owned by Menu Band; standalone file/queue launches were retired." >&2
+    exit 2
+    ;;
+esac

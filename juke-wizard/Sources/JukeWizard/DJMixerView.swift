@@ -422,7 +422,7 @@ enum DJPracticeTracks {
         return specs.compactMap { name, variant, filename, key in
             guard let url = render(name: filename, variant: variant) else { return nil }
             let track = Track(url: url, lane: "practice", title: name)
-            track.meta = TrackMeta(artist: "JukeWizard", backend: "C synthesis", status: "PRACTICE",
+            track.meta = TrackMeta(artist: "Menu Band Juke", backend: "C synthesis", status: "PRACTICE",
                                    updated: nil, revisions: nil, bytes: nil, durationSec: duration,
                                    bpm: bpm, key: key,
                                    releaseDate: nil, art: nil, media: nil, links: nil)
@@ -470,11 +470,16 @@ final class DJPlatterView: NSView {
     weak var deck: DJDeckPlayer?
     var accent: NSColor = Palette.teal
     var deckName = "A"
+    var canDetachRecord = true
+    var onDetachRequested: ((NSPoint) -> Void)?
     private var lastAngle: CGFloat?
     private var lastTimestamp: TimeInterval?
     private var scratchOrigin: Double = 0
     private var scratchOffset: Double = 0
     private var scratchIdleTimer: Timer?
+    private var dragStartScreen: NSPoint?
+    private var detachGestureResolved = false
+    private var detachDeniedUntil: TimeInterval = 0
 
     override var acceptsFirstResponder: Bool { true }
     override var mouseDownCanMoveWindow: Bool { false }
@@ -502,6 +507,27 @@ final class DJPlatterView: NSView {
     override func draw(_ dirtyRect: NSRect) {
         guard let context = NSGraphicsContext.current?.cgContext else { return }
         let c = center, r = radius
+
+        guard deck?.track != nil else {
+            NSColor.black.withAlphaComponent(0.08).setFill()
+            NSBezierPath(ovalIn: NSRect(x: c.x - r, y: c.y - r,
+                                        width: r * 2, height: r * 2)).fill()
+            let bed = NSBezierPath(ovalIn: NSRect(x: c.x - r + 2, y: c.y - r + 2,
+                                                  width: r * 2 - 4, height: r * 2 - 4))
+            bed.setLineDash([7, 7], count: 2, phase: 0)
+            bed.lineWidth = 2
+            accent.withAlphaComponent(0.42).setStroke()
+            bed.stroke()
+            let empty = "EMPTY" as NSString
+            let attrs: [NSAttributedString.Key: Any] = [
+                .font: NSFont.systemFont(ofSize: max(13, r * 0.12), weight: .bold),
+                .foregroundColor: accent.withAlphaComponent(0.62)
+            ]
+            let size = empty.size(withAttributes: attrs)
+            empty.draw(at: NSPoint(x: c.x - size.width / 2, y: c.y - size.height / 2),
+                       withAttributes: attrs)
+            return
+        }
 
         context.saveGState()
         let shadow = NSShadow()
@@ -550,6 +576,14 @@ final class DJPlatterView: NSView {
             ring.stroke()
         }
 
+        if ProcessInfo.processInfo.systemUptime < detachDeniedUntil {
+            Palette.coral.withAlphaComponent(0.9).setStroke()
+            let denied = NSBezierPath(ovalIn: NSRect(x: c.x - r + 2, y: c.y - r + 2,
+                                                     width: r * 2 - 4, height: r * 2 - 4))
+            denied.lineWidth = 5
+            denied.stroke()
+        }
+
         let attrs: [NSAttributedString.Key: Any] = [
             .font: NSFont.systemFont(ofSize: max(15, r * 0.20), weight: .black),
             .foregroundColor: NSColor.white
@@ -565,6 +599,7 @@ final class DJPlatterView: NSView {
     }
 
     override func mouseDown(with event: NSEvent) {
+        guard deck?.track != nil else { return }
         guard hypot(convert(event.locationInWindow, from: nil).x - center.x,
                     convert(event.locationInWindow, from: nil).y - center.y) <= radius else { return }
         window?.makeFirstResponder(self)
@@ -573,6 +608,8 @@ final class DJPlatterView: NSView {
         lastTimestamp = event.timestamp
         scratchOrigin = deck?.currentTime ?? 0
         scratchOffset = 0
+        dragStartScreen = NSEvent.mouseLocation
+        detachGestureResolved = false
         deck?.beginScratch()
         scratchIdleTimer?.invalidate()
         scratchIdleTimer = DJRunLoopTimer.scheduled(every: 0.02) { [weak self] _ in
@@ -582,6 +619,32 @@ final class DJPlatterView: NSView {
     }
 
     override func mouseDragged(with event: NSEvent) {
+        if !detachGestureResolved, let start = dragStartScreen {
+            let screen = NSEvent.mouseLocation
+            let travel = hypot(screen.x - start.x, screen.y - start.y)
+            let local = convert(event.locationInWindow, from: nil)
+            let outsideBed = hypot(local.x - center.x, local.y - center.y) > radius * 1.08
+            if travel > max(52, radius * 0.46), outsideBed {
+                detachGestureResolved = true
+                scratchIdleTimer?.invalidate()
+                scratchIdleTimer = nil
+                deck?.endScratch()
+                lastAngle = nil
+                lastTimestamp = nil
+                if canDetachRecord {
+                    onDetachRequested?(screen)
+                } else {
+                    detachDeniedUntil = ProcessInfo.processInfo.systemUptime + 0.42
+                    NSSound.beep()
+                    needsDisplay = true
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) { [weak self] in
+                        self?.needsDisplay = true
+                    }
+                }
+                return
+            }
+        }
+        guard !detachGestureResolved else { return }
         guard let prior = lastAngle else { return }
         let next = angle(for: event)
         var delta = next - prior
@@ -601,7 +664,9 @@ final class DJPlatterView: NSView {
         lastTimestamp = nil
         scratchIdleTimer?.invalidate()
         scratchIdleTimer = nil
-        deck?.endScratch()
+        if !detachGestureResolved { deck?.endScratch() }
+        dragStartScreen = nil
+        detachGestureResolved = false
         NSCursor.openHand.set()
     }
 }
@@ -702,6 +767,13 @@ final class DJWaveformOutputView: NSView {
                 self.needsDisplay = true
             }
         }
+    }
+
+    func clear() {
+        loadToken += 1
+        peaks = []
+        peakDuration = 0
+        needsDisplay = true
     }
 
     override func draw(_ dirtyRect: NSRect) {
@@ -1053,7 +1125,7 @@ final class DJAlignmentWindowController: NSWindowController, NSWindowDelegate {
             contentRect: NSRect(x: 0, y: 0, width: solo ? 150 : 300, height: 400),
             styleMask: [.titled, .closable, .resizable],
             backing: .buffered, defer: false)
-        window.title = "JukeWizard · Alignment"
+        window.title = "Menu Band Juke · Alignment"
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
         window.isMovableByWindowBackground = true
@@ -1112,7 +1184,7 @@ final class DJAlignmentWindowController: NSWindowController, NSWindowDelegate {
 }
 
 final class DJDeckView: NSView {
-    let deck = DJDeckPlayer()
+    private(set) var deck = DJDeckPlayer()
     let platter = DJPlatterView(frame: .zero)
     private let deckLabel: NSTextField
     private let trackPopup = NSPopUpButton(frame: .zero, pullsDown: false)
@@ -1127,7 +1199,16 @@ final class DJDeckView: NSView {
     var onStateChange: (() -> Void)?
     var onTrackLoaded: ((Track) -> Void)?
     var onSync: (() -> Void)?
-    var onPopout: (() -> Void)?
+    var onDetach: ((DJDeckPlayer, Track, NSPoint) -> Void)?
+    var canDetachRecord = true {
+        didSet {
+            platter.canDetachRecord = canDetachRecord
+            popoutButton.isHidden = !canDetachRecord || deck.track == nil
+            platter.setAccessibilityHelp(canDetachRecord
+                ? "Turn the record to scratch, or pull it off the bed to float it"
+                : "Turn the record to scratch. This source must stay on the main deck")
+        }
+    }
 
     init(name: String, accent: NSColor) {
         deckLabel = NSTextField(labelWithString: name)
@@ -1171,10 +1252,15 @@ final class DJDeckView: NSView {
         popoutButton.action = #selector(popout)
         popoutButton.bezelStyle = .rounded
         popoutButton.contentTintColor = accent
-        popoutButton.toolTip = "Float this record as its own scratch deck"
+        popoutButton.toolTip = "Pull this record off the bed into a floating deck"
+        platter.onDetachRequested = { [weak self] point in _ = self?.detachRecord(at: point) }
 
         [deckLabel, trackPopup, platter, playButton, bpmSlider, bpmLabel,
          timeLabel, syncButton, resetButton, popoutButton].forEach(addSubview)
+        installDeckCallback()
+    }
+
+    private func installDeckCallback() {
         deck.onStateChange = { [weak self] in
             self?.refresh()
             self?.onStateChange?()
@@ -1206,11 +1292,33 @@ final class DJDeckView: NSView {
         if autoplay { deck.play() }
     }
 
+    func load(_ track: Track, autoplay: Bool) {
+        if let index = tracks.firstIndex(where: { $0.url == track.url }) {
+            trackPopup.selectItem(at: index)
+        } else {
+            tracks.append(track)
+            trackPopup.addItem(withTitle: "\(track.title) — \(track.lane)")
+            trackPopup.selectItem(at: tracks.count - 1)
+        }
+        deck.load(track)
+        onTrackLoaded?(track)
+        bpmSlider.minValue = deck.sourceBPM * 0.5
+        bpmSlider.maxValue = deck.sourceBPM * 1.5
+        if autoplay { deck.play() }
+        refresh()
+    }
+
     func refresh() {
+        let hasTrack = deck.track != nil
         playButton.title = deck.isPlaying ? "❚❚" : "▶"
-        bpmLabel.stringValue = String(format: "%.1f BPM", deck.targetBPM)
+        bpmLabel.stringValue = hasTrack ? String(format: "%.1f BPM", deck.targetBPM) : "— BPM"
         bpmSlider.doubleValue = deck.targetBPM
         timeLabel.stringValue = "\(JukeController.mmss(deck.currentTime)) / \(JukeController.mmss(deck.duration))"
+        playButton.isEnabled = hasTrack
+        bpmSlider.isEnabled = hasTrack
+        syncButton.isEnabled = hasTrack
+        resetButton.isEnabled = hasTrack
+        popoutButton.isHidden = !canDetachRecord || !hasTrack
         platter.needsDisplay = true
     }
 
@@ -1252,7 +1360,70 @@ final class DJDeckView: NSView {
     @objc private func bpmChanged() { deck.setBPM(bpmSlider.doubleValue); refresh() }
     @objc private func sync() { onSync?() }
     @objc private func resetBPM() { deck.resetBPM(); refresh() }
-    @objc private func popout() { onPopout?() }
+    @objc private func popout() {
+        let point = window.map { NSPoint(x: $0.frame.midX, y: $0.frame.midY) } ?? NSEvent.mouseLocation
+        _ = detachRecord(at: point)
+    }
+
+    @discardableResult
+    func detachRecord(at point: NSPoint) -> Bool {
+        guard canDetachRecord, let track = deck.track else { return false }
+        let floatingDeck = deck
+        floatingDeck.endScratch()
+        floatingDeck.onStateChange = nil
+        deck = DJDeckPlayer()
+        platter.deck = deck
+        installDeckCallback()
+        trackPopup.selectItem(at: -1)
+        refresh()
+        onDetach?(floatingDeck, track, point)
+        return true
+    }
+}
+
+/// One compact channel in the main-window mixer for a record that has been
+/// pulled into its own window. Floating records remain playable directly;
+/// this strip keeps their transport and level reachable from the selector.
+final class DJDetachedChannelView: NSView {
+    weak var controller: DJPopoutDeckController?
+    private let playButton = NSButton(title: "❚❚", target: nil, action: nil)
+    private let titleLabel = NSTextField(labelWithString: "")
+    private let levelSlider = NSSlider(value: 1, minValue: 0, maxValue: 1,
+                                       target: nil, action: nil)
+
+    init(controller: DJPopoutDeckController) {
+        self.controller = controller
+        super.init(frame: .zero)
+        wantsLayer = true
+        layer?.cornerRadius = 7
+        layer?.backgroundColor = NSColor.black.withAlphaComponent(0.14).cgColor
+        titleLabel.font = .systemFont(ofSize: 10, weight: .semibold)
+        titleLabel.lineBreakMode = .byTruncatingTail
+        titleLabel.stringValue = controller.trackTitle
+        playButton.bezelStyle = .inline
+        playButton.target = self
+        playButton.action = #selector(toggle)
+        playButton.toolTip = "Play or pause this floating record"
+        levelSlider.controlSize = .mini
+        levelSlider.isContinuous = true
+        levelSlider.target = self
+        levelSlider.action = #selector(levelChanged)
+        levelSlider.toolTip = "Floating record level"
+        [titleLabel, playButton, levelSlider].forEach(addSubview)
+        refresh()
+    }
+    required init?(coder: NSCoder) { fatalError() }
+
+    override func layout() {
+        playButton.frame = NSRect(x: 4, y: 4, width: 30, height: bounds.height - 8)
+        titleLabel.frame = NSRect(x: 38, y: bounds.height - 17,
+                                  width: max(30, bounds.width - 44), height: 14)
+        levelSlider.frame = NSRect(x: 38, y: 2, width: max(30, bounds.width - 44), height: 14)
+    }
+
+    func refresh() { playButton.title = controller?.isPlaying == true ? "❚❚" : "▶" }
+    @objc private func toggle() { controller?.toggle(); refresh() }
+    @objc private func levelChanged() { controller?.setChannelGain(levelSlider.floatValue) }
 }
 
 final class DJMixerView: NSView {
@@ -1265,6 +1436,8 @@ final class DJMixerView: NSView {
     private let crossfader = NSSlider(value: 0, minValue: -1, maxValue: 1, target: nil, action: nil)
     private let crossLabel = NSTextField(labelWithString: "A 50  ·  50 B")
     private let practiceButton = NSButton(title: "PRIMPATS", target: nil, action: nil)
+    private let detachedScroll = NSScrollView(frame: .zero)
+    private let detachedRack = NSStackView(frame: .zero)
     private var displayTimer: Timer?
     private var availableTracks: [Track] = []
     private var primpatCount = 0
@@ -1278,12 +1451,18 @@ final class DJMixerView: NSView {
     private var alignmentPopout: DJAlignmentWindowController?
     private var rateSyncTimer: Timer?
     private var peakAlignTimer: Timer?
+    private var detachedDecks: [DJPopoutDeckController] = []
+    private var detachedChannels: [DJDetachedChannelView] = []
+    private var detachedSerial = 0
     private(set) var masterVolume: Float = 0.8
     var onStateChange: (() -> Void)?
     var onDetach: (() -> Void)?
     private var deckAppearance: NSAppearance?
 
-    var isPlaying: Bool { deckA.deck.isPlaying || deckB.deck.isPlaying || deckC.isPlaying || deckD.isPlaying }
+    var isPlaying: Bool {
+        deckA.deck.isPlaying || deckB.deck.isPlaying || deckC.isPlaying || deckD.isPlaying
+            || detachedDecks.contains(where: { $0.isPlaying })
+    }
     var dominantDeck: DJDeckView { crossfader.doubleValue <= 0 ? deckA : deckB }
     var dominantTitle: String { dominantDeck.deck.track?.title ?? "DJ Mix" }
     var dominantBPM: Double { dominantDeck.deck.targetBPM }
@@ -1309,7 +1488,19 @@ final class DJMixerView: NSView {
         waveformB.accent = Palette.coral
         waveformB.deckName = "B"
         waveformB.setAccessibilityLabel("Deck B output waveform")
-        [deckA, deckB, waveformA, waveformB, crossfader, crossLabel, practiceButton].forEach(addSubview)
+        detachedRack.orientation = .horizontal
+        detachedRack.alignment = .centerY
+        detachedRack.spacing = 6
+        detachedScroll.documentView = detachedRack
+        detachedScroll.hasHorizontalScroller = true
+        detachedScroll.hasVerticalScroller = false
+        detachedScroll.autohidesScrollers = true
+        detachedScroll.scrollerStyle = .overlay
+        detachedScroll.drawsBackground = false
+        detachedScroll.borderType = .noBorder
+        detachedScroll.isHidden = true
+        [deckA, deckB, waveformA, waveformB, crossfader, crossLabel,
+         practiceButton, detachedScroll].forEach(addSubview)
         deckA.onStateChange = { [weak self] in self?.onStateChange?() }
         deckB.onStateChange = { [weak self] in self?.onStateChange?() }
         deckA.onTrackLoaded = { [weak self] track in
@@ -1324,8 +1515,16 @@ final class DJMixerView: NSView {
         }
         deckA.onSync = { [weak self] in self?.sync(self?.deckA, to: self?.deckB) }
         deckB.onSync = { [weak self] in self?.sync(self?.deckB, to: self?.deckA) }
-        deckA.onPopout = { [weak self] in self?.showPopoutA() }
-        deckB.onPopout = { [weak self] in self?.showPopoutB() }
+        deckA.onDetach = { [weak self] deck, track, point in
+            self?.waveformA.deck = self?.deckA.deck
+            self?.waveformA.clear()
+            self?.float(deck: deck, track: track, near: point)
+        }
+        deckB.onDetach = { [weak self] deck, track, point in
+            self?.waveformB.deck = self?.deckB.deck
+            self?.waveformB.clear()
+            self?.float(deck: deck, track: track, near: point)
+        }
         applyCrossfade()
     }
     required init?(coder: NSCoder) { fatalError() }
@@ -1337,6 +1536,7 @@ final class DJMixerView: NSView {
 
     func configure(tracks: [Track], primaryIndex: Int) {
         soloMode = false
+        updateSoloVisibility()
         let primpats = DJPrimpats.makeTracks()
         let practice = DJPracticeTracks.make()
         primpatCount = primpats.count
@@ -1354,6 +1554,7 @@ final class DJMixerView: NSView {
 
     func configureSolo(tracks: [Track], primaryIndex: Int) {
         soloMode = true
+        updateSoloVisibility()
         let primpats = DJPrimpats.makeTracks()
         let practice = DJPracticeTracks.make()
         primpatCount = primpats.count
@@ -1377,17 +1578,32 @@ final class DJMixerView: NSView {
                 self.deckB.refresh()
                 self.waveformB.needsDisplay = true
             }
+            self.detachedChannels.forEach { $0.refresh() }
         }
     }
 
     func stopDisplay() { displayTimer?.invalidate(); displayTimer = nil }
-    func pauseAll() { deckA.deck.pause(); deckB.deck.pause(); deckC.pause(); deckD.pause() }
+    func pauseAll() {
+        deckA.deck.pause(); deckB.deck.pause(); deckC.pause(); deckD.pause()
+        detachedDecks.forEach { $0.pause() }
+    }
     func toggleDominant() { dominantDeck.deck.toggle() }
     func stepDominant(by offset: Int) { dominantDeck.step(by: offset) }
+    func loadPrimary(_ track: Track, autoplay: Bool = true) { deckA.load(track, autoplay: autoplay) }
+    @discardableResult
+    func detachPrimary() -> Bool {
+        let point = window.map { NSPoint(x: $0.frame.midX, y: $0.frame.midY) } ?? NSEvent.mouseLocation
+        return deckA.detachRecord(at: point)
+    }
+    func setRecordDetachmentAllowed(_ allowed: Bool) {
+        deckA.canDetachRecord = allowed
+        deckB.canDetachRecord = allowed
+    }
 
     func setMasterVolume(_ value: Float) {
         masterVolume = max(0, min(1, value))
         applyCrossfade()
+        detachedDecks.forEach { $0.setMasterGain(masterVolume) }
     }
 
     func setAppearance(_ appearance: NSAppearance?) {
@@ -1397,11 +1613,55 @@ final class DJMixerView: NSView {
         popoutC?.window?.appearance = appearance
         popoutD?.window?.appearance = appearance
         alignmentPopout?.window?.appearance = appearance
+        detachedDecks.forEach { $0.window?.appearance = appearance }
         popoutA?.window?.contentView?.needsDisplay = true
         popoutB?.window?.contentView?.needsDisplay = true
         popoutC?.window?.contentView?.needsDisplay = true
         popoutD?.window?.contentView?.needsDisplay = true
         alignmentPopout?.window?.contentView?.needsDisplay = true
+    }
+
+    private func updateSoloVisibility() {
+        deckB.isHidden = soloMode
+        waveformB.isHidden = soloMode
+        crossfader.isHidden = soloMode
+        crossLabel.isHidden = soloMode
+    }
+
+    private func float(deck: DJDeckPlayer, track: Track, near point: NSPoint) {
+        detachedSerial += 1
+        let controller = DJPopoutDeckController(
+            deck: deck, name: String(detachedSerial), accent: Palette.teal)
+        controller.setMasterGain(masterVolume)
+        controller.window?.appearance = deckAppearance
+        controller.trackChanged(track)
+        let channel = DJDetachedChannelView(controller: controller)
+        channel.translatesAutoresizingMaskIntoConstraints = false
+        channel.widthAnchor.constraint(equalToConstant: 148).isActive = true
+        channel.heightAnchor.constraint(equalToConstant: 38).isActive = true
+        controller.onStateChange = { [weak self, weak channel] in
+            channel?.refresh()
+            self?.onStateChange?()
+        }
+        controller.onClose = { [weak self, weak controller] in
+            guard let self, let controller else { return }
+            self.detachedDecks.removeAll { $0 === controller }
+            if let index = self.detachedChannels.firstIndex(where: { $0.controller === controller }) {
+                let channel = self.detachedChannels.remove(at: index)
+                self.detachedRack.removeArrangedSubview(channel)
+                channel.removeFromSuperview()
+            }
+            self.detachedScroll.isHidden = self.detachedChannels.isEmpty
+            self.needsLayout = true
+            self.onStateChange?()
+        }
+        detachedDecks.append(controller)
+        detachedChannels.append(channel)
+        detachedRack.addArrangedSubview(channel)
+        detachedScroll.isHidden = false
+        controller.show(track: track, near: point)
+        needsLayout = true
+        onStateChange?()
     }
 
     @objc func loadPractice() { loadPrimpats() }
@@ -1635,6 +1895,21 @@ final class DJMixerView: NSView {
         let waveHeight: CGFloat = min(104, max(76, bounds.height * 0.22))
         let waveRow = (waveHeight - 4) / 2
         let waveBottom = crossHeight + gap
+        if soloMode {
+            waveformA.frame = NSRect(x: pad, y: crossHeight, width: bounds.width - pad * 2,
+                                     height: waveHeight)
+            deckA.frame = NSRect(x: pad, y: crossHeight + waveHeight + gap,
+                                 width: bounds.width - pad * 2,
+                                 height: max(160, bounds.height - crossHeight - waveHeight - gap))
+            practiceButton.frame = NSRect(x: pad, y: 8, width: 86, height: 26)
+            detachedScroll.frame = NSRect(x: 98, y: 3, width: max(0, bounds.width - 102), height: 44)
+            detachedRack.frame = NSRect(x: 0, y: 0,
+                                        width: max(detachedScroll.bounds.width,
+                                                   CGFloat(detachedChannels.count) * 154),
+                                        height: 38)
+            return
+        }
+        detachedScroll.frame = .zero
         waveformB.frame = NSRect(x: pad, y: waveBottom, width: bounds.width - pad * 2, height: waveRow)
         waveformA.frame = NSRect(x: pad, y: waveBottom + waveRow + 4,
                                  width: bounds.width - pad * 2, height: waveRow)

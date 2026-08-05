@@ -3,7 +3,7 @@ import AppKit
 final class JukeMiniPlayerView: NSView {
     weak var controller: JukeController?
     private let art = NSImageView()
-    private let title = NSTextField(labelWithString: "JukeWizard")
+    private let title = NSTextField(labelWithString: "Menu Band Juke")
     private let subtitle = NSTextField(labelWithString: "")
     private let room = NSTextField(labelWithString: "")
     private let previous = NSButton(title: "⏮", target: nil, action: nil)

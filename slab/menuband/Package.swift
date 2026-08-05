@@ -3,9 +3,10 @@ import PackageDescription
 
 let package = Package(
     name: "MenuBand",
-    platforms: [.macOS(.v11)],
+    platforms: [.macOS(.v12)],
     dependencies: [
         .package(path: "../macos-audio"),
+        .package(path: "../../juke-wizard"),
     ],
     targets: [
         // Tiny always-running daemon whose only job is to watch for the
@@ -34,6 +35,7 @@ let package = Package(
             dependencies: [
                 "CGMSynth",
                 .product(name: "ACMacAudio", package: "macos-audio"),
+                .product(name: "MenuBandJuke", package: "juke-wizard"),
             ],
             path: "Sources/MenuBand",
             exclude: [

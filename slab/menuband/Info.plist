@@ -44,7 +44,7 @@
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.music</string>
 	<key>LSMinimumSystemVersion</key>
-	<string>11.0</string>
+	<string>12.0</string>
 	<key>LSUIElement</key>
 	<true/>
 	<key>NSBluetoothAlwaysUsageDescription</key>
@@ -60,6 +60,8 @@
 	<string>By aesthetic.computer</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Menu Band finds nearby Menu Bands so two machines can play together in sync over peer-to-peer Wi-Fi and Bluetooth, no router needed.</string>
+	<key>NSAppleMusicUsageDescription</key>
+	<string>Menu Band lets you browse and play your Apple Music library on its main deck.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Menu Band records short clips from your microphone when you hold ` so you can play them back as a sampling voice.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>

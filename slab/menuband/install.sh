@@ -119,8 +119,8 @@ cd "${SCRIPT_DIR}"
 # Metal toolchain). On a CLT-only machine SwiftPM happily cross-
 # compiles each slice via --triple, so we build each separately and
 # lipo them together — works equally well with full Xcode or CLT.
-ARM_TRIPLE="arm64-apple-macosx11.0"
-X86_TRIPLE="x86_64-apple-macosx11.0"
+ARM_TRIPLE="arm64-apple-macosx12.0"
+X86_TRIPLE="x86_64-apple-macosx12.0"
 
 say "building MenuBand arm64 slice"
 swift build -c release --triple "${ARM_TRIPLE}" >/dev/null
@@ -209,6 +209,17 @@ if [[ -d "${PKG_BUNDLE_SRC}" ]]; then
     # contents present in the bundle root") and breaks notarization.
     rm -rf "${APP_DIR}/${PKG_BUNDLE_NAME}" "${APP_RES}/${PKG_BUNDLE_NAME}"
     cp -R "${PKG_BUNDLE_SRC}/." "${APP_RES}/"
+fi
+
+# Menu Band Juke is linked into this process and reads assets from the app's
+# signed Resources/Assets directory. Copying source assets explicitly avoids
+# SwiftPM's generated accessor and its embedded local build path.
+JUKE_ASSETS_SRC="${SCRIPT_DIR}/../../juke-wizard/Sources/JukeWizard/Assets"
+if [[ -d "${JUKE_ASSETS_SRC}" ]]; then
+    rm -rf "${APP_RES:?}/Assets"
+    cp -R "${JUKE_ASSETS_SRC}" "${APP_RES}/Assets"
+else
+    warn "Menu Band Juke assets missing at ${JUKE_ASSETS_SRC}"
 fi
 
 # --- Apple Help book ---
@@ -373,6 +384,51 @@ sed "s|@HOME@|${REPO_HOME}|g" "${PLIST_TMPL}" > "${PLIST_PATH}"
 sed "s|@HOME@|${REPO_HOME}|g" "${LAUNCHER_PLIST_TMPL}" > "${LAUNCHER_PLIST_PATH}"
 ok "plists written"
 
+# Juke lives inside Menu Band. Retire every standalone process artifact so the
+# app menu, Dock identity, and status item always belong to Menu Band. Keep the
+# old artifacts as recoverable migration receipts.
+LEGACY_JUKE_LABEL="computer.aesthetic.jukewizard"
+LEGACY_JUKE_PLIST="${LAUNCH_AGENTS}/${LEGACY_JUKE_LABEL}.plist"
+MIGRATION_DIR="${REPO_HOME}/.local/share/menuband/migrations"
+mkdir -p "${MIGRATION_DIR}"
+if launchctl print "gui/$(id -u)/${LEGACY_JUKE_LABEL}" >/dev/null 2>&1; then
+    launchctl bootout "gui/$(id -u)/${LEGACY_JUKE_LABEL}" 2>/dev/null || true
+fi
+if [[ -f "${LEGACY_JUKE_PLIST}" ]]; then
+    mv "${LEGACY_JUKE_PLIST}" "${MIGRATION_DIR}/${LEGACY_JUKE_LABEL}.plist"
+    ok "retired standalone JukeWizard LaunchAgent (receipt kept in ${MIGRATION_DIR})"
+fi
+
+LEGACY_JUKE_ROOT="${REPO_HOME}/.local/lib/jukewizard"
+LEGACY_JUKE_BIN="${LEGACY_JUKE_ROOT}/JukeWizard"
+if [[ -f "${LEGACY_JUKE_BIN}" ]]; then
+    LEGACY_JUKE_RECEIPT="${MIGRATION_DIR}/JukeWizard-standalone"
+    if [[ -e "${LEGACY_JUKE_RECEIPT}" ]]; then
+        LEGACY_JUKE_RECEIPT="${LEGACY_JUKE_RECEIPT}-$(date +%Y%m%d-%H%M%S)"
+    fi
+    mv "${LEGACY_JUKE_BIN}" "${LEGACY_JUKE_RECEIPT}"
+    ok "retired standalone JukeWizard binary (receipt kept in ${MIGRATION_DIR})"
+fi
+LEGACY_JUKE_BUNDLE="${LEGACY_JUKE_ROOT}/JukeWizard_JukeWizard.bundle"
+if [[ -d "${LEGACY_JUKE_BUNDLE}" ]]; then
+    LEGACY_BUNDLE_RECEIPT="${MIGRATION_DIR}/JukeWizard_JukeWizard.bundle"
+    if [[ -e "${LEGACY_BUNDLE_RECEIPT}" ]]; then
+        LEGACY_BUNDLE_RECEIPT="${LEGACY_BUNDLE_RECEIPT}-$(date +%Y%m%d-%H%M%S)"
+    fi
+    mv "${LEGACY_JUKE_BUNDLE}" "${LEGACY_BUNDLE_RECEIPT}"
+fi
+
+# Preserve the familiar command as a shell/Node control surface. It opens or
+# talks to Menu Band Juke and contains no native application executable.
+JUKE_CLI_ROOT="${REPO_HOME}/.local/lib/menuband-juke"
+JUKE_CLI_BIN_DIR="${REPO_HOME}/.local/bin"
+mkdir -p "${JUKE_CLI_ROOT}" "${JUKE_CLI_BIN_DIR}"
+/usr/bin/install -m 0755 "${SCRIPT_DIR}/../../juke-wizard/bin/juke-cloud.mjs" "${JUKE_CLI_ROOT}/juke-cloud.mjs"
+/usr/bin/install -m 0755 "${SCRIPT_DIR}/../../juke-wizard/bin/jukewizard-control.mjs" "${JUKE_CLI_ROOT}/jukewizard-control.mjs"
+/usr/bin/install -m 0755 "${SCRIPT_DIR}/../../tezos/ac-login.mjs" "${JUKE_CLI_ROOT}/ac-login.mjs"
+/usr/bin/install -m 0755 "${SCRIPT_DIR}/../../juke-wizard/bin/jukewizard-installed" "${JUKE_CLI_BIN_DIR}/jukewizard"
+ok "installed Menu Band Juke control command → ${JUKE_CLI_BIN_DIR}/jukewizard"
+
 say "(re)starting launch agents in place (kickstart, not load — avoids the macOS background nag)"
 _uid="$(id -u)"
 for _svc in "computer.aestheticcomputer.menuband|${PLIST_PATH}" \
@@ -385,16 +441,42 @@ for _svc in "computer.aestheticcomputer.menuband|${PLIST_PATH}" \
     fi
 done
 sleep 1
-if launchctl list | grep -q computer.aestheticcomputer.menuband; then
-    ok "computer.aestheticcomputer.menuband is running"
-else
-    warn "launchctl did not register the agent — check /tmp/menuband.err"
-fi
-if launchctl list | grep -q computer.aestheticcomputer.menubandlauncher; then
-    ok "computer.aestheticcomputer.menubandlauncher is running"
-else
-    warn "launcher agent did not register — check /tmp/menubandlauncher.err"
-fi
+
+# Replacing a signed executable in place occasionally leaves launchd's cached
+# lightweight-code-requirement (LWCR) tied to the previous signature. The job
+# stays registered but exits 78 before the program starts. Keep the quiet
+# kickstart path above; only refresh registration when the service is not
+# actually running after that restart.
+ensure_service_running() {
+    local label="$1" plist="$2" log="$3" attempt=0
+    while (( attempt < 10 )); do
+        if launchctl print "gui/${_uid}/${label}" 2>/dev/null | grep -q 'state = running'; then
+            ok "${label} is running"
+            return 0
+        fi
+        sleep 0.2
+        attempt=$((attempt + 1))
+    done
+
+    warn "${label} retained a stale launch record — refreshing it once"
+    launchctl bootout "gui/${_uid}/${label}" 2>/dev/null || true
+    launchctl bootstrap "gui/${_uid}" "${plist}" 2>/dev/null || launchctl load "${plist}"
+    launchctl kickstart -k "gui/${_uid}/${label}" 2>/dev/null || true
+    attempt=0
+    while (( attempt < 20 )); do
+        if launchctl print "gui/${_uid}/${label}" 2>/dev/null | grep -q 'state = running'; then
+            ok "${label} is running"
+            return 0
+        fi
+        sleep 0.2
+        attempt=$((attempt + 1))
+    done
+    warn "${label} is registered but not running — check ${log}"
+    return 1
+}
+
+ensure_service_running computer.aestheticcomputer.menuband "${PLIST_PATH}" /tmp/menuband.err
+ensure_service_running computer.aestheticcomputer.menubandlauncher "${LAUNCHER_PLIST_PATH}" /tmp/menubandlauncher.err
 
 printf "\n%sdone.%s\n" "${BOLD}" "${RESET}"
 echo "  bundle:       ${APP_DIR}"

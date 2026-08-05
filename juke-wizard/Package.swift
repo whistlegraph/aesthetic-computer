@@ -2,8 +2,11 @@
 import PackageDescription
 
 let package = Package(
-    name: "JukeWizard",
+    name: "MenuBandJuke",
     platforms: [.macOS(.v12)],
+    products: [
+        .library(name: "MenuBandJuke", targets: ["MenuBandJuke"]),
+    ],
     dependencies: [
         .package(path: "../slab/macos-audio"),
     ],
@@ -13,16 +16,14 @@ let package = Package(
             path: "Sources/JukeDSP",
             publicHeadersPath: "include"
         ),
-        .executableTarget(
-            name: "JukeWizard",
+        .target(
+            name: "MenuBandJuke",
             dependencies: [
                 .product(name: "ACMacAudio", package: "macos-audio"),
                 "JukeDSP",
             ],
             path: "Sources/JukeWizard",
-            resources: [
-                .copy("Assets"),
-            ]
+            exclude: ["Assets"]
         ),
         .testTarget(
             name: "JukeDSPTests",
@@ -31,7 +32,7 @@ let package = Package(
         ),
         .testTarget(
             name: "JukeWizardTests",
-            dependencies: ["JukeWizard"],
+            dependencies: ["MenuBandJuke"],
             path: "Tests/JukeWizardTests"
         ),
     ]

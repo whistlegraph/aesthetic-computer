@@ -1,7 +1,7 @@
 import Foundation
 import Darwin
 
-/// Local, bounded JSON-line control for the running JukeWizard. The Unix
+/// Local, bounded JSON-line control for Menu Band's Juke window. The Unix
 /// socket is user-only; every command is still validated by JukeController.
 final class JukeControlServer {
     private let controller: JukeController
@@ -55,7 +55,7 @@ final class JukeControlServer {
                 Self.reply(fd, ["ok": false, "error": "invalid or oversized JSON request"]); return
             }
             DispatchQueue.main.async {
-                guard let self else { Self.reply(fd, ["ok": false, "error": "JukeWizard unavailable"]); return }
+                guard let self else { Self.reply(fd, ["ok": false, "error": "Menu Band Juke unavailable"]); return }
                 Self.reply(fd, self.controller.control(object))
             }
         }

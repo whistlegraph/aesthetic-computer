@@ -56,7 +56,7 @@ enum DJPrimpats {
             guard let url = render(metadata) else { return nil }
             let track = Track(url: url, lane: "primpats", title: metadata.title)
             track.meta = TrackMeta(
-                artist: "JukeWizard",
+                artist: "Menu Band Juke",
                 backend: "Primpats local \(metadata.waveform.rawValue) synthesis · \(frequencyLabel(metadata.frequency)) Hz",
                 status: "PRIMPAT",
                 updated: nil,

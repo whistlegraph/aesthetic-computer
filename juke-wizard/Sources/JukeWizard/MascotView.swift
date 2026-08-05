@@ -7,13 +7,9 @@ import AppKit
 
 final class MascotView: NSView {
     private let image: NSImage? = {
-        let bundle = Bundle.module
-        if let url = bundle.url(forResource: "jukewizard-mascot", withExtension: "png", subdirectory: "Assets"),
+        if let url = JukeResources.url(forResource: "jukewizard-mascot", withExtension: "png"),
            let img = NSImage(contentsOf: url) { return img }
-        if let url = bundle.url(forResource: "jukewizard-mascot", withExtension: "png"),
-           let img = NSImage(contentsOf: url) { return img }
-        let here = FileManager.default.currentDirectoryPath
-        return NSImage(contentsOfFile: "\(here)/juke-wizard/Sources/JukeWizard/Assets/jukewizard-mascot.png")
+        return nil
     }()
 
     override func hitTest(_ point: NSPoint) -> NSView? { nil }

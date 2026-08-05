@@ -73,7 +73,7 @@ final class TrackRowView: NSView {
         let r = bounds.insetBy(dx: 3, dy: 2)
         let path = NSBezierPath(roundedRect: r, xRadius: 7, yRadius: 7)
         (selected ? tint.blended(withFraction: 0.45, of: .white) ?? tint
-                  : tint).withAlphaComponent(selected ? 0.55 : 0.22).setFill()
+                  : tint).withAlphaComponent(selected ? 0.46 : 0.16).setFill()
         path.fill()
         if selected {
             tint.withAlphaComponent(0.9).setStroke()

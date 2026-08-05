@@ -47,6 +47,7 @@ final class SpotifyTrackRowView: NSTableCellView {
 final class SpotifyProgressView: NSView {
     var duration: Double = 0 { didSet { needsDisplay = true } }
     var position: Double = 0 { didSet { needsDisplay = true } }
+    var allowsSeeking = true
     var onSeek: ((Double) -> Void)?
 
     override func draw(_ dirtyRect: NSRect) {
@@ -65,7 +66,7 @@ final class SpotifyProgressView: NSView {
     override func mouseDown(with event: NSEvent) { seek(event) }
     override func mouseDragged(with event: NSEvent) { seek(event) }
     private func seek(_ event: NSEvent) {
-        guard duration > 0 else { return }
+        guard allowsSeeking, duration > 0 else { return }
         let x = convert(event.locationInWindow, from: nil).x
         onSeek?(duration * Double(min(1, max(0, x / max(1, bounds.width)))))
     }

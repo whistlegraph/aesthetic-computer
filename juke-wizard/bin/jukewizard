@@ -1,82 +1,74 @@
 #!/bin/sh
-# juke-wizard/bin/jukewizard — build (cached) + launch JukeWizard.
-#
-# JukeWizard is the MASTER JUKE: it ALWAYS loads the whole /pop library so
-# every track is visible. Open it with no args to browse, or pass a specific
-# track to jump straight to it — the full library still loads underneath.
-# Each track shows its cover art, per-service listen links (Spotify/Apple/
-# YouTube/DistroKid), and any reels/videos made for it (from the lane's out/).
-# The sidebar sort menu reorders by newest-rendered, rating, title, etc.
-#
-# usage:
-#   juke-wizard/bin/jukewizard                       # browse the whole /pop library
-#   juke-wizard/bin/jukewizard <file.mp3>            # load library + select/play that track
-#   juke-wizard/bin/jukewizard --queue <a.mp3> <b.mp3> # focused ordered playlist; play a
-#   juke-wizard/bin/jukewizard --primpats               # two floating bass-sine records
-#   juke-wizard/bin/jukewizard --beats                  # two floating practice beats
-#   juke-wizard/bin/jukewizard <folder | playlist>   # load library + add these too
-#   juke-wizard/bin/jukewizard ... --watch <dir>     # auto-pop new renders
-#
-# Runs from anywhere; resolves the package from its own location.
-set -e
+# Compatibility command for Juke inside Menu Band. This script never builds
+# or launches a second macOS application.
+set -eu
+
 HERE="$(cd "$(dirname "$0")" && pwd)"
-WIZ="$HERE/.."
-REPO="$(cd "$WIZ/.." && pwd)"
+REPO="$(cd "$HERE/../.." && pwd)"
+MENU_BAND_APP="${MENU_BAND_APP:-$HOME/Applications/Menu Band.app}"
+CONTROL="$HERE/jukewizard-control.mjs"
 
-if [ "${1:-}" = "login" ]; then
-  shift
-  if command -v ac-login >/dev/null 2>&1; then exec ac-login "$@"; fi
-  exec node "$REPO/tezos/ac-login.mjs" "$@"
-fi
-if [ "${1:-}" = "cloud" ]; then
-  shift
-  exec node "$HERE/juke-cloud.mjs" "$@"
-fi
-if [ "${1:-}" = "--help" ] || [ "${1:-}" = "help" ]; then
-  node "$HERE/juke-cloud.mjs" --help
-  exit 0
-fi
+usage() {
+  echo "usage: jukewizard [open|status|list|play|select|pause|toggle|seek|speed|next|previous|source|detach|login|cloud]"
+}
 
-# Probeable transport commands talk to the already-running native player and
-# emit stable JSON. The MCP is deliberately only a thin wrapper over this CLI.
-case "${1:-}" in
-  status|list|play|select|pause|toggle|seek|speed|next|previous|prev)
-    exec node "$HERE/jukewizard-control.mjs" "$@"
+open_juke() {
+  if [ -d "$MENU_BAND_APP" ]; then
+    /usr/bin/open -g "$MENU_BAND_APP"
+  else
+    /usr/bin/open -g -b computer.aestheticcomputer.menuband
+  fi
+  # A cold Menu Band launch needs a moment to register its distributed-
+  # notification observer. Retry the idempotent open message until Juke's
+  # control socket proves the embedded controller is alive. AppleScriptObjC
+  # uses Foundation directly, so this works on Macs without developer tools.
+  i=0
+  while [ "$i" -lt 50 ]; do
+    if [ $((i % 5)) -eq 0 ]; then
+      /usr/bin/osascript <<'APPLESCRIPT'
+use framework "Foundation"
+current application's NSDistributedNotificationCenter's defaultCenter()'s postNotificationName:"computer.aestheticcomputer.menuband.showJuke" object:(missing value)
+delay 0.1
+APPLESCRIPT
+    fi
+    if node "$CONTROL" status >/dev/null 2>&1; then
+      return 0
+    fi
+    /bin/sleep 0.1
+    i=$((i + 1))
+  done
+  return 1
+}
+
+run_control() {
+  if ! node "$CONTROL" status >/dev/null 2>&1; then
+    open_juke
+  fi
+  exec node "$CONTROL" "$@"
+}
+
+case "${1:-open}" in
+  open)
+    open_juke
+    ;;
+  login)
+    shift
+    if command -v ac-login >/dev/null 2>&1; then exec ac-login "$@"; fi
+    exec node "$REPO/tezos/ac-login.mjs" "$@"
+    ;;
+  cloud)
+    shift
+    exec node "$HERE/juke-cloud.mjs" "$@"
+    ;;
+  status|list|play|select|pause|toggle|seek|speed|next|previous|prev|source|detach)
+    run_control "$@"
+    ;;
+  help|--help|-h)
+    usage
+    ;;
+  *)
+    usage >&2
+    echo "jukewizard: Juke is owned by Menu Band; standalone file/queue launches were retired." >&2
+    exit 2
     ;;
 esac
-swift build -c release --package-path "$WIZ" 2>&1 | grep -v '^$' | tail -2 || true
-
-BIN="$WIZ/.build/release/JukeWizard"
-LIB="$REPO/pop/out/pop-library.json"
-node "$REPO/pop/bin/pop-library.mjs" >/dev/null 2>&1 || true   # refresh the index
-
-# Focused queue mode: use only the following loose files/folders/playlists,
-# preserving their command-line order. This makes `--queue a.mp3 b.mp3` a
-# real two-track listening session instead of burying those tracks inside the
-# master /pop library. Select + autoplay the first supplied audio file.
-if [ "${1:-}" = "--queue" ]; then
-  shift
-  if [ "$#" -eq 0 ]; then
-    echo "usage: jukewizard --queue <file | folder | playlist> [...]" >&2
-    exit 2
-  fi
-  FIRST="$1"
-  case "$FIRST" in /*) SEL="$FIRST";; *) SEL="$(pwd)/$FIRST";; esac
-  exec "$BIN" "$@" --select "$SEL"
-fi
-
-# No args → just the master library.
-if [ "$#" -eq 0 ]; then
-  exec "$BIN" "$LIB"
-fi
-
-# A specific audio file → load the master library AND select/play it
-# (absolutized so it matches the library entry; added to the queue if it's a
-# fresh draft not in the index yet).
-if [ -f "$1" ]; then
-  case "$1" in /*) SEL="$1";; *) SEL="$(pwd)/$1";; esac
-  exec "$BIN" "$LIB" "$@" --select "$SEL"
-fi
-
-# A folder / playlist / flags → load the master library and add them too.
-exec "$BIN" "$LIB" "$@"

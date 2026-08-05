@@ -46,7 +46,9 @@ final class WaveformView: NSView {
     override init(frame: NSRect) {
         super.init(frame: frame)
         wantsLayer = true
-        layer?.backgroundColor = NSColor(white: 0.07, alpha: 1).cgColor
+        layer?.backgroundColor = NSColor(white: 0.03, alpha: 0.62).cgColor
+        layer?.borderWidth = 1
+        layer?.borderColor = NSColor.white.withAlphaComponent(0.10).cgColor
         layer?.cornerRadius = 8
         layer?.masksToBounds = true
         toolTip = "Click to seek · drag to scratch · Option-click to comment"
