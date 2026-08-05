@@ -8,6 +8,21 @@ const CLOUD_HOSTS = new Set([
   "https://eu.i.posthog.com",
 ]);
 
+export function browserAnalyticsConfig(env = process.env) {
+  const projectToken = env.POSTHOG_PROJECT_TOKEN?.trim();
+  const apiHost = env.POSTHOG_API_HOST?.trim() || "https://us.i.posthog.com";
+  if (!projectToken?.startsWith("phc_") || !CLOUD_HOSTS.has(apiHost)) {
+    return null;
+  }
+  return {
+    projectToken,
+    apiHost,
+    uiHost: apiHost.startsWith("https://eu.")
+      ? "https://eu.posthog.com"
+      : "https://us.posthog.com",
+  };
+}
+
 export function durationBucket(ms) {
   if (ms < 100) return "under_100ms";
   if (ms < 500) return "100_499ms";

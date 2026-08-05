@@ -15,7 +15,8 @@ The browser integration is inert until Lith receives `POSTHOG_PROJECT_TOKEN`.
 personal API keys and OAuth tokens never belong in the repository or HTML.
 Set `POSTHOG_SERVER_ENDPOINT_EVENTS=true` separately to enable anonymized,
 batched endpoint-volume events. This second switch makes the higher-volume
-server stream an explicit rollout decision.
+server stream an explicit rollout decision. `POSTHOG_OSKIEWAR_EVENTS=true`
+separately enables category-only Oskiewar server milestones.
 
 Initial capture is deliberately narrow:
 
@@ -45,6 +46,34 @@ The server event is an anonymous aggregate, not a person event. It uses one
 Lith-level distinct ID, disables person profiles and GeoIP, and combines equal
 dimensions into ten-second batches. Never use it for unique-user counts or
 person funnels; sum its `count` property for request volume.
+
+## Oskiewar
+
+Oskiewar uses the browser client plus anonymous aggregates from Lith and the
+session server:
+
+| Event                           | Meaning                                      |
+| ------------------------------- | -------------------------------------------- |
+| `ac_oskiewar_match_started`     | Browser play began after character selection |
+| `ac_oskiewar_live_started`      | First valid state reached a live room         |
+| `ac_oskiewar_spectator_joined`  | A viewer entered a live or waiting room       |
+| `ac_oskiewar_round_stored`      | Lith stored a new validated demo              |
+| `ac_oskiewar_match_completed`   | A stored round completed the match            |
+| `ac_oskiewar_live_viewed`       | Browser received its first live state         |
+| `ac_oskiewar_replay_viewed`     | Browser received a stored demo                |
+| `ac_oskiewar_round_followed`    | Browser followed the next-round transition    |
+
+Properties are allowlisted categories: `source_system`, `surface`,
+`input_family`, `opponent_type`, `phase`, `viewer_state`, `round_position`,
+`duration_bucket`, and `result`. Not every event uses every property. Custom
+properties never include round or series IDs, raw URLs, fighter handles, replay
+content, commands, scores, IPs, user agents, or raw errors. Oskiewar routes
+collapse to `/oskiewar` or `/oskiewar/round` before browser capture.
+
+Server milestones use fixed `ac-oskiewar-*-aggregate` distinct IDs, disable
+person profiles and GeoIP, and combine equal categories into ten-second
+batches. Sum `properties.count`; do not use these aggregates for unique-person
+analysis. Browser milestones remain ordinary person events.
 
 ## Endpoint map
 
@@ -99,6 +128,11 @@ Before enabling the server switch, configure only the browser token and verify:
 4. Identified profiles contain Auth0 `sub` and optional public handle, never email.
 5. Replay, autocapture, exception, performance, survey, and tour data remain absent.
 
+For Oskiewar, verify that both a random round URL and a short legacy round URL
+produce `ac_route = /oskiewar/round`, then confirm every Oskiewar event's custom
+properties use only the categories above. Enable `POSTHOG_OSKIEWAR_EVENTS=true`
+on Lith and the session server only after this browser check.
+
 Then enable `POSTHOG_SERVER_ENDPOINT_EVENTS=true` and verify `ac endpoint
 completed` has only the documented properties. A useful HogQL request-volume
 check is:
@@ -120,7 +154,8 @@ should be substituted for the other.
 
 Rollback requires no code or data migration: unset `POSTHOG_PROJECT_TOKEN` to
 disable browser and server analytics, or unset only
-`POSTHOG_SERVER_ENDPOINT_EVENTS` to retain browser journeys.
+`POSTHOG_SERVER_ENDPOINT_EVENTS` to retain browser journeys. Unset
+`POSTHOG_OSKIEWAR_EVENTS` to stop only Oskiewar server milestones.
 
 ## Product context
 

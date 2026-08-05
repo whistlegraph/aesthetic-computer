@@ -1,12 +1,34 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  browserAnalyticsConfig,
   createEndpointAnalytics,
   durationBucket,
   endpointAggregate,
   lithSurfaceAggregate,
   statusClass,
 } from "../../lith/product-analytics.mjs";
+
+test("browser analytics config accepts only reviewed cloud hosts", () => {
+  assert.deepEqual(
+    browserAnalyticsConfig({
+      POSTHOG_PROJECT_TOKEN: "phc_public_test_token",
+      POSTHOG_API_HOST: "https://eu.i.posthog.com",
+    }),
+    {
+      projectToken: "phc_public_test_token",
+      apiHost: "https://eu.i.posthog.com",
+      uiHost: "https://eu.posthog.com",
+    },
+  );
+  assert.equal(
+    browserAnalyticsConfig({
+      POSTHOG_PROJECT_TOKEN: "phc_public_test_token",
+      POSTHOG_API_HOST: "https://example.com",
+    }),
+    null,
+  );
+});
 
 test("endpoint dimensions are bounded and contain no request data", () => {
   assert.equal(durationBucket(99), "under_100ms");

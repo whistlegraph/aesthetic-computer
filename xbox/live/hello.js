@@ -306,6 +306,24 @@ function demoTick(now) {
     replayTickUs)) : 0;
 }
 
+function trackMatchStarted() {
+  if (typeof analytics !== "function") return;
+  const device = typeof capabilities === "function" ? capabilities() : {};
+  const platform = String(device.platform || "").toLowerCase();
+  const surface = platform === "xbox-uwp" || platform === "xbox"
+    ? "xbox"
+    : platform === "macos" ? "macos" : "web";
+  const family = String(device.inputFamily || "").toLowerCase();
+  analytics("match_started", {
+    source_system: "browser",
+    surface,
+    input_family: ["gamepad", "keyboard", "xbox"].includes(family)
+      ? family
+      : "unknown",
+    opponent_type: players[1].npc ? "dummy" : "local-player",
+  });
+}
+
 function startReplay(now) {
   const run = runtime();
   seriesName = pronounceableMatchName();
@@ -325,6 +343,7 @@ function startReplay(now) {
   liveSequence = 0;
   liveNextAt = now;
   spectatorQr = null;
+  trackMatchStarted();
 }
 
 function spectatorState(now, nextRoundId = "") {

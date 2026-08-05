@@ -1,6 +1,12 @@
 // OSKIEWAR Live Manager, 26.08.04
 // Small, public, match-id-scoped relay for phone spectators.
 
+import {
+  oskiewarEvent,
+  oskiewarSurface,
+} from "../system/public/aesthetic.computer/lib/oskiewar-analytics.mjs";
+import { createPostHogEventCapture } from "../shared/posthog-event-capture.mjs";
+
 const MATCH_WORD = "[bdfgklmnprstvz][aeiou][bdfgklmnprstvz][aeiou][bdfgklmnprstvz][aeiou]";
 const MATCH_NAME = new RegExp(
   `^(?:${MATCH_WORD}-${MATCH_WORD}-${MATCH_WORD}|[a-z]{4,7}[0-9]{1,3})$`);
@@ -90,9 +96,16 @@ function send(ws, type, content) {
 }
 
 export class OskiewarLiveManager {
-  constructor({ now = () => Date.now() } = {}) {
+  constructor({
+    now = () => Date.now(),
+    analytics = createPostHogEventCapture({
+      distinctId: "ac-oskiewar-session-aggregate",
+      eventFactory: oskiewarEvent,
+    }),
+  } = {}) {
     this.rooms = new Map();
     this.now = now;
+    this.analytics = analytics;
   }
 
   accepts(url) {
@@ -108,6 +121,7 @@ export class OskiewarLiveManager {
     const url = new URL(req.url, "http://session");
     const matchId = canonicalMatchId(url.searchParams.get("match"));
     const role = url.searchParams.get("role") === "publisher" ? "publisher" : "viewer";
+    const surface = oskiewarSurface(url.searchParams.get("surface"));
     if (!matchId) {
       send(ws, "oskiewar:error", { message: "Invalid match ID" });
       ws.close?.(4400, "Invalid match ID");
@@ -121,22 +135,24 @@ export class OskiewarLiveManager {
         ws.close?.(4429, "Capacity reached");
         return true;
       }
-      room = { matchId, publisher: null, viewers: new Set(), state: null,
+      room = { matchId, publisher: null, publisherSurface: "unknown",
+        viewers: new Set(), state: null, liveStarted: false,
         updatedAt: this.now(), publishedAt: 0 };
       this.rooms.set(matchId, room);
     }
-    if (role === "publisher") this.addPublisher(room, ws);
-    else this.addViewer(room, ws);
+    if (role === "publisher") this.addPublisher(room, ws, surface);
+    else this.addViewer(room, ws, surface);
     return true;
   }
 
-  addPublisher(room, ws) {
+  addPublisher(room, ws, surface) {
     if (room.publisher?.readyState === 1) {
       send(ws, "oskiewar:error", { message: "This match already has a publisher" });
       ws.close?.(4409, "Publisher already connected");
       return;
     }
     room.publisher = ws;
+    room.publisherSurface = surface;
     room.updatedAt = this.now();
     send(ws, "oskiewar:ready", { matchId: room.matchId,
       viewers: room.viewers.size, maxHz: Math.floor(1000 / MIN_PUBLISH_INTERVAL_MS) });
@@ -151,7 +167,7 @@ export class OskiewarLiveManager {
     ws.on("error", () => {});
   }
 
-  addViewer(room, ws) {
+  addViewer(room, ws, surface) {
     if (room.viewers.size >= MAX_VIEWERS) {
       send(ws, "oskiewar:error", { message: "This match has reached 64 viewers" });
       ws.close?.(4429, "Viewer capacity reached");
@@ -159,6 +175,11 @@ export class OskiewarLiveManager {
     }
     room.viewers.add(ws);
     room.updatedAt = this.now();
+    this.analytics.capture("spectator_joined", {
+      source_system: "session-server",
+      surface,
+      viewer_state: room.publisher?.readyState === 1 ? "live" : "waiting",
+    });
     send(ws, "oskiewar:status", this.status(room));
     if (room.state) send(ws, "oskiewar:state", room.state);
     send(room.publisher, "oskiewar:viewers", { count: room.viewers.size });
@@ -193,6 +214,14 @@ export class OskiewarLiveManager {
     room.state = state;
     room.publishedAt = now;
     room.updatedAt = now;
+    if (!room.liveStarted) {
+      room.liveStarted = true;
+      this.analytics.capture("live_started", {
+        source_system: "session-server",
+        surface: room.publisherSurface,
+        phase: state.phase,
+      });
+    }
     for (const viewer of room.viewers) send(viewer, "oskiewar:state", state);
   }
 

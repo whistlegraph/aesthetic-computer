@@ -4,6 +4,12 @@
 import { createHmac } from "node:crypto";
 import { connect } from "../../backend/database.mjs";
 import { respond } from "../../backend/http.mjs";
+import {
+  oskiewarEvent,
+  oskiewarMatchCompleted,
+  oskiewarReplayProperties,
+} from "../../public/aesthetic.computer/lib/oskiewar-analytics.mjs";
+import { createPostHogEventCapture } from "../../../shared/posthog-event-capture.mjs";
 
 const COLLECTION = "oskiewar-replays";
 const MAX_BYTES = 524288;
@@ -12,6 +18,10 @@ const MATCH_NAME = new RegExp(
   `^(?:${MATCH_WORD}-${MATCH_WORD}-${MATCH_WORD}|[a-z]{4,7}[0-9]{1,3})$`);
 const MATCH_ID = new RegExp(
   `^ow-(?:${MATCH_WORD}-${MATCH_WORD}-${MATCH_WORD}|[a-z]{4,7}[0-9]{1,3})$`);
+const oskiewarAnalytics = createPostHogEventCapture({
+  distinctId: "ac-oskiewar-lith-aggregate",
+  eventFactory: oskiewarEvent,
+});
 
 const finite = (value, limit = 1000000000) =>
   Number.isFinite(value) && Math.abs(value) <= limit;
@@ -85,6 +95,18 @@ function publicReplay(document) {
   if (!document) return null;
   const { sourceDigest: _, ...safe } = document;
   return { ...safe, id: document._id, _id: undefined };
+}
+
+export function captureStoredReplay(
+  demo,
+  surface,
+  capture = oskiewarAnalytics.capture,
+) {
+  const properties = oskiewarReplayProperties(demo, surface);
+  capture("round_stored", properties);
+  if (oskiewarMatchCompleted(demo)) {
+    capture("match_completed", properties);
+  }
 }
 
 export async function handler(event) {
@@ -163,6 +185,9 @@ export async function handler(event) {
         sourceDigest: digest },
     }, { upsert: true });
     await database.disconnect();
+    if (result.upsertedCount) {
+      captureStoredReplay(demo, event.queryStringParameters?.surface);
+    }
     return respond(result.upsertedCount ? 201 : 200, {
       ok: true, id: demo.matchId, stored: Boolean(result.upsertedCount),
       replay: `/api/oskiewar-replays?id=${encodeURIComponent(demo.matchId)}`,

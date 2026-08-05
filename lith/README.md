@@ -26,6 +26,7 @@ Optional product analytics keys:
 - `POSTHOG_PROJECT_TOKEN=phc_...` — enables the privacy-minimized browser client
 - `POSTHOG_API_HOST=https://us.i.posthog.com` — US or EU Cloud ingestion host
 - `POSTHOG_SERVER_ENDPOINT_EVENTS=true` — separately enables anonymous endpoint aggregates
+- `POSTHOG_OSKIEWAR_EVENTS=true` — separately enables minimized Oskiewar server milestones
 
 See [`docs/POSTHOG.md`](../docs/POSTHOG.md) for the endpoint inventory, privacy
 contract, event schemas, validation, and rollback.

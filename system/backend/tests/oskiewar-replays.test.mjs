@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { validateDemo } from "../../netlify/functions/oskiewar-replays.mjs";
+import {
+  captureStoredReplay,
+  validateDemo,
+} from "../../netlify/functions/oskiewar-replays.mjs";
 
 const demo = {
   format: "ac.oskiedemo", version: 1, game: "oskiewar",
@@ -37,4 +40,19 @@ test("accepts a round demo linked into a pronounceable fight series", () => {
   assert.equal(validateDemo(linked), null);
   assert.equal(validateDemo({ ...linked, previousRoundId: roundId }),
     "Invalid round linkage");
+});
+
+test("stored final rounds emit category-only server milestones", () => {
+  const captured = [];
+  captureStoredReplay(demo, "xbox", (action, properties) => {
+    captured.push([action, properties]);
+  });
+  assert.deepEqual(captured.map(([action]) => action), [
+    "round_stored",
+    "match_completed",
+  ]);
+  assert.ok(captured.every(([, properties]) =>
+    !Object.hasOwn(properties, "matchId") &&
+    !Object.hasOwn(properties, "fighters") &&
+    !Object.hasOwn(properties, "winner")));
 });

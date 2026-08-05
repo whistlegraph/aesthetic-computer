@@ -110,3 +110,47 @@ test("a second live publisher cannot take over a match", () => {
   manager.handleConnection(second, { url });
   assert.equal(second.closed?.code, 4409);
 });
+
+test("live rooms emit minimized server milestones once", () => {
+  let now = 100;
+  const captured = [];
+  const manager = new OskiewarLiveManager({
+    now: () => now,
+    analytics: {
+      capture(action, properties) {
+        captured.push([action, properties]);
+      },
+    },
+  });
+  const host = new FakeSocket(), viewer = new FakeSocket();
+  const url = "/oskiewar-live?match=bafegu-dorimi-kunapo";
+  manager.handleConnection(host, {
+    url: `${url}&role=publisher&surface=xbox`,
+  });
+  manager.handleConnection(viewer, { url: `${url}&surface=web` });
+  now += 30;
+  host.emit("message", Buffer.from(JSON.stringify({
+    type: "oskiewar:state",
+    content: state(1),
+  })));
+  now += 30;
+  host.emit("message", Buffer.from(JSON.stringify({
+    type: "oskiewar:state",
+    content: state(2),
+  })));
+
+  assert.deepEqual(captured, [
+    ["spectator_joined", {
+      source_system: "session-server",
+      surface: "web",
+      viewer_state: "live",
+    }],
+    ["live_started", {
+      source_system: "session-server",
+      surface: "xbox",
+      phase: "fight",
+    }],
+  ]);
+  assert.ok(captured.every(([, properties]) =>
+    !Object.hasOwn(properties, "matchId")));
+});

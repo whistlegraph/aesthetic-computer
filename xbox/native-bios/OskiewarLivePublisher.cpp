@@ -155,7 +155,7 @@ void Connect(const std::shared_ptr<OskiewarLivePublisher::State>& state) {
     state->subscribed = true;
   }
   const auto url = L"wss://session-server.aesthetic.computer/oskiewar-live?match=" +
-    Wide(match_id) + L"&role=publisher";
+    Wide(match_id) + L"&role=publisher&surface=xbox";
   create_task(socket->ConnectAsync(ref new Uri(ref new String(url.c_str())))).then(
     [weak, generation, socket](task<void> completed) {
       const auto state = weak.lock();

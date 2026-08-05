@@ -271,7 +271,7 @@
 
     async function saveReplay(payload) {
       try {
-        await fetch("https://aesthetic.computer/api/oskiewar-replays", {
+        await fetch("https://aesthetic.computer/api/oskiewar-replays?surface=web", {
           method: "POST", headers: { "content-type": "application/json" }, body: payload,
         });
       } catch (error) { telemetry("REPLAY_WEB_ERROR", error.message); }
@@ -283,7 +283,7 @@
       try { retiresRoom = Boolean(JSON.parse(payload).nextRoundId); } catch {}
       let state = liveSockets.get(matchId);
       if (!state) {
-        const socket = new WebSocket(`wss://session-server.aesthetic.computer/oskiewar-live?match=${encodeURIComponent(matchId)}&role=publisher`);
+        const socket = new WebSocket(`wss://session-server.aesthetic.computer/oskiewar-live?match=${encodeURIComponent(matchId)}&role=publisher&surface=web`);
         state = { socket, pending: payload, retire: retiresRoom };
         liveSockets.set(matchId, state);
         socket.addEventListener("open", () => {
@@ -328,21 +328,37 @@
   </script>
   <script type="module">
     import { qrcode } from "/aesthetic.computer/dep/@akamfoad/qr/qr.mjs";
+    import {
+      captureOskiewarAction,
+      initProductAnalytics,
+    } from "/aesthetic.computer/lib/product-analytics.mjs";
     import { RoundRoom, roundNameFromPath } from "/round-room.mjs";
+    try {
+      const response = await fetch("/api/product-analytics-config", {
+        cache: "no-store",
+      });
+      if (response.ok) globalThis.acPostHogConfig = await response.json();
+    } catch {}
+    initProductAnalytics();
+    const analytics = (action, properties) =>
+      captureOskiewarAction(action, properties);
+    globalThis.__fightHost.analytics = analytics;
     globalThis.qrcode = qrcode;
     const roundName = roundNameFromPath(location.pathname);
-    globalThis.__oskiewarRoundBridge = roundName ? new RoundRoom(roundName) : null;
+    globalThis.__oskiewarRoundBridge = roundName
+      ? new RoundRoom(roundName, { analytics })
+      : null;
 
     async function start() {
       const source = globalThis.__fightPieceSource ||
         await fetch("/hello.js", { cache: "no-store" }).then((response) => response.text());
       const piece = new Function(
         "runtime", "gamepad", "controllers", "capabilities", "telemetry",
-        "gameSignal", "saveReplay", "publishLive", "ac", "drum", "wipe", "box",
+        "gameSignal", "saveReplay", "publishLive", "analytics", "ac", "drum", "wipe", "box",
         "line", "triangle", "write", "systemWrite", "comicWrite", "gameView",
         `${source}\nreturn { boot, sim, paint };`
       )(...["runtime", "gamepad", "controllers", "capabilities", "telemetry",
-        "gameSignal", "saveReplay", "publishLive", "ac", "drum", "wipe", "box",
+        "gameSignal", "saveReplay", "publishLive", "analytics", "ac", "drum", "wipe", "box",
         "line", "triangle", "write", "systemWrite", "comicWrite", "gameView"]
         .map((name) => globalThis.__fightHost[name]));
       piece.boot();

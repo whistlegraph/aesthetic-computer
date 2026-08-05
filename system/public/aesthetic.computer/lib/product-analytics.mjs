@@ -1,7 +1,18 @@
+import { oskiewarEvent } from "./oskiewar-analytics.mjs";
+
 const CLOUD_HOSTS = new Set([
   "https://us.i.posthog.com",
   "https://eu.i.posthog.com",
 ]);
+
+const PRODUCT_HOSTS = new Set([
+  "aesthetic.computer",
+  "oskiewar.com",
+  "staging.aesthetic.computer",
+  "www.oskiewar.com",
+]);
+const OSKIEWAR_HOSTS = new Set(["oskiewar.com", "www.oskiewar.com"]);
+const OSKIEWAR_ROUND = /^(?:[a-z]{4,7}[0-9]{1,3}|(?:[bdfgklmnprstvz][aeiou]){3}-(?:[bdfgklmnprstvz][aeiou]){3}-(?:[bdfgklmnprstvz][aeiou]){3})$/;
 
 export const POSTHOG_OPTIONS = Object.freeze({
   advanced_disable_flags: true,
@@ -46,6 +57,16 @@ export function safeRoutePath(pathname = "/") {
   if (first.startsWith("$")) return "/$code";
   if (first.startsWith("prompt~")) return "/prompt";
   if (/^[a-z0-9-]{1,64}$/i.test(first)) return `/${first.toLowerCase()}`;
+  return "/_other";
+}
+
+export function safeAnalyticsRoute(pathname = "/", hostname = "") {
+  if (!OSKIEWAR_HOSTS.has(String(hostname).toLowerCase())) {
+    return safeRoutePath(pathname);
+  }
+  const path = String(pathname).replace(/^\/+|\/+$/g, "").toLowerCase();
+  if (!path) return "/oskiewar";
+  if (OSKIEWAR_ROUND.test(path)) return "/oskiewar/round";
   return "/_other";
 }
 
@@ -120,6 +141,9 @@ const MEDIA_KINDS = Object.freeze({
 
 export function routePieceProperties(route) {
   if (PROMPT_ROUTES.has(route) || route === "/_other") return null;
+  if (route === "/oskiewar" || route === "/oskiewar/round") {
+    return { piece: "oskiewar", piece_kind: "built-in", route };
+  }
   const namedPiece = route.match(/^\/([a-z0-9-]{1,64})$/i)?.[1] || null;
   return {
     piece: namedPiece,
@@ -138,7 +162,10 @@ export function mediaCreatedProperties(extension, identified) {
 }
 
 function captureRoute(win, posthog) {
-  const route = safeRoutePath(win.location.pathname);
+  const route = safeAnalyticsRoute(
+    win.location.pathname,
+    win.location.hostname,
+  );
   if (route === lastRoute) return;
   const previousRoute = lastRoute;
   lastRoute = route;
@@ -170,7 +197,10 @@ function watchRoutes(win, posthog) {
 
 function watchInteractions(win, posthog) {
   const capture = (inputKind) => {
-    const route = safeRoutePath(win.location.pathname);
+    const route = safeAnalyticsRoute(
+      win.location.pathname,
+      win.location.hostname,
+    );
     if (route === interactedRoute) return;
     const piece = routePieceProperties(route);
     if (!piece) return;
@@ -213,9 +243,7 @@ export function initProductAnalytics({ win = window, doc = document } = {}) {
     !CLOUD_HOSTS.has(config.apiHost) ||
     win !== win.top ||
     win.acPACK_MODE ||
-    !["aesthetic.computer", "staging.aesthetic.computer"].includes(
-      win.location.hostname,
-    )
+    !PRODUCT_HOSTS.has(win.location.hostname)
   ) {
     return null;
   }
@@ -227,7 +255,10 @@ export function initProductAnalytics({ win = window, doc = document } = {}) {
     ui_host: config.uiHost,
     before_send(event) {
       const properties = { ...(event.properties || {}) };
-      const route = safeRoutePath(win.location.pathname);
+      const route = safeAnalyticsRoute(
+        win.location.pathname,
+        win.location.hostname,
+      );
       properties.$current_url = `${win.location.origin}${route}`;
       delete properties.$initial_current_url;
       delete properties.$initial_referrer;
@@ -276,6 +307,18 @@ export function captureMediaCreated(
   if (!properties) return false;
   if (!initialized) initProductAnalytics({ win, doc: win.document });
   win.posthog?.capture?.("ac_media_created", properties);
+  return true;
+}
+
+export function captureOskiewarAction(
+  action,
+  properties,
+  { win = window } = {},
+) {
+  const item = oskiewarEvent(action, properties);
+  if (!item) return false;
+  if (!initialized) initProductAnalytics({ win, doc: win.document });
+  win.posthog?.capture?.(item.event, item.properties);
   return true;
 }
 

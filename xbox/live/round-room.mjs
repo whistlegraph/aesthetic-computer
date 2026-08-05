@@ -12,6 +12,7 @@ export function roundNameFromPath(pathname) {
 export class RoundRoom {
   constructor(name, { WebSocketImpl = globalThis.WebSocket,
     fetchImpl = globalThis.fetch, historyImpl = globalThis.history,
+    analytics = () => false,
     sessionOrigin = "wss://session-server.aesthetic.computer",
     replayOrigin = "" } = {}) {
     if (!ROUND_NAME.test(name || "")) throw new Error("Invalid OSKIEWAR round name");
@@ -20,6 +21,7 @@ export class RoundRoom {
     this.fetchImpl = typeof fetchImpl === "function"
       ? fetchImpl.bind(globalThis) : null;
     this.historyImpl = historyImpl;
+    this.analytics = analytics;
     this.sessionOrigin = sessionOrigin;
     this.replayOrigin = replayOrigin;
     this.socket = null;
@@ -29,6 +31,7 @@ export class RoundRoom {
     this.lastState = null;
     this.generation = 0;
     this.stopped = false;
+    this.deliverySeen = new Set();
   }
 
   start(listener) {
@@ -43,12 +46,20 @@ export class RoundRoom {
     this.listener?.({ type, content, roundName: this.name, live: this.live });
   }
 
+  track(action, properties = {}) {
+    this.analytics(action, {
+      source_system: "browser",
+      surface: "web",
+      ...properties,
+    });
+  }
+
   open() {
     if (this.stopped || !this.WebSocketImpl) return;
     const generation = ++this.generation;
     const id = `ow-${this.name}`;
     const socket = new this.WebSocketImpl(
-      `${this.sessionOrigin}/oskiewar-live?match=${encodeURIComponent(id)}`);
+      `${this.sessionOrigin}/oskiewar-live?match=${encodeURIComponent(id)}&surface=web`);
     this.socket = socket;
     socket.addEventListener?.("open", () => {
       if (generation === this.generation) this.emit("status", { label: "waiting", live: false });
@@ -66,6 +77,10 @@ export class RoundRoom {
         if (message.content?.nextRoundId) {
           this.move(message.content.nextRoundId);
           return;
+        }
+        if (!this.deliverySeen.has("live")) {
+          this.deliverySeen.add("live");
+          this.track("live_viewed");
         }
         this.lastState = message.content;
         this.emit("state", message.content);
@@ -96,7 +111,13 @@ export class RoundRoom {
       if (generation !== this.generation || this.stopped) return;
       if (response.ok) {
         const replay = (await response.json()).replay;
-        if (replay) this.emit("demo", replay);
+        if (replay) {
+          if (!this.deliverySeen.has("replay")) {
+            this.deliverySeen.add("replay");
+            this.track("replay_viewed");
+          }
+          this.emit("demo", replay);
+        }
         return;
       }
     } catch {}
@@ -115,8 +136,10 @@ export class RoundRoom {
     const name = String(value || "").replace(/^ow-/, "");
     if (!ROUND_NAME.test(name) || name === this.name) return;
     this.name = name;
+    this.track("round_followed");
     this.live = false;
     this.lastState = null;
+    this.deliverySeen = new Set();
     clearTimeout(this.timer);
     this.timer = null;
     ++this.generation;

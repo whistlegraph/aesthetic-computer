@@ -5,6 +5,7 @@ import {
   mediaCreatedProperties,
   pieceProperties,
   routePieceProperties,
+  safeAnalyticsRoute,
   safeRoutePath,
   userIdentity,
 } from "../public/aesthetic.computer/lib/product-analytics.mjs";
@@ -24,6 +25,23 @@ test("routes omit user-published names and source", () => {
   assert.equal(safeRoutePath("/$nece"), "/$code");
   assert.equal(safeRoutePath("/prompt~(wipe red)"), "/prompt");
   assert.equal(safeRoutePath("/notepat?ignored=true"), "/_other");
+});
+
+test("OSKIEWAR routes collapse round identifiers", () => {
+  assert.equal(safeAnalyticsRoute("/", "oskiewar.com"), "/oskiewar");
+  assert.equal(
+    safeAnalyticsRoute("/bafegu-dorimi-kunapo", "oskiewar.com"),
+    "/oskiewar/round",
+  );
+  assert.equal(
+    safeAnalyticsRoute("/private-room", "oskiewar.com"),
+    "/_other",
+  );
+  assert.deepEqual(routePieceProperties("/oskiewar/round"), {
+    piece: "oskiewar",
+    piece_kind: "built-in",
+    route: "/oskiewar/round",
+  });
 });
 
 test("piece events name built-ins but minimize published pieces", () => {

@@ -1333,7 +1333,8 @@ private:
     auto content = ref new HttpStringContent(
       ref new String(Wide(payload).c_str()), UnicodeEncoding::Utf8,
       ref new String(L"application/json"));
-    auto uri = ref new Uri(L"https://aesthetic.computer/api/oskiewar-replays");
+    auto uri = ref new Uri(
+      L"https://aesthetic.computer/api/oskiewar-replays?surface=xbox");
     create_task(client->PostAsync(uri, content)).then(
       [this, client, content](task<HttpResponseMessage^> completed) {
         try {

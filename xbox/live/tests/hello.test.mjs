@@ -11,6 +11,7 @@ function createFight(startImmediately = true, enterGame = true,
   const signals = [];
   const replays = [];
   const liveFrames = [];
+  const analyticsEvents = [];
   const triangles = [];
   const lines = [];
   const pads = [0, 1].map(() => ({ connected: true, down: [], leftX: 0, leftY: 0 }));
@@ -22,7 +23,7 @@ function createFight(startImmediately = true, enterGame = true,
   };
   const drawLine = (...values) => lines.push(values);
   const fight = new Function(
-    "runtime", "gamepad", "capabilities", "telemetry", "gameSignal", "saveReplay", "publishLive", "drum", "wipe", "box", "line", "triangle", "write", "systemWrite", "gameView",
+    "runtime", "gamepad", "capabilities", "telemetry", "gameSignal", "saveReplay", "publishLive", "analytics", "drum", "wipe", "box", "line", "triangle", "write", "systemWrite", "gameView",
     `${source}\nreturn { boot, sim, paint, controlLocale, players, ball, balls, bullets, grenades, gunPickups, grenadePickups, runnerWorldGeometry, runnerDistanceToPoint, disableBall: () => { ballEnabled = false; for (const item of balls) item.active = false; }, enableBall: (index = 0) => { ballEnabled = true; const item = balls[index]; item.active = true; item.serveAt = 0; item.safeUntil = 0; item.safePlayers = 0; }, setWind: (value) => { windAcceleration = value; }, windState: () => ({ direction: windDirection, mph: windMph }), nextRound: () => resetRound(runtime().monotonicUs, false), knockOut: () => killPlayer(players[1], 0, runtime().monotonicUs, "KO"), wackBall: () => { players[0].attackKind = "KICK"; returnBall(ball, players[0], runtime().monotonicUs, false); }, shieldBall: () => returnBall(ball, players[0], runtime().monotonicUs, true), crossWackBall: (contact = 1) => crossWackBall(ball, players.map((player) => ({ player, contact })), runtime().monotonicUs), enterGame: () => enterShellMode("GAME", runtime().monotonicUs), shellState: () => ({ mode: shellMode, choice: shellChoice, lab: labPlayers.map((player) => ({ ...player })) }), startFight: () => { shellMode = "GAME"; selecting = false; startReplay(runtime().monotonicUs); resetRound(runtime().monotonicUs, true); }, selectionState: () => ({ selecting, ready: selectionReady.slice() }), cameraState: () => ({ cameraWidth, cameraCenter, cameraCenterY, cameraAspect, stageRight, viewHeight }), screenBounds: () => players.map((player) => runnerScreenBounds(player, runtime().monotonicUs / 1e6)), actionSafeRect, hudSafeRect, roundState: () => ({ roundResult, roundElapsedUs, matchOver }), viewerState: () => ({ active: Boolean(roundViewer), mode: roundViewerMode, status: roundViewerStatus, name: matchName }), instantReplayState: () => instantReplay ? { active: true, paused: instantReplay.paused, cursor: instantReplay.cursor, frames: instantReplay.frames.length } : { active: false }, replayFrameCount: () => roundReplayFrames.length };`
   )(
     () => ({ monotonicUs: now, unixMs: 1785870000000 + Math.floor(now / 1000) }),
@@ -30,6 +31,7 @@ function createFight(startImmediately = true, enterGame = true,
     () => ({ platform, inputFamily: platform === "xbox-uwp" ? "xbox" : "keyboard" }),
     noOp, (...signal) => signals.push(signal), (payload) => replays.push(payload),
     (matchId, payload) => liveFrames.push([matchId, JSON.parse(payload)]),
+    (action, properties) => analyticsEvents.push([action, properties]),
     noOp, noOp, noOp, drawLine,
     drawTriangle, noOp, noOp, () => viewport
   );
@@ -54,9 +56,19 @@ function createFight(startImmediately = true, enterGame = true,
     fight.startFight();
     tick(3000001);
   }
-  return { fight, pads, signals, replays, liveFrames, triangles, lines,
+  return { fight, pads, signals, replays, liveFrames, analyticsEvents, triangles, lines,
     tick, tap, now: () => now };
 }
+
+test("browser matches emit one category-only start milestone", () => {
+  const { analyticsEvents } = createFight(true, false, "web");
+  assert.deepEqual(analyticsEvents, [["match_started", {
+    source_system: "browser",
+    surface: "web",
+    input_family: "keyboard",
+    opponent_type: "local-player",
+  }]]);
+});
 
 test("control copy follows the native host platform", () => {
   const xbox = createFight(false, false, "xbox-uwp").fight.controlLocale();

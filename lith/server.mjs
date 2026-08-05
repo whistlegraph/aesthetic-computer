@@ -54,7 +54,10 @@ import { fileURLToPath, pathToFileURL } from "url";
 import { createServer as createHttpsServer } from "https";
 import { createServer as createHttpServer } from "http";
 import { resolveFunctionName } from "./route-resolution.mjs";
-import { createEndpointAnalytics } from "./product-analytics.mjs";
+import {
+  browserAnalyticsConfig,
+  createEndpointAnalytics,
+} from "./product-analytics.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SYSTEM = join(__dirname, "..", "system");
@@ -168,6 +171,13 @@ app.use((req, res, next) => {
   res.set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
   if (req.method === "OPTIONS") return res.sendStatus(204);
   next();
+});
+
+app.get("/api/product-analytics-config", (_req, res) => {
+  const config = browserAnalyticsConfig();
+  if (!config) return res.status(404).json({ error: "Analytics disabled" });
+  res.set("Cache-Control", "public, max-age=60");
+  return res.json(config);
 });
 
 // Count only reviewed Lith-native product surfaces. The analytics adapter maps
