@@ -168,6 +168,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.autoenablesItems = false
         menu.delegate = self
         statusItem.menu = menu
+        ResourceGraph.shared.syncEnabled()
 
         do {
             try passphraseServer.start()
@@ -318,6 +319,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // Compositor zoom outlives us — never quit leaving the screen magnified.
         if ZoomLens.isZoomed { ZoomLens.zoomOut() }
         passphraseServer.stop()
+        ResourceGraph.shared.stop()
         LedgerStore.shared.stop()
         NSWorkspace.shared.notificationCenter.removeObserver(self)
     }
@@ -1327,6 +1329,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc func openActivityMonitor() {
         ShellRunner.run("/usr/bin/open", args: ["-a", "Activity Monitor"])
+    }
+
+    @objc func toggleResourceGraph() {
+        ResourceGraph.shared.toggle()
     }
 
     /// Open iTerm2 running the RFA ("request for audio") wizard for a /pop

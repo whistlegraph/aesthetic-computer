@@ -154,6 +154,7 @@ enum Paths {
     /// session is re-themed by status (working/awaiting), so a wall of
     /// terminals reads as a status display at a glance.
     static var themeByStatusFlag: String { "\(slabHome)/state/theme-by-status" }
+    static var resourceGraphFlag: String { "\(slabHome)/state/resource-graph" }
 
     /// When this file exists (and iTerm2 is installed), every slab-spawned
     /// Claude session (restore-threads, restart-all) opens in iTerm2 rather
