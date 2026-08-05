@@ -80,6 +80,10 @@ latest public system-chat text. The sandbox still receives only the immutable
 YWFT Processing face and exposes it through bounded `ywftWrite`; `write` remains
 the native AC block face and `systemWrite` remains the Xbox system face.
 
+OSKIEWAR also packages the KidLisp `Comic Relief` face and exposes it through
+bounded `comicWrite`; its browser, macOS, replay, spectator, and Xbox clients
+therefore render the same UI typography without relying on an installed font.
+
 Revision 32 removes the global chromatic channel offset. The point-sampled
 scan, one-pixel dither, and vignette remain without separating RGB edges.
 
