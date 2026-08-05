@@ -699,6 +699,16 @@
         import lith_proxy
     }
 
+    # --- oskiewar.com ---
+    @oskiewarroot host oskiewar.com www.oskiewar.com
+    handle @oskiewarroot {
+        @oskiewarindex path /
+        handle @oskiewarindex {
+            rewrite * /oskiewar
+        }
+        import lith_proxy
+    }
+
     # --- wipppps.world ---
     @wippppsroot host wipppps.world www.wipppps.world
     handle @wippppsroot {
@@ -729,7 +739,7 @@
         file_server
     }
 
-    @mainspa host aesthetic.computer www.aesthetic.computer lith.aesthetic.computer notepat.com www.notepat.com wipppps.world www.wipppps.world p5.aesthetic.computer sitemap.aesthetic.computer
+    @mainspa host aesthetic.computer www.aesthetic.computer lith.aesthetic.computer notepat.com www.notepat.com oskiewar.com www.oskiewar.com wipppps.world www.wipppps.world p5.aesthetic.computer sitemap.aesthetic.computer
     handle @mainspa {
         # Assets → DO Spaces CDN. The bucket root maps directly to
         # assets.aesthetic.computer (no /assets/ prefix exists in the
