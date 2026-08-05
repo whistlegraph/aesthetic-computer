@@ -154,6 +154,7 @@ chatManager.setPresenceResolver(getHandlesOnPiece);
 // 🎯 Duel Manager — server-authoritative game for dumduel piece
 const duelManager = new DuelManager();
 const fightManager = new FightManager();
+const oskiewarLiveManager = new OskiewarLiveManager();
 // 🌐 World Managers — Q3-style server-authoritative multiplayer, one
 // instance per 3D world. Wire protocol is shared; only the event prefix
 // differs (`arena:*`, `land:*`). Routing below is generic over this map —
@@ -167,6 +168,7 @@ import { filter } from "./filter.mjs"; // Profanity filtering.
 import { ChatManager } from "./chat-manager.mjs"; // Multi-instance chat support.
 import { DuelManager } from "./duel-manager.mjs"; // Server-authoritative duel game.
 import { FightManager } from "./fight-manager.mjs"; // Fight presence + seat queue.
+import { OskiewarLiveManager } from "./oskiewar-live-manager.mjs";
 import { WorldManager, ARENA_CFG, ARENA_SPAWNS } from "./world-manager.mjs"; // Server-authoritative 3D worlds.
 import { LAND_CFG, LAND_SPAWNS } from "../system/public/aesthetic.computer/lib/land-world.mjs";
 
@@ -1692,6 +1694,9 @@ wss.on("connection", async (ws, req) => {
   log('🔌 WebSocket connection received:', JSON.stringify(connectionInfo, null, 2));
   log('🔌 Total wss.clients.size:', wss.clients.size);
   log('🔌 Current connections count:', Object.keys(connections).length);
+
+  // Public, pronounceable-ID-scoped OSKIEWAR phone spectator rooms.
+  if (oskiewarLiveManager.handleConnection(ws, req)) return;
   
   // Route status dashboard WebSocket connections separately
   if (req.url === '/status-stream') {

@@ -4,10 +4,11 @@ import test from "node:test";
 
 const source = await readFile(new URL("../hello.js", import.meta.url), "utf8");
 
-function createFight(startImmediately = true) {
+function createFight(startImmediately = true, enterGame = true) {
   let now = 0;
   const signals = [];
   const replays = [];
+  const liveFrames = [];
   const triangles = [];
   const pads = [0, 1].map(() => ({ connected: true, down: [], leftX: 0, leftY: 0 }));
   const noOp = () => {};
@@ -17,16 +18,18 @@ function createFight(startImmediately = true) {
     triangles.push(values);
   };
   const fight = new Function(
-    "runtime", "gamepad", "telemetry", "gameSignal", "saveReplay", "drum", "wipe", "box", "line", "triangle", "write", "systemWrite",
-    `${source}\nreturn { boot, sim, paint, players, ball, bullets, gunPickups, runnerWorldGeometry, runnerDistanceToPoint, disableBall: () => { ballEnabled = false; ball.active = false; }, enableBall: () => { ballEnabled = true; ball.active = true; ball.serveAt = 0; ball.safeUntil = 0; ball.safePlayers = 0; }, setWind: (value) => { windAcceleration = value; }, windState: () => ({ direction: windDirection, mph: windMph }), nextRound: () => resetRound(runtime().monotonicUs, false), wackBall: () => { players[0].attackKind = "KICK"; returnBall(players[0], runtime().monotonicUs, false); }, crossWackBall: (contact = 1) => crossWackBall(players.map((player) => ({ player, contact })), runtime().monotonicUs), startFight: () => { selecting = false; startReplay(runtime().monotonicUs); resetRound(runtime().monotonicUs, true); }, selectionState: () => ({ selecting, ready: selectionReady.slice() }), cameraState: () => ({ cameraWidth, cameraCenter, cameraCenterY }), roundState: () => ({ roundResult, roundElapsedUs, matchOver }), instantReplayState: () => instantReplay ? { active: true, paused: instantReplay.paused, cursor: instantReplay.cursor, frames: instantReplay.frames.length } : { active: false }, replayFrameCount: () => roundReplayFrames.length };`
+    "runtime", "gamepad", "telemetry", "gameSignal", "saveReplay", "publishLive", "drum", "wipe", "box", "line", "triangle", "write", "systemWrite",
+    `${source}\nreturn { boot, sim, paint, players, ball, bullets, grenades, gunPickups, grenadePickups, runnerWorldGeometry, runnerDistanceToPoint, disableBall: () => { ballEnabled = false; ball.active = false; }, enableBall: () => { ballEnabled = true; ball.active = true; ball.serveAt = 0; ball.safeUntil = 0; ball.safePlayers = 0; }, setWind: (value) => { windAcceleration = value; }, windState: () => ({ direction: windDirection, mph: windMph }), nextRound: () => resetRound(runtime().monotonicUs, false), wackBall: () => { players[0].attackKind = "KICK"; returnBall(players[0], runtime().monotonicUs, false); }, crossWackBall: (contact = 1) => crossWackBall(players.map((player) => ({ player, contact })), runtime().monotonicUs), enterGame: () => enterShellMode("GAME", runtime().monotonicUs), shellState: () => ({ mode: shellMode, choice: shellChoice, lab: labPlayers.map((player) => ({ ...player })) }), startFight: () => { shellMode = "GAME"; selecting = false; startReplay(runtime().monotonicUs); resetRound(runtime().monotonicUs, true); }, selectionState: () => ({ selecting, ready: selectionReady.slice() }), cameraState: () => ({ cameraWidth, cameraCenter, cameraCenterY }), roundState: () => ({ roundResult, roundElapsedUs, matchOver }), instantReplayState: () => instantReplay ? { active: true, paused: instantReplay.paused, cursor: instantReplay.cursor, frames: instantReplay.frames.length } : { active: false }, replayFrameCount: () => roundReplayFrames.length };`
   )(
     () => ({ monotonicUs: now, unixMs: 1785870000000 + Math.floor(now / 1000) }),
     (index = 0) => ({ ...pads[index], down: pads[index].down.slice() }),
     noOp, (...signal) => signals.push(signal), (payload) => replays.push(payload),
+    (matchId, payload) => liveFrames.push([matchId, JSON.parse(payload)]),
     noOp, noOp, noOp, noOp,
     drawTriangle, noOp, noOp
   );
   fight.boot();
+  if (enterGame) fight.enterGame();
 
   const tick = (elapsedUs = 16667) => {
     now += elapsedUs;
@@ -44,8 +47,38 @@ function createFight(startImmediately = true) {
     fight.startFight();
     tick(3000001);
   }
-  return { fight, pads, signals, replays, triangles, tick, tap, now: () => now };
+  return { fight, pads, signals, replays, liveFrames, triangles,
+    tick, tap, now: () => now };
 }
+
+test("boot selector opens the blank two-pad NEW GAME input lab", () => {
+  const { fight, pads, tick } = createFight(false, false);
+  assert.equal(fight.shellState().mode, "MENU");
+  assert.equal(fight.shellState().choice, 1);
+  pads[0].down = ["ArrowLeft"];
+  tick();
+  pads[0].down = [];
+  tick();
+  pads[0].down = ["A"];
+  tick();
+  assert.equal(fight.shellState().mode, "LAB");
+  const before = fight.shellState().lab[0].x;
+  pads[0].down = ["ArrowRight"];
+  tick(100000);
+  assert.ok(fight.shellState().lab[0].x > before);
+});
+
+test("active matches publish bounded phone spectator snapshots", () => {
+  const { liveFrames, tick } = createFight();
+  tick(50000);
+  assert.ok(liveFrames.length > 0);
+  const [matchId, frame] = liveFrames.at(-1);
+  assert.match(matchId, /^ow-[a-z]{6}-[a-z]{6}-[a-z]{6}$/);
+  assert.equal(frame.format, "ac.oskiewar.live");
+  assert.equal(frame.fighters.length, 2);
+  assert.ok(frame.camera.width >= 100);
+  assert.ok(JSON.stringify(frame).length < 7168);
+});
 
 test("character select offers the four AC fighters and waits for both pads", () => {
   const { fight, pads, tick } = createFight(false);
@@ -117,6 +150,21 @@ test("gun drops grant ammo and A fires in the quantized aim direction", () => {
   assert.ok(fight.bullets[0].vx > 0);
   assert.ok(fight.bullets[0].vy < 0);
   assert.ok(signals.some(([event, pad]) => event === "bullet" && pad === 0));
+});
+
+test("grenade drops grant ammo and B throws an expanding grenade", () => {
+  const { fight, pads, signals, tick } = createFight();
+  const player = fight.players[0];
+  const pickup = fight.grenadePickups[0];
+  pickup.x = player.x;
+  pickup.y = player.y - 70;
+  tick();
+  assert.equal(player.grenadeAmmo, pickup.amount);
+  pads[0].down = ["B"];
+  tick();
+  assert.equal(player.grenadeAmmo, pickup.amount - 1);
+  assert.equal(fight.grenades.length, 1);
+  assert.ok(signals.some(([event, pad]) => event === "grenade" && pad === 0));
 });
 
 test("opposing bullets cancel one another", () => {
@@ -224,6 +272,44 @@ test("fighters walking into one another push apart without ending the round", ()
   assert.ok(Math.abs(fight.players[1].x - fight.players[0].x) >= 137);
 });
 
+test("an airborne fighter can cross over the other fighter", () => {
+  const { fight, pads, tick } = createFight();
+  const jumper = fight.players[0];
+  const standing = fight.players[1];
+  jumper.x = 5940;
+  jumper.y = standing.y - 190;
+  jumper.vy = 0;
+  jumper.grounded = false;
+  standing.x = 6060;
+  pads[0].down = ["ArrowRight"];
+  for (let frame = 0; frame < 8; frame++) tick(16667);
+  assert.ok(jumper.x > standing.x);
+  assert.equal(jumper.alive, true);
+  assert.equal(standing.alive, true);
+});
+
+test("a neutral fighter cannot defeat an attacking fighter by contact", () => {
+  const { fight, pads, tick } = createFight();
+  fight.players[0].x = 5940;
+  fight.players[1].x = 6060;
+  pads[0].down = ["B"];
+  for (let frame = 0; frame < 5; frame++) tick(16667);
+  assert.equal(fight.players[0].alive, true);
+  assert.equal(fight.players[1].alive, false);
+});
+
+test("simultaneous active strikes trade without player-order bias", () => {
+  const { fight, pads, tick } = createFight();
+  fight.players[0].x = 5940;
+  fight.players[1].x = 6060;
+  pads[0].down = ["B"];
+  pads[1].down = ["B"];
+  for (let frame = 0; frame < 5; frame++) tick(16667);
+  assert.equal(fight.players[0].alive, false);
+  assert.equal(fight.players[1].alive, false);
+  assert.equal(fight.roundState().roundResult, "TIE");
+});
+
 test("player lands on the center platform", () => {
   const { fight, tick } = createFight();
   const player = fight.players[0];
@@ -291,6 +377,38 @@ test("running into a grounded ball boots it instead of killing the player", () =
   assert.equal(player.lastButton, "BOOT");
   assert.ok(fight.ball.vx > 0);
   assert.ok(signals.some(([event, pad]) => event === "boot" && pad === 0));
+});
+
+test("an airborne ball only BALLS on the head", () => {
+  const { fight, tick, now } = createFight();
+  const player = fight.players[0];
+  const head = fight.runnerWorldGeometry(player, now() / 1000000).head;
+  fight.enableBall();
+  fight.ball.x = head.x;
+  fight.ball.y = head.y;
+  fight.ball.z = head.z;
+  fight.ball.vx = 900;
+  fight.ball.vy = 0;
+  tick(1000);
+  assert.equal(player.alive, false);
+  assert.equal(player.lastButton, "BALLED");
+});
+
+test("an airborne ball bounces off non-head body geometry", () => {
+  const { fight, signals, tick, now } = createFight();
+  const player = fight.players[0];
+  const geometry = fight.runnerWorldGeometry(player, now() / 1000000);
+  const arm = geometry.segments.at(-1);
+  fight.enableBall();
+  fight.ball.x = arm.x2 + player.facing * 22;
+  fight.ball.y = arm.y2;
+  fight.ball.z = arm.z2;
+  fight.ball.vx = -1100;
+  fight.ball.vy = -200;
+  tick(1000);
+  assert.equal(player.alive, true);
+  assert.equal(fight.ball.active, true);
+  assert.ok(signals.some(([event, pad]) => event === "bodybounce" && pad === 0));
 });
 
 test("melee returns label and signal the ball as WACK", () => {

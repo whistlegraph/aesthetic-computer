@@ -227,6 +227,9 @@ struct Api {
   // A bounded, host-routed replay artifact. The host validates and uploads the
   // complete demo; pieces do not receive a URL, credential, or response body.
   std::function<void(std::string_view)> replay_save = {};
+  // Latest-only live match state. The native host owns the fixed session-server
+  // destination; pieces receive no socket, URL, credential, or response data.
+  std::function<void(std::string_view, std::string_view)> live_publish = {};
 };
 
 class Piece {

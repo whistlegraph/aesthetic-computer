@@ -1,4 +1,4 @@
-# AC Native BIOS for Xbox
+# OSKIEWAR for Xbox
 
 This is the no-WebView Aesthetic Computer host. It is a C++/CX UWP DirectX
 application with native Direct3D 11 rendering, XAudio2 sound,
@@ -91,6 +91,11 @@ storage credentials.
 Revision 34 starts each OSKIEWAR OSC datagram immediately, preserves the
 three-copy reliability group without a queue race, and reports native
 enqueue-to-send latency for live Ableton diagnosis.
+
+Revision 35 presents the installed Xbox app as OSKIEWAR while retaining the
+stable `AestheticComputer.NativeBios` identity for in-place upgrades. It adds
+the OSKIEWAR / NEW GAME boot selector, a two-pad input lab, and live match
+spectator publishing.
 
 Revision 13 also exposes bounded `stampPainting` and `blur` primitives to the
 trusted host-side KidLisp compiler. See [`../KIDLISP-NATIVE.md`](../KIDLISP-NATIVE.md)

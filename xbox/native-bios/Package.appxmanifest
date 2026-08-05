@@ -5,11 +5,11 @@
          IgnorableNamespaces="uap mp">
   <Identity Name="AestheticComputer.NativeBios"
             Publisher="CN=AestheticComputerDev"
-            Version="1.0.0.34" />
+            Version="1.0.0.35" />
   <mp:PhoneIdentity PhoneProductId="892d830b-d069-4770-ad28-33d1d9bdd856"
                     PhonePublisherId="00000000-0000-0000-0000-000000000000" />
   <Properties>
-    <DisplayName>AC Native BIOS</DisplayName>
+    <DisplayName>OSKIEWAR</DisplayName>
     <PublisherDisplayName>Aesthetic Computer</PublisherDisplayName>
     <Logo>Assets\StoreLogo.png</Logo>
   </Properties>
@@ -21,8 +21,8 @@
   <Resources><Resource Language="en-us" /></Resources>
   <Applications>
     <Application Id="App" Executable="$targetnametoken$.exe" EntryPoint="NativeBios.App">
-      <uap:VisualElements DisplayName="AC Native BIOS"
-                          Description="Native Aesthetic Computer piece runtime"
+      <uap:VisualElements DisplayName="OSKIEWAR"
+                          Description="OSKIEWAR and the Aesthetic Computer controller lab"
                           BackgroundColor="#120F1A"
                           Square150x150Logo="Assets\Square150x150Logo.png"
                           Square44x44Logo="Assets\Square44x44Logo.png">

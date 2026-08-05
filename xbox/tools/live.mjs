@@ -1,11 +1,12 @@
 #!/usr/bin/env node
-// Device Portal control surface for the AC Native BIOS live JavaScript loop.
+// Device Portal control surface for the OSKIEWAR native live JavaScript loop.
 // Designed for blueberry, where the Xbox vault credentials already live.
 
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { basename, resolve } from "node:path";
+import { basename, dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { compilePublishedKidLisp } from "./kidlisp-native.mjs";
 
 const defaultEnv = resolve(homedir(),
@@ -59,7 +60,7 @@ function packages() {
 
 function installed() {
   const item = packages()[0];
-  if (!item) throw new Error("AC Native BIOS is not installed");
+  if (!item) throw new Error("OSKIEWAR is not installed");
   return item;
 }
 
@@ -135,6 +136,15 @@ function publish(sourcePath) {
   if (!sourcePath) throw new Error("usage: xbox-live publish <piece.js>");
   const absolute = resolve(sourcePath);
   if (!existsSync(absolute)) throw new Error(`piece not found: ${absolute}`);
+  let source = readFileSync(absolute, "utf8");
+  if (source.startsWith("// @bundle-qr")) {
+    const qrPath = resolve(dirname(fileURLToPath(import.meta.url)),
+      "../../system/public/aesthetic.computer/dep/@akamfoad/qr/qr.mjs");
+    const qrSource = readFileSync(qrPath, "utf8").replace(
+      /\nexport\s*\{[\s\S]*?\};\s*$/, "\n");
+    source = qrSource + "\n" + source;
+    return publishSource(source, absolute + " + qr");
+  }
   const item = installed();
   curl(["-u", autoAuth, "-X", "POST", "-F",
     `file=@${absolute};filename=live-piece.js`, appFileUrl(item)]);

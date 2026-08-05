@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "QuickJsEngine.hpp"
 #include "PhotoDiscService.hpp"
+#include "OskiewarLivePublisher.hpp"
 #include "../runtime/include/ac/image_effects.hpp"
 
 using Microsoft::WRL::ComPtr;
@@ -348,7 +349,7 @@ public:
     };
     m_sound->get_rate = [this]() { return static_cast<int>(m_sampleRate); };
     m_api = std::make_unique<Api>(Api{{1920, 1080, 1}, {}, {}, {}, *m_graphics, *m_sound, {}});
-    m_api->system.version = "1.0.0.34";
+    m_api->system.version = "1.0.0.35";
     m_api->telemetry = [](std::string_view line) {
       std::string safe(line);
       for (auto& character : safe) if (character == '\n' || character == '\r') character = ' ';
@@ -386,6 +387,12 @@ public:
       LogTelemetry("AC_NATIVE_REPLAY queued=1 bytes=" +
         std::to_string(payload.size()));
     };
+    m_oskiewarLive = std::make_unique<OskiewarLivePublisher>(
+      [](const std::string& line) { LogTelemetry(line); });
+    m_api->live_publish = [this](std::string_view matchId,
+        std::string_view payload) {
+      m_oskiewarLive->publish(matchId, payload);
+    };
     m_photoDisc = std::make_unique<PhotoDiscService>(*m_api,
       [this](std::shared_ptr<const PhotoDiscImage> image) {
         std::lock_guard<std::mutex> lock(m_imageMutex);
@@ -412,6 +419,8 @@ public:
 
   virtual void Load(String^) {}
   virtual void Uninitialize() {
+    if (m_api) m_api->live_publish = {};
+    if (m_oskiewarLive) m_oskiewarLive->shutdown();
     DestroyReplayUploads(); DestroyGameSignals(); DestroyNetworkMidi(); DestroyMidi(); DestroyAudio();
   }
 
@@ -1696,7 +1705,7 @@ private:
     if (!m_networkClockRequestInFlight.compare_exchange_strong(expected, true)) return;
     const auto sentAt = SystemUnixMs();
     auto client = ref new HttpClient();
-    client->DefaultRequestHeaders->UserAgent->ParseAdd("AC-Native-BIOS/1.0.0.34 Xbox ClockSync");
+    client->DefaultRequestHeaders->UserAgent->ParseAdd("OSKIEWAR/1.0.0.35 Xbox ClockSync");
     create_task(client->GetStringAsync(
       ref new Uri(L"https://aesthetic.computer/api/clock")))
       .then([this, client, sentAt](task<String^> completed) {
@@ -1803,7 +1812,7 @@ private:
     if (!m_acRequestInFlight.compare_exchange_strong(expected, true)) return;
 
     auto client = ref new HttpClient();
-    client->DefaultRequestHeaders->UserAgent->ParseAdd("AC-Native-BIOS/1.0.0.34 Xbox");
+    client->DefaultRequestHeaders->UserAgent->ParseAdd("OSKIEWAR/1.0.0.35 Xbox");
     std::vector<task<String^>> requests;
     const auto safeGet = [client](const std::wstring& url) {
       return create_task(client->GetStringAsync(ref new Uri(ref new String(url.c_str()))))
@@ -2397,7 +2406,7 @@ private:
   unsigned m_frameWidth = 0;
   unsigned m_frameHeight = 0;
   unsigned m_frameBlurRadius = 0;
-  static constexpr std::size_t kMaxSystemDraws = 24;
+  static constexpr std::size_t kMaxSystemDraws = 128;
   static constexpr std::size_t kMaxTriangles = 8192;
   static constexpr std::size_t kMaxTexturedTriangles = 2048;
   static constexpr std::size_t kMaxSprites = 512;
@@ -2515,6 +2524,7 @@ private:
   std::unique_ptr<QuickJsEngine> m_engine;
   std::unique_ptr<PieceSupervisor> m_supervisor;
   std::unique_ptr<PhotoDiscService> m_photoDisc;
+  std::unique_ptr<OskiewarLivePublisher> m_oskiewarLive;
 };
 
 ref class AppSource sealed : public IFrameworkViewSource {

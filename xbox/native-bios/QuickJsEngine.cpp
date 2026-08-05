@@ -494,6 +494,32 @@ JSValue SaveReplay(JSContext* context, JSValueConst, int argc, JSValueConst* arg
   return JS_UNDEFINED;
 }
 
+JSValue PublishLive(JSContext* context, JSValueConst, int argc, JSValueConst* argv) {
+  auto* scope = static_cast<CallScope*>(JS_GetContextOpaque(context));
+  if (!scope || !scope->api || !scope->api->live_publish || argc < 2)
+    return JS_UNDEFINED;
+  size_t matchLength = 0, stateLength = 0;
+  const char* rawMatch = JS_ToCStringLen(context, &matchLength, argv[0]);
+  if (!rawMatch) return JS_EXCEPTION;
+  const char* rawState = JS_ToCStringLen(context, &stateLength, argv[1]);
+  if (!rawState) { JS_FreeCString(context, rawMatch); return JS_EXCEPTION; }
+  const bool valid = matchLength == 23 && stateLength >= 2 && stateLength <= 7168 &&
+    std::string_view(rawMatch, 3) == "ow-" && rawState[0] == '{' &&
+    std::all_of(rawMatch + 3, rawMatch + matchLength, [](unsigned char character) {
+      return (character >= 'a' && character <= 'z') || character == '-';
+    });
+  if (!valid) {
+    JS_FreeCString(context, rawState);
+    JS_FreeCString(context, rawMatch);
+    return JS_ThrowRangeError(context, "invalid OSKIEWAR live payload");
+  }
+  scope->api->live_publish(std::string_view(rawMatch, matchLength),
+    std::string_view(rawState, stateLength));
+  JS_FreeCString(context, rawState);
+  JS_FreeCString(context, rawMatch);
+  return JS_UNDEFINED;
+}
+
 JSValue RuntimeInfo(JSContext* context, JSValueConst, int, JSValueConst*) {
   auto* scope = static_cast<CallScope*>(JS_GetContextOpaque(context));
   if (!scope || !scope->api) return JS_EXCEPTION;
@@ -748,6 +774,7 @@ class QuickJsPiece final : public JsPiece {
     JS_SetPropertyStr(context_, global, "telemetry", JS_NewCFunction(context_, Telemetry, "telemetry", 2));
     JS_SetPropertyStr(context_, global, "gameSignal", JS_NewCFunction(context_, GameSignal, "gameSignal", 4));
     JS_SetPropertyStr(context_, global, "saveReplay", JS_NewCFunction(context_, SaveReplay, "saveReplay", 1));
+    JS_SetPropertyStr(context_, global, "publishLive", JS_NewCFunction(context_, PublishLive, "publishLive", 2));
     JS_SetPropertyStr(context_, global, "runtime", JS_NewCFunction(context_, RuntimeInfo, "runtime", 0));
     JS_SetPropertyStr(context_, global, "gamepad", JS_NewCFunction(context_, GamepadState, "gamepad", 1));
     JS_SetPropertyStr(context_, global, "controllers", JS_NewCFunction(context_, Controllers, "controllers", 0));

@@ -1,3 +1,4 @@
+// @bundle-qr
 const floorY = 12000;
 const ceilingY = 0;
 const wallThickness = 80;
@@ -21,6 +22,8 @@ const matchResultUs = 5000000;
 const introDurationUs = 3000000;
 const matchWins = 5;
 const pickupRespawnUs = 7000000;
+const grenadeBlastDuration = .68;
+const grenadeBlastRadius = 620;
 const replayTickUs = 16667;
 const replayCheckpointUs = 1000000;
 const instantReplayStepUs = 33333;
@@ -168,7 +171,7 @@ const players = [
     lastTap: {}, lastRelease: {}, dashUntil: 0, dashVx: 0, roundWins: 0,
     attackKind: "", attackStartedAt: 0,
     attackUntil: 0, attackHit: false, blocking: false, blockFlash: 0,
-    windVx: 0, knockVx: 0, gunAmmo: 0 },
+    windVx: 0, knockVx: 0, gunAmmo: 0, grenadeAmmo: 0, stance: "NEUTRAL" },
   { name: "@OSKIE", rosterIndex: 2, handleColors: fighterRoster[2].colors, npc: false,
     pad: 1, spawnX: 6300, x: 6300, y: floorY, z: 0,
     vx: 0, vy: 0, vz: 0, facing: -1,
@@ -179,18 +182,21 @@ const players = [
     lastTap: {}, lastRelease: {}, dashUntil: 0, dashVx: 0, roundWins: 0,
     attackKind: "", attackStartedAt: 0,
     attackUntil: 0, attackHit: false, blocking: false, blockFlash: 0,
-    windVx: 0, knockVx: 0, gunAmmo: 0 },
+    windVx: 0, knockVx: 0, gunAmmo: 0, grenadeAmmo: 0, stance: "NEUTRAL" },
 ];
 const impacts = [];
 const bullets = [];
+const grenades = [];
 const gunPickups = [
-  { amount: 6, x: 3000, y: floorY - 70, z: 0 },
-  { amount: 6, x: 9000, y: floorY - 70, z: 0 },
+  { amount: 6, x: 5450, y: floorY - 70, z: 0 },
+  { amount: 6, x: 6550, y: floorY - 70, z: 0 },
   { amount: 4, x: 6000, y: platformY - 70, z: 0 },
-  { amount: 4, x: 3500, y: 7200, z: 0 },
-  { amount: 4, x: 8500, y: 4400, z: 0 },
 ];
-for (const pickup of gunPickups) {
+const grenadePickups = [
+  { amount: 2, x: 5520, y: floorY - 70, z: 0 },
+  { amount: 2, x: 6480, y: floorY - 70, z: 0 },
+];
+for (const pickup of [...gunPickups, ...grenadePickups]) {
   pickup.active = true;
   pickup.respawnAt = 0;
 }
@@ -222,6 +228,20 @@ let roundReplayFrames = [];
 let roundReplayLastAt = 0;
 let instantReplay = null;
 let replayOfferPrevious = [];
+let shellMode = "MENU";
+let shellChoice = 1;
+let shellPrevious = [];
+const labPlayers = [
+  { x: 480, y: 560, color: [190, 42, 58] },
+  { x: 1440, y: 560, color: [38, 82, 176] },
+];
+// Temporary live combat inspector. Keep this explicit so the production view
+// can return to a clean presentation without changing combat geometry.
+let debugHitboxes = true;
+let nextInputDebugAt = 0;
+let liveSequence = 0;
+let liveNextAt = 0;
+let spectatorQr = null;
 
 function pronounceableMatchName() {
   const consonants = "bdfgklmnprstvz";
@@ -255,6 +275,38 @@ function startReplay(now) {
   };
   replayLastCommand = [-1, -1];
   replayNextCheckpointAt = now;
+  liveSequence = 0;
+  liveNextAt = now;
+  spectatorQr = typeof qrcode === "function"
+    ? qrcode("https://aesthetic.computer/oskiewar:" + matchName,
+      { errorCorrectLevel: 1 }) : null;
+}
+
+function publishSpectator(now) {
+  if (!matchName || typeof publishLive !== "function" || now < liveNextAt) return;
+  liveNextAt = now + 50000;
+  const introAge = now - roundStartedAt;
+  const phase = instantReplay ? "replay" : matchOver ? "match"
+    : roundResult ? "round" : introAge < introDurationUs ? "intro" : "fight";
+  const remainingMs = roundResult ? 0 : Math.max(0,
+    Math.round((roundDurationUs - roundElapsedUs) / 1000));
+  const state = {
+    format: "ac.oskiewar.live", version: 1, seq: liveSequence++,
+    at: runtime().unixMs || 0, phase,
+    fighters: players.map((player) => ({
+      name: player.name, color: player.color, x: player.x, y: player.y,
+      z: player.z, facing: player.facing, alive: player.alive,
+      grounded: player.grounded, ducking: player.ducking,
+      blocking: player.blocking, score: player.score,
+      roundWins: player.roundWins, attack: player.attackKind || "",
+    })),
+    ball: { active: ball.active, x: ball.x, y: ball.y,
+      z: ball.z, radius: ball.radius },
+    camera: { x: cameraCenter, y: cameraCenterY, width: cameraWidth },
+    round: { remainingMs, result: roundResult || "" },
+    replayUrl: "/api/oskiewar-replays?id=ow-" + matchName,
+  };
+  publishLive("ow-" + matchName, JSON.stringify(state));
 }
 
 function inputCommand(pad) {
@@ -471,6 +523,54 @@ function beginSelect(now) {
   }
 }
 
+function enterShellMode(mode, now) {
+  shellMode = mode;
+  shellPrevious = padSnapshots[0]?.down?.slice() || [];
+  if (mode === "GAME") beginSelect(now);
+  if (mode === "LAB") {
+    labPlayers[0].x = 480;
+    labPlayers[0].y = 560;
+    labPlayers[1].x = 1440;
+    labPlayers[1].y = 560;
+  }
+}
+
+function updateShell(now) {
+  const down = padSnapshots[0]?.down || [];
+  const pressed = (button) => down.includes(button) && !shellPrevious.includes(button);
+  if (pressed("ArrowLeft") || pressed("ArrowRight")) {
+    shellChoice = shellChoice ? 0 : 1;
+    drum("hat", .82, 0);
+  }
+  if (pressed("A")) {
+    drum("clap", 1, 0);
+    enterShellMode(shellChoice === 0 ? "LAB" : "GAME", now);
+  }
+  shellPrevious = down.slice();
+}
+
+function updateLab(dt, now) {
+  for (let index = 0; index < labPlayers.length; index++) {
+    const pad = padSnapshots[index] ||
+      { connected: false, down: [], leftX: 0, leftY: 0 };
+    const input = quantizedInput(pad);
+    const bounds = index === 0 ? [90, 870] : [1050, 1830];
+    labPlayers[index].x = clamp(labPlayers[index].x + input.horizontal * 620 * dt,
+      bounds[0], bounds[1]);
+    labPlayers[index].y = clamp(labPlayers[index].y - input.vertical * 620 * dt,
+      300, 880);
+  }
+  const down = padSnapshots[0]?.down || [];
+  if (down.includes("View") && !shellPrevious.includes("View")) {
+    shellMode = "MENU";
+    shellPrevious = down.slice();
+    drum("block", .8, 0);
+    telemetry("SHELL", "lab->menu " + now);
+    return;
+  }
+  shellPrevious = down.slice();
+}
+
 function updateSelect(now) {
   for (const player of players) {
     const down = padSnapshots[player.pad]?.down || [];
@@ -546,12 +646,16 @@ function boot() {
   lastSimAt = startedAt;
   roundElapsedUs = 0;
   emitSignal("hello", -1, 1, 0);
+  shellMode = "MENU";
+  shellChoice = 1;
+  shellPrevious = [];
   beginSelect(startedAt);
 }
 
 function resetRound(now, resetMatch = false) {
   impacts.length = 0;
   bullets.length = 0;
+  grenades.length = 0;
   roundReplayFrames = [];
   roundReplayLastAt = 0;
   instantReplay = null;
@@ -584,13 +688,15 @@ function resetRound(now, resetMatch = false) {
     player.windVx = 0;
     player.knockVx = 0;
     player.gunAmmo = 0;
+    player.grenadeAmmo = 0;
+    player.stance = "NEUTRAL";
     player.previous = padSnapshots[player.pad]?.down?.slice() || [];
     player.suppressedDirections = player.previous.filter((button) =>
       button.startsWith("Arrow"));
     player.lastButton = "NONE";
     player.lastButtonAt = -10000000;
   }
-  for (const pickup of gunPickups) {
+  for (const pickup of [...gunPickups, ...grenadePickups]) {
     pickup.active = true;
     pickup.respawnAt = 0;
   }
@@ -778,6 +884,18 @@ function fireGun(player, input) {
   emitSignal("bullet", player.pad, aimX, aimY);
 }
 
+function throwGrenade(player) {
+  grenades.push({ x: player.x + player.facing * 150,
+    y: player.y - (player.ducking ? 80 : 145), z: player.z,
+    vx: player.facing * 1850, vy: -720, owner: player.pad,
+    fuse: 1.15, alive: true, exploding: false, blastAge: 0, blastRadius: 0 });
+  while (grenades.length > 12) grenades.shift();
+  player.grenadeAmmo -= 1;
+  player.pendingMoveLabel = "GRENADE " + player.grenadeAmmo;
+  drum("kick", .95, panPlayer(player));
+  emitSignal("grenade", player.pad, player.facing, player.ducking ? 1 : 0);
+}
+
 function updateGunPickups(now) {
   const poseTime = (now - startedAt) / 1000000;
   for (const pickup of gunPickups) {
@@ -794,6 +912,27 @@ function updateGunPickups(now) {
       remember(player, "GUN +" + pickup.amount);
       drum("clap", 1.1, panPlayer(player));
       emitSignal("pickup", player.pad, 1, pickup.amount);
+      break;
+    }
+  }
+}
+
+function updateGrenadePickups(now) {
+  const poseTime = (now - startedAt) / 1000000;
+  for (const pickup of grenadePickups) {
+    if (!pickup.active) {
+      if (now >= pickup.respawnAt) pickup.active = true;
+      else continue;
+    }
+    for (const player of players) {
+      if (!player.alive || runnerDistanceToPoint(player, poseTime,
+        pickup.x, pickup.y, pickup.z) > 90) continue;
+      player.grenadeAmmo = Math.min(4, player.grenadeAmmo + pickup.amount);
+      pickup.active = false;
+      pickup.respawnAt = now + pickupRespawnUs;
+      remember(player, "GRENADE +" + pickup.amount);
+      drum("clap", 1.1, panPlayer(player));
+      emitSignal("pickup", player.pad, 2, pickup.amount);
       break;
     }
   }
@@ -845,11 +984,72 @@ function updateBullets(dt, now) {
     if (bullets[index].life <= 0) bullets.splice(index, 1);
 }
 
+function updateGrenades(dt, now) {
+  for (const grenade of grenades) {
+    if (!grenade.alive) continue;
+    if (grenade.exploding) {
+      grenade.blastAge += dt;
+      grenade.blastRadius = grenadeBlastRadius *
+        Math.min(1, grenade.blastAge / grenadeBlastDuration);
+      const poseTime = (now - startedAt) / 1000000;
+      for (const player of players) {
+        if (player.alive && runnerDistanceToPoint(player, poseTime,
+          grenade.x, grenade.y, grenade.z) <= grenade.blastRadius)
+          killPlayer(player, grenade.owner, now, "BLASTED");
+      }
+      if (grenade.blastAge >= grenadeBlastDuration) grenade.alive = false;
+      continue;
+    }
+    const previousY = grenade.y;
+    grenade.vx += windAcceleration * .45 * dt;
+    grenade.vy += 1800 * dt;
+    grenade.x += grenade.vx * dt;
+    grenade.y += grenade.vy * dt;
+    grenade.fuse -= dt;
+    const inset = wallThickness + 35;
+    if (grenade.x < worldLeft + inset) {
+      grenade.x = worldLeft + inset;
+      grenade.vx = Math.abs(grenade.vx) * .65;
+    } else if (grenade.x > worldRight - inset) {
+      grenade.x = worldRight - inset;
+      grenade.vx = -Math.abs(grenade.vx) * .65;
+    }
+    if (grenade.y < ceilingY + inset) {
+      grenade.y = ceilingY + inset;
+      grenade.vy = Math.abs(grenade.vy) * .65;
+    }
+    if (grenade.vy >= 0 && previousY <= platformY - 30 &&
+        grenade.y >= platformY - 30 && grenade.x >= platformLeft &&
+        grenade.x <= platformRight) {
+      grenade.y = platformY - 30;
+      grenade.vy = -Math.abs(grenade.vy) * .55;
+      grenade.vx *= .82;
+    } else if (grenade.y >= floorY - 30) {
+      grenade.y = floorY - 30;
+      grenade.vy = -Math.abs(grenade.vy) * .55;
+      grenade.vx *= .82;
+    }
+    if (grenade.fuse <= 0) {
+      grenade.exploding = true;
+      grenade.blastAge = 0;
+      grenade.blastRadius = 0;
+      grenade.vx = 0;
+      grenade.vy = 0;
+      drum("kick", 1.25, panPlayer(players[grenade.owner]));
+      emitSignal("blast", grenade.owner,
+        grenade.x / worldRight, grenade.y / floorY);
+    }
+  }
+  for (let index = grenades.length - 1; index >= 0; index--)
+    if (!grenades[index].alive) grenades.splice(index, 1);
+}
+
 function startMelee(player, kind, now) {
   player.attackKind = kind;
   player.attackStartedAt = now;
   player.attackUntil = now + 220000;
   player.attackHit = false;
+  player.stance = "ATTACK";
   player.pendingMoveLabel = kind;
   const pan = panPlayer(player);
   drum(kind === "KICK" ? "kick" : "snare", 1.05, pan);
@@ -956,6 +1156,24 @@ function bootBall(player, now) {
   emitSignal("boot", player.pad, direction, Math.round(speed));
 }
 
+function bounceBallOffBody(player, now) {
+  const direction = Math.sign(ball.x - player.x) || -Math.sign(ball.vx) ||
+    player.facing || 1;
+  const incomingSpeed = Math.hypot(ball.vx, ball.vy);
+  const speed = Math.max(760, Math.min(3600, incomingSpeed * .86));
+  ball.vx = direction * speed;
+  ball.vy = -Math.max(260, Math.abs(ball.vy) * .42 + speed * .12);
+  ball.x += direction * (ball.radius + 18);
+  ball.lastHitBy = player.pad === 0 ? 1 : 0;
+  ball.safeUntil = now + 160000;
+  ball.safePlayers = 1 << player.pad;
+  player.hit = Math.max(player.hit, .28);
+  impacts.push({ x: ball.x, y: ball.y, z: ball.z,
+    life: .16, duration: .16, death: false, explosion: false });
+  drum("block", .82, panAt(ball.x, ball.z));
+  emitSignal("bodybounce", player.pad, direction, Math.round(speed));
+}
+
 function updateBall(dt, now) {
   if (!ball.active || now < ball.serveAt) return;
   const grounded = ball.y >= floorY - ball.radius - 1 && Math.abs(ball.vy) < 180;
@@ -1016,8 +1234,13 @@ function updateBall(dt, now) {
     if (!player.alive || ((ball.safePlayers & (1 << player.pad)) &&
         now < ball.safeUntil))
       continue;
-    if (runnerDistanceToPoint(player, poseTime,
-      ball.x, ball.y, ball.z) > ball.radius) continue;
+    const geometry = runnerWorldGeometry(player, poseTime);
+    const headDistance = Math.max(0, Math.hypot(
+      ball.x - geometry.head.x, ball.y - geometry.head.y,
+      ball.z - geometry.head.z) - geometry.head.radius);
+    const bodyDistance = runnerBodyDistanceToPoint(geometry,
+      ball.x, ball.y, ball.z);
+    if (Math.min(headDistance, bodyDistance) > ball.radius) continue;
     if (onFloor) {
       bootBall(player, now);
       return;
@@ -1026,13 +1249,15 @@ function updateBall(dt, now) {
       returnBall(player, now, true);
       return;
     }
-    else {
+    if (headDistance <= ball.radius) {
       ball.active = false;
       const scorer = ball.lastHitBy >= 0 && ball.lastHitBy !== player.pad
         ? ball.lastHitBy : player.pad === 0 ? 1 : 0;
       killPlayer(player, scorer, now, "BALLED");
       return;
     }
+    bounceBallOffBody(player, now);
+    return;
   }
 }
 
@@ -1068,6 +1293,7 @@ function killPlayer(target, killerPad, now, cause = "KO") {
   target.respawnAt = now + 1200000;
   target.vx = 0;
   target.vy = 0;
+  target.stance = "HIT";
   target.lastButton = cause;
   target.lastButtonAt = now;
   if (killerPad !== target.pad) players[killerPad].score += 1;
@@ -1081,6 +1307,7 @@ function killPlayer(target, killerPad, now, cause = "KO") {
 
 function resolveMelee(now) {
   const poseTime = (now - startedAt) / 1000000;
+  const contacts = [];
   for (const attacker of players) {
     if (!attacker.alive || attacker.attackHit || now >= attacker.attackUntil) continue;
     const target = players[attacker.pad === 0 ? 1 : 0];
@@ -1089,25 +1316,41 @@ function resolveMelee(now) {
     if (runnerDistanceToPoint(target, poseTime,
       strike.x, strike.y, strike.z) <= strike.radius) {
       attacker.attackHit = true;
-      impacts.push({ x: strike.x, y: strike.y, z: strike.z,
-        life: .2, duration: .2, death: false, explosion: false });
-      const away = Math.sign(target.x - attacker.x) || -attacker.facing;
-      const backBlocking = target.inputX === away;
-      if (target.blocking || backBlocking) {
-        target.blockFlash = 1;
-        target.lastButton = target.blocking ? "BLOCK" : "BACK BLOCK";
-        target.lastButtonAt = now;
-        target.vx = 0;
-        attacker.vx = -attacker.facing * 420;
-        drum("block", 1.2, panPlayer(target));
-        emitSignal("block", target.pad, attacker.pad, target.blocking ? 1 : 2);
-      } else killPlayer(target, attacker.pad, now);
+      contacts.push({ attacker, target, strike });
     }
+  }
+  for (const { attacker, target, strike } of contacts) {
+    if (!target.alive && contacts.length < 2) continue;
+    impacts.push({ x: strike.x, y: strike.y, z: strike.z,
+      life: .2, duration: .2, death: false, explosion: false });
+    const away = Math.sign(target.x - attacker.x) || -attacker.facing;
+    const backBlocking = target.inputX === away;
+    if (target.blocking || backBlocking) {
+      target.stance = "DEFEND";
+      target.blockFlash = 1;
+      target.lastButton = target.blocking ? "BLOCK" : "BACK BLOCK";
+      target.lastButtonAt = now;
+      target.vx = 0;
+      attacker.vx = -attacker.facing * 420;
+      drum("block", 1.2, panPlayer(target));
+      emitSignal("block", target.pad, attacker.pad, target.blocking ? 1 : 2);
+    } else killPlayer(target, attacker.pad, now,
+      contacts.length >= 2 ? "TRADE" : "KO");
   }
 }
 
 function resolvePlayerPushboxes() {
   if (!players[0].alive || !players[1].alive) return;
+  const poseTime = (runtime().monotonicUs - startedAt) / 1000000;
+  const firstBounds = runnerBounds(players[0], poseTime);
+  const secondBounds = runnerBounds(players[1], poseTime);
+  const verticalOverlap = Math.min(firstBounds.bottom, secondBounds.bottom) -
+    Math.max(firstBounds.top, secondBounds.top);
+  // Grounded fighters nudge one another. Once a jumper is clearly above the
+  // other fighter, the pushboxes separate so cross-over jumps are possible.
+  if (verticalOverlap <= 18 ||
+      ((!players[0].grounded || !players[1].grounded) &&
+       Math.abs(players[0].y - players[1].y) > 58)) return;
   const left = players[0].x <= players[1].x ? players[0] : players[1];
   const right = left === players[0] ? players[1] : players[0];
   const minimumGap = 138;
@@ -1133,6 +1376,20 @@ function resolvePlayerPushboxes() {
   resolveRunnerBounds(right, 0);
 }
 
+function updateStance(player, input, now) {
+  const opponent = players[player.pad === 0 ? 1 : 0];
+  const toward = Math.sign(opponent.x - player.x) || player.facing || 1;
+  player.stance = !player.alive ? "HIT"
+    : player.blocking ? "DEFEND"
+    : player.attackKind ? "ATTACK"
+    : player.ducking ? "CROUCH"
+    : !player.grounded ? "AIR"
+    : now < player.dashUntil ? "DASH"
+    : input.horizontal === toward ? "ADVANCE"
+    : input.horizontal === -toward ? "RETREAT"
+    : "NEUTRAL";
+}
+
 function updatePlayer(player, pad, dt, now) {
   if (!player.alive) {
     player.previous = pad.down.slice();
@@ -1150,6 +1407,7 @@ function updatePlayer(player, pad, dt, now) {
       player.inputX = 0;
       player.inputY = 0;
       player.dashUntil = 0;
+      player.stance = "NEUTRAL";
       player.alive = true;
     }
     return;
@@ -1166,7 +1424,10 @@ function updatePlayer(player, pad, dt, now) {
   const upPressed = input.vertical > 0 && !player.previous.includes("MOVE_UP");
   player.ducking = input.vertical < 0 && player.grounded;
   player.blocking = pad.down.includes("X");
-
+  if (player.attackKind && now >= player.attackUntil) {
+    player.attackKind = "";
+    player.attackHit = false;
+  }
   if (player.inputX && input.horizontal !== player.inputX)
     player.lastRelease[player.inputX > 0 ? "RIGHT" : "LEFT"] = now;
   if (player.inputY && input.vertical !== player.inputY)
@@ -1224,7 +1485,10 @@ function updatePlayer(player, pad, dt, now) {
         if (player.gunAmmo > 0) fireGun(player, input);
         else startMelee(player, "KICK", now);
       }
-      else if (!player.blocking && button === "B") startMelee(player, "PUNCH", now);
+      else if (!player.blocking && button === "B") {
+        if (player.grenadeAmmo > 0) throwGrenade(player);
+        else startMelee(player, "PUNCH", now);
+      }
     }
   }
   if (player.pendingMoveLabel) remember(player, player.pendingMoveLabel);
@@ -1251,6 +1515,7 @@ function updatePlayer(player, pad, dt, now) {
   if (input.vertical > 0) player.previous.push("MOVE_UP");
   player.inputX = input.horizontal;
   player.inputY = input.vertical;
+  updateStance(player, input, now);
 }
 
 function sim() {
@@ -1259,7 +1524,29 @@ function sim() {
   lastSimAt = now;
   padSnapshots[0] = gamepad(0);
   padSnapshots[1] = gamepad(1);
+  if (debugHitboxes && now >= nextInputDebugAt) {
+    nextInputDebugAt = now + 500000;
+    const values = players.map((player) => {
+      const pad = padSnapshots[player.pad];
+      const input = quantizedInput(pad, player.suppressedDirections);
+      return "P" + (player.pad + 1) + " down=" +
+        (pad.down.join("+") || "NONE") + " stick=" +
+        pad.leftX.toFixed(2) + "," + pad.leftY.toFixed(2) + " q=" +
+        input.horizontal + "," + input.vertical + " vx=" +
+        Math.round(player.vx);
+    });
+    telemetry("FIGHT_INPUT", values.join(" | "));
+  }
+  if (shellMode === "MENU") {
+    updateShell(now);
+    return;
+  }
+  if (shellMode === "LAB") {
+    updateLab(dt, now);
+    return;
+  }
   recordReplayCommands(now);
+  publishSpectator(now);
   if (roundResult) {
     if (instantReplay) {
       updateInstantReplay(now, dt);
@@ -1292,9 +1579,11 @@ function sim() {
     : padSnapshots[1], dt, now);
   resolvePlayerPushboxes();
   updateGunPickups(now);
+  updateGrenadePickups(now);
   updateBullets(dt, now);
-  updateBall(dt, now);
+  updateGrenades(dt, now);
   resolveMelee(now);
+  updateBall(dt, now);
   updateCamera(dt);
   updateCameraDoll(dt, now);
   captureRoundReplay(now);
@@ -1471,6 +1760,14 @@ function runnerDistanceToPoint(player, t, px, py, pz = 0) {
   return distance;
 }
 
+function runnerBodyDistanceToPoint(geometry, px, py, pz = 0) {
+  let distance = Infinity;
+  for (const segment of geometry.segments)
+    distance = Math.min(distance,
+      Math.max(0, pointSegmentDistance(px, py, pz, segment) - segment.width / 2));
+  return distance;
+}
+
 function handleWidth(handle, size) {
   return handle.length ? size * (handle[0] === "@" ? .88 : .58) +
     (handle.length - 1) * size * .58 : 0;
@@ -1563,21 +1860,72 @@ function drawRunner(player, t, showLabel = true) {
 
 }
 
+function drawDebugHitboxes(player, t) {
+  if (!debugHitboxes || (!player.alive && !roundResult)) return;
+  const world = player.replayGeometry || runnerWorldGeometry(player, t);
+  const geometry = projectRunnerWorldGeometry(world);
+  const bodyColor = [58, 222, 255];
+  const headColor = [255, 62, 82];
+  const pushColor = [105, 255, 118];
+  const attackColor = [255, 86, 220];
+
+  for (const segment of geometry.segments)
+    line(segment.x1, segment.y1, segment.x2, segment.y2,
+      Math.max(2, segment.width * .22), ...bodyColor);
+  circle(geometry.head.x, geometry.head.y, geometry.head.radius,
+    Math.max(2, geometry.head.radius * .12), headColor);
+
+  const halfWidth = player.ducking ? 76 : 62;
+  const top = player.y - (player.ducking ? 132 : 174);
+  const corners = [
+    projectPoint(player.x - halfWidth, top, player.z),
+    projectPoint(player.x + halfWidth, top, player.z),
+    projectPoint(player.x + halfWidth, player.y, player.z),
+    projectPoint(player.x - halfWidth, player.y, player.z),
+  ];
+  for (let index = 0; index < corners.length; index++) {
+    const next = corners[(index + 1) % corners.length];
+    line(corners[index].x, corners[index].y, next.x, next.y, 2, ...pushColor);
+  }
+
+  if (player.attackKind && runtime().monotonicUs < player.attackUntil) {
+    const strike = meleeStrike(player, runtime().monotonicUs);
+    const point = projectPoint(strike.x, strike.y, strike.z);
+    circle(point.x, point.y, Math.max(2, strike.radius * cameraScale()),
+      3, attackColor);
+    line(geometry.head.x, geometry.head.y, point.x, point.y, 1, ...attackColor);
+  }
+
+  const mode = "P" + (player.pad + 1) + " " + player.stance +
+    (player.attackKind ? "/" + player.attackKind : "");
+  const labelY = Math.max(112, geometry.head.y - geometry.head.radius - 58);
+  const labelWidth = Math.max(162, mode.length * 15);
+  const pad = padSnapshots[player.pad] ||
+    { connected: false, down: [], leftX: 0, leftY: 0 };
+  const input = quantizedInput(pad, player.suppressedDirections);
+  const inputLabel = "IN " + input.horizontal + "," + input.vertical +
+    "  STK " + pad.leftX.toFixed(2) + "  VX " + Math.round(player.vx);
+  const inputWidth = inputLabel.length * 10;
+  const panelWidth = Math.max(labelWidth, inputWidth + 16);
+  box(geometry.head.x - panelWidth / 2, labelY - 5,
+    panelWidth, 54, 3, 5, 12);
+  write(mode, geometry.head.x - labelWidth / 2 + 8,
+    labelY, 21, ...player.color);
+  write(inputLabel, geometry.head.x - panelWidth / 2 + 8,
+    labelY + 28, 14, 215, 224, 240);
+  write("HEAD", geometry.head.x - geometry.head.radius - 36,
+    geometry.head.y - 9, 13, ...headColor);
+}
+
 function drawPlayerHud(player, x, pad) {
-  pad = pad || { connected: false, down: [] };
   const color = visualTheme.light > .55
     ? player.pad === 0 ? [155, 34, 108] : [105, 78, 0]
     : player.color;
-  typeWrite("P" + (player.pad + 1) + "  " +
-    player.roundWins + "/" + matchWins + "  PTS " + player.score,
-    x, 14, 24, ...color);
-  const held = pad.down.length ? pad.down.map(buttonLabel).join(" ") : "NONE";
-  const secondary = mixColor([195, 210, 230], [48, 58, 78], visualTheme.light);
-  const status = player.npc ? "DUMMY" : pad.connected ? "READY" : "CONNECT";
-  typeWrite(player.lastButton + "  ·  " + held + "  ·  " + status,
-    x, 48, 16, ...(status === "CONNECT" ? [255, 105, 105] : secondary));
-  if (player.gunAmmo > 0)
-    typeWrite("GUN " + player.gunAmmo, x + 430, 14, 20, ...color);
+  let label = "P" + (player.pad + 1) + "  " + player.roundWins + "/" +
+    matchWins + "  PTS " + player.score;
+  if (player.gunAmmo > 0) label += "  GUN " + player.gunAmmo;
+  if (player.grenadeAmmo > 0) label += "  GREN " + player.grenadeAmmo;
+  typeWrite(label, x, 14, 22, ...color);
 }
 
 function drawFighterData(player, x) {
@@ -1597,9 +1945,20 @@ function drawCornerHandle(player, right = false) {
   box(barX + (right ? -7 : 7), 1037, barWidth, 43, 0, 0, 0);
   box(barX, 1032, barWidth, 43, 5, 7, 14);
   box(barX, 1032, barWidth, 5, ...player.color);
-  for (const [dx, dy] of [[0, 0], [1, 0], [0, 1], [1, 1]])
-    drawHandle(player.name, x + dx, 1038 + dy, size,
-      player.handleColors, player.color);
+  const drawGlyphs = (dx, dy, colors, fallback) => {
+    let cursor = x + dx;
+    for (let index = 0; index < player.name.length; index++) {
+      const character = player.name[index];
+      const color = colors?.[index] || fallback;
+      write(character, cursor, 1038 + dy, size, ...color);
+      cursor += size * (character === "@" ? .88 : .58);
+    }
+  };
+  // Each glyph owns a hard font_1 shadow. The strap remains the final overlay
+  // layer so world geometry and post effects never composite over either name.
+  drawGlyphs(4, 4, null, [0, 0, 0]);
+  drawGlyphs(0, 0, player.handleColors, player.color);
+  drawGlyphs(1, 0, player.handleColors, player.color);
 }
 
 function worldLine(x1, y1, z1, x2, y2, z2, width, color) {
@@ -1634,6 +1993,37 @@ function drawBullet(bullet) {
     Math.max(2, 6 * cameraScale()), color);
 }
 
+function drawGrenadePickup(pickup, t) {
+  if (!pickup.active) return;
+  const bobY = pickup.y + Math.sin(t * 3.2 + pickup.x * .001) * 24;
+  const point = projectPoint(pickup.x, bobY, pickup.z);
+  const scale = cameraScale();
+  const color = [255, 105, 105];
+  circle(point.x, point.y, Math.max(5, 34 * scale),
+    Math.max(2, 10 * scale), color);
+  worldLine(pickup.x, bobY - 34, pickup.z,
+    pickup.x + 28, bobY - 62, pickup.z, Math.max(2, 8 * scale), color);
+  typeWrite("GREN", point.x - 26, point.y - Math.max(20, 68 * scale),
+    Math.max(10, Math.min(18, Math.round(42 * scale))), ...color);
+}
+
+function drawGrenade(grenade) {
+  const point = projectPoint(grenade.x, grenade.y, grenade.z);
+  if (grenade.exploding) {
+    const radius = grenade.blastRadius * cameraScale();
+    circle(point.x, point.y, radius, Math.max(3, 10 * cameraScale()),
+      [255, 105, 105]);
+    return;
+  }
+  const blink = grenade.fuse < .45 && Math.floor(grenade.fuse * 20) % 2 === 0;
+  const color = blink ? [255, 255, 255] : players[grenade.owner].color;
+  circle(point.x, point.y, Math.max(4, 28 * cameraScale()),
+    Math.max(2, 9 * cameraScale()), color);
+  const tail = projectPoint(grenade.x - Math.sign(grenade.vx) * 90,
+    grenade.y - 14, grenade.z);
+  line(tail.x, tail.y, point.x, point.y, Math.max(2, 6 * cameraScale()), ...color);
+}
+
 function drawWindFlag(t, color) {
   const poleX = 820;
   const poleTop = 18;
@@ -1650,6 +2040,31 @@ function drawWindFlag(t, color) {
   line(poleX - 8, poleBottom, poleX + 8, poleBottom, 3, ...color);
   const textX = direction < 0 ? 842 : 705;
   typeWrite(windMph + " MPH", textX, 38, 17, ...color);
+}
+
+function drawWindLines(t, color) {
+  const count = 7 + Math.floor(windMph / 3);
+  const span = cameraWidth * 1.18;
+  const speed = .045 + windMph * .0045;
+  const length = 45 + windMph * 7;
+  for (let index = 0; index < count; index++) {
+    const zSpan = worldFar - worldNear;
+    const z = worldNear + 180 + ((index * 487) % Math.max(1, zSpan - 360));
+    const nearAmount = 1 - (z - worldNear) / zSpan;
+    const depthScale = .62 + nearAmount * .82;
+    const cycle = ((index * .173 + t * speed * depthScale * windDirection) % 1 + 1) % 1;
+    const x = cameraCenter - span / 2 + cycle * span;
+    const row = ((index * 47) % 101) / 100;
+    const y = cameraCenterY - cameraWidth * .27 + row * cameraWidth * .54 +
+      Math.sin(t * 1.7 + index * 2.3) * (6 + windMph * .5);
+    const tailX = x - windDirection * length * depthScale;
+    const bend = Math.sin(t * 2.1 + index) * (3 + windMph * .28);
+    worldLine(tailX, y - bend, z,
+      x - windDirection * length * depthScale * .38, y + bend, z,
+      nearAmount > .62 && windMph > 12 ? 2 : 1, color);
+    worldLine(x - windDirection * length * depthScale * .38, y + bend, z,
+      x, y, z, nearAmount > .62 && windMph > 12 ? 2 : 1, color);
+  }
 }
 
 function drawSelectPortrait(player, x, y, scale, t) {
@@ -1691,6 +2106,94 @@ function drawSelectionScreen(t, ink, panel) {
     290, 965, 26, ...ink);
 }
 
+function drawShellMenu(t, ink, panel) {
+  const choices = [
+    { name: "NEW GAME", x: 120, color: [88, 210, 224] },
+    { name: "OSKIEWAR", x: 990, color: [214, 45, 72] },
+  ];
+  typeWrite("OSKIEWAR", 824, 118, 42, ...ink);
+  for (let index = 0; index < choices.length; index++) {
+    const choice = choices[index];
+    const active = shellChoice === index;
+    box(choice.x, 280, 810, 560, ...(active ? panel : [9, 12, 26]));
+    box(choice.x, 280, 810, active ? 9 : 3, ...choice.color);
+    typeWrite(choice.name, choice.x + 70, 350, active ? 50 : 40,
+      ...(active ? choice.color : ink));
+    if (index === 0) {
+      for (let pad = 0; pad < 2; pad++) {
+        const cx = choice.x + 245 + pad * 330;
+        const cy = 600;
+        circle(cx, cy, 82, 7, choice.color);
+        line(cx - 44, cy, cx + 44, cy, 9, ...choice.color);
+        line(cx, cy - 44, cx, cy + 44, 9, ...choice.color);
+      }
+      typeWrite("2-PAD INPUT LAB", choice.x + 70, 760, 27, ...ink);
+    } else {
+      drawSelectPortrait(players[0], choice.x + 280, 650, 1, t);
+      drawSelectPortrait(players[1], choice.x + 545, 650, 1, t);
+      typeWrite("FIGHT", choice.x + 70, 760, 27, ...ink);
+    }
+  }
+  typeWrite("LEFT RIGHT     A OPEN", 785, 930, 24, ...ink);
+}
+
+function drawInputLab(run, ink, panel) {
+  const caps = typeof capabilities === "function" ? capabilities() : {};
+  const controllerList = typeof controllers === "function" ? controllers() : [];
+  typeWrite("NEW GAME", 52, 38, 34, ...ink);
+  const status = (caps.productName || "XBOX") + "  BIOS " +
+    (caps.version || "DEV") + "  PADS " + controllerList.length +
+    "  AUDIO " + Number(run.audioLatencyMs || 0).toFixed(1) + "MS";
+  typeWrite(status, 430, 44, 19, ...ink);
+  line(960, 118, 960, 1030, 3, 65, 78, 108);
+  for (let index = 0; index < 2; index++) {
+    const pad = padSnapshots[index] ||
+      { connected: false, down: [], leftX: 0, leftY: 0,
+        rightX: 0, rightY: 0, leftTrigger: 0, rightTrigger: 0 };
+    const input = quantizedInput(pad);
+    const left = index === 0 ? 40 : 1000;
+    const color = labPlayers[index].color;
+    box(left, 135, 880, 855, ...panel);
+    box(left, 135, 880, 7, ...color);
+    typeWrite("P" + (index + 1) + "  " +
+      (pad.connected ? "CONNECTED" : "NO CONTROLLER"),
+      left + 34, 175, 28, ...color);
+    const down = pad.down.length ? pad.down.map(buttonLabel).join("  ") : "NONE";
+    typeWrite("DOWN  " + down, left + 34, 235, 22, ...ink);
+    typeWrite("LEFT   " + pad.leftX.toFixed(3) + "  " + pad.leftY.toFixed(3) +
+      "\nRIGHT  " + pad.rightX.toFixed(3) + "  " + pad.rightY.toFixed(3) +
+      "\nTRIG   " + pad.leftTrigger.toFixed(3) + "  " + pad.rightTrigger.toFixed(3) +
+      "\nGATE   " + input.horizontal + "  " + input.vertical,
+      left + 34, 295, 21, ...ink);
+    const point = labPlayers[index];
+    circle(point.x, point.y, 42, 6, color);
+    line(point.x - 70, point.y, point.x + 70, point.y, 3, ...color);
+    line(point.x, point.y - 70, point.x, point.y + 70, 3, ...color);
+    typeWrite("DPAD / LEFT STICK MOVES THIS MARKER", left + 110, 920,
+      20, ...ink);
+  }
+  typeWrite("VIEW  BACK TO SELECTOR", 795, 1010, 18, ...ink);
+}
+
+function drawSpectatorQr(ink) {
+  if (!spectatorQr || typeof spectatorQr.getModuleCount !== "function") return;
+  const count = spectatorQr.getModuleCount();
+  const quiet = 4;
+  const cell = Math.max(2, Math.floor(176 / (count + quiet * 2)));
+  const size = (count + quiet * 2) * cell;
+  const left = 1920 - size - 16;
+  const top = 104;
+  box(left, top, size, size, 250, 250, 247);
+  for (let row = 0; row < count; row++) {
+    for (let column = 0; column < count; column++) {
+      if (spectatorQr.isDark(row, column))
+        box(left + (column + quiet) * cell, top + (row + quiet) * cell,
+          cell, cell, 7, 8, 14);
+    }
+  }
+  typeWrite("WATCH", left, top + size + 5, 14, ...ink);
+}
+
 function paint() {
   const run = runtime();
   const t = (run.monotonicUs - startedAt) / 1000000;
@@ -1706,6 +2209,14 @@ function paint() {
   const titleInk = mixColor([245, 248, 255], [24, 35, 72], visualTheme.light);
   wipe(...sky);
   box(0, 0, 1920, 1080, ...arena);
+  if (shellMode === "MENU") {
+    drawShellMenu(t, titleInk, titlePanel);
+    return;
+  }
+  if (shellMode === "LAB") {
+    drawInputLab(run, titleInk, titlePanel);
+    return;
+  }
   if (selecting) {
     drawSelectionScreen(t, titleInk, titlePanel);
     return;
@@ -1733,14 +2244,14 @@ function paint() {
     platformLeft, platformY, platformFar, 5, worldInk);
   worldLine(platformRight, platformY, platformNear,
     platformRight, platformY, platformFar, 5, worldInk);
-  const remaining = roundResult ? 0 : Math.max(0,
-    Math.ceil((roundDurationUs - roundElapsedUs) / 1000000));
-  const clockInk = remaining <= 10 ? [255, 105, 190] : titleInk;
-  typeWrite(String(remaining).padStart(2, "0"), 928, 5, 48, ...clockInk);
+  const windInk = mixColor([125, 155, 205], [238, 246, 255], visualTheme.light);
+  drawWindLines(t, windInk);
   drawWindFlag(t, titleInk);
   typeWrite(matchName.toUpperCase(), 806, 82, 14, ...titleInk);
   for (const pickup of gunPickups) drawGunPickup(pickup, t);
+  for (const pickup of grenadePickups) drawGrenadePickup(pickup, t);
   for (const bullet of bullets) drawBullet(bullet);
+  for (const grenade of grenades) drawGrenade(grenade);
   if (ball.active) {
     const point = projectPoint(ball.x, ball.y, ball.z);
     const radius = Math.max(8, ball.radius * cameraScale());
@@ -1783,6 +2294,8 @@ function paint() {
   const showRunnerLabels = Boolean(roundResult) || introAge >= introDurationUs;
   drawRunner(players[0], t, showRunnerLabels);
   drawRunner(players[1], t, showRunnerLabels);
+  drawDebugHitboxes(players[0], t);
+  drawDebugHitboxes(players[1], t);
   if (!roundResult && introAge < introDurationUs) {
     const introSeconds = introAge / 1000000;
     const introText = introSeconds < .95 ? players[0].name
@@ -1818,8 +2331,7 @@ function paint() {
   }
   drawPlayerHud(players[0], 20, padSnapshots[0]);
   drawPlayerHud(players[1], 1275, padSnapshots[1]);
-  drawFighterData(players[0], 20);
-  drawFighterData(players[1], 1035);
+  drawSpectatorQr(titleInk);
   drawCornerHandle(players[0]);
   drawCornerHandle(players[1], true);
 }
