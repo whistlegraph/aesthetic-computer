@@ -21,7 +21,7 @@ function createFight(startImmediately = true, enterGame = true,
   };
   const fight = new Function(
     "runtime", "gamepad", "capabilities", "telemetry", "gameSignal", "saveReplay", "publishLive", "drum", "wipe", "box", "line", "triangle", "write", "systemWrite", "gameView",
-    `${source}\nreturn { boot, sim, paint, controlLocale, players, ball, balls, bullets, grenades, gunPickups, grenadePickups, runnerWorldGeometry, runnerDistanceToPoint, disableBall: () => { ballEnabled = false; for (const item of balls) item.active = false; }, enableBall: (index = 0) => { ballEnabled = true; const item = balls[index]; item.active = true; item.serveAt = 0; item.safeUntil = 0; item.safePlayers = 0; }, setWind: (value) => { windAcceleration = value; }, windState: () => ({ direction: windDirection, mph: windMph }), nextRound: () => resetRound(runtime().monotonicUs, false), knockOut: () => killPlayer(players[1], 0, runtime().monotonicUs, "KO"), wackBall: () => { players[0].attackKind = "KICK"; returnBall(ball, players[0], runtime().monotonicUs, false); }, shieldBall: () => returnBall(ball, players[0], runtime().monotonicUs, true), crossWackBall: (contact = 1) => crossWackBall(ball, players.map((player) => ({ player, contact })), runtime().monotonicUs), enterGame: () => enterShellMode("GAME", runtime().monotonicUs), shellState: () => ({ mode: shellMode, choice: shellChoice, lab: labPlayers.map((player) => ({ ...player })) }), startFight: () => { shellMode = "GAME"; selecting = false; startReplay(runtime().monotonicUs); resetRound(runtime().monotonicUs, true); }, selectionState: () => ({ selecting, ready: selectionReady.slice() }), cameraState: () => ({ cameraWidth, cameraCenter, cameraCenterY, cameraAspect, stageRight, viewHeight }), roundState: () => ({ roundResult, roundElapsedUs, matchOver }), viewerState: () => ({ active: Boolean(roundViewer), mode: roundViewerMode, status: roundViewerStatus, name: matchName }), instantReplayState: () => instantReplay ? { active: true, paused: instantReplay.paused, cursor: instantReplay.cursor, frames: instantReplay.frames.length } : { active: false }, replayFrameCount: () => roundReplayFrames.length };`
+    `${source}\nreturn { boot, sim, paint, controlLocale, players, ball, balls, bullets, grenades, gunPickups, grenadePickups, runnerWorldGeometry, runnerDistanceToPoint, disableBall: () => { ballEnabled = false; for (const item of balls) item.active = false; }, enableBall: (index = 0) => { ballEnabled = true; const item = balls[index]; item.active = true; item.serveAt = 0; item.safeUntil = 0; item.safePlayers = 0; }, setWind: (value) => { windAcceleration = value; }, windState: () => ({ direction: windDirection, mph: windMph }), nextRound: () => resetRound(runtime().monotonicUs, false), knockOut: () => killPlayer(players[1], 0, runtime().monotonicUs, "KO"), wackBall: () => { players[0].attackKind = "KICK"; returnBall(ball, players[0], runtime().monotonicUs, false); }, shieldBall: () => returnBall(ball, players[0], runtime().monotonicUs, true), crossWackBall: (contact = 1) => crossWackBall(ball, players.map((player) => ({ player, contact })), runtime().monotonicUs), enterGame: () => enterShellMode("GAME", runtime().monotonicUs), shellState: () => ({ mode: shellMode, choice: shellChoice, lab: labPlayers.map((player) => ({ ...player })) }), startFight: () => { shellMode = "GAME"; selecting = false; startReplay(runtime().monotonicUs); resetRound(runtime().monotonicUs, true); }, selectionState: () => ({ selecting, ready: selectionReady.slice() }), cameraState: () => ({ cameraWidth, cameraCenter, cameraCenterY, cameraAspect, stageRight, viewHeight }), screenBounds: () => players.map((player) => runnerScreenBounds(player, runtime().monotonicUs / 1e6)), actionSafeRect: () => ({ left: compactLayout() ? 34 : 64, right: stageRight - (compactLayout() ? 34 : 64), top: stageTop + 26, bottom: stageBottom - 26 }), roundState: () => ({ roundResult, roundElapsedUs, matchOver }), viewerState: () => ({ active: Boolean(roundViewer), mode: roundViewerMode, status: roundViewerStatus, name: matchName }), instantReplayState: () => instantReplay ? { active: true, paused: instantReplay.paused, cursor: instantReplay.cursor, frames: instantReplay.frames.length } : { active: false }, replayFrameCount: () => roundReplayFrames.length };`
   )(
     () => ({ monotonicUs: now, unixMs: 1785870000000 + Math.floor(now / 1000) }),
     (index = 0) => ({ ...pads[index], down: pads[index].down.slice() }),
@@ -78,6 +78,45 @@ test("web camera follows landscape, 16:9, and portrait viewports", () => {
     assert.equal(state.viewHeight, 1080);
     assert.equal(state.cameraAspect, expectedWidth / (930 - 112));
     assert.doesNotThrow(() => fight.paint());
+  }
+});
+
+test("camera contains both complete fighters at every supported aspect", () => {
+  for (const viewport of [
+    { width: 2560, height: 1080 },
+    { width: 1920, height: 1080 },
+    { width: 608, height: 1080 },
+  ]) {
+    const { fight, tick } = createFight(false, false, "web", null, viewport);
+    const assertContained = () => {
+      fight.paint();
+      const safe = fight.actionSafeRect();
+      for (const bounds of fight.screenBounds()) {
+        const label = `${viewport.width}x${viewport.height}`;
+        assert.ok(bounds.left >= safe.left - .5,
+          `${label}: ${bounds.left} crossed left edge ${safe.left}`);
+        assert.ok(bounds.right <= safe.right + .5,
+          `${label}: ${bounds.right} crossed right edge ${safe.right}`);
+        assert.ok(bounds.top >= safe.top - .5,
+          `${label}: ${bounds.top} crossed top edge ${safe.top}`);
+        assert.ok(bounds.bottom <= safe.bottom + .5,
+          `${label}: ${bounds.bottom} crossed bottom edge ${safe.bottom}`);
+      }
+    };
+
+    fight.startFight();
+    fight.players[0].x = 800;
+    fight.players[0].y = 11800;
+    fight.players[0].z = -560;
+    fight.players[1].x = 11200;
+    fight.players[1].y = 1300;
+    fight.players[1].z = 560;
+    tick();
+    assertContained();
+
+    fight.knockOut();
+    tick();
+    assertContained();
   }
 });
 

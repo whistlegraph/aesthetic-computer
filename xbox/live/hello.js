@@ -2100,6 +2100,114 @@ function runnerBounds(player, t) {
   return { left, right, top, bottom };
 }
 
+function runnerScreenBounds(player, t) {
+  const world = player.replayGeometry || player.frozenGeometry ||
+    runnerWorldGeometry(player, t);
+  const geometry = projectRunnerWorldGeometry(world);
+  let left = geometry.head.x - geometry.head.radius;
+  let right = geometry.head.x + geometry.head.radius;
+  let top = geometry.head.y - geometry.head.radius;
+  let bottom = geometry.head.y + geometry.head.radius;
+  for (const segment of geometry.segments) {
+    const radius = segment.width / 2;
+    left = Math.min(left, segment.x1 - radius, segment.x2 - radius);
+    right = Math.max(right, segment.x1 + radius, segment.x2 + radius);
+    top = Math.min(top, segment.y1 - radius, segment.y2 - radius);
+    bottom = Math.max(bottom, segment.y1 + radius, segment.y2 + radius);
+  }
+  return { left, right, top, bottom };
+}
+
+// Final render invariant: both complete animated fighter geometries must fit
+// inside the action-safe viewport. Camera modes may orbit or focus, but this
+// aspect-aware correction recenters their shared frame and moves the dolly
+// back far enough for landscape, portrait, live, and replay projection alike.
+function containFighters(t) {
+  const worlds = players.map((player) => player.replayGeometry ||
+    player.frozenGeometry || runnerWorldGeometry(player, t));
+  if (!worlds.length) return;
+  const points = [];
+  for (const world of worlds) {
+    const { head } = world;
+    points.push(
+      { x: head.x - head.radius, y: head.y, z: head.z },
+      { x: head.x + head.radius, y: head.y, z: head.z },
+      { x: head.x, y: head.y - head.radius, z: head.z },
+      { x: head.x, y: head.y + head.radius, z: head.z },
+    );
+    for (const segment of world.segments) {
+      const radius = segment.width / 2;
+      for (const endpoint of [
+        { x: segment.x1, y: segment.y1, z: segment.z1 },
+        { x: segment.x2, y: segment.y2, z: segment.z2 },
+      ]) {
+        points.push(
+          { x: endpoint.x - radius, y: endpoint.y, z: endpoint.z },
+          { x: endpoint.x + radius, y: endpoint.y, z: endpoint.z },
+          { x: endpoint.x, y: endpoint.y - radius, z: endpoint.z },
+          { x: endpoint.x, y: endpoint.y + radius, z: endpoint.z },
+        );
+      }
+    }
+  }
+  const minX = Math.min(...points.map((point) => point.x));
+  const maxX = Math.max(...points.map((point) => point.x));
+  const minY = Math.min(...points.map((point) => point.y));
+  const maxY = Math.max(...points.map((point) => point.y));
+  const minZ = Math.min(...points.map((point) => point.z));
+  const maxZ = Math.max(...points.map((point) => point.z));
+  const target = { x: (minX + maxX) / 2, y: (minY + maxY) / 2,
+    z: (minZ + maxZ) / 2 };
+  for (const axis of ["x", "y", "z"])
+    cameraDoll.position[axis] += target[axis] - cameraDoll.target[axis];
+  cameraDoll.target = target;
+
+  const marginX = compactLayout() ? 34 : 64;
+  const marginY = 26;
+  const safeWidth = Math.max(1, stageRight - stageLeft - marginX * 2);
+  const safeHeight = Math.max(1, stageBottom - stageTop - marginY * 2);
+  const requiredWidth = Math.max(
+    (maxX - minX) * (stageRight - stageLeft) / safeWidth,
+    (maxY - minY) * cameraAspect *
+      (stageBottom - stageTop) / safeHeight,
+    compactLayout() ? 720 : 900,
+  );
+  if (requiredWidth > cameraDoll.width) {
+    const amount = requiredWidth / Math.max(1, cameraDoll.width) * 1.04;
+    for (const axis of ["x", "y", "z"])
+      cameraDoll.position[axis] = target[axis] +
+        (cameraDoll.position[axis] - target[axis]) * amount;
+    cameraDoll.width *= amount;
+  }
+
+  // Perspective and z-depth can make the world-space estimate asymmetric.
+  // Iteratively measure the actual projection and expand along the existing
+  // camera ray until every point satisfies the screen-space safe rectangle.
+  const centerX = viewCenterX();
+  const centerY = (stageTop + stageBottom) / 2;
+  for (let pass = 0; pass < 4; pass++) {
+    cameraDoll.dirty = true;
+    cameraDoll.prepare();
+    const projected = points.map((point) => cameraDoll.project(point));
+    const left = Math.min(...projected.map((point) => point.x));
+    const right = Math.max(...projected.map((point) => point.x));
+    const top = Math.min(...projected.map((point) => point.y));
+    const bottom = Math.max(...projected.map((point) => point.y));
+    const factor = Math.max(1,
+      (centerX - left) / (safeWidth / 2),
+      (right - centerX) / (safeWidth / 2),
+      (centerY - top) / (safeHeight / 2),
+      (bottom - centerY) / (safeHeight / 2));
+    if (factor <= 1.001) break;
+    const amount = factor * 1.025;
+    for (const axis of ["x", "y", "z"])
+      cameraDoll.position[axis] = target[axis] +
+        (cameraDoll.position[axis] - target[axis]) * amount;
+    cameraDoll.width *= amount;
+  }
+  cameraDoll.dirty = true;
+}
+
 function resolveRunnerBounds(player, t) {
   // Walls use a stable fighting-game pushbox. Animated hands and feet remain
   // the actual hit geometry, but cannot shove the root back and forth at an
@@ -2794,6 +2902,7 @@ function paint() {
     drawSelectionScreen(t, titleInk, titlePanel);
     return;
   }
+  containFighters(t);
   cameraDoll.prepare();
   const worldInk = mixColor([72, 90, 125], [45, 63, 92], visualTheme.light);
   const edgeWidth = Math.max(2, wallThickness * cameraScale() * .14);
