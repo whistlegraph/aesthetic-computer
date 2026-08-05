@@ -2547,6 +2547,13 @@ function paint() {
     const accent = players[ball.spawnOwner]?.color || [255, 105, 190];
     const point = projectPoint(ball.x, ball.y, ball.z);
     const radius = Math.max(8, ball.radius * cameraScale());
+    // Death-camera perspective can put a distant ball behind the camera and
+    // produce enormous projected coordinates. It is intentionally allowed to
+    // leave frame, so cull it before submitting triangles to the native GPU.
+    if (!Number.isFinite(point.x) || !Number.isFinite(point.y) ||
+        !Number.isFinite(radius) || point.x + radius < 0 ||
+        point.x - radius > 1920 || point.y + radius < 0 ||
+        point.y - radius > 1080) continue;
     const palette = [accent, [255, 105, 190], [111, 232, 210],
       [255, 232, 92], [130, 150, 255], [245, 248, 255]];
     const sides = 12;

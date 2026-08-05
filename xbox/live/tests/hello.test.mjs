@@ -20,7 +20,7 @@ function createFight(startImmediately = true, enterGame = true,
   };
   const fight = new Function(
     "runtime", "gamepad", "capabilities", "telemetry", "gameSignal", "saveReplay", "publishLive", "drum", "wipe", "box", "line", "triangle", "write", "systemWrite",
-    `${source}\nreturn { boot, sim, paint, controlLocale, players, ball, balls, bullets, grenades, gunPickups, grenadePickups, runnerWorldGeometry, runnerDistanceToPoint, disableBall: () => { ballEnabled = false; for (const item of balls) item.active = false; }, enableBall: (index = 0) => { ballEnabled = true; const item = balls[index]; item.active = true; item.serveAt = 0; item.safeUntil = 0; item.safePlayers = 0; }, setWind: (value) => { windAcceleration = value; }, windState: () => ({ direction: windDirection, mph: windMph }), nextRound: () => resetRound(runtime().monotonicUs, false), wackBall: () => { players[0].attackKind = "KICK"; returnBall(ball, players[0], runtime().monotonicUs, false); }, shieldBall: () => returnBall(ball, players[0], runtime().monotonicUs, true), crossWackBall: (contact = 1) => crossWackBall(ball, players.map((player) => ({ player, contact })), runtime().monotonicUs), enterGame: () => enterShellMode("GAME", runtime().monotonicUs), shellState: () => ({ mode: shellMode, choice: shellChoice, lab: labPlayers.map((player) => ({ ...player })) }), startFight: () => { shellMode = "GAME"; selecting = false; startReplay(runtime().monotonicUs); resetRound(runtime().monotonicUs, true); }, selectionState: () => ({ selecting, ready: selectionReady.slice() }), cameraState: () => ({ cameraWidth, cameraCenter, cameraCenterY }), roundState: () => ({ roundResult, roundElapsedUs, matchOver }), instantReplayState: () => instantReplay ? { active: true, paused: instantReplay.paused, cursor: instantReplay.cursor, frames: instantReplay.frames.length } : { active: false }, replayFrameCount: () => roundReplayFrames.length };`
+    `${source}\nreturn { boot, sim, paint, controlLocale, players, ball, balls, bullets, grenades, gunPickups, grenadePickups, runnerWorldGeometry, runnerDistanceToPoint, disableBall: () => { ballEnabled = false; for (const item of balls) item.active = false; }, enableBall: (index = 0) => { ballEnabled = true; const item = balls[index]; item.active = true; item.serveAt = 0; item.safeUntil = 0; item.safePlayers = 0; }, setWind: (value) => { windAcceleration = value; }, windState: () => ({ direction: windDirection, mph: windMph }), nextRound: () => resetRound(runtime().monotonicUs, false), knockOut: () => killPlayer(players[1], 0, runtime().monotonicUs, "KO"), wackBall: () => { players[0].attackKind = "KICK"; returnBall(ball, players[0], runtime().monotonicUs, false); }, shieldBall: () => returnBall(ball, players[0], runtime().monotonicUs, true), crossWackBall: (contact = 1) => crossWackBall(ball, players.map((player) => ({ player, contact })), runtime().monotonicUs), enterGame: () => enterShellMode("GAME", runtime().monotonicUs), shellState: () => ({ mode: shellMode, choice: shellChoice, lab: labPlayers.map((player) => ({ ...player })) }), startFight: () => { shellMode = "GAME"; selecting = false; startReplay(runtime().monotonicUs); resetRound(runtime().monotonicUs, true); }, selectionState: () => ({ selecting, ready: selectionReady.slice() }), cameraState: () => ({ cameraWidth, cameraCenter, cameraCenterY }), roundState: () => ({ roundResult, roundElapsedUs, matchOver }), instantReplayState: () => instantReplay ? { active: true, paused: instantReplay.paused, cursor: instantReplay.cursor, frames: instantReplay.frames.length } : { active: false }, replayFrameCount: () => roundReplayFrames.length };`
   )(
     () => ({ monotonicUs: now, unixMs: 1785870000000 + Math.floor(now / 1000) }),
     (index = 0) => ({ ...pads[index], down: pads[index].down.slice() }),
@@ -143,6 +143,20 @@ test("perspective intro never submits invalid ground triangles", () => {
   tick(500000);
   fight.paint();
   assert.equal(triangles.length % 144, 0);
+});
+
+test("death camera culls balls that project outside native triangle bounds", () => {
+  const { fight, tick } = createFight();
+  fight.enableBall();
+  fight.ball.x = 100;
+  fight.ball.y = 11958;
+  fight.ball.z = 0;
+  fight.knockOut();
+  tick();
+  for (let frame = 0; frame < 120; frame++) {
+    tick(16667);
+    fight.paint();
+  }
 });
 
 test("melee and movement edges emit bounded Ableton signals", () => {
