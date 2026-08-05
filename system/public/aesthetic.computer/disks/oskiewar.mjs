@@ -124,7 +124,7 @@ function textWidth(text) { return String(text).length * 6; }
 
 function drawFighter({ ink, line, circle }, fighter, project, tick) {
   const p = project(fighter.x, fighter.y);
-  const size = Math.max(5, Math.min(11, project.scale * 320));
+  const size = Math.max(24, Math.min(54, project.scale * 260));
   const top = p.y - size * (fighter.ducking ? .8 : 1.4);
   const waist = p.y - size * .55;
   const facing = fighter.facing || 1;
@@ -135,6 +135,9 @@ function drawFighter({ ink, line, circle }, fighter, project, tick) {
   if (!fighter.alive) {
     line(p.x - size, p.y, p.x + size, p.y);
     line(p.x + size * .6, p.y, p.x + size * 1.3, p.y - size * .25);
+    ink(r, g, b, 180).write(fighter.name, {
+      x: Math.max(3, p.x - textWidth(fighter.name) / 2), y: p.y + 5,
+    });
     return;
   }
   circle(Math.round(p.x), Math.round(top), Math.max(2, size * .25), true);
@@ -147,15 +150,18 @@ function drawFighter({ ink, line, circle }, fighter, project, tick) {
   line(p.x, waist, p.x + size * .45 - swing, p.y);
   if (fighter.attack === "KICK")
     line(p.x, waist, p.x + facing * size * 1.2, waist + size * .18);
+  const handle = `${fighter.name} ${fighter.score}`;
+  ink(r, g, b).write(handle, {
+    x: Math.max(3, p.x - textWidth(handle) / 2), y: p.y + 5,
+  });
 }
 
 function paint({ wipe, ink, line, circle, screen }) {
   wipe(12, 15, 24);
   const sw = screen.width, sh = screen.height;
-  ink(218, 224, 238).write("OSKIEWAR", { x: 5, y: 4 });
   const badge = live ? "LIVE" : status.toUpperCase();
   ink(live ? 255 : 130, live ? 70 : 138, live ? 80 : 155)
-    .write(badge, { x: Math.max(5, sw - textWidth(badge) - 5), y: 4 });
+    .write(badge, { x: Math.max(5, sw - textWidth(badge) - 5), y: 26 });
 
   if (!shown) {
     ink(120, 132, 155).write(status, {
@@ -169,7 +175,7 @@ function paint({ wipe, ink, line, circle, screen }) {
     return;
   }
 
-  const top = 25, bottom = sh - 20;
+  const top = 48, bottom = sh - 24;
   const camera = shown.camera;
   const worldHeight = camera.width / CAMERA_ASPECT;
   const scale = Math.min((sw - 8) / camera.width, (bottom - top) / worldHeight);
@@ -198,13 +204,9 @@ function paint({ wipe, ink, line, circle, screen }) {
   const api = { ink, line, circle };
   shown.fighters.forEach((fighter) => drawFighter(api, fighter, project, shown.seq || 0));
 
-  const [a, b] = shown.fighters;
-  ink(...a.color).write(`${a.name} ${a.score}`, { x: 5, y: 15 });
-  const rightScore = `${b.score} ${b.name}`;
-  ink(...b.color).write(rightScore, { x: Math.max(5, sw - textWidth(rightScore) - 5), y: 15 });
   const clock = Math.ceil(shown.round.remainingMs / 1000).toString();
   ink(225, 226, 220).write(clock,
-    { x: Math.floor((sw - textWidth(clock)) / 2), y: 15 });
+    { x: Math.floor((sw - textWidth(clock)) / 2), y: 26 });
   if (shown.round.result) {
     const result = shown.round.result.slice(0, Math.max(1, Math.floor((sw - 8) / 6)));
     ink(255, 236, 145).write(result, {

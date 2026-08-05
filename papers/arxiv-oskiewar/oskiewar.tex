@@ -39,7 +39,7 @@
 
 \hypersetup{colorlinks=true,linkcolor=acblue,urlcolor=acblue,citecolor=acblue,
   pdfauthor={@jeffrey},
-  pdftitle={OSKIEWAR: A Native Xbox Fighting-Game Laboratory for Aesthetic Computer}}
+  pdftitle={OSKIEWAR: A Cross-Platform Fighting-Game Laboratory for Aesthetic Computer}}
 \titleformat{\section}{\normalfont\bfseries\normalsize\uppercase}{\thesection.}{0.45em}{}
 \titlespacing{\section}{0pt}{1.15em}{0.3em}
 \titleformat{\subsection}{\normalfont\bfseries\small}{\thesubsection}{0.45em}{}
@@ -53,6 +53,10 @@
 \setlength{\columnsep}{1.7em}
 \setlength{\parindent}{1em}
 \setlength{\parskip}{0.25em}
+\makeatletter
+\setlength{\@fptop}{0pt}
+\setlength{\@dblfptop}{0pt}
+\makeatother
 \tolerance=900
 \emergencystretch=1em
 \graphicspath{{../arxiv-ac/figures/}}
@@ -74,7 +78,7 @@
 {\acbold\fontsize{23pt}{27pt}\selectfont\color{acdark} OSKIEWAR}\par
 \vspace{0.2em}
 {\aclight\fontsize{12pt}{14pt}\selectfont\color{acpink}
-  A Native Xbox Fighting-Game Laboratory for Aesthetic Computer}\par
+  A Cross-Platform Fighting-Game Laboratory for Aesthetic Computer}\par
 \vspace{0.55em}
 {\normalsize\href{https://prompt.ac/@jeffrey}{@jeffrey}}\par
 {\small\color{acgray} Aesthetic.Computer --- 4 August 2026}\par
@@ -86,7 +90,7 @@
 
 \begin{quote}
 \small\noindent\textbf{Abstract.}
-This paper records the first playable system build of \game{}, a two-player fighting-game laboratory running as a native Universal Windows Platform application on Xbox. The game places Aesthetic Computer's URL-addressable piece model inside a fixed-timestep 3D world rendered through an orthographic gameplay camera, with perspective cinematics for introductions and deaths. It combines quantized controller input, spatial sound, wind and ball physics, weapons, compact deterministic replays, phone spectation, and a low-latency OSC bridge for sound design in Ableton Live. The native host preserves a narrow boundary: downloaded JavaScript can draw, synthesize, read indexed controllers, publish bounded match snapshots, save bounded demos, and emit a fixed game-signal vocabulary, but it cannot open arbitrary sockets or URLs. The current package is version 1.0.0.35, self-signed for Xbox Developer Mode. Thirty-two gameplay/input tests, six spectator/relay tests, native preflight checks, and live telemetry support the implementation. A frame-accurate pose and hitbox pipeline has also been specified; its principal remaining work is replacing the current shared 220\,ms melee pulse with deterministic startup, active, recovery, hit-stop, and block-stun timelines.
+This paper records the first playable system build of \game{}, a two-player fighting-game laboratory whose complete client first ran as a native Universal Windows Platform application on Xbox and whose public spectator now runs as an Aesthetic Computer web piece. The game places Aesthetic Computer's URL-addressable program model inside a fixed-timestep 3D world rendered through an orthographic gameplay camera, with perspective cinematics for introductions and deaths. It combines quantized controller input, spatial sound, wind and ball physics, weapons, compact replays, browser spectation, and a low-latency OSC bridge for sound design in Ableton Live. The native host preserves a narrow capability boundary while the browser consumes a bounded, read-only match stream. Package 1.0.0.35, 49 automated client/relay/viewer checks, native preflight, browser rendering, and live telemetry support the implementation. The browser is not yet a feature-equivalent playable client; extracting simulation, pose, camera, and command mapping into platform-neutral modules is now the primary implementation direction.
 \end{quote}
 \vspace{0.4em}
 }]
@@ -95,11 +99,11 @@ This paper records the first playable system build of \game{}, a two-player figh
 
 \game{} began as a request to put ``hello world'' on an Xbox and reveal each controller button as it was pressed. The test became a two-controller stick-figure arena: @jeffrey on player one, @oskie on player two, D-pad movement, up to jump, down to duck, and a quantized left stick so the analog device did not acquire a mechanically privileged move set. The working title was approved during play. Iteration then moved outward in three directions: a fighting system, a camera and world system, and a musical/network system.
 
-The result remains a laboratory rather than a claim to a finished competitive fighter. Its useful property is that the whole loop is observable. Raw and quantized inputs, velocities, stances, hit regions, renderer timing, audio timing, and outbound signal transport can be surfaced while the match remains playable. This follows the Aesthetic Computer piece model---small programs with \code{boot}, \code{sim}, \code{paint}, \code{act}, and \code{leave} lifecycle functions---while extending the native host where console hardware requires explicit capabilities \cite{scudderPieces,scudderOS}.
+The result remains a laboratory rather than a claim to a finished competitive fighter. Its useful property is that the whole loop is observable. Raw and quantized inputs, velocities, stances, hit regions, renderer timing, audio timing, and outbound signal transport can be surfaced while the match remains playable. This follows the Aesthetic Computer piece model---small programs with \code{boot}, \code{sim}, \code{paint}, \code{act}, and \code{leave} lifecycle functions---while extending the native host where console hardware requires explicit capabilities \cite{scudderPieces,scudderOS}. The web viewer returns the match to the ordinary URL-addressable piece system and establishes the first cross-platform seam.
 
 \section{System Architecture}
 
-The application has four layers (Figure~\ref{fig:architecture}). The Xbox shell owns Windows.Gaming.Input, rendering, audio, storage, HTTPS, UDP, and WebSocket transports. A QuickJS context runs \code{xbox/live/hello.js}. The script owns match rules and presentation. A relay accepts latest-only spectator snapshots, while the monolith stores bounded replay demos. Ableton Live receives redundant OSC datagrams over the local network.
+The system has four layers (Figure~\ref{fig:architecture}). The Xbox shell owns Windows.Gaming.Input, rendering, audio, storage, HTTPS, UDP, and WebSocket transports. A QuickJS context runs \code{xbox/live/hello.js}. The script owns match rules and native presentation. A relay accepts latest-only spectator snapshots, the web piece renders them with the standard Aesthetic Computer lifecycle, and the monolith stores bounded replay demos. Ableton Live receives redundant OSC datagrams over the local network.
 
 \begin{figure*}[t]
 \centering
@@ -116,7 +120,7 @@ The application has four layers (Figure~\ref{fig:architecture}). The Xbox shell 
   \node[core,right=of host] (piece) {QuickJS piece\\\code{hello.js}};
   \node[box,above=of piece] (render) {D3D11 renderer\\XAudio2 synth};
   \node[net,right=of piece] (relay) {Match relay\\WSS, latest-only};
-  \node[net,right=of relay] (phone) {Phone viewer\\\code{/oskiewar:match}};
+  \node[net,below=of relay] (phone) {Web spectator\\\code{/oskiewar:match}};
   \node[net,below=of piece] (replay) {Replay API\\\code{ac.oskiedemo}};
   \node[audio,below=of host] (osc) {OSC UDP :51338\\3 copies + sequence};
   \node[audio,left=of osc] (live) {Ableton Live\\{\footnotesize GAME SIGNALS}\\{\footnotesize Drum Rack}};
@@ -129,7 +133,7 @@ The application has four layers (Figure~\ref{fig:architecture}). The Xbox shell 
   \draw[arrow] (piece)--(osc);
   \draw[arrow] (osc)--(live);
 \end{tikzpicture}
-\caption{The native shell owns privileged I/O; the game script receives bounded, purpose-specific capabilities. Public spectators never connect to the console directly.}
+\caption{The native shell owns privileged I/O; browser spectators receive bounded state through the relay and never connect to the console directly.}
 \label{fig:architecture}
 \end{figure*}
 
@@ -141,7 +145,7 @@ There is deliberately no arbitrary networking primitive in downloaded pieces. Ga
 
 \section{Controls and Match Rules}
 
-Fighter selection offers @jeffrey, @oskie, @fifi, and @sat with Aesthetic Computer handle colors and bounded profile context. Player one can toggle player two between a second controller and \textsc{DUMMY}. The selected handles occupy ESPN-like lower-third plates rather than tracking the bodies through world space.
+Fighter selection offers @jeffrey, @oskie, @fifi, and @sat with Aesthetic Computer handle colors and bounded profile context. Player one can toggle player two between a second controller and \textsc{DUMMY}. In play, each selected handle is projected directly beneath its fighter; debug stance and quantized-input state stack below it without an opaque backing field.
 
 Directional input is quantized to eight-way digital intent. D-pad and left stick therefore produce the same move vocabulary. Up jumps; down crouches. Double taps are reserved for dash left/right, ultra-jump, and fast drop. Holding a direction walks and never silently becomes a dash. A controller disconnect clears movement state, preventing the historical failure in which a stale axis made @jeffrey run continuously.
 
@@ -151,7 +155,7 @@ Rounds last 30 seconds and a match ends at five round wins. Expiry can produce \
 
 \subsection{The ball rule}
 
-A ball begins above the platform, falls under gravity, bounces, and is carried by wind while airborne. Grounded wind does not move it. Running into a grounded ball boots it. A punch or kick wacks it; coincident punch and kick produces a stronger cross-wack, scaled by contact geometry. Shielding returns the ball. Only a head contact is lethal and is announced as \textsc{BALLED}; torso or limb contact bounces the ball away. The ball need not remain visible in the camera frustum, preserving it as a world object rather than a HUD mechanic.
+Each fighter begins with a grounded ball 180 world units in front. Gravity, bounce, and airborne wind subsequently govern both balls; grounded wind does not move them. Running into a grounded ball boots it. A punch or kick wacks it; coincident punch and kick produces a stronger cross-wack, scaled by contact geometry. The visible shield is also its ball collider: contact at the outer edge launches at least 5,400 units per second, while close activation approaches 9,000. Only a head contact is lethal and is announced as \textsc{BALLED}; torso or limb contact bounces the ball away. A ball may leave the camera frustum. During perspective death shots, off-camera balls are culled before triangle submission so a behind-camera projection cannot fault the native renderer.
 
 \section{World, Camera, and Rendering}
 
@@ -203,7 +207,20 @@ Every match can produce a compact \code{ac.oskiedemo} version-1 record at a decl
 
 Live spectation is separate from replay storage. The native publisher sends a compact \code{ac.oskiewar.live} version-1 snapshot at 20 Hz. The relay keeps only the newest state, accepts native messages under 7 KiB, emits no more than 40 Hz, limits a match to 64 viewers, and bounds the process to 128 rooms. A phone opens \code{https://aesthetic.computer/oskiewar:<match-name>}, or scans its match QR code, and receives state from the relay rather than from the Xbox. This avoids inbound console configuration and makes the viewer a normal URL-addressable Aesthetic Computer piece \cite{scudderURL}.
 
-\section{Endpoint and Capability Inventory}
+\subsection{The web client boundary}
+
+The present browser piece is deliberately a spectator, not a second implementation of combat. It validates the pronounceable match route, joins as a read-only viewer, interpolates two fighters and both balls, projects the authoritative camera into the local canvas, and renders match clock, live state, viewer count, and handles beneath the bodies. It accepts no combat input and cannot publish state. Figure~\ref{fig:web-spectator} shows the browser renderer against a deterministic local relay fixture that uses the production snapshot schema; it is evidence of web rendering, not evidence that the powered-off Xbox was publishing at capture time.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\columnwidth]{figures/web-spectator.png}
+\caption{The URL-addressable web spectator at \code{/oskiewar:venata-sesezi-luvulo}. The evidence frame uses a local schema-valid relay fixture so layout can be reproduced without a console.}
+\label{fig:web-spectator}
+\end{figure}
+
+Playable web parity should not maintain a second copy of the rules. The next architecture extracts quantized commands, fixed-step simulation, collision geometry, pose state, replay serialization, and camera targets from \code{xbox/live/hello.js} into shared modules. Native and web adapters supply input, drawing, sound, persistence, and transport. Keyboard and browser gamepads map onto the same deterministic command core.
+
+\section{Network and Capabilities}
 
 Table~\ref{tab:endpoints} is the complete network surface used by the present build. Private console addresses and credentials are intentionally omitted. Profile endpoints are read-only enrichment; absence degrades to labels rather than blocking a match.
 
@@ -251,9 +268,10 @@ Input & Two indexed controllers; D-pad and quantized left stick; crouch; jump; d
 Combat & Punch, kick, shield, back-block, trades, explicit stance ordering, stable pushboxes, airborne crossing, head/body/strike debug geometry. & Frame timeline, hit-stop, block-stun, action lock, buffering, and cancel windows are designed, not fully integrated.\\
 World/camera & 12k bounded 3D world, floor/ceiling/walls/platform, orthographic play, perspective intros/deaths, adaptive zoom, smoothing, parallax wind. & Camera feel still requires match-scale tuning at extreme vertical separation.\\
 Ball/weapons & Gravity ball; grounded boot; head-only BALLED; body bounce; shield return; cross-wack; gun/grenade pickups; diagonal fire; bullet cancellation; lethal blast/shot. & Balance values are provisional.\\
-Identity/HUD & @jeffrey, @oskie, @fifi, @sat, DUMMY; handle colors; MOTD/latest-chat enrichment; compact top HUD and lower-third plates. & Remote profile data is opportunistic and may be stale or unavailable.\\
+Identity/HUD & @jeffrey, @oskie, @fifi, @sat, DUMMY; handle colors; MOTD/latest-chat enrichment; compact top HUD; body-attached handles and debug state. & Remote profile data is opportunistic and may be stale or unavailable.\\
 Sound & Spatial local synthesis; event OSC; Max for Live receiver; labeled sample-free Drum Rack; raw OSC bus. & UDP redundancy reduces loss but cannot mathematically guarantee delivery; receiver must observe sequence gaps.\\
 Replay/spectator & Instant replay viewer; globally stored demos; match counts; public phone URL; QR; bounded latest-only relay. & Determinism across future physics versions requires migration or preservation of old simulation code.\\
+Web & URL-addressable read-only spectator; interpolated fighters and balls; authoritative camera projection; live/viewer status; responsive handles beneath bodies. & Browser combat input and feature-equivalent simulation are not yet integrated.\\
 Distribution & Installed name OSKIEWAR; launcher chooses OSKIEWAR or NEW GAME input lab; package 1.0.0.35. & Self-signed Developer Mode package; Microsoft Store association and certification have not been completed.\\
 \bottomrule
 \end{tabularx}
@@ -261,11 +279,11 @@ Distribution & Installed name OSKIEWAR; launcher chooses OSKIEWAR or NEW GAME in
 
 \section{Evaluation}
 
-The committed verification suite contains 32 gameplay/input tests and six spectator/relay tests. It exercises controller indexing, axis quantization and hysteresis, tap/hold separation, disconnect reset, player-two movement, shield and back-block ordering, trades, head-only ball death, body bounce, pickups, bullet cancellation, round reset, replay shape, match naming, publisher limits, viewer fan-out, malformed payload rejection, and latest-only behavior. Native preflight additionally checks JavaScript syntax, XML/package structure, portable source constraints, and the host diff.
+The verification run on 5 August 2026 contains 49 passing checks: 41 game-client cases, six relay cases, one browser-viewer case, and one native controller-probe suite. It exercises controller indexing, axis quantization and hysteresis, tap/hold separation, disconnect reset, player-two movement, shield and back-block ordering, proximity-scaled grounded-ball blast, trades, head-only ball death, body bounce, off-camera death-shot culling, pickups, bullet cancellation, round reset, replay shape, match naming, publisher limits, viewer fan-out, malformed payload rejection, and latest-only behavior. Native preflight additionally checks JavaScript syntax, XML/package structure, portable source constraints, and the host diff.
 
 Live telemetry from the development Xbox showed input polling work in the tens of microseconds and observed input-edge-to-present values around 12--16\,ms during a 60 Hz render loop. A later OSC snapshot reported 2,560 datagrams sent, five queued, zero dropped, and three copies per event. These are single-session operational observations, not a controlled latency distribution. They establish that the earlier large controller delay was not raw gamepad polling; stale state, dash timing, and reconciliation were the more consequential faults. Audio buffering remained roughly 52\,ms in that host session even when event-to-submit work was sub-millisecond, so sound-output latency and event transport latency must not be conflated.
 
-The remote session server deploy wrapper presently contains an invalid Fish heredoc and required a guarded direct deployment path. That tooling defect is outside gameplay but is operationally relevant because shared client/server movement code must remain version-aligned.
+One live session exposed a render failure without terminating the UWP process: a distant ball behind the orbiting death camera projected beyond the native triangle-coordinate bound. Telemetry isolated \code{RangeError: invalid triangle coordinates}; frustum culling fixed it, and a 120-frame death-camera regression now exercises the case. This distinction matters operationally: process liveness alone did not prove that the downloaded game script was still painting.
 
 \section{Privacy, Safety, and Limits}
 
@@ -279,11 +297,11 @@ The replay format is compact but not yet a proof of deterministic portability. A
 
 Three parallel studies informed this build. The fighter-frame study produced the deterministic pose/hitbox plan summarized above. The spectator study produced and integrated the relay, viewer piece, native publisher, and QR route. A read-only Porkbun search on 4 August 2026 found \code{oskiewar.com} available and non-premium at the time of inspection; \code{oskiewar.games} was the preferred backup. Availability and prices are transient, and no domain was purchased.
 
-The next technical sequence is narrow: replace the shared melee pulse with the proposed fixed-frame action data; measure end-to-end controller, present, local audio, and OSC-receiver latency over distributions rather than snapshots; add sequence-gap display in the Max device; preserve per-physics replay runners; and complete Microsoft Partner Center association only with the account owner's authenticated review. The existing Store work is packaging readiness, not Store registration.
+The next technical sequence now begins on the web: extract one deterministic simulation and pose core; bind keyboard and browser gamepads to the existing digital command vocabulary; bring the orthographic/perspective camera and exact hit geometry into the Aesthetic Computer renderer; then reuse replay and spectator transport rather than inventing browser-only state. In parallel, the combat pulse should become fixed-frame action data; latency should be measured as distributions; the Max device should display sequence gaps; and replay runners should remain versioned. Microsoft Store association remains deferred until the account owner's authenticated review.
 
 \section{Conclusion}
 
-\game{} turns a controller diagnostic into a networked fighting-game instrument without abandoning the small-program character of Aesthetic Computer. Its strongest result is the boundary between a highly mutable game script and a deliberately narrow native console host. That boundary supports two controllers, 3D rendering, live sound design, replay, and phone spectation while keeping networking and storage bounded and inspectable. The game is playable now; its remaining work is not feature count but precision---deterministic combat frames, controlled latency measurements, replay compatibility, balance, and certified distribution.
+\game{} turns a controller diagnostic into a networked fighting-game instrument without abandoning the small-program character of Aesthetic Computer. Its strongest result is a portable game-state contract across a highly mutable script, a deliberately narrow console host, a bounded relay, and a URL-addressable browser piece. The native game is playable and the web spectator is operational. The next result must be deeper than another port: one deterministic combat core shared by Xbox and web, with platform-specific input, drawing, sound, and transport at its edges.
 
 \begin{thebibliography}{9}
 \bibitem{scudderPieces}
@@ -312,7 +330,7 @@ Microsoft, ``Windows.Gaming.Input,'' Windows App SDK documentation. \url{https:/
 M. Wright, ``Open Sound Control: an enabling technology for musical networking,'' Center for New Music and Audio Technologies, University of California, Berkeley, 2005.
 
 \bibitem{repo}
-Aesthetic Computer contributors, ``OSKIEWAR source, tests, native host, replay endpoint, spectator relay, and Ableton devices,'' commit \code{8d374b3ec5}, 4 August 2026. \url{https://github.com/whistlegraph/aesthetic-computer}
+Aesthetic Computer contributors, ``OSKIEWAR source, tests, native host, replay endpoint, spectator relay, web viewer, and Ableton devices,'' commits through \code{1a0a6376e0}, 5 August 2026. \url{https://github.com/whistlegraph/aesthetic-computer}
 \end{thebibliography}
 
 \end{document}
