@@ -2307,11 +2307,11 @@ function drawSelectPortrait(player, x, y, scale, t) {
 
 function drawSelectionScreen(t, ink, panel) {
   const controls = controlLocale();
-  typeWrite("SELECT A PAL", 850, 76, 32, ...ink);
+  typeWrite("SELECT A PAL", 810, 66, 42, ...ink);
   for (let index = 0; index < fighterRoster.length; index++) {
     const fighter = fighterRoster[index];
     const selected = players.some((player) => player.rosterIndex === index);
-    typeWrite(fighter.handle, 270 + index * 390, 235, selected ? 31 : 23,
+    typeWrite(fighter.handle, 260 + index * 390, 225, selected ? 38 : 28,
       ...(selected ? fighter.color : mixColor([105,115,145],[130,140,155],visualTheme.light)));
   }
   for (const player of players) {
@@ -2322,14 +2322,14 @@ function drawSelectionScreen(t, ink, panel) {
     drawHandle(player.name, left + 355, 395, 46,
       profile.colors, player.color);
     const mood = profile.mood ? "MOOD  " + profile.mood.slice(0, 30) : "MOOD  —";
-    const chat = profile.lastChat ? "CHAT  " + profile.lastChat.slice(0, 37) : "CHAT  —";
-    typeWrite(mood + "\n" + chat, left + 355, 490, 22, ...ink);
+    const chat = profile.lastChat ? "CHAT  " + profile.lastChat.slice(0, 32) : "CHAT  —";
+    typeWrite(mood + "\n" + chat, left + 355, 490, 25, ...ink);
     write(player.npc ? "STANDING BY" : selectionReady[player.pad] ? "READY" : "SELECT",
       left + 355, 720, 52, ...player.color);
     typeWrite(player.npc ? "NON-PLAYER" : "P" + (player.pad + 1),
-      left + 355, 805, 24, ...ink);
+      left + 355, 805, 30, ...ink);
   }
-  typeWrite(controls.select, 258, 965, 24, ...ink);
+  typeWrite(controls.select, 225, 958, 28, ...ink);
 }
 
 function drawShellMenu(t, ink, panel) {
@@ -2338,13 +2338,13 @@ function drawShellMenu(t, ink, panel) {
     { name: "NEW GAME", x: 120, color: [88, 210, 224] },
     { name: "OSKIEWAR", x: 990, color: [214, 45, 72] },
   ];
-  typeWrite("OSKIEWAR", 824, 118, 42, ...ink);
+  typeWrite("OSKIEWAR", 790, 108, 52, ...ink);
   for (let index = 0; index < choices.length; index++) {
     const choice = choices[index];
     const active = shellChoice === index;
     box(choice.x, 280, 810, 560, ...(active ? panel : [9, 12, 26]));
     box(choice.x, 280, 810, active ? 9 : 3, ...choice.color);
-    typeWrite(choice.name, choice.x + 70, 350, active ? 50 : 40,
+    typeWrite(choice.name, choice.x + 70, 350, active ? 62 : 50,
       ...(active ? choice.color : ink));
     if (index === 0) {
       for (let pad = 0; pad < 2; pad++) {
@@ -2354,25 +2354,25 @@ function drawShellMenu(t, ink, panel) {
         line(cx - 44, cy, cx + 44, cy, 9, ...choice.color);
         line(cx, cy - 44, cx, cy + 44, 9, ...choice.color);
       }
-      typeWrite("2-PAD INPUT LAB", choice.x + 70, 760, 27, ...ink);
+      typeWrite("2-PAD INPUT LAB", choice.x + 70, 755, 34, ...ink);
     } else {
       drawSelectPortrait(players[0], choice.x + 280, 650, 1, t);
       drawSelectPortrait(players[1], choice.x + 545, 650, 1, t);
-      typeWrite("FIGHT", choice.x + 70, 760, 27, ...ink);
+      typeWrite("FIGHT", choice.x + 70, 755, 34, ...ink);
     }
   }
-  typeWrite(controls.menu, 790, 930, 24, ...ink);
+  typeWrite(controls.menu, 760, 924, 30, ...ink);
 }
 
 function drawInputLab(run, ink, panel) {
   const controls = controlLocale();
   const caps = typeof capabilities === "function" ? capabilities() : {};
   const controllerList = typeof controllers === "function" ? controllers() : [];
-  typeWrite("NEW GAME", 52, 38, 34, ...ink);
+  typeWrite("NEW GAME", 52, 32, 42, ...ink);
   const status = (caps.productName || "XBOX") + "  BIOS " +
     (caps.version || "DEV") + "  PADS " + controllerList.length +
     "  AUDIO " + Number(run.audioLatencyMs || 0).toFixed(1) + "MS";
-  typeWrite(status, 430, 44, 19, ...ink);
+  typeWrite(status, 410, 42, 23, ...ink);
   line(960, 118, 960, 1030, 3, 65, 78, 108);
   for (let index = 0; index < 2; index++) {
     const pad = padSnapshots[index] ||
@@ -2385,22 +2385,22 @@ function drawInputLab(run, ink, panel) {
     box(left, 135, 880, 7, ...color);
     typeWrite("P" + (index + 1) + "  " +
       (pad.connected ? "CONNECTED" : "NO CONTROLLER"),
-      left + 34, 175, 28, ...color);
+      left + 34, 175, 34, ...color);
     const down = pad.down.length ? pad.down.map(buttonLabel).join("  ") : "NONE";
-    typeWrite("DOWN  " + down, left + 34, 235, 22, ...ink);
+    typeWrite("DOWN  " + down, left + 34, 240, 26, ...ink);
     typeWrite("LEFT   " + pad.leftX.toFixed(3) + "  " + pad.leftY.toFixed(3) +
       "\nRIGHT  " + pad.rightX.toFixed(3) + "  " + pad.rightY.toFixed(3) +
       "\nTRIG   " + pad.leftTrigger.toFixed(3) + "  " + pad.rightTrigger.toFixed(3) +
       "\nGATE   " + input.horizontal + "  " + input.vertical,
-      left + 34, 295, 21, ...ink);
+      left + 34, 305, 25, ...ink);
     const point = labPlayers[index];
     circle(point.x, point.y, 42, 6, color);
     line(point.x - 70, point.y, point.x + 70, point.y, 3, ...color);
     line(point.x, point.y - 70, point.x, point.y + 70, 3, ...color);
     typeWrite("DPAD / LEFT STICK MOVES THIS MARKER", left + 110, 920,
-      20, ...ink);
+      24, ...ink);
   }
-  typeWrite(controls.labBack, 795, 1010, 18, ...ink);
+  typeWrite(controls.labBack, 770, 1004, 23, ...ink);
 }
 
 function drawSpectatorQr(ink) {
