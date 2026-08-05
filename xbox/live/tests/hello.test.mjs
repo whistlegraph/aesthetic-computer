@@ -20,7 +20,7 @@ function createFight(startImmediately = true, enterGame = true,
   };
   const fight = new Function(
     "runtime", "gamepad", "capabilities", "telemetry", "gameSignal", "saveReplay", "publishLive", "drum", "wipe", "box", "line", "triangle", "write", "systemWrite",
-    `${source}\nreturn { boot, sim, paint, controlLocale, players, ball, balls, bullets, grenades, gunPickups, grenadePickups, runnerWorldGeometry, runnerDistanceToPoint, disableBall: () => { ballEnabled = false; for (const item of balls) item.active = false; }, enableBall: (index = 0) => { ballEnabled = true; const item = balls[index]; item.active = true; item.serveAt = 0; item.safeUntil = 0; item.safePlayers = 0; }, setWind: (value) => { windAcceleration = value; }, windState: () => ({ direction: windDirection, mph: windMph }), nextRound: () => resetRound(runtime().monotonicUs, false), wackBall: () => { players[0].attackKind = "KICK"; returnBall(ball, players[0], runtime().monotonicUs, false); }, crossWackBall: (contact = 1) => crossWackBall(ball, players.map((player) => ({ player, contact })), runtime().monotonicUs), enterGame: () => enterShellMode("GAME", runtime().monotonicUs), shellState: () => ({ mode: shellMode, choice: shellChoice, lab: labPlayers.map((player) => ({ ...player })) }), startFight: () => { shellMode = "GAME"; selecting = false; startReplay(runtime().monotonicUs); resetRound(runtime().monotonicUs, true); }, selectionState: () => ({ selecting, ready: selectionReady.slice() }), cameraState: () => ({ cameraWidth, cameraCenter, cameraCenterY }), roundState: () => ({ roundResult, roundElapsedUs, matchOver }), instantReplayState: () => instantReplay ? { active: true, paused: instantReplay.paused, cursor: instantReplay.cursor, frames: instantReplay.frames.length } : { active: false }, replayFrameCount: () => roundReplayFrames.length };`
+    `${source}\nreturn { boot, sim, paint, controlLocale, players, ball, balls, bullets, grenades, gunPickups, grenadePickups, runnerWorldGeometry, runnerDistanceToPoint, disableBall: () => { ballEnabled = false; for (const item of balls) item.active = false; }, enableBall: (index = 0) => { ballEnabled = true; const item = balls[index]; item.active = true; item.serveAt = 0; item.safeUntil = 0; item.safePlayers = 0; }, setWind: (value) => { windAcceleration = value; }, windState: () => ({ direction: windDirection, mph: windMph }), nextRound: () => resetRound(runtime().monotonicUs, false), wackBall: () => { players[0].attackKind = "KICK"; returnBall(ball, players[0], runtime().monotonicUs, false); }, shieldBall: () => returnBall(ball, players[0], runtime().monotonicUs, true), crossWackBall: (contact = 1) => crossWackBall(ball, players.map((player) => ({ player, contact })), runtime().monotonicUs), enterGame: () => enterShellMode("GAME", runtime().monotonicUs), shellState: () => ({ mode: shellMode, choice: shellChoice, lab: labPlayers.map((player) => ({ ...player })) }), startFight: () => { shellMode = "GAME"; selecting = false; startReplay(runtime().monotonicUs); resetRound(runtime().monotonicUs, true); }, selectionState: () => ({ selecting, ready: selectionReady.slice() }), cameraState: () => ({ cameraWidth, cameraCenter, cameraCenterY }), roundState: () => ({ roundResult, roundElapsedUs, matchOver }), instantReplayState: () => instantReplay ? { active: true, paused: instantReplay.paused, cursor: instantReplay.cursor, frames: instantReplay.frames.length } : { active: false }, replayFrameCount: () => roundReplayFrames.length };`
   )(
     () => ({ monotonicUs: now, unixMs: 1785870000000 + Math.floor(now / 1000) }),
     (index = 0) => ({ ...pads[index], down: pads[index].down.slice() }),
@@ -263,14 +263,25 @@ test("X shield blocks melee geometry", () => {
   assert.ok(signals.some(([event, player]) => event === "block" && player === 1));
 });
 
-test("P2 horizontal control remains active while shielding", () => {
+test("shielding suppresses new ground and air control while preserving momentum", () => {
   const { fight, pads, tick } = createFight();
-  pads[1].down = ["X", "ArrowLeft"];
+  const player = fight.players[1];
+  player.vx = -620;
+  player.vy = -380;
+  player.grounded = false;
+  const facing = player.facing;
+  pads[1].down = ["X", "ArrowRight", "ArrowUp"];
   tick();
-  assert.ok(fight.players[1].vx < -1000);
-  pads[1].down = ["X", "ArrowRight"];
+  assert.equal(player.blocking, true);
+  assert.equal(player.inputX, 0);
+  assert.equal(player.inputY, 0);
+  assert.equal(player.facing, facing);
+  assert.ok(player.vx < 0);
+  assert.ok(player.vy > -380);
+  pads[1].down = ["X", "ArrowLeft", "ArrowDown"];
   tick();
-  assert.ok(fight.players[1].vx > 1000);
+  assert.ok(player.vx < 0);
+  assert.equal(player.ducking, false);
 });
 
 test("fighters walking into one another push apart without ending the round", () => {
@@ -430,6 +441,24 @@ test("an airborne ball only BALLS on the head", () => {
   assert.equal(player.lastButton, "BALLED");
 });
 
+test("swept head collision BALLS a dummy without tunneling", () => {
+  const { fight, tick, now } = createFight();
+  const dummy = fight.players[1];
+  dummy.name = "DUMMY";
+  dummy.npc = true;
+  const head = fight.runnerWorldGeometry(dummy, now() / 1000000).head;
+  fight.enableBall();
+  fight.ball.x = head.x - 210;
+  fight.ball.y = head.y;
+  fight.ball.z = head.z;
+  fight.ball.vx = 12000;
+  fight.ball.vy = 0;
+  tick(40000);
+  assert.equal(dummy.alive, false);
+  assert.equal(dummy.lastButton, "BALLED");
+  assert.ok(fight.players.every((player) => player.frozenGeometry));
+});
+
 test("an airborne ball bounces off non-head body geometry", () => {
   const { fight, signals, tick, now } = createFight();
   const player = fight.players[0];
@@ -459,6 +488,34 @@ test("melee returns label and signal the ball as WACK", () => {
   assert.equal(player.lastButton, "WACK");
   assert.ok(Math.abs(fight.ball.vx) >= 1300);
   assert.ok(signals.some(([event, pad]) => event === "wack" && pad === 0));
+});
+
+test("shielding pops a ball upward at more than three times normal return speed", () => {
+  const { fight } = createFight();
+  fight.enableBall();
+  fight.ball.x = fight.players[0].x + 90;
+  fight.ball.vx = -500;
+  fight.ball.vy = 0;
+  fight.wackBall();
+  const normalSpeed = Math.hypot(fight.ball.vx, fight.ball.vy);
+  fight.ball.x = fight.players[0].x + 90;
+  fight.ball.vx = -500;
+  fight.ball.vy = 0;
+  fight.shieldBall();
+  const shieldSpeed = Math.hypot(fight.ball.vx, fight.ball.vy);
+  assert.ok(shieldSpeed > normalSpeed * 3);
+  assert.ok(fight.ball.vy < -3000);
+});
+
+test("attack poses preserve two-bone limb lengths", () => {
+  const { fight, pads, tick, now } = createFight();
+  pads[0].down = ["B"];
+  tick(90000);
+  const geometry = fight.runnerWorldGeometry(
+    fight.players[0], now() / 1000000);
+  const lengths = geometry.segments.map((segment) => Math.hypot(
+    segment.x2 - segment.x1, segment.y2 - segment.y1));
+  assert.ok(Math.max(...lengths) < 80);
 });
 
 test("a close simultaneous punch and kick produce a stronger CROSS WACK", () => {
