@@ -488,6 +488,11 @@ async function fun(event, context) {
     event.path.length <= 1
   ) {
     slug = "notepat";
+  } else if (
+    (event.headers["host"] === "oskiewar.com" || event.headers["host"] === "www.oskiewar.com") &&
+    event.path.length <= 1
+  ) {
+    slug = "oskiewar";
   }
 
   // Handle kidlisp:code URL pattern and convert to $code format
