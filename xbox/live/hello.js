@@ -253,6 +253,12 @@ let nextInputDebugAt = 0;
 let liveSequence = 0;
 let liveNextAt = 0;
 let spectatorQr = null;
+let roundViewer = null;
+let roundViewerStop = null;
+let roundViewerMode = "";
+let roundViewerStatus = "CONNECTING";
+let roundViewerDemo = null;
+let roundViewerDemoStartedAt = 0;
 
 function pronounceableMatchName() {
   const consonants = "bdfgklmnprstvz";
@@ -307,7 +313,8 @@ function spectatorState(now, nextRoundId = "") {
     previousRoundId: previousRoundName ? "ow-" + previousRoundName : "",
     fighters: players.map((player) => ({
       name: player.name, color: player.color, x: player.x, y: player.y,
-      z: player.z, facing: player.facing, alive: player.alive,
+      z: player.z, vx: player.vx, vy: player.vy, vz: player.vz,
+      facing: player.facing, alive: player.alive,
       grounded: player.grounded, ducking: player.ducking,
       blocking: player.blocking, score: player.score,
       roundWins: player.roundWins, attack: player.attackKind || "",
@@ -317,7 +324,10 @@ function spectatorState(now, nextRoundId = "") {
     balls: balls.map((item) => ({ active: item.active, x: item.x,
       y: item.y, z: item.z, radius: item.radius,
       spawnOwner: item.spawnOwner })),
-    camera: { x: cameraCenter, y: cameraCenterY, width: cameraWidth },
+    camera: { x: cameraCenter, y: cameraCenterY, width: cameraWidth,
+      position: { ...cameraDoll.position }, target: { ...cameraDoll.target },
+      perspective: cameraDoll.perspective, fov: cameraDoll.fov },
+    wind: { direction: windDirection, mph: windMph },
     round: { remainingMs, result: roundResult || "" },
     replayUrl: "/api/oskiewar-replays?id=ow-" + matchName,
   };
@@ -699,6 +709,142 @@ const buttonLabel = (button) => ({
   RightStick: "RIGHT STICK", View: "VIEW", Menu: "MENU",
 }[button] || String(button).toUpperCase());
 
+function roundDemoState(demo, now) {
+  const checkpoints = demo?.checkpoints || [];
+  if (!checkpoints.length) return null;
+  const roundIndex = Number.isInteger(demo.roundIndex) ? demo.roundIndex
+    : Math.max(0, (demo.rounds?.length || 1) - 1);
+  const startTick = demo.rounds?.[roundIndex]?.[0] || 0;
+  const finalCheckpoint = checkpoints[checkpoints.length - 1];
+  const endTick = Math.max(startTick + 1, demo.durationTicks || finalCheckpoint[0]);
+  const elapsed = Math.floor((now - roundViewerDemoStartedAt) / replayTickUs);
+  const tick = startTick + elapsed % (endTick - startTick + 1);
+  let before = checkpoints[0], after = finalCheckpoint;
+  for (const row of checkpoints) {
+    if (row[0] <= tick) before = row;
+    if (row[0] >= tick) { after = row; break; }
+  }
+  const amount = clamp((tick - before[0]) / Math.max(1, after[0] - before[0]), 0, 1);
+  const value = (index) => lerp(before[index], after[index], amount);
+  const recentAttack = (pad) => {
+    let kind = "";
+    for (const event of demo.events || []) {
+      if (event[0] > tick || event[0] < tick - 18 || event[2] !== pad) continue;
+      if (event[1] === "punch" || event[1] === "kick") kind = event[1].toUpperCase();
+    }
+    return kind;
+  };
+  const fighters = [0, 1].map((pad) => {
+    const offset = 1 + pad * 8;
+    const flags = before[offset + 5];
+    const name = demo.fighters?.[pad] || `P${pad + 1}`;
+    const profile = name === "DUMMY" ? npcFighter
+      : fighterRoster.find((fighter) => fighter.handle === name);
+    const vx = value(offset + 3);
+    return { name, color: profile?.color || players[pad].color,
+      x: value(offset), y: value(offset + 1), z: value(offset + 2),
+      vx, vy: value(offset + 4), vz: 0,
+      facing: vx ? Math.sign(vx) : pad ? -1 : 1,
+      alive: Boolean(flags & 1), grounded: Boolean(flags & 2),
+      ducking: Boolean(flags & 4), blocking: Boolean(flags & 8),
+      score: Math.round(value(offset + 6)),
+      roundWins: Math.round(value(offset + 7)), attack: recentAttack(pad) };
+  });
+  const round = demo.rounds?.[roundIndex] || [startTick, 1, 0, 1];
+  const nearEnd = tick >= endTick - 20;
+  const replayBall = { x: value(17), y: value(18), z: value(19),
+    radius: 42, active: Boolean(before[22]), spawnOwner: 0 };
+  return { phase: "replay", fighters, ball: replayBall, balls: [replayBall],
+    camera: { x: value(23), y: value(24), width: Math.max(100, value(25)) },
+    wind: { direction: round[1], mph: round[2] },
+    round: { remainingMs: Math.max(0, Math.round((endTick - tick) * 1000 /
+      (demo.tickRate || 60))), result: nearEnd
+        ? demo.winner ? `${demo.winner} WINS ROUND` : "TIE" : "" } };
+}
+
+function applyRoundViewerState(state, now, dt = 1 / 60) {
+  if (!state?.fighters?.length || !state.camera || !state.round) return;
+  for (let index = 0; index < players.length; index++) {
+    const source = state.fighters[index];
+    const player = players[index];
+    const previousX = player.x;
+    const previousY = player.y;
+    for (const key of ["name", "color", "x", "y", "z", "facing", "alive",
+      "grounded", "ducking", "blocking", "score", "roundWins"])
+      if (source[key] !== undefined) player[key] = source[key];
+    player.vx = source.vx ?? (player.x - previousX) / Math.max(.001, dt);
+    player.vy = source.vy ?? (player.y - previousY) / Math.max(.001, dt);
+    player.vz = source.vz || 0;
+    player.attackKind = source.attack || "";
+    player.attackStartedAt = player.attackKind ? now - 80000 : 0;
+    player.attackUntil = player.attackKind ? now + 120000 : 0;
+    player.hit = 0;
+    player.blockFlash = 0;
+  }
+  const sources = state.balls || [state.ball];
+  for (let index = 0; index < balls.length; index++) {
+    const source = sources[index];
+    if (!source) { balls[index].active = false; continue; }
+    for (const key of ["x", "y", "z", "radius", "active", "spawnOwner"])
+      if (source[key] !== undefined) balls[index][key] = source[key];
+  }
+  cameraCenter = state.camera.x;
+  cameraCenterY = state.camera.y;
+  cameraWidth = state.camera.width;
+  if (state.wind) {
+    windDirection = state.wind.direction;
+    windMph = state.wind.mph;
+    windAcceleration = windDirection * windMph * 16;
+  }
+  const hadResult = Boolean(roundResult);
+  roundResult = state.round.result || "";
+  roundCause = roundResult.includes("BALLED") ? "BALLED" : roundResult ? "ROUND" : "";
+  roundElapsedUs = Math.max(0, roundDurationUs - state.round.remainingMs * 1000);
+  matchOver = state.phase === "match";
+  roundStartedAt = now - introDurationUs - roundElapsedUs;
+  if (roundResult && !hadResult) roundOverAt = now;
+  const target = state.camera.target || { x: cameraCenter, y: cameraCenterY, z: 0 };
+  cameraDoll.track({ target,
+    position: state.camera.position ||
+      { x: cameraCenter, y: cameraCenterY, z: -cameraWidth * 1.35 },
+    width: cameraWidth, perspective: state.camera.perspective || 0,
+    fov: state.camera.fov || 55 }, dt, 1000);
+}
+
+function handleRoundViewer(message) {
+  const now = runtime().monotonicUs;
+  matchName = message.roundName || matchName;
+  if (message.type === "round") {
+    roundViewerDemo = null;
+    roundViewerMode = "";
+    roundViewerStatus = "CONNECTING";
+    return;
+  }
+  if (message.type === "status") {
+    roundViewerStatus = String(message.content?.label || "waiting").toUpperCase();
+    return;
+  }
+  if (message.type === "demo") {
+    roundViewerDemo = message.content;
+    roundViewerDemoStartedAt = now;
+    roundViewerMode = "DEMO";
+    return;
+  }
+  if (message.type === "state") {
+    if (roundViewerDemo && !message.live) return;
+    if (roundViewerDemo && message.content?.phase === "match") return;
+    roundViewerMode = "LIVE";
+    applyRoundViewerState(message.content, now);
+  }
+}
+
+function updateRoundViewer(now, dt) {
+  if (roundViewerDemo && roundViewerMode === "DEMO") {
+    const state = roundDemoState(roundViewerDemo, now);
+    if (state) applyRoundViewerState(state, now, dt);
+  }
+}
+
 function boot() {
   startedAt = runtime().monotonicUs;
   roundStartedAt = startedAt;
@@ -709,6 +855,18 @@ function boot() {
   shellChoice = 1;
   shellPrevious = [];
   navigationPrevious = [[], []];
+  roundViewer = globalThis.__oskiewarRoundBridge || null;
+  if (roundViewer?.start) {
+    shellMode = "GAME";
+    selecting = false;
+    roundResult = "";
+    matchOver = false;
+    spectatorQr = null;
+    matchName = roundViewer.name || "";
+    roundStartedAt = startedAt - introDurationUs;
+    roundViewerStop = roundViewer.start(handleRoundViewer);
+    return;
+  }
   beginSelect(startedAt);
 }
 
@@ -1704,6 +1862,10 @@ function sim() {
   const now = runtime().monotonicUs;
   const dt = Math.min(0.04, Math.max(0.001, (now - lastSimAt) / 1000000));
   lastSimAt = now;
+  if (roundViewer) {
+    updateRoundViewer(now, dt);
+    return;
+  }
   padSnapshots[0] = gamepad(0);
   padSnapshots[1] = gamepad(1);
   if (returnToSelectPressed(now)) return;
@@ -2572,6 +2734,12 @@ function paint() {
     Math.ceil((roundDurationUs - roundElapsedUs) / 1000000));
   const timerText = String(remainingSeconds).padStart(2, "0");
   typeWrite(timerText, 928, 10, 62, ...titleInk);
+  if (roundViewer) {
+    const viewerLabel = roundViewerMode || roundViewerStatus;
+    typeWrite(viewerLabel, 1740 - viewerLabel.length * 10, 24, 24,
+      ...(roundViewerMode === "LIVE" ? [210, 42, 62] : titleInk));
+    typeWrite(matchName.toUpperCase(), 24, 24, 20, ...titleInk);
+  }
   for (const pickup of gunPickups) drawGunPickup(pickup, t);
   for (const pickup of grenadePickups) drawGrenadePickup(pickup, t);
   for (const bullet of bullets) drawBullet(bullet);
@@ -2667,9 +2835,11 @@ function paint() {
       typeWrite(cause, (1920 - causeWidth) / 2, 810, 92, ...titleInk);
       const resultWidth = roundResult.length * 28;
       typeWrite(roundResult, (1920 - resultWidth) / 2, 930, 34, ...titleInk);
-      const replayControl = controlLocale().replay;
-      typeWrite(replayControl, 960 - replayControl.length * 7.5,
-        982, 22, ...titleInk);
+      if (!roundViewer) {
+        const replayControl = controlLocale().replay;
+        typeWrite(replayControl, 960 - replayControl.length * 7.5,
+          982, 22, ...titleInk);
+      }
     }
   }
   drawSpectatorQr(titleInk);
@@ -2678,4 +2848,8 @@ function paint() {
 }
 
 function act() {}
-function leave() {}
+function leave() {
+  roundViewerStop?.();
+  roundViewerStop = null;
+  roundViewer = null;
+}

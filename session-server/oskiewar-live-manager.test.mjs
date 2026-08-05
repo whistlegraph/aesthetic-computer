@@ -38,10 +38,13 @@ test("live state validation rejects unbounded or malformed values", () => {
     seriesId: "ow-zavoki-bemuru-ditale",
     roundId: "ow-bafegu-dorimi-kunapo",
     previousRoundId: "ow-dorimi-kunapo-lafegu",
-    nextRoundId: "ow-fagori-buneta-kovisu" }), null);
+    nextRoundId: "ow-fagori-buneta-kovisu",
+    wind: { direction: -1, mph: 18 } }), null);
   assert.equal(validateOskiewarLiveState({ ...state(), fighters: [] }), "Invalid fighters");
   assert.equal(validateOskiewarLiveState({ ...state(), nextRoundId: "bad" }),
     "Invalid next round ID");
+  assert.equal(validateOskiewarLiveState({ ...state(), wind: { direction: 0, mph: 8 } }),
+    "Invalid wind");
   assert.equal(validateOskiewarLiveState({ ...state(), replayUrl: "https://bad" }),
     "Invalid replay URL");
 });

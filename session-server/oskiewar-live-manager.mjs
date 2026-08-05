@@ -68,6 +68,9 @@ export function validateOskiewarLiveState(value) {
       !finite(value.camera.x) || !finite(value.camera.y) ||
       !finite(value.camera.width, 100000) || value.camera.width < 100)
     return "Invalid camera";
+  if (value.wind !== undefined && (!value.wind ||
+      ![-1, 1].includes(value.wind.direction) ||
+      !integer(value.wind.mph, 0, 200))) return "Invalid wind";
   if (!value.round || typeof value.round !== "object" ||
       !integer(value.round.remainingMs, 0, 3600000) ||
       typeof value.round.result !== "string" || value.round.result.length > 80)

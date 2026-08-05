@@ -868,8 +868,9 @@ oskiewar.com {
     redir @oskiewarwatchroot https://oskiewar.com/ 308
     @oskiewarround path_regexp oskiewarround ^/([bdfgklmnprstvz][aeiou][bdfgklmnprstvz][aeiou][bdfgklmnprstvz][aeiou]-[bdfgklmnprstvz][aeiou][bdfgklmnprstvz][aeiou][bdfgklmnprstvz][aeiou]-[bdfgklmnprstvz][aeiou][bdfgklmnprstvz][aeiou][bdfgklmnprstvz][aeiou])/?$
     handle @oskiewarround {
-        rewrite * /oskiewar:{re.oskiewarround.1}
-        import lith_proxy
+        root * /opt/ac/xbox/live
+        rewrite * /mac-test.html
+        file_server
     }
     handle /oskiewar* {
         import lith_proxy

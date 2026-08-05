@@ -303,11 +303,14 @@
   </script>
   <script type="module">
     import { qrcode } from "/aesthetic.computer/dep/@akamfoad/qr/qr.mjs";
+    import { RoundRoom, roundNameFromPath } from "/round-room.mjs";
     globalThis.qrcode = qrcode;
+    const roundName = roundNameFromPath(location.pathname);
+    globalThis.__oskiewarRoundBridge = roundName ? new RoundRoom(roundName) : null;
 
     async function start() {
       const source = globalThis.__fightPieceSource ||
-        await fetch("./hello.js", { cache: "no-store" }).then((response) => response.text());
+        await fetch("/hello.js", { cache: "no-store" }).then((response) => response.text());
       const piece = new Function(
         "runtime", "gamepad", "controllers", "capabilities", "telemetry",
         "gameSignal", "saveReplay", "publishLive", "ac", "drum", "wipe", "box",

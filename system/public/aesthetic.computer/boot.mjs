@@ -1121,15 +1121,10 @@ if (
   location.hostname === "www.oskiewar.com"
 ) {
   const watchMatch = location.pathname.match(/^\/watch\/([^/]+)\/?$/);
-  const rawMatch = location.pathname.match(
-    /^\/((?:[bdfgklmnprstvz][aeiou]){3}-(?:[bdfgklmnprstvz][aeiou]){3}-(?:[bdfgklmnprstvz][aeiou]){3})\/?$/
-  );
   if (location.pathname === "/watch" || location.pathname === "/watch/") {
     sluggedUrl = "oskiewar";
   } else if (watchMatch) {
     sluggedUrl = `oskiewar:${watchMatch[1]}`;
-  } else if (rawMatch) {
-    sluggedUrl = `oskiewar:${rawMatch[1]}`;
   }
 }
 
