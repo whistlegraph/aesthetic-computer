@@ -289,6 +289,11 @@ const PAPER_MAP = {
     siteName: "where-the-microseconds-go-26-arxiv",
     title: "Where the Microseconds Go",
   },
+  "arxiv-oskiewar": {
+    base: "oskiewar",
+    siteName: "oskiewar-26-arxiv",
+    title: "OSKIEWAR",
+  },
   "arxiv-penrose": {
     base: "penrose",
     siteName: "diagrams-from-data-26-arxiv",
@@ -457,6 +462,7 @@ const CATEGORIES = [
       "arxiv-api",
       "arxiv-pieces",
       "arxiv-notepat",
+      "arxiv-oskiewar",
       "arxiv-cal",
       "arxiv-kidlisp-reference",
       "arxiv-kidlisp-cards",
