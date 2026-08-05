@@ -1778,6 +1778,27 @@ function typeWrite(text, x, y, size, ...color) {
   else systemWrite(text, x, y, size, ...color);
 }
 
+function controlLocale() {
+  const caps = typeof capabilities === "function" ? capabilities() : {};
+  const keyboard = caps.inputFamily === "keyboard" ||
+    caps.platform === "macos" || caps.platform === "web";
+  return keyboard ? {
+    menu: "A D SELECT     F OPEN",
+    select: "P1 A/D + F     P2 LEFT/RIGHT + K     H P2/DUMMY     G BACK",
+    replayPaused: "PAUSED   F PLAY   A D SCRUB   G EXIT",
+    replayPlaying: "F PAUSE   A D SCRUB   G EXIT",
+    replay: "Q REPLAY",
+    labBack: "Q  BACK TO SELECTOR",
+  } : {
+    menu: "DPAD LEFT RIGHT     A OPEN",
+    select: "LEFT RIGHT SELECT     A READY     X P2 / DUMMY     B BACK",
+    replayPaused: "PAUSED   A PLAY   LEFT RIGHT SCRUB   B EXIT",
+    replayPlaying: "A PAUSE   LEFT RIGHT SCRUB   B EXIT",
+    replay: "Y REPLAY",
+    labBack: "VIEW  BACK TO SELECTOR",
+  };
+}
+
 function drawHandle(handle, x, y, size, colors, fallback) {
   let cursor = x;
   for (let index = 0; index < handle.length; index++) {
@@ -2080,6 +2101,7 @@ function drawSelectPortrait(player, x, y, scale, t) {
 }
 
 function drawSelectionScreen(t, ink, panel) {
+  const controls = controlLocale();
   typeWrite("CHOOSE YOUR FIGHTER", 735, 76, 32, ...ink);
   for (let index = 0; index < fighterRoster.length; index++) {
     const fighter = fighterRoster[index];
@@ -2102,11 +2124,11 @@ function drawSelectionScreen(t, ink, panel) {
     typeWrite(player.npc ? "NON-PLAYER" : "P" + (player.pad + 1),
       left + 355, 805, 24, ...ink);
   }
-  write("LEFT RIGHT SELECT     A READY     X P2 / DUMMY     B BACK",
-    290, 965, 26, ...ink);
+  typeWrite(controls.select, 258, 965, 24, ...ink);
 }
 
 function drawShellMenu(t, ink, panel) {
+  const controls = controlLocale();
   const choices = [
     { name: "NEW GAME", x: 120, color: [88, 210, 224] },
     { name: "OSKIEWAR", x: 990, color: [214, 45, 72] },
@@ -2134,10 +2156,11 @@ function drawShellMenu(t, ink, panel) {
       typeWrite("FIGHT", choice.x + 70, 760, 27, ...ink);
     }
   }
-  typeWrite("LEFT RIGHT     A OPEN", 785, 930, 24, ...ink);
+  typeWrite(controls.menu, 790, 930, 24, ...ink);
 }
 
 function drawInputLab(run, ink, panel) {
+  const controls = controlLocale();
   const caps = typeof capabilities === "function" ? capabilities() : {};
   const controllerList = typeof controllers === "function" ? controllers() : [];
   typeWrite("NEW GAME", 52, 38, 34, ...ink);
@@ -2172,7 +2195,7 @@ function drawInputLab(run, ink, panel) {
     typeWrite("DPAD / LEFT STICK MOVES THIS MARKER", left + 110, 920,
       20, ...ink);
   }
-  typeWrite("VIEW  BACK TO SELECTOR", 795, 1010, 18, ...ink);
+  typeWrite(controls.labBack, 795, 1010, 18, ...ink);
 }
 
 function drawSpectatorQr(ink) {
@@ -2315,9 +2338,9 @@ function paint() {
         Math.floor(instantReplay.cursor) + 1);
       const replayLabel = "REPLAY  " + frame + "/" + instantReplay.frames.length;
       typeWrite(replayLabel, 960 - replayLabel.length * 10, 820, 30, ...titleInk);
+      const locale = controlLocale();
       const controls = instantReplay.paused
-        ? "PAUSED   A PLAY   LEFT RIGHT SCRUB   B EXIT"
-        : "A PAUSE   LEFT RIGHT SCRUB   B EXIT";
+        ? locale.replayPaused : locale.replayPlaying;
       typeWrite(controls, 960 - controls.length * 7.5, 948, 23, ...titleInk);
     } else {
       const cause = roundCause || "ROUND";
@@ -2326,7 +2349,9 @@ function paint() {
       typeWrite(cause, (1920 - causeWidth) / 2, 810, 92, ...titleInk);
       const resultWidth = roundResult.length * 28;
       typeWrite(roundResult, (1920 - resultWidth) / 2, 930, 34, ...titleInk);
-      typeWrite("Y REPLAY", 904, 982, 22, ...titleInk);
+      const replayControl = controlLocale().replay;
+      typeWrite(replayControl, 960 - replayControl.length * 7.5,
+        982, 22, ...titleInk);
     }
   }
   drawPlayerHud(players[0], 20, padSnapshots[0]);

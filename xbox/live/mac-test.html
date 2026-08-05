@@ -5,27 +5,22 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>OSKIEWAR — Mac Test</title>
   <style>
+    @font-face {
+      font-family: "YWFT Processing";
+      src: url("./ywft-processing-regular.ttf") format("truetype");
+      font-display: block;
+    }
     * { box-sizing: border-box; }
     html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: #07081c; }
     body { display: grid; place-items: center; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
     canvas { width: 100vw; height: 100vh; object-fit: contain; display: block; }
-    #controls {
-      position: fixed; top: 280px; right: 22px; z-index: 2;
-      padding: 12px 16px; border: 2px solid #485a7d; border-radius: 8px;
-      color: #c3d2e6; background: rgb(7 8 28 / 82%); font: 16px/1.55 Arial, sans-serif;
-      pointer-events: none; transition: opacity 180ms ease;
-    }
-    #controls strong { color: white; }
-    #controls.used { opacity: .14; }
+    #status { position: absolute; width: 1px; height: 1px; overflow: hidden;
+      clip-path: inset(50%); white-space: nowrap; }
   </style>
 </head>
 <body>
   <canvas id="screen" width="1920" height="1080" aria-label="OSKIEWAR two-player stick fight"></canvas>
-  <div id="controls">
-    <div><strong>JEFFREY</strong> WASD · F bullet · G grenade</div>
-    <div><strong>OSKIE</strong> arrows · K bullet · L grenade</div>
-    <div><strong>DOUBLE-TAP</strong> direction · dash / ultra-jump / fast-drop</div>
-  </div>
+  <div id="status" role="alert" aria-live="polite"></div>
 
   <script>
     const canvas = document.querySelector("#screen");
@@ -34,10 +29,11 @@
     const keyMap = new Map([
       ["KeyW", [0, "ArrowUp"]], ["KeyS", [0, "ArrowDown"]],
       ["KeyA", [0, "ArrowLeft"]], ["KeyD", [0, "ArrowRight"]],
-      ["KeyF", [0, "A"]], ["KeyG", [0, "B"]],
+      ["KeyF", [0, "A"]], ["KeyG", [0, "B"]], ["KeyH", [0, "X"]],
+      ["KeyQ", [0, "View"]], ["Enter", [0, "Menu"]],
       ["ArrowUp", [1, "ArrowUp"]], ["ArrowDown", [1, "ArrowDown"]],
       ["ArrowLeft", [1, "ArrowLeft"]], ["ArrowRight", [1, "ArrowRight"]],
-      ["KeyK", [1, "A"]], ["KeyL", [1, "B"]],
+      ["KeyK", [1, "A"]], ["KeyL", [1, "B"]], ["Semicolon", [1, "X"]],
     ]);
     let audioContext = null;
 
@@ -70,6 +66,16 @@
       context.moveTo(x1, y1);
       context.lineTo(x2, y2);
       context.stroke();
+    }
+
+    function triangle(x1, y1, x2, y2, x3, y3, ...ink) {
+      context.fillStyle = color(ink);
+      context.beginPath();
+      context.moveTo(x1, y1);
+      context.lineTo(x2, y2);
+      context.lineTo(x3, y3);
+      context.closePath();
+      context.fill();
     }
 
     const blockGlyphs = {
@@ -125,7 +131,20 @@
       drawText(text, x, y, size, ink);
     }
 
-    function runtime() { return { monotonicUs: performance.now() * 1000 }; }
+    function ywftWrite(text, x, y, size, ...ink) {
+      context.fillStyle = color(ink);
+      context.font = `${size}px "YWFT Processing", "Segoe UI", sans-serif`;
+      context.textBaseline = "top";
+      const lines = String(text).split("\n");
+      for (let index = 0; index < lines.length; index++)
+        context.fillText(lines[index], x, y + index * size * 1.15);
+    }
+
+    function runtime() {
+      return { monotonicUs: performance.now() * 1000, unixMs: Date.now(),
+        audioLatencyMs: audioContext?.baseLatency ? audioContext.baseLatency * 1000 : 0,
+        frameRate: 60 };
+    }
     function telemetry(kind, message) { console.debug(kind, message); }
 
     function browserPad(index) {
@@ -140,7 +159,7 @@
         });
       }
       return {
-        connected: true,
+        connected: Boolean(source) || down.size > 0 || index === 0,
         down: [...down],
         leftX: source?.axes?.[0] || 0,
         leftY: -(source?.axes?.[1] || 0),
@@ -152,6 +171,16 @@
     }
 
     function gamepad(index = 0) { return browserPad(index); }
+    function controllers() {
+      return [0, 1].map((index) => ({ index, connected: browserPad(index).connected,
+        name: navigator.getGamepads?.()[index]?.id || `KEYBOARD P${index + 1}` }));
+    }
+    function capabilities() {
+      const mac = navigator.userAgent.includes("Mac");
+      return { platform: mac ? "macos" : "web",
+        inputFamily: "keyboard", productName: mac ? "MACOS" : "WEB",
+        version: "CROSS-PLATFORM", graphics: "CANVAS2D", audio: "WEB AUDIO" };
+    }
 
     function noiseSource(ac, duration) {
       const buffer = ac.createBuffer(1, Math.ceil(ac.sampleRate * duration), ac.sampleRate);
@@ -205,11 +234,48 @@
       }
     }
 
+    function gameSignal(event, player = -1, value = 0, value2 = 0) {
+      dispatchEvent(new CustomEvent("oskiewar:signal", {
+        detail: { event, player, value, value2, at: performance.now() },
+      }));
+    }
+
+    async function saveReplay(payload) {
+      try {
+        await fetch("https://aesthetic.computer/api/oskiewar-replays", {
+          method: "POST", headers: { "content-type": "application/json" }, body: payload,
+        });
+      } catch (error) { telemetry("REPLAY_WEB_ERROR", error.message); }
+    }
+
+    const liveSockets = new Map();
+    function publishLive(matchId, payload) {
+      let state = liveSockets.get(matchId);
+      if (!state) {
+        const socket = new WebSocket(`wss://session-server.aesthetic.computer/oskiewar-live?match=${encodeURIComponent(matchId)}&role=publisher`);
+        state = { socket, pending: payload };
+        liveSockets.set(matchId, state);
+        socket.addEventListener("open", () => {
+          if (state.pending) socket.send(JSON.stringify({ type: "oskiewar:state",
+            content: JSON.parse(state.pending) }));
+          state.pending = "";
+        });
+        socket.addEventListener("close", () => liveSockets.delete(matchId));
+        return;
+      }
+      if (state.socket.readyState === WebSocket.OPEN)
+        state.socket.send(JSON.stringify({ type: "oskiewar:state", content: JSON.parse(payload) }));
+      else state.pending = payload;
+    }
+
+    function ac() {
+      return { fighters: [], moodHandle: "", mood: "", source: "web-fallback" };
+    }
+
     addEventListener("keydown", (event) => {
       const mapped = keyMap.get(event.code);
       if (!mapped) return;
       event.preventDefault();
-      document.querySelector("#controls").classList.add("used");
       keys[mapped[0]].add(mapped[1]);
       ensureAudio();
     });
@@ -221,7 +287,9 @@
     });
     addEventListener("blur", () => keys.forEach((held) => held.clear()));
     globalThis.__fightHost = {
-      runtime, gamepad, telemetry, drum, wipe, box, line, write, systemWrite,
+      runtime, gamepad, controllers, capabilities, telemetry, gameSignal,
+      saveReplay, publishLive, ac, drum, wipe, box, line, triangle,
+      write, systemWrite, ywftWrite,
     };
   </script>
   <script>
@@ -229,13 +297,14 @@
       const source = globalThis.__fightPieceSource ||
         await fetch("./hello.js", { cache: "no-store" }).then((response) => response.text());
       const piece = new Function(
-        "runtime", "gamepad", "telemetry", "drum", "wipe", "box", "line", "write", "systemWrite",
+        "runtime", "gamepad", "controllers", "capabilities", "telemetry",
+        "gameSignal", "saveReplay", "publishLive", "ac", "drum", "wipe", "box",
+        "line", "triangle", "write", "systemWrite", "ywftWrite",
         `${source}\nreturn { boot, sim, paint };`
-      )(globalThis.__fightHost.runtime, globalThis.__fightHost.gamepad,
-        globalThis.__fightHost.telemetry, globalThis.__fightHost.drum,
-        globalThis.__fightHost.wipe, globalThis.__fightHost.box,
-        globalThis.__fightHost.line, globalThis.__fightHost.write,
-        globalThis.__fightHost.systemWrite);
+      )(...["runtime", "gamepad", "controllers", "capabilities", "telemetry",
+        "gameSignal", "saveReplay", "publishLive", "ac", "drum", "wipe", "box",
+        "line", "triangle", "write", "systemWrite", "ywftWrite"]
+        .map((name) => globalThis.__fightHost[name]));
       piece.boot();
       function frame() {
         piece.sim();
@@ -246,7 +315,7 @@
     }
     start().catch((error) => {
       console.error(error);
-      document.querySelector("#controls").textContent = `TEST ERROR: ${error.message}`;
+      document.querySelector("#status").textContent = `TEST ERROR: ${error.message}`;
     });
   </script>
 </body>

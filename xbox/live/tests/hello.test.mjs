@@ -4,7 +4,8 @@ import test from "node:test";
 
 const source = await readFile(new URL("../hello.js", import.meta.url), "utf8");
 
-function createFight(startImmediately = true, enterGame = true) {
+function createFight(startImmediately = true, enterGame = true,
+  platform = "xbox-uwp") {
   let now = 0;
   const signals = [];
   const replays = [];
@@ -18,11 +19,12 @@ function createFight(startImmediately = true, enterGame = true) {
     triangles.push(values);
   };
   const fight = new Function(
-    "runtime", "gamepad", "telemetry", "gameSignal", "saveReplay", "publishLive", "drum", "wipe", "box", "line", "triangle", "write", "systemWrite",
-    `${source}\nreturn { boot, sim, paint, players, ball, bullets, grenades, gunPickups, grenadePickups, runnerWorldGeometry, runnerDistanceToPoint, disableBall: () => { ballEnabled = false; ball.active = false; }, enableBall: () => { ballEnabled = true; ball.active = true; ball.serveAt = 0; ball.safeUntil = 0; ball.safePlayers = 0; }, setWind: (value) => { windAcceleration = value; }, windState: () => ({ direction: windDirection, mph: windMph }), nextRound: () => resetRound(runtime().monotonicUs, false), wackBall: () => { players[0].attackKind = "KICK"; returnBall(players[0], runtime().monotonicUs, false); }, crossWackBall: (contact = 1) => crossWackBall(players.map((player) => ({ player, contact })), runtime().monotonicUs), enterGame: () => enterShellMode("GAME", runtime().monotonicUs), shellState: () => ({ mode: shellMode, choice: shellChoice, lab: labPlayers.map((player) => ({ ...player })) }), startFight: () => { shellMode = "GAME"; selecting = false; startReplay(runtime().monotonicUs); resetRound(runtime().monotonicUs, true); }, selectionState: () => ({ selecting, ready: selectionReady.slice() }), cameraState: () => ({ cameraWidth, cameraCenter, cameraCenterY }), roundState: () => ({ roundResult, roundElapsedUs, matchOver }), instantReplayState: () => instantReplay ? { active: true, paused: instantReplay.paused, cursor: instantReplay.cursor, frames: instantReplay.frames.length } : { active: false }, replayFrameCount: () => roundReplayFrames.length };`
+    "runtime", "gamepad", "capabilities", "telemetry", "gameSignal", "saveReplay", "publishLive", "drum", "wipe", "box", "line", "triangle", "write", "systemWrite",
+    `${source}\nreturn { boot, sim, paint, controlLocale, players, ball, bullets, grenades, gunPickups, grenadePickups, runnerWorldGeometry, runnerDistanceToPoint, disableBall: () => { ballEnabled = false; ball.active = false; }, enableBall: () => { ballEnabled = true; ball.active = true; ball.serveAt = 0; ball.safeUntil = 0; ball.safePlayers = 0; }, setWind: (value) => { windAcceleration = value; }, windState: () => ({ direction: windDirection, mph: windMph }), nextRound: () => resetRound(runtime().monotonicUs, false), wackBall: () => { players[0].attackKind = "KICK"; returnBall(players[0], runtime().monotonicUs, false); }, crossWackBall: (contact = 1) => crossWackBall(players.map((player) => ({ player, contact })), runtime().monotonicUs), enterGame: () => enterShellMode("GAME", runtime().monotonicUs), shellState: () => ({ mode: shellMode, choice: shellChoice, lab: labPlayers.map((player) => ({ ...player })) }), startFight: () => { shellMode = "GAME"; selecting = false; startReplay(runtime().monotonicUs); resetRound(runtime().monotonicUs, true); }, selectionState: () => ({ selecting, ready: selectionReady.slice() }), cameraState: () => ({ cameraWidth, cameraCenter, cameraCenterY }), roundState: () => ({ roundResult, roundElapsedUs, matchOver }), instantReplayState: () => instantReplay ? { active: true, paused: instantReplay.paused, cursor: instantReplay.cursor, frames: instantReplay.frames.length } : { active: false }, replayFrameCount: () => roundReplayFrames.length };`
   )(
     () => ({ monotonicUs: now, unixMs: 1785870000000 + Math.floor(now / 1000) }),
     (index = 0) => ({ ...pads[index], down: pads[index].down.slice() }),
+    () => ({ platform, inputFamily: platform === "xbox-uwp" ? "xbox" : "keyboard" }),
     noOp, (...signal) => signals.push(signal), (payload) => replays.push(payload),
     (matchId, payload) => liveFrames.push([matchId, JSON.parse(payload)]),
     noOp, noOp, noOp, noOp,
@@ -50,6 +52,16 @@ function createFight(startImmediately = true, enterGame = true) {
   return { fight, pads, signals, replays, liveFrames, triangles,
     tick, tap, now: () => now };
 }
+
+test("control copy follows the native host platform", () => {
+  const xbox = createFight(false, false, "xbox-uwp").fight.controlLocale();
+  const mac = createFight(false, false, "macos").fight.controlLocale();
+  assert.match(xbox.menu, /DPAD/);
+  assert.match(xbox.select, /A READY/);
+  assert.equal(mac.menu, "A D SELECT     F OPEN");
+  assert.match(mac.select, /P1 A\/D \+ F/);
+  assert.doesNotMatch(mac.select, /A READY/);
+});
 
 test("boot selector opens the blank two-pad NEW GAME input lab", () => {
   const { fight, pads, tick } = createFight(false, false);

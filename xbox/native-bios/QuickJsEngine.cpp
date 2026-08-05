@@ -605,6 +605,7 @@ JSValue Capabilities(JSContext* context, JSValueConst, int, JSValueConst*) {
   if (!scope || !scope->api) return JS_EXCEPTION;
   JSValue result = JS_NewObject(context);
   JS_SetPropertyStr(context, result, "platform", JS_NewString(context, "xbox-uwp"));
+  JS_SetPropertyStr(context, result, "inputFamily", JS_NewString(context, "xbox"));
   JS_SetPropertyStr(context, result, "quickjs", JS_NewBool(context, true));
   JS_SetPropertyStr(context, result, "direct3d11", JS_NewBool(context, true));
   JS_SetPropertyStr(context, result, "xaudio2", JS_NewBool(context, true));
