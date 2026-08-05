@@ -1,0 +1,26 @@
+{
+  "message": {
+    "sender": {
+      "dpid": "REPLACE_WITH_SENDER_DPID",
+      "fullName": "REPLACE_WITH_LEGAL_SENDER_NAME"
+    },
+    "recipient": {
+      "dpid": "REPLACE_WITH_RECIPIENT_DPID",
+      "fullName": "REPLACE_WITH_RECIPIENT_NAME"
+    }
+  },
+  "identifiers": {
+    "isrc": "REPLACE_WITH_ISRC",
+    "icpn": "REPLACE_WITH_UPC_OR_EAN"
+  },
+  "rights": {
+    "pLine": {
+      "year": 2026,
+      "text": "REPLACE_WITH_P_LINE"
+    },
+    "cLine": {
+      "year": 2026,
+      "text": "REPLACE_WITH_C_LINE"
+    }
+  }
+}

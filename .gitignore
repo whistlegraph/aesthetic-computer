@@ -505,6 +505,7 @@ ac-shop/.frontpage-backup.json
 
 # pop C engine — compiled binaries + audio caches (media, never git; see pop/ASSETS.md)
 pop/**/out/
+pop/releases/**/release.private.json
 pop/**/c/syl-cache/
 pop/**/c/fx/
 pop/**/c/vocals/

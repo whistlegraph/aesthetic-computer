@@ -1,0 +1,79 @@
+{
+  "schemaVersion": 1,
+  "slug": "marimbaba",
+  "ddex": {
+    "ernVersion": "4.3.2",
+    "namespace": "http://ddex.net/xml/ern/432",
+    "releaseProfileVersionId": "SimpleAudioSingle",
+    "releaseProfilesVersion": "2.3.1",
+    "avsVersionId": "11"
+  },
+  "release": {
+    "title": "marimbaba",
+    "displayArtist": "Aesthetic Dot Computer",
+    "labelName": "Aesthetic Dot Computer",
+    "collectionTitle": "pixsies",
+    "releaseDate": "2026-05-22",
+    "genre": "Electronic",
+    "subGenre": "Ambient",
+    "parentalWarningType": "NotExplicit",
+    "territoryCode": "Worldwide",
+    "deals": [
+      {
+        "commercialModelType": "AdvertisementSupportedModel",
+        "useTypes": ["NonInteractiveStream", "OnDemandStream"]
+      },
+      {
+        "commercialModelType": "SubscriptionModel",
+        "useTypes": ["ConditionalDownload", "NonInteractiveStream", "OnDemandStream"]
+      },
+      {
+        "commercialModelType": "PayAsYouGoModel",
+        "useTypes": ["PermanentDownload"]
+      }
+    ]
+  },
+  "recording": {
+    "title": "marimbaba",
+    "type": "MusicalWorkSoundRecording",
+    "durationSeconds": 83.5714,
+    "hasVocalPerformance": false,
+    "hasForegroundVocalPerformance": false,
+    "containsAI": "None"
+  },
+  "artwork": {
+    "type": "FrontCoverImage",
+    "containsAI": "All"
+  },
+  "assets": {
+    "audio": {
+      "publicUrl": "https://assets.aesthetic.computer/pop/marimbaba.mp3",
+      "localPath": "~/Documents/Shelf/marimbaba-DISTROKID/marimbaba-MASTER.wav",
+      "fileName": "marimbaba-MASTER.wav",
+      "containerFormat": "WAV",
+      "audioCodecType": "PCM",
+      "samplingRate": 44100,
+      "bitsPerSample": 16,
+      "numberOfChannels": 2
+    },
+    "cover": {
+      "publicUrl": "https://assets.aesthetic.computer/pop/marimbaba.jpg",
+      "localPath": "~/Documents/Shelf/marimbaba-DISTROKID/marimbaba-cover-3000.jpg",
+      "fileName": "marimbaba-cover-3000.jpg",
+      "imageCodecType": "JPEG",
+      "width": 3000,
+      "height": 3000
+    }
+  },
+  "links": {
+    "spotify": "https://open.spotify.com/track/1gopbVPw6LoinIpOANOnEG",
+    "appleMusic": "https://music.apple.com/us/album/marimbaba/6772460819?i=6772460820"
+  },
+  "privateOverlay": {
+    "defaultPath": "~/Documents/Shelf/marimbaba-DISTROKID/release.private.json"
+  },
+  "source": {
+    "pieceManifest": "system/public/aesthetic.computer/disks/pop/marimbaba.json",
+    "releaseLedger": "pop/RELEASES.md"
+  }
+}

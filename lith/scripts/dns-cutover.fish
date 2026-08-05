@@ -79,7 +79,7 @@ function update_a_record -a zone_id name
     end
 end
 
-echo -e "$YELLOW=== DNS Cutover: 36 records → $NEW_IP ===$NC"
+echo -e "$YELLOW=== DNS Cutover: 37 records → $NEW_IP ===$NC"
 echo ""
 
 # --- aesthetic.computer (da794a6ae8f17b80424907f81ed0db7c) ---
@@ -95,6 +95,7 @@ update_a_record $Z "news.aesthetic.computer"
 update_a_record $Z "p5.aesthetic.computer"
 update_a_record $Z "pals.aesthetic.computer"
 update_a_record $Z "papers.aesthetic.computer"
+update_a_record $Z "pop.aesthetic.computer"
 update_a_record $Z "processing.aesthetic.computer"
 update_a_record $Z "sitemap.aesthetic.computer"
 update_a_record $Z "www.aesthetic.computer"

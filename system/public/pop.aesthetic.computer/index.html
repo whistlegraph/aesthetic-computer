@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Releases and public release data from Aesthetic Dot Computer.">
+  <meta name="theme-color" content="#fa36a5">
+  <title>Aesthetic Dot Computer</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%23211d24'/%3E%3Ccircle cx='32' cy='32' r='13' fill='none' stroke='%23ef3898' stroke-width='7'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header>
+    <a class="wordmark" href="/">pop.aesthetic.computer</a>
+    <nav aria-label="Primary">
+      <a href="#releases">releases</a>
+      <a href="#data">release data</a>
+      <a href="https://aesthetic.computer">aesthetic.computer</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero" aria-labelledby="title">
+      <p class="artist">Aesthetic Dot Computer</p>
+      <h1 id="title">Music made inside Aesthetic Computer.</h1>
+      <a class="primary" href="#releases">listen</a>
+    </section>
+
+    <section id="releases" aria-labelledby="releases-title">
+      <h2 id="releases-title">Releases</h2>
+      <div id="track-grid" class="track-grid" aria-live="polite"></div>
+      <noscript>JavaScript is required to load the release catalog.</noscript>
+    </section>
+
+    <section id="data" class="data" aria-labelledby="data-title">
+      <div class="data-heading">
+        <p class="artist">Release data</p>
+        <h2 id="data-title">The release record is becoming an interface.</h2>
+      </div>
+
+      <div class="route" aria-label="Release data route">
+        <div>public release record</div>
+        <span aria-hidden="true">→</span>
+        <div>Juke + /pop</div>
+        <span aria-hidden="true">→</span>
+        <div>ERN 4.3.2</div>
+      </div>
+
+      <div class="data-grid">
+        <div>
+          <h3>Public</h3>
+          <p>Titles, artists, dates, durations, genres, media links, technical formats, and release state.</p>
+        </div>
+        <div>
+          <h3>Private overlay</h3>
+          <p>Legal party names, partner IDs, rights lines, delivery masters, credentials, and recipient rules.</p>
+        </div>
+      </div>
+
+      <article class="pilot">
+        <div>
+          <p class="artist">Marimbaba pilot</p>
+          <h3>ERN 4.3.2 / Simple Audio Single / TestMessage</h3>
+          <p>The evaluation message validates against the official schema. It has not been transmitted. Production delivery waits for real identifiers, rights data, local assets, a DDEX implementation licence, and a receiving partner agreement.</p>
+        </div>
+        <div class="pilot-links">
+          <a href="/releases/marimbaba">public JSON</a>
+          <a href="https://ern.ddex.net/electronic-release-notification-message-suite-part-1-definitions-of-messages/">DDEX ERN</a>
+        </div>
+      </article>
+    </section>
+  </main>
+
+  <footer>
+    <span>@jeffrey / aesthetic.computer</span>
+    <span>public release information only</span>
+  </footer>
+
+  <script type="module" src="/site.mjs"></script>
+</body>
+</html>

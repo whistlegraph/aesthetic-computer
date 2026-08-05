@@ -1,0 +1,126 @@
+{
+  "schemaVersion": 1,
+  "artist": "Aesthetic Dot Computer",
+  "tracks": [
+    {
+      "slug": "amaythingra",
+      "title": "amaythingra",
+      "artist": "Aesthetic Dot Computer",
+      "album": "pixsies",
+      "bpm": 120,
+      "key": "G major",
+      "meter": "4/4",
+      "duration": 273,
+      "cover": "https://assets.aesthetic.computer/pop/amaythingra.jpg",
+      "audio": "https://assets.aesthetic.computer/pop/amaythingra.mp3",
+      "piece": "https://aesthetic.computer/amaythingra",
+      "links": {},
+      "credits": "vowel-extraction deep-house remix of amazing grace for the pixsies body. all instruments + composition: aesthetic dot computer.",
+      "releaseData": null
+    },
+    {
+      "slug": "fluttabap360",
+      "title": "fluttabap360",
+      "artist": "Aesthetic Dot Computer",
+      "album": "pixsies",
+      "bpm": 124.7,
+      "key": "C major",
+      "meter": "4/4",
+      "duration": 360,
+      "cover": "https://assets.aesthetic.computer/pop/fluttabap360.jpg",
+      "audio": "https://assets.aesthetic.computer/pop/fluttabap360.mp3",
+      "piece": "https://aesthetic.computer/fluttabap360",
+      "links": {},
+      "credits": "the fat six-minute butterfly-park banger for the pixsies body. all instruments synthesized + physically modeled: aesthetic dot computer.",
+      "releaseData": null
+    },
+    {
+      "slug": "hellsine",
+      "title": "hellsine",
+      "artist": "Aesthetic Dot Computer",
+      "album": "pixsies",
+      "bpm": 182,
+      "key": "F# minor",
+      "meter": "4/4",
+      "duration": 161.961247,
+      "cover": "https://assets.aesthetic.computer/pop/hellsine.jpg",
+      "audio": "https://assets.aesthetic.computer/pop/hellsine.mp3",
+      "piece": "https://aesthetic.computer/hellsine",
+      "links": {},
+      "credits": "felt-puppet hellfire waltz for the pixsies body. all instruments + composition + lava sines: aesthetic dot computer.",
+      "releaseData": null
+    },
+    {
+      "slug": "helpabeach",
+      "title": "helpabeach",
+      "artist": "Aesthetic Dot Computer",
+      "album": "pixsies",
+      "bpm": 84,
+      "key": "A minor pentatonic",
+      "meter": "4/4",
+      "duration": 151.07,
+      "cover": "https://assets.aesthetic.computer/pop/helpabeach.jpg",
+      "audio": "https://assets.aesthetic.computer/pop/helpabeach.mp3",
+      "piece": "https://aesthetic.computer/helpabeach",
+      "links": {
+        "spotify": "https://open.spotify.com/track/3jzlAylJQLSsNIXjnEY1e8"
+      },
+      "credits": "chillwave / ambient instrumental — calm ocean bed, sine bells, in-render formant voice. part of the pixsies body.",
+      "releaseData": null
+    },
+    {
+      "slug": "marimbaba",
+      "title": "marimbaba",
+      "artist": "Aesthetic Dot Computer",
+      "album": "pixsies",
+      "bpm": 56,
+      "key": "F major",
+      "meter": "3/4",
+      "duration": 83.5714,
+      "cover": "https://assets.aesthetic.computer/pop/marimbaba.jpg",
+      "audio": "https://assets.aesthetic.computer/pop/marimbaba.mp3",
+      "piece": "https://aesthetic.computer/marimbaba",
+      "links": {
+        "spotify": "https://open.spotify.com/track/1gopbVPw6LoinIpOANOnEG"
+      },
+      "credits": "marimba lullaby for the pixsies body. all instruments + composition: aesthetic dot computer.",
+      "releaseData": "/releases/marimbaba"
+    },
+    {
+      "slug": "trancenwaltz",
+      "title": "trancenwaltz",
+      "artist": "Aesthetic Dot Computer",
+      "album": "pixsies",
+      "bpm": 137,
+      "key": "—",
+      "meter": "3/4",
+      "duration": 86.7,
+      "cover": "https://assets.aesthetic.computer/pop/trancenwaltz.jpg",
+      "audio": "https://assets.aesthetic.computer/pop/trancenwaltz.mp3",
+      "piece": "https://aesthetic.computer/trancenwaltz",
+      "links": {
+        "spotify": "https://open.spotify.com/track/3PIPwPqptVlWy71rCEhQum"
+      },
+      "credits": "dark/emo war-arc trance-waltz. youtu.be/RBG3k_XsfLA",
+      "releaseData": null
+    },
+    {
+      "slug": "trancepenta",
+      "title": "trancepenta",
+      "artist": "Aesthetic Dot Computer",
+      "album": "pixsies",
+      "bpm": 126,
+      "key": "dorian",
+      "meter": "5/4",
+      "duration": 190.69,
+      "cover": "https://assets.aesthetic.computer/pop/trancepenta.jpg",
+      "audio": "https://assets.aesthetic.computer/pop/trancepenta.mp3",
+      "piece": "https://aesthetic.computer/trancepenta",
+      "links": {
+        "spotify": "https://open.spotify.com/track/4SVH80CTkq2BihSlSyiJhG"
+      },
+      "credits": "5/4 chill-trance — hellsine gabber kick, odyssey theremin, jeffrey hum, supersaw wall. part of pixsies.",
+      "releaseData": null
+    }
+  ]
+}
