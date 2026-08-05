@@ -11,9 +11,20 @@
 // Bags are admin-curated in /aesthetic.computer/bags.json (@jeffrey only for
 // now; a user-facing bagging flow can come later without changing this piece).
 
-const ROW_H = 22; // item row height
-const HEADER_H = 34; // masked header band
-const LEFT = 8;
+const ROW_H = 13; // dense inventory row height
+const HEADER_H = 24; // compact masked header band
+const LEFT = 5;
+const MIN_CELL_W = 112;
+
+// NELA Computer Club visual tokens, translated from nela.computer/styles.css
+// into AC's Canvas renderer. Dark is canonical there: black, phosphor green,
+// cyan links/boxes, and a deeper cyan for secondary information.
+const NELA = {
+  bg: [0, 0, 0],
+  green: [0, 208, 128], // #00d080
+  cyan: [0, 196, 253], // #00c4fd
+  cyanDim: [0, 104, 136], // #006888
+};
 
 // scroll physics (from chat.mjs)
 const FRICTION = 0.92;
@@ -56,8 +67,15 @@ function clampScroll(soft) {
   if (scroll > pad) scroll = pad;
   if (scroll < min - pad) scroll = min - pad;
 }
-const rowAt = (y) =>
-  y >= HEADER_H ? rows.find((r) => y >= r.y0 && y < r.y1) : null;
+const rowAt = (x, y) =>
+  y >= HEADER_H
+    ? rows.find((r) => x >= r.x0 && x < r.x1 && y >= r.y0 && y < r.y1)
+    : null;
+const fit = (text, px) => {
+  const chars = Math.max(1, Math.floor(px / 6));
+  const value = String(text || "");
+  return value.length <= chars ? value : value.slice(0, Math.max(1, chars - 1)) + "…";
+};
 
 async function load() {
   try {
@@ -84,7 +102,7 @@ async function load() {
 }
 
 function boot({ params, wipe, hud }) {
-  wipe(8, 8, 12);
+  wipe(...NELA.bg);
   const raw = (params?.[0] || "").replace(/^\^/, "").trim().toLowerCase();
   bagName = raw || null;
   // AC draws the corner label — set it once here so the bag name shows there
@@ -123,15 +141,15 @@ function sim() {
 function paint({ wipe, ink, write, box, screen }) {
   const w = screen.width;
   const h = screen.height;
-  wipe(8, 8, 12);
+  wipe(...NELA.bg);
 
   if (state === "loading") {
-    ink(160).write("opening bag…", { center: "xy" });
+    ink(...NELA.green).write("opening bag…", { center: "xy" });
     return;
   }
   if (state === "error") {
     ink(255, 120, 120).write(error, { center: "x", y: h / 2 - 4 });
-    ink(120).write("try `bag` for all bags", { center: "x", y: h / 2 + 8 });
+    ink(...NELA.cyan).write("try `^` for all bags", { center: "x", y: h / 2 + 8 });
     return;
   }
 
@@ -142,60 +160,63 @@ function paint({ wipe, ink, write, box, screen }) {
   // ---- INDEX MODE: list all bags -------------------------------------------
   if (state === "index") {
     const names = Object.keys(bags);
-    contentH = names.length * ROW_H + 8;
-    let y = viewTop + 4 + scroll;
+    contentH = names.length * ROW_H + 2;
+    let y = viewTop + 1 + scroll;
     for (const name of names) {
       const b = bags[name];
       if (y + ROW_H > viewTop && y < h) {
-        ink(255, 230, 90).write("^" + name, { x: LEFT, y: y + 3 });
+        ink(...NELA.cyanDim).box(LEFT, y, w - LEFT * 2, 1);
+        ink(...NELA.cyan).write("^" + name, { x: LEFT, y: y + 3 });
         const count = (b.items || []).length + "";
-        ink(120).write(count, { x: w - LEFT - count.length * 6, y: y + 3 });
+        ink(...NELA.cyanDim).write(count, { x: w - LEFT - count.length * 6, y: y + 3 });
+        const descX = LEFT + (name.length + 2) * 6;
         if (b.description)
-          ink(150).write(b.description, { x: LEFT, y: y + 12 });
+          ink(...NELA.green).write(fit(b.description, w - descX - 28), { x: descX, y: y + 3 });
       }
-      rows.push({ y0: y, y1: y + ROW_H, kind: "bag", ref: name });
+      rows.push({ x0: 0, x1: w, y0: y, y1: y + ROW_H, kind: "bag", ref: name });
       y += ROW_H;
     }
     drawScrollbar(ink, box, w, viewTop);
-    ink(10, 10, 16).box(0, 0, w, HEADER_H);
-    ink(120).write(names.length + " total", { x: LEFT, y: 20 });
-    ink(40, 40, 52).box(0, HEADER_H - 1, w, 1);
+    ink(...NELA.bg).box(0, 0, w, HEADER_H);
+    ink(...NELA.cyan).write("NELA COMPUTER CLUB · BAGS", { x: LEFT, y: 3 });
+    ink(...NELA.green).write("▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒", { x: LEFT, y: 13 });
+    const total = names.length + " total";
+    ink(...NELA.cyanDim).write(total, { x: w - LEFT - total.length * 6, y: 13 });
+    ink(...NELA.cyan).box(0, HEADER_H - 1, w, 1);
     return;
   }
 
   // ---- BAG MODE: list this bag's items -------------------------------------
   const items = bag.items || [];
-  contentH = items.length * ROW_H + 8;
-  let y = viewTop + 4 + scroll;
-  for (const it of items) {
-    const info = typeInfo(it.type);
+  const usableW = w - LEFT * 2 - 3;
+  const columns = Math.max(1, Math.floor(usableW / MIN_CELL_W));
+  const cellW = usableW / columns;
+  const itemRows = Math.ceil(items.length / columns);
+  contentH = itemRows * ROW_H + 2;
+  for (let index = 0; index < items.length; index++) {
+    const it = items[index];
+    const col = index % columns;
+    const row = Math.floor(index / columns);
+    const x = LEFT + col * cellW;
+    const y = viewTop + 1 + row * ROW_H + scroll;
     if (y + ROW_H > viewTop && y < h) {
-      const chip = it.type;
-      ink(...info.color, 40).box(LEFT, y + 2, chip.length * 6 + 6, 13);
-      ink(...info.color).write(chip, { x: LEFT + 3, y: y + 4 });
-      ink(230).write(it.name || it.code, {
-        x: LEFT + chip.length * 6 + 16,
-        y: y + 4,
-      });
-      // address hint on the right — only when it differs from the name (i.e.
-      // typed media like $kidlisp / #painting), so piece rows aren't redundant.
+      ink(...NELA.cyanDim).box(x, y, cellW - 2, 1);
       const addr = itemAddress(it);
       const nm = it.name || it.code;
-      if (addr !== nm)
-        ink(90).write(addr, { x: w - LEFT - addr.length * 6, y: y + 4 });
+      const label = addr === nm ? nm : `${typeInfo(it.type).sigil}${nm}`;
+      ink(...NELA.green).write(fit(label, cellW - 8), { x: x + 3, y: y + 3 });
     }
-    rows.push({ y0: y, y1: y + ROW_H, kind: "item", ref: it });
-    y += ROW_H;
+    rows.push({ x0: x, x1: x + cellW, y0: y, y1: y + ROW_H, kind: "item", ref: it });
   }
   drawScrollbar(ink, box, w, viewTop);
 
   // header (drawn last to mask scrolled rows). The bag NAME is shown by AC's
   // corner label (set via hud.label in boot) — don't draw it again here.
-  ink(10, 10, 16).box(0, 0, w, HEADER_H);
+  ink(...NELA.bg).box(0, 0, w, HEADER_H);
   const count = items.length + " items";
-  ink(120).write(count, { x: w - LEFT - count.length * 6, y: 6 });
-  if (bag.description) ink(150).write(bag.description, { x: LEFT, y: 20 });
-  ink(40, 40, 52).box(0, HEADER_H - 1, w, 1);
+  ink(...NELA.cyan).write(count, { x: w - LEFT - count.length * 6, y: 3 });
+  if (bag.description) ink(...NELA.green).write(fit(bag.description, w - LEFT * 2), { x: LEFT, y: 13 });
+  ink(...NELA.cyan).box(0, HEADER_H - 1, w, 1);
 }
 
 function drawScrollbar(ink, box, w, viewTop) {
@@ -203,8 +224,8 @@ function drawScrollbar(ink, box, w, viewTop) {
   const thumbH = Math.max(12, (viewH / contentH) * viewH);
   const frac = -scroll / (contentH - viewH); // 0..1
   const thumbY = viewTop + Math.max(0, Math.min(1, frac)) * (viewH - thumbH);
-  ink(40, 40, 52).box(w - 3, viewTop, 2, viewH);
-  ink(120, 140, 190).box(w - 3, thumbY, 2, thumbH);
+  ink(...NELA.cyanDim).box(w - 3, viewTop, 2, viewH);
+  ink(...NELA.cyan).box(w - 3, thumbY, 2, thumbH);
 }
 
 function act({ event: e, jump }) {
@@ -249,7 +270,7 @@ function act({ event: e, jump }) {
     if (dragging && Math.abs(scrollVel) > MIN_VEL) {
       flinging = true; // fling with momentum
     } else if (!dragging && dragStart) {
-      const hit = rowAt(dragStart.y); // it was a tap → open it
+      const hit = rowAt(dragStart.x, dragStart.y); // it was a tap → open it
       if (hit) {
         if (hit.kind === "bag") jump("^" + hit.ref);
         else jump(itemAddress(hit.ref));
