@@ -1,7 +1,8 @@
 {
   "schema": 1,
-  "pdf": "hott-kidlisp.pdf",
-  "pdfSha256": "954cb803a04d478dd6e176ee6344ff7934c19a6798f8d395ae57e5e103542a56",
+  "paper": "Pieces Not Programs",
+  "pdf": "pieces.pdf",
+  "pdfSha256": "cebcba30285904162a116bc88dc7c40da3dd6a44019139e55ce7be90dceaf8dc",
   "visualInference": true,
   "reviewer": {
     "kind": "visual-inference",
@@ -21,9 +22,9 @@
   "expectedDiagrams": 3,
   "diagrams": [
     {
-      "id": "identity-ladder",
+      "id": "piece-contract",
       "page": 3,
-      "crop": [0.08, 0.035, 0.84, 0.16],
+      "crop": [0.07, 0.04, 0.86, 0.22],
       "design": "pass",
       "checks": {
         "tangents": "pass",
@@ -32,12 +33,13 @@
         "spaceUse": "pass",
         "hierarchy": "pass",
         "edgeRouting": "pass"
-      }
+      },
+      "notes": "Four-part identity path reads left to right; same-source and contract-port branches are distinct by solid versus dashed routing, labels clear their nodes, and the diagram remains legible at normal page size."
     },
     {
-      "id": "companion-layer",
-      "page": 5,
-      "crop": [0.06, 0.05, 0.88, 0.17],
+      "id": "piece-lifecycle",
+      "page": 3,
+      "crop": [0.07, 0.22, 0.86, 0.2],
       "design": "pass",
       "checks": {
         "tangents": "pass",
@@ -46,12 +48,13 @@
         "spaceUse": "pass",
         "hierarchy": "pass",
         "edgeRouting": "pass"
-      }
+      },
+      "notes": "The optional lifecycle reads left to right, the event/frame loop runs below the nodes without collisions, and the dashed exit distinguishes cleanup from the recurring performance path."
     },
     {
-      "id": "evidence-ladder",
-      "page": 6,
-      "crop": [0.07, 0.05, 0.39, 0.25],
+      "id": "piece-ecology",
+      "page": 8,
+      "crop": [0.10, 0.04, 0.80, 0.27],
       "design": "pass",
       "checks": {
         "tangents": "pass",
@@ -60,7 +63,8 @@
         "spaceUse": "pass",
         "hierarchy": "pass",
         "edgeRouting": "pass"
-      }
+      },
+      "notes": "The piece is visually primary at the center; bag, channel, session, and server remain distinct neighboring units. The tightened render preserves readable labels, short orthogonal relationships, and no crossing edges."
     }
   ]
 }

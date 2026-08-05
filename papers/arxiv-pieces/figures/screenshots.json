@@ -1,0 +1,65 @@
+{
+  "capturedAt": "2026-08-05",
+  "viewport": [1280, 900],
+  "captures": [
+    {
+      "id": "notepat",
+      "url": "https://aesthetic.computer/notepat",
+      "publicState": true,
+      "selector": "canvas",
+      "raw": "ac-notepat.png",
+      "rawSha256": "5f0e6bde69bcb145fca6010bfb428114cdc2e458b503890392cf3d0f16e532eb",
+      "crop": [0, 0, 1280, 560],
+      "figure": "ac-notepat-crop.png",
+      "figureSha256": "28637429380a9b97103ce73084c2208cebbca79779c8f3b656ca628493ec9729"
+    },
+    {
+      "id": "list",
+      "url": "https://aesthetic.computer/list",
+      "publicState": true,
+      "selector": "body",
+      "raw": "ac-list.png",
+      "rawSha256": "3772086673310cd7cd0e4c4b6c7de41c61c37e4e10e5a110863465c02f1f6508",
+      "crop": [0, 0, 1280, 520],
+      "figure": "ac-list-crop.png",
+      "figureSha256": "dbed02ed63f8b367a89c2675497be7cfd1f668a22dcbb6ec37ea0cd000f34307"
+    },
+    {
+      "id": "dannom",
+      "url": "https://aesthetic.computer/dannom",
+      "publicState": true,
+      "viewport": [1280, 720],
+      "waitMs": 7000,
+      "figure": "ac-dannom-play.png",
+      "figureSha256": "ab61b0ba035758373a39fa5826123bb9d5e8ad5aa7e3d1456136acbb73e7f23d"
+    },
+    {
+      "id": "fia-birthday",
+      "url": "https://aesthetic.computer/fia-birthday",
+      "publicState": true,
+      "viewport": [1280, 720],
+      "waitMs": 6000,
+      "figure": "ac-kidlisp-fia-birthday-live.png",
+      "figureSha256": "448dcc3ba551633608ff2496a1eee778e401bb3214542e11ff13a7d04f6f8870"
+    },
+    {
+      "id": "profile-sat",
+      "url": "https://aesthetic.computer/@sat",
+      "publicState": true,
+      "viewport": [1280, 720],
+      "waitMs": 7000,
+      "figure": "ac-profile-sat-live.png",
+      "figureSha256": "51d563887a894884b77a74975a615d32287aa9ccc008ff3386a6ff658d5e1a79"
+    },
+    {
+      "id": "laer-klokken",
+      "url": "https://aesthetic.computer/laer-klokken",
+      "publicState": true,
+      "viewport": [1280, 720],
+      "waitMs": 7000,
+      "figure": "ac-laer-klokken-live.png",
+      "figureSha256": "d1f0807cfcc932fa69d7e8e0093a96ed1e09248bb88c16472b3e5984b6d4d9e2"
+    }
+  ],
+  "privacy": "Only signed-out public product states are included. The @sat profile and laer-klokken public room intentionally show their public handle, portfolio, and room messages; no admin surfaces or telemetry records were captured."
+}

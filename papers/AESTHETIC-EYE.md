@@ -1,9 +1,29 @@
 # Aesthetic Eye
 
-`aesthetic-eye` is the render-first design gate for paper diagrams. A successful
-TeX build is not visual approval. Every diagram must be rendered from the final
-PDF, inspected by visual inference, and assigned the literal verdict
+`aesthetic-eye` is the render-first design gate for papers and their diagrams. A
+successful TeX build is not visual approval. The final PDF must receive a
+paper-wide brand verdict, and every diagram must receive the literal verdict
 `design: pass` or `design: fail` in an `aesthetic-eye.json` beside the paper.
+
+## Brand rule
+
+Every visible project-name wordmark is `Aesthetic.Computer`. The period is
+mandatory and uses AC pink, `#B44887`; a visible `Aesthetic Computer` fails the
+gate. This rule applies to titles, bylines, prose, captions, tables, diagrams,
+and references.
+
+Use one macro throughout LaTeX source, including bibliography fields:
+
+```tex
+\definecolor{acpink}{RGB}{180,72,135}
+\newcommand{\acdot}{{\color{acpink}.}}
+\newcommand{\ac}{Aesthetic{\acdot}Computer}
+```
+
+The checker extracts PDF text and fails automatically when the period is
+missing. Because text extraction cannot verify color, `prepare` also renders
+`pages-contact.png`; visual inference must confirm the dot color in the
+manifest's `brand` block.
 
 ## The six checks
 
@@ -41,6 +61,15 @@ Place `aesthetic-eye.json` beside the paper source:
   "pdfSha256": "sha256-of-reviewed-pdf",
   "reviewedAt": "2026-07-20T23:00:00Z",
   "reviewer": { "kind": "visual-inference", "agent": "Codex" },
+  "brand": {
+    "canonicalName": "Aesthetic.Computer",
+    "dotColor": "#B44887",
+    "design": "pass",
+    "checks": {
+      "period": "pass",
+      "dotColor": "pass"
+    }
+  },
   "diagrams": [
     {
       "id": "system-map",
@@ -70,12 +99,12 @@ system rather than merely decorate it.
 
 ```bash
 node papers/aesthetic-eye.mjs prepare papers/arxiv-example
-# Open .aesthetic-eye/diagrams-contact.png and every diagram-*.png.
+# Open .aesthetic-eye/pages-contact.png, diagrams-contact.png, and every crop.
 # Record the visual-inference verdicts and the printed pdfSha256.
 node papers/aesthetic-eye.mjs check papers/arxiv-example
 ```
 
-The check fails when a diagram is missing, any verdict is absent, any diagram is
-`design: fail`, a passing diagram has a failing subcheck, or the PDF changed
-after review. `.aesthetic-eye/` is disposable rendered evidence; the manifest is
-the durable review record.
+The check fails when a visible brand name omits its period, the brand review is
+absent, the dot-color check fails, a diagram is missing, a verdict is absent, a
+diagram fails, or the PDF changed after review. `.aesthetic-eye/` is disposable
+rendered evidence; the manifest is the durable review record.

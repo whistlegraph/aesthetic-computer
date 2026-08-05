@@ -1,0 +1,33 @@
+\begin{tikzpicture}[
+  node distance=0.95cm and 0.88cm,
+  every node/.style={font=\sffamily},
+  box/.style={draw=acgray!55, rounded corners=2pt, fill=white,
+    minimum height=0.92cm, align=center, inner xsep=8pt, inner ysep=5pt},
+  core/.style={box, draw=acpink!80, fill=acpink!7, line width=0.8pt,
+    minimum width=3.18cm},
+  surface/.style={box, draw=acpurple!65, fill=acpurple!6,
+    minimum width=4.95cm},
+  record/.style={core, draw=acblue!70, fill=acblue!6},
+  arr/.style={-{Stealth[length=5pt]}, draw=acdark!70, line width=0.65pt},
+  port/.style={arr, dashed, draw=acpink!80},
+  lab/.style={font=\scriptsize\sffamily, text=acgray, fill=white,
+    inner xsep=2pt, inner ysep=1pt, align=center},
+  note/.style={font=\scriptsize\sffamily, text=acgray, align=center}
+]
+  \node[core] (entry) {\textbf{authored entry}\\[-1pt]\texttt{.mjs} \; \texttt{.lisp} \; \texttt{.js} \; \texttt{.lua}};
+  \node[core, right=of entry] (address) {\textbf{named address}\\[-1pt]\texttt{name} \; \texttt{@handle/name} \; \texttt{\$code}};
+  \node[core, right=of address] (run) {\textbf{performance instance}\\[-1pt]\texttt{boot act sim paint leave}};
+  \node[record, right=of run] (record) {\textbf{durable record}\\[-1pt]source \; author \; media \; run log};
+
+  \draw[arr] (entry) -- node[lab, above]{resolve} (address);
+  \draw[arr] (address) -- node[lab, above]{invoke} (run);
+  \draw[arr] (run) -- node[lab, above]{record} (record);
+
+  \node[surface, below=1.04cm of address, xshift=-0.84cm] (ports) {\textbf{contract ports}\\[-1pt]AC Native \;\textperiodcentered\; MenuBand \;\textperiodcentered\; native ports};
+  \node[surface, below=1.04cm of run, xshift=0.84cm] (same) {\textbf{same-source surfaces}\\[-1pt]browser / PWA \;\textperiodcentered\; Electron \;\textperiodcentered\; pack};
+
+  \draw[port] (address.south) -- node[lab, left]{preserve score} (ports.north);
+  \draw[arr] (run.south) -- node[lab, right]{execute source} (same.north);
+
+  \node[note, below=0.34cm of ports, xshift=3.57cm, text width=12.2cm] {Solid routing preserves the authored entry inside the web runtime. Dashed routing preserves the piece's learned action, attribution, and recognizable behavior across another implementation.};
+\end{tikzpicture}

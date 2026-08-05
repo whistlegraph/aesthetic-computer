@@ -1,0 +1,31 @@
+\begin{tikzpicture}[
+  node distance=1.0cm and 1.55cm,
+  every node/.style={font=\sffamily},
+  core/.style={draw=acpink!85, rounded corners=2pt, fill=acpink!8,
+    minimum width=3.35cm, minimum height=1.12cm, align=center,
+    inner xsep=8pt, inner ysep=5pt, line width=0.8pt},
+  neighbor/.style={draw=acpurple!65, rounded corners=2pt, fill=acpurple!6,
+    minimum width=3.2cm, minimum height=0.9cm, align=center,
+    inner xsep=8pt, inner ysep=5pt},
+  authority/.style={neighbor, draw=acblue!70, fill=acblue!6},
+  arr/.style={-{Stealth[length=5pt]}, draw=acdark!72, line width=0.7pt},
+  back/.style={{Stealth[length=5pt]}-{Stealth[length=5pt]}, draw=acdark!72,
+    line width=0.7pt},
+  lab/.style={font=\scriptsize\sffamily, text=acgray, fill=white,
+    inner xsep=2pt, inner ysep=1pt, align=center},
+  note/.style={font=\scriptsize\sffamily, text=acgray, align=center}
+]
+  \node[core] (piece) {\textbf{piece}\\[-1pt]invoke \; attribute \; revise};
+  \node[neighbor, above=1.05cm of piece] (bag) {\textbf{bag}\\[-1pt]curated collection};
+  \node[neighbor, left=1.7cm of piece] (channel) {\textbf{channel}\\[-1pt]development route};
+  \node[neighbor, right=1.7cm of piece] (session) {\textbf{session}\\[-1pt]shared performance};
+  \node[authority, below=1.05cm of piece] (server) {\textbf{server}\\[-1pt]authoritative state};
+
+  \draw[arr] (bag) -- node[lab, right]{contains} (piece);
+  \draw[arr] (channel) -- node[lab, above]{updates} (piece);
+  \draw[arr] (piece) -- node[lab, above]{joins} (session);
+  \draw[back] (piece) -- node[lab, right]{coordinates} (server);
+
+  \node[note, below=0.48cm of server, text width=12.8cm]
+    {These neighboring units support the work without becoming its identity. The piece remains the smallest unit that can be named, invoked, attributed, revised, and returned to.};
+\end{tikzpicture}

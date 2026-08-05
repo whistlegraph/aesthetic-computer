@@ -1,0 +1,8 @@
+Use case: illustration-story
+Asset type: archival paper title-page illustration
+Primary request: Edit the original seated-Jeffrey cover illustration so Jeffrey is actively assembling a large jigsaw puzzle instead of reading sheet music. He holds one oversized piece as he fits it into a partial puzzle; four or five large pieces float around him at different depths, suggesting software pieces connecting across a system.
+Style/medium: preserve the refined hand-drawn colored-pencil editorial illustration, natural anatomy, graphite texture, restrained color, and clean white paper field.
+Composition: full seated figure and chair centered with generous white space; the puzzle action reads at thumbnail size; nothing is cropped.
+Palette: white shirt, blue trousers, black shoes, and restrained Aesthetic Computer pink, purple, blue, green, and amber puzzle pieces.
+Constraints: preserve Jeffrey's recognizable face, hair, clothing, chair, scale, and concentrated mood; clear jigsaw tabs and sockets; no logos, writing, interface text, musical notation, or watermark.
+Avoid: cartoon style, photorealism, extra people, tiny pieces, clutter, impossible hands, duplicated limbs, or a conventional scenic puzzle image.

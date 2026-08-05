@@ -1,0 +1,56 @@
+{
+  "snapshot": {
+    "local_date": "2026-08-04",
+    "timezone": "America/Los_Angeles",
+    "git_commit": "c65015fe25",
+    "scope": "system/public/aesthetic.computer/disks",
+    "notes": "Counts describe the checked-out monorepo, not the production database. Unrelated working-tree changes were excluded from the count and from the paper."
+  },
+  "built_in_entry_files": {
+    "total": 477,
+    "mjs": 455,
+    "lisp": 22
+  },
+  "javascript_entry_files": {
+    "with_static_imports": 188,
+    "total_lines_split_on_newline": 166690,
+    "median_lines": 152,
+    "p90_lines": 762,
+    "largest_lines": 10018
+  },
+  "exported_hooks": {
+    "boot": 381,
+    "paint": 381,
+    "act": 316,
+    "sim": 248,
+    "leave": 80,
+    "beat": 27,
+    "meta": 194,
+    "receive": 18,
+    "preview": 7
+  },
+  "supporting_source": {
+    "top_level_library_modules_mjs": 96,
+    "top_level_server_functions_js_or_mjs": 163
+  },
+  "platter_snapshot": {
+    "source_commit": "6012979f8c72473543df302d5c82f8279317ee90",
+    "source_date": "2026-07-21",
+    "built_in_pieces": 413,
+    "library_modules": 88,
+    "server_functions": 126,
+    "registered_handles": 2810,
+    "user_published_pieces": 265,
+    "paintings": 4425,
+    "kidlisp_programs": 16523,
+    "chat_messages": 18048,
+    "papers": 60
+  },
+  "method": {
+    "entry_file_count": "Count regular files with .mjs or .lisp suffix directly inside system/public/aesthetic.computer/disks.",
+    "import_count": "Count .mjs entry files containing a top-level line beginning with import.",
+    "hook_count": "Count .mjs entry files with a top-level export line containing the named hook. This is a syntactic census, not a runtime trace.",
+    "line_statistics": "Split UTF-8 .mjs source on newline, sort per-file lengths, and report median, 90th percentile, and maximum.",
+    "platter": "Values transcribed from the rendered Research Platter and its last modifying commit. Production records were not queried for this paper revision."
+  }
+}
