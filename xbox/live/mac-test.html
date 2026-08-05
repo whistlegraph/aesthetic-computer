@@ -15,7 +15,7 @@
     * { box-sizing: border-box; }
     html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: #07081c; }
     body { display: grid; place-items: center; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
-    canvas { width: 100vw; height: 100vh; object-fit: contain; display: block; }
+    canvas { width: 100vw; height: 100vh; display: block; }
     #status { position: absolute; width: 1px; height: 1px; overflow: hidden;
       clip-path: inset(50%); white-space: nowrap; }
   </style>
@@ -38,6 +38,30 @@
       ["KeyK", [1, "A"]], ["KeyL", [1, "B"]], ["Semicolon", [1, "X"]],
     ]);
     let audioContext = null;
+
+    // Keep a stable 1080-unit vertical coordinate system while allowing the
+    // horizontal game surface to follow the browser's actual aspect ratio.
+    // 16:9 therefore remains exactly 1920x1080, while 9:16 becomes 608x1080
+    // instead of a letterboxed landscape image.
+    function resizeCanvas() {
+      const width = Math.max(1, window.visualViewport?.width || innerWidth);
+      const height = Math.max(1, window.visualViewport?.height || innerHeight);
+      const logicalHeight = 1080;
+      const logicalWidth = Math.max(480, Math.min(2880,
+        Math.round(logicalHeight * width / height)));
+      if (canvas.width !== logicalWidth) canvas.width = logicalWidth;
+      if (canvas.height !== logicalHeight) canvas.height = logicalHeight;
+    }
+    resizeCanvas();
+    addEventListener("resize", resizeCanvas, { passive: true });
+    window.visualViewport?.addEventListener("resize", resizeCanvas,
+      { passive: true });
+
+    function gameView() {
+      return { width: canvas.width, height: canvas.height,
+        aspect: canvas.width / canvas.height,
+        orientation: canvas.width < canvas.height ? "portrait" : "landscape" };
+    }
 
     function ensureAudio() {
       if (!audioContext) audioContext = new AudioContext();
@@ -298,7 +322,7 @@
     globalThis.__fightHost = {
       runtime, gamepad, controllers, capabilities, telemetry, gameSignal,
       saveReplay, publishLive, ac, drum, wipe, box, line, triangle,
-      write, systemWrite, ywftWrite,
+      write, systemWrite, ywftWrite, gameView,
     };
   </script>
   <script type="module">
@@ -314,11 +338,11 @@
       const piece = new Function(
         "runtime", "gamepad", "controllers", "capabilities", "telemetry",
         "gameSignal", "saveReplay", "publishLive", "ac", "drum", "wipe", "box",
-        "line", "triangle", "write", "systemWrite", "ywftWrite",
+        "line", "triangle", "write", "systemWrite", "ywftWrite", "gameView",
         `${source}\nreturn { boot, sim, paint };`
       )(...["runtime", "gamepad", "controllers", "capabilities", "telemetry",
         "gameSignal", "saveReplay", "publishLive", "ac", "drum", "wipe", "box",
-        "line", "triangle", "write", "systemWrite", "ywftWrite"]
+        "line", "triangle", "write", "systemWrite", "ywftWrite", "gameView"]
         .map((name) => globalThis.__fightHost[name]));
       piece.boot();
       function frame() {

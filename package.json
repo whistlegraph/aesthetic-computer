@@ -29,6 +29,7 @@
     "test:browser:headed": "AC_HEADED=1 AC_SLOWMO=60 node tests/browser/prompt-search.test.mjs",
     "test:browser:local": "AC_TEST_URL=https://localhost:8888 node tests/browser/prompt-search.test.mjs",
     "xbox:test:mac": "sh xbox/tools/mac-test-app.sh",
+    "xbox:test:oskiewar:blackbox": "node xbox/live/tests/blackbox-rounds.mjs",
     "test:nopaint:e2e": "node tests/browser/nopaint-journey.test.mjs",
     "test:nopaint:e2e:local": "node tests/browser/run-nopaint-local.mjs",
     "test:nopaint:e2e:film": "AC_HEADED=1 AC_SLOWMO=120 AC_FRAME_RECEIPTS=1 node tests/browser/nopaint-journey.test.mjs",

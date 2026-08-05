@@ -5,7 +5,8 @@ import test from "node:test";
 const source = await readFile(new URL("../hello.js", import.meta.url), "utf8");
 
 function createFight(startImmediately = true, enterGame = true,
-  platform = "xbox-uwp", roundBridge = null) {
+  platform = "xbox-uwp", roundBridge = null,
+  viewport = { width: 1920, height: 1080 }) {
   let now = 0;
   const signals = [];
   const replays = [];
@@ -19,8 +20,8 @@ function createFight(startImmediately = true, enterGame = true,
     triangles.push(values);
   };
   const fight = new Function(
-    "runtime", "gamepad", "capabilities", "telemetry", "gameSignal", "saveReplay", "publishLive", "drum", "wipe", "box", "line", "triangle", "write", "systemWrite",
-    `${source}\nreturn { boot, sim, paint, controlLocale, players, ball, balls, bullets, grenades, gunPickups, grenadePickups, runnerWorldGeometry, runnerDistanceToPoint, disableBall: () => { ballEnabled = false; for (const item of balls) item.active = false; }, enableBall: (index = 0) => { ballEnabled = true; const item = balls[index]; item.active = true; item.serveAt = 0; item.safeUntil = 0; item.safePlayers = 0; }, setWind: (value) => { windAcceleration = value; }, windState: () => ({ direction: windDirection, mph: windMph }), nextRound: () => resetRound(runtime().monotonicUs, false), knockOut: () => killPlayer(players[1], 0, runtime().monotonicUs, "KO"), wackBall: () => { players[0].attackKind = "KICK"; returnBall(ball, players[0], runtime().monotonicUs, false); }, shieldBall: () => returnBall(ball, players[0], runtime().monotonicUs, true), crossWackBall: (contact = 1) => crossWackBall(ball, players.map((player) => ({ player, contact })), runtime().monotonicUs), enterGame: () => enterShellMode("GAME", runtime().monotonicUs), shellState: () => ({ mode: shellMode, choice: shellChoice, lab: labPlayers.map((player) => ({ ...player })) }), startFight: () => { shellMode = "GAME"; selecting = false; startReplay(runtime().monotonicUs); resetRound(runtime().monotonicUs, true); }, selectionState: () => ({ selecting, ready: selectionReady.slice() }), cameraState: () => ({ cameraWidth, cameraCenter, cameraCenterY }), roundState: () => ({ roundResult, roundElapsedUs, matchOver }), viewerState: () => ({ active: Boolean(roundViewer), mode: roundViewerMode, status: roundViewerStatus, name: matchName }), instantReplayState: () => instantReplay ? { active: true, paused: instantReplay.paused, cursor: instantReplay.cursor, frames: instantReplay.frames.length } : { active: false }, replayFrameCount: () => roundReplayFrames.length };`
+    "runtime", "gamepad", "capabilities", "telemetry", "gameSignal", "saveReplay", "publishLive", "drum", "wipe", "box", "line", "triangle", "write", "systemWrite", "gameView",
+    `${source}\nreturn { boot, sim, paint, controlLocale, players, ball, balls, bullets, grenades, gunPickups, grenadePickups, runnerWorldGeometry, runnerDistanceToPoint, disableBall: () => { ballEnabled = false; for (const item of balls) item.active = false; }, enableBall: (index = 0) => { ballEnabled = true; const item = balls[index]; item.active = true; item.serveAt = 0; item.safeUntil = 0; item.safePlayers = 0; }, setWind: (value) => { windAcceleration = value; }, windState: () => ({ direction: windDirection, mph: windMph }), nextRound: () => resetRound(runtime().monotonicUs, false), knockOut: () => killPlayer(players[1], 0, runtime().monotonicUs, "KO"), wackBall: () => { players[0].attackKind = "KICK"; returnBall(ball, players[0], runtime().monotonicUs, false); }, shieldBall: () => returnBall(ball, players[0], runtime().monotonicUs, true), crossWackBall: (contact = 1) => crossWackBall(ball, players.map((player) => ({ player, contact })), runtime().monotonicUs), enterGame: () => enterShellMode("GAME", runtime().monotonicUs), shellState: () => ({ mode: shellMode, choice: shellChoice, lab: labPlayers.map((player) => ({ ...player })) }), startFight: () => { shellMode = "GAME"; selecting = false; startReplay(runtime().monotonicUs); resetRound(runtime().monotonicUs, true); }, selectionState: () => ({ selecting, ready: selectionReady.slice() }), cameraState: () => ({ cameraWidth, cameraCenter, cameraCenterY, cameraAspect, stageRight, viewHeight }), roundState: () => ({ roundResult, roundElapsedUs, matchOver }), viewerState: () => ({ active: Boolean(roundViewer), mode: roundViewerMode, status: roundViewerStatus, name: matchName }), instantReplayState: () => instantReplay ? { active: true, paused: instantReplay.paused, cursor: instantReplay.cursor, frames: instantReplay.frames.length } : { active: false }, replayFrameCount: () => roundReplayFrames.length };`
   )(
     () => ({ monotonicUs: now, unixMs: 1785870000000 + Math.floor(now / 1000) }),
     (index = 0) => ({ ...pads[index], down: pads[index].down.slice() }),
@@ -28,7 +29,7 @@ function createFight(startImmediately = true, enterGame = true,
     noOp, (...signal) => signals.push(signal), (payload) => replays.push(payload),
     (matchId, payload) => liveFrames.push([matchId, JSON.parse(payload)]),
     noOp, noOp, noOp, noOp,
-    drawTriangle, noOp, noOp
+    drawTriangle, noOp, noOp, () => viewport
   );
   globalThis.__oskiewarRoundBridge = roundBridge;
   fight.boot();
@@ -63,6 +64,21 @@ test("control copy follows the native host platform", () => {
   assert.equal(mac.menu, "A D SELECT     F OPEN");
   assert.match(mac.select, /P1 A\/D \+ F/);
   assert.doesNotMatch(mac.select, /A READY/);
+});
+
+test("web camera follows landscape, 16:9, and portrait viewports", () => {
+  for (const [viewport, expectedWidth] of [
+    [{ width: 2560, height: 1080 }, 2560],
+    [{ width: 1920, height: 1080 }, 1920],
+    [{ width: 608, height: 1080 }, 608],
+  ]) {
+    const { fight } = createFight(false, false, "web", null, viewport);
+    const state = fight.cameraState();
+    assert.equal(state.stageRight, expectedWidth);
+    assert.equal(state.viewHeight, 1080);
+    assert.equal(state.cameraAspect, expectedWidth / (930 - 112));
+    assert.doesNotThrow(() => fight.paint());
+  }
 });
 
 test("spectator QR uses the raw Meet-style round URL", () => {

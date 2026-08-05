@@ -7,12 +7,13 @@ const worldRight = 12000;
 const worldNear = -1800;
 const worldFar = 1800;
 const stageLeft = 0;
-const stageRight = 1920;
+let stageRight = 1920;
 const stageTop = 112;
 // Leave a narrow, borderless projection gutter beneath the floor so fighter
 // handles and live combat state can stay attached to bodies without clipping.
 const stageBottom = 930;
-const cameraAspect = (stageRight - stageLeft) / (stageBottom - stageTop);
+let viewHeight = 1080;
+let cameraAspect = (stageRight - stageLeft) / (stageBottom - stageTop);
 const platformLeft = 4500;
 const platformRight = 7500;
 const platformY = 10400;
@@ -48,6 +49,21 @@ const normalize3 = (point) => {
 const cross3 = (a, b) => ({ x: a.y * b.z - a.z * b.y,
   y: a.z * b.x - a.x * b.z, z: a.x * b.y - a.y * b.x });
 const dot3 = (a, b) => a.x * b.x + a.y * b.y + a.z * b.z;
+const viewWidth = () => stageRight;
+const viewCenterX = () => (stageLeft + stageRight) / 2;
+const viewOffsetX = () => (stageRight - 1920) / 2;
+const compactLayout = () => stageRight < 1500;
+
+function syncGameView() {
+  const next = typeof gameView === "function" ? gameView() : null;
+  const width = clamp(Math.round(Number(next?.width) || 1920), 480, 2880);
+  const height = clamp(Math.round(Number(next?.height) || 1080), 480, 2160);
+  if (width === stageRight && height === viewHeight) return;
+  stageRight = width;
+  viewHeight = height;
+  cameraAspect = (stageRight - stageLeft) / (stageBottom - stageTop);
+  if (typeof cameraDoll !== "undefined") cameraDoll.dirty = true;
+}
 
 class FightCamDoll {
   constructor() {
@@ -116,7 +132,8 @@ function projectPoint(x, y, z = 0) {
 const screenX = (x, z = 0) => projectPoint(x, cameraCenterY, z).x;
 const screenY = (y, z = 0) => projectPoint(cameraCenter, y, z).y;
 const panAt = (x, z = 0) => clamp(
-  (projectPoint(x, cameraCenterY, z).x - 960) / 905, -1, 1);
+  (projectPoint(x, cameraCenterY, z).x - viewCenterX()) /
+    Math.max(1, (stageRight - stageLeft) / 2 - 55), -1, 1);
 const panPlayer = (player) => panAt(player.x, player.z);
 let visualTheme = { light: 0, sunset: 0 };
 
@@ -845,6 +862,7 @@ function updateRoundViewer(now, dt) {
 }
 
 function boot() {
+  syncGameView();
   startedAt = runtime().monotonicUs;
   roundStartedAt = startedAt;
   lastSimAt = startedAt;
@@ -1858,6 +1876,7 @@ function updatePlayer(player, pad, dt, now) {
 }
 
 function sim() {
+  syncGameView();
   const now = runtime().monotonicUs;
   const dt = Math.min(0.04, Math.max(0.001, (now - lastSimAt) / 1000000));
   lastSimAt = now;
@@ -2368,7 +2387,7 @@ function drawDebugHitboxes(player, t) {
   const mode = "P" + (player.pad + 1) + " " + player.stance +
     (player.attackKind ? "/" + player.attackKind : "");
   const bodyBottom = projectedBodyBottom(geometry);
-  const labelY = Math.min(1000, bodyBottom + 62);
+  const labelY = Math.min(viewHeight - 168, bodyBottom + 12);
   const labelWidth = Math.max(162, mode.length * 15);
   const pad = padSnapshots[player.pad] ||
     { connected: false, down: [], leftX: 0, leftY: 0 };
@@ -2412,12 +2431,8 @@ function projectedBodyBottom(geometry) {
 function drawPlayerHandle(player, t) {
   const size = 42;
   const width = handleWidth(player.name, size);
-  const world = player.replayGeometry || player.frozenGeometry ||
-    runnerWorldGeometry(player, t);
-  const geometry = projectRunnerWorldGeometry(world);
-  const feet = projectPoint(player.x, player.y, player.z);
-  const x = clamp(feet.x - width / 2, 18, 1902 - width);
-  const y = Math.min(950, projectedBodyBottom(geometry) + 8);
+  const x = player.pad === 0 ? 18 : viewWidth() - 18 - width;
+  const y = viewHeight - 112;
   const drawGlyphs = (dx, dy, colors, fallback) => {
     let cursor = x + dx;
     for (let index = 0; index < player.name.length; index++) {
@@ -2500,21 +2515,28 @@ function drawGrenade(grenade) {
 }
 
 function drawWindFlag(t, color) {
-  const poleX = 820;
-  const poleTop = 12;
-  const poleBottom = 88;
+  const compact = compactLayout();
+  const poleX = compact ? windDirection < 0 ? 90 : 24 : viewCenterX() - 140;
+  const poleTop = compact ? 58 : 12;
+  const poleBottom = compact ? 102 : 88;
   const direction = windDirection;
-  const length = 42 + windMph * 4;
-  const gust = Math.sin(t * (4 + windMph * .16)) * (3 + windMph * .22);
+  const length = (42 + windMph * 4) * (compact ? .52 : 1);
+  const gust = Math.sin(t * (4 + windMph * .16)) *
+    (3 + windMph * .22) * (compact ? .6 : 1);
   const tipX = poleX + direction * length;
   const tipY = poleTop + 10 + gust;
-  line(poleX, poleTop, poleX, poleBottom, 5, ...color);
-  line(poleX, poleTop + 2, tipX, tipY, 7, ...color);
-  line(tipX, tipY, poleX, poleTop + 34, 7, ...color);
-  line(poleX, poleTop + 34, poleX, poleTop + 2, 7, ...color);
-  line(poleX - 12, poleBottom, poleX + 12, poleBottom, 5, ...color);
-  const textX = direction < 0 ? 842 : 705;
-  typeWrite(windMph + " MPH", textX - 18, 30, 27, ...color);
+  const flagWidth = compact ? 4 : 7;
+  line(poleX, poleTop, poleX, poleBottom, compact ? 4 : 5, ...color);
+  line(poleX, poleTop + 2, tipX, tipY, flagWidth, ...color);
+  line(tipX, tipY, poleX, poleTop + (compact ? 20 : 34), flagWidth, ...color);
+  line(poleX, poleTop + (compact ? 20 : 34), poleX, poleTop + 2,
+    flagWidth, ...color);
+  line(poleX - 12, poleBottom, poleX + 12, poleBottom, compact ? 4 : 5, ...color);
+  if (compact) typeWrite(windMph + " MPH", 130, 69, 20, ...color);
+  else {
+    const textX = direction < 0 ? poleX + 22 : poleX - 115;
+    typeWrite(windMph + " MPH", textX - 18, 30, 27, ...color);
+  }
 }
 
 function drawWindLines(t, color) {
@@ -2556,15 +2578,47 @@ function drawSelectPortrait(player, x, y, scale, t) {
 
 function drawSelectionScreen(t, ink, panel) {
   const controls = controlLocale();
-  typeWrite("SELECT A PAL", 810, 66, 42, ...ink);
+  if (compactLayout()) {
+    const margin = 24;
+    const width = viewWidth() - margin * 2;
+    const columns = 2;
+    const rosterWidth = width / columns;
+    typeWrite("SELECT A PAL", viewCenterX() - 145, 28, 36, ...ink);
+    for (let index = 0; index < fighterRoster.length; index++) {
+      const fighter = fighterRoster[index];
+      const selected = players.some((player) => player.rosterIndex === index);
+      const column = index % columns;
+      const row = Math.floor(index / columns);
+      typeWrite(fighter.handle, margin + column * rosterWidth,
+        92 + row * 48, selected ? 27 : 22,
+        ...(selected ? fighter.color : ink));
+    }
+    for (const player of players) {
+      const top = player.pad === 0 ? 205 : 570;
+      const profile = fighterProfile(player.name);
+      box(margin, top, width, 335, ...panel);
+      box(margin, top, width, 7, ...player.color);
+      drawSelectPortrait(player, margin + 92, top + 180, .72, t);
+      drawHandle(player.name, margin + 170, top + 70, 34,
+        profile.colors, player.color);
+      write(player.npc ? "STANDING BY" : selectionReady[player.pad]
+        ? "READY" : "SELECT", margin + 170, top + 155, 34, ...player.color);
+      typeWrite(player.npc ? "NON-PLAYER" : "P" + (player.pad + 1),
+        margin + 170, top + 225, 24, ...ink);
+    }
+    typeWrite(controls.select, margin, 1020, 15, ...ink);
+    return;
+  }
+  const ox = viewOffsetX();
+  typeWrite("SELECT A PAL", ox + 810, 66, 42, ...ink);
   for (let index = 0; index < fighterRoster.length; index++) {
     const fighter = fighterRoster[index];
     const selected = players.some((player) => player.rosterIndex === index);
-    typeWrite(fighter.handle, 260 + index * 390, 225, selected ? 38 : 28,
+    typeWrite(fighter.handle, ox + 260 + index * 390, 225, selected ? 38 : 28,
       ...(selected ? fighter.color : mixColor([105,115,145],[130,140,155],visualTheme.light)));
   }
   for (const player of players) {
-    const left = player.pad === 0 ? 90 : 990;
+    const left = ox + (player.pad === 0 ? 90 : 990);
     const profile = fighterProfile(player.name);
     box(left, 320, 840, 570, ...panel);
     drawSelectPortrait(player, left + 190, 590, 1.35, t);
@@ -2578,16 +2632,53 @@ function drawSelectionScreen(t, ink, panel) {
     typeWrite(player.npc ? "NON-PLAYER" : "P" + (player.pad + 1),
       left + 355, 805, 30, ...ink);
   }
-  typeWrite(controls.select, 225, 958, 28, ...ink);
+  typeWrite(controls.select, ox + 225, 958, 28, ...ink);
 }
 
 function drawShellMenu(t, ink, panel) {
   const controls = controlLocale();
+  if (compactLayout()) {
+    const margin = 28;
+    const width = viewWidth() - margin * 2;
+    typeWrite("OSKIEWAR", viewCenterX() - 110, 50, 42, ...ink);
+    const choices = [
+      { name: "NEW GAME", top: 150, color: [88, 210, 224] },
+      { name: "OSKIEWAR", top: 555, color: [214, 45, 72] },
+    ];
+    for (let index = 0; index < choices.length; index++) {
+      const choice = choices[index];
+      const active = shellChoice === index;
+      box(margin, choice.top, width, 345, ...(active ? panel : [9, 12, 26]));
+      box(margin, choice.top, width, active ? 9 : 3, ...choice.color);
+      typeWrite(choice.name, margin + 35, choice.top + 45,
+        active ? 44 : 36, ...(active ? choice.color : ink));
+      if (index === 0) {
+        for (let pad = 0; pad < 2; pad++) {
+          const cx = margin + width * (.3 + pad * .4);
+          const cy = choice.top + 205;
+          circle(cx, cy, 58, 6, choice.color);
+          line(cx - 30, cy, cx + 30, cy, 7, ...choice.color);
+          line(cx, cy - 30, cx, cy + 30, 7, ...choice.color);
+        }
+        typeWrite("2-PAD INPUT LAB", margin + 35, choice.top + 292,
+          24, ...ink);
+      } else {
+        drawSelectPortrait(players[0], margin + width * .34,
+          choice.top + 225, .72, t);
+        drawSelectPortrait(players[1], margin + width * .68,
+          choice.top + 225, .72, t);
+        typeWrite("FIGHT", margin + 35, choice.top + 292, 24, ...ink);
+      }
+    }
+    typeWrite(controls.menu, margin, 1018, 17, ...ink);
+    return;
+  }
+  const ox = viewOffsetX();
   const choices = [
-    { name: "NEW GAME", x: 120, color: [88, 210, 224] },
-    { name: "OSKIEWAR", x: 990, color: [214, 45, 72] },
+    { name: "NEW GAME", x: ox + 120, color: [88, 210, 224] },
+    { name: "OSKIEWAR", x: ox + 990, color: [214, 45, 72] },
   ];
-  typeWrite("OSKIEWAR", 790, 108, 52, ...ink);
+  typeWrite("OSKIEWAR", ox + 790, 108, 52, ...ink);
   for (let index = 0; index < choices.length; index++) {
     const choice = choices[index];
     const active = shellChoice === index;
@@ -2610,7 +2701,7 @@ function drawShellMenu(t, ink, panel) {
       typeWrite("FIGHT", choice.x + 70, 755, 34, ...ink);
     }
   }
-  typeWrite(controls.menu, 760, 924, 30, ...ink);
+  typeWrite(controls.menu, ox + 760, 924, 30, ...ink);
 }
 
 function drawInputLab(run, ink, panel) {
@@ -2656,10 +2747,11 @@ function drawSpectatorQr(ink) {
   if (!spectatorQr || typeof spectatorQr.getModuleCount !== "function") return;
   const count = spectatorQr.getModuleCount();
   const quiet = 4;
-  const cell = Math.max(2, Math.floor(176 / (count + quiet * 2)));
+  const targetSize = compactLayout() ? 112 : 176;
+  const cell = Math.max(2, Math.floor(targetSize / (count + quiet * 2)));
   const size = (count + quiet * 2) * cell;
-  const left = 1920 - size - 16;
-  const top = 104;
+  const left = viewWidth() - size - (compactLayout() ? 10 : 16);
+  const top = compactLayout() ? 120 : 104;
   box(left, top, size, size, 250, 250, 247);
   for (let row = 0; row < count; row++) {
     for (let column = 0; column < count; column++) {
@@ -2675,6 +2767,7 @@ function drawSpectatorQr(ink) {
 }
 
 function paint() {
+  syncGameView();
   const run = runtime();
   const t = (run.monotonicUs - startedAt) / 1000000;
   if (typeof ac === "function") acFeed = ac();
@@ -2688,7 +2781,7 @@ function paint() {
   const titlePanel = mixColor([22, 28, 104], [245, 248, 252], visualTheme.light);
   const titleInk = mixColor([245, 248, 255], [24, 35, 72], visualTheme.light);
   wipe(...sky);
-  box(0, 0, 1920, 1080, ...arena);
+  box(0, 0, viewWidth(), viewHeight, ...arena);
   if (shellMode === "MENU") {
     drawShellMenu(t, titleInk, titlePanel);
     return;
@@ -2732,10 +2825,10 @@ function paint() {
   const remainingSeconds = roundResult ? 0 : Math.max(0,
     Math.ceil((roundDurationUs - roundElapsedUs) / 1000000));
   const timerText = String(remainingSeconds).padStart(2, "0");
-  typeWrite(timerText, 928, 10, 62, ...titleInk);
+  typeWrite(timerText, viewCenterX() - 32, 10, 62, ...titleInk);
   if (roundViewer) {
     const viewerLabel = roundViewerMode || roundViewerStatus;
-    typeWrite(viewerLabel, 1740 - viewerLabel.length * 10, 24, 24,
+    typeWrite(viewerLabel, viewWidth() - 18 - viewerLabel.length * 18, 24, 24,
       ...(roundViewerMode === "LIVE" ? [210, 42, 62] : titleInk));
     typeWrite(matchName.toUpperCase(), 24, 24, 20, ...titleInk);
   }
@@ -2753,8 +2846,8 @@ function paint() {
     // leave frame, so cull it before submitting triangles to the native GPU.
     if (!Number.isFinite(point.x) || !Number.isFinite(point.y) ||
         !Number.isFinite(radius) || point.x + radius < 0 ||
-        point.x - radius > 1920 || point.y + radius < 0 ||
-        point.y - radius > 1080) continue;
+        point.x - radius > viewWidth() || point.y + radius < 0 ||
+        point.y - radius > viewHeight) continue;
     const palette = [accent, [255, 105, 190], [111, 232, 210],
       [255, 232, 92], [130, 150, 255], [245, 248, 255]];
     const sides = 12;
@@ -2809,34 +2902,44 @@ function paint() {
     const introText = introSeconds < .95 ? players[0].name
       : introSeconds < 1.9 ? players[1].name
       : players[0].name + "  VS  " + players[1].name;
-    const size = introSeconds < 1.9 ? 76 : 62;
+    const preferredSize = introSeconds < 1.9 ? 76 : 62;
+    const size = Math.min(preferredSize,
+      Math.max(28, (viewWidth() - 72) / Math.max(1, introText.length * .62)));
     const width = introText.length * size * .62;
-    box((1920 - width) / 2 - 30, 824, width + 60, 145, ...titlePanel);
-    typeWrite(introText, (1920 - width) / 2, 838, size, ...titleInk);
+    box(viewCenterX() - width / 2 - 30, 824, width + 60, 145, ...titlePanel);
+    typeWrite(introText, viewCenterX() - width / 2, 838, size, ...titleInk);
     const windLabel = windMph + " MPH WIND " +
       (windDirection < 0 ? "LEFT" : "RIGHT");
-    typeWrite(windLabel, 960 - windLabel.length * 7.5, 932, 25, ...titleInk);
+    typeWrite(windLabel, viewCenterX() - windLabel.length * 7.5,
+      932, 25, ...titleInk);
   }
   if (roundResult) {
     if (instantReplay) {
       const frame = Math.min(instantReplay.frames.length,
         Math.floor(instantReplay.cursor) + 1);
       const replayLabel = "REPLAY  " + frame + "/" + instantReplay.frames.length;
-      typeWrite(replayLabel, 960 - replayLabel.length * 10, 820, 30, ...titleInk);
+      typeWrite(replayLabel, viewCenterX() - replayLabel.length * 10,
+        820, 30, ...titleInk);
       const locale = controlLocale();
       const controls = instantReplay.paused
         ? locale.replayPaused : locale.replayPlaying;
-      typeWrite(controls, 960 - controls.length * 7.5, 948, 23, ...titleInk);
+      typeWrite(controls, viewCenterX() - controls.length * 7.5,
+        948, 23, ...titleInk);
     } else {
       const cause = roundCause || "ROUND";
-      const causeWidth = cause.length * 78;
-      box((1920 - causeWidth) / 2 - 36, 790, causeWidth + 72, 126, ...titlePanel);
-      typeWrite(cause, (1920 - causeWidth) / 2, 810, 92, ...titleInk);
+      const causeSize = Math.min(92,
+        Math.max(40, (viewWidth() - 72) / Math.max(1, cause.length * .85)));
+      const causeWidth = cause.length * causeSize * .85;
+      box(viewCenterX() - causeWidth / 2 - 36, 790,
+        causeWidth + 72, 126, ...titlePanel);
+      typeWrite(cause, viewCenterX() - causeWidth / 2, 810,
+        causeSize, ...titleInk);
       const resultWidth = roundResult.length * 28;
-      typeWrite(roundResult, (1920 - resultWidth) / 2, 930, 34, ...titleInk);
+      typeWrite(roundResult, viewCenterX() - resultWidth / 2,
+        930, 34, ...titleInk);
       if (!roundViewer) {
         const replayControl = controlLocale().replay;
-        typeWrite(replayControl, 960 - replayControl.length * 7.5,
+        typeWrite(replayControl, viewCenterX() - replayControl.length * 7.5,
           982, 22, ...titleInk);
       }
     }
