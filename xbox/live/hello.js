@@ -287,7 +287,7 @@ function startReplay(now) {
   liveSequence = 0;
   liveNextAt = now;
   spectatorQr = typeof qrcode === "function"
-    ? qrcode("https://aesthetic.computer/oskiewar:" + matchName,
+    ? qrcode("https://oskiewar.com/oskiewar:" + matchName,
       { errorCorrectLevel: 1 }) : null;
 }
 
