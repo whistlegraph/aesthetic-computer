@@ -36,8 +36,8 @@ struct OskiewarLivePublisher::State {
   Logger logger;
   MessageWebSocket^ socket = nullptr;
   DataWriter^ writer = nullptr;
-  EventRegistrationToken message_token{};
-  EventRegistrationToken closed_token{};
+  Windows::Foundation::EventRegistrationToken message_token{};
+  Windows::Foundation::EventRegistrationToken closed_token{};
   bool subscribed = false;
   bool connecting = false;
   bool connected = false;
