@@ -2270,13 +2270,22 @@ function runnerBodyDistanceToPoint(geometry, px, py, pz = 0) {
   return distance;
 }
 
+function comicGlyphAdvance(character, size) {
+  if (character === "@") return size * .92;
+  if ("MW%&".includes(character.toUpperCase())) return size * .88;
+  if ("I1!.,:;'|".includes(character)) return size * .34;
+  if ("JLTF".includes(character.toUpperCase())) return size * .52;
+  return size * .65;
+}
+
 function handleWidth(handle, size) {
-  return handle.length ? size * (handle[0] === "@" ? .88 : .58) +
-    (handle.length - 1) * size * .58 : 0;
+  return [...handle].reduce((width, character) =>
+    width + comicGlyphAdvance(character, size), 0);
 }
 
 function typeWrite(text, x, y, size, ...color) {
-  if (typeof ywftWrite === "function") ywftWrite(text, x, y, size, ...color);
+  if (typeof comicWrite === "function") comicWrite(text, x, y, size, ...color);
+  else if (typeof ywftWrite === "function") ywftWrite(text, x, y, size, ...color);
   else systemWrite(text, x, y, size, ...color);
 }
 
@@ -2547,7 +2556,7 @@ function drawPlayerHandle(player, t) {
       const character = player.name[index];
       const color = colors?.[index] || fallback;
       typeWrite(character, cursor, y + dy, size, ...color);
-      cursor += size * (character === "@" ? .88 : .58);
+      cursor += comicGlyphAdvance(character, size);
     }
   };
   // A tight glyph shadow keeps the handle legible without a black strap.

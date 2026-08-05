@@ -897,6 +897,10 @@ oskiewar.com {
         root * /opt/ac/system/public
         file_server
     }
+    handle /ComicRelief-Regular.ttf {
+        root * /opt/ac/system/public/papers.aesthetic.computer/foundry/fonts
+        file_server
+    }
     handle /sw.js {
         root * /opt/ac/system/public
         file_server

@@ -599,6 +599,21 @@ private:
       LogTelemetry("AC_NATIVE_YWFT status=" +
         std::to_string(static_cast<long>(fontResult)));
     } else LogTelemetry("AC_NATIVE_YWFT status=unavailable");
+    std::wstring comicPath(package->Data());
+    comicPath += L"\\Assets\\ComicRelief-Regular.ttf";
+    supported = FALSE;
+    fileType = DWRITE_FONT_FILE_TYPE_UNKNOWN;
+    faceType = DWRITE_FONT_FACE_TYPE_UNKNOWN;
+    faceCount = 0;
+    if (SUCCEEDED(m_dwriteFactory->CreateFontFileReference(comicPath.c_str(), nullptr,
+        &m_comicFontFile)) && SUCCEEDED(m_comicFontFile->Analyze(&supported,
+        &fileType, &faceType, &faceCount)) && supported && faceCount > 0) {
+      IDWriteFontFile* files[] = {m_comicFontFile.Get()};
+      const auto fontResult = m_dwriteFactory->CreateFontFace(faceType, 1, files, 0,
+        DWRITE_FONT_SIMULATIONS_NONE, &m_comicFontFace);
+      LogTelemetry("AC_NATIVE_COMIC_RELIEF status=" +
+        std::to_string(static_cast<long>(fontResult)));
+    } else LogTelemetry("AC_NATIVE_COMIC_RELIEF status=unavailable");
     Check(m_d2dContext->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::White),
       &m_textBrush));
     CreateTrianglePipeline();
@@ -2276,13 +2291,13 @@ private:
           m_d2dContext->DrawText(value.data(), static_cast<UINT32>(value.size()),
             format.Get(), area, m_textBrush.Get());
         };
-        const auto drawYwft = [this, scaleX, scaleY](const std::wstring& value,
-            float x, float y, float size, Color color) {
-          if (!m_ywftFontFace) return;
+        const auto drawPackagedFont = [this, scaleX, scaleY](IDWriteFontFace* fontFace,
+            const std::wstring& value, float x, float y, float size, Color color) {
+          if (!fontFace) return;
           const float emSize = (std::max)(6.0f, (std::min)(256.0f,
             std::round(size * scaleY)));
           DWRITE_FONT_METRICS fontMetrics{};
-          m_ywftFontFace->GetMetrics(&fontMetrics);
+          fontFace->GetMetrics(&fontMetrics);
           const float designScale = emSize / fontMetrics.designUnitsPerEm;
           m_textBrush->SetColor(D2D1::ColorF(color.r / 255.0f, color.g / 255.0f,
             color.b / 255.0f, color.a / 255.0f));
@@ -2293,14 +2308,14 @@ private:
             std::vector<UINT16> glyphs(codepoints.size());
             std::vector<DWRITE_GLYPH_METRICS> metrics(codepoints.size());
             std::vector<FLOAT> advances(codepoints.size());
-            if (FAILED(m_ywftFontFace->GetGlyphIndices(codepoints.data(),
+            if (FAILED(fontFace->GetGlyphIndices(codepoints.data(),
                 static_cast<UINT32>(codepoints.size()), glyphs.data())) ||
-                FAILED(m_ywftFontFace->GetDesignGlyphMetrics(glyphs.data(),
+                FAILED(fontFace->GetDesignGlyphMetrics(glyphs.data(),
                 static_cast<UINT32>(glyphs.size()), metrics.data()))) return;
             for (std::size_t index = 0; index < metrics.size(); ++index)
               advances[index] = metrics[index].advanceWidth * designScale;
             DWRITE_GLYPH_RUN run{};
-            run.fontFace = m_ywftFontFace.Get();
+            run.fontFace = fontFace;
             run.fontEmSize = emSize;
             run.glyphCount = static_cast<UINT32>(glyphs.size());
             run.glyphIndices = glyphs.data();
@@ -2320,7 +2335,11 @@ private:
         };
         for (const auto& text : m_frameSystemTexts) {
           if (text.family == "YWFT Processing" && m_ywftFontFace)
-            drawYwft(Wide(text.value), text.x, text.y, text.size, text.color);
+            drawPackagedFont(m_ywftFontFace.Get(), Wide(text.value),
+              text.x, text.y, text.size, text.color);
+          else if (text.family == "Comic Relief" && m_comicFontFace)
+            drawPackagedFont(m_comicFontFace.Get(), Wide(text.value),
+              text.x, text.y, text.size, text.color);
           else drawText(Wide(text.value), L"Segoe UI", text.x, text.y,
             text.size, text.color);
         }
@@ -2450,6 +2469,8 @@ private:
   ComPtr<IDWriteFactory> m_dwriteFactory;
   ComPtr<IDWriteFontFile> m_ywftFontFile;
   ComPtr<IDWriteFontFace> m_ywftFontFace;
+  ComPtr<IDWriteFontFile> m_comicFontFile;
+  ComPtr<IDWriteFontFace> m_comicFontFace;
   std::unordered_map<std::wstring, ComPtr<IDWriteTextFormat>> m_textFormats;
   ComPtr<ID3D11VertexShader> m_triangleVertexShader;
   ComPtr<ID3D11PixelShader> m_trianglePixelShader;

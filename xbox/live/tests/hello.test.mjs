@@ -66,6 +66,11 @@ test("control copy follows the native host platform", () => {
   assert.doesNotMatch(mac.select, /A READY/);
 });
 
+test("OSKIEWAR typography uses the packaged KidLisp Comic Relief face", () => {
+  assert.match(source, /typeof comicWrite === "function"/);
+  assert.match(source, /comicGlyphAdvance/);
+});
+
 test("web camera follows landscape, 16:9, and portrait viewports", () => {
   for (const [viewport, expectedWidth] of [
     [{ width: 2560, height: 1080 }, 2560],

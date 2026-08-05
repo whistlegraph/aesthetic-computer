@@ -370,6 +370,10 @@ JSValue YwftWrite(JSContext* context, JSValueConst, int argc, JSValueConst* argv
   return QueueSystemWrite(context, argc, argv, "YWFT Processing");
 }
 
+JSValue ComicWrite(JSContext* context, JSValueConst, int argc, JSValueConst* argv) {
+  return QueueSystemWrite(context, argc, argv, "Comic Relief");
+}
+
 JSValue SystemGlyph(JSContext* context, JSValueConst, int argc, JSValueConst* argv) {
   auto* scope = static_cast<CallScope*>(JS_GetContextOpaque(context));
   if (!scope || !scope->api || argc < 1) return JS_EXCEPTION;
@@ -768,6 +772,7 @@ class QuickJsPiece final : public JsPiece {
     JS_SetPropertyStr(context_, global, "texturedTriangles3d", JS_NewCFunction(context_, TexturedTriangles3d, "texturedTriangles3d", 2));
     JS_SetPropertyStr(context_, global, "systemWrite", JS_NewCFunction(context_, SystemWrite, "systemWrite", 7));
     JS_SetPropertyStr(context_, global, "ywftWrite", JS_NewCFunction(context_, YwftWrite, "ywftWrite", 7));
+    JS_SetPropertyStr(context_, global, "comicWrite", JS_NewCFunction(context_, ComicWrite, "comicWrite", 7));
     JS_SetPropertyStr(context_, global, "systemGlyph", JS_NewCFunction(context_, SystemGlyph, "systemGlyph", 7));
     JS_SetPropertyStr(context_, global, "painting", JS_NewCFunction(context_, Painting, "painting", 4));
     JS_SetPropertyStr(context_, global, "stampPainting", JS_NewCFunction(context_, StampPainting, "stampPainting", 4));

@@ -8,13 +8,14 @@
   <meta name="theme-color" content="#07081c">
   <style>
     @font-face {
-      font-family: "YWFT Processing";
-      src: url("/type/webfonts/ywft-processing-regular.ttf") format("truetype");
+      font-family: "Comic Relief";
+      src: url("./ComicRelief-Regular.ttf") format("truetype"),
+        url("https://papers.aesthetic.computer/foundry/fonts/ComicRelief-Regular.ttf") format("truetype");
       font-display: block;
     }
     * { box-sizing: border-box; }
     html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: #07081c; }
-    body { display: grid; place-items: center; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    body { display: grid; place-items: center; font-family: "Comic Relief", "Comic Sans MS", Arial, sans-serif; }
     canvas { width: 100vw; height: 100vh; display: block; }
     #status { position: absolute; width: 1px; height: 1px; overflow: hidden;
       clip-path: inset(50%); white-space: nowrap; }
@@ -157,9 +158,9 @@
       drawText(text, x, y, size, ink);
     }
 
-    function ywftWrite(text, x, y, size, ...ink) {
+    function comicWrite(text, x, y, size, ...ink) {
       context.fillStyle = color(ink);
-      context.font = `${size}px "YWFT Processing", "Segoe UI", sans-serif`;
+      context.font = `${size}px "Comic Relief", "Comic Sans MS", Arial, sans-serif`;
       context.textBaseline = "top";
       const lines = String(text).split("\n");
       for (let index = 0; index < lines.length; index++)
@@ -322,7 +323,7 @@
     globalThis.__fightHost = {
       runtime, gamepad, controllers, capabilities, telemetry, gameSignal,
       saveReplay, publishLive, ac, drum, wipe, box, line, triangle,
-      write, systemWrite, ywftWrite, gameView,
+      write, systemWrite, comicWrite, gameView,
     };
   </script>
   <script type="module">
@@ -338,11 +339,11 @@
       const piece = new Function(
         "runtime", "gamepad", "controllers", "capabilities", "telemetry",
         "gameSignal", "saveReplay", "publishLive", "ac", "drum", "wipe", "box",
-        "line", "triangle", "write", "systemWrite", "ywftWrite", "gameView",
+        "line", "triangle", "write", "systemWrite", "comicWrite", "gameView",
         `${source}\nreturn { boot, sim, paint };`
       )(...["runtime", "gamepad", "controllers", "capabilities", "telemetry",
         "gameSignal", "saveReplay", "publishLive", "ac", "drum", "wipe", "box",
-        "line", "triangle", "write", "systemWrite", "ywftWrite", "gameView"]
+        "line", "triangle", "write", "systemWrite", "comicWrite", "gameView"]
         .map((name) => globalThis.__fightHost[name]));
       piece.boot();
       function frame() {

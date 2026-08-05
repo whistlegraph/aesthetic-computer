@@ -23,8 +23,9 @@ function fileFor(pathname) {
   if (pathname === "/round-room.mjs") return join(here, "round-room.mjs");
   if (pathname === "/aesthetic.computer/dep/@akamfoad/qr/qr.mjs")
     return join(repo, "system/public/aesthetic.computer/dep/@akamfoad/qr/qr.mjs");
-  if (pathname === "/type/webfonts/ywft-processing-regular.ttf")
-    return join(repo, "system/public/type/webfonts/ywft-processing-regular.ttf");
+  if (pathname === "/ComicRelief-Regular.ttf")
+    return join(repo,
+      "system/public/papers.aesthetic.computer/foundry/fonts/ComicRelief-Regular.ttf");
   if (pathname === "/" || /^\/[a-z0-9-]+\/?$/.test(pathname))
     return join(here, "mac-test.html");
   return "";
@@ -74,6 +75,27 @@ async function tapTogether(page, buttons, duration = 90) {
   await wait(duration);
   for (const button of buttons) await page.keyboard.up(button);
   await wait(150);
+}
+
+async function captureTypography(browser, origin) {
+  const page = await browser.newPage();
+  const viewport = { width: 1280, height: 720, deviceScaleFactor: 1 };
+  await page.setViewport(viewport);
+  const errors = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.goto(origin, { waitUntil: "networkidle2" });
+  await page.evaluate(() => document.fonts.ready);
+  await tap(page, "KeyF");
+  await tap(page, "KeyH");
+  await tap(page, "KeyF");
+  await wait(3350);
+  const shot = join(outputRoot, "comic-relief-game.png");
+  await page.screenshot({ path: shot });
+  const fontLoaded = await page.evaluate(() =>
+    document.fonts.check('32px "Comic Relief"'));
+  await page.close();
+  return { name: "typography", viewport, fontLoaded, errors,
+    files: { shot } };
 }
 
 async function playRound(browser, origin, name, viewport, opponent = "dummy") {
@@ -170,7 +192,8 @@ async function playRound(browser, origin, name, viewport, opponent = "dummy") {
     const canvas = document.querySelector("canvas");
     const rect = canvas.getBoundingClientRect();
     return { viewport: [innerWidth, innerHeight], canvasCss: [rect.width, rect.height],
-      canvasBacking: [canvas.width, canvas.height] };
+      canvasBacking: [canvas.width, canvas.height],
+      comicRelief: document.fonts.check('32px "Comic Relief"') };
   });
   await page.close();
 
@@ -247,6 +270,7 @@ try {
   if (scenario === "bot-v-bot")
     results.push(await playRound(browser, origin, "bot-v-bot",
       { width: 1280, height: 720, deviceScaleFactor: 1 }, "bot"));
+  if (scenario === "font") results.push(await captureTypography(browser, origin));
   const report = { format: "ac.oskiewar.blackbox", version: 1,
     createdAt: new Date().toISOString(), source: "public-ui-and-network-only", results };
   await writeFile(join(outputRoot, "report.json"), JSON.stringify(report, null, 2));
