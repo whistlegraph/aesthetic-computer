@@ -520,17 +520,36 @@ test("shielding a grounded ball blasts it instead of booting it", () => {
   const { fight, pads, signals, tick } = createFight();
   const player = fight.players[0];
   fight.enableBall();
-  fight.ball.x = player.x + 40;
+  // The normal serve distance is beyond the fighter body but inside the
+  // visible shield, so this catches body-only shield collision regressions.
+  fight.ball.x = player.x + 180;
   fight.ball.y = 12000 - fight.ball.radius;
   fight.ball.z = player.z;
   fight.ball.vx = -80;
   fight.ball.vy = 0;
   pads[0].down = ["X"];
   tick();
-  assert.ok(fight.ball.vx >= 5400);
+  assert.ok(fight.ball.vx >= 6000);
   assert.ok(fight.ball.vy < -3000);
   assert.ok(signals.some(([event, pad]) => event === "ballblock" && pad === 0));
   assert.ok(!signals.some(([event, pad]) => event === "boot" && pad === 0));
+});
+
+test("shield blast strength increases as a grounded ball gets closer", () => {
+  const blastAt = (offset) => {
+    const { fight, pads, tick } = createFight();
+    const player = fight.players[0];
+    fight.enableBall();
+    fight.ball.x = player.x + offset;
+    fight.ball.y = 12000 - fight.ball.radius;
+    fight.ball.z = player.z;
+    fight.ball.vx = 0;
+    fight.ball.vy = 0;
+    pads[0].down = ["X"];
+    tick();
+    return Math.abs(fight.ball.vx);
+  };
+  assert.ok(blastAt(20) > blastAt(180));
 });
 
 test("attack poses preserve two-bone limb lengths", () => {

@@ -24,6 +24,8 @@ const matchResultUs = 5000000;
 const introDurationUs = 3000000;
 const matchWins = 5;
 const powerupIntervalUs = 10000000;
+const shieldRadius = 160;
+const shieldForward = 30;
 const grenadeBlastDuration = .68;
 const grenadeBlastRadius = 620;
 const replayTickUs = 16667;
@@ -1176,14 +1178,24 @@ function meleeStrike(player, now) {
   };
 }
 
+function shieldGeometry(player) {
+  return {
+    x: player.x + player.facing * shieldForward,
+    y: player.y - 90,
+    z: player.z,
+    radius: shieldRadius,
+  };
+}
+
 function returnBall(ball, player, now, shielded, intensity = 1) {
   const incomingVx = ball.vx;
   const incomingVy = ball.vy;
   const direction = ball.x >= player.x ? 1 : -1;
   const currentSpeed = Math.hypot(ball.vx, ball.vy);
   const normalSpeed = (currentSpeed * 1.34 + 720) * intensity;
+  const shieldMinimum = 5400 + clamp(intensity, 0, 1) * 3600;
   const speed = shielded
-    ? Math.min(9000, Math.max(5400, normalSpeed * 3.5))
+    ? Math.min(9000, Math.max(shieldMinimum, normalSpeed * 3.5))
     : Math.min(4800, normalSpeed);
   ball.vx = direction * speed;
   const lift = shielded ? .72 : player.inputY > 0 ? .58
@@ -1343,6 +1355,17 @@ function updateBall(ball, dt, now) {
     if (!player.alive || ((ball.safePlayers & (1 << player.pad)) &&
         now < ball.safeUntil))
       continue;
+    if (player.blocking) {
+      const shield = shieldGeometry(player);
+      const centerDistance = Math.hypot(ball.x - shield.x, ball.y - shield.y,
+        ball.z - shield.z);
+      const surfaceDistance = Math.max(0, centerDistance - ball.radius);
+      if (surfaceDistance <= shield.radius) {
+        const proximity = clamp(1 - surfaceDistance / shield.radius, 0, 1);
+        returnBall(ball, player, now, true, proximity);
+        return;
+      }
+    }
     const geometry = runnerWorldGeometry(player, poseTime);
     const currentHeadDistance = Math.max(0, Math.hypot(
       ball.x - geometry.head.x, ball.y - geometry.head.y,
@@ -1355,10 +1378,6 @@ function updateBall(ball, dt, now) {
     const bodyDistance = runnerBodyDistanceToPoint(geometry,
       ball.x, ball.y, ball.z);
     if (Math.min(headDistance, bodyDistance) > ball.radius) continue;
-    if (player.blocking) {
-      returnBall(ball, player, now, true);
-      return;
-    }
     if (onFloor) {
       bootBall(ball, player, now);
       return;
@@ -2095,8 +2114,9 @@ function drawRunner(player, t, showLabel = true) {
     line(segment.x1, segment.y1, segment.x2, segment.y2, segment.width, ...color);
   drawInventory(player, displayNow);
   if (player.blocking) {
-    const shield = projectPoint(player.x, player.y - 90, player.z);
-    const radius = Math.max(18, 112 * cameraScale());
+    const worldShield = shieldGeometry(player);
+    const shield = projectPoint(worldShield.x, worldShield.y, worldShield.z);
+    const radius = Math.max(18, worldShield.radius * cameraScale());
     const shieldColor = player.blockFlash > 0 ? [255, 255, 255] : player.color;
     circle(shield.x, shield.y, radius, Math.max(3, 9 * cameraScale()), shieldColor);
     circle(shield.x, shield.y, radius * .78,
