@@ -20,7 +20,7 @@ function createFight(startImmediately = true, enterGame = true,
   };
   const fight = new Function(
     "runtime", "gamepad", "capabilities", "telemetry", "gameSignal", "saveReplay", "publishLive", "drum", "wipe", "box", "line", "triangle", "write", "systemWrite",
-    `${source}\nreturn { boot, sim, paint, controlLocale, players, ball, bullets, grenades, gunPickups, grenadePickups, runnerWorldGeometry, runnerDistanceToPoint, disableBall: () => { ballEnabled = false; ball.active = false; }, enableBall: () => { ballEnabled = true; ball.active = true; ball.serveAt = 0; ball.safeUntil = 0; ball.safePlayers = 0; }, setWind: (value) => { windAcceleration = value; }, windState: () => ({ direction: windDirection, mph: windMph }), nextRound: () => resetRound(runtime().monotonicUs, false), wackBall: () => { players[0].attackKind = "KICK"; returnBall(players[0], runtime().monotonicUs, false); }, crossWackBall: (contact = 1) => crossWackBall(players.map((player) => ({ player, contact })), runtime().monotonicUs), enterGame: () => enterShellMode("GAME", runtime().monotonicUs), shellState: () => ({ mode: shellMode, choice: shellChoice, lab: labPlayers.map((player) => ({ ...player })) }), startFight: () => { shellMode = "GAME"; selecting = false; startReplay(runtime().monotonicUs); resetRound(runtime().monotonicUs, true); }, selectionState: () => ({ selecting, ready: selectionReady.slice() }), cameraState: () => ({ cameraWidth, cameraCenter, cameraCenterY }), roundState: () => ({ roundResult, roundElapsedUs, matchOver }), instantReplayState: () => instantReplay ? { active: true, paused: instantReplay.paused, cursor: instantReplay.cursor, frames: instantReplay.frames.length } : { active: false }, replayFrameCount: () => roundReplayFrames.length };`
+    `${source}\nreturn { boot, sim, paint, controlLocale, players, ball, balls, bullets, grenades, gunPickups, grenadePickups, runnerWorldGeometry, runnerDistanceToPoint, disableBall: () => { ballEnabled = false; for (const item of balls) item.active = false; }, enableBall: (index = 0) => { ballEnabled = true; const item = balls[index]; item.active = true; item.serveAt = 0; item.safeUntil = 0; item.safePlayers = 0; }, setWind: (value) => { windAcceleration = value; }, windState: () => ({ direction: windDirection, mph: windMph }), nextRound: () => resetRound(runtime().monotonicUs, false), wackBall: () => { players[0].attackKind = "KICK"; returnBall(ball, players[0], runtime().monotonicUs, false); }, crossWackBall: (contact = 1) => crossWackBall(ball, players.map((player) => ({ player, contact })), runtime().monotonicUs), enterGame: () => enterShellMode("GAME", runtime().monotonicUs), shellState: () => ({ mode: shellMode, choice: shellChoice, lab: labPlayers.map((player) => ({ ...player })) }), startFight: () => { shellMode = "GAME"; selecting = false; startReplay(runtime().monotonicUs); resetRound(runtime().monotonicUs, true); }, selectionState: () => ({ selecting, ready: selectionReady.slice() }), cameraState: () => ({ cameraWidth, cameraCenter, cameraCenterY }), roundState: () => ({ roundResult, roundElapsedUs, matchOver }), instantReplayState: () => instantReplay ? { active: true, paused: instantReplay.paused, cursor: instantReplay.cursor, frames: instantReplay.frames.length } : { active: false }, replayFrameCount: () => roundReplayFrames.length };`
   )(
     () => ({ monotonicUs: now, unixMs: 1785870000000 + Math.floor(now / 1000) }),
     (index = 0) => ({ ...pads[index], down: pads[index].down.slice() }),
@@ -151,6 +151,7 @@ test("gun drops grant ammo and A fires in the quantized aim direction", () => {
   const { fight, pads, signals, tick } = createFight();
   const player = fight.players[0];
   const pickup = fight.gunPickups[0];
+  pickup.active = true;
   pickup.x = player.x;
   pickup.y = player.y - 70;
   tick();
@@ -168,6 +169,7 @@ test("grenade drops grant ammo and B throws an expanding grenade", () => {
   const { fight, pads, signals, tick } = createFight();
   const player = fight.players[0];
   const pickup = fight.grenadePickups[0];
+  pickup.active = true;
   pickup.x = player.x;
   pickup.y = player.y - 70;
   tick();
@@ -359,11 +361,18 @@ test("a grounded ball ignores wind", () => {
   assert.equal(signals.some(([event]) => event === "boot"), false);
 });
 
-test("each round serves the ball in the air above the center platform", () => {
+test("each round starts one grounded ball in front of each fighter", () => {
   const { fight } = createFight();
-  assert.equal(fight.ball.x, 6000);
-  assert.ok(fight.ball.y < 10400 - fight.ball.radius);
-  assert.equal(fight.ball.vy, 0);
+  assert.equal(fight.balls.length, 2);
+  for (let index = 0; index < fight.players.length; index++) {
+    const player = fight.players[index];
+    const ball = fight.balls[index];
+    assert.equal(ball.spawnOwner, index);
+    assert.equal(ball.x, player.x + player.facing * 180);
+    assert.equal(ball.y, 12000 - ball.radius);
+    assert.equal(ball.vx, 0);
+    assert.equal(ball.vy, 0);
+  }
 });
 
 test("wind rerolls and reverses direction every round", () => {
@@ -375,12 +384,27 @@ test("wind rerolls and reverses direction every round", () => {
   assert.ok(second.mph >= 4 && second.mph <= 24);
 });
 
+test("only one center-platform powerup appears at each ten-second interval", () => {
+  const { fight, tick } = createFight();
+  for (let step = 0; step < 251; step++) tick(50000);
+  let active = [...fight.gunPickups, ...fight.grenadePickups]
+    .filter((pickup) => pickup.active);
+  assert.equal(active.length, 1);
+  assert.equal(active[0].x, 6000);
+  assert.equal(active[0].y, 10400 - 70);
+  for (let step = 0; step < 250; step++) tick(50000);
+  active = [...fight.gunPickups, ...fight.grenadePickups]
+    .filter((pickup) => pickup.active);
+  assert.equal(active.length, 1);
+});
+
 test("running into a grounded ball boots it instead of killing the player", () => {
   const { fight, signals, tick } = createFight();
   const player = fight.players[0];
   fight.enableBall();
   fight.ball.x = player.x;
   fight.ball.y = 12000 - fight.ball.radius;
+  fight.ball.z = player.z;
   fight.ball.vx = 0;
   fight.ball.vy = 0;
   player.vx = 900;

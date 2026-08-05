@@ -53,6 +53,26 @@ test("one publisher fans state only to viewers in its match", () => {
   assert.notEqual(other.sent.at(-1)?.type, "oskiewar:state");
 });
 
+test("a fixed match broadcast fans out and caches state for late spectators", () => {
+  let now = 100;
+  const manager = new OskiewarLiveManager({ now: () => now });
+  const host = new FakeSocket();
+  const viewers = Array.from({ length: 12 }, () => new FakeSocket());
+  const url = "/oskiewar-live?match=bafegu-dorimi-kunapo";
+  manager.handleConnection(host, { url: `${url}&role=publisher` });
+  for (const viewer of viewers) manager.handleConnection(viewer, { url });
+  now += 30;
+  host.emit("message", Buffer.from(JSON.stringify({
+    type: "oskiewar:state", content: state(),
+  })));
+  assert.ok(viewers.every((viewer) =>
+    viewer.sent.at(-1)?.type === "oskiewar:state"));
+  const late = new FakeSocket();
+  manager.handleConnection(late, { url });
+  assert.equal(late.sent.at(-1)?.type, "oskiewar:state");
+  assert.equal(late.sent.at(-1)?.content.seq, 1);
+});
+
 test("duplicate and over-rate publisher frames are dropped", () => {
   let now = 100;
   const manager = new OskiewarLiveManager({ now: () => now });

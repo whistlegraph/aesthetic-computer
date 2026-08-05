@@ -21,7 +21,7 @@ const roundResultUs = 3000000;
 const matchResultUs = 5000000;
 const introDurationUs = 3000000;
 const matchWins = 5;
-const pickupRespawnUs = 7000000;
+const powerupIntervalUs = 10000000;
 const grenadeBlastDuration = .68;
 const grenadeBlastRadius = 620;
 const replayTickUs = 16667;
@@ -188,21 +188,22 @@ const impacts = [];
 const bullets = [];
 const grenades = [];
 const gunPickups = [
-  { amount: 6, x: 5450, y: floorY - 70, z: 0 },
-  { amount: 6, x: 6550, y: floorY - 70, z: 0 },
-  { amount: 4, x: 6000, y: platformY - 70, z: 0 },
+  { amount: 6, x: 6000, y: platformY - 70, z: 0 },
 ];
 const grenadePickups = [
-  { amount: 2, x: 5520, y: floorY - 70, z: 0 },
-  { amount: 2, x: 6480, y: floorY - 70, z: 0 },
+  { amount: 2, x: 6000, y: platformY - 70, z: 0 },
 ];
 for (const pickup of [...gunPickups, ...grenadePickups]) {
-  pickup.active = true;
+  pickup.active = false;
   pickup.respawnAt = 0;
 }
-const ball = { x: 6000, y: floorY - 55, z: 0, vx: 0, vy: 0,
-  radius: 55, active: true, serveAt: 0, lastHitBy: -1, safeUntil: 0,
-  safePlayers: 0 };
+const balls = [0, 1].map((spawnOwner) => ({
+  x: players[spawnOwner].spawnX, y: floorY - 55, z: 0, vx: 0, vy: 0,
+  radius: 55, active: true, serveAt: 0, lastHitBy: spawnOwner,
+  safeUntil: 0, safePlayers: 0, spawnOwner,
+}));
+// Version-one replay/spectator consumers still read the first ball by name.
+const ball = balls[0];
 let ballEnabled = true;
 let padSnapshots = [null, null];
 let startedAt = 0;
@@ -213,6 +214,8 @@ let roundOverAt = 0;
 let roundResult = "";
 let matchOver = false;
 let roundCause = "";
+let nextPowerupAtUs = powerupIntervalUs;
+let powerupSequence = 0;
 let acFeed = {};
 let selecting = true;
 const selectionReady = [false, false];
@@ -302,6 +305,9 @@ function publishSpectator(now) {
     })),
     ball: { active: ball.active, x: ball.x, y: ball.y,
       z: ball.z, radius: ball.radius },
+    balls: balls.map((item) => ({ active: item.active, x: item.x,
+      y: item.y, z: item.z, radius: item.radius,
+      spawnOwner: item.spawnOwner })),
     camera: { x: cameraCenter, y: cameraCenterY, width: cameraWidth },
     round: { remainingMs, result: roundResult || "" },
     replayUrl: "/api/oskiewar-replays?id=ow-" + matchName,
@@ -367,6 +373,8 @@ function makeRoundReplayFrame(now) {
     })),
     ball: { x: ball.x, y: ball.y, z: ball.z, vx: ball.vx, vy: ball.vy,
       active: ball.active },
+    balls: balls.map((item) => ({ x: item.x, y: item.y, z: item.z,
+      vx: item.vx, vy: item.vy, active: item.active })),
     camera: { center: cameraCenter, centerY: cameraCenterY, width: cameraWidth },
   };
 }
@@ -390,8 +398,13 @@ function applyRoundReplayFrame(frame, now) {
     player.attackUntil = now + state.attackUntilOffset;
     player.replayGeometry = state.geometry;
   }
-  for (const key of ["x", "y", "z", "vx", "vy", "active"])
-    ball[key] = frame.ball[key];
+  const frameBalls = frame.balls || [frame.ball];
+  for (let index = 0; index < balls.length; index++) {
+    const state = frameBalls[index];
+    if (!state) continue;
+    for (const key of ["x", "y", "z", "vx", "vy", "active"])
+      balls[index][key] = state[key];
+  }
   cameraCenter = frame.camera.center;
   cameraCenterY = frame.camera.centerY;
   cameraWidth = frame.camera.width;
@@ -619,19 +632,21 @@ function rollWind() {
   emitSignal("wind", -1, windDirection, windMph);
 }
 
-function resetBall(now) {
-  const target = Math.random() < .5 ? 0 : 1;
-  ball.x = (worldLeft + worldRight) / 2;
-  ball.y = platformY - 720;
-  ball.z = 0;
-  ball.vx = target === 0 ? -650 : 650;
-  ball.vy = 0;
-  ball.active = ballEnabled;
-  ball.serveAt = now + introDurationUs + 850000;
-  ball.lastHitBy = target === 0 ? 1 : 0;
-  ball.safeUntil = ball.serveAt;
-  ball.safePlayers = 1 << ball.lastHitBy;
-  emitSignal("ballserve", -1, target, windMph);
+function resetBalls(now) {
+  for (const item of balls) {
+    const owner = players[item.spawnOwner];
+    item.x = owner.spawnX + owner.facing * 180;
+    item.y = floorY - item.radius;
+    item.z = owner.pad === 0 ? -60 : 60;
+    item.vx = 0;
+    item.vy = 0;
+    item.active = ballEnabled;
+    item.serveAt = now + introDurationUs + 150000;
+    item.lastHitBy = owner.pad;
+    item.safeUntil = item.serveAt;
+    item.safePlayers = 1 << owner.pad;
+    emitSignal("ballserve", owner.pad, owner.facing, windMph);
+  }
 }
 
 const buttonLabel = (button) => ({
@@ -697,9 +712,11 @@ function resetRound(now, resetMatch = false) {
     player.lastButtonAt = -10000000;
   }
   for (const pickup of [...gunPickups, ...grenadePickups]) {
-    pickup.active = true;
+    pickup.active = false;
     pickup.respawnAt = 0;
   }
+  nextPowerupAtUs = powerupIntervalUs;
+  powerupSequence = 0;
   roundResult = "";
   roundCause = "";
   matchOver = false;
@@ -707,9 +724,9 @@ function resetRound(now, resetMatch = false) {
   lastSimAt = now;
   roundStartedAt = now;
   rollWind();
-  resetBall(now);
+  resetBalls(now);
   if (replay) replay.rounds.push([demoTick(now), windDirection, windMph,
-    ball.vx < 0 ? 0 : 1]);
+    balls.length]);
   cameraCenter = (worldLeft + worldRight) / 2;
   cameraWidth = 1300;
   cameraCenterY = floorY - cameraWidth / cameraAspect / 2;
@@ -899,16 +916,12 @@ function throwGrenade(player) {
 function updateGunPickups(now) {
   const poseTime = (now - startedAt) / 1000000;
   for (const pickup of gunPickups) {
-    if (!pickup.active) {
-      if (now >= pickup.respawnAt) pickup.active = true;
-      else continue;
-    }
+    if (!pickup.active) continue;
     for (const player of players) {
       if (!player.alive || runnerDistanceToPoint(player, poseTime,
         pickup.x, pickup.y, pickup.z) > 90) continue;
       player.gunAmmo = Math.min(12, player.gunAmmo + pickup.amount);
       pickup.active = false;
-      pickup.respawnAt = now + pickupRespawnUs;
       remember(player, "GUN +" + pickup.amount);
       drum("clap", 1.1, panPlayer(player));
       emitSignal("pickup", player.pad, 1, pickup.amount);
@@ -920,22 +933,39 @@ function updateGunPickups(now) {
 function updateGrenadePickups(now) {
   const poseTime = (now - startedAt) / 1000000;
   for (const pickup of grenadePickups) {
-    if (!pickup.active) {
-      if (now >= pickup.respawnAt) pickup.active = true;
-      else continue;
-    }
+    if (!pickup.active) continue;
     for (const player of players) {
       if (!player.alive || runnerDistanceToPoint(player, poseTime,
         pickup.x, pickup.y, pickup.z) > 90) continue;
       player.grenadeAmmo = Math.min(4, player.grenadeAmmo + pickup.amount);
       pickup.active = false;
-      pickup.respawnAt = now + pickupRespawnUs;
       remember(player, "GRENADE +" + pickup.amount);
       drum("clap", 1.1, panPlayer(player));
       emitSignal("pickup", player.pad, 2, pickup.amount);
       break;
     }
   }
+}
+
+function updatePowerups(now) {
+  while (roundElapsedUs >= nextPowerupAtUs) {
+    const occupied = [...gunPickups, ...grenadePickups]
+      .some((pickup) => pickup.active);
+    if (!occupied) {
+      const choices = [gunPickups[0], grenadePickups[0]];
+      const pickup = choices[powerupSequence % choices.length];
+      pickup.active = true;
+      pickup.x = (platformLeft + platformRight) / 2;
+      pickup.y = platformY - 70;
+      pickup.z = 0;
+      powerupSequence += 1;
+      emitSignal("powerup", -1, powerupSequence, nextPowerupAtUs / 1000000);
+      drum("clap", .9, 0);
+    }
+    nextPowerupAtUs += powerupIntervalUs;
+  }
+  updateGunPickups(now);
+  updateGrenadePickups(now);
 }
 
 function updateBullets(dt, now) {
@@ -1074,7 +1104,7 @@ function meleeStrike(player, now) {
   };
 }
 
-function returnBall(player, now, shielded, intensity = 1) {
+function returnBall(ball, player, now, shielded, intensity = 1) {
   const incomingVx = ball.vx;
   const incomingVy = ball.vy;
   const direction = ball.x >= player.x ? 1 : -1;
@@ -1109,7 +1139,7 @@ function returnBall(player, now, shielded, intensity = 1) {
     direction, Math.round(speed));
 }
 
-function crossWackBall(hitters, now) {
+function crossWackBall(ball, hitters, now) {
   const first = hitters[0];
   const second = hitters[1];
   const fighterDistance = Math.abs(first.player.x - second.player.x);
@@ -1138,7 +1168,7 @@ function crossWackBall(hitters, now) {
   emitSignal("crosswack", -1, direction, Math.round(speed));
 }
 
-function bootBall(player, now) {
+function bootBall(ball, player, now) {
   const direction = Math.sign(ball.x - player.x) || player.facing || 1;
   const speed = Math.min(3600, 1150 + Math.abs(player.vx) * .95);
   ball.vx = direction * speed;
@@ -1156,7 +1186,7 @@ function bootBall(player, now) {
   emitSignal("boot", player.pad, direction, Math.round(speed));
 }
 
-function bounceBallOffBody(player, now) {
+function bounceBallOffBody(ball, player, now) {
   const direction = Math.sign(ball.x - player.x) || -Math.sign(ball.vx) ||
     player.facing || 1;
   const incomingSpeed = Math.hypot(ball.vx, ball.vy);
@@ -1174,7 +1204,7 @@ function bounceBallOffBody(player, now) {
   emitSignal("bodybounce", player.pad, direction, Math.round(speed));
 }
 
-function updateBall(dt, now) {
+function updateBall(ball, dt, now) {
   if (!ball.active || now < ball.serveAt) return;
   const grounded = ball.y >= floorY - ball.radius - 1 && Math.abs(ball.vy) < 180;
   if (!grounded) ball.vx += windAcceleration * .45 * dt;
@@ -1223,11 +1253,12 @@ function updateBall(dt, now) {
     }
   }
   if (hitters.length >= 2) {
-    crossWackBall(hitters, now);
+    crossWackBall(ball, hitters, now);
     return;
   }
   if (hitters.length === 1) {
-    returnBall(hitters[0].player, now, false, .92 + hitters[0].contact * .38);
+    returnBall(ball, hitters[0].player, now, false,
+      .92 + hitters[0].contact * .38);
     return;
   }
   for (const player of players) {
@@ -1242,11 +1273,11 @@ function updateBall(dt, now) {
       ball.x, ball.y, ball.z);
     if (Math.min(headDistance, bodyDistance) > ball.radius) continue;
     if (onFloor) {
-      bootBall(player, now);
+      bootBall(ball, player, now);
       return;
     }
     if (player.blocking) {
-      returnBall(player, now, true);
+      returnBall(ball, player, now, true);
       return;
     }
     if (headDistance <= ball.radius) {
@@ -1256,7 +1287,7 @@ function updateBall(dt, now) {
       killPlayer(player, scorer, now, "BALLED");
       return;
     }
-    bounceBallOffBody(player, now);
+    bounceBallOffBody(ball, player, now);
     return;
   }
 }
@@ -1578,12 +1609,11 @@ function sim() {
     ? { connected: true, down: [], leftX: 0, leftY: 0 }
     : padSnapshots[1], dt, now);
   resolvePlayerPushboxes();
-  updateGunPickups(now);
-  updateGrenadePickups(now);
+  updatePowerups(now);
   updateBullets(dt, now);
   updateGrenades(dt, now);
   resolveMelee(now);
-  updateBall(dt, now);
+  for (const item of balls) updateBall(item, dt, now);
   updateCamera(dt);
   updateCameraDoll(dt, now);
   captureRoundReplay(now);
@@ -1812,6 +1842,25 @@ function drawFace(player, head, color, t) {
   if (head.radius < 5) return;
   const r = head.radius;
   const direction = player.facing || 1;
+  if (player.name === "@FIFI") {
+    const hair = visualTheme.light > .55 ? [105, 38, 116] : [245, 118, 230];
+    const sway = Math.sin(t * 2.2 + player.pad) * r * .08;
+    const width = Math.max(2, r * .13);
+    line(head.x - r * .72, head.y - r * .48,
+      head.x - r * .32, head.y - r * .9, width, ...hair);
+    line(head.x - r * .32, head.y - r * .9,
+      head.x + r * .35, head.y - r * .88, width, ...hair);
+    line(head.x + r * .35, head.y - r * .88,
+      head.x + r * .76, head.y - r * .38, width, ...hair);
+    line(head.x - r * .76, head.y - r * .38,
+      head.x - r * .7 + sway, head.y + r * .92, width, ...hair);
+    line(head.x + r * .76, head.y - r * .38,
+      head.x + r * .7 + sway, head.y + r * .92, width, ...hair);
+    line(head.x - r * .48, head.y - r * .46,
+      head.x - r * .08, head.y - r * .18, width * .72, ...hair);
+    line(head.x - r * .08, head.y - r * .18,
+      head.x + r * .42, head.y - r * .5, width * .72, ...hair);
+  }
   const eyeY = head.y - r * .18;
   const eyeGap = r * .34;
   const eyeWidth = Math.max(1.4, r * .1);
@@ -1945,7 +1994,7 @@ function drawPlayerHud(player, x, pad) {
   let label = "P" + (player.pad + 1) + "  " + player.roundWins + "/" +
     matchWins + "  PTS " + player.score;
   if (player.gunAmmo > 0) label += "  GUN " + player.gunAmmo;
-  if (player.grenadeAmmo > 0) label += "  GREN " + player.grenadeAmmo;
+  if (player.grenadeAmmo > 0) label += "  GRENADE " + player.grenadeAmmo;
   typeWrite(label, x, 14, 22, ...color);
 }
 
@@ -1960,26 +2009,20 @@ function drawFighterData(player, x) {
 function drawCornerHandle(player, right = false) {
   const size = 27;
   const width = handleWidth(player.name, size);
-  const barWidth = 390;
-  const barX = right ? 1920 - barWidth : 0;
   const x = right ? 1894 - width : 26;
-  box(barX + (right ? -7 : 7), 1037, barWidth, 43, 0, 0, 0);
-  box(barX, 1032, barWidth, 43, 5, 7, 14);
-  box(barX, 1032, barWidth, 5, ...player.color);
   const drawGlyphs = (dx, dy, colors, fallback) => {
     let cursor = x + dx;
     for (let index = 0; index < player.name.length; index++) {
       const character = player.name[index];
       const color = colors?.[index] || fallback;
-      write(character, cursor, 1038 + dy, size, ...color);
+      typeWrite(character, cursor, 1038 + dy, size, ...color);
       cursor += size * (character === "@" ? .88 : .58);
     }
   };
-  // Each glyph owns a hard font_1 shadow. The strap remains the final overlay
-  // layer so world geometry and post effects never composite over either name.
-  drawGlyphs(4, 4, null, [0, 0, 0]);
+  // A tight glyph shadow keeps the handle legible without a black strap.
+  drawGlyphs(2, 2, null, visualTheme.light > .55
+    ? [250, 252, 255] : [0, 0, 0]);
   drawGlyphs(0, 0, player.handleColors, player.color);
-  drawGlyphs(1, 0, player.handleColors, player.color);
 }
 
 function worldLine(x1, y1, z1, x2, y2, z2, width, color) {
@@ -1993,13 +2036,16 @@ function drawGunPickup(pickup, t) {
   const bobY = pickup.y + Math.sin(t * 3 + pickup.x * .001) * 24;
   const point = projectPoint(pickup.x, bobY, pickup.z);
   const scale = cameraScale();
-  const color = [235, 240, 250];
+  const color = [255, 220, 72];
+  circle(point.x, point.y, Math.max(12, 72 * scale),
+    Math.max(3, 10 * scale), color);
   worldLine(pickup.x - 62, bobY, pickup.z,
-    pickup.x + 62, bobY, pickup.z, Math.max(3, 13 * scale), color);
+    pickup.x + 70, bobY, pickup.z, Math.max(4, 17 * scale), color);
   worldLine(pickup.x + 5, bobY, pickup.z,
-    pickup.x + 35, bobY + 52, pickup.z, Math.max(3, 12 * scale), color);
-  const labelSize = Math.max(10, Math.min(18, Math.round(42 * scale)));
-  typeWrite("GUN", point.x - labelSize, point.y - Math.max(18, 65 * scale),
+    pickup.x + 36, bobY + 58, pickup.z, Math.max(4, 15 * scale), color);
+  const labelSize = Math.max(13, Math.min(22, Math.round(48 * scale)));
+  typeWrite("GUN", point.x - labelSize * 1.05,
+    point.y - Math.max(24, 88 * scale),
     labelSize, ...color);
 }
 
@@ -2024,7 +2070,7 @@ function drawGrenadePickup(pickup, t) {
     Math.max(2, 10 * scale), color);
   worldLine(pickup.x, bobY - 34, pickup.z,
     pickup.x + 28, bobY - 62, pickup.z, Math.max(2, 8 * scale), color);
-  typeWrite("GREN", point.x - 26, point.y - Math.max(20, 68 * scale),
+  typeWrite("GRENADE", point.x - 48, point.y - Math.max(20, 68 * scale),
     Math.max(10, Math.min(18, Math.round(42 * scale))), ...color);
 }
 
@@ -2102,7 +2148,7 @@ function drawSelectPortrait(player, x, y, scale, t) {
 
 function drawSelectionScreen(t, ink, panel) {
   const controls = controlLocale();
-  typeWrite("CHOOSE YOUR FIGHTER", 735, 76, 32, ...ink);
+  typeWrite("SELECT A PAL", 850, 76, 32, ...ink);
   for (let index = 0; index < fighterRoster.length; index++) {
     const fighter = fighterRoster[index];
     const selected = players.some((player) => player.rosterIndex === index);
@@ -2267,23 +2313,39 @@ function paint() {
     platformLeft, platformY, platformFar, 5, worldInk);
   worldLine(platformRight, platformY, platformNear,
     platformRight, platformY, platformFar, 5, worldInk);
-  const windInk = mixColor([125, 155, 205], [238, 246, 255], visualTheme.light);
+  const windInk = windDirection < 0
+    ? mixColor([72, 174, 255], [28, 88, 188], visualTheme.light)
+    : mixColor([255, 92, 132], [184, 35, 62], visualTheme.light);
   drawWindLines(t, windInk);
   drawWindFlag(t, titleInk);
+  const remainingSeconds = roundResult ? 0 : Math.max(0,
+    Math.ceil((roundDurationUs - roundElapsedUs) / 1000000));
+  const timerText = String(remainingSeconds).padStart(2, "0");
+  typeWrite(timerText, 928, 10, 62, ...titleInk);
   typeWrite(matchName.toUpperCase(), 806, 82, 14, ...titleInk);
   for (const pickup of gunPickups) drawGunPickup(pickup, t);
   for (const pickup of grenadePickups) drawGrenadePickup(pickup, t);
   for (const bullet of bullets) drawBullet(bullet);
   for (const grenade of grenades) drawGrenade(grenade);
-  if (ball.active) {
+  for (const ball of balls) {
+    if (!ball.active) continue;
+    const accent = players[ball.spawnOwner]?.color || [255, 105, 190];
     const point = projectPoint(ball.x, ball.y, ball.z);
     const radius = Math.max(8, ball.radius * cameraScale());
-    const speed = Math.hypot(ball.vx, ball.vy) || 1;
-    const tail = projectPoint(ball.x - ball.vx / speed * 150,
-      ball.y - ball.vy / speed * 150, ball.z);
-    line(tail.x, tail.y, point.x, point.y, Math.max(3, radius * .35),
-      255, 105, 190);
-    circle(point.x, point.y, radius, Math.max(3, radius * .22), [245, 248, 255]);
+    const palette = [accent, [255, 105, 190], [111, 232, 210],
+      [255, 232, 92], [130, 150, 255], [245, 248, 255]];
+    const sides = 12;
+    for (let side = 0; side < sides; side++) {
+      const a = -Math.PI / 2 + side * Math.PI * 2 / sides + t * 1.4;
+      const b = -Math.PI / 2 + (side + 1) * Math.PI * 2 / sides + t * 1.4;
+      triangle(point.x, point.y,
+        point.x + Math.cos(a) * radius * .9,
+        point.y + Math.sin(a) * radius * .9,
+        point.x + Math.cos(b) * radius * .9,
+        point.y + Math.sin(b) * radius * .9,
+        ...palette[side % palette.length]);
+    }
+    circle(point.x, point.y, radius, Math.max(3, radius * .18), [245, 248, 255]);
     const inner = [];
     for (let side = 0; side < 5; side++) {
       const angle = -Math.PI / 2 + side * Math.PI * 2 / 5 + t * 1.4;
@@ -2293,11 +2355,11 @@ function paint() {
     for (let side = 0; side < 5; side++) {
       const next = (side + 1) % 5;
       line(inner[side].x, inner[side].y, inner[next].x, inner[next].y,
-        Math.max(2, radius * .12), 255, 105, 190);
+        Math.max(2, radius * .12), ...accent);
       line(inner[side].x, inner[side].y,
         point.x + (inner[side].x - point.x) * 2.15,
         point.y + (inner[side].y - point.y) * 2.15,
-        Math.max(2, radius * .09), 255, 105, 190);
+        Math.max(2, radius * .09), ...accent);
     }
   }
   for (const impact of impacts) {

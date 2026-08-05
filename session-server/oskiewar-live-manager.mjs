@@ -37,6 +37,12 @@ function fighter(value) {
     (value.attack === "" || /^[A-Z0-9 _-]{1,24}$/.test(value.attack));
 }
 
+function ball(value) {
+  return value && typeof value === "object" &&
+    typeof value.active === "boolean" && finite(value.x) &&
+    finite(value.y) && finite(value.z) && finite(value.radius, 10000);
+}
+
 export function validateOskiewarLiveState(value) {
   if (!value || value.format !== "ac.oskiewar.live" || value.version !== 1)
     return "Unsupported live state";
@@ -45,10 +51,10 @@ export function validateOskiewarLiveState(value) {
   if (!PHASES.has(value.phase)) return "Invalid phase";
   if (!Array.isArray(value.fighters) || value.fighters.length !== 2 ||
       value.fighters.some((entry) => !fighter(entry))) return "Invalid fighters";
-  if (!value.ball || typeof value.ball !== "object" ||
-      typeof value.ball.active !== "boolean" || !finite(value.ball.x) ||
-      !finite(value.ball.y) || !finite(value.ball.z) ||
-      !finite(value.ball.radius, 10000)) return "Invalid ball";
+  if (!ball(value.ball)) return "Invalid ball";
+  if (value.balls !== undefined && (!Array.isArray(value.balls) ||
+      value.balls.length < 1 || value.balls.length > 4 ||
+      value.balls.some((entry) => !ball(entry)))) return "Invalid balls";
   if (!value.camera || typeof value.camera !== "object" ||
       !finite(value.camera.x) || !finite(value.camera.y) ||
       !finite(value.camera.width, 100000) || value.camera.width < 100)

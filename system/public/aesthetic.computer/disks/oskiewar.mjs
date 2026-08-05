@@ -98,9 +98,17 @@ function sim() {
       "ducking", "blocking", "score", "roundWins", "attack"])
       display[key] = target[key];
   }
-  for (const key of ["x", "y", "z", "radius"])
-    shown.ball[key] += (snapshot.ball[key] - shown.ball[key]) * .3;
-  shown.ball.active = snapshot.ball.active;
+  const targetBalls = snapshot.balls || [snapshot.ball];
+  if (!shown.balls) shown.balls = clone(targetBalls);
+  while (shown.balls.length < targetBalls.length)
+    shown.balls.push(clone(targetBalls[shown.balls.length]));
+  for (let index = 0; index < targetBalls.length; index++) {
+    for (const key of ["x", "y", "z", "radius"])
+      shown.balls[index][key] +=
+        (targetBalls[index][key] - shown.balls[index][key]) * .3;
+    shown.balls[index].active = targetBalls[index].active;
+  }
+  shown.ball = shown.balls[0];
   shown.camera = { ...snapshot.camera };
   shown.round = { ...snapshot.round };
   shown.phase = snapshot.phase;
@@ -180,10 +188,12 @@ function paint({ wipe, ink, line, circle, screen }) {
   const platformA = project(4500, 10400), platformB = project(7500, 10400);
   ink(54, 63, 82).line(platformA.x, platformA.y, platformB.x, platformB.y);
 
-  if (shown.ball.active) {
-    const ball = project(shown.ball.x, shown.ball.y);
-    ink(250, 225, 105).circle(ball.x, ball.y,
-      Math.max(2, shown.ball.radius * scale), true);
+  for (const item of shown.balls || [shown.ball]) {
+    if (!item.active) continue;
+    const ball = project(item.x, item.y);
+    const owner = shown.fighters[item.spawnOwner] || shown.fighters[0];
+    ink(...(owner?.color || [250, 225, 105])).circle(ball.x, ball.y,
+      Math.max(2, item.radius * scale), true);
   }
   const api = { ink, line, circle };
   shown.fighters.forEach((fighter) => drawFighter(api, fighter, project, shown.seq || 0));
