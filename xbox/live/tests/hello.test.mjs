@@ -12,6 +12,7 @@ function createFight(startImmediately = true, enterGame = true,
   const replays = [];
   const liveFrames = [];
   const triangles = [];
+  const lines = [];
   const pads = [0, 1].map(() => ({ connected: true, down: [], leftX: 0, leftY: 0 }));
   const noOp = () => {};
   const drawTriangle = (...values) => {
@@ -19,16 +20,17 @@ function createFight(startImmediately = true, enterGame = true,
       assert.ok(Number.isFinite(value) && Math.abs(value) <= 32768);
     triangles.push(values);
   };
+  const drawLine = (...values) => lines.push(values);
   const fight = new Function(
     "runtime", "gamepad", "capabilities", "telemetry", "gameSignal", "saveReplay", "publishLive", "drum", "wipe", "box", "line", "triangle", "write", "systemWrite", "gameView",
-    `${source}\nreturn { boot, sim, paint, controlLocale, players, ball, balls, bullets, grenades, gunPickups, grenadePickups, runnerWorldGeometry, runnerDistanceToPoint, disableBall: () => { ballEnabled = false; for (const item of balls) item.active = false; }, enableBall: (index = 0) => { ballEnabled = true; const item = balls[index]; item.active = true; item.serveAt = 0; item.safeUntil = 0; item.safePlayers = 0; }, setWind: (value) => { windAcceleration = value; }, windState: () => ({ direction: windDirection, mph: windMph }), nextRound: () => resetRound(runtime().monotonicUs, false), knockOut: () => killPlayer(players[1], 0, runtime().monotonicUs, "KO"), wackBall: () => { players[0].attackKind = "KICK"; returnBall(ball, players[0], runtime().monotonicUs, false); }, shieldBall: () => returnBall(ball, players[0], runtime().monotonicUs, true), crossWackBall: (contact = 1) => crossWackBall(ball, players.map((player) => ({ player, contact })), runtime().monotonicUs), enterGame: () => enterShellMode("GAME", runtime().monotonicUs), shellState: () => ({ mode: shellMode, choice: shellChoice, lab: labPlayers.map((player) => ({ ...player })) }), startFight: () => { shellMode = "GAME"; selecting = false; startReplay(runtime().monotonicUs); resetRound(runtime().monotonicUs, true); }, selectionState: () => ({ selecting, ready: selectionReady.slice() }), cameraState: () => ({ cameraWidth, cameraCenter, cameraCenterY, cameraAspect, stageRight, viewHeight }), screenBounds: () => players.map((player) => runnerScreenBounds(player, runtime().monotonicUs / 1e6)), actionSafeRect: () => ({ left: compactLayout() ? 34 : 64, right: stageRight - (compactLayout() ? 34 : 64), top: stageTop + 26, bottom: stageBottom - 26 }), roundState: () => ({ roundResult, roundElapsedUs, matchOver }), viewerState: () => ({ active: Boolean(roundViewer), mode: roundViewerMode, status: roundViewerStatus, name: matchName }), instantReplayState: () => instantReplay ? { active: true, paused: instantReplay.paused, cursor: instantReplay.cursor, frames: instantReplay.frames.length } : { active: false }, replayFrameCount: () => roundReplayFrames.length };`
+    `${source}\nreturn { boot, sim, paint, controlLocale, players, ball, balls, bullets, grenades, gunPickups, grenadePickups, runnerWorldGeometry, runnerDistanceToPoint, disableBall: () => { ballEnabled = false; for (const item of balls) item.active = false; }, enableBall: (index = 0) => { ballEnabled = true; const item = balls[index]; item.active = true; item.serveAt = 0; item.safeUntil = 0; item.safePlayers = 0; }, setWind: (value) => { windAcceleration = value; }, windState: () => ({ direction: windDirection, mph: windMph }), nextRound: () => resetRound(runtime().monotonicUs, false), knockOut: () => killPlayer(players[1], 0, runtime().monotonicUs, "KO"), wackBall: () => { players[0].attackKind = "KICK"; returnBall(ball, players[0], runtime().monotonicUs, false); }, shieldBall: () => returnBall(ball, players[0], runtime().monotonicUs, true), crossWackBall: (contact = 1) => crossWackBall(ball, players.map((player) => ({ player, contact })), runtime().monotonicUs), enterGame: () => enterShellMode("GAME", runtime().monotonicUs), shellState: () => ({ mode: shellMode, choice: shellChoice, lab: labPlayers.map((player) => ({ ...player })) }), startFight: () => { shellMode = "GAME"; selecting = false; startReplay(runtime().monotonicUs); resetRound(runtime().monotonicUs, true); }, selectionState: () => ({ selecting, ready: selectionReady.slice() }), cameraState: () => ({ cameraWidth, cameraCenter, cameraCenterY, cameraAspect, stageRight, viewHeight }), screenBounds: () => players.map((player) => runnerScreenBounds(player, runtime().monotonicUs / 1e6)), actionSafeRect, hudSafeRect, roundState: () => ({ roundResult, roundElapsedUs, matchOver }), viewerState: () => ({ active: Boolean(roundViewer), mode: roundViewerMode, status: roundViewerStatus, name: matchName }), instantReplayState: () => instantReplay ? { active: true, paused: instantReplay.paused, cursor: instantReplay.cursor, frames: instantReplay.frames.length } : { active: false }, replayFrameCount: () => roundReplayFrames.length };`
   )(
     () => ({ monotonicUs: now, unixMs: 1785870000000 + Math.floor(now / 1000) }),
     (index = 0) => ({ ...pads[index], down: pads[index].down.slice() }),
     () => ({ platform, inputFamily: platform === "xbox-uwp" ? "xbox" : "keyboard" }),
     noOp, (...signal) => signals.push(signal), (payload) => replays.push(payload),
     (matchId, payload) => liveFrames.push([matchId, JSON.parse(payload)]),
-    noOp, noOp, noOp, noOp,
+    noOp, noOp, noOp, drawLine,
     drawTriangle, noOp, noOp, () => viewport
   );
   globalThis.__oskiewarRoundBridge = roundBridge;
@@ -52,7 +54,7 @@ function createFight(startImmediately = true, enterGame = true,
     fight.startFight();
     tick(3000001);
   }
-  return { fight, pads, signals, replays, liveFrames, triangles,
+  return { fight, pads, signals, replays, liveFrames, triangles, lines,
     tick, tap, now: () => now };
 }
 
@@ -69,6 +71,8 @@ test("control copy follows the native host platform", () => {
 test("OSKIEWAR typography uses the packaged KidLisp Comic Relief face", () => {
   assert.match(source, /typeof comicWrite === "function"/);
   assert.match(source, /comicGlyphAdvance/);
+  assert.match(source, /String\(text\)\.toLowerCase\(\)/);
+  assert.match(source, /drawGlyphs\(3, 4, null, \[8, 12, 24\]\)/);
 });
 
 test("web camera follows landscape, 16:9, and portrait viewports", () => {
@@ -84,6 +88,45 @@ test("web camera follows landscape, 16:9, and portrait viewports", () => {
     assert.equal(state.cameraAspect, expectedWidth / (930 - 112));
     assert.doesNotThrow(() => fight.paint());
   }
+});
+
+test("HUD safe area uses one equal inset on all four screen edges", () => {
+  for (const viewport of [
+    { width: 2560, height: 1080 },
+    { width: 1920, height: 1080 },
+    { width: 608, height: 1080 },
+  ]) {
+    const { fight } = createFight(false, false, "web", null, viewport);
+    const safe = fight.hudSafeRect();
+    const gaps = [safe.left, safe.top, viewport.width - safe.right,
+      viewport.height - safe.bottom];
+    assert.deepEqual(gaps, [gaps[0], gaps[0], gaps[0], gaps[0]]);
+    assert.doesNotThrow(() => fight.paint());
+  }
+});
+
+test("debug view draws the complete HUD and fighter safe rectangles", () => {
+  const { fight, lines } = createFight(false, false, "web", null,
+    { width: 1920, height: 1080 });
+  fight.startFight();
+  fight.paint();
+  const hud = fight.hudSafeRect();
+  const action = fight.actionSafeRect();
+  const segments = (width, color) => lines.filter((values) =>
+    values[4] === width && color.every((value, index) =>
+      values[5 + index] === value)).map((values) => values.slice(0, 4)).slice(-4);
+  assert.deepEqual(segments(1, [255, 214, 84]), [
+    [hud.left, hud.top, hud.right, hud.top],
+    [hud.right, hud.top, hud.right, hud.bottom],
+    [hud.right, hud.bottom, hud.left, hud.bottom],
+    [hud.left, hud.bottom, hud.left, hud.top],
+  ]);
+  assert.deepEqual(segments(2, [105, 255, 118]), [
+    [action.left, action.top, action.right, action.top],
+    [action.right, action.top, action.right, action.bottom],
+    [action.right, action.bottom, action.left, action.bottom],
+    [action.left, action.bottom, action.left, action.top],
+  ]);
 });
 
 test("camera contains both complete fighters at every supported aspect", () => {

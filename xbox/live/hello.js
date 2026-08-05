@@ -9,8 +9,7 @@ const worldFar = 1800;
 const stageLeft = 0;
 let stageRight = 1920;
 const stageTop = 112;
-// Leave a narrow, borderless projection gutter beneath the floor so fighter
-// handles and live combat state can stay attached to bodies without clipping.
+// Leave a narrow projection gutter beneath the floor for the screen-edge HUD.
 const stageBottom = 930;
 let viewHeight = 1080;
 let cameraAspect = (stageRight - stageLeft) / (stageBottom - stageTop);
@@ -53,6 +52,18 @@ const viewWidth = () => stageRight;
 const viewCenterX = () => (stageLeft + stageRight) / 2;
 const viewOffsetX = () => (stageRight - 1920) / 2;
 const compactLayout = () => stageRight < 1500;
+const hudSafeInset = () => compactLayout() ? 22 : 30;
+const hudSafeRect = () => {
+  const inset = hudSafeInset();
+  return { left: stageLeft + inset, top: inset,
+    right: stageRight - inset, bottom: viewHeight - inset };
+};
+const actionSafeRect = () => {
+  const marginX = compactLayout() ? 34 : 64;
+  const marginY = 26;
+  return { left: stageLeft + marginX, top: stageTop + marginY,
+    right: stageRight - marginX, bottom: stageBottom - marginY };
+};
 
 function syncGameView() {
   const next = typeof gameView === "function" ? gameView() : null;
@@ -2162,10 +2173,9 @@ function containFighters(t) {
     cameraDoll.position[axis] += target[axis] - cameraDoll.target[axis];
   cameraDoll.target = target;
 
-  const marginX = compactLayout() ? 34 : 64;
-  const marginY = 26;
-  const safeWidth = Math.max(1, stageRight - stageLeft - marginX * 2);
-  const safeHeight = Math.max(1, stageBottom - stageTop - marginY * 2);
+  const safe = actionSafeRect();
+  const safeWidth = Math.max(1, safe.right - safe.left);
+  const safeHeight = Math.max(1, safe.bottom - safe.top);
   const requiredWidth = Math.max(
     (maxX - minX) * (stageRight - stageLeft) / safeWidth,
     (maxY - minY) * cameraAspect *
@@ -2183,8 +2193,8 @@ function containFighters(t) {
   // Perspective and z-depth can make the world-space estimate asymmetric.
   // Iteratively measure the actual projection and expand along the existing
   // camera ray until every point satisfies the screen-space safe rectangle.
-  const centerX = viewCenterX();
-  const centerY = (stageTop + stageBottom) / 2;
+  const centerX = (safe.left + safe.right) / 2;
+  const centerY = (safe.top + safe.bottom) / 2;
   for (let pass = 0; pass < 4; pass++) {
     cameraDoll.dirty = true;
     cameraDoll.prepare();
@@ -2284,9 +2294,11 @@ function handleWidth(handle, size) {
 }
 
 function typeWrite(text, x, y, size, ...color) {
-  if (typeof comicWrite === "function") comicWrite(text, x, y, size, ...color);
-  else if (typeof ywftWrite === "function") ywftWrite(text, x, y, size, ...color);
-  else systemWrite(text, x, y, size, ...color);
+  const visibleText = String(text).toLowerCase();
+  if (typeof comicWrite === "function") comicWrite(visibleText, x, y, size, ...color);
+  else if (typeof ywftWrite === "function")
+    ywftWrite(visibleText, x, y, size, ...color);
+  else systemWrite(visibleText, x, y, size, ...color);
 }
 
 function controlLocale() {
@@ -2546,10 +2558,11 @@ function projectedBodyBottom(geometry) {
 }
 
 function drawPlayerHandle(player, t, side) {
+  const safe = hudSafeRect();
   const size = 42;
   const width = handleWidth(player.name, size);
-  const x = side === 0 ? 18 : viewWidth() - 18 - width;
-  const y = viewHeight - 112;
+  const x = side === 0 ? safe.left + 8 : safe.right - 8 - width;
+  const y = safe.bottom - size - 18;
   const drawGlyphs = (dx, dy, colors, fallback) => {
     let cursor = x + dx;
     for (let index = 0; index < player.name.length; index++) {
@@ -2559,9 +2572,8 @@ function drawPlayerHandle(player, t, side) {
       cursor += comicGlyphAdvance(character, size);
     }
   };
-  // A tight glyph shadow keeps the handle legible without a black strap.
-  drawGlyphs(2, 2, null, visualTheme.light > .55
-    ? [250, 252, 255] : [0, 0, 0]);
+  // A compact dark shadow keeps the handle legible without a background strap.
+  drawGlyphs(3, 4, null, [8, 12, 24]);
   drawGlyphs(0, 0, player.handleColors, player.color);
 }
 
@@ -2632,10 +2644,13 @@ function drawGrenade(grenade) {
 }
 
 function drawWindFlag(t, color) {
+  const safe = hudSafeRect();
   const compact = compactLayout();
-  const poleX = compact ? windDirection < 0 ? 90 : 24 : viewCenterX() - 140;
-  const poleTop = compact ? 58 : 12;
-  const poleBottom = compact ? 102 : 88;
+  const poleX = compact
+    ? windDirection < 0 ? safe.left + 76 : safe.left + 18
+    : viewCenterX() - 140;
+  const poleTop = safe.top + (compact ? 36 : 4);
+  const poleBottom = poleTop + (compact ? 44 : 76);
   const direction = windDirection;
   const length = (42 + windMph * 4) * (compact ? .52 : 1);
   const gust = Math.sin(t * (4 + windMph * .16)) *
@@ -2649,10 +2664,11 @@ function drawWindFlag(t, color) {
   line(poleX, poleTop + (compact ? 20 : 34), poleX, poleTop + 2,
     flagWidth, ...color);
   line(poleX - 12, poleBottom, poleX + 12, poleBottom, compact ? 4 : 5, ...color);
-  if (compact) typeWrite(windMph + " MPH", 130, 69, 20, ...color);
+  if (compact)
+    typeWrite(windMph + " MPH", safe.left + 108, poleTop + 11, 20, ...color);
   else {
     const textX = direction < 0 ? poleX + 22 : poleX - 115;
-    typeWrite(windMph + " MPH", textX - 18, 30, 27, ...color);
+    typeWrite(windMph + " MPH", textX - 18, poleTop + 18, 27, ...color);
   }
 }
 
@@ -2862,13 +2878,14 @@ function drawInputLab(run, ink, panel) {
 
 function drawSpectatorQr(ink) {
   if (!spectatorQr || typeof spectatorQr.getModuleCount !== "function") return;
+  const safe = hudSafeRect();
   const count = spectatorQr.getModuleCount();
   const quiet = 4;
   const targetSize = compactLayout() ? 112 : 176;
   const cell = Math.max(2, Math.floor(targetSize / (count + quiet * 2)));
   const size = (count + quiet * 2) * cell;
-  const left = viewWidth() - size - (compactLayout() ? 10 : 16);
-  const top = compactLayout() ? 120 : 104;
+  const left = safe.right - size - 8;
+  const top = Math.max(safe.top + 70, compactLayout() ? 120 : 104);
   box(left, top, size, size, 250, 250, 247);
   for (let row = 0; row < count; row++) {
     for (let column = 0; column < count; column++) {
@@ -2877,10 +2894,32 @@ function drawSpectatorQr(ink) {
           cell, cell, 7, 8, 14);
     }
   }
-  const label = matchName.toUpperCase();
+  const label = matchName;
   const labelWidth = handleWidth(label, 14);
   typeWrite(label, left + (size - labelWidth) / 2,
     top + size + 5, 14, ...ink);
+}
+
+function drawRectOutline(rect, width, color) {
+  line(rect.left, rect.top, rect.right, rect.top, width, ...color);
+  line(rect.right, rect.top, rect.right, rect.bottom, width, ...color);
+  line(rect.right, rect.bottom, rect.left, rect.bottom, width, ...color);
+  line(rect.left, rect.bottom, rect.left, rect.top, width, ...color);
+}
+
+function drawSafeZones() {
+  const hud = hudSafeRect();
+  const border = mixColor([112, 136, 190], [25, 38, 72], visualTheme.light);
+  drawRectOutline(hud, 3, border);
+  if (!debugHitboxes) return;
+  const action = actionSafeRect();
+  const hudDebug = [255, 214, 84];
+  const actionDebug = [105, 255, 118];
+  drawRectOutline(hud, 1, hudDebug);
+  drawRectOutline(action, 2, actionDebug);
+  typeWrite("hud safe", hud.left + 10, hud.top + 7, 17, ...hudDebug);
+  typeWrite("fighter safe", action.left + 10, action.top + 7,
+    17, ...actionDebug);
 }
 
 function paint() {
@@ -2943,12 +2982,13 @@ function paint() {
   const remainingSeconds = roundResult ? 0 : Math.max(0,
     Math.ceil((roundDurationUs - roundElapsedUs) / 1000000));
   const timerText = String(remainingSeconds).padStart(2, "0");
-  typeWrite(timerText, viewCenterX() - 32, 10, 62, ...titleInk);
+  const hud = hudSafeRect();
+  typeWrite(timerText, viewCenterX() - 32, hud.top + 2, 62, ...titleInk);
   if (roundViewer) {
     const viewerLabel = roundViewerMode || roundViewerStatus;
-    typeWrite(viewerLabel, viewWidth() - 18 - viewerLabel.length * 18, 24, 24,
+    typeWrite(viewerLabel, hud.right - viewerLabel.length * 18, hud.top + 7, 24,
       ...(roundViewerMode === "LIVE" ? [210, 42, 62] : titleInk));
-    typeWrite(matchName.toUpperCase(), 24, 24, 20, ...titleInk);
+    typeWrite(matchName, hud.left + 8, hud.top + 7, 20, ...titleInk);
   }
   for (const pickup of gunPickups) drawGunPickup(pickup, t);
   for (const pickup of grenadePickups) drawGrenadePickup(pickup, t);
@@ -3065,6 +3105,7 @@ function paint() {
   drawSpectatorQr(titleInk);
   drawPlayerHandle(players[0], t, 0);
   drawPlayerHandle(players[1], t, 1);
+  drawSafeZones();
 }
 
 function act() {}
