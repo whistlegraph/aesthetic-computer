@@ -699,16 +699,6 @@
         import lith_proxy
     }
 
-    # --- oskiewar.com ---
-    @oskiewarroot host oskiewar.com www.oskiewar.com
-    handle @oskiewarroot {
-        @oskiewarindex path /
-        handle @oskiewarindex {
-            rewrite * /oskiewar
-        }
-        import lith_proxy
-    }
-
     # --- wipppps.world ---
     @wippppsroot host wipppps.world www.wipppps.world
     handle @wippppsroot {
@@ -739,7 +729,7 @@
         file_server
     }
 
-    @mainspa host aesthetic.computer www.aesthetic.computer lith.aesthetic.computer notepat.com www.notepat.com oskiewar.com www.oskiewar.com wipppps.world www.wipppps.world p5.aesthetic.computer sitemap.aesthetic.computer
+    @mainspa host aesthetic.computer www.aesthetic.computer lith.aesthetic.computer notepat.com www.notepat.com wipppps.world www.wipppps.world p5.aesthetic.computer sitemap.aesthetic.computer
     handle @mainspa {
         # Assets → DO Spaces CDN. The bucket root maps directly to
         # assets.aesthetic.computer (no /assets/ prefix exists in the
@@ -841,6 +831,31 @@
     handle {
         import lith_proxy
     }
+}
+
+# --- oskiewar.com ---
+# Porkbun DNS points directly at lith, so this host needs a publicly trusted
+# certificate rather than the Cloudflare origin certificate on the :443 block.
+oskiewar.com {
+    tls {
+        issuer acme {
+            dir https://acme-v02.api.letsencrypt.org/directory
+        }
+        protocols tls1.2 tls1.3
+    }
+    encode zstd gzip
+    @oskiewarindex path /
+    handle @oskiewarindex {
+        rewrite * /oskiewar
+    }
+    import lith_proxy
+}
+
+www.oskiewar.com {
+    tls {
+        protocols tls1.2 tls1.3
+    }
+    redir https://oskiewar.com{uri} 301
 }
 
 # --- nopaint.art ---
