@@ -110,6 +110,15 @@ test("character select offers the four AC fighters and waits for both pads", () 
   assert.equal(fight.selectionState().selecting, false);
 });
 
+test("Menu or View on either controller returns a fight to character select", () => {
+  for (const [pad, button] of [[0, "Menu"], [1, "View"]]) {
+    const { fight, tap } = createFight();
+    assert.equal(fight.selectionState().selecting, false);
+    tap(pad, button);
+    assert.equal(fight.selectionState().selecting, true);
+  }
+});
+
 test("P1 X toggles P2 between controller and dummy on character select", () => {
   const { fight, pads, tick } = createFight(false);
   pads[0].down = ["X"];
@@ -505,6 +514,23 @@ test("shielding pops a ball upward at more than three times normal return speed"
   const shieldSpeed = Math.hypot(fight.ball.vx, fight.ball.vy);
   assert.ok(shieldSpeed > normalSpeed * 3);
   assert.ok(fight.ball.vy < -3000);
+});
+
+test("shielding a grounded ball blasts it instead of booting it", () => {
+  const { fight, pads, signals, tick } = createFight();
+  const player = fight.players[0];
+  fight.enableBall();
+  fight.ball.x = player.x + 40;
+  fight.ball.y = 12000 - fight.ball.radius;
+  fight.ball.z = player.z;
+  fight.ball.vx = -80;
+  fight.ball.vy = 0;
+  pads[0].down = ["X"];
+  tick();
+  assert.ok(fight.ball.vx >= 5400);
+  assert.ok(fight.ball.vy < -3000);
+  assert.ok(signals.some(([event, pad]) => event === "ballblock" && pad === 0));
+  assert.ok(!signals.some(([event, pad]) => event === "boot" && pad === 0));
 });
 
 test("attack poses preserve two-bone limb lengths", () => {

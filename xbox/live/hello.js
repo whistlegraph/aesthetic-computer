@@ -9,7 +9,9 @@ const worldFar = 1800;
 const stageLeft = 0;
 const stageRight = 1920;
 const stageTop = 112;
-const stageBottom = 1032;
+// Leave a narrow, borderless projection gutter beneath the floor so fighter
+// handles and live combat state can stay attached to bodies without clipping.
+const stageBottom = 930;
 const cameraAspect = (stageRight - stageLeft) / (stageBottom - stageTop);
 const platformLeft = 4500;
 const platformRight = 7500;
@@ -235,6 +237,7 @@ let replayOfferPrevious = [];
 let shellMode = "MENU";
 let shellChoice = 1;
 let shellPrevious = [];
+let navigationPrevious = [[], []];
 const labPlayers = [
   { x: 480, y: 560, color: [190, 42, 58] },
   { x: 1440, y: 560, color: [38, 82, 176] },
@@ -537,6 +540,22 @@ function beginSelect(now) {
   }
 }
 
+function returnToSelectPressed(now) {
+  let pressed = false;
+  for (let index = 0; index < padSnapshots.length; index++) {
+    const down = padSnapshots[index]?.down || [];
+    const previous = navigationPrevious[index];
+    if (["Menu", "View"].some((button) =>
+        down.includes(button) && !previous.includes(button))) pressed = true;
+    navigationPrevious[index] = down.slice();
+  }
+  if (!pressed || shellMode !== "GAME" || selecting) return false;
+  beginSelect(now);
+  drum("block", .9, 0);
+  telemetry("SHELL", "game->select " + now);
+  return true;
+}
+
 function enterShellMode(mode, now) {
   shellMode = mode;
   shellPrevious = padSnapshots[0]?.down?.slice() || [];
@@ -665,6 +684,7 @@ function boot() {
   shellMode = "MENU";
   shellChoice = 1;
   shellPrevious = [];
+  navigationPrevious = [[], []];
   beginSelect(startedAt);
 }
 
@@ -1162,8 +1182,9 @@ function returnBall(ball, player, now, shielded, intensity = 1) {
   const direction = ball.x >= player.x ? 1 : -1;
   const currentSpeed = Math.hypot(ball.vx, ball.vy);
   const normalSpeed = (currentSpeed * 1.34 + 720) * intensity;
-  const speed = Math.min(shielded ? 7600 : 4800,
-    normalSpeed * (shielded ? 3.5 : 1));
+  const speed = shielded
+    ? Math.min(9000, Math.max(5400, normalSpeed * 3.5))
+    : Math.min(4800, normalSpeed);
   ball.vx = direction * speed;
   const lift = shielded ? .72 : player.inputY > 0 ? .58
     : player.attackKind === "KICK" ? .34 : .2;
@@ -1334,12 +1355,12 @@ function updateBall(ball, dt, now) {
     const bodyDistance = runnerBodyDistanceToPoint(geometry,
       ball.x, ball.y, ball.z);
     if (Math.min(headDistance, bodyDistance) > ball.radius) continue;
-    if (onFloor) {
-      bootBall(ball, player, now);
-      return;
-    }
     if (player.blocking) {
       returnBall(ball, player, now, true);
+      return;
+    }
+    if (onFloor) {
+      bootBall(ball, player, now);
       return;
     }
     if (headDistance <= ball.radius) {
@@ -1631,6 +1652,7 @@ function sim() {
   lastSimAt = now;
   padSnapshots[0] = gamepad(0);
   padSnapshots[1] = gamepad(1);
+  if (returnToSelectPressed(now)) return;
   if (debugHitboxes && now >= nextInputDebugAt) {
     nextInputDebugAt = now + 500000;
     const values = players.map((player) => {
@@ -2130,8 +2152,8 @@ function drawDebugHitboxes(player, t) {
 
   const mode = "P" + (player.pad + 1) + " " + player.stance +
     (player.attackKind ? "/" + player.attackKind : "");
-  const feet = projectPoint(player.x, player.y, player.z);
-  const labelY = Math.min(968, feet.y + 22);
+  const bodyBottom = projectedBodyBottom(geometry);
+  const labelY = Math.min(1000, bodyBottom + 62);
   const labelWidth = Math.max(162, mode.length * 15);
   const pad = padSnapshots[player.pad] ||
     { connected: false, down: [], leftX: 0, leftY: 0 };
@@ -2144,8 +2166,6 @@ function drawDebugHitboxes(player, t) {
     labelY, 24, ...player.color);
   typeWrite(inputLabel, geometry.head.x - panelWidth / 2 + 8,
     labelY + 30, 18, 215, 224, 240);
-  write("HEAD", geometry.head.x - geometry.head.radius - 36,
-    geometry.head.y - 9, 13, ...headColor);
 }
 
 function drawPlayerHud(player, x, pad) {
@@ -2165,16 +2185,30 @@ function drawFighterData(player, x) {
   typeWrite(mood + "  ·  " + chat, x, 82, 15, ...ink);
 }
 
-function drawCornerHandle(player, right = false) {
+function projectedBodyBottom(geometry) {
+  let bottom = geometry.head.y + geometry.head.radius;
+  for (const segment of geometry.segments) {
+    const radius = segment.width / 2;
+    bottom = Math.max(bottom, segment.y1 + radius, segment.y2 + radius);
+  }
+  return bottom;
+}
+
+function drawPlayerHandle(player, t) {
   const size = 42;
   const width = handleWidth(player.name, size);
-  const x = right ? 1884 - width : 36;
+  const world = player.replayGeometry || player.frozenGeometry ||
+    runnerWorldGeometry(player, t);
+  const geometry = projectRunnerWorldGeometry(world);
+  const feet = projectPoint(player.x, player.y, player.z);
+  const x = clamp(feet.x - width / 2, 18, 1902 - width);
+  const y = Math.min(950, projectedBodyBottom(geometry) + 8);
   const drawGlyphs = (dx, dy, colors, fallback) => {
     let cursor = x + dx;
     for (let index = 0; index < player.name.length; index++) {
       const character = player.name[index];
       const color = colors?.[index] || fallback;
-      typeWrite(character, cursor, 1023 + dy, size, ...color);
+      typeWrite(character, cursor, y + dy, size, ...color);
       cursor += size * (character === "@" ? .88 : .58);
     }
   };
@@ -2419,7 +2453,10 @@ function drawSpectatorQr(ink) {
           cell, cell, 7, 8, 14);
     }
   }
-  typeWrite("WATCH", left, top + size + 5, 14, ...ink);
+  const label = matchName.toUpperCase();
+  const labelWidth = handleWidth(label, 14);
+  typeWrite(label, left + (size - labelWidth) / 2,
+    top + size + 5, 14, ...ink);
 }
 
 function paint() {
@@ -2481,7 +2518,6 @@ function paint() {
     Math.ceil((roundDurationUs - roundElapsedUs) / 1000000));
   const timerText = String(remainingSeconds).padStart(2, "0");
   typeWrite(timerText, 928, 10, 62, ...titleInk);
-  typeWrite(matchName.toUpperCase(), 744, 84, 22, ...titleInk);
   for (const pickup of gunPickups) drawGunPickup(pickup, t);
   for (const pickup of grenadePickups) drawGrenadePickup(pickup, t);
   for (const bullet of bullets) drawBullet(bullet);
@@ -2576,8 +2612,8 @@ function paint() {
     }
   }
   drawSpectatorQr(titleInk);
-  drawCornerHandle(players[0]);
-  drawCornerHandle(players[1], true);
+  drawPlayerHandle(players[0], t);
+  drawPlayerHandle(players[1], t);
 }
 
 function act() {}
