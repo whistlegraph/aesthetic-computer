@@ -211,6 +211,19 @@ test("P2 horizontal control remains active while shielding", () => {
   assert.ok(fight.players[1].vx > 1000);
 });
 
+test("fighters walking into one another push apart without ending the round", () => {
+  const { fight, pads, tick } = createFight();
+  fight.players[0].x = 5950;
+  fight.players[1].x = 6050;
+  pads[0].down = ["ArrowRight"];
+  pads[1].down = ["ArrowLeft"];
+  for (let frame = 0; frame < 20; frame++) tick(16667);
+  assert.equal(fight.players[0].alive, true);
+  assert.equal(fight.players[1].alive, true);
+  assert.equal(fight.roundState().roundResult, "");
+  assert.ok(Math.abs(fight.players[1].x - fight.players[0].x) >= 137);
+});
+
 test("player lands on the center platform", () => {
   const { fight, tick } = createFight();
   const player = fight.players[0];

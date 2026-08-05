@@ -159,7 +159,7 @@ function losAngelesSun() {
 }
 const players = [
   { name: "@JEFFREY", rosterIndex: 0, handleColors: fighterRoster[0].colors,
-    pad: 0, spawnX: 5150, x: 5150, y: floorY, z: 0,
+    pad: 0, spawnX: 5700, x: 5700, y: floorY, z: 0,
     vx: 0, vy: 0, vz: 0, facing: 1,
     grounded: true, ducking: false, previous: [], lastButton: "NONE",
     lastButtonAt: -10000000, color: [190, 42, 58], hit: 0,
@@ -170,7 +170,7 @@ const players = [
     attackUntil: 0, attackHit: false, blocking: false, blockFlash: 0,
     windVx: 0, knockVx: 0, gunAmmo: 0 },
   { name: "@OSKIE", rosterIndex: 2, handleColors: fighterRoster[2].colors, npc: false,
-    pad: 1, spawnX: 6850, x: 6850, y: floorY, z: 0,
+    pad: 1, spawnX: 6300, x: 6300, y: floorY, z: 0,
     vx: 0, vy: 0, vz: 0, facing: -1,
     grounded: true, ducking: false, previous: [], lastButton: "NONE",
     lastButtonAt: -10000000, color: [38, 82, 176], hit: 0,
@@ -605,7 +605,7 @@ function resetRound(now, resetMatch = false) {
   if (replay) replay.rounds.push([demoTick(now), windDirection, windMph,
     ball.vx < 0 ? 0 : 1]);
   cameraCenter = (worldLeft + worldRight) / 2;
-  cameraWidth = 2600;
+  cameraWidth = 1300;
   cameraCenterY = floorY - cameraWidth / cameraAspect / 2;
 }
 
@@ -616,8 +616,8 @@ function updateCamera(dt) {
   const bottom = Math.max(players[0].y, players[1].y);
   const maxWidth = Math.max(worldRight - worldLeft,
     (floorY - ceilingY) * cameraAspect);
-  const desiredWidth = Math.max(1800, Math.min(maxWidth,
-    Math.max(right - left + 900, (bottom - top + 450) * cameraAspect)));
+  const desiredWidth = Math.max(1000, Math.min(maxWidth,
+    Math.max(right - left + 700, (bottom - top + 260) * cameraAspect)));
   const widthBlend = Math.min(1, dt * 10);
   cameraWidth = desiredWidth > cameraWidth ? desiredWidth
     : cameraWidth + (desiredWidth - cameraWidth) * widthBlend;
@@ -636,12 +636,12 @@ function updateCamera(dt) {
   cameraCenterY += (desiredCenterY - cameraCenterY) * centerBlend;
   // Ease while there is spare framing, but never let smoothing leave either
   // fighter outside the safe action area.
-  const containLeft = right + 450 - halfWidth;
-  const containRight = left - 450 + halfWidth;
+  const containLeft = right + 350 - halfWidth;
+  const containRight = left - 350 + halfWidth;
   if (containLeft <= containRight)
     cameraCenter = clamp(cameraCenter, containLeft, containRight);
-  const containTop = bottom + 225 - halfHeight;
-  const containBottom = top - 225 + halfHeight;
+  const containTop = bottom + 130 - halfHeight;
+  const containBottom = top - 130 + halfHeight;
   if (containTop <= containBottom)
     cameraCenterY = clamp(cameraCenterY, containTop, containBottom);
   if (cameraWidth < worldRight - worldLeft)
@@ -1106,6 +1106,33 @@ function resolveMelee(now) {
   }
 }
 
+function resolvePlayerPushboxes() {
+  if (!players[0].alive || !players[1].alive) return;
+  const left = players[0].x <= players[1].x ? players[0] : players[1];
+  const right = left === players[0] ? players[1] : players[0];
+  const minimumGap = 138;
+  const overlap = minimumGap - (right.x - left.x);
+  if (overlap <= 0) return;
+  const leftAdvancing = left.vx > 30;
+  const rightAdvancing = right.vx < -30;
+  const leftShare = leftAdvancing && !rightAdvancing ? .25
+    : rightAdvancing && !leftAdvancing ? .75 : .5;
+  left.x -= overlap * leftShare;
+  right.x += overlap * (1 - leftShare);
+  if (leftAdvancing && !rightAdvancing) {
+    right.knockVx += Math.min(180, left.vx * .12);
+    left.vx *= .35;
+  } else if (rightAdvancing && !leftAdvancing) {
+    left.knockVx += Math.max(-180, right.vx * .12);
+    right.vx *= .35;
+  } else {
+    if (left.vx > 0) left.vx *= .35;
+    if (right.vx < 0) right.vx *= .35;
+  }
+  resolveRunnerBounds(left, 0);
+  resolveRunnerBounds(right, 0);
+}
+
 function updatePlayer(player, pad, dt, now) {
   if (!player.alive) {
     player.previous = pad.down.slice();
@@ -1263,6 +1290,7 @@ function sim() {
   updatePlayer(players[1], players[1].npc
     ? { connected: true, down: [], leftX: 0, leftY: 0 }
     : padSnapshots[1], dt, now);
+  resolvePlayerPushboxes();
   updateGunPickups(now);
   updateBullets(dt, now);
   updateBall(dt, now);
@@ -1533,12 +1561,6 @@ function drawRunner(player, t, showLabel = true) {
       Math.max(2, 6 * cameraScale()), ...shieldColor);
   }
 
-  if (showLabel) {
-    const labelSize = Math.max(10, Math.min(16, Math.round(cameraScale() * 48)));
-    const labelX = geometry.head.x - handleWidth(player.name, labelSize) / 2;
-    drawHandle(player.name, labelX, geometry.head.y - labelSize - 8,
-      labelSize, player.handleColors, color);
-  }
 }
 
 function drawPlayerHud(player, x, pad) {
@@ -1546,7 +1568,7 @@ function drawPlayerHud(player, x, pad) {
   const color = visualTheme.light > .55
     ? player.pad === 0 ? [155, 34, 108] : [105, 78, 0]
     : player.color;
-  typeWrite("P" + (player.pad + 1) + " " + player.name + "  " +
+  typeWrite("P" + (player.pad + 1) + "  " +
     player.roundWins + "/" + matchWins + "  PTS " + player.score,
     x, 14, 24, ...color);
   const held = pad.down.length ? pad.down.map(buttonLabel).join(" ") : "NONE";
@@ -1564,6 +1586,20 @@ function drawFighterData(player, x) {
   const chat = profile.lastChat ? "CHAT " + profile.lastChat.slice(0, 34) : "CHAT —";
   const ink = mixColor([190, 205, 235], [55, 66, 90], visualTheme.light);
   typeWrite(mood + "  ·  " + chat, x, 82, 15, ...ink);
+}
+
+function drawCornerHandle(player, right = false) {
+  const size = 27;
+  const width = handleWidth(player.name, size);
+  const barWidth = 390;
+  const barX = right ? 1920 - barWidth : 0;
+  const x = right ? 1894 - width : 26;
+  box(barX + (right ? -7 : 7), 1037, barWidth, 43, 0, 0, 0);
+  box(barX, 1032, barWidth, 43, 5, 7, 14);
+  box(barX, 1032, barWidth, 5, ...player.color);
+  for (const [dx, dy] of [[0, 0], [1, 0], [0, 1], [1, 1]])
+    drawHandle(player.name, x + dx, 1038 + dy, size,
+      player.handleColors, player.color);
 }
 
 function worldLine(x1, y1, z1, x2, y2, z2, width, color) {
@@ -1784,6 +1820,8 @@ function paint() {
   drawPlayerHud(players[1], 1275, padSnapshots[1]);
   drawFighterData(players[0], 20);
   drawFighterData(players[1], 1035);
+  drawCornerHandle(players[0]);
+  drawCornerHandle(players[1], true);
 }
 
 function act() {}
