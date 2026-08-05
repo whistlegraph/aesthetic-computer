@@ -69,7 +69,14 @@ async function tap(page, key, duration = 90) {
   await wait(150);
 }
 
-async function playDummyRound(browser, origin, name, viewport) {
+async function tapTogether(page, buttons, duration = 90) {
+  for (const button of buttons) await page.keyboard.down(button);
+  await wait(duration);
+  for (const button of buttons) await page.keyboard.up(button);
+  await wait(150);
+}
+
+async function playRound(browser, origin, name, viewport, opponent = "dummy") {
   const page = await browser.newPage();
   await page.setViewport(viewport);
   const errors = [];
@@ -78,6 +85,7 @@ async function playDummyRound(browser, origin, name, viewport) {
   });
   page.on("pageerror", (error) => errors.push(error.message));
   let savedRound = "";
+  let savedDemo = null;
   let resolveSaved;
   const saved = new Promise((resolveRound) => { resolveSaved = resolveRound; });
   page.on("request", (request) => {
@@ -85,6 +93,7 @@ async function playDummyRound(browser, origin, name, viewport) {
         !request.url().includes("/api/oskiewar-replays")) return;
     try {
       const demo = JSON.parse(request.postData() || "{}");
+      savedDemo = demo;
       savedRound = String(demo.roundName || demo.matchName || "");
       if (savedRound) resolveSaved(savedRound);
     } catch {}
@@ -93,20 +102,63 @@ async function playDummyRound(browser, origin, name, viewport) {
   const playerVideo = join(outputRoot, `${name}-player.webm`);
   const recorder = await page.screencast({ path: playerVideo, fps: 30 });
 
-  // OSKIEWAR card -> SELECT A PAL -> toggle P2 to DUMMY -> ready P1.
+  // OSKIEWAR card -> SELECT A PAL -> ready one player + dummy or both pads.
   await tap(page, "KeyF");
-  await tap(page, "KeyH");
-  await tap(page, "KeyF");
+  if (opponent === "dummy") {
+    await tap(page, "KeyH");
+    await tap(page, "KeyF");
+  } else {
+    await tap(page, "KeyF");
+    await tap(page, "KeyK");
+  }
   await wait(3350);
 
-  // Close Street Fighter distance, then kick/punch through the public input
-  // surface until the stationary dummy takes a visible final hit.
-  await page.keyboard.down("KeyD");
-  await wait(430);
-  await page.keyboard.up("KeyD");
-  for (let attempt = 0; attempt < 5 && !savedRound; attempt++) {
-    await tap(page, attempt % 2 ? "KeyG" : "KeyF");
-    await wait(420);
+  if (opponent === "dummy") {
+    // Close Street Fighter distance, then kick/punch through the public input
+    // surface until the stationary dummy takes a visible final hit.
+    await page.keyboard.down("KeyD");
+    await wait(430);
+    await page.keyboard.up("KeyD");
+    for (let attempt = 0; attempt < 5 && !savedRound; attempt++) {
+      await tap(page, attempt % 2 ? "KeyG" : "KeyF");
+      await wait(420);
+    }
+  } else {
+    // Two deterministic autonomous controllers. Each side independently
+    // advances, retreats, jumps, attacks, and shields through keyboard input.
+    const warmupFrames = [
+      ["KeyA", "ArrowRight"],
+      ["KeyW", "ArrowUp"],
+      ["KeyH", "Semicolon"],
+      ["KeyD", "ArrowLeft"],
+      ["KeyA", "ArrowRight"],
+    ];
+    const sparFrames = [
+      ["KeyD", "Semicolon"],
+      ["KeyG", "Semicolon"],
+      ["KeyA", "ArrowRight"],
+      ["KeyH", "ArrowLeft"],
+      ["KeyH", "KeyL"],
+      ["KeyW", "ArrowUp"],
+    ];
+    const fightFrames = [
+      ["KeyD", "ArrowLeft"],
+      ["KeyF", "KeyK"],
+      ["KeyG", "KeyK"],
+      ["KeyH", "KeyL"],
+      ["KeyF", "Semicolon"],
+      ["KeyW", "ArrowUp"],
+    ];
+    const botDeadline = Date.now() + 32000;
+    const botStartedAt = Date.now();
+    for (let frame = 0; !savedRound && Date.now() < botDeadline; frame++) {
+      const elapsed = Date.now() - botStartedAt;
+      const botFrames = elapsed < 8000 ? warmupFrames
+        : elapsed < 18000 ? sparFrames : fightFrames;
+      await tapTogether(page, botFrames[frame % botFrames.length],
+        frame % botFrames.length === 0 ? 260 : 90);
+      await wait(110 + frame % 4 * 35);
+    }
   }
   const roundName = await Promise.race([saved, wait(33000).then(() => "")]);
   await wait(1200);
@@ -145,6 +197,10 @@ async function playDummyRound(browser, origin, name, viewport) {
   await viewer.goto(`${origin}/${roundName}`, { waitUntil: "networkidle2" });
   await Promise.race([demoResponse, wait(30000)]);
   if (!demoReady) throw new Error(`${name}: replay never became visible`);
+  const replayResponse = await fetch(`${origin}/api/oskiewar-replays?id=${
+    encodeURIComponent("ow-" + roundName)}`);
+  const verifiedDemo = replayResponse.ok
+    ? (await replayResponse.json()).replay : savedDemo;
   await wait(900);
   const viewerVideo = join(outputRoot, `${name}-demo.webm`);
   const demoRecorder = await viewer.screencast({ path: viewerVideo, fps: 30 });
@@ -160,7 +216,15 @@ async function playDummyRound(browser, origin, name, viewport) {
 
   const hashes = [first, second].map((buffer) =>
     createHash("sha256").update(buffer).digest("hex").slice(0, 12));
+  const finalEvent = verifiedDemo?.events?.findLast?.((event) =>
+    ["ko", "balled", "tie"].includes(event[1]));
+  const roundIndex = verifiedDemo?.roundIndex || 0;
+  const roundStartTick = verifiedDemo?.rounds?.[roundIndex]?.[0] || 0;
   return { name, viewport, roundName, url: `https://oskiewar.com/${roundName}`,
+    opponent, durationSeconds: verifiedDemo
+      ? Math.round((verifiedDemo.durationTicks - roundStartTick) /
+        verifiedDemo.tickRate * 100) / 100 : null,
+    winner: verifiedDemo?.winner ?? null, endEvent: finalEvent?.[1] || "unknown",
     layout, demoHttp: demoResponses.at(-1) || 0,
     animated: hashes[0] !== hashes[1], hashes,
     errors: [...errors, ...viewerErrors.map((error) => `viewer: ${error}`)],
@@ -175,11 +239,14 @@ try {
   const results = [];
   const scenario = process.env.OSKIEWAR_SCENARIO || "all";
   if (scenario === "all" || scenario === "landscape")
-    results.push(await playDummyRound(browser, origin, "landscape",
+    results.push(await playRound(browser, origin, "landscape",
       { width: 1280, height: 720, deviceScaleFactor: 1 }));
   if (scenario === "all" || scenario === "portrait")
-    results.push(await playDummyRound(browser, origin, "portrait",
+    results.push(await playRound(browser, origin, "portrait",
       { width: 720, height: 1280, deviceScaleFactor: 1 }));
+  if (scenario === "bot-v-bot")
+    results.push(await playRound(browser, origin, "bot-v-bot",
+      { width: 1280, height: 720, deviceScaleFactor: 1 }, "bot"));
   const report = { format: "ac.oskiewar.blackbox", version: 1,
     createdAt: new Date().toISOString(), source: "public-ui-and-network-only", results };
   await writeFile(join(outputRoot, "report.json"), JSON.stringify(report, null, 2));
