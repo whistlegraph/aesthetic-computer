@@ -1,0 +1,165 @@
+#include <metal_stdlib>
+using namespace metal;
+
+struct TracktrampVertexOut {
+    float4 position [[position]];
+    float2 uv;
+};
+
+struct TracktrampUniforms {
+    uint columns;
+    uint rows;
+    float warp;
+    float lighting;
+    uint touchCount;
+    uint padding;
+    float2 logicalSize;
+    float4 accent;
+    float4 zoneLevels;
+    float clickLevel;
+    float3 zonePadding;
+};
+
+vertex TracktrampVertexOut tracktramp_vertex(uint id [[vertex_id]]) {
+    const float2 positions[4] = {
+        float2(-1.0, -1.0), float2(1.0, -1.0),
+        float2(-1.0,  1.0), float2(1.0,  1.0)
+    };
+    TracktrampVertexOut out;
+    out.position = float4(positions[id], 0.0, 1.0);
+    out.uv = positions[id] * 0.5 + 0.5; // normalized, bottom-left
+    return out;
+}
+
+static float membraneHeight(device const float *heights, uint columns,
+                             uint rows, float2 uv) {
+    float2 grid = clamp(uv, 0.0, 1.0) * float2(columns - 1, rows - 1);
+    uint2 a = uint2(floor(grid));
+    uint2 b = min(a + 1, uint2(columns - 1, rows - 1));
+    float2 f = fract(grid);
+    float bottom = mix(heights[a.y * columns + a.x],
+                       heights[a.y * columns + b.x], f.x);
+    float top = mix(heights[b.y * columns + a.x],
+                    heights[b.y * columns + b.x], f.x);
+    return mix(bottom, top, f.y);
+}
+
+static float roundedTrackpadDistance(float2 point) {
+    float2 scaled = (point - 0.5) * 2.0;
+    const float halfWidth = 0.82;
+    const float halfHeight = 0.50;
+    const float corner = 0.055;
+    float2 p = abs(scaled) * float2(halfWidth, halfHeight);
+    float2 q = p - float2(halfWidth - corner, halfHeight - corner);
+    float outside = length(max(q, 0.0));
+    float inside = min(max(q.x, q.y), 0.0);
+    float inwardDepth = max(0.0, -(outside + inside - corner));
+    return 1.0 - min(1.0, inwardDepth / halfHeight);
+}
+
+static uint trackpadZone(float2 point) {
+    float distance = roundedTrackpadDistance(point);
+    if (distance < 0.30) return 0; // kick
+    if (distance < 0.46) return 1; // tom
+    if (distance < 0.64) return 2; // snare
+    if (distance < 0.88) return 3; // hat
+    return 4;                      // click
+}
+
+fragment float4 tracktramp_fragment(
+    TracktrampVertexOut in [[stage_in]],
+    texture2d<float> base [[texture(0)]],
+    device const float *heights [[buffer(0)]],
+    constant TracktrampUniforms &u [[buffer(1)]],
+    device const float2 *touches [[buffer(2)]]) {
+    constexpr sampler linearSampler(coord::normalized, address::clamp_to_edge,
+                                    filter::linear);
+    float2 cell = 1.0 / float2(u.columns - 1, u.rows - 1);
+    float left = membraneHeight(heights, u.columns, u.rows,
+                                in.uv - float2(cell.x, 0));
+    float right = membraneHeight(heights, u.columns, u.rows,
+                                 in.uv + float2(cell.x, 0));
+    float below = membraneHeight(heights, u.columns, u.rows,
+                                 in.uv - float2(0, cell.y));
+    float above = membraneHeight(heights, u.columns, u.rows,
+                                 in.uv + float2(0, cell.y));
+    float centerHeight = membraneHeight(heights, u.columns, u.rows, in.uv);
+    float2 gradient = float2(right - left, above - below);
+
+    // The fixed rim smoothly kills displacement across the outer 12%.
+    float rimDistance = min(min(in.uv.x, 1.0 - in.uv.x),
+                            min(in.uv.y, 1.0 - in.uv.y));
+    float freeSkin = smoothstep(0.0, 0.12, rimDistance);
+    float2 warped = clamp(in.uv - gradient * u.warp * freeSkin, 0.0, 1.0);
+
+    // AppKit/CG textures have a top-left first row. This is the sole Y flip;
+    // simulation, touches, gradients, and shader UVs remain bottom-left.
+    float4 color = base.sample(linearSampler, float2(warped.x, 1.0 - warped.y));
+
+    // Enforce the base chart's rounded silhouette after texture filtering.
+    float2 point = in.uv * float2(140.0, 88.0);
+    float2 center = float2(70.0, 44.0);
+    float2 halfSize = float2(66.0, 40.0);
+    float radius = 8.0;
+    float2 rounded = abs(point - center) - (halfSize - radius);
+    float signedDistance = length(max(rounded, 0.0))
+                         + min(max(rounded.x, rounded.y), 0.0) - radius;
+    float roundedMask = 1.0 - smoothstep(-0.65, 0.65, signedDistance);
+    color *= roundedMask;
+    float light = dot(gradient, normalize(float2(-0.55, 0.84)))
+                  * u.lighting * freeSkin;
+    float membraneEnergy = abs(centerHeight) * 0.42 + length(gradient) * 1.65;
+    float accentWave = clamp(membraneEnergy, 0.0, 0.44)
+                     * freeSkin * color.a;
+    color.rgb = mix(color.rgb, u.accent.rgb, accentWave);
+    color.rgb *= 1.0 + min(light, 0.0) * 2.2;
+    color.rgb = clamp(color.rgb, 0.0, 1.0);
+
+    // Tie the chassis to the same accent used by Menu Band's active keys.
+    // Restrict tinting to a narrow band of already-opaque rim pixels so the
+    // transparent rounded corners remain clean.
+    float accentRim = (1.0 - smoothstep(0.045, 0.075, rimDistance)) * color.a;
+    color.rgb = mix(color.rgb, u.accent.rgb, accentRim * 0.22);
+
+    // The base artwork keeps Menu Band's 4pt staging margin. Remap the
+    // fragment to the playable chart before comparing it with normalized
+    // hardware contacts, then brighten every material band currently held.
+    float2 chartUV = (in.uv - float2(4.0 / 140.0, 4.0 / 88.0))
+        / float2(132.0 / 140.0, 80.0 / 88.0);
+    bool insideChart = all(chartUV >= 0.0) && all(chartUV <= 1.0);
+    float sectionHighlight = 0.0;
+    if (insideChart) {
+        uint fragmentZone = trackpadZone(chartUV);
+        sectionHighlight = fragmentZone == 0 ? u.zoneLevels.x
+                         : fragmentZone == 1 ? u.zoneLevels.y
+                         : fragmentZone == 2 ? u.zoneLevels.z
+                         : fragmentZone == 3 ? u.zoneLevels.w
+                                             : u.clickLevel;
+    }
+    color.rgb = mix(color.rgb, u.accent.rgb,
+                    sectionHighlight * 0.28 * roundedMask * color.a);
+
+    // A small white registration point preserves exact finger position. The
+    // material band—not an oversized colored cursor—is the primary feedback.
+    float contactOutline = 0.0;
+    float contactCore = 0.0;
+    float spotScale = max(1.0, min(u.logicalSize.x / 140.0,
+                                  u.logicalSize.y / 88.0));
+    for (uint i = 0; i < u.touchCount; ++i) {
+        float2 cursorUV = float2(4.0 / 140.0, 4.0 / 88.0)
+            + touches[i] * float2(132.0 / 140.0, 80.0 / 88.0);
+        float2 pixelDelta = (in.uv - cursorUV) * u.logicalSize;
+        float distance = length(pixelDelta);
+        // Scale the original small diagram's registration core with the
+        // artwork. Keep it crisp and neutral instead of restoring the large
+        // colored video-like halo.
+        contactOutline = max(contactOutline,
+            1.0 - smoothstep(3.15 * spotScale, 3.65 * spotScale, distance));
+        contactCore = max(contactCore,
+            1.0 - smoothstep(2.35 * spotScale, 2.85 * spotScale, distance));
+    }
+    color.rgb = mix(color.rgb, float3(0.035), contactOutline * 0.82);
+    color.rgb = mix(color.rgb, float3(1.0), contactCore * 0.92);
+    color.a = max(color.a, contactOutline);
+    return color;
+}

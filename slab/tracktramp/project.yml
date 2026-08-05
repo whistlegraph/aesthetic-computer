@@ -1,0 +1,48 @@
+name: TrackDrum
+
+options:
+  bundleIdPrefix: computer.aestheticcomputer
+  deploymentTarget:
+    macOS: "12.0"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    ARCHS: arm64 x86_64
+    ONLY_ACTIVE_ARCH: NO
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "1"
+
+targets:
+  TrackDrum:
+    type: application
+    platform: macOS
+    deploymentTarget: "12.0"
+    sources:
+      - path: Sources
+      - path: ../menuband/Sources/MenuBand/MenuBandPercussion.swift
+      - path: ../menuband/Sources/MenuBand/PitchBendCursor.swift
+      - path: ../menuband/Sources/MenuBand/FocusFlashOverlay.swift
+      - path: ../menuband/Sources/MenuBand/FocusCueBeep.swift
+      - path: ../menuband/Sources/MenuBand/TracktrampShaders.metalsource
+        buildPhase: resources
+    settings:
+      base:
+        PRODUCT_NAME: TrackDrum
+        PRODUCT_BUNDLE_IDENTIFIER: computer.aestheticcomputer.trackdrum
+        INFOPLIST_FILE: Info.plist
+        CODE_SIGN_ENTITLEMENTS: TrackDrum.entitlements
+        CODE_SIGN_STYLE: Automatic
+        DEVELOPMENT_TEAM: FB5948YR3S
+        ENABLE_APP_SANDBOX: YES
+        ENABLE_HARDENED_RUNTIME: YES
+        ENABLE_USER_SCRIPT_SANDBOXING: NO
+        GENERATE_INFOPLIST_FILE: NO
+    postBuildScripts:
+      - name: Render TrackDrum Icon
+        basedOnDependencyAnalysis: false
+        script: |
+          /bin/bash "${SRCROOT}/render-icon.sh" \
+            "${BUILT_PRODUCTS_DIR}/${CONTENTS_FOLDER_PATH}/Resources/TrackDrumIcon.icns" \
+            "${DERIVED_FILE_DIR}/TrackDrumIcon"
