@@ -261,17 +261,16 @@ let roundViewerDemo = null;
 let roundViewerDemoStartedAt = 0;
 
 function pronounceableMatchName() {
+  const onsets = ["b", "d", "f", "g", "k", "l", "m", "n", "p", "r",
+    "s", "t", "v", "z", "ch", "sh", "th"];
   const consonants = "bdfgklmnprstvz";
   const vowels = "aeiou";
-  const word = () => {
-    let result = "";
-    for (let index = 0; index < 6; index++) {
-      const alphabet = index % 2 === 0 ? consonants : vowels;
-      result += alphabet[Math.floor(Math.random() * alphabet.length)];
-    }
-    return result;
-  };
-  return word() + "-" + word() + "-" + word();
+  const onset = onsets[Math.floor(Math.random() * onsets.length)];
+  const vowel = vowels[Math.floor(Math.random() * vowels.length)];
+  const middle = consonants[Math.floor(Math.random() * consonants.length)];
+  const ending = (vowels + "y")[Math.floor(Math.random() * (vowels.length + 1))];
+  return onset + vowel + middle + middle + ending +
+    Math.floor(Math.random() * 1000);
 }
 
 function demoTick(now) {

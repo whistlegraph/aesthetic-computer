@@ -131,7 +131,7 @@ test("active matches publish bounded phone spectator snapshots", () => {
   tick(50000);
   assert.ok(liveFrames.length > 0);
   const [matchId, frame] = liveFrames.at(-1);
-  assert.match(matchId, /^ow-[a-z]{6}-[a-z]{6}-[a-z]{6}$/);
+  assert.match(matchId, /^ow-[a-z]{5,6}[0-9]{1,3}$/);
   assert.equal(frame.format, "ac.oskiewar.live");
   assert.equal(frame.fighters.length, 2);
   assert.ok(frame.camera.width >= 100);
@@ -713,8 +713,7 @@ test("first to five round wins takes the match", () => {
   assert.equal(demo.format, "ac.oskiedemo");
   assert.equal(demo.version, 1);
   assert.equal(demo.winner, "@JEFFREY");
-  assert.match(demo.matchName,
-    /^(?:[bdfgklmnprstvz][aeiou]){3}-(?:[bdfgklmnprstvz][aeiou]){3}-(?:[bdfgklmnprstvz][aeiou]){3}$/);
+  assert.match(demo.matchName, /^[a-z]{5,6}[0-9]{1,3}$/);
   assert.equal(demo.matchId, "ow-" + demo.matchName);
   assert.equal(demo.roundId, demo.matchId);
   assert.equal(demo.roundIndex, 4);

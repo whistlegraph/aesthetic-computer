@@ -8,8 +8,10 @@ import { respond } from "../../backend/http.mjs";
 const COLLECTION = "oskiewar-replays";
 const MAX_BYTES = 524288;
 const MATCH_WORD = "[bdfgklmnprstvz][aeiou][bdfgklmnprstvz][aeiou][bdfgklmnprstvz][aeiou]";
-const MATCH_NAME = new RegExp(`^${MATCH_WORD}-${MATCH_WORD}-${MATCH_WORD}$`);
-const MATCH_ID = new RegExp(`^ow-${MATCH_WORD}-${MATCH_WORD}-${MATCH_WORD}$`);
+const MATCH_NAME = new RegExp(
+  `^(?:${MATCH_WORD}-${MATCH_WORD}-${MATCH_WORD}|[a-z]{4,7}[0-9]{1,3})$`);
+const MATCH_ID = new RegExp(
+  `^ow-(?:${MATCH_WORD}-${MATCH_WORD}-${MATCH_WORD}|[a-z]{4,7}[0-9]{1,3})$`);
 
 const finite = (value, limit = 1000000000) =>
   Number.isFinite(value) && Math.abs(value) <= limit;

@@ -12,6 +12,8 @@ class Socket {
 Socket.all = [];
 
 test("raw paths recognize only pronounceable round IDs", () => {
+  assert.equal(roundNameFromPath("/sezzi7"), "sezzi7");
+  assert.equal(roundNameFromPath("/shuppy652"), "shuppy652");
   assert.equal(roundNameFromPath("/bafegu-dorimi-kunapo"),
     "bafegu-dorimi-kunapo");
   assert.equal(roundNameFromPath("/bafegu-dorimi-kunapo/"),
@@ -21,7 +23,7 @@ test("raw paths recognize only pronounceable round IDs", () => {
 
 test("a live room changes its URL and socket when the next round arrives", async () => {
   const paths = [], messages = [];
-  const room = new RoundRoom("bafegu-dorimi-kunapo", {
+  const room = new RoundRoom("sezzi7", {
     WebSocketImpl: Socket,
     fetchImpl: async () => ({ ok: false }),
     historyImpl: { replaceState(_state, _title, path) { paths.push(path); } },
@@ -29,10 +31,10 @@ test("a live room changes its URL and socket when the next round arrives", async
   room.start((message) => messages.push(message));
   const first = Socket.all.at(-1);
   first.event("message", JSON.stringify({ type: "oskiewar:state", content: {
-    nextRoundId: "ow-fagori-buneta-kovisu",
+    nextRoundId: "ow-shuppy652",
   } }));
-  assert.deepEqual(paths, ["/fagori-buneta-kovisu"]);
-  assert.match(Socket.all.at(-1).url, /match=ow-fagori-buneta-kovisu$/);
+  assert.deepEqual(paths, ["/shuppy652"]);
+  assert.match(Socket.all.at(-1).url, /match=ow-shuppy652$/);
   assert.equal(messages.at(-1).type, "round");
   room.stop();
 });

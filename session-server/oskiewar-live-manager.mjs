@@ -2,8 +2,10 @@
 // Small, public, match-id-scoped relay for phone spectators.
 
 const MATCH_WORD = "[bdfgklmnprstvz][aeiou][bdfgklmnprstvz][aeiou][bdfgklmnprstvz][aeiou]";
-const MATCH_NAME = new RegExp(`^${MATCH_WORD}-${MATCH_WORD}-${MATCH_WORD}$`);
-const MATCH_ID = new RegExp(`^ow-${MATCH_WORD}-${MATCH_WORD}-${MATCH_WORD}$`);
+const MATCH_NAME = new RegExp(
+  `^(?:${MATCH_WORD}-${MATCH_WORD}-${MATCH_WORD}|[a-z]{4,7}[0-9]{1,3})$`);
+const MATCH_ID = new RegExp(
+  `^ow-(?:${MATCH_WORD}-${MATCH_WORD}-${MATCH_WORD}|[a-z]{4,7}[0-9]{1,3})$`);
 const PHASES = new Set(["select", "intro", "fight", "round", "match", "replay"]);
 const MAX_MESSAGE_BYTES = 8192;
 const MAX_VIEWERS = 64;
@@ -76,7 +78,7 @@ export function validateOskiewarLiveState(value) {
       typeof value.round.result !== "string" || value.round.result.length > 80)
     return "Invalid round";
   if (value.replayUrl !== undefined &&
-      !/^\/api\/oskiewar-replays\?id=ow-[a-z-]+$/.test(value.replayUrl))
+      !/^\/api\/oskiewar-replays\?id=ow-[a-z0-9-]+$/.test(value.replayUrl))
     return "Invalid replay URL";
   return null;
 }

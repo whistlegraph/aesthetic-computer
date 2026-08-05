@@ -29,6 +29,8 @@ test("canonical match IDs accept the QR name or ow-prefixed ID", () => {
   const name = "bafegu-dorimi-kunapo";
   assert.equal(canonicalMatchId(name), `ow-${name}`);
   assert.equal(canonicalMatchId(`ow-${name}`), `ow-${name}`);
+  assert.equal(canonicalMatchId("sezzi7"), "ow-sezzi7");
+  assert.equal(canonicalMatchId("ow-shuppy652"), "ow-shuppy652");
   assert.equal(canonicalMatchId("short-name"), null);
 });
 

@@ -2,7 +2,7 @@
 // Keeps live and stored-demo delivery outside the shared game/render engine.
 
 const WORD = "(?:[bdfgklmnprstvz][aeiou]){3}";
-const ROUND_NAME = new RegExp(`^${WORD}-${WORD}-${WORD}$`);
+const ROUND_NAME = new RegExp(`^(?:${WORD}-${WORD}-${WORD}|[a-z]{4,7}[0-9]{1,3})$`);
 
 export function roundNameFromPath(pathname) {
   const name = String(pathname || "").replace(/^\/+|\/+$/g, "").toLowerCase();

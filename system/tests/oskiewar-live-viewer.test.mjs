@@ -12,5 +12,7 @@ test("a colon round opens the same raw room URL", () => {
   const name = "bafegu-dorimi-kunapo";
   assert.equal(target({ colon: [name] }), `https://oskiewar.com/${name}`);
   assert.equal(target({ params: [`ow-${name}`] }), `https://oskiewar.com/${name}`);
+  assert.equal(target({ colon: ["sezzi7"] }), "https://oskiewar.com/sezzi7");
+  assert.equal(target({ colon: ["shuppy652"] }), "https://oskiewar.com/shuppy652");
   assert.equal(target({ colon: ["not-a-round"] }), "https://oskiewar.com/");
 });

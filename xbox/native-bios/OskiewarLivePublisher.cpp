@@ -21,12 +21,24 @@ std::wstring Wide(std::string_view value) {
 }
 
 bool ValidMatchId(std::string_view value) {
-  if (value.size() != 23 || value.substr(0, 3) != "ow-") return false;
-  for (std::size_t index = 3; index < value.size(); ++index) {
-    const auto c = value[index];
-    if (!((c >= 'a' && c <= 'z') || c == '-')) return false;
+  if (value.substr(0, 3) != "ow-") return false;
+  // Legacy three-word IDs remain durable.
+  if (value.size() == 23) {
+    for (std::size_t index = 3; index < value.size(); ++index) {
+      const auto c = value[index];
+      if (!((c >= 'a' && c <= 'z') || c == '-')) return false;
+    }
+    return value[9] == '-' && value[16] == '-';
   }
-  return value[9] == '-' && value[16] == '-';
+  // New Meet-like IDs are one speakable stem plus one to three digits.
+  const auto name = value.substr(3);
+  std::size_t digit = 0;
+  while (digit < name.size() && name[digit] >= 'a' && name[digit] <= 'z') ++digit;
+  if (digit < 4 || digit > 7 || name.size() - digit < 1 ||
+      name.size() - digit > 3) return false;
+  for (; digit < name.size(); ++digit)
+    if (name[digit] < '0' || name[digit] > '9') return false;
+  return true;
 }
 
 }  // namespace

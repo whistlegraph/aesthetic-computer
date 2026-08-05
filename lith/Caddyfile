@@ -866,7 +866,7 @@ oskiewar.com {
     redir @oskiewarwatchmatch https://oskiewar.com/{re.oskiewarwatchmatch.1} 308
     @oskiewarwatchroot path /watch /watch/
     redir @oskiewarwatchroot https://oskiewar.com/ 308
-    @oskiewarround path_regexp oskiewarround ^/([bdfgklmnprstvz][aeiou][bdfgklmnprstvz][aeiou][bdfgklmnprstvz][aeiou]-[bdfgklmnprstvz][aeiou][bdfgklmnprstvz][aeiou][bdfgklmnprstvz][aeiou]-[bdfgklmnprstvz][aeiou][bdfgklmnprstvz][aeiou][bdfgklmnprstvz][aeiou])/?$
+    @oskiewarround path_regexp oskiewarround ^/(([a-z]{4,7}[0-9]{1,3})|([bdfgklmnprstvz][aeiou][bdfgklmnprstvz][aeiou][bdfgklmnprstvz][aeiou]-[bdfgklmnprstvz][aeiou][bdfgklmnprstvz][aeiou][bdfgklmnprstvz][aeiou]-[bdfgklmnprstvz][aeiou][bdfgklmnprstvz][aeiou][bdfgklmnprstvz][aeiou]))/?$
     handle @oskiewarround {
         root * /opt/ac/xbox/live
         rewrite * /mac-test.html

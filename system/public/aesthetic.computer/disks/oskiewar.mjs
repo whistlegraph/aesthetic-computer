@@ -2,7 +2,7 @@
 // Opens the standalone OSKIEWAR game, live room, or replay suite.
 
 const WORD = "(?:[bdfgklmnprstvz][aeiou]){3}";
-const ROUND_NAME = new RegExp(`^${WORD}-${WORD}-${WORD}$`);
+const ROUND_NAME = new RegExp(`^(?:${WORD}-${WORD}-${WORD}|[a-z]{4,7}[0-9]{1,3})$`);
 
 function target({ colon = [], params = [] } = {}) {
   const candidate = String(colon[0] || params[0] || "").toLowerCase()
