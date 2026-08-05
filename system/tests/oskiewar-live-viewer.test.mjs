@@ -8,6 +8,9 @@ class FakeWebSocket {
 }
 globalThis.location = { hostname: "aesthetic.computer" };
 globalThis.WebSocket = FakeWebSocket;
+globalThis.fetch = async () => ({ ok: false, async json() { return {}; } });
+let replacedPath = "";
+globalThis.history = { replaceState(_state, _title, path) { replacedPath = path; } };
 
 const viewer = await import("../public/aesthetic.computer/disks/oskiewar.mjs");
 
@@ -51,4 +54,40 @@ test("colon URL joins the match room and paints both contained fighters", () => 
     ? entry[1] >= -1 && entry[1] <= 257 && entry[3] >= -1 && entry[3] <= 257
     : entry[1] >= -1 && entry[1] <= 257));
   viewer.leave();
+});
+
+test("a round transition swaps the raw URL and joins the next live room", () => {
+  viewer.boot({ colon: ["bafegu-dorimi-kunapo"], wipe() {} });
+  const socket = sockets.at(-1);
+  socket.onmessage({ data: JSON.stringify({ type: "oskiewar:state",
+    content: { ...state, nextRoundId: "ow-fagori-buneta-kovisu" } }) });
+  assert.equal(replacedPath, "/fagori-buneta-kovisu");
+  assert.match(sockets.at(-1).url, /match=ow-fagori-buneta-kovisu$/);
+  viewer.leave();
+});
+
+test("a stored round demo interpolates its recorded checkpoints", () => {
+  const row = (tick, x) => {
+    const values = Array(26).fill(0);
+    values[0] = tick;
+    values[1] = x;
+    values[2] = 12000;
+    values[6] = 3;
+    values[9] = 10000 - x;
+    values[10] = 12000;
+    values[14] = 3;
+    values[17] = 6000;
+    values[18] = 11945;
+    values[22] = 1;
+    values[23] = 6000;
+    values[24] = 9140;
+    values[25] = 12000;
+    return values;
+  };
+  const frame = viewer.demoSnapshot({ tickRate: 60, durationTicks: 60,
+    roundIndex: 0, rounds: [[0, 1, 12, 2]], fighters: ["@JEFFREY", "@OSKIE"],
+    checkpoints: [row(0, 2000), row(60, 4000)], events: [] }, 500);
+  assert.equal(frame.phase, "replay");
+  assert.equal(frame.fighters[0].x, 3000);
+  assert.equal(frame.ball.active, true);
 });

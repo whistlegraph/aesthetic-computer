@@ -25,3 +25,14 @@ test("rejects unknown formats and malformed command streams", () => {
   assert.equal(validateDemo({ ...demo, matchName: "not-random",
     matchId: "ow-not-random" }), "Invalid match name");
 });
+
+test("accepts a round demo linked into a pronounceable fight series", () => {
+  const roundId = "ow-befaru-nitova-gopasu";
+  const priorId = "ow-dorimi-kunapo-lafegu";
+  const linked = { ...demo, roundId, roundName: demo.matchName,
+    seriesId: "ow-zavoki-bemuru-ditale", seriesName: "zavoki-bemuru-ditale",
+    roundIds: [priorId, roundId], roundIndex: 1, previousRoundId: priorId };
+  assert.equal(validateDemo(linked), null);
+  assert.equal(validateDemo({ ...linked, previousRoundId: roundId }),
+    "Invalid round linkage");
+});

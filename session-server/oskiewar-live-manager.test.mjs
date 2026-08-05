@@ -34,7 +34,14 @@ test("canonical match IDs accept the QR name or ow-prefixed ID", () => {
 
 test("live state validation rejects unbounded or malformed values", () => {
   assert.equal(validateOskiewarLiveState(state()), null);
+  assert.equal(validateOskiewarLiveState({ ...state(),
+    seriesId: "ow-zavoki-bemuru-ditale",
+    roundId: "ow-bafegu-dorimi-kunapo",
+    previousRoundId: "ow-dorimi-kunapo-lafegu",
+    nextRoundId: "ow-fagori-buneta-kovisu" }), null);
   assert.equal(validateOskiewarLiveState({ ...state(), fighters: [] }), "Invalid fighters");
+  assert.equal(validateOskiewarLiveState({ ...state(), nextRoundId: "bad" }),
+    "Invalid next round ID");
   assert.equal(validateOskiewarLiveState({ ...state(), replayUrl: "https://bad" }),
     "Invalid replay URL");
 });

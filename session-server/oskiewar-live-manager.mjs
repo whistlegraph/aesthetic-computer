@@ -3,6 +3,7 @@
 
 const MATCH_WORD = "[bdfgklmnprstvz][aeiou][bdfgklmnprstvz][aeiou][bdfgklmnprstvz][aeiou]";
 const MATCH_NAME = new RegExp(`^${MATCH_WORD}-${MATCH_WORD}-${MATCH_WORD}$`);
+const MATCH_ID = new RegExp(`^ow-${MATCH_WORD}-${MATCH_WORD}-${MATCH_WORD}$`);
 const PHASES = new Set(["select", "intro", "fight", "round", "match", "replay"]);
 const MAX_MESSAGE_BYTES = 8192;
 const MAX_VIEWERS = 64;
@@ -49,6 +50,14 @@ export function validateOskiewarLiveState(value) {
   if (!integer(value.seq, 0, 2147483647) || !finite(value.at, 10000000000000))
     return "Invalid sequence";
   if (!PHASES.has(value.phase)) return "Invalid phase";
+  if (value.seriesId !== undefined && !MATCH_ID.test(value.seriesId))
+    return "Invalid series ID";
+  if (value.roundId !== undefined && !MATCH_ID.test(value.roundId))
+    return "Invalid round ID";
+  if (value.previousRoundId !== undefined && value.previousRoundId !== "" &&
+      !MATCH_ID.test(value.previousRoundId)) return "Invalid previous round ID";
+  if (value.nextRoundId !== undefined && !MATCH_ID.test(value.nextRoundId))
+    return "Invalid next round ID";
   if (!Array.isArray(value.fighters) || value.fighters.length !== 2 ||
       value.fighters.some((entry) => !fighter(entry))) return "Invalid fighters";
   if (!ball(value.ball)) return "Invalid ball";

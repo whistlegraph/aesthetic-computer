@@ -9,6 +9,7 @@ const COLLECTION = "oskiewar-replays";
 const MAX_BYTES = 524288;
 const MATCH_WORD = "[bdfgklmnprstvz][aeiou][bdfgklmnprstvz][aeiou][bdfgklmnprstvz][aeiou]";
 const MATCH_NAME = new RegExp(`^${MATCH_WORD}-${MATCH_WORD}-${MATCH_WORD}$`);
+const MATCH_ID = new RegExp(`^ow-${MATCH_WORD}-${MATCH_WORD}-${MATCH_WORD}$`);
 
 const finite = (value, limit = 1000000000) =>
   Number.isFinite(value) && Math.abs(value) <= limit;
@@ -24,6 +25,21 @@ export function validateDemo(value) {
       value.matchId !== "ow-" + value.matchName)) return "Invalid match name";
   if (!namedMatch && !/^ow-[a-z0-9]+-[a-z0-9]+$/.test(value.matchId || ""))
     return "Invalid matchId";
+  const linkedRound = value.roundId !== undefined || value.seriesId !== undefined;
+  if (linkedRound && (!MATCH_ID.test(value.roundId || "") ||
+      value.roundId !== value.matchId || value.roundName !== value.matchName ||
+      !MATCH_ID.test(value.seriesId || "") ||
+      value.seriesId !== "ow-" + value.seriesName ||
+      !Array.isArray(value.roundIds) || value.roundIds.length < 1 ||
+      value.roundIds.length > 32 || value.roundIds.some((id) => !MATCH_ID.test(id)) ||
+      !Number.isInteger(value.roundIndex) || value.roundIndex < 0 ||
+      value.roundIndex >= value.roundIds.length ||
+      value.roundIds[value.roundIndex] !== value.roundId ||
+      (value.previousRoundId !== "" && !MATCH_ID.test(value.previousRoundId || "")) ||
+      (value.roundIndex === 0 && value.previousRoundId !== "") ||
+      (value.roundIndex > 0 &&
+        value.previousRoundId !== value.roundIds[value.roundIndex - 1])))
+    return "Invalid round linkage";
   if (!finite(value.startedAt, 10000000000000) ||
       !Number.isInteger(value.durationTicks) || value.durationTicks < 0 ||
       value.durationTicks > 216000) return "Invalid timing";
@@ -83,6 +99,19 @@ export async function handler(event) {
         await database.disconnect();
         return replay ? respond(200, { replay: publicReplay(replay) })
           : respond(404, { error: "Replay not found" });
+      }
+      if (params.series) {
+        if (!MATCH_ID.test(params.series)) {
+          await database.disconnect();
+          return respond(400, { error: "Invalid series ID" });
+        }
+        const rows = await collection.find({ seriesId: params.series }, {
+          projection: { commands: 0, events: 0, checkpoints: 0, rounds: 0,
+            sourceDigest: 0 },
+        }).sort({ roundIndex: 1 }).limit(32).toArray();
+        await database.disconnect();
+        return respond(200, { seriesId: params.series,
+          rounds: rows.map(publicReplay) });
       }
       const limit = Math.min(50, Math.max(1, Number(params.limit || 20)));
       const [matchesPlayed, latest, rows] = await Promise.all([

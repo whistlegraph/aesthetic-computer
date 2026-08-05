@@ -860,16 +860,15 @@ oskiewar.com {
     }
     encode zstd gzip
 
-    # The game publishes live snapshots to the spectator piece. Keep both the
-    # new readable route and the original colon URL working for old QR codes.
+    # Meet-style durable round URLs: live while a publisher is present, demo
+    # playback after the round ends. Redirect old QR routes to the raw ID.
     @oskiewarwatchmatch path_regexp oskiewarwatchmatch ^/watch/([^/]+)/?$
-    handle @oskiewarwatchmatch {
-        rewrite * /oskiewar:{re.oskiewarwatchmatch.1}
-        import lith_proxy
-    }
+    redir @oskiewarwatchmatch https://oskiewar.com/{re.oskiewarwatchmatch.1} 308
     @oskiewarwatchroot path /watch /watch/
-    handle @oskiewarwatchroot {
-        rewrite * /oskiewar
+    redir @oskiewarwatchroot https://oskiewar.com/ 308
+    @oskiewarround path_regexp oskiewarround ^/([bdfgklmnprstvz][aeiou][bdfgklmnprstvz][aeiou][bdfgklmnprstvz][aeiou]-[bdfgklmnprstvz][aeiou][bdfgklmnprstvz][aeiou][bdfgklmnprstvz][aeiou]-[bdfgklmnprstvz][aeiou][bdfgklmnprstvz][aeiou][bdfgklmnprstvz][aeiou])/?$
+    handle @oskiewarround {
+        rewrite * /oskiewar:{re.oskiewarround.1}
         import lith_proxy
     }
     handle /oskiewar* {

@@ -232,6 +232,8 @@ let replay = null;
 let replayLastCommand = [-1, -1];
 let replayNextCheckpointAt = 0;
 let matchName = "";
+let seriesName = "";
+let previousRoundName = "";
 let roundReplayFrames = [];
 let roundReplayLastAt = 0;
 let instantReplay = null;
@@ -273,11 +275,14 @@ function demoTick(now) {
 
 function startReplay(now) {
   const run = runtime();
-  matchName = pronounceableMatchName();
+  seriesName = pronounceableMatchName();
+  matchName = "";
+  previousRoundName = "";
   replay = {
     format: "ac.oskiedemo", version: 1, game: "oskiewar",
     simulation: "oskiewar-physics-1", tickRate: 60,
-    matchId: "ow-" + matchName, matchName,
+    matchId: "ow-" + seriesName, matchName: seriesName,
+    seriesId: "ow-" + seriesName, seriesName, roundIds: [],
     startedAt: run.unixMs || 0, startedMonotonicUs: now,
     fighters: players.map((player) => player.name),
     commands: [], events: [], checkpoints: [], rounds: [],
@@ -286,14 +291,10 @@ function startReplay(now) {
   replayNextCheckpointAt = now;
   liveSequence = 0;
   liveNextAt = now;
-  spectatorQr = typeof qrcode === "function"
-    ? qrcode("https://oskiewar.com/watch/" + matchName,
-      { errorCorrectLevel: 1 }) : null;
+  spectatorQr = null;
 }
 
-function publishSpectator(now) {
-  if (!matchName || typeof publishLive !== "function" || now < liveNextAt) return;
-  liveNextAt = now + 50000;
+function spectatorState(now, nextRoundId = "") {
   const introAge = now - roundStartedAt;
   const phase = instantReplay ? "replay" : matchOver ? "match"
     : roundResult ? "round" : introAge < introDurationUs ? "intro" : "fight";
@@ -302,6 +303,8 @@ function publishSpectator(now) {
   const state = {
     format: "ac.oskiewar.live", version: 1, seq: liveSequence++,
     at: runtime().unixMs || 0, phase,
+    seriesId: "ow-" + seriesName, roundId: "ow-" + matchName,
+    previousRoundId: previousRoundName ? "ow-" + previousRoundName : "",
     fighters: players.map((player) => ({
       name: player.name, color: player.color, x: player.x, y: player.y,
       z: player.z, facing: player.facing, alive: player.alive,
@@ -318,7 +321,16 @@ function publishSpectator(now) {
     round: { remainingMs, result: roundResult || "" },
     replayUrl: "/api/oskiewar-replays?id=ow-" + matchName,
   };
-  publishLive("ow-" + matchName, JSON.stringify(state));
+  if (nextRoundId) state.nextRoundId = nextRoundId;
+  return state;
+}
+
+function publishSpectator(now, { target = matchName, nextRoundId = "",
+  force = false } = {}) {
+  if (!target || typeof publishLive !== "function" || (!force && now < liveNextAt)) return;
+  liveNextAt = now + 50000;
+  publishLive("ow-" + target,
+    JSON.stringify(spectatorState(now, nextRoundId)));
 }
 
 function inputCommand(pad) {
@@ -469,19 +481,29 @@ function updateInstantReplay(now, dt) {
     width: cameraWidth, perspective: 0, fov: 55 }, dt, 18);
 }
 
-function finishReplay(now) {
+function saveRoundReplay(now) {
   if (!replay) return;
   recordReplayCheckpoint(now, true);
-  replay.durationTicks = demoTick(now);
-  replay.winner = players[0].roundWins >= matchWins ? players[0].name
-    : players[1].roundWins >= matchWins ? players[1].name : null;
-  replay.finalRoundWins = players.map((player) => player.roundWins);
-  delete replay.startedMonotonicUs;
-  const payload = JSON.stringify(replay);
+  const demo = JSON.parse(JSON.stringify(replay));
+  demo.matchId = "ow-" + matchName;
+  demo.matchName = matchName;
+  demo.roundId = demo.matchId;
+  demo.roundName = matchName;
+  demo.roundIndex = Math.max(0, replay.roundIds.length - 1);
+  demo.previousRoundId = previousRoundName ? "ow-" + previousRoundName : "";
+  demo.durationTicks = demoTick(now);
+  demo.winner = players[0].score === players[1].score ? null
+    : players[0].score > players[1].score ? players[0].name : players[1].name;
+  demo.finalRoundWins = players.map((player) => player.roundWins);
+  delete demo.startedMonotonicUs;
+  const payload = JSON.stringify(demo);
   if (payload.length <= 524288 && typeof saveReplay === "function") {
     saveReplay(payload);
-    telemetry("REPLAY", "queued " + replay.matchId + " bytes=" + payload.length);
+    telemetry("REPLAY", "queued " + demo.roundId + " bytes=" + payload.length);
   } else telemetry("REPLAY", "not-saved bytes=" + payload.length);
+}
+
+function finishReplay() {
   replay = null;
 }
 
@@ -691,6 +713,18 @@ function boot() {
 }
 
 function resetRound(now, resetMatch = false) {
+  if (replay) {
+    const nextRoundName = pronounceableMatchName();
+    if (matchName) publishSpectator(now, {
+      target: matchName, nextRoundId: "ow-" + nextRoundName, force: true,
+    });
+    previousRoundName = matchName;
+    matchName = nextRoundName;
+    replay.roundIds.push("ow-" + matchName);
+    spectatorQr = typeof qrcode === "function"
+      ? qrcode("https://oskiewar.com/" + matchName,
+        { errorCorrectLevel: 1 }) : null;
+  }
   impacts.length = 0;
   bullets.length = 0;
   grenades.length = 0;
@@ -895,7 +929,8 @@ function finishRound(now) {
   roundOverAt = now;
   for (const player of players) player.vx = 0;
   drum("clap", 1.2, roundPan);
-  if (matchOver) finishReplay(now);
+  saveRoundReplay(now);
+  if (matchOver) finishReplay();
 }
 
 function quantizedInput(pad, suppressed = []) {

@@ -63,8 +63,9 @@ test("control copy follows the native host platform", () => {
   assert.doesNotMatch(mac.select, /A READY/);
 });
 
-test("spectator QR uses the dedicated oskiewar.com watch route", () => {
-  assert.match(source, /https:\/\/oskiewar\.com\/watch\//);
+test("spectator QR uses the raw Meet-style round URL", () => {
+  assert.match(source, /https:\/\/oskiewar\.com\/" \+ matchName/);
+  assert.doesNotMatch(source, /https:\/\/oskiewar\.com\/watch\//);
   assert.doesNotMatch(source, /https:\/\/aesthetic\.computer\/oskiewar:/);
 });
 
@@ -95,6 +96,22 @@ test("active matches publish bounded phone spectator snapshots", () => {
   assert.equal(frame.fighters.length, 2);
   assert.ok(frame.camera.width >= 100);
   assert.ok(JSON.stringify(frame).length < 7168);
+});
+
+test("every round gets a new URL and tells spectators where the room moved", () => {
+  const { fight, liveFrames, tick } = createFight();
+  tick(50000);
+  const firstId = liveFrames.at(-1)[0];
+  fight.nextRound();
+  const transition = liveFrames.find(([id, frame]) =>
+    id === firstId && frame.nextRoundId);
+  assert.ok(transition);
+  tick(50000);
+  const secondId = liveFrames.at(-1)[0];
+  assert.notEqual(secondId, firstId);
+  assert.equal(transition[1].nextRoundId, secondId);
+  assert.equal(transition[1].seriesId, liveFrames.at(-1)[1].seriesId);
+  assert.equal(liveFrames.at(-1)[1].previousRoundId, firstId);
 });
 
 test("character select offers the four AC fighters and waits for both pads", () => {
@@ -650,14 +667,21 @@ test("first to five round wins takes the match", () => {
   }
   assert.equal(fight.players[0].roundWins, 0);
   assert.equal(fight.roundState().roundResult, "");
-  assert.equal(replays.length, 1);
-  const demo = JSON.parse(replays[0]);
+  assert.equal(replays.length, 5);
+  const demos = replays.map(JSON.parse);
+  const demo = demos.at(-1);
   assert.equal(demo.format, "ac.oskiedemo");
   assert.equal(demo.version, 1);
   assert.equal(demo.winner, "@JEFFREY");
   assert.match(demo.matchName,
     /^(?:[bdfgklmnprstvz][aeiou]){3}-(?:[bdfgklmnprstvz][aeiou]){3}-(?:[bdfgklmnprstvz][aeiou]){3}$/);
   assert.equal(demo.matchId, "ow-" + demo.matchName);
+  assert.equal(demo.roundId, demo.matchId);
+  assert.equal(demo.roundIndex, 4);
+  assert.equal(demo.roundIds.length, 5);
+  assert.equal(demo.previousRoundId, demos[3].roundId);
+  assert.ok(demos.every((entry) => entry.seriesId === demo.seriesId));
+  assert.ok(new Set(demos.map((entry) => entry.roundId)).size === 5);
   assert.ok(demo.commands.length > 0);
   assert.ok(demo.checkpoints.length > 0);
 });

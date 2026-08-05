@@ -18,6 +18,11 @@ let viewers = 0;
 let snapshot = null;
 let shown = null;
 let lastFrameAt = 0;
+let replayDemo = null;
+let replayStartedAt = 0;
+let replayTimer = null;
+let replayMode = false;
+let switchingRound = false;
 
 const clone = (value) => JSON.parse(JSON.stringify(value));
 
@@ -34,32 +39,102 @@ function sessionUrl() {
   return `${base}/oskiewar-live?match=${encodeURIComponent(matchId)}`;
 }
 
+function scheduleReplayCheck(delay = 1200) {
+  if (!alive || replayTimer || replayDemo) return;
+  replayTimer = setTimeout(() => {
+    replayTimer = null;
+    loadReplay();
+  }, delay);
+}
+
+function startDemo() {
+  if (!replayDemo) return;
+  replayMode = true;
+  replayStartedAt = Date.now();
+  status = "demo playback";
+}
+
+async function loadReplay() {
+  if (!alive || !matchId || typeof fetch !== "function") return;
+  const requestedId = matchId;
+  try {
+    const response = await fetch(`/api/oskiewar-replays?id=${encodeURIComponent(requestedId)}`,
+      { cache: "no-store" });
+    if (requestedId !== matchId) return;
+    if (response.ok) {
+      replayDemo = (await response.json()).replay || null;
+      if (!live || snapshot?.phase === "match") startDemo();
+      return;
+    }
+  } catch {}
+  if (!live || snapshot?.phase === "match") scheduleReplayCheck(1800);
+}
+
+function switchRound(value) {
+  const parsed = canonicalMatch(value);
+  if (!parsed || parsed.id === matchId) return;
+  switchingRound = true;
+  ws?.close();
+  switchingRound = false;
+  ws = null;
+  clearTimeout(reconnectTimer);
+  clearTimeout(replayTimer);
+  reconnectTimer = null;
+  replayTimer = null;
+  matchId = parsed.id;
+  matchName = parsed.name;
+  snapshot = null;
+  shown = null;
+  replayDemo = null;
+  replayMode = false;
+  live = false;
+  status = "connecting";
+  if (typeof history !== "undefined") history.replaceState(null, "", `/${matchName}`);
+  connect();
+  loadReplay();
+}
+
 function connect() {
   if (!alive || !matchId || typeof WebSocket === "undefined") return;
   status = "connecting";
-  try { ws = new WebSocket(sessionUrl()); }
+  let socket;
+  try { socket = new WebSocket(sessionUrl()); ws = socket; }
   catch { return scheduleReconnect(); }
-  ws.onopen = () => { status = "waiting for console"; reconnectMs = 500; };
-  ws.onmessage = ({ data }) => {
+  socket.onopen = () => { status = "waiting for console"; reconnectMs = 500; };
+  socket.onmessage = ({ data }) => {
     let message;
     try { message = JSON.parse(data); } catch { return; }
     if (message.type === "oskiewar:status") {
       live = Boolean(message.content?.live);
       viewers = Number(message.content?.viewers) || 0;
       status = live ? "live" : message.content?.hasState ? "match paused" : "waiting for console";
+      if (!live) replayDemo ? startDemo() : scheduleReplayCheck(200);
     } else if (message.type === "oskiewar:state") {
       if (!message.content || message.content.seq <= (snapshot?.seq ?? -1)) return;
+      if (message.content.nextRoundId) {
+        switchRound(message.content.nextRoundId);
+        return;
+      }
       snapshot = message.content;
       lastFrameAt = Date.now();
       live = true;
       status = "live";
       if (!shown) shown = clone(snapshot);
+      if (snapshot.phase === "match") replayDemo ? startDemo() : scheduleReplayCheck(100);
     } else if (message.type === "oskiewar:error") {
       status = message.content?.message || "spectator unavailable";
     }
   };
-  ws.onclose = () => { ws = null; live = false; scheduleReconnect(); };
-  ws.onerror = () => ws?.close();
+  socket.onclose = () => {
+    if (ws !== socket) return;
+    ws = null;
+    live = false;
+    if (!switchingRound) {
+      replayDemo ? startDemo() : scheduleReplayCheck(100);
+      scheduleReconnect();
+    }
+  };
+  socket.onerror = () => socket.close();
 }
 
 function scheduleReconnect() {
@@ -82,11 +157,71 @@ function boot({ params = [], colon = [], hash = "", wipe }) {
   shown = null;
   live = false;
   viewers = 0;
+  replayDemo = null;
+  replayMode = false;
   wipe(12, 15, 24);
-  if (matchId) connect();
+  if (matchId) {
+    connect();
+    loadReplay();
+  }
+}
+
+function demoSnapshot(demo, atMs = Date.now()) {
+  const checkpoints = demo?.checkpoints || [];
+  if (!checkpoints.length) return null;
+  const roundIndex = Number.isInteger(demo.roundIndex) ? demo.roundIndex
+    : Math.max(0, (demo.rounds?.length || 1) - 1);
+  const startTick = demo.rounds?.[roundIndex]?.[0] || 0;
+  const endTick = Math.max(startTick + 1, demo.durationTicks || checkpoints.at(-1)[0]);
+  const elapsedTicks = Math.floor((atMs - replayStartedAt) * (demo.tickRate || 60) / 1000);
+  const tick = startTick + elapsedTicks % (endTick - startTick + 1);
+  let before = checkpoints[0], after = checkpoints.at(-1);
+  for (const row of checkpoints) {
+    if (row[0] <= tick) before = row;
+    if (row[0] >= tick) { after = row; break; }
+  }
+  const span = Math.max(1, after[0] - before[0]);
+  const mix = Math.max(0, Math.min(1, (tick - before[0]) / span));
+  const number = (index) => before[index] + (after[index] - before[index]) * mix;
+  const attack = (player) => {
+    let current = "";
+    for (const event of demo.events || []) {
+      if (event[0] > tick || event[0] < tick - 18 || event[2] !== player) continue;
+      if (event[1] === "punch" || event[1] === "kick") current = event[1].toUpperCase();
+    }
+    return current;
+  };
+  const fighters = [0, 1].map((player) => {
+    const offset = 1 + player * 8;
+    const flags = before[offset + 5];
+    const vx = number(offset + 3);
+    return { name: demo.fighters?.[player] || `P${player + 1}`,
+      color: player ? [38, 82, 176] : [190, 42, 58],
+      x: number(offset), y: number(offset + 1), z: number(offset + 2),
+      facing: vx ? Math.sign(vx) : player ? -1 : 1,
+      alive: Boolean(flags & 1), grounded: Boolean(flags & 2),
+      ducking: Boolean(flags & 4), blocking: Boolean(flags & 8),
+      score: Math.round(number(offset + 6)),
+      roundWins: Math.round(number(offset + 7)), attack: attack(player) };
+  });
+  const ball = { x: number(17), y: number(18), z: number(19),
+    active: Boolean(before[22]), radius: 42, spawnOwner: 0 };
+  const nearEnd = tick >= endTick - 20;
+  return { format: "ac.oskiewar.live", version: 1, seq: tick, phase: "replay",
+    fighters, ball, balls: [ball],
+    camera: { x: number(23), y: number(24), width: Math.max(100, number(25)) },
+    round: { remainingMs: Math.max(0, Math.round((endTick - tick) * 1000 /
+      (demo.tickRate || 60))), result: nearEnd
+        ? demo.winner ? `${demo.winner} WINS ROUND` : "TIE" : "" },
+    seriesId: demo.seriesId, roundId: demo.roundId,
+    previousRoundId: demo.previousRoundId || "" };
 }
 
 function sim() {
+  if (replayMode && replayDemo) {
+    shown = demoSnapshot(replayDemo);
+    return;
+  }
   if (!snapshot) return;
   if (!shown) shown = clone(snapshot);
   for (let index = 0; index < 2; index++) {
@@ -159,8 +294,9 @@ function drawFighter({ ink, line, circle }, fighter, project, tick) {
 function paint({ wipe, ink, line, circle, screen }) {
   wipe(12, 15, 24);
   const sw = screen.width, sh = screen.height;
-  const badge = live ? "LIVE" : status.toUpperCase();
-  ink(live ? 255 : 130, live ? 70 : 138, live ? 80 : 155)
+  const badge = replayMode ? "DEMO" : live ? "LIVE" : status.toUpperCase();
+  ink(live ? 255 : replayMode ? 90 : 130,
+    live ? 70 : replayMode ? 175 : 138, live ? 80 : replayMode ? 255 : 155)
     .write(badge, { x: Math.max(5, sw - textWidth(badge) - 5), y: 26 });
 
   if (!shown) {
@@ -204,7 +340,7 @@ function paint({ wipe, ink, line, circle, screen }) {
   const api = { ink, line, circle };
   shown.fighters.forEach((fighter) => drawFighter(api, fighter, project, shown.seq || 0));
 
-  const clock = Math.ceil(shown.round.remainingMs / 1000).toString();
+  const clock = replayMode ? "REPLAY" : Math.ceil(shown.round.remainingMs / 1000).toString();
   ink(225, 226, 220).write(clock,
     { x: Math.floor((sw - textWidth(clock)) / 2), y: 26 });
   if (shown.round.result) {
@@ -214,7 +350,10 @@ function paint({ wipe, ink, line, circle, screen }) {
       y: Math.max(28, Math.floor(sh / 2)),
     });
   }
-  const footer = `${matchName} · ${viewers} watching`;
+  const previous = replayMode && replayDemo?.previousRoundId
+    ? ` · prior ${replayDemo.previousRoundId.slice(3)}` : "";
+  const footer = replayMode ? `${matchName}${previous}`
+    : `${matchName} · ${viewers} watching`;
   ink(82, 94, 116).write(footer,
     { x: Math.max(4, Math.floor((sw - textWidth(footer)) / 2)), y: sh - 10 });
 }
@@ -222,7 +361,9 @@ function paint({ wipe, ink, line, circle, screen }) {
 function leave() {
   alive = false;
   clearTimeout(reconnectTimer);
+  clearTimeout(replayTimer);
   reconnectTimer = null;
+  replayTimer = null;
   ws?.close();
   ws = null;
 }
@@ -230,8 +371,8 @@ function leave() {
 function meta({ params = [], colon = [] } = {}) {
   const parsed = canonicalMatch(colon[0] || params[0]);
   return { title: parsed ? `OSKIEWAR ${parsed.name}` : "OSKIEWAR live",
-    desc: parsed ? `Watch OSKIEWAR match ${parsed.name} live.`
-      : "Watch a live OSKIEWAR match." };
+    desc: parsed ? `Watch or replay OSKIEWAR round ${parsed.name}.`
+      : "Watch a live OSKIEWAR round or its recorded demo." };
 }
 
-export { boot, sim, paint, leave, meta };
+export { boot, sim, paint, leave, meta, canonicalMatch, demoSnapshot };

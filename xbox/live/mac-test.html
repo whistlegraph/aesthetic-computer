@@ -254,22 +254,27 @@
 
     const liveSockets = new Map();
     function publishLive(matchId, payload) {
+      let retiresRoom = false;
+      try { retiresRoom = Boolean(JSON.parse(payload).nextRoundId); } catch {}
       let state = liveSockets.get(matchId);
       if (!state) {
         const socket = new WebSocket(`wss://session-server.aesthetic.computer/oskiewar-live?match=${encodeURIComponent(matchId)}&role=publisher`);
-        state = { socket, pending: payload };
+        state = { socket, pending: payload, retire: retiresRoom };
         liveSockets.set(matchId, state);
         socket.addEventListener("open", () => {
           if (state.pending) socket.send(JSON.stringify({ type: "oskiewar:state",
             content: JSON.parse(state.pending) }));
           state.pending = "";
+          if (state.retire) setTimeout(() => socket.close(1000, "next round"), 0);
         });
         socket.addEventListener("close", () => liveSockets.delete(matchId));
         return;
       }
-      if (state.socket.readyState === WebSocket.OPEN)
+      state.retire ||= retiresRoom;
+      if (state.socket.readyState === WebSocket.OPEN) {
         state.socket.send(JSON.stringify({ type: "oskiewar:state", content: JSON.parse(payload) }));
-      else state.pending = payload;
+        if (state.retire) setTimeout(() => state.socket.close(1000, "next round"), 0);
+      } else state.pending = payload;
     }
 
     function ac() {
