@@ -38,6 +38,10 @@ import { headers } from "./lib/headers.mjs";
 import { logs, log } from "./lib/logs.mjs";
 import { checkPackMode } from "./lib/pack-mode.mjs";
 import { captureFrame, formatTimestamp } from "./lib/frame-capture.mjs";
+import {
+  captureMediaCreated,
+  captureProductAction,
+} from "./lib/product-analytics.mjs";
 import { soundWhitelist } from "./lib/sound/sound-whitelist.mjs";
 import { timestamp, radians } from "./lib/num.mjs";
 import * as graph from "./lib/graph.mjs";
@@ -17945,6 +17949,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
 
+    if (type === "analytics") {
+      captureProductAction(content?.action);
+      return;
+    }
+
     if (type === "tape:draft-finalize") {
       const token = await authorize().catch(() => null);
       const headers = { "Content-Type": "application/json" };
@@ -20937,6 +20946,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                 // Extract code from response
                 if (addedData.code) {
                   console.log(`📼 Tape code: !${addedData.code}`);
+                  captureMediaCreated(ext, userMedia);
                   
                   // Send success callback with code
                   console.log(`📼 Sending ${callbackMessage} event with code:`, addedData.code);
@@ -21125,6 +21135,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                 console.error("❌ No code received from track-media! Response:", addedData);
               }
               if (addedData.paintingId) data.paintingId = addedData.paintingId;
+
+              captureMediaCreated(ext, userMedia);
 
               if (!userMedia && (ext === "mjs" || ext === "lisp")) {
                 data.url =

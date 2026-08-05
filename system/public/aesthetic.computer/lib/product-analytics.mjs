@@ -107,22 +107,53 @@ function installPostHogStub(win, doc) {
 let initialized = false;
 let lastRoute = null;
 let lastIdentity = null;
+let interactedRoute = null;
+
+const PROMPT_ROUTES = new Set(["/", "/prompt"]);
+const MEDIA_KINDS = Object.freeze({
+  png: "painting",
+  mjs: "piece",
+  lisp: "kidlisp",
+  zip: "tape",
+  mp4: "tape",
+});
+
+export function routePieceProperties(route) {
+  if (PROMPT_ROUTES.has(route) || route === "/_other") return null;
+  const namedPiece = route.match(/^\/([a-z0-9-]{1,64})$/i)?.[1] || null;
+  return {
+    piece: namedPiece,
+    piece_kind: namedPiece ? "built-in" : "published-or-code",
+    route,
+  };
+}
+
+export function mediaCreatedProperties(extension, identified) {
+  const mediaKind = MEDIA_KINDS[String(extension || "").toLowerCase()];
+  if (!mediaKind) return null;
+  return {
+    media_kind: mediaKind,
+    account_state: identified ? "identified" : "anonymous",
+  };
+}
 
 function captureRoute(win, posthog) {
   const route = safeRoutePath(win.location.pathname);
   if (route === lastRoute) return;
+  const previousRoute = lastRoute;
   lastRoute = route;
+  interactedRoute = null;
   posthog.capture("$pageview", {
     $current_url: `${win.location.origin}${route}`,
     ac_route: route,
   });
 
-  const namedPiece = route.match(/^\/([a-z0-9-]{1,64})$/i)?.[1] || null;
-  posthog.capture("ac_piece_opened", {
-    piece: namedPiece,
-    piece_kind: namedPiece ? "built-in" : "published-or-code",
-    route,
-  });
+  const piece = routePieceProperties(route);
+  if (!piece) return;
+  posthog.capture("ac_piece_opened", piece);
+  if (PROMPT_ROUTES.has(previousRoute)) {
+    posthog.capture("ac_prompt_succeeded", piece);
+  }
 }
 
 function watchRoutes(win, posthog) {
@@ -135,6 +166,23 @@ function watchRoutes(win, posthog) {
     };
   }
   win.addEventListener("popstate", () => captureRoute(win, posthog));
+}
+
+function watchInteractions(win, posthog) {
+  const capture = (inputKind) => {
+    const route = safeRoutePath(win.location.pathname);
+    if (route === interactedRoute) return;
+    const piece = routePieceProperties(route);
+    if (!piece) return;
+    interactedRoute = route;
+    posthog.capture("ac_piece_interacted", {
+      ...piece,
+      input_kind: inputKind,
+    });
+  };
+  win.addEventListener("pointerdown", () => capture("pointer"), true);
+  win.addEventListener("touchstart", () => capture("touch"), true);
+  win.addEventListener("keydown", () => capture("keyboard"), true);
 }
 
 function watchIdentity(win, posthog) {
@@ -191,6 +239,7 @@ export function initProductAnalytics({ win = window, doc = document } = {}) {
   initialized = true;
   captureRoute(win, posthog);
   watchRoutes(win, posthog);
+  watchInteractions(win, posthog);
   watchIdentity(win, posthog);
   return posthog;
 }
@@ -208,6 +257,26 @@ export function identifyUser(user, { win = window } = {}) {
   if (!identity) return;
   if (!initialized) initProductAnalytics({ win, doc: win.document });
   win.posthog?.identify?.(identity.distinctId, identity.properties);
+}
+
+export function captureProductAction(action, { win = window } = {}) {
+  const event = { handle_created: "ac_handle_created" }[action];
+  if (!event) return false;
+  if (!initialized) initProductAnalytics({ win, doc: win.document });
+  win.posthog?.capture?.(event);
+  return true;
+}
+
+export function captureMediaCreated(
+  extension,
+  identified,
+  { win = window } = {},
+) {
+  const properties = mediaCreatedProperties(extension, identified);
+  if (!properties) return false;
+  if (!initialized) initProductAnalytics({ win, doc: win.document });
+  win.posthog?.capture?.("ac_media_created", properties);
+  return true;
 }
 
 export function resetProductAnalytics({ win = window } = {}) {

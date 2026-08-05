@@ -23,6 +23,10 @@ Initial capture is deliberately narrow:
 | ----------------------- | ----------------------------------------------------------------------------- |
 | `$pageview`             | `ac_route`, with query, hash, published handles, and source removed           |
 | `ac_piece_opened`       | built-in `piece` or `null`, `piece_kind`, minimized `route`                   |
+| `ac_prompt_succeeded`   | the safe destination fields from `ac_piece_opened`; never prompt text         |
+| `ac_piece_interacted`   | safe piece fields plus `input_kind` (`pointer`, `touch`, or `keyboard`)        |
+| `ac_handle_created`     | no properties; emitted only after the first successful handle claim           |
+| `ac_media_created`      | `media_kind` and anonymous `account_state`; never filenames, codes, or content |
 | `$identify`             | Auth0 `sub`; public `handle` when available; never email                      |
 | `ac endpoint completed` | `endpoint`, method/status/latency buckets, analytics class, aggregate `count` |
 
@@ -30,9 +34,12 @@ Autocapture, session replay, exception capture, performance capture, heatmaps,
 surveys, and product tours are off. Embedded, packed, local, and preview/icon
 renders do not initialize PostHog. Do Not Track is respected.
 
-Start with a journey from `$pageview` to `ac_piece_opened`, then break down by
-`ac_route`, `piece_kind`, and built-in `piece`. Validate that published pieces
-have `piece = null` before adding any dashboard or experiment.
+Start with `ac_piece_opened` to `ac_piece_interacted`, and use
+`ac_prompt_succeeded` as the successful prompt-navigation milestone. Break down
+by `piece_kind` and built-in `piece`. Validate that published pieces have
+`piece = null` before adding any dashboard or experiment. Use
+`ac_handle_created` and `ac_media_created` as activation milestones; neither
+event contains handles, filenames, codes, source, prompts, or media content.
 
 The server event is an anonymous aggregate, not a person event. It uses one
 Lith-level distinct ID, disables person profiles and GeoIP, and combines equal
@@ -47,8 +54,8 @@ Run the inventory from the repository root:
 node toolchain/analytics/posthog-inventory.mjs > /tmp/ac-posthog-inventory.json
 ```
 
-The current tree contains 165 function source files, resolving to 164 unique
-names: 160 statically detected handlers and four helpers or scripts. This is
+The current tree contains 166 function source files, resolving to 165 unique
+names: 161 statically detected handlers and four helpers or scripts. This is
 not the same as the number of public routes. Lith also provides aliases, media
 routes, host rewrites, operational routes, static files, and piece/index
 fallbacks. `lithRouteFamilies` in the generated JSON maps those surfaces.
@@ -106,10 +113,10 @@ group by endpoint
 order by requests desc
 ```
 
-For product behavior, create a funnel from `$pageview` to `ac_piece_opened` and
-break it down by `piece_kind`. Endpoint aggregates answer system-usage volume;
-Lith/Silo answer failures and diagnostics; neither should be substituted for
-the other.
+For product behavior, create a funnel from `ac_piece_opened` to
+`ac_piece_interacted` and break it down by `piece_kind`. Endpoint aggregates
+answer system-usage volume; Lith/Silo answer failures and diagnostics; neither
+should be substituted for the other.
 
 Rollback requires no code or data migration: unset `POSTHOG_PROJECT_TOKEN` to
 disable browser and server analytics, or unset only

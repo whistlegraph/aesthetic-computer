@@ -21,8 +21,8 @@ test("sensitive endpoint classes remain inventory or aggregate only", () => {
 
 test("inventory covers every function source without reading payloads", async () => {
   const inventory = await buildPostHogInventory();
-  assert.equal(inventory.sourceFileCount, 165);
-  assert.equal(inventory.handlerCount, 160);
+  assert.equal(inventory.sourceFileCount, 166);
+  assert.equal(inventory.handlerCount, 161);
   assert.equal(inventory.helperOrScriptCount, 4);
   assert.ok(inventory.functions.some((entry) => entry.name === "index"));
   assert.ok(

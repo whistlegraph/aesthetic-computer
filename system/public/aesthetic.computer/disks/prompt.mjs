@@ -3867,6 +3867,7 @@ async function halt($, text) {
         profileAction = "profile";
         store["handle"] = res.handle;
         if (!previousHandle) {
+          send({ type: "analytics", content: { action: "handle_created" } });
           jump("chat");
           beep();
         }

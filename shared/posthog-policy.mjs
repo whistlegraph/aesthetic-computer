@@ -47,7 +47,7 @@ const RULES = [
   {
     class: "content-media",
     pattern:
-      /painting|piece|kidlisp|media|playlist|tape|sfx|stor|pixel|screenshot|art|flux|juke|manifestation|mockup|tv/,
+      /painting|piece|kidlisp|media|playlist|replay|tape|sfx|stor|pixel|screenshot|art|flux|juke|manifestation|mockup|tv/,
     posthog: "minimized-browser-or-aggregate",
     exclusion:
       "No source, prompts, media, filenames, handles, or artifact contents.",
@@ -181,6 +181,7 @@ const REVIEWED_FUNCTION_NAMES = new Set([
   "og-preview",
   "os-install-report",
   "os-native",
+  "oskiewar-replays",
   "oven-complete",
   "painting-code",
   "painting-metadata",
