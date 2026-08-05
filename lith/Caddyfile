@@ -128,6 +128,21 @@
         file_server
     }
 
+    # --- pop.aesthetic.computer ---
+    @pop host pop.aesthetic.computer
+    handle @pop {
+        root * /opt/ac/system/public/pop.aesthetic.computer
+        @release path_regexp release ^/releases/([a-z0-9-]+)$
+        handle @release {
+            rewrite * /releases/{re.release.1}.json
+            file_server
+        }
+        handle {
+            try_files {path} {path}.html {path}/index.html /index.html
+            file_server
+        }
+    }
+
     # --- bills.aesthetic.computer ---
     @bills host bills.aesthetic.computer
     handle @bills {
