@@ -42,7 +42,10 @@ test("a stored round is delivered to the shared game client as a demo", async ()
   const messages = [];
   const room = new RoundRoom("bafegu-dorimi-kunapo", {
     WebSocketImpl: Socket,
-    fetchImpl: async () => ({ ok: true, async json() { return { replay }; } }),
+    fetchImpl: async function () {
+      assert.equal(this, globalThis);
+      return { ok: true, async json() { return { replay }; } };
+    },
   });
   room.start((message) => messages.push(message));
   await new Promise((resolve) => setTimeout(resolve, 0));

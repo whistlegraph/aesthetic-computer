@@ -17,7 +17,8 @@ export class RoundRoom {
     if (!ROUND_NAME.test(name || "")) throw new Error("Invalid OSKIEWAR round name");
     this.name = name;
     this.WebSocketImpl = WebSocketImpl;
-    this.fetchImpl = fetchImpl;
+    this.fetchImpl = typeof fetchImpl === "function"
+      ? fetchImpl.bind(globalThis) : null;
     this.historyImpl = historyImpl;
     this.sessionOrigin = sessionOrigin;
     this.replayOrigin = replayOrigin;
