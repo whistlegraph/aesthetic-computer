@@ -24,6 +24,7 @@
       position: fixed; inset: 0; z-index: 3; display: none; pointer-events: none;
       user-select: none; -webkit-user-select: none; touch-action: none; }
     body.touch-enabled #touch-controls { display: block; }
+    body.title-open #touch-controls { display: none; }
     .touch-cluster { position: absolute; display: grid;
       grid-template: repeat(3, var(--unit)) / repeat(3, var(--unit));
       gap: var(--gap); pointer-events: none; }
@@ -87,6 +88,8 @@
     const touchEnabled = new URLSearchParams(location.search).has("touch") ||
       navigator.maxTouchPoints > 0 || matchMedia("(pointer: coarse)").matches;
     document.body.classList.toggle("touch-enabled", touchEnabled);
+    document.body.classList.add("title-open");
+    let titleOpen = true;
     const keyMap = new Map([
       ["KeyW", [0, "ArrowUp"]], ["KeyS", [0, "ArrowDown"]],
       ["KeyA", [0, "ArrowLeft"]], ["KeyD", [0, "ArrowRight"]],
@@ -127,6 +130,21 @@
       if (!audioContext) audioContext = new AudioContext();
       if (audioContext.state === "suspended") audioContext.resume();
       return audioContext;
+    }
+
+    function dismissTitle() {
+      if (!titleOpen) return false;
+      titleOpen = false;
+      document.body.classList.remove("title-open");
+      return true;
+    }
+
+    function tapTitle() {
+      if (!dismissTitle()) return false;
+      keys[0].add("A");
+      ensureAudio();
+      setTimeout(() => keys[0].delete("A"), 90);
+      return true;
     }
 
     function color(values) {
@@ -367,8 +385,12 @@
 
     addEventListener("keydown", (event) => {
       const mapped = keyMap.get(event.code);
-      if (!mapped) return;
+      if (!mapped) {
+        if (tapTitle()) event.preventDefault();
+        return;
+      }
       event.preventDefault();
+      dismissTitle();
       keys[mapped[0]].add(mapped[1]);
       ensureAudio();
     });
@@ -390,6 +412,7 @@
       const button = event.target.closest("button[data-key]");
       if (!button) return;
       event.preventDefault();
+      dismissTitle();
       button.setPointerCapture?.(event.pointerId);
       const key = button.dataset.key;
       touchPointers.set(event.pointerId, { button, key });
@@ -400,6 +423,9 @@
     for (const type of ["pointerup", "pointercancel", "lostpointercapture"])
       touchControls.addEventListener(type, (event) => releaseTouch(event.pointerId));
     touchControls.addEventListener("contextmenu", (event) => event.preventDefault());
+    canvas.addEventListener("pointerdown", (event) => {
+      if (tapTitle()) event.preventDefault();
+    });
     addEventListener("blur", () => {
       keys.forEach((held) => held.clear());
       for (const pointerId of touchPointers.keys()) releaseTouch(pointerId);

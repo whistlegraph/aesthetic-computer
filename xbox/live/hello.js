@@ -267,13 +267,8 @@ let roundReplayLastAt = 0;
 let instantReplay = null;
 let replayOfferPrevious = [];
 let shellMode = "MENU";
-let shellChoice = 1;
 let shellPrevious = [];
 let navigationPrevious = [[], []];
-const labPlayers = [
-  { x: 480, y: 560, color: [190, 42, 58] },
-  { x: 1440, y: 560, color: [38, 82, 176] },
-];
 // Temporary live combat inspector. Keep this explicit so the production view
 // can return to a clean presentation without changing combat geometry.
 let debugHitboxes = true;
@@ -616,8 +611,8 @@ function beginSelect(now) {
   selecting = true;
   selectionReady[0] = false;
   selectionReady[1] = false;
-  selectionPrevious[0] = [];
-  selectionPrevious[1] = [];
+  selectionPrevious[0] = padSnapshots[0]?.down?.slice() || [];
+  selectionPrevious[1] = padSnapshots[1]?.down?.slice() || [];
   roundResult = "";
   roundCause = "";
   matchOver = false;
@@ -646,50 +641,17 @@ function returnToSelectPressed(now) {
   return true;
 }
 
-function enterShellMode(mode, now) {
-  shellMode = mode;
+function enterGame(now) {
+  shellMode = "GAME";
   shellPrevious = padSnapshots[0]?.down?.slice() || [];
-  if (mode === "GAME") beginSelect(now);
-  if (mode === "LAB") {
-    labPlayers[0].x = 480;
-    labPlayers[0].y = 560;
-    labPlayers[1].x = 1440;
-    labPlayers[1].y = 560;
-  }
+  beginSelect(now);
 }
 
 function updateShell(now) {
   const down = padSnapshots[0]?.down || [];
-  const pressed = (button) => down.includes(button) && !shellPrevious.includes(button);
-  if (pressed("ArrowLeft") || pressed("ArrowRight")) {
-    shellChoice = shellChoice ? 0 : 1;
-    drum("hat", .82, 0);
-  }
-  if (pressed("A")) {
+  if (down.some((button) => !shellPrevious.includes(button))) {
     drum("clap", 1, 0);
-    enterShellMode(shellChoice === 0 ? "LAB" : "GAME", now);
-  }
-  shellPrevious = down.slice();
-}
-
-function updateLab(dt, now) {
-  for (let index = 0; index < labPlayers.length; index++) {
-    const pad = padSnapshots[index] ||
-      { connected: false, down: [], leftX: 0, leftY: 0 };
-    const input = quantizedInput(pad);
-    const bounds = index === 0 ? [90, 870] : [1050, 1830];
-    labPlayers[index].x = clamp(labPlayers[index].x + input.horizontal * 620 * dt,
-      bounds[0], bounds[1]);
-    labPlayers[index].y = clamp(labPlayers[index].y - input.vertical * 620 * dt,
-      300, 880);
-  }
-  const down = padSnapshots[0]?.down || [];
-  if (down.includes("View") && !shellPrevious.includes("View")) {
-    shellMode = "MENU";
-    shellPrevious = down.slice();
-    drum("block", .8, 0);
-    telemetry("SHELL", "lab->menu " + now);
-    return;
+    enterGame(now);
   }
   shellPrevious = down.slice();
 }
@@ -909,7 +871,6 @@ function boot() {
   roundElapsedUs = 0;
   emitSignal("hello", -1, 1, 0);
   shellMode = "MENU";
-  shellChoice = 1;
   shellPrevious = [];
   navigationPrevious = [[], []];
   roundViewer = globalThis.__oskiewarRoundBridge || null;
@@ -1944,10 +1905,6 @@ function sim() {
     updateShell(now);
     return;
   }
-  if (shellMode === "LAB") {
-    updateLab(dt, now);
-    return;
-  }
   recordReplayCommands(now);
   publishSpectator(now);
   if (roundResult) {
@@ -2335,23 +2292,21 @@ function controlLocale() {
   const keyboard = caps.inputFamily === "keyboard";
   const touch = caps.inputFamily === "touch";
   if (touch) return {
-    menu: "", select: "", replayPaused: "paused",
-    replayPlaying: "", replay: "", labBack: "",
+    title: "tap to start", select: "", replayPaused: "paused",
+    replayPlaying: "", replay: "",
   };
   return keyboard ? {
-    menu: "A D SELECT     F OPEN",
+    title: "press any key",
     select: "P1 A/D + F     P2 LEFT/RIGHT + K     H P2/DUMMY     G BACK",
     replayPaused: "PAUSED   F PLAY   A D SCRUB   G EXIT",
     replayPlaying: "F PAUSE   A D SCRUB   G EXIT",
     replay: "Q REPLAY",
-    labBack: "Q  BACK TO SELECTOR",
   } : {
-    menu: "DPAD LEFT RIGHT     A OPEN",
+    title: "press any button",
     select: "LEFT RIGHT SELECT     A READY     X P2 / DUMMY     B BACK",
     replayPaused: "PAUSED   A PLAY   LEFT RIGHT SCRUB   B EXIT",
     replayPlaying: "A PAUSE   LEFT RIGHT SCRUB   B EXIT",
     replay: "Y REPLAY",
-    labBack: "VIEW  BACK TO SELECTOR",
   };
 }
 
@@ -2804,112 +2759,21 @@ function drawSelectionScreen(t, ink, panel) {
   typeWrite(controls.select, ox + 225, 958, 28, ...ink);
 }
 
-function drawShellMenu(t, ink, panel) {
-  const controls = controlLocale();
-  if (compactLayout()) {
-    const margin = 28;
-    const width = viewWidth() - margin * 2;
-    typeWrite("OSKIEWAR", viewCenterX() - 110, 50, 42, ...ink);
-    const choices = [
-      { name: "NEW GAME", top: 150, color: [88, 210, 224] },
-      { name: "OSKIEWAR", top: 555, color: [214, 45, 72] },
-    ];
-    for (let index = 0; index < choices.length; index++) {
-      const choice = choices[index];
-      const active = shellChoice === index;
-      box(margin, choice.top, width, 345, ...(active ? panel : [9, 12, 26]));
-      box(margin, choice.top, width, active ? 9 : 3, ...choice.color);
-      typeWrite(choice.name, margin + 35, choice.top + 45,
-        active ? 44 : 36, ...(active ? choice.color : ink));
-      if (index === 0) {
-        for (let pad = 0; pad < 2; pad++) {
-          const cx = margin + width * (.3 + pad * .4);
-          const cy = choice.top + 205;
-          circle(cx, cy, 58, 6, choice.color);
-          line(cx - 30, cy, cx + 30, cy, 7, ...choice.color);
-          line(cx, cy - 30, cx, cy + 30, 7, ...choice.color);
-        }
-        typeWrite("2-PAD INPUT LAB", margin + 35, choice.top + 292,
-          24, ...ink);
-      } else {
-        drawSelectPortrait(players[0], margin + width * .34,
-          choice.top + 225, .72, t);
-        drawSelectPortrait(players[1], margin + width * .68,
-          choice.top + 225, .72, t);
-        typeWrite("FIGHT", margin + 35, choice.top + 292, 24, ...ink);
-      }
-    }
-    typeWrite(controls.menu, margin, 1018, 17, ...ink);
-    return;
+function drawTitleScreen(t, ink) {
+  const compact = compactLayout();
+  const title = "oskiewar";
+  const titleSize = compact ? 88 : 154;
+  const titleWidth = handleWidth(title, titleSize);
+  const pulseY = Math.round(Math.sin(t * 1.7) * (compact ? 3 : 5));
+  typeWrite(title, viewCenterX() - titleWidth / 2,
+    viewHeight * (compact ? .38 : .35) + pulseY, titleSize, ...ink);
+  if ((t % 1.2) < .82) {
+    const prompt = controlLocale().title;
+    const promptSize = compact ? 28 : 38;
+    const promptWidth = handleWidth(prompt, promptSize);
+    typeWrite(prompt, viewCenterX() - promptWidth / 2,
+      viewHeight * (compact ? .61 : .64), promptSize, ...ink);
   }
-  const ox = viewOffsetX();
-  const choices = [
-    { name: "NEW GAME", x: ox + 120, color: [88, 210, 224] },
-    { name: "OSKIEWAR", x: ox + 990, color: [214, 45, 72] },
-  ];
-  typeWrite("OSKIEWAR", ox + 790, 108, 52, ...ink);
-  for (let index = 0; index < choices.length; index++) {
-    const choice = choices[index];
-    const active = shellChoice === index;
-    box(choice.x, 280, 810, 560, ...(active ? panel : [9, 12, 26]));
-    box(choice.x, 280, 810, active ? 9 : 3, ...choice.color);
-    typeWrite(choice.name, choice.x + 70, 350, active ? 62 : 50,
-      ...(active ? choice.color : ink));
-    if (index === 0) {
-      for (let pad = 0; pad < 2; pad++) {
-        const cx = choice.x + 245 + pad * 330;
-        const cy = 600;
-        circle(cx, cy, 82, 7, choice.color);
-        line(cx - 44, cy, cx + 44, cy, 9, ...choice.color);
-        line(cx, cy - 44, cx, cy + 44, 9, ...choice.color);
-      }
-      typeWrite("2-PAD INPUT LAB", choice.x + 70, 755, 34, ...ink);
-    } else {
-      drawSelectPortrait(players[0], choice.x + 280, 650, 1, t);
-      drawSelectPortrait(players[1], choice.x + 545, 650, 1, t);
-      typeWrite("FIGHT", choice.x + 70, 755, 34, ...ink);
-    }
-  }
-  typeWrite(controls.menu, ox + 760, 924, 30, ...ink);
-}
-
-function drawInputLab(run, ink, panel) {
-  const controls = controlLocale();
-  const caps = typeof capabilities === "function" ? capabilities() : {};
-  const controllerList = typeof controllers === "function" ? controllers() : [];
-  typeWrite("NEW GAME", 52, 32, 42, ...ink);
-  const status = (caps.productName || "XBOX") + "  BIOS " +
-    (caps.version || "DEV") + "  PADS " + controllerList.length +
-    "  AUDIO " + Number(run.audioLatencyMs || 0).toFixed(1) + "MS";
-  typeWrite(status, 410, 42, 23, ...ink);
-  line(960, 118, 960, 1030, 3, 65, 78, 108);
-  for (let index = 0; index < 2; index++) {
-    const pad = padSnapshots[index] ||
-      { connected: false, down: [], leftX: 0, leftY: 0,
-        rightX: 0, rightY: 0, leftTrigger: 0, rightTrigger: 0 };
-    const input = quantizedInput(pad);
-    const left = index === 0 ? 40 : 1000;
-    const color = labPlayers[index].color;
-    box(left, 135, 880, 855, ...panel);
-    box(left, 135, 880, 7, ...color);
-    typeWrite("P" + (index + 1) + "  " +
-      (pad.connected ? "CONNECTED" : "NO CONTROLLER"),
-      left + 34, 175, 34, ...color);
-    const down = pad.down.length ? pad.down.map(buttonLabel).join("  ") : "NONE";
-    typeWrite("DOWN  " + down, left + 34, 240, 26, ...ink);
-    typeWrite("LEFT   " + pad.leftX.toFixed(3) + "  " + pad.leftY.toFixed(3) +
-      "\nRIGHT  " + pad.rightX.toFixed(3) + "  " + pad.rightY.toFixed(3) +
-      "\nTRIG   " + pad.leftTrigger.toFixed(3) + "  " + pad.rightTrigger.toFixed(3) +
-      "\nGATE   " + input.horizontal + "  " + input.vertical,
-      left + 34, 305, 25, ...ink);
-    const point = labPlayers[index];
-    circle(point.x, point.y, 42, 6, color);
-    line(point.x - 70, point.y, point.x + 70, point.y, 3, ...color);
-    line(point.x, point.y - 70, point.x, point.y + 70, 3, ...color);
-    typeWrite("DPAD / LEFT STICK MOVES THIS MARKER", left + 110, 920,
-      24, ...ink);
-  }
-  typeWrite(controls.labBack, 770, 1004, 23, ...ink);
 }
 
 function drawSpectatorQr(ink) {
@@ -2976,11 +2840,7 @@ function paint() {
   wipe(...sky);
   box(0, 0, viewWidth(), viewHeight, ...arena);
   if (shellMode === "MENU") {
-    drawShellMenu(t, titleInk, titlePanel);
-    return;
-  }
-  if (shellMode === "LAB") {
-    drawInputLab(run, titleInk, titlePanel);
+    drawTitleScreen(t, titleInk);
     return;
   }
   if (selecting) {

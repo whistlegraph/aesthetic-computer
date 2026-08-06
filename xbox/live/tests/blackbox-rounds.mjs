@@ -129,7 +129,8 @@ async function captureTouch(browser, origin) {
   });
   await page.goto(`${origin}/?touch=1`, { waitUntil: "networkidle2" });
   await page.evaluate(() => document.fonts.ready);
-  const before = await page.screenshot();
+  const titleShot = join(outputRoot, "touch-title.png");
+  const before = await page.screenshot({ path: titleShot });
   const pressTouch = async (key) => {
     const button = await page.$(`button[data-key="${key}"]`);
     const bounds = await button.boundingBox();
@@ -140,7 +141,8 @@ async function captureTouch(browser, origin) {
     await page.mouse.up();
     await wait(350);
   };
-  await pressTouch("A");
+  await page.touchscreen.tap(viewport.width / 2, viewport.height / 2);
+  await wait(350);
   const selectShot = join(outputRoot, "touch-select.png");
   const selected = await page.screenshot({ path: selectShot });
   await pressTouch("X");
@@ -166,7 +168,7 @@ async function captureTouch(browser, origin) {
   return { name: "touch", viewport, layout,
     aspectError: Math.abs(layout.cssAspect - layout.backingAspect),
     changed: new Set(hashes).size === hashes.length, hashes, errors,
-    files: { selectShot, gameShot } };
+    files: { titleShot, selectShot, gameShot } };
 }
 
 async function playRound(browser, origin, name, viewport, opponent = "dummy") {
