@@ -4699,9 +4699,9 @@ class KidLisp {
       } else if (this.microphoneApi.permission !== "granted") {
         // Log request for permission (one-time)
         if (!this.micPermissionRequested) {
+          this.microphoneApi.requestPermission?.();
           console.log("🎤 Microphone permission needed for 'mic' global - please grant access");
           this.micPermissionRequested = true;
-          // Future: Could trigger UI prompt here
         }
       }
     }

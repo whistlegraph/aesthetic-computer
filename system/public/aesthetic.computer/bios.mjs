@@ -4355,11 +4355,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     });
   }
 
-  // macOS/Chromium can take more than a second to answer this host permission
-  // query. It is useful state for microphone pieces, but it must not hold up
-  // the disk worker or the first rendered frame.
-  const microphonePermissionPromise = checkMicrophonePermission();
-
   // Extract embedded source if available
   let embeddedSource = null;
   try {
@@ -4417,9 +4412,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     firstMessageSent = true;
     send(firstMessage);
     consumeDiskSends(send);
-    microphonePermissionPromise.then((permission) => {
-      send({ type: "microphone-permission", content: permission });
-    });
   };
 
   const TAPE_PREVIEW_MAX_FRAMES = 90;
@@ -15054,6 +15046,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     if (type === "microphone") {
       receivedMicrophone(content);
+      return;
+    }
+
+    if (type === "microphone-permission-request") {
+      const permission = await checkMicrophonePermission();
+      send({ type: "microphone-permission", content: permission });
       return;
     }
 
