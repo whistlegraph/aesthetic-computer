@@ -321,6 +321,8 @@ final class MultitouchTrackpad {
         }
         devices.removeAll()
         started = false
+        dlclose(h)
+        handle = nil
     }
 }
 

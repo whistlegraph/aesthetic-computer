@@ -16,6 +16,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// The spinning album-art disc owned by Menu Band's CDJ Radio deck.
     private var cdjStatusItem: MenuBandCDJStatusItem?
     private let menuBand = MenuBandController()
+#if MAC_APP_STORE
+    /// Optional direct-download sensor bridge. It supplies contact frames only;
+    /// this sandboxed process continues to own the instrument and its display.
+    private let trackpadPlugin = MenuBandTrackpadPluginClient()
+    private var trackpadPluginConnected = false
+    private var trackpadPluginCaptureActive = false
+#endif
 #if !MAC_APP_STORE
     /// The former JukeWizard, now a first-class window and service inside this
     /// process. It starts lazily when the user chooses Juke.
@@ -456,11 +463,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Contact-to-drum triggering runs independently of AppKit presentation.
     /// The main-thread handler below still owns every visual and cursor state.
     private lazy var trackpadAudioLane = TrackpadAudioLane(output: menuBand)
-    /// Accessibility-independent fallback for clicks whose frozen pointer
-    /// lands back on Menu Band itself. A session CGEventTap can be denied or
-    /// invalidated after re-signing; local AppKit events still arrive before
-    /// the status item's piano-key action and can be consumed here.
-    private var trackpadPercussionLocalClickShield: Any?
     /// Record gesture (folded into the quiet-focus ⌘ monitor): hold both the
     /// left and right Command keys through the full count-in.
     /// Scheduled count-in beats + the final record-start, so releasing a ⌘
@@ -528,6 +530,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // the sandbox. It remains deliberately focus-local; no global HID tap.
     private let trackpadFxAvailable = true
     #endif
+    /// Permission-free final boundary for clicks whose hidden pointer lands on
+    /// Menu Band itself. This is required in the Store build too: the helper
+    /// blocks globally when permitted, while AppKit can always protect its own
+    /// piano keys before their actions fire.
+    private var trackpadPercussionLocalClickShield: Any?
     /// Tracks the last lit-note count we observed in `onLitChanged`
     /// so we can detect the all-notes-released edge and trigger
     /// both the bend rubber-band and the cursor pop.
@@ -612,10 +619,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private static let bendRange: Float = 2.0
     /// Max bend slew, in `bendAmount` units per second, while easing the
     /// applied bend toward the gesture target (see `bendGestureTarget`). The
-    /// A one-octave move resolves in ~420 ms. At 120 Hz each update is at most
-    /// 0.02 unit = 24 cents for octave-scaled backends, keeping the control
-    /// signal below a quarter-tone per step instead of the old 120-cent jump.
-    private static let bendSlewPerSecond: Float = 2.4
+    /// The full ±range resolves in about a third of a second and a typical
+    /// one-octave gesture in about 85 ms. At 120 Hz each update stays small
+    /// enough to avoid clicks while remaining attached to the finger.
+    private static let bendSlewPerSecond: Float = 12.0
     /// Ease tick rate (Hz). Fine-grained relative to a CoreAudio render
     /// quantum so the synths see a continuous slide, not a staircase.
     private static let bendEaseHz: Double = 120.0
@@ -649,6 +656,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // LaunchAgent). Reconcile the OS registration with the user's stored
         // preference. Fresh App Store installs remain opt-in.
         MenuBandLoginItem.apply()
+        trackpadPlugin.onConnectionChanged = { [weak self] connected in
+            guard let self else { return }
+            self.trackpadPluginConnected = connected
+            debugLog("TrackDrum helper \(connected ? "connected" : "disconnected")")
+            if !connected, self.trackpadPluginCaptureActive {
+                self.handleTrackpadFrame(
+                    [], timestamp: CACurrentMediaTime(),
+                    callbackTime: CACurrentMediaTime()
+                )
+                self.endPitchBendSession()
+            }
+        }
+        trackpadPlugin.onFrame = { [weak self] contacts, timestamp, callbackTime in
+            guard let self, self.trackpadPluginCaptureActive else { return }
+            self.handleTrackpadFrame(
+                contacts, timestamp: timestamp, callbackTime: callbackTime
+            )
+        }
+        trackpadPlugin.start()
         #endif
         #if !MAC_APP_STORE
         trackpadPercussionGestureTap.onPhysicalClickChanged = {
@@ -1421,6 +1447,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         #if MAC_APP_STORE
         localCapture.onTrackpadFrame = { [weak self] contacts, timestamp, callbackTime in
+            guard self?.trackpadPluginConnected != true else { return }
             self?.handleTrackpadFrame(contacts, timestamp: timestamp,
                                       callbackTime: callbackTime)
         }
@@ -1491,6 +1518,36 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self?.toggleQuietFocusFromCommandTap()
             }
         }
+        #if MAC_APP_STORE
+        // Release-QA hook for the separately distributed input bridge. It
+        // exercises the real in-app Tracktramp renderer without adding a
+        // standalone TrackDrum surface.
+        if CommandLine.arguments.contains("--trackpad-plugin-preview") {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in
+                guard let self else { return }
+                self.activateDefaultTrackpadDrum()
+                let now = CACurrentMediaTime()
+                self.handleTrackpadFrame([
+                    TrackpadContact(
+                        identifier: 1,
+                        point: CGPoint(x: 0.28, y: 0.32),
+                        state: 3
+                    ),
+                    TrackpadContact(
+                        identifier: 2,
+                        point: CGPoint(x: 0.68, y: 0.66),
+                        state: 3
+                    ),
+                ], timestamp: now, callbackTime: now)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.22) { [weak self] in
+                    let endedAt = CACurrentMediaTime()
+                    self?.handleTrackpadFrame(
+                        [], timestamp: endedAt, callbackTime: endedAt
+                    )
+                }
+            }
+        }
+        #endif
     }
 
     // MARK: - Popover lifecycle
@@ -2697,6 +2754,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        #if MAC_APP_STORE
+        trackpadPlugin.setCaptureEnabled(false)
+        trackpadPlugin.stop()
+        #endif
         #if !MAC_APP_STORE
         trackpadAudioLane.stop()
         setTrackpadFighterSuppressed(false)
@@ -4612,6 +4673,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
             #if MAC_APP_STORE
             panel.chrome.onTrackpadFrame = { [weak self] contacts, timestamp, callbackTime in
+                guard self?.trackpadPluginConnected != true else { return }
                 self?.handleTrackpadFrame(contacts, timestamp: timestamp,
                                           callbackTime: callbackTime)
             }
@@ -4811,20 +4873,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func handleTrackpadPhysicalClick(_ clicked: Bool) {
         trackpadPhysicalClickHeld = clicked
         debugLog("trackpad physical click = \(clicked ? "down" : "up") contacts=\(mtTouches.count)")
-        guard pitchBendCursorPushed, clicked, !wasHeld,
-              let strike = mtTouches.first(where: {
-                  MenuBandPercussion.drumSkinZone(at: $0) == .kick
-              }) else { return }
-        if MenuBandPercussion.drumSkinZone(at: strike) == .kick {
-            let anchors = mtTouches.filter { $0 != strike }
-            debugLog("trackpad physical click triggered super-kick")
-            menuBand.trackpadSuperKick(strike: strike, anchors: anchors)
-            trackpadSurfaceEnergy.energize(
-                at: strike, amount: 0.90, now: CACurrentMediaTime()
-            )
-            trackpadMembrane.impulse(at: strike, amount: 0.90)
-            updateTrackpadOverlayIfDue(force: true)
-        }
     }
 
     /// Trigger only newly entered articulations. Two bottom fingers hold the
@@ -5203,10 +5251,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             activateKeymapPitchSlider()
             return
         }
-        #if !MAC_APP_STORE
+        #if MAC_APP_STORE
+        let useTrackDrum = trackpadPluginConnected
+        #else
+        let useTrackDrum = true
         setTrackpadFighterSuppressed(true)
         #endif
-        trackpadPadMode = .skin
+        trackpadPadMode = useTrackDrum ? .skin : .fx
+        #if MAC_APP_STORE
+        trackpadPluginCaptureActive = useTrackDrum
+        trackpadPlugin.setCaptureEnabled(useTrackDrum)
+        #endif
         trackpadFXPrimaryContact.reset()
         trackpadSurfaceEnergy.reset(at: CACurrentMediaTime())
         trackpadMembrane.reset(at: CACurrentMediaTime())
@@ -5248,8 +5303,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         #if !MAC_APP_STORE
         trackpadAudioLane.setMode(.skin)
         #endif
+        if useTrackDrum {
+            startTrackpadPercussionLocalClickShield()
+        }
         #if !MAC_APP_STORE
-        startTrackpadPercussionLocalClickShield()
         let globalClickShield = startTrackpadPercussionSystemClickShield()
         #endif
         // Quiet focus: the global drum is already live, but its chart appears
@@ -5258,7 +5315,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         #if !MAC_APP_STORE
         debugLog("trackpad pad mode = skin (focus default) clickShieldGlobal=\(globalClickShield)")
         #else
-        debugLog("trackpad pad mode = skin (focused NSTouch App Store path)")
+        debugLog(useTrackDrum
+            ? "trackpad pad mode = skin (TrackDrum helper path)"
+            : "trackpad pad mode = fx (TrackDrum helper unavailable)")
         #endif
     }
 
@@ -5305,6 +5364,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             updatePitchBendOverlayImage()
             return
         }
+        #if MAC_APP_STORE
+        guard trackpadPluginConnected else {
+            trackpadPadMode = .fx
+            updatePitchBendOverlayImage()
+            debugLog("trackpad pad mode remains fx (TrackDrum helper unavailable)")
+            return
+        }
+        #endif
         trackpadFXPrimaryContact.reset()
         trackpadPadMode = Self.trackpadPadModeAfterTab(trackpadPadMode)
         if trackpadPadMode != .fx {
@@ -5389,6 +5456,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     static func shouldOpenTransientTrackpadSurface(keyboardNotesHeld: Bool,
                                                    modeLatched: Bool) -> Bool {
         keyboardNotesHeld && !modeLatched
+    }
+
+    static func shouldLockPointerForKeyboardTrackpad(
+        keymapShown: Bool
+    ) -> Bool {
+        !keymapShown
     }
 
     static func shouldPersistKeyboardOpenedTrackpadSurface(
@@ -5669,6 +5742,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                                      keyDown: menuBand.keyboardNotesHeld)
     }
 
+    /// Keep the puck attached to the bend that is actually sounding. Drawing
+    /// the gesture target made the graphic snap ahead while the audio lagged
+    /// behind like an elastic band.
+    private var displayBendAmount: Float {
+        bendAmount
+    }
+
     private var showingTracktrampSkin: Bool {
         trackpadPadMode == .skin
             && !NSEvent.modifierFlags.contains(.shift)
@@ -5884,6 +5964,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func endPitchBendSession() {
+        #if MAC_APP_STORE
+        trackpadPluginCaptureActive = false
+        trackpadPlugin.setCaptureEnabled(false)
+        #endif
         pitchBendEndTimer?.invalidate()
         pitchBendEndTimer = nil
         pitchBendReleaseGraceUntil = nil
@@ -5906,8 +5990,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menuBand.setTrackpadPerformanceActive(false)
         #if !MAC_APP_STORE
         stopTrackpadPercussionSystemClickShield()
-        stopTrackpadPercussionLocalClickShield()
         #endif
+        stopTrackpadPercussionLocalClickShield()
         // Every new Menu Band focus begins on the zero-step drum surface.
         trackpadPadMode = .skin
         guard pitchBendCursorLocked else {
@@ -5954,6 +6038,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         trackpadPercussionClickShield.stop()
     }
 
+    #endif
+
     private func startTrackpadPercussionLocalClickShield() {
         guard trackpadPercussionLocalClickShield == nil else { return }
         let clickEvents: NSEvent.EventTypeMask = [
@@ -5980,6 +6066,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    #if !MAC_APP_STORE
     /// Cross-process ownership signal for the fleet Trackpad Fighter watcher.
     /// The watcher validates this PID, so a crash cannot leave its four-corner
     /// launch gesture permanently disabled.

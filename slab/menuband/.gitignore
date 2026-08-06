@@ -4,6 +4,8 @@
 .build-rc/
 .swiftpm/
 DerivedData/
+build/plugin-appstore-derived/
+build/plugin-dev-derived/
 AppIcon.iconset/
 *.xcodeproj/
 *.swp

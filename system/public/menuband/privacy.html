@@ -162,6 +162,7 @@
 
     <h3>Permissions Menu Band may request</h3>
     <p><b>Accessibility access.</b> The direct-download build asks only when you enable global <em>Notepat</em> or <em>Ableton</em> typing. The Mac App Store build never asks: typing works locally while Menu Band is active. Menu Band uses keystrokes solely to play notes; nothing is recorded, logged, or transmitted.</p>
+    <p><b>TrackDrum helper.</b> This optional, separately downloaded helper reads normalized trackpad contacts only while Menu Band has armed its performance surface. During that session it hides the pointer and blocks mouse buttons, context clicks, scrolling, and gestures from reaching other apps. Escape or another double-tap of Command always exits. It sends at most 16 contact positions over a loopback connection on your Mac. It has no audio engine, instrument window, analytics, internet connection, or file access, and it does not require an Accessibility grant.</p>
 
     <h3>Third parties</h3>
     <p>The update manifest and crash endpoint are operated by aesthetic.computer; user-opened radio or web content connects to the named stream or website. There are no third-party analytics, advertising, or data-sharing services. Audio and MIDI use Apple's built-in CoreMIDI and AVAudioEngine. The virtual MIDI source named <code>Menu Band</code> is published to your Mac's CoreMIDI server so DAWs on your Mac can receive notes — that traffic is local-only.</p>
