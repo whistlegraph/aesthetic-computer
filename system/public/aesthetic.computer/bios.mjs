@@ -4355,7 +4355,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     });
   }
 
-  const microphonePermission = await checkMicrophonePermission();
+  // macOS/Chromium can take more than a second to answer this host permission
+  // query. It is useful state for microphone pieces, but it must not hold up
+  // the disk worker or the first rendered frame.
+  const microphonePermissionPromise = checkMicrophonePermission();
 
   // Extract embedded source if available
   let embeddedSource = null;
@@ -4384,7 +4387,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       vscode: window.acVSCODE,
       objktMode: window.acPACK_MODE || false,
       objktKidlispCodes: window.objktKidlispCodes || globalThis.objktKidlispCodes || {},
-      microphonePermission,
+      microphonePermission: null,
       resolution,
       embeddedSource,
       noauth: window.acNOAUTH || false,
@@ -4406,6 +4409,17 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   let send = (msg) => {
     console.warn("Send has not been wired yet!", msg);
+  };
+
+  let firstMessageSent = false;
+  const sendFirstMessage = () => {
+    if (firstMessageSent) return;
+    firstMessageSent = true;
+    send(firstMessage);
+    consumeDiskSends(send);
+    microphonePermissionPromise.then((permission) => {
+      send({ type: "microphone-permission", content: permission });
+    });
   };
 
   const TAPE_PREVIEW_MAX_FRAMES = 90;
@@ -4576,8 +4590,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         module.noWorker.postMessage = (e) => onMessage(e);
         send = (e) => module.noWorker.onMessage(e);
         window.acSEND = send;
-        send(firstMessage);
-        consumeDiskSends(send);
+        sendFirstMessage();
       };
 
       if (worker.postMessage) {
@@ -4618,8 +4631,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
             // NOW send the initial message - disk.mjs is ready to receive it
             perf.markBoot("first-message-sent");
-            send(firstMessage);
-            consumeDiskSends(send);
+            sendFirstMessage();
             return;
           }
           
@@ -4656,8 +4668,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       module.noWorker.postMessage = (e) => onMessage(e);
       send = (e) => module.noWorker.onMessage(e);
       window.acSEND = send;
-      send(firstMessage);
-      consumeDiskSends(send);
+      sendFirstMessage();
     }, workerTimeoutMs);
   } else {
     // B. No Worker Mode
@@ -4680,8 +4691,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   // Note: In worker mode, this is now handled inside the if(worker.postMessage) block
   // to ensure proper timing. In no-worker mode, it's handled here.
   if (!workersEnabled) {
-    send(firstMessage);
-    consumeDiskSends(send);
+    sendFirstMessage();
   }
 
   // 🛑 HALT Detection - Watchdog for unresponsive disk worker

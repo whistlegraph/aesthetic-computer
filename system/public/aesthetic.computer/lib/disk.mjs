@@ -10642,6 +10642,19 @@ async function makeFrame({ data: { type, content } }) {
     return;
   }
 
+  if (type === "microphone-permission") {
+    microphone.permission = content;
+    if (
+      content === "granted" &&
+      globalKidLispInstance?.containsMicrophoneFunctions?.(
+        globalKidLispInstance.ast,
+      )
+    ) {
+      globalKidLispInstance.requestMicrophoneConnection?.($activePaintApi);
+    }
+    return;
+  }
+
   // Handle live reload from kidlisp.com editor
   if (type === "piece-reload") {
     log.piece.log("Reloading with new code:", content.source?.substring(0, 30) + "...");
