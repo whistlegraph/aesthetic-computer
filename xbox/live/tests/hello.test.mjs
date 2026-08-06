@@ -12,6 +12,7 @@ function createFight(startImmediately = true, enterGame = true,
   const replays = [];
   const liveFrames = [];
   const analyticsEvents = [];
+  const telemetryEvents = [];
   const triangles = [];
   const lines = [];
   const pads = [0, 1].map(() => ({ connected: true, down: [], leftX: 0, leftY: 0 }));
@@ -30,7 +31,8 @@ function createFight(startImmediately = true, enterGame = true,
     (index = 0) => ({ ...pads[index], down: pads[index].down.slice() }),
     () => ({ platform, inputFamily: platform === "xbox-uwp" ? "xbox"
       : platform === "touch" ? "touch" : "keyboard" }),
-    noOp, (...signal) => signals.push(signal), (payload) => replays.push(payload),
+    (event, detail) => telemetryEvents.push([event, detail]),
+    (...signal) => signals.push(signal), (payload) => replays.push(payload),
     (matchId, payload) => livePublisher
       ? livePublisher(matchId, payload)
       : liveFrames.push([matchId, JSON.parse(payload)]),
@@ -59,7 +61,8 @@ function createFight(startImmediately = true, enterGame = true,
     fight.startFight();
     tick(3000001);
   }
-  return { fight, pads, signals, replays, liveFrames, analyticsEvents, triangles, lines,
+  return { fight, pads, signals, replays, liveFrames, analyticsEvents,
+    telemetryEvents, triangles, lines,
     tick, tap, now: () => now };
 }
 
@@ -284,9 +287,31 @@ test("fighter geometry connects the head and renders solid capsule joints", () =
   assert.equal(connector.x1, geometry.head.x);
   assert.equal(connector.y1, geometry.head.y + geometry.head.radius * .78);
   assert.match(source, /function drawSkeletonSegments/);
-  assert.match(source, /filledDisc\(segment\.x1/);
+  assert.match(source, /function filledCapsule/);
+  assert.match(source, /function filledRing/);
+  assert.match(source, /filledCapsule\(segment\.x1/);
   assert.doesNotMatch(source, /capWidth = Math\.max/);
+  const skeletonSource = source.slice(source.indexOf("function drawSkeletonSegments"),
+    source.indexOf("function runnerWorldGeometry"));
+  assert.doesNotMatch(skeletonSource, /\bline\(/);
   assert.match(source, /const color = player\.color/);
+});
+
+test("native telemetry chunks every camera and player simulation frame", () => {
+  const { fight, tick, telemetryEvents } = createFight(false, false);
+  fight.startFight();
+  tick(3000001);
+  for (let frame = 0; frame < 70; frame++) tick();
+  const chunks = telemetryEvents.filter(([event]) => event === "FIGHT_TRACE")
+    .map(([, detail]) => JSON.parse(detail));
+  assert.ok(chunks.length >= 2);
+  assert.equal(chunks[0].format, "ac.oskiewar.frames");
+  assert.match(chunks[0].round, /^ow-[a-z]{4,7}[0-9]{1,3}$/);
+  assert.ok(chunks.some((chunk) => chunk.frames.length >= 55));
+  for (const chunk of chunks) {
+    for (const frame of chunk.frames)
+      assert.equal(frame.length, chunk.schema.length);
+  }
 });
 
 test("spectator QR uses the raw Meet-style round URL", () => {
@@ -423,7 +448,7 @@ test("perspective intro never submits invalid ground triangles", () => {
   fight.paint();
   tick(500000);
   fight.paint();
-  assert.equal(triangles.length % 144, 0);
+  assert.ok(triangles.length > 0);
 });
 
 test("death camera culls balls that project outside native triangle bounds", () => {

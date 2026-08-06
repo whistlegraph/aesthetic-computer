@@ -20,6 +20,13 @@
     canvas { width: 100%; height: 100%; display: block; }
     #status { position: absolute; width: 1px; height: 1px; overflow: hidden;
       clip-path: inset(50%); white-space: nowrap; }
+    #update-ready { position: fixed; left: 50%; bottom: max(18px, env(safe-area-inset-bottom));
+      z-index: 6; display: none; transform: translateX(-50%); padding: 10px 16px;
+      border: 2px solid #f3f6ff; border-radius: 999px; background: #10172c;
+      color: #f3f6ff; font: 700 18px/1.1 "Comic Relief", "Comic Sans MS", Arial, sans-serif;
+      box-shadow: 0 4px 0 rgba(4, 7, 18, .55); cursor: pointer; white-space: nowrap; }
+    #update-ready.visible { display: block; }
+    #update-ready:active { transform: translate(-50%, 2px); box-shadow: 0 2px 0 rgba(4, 7, 18, .55); }
     #touch-controls { --unit: clamp(50px, 12vmin, 72px); --gap: 6px;
       position: fixed; inset: 0; z-index: 3; display: none; pointer-events: none;
       user-select: none; -webkit-user-select: none; touch-action: none; }
@@ -60,6 +67,7 @@
 <body>
   <canvas id="screen" width="1920" height="1080" aria-label="OSKIEWAR two-player stick fight"></canvas>
   <div id="status" role="alert" aria-live="polite"></div>
+  <button id="update-ready" type="button">update is ready</button>
   <div id="touch-controls" aria-label="touch controls">
     <div id="touch-dpad" class="touch-cluster" role="group" aria-label="movement">
       <button class="touch-button touch-up" data-key="ArrowUp" aria-label="jump" aria-pressed="false">↑</button>
@@ -459,9 +467,33 @@
       ? new RoundRoom(roundName, { analytics })
       : null;
 
+    const updateReady = document.querySelector("#update-ready");
+    updateReady.addEventListener("click", () => location.reload());
+    let loadedVersion = "";
+    const responseVersion = (response) => response.headers.get("etag") ||
+      [response.headers.get("last-modified"), response.headers.get("content-length")]
+        .filter(Boolean).join(":");
+    async function checkForUpdate() {
+      if (!loadedVersion || updateReady.classList.contains("visible")) return;
+      try {
+        const response = await fetch(`/hello.js?update-check=${Date.now()}`,
+          { method: "HEAD", cache: "no-store" });
+        const availableVersion = responseVersion(response);
+        if (response.ok && availableVersion && availableVersion !== loadedVersion) {
+          updateReady.classList.add("visible");
+          document.querySelector("#status").textContent = "update is ready";
+        }
+      } catch {}
+    }
+
     async function start() {
-      const source = globalThis.__fightPieceSource ||
-        await fetch("/hello.js", { cache: "no-store" }).then((response) => response.text());
+      let source = globalThis.__fightPieceSource;
+      if (!source) {
+        const response = await fetch("/hello.js", { cache: "no-store" });
+        loadedVersion = responseVersion(response);
+        source = await response.text();
+        setInterval(checkForUpdate, 15000);
+      }
       const piece = new Function(
         "runtime", "gamepad", "controllers", "capabilities", "telemetry",
         "gameSignal", "saveReplay", "publishLive", "analytics", "ac", "drum", "wipe", "box",

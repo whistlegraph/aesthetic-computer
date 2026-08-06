@@ -37,6 +37,8 @@ const replayButtons = ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown",
 let cameraCenter = (worldLeft + worldRight) / 2;
 let cameraWidth = worldRight - worldLeft;
 let cameraCenterY = floorY - cameraWidth / cameraAspect / 2;
+let cameraContainFloor = 0;
+let cameraContainTouchedAt = 0;
 const clamp = (value, low, high) => Math.max(low, Math.min(high, value));
 const mixColor = (dark, light, amount) => dark.map((value, index) =>
   Math.round(value + (light[index] - value) * amount));
@@ -289,6 +291,8 @@ let navigationPrevious = [[], []];
 // can return to a clean presentation without changing combat geometry.
 let debugHitboxes = false;
 let nextInputDebugAt = 0;
+let frameTelemetry = [];
+let frameTelemetryFlushAt = 0;
 let liveSequence = 0;
 let liveNextAt = 0;
 let spectatorQr = null;
@@ -481,6 +485,32 @@ function captureRoundReplay(now, force = false) {
   roundReplayFrames.push(makeRoundReplayFrame(now));
   while (roundReplayFrames.length > instantReplayMaxFrames)
     roundReplayFrames.shift();
+}
+
+const frameTelemetrySchema = ["us", "cameraX", "cameraY", "cameraWidth",
+  "dollX", "dollY", "dollZ", "targetX", "targetY", "targetZ",
+  "dollWidth", "roll", "p1x", "p1y", "p1z", "p1vx", "p1vy",
+  "p2x", "p2y", "p2z", "p2vx", "p2vy"];
+
+function captureFrameTelemetry(now, force = false) {
+  if (selecting || shellMode === "MENU") return;
+  const round = (value) => Math.round(Number(value || 0) * 100) / 100;
+  frameTelemetry.push([
+    Math.round(now - roundStartedAt), round(cameraCenter), round(cameraCenterY),
+    round(cameraWidth), round(cameraDoll.position.x), round(cameraDoll.position.y),
+    round(cameraDoll.position.z), round(cameraDoll.target.x),
+    round(cameraDoll.target.y), round(cameraDoll.target.z),
+    round(cameraDoll.width), round(cameraDoll.roll),
+    ...players.flatMap((player) => [round(player.x), round(player.y),
+      round(player.z), round(player.vx), round(player.vy)]),
+  ]);
+  if (!force && now < frameTelemetryFlushAt) return;
+  telemetry("FIGHT_TRACE", JSON.stringify({
+    format: "ac.oskiewar.frames", version: 1, round: "ow-" + matchName,
+    schema: frameTelemetrySchema, frames: frameTelemetry,
+  }));
+  frameTelemetry = [];
+  frameTelemetryFlushAt = now + 1000000;
 }
 
 function applyRoundReplayFrame(frame, now) {
@@ -925,6 +955,8 @@ function resetRound(now, resetMatch = false) {
   roundReplayLastAt = 0;
   instantReplay = null;
   replayOfferPrevious = [];
+  frameTelemetry = [];
+  frameTelemetryFlushAt = now + 1000000;
   for (const player of players) {
     applyRoster(player, player.rosterIndex);
     player.x = player.spawnX;
@@ -986,6 +1018,8 @@ function resetRound(now, resetMatch = false) {
   cameraCenter = (worldLeft + worldRight) / 2;
   cameraWidth = 1300;
   cameraCenterY = floorY - cameraWidth / cameraAspect / 2;
+  cameraContainFloor = 0;
+  cameraContainTouchedAt = 0;
 }
 
 function updateCamera(dt) {
@@ -1088,17 +1122,28 @@ function updateCameraDoll(dt, now) {
   }
   const target = { x: cameraCenter, y: cameraCenterY, z: 0 };
   const cameraTime = now / 1000000;
-  const swivel = Math.sin(cameraTime * .31) * .018 +
-    Math.sin(cameraTime * .73 + 1.2) * .007;
-  const tilt = .04 + Math.sin(cameraTime * .27 + 2) * .009 +
-    Math.sin(cameraTime * .61) * .004;
-  const dolly = 1.35 + Math.sin(cameraTime * .23 + .4) * .012;
-  const roll = Math.sin(cameraTime * .37) * .005 +
-    Math.sin(cameraTime * .79 + 2.4) * .002;
+  // Render containment can pull the camera back farther than the gameplay
+  // target. Retain that corrected width until it can ease inward, otherwise
+  // simulation shrinks and rendering expands the lens on alternating frames.
+  if (cameraContainFloor > cameraWidth &&
+      now - cameraContainTouchedAt > 250000) {
+    const settle = 1 - Math.exp(-Math.max(0, dt) * 1.7);
+    cameraContainFloor = lerp(cameraContainFloor, cameraWidth, settle);
+  }
+  const framedWidth = Math.max(cameraWidth, cameraContainFloor);
+  // Preserve the requested handheld life, but keep it below the threshold
+  // where a large television makes the camera read as shake.
+  const swivel = Math.sin(cameraTime * .31) * .0045 +
+    Math.sin(cameraTime * .73 + 1.2) * .0018;
+  const tilt = .026 + Math.sin(cameraTime * .27 + 2) * .0022 +
+    Math.sin(cameraTime * .61) * .001;
+  const dolly = 1.35 + Math.sin(cameraTime * .23 + .4) * .003;
+  const roll = Math.sin(cameraTime * .37) * .0012 +
+    Math.sin(cameraTime * .79 + 2.4) * .0005;
   cameraDoll.track({ target,
-    position: { x: cameraCenter - cameraWidth * swivel,
-      y: cameraCenterY - cameraWidth * tilt, z: -cameraWidth * dolly },
-      width: cameraWidth, perspective: .1, fov: 55,
+    position: { x: cameraCenter - framedWidth * swivel,
+      y: cameraCenterY - framedWidth * tilt, z: -framedWidth * dolly },
+      width: framedWidth, perspective: .1, fov: 55,
       roll }, dt, 10);
 }
 
@@ -1135,6 +1180,7 @@ function finishRound(now) {
   roundOverAt = now;
   for (const player of players) player.vx = 0;
   drum("clap", 1.2, roundPan);
+  captureFrameTelemetry(now, true);
   saveRoundReplay(now);
   if (matchOver) finishReplay();
 }
@@ -1947,6 +1993,7 @@ function sim() {
         startInstantReplay(now)) return;
     replayOfferPrevious = replayDown.slice();
     updateCameraDoll(dt, now);
+    captureFrameTelemetry(now);
     const resultDuration = matchOver ? matchResultUs : roundResultUs;
     if (now - roundOverAt >= resultDuration) {
       if (matchOver) beginSelect(now);
@@ -1960,6 +2007,7 @@ function sim() {
   }
   if (now - roundStartedAt < introDurationUs) {
     updateCameraDoll(dt, now);
+    captureFrameTelemetry(now);
     return;
   }
   roundElapsedUs += dt * 1000000;
@@ -1975,6 +2023,7 @@ function sim() {
   for (const item of balls) updateBall(item, dt, now);
   updateCamera(dt);
   updateCameraDoll(dt, now);
+  captureFrameTelemetry(now);
   captureRoundReplay(now);
   recordReplayCheckpoint(now);
   for (const impact of impacts) impact.life -= dt;
@@ -2008,27 +2057,57 @@ function filledDisc(x, y, radius, color) {
   }
 }
 
-// Standard stroked-skeleton construction: a wider silhouette pass followed by
-// color-matched bone strokes and solid round caps. Solid discs close joints on
-// native flat-capped lines without producing the outlined loops that circles do.
+function filledRing(x, y, outerRadius, innerRadius, color) {
+  const sides = 14;
+  const inner = Math.max(0, Math.min(outerRadius, innerRadius));
+  for (let side = 0; side < sides; side++) {
+    const a = side * Math.PI * 2 / sides;
+    const b = (side + 1) * Math.PI * 2 / sides;
+    const outerA = { x: x + Math.cos(a) * outerRadius,
+      y: y + Math.sin(a) * outerRadius };
+    const outerB = { x: x + Math.cos(b) * outerRadius,
+      y: y + Math.sin(b) * outerRadius };
+    const innerA = { x: x + Math.cos(a) * inner,
+      y: y + Math.sin(a) * inner };
+    const innerB = { x: x + Math.cos(b) * inner,
+      y: y + Math.sin(b) * inner };
+    triangle(outerA.x, outerA.y, innerA.x, innerA.y,
+      outerB.x, outerB.y, ...color);
+    triangle(innerA.x, innerA.y, innerB.x, innerB.y,
+      outerB.x, outerB.y, ...color);
+  }
+}
+
+function filledCapsule(x1, y1, x2, y2, width, color) {
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const length = Math.hypot(dx, dy);
+  const radius = width / 2;
+  if (length < .001) {
+    filledDisc(x1, y1, radius, color);
+    return;
+  }
+  const nx = -dy / length * radius;
+  const ny = dx / length * radius;
+  triangle(x1 + nx, y1 + ny, x1 - nx, y1 - ny,
+    x2 + nx, y2 + ny, ...color);
+  triangle(x1 - nx, y1 - ny, x2 - nx, y2 - ny,
+    x2 + nx, y2 + ny, ...color);
+  filledDisc(x1, y1, radius, color);
+  filledDisc(x2, y2, radius, color);
+}
+
+// Xbox batches GPU triangles above its D2D line layer, so every bone and joint
+// must share this triangle path. The wider silhouette pass and color pass form
+// conventional rounded capsules without the native renderer reordering them.
 function drawSkeletonSegments(segments, color, outline) {
   const edge = Math.max(1.25, Math.min(3, cameraScale() * 1.8));
   for (const segment of segments)
-    line(segment.x1, segment.y1, segment.x2, segment.y2,
-      segment.width + edge * 2, ...outline);
-  for (const segment of segments) {
-    const radius = segment.width / 2 + edge;
-    filledDisc(segment.x1, segment.y1, radius, outline);
-    filledDisc(segment.x2, segment.y2, radius, outline);
-  }
+    filledCapsule(segment.x1, segment.y1, segment.x2, segment.y2,
+      segment.width + edge * 2, outline);
   for (const segment of segments)
-    line(segment.x1, segment.y1, segment.x2, segment.y2,
-      segment.width, ...color);
-  for (const segment of segments) {
-    const radius = segment.width / 2;
-    filledDisc(segment.x1, segment.y1, radius, color);
-    filledDisc(segment.x2, segment.y2, radius, color);
-  }
+    filledCapsule(segment.x1, segment.y1, segment.x2, segment.y2,
+      segment.width, color);
 }
 
 function runnerWorldGeometry(player, t) {
@@ -2195,7 +2274,8 @@ function runnerScreenBounds(player, t) {
 // inside the action-safe viewport. Camera modes may orbit or focus, but this
 // aspect-aware correction recenters their shared frame and moves the dolly
 // back far enough for landscape, portrait, live, and replay projection alike.
-function containFighters(t) {
+function containFighters(t, now = runtime().monotonicUs) {
+  const widthBeforeContainment = cameraDoll.width;
   const worlds = players.map((player) => player.replayGeometry ||
     player.frozenGeometry || runnerWorldGeometry(player, t));
   if (!worlds.length) return;
@@ -2274,6 +2354,10 @@ function containFighters(t) {
     cameraDoll.width *= amount;
   }
   cameraDoll.dirty = true;
+  if (cameraDoll.width > widthBeforeContainment + .01) {
+    cameraContainFloor = Math.max(cameraContainFloor, cameraDoll.width);
+    cameraContainTouchedAt = now;
+  }
 }
 
 function resolveRunnerBounds(player, t) {
@@ -2395,24 +2479,26 @@ function drawFace(player, head, color, t, now = runtime().monotonicUs) {
   if (head.radius < 5) return;
   const r = head.radius;
   const direction = player.facing || 1;
+  const stroke = (x1, y1, x2, y2, width, ink = color) =>
+    filledCapsule(x1, y1, x2, y2, width, ink);
   if (player.name === "@FIFI") {
     const hair = visualTheme.light > .55 ? [105, 38, 116] : [245, 118, 230];
     const sway = Math.sin(t * 2.2 + player.pad) * r * .08;
     const width = Math.max(2, r * .13);
-    line(head.x - r * .72, head.y - r * .48,
-      head.x - r * .32, head.y - r * .9, width, ...hair);
-    line(head.x - r * .32, head.y - r * .9,
-      head.x + r * .35, head.y - r * .88, width, ...hair);
-    line(head.x + r * .35, head.y - r * .88,
-      head.x + r * .76, head.y - r * .38, width, ...hair);
-    line(head.x - r * .76, head.y - r * .38,
-      head.x - r * .7 + sway, head.y + r * .92, width, ...hair);
-    line(head.x + r * .76, head.y - r * .38,
-      head.x + r * .7 + sway, head.y + r * .92, width, ...hair);
-    line(head.x - r * .48, head.y - r * .46,
-      head.x - r * .08, head.y - r * .18, width * .72, ...hair);
-    line(head.x - r * .08, head.y - r * .18,
-      head.x + r * .42, head.y - r * .5, width * .72, ...hair);
+    stroke(head.x - r * .72, head.y - r * .48,
+      head.x - r * .32, head.y - r * .9, width, hair);
+    stroke(head.x - r * .32, head.y - r * .9,
+      head.x + r * .35, head.y - r * .88, width, hair);
+    stroke(head.x + r * .35, head.y - r * .88,
+      head.x + r * .76, head.y - r * .38, width, hair);
+    stroke(head.x - r * .76, head.y - r * .38,
+      head.x - r * .7 + sway, head.y + r * .92, width, hair);
+    stroke(head.x + r * .76, head.y - r * .38,
+      head.x + r * .7 + sway, head.y + r * .92, width, hair);
+    stroke(head.x - r * .48, head.y - r * .46,
+      head.x - r * .08, head.y - r * .18, width * .72, hair);
+    stroke(head.x - r * .08, head.y - r * .18,
+      head.x + r * .42, head.y - r * .5, width * .72, hair);
   }
   const eyeY = head.y - r * .18;
   const eyeGap = r * .34;
@@ -2422,40 +2508,39 @@ function drawFace(player, head, color, t, now = runtime().monotonicUs) {
     Math.sin(t * .73 + player.pad * 2.1) > .985;
   if (!player.alive || player.hit > .6) {
     for (const offset of [-eyeGap, eyeGap]) {
-      line(head.x + offset - eyeWidth, eyeY - eyeWidth,
-        head.x + offset + eyeWidth, eyeY + eyeWidth, lineWidth, ...color);
-      line(head.x + offset + eyeWidth, eyeY - eyeWidth,
-        head.x + offset - eyeWidth, eyeY + eyeWidth, lineWidth, ...color);
+      stroke(head.x + offset - eyeWidth, eyeY - eyeWidth,
+        head.x + offset + eyeWidth, eyeY + eyeWidth, lineWidth);
+      stroke(head.x + offset + eyeWidth, eyeY - eyeWidth,
+        head.x + offset - eyeWidth, eyeY + eyeWidth, lineWidth);
     }
   } else if (player.blocking || blink) {
-    line(head.x - eyeGap - eyeWidth, eyeY, head.x - eyeGap + eyeWidth,
-      eyeY, lineWidth, ...color);
-    line(head.x + eyeGap - eyeWidth, eyeY, head.x + eyeGap + eyeWidth,
-      eyeY, lineWidth, ...color);
+    stroke(head.x - eyeGap - eyeWidth, eyeY, head.x - eyeGap + eyeWidth,
+      eyeY, lineWidth);
+    stroke(head.x + eyeGap - eyeWidth, eyeY, head.x + eyeGap + eyeWidth,
+      eyeY, lineWidth);
   } else {
-    line(head.x - eyeGap, eyeY - eyeWidth, head.x - eyeGap,
-      eyeY + eyeWidth, lineWidth, ...color);
-    line(head.x + eyeGap, eyeY - eyeWidth, head.x + eyeGap,
-      eyeY + eyeWidth, lineWidth, ...color);
+    stroke(head.x - eyeGap, eyeY - eyeWidth, head.x - eyeGap,
+      eyeY + eyeWidth, lineWidth);
+    stroke(head.x + eyeGap, eyeY - eyeWidth, head.x + eyeGap,
+      eyeY + eyeWidth, lineWidth);
   }
   const mouthY = head.y + r * .3;
   if (player.attackKind && meleePulse(player, now) > 0) {
-    circle(head.x + direction * r * .12, mouthY, Math.max(1.8, r * .13),
-      lineWidth, color);
+    filledRing(head.x + direction * r * .12, mouthY,
+      Math.max(1.8, r * .13), Math.max(.4, r * .05), color);
   } else if (player.blocking) {
-    line(head.x - r * .26, mouthY, head.x + r * .26, mouthY,
-      lineWidth, ...color);
+    stroke(head.x - r * .26, mouthY, head.x + r * .26, mouthY, lineWidth);
   } else if (!player.alive || player.hit > .6) {
-    line(head.x - r * .24, mouthY + r * .08, head.x,
-      mouthY - r * .06, lineWidth, ...color);
-    line(head.x, mouthY - r * .06, head.x + r * .24,
-      mouthY + r * .08, lineWidth, ...color);
+    stroke(head.x - r * .24, mouthY + r * .08, head.x,
+      mouthY - r * .06, lineWidth);
+    stroke(head.x, mouthY - r * .06, head.x + r * .24,
+      mouthY + r * .08, lineWidth);
   } else {
     const smile = Math.sin(t * 2.4 + player.pad) * r * .035;
-    line(head.x - r * .23, mouthY - smile, head.x,
-      mouthY + r * .09, lineWidth, ...color);
-    line(head.x, mouthY + r * .09, head.x + r * .23,
-      mouthY - smile, lineWidth, ...color);
+    stroke(head.x - r * .23, mouthY - smile, head.x,
+      mouthY + r * .09, lineWidth);
+    stroke(head.x, mouthY + r * .09, head.x + r * .23,
+      mouthY - smile, lineWidth);
   }
 }
 
@@ -2518,10 +2603,13 @@ function drawRunner(player, t, showLabel = true) {
     : [8, 12, 24];
   const displayNow = player.frozenAt || runtime().monotonicUs;
   drawSkeletonSegments(geometry.segments, color, outline);
-  circle(geometry.head.x, geometry.head.y, geometry.head.radius,
-    Math.max(4.5, 6 * cameraScale()), outline);
-  circle(geometry.head.x, geometry.head.y, geometry.head.radius,
-    Math.max(2.5, 3.5 * cameraScale()), color);
+  const headStroke = Math.max(2.5, 3.5 * cameraScale());
+  const headEdge = Math.max(1.25, Math.min(3, cameraScale() * 1.8));
+  filledRing(geometry.head.x, geometry.head.y,
+    geometry.head.radius + headEdge,
+    Math.max(0, geometry.head.radius - headStroke - headEdge), outline);
+  filledRing(geometry.head.x, geometry.head.y, geometry.head.radius,
+    Math.max(0, geometry.head.radius - headStroke), color);
   drawFace(player, geometry.head, color, t, displayNow);
   drawInventory(player, displayNow);
   if (player.blocking) {
@@ -2993,7 +3081,7 @@ function paint() {
     drawSelectionScreen(t, titleInk, titlePanel);
     return;
   }
-  containFighters(t);
+  containFighters(t, run.monotonicUs);
   cameraDoll.prepare();
   worldQuad(
     { x: worldLeft, y: ceilingY, z: worldFar },

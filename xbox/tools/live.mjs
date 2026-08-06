@@ -3,7 +3,8 @@
 // Designed for blueberry, where the Xbox vault credentials already live.
 
 import { spawnSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, statSync,
+  writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { basename, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -180,6 +181,44 @@ function logs(tail = "80") {
   console.log(content.trimEnd().split(/\r?\n/).slice(-count).join("\n"));
 }
 
+function frameDump(outputPath = "") {
+  const content = curl(["-u", autoAuth, "-H", "Range: bytes=-8388608",
+    appFileUrl(installed(), "ac-native-bios.log")]);
+  const marker = "AC_NATIVE_JS FIGHT_TRACE ";
+  const chunks = [];
+  for (const line of content.split(/\r?\n/)) {
+    const offset = line.indexOf(marker);
+    if (offset < 0) continue;
+    try { chunks.push(JSON.parse(line.slice(offset + marker.length))); } catch {}
+  }
+  if (!chunks.length) throw new Error("no OSKIEWAR frame telemetry in the native log");
+  const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+  const target = resolve(outputPath ||
+    `tmp/xbox-captures/oskiewar-frames-${stamp}.json`);
+  mkdirSync(dirname(target), { recursive: true });
+  const trace = { format: "ac.oskiewar.frame-dump", version: 1,
+    schema: chunks.at(-1).schema, rounds: [...new Set(chunks.map((item) => item.round))],
+    frames: chunks.flatMap((item) => item.frames) };
+  writeFileSync(target, JSON.stringify(trace));
+  console.log(JSON.stringify({ frames: target, count: trace.frames.length,
+    rounds: trace.rounds }));
+}
+
+function screenshot(outputPath = "") {
+  const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+  const target = resolve(outputPath ||
+    `tmp/xbox-captures/oskiewar-${stamp}.png`);
+  mkdirSync(dirname(target), { recursive: true });
+  const result = spawnSync("curl", ["-k", "-sS", "-u", auth,
+    "-o", target, "-w", "%{http_code}", `${base}/ext/screenshot`],
+  { encoding: "utf8", maxBuffer: 1024 * 1024 });
+  const status = String(result.stdout || "").trim();
+  if (result.status !== 0 || status !== "200")
+    throw new Error(result.stderr.trim() ||
+      `screenshot failed with HTTP ${status || "unknown"}`);
+  console.log(JSON.stringify({ screenshot: target, bytes: statSync(target).size }));
+}
+
 async function main() {
   const [command = "status", argument, ...rest] = process.argv.slice(2);
   if (command === "status") status();
@@ -188,9 +227,11 @@ async function main() {
   else if (command === "launch") launch();
   else if (command === "publish") publish(argument);
   else if (command === "logs") logs(argument);
+  else if (command === "frames") frameDump(argument);
+  else if (command === "screenshot") screenshot(argument);
   else if (command === "deploy") { publish(argument); launch(); logs("20"); }
   else if (command === "deploy-kidlisp") await deployKidLisp(argument);
-  else throw new Error("commands: status | install <msix> [deps...] | prune | launch | publish <piece.js> | logs [lines] | deploy <piece.js> | deploy-kidlisp <$code>");
+  else throw new Error("commands: status | install <msix> [deps...] | prune | launch | publish <piece.js> | logs [lines] | frames [output.json] | screenshot [output.png] | deploy <piece.js> | deploy-kidlisp <$code>");
 }
 
 try { await main(); } catch (error) { console.error(error.message); process.exit(1); }
