@@ -154,6 +154,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// twice isn't one. See CtrlDoubleTap.
     private var zoomLensTap: CtrlDoubleTap?
 
+    /// ⌃⌃ → magnify the window under the pointer. Not a `GlobalHotkey`: Carbon
+    /// can only register a keycode+modifier chord, and a bare modifier tapped
+    /// twice isn't one. See CtrlDoubleTap.
+    private var zoomLensTap: CtrlDoubleTap?
+
     /// Macs (beyond this host) to flip when going dark/light. ssh aliases that
     /// resolve on the LAN/tailnet; unreachable ones are skipped silently.
     private static let appearanceHosts = ["panda", "chicken", "blueberry"]
