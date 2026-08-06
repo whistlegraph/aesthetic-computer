@@ -842,9 +842,19 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   headers(); // Print console headers with auto-detected theme.
 
   const workerBundleParam = new URLSearchParams(window.location.search).get("workerbundle");
+  const workerBundleDisabled =
+    workerBundleParam === "0" || workerBundleParam === "false";
+  const localWorkerHost =
+    window.location.hostname === "localhost" ||
+    window.location.hostname === "127.0.0.1" ||
+    window.location.hostname === "local.aesthetic.computer" ||
+    window.location.hostname.endsWith(".local");
   const workerBundleRequested =
     !window.acPACK_MODE &&
-    (workerBundleParam === "1" || workerBundleParam === "true");
+    !workerBundleDisabled &&
+    (!localWorkerHost ||
+      workerBundleParam === "1" ||
+      workerBundleParam === "true");
   const workerBundleState = (window.acWORKER_BUNDLE = {
     requested: workerBundleRequested,
     active: false,

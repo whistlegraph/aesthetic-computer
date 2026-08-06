@@ -41,6 +41,7 @@ function chromePath() {
 const TEST_URL = process.env.TEST_URL || "https://aesthetic.computer";
 const BLOCK_WORKER_MANIFEST = process.env.AC_BLOCK_WORKER_MANIFEST === "1";
 const EXPECT_WORKER_FALLBACK = process.env.AC_EXPECT_WORKER_FALLBACK === "1";
+const EXPECT_STANDARD_WORKER = process.env.AC_EXPECT_STANDARD_WORKER === "1";
 const OUT_DIR = "./tests/performance/reports";
 const CORE = ["boot.mjs", "bios.mjs", "disk.mjs", "kidlisp.mjs", "graph.mjs"];
 const BOOT_BUDGET = 6000; // ms, anon boot target — warn (don't fail) over this
@@ -256,8 +257,9 @@ async function run() {
     console.log("");
 
     // assertions: it must actually boot and show a surface. speed only warns.
-    const workerBundleOk =
-      EXPECT_WORKER_FALLBACK
+    const workerBundleOk = EXPECT_STANDARD_WORKER
+      ? data.workerBundle && !data.workerBundle.requested && !data.workerBundle.active
+      : EXPECT_WORKER_FALLBACK
         ? data.workerBundle?.requested && Boolean(data.workerBundle.fallback)
         : !data.workerBundle?.requested ||
           (data.workerBundle.active && data.workerBundle.ready && !data.workerBundle.fallback);
