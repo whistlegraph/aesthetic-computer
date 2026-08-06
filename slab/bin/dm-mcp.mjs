@@ -122,6 +122,32 @@ async function resolveSignalRecipient(to, machine) {
   return { id: withAci[0], label: `${to} (ACI ${withAci[0]})`, how: "name→aci" };
 }
 
+// Resolve a Signal group from signal-cli's canonical group id or an
+// unambiguous name. Desktop conversation ids are deliberately not accepted:
+// they are UUID-shaped and can otherwise be mistaken for a person's ACI.
+async function resolveSignalGroup(group, machine) {
+  if (!group) throw new Error("`group` is required for a Signal group send (group name or signal-cli group id)");
+  const acct = await signalAccount(machine);
+  const { stdout } = await runSignalCli(["-a", acct, "--output=json", "listGroups"], machine, { timeoutMs: 60000 });
+  let groups;
+  try { groups = JSON.parse(stdout); } catch { throw new Error("could not parse signal-cli group list"); }
+  const requested = String(group).trim();
+  const byId = groups.find((g) => g.id === requested);
+  if (byId) return { id: byId.id, label: byId.name || "(unnamed Signal group)", how: "group-id" };
+  if (/^[0-9a-f-]{36}$/i.test(requested)) {
+    throw new Error(
+      `"${requested}" looks like a Signal Desktop conversation id, not a signal-cli group id; ` +
+      "pass the group name from dm_groups instead",
+    );
+  }
+  const needle = requested.toLowerCase();
+  const exact = groups.filter((g) => String(g.name || "").toLowerCase() === needle);
+  const hits = exact.length ? exact : groups.filter((g) => String(g.name || "").toLowerCase().includes(needle));
+  if (!hits.length) throw new Error(`no Signal group matched "${group}" — try dm_groups to find its name`);
+  if (hits.length > 1) throw new Error(`"${group}" matched ${hits.length} Signal groups — pass the exact group name or signal-cli group id`);
+  return { id: hits[0].id, label: hits[0].name || "(unnamed Signal group)", how: exact.length ? "exact group name" : "group name" };
+}
+
 const text = (s) => [{ type: "text", text: s }];
 
 // ── tools ────────────────────────────────────────────────────────────────────
@@ -234,26 +260,33 @@ async function toolContacts({ query, machine } = {}) {
 
 // Send — two-step by design. First call previews the resolved target + message;
 // only `confirm: true` actually sends.
-async function toolSend({ channel, to, text: body, confirm, machine } = {}) {
+async function toolSend({ channel, to, group, text: body, confirm, machine } = {}) {
   const ch = (channel || "").toLowerCase();
   if (!body) throw new Error("`text` (the message) is required");
 
   if (ch === "signal") {
-    const rcpt = await resolveSignalRecipient(to, machine);
+    if (to && group) throw new Error("pass either `to` or `group` for a Signal send, not both");
+    const isGroup = Boolean(group);
+    const rcpt = isGroup
+      ? await resolveSignalGroup(group, machine)
+      : await resolveSignalRecipient(to, machine);
     if (!confirm) {
       return text(
         `PREVIEW — not sent. Re-call with confirm:true to send.\n` +
         `channel: Signal   machine: ${isLocal(machine) ? "local" : machine}\n` +
-        `to: ${rcpt.label}  [${rcpt.how}]\n--- message ---\n${body}`,
+        `${isGroup ? "group" : "to"}: ${rcpt.label}  [${rcpt.how}]\n--- message ---\n${body}`,
       );
     }
     const acct = await signalAccount(machine);
-    const { stdout } = await runSignalCli(["-a", acct, "send", "-m", body, rcpt.id], machine, { timeoutMs: 60000 });
+    const sendArgs = ["-a", acct, "send", "-m", body];
+    if (isGroup) sendArgs.push("--group-id", rcpt.id);
+    else sendArgs.push(rcpt.id);
+    const { stdout } = await runSignalCli(sendArgs, machine, { timeoutMs: 60000 });
     // Best effort: if this is the conversation Slab watches, replying is also
     // an acknowledgement. Other conversations keep independent cursors.
-    await runBridge(SIGNAL, ["ack", "--to", String(to)], machine).catch(() => {});
+    await runBridge(SIGNAL, ["ack", "--to", String(group || to)], machine).catch(() => {});
     const ts = (stdout.match(/\d{10,}/) || [])[0];
-    return text(`✅ sent to ${rcpt.label}${ts ? ` (ts ${ts})` : ""}`);
+    return text(`✅ sent to ${isGroup ? "Signal group " : ""}${rcpt.label}${ts ? ` (ts ${ts})` : ""}`);
   }
 
   if (ch === "imessage" || ch === "imsg") {
@@ -394,12 +427,13 @@ const TOOLS = [
   },
   {
     name: "dm_send",
-    description: "Send a DM. TWO-STEP AND SAFE: the first call PREVIEWS the resolved recipient + message and does NOT send; call again with confirm:true to actually send. `to` is required. Signal accepts an ACI, +E164, or name. iMessage accepts a named contact from imsg.json or a raw handle and shows the resolved display name in the preview.",
+    description: "Send a direct or group message. TWO-STEP AND SAFE: the first call PREVIEWS the resolved destination + message and does NOT send; call again with confirm:true to actually send. For Signal, pass either `to` (ACI, +E164, or contact name) or `group` (exact/unambiguous group name or signal-cli group id). iMessage requires `to` and shows the resolved display name in the preview.",
     inputSchema: {
       type: "object",
       properties: {
         channel: { type: "string", enum: ["signal", "imessage"], description: "Which channel." },
-        to: { type: "string", description: "Required recipient. Signal: ACI / +number / name. iMessage: named imsg.json contact or raw +number/email." },
+        to: { type: "string", description: "Direct recipient. Signal: ACI / +number / contact name. iMessage: named imsg.json contact or raw +number/email." },
+        group: { type: "string", description: "Signal only: exact/unambiguous group name or signal-cli group id. Use dm_groups to find names. Mutually exclusive with `to`." },
         text: { type: "string", description: "The message body (multi-line ok)." },
         confirm: { type: "boolean", description: "Must be true to actually send. Omit/false = preview only." },
         machine: { type: "string", description: "Machine (default local; signal-cli sends route over ssh for remote)." },
