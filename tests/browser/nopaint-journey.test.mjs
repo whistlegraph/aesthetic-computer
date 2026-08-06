@@ -65,6 +65,15 @@ try {
     expect(state?.freshStart === true, "query launch requests a fresh painting");
     expect(state?.operation !== "camera", `seed never begins with Camera (got ${state?.operation})`);
     expect(state?.ready === true, "proposal buffer reports ready");
+    expect(state?.piece?.schema === "aesthetic.computer/nopaint-piece",
+      "the accepted painting is a piece");
+    expect(state?.piece?.layerCount === 1, "the fresh piece begins with one substrate layer");
+    expect(state?.piece?.lastLayer?.codeLanguage === "nopaint-score",
+      "the substrate layer retains executable score code");
+    expect(state?.piece?.lastLayer?.pixelMode === "composite",
+      "the substrate layer retains its pixels");
+    expect(state?.piece?.compositeFingerprint === state?.paintingFingerprint,
+      "the piece composite is the accepted painting");
     expect(state?.cursor?.ready === true, "the original Construct cursor sheet is loaded");
     expect(
       state?.audio?.events?.some(({ name, path }) => name === `brush:${state?.operation}` && path === "legacy"),
@@ -160,6 +169,11 @@ try {
       after?.paintingFingerprint === before?.paintingFingerprint,
       "No leaves the accepted painting unchanged",
     );
+    expect(after?.piece?.id === before?.piece?.id, "No keeps the accepted piece identity");
+    expect(after?.piece?.layerCount === before?.piece?.layerCount,
+      "No appends neither code nor pixels");
+    expect(after?.piece?.compositeFingerprint === before?.piece?.compositeFingerprint,
+      "No leaves the piece composite unchanged");
     const noCue = after?.audio?.events?.findLast(({ name }) => name === "no");
     expect(Boolean(noCue), "No emits its interaction cue");
     expect(noCue?.path === "legacy", "No uses the recovered Construct sample");
@@ -176,6 +190,18 @@ try {
       after?.paintingFingerprint !== before?.paintingFingerprint,
       "Paint changes the accepted painting",
     );
+    expect(after?.piece?.layerCount === before?.piece?.layerCount + 1,
+      "Paint appends one code + pixel layer");
+    expect(after?.piece?.lastLayer?.codeLanguage === "nopaint-score",
+      "the painted layer retains executable score code");
+    expect(after?.piece?.lastLayer?.codeSource?.startsWith("paint "),
+      "the painted layer exposes its deterministic code source");
+    expect(["overlay", "composite"].includes(after?.piece?.lastLayer?.pixelMode),
+      "the painted layer retains its pixel payload");
+    expect(after?.piece?.compositeFingerprint === after?.paintingFingerprint,
+      "the piece composite and accepted pixels commit together");
+    expect(after?.decisions.at(-1)?.layerId === after?.piece?.lastLayer?.id,
+      "the decision score points to the accepted layer");
     const paintCue = after?.audio?.events?.findLast(({ name }) => name === "paint");
     expect(Boolean(paintCue), "Paint emits its interaction cue");
     expect(paintCue?.path === "legacy", "Paint uses the recovered Construct sample");

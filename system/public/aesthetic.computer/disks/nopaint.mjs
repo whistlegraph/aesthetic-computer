@@ -14,6 +14,13 @@ import { nopaintProposal as lineProposal } from "./line.mjs";
 import { darkWindowProposal, gridWormProposal } from "../lib/nopaint-construct-brushes.mjs";
 import { nonConflictingConstructProposals } from "../lib/nopaint-construct-catalog.mjs";
 import { recoveredConstructTransforms } from "../lib/nopaint-construct-transforms.mjs";
+import {
+  NOPAINT_PIECE_STORE_KEY,
+  appendNoPaintLayer,
+  createNoPaintPiece,
+  createNoPaintProposalLayer,
+  recoverNoPaintPiece,
+} from "../lib/nopaint-pieces.mjs";
 
 const COMPATIBLE_BRUSHES = Object.freeze(new Map([
   [lineProposal.slug, lineProposal],
@@ -491,7 +498,7 @@ function persistPainting({ store, system }) {
     height: system.painting.height,
     pixels: new Uint8ClampedArray(system.painting.pixels),
   };
-  store.persist("painting", "nopaint:session", "local:db");
+  store.persist("painting", "local:db");
 }
 
 async function loadArchivePainting(api, archiveId) {
@@ -519,6 +526,7 @@ async function loadArchivePainting(api, archiveId) {
     api.system.nopaint.buffer = api.painting(256, 256, (p) =>
       p.wipe(255, 255, 255, 0)
     );
+    initializePiece(api, `${sessionSeed}:archive:${id}`, "archive");
     archiveOrigin.status = "ready";
     api.store["nopaint:origin"] = { ...archiveOrigin };
     api.store.persist("nopaint:origin", "local:db");
@@ -535,11 +543,28 @@ async function loadArchivePainting(api, archiveId) {
   }
 }
 
-function recordDecision({ store }, decision) {
+function persistPiece({ store, system }) {
+  store[NOPAINT_PIECE_STORE_KEY] = system.nopaint.piece;
+  store.persist(NOPAINT_PIECE_STORE_KEY, "local:db");
+}
+
+function initializePiece(api, seed, role = "substrate") {
+  api.system.nopaint.piece = createNoPaintPiece({
+    seed,
+    width: api.system.painting.width,
+    height: api.system.painting.height,
+    pixels: api.system.painting.pixels,
+    role,
+  });
+  persistPiece(api);
+}
+
+function recordDecision({ store }, decision, layerId = null) {
   decisions.push(Object.freeze({
     number: proposalNumber,
     operation: proposal?.kind,
     decision,
+    ...(layerId ? { layerId } : {}),
   }));
   const session = {
     version: NOPAINT_VERSION,
@@ -558,16 +583,31 @@ function commitProposal(api) {
     playCue(api, "primitive-release");
   }
   transition("committing");
-  recordDecision(api, "paint");
+  const piece = api.system.nopaint.piece;
+  const layer = createNoPaintProposalLayer({
+    piece,
+    proposal,
+    proposalNumber,
+    proposalFrame,
+    pixels: api.system.nopaint.buffer.pixels,
+    pixelMode: proposalPixels ? "composite" : "overlay",
+  });
 
   if (proposalPixels) api.system.painting.pixels.set(api.system.nopaint.buffer.pixels);
   else api.page(api.system.painting).paste(api.system.nopaint.buffer);
   api.flatten();
+  api.system.nopaint.piece = appendNoPaintLayer(
+    piece,
+    layer,
+    api.system.painting.pixels,
+  );
   api.system.nopaint.addUndoPainting(
     api.system.painting,
     `nopaint:${proposal.kind}`,
   );
+  persistPiece(api);
   persistPainting(api);
+  recordDecision(api, "paint", layer.id);
   clearProposal(api);
   chooseProposal(api);
   publishTestState();
@@ -620,6 +660,8 @@ function testSnapshot() {
     return box ? { x: box.x, y: box.y, w: box.w, h: box.h } : null;
   };
   const layout = testApi?.screen ? interfaceLayout(testApi.screen) : null;
+  const piece = testApi?.system?.nopaint?.piece;
+  const lastLayer = piece?.layers?.at(-1);
   return {
     version: NOPAINT_VERSION,
     state: loopState,
@@ -688,6 +730,21 @@ function testSnapshot() {
     } : null,
     paintingFingerprint: paintingFingerprint(testApi?.system?.painting),
     origin: archiveOrigin ? { ...archiveOrigin } : null,
+    piece: piece ? {
+      schema: piece.schema,
+      version: piece.version,
+      id: piece.id,
+      layerCount: piece.layers.length,
+      compositeFingerprint: paintingFingerprint(piece.composite),
+      lastLayer: lastLayer ? {
+        id: lastLayer.id,
+        operation: lastLayer.operation,
+        codeLanguage: lastLayer.code?.language,
+        codeSource: lastLayer.code?.source,
+        pixelMode: lastLayer.pixels?.mode,
+        pixelFingerprint: paintingFingerprint({ pixels: lastLayer.pixels?.data }),
+      } : null,
+    } : null,
   };
 }
 
@@ -802,6 +859,18 @@ function boot({ colon, debug, hud, net, num, params, query = {}, screen, store, 
     seedNoiseSubstrate(system.painting, sessionSeed);
     api.flatten();
     api.page(screen);
+  }
+  const recoveredPiece = freshStart ? null : recoverNoPaintPiece(
+    system.nopaint.piece || store[NOPAINT_PIECE_STORE_KEY],
+    paintingResolution.width,
+    paintingResolution.height,
+  );
+  if (recoveredPiece) {
+    system.nopaint.piece = recoveredPiece;
+    system.painting.pixels.set(recoveredPiece.composite.pixels);
+  } else {
+    initializePiece({ ...api, store, system }, sessionSeed,
+      needsStarterSubstrate ? "substrate" : "legacy-raster");
   }
   store["painting:resolution-lock"] = true;
   store.persist("painting:resolution-lock", "local:db");
@@ -1147,6 +1216,7 @@ async function completePainting($) {
     );
     seedNoiseSubstrate($.system.painting, `${sessionSeed}:${doneCount}`);
     $.flatten();
+    initializePiece($, `${sessionSeed}:${doneCount}`);
   proposal = null;
   proposalFrame = 0;
   proposalPixels = null;
