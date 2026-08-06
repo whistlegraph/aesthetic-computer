@@ -9,7 +9,7 @@ const systemDir = process.env.AC_DISK_WORKER_SYSTEM_DIR
   ? path.resolve(process.env.AC_DISK_WORKER_SYSTEM_DIR)
   : path.resolve(scriptsDir, "..");
 const libDir = path.join(systemDir, "public/aesthetic.computer/lib");
-const entry = path.join(libDir, "disk.mjs");
+const entry = "public/aesthetic.computer/lib/disk.mjs";
 
 const preserveRuntimeImports = {
   name: "preserve-runtime-imports",
@@ -27,6 +27,7 @@ const preserveRuntimeImports = {
 };
 
 const result = await build({
+  absWorkingDir: systemDir,
   entryPoints: [entry],
   bundle: true,
   format: "esm",
