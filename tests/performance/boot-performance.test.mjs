@@ -39,6 +39,8 @@ function chromePath() {
 }
 
 const TEST_URL = process.env.TEST_URL || "https://aesthetic.computer";
+const BLOCK_WORKER_MANIFEST = process.env.AC_BLOCK_WORKER_MANIFEST === "1";
+const EXPECT_WORKER_FALLBACK = process.env.AC_EXPECT_WORKER_FALLBACK === "1";
 const OUT_DIR = "./tests/performance/reports";
 const CORE = ["boot.mjs", "bios.mjs", "disk.mjs", "kidlisp.mjs", "graph.mjs"];
 const BOOT_BUDGET = 6000; // ms, anon boot target — warn (don't fail) over this
@@ -145,6 +147,16 @@ async function run() {
 
   try {
     const page = await browser.newPage();
+    if (BLOCK_WORKER_MANIFEST) {
+      await page.setRequestInterception(true);
+      page.on("request", async (request) => {
+        if (request.url().endsWith("/aesthetic.computer/lib/disk-worker-manifest.json")) {
+          await request.abort("failed");
+        } else {
+          await request.continue();
+        }
+      });
+    }
     await installBootProbe(page);
 
     const session = loadSession();
@@ -175,6 +187,7 @@ async function run() {
       return {
         timings: window._bootTimings || [],
         permissionQueries: window.__permissionQueries || [],
+        workerBundle: window.acWORKER_BUNDLE || null,
         auth,
         ttfb: (nav.responseStart || 0) - (nav.requestStart || 0),
         fcp: paint.find((p) => p.name === "first-contentful-paint")?.startTime || 0,
@@ -198,6 +211,9 @@ async function run() {
 
     console.log(`⏱️  boot: ${bootMs}ms (telemetry)   wall: ${wallMs}ms   ttfb: ${data.ttfb.toFixed(0)}ms   fcp: ${data.fcp.toFixed(0)}ms`);
     console.log(`   complete: ${booted.done ? booted.reason : "❌ NEVER (timeout)"}   canvas: ${data.hasCanvas ? "yes" : "NO"}\n`);
+    if (data.workerBundle?.requested) {
+      console.log(`📦 worker bundle: ${data.workerBundle.ready ? "ready" : "NOT READY"}   file: ${data.workerBundle.filename || "none"}   fallback: ${data.workerBundle.fallback || "none"}\n`);
+    }
 
     console.log(`📋 boot timeline (${timeline.length} phases):`);
     let prev = 0;
@@ -240,7 +256,12 @@ async function run() {
     console.log("");
 
     // assertions: it must actually boot and show a surface. speed only warns.
-    const ok = booted.done && data.hasCanvas && timeline.length > 0;
+    const workerBundleOk =
+      EXPECT_WORKER_FALLBACK
+        ? data.workerBundle?.requested && Boolean(data.workerBundle.fallback)
+        : !data.workerBundle?.requested ||
+          (data.workerBundle.active && data.workerBundle.ready && !data.workerBundle.fallback);
+    const ok = booted.done && data.hasCanvas && timeline.length > 0 && workerBundleOk;
     console.log(ok ? "✅ booted with a render surface" : "❌ boot did not complete / no canvas");
     if (bootMs > BOOT_BUDGET) console.log(`⚠️  boot ${bootMs}ms over ${BOOT_BUDGET}ms budget (baseline note, not a failure)`);
 
@@ -249,7 +270,7 @@ async function run() {
       mkdirSync(OUT_DIR, { recursive: true });
       const stamp = new Date().toISOString().replace(/[:.]/g, "-");
       const path = `${OUT_DIR}/boot-${stamp}.json`;
-      writeFileSync(path, JSON.stringify({ url: TEST_URL, bootMs, wallMs, ttfb: data.ttfb, fcp: data.fcp, complete: booted, timeline, auth: data.auth, permissionQueries: data.permissionQueries, resources, coverage: cov }, null, 2));
+      writeFileSync(path, JSON.stringify({ url: TEST_URL, bootMs, wallMs, ttfb: data.ttfb, fcp: data.fcp, complete: booted, timeline, auth: data.auth, permissionQueries: data.permissionQueries, workerBundle: data.workerBundle, resources, coverage: cov }, null, 2));
       console.log(`\n📄 baseline → ${path}`);
     } catch (e) {
       console.log(`\n⚠️  could not write baseline: ${e.message}`);
