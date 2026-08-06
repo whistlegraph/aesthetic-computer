@@ -14,6 +14,7 @@ const ac = await ACSession.open();
 const receiptDir = join(CONFIG.shotDir, "nopaint-journey");
 const performanceReceipt = join(receiptDir, "performance.json");
 const performanceResults = { version: 1, url: null, environment: null, proposal: null, decisions: {} };
+const workerBundleSuffix = process.env.AC_WORKER_BUNDLE === "1" ? "&workerbundle=1" : "";
 
 async function receipt(name) {
   await ac.shot(`nopaint-journey/${name}`);
@@ -22,7 +23,7 @@ async function receipt(name) {
 
 try {
   await scenario("No Paint 3.0 boots a reproducible first proposal", async (expect) => {
-    await ac.boot("nopaint?seed=nopaint-perf-v1&fresh=1&test=1");
+    await ac.boot(`nopaint?seed=nopaint-perf-v1&fresh=1&test=1${workerBundleSuffix}`);
     // The AC front door intentionally waits for a first human gesture. A
     // center-stage tap activates the piece without touching the decision bar.
     if (!(await ac.nopaintState())?.ready) {
@@ -205,6 +206,32 @@ try {
     const paintCue = after?.audio?.events?.findLast(({ name }) => name === "paint");
     expect(Boolean(paintCue), "Paint emits its interaction cue");
     expect(paintCue?.path === "legacy", "Paint uses the recovered Construct sample");
+  });
+
+  await scenario("The painting piece survives a full reload", async (expect) => {
+    const before = await ac.nopaintState();
+    await ac.boot(`nopaint?seed=nopaint-perf-v1&test=1${workerBundleSuffix}`);
+    if (!(await ac.nopaintState())?.ready) {
+      const viewport = ac.page.viewport();
+      await ac.page.mouse.click(viewport.width / 2, viewport.height / 2);
+      await ac.page.waitForFunction(
+        () => window.__acNoPaintTest?.()?.ready === true,
+        { timeout: 20000 },
+      );
+    }
+    const after = await ac.nopaintState();
+    const workerBundle = await ac.page.evaluate(() => window.acWORKER_BUNDLE || null);
+    expect(after?.piece?.id === before?.piece?.id, "reload preserves the painting piece identity");
+    expect(after?.piece?.layerCount === before?.piece?.layerCount,
+      "reload restores every accepted code + pixel layer");
+    expect(after?.piece?.compositeFingerprint === before?.piece?.compositeFingerprint,
+      "reload restores the canonical piece composite");
+    expect(after?.paintingFingerprint === before?.paintingFingerprint,
+      "reload projects the same accepted pixels");
+    if (process.env.AC_WORKER_BUNDLE === "1") {
+      expect(workerBundle?.active === true, "the refreshed bundled disk worker is active");
+      expect(workerBundle?.fallback === null, "the bundled disk worker needs no fallback");
+    }
   });
 
   await scenario("A held pointer can slide from No to Paint before release", async (expect) => {
