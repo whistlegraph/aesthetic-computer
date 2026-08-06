@@ -14913,7 +14913,7 @@ async function makeFrame({ data: { type, content } }) {
 
                 // Drop shadow (1px down/right) matching the HUD label shadow
                 $.ink("black");
-                $.write(".", { x: superscriptX, y: superscriptY + 1 }, undefined, undefined, false, "MatrixChunky8");
+                $.write(".", { x: superscriptX, y: superscriptY }, undefined, undefined, false, "MatrixChunky8");
                 $.write("com", { x: superscriptX + dotWidth + 1, y: superscriptY + 1 }, undefined, undefined, false, "MatrixChunky8");
 
                 // Color dot based on socket connection: green if connected, red if not
@@ -14922,7 +14922,7 @@ async function makeFrame({ data: { type, content } }) {
                 } else {
                   $.ink(255, 100, 100); // Red/salmon for disconnected
                 }
-                $.write(".", { x: superscriptX - 1, y: superscriptY }, undefined, undefined, false, "MatrixChunky8");
+                $.write(".", { x: superscriptX - 1, y: superscriptY - 1 }, undefined, undefined, false, "MatrixChunky8");
 
                 // Render "com" in bright cyan
                 $.ink(0, 220, 255); // Bright cyan
