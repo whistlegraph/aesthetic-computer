@@ -58,6 +58,14 @@ const zoomMax = 4;
 const zoomMin = 1;
 const zoomSensitivity = 240;
 
+// Blit tracking: paint() runs at display rate (up to 120Hz) but camera
+// frames arrive at 30–60fps, so the wipe + paste only need to happen when
+// the frame object, zoom, or screen size actually changed.
+let pastedFrame = null,
+  pastedZoom = 0,
+  pastedW = 0,
+  pastedH = 0;
+
 // 🥾 Boot
 function boot({ ui, params, colon, system, rec, notice }) {
   // Piece modules persist between visits. A re-shoot must never inherit the
@@ -79,6 +87,7 @@ function boot({ ui, params, colon, system, rec, notice }) {
   torchPending = false;
   zoom = 1;
   zoomStartY = null;
+  pastedFrame = null;
 
   // Parse parameters
   if (params[0] === "me" || params[0] === "selfie") facing = "user";
@@ -133,17 +142,42 @@ function paint({
     frame = vid();
   }
 
-  // Paste the video centered on screen, scaled by the current zoom factor.
-  // paste(frame, x, y, scale) draws the frame upscaled by `scale`; we
-  // recenter so the camera image stays anchored to the screen center as
-  // the user slides up to zoom in. Off-screen pixels clip naturally.
+  // Draw the camera frame, zoomed around the screen center. Zoom crops the
+  // frame's middle 1/zoom region and scales the crop up to the full screen —
+  // the crop path blits per destination pixel, so a fractional zoom stays
+  // realtime (a fractional `scale` paste walks every source pixel through
+  // color()+box() and slideshows).
   if (frame) {
-    const drawW = frame.width * zoom;
-    const drawH = frame.height * zoom;
-    const offsetX = floor((screen.width - drawW) / 2);
-    const offsetY = floor((screen.height - drawH) / 2);
-    wipe(0); // Clear first
-    paste(frame, offsetX, offsetY, zoom);
+    const stale =
+      frame !== pastedFrame ||
+      zoom !== pastedZoom ||
+      screen.width !== pastedW ||
+      screen.height !== pastedH;
+    if (stale) {
+      pastedFrame = frame;
+      pastedZoom = zoom;
+      pastedW = screen.width;
+      pastedH = screen.height;
+      wipe(0); // Clear first — the contain fit can letterbox.
+      if (zoom > 1.001) {
+        const cropW = frame.width / zoom;
+        const cropH = frame.height / zoom;
+        paste(frame, 0, 0, {
+          crop: {
+            x: (frame.width - cropW) / 2,
+            y: (frame.height - cropH) / 2,
+            w: cropW,
+            h: cropH,
+          },
+          width: screen.width,
+          height: screen.height,
+        });
+      } else {
+        const offsetX = floor((screen.width - frame.width) / 2);
+        const offsetY = floor((screen.height - frame.height) / 2);
+        paste(frame, offsetX, offsetY);
+      }
+    }
   }
 
   // 🎬 Draw UI elements to a recording UI overlay (NOT captured in tape).
