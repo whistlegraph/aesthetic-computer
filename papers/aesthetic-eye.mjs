@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// aesthetic-eye — render-first visual QA for paper diagrams.
+// aesthetic-eye — render-first visual QA for papers and their diagrams.
 //
 // A TeX build proves syntax, not design. This tool prepares diagram crops for
 // visual inference and enforces a current-PDF manifest whose verdict is the
@@ -7,13 +7,18 @@
 
 import { createHash } from "node:crypto";
 import { execFile } from "node:child_process";
-import { access, mkdir, readFile } from "node:fs/promises";
+import { access, mkdir, readFile, readdir } from "node:fs/promises";
 import { basename, dirname, extname, isAbsolute, join, resolve } from "node:path";
 import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
 
 const exec = promisify(execFile);
 const REQUIRED_CHECKS = ["tangents", "type", "balance", "spaceUse", "hierarchy", "edgeRouting"];
+const BRAND_NAME = "Aesthetic.Computer";
+const BRAND_DOT_COLOR = "#B44887";
+const BRAND_CHECKS = ["period", "dotColor"];
+const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
+const CONTACT_FONT = resolve(SCRIPT_DIR, "../oven/fonts/ComicRelief-Regular.ttf");
 
 async function exists(path) {
   try { await access(path); return true; }
@@ -47,6 +52,7 @@ async function loadReview(input, manifestArg) {
 export function validateManifest(manifest, currentPdfSha256) {
   const errors = [];
   const diagrams = Array.isArray(manifest?.diagrams) ? manifest.diagrams : [];
+  const brand = manifest?.brand;
   if (manifest?.schema !== 1) errors.push("schema must be 1");
   if (!manifest?.visualInference) errors.push("visualInference must be true");
   if (manifest?.reviewer?.kind !== "visual-inference") errors.push("reviewer.kind must be visual-inference");
@@ -57,6 +63,20 @@ export function validateManifest(manifest, currentPdfSha256) {
     errors.push("expectedDiagrams must be a non-negative integer");
   } else if (diagrams.length !== manifest.expectedDiagrams) {
     errors.push(`expected ${manifest.expectedDiagrams} diagram(s), found ${diagrams.length}`);
+  }
+
+  if (!brand || typeof brand !== "object") errors.push("brand review is required");
+  else {
+    if (brand.canonicalName !== BRAND_NAME) errors.push(`brand.canonicalName must be ${BRAND_NAME}`);
+    if (brand.dotColor !== BRAND_DOT_COLOR) errors.push(`brand.dotColor must be ${BRAND_DOT_COLOR}`);
+    if (!['pass', 'fail'].includes(brand.design)) errors.push("brand.design must be pass or fail");
+    for (const check of BRAND_CHECKS) {
+      if (!['pass', 'fail'].includes(brand.checks?.[check])) errors.push(`brand.checks.${check} must be pass or fail`);
+    }
+    const failedBrandChecks = BRAND_CHECKS.filter((check) => brand.checks?.[check] === "fail");
+    if (brand.design === "pass" && failedBrandChecks.length) {
+      errors.push(`brand.design cannot pass while ${failedBrandChecks.join(", ")} fail`);
+    }
   }
 
   const ids = new Set();
@@ -83,18 +103,32 @@ export function validateManifest(manifest, currentPdfSha256) {
 
   const allDesignPass = diagrams.length === manifest?.expectedDiagrams
     && diagrams.every((diagram) => diagram.design === "pass");
-  return { pass: errors.length === 0 && allDesignPass, errors, diagrams };
+  const brandPass = brand?.design === "pass"
+    && BRAND_CHECKS.every((check) => brand?.checks?.[check] === "pass");
+  return { pass: errors.length === 0 && allDesignPass && brandPass, errors, diagrams, brand };
+}
+
+export async function findVisibleBrandViolations(pdfPath) {
+  const { stdout } = await exec("pdftotext", [pdfPath, "-"], { maxBuffer: 16 * 1024 * 1024 });
+  return [...stdout.matchAll(/\bAesthetic\s+Computer\b/gi)].map((match) => match[0].replace(/\s+/g, " "));
 }
 
 async function check(input, manifestArg) {
   const review = await loadReview(input, manifestArg);
   const digest = await sha256(review.pdfPath);
   const verdict = validateManifest(review.manifest, digest);
+  const brandViolations = await findVisibleBrandViolations(review.pdfPath);
+  const errors = [...verdict.errors];
+  if (brandViolations.length) {
+    errors.push(`${brandViolations.length} visible brand name(s) omit the colored period; use ${BRAND_NAME}`);
+  }
+  const pass = verdict.pass && errors.length === 0;
+  console.log(`brand: ${verdict.brand?.design || "missing"}  ${BRAND_NAME}  dot ${BRAND_DOT_COLOR}`);
   for (const diagram of verdict.diagrams) console.log(`design: ${diagram.design}  ${diagram.id}  page ${diagram.page}`);
-  if (verdict.errors.length) for (const error of verdict.errors) console.error(`FAIL: ${error}`);
-  if (!verdict.pass && !verdict.errors.length) console.error("FAIL: one or more diagrams have design: fail");
-  console.log(`aesthetic-eye: ${verdict.pass ? "PASS" : "FAIL"}  ${basename(review.pdfPath)}`);
-  if (!verdict.pass) process.exitCode = 1;
+  if (errors.length) for (const error of errors) console.error(`FAIL: ${error}`);
+  if (!pass && !errors.length) console.error("FAIL: one or more visual verdicts have design: fail");
+  console.log(`aesthetic-eye: ${pass ? "PASS" : "FAIL"}  ${basename(review.pdfPath)}`);
+  if (!pass) process.exitCode = 1;
 }
 
 async function prepare(input, manifestArg, outputArg) {
@@ -103,6 +137,16 @@ async function prepare(input, manifestArg, outputArg) {
   await mkdir(outputDir, { recursive: true });
   const pagePrefix = join(outputDir, "page");
   await exec("pdftoppm", ["-png", "-r", "144", review.pdfPath, pagePrefix], { maxBuffer: 8 * 1024 * 1024 });
+  const pagePaths = (await readdir(outputDir))
+    .filter((name) => /^page-\d+\.png$/.test(name))
+    .sort((a, b) => Number(a.match(/\d+/)?.[0]) - Number(b.match(/\d+/)?.[0]))
+    .map((name) => join(outputDir, name));
+
+  if (pagePaths.length) {
+    const pagesContactPath = join(outputDir, "pages-contact.png");
+    await exec("magick", ["montage", "-font", CONTACT_FONT, ...pagePaths, "-thumbnail", "360x480", "-tile", "4x", "-geometry", "+16+16", pagesContactPath]);
+    console.log(`pages: ${pagesContactPath}`);
+  }
 
   const crops = [];
   for (const diagram of review.manifest.diagrams || []) {
@@ -120,11 +164,13 @@ async function prepare(input, manifestArg, outputArg) {
 
   if (crops.length) {
     const contactPath = join(outputDir, "diagrams-contact.png");
-    await exec("magick", ["montage", ...crops, "-thumbnail", "1000x700", "-tile", "2x", "-geometry", "+24+24", contactPath]);
+    await exec("magick", ["montage", "-font", CONTACT_FONT, ...crops, "-thumbnail", "1000x700", "-tile", "2x", "-geometry", "+24+24", contactPath]);
     console.log(`contact: ${contactPath}`);
   }
+  const brandViolations = await findVisibleBrandViolations(review.pdfPath);
+  console.log(`brand text: ${brandViolations.length ? `FAIL (${brandViolations.length} missing period)` : "PASS"}`);
   console.log(`pdfSha256: ${await sha256(review.pdfPath)}`);
-  console.log("Next: inspect every crop visually, record design: pass|fail plus all six checks, then run `aesthetic-eye check`.");
+  console.log("Next: inspect pages-contact.png for the colored Aesthetic.Computer period, inspect every diagram crop, record the verdicts, then run `aesthetic-eye check`.");
 }
 
 function option(args, name) {

@@ -13,7 +13,7 @@ protocol WaveformViewDelegate: AnyObject {
     func waveformTick()                          // ~30fps → update time label
 }
 
-final class WaveformView: NSView, AVAudioPlayerDelegate {
+final class WaveformView: NSView {
     weak var delegate: WaveformViewDelegate?
     private var player: AVAudioPlayer?
     private var loadedURL: URL?
@@ -32,10 +32,10 @@ final class WaveformView: NSView, AVAudioPlayerDelegate {
         return tempoMap.min(by: { abs($0.time - currentTime) < abs($1.time - currentTime) })?.bpm
     }
     var volume: Float {
-        get { player?.volume ?? preferredVolume }
+        get { preferredVolume }
         set {
             preferredVolume = max(0, min(1, newValue))
-            player?.volume = preferredVolume
+            deck.setGain(preferredVolume)
         }
     }
 
@@ -44,14 +44,19 @@ final class WaveformView: NSView, AVAudioPlayerDelegate {
     override init(frame: NSRect) {
         super.init(frame: frame)
         wantsLayer = true
-        layer?.backgroundColor = NSColor(white: 0.07, alpha: 1).cgColor
+        layer?.backgroundColor = NSColor(white: 0.03, alpha: 0.62).cgColor
+        layer?.borderWidth = 1
+        layer?.borderColor = NSColor.white.withAlphaComponent(0.10).cgColor
         layer?.cornerRadius = 8
         layer?.masksToBounds = true
+        toolTip = "Click to seek · drag to scratch · Option-click to comment"
+        setAccessibilityLabel("Track waveform and scratch surface")
+        setAccessibilityHelp("Click to seek, drag left or right to scratch, or Option-click to add a comment")
     }
     required init?(coder: NSCoder) { fatalError() }
 
     // ── load / transport ────────────────────────────────────────────────
-    func load(url: URL) {
+    func load(track: Track) {
         stop()
         loadedURL = url
         peaks = []
@@ -81,34 +86,36 @@ final class WaveformView: NSView, AVAudioPlayerDelegate {
         player?.prepareToPlay()
     }
 
-    func play() { player?.play(); startTimer() }
-    func pause() { player?.pause(); stopTimer(); needsDisplay = true }
+    func play() { deck.play(); wasPlaying = true; startTimer() }
+    func pause() { deck.pause(); wasPlaying = false; stopTimer(); needsDisplay = true }
     func togglePlay() { if isPlaying { pause() } else { play() } }
     func seek(to t: Double) {
-        player?.currentTime = max(0, min(duration, t))
+        deck.seek(to: max(0, min(duration, t)))
         needsDisplay = true
         delegate?.waveformTick()
     }
     func stop() {
         stopTimer()
-        player?.stop()
-        player = nil
+        deck.pause()
+        wasPlaying = false
         needsDisplay = true
     }
 
     private func startTimer() {
         stopTimer()
         timer = Timer.scheduledTimer(withTimeInterval: 1.0 / 60.0, repeats: true) { [weak self] _ in
-            self?.needsDisplay = true
-            self?.delegate?.waveformTick()
+            guard let self else { return }
+            self.needsDisplay = true
+            self.delegate?.waveformTick()
+            if self.wasPlaying, !self.deck.isPlaying,
+               self.duration > 0, self.currentTime >= self.duration - 0.05 {
+                self.wasPlaying = false
+                self.stopTimer()
+                self.delegate?.waveformDidFinish()
+            }
         }
     }
     private func stopTimer() { timer?.invalidate(); timer = nil }
-
-    func audioPlayerDidFinishPlaying(_ p: AVAudioPlayer, successfully flag: Bool) {
-        stopTimer()
-        delegate?.waveformDidFinish()
-    }
 
     // ── waveform peaks (read on a background queue) ──────────────────────
     private func computePeaks(url: URL) {
@@ -236,10 +243,27 @@ final class WaveformView: NSView, AVAudioPlayerDelegate {
             delegate?.waveformRequestComment(at: t)
         } else {
             seek(to: t)
+            scratchOrigin = t
+            lastScratchTime = event.timestamp
+            isScratching = true
+            deck.beginScratch()
         }
     }
     override func mouseDragged(with event: NSEvent) {
-        guard duration > 0, !event.modifierFlags.contains(.option) else { return }
-        seek(to: timeAt(event))
+        guard duration > 0, isScratching else { return }
+        let target = timeAt(event)
+        let elapsed = max(1.0 / 240.0, event.timestamp - lastScratchTime)
+        deck.scratch(to: target, movement: target - scratchOrigin, elapsed: elapsed)
+        scratchOrigin = target
+        lastScratchTime = event.timestamp
+        needsDisplay = true
+        delegate?.waveformTick()
+    }
+    override func mouseUp(with event: NSEvent) {
+        guard isScratching else { return }
+        isScratching = false
+        deck.endScratch()
+        wasPlaying = deck.isPlaying
+        if wasPlaying { startTimer() }
     }
 }

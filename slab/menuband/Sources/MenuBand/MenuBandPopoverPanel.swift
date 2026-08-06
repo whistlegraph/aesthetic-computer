@@ -267,6 +267,32 @@ final class MenuBandPopoverChrome: NSView {
 
     override var isFlipped: Bool { false }
 
+    override func touchesBegan(with event: NSEvent) { deliverTrackpadFrame(event) }
+    override func touchesMoved(with event: NSEvent) { deliverTrackpadFrame(event) }
+    override func touchesEnded(with event: NSEvent) { deliverTrackpadFrame(event) }
+    override func touchesCancelled(with event: NSEvent) { deliverTrackpadFrame(event) }
+
+    private func deliverTrackpadFrame(_ event: NSEvent) {
+        let touches = event.touches(matching: .touching, in: self)
+            .filter { $0.type == .indirect }
+        let began = Set(event.touches(matching: .began, in: self).map {
+            ObjectIdentifier($0.identity as AnyObject)
+        })
+        let contacts = touches.map { touch in
+            let identity = ObjectIdentifier(touch.identity as AnyObject)
+            return TrackpadContact(
+                identifier: Int32(truncatingIfNeeded: identity.hashValue),
+                point: touch.normalizedPosition,
+                state: began.contains(identity) ? 3 : 4
+            )
+        }
+        onTrackpadFrame?(contacts, event.timestamp, CACurrentMediaTime())
+        let active = !contacts.isEmpty
+        guard active != trackpadTouchActive else { return }
+        trackpadTouchActive = active
+        onTrackpadActiveChanged?(active)
+    }
+
     func setArrowOffsetFromLeft(_ offset: CGFloat) {
         // Clamp so the arrow fits between the rounded body corners.
         let minX = MenuBandPopoverPanel.cornerRadius

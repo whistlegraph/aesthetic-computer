@@ -1,41 +1,16 @@
 #!/bin/sh
-# juke-wizard/bin/jukewizard — build (cached) + launch JukeWizard.
-#
-# JukeWizard is the MASTER JUKE: it ALWAYS loads the whole /pop library so
-# every track is visible. Open it with no args to browse, or pass a specific
-# track to jump straight to it — the full library still loads underneath.
-# Each track shows its cover art, per-service listen links (Spotify/Apple/
-# YouTube/DistroKid), and any reels/videos made for it (from the lane's out/).
-# The sidebar sort menu reorders by newest-rendered, rating, title, etc.
-#
-# usage:
-#   juke-wizard/bin/jukewizard                       # browse the whole /pop library
-#   juke-wizard/bin/jukewizard <file.mp3>            # load library + select/play that track
-#   juke-wizard/bin/jukewizard --queue <a.mp3> <b.mp3> # focused ordered playlist; play a
-#   juke-wizard/bin/jukewizard --primpats               # two floating bass-sine records
-#   juke-wizard/bin/jukewizard --beats                  # two floating practice beats
-#   juke-wizard/bin/jukewizard <folder | playlist>   # load library + add these too
-#   juke-wizard/bin/jukewizard ... --watch <dir>     # auto-pop new renders
-#
-# Runs from anywhere; resolves the package from its own location.
-set -e
-HERE="$(cd "$(dirname "$0")" && pwd)"
-WIZ="$HERE/.."
-REPO="$(cd "$WIZ/.." && pwd)"
+# Compatibility command for Juke inside Menu Band. This script never builds
+# or launches a second macOS application.
+set -eu
 
-if [ "${1:-}" = "login" ]; then
-  shift
-  if command -v ac-login >/dev/null 2>&1; then exec ac-login "$@"; fi
-  exec node "$REPO/tezos/ac-login.mjs" "$@"
-fi
-if [ "${1:-}" = "cloud" ]; then
-  shift
-  exec node "$HERE/juke-cloud.mjs" "$@"
-fi
-if [ "${1:-}" = "--help" ] || [ "${1:-}" = "help" ]; then
-  node "$HERE/juke-cloud.mjs" --help
-  exit 0
-fi
+HERE="$(cd "$(dirname "$0")" && pwd)"
+REPO="$(cd "$HERE/../.." && pwd)"
+MENU_BAND_APP="${MENU_BAND_APP:-$HOME/Applications/Menu Band.app}"
+CONTROL="$HERE/jukewizard-control.mjs"
+
+usage() {
+  echo "usage: jukewizard [open|status|list|play|select|pause|toggle|seek|speed|next|previous|source|detach|login|cloud]"
+}
 
 swift build -c release --package-path "$WIZ" 2>&1 | grep -v '^$' | tail -2 || true
 

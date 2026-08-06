@@ -15,9 +15,7 @@ final class BackdropView: NSView {
     override init(frame: NSRect) {
         // static fallback (same illy the dock icon comes from)
         fallbackImage = {
-            let b = Bundle.module
-            if let u = b.url(forResource: "jukewizard-mascot", withExtension: "png", subdirectory: "Assets")
-                ?? b.url(forResource: "jukewizard-mascot", withExtension: "png"),
+            if let u = JukeResources.url(forResource: "jukewizard-mascot", withExtension: "png"),
                let img = NSImage(contentsOf: u) { return img }
             return nil
         }()
@@ -30,9 +28,7 @@ final class BackdropView: NSView {
     override func hitTest(_ point: NSPoint) -> NSView? { nil }
 
     private func setupVideo() {
-        let b = Bundle.module
-        guard let url = b.url(forResource: "jukewizard-backdrop", withExtension: "mp4", subdirectory: "Assets")
-            ?? b.url(forResource: "jukewizard-backdrop", withExtension: "mp4") else { return }
+        guard let url = JukeResources.url(forResource: "jukewizard-backdrop", withExtension: "mp4") else { return }
         let item = AVPlayerItem(url: url)
         let queue = AVQueuePlayer()
         queue.isMuted = true

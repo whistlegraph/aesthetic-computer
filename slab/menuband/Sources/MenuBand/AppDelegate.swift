@@ -1,6 +1,9 @@
 import AppKit
 import AVFoundation
 import Carbon
+#if !MAC_APP_STORE
+import MenuBandJuke
+#endif
 
 extension Notification.Name {
     /// Posted whenever the set of currently-sounding notes changes, so the
@@ -13,6 +16,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// The spinning album-art disc owned by Menu Band's CDJ Radio deck.
     private var cdjStatusItem: MenuBandCDJStatusItem?
     private let menuBand = MenuBandController()
+#if !MAC_APP_STORE
+    /// The former JukeWizard, now a first-class window and service inside this
+    /// process. It starts lazily when the user chooses Juke.
+    private let juke = MenuBandJuke()
+#endif
     /// Live conductible drone/arp/drum loop (see MenuBandEngine + the
     /// `engine.*` distributed-notification handlers).
     private lazy var engine = MenuBandEngine(menuBand: menuBand)
@@ -1013,6 +1021,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             object: nil
         )
 
+#if !MAC_APP_STORE
+        DistributedNotificationCenter.default().addObserver(
+            self,
+            selector: #selector(handleShowJukeNotification(_:)),
+            name: NSNotification.Name("computer.aestheticcomputer.menuband.showJuke"),
+            object: nil
+        )
+#endif
+
         // Sibling remote: toggle the popover's instrument-chart
         // disclosure (same path as pressing the instrument name).
         // Lets the shell exercise the expand/collapse resize without
@@ -1436,6 +1453,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         vc.isPlayPaletteShown = { [weak self] in
             self?.pianoWaveformWindowDelegate.isShown ?? false
         }
+#if !MAC_APP_STORE
+        vc.onJukeToggle = { [weak self] in
+            guard let self else { return }
+            if self.isPopoverPanelShown { self.closePopover() }
+            self.juke.toggle()
+        }
+#endif
         // Click on the mini visualizer strip → hide the popover
         // (without dismissing the floating panel — `closePopover`'s
         // default tears down both) and transition the floating
@@ -3607,6 +3631,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
     }
+
+#if !MAC_APP_STORE
+    @objc private func handleShowJukeNotification(_ note: Notification) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            if self.isPopoverPanelShown { self.closePopover() }
+            self.juke.open()
+        }
+    }
+#endif
 
     @objc private func handleToggleChartNotification(_ note: Notification) {
         DispatchQueue.main.async { [weak self] in

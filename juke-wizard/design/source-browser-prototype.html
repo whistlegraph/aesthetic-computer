@@ -1,0 +1,527 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Menu Band Juke — source browser sketch</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --ink: #f8fbfa;
+      --muted: #a9b8b6;
+      --line: rgba(255, 255, 255, .11);
+      --panel: rgba(9, 24, 27, .70);
+      --panel-strong: rgba(8, 19, 22, .90);
+      --teal: #2bb1ad;
+      --gold: #f5bd38;
+      --coral: #ff786b;
+      --pink: #fa5b8b;
+      --green: #30d679;
+      --apple: #f2f3f5;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body { min-height: 100%; }
+
+    body {
+      margin: 0;
+      display: grid;
+      place-items: center;
+      padding: 44px;
+      overflow: auto;
+      background:
+        radial-gradient(circle at 18% 16%, rgba(43, 177, 173, .30), transparent 30%),
+        radial-gradient(circle at 82% 18%, rgba(250, 91, 139, .22), transparent 27%),
+        radial-gradient(circle at 72% 84%, rgba(245, 189, 56, .18), transparent 34%),
+        #061013;
+      color: var(--ink);
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", sans-serif;
+    }
+
+    button, input { font: inherit; }
+
+    .window {
+      width: min(1000px, calc(100vw - 88px));
+      height: min(690px, calc(100vh - 88px));
+      min-height: 620px;
+      display: grid;
+      grid-template-rows: 46px 66px minmax(0, 1fr) 84px;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, .16);
+      border-radius: 18px;
+      background:
+        linear-gradient(145deg, rgba(28, 92, 92, .14), rgba(9, 22, 25, .72) 42%, rgba(35, 16, 31, .35)),
+        rgba(7, 20, 23, .84);
+      box-shadow: 0 30px 90px rgba(0, 0, 0, .55), inset 0 1px rgba(255, 255, 255, .08);
+      backdrop-filter: blur(34px) saturate(130%);
+    }
+
+    .titlebar {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-bottom: 1px solid rgba(255, 255, 255, .06);
+      font-size: 13px;
+      font-weight: 650;
+      letter-spacing: .01em;
+    }
+
+    .lights {
+      position: absolute;
+      left: 17px;
+      display: flex;
+      gap: 8px;
+    }
+
+    .light { width: 12px; height: 12px; border-radius: 50%; }
+    .light:nth-child(1) { background: #ff5f57; }
+    .light:nth-child(2) { background: #febc2e; }
+    .light:nth-child(3) { background: #28c840; }
+
+    .sources {
+      display: flex;
+      align-items: end;
+      gap: 3px;
+      padding: 0 18px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(0, 0, 0, .10);
+    }
+
+    .source {
+      --source: var(--teal);
+      position: relative;
+      height: 52px;
+      min-width: 132px;
+      padding: 0 17px 2px;
+      border: 0;
+      border-radius: 12px 12px 0 0;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 670;
+      letter-spacing: .005em;
+    }
+
+    .source[data-source="local"] { --source: var(--gold); }
+    .source[data-source="aesthetic"] { --source: var(--pink); }
+    .source[data-source="spotify"] { --source: var(--green); }
+    .source[data-source="apple"] { --source: var(--apple); }
+
+    .source:hover { color: var(--ink); background: rgba(255, 255, 255, .035); }
+
+    .source[aria-selected="true"] {
+      color: var(--ink);
+      background: rgba(255, 255, 255, .065);
+    }
+
+    .source[aria-selected="true"]::after {
+      content: "";
+      position: absolute;
+      left: 14px;
+      right: 14px;
+      bottom: -1px;
+      height: 3px;
+      border-radius: 3px 3px 0 0;
+      background: var(--source);
+      box-shadow: 0 0 18px color-mix(in srgb, var(--source), transparent 25%);
+    }
+
+    .content {
+      min-height: 0;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 286px;
+    }
+
+    .browser {
+      min-width: 0;
+      min-height: 0;
+      display: grid;
+      grid-template-rows: 74px minmax(0, 1fr);
+      border-right: 1px solid var(--line);
+    }
+
+    .browserbar {
+      display: grid;
+      grid-template-columns: minmax(220px, 1fr) auto;
+      align-items: center;
+      gap: 12px;
+      padding: 13px 16px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .search {
+      width: 100%;
+      height: 40px;
+      padding: 0 14px 1px 38px;
+      border: 1px solid rgba(255, 255, 255, .13);
+      border-radius: 11px;
+      outline: none;
+      background:
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='17' height='17' viewBox='0 0 24 24' fill='none' stroke='%23a9b8b6' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-4-4'/%3E%3C/svg%3E") no-repeat 13px center,
+        rgba(0, 0, 0, .22);
+      color: var(--ink);
+      font-size: 14px;
+    }
+
+    .search:focus { border-color: color-mix(in srgb, var(--active), white 12%); }
+    .search::placeholder { color: #82908f; }
+
+    .source-action {
+      height: 38px;
+      padding: 0 14px;
+      border: 1px solid rgba(255, 255, 255, .13);
+      border-radius: 10px;
+      background: rgba(255, 255, 255, .07);
+      color: var(--ink);
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 650;
+    }
+
+    .source-action:hover { background: rgba(255, 255, 255, .12); }
+
+    .rows {
+      min-height: 0;
+      overflow: auto;
+      padding: 5px 7px 16px;
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 42px minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 12px;
+      min-height: 60px;
+      padding: 8px 10px;
+      border-radius: 10px;
+      cursor: default;
+    }
+
+    .row:hover { background: rgba(255, 255, 255, .055); }
+    .row.active { background: color-mix(in srgb, var(--active), transparent 86%); }
+
+    .art {
+      width: 42px;
+      height: 42px;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      border-radius: 7px;
+      background:
+        radial-gradient(circle at 28% 24%, rgba(255, 255, 255, .78), transparent 9%),
+        conic-gradient(from 40deg, var(--c1), var(--c2), var(--c3), var(--c1));
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .12);
+      color: rgba(0, 0, 0, .62);
+      font-weight: 850;
+    }
+
+    .art::after {
+      content: "";
+      width: 13px;
+      height: 13px;
+      border: 5px solid rgba(0, 0, 0, .42);
+      border-radius: 50%;
+      background: rgba(255, 255, 255, .60);
+    }
+
+    .track-copy { min-width: 0; }
+
+    .track-title {
+      overflow: hidden;
+      color: var(--ink);
+      font-size: 14px;
+      font-weight: 650;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .track-meta {
+      margin-top: 3px;
+      overflow: hidden;
+      color: var(--muted);
+      font-size: 12px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .row-tail {
+      color: #81918f;
+      font-size: 12px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .detail {
+      min-width: 0;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      padding: 18px;
+      background: rgba(0, 0, 0, .11);
+    }
+
+    .hero-art {
+      width: 100%;
+      aspect-ratio: 1;
+      border-radius: 14px;
+      background:
+        radial-gradient(circle at 52% 50%, rgba(6, 14, 17, .95) 0 8%, transparent 8.5%),
+        repeating-radial-gradient(circle at 52% 50%, transparent 0 8px, rgba(255, 255, 255, .11) 9px, transparent 11px),
+        conic-gradient(from 18deg, #1e8f90, #f1be3d, #f26062, #442f78, #1e8f90);
+      box-shadow: 0 18px 36px rgba(0, 0, 0, .28), inset 0 0 0 1px rgba(255, 255, 255, .14);
+    }
+
+    .eyebrow {
+      margin-top: 17px;
+      color: var(--active);
+      font-size: 11px;
+      font-weight: 760;
+      letter-spacing: .09em;
+      text-transform: uppercase;
+    }
+
+    .detail h1 {
+      margin: 7px 0 4px;
+      font-size: 22px;
+      line-height: 1.08;
+      letter-spacing: -.025em;
+    }
+
+    .detail p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.4;
+    }
+
+    .detail-actions {
+      display: grid;
+      grid-template-columns: 1fr 42px;
+      gap: 8px;
+      margin-top: auto;
+      padding-top: 14px;
+    }
+
+    .play-large, .more {
+      height: 40px;
+      border: 0;
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: 750;
+    }
+
+    .play-large { background: var(--active); color: #071012; }
+    .more { background: rgba(255, 255, 255, .08); color: var(--ink); }
+
+    .transport {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 236px;
+      align-items: center;
+      gap: 18px;
+      padding: 12px 18px;
+      border-top: 1px solid var(--line);
+      background: var(--panel-strong);
+      box-shadow: 0 -12px 30px rgba(0, 0, 0, .18);
+    }
+
+    .playing {
+      min-width: 0;
+      display: grid;
+      grid-template-columns: 48px minmax(0, 1fr);
+      align-items: center;
+      gap: 12px;
+    }
+
+    .playing .art { width: 48px; height: 48px; }
+    .playing-title { overflow: hidden; font-size: 14px; font-weight: 680; text-overflow: ellipsis; white-space: nowrap; }
+    .playing-meta { margin-top: 3px; color: var(--muted); font-size: 12px; }
+    .playing-source { color: var(--active); }
+
+    .controls { display: grid; grid-template-columns: 28px 36px 28px 1fr; align-items: center; gap: 10px; }
+    .control { border: 0; background: transparent; color: var(--ink); cursor: pointer; font-size: 17px; }
+    .primary-control { width: 36px; height: 36px; border-radius: 50%; background: var(--ink); color: #071012; }
+    .meter { height: 4px; overflow: hidden; border-radius: 4px; background: rgba(255, 255, 255, .13); }
+    .meter::before { content: ""; display: block; width: 41%; height: 100%; background: var(--active); }
+
+    .empty-state {
+      display: grid;
+      place-items: center;
+      min-height: 100%;
+      padding: 32px;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    .empty-state strong { display: block; margin-bottom: 8px; color: var(--ink); font-size: 17px; }
+
+    @media (max-width: 850px) {
+      body { padding: 18px; }
+      .window { width: calc(100vw - 36px); height: calc(100vh - 36px); }
+      .content { grid-template-columns: 1fr 240px; }
+      .source { min-width: 110px; padding-inline: 10px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="window" id="app" style="--active: var(--gold)">
+    <header class="titlebar">
+      <div class="lights" aria-hidden="true"><span class="light"></span><span class="light"></span><span class="light"></span></div>
+      Menu Band Juke
+    </header>
+
+    <nav class="sources" aria-label="Music source" role="tablist">
+      <button class="source" role="tab" data-source="local" aria-selected="true" title="Jeffrey’s MacBook Neo">Neo</button>
+      <button class="source" role="tab" data-source="aesthetic" aria-selected="false">Aesthetic</button>
+      <button class="source" role="tab" data-source="spotify" aria-selected="false">Spotify</button>
+      <button class="source" role="tab" data-source="apple" aria-selected="false">Apple Music</button>
+    </nav>
+
+    <section class="content">
+      <section class="browser" aria-label="Source browser">
+        <div class="browserbar">
+          <input class="search" type="search" aria-label="Search source" placeholder="Search Neo">
+          <button class="source-action" type="button">Add files…</button>
+        </div>
+        <div class="rows" role="list"></div>
+      </section>
+
+      <aside class="detail" aria-live="polite">
+        <div class="hero-art" aria-label="Selected release artwork"></div>
+        <div class="eyebrow">Neo</div>
+        <h1>Slow Tide</h1>
+        <p>Aesthetic Computer · WAV · 96 kHz</p>
+        <div class="detail-actions">
+          <button class="play-large" type="button">Play</button>
+          <button class="more" type="button" aria-label="More actions">•••</button>
+        </div>
+      </aside>
+    </section>
+
+    <footer class="transport">
+      <div class="playing">
+        <div class="art" style="--c1:#138585; --c2:#f3c24a; --c3:#f66c73"></div>
+        <div>
+          <div class="playing-title">Slow Tide</div>
+          <div class="playing-meta"><span class="playing-source">Neo</span> · Aesthetic Computer</div>
+        </div>
+      </div>
+      <div class="controls" aria-label="Playback controls">
+        <button class="control" type="button" aria-label="Previous">‹</button>
+        <button class="control primary-control" type="button" aria-label="Play">▶</button>
+        <button class="control" type="button" aria-label="Next">›</button>
+        <div class="meter" aria-label="Playback progress"></div>
+      </div>
+    </footer>
+  </main>
+
+  <script>
+    const models = {
+      local: {
+        accent: "var(--gold)", label: "Neo", placeholder: "Search Neo", action: "Add files…",
+        selected: ["Slow Tide", "Aesthetic Computer", "WAV · 96 kHz"],
+        rows: [
+          ["Slow Tide", "Aesthetic Computer · /Music/Releases", "4:12", "#138585", "#f3c24a", "#f66c73"],
+          ["Night Vein", "Aesthetic Computer · /Music/Renders", "3:47", "#322b75", "#4db4a9", "#ee725b"],
+          ["Vienna Lantern Waltz", "Menu Band · /Music/Scores", "2:58", "#f3a52d", "#854075", "#122f54"],
+          ["Sunday Morning Hands", "Aesthetic Computer · /Desktop/Takes", "5:06", "#d3a735", "#41827d", "#f4e5bb"],
+          ["Concrete Echo", "Jeffrey · /Music/Sketches", "1:43", "#333943", "#da5c4b", "#b8b6a5"],
+          ["Cyan Sprint", "Aesthetic Computer · /Music/Renders", "3:25", "#0fa8b5", "#ffcc56", "#175a7f"]
+        ]
+      },
+      aesthetic: {
+        accent: "var(--pink)", label: "Aesthetic", placeholder: "Search Aesthetic releases", action: "Publish…",
+        selected: ["Nullabye", "Aesthetic Computer", "Cloud release · 5 tracks"],
+        rows: [
+          ["Nullabye", "Aesthetic Computer · released today", "5 tracks", "#42276b", "#f05a91", "#f1c44b"],
+          ["Menu Band Waltzes", "Aesthetic Computer · 2026", "8 tracks", "#193f58", "#f1ae2f", "#e35b58"],
+          ["Sosoft", "Aesthetic Computer · 2026", "12 tracks", "#f26b64", "#875da5", "#40a39c"],
+          ["Raytracer Scores", "Menu Band · 2026", "3 tracks", "#061826", "#e7b640", "#5fb5ba"],
+          ["Notepat Sessions", "Jeffrey · 2025", "9 tracks", "#f2779b", "#f4d361", "#3e8e8b"],
+          ["Pop Studies", "Aesthetic Computer · 2025", "16 tracks", "#304c7a", "#ba537f", "#f1a844"]
+        ]
+      },
+      spotify: {
+        accent: "var(--green)", label: "Spotify", placeholder: "Search Spotify", action: "Connected",
+        selected: ["A Walk", "Tycho", "Dive · 2011"],
+        rows: [
+          ["A Walk", "Tycho · Dive", "5:16", "#d6795b", "#6db2c8", "#f1c15d"],
+          ["Kerosene!", "Yves Tumor · Heaven To A Tortured Mind", "5:05", "#8d324e", "#d4975f", "#3b2932"],
+          ["Svefn-g-englar", "Sigur Rós · Ágætis byrjun", "10:07", "#b4c9cb", "#f0e7dc", "#5f7b7d"],
+          ["Archangel", "Burial · Untrue", "3:59", "#11171c", "#556470", "#8e4b45"],
+          ["An Ending (Ascent)", "Brian Eno · Apollo", "4:26", "#253d7a", "#e6d2b4", "#845aa0"],
+          ["Roygbiv", "Boards of Canada · Music Has the Right…", "2:31", "#755a40", "#c89953", "#344f5c"]
+        ]
+      },
+      apple: {
+        accent: "var(--apple)", label: "Apple Music", placeholder: "Search Apple Music", action: "Connect",
+        selected: ["Dayvan Cowboy", "Boards of Canada", "The Campfire Headphase · 2005"],
+        rows: [
+          ["Dayvan Cowboy", "Boards of Canada · The Campfire Headphase", "5:01", "#315e73", "#e47c5a", "#d0ba78"],
+          ["Dawn Chorus", "Thom Yorke · ANIMA", "5:23", "#23363d", "#c96b54", "#7b8b76"],
+          ["Open Eye Signal", "Jon Hopkins · Immunity", "7:48", "#623160", "#ef8a55", "#1a5570"],
+          ["The Rip", "Portishead · Third", "4:29", "#1f1c1d", "#948b77", "#e6e1d5"],
+          ["Avril 14th", "Aphex Twin · Drukqs", "1:58", "#ddd5c5", "#716f68", "#b7aa8b"],
+          ["Two Thousand and Seventeen", "Four Tet · New Energy", "4:12", "#bf8c44", "#415674", "#9f3356"]
+        ]
+      }
+    };
+
+    const app = document.querySelector("#app");
+    const tabs = [...document.querySelectorAll(".source")];
+    const rows = document.querySelector(".rows");
+    const search = document.querySelector(".search");
+    const action = document.querySelector(".source-action");
+    const eyebrow = document.querySelector(".eyebrow");
+    const heading = document.querySelector(".detail h1");
+    const detailMeta = document.querySelector(".detail p");
+    const hero = document.querySelector(".hero-art");
+
+    function rowMarkup(item, index) {
+      const [title, meta, tail, c1, c2, c3] = item;
+      return `<article class="row${index === 0 ? " active" : ""}" role="listitem" data-index="${index}">
+        <div class="art" style="--c1:${c1}; --c2:${c2}; --c3:${c3}"></div>
+        <div class="track-copy"><div class="track-title">${title}</div><div class="track-meta">${meta}</div></div>
+        <div class="row-tail">${tail}</div>
+      </article>`;
+    }
+
+    function selectItem(source, index) {
+      const model = models[source];
+      const item = model.rows[index];
+      document.querySelectorAll(".row").forEach((row, i) => row.classList.toggle("active", i === index));
+      eyebrow.textContent = model.label;
+      heading.textContent = item[0];
+      detailMeta.textContent = item[1].replaceAll(" · ", " · ");
+      hero.style.background = `
+        radial-gradient(circle at 52% 50%, rgba(6,14,17,.95) 0 8%, transparent 8.5%),
+        repeating-radial-gradient(circle at 52% 50%, transparent 0 8px, rgba(255,255,255,.11) 9px, transparent 11px),
+        conic-gradient(from 18deg, ${item[3]}, ${item[4]}, ${item[5]}, ${item[3]})`;
+    }
+
+    function showSource(source) {
+      const model = models[source];
+      app.style.setProperty("--active", model.accent);
+      tabs.forEach(tab => tab.setAttribute("aria-selected", String(tab.dataset.source === source)));
+      search.placeholder = model.placeholder;
+      search.value = "";
+      action.textContent = model.action;
+      rows.innerHTML = model.rows.map(rowMarkup).join("");
+      rows.querySelectorAll(".row").forEach(row => row.addEventListener("click", () => selectItem(source, Number(row.dataset.index))));
+      selectItem(source, 0);
+    }
+
+    tabs.forEach(tab => tab.addEventListener("click", () => showSource(tab.dataset.source)));
+    search.addEventListener("input", () => {
+      const source = tabs.find(tab => tab.getAttribute("aria-selected") === "true").dataset.source;
+      const term = search.value.trim().toLowerCase();
+      const filtered = models[source].rows.filter(item => item.slice(0, 2).join(" ").toLowerCase().includes(term));
+      rows.innerHTML = filtered.length ? filtered.map(rowMarkup).join("") : `<div class="empty-state"><div><strong>No matches</strong>${models[source].label}</div></div>`;
+    });
+
+    const requestedSource = new URLSearchParams(location.search).get("source");
+    showSource(models[requestedSource] ? requestedSource : "local");
+  </script>
+</body>
+</html>

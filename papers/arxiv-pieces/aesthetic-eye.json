@@ -1,0 +1,70 @@
+{
+  "schema": 1,
+  "paper": "Pieces Not Programs",
+  "pdf": "pieces.pdf",
+  "pdfSha256": "cebcba30285904162a116bc88dc7c40da3dd6a44019139e55ce7be90dceaf8dc",
+  "visualInference": true,
+  "reviewer": {
+    "kind": "visual-inference",
+    "name": "Codex"
+  },
+  "reviewedAt": "2026-08-05T18:55:13Z",
+  "brand": {
+    "canonicalName": "Aesthetic.Computer",
+    "dotColor": "#B44887",
+    "design": "pass",
+    "checks": {
+      "period": "pass",
+      "dotColor": "pass"
+    },
+    "notes": "Every visible project-name wordmark uses the AC macro: the period is present and rendered in AC pink."
+  },
+  "expectedDiagrams": 3,
+  "diagrams": [
+    {
+      "id": "piece-contract",
+      "page": 3,
+      "crop": [0.07, 0.04, 0.86, 0.22],
+      "design": "pass",
+      "checks": {
+        "tangents": "pass",
+        "type": "pass",
+        "balance": "pass",
+        "spaceUse": "pass",
+        "hierarchy": "pass",
+        "edgeRouting": "pass"
+      },
+      "notes": "Four-part identity path reads left to right; same-source and contract-port branches are distinct by solid versus dashed routing, labels clear their nodes, and the diagram remains legible at normal page size."
+    },
+    {
+      "id": "piece-lifecycle",
+      "page": 3,
+      "crop": [0.07, 0.22, 0.86, 0.2],
+      "design": "pass",
+      "checks": {
+        "tangents": "pass",
+        "type": "pass",
+        "balance": "pass",
+        "spaceUse": "pass",
+        "hierarchy": "pass",
+        "edgeRouting": "pass"
+      },
+      "notes": "The optional lifecycle reads left to right, the event/frame loop runs below the nodes without collisions, and the dashed exit distinguishes cleanup from the recurring performance path."
+    },
+    {
+      "id": "piece-ecology",
+      "page": 8,
+      "crop": [0.10, 0.04, 0.80, 0.27],
+      "design": "pass",
+      "checks": {
+        "tangents": "pass",
+        "type": "pass",
+        "balance": "pass",
+        "spaceUse": "pass",
+        "hierarchy": "pass",
+        "edgeRouting": "pass"
+      },
+      "notes": "The piece is visually primary at the center; bag, channel, session, and server remain distinct neighboring units. The tightened render preserves readable labels, short orthogonal relationships, and no crossing edges."
+    }
+  ]
+}

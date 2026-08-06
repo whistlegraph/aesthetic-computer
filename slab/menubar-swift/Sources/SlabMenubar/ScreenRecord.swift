@@ -36,6 +36,8 @@ final class ScreenRecord: NSObject, SCStreamDelegate, SCRecordingOutputDelegate 
     private var outURL: URL?
     private var startedAt: Date?
     private var lastError: String?
+    private let reservationLock = NSLock()
+    private var captureReserved = false
     /// True only while we are deliberately tearing the stream down, so the
     /// delegate can tell our own stop apart from a real mid-take failure.
     private var stopping = false
@@ -76,6 +78,7 @@ final class ScreenRecord: NSObject, SCStreamDelegate, SCRecordingOutputDelegate 
         guard stream == nil else {
             lastError = "already recording"; writeState(); markDone(); return
         }
+        setCaptureReserved(true)
         lastError = nil
         stopping = false
 
@@ -125,6 +128,7 @@ final class ScreenRecord: NSObject, SCStreamDelegate, SCRecordingOutputDelegate 
                 self.lastError = "\(error)"
                 self.stream = nil
                 self.output = nil
+                self.setCaptureReserved(false)
             }
         }
         sem.wait()
@@ -233,8 +237,21 @@ final class ScreenRecord: NSObject, SCStreamDelegate, SCRecordingOutputDelegate 
         // stop growing before we say done, so the caller never reads a partial.
         if let url = outURL { waitForFlush(url) }
         startedAt = nil
+        setCaptureReserved(false)
         writeState()
         markDone()
+    }
+
+    /// True from the moment a start request is accepted until the take has
+    /// stopped or failed. Background features use this to avoid launching
+    /// external processes whose permission UI could land inside the recording.
+    var reservesExternalProcesses: Bool {
+        reservationLock.lock(); defer { reservationLock.unlock() }
+        return captureReserved
+    }
+
+    private func setCaptureReserved(_ value: Bool) {
+        reservationLock.lock(); captureReserved = value; reservationLock.unlock()
     }
 
     private func fileSize(_ path: String) -> UInt64 {
@@ -281,6 +298,7 @@ final class ScreenRecord: NSObject, SCStreamDelegate, SCRecordingOutputDelegate 
             self.stream = nil
             self.output = nil
             self.startedAt = nil
+            self.setCaptureReserved(false)
             self.writeState()
         }
     }

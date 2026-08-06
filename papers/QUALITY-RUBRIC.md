@@ -84,9 +84,12 @@ flagship paper is expected to show its argument, not just state it.
   `aesthetic-eye.json` and receives an explicit visual-inference verdict of
   `design: pass|fail`. A pass requires clear tangents, accessible type, balanced
   composition, intentional use of available space, legible hierarchy, and
-  unambiguous edge routing. The manifest's PDF hash must match the built PDF.
-  Run `node papers/aesthetic-eye.mjs prepare <paper-dir>`, inspect every crop,
-  record the verdicts, then run `node papers/aesthetic-eye.mjs check <paper-dir>`.
+  unambiguous edge routing. The paper-wide brand verdict also requires every
+  visible wordmark to read `Aesthetic.Computer`, with its period in AC pink
+  (`#B44887`). The manifest's PDF hash must match the built PDF. Run
+  `node papers/aesthetic-eye.mjs prepare <paper-dir>`, inspect the page contact
+  sheet and every crop, record the verdicts, then run
+  `node papers/aesthetic-eye.mjs check <paper-dir>`.
 
 ## E — Cover (`bin/gen-cover.mjs`)
 

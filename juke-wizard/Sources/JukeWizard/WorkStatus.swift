@@ -68,7 +68,9 @@ enum WorkStatus {
         let markers = ["render-", "render-c.mjs", "bake.mjs", "ffmpeg", "swift build", "gen-score"]
         return text.split(separator: "\n").compactMap { raw in
             let command = String(raw)
-            guard markers.contains(where: command.contains), !command.contains("JukeWizard") else { return nil }
+            guard markers.contains(where: command.contains),
+                  !command.contains("JukeWizard"),
+                  !command.contains("/MenuBand") else { return nil }
             let lane = popLane(in: command) ?? tracks.first(where: { command.lowercased().contains($0.title.lowercased()) })?.lane
             guard let lane else { return nil }
             let track = tracks.first(where: { $0.lane == lane && command.lowercased().contains($0.title.lowercased()) })?.title

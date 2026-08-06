@@ -46,7 +46,10 @@ mkdirSync(OUT, { recursive: true });
 const BELL_CACHE = resolve(OUT, ".wattajetta-bell-cache-v1");
 mkdirSync(BELL_CACHE, { recursive: true });
 const NEXT = process.argv.includes("--next");
+const INDUSTRIAL = process.argv.includes("--industrial");
 const WORLD = NEXT || process.argv.includes("--world");
+const outputStem = INDUSTRIAL ? "wattajetta-industrial"
+  : NEXT ? "wattajetta-world-v2" : WORLD ? "wattajetta-world" : "wattajetta";
 
 const SR = 48000;
 const TAU = 2 * Math.PI;
@@ -205,7 +208,6 @@ if (WORLD) {
     sines.push([bar(b), 3.2, 62, 27, -19, 0.08, 2.7, -0.12, 0.12, 1.7, 5]);
   }
 }
-
 // ── kicks: halftime 1+3 early (the part we loved), then the flight
 //    ramps — drop C flips to four-on-the-floor halfway, and the steel
 //    and stone drops drive full trance 4/4 ────────────────────────────
@@ -382,8 +384,11 @@ function chimeCluster(t, count, db) {
     tt += 0.03 + rnd() * 0.09;
   }
 }
-for (const b of BREATHS) { chimeCluster(bar(b) + BEAT, 5, -20); chimeCluster(bar(b + 2) + 2 * BEAT, 4, -22); }
-for (const b of [82, 86, 91]) chimeCluster(bar(b), 3, -23);
+for (const b of BREATHS) {
+  chimeCluster(bar(b) + BEAT, INDUSTRIAL ? 2 : 5, INDUSTRIAL ? -24 : -20);
+  chimeCluster(bar(b + 2) + 2 * BEAT, INDUSTRIAL ? 2 : 4, INDUSTRIAL ? -25 : -22);
+}
+if (!INDUSTRIAL) for (const b of [82, 86, 91]) chimeCluster(bar(b), 3, -23);
 
 // Sparse upper-register "bing bing" answers: short steel/glass glocks,
 // locked to E minor pentatonic so sparkle never becomes broadband haze.
@@ -510,13 +515,13 @@ const score = [
   `noise ${noises.length}`, fmt(noises),
 ].join("\n") + "\n";
 
-const scorePath = resolve(OUT, "wattajetta.score.txt");
+const scorePath = resolve(OUT, `${outputStem}.score.txt`);
 writeFileSync(scorePath, score);
 if (process.argv.includes("--score")) { console.log(score); process.exit(0); }
 console.log(`baked ${kicks.length} kicks, ${sines.length} sines, ${noises.length} sprays, ${bells.length} bells`);
 
-const rawPath = resolve(OUT, "wattajetta.f32.raw");
-const kickPath = resolve(OUT, "wattajetta.kick.f32.raw");
+const rawPath = resolve(OUT, `${outputStem}.f32.raw`);
+const kickPath = resolve(OUT, `${outputStem}.kick.f32.raw`);
 const r = spawnSync("node", [resolve(HERE, "../c/run-c.mjs"), scorePath, "--raw", rawPath, "--kickraw", kickPath], { stdio: "inherit" });
 if (r.status !== 0) process.exit(1);
 
@@ -770,6 +775,17 @@ if (WORLD) {
       scratchVoiceGesture(t, tBar, from, to, gainDb + (downbeat ? 1 : 0), pan,
                           downbeat ? 0.24 : 0.18 + rnd() * 0.06);
     }
+  }
+}
+if (INDUSTRIAL) {
+  // One compact transformer gesture every two bars: audible turntablism,
+  // disciplined like a machine interlock rather than a continuous spray.
+  for (let b = 2; b < 80; b += 2) {
+    const tBar = bar(b);
+    const reverse = (b / 2) % 2 === 0;
+    scratchVoiceGesture(tBar + 1.5 * BEAT, tBar,
+                        reverse ? 0.58 : 0.32, reverse ? 0.34 : 0.52,
+                        -16.5, reverse ? -0.24 : 0.24, 0.19);
   }
 }
 const E = BEAT / 2; // an eighth
@@ -1340,7 +1356,6 @@ if (NEXT) {
   }
 }
 
-const outputStem = NEXT ? "wattajetta-world-v2" : WORLD ? "wattajetta-world" : "wattajetta";
 const mixedPath = resolve(OUT, `${outputStem}.mixed.f32.raw`);
 writeFileSync(mixedPath, Buffer.from(outputMix.buffer, outputMix.byteOffset, outputMix.length * 4));
 
@@ -1352,6 +1367,7 @@ const MASTER = [
   "equalizer=f=50:t=q:w=1.2:g=2.5", // the boom under the kick — no treble boost; laptop speakers read it as tang
   ...(WORLD ? ["equalizer=f=285:t=q:w=0.85:g=-1.6"] : []), // normalize low-mid buildup for headphones
   ...(WORLD ? ["highshelf=f=5500:g=-2dB"] : []), // keep the water world, lose excess upper-air haze
+  ...(INDUSTRIAL ? ["equalizer=f=240:t=q:w=1.1:g=-1.2", "highshelf=f=6200:g=-2.5dB"] : []),
   "alimiter=limit=0.96:attack=4:release=70",
   ...(WORLD ? ["volume=-1.5dB"] : []), // leave the spatial audition at about -1 dBTP
   // The accelerando leaves dead source at the legacy tail. The fixed 2:30
@@ -1377,4 +1393,4 @@ if (WORLD) {
   console.log(`✓ ${wav} (24-bit spatial audition)`);
 }
 for (const p of [rawPath, kickPath, mixedPath]) { try { unlinkSync(p); } catch {} }
-console.log(`✓ ${mp3} (glass↔staccato transmogrification · rhythmic scratch voice · water world)`);
+console.log(`✓ ${mp3} (${INDUSTRIAL ? "steel/stone press line · disciplined scratches · negative space" : "glass↔staccato transmogrification · rhythmic scratch voice · water world"})`);

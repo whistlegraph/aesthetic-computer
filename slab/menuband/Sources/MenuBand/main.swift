@@ -12,6 +12,16 @@ if MenubarCLI.runIfRequested(CommandLine.arguments) {
     exit(0)
 }
 
+// Headless capture of the real live QWERTY keymap for promos/reels.
+if QwertyCLI.runIfRequested(CommandLine.arguments) {
+    exit(0)
+}
+
+// Headless capture of the live scale-teaching staff used in promos/reels.
+if ScaleStaffCLI.runIfRequested(CommandLine.arguments) {
+    exit(0)
+}
+
 // Headless capture of the real About window for promos/reels.
 if AboutCLI.runIfRequested(CommandLine.arguments) {
     exit(0)

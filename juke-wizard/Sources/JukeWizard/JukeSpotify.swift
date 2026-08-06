@@ -146,10 +146,14 @@ final class JukeSpotify {
     private static func executableURL() -> URL? {
         let installed = URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent(".local/bin/juked")
         if FileManager.default.isExecutableFile(atPath: installed.path) { return installed }
-        var root = URL(fileURLWithPath: #filePath)
-        for _ in 0..<4 { root.deleteLastPathComponent() }
-        let source = root.appendingPathComponent("slab/juked/bin/juked")
-        return FileManager.default.isExecutableFile(atPath: source.path) ? source : nil
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        let candidates = [
+            home.appendingPathComponent("aesthetic-computer/slab/juked/bin/juked"),
+            home.appendingPathComponent("Developer/aesthetic-computer/slab/juked/bin/juked"),
+            URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+                .appendingPathComponent("slab/juked/bin/juked"),
+        ]
+        return candidates.first(where: { FileManager.default.isExecutableFile(atPath: $0.path) })
     }
 
     private static func run(_ arguments: [String]) throws -> Data {

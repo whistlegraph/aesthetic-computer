@@ -194,7 +194,7 @@ final class JukeCloudWindowController: NSWindowController,
         scroll.autoresizingMask = [.width, .height]
         content.addSubview(scroll)
 
-        configure(loadButton, "Load in JukeWizard", #selector(loadAction))
+        configure(loadButton, "Load in Menu Band Juke", #selector(loadAction))
         configure(copyButton, "Copy play command", #selector(copyAction))
         loadButton.frame = NSRect(x: 12, y: 12, width: 144, height: 30)
         copyButton.frame = NSRect(x: 160, y: 12, width: 138, height: 30)

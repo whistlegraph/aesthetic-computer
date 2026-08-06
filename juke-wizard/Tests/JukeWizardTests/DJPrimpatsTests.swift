@@ -1,6 +1,6 @@
 import AVFoundation
 import XCTest
-@testable import JukeWizard
+@testable import MenuBandJuke
 
 final class DJPrimpatsTests: XCTestCase {
     func testCatalogRendersDeterministicLoopableStereoTracks() throws {

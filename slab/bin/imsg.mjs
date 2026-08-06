@@ -825,6 +825,63 @@ function localFrameMachine() {
   return (result.stdout || "").trim() || "local";
 }
 
+function systemEventsMessagesState() {
+  // Frame normally supplies the AX tree through SlabMenubar. A freshly built
+  // or newly installed menubar app can temporarily lose Accessibility trust,
+  // while the already-approved System Events automation route still exposes
+  // the focused Messages composer. Require the window title and the composer's
+  // contact help text to agree so this fallback cannot weaken recipient
+  // verification.
+  const script = String.raw`
+const se = Application("System Events");
+const process = se.processes.byName("Messages");
+function read(element, property) {
+  try {
+    const value = element[property]();
+    return value == null ? "" : String(value);
+  } catch {
+    return "";
+  }
+}
+let result = { frontmost: false, title: "", composer: "", composerVerified: false };
+try {
+  result.frontmost = Boolean(process.frontmost());
+  const window = process.windows[0];
+  const focused = process.attributes.byName("AXFocusedUIElement").value();
+  const title = read(window, "name").trim();
+  const role = read(focused, "role");
+  const description = read(focused, "description");
+  const contact = read(focused, "help").trim();
+  const isComposer = role === "AXTextField" && description === "Message";
+  result = {
+    frontmost: result.frontmost,
+    title,
+    composer: isComposer ? read(focused, "value") : "",
+    composerVerified: isComposer && Boolean(title) && Boolean(contact),
+    contact,
+  };
+} catch {}
+JSON.stringify(result);`;
+  const inspected = spawnSync(
+    "/usr/bin/osascript",
+    ["-l", "JavaScript", "-e", script],
+    { encoding: "utf8", timeout: 5000 },
+  );
+  if (inspected.status !== 0) return null;
+  try {
+    const state = JSON.parse((inspected.stdout || "{}").trim());
+    if (!state.frontmost || !state.composerVerified) return null;
+    if (!conversationTitleMatches(state.title, state.contact)) return null;
+    return {
+      title: String(state.title || "").trim(),
+      composer: String(state.composer || ""),
+      composerVerified: true,
+    };
+  } catch {
+    return null;
+  }
+}
+
 function visibleMessagesState(outPath = null) {
   const args = [FRAME, localFrameMachine(), "--no-ocr", "--quiet-overlay", "--json"];
   if (outPath) args.push("--out", outPath);
@@ -838,15 +895,21 @@ function visibleMessagesState(outPath = null) {
   }
   const snapshot = JSON.parse((framed.stdout || "{}").trim());
   if (snapshot?.meta?.frontmost?.bundle !== "com.apple.MobileSMS") {
-    return { title: "", composer: "" };
+    return { title: "", composer: "", composerVerified: false };
   }
   const fields = (snapshot?.ax?.elements || [])
     .filter((element) => element.role === "AXTextField")
     .sort((a, b) => (Number(b.cy) || 0) - (Number(a.cy) || 0));
-  return {
-    title: String((snapshot?.meta?.windows || []).find((window) => window.app === "Messages")?.title || "").trim(),
+  const messagesWindow = (snapshot?.meta?.windows || []).find((window) => window.app === "Messages") || null;
+  const frameState = {
+    title: String(messagesWindow?.title || "").trim(),
     composer: String(fields[0]?.title || "").trim(),
+    composerVerified: Boolean(fields[0]),
+    windowFrame: messagesWindow,
   };
+  if (frameState.title && frameState.composerVerified) return frameState;
+  const fallback = systemEventsMessagesState();
+  return fallback ? { ...fallback, windowFrame: messagesWindow } : frameState;
 }
 
 async function selectVerifiedConversation(handle, expectedTitle, timeoutMs = 10000) {
@@ -864,6 +927,7 @@ async function selectVerifiedConversation(handle, expectedTitle, timeoutMs = 100
     await wait(450);
     visible = visibleMessagesState();
     if (!conversationTitleMatches(visible.title, expectedTitle)) continue;
+    if (!visible.composerVerified) continue;
     if (!isMessagesComposerEmpty(visible.composer)) {
       throw new Error(
         `recipient guard preserved an existing draft in "${visible.title}"; clear or send it before attaching media`,
@@ -985,7 +1049,26 @@ function captureSendEvidence(prefix, expectedTitle) {
     rmSync(path, { force: true });
     throw new Error("preview changed before visual evidence could be captured");
   }
-  return path;
+  // Frame's metadata/AX capture can still succeed when SlabMenubar lacks
+  // Screen Recording permission. In that case it cannot write the requested
+  // pixels, so capture the already-verified Messages window through the
+  // caller's approved screencapture route. Never return a phantom path.
+  if (!existsSync(path) && state.windowFrame) {
+    const frame = state.windowFrame;
+    const rect = [frame.x, frame.y, frame.w, frame.h].map((value) => Math.round(Number(value) || 0));
+    if (rect[2] > 0 && rect[3] > 0) {
+      spawnSync(
+        "/usr/sbin/screencapture",
+        ["-x", `-R${rect.join(",")}`, path],
+        { encoding: "utf8" },
+      );
+    }
+  }
+  // Recipient safety does not depend on pixels: the visible window title and
+  // the focused composer's contact identity were already required to agree.
+  // Report unavailable pixels honestly instead of returning a phantom path or
+  // blocking an otherwise verified RCS/SMS send.
+  return existsSync(path) ? path : null;
 }
 
 function outgoingLinkAfter(handles, baseline) {

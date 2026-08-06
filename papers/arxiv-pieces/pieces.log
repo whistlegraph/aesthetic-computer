@@ -1,4 +1,4 @@
-This is XeTeX, Version 3.141592653-2.6-0.999998 (TeX Live 2026) (preloaded format=xelatex 2026.3.1)  18 JUN 2026 22:17
+This is XeTeX, Version 3.141592653-2.6-0.999998 (TeX Live 2026) (preloaded format=xelatex 2026.3.1)  5 AUG 2026 11:53
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -52,7 +52,7 @@ Package: iftex 2024/12/12 v1.0g TeX engine tests
 (/usr/local/texlive/2026basic/texmf-dist/tex/latex/fontspec/fontspec.sty
 (/usr/local/texlive/2026basic/texmf-dist/tex/latex/l3packages/xparse/xparse.sty
 (/usr/local/texlive/2026basic/texmf-dist/tex/latex/l3kernel/expl3.sty
-Package: expl3 2026-01-19 L3 programming layer (loader) 
+Package: expl3 2026-01-19 L3 programming layer (loader)
 
 (/usr/local/texlive/2026basic/texmf-dist/tex/latex/l3backend/l3backend-xetex.de
 f
@@ -107,7 +107,7 @@ File: ts1enc.def 2001/06/05 v3.0e (jk/car/fm) Standard LaTeX file
 LaTeX Font Info:    Redeclaring font encoding TS1 on input line 47.
 LaTeX Encoding Info:    Redeclaring text command \capitalcedilla (encoding TS1)
  on input line 49.
-LaTeX Encoding Info:    Redeclaring text command \capitalogonek (encoding TS1) 
+LaTeX Encoding Info:    Redeclaring text command \capitalogonek (encoding TS1)
 on input line 52.
 LaTeX Encoding Info:    Redeclaring text command \capitalgrave (encoding TS1) o
 n input line 55.
@@ -127,17 +127,17 @@ LaTeX Encoding Info:    Redeclaring text command \capitalcaron (encoding TS1) o
 n input line 62.
 LaTeX Encoding Info:    Redeclaring text command \capitalbreve (encoding TS1) o
 n input line 63.
-LaTeX Encoding Info:    Redeclaring text command \capitalmacron (encoding TS1) 
+LaTeX Encoding Info:    Redeclaring text command \capitalmacron (encoding TS1)
 on input line 64.
 LaTeX Encoding Info:    Redeclaring text command \capitaldotaccent (encoding TS
 1) on input line 65.
 LaTeX Encoding Info:    Redeclaring text command \t (encoding TS1) on input lin
 e 66.
-LaTeX Encoding Info:    Redeclaring text command \capitaltie (encoding TS1) on 
+LaTeX Encoding Info:    Redeclaring text command \capitaltie (encoding TS1) on
 input line 67.
 LaTeX Encoding Info:    Redeclaring text command \newtie (encoding TS1) on inpu
 t line 68.
-LaTeX Encoding Info:    Redeclaring text command \capitalnewtie (encoding TS1) 
+LaTeX Encoding Info:    Redeclaring text command \capitalnewtie (encoding TS1)
 on input line 69.
 LaTeX Encoding Info:    Redeclaring text symbol \textcapitalcompwordmark (encod
 ing TS1) on input line 70.
@@ -153,7 +153,7 @@ LaTeX Encoding Info:    Redeclaring text symbol \textthreequartersemdash (encod
 ing TS1) on input line 75.
 LaTeX Encoding Info:    Redeclaring text symbol \textleftarrow (encoding TS1) o
 n input line 76.
-LaTeX Encoding Info:    Redeclaring text symbol \textrightarrow (encoding TS1) 
+LaTeX Encoding Info:    Redeclaring text symbol \textrightarrow (encoding TS1)
 on input line 77.
 LaTeX Encoding Info:    Redeclaring text symbol \textblank (encoding TS1) on in
 put line 78.
@@ -165,7 +165,7 @@ LaTeX Encoding Info:    Redeclaring text command \textasteriskcentered (encodin
 g TS1) on input line 81.
 LaTeX Encoding Info:    Redeclaring text symbol \textdblhyphen (encoding TS1) o
 n input line 92.
-LaTeX Encoding Info:    Redeclaring text symbol \textfractionsolidus (encoding 
+LaTeX Encoding Info:    Redeclaring text symbol \textfractionsolidus (encoding
 TS1) on input line 93.
 LaTeX Encoding Info:    Redeclaring text symbol \textzerooldstyle (encoding TS1
 ) on input line 94.
@@ -205,11 +205,11 @@ LaTeX Encoding Info:    Redeclaring text symbol \textlbrackdbl (encoding TS1) o
 n input line 116.
 LaTeX Encoding Info:    Redeclaring text symbol \textrbrackdbl (encoding TS1) o
 n input line 117.
-LaTeX Encoding Info:    Redeclaring text symbol \textuparrow (encoding TS1) on 
+LaTeX Encoding Info:    Redeclaring text symbol \textuparrow (encoding TS1) on
 input line 118.
 LaTeX Encoding Info:    Redeclaring text symbol \textdownarrow (encoding TS1) o
 n input line 119.
-LaTeX Encoding Info:    Redeclaring text symbol \textasciigrave (encoding TS1) 
+LaTeX Encoding Info:    Redeclaring text symbol \textasciigrave (encoding TS1)
 on input line 120.
 LaTeX Encoding Info:    Redeclaring text symbol \textborn (encoding TS1) on inp
 ut line 121.
@@ -219,7 +219,7 @@ LaTeX Encoding Info:    Redeclaring text symbol \textdied (encoding TS1) on inp
 ut line 123.
 LaTeX Encoding Info:    Redeclaring text symbol \textleaf (encoding TS1) on inp
 ut line 124.
-LaTeX Encoding Info:    Redeclaring text symbol \textmarried (encoding TS1) on 
+LaTeX Encoding Info:    Redeclaring text symbol \textmarried (encoding TS1) on
 input line 125.
 LaTeX Encoding Info:    Redeclaring text symbol \textmusicalnote (encoding TS1)
  on input line 126.
@@ -227,9 +227,9 @@ LaTeX Encoding Info:    Redeclaring text symbol \texttildelow (encoding TS1) on
  input line 127.
 LaTeX Encoding Info:    Redeclaring text symbol \textdblhyphenchar (encoding TS
 1) on input line 128.
-LaTeX Encoding Info:    Redeclaring text symbol \textasciibreve (encoding TS1) 
+LaTeX Encoding Info:    Redeclaring text symbol \textasciibreve (encoding TS1)
 on input line 129.
-LaTeX Encoding Info:    Redeclaring text symbol \textasciicaron (encoding TS1) 
+LaTeX Encoding Info:    Redeclaring text symbol \textasciicaron (encoding TS1)
 on input line 130.
 LaTeX Encoding Info:    Redeclaring text symbol \textacutedbl (encoding TS1) on
  input line 131.
@@ -245,7 +245,7 @@ LaTeX Encoding Info:    Redeclaring text symbol \textperthousand (encoding TS1)
  on input line 136.
 LaTeX Encoding Info:    Redeclaring text symbol \textbullet (encoding TS1) on i
 nput line 137.
-LaTeX Encoding Info:    Redeclaring text symbol \textcelsius (encoding TS1) on 
+LaTeX Encoding Info:    Redeclaring text symbol \textcelsius (encoding TS1) on
 input line 138.
 LaTeX Encoding Info:    Redeclaring text symbol \textdollaroldstyle (encoding T
 S1) on input line 139.
@@ -259,7 +259,7 @@ LaTeX Encoding Info:    Redeclaring text symbol \textwon (encoding TS1) on inpu
 t line 143.
 LaTeX Encoding Info:    Redeclaring text symbol \textnaira (encoding TS1) on in
 put line 144.
-LaTeX Encoding Info:    Redeclaring text symbol \textguarani (encoding TS1) on 
+LaTeX Encoding Info:    Redeclaring text symbol \textguarani (encoding TS1) on
 input line 145.
 LaTeX Encoding Info:    Redeclaring text symbol \textpeso (encoding TS1) on inp
 ut line 146.
@@ -269,7 +269,7 @@ LaTeX Encoding Info:    Redeclaring text symbol \textrecipe (encoding TS1) on i
 nput line 148.
 LaTeX Encoding Info:    Redeclaring text symbol \textinterrobang (encoding TS1)
  on input line 149.
-LaTeX Encoding Info:    Redeclaring text symbol \textinterrobangdown (encoding 
+LaTeX Encoding Info:    Redeclaring text symbol \textinterrobangdown (encoding
 TS1) on input line 150.
 LaTeX Encoding Info:    Redeclaring text symbol \textdong (encoding TS1) on inp
 ut line 151.
@@ -277,7 +277,7 @@ LaTeX Encoding Info:    Redeclaring text symbol \texttrademark (encoding TS1) o
 n input line 152.
 LaTeX Encoding Info:    Redeclaring text symbol \textpertenthousand (encoding T
 S1) on input line 153.
-LaTeX Encoding Info:    Redeclaring text symbol \textpilcrow (encoding TS1) on 
+LaTeX Encoding Info:    Redeclaring text symbol \textpilcrow (encoding TS1) on
 input line 154.
 LaTeX Encoding Info:    Redeclaring text symbol \textbaht (encoding TS1) on inp
 ut line 155.
@@ -287,7 +287,7 @@ LaTeX Encoding Info:    Redeclaring text symbol \textdiscount (encoding TS1) on
  input line 157.
 LaTeX Encoding Info:    Redeclaring text symbol \textestimated (encoding TS1) o
 n input line 158.
-LaTeX Encoding Info:    Redeclaring text symbol \textopenbullet (encoding TS1) 
+LaTeX Encoding Info:    Redeclaring text symbol \textopenbullet (encoding TS1)
 on input line 159.
 LaTeX Encoding Info:    Redeclaring text symbol \textservicemark (encoding TS1)
  on input line 160.
@@ -305,7 +305,7 @@ LaTeX Encoding Info:    Redeclaring text symbol \textyen (encoding TS1) on inpu
 t line 166.
 LaTeX Encoding Info:    Redeclaring text symbol \textbrokenbar (encoding TS1) o
 n input line 167.
-LaTeX Encoding Info:    Redeclaring text symbol \textsection (encoding TS1) on 
+LaTeX Encoding Info:    Redeclaring text symbol \textsection (encoding TS1) on
 input line 168.
 LaTeX Encoding Info:    Redeclaring text symbol \textasciidieresis (encoding TS
 1) on input line 169.
@@ -319,7 +319,7 @@ LaTeX Encoding Info:    Redeclaring text symbol \textlnot (encoding TS1) on inp
 ut line 173.
 LaTeX Encoding Info:    Redeclaring text symbol \textcircledP (encoding TS1) on
  input line 174.
-LaTeX Encoding Info:    Redeclaring text symbol \textregistered (encoding TS1) 
+LaTeX Encoding Info:    Redeclaring text symbol \textregistered (encoding TS1)
 on input line 175.
 LaTeX Encoding Info:    Redeclaring text symbol \textasciimacron (encoding TS1)
  on input line 176.
@@ -331,7 +331,7 @@ LaTeX Encoding Info:    Redeclaring text symbol \texttwosuperior (encoding TS1)
  on input line 179.
 LaTeX Encoding Info:    Redeclaring text symbol \textthreesuperior (encoding TS
 1) on input line 180.
-LaTeX Encoding Info:    Redeclaring text symbol \textasciiacute (encoding TS1) 
+LaTeX Encoding Info:    Redeclaring text symbol \textasciiacute (encoding TS1)
 on input line 181.
 LaTeX Encoding Info:    Redeclaring text symbol \textmu (encoding TS1) on input
  line 182.
@@ -347,9 +347,9 @@ LaTeX Encoding Info:    Redeclaring text symbol \textordmasculine (encoding TS1
 ) on input line 187.
 LaTeX Encoding Info:    Redeclaring text symbol \textsurd (encoding TS1) on inp
 ut line 188.
-LaTeX Encoding Info:    Redeclaring text symbol \textonequarter (encoding TS1) 
+LaTeX Encoding Info:    Redeclaring text symbol \textonequarter (encoding TS1)
 on input line 189.
-LaTeX Encoding Info:    Redeclaring text symbol \textonehalf (encoding TS1) on 
+LaTeX Encoding Info:    Redeclaring text symbol \textonehalf (encoding TS1) on
 input line 190.
 LaTeX Encoding Info:    Redeclaring text symbol \textthreequarters (encoding TS
 1) on input line 191.
@@ -436,16 +436,16 @@ LaTeX Info: Redefining \] on input line 2951.
 (/usr/local/texlive/2026basic/texmf-dist/tex/latex/unicode-math/unicode-math-ta
 ble.tex)))
 
-Package fontspec Info: 
+Package fontspec Info:
 (fontspec)             Font family 'LatinModernRoman(0)' created for font
 (fontspec)             'Latin Modern Roman' with options
 (fontspec)             [Ligatures=TeX,Extension=.otf,UprightFont=lmroman10-regu
 lar,BoldFont=lmroman10-bold,ItalicFont=lmroman10-italic,BoldItalicFont=lmroman1
 0-bolditalic].
-(fontspec)              
+(fontspec)
 (fontspec)              This font family consists of the following NFSS
 (fontspec)             series/shapes:
-(fontspec)              
+(fontspec)
 (fontspec)             - 'normal' (m/n) with NFSS spec.:
 (fontspec)             <->"[lmroman10-regular.otf]/OT:script=latn;language=dflt
 ;mapping=tex-text;"
@@ -460,16 +460,16 @@ mapping=tex-text;"
 flt;mapping=tex-text;"
 
 
-Package fontspec Info: 
+Package fontspec Info:
 (fontspec)             Font family 'LatinModernRoman(1)' created for font
 (fontspec)             'Latin Modern Roman' with options
 (fontspec)             [Extension=.otf,UprightFont=lmroman10-regular,BoldFont=l
 mroman10-bold,ItalicFont=lmroman10-italic,BoldItalicFont=lmroman10-bolditalic].
 
-(fontspec)              
+(fontspec)
 (fontspec)              This font family consists of the following NFSS
 (fontspec)             series/shapes:
-(fontspec)              
+(fontspec)
 (fontspec)             - 'normal' (m/n) with NFSS spec.:
 (fontspec)             <->"[lmroman10-regular.otf]/OT:script=latn;language=dflt
 ;"
@@ -492,16 +492,16 @@ LaTeX Font Info:    Overwriting math alphabet `\mathbf' in version `normal'
 (Font)                  OT1/cmr/bx/n --> TU/LatinModernRoman(1)/b/n on input li
 ne 16.
 
-Package fontspec Info: 
+Package fontspec Info:
 (fontspec)             Font family 'LatinModernSans(0)' created for font
 (fontspec)             'Latin Modern Sans' with options
 (fontspec)             [Ligatures=TeX,Extension=.otf,UprightFont=lmsans10-regul
 ar,BoldFont=lmsans10-bold,ItalicFont=lmsans10-oblique,BoldItalicFont=lmsans10-b
 oldoblique].
-(fontspec)              
+(fontspec)
 (fontspec)              This font family consists of the following NFSS
 (fontspec)             series/shapes:
-(fontspec)              
+(fontspec)
 (fontspec)             - 'normal' (m/n) with NFSS spec.:
 (fontspec)             <->"[lmsans10-regular.otf]/OT:script=latn;language=dflt;
 mapping=tex-text;"
@@ -516,15 +516,15 @@ mapping=tex-text;"
 flt;mapping=tex-text;"
 
 
-Package fontspec Info: 
+Package fontspec Info:
 (fontspec)             Font family 'LatinModernSans(1)' created for font
 (fontspec)             'Latin Modern Sans' with options
 (fontspec)             [Extension=.otf,UprightFont=lmsans10-regular,BoldFont=lm
 sans10-bold,ItalicFont=lmsans10-oblique,BoldItalicFont=lmsans10-boldoblique].
-(fontspec)              
+(fontspec)
 (fontspec)              This font family consists of the following NFSS
 (fontspec)             series/shapes:
-(fontspec)              
+(fontspec)
 (fontspec)             - 'normal' (m/n) with NFSS spec.:
 (fontspec)             <->"[lmsans10-regular.otf]/OT:script=latn;language=dflt;
 "
@@ -544,28 +544,28 @@ LaTeX Font Info:    Overwriting math alphabet `\mathsf' in version `bold'
 (Font)                  OT1/cmss/bx/n --> TU/LatinModernSans(1)/b/n on input li
 ne 23.
 
-Package fontspec Info: 
+Package fontspec Info:
 (fontspec)             lmmono10-regular scale = 0.85.
 
 
-Package fontspec Info: 
+Package fontspec Info:
 (fontspec)             lmmono10-regular scale = 0.85.
 
 
-Package fontspec Info: 
+Package fontspec Info:
 (fontspec)             lmmono10-italic scale = 0.85.
 
 
-Package fontspec Info: 
+Package fontspec Info:
 (fontspec)             Font family 'LatinModernMono(0)' created for font
 (fontspec)             'Latin Modern Mono' with options
 (fontspec)             [WordSpace={1,0,0},HyphenChar=None,PunctuationSpace=Word
 Space,Extension=.otf,UprightFont=lmmono10-regular,ItalicFont=lmmono10-italic,Sc
 ale=0.85].
-(fontspec)              
+(fontspec)
 (fontspec)              This font family consists of the following NFSS
 (fontspec)             series/shapes:
-(fontspec)              
+(fontspec)
 (fontspec)             - 'normal' (m/n) with NFSS spec.:
 (fontspec)             <->s*[0.85]"[lmmono10-regular.otf]/OT:script=latn;langua
 ge=dflt;"
@@ -574,27 +574,27 @@ ge=dflt;"
 e=dflt;"
 
 
-Package fontspec Info: 
+Package fontspec Info:
 (fontspec)             lmmono10-regular scale = 0.85.
 
 
-Package fontspec Info: 
+Package fontspec Info:
 (fontspec)             lmmono10-regular scale = 0.85.
 
 
-Package fontspec Info: 
+Package fontspec Info:
 (fontspec)             lmmono10-italic scale = 0.85.
 
 
-Package fontspec Info: 
+Package fontspec Info:
 (fontspec)             Font family 'LatinModernMono(1)' created for font
 (fontspec)             'Latin Modern Mono' with options
 (fontspec)             [Extension=.otf,UprightFont=lmmono10-regular,ItalicFont=
 lmmono10-italic,Scale=0.85].
-(fontspec)              
+(fontspec)
 (fontspec)              This font family consists of the following NFSS
 (fontspec)             series/shapes:
-(fontspec)              
+(fontspec)
 (fontspec)             - 'normal' (m/n) with NFSS spec.:
 (fontspec)             <->s*[0.85]"[lmmono10-regular.otf]/OT:script=latn;langua
 ge=dflt;"
@@ -609,32 +609,18 @@ LaTeX Font Info:    Overwriting math alphabet `\mathtt' in version `bold'
 (Font)                  OT1/cmtt/m/n --> TU/LatinModernMono(1)/b/n on input lin
 e 29.
 
-Package fontspec Info: 
+Package fontspec Info:
 (fontspec)             Font family 'ywft-processing-bold(0)' created for font
 (fontspec)             'ywft-processing-bold' with options
 (fontspec)             [Path=../../system/public/type/webfonts/,Extension=.ttf]
 .
-(fontspec)              
+(fontspec)
 (fontspec)              This font family consists of the following NFSS
 (fontspec)             series/shapes:
-(fontspec)              
+(fontspec)
 (fontspec)             - 'normal' (m/n) with NFSS spec.:
 (fontspec)             <->"[../../system/public/type/webfonts/ywft-processing-b
 old.ttf]/OT:script=latn;language=dflt;"
-
-
-Package fontspec Info: 
-(fontspec)             Font family 'ywft-processing-light(0)' created for font
-(fontspec)             'ywft-processing-light' with options
-(fontspec)             [Path=../../system/public/type/webfonts/,Extension=.ttf]
-.
-(fontspec)              
-(fontspec)              This font family consists of the following NFSS
-(fontspec)             series/shapes:
-(fontspec)              
-(fontspec)             - 'normal' (m/n) with NFSS spec.:
-(fontspec)             <->"[../../system/public/type/webfonts/ywft-processing-l
-ight.ttf]/OT:script=latn;language=dflt;"
 
  (/usr/local/texlive/2026basic/texmf-dist/tex/latex/xcolor/xcolor.sty
 Package: xcolor 2024/09/29 v3.02 LaTeX color extensions (UK)
@@ -925,43 +911,401 @@ Package microtype Info: Loading configuration file microtype.cfg.
 File: microtype.cfg 2026/03/01 v3.2d microtype main configuration file (RS)
 )
 LaTeX Info: Redefining \microtypesetup on input line 3065.
-) (/usr/local/texlive/2026basic/texmf-dist/tex/latex/natbib/natbib.sty
+) (/usr/local/texlive/2026basic/texmf-dist/tex/latex/caption/caption.sty
+Package: caption 2023/08/05 v3.6o Customizing captions (AR)
+
+(/usr/local/texlive/2026basic/texmf-dist/tex/latex/caption/caption3.sty
+Package: caption3 2023/07/31 v2.4d caption3 kernel (AR)
+\caption@tempdima=\dimen258
+\captionmargin=\dimen259
+\caption@leftmargin=\dimen260
+\caption@rightmargin=\dimen261
+\caption@width=\dimen262
+\caption@indent=\dimen263
+\caption@parindent=\dimen264
+\caption@hangindent=\dimen265
+Package caption Info: Standard document class detected.
+)
+\c@caption@flags=\count334
+\c@continuedfloat=\count335
+Package caption Info: hyperref package is loaded.
+)
+(/usr/local/texlive/2026basic/texmf-dist/tex/latex/natbib/natbib.sty
 Package: natbib 2010/09/13 8.31b (PWD, AO)
 \bibhang=\skip89
 \bibsep=\skip90
 LaTeX Info: Redefining \cite on input line 694.
-\c@NAT@ctr=\count334
+\c@NAT@ctr=\count336
 )
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/draftwatermark/draftwatermar
-k.sty
-Package: draftwatermark 2024/03/04 3.3 Put a gray textual watermark on document
- pages
+(/usr/local/texlive/2026basic/texmf-dist/tex/latex/tools/multicol.sty
+Package: multicol 2025/10/21 v2.0b multicolumn formatting (FMi)
+\c@tracingmulticols=\count337
+
+
+Package multicol Warning: May not work with the twocolumn option on input line
+145.
+
+\mult@box=\box61
+\multicol@leftmargin=\dimen266
+\c@unbalance=\count338
+\c@collectmore=\count339
+\doublecol@number=\count340
+\multicoltolerance=\count341
+\multicolpretolerance=\count342
+\full@width=\dimen267
+\page@free=\dimen268
+\premulticols=\dimen269
+\postmulticols=\dimen270
+\multicolsep=\skip91
+\multicolbaselineskip=\skip92
+\partial@page=\box62
+\last@line=\box63
+\mc@boxedresult=\box64
+\maxbalancingoverflow=\dimen271
+\mult@rightbox=\box65
+\mult@grightbox=\box66
+\mult@firstbox=\box67
+\mult@gfirstbox=\box68
+\@tempa=\box69
+\@tempa=\box70
+\@tempa=\box71
+\@tempa=\box72
+\@tempa=\box73
+\@tempa=\box74
+\@tempa=\box75
+\@tempa=\box76
+\@tempa=\box77
+\@tempa=\box78
+\@tempa=\box79
+\@tempa=\box80
+\@tempa=\box81
+\@tempa=\box82
+\@tempa=\box83
+\@tempa=\box84
+\@tempa=\box85
+\@tempa=\box86
+\@tempa=\box87
+\@tempa=\box88
+\@tempa=\box89
+\@tempa=\box90
+\@tempa=\box91
+\@tempa=\box92
+\@tempa=\box93
+\@tempa=\box94
+\@tempa=\box95
+\@tempa=\box96
+\@tempa=\box97
+\@tempa=\box98
+\@tempa=\box99
+\@tempa=\box100
+\@tempa=\box101
+\@tempa=\box102
+\@tempa=\box103
+\@tempa=\box104
+\c@minrows=\count343
+\c@columnbadness=\count344
+\c@finalcolumnbadness=\count345
+\last@try=\dimen272
+\multicolovershoot=\dimen273
+\multicolundershoot=\dimen274
+\mult@nat@firstbox=\box105
+\colbreak@box=\box106
+\mc@col@check@num=\count346
+\g__mc_curr_col_int=\count347
+) (/Users/jas/Library/texmf/tex/latex/pgf/frontendlayer/tikz.sty
+(/Users/jas/Library/texmf/tex/latex/pgf/basiclayer/pgf.sty
+(/Users/jas/Library/texmf/tex/latex/pgf/utilities/pgfrcs.sty
+(/Users/jas/Library/texmf/tex/generic/pgf/utilities/pgfutil-common.tex
+\pgfutil@everybye=\toks31
+\pgfutil@tempdima=\dimen275
+\pgfutil@tempdimb=\dimen276
 )
-Package hyperref Info: Option `colorlinks' set `true' on input line 78.
-\acrandtmp=\count335
- (./pieces.aux)
+(/Users/jas/Library/texmf/tex/generic/pgf/utilities/pgfutil-latex.def
+\pgfutil@abb=\box107
+)
+(/Users/jas/Library/texmf/tex/generic/pgf/utilities/pgfrcs.code.tex
+(/Users/jas/Library/texmf/tex/generic/pgf/pgf.revision.tex)
+Package: pgfrcs 2025-08-29 v3.1.11a (3.1.11a)
+))
+Package: pgf 2025-08-29 v3.1.11a (3.1.11a)
+
+(/Users/jas/Library/texmf/tex/latex/pgf/basiclayer/pgfcore.sty
+(/Users/jas/Library/texmf/tex/latex/pgf/systemlayer/pgfsys.sty
+(/Users/jas/Library/texmf/tex/generic/pgf/systemlayer/pgfsys.code.tex
+Package: pgfsys 2025-08-29 v3.1.11a (3.1.11a)
+
+(/Users/jas/Library/texmf/tex/generic/pgf/utilities/pgfkeys.code.tex
+\pgfkeys@pathtoks=\toks32
+\pgfkeys@temptoks=\toks33
+
+(/Users/jas/Library/texmf/tex/generic/pgf/utilities/pgfkeyslibraryfiltered.code
+.tex
+\pgfkeys@tmptoks=\toks34
+))
+\pgf@x=\dimen277
+\pgf@y=\dimen278
+\pgf@xa=\dimen279
+\pgf@ya=\dimen280
+\pgf@xb=\dimen281
+\pgf@yb=\dimen282
+\pgf@xc=\dimen283
+\pgf@yc=\dimen284
+\pgf@xd=\dimen285
+\pgf@yd=\dimen286
+\w@pgf@writea=\write3
+\r@pgf@reada=\read2
+\c@pgf@counta=\count348
+\c@pgf@countb=\count349
+\c@pgf@countc=\count350
+\c@pgf@countd=\count351
+\t@pgf@toka=\toks35
+\t@pgf@tokb=\toks36
+\t@pgf@tokc=\toks37
+\pgf@sys@id@count=\count352
+ (/Users/jas/Library/texmf/tex/generic/pgf/systemlayer/pgf.cfg
+File: pgf.cfg 2025-08-29 v3.1.11a (3.1.11a)
+)
+Driver file for pgf: pgfsys-xetex.def
+
+(/Users/jas/Library/texmf/tex/generic/pgf/systemlayer/pgfsys-xetex.def
+File: pgfsys-xetex.def 2025-08-29 v3.1.11a (3.1.11a)
+
+(/Users/jas/Library/texmf/tex/generic/pgf/systemlayer/pgfsys-dvipdfmx.def
+File: pgfsys-dvipdfmx.def 2025-08-29 v3.1.11a (3.1.11a)
+
+(/Users/jas/Library/texmf/tex/generic/pgf/systemlayer/pgfsys-common-pdf.def
+File: pgfsys-common-pdf.def 2025-08-29 v3.1.11a (3.1.11a)
+)
+\pgfsys@objnum=\count353
+))) (/Users/jas/Library/texmf/tex/generic/pgf/systemlayer/pgfsyssoftpath.code.t
+ex
+File: pgfsyssoftpath.code.tex 2025-08-29 v3.1.11a (3.1.11a)
+\pgfsyssoftpath@smallbuffer@items=\count354
+\pgfsyssoftpath@bigbuffer@items=\count355
+) (/Users/jas/Library/texmf/tex/generic/pgf/systemlayer/pgfsysprotocol.code.tex
+File: pgfsysprotocol.code.tex 2025-08-29 v3.1.11a (3.1.11a)
+)) (/Users/jas/Library/texmf/tex/generic/pgf/basiclayer/pgfcore.code.tex
+Package: pgfcore 2025-08-29 v3.1.11a (3.1.11a)
+
+(/Users/jas/Library/texmf/tex/generic/pgf/math/pgfmath.code.tex
+(/Users/jas/Library/texmf/tex/generic/pgf/math/pgfmathutil.code.tex)
+(/Users/jas/Library/texmf/tex/generic/pgf/math/pgfmathparser.code.tex
+\pgfmath@dimen=\dimen287
+\pgfmath@count=\count356
+\pgfmath@box=\box108
+\pgfmath@toks=\toks38
+\pgfmath@stack@operand=\toks39
+\pgfmath@stack@operation=\toks40
+)
+(/Users/jas/Library/texmf/tex/generic/pgf/math/pgfmathfunctions.code.tex)
+(/Users/jas/Library/texmf/tex/generic/pgf/math/pgfmathfunctions.basic.code.tex)
+
+(/Users/jas/Library/texmf/tex/generic/pgf/math/pgfmathfunctions.trigonometric.c
+ode.tex)
+(/Users/jas/Library/texmf/tex/generic/pgf/math/pgfmathfunctions.random.code.tex
+)
+(/Users/jas/Library/texmf/tex/generic/pgf/math/pgfmathfunctions.comparison.code
+.tex)
+(/Users/jas/Library/texmf/tex/generic/pgf/math/pgfmathfunctions.base.code.tex)
+(/Users/jas/Library/texmf/tex/generic/pgf/math/pgfmathfunctions.round.code.tex)
+(/Users/jas/Library/texmf/tex/generic/pgf/math/pgfmathfunctions.misc.code.tex)
+(/Users/jas/Library/texmf/tex/generic/pgf/math/pgfmathfunctions.integerarithmet
+ics.code.tex)
+(/Users/jas/Library/texmf/tex/generic/pgf/math/pgfmathcalc.code.tex)
+(/Users/jas/Library/texmf/tex/generic/pgf/math/pgfmathfloat.code.tex
+\c@pgfmathroundto@lastzeros=\count357
+))
+(/Users/jas/Library/texmf/tex/generic/pgf/math/pgfint.code.tex)
+(/Users/jas/Library/texmf/tex/generic/pgf/basiclayer/pgfcorepoints.code.tex
+File: pgfcorepoints.code.tex 2025-08-29 v3.1.11a (3.1.11a)
+\pgf@picminx=\dimen288
+\pgf@picmaxx=\dimen289
+\pgf@picminy=\dimen290
+\pgf@picmaxy=\dimen291
+\pgf@pathminx=\dimen292
+\pgf@pathmaxx=\dimen293
+\pgf@pathminy=\dimen294
+\pgf@pathmaxy=\dimen295
+\pgf@xx=\dimen296
+\pgf@xy=\dimen297
+\pgf@yx=\dimen298
+\pgf@yy=\dimen299
+\pgf@zx=\dimen300
+\pgf@zy=\dimen301
+)
+(/Users/jas/Library/texmf/tex/generic/pgf/basiclayer/pgfcorepathconstruct.code.
+tex
+File: pgfcorepathconstruct.code.tex 2025-08-29 v3.1.11a (3.1.11a)
+\pgf@path@lastx=\dimen302
+\pgf@path@lasty=\dimen303
+)
+(/Users/jas/Library/texmf/tex/generic/pgf/basiclayer/pgfcorepathusage.code.tex
+File: pgfcorepathusage.code.tex 2025-08-29 v3.1.11a (3.1.11a)
+\pgf@shorten@end@additional=\dimen304
+\pgf@shorten@start@additional=\dimen305
+) (/Users/jas/Library/texmf/tex/generic/pgf/basiclayer/pgfcorescopes.code.tex
+File: pgfcorescopes.code.tex 2025-08-29 v3.1.11a (3.1.11a)
+\pgfpic=\box109
+\pgf@hbox=\box110
+\pgf@layerbox@main=\box111
+\pgf@picture@serial@count=\count358
+)
+(/Users/jas/Library/texmf/tex/generic/pgf/basiclayer/pgfcoregraphicstate.code.t
+ex
+File: pgfcoregraphicstate.code.tex 2025-08-29 v3.1.11a (3.1.11a)
+\pgflinewidth=\dimen306
+)
+(/Users/jas/Library/texmf/tex/generic/pgf/basiclayer/pgfcoretransformations.cod
+e.tex
+File: pgfcoretransformations.code.tex 2025-08-29 v3.1.11a (3.1.11a)
+\pgf@pt@x=\dimen307
+\pgf@pt@y=\dimen308
+\pgf@pt@temp=\dimen309
+)
+(/Users/jas/Library/texmf/tex/generic/pgf/basiclayer/pgfcorequick.code.tex
+File: pgfcorequick.code.tex 2025-08-29 v3.1.11a (3.1.11a)
+)
+(/Users/jas/Library/texmf/tex/generic/pgf/basiclayer/pgfcoreobjects.code.tex
+File: pgfcoreobjects.code.tex 2025-08-29 v3.1.11a (3.1.11a)
+)
+(/Users/jas/Library/texmf/tex/generic/pgf/basiclayer/pgfcorepathprocessing.code
+.tex
+File: pgfcorepathprocessing.code.tex 2025-08-29 v3.1.11a (3.1.11a)
+)
+(/Users/jas/Library/texmf/tex/generic/pgf/basiclayer/pgfcorearrows.code.tex
+File: pgfcorearrows.code.tex 2025-08-29 v3.1.11a (3.1.11a)
+\pgfarrowsep=\dimen310
+)
+(/Users/jas/Library/texmf/tex/generic/pgf/basiclayer/pgfcoreshade.code.tex
+File: pgfcoreshade.code.tex 2025-08-29 v3.1.11a (3.1.11a)
+\pgf@max=\dimen311
+\pgf@sys@shading@range@num=\count359
+\pgf@shadingcount=\count360
+)
+(/Users/jas/Library/texmf/tex/generic/pgf/basiclayer/pgfcoreimage.code.tex
+File: pgfcoreimage.code.tex 2025-08-29 v3.1.11a (3.1.11a)
+)
+(/Users/jas/Library/texmf/tex/generic/pgf/basiclayer/pgfcoreexternal.code.tex
+File: pgfcoreexternal.code.tex 2025-08-29 v3.1.11a (3.1.11a)
+\pgfexternal@startupbox=\box112
+)
+(/Users/jas/Library/texmf/tex/generic/pgf/basiclayer/pgfcorelayers.code.tex
+File: pgfcorelayers.code.tex 2025-08-29 v3.1.11a (3.1.11a)
+)
+(/Users/jas/Library/texmf/tex/generic/pgf/basiclayer/pgfcoretransparency.code.t
+ex
+File: pgfcoretransparency.code.tex 2025-08-29 v3.1.11a (3.1.11a)
+)
+(/Users/jas/Library/texmf/tex/generic/pgf/basiclayer/pgfcorepatterns.code.tex
+File: pgfcorepatterns.code.tex 2025-08-29 v3.1.11a (3.1.11a)
+)
+(/Users/jas/Library/texmf/tex/generic/pgf/basiclayer/pgfcorerdf.code.tex
+File: pgfcorerdf.code.tex 2025-08-29 v3.1.11a (3.1.11a)
+)))
+(/Users/jas/Library/texmf/tex/generic/pgf/modules/pgfmoduleshapes.code.tex
+File: pgfmoduleshapes.code.tex 2025-08-29 v3.1.11a (3.1.11a)
+\pgfnodeparttextbox=\box113
+)
+(/Users/jas/Library/texmf/tex/generic/pgf/modules/pgfmoduleplot.code.tex
+File: pgfmoduleplot.code.tex 2025-08-29 v3.1.11a (3.1.11a)
+)
+(/Users/jas/Library/texmf/tex/latex/pgf/compatibility/pgfcomp-version-0-65.sty
+Package: pgfcomp-version-0-65 2025-08-29 v3.1.11a (3.1.11a)
+\pgf@nodesepstart=\dimen312
+\pgf@nodesepend=\dimen313
+) (/Users/jas/Library/texmf/tex/latex/pgf/compatibility/pgfcomp-version-1-18.st
+y
+Package: pgfcomp-version-1-18 2025-08-29 v3.1.11a (3.1.11a)
+)) (/Users/jas/Library/texmf/tex/latex/pgf/utilities/pgffor.sty
+(/Users/jas/Library/texmf/tex/latex/pgf/utilities/pgfkeys.sty
+(/Users/jas/Library/texmf/tex/generic/pgf/utilities/pgfkeys.code.tex))
+(/Users/jas/Library/texmf/tex/latex/pgf/math/pgfmath.sty
+(/Users/jas/Library/texmf/tex/generic/pgf/math/pgfmath.code.tex))
+(/Users/jas/Library/texmf/tex/generic/pgf/utilities/pgffor.code.tex
+Package: pgffor 2025-08-29 v3.1.11a (3.1.11a)
+\pgffor@iter=\dimen314
+\pgffor@skip=\dimen315
+\pgffor@stack=\toks41
+\pgffor@toks=\toks42
+))
+(/Users/jas/Library/texmf/tex/generic/pgf/frontendlayer/tikz/tikz.code.tex
+Package: tikz 2025-08-29 v3.1.11a (3.1.11a)
+
+(/Users/jas/Library/texmf/tex/generic/pgf/libraries/pgflibraryplothandlers.code
+.tex
+File: pgflibraryplothandlers.code.tex 2025-08-29 v3.1.11a (3.1.11a)
+\pgf@plot@mark@count=\count361
+\pgfplotmarksize=\dimen316
+)
+\tikz@lastx=\dimen317
+\tikz@lasty=\dimen318
+\tikz@lastxsaved=\dimen319
+\tikz@lastysaved=\dimen320
+\tikz@lastmovetox=\dimen321
+\tikz@lastmovetoy=\dimen322
+\tikzleveldistance=\dimen323
+\tikzsiblingdistance=\dimen324
+\tikz@figbox=\box114
+\tikz@figbox@bg=\box115
+\tikz@tempbox=\box116
+\tikz@tempbox@bg=\box117
+\tikztreelevel=\count362
+\tikznumberofchildren=\count363
+\tikznumberofcurrentchild=\count364
+\tikz@fig@count=\count365
+
+(/Users/jas/Library/texmf/tex/generic/pgf/modules/pgfmodulematrix.code.tex
+File: pgfmodulematrix.code.tex 2025-08-29 v3.1.11a (3.1.11a)
+\pgfmatrixcurrentrow=\count366
+\pgfmatrixcurrentcolumn=\count367
+\pgf@matrix@numberofcolumns=\count368
+)
+\tikz@expandcount=\count369
+
+(/Users/jas/Library/texmf/tex/generic/pgf/frontendlayer/tikz/libraries/tikzlibr
+arytopaths.code.tex
+File: tikzlibrarytopaths.code.tex 2025-08-29 v3.1.11a (3.1.11a)
+)))
+(/Users/jas/Library/texmf/tex/generic/pgf/libraries/pgflibraryarrows.meta.code.
+tex
+File: pgflibraryarrows.meta.code.tex 2025-08-29 v3.1.11a (3.1.11a)
+\pgfarrowinset=\dimen325
+\pgfarrowlength=\dimen326
+\pgfarrowwidth=\dimen327
+\pgfarrowlinewidth=\dimen328
+)
+(/Users/jas/Library/texmf/tex/generic/pgf/frontendlayer/tikz/libraries/tikzlibr
+arycalc.code.tex
+File: tikzlibrarycalc.code.tex 2025-08-29 v3.1.11a (3.1.11a)
+)
+(/Users/jas/Library/texmf/tex/generic/pgf/frontendlayer/tikz/libraries/tikzlibr
+arypositioning.code.tex
+File: tikzlibrarypositioning.code.tex 2025-08-29 v3.1.11a (3.1.11a)
+)
+Package hyperref Info: Option `colorlinks' set `true' on input line 70.
+ (./version.tex) (./pieces.aux)
 \openout1 = `pieces.aux'.
 
-LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 134.
-LaTeX Font Info:    ... okay on input line 134.
-LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 134.
-LaTeX Font Info:    ... okay on input line 134.
-LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 134.
-LaTeX Font Info:    ... okay on input line 134.
-LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 134.
-LaTeX Font Info:    ... okay on input line 134.
-LaTeX Font Info:    Checking defaults for TS1/cmr/m/n on input line 134.
-LaTeX Font Info:    ... okay on input line 134.
-LaTeX Font Info:    Checking defaults for TU/lmr/m/n on input line 134.
-LaTeX Font Info:    ... okay on input line 134.
-LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 134.
-LaTeX Font Info:    ... okay on input line 134.
-LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 134.
-LaTeX Font Info:    ... okay on input line 134.
-LaTeX Font Info:    Checking defaults for PD1/pdf/m/n on input line 134.
-LaTeX Font Info:    ... okay on input line 134.
-LaTeX Font Info:    Checking defaults for PU/pdf/m/n on input line 134.
-LaTeX Font Info:    ... okay on input line 134.
+LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 122.
+LaTeX Font Info:    ... okay on input line 122.
+LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 122.
+LaTeX Font Info:    ... okay on input line 122.
+LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 122.
+LaTeX Font Info:    ... okay on input line 122.
+LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 122.
+LaTeX Font Info:    ... okay on input line 122.
+LaTeX Font Info:    Checking defaults for TS1/cmr/m/n on input line 122.
+LaTeX Font Info:    ... okay on input line 122.
+LaTeX Font Info:    Checking defaults for TU/lmr/m/n on input line 122.
+LaTeX Font Info:    ... okay on input line 122.
+LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 122.
+LaTeX Font Info:    ... okay on input line 122.
+LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 122.
+LaTeX Font Info:    ... okay on input line 122.
+LaTeX Font Info:    Checking defaults for PD1/pdf/m/n on input line 122.
+LaTeX Font Info:    ... okay on input line 122.
+LaTeX Font Info:    Checking defaults for PU/pdf/m/n on input line 122.
+LaTeX Font Info:    ... okay on input line 122.
 
 *geometry* driver: auto-detecting
 *geometry* detected driver: xetex
@@ -970,7 +1314,7 @@ LaTeX Font Info:    ... okay on input line 134.
 * paper: letterpaper
 * layout: <same size as paper>
 * layoutoffset:(h,v)=(0.0pt,0.0pt)
-* modes: 
+* modes:
 * h-part:(L,W,R)=(54.2025pt, 505.89pt, 54.2025pt)
 * v-part:(T,H,B)=(54.2025pt, 686.56499pt, 54.2025pt)
 * \paperwidth=614.295pt
@@ -983,7 +1327,7 @@ LaTeX Font Info:    ... okay on input line 134.
 * \headheight=12.0pt
 * \headsep=25.0pt
 * \topskip=10.0pt
-* \footskip=30.0pt
+* \footskip=12.0pt
 * \marginparwidth=4.0pt
 * \marginparsep=10.0pt
 * \columnsep=18.00003pt
@@ -998,15 +1342,15 @@ LaTeX Font Info:    ... okay on input line 134.
 * (1in=72.27pt=25.4mm, 1cm=28.453pt)
 
 
-Package fontspec Info: 
+Package fontspec Info:
 (fontspec)             Font family 'latinmodern-math.otf(0)' created for font
 (fontspec)             'latinmodern-math.otf' with options
 (fontspec)             [BoldItalicFont={},ItalicFont={},SmallCapsFont={},Script
 =Math,BoldFont={latinmodern-math.otf}].
-(fontspec)              
+(fontspec)
 (fontspec)              This font family consists of the following NFSS
 (fontspec)             series/shapes:
-(fontspec)              
+(fontspec)
 (fontspec)             - 'normal' (m/n) with NFSS spec.:
 (fontspec)             <->"[latinmodern-math.otf]/OT:script=math;language=dflt;
 "
@@ -1015,17 +1359,17 @@ Package fontspec Info:
 "
 
 
-Package fontspec Info: 
+Package fontspec Info:
 (fontspec)             Font family 'latinmodern-math.otf(1)' created for font
 (fontspec)             'latinmodern-math.otf' with options
 (fontspec)             [BoldItalicFont={},ItalicFont={},SmallCapsFont={},Script
 =Math,SizeFeatures={{Size=8.5-},{Size=6-8.5,Font=latinmodern-math.otf,Style=Mat
 hScript},{Size=-6,Font=latinmodern-math.otf,Style=MathScriptScript}},BoldFont={
 latinmodern-math.otf}].
-(fontspec)              
+(fontspec)
 (fontspec)              This font family consists of the following NFSS
 (fontspec)             series/shapes:
-(fontspec)              
+(fontspec)
 (fontspec)             - 'normal' (m/n) with NFSS spec.:
 (fontspec)             <8.5->"[latinmodern-math.otf]/OT:script=math;language=df
 lt;"<6-8.5>"[latinmodern-math.otf]/OT:script=math;language=dflt;+ssty=0;"<-6>"[
@@ -1035,38 +1379,38 @@ latinmodern-math.otf]/OT:script=math;language=dflt;+ssty=1;"
 "
 
 LaTeX Font Info:    Encoding `OT1' has changed to `TU' for symbol font
-(Font)              `operators' in the math version `normal' on input line 134.
+(Font)              `operators' in the math version `normal' on input line 122.
 
 LaTeX Font Info:    Overwriting symbol font `operators' in version `normal'
 (Font)                  OT1/cmr/m/n --> TU/latinmodern-math.otf(1)/m/n on input
- line 134.
+ line 122.
 LaTeX Font Info:    Encoding `OT1' has changed to `TU' for symbol font
-(Font)              `operators' in the math version `bold' on input line 134.
+(Font)              `operators' in the math version `bold' on input line 122.
 LaTeX Font Info:    Overwriting symbol font `operators' in version `bold'
 (Font)                  OT1/cmr/bx/n --> TU/latinmodern-math.otf(1)/b/n on inpu
-t line 134.
+t line 122.
 
-Package fontspec Info: 
+Package fontspec Info:
 (fontspec)             latinmodern-math scale = 1.0001.
 
 
-Package fontspec Info: 
+Package fontspec Info:
 (fontspec)             latinmodern-math scale = 1.0001.
 
 
-Package fontspec Info: 
+Package fontspec Info:
 (fontspec)             latinmodern-math scale = 1.0001.
 
 
-Package fontspec Info: 
+Package fontspec Info:
 (fontspec)             latinmodern-math scale = 1.0001.
 
 
-Package fontspec Info: 
+Package fontspec Info:
 (fontspec)             latinmodern-math scale = 1.0001.
 
 
-Package fontspec Info: 
+Package fontspec Info:
 (fontspec)             Font family 'latinmodern-math.otf(2)' created for font
 (fontspec)             'latinmodern-math.otf' with options
 (fontspec)             [BoldItalicFont={},ItalicFont={},SmallCapsFont={},Script
@@ -1083,10 +1427,10 @@ latinmodern-math.otf},ScaleAgain=1.0001,FontAdjustment={\fontdimen
 (fontspec)             \fontdimen 19\font =2.0pt\relax \fontdimen 22\font
 (fontspec)             =2.5pt\relax \fontdimen 20\font =0pt\relax \fontdimen
 (fontspec)             21\font =0pt\relax }].
-(fontspec)              
+(fontspec)
 (fontspec)              This font family consists of the following NFSS
 (fontspec)             series/shapes:
-(fontspec)              
+(fontspec)
 (fontspec)             - 'normal' (m/n) with NFSS spec.:
 (fontspec)             <8.5->s*[1.0001]"[latinmodern-math.otf]/OT:script=math;l
 anguage=dflt;"<6-8.5>s*[1.0001]"[latinmodern-math.otf]/OT:script=math;language=
@@ -1097,37 +1441,37 @@ t;+ssty=1;"
 uage=dflt;"
 
 LaTeX Font Info:    Encoding `OMS' has changed to `TU' for symbol font
-(Font)              `symbols' in the math version `normal' on input line 134.
+(Font)              `symbols' in the math version `normal' on input line 122.
 LaTeX Font Info:    Overwriting symbol font `symbols' in version `normal'
 (Font)                  OMS/cmsy/m/n --> TU/latinmodern-math.otf(2)/m/n on inpu
-t line 134.
+t line 122.
 LaTeX Font Info:    Encoding `OMS' has changed to `TU' for symbol font
-(Font)              `symbols' in the math version `bold' on input line 134.
+(Font)              `symbols' in the math version `bold' on input line 122.
 LaTeX Font Info:    Overwriting symbol font `symbols' in version `bold'
 (Font)                  OMS/cmsy/b/n --> TU/latinmodern-math.otf(2)/b/n on inpu
-t line 134.
+t line 122.
 
-Package fontspec Info: 
+Package fontspec Info:
 (fontspec)             latinmodern-math scale = 0.9999.
 
 
-Package fontspec Info: 
+Package fontspec Info:
 (fontspec)             latinmodern-math scale = 0.9999.
 
 
-Package fontspec Info: 
+Package fontspec Info:
 (fontspec)             latinmodern-math scale = 0.9999.
 
 
-Package fontspec Info: 
+Package fontspec Info:
 (fontspec)             latinmodern-math scale = 0.9999.
 
 
-Package fontspec Info: 
+Package fontspec Info:
 (fontspec)             latinmodern-math scale = 0.9999.
 
 
-Package fontspec Info: 
+Package fontspec Info:
 (fontspec)             Font family 'latinmodern-math.otf(3)' created for font
 (fontspec)             'latinmodern-math.otf' with options
 (fontspec)             [BoldItalicFont={},ItalicFont={},SmallCapsFont={},Script
@@ -1138,10 +1482,10 @@ latinmodern-math.otf},ScaleAgain=0.9999,FontAdjustment={\fontdimen
 (fontspec)             \fontdimen 10\font =1.67pt\relax \fontdimen 11\font
 (fontspec)             =1.11pt\relax \fontdimen 12\font =6.0pt\relax
 (fontspec)             \fontdimen 13\font =0pt\relax }].
-(fontspec)              
+(fontspec)
 (fontspec)              This font family consists of the following NFSS
 (fontspec)             series/shapes:
-(fontspec)              
+(fontspec)
 (fontspec)             - 'normal' (m/n) with NFSS spec.:
 (fontspec)             <8.5->s*[0.9999]"[latinmodern-math.otf]/OT:script=math;l
 anguage=dflt;"<6-8.5>s*[0.9999]"[latinmodern-math.otf]/OT:script=math;language=
@@ -1153,28 +1497,28 @@ uage=dflt;"
 
 LaTeX Font Info:    Encoding `OMX' has changed to `TU' for symbol font
 (Font)              `largesymbols' in the math version `normal' on input line 1
-34.
+22.
 LaTeX Font Info:    Overwriting symbol font `largesymbols' in version `normal'
 (Font)                  OMX/cmex/m/n --> TU/latinmodern-math.otf(3)/m/n on inpu
-t line 134.
+t line 122.
 LaTeX Font Info:    Encoding `OMX' has changed to `TU' for symbol font
-(Font)              `largesymbols' in the math version `bold' on input line 134
+(Font)              `largesymbols' in the math version `bold' on input line 122
 .
 LaTeX Font Info:    Overwriting symbol font `largesymbols' in version `bold'
 (Font)                  OMX/cmex/m/n --> TU/latinmodern-math.otf(3)/b/n on inpu
-t line 134.
-Package hyperref Info: Link coloring ON on input line 134.
+t line 122.
+Package hyperref Info: Link coloring ON on input line 122.
 (./pieces.out) (./pieces.out)
-\@outlinefile=\write3
-\openout3 = `pieces.out'.
+\@outlinefile=\write4
+\openout4 = `pieces.out'.
 
-LaTeX Info: Redefining \microtypecontext on input line 134.
-Package microtype Info: Applying patch `item' on input line 134.
-Package microtype Info: Applying patch `toc' on input line 134.
-Package microtype Info: Applying patch `eqnum' on input line 134.
-Package microtype Info: Applying patch `footnote' on input line 134.
-Package microtype Info: Applying patch `verbatim' on input line 134.
-LaTeX Info: Redefining \microtypesetup on input line 134.
+LaTeX Info: Redefining \microtypecontext on input line 122.
+Package microtype Info: Applying patch `item' on input line 122.
+Package microtype Info: Applying patch `toc' on input line 122.
+Package microtype Info: Applying patch `eqnum' on input line 122.
+Package microtype Info: Applying patch `footnote' on input line 122.
+Package microtype Info: Applying patch `verbatim' on input line 122.
+LaTeX Info: Redefining \microtypesetup on input line 122.
 Package microtype Info: Character protrusion enabled (level 2).
 Package microtype Info: Using default protrusion set `alltext'.
 Package microtype Info: No adjustment of tracking.
@@ -1186,8 +1530,8 @@ n.cfg
 File: mt-LatinModernRoman.cfg 2026/02/26 v1.2 microtype config. file: Latin Mod
 ern Roman (RS)
 )
-File: pals.pdf Graphic file (type pdf)
-<use pals.pdf>
+Package caption Info: Begin \AtBeginDocument code.
+Package caption Info: End \AtBeginDocument code.
 Package microtype Info: Loading generic protrusion settings for font family
 (microtype)             `ywft-processing-bold' (encoding: TU).
 (microtype)             For optimal results, create family-specific settings.
@@ -1518,138 +1862,47 @@ Package microtype Info: Character `\guilsinglright ' is missing
 (microtype)             in font `\TU/ywft-processing-bold(0)/m/n/10'.
 (microtype)             Ignoring protrusion settings for this character.
 Package microtype Info: Character `\textendash ' is missing
-(microtype)             in font `\TU/ywft-processing-bold(0)/m/n/24'.
+(microtype)             in font `\TU/ywft-processing-bold(0)/m/n/28'.
 (microtype)             Ignoring protrusion settings for this character.
 Package microtype Info: Character `\textemdash ' is missing
-(microtype)             in font `\TU/ywft-processing-bold(0)/m/n/24'.
+(microtype)             in font `\TU/ywft-processing-bold(0)/m/n/28'.
 (microtype)             Ignoring protrusion settings for this character.
 Package microtype Info: Character `\textquoteleft ' is missing
-(microtype)             in font `\TU/ywft-processing-bold(0)/m/n/24'.
+(microtype)             in font `\TU/ywft-processing-bold(0)/m/n/28'.
 (microtype)             Ignoring protrusion settings for this character.
 Package microtype Info: Character `\textquoteright ' is missing
-(microtype)             in font `\TU/ywft-processing-bold(0)/m/n/24'.
+(microtype)             in font `\TU/ywft-processing-bold(0)/m/n/28'.
 (microtype)             Ignoring protrusion settings for this character.
 Package microtype Info: Character `\textquotedblleft ' is missing
-(microtype)             in font `\TU/ywft-processing-bold(0)/m/n/24'.
+(microtype)             in font `\TU/ywft-processing-bold(0)/m/n/28'.
 (microtype)             Ignoring protrusion settings for this character.
 Package microtype Info: Character `\textquotedblright ' is missing
-(microtype)             in font `\TU/ywft-processing-bold(0)/m/n/24'.
+(microtype)             in font `\TU/ywft-processing-bold(0)/m/n/28'.
 (microtype)             Ignoring protrusion settings for this character.
 Package microtype Info: Character `\quotesinglbase ' is missing
-(microtype)             in font `\TU/ywft-processing-bold(0)/m/n/24'.
+(microtype)             in font `\TU/ywft-processing-bold(0)/m/n/28'.
 (microtype)             Ignoring protrusion settings for this character.
 Package microtype Info: Character `\quotedblbase ' is missing
-(microtype)             in font `\TU/ywft-processing-bold(0)/m/n/24'.
+(microtype)             in font `\TU/ywft-processing-bold(0)/m/n/28'.
 (microtype)             Ignoring protrusion settings for this character.
 Package microtype Info: Character `\guilsinglleft ' is missing
-(microtype)             in font `\TU/ywft-processing-bold(0)/m/n/24'.
+(microtype)             in font `\TU/ywft-processing-bold(0)/m/n/28'.
 (microtype)             Ignoring protrusion settings for this character.
 Package microtype Info: Character `\guilsinglright ' is missing
-(microtype)             in font `\TU/ywft-processing-bold(0)/m/n/24'.
+(microtype)             in font `\TU/ywft-processing-bold(0)/m/n/28'.
 (microtype)             Ignoring protrusion settings for this character.
-File: figures/cover.png Graphic file (type bmp)
-<figures/cover.png>
+File: figures/cover-puzzle-masked.png Graphic file (type bmp)
+<figures/cover-puzzle-masked.png>
 Package microtype Info: Loading generic protrusion settings for font family
-(microtype)             `ywft-processing-light' (encoding: TU).
+(microtype)             `LatinModernSans' (encoding: TU).
 (microtype)             For optimal results, create family-specific settings.
 (microtype)             See the microtype manual for details.
-Package microtype Info: Character `\textendash ' is missing
-(microtype)             in font `\TU/ywft-processing-light(0)/m/n/10'.
-(microtype)             Ignoring protrusion settings for this character.
-Package microtype Info: Character `\textemdash ' is missing
-(microtype)             in font `\TU/ywft-processing-light(0)/m/n/10'.
-(microtype)             Ignoring protrusion settings for this character.
-Package microtype Info: Character `\textquoteleft ' is missing
-(microtype)             in font `\TU/ywft-processing-light(0)/m/n/10'.
-(microtype)             Ignoring protrusion settings for this character.
-Package microtype Info: Character `\textquoteright ' is missing
-(microtype)             in font `\TU/ywft-processing-light(0)/m/n/10'.
-(microtype)             Ignoring protrusion settings for this character.
-Package microtype Info: Character `\textquotedblleft ' is missing
-(microtype)             in font `\TU/ywft-processing-light(0)/m/n/10'.
-(microtype)             Ignoring protrusion settings for this character.
-Package microtype Info: Character `\textquotedblright ' is missing
-(microtype)             in font `\TU/ywft-processing-light(0)/m/n/10'.
-(microtype)             Ignoring protrusion settings for this character.
-Package microtype Info: Character `\quotesinglbase ' is missing
-(microtype)             in font `\TU/ywft-processing-light(0)/m/n/10'.
-(microtype)             Ignoring protrusion settings for this character.
-Package microtype Info: Character `\quotedblbase ' is missing
-(microtype)             in font `\TU/ywft-processing-light(0)/m/n/10'.
-(microtype)             Ignoring protrusion settings for this character.
-Package microtype Info: Character `\guilsinglleft ' is missing
-(microtype)             in font `\TU/ywft-processing-light(0)/m/n/10'.
-(microtype)             Ignoring protrusion settings for this character.
-Package microtype Info: Character `\guilsinglright ' is missing
-(microtype)             in font `\TU/ywft-processing-light(0)/m/n/10'.
-(microtype)             Ignoring protrusion settings for this character.
-Package microtype Info: Character `\textendash ' is missing
-(microtype)             in font `\TU/ywft-processing-light(0)/m/n/11'.
-(microtype)             Ignoring protrusion settings for this character.
-Package microtype Info: Character `\textemdash ' is missing
-(microtype)             in font `\TU/ywft-processing-light(0)/m/n/11'.
-(microtype)             Ignoring protrusion settings for this character.
-Package microtype Info: Character `\textquoteleft ' is missing
-(microtype)             in font `\TU/ywft-processing-light(0)/m/n/11'.
-(microtype)             Ignoring protrusion settings for this character.
-Package microtype Info: Character `\textquoteright ' is missing
-(microtype)             in font `\TU/ywft-processing-light(0)/m/n/11'.
-(microtype)             Ignoring protrusion settings for this character.
-Package microtype Info: Character `\textquotedblleft ' is missing
-(microtype)             in font `\TU/ywft-processing-light(0)/m/n/11'.
-(microtype)             Ignoring protrusion settings for this character.
-Package microtype Info: Character `\textquotedblright ' is missing
-(microtype)             in font `\TU/ywft-processing-light(0)/m/n/11'.
-(microtype)             Ignoring protrusion settings for this character.
-Package microtype Info: Character `\quotesinglbase ' is missing
-(microtype)             in font `\TU/ywft-processing-light(0)/m/n/11'.
-(microtype)             Ignoring protrusion settings for this character.
-Package microtype Info: Character `\quotedblbase ' is missing
-(microtype)             in font `\TU/ywft-processing-light(0)/m/n/11'.
-(microtype)             Ignoring protrusion settings for this character.
-Package microtype Info: Character `\guilsinglleft ' is missing
-(microtype)             in font `\TU/ywft-processing-light(0)/m/n/11'.
-(microtype)             Ignoring protrusion settings for this character.
-Package microtype Info: Character `\guilsinglright ' is missing
-(microtype)             in font `\TU/ywft-processing-light(0)/m/n/11'.
-(microtype)             Ignoring protrusion settings for this character.
-
-LaTeX Font Warning: Font shape `TU/ywft-processing-light(0)/m/sc' undefined
-(Font)              using `TU/ywft-processing-light(0)/m/n' instead on input li
-ne 165.
-
 LaTeX Font Info:    Font shape `TU/LatinModernMono(0)/m/n' will be
-(Font)              scaled to size 7.65005pt on input line 165.
+(Font)              scaled to size 8.50006pt on input line 149.
 Package microtype Info: Loading generic protrusion settings for font family
 (microtype)             `LatinModernMono' (encoding: TU).
 (microtype)             For optimal results, create family-specific settings.
 (microtype)             See the microtype manual for details.
-Package microtype Info: Loading generic protrusion settings for font family
-(microtype)             `latinmodern-math.otf' (encoding: TU).
-(microtype)             For optimal results, create family-specific settings.
-(microtype)             See the microtype manual for details.
-LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 9.00096pt on input line 165.
-LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 6.00064pt on input line 165.
-LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 5.00053pt on input line 165.
-LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 8.99904pt on input line 165.
-LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 5.99936pt on input line 165.
-LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 4.99947pt on input line 165.
-
-LaTeX Font Warning: Font shape `TU/LatinModernRoman(0)/m/sc' undefined
-(Font)              using `TU/LatinModernRoman(0)/m/n' instead on input line 16
-5.
-
-
-Underfull \hbox (badness 1259) in paragraph at lines 169--170
-\TU/LatinModernRoman(0)/m/n/10 the basic object a “computable number” produced
- []
-
 
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
@@ -1660,102 +1913,94 @@ Underfull \vbox (badness 10000) has occurred while \output is active []
 
 
 ]
-Underfull \hbox (badness 4940) in paragraph at lines 181--182
-[]\TU/LatinModernRoman(0)/m/sc/10 This duality—spec and performance, text and
+Underfull \hbox (badness 3861) in paragraph at lines 161--162
+[]\TU/LatinModernRoman(0)/m/n/10 This vocabulary is constitutive, not decorativ
+e.
  []
 
-
+(./figures/piece-contract-tikz.tex)
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
 LaTeX Font Info:    Font shape `TU/LatinModernMono(0)/m/n' will be
-(Font)              scaled to size 8.50006pt on input line 209.
+(Font)              scaled to size 7.65005pt on input line 190.
 
-Overfull \hbox (27.12282pt too wide) in paragraph at lines 223--224
-[]\TU/LatinModernRoman(0)/m/sc/10 Every piece is addressable by URL: \TU/LatinM
-odernMono(0)/m/n/10 aesthetic.computer/piece-
- []
-
-
-Underfull \vbox (badness 10000) has occurred while \output is active []
-
+(./figures/piece-lifecycle-tikz.tex
+LaTeX Font Info:    Font shape `TU/LatinModernMono(0)/m/n' will be
+(Font)              scaled to size 5.95004pt on input line 29.
+)
+File: figures/ac-notepat-crop.png Graphic file (type bmp)
+<figures/ac-notepat-crop.png>
+LaTeX Font Info:    Font shape `TU/LatinModernMono(0)/m/n' will be
+(Font)              scaled to size 6.80005pt on input line 205.
  [2]
+File: figures/ac-dannom-play.png Graphic file (type bmp)
+<figures/ac-dannom-play.png>
+File: figures/ac-kidlisp-fia-birthday-live.png Graphic file (type bmp)
+<figures/ac-kidlisp-fia-birthday-live.png>
+
+Underfull \vbox (badness 10000) has occurred while \output is active []
+
+File: figures/ac-list-crop.png Graphic file (type bmp)
+<figures/ac-list-crop.png>
+
+Underfull \vbox (badness 10000) has occurred while \output is active []
+
+ [3]
+File: figures/ac-profile-sat-live.png Graphic file (type bmp)
+<figures/ac-profile-sat-live.png>
+File: figures/ac-laer-klokken-live.png Graphic file (type bmp)
+<figures/ac-laer-klokken-live.png>
+
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
 
-Underfull \hbox (badness 1810) in paragraph at lines 247--248
-[]\TU/LatinModernRoman(0)/m/sc/10 Norman’s affordance concept [[][]Norman[][], 
-[][]1988[][]] de-
+(./figures/piece-ecology-tikz.tex)
+Underfull \vbox (badness 10000) has occurred while \output is active []
+
+ [4]
+[5]
+Underfull \hbox (badness 3407) in paragraph at lines 308--309
+[]\TU/LatinModernRoman(0)/m/n/10 AC Native introduces a second relation. Its
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 267--267
-[]|\TU/LatinModernRoman(0)/m/n/9 Compile, run,
+Underfull \hbox (badness 5533) in paragraph at lines 308--309
+\TU/LatinModernRoman(0)/m/n/10 QuickJS/C environment implements a compatible
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 267--267
-[]|\TU/LatinModernRoman(0)/m/n/9 Owner
- []
+Underfull \vbox (badness 10000) has occurred while \output is active []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 267--267
-[]|\TU/LatinModernRoman(0)/m/n/9 Executable bi-
- []
+Underfull \vbox (badness 10000) has occurred while \output is active []
 
+ [6]
+[7]
+Underfull \vbox (badness 10000) has occurred while \output is active []
 
-Underfull \hbox (badness 10000) in paragraph at lines 267--267
-[]|\TU/LatinModernRoman(0)/m/n/9 Revise, repub-
- []
-
-
-Underfull \hbox (badness 10000) in paragraph at lines 267--267
-[]|\TU/LatinModernRoman(0)/m/n/9 Never (only
- []
-
-[3]
-Underfull \hbox (badness 3646) in paragraph at lines 280--281
-[]\TU/LatinModernRoman(0)/b/n/10 The browser as concert hall. \TU/LatinModernRo
-man(0)/m/sc/10 The web
- []
-
+ [8]
 (./pieces.bbl
-Underfull \vbox (badness 10000) has occurred while \output is active []
-
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 10.00107pt on input line 18.
-LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 7.00075pt on input line 18.
+(Font)              scaled to size 8.00085pt on input line 11.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 9.99893pt on input line 18.
-LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 6.99925pt on input line 18.
-
-Underfull \hbox (badness 4084) in paragraph at lines 103--109
-[]\TU/LatinModernRoman(0)/m/sc/10 Mitchel Resnick, John Maloney, Andrés Monroy-
-
- []
-
-[4]) [5
+(Font)              scaled to size 7.99915pt on input line 11.
+) [9
 
 ] (./pieces.aux)
  ***********
 LaTeX2e <2025-11-01>
 L3 programming layer <2026-01-19>
  ***********
-
-
-LaTeX Font Warning: Some font shapes were not available, defaults substituted.
-
 Package rerunfilecheck Info: File `pieces.out' has not changed.
-(rerunfilecheck)             Checksum: FFC7A8B5185FED0E5676AFDCEBE2AD5B;2826.
- ) 
+(rerunfilecheck)             Checksum: 874CD0F397AC4565C4B473994DF32C2D;3324.
+ )
 Here is how much of TeX's memory you used:
- 19701 strings out of 469709
- 365389 string characters out of 5466024
- 971640 words of memory out of 5000000
- 48076 multiletter control sequences out of 15000+600000
- 630276 words of font info for 100 fonts, out of 8000000 for 9000
+ 31829 strings out of 469709
+ 629471 string characters out of 5466024
+ 1229724 words of memory out of 5000000
+ 59963 multiletter control sequences out of 15000+600000
+ 630535 words of font info for 103 fonts, out of 8000000 for 9000
  319 hyphenation exceptions out of 8191
- 86i,12n,107p,1003b,668s stack positions out of 10000i,1000n,20000p,200000b,200000s
+ 88i,11n,107p,1134b,915s stack positions out of 10000i,1000n,20000p,200000b,200000s
 
-Output written on pieces.pdf (5 pages).
+Output written on pieces.pdf (9 pages).

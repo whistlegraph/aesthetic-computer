@@ -1,13 +1,23 @@
 {
   "schema": 1,
   "pdf": "hott-kidlisp.pdf",
-  "pdfSha256": "e872f9715335f275a0072f5a2104b23348da49c9d2720fdc247fe5bebfc18ca2",
+  "pdfSha256": "954cb803a04d478dd6e176ee6344ff7934c19a6798f8d395ae57e5e103542a56",
   "visualInference": true,
   "reviewer": {
     "kind": "visual-inference",
     "name": "Codex"
   },
-  "reviewedAt": "2026-07-24T02:12:29Z",
+  "reviewedAt": "2026-08-05T18:55:13Z",
+  "brand": {
+    "canonicalName": "Aesthetic.Computer",
+    "dotColor": "#B44887",
+    "design": "pass",
+    "checks": {
+      "period": "pass",
+      "dotColor": "pass"
+    },
+    "notes": "Every visible project-name wordmark uses the AC macro: the period is present and rendered in AC pink."
+  },
   "expectedDiagrams": 3,
   "diagrams": [
     {

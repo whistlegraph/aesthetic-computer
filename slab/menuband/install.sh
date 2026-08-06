@@ -130,8 +130,8 @@ cd "${SCRIPT_DIR}"
 # Metal toolchain). On a CLT-only machine SwiftPM happily cross-
 # compiles each slice via --triple, so we build each separately and
 # lipo them together — works equally well with full Xcode or CLT.
-ARM_TRIPLE="arm64-apple-macosx11.0"
-X86_TRIPLE="x86_64-apple-macosx11.0"
+ARM_TRIPLE="arm64-apple-macosx12.0"
+X86_TRIPLE="x86_64-apple-macosx12.0"
 
 say "building MenuBand arm64 slice"
 swift build -c release --triple "${ARM_TRIPLE}" >/dev/null
@@ -221,6 +221,17 @@ if [[ -d "${PKG_BUNDLE_SRC}" ]]; then
     # contents present in the bundle root") and breaks notarization.
     rm -rf "${APP_DIR}/${PKG_BUNDLE_NAME}" "${APP_RES}/${PKG_BUNDLE_NAME}"
     cp -R "${PKG_BUNDLE_SRC}/." "${APP_RES}/"
+fi
+
+# Menu Band Juke is linked into this process and reads assets from the app's
+# signed Resources/Assets directory. Copying source assets explicitly avoids
+# SwiftPM's generated accessor and its embedded local build path.
+JUKE_ASSETS_SRC="${SCRIPT_DIR}/../../juke-wizard/Sources/JukeWizard/Assets"
+if [[ -d "${JUKE_ASSETS_SRC}" ]]; then
+    rm -rf "${APP_RES:?}/Assets"
+    cp -R "${JUKE_ASSETS_SRC}" "${APP_RES}/Assets"
+else
+    warn "Menu Band Juke assets missing at ${JUKE_ASSETS_SRC}"
 fi
 
 # --- Apple Help book ---
@@ -418,16 +429,42 @@ for _svc in "computer.aestheticcomputer.menuband|${PLIST_PATH}" \
     fi
 done
 sleep 1
-if launchctl list | grep -q computer.aestheticcomputer.menuband; then
-    ok "computer.aestheticcomputer.menuband is running"
-else
-    warn "launchctl did not register the agent — check /tmp/menuband.err"
-fi
-if launchctl list | grep -q computer.aestheticcomputer.menubandlauncher; then
-    ok "computer.aestheticcomputer.menubandlauncher is running"
-else
-    warn "launcher agent did not register — check /tmp/menubandlauncher.err"
-fi
+
+# Replacing a signed executable in place occasionally leaves launchd's cached
+# lightweight-code-requirement (LWCR) tied to the previous signature. The job
+# stays registered but exits 78 before the program starts. Keep the quiet
+# kickstart path above; only refresh registration when the service is not
+# actually running after that restart.
+ensure_service_running() {
+    local label="$1" plist="$2" log="$3" attempt=0
+    while (( attempt < 10 )); do
+        if launchctl print "gui/${_uid}/${label}" 2>/dev/null | grep -q 'state = running'; then
+            ok "${label} is running"
+            return 0
+        fi
+        sleep 0.2
+        attempt=$((attempt + 1))
+    done
+
+    warn "${label} retained a stale launch record — refreshing it once"
+    launchctl bootout "gui/${_uid}/${label}" 2>/dev/null || true
+    launchctl bootstrap "gui/${_uid}" "${plist}" 2>/dev/null || launchctl load "${plist}"
+    launchctl kickstart -k "gui/${_uid}/${label}" 2>/dev/null || true
+    attempt=0
+    while (( attempt < 20 )); do
+        if launchctl print "gui/${_uid}/${label}" 2>/dev/null | grep -q 'state = running'; then
+            ok "${label} is running"
+            return 0
+        fi
+        sleep 0.2
+        attempt=$((attempt + 1))
+    done
+    warn "${label} is registered but not running — check ${log}"
+    return 1
+}
+
+ensure_service_running computer.aestheticcomputer.menuband "${PLIST_PATH}" /tmp/menuband.err
+ensure_service_running computer.aestheticcomputer.menubandlauncher "${LAUNCHER_PLIST_PATH}" /tmp/menubandlauncher.err
 
 printf "\n%sdone.%s\n" "${BOLD}" "${RESET}"
 echo "  bundle:       ${APP_DIR}"

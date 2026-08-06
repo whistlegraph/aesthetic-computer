@@ -23,6 +23,25 @@ MIDI-mode shortcut. The shared chord modifiers work on every layout.
 Lives at `slab/menuband/`. Distinct from `slab/menubar-swift/` (the
 Claude session menubar; different status item, different process).
 
+## Juke
+
+The full JukeWizard listening surface now ships as **Juke** inside the
+direct-download Menu Band: library playback, ratings and timestamped notes,
+Spotify, DJ decks, room audio, cloud, work status, and the local control socket.
+Choose the spinning disc in the popover footer. Its accessible name remains
+“Open Menu Band Juke.” Menu Band owns the process and status item; Juke opens
+as a lazy window and does not create another menu-bar item.
+
+The implementation remains in `juke-wizard/` as the reusable
+`MenuBandJuke` Swift product. It has no executable product, application menu,
+Dock identity, or status item of its own. The `jukewizard` shell command is a
+control/open compatibility doorway into the running Menu Band process.
+`install.sh` retires the former standalone binary and LaunchAgent under
+`~/.local/share/menuband/migrations/` for recovery.
+
+The sandboxed App Store subset does not include Juke because its filesystem,
+local-socket, and process-audio features exceed that build's current contract.
+
 ## Layout
 
 ```

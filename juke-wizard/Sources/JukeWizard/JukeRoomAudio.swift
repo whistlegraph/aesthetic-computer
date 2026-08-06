@@ -93,7 +93,7 @@ final class JukeRoomAudio {
 
         let mix = channels(for: layout)
         let sender = ACAudioRoomSender()
-        sender.onLog = { NSLog("JukeWizard room sender: \($0)") }
+        sender.onLog = { NSLog("Menu Band Juke room sender: \($0)") }
         try sender.start()
 
         var local: ACAudioRoomReceiver?
@@ -102,7 +102,7 @@ final class JukeRoomAudio {
             if let localMix = mix.local {
                 let receiver = ACAudioRoomReceiver(configuration: .init(
                     host: "127.0.0.1", name: "Neo", channel: localMix.channel, gain: localMix.gain))
-                receiver.onLog = { NSLog("JukeWizard room Neo: \($0)") }
+                receiver.onLog = { NSLog("Menu Band Juke room Neo: \($0)") }
                 try receiver.start()
                 local = receiver
             }
@@ -130,8 +130,8 @@ final class JukeRoomAudio {
                 remoteProcess = process
             }
 
-            let tap = ACProcessAudioTap(processID: pid, name: "JukeWizard \(source.rawValue)", muteOriginal: true)
-            tap.onLog = { NSLog("JukeWizard room tap: \($0)") }
+            let tap = ACProcessAudioTap(processID: pid, name: "Menu Band Juke \(source.rawValue)", muteOriginal: true)
+            tap.onLog = { NSLog("Menu Band Juke room tap: \($0)") }
             try tap.start { sender.send($0) }
 
             self.sender = sender

@@ -766,7 +766,7 @@ function paint({
     }
     // Thin progress bar at the bottom edge, behind the controls.
     const barH = 2;
-    const barY = screen.height - barH;
+    const barY = screen.height - CONTROL_RAIL_HEIGHT - barH;
     ink(255, 40).box(0, barY, screen.width, barH);
     ink(255, 200, 0).box(0, barY, Math.floor(mp4Progress * screen.width), barH);
 
@@ -784,6 +784,15 @@ function paint({
     // Paused: subtle overlay without a black background
     ink(255, 200).write("||", { center: "xy" });
     ink(255, 75).box(0, 0, screen.width, screen.height, "inline");
+  }
+
+  if (exportAvailable && !isPrinting) {
+    ink(0, 0, 0, 105).box(
+      0,
+      screen.height - CONTROL_RAIL_HEIGHT,
+      screen.width,
+      CONTROL_RAIL_HEIGHT,
+    );
   }
 
   // Draw export buttons - reposition every frame (simple!)

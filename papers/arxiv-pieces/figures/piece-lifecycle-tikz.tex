@@ -1,0 +1,30 @@
+\begin{tikzpicture}[
+  node distance=0.82cm and 0.92cm,
+  every node/.style={font=\sffamily},
+  hook/.style={draw=acpurple!70, rounded corners=2pt, fill=acpurple!6,
+    minimum width=2.55cm, minimum height=0.88cm, align=center,
+    inner xsep=7pt, inner ysep=5pt},
+  once/.style={hook, draw=acpink!80, fill=acpink!7},
+  exit/.style={hook, draw=acblue!75, fill=acblue!6},
+  arr/.style={-{Stealth[length=5pt]}, draw=acdark!72, line width=0.7pt},
+  opt/.style={arr, dashed, draw=acgray!85},
+  lab/.style={font=\scriptsize\sffamily, text=acgray, fill=white,
+    inner xsep=2pt, inner ysep=1pt, align=center},
+  note/.style={font=\scriptsize\sffamily, text=acgray, align=center}
+]
+  \node[once] (boot) {\textbf{boot}\\[-1pt]prepare once};
+  \node[hook, right=of boot] (act) {\textbf{act}\\[-1pt]receive input};
+  \node[hook, right=of act] (sim) {\textbf{sim}\\[-1pt]advance state};
+  \node[hook, right=of sim] (paint) {\textbf{paint}\\[-1pt]render if needed};
+  \node[exit, right=of paint] (leave) {\textbf{leave}\\[-1pt]release resources};
+
+  \draw[arr] (boot) -- (act);
+  \draw[arr] (act) -- (sim);
+  \draw[arr] (sim) -- (paint);
+  \draw[opt] (paint) -- (leave);
+  \draw[arr] (paint.south) -- ++(0,-0.62) -|
+    node[lab, pos=0.25, below]{next event or frame} (act.south);
+
+  \node[note, below=1.12cm of sim, text width=12.5cm]
+    {Hooks are optional; runtime defaults keep partial lifecycles valid. \texttt{needsPaint()} can suppress quiet frames. Extended hooks such as \texttt{beat}, \texttt{receive}, \texttt{preview}, and \texttt{meta} join at their own moments.};
+\end{tikzpicture}

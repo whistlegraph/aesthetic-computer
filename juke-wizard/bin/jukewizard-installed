@@ -1,5 +1,6 @@
 #!/bin/sh
-# Stable launcher for a JukeWizard installed by ../install.sh.
+# Installed compatibility command for Juke inside Menu Band. It never launches
+# a separate JukeWizard process.
 set -eu
 INSTALL_ROOT="${JUKEWIZARD_HOME:-$HOME/.local/lib/jukewizard}"
 if [ "${1:-}" = "login" ]; then

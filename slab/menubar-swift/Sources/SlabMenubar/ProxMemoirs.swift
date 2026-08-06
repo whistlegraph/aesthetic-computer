@@ -61,6 +61,9 @@ final class ProxMemoirs {
     /// already-backgrounded state gather and returns quickly; actual transcript
     /// reading and inference happen on one serial utility queue.
     func refresh(_ sessions: [ClaudeSession]) {
+        // A tutorial reel owns the machine's background inference budget. Its
+        // audit frames and encoder must not overlap optional memoir models.
+        guard !recordingReserved else { return }
         lock.lock()
         let now = Date()
         guard inFlight == nil,
@@ -173,9 +176,11 @@ final class ProxMemoirs {
         \(exchange)
         </session-data>
         """
-        var provider = "apple-foundation-model"
-        var text = onDeviceMemoir(prompt) ?? ""
-        if text.isEmpty, Date() >= claudeUnavailableUntil, let binary = claudeBinary() {
+        var provider = "extractive"
+        var text = recordingReserved ? "" : (onDeviceMemoir(prompt) ?? "")
+        if !text.isEmpty { provider = "apple-foundation-model" }
+        if text.isEmpty, externalProviderAllowed,
+           Date() >= claudeUnavailableUntil, let binary = claudeBinary() {
             provider = "claude-haiku"
             let result = ShellRunner.run(
                 binary,
@@ -239,6 +244,25 @@ final class ProxMemoirs {
             "/usr/local/bin/claude",
         ]
         return candidates.first { FileManager.default.isExecutableFile(atPath: $0) }
+    }
+
+    /// External memoir inference is deliberately opt-in. A background GUI app
+    /// launching an agent CLI can trigger macOS App Data permission UI, and
+    /// that system dialog is capturable even when this app's own windows are
+    /// excluded. Recording is an unconditional second gate so an opted-in seat
+    /// still cannot contaminate a tutorial take.
+    private var externalProviderAllowed: Bool {
+        guard UserDefaults.standard.bool(forKey: "enableExternalMemoirs") else {
+            return false
+        }
+        return !recordingReserved
+    }
+
+    private var recordingReserved: Bool {
+        if #available(macOS 15.0, *) {
+            return ScreenRecord.shared.reservesExternalProcesses
+        }
+        return false
     }
 
     private func fallbackMemoir(subject: String, exchange: String) -> String {

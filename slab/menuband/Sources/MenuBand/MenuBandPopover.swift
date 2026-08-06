@@ -92,6 +92,117 @@ class HoverFeedbackButton: NSButton {
     }
 }
 
+/// A small physical entry point for Juke. The offset glint makes rotation
+/// legible; Reduce Motion users keep the same disc without animation.
+private final class SpinningDiscGlyph: NSView {
+    private let spinningLayer = CALayer()
+    private var renderedSize = NSSize.zero
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        wantsLayer = true
+        layer?.addSublayer(spinningLayer)
+    }
+
+    required init?(coder: NSCoder) { fatalError() }
+
+    override var isOpaque: Bool { false }
+
+    private static func renderDisc(size: NSSize) -> CGImage? {
+        guard size.width > 0, size.height > 0 else { return nil }
+        let image = NSImage(size: size)
+        image.lockFocus()
+
+        let bounds = NSRect(origin: .zero, size: size)
+        let discRect = bounds.insetBy(dx: 1, dy: 1)
+        let disc = NSBezierPath(ovalIn: discRect)
+        NSGradient(colors: [
+            NSColor(srgbRed: 0.55, green: 0.86, blue: 1.0, alpha: 1),
+            NSColor.white,
+            NSColor(srgbRed: 0.48, green: 0.60, blue: 0.92, alpha: 1),
+        ])?.draw(in: disc, angle: 32)
+
+        NSColor.white.withAlphaComponent(0.72).setStroke()
+        let groove = NSBezierPath(ovalIn: discRect.insetBy(dx: 3.2, dy: 3.2))
+        groove.lineWidth = 0.7
+        groove.stroke()
+
+        NSColor(srgbRed: 0.18, green: 0.38, blue: 0.75, alpha: 0.95).setFill()
+        NSBezierPath(ovalIn: NSRect(x: bounds.midX + 2.8,
+                                    y: bounds.midY + 3.7,
+                                    width: 2.4, height: 2.4)).fill()
+
+        NSColor(white: 0.12, alpha: 0.9).setFill()
+        NSBezierPath(ovalIn: NSRect(x: bounds.midX - 2,
+                                    y: bounds.midY - 2,
+                                    width: 4, height: 4)).fill()
+        NSColor.white.withAlphaComponent(0.85).setFill()
+        NSBezierPath(ovalIn: NSRect(x: bounds.midX - 0.8,
+                                    y: bounds.midY - 0.8,
+                                    width: 1.6, height: 1.6)).fill()
+
+        image.unlockFocus()
+        var proposed = bounds
+        return image.cgImage(forProposedRect: &proposed, context: nil, hints: nil)
+    }
+
+    override func layout() {
+        super.layout()
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        spinningLayer.bounds = bounds
+        spinningLayer.position = NSPoint(x: bounds.midX, y: bounds.midY)
+        spinningLayer.contentsGravity = .resizeAspect
+        spinningLayer.contentsScale = window?.backingScaleFactor ?? 2
+        if renderedSize != bounds.size {
+            spinningLayer.contents = Self.renderDisc(size: bounds.size)
+            renderedSize = bounds.size
+        }
+        CATransaction.commit()
+        startSpinningIfNeeded()
+    }
+
+    private func startSpinningIfNeeded() {
+        guard window != nil,
+              !bounds.isEmpty,
+              !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion,
+              spinningLayer.animation(forKey: "juke.disc.spin") == nil else { return }
+        let spin = CABasicAnimation(keyPath: "transform.rotation.z")
+        spin.fromValue = 0
+        spin.toValue = CGFloat.pi * 2
+        spin.duration = 2.8
+        spin.repeatCount = .infinity
+        spin.timingFunction = CAMediaTimingFunction(name: .linear)
+        spinningLayer.add(spin, forKey: "juke.disc.spin")
+    }
+}
+
+private final class SpinningDiscButton: HoverFeedbackButton {
+    private let disc = SpinningDiscGlyph(frame: .zero)
+    private var positionedForSize = NSSize.zero
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        title = ""
+        addSubview(disc)
+    }
+
+    required init?(coder: NSCoder) { fatalError() }
+
+    override var intrinsicContentSize: NSSize { NSSize(width: 38, height: 26) }
+
+    override func layout() {
+        super.layout()
+        let side: CGFloat = 22
+        if positionedForSize != bounds.size {
+            disc.frame = NSRect(x: bounds.midX - side / 2,
+                                y: bounds.midY - side / 2,
+                                width: side, height: side)
+            positionedForSize = bounds.size
+        }
+    }
+}
+
 /// NSButton subclass for chip-shaped link buttons — paints a layer-backed
 /// fill/border, swaps to a brighter "hover" pair when the cursor enters,
 /// and switches the cursor to a pointing hand. Used by the Why-this-Keymap
@@ -206,6 +317,7 @@ final class MenuBandPopoverViewController: NSViewController {
     var onFocusShortcutChange: ((MenuBandShortcut) -> Bool)?
     var onFocusShortcutRecordingChanged: ((Bool) -> Void)?
     var onPlayPaletteToggle: (() -> Void)?
+    var onJukeToggle: (() -> Void)?
     var onPlayPaletteShortcutChange: ((MenuBandShortcut) -> Bool)?
     var onPlayPaletteShortcutRecordingChanged: ((Bool) -> Void)?
     var isPlayPaletteShown: (() -> Bool)?
@@ -1023,6 +1135,23 @@ final class MenuBandPopoverViewController: NSViewController {
         keymapButton.toolTip = "Open the full-screen keymap (piano + QWERTY)"
         Self.outlineFooterButton(keymapButton, color: Self.keymapOutlineColor)
 
+#if !MAC_APP_STORE
+        // Juke is the complete listening/DJ/library surface formerly shipped
+        // as JukeWizard. It is a window of Menu Band, not another status item.
+        let jukeButton = SpinningDiscButton(frame: .zero)
+        jukeButton.bezelStyle = .inline
+        jukeButton.isBordered = false
+        jukeButton.controlSize = .small
+        jukeButton.target = self
+        jukeButton.action = #selector(openJuke(_:))
+        jukeButton.toolTip = "Open Menu Band Juke"
+        jukeButton.setAccessibilityLabel("Open Menu Band Juke")
+        jukeButton.alphaValue = 0.88
+        jukeButton.onHoverChange = { [weak jukeButton] hovered in
+            jukeButton?.alphaValue = hovered ? 1 : 0.88
+        }
+#endif
+
         // (Gamepad config moved to the full-screen Keymap overlay's bottom-right
         // corner — see ExpandedPianoWaveformView.installGamepadCluster. It lives
         // next to the large QWERTY/piano where a controller player is actually
@@ -1054,6 +1183,9 @@ final class MenuBandPopoverViewController: NSViewController {
         quitSpacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
         quitRow.addArrangedSubview(aboutButton)
         quitRow.addArrangedSubview(keymapButton)
+#if !MAC_APP_STORE
+        quitRow.addArrangedSubview(jukeButton)
+#endif
         quitRow.addArrangedSubview(quitSpacer)
         quitRow.addArrangedSubview(quit)
         stack.addArrangedSubview(quitRow)
@@ -2481,6 +2613,10 @@ final class MenuBandPopoverViewController: NSViewController {
 
     @objc func showJamPanel(_ sender: Any?) {
         JamWindowController.show()
+    }
+
+    @objc private func openJuke(_ sender: Any?) {
+        onJukeToggle?()
     }
 
     @objc private func openNotepat() {
