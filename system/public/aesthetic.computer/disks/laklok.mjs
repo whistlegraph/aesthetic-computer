@@ -54,6 +54,40 @@ const LAK_CIRCUS_COLS = [
   [255, 150, 220], // pink
   [180, 150, 255], // violet
 ];
+
+// The canvas uses logical pixels, so phone browsers are typically around 256px
+// wide even when their CSS viewport is much larger. Below this breakpoint the
+// full 8px circus spacing collides with both the HUD label and the QR code.
+const LAK_COMPACT_HEADER_MAX = 399;
+const LAK_HUD_FALLBACK_WIDTH = 78;
+const LAK_HEADER_GUTTER = 4;
+
+function getSignLayout($, labelLength, charWidth) {
+  const { screen, hud } = $;
+  const qrSize = lakQRCells?.length || 0;
+
+  if (screen.width > LAK_COMPACT_HEADER_MAX) {
+    const gap = 8;
+    const width = labelLength * charWidth + gap * Math.max(0, labelLength - 1);
+    return width <= screen.width - LAK_HEADER_GUTTER
+      ? { left: Math.round((screen.width - width) / 2), gap }
+      : null;
+  }
+
+  const hudBox = hud?.currentLabel?.()?.btn?.box;
+  const hudRight = hudBox
+    ? (hudBox.x || 0) + (hudBox.w || 0)
+    : 6 + LAK_HUD_FALLBACK_WIDTH;
+  const left = hudRight + LAK_HEADER_GUTTER;
+  const right = screen.width - qrSize - 4 - LAK_HEADER_GUTTER;
+  const available = right - left;
+  const glyphWidth = labelLength * charWidth;
+  const gaps = Math.max(0, labelLength - 1);
+  const gap = gaps > 0 ? Math.min(2, Math.floor((available - glyphWidth) / gaps)) : 0;
+
+  return gap >= 0 ? { left, gap } : null;
+}
+
 function paintLaerKlokkenSign($, headerHeight = LAK_TOP_MARGIN) {
   const { ink, box, write, screen, text } = $;
   const now = typeof performance !== "undefined" ? performance.now() : 0;
@@ -62,18 +96,15 @@ function paintLaerKlokkenSign($, headerHeight = LAK_TOP_MARGIN) {
 
   // Unifont latin glyphs are a fixed 8px advance — no need to measure per frame.
   const CHAR_W = 8;
-  const total = label.length * CHAR_W;
   const headerH = headerHeight; // marquee fills the header down to the margin
   const sx = 0;
   const sy = 0; // flush with the top of the screen (no gap)
   const sw = screen.width; // full-width banner across the header
   const sh = headerH;
-  // Spread the letters with a fixed gap, then center the whole word group on
-  // the overall screen width (sits mid-screen, clear of the top-left HUD label).
-  const gap = 8;
-  const lettersW = total + gap * Math.max(0, label.length - 1);
-  if (lettersW > sw - 4) return; // too wide for the screen
-  const textLeft = Math.round(sx + (sw - lettersW) / 2);
+  // Wide screens keep the spacious centered marquee. Phones compact it into
+  // the measured gap between the HUD label and QR; if that gap is too small,
+  // the branded HUD label remains as the sole title rather than overlapping.
+  const signLayout = getSignLayout($, label.length, CHAR_W);
 
   // Striped circus backdrop, slowly scrolling like a barber pole. Tuned to the
   // warm dark-orange of the laklok rust background so it reads as one piece.
@@ -84,7 +115,8 @@ function paintLaerKlokkenSign($, headerHeight = LAK_TOP_MARGIN) {
     ink(odd ? [150, 78, 34] : [122, 60, 26]).box(sx + bx, sy, Math.min(stripeW, sw - bx), sh);
   }
   // Each character: its own circus color + individual vertical bounce.
-  let cx = textLeft;
+  if (!signLayout) return;
+  let cx = signLayout.left;
   const baseY = sy + Math.round((sh - 16) / 2); // 16 ≈ unifont glyph height, vertically centered
   for (let i = 0; i < label.length; i++) {
     const ch = label[i];
@@ -94,7 +126,7 @@ function paintLaerKlokkenSign($, headerHeight = LAK_TOP_MARGIN) {
       ink(20, 10, 6).write(ch, { x: cx + 1, y: baseY + bounce + 1 }, undefined, undefined, false, LAK_SIGN_FONT);
       ink(c[0], c[1], c[2]).write(ch, { x: cx, y: baseY + bounce }, undefined, undefined, false, LAK_SIGN_FONT);
     }
-    cx += CHAR_W + gap;
+    cx += CHAR_W + signLayout.gap;
   }
 }
 
