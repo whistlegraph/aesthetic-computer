@@ -3,10 +3,10 @@
 // Designed for blueberry, where the Xbox vault credentials already live.
 
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, statSync,
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync,
   writeFileSync } from "node:fs";
-import { homedir } from "node:os";
-import { basename, dirname, resolve } from "node:path";
+import { homedir, tmpdir } from "node:os";
+import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { compilePublishedKidLisp } from "./kidlisp-native.mjs";
 
@@ -196,19 +196,61 @@ function frameDump(outputPath = "") {
   const target = resolve(outputPath ||
     `tmp/xbox-captures/oskiewar-frames-${stamp}.json`);
   mkdirSync(dirname(target), { recursive: true });
-  const trace = { format: "ac.oskiewar.frame-dump", version: 1,
-    schema: chunks.at(-1).schema, rounds: [...new Set(chunks.map((item) => item.round))],
-    frames: chunks.flatMap((item) => item.frames) };
+  const latestRound = chunks.at(-1).round;
+  const frames = chunks.filter((item) => item.round === latestRound)
+    .flatMap((item) => item.frames)
+    .filter((frame, index, all) => index === 0 || frame[0] !== all[index - 1][0]);
+  const schema = chunks.at(-1).schema;
+  const index = Object.fromEntries(schema.map((name, offset) => [name, offset]));
+  const fields = ["cameraX", "cameraY", "cameraWidth", "dollX", "dollY",
+    "dollZ", "dollWidth", "roll"];
+  const samples = Object.fromEntries(fields.map((field) => [field, []]));
+  const spikes = [];
+  for (let frame = 1; frame < frames.length; frame++) {
+    const elapsed = (frames[frame][index.us] - frames[frame - 1][index.us]) / 1000000;
+    if (!(elapsed > 0) || elapsed > .1) continue;
+    for (const field of fields) {
+      const delta = frames[frame][index[field]] - frames[frame - 1][index[field]];
+      const speed = delta / elapsed;
+      samples[field].push({ frame, delta, speed });
+    }
+  }
+  const metrics = {};
+  for (const field of fields) {
+    const values = frames.map((frame) => frame[index[field]]);
+    const steps = samples[field].map((sample) => Math.abs(sample.delta))
+      .sort((a, b) => a - b);
+    const p95 = steps[Math.floor(Math.max(0, steps.length - 1) * .95)] || 0;
+    const threshold = Math.max(field === "roll" ? .0008 : 1, p95 * 3);
+    let reversals = 0;
+    for (let sample = 1; sample < samples[field].length; sample++) {
+      const previous = samples[field][sample - 1];
+      const current = samples[field][sample];
+      if (Math.sign(previous.delta) && Math.sign(current.delta) &&
+          Math.sign(previous.delta) !== Math.sign(current.delta)) reversals++;
+      if (Math.abs(current.delta) > threshold) spikes.push({
+        us: frames[current.frame][index.us], field,
+        delta: Math.round(current.delta * 1000) / 1000,
+        speed: Math.round(current.speed * 100) / 100,
+      });
+    }
+    metrics[field] = { min: Math.min(...values), max: Math.max(...values),
+      maxStep: steps.at(-1) || 0, p95Step: p95, reversals };
+  }
+  spikes.sort((a, b) => Math.abs(b.speed) - Math.abs(a.speed));
+  const trace = { format: "ac.oskiewar.frame-dump", version: 2,
+    schema, rounds: [latestRound], frames,
+    analysis: { durationSeconds: frames.length > 1
+      ? (frames.at(-1)[index.us] - frames[0][index.us]) / 1000000 : 0,
+      metrics, spikes: spikes.slice(0, 40) } };
   writeFileSync(target, JSON.stringify(trace));
   console.log(JSON.stringify({ frames: target, count: trace.frames.length,
-    rounds: trace.rounds }));
+    rounds: trace.rounds, analysis: trace.analysis }));
 }
 
-function screenshot(outputPath = "") {
-  const stamp = new Date().toISOString().replace(/[:.]/g, "-");
-  const target = resolve(outputPath ||
-    `tmp/xbox-captures/oskiewar-${stamp}.png`);
+function captureScreenshot(target) {
   mkdirSync(dirname(target), { recursive: true });
+  const startedAt = Date.now();
   const result = spawnSync("curl", ["-k", "-sS", "-u", auth,
     "-o", target, "-w", "%{http_code}", `${base}/ext/screenshot`],
   { encoding: "utf8", maxBuffer: 1024 * 1024 });
@@ -216,7 +258,54 @@ function screenshot(outputPath = "") {
   if (result.status !== 0 || status !== "200")
     throw new Error(result.stderr.trim() ||
       `screenshot failed with HTTP ${status || "unknown"}`);
-  console.log(JSON.stringify({ screenshot: target, bytes: statSync(target).size }));
+  return { at: new Date().toISOString(), elapsedMs: Date.now() - startedAt,
+    bytes: statSync(target).size };
+}
+
+function screenshot(outputPath = "") {
+  const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+  const target = resolve(outputPath ||
+    `tmp/xbox-captures/oskiewar-${stamp}.png`);
+  const result = captureScreenshot(target);
+  console.log(JSON.stringify({ screenshot: target, bytes: result.bytes,
+    elapsedMs: result.elapsedMs }));
+}
+
+function video(durationArg = "10", outputPath = "") {
+  const duration = Math.max(2, Math.min(120, Number(durationArg) || 10));
+  const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+  const target = resolve(outputPath ||
+    `tmp/xbox-captures/oskiewar-${stamp}.mp4`);
+  const framesDirectory = mkdtempSync(join(tmpdir(), "oskiewar-video-"));
+  const frames = [];
+  try {
+    const deadline = Date.now() + duration * 1000;
+    let number = 0;
+    while (Date.now() < deadline) {
+      const path = join(framesDirectory, `${String(number).padStart(5, "0")}.png`);
+      frames.push(captureScreenshot(path));
+      number++;
+    }
+    if (frames.length < 2) throw new Error("not enough Xbox screenshots for video");
+    mkdirSync(dirname(target), { recursive: true });
+    const elapsedSeconds = Math.max(.001,
+      (new Date(frames.at(-1).at) - new Date(frames[0].at)) / 1000);
+    const frameRate = Math.max(.1, (frames.length - 1) / elapsedSeconds);
+    const encoded = spawnSync("ffmpeg", ["-y", "-loglevel", "error",
+      "-framerate", String(frameRate), "-i", join(framesDirectory, "%05d.png"),
+      "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p", target],
+    { encoding: "utf8", maxBuffer: 16 * 1024 * 1024 });
+    if (encoded.status !== 0)
+      throw new Error(encoded.stderr.trim() || "ffmpeg video encoding failed");
+    const metadata = `${target}.json`;
+    writeFileSync(metadata, JSON.stringify({ format: "ac.oskiewar.portal-video",
+      version: 1, source: "xbox-device-portal-screenshots", frameRate,
+      durationSeconds: elapsedSeconds, frames }, null, 2));
+    console.log(JSON.stringify({ video: target, metadata, frameRate,
+      count: frames.length, bytes: statSync(target).size }));
+  } finally {
+    rmSync(framesDirectory, { recursive: true, force: true });
+  }
 }
 
 async function main() {
@@ -229,9 +318,10 @@ async function main() {
   else if (command === "logs") logs(argument);
   else if (command === "frames") frameDump(argument);
   else if (command === "screenshot") screenshot(argument);
+  else if (command === "video") video(argument, rest[0]);
   else if (command === "deploy") { publish(argument); launch(); logs("20"); }
   else if (command === "deploy-kidlisp") await deployKidLisp(argument);
-  else throw new Error("commands: status | install <msix> [deps...] | prune | launch | publish <piece.js> | logs [lines] | frames [output.json] | screenshot [output.png] | deploy <piece.js> | deploy-kidlisp <$code>");
+  else throw new Error("commands: status | install <msix> [deps...] | prune | launch | publish <piece.js> | logs [lines] | frames [output.json] | screenshot [output.png] | video [seconds] [output.mp4] | deploy <piece.js> | deploy-kidlisp <$code>");
 }
 
 try { await main(); } catch (error) { console.error(error.message); process.exit(1); }

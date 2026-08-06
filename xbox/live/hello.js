@@ -38,7 +38,6 @@ let cameraCenter = (worldLeft + worldRight) / 2;
 let cameraWidth = worldRight - worldLeft;
 let cameraCenterY = floorY - cameraWidth / cameraAspect / 2;
 let cameraContainFloor = 0;
-let cameraContainTouchedAt = 0;
 const clamp = (value, low, high) => Math.max(low, Math.min(high, value));
 const mixColor = (dark, light, amount) => dark.map((value, index) =>
   Math.round(value + (light[index] - value) * amount));
@@ -1019,7 +1018,6 @@ function resetRound(now, resetMatch = false) {
   cameraWidth = 1300;
   cameraCenterY = floorY - cameraWidth / cameraAspect / 2;
   cameraContainFloor = 0;
-  cameraContainTouchedAt = 0;
 }
 
 function updateCamera(dt) {
@@ -1121,30 +1119,21 @@ function updateCameraDoll(dt, now) {
     return;
   }
   const target = { x: cameraCenter, y: cameraCenterY, z: 0 };
-  const cameraTime = now / 1000000;
   // Render containment can pull the camera back farther than the gameplay
-  // target. Retain that corrected width until it can ease inward, otherwise
-  // simulation shrinks and rendering expands the lens on alternating frames.
-  if (cameraContainFloor > cameraWidth &&
-      now - cameraContainTouchedAt > 250000) {
-    const settle = 1 - Math.exp(-Math.max(0, dt) * 1.7);
-    cameraContainFloor = lerp(cameraContainFloor, cameraWidth, settle);
-  }
-  const framedWidth = Math.max(cameraWidth, cameraContainFloor);
-  // Preserve the requested handheld life, but keep it below the threshold
-  // where a large television makes the camera read as shake.
-  const swivel = Math.sin(cameraTime * .31) * .0045 +
-    Math.sin(cameraTime * .73 + 1.2) * .0018;
-  const tilt = .026 + Math.sin(cameraTime * .27 + 2) * .0022 +
-    Math.sin(cameraTime * .61) * .001;
-  const dolly = 1.35 + Math.sin(cameraTime * .23 + .4) * .003;
-  const roll = Math.sin(cameraTime * .37) * .0012 +
-    Math.sin(cameraTime * .79 + 2.4) * .0005;
+  // target. Keep that corrected width for the complete round: relaxing it
+  // caused a visible periodic snap when containment had to restore it. Ten
+  // percent overscan absorbs animated hands, feet, and perspective before
+  // they reach the action-safe edge.
+  const framedWidth = Math.max(cameraWidth * 1.1, cameraContainFloor);
+  // Gameplay camera is intentionally inertial but not handheld. No procedural
+  // swivel, roll, or dolly motion is allowed to move a stationary viewport.
+  const tilt = .026;
+  const dolly = 1.35;
   cameraDoll.track({ target,
-    position: { x: cameraCenter - framedWidth * swivel,
+    position: { x: cameraCenter,
       y: cameraCenterY - framedWidth * tilt, z: -framedWidth * dolly },
       width: framedWidth, perspective: .1, fov: 55,
-      roll }, dt, 10);
+      roll: 0 }, dt, 10);
 }
 
 function freezeFinalFrame(now) {
@@ -2274,7 +2263,7 @@ function runnerScreenBounds(player, t) {
 // inside the action-safe viewport. Camera modes may orbit or focus, but this
 // aspect-aware correction recenters their shared frame and moves the dolly
 // back far enough for landscape, portrait, live, and replay projection alike.
-function containFighters(t, now = runtime().monotonicUs) {
+function containFighters(t) {
   const widthBeforeContainment = cameraDoll.width;
   const worlds = players.map((player) => player.replayGeometry ||
     player.frozenGeometry || runnerWorldGeometry(player, t));
@@ -2356,7 +2345,6 @@ function containFighters(t, now = runtime().monotonicUs) {
   cameraDoll.dirty = true;
   if (cameraDoll.width > widthBeforeContainment + .01) {
     cameraContainFloor = Math.max(cameraContainFloor, cameraDoll.width);
-    cameraContainTouchedAt = now;
   }
 }
 
@@ -3070,18 +3058,21 @@ function paint() {
     visualTheme.light);
   const titlePanel = mixColor([22, 28, 104], [245, 248, 252], visualTheme.light);
   const titleInk = mixColor([245, 248, 255], [24, 35, 72], visualTheme.light);
+  const menuArena = [7, 10, 26];
+  const menuPanel = [20, 28, 56];
+  const menuInk = [245, 248, 255];
   wipe(...outside);
   if (shellMode === "MENU") {
-    box(0, 0, viewWidth(), viewHeight, ...arena);
-    drawTitleScreen(t, titleInk);
+    box(0, 0, viewWidth(), viewHeight, ...menuArena);
+    drawTitleScreen(t, menuInk);
     return;
   }
   if (selecting) {
-    box(0, 0, viewWidth(), viewHeight, ...arena);
-    drawSelectionScreen(t, titleInk, titlePanel);
+    box(0, 0, viewWidth(), viewHeight, ...menuArena);
+    drawSelectionScreen(t, menuInk, menuPanel);
     return;
   }
-  containFighters(t, run.monotonicUs);
+  containFighters(t);
   cameraDoll.prepare();
   worldQuad(
     { x: worldLeft, y: ceilingY, z: worldFar },

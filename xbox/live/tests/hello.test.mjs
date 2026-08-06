@@ -128,6 +128,12 @@ test("title letters carry distinct colors that animate between palettes", () => 
   }
 });
 
+test("title and fighter select use a dark background", () => {
+  assert.match(source, /const menuArena = \[7, 10, 26\]/);
+  assert.match(source, /drawTitleScreen\(t, menuInk\)/);
+  assert.match(source, /drawSelectionScreen\(t, menuInk, menuPanel\)/);
+});
+
 test("web camera follows landscape, 16:9, and portrait viewports", () => {
   for (const [viewport, expectedWidth] of [
     [{ width: 2560, height: 1080 }, 2560],
@@ -249,6 +255,15 @@ test("camera zoom-out remains continuous as fighters approach safe edges", () =>
   }
   assert.ok(largestFrameRatio < 1.08,
     `camera width jumped ${largestFrameRatio.toFixed(3)}x in one frame`);
+});
+
+test("gameplay camera has no procedural viewport shake", () => {
+  assert.match(source,
+    /const framedWidth = Math\.max\(cameraWidth \* 1\.1, cameraContainFloor\)/);
+  assert.match(source, /position: \{ x: cameraCenter,/);
+  assert.match(source, /roll: 0 \}, dt, 10/);
+  assert.doesNotMatch(source, /const cameraTime = now \/ 1000000/);
+  assert.doesNotMatch(source, /cameraContainTouchedAt/);
 });
 
 test("death camera closes on both fighters even when they are far apart", () => {
