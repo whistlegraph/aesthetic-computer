@@ -1,7 +1,7 @@
 // Aesthetic Computer Service Worker
 // Caches JavaScript modules for faster subsequent loads
 
-const CACHE_NAME = 'ac-modules-v9'; // Bump: lib/ + systems/ go network-first (piece↔lib lockstep), flush caches that hold pre-catnom nom.mjs
+const CACHE_NAME = 'ac-modules-v10'; // Bump: clear stale capture-session modules after the camera API expansion
 const CACHE_DURATION = 60 * 60 * 1000; // 1 hour in ms (dev-friendly)
 
 // Critical modules to precache on install. NOTE: bios.mjs and lib/disk.mjs

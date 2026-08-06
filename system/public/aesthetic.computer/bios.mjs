@@ -48,12 +48,7 @@ import * as graph from "./lib/graph.mjs";
 import * as WebGPU from "./lib/webgpu.mjs";
 import { initGPU, switchBackend } from "./lib/gpu/index.mjs"; // 🎨 New backend system (auto-registers backends)
 import { createWebGLBlitter } from "./lib/webgl-blit.mjs";
-import {
-  chooseCompactVideoMime,
-  getCameraCaptureSize,
-  measureCaptureAVSync,
-  shouldResumeCaptureRecorder,
-} from "./lib/capture-session.mjs";
+import * as CaptureSession from "./lib/capture-session.mjs";
 import {
   attachSoundtrackToFrames,
   frameIndexForSoundtrackProgress,
@@ -62,6 +57,20 @@ import {
 
 // import * as TwoD from "./lib/2d.mjs"; // 🆕 2D GPU Renderer.
 const TwoD = undefined;
+const chooseCompactVideoMime =
+  CaptureSession.chooseCompactVideoMime || (() => null);
+const getCameraCaptureSize =
+  CaptureSession.getCameraCaptureSize ||
+  ((requestedWidth, requestedHeight) => {
+    const even = (value) =>
+      Math.max(2, Math.round((Number(value) || 2) / 2) * 2);
+    return { width: even(requestedWidth), height: even(requestedHeight) };
+  });
+const measureCaptureAVSync =
+  CaptureSession.measureCaptureAVSync || (() => null);
+const shouldResumeCaptureRecorder =
+  CaptureSession.shouldResumeCaptureRecorder ||
+  ((state, freshSession = false) => state === "paused" && !freshSession);
 let hadVectorOverlay = false; // so the vector overlay clears once when a piece drops it
 
 // 🪟 Replay a piece's vector-overlay display-list onto the native UI canvas — crisp
