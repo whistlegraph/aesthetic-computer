@@ -155,7 +155,7 @@ final class JukeController: NSWindowController, NSWindowDelegate,
 
     init(library: Library, watch: [String], select selectArg: String? = nil,
          spotifySearch: String? = nil, startPrimpats: Bool = false,
-         startBeats: Bool = false) {
+         startBeats: Bool = false, startRecords: Bool = false) {
         self.library = library
         self.watchDirs = watch
         self.selectPath = selectArg
@@ -219,6 +219,8 @@ final class JukeController: NSWindowController, NSWindowDelegate,
         if startBeats {
             setDJMode(true, singleDeck: true)
             djMixer.loadBeats(solo: true)
+        } else if startRecords {
+            setDJMode(true)
         } else if startPrimpats {
             setDJMode(true)
             djMixer.loadPrimpats()
@@ -610,6 +612,11 @@ final class JukeController: NSWindowController, NSWindowDelegate,
     func showDetachedPrimpats() {
         if !djMode { setDJMode(true) }
         djMixer.loadPrimpats(openPopouts: true)
+    }
+
+    func showDetachedRecords() {
+        if !djMode { setDJMode(true) }
+        djMixer.loadLibraryRecords(openPopouts: true)
     }
 
     func showDetachedBeats() {

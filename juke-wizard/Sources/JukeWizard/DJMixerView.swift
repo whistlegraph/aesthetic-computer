@@ -1406,6 +1406,28 @@ final class DJMixerView: NSView {
 
     @objc func loadPractice() { loadPrimpats() }
 
+    func loadLibraryRecords(openPopouts: Bool = false) {
+        let first = primpatCount + practiceCount
+        guard availableTracks.indices.contains(first) else { return }
+        let libraryCount = availableTracks.count - first
+        deckA.configure(tracks: availableTracks, selectedIndex: first)
+        deckB.configure(tracks: availableTracks,
+                        selectedIndex: min(first + 1, availableTracks.count - 1))
+        deckC.load(availableTracks[min(first + 2, availableTracks.count - 1)])
+        deckD.load(availableTracks[min(first + 3, availableTracks.count - 1)])
+        crossfader.doubleValue = 0
+        applyCrossfade()
+        if openPopouts {
+            showPopoutA()
+            if libraryCount > 1 { showPopoutB() }
+            if libraryCount > 2 { showPopoutC() }
+            if libraryCount > 3 { showPopoutD() }
+            showAlignmentPopout()
+            onDetach?()
+        }
+        onStateChange?()
+    }
+
     func loadPrimpats(openPopouts: Bool = false) {
         guard primpatCount >= 8 else { return }
         deckA.configure(tracks: availableTracks, selectedIndex: 0)

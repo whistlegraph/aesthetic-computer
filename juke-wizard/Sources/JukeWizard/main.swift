@@ -10,6 +10,7 @@
 //   jukewizard --spotify-search "artist or track"  headless Spotify search
 //   jukewizard --background  start resident without raising the full window
 //   jukewizard --primpats   open floating primitive-pattern records
+//   jukewizard --records <folder/files...>  open floating records for supplied tracks
 //   jukewizard --beats      open one floating scratchable beat record
 //   (no args → opens ~/Desktop/MASTER-playlist.m3u8 if present)
 //
@@ -29,6 +30,7 @@ final class JukeAppDelegate: NSObject, NSApplicationDelegate {
         var spotifySearch: String? = nil
         var launchInBackground = false
         var startPrimpats = false
+        var startRecords = false
         var startBeats = false
         var i = 0
         while i < args.count {
@@ -37,6 +39,7 @@ final class JukeAppDelegate: NSObject, NSApplicationDelegate {
             if args[i] == "--spotify-search", i + 1 < args.count { spotifySearch = args[i + 1]; i += 2; continue }
             if args[i] == "--background" { launchInBackground = true; i += 1; continue }
             if args[i] == "--primpats" { startPrimpats = true; i += 1; continue }
+            if args[i] == "--records" { startRecords = true; i += 1; continue }
             if args[i] == "--beats" { startBeats = true; i += 1; continue }
             paths.append(args[i]); i += 1
         }
@@ -61,7 +64,8 @@ final class JukeAppDelegate: NSObject, NSApplicationDelegate {
         controller = JukeController(library: library, watch: watch, select: selectPath,
                                     spotifySearch: spotifySearch,
                                     startPrimpats: startPrimpats,
-                                    startBeats: startBeats)
+                                    startBeats: startBeats,
+                                    startRecords: startRecords)
         if launchInBackground && !startPrimpats && !startBeats {
             controller?.window?.orderOut(nil)
         } else {
@@ -73,7 +77,9 @@ final class JukeAppDelegate: NSObject, NSApplicationDelegate {
         // Launch Services can re-apply the previous process's minimized Dock
         // state just after didFinishLaunching. Restore once more on the next
         // run-loop turn so a relaunch can never masquerade as a crash.
-        if startBeats {
+        if startRecords {
+            DispatchQueue.main.async { [weak self] in self?.controller?.showDetachedRecords() }
+        } else if startBeats {
             DispatchQueue.main.async { [weak self] in self?.controller?.showDetachedBeats() }
         } else if startPrimpats {
             DispatchQueue.main.async { [weak self] in self?.controller?.showDetachedPrimpats() }
