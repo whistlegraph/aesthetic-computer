@@ -1585,8 +1585,8 @@ async function boot({
     freq: sound?.freq,
   });
 
-  // ✨ Show ".com" superscript in the HUD corner label (notepat.com branding)
-  hud.superscript(".com");
+  // 🌐 Complete the notepat.com wordmark on the same baseline.
+  hud.suffix(".com");
   dotComMode = true;
 
   // 🎹 Check if we're in DAW mode (loaded from Ableton M4L)
@@ -1598,10 +1598,10 @@ async function boot({
   overlayMode = query?.overlay === "true" || query?.overlay === true || query?.overlay === "1";
   if (overlayMode) {
     console.log("🪟 Notepat: overlay mode — skipping background wipes");
-    // Hide the corner label + ".com" superscript so nothing floats over
+    // Hide the corner label + ".com" suffix so nothing floats over
     // the desktop except the piano itself. The default slug is set by
     // the disk loader, so we have to explicitly clear it.
-    hud.superscript(null);
+    hud.suffix(null);
     hud.label(undefined);
     dotComMode = false;
   }

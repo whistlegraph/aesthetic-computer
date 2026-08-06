@@ -2116,8 +2116,8 @@ function paint(
     }
   } else if (!client.connecting) {
     const chatterCount = client?.chatterCount ?? 0;
-    const onlineHandles = client?.onlineHandles || [];
-    const hereHandles = client?.hereHandles || [];
+    const onlineHandles = [...new Set(client?.onlineHandles || [])];
+    const hereHandles = [...new Set(client?.hereHandles || [])];
 
     const hereCount = hereHandles.length;
     const onlineCount = onlineHandles.length;
@@ -2144,11 +2144,15 @@ function paint(
     const presenceY = options?.presenceTop ?? Math.min(hudLabelBottom + 3, maxPresenceY);
 
     const onlineFgColor = theme?.timestamp || 160;
-    const tickerLeftEdge = screen.width - 230; // Reserve space for News/r8Dio
+    const presenceRightInset = options?.presenceRightInset
+      ?? (options?.hideChrome ? 6 : 230);
+    const tickerLeftEdge = screen.width - presenceRightInset;
 
     // Build count label
     let countLabel;
-    if (hereCount > 0) {
+    if (options?.presenceOnlineOnly) {
+      countLabel = `${onlineCount || chatterCount} online`;
+    } else if (hereCount > 0) {
       countLabel = `${hereCount} here`;
       if (onlineCount > hereCount) {
         countLabel += ` · ${onlineCount} online`;
@@ -2170,7 +2174,9 @@ function paint(
     }, false, undefined, false, "MatrixChunky8");
 
     // Render active handles to the right of the count
-    const activeHandles = hereCount > 0 ? hereHandles : onlineHandles;
+    // The count may distinguish people viewing this piece (`here`) from the
+    // wider service, but the names beside "online" should be that wider list.
+    const activeHandles = onlineHandles.length > 0 ? onlineHandles : hereHandles;
     if (activeHandles.length > 0) {
       const countWidth = text.width(countLabel, "MatrixChunky8");
       let handleX = presenceX + countWidth + 4;
