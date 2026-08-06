@@ -117,9 +117,11 @@ test("title letters carry distinct colors that animate between palettes", () => 
   assert.equal(new Set(firstFrame.map((color) => color.join(","))).size, 8);
   assert.notDeepEqual(animatedTitleColor(0, 0, 0),
     animatedTitleColor(0, 1.25, 0));
-  for (const light of [0, .5, 1]) {
-    for (const channel of animatedTitleColor(5, 99.25, light))
-      assert.ok(channel >= 0 && channel <= 255);
+  for (const time of [-.25, 0, 99.25]) {
+    for (const light of [0, .5, 1]) {
+      for (const channel of animatedTitleColor(5, time, light))
+        assert.ok(channel >= 0 && channel <= 255);
+    }
   }
 });
 

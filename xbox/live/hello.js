@@ -2808,7 +2808,9 @@ const titlePaletteDay = [
 
 function animatedTitleColor(index, t, daylight = visualTheme.light) {
   const count = titlePaletteNight.length;
-  const phase = (index + t * .42) % count;
+  // Native monotonic time can begin a fraction before startedAt settles.
+  // Normalize the remainder so that first frame still lands in the palette.
+  const phase = ((index + t * .42) % count + count) % count;
   const from = Math.floor(phase);
   const amount = phase - from;
   const eased = amount * amount * (3 - amount * 2);
