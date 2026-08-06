@@ -139,6 +139,11 @@ let sustained = false;
 let resumeTarget = 1; // The pre-gesture rate: brake, wheel, and dip return here
 const PARK_SNAP = 0.05; // Within this of 1×, a release ends the scrub cleanly
 
+// 🐢 Slow park: letting go below 1× HOLDS that slow rate — it's a setting
+// the gesture made, and friction leaves it alone until the next touch.
+// Letting go above 1× still glides home to 1× on the wheel's friction.
+let slowParked = false;
+
 // 🎰 Wheel: a FLICK release lets the platter run free, then it eases down
 // like a prize wheel to the pre-flick rate. A gentle release parks instead.
 let wheelActive = false;
@@ -443,6 +448,7 @@ function boot({ wipe, rec, gizmo, jump, notice, store, params, send, hud }) {
   lastScrollAt = 0;
   wheelActive = false;
   sustained = false;
+  slowParked = false;
   chopActive = 0;
   flickVel = 0;
   scratchVelocity = 0;
@@ -1656,6 +1662,7 @@ function sim({ needsPaint, rec, send, clock, sound }) {
       tapDipTime = -1;
       scrubSpeed = dipBase;
       sustained = true;
+      slowParked = Math.abs(dipBase) < 1;
     }
   }
 
@@ -1723,6 +1730,7 @@ function sim({ needsPaint, rec, send, clock, sound }) {
       tapDipTime = -1;
       isScrubbing = false;
       if (Math.abs(scrubSpeed - 1) < PARK_SNAP) scrubSpeed = 1;
+      slowParked = Math.abs(scrubSpeed) < 1; // 🐢 Sub-1× release stays slow
       driveDirection = directionalCruiseTarget(scrubSpeed);
       sustained = true;
     }
@@ -1740,6 +1748,7 @@ function sim({ needsPaint, rec, send, clock, sound }) {
         wheelActive = false;
         scrubSpeed = resumeTarget;
         sustained = true;
+        slowParked = false; // A flick always lands at cruise (±1×)
       }
     }
 
@@ -1750,7 +1759,9 @@ function sim({ needsPaint, rec, send, clock, sound }) {
     // it's always the same gesture: let go, the wheel finds the groove and
     // locks. Never a jump. (A held chop owns position — it opts out.)
     if (sustained && !isScrubbing && !chopActive) {
-      if (driveDirection < 0) {
+      if (slowParked) {
+        // 🐢 A sub-1× park holds its rate — no bearing glide, no PLL.
+      } else if (driveDirection < 0) {
         // A reverse throw settles at reverse 1× and never crosses zero.
         scrubSpeed += (-1 - scrubSpeed) * (1 - Math.pow(0.94, rate));
         if (Math.abs(scrubSpeed + 1) < 0.004) scrubSpeed = -1;
@@ -1803,6 +1814,7 @@ function sim({ needsPaint, rec, send, clock, sound }) {
         scrubSpeed = resumeTarget;
         driveDirection = directionalCruiseTarget(resumeTarget);
         sustained = true;
+        slowParked = Math.abs(resumeTarget) < 1; // Braking from a slow park returns to it
       }
     }
 
@@ -1894,6 +1906,7 @@ function act({
     brakeResume = false;
     wheelActive = false;
     sustained = false;
+    slowParked = false;
     holdTime = 0;
     flickVel = 0;
     scratchVelocity = 0;
@@ -2911,6 +2924,7 @@ function act({
       brakeResume = false;
       wheelActive = false;
       sustained = false;
+      slowParked = false;
       scrollScrubbing = false;
       tapDipTime = -1;
       chopActive = 0;
@@ -3168,27 +3182,34 @@ function act({
           isScrubbing = false;
           elasticAnchorX = null;
           elasticBase = 1;
+          const thrown = Math.max(
+            -24,
+            Math.min(24, scrubSpeed + flickVel * FLICK_KICK),
+          );
           if (brakeHolding) {
             // 🖐️ Brake release: spin back up to the pre-gesture rate.
             brakeHolding = false;
             brakeResume = true;
-          } else if (Math.abs(flickVel) > FLICK_THRESHOLD) {
+          } else if (
+            Math.abs(flickVel) > FLICK_THRESHOLD &&
+            Math.abs(thrown) >= 1
+          ) {
             // 🎰 Flick: the platter runs free with the throw's momentum,
             // then eases to 1× without changing the throw's direction.
-            scrubSpeed = Math.max(
-              -24,
-              Math.min(24, scrubSpeed + flickVel * FLICK_KICK),
-            );
+            scrubSpeed = thrown;
             resumeTarget = directionalCruiseTarget(scrubSpeed, flickVel);
             driveDirection = resumeTarget;
             nudgeTapeAudioSpeed(send, scrubSpeed);
             wheelActive = true;
             sustained = false;
+            slowParked = false;
           } else {
             // 🅿️ Release parks where you left it. Near 1× it pins to
             // exactly 1 — the scrub drive at 1.0 IS normal playback, so
-            // there's no handoff and no jump, ever.
+            // there's no handoff and no jump, ever. 🐢 Below 1× the rate
+            // HOLDS; above 1× the bearing glide brings it home to 1×.
             if (Math.abs(scrubSpeed - 1) < PARK_SNAP) scrubSpeed = 1;
+            slowParked = Math.abs(scrubSpeed) < 1;
             driveDirection = directionalCruiseTarget(scrubSpeed);
             sustained = true;
             nudgeTapeAudioSpeed(send, scrubSpeed);
@@ -3204,6 +3225,7 @@ function act({
           brakeResume = false;
           wheelActive = false;
           sustained = false;
+          slowParked = false;
           elasticAnchorX = null;
           scrubSpeed = 0;
           nudgeTapeAudioSpeed(send, 1);
@@ -3897,6 +3919,7 @@ function leave({ send, rec }) {
   tapDipTime = -1;
   wheelActive = false;
   sustained = false;
+  slowParked = false;
   flickVel = 0;
   scratchVelocity = 0;
   lastScratchEventAt = 0;
@@ -4003,6 +4026,7 @@ function autopilot(rec, send, simDt) {
       if (!isScrubbing) {
         inertiaActive = false;
         sustained = false;
+        slowParked = false;
         wheelActive = false;
         // Position must be captured BEFORE isScrubbing flips — after the
         // flip autopilotProgress() returns the stale scrub position.
@@ -4036,6 +4060,7 @@ function autopilot(rec, send, simDt) {
       inertiaActive = false;
       brakeResume = false;
       sustained = false;
+      slowParked = false;
       wheelActive = false;
       resumeTarget = 1;
       scrubCurrentProgress = autoSegStartProgress;
@@ -4058,6 +4083,7 @@ function autopilot(rec, send, simDt) {
       inertiaActive = false;
       brakeResume = false;
       sustained = false;
+      slowParked = false;
       wheelActive = false;
       isScrubbing = false;
       dipBase = 1;

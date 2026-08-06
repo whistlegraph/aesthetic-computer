@@ -9406,16 +9406,9 @@ async function load(
           shader(p, c);
         }
       }
-    } else if (lastActiveVideo) {
-      // Make it all red...
-      const { pixels } = lastActiveVideo;
-      for (let i = 0; i < pixels.length; i += 4) {
-        pixels[i] = 255;
-        pixels[i + 1] = 0;
-        pixels[i + 2] = 0;
-        pixels[i + 3] = 255;
-      }
     }
+    // With no fresh frame (e.g. mid camera switch), hand back the last real
+    // frame untouched so the preview holds instead of flashing a placeholder.
     return activeVideo || lastActiveVideo;
   }
 

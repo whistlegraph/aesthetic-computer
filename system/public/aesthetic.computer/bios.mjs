@@ -22193,7 +22193,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
           const constraints = {
             facingMode: facingModeChoice,
-            frameRate: { ideal: 30 },
+            // Prefer a high-rate preview — filming feels tighter at 60+.
+            // `ideal` is best-effort, so 30fps-only sensors still open.
+            frameRate: { ideal: 60 },
           };
 
           // Mobile camera sensors are physically landscape. Per Snap and
@@ -22245,6 +22247,22 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           videoTrack = stream.getVideoTracks()[0];
           const capabilities = videoTrack.getCapabilities?.() || {};
           settings = videoTrack.getSettings();
+
+          // 🎞️ Chase the sensor's max rate so the preview tracks the world
+          // with less delay. The encoded tape keeps its own rate — this is
+          // feel while filming, not format.
+          const maxFps = capabilities.frameRate?.max;
+          if (maxFps && (!settings.frameRate || maxFps > settings.frameRate)) {
+            try {
+              await videoTrack.applyConstraints({ frameRate: { ideal: maxFps } });
+              settings = videoTrack.getSettings();
+            } catch (fpsError) {
+              console.warn("🎥 Max frame rate constraint failed:", fpsError);
+            }
+          }
+          console.log(
+            `🎥 Camera preview: ${settings.frameRate || "?"}fps (sensor max ${maxFps || "?"})`,
+          );
 
           // Update global facingMode in case different from requested.
           facingMode = videoTrack.getConstraints().facingMode;

@@ -2313,11 +2313,56 @@ function paste(from, destX = 0, destY = 0, scale = 1, blit = false) {
         const cY = Math.floor(crop.y);
         const cW = Math.floor(crop.w);
         const cH = Math.floor(crop.h);
+        const srcWidth = from.width;
+        const srcHeight = from.height;
+
+        // Destination-based scaling for cropped buffers (fixes downscaling gaps)
+        const targetW = tWidth || (scale && typeof scale === 'number' ? Math.floor(cW * scale) : cW);
+        const targetH = tHeight || (scale && typeof scale === 'number' ? Math.floor(cH * scale) : cH);
+
+        // 🚀 Fast crop+scale: nearest-neighbor straight from the source
+        // buffer — no intermediate crop copy. The mask is rectangular, so
+        // it clamps the loop bounds instead of branching per pixel, and
+        // fully opaque pixels move as single 32-bit words. This is the
+        // realtime path for full-screen video zoom (e.g. cap).
+        if (
+          (targetW !== cW || targetH !== cH) &&
+          !angle &&
+          (sourcePixels.byteOffset & 3) === 0 &&
+          (pixels.byteOffset & 3) === 0
+        ) {
+          const scaleX = cW / targetW;
+          const scaleY = cH / targetH;
+
+          // Loop bounds clamped to the screen...
+          let startY = Math.max(0, -destY);
+          let endY = Math.min(targetH, height - destY);
+          let startX = Math.max(0, -destX);
+          let endX = Math.min(targetW, width - destX);
+
+          // ...and to the mask rect (pan-translated like every other blit).
+          if (activeMask) {
+            const maskX = activeMask.x + panTranslation.x;
+            const maskY = activeMask.y + panTranslation.y;
+            startX = Math.max(startX, maskX - destX);
+            endX = Math.min(endX, maskX + activeMask.width - destX);
+            startY = Math.max(startY, maskY - destY);
+            endY = Math.min(endY, maskY + activeMask.height - destY);
+          }
+
+          if (endX > startX && endY > startY) {
+            blitCropScale(
+              sourcePixels, srcWidth, srcHeight, cX, cY,
+              scaleX, scaleY, destX, destY,
+              pixels, width, startX, startY, endX, endY,
+            );
+          }
+          return;
+        }
 
         // Create a new buffer for the cropped area
         // We must copy the pixels because grid() expects a packed buffer matching width/height
         const croppedPixels = new Uint8ClampedArray(cW * cH * 4);
-        const srcWidth = from.width;
         
         for (let y = 0; y < cH; y++) {
           const srcY = cY + y;
@@ -2356,11 +2401,9 @@ function paste(from, destX = 0, destY = 0, scale = 1, blit = false) {
             height: cH,
             pixels: croppedPixels
         };
-        
-        // Destination-based scaling for cropped buffers (fixes downscaling gaps)
-        const targetW = tWidth || (scale && typeof scale === 'number' ? Math.floor(cW * scale) : cW);
-        const targetH = tHeight || (scale && typeof scale === 'number' ? Math.floor(cH * scale) : cH);
-        
+
+        // Misaligned-buffer fallback for the scaled case (the aligned fast
+        // path above returned already).
         if ((targetW !== cW || targetH !== cH) && !angle) {
              const scaleX = cW / targetW;
              const scaleY = cH / targetH;
