@@ -1951,7 +1951,7 @@ function paint(
     const gw = text.width(glyph, selectedTypeface);
     ink(plusInk).write(glyph, {
       x: plusBtnX + max(0, floor((plusBtnW - gw) / 2)),
-      y: plusBtnY + btnGap,
+      y: plusBtnY + max(0, floor((plusBtnH - selectedRowHeight) / 2)),
     }, false, undefined, false, selectedTypeface);
   }
 
