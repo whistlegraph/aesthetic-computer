@@ -138,9 +138,10 @@ function paintQR($) {
   const { ink, screen } = $;
   const cells = lakQRCells;
   const size = cells.length; // 1px per cell
-  const margin = 3;
-  const qrX = screen.width - size - 1 - margin; // -1 leaves room for the border
-  const qrY = margin;
+  const qrBoxSize = size + 2;
+  const rightInset = 6; // Align with the footer controls instead of the canvas edge.
+  const qrX = screen.width - qrBoxSize - rightInset;
+  const qrY = Math.floor((LAK_TOP_MARGIN - qrBoxSize) / 2);
   ink(255, 255, 255).box(qrX, qrY, size + 2, size + 2); // white background + border
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) {

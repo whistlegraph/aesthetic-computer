@@ -1960,16 +1960,16 @@ function paint(
   }, btnScheme[3], undefined, false, selectedTypeface);
 
   // 📎 Attach (+) button — opens a little menu to post a photo or video.
-  // Square, same height as the handle button. Pieces can place it at the
-  // far-right edge after the message field (Laklok's compact phone layout).
+  // Pieces can place it at the far-right edge after the message field;
+  // there it matches the field's height and outline exactly.
   const plusGap = 0; // flush against the handle button (shares its right border)
-  const plusBtnW = btnH;
   const attachAfterInput = options?.attachAfterInput === true;
+  const plusBtnW = attachAfterInput ? btnH + 2 : btnH;
   const plusBtnX = attachAfterInput
     ? screen.width - 5 - plusBtnW
     : handleBtn.btn.box.x + handleBtn.btn.box.w + plusGap;
-  const plusBtnY = handleBtn.btn.box.y;
-  const plusBtnH = btnH;
+  const plusBtnY = attachAfterInput ? handleBtn.btn.box.y - 1 : handleBtn.btn.box.y;
+  const plusBtnH = attachAfterInput ? btnH + 2 : btnH;
   attachBtnBounds = { x: plusBtnX, y: plusBtnY, w: plusBtnW, h: plusBtnH };
   const plusOver =
     pen && pen.x >= plusBtnX && pen.x < plusBtnX + plusBtnW &&
@@ -1978,7 +1978,9 @@ function paint(
   ink(...footerBg, 255).box(plusBtnX, plusBtnY, plusBtnW, plusBtnH);
   // Borders: top, right, bottom only — no left edge (it would double the
   // handle button's right border, like the send button to the right of it).
-  ink(...breakColor)
+  const plusBorderColor = attachMenuOpen ? "yellow" : (plusOver ? "white" : "gray");
+  const plusBorderInk = attachAfterInput ? [plusBorderColor] : breakColor;
+  ink(...plusBorderInk)
     .line(plusBtnX, plusBtnY, plusBtnX + plusBtnW - 1, plusBtnY) // top
     .line(plusBtnX + plusBtnW - 1, plusBtnY, plusBtnX + plusBtnW - 1, plusBtnY + plusBtnH - 1) // right
     .line(plusBtnX, plusBtnY + plusBtnH - 1, plusBtnX + plusBtnW - 1, plusBtnY + plusBtnH - 1); // bottom
