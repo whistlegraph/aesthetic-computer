@@ -1,0 +1,17 @@
+{
+  "name": "intelligent-terrarium-experiment",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "demo": "node src/cli.mjs demo",
+    "reflect": "node src/cli.mjs reflect",
+    "visit": "node src/server.mjs",
+    "soup": "node src/soup-server.mjs",
+    "kiosk": "bin/run-piecefarm-kiosk.sh",
+    "native": "make -C native",
+    "groove": "node bin/pixel-groove.mjs",
+    "place:kiosk": "node bin/place-kiosk.mjs",
+    "inspect:kiosk": "node bin/inspect-kiosk.mjs"
+  }
+}

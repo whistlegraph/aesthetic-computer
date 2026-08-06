@@ -1,0 +1,25 @@
+[Unit]
+Description=Piecefarm Lisp Soup observatory
+After=graphical-session.target network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/piecefarm/experiments/intelligent-terrarium
+Environment=DISPLAY=:0
+Environment=XDG_RUNTIME_DIR=/run/user/1000
+Environment=DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
+Environment=PIECEFARM_STATE_DIR=%h/.local/share/piecefarm
+EnvironmentFile=-%h/.config/piecefarm/env
+ExecStart=%h/piecefarm/experiments/intelligent-terrarium/bin/run-piecefarm-kiosk.sh
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=15
+KillMode=control-group
+NoNewPrivileges=true
+PrivateTmp=true
+MemoryHigh=1800M
+MemoryMax=2048M
+
+[Install]
+WantedBy=default.target

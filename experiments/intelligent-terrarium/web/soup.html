@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Piecefarm — Living Lisp Soup</title>
+  <link rel="stylesheet" href="/soup.css">
+</head>
+<body>
+  <canvas id="soup" aria-label="Tiled live visualization of programs in Lisp Soup"></canvas>
+  <section class="soup-overlay" aria-hidden="true">
+    <header><b>LISP SOUP</b><span id="soup-iteration">ITER 0</span></header>
+    <strong id="soup-program">AWAKENING PROGRAM FIELD</strong>
+    <footer><span id="soup-coverage">0 / 96 NICHES</span><span id="soup-verification">0 VERIFIED</span></footer>
+  </section>
+  <p id="description" class="sr-only">Connecting to Piecefarm.</p>
+  <script type="module" src="/soup.mjs"></script>
+</body>
+</html>

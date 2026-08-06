@@ -1,0 +1,5 @@
+# Native build products are host-specific; rebuild them with `make -C native`.
+native/*.o
+native/piece-vm-runner
+native/piecefarm-sdl
+native/*.dSYM/

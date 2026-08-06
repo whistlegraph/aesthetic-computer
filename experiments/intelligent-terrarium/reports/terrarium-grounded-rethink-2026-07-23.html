@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Terrarium, Reconsidered — A Platter-Grounded System Note</title>
+<style>
+  @page { size: Letter; margin: 0; }
+  @font-face { font-family: Processing; src: url('../../../system/public/type/webfonts/ywft-processing-bold.ttf'); font-weight: 700; }
+  @font-face { font-family: ProcessingLight; src: url('../../../system/public/type/webfonts/ywft-processing-light.ttf'); font-weight: 300; }
+  * { box-sizing: border-box; }
+  :root { --pink:#b44887; --purple:#7850b4; --dark:#40384a; --gray:#777; --cream:#fffdf7; --line:#d9d4dc; --wash:#f4f0f5; --green:#46785d; --red:#a84343; }
+  html,body { margin:0; padding:0; background:#ddd; color:#211f23; }
+  body { font-family: Georgia, 'Times New Roman', serif; }
+  .page { width:8.5in; height:11in; padding:.63in .72in .58in; background:var(--cream); position:relative; overflow:hidden; page-break-after:always; }
+  .page:last-child { page-break-after:auto; }
+  .folio { position:absolute; bottom:.26in; right:.72in; font:8pt Arial,sans-serif; color:var(--gray); }
+  .source { position:absolute; bottom:.25in; left:.72in; max-width:5.8in; font:6.8pt/1.25 Arial,sans-serif; color:#888; }
+  header { display:flex; justify-content:space-between; border-bottom:1px solid var(--line); padding-bottom:7px; margin-bottom:22px; font:8pt Arial,sans-serif; color:var(--gray); letter-spacing:.12em; text-transform:uppercase; }
+  .kicker { font:700 8.5pt Arial,sans-serif; color:var(--pink); letter-spacing:.16em; text-transform:uppercase; margin-bottom:5px; }
+  h1 { font-family:Processing, Arial,sans-serif; font-size:39pt; line-height:.94; color:var(--dark); margin:0 0 12px; font-weight:700; }
+  h2 { font-family:Processing, Arial,sans-serif; font-size:23pt; line-height:1.02; color:var(--dark); margin:0 0 14px; }
+  h3 { font:700 9pt Arial,sans-serif; color:var(--purple); letter-spacing:.1em; text-transform:uppercase; margin:0 0 6px; }
+  p { font-size:10.2pt; line-height:1.43; margin:0 0 10px; }
+  .lead { font-size:15.5pt; line-height:1.35; color:var(--dark); }
+  .plain { font-family:Arial,sans-serif; }
+  .small { font:8.4pt/1.38 Arial,sans-serif; color:#5f5b62; }
+  .rule { width:52px; height:3px; background:var(--pink); margin:13px 0 20px; }
+  .callout { margin:16px 0; padding:14px 16px; border-left:4px solid var(--pink); background:var(--wash); }
+  .callout p:last-child { margin-bottom:0; }
+  .cover { display:flex; flex-direction:column; justify-content:center; padding-bottom:1in; }
+  .cover .deck { font:300 15pt/1.28 ProcessingLight, Arial,sans-serif; color:var(--pink); max-width:6.3in; }
+  .cover .thesis { max-width:6.2in; font-size:16pt; line-height:1.42; margin-top:34px; }
+  .cover .meta { position:absolute; left:.72in; bottom:.63in; font:8pt/1.55 Arial,sans-serif; color:var(--gray); letter-spacing:.06em; text-transform:uppercase; }
+  .stamp { display:inline-block; font:700 8pt Arial,sans-serif; color:var(--red); border:1px solid var(--red); padding:5px 8px 4px; letter-spacing:.08em; text-transform:uppercase; transform:rotate(-1deg); margin-top:18px; }
+  .correction { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:18px; }
+  .correction > div { border-top:3px solid var(--line); padding-top:10px; }
+  .correction .bad { border-color:var(--red); }
+  .correction .good { border-color:var(--green); }
+  ul { margin:5px 0 0 18px; padding:0; }
+  li { font:9.3pt/1.38 Arial,sans-serif; margin-bottom:6px; }
+  table { border-collapse:collapse; width:100%; margin:12px 0; font-family:Arial,sans-serif; table-layout:fixed; }
+  th { font-size:7.4pt; letter-spacing:.08em; text-transform:uppercase; color:var(--purple); text-align:left; border-bottom:2px solid var(--dark); padding:7px 7px; }
+  td { font-size:8.25pt; line-height:1.34; vertical-align:top; padding:8px 7px; border-bottom:1px solid var(--line); }
+  td:first-child { width:26%; font-weight:700; color:var(--dark); }
+  .claim { color:var(--green); font-weight:700; }
+  .notclaim { color:var(--red); font-weight:700; }
+  .flow { margin:18px 0; display:grid; grid-template-columns:1fr 24px 1fr 24px 1fr; align-items:center; }
+  .box { min-height:.95in; padding:12px; border:1.5px solid var(--purple); background:white; }
+  .box b { display:block; font:700 12pt Processing,Arial,sans-serif; color:var(--dark); margin-bottom:5px; }
+  .box span { display:block; font:7.8pt/1.32 Arial,sans-serif; color:#666; }
+  .arrow { text-align:center; color:var(--pink); font:18pt Arial,sans-serif; }
+  .stack { border:1px solid var(--line); margin:16px 0; }
+  .layer { display:grid; grid-template-columns:1.2in 1fr 1.05in; gap:12px; padding:11px 13px; border-bottom:1px solid var(--line); align-items:start; }
+  .layer:last-child { border-bottom:0; }
+  .layer b { font:700 8pt Arial,sans-serif; color:var(--purple); text-transform:uppercase; letter-spacing:.08em; }
+  .layer span { font:8.8pt/1.33 Arial,sans-serif; }
+  .layer em { font:7.5pt/1.3 Arial,sans-serif; color:var(--gray); text-align:right; }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  .card { border:1px solid var(--line); background:white; padding:13px; }
+  .card p:last-child { margin-bottom:0; }
+  .budget { margin:13px 0 17px; }
+  .budget-top { display:flex; justify-content:space-between; align-items:baseline; }
+  .budget-top b { font:700 17pt Processing,Arial,sans-serif; color:var(--dark); }
+  .bar { height:14px; background:#e7e3e8; margin:6px 0 6px; position:relative; }
+  .bar i { display:block; height:100%; background:var(--green); }
+  .bar::after { content:'unclaimed headroom'; position:absolute; right:7px; top:2px; font:6.8pt Arial,sans-serif; color:#555; }
+  code { font-family:'Courier New',monospace; font-size:.92em; color:var(--purple); }
+  .ledger { counter-reset:item; margin-top:10px; }
+  .entry { counter-increment:item; display:grid; grid-template-columns:28px 1fr; gap:10px; padding:9px 0; border-bottom:1px solid var(--line); }
+  .entry::before { content:counter(item, decimal-leading-zero); font:700 8pt Arial,sans-serif; color:var(--pink); padding-top:2px; }
+  .entry b { display:block; font:700 10pt Arial,sans-serif; color:var(--dark); margin-bottom:3px; }
+  .entry span { display:block; font:8.7pt/1.34 Arial,sans-serif; color:#5f5b62; }
+  .metric-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:9px; margin:14px 0; }
+  .metric { border-top:3px solid var(--green); padding-top:8px; }
+  .metric b { font:700 12pt Processing,Arial,sans-serif; display:block; color:var(--dark); }
+  .metric span { font:7.4pt/1.25 Arial,sans-serif; color:var(--gray); text-transform:uppercase; letter-spacing:.07em; }
+  .verdict { background:var(--dark); color:white; padding:18px 20px; margin:16px 0; }
+  .verdict h3 { color:#e2a6c9; }
+  .verdict p { font-size:14pt; line-height:1.35; margin:0; }
+</style>
+</head>
+<body>
+
+<section class="page cover">
+  <div class="kicker">Working system note · reconsidered</div>
+  <h1>Terrarium,<br>Reconsidered</h1>
+  <div class="deck">A platter-grounded resident instrument for Aesthetic Computer</div>
+  <div class="rule"></div>
+  <p class="thesis">The earlier prototype started with a generic agent diagram and then gave its queues names like <em>memory</em>, <em>drive</em>, and <em>voice</em>. That is not enough. This proposal starts elsewhere: with the platter as material, the score as executable instruction, the piece as performance unit, the handle as addressable identity, and the local machine as a sovereign node.</p>
+  <span class="stamp">supersedes the vibe-coded model</span>
+  <div class="meta">23 July 2026 · @jeffrey / Aesthetic.Computer<br>Grounded in papers/SCORE.md, the research platter, and the implemented experiment</div>
+  <div class="folio">01</div>
+</section>
+
+<section class="page">
+  <header><span>Terrarium, Reconsidered</span><span>Correction</span></header>
+  <div class="kicker">What was wrong</div>
+  <h2>The old logic used biological language to conceal unspecified mechanisms.</h2>
+  <p class="lead">A queue called “memory” is still a queue. A timer called “culture age” is still a timer. An LLM proposal called “reflection” is still a sampled string. The names made the stack feel coherent before the behavior earned coherence.</p>
+
+  <div class="correction">
+    <div class="bad"><h3>Remove</h3><ul><li>Seven invented “organs” with no demonstrated cognitive necessity</li><li>Procedural charts presented beside real system facts</li><li>Uptime as growth and visual noise as complexity</li><li>Git commits treated as memory without retrieval or use</li><li>A small LLM treated as the source of intelligence</li></ul></div>
+    <div class="good"><h3>Retain</h3><ul><li>Hard RAM limits, loopback authority, replay, and crash safety</li><li>Separate local state repository and no automatic push</li><li>Semantic spatial sound rather than streamed audio</li><li>Verified handled access and causally recorded intervention</li><li>Measured model experiment, with its scope stated narrowly</li></ul></div>
+  </div>
+
+  <div class="callout">
+    <h3>New thesis</h3>
+    <p>The terrarium is not a synthetic pet. It is a <b>resident reading and performance process</b>. It continuously finds threads in the local platter, compiles them into bounded scores, performs those scores through an AC piece, and preserves a traceable lineage from source to output to handled response.</p>
+  </div>
+
+  <h3>Why this belongs inside AC</h3>
+  <p>The project’s papers repeatedly choose instrument over interface, piece over program, URL over menu, sovereign node over client, and practice over profile. A resident intelligence should sharpen those commitments. It should not import a generic “agent” ontology that the rest of the project never asked for.</p>
+
+  <div class="source">Grounding: <b>The Hand and the Loop</b> §§1–8; <b>Score Analysis</b> §§2, 6–9; experiment KEEPER.md.</div><div class="folio">02</div>
+</section>
+
+<section class="page">
+  <header><span>Terrarium, Reconsidered</span><span>Derivation from the platter</span></header>
+  <div class="kicker">Claims → design consequences</div>
+  <h2>The architecture should be derivable from existing arguments.</h2>
+
+  <table>
+    <thead><tr><th style="width:25%">Source claim</th><th style="width:36%">Consequence for the terrarium</th><th>What this rules out</th></tr></thead>
+    <tbody>
+      <tr><td>A score is minimal notation for producing a temporal event.</td><td class="claim">The resident process emits a small, inspectable score that a piece can perform and a person can read.</td><td>A dashboard that tries to contain the whole system; arbitrary internal lore.</td></tr>
+      <tr><td>The platter is raw material; a thread becomes a paper, card, score, or code artifact.</td><td class="claim">Growth begins with real deltas in papers, code, commits, conversations, and curated manifests.</td><td>Activity generated merely to prove the daemon is alive.</td></tr>
+      <tr><td>A piece is named, ongoing, immediate-mode, and practiced—not deployed and finished.</td><td class="claim">The visible terrarium is one AC piece with <code>boot / act / sim / paint / leave</code>, not a new parallel frontend.</td><td>A generic 3D shell whose visuals are disconnected from the AC runtime.</td></tr>
+      <tr><td>The loop gains breadth but erodes the hand when foundations stop fitting one mind.</td><td class="claim">Keep the foundation small; let automated breadth appear as leaf scores and artifacts with provenance.</td><td>A large framework of abstract organs, adapters, and “future-proof” subsystems.</td></tr>
+      <tr><td>Dead ends are useful when they leave information or reusable structure.</td><td class="claim">Dormant branches become selectable platter material only when the new score says what is being salvaged.</td><td>Calling every abandoned feature latent intelligence or inevitable future value.</td></tr>
+      <tr><td>The URL is a medium property and a promise of reachability.</td><td class="claim">Every performance, source trail, and generated artifact gets a stable, human-readable address.</td><td>Opaque sessions and outputs that exist only on the kiosk.</td></tr>
+      <tr><td>A local AC machine can be a sovereign node rather than a cloud client.</td><td class="claim">Source, selections, preferences, and unpublished outputs remain local-first and sync by explicit policy.</td><td>Remote model dependency as the condition for the thing to exist.</td></tr>
+      <tr><td>Pals are affinity and reciprocal practice, not followers.</td><td class="claim">Handled visitors annotate, perform, cover, and answer scores; they are not engagement metrics.</td><td>Gamified population counts or a passive spectator funnel.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout"><p><b>The platter is already the terrarium’s environment.</b> The system does not need a fabricated ecology first. Its ecology is the accumulated material, arguments, dead ends, people, pieces, sources, and revisions that the platter already keeps alive.</p></div>
+  <div class="source">Sources: papers/SCORE.md (“Mill Mission,” “What This Is,” “Process”); <b>Pieces Not Programs</b>; <b>The Hand and the Loop</b>; <b>Dead Ends</b>; <b>The URL Tradition</b>; <b>Handle Identity</b>; <b>Sucking on the Complex</b>.</div><div class="folio">03</div>
+</section>
+
+<section class="page">
+  <header><span>Terrarium, Reconsidered</span><span>Concrete stack</span></header>
+  <div class="kicker">A small mechanism</div>
+  <h2>Watch → retrieve → score → perform → receive → preserve.</h2>
+  <p>Each arrow has a file format, an input bound, and an inspection path. “Intelligence” is not a named box. It is the quality of selection and transformation across the chain.</p>
+
+  <div class="flow">
+    <div class="box"><b>PLATTER</b><span>Git deltas, paper metadata, source paragraphs, piece headers, manifests, handled annotations</span></div><div class="arrow">→</div>
+    <div class="box"><b>SELECTOR</b><span>lexical retrieval + explicit operators: recurrence, contradiction, lineage, dormancy, recency, affinity</span></div><div class="arrow">→</div>
+    <div class="box"><b>SCORE</b><span>bounded JSON/KidLisp-like instructions with source spans and a deterministic seed</span></div>
+  </div>
+  <div class="flow" style="margin-top:0">
+    <div class="box"><b>ARCHIVE</b><span>performance receipt, source hashes, response, accepted artifact; commit only on meaningful change</span></div><div class="arrow">←</div>
+    <div class="box"><b>RESPONSE</b><span>handled gesture, cover, annotation, refusal, or no response; causal and rate-bounded</span></div><div class="arrow">←</div>
+    <div class="box"><b>PIECE</b><span>immediate-mode visual + spatial sound; browser/Xbox are performance surfaces</span></div>
+  </div>
+
+  <div class="stack">
+    <div class="layer"><b>Index on disk</b><span>Paths, titles, headings, hashes, commit lineage, citations, handles, artifact relationships. Rebuilt incrementally.</span><em>source of recall</em></div>
+    <div class="layer"><b>Working set</b><span>A few retrieved source spans and their graph neighborhood. Fixed count and byte limits.</span><em>resident context</em></div>
+    <div class="layer"><b>Score compiler</b><span>Deterministic operators compose timing, placement, voice, prompts, and admissible visitor actions.</span><em>authority</em></div>
+    <div class="layer"><b>Language pass</b><span>Optional 0.6B model proposes a title, connective sentence, or candidate thread from retrieved spans. Every claim must point back to source. Rejection is normal.</span><em>2 GB only</em></div>
+    <div class="layer"><b>AC performer</b><span>One addressable piece reads the score. Rendering is rebuilt each frame; no visual object accumulates without state evidence.</span><em>visible surface</em></div>
+  </div>
+
+  <div class="grid2">
+    <div class="card"><h3>A score record must contain</h3><p class="small">Seed; selected source paths + hashes + line spans; selection operators; timing; spatial layout; sonic mapping; allowed responses; output path; compiler version.</p></div>
+    <div class="card"><h3>A score record must not contain</h3><p class="small">Bearer tokens; raw private correspondence; invented cognitive metrics; unbounded chat history; model chain-of-thought; arbitrary mutation rights.</p></div>
+  </div>
+
+  <div class="source">The dataflow instantiates the platter pipeline in papers/SCORE.md and the piece lifecycle in <b>Pieces Not Programs</b>. It also applies the “foundations must fit one mind” constraint from <b>The Hand and the Loop</b>.</div><div class="folio">04</div>
+</section>
+
+<section class="page">
+  <header><span>Terrarium, Reconsidered</span><span>RAM and evidence</span></header>
+  <div class="kicker">What 1–2 GB actually establishes</div>
+  <h2>The current measurements prove components fit. They do not yet prove the whole device fits.</h2>
+
+  <div class="budget">
+    <div class="budget-top"><b>1 GB authority cgroup</b><span class="plain small">measured core peak ≈ 32 MB</span></div>
+    <div class="bar"><i style="width:3.2%"></i></div>
+    <p class="small">Enough for the deterministic repository, bounded retrieval, score compiler, semantic events, and server. The previous fallback run used no model and no swap. A lexical index and compact source graph should fit comfortably, but that exact integrated build has not been measured.</p>
+  </div>
+  <div class="budget">
+    <div class="budget-top"><b>2 GB authority cgroup</b><span class="plain small">Qwen child peak ≈ 807 MiB RSS</span></div>
+    <div class="bar"><i style="width:39.4%"></i></div>
+    <p class="small">Enough for the same stack plus one bounded Qwen3 0.6B Q8_0 CPU inference. The model file is 639,446,688 bytes. The measured cgroup charge was lower than RSS because warm file-backed pages were charged elsewhere, so it is not a cold-cache whole-system result.</p>
+  </div>
+
+  <div class="callout">
+    <h3>Important correction</h3>
+    <p>The kiosk browser, Fedora desktop, OS services, and GPU miner were outside the inference cgroup. Therefore “the terrarium fits in 2 GB” was too broad. What was shown is: <b>the authority plus one tiny-model call can remain under a 2 GB process-group limit in the measured warm-cache case.</b> A 1 GB or 2 GB total-RAM laptop requires an end-to-end cold-boot measurement including compositor, browser, audio, index, and authority.</p>
+  </div>
+
+  <h3>Recommended allocation strategy</h3>
+  <table>
+    <thead><tr><th style="width:26%">Subsystem</th><th>1 GB mode</th><th>2 GB mode</th></tr></thead>
+    <tbody>
+      <tr><td>Retrieval</td><td>Disk-backed lexical index; compact graph; bounded source spans.</td><td>Same. Do not spend RAM on a large vector database by default.</td></tr>
+      <tr><td>Language</td><td>No resident LLM. Template or grammar-based score descriptions.</td><td>0.6B model, one request at a time, source-bounded and non-authoritative.</td></tr>
+      <tr><td>Rendering</td><td colspan="2">Measure separately and together. Prefer the native AC runtime on constrained laptops; use Chromium on jas-nzxt where RAM is abundant.</td></tr>
+      <tr><td>History</td><td colspan="2">Keep cold history on disk/Git. Resident memory holds only the working set and compact indices.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="source">Measurements: experiment KEEPER.md and provenance/stage4.json. The correction distinguishes cgroup scope, RSS, warm page cache, browser memory, and total-device memory.</div><div class="folio">05</div>
+</section>
+
+<section class="page">
+  <header><span>Terrarium, Reconsidered</span><span>What growth means</span></header>
+  <div class="kicker">No fake metabolism</div>
+  <h2>The system grows only when a relationship becomes available for future practice.</h2>
+
+  <div class="ledger">
+    <div class="entry"><div><b>A source changes</b><span>A paper revision, new piece, commit, drawing, score, or manifest entry enters the platter index with its actual address and lineage.</span></div></div>
+    <div class="entry"><div><b>A thread is selected</b><span>The selector records why: recurrence across files, contradiction, a dormant structure worth revisiting, a handled affinity, or a new source delta.</span></div></div>
+    <div class="entry"><div><b>A score is compiled</b><span>The thread becomes temporal and performable: what appears, when, where, how it sounds, what a visitor can do, and what counts as completion.</span></div></div>
+    <div class="entry"><div><b>A person performs or answers it</b><span>A handled response can annotate, cover, refuse, fork, or redirect the score. It cannot silently rewrite source history.</span></div></div>
+    <div class="entry"><div><b>The lineage becomes reusable</b><span>Only a verified receipt or accepted artifact is committed. Later selection can cite the lineage and demonstrate that prior experience changed the next performance.</span></div></div>
+  </div>
+
+  <div class="grid2" style="margin-top:16px">
+    <div class="card"><h3>Real long-term change</h3><ul><li>New source and citation edges</li><li>Stable handled affinities and refusals</li><li>Scores that are covered or revised</li><li>Dead ends salvaged with an explicit reason</li><li>Curatorial weights whose evidence can be inspected</li></ul></div>
+    <div class="card"><h3>Not growth</h3><ul><li>Elapsed uptime</li><li>Higher noise density</li><li>More journal rows</li><li>Random parameter drift</li><li>A model describing itself as alive</li></ul></div>
+  </div>
+
+  <div class="callout"><p>The daemon may be quiet. If the platter has not changed and nobody has answered a score, forcing novelty would be dishonesty. Maintenance, waiting, and return are part of practice; activity is not the same as life.</p></div>
+
+  <h3>Git’s precise role</h3>
+  <p>Git supplies lineage, diffs, branches, attribution, and recoverability. It does not supply memory by itself. Memory exists only when the selector can retrieve a prior event, explain why it matters now, and change a score because of it. Otherwise the repository is an archive—which is already valuable, but is a different claim.</p>
+
+  <div class="source">Grounding: papers/SCORE.md platter→thread→artifact pipeline; <b>Repository Archaeology</b>; <b>Dead Ends</b>; <b>Pieces Not Programs</b>; maintenance-as-care in <b>AC Native OS</b>.</div><div class="folio">06</div>
+</section>
+
+<section class="page">
+  <header><span>Terrarium, Reconsidered</span><span>Screen, visitors, tests</span></header>
+  <div class="kicker">Make the display evidentiary</div>
+  <h2>The screen should show a performed reading of real material.</h2>
+  <p class="lead">Fill the framebuffer with source—not generic soup. Papers, code fragments, drawings, score marks, commit trails, and handled annotations become the space. Every visual and sonic relation should be inspectable back to an address.</p>
+
+  <div class="metric-grid">
+    <div class="metric"><b>changed sources</b><span>since last verified score</span></div>
+    <div class="metric"><b>working spans</b><span>currently resident</span></div>
+    <div class="metric"><b>source edges</b><span>visible citation / lineage links</span></div>
+    <div class="metric"><b>scores played</b><span>with deterministic receipts</span></div>
+    <div class="metric"><b>handled replies</b><span>accepted / refused / forked</span></div>
+    <div class="metric"><b>RSS · cache · lag</b><span>measured, timestamped telemetry</span></div>
+  </div>
+
+  <div class="grid2">
+    <div class="card"><h3>Web / Xbox movement</h3><p class="small">Movement changes retrieval focus through the source graph. Nearness means an actual relationship—citation, shared term, commit ancestry, common author, or prior response. A button opens the address or performs the offered operation.</p></div>
+    <div class="card"><h3>Spatial sound</h3><p class="small">Voices correspond to source classes and operations: paper, code, drawing, commit, response, contradiction, dormancy. Pan and distance derive from the same spatial graph shown on screen.</p></div>
+  </div>
+
+  <h3 style="margin-top:18px">Falsifiable acceptance tests</h3>
+  <table>
+    <tbody>
+      <tr><td>Provenance</td><td>Every rendered fragment and generated claim resolves to a local source hash and span.</td></tr>
+      <tr><td>Reproduction</td><td>The same source snapshot, selector version, score, and seed reproduce the same performance events.</td></tr>
+      <tr><td>Consequence</td><td>A handled response changes a later selection in a way the system can explain; otherwise it is not remembered.</td></tr>
+      <tr><td>Usefulness</td><td>Blind review can distinguish retrieved non-obvious connections from random pairings and can identify which outputs are worth keeping.</td></tr>
+      <tr><td>Restraint</td><td>No source delta + no response may yield no new score. The system is not rewarded for chatter.</td></tr>
+      <tr><td>Budget</td><td>Cold-boot whole-device RAM is measured separately from authority cgroup RAM; charts show scope and timestamp.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="verdict">
+    <h3>What I now think is possible</h3>
+    <p>A small computer can become a continuous, local instrument for reading its own creative history—one that selects, scores, performs, and re-addresses the platter. That is stranger and more defensible than pretending a procedural sponge is an autonomous mind.</p>
+  </div>
+
+  <div class="source">This is a design note, not a deployment claim. The jas-nzxt terrarium remains stopped; no gateway is open and no authority is running.</div><div class="folio">07</div>
+</section>
+
+</body>
+</html>
