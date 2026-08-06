@@ -836,6 +836,36 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   perf.markBootStart();
   headers(); // Print console headers with auto-detected theme.
 
+  const workerBundleParam = new URLSearchParams(window.location.search).get("workerbundle");
+  const workerBundleRequested =
+    !window.acPACK_MODE &&
+    (workerBundleParam === "1" || workerBundleParam === "true");
+  const workerBundleState = (window.acWORKER_BUNDLE = {
+    requested: workerBundleRequested,
+    active: false,
+    ready: false,
+    filename: null,
+    fallback: null,
+  });
+  const workerBundlePathPromise = workerBundleRequested
+    ? fetch("/aesthetic.computer/lib/disk-worker-manifest.json", {
+        cache: "no-cache",
+      })
+        .then(async (response) => {
+          if (!response.ok) throw new Error(`manifest HTTP ${response.status}`);
+          const manifest = await response.json();
+          if (!/^disk\.worker\.[a-f0-9]{12}\.mjs$/.test(manifest?.filename || "")) {
+            throw new Error("invalid worker bundle manifest");
+          }
+          workerBundleState.filename = manifest.filename;
+          return `/aesthetic.computer/lib/${manifest.filename}`;
+        })
+        .catch((error) => {
+          workerBundleState.fallback = `manifest: ${error.message}`;
+          return null;
+        })
+    : Promise.resolve(null);
+
   // Expose Loop control to window for boot.mjs
   // Track pause state for kidlisp console snapshots
   window.acPAUSE = () => {
@@ -4336,11 +4366,17 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   //const worker = new Worker("./aesthetic.computer/lib/disk.js", {
   //  type: "module",
   //});
-  const fullPath =
+  const standardWorkerPath =
     (window.acPACK_MODE ? "./aesthetic.computer/lib/disk.mjs" : "/aesthetic.computer/lib/disk.mjs") +
     window.location.search +
     "#" +
     Date.now(); // bust the cache. This prevents an error related to Safari loading workers from memory.
+  const workerBundlePath = await workerBundlePathPromise;
+  let usingBundledWorker = Boolean(workerBundlePath);
+  let activeWorkerPath = workerBundlePath
+    ? workerBundlePath + window.location.search + "#" + Date.now()
+    : standardWorkerPath;
+  workerBundleState.active = usingBundledWorker;
 
   const sandboxed =
     (window.origin === "null" || !window.origin || window.acPACK_MODE || window.acSPIDER) && !window.acVSCODE;
@@ -4507,6 +4543,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     let workerReady = false;  // Track if worker has responded
     let workerInitialized = false; // Guard to prevent sending firstMessage multiple times
     let retryCount = 0;
+    let activeWorker = null;
     const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
     // On localhost, fail fast (1 retry) since HTTP proxy is flaky - noWorker fallback works fine
     // In production, retry more since network issues are usually transient
@@ -4515,15 +4552,26 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // Note: Can't use blob URLs for workers because dynamic imports inside the worker
     // (like loading pieces) would resolve relative to blob: origin which fails.
     // Workers need to load via HTTP so their dynamic imports work correctly.
-    
+
     const createWorker = () => {
-      const worker = new Worker(new URL(fullPath, window.location.href), {
+      const worker = new Worker(new URL(activeWorkerPath, window.location.href), {
         type: "module",
       });
-      
+      activeWorker = worker;
+
       // Rewire things a bit if workers with modules are not supported (Firefox).
       worker.onerror = async (err) => {
         if (workerFailed) return; // Already handling fallback
+        if (usingBundledWorker && !workerInitialized) {
+          worker.terminate();
+          usingBundledWorker = false;
+          workerBundleState.active = false;
+          workerBundleState.fallback = `worker error: ${err.message || "unknown"}`;
+          activeWorkerPath = standardWorkerPath;
+          retryCount = 0;
+          createWorker();
+          return;
+        }
         if (workerInitialized) {
           // Worker already started successfully - this is a late error, don't double-init
           console.warn("🟡 Worker error after init:", err.message || "(no message)");
@@ -4607,6 +4655,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             if (workerInitialized) return; // Already initialized (shouldn't happen)
             workerInitialized = true;
             workerReady = true;
+            workerBundleState.ready = usingBundledWorker;
             perf.markBoot("worker-connected");
             
             // Notify parent that worker is connected
@@ -4635,6 +4684,19 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     
     // Start the first worker attempt
     createWorker();
+
+    if (usingBundledWorker) {
+      setTimeout(() => {
+        if (workerReady || workerFailed || !usingBundledWorker) return;
+        activeWorker?.terminate();
+        usingBundledWorker = false;
+        workerBundleState.active = false;
+        workerBundleState.fallback = "worker ready timeout";
+        activeWorkerPath = standardWorkerPath;
+        retryCount = 0;
+        createWorker();
+      }, 4000);
+    }
 
     // Timeout: fall back to noWorker mode if worker never responds
     const workerTimeoutMs = isLocalhost ? 3000 : 10000;

@@ -321,7 +321,8 @@ async function clearFontCaches() {
   // 3. Force reimport of fonts.mjs by cache-busting
   try {
     const timestamp = Date.now();
-    const fontsModule = await import(`../disks/common/fonts.mjs?t=${timestamp}`);
+    const fontsUrl = `../disks/common/fonts.mjs?t=${timestamp}`;
+    const fontsModule = await import(fontsUrl);
     console.log("🔤 fonts.mjs reloaded, MatrixChunky8 * advance:", fontsModule.MatrixChunky8?.advances?.['*']);
   } catch (e) {
     console.log("🔤 fonts.mjs reload skipped:", e.message);
