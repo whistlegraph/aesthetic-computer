@@ -27,6 +27,7 @@ function env(root) {
     ...process.env,
     SLAB_HOME: root,
     SLAB_BIN: "/opt/slab/bin",
+    SLAB_LOOPBOY_CONFIG: join(root, "loopboy.json"),
     ZZZ_DRY_RUN: "1",
   };
 }
@@ -79,6 +80,32 @@ test("park refuses a working prompt unless explicitly forced", async () => {
   await assert.rejects(
     execFileAsync(process.execPath, [zzz, "park", marker.session_id], { env: env(root) }),
     /refusing to zzz working prompt/,
+  );
+});
+
+test("park refuses a Loopboy-bound prompt even with --force", async () => {
+  const { root, state } = await fixture();
+  const marker = {
+    session_id: "alex-loopboy",
+    codex_session_id: providerId,
+    agent_type: "codex",
+    agent_pid: 999999,
+    tty: "ttys095",
+    cwd: "/tmp/project",
+    subject: "Alex Loopboy",
+    updated: new Date().toISOString(),
+    state: "working",
+  };
+  await writeFile(join(state, "active-prompts", marker.session_id), JSON.stringify(marker));
+  await writeFile(join(root, "loopboy.json"), JSON.stringify({
+    loops: { alex: { sessionId: marker.session_id, wake: true } },
+  }));
+
+  await assert.rejects(
+    execFileAsync(process.execPath, [zzz, "park", marker.session_id, "--force"], {
+      env: env(root),
+    }),
+    /refusing to zzz a Loopboy-bound prompt/,
   );
 });
 

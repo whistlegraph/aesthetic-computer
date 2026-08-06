@@ -12,6 +12,7 @@
 // Launched (and killed) by codex-slab.sh. Exits when the wrapper pid dies.
 
 import { readFile, writeFile, stat, unlink, utimes } from "node:fs/promises";
+import { realpathSync } from "node:fs";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { join } from "node:path";

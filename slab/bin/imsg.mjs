@@ -1182,6 +1182,39 @@ async function sendImage(handles, path, expectedTitle, transport = "auto", timeo
       backendError: error.message,
     };
   }
+  const rowid = Number(lastRow?.rowid) || 0;
+  throw new Error(
+    `Messages queued row ${rowid || "unknown"} via ${route.appleService} but did not confirm sending within ${timeoutMs / 1000}s`,
+  );
+}
+
+async function sendMessage(handles, body) {
+  const route = chooseMessagesRoute(handles, latestSuccessfulRoute(handles));
+  let result = await sendAttempt(handles, body, route);
+
+  // A phone number may retain a stale iMessage handle. Only retry when
+  // Messages explicitly rejects that attempt; never retry an ambiguous
+  // pending send, which could create a duplicate later.
+  if (shouldRetryViaSms(route, result)) {
+    result = await sendAttempt(handles, body, {
+      handle: route.handle,
+      appleService: "SMS",
+      observedService: "SMS fallback",
+    });
+    if (result.status === "failed") {
+      throw new Error(
+        `Messages rejected row ${result.rowid} via ${result.service || "SMS"} (error ${result.error})`,
+      );
+    }
+    return { ...result, fallbackFrom: "iMessage" };
+  }
+
+  if (result.status === "failed") {
+    throw new Error(
+      `Messages rejected row ${result.rowid} via ${result.service || route.appleService} (error ${result.error})`,
+    );
+  }
+  return result;
 }
 
 const TAPBACKS = new Map([
