@@ -24,16 +24,7 @@ import {
   getLeaderPixelColor,
   blendColorWithVHS
 } from "./disks/common/tape-player.mjs";
-import {
-  MetaBrowser,
-  iOS,
-  Android,
-  TikTok,
-  Safari,
-  Aesthetic,
-  AestheticExtension,
-  AestheticIOSApp,
-} from "./lib/platform.mjs";
+import * as Platform from "./lib/platform.mjs";
 import { headers } from "./lib/headers.mjs";
 import { logs, log } from "./lib/logs.mjs";
 import { checkPackMode } from "./lib/pack-mode.mjs";
@@ -49,14 +40,20 @@ import * as WebGPU from "./lib/webgpu.mjs";
 import { initGPU, switchBackend } from "./lib/gpu/index.mjs"; // 🎨 New backend system (auto-registers backends)
 import { createWebGLBlitter } from "./lib/webgl-blit.mjs";
 import * as CaptureSession from "./lib/capture-session.mjs";
-import {
-  attachSoundtrackToFrames,
-  frameIndexForSoundtrackProgress,
-  normalizeTapeAudio,
-} from "./lib/sound-on-film.mjs";
+import * as SoundOnFilm from "./lib/sound-on-film.mjs";
 
 // import * as TwoD from "./lib/2d.mjs"; // 🆕 2D GPU Renderer.
 const TwoD = undefined;
+const {
+  MetaBrowser = false,
+  iOS = false,
+  Android = false,
+  TikTok = false,
+  Safari = false,
+  Aesthetic = false,
+  AestheticExtension = false,
+  AestheticIOSApp = false,
+} = Platform;
 const chooseCompactVideoMime =
   CaptureSession.chooseCompactVideoMime || (() => null);
 const getCameraCaptureSize =
@@ -71,6 +68,20 @@ const measureCaptureAVSync =
 const shouldResumeCaptureRecorder =
   CaptureSession.shouldResumeCaptureRecorder ||
   ((state, freshSession = false) => state === "paused" && !freshSession);
+const attachSoundtrackToFrames =
+  SoundOnFilm.attachSoundtrackToFrames || ((frames) => frames);
+const frameIndexForSoundtrackProgress =
+  SoundOnFilm.frameIndexForSoundtrackProgress ||
+  ((frames, progress) => {
+    if (!Array.isArray(frames) || frames.length === 0) return -1;
+    return Math.max(
+      0,
+      Math.min(frames.length - 1, Math.floor(progress * frames.length)),
+    );
+  });
+const normalizeTapeAudio =
+  SoundOnFilm.normalizeTapeAudio ||
+  (() => ({ gain: 1, rms: 0, peak: 0, normalized: false }));
 let hadVectorOverlay = false; // so the vector overlay clears once when a piece drops it
 
 // 🪟 Replay a piece's vector-overlay display-list onto the native UI canvas — crisp
