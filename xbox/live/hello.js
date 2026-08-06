@@ -83,32 +83,48 @@ class FightCamDoll {
     this.width = cameraWidth;
     this.perspective = 0;
     this.fov = 55;
+    this.roll = 0;
     this.dirty = true;
     this.view = null;
   }
 
   track(spec, dt, speed = 5) {
-    // Translate the rig with its target exactly. Relative orbit and zoom may
-    // ease, but following never lags into a wall clamp or catches at an edge.
+    // Exponential easing is continuous across frame rates. Move the dolly and
+    // its look target together so follow motion cannot shear into a sudden
+    // swivel when fighters cross a framing threshold.
+    const amount = 1 - Math.exp(-Math.max(0, dt) * speed);
+    const previousTarget = { ...this.target };
     for (const axis of ["x", "y", "z"])
-      this.position[axis] += spec.target[axis] - this.target[axis];
-    this.target = { ...spec.target };
-    // Zooming out is a containment action and must be immediate.
-    const amount = spec.width > this.width ? 1 : Math.min(1, dt * speed);
+      this.target[axis] = lerp(this.target[axis], spec.target[axis], amount);
+    for (const axis of ["x", "y", "z"])
+      this.position[axis] += this.target[axis] - previousTarget[axis];
     for (const axis of ["x", "y", "z"]) {
       this.position[axis] = lerp(this.position[axis], spec.position[axis], amount);
     }
-    this.width = lerp(this.width, spec.width, amount);
+    // Pull back promptly but never in a single frame; return close more
+    // slowly so small changes at the action-safe edge do not pump the lens.
+    const zoomSpeed = spec.width > this.width ? speed * 1.45 : speed * .58;
+    const zoomAmount = 1 - Math.exp(-Math.max(0, dt) * zoomSpeed);
+    this.width = lerp(this.width, spec.width, zoomAmount);
     this.perspective = lerp(this.perspective, spec.perspective, amount);
     this.fov = lerp(this.fov, spec.fov || 55, amount);
+    this.roll = lerp(this.roll, spec.roll || 0, amount);
     this.dirty = true;
   }
 
   prepare() {
     const forward = normalize3({ x: this.target.x - this.position.x,
       y: this.target.y - this.position.y, z: this.target.z - this.position.z });
-    const right = normalize3(cross3(forward, { x: 0, y: -1, z: 0 }));
-    const up = normalize3(cross3(right, forward));
+    const baseRight = normalize3(cross3(forward, { x: 0, y: -1, z: 0 }));
+    const baseUp = normalize3(cross3(baseRight, forward));
+    const rollCos = Math.cos(this.roll);
+    const rollSin = Math.sin(this.roll);
+    const right = { x: baseRight.x * rollCos + baseUp.x * rollSin,
+      y: baseRight.y * rollCos + baseUp.y * rollSin,
+      z: baseRight.z * rollCos + baseUp.z * rollSin };
+    const up = { x: baseUp.x * rollCos - baseRight.x * rollSin,
+      y: baseUp.y * rollCos - baseRight.y * rollSin,
+      z: baseUp.z * rollCos - baseRight.z * rollSin };
     this.view = { forward, right, up,
       centerX: (stageLeft + stageRight) / 2,
       centerY: (stageTop + stageBottom) / 2,
@@ -369,7 +385,8 @@ function spectatorState(now, nextRoundId = "") {
       spawnOwner: item.spawnOwner })),
     camera: { x: cameraCenter, y: cameraCenterY, width: cameraWidth,
       position: { ...cameraDoll.position }, target: { ...cameraDoll.target },
-      perspective: cameraDoll.perspective, fov: cameraDoll.fov },
+      perspective: cameraDoll.perspective, fov: cameraDoll.fov,
+      roll: cameraDoll.roll },
     wind: { direction: windDirection, mph: windMph },
     round: { remainingMs, result: roundResult || "" },
     replayUrl: "/api/oskiewar-replays?id=ow-" + matchName,
@@ -826,7 +843,7 @@ function applyRoundViewerState(state, now, dt = 1 / 60) {
     position: state.camera.position ||
       { x: cameraCenter, y: cameraCenterY, z: -cameraWidth * 1.35 },
     width: cameraWidth, perspective: state.camera.perspective || 0,
-    fov: state.camera.fov || 55 }, dt, 1000);
+    fov: state.camera.fov || 55, roll: state.camera.roll || 0 }, dt, 1000);
 }
 
 function handleRoundViewer(message) {
@@ -972,17 +989,29 @@ function resetRound(now, resetMatch = false) {
 }
 
 function updateCamera(dt) {
-  const left = Math.min(players[0].x, players[1].x);
-  const right = Math.max(players[0].x, players[1].x);
-  const top = Math.min(players[0].y - 220, players[1].y - 220);
-  const bottom = Math.max(players[0].y, players[1].y);
+  // Look slightly ahead of fast movement so zoom starts before a fighter
+  // reaches the safe edge instead of reacting after the crossing.
+  const lookAhead = .2;
+  const future = players.map((player) => ({
+    x: player.x + (player.vx + (player.windVx || 0) +
+      (player.knockVx || 0) + (player.shieldVx || 0)) * lookAhead,
+    y: player.y + player.vy * lookAhead,
+  }));
+  const left = Math.min(players[0].x, players[1].x,
+    future[0].x, future[1].x);
+  const right = Math.max(players[0].x, players[1].x,
+    future[0].x, future[1].x);
+  const top = Math.min(players[0].y - 220, players[1].y - 220,
+    future[0].y - 220, future[1].y - 220);
+  const bottom = Math.max(players[0].y, players[1].y,
+    future[0].y, future[1].y);
   const maxWidth = Math.max(worldRight - worldLeft,
     (floorY - ceilingY) * cameraAspect);
   const desiredWidth = Math.max(1000, Math.min(maxWidth,
     Math.max(right - left + 700, (bottom - top + 260) * cameraAspect)));
-  const widthBlend = Math.min(1, dt * 10);
-  cameraWidth = desiredWidth > cameraWidth ? desiredWidth
-    : cameraWidth + (desiredWidth - cameraWidth) * widthBlend;
+  const widthSpeed = desiredWidth > cameraWidth ? 13 : 5.5;
+  const widthBlend = 1 - Math.exp(-Math.max(0, dt) * widthSpeed);
+  cameraWidth += (desiredWidth - cameraWidth) * widthBlend;
   const halfWidth = cameraWidth / 2;
   const halfHeight = cameraWidth / cameraAspect / 2;
   const desiredCenter = cameraWidth >= worldRight - worldLeft
@@ -993,7 +1022,7 @@ function updateCamera(dt) {
     ? (ceilingY + floorY) / 2
     : Math.max(ceilingY + halfHeight,
       Math.min(floorY - halfHeight, (top + bottom) / 2));
-  const centerBlend = Math.min(1, dt * 10);
+  const centerBlend = 1 - Math.exp(-Math.max(0, dt) * 9);
   cameraCenter += (desiredCenter - cameraCenter) * centerBlend;
   cameraCenterY += (desiredCenterY - cameraCenterY) * centerBlend;
   // Ease while there is spare framing, but never let smoothing leave either
@@ -1019,26 +1048,20 @@ function updateCamera(dt) {
 function updateCameraDoll(dt, now) {
   const introAge = now - roundStartedAt;
   if (roundResult) {
-    const victim = players.find((player) => !player.alive);
     const age = Math.max(0, (now - roundOverAt) / 1000000);
-    if (!victim) {
-      const target = { x: (players[0].x + players[1].x) / 2,
-        y: (players[0].y + players[1].y) / 2 - 90, z: 0 };
-      cameraDoll.track({ target,
-        position: { x: target.x + Math.sin(age) * 900,
-          y: target.y - 160, z: -2200 },
-        width: Math.abs(players[1].x - players[0].x) + 1100,
-        perspective: clamp(age / .7, 0, .8), fov: 52 }, dt, 6);
-      return;
-    }
-    const angle = age * 1.35;
-    const radius = 720;
-    const target = { x: victim.x, y: victim.y - 95, z: victim.z };
+    const target = { x: (players[0].x + players[1].x) / 2,
+      y: (players[0].y + players[1].y) / 2 - 95,
+      z: (players[0].z + players[1].z) / 2 };
+    const horizontalSpan = Math.abs(players[1].x - players[0].x);
+    const verticalSpan = Math.abs(players[1].y - players[0].y) * cameraAspect;
+    const closeWidth = Math.max(820, horizontalSpan + 540, verticalSpan + 520);
+    const orbit = Math.sin(age * .72) * closeWidth * .075;
     cameraDoll.track({ target,
-      position: { x: target.x + Math.sin(angle) * radius,
-        y: target.y - 80 + Math.sin(age * .8) * 55,
-        z: target.z - Math.cos(angle) * radius },
-      width: 680, perspective: clamp(age / .55, 0, 1), fov: 48 }, dt, 7);
+      position: { x: target.x + orbit,
+        y: target.y - closeWidth * .08 + Math.sin(age * .8) * closeWidth * .035,
+        z: target.z - closeWidth * 1.2 },
+      width: closeWidth, perspective: clamp(age / .7, 0, .72), fov: 50,
+      roll: Math.sin(age * .9) * .008 }, dt, 7);
     return;
   }
   if (introAge < introDurationUs) {
@@ -1064,12 +1087,19 @@ function updateCameraDoll(dt, now) {
     return;
   }
   const target = { x: cameraCenter, y: cameraCenterY, z: 0 };
-  const swivel = Math.sin(now / 4200000) * .035;
-  const tilt = .045 + Math.cos(now / 5100000) * .012;
+  const cameraTime = now / 1000000;
+  const swivel = Math.sin(cameraTime * .31) * .018 +
+    Math.sin(cameraTime * .73 + 1.2) * .007;
+  const tilt = .04 + Math.sin(cameraTime * .27 + 2) * .009 +
+    Math.sin(cameraTime * .61) * .004;
+  const dolly = 1.35 + Math.sin(cameraTime * .23 + .4) * .012;
+  const roll = Math.sin(cameraTime * .37) * .005 +
+    Math.sin(cameraTime * .79 + 2.4) * .002;
   cameraDoll.track({ target,
     position: { x: cameraCenter - cameraWidth * swivel,
-      y: cameraCenterY - cameraWidth * tilt, z: -cameraWidth * 1.35 },
-    width: cameraWidth, perspective: .1, fov: 55 }, dt, 10);
+      y: cameraCenterY - cameraWidth * tilt, z: -cameraWidth * dolly },
+      width: cameraWidth, perspective: .1, fov: 55,
+      roll }, dt, 10);
 }
 
 function freezeFinalFrame(now) {
@@ -2006,6 +2036,7 @@ function runnerWorldGeometry(player, t) {
       jointY: middleY + dx / distance * height * bend,
       targetX, targetY };
   };
+  segment(head.x, head.y + head.radius * .78, neckX, neckY, 10);
   segment(neckX, neckY, x, hipY, 10);
   if (player.attackKind === "KICK" && attackPulse > 0) {
     const target = meleeTarget(player, runtime().monotonicUs);
@@ -2151,13 +2182,9 @@ function containFighters(t) {
   const maxX = Math.max(...points.map((point) => point.x));
   const minY = Math.min(...points.map((point) => point.y));
   const maxY = Math.max(...points.map((point) => point.y));
-  const minZ = Math.min(...points.map((point) => point.z));
-  const maxZ = Math.max(...points.map((point) => point.z));
-  const target = { x: (minX + maxX) / 2, y: (minY + maxY) / 2,
-    z: (minZ + maxZ) / 2 };
-  for (const axis of ["x", "y", "z"])
-    cameraDoll.position[axis] += target[axis] - cameraDoll.target[axis];
-  cameraDoll.target = target;
+  // Keep the smoothly tracked root target. Animated limb extrema are allowed
+  // to affect containment scale, but never camera aim.
+  const target = cameraDoll.target;
 
   const safe = actionSafeRect();
   const safeWidth = Math.max(1, safe.right - safe.left);
@@ -2440,10 +2467,18 @@ function drawRunner(player, t, showLabel = true) {
     : runnerGeometry(player, t);
   const color = player.hit > 0 ? [255, 255, 255] : player.color;
   const displayNow = player.frozenAt || runtime().monotonicUs;
-  circle(geometry.head.x, geometry.head.y, geometry.head.radius, 3, color);
-  drawFace(player, geometry.head, color, t, displayNow);
   for (const segment of geometry.segments)
     line(segment.x1, segment.y1, segment.x2, segment.y2, segment.width, ...color);
+  // Round caps make shoulders, elbows, knees, hands, and feet read as joined
+  // geometry instead of disconnected stroked lines.
+  for (const segment of geometry.segments) {
+    const radius = Math.max(2, segment.width * .48);
+    const capWidth = Math.max(2, radius * 1.65);
+    circle(segment.x1, segment.y1, radius, capWidth, color);
+    circle(segment.x2, segment.y2, radius, capWidth, color);
+  }
+  circle(geometry.head.x, geometry.head.y, geometry.head.radius, 3, color);
+  drawFace(player, geometry.head, color, t, displayNow);
   drawInventory(player, displayNow);
   if (player.blocking) {
     const worldShield = shieldGeometry(player);
@@ -2574,6 +2609,18 @@ function worldLine(x1, y1, z1, x2, y2, z2, width, color) {
   line(a.x, a.y, b.x, b.y, width, ...color);
 }
 
+function worldQuad(a, b, c, d, color) {
+  const points = [a, b, c, d].map((point) =>
+    projectPoint(point.x, point.y, point.z));
+  if (points.some((point) => !Number.isFinite(point.x) ||
+      !Number.isFinite(point.y) || Math.abs(point.x) > 30000 ||
+      Math.abs(point.y) > 30000)) return;
+  triangle(points[0].x, points[0].y, points[1].x, points[1].y,
+    points[2].x, points[2].y, ...color);
+  triangle(points[0].x, points[0].y, points[2].x, points[2].y,
+    points[3].x, points[3].y, ...color);
+}
+
 function drawGunPickup(pickup, t) {
   if (!pickup.active) return;
   const bobY = pickup.y + Math.sin(t * 3 + pickup.x * .001) * 24;
@@ -2635,32 +2682,23 @@ function drawGrenade(grenade) {
 }
 
 function drawWindFlag(t, color) {
-  const safe = hudSafeRect();
-  const compact = compactLayout();
-  const poleX = compact
-    ? windDirection < 0 ? safe.left + 76 : safe.left + 18
-    : viewCenterX() - 140;
-  const poleTop = safe.top + (compact ? 36 : 4);
-  const poleBottom = poleTop + (compact ? 44 : 76);
-  const direction = windDirection;
-  const length = (42 + windMph * 4) * (compact ? .52 : 1);
-  const gust = Math.sin(t * (4 + windMph * .16)) *
-    (3 + windMph * .22) * (compact ? .6 : 1);
-  const tipX = poleX + direction * length;
-  const tipY = poleTop + 10 + gust;
-  const flagWidth = compact ? 4 : 7;
-  line(poleX, poleTop, poleX, poleBottom, compact ? 4 : 5, ...color);
-  line(poleX, poleTop + 2, tipX, tipY, flagWidth, ...color);
-  line(tipX, tipY, poleX, poleTop + (compact ? 20 : 34), flagWidth, ...color);
-  line(poleX, poleTop + (compact ? 20 : 34), poleX, poleTop + 2,
-    flagWidth, ...color);
-  line(poleX - 12, poleBottom, poleX + 12, poleBottom, compact ? 4 : 5, ...color);
-  if (compact)
-    typeWrite(windMph + " MPH", safe.left + 108, poleTop + 11, 20, ...color);
-  else {
-    const textX = direction < 0 ? poleX + 22 : poleX - 115;
-    typeWrite(windMph + " MPH", textX - 18, poleTop + 18, 27, ...color);
-  }
+  const poleX = (platformLeft + platformRight) / 2;
+  const poleZ = 420;
+  const poleBottom = platformY;
+  const poleTop = platformY - 430;
+  const length = 125 + windMph * 8;
+  const gust = Math.sin(t * (4 + windMph * .16)) * (10 + windMph * .8);
+  const tipX = poleX + windDirection * length;
+  const tipY = poleTop + 45 + gust;
+  const width = Math.max(2, 11 * cameraScale());
+  worldLine(poleX, poleBottom, poleZ, poleX, poleTop, poleZ, width, color);
+  worldLine(poleX, poleTop, poleZ, tipX, tipY, poleZ, width * .72, color);
+  worldLine(tipX, tipY, poleZ, poleX, poleTop + 120, poleZ,
+    width * .72, color);
+  worldLine(poleX, poleTop + 120, poleZ, poleX, poleTop, poleZ,
+    width * .72, color);
+  worldLine(poleX - 55, poleBottom, poleZ, poleX + 55, poleBottom, poleZ,
+    width, color);
 }
 
 function drawWindLines(t, color) {
@@ -2781,11 +2819,24 @@ function drawSpectatorQr(ink) {
   const safe = hudSafeRect();
   const count = spectatorQr.getModuleCount();
   const quiet = 4;
-  const targetSize = compactLayout() ? 112 : 176;
+  const targetSize = compactLayout() ? 108 : 158;
   const cell = Math.max(2, Math.floor(targetSize / (count + quiet * 2)));
   const size = (count + quiet * 2) * cell;
-  const left = safe.right - size - 8;
-  const top = Math.max(safe.top + 70, compactLayout() ? 120 : 104);
+  const label = matchName;
+  const labelSize = compactLayout() ? 20 : 24;
+  const labelPadX = compactLayout() ? 6 : 8;
+  const labelHeight = labelSize + (compactLayout() ? 8 : 10);
+  const labelWidth = handleWidth(label, labelSize) + labelPadX * 2;
+  const labelLeft = safe.right - labelWidth;
+  const labelTop = safe.top;
+  const shadow = [64, 64, 70];
+  box(labelLeft + 4, labelTop + 4, labelWidth, labelHeight, ...shadow);
+  box(labelLeft, labelTop, labelWidth, labelHeight, 5, 6, 10);
+  typeWrite(label, labelLeft + labelPadX, labelTop + 3,
+    labelSize, 250, 250, 247);
+  const left = safe.right - size;
+  const top = labelTop + labelHeight + 2;
+  box(left + 5, top + 5, size, size, ...shadow);
   box(left, top, size, size, 250, 250, 247);
   for (let row = 0; row < count; row++) {
     for (let column = 0; column < count; column++) {
@@ -2794,11 +2845,6 @@ function drawSpectatorQr(ink) {
           cell, cell, 7, 8, 14);
     }
   }
-  const label = matchName;
-  const labelSize = compactLayout() ? 20 : 24;
-  const labelWidth = handleWidth(label, labelSize);
-  typeWrite(label, left + (size - labelWidth) / 2,
-    top + size + 7, labelSize, ...ink);
 }
 
 function drawRectOutline(rect, width, color) {
@@ -2833,22 +2879,38 @@ function paint() {
   const skyDay = mixColor([176, 215, 245], [255, 160, 112],
     visualTheme.sunset * .7);
   const sky = mixColor([7, 8, 28], skyDay, visualTheme.light);
+  const outside = mixColor([2, 3, 11], [118, 147, 171],
+    visualTheme.light * .78);
   const arenaDay = mixColor([230, 239, 247], skyDay, visualTheme.sunset * .55);
   const arena = mixColor([10, 13, 30], arenaDay, visualTheme.light);
+  const ground = mixColor([14, 19, 31], [183, 194, 185], visualTheme.light);
+  const platformColor = mixColor([24, 29, 46], [211, 198, 171],
+    visualTheme.light);
   const titlePanel = mixColor([22, 28, 104], [245, 248, 252], visualTheme.light);
   const titleInk = mixColor([245, 248, 255], [24, 35, 72], visualTheme.light);
-  wipe(...sky);
-  box(0, 0, viewWidth(), viewHeight, ...arena);
+  wipe(...outside);
   if (shellMode === "MENU") {
+    box(0, 0, viewWidth(), viewHeight, ...arena);
     drawTitleScreen(t, titleInk);
     return;
   }
   if (selecting) {
+    box(0, 0, viewWidth(), viewHeight, ...arena);
     drawSelectionScreen(t, titleInk, titlePanel);
     return;
   }
   containFighters(t);
   cameraDoll.prepare();
+  worldQuad(
+    { x: worldLeft, y: ceilingY, z: worldFar },
+    { x: worldRight, y: ceilingY, z: worldFar },
+    { x: worldRight, y: floorY, z: worldFar },
+    { x: worldLeft, y: floorY, z: worldFar }, sky);
+  worldQuad(
+    { x: worldLeft, y: floorY, z: worldNear },
+    { x: worldRight, y: floorY, z: worldNear },
+    { x: worldRight, y: floorY, z: worldFar },
+    { x: worldLeft, y: floorY, z: worldFar }, ground);
   const worldInk = mixColor([72, 90, 125], [45, 63, 92], visualTheme.light);
   const edgeWidth = Math.max(2, wallThickness * cameraScale() * .14);
   for (const z of [worldNear, worldFar]) {
@@ -2863,6 +2925,11 @@ function paint() {
   }
   const platformNear = -520;
   const platformFar = 520;
+  worldQuad(
+    { x: platformLeft, y: platformY, z: platformNear },
+    { x: platformRight, y: platformY, z: platformNear },
+    { x: platformRight, y: platformY, z: platformFar },
+    { x: platformLeft, y: platformY, z: platformFar }, platformColor);
   worldLine(platformLeft, platformY, platformNear,
     platformRight, platformY, platformNear, 5, worldInk);
   worldLine(platformLeft, platformY, platformFar,
@@ -2875,7 +2942,7 @@ function paint() {
     ? mixColor([72, 174, 255], [28, 88, 188], visualTheme.light)
     : mixColor([255, 92, 132], [184, 35, 62], visualTheme.light);
   drawWindLines(t, windInk);
-  drawWindFlag(t, titleInk);
+  drawWindFlag(t, windInk);
   const remainingSeconds = roundResult ? 0 : Math.max(0,
     Math.ceil((roundDurationUs - roundElapsedUs) / 1000000));
   const timerText = String(remainingSeconds).padStart(2, "0");
@@ -2963,10 +3030,6 @@ function paint() {
     const width = introText.length * size * .62;
     box(viewCenterX() - width / 2 - 30, 824, width + 60, 145, ...titlePanel);
     typeWrite(introText, viewCenterX() - width / 2, 838, size, ...titleInk);
-    const windLabel = windMph + " MPH WIND " +
-      (windDirection < 0 ? "LEFT" : "RIGHT");
-    typeWrite(windLabel, viewCenterX() - windLabel.length * 7.5,
-      932, 25, ...titleInk);
   }
   if (roundResult) {
     if (instantReplay) {
