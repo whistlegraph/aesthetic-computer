@@ -297,3 +297,16 @@ into a translucent macOS Stickies note.
 
 See `README.md` — safe headless Chrome screenshots that actually
 exit + clean their orphans.
+
+## Fleet Chrome ownership
+
+The default browser on every fleet Mac is ordinary Chrome using the host's
+persistent signed-in `Profile 1`. Open it through `fleet-browser open` (the
+installed form of `fleet_browser.py`).
+
+CDP is an explicit capability, not a second browser. After the user enables
+remote debugging in ordinary Chrome, a tool that needs CDP must acquire the
+shared `fleet-browser` access lease, use Chrome's `DevToolsActivePort`, touch
+its owner while active, and release it when finished. Never invent a
+`/tmp/*-chrome` profile or another debugging port. The manager refuses
+competing debug instances and the launchd reaper expires abandoned access.

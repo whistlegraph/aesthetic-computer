@@ -3,6 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light dark">
+    <meta name="theme-color" id="theme-color" content="#1a1a2e">
     <title>deadlines · papers · Aesthetic Computer</title>
     <meta name="description" content="Conference, journal, and grant deadlines tracked for Aesthetic Computer papers.">
     <meta property="og:title" content="deadlines — papers · Aesthetic.Computer" />
@@ -20,6 +22,16 @@
     <link rel="preload" as="image" href="/deadlines/deadlines-header.png" />
     <link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/berkeley-mono-variable.css">
     <link rel="preload" href="https://aesthetic.computer/type/webfonts/ywft-processing-regular.woff2" as="font" type="font/woff2" crossorigin="anonymous">
+    <script>
+        // Apply a saved override before first paint. With no override, CSS
+        // follows the operating-system preference.
+        try {
+            const savedTheme = localStorage.getItem('papers-theme');
+            if (savedTheme === 'light' || savedTheme === 'dark') {
+                document.documentElement.classList.add(`${savedTheme}-mode`);
+            }
+        } catch (_) {}
+    </script>
     <style>
         @font-face {
             font-family: 'YWFT Processing';
@@ -29,6 +41,7 @@
         }
 
         :root {
+            color-scheme: dark;
             --bg: #1a1a2e;
             --text: #e8e8e8;
             --dim: #888;
@@ -44,6 +57,7 @@
 
         @media (prefers-color-scheme: light) {
             :root:not(.dark-mode) {
+                color-scheme: light;
                 --bg: #f5f5f5;
                 --text: #1a1a2e;
                 --dim: #666;
@@ -59,6 +73,7 @@
         }
 
         :root.light-mode {
+            color-scheme: light;
             --bg: #f5f5f5;
             --text: #1a1a2e;
             --dim: #666;
@@ -71,6 +86,8 @@
             --box-bg: rgba(0,0,0,0.03);
             --box-border: rgba(0,0,0,0.12);
         }
+
+        :root.dark-mode { color-scheme: dark; }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
         ::-webkit-scrollbar { display: none; }
@@ -278,6 +295,15 @@
             padding: 0.3em 0.6em;
             border-radius: 4px;
         }
+        .theme-toggle:hover,
+        .theme-toggle:focus-visible {
+            color: var(--text);
+            border-color: var(--cyan);
+        }
+        .theme-toggle:focus-visible {
+            outline: 2px solid var(--cyan);
+            outline-offset: 2px;
+        }
 
         .pals-logo-corner {
             position: fixed;
@@ -330,7 +356,7 @@
             ·
             <a href="https://aesthetic.computer">aesthetic.computer</a>
         </div>
-        <button class="theme-toggle" id="theme-toggle">theme</button>
+        <button class="theme-toggle" id="theme-toggle" type="button">light mode</button>
     </div>
 
     <script>
@@ -538,48 +564,50 @@
             {
                 section: 'open',
                 venue: 'SIGGRAPH Asia 2026',
-                venueUrl: 'https://asia.siggraph.org/2026/submissions/',
+                venueUrl: 'https://asia.siggraph.org/2026/submissions/real-time-live/',
                 track: 'Real-Time Live!',
-                deadline: '2026-08-07',
+                deadline: '2026-08-20',
+                deadlineExtra: '23:59 AoE',
                 conference: 'Dec 1–4, Kuala Lumpur',
-                status: 'new',
-                statusLabel: 'New',
+                status: 'candidate',
+                statusLabel: 'Candidate',
+                notes: 'Corrected from the superseded August 7 date on the submissions overview. Live, real-time interactive demonstrations; a viable AC Native/notepat route only if the six-laptop system can be shown as a reliable stage demo rather than a general project reel.',
             },
             {
-                section: 'open',
+                section: 'passed',
                 venue: 'Café Royal Cultural Foundation NYC',
                 venueUrl: 'https://crcfapplication.org/project/5d1b173d-9f07-4ca4-9a46-97b437747058/visual',
                 track: 'Summer Visual Grant — Whistlegraph',
                 deadline: '2026-08-03',
                 deadlineExtra: '09:00 ET · may close when application cap is reached',
                 conference: 'NYC exhibition/project completed Nov 2026–Sep 2027',
-                status: 'go',
-                statusLabel: 'Priority',
-                notes: '<strong>Up to $10,000</strong> for NYC artists making painting, drawing, sculpture, or photography. Strong immediate route for the Drawing Center-shaped Whistlegraph proposal: scores/works on paper, quilt and Frog Tiara painting, with video as documentation. Applicant must have lived in NYC for ≥1 year; funds cannot pay the applicant\'s own artist fee. Apply early because the official page gives a small capped application pool.',
+                status: 'candidate',
+                statusLabel: 'Passed',
+                notes: 'Closed August 3 at 09:00 ET. Track the next cycle: <strong>up to $10,000</strong> for NYC artists making painting, drawing, sculpture, or photography. Whistlegraph scores and works on paper were the strongest route. Applicant must have lived in NYC for ≥1 year; funds cannot pay the applicant\'s own artist fee.',
             },
             {
-                section: 'open',
+                section: 'not-pursuing',
                 venue: 'EFA Robert Blackburn Printmaking Workshop',
                 venueUrl: 'https://www.efanyc.org/residencies',
                 track: 'Studio Immersion Project Fellowship — Whistlegraph',
                 deadline: '2026-08-09',
                 deadlineExtra: '23:59 ET',
                 conference: 'Jan 26–Apr 30, 2027 · New York',
-                status: 'candidate',
-                statusLabel: 'Candidate',
-                notes: '<strong>$2,000 stipend</strong>, three workshops, and professional print-studio access; no application fee or prior printmaking experience required. A concrete route for turning Whistlegraph scores and video stills into editions and artist books. New York State artists; students and overlapping residents are ineligible.',
+                status: 'declined',
+                statusLabel: 'Will not pursue',
+                notes: '<strong>Not eligible this season:</strong> the applicant must live and work in New York State. The opportunity remains logged for reference: $2,000 stipend, three workshops, professional print-studio access, and no application fee or prior printmaking experience requirement.',
             },
             {
-                section: 'open',
+                section: 'not-pursuing',
                 venue: 'Wave Hill',
                 venueUrl: 'https://www.wavehill.org/discover/arts/opportunities/sunroom-project-space',
                 track: '2027 Sunroom Project Space — Whistlegraph',
                 deadline: '2026-08-09',
                 deadlineExtra: '23:59 ET',
                 conference: 'Solo site-specific project · Bronx',
-                status: 'candidate',
-                statusLabel: 'Conditional',
-                notes: '<strong>$2,000 honorarium</strong> plus exhibition and professional-development support for an early-career NYC-area artist. Only pursue with an honest site-specific spine connecting a new score to Wave Hill\'s plant collections, earth/soil, ecology, history, or architecture. No degree students or commercially represented artists.',
+                status: 'declined',
+                statusLabel: 'Will not pursue',
+                notes: '<strong>Not eligible this season:</strong> the applicant must live within 50 miles of the Bronx. The opportunity remains logged for reference: $2,000 honorarium plus exhibition and professional-development support for an early-career artist developing a site-specific solo project.',
             },
             {
                 section: 'open',
@@ -590,18 +618,30 @@
                 conference: 'Summer 2027 · Wassaic, NY',
                 status: 'candidate',
                 statusLabel: 'Candidate',
+                draftPath: 'wassaic-summer-exhibition-2027/DRAFT.md',
                 notes: 'Ready-to-hang work, prints, site-specific installation, and performance are eligible. Official FAQ says the prior cohort received at least a <strong>$400 honorarium</strong>; a site-specific proposal may receive a free 1–4 week Exhibitions Fellowship residency. $25 fee with waivers available. Confirm the unpublished cutoff time and submit early.',
             },
             {
-                section: 'open',
+                section: 'not-pursuing',
                 venue: 'Flux Factory',
                 venueUrl: 'https://www.fluxfactory.org/open-call-a-new-future-2026-residencies/',
                 track: 'A New Future Residency Exchange — Whistlegraph',
                 deadline: '2026-08-15',
                 conference: 'Nov 2026–Jul 2027 · international exchange',
-                status: 'candidate',
-                statusLabel: 'Candidate',
-                notes: 'Seven NYC artists/curators receive a <strong>fully funded international residency</strong>: travel, housing, per diem, visa support, translation, and materials. Whistlegraph fits as a portable, collaborative drawing-and-voice exchange method. Verify the destination-specific eligibility and logistics in the live application before committing.',
+                status: 'declined',
+                statusLabel: 'Will not pursue',
+                notes: '<strong>Not eligible this season:</strong> the exchange is restricted to NYC-based artists and curators. The opportunity remains logged for reference: seven fully funded international residencies covering travel, housing, per diem, visa support, translation, and materials.',
+            },
+            {
+                section: 'open',
+                venue: 'Padimai Art & Tech Studio',
+                venueUrl: 'https://www.padimai.net/feed/open-call-oops-origin-of-primary-source-padimai-art-tech-studio-invites-applicat',
+                track: 'OOPS: Origin Of Primary Source — onchain artist residency',
+                deadline: '2026-08-15',
+                conference: 'Sep 20–Dec 20, 2026 · remote',
+                status: 'verify',
+                statusLabel: 'Terms check',
+                notes: 'Three-month remote residency for five international practitioners working across contemporary art, blockchain, archives, and creative knowledge. The digital-commons and executable-art lineage fits Keeps, but the official call requires three NFT outcomes and does not expose the complete compensation/IP terms in accessible page text. <strong>Verify the carousel and application agreement before applying.</strong>',
             },
             {
                 section: 'open',
@@ -612,7 +652,20 @@
                 conference: 'Worldwide · project completed within 12 months',
                 status: 'candidate',
                 statusLabel: 'Candidate',
+                draftPath: 'prospect-new-work-2027/DRAFT.md',
                 notes: '<strong>$1,500 commission</strong> for one new work under <em>We Come in Pieces</em>; the same application can lead to a $125 screening/talk. Open worldwide to professional visual artists across digital media, sound, performance, installation, moving image, and interdisciplinary work. $10 fee; no-explanation waiver available. Low award-to-effort ratio, so reuse the Drawing Center packet.',
+            },
+            {
+                section: 'open',
+                venue: 'Westwerk Hamburg',
+                venueUrl: 'https://www.hamburg.de/politik-und-verwaltung/behoerden/behoerde-fuer-kultur-und-medien/themen/kulturfoerderung/stipendienangebote-der-behoerde-fuer-kultur-und-medien/residency-for-international-artists-at-westwerk-931724',
+                track: 'International Artist Residency — Jeffrey',
+                deadline: '2026-08-27',
+                deadlineExtra: '23:59 CET',
+                conference: 'Three months · Hamburg',
+                status: 'candidate',
+                statusLabel: 'Funded',
+                notes: '<strong>€900/month</strong>, rent-free live/work apartment, return travel, and €500 presentation budget. Professional solo artists age 23+ living outside Germany; multimedia/music proposals must connect to visual art. Application: one-page cover letter, two-page proposal, CV, and ≤5 MB work evidence with no external links.',
             },
             {
                 section: 'open',
@@ -627,15 +680,40 @@
                 notes: '<strong>Up to $80,000</strong> depending on discipline, eligibility, and panel score; free/low-cost LA public programming. Aesthetic Inc cannot lead as a commercial entity: requires an eligible LA County nonprofit/charitable lead with ≥1 year of relevant project history. Media Arts/Design-Visual Arts is off-cycle with only $3,000–$5,000 awards, so confirm whether a genuine Transdisciplinary Arts proposal and partner are viable.',
             },
             {
-                section: 'open',
+                section: 'not-pursuing',
                 venue: 'Liu Shiming Art Foundation',
                 venueUrl: 'https://www.lsmartfund.org/post/press-liu-shiming-art-foundation-announces-opening-of-fourth-annual-liu-shiming-artist-grants-appl',
                 track: 'Artist Grant — Whistlegraph',
                 deadline: '2026-08-31',
                 conference: 'Up to five unrestricted project grants',
-                status: 'candidate',
-                statusLabel: 'Candidate',
-                notes: '<strong>$5,000 unrestricted</strong> for professional visual artists with 2–10 years of practice. The project must connect traditional, cultural, or historical influences with contemporary practice. Viable if Whistlegraph grounds collaborative scores in social notation, textile/pattern traditions, or histories of collective mark-making. Confirm the unpublished cutoff time.',
+                status: 'declined',
+                statusLabel: 'Will not pursue',
+                notes: '<strong>Not eligible this season:</strong> applicants must have 2–10 years of professional practice; Jeffrey\'s documented practice exceeds that range. Retained for reference: $5,000 unrestricted for projects connecting traditional, cultural, or historical influences with contemporary practice.',
+            },
+            {
+                section: 'open',
+                venue: 'Künstlerdorf Schöppingen',
+                venueUrl: 'https://stiftung-kuenstlerdorf.de/en/application_process',
+                track: '2027 Fellowship — Jeffrey',
+                deadline: '2026-08-31',
+                deadlineExtra: 'midnight CET',
+                conference: '2–6 months · Schöppingen, Germany',
+                status: 'go',
+                statusLabel: 'Funded',
+                notes: '<strong>€1,500/month</strong> for 2–6 months, minus approximately €100–€200 monthly rent/operations. Worldwide professional visual artists, writers, composers, and collectives; residence and community participation required. Travel and materials are covered only exceptionally. One ≤10 MB CV/portfolio PDF plus short form fields.',
+            },
+            {
+                section: 'open',
+                venue: 'Max Planck Institute for Empirical Aesthetics',
+                venueUrl: 'https://www.ae.mpg.de/en/research/inhabit-artist-in-residence.html',
+                track: 'INHABIT Artist in Residence — Special Sign',
+                deadline: '2026-09-01',
+                deadlineExtra: '23:59 CET',
+                conference: 'Four months · Frankfurt',
+                status: 'go',
+                statusLabel: 'Top fit',
+                draftPath: 'max-planck-inhabit-2027/DRAFT.md',
+                notes: '<strong>€8,000 artist fee + €2,000 accommodation</strong>, production budget, and travel to/in Frankfurt. Performing-arts and music artists collaborate with empirical-aesthetics researchers. Application: CV, 500-word statement, 500-word project, and portfolio up to 20 pages. Route: <em>Special Sign</em> as a rotating spatial system that changes the listener\'s perception.',
             },
             {
                 section: 'open',
@@ -648,6 +726,19 @@
                 status: 'verify',
                 statusLabel: 'High upside',
                 notes: 'The strongest platform-scale funding match: sustainable ecosystems around an existing public open-source product, including governance, community, security, and long-term health. U.S. for-profits can be eligible if U.S.-based and majority U.S.-owned/controlled, but the PI must be an employee normally resident in the U.S. <strong>Start SAM.gov/UEI and ownership/PI eligibility checks immediately</strong>; registration can take weeks. Track 1 is planning/ecosystem work, not ordinary product development.',
+            },
+            {
+                section: 'open',
+                venue: 'Zurich University of the Arts — ICST',
+                venueUrl: 'https://www.zhdk.ch/en/research/icst/icst-air/residency-a-spatial-audio-20727',
+                track: 'Artists in Residence 2027 — Spatial Audio',
+                deadline: '2026-09-01',
+                deadlineExtra: '24:00 CET',
+                conference: '2027 · dates arranged individually · Zurich',
+                status: 'go',
+                statusLabel: 'Strong fit',
+                draftPath: 'icst-spatial-audio-2027/DRAFT.md',
+                notes: '<strong>CHF 180/day</strong> toward lodging/meals, travel up to CHF 500 from outside Europe, technical support, a 17-speaker Ambisonics studio, and a 256-channel Wave Field Synthesis system. Direct continuation of the live spatial <em>Special Sign</em> system. Application: 2-page concept, 2-page portfolio with three relevant works, and 1-page CV; each PDF ≤10 MB.',
             },
             {
                 section: 'open',
@@ -680,9 +771,9 @@
                 deadline: '2026-09-10',
                 deadlineExtra: '17:00 ET',
                 conference: 'Academic year 2027–28 · Cambridge/Boston',
-                status: 'verify',
-                statusLabel: 'Major / gate',
-                notes: '<strong>$78,000 stipend + $5,000 project allowance</strong>, with possible relocation, housing, childcare, and healthcare support. Strong research-year frame: creative computing as a commons or Whistlegraph as a living score archive. Mandatory academic-year residence. Visual Arts applicants need ≥5 professional years, several curated group shows, and ≥2 professional solo shows; verify the applicant\'s record before drafting.',
+                status: 'go',
+                statusLabel: 'Major',
+                notes: '<strong>$78,000 stipend + $5,000 project allowance</strong>, with possible relocation, housing, childcare, and healthcare support. Strong research-year frame: creative computing as a commons or Whistlegraph as a living score archive. Mandatory academic-year residence. The local CV clears the Visual Arts gates of ≥5 professional years, several curated group shows, and ≥2 professional solo shows.',
             },
             {
                 section: 'open',
@@ -731,16 +822,41 @@
                 notes: 'Three seven-month residencies with <strong>€10,000 gross per project</strong>, workspace, fabrication/sound/editing/black-box resources, and technical/curatorial support. Individuals or collectives across art, design, science, technology, digital media, and programming. Non-EU applicants must already secure authorization to remain in Spain; housing is not included.',
             },
             {
-                section: 'open',
+                section: 'not-pursuing',
                 venue: 'Queens Museum',
                 venueUrl: 'https://queensmuseum.org/program/open-call-2027-28-qm-jerome-foundation-fellowship-for-emerging-artists/',
                 track: 'QM–Jerome Foundation Fellowship — Whistlegraph',
                 deadline: '2026-09-28',
                 deadlineExtra: '23:59 ET',
                 conference: '2027–28 development · solo exhibition in 2028',
+                status: 'declined',
+                statusLabel: 'Will not pursue',
+                notes: '<strong>Not eligible this season:</strong> applicants must have lived in New York City for at least one year. The opportunity remains logged for reference: two $20,000 awards covering artist fee, materials, and production, plus mentorship and a solo Queens Museum exhibition.',
+            },
+            {
+                section: 'open',
+                venue: 'California CPUC Digital Divide Grant',
+                venueUrl: 'https://www.grants.ca.gov/grants/2026-27-digital-divide-grant-program-round-4/',
+                track: 'Round 4 — nonprofit/school partner route for AC Native',
+                deadline: '2026-10-30',
+                deadlineExtra: '23:59 PT',
+                conference: 'Three reimbursement grants · California',
+                status: 'verify',
+                statusLabel: 'Partner only',
+                notes: 'One <strong>$100,000</strong> school award and two awards up to <strong>$50,000</strong>, with no match. Aesthetic Inc. cannot lead: an eligible 501(c)(3) community organization with digital-divide experience must apply with a qualifying low-income small school/district, a written agreement, three recommendations, and two school endorsements. AC Native can be the technology and delivery partner.',
+            },
+            {
+                section: 'open',
+                venue: 'NSF America’s Seed Fund',
+                venueUrl: 'https://www.nsf.gov/funding/opportunities/small-business-innovation-research-small-business-technology/nsf26-510/solicitation',
+                track: 'SBIR Phase I — Aesthetic Inc.',
+                deadline: '2026-11-04',
+                deadlineExtra: '17:00 submitting organization local time',
+                conference: 'Project Pitch invitation required before full proposal',
                 status: 'go',
-                statusLabel: 'Priority',
-                notes: 'Two <strong>$20,000 awards</strong> covering artist fee, materials, and production, plus staff consultations, mentorship, and a solo Queens Museum exhibition. NYC resident ≥1 year; individual or two-person collective; 2–10 professional years outside school. Probably the best Drawing Center-adjacent target, subject to the strict emerging-artist limits (no museum solo show or major mid-career grant).',
+                statusLabel: 'Pitch now',
+                draftPath: 'nsf-sbir-spatial-fleet-2026/PROJECT-PITCH.md',
+                notes: '<strong>Up to $305,000</strong> for 6–18 months of high-risk commercial R&amp;D; no equity or matching requirement. Aesthetic Inc. route: automatic timing calibration and resilient distributed spatial audio across heterogeneous reused laptops. NSF says Project Pitch responses typically take 1–2 months, so pitch preparation starts now for the November 4 full-proposal deadline.',
             },
             {
                 section: 'open',
@@ -784,16 +900,17 @@
             },
 
             {
-                section: 'active',
+                section: 'passed',
                 venue: 'Restless Egg — Batch 2',
                 venueUrl: 'https://apply.restlessegg.com/',
                 track: 'Accelerator for artist-founders (London/Berlin) — equity, NOT a grant',
-                deadline: '2026-06-30',
+                deadline: '2026-07-17',
+                deadlineExtra: 'final deadline · closed',
                 conference: '6-month program starts Sept 2026 · remote OK',
-                status: 'go',
-                statusLabel: 'Active',
+                status: 'declined',
+                statusLabel: 'Closed',
                 draftPath: 'restless-egg-2026/DRAFT.md',
-                notes: '<strong>Equity accelerator, not a grant.</strong> ~$100k initial + up to ~$175–200k follow-on for ~5% equity, with a "Shared Earnings" side letter (durable-business OR venture path). Thesis: "luxury technologies" — products that "enhance human experience beyond mere efficiency." Pitch = <strong>Aesthetic Inc. as an instruments studio, notepat as flagship</strong> (the open AC commons stays open; the company productizes instruments out of it). Fit is clean: Aesthetic Inc. already exists (C-corp) with an equity vehicle (aesthetic.direct + SAFE "booted-by" holders). <strong>Full DRAFT v1 ready</strong> (RESEARCH + OUTLINE too). Apply via a sign-in-gated Google Form — open it to map answers to exact fields. Founder call: dilute ~5% + reconcile booted-by SAFEs. Run by William Morgan / Sylvan Rackham / Sam Lipnick (RESTLESS EGG LTD, UK).',
+                notes: '<strong>Closed July 17; retained for the next batch.</strong> Equity accelerator, not a grant: $100,000 for 5% equity, with up to $175,000 milestone-based follow-on. Pitch = <strong>Aesthetic Inc. as an instruments studio, notepat as flagship</strong> while the AC commons remains open. Full DRAFT v1, research, and outline remain in the vault.',
             },
 
             // --- Rolling ---
@@ -909,7 +1026,7 @@
                 conference: 'Rolling',
                 status: 'go',
                 statusLabel: 'Rolling',
-                notes: 'For unforeseen pre-existing project expenses.',
+                notes: 'Rolling <strong>$500–$3,000</strong> support for unanticipated, unpaid costs tied to a confirmed public presentation of completed work, normally 8–10 weeks away. Residency work-in-progress showings and already-paid expenses are excluded; CultureHub qualifies only if its public program is contractually a completed presentation.',
             },
             {
                 section: 'funding',
@@ -920,7 +1037,29 @@
                 conference: 'Rolling',
                 status: 'go',
                 statusLabel: 'Rolling',
-                notes: 'Up to $50,000 unrestricted (production, studio rent, exhibitions, professional development). Professional visual artists in painting / sculpture / works on paper with an active exhibition record; dual criteria = recognizable artistic merit + demonstrable financial need. Rolling, no deadline. Requires form + cover letter + artist statement + résumé + 10 images from the last 10 years.',
+                notes: 'Up to <strong>$50,000</strong>; the foundation says most grants are about $35,000. Rolling with a 9–12 month review. For professional painters, sculptors, and works-on-paper artists with at least ten professional exhibitions in the last ten years; students are excluded. Generative art, video, performance, and primarily digital practice are ineligible, so use only Jeffrey\'s physical drawings, paintings, and works on paper. Financial need is not considered under the current rules.',
+            },
+            {
+                section: 'funding',
+                venue: 'New Music USA',
+                venueUrl: 'https://newmusicusa.org/program/new-music-creator-fund/',
+                track: 'New Music Creator Fund — November 2026 watch',
+                deadline: null,
+                conference: 'Next cycle: West, South, and New York',
+                status: 'go',
+                statusLabel: 'Watch October',
+                notes: 'California becomes eligible in the November 2026 cycle. Individual music creators may request up to <strong>$5,000</strong> for new collaborative work; one annual Thea Musgrave composer-performer collaboration receives <strong>$10,000</strong>. The official page has not yet published exact 2026 opening and cutoff dates. Watch for the webinar, eligibility quiz, and updated guidelines in October.',
+            },
+            {
+                section: 'funding',
+                venue: 'Processing Foundation',
+                venueUrl: 'https://processingfoundation.org/fellowships/',
+                track: '2027 Fellowship redesign',
+                deadline: null,
+                conference: 'Information expected October 2026',
+                status: 'candidate',
+                statusLabel: 'October watch',
+                notes: 'No fellowship is being awarded in 2026. The Foundation says it will relaunch a redesigned 2027 program and publish more information in <strong>October 2026</strong>. Track for Aesthetic Computer’s open-source creative-tool, community, and digital-commons work; terms and eligibility are not yet published.',
             },
             {
                 section: 'funding',
@@ -953,18 +1092,74 @@
                 conference: 'Rolling · decisions typically in about one month',
                 status: 'go',
                 statusLabel: 'Rolling',
+                draftPath: 'sigchi-development-fund-2026/DRAFT.md',
                 notes: 'Typically <strong>$5,000–$10,000</strong> for HCI community-building, mentoring, workshops, summer schools, hybrid events, or accessibility work. Applicant must be a SIGCHI member and outside-conference funds need a sponsoring organization. Does not fund ordinary research or product development; pitch a concrete creative-coding community program.',
             },
             {
                 section: 'funding',
+                venue: 'FUTO Grants',
+                venueUrl: 'https://futo.tech/grants',
+                track: 'Open technology — Aesthetic Computer / AC Native',
+                deadline: null,
+                conference: 'Applications open · terms confirmed case by case',
+                status: 'verify',
+                statusLabel: 'Fit check',
+                notes: 'Strong philosophical fit for user-owned, inspectable creative computing. FUTO lists <strong>$1,000–$5,000 microgrants</strong> and larger Legendary Grants for established open-source projects, but does not publish standard large-grant amounts or explicit company eligibility. Confirm the route before drafting.',
+            },
+            {
+                section: 'funding',
+                venue: 'Sentient Foundation',
+                venueUrl: 'https://sentient.foundation/grants',
+                track: 'Open Source AGI Grant — conditional AC route',
+                deadline: null,
+                conference: 'Rolling · public-good grant or company investment',
+                status: 'verify',
+                statusLabel: 'Only if real AI work',
+                notes: 'The public-good track claims no equity or ownership; applications are rolling within a <strong>$42 million</strong> commitment. Pursue only for a genuine open, inspectable, locally runnable AI capability that works on ordinary hardware. Integrating someone else’s model into AC is not a sufficient project.',
+            },
+            {
+                section: 'funding',
+                venue: 'NSF STEM K–12',
+                venueUrl: 'https://www.nsf.gov/funding/opportunities/stem-k-12-nsf-stem-k-12/nsf25-545/solicitation',
+                track: 'Creative-computing education research — Aesthetic Inc.',
+                deadline: null,
+                conference: 'Proposals accepted anytime',
+                status: 'candidate',
+                statusLabel: 'Large build',
+                notes: 'U.S. for-profits may lead. Suggested research/development requests are <strong>$350,000–$750,000</strong> for two to three years. A credible route would study AC Native as a low-cost creative-computing environment with real learner access, an education-research team, evaluation design, and likely human-subjects review; this is not a quick product grant.',
+            },
+            {
+                section: 'funding',
+                venue: 'MIT Solve Global Challenges',
+                venueUrl: 'https://solve.mit.edu/innovators/become-a-solver',
+                track: 'Learning / Economic Prosperity — AC Native watch',
+                deadline: null,
+                conference: 'Global Challenges usually open September–November',
+                status: 'candidate',
+                statusLabel: 'Watch September',
+                notes: 'MIT Solve says selected teams access a <strong>$1M+ prize pool</strong>; last year’s teams averaged about $40,000. Wait for the 2026 challenge language, then test AC Native’s digital-access and creative-learning route against its people-first impact and evidence requirements.',
+            },
+            {
+                section: 'funding',
+                venue: 'TinySeed',
+                venueUrl: 'https://tinyseed.com/program',
+                track: 'Remote SaaS accelerator — Aesthetic Inc.',
+                deadline: null,
+                conference: 'Applications reopen early September 2026',
+                status: 'verify',
+                statusLabel: 'Equity watch',
+                notes: '<strong>Not a grant:</strong> $120,000–$220,000 for 10–12% equity in a revenue-generating SaaS business. Consider only if Aesthetic Inc. has a real subscription product, repeatable revenue, and a deliberate desire for the accelerator/equity path.',
+            },
+            {
+                section: 'not-pursuing',
                 venue: 'AwesomeNYC',
                 venueUrl: 'https://www.awesomefoundation.org/en/submissions/new?chapter=nyc',
                 track: 'Monthly microgrant — Whistlegraph',
                 deadline: null,
                 conference: 'Monthly review · New York City',
-                status: 'candidate',
-                statusLabel: 'Rolling',
-                notes: '<strong>$1,000</strong> for a specific public-facing project in or around NYC. A concise Whistlegraph score-reading/workshop is a better fit than operating costs or startup marketing. Applications are voted on the second Monday of each month.',
+                status: 'declined',
+                statusLabel: 'Will not pursue',
+                notes: '<strong>Not eligible for the current route:</strong> the $1,000 monthly microgrant must support a specific public-facing project in or around New York City. Retained for reference if a genuine NYC partner or occasion emerges.',
             },
         ];
 
@@ -974,6 +1169,7 @@
             { id: 'submitted', title: 'Submitted',       color: 'green',  blurb: 'Submitted; awaiting decision.' },
             { id: 'verify',  title: 'Verify submission', color: 'red',    blurb: 'Deadline already passed; draft was ready but submission status is unconfirmed.' },
             { id: 'open',    title: 'Open windows',      color: 'pink',   blurb: 'Sorted by closest deadline first.' },
+            { id: 'not-pursuing', title: 'Not pursuing this season', color: 'gold', blurb: 'Retained for reference after fit or eligibility review.' },
             { id: 'rolling', title: 'Rolling',           color: 'cyan',   blurb: 'Submit any time.' },
             { id: 'funding', title: 'Funding sources',   color: 'purple', blurb: 'Grants and travel awards.' },
             { id: 'decided', title: 'Decided',           color: 'red',    blurb: 'Submitted and resolved.' },
@@ -1004,9 +1200,8 @@
         }
 
         function render() {
-            const today = new Date();
-            const asOf = today.toISOString().slice(0, 10);
-            document.getElementById('as-of').textContent = `as of ${asOf}`;
+            const DATA_AS_OF = '2026-08-03';
+            document.getElementById('as-of').textContent = `verified ${DATA_AS_OF}`;
 
             if (REVIEW_MODE) {
                 const banner = document.createElement('div');
@@ -1021,13 +1216,14 @@
             const active = DEADLINES.filter(d => d.section === 'active').sort((a, b) => a.deadline.localeCompare(b.deadline));
             const submitted = DEADLINES.filter(d => d.section === 'submitted').sort((a, b) => b.deadline.localeCompare(a.deadline));
             const open = DEADLINES.filter(d => d.section === 'open').sort((a, b) => a.deadline.localeCompare(b.deadline));
+            const notPursuing = DEADLINES.filter(d => d.section === 'not-pursuing').sort((a, b) => (a.deadline || '9999-12-31').localeCompare(b.deadline || '9999-12-31'));
             const passed = DEADLINES.filter(d => d.section === 'passed').sort((a, b) => b.deadline.localeCompare(a.deadline));
             const verify = DEADLINES.filter(d => d.section === 'verify').sort((a, b) => a.deadline.localeCompare(b.deadline));
             const decided = DEADLINES.filter(d => d.section === 'decided').sort((a, b) => b.deadline.localeCompare(a.deadline));
             const rolling = DEADLINES.filter(d => d.section === 'rolling');
             const funding = DEADLINES.filter(d => d.section === 'funding');
 
-            const bySection = { active, submitted, verify, open, rolling, funding, decided, passed };
+            const bySection = { active, submitted, verify, open, 'not-pursuing': notPursuing, rolling, funding, decided, passed };
 
             for (const sec of SECTIONS) {
                 const items = bySection[sec.id] || [];
@@ -1093,16 +1289,34 @@
 
         // Theme toggle
         const root = document.documentElement;
-        const saved = localStorage.getItem('papers-theme');
-        if (saved === 'light') root.classList.add('light-mode');
-        if (saved === 'dark') root.classList.add('dark-mode');
-        document.getElementById('theme-toggle').addEventListener('click', () => {
+        const themeToggle = document.getElementById('theme-toggle');
+        const themeColor = document.getElementById('theme-color');
+        const systemTheme = window.matchMedia('(prefers-color-scheme: light)');
+
+        function lightThemeIsActive() {
+            return root.classList.contains('light-mode')
+                || (!root.classList.contains('dark-mode') && systemTheme.matches);
+        }
+
+        function syncThemeControl() {
+            const isLight = lightThemeIsActive();
+            const nextTheme = isLight ? 'dark' : 'light';
+            themeToggle.textContent = `${nextTheme} mode`;
+            themeToggle.setAttribute('aria-label', `Switch to ${nextTheme} mode`);
+            themeToggle.title = `Switch to ${nextTheme} mode`;
+            themeColor.content = isLight ? '#f5f5f5' : '#1a1a2e';
+        }
+
+        themeToggle.addEventListener('click', () => {
             const isLight = root.classList.contains('light-mode')
-                || (!root.classList.contains('dark-mode') && window.matchMedia('(prefers-color-scheme: light)').matches);
+                || (!root.classList.contains('dark-mode') && systemTheme.matches);
             root.classList.remove('light-mode', 'dark-mode');
             root.classList.add(isLight ? 'dark-mode' : 'light-mode');
             localStorage.setItem('papers-theme', isLight ? 'dark' : 'light');
+            syncThemeControl();
         });
+        systemTheme.addEventListener('change', syncThemeControl);
+        syncThemeControl();
 
         render();
     </script>

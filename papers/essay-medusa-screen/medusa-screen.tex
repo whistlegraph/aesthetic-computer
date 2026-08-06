@@ -1,0 +1,298 @@
+% !TEX program = xelatex
+\documentclass[11pt,letterpaper]{article}
+\usepackage[top=1in,bottom=1in,left=1.15in,right=1.15in]{geometry}
+\usepackage{fontspec}
+\usepackage{unicode-math}
+
+\setmainfont{Latin Modern Roman}[
+  Extension=.otf,
+  UprightFont=lmroman10-regular,
+  BoldFont=lmroman10-bold,
+  ItalicFont=lmroman10-italic,
+  BoldItalicFont=lmroman10-bolditalic,
+]
+\setsansfont{Latin Modern Sans}[
+  Extension=.otf,
+  UprightFont=lmsans10-regular,
+  BoldFont=lmsans10-bold,
+  ItalicFont=lmsans10-oblique,
+  BoldItalicFont=lmsans10-boldoblique,
+]
+\setmonofont{Latin Modern Mono}[
+  Extension=.otf,
+  UprightFont=lmmono10-regular,
+  ItalicFont=lmmono10-italic,
+  Scale=0.85,
+]
+
+\usepackage{xcolor,titlesec,enumitem,fancyhdr,hyperref,xurl,ragged2e,microtype}
+\usepackage{../ac-paper-essay}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=acpurple,
+  urlcolor=acpurple,
+  pdfauthor={@jeffrey},
+  pdftitle={The Screen Looks Back},
+}
+
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{acgray}\thepage}
+
+\newcommand{\ac}{Aesthetic\textcolor{acpink}{.}Computer}
+
+\renewcommand{\essaytitle}[1]{%
+  \begin{center}%
+    \begin{tikzpicture}
+      \node[acdark,opacity=0.25,
+            font=\aclight\fontsize{38pt}{42pt}\selectfont,inner sep=0pt]
+            at (2pt,-2pt) {#1};
+      \node[acpink,
+            font=\aclight\fontsize{38pt}{42pt}\selectfont,inner sep=0pt]
+            at (0,0) {#1};
+    \end{tikzpicture}%
+  \end{center}%
+  \vspace{0.6em}%
+}
+
+\begin{document}
+\thispagestyle{empty}
+\vspace*{0.45in}
+
+\essaytitle{The Screen Looks Back}
+\essaydate{August 5, 2026}
+\begin{center}{\small\color{acgray}@jeffrey}\end{center}\par\vspace{1.4em}
+
+A screen does two things at once. It shows you an image, and it records what you
+do with it. For a long time the first action was obvious and the second could be
+ignored. We called the screen an output device. The keyboard and mouse were
+inputs. The computer sat politely between them, as if looking and being looked
+at were separate jobs.
+
+They are not separate anymore. The image changes because I touched it. The
+system remembers where I touched. That memory determines the next image, which
+invites another touch. At sufficient scale, the screen does not merely answer
+me. It models me, predicts me, and prepares an answer before I have formed the
+question.
+
+Jan Tumlir and Jeffrey Stuker's \textit{From Medusa to Nvidia: On the
+Algorithm's Primal Scene} gives this arrangement an ancient face. Their essay
+begins with the linguistic crossing of algorithm, Algol, and the Gorgon, then
+follows the image from Medusa's petrifying gaze through the mirror-shield,
+photography, technical vision, search, artificial intelligence, and Nvidia's
+spiraling eye. The route is deliberately allegorical. They do not explain the
+algorithm as a procedure. They ask what kind of creature it has become in the
+culture that uses it.\footnote{Jan Tumlir and Jeffrey Stuker, ``From Medusa to
+Nvidia: On the Algorithm's Primal Scene,'' \textit{Artforum}, August 5, 2026:
+\url{https://www.artforum.com/features/jan-tumlir-jeffrey-stuker-algorithm-1234756309/}.}
+
+I make a computer whose entire public face is a screen. This is therefore not a
+metaphor I can admire from a safe distance. It is a design review.
+
+\section{The Shield Is Already a Screen}
+
+Perseus survives Medusa by refusing a direct exchange of gazes. He looks into a
+polished shield and acts through the reflection. In Tumlir and Stuker's account,
+the shield is more than protection. It is an early image technology: a surface
+that places representation between a body and a force too powerful to confront
+without mediation.
+
+The maneuver works, but it does not make the power disappear. Medusa's head is
+cut off, carried away, and mounted on Athena's armor. Defense becomes weapon.
+The image that saved one body becomes an instrument for arresting others. This
+is the essay's most useful diagram for a computer screen. Mediation protects us
+from the world by making it operable, but every operation can be reversed. The
+screen through which I inspect the network is also the surface through which the
+network inspects me.
+
+Calling the screen a mirror understates the problem. A mirror does not ordinarily
+keep a record. It does not compare my face with a billion others, infer what I
+will do next, or auction the inference. The contemporary screen is mirror,
+sensor, archive, and market joined into one plane. It reflects, but its
+reflection has an owner.
+
+This is why Nvidia is more than a topical flourish at the essay's end. The
+company supplies machinery for rendering images, training models, simulating
+worlds, and accelerating searches through the accumulated traces of other
+images. Its eye-shaped mark gives a corporate body to the technical gaze. The
+old power has not returned unchanged. It has become infrastructure.
+
+\section{Aesthetic Computer Is Inside the Problem}
+
+\ac{} opens to a prompt. Type a word and a piece fills the screen: a synthesizer,
+a painting surface, a chat room, a game, a tiny Lisp program. The system's
+immediate-mode renderer redraws the image every frame. A piece is not a static
+page placed in front of a user; it exists in the exchange between code, screen,
+speaker, and hand.\footnote{The present architecture and immediate-mode model
+are documented in \textit{Aesthetic Computer '26}:
+\url{https://papers.aesthetic.computer/aesthetic-computer-26-arxiv.pdf}.}
+
+It would be easy to treat this interactivity as an automatic answer to the
+Medusa problem. The person is doing something, not passively consuming. The
+software is an instrument, not a feed. The code is open. There are no ads at the
+front door and no recommender deciding which piece should arrive next.
+
+Those differences matter. They do not constitute innocence.
+
+The canvas still receives touch. Handles still connect actions to persistent
+identities. Boot logs record device and performance facts. Piece logs collect
+runtime events so that a failure on someone else's machine can be diagnosed.
+Generated images can enter the same screen. A list can become a ranking; a
+profile can become a performance for metrics; a useful log can become a habit of
+collecting first and inventing reasons later.
+
+Open source does not prevent capture. Neither does playfulness. A cheerful
+instrument can gather more than it needs, and a transparent repository can sit
+under an opaque social relation. Tumlir and Stuker's image is valuable here
+because it moves the question away from declared intention. The issue is not
+whether the maker means well. The issue is which direction the gaze travels and
+what becomes possible after it lands.
+
+\section{Address, Do Not Predict}
+
+The strongest difference between \ac{} and an algorithmic feed is grammatical.
+A feed predicts. A prompt waits.
+
+On a feed, the system begins the sentence. It chooses an image on the basis of
+earlier behavior, measures the response, and chooses again. The user may swipe,
+like, hide, or leave, but every available gesture is already an answer to the
+system's proposition. Even refusal becomes training data.
+
+At the \ac{} prompt, the person begins with a name. Typing \texttt{notepat} or
+visiting \texttt{aesthetic.computer/notepat} invokes that piece directly. The
+address is stable, sayable, and independent of a personalized ranking. The
+system does not need a model of the visitor to resolve the word.\footnote{This
+design claim is developed in \textit{The URL Tradition}:
+\url{https://papers.aesthetic.computer/url-tradition-26-arxiv.pdf}.}
+
+This can sound like a minor interface preference. It is closer to a distribution
+policy. Direct address prevents the system from quietly substituting prediction
+for choice. It also limits discovery. A person can only type a name they know,
+so lists, autocomplete, teaching, and conversation remain necessary. The honest
+trade is between legibility and capture, not between a perfect prompt and a bad
+feed.
+
+The moment discovery becomes personalized, the Medusan loop returns. The system
+must observe enough behavior to predict what should be shown; what it shows then
+produces the behavior that validates the prediction. Preference hardens around
+the instrument like stone. A creative system should expand the number of moves
+a person can imagine, not become steadily more certain about the moves they will
+make.
+
+\section{Use, Do Not Hold}
+
+An instrument wants an action. A feed wants duration.
+
+This distinction is more reliable than the familiar division between active and
+passive media. People act constantly inside feeds. They type, edit, perform,
+argue, and make images. The platform converts all of that activity into a reason
+to remain. Its primary measure is not the quality of the action but whether the
+next action occurs on the same surface.
+
+A musical instrument has another rhythm. I approach it, play, stop, and leave.
+The silence after use is not a failure state. The instrument does not chase me
+through the room with a better chord. A drawing tool can be finished with me. A
+piece can end.
+
+That is the standard \ac{} should hold itself to. A successful session need not
+be long. A piece should not manufacture a reason to stay after its action is
+complete. Metrics should diagnose the system rather than govern the work. If a
+painting piece changes its brushes because a retention graph says red keeps
+people three minutes longer, the instrument has become an attention machine even
+if no advertisement appears.
+
+The \textit{Sucking on the Complex} paper calls \ac{} an anti-environment: a
+working structure built beside platform logic, capable of using a platform's
+reach without inheriting its measurements.\footnote{\textit{Sucking on the
+Complex}: \url{https://papers.aesthetic.computer/sucking-on-the-complex-26-arxiv.pdf}.}
+Tumlir and Stuker sharpen that claim. An anti-environment is not defined by the
+images it shows. It is defined by what those images are permitted to do to the
+people looking at them.
+
+\section{A Record Is a Design Decision}
+
+Some observation is necessary. A networked instrument has to know enough to
+connect players. A public creative system has to moderate abuse. A developer
+needs evidence from a crash that happened on a phone across the world. The
+answer cannot be to abolish memory and call the resulting blindness ethical.
+
+The useful boundary is between a record that serves the action and a record that
+turns the person into standing reserve.
+
+A piece log has a named purpose: diagnose this run of this piece. Its fields can
+be minimized, its retention bounded, and its audience restricted. Behavioral
+prediction has no comparable stopping point. Every new signal might improve the
+model, so the logic of collection expands until the person is represented by a
+shadow larger than the action that cast it.
+
+This means privacy cannot remain a policy written beside the interface. It has
+to appear as limits in the system: events not emitted, content not copied,
+identifiers not joined, histories allowed to expire. It should be possible to
+say what each record is for without using the phrase ``improve the experience.''
+The more specific the purpose, the more visible the moment when the record has
+outlived it.
+
+There is an aesthetic consequence. A system that refuses comprehensive memory
+will sometimes seem less magical. It will fail to anticipate. It will ask again.
+It will show the same front door to two different people. These are not merely
+privacy costs. They are signs that the person has not been reduced to a
+prediction.
+
+\section{The Gaze in the Workshop}
+
+Artificial image generation makes the problem literal. A model accepts a prompt
+and returns a picture, but the apparent exchange conceals a much longer chain:
+training images, annotators, model weights, data centers, accelerators, safety
+filters, product interfaces, and the new prompt entering whatever records the
+service retains. The image appears quickly because its history has been pushed
+out of frame.
+
+\ac{} can use these systems. So can its papers, posters, thumbnails, and pieces.
+Refusal would not make the infrastructure cease to exist. Enthusiasm would not
+make its provenance harmless. The practical task is to keep the generated image
+from arriving as an oracle.
+
+That means retaining its source conditions: which model made it, from which
+instruction, for what use, with what human selection, and under what rights. It
+also means refusing to confuse generation with completion. An image is inspected,
+cropped, rejected, revised, connected to its consumer, or removed. The workshop
+has to remain visible around the result.
+
+Here the mirror-shield becomes useful again. Perseus does not defeat the gaze by
+pretending he has no image technology. He uses a reflective surface deliberately,
+at an angle, for a bounded action. The danger begins when the shield becomes a
+permanent eye mounted on the institution.
+
+\section{The Screen Looks Back}
+
+Tumlir and Stuker end between acceleration and paralysis, with the phrase
+``petrified unrest.'' The screen moves constantly while the body before it grows
+still. Images mutate, refresh, and predict; the person supplies the attention
+that keeps the movement going.
+
+The opposite is not a motionless screen. It is a screen whose movement returns
+to the person as capacity. After using it, can I do something I could not do
+before? Can I play the pattern away from the device, remember the address, copy
+the source, change the rule, invite someone else, or stop without penalty? If
+the answer is yes, the image has behaved more like a score or an instrument than
+a trap.
+
+That is the relation between \textit{From Medusa to Nvidia} and \ac{}. The essay
+does not supply a historical aura for the project. It supplies an adversarial
+test. The prompt, the URL, the piece, the handle, the log, and the generated
+image each have to answer the same question: does this surface increase the
+person's agency, or use the appearance of agency to improve its picture of the
+person?
+
+A screen will look back. Sensors, networks, and shared computation guarantee as
+much. The design question is whether its gaze is specific, temporary, and
+answerable---whether I can see what it saw, understand why it mattered, and end
+the exchange.
+
+The screen that looks back must also let us look inside.
+
+\colophon{\href{https://papers.aesthetic.computer/platter/readings/tumlir-stuker-medusa-nvidia-2026.txt}{Artforum source record and Aesthetic Computer research note}.}
+
+\end{document}

@@ -1,7 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { brandChromeFilter, layoutBrandChrome, separateBrandChromeFilter } from "../lib/brand-chrome.mjs";
+import {
+  brandChromeFilter,
+  layoutBrandChrome,
+  separateBrandChromeFilter,
+  unifiedSectionStampBaseFilter,
+} from "../lib/brand-chrome.mjs";
 
 const theme = {
   id:"client-x", asset:"/tmp/client.svg", periodSec:20,
@@ -87,4 +92,47 @@ test("light-mode client chrome can use dark glyphs and a sharp colored hanging s
   assert.equal(layout.markColor, "#17151a");
   assert.equal(layout.labelColor, "#17151a");
   assert.deepEqual(layout.shadow, { color:"#a58cbc", opacity:92, blur:0.55, x:1, y:2 });
+});
+
+test("animated client marks use real video frames without a perspective warp", () => {
+  const layout = layoutBrandChrome({
+    id:"client-3d",
+    markVideoAsset:"/tmp/mark-spin.mov",
+    label:"Learn Client",
+    font:"/tmp/client.ttf",
+    labelStrokeFraction:0,
+    labelShadow:false,
+    markOrientation:"side",
+    driftPx:0,
+    bobPx:0,
+    sectionLabel:true,
+    unifiedSectionStamp:true,
+    sectionLabelPxFraction:0.013,
+  }, { width:2560, height:1440, format:"docs", fps:"60/1" });
+  const filter = separateBrandChromeFilter(layout);
+  assert.equal(layout.markVideoAsset, "/tmp/mark-spin.mov");
+  assert.equal(layout.labelStrokeFraction, 0);
+  assert.equal(layout.labelShadow, false);
+  assert.equal(layout.markOrientation, "side");
+  assert.equal(layout.sectionLabel, true);
+  assert.equal(layout.unifiedSectionStamp, true);
+  assert.equal(layout.sectionLabelPx, 19);
+  assert.equal(layout.markPerspective, null);
+  assert.equal(layout.driftPx, 0);
+  assert.equal(layout.bobPx, 0);
+  assert.doesNotMatch(filter, /perspective=/);
+});
+
+test("unified section stamps reserve the side for two marks and one dynamic line", () => {
+  const layout = layoutBrandChrome({
+    id:"client-stamp",
+    markVideoAsset:"/tmp/mark-spin.mov",
+    label:"Learn Client",
+    font:"/tmp/client.ttf",
+    unifiedSectionStamp:true,
+  }, { width:2560, height:1440, format:"docs", fps:"60/1" });
+  const filter = unifiedSectionStampBaseFilter(layout);
+  assert.match(filter, /\[1:v\].*\[ml\]/);
+  assert.match(filter, /\[2:v\].*\[mr\]/);
+  assert.doesNotMatch(filter, /\[3:v\]/);
 });

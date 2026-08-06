@@ -129,9 +129,20 @@ final class ShapedownTests: XCTestCase {
 
     func testDrumSkinChartRendersAtPhysicalAspectRatio() throws {
         _ = NSApplication.shared
+        var membrane = TrackpadMembraneSimulation()
+        membrane.reset(at: 1)
+        membrane.impulse(at: CGPoint(x: 0.50, y: 0.50), amount: 0.9)
+        membrane.advance(to: 1.085,
+                         touches: [CGPoint(x: 0.50, y: 0.50),
+                                   CGPoint(x: 0.94, y: 0.52)])
         let image = TrackpadDrumSkinPad.image(
             touches: [CGPoint(x: 0.50, y: 0.50),
-                      CGPoint(x: 0.94, y: 0.52)]
+                      CGPoint(x: 0.94, y: 0.52)],
+            energy: [
+                .init(point: CGPoint(x: 0.50, y: 0.50), level: 0.88),
+                .init(point: CGPoint(x: 0.24, y: 0.72), level: 0.34),
+            ],
+            membrane: membrane.snapshot()
         )
         XCTAssertEqual(image.size.width / image.size.height,
                        140.0 / 88.0, accuracy: 0.000_001)
@@ -172,6 +183,39 @@ final class ShapedownTests: XCTestCase {
         XCTAssertGreaterThan(built,
                              field.energy(at: CGPoint(x: 0.95, y: 0.95), now: 1))
         XCTAssertLessThan(field.energy(at: point, now: 3), built)
+    }
+
+    func testMembraneSimulationPinsRimAndPropagatesAcrossSurface() {
+        var membrane = TrackpadMembraneSimulation()
+        membrane.reset(at: 1)
+        membrane.impulse(at: CGPoint(x: 0.5, y: 0.5), amount: 1)
+        membrane.advance(to: 1.12, touches: [])
+        let snapshot = membrane.snapshot()
+        XCTAssertEqual(snapshot.height(at: CGPoint(x: 0, y: 0.5)), 0,
+                       accuracy: 0.000_001)
+        XCTAssertGreaterThan(abs(snapshot.height(at: CGPoint(x: 0.5, y: 0.5))),
+                             0.01)
+        XCTAssertGreaterThan(abs(snapshot.height(at: CGPoint(x: 0.65, y: 0.5))),
+                             0.000_1)
+    }
+
+    func testReleasedMembraneRingsDownWithoutInstability() {
+        var membrane = TrackpadMembraneSimulation()
+        membrane.reset(at: 1)
+        membrane.impulse(at: CGPoint(x: 0.42, y: 0.58), amount: 1)
+        var now = 1.0
+        for _ in 0..<18 {
+            now += 1.0 / 60.0
+            membrane.advance(to: now, touches: [])
+        }
+        let earlyPeak = membrane.snapshot().heights.map(abs).max() ?? 0
+        for _ in 0..<180 {
+            now += 1.0 / 60.0
+            membrane.advance(to: now, touches: [])
+        }
+        let late = membrane.snapshot().heights
+        XCTAssertTrue(late.allSatisfy(\.isFinite))
+        XCTAssertLessThan(late.map(abs).max() ?? 0, earlyPeak)
     }
 
     func testFullestShapeSurvivesStaggeredFourFingerLift() {
@@ -308,6 +352,44 @@ final class ShapedownTests: XCTestCase {
         XCTAssertFalse(AppDelegate.shouldAutoEndTrackpadFX(
             performanceSessionActive: false,
             keyboardNotesHeld: true
+        ))
+    }
+
+    func testTransientKeyboardDrumSurfaceEndsAfterRelease() {
+        XCTAssertTrue(AppDelegate.shouldOpenTransientTrackpadSurface(
+            keyboardNotesHeld: true,
+            modeLatched: false
+        ))
+        XCTAssertTrue(AppDelegate.shouldPersistKeyboardOpenedTrackpadSurface(
+            localCaptureArmed: true
+        ), "menubar-key focus must keep the drum alive between taps")
+        XCTAssertFalse(AppDelegate.shouldPersistKeyboardOpenedTrackpadSurface(
+            localCaptureArmed: false
+        ), "a global TYPE-mode note should remain transient")
+        XCTAssertTrue(AppDelegate.shouldEndTrackpadSessionAfterNoteChange(
+            isLatched: true,
+            performanceSessionActive: false,
+            keyboardNotesHeld: false
+        ), "a note-opened drum surface must restore the system cursor")
+        XCTAssertFalse(AppDelegate.shouldEndTrackpadSessionAfterNoteChange(
+            isLatched: true,
+            performanceSessionActive: true,
+            keyboardNotesHeld: false
+        ), "explicit quiet focus owns the drum surface until focus exits")
+        XCTAssertFalse(AppDelegate.shouldFadeTrackpadOverlayAfterLift(
+            performanceSessionActive: true
+        ), "a focused drum chart should remain visible between taps")
+        XCTAssertTrue(AppDelegate.shouldFadeTrackpadOverlayAfterLift(
+            performanceSessionActive: false
+        ))
+    }
+
+    func testKeymapTrackpadLeavesPointerAvailable() {
+        XCTAssertFalse(AppDelegate.shouldLockPointerForKeyboardTrackpad(
+            keymapShown: true
+        ))
+        XCTAssertTrue(AppDelegate.shouldLockPointerForKeyboardTrackpad(
+            keymapShown: false
         ))
     }
 
@@ -455,5 +537,89 @@ final class ShapedownTests: XCTestCase {
         XCTAssertEqual(rgb?.blueComponent ?? -1, CGFloat(b) / 255, accuracy: 0.001,
                        file: file, line: line)
     }
+}
+
+final class TrackpadAudioLaneTests: XCTestCase {
+    func testSkinStagesOnlyNewContacts() {
+        let output = TrackpadAudioOutputSpy()
+        let lane = TrackpadAudioLane(output: output)
+        lane.setMode(.skin)
+        let point = CGPoint(x: 0.3, y: 0.4)
+        lane.process(
+            contacts: [TrackpadContact(identifier: 7, point: point, state: 3)],
+            timestamp: 1, callbackTime: 1,
+            shiftDown: false, suppressed: false
+        )
+        lane.process(
+            contacts: [TrackpadContact(identifier: 7, point: point, state: 4)],
+            timestamp: 1.008, callbackTime: 1.008,
+            shiftDown: false, suppressed: false
+        )
+        lane.flushForTesting()
+        XCTAssertEqual(output.skinStrikes, 1)
+        XCTAssertEqual(output.marks, 1)
+    }
+
+    func testShiftKeepsSurfaceContactsButNeverStagesPercussion() {
+        let output = TrackpadAudioOutputSpy()
+        let lane = TrackpadAudioLane(output: output)
+        lane.setMode(.skin)
+        let point = CGPoint(x: 0.3, y: 0.4)
+        lane.process(
+            contacts: [TrackpadContact(identifier: 8, point: point, state: 3)],
+            timestamp: 1, callbackTime: 1,
+            shiftDown: true, suppressed: false
+        )
+        lane.process(
+            contacts: [TrackpadContact(identifier: 8, point: point, state: 4)],
+            timestamp: 1.008, callbackTime: 1.008,
+            shiftDown: false, suppressed: false
+        )
+        lane.flushForTesting()
+        XCTAssertEqual(output.skinStrikes, 0)
+        XCTAssertEqual(output.marks, 0)
+    }
+
+    func testLeavingKitReleasesHeldArticulation() {
+        let output = TrackpadAudioOutputSpy()
+        let lane = TrackpadAudioLane(output: output)
+        lane.setMode(.kit)
+        lane.process(
+            contacts: [TrackpadContact(
+                identifier: 9, point: CGPoint(x: 0.2, y: 0.8), state: 3
+            )],
+            timestamp: 1, callbackTime: 1,
+            shiftDown: false, suppressed: false
+        )
+        lane.setMode(.off)
+        lane.flushForTesting()
+        XCTAssertEqual(output.noteOns, 1)
+        XCTAssertEqual(output.noteOffs, 1)
+    }
+}
+
+private final class TrackpadAudioOutputSpy: TrackpadAudioOutput {
+    var marks = 0
+    var noteOns = 0
+    var noteOffs = 0
+    var skinStrikes = 0
+    private var nextGroup: UInt64 = 1
+
+    func markTrackpadInput(at callbackTime: Double) { marks += 1 }
+    func percussionNoteOn(_ drum: MenuBandPercussion.Drum,
+                          velocity: UInt8, pan: UInt8,
+                          accent: Bool) -> UInt64 {
+        noteOns += 1
+        defer { nextGroup += 1 }
+        return nextGroup
+    }
+    func percussionNoteOff(_ group: UInt64) { noteOffs += 1 }
+    func trackpadReverseKick(velocity: UInt8, pan: UInt8) {}
+    func trackpadDrumSkin(strike: CGPoint, anchors: [CGPoint], velocity: UInt8) {
+        skinStrikes += 1
+    }
+    func trackpadSynthSurface(strike: CGPoint, anchors: [CGPoint], velocity: UInt8) {}
+    func trackpadSurfaceLift(at point: CGPoint, anchors: [CGPoint],
+                             velocity: UInt8, synthetic: Bool) {}
 }
 #endif

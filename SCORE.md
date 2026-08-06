@@ -73,6 +73,41 @@ explained.
 
 ## Pull Request Score
 
+### Fuser branch routing
+
+For `fuserstudio/fuser`, authored work lives directly in the upstream repository
+on a flat `jeffuser-<slug>` branch. `jeffuser` is the branch namespace; there is
+no separate `jeffuser` or `whistlegraph/fuser` fork. The authenticated GitHub
+author may remain `whistlegraph`.
+
+- Never create or publish Fuser branches under `agent/`, `codex/`, or another
+  tool identity.
+- Before opening a Fuser PR, verify that the head matches
+  `^jeffuser-[a-z0-9][a-z0-9-]*$`, the head repository is
+  `fuserstudio/fuser`, and the base is `staging` unless the user explicitly
+  names another base.
+- If a PR was opened from the wrong head, publish the same reviewed commit on a
+  compliant `jeffuser-*` branch, open and verify the replacement PR, then close
+  the obsolete PR and delete its remote branch. GitHub cannot change an open
+  PR's head branch in place.
+
+### PostHog account boundary
+
+The Codex PostHog OAuth connection authorized as `mail@aesthetic.computer`
+belongs only to the **Aesthetic Computer** PostHog organization. Never use that
+connection, its project, or its data for Fuser work. Fuser PostHog access
+requires a separate explicit invitation and authorization from Fuser; until
+then, restrict Fuser analytics work to repository code and user-provided
+evidence.
+
+Aesthetic Computer PostHog complements existing Lith, Silo, Mongo, Google
+Analytics, MCP, and local-tool telemetry; it does not replace those operational
+channels. Do not send prompt or session content, chats, mail, contacts, fleet
+host details, local files, secrets, or raw MCP payloads to PostHog by default.
+Describe those systems as product context without exporting their private data.
+New local-tool or MCP analytics must use an explicit, minimized, opt-in event
+schema.
+
 Keep a small PR terse. When the work is a recovery, migration, or design change
 that benefits from a fuller review story, use this structure:
 

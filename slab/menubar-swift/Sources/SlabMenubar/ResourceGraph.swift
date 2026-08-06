@@ -242,10 +242,20 @@ final class ResourceGraph: NSObject {
     var enabled: Bool { FileManager.default.fileExists(atPath: Paths.resourceGraphFlag) }
 
     func syncEnabled() {
+        let defaults = UserDefaults.standard
+        if !defaults.bool(forKey: "resourceGraphConfigured") && !enabled {
+            let fm = FileManager.default
+            try? fm.createDirectory(
+                atPath: (Paths.resourceGraphFlag as NSString).deletingLastPathComponent,
+                withIntermediateDirectories: true)
+            fm.createFile(atPath: Paths.resourceGraphFlag, contents: nil)
+            defaults.set(true, forKey: "resourceGraphConfigured")
+        }
         enabled ? start() : stop()
     }
 
     func toggle() {
+        UserDefaults.standard.set(true, forKey: "resourceGraphConfigured")
         let fm = FileManager.default
         if enabled {
             try? fm.removeItem(atPath: Paths.resourceGraphFlag)

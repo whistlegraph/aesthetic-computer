@@ -18,7 +18,7 @@ SIGN_ID="${DEV_ID:--}"   # "-" = ad-hoc signature
 
 echo "› cleaning $APP"
 rm -rf "$APP"
-mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
+mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources" "$APP/Contents/Helpers"
 
 echo "› compiling Sources/*.swift"
 swiftc -O \
@@ -36,9 +36,14 @@ cp Resources/Info.plist "$APP/Contents/Info.plist"
 # on-device — they're loaded from disk, not the bundle.
 cp Resources/star-*.svg "$APP/Contents/Resources/"
 [[ -f Resources/AppIcon.icns ]] && cp Resources/AppIcon.icns "$APP/Contents/Resources/"
+TRACKDRUM_APP="../slab/tracktramp/build/TrackDrum.app"
+if [[ -d "$TRACKDRUM_APP" ]]; then
+    /usr/bin/ditto "$TRACKDRUM_APP" "$APP/Contents/Helpers/TrackDrum.app"
+fi
 
 echo "› signing ($SIGN_ID)"
 codesign --force --options runtime --sign "$SIGN_ID" "$APP"
+codesign --verify --deep --strict "$APP"
 
 echo "✓ built $APP"
 

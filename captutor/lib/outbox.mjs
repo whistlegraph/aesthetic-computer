@@ -44,6 +44,7 @@ export function publishToOutbox({
   taskGid = null,
   storyboard = null,
   receipt = null,
+  audioReceipt = null,
   now = new Date(),
 }) {
   if (!existsSync(video)) throw new Error(`outbox video does not exist: ${video}`);
@@ -56,12 +57,14 @@ export function publishToOutbox({
   const captionsOut = join(dir, `${stem}.vtt`);
   const storyboardOut = storyboard ? join(dir, `${stem}.storyboard.json`) : null;
   const receiptOut = receipt ? join(dir, `${stem}.storyboard-receipt.pdf`) : null;
+  const audioReceiptOut = audioReceipt ? join(dir, `${stem}.audio-master.json`) : null;
   const manifestOut = join(dir, `${stem}.json`);
 
   atomicCopy(video, videoOut);
   atomicCopy(captions, captionsOut);
   if (storyboard) atomicCopy(storyboard, storyboardOut);
   if (receipt) atomicCopy(receipt, receiptOut);
+  if (audioReceipt) atomicCopy(audioReceipt, audioReceiptOut);
 
   const manifest = {
     schema: "captutor-outbox/v1",
@@ -75,6 +78,7 @@ export function publishToOutbox({
     captions: basename(captionsOut),
     storyboard: storyboardOut ? basename(storyboardOut) : null,
     receipt: receiptOut ? basename(receiptOut) : null,
+    audioReceipt: audioReceiptOut ? basename(audioReceiptOut) : null,
     bytes: statSync(videoOut).size,
     sha256: sha256(videoOut),
   };
@@ -87,6 +91,7 @@ export function publishToOutbox({
     captions:captionsOut,
     storyboard:storyboardOut,
     receipt:receiptOut,
+    audioReceipt:audioReceiptOut,
     manifest:manifestOut,
     metadata:manifest,
   };

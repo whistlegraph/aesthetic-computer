@@ -28,10 +28,16 @@ enum KeymapCLI {
         if let lang = val("--lang") { Localization.current = lang }
 
         let controller = MenuBandController()
+        if let rawKeymap = val("--keymap"), let keymap = Keymap(rawValue: rawKeymap) {
+            controller.keymap = keymap
+        }
         let prog = UInt8(val("--program") ?? "0") ?? 0
         controller.setMelodicProgram(prog)
 
         let view = ExpandedPianoWaveformView(menuBand: controller)
+        // Synchronize controls such as the keymap dropdown with CLI-seeded
+        // controller state before the first layout/snapshot pass.
+        view.refresh()
         // The view never enters a window, so `effectiveAppearance` would fall
         // back to the SYSTEM appearance rather than the one set on NSApp — and
         // `refresh()` restyles the scope from it. Pin it to the app's.

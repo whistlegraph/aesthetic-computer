@@ -629,8 +629,19 @@ enum KeyboardIconRenderer {
         75: "p", 76: ";",
     ]
 
+    private static let labelByMidiMilkyTracker: [Int: String] = [
+        60: "z", 61: "s", 62: "x", 63: "d", 64: "c", 65: "v",
+        66: "g", 67: "b", 68: "h", 69: "n", 70: "j", 71: "m",
+        72: "q", 73: "2", 74: "w", 75: "3", 76: "e", 77: "r",
+        78: "5", 79: "t", 80: "6", 81: "y", 82: "7", 83: "u",
+    ]
+
     static var labelByMidi: [Int: String] {
-        activeKeymap == .ableton ? labelByMidiAbleton : labelByMidiNotepat
+        switch activeKeymap {
+        case .notepat: return labelByMidiNotepat
+        case .ableton: return labelByMidiAbleton
+        case .milkyTracker: return labelByMidiMilkyTracker
+        }
     }
 
     @inline(__always)

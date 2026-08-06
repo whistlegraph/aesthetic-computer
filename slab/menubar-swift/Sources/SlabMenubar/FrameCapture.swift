@@ -173,6 +173,10 @@ final class FrameCapture {
 
             let win = NSWindow(contentRect: screen.frame,
                                styleMask: .borderless, backing: .buffered, defer: false)
+            // These windows are owned strongly by FrameCapture. Letting
+            // NSWindow also release itself on close can over-release during
+            // the main run loop's autorelease-pool drain.
+            win.isReleasedWhenClosed = false
             win.isOpaque = false
             win.backgroundColor = .clear
             win.level = .screenSaver
@@ -633,6 +637,10 @@ final class FrameCapture {
             let H = screen.frame.height
             let win = NSWindow(contentRect: screen.frame, styleMask: .borderless,
                                backing: .buffered, defer: false)
+            // FrameCapture retains this window until cleanup. Disable
+            // NSWindow's legacy self-release so closing a transient overlay
+            // cannot race ARC at the main autorelease-pool boundary.
+            win.isReleasedWhenClosed = false
             win.isOpaque = false
             win.backgroundColor = .clear
             win.level = .screenSaver
@@ -661,17 +669,19 @@ final class FrameCapture {
             self.registerOverlay(win)
             self.ocrOverlayWindow = win
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                // Always retire this exact window. A later overlay may have
-                // replaced the tracked pointer, but that must never orphan an
-                // earlier surface or leave its timer as a no-op.
+                // A replacement clears and closes the old window immediately.
+                // Its delayed cleanup must then become a no-op; otherwise the
+                // same NSWindow receives a second animation + close sequence.
+                guard self.ocrOverlayWindow === win else { return }
                 NSAnimationContext.runAnimationGroup({ ctx in
                     ctx.duration = 0.18
                     win.animator().alphaValue = 0.0
                 }, completionHandler: {
+                    guard self.ocrOverlayWindow === win else { return }
+                    self.ocrOverlayWindow = nil
                     self.unregisterOverlay(win)
                     win.orderOut(nil)
                     win.close()
-                    if self.ocrOverlayWindow === win { self.ocrOverlayWindow = nil }
                 })
             }
         }
@@ -1061,6 +1071,12 @@ final class FrameCapture {
         func msSince(_ t: UInt64) -> Double { (Double(nowNs() - t) / 1e6 * 10).rounded() / 10 }
         var env: [String: Any] = [:]
         var tm: [String: Double] = [:]
+        let reelActive: Bool
+        if #available(macOS 15.0, *) {
+            reelActive = ScreenRecord.shared.reservesExternalProcesses
+        } else {
+            reelActive = false
+        }
 
         // An explicit crop always wins. Otherwise capture the topmost window
         // of the frontmost app unless the caller explicitly requested screen.
@@ -1120,14 +1136,25 @@ final class FrameCapture {
                 t = nowNs(); let boxes = ocr(cg, scale: captureScale, fast: fast,
                                              origin: region.origin); tm["ocr"] = msSince(t)
                 env["ocr"] = boxes
-                if showOverlay { showOcrOverlay(boxes) }
+                if showOverlay && !reelActive { showOcrOverlay(boxes) }
             }
             let cursorMeta = (mt["cursor"] as? [String: Int]).map {
                 CGPoint(x: $0["x"] ?? 0, y: $0["y"] ?? 0)
             }
             let visualOrigin = region.origin
-            t = nowNs(); env["visual"] = visualControls(cg, scale: captureScale,
-                origin: visualOrigin, focus: cursorOverride ?? cursorMeta); tm["visual"] = msSince(t)
+            if reelActive {
+                // VNDetectContours can overlap SCRecordingOutput's
+                // WindowServer/CoreImage work and has repeatedly taken the
+                // host app down mid-reel. It is supplemental to OCR + AX, so
+                // omit only this pass while preserving the audit screenshot.
+                env["visual"] = []
+                env["visual_suppressed"] = "screen-recording"
+                tm["visual"] = 0
+            } else {
+                t = nowNs(); env["visual"] = visualControls(cg, scale: captureScale,
+                    origin: visualOrigin, focus: cursorOverride ?? cursorMeta)
+                tm["visual"] = msSince(t)
+            }
             t = nowNs()
             let marker = virtualCursor ? (cursorOverride ?? cursorMeta) : nil
             let jpg = thumbJPEG(cg, maxWidth: 1568, cursor: marker, crop: region) ?? Data()

@@ -83,17 +83,19 @@ try {
   // Enter is inside the guarded region deliberately: if a preference change
   // fails halfway through, the state file still lets `finally` unwind it.
   await enterStageMode({ vertical, brand });
-  if (vertical) {
-    // Rotation can leave Chrome's process alive with no page window. Relaunch
-    // the dedicated filming profile only when its Fuser target disappeared.
-    const port = process.env.CDP_PORT || "9333";
-    const pages = await fetch(`http://127.0.0.1:${port}/json/list`)
-      .then((response) => response.json()).catch(() => []);
-    if (!pages.some((page) => page.type === "page" && (page.url || "").includes("fuser.studio"))) {
-      const launched = spawnSync(resolve(HERE, "film-chrome.sh"), [
-        "https://app.fuser.studio/w/me", port,
-      ], { stdio: "inherit", env: process.env });
-      if (launched.status !== 0) throw new Error("could not relaunch Chrome after portrait rotation");
+  // Stage Mode owns a dedicated filming profile. A previous rehearsal can
+  // leave that profile on an unrelated localhost tab, and Captutor must never
+  // inherit it as tutorial content. Rotation can also leave Chrome alive with
+  // no page window. In either case, relaunch at Fuser before attaching CDP.
+  const port = process.env.CDP_PORT || "9333";
+  const pages = await fetch(`http://127.0.0.1:${port}/json/list`)
+    .then((response) => response.json()).catch(() => []);
+  if (!pages.some((page) => page.type === "page" && (page.url || "").includes("fuser.studio"))) {
+    const launched = spawnSync(resolve(HERE, "film-chrome.sh"), [
+      "https://app.fuser.studio/w/me", port,
+    ], { stdio: "inherit", env: process.env });
+    if (launched.status !== 0) {
+      throw new Error(`could not launch the Fuser filming browser${vertical ? " after portrait rotation" : ""}`);
     }
   }
   child = spawn(process.execPath, [resolve(HERE, "../captutor.mjs"), ...args], {

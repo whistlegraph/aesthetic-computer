@@ -47,7 +47,7 @@ const render = (args, out) => {
 console.log("rendering real UI surfaces…");
 render(["--render-menubar", "--light"], "menubar.png");   // keys at rest, light theme
 render(["--render-popover", "--lang", "en", "--program", "0"], "popover.png");
-render(["--render-keymap", "--lang", "en", "--program", "0"], "keymap.png");  // fullscreen expanded view
+render(["--render-keymap", "--lang", "en", "--program", "0", "--keymap", "milkyTracker"], "keymap.png");  // fullscreen expanded view
 
 // The ♪ status glyph at the strip's right end renders in the system accent
 // (green). For a clean light-mode bar, recolor it to INK. That right slice
@@ -229,7 +229,8 @@ const literalStrip = () => {
 
 const scene = (s) => {
   if (s.kind === "literal") return `${literalStrip()}${screenCSS(s)}`;
-  return `<div class="edge-title left">menuband</div>
+  return `<div class="keymap-copy"><strong>THREE KEYMAPS</strong><span>Menu Band · AWSED · MilkyTracker</span><em>Chord shapes from every note.</em></div>
+    <div class="edge-title left">menuband</div>
     <div class="edge-title right">menuband</div>
     <img class="pals pals-left" src="${fileUri(PALS_SVG, 'image/svg+xml')}">
     <img class="pals pals-right" src="${fileUri(PALS_SVG, 'image/svg+xml')}">
@@ -253,6 +254,11 @@ const html = (s) => `<!doctype html><meta charset="utf8"><style>
     letter-spacing:5px;text-shadow:0 2px 0 #24183f,0 0 16px rgba(83,127,255,.5)}
   .edge-title.left{left:31px;transform:translateY(-50%) rotate(-90deg)}
   .edge-title.right{right:31px;transform:translateY(-50%) rotate(90deg);color:#ffab45}
+  .keymap-copy{position:absolute;z-index:6;left:50%;top:67px;transform:translateX(-50%);
+    width:680px;text-align:center;color:white;text-shadow:0 3px 12px rgba(20,9,43,.8)}
+  .keymap-copy strong{display:block;font:800 31px/1 "SF Mono",monospace;letter-spacing:5px;color:#9debf0}
+  .keymap-copy span{display:block;margin-top:9px;font:700 24px/1.1 -apple-system,"SF Pro Display",sans-serif}
+  .keymap-copy em{display:block;margin-top:7px;font:500 18px/1.1 -apple-system,"SF Pro Display",sans-serif;color:#ffd285}
   .pals{position:absolute;z-index:2;width:116px;height:116px;opacity:.72;
     filter:drop-shadow(3px 4px 0 rgba(24,13,49,.5))}
   .pals-left{left:38px;bottom:72px;transform:rotate(90deg)}

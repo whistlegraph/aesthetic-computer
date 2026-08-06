@@ -156,6 +156,11 @@ export default {
   subtitle: "Fuser Apps · one prompt, a few clicks",
   effectTheme: fuserEffectTheme,
   brandChrome: learnFuserBrandChrome,
+  audioMaster: {
+    preset:"vocalLead",
+    presetOptions:{ in_db:-4, out_db:0, iron:0.35 },
+    target:{ integrated:-16, truePeak:-1.5, lra:7 },
+  },
   chapters: [
     { title:"Overview", shortTitle:"Overview", startSec:0, beatIndex:0, color:"#b39ad0", trackColor:"#dedcdf", wallpaperColor:"#755a97" },
     { title:"Blank canvas", shortTitle:"Blank canvas", startSec:10.652, beatIndex:1, color:"#91aed1", trackColor:"#d4d2d5", wallpaperColor:"#56799f" },
@@ -182,7 +187,7 @@ export default {
     requiredChecks: [
       "app_node_added", "focus_mode_entered", "free_model_default",
       "build_started", "build_completed_preview_live",
-      "app_published_live", "returned_to_canvas",
+      "app_published_live", "returned_to_canvas", "pop_audio_mastered",
     ],
   },
 

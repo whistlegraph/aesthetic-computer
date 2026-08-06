@@ -29,7 +29,8 @@ covers every display and launches the encounter; lifting the fingers cannot canc
 startup. Sparse star streaks then warp from the desktop center toward all four
 corners and brake to a stop as a short ascending beep phrase plays. There is no
 separate intro screen. Once the stars stop, the live scene unlocks directly into
-play with no login step.
+play with no login step. The gesture is ignored while Menu Band owns the trackpad
+for its percussion/FX surface.
 
 Controls:
 

@@ -16,11 +16,13 @@ SIGN_ID="Developer ID Application: Jeffrey Scudder (FB5948YR3S)"
 TEAM_ID="FB5948YR3S"
 BUNDLE_ID="computer.aesthetic.macpal"
 NOTARY_ENV="../aesthetic-computer-vault/apple/app-specific-password.env"
+TRACKDRUM_DIR="../slab/tracktramp"
+TRACKDRUM_APP="$TRACKDRUM_DIR/build/TrackDrum.app"
 
 command -v rsvg-convert >/dev/null && [[ ! -f Resources/AppIcon.icns ]] && ./make-icon.sh
 
 echo "› clean build of $APP"
-rm -rf "$APP"; mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
+rm -rf "$APP"; mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources" "$APP/Contents/Helpers"
 swiftc -O -framework AppKit -framework ServiceManagement \
     Sources/*.swift -o "$APP/Contents/MacOS/$APP_NAME"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
@@ -29,10 +31,15 @@ cp Resources/Info.plist "$APP/Contents/Info.plist"
 cp Resources/star-*.svg "$APP/Contents/Resources/"
 cp Resources/AppIcon.icns "$APP/Contents/Resources/"
 
+echo "› building signed TrackDrum helper"
+"$TRACKDRUM_DIR/build-dmg.sh"
+codesign --verify --deep --strict --verbose=2 "$TRACKDRUM_APP"
+/usr/bin/ditto "$TRACKDRUM_APP" "$APP/Contents/Helpers/TrackDrum.app"
+
 echo "› signing with Developer ID (hardened runtime)"
 codesign --force --options runtime --timestamp \
     --sign "$SIGN_ID" "$APP"
-codesign --verify --strict --verbose=2 "$APP"
+codesign --verify --deep --strict --verbose=2 "$APP"
 
 if [[ "${SKIP_NOTARIZE:-}" == "1" ]]; then
     echo "⚠ SKIP_NOTARIZE — signed only, not notarized"
@@ -50,10 +57,11 @@ else
     rm -f "$ZIP"
     echo "› stapling ticket"
     xcrun stapler staple "$APP"
+    xcrun stapler validate "$APP"
 fi
 
 echo "› verifying Gatekeeper acceptance"
-spctl -a -vvv -t exec "$APP" || true
+spctl -a -vvv -t exec "$APP"
 
 # Final ready-to-AirDrop zip + a loose copy on the Desktop.
 OUT="dist/$APP_NAME.zip"

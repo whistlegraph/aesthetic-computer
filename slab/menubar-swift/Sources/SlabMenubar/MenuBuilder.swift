@@ -134,6 +134,7 @@ enum MenuBuilder {
         saver.toolTip = "Launch the currently-selected screen saver now (Slab Status if chosen in System Settings)."
         mac.addItem(saver)
 
+
         mac.addItem(buildAppearance(target: target))
 
         let mute = item("Mute ambient sonification", selector: #selector(AppDelegate.toggleMute), target: target)

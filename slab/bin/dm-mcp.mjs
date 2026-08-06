@@ -492,7 +492,7 @@ const TOOLS = [
   },
   {
     name: "dm_send",
-    description: "Send one text, image attachment, or real rich link preview per call. TWO-STEP AND SAFE: the first call PREVIEWS the resolved recipient and exact payload and does NOT send; call again with confirm:true. Messages media uses a request-scoped staged-file backend for verified iMessage routes; RCS/SMS remain guarded-UI by default and can be tested explicitly with mediaTransport=backend. Use linkPreview when an Apple URL preview card is required.",
+    description: "Send one text, image/PDF attachment, or real rich link preview per call. TWO-STEP AND SAFE: the first call PREVIEWS the resolved recipient and exact payload and does NOT send; call again with confirm:true. Messages media uses a request-scoped staged-file backend for verified iMessage routes; PDFs are backend-only. RCS/SMS remain guarded-UI by default and can be tested explicitly with mediaTransport=backend. Use linkPreview when an Apple URL preview card is required.",
     inputSchema: {
       type: "object",
       properties: {
@@ -500,10 +500,10 @@ const TOOLS = [
         to: { type: "string", description: "Required recipient. Signal: ACI / +number / name. iMessage: named imsg.json contact or raw +number/email." },
         text: { type: "string", description: "Optional message body (multi-line ok)." },
         image: { type: "string", description: "Optional absolute/local image path; alias for one attachments entry." },
-        attachments: { type: "array", items: { type: "string" }, description: "Optional file paths. Messages currently accepts supported images; Signal passes files to signal-cli." },
+        attachments: { type: "array", items: { type: "string" }, description: "Optional file paths. Messages accepts supported images and PDFs; Signal passes files to signal-cli." },
         linkPreview: { type: "string", description: "Messages only: send this http(s) URL as an Apple rich URL balloon with metadata." },
         visibleTitle: { type: "string", description: "Optional exact/contained Messages conversation title for the recipient guard; defaults to the resolved contact display name." },
-        mediaTransport: { type: "string", enum: ["auto", "backend", "ui"], description: "Messages attachments only. auto (default) uses the verified non-UI backend for iMessage and guarded UI for unverified RCS/SMS; backend explicitly tests non-UI and forbids ambiguous UI fallback; ui forces the guarded visible-conversation path." },
+        mediaTransport: { type: "string", enum: ["auto", "backend", "ui"], description: "Messages attachments only. auto (default) uses the verified non-UI backend for iMessage and guarded UI for unverified RCS/SMS; backend explicitly tests non-UI and forbids ambiguous UI fallback; ui forces the guarded visible-conversation path and does not accept PDFs." },
         confirm: { type: "boolean", description: "Must be true to actually send. Omit/false = preview only." },
         machine: { type: "string", description: "Machine (default local; signal-cli sends route over ssh for remote)." },
       },

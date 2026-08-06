@@ -53,6 +53,7 @@ let package = Package(
                 // exactly what wedged the MAS archive); `.metalsource` is
                 // copied verbatim by both SwiftPM and Xcode.
                 .process("WaveformShaders.metalsource"),
+                .process("TracktrampShaders.metalsource"),
             ],
             linkerSettings: [
                 .linkedFramework("IOKit"),

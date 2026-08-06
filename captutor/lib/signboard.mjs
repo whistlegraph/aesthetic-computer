@@ -10,6 +10,7 @@ const STAGE_MODE = process.env.CAPTUTOR_STAGE_MODE === "1";
 const DEFAULT_TRANSITION = process.env.CAPTUTOR_SIGNBOARD_TRANSITION || "genie";
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 export const SIGNBOARD_TRANSITIONS = Object.freeze(["genie", "slide", "hide", "cut"]);
+let terminalTransition = null;
 
 function writeState(card) {
   mkdirSync(dirname(STATE), { recursive: true });
@@ -118,12 +119,14 @@ async function revealChrome(cdp, transition) {
   await cdp.send("Page.bringToFront").catch(() => {});
 }
 
-export function setAmbient() {
-  if (STAGE_MODE) writeState({ phase: "ambient" });
+export function setAmbient(options = {}) {
+  if (STAGE_MODE) writeState({ phase:"ambient", ...options });
 }
 
 export async function presentSignboard(
-  cdp, card, { durationMs = 2200, transition = DEFAULT_TRANSITION } = {},
+  cdp, card, {
+    durationMs = 2200, transition = DEFAULT_TRANSITION, terminal = false,
+  } = {},
 ) {
   if (!STAGE_MODE) {
     await sleep(Math.min(250, durationMs));
@@ -132,6 +135,11 @@ export async function presentSignboard(
   writeState({ phase: "concept", ...card });
   await sleep(180); // let the wallpaper decode before revealing it
   const usedTransition = await concealChrome(cdp, transition);
+  if (terminal) {
+    terminalTransition = usedTransition;
+    await sleep(durationMs);
+    return { ...card, durationMs, transition:usedTransition.name, filmed:true, terminal:true };
+  }
   try {
     await sleep(durationMs);
   } finally {
@@ -140,4 +148,12 @@ export async function presentSignboard(
     await sleep(220);
   }
   return { ...card, durationMs, transition:usedTransition.name, filmed: true };
+}
+
+export async function restoreTerminalSignboard(cdp) {
+  if (!terminalTransition) return;
+  const transition = terminalTransition;
+  terminalTransition = null;
+  await revealChrome(cdp, transition);
+  writeState({ phase:"ambient" });
 }

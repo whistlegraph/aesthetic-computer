@@ -140,6 +140,11 @@ final class MultitouchTrackpad {
     /// acceleration, unlike the dead NSTouch `TouchSensorView` path.
     var onFrame: (([TrackpadContact], Double, Double) -> Void)?
 
+    /// Minimal contact-to-audio handoff. Called on MultitouchSupport's source
+    /// thread and expected only to enqueue onto Menu Band's dedicated audio
+    /// lane; AppKit and visual state remain in `onFrame` on main.
+    var onRealtimeFrame: (([TrackpadContact], Double, Double, Bool) -> Void)?
+
     private var handle: UnsafeMutableRawPointer?
     private var devices: [UnsafeMutableRawPointer] = []
     private var started = false
@@ -247,6 +252,9 @@ final class MultitouchTrackpad {
             lastActiveFrameStamp = 0
         }
         let callbackTime = CACurrentMediaTime()
+        let shiftDown = CGEventSource.flagsState(.combinedSessionState)
+            .contains(.maskShift)
+        onRealtimeFrame?(frameContacts, timestamp, callbackTime, shiftDown)
         let shouldLog = lastStatsStamp == 0 || timestamp - lastStatsStamp >= 2.0
         if shouldLog { lastStatsStamp = timestamp }
         let averageHz = cadenceSum > 0 ? Double(cadenceCount) / cadenceSum : 0
@@ -259,6 +267,18 @@ final class MultitouchTrackpad {
             cadenceMax = 0
             cadenceCount = 0
             contactBegins = 0
+        }
+        // A realtime-only consumer (Tracktramp) has no AppKit work here. Do
+        // not enqueue an otherwise empty main-thread block for every hardware
+        // frame; the presentation lane coalesces its own latest-state updates.
+        guard onFrame != nil else {
+            if shouldLog, hasRange {
+                NSLog(String(format:
+                    "MenuBand MTouch stats: raw x=[%.3f,%.3f] y=[%.3f,%.3f] cadence=%.1fHz maxGap=%.2fms begins=%d realtime-only",
+                    range.0, range.1, range.2, range.3,
+                    averageHz, maximumGapMs, begins))
+            }
+            return
         }
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }

@@ -241,24 +241,18 @@ final class QwertyLayoutView: NSView {
         for (rIdx, row) in Self.rows.enumerated() {
             let y = topY - CGFloat(rIdx) * (kSize + kGap)
             let xOffset = Self.rowOffsets[rIdx] * kSize
-            // Sum the row's visible widths so we can right-truncate
-            // it (Ableton hides unmapped letters) and still center
-            // the row's caps relative to the home row's left edge.
+            // Every cap keeps its real physical slot even when a keymap does
+            // not use it. Earlier this measured and advanced through visible
+            // Ableton caps only, compacting AWSED toward the left edge and
+            // destroying the QWERTY stagger (W no longer sat between A/S,
+            // etc.). Unmapped caps are now invisible spacers: they do not
+            // draw or hit-test, but subsequent caps remain where the actual
+            // keyboard puts them.
             // For the modifier row (4) we instead center on the
             // panel midline so shift / space / shift sit centered.
-            var rowWidth: CGFloat = 0
-            var visibleCount = 0
-            for cap in row {
-                let st = semitone(cap.kc)
-                let isOct = (cap.kc == octaves.down || cap.kc == octaves.up)
-                if keymap == .ableton && st == nil && !isOct
-                    && !Self.isModifierKey(cap.kc) { continue }
-                rowWidth += cap.width * kSize
-                visibleCount += 1
-            }
-            if visibleCount > 0 {
-                rowWidth += CGFloat(visibleCount - 1) * kGap
-            }
+            let rowWidth = row.reduce(CGFloat.zero) {
+                $0 + $1.width * kSize
+            } + CGFloat(max(0, row.count - 1)) * kGap
             let leftX: CGFloat
             if rIdx == Self.rows.count - 1 {
                 // Modifier row centers on the panel midline so the
@@ -272,11 +266,11 @@ final class QwertyLayoutView: NSView {
             for cap in row {
                 let st = semitone(cap.kc)
                 let isOct = (cap.kc == octaves.down || cap.kc == octaves.up)
-                if keymap == .ableton && st == nil && !isOct
-                    && !Self.isModifierKey(cap.kc) { continue }
                 let w = cap.width * kSize
                 let kr = NSRect(x: cursorX, y: y, width: w, height: kSize)
-                body(cap, kr)
+                let hiddenUnusedCap = keymap != .notepat && st == nil && !isOct
+                    && !Self.isModifierKey(cap.kc)
+                if !hiddenUnusedCap { body(cap, kr) }
                 cursorX += w + kGap
             }
         }
@@ -346,9 +340,7 @@ final class QwertyLayoutView: NSView {
     /// whether that note is a white or black piano key.
     private func semitone(_ kc: UInt16) -> Int? {
         guard kc < 128 else { return nil }
-        let table = (keymap == .ableton)
-            ? MenuBandLayout.semitoneByKeyCodeAbleton
-            : MenuBandLayout.semitoneByKeyCode
+        let table = MenuBandLayout.semitoneTable(for: keymap)
         let v = table[Int(kc)]
         return (v == Int8.min) ? nil : Int(v)
     }

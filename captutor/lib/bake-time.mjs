@@ -67,6 +67,13 @@ export function planBakeTime({ events = [], spans = null, durationSec }) {
       finite(span.minimumFoldSec, BAKE_TIME_PRESET.minimumFoldSec),
     );
     if (removedSec >= minimumFoldSec) {
+      const transitionSec = clamp(
+        finite(span.transitionSec, BAKE_TIME_PRESET.transitionSec), 0.1, 1.5,
+      );
+      // The crossfade borrows `transitionSec` of real (if inert) frames back
+      // out of the dead zone on each side of the cut, so what's actually
+      // excised from the timeline is a hair less than the raw span — that
+      // smaller number is what mapTime and outputDurationSec must agree on.
       edits.push({
         id:span.id || `bake-${edits.length + 1}`,
         label:span.label || "Model is generating",
@@ -75,10 +82,8 @@ export function planBakeTime({ events = [], spans = null, durationSec }) {
         endSec,
         cutFromSec,
         cutToSec,
-        removedSec,
-        transitionSec:clamp(
-          finite(span.transitionSec, BAKE_TIME_PRESET.transitionSec), 0.1, 1.5,
-        ),
+        removedSec:Math.max(0, removedSec - transitionSec),
+        transitionSec,
       });
     }
     previousEnd = endSec;
@@ -112,34 +117,43 @@ export function planBakeTime({ events = [], spans = null, durationSec }) {
   };
 }
 
-// The fold is deliberately quiet: a fast dip through black in the real Stage
-// geometry. It reads as elapsed bake time without introducing a fake progress
-// percentage or a DOM overlay that could leak into product capture.
-export function condenseBakeTimeVideo({ input, output, plan, fps = 60 }) {
+// The fold reads as elapsed bake time through a real cross-dissolve, not a
+// dip through black: each side of the cut lends `transitionSec` of its own
+// (inert) frames back out of the dead zone, and xfade blends between them.
+// Nothing here introduces a fake progress percentage or a DOM overlay that
+// could leak into product capture — it is still just the two real segments.
+export function condenseBakeTimeVideo({ input, output, plan, fps = 60, transition = "zoomin" }) {
   if (!plan?.edits?.length) return input;
-  const filters = [];
-  const labels = [];
-  plan.segments.forEach((segment, index) => {
-    const duration = segment.endSec - segment.startSec;
-    const leftEdit = index > 0 ? plan.edits[index - 1] : null;
-    const rightEdit = index < plan.edits.length ? plan.edits[index] : null;
-    const fadeIn = leftEdit ? leftEdit.transitionSec / 2 : 0;
-    const fadeOut = rightEdit ? rightEdit.transitionSec / 2 : 0;
-    const chain = [
-      `[0:v]trim=start=${segment.startSec.toFixed(6)}:end=${segment.endSec.toFixed(6)}`,
-      "setpts=PTS-STARTPTS",
-    ];
-    if (fadeIn > 0) chain.push(`fade=t=in:st=0:d=${Math.min(fadeIn, duration / 2).toFixed(3)}`);
-    if (fadeOut > 0) {
-      const d = Math.min(fadeOut, duration / 2);
-      chain.push(`fade=t=out:st=${Math.max(0, duration - d).toFixed(3)}:d=${d.toFixed(3)}`);
-    }
-    chain.push(`fps=${fps}`, "format=yuv420p");
-    const label = `v${index}`;
-    filters.push(`${chain.join(",")}[${label}]`);
-    labels.push(`[${label}]`);
+  const { segments, edits } = plan;
+
+  // Extend each segment into its neighboring dead zone by that edit's
+  // transitionSec, so the crossfade has real pixels on both sides.
+  const trims = segments.map((segment, index) => {
+    const leftEdit = index > 0 ? edits[index - 1] : null;
+    const rightEdit = index < edits.length ? edits[index] : null;
+    return {
+      startSec: leftEdit ? segment.startSec - leftEdit.transitionSec : segment.startSec,
+      endSec: rightEdit ? segment.endSec + rightEdit.transitionSec : segment.endSec,
+    };
   });
-  filters.push(`${labels.join("")}concat=n=${labels.length}:v=1:a=0[v]`);
+
+  const filters = trims.map((trim, index) =>
+    `[0:v]trim=start=${trim.startSec.toFixed(6)}:end=${trim.endSec.toFixed(6)},` +
+    `setpts=PTS-STARTPTS,fps=${fps},format=yuv420p[v${index}]`);
+
+  let currentLabel = "v0";
+  let currentDurationSec = trims[0].endSec - trims[0].startSec;
+  for (let index = 1; index < trims.length; index += 1) {
+    const transitionSec = edits[index - 1].transitionSec;
+    const nextLabel = index === trims.length - 1 ? "v" : `x${index}`;
+    const offset = Math.max(0, currentDurationSec - transitionSec);
+    filters.push(
+      `[${currentLabel}][v${index}]xfade=transition=${transition}:` +
+      `duration=${transitionSec.toFixed(3)}:offset=${offset.toFixed(3)}[${nextLabel}]`,
+    );
+    currentDurationSec += (trims[index].endSec - trims[index].startSec) - transitionSec;
+    currentLabel = nextLabel;
+  }
 
   const encoder = process.env.CAPTUTOR_VIDEO_ENCODER ||
     (process.platform === "darwin" ? "h264_videotoolbox" : "libx264");

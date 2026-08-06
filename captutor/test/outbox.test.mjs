@@ -11,15 +11,18 @@ test("publishes media before a task-bound completion manifest", () => {
   const video = join(root, "take.mp4");
   const captions = join(root, "take.vtt");
   const receipt = join(root, "take.storyboard-receipt.pdf");
+  const audioReceipt = join(root, "take.audio-master.json");
   writeFileSync(video, "video bytes");
   writeFileSync(captions, "WEBVTT\n");
   writeFileSync(receipt, "%PDF receipt");
+  writeFileSync(audioReceipt, "{\"schema\":\"captutor-pop-master/v1\"}\n");
 
   const result = publishToOutbox({
     outbox: join(root, "outbox"),
     video,
     captions,
     receipt,
+    audioReceipt,
     screenplay: "smoke",
     locale: "en",
     format: "docs",
@@ -36,5 +39,7 @@ test("publishes media before a task-bound completion manifest", () => {
   assert.ok(existsSync(result.video));
   assert.ok(existsSync(result.captions));
   assert.ok(existsSync(result.receipt));
+  assert.ok(existsSync(result.audioReceipt));
   assert.match(manifest.receipt, /storyboard-receipt\.pdf$/);
+  assert.match(manifest.audioReceipt, /audio-master\.json$/);
 });

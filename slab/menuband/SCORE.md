@@ -13,6 +13,13 @@ instrument chooser, octave control, layout pickers, shortcut binders,
 and a metronome. Paired with a floating "play palette" panel for the
 expanded keyboard view + waveform visualizer.
 
+The keymap picker offers Menu Band/Notepat, AWSED (Ableton-style), and
+MilkyTracker keyjazz. Compact maps retain the physical QWERTY geometry:
+unused caps are invisible spacers rather than being removed and shifting the
+remaining notes left. MilkyTracker maps `ZSXDCVGBHNJM` and
+`Q2W3ER5T6Y7U` as two chromatic octaves; `0` stays available for Menu Band's
+MIDI-mode shortcut. The shared chord modifiers work on every layout.
+
 Lives at `slab/menuband/`. Distinct from `slab/menubar-swift/` (the
 Claude session menubar; different status item, different process).
 

@@ -148,6 +148,11 @@ if profile == "fuser" {
     ]
 }
 
+// Every release profile carries the same signed TrackDrum helper. Keep its
+// action first in the right-click menu, and omit it automatically from dev
+// bundles where the nested app is absent.
+plugins.insert(TrackDrumPlugin(), at: 0)
+
 // The machine heartbeat is an explicit mode, not an ordinary Macpal feature.
 // Its plugin is absent unless --loopboy <registered-machine> was requested.
 if let machine = loopboyMachine {
@@ -207,6 +212,18 @@ if argv.contains("--test-loopboy-heartbeat") {
 }
 
 // ── app bootstrap ─────────────────────────────────────────────────────────
+// Release smoke test: the exact menu label and its nested executable must both
+// be present in the assembled MacPal.app.
+if argv.contains("--test-trackdrum") {
+    let trackDrum = TrackDrumPlugin()
+    precondition(TrackDrumPlugin.menuTitle == "TrackDrum")
+    precondition(trackDrum.appURL != nil)
+    precondition(plugins.first is TrackDrumPlugin,
+                 "TrackDrum must lead every MacPal profile menu")
+    print("TrackDrum menu contract OK")
+    exit(0)
+}
+
 let app = NSApplication.shared
 app.setActivationPolicy(.accessory)   // no Dock icon, no menu bar item
 

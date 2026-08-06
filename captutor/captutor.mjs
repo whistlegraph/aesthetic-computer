@@ -55,7 +55,9 @@ import { translator, selectors, setLocale, LANGUAGES } from "./lib/i18n.mjs";
 import { ensureSignedIn, WORKSPACE } from "./lib/login.mjs";
 import * as credits from "./lib/credits.mjs";
 import { publishToOutbox } from "./lib/outbox.mjs";
-import { presentSignboard, setAmbient } from "./lib/signboard.mjs";
+import {
+  presentSignboard, restoreTerminalSignboard, setAmbient,
+} from "./lib/signboard.mjs";
 import { assertHiDPIStage } from "./lib/stage-contract.mjs";
 import {
   BAKE_TIME_PRESET, condenseBakeTimeVideo, planBakeTime,
@@ -63,6 +65,7 @@ import {
 import {
   DirectorChannel, directorBeatState, resolveDirectorGoal,
 } from "./lib/director-channel.mjs";
+import { masterPopDelivery } from "./lib/pop-audio-master.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
@@ -84,6 +87,14 @@ const DOCS_PUBLIC = join(FUSER, "apps", "docs", "public");
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const now = () => Date.now() / 1000;
+const resolvedChapters = (chapters, cues) => Array.isArray(chapters)
+  ? chapters.map((chapter) => ({
+      ...chapter,
+      startSec:Number.isInteger(Number(chapter.beatIndex)) && cues[Number(chapter.beatIndex)]
+        ? cues[Number(chapter.beatIndex)].offsetSec
+        : chapter.startSec,
+    }))
+  : null;
 const REAL_CURSOR = process.env.CAPTUTOR_REAL_CURSOR === "1";
 const STAGE_MODE = process.env.CAPTUTOR_STAGE_MODE === "1";
 const PREFLIGHT_ONLY = process.env.CAPTUTOR_PREFLIGHT_ONLY === "1"
@@ -638,18 +649,23 @@ async function cmdRender(sp, workDir, locale, format, attempt = 1) {
   // nothing. Emulating prefers-color-scheme does nothing either; the app is not
   // reading the media query, it is reading its own cookie. Set both, then reload
   // so the class actually lands on <html>.
+  // file:// fixtures (the smoke self-test) have no cookie jar at all —
+  // document.cookie is silently inert there, so the assert below would hang
+  // forever on a page that has no theme to pin in the first place.
   const theme = sp.theme || "system";
   const here = await cdp.eval("location.href");
-  await cdp.eval(`(() => {
-    document.cookie = "fuser-theme=${theme};path=/;domain=.fuser.studio;max-age=31536000;samesite=lax";
-    document.cookie = "fuser-theme=${theme};path=/;max-age=31536000;samesite=lax";
-    localStorage.setItem("fuser-theme", "${theme}");
-  })()`);
-  await cdp.nav(here);
-  // Assert the PREFERENCE, not the class. Only the /flow route stamps `dark` on
-  // <html>; the workspace hardcodes its own dark body and leaves the class empty,
-  // so waiting for the class hangs there forever even though the theme is set.
-  await cdp.waitFor(`document.cookie.includes("fuser-theme=${theme}")`);
+  if (/^https?:/.test(here)) {
+    await cdp.eval(`(() => {
+      document.cookie = "fuser-theme=${theme};path=/;domain=.fuser.studio;max-age=31536000;samesite=lax";
+      document.cookie = "fuser-theme=${theme};path=/;max-age=31536000;samesite=lax";
+      localStorage.setItem("fuser-theme", "${theme}");
+    })()`);
+    await cdp.nav(here);
+    // Assert the PREFERENCE, not the class. Only the /flow route stamps `dark` on
+    // <html>; the workspace hardcodes its own dark body and leaves the class empty,
+    // so waiting for the class hangs there forever even though the theme is set.
+    await cdp.waitFor(`document.cookie.includes("fuser-theme=${theme}")`);
+  }
 
   // The window IS the frame — clear the tab strip and size it, before rolling.
   if (F.requiresVerticalStage) {
@@ -780,6 +796,17 @@ async function cmdRender(sp, workDir, locale, format, attempt = 1) {
     stopNativeCursor();
     return reelStop(out);
   };
+  // A guard may already have stopped Reel before the screenplay's own error
+  // reaches this catch. Preserve that primary failure instead of replacing it
+  // with a secondary "not recording" cleanup error.
+  const stopRecordingAfterFailure = (out) => {
+    try {
+      return stopRecording(out);
+    } catch (error) {
+      console.warn(`  recorder cleanup unavailable: ${error.message}`);
+      return out;
+    }
+  };
 
   const take = (async () => {
     await sleep((sp.leadInMs ?? 700));  // a beat of stillness before we start moving
@@ -796,6 +823,13 @@ async function cmdRender(sp, workDir, locale, format, attempt = 1) {
     const result = [];
     for (const beat of beats) {
       activeBeat = beat.index;
+      const activeChapter = [...(sp.chapters || [])]
+        .filter((chapter) => Number(chapter.beatIndex) <= beat.index)
+        .sort((a, b) => Number(a.beatIndex) - Number(b.beatIndex))
+        .at(-1);
+      if (activeChapter?.wallpaperColor) {
+        setAmbient({ accent:activeChapter.wallpaperColor });
+      }
       const startedAt = now();
       activeCue = createBeatCue({
         beat,
@@ -835,14 +869,16 @@ async function cmdRender(sp, workDir, locale, format, attempt = 1) {
       });
       const card = {
         phase: "end", ...localizeCard(sp.closingCard),
+        accent:sp.chapters?.at(-1)?.wallpaperColor || null,
       };
       await perform("signboard", { card, role:"closing" },
         () => presentSignboard(cdp, card, {
           durationMs:sp.closingCard.durationMs ?? 2200,
           transition:sp.closingCard.transition,
+          terminal:true,
         }));
     }
-    setAmbient();
+    if (!sp.closingCard) setAmbient();
     await sleep((sp.tailMs ?? 900));
     return result;
   })();
@@ -899,7 +935,7 @@ async function cmdRender(sp, workDir, locale, format, attempt = 1) {
 
     if (err instanceof BrowserCrashError) {
       const stamp = new Date().toISOString().replaceAll(/[:.]/g, "-");
-      const aborted = stopRecording(join(workDir, `aborted-browser-${stamp}.mp4`));
+      const aborted = stopRecordingAfterFailure(join(workDir, `aborted-browser-${stamp}.mp4`));
       logBrowserFailure({
         sp, locale, format, attempt, error:err,
         beat:activeBeat, elapsed:now() - since, aborted,
@@ -925,7 +961,7 @@ async function cmdRender(sp, workDir, locale, format, attempt = 1) {
       before:err.captutorTelemetry?.before || null,
       after,
     });
-    stopRecording(join(workDir, "aborted.mp4"));
+    stopRecordingAfterFailure(join(workDir, "aborted.mp4"));
     if (purse) await credits.settle(cdp, purse, { slug: sp.slug, locale, format, aborted: true });
     cdp.close();
     await director.close({ phase:"failed", status:"failed", currentLine:err.message, nextLine:"" });
@@ -933,6 +969,9 @@ async function cmdRender(sp, workDir, locale, format, attempt = 1) {
   }
 
   const clip = stopRecording(join(workDir, "clip.mp4"));
+  await restoreTerminalSignboard(cdp).catch((error) => {
+    console.warn(`  terminal signboard restore unavailable: ${error.message}`);
+  });
   console.log(`■ ${clip}`);
 
   // Close the books while the browser is still up: what did this video cost?
@@ -994,10 +1033,31 @@ async function cmdRender(sp, workDir, locale, format, attempt = 1) {
   console.log(`  → ${outVtt} (${n} caption cues)`);
 
   const burned = join(workDir, `${sp.slug}.${format}.mp4`);
+  const chapters = resolvedChapters(sp.chapters, compositionTimed);
   const r = deliver({
     clip:outMp4, cues:compositionTimed, format, out:burned, workDir, locale,
+    title:sp.title ? say(sp.title, locale) : null,
+    shortTitle:sp.shortTitle ? say(sp.shortTitle, locale) : null,
     brandChrome:sp.brandChrome || null,
+    chapters,
+    terminalCard:null,
   });
+  const audioMaster = sp.audioMaster
+    ? await masterPopDelivery(burned, sp.audioMaster)
+    : null;
+  if (audioMaster) {
+    receiptEvents = [...receiptEvents, {
+      kind:"check",
+      name:"pop_audio_mastered",
+      atSec:0,
+      evidence:{
+        pass:true,
+        engine:audioMaster.engine,
+        integratedLufs:audioMaster.after.integratedLufs,
+        truePeakDbtp:audioMaster.after.truePeakDbtp,
+      },
+    }];
+  }
   const p = probe(burned);
   console.log(`  → ${burned}`);
   console.log(`     ${r.W}×${r.H} · ${(+p.format.duration).toFixed(1)}s · ${(p.format.size / 1e6).toFixed(1)} MB · burned captions`);
@@ -1010,14 +1070,15 @@ async function cmdRender(sp, workDir, locale, format, attempt = 1) {
     format,
     theme,
     effectTheme:sp.effectTheme || null,
-    title:say(sp.title, locale),
-    subtitle:say(sp.subtitle, locale),
+    title:sp.title ? say(sp.title, locale) : null,
+    shortTitle:sp.shortTitle ? say(sp.shortTitle, locale) : null,
+    subtitle:sp.subtitle ? say(sp.subtitle, locale) : null,
     // QA receipts are operational documents, not localized deliverables. Keep
     // an English copy beside the filmed language so reviewers can always read
     // the acceptance evidence without changing the captions or narration.
     receiptEnglish:{
-      title:say(sp.title, "en"),
-      subtitle:say(sp.subtitle, "en"),
+      title:sp.title ? say(sp.title, "en") : null,
+      subtitle:sp.subtitle ? say(sp.subtitle, "en") : null,
       openingCard:sp.openingCard ? englishCard(sp.openingCard) : null,
       closingCard:sp.closingCard ? englishCard(sp.closingCard) : null,
       beats:sp.beats.map((beat) => ({
@@ -1028,10 +1089,24 @@ async function cmdRender(sp, workDir, locale, format, attempt = 1) {
     },
     openingCard:sp.openingCard ? localizeCard(sp.openingCard) : null,
     closingCard:sp.closingCard ? localizeCard(sp.closingCard) : null,
+    chapters,
     acceptance:sp.acceptance || null,
     brandChrome:sp.brandChrome ? { id:sp.brandChrome.id || "client" } : null,
+    audioMaster:audioMaster ? {
+      engine:audioMaster.engine,
+      preset:audioMaster.preset,
+      target:audioMaster.target,
+      before:audioMaster.before,
+      after:audioMaster.after,
+      receipt:basename(audioMaster.receipt),
+    } : null,
     media:{
-      file:basename(burned), width:r.W, height:r.H,
+      // The PROBED stream, not the requested geometry: the encoder floors odd
+      // dimensions to even (1512×945 → 1512×944), and the QA receipt validates
+      // against the file it can actually measure.
+      file:basename(burned),
+      width:p.streams?.find((stream) => stream.width)?.width ?? r.W,
+      height:p.streams?.find((stream) => stream.height)?.height ?? r.H,
       durationSec:+(+p.format.duration).toFixed(3), bytes:+p.format.size,
     },
     credits:purse ? {
@@ -1069,7 +1144,10 @@ async function cmdRender(sp, workDir, locale, format, attempt = 1) {
     phase:"complete", status:"complete", currentLine:"Take complete", nextLine:"",
     words:[], beatStartedAt:null,
   });
-  return { outMp4, outVtt, burned, storyboard, receipt };
+  return {
+    outMp4, outVtt, burned, storyboard, receipt,
+    audioReceipt:audioMaster?.receipt || null,
+  };
 }
 
 function cmdPublish(sp, workDir) {
@@ -1091,7 +1169,7 @@ function cmdPublish(sp, workDir) {
 /// Cut the take to a delivery format — burned captions, reframed, re-encoded.
 /// Reads clip.mp4 + cues.json, so it never touches the app: the recording is the
 /// negative, and every format is just another print from it.
-function cmdDeliver(sp, workDir, formats, locale) {
+async function cmdDeliver(sp, workDir, formats, locale) {
   // Recut the composed master, not the raw ScreenCaptureKit negative. The
   // master carries narration and its full duration; using clip.mp4 here made a
   // caption-only recut silently lose audio and hide a short static video track.
@@ -1101,6 +1179,7 @@ function cmdDeliver(sp, workDir, formats, locale) {
     throw new Error(`no composed take to cut — run: captutor render ${sp.slug}`);
   }
   const cues = JSON.parse(readFileSync(cuesPath, "utf8"));
+  const chapters = resolvedChapters(sp.chapters, cues);
   const rendered = [];
   for (const format of formats) {
     const out = join(workDir, `${sp.slug}.${format}.mp4`);
@@ -1109,13 +1188,22 @@ function cmdDeliver(sp, workDir, formats, locale) {
       clip, cues, format, out, workDir,
       locale,
       title: say(sp.title, locale),
+      shortTitle: sp.shortTitle ? say(sp.shortTitle, locale) : null,
       subtitle: say(sp.subtitle, locale),
       brandChrome:sp.brandChrome || null,
+      chapters,
+      terminalCard:null,
     });
+    const audioMaster = sp.audioMaster
+      ? await masterPopDelivery(out, sp.audioMaster)
+      : null;
     const p = probe(out);
     console.log(`${r.W}×${r.H} · ${r.cues} captions · ${(p.format.size / 1e6).toFixed(1)} MB`);
+    if (audioMaster) {
+      console.log(`     ${audioMaster.after.integratedLufs.toFixed(1)} LUFS · ${audioMaster.after.truePeakDbtp.toFixed(1)} dBTP · /pop`);
+    }
     console.log(`     ${out}`);
-    rendered.push({ format, video: out });
+    rendered.push({ format, video:out, audioReceipt:audioMaster?.receipt || null });
   }
   return rendered;
 }
@@ -1203,6 +1291,7 @@ else if (cmd === "render") {
       taskGid: process.env.CAPTUTOR_TASK_GID || null,
       storyboard: rendered.storyboard,
       receipt: rendered.receipt,
+      audioReceipt: rendered.audioReceipt,
     });
     console.log(`\n⇢ outbox ${delivery.video}`);
     console.log(`         ${delivery.manifest}`);
@@ -1213,7 +1302,7 @@ else if (cmd === "deliver") {
   const i = rest.indexOf("--format");
   const formats = i === -1 ? Object.keys(FORMATS) : rest[i + 1].split(",");
   console.log(`\n⧉ cutting ${sp.slug} (${LANGUAGES[locale].native}) → ${formats.join(", ")}`);
-  const rendered = cmdDeliver(sp, workDir, formats, locale);
+  const rendered = await cmdDeliver(sp, workDir, formats, locale);
   const oi = rest.indexOf("--outbox");
   const outbox = oi === -1 ? process.env.CAPTUTOR_OUTBOX : rest[oi + 1];
   if (oi !== -1 && !outbox) throw new Error("--outbox needs a directory");
@@ -1228,6 +1317,7 @@ else if (cmd === "deliver") {
         locale,
         format: cut.format,
         taskGid: process.env.CAPTUTOR_TASK_GID || null,
+        audioReceipt: cut.audioReceipt,
       });
       console.log(`\n⇢ outbox ${delivery.video}`);
       console.log(`         ${delivery.manifest}`);

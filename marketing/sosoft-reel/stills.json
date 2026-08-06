@@ -1,0 +1,15 @@
+{
+  "policy": "Canonical July 16 iPhone stills. Use the full-resolution HEIC when present; index thumbnails are review-only fallbacks.",
+  "chapters": {
+    "SSF-01": ["IMG_4815.HEIC", "IMG_4816.HEIC"],
+    "SSF-02": ["IMG_4821.heic", "IMG_4825.heic"],
+    "SSF-03": ["IMG_4828.HEIC", "IMG_4837.HEIC"],
+    "SSF-04": ["IMG_4842.HEIC", "IMG_4844.HEIC"],
+    "SSF-05": ["IMG_4849.HEIC", "IMG_4859.HEIC"],
+    "SSF-06": ["IMG_4861.HEIC", "IMG_4864.HEIC"],
+    "SSF-07": ["IMG_4866.HEIC"],
+    "SSF-08": ["IMG_4870.HEIC", "IMG_4871.HEIC"],
+    "SSF-09": ["IMG_4872.HEIC", "IMG_4878.HEIC"],
+    "SSF-10": ["IMG_4879.HEIC", "IMG_4883.HEIC", "IMG_4886.HEIC"]
+  }
+}

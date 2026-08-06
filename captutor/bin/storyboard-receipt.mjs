@@ -218,14 +218,17 @@ const beatPages = beatFrames.map((beat) => {
 \\clearpage
 \\section*{Beat ${beat.index + 1} \\hfill \\textcolor{acgray}{${beat.at.toFixed(2)}s}}
 \\begin{center}
-\\fbox{\\includegraphics[width=0.96\\textwidth,height=0.53\\textheight,keepaspectratio]{\\detokenize{${beat.frame}}}}
+\\includegraphics[width=\\textwidth]{\\detokenize{${beat.frame}}}
 \\end{center}
-\\begin{tabularx}{\\textwidth}{@{}>{\\bfseries}p{0.95in}X@{}}
-English & ${escapeTex(english?.narration || beat.narration)} \\\\
-${nonEnglish ? `Caption (${escapeTex(story.locale)}) & ${storyTex(beat.narration)} \\\\\n+` : ""}Logic & ${escapeTex(english?.logic || beat.logic || "—")} \\\\
+\\renewcommand{\\arraystretch}{1.35}
+{\\fontsize{11.5pt}{15pt}\\selectfont
+\\begin{tabularx}{\\textwidth}{@{}>{\\bfseries\\color{acgray}}p{1.08in}X@{}}
+${nonEnglish ? "English script" : "Script"} & {\\fontsize{15pt}{19pt}\\selectfont ${escapeTex(english?.narration || beat.narration)}} \\\\
+${nonEnglish ? `Caption (${escapeTex(story.locale)}) & ${storyTex(beat.narration)} \\\\\n` : ""}Logic & ${escapeTex(english?.logic || beat.logic || "—")} \\\\
 Cursor & ${escapeTex(english?.cursorIntent || beat.cursorIntent || "—")} \\\\
 Trace & ${escapeTex(eventText)} \\\\
 \\end{tabularx}
+}
 `;
 }).join("\n");
 const cards = storyboardCards.map((card, index) => `
@@ -336,6 +339,8 @@ async function buildWithChrome() {
         : receiptEnglish?.closingCard?.title) || card.card?.title || "Concept card")}</figcaption></figure>`).join("");
   const beatBlocks = beatFrames.map((beat) => {
     const english = englishBeat(beat);
+    const logic = english?.logic || beat.logic || null;
+    const cursor = english?.cursorIntent || beat.cursorIntent || null;
     const eventText = beat.event
       ? `${beat.event.kind} at ${beat.event.atSec.toFixed(2)}s`
       : "timed narration frame";
@@ -343,10 +348,10 @@ async function buildWithChrome() {
       <header><h1>Beat ${beat.index + 1}</h1><time>${beat.at.toFixed(2)}s</time></header>
       <img class="evidence" src="${imageData(beat.frame)}" alt="Frame evidence for beat ${beat.index + 1}">
       <dl>
-        <dt>English</dt><dd>${escapeHtml(english?.narration || beat.narration)}</dd>
+        <dt class="script-label">${nonEnglish ? "English script" : "Script"}</dt><dd class="script">${escapeHtml(english?.narration || beat.narration)}</dd>
         ${nonEnglish ? `<dt>Caption (${escapeHtml(story.locale)})</dt><dd>${escapeHtml(beat.narration)}</dd>` : ""}
-        <dt>Logic</dt><dd>${escapeHtml(english?.logic || beat.logic || "—")}</dd>
-        <dt>Cursor</dt><dd>${escapeHtml(english?.cursorIntent || beat.cursorIntent || "—")}</dd>
+        ${logic ? `<dt>Logic</dt><dd>${escapeHtml(logic)}</dd>` : ""}
+        ${cursor ? `<dt>Cursor</dt><dd>${escapeHtml(cursor)}</dd>` : ""}
         <dt>Trace</dt><dd>${escapeHtml(eventText)}</dd>
       </dl>
     </section>`;
@@ -354,7 +359,7 @@ async function buildWithChrome() {
   const html = `<!doctype html><html lang="en"><head><meta charset="utf-8">
     <title>${escapeHtml(englishTitle)} — storyboard receipt</title>
     <style>
-      @page { size: letter; margin: 0.55in 0.62in; }
+      @page { size: letter; margin: 0.46in 0.52in; }
       * { box-sizing: border-box; }
       body { margin: 0; color: #282430; font: 12px/1.35 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
       .page { break-after: page; min-height: 9.8in; }
@@ -377,12 +382,15 @@ async function buildWithChrome() {
       figcaption { color: #6e6a74; margin-top: 4px; }
       .media { display: grid; grid-template-columns: max-content 1fr max-content 1fr; gap: 4px 10px; }
       .media b { color: #6e6a74; }
-      .beat header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 12px; }
-      .beat h1 { font-size: 24px; }
-      .beat time { color: #6e6a74; font-size: 14px; }
-      .evidence { display: block; width: 100%; height: 5.15in; object-fit: contain; border: 1px solid #ddd9e1; background: #111; }
-      dl { display: grid; grid-template-columns: 0.75in 1fr; gap: 5px 9px; margin: 13px 0 0; }
-      dt { color: #6e6a74; font-weight: 700; } dd { margin: 0; }
+      .beat header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 14px; }
+      .beat h1 { font-size: 30px; line-height: 1; }
+      .beat time { color: #6e6a74; font-size: 16px; font-weight: 650; }
+      .evidence { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; object-fit: cover; }
+      dl { display: grid; grid-template-columns: 0.95in 1fr; gap: 9px 12px; margin: 18px 0 0; }
+      dt { color: #6e6a74; font-size: 13px; font-weight: 750; letter-spacing: 0.01em; }
+      dd { margin: 0; font-size: 14px; line-height: 1.42; }
+      .script-label { color: #b44887; font-size: 14px; }
+      .script { font-size: 18px; line-height: 1.38; font-weight: 620; padding-bottom: 5px; }
     </style></head><body>
     <section class="page cover"><header><h1>${escapeHtml(englishTitle)}</h1>
       <p class="subtitle">${escapeHtml(englishSubtitle)}</p>

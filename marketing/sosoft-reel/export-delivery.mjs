@@ -8,11 +8,15 @@ import { spawnSync } from "node:child_process";
 const ROOT = dirname(fileURLToPath(import.meta.url));
 const OUT = resolve(ROOT, "out");
 const DELIVERY = resolve(ROOT, "delivery");
-const SOURCE = resolve(OUT, "scores-for-social-software-captioned-08.mp4");
-const MASTER = resolve(DELIVERY, "scores-for-social-software-master-vertical.mp4");
-const REVIEW = resolve(DELIVERY, "scores-for-social-software-review-vertical.mp4");
-const POSTER = resolve(DELIVERY, "scores-for-social-software-poster.jpg");
-const SRT = resolve(DELIVERY, "scores-for-social-software-captions.srt");
+const STILLS_CUT = process.argv.includes("--stills-cut");
+const stem = STILLS_CUT ? "scores-for-social-software-stills" : "scores-for-social-software";
+const SOURCE = resolve(OUT, STILLS_CUT
+  ? "scores-for-social-software-stills-captioned-09.mp4"
+  : "scores-for-social-software-captioned-08.mp4");
+const MASTER = resolve(DELIVERY, `${stem}-master-vertical.mp4`);
+const REVIEW = resolve(DELIVERY, `${stem}-review-vertical.mp4`);
+const POSTER = resolve(DELIVERY, `${stem}-poster.jpg`);
+const SRT = resolve(DELIVERY, `${stem}-captions.srt`);
 
 mkdirSync(DELIVERY, { recursive: true });
 copyFileSync(SOURCE, MASTER);
@@ -48,5 +52,5 @@ const manifest = files.map((path) => {
   const data = readFileSync(path);
   return { file: path.split("/").at(-1), bytes: statSync(path).size, sha256: createHash("sha256").update(data).digest("hex") };
 });
-writeFileSync(resolve(DELIVERY, "manifest.json"), `${JSON.stringify({ generatedAt: new Date().toISOString(), files: manifest }, null, 2)}\n`);
+writeFileSync(resolve(DELIVERY, STILLS_CUT ? "stills-manifest.json" : "manifest.json"), `${JSON.stringify({ generatedAt: new Date().toISOString(), files: manifest }, null, 2)}\n`);
 console.log(DELIVERY);

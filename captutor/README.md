@@ -19,6 +19,10 @@ node bin/fuser-atlas.mjs --source ~/Developer/fuser # all nodes, settings, behav
 node bin/fuser-pack.mjs                         # dry-run a measured tidy layout
 node bin/app-intelligence.mjs describe fuser imagePassthrough --locale en
 node bin/app-intelligence.mjs verify fuser --source ~/Developer/fuser
+node bin/master-pop-audio.mjs --input take.mp4 --out mastered.mp4
+swift bin/render-fuser-metaballs.swift /tmp/fuser-spin --spin --frames 480 --size 256
+ffmpeg -framerate 60 -i /tmp/fuser-spin/fuser-metaballs-spin-%03d.png \
+  -vf scale=128:128:flags=lanczos -c:v qtrle assets/fuser-metaballs-spin.mov
 ```
 
 ## App intelligence
@@ -65,10 +69,9 @@ the two copies inward, scales their safe margins from the delivery frame, and
 gives them the slow `/marketing` + `/pop` drift. Its compact, high-opacity
 shadow keeps a glowing mark separated from live UI without a broad gray halo.
 
-The bundled Fuser example is `themes/fuser.mjs`. Fuser's repository also owns a
-copy of its values at `tools/fuser-tutor/brand-theme.mjs`, pointing to Fuser's
-own canonical asset. Future clients should add their own small theme object;
-they do not fork Captutor's renderer.
+The bundled Fuser customization is `themes/fuser.mjs` plus the Fuser
+screenplays and app-intelligence contract. Future clients add their own small
+theme object; they do not fork Captutor's renderer.
 
 Every render writes `captutor-storyboard/v1` trace data and generates a PDF
 storyboard/QA receipt from frames extracted from the encoded MP4. A screenplay's
@@ -77,6 +80,13 @@ audio range, and named `check()` events that must be evidenced. Renders with an
 acceptance contract fail closed when the PDF reports review required. The PDF
 travels with the video, captions, storyboard JSON, and checksum manifest in the
 outbox.
+
+When a screenplay declares `audioMaster`, Captutor runs the encoded delivery
+through the studio's `/pop` `acdsp` vocal chain before probing the file or
+generating its PDF receipt. The filming install carries the Pop DSP source and
+builds it natively, so Iris uses the same checked-in chain without depending on
+another monorepo checkout. The storyboard records the preset and before/after
+LUFS and true peak; the audio receipt also records the output checksum.
 
 `--vertical` is Captutor's true portrait stage: Panda's display rotates 90° into
 its 720×1280 logical / 1440×2560 physical HiDPI mode, the browser sits in a
@@ -226,7 +236,7 @@ Stage Mode is a reversible transaction around any Captutor command. It saves the
 current desk, closes stale QuickTime previews, switches macOS to Light appearance
 and the display to 2× HiDPI (1280×720 logical), centers the browser, raises
 encoding quality, uses a branded light wallpaper, and temporarily hides desktop
-icons, Dock, menu bar, Stats, Macpal's desktop badge, and Slab prompt sigils. The
+icons, Dock, menu bar, Macpal's desktop badge, and Slab prompt sigils. The
 recorder captures the complete physical desktop, preserving the real rounded
 window, shadow, and equal margin. A Swift desktop-level renderer supplies the
 selected client backdrop. It is click-through, runs behind every normal window,
@@ -376,6 +386,13 @@ Aesthetic Computer repository installs the source and bundled controller at
 `~/.local/bin/reel.mjs`; Captutor discovers that path automatically. The native
 SlabMenubar process remains the recorder because it owns the GUI session and
 Screen Recording permission.
+
+The installed filming workspace is disposable runtime, not the place to author
+pipeline changes. Run `captutor/bin/install-iris-source.sh` once to create
+`~/Developer/aesthetic-computer` as a sparse Git checkout on
+`iris/fuser-captutor`, containing `captutor/`, `/pop`, and the media QoS shims.
+Iris edits and commits there, then reruns `captutor/bin/install.sh`; recordings,
+voice caches, secrets, and outbox artifacts remain outside that checkout.
 
 Driving needs a Chrome with remote debugging on a **profiled** user-data-dir —
 Chrome ≥136 refuses `--remote-debugging-port` on the default profile. See

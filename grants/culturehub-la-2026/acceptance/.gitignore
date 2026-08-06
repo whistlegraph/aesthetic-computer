@@ -1,0 +1,5 @@
+private/
+qa/
+packet/*.aux
+packet/*.log
+packet/*.out

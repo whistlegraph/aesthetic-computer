@@ -23,10 +23,11 @@ private struct CardState: Decodable, Equatable {
     let subtitle: String?
     let footer: String?
     let showMark: Bool?
+    let accent: String?
 
     static let ambient = CardState(
         phase: "ambient", kicker: nil, title: nil, subtitle: nil, footer: nil,
-        showMark: nil
+        showMark: nil, accent: nil
     )
 }
 
@@ -804,21 +805,27 @@ private final class FuserDimensionalView: NSView {
 
     private func applyAppearance() {
         let dark = effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        let accent = card.accent.flatMap(NSColor.init(hexString:))
+            ?? NSColor(hex: 0xA58CBC)
         metaballRenderer?.setAppearance(dark: dark)
         CATransaction.begin()
         CATransaction.setAnimationDuration(0.55)
         background.colors = (dark ? [
-            NSColor(hex: 0x050505), NSColor(hex: 0x141414), NSColor(hex: 0x080808),
+            accent.mixed(with:NSColor(hex: 0x17131C), amount:0.34),
+            accent.mixed(with:NSColor(hex: 0x2A2430), amount:0.22),
+            accent.mixed(with:NSColor(hex: 0x0F0D12), amount:0.40),
         ] : [
-            NSColor(hex: 0xFFFFFF), NSColor(hex: 0xECECEC), NSColor(hex: 0xFAFAFA),
+            accent.mixed(with:NSColor(hex: 0xFFFFFF), amount:0.42),
+            accent.mixed(with:NSColor(hex: 0xE9E6ED), amount:0.30),
+            accent.mixed(with:NSColor(hex: 0xF7F5F8), amount:0.48),
         ]).map(\.cgColor)
-        let smoke = NSColor(hex: dark ? 0xFFFFFF : 0x111111)
-        let silver = NSColor(hex: dark ? 0xA8A8A8 : 0x8E8E8E)
-        glowA.colors = [smoke.withAlphaComponent(dark ? 0.12 : 0.09).cgColor,
-                        smoke.withAlphaComponent(dark ? 0.045 : 0.032).cgColor,
+        let smoke = accent.mixed(with:NSColor.white, amount:dark ? 0.34 : 0.58)
+        let silver = accent.mixed(with:NSColor.black, amount:dark ? 0.08 : 0.22)
+        glowA.colors = [smoke.withAlphaComponent(dark ? 0.18 : 0.16).cgColor,
+                        smoke.withAlphaComponent(dark ? 0.07 : 0.06).cgColor,
                         smoke.withAlphaComponent(0).cgColor]
-        glowB.colors = [silver.withAlphaComponent(dark ? 0.10 : 0.08).cgColor,
-                        silver.withAlphaComponent(dark ? 0.038 : 0.028).cgColor,
+        glowB.colors = [silver.withAlphaComponent(dark ? 0.14 : 0.12).cgColor,
+                        silver.withAlphaComponent(dark ? 0.055 : 0.045).cgColor,
                         silver.withAlphaComponent(0).cgColor]
         cardTitle.foregroundColor = (dark ? NSColor.white : NSColor(hex: 0x171717)).cgColor
         cardMark.contents = metaballSheets[0]
@@ -834,6 +841,7 @@ private final class FuserDimensionalView: NSView {
               let decoded = try? JSONDecoder().decode(CardState.self, from: data) else { return }
         cardPayload = data
         card = decoded
+        applyAppearance()
         cardTitle.string = decoded.title ?? ""
         cardMark.opacity = decoded.showMark == false ? 0 : 1
         CATransaction.begin()
@@ -860,6 +868,22 @@ private extension NSColor {
                   green: CGFloat((hex >> 8) & 0xFF) / 255,
                   blue: CGFloat(hex & 0xFF) / 255,
                   alpha: 1)
+    }
+
+    convenience init?(hexString: String) {
+        let value = hexString.trimmingCharacters(in: CharacterSet(charactersIn: "#"))
+        guard value.count == 6, let hex = UInt32(value, radix:16) else { return nil }
+        self.init(hex:hex)
+    }
+
+    func mixed(with other: NSColor, amount: CGFloat) -> NSColor {
+        let a = usingColorSpace(.sRGB) ?? self
+        let b = other.usingColorSpace(.sRGB) ?? other
+        let t = min(max(amount, 0), 1)
+        return NSColor(srgbRed:a.redComponent + (b.redComponent - a.redComponent) * t,
+                       green:a.greenComponent + (b.greenComponent - a.greenComponent) * t,
+                       blue:a.blueComponent + (b.blueComponent - a.blueComponent) * t,
+                       alpha:a.alphaComponent + (b.alphaComponent - a.alphaComponent) * t)
     }
 }
 

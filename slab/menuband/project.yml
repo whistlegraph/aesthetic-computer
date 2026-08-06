@@ -38,7 +38,7 @@ settings:
     # sat a build behind through the whole 1.5.3 release.
     # The direct-download build keeps its own literals in Info.plist (SwiftPM
     # never sees these settings); bump both when releasing.
-    MARKETING_VERSION: "1.6.7"
+    MARKETING_VERSION: "1.6.8"
     CURRENT_PROJECT_VERSION: "168"
 
 packages:
@@ -63,6 +63,7 @@ targets:
           - "KidLisp/README.md"
           - "Resources/**"
           - "WaveformShaders.metalsource"
+          - "TracktrampShaders.metalsource"
 
       # Resource files → Copy Bundle Resources (flattened). verovio/sheet.html
       # + verovio-toolkit-wasm.js flatten into the same Resources root, so the
@@ -77,6 +78,8 @@ targets:
       # install wedged repeatedly on 2026-07-05 and blocked the MAS archive);
       # `.metalsource` is copied verbatim, so no build-time Metal at all.
       - path: Sources/MenuBand/WaveformShaders.metalsource
+        buildPhase: resources
+      - path: Sources/MenuBand/TracktrampShaders.metalsource
         buildPhase: resources
 
       # App icon. Info.plist already declares CFBundleIconFile = AppIcon, so

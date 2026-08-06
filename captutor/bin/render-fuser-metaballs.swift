@@ -1,22 +1,31 @@
 // Bake the canonical twelve-node Fuser mark as a smooth 3D metaball surface.
-// Runtime Captutor rotates these stills; raymarching never runs while filming.
+// Spin delivery is rendered above display size and Lanczos-downsampled while
+// encoding, providing full-scene antialiasing without runtime GPU cost.
 
 import AppKit
 import Foundation
 import simd
 
-guard CommandLine.arguments.count == 2 else {
-    fputs("usage: render-fuser-metaballs <output-directory>\n", stderr)
+guard CommandLine.arguments.count >= 2 else {
+    fputs("usage: render-fuser-metaballs <output-directory> [--spin] [--frames 480] [--size 128]\n", stderr)
     exit(2)
 }
 
 private let output = URL(fileURLWithPath: CommandLine.arguments[1], isDirectory: true)
-// One generous source image lets Core Animation provide continuous rotation
-// without atlas stepping or the memory cost of hundreds of decoded views.
-private let frameSize = 384
+private let arguments = Array(CommandLine.arguments.dropFirst(2))
+private let spinMode = arguments.contains("--spin")
+private func integerArgument(_ name: String, fallback: Int) -> Int {
+    guard let index = arguments.firstIndex(of: name), arguments.indices.contains(index + 1),
+          let value = Int(arguments[index + 1]) else { return fallback }
+    return value
+}
+// Delivery spin renders one unique ray-marched view for every encoded frame.
+// Use --size 256 for the canonical 128px asset: its encoder downsamples 2:1,
+// then Captutor downsamples once more to the actual side-mark size.
+private let frameSize = spinMode ? integerArgument("--size", fallback:128) : 384
 private let columns = 1
 private let rows = 1
-private let frameCount = columns * rows
+private let frameCount = spinMode ? integerArgument("--frames", fallback:480) : columns * rows
 private let sheetWidth = columns * frameSize
 private let sheetHeight = rows * frameSize
 
@@ -144,6 +153,43 @@ let rotatedCenters: [[SIMD3<Float>]] = (0..<frameCount).map { frame in
     let yaw = Float(frame) / Float(frameCount) * Float.pi * 2
     let pitch = -0.13 + sin(yaw * 2) * 0.075
     return sourceCenters.map { rotate($0, yaw: yaw, pitch: pitch) }
+}
+
+if spinMode {
+    let palette = palettes[0]
+    for frame in 0..<frameCount {
+        let byteCount = frameSize * frameSize * 4
+        let pixels = UnsafeMutablePointer<UInt8>.allocate(capacity: byteCount)
+        pixels.initialize(repeating: 0, count: byteCount)
+        DispatchQueue.concurrentPerform(iterations: frameSize) { y in
+            for x in 0..<frameSize {
+                let rgba = shade(pixelX:x, pixelY:y, centers:rotatedCenters[frame], palette:palette)
+                let offset = (y * frameSize + x) * 4
+                pixels[offset] = rgba.x
+                pixels[offset + 1] = rgba.y
+                pixels[offset + 2] = rgba.z
+                pixels[offset + 3] = rgba.w
+            }
+        }
+        var planes: [UnsafeMutablePointer<UInt8>?] = [pixels]
+        guard let bitmap = NSBitmapImageRep(bitmapDataPlanes:&planes,
+                                            pixelsWide:frameSize, pixelsHigh:frameSize,
+                                            bitsPerSample:8, samplesPerPixel:4,
+                                            hasAlpha:true, isPlanar:false,
+                                            colorSpaceName:.deviceRGB,
+                                            bitmapFormat:.alphaNonpremultiplied,
+                                            bytesPerRow:frameSize * 4, bitsPerPixel:32),
+              let png = bitmap.representation(using:.png, properties:[.compressionFactor:0.82]) else {
+            pixels.deallocate()
+            fatalError("could not encode spin frame")
+        }
+        let name = String(format:"fuser-metaballs-spin-%03d.png", frame)
+        try png.write(to:output.appendingPathComponent(name))
+        pixels.deallocate()
+        if frame.isMultiple(of:60) { print("  frame \(frame)/\(frameCount)") }
+    }
+    print("✓ \(frameCount) unique 3D frames · \(frameSize)px")
+    exit(0)
 }
 
 for (variant, palette) in palettes.enumerated() {

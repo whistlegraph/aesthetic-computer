@@ -41,10 +41,14 @@ import {
   writeFileSync,
 } from "node:fs";
 import { homedir, tmpdir } from "node:os";
-import { basename, join, dirname, extname, resolve } from "node:path";
-import { createHash, randomUUID } from "node:crypto";
+import { basename, join, dirname } from "node:path";
+import { randomUUID } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { formatRichText } from "../lib/imessage-rich-text.mjs";
+import {
+  chooseMessagesMediaTransport,
+  inspectMessagesMedia,
+} from "../lib/imessage-media.mjs";
 import {
   chooseMessagesRoute,
   classifyMessagesAttachment,
@@ -684,26 +688,6 @@ async function sendMessage(handles, body) {
   return result;
 }
 
-const IMAGE_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".heic", ".heif", ".webp"]);
-
-function inspectImage(path) {
-  const absolute = resolve(String(path || ""));
-  if (!existsSync(absolute)) throw new Error(`image not found: ${absolute}`);
-  const stat = statSync(absolute);
-  if (!stat.isFile()) throw new Error(`image is not a file: ${absolute}`);
-  const extension = extname(absolute).toLowerCase();
-  if (!IMAGE_EXTENSIONS.has(extension)) {
-    throw new Error(`unsupported Messages image type "${extension || "(none)"}" — use jpg, png, heic, or webp`);
-  }
-  if (stat.size <= 0) throw new Error("image is empty");
-  if (stat.size > 20 * 1024 * 1024) throw new Error("image exceeds the 20 MB guarded send limit");
-  return {
-    path: absolute,
-    bytes: stat.size,
-    sha256: createHash("sha256").update(readFileSync(absolute)).digest("hex"),
-  };
-}
-
 function cleanupOrphanedStagedAttachments(now = Date.now()) {
   if (!existsSync(STAGED_ATTACHMENT_ROOT)) return;
   let referenced = [];
@@ -729,7 +713,7 @@ function cleanupOrphanedStagedAttachments(now = Date.now()) {
   }
 }
 
-function stageImageForMessages(info) {
+function stageMediaForMessages(info) {
   // Native Node implementation of the attachment-staging pattern used by
   // openclaw/imsg (MIT): keep the canonical sent file inside Messages' own
   // attachment tree and write fresh bytes without source metadata.
@@ -740,7 +724,7 @@ function stageImageForMessages(info) {
   try {
     // Write fresh bytes instead of copying metadata. This drops quarantine,
     // ACL, and extended attributes that can make Messages reject an otherwise
-    // readable image outside its own attachment sandbox.
+    // readable attachment outside its own attachment sandbox.
     writeFileSync(stagedPath, readFileSync(info.path), { mode: 0o600 });
     return { dir: stageDir, path: stagedPath };
   } catch (error) {
@@ -755,23 +739,23 @@ function backendMediaError(message, { safeToFallback = false } = {}) {
   return error;
 }
 
-function enqueueAttachment(handle, imagePath, appleService) {
+function enqueueAttachment(handle, attachmentPath, appleService) {
   if (!new Set(["iMessage", "RCS", "SMS"]).has(appleService)) {
     throw new Error(`unsupported Messages attachment service: ${appleService}`);
   }
   const script = `
 on run argv
   set dest to item 1 of argv
-  set imageFile to (POSIX file (item 2 of argv)) as alias
+  set attachmentFile to (POSIX file (item 2 of argv)) as alias
   tell application "Messages"
     set svc to 1st account whose service type = ${appleService}
     set bud to participant dest of svc
-    send imageFile to bud
+    send attachmentFile to bud
   end tell
 end run`;
   return spawnSync(
     "/usr/bin/osascript",
-    ["-e", script, handle, imagePath],
+    ["-e", script, handle, attachmentPath],
     { encoding: "utf8" },
   );
 }
@@ -1125,11 +1109,10 @@ async function sendLinkPreview(handles, url, expectedTitle, timeoutMs = 20000) {
   }
 }
 
-async function sendImageBackend(handles, path, timeoutMs = 20000) {
-  const info = inspectImage(path);
+async function sendMediaBackend(handles, info, timeoutMs = 20000) {
   const route = chooseMessagesRoute(handles, latestSuccessfulRoute(handles));
   const baseline = latestRecipientRowid(handles);
-  const staged = stageImageForMessages(info);
+  const staged = stageMediaForMessages(info);
   let preserveStage = false;
   try {
     const enqueued = enqueueAttachment(route.handle, staged.path, route.appleService);
@@ -1146,7 +1129,7 @@ async function sendImageBackend(handles, path, timeoutMs = 20000) {
       const state = classifyMessagesAttachment(lastRow);
       if (state.status === "failed") {
         throw backendMediaError(
-          `Messages rejected backend image row ${lastRow?.rowid || "unknown"} via ${route.appleService} ` +
+          `Messages rejected backend attachment row ${lastRow?.rowid || "unknown"} via ${route.appleService} ` +
           `(message error ${state.error}, transfer state ${state.transferState || 0})`,
           { safeToFallback: true },
         );
@@ -1160,7 +1143,7 @@ async function sendImageBackend(handles, path, timeoutMs = 20000) {
           observedService: route.observedService,
           rowid: Number(lastRow.rowid),
           attachmentRowid: Number(lastRow.attachment_rowid),
-          mimeType: lastRow.mime_type || "image/jpeg",
+          mimeType: lastRow.mime_type || info.mimeType,
           bytes: Number(lastRow.total_bytes) || info.bytes,
           sourceBytes: info.bytes,
           sourceSha256: info.sha256,
@@ -1170,28 +1153,27 @@ async function sendImageBackend(handles, path, timeoutMs = 20000) {
         if (!lastRow) {
           preserveStage = true;
           throw backendMediaError(
-            (stderr || `Messages backend image enqueue failed via ${route.appleService}`) +
+            (stderr || `Messages backend attachment enqueue failed via ${route.appleService}`) +
             "; no request-scoped terminal row appeared, so UI fallback is refused to prevent a duplicate",
           );
         }
         preserveStage = true;
         throw backendMediaError(
-          `Messages reported an AppleScript error after creating pending backend image row ${lastRow.rowid}; refusing a duplicate UI send`,
+          `Messages reported an AppleScript error after creating pending backend attachment row ${lastRow.rowid}; refusing a duplicate UI send`,
         );
       }
       await wait(250);
     }
     preserveStage = true;
     throw backendMediaError(
-      `Messages backend image row ${lastRow?.rowid || "unknown"} via ${route.appleService} remained ambiguous for ${timeoutMs / 1000}s; refusing a duplicate UI send`,
+      `Messages backend attachment row ${lastRow?.rowid || "unknown"} via ${route.appleService} remained ambiguous for ${timeoutMs / 1000}s; refusing a duplicate UI send`,
     );
   } finally {
     if (!preserveStage) rmSync(staged.dir, { recursive: true, force: true });
   }
 }
 
-async function sendImageWithUI(handles, path, expectedTitle, timeoutMs = 20000) {
-  const info = inspectImage(path);
+async function sendImageWithUI(handles, info, expectedTitle, timeoutMs = 20000) {
   const normalized = normalizeImageForClipboard(info);
   const route = chooseMessagesRoute(handles, latestSuccessfulRoute(handles));
   const baseline = latestRecipientRowid(handles);
@@ -1237,28 +1219,22 @@ async function sendImageWithUI(handles, path, expectedTitle, timeoutMs = 20000) 
   }
 }
 
-async function sendImage(handles, path, expectedTitle, transport = "auto", timeoutMs = 20000) {
-  if (!new Set(["auto", "backend", "ui"]).has(transport)) {
-    throw new Error(`unknown media transport "${transport}" (use auto, backend, or ui)`);
-  }
-  if (transport === "ui") {
-    return sendImageWithUI(handles, path, expectedTitle, timeoutMs);
-  }
-  if (transport === "auto") {
-    const route = chooseMessagesRoute(handles, latestSuccessfulRoute(handles));
-    if (route.appleService !== "iMessage") {
-      const receipt = await sendImageWithUI(handles, path, expectedTitle, timeoutMs);
-      return {
-        ...receipt,
-        backendSkipped: `non-UI ${route.appleService} attachments remain opt-in until a terminal-success receipt is verified`,
-      };
-    }
+async function sendMedia(handles, path, expectedTitle, transport = "auto", timeoutMs = 20000) {
+  const info = inspectMessagesMedia(path);
+  const route = chooseMessagesRoute(handles, latestSuccessfulRoute(handles));
+  const plan = chooseMessagesMediaTransport(info.kind, transport, route.appleService);
+  // Messages can take longer to import and fingerprint a document than an
+  // image. Keep the request scoped to its staged path, but give PDFs enough
+  // time to reach a terminal transfer state before reporting ambiguity.
+  const deliveryTimeoutMs = info.kind === "document" ? Math.max(timeoutMs, 45000) : timeoutMs;
+  if (plan.primary === "ui") {
+    return sendImageWithUI(handles, info, expectedTitle, timeoutMs);
   }
   try {
-    return await sendImageBackend(handles, path, timeoutMs);
+    return await sendMediaBackend(handles, info, deliveryTimeoutMs);
   } catch (error) {
-    if (transport === "backend" || !error?.safeToFallback) throw error;
-    const receipt = await sendImageWithUI(handles, path, expectedTitle, timeoutMs);
+    if (!plan.allowUiFallback || !error?.safeToFallback) throw error;
+    const receipt = await sendImageWithUI(handles, info, expectedTitle, timeoutMs);
     return {
       ...receipt,
       fallbackFrom: "backend",
@@ -1707,7 +1683,7 @@ try {
       if (mi >= 0) {
         const candidate = args[mi + 1];
         if (!candidate || candidate.startsWith("--")) {
-          console.error("imsg send: --media requires an image path");
+          console.error("imsg send: --media requires an image or PDF path");
           process.exit(1);
         }
         mediaPath = candidate;
@@ -1746,14 +1722,14 @@ try {
       const source = args.join(" ").trim();
       const body = rich ? formatRichText(source) : source;
       if (!body && !mediaPath && !linkPreview) {
-        console.error("usage: imsg send [--rich] [--media image [--media-transport auto|backend|ui] | --link-preview URL] [text] [--to <name|handle>]");
+        console.error("usage: imsg send [--rich] [--media image-or-pdf [--media-transport auto|backend|ui] | --link-preview URL] [text] [--to <name|handle>]");
         process.exit(1);
       }
       if (mediaPath && linkPreview) throw new Error("send one guarded rich attachment at a time");
       const rcpt = resolveRecipient(cfg, toArg);
       const guardedTitle = expectedTitle || rcpt.displayName;
       const mediaDelivery = mediaPath
-        ? await sendImage(rcpt.handles, mediaPath, guardedTitle, mediaTransport)
+        ? await sendMedia(rcpt.handles, mediaPath, guardedTitle, mediaTransport)
         : null;
       const linkDelivery = linkPreview
         ? await sendLinkPreview(rcpt.handles, linkPreview, guardedTitle)

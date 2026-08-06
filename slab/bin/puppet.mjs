@@ -45,8 +45,16 @@
 //
 // Config shape (~/.config/slab/puppet.json):
 //   { "machines": { "<name>": { "cdpUrl": "http://127.0.0.1:9223",
-//                               "tunnelCmd": "ssh -fN -L 9223:127.0.0.1:9222 <host>" } } }
-// `tunnelCmd` is optional — run when the cdpUrl is unreachable, then retried.
+//                               "tunnelCmd": "ssh -fN -L 9223:127.0.0.1:{port} <host>",
+//                               "tunnelReleaseCmd": "ssh -S <socket> -O exit <host>",
+//                               "lazy": true,
+//                               "acquireCmd": "ssh <host> fleet-browser acquire --owner puppet-controller",
+//                               "touchCmd": "ssh <host> fleet-browser touch --owner puppet-controller",
+//                               "releaseCmd": "ssh <host> fleet-browser release --owner puppet-controller",
+//                               "idleMs": 1800000 } } }
+// `tunnelCmd` is optional. A lazy machine stays browserless until its first
+// browser command, acquires one shared access session, and releases it after
+// `idleMs`. List/status calls never launch a browser.
 
 import { execFileSync, execSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
@@ -122,6 +130,12 @@ class Machine {
     this.connected = false;
     this.lastError = null;
     this.triedTunnel = false;
+    this.connecting = null;
+    this.lazy = this.spec.lazy === true;
+    this.lastActiveAt = null;
+    this.lastLeaseTouchAt = null;
+    this.leaseInfo = null;
+    this.idleTimer = null;
     // analysis layer: log + flash interaction points. On by default now
     // (@jeffrey) so the hit-scan overlay survives daemon restarts; the
     // overlays self-clear so always-on costs nothing visible when idle.
@@ -177,12 +191,168 @@ class Machine {
     }
   }
 
+  renderLifecycleCommand(command) {
+    return String(command).replaceAll("{port}", String(this.leaseInfo?.port || ""));
+  }
+
+  runLifecycleCommand(command, label) {
+    if (!command) return;
+    this.log(label);
+    return execSync(this.renderLifecycleCommand(command), {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+      timeout: 20000,
+    });
+  }
+
+  async ensureConnected() {
+    if (this.connected) {
+      this.markActive();
+      return;
+    }
+    if (!this.lazy) throw new Error(`${this.name} not connected`);
+    if (this.connecting) return this.connecting;
+    this.connecting = this.connectOnDemand().finally(() => {
+      this.connecting = null;
+    });
+    return this.connecting;
+  }
+
+  async connectOnDemand() {
+    let acquired = false;
+    try {
+      if (this.spec.acquireCmd) {
+        const output = this.runLifecycleCommand(this.spec.acquireCmd, "acquiring browser access");
+        try {
+          this.leaseInfo = JSON.parse(output || "{}");
+        } catch {
+          throw new Error(`${this.name} acquireCmd did not return JSON`);
+        }
+        if (!this.leaseInfo?.port) throw new Error(`${this.name} acquireCmd returned no port`);
+        acquired = true;
+        this.lastLeaseTouchAt = Date.now();
+      }
+      if (this.spec.tunnelCmd) {
+        if (this.spec.tunnelReleaseCmd) {
+          try { this.runLifecycleCommand(this.spec.tunnelReleaseCmd, "closing stale browser tunnel"); } catch {}
+        }
+        try {
+          this.runLifecycleCommand(this.spec.tunnelCmd, "opening browser tunnel");
+        } catch (error) {
+          throw new Error(`browser tunnel failed: ${error?.message || error}`);
+        }
+        let lastError;
+        const deadline = Date.now() + 12000;
+        while (Date.now() < deadline) {
+          await new Promise(resolve => setTimeout(resolve, 250));
+          try {
+            await this.connect();
+            lastError = null;
+            break;
+          } catch (error) {
+            lastError = error;
+          }
+        }
+        if (lastError) throw lastError;
+      } else {
+        await this.connect();
+      }
+      this.lastError = null;
+      this.markActive();
+      writeStatus();
+    } catch (error) {
+      this.lastError = String(error?.message || error);
+      if (this.spec.tunnelReleaseCmd) {
+        try { this.runLifecycleCommand(this.spec.tunnelReleaseCmd, "closing failed browser tunnel"); } catch {}
+      }
+      if (acquired && this.spec.releaseCmd) {
+        try { this.runLifecycleCommand(this.spec.releaseCmd, "releasing failed browser acquisition"); } catch {}
+      }
+      writeStatus();
+      throw error;
+    }
+  }
+
+  markActive() {
+    if (!this.lazy) return;
+    this.lastActiveAt = Date.now();
+    if (this.spec.touchCmd && (!this.lastLeaseTouchAt || Date.now() - this.lastLeaseTouchAt > 60000)) {
+      try { this.runLifecycleCommand(this.spec.touchCmd, "touching browser access lease"); } catch {}
+      this.lastLeaseTouchAt = Date.now();
+    }
+    clearTimeout(this.idleTimer);
+    const idleMs = Number(this.spec.idleMs || 30 * 60 * 1000);
+    this.idleTimer = setTimeout(() => this.releaseIfIdle().catch(() => {}), idleMs);
+    this.idleTimer.unref?.();
+  }
+
+  async releaseIfIdle() {
+    if (!this.lazy) return;
+    if (this.watches.size || this.consoleSubs.size) {
+      this.markActive();
+      return;
+    }
+    await this.releaseManaged();
+  }
+
+  async releaseManaged() {
+    if (!this.lazy) return false;
+    clearTimeout(this.idleTimer);
+    this.idleTimer = null;
+    try { this.browser?.close(); } catch {}
+    this.browser = null;
+    this.connected = false;
+    this.sessions.clear();
+    this.targets.clear();
+    if (this.spec.tunnelReleaseCmd) {
+      try { this.runLifecycleCommand(this.spec.tunnelReleaseCmd, "closing browser tunnel"); } catch {}
+    }
+    if (this.spec.releaseCmd) {
+      try {
+        this.runLifecycleCommand(this.spec.releaseCmd, "releasing browser access");
+      } catch (error) {
+        this.lastError = `release failed: ${error?.message || error}`;
+        writeStatus();
+        throw error;
+      }
+    }
+    this.lastActiveAt = null;
+    this.lastLeaseTouchAt = null;
+    this.leaseInfo = null;
+    writeStatus();
+    return true;
+  }
+
   async connect() {
-    const ver = await fetch(`${this.spec.cdpUrl}/json/version`).then(r => r.json());
-    const ws = new WebSocket(ver.webSocketDebuggerUrl);
+    let browserName = "Chrome";
+    let webSocketUrl;
+    if (this.leaseInfo?.webSocketPath) {
+      const base = new URL(this.spec.cdpUrl);
+      // A local ordinary-Chrome lease uses Chrome's consented ephemeral port;
+      // the configured cdpUrl contributes only the loopback host. Remote
+      // machines still connect through their fixed local tunnel port.
+      if (!this.spec.tunnelCmd && this.leaseInfo.port) base.port = String(this.leaseInfo.port);
+      const protocol = base.protocol === "https:" ? "wss:" : "ws:";
+      webSocketUrl = `${protocol}//${base.host}${this.leaseInfo.webSocketPath}`;
+    } else {
+      const ver = await fetch(`${this.spec.cdpUrl}/json/version`).then(r => r.json());
+      webSocketUrl = ver.webSocketDebuggerUrl;
+      browserName = ver.Browser;
+    }
+    const ws = new WebSocket(webSocketUrl);
     await new Promise((res, rej) => {
-      ws.onopen = res;
-      ws.onerror = () => rej(new Error("ws connect failed"));
+      const timeout = setTimeout(() => {
+        try { ws.close(); } catch {}
+        rej(new Error("ws connect timed out after 60 seconds"));
+      }, 60_000);
+      ws.onopen = () => {
+        clearTimeout(timeout);
+        res();
+      };
+      ws.onerror = () => {
+        clearTimeout(timeout);
+        rej(new Error("ws connect failed"));
+      };
     });
     this.browser = ws;
     ws.onmessage = e => this.onMessage(JSON.parse(e.data));
@@ -196,7 +366,7 @@ class Machine {
     await this.call("Target.setDiscoverTargets", { discover: true });
     this.connected = true;
     this.lastError = null;
-    this.log(`connected (${ver.Browser})`);
+    this.log(`connected (${browserName})`);
     writeStatus();
   }
 
@@ -324,6 +494,29 @@ class Machine {
     );
     if (r.exceptionDetails) throw new Error(r.exceptionDetails.exception?.description || "eval threw");
     return r.result?.value;
+  }
+
+  // Set local files on a page's file input through the daemon's existing CDP
+  // connection. Keeping uploads on this warm socket avoids opening a second
+  // browser-level debugging session (which modern Chrome confirms separately).
+  async upload(files, selector, filter) {
+    if (!Array.isArray(files) || files.length === 0) throw new Error("upload requires at least one file");
+    if (!selector) throw new Error("upload requires a file-input selector");
+    const sessionId = await this.session(filter);
+    const r = await this.call(
+      "Runtime.evaluate",
+      { expression: `document.querySelector(${JSON.stringify(selector)})`, returnByValue: false },
+      sessionId,
+    );
+    if (r.exceptionDetails) throw new Error(r.exceptionDetails.exception?.description || "selector evaluation threw");
+    const objectId = r.result?.objectId;
+    if (!objectId || r.result?.subtype === "null") throw new Error(`no file input matches: ${selector}`);
+    try {
+      await this.call("DOM.setFileInputFiles", { files, objectId }, sessionId);
+    } finally {
+      await this.call("Runtime.releaseObject", { objectId }, sessionId).catch(() => {});
+    }
+    return { files: files.length, selector };
   }
 
   // Open a new tab or positioned window (Target.createTarget). Returns targetId.
@@ -615,6 +808,9 @@ c.style.background=${pressed} ? "rgba(255,64,129,.9)" : "rgba(255,64,129,.45)";
   info() {
     return {
       connected: this.connected,
+      lazy: this.lazy,
+      managedLifecycle: Boolean(this.spec.acquireCmd || this.spec.releaseCmd),
+      lastActiveAt: this.lastActiveAt ? new Date(this.lastActiveAt).toISOString() : null,
       lastError: this.lastError,
       targets: [...this.targets.values()].map(t => t.url),
     };
@@ -632,12 +828,25 @@ function writeStatus() {
 
 async function handleRequest(req, sock) {
   const { cmd, machine, args = {} } = req;
+  const ensure = async name => {
+    const m = machines.get(name);
+    if (!m) throw new Error(`unknown machine: ${name}`);
+    await m.ensureConnected();
+    return m;
+  };
   const one = name => {
     const m = machines.get(name);
     if (!m) throw new Error(`unknown machine: ${name}`);
     if (!m.connected) throw new Error(`${name} not connected`);
     return m;
   };
+  const directBrowserCommands = new Set([
+    "eval", "waitFor", "evalAll", "upload", "nav", "newtab", "close", "shot",
+    "stroke", "key", "gesture", "cursor", "scan", "watch", "unwatch", "tail",
+  ]);
+  if (machine && (directBrowserCommands.has(cmd) || cmd === "reload")) {
+    await ensure(machine);
+  }
   switch (cmd) {
     case "list": {
       const out = {};
@@ -646,6 +855,8 @@ async function handleRequest(req, sock) {
     }
     case "eval":
       return one(machine).eval(args.expr, args.target);
+    case "upload":
+      return one(machine).upload(args.files, args.selector, args.target);
     // N expressions against one target, one client round-trip (CDP calls
     // pipeline on the open browser socket) — assertion loops in one shot.
     // Poll an expression until truthy — replaces fixed client-side sleeps at
@@ -681,6 +892,7 @@ async function handleRequest(req, sock) {
       const results = await Promise.all(
         pairs.map(async p => {
           try {
+            await ensure(p.machine);
             const m = one(p.machine);
             if (action === "eval") return await m.eval(expr, p.target);
             if (action === "stroke") return await m.stroke(points, p.target);
@@ -769,6 +981,11 @@ async function handleRequest(req, sock) {
     case "tail":
       await one(machine).tailConsole(sock, args.target);
       return "__stream__"; // keep socket open
+    case "releaseMachine": {
+      const m = machines.get(machine);
+      if (!m) throw new Error(`unknown machine: ${machine}`);
+      return m.releaseManaged();
+    }
     default:
       throw new Error(`unknown cmd: ${cmd}`);
   }
@@ -785,7 +1002,7 @@ async function cmdDaemon() {
   for (const [name, spec] of Object.entries(cfg.machines)) {
     const m = new Machine(name, spec);
     machines.set(name, m);
-    m.connectLoop();
+    if (!m.lazy) m.connectLoop();
   }
   const server = net.createServer(sock => {
     let buf = "";
@@ -882,6 +1099,11 @@ async function main() {
     case "status":
       console.log(readFileSync(STATUS_PATH, "utf8"));
       return;
+    case "release-machine":
+      console.log(
+        JSON.stringify(await rpc({ cmd: "releaseMachine", machine: args[0] }), null, 2),
+      );
+      return;
     case "list":
       console.log(JSON.stringify(await rpc({ cmd: "list" }), null, 2));
       return;
@@ -909,6 +1131,16 @@ async function main() {
       console.log(
         JSON.stringify(
           await rpc({ cmd: "evalAll", machine: args[0], args: { exprs: args.slice(1), target: flags.target } }),
+          null,
+          2,
+        ),
+      );
+      return;
+    // puppet upload <machine> <selector> <file...> [--target=url-or-id]
+    case "upload":
+      console.log(
+        JSON.stringify(
+          await rpc({ cmd: "upload", machine: args[0], args: { selector: args[1], files: args.slice(2), target: flags.target } }),
           null,
           2,
         ),
@@ -1149,7 +1381,7 @@ async function main() {
       return;
     default:
       console.log(
-        "usage: puppet daemon|config|status|list|eval|evalall|batch|broadcast|fanout|nav|newtab|close|reload|shot|watch|unwatch|stroke|gesture|key|cursor|scan|analysis|tail|term|type|keys (see header)",
+        "usage: puppet daemon|config|status|list|release-machine|eval|evalall|batch|broadcast|fanout|nav|newtab|close|reload|shot|watch|unwatch|stroke|gesture|key|cursor|scan|analysis|tail|term|type|keys (see header)",
       );
   }
 }

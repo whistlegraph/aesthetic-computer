@@ -415,7 +415,6 @@ export async function enterStageMode({
     menuAutohide: menuAutohide(),
     darkMode: darkMode(),
     badgeLoaded: spawnSync("/bin/launchctl", ["print", `gui/${process.getuid()}/computer.aesthetic.desktopbadge`]).status === 0,
-    statsRunning: spawnSync("/usr/bin/pgrep", ["-x", "Stats"]).status === 0,
     visibleApps: visibleApps(),
     sigilsWereOff: existsSync(SIGILS_OFF),
     cursorSize,
@@ -451,7 +450,6 @@ export async function enterStageMode({
   mkdirSync(dirname(SIGILS_OFF), { recursive: true });
   writeFileSync(SIGILS_OFF, "");
   if (state.badgeLoaded) run("/bin/launchctl", ["bootout", `gui/${process.getuid()}/computer.aesthetic.desktopbadge`], { allowFailure: true });
-  if (state.statsRunning) osa('tell application "Stats" to quit', [], true);
   if (state.pointerChanged) {
     try {
       await setPointerSizeWithRetry(cursorSize, 1.5);
@@ -491,7 +489,7 @@ export async function exitStageMode() {
   };
 
   // Each restore is independent. A broken wallpaper path must never strand the
-  // display in HiDPI, and a failed pointer drag must never keep Stats hidden.
+  // display in HiDPI, and a failed pointer drag must not skip later cleanup.
   await restore("dynamic wallpaper", () => stopWallpaper());
   if (state.pointerChanged !== false) {
     await restore("pointer", async () => {
@@ -507,9 +505,6 @@ export async function exitStageMode() {
   });
   await restore("desktop badge", () => {
     if (state.badgeLoaded) run("/bin/launchctl", ["bootstrap", `gui/${process.getuid()}`, BADGE_PLIST], { allowFailure: true });
-  });
-  await restore("Stats", () => {
-    if (state.statsRunning) run("/usr/bin/open", ["-a", "Stats"], { allowFailure: true });
   });
   await restore("wallpaper", () => setWallpaper(state.wallpaper));
   await restore("appearance", () => {

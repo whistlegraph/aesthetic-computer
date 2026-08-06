@@ -432,9 +432,7 @@ final class MenuBandController {
     /// independent. Used to filter chord suggestions down to ones the
     /// user could actually finish playing on the current QWERTY layout.
     func keymapPitchClasses() -> Set<Int> {
-        let table = (keymap == .ableton)
-            ? MenuBandLayout.semitoneByKeyCodeAbleton
-            : MenuBandLayout.semitoneByKeyCode
+        let table = MenuBandLayout.semitoneTable(for: keymap)
         var pcs: Set<Int> = []
         for st in table where st != Int8.min {
             pcs.insert(((Int(st) % 12) + 12) % 12)
@@ -889,11 +887,6 @@ final class MenuBandController {
         synth.playDrumSkin(strike: strike, anchors: anchors, velocity: velocity)
     }
 
-    func trackpadSuperKick(strike: CGPoint, anchors: [CGPoint]) {
-        mixAnalysis.mark("skin-super-kick")
-        synth.playSuperKick(strike: strike, anchors: anchors)
-    }
-
     func trackpadSynthSurface(strike: CGPoint, anchors: [CGPoint], velocity: UInt8) {
         mixAnalysis.mark("synth-\(MenuBandPercussion.drumSkinZone(at: strike).rawValue)")
         synth.playSynthSurface(strike: strike, anchors: anchors, velocity: velocity)
@@ -1022,7 +1015,12 @@ final class MenuBandController {
     }
 
     var playableNoteRangeLabel: String {
-        let upper = keymap == .ableton ? 76 : 83
+        let upper: Int
+        switch keymap {
+        case .ableton: upper = 76
+        case .notepat: upper = 83
+        case .milkyTracker: upper = 83
+        }
         let lowerNote = UInt8(max(0, min(127, 60 + octaveShift * 12)))
         let upperNote = UInt8(max(0, min(127, upper + octaveShift * 12)))
         return "\(Self.noteName(lowerNote))-\(Self.noteName(upperNote))"
@@ -1272,7 +1270,6 @@ final class MenuBandController {
                 channels.insert(0)
             }
         }
-        debugLog("setBend amt=\(amount) value=\(value) channels=\(channels) midiMode=\(midiMode)")
         if !midiMode {
             for ch in channels { synth.sendPitchBend(value: value, channel: ch) }
             // Sample voice runs through AVAudioUnitTimePitch and
@@ -3029,6 +3026,7 @@ final class MenuBandController {
     /// digit instead of extending the stale buffer (which read as
     /// "number keys aren't switching the instrument").
     private var voiceDigitBuffer: String = ""
+    private var voiceNumberSpeechWork: DispatchWorkItem?
     /// Wall-clock of the last accepted digit press. A gap longer than
     /// `voiceDigitFlushInterval` means the user is picking a new voice,
     /// not continuing a multi-digit number.
@@ -3052,6 +3050,9 @@ final class MenuBandController {
     /// at a normal pace stays one number, while a re-pick after a beat
     /// starts clean.
     private static let voiceDigitFlushInterval: CFTimeInterval = 0.8
+    /// Long enough to join a quick "7" + "9", short enough that the spoken
+    /// confirmation still feels attached to the selection.
+    private static let voiceNumberSpeechDelay: CFTimeInterval = 0.42
 
     /// Lowercase letter on a hardware key cap, or nil for non-letter keys.
     /// Used to capture typed voice names like `-kpbj`. ANSI layout.
@@ -3438,7 +3439,8 @@ final class MenuBandController {
         // playback so the user can sweep out of MIDI mode by typing.
         // 3-digit cap means the 4th press starts a fresh sequence.
         // Down-events only.
-        if let digit = Self.digitForKeyCode(keyCode) {
+        if let digit = Self.digitForKeyCode(keyCode),
+           MenuBandLayout.semitone(forKeyCode: keyCode, keymap: keymap) == nil {
             // Track the digit's press/release in the control-keys
             // set so the QWERTY visualization can light it up
             // alongside note-mapped keys. Posting onLitChanged
@@ -3459,13 +3461,6 @@ final class MenuBandController {
                 }
             }
             if isDown && !isRepeat {
-                // Audio feedback is a true key-down sample: the speech voice
-                // rendered 0–9 at startup, so this call only schedules cached
-                // PCM and does not wait for AVSpeech to synthesize the growing
-                // voice-slot number.
-                DispatchQueue.main.async { [weak self] in
-                    self?.synth.playSpokenDigit(digit)
-                }
                 // Start fresh if the buffer hit its cap OR enough time
                 // passed since the last digit that this is plainly a
                 // new pick, not the next digit of a longer number.
@@ -3496,6 +3491,16 @@ final class MenuBandController {
                 voiceDigitLastPress = now
                 voiceDigitBuffer.append(String(digit))
                 let buffer = voiceDigitBuffer
+                voiceNumberSpeechWork?.cancel()
+                let spoken = max(0, min(128, Int(buffer) ?? 0))
+                let speech = DispatchWorkItem { [weak self] in
+                    self?.synth.playSpokenNumber(spoken)
+                }
+                voiceNumberSpeechWork = speech
+                DispatchQueue.main.asyncAfter(
+                    deadline: .now() + Self.voiceNumberSpeechDelay,
+                    execute: speech
+                )
                 DispatchQueue.main.async { [weak self] in
                     guard let self = self, let v = Int(buffer) else { return }
                     if v == 0 {

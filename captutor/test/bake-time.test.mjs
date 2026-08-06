@@ -29,17 +29,24 @@ test("bake-time folds long waits and remaps later beats", () => {
       { id:"video", startSec:60, endSec:90, liveLeadSec:5 },
     ],
   });
+  // The crossfade borrows `transitionSec` of real frames back out of each dead
+  // zone, so every edit excises a hair less than its raw span — removedSec,
+  // outputDurationSec, and mapTime all describe the timeline ffmpeg actually
+  // produces, not the raw cut boundaries.
+  const t = BAKE_TIME_PRESET.transitionSec;
   assert.equal(plan.preset, "bake-time-fold");
   assert.equal(plan.edits.length, 2);
-  assert.equal(plan.edits[0].removedSec, 26);
-  assert.equal(plan.edits[1].removedSec, 25);
-  assert.equal(plan.outputDurationSec, 49);
+  assert.equal(plan.edits[0].transitionSec, t);
+  assert.equal(plan.edits[1].transitionSec, t);
+  assert.equal(plan.edits[0].removedSec, 26 - t);
+  assert.equal(plan.edits[1].removedSec, 25 - t);
+  assert.equal(plan.outputDurationSec, 100 - (26 - t) - (25 - t));
   assert.equal(plan.mapTime(9), 9);
   assert.equal(plan.mapTime(25), 14);
-  assert.equal(plan.mapTime(40), 14);
-  assert.equal(plan.mapTime(60), 34);
-  assert.equal(plan.mapTime(90), 39);
-  assert.equal(plan.mapTime(100), 49);
+  assert.equal(plan.mapTime(40), 40 - (26 - t));
+  assert.equal(plan.mapTime(60), 60 - (26 - t));
+  assert.equal(plan.mapTime(90), 90 - (26 - t) - (25 - t));
+  assert.equal(plan.mapTime(100), 100 - (26 - t) - (25 - t));
   assert.deepEqual(plan.segments, [
     { startSec:0, endSec:14 },
     { startSec:40, endSec:65 },

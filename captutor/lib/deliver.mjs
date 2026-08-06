@@ -18,21 +18,23 @@
 
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, unlinkSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, mkdirSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { captionPhrases, isHighlightableCaptionToken } from "./captions.mjs";
 import { applyBrandChrome } from "./brand-chrome.mjs";
 
 const FFMPEG = process.env.FFMPEG || "ffmpeg";
+const HERE = dirname(fileURLToPath(import.meta.url));
 const STAGE_MODE = process.env.CAPTUTOR_STAGE_MODE === "1";
 const VERTICAL_MODE = process.env.CAPTUTOR_VERTICAL_MODE === "1";
 
 // Deliberately ordinary subtitle typography. Captions are navigation, not a
-// brand surface: regular Arial stays readable over a busy UI and produces the
-// familiar neutral shape people already recognize as subtitles.
+// brand surface: Arial Bold stays readable over pale or busy UI and produces
+// the familiar neutral shape people already recognize as subtitles.
 const LATIN_FONT = process.env.CAPTUTOR_FONT
-  || "/System/Library/Fonts/Supplemental/Arial.ttf";
-const CAPTION_STYLE = "outlined-color-caption-karaoke-v9-sharp-shadow";
+  || "/System/Library/Fonts/Supplemental/Arial Bold.ttf";
+const CAPTION_STYLE = "outlined-color-caption-karaoke-v10-subtle-active-word";
 
 // Arial does not cover every script, so non-Latin locales use the corresponding
 // macOS system face instead of silently dropping glyphs.
@@ -79,7 +81,7 @@ function assertHasInk(png, text) {
 
 let FONT = LATIN_FONT;  // set per-render by deliver()
 const TEXT = "#ffffff";    // plain white — subtitles are not a brand surface
-const ACTIVE_TEXT = "#facc15"; // warm yellow — familiar, restrained karaoke cue
+const ACTIVE_TEXT = "#d8c6e5"; // quiet Fuser lavender — one spoken word at a time
 const BG = "#0a0a0a";      // neutral-950
 const ACCENT = "#4f46e5";  // indigo-600 — the app's own action colour
 
@@ -311,7 +313,7 @@ function cuePng(words, {
   for (const word of layout.words) {
     if (highlightOnly && word.index !== activeIndex) continue;
     args.push(
-      "-fill", highlightOnly ? "#ffffff" : (color || TEXT),
+      "-fill", highlightOnly ? ACTIVE_TEXT : (color || TEXT),
       "-draw", `text ${word.x},${word.baseline} \"${mvg(word.text)}\"`,
     );
   }
@@ -343,9 +345,75 @@ function videoDuration(clip) {
   ], { encoding: "utf8" }).trim();
 }
 
+function chapterColor(value, fallback = "#7c91d8") {
+  return /^#[0-9a-f]{6}$/i.test(String(value || "")) ? String(value) : fallback;
+}
+
+function dimChapterColor(hex, amount = 0.16) {
+  const rgb = [1, 3, 5].map((at) => Math.round(parseInt(hex.slice(at, at + 2), 16) * amount));
+  return `#${rgb.map((part) => part.toString(16).padStart(2, "0")).join("")}`;
+}
+
+function ffmetadataEscape(value) {
+  return String(value).replace(/([\\=;#])/g, "\\$1").replace(/\n/g, "\\\n");
+}
+
+function embedChapters({ video, chapters, durationSec, workDir }) {
+  if (!Array.isArray(chapters) || chapters.length === 0) return;
+  const ordered = chapters
+    .map((chapter) => ({ ...chapter, startSec:Number(chapter.startSec) }))
+    .filter((chapter) => Number.isFinite(chapter.startSec) && chapter.startSec >= 0)
+    .sort((a, b) => a.startSec - b.startSec);
+  if (!ordered.length) return;
+  const metadata = [";FFMETADATA1"];
+  ordered.forEach((chapter, index) => {
+    const start = Math.round(chapter.startSec * 1000);
+    const end = Math.round((ordered[index + 1]?.startSec ?? durationSec) * 1000);
+    if (end <= start) return;
+    metadata.push(
+      "[CHAPTER]", "TIMEBASE=1/1000", `START=${start}`, `END=${end}`,
+      `title=${ffmetadataEscape(chapter.title || `Chapter ${index + 1}`)}`,
+    );
+  });
+  const metadataPath = join(workDir, "chapters.ffmetadata");
+  const muxed = `${video}.chapters.mp4`;
+  writeFileSync(metadataPath, `${metadata.join("\n")}\n`);
+  execFileSync(FFMPEG, [
+    "-y", "-i", video, "-i", metadataPath,
+    "-map", "0", "-map_metadata", "1", "-map_chapters", "1",
+    "-c", "copy", "-movflags", "+faststart", muxed,
+  ], { stdio:["ignore", "ignore", "pipe"] });
+  renameSync(muxed, video);
+}
+
+function renderTerminalCard({ clip, card, durationSec, width, height, workDir }) {
+  if (!card?.title) return null;
+  const holdSec = Math.max(1.5, Number(card.durationSec) || 4.9);
+  const startSec = Math.max(0, durationSec - holdSec);
+  const sampleSec = Math.min(durationSec - 0.1, startSec + holdSec * 0.5);
+  const template = join(workDir, "terminal-card-template.png");
+  const png = join(workDir, "terminal-card.png");
+  execFileSync(FFMPEG, [
+    "-y", "-ss", sampleSec.toFixed(3), "-i", clip, "-frames:v", "1", template,
+  ], { stdio:["ignore", "ignore", "pipe"] });
+  const bandTop = Math.round(height * 0.45);
+  const bandBottom = Math.round(height * 0.62);
+  const titleOffset = Math.round(height * 0.09);
+  execFileSync("magick", [
+    template,
+    "-fill", "#f4f4f3", "-draw", `rectangle 0,${bandTop} ${width},${bandBottom}`,
+    "-font", join(HERE, "..", "assets", "Marund.ttf"),
+    "-pointsize", String(Math.round(height * 0.066)), "-weight", "700",
+    "-fill", "#111111", "-gravity", "center",
+    "-annotate", `+0+${titleOffset}`, String(card.title), png,
+  ], { stdio:"pipe" });
+  return { png, startSec };
+}
+
 export function deliver({
   clip, cues, format, out, workDir, locale = "en", brandChrome = null,
-  geometry = null, captionPx = null, captionY = null,
+  geometry = null, captionPx = null, captionY = null, chapters = null,
+  terminalCard = null, title = null, shortTitle = null,
 }) {
   FONT = fontFor(locale);  // brand face for Latin, script-capable fallback otherwise
   const F = FORMATS[format];
@@ -369,6 +437,12 @@ export function deliver({
   const H = geometry?.h || F.out.h;
   const capPx = captionPx || F.capPx;
   const capY = captionY ?? F.capY;
+  const chapterList = Array.isArray(chapters) ? chapters : [];
+  const showBar = chapterList.length > 0 || F.bar;
+  const terminal = renderTerminalCard({
+    clip, card:terminalCard, durationSec:dur, width:W, height:H, workDir,
+  });
+  const needsPostCaption = showBar || Boolean(terminal);
 
   // Caption PNGs are cached because multilingual rasterization is expensive.
   // Version the directory so a style change can never silently reuse an older
@@ -405,7 +479,7 @@ export function deliver({
   });
 
   // Each phrase has one stable box + white-text base. Timed layers contain only
-  // one transparent yellow word, so the box and inactive text are never stacked
+  // one transparent lavender word, so the box and inactive text are never stacked
   // twice. The old full-phrase highlight layers darkened the box on every word
   // and briefly doubled it at boundaries, producing the reported gray flicker.
   const captionLayers = pngs.flatMap((phrase) => [
@@ -416,7 +490,14 @@ export function deliver({
   // ── video base ────────────────────────────────────────────────────────────
   const args = ["-y", "-i", clip];
   const firstCaptionInput = 1;
-  for (const p of captionLayers) args.push("-i", p.png);
+  // ffmpeg otherwise gives every PNG decoder the host's automatic thread
+  // count. A karaoke-heavy lesson can have hundreds of caption inputs, so the
+  // aggregate decoder pool exhausts macOS pthreads before frame zero. Pin each
+  // still-image decoder to one worker; the filter graph is already serialized
+  // below for the same reason.
+  for (const p of captionLayers) args.push("-threads", "1", "-i", p.png);
+  const terminalInput = firstCaptionInput + captionLayers.length;
+  if (terminal) args.push("-threads", "1", "-i", terminal.png);
 
   const chain = [];
   if (F.compose?.fullDesktop) {
@@ -461,7 +542,7 @@ export function deliver({
   // take, so the type lands on the frame it describes.
   let last = "base";
   captionLayers.forEach((c, i) => {
-    const label = i === captionLayers.length - 1 && !F.bar ? "outv" : `o${i}`;
+    const label = i === captionLayers.length - 1 && !needsPostCaption ? "outv" : `o${i}`;
     const y = `${Math.round(H * capY)}-h/2`;
     chain.push(
       `[${last}][${firstCaptionInput + i}:v]overlay=(W-w)/2:${y}` +
@@ -469,8 +550,85 @@ export function deliver({
     last = label;
   });
 
+  // A terminal closing card owns the final frame. Replacing the captured card
+  // through the end removes both obsolete copy and the browser reveal that the
+  // live signboard transition otherwise records after its hold.
+  if (terminal) {
+    const label = showBar ? "terminal-card" : "outv";
+    chain.push(
+      `[${last}][${terminalInput}:v]overlay=0:0:` +
+      `enable='gte(t,${terminal.startSec.toFixed(3)})'[${label}]`,
+    );
+    last = label;
+  }
+
   // ── progress bar ──────────────────────────────────────────────────────────
-  if (F.bar) {
+  if (chapterList.length) {
+    const bh = Math.max(10, Math.round(H * 0.0153));
+    const ordered = chapterList
+      .map((chapter) => ({ ...chapter, startSec:Number(chapter.startSec) }))
+      .filter((chapter) => Number.isFinite(chapter.startSec) && chapter.startSec >= 0)
+      .sort((a, b) => a.startSec - b.startSec);
+    // Build the muted segmented track first. The old drawbox width expression
+    // referenced `t`, but drawbox evaluates geometry only at initialization,
+    // so some ffmpeg builds painted a complete bar at frame zero.
+    ordered.forEach((chapter, index) => {
+      const x0 = index === 0 ? 0 : Math.round(W * chapter.startSec / dur);
+      const endSec = ordered[index + 1]?.startSec ?? dur;
+      const x1 = index === ordered.length - 1 ? W : Math.round(W * endSec / dur);
+      const track = chapter.trackColor
+        ? chapterColor(chapter.trackColor, "#d8d8d8")
+        : dimChapterColor(chapterColor(chapter.color));
+      const trackLabel = `chapter-track-${index}`;
+      chain.push(
+        `[${last}]drawbox=x=${x0}:y=${H - bh}:w=${Math.max(1, x1 - x0)}:h=${bh}` +
+        `:color=${track}@0.58:t=fill[${trackLabel}]`,
+      );
+      last = trackLabel;
+    });
+    chain.push(
+      `color=c=black@0.0:s=${W}x${bh}:r=${F.fps || 30}:d=${dur.toFixed(3)},` +
+      `format=rgba[chapter-fill-base]`,
+    );
+    let fillStrip = "chapter-fill-base";
+    ordered.forEach((chapter, index) => {
+      const x0 = index === 0 ? 0 : Math.round(W * chapter.startSec / dur);
+      const endSec = ordered[index + 1]?.startSec ?? dur;
+      const x1 = index === ordered.length - 1 ? W : Math.round(W * endSec / dur);
+      const fillLabel = `chapter-fill-${index}`;
+      chain.push(
+        `[${fillStrip}]drawbox=x=${x0}:y=0:w=${Math.max(1, x1 - x0)}:h=${bh}` +
+        `:color=${chapterColor(chapter.color, "#a58cbc")}@0.94:t=fill[${fillLabel}]`,
+      );
+      fillStrip = fillLabel;
+    });
+    const progressLabel = "chapter-progressed";
+    chain.push(
+      `[${fillStrip}]scale=w='max(1,iw*t/${dur.toFixed(3)})':h=ih:eval=frame[chapter-progress]`,
+      `[${last}][chapter-progress]overlay=0:${H - bh}:eval=frame:shortest=1[${progressLabel}]`,
+    );
+    last = progressLabel;
+    ordered.forEach((chapter, index) => {
+      if (index === ordered.length - 1) return;
+      const endSec = ordered[index + 1]?.startSec ?? dur;
+      const dividerX = Math.max(0, Math.round(W * endSec / dur) - 1);
+      const dividerLabel = `chapter-divider-${index}`;
+      chain.push(
+        `[${last}]drawbox=x=${dividerX}:y=${H - bh}:w=2:h=${bh}` +
+        `:color=#fffdf2@0.42:t=fill[${dividerLabel}]`,
+      );
+      last = dividerLabel;
+    });
+    const playheadWidth = Math.max(4, Math.round(W * 0.0023));
+    chain.push(
+      `color=c=#eee7f3@0.96:s=${playheadWidth}x${bh}:r=${F.fps || 30}:` +
+      `d=${dur.toFixed(3)},format=rgba[chapter-playhead]`,
+      `[${last}][chapter-playhead]overlay=` +
+      `x='max(0,min(main_w-overlay_w,main_w*t/${dur.toFixed(3)}-overlay_w/2))':` +
+      `y=${H - bh}:eval=frame:shortest=1[outv]`,
+    );
+    last = "outv";
+  } else if (F.bar) {
     const bh = Math.max(6, Math.round(H * 0.006));
     chain.push(
       `[${last}]drawbox=x=0:y=${H - bh}:w='iw*t/${dur.toFixed(3)}':h=${bh}` +
@@ -518,10 +676,14 @@ export function deliver({
   }
   if (brandChrome) {
     try {
-      applyBrandChrome({ input:encodedOut, out, theme:brandChrome, workDir, format });
+      applyBrandChrome({
+        input:encodedOut, out, theme:brandChrome, workDir, format,
+        context:{ title:shortTitle || title, chapters:chapterList },
+      });
     } finally {
       if (existsSync(encodedOut)) unlinkSync(encodedOut);
     }
   }
+  embedChapters({ video:out, chapters:chapterList, durationSec:dur, workDir });
   return { out, W, H, cues: pngs.length };
 }

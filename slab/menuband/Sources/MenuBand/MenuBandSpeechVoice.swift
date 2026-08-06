@@ -16,13 +16,11 @@ import AVFoundation
 /// just renders silence until buffers arrive.
 final class MenuBandSpeechVoice {
     private let synthesizer = AVSpeechSynthesizer()
-    private let sampleRenderer = AVSpeechSynthesizer()
     private let player = AVAudioPlayerNode()
-    /// Digit feedback is polyphonic: rapid number entry takes a fresh player
-    /// instead of cutting off the word already sounding.
-    private let digitPlayers = (0..<8).map { _ in AVAudioPlayerNode() }
-    private let digitMixer = AVAudioMixerNode()
-    private var nextDigitPlayer = 0
+    /// Voice-number feedback is one complete utterance after the controller's
+    /// short type-ahead debounce. A single player makes a newer selection
+    /// supersede an older announcement cleanly.
+    private let numberPlayer = AVAudioPlayerNode()
     /// Pitch-only shift (rate stays 1.0) so the trackpad bend slides the
     /// spoken voice without speeding it up — like the radio backend. The
     /// reverb/echo inserts already sit downstream on the fx bus; pitch has
@@ -41,36 +39,30 @@ final class MenuBandSpeechVoice {
     /// Reused converter; rebuilt if the synthesizer's output format changes.
     private var converter: AVAudioConverter?
     private var converterInputFormat: AVAudioFormat?
-    /// Startup-rendered digit clips. Each value is the sequence of PCM chunks
-    /// AVSpeech produced for that word; scheduling those chunks directly makes
-    /// number-key feedback start on key-down without a live TTS render.
-    private var digitSamples: [Int: [AVAudioPCMBuffer]] = [:]
-    private var digitSampleStarted: Set<Int> = []
+    /// Bundled, pre-rendered Jeffrey ElevenLabs clips for every selectable
+    /// voice number (0...128). Loaded off the interaction path at startup.
+    private var numberSamples: [Int: AVAudioPCMBuffer] = [:]
 
-    func attach(to engine: AVAudioEngine, output: AVAudioNode) {
+    func attach(to engine: AVAudioEngine, output: AVAudioNode,
+                dryOutput: AVAudioNode) {
         guard !attached else { return }
         self.engine = engine
         engine.attach(player)
         engine.attach(pitch)
         engine.attach(mixer)
-        engine.attach(digitMixer)
-        for digitPlayer in digitPlayers {
-            engine.attach(digitPlayer)
-            engine.connect(digitPlayer, to: digitMixer, format: renderFormat)
-        }
+        engine.attach(numberPlayer)
         engine.connect(player, to: pitch, format: renderFormat)
         engine.connect(pitch, to: mixer, format: renderFormat)
-        // Join the digit pool at the already-valid speech mixer. A separate
-        // TimePitch branch here made AVAudioEngine fail graph initialization
-        // with kAudioUnitErr_FormatNotSupported (-10868), silencing every
-        // instrument—not just speech.
-        engine.connect(digitMixer, to: mixer, format: renderFormat)
+        // Voice-number feedback is UI, not the selected melodic instrument.
+        // Keep it on the same dry post-FX bus as percussion so a latched pitch
+        // or echo gesture cannot smear the announced number.
+        engine.connect(numberPlayer, to: dryOutput, format: renderFormat)
         engine.connect(mixer, to: output, format: nil)
         mixer.outputVolume = 1.0
-        digitMixer.outputVolume = 1.0
+        numberPlayer.volume = 1.0
         attached = true
         prewarm()
-        prepareDigitSamples()
+        prepareNumberSamples()
     }
 
     /// Prime AVSpeech's renderer while the rest of Menu Band is starting.
@@ -88,29 +80,38 @@ final class MenuBandSpeechVoice {
         synthesizer.write(utterance) { _ in }
     }
 
-    /// Render the ten spoken digits once, off the interaction path. AVSpeech
-    /// may return a phrase in several buffers, so retain every non-empty chunk
-    /// and schedule the sequence as one monophonic sample when its key lands.
-    private func prepareDigitSamples() {
-        let words = ["zero", "one", "two", "three", "four",
-                     "five", "six", "seven", "eight", "nine"]
-        for (digit, word) in words.enumerated() {
-            let utterance = AVSpeechUtterance(string: word)
-            utterance.voice = Self.bestVoice(for: "en")
-            utterance.rate = AVSpeechUtteranceDefaultSpeechRate * 0.92
-            sampleRenderer.write(utterance) { [weak self] buffer in
-                guard let self = self,
-                      let pcm = buffer as? AVAudioPCMBuffer,
-                      pcm.frameLength > 0 else { return }
-                DispatchQueue.main.async {
-                    guard let converted = self.convertedBuffer(pcm) else { return }
-                    if self.digitSampleStarted.contains(digit) {
-                        self.digitSamples[digit, default: []].append(converted)
-                    } else if let trimmed = self.trimmingLeadingSilence(converted) {
-                        self.digitSampleStarted.insert(digit)
-                        self.digitSamples[digit, default: []].append(trimmed)
-                    }
-                }
+    private func prepareNumberSamples() {
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self else { return }
+            var loaded: [Int: AVAudioPCMBuffer] = [:]
+            for number in 0...128 {
+                // SwiftPM's `.process` flattens this resource directory in a
+                // command-line app bundle; Xcode preserves the subdirectory.
+                // Accept both so development and signed installs load the
+                // identical offline bank.
+                let url = Bundle.module.url(
+                    forResource: String(number), withExtension: "mp3",
+                    subdirectory: "voice-numbers"
+                ) ?? Bundle.module.url(
+                    forResource: String(number), withExtension: "mp3"
+                )
+                guard let url,
+                   let file = try? AVAudioFile(forReading: url),
+                   let source = AVAudioPCMBuffer(
+                    pcmFormat: file.processingFormat,
+                    frameCapacity: AVAudioFrameCount(file.length)
+                   ) else { continue }
+                do { try file.read(into: source) } catch { continue }
+                guard let converted = Self.convertedBuffer(
+                    source, to: self.renderFormat
+                ), let trimmed = self.trimmingLeadingSilence(converted)
+                else { continue }
+                loaded[number] = trimmed
+            }
+            DispatchQueue.main.async { [weak self] in
+                self?.numberSamples = loaded
+                NSLog("MenuBand: preloaded %d Jeffrey voice-number clips",
+                      loaded.count)
             }
         }
     }
@@ -136,25 +137,18 @@ final class MenuBandSpeechVoice {
         return out
     }
 
-    /// Fire a pre-rendered digit like a sample pad. During the brief startup
-    /// window before its cache is ready, fall back to normal speech so a press
-    /// is never silently dropped.
-    func playDigit(_ digit: Int) {
-        guard attached, (0...9).contains(digit) else { return }
-        guard let buffers = digitSamples[digit], !buffers.isEmpty else {
-            say(String(digit), languageCode: "en")
+    /// Announce one complete selectable voice number. During the brief startup
+    /// loading window, fall back to local speech rather than dropping it.
+    func playNumber(_ number: Int) {
+        guard attached, (0...128).contains(number) else { return }
+        guard let buffer = numberSamples[number] else {
+            say(String(number), languageCode: "en")
             return
         }
-        let digitPlayer = digitPlayers[nextDigitPlayer]
-        nextDigitPlayer = (nextDigitPlayer + 1) % digitPlayers.count
-        // Only steal this one slot when all eight voices have wrapped around;
-        // other digit words continue through their natural tails.
-        digitPlayer.stop()
-        for buffer in buffers {
-            digitPlayer.scheduleBuffer(buffer, completionHandler: nil)
-        }
+        numberPlayer.stop()
+        numberPlayer.scheduleBuffer(buffer, completionHandler: nil)
         if let engine = engine, !engine.isRunning { try? engine.start() }
-        digitPlayer.play()
+        numberPlayer.play()
     }
 
     /// Trackpad pitch-bend hook. `amount` is the controller's signed bend
@@ -215,6 +209,28 @@ final class MenuBandSpeechVoice {
         }
         guard error == nil, out.frameLength > 0 else { return nil }
         return out
+    }
+
+    private static func convertedBuffer(_ pcm: AVAudioPCMBuffer,
+                                        to format: AVAudioFormat)
+        -> AVAudioPCMBuffer? {
+        guard let converter = AVAudioConverter(from: pcm.format, to: format) else {
+            return nil
+        }
+        let ratio = format.sampleRate / pcm.format.sampleRate
+        let capacity = AVAudioFrameCount(Double(pcm.frameLength) * ratio) + 1_024
+        guard let output = AVAudioPCMBuffer(
+            pcmFormat: format, frameCapacity: capacity
+        ) else { return nil }
+        var fed = false
+        var error: NSError?
+        converter.convert(to: output, error: &error) { _, status in
+            if fed { status.pointee = .noDataNow; return nil }
+            fed = true
+            status.pointee = .haveData
+            return pcm
+        }
+        return error == nil && output.frameLength > 0 ? output : nil
     }
 
     /// BCP-47 locale for each of our short language codes, used to pick a
