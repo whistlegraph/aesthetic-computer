@@ -384,6 +384,7 @@ Upcoming conferences and journals to submit to.
 | [SIGGRAPH Asia 2026](https://asia.siggraph.org/2026/submissions/) | Art Gallery / Emerging Tech / XR | Jun 18, 2026 | Dec 1–4, Kuala Lumpur | NEW |
 | [SIGGRAPH Asia 2026](https://asia.siggraph.org/2026/submissions/) | Posters | Jul 31, 2026 | Dec 1–4, Kuala Lumpur | NEW |
 | [SIGGRAPH Asia 2026](https://asia.siggraph.org/2026/submissions/) | Real-Time Live! | Aug 7, 2026 | Dec 1–4, Kuala Lumpur | NEW |
+| [ICLC 2027](https://iclc.toplap.org/2027/) | Papers / Performances / Workshops / Installations | Sep 1, 2026 (extended) | Mar 9–13, 2027, Antwerp | NEW |
 | [ArtsIT 2026](https://artsit.eai-conferences.org/2026/) | Full Papers | Jun 1, 2026 | Dec 2–4, Bratislava | NEW |
 | [JOSS](https://joss.theoj.org/) | Software Paper | Rolling | Rolling | Anytime |
 

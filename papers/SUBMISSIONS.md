@@ -63,4 +63,5 @@ As of 2026-05-07, work in this order:
 | SIGGRAPH Asia 2026 | Art Gallery / ET / XR | 2026-06-18 | NEW | (none yet) |
 | SIGGRAPH Asia 2026 | Posters | 2026-07-31 | NEW | (none yet) |
 | SIGGRAPH Asia 2026 | Real-Time Live! | 2026-08-07 | NEW | (none yet) |
+| ICLC 2027 | Papers / performances / workshops / installations | 2026-09-01 (extended) | NEW | (none yet) |
 | JOSS | Software paper | rolling | DRAFTS | `joss-ac/`, `joss-kidlisp/` |
