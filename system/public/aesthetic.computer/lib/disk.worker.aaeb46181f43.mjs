@@ -37565,7 +37565,11 @@ ${description}`;
     tinyLabel: (enabled = true) => {
       forceTinyHudLabel = enabled;
     },
-    // ✨ Set a custom superscript (e.g. ".com") to display after the label in cyan
+    // 🌐 Set a compact suffix (e.g. ".com") after the HUD label.
+    suffix: (text) => {
+      currentHUDSuperscript = text || null;
+    },
+    // Backward-compatible name for older pieces.
     superscript: (text) => {
       currentHUDSuperscript = text || null;
     },
@@ -45637,7 +45641,11 @@ async function makeFrame({ data: { type, content } }) {
                   selectedTypeface
                 );
                 const superscriptX = hudTextX + firstLineWidth + 2;
-                const superscriptY = Math.max(0, (currentHUDLabelBlockHeight || 10) - 9);
+                const suffixBlockHeight = 8;
+                const superscriptY = hudTextY + Math.max(
+                  0,
+                  (currentHUDLabelBlockHeight || 10) - suffixBlockHeight
+                );
                 if (currentHUDSuperscript === ".com") {
                   const dotWidth = cachedAPI.text.width(".", "MatrixChunky8");
                   $.ink("black");
