@@ -1,0 +1,84 @@
+FROM MEDUSA TO NVIDIA — PLATTER NOTE
+
+SOURCE
+
+Jan Tumlir and Jeffrey Stuker, “From Medusa to Nvidia: On the Algorithm’s
+Primal Scene,” Artforum, August 5, 2026.
+
+https://www.artforum.com/features/jan-tumlir-jeffrey-stuker-algorithm-1234756309/
+
+Artforum post: 1234756309
+Published: 2026-08-05 10:47 EDT
+Last modified when checked: 2026-08-05 15:58 EDT
+Checked: 2026-08-05
+Series: “Algorithm 1: On the Ancient Mysteries,” first of four announced entries
+
+CLAIM
+
+The article treats the algorithm not only as a mathematical procedure but as a
+long cultural arrangement of gazes, images, prediction, and power. It moves from
+al-Khwarizmi, Algol, and Medusa through Roger Caillois, Ernst Jünger, Jacques
+Lacan, Walter Benjamin, and Susan Buck-Morss. Its central figure is the
+mirror-shield: an image technology that protects and extends its bearer while
+also arresting, capturing, and converting whoever looks into it.
+
+The contemporary screen inherits that double action. It shows images, records
+touch and attention, searches accumulated image stores, and uses those traces to
+anticipate the next image. The Nvidia name and eye-shaped mark close the loop:
+the mythic hostile gaze returns as commercial graphics and AI infrastructure.
+The essay refuses both technological boosterism and nostalgic refusal; its
+method is historical and allegorical rather than explanatory.
+
+STRUCTURE
+
+1.1 — Algorithm, algebra, Algol, Medusa, mirror, mask, and panoptical power.
+1.2 — Photography and technical vision as an increasingly autonomous gaze.
+1.3 — Digital images as operational interfaces that collect as they display;
+      search, prediction, AI hallucination, and Nvidia.
+1.4 — “Petrified unrest” as the stance between acceleration and paralysis.
+
+AESTHETIC COMPUTER
+
+The article names the exact medium Aesthetic Computer works inside: a screen
+that receives touch, renders images, stores traces, and addresses people through
+handles. AC is not outside the Medusa problem because its images are playful or
+handmade. Its canvas, user records, telemetry, image generation, and social
+surfaces can all become forms of the reciprocal gaze the essay describes.
+
+AC’s clearest answer is structural. It has no recommender feed or advertising
+market at its front door. A person initiates a named piece through a prompt or
+URL; the piece runs as an instrument in immediate mode; source can be inspected,
+copied, and forked. This redirects the screen from rapt spectatorship toward
+action. The contrast already appears in the Platter’s “Sucking the Complex” and
+“URL Tradition” papers: a piece is reached by a name rather than selected by an
+engagement-ranking surface, and the interface is meant to be used rather than
+watched.
+
+That is a design response, not an exemption. AC still has to keep collection
+minimal and legible, distinguish operational telemetry from behavioral
+prediction, preserve user agency at every surface, and avoid letting discovery
+or generation harden into an opaque ranking system. Read this article as a test
+for every AC feature: does the image help the person act, or does it capture the
+person so the image system can keep acting?
+
+LOCAL THREADS
+
+- papers/arxiv-complex/complex.tex — anti-environment, instrument versus feed,
+  and the algorithmic platform as an attention engine
+- papers/arxiv-url-tradition/url-tradition.tex — direct address by prompt and URL
+- papers/arxiv-ac/ac.tex — immediate-mode rendering, handles, telemetry, and the
+  inspectable piece runtime
+- papers/arxiv-pieces/pieces.tex — the piece as named address, performance, and
+  durable record
+
+FOLLOW-UP
+
+Add the three announced “Algorithm” installments as Artforum publishes them and
+read the four entries as one source sequence.
+
+RIGHTS AND PROVENANCE
+
+This file contains bibliographic metadata, a summary, and an AC-specific reading.
+It is not a mirror of the article. The complete text and images remain at
+Artforum. Metadata was verified against Artforum’s public WordPress API and the
+canonical article page on 2026-08-05.
