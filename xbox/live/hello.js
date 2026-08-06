@@ -287,6 +287,7 @@ let roundViewerMode = "";
 let roundViewerStatus = "CONNECTING";
 let roundViewerDemo = null;
 let roundViewerDemoStartedAt = 0;
+let livePublishFailed = false;
 
 function pronounceableMatchName() {
   const onsets = ["b", "d", "f", "g", "k", "l", "m", "n", "p", "r",
@@ -342,6 +343,7 @@ function startReplay(now) {
   replayNextCheckpointAt = now;
   liveSequence = 0;
   liveNextAt = now;
+  livePublishFailed = false;
   spectatorQr = null;
   trackMatchStarted();
 }
@@ -383,10 +385,18 @@ function spectatorState(now, nextRoundId = "") {
 
 function publishSpectator(now, { target = matchName, nextRoundId = "",
   force = false } = {}) {
-  if (!target || typeof publishLive !== "function" || (!force && now < liveNextAt)) return;
+  if (!target || livePublishFailed || typeof publishLive !== "function" ||
+      (!force && now < liveNextAt)) return;
   liveNextAt = now + 50000;
-  publishLive("ow-" + target,
-    JSON.stringify(spectatorState(now, nextRoundId)));
+  try {
+    publishLive("ow-" + target,
+      JSON.stringify(spectatorState(now, nextRoundId)));
+  } catch (error) {
+    // A native host with an older room-ID contract must never take down play.
+    // Disable only spectator publishing until the next match/host upgrade.
+    livePublishFailed = true;
+    telemetry("OSKIEWAR_LIVE_DISABLED", String(error?.message || error));
+  }
 }
 
 function inputCommand(pad) {
@@ -2323,6 +2333,11 @@ function typeWrite(text, x, y, size, ...color) {
 function controlLocale() {
   const caps = typeof capabilities === "function" ? capabilities() : {};
   const keyboard = caps.inputFamily === "keyboard";
+  const touch = caps.inputFamily === "touch";
+  if (touch) return {
+    menu: "", select: "", replayPaused: "paused",
+    replayPlaying: "", replay: "", labBack: "",
+  };
   return keyboard ? {
     menu: "A D SELECT     F OPEN",
     select: "P1 A/D + F     P2 LEFT/RIGHT + K     H P2/DUMMY     G BACK",
@@ -2578,10 +2593,12 @@ function projectedBodyBottom(geometry) {
 
 function drawPlayerHandle(player, t, side) {
   const safe = hudSafeRect();
+  const touch = typeof capabilities === "function" &&
+    capabilities().inputFamily === "touch";
   const size = 42;
   const width = handleWidth(player.name, size);
   const x = side === 0 ? safe.left + 8 : safe.right - 8 - width;
-  const y = safe.bottom - size - 18;
+  const y = safe.bottom - size - (touch ? 250 : 18);
   const drawGlyphs = (dx, dy, colors, fallback) => {
     let cursor = x + dx;
     for (let index = 0; index < player.name.length; index++) {
@@ -2914,9 +2931,10 @@ function drawSpectatorQr(ink) {
     }
   }
   const label = matchName;
-  const labelWidth = handleWidth(label, 14);
+  const labelSize = compactLayout() ? 20 : 24;
+  const labelWidth = handleWidth(label, labelSize);
   typeWrite(label, left + (size - labelWidth) / 2,
-    top + size + 5, 14, ...ink);
+    top + size + 7, labelSize, ...ink);
 }
 
 function drawRectOutline(rect, width, color) {

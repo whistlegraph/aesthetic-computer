@@ -16,6 +16,27 @@ namespace ac::xbox {
 namespace {
 struct CallScope { Api* api; };
 
+bool ValidOskiewarMatchId(std::string_view value) {
+  if (value.substr(0, 3) != "ow-") return false;
+  if (value.size() == 23) {
+    for (std::size_t index = 3; index < value.size(); ++index) {
+      const auto character = value[index];
+      if (!((character >= 'a' && character <= 'z') || character == '-'))
+        return false;
+    }
+    return value[9] == '-' && value[16] == '-';
+  }
+  const auto name = value.substr(3);
+  std::size_t digit = 0;
+  while (digit < name.size() && name[digit] >= 'a' && name[digit] <= 'z')
+    ++digit;
+  if (digit < 4 || digit > 7 || name.size() - digit < 1 ||
+      name.size() - digit > 3) return false;
+  for (; digit < name.size(); ++digit)
+    if (name[digit] < '0' || name[digit] > '9') return false;
+  return true;
+}
+
 JSValue Wipe(JSContext* context, JSValueConst, int argc, JSValueConst* argv) {
   auto* scope = static_cast<CallScope*>(JS_GetContextOpaque(context));
   int32_t r = 0, g = 0, b = 0;
@@ -507,11 +528,9 @@ JSValue PublishLive(JSContext* context, JSValueConst, int argc, JSValueConst* ar
   if (!rawMatch) return JS_EXCEPTION;
   const char* rawState = JS_ToCStringLen(context, &stateLength, argv[1]);
   if (!rawState) { JS_FreeCString(context, rawMatch); return JS_EXCEPTION; }
-  const bool valid = matchLength == 23 && stateLength >= 2 && stateLength <= 7168 &&
-    std::string_view(rawMatch, 3) == "ow-" && rawState[0] == '{' &&
-    std::all_of(rawMatch + 3, rawMatch + matchLength, [](unsigned char character) {
-      return (character >= 'a' && character <= 'z') || character == '-';
-    });
+  const bool valid = ValidOskiewarMatchId(
+    std::string_view(rawMatch, matchLength)) && stateLength >= 2 &&
+    stateLength <= 7168 && rawState[0] == '{';
   if (!valid) {
     JS_FreeCString(context, rawState);
     JS_FreeCString(context, rawMatch);

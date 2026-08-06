@@ -101,6 +101,10 @@ stable `AestheticComputer.NativeBios` identity for in-place upgrades. It adds
 the OSKIEWAR / NEW GAME boot selector, a two-pad input lab, and live match
 spectator publishing.
 
+Revision 36 accepts the current short speakable round IDs in the QuickJS
+`publishLive` boundary. Older hosts can no longer stop play when spectator
+publishing encounters a newer ID: the piece disables only that transport.
+
 Revision 13 also exposes bounded `stampPainting` and `blur` primitives to the
 trusted host-side KidLisp compiler. See [`../KIDLISP-NATIVE.md`](../KIDLISP-NATIVE.md)
 for the supported subset and `$obk` wire-deploy flow.

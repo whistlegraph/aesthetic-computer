@@ -349,7 +349,7 @@ public:
     };
     m_sound->get_rate = [this]() { return static_cast<int>(m_sampleRate); };
     m_api = std::make_unique<Api>(Api{{1920, 1080, 1}, {}, {}, {}, *m_graphics, *m_sound, {}});
-    m_api->system.version = "1.0.0.35";
+    m_api->system.version = "1.0.0.36";
     m_api->telemetry = [](std::string_view line) {
       std::string safe(line);
       for (auto& character : safe) if (character == '\n' || character == '\r') character = ' ';
@@ -1721,7 +1721,7 @@ private:
     if (!m_networkClockRequestInFlight.compare_exchange_strong(expected, true)) return;
     const auto sentAt = SystemUnixMs();
     auto client = ref new HttpClient();
-    client->DefaultRequestHeaders->UserAgent->ParseAdd("OSKIEWAR/1.0.0.35 Xbox ClockSync");
+    client->DefaultRequestHeaders->UserAgent->ParseAdd("OSKIEWAR/1.0.0.36 Xbox ClockSync");
     create_task(client->GetStringAsync(
       ref new Uri(L"https://aesthetic.computer/api/clock")))
       .then([this, client, sentAt](task<String^> completed) {
@@ -1828,7 +1828,7 @@ private:
     if (!m_acRequestInFlight.compare_exchange_strong(expected, true)) return;
 
     auto client = ref new HttpClient();
-    client->DefaultRequestHeaders->UserAgent->ParseAdd("OSKIEWAR/1.0.0.35 Xbox");
+    client->DefaultRequestHeaders->UserAgent->ParseAdd("OSKIEWAR/1.0.0.36 Xbox");
     std::vector<task<String^>> requests;
     const auto safeGet = [client](const std::wstring& url) {
       return create_task(client->GetStringAsync(ref new Uri(ref new String(url.c_str()))))

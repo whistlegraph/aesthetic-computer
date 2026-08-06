@@ -23,6 +23,10 @@ function fileFor(pathname) {
   if (pathname === "/round-room.mjs") return join(here, "round-room.mjs");
   if (pathname === "/aesthetic.computer/dep/@akamfoad/qr/qr.mjs")
     return join(repo, "system/public/aesthetic.computer/dep/@akamfoad/qr/qr.mjs");
+  if (pathname === "/aesthetic.computer/lib/product-analytics.mjs")
+    return join(repo, "system/public/aesthetic.computer/lib/product-analytics.mjs");
+  if (pathname === "/aesthetic.computer/lib/oskiewar-analytics.mjs")
+    return join(repo, "system/public/aesthetic.computer/lib/oskiewar-analytics.mjs");
   if (pathname === "/ComicRelief-Regular.ttf")
     return join(repo,
       "system/public/papers.aesthetic.computer/foundry/fonts/ComicRelief-Regular.ttf");
@@ -36,6 +40,10 @@ async function localServer() {
     const url = new URL(request.url, "http://127.0.0.1");
     if (url.pathname === "/favicon.ico") {
       response.writeHead(204); response.end(); return;
+    }
+    if (url.pathname === "/api/product-analytics-config") {
+      response.writeHead(200, { "content-type": "application/json" });
+      response.end("{}"); return;
     }
     if (url.pathname === "/api/oskiewar-replays") {
       const upstream = await fetch(`https://aesthetic.computer${url.pathname}${url.search}`,
@@ -82,7 +90,14 @@ async function captureTypography(browser, origin) {
   const viewport = { width: 1280, height: 720, deviceScaleFactor: 1 };
   await page.setViewport(viewport);
   const errors = [];
+  page.on("console", (message) => {
+    if (message.type() === "error") errors.push(message.text());
+  });
   page.on("pageerror", (error) => errors.push(error.message));
+  page.on("response", (response) => {
+    if (response.status() >= 400)
+      errors.push(`${response.status()} ${response.url()}`);
+  });
   await page.goto(origin, { waitUntil: "networkidle2" });
   await page.evaluate(() => document.fonts.ready);
   await tap(page, "KeyF");
@@ -96,6 +111,62 @@ async function captureTypography(browser, origin) {
   await page.close();
   return { name: "typography", viewport, fontLoaded, errors,
     files: { shot } };
+}
+
+async function captureTouch(browser, origin) {
+  const page = await browser.newPage();
+  const viewport = { width: 390, height: 844, deviceScaleFactor: 2,
+    hasTouch: true, isMobile: true };
+  await page.setViewport(viewport);
+  const errors = [];
+  page.on("console", (message) => {
+    if (message.type() === "error") errors.push(message.text());
+  });
+  page.on("pageerror", (error) => errors.push(error.message));
+  page.on("response", (response) => {
+    if (response.status() >= 400)
+      errors.push(`${response.status()} ${response.url()}`);
+  });
+  await page.goto(`${origin}/?touch=1`, { waitUntil: "networkidle2" });
+  await page.evaluate(() => document.fonts.ready);
+  const before = await page.screenshot();
+  const pressTouch = async (key) => {
+    const button = await page.$(`button[data-key="${key}"]`);
+    const bounds = await button.boundingBox();
+    await page.mouse.move(bounds.x + bounds.width / 2,
+      bounds.y + bounds.height / 2);
+    await page.mouse.down();
+    await wait(120);
+    await page.mouse.up();
+    await wait(350);
+  };
+  await pressTouch("A");
+  const selectShot = join(outputRoot, "touch-select.png");
+  const selected = await page.screenshot({ path: selectShot });
+  await pressTouch("X");
+  await pressTouch("A");
+  await wait(3350);
+  const gameShot = join(outputRoot, "touch-game.png");
+  const game = await page.screenshot({ path: gameShot });
+  const layout = await page.evaluate(() => {
+    const canvas = document.querySelector("canvas");
+    const rect = canvas.getBoundingClientRect();
+    return { viewport: [innerWidth, innerHeight],
+      canvasCss: [rect.width, rect.height],
+      canvasBacking: [canvas.width, canvas.height],
+      cssAspect: rect.width / rect.height,
+      backingAspect: canvas.width / canvas.height,
+      controls: getComputedStyle(document.querySelector("#touch-controls")).display,
+      buttonCount: document.querySelectorAll("#touch-controls button").length,
+      comicRelief: document.fonts.check('32px "Comic Relief"') };
+  });
+  await page.close();
+  const hashes = [before, selected, game].map((buffer) =>
+    createHash("sha256").update(buffer).digest("hex").slice(0, 12));
+  return { name: "touch", viewport, layout,
+    aspectError: Math.abs(layout.cssAspect - layout.backingAspect),
+    changed: new Set(hashes).size === hashes.length, hashes, errors,
+    files: { selectShot, gameShot } };
 }
 
 async function playRound(browser, origin, name, viewport, opponent = "dummy") {
@@ -271,6 +342,7 @@ try {
     results.push(await playRound(browser, origin, "bot-v-bot",
       { width: 1280, height: 720, deviceScaleFactor: 1 }, "bot"));
   if (scenario === "font") results.push(await captureTypography(browser, origin));
+  if (scenario === "touch") results.push(await captureTouch(browser, origin));
   const report = { format: "ac.oskiewar.blackbox", version: 1,
     createdAt: new Date().toISOString(), source: "public-ui-and-network-only", results };
   await writeFile(join(outputRoot, "report.json"), JSON.stringify(report, null, 2));

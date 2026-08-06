@@ -19,6 +19,7 @@ clone_script:
   - cmd: echo xbox/test-native-windows.cmd>>.git\info\sparse-checkout
   - cmd: echo system/backend/kidlisp-ast.mjs>>.git\info\sparse-checkout
   - cmd: echo system/public/type/webfonts/ywft-processing-regular.ttf>>.git\info\sparse-checkout
+  - cmd: echo system/public/papers.aesthetic.computer/foundry/fonts/ComicRelief-Regular.ttf>>.git\info\sparse-checkout
   - cmd: echo appveyor.yml>>.git\info\sparse-checkout
   - cmd: git fetch --depth=1 --filter=blob:none origin %APPVEYOR_REPO_COMMIT%
   - cmd: git checkout --detach FETCH_HEAD
@@ -73,6 +74,18 @@ build_script:
       /p:UapAppxPackageBuildMode=SideloadOnly
       /p:PackageCertificatePassword=%cert_password%
       /p:AppxPackageDir=%package_dir%native-bios\
+  - ps: |
+      Add-Type -AssemblyName System.IO.Compression.FileSystem
+      $package = Get-ChildItem -Path (Join-Path $env:package_dir 'native-bios') `
+        -Filter '*.msix' -Recurse | Select-Object -First 1
+      if (-not $package) { throw 'Native BIOS MSIX was not produced' }
+      $archive = [IO.Compression.ZipFile]::OpenRead($package.FullName)
+      try {
+        $font = $archive.Entries | Where-Object {
+          $_.FullName -eq 'Assets/ComicRelief-Regular.ttf'
+        }
+        if (-not $font) { throw 'Comic Relief is missing from Native BIOS MSIX' }
+      } finally { $archive.Dispose() }
 
 artifacts:
   - path: artifacts\native-bios\**\*

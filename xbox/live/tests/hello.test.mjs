@@ -6,7 +6,7 @@ const source = await readFile(new URL("../hello.js", import.meta.url), "utf8");
 
 function createFight(startImmediately = true, enterGame = true,
   platform = "xbox-uwp", roundBridge = null,
-  viewport = { width: 1920, height: 1080 }) {
+  viewport = { width: 1920, height: 1080 }, livePublisher = null) {
   let now = 0;
   const signals = [];
   const replays = [];
@@ -28,9 +28,12 @@ function createFight(startImmediately = true, enterGame = true,
   )(
     () => ({ monotonicUs: now, unixMs: 1785870000000 + Math.floor(now / 1000) }),
     (index = 0) => ({ ...pads[index], down: pads[index].down.slice() }),
-    () => ({ platform, inputFamily: platform === "xbox-uwp" ? "xbox" : "keyboard" }),
+    () => ({ platform, inputFamily: platform === "xbox-uwp" ? "xbox"
+      : platform === "touch" ? "touch" : "keyboard" }),
     noOp, (...signal) => signals.push(signal), (payload) => replays.push(payload),
-    (matchId, payload) => liveFrames.push([matchId, JSON.parse(payload)]),
+    (matchId, payload) => livePublisher
+      ? livePublisher(matchId, payload)
+      : liveFrames.push([matchId, JSON.parse(payload)]),
     (action, properties) => analyticsEvents.push([action, properties]),
     noOp, noOp, noOp, drawLine,
     drawTriangle, noOp, noOp, () => viewport
@@ -73,11 +76,30 @@ test("browser matches emit one category-only start milestone", () => {
 test("control copy follows the native host platform", () => {
   const xbox = createFight(false, false, "xbox-uwp").fight.controlLocale();
   const mac = createFight(false, false, "macos").fight.controlLocale();
+  const touch = createFight(false, false, "touch").fight.controlLocale();
   assert.match(xbox.menu, /DPAD/);
   assert.match(xbox.select, /A READY/);
   assert.equal(mac.menu, "A D SELECT     F OPEN");
   assert.match(mac.select, /P1 A\/D \+ F/);
   assert.doesNotMatch(mac.select, /A READY/);
+  assert.equal(touch.menu, "");
+  assert.equal(touch.select, "");
+  assert.equal(touch.replayPaused, "paused");
+});
+
+test("an older native spectator boundary cannot stop a match", () => {
+  let attempts = 0;
+  const livePublisher = () => {
+    attempts++;
+    throw new RangeError("invalid OSKIEWAR live payload");
+  };
+  const { fight, tick } = createFight(false, false, "xbox-uwp", null,
+    { width: 1920, height: 1080 }, livePublisher);
+  assert.doesNotThrow(() => fight.startFight());
+  assert.doesNotThrow(() => tick());
+  assert.equal(attempts, 1);
+  assert.doesNotThrow(() => fight.nextRound());
+  assert.equal(attempts, 1);
 });
 
 test("OSKIEWAR typography uses the packaged KidLisp Comic Relief face", () => {
@@ -85,6 +107,7 @@ test("OSKIEWAR typography uses the packaged KidLisp Comic Relief face", () => {
   assert.match(source, /comicGlyphAdvance/);
   assert.match(source, /String\(text\)\.toLowerCase\(\)/);
   assert.match(source, /drawGlyphs\(3, 4, null, \[8, 12, 24\]\)/);
+  assert.match(source, /compactLayout\(\) \? 20 : 24/);
 });
 
 test("web camera follows landscape, 16:9, and portrait viewports", () => {

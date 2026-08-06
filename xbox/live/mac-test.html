@@ -15,20 +15,78 @@
     }
     * { box-sizing: border-box; }
     html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: #07081c; }
+    @supports (height: 100dvh) { html, body { height: 100dvh; } }
     body { display: grid; place-items: center; font-family: "Comic Relief", "Comic Sans MS", Arial, sans-serif; }
-    canvas { width: 100vw; height: 100vh; display: block; }
+    canvas { width: 100%; height: 100%; display: block; }
     #status { position: absolute; width: 1px; height: 1px; overflow: hidden;
       clip-path: inset(50%); white-space: nowrap; }
+    #touch-controls { --unit: clamp(50px, 12vmin, 72px); --gap: 6px;
+      position: fixed; inset: 0; z-index: 3; display: none; pointer-events: none;
+      user-select: none; -webkit-user-select: none; touch-action: none; }
+    body.touch-enabled #touch-controls { display: block; }
+    .touch-cluster { position: absolute; display: grid;
+      grid-template: repeat(3, var(--unit)) / repeat(3, var(--unit));
+      gap: var(--gap); pointer-events: none; }
+    #touch-dpad { left: max(12px, env(safe-area-inset-left));
+      bottom: max(12px, env(safe-area-inset-bottom)); }
+    #touch-actions { right: max(12px, env(safe-area-inset-right));
+      bottom: max(12px, env(safe-area-inset-bottom)); }
+    .touch-button { appearance: none; -webkit-appearance: none;
+      min-width: 0; min-height: 0; margin: 0; padding: 0;
+      border: 2px solid rgba(236, 242, 255, .72); border-radius: 50%;
+      background: rgba(8, 14, 34, .42); color: #f3f6ff;
+      font: 700 clamp(20px, 5vmin, 32px)/1 "Comic Relief", "Comic Sans MS", Arial, sans-serif;
+      text-transform: lowercase; text-shadow: 2px 3px 0 #080c18;
+      box-shadow: 0 3px 0 rgba(4, 7, 18, .65); pointer-events: auto;
+      touch-action: none; }
+    .touch-button[aria-pressed="true"] { background: rgba(255, 80, 112, .76);
+      transform: translateY(2px); box-shadow: 0 1px 0 rgba(4, 7, 18, .65); }
+    .touch-up, .touch-y { grid-area: 1 / 2; }
+    .touch-left, .touch-x { grid-area: 2 / 1; }
+    .touch-right, .touch-b { grid-area: 2 / 3; }
+    .touch-down, .touch-a { grid-area: 3 / 2; }
+    #touch-system { position: absolute; left: 50%;
+      bottom: calc(max(12px, env(safe-area-inset-bottom)) + var(--unit) * 2.35);
+      transform: translateX(-50%); display: flex; gap: 8px; pointer-events: none; }
+    #touch-system .touch-button { width: calc(var(--unit) * 1.2);
+      height: calc(var(--unit) * .55); border-radius: 999px; font-size: 14px; }
+    @media (max-height: 500px) {
+      #touch-controls { --unit: clamp(44px, 15vh, 58px); }
+      .touch-button { border-width: 1px; }
+    }
   </style>
 </head>
 <body>
   <canvas id="screen" width="1920" height="1080" aria-label="OSKIEWAR two-player stick fight"></canvas>
   <div id="status" role="alert" aria-live="polite"></div>
+  <div id="touch-controls" aria-label="touch controls">
+    <div id="touch-dpad" class="touch-cluster" role="group" aria-label="movement">
+      <button class="touch-button touch-up" data-key="ArrowUp" aria-label="jump" aria-pressed="false">↑</button>
+      <button class="touch-button touch-left" data-key="ArrowLeft" aria-label="left" aria-pressed="false">←</button>
+      <button class="touch-button touch-right" data-key="ArrowRight" aria-label="right" aria-pressed="false">→</button>
+      <button class="touch-button touch-down" data-key="ArrowDown" aria-label="down" aria-pressed="false">↓</button>
+    </div>
+    <div id="touch-actions" class="touch-cluster" role="group" aria-label="actions">
+      <button class="touch-button touch-y" data-key="Y" aria-label="replay" aria-pressed="false">y</button>
+      <button class="touch-button touch-x" data-key="X" aria-label="shield or toggle player two" aria-pressed="false">x</button>
+      <button class="touch-button touch-b" data-key="B" aria-label="secondary action" aria-pressed="false">b</button>
+      <button class="touch-button touch-a" data-key="A" aria-label="primary action" aria-pressed="false">a</button>
+    </div>
+    <div id="touch-system" role="group" aria-label="system controls">
+      <button class="touch-button" data-key="View" aria-label="view" aria-pressed="false">view</button>
+      <button class="touch-button" data-key="Menu" aria-label="menu" aria-pressed="false">menu</button>
+    </div>
+  </div>
 
   <script>
     const canvas = document.querySelector("#screen");
     const context = canvas.getContext("2d");
     const keys = [new Set(), new Set()];
+    const touchControls = document.querySelector("#touch-controls");
+    const touchPointers = new Map();
+    const touchEnabled = new URLSearchParams(location.search).has("touch") ||
+      navigator.maxTouchPoints > 0 || matchMedia("(pointer: coarse)").matches;
+    document.body.classList.toggle("touch-enabled", touchEnabled);
     const keyMap = new Map([
       ["KeyW", [0, "ArrowUp"]], ["KeyS", [0, "ArrowDown"]],
       ["KeyA", [0, "ArrowLeft"]], ["KeyD", [0, "ArrowRight"]],
@@ -45,8 +103,9 @@
     // 16:9 therefore remains exactly 1920x1080, while 9:16 becomes 608x1080
     // instead of a letterboxed landscape image.
     function resizeCanvas() {
-      const width = Math.max(1, window.visualViewport?.width || innerWidth);
-      const height = Math.max(1, window.visualViewport?.height || innerHeight);
+      const bounds = canvas.getBoundingClientRect();
+      const width = Math.max(1, bounds.width);
+      const height = Math.max(1, bounds.height);
       const logicalHeight = 1080;
       const logicalWidth = Math.max(480, Math.min(2880,
         Math.round(logicalHeight * width / height)));
@@ -206,7 +265,7 @@
       const mac = navigator.userAgent.includes("Mac");
       const hasGamepad = Array.from(navigator.getGamepads?.() || []).some(Boolean);
       return { platform: mac ? "macos" : "web",
-        inputFamily: hasGamepad ? "xbox" : "keyboard",
+        inputFamily: touchEnabled ? "touch" : hasGamepad ? "xbox" : "keyboard",
         productName: mac ? "MACOS" : "WEB",
         version: "CROSS-PLATFORM", graphics: "CANVAS2D", audio: "WEB AUDIO" };
     }
@@ -319,7 +378,32 @@
       event.preventDefault();
       keys[mapped[0]].delete(mapped[1]);
     });
-    addEventListener("blur", () => keys.forEach((held) => held.clear()));
+    function releaseTouch(pointerId) {
+      const active = touchPointers.get(pointerId);
+      if (!active) return;
+      touchPointers.delete(pointerId);
+      active.button.setAttribute("aria-pressed", "false");
+      if (![...touchPointers.values()].some((item) => item.key === active.key))
+        keys[0].delete(active.key);
+    }
+    touchControls.addEventListener("pointerdown", (event) => {
+      const button = event.target.closest("button[data-key]");
+      if (!button) return;
+      event.preventDefault();
+      button.setPointerCapture?.(event.pointerId);
+      const key = button.dataset.key;
+      touchPointers.set(event.pointerId, { button, key });
+      button.setAttribute("aria-pressed", "true");
+      keys[0].add(key);
+      ensureAudio();
+    });
+    for (const type of ["pointerup", "pointercancel", "lostpointercapture"])
+      touchControls.addEventListener(type, (event) => releaseTouch(event.pointerId));
+    touchControls.addEventListener("contextmenu", (event) => event.preventDefault());
+    addEventListener("blur", () => {
+      keys.forEach((held) => held.clear());
+      for (const pointerId of touchPointers.keys()) releaseTouch(pointerId);
+    });
     globalThis.__fightHost = {
       runtime, gamepad, controllers, capabilities, telemetry, gameSignal,
       saveReplay, publishLive, ac, drum, wipe, box, line, triangle,
