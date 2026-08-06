@@ -881,36 +881,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         })
     : Promise.resolve(null);
 
-  const workerBundleParam = new URLSearchParams(window.location.search).get("workerbundle");
-  const workerBundleRequested =
-    !window.acPACK_MODE &&
-    (workerBundleParam === "1" || workerBundleParam === "true");
-  const workerBundleState = (window.acWORKER_BUNDLE = {
-    requested: workerBundleRequested,
-    active: false,
-    ready: false,
-    filename: null,
-    fallback: null,
-  });
-  const workerBundlePathPromise = workerBundleRequested
-    ? fetch("/aesthetic.computer/lib/disk-worker-manifest.json", {
-        cache: "no-cache",
-      })
-        .then(async (response) => {
-          if (!response.ok) throw new Error(`manifest HTTP ${response.status}`);
-          const manifest = await response.json();
-          if (!/^disk\.worker\.[a-f0-9]{12}\.mjs$/.test(manifest?.filename || "")) {
-            throw new Error("invalid worker bundle manifest");
-          }
-          workerBundleState.filename = manifest.filename;
-          return `/aesthetic.computer/lib/${manifest.filename}`;
-        })
-        .catch((error) => {
-          workerBundleState.fallback = `manifest: ${error.message}`;
-          return null;
-        })
-    : Promise.resolve(null);
-
   // Expose Loop control to window for boot.mjs
   // Track pause state for kidlisp console snapshots
   window.acPAUSE = () => {
@@ -4565,14 +4535,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     consumeDiskSends(send);
   };
 
-  let firstMessageSent = false;
-  const sendFirstMessage = () => {
-    if (firstMessageSent) return;
-    firstMessageSent = true;
-    send(firstMessage);
-    consumeDiskSends(send);
-  };
-
   const TAPE_PREVIEW_MAX_FRAMES = 90;
   const TAPE_PREVIEW_WIDTH = 256;
   const TAPE_PREVIEW_HEIGHT = 192;
@@ -6460,13 +6422,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       // not actual source code. The actual source is set via kidlisp-reload in boot.mjs.
       // if (debug) console.log("🏃‍♂️ Posting up to parent...", content);
       if (window.parent) window.parent.postMessage(content, "*");
-      return;
-    }
-
-    // Menu Fighter's pieces may execute in the disk worker. Keep WebRTC in the
-    // main Window and expose only a narrow packet/signaling bridge.
-    if (type?.startsWith("fight:rtc:")) {
-      await handleFightRtcMessage(type, content, send);
       return;
     }
 
@@ -15287,12 +15242,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
 
-    if (type === "microphone-permission-request") {
-      const permission = await checkMicrophonePermission();
-      send({ type: "microphone-permission", content: permission });
-      return;
-    }
-
     if (type === "notifications:web") {
       window.acRequestNotifications?.(content);
       return;
@@ -22298,22 +22247,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           videoTrack = stream.getVideoTracks()[0];
           const capabilities = videoTrack.getCapabilities?.() || {};
           settings = videoTrack.getSettings();
-
-          // 🎞️ Chase the sensor's max rate so the preview tracks the world
-          // with less delay. The encoded tape keeps its own rate — this is
-          // feel while filming, not format.
-          const maxFps = capabilities.frameRate?.max;
-          if (maxFps && (!settings.frameRate || maxFps > settings.frameRate)) {
-            try {
-              await videoTrack.applyConstraints({ frameRate: { ideal: maxFps } });
-              settings = videoTrack.getSettings();
-            } catch (fpsError) {
-              console.warn("🎥 Max frame rate constraint failed:", fpsError);
-            }
-          }
-          console.log(
-            `🎥 Camera preview: ${settings.frameRate || "?"}fps (sensor max ${maxFps || "?"})`,
-          );
 
           // 🎞️ Chase the sensor's max rate so the preview tracks the world
           // with less delay. The encoded tape keeps its own rate — this is
