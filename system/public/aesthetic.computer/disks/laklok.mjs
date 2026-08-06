@@ -39,9 +39,8 @@ function boot({ api, wipe, debug, send, hud }) {
   // 🏷️ Ensure label shows piece name (not "chat"), pinned white so it doesn't
   // ride the red/orange/lime connection-status color.
   hud.label("laklok", "white");
-  // ✨ Show ".com" superscript in the HUD corner label (laklok.com branding,
-  // same as notepat). disk.mjs renders the ".com" case specially.
-  hud.superscript(".com");
+  // 🌐 Complete the laklok.com wordmark on the same baseline.
+  hud.suffix(".com");
 }
 
 // 🎪 "Laer Klokken" circus banner — a striped, gold-trimmed marquee in the
@@ -139,7 +138,7 @@ function paintQR($) {
   const cells = lakQRCells;
   const size = cells.length; // 1px per cell
   const qrBoxSize = size + 2;
-  const rightInset = 6; // Align with the footer controls instead of the canvas edge.
+  const rightInset = 3; // Match the QR's 3px top inset (4px below at this height).
   const qrX = screen.width - qrBoxSize - rightInset;
   const qrY = Math.floor((LAK_TOP_MARGIN - qrBoxSize) / 2);
   ink(255, 255, 255).box(qrX, qrY, size + 2, size + 2); // white background + border
@@ -158,6 +157,8 @@ function paint($) {
     topMargin: LAK_TOP_MARGIN, // Shorter top chrome panel than the default 42.
     attachAfterInput: true,
     inputPlaceholder: "Chat...",
+    presenceOnlineOnly: true,
+    presenceRightInset: 34, // QR box + inset + breathing room.
     // 🎪 Circus marquee as the header backdrop — fills the whole chrome panel,
     // painted under the online counter so the counter stays readable on top.
     paintHeader: (api, tm) => paintLaerKlokkenSign(api, tm),

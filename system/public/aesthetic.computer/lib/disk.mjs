@@ -3657,7 +3657,11 @@ const $commonApi = {
     tinyLabel: (enabled = true) => {
       forceTinyHudLabel = enabled;
     },
-    // ✨ Set a custom superscript (e.g. ".com") to display after the label in cyan
+    // 🌐 Set a compact suffix (e.g. ".com") after the HUD label.
+    suffix: (text) => {
+      currentHUDSuperscript = text || null;
+    },
+    // Backward-compatible name for older pieces.
     superscript: (text) => {
       currentHUDSuperscript = text || null;
     },
@@ -14894,10 +14898,12 @@ async function makeFrame({ data: { type, content } }) {
               );
 
               const superscriptX = hudTextX + firstLineWidth + 2;
-              // Floor-align the small superscript (e.g. ".com", 8px tall via
-              // MatrixChunky8) with the bottom of the label glyphs, then nudge
-              // up 1px so it sits just above the corner word's baseline.
-              const superscriptY = Math.max(0, (currentHUDLabelBlockHeight || 10) - 9);
+              // Baseline-align the compact suffix with the larger HUD label.
+              const suffixBlockHeight = 8; // MatrixChunky8
+              const superscriptY = hudTextY + Math.max(
+                0,
+                (currentHUDLabelBlockHeight || 10) - suffixBlockHeight,
+              );
 
               // Special handling for ".com" - color the "." based on connection status
               if (currentHUDSuperscript === ".com") {
