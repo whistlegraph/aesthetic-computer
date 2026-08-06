@@ -43,6 +43,18 @@ const PROMPT =
   "start/pause/reset, and a clean light UI.";
 
 // Focus-mode selectors (desktop branch — the 1190pt docs window is ≥1180).
+// The 630pt vertical stage window sits BELOW the 1180 focus breakpoint
+// (alloy focusLayout.ts:59,88), so portrait takes film Fuser's compact focus
+// layout instead. Verified against staging @ 41c4f4d17:
+//   • compact keeps the composer in a collapsed chat dock; while idle the dock
+//     is one "Ask to change…" bar and NO Generate button or Prompt textarea is
+//     mounted                              (AppFocusChatDock.tsx:100-160,316-334)
+//   • compact never mounts the desktop URL bar, so "Show QR code" does not
+//     exist there                          (AppNodeFocusLayout.tsx:2307-2440)
+//   • the top bar keeps Publish, the Live status pill, and Close in both
+//     modes                                (AppNodeFocusLayout.tsx:2224-2305)
+// Beats 10-14 branch on COMPACT_FOCUS for wait conditions and off-DOM
+// controls; narration and chapter timing are identical in both orientations.
 const PROMPT_BOX = 'textarea[aria-label="Prompt"]';
 const GENERATE = 'button[aria-label="Generate"]';
 const STOP = 'button[aria-label="Stop"]';
@@ -93,12 +105,24 @@ const PREVIEW_VISIBLE = `(() => {
   return !!wrapper && getComputedStyle(wrapper).display !== 'none';
 })()`;
 
+// Compact focus (<1180pt viewport — every vertical take) per the header notes.
+const COMPACT_FOCUS = `window.innerWidth < 1180`;
+
+// Compact's idle chat dock: the collapsed "Ask to change…" compose bar that
+// stands in for the desktop composer once an app has been generated.
+const DOCK_IDLE_BAR = `js=[...document.querySelectorAll('button')]
+  .find((b) => (b.textContent || '').includes('Ask to change'))`;
+
 // The run is over when the composer footer swaps back from the activity strip
 // to the composer — i.e. Generate reappears (AppFocusTranscriptDrawer.tsx:190).
+// Compact focus never mounts Generate; there the run is over when the chat
+// dock has swapped back from its running strip to the idle compose bar.
 const RUN_FINISHED = `(() => {
-  const done = !!document.querySelector('button[aria-label="Generate"]');
-  const stop = !!document.querySelector('button[aria-label="Stop"]');
-  return done && !stop;
+  if (document.querySelector('button[aria-label="Stop"]')) return false;
+  if (document.querySelector('button[aria-label="Generate"]')) return true;
+  if (!(${COMPACT_FOCUS})) return false;
+  return [...document.querySelectorAll('button')]
+    .some((b) => (b.textContent || '').includes('Ask to change'));
 })()`;
 
 // The /flow/<slug> this take created, captured right after project creation so
@@ -151,7 +175,7 @@ export default {
   },
   acceptance: {
     minimumDurationSec: 55,
-    resolution: [2560, 1440],
+    // No explicit resolution: QA holds each format to its own delivery geometry.
     requireEndingCard: true,
     requireBrandChrome: true,
     loudnessLufs: [-18, -14],
@@ -283,9 +307,10 @@ export default {
     },
     {
       say: "To refine it, describe the change in the composer — make the accent teal or add a long-break mode. Fuser's App node handles it. You can also edit the code directly.",
-      do: async ({ point, outline, sleep }) => {
-        await point(PROMPT_BOX, { moveMs: 560 });
-        await outline(PROMPT_BOX, { feather: 22, durationMs: 2600 });
+      do: async ({ cdp, point, outline, sleep }) => {
+        const composer = (await cdp.eval(COMPACT_FOCUS)) ? DOCK_IDLE_BAR : PROMPT_BOX;
+        await point(composer, { moveMs: 560 });
+        await outline(composer, { feather: 22, durationMs: 2600 });
         await sleep(600);
       },
     },
@@ -300,19 +325,22 @@ export default {
       },
     },
     {
-      say: "The status pill now reads Live. Your app has a public URL anyone can open without logging in. Click the QR button to hand the app to a phone.",
+      say: "The status pill now reads Live. Your app has a public URL anyone can open without logging in. On desktop, click the QR button to hand the app to a phone.",
       do: async ({ cue, click, cdp, spotlight, check }) => {
+        const compact = await cdp.eval(COMPACT_FOCUS);
         await cue("status pill", { leadMs:620 });
         await spotlight(LIVE_PILL, {
           label: "Live", dim: 0.34, ring: true, feather: 22, durationMs: 1800,
         });
-        await cue("QR button", { leadMs:650 });
-        await click(QR_BUTTON, { moveMs:520, orbitMs:360 });
-        await cdp.waitFor(
-          `!!document.querySelector('[data-rac][data-placement] img, [data-rac][data-placement] svg')`,
-          { timeoutMs: 15000 },
-        );
-        check("app_published_live", { pill: "Live", share: "qr" });
+        if (!compact) {
+          await cue("QR button", { leadMs:650 });
+          await click(QR_BUTTON, { moveMs:520, orbitMs:360 });
+          await cdp.waitFor(
+            `!!document.querySelector('[data-rac][data-placement] img, [data-rac][data-placement] svg')`,
+            { timeoutMs: 15000 },
+          );
+        }
+        check("app_published_live", { pill: "Live", share: compact ? "live-pill" : "qr" });
       },
     },
     {
@@ -321,11 +349,13 @@ export default {
         // Toggle the QR popover closed with its own trigger — NOT Escape:
         // FocusView owns a window-level capturing Esc that would close all of
         // focus mode out from under the popover (FocusView.tsx:170-195).
-        await click(QR_BUTTON);
-        await cdp.waitFor(
-          `!document.querySelector('[data-rac][data-placement] img, [data-rac][data-placement] svg, [data-rac][data-placement] canvas')`,
-          { timeoutMs: 10000 },
-        );
+        if (!(await cdp.eval(COMPACT_FOCUS))) {
+          await click(QR_BUTTON);
+          await cdp.waitFor(
+            `!document.querySelector('[data-rac][data-placement] img, [data-rac][data-placement] svg, [data-rac][data-placement] canvas')`,
+            { timeoutMs: 10000 },
+          );
+        }
         await click(CLOSE_FOCUS);
         await cdp.waitFor("document.querySelector('.react-flow__pane')");
         await point(".react-flow__node", { moveMs: 720 });

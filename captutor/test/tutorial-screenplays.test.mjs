@@ -49,6 +49,7 @@ test("image-generation-workflow has complete English and Chinese narration", () 
 
 test("apps quickstart gives every chapter a distinct compact color identity", () => {
   assert.equal(appsQuickstart.shortTitle, "First app");
+  assert.equal(appsQuickstart.acceptance.resolution, undefined);
   assert.equal(new Set(appsQuickstart.chapters.map((chapter) => chapter.color)).size,
     appsQuickstart.chapters.length);
   assert.equal(new Set(appsQuickstart.chapters.map((chapter) => chapter.wallpaperColor)).size,
