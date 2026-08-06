@@ -50,6 +50,33 @@ const BOOT_BUDGET = 6000; // ms, anon boot target — warn (don't fail) over thi
 async function installBootProbe(page) {
   await page.evaluateOnNewDocument(() => {
     window.__bootComplete = null;
+    window.__permissionQueries = [];
+
+    // Permission lookups can cross into the host OS and quietly delay the
+    // critical path. Record their real duration before boot.mjs runs.
+    if (navigator.permissions?.query) {
+      const originalQuery = navigator.permissions.query.bind(navigator.permissions);
+      navigator.permissions.query = async (descriptor) => {
+        const started = performance.now();
+        try {
+          const result = await originalQuery(descriptor);
+          window.__permissionQueries.push({
+            name: descriptor?.name || "unknown",
+            ms: performance.now() - started,
+            state: result?.state || null,
+          });
+          return result;
+        } catch (error) {
+          window.__permissionQueries.push({
+            name: descriptor?.name || "unknown",
+            ms: performance.now() - started,
+            error: error?.message || String(error),
+          });
+          throw error;
+        }
+      };
+    }
+
     const origFetch = window.fetch;
     window.fetch = function (url, opts) {
       try {
@@ -147,6 +174,7 @@ async function run() {
       const paint = performance.getEntriesByType("paint");
       return {
         timings: window._bootTimings || [],
+        permissionQueries: window.__permissionQueries || [],
         auth,
         ttfb: (nav.responseStart || 0) - (nav.requestStart || 0),
         fcp: paint.find((p) => p.name === "first-contentful-paint")?.startTime || 0,
@@ -185,6 +213,15 @@ async function run() {
       console.log("");
     }
 
+    if (data.permissionQueries.length) {
+      console.log("🔐 permission queries:");
+      for (const query of data.permissionQueries) {
+        const result = query.error ? `error: ${query.error}` : query.state;
+        console.log(`   ${query.name}: ${query.ms.toFixed(0)}ms (${result})`);
+      }
+      console.log("");
+    }
+
     console.log("📦 slowest resources:");
     resources.forEach((r, i) => console.log(`   ${i + 1}. ${r.name} — ${r.ms.toFixed(0)}ms ${r.size ? "(" + kb(r.size) + ")" : ""}`));
     console.log("");
@@ -212,7 +249,7 @@ async function run() {
       mkdirSync(OUT_DIR, { recursive: true });
       const stamp = new Date().toISOString().replace(/[:.]/g, "-");
       const path = `${OUT_DIR}/boot-${stamp}.json`;
-      writeFileSync(path, JSON.stringify({ url: TEST_URL, bootMs, wallMs, ttfb: data.ttfb, fcp: data.fcp, complete: booted, timeline, auth: data.auth, resources, coverage: cov }, null, 2));
+      writeFileSync(path, JSON.stringify({ url: TEST_URL, bootMs, wallMs, ttfb: data.ttfb, fcp: data.fcp, complete: booted, timeline, auth: data.auth, permissionQueries: data.permissionQueries, resources, coverage: cov }, null, 2));
       console.log(`\n📄 baseline → ${path}`);
     } catch (e) {
       console.log(`\n⚠️  could not write baseline: ${e.message}`);
