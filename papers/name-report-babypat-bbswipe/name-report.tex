@@ -1,0 +1,229 @@
+% !TEX program = xelatex
+\documentclass[9pt,letterpaper]{article}
+\usepackage[top=0.66in,bottom=0.66in,left=0.68in,right=0.68in]{geometry}
+
+\usepackage{fontspec}
+\setmainfont{Latin Modern Roman}[Extension=.otf,UprightFont=lmroman10-regular,BoldFont=lmroman10-bold,ItalicFont=lmroman10-italic,BoldItalicFont=lmroman10-bolditalic]
+\setsansfont{Latin Modern Sans}[Extension=.otf,UprightFont=lmsans10-regular,BoldFont=lmsans10-bold,ItalicFont=lmsans10-oblique,BoldItalicFont=lmsans10-boldoblique]
+\setmonofont{Latin Modern Mono}[Extension=.otf,UprightFont=lmmono10-regular,Scale=0.84]
+\newfontfamily\acbold{ywft-processing-bold}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\newfontfamily\aclight{ywft-processing-light}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{xurl}
+\usepackage{graphicx}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{pifont}
+\usepackage{multicol}
+
+\graphicspath{{../arxiv-cancelok/figures/}}
+
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{110,106,116}
+\definecolor{acgreen}{RGB}{31,139,85}
+\definecolor{acred}{RGB}{192,55,65}
+\definecolor{acamber}{RGB}{190,126,12}
+\definecolor{acpaper}{RGB}{249,247,250}
+
+\hypersetup{colorlinks=true,linkcolor=acpurple,urlcolor=acpurple,pdfauthor={@jeffrey and Codex},pdftitle={babypat / bbswipe — name and domain report}}
+
+\titleformat{\section}{\normalfont\bfseries\normalsize\uppercase}{\thesection.}{0.45em}{}
+\titlespacing{\section}{0pt}{0.95em}{0.28em}
+\titleformat{\subsection}{\normalfont\bfseries\small}{\thesubsection}{0.45em}{}
+\titlespacing{\subsection}{0pt}{0.65em}{0.14em}
+
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{acpink}\textit{name space / domain space — for @jeffrey}}
+\fancyfoot[C]{\footnotesize\thepage}
+
+\setlist[itemize]{nosep,leftmargin=1.05em,itemsep=0.14em}
+\setlist[enumerate]{nosep,leftmargin=1.25em,itemsep=0.16em}
+\setlength{\columnsep}{1.65em}
+\setlength{\parindent}{1em}
+\setlength{\parskip}{0.28em}
+\tolerance=850 \emergencystretch=1em \hyphenpenalty=70
+
+\newcommand{\yes}{\textcolor{acgreen}{\ding{52}}}
+\newcommand{\no}{\textcolor{acred}{\ding{56}}}
+\newcommand{\warn}{\textcolor{acamber}{\ding{115}}}
+\newcommand{\nameword}[1]{{\acbold\color{acdark}#1}}
+\newcommand{\pull}[1]{\par\vspace{0.28em}{\aclight\small\color{acpink}\itshape #1}\par\vspace{0.28em}}
+\newcommand{\money}[1]{\$#1}
+
+\begin{document}
+
+{%
+\begin{center}
+\includegraphics[height=3.1em]{pals.png}\par\vspace{0.32em}
+{\acbold\fontsize{20pt}{23pt}\selectfont\color{acdark} baby\,pat\,{\color{acpink}/}\,bb\,swipe}\par
+\vspace{0.22em}
+{\aclight\fontsize{10.5pt}{12pt}\selectfont\color{acpink} Name Space / Domain Space for an Interaction-Gated \texttt{vertilok}}\par
+\vspace{0.4em}
+{\small\color{acgray} @jeffrey \& Codex · 2026-07-20 · live registrar check, no purchase made}\par
+\vspace{0.42em}
+\rule{\textwidth}{1.15pt}
+\end{center}
+\vspace{0.22em}
+
+\begin{quote}
+\small\noindent\textbf{The thing being named.} A full-screen vertical sequence of Aesthetic.Computer pieces. A thin progress bar fills only while a person is actively touching, drawing, typing, or otherwise playing. Idle time freezes the bar; it never advances the feed. At full progress, the next piece slides in automatically. Later, free-play time can be replaced by goals: arithmetic, word problems, note matching, or other little acts of completion.
+\end{quote}
+\vspace{0.26em}
+}
+
+\begin{multicols}{2}
+
+\section{Finding}
+
+\noindent\colorbox{acpink!10}{\parbox{0.94\columnwidth}{\vspace{0.25em}\small
+\textbf{The better concept name is \nameword{babypat}; the better public acquisition today is \nameword{bbswipe.com}.} Unfortunately, \texttt{babypat} carries both domain friction and an exact-name trademark collision in a technologically adjacent class. If a domain is to be secured now, \texttt{bbswipe.com} is the clean action. If the name should carry the product for years, it is worth one more naming round before committing publicly.\vspace{0.25em}}}
+
+Porkbun reported \texttt{bbswipe.com} \textbf{available} at \money{11.08}, non-premium. It reported \texttt{babypat.com} \textbf{unavailable}. Verisign RDAP independently shows \texttt{babypat.com} was registered 2025-05-01, expires 2027-05-01, uses Afternic nameservers, and is registered through GoDaddy. The Afternic nameservers suggest a parked or resale posture, but that is an inference, not a sale offer.
+
+\pull{the domain result reverses the naming result: babypat says the right thing; bbswipe owns the clean front door.}
+
+\section{The Names Tried So Far}
+
+\subsection{\texttt{cancelok}}
+
+The ancestor. Its name expresses binary judgment: stay/tap is \emph{ok}; leave is \emph{cancel}. It fits evolutionary curation, but not the new educational or developmental loop.
+
+\subsection{\texttt{vertilok}}
+
+The implemented vertical, full-screen feed. It names its geometry and lineage well, but reads as infrastructure: a mechanism, not a child-facing destination. It remains useful as the architectural parent.
+
+\subsection{\texttt{babypat}}
+
+\textbf{Why it works:} affectionate, small-step, playable; sounds native beside \texttt{notepat}; can grow from touching into learning without a rename. ``Baby'' encodes beginnings, not necessarily babies.
+
+\textbf{Why it breaks:} \texttt{babypat.com} is taken; search results already carry parenting, food, music, and MatPat associations. More seriously, a preliminary U.S. screen finds the exact mark \textsc{BABYPAT}, Registration 5,653,929 / Serial 87,911,102, in International Class 009 for electronic and audiovisual goods. That is not a legal conclusion, but it is enough to demand real clearance before a public software/learning brand.
+
+\subsection{\texttt{bbswipe}}
+
+\textbf{Why it works:} compact, ownable, internet-native, and the \texttt{.com} is available. ``BB'' can hold \emph{baby}, \emph{bulletin board}, or simply a rhythmic pair of letters.
+
+\textbf{Why it breaks:} ``swipe'' promises that swiping advances the feed, while the proposed system advances on accumulated interaction or goal completion. The name points at the old gesture, not the new rule. It also feels more like a feed utility than a growing play-space.
+
+\section{Porkbun Snapshot}
+
+Checked live through Porkbun on 2026-07-20 PDT. Prices are USD, registration / renewal when Porkbun exposed both; promotions and availability can change immediately.
+
+{\footnotesize
+\begin{tabularx}{\columnwidth}{@{}>{\ttfamily}l>{\RaggedLeft\arraybackslash}p{0.56in}>{\RaggedLeft\arraybackslash}p{0.56in}X@{}}
+\toprule
+\textbf{domain} & \textbf{now} & \textbf{renew} & \textbf{state} \\
+\midrule
+babypat.com & --- & --- & \no\ unavailable \\
+babypat.app & 8.75 & 14.93 & \yes\ available \\
+babypat.kids & 5.66 & 19.05 & \yes\ available \\
+babypat.family & 5.66 & 31.41 & \yes\ available \\
+babypat.baby & 1.54 & 52.01 & \yes\ available \\
+babypat.computer & 18.02 & 31.41 & \yes\ available \\
+babypat.org & 7.98 & 11.84 & \yes\ available \\
+babypat.net & 12.52 & 12.52* & \yes\ available \\
+\midrule
+bbswipe.com & 11.08 & 11.08* & \yes\ available \\
+bbswipe.app & 8.75 & 14.93 & \yes\ available \\
+bbswipe.kids & 5.66 & 19.05 & \yes\ available \\
+bbswipe.fun & 2.57 & 31.41 & \yes\ available \\
+bbswipe.computer & 18.02 & 31.41 & \yes\ available \\
+bbswipe.org & 7.98 & 11.84 & \yes\ available \\
+bbswipe.net & 12.52 & 12.52* & \yes\ available \\
+bbswipe.game & 309.47 & --- & \yes\ available \\
+\bottomrule
+\end{tabularx}
+}
+
+{\scriptsize\color{acgray}* Repeated values mean no separate renewal quote appeared; all prices and availability can change.}
+
+\section{Adjacent Probes}
+
+To test whether the best meanings could be recombined into an available \texttt{.com}, a small adjacent set was also checked.
+
+{\footnotesize
+\begin{tabularx}{\columnwidth}{@{}lX@{}}
+\toprule
+\textbf{result} & \textbf{names} \\
+\midrule
+Unavailable & \texttt{bbpat.com}, \texttt{babylok.com}, \texttt{bbloop.com}, \texttt{patloop.com}, \texttt{playpat.com}, \texttt{nextpat.com}, \texttt{playswipe.com} \\
+Available & \texttt{touchpat.com} (\money{11.08}) \\
+\bottomrule
+\end{tabularx}}
+
+\texttt{touchpat} is available but weaker. It narrows the piece to touch when keyboard, audio, and solved goals should count too. It is a useful boundary marker, not a recommendation.
+
+\section{Semantic Test}
+
+The core sentence for the product is:
+
+\begin{quote}
+\small\itshape Play fills the bar. Waiting does nothing. Finishing brings the next world.
+\end{quote}
+
+Test each candidate against it:
+
+{\footnotesize
+\begin{tabularx}{\columnwidth}{@{}lcccX@{}}
+\toprule
+& \textbf{play} & \textbf{grow} & \textbf{next} & \textbf{read} \\
+\midrule
+babypat & \yes & \yes & $\sim$ & small playful steps \\
+bbswipe & $\sim$ & \no & \yes & a swipe-driven feed \\
+vertilok & \no & \no & \yes & vertical mechanism \\
+touchpat & \yes & $\sim$ & \no & touch-only instrument \\
+\bottomrule
+\end{tabularx}}
+
+\texttt{babypat} is the only tried name that naturally survives the move from free interaction time to arithmetic and word goals. \texttt{bbswipe} survives the visual transition but not the rule change.
+
+\section{Recommendation}
+
+\begin{enumerate}
+  \item \textbf{Do not buy \texttt{babypat.*} merely to compensate for the missing \texttt{.com}.} The trademark and collision surface matter more than the extension.
+  \item \textbf{If securing an option now is desirable, \texttt{bbswipe.com} is the rational registration.} It is available, standard-priced, and had no obvious exact-name collision in this preliminary web screen. Registration itself is not trademark clearance.
+  \item \textbf{Keep \texttt{babypat} as the internal design brief, not yet the public brand.} It names the feeling we should preserve: tiny acts of play accumulating into advancement.
+  \item \textbf{Run one more naming round around growth, completion, and play---not swiping.} The strongest eventual name should inherit \texttt{babypat}'s warmth and \texttt{bbswipe.com}'s ownability.
+\end{enumerate}
+
+\section{Product Contract to Preserve}
+
+Whatever name wins, the mechanism should stay separable from its goals:
+
+\begin{itemize}
+  \item \texttt{progress = completed / required}
+  \item today: \texttt{completed = active milliseconds}
+  \item later: correct answers, words formed, notes matched, patterns finished
+  \item idle: no gain, no loss, no automatic next
+  \item completion: bar resolves, next piece slides upward, deck eventually loops or reshuffles
+\end{itemize}
+
+This contract is the conceptual invention. The feed is not measuring exposure; it is measuring participation.
+
+\section{Sources and Limits}
+
+\begin{itemize}
+  \item Porkbun live searches: \href{https://porkbun.com/checkout/search?q=babypat}{\texttt{babypat}} and \href{https://porkbun.com/checkout/search?q=bbswipe}{\texttt{bbswipe}}; checked 2026-07-20 PDT. No domains were placed in a cart or purchased.
+  \item Verisign RDAP: \url{https://rdap.verisign.com/com/v1/domain/babypat.com}. A 404 for \texttt{bbswipe.com} was consistent with Porkbun's available result at check time.
+  \item Exact-mark lead: \href{https://trademarks.justia.com/879/11/n-87911102.html}{BABYPAT, Serial 87911102}; verify current status and related marks in \href{https://www.uspto.gov/trademarks/search}{USPTO Trademark Search / TSDR} before adoption.
+  \item Product lineage: \nolinkurl{system/public/aesthetic.computer/disks/cancelok.mjs} and \nolinkurl{system/public/aesthetic.computer/disks/vertilok.mjs}, inspected in the repository at report time.
+\end{itemize}
+
+\vspace{0.35em}
+\hrule
+\vspace{0.32em}
+{\footnotesize\color{acgray}\noindent This is a naming and availability screen, not legal advice or a comprehensive trademark clearance search. Registrar states and prices can change between lookup and checkout.}
+
+\end{multicols}
+\end{document}

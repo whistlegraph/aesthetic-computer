@@ -37,6 +37,17 @@ enum Paths {
     /// imsgConfig; Loopboy stores only contact keys and local session ids.
     static var loopboyConfig: String { "\(home)/.config/slab/loopboy.json" }
 
+    /// `zzz` parks idle prompt processes while preserving enough provider
+    /// state to wake them back into tracked terminals. The config is private
+    /// host policy; sleeping entries are runtime state under slabHome.
+    static var zzzConfig: String { "\(home)/.config/slab/zzz.json" }
+    static var zzzDir: String { "\(slabHome)/state/zzz" }
+    static var zzzHelper: String {
+        let installed = "\(slabBin)/zzz"
+        return FileManager.default.isExecutableFile(atPath: installed)
+            ? installed : "\(acRepo)/slab/bin/zzz"
+    }
+
     /// Asana bridge for the task submenu. The Personal Access Token lives in
     /// the untracked config below (never in tracked code) — same convention as
     /// imsgConfig. The helper prints a JSON tree of assigned, incomplete tasks
@@ -103,6 +114,10 @@ enum Paths {
     static var frameOut: String { "\(slabHome)/state/frame.out.json" }
     static var frameOutJpg: String { "\(slabHome)/state/frame.out.jpg" }
     static var frameDone: String { "\(slabHome)/state/frame.done" }
+    /// A click-through staged target writes here when the human taps the
+    /// highlighted control directly. The controller consumes the matching
+    /// approval id, completing the still-pending tool call that staged it.
+    static var frameManualAction: String { "\(slabHome)/state/frame.manual-action.json" }
 
     /// `reel` video capture handshake (see ScreenRecord.swift) — the moving-picture
     /// sibling of `frame`. The controller drops a JSON `reel.req`
@@ -138,6 +153,8 @@ enum Paths {
     /// chimes and stops ambient instead of starting it. Toggled from the
     /// menubar's "Mute ambient sonification" item.
     static var muteFlag: String { "\(slabHome)/state/muted" }
+    /// Opt-in compact resource graph status item (RAM, SSD, GPU, CPU, network).
+    static var resourceGraphFlag: String { "\(slabHome)/state/resource-graph" }
     /// When this file exists, restored / restarted Claude windows are
     /// auto-tiled across the main display in a grid sized by the window
     /// count, with the Terminal font scaled so no cell is too cramped.

@@ -88,8 +88,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var mailSyncing = false
     private var mailStatus = "—"
     /// iMessage bridge state. Polled faster than mail (a chat wants low
-    /// latency) but still off-main; the helper itself rings the bell when a
-    /// NEW inbound arrives. `imsgUnread` is exposed so the theme-by-status
+    /// latency) but still off-main; the helper may ring an explicitly enabled
+    /// bell for a NEW inbound. `imsgUnread` is exposed so the theme-by-status
     /// pipeline can treat "she texted" as a first-class status accent.
     private var imsgPending = false
     private var imsgStatus = "—"
@@ -200,6 +200,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         imsgTimer = contactTimer
         RunLoop.main.add(contactTimer, forMode: .common)
 
+        NotificationCenter.default.addObserver(
+            forName: LedgerStore.promptLaunchedNote, object: nil, queue: .main
+        ) { [weak self] _ in
+            guard let self, self.state.autoTile else { return }
+            // `open -a Terminal` returns before the new window has acquired
+            // its final AX frame. One delayed tile plus the tiler's own settle
+            // passes gives it a proper grid-sized cell (especially height).
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
+                self?.tileNowImpl(resetZoom: false)
+            }
+        }
+
         // Title-component hygiene for the Slab-* Terminal profiles: the
         // working-dir and active-process checkboxes are NOT scriptable and
         // a running Terminal serves profiles from memory (and clobbers
@@ -264,6 +276,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
         }
 
+        // Every actively focused prompt keeps a thin system-accent outline,
+        // whether focus arrived through WindowNav or an ordinary mouse click.
+        PromptFocusHighlight.shared.start()
+
         // Terminal.app sizes windows in character cells, so its native font
         // zoom also changes the pixel frame. Preserve the frame around that
         // native action; the terminal remains responsible for its per-window
@@ -310,6 +326,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // Advertised ledger: serve this machine's handles over the tailnet and
         // cache peers' ledgers, so `host:name` references resolve O(1) without
         // an SSH crawl. Overlay stays local — this is a data channel only.
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(handleLedgerWake(_:)),
+            name: LedgerStore.wakeNote, object: nil)
         LedgerStore.shared.start()
     }
 
@@ -318,6 +337,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         scatterHotkey?.unregister()
         appearanceHotkey?.unregister()
         navHotkeys.forEach { $0.unregister() }
+        PromptFocusHighlight.shared.stop()
         terminalFontZoomGuard?.stop()
         imsgTimer?.invalidate()
         zoomLensTap?.stop()
@@ -326,6 +346,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         passphraseServer.stop()
         ResourceGraph.shared.stop()
         LedgerStore.shared.stop()
+        NotificationCenter.default.removeObserver(self)
+        ResourceGraph.shared.stop()
         NSWorkspace.shared.notificationCenter.removeObserver(self)
     }
 
@@ -357,6 +379,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             // serialized by the `gathering` guard) so decor + menu read one
             // consistent mark.
             snapshot.claudeSessions = TitleEmoji.assign(snapshot.claudeSessions)
+            // Slowly refresh one transcript-backed prox memoir at a time. The
+            // scheduler is change-aware and globally throttled; this 2 s app
+            // refresh merely offers it the current live set.
+            ProxMemoirs.shared.refresh(snapshot.claudeSessions)
             // Publish this machine's ledger + refresh the peer cache (throttled
             // inside; peer GETs are async URLSession — never block this queue).
             LedgerStore.shared.tick(sessions: snapshot.claudeSessions,
@@ -377,6 +403,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                     return s
                 }
             }
+            // `zzz` is the prompt lifecycle's cold tier: once an unbound,
+            // resumable local prompt has been genuinely idle for the configured
+            // window, persist its wake record, stop the agent, and leave its
+            // terminal open with the resume receipt.
+            ZzzManager.shared.tick(sessions: snapshot.claudeSessions)
             DispatchQueue.main.async {
                 self.gathering = false
                 self.state = snapshot
@@ -621,9 +652,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     /// Pull the iMessage summary off-main. The helper always exits 0 for
-    /// `status`, prints one JSON line, and rings the bell itself when a NEW
-    /// inbound arrives — so this never blocks the tick and the alert fires
-    /// even while the menu is closed.
+    /// `status`, prints one JSON line, and may ring an explicitly enabled bell
+    /// when a NEW inbound arrives. This never blocks the tick, and visual /
+    /// Loopboy alerts still fire while the menu is closed.
     private func refreshImsgCount() {
         guard !imsgPending else { return }
         let helper = Paths.imsgHelper
@@ -635,7 +666,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         imsgPending = true
         DispatchQueue.global(qos: .utility).async { [weak self] in
-            let out = ShellRunner.run(helper, args: ["status"], timeout: 8).output
+            // Multi-contact status performs bounded SQLite summaries per
+            // route; on a busy seat it can legitimately take longer than the
+            // old aggregate-only helper. Keep the poll serialized, but allow
+            // enough time for the contactPending contract to land.
+            let result = ShellRunner.run(helper, args: ["status"], timeout: 15)
+            let out = result.output
             let line = out.split(separator: "\n").last.map(String.init) ?? ""
             var label = "iMessage: —"
             var configured = false
@@ -838,7 +874,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let wake = (loop["wake"] as? Bool) ?? false
         let autoRespond = (loop["autoRespond"] as? Bool) ?? false
         LedgerStore.shared.pokeLocal(sessionId: sid, by: "loopboy:\(contact)")
-        guard wake, let tty = ttyForSession(sid), !tty.isEmpty else { return }
 
         let clean = message.replacingOccurrences(of: "\n", with: " ")
             .trimmingCharacters(in: .whitespacesAndNewlines)
@@ -1522,6 +1557,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         refresh()
     }
 
+    @objc func toggleResourceGraph() {
+        ResourceGraph.shared.toggle()
+    }
+
     @objc func syncBoth() { syncMail(account: nil) }
     @objc func syncAcMail() { syncMail(account: "ac-mail") }
     @objc func syncJasMail() { syncMail(account: "jas-mail") }
@@ -1706,6 +1745,60 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 )
             }
         }
+    }
+
+    @objc func toggleAutoZzz() {
+        let config = ZzzStore.configuration()
+        ZzzStore.setEnabled(!config.enabled)
+        refresh()
+    }
+
+    @objc func zzzIdleSession(_ sender: NSMenuItem) {
+        guard let sid = sender.representedObject as? String, !sid.isEmpty else { return }
+        ZzzManager.shared.parkIdle(sessionId: sid, sessions: state.claudeSessions) {
+            [weak self] message in
+            self?.notify(title: "slab", subtitle: "zzz", body: message)
+            self?.refresh()
+        }
+    }
+
+    @objc func wakeZzzSession(_ sender: NSMenuItem) {
+        guard let sid = sender.representedObject as? String, !sid.isEmpty else { return }
+        ShellRunner.runAsync(Paths.zzzHelper, args: ["wake", sid]) { [weak self] in
+            DispatchQueue.main.async { self?.refresh() }
+        }
+    }
+
+    /// Open the keyboard-and-mouse `zzz` harness in a terminal. Rows in the
+    /// harness accept arrow/Return or a direct click/tap to wake a prompt.
+    @objc func openZzzHarness() {
+        let helper = Paths.zzzHelper
+        guard FileManager.default.isExecutableFile(atPath: helper) else {
+            notify(title: "slab", subtitle: "zzz", body: "zzz helper is not installed.")
+            return
+        }
+        let quoted = "'" + helper.replacingOccurrences(of: "'", with: "'\\''") + "'"
+        let escaped = quoted.replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "\"", with: "\\\"")
+        let app = Self.preferredTerminalApp()
+        let script: String
+        if app == "Terminal" {
+            script = """
+            tell application "Terminal"
+                activate
+                do script "\(escaped)"
+            end tell
+            """
+        } else {
+            script = """
+            tell application id "com.googlecode.iterm2"
+                activate
+                create window with default profile
+                tell current session of current window to write text "\(escaped)"
+            end tell
+            """
+        }
+        ShellRunner.runAsync("/usr/bin/osascript", args: ["-e", script])
     }
 
     @objc func toggleAutoTile() {
@@ -2460,6 +2553,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             tm.append("    else")
             tm.append("      set slabSS to item 1 of slabE")
             tm.append("    end if")
+            tm.append("    if (count of slabE) is 0 then")
             tm.append("    try")
             tm.append("      set font name of slabSS to font name of default settings")
             tm.append("    end try")
@@ -2476,6 +2570,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 tm.append("      set font size of slabSS to font size of default settings")
             }
             tm.append("    end try")
+            tm.append("    end if")
             // Close windows without the "terminate running processes?" modal:
             // `clean commands` is Terminal's allowlist of processes ignored when
             // deciding whether to warn on close. Include shells + dev runtimes so
@@ -2526,7 +2621,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         for a in changes {
             let escTty = esc(a.tty)
             tm.append("          if ttyName ends with \"\(escTty)\" then")
-            tm.append("            set current settings of t to settings set \"\(esc(a.profile))\"")
+            // Reassigning the same Terminal settings set is not a no-op: it
+            // reapplies that profile's rows/columns and can resize the whole
+            // window. Fuse/heartbeat refreshes must never touch geometry.
+            tm.append("            if name of current settings of t is not \"\(esc(a.profile))\" then")
+            tm.append("              set current settings of t to settings set \"\(esc(a.profile))\"")
+            tm.append("            end if")
             if a.title.isEmpty {
                 tm.append("            set title displays custom title of t to false")
             } else {
@@ -3120,6 +3220,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 // Reset decor memo so the next refresh re-themes every
                 // window from scratch (a re-pack invalidates prior placement).
                 self?.lastTerminalDecor.removeAll()
+                PromptSigilOverlayController.shared.terminalsDidRetile()
             }
             // Geometry is already done — the grid snapped above. Terminal
             // text size catches up asynchronously, and only when needed:
@@ -3162,9 +3263,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 // above; these are tiny AX corrections (sub-ms, no focus steal),
                 // so it stays snappy while resolving cleanly after the reflow.
                 Self.axTilePass(geom: geom, textSize: textSize)
+                DispatchQueue.main.async {
+                    PromptSigilOverlayController.shared.terminalsDidRetile()
+                }
                 for delay in [0.06, 0.16] {
                     DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
                         Self.axTilePass(geom: geom, textSize: textSize)
+                        PromptSigilOverlayController.shared.terminalsDidRetile()
                     }
                 }
             }
@@ -3371,7 +3476,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
             guard !lines.isEmpty else { return }
             let script = lines.joined(separator: "\n")
-            ShellRunner.runAsync("/usr/bin/osascript", args: ["-e", script])
+            ShellRunner.runAsync("/usr/bin/osascript", args: ["-e", script]) {
+                DispatchQueue.main.async {
+                    PromptSigilOverlayController.shared.terminalsDidRetile()
+                }
+            }
         }
     }
 

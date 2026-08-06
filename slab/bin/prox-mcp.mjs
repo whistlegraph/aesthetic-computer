@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // prox-mcp.mjs — an MCP over the slab "prompt rocks" ledger, so any
-// agent can LIST, FIND, POKE, and launch the little tumbling sigil stones the slab
+// agent can LIST, FIND, POKE, WAKE, and launch the little tumbling sigil stones the slab
 // menubar parks over every live Claude session across the fleet.
 //
 // A "rock" is one live session (or headless agent), advertised by its machine
@@ -14,7 +14,7 @@
 //   ~/.config/slab/ledger/local.json      — THIS machine's rocks
 //   ~/.config/slab/ledger/peers/<host>.json — each online peer's rocks
 // Each file is {host, ip, updatedAt, entries:[{id,host,name,subject,status,
-// kind,seed,cwd,updated}]}. Reads are O(1) local file loads (the menubar keeps
+// kind,seed,cwd,started,updated,memoir}]}. Reads are O(1) local file loads (the menubar keeps
 // them fresh over the tailnet); a poke is a POST to the owning machine's ledger
 // server (:5252 /poke {by,id,name}), which makes its rock blink + rattle.
 //
@@ -26,6 +26,18 @@ import { promisify } from "node:util";
 import { join } from "node:path";
 import { homedir, hostname } from "node:os";
 import { httpPort, serveHttp, serveStdio } from "../../toolchain/mcp/http-front.mjs";
+import { boundedNudge, makeIrisContact, parseAgentAddress } from "../lib/loopboy-family.mjs";
+import { enqueueLoopboyEvent, waitLoopboyEvent } from "../lib/loopboy-inbox.mjs";
+import { authorizeLoopboyWait } from "../lib/loopboy-request-auth.mjs";
+import {
+  RUNNING_STATUSES,
+  actionableTarget,
+  canonicalHandle,
+  duplicateReport,
+  isoTime,
+  ledgerFreshness,
+  resolveRocks,
+} from "../lib/prox-resolver.mjs";
 
 const pexec = promisify(execFile);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -105,11 +117,21 @@ async function allLedgers() {
 
 // Flatten to one row per rock, carrying its machine's host + ip so a poke knows
 // where to go. Sorted newest-activity-first within each host.
-async function allRocks() {
+async function allRocks(ledgers = null) {
   const rows = [];
-  for (const led of await allLedgers()) {
+  for (const led of ledgers || await allLedgers()) {
     for (const e of led.entries || []) {
-      rows.push({ ...e, host: e.host || led.host, ip: led.ip, self: led.self });
+      rows.push({
+        ...e,
+        host: e.host || led.host,
+        ip: led.ip,
+        self: led.self,
+        ledgerUpdatedAt: led.updatedAt,
+        // Trust only the immutable launch identity advertised by the live
+        // marker. The mutable route registry cannot turn an ordinary process
+        // into a guarded Loopboy after startup.
+        loopboyContact: e.loopboyContact || "",
+      });
     }
   }
   return rows;
@@ -130,36 +152,40 @@ const STATUS_MARK = {
   rendering: "◍", blank: "·", interrupted: "✕",
 };
 
-function line(r) {
+function timeAndAge(ms) {
+  return `${isoTime(ms)} (${age(ms)} ago)`;
+}
+
+function line(r, now = Date.now()) {
   const mark = STATUS_MARK[r.status] || "•";
   const subj = (r.subject || "").replace(/\s+/g, " ").slice(0, 64);
   // Tag the owning agent when it isn't the default (Claude), so a mixed
   // fleet reads clearly: "session·codex".
   const agent = r.agentType && r.agentType !== "claude" ? `·${r.agentType}` : "";
-  return `${mark} ${r.host}:${r.name}  [${r.status}] ${r.kind}${agent}  ·${age(r.updated)}  ${subj}`;
+  const loopboy = r.loopboyContact ? `·loopboy:${r.loopboyContact}` : "";
+  const up = r.started ? `  ·up ${age(r.started)}` : "";
+  const fresh = ledgerFreshness(r.ledgerUpdatedAt, now).state;
+  return `${mark} ${canonicalHandle(r)}  [${r.status}] ${r.kind}${agent}${loopboy}${up}  ·active ${timeAndAge(r.updated)}  ·ledger ${fresh}  ${subj}`;
 }
 
 // ── resolve a `host:name` / bare-name / fuzzy handle to rock rows ────────────
-function resolve(rocks, handle) {
-  if (!handle) return rocks;
-  const h = handle.trim().toLowerCase();
-  let host = null;
-  let name = h;
-  if (h.includes(":")) {
-    [host, name] = h.split(":", 2);
-    host = host === "local" ? null : host; // "local:foo" → any host with name foo on self
+function duplicateSummary(report) {
+  return `duplicate check: ids=${report.ids.length}, host:name aliases=${report.hostNames.length}, fleet pet names=${report.names.length}`;
+}
+
+function duplicateLines(report) {
+  const lines = [duplicateSummary(report)];
+  for (const [label, groups] of [["id", report.ids], ["host:name", report.hostNames], ["pet name", report.names]]) {
+    for (const group of groups.slice(0, 10)) {
+      lines.push(`  duplicate ${label} «${group.key}»: ${group.matches.map(canonicalHandle).join(", ")}`);
+    }
+    if (groups.length > 10) lines.push(`  … ${groups.length - 10} more duplicate ${label} group(s)`);
   }
-  const inHost = (r) => !host || r.host.toLowerCase() === host || (host === "local" && r.self);
-  // Stable session id is the strongest identity; then exact pet name, prefix,
-  // and substring — so `neo:reg` still finds regif.
-  const id = rocks.filter((r) => inHost(r) && r.id.toLowerCase() === name);
-  if (id.length) return id;
-  const exact = rocks.filter((r) => inHost(r) && r.name.toLowerCase() === name);
-  if (exact.length) return exact;
-  const prefix = rocks.filter((r) => inHost(r) && r.name.toLowerCase().startsWith(name));
-  if (prefix.length) return prefix;
-  return rocks.filter((r) => inHost(r) && (r.name.toLowerCase().includes(name) ||
-    (r.subject || "").toLowerCase().includes(name)));
+  return lines;
+}
+
+function actionResolution(rocks, handle, verb, now = Date.now()) {
+  return { ...actionableTarget(resolveRocks(rocks, handle), { now, verb }), resolvedAt: now };
 }
 
 // ── close plumbing (local machine only) ─────────────────────────────────────
@@ -214,34 +240,72 @@ end tell`;
 
 // ── tools ─────────────────────────────────────────────────────────────────────
 async function toolList({ host, status, kind, agent } = {}) {
-  let rocks = await allRocks();
+  const now = Date.now();
+  let ledgers = await allLedgers();
+  if (host) ledgers = ledgers.filter((l) => String(l.host).toLowerCase() === host.toLowerCase());
+  const all = await allRocks(ledgers);
+  const duplicates = duplicateReport(all);
+  let rocks = all;
   if (host) rocks = rocks.filter((r) => r.host.toLowerCase() === host.toLowerCase());
   if (status) rocks = rocks.filter((r) => r.status === status);
   if (kind) rocks = rocks.filter((r) => r.kind === kind);
   if (agent) rocks = rocks.filter((r) => (r.agentType || "claude").toLowerCase() === agent.toLowerCase());
-  if (!rocks.length) return [{ type: "text", text: "(no prompt rocks match — is SlabMenubar running? try again in a few seconds)" }];
   // group by host, self first
   rocks.sort((a, b) => (a.self === b.self ? a.host.localeCompare(b.host) : a.self ? -1 : 1) || 0);
   const byHost = new Map();
   for (const r of rocks) (byHost.get(r.host) || byHost.set(r.host, []).get(r.host)).push(r);
-  const L = [`${rocks.length} prompt rock(s) across ${byHost.size} machine(s):`];
+  const L = [
+    `checked_at: ${isoTime(now)}`,
+    `ledger snapshots (${ledgers.length}):`,
+    ...ledgers.map((l) => {
+      const fresh = ledgerFreshness(l.updatedAt, now);
+      return `  ${l.host}: ${isoTime(l.updatedAt)} (${age(l.updatedAt)} ago, ${fresh.state}), ${(l.entries || []).length} rock(s)`;
+    }),
+    `${rocks.length} prompt rock(s) across ${byHost.size} machine(s):`,
+    ...duplicateLines(duplicates),
+  ];
+  if (!rocks.length) L.push("(no prompt rocks match)");
   for (const [hst, rs] of byHost) {
-    L.push(`\n${hst} (${rs.length}):`);
-    for (const r of rs.sort((a, b) => (b.updated || 0) - (a.updated || 0))) L.push("  " + line(r));
+    const ledgerUpdatedAt = rs[0]?.ledgerUpdatedAt;
+    const fresh = ledgerFreshness(ledgerUpdatedAt, now);
+    L.push(`\n${hst} (${rs.length}) · ledger ${isoTime(ledgerUpdatedAt)} (${age(ledgerUpdatedAt)} ago, ${fresh.state}):`);
+    for (const r of rs.sort((a, b) => (b.updated || 0) - (a.updated || 0))) L.push("  " + line(r, now));
   }
   return [{ type: "text", text: L.join("\n") }];
 }
 
 async function toolFind({ handle }) {
   if (!handle) throw new Error("`handle` is required — a `host:name` (e.g. neo:regif), a bare name, or a fuzzy fragment.");
-  const hits = resolve(await allRocks(), handle);
-  if (!hits.length) return [{ type: "text", text: `no rock resolves «${handle}». Run prox_list to see what's live.` }];
-  const L = [`«${handle}» → ${hits.length} match(es):`];
+  const now = Date.now();
+  const rocks = await allRocks();
+  const resolution = resolveRocks(rocks, handle);
+  const { hits, matchType } = resolution;
+  const duplicates = duplicateReport(rocks);
+  if (!hits.length) return [{ type: "text", text: [
+    `checked_at: ${isoTime(now)}`,
+    `no rock resolves «${handle}». Run prox_list to inspect every ledger snapshot.`,
+    ...duplicateLines(duplicates),
+  ].join("\n") }];
+  const weak = new Set(["name-prefix", "name-substring", "subject-substring"]).has(matchType);
+  const L = [
+    `checked_at: ${isoTime(now)}`,
+    `«${handle}» → ${hits.length} match(es) by ${matchType}:`,
+    ...duplicateLines(duplicates),
+    ...(weak ? ["warning: this is a discovery-only match, not an authoritative identity"] : []),
+  ];
   for (const r of hits) {
+    const fresh = ledgerFreshness(r.ledgerUpdatedAt, now);
+    const running = fresh.state === "fresh" && RUNNING_STATUSES.has(r.status);
     L.push(
-      `\n${r.host}:${r.name}  ${r.self ? "(this machine)" : ""}`,
-      `  status:  ${r.status}   kind: ${r.kind}   last active: ${age(r.updated)} ago`,
+      `\n${canonicalHandle(r)}  ${r.self ? "(this machine)" : ""}`,
+      `  alias:   ${r.host}:${r.name}`,
+      `  status:  ${r.status}   kind: ${r.kind}   running now: ${running ? "yes" : "no"}`,
+      `  ledger:  ${timeAndAge(r.ledgerUpdatedAt)}   freshness: ${fresh.state}`,
+      `  active:  ${timeAndAge(r.updated)}`,
+      `  uptime:  ${r.started ? age(r.started) : "?"}`,
+      ...(r.loopboyContact ? [`  loopboy: ${r.loopboyContact}`] : []),
       `  subject: ${(r.subject || "").replace(/\s+/g, " ")}`,
+      `  memoir:  ${(r.memoir || "(still gathering its story)").replace(/\s+/g, " ")}`,
       `  cwd:     ${r.cwd || "?"}`,
       `  id:      ${r.id}`,
       `  seed:    ${r.seed || "?"}   (re-render the same sigil anywhere)`,
@@ -250,14 +314,44 @@ async function toolFind({ handle }) {
   return [{ type: "text", text: L.join("\n") }];
 }
 
-async function toolPoke({ handle, by }) {
-  if (!handle) throw new Error("`handle` is required (a `host:name` or fuzzy name; see prox_find).");
-  const hits = resolve(await allRocks(), handle);
-  if (!hits.length) throw new Error(`no rock resolves «${handle}» to poke.`);
+// A narrative-first view for agents deciding whether a prox is the right
+// continuation target. Inference remains owned by the menubar heartbeat; this
+// read can never fan out model calls or transcript I/O.
+async function toolRecap({ handle }) {
+  if (!handle) throw new Error("`handle` is required (use host:name, session id, or a fuzzy fragment).");
+  const now = Date.now();
+  const rocks = await allRocks();
+  const duplicates = duplicateReport(rocks);
+  const resolution = resolveRocks(rocks, handle);
+  const { hits, matchType } = resolution;
+  if (!hits.length) return [{ type: "text", text: [
+    `checked_at: ${isoTime(now)}`,
+    `no rock resolves «${handle}».`,
+    ...duplicateLines(duplicates),
+  ].join("\n") }];
   if (hits.length > 1) {
-    return [{ type: "text", text: `«${handle}» is ambiguous (${hits.map((r) => `${r.host}:${r.name}`).join(", ")}). Poke a specific host:name.` }];
+    return [{ type: "text", text: [
+      `checked_at: ${isoTime(now)}`,
+      `«${handle}» is ambiguous (${hits.map(canonicalHandle).join(", ")}). Use a session id or canonical host:name#id.`,
+      ...duplicateLines(duplicates),
+    ].join("\n") }];
   }
   const r = hits[0];
+  const fresh = ledgerFreshness(r.ledgerUpdatedAt, now);
+  const story = (r.memoir || r.subject || "No story has landed yet.").replace(/\s+/g, " ").trim();
+  return [{ type: "text", text: [
+    `checked_at: ${isoTime(now)}`,
+    `${canonicalHandle(r)} · ${r.status} · ${r.agentType || "claude"} · match ${matchType}`,
+    `Ledger ${timeAndAge(r.ledgerUpdatedAt)} (${fresh.state}); active ${timeAndAge(r.updated)}; up ${r.started ? age(r.started) : "?"}.`,
+    ...(new Set(["name-prefix", "name-substring", "subject-substring"]).has(matchType)
+      ? ["Discovery-only match: confirm with the canonical handle or session id before acting."] : []),
+    story,
+  ].join("\n\n") }];
+}
+
+async function toolPoke({ handle, by }) {
+  if (!handle) throw new Error("`handle` is required (a canonical host:name#id, exact host:name, unique pet name, or session id; see prox_find).");
+  const r = actionResolution(await allRocks(), handle, "poke");
   if (!r.ip) throw new Error(`no tailnet ip known for ${r.host} — can't reach its ledger server.`);
   const self = (await readJson(LOCAL_FILE))?.host || hostname().split(".")[0];
   const poker = by || `${self}:prox`;
@@ -268,7 +362,7 @@ async function toolPoke({ handle, by }) {
     body,
     signal: AbortSignal.timeout(5000),
   }).catch((e) => { throw new Error(`poke to ${r.host} (${r.ip}) failed: ${e.message}`); });
-  return [{ type: "text", text: `poked ${r.host}:${r.name} as «${poker}» — its rock should blink + rattle (HTTP ${res.status}).` }];
+  return [{ type: "text", text: `checked_at: ${isoTime(r.resolvedAt)}\npoked ${canonicalHandle(r)} as «${poker}» — its rock should blink + rattle (HTTP ${res.status}).` }];
 }
 
 async function toolDump({ handle, destination } = {}) {
@@ -342,12 +436,32 @@ async function toolLaunch({ host, agent, cwd, prompt = "", by, loopboyContact = 
   const ledgers = await allLedgers();
   const target = ledgers.find((l) => String(l.host || "").toLowerCase() === wanted);
   if (!target) throw new Error(`no cached ledger for host «${host}» — it must be online in prox first.`);
+  const targetFreshness = ledgerFreshness(target.updatedAt);
+  if (targetFreshness.state !== "fresh") {
+    throw new Error(`${target.host}'s ledger is ${targetFreshness.state} (${isoTime(target.updatedAt)}); refusing to launch`);
+  }
   if (!target.ip) throw new Error(`no tailnet IP known for ${target.host}.`);
   const self = (await readJson(LOCAL_FILE))?.host || hostname().split(".")[0];
+  const contactKey = String(loopboyContact || "").trim().toLowerCase();
+  const loopboyListenerPrompt = contactKey
+    ? `\n\nLoopboy listener contract: after completing this turn, call prox_loopboy_wait with contact ${contactKey} and timeoutSeconds 50. Call it again after every event or timeout so this client loop remains available. Events arrive only through that private MCP inbox. Never use Terminal, clipboard, mouse, keyboard, browser, or GUI injection to wake or operate this loop.`
+    : "";
+  const launchPrompt = `${String(prompt)}${loopboyListenerPrompt}`.trim();
+  if (launchPrompt.length > 4000) {
+    throw new Error("Loopboy listener instructions make the initial prompt exceed 4000 characters.");
+  }
+  const existingMarkerIds = new Set();
+  if (contactKey) {
+    for (const dir of MARKER_DIRS) {
+      let names = [];
+      try { names = await readdir(dir); } catch {}
+      for (const name of names) existingMarkerIds.add(name);
+    }
+  }
   const launcher = by || `${self}:prox`;
   const body = JSON.stringify({
     agent: agentName,
-    prompt: String(prompt),
+    prompt: launchPrompt,
     ...(cwd ? { cwd: String(cwd) } : {}),
     ...(loopboyContact ? { loopboyContact: String(loopboyContact).toLowerCase() } : {}),
     by: launcher,
@@ -405,23 +519,32 @@ async function toolLaunch({ host, agent, cwd, prompt = "", by, loopboyContact = 
   }];
 }
 
-async function toolBindNotification({ handle, contact, event = "imessage", wake = true }) {
+async function toolBindNotification({ handle, contact, event = "imessage" }) {
   if (event !== "imessage") throw new Error("only the `imessage` Slab notification is supported");
   if (!handle) throw new Error("`handle` is required (use the stable host:name or session id)");
   const contactKey = String(contact || "").trim().toLowerCase();
   if (!contactKey) throw new Error("`contact` is required (the key from ~/.config/slab/imsg.json)");
-  const hits = resolve(await allRocks(), handle);
-  if (!hits.length) throw new Error(`no rock resolves «${handle}» to bind.`);
-  if (hits.length > 1) throw new Error(`«${handle}» is ambiguous (${hits.map((r) => `${r.host}:${r.name}`).join(", ")}).`);
-  const r = hits[0];
+  const r = actionResolution(await allRocks(), handle, "bind");
   if (!r.self) throw new Error("iMessage notification wake targets must be a local prox on this machine");
+  if (!r.loopboyContact) {
+    throw new Error(
+      `${canonicalHandle(r)} was not launched as a guarded Loopboy; ` +
+      `start a dedicated session with prox_launch and loopboyContact=${contactKey}`,
+    );
+  }
+  if (String(r.loopboyContact).toLowerCase() !== contactKey) {
+    throw new Error(
+      `${canonicalHandle(r)} was launched for ${r.loopboyContact}, not ${contactKey}`,
+    );
+  }
   const loop = {
     event: "imessage",
     contact: contactKey,
     sessionId: r.id,
     host: r.host,
     name: r.name,
-    wake: wake !== false,
+    wake: false,
+    delivery: "inbox",
     assignedAt: new Date().toISOString(),
   };
   await mkdir(join(homedir(), ".config", "slab"), { recursive: true });
@@ -430,17 +553,44 @@ async function toolBindNotification({ handle, contact, event = "imessage", wake 
   cfg.loops ||= {};
   cfg.loops[contactKey] = loop;
   await writeFile(LOOPBOY_CONFIG, JSON.stringify(cfg, null, 2) + "\n", { mode: 0o600 });
-  return [{ type: "text", text: `Loopboy bound ${contactKey} → ${r.host}:${r.name} (${r.id}) — poke${loop.wake ? " + reactivate" : " only"}.` }];
+  return [{ type: "text", text: `checked_at: ${isoTime(r.resolvedAt)}\nLoopboy bound ${contactKey} → ${canonicalHandle(r)} (${r.id}) — isolated inbox delivery; no Terminal/UI injection.` }];
+}
+
+async function toolLoopboyWait({ handle, contact, timeoutSeconds = 50 }, context = {}) {
+  const cfg = await readJson(LOOPBOY_CONFIG);
+  const loops = cfg?.loops || {};
+  const { contact: contactKey, sessionId: callerSessionId, loop } = authorizeLoopboyWait({
+    context,
+    loops,
+    requestedContact: contact,
+  });
+  if (handle) {
+    const rock = actionResolution(await allRocks(), handle, "wait on");
+    if (String(rock.id) !== callerSessionId) {
+      throw new Error(`«${handle}» is not this Loopboy session`);
+    }
+  }
+  const seconds = Math.max(0, Math.min(55, Number(timeoutSeconds) || 0));
+  const event = await waitLoopboyEvent(loop.sessionId, { timeoutMs: seconds * 1000 });
+  if (!event) {
+    return [{
+      type: "text",
+      text: `No event arrived for Loopboy ${contactKey} during this wait. Call prox_loopboy_wait again; do not poll Messages through GUI automation.`,
+    }];
+  }
+  return [{
+    type: "text",
+    text: [
+      `Loopboy inbox event for ${contactKey} (${event.kind}, ${event.createdAt}).`,
+      event.prompt,
+      "After handling this event, call prox_loopboy_wait again to remain available. Never use Terminal, clipboard, mouse, keyboard, browser, or GUI injection.",
+    ].filter(Boolean).join("\n\n"),
+  }];
 }
 
 async function toolClose({ handle }) {
-  if (!handle) throw new Error("`handle` is required (a `host:name` or fuzzy name; see prox_find).");
-  const hits = resolve(await allRocks(), handle);
-  if (!hits.length) throw new Error(`no rock resolves «${handle}» to close.`);
-  if (hits.length > 1) {
-    return [{ type: "text", text: `«${handle}» is ambiguous (${hits.map((r) => `${r.host}:${r.name}`).join(", ")}). Close a specific host:name.` }];
-  }
-  const r = hits[0];
+  if (!handle) throw new Error("`handle` is required (a canonical host:name#id, exact host:name, unique pet name, or session id; see prox_find).");
+  const r = actionResolution(await allRocks(), handle, "close");
   // Closing means killing a process + shutting its terminal window — only doable
   // on the machine that owns the window. Remote close would need a ledger
   // endpoint the menubar doesn't expose yet.
@@ -464,14 +614,14 @@ async function toolClose({ handle }) {
   } else if (pid) steps.push(`pid ${pid} already exited`);
   // Close the terminal window so no "[Process completed]" husk is left behind.
   if (tty) { const n = await closeTerminalTty(tty); steps.push(`closed ${n} window(s) on /dev/${tty}`); }
-  return [{ type: "text", text: `closed ${r.host}:${r.name} — ${steps.join("; ")}.` }];
+  return [{ type: "text", text: `checked_at: ${isoTime(r.resolvedAt)}\nclosed ${canonicalHandle(r)} — ${steps.join("; ")}.` }];
 }
 
 const TOOLS = [
   {
     name: "prox_list",
     description:
-      "List the 'prompt rocks' across the slab fleet — every live agent session (Claude or Codex) and headless agent the menubar advertises, as host:name with its status (working/awaiting/complete/rendering/blank/interrupted), kind, owning agent, age, and a one-line subject. Use this to see what every machine is working on right now. Reads the local fleet ledger cache (no SSH).",
+      "List the prompt rocks advertised across the slab fleet with an absolute check time, each host ledger's timestamp/freshness, canonical host:name#id handles, last-active timestamps, status, and duplicate counts. Stale cached hosts remain visible but are labeled and are not evidence that a session is running now.",
     inputSchema: {
       type: "object",
       properties: {
@@ -485,7 +635,7 @@ const TOOLS = [
   {
     name: "prox_find",
     description:
-      "Resolve a `machine:promptname` reference (e.g. neo:regif) — or a bare name / fuzzy fragment — to the exact session: its status, subject, working directory (cwd), session id, and sigil seed. This is how you turn a `host:name` handle someone mentions into what/where it actually is.",
+      "Look up a canonical host:name#id, session id, host:name, pet name, or discovery fragment. Always reports the check timestamp, match method, ledger timestamp/freshness, last-active timestamp, running-now classification, and fleet duplicate counts. Prefix/substring/subject matches are explicitly discovery-only.",
     inputSchema: {
       type: "object",
       properties: {
@@ -495,9 +645,21 @@ const TOOLS = [
     },
   },
   {
+    name: "prox_recap",
+    description:
+      "Read the cached living recap for one prompt rock, including how long it has been up and how recently it was active. This is a cheap local-ledger read: it never starts inference or reads a transcript. Use it to understand a session before poking or waking it.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        handle: { type: "string", description: "Stable host:name, session id, or an unambiguous name/subject fragment." },
+      },
+      required: ["handle"],
+    },
+  },
+  {
     name: "prox_poke",
     description:
-      "Poke a prompt rock — send an attention beacon to the owning machine so its sigil blinks and rattles on that machine's overlay (a lightweight 'I'm looking at you' ping). Resolves the same host:name / fuzzy handle as prox_find; refuses ambiguous matches.",
+      "Poke a prompt rock so its sigil blinks and rattles. Requires a fresh ledger and a canonical host:name#id, session id, exact host:name, or fleet-unique exact pet name. Refuses duplicate, stale, prefix, substring, and subject-only matches.",
     inputSchema: {
       type: "object",
       properties: {
@@ -508,9 +670,43 @@ const TOOLS = [
     },
   },
   {
+    name: "prox_wake",
+    description:
+      "Wake one stable local prompt rock with a bounded steering prompt, using the same poke + TTY reactivation pattern as Loopboy. Use this when an asynchronous artifact or render completes after its agent turn: tell that same agent to open the artifact, inspect it, and continue the original task. SIDE EFFECT: submits a new prompt to the live Claude/Codex session. Refuses remote or ambiguous targets.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        handle: { type: "string", description: "Fresh canonical local host:name#id, session id, exact host:name, or fleet-unique exact pet name." },
+        prompt: { type: "string", description: "Continuation instruction, at most 1000 characters." },
+        by: { type: "string", description: "Optional source label, such as artifact:tokens-2-tlds." },
+      },
+      required: ["handle", "prompt"],
+    },
+  },
+  {
+    name: "prox_artifact_ready",
+    description:
+      "Deliver an asynchronous artifact-complete event to the stable local rock that launched it. Prox constructs and submits the continuation prompt itself: open and inspect the outputs, iterate, place accepted files in the project, wire them into their consumer, and continue the original task. Uses the Loopboy-style poke + TTY wake path. SIDE EFFECT: submits a new prompt to the live Claude/Codex session.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        handle: { type: "string", description: "Fresh canonical local host:name#id, session id, exact host:name, or fleet-unique exact pet name." },
+        artifacts: {
+          type: "array",
+          items: { type: "string" },
+          minItems: 1,
+          maxItems: 8,
+          description: "Absolute or project-relative output paths that just became ready.",
+        },
+        by: { type: "string", description: "Optional event-source label." },
+      },
+      required: ["handle", "artifacts"],
+    },
+  },
+  {
     name: "prox_close",
     description:
-      "Close a prompt rock — end that Claude session and shut its terminal window. Resolves a `host:name` / fuzzy handle (refuses ambiguous matches), ends the session (SIGTERM then SIGKILL — claude traps SIGTERM), and closes its Terminal.app window. DESTRUCTIVE: the running session is terminated (its transcript persists and is resumable). Only closes rocks on THIS machine (it needs the terminal window); refuses to close the calling session.",
+      "Close a prompt rock and its terminal window. DESTRUCTIVE: requires a fresh ledger and a canonical host:name#id, session id, exact host:name, or fleet-unique exact pet name; refuses fuzzy, duplicate, stale, remote, or calling-session targets.",
     inputSchema: {
       type: "object",
       properties: {
@@ -552,34 +748,75 @@ const TOOLS = [
   {
     name: "prox_bind_notification",
     description:
-      "Create or replace one contact-keyed Loopboy route from iMessage to a stable local prox. Every new inbound from that contact pokes the rock and, by default, reactivates its terminal session with a steering prompt. This does not send or react to the incoming message.",
+      "Register or repair the route for a local prox that was already launched with the same guarded Loopboy contact identity. Refuses ordinary sessions because route JSON cannot retrofit the listener identity or reduced tool surface; use prox_launch with loopboyContact to create a new Loopboy.",
     inputSchema: {
       type: "object",
       properties: {
-        handle: { type: "string", description: "Stable local host:name, session id, or an unambiguous subject fragment." },
+        handle: { type: "string", description: "Fresh canonical local host:name#id, session id, exact host:name, or fleet-unique exact pet name." },
         contact: { type: "string", description: "Contact key from ~/.config/slab/imsg.json, for example alex." },
         event: { type: "string", enum: ["imessage"], default: "imessage" },
-        wake: { type: "boolean", default: true, description: "Also reactivate the agent session; false means visual poke only." },
       },
       required: ["handle", "contact"],
     },
   },
+  {
+    name: "prox_loopboy_wait",
+    description:
+      "Wait up to 55 seconds for the next event in one bound Loopboy session's isolated inbox. The event is claimed exactly once and returned only to that session/contact. This is the safe replacement for Terminal, clipboard, mouse, and keyboard wake injection. Call it again after handling each event.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        handle: { type: "string", description: "Bound Loopboy host:name or session id. Either handle or contact is required." },
+        contact: { type: "string", description: "Bound iMessage contact key, for example alex or loretta." },
+        timeoutSeconds: { type: "number", minimum: 0, maximum: 55, default: 50 },
+      },
+    },
+  },
+  {
+    name: "prox_loopboy_agent_status",
+    description:
+      "Report a first-class Loopboy agent contact by stable agent:<name>@<machine> address. V1 reads the fleet prompt ledger and the contact's bounded responsibility; it is not an iMessage identity.",
+    inputSchema: {
+      type: "object",
+      properties: { address: { type: "string", description: "Stable agent address, currently agent:iris@panda." } },
+      required: ["address"],
+    },
+  },
+  {
+    name: "prox_loopboy_agent_nudge",
+    description:
+      "Send a bounded accountability attention nudge (max 500 characters) to a live Loopboy agent contact. V1 uses the target agent rock's fixed poke channel and provides no arbitrary remote control.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        address: { type: "string", description: "Stable agent address, currently agent:iris@panda." },
+        text: { type: "string", maxLength: 500, description: "Accountability note, not a shell command or unrestricted prompt." },
+      },
+      required: ["address", "text"],
+    },
+  },
 ];
 
-async function callTool(name, args) {
+async function callTool(name, args, context) {
   switch (name) {
     case "prox_list": return toolList(args || {});
     case "prox_find": return toolFind(args || {});
+    case "prox_recap": return toolRecap(args || {});
     case "prox_poke": return toolPoke(args || {});
+    case "prox_wake": return toolWake(args || {});
+    case "prox_artifact_ready": return toolArtifactReady(args || {});
     case "prox_launch": return toolLaunch(args || {});
     case "prox_bind_notification": return toolBindNotification(args || {});
+    case "prox_loopboy_wait": return toolLoopboyWait(args || {}, context);
+    case "prox_loopboy_agent_status": return toolLoopboyAgentStatus(args || {});
+    case "prox_loopboy_agent_nudge": return toolLoopboyAgentNudge(args || {});
     case "prox_close": return toolClose(args || {});
     case "prox_dump": return toolDump(args || {});
     default: throw new Error(`Unknown tool: ${name}`);
   }
 }
 
-async function handleMessage(message) {
+async function handleMessage(message, context = {}) {
   const { id, method, params } = message;
   try {
     switch (method) {
@@ -600,7 +837,7 @@ async function handleMessage(message) {
       case "tools/list":
         return { jsonrpc: "2.0", id, result: { tools: TOOLS } };
       case "tools/call": {
-        const content = await callTool(params?.name, params?.arguments);
+        const content = await callTool(params?.name, params?.arguments, context);
         return { jsonrpc: "2.0", id, result: { content } };
       }
       default:

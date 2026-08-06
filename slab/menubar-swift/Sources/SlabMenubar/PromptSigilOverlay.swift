@@ -8,16 +8,14 @@
 // id + current prompt, so the stone re-forms whenever the session moves on to a
 // new prompt. Its MOTION is the status channel — spin speed and direction say
 // working / awaiting / complete, and a poke from a peer makes it blink and
-// rattle. It carries a pet name in bubble lettering, and pointing at it reveals
-// a bubble summarizing the prompt.
+// rattle. It carries a pet name in bubble lettering, and pointing at it
+// reveals a slowly evolving account of the session.
 //
-// Each rock is a borderless, click-through `.floating` window, so it rides
-// above the whole normal-window stack and can't be buried by the wall of
-// preview cards. That means occlusion is OUR job, in two places that must
-// agree: `reposition` hides a rock whose terminal corner is covered, and
-// `overlayAt` refuses the pointer to a rock that is hidden or covered at the
-// cursor — otherwise a stone wakes up and pops its bubble through whatever
-// window is sitting on top of it.
+// Each rock is a borderless, click-through normal-level window ordered directly
+// above its own terminal. AppKit then gives it the terminal's real place in the
+// window stack: windows above that terminal also cover the rock. `overlayAt`
+// still checks the stack at the pointer so a covered stone cannot answer hover
+// or clicks during the short interval before AppKit/window snapshots settle.
 
 import AppKit
 import CoreGraphics
@@ -273,50 +271,62 @@ final class RockCharLayer: CALayer {
     }
 }
 
-/// One-sentence bubble summaries, inferred by a cheap local `claude -p`
-/// haiku call and cached per prompt seed — each prompt pays for one tiny
-/// inference, once, off-main on a serial queue. A miss returns nil and the
-/// bubble falls back to the deduped hook summary until the sentence lands
-/// (the controller's regular sync picks it up).
-final class RockSummaries {
-    static let shared = RockSummaries()
-    private init() {}
+/// Compact, metadata-driven destination mark parked at the bottom-left of a
+/// prompt terminal. The deliberately long type name is the feature's canonical
+/// identifier: `platform-target-awareness-identifier-badge`. It is not keyed
+/// to a pet name or tty; the owning session's `platform_target` marker decides
+/// what this view acknowledges.
+final class PlatformTargetAwarenessIdentifierBadgeView: NSView {
+    var platformTarget = "" {
+        didSet { needsDisplay = true }
+    }
 
-    private var cache: [UInt64: String] = [:]
-    private var inFlight = Set<UInt64>()
-    private var failed = Set<UInt64>()
-    private let queue = DispatchQueue(label: "computer.slab.rock-summaries", qos: .utility)
+    override var isFlipped: Bool { false }
 
-    /// Cached sentence for `seed`, or nil (kicking off inference when the
-    /// subject is meaty enough to be worth a summary). Main-thread only.
-    func sentence(seed: UInt64, subject: String) -> String? {
-        if let hit = cache[seed] { return hit }
-        let trimmed = subject.trimmingCharacters(in: .whitespacesAndNewlines)
-        // Short prompts describe themselves; don't spend inference on "yes".
-        guard !inFlight.contains(seed), !failed.contains(seed), trimmed.count > 40 else { return nil }
-        inFlight.insert(seed)
-        let excerpt = String(trimmed.prefix(500)).replacingOccurrences(of: "'", with: " ")
-        queue.async { [weak self] in
-            let ask = "Summarize what this coding-session prompt is asking for, in one plain sentence"
-                + " of at most 14 words. Output only the sentence. Prompt: \(excerpt)"
-            let r = ShellRunner.run(
-                "/bin/zsh",
-                args: ["-lc", "claude --model claude-haiku-4-5-20251001 -p '\(ask)' 2>/dev/null"],
-                timeout: 90)
-            let text = r.output
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-                .replacingOccurrences(of: "\n", with: " ")
-            DispatchQueue.main.async {
-                guard let self = self else { return }
-                self.inFlight.remove(seed)
-                if r.status == 0, !text.isEmpty, text.count <= 220 {
-                    self.cache[seed] = text
-                } else {
-                    self.failed.insert(seed)   // don't retry a dud every sync
-                }
-            }
+    override func draw(_ dirtyRect: NSRect) {
+        super.draw(dirtyRect)
+        guard !platformTarget.isEmpty else { return }
+        let xbox = platformTarget == "xbox"
+        let green = NSColor(deviceRed: 0.063, green: 0.486, blue: 0.063, alpha: 1)
+        let body = NSBezierPath(roundedRect: bounds.insetBy(dx: 1, dy: 1),
+                                xRadius: 7, yRadius: 7)
+        (xbox ? green : NSColor(deviceWhite: 0.10, alpha: 0.92)).setFill()
+        body.fill()
+        NSColor.white.withAlphaComponent(0.25).setStroke()
+        body.lineWidth = 1
+        body.stroke()
+
+        if xbox {
+            // A small Xbox sphere: white field with the familiar green X.
+            // It is drawn locally so the acknowledgement needs no network or
+            // bundled raster asset and stays sharp at every display scale.
+            let sphereRect = NSRect(x: 4, y: 4, width: 16, height: 16)
+            NSColor.white.setFill()
+            NSBezierPath(ovalIn: sphereRect).fill()
+            let xMark = NSBezierPath()
+            xMark.lineWidth = 2.15
+            xMark.lineCapStyle = .round
+            xMark.move(to: NSPoint(x: 7.5, y: 17.0))
+            xMark.curve(to: NSPoint(x: 16.5, y: 7.0),
+                        controlPoint1: NSPoint(x: 10.0, y: 14.7),
+                        controlPoint2: NSPoint(x: 14.3, y: 10.0))
+            xMark.move(to: NSPoint(x: 16.5, y: 17.0))
+            xMark.curve(to: NSPoint(x: 7.5, y: 7.0),
+                        controlPoint1: NSPoint(x: 14.0, y: 14.7),
+                        controlPoint2: NSPoint(x: 9.7, y: 10.0))
+            green.setStroke()
+            xMark.stroke()
         }
-        return nil
+
+        let label = xbox ? "XBOX" : String(platformTarget.uppercased().prefix(8))
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: NSFont.systemFont(ofSize: 9, weight: .bold),
+            .foregroundColor: NSColor.white,
+            .kern: 0.6,
+        ]
+        let labelRect = NSRect(x: xbox ? 24 : 6, y: 5,
+                               width: bounds.width - (xbox ? 27 : 12), height: 13)
+        (label as NSString).draw(in: labelRect, withAttributes: attributes)
     }
 }
 
@@ -328,11 +338,9 @@ final class RockSummaries {
 /// channel. The layer spin is GPU-driven (render-server side, CPU stays idle),
 /// so the only recurring cost is the controller's light reposition tick.
 ///
-/// Compositing: the window FLOATS above the normal-window stack. Rocks used
-/// to ride the z-order just above their terminal (correctly occluded by
-/// covering windows), but a wall full of preview cards kept burying them —
-/// so now every session's stone is always visible and pointable, and the
-/// whole raise/behind-detection dance is gone.
+/// Compositing: the window lives at normal level and is inserted immediately
+/// above its terminal. It therefore follows the terminal's z-order instead of
+/// painting over unrelated foreground windows.
 final class PromptSigilOverlay {
     private static let fuseParticle: CGImage? = {
         let side = 8
@@ -406,6 +414,16 @@ final class PromptSigilOverlay {
     private(set) var name: String = ""
     var tooltipTitle: String = ""
     var tooltipBody: String = ""
+    var tooltipEdition: String = "PROMPT ROCK  •  LIVING MEMORY"
+    var tooltipStatus: String = ""
+    var tooltipStats: String = ""
+    var tooltipAccent: NSColor { shadowColor ?? .systemGray }
+    var tooltipImage: NSImage? {
+        // The terminal badge deliberately plays a chunky 30px sprite. The
+        // collectible card gets the original high-resolution render instead:
+        // same rock, but crisp enough to read as the card's illustration.
+        shadowFrames.first.map { NSImage(cgImage: $0, size: NSSize(width: 128, height: 128)) }
+    }
     /// Two pre-rendered sprite sheets of one full turn: `rockFrames` is the
     /// chunky low-res copy the rock plays; `shadowFrames` is the crisp high-res
     /// silhouette the shadow plays.
@@ -424,10 +442,10 @@ final class PromptSigilOverlay {
         window.backgroundColor = .clear
         window.hasShadow = false
         window.ignoresMouseEvents = true
-        // Floating: rocks ride above the whole normal-window soup (preview
-        // cards, other apps), so every session's stone is always visible and
-        // clickable — no more burying under whatever the wall accumulates.
-        window.level = .floating
+        // Stay in the normal-window stack. `orderAbove` places this rock just
+        // above its terminal, leaving every window above that terminal above
+        // the rock as well.
+        window.level = .normal
         window.collectionBehavior = [.fullScreenAuxiliary]
 
         let heartbeatInitial = NSRect(x: -2000, y: -2000, width: 160, height: 40)
@@ -1159,7 +1177,8 @@ final class PromptSigilOverlay {
     /// illusion. The badge floats above everything, but it only *shows* while
     /// its corner of the terminal is genuinely visible, so it hides and
     /// reappears with its window exactly as if it were part of it.
-    func setVisible(_ v: Bool) {
+    func setVisible(_ v: Bool, above terminalWindowNumber: Int,
+                    reassertOrder: Bool) {
         if v {
             if !window.isVisible { window.orderFrontRegardless() }
             if loopboyStyled && !heartbeatWindow.isVisible { heartbeatWindow.orderFrontRegardless() }
@@ -1171,9 +1190,7 @@ final class PromptSigilOverlay {
     }
 
     /// Is the badge actually on screen right now? A hidden rock keeps its
-    /// `hitRect` (the frame doesn't move when it's ordered out), so the hover
-    /// hit-test has to consult this or the stone answers the pointer from
-    /// under whatever is covering it.
+    /// `hitRect`, so the hover hit-test still consults visibility.
     var isOnScreen: Bool { window.isVisible }
 
     /// Ease the badge toward its target by a frame-rate-independent step.
@@ -1213,54 +1230,297 @@ final class PromptSigilOverlay {
     }
 }
 
-/// The little sentence card a rock reveals on hover or click: the rock's
-/// name up top, the session's subject summary underneath — so a glance at
-/// any stone can be cashed in for actual context. One shared instance; it
-/// floats above everything and never takes the mouse.
-final class SigilBubble {
-    private let window: NSWindow
-    private let label: NSTextField
+/// A quiet procedural paper stock used behind the card and its illustration
+/// matte. Deterministic flecks + short fibres keep every refresh visually
+/// stable (no shimmering noise) while breaking the too-perfect glass gradient.
+final class CardPaperLayer: CALayer {
+    override init() {
+        super.init()
+        contentsScale = NSScreen.main?.backingScaleFactor ?? 2
+        needsDisplayOnBoundsChange = true
+    }
 
-    init() {
-        window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 10, height: 10),
-                          styleMask: [.borderless], backing: .buffered, defer: true)
+    override init(layer: Any) { super.init(layer: layer) }
+    required init?(coder: NSCoder) { super.init(coder: coder) }
+
+    override func draw(in ctx: CGContext) {
+        var seed: UInt32 = 0x50_52_4f_58
+        func next() -> CGFloat {
+            seed = seed &* 1_664_525 &+ 1_013_904_223
+            return CGFloat(seed & 0x00ff_ffff) / CGFloat(0x0100_0000)
+        }
+        ctx.saveGState()
+        ctx.setBlendMode(.softLight)
+        for i in 0..<950 {
+            let light = (i & 1) == 0
+            ctx.setFillColor(NSColor(white: light ? 1 : 0, alpha: light ? 0.045 : 0.032).cgColor)
+            let d = 0.28 + next() * 0.9
+            ctx.fill(CGRect(x: next() * bounds.width, y: next() * bounds.height,
+                            width: d, height: d * (0.55 + next())))
+        }
+        ctx.setLineWidth(0.35)
+        for i in 0..<75 {
+            ctx.setStrokeColor(NSColor(white: (i & 1) == 0 ? 1 : 0,
+                                       alpha: (i & 1) == 0 ? 0.035 : 0.022).cgColor)
+            let x = next() * bounds.width, y = next() * bounds.height
+            ctx.move(to: CGPoint(x: x, y: y))
+            ctx.addLine(to: CGPoint(x: min(bounds.width, x + 3 + next() * 17),
+                                    y: y + (next() - 0.5) * 1.8))
+            ctx.strokePath()
+        }
+        ctx.restoreGState()
+    }
+}
+
+/// A card should share on its first click even while Slab itself is not the
+/// active app. The non-activating panel stays out of the user's focus chain;
+/// this view simply opts the click into its gesture recognizer.
+final class ShareableCardView: NSView {
+    var onClick: (() -> Void)?
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+    override func mouseDown(with event: NSEvent) { onClick?() }
+}
+
+final class ShareCardPanel: NSPanel {
+    override var canBecomeKey: Bool { true }
+}
+
+/// The collectible summary card a rock reveals on hover or click. It carries
+/// the rock itself as card art, a status-colour frame and badge, the living
+/// memoir as flavour text, and an uptime/activity/agent stat strip. One shared
+/// instance; it floats above everything and never takes the mouse.
+final class SigilBubble: NSObject, NSSharingServicePickerDelegate {
+    private let window: ShareCardPanel
+    private let container = ShareableCardView()
+    private let gradient = CAGradientLayer()
+    private let paperTexture = CardPaperLayer()
+    private let innerBorder = CALayer()
+    private let accentRule = CALayer()
+    private let artPanel = NSView()
+    private let artBackdrop = CAGradientLayer()
+    private let artPaper = CardPaperLayer()
+    private let artInnerBorder = CALayer()
+    private let art = NSImageView()
+    private let kicker = NSTextField(labelWithString: "PROMPT ROCK  •  LIVING MEMORY")
+    private let title = NSTextField(labelWithString: "")
+    private let statusPill = NSView()
+    private let status = NSTextField(labelWithString: "")
+    private let storyPanel = NSView()
+    private let story = NSTextField(wrappingLabelWithString: "")
+    private let statsPanel = NSView()
+    private let stats = NSTextField(labelWithString: "")
+    private var sharePicker: NSSharingServicePicker?
+    private var shareWatchdog: DispatchWorkItem?
+    private var exportTitle = "prox"
+    private(set) var isSharing = false
+
+    override init() {
+        window = ShareCardPanel(contentRect: NSRect(x: 0, y: 0, width: 10, height: 10),
+                                styleMask: [.borderless],
+                                backing: .buffered, defer: true)
+        super.init()
         window.isOpaque = false
         window.backgroundColor = .clear
         window.hasShadow = true
-        window.ignoresMouseEvents = true
+        window.ignoresMouseEvents = false
         window.level = .statusBar
+        window.isFloatingPanel = true
+        window.becomesKeyOnlyIfNeeded = true
         window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-        let container = NSView()
         container.wantsLayer = true
-        container.layer?.cornerRadius = 8
-        container.layer?.backgroundColor = NSColor(white: 0.08, alpha: 0.92).cgColor
-        label = NSTextField(wrappingLabelWithString: "")
-        container.addSubview(label)
+        container.layer?.cornerRadius = 15
+        container.layer?.masksToBounds = true
+        gradient.startPoint = CGPoint(x: 0, y: 1)
+        gradient.endPoint = CGPoint(x: 1, y: 0)
+        container.layer?.addSublayer(gradient)
+        paperTexture.opacity = 0.48
+        container.layer?.addSublayer(paperTexture)
+        innerBorder.cornerRadius = 11
+        innerBorder.borderWidth = 1
+        container.layer?.addSublayer(innerBorder)
+        container.layer?.addSublayer(accentRule)
+
+        artPanel.wantsLayer = true
+        artPanel.layer?.cornerRadius = 9
+        artPanel.layer?.masksToBounds = true
+        artPanel.layer?.borderWidth = 2
+        artBackdrop.startPoint = CGPoint(x: 0, y: 1)
+        artBackdrop.endPoint = CGPoint(x: 1, y: 0)
+        artPanel.layer?.addSublayer(artBackdrop)
+        artPaper.opacity = 0.62
+        artPanel.layer?.addSublayer(artPaper)
+        artInnerBorder.cornerRadius = 6
+        artInnerBorder.borderWidth = 1
+        artPanel.layer?.addSublayer(artInnerBorder)
+        art.imageScaling = .scaleProportionallyUpOrDown
+        art.wantsLayer = true
+        art.layer?.magnificationFilter = .linear
+        art.layer?.minificationFilter = .trilinear
+        artPanel.addSubview(art)
+
+        kicker.font = NSFont.monospacedSystemFont(ofSize: 7.5, weight: .bold)
+        kicker.textColor = NSColor(white: 1, alpha: 0.5)
+        title.font = playfulRockFont(17)
+        title.lineBreakMode = .byTruncatingTail
+        statusPill.wantsLayer = true
+        statusPill.layer?.cornerRadius = 9
+        status.font = NSFont.monospacedSystemFont(ofSize: 8, weight: .bold)
+        status.alignment = .center
+        status.textColor = .white
+        statusPill.addSubview(status)
+
+        storyPanel.wantsLayer = true
+        storyPanel.layer?.cornerRadius = 7
+        storyPanel.layer?.borderWidth = 1
+        story.font = NSFont.systemFont(ofSize: 10.5, weight: .regular)
+        story.textColor = NSColor(white: 1, alpha: 0.86)
+        story.maximumNumberOfLines = 8
+        story.lineBreakMode = .byWordWrapping
+        story.cell?.wraps = true
+        story.cell?.usesSingleLineMode = false
+        storyPanel.addSubview(story)
+        statsPanel.wantsLayer = true
+        statsPanel.layer?.cornerRadius = 7
+        stats.font = NSFont.monospacedSystemFont(ofSize: 8, weight: .semibold)
+        stats.alignment = .center
+
+        for view in [artPanel, kicker, title, statusPill, storyPanel, statsPanel] {
+            container.addSubview(view)
+        }
+        statsPanel.addSubview(stats)
+        container.onClick = { [weak self] in self?.sharePNG() }
         window.contentView = container
     }
 
-    /// Show the card near `anchor` (the rock's screen rect): tucked under it,
-    /// right-aligned, flipped above when there's no room below.
-    func show(title: String, body: String, near anchor: NSRect) {
-        let s = NSMutableAttributedString()
-        s.append(NSAttributedString(string: title + "\n", attributes: [
-            .font: playfulRockFont(14),
-            .foregroundColor: NSColor.white,
-        ]))
-        s.append(NSAttributedString(string: body, attributes: [
-            .font: NSFont.systemFont(ofSize: 13),
-            .foregroundColor: NSColor(white: 1, alpha: 0.82),
-        ]))
-        label.attributedStringValue = s
-        label.preferredMaxLayoutWidth = 300
-        let fit = label.intrinsicContentSize
-        let inset: CGFloat = 10
-        let w = min(fit.width, 300) + 2 * inset
-        let h = fit.height + 2 * inset
-        label.frame = NSRect(x: inset, y: inset, width: w - 2 * inset, height: h - 2 * inset)
+    /// Show the card near `anchor`: tucked under the rock, right-aligned, and
+    /// flipped above when there is no room below.
+    func show(cardTitle: String, body: String, edition: String,
+              cardStatus: String, cardStats: String,
+              accent: NSColor, image: NSImage?, near anchor: NSRect) {
+        // KidLisp defines the house card at 250 × 350 (5:7). On the desktop we
+        // display that design at 76% so it reads as a small collectible beside
+        // a terminal rather than covering a large portion of the work itself.
+        let s: CGFloat = 0.76
+        let w: CGFloat = 250 * s
+        let h: CGFloat = 350 * s
+        let pad: CGFloat = 11 * s
+        let artH: CGFloat = 122 * s
+        let storyH: CGFloat = 106 * s
+        let statsH: CGFloat = 27 * s
+
+        title.stringValue = cardTitle
+        exportTitle = cardTitle
+        kicker.stringValue = edition
+        status.stringValue = cardStatus.uppercased()
+        story.stringValue = body
+        story.preferredMaxLayoutWidth = w - pad * 2 - 14 * s
+        stats.stringValue = cardStats.uppercased()
+        art.image = image
+        kicker.font = NSFont.monospacedSystemFont(ofSize: 6.4, weight: .bold)
+        title.font = playfulRockFont(14)
+        status.font = NSFont.monospacedSystemFont(ofSize: 7, weight: .bold)
+        story.font = NSFont.systemFont(ofSize: 9, weight: .regular)
+        stats.font = NSFont.monospacedSystemFont(ofSize: 6.5, weight: .semibold)
+
+        // Uniform physical stock follows the system appearance. Status is an
+        // accent, not a wash over the whole card: keyline + jewel + fine rails
+        // stay colour-coded while every prox belongs to the same card family.
+        let dark = AppDelegate.isDarkAppearance()
+        let ink = dark ? NSColor(white: 0.94, alpha: 1) : NSColor(white: 0.10, alpha: 1)
+        let subdued = dark ? NSColor(white: 0.72, alpha: 1) : NSColor(white: 0.34, alpha: 1)
+        let paperA = dark
+            ? NSColor(deviceRed: 0.105, green: 0.10, blue: 0.085, alpha: 0.985)
+            : NSColor(deviceRed: 0.965, green: 0.935, blue: 0.83, alpha: 0.99)
+        let paperB = dark
+            ? NSColor(deviceRed: 0.16, green: 0.145, blue: 0.12, alpha: 0.985)
+            : NSColor(deviceRed: 1.0, green: 0.975, blue: 0.88, alpha: 0.99)
+        let well = dark
+            ? NSColor(deviceRed: 0.055, green: 0.052, blue: 0.045, alpha: 0.82)
+            : NSColor(deviceRed: 0.91, green: 0.875, blue: 0.77, alpha: 0.88)
+        title.textColor = ink
+        kicker.textColor = subdued
+        story.textColor = ink.withAlphaComponent(0.9)
+        stats.textColor = accent.blended(withFraction: dark ? 0.3 : 0.36,
+                                         of: dark ? .white : .black) ?? accent
+
+        container.frame = NSRect(x: 0, y: 0, width: w, height: h)
+        container.layer?.cornerRadius = 15 * s
+        innerBorder.cornerRadius = 11 * s
+        artPanel.layer?.cornerRadius = 9 * s
+        artInnerBorder.cornerRadius = 6 * s
+        statusPill.layer?.cornerRadius = 9 * s
+        storyPanel.layer?.cornerRadius = 7 * s
+        statsPanel.layer?.cornerRadius = 7 * s
+        gradient.frame = container.bounds
+        paperTexture.frame = container.bounds
+        gradient.cornerRadius = 15 * s
+        gradient.colors = [
+            paperB.cgColor,
+            paperA.cgColor,
+            paperB.blended(withFraction: 0.25, of: paperA)!.cgColor,
+        ]
+        gradient.locations = [0, 0.42, 1]
+        container.layer?.borderWidth = 3.5 * s
+        container.layer?.borderColor = accent.withAlphaComponent(0.92).cgColor
+        innerBorder.frame = container.bounds.insetBy(dx: 5 * s, dy: 5 * s)
+        innerBorder.borderColor = ink.withAlphaComponent(0.18).cgColor
+        accentRule.frame = CGRect(x: 0, y: h - 5 * s, width: w, height: 5 * s)
+        accentRule.backgroundColor = accent.cgColor
+
+        let kickerH: CGFloat = 10 * s
+        let headerH: CGFloat = 24 * s
+        var top = h - pad
+        kicker.frame = NSRect(x: pad, y: top - kickerH, width: w - 2 * pad, height: kickerH)
+        top -= kickerH + 4 * s
+        let pillW = max(58 * s, status.intrinsicContentSize.width + 16 * s)
+        title.frame = NSRect(x: pad, y: top - headerH,
+                             width: w - 2 * pad - pillW - 7 * s, height: headerH)
+        statusPill.frame = NSRect(x: w - pad - pillW, y: top - 20 * s,
+                                  width: pillW, height: 17 * s)
+        statusPill.layer?.backgroundColor = accent.withAlphaComponent(0.88).cgColor
+        status.frame = statusPill.bounds.insetBy(dx: 6 * s, dy: 2 * s)
+        top -= headerH + 7 * s
+
+        // Illustration window: a crisp hi-res rock centred over its own
+        // status-tinted scene, with a double little border like a real card's
+        // framed art rather than an icon floating in empty UI.
+        artPanel.frame = NSRect(x: pad, y: top - artH, width: w - 2 * pad, height: artH)
+        artPanel.layer?.borderColor = accent.withAlphaComponent(0.75).cgColor
+        artBackdrop.frame = artPanel.bounds
+        artPaper.frame = artPanel.bounds
+        artBackdrop.colors = [
+            well.blended(withFraction: 0.08, of: accent)!.cgColor,
+            well.cgColor,
+            paperA.cgColor,
+        ]
+        artBackdrop.locations = [0, 0.58, 1]
+        artInnerBorder.frame = artPanel.bounds.insetBy(dx: 4 * s, dy: 4 * s)
+        artInnerBorder.borderColor = ink.withAlphaComponent(0.18).cgColor
+        let rockSide: CGFloat = 116 * s
+        art.frame = NSRect(x: (artPanel.bounds.width - rockSide) / 2,
+                           y: (artPanel.bounds.height - rockSide) / 2,
+                           width: rockSide, height: rockSide)
+        top -= artH + 8 * s
+
+        storyPanel.frame = NSRect(x: pad, y: top - storyH, width: w - 2 * pad, height: storyH)
+        storyPanel.layer?.backgroundColor = well.cgColor
+        storyPanel.layer?.borderColor = accent.withAlphaComponent(0.3).cgColor
+        story.frame = storyPanel.bounds.insetBy(dx: 7 * s, dy: 6 * s)
+
+        statsPanel.frame = NSRect(x: pad, y: pad, width: w - 2 * pad, height: statsH)
+        statsPanel.layer?.backgroundColor = accent.withAlphaComponent(0.12).cgColor
+        statsPanel.layer?.borderWidth = 1
+        statsPanel.layer?.borderColor = accent.withAlphaComponent(0.24).cgColor
+        stats.frame = statsPanel.bounds.insetBy(dx: 8 * s, dy: 7 * s)
+
         var x = anchor.maxX - w
         var y = anchor.minY - h - 4
-        if let vis = NSScreen.main?.visibleFrame {
+        // Clamp to the rock's own display. Using `NSScreen.main` made bubbles
+        // for rocks on secondary displays materialize at the main display's
+        // edge, which looked exactly like hover had stopped working.
+        let anchorPoint = NSPoint(x: anchor.midX, y: anchor.midY)
+        let anchorScreen = NSScreen.screens.first { $0.frame.contains(anchorPoint) }
+        if let vis = (anchorScreen ?? NSScreen.main)?.visibleFrame {
             x = min(max(vis.minX + 4, x), vis.maxX - w - 4)
             if y < vis.minY + 4 { y = anchor.maxY + 4 }
         }
@@ -1268,8 +1528,84 @@ final class SigilBubble {
         window.orderFrontRegardless()
     }
 
+    var frame: NSRect { window.frame }
+    func contains(_ point: NSPoint) -> Bool { window.isVisible && window.frame.contains(point) }
+
+    /// Render the finished 5:7 card to a real PNG, then present macOS's
+    /// native share sheet beside it. This gives Messages, AirDrop, Mail, etc.
+    /// without baking any sharing chrome into the collectible itself.
+    @objc func sharePNG() {
+        guard !isSharing else { return }
+        isSharing = true
+        NSLog("🪨 [card] opening native share sheet for \(exportTitle)")
+        container.displayIfNeeded()
+        guard let rep = container.bitmapImageRepForCachingDisplay(in: container.bounds) else {
+            isSharing = false
+            return
+        }
+        container.cacheDisplay(in: container.bounds, to: rep)
+        guard let data = rep.representation(using: .png, properties: [:]) else {
+            isSharing = false
+            return
+        }
+        // Also stage the same PNG on the pasteboard. The share sheet remains
+        // the visible interaction, but ⌘V into Messages is an immediate
+        // fallback and requires no second export.
+        let pasteItem = NSPasteboardItem()
+        pasteItem.setData(data, forType: .png)
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.writeObjects([pasteItem])
+        let safe = exportTitle.lowercased()
+            .replacingOccurrences(of: "[^a-z0-9]+", with: "-", options: .regularExpression)
+            .trimmingCharacters(in: CharacterSet(charactersIn: "-"))
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("prox-\(safe.isEmpty ? "card" : safe).png")
+        guard (try? data.write(to: url, options: .atomic)) != nil else {
+            isSharing = false
+            return
+        }
+        let picker = NSSharingServicePicker(items: [url])
+        picker.delegate = self
+        sharePicker = picker
+        shareWatchdog?.cancel()
+        let watchdog = DispatchWorkItem { [weak self] in
+            guard let self, self.isSharing else { return }
+            NSLog("🪨 [card] share sheet watchdog released \(self.exportTitle)")
+            self.isSharing = false
+            self.sharePicker = nil
+            self.hide()
+        }
+        shareWatchdog = watchdog
+        DispatchQueue.main.asyncAfter(deadline: .now() + 12, execute: watchdog)
+        // A global monitor may have observed a click that will still activate
+        // the app underneath the floating card. Let that mouse-down finish,
+        // then reclaim focus and present; otherwise AppKit opens and dismisses
+        // the share popover in the same event turn.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) { [weak self, weak picker] in
+            guard let self, let picker else { return }
+            NSApp.activate(ignoringOtherApps: true)
+            self.window.makeKeyAndOrderFront(nil)
+            // Activation itself settles asynchronously for an LSUIElement.
+            // Anchor the picker only once the panel is the real key window.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) { [weak self, weak picker] in
+                guard let self, let picker else { return }
+                picker.show(relativeTo: self.container.bounds, of: self.container, preferredEdge: .maxX)
+            }
+        }
+    }
+
+    func sharingServicePicker(_ sharingServicePicker: NSSharingServicePicker,
+                              didChoose service: NSSharingService?) {
+        NSLog("🪨 [card] share sheet closed (service: \(service?.title ?? "none"))")
+        shareWatchdog?.cancel()
+        shareWatchdog = nil
+        isSharing = false
+        sharePicker = nil
+        if service == nil { hide() }
+    }
+
     func hide() {
-        if window.isVisible { window.orderOut(nil) }
+        if !isSharing, window.isVisible { window.orderOut(nil) }
     }
 }
 
@@ -1279,6 +1615,13 @@ final class SigilBubble {
 /// membership change / when a binding goes missing / at a slow safety cadence
 /// — never per frame.
 final class PromptSigilOverlayController {
+    struct PromptParticleTarget {
+        let windowID: Int
+        let frame: CGRect       // CG/AX coordinates: top-left origin
+        let color: NSColor
+        let seed: UInt64        // stable prox pet-name seed
+    }
+
     static let shared = PromptSigilOverlayController()
     private init() {}
 
@@ -1286,6 +1629,22 @@ final class PromptSigilOverlayController {
     private var timer: Timer?
     /// tty (bare) → CGWindowID of its terminal window.
     private var binding: [String: Int] = [:]
+    /// Bare tty → the cursor accent used by under-window focus particles.
+    private var particleColors: [String: NSColor] = [:]
+    /// Current live prox windows, shared with focus navigation/highlighting so
+    /// those features inherit the controller's tty-accurate Terminal binding.
+    var promptWindowIDs: Set<Int> { Set(binding.values) }
+    var promptParticleTargets: [PromptParticleTarget] {
+        particleColors.compactMap { tty, color in
+            guard let id = binding[tty], let b = lastBoundsByNum[id] else { return nil }
+            let proxName = overlays.values.first(where: { $0.tty == tty })?.name ?? tty
+            return PromptParticleTarget(
+                windowID: id,
+                frame: CGRect(x: b.0, y: b.1, width: b.2, height: b.3),
+                color: color,
+                seed: SigilRenderer.seed(for: proxName))
+        }
+    }
     private var needsRebind = false
     private var bindInFlight = false
     private var lastBind = Date.distantPast
@@ -1316,15 +1675,15 @@ final class PromptSigilOverlayController {
     /// Hover/click plumbing for the rocks. The badge windows stay
     /// mouse-transparent (clicks still reach the terminal beneath); GLOBAL
     /// event monitors watch the pointer instead, so pointing at a rock costs
-    /// the terminal nothing. Dwelling on a rock shows the bubble; clicking a
-    /// rock pins it; clicking anywhere else unpins.
+    /// the terminal nothing. The existing 5 Hz overlay tick samples it too as
+    /// a fallback when macOS withholds a global monitor after a signed update.
+    /// Hover only animates the rock; clicking reveals and pins its card.
     private var mouseMonitors: [Any] = []
     /// The last window stack `reposition` saw (front-to-back, normal level), so
     /// a mouse-move can ask "what's actually on top here?" without a fresh
     /// CGWindowList snapshot per event. Refreshed at the tick rate.
     private var lastStack: [(num: Int, rect: CGRect)] = []
     private var hoverTarget: String?
-    private var hoverTimer: Timer?
     private var bubbleFor: String?
     private var bubblePinned = false
     private let bubble = SigilBubble()
@@ -1366,6 +1725,7 @@ final class PromptSigilOverlayController {
         let screenH = NSScreen.main?.frame.height ?? 0
         ov.place(bounds: (p.x, p.y, s.width, s.height), screenHeight: screenH)
         lastBoundsByNum[num] = (p.x, p.y, s.width, s.height)
+        PromptFocusHighlight.shared.refreshNow()
         promote()   // keep the spring loop warm so the badge eases to the new target
     }
 
@@ -1377,6 +1737,16 @@ final class PromptSigilOverlayController {
         if currentInterval > activeInterval + 1e-6 {
             scheduleTick(after: activeInterval)
         }
+    }
+
+    /// The tiler can move several terminal windows in one AX sweep faster than
+    /// per-window notifications arrive. Refresh tty → window ownership now so
+    /// rocks transfer with the completed layout instead of waiting for the
+    /// five-second safety bind.
+    func terminalsDidRetile() {
+        needsRebind = true
+        promote()
+        reposition()
     }
 
     /// Read an AXValue geometry attribute (point or size) off an element.
@@ -1429,7 +1799,7 @@ final class PromptSigilOverlayController {
             // snap to a drag instead of lagging the CGWindowList poll.
             AXObserverAddNotification(obs, appEl, kAXWindowMovedNotification as CFString, nil)
             AXObserverAddNotification(obs, appEl, kAXWindowResizedNotification as CFString, nil)
-            CFRunLoopAddSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(obs), .defaultMode)
+            CFRunLoopAddSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(obs), .commonModes)
             axObservers[pid] = obs
         }
     }
@@ -1444,12 +1814,23 @@ final class PromptSigilOverlayController {
         if let click = NSEvent.addGlobalMonitorForEvents(matching: .leftMouseDown, handler: { [weak self] _ in
             self?.handleMouseDown()
         }) { mouseMonitors.append(click) }
+        // Clicks received by Slab's own non-activating card panel do not reach
+        // a global monitor. Keep a local twin so card → native share is
+        // reliable regardless of which side of macOS's event routing wins.
+        if let localClick = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown, handler: {
+            [weak self] event in
+            guard let self else { return event }
+            if self.bubbleFor != nil, self.bubble.contains(NSEvent.mouseLocation) {
+                self.bubble.sharePNG()
+                return nil
+            }
+            return event
+        }) { mouseMonitors.append(localClick) }
     }
 
     private func removeMouseMonitors() {
         for m in mouseMonitors { NSEvent.removeMonitor(m) }
         mouseMonitors.removeAll()
-        hoverTimer?.invalidate(); hoverTimer = nil
         hoverTarget = nil; bubbleFor = nil; bubblePinned = false
         bubble.hide()
     }
@@ -1477,7 +1858,6 @@ final class PromptSigilOverlayController {
     /// card doesn't hang over the window that buried it.
     private func dropInteraction(for ov: PromptSigilOverlay) {
         if hoverTarget == ov.sessionId {
-            hoverTimer?.invalidate(); hoverTimer = nil
             hoverTarget = nil
         }
         if bubbleFor == ov.sessionId {
@@ -1486,29 +1866,17 @@ final class PromptSigilOverlayController {
         }
     }
 
-    /// Dwell-to-reveal: entering a rock arms a short timer; leaving cancels
-    /// it (and drops an unpinned bubble). The handler runs on every global
-    /// mouse move but is just a handful of rect tests.
+    /// Hover is visual feedback only. Cards are deliberately click-to-open so
+    /// moving across a wall of prompt rocks never fills the desktop with an
+    /// unsolicited share card.
     private func handleMouseMoved() {
-        let hit = overlayAt(NSEvent.mouseLocation)
+        if bubble.isSharing { return }
+        let point = NSEvent.mouseLocation
+        let hit = overlayAt(point)
         if hit?.sessionId == hoverTarget { return }
-        hoverTimer?.invalidate(); hoverTimer = nil
         if let old = hoverTarget, let oldOv = overlays[old] { oldOv.setHovered(false) }
         hoverTarget = hit?.sessionId
         hit?.setHovered(true)
-        if let ov = hit {
-            let t = Timer(timeInterval: 0.35, repeats: false) { [weak self, weak ov] _ in
-                guard let self = self, let ov = ov else { return }
-                self.bubblePinned = false
-                self.bubbleFor = ov.sessionId
-                self.bubble.show(title: ov.tooltipTitle, body: ov.tooltipBody, near: ov.hitRect)
-            }
-            hoverTimer = t
-            RunLoop.main.add(t, forMode: .common)
-        } else if !bubblePinned {
-            bubbleFor = nil
-            bubble.hide()
-        }
     }
 
     /// Click a rock → reveal (pinned, survives mouse-out); click it again or
@@ -1516,6 +1884,12 @@ final class PromptSigilOverlayController {
     /// (the badge is mouse-transparent), which is what you want: focus the
     /// window you're asking about.
     private func handleMouseDown() {
+        if bubbleFor != nil, bubble.contains(NSEvent.mouseLocation) {
+            // Fallback for systems that route the click through the
+            // non-activating panel to its underlying app.
+            bubble.sharePNG()
+            return
+        }
         if let ov = overlayAt(NSEvent.mouseLocation) {
             if bubblePinned, bubbleFor == ov.sessionId {
                 bubblePinned = false; bubbleFor = nil
@@ -1523,12 +1897,24 @@ final class PromptSigilOverlayController {
             } else {
                 bubblePinned = true
                 bubbleFor = ov.sessionId
-                bubble.show(title: ov.tooltipTitle, body: ov.tooltipBody, near: ov.hitRect)
+                showBubble(for: ov)
             }
         } else if bubblePinned {
             bubblePinned = false; bubbleFor = nil
             bubble.hide()
         }
+    }
+
+    private func showBubble(for ov: PromptSigilOverlay) {
+        bubble.show(
+            cardTitle: ov.tooltipTitle,
+            body: ov.tooltipBody,
+            edition: ov.tooltipEdition,
+            cardStatus: ov.tooltipStatus,
+            cardStats: ov.tooltipStats,
+            accent: ov.tooltipAccent,
+            image: ov.tooltipImage,
+            near: ov.hitRect)
     }
 
     /// The session's status colour (the same per-status `cursor` accent the
@@ -1553,13 +1939,191 @@ final class PromptSigilOverlayController {
         }
     }
 
-    private func loopboySessions() -> Set<String> {
-        guard let data = FileManager.default.contents(atPath: Paths.loopboyConfig),
-              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let loops = obj["loops"] as? [String: Any] else { return [] }
-        return Set(loops.values.compactMap {
-            ($0 as? [String: Any])?["sessionId"] as? String
-        })
+    /// Updated by `sync` from sessions whose immutable launch identity agrees
+    /// with their saved route. Registry-only or dead bindings never become
+    /// gems and cannot receive heartbeat animation.
+    private var verifiedLoopboyContacts: [String: String] = [:]
+
+    func pulseLoopboy(sessionId: String) {
+        guard verifiedLoopboyContacts[sessionId] != nil,
+              let overlay = overlays[sessionId] else { return }
+        let beat = CACurrentMediaTime() + 0.08
+        overlay.heartbeatPulse(beginTime: beat)
+        overlay.resetHeartbeatCountdown()
+        if let (bounds, screen) = overlay.heartbeatTarget {
+            ZoomSpecialMove.fire(around: bounds, on: screen)
+        }
+    }
+
+    func flyPrompt(sessionId: String, text: String) {
+        guard let overlay = overlays[sessionId],
+              let target = overlay.promptFlightTarget else { return }
+        let destination = cursorDestination(tty: overlay.tty, screen: target.3) ?? target.1
+        let availableWidth = max(120, target.4 - destination.x - 12)
+        PromptGlyphFlight.show(text: text, from: target.0, to: destination,
+                               color: target.2, maxWidth: availableWidth,
+                               on: target.3)
+    }
+
+    func setPromptColor(sessionId: String, color: NSColor) {
+        overlays[sessionId]?.setPromptColor(color)
+    }
+
+    func setHeartbeatColor(sessionId: String, color: NSColor) {
+        overlays[sessionId]?.setHeartbeatColor(color)
+    }
+
+    /// Resolve Terminal/iTerm's real insertion-point rectangle. The AX range
+    /// geometry is in global top-left coordinates; PromptGlyphFlight uses
+    /// AppKit's bottom-left coordinates, so flip it against the desktop top.
+    /// Some terminal versions omit parameterized range bounds; callers retain
+    /// the visually safe last-line fallback for that case.
+    private func cursorDestination(tty: String, screen: NSScreen) -> CGPoint? {
+        let bare = (tty as NSString).lastPathComponent
+        guard let wanted = binding[bare] else { return nil }
+        let bundleIds = Set(["com.apple.Terminal", "com.googlecode.iterm2"])
+
+        func insertionRect(in element: AXUIElement, depth: Int = 0) -> CGRect? {
+            guard depth < 8 else { return nil }
+            var roleRef: CFTypeRef?
+            _ = AXUIElementCopyAttributeValue(element, kAXRoleAttribute as CFString, &roleRef)
+            if (roleRef as? String) == kAXTextAreaRole as String {
+                var rangeRef: CFTypeRef?
+                if AXUIElementCopyAttributeValue(element, kAXSelectedTextRangeAttribute as CFString,
+                                                 &rangeRef) == .success,
+                   let rangeRef {
+                    var boundsRef: CFTypeRef?
+                    if AXUIElementCopyParameterizedAttributeValue(
+                        element, kAXBoundsForRangeParameterizedAttribute as CFString,
+                        rangeRef, &boundsRef) == .success,
+                       let value = boundsRef as! AXValue?, AXValueGetType(value) == .cgRect {
+                        var rect = CGRect.zero
+                        if AXValueGetValue(value, .cgRect, &rect),
+                           rect.width.isFinite, rect.height.isFinite,
+                           rect.minX.isFinite, rect.minY.isFinite,
+                           !rect.isNull, !rect.isInfinite { return rect }
+                    }
+                }
+            }
+            var childrenRef: CFTypeRef?
+            guard AXUIElementCopyAttributeValue(element, kAXChildrenAttribute as CFString,
+                                                &childrenRef) == .success,
+                  let children = childrenRef as? [AXUIElement] else { return nil }
+            for child in children {
+                if let rect = insertionRect(in: child, depth: depth + 1) { return rect }
+            }
+            return nil
+        }
+
+        func elementRect(_ element: AXUIElement) -> CGRect? {
+            var positionRef: CFTypeRef?
+            var sizeRef: CFTypeRef?
+            guard AXUIElementCopyAttributeValue(element, kAXPositionAttribute as CFString,
+                                                &positionRef) == .success,
+                  AXUIElementCopyAttributeValue(element, kAXSizeAttribute as CFString,
+                                                &sizeRef) == .success,
+                  let position = positionRef as! AXValue?,
+                  let size = sizeRef as! AXValue? else { return nil }
+            var origin = CGPoint.zero
+            var dimensions = CGSize.zero
+            guard AXValueGetValue(position, .cgPoint, &origin),
+                  AXValueGetValue(size, .cgSize, &dimensions) else { return nil }
+            return CGRect(origin: origin, size: dimensions)
+        }
+
+        /// Terminal text areas occasionally omit selected-range bounds while
+        /// repainting. Read only the bound terminal window in that case and
+        /// use its lowest OCR row as the visible prompt-line context instead
+        /// of guessing from the desktop corner or a fixed bottom inset.
+        func ocrPromptRow(windowID: CGWindowID, windowRect: CGRect) -> CGRect? {
+            guard let image = CGWindowListCreateImage(.null, .optionIncludingWindow,
+                                                      windowID, [.boundsIgnoreFraming])
+            else { return nil }
+            let request = VNRecognizeTextRequest()
+            request.recognitionLevel = .fast
+            request.usesLanguageCorrection = false
+            request.minimumTextHeight = 0
+            try? VNImageRequestHandler(cgImage: image, options: [:]).perform([request])
+            let rows = (request.results ?? []).compactMap { observation -> CGRect? in
+                guard observation.topCandidates(1).first != nil else { return nil }
+                let box = observation.boundingBox
+                let rect = CGRect(
+                    x: windowRect.minX + box.minX * windowRect.width,
+                    y: windowRect.minY + (1 - box.maxY) * windowRect.height,
+                    width: box.width * windowRect.width,
+                    height: box.height * windowRect.height)
+                guard rect.midY > windowRect.minY + 24,
+                      rect.midY < windowRect.maxY - 6 else { return nil }
+                return rect
+            }
+            return rows.max(by: { $0.midY < $1.midY })
+        }
+
+        for app in NSWorkspace.shared.runningApplications
+            where bundleIds.contains(app.bundleIdentifier ?? "") {
+            let axApp = AXUIElementCreateApplication(app.processIdentifier)
+            var windowsRef: CFTypeRef?
+            guard AXUIElementCopyAttributeValue(axApp, kAXWindowsAttribute as CFString,
+                                                &windowsRef) == .success,
+                  let windows = windowsRef as? [AXUIElement] else { continue }
+            for window in windows {
+                var wid = CGWindowID(0)
+                guard _AXUIElementGetWindow(window, &wid) == .success,
+                      Int(wid) == wanted,
+                      let windowRect = elementRect(window) else { continue }
+                // Terminal occasionally reports a zero/origin range while its
+                // screen buffer is repainting.  Reject it unless the insertion
+                // point is actually inside this responding terminal; otherwise
+                // the flight dives into the bottom corner of the desktop.
+                let desktopTop = NSScreen.screens.map(\.frame.maxY).max() ?? screen.frame.maxY
+                if let rect = insertionRect(in: window),
+                   windowRect.insetBy(dx: -8, dy: -8).intersects(rect),
+                   rect.maxX > windowRect.minX + 2,
+                   rect.maxY > windowRect.minY + 2 {
+                    // AX gives a top-left desktop rectangle. Preserve the
+                    // insertion x and flip only y into AppKit coordinates.
+                    return CGPoint(x: rect.minX,
+                                   y: desktopTop - rect.maxY + rect.height * 0.5)
+                }
+                if let row = ocrPromptRow(windowID: wid, windowRect: windowRect) {
+                    // OCR understands the visible terminal content: continue
+                    // immediately after its lowest row, but never beyond the
+                    // bound window's usable right edge.
+                    return CGPoint(x: min(row.maxX + 5, windowRect.maxX - 120),
+                                   y: desktopTop - row.maxY + row.height * 0.5)
+                }
+            }
+        }
+        return nil
+    }
+
+    /// Raise the terminal window already bound to this tty using Accessibility
+    /// only. This avoids Apple Events/TCC while preserving exact-window focus.
+    func focusTerminal(tty: String) -> Bool {
+        let bare = (tty as NSString).lastPathComponent
+        guard let wanted = binding[bare] else { return false }
+        let bundleIds = Set(["com.apple.Terminal", "com.googlecode.iterm2"])
+        for app in NSWorkspace.shared.runningApplications
+            where bundleIds.contains(app.bundleIdentifier ?? "") {
+            let axApp = AXUIElementCreateApplication(app.processIdentifier)
+            var raw: CFTypeRef?
+            guard AXUIElementCopyAttributeValue(axApp, kAXWindowsAttribute as CFString,
+                                                &raw) == .success,
+                  let windows = raw as? [AXUIElement] else { continue }
+            for window in windows {
+                var wid = CGWindowID(0)
+                guard _AXUIElementGetWindow(window, &wid) == .success,
+                      Int(wid) == wanted else { continue }
+                _ = app.activate(options: [.activateIgnoringOtherApps])
+                _ = AXUIElementSetAttributeValue(window, kAXMainAttribute as CFString,
+                                                 kCFBooleanTrue)
+                _ = AXUIElementSetAttributeValue(window, kAXFocusedAttribute as CFString,
+                                                 kCFBooleanTrue)
+                _ = AXUIElementPerformAction(window, kAXRaiseAction as CFString)
+                return true
+            }
+        }
+        return false
     }
 
     func pulseLoopboys() {
@@ -1759,8 +2323,10 @@ final class PromptSigilOverlayController {
 
         let live = sessions.filter { !$0.tty.isEmpty && $0.remoteHost.isEmpty }
         let liveIds = Set(live.map { $0.sessionId })
-        let loopIds = loopboySessions()
+        let loopContacts = LoopboyRoutes.verifiedBySession(live)
+        verifiedLoopboyContacts = loopContacts
         let dark = AppDelegate.isDarkAppearance()
+        var liveParticleTtys = Set<String>()
 
         // Recompute the global sun every 5 minutes — the sun moves slowly, and
         // each change re-renders every rock's sprite sheet, so we don't want to
@@ -1782,6 +2348,7 @@ final class PromptSigilOverlayController {
         }
         for s in live {
             let bare = (s.tty as NSString).lastPathComponent
+            liveParticleTtys.insert(bare)
             let ov: PromptSigilOverlay
             if let existing = overlays[s.sessionId], existing.tty == bare {
                 ov = existing
@@ -1818,6 +2385,8 @@ final class PromptSigilOverlayController {
                 ? NSColor(deviceRed: 1.0, green: 0.72, blue: 0.08, alpha: 1.0)
                 : NSColor(deviceRed: 1.0, green: 0.86, blue: 0.20, alpha: 1.0)
             ov.setMotion(period: loopboy ? basePeriod * 0.45 : basePeriod, clockwise: cw)
+            let terminalThemeColor = statusColor(for: s.state, agentType: s.agentType)
+            particleColors[bare] = terminalThemeColor
             ov.setShadowColor(loopboy
                 ? loopboyGlow
                 : statusColor(for: s.state, agentType: s.agentType))
@@ -1851,7 +2420,16 @@ final class PromptSigilOverlayController {
             ov.tooltipBody = (s.loopboyResponse.isEmpty ? nil : s.loopboyResponse)
                 ?? RockSummaries.shared.sentence(seed: seed, subject: s.subject)
                 ?? Self.fallbackBody(summary: s.titleString, subject: s.shortSubject)
+            let metrics = Self.sessionMetrics(s)
+            ov.tooltipBody = story
+            ov.tooltipStatus = metrics.status
+            ov.tooltipStats = metrics.stats
+            // A pinned/open bubble matures in place when a memoir lands.
+            if bubbleFor == s.sessionId {
+                showBubble(for: ov)
+            }
         }
+        particleColors = particleColors.filter { liveParticleTtys.contains($0.key) }
 
         if membershipChanged { needsRebind = true }
         startTimerIfNeeded()
@@ -1871,6 +2449,30 @@ final class PromptSigilOverlayController {
         return summary + "\n" + subject
     }
 
+    private static func sessionMetrics(_ s: ClaudeSession, now: Date = Date())
+        -> (status: String, stats: String) {
+        func duration(_ seconds: TimeInterval) -> String {
+            let value = max(0, Int(seconds))
+            if value < 90 { return "\(value)s" }
+            if value < 90 * 60 { return "\(value / 60)m" }
+            if value < 48 * 3600 { return "\(value / 3600)h \((value % 3600) / 60)m" }
+            return "\(value / 86_400)d \((value % 86_400) / 3600)h"
+        }
+        let state: String
+        switch s.state {
+        case .working: state = "working"
+        case .rendering: state = "rendering"
+        case .awaiting: state = "awaiting input"
+        case .interrupted: state = "interrupted"
+        case .complete: state = "idle"
+        case .blank: state = "blank"
+        case .stale: state = "stale"
+        }
+        let up = duration(now.timeIntervalSince(s.started))
+        let idle = duration(now.timeIntervalSince(s.updated))
+        return (state, "UP \(up)  •  ACTIVE \(idle) AGO  •  \(s.agentLabel)")
+    }
+
     /// Wake the reposition loop the instant a poke lands so the rock reacts
     /// now, not at the next lazy idle tick. Installed once.
     private var observedObserverInstalled = false
@@ -1887,9 +2489,10 @@ final class PromptSigilOverlayController {
         for (_, ov) in overlays { ov.close() }
         overlays.removeAll()
         binding.removeAll()
+        particleColors.removeAll()
         removeMouseMonitors()
         for (_, obs) in axObservers {
-            CFRunLoopRemoveSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(obs), .defaultMode)
+            CFRunLoopRemoveSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(obs), .commonModes)
         }
         axObservers.removeAll()
     }
@@ -1920,6 +2523,10 @@ final class PromptSigilOverlayController {
         lastTick = now
 
         reposition()                       // refresh targets + z-order
+        // Global mouse monitors can disappear when macOS revisits Input
+        // Monitoring/TCC after a signed app update. Sampling on this already-
+        // running low-cost tick makes hover self-healing without a new timer.
+        handleMouseMoved()
         guard !overlays.isEmpty else { timer = nil; return }
         var settling = false
         var anyObserved = false
@@ -1943,10 +2550,10 @@ final class PromptSigilOverlayController {
 
     /// In-process snapshot of the on-screen window stack. `terminals` maps
     /// each Terminal/iTerm2 window's CGWindowID to its bounds {x,y,w,h};
-    /// `stack` is EVERY normal-level window front-to-back — what the
+    /// `stack` is EVERY normal-level window front-to-back — what the pointer
     /// occlusion check walks to find the topmost window at a rock's spot.
-    /// (Badges float at a higher level and the bubble sits higher still, so
-    /// neither appears in the layer-0 stack.) No fork.
+    /// Rock windows belong to this layer too, but are mouse-transparent and
+    /// are ignored below by window number when appropriate. No fork.
     private func snapshotWindows()
         -> (terminals: [Int: (CGFloat, CGFloat, CGFloat, CGFloat)], stack: [(num: Int, rect: CGRect)]) {
         let pids = Set(NSWorkspace.shared.runningApplications
@@ -1962,8 +2569,16 @@ final class PromptSigilOverlayController {
                   let b = info[kCGWindowBounds as String] as? [String: CGFloat],
                   let x = b["X"], let y = b["Y"], let w = b["Width"], let h = b["Height"]
             else { continue }
-            stack.append((num, CGRect(x: x, y: y, width: w, height: h)))
-            if let pid = info[kCGWindowOwnerPID as String] as? pid_t, pids.contains(pid) {
+            let ownerPid = info[kCGWindowOwnerPID as String] as? pid_t
+            // The normal-level heartbeat fuse belongs to this process. If it
+            // participates in the occlusion stack, it covers its own bound
+            // Terminal on one tick, gets hidden, then reappears on the next —
+            // an exact 5 Hz blink loop. Only external normal windows can
+            // occlude prompt overlays.
+            if ownerPid != getpid() {
+                stack.append((num, CGRect(x: x, y: y, width: w, height: h)))
+            }
+            if let pid = ownerPid, pids.contains(pid) {
                 terminals[num] = (x, y, w, h)
             }
         }
@@ -1976,6 +2591,7 @@ final class PromptSigilOverlayController {
     private func reposition() {
         guard !overlays.isEmpty else { timer?.invalidate(); timer = nil; return }
         let snap = snapshotWindows()
+        let stackOrderChanged = snap.stack.map(\.num) != lastStack.map(\.num)
         lastStack = snap.stack        // the hover hit-test reads this between ticks
         let screenH = NSScreen.main?.frame.height ?? 0
         var seen: [Int: (CGFloat, CGFloat, CGFloat, CGFloat)] = [:]
@@ -1991,7 +2607,7 @@ final class PromptSigilOverlayController {
             let p = ov.rockPoint(bounds: b)
             let top = snap.stack.first(where: { $0.rect.contains(p) })?.num
             let visible = (top == nil || top == num)
-            ov.setVisible(visible)
+            ov.setVisible(visible, above: num, reassertOrder: stackOrderChanged)
             if !visible { dropInteraction(for: ov) }
             seen[num] = b
             if let prev = lastBoundsByNum[num], prev != b {
@@ -2001,6 +2617,10 @@ final class PromptSigilOverlayController {
             }
         }
         lastBoundsByNum = seen
+        // Share the prompt-rock controller's adaptive movement cadence with the
+        // under-window glow. During a drag this runs at display rate; at rest it
+        // becomes only the cheap 5 Hz safety check.
+        PromptFocusHighlight.shared.refreshNow()
         // Rebind ONLY on a membership change (one-shot) or the slow safety
         // cadence — never per tick, so osascript stays capped at ~once / 5s.
         if (needsRebind || Date().timeIntervalSince(lastBind) > 5), !bindInFlight {
@@ -2024,7 +2644,21 @@ final class PromptSigilOverlayController {
         let script = boundsScript(terminal: wantTerminal, iterm: wantIterm)
 
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            let result = ShellRunner.run("/usr/bin/osascript", args: ["-e", script], timeout: 2)
+            // Execute in-process. Child `osascript` processes inherit this
+            // LSUIElement app as their responsible process and can stall at
+            // the Apple Events handoff even when Slab already has permission,
+            // leaving every rock off-screen until a four-second timeout. A
+            // fresh NSAppleScript on this serial bind path uses Slab's own
+            // granted identity and avoids both the fork and that deadlock.
+            var appleError: NSDictionary?
+            let descriptor = NSAppleScript(source: script)?
+                .executeAndReturnError(&appleError)
+            let result: (status: Int32, output: String)
+            if let appleError {
+                result = (-3, appleError.description)
+            } else {
+                result = (0, descriptor?.stringValue ?? "")
+            }
             var ttyBounds: [String: (CGFloat, CGFloat, CGFloat, CGFloat)] = [:]
             for line in result.output.split(separator: "\n") {
                 let parts = line.split(separator: "|")
@@ -2037,6 +2671,11 @@ final class PromptSigilOverlayController {
                 // osascript bounds {l,t,r,b} → {x,y,w,h}.
                 ttyBounds[dev] = (nums[0], nums[1], nums[2] - nums[0], nums[3] - nums[1])
             }
+            if result.status != 0 {
+                NSLog("🪨 [bind] terminal probe failed status=\(result.status): \(result.output.prefix(240))")
+            } else if ttyBounds.isEmpty {
+                NSLog("🪨 [bind] terminal probe returned no tty bounds")
+            }
             DispatchQueue.main.async {
                 guard let self = self else { return }
                 // Match against a fresh snapshot (windows may have moved during
@@ -2048,7 +2687,19 @@ final class PromptSigilOverlayController {
                         newBinding[tty] = hit.key
                     }
                 }
-                self.binding = newBinding
+                // Never let a transient AppleScript timeout erase a healthy
+                // wall. Retain bindings whose tty + CG window are both still
+                // live, then merge any fresh matches over them. A failed probe
+                // therefore costs one delayed rebind, not five seconds where
+                // every rock (and its hover card) disappears.
+                let liveTtys = Set(self.overlays.values.map(\.tty))
+                var merged = self.binding.filter {
+                    liveTtys.contains($0.key) && wins[$0.value] != nil
+                }
+                if result.status == 0 {
+                    merged.merge(newBinding) { _, fresh in fresh }
+                }
+                self.binding = merged
                 self.bindInFlight = false
                 self.reposition()
             }

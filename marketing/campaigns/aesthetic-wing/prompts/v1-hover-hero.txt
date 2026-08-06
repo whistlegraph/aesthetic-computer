@@ -1,0 +1,33 @@
+Use case: ads-marketing
+Asset type: principal 9:16 campaign illustration and first frame for an Instagram reel
+
+Create the defining hero illustration for Aesthetic Wing, a speculative personal
+electric vehicle that feels like the aviation equivalent of a Onewheel: one
+central self-balancing road wheel for ordinary riding, plus a broad low annular
+wing-deck with multiple fully enclosed lift rotors for calm short-duration low
+hover.
+
+Use `refs/jeffrey-face.jpg` and `refs/jeffrey-alt.jpg` as identity and clothing
+references. Preserve Jeffrey's recognizable face, medium-length brown hair, slim
+build, and natural proportions. Use `comodiddies/twofa/gens/v3-hero.png` as the
+medium reference only: colored pencil and gouache on warm cream paper.
+
+Place Jeffrey on a quiet, empty, sunlit Los Angeles residential side street in
+early morning. He rides sideways in a relaxed board stance, hovering only about
+18 inches above the asphalt, wearing the real loose white button-down and cobalt
+trousers from the reference. He looks along his direction of travel, never at
+camera.
+
+The vehicle is approximately 1.5 m long and 0.8 m wide. One large central rubber
+road wheel passes through the middle between two foot platforms. Around it is one
+continuous thin oval wing in matte warm off-white composite with mint-teal lower
+surfaces and coral safety accents. Six shallow circular lift ducts are integrated
+symmetrically, three per side, and completely covered above and below by fine
+protective grilles. No exposed blades, flames, jets, extra wheels, handlebars, or
+cockpit. A few dry leaves move gently beneath it.
+
+Tall full-bleed 9:16 portrait. Full body and entire vehicle visible in a
+three-quarter side view. Keep top 15%, bottom 20%, and outer 8% side margins calm
+for reel UI and captions. Warm diegetic morning light. No text, logos, watermark,
+or UI. Avoid cinematic futurism, superhero poses, high altitude, crowds, traffic,
+photoreal 3D, smooth digital outlines, and distorted anatomy.

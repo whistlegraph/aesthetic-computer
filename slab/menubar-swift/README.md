@@ -42,11 +42,29 @@ says "prompt rocks", this is it.
 - **Motion = status.** Spin speed and direction encode working / awaiting /
   complete / stale. A poke from a peer (the ledger's "observed" note) makes the
   stone blink and rattle.
-- **Name + bubble.** A deterministic pet name in Comic Sans bubble lettering
-  sits under the stone; pointing at it reveals a card summarizing the prompt
-  (one cheap `claude -p haiku` sentence, cached per seed).
+- **Name + living memoir.** A deterministic pet name in Comic Sans bubble
+  lettering sits under the stone; pointing at it instantly reveals a compact
+  5:7 collectible summary card—the same 250 × 350 design geometry as the
+  KidLisp cards, displayed at 76% on the desktop—with a crisp
+  framed rock portrait, paper texture, a few sentences about what the session
+  has done, its current position, uptime, and recent activity. The stock follows
+  system Light/Dark appearance while the keyline and status jewel keep each
+  prox colour-coded. Clicking the card renders it as PNG and opens the native
+  macOS share picker (Messages, AirDrop, Mail, and installed share services);
+  Loopboy cards wear the pink Loopboy edition mark.
+  One change-aware heartbeat runs at a time, slowly refining a persistent
+  per-session cache from bounded transcript tails. It prefers Apple's local
+  Foundation Model, can fall back to Haiku, and uses the active agent's own
+  recent prose when neither is available. Hover and prox MCP reads never
+  trigger inference themselves.
 - **A shared sun** lights every rock from the local time of day, so the whole
   wall of stones re-lights together.
+- **Platform target awareness.** A session marker may carry
+  `"platform_target":"xbox"`. Its
+  `platform-target-awareness-identifier-badge` appears as a compact branded
+  Xbox acknowledgement at the bottom-left of that prompt terminal. The target
+  is session metadata—not a pet-name or tty rule—and is also advertised in the
+  fleet ledger. Clearing the field removes the badge.
 
 The rocks are borderless, click-through `.floating` windows — they ride above
 the normal-window stack so a busy wall of preview cards can't bury them. The
@@ -55,6 +73,10 @@ price is that **occlusion is hand-rolled**, in two places that must agree:
 refuses the pointer to a rock that is hidden or covered *at the cursor*. Skip
 either and a stone will wake up and pop its bubble through the window sitting on
 top of it.
+
+The fleet ledger carries the same cached `memoir` and `started` fields. Use
+`prox_recap` for a narrative-first, read-only view before poking or waking a
+session; older peers remain compatible because both fields are optional.
 
 ## Fleet prompt hosts
 
@@ -66,14 +88,63 @@ a prompt of at most 4000 characters, and an existing cwd beneath the target
 user’s home directory. Use `slab/install.sh --prompt-host` to install the agent
 hooks and wrappers without the legacy ambient-audio or lid-control services.
 
+### Spatial prompt navigation
+
+`⌘⌥` + an arrow walks prompt panes spatially. It chooses a pane on the local
+screen first; at the edge it follows the installed Deskflow `links` geometry,
+uses the fleet ledger to skip machines without a live prox, asks the active
+Deskflow controller to carry the `unipointer` across the required screen edges,
+and focuses the nearest aligned pane on the destination host. Focus changes get
+a short acquisition flare and transfer click. Every live prompt sheds a few
+luminous drops from its lower edge in that prompt's current status-theme
+colour; the focused prompt emits a little more strongly. The effect uses only
+a shallow strip below each window and lets Core Animation's render server move
+the particles, with no per-frame Swift timer, window capture, or extra geometry
+polling.
+
 ## Loopboy
 
 Loopboy is Slab's client-loop router. Routes in
 `~/.config/slab/loopboy.json` map one private iMessage contact key to one local
 prox session. New inbound messages poke and optionally wake only that contact's
-rock; Loopboy never replies on its own. Armed Loopboy rocks spin faster, wear a
-pink glow, and identify themselves in their hover bubble. The Slab menu lists
-all active client loops and their prox targets.
+rock. Heartbeats and messages are written to a private, per-session inbox and
+consumed by `prox_loopboy_wait`; they never type into Terminal, use the
+clipboard, or move focus. Loopboy never replies on its own. Armed Loopboy rocks spin faster, wear a
+pink glow, show their verified contact beside the current phase, and identify
+themselves in their hover bubble. A saved route becomes active only when it
+matches the contact identity placed in the live session marker by the guarded
+launcher; editing `loopboy.json` cannot retrofit an ordinary prompt. The Slab
+menu counts verified client loops and labels stale or mismatched saved routes
+as inactive.
+
+## ZZZ — resumable prompt parking
+
+`zzz` is Slab's cold tier for prompt processes. Automatic parking is opt-in;
+when enabled, its default idle window is 60 minutes. A local prompt that is
+explicitly complete or interrupted is recorded under
+`~/.local/share/slab/state/zzz/` and terminated. Its terminal stays open with
+a colored `zzz resume <id>` receipt, and its provider conversation is not
+deleted. Working, awaiting,
+rendering, remote, subagent-owning, and Loopboy-bound prompts are protected.
+The timeout and enabled state live in the host-private
+`~/.config/slab/zzz.json`.
+
+The Slab menu can zzz an idle prompt immediately, toggle the automatic reaper,
+or wake a sleeping prompt. It also opens the terminal harness:
+
+```sh
+zzz                         # mouse/touch + keyboard harness
+zzz list                    # inventory with a resume command for every row
+zzz list --json             # machine-readable sleeping prompt inventory
+zzz resume                  # resume the newest sleeping prompt
+zzz resume <number-or-text> # resume a selected prompt (wake is an alias)
+zzz park <live-id>           # park a tracked idle prompt
+zzz park <pid> --force       # explicit escape hatch for an untracked prompt
+```
+
+In the harness, tap a row or use arrow keys and Return to reinitialize that
+prompt in a fresh tracked Terminal window with the same provider thread and
+working directory.
 
 ## Passphrase modal (IPC server)
 

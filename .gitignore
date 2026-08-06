@@ -192,6 +192,14 @@ gcp-firebase-service-key.json
 
 __pycache__/
 
+# Local report/build intermediates and oversized renders with canonical source
+# or smaller release derivatives tracked alongside them.
+/reports/jas-nzxt-fleet-use-report-2026-07-22.aux
+/reports/jas-nzxt-fleet-use-report-2026-07-22.log
+/reports/jas-nzxt-fleet-use-report-2026-07-22.out
+/slab/blueberry-cabinet/build/
+/pop/nullabye/release/special-sign/special-sign-3d-spatial-graph.mp4
+
 # Ignore lockfile for ac-site
 /tmp/ac-site.lock
 

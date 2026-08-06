@@ -16,7 +16,7 @@
 //     viewport — fine for browser-driven rigs, blind to native chrome.
 //   • OUT-OF-PAGE (any native app): the JPEG-overlay viewer in
 //     analysis-overlay.mjs draws the SAME boxes over a captured frame. Works
-//     for every app because `frame` already OCRs the whole screen.
+//     for every app because `frame --screen` already OCRs the whole screen.
 //
 // Coordinate space note: OCR/AX rects from FrameCapture.swift are LOGICAL
 // SCREEN POINTS (top-left origin). CDP Input.dispatchMouseEvent + the page-side

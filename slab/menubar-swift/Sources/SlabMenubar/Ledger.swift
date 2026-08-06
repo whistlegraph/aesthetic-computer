@@ -34,9 +34,20 @@ struct LedgerEntry: Codable, Equatable {
     var seed: String       // hex of the sigil seed
     var cwd: String
     var updated: Double     // ms since epoch
+    /// Prox lifetime and cached living summary. Optional keeps decoding older
+    /// fleet ledgers backward-compatible during rolling installs.
+    var started: Double?
+    var memoir: String?
     // Owning CLI agent ("claude" | "codex" | …). Optional so ledgers published
     // by older peers (no field) still decode; nil is treated as "claude".
     var agentType: String?
+    /// Optional hardware/platform destination surfaced by the local prompt's
+    /// platform-target-awareness-identifier-badge. Optional preserves rolling
+    /// compatibility with fleet ledgers published before target awareness.
+    var platformTarget: String?
+    /// Guarded launch identity. Optional keeps older fleet ledgers readable;
+    /// unlike the route registry, this originates in the live marker.
+    var loopboyContact: String?
 }
 
 struct Ledger: Codable {
@@ -69,6 +80,14 @@ final class LedgerStore {
     /// overlay loop wakes from idle and shows the reaction without waiting for
     /// the next lazy tick.
     static let observedNote = Notification.Name("slab.ledger.observed")
+    /// Posted on the main queue when prox asks this host to re-enter a live
+    /// prompt. AppDelegate handles it through the exact same guarded terminal
+    /// wake primitive used by Loopboy heartbeats.
+    static let wakeNote = Notification.Name("slab.ledger.wake")
+    /// Posted after Terminal accepts a prox/Loopboy prompt launch. The app
+    /// waits briefly for the new window, then normalizes the wall so Terminal's
+    /// tall default frame never survives as a special case.
+    static let promptLaunchedNote = Notification.Name("slab.ledger.prompt-launched")
 
     // ── on-disk layout (kept: survives restarts) ─────────────────────────
     static var dir: String { "\(Paths.home)/.config/slab/ledger" }
@@ -120,7 +139,12 @@ final class LedgerStore {
         server?.stop()
         let s = try? LedgerHTTPServer(ip: selfIP, port: Self.port)
         s?.onPoke = { [weak self] body in self?.receivePoke(body) }
+        s?.onWake = { [weak self] body in
+            self?.receiveWake(body) ?? ["ok": false, "error": "ledger unavailable"]
+        }
         s?.onLaunch = { body in Self.launchPrompt(body) }
+        s?.onNavigate = { body in DeskflowSpatialNav.receiveNavigate(body) }
+        s?.onDeskflowRoute = { body in DeskflowSpatialNav.receiveRoute(body) }
         server = s
     }
 
@@ -266,6 +290,29 @@ final class LedgerStore {
         receivePoke(["id": sessionId, "by": by])
     }
 
+    /// Validate and enqueue a bounded prox continuation. The HTTP server never
+    /// touches Accessibility, the pasteboard, or Terminal directly; all UX is
+    /// owned by AppDelegate's shared Loopboy re-entry path on the main queue.
+    private func receiveWake(_ body: [String: Any]) -> [String: Any] {
+        let sid = ((body["id"] as? String) ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let prompt = ((body["prompt"] as? String) ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !sid.isEmpty else { return ["ok": false, "error": "id is required"] }
+        guard !prompt.isEmpty else { return ["ok": false, "error": "prompt is required"] }
+        guard prompt.count <= 1_000 else {
+            return ["ok": false, "error": "prompt exceeds 1000 characters"]
+        }
+        let by = String(((body["by"] as? String) ?? "prox-wake").prefix(100))
+        DispatchQueue.main.async {
+            NotificationCenter.default.post(
+                name: Self.wakeNote,
+                object: nil,
+                userInfo: ["id": sid, "prompt": prompt, "by": by])
+        }
+        return ["ok": true, "queued": true, "id": sid]
+    }
+
     /// Live observed record for a session, or nil once the window has decayed.
     /// Thread-safe; the overlay controller calls this each frame.
     func observation(for sessionId: String) -> (by: String, remaining: TimeInterval)? {
@@ -312,7 +359,11 @@ final class LedgerStore {
                 seed: String(format: "%016llx", seed),
                 cwd: s.cwd,
                 updated: s.updated.timeIntervalSince1970 * 1000,
-                agentType: s.agentType)
+                started: s.started.timeIntervalSince1970 * 1000,
+                memoir: ProxMemoirs.shared.text(for: s.sessionId),
+                agentType: s.agentType,
+                platformTarget: s.platformTarget.isEmpty ? nil : s.platformTarget,
+                loopboyContact: s.loopboyContact.isEmpty ? nil : s.loopboyContact)
         }
         entries.append(contentsOf: advertisedAgents())
 
@@ -355,7 +406,11 @@ final class LedgerStore {
                 kind: "agent", seed: String(format: "%016llx", seed),
                 cwd: (obj["cwd"] as? String) ?? "",
                 updated: mtime.timeIntervalSince1970 * 1000,
-                agentType: (obj["agent_type"] as? String)))
+                started: (obj["started"] as? Double),
+                memoir: (obj["memoir"] as? String),
+                agentType: (obj["agent_type"] as? String),
+                platformTarget: (obj["platform_target"] as? String),
+                loopboyContact: (obj["loopboy_contact"] as? String)))
         }
         return out
     }
@@ -460,9 +515,16 @@ final class LedgerHTTPServer {
     /// Called on `POST /poke` with the decoded JSON body — the owner marks the
     /// referenced handle "observed".
     var onPoke: (([String: Any]) -> Void)?
+    /// Called on POST /wake after JSON framing. The owner validates and queues
+    /// re-entry through the menubar's shared Loopboy wake path.
+    var onWake: (([String: Any]) -> [String: Any])?
     /// Called on POST /launch. The callback owns validation and returns a
     /// compact JSON-safe result dictionary.
     var onLaunch: (([String: Any]) -> [String: Any])?
+    /// Focus one local prompt as a fleet arrow arrives on this screen.
+    var onNavigate: (([String: Any]) -> Bool)?
+    /// Ask the active Deskflow controller to traverse a validated direction path.
+    var onDeskflowRoute: (([String: Any]) -> Bool)?
     private var fd: Int32 = -1
     private let queue = DispatchQueue(label: "slab.ledger.http")
     private var running = false
@@ -549,6 +611,18 @@ final class LedgerHTTPServer {
             return
         }
 
+        // POST /wake — queue one bounded continuation through AppDelegate.
+        // The response only acknowledges the queue; terminal focus/paste work
+        // remains asynchronous so this tailnet server stays responsive.
+        if line.hasPrefix("POST"), line.contains("/wake") {
+            let obj = decodedBody(data, bodyStart: bodyStart)
+            let result = onWake?(obj) ?? ["ok": false, "error": "wake unavailable"]
+            let body = (try? JSONSerialization.data(withJSONObject: result, options: [.sortedKeys]))
+                ?? Data("{\"ok\":false,\"error\":\"encoding failed\"}".utf8)
+            respond(client, body: body)
+            return
+        }
+
         // POST /launch — start one fixed Claude/Codex launcher in Terminal.
         // The callback rejects arbitrary binaries, paths outside HOME, and
         // oversized prompts; this HTTP layer only handles framing.
@@ -567,6 +641,20 @@ final class LedgerHTTPServer {
             return
         }
 
+        if line.hasPrefix("POST"), line.contains("/navigate") {
+            let obj = decodedBody(data, bodyStart: bodyStart)
+            let ok = onNavigate?(obj) ?? false
+            respond(client, body: Data("{\"ok\":\(ok)}".utf8))
+            return
+        }
+
+        if line.hasPrefix("POST"), line.contains("/deskflow-route") {
+            let obj = decodedBody(data, bodyStart: bodyStart)
+            let ok = onDeskflowRoute?(obj) ?? false
+            respond(client, body: Data("{\"ok\":\(ok)}".utf8))
+            return
+        }
+
         // Anything else (GET /ledger) → the current local ledger JSON.
         let body = (try? Data(contentsOf: URL(fileURLWithPath: LedgerStore.localFile)))
             ?? Data("{\"host\":\"\",\"entries\":[]}".utf8)
@@ -580,5 +668,10 @@ final class LedgerHTTPServer {
             + "Connection: close\r\n\r\n"
         var out = Data(header.utf8); out.append(body)
         _ = out.withUnsafeBytes { write(client, $0.baseAddress, $0.count) }
+    }
+
+    private func decodedBody(_ data: Data, bodyStart: Int?) -> [String: Any] {
+        guard let start = bodyStart, start <= data.count else { return [:] }
+        return (try? JSONSerialization.jsonObject(with: data[start...])) as? [String: Any] ?? [:]
     }
 }

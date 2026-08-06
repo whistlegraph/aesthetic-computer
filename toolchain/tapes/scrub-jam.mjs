@@ -51,7 +51,6 @@ const CDP_URL = val("--connect", null); // ...or a full ws:// endpoint
 const TAPES = val("--tapes", "sine,house").split(",").map((s) => s.trim());
 const SECS = parseFloat(val("--secs", "0")) || 0; // 0 = until Ctrl+C
 const RELEASE_S = parseFloat(val("--release", "15")); // Hands-off per phrase
-const DENSITY = val("--density", null); // AC pixel density (1 = chunky)
 const SOLO = has("--solo"); // One performer messes at a time; others hold
 let soloTurn = 0; // Whose turn it is (round-robin by window index)
 
@@ -315,7 +314,7 @@ class Performer {
       if (sick || !url.includes(tapeToken(this.tape))) {
         this.last.act = sick ? "heal 502 → re-enter" : "re-enter tape";
         await sleep(sick ? 2500 : 0); // Give the origin a breath first
-        await this.page.goto(tapeURL(this.tape), {
+        await this.page.goto(`${BASE}/${tapeToken(this.tape)}`, {
           waitUntil: "domcontentloaded",
           timeout: 45000,
         });
@@ -414,20 +413,12 @@ async function adoptPage(browser, url) {
 const tapeToken = (tape) =>
   tape.startsWith("!") ? `video~${tape}` : `video~scrub~${tape}`;
 
-// nogap always: the AC canvas reaches the window edge, so the tape's
-// bottom progress bar sits on the true bottom of the pane.
-const tapeURL = (tape) => {
-  const q = ["nogap=true"];
-  if (DENSITY) q.push(`density=${DENSITY}`);
-  return `${BASE}/${tapeToken(tape)}?${q.join("&")}`;
-};
-
 // Per-window cursor colors — sine yellow, house cyan, dub pink, break blue.
 const CURSOR_COLORS = ["#ffdd00", "#00ffcc", "#ff66aa", "#66aaff"];
 
 async function launchWindow(tape, idx) {
   const { browser, launched } = await getBrowser(idx);
-  const url = tapeURL(tape);
+  const url = `${BASE}/${tapeToken(tape)}`;
   // Attached: claim an existing app window; launched: reuse the sole page.
   const page = launched ? (await browser.pages())[0] : await adoptPage(browser, url);
   // Only navigate if it isn't already there — reloading a window that is

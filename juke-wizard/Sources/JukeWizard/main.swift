@@ -88,9 +88,9 @@ final class JukeAppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    // Stay resident when the window closes — the spinning-CD menu-bar item is
-    // JukeWizard's persistent face; click it to bring the window back.
-    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
+    // The persistent spinning CD now belongs to Menu Band's CDJ Radio. With
+    // no JukeWizard status item to reopen, closing its last window exits.
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
 
     // A hidden resident window should always come back from a Dock click.
     // Without this, AppKit can activate the process while leaving its only

@@ -1,0 +1,25 @@
+Edit the first supplied image, the approved photorealistic campaign portrait of Camille wearing the Whistlegraph [h0t] pendant, with only Alex's necklace and package corrections. Preserve Camille's recognizable identity, face, expression, hair, pose, hands, black top, warm artist-studio setting, natural skin texture, composition, camera, lighting and analog editorial feeling.
+
+INPUT ROLES:
+1. The first image is the approved Camille campaign still to edit.
+2. The second image is the corrected GPT Image 2 [h0t] product/package master and is the exact authority for the necklace materials, five white ticks, orange center, closed curl, package art, logo and archive copy.
+3. The third image is the original final chalk score and confirms the orange center, five white tip notches and bottom-left inner loop.
+4. The fourth image is Camille's primary identity reference. Preserve her identity exactly; do not substitute or beautify her into a different person.
+5. The fifth image is the official Whistlegraph header logo and must remain faithful wherever visible.
+
+CORRECT THE NECKLACE CAMILLE IS WEARING:
+- Preserve exactly five polished gold wire petal loops.
+- Make the oval center clearly orange enamel, not coral and not pink.
+- Preserve the small green trapezoid beneath the center.
+- Remove all round pearl-like or flower-textured white gems.
+- Place exactly one tiny plain white enamel sprinkle-like tick across the gold wire at the tip of each of the five petals: exactly five ticks total. Each is a very short straight dash perpendicular to the petal line and extends only the smallest amount beyond either side. No beads, pearls, circles, rosettes, snowflakes, diamonds or raised stones.
+- Preserve the bottom-left petal's inner terminal curl as a fully closed small gold loop, never an open C or crevice.
+- Keep realistic necklace scale, chain attachment, gravity, gold reflections and sharp inspectable detail.
+
+CORRECT THE PACKAGE CAMILLE HOLDS:
+- Match the supplied corrected package master, including the same corrected necklace.
+- Preserve the official multicolor Whistlegraph logo and [h0t] archive styling.
+- The tiny lore uses “orange,” never “coral.”
+- No “06”.
+
+Do not change Camille, her anatomy, expression, pose, clothes, studio, framing or photographic realism. Do not add any jewelry, charms, text, logos, hands, UI or props.

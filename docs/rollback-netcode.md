@@ -4,6 +4,11 @@
 rollback-safe, and a real GGPO-style rollback session runs against itself over a
 hostile fake wire. No actual network yet.
 
+The product-level crossplay, lobby, tournament, and infrastructure requirements
+now live in `menu-fighter/{NETCODE,LOBBY,TOURNAMENT,INFRASTRUCTURE}.md`. This file
+remains the engineering history and determinism rationale for the underlying
+`fight` implementation.
+
 The goal is a versus fighting game on AC with GGPO-style rollback: both peers
 run the same deterministic simulation, send only inputs, predict what they
 haven't received, and silently rewind-and-resimulate when a prediction was

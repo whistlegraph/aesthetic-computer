@@ -137,6 +137,12 @@ let progressPhase = ""; // Current phase of upload (e.g., "ZIPPING", "UPLOADING 
 let progressPercentage = 0; // 0-100
 let paintingCompletionBusy = false;
 
+function setProgressPhase(phase = "") {
+  // The renderer owns the animated ellipsis. Backend messages and callers may
+  // already include punctuation, so normalize it here instead of doubling it.
+  progressPhase = String(phase).trim().replace(/[.…]+$/, "");
+}
+
 // 📦 Pack progress state
 let packProgress = null; // { timeline, startTime, code } or null
 let usbTargetDevice = null; // { name, path, size, model } when flashing to USB in Electron
@@ -1104,6 +1110,7 @@ async function boot({
   promptSend = send;
   promptNeedsPaint = needsPaint;
   cachedGizmo = gizmo; // Cache gizmo for use in act() function
+  ellipsisTicker = new gizmo.EllipsisTicker();
   if (store["prompt:theme"]) theme = store["prompt:theme"];
   if (store["prompt:flair"] === "off") flairEnabled = false; // default on
   if (store["prompt:lang"]) lang = store["prompt:lang"];
@@ -1571,9 +1578,9 @@ async function halt($, text) {
     const clearMerryLoader = () => {
       progressBar = -1;
       progressTrick = null;
-      progressPhase = "";
+      setProgressPhase();
     };
-    progressPhase = "LOADING";
+    setProgressPhase("LOADING");
     progressBar = 0.04; // a visible sliver right away
     progressTrick = new gizmo.Hourglass(24, {
       completed: () => (progressBar = Math.min(0.9, progressBar + 0.04)),
@@ -2495,7 +2502,7 @@ async function halt($, text) {
 
       if (destination === "upload") {
         progressBar = 0;
-        progressPhase = "PREPARING";
+        setProgressPhase("PREPARING");
         progressPercentage = 0;
         progressTrick = new gizmo.Hourglass(24, {
           completed: () => (progressBar += min(0.5, progressBar + 0.1)),
@@ -2503,7 +2510,7 @@ async function halt($, text) {
         });
       }
 
-      progressPhase = "ZIPPING RECORDING";
+      setProgressPhase("ZIPPING RECORDING");
       const zipped = await zip({ destination, painting: { record } }, (p) => {
         console.log("🤐 Zip progress:", p);
         progressBar = p * 0.3; // Zip is 0-30% of total progress
@@ -2532,7 +2539,7 @@ async function halt($, text) {
       console.log("🖼️ Uploading painting...");
 
       try {
-        progressPhase = "FINISHING...";
+        setProgressPhase("FINISHING");
         console.log(`📞 Calling upload with recordingSlug: ${recordingSlug}`);
         const uploadData = store["painting:tags"]
           ? { ...store["painting"], tags: store["painting:tags"] }
@@ -2545,7 +2552,7 @@ async function halt($, text) {
             progressPercentage = Math.floor(30 + (p * 50));
           } else {
             // S3 complete, database processing: show indeterminate state
-            progressPhase = "PROCESSING...";
+            setProgressPhase("PROCESSING");
             progressBar = -2; // Special value for pulsing animation
             progressPercentage = -1; // Hide percentage
           }
@@ -2558,7 +2565,7 @@ async function halt($, text) {
         }
 
         // The upload function includes the database call, so this happens after everything
-        progressPhase = "COMPLETE";
+        setProgressPhase("COMPLETE");
         progressBar = 1.0; // 100%
         progressPercentage = 100;
         needsPaint(); // Force paint to show completion
@@ -2567,7 +2574,7 @@ async function halt($, text) {
         await new Promise(resolve => setTimeout(resolve, 300));
 
         progressBar = -1; // Hide progress bar
-        progressPhase = "";
+        setProgressPhase();
         progressPercentage = 0;
 
         // For anonymous paintings with recordings, the slug is already combined in MongoDB
@@ -2589,7 +2596,7 @@ async function halt($, text) {
         console.error("🪄 Painting upload failed:", err);
         flashColor = [255, 0, 0];
         progressBar = -1;
-        progressPhase = "";
+        setProgressPhase();
         progressPercentage = 0;
         paintingCompletionBusy = false;
         makeFlash($);
@@ -5418,9 +5425,7 @@ function paint($) {
 
     // Show progress text in center
     if (progressPhase) {
-      // Animated dots
-      const dots = Math.floor((Date.now() / 250) % 4);
-      const text = progressPhase + ".".repeat(dots);
+      const text = progressPhase + ellipsisTicker.text(help.repeat);
 
       // Background for text
       const textWidth = text.length * 6 + 16;
@@ -7715,7 +7720,7 @@ function sim($) {
     halt($, text);
   }
 
-  ellipsisTicker?.sim();
+  ellipsisTicker?.update($.clock?.time());
   progressTrick?.step();
 
   // 🔍 Sync autocomplete skipHistory and skipEnter flags with TextInput.
@@ -9784,7 +9789,9 @@ function receive(e) {
       fallback: "TRACKING (FALLBACK)",
       complete: "FINALIZING",
     };
-    progressPhase = String(message || stageText[stage] || "PROCESSING").toUpperCase();
+    setProgressPhase(
+      String(message || stageText[stage] || "PROCESSING").toUpperCase(),
+    );
 
     // Keep "done" in indeterminate mode while backend stages are running.
     if (progressBar < 0) {

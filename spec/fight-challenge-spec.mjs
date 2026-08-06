@@ -1,0 +1,10 @@
+import assert from "node:assert/strict";
+import { parseFightChallenge, parseFightCommand } from "../system/public/aesthetic.computer/lib/fight/challenge.mjs";
+assert.deepEqual(parseFightChallenge("fight @Jeffrey"), { target: "@jeffrey" });
+assert.equal(parseFightChallenge("fight jeffrey"), null);
+assert.equal(parseFightChallenge("hello @jeffrey"), null);
+assert.deepEqual(parseFightCommand("fight @Jeffrey"), { action: "challenge", target: "@jeffrey" });
+assert.deepEqual(parseFightCommand("fight accept"), { action: "accept" });
+assert.deepEqual(parseFightCommand("FIGHT DECLINE"), { action: "decline" });
+assert.equal(parseFightCommand("fight maybe"), null);
+console.log("fight challenge spec ok");

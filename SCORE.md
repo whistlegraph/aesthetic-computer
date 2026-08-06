@@ -22,6 +22,31 @@ Interpret names and requests in this order unless the user explicitly points els
 
 Do not interpret a known machine name as an Aesthetic Computer piece until the seat/fleet meaning has been ruled out.
 
+## Pull Request Score
+
+Keep a small PR terse. When the work is a recovery, migration, or design change
+that benefits from a fuller review story, use this structure:
+
+1. Lead with the developer story: the concrete incident, who needs what, and
+   why it matters. A substantial PR may title it `## 🧑‍💻 Developer story`.
+2. Add `## 🔗 Recovery chain` when the work follows earlier accepted PRs, and
+   state the responsibility contributed by each one.
+3. Prefer one narrow, top-to-bottom Mermaid `flowchart TD` with short labels.
+   Add another diagram only for a distinct layer that prose cannot explain as
+   clearly.
+4. Use color sparingly inside Mermaid through semantic `classDef` styles.
+   GitHub does not reliably color ordinary Markdown text, so do not use HTML or
+   CSS hacks. For textual emphasis, prefer a durable blockquote such as
+   `> 🛡️ **Core safety rule:** …`.
+5. Sprinkle a few semantic emoji before major headings for navigation (`🔗`,
+   `🔄`, `🛡️`, `🎯`, `✅`). Do not mark every heading or decorate body prose.
+6. Make safety invariants, exact validation, known limits, and deliberately
+   out-of-scope work explicit. Use concrete identifiers when they help readers
+   verify the story, but never expose secrets or irrelevant private host data.
+
+The reading order is story → related work → simple flow → safety → evidence →
+limits. The complexity of the work must earn the length and diagrams.
+
 ## Front Door
 
 <!-- stats:start -->
@@ -122,6 +147,10 @@ This is critical because `lib/pmove.mjs` is shared physics: client (lith) and se
 - [ ] KidLisp GPU compositing: render effects on GPU buffer, recompose with CPU renderer
 
 **Host Tooling (slab/)** — @jeffrey's macOS host, not a deployed service
+- **Cleaner** (`toolchain/macos/cleaner.sh`) — canonical safe fleet-Mac disk
+  cleanup. “Call the cleaner” means run `cleaner --apply`; plain `cleaner` is
+  report-only, and APFS snapshot thinning remains separately opt-in. Install
+  with `toolchain/macos/cleaner.sh --install`. Fleet MCP exposes `fleet_cleaner`.
 - **Unipointer** (`slab/deskflow-handoff/UNIPOINTER.md`) — canonical identifier
   for the Fuser seat's one logical pointer. Neo and Blueberry can exchange the
   physical Deskflow controller role without changing the unipointer's active
@@ -131,7 +160,7 @@ This is critical because `lib/pmove.mjs` is shared physics: client (lith) and se
 - `slab/menubar-swift/` — native Swift menubar daemon (launchd `computer.slab.menubar`). Shows live Claude-session status, themes each Terminal.app/iTerm2 window by session state (working/awaiting/complete), tiles all windows into one grid, tints the desktop, and serves passphrases over a unix socket. Built + installed locally with `slab/menubar-swift/install.sh` (`swift build -c release` → universal arm64+x86_64 binary → app bundle + launchd agent); there is no remote deploy.
 - **Tiling auto-fits the type:** `tileNow` sizes each Terminal window's font to the grid (Far/Near/Tiny modes) and drives `View ▸ Default Font Size` per window so a live window actually adopts it — a per-window zoom otherwise silently overrides the profile font and is invisible to AppleScript. Floors keep it legible (Far 10 / Near 9 / Tiny 8). iTerm2 has no AppleScript font property, so it tiles by bounds only.
 - **Prompt rocks** (`slab/menubar-swift/Sources/SlabMenubar/PromptSigilOverlay.swift`) — the tumbling little stones parked at the top-right of each terminal window, one per live Claude session. Each rock is a 3D sigil rendered from the session's `sessionId + prompt` seed (so it re-forms when the session moves to a new prompt), lit by a shared global sun that tracks local time of day, wearing a pet name in bubble lettering. Its *motion* is the status channel — spin speed and direction encode working/awaiting/complete; being read by a peer makes it blink and rattle. Hovering one reveals a bubble summarizing the prompt (a cached one-line `claude -p haiku` inference). They're borderless click-through `.floating` windows, so hit-testing has to check occlusion by hand: a rock only answers the pointer while it's on screen *and* its terminal is still the topmost normal window under the cursor.
-- **Prompt rocks MCP** (`slab/bin/prox-mcp.mjs`, registered as `prox` in `.mcp.json`) — an MCP over the fleet handle ledger (`Ledger.swift`; `~/.config/slab/ledger/{local,peers/*}.json`, served per-machine on tailnet-only `:5252`) so any agent can `prox_list` every live session across machines, `prox_find` a `host:name` reference (e.g. `neo:regif`) to its status/subject/cwd/seed, `prox_poke` one (`POST /poke` → the target rock blinks + rattles), and `prox_launch` a new Claude/Codex Terminal on a prompt host. Launch is deliberately not a remote shell: the target accepts only those two fixed agents, a bounded prompt, and a cwd beneath that user's home. `prox_close` reads the session marker for tty+pid and closes locally only (refuses the calling session). This is how a `machine:promptname` handle resolves without an SSH crawl.
+- **Prompt rocks MCP** (`slab/bin/prox-mcp.mjs`, registered as `prox` in `.mcp.json`) — an MCP over the fleet handle ledger (`Ledger.swift`; `~/.config/slab/ledger/{local,peers/*}.json`, served per-machine on tailnet-only `:5252`) so any agent can `prox_list` every live session across machines, `prox_find` a `host:name` reference (e.g. `neo:regif`) to its status/subject/cwd/seed, `prox_poke` one (`POST /poke` → the target rock blinks + rattles), `prox_wake` a local one with a bounded steering prompt, send `prox_artifact_ready` the output paths from an asynchronous render, and `prox_launch` a new Claude/Codex Terminal on a prompt host. Wake uses the same poke + TTY reactivation pattern as Loopboy; `prox_artifact_ready` supplies the standard inspect/iterate/integrate/continue prompt itself. Launch is deliberately not a remote shell: the target accepts only those two fixed agents, a bounded prompt, and a cwd beneath that user's home. `prox_close` reads the session marker for tty+pid and closes locally only (refuses the calling session). This is how a `machine:promptname` handle resolves without an SSH crawl.
 - **Loopboy** (`~/.config/slab/loopboy.json`, surfaced in the Slab menubar) — the primary client-loop interface. Each route maps one private iMessage contact key to one stable local prox session; new inbound messages poke and optionally wake only that contact's rock. Loopboy never replies by itself. Armed rocks spin faster, glow pink, and identify themselves as Loopboy on hover. Create or replace a route with `prox_bind_notification(handle, contact)`.
 - **Paper MCP / `/papers` stack** (`slab/bin/paper-mcp.mjs`, registered as `paper`) — “use the papers stack,” “use `/papers`,” and similar requests name the studio's scholarly publishing workflow, not merely a request to export or prettify a PDF. Begin by consulting [`papers/SCORE.md`](papers/SCORE.md), the public Platter index, relevant sub-platters, prior papers and bibliographies, and the underlying code/data/evidence. Unless the user names another mill lane, shape the result as an archival/arXiv-style LaTeX paper: title/byline/date, abstract, problem and context, related work, system or method, implementation, evidence/evaluation, ethics/privacy/limitations, conclusion, references, numbered/captioned figures and tables, and reproducible source/assets. Briefings, decks, cards, dossiers, and visual reports are distinct lanes and require explicit intent or strong task evidence. The MCP is the transport/build/inspection layer: `paper_list`/`paper_find` locate precedent, `paper_read` supports the Platter consult, `paper_build` runs XeLaTeX or Tectonic, `paper_figure_table_qa_check` supports mandatory visual inspection, and `paper_open` raises the result through `slab-pdf`. The shared loopback daemon is `:7777`; `toolchain/mcp/install-daemons.sh` registers it for Claude and Codex. A build may pass `notifyHandle` to return its PDF to the originating rock through `prox_artifact_ready`.
 - `slab/bin/ac-passphrase` — pinentry-free secret fetch from the daemon (see Development Environment below).

@@ -1,0 +1,17 @@
+Use case: ads-marketing
+Asset type: vertical 9:16 neck-worn jewelry campaign still and image-to-video source for an organic Reels clip
+
+Primary request: Place the exact Whistlegraph “Seasons” enamel pendant from Image 1 on a real adult woman, worn naturally at the collarbone on its delicate gold chain.
+
+Input images:
+- Image 1 is the authoritative product reference. Preserve the exact five-petal topology, closed lower-left petal with interior curl, coral-red central oval, yellow/gold petals, green bottom trapezoid, and all five white enamel dot/snowflakes at the five petal apexes.
+- Image 2 is the authoritative chalk score/performance reference for the flower geometry and white apex snow marks.
+
+Subject and scene: crop from just below the woman’s nose to mid-chest; natural adult woman with real skin texture, small pores and fine hairs, relaxed posture, wearing a simple cream scoop-neck cotton top. The pendant hangs flat and centered at the collarbone, large enough to read clearly but realistically scaled at roughly 38 mm wide. No other necklace.
+
+Style/medium: photorealistic candid phone-video opening frame, tasteful creator-made Instagram Reels energy, not glossy stock photography.
+Composition/framing: vertical 9:16, slight handheld off-center framing, pendant is the sharp focal plane, face partially out of frame, enough negative space above for optional platform UI but no generated UI.
+Lighting/mood: late-afternoon window light or soft outdoor shade, gentle movement implied in hair and fabric, warm and intimate.
+Color palette: cream fabric and honest skin tones; the pendant’s yellow, coral, green, and white details remain saturated and exact.
+Brand cue: a small pale-yellow Whistlegraph jewelry card with a coral-magenta margin line is softly blurred in the background; the word “WHISTLEGRAPH” may appear once on that physical card only.
+Constraints: do not redesign, simplify, mirror, melt, or add pieces to the pendant. Exactly five white dot/snowflakes, one at each petal apex. The lower-left petal is a closed loop with interior curl, never a cleft. No earrings, extra necklaces, tattoos, generated social-media UI, subtitles, watermark, or extra text.

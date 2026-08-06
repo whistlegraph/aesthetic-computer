@@ -174,7 +174,7 @@ echo -e "$GREEN-> Connected to $TARGET_HOST.$NC"
 
 # Deploy from pushed git state only. This avoids production drift from local rsync overlays.
 echo -e "$GREEN-> Verifying origin/$TARGET_BRANCH...$NC"
-git -C $REPO_ROOT fetch origin $TARGET_BRANCH --quiet
+git -C $REPO_ROOT fetch origin "refs/heads/$TARGET_BRANCH:refs/remotes/origin/$TARGET_BRANCH" --quiet
 set ORIGIN_HEAD (git -C $REPO_ROOT rev-parse origin/$TARGET_BRANCH)
 
 if test "$LOCAL_BRANCH" = "$TARGET_BRANCH"
@@ -187,9 +187,9 @@ if test "$LOCAL_BRANCH" = "$TARGET_BRANCH"
 end
 
 echo -e "$GREEN-> Deploying branch $TARGET_BRANCH at $ORIGIN_HEAD...$NC"
-ssh -i $SSH_KEY $LITH_USER@$TARGET_HOST "\
+if not ssh -i $SSH_KEY $LITH_USER@$TARGET_HOST "\
 cd $REMOTE_DIR && \
-git fetch origin $TARGET_BRANCH --quiet && \
+git fetch origin refs/heads/$TARGET_BRANCH:refs/remotes/origin/$TARGET_BRANCH --quiet && \
 if git show-ref --verify --quiet refs/heads/$TARGET_BRANCH; then \
   git checkout $TARGET_BRANCH --quiet; \
 else \
@@ -197,6 +197,9 @@ else \
 fi && \
 git reset --hard origin/$TARGET_BRANCH --quiet && \
 git rev-parse HEAD > system/public/.commit-ref"
+    echo -e "$RED x Failed to check out origin/$TARGET_BRANCH on $TARGET_HOST.$NC"
+    exit 1
+end
 
 # Upload env (only if the vault has one — otherwise keep the remote's existing env)
 # Note: lith.service reads EnvironmentFile=/opt/ac/system/.env, so the canonical

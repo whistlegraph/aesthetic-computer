@@ -48,6 +48,14 @@ struct ClaudeSession {
     let tty: String
     let claudePid: Int
     let updated: Date
+    /// When this prox first appeared on this host. Unlike `updated`, this does
+    /// not advance on prompts/tool heartbeats, so hover copy can say how long
+    /// the actual prompt window has been alive.
+    var started: Date = Date()
+    /// Native Claude/Codex transcript, when the launcher/hook supplied it.
+    /// Prox memoir inference reads a bounded tail off-main; the UI never opens
+    /// this file itself.
+    var transcriptPath: String = ""
     var state: State
     var awaitingMessage: String?
     /// Absolute path to this session's iTerm2 background-image wallpaper,
@@ -74,6 +82,12 @@ struct ClaudeSession {
     /// in the menu. The state/color engine is agent-agnostic, so this is
     /// display-only.
     var agentType: String = "claude"
+
+    /// Optional hardware/platform destination for this prompt (for example
+    /// `xbox`). The active-prompt marker owns this metadata so the
+    /// platform-target-awareness-identifier-badge follows the session across
+    /// prompt changes, titles, and terminal retiling without name-based rules.
+    var platformTarget: String = ""
 
     /// Native provider thread id. Claude uses `sessionId`; Codex's tracked
     /// wrapper has its own rock id, so the watcher records the rollout id here.
@@ -287,6 +301,11 @@ enum ClaudeSessionReader {
         let updated: Date = {
             if let s = obj["updated"] as? String, let d = formatter.date(from: s) { return d }
             return (try? FileManager.default.attributesOfItem(atPath: path)[.modificationDate] as? Date) ?? Date()
+        }()
+        let attrs = try? FileManager.default.attributesOfItem(atPath: path)
+        let started: Date = {
+            if let s = obj["started_at"] as? String, let d = formatter.date(from: s) { return d }
+            return (attrs?[.creationDate] as? Date) ?? updated
         }()
 
         // Only `blank` is read from the marker — every other state comes

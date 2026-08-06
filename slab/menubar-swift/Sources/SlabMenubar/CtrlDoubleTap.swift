@@ -1,4 +1,5 @@
 import AppKit
+import ApplicationServices
 import CoreGraphics
 
 /// Global "tap ⌃ twice, quickly, on its own" detector.
@@ -47,6 +48,14 @@ final class CtrlDoubleTap {
     @discardableResult
     func start() -> Bool {
         guard tap == nil else { return true }
+        guard ProcessInfo.processInfo.environment["SLAB_DISABLE_EVENT_TAPS"] != "1" else {
+            NSLog("slab zoom lens: event tap disabled for this host")
+            return false
+        }
+        guard AXIsProcessTrusted() else {
+            NSLog("slab zoom lens: Accessibility not trusted; skipping event tap")
+            return false
+        }
         let mask: CGEventMask =
             (1 << CGEventType.flagsChanged.rawValue) |
             (1 << CGEventType.keyDown.rawValue) |

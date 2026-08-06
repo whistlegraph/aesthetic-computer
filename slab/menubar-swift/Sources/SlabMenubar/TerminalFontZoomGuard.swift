@@ -23,6 +23,14 @@ final class TerminalFontZoomGuard {
     @discardableResult
     func start() -> Bool {
         guard tap == nil else { return true }
+        guard ProcessInfo.processInfo.environment["SLAB_DISABLE_EVENT_TAPS"] != "1" else {
+            NSLog("slab terminal font zoom: event tap disabled for this host")
+            return false
+        }
+        guard AXIsProcessTrusted() else {
+            NSLog("slab terminal font zoom: Accessibility not trusted; skipping event tap")
+            return false
+        }
         let mask: CGEventMask = 1 << CGEventType.keyDown.rawValue
         let callback: CGEventTapCallBack = { _, type, event, refcon in
             guard let refcon else { return Unmanaged.passUnretained(event) }

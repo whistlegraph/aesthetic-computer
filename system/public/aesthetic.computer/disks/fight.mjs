@@ -17,6 +17,8 @@ import { createSession, createLink } from "../lib/fight/session.mjs";
 import { getButtonColors, getGamepadMapping } from "../lib/gamepad-mappings.mjs";
 import { createFightLobby } from "../lib/fight/lobby.mjs";
 import { createFightLogin, pollFightLogin, adoptFightSession } from "../lib/fight/login.mjs";
+import { menuHit, menuLayout } from "../lib/fight/menu.mjs";
+import { createOnlineFight } from "../lib/fight/online.mjs";
 import { qrcode as qr } from "../dep/@akamfoad/qr/qr.mjs";
 
 const { P, PN, G, ST, SFX, SUB, BODY_W, BODY_H, PUNCH_F } = game;
@@ -84,6 +86,15 @@ let loginCells = null;
 let loginStatus = "idle";
 let loginTimer = null;
 let loggedInHandle = null;
+let menuOpen = false;
+let menuGeometry = null;
+let menuIcon = null;
+let training = false;
+let online = null;
+let sendToBios = null;
+let onlineSnapshot = null;
+let pendingChallengeTarget = null;
+let pendingInviteId = null;
 
 async function beginFightLogin() {
   if (loggedInHandle || loginStatus === "creating" || loginStatus === "pending") return;
@@ -138,20 +149,55 @@ function open(colon) {
 
 let opened = []; // the colon we booted with, so `r` can rebuild the same match
 
-function boot({ colon, system, net: { socket } = {}, handle }) {
+function boot({ colon, system, net: { socket, preload } = {}, handle, authorize, send }) {
   fpsSystem = system;
+  preload?.("/menu-fighter-icon.png")
+    .then(({ img }) => (menuIcon = img))
+    .catch((error) => console.warn("menu fighter icon unavailable", error));
   loggedInHandle = handle?.() || null;
+  const challengeAt = colon.indexOf("challenge");
+  const inviteAt = colon.indexOf("invite");
+  pendingChallengeTarget = challengeAt >= 0 && colon[challengeAt + 1]
+    ? `@${String(colon[challengeAt + 1]).replace(/^@/, "")}` : null;
+  pendingInviteId = inviteAt >= 0 ? colon[inviteAt + 1] || null : null;
   const lobbyHandle = loggedInHandle || `guest-${Math.random().toString(36).slice(2, 7)}`;
-  lobby = createFightLobby(lobbyHandle);
+  sendToBios = send;
+  lobby = createFightLobby(loggedInHandle, { callbacks: {
+    onProposal: (proposal) => online?.proposal(proposal),
+    onSignal: (signal) => online?.signal(signal),
+    onStart: () => {
+      attract = false;
+      training = false;
+      menuOpen = false;
+      held.fill(0); keyHeld.fill(0); padsHeld.fill(0);
+      online?.start();
+    },
+  } });
   if (socket) {
     server = socket((_id, type, content) => {
       if (type.startsWith("connected")) {
-        lobby.join(server);
+        if (loggedInHandle && authorize) {
+          Promise.resolve(authorize()).then((token) => lobby.authenticate(server, token))
+            .catch(() => { lobby.state.status = "error"; lobby.state.error = "login verification failed"; });
+        }
         return;
       }
-      lobby.receive(type, content);
+      lobby.receive(type, content, server);
+      if (type === "fight:auth:ok") {
+        if (pendingChallengeTarget) {
+          lobby.challenge(server, pendingChallengeTarget);
+          pendingChallengeTarget = null;
+        } else if (pendingInviteId) {
+          lobby.replyChallenge(server, pendingInviteId, true);
+          pendingInviteId = null;
+        }
+      }
     });
   }
+  online = createOnlineFight(game, { lobby, server, send: sendToBios,
+    onSfx: (flags) => (sfxIn |= flags),
+    onState: (value) => { onlineSnapshot = value; if (value.state) s = value.state; },
+  });
   if (!loggedInHandle) beginFightLogin();
   opened = colon;
   inputStream.length = 0;
@@ -163,6 +209,9 @@ function boot({ colon, system, net: { socket } = {}, handle }) {
   net = open(colon);
   s = net ? net.a.state : game.create(1);
   attract = !colon.includes("synctest");
+  training = colon.includes("train");
+  if (training) attract = false;
+  menuOpen = false;
   attractPause = 0;
   boxes = colon.includes("boxes");
   if (colon.includes("synctest")) {
@@ -258,6 +307,7 @@ function padHelp(player) {
 }
 
 function sim({ sound }) {
+  if (menuOpen) return;
   if ((half ^= 1)) return; // every other 120hz step
   if (attract && s[G.MATCH]) {
     if (++attractPause > 75) resetFight();
@@ -268,7 +318,16 @@ function sim({ sound }) {
   const input = attract ? [demoInput(0), demoInput(1)] : held;
 
   let flags;
-  if (net) {
+  if (lobby.state.status === "playing" && online?.session) {
+    sfxIn = 0;
+    // The rollback session maps this device onto its assigned seat. Local
+    // controls therefore stay on the primary keyboard/controller layout even
+    // when the coordinator assigns seat 1.
+    online.advance(held[0]);
+    s = online.session.state;
+    flags = sfxIn;
+    onlineSnapshot = online.snapshot();
+  } else if (net) {
     net.link.tick();
     sfxIn = 0;
     // a stall is a dropped frame, not an error — the peer waits rather than
@@ -293,6 +352,40 @@ function sim({ sound }) {
 }
 
 function act({ event: e }) {
+  if (e.is("fight:rtc:event")) {
+    online?.rtcEvent(e.content);
+    return;
+  }
+  const openGesture = e.is("keyboard:down:escape") ||
+    (e.is("gamepad") && e.button === 9 && e.action === "push");
+  if (openGesture) {
+    menuOpen = !menuOpen;
+    held.fill(0); keyHeld.fill(0); padsHeld.fill(0);
+    return;
+  }
+  if (e.is("touch") || e.is("pen:down")) {
+    const hit = menuHit(menuGeometry, e.x, e.y, menuOpen);
+    if (hit === "launcher") {
+      menuOpen = true;
+      held.fill(0); keyHeld.fill(0); padsHeld.fill(0);
+      return;
+    }
+    if (menuOpen) {
+      if (hit === "train") startTraining();
+      else if (hit === "find" && lobby.state.authenticated) {
+        online?.close();
+        lobby.find(server);
+      }
+      else if (hit === "outside") menuOpen = false;
+      return;
+    }
+  }
+  if (menuOpen) {
+    if (e.is("keyboard:down:enter") || e.is("keyboard:down:return") ||
+        e.is("keyboard:down:space") ||
+        (e.is("gamepad") && e.button === 0 && e.action === "push")) startTraining();
+    return;
+  }
   const startsWithKey = Object.keys(KEYS).some((key) => e.is(`keyboard:down:${key}`));
   const startsWithPad = e.is("gamepad") &&
     ((e.button !== undefined && e.action === "push") ||
@@ -338,6 +431,21 @@ function act({ event: e }) {
     s = net ? net.a.state : game.create(s[G.RNG]);
     sfxIn = 0;
   }
+}
+
+function startTraining() {
+  if (lobby.state.status === "waiting") lobby.cancel(server);
+  online?.close();
+  training = true;
+  attract = false;
+  menuOpen = false;
+  net = null;
+  s = game.create(s?.[G.RNG] || 1);
+  held.fill(0); keyHeld.fill(0); padsHeld.fill(0);
+  inputStream.length = 0;
+  lastResult.fill(0);
+  sfxIn = 0;
+  attractPause = 0;
 }
 
 function controllerButtonLabel(id = "", button) {
@@ -434,7 +542,7 @@ function drawFighter(ink, x, y, bw, bh, face, st, stf, tick, c, u) {
 // the stage is a fixed 256 units wide in the sim and always will be: if it
 // tracked the screen, two players on differently sized windows would simulate
 // different fights. so the renderer scales instead.
-function paint({ wipe, ink, screen, dark }) {
+function paint({ wipe, ink, paste, screen, dark }) {
   lightMode = dark === false;
   const { width: w, height: h } = screen;
   screenWidth = w;
@@ -517,15 +625,70 @@ function paint({ wipe, ink, screen, dark }) {
     ink(...colors().panel).box(x - 5, y - 4, msg.length * 6 + 10, 15);
     ink(...(lightMode ? [125, 76, 0] : [255, 220, 60])).write(msg, { x, y, font: "MatrixChunky8" });
   }
+  paintMenu(ink, paste, w, h);
+}
+
+function paintMenuIcon(ink, paste, box, large = false) {
+  if (menuIcon && paste) {
+    const scale = Math.min(box.w / menuIcon.width, box.h / menuIcon.height);
+    const iw = menuIcon.width * scale, ih = menuIcon.height * scale;
+    paste(menuIcon, box.x + (box.w - iw) / 2, box.y + (box.h - ih) / 2, scale);
+    return;
+  }
+  // The asset may still be loading: retain the two loops and crossed arms.
+  const cx = box.x + box.w / 2, top = box.y + box.h * 0.22;
+  const r = Math.max(2, box.w * 0.12);
+  const c = large ? [151, 91, 45] : [190, 124, 70];
+  ink(...c).circle(cx - box.w * 0.19, top, r, false);
+  ink(...c).circle(cx + box.w * 0.19, top, r, false);
+  ink(...c).line(cx - box.w * 0.28, top + r, cx + box.w * 0.24, box.y + box.h * 0.72);
+  ink(...c).line(cx + box.w * 0.28, top + r, cx - box.w * 0.24, box.y + box.h * 0.72);
+}
+
+function paintMenu(ink, paste, w, h) {
+  menuGeometry = menuLayout(w, h);
+  const { launcher, panel, train, find } = menuGeometry;
+  ink(...(lightMode ? [238, 234, 221, 235] : [12, 11, 18, 235])).box(
+    launcher.x - 2, launcher.y - 2, launcher.w + 4, launcher.h + 4,
+  );
+  paintMenuIcon(ink, paste, launcher);
+  if (!menuOpen) return;
+
+  ink(4, 4, 8, 205).box(0, 0, w, h);
+  ink(...(lightMode ? [238, 234, 221] : [28, 25, 36])).box(panel.x, panel.y, panel.w, panel.h);
+  ink(...(lightMode ? [93, 81, 65] : [120, 111, 140])).box(panel.x, panel.y, panel.w, 1);
+  const mark = { x: (w >> 1) - 16, y: panel.y + 6, w: 32, h: 32 };
+  paintMenuIcon(ink, paste, mark, true);
+  ink(...(lightMode ? [43, 38, 49] : [245, 239, 224])).write("MENU FIGHTER", {
+    center: "x", y: panel.y + 39, screen: { width: w, height: h }, font: "MatrixChunky8",
+  });
+
+  ink(225, 185, 72).box(train.x, train.y, train.w, train.h);
+  ink(22, 18, 24).write("TRAIN  freefight", { center: "x", y: train.y + 5, screen: { width: w, height: h }, font: "MatrixChunky8" });
+  const findReady = lobby.state.authenticated;
+  ink(...(findReady ? [90, 170, 255] : lightMode ? [194, 189, 178] : [54, 50, 64])).box(find.x, find.y, find.w, find.h);
+  const findLabel = lobby.state.status === "waiting" ? `FIND  ${lobby.state.region}` :
+    lobby.state.status === "matched" ? "MATCHED" : lobby.state.status === "connecting" ? "CONNECTING" :
+    lobby.state.status === "playing" ? "PLAYING" : findReady ? "FIND  online" : "FIND  log in";
+  ink(...(findReady ? [12, 16, 24] : lightMode ? [126, 120, 111] : [112, 106, 124])).write(findLabel, {
+    center: "x", y: find.y + 5, screen: { width: w, height: h }, font: "MatrixChunky8",
+  });
 }
 
 function paintPresence(ink, w) {
   const state = lobby.state;
   const who = loggedInHandle ? `@${String(loggedInHandle).replace(/^@/, "")}` : state.handle;
-  const text = `${who}  ${state.count || 1} in lobby`;
+  const text = training ? `${who}  train / freefight` : `${who}  ${state.count || 1} in lobby`;
   ink(...colors().quiet).write(text, {
     x: Math.max(4, w - text.length * 6 - 4), y: 24, font: "MatrixChunky8",
   });
+  const health = onlineSnapshot?.health;
+  if (health && lobby.state.status === "playing") {
+    const route = onlineSnapshot.route?.type || "direct";
+    const stats = `${route} ${Math.round(health.rttMs || 0)}ms j${Math.round(health.jitterMs || 0)} ` +
+      `loss ${Math.round((health.packetLoss || 0) * 100)}% rb${health.rollbacks || 0}/${(health.rollbackDepth || 0).toFixed(1)} st${health.stalls || 0}`;
+    ink(...colors().quiet).write(stats, { x: 4, y: 33, font: "MatrixChunky8" });
+  }
 }
 
 function paintLogin(ink, w) {
@@ -549,6 +712,8 @@ function leave() {
   if (loginTimer) clearTimeout(loginTimer);
   loginTimer = null;
   lobby.leave(server);
+  online?.close();
+  online = null;
   server = null;
 }
 

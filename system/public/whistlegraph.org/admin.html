@@ -268,6 +268,7 @@
 
   document.getElementById("newWork").addEventListener("click",()=>{
     if(PREVIEW)return;
+    listPosition={scrollY:window.scrollY,shown};
     selected={type:"new-work",key:""};
     drawer.innerHTML=`<div class="drawer-head"><div><h2>New whistlegraph</h2><p>Create an entry, then assign archive posts to its code.</p></div><button class="close" aria-label="Close editor">×</button></div>
       <label for="workCode">Code</label><input class="field" id="workCode" maxlength="24" placeholder="fear" autocomplete="off"><p class="hint">1–24 letters or numbers. Codes become public URLs and commands.</p>
@@ -293,6 +294,7 @@
   }
   async function openEditor(key){
     if(mode==="trash"){openTrashEditor(key);return}
+    listPosition={scrollY:window.scrollY,shown};
     const selection={type:mode==="works"?"work":"post",key};selected=selection;const item=selection.type==="work"?workByCode[key]:postById[key];if(!item)return;
     renderEditor(selection,item);
     if(selection.type==="post"&&!PREVIEW&&!item.visual){
@@ -333,9 +335,9 @@
   }
   function refreshAfterMutation(selection){
     if(mode==="posts"&&selection.type==="post"&&kind==="all"&&!query.trim()){
-      buildView();const tile=grid.querySelector(`button[data-key="${CSS.escape(selection.key)}"]`),item=postById[selection.key];if(tile&&item)tile.outerHTML=tileHTML(item);updateCount();return;
+      buildView();const tile=grid.querySelector(`button[data-key="${CSS.escape(selection.key)}"]`),item=postById[selection.key];if(tile&&item)tile.outerHTML=tileHTML(item);updateCount();requestAnimationFrame(()=>scrollTo(0,listPosition?.scrollY??window.scrollY));return;
     }
-    renderReset(true);
+    renderReset(true,listPosition);
   }
   async function saveEditor(){
     if(!selected||PREVIEW)return;const current={...selected},patch=current.type==="post"?{kind:drawer.querySelector("#postKind").value,works:splitList(drawer.querySelector("#postWorks").value),plots:splitList(drawer.querySelector("#postPlots").value),desc:drawer.querySelector("#postDesc").value}:workPatch();

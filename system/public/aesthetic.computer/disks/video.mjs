@@ -1088,13 +1088,14 @@ function paint({
     const liveRate = scrubDriven ? scrubSpeed : playing ? 1 : 0;
     // Right-anchored readout: the box hugs the value (no dead padding),
     // and the right edge never moves — OCR and eyes anchor there.
-    // The bg param makes write() draw a box measured from the REAL glyph
-    // advances — perfectly hugging, no estimates.
     const rateStr = `${liveRate.toFixed(2)}x`;
+    const rateW = rateStr.length * 5 + 8;
+    ink(60, 75, 95, 150).box(screen.width - SAFE_R - rateW, SAFE_T, rateW + 2, 11);
+    ink(110, 130, 160).box(screen.width - SAFE_R - rateW, SAFE_T, rateW + 2, 11, "outline");
     ink(255, 255, 0).write(
       rateStr,
-      { y: SAFE_T + 2, right: SAFE_R + 2 },
-      [40, 50, 65, 170],
+      { x: screen.width - SAFE_R - 2, y: SAFE_T + 3, right: true },
+      undefined,
       undefined,
       false,
       "MatrixChunky8",
@@ -1195,10 +1196,13 @@ function paint({
       // One clean boxed row — value and musical unit inside a single
       // chip, fixed-width so nothing ever collides or shifts.
       const syncStr = `${msStr} ${musical.trim()}`;
+      const syncW = syncStr.length * 5 + 8;
+      ink(60, 75, 95, 150).box(screen.width - SAFE_R - syncW, SAFE_T + 12, syncW + 2, 11);
+      ink(110, 130, 160).box(screen.width - SAFE_R - syncW, 15, syncW + 2, 11, "outline");
       ink(locked ? [0, 255, 120] : [255, 170, 0]).write(
         syncStr,
-        { y: SAFE_T + 14, right: SAFE_R + 2 },
-        [40, 50, 65, 170],
+        { x: screen.width - SAFE_R - 2, y: SAFE_T + 15, right: true },
+        undefined,
         undefined,
         false,
         "MatrixChunky8",
@@ -1233,8 +1237,6 @@ function paint({
             locked,
             scrubbing: isScrubbing,
             style: postedTapeCode || "synth",
-            safeR: SAFE_R, // Layout debug: which margin profile is live
-            ua: (typeof navigator !== "undefined" ? navigator.userAgent : "none").slice(-40),
           },
         });
       }
@@ -1281,9 +1283,6 @@ function paint({
       volBtn.box.y = vy - 6;
       volBtn.box.w = vw + 12;
       volBtn.box.h = vh + 12;
-      // Translucent container around the whole volume group (wedge +
-      // number) — same chrome family as the chips.
-      ink(40, 50, 65, 170).box(vx - 5, vy - 6, vw + 10, vh + 24);
       // Hovering shows the true hit box — you can see what you can grab.
       if (volBtn.over || volBtn.down) {
         ink(volBtn.down ? [255, 255, 255] : [200, 220, 255]).box(
@@ -1325,7 +1324,7 @@ function paint({
       const shown = Math.round((lastSentTapeVolume < 0 ? mixVolume : lastSentTapeVolume) * 100);
       ink(255, 255, 255).write(
         `${shown}`,
-        { y: vy + vh + 6, right: SAFE_R },
+        { x: screen.width - SAFE_R, y: vy + vh + 6, right: true },
         undefined,
         undefined,
         false,
@@ -1335,7 +1334,7 @@ function paint({
       if (jamPeers.size > 0) {
         ink(0, 255, 255).write(
           `${jamPeers.size + 1}win`,
-          { y: SAFE_T + 37, right: SAFE_R },
+          { x: screen.width - SAFE_R, y: SAFE_T + 37, right: true },
           undefined,
           undefined,
           false,
@@ -1488,7 +1487,7 @@ function paint({
     // Progress % at top-right, under the rate readout
     ink(...c).write(
       `${Math.floor(scrubCurrentProgress * 100)}%`,
-      { y: 20, right: 8 },
+      { x: screen.width - 8, y: 20, right: true },
     );
 
     // Drive VHS tape progress bar from scrub position

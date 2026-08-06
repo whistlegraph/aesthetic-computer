@@ -999,6 +999,50 @@ DistroKid has a "request Spotify for Artists" shortcut for new artists.
 
 ---
 
+## Special Sign — MASTERING · master locked
+
+- **Status (2026-07-24):** the release master and cover are locked; distribution
+  has not been submitted. Durable package:
+  `pop/nullabye/release/special-sign/`.
+- **Artist / body:** Aesthetic Dot Computer · *pixsies*.
+- **Master:** `special-sign-MASTER.wav` — 1:41.375, 48 kHz/24-bit stereo,
+  −15.0 LUFS integrated, 7.1 LU range, −1.7 dBFS true peak. The accepted
+  `Special-Sign-WET-ROTATION-AUDITION` preserves the earlier all-bodies-hum
+  master as its dry anchor and adds the true listener-relative engine as a
+  side-only parallel return: 0.20 normally, smoothly rising to 0.85 through
+  the central eight-turn super-spin.
+- **Form:** 76 BPM, C major. Source bar 6 opens on the lead; sustained spatial
+  bodies arrive high-to-low, percussion and bass assemble underneath, and an
+  eight-turn listener-relative super-spin bends gravity, distance, Doppler,
+  HRTF, and room returns. The bar-37 cadence winds the physical field to rest.
+- **Mastering:** linear `diamond` chain, spatial layout, no saturation, no
+  recursive audio feedback, no added master echo, and no global fade. The wet
+  return uses the 68%-wet distance/Doppler/HRTF/room engine and cancels in mono;
+  fold-down checks at −19.3 LUFS / −4.4 dBFS true peak. During the super-spin,
+  its side field measures 4.1 dB stronger than the previous master.
+- **Cover:** `special-sign-cover-3000.jpg` — 3000×3000 complete radial score.
+  Its thirteen colored orbits are 1,932 C-engine events plus 35 Jeffrey-choir
+  events; movement and chord rings wrap clockwise around the dynamic arc. The
+  tagged 320 kbps `special-sign.mp3` embeds it.
+- **Graphic-score MP4:** `special-sign-graphic-score.mp4` — 2160×2160 H.264,
+  30 fps, exact 1:41.375 duration, 48 kHz stereo AAC. The same score becomes a
+  scrolling scorodeon: body and choir events carry real master waveforms past
+  a fixed playhead above spatial-rotation, kick-gravity, and dynamic ribbons.
+  Rebuild data with `bin/special-sign-scorodeon-data.mjs`; render with shared
+  `pop/bin/scorodeon.mjs`.
+- **3D spatial graph:** `special-sign-3d-spatial-graph.mp4` — 720×720 H.264,
+  24 fps, exact 1:41.375 duration, 48 kHz stereo AAC. First-person receiver
+  view of the same 68%-wet engine: twelve spectrographic bodies, emitted wave
+  shells, listener breadcrumb, gravity field, and the final mastered L/R
+  windshield aligned to the bar-6 release start.
+- **Safety rule:** the packaged WAV is canonical. Rebuilding the C engine makes
+  a new audition and never silently supersedes the locked master. SHA-256
+  receipts and complete spatial/choir provenance live beside the release.
+- **Next:** submit the locked WAV + cover to distribution, then add platform and
+  CDN links here. This external publication step is deliberately still open.
+
+---
+
 ## nullabye — WIP (lullaby carved from cancelled noise)
 
 - **Lane:** `pop/nullabye/` · 1:19 · 76 BPM · C major 4/4 · 24 bars.

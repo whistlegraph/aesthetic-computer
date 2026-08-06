@@ -46,6 +46,9 @@ h1 {
 }
 h1 .accent { color: var(--accent); }
 .sub { font-size: 11px; color: var(--fg2); margin-bottom: 10px; }
+.tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.tab { border: 1px solid var(--border); padding: 3px 7px; color: var(--fg2); }
+.tab.active { color: var(--fg); border-color: var(--accent); }
 .controls {
   display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
 }
@@ -176,6 +179,11 @@ footer a:hover { color: var(--accent2); }
     <a href="https://www.instagram.com/whistlegraph/" target="_blank">@whistlegraph</a>,
     matched against the AV studio shoot, described per-image by GPT-4o
   </div>
+  <nav class="tabs" aria-label="Jeffrey platter sections">
+    <a class="tab" href="./drawings/">drawings · 3,996</a>
+    <a class="tab active" href="./">instagram · 457</a>
+    <a class="tab" href="../jeffrey-lexicon/">lexicon</a>
+  </nav>
   <div class="controls">
     <input id="search" type="search" placeholder="search descriptions, tags, locations…">
     <select id="sort">
@@ -201,6 +209,8 @@ footer a:hover { color: var(--accent2); }
 
 <footer>
   <a href="../">all platters</a>
+  &nbsp;·&nbsp;
+  <a href="./drawings/">jeffrey's drawings</a>
   &nbsp;·&nbsp;
   <a href="https://github.com/digitpain/aesthetic-computer/blob/main/papers/jeffrey-platter/README.md">jeffrey-platter README</a>
   &nbsp;·&nbsp;

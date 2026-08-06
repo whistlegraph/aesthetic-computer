@@ -72,6 +72,37 @@ One binary, two lives, chosen by launch profile:
   for the fleet (neo / panda / chicken / blueberry): git status, Asana tasks,
   ⚡OVERTIME, and a live terminal pane, via the **fuser** plugin.
 
+Add **`--loopboy <machine>`** to either profile to enter machine-addressed
+Loopboy mode. The target resolves from the canonical private fleet registry
+(`$FLEET_MACHINES`, otherwise `~/aesthetic-computer-vault/machines.json`) using
+its registry key, hostname, tailnet name, or status key. The right-click
+Loopboy-machine submenu switches among registered identities. Unknown and
+offline targets remain visible as explicit states.
+
+Loopboy mode adds a thin host heartbeat across the top of the Macpal. Ordinary
+Macpals never construct the heartbeat plugin and their presentation is
+unchanged. V1 is read-only: it observes the resolved host's cached Slab ledger
+and aggregates prompt-rock freshness/activity, plus an optional mission record
+at `~/.config/slab/loopboy-machines/<machine>.json`. It does not manage or
+control the target machine.
+
+### Loopboy machine-heartbeat state contract
+
+| state | meaning |
+|---|---|
+| `active` | fresh working/rendering/awaiting rocks; a traveling pulse, not percent-complete |
+| `healthy` | host/mission freshness is current without active work |
+| `quiet` | online or recently seen, gradually decaying |
+| `stalled` | mission explicitly blocked, or active work stopped heartbeating |
+| `offline` | resolved host ledger is absent/stale or registry liveness is offline |
+| `unknown` | address does not resolve in the canonical fleet registry |
+
+The bar shows a filled percentage only when the mission snapshot explicitly
+sets `{"bounded":true,"progress":0…1}`. Unbounded work never implies a
+completion percentage. Prompt rocks are one input to whole-host state, not the
+identity of the heartbeat itself. Panda/Iris is the first use; the resolver and
+aggregation contract are machine-generic.
+
 The avatar (float, poses, name wiggle, hover, drag-to-corner, collapse, Menu
 Band sing) lives in `PalCore.swift` and is shared. Everything that stacks
 *beneath the name* is a `PalPlugin`.

@@ -3,24 +3,19 @@
 Small idempotent scripts to keep @jeffrey's Macs (neo, blueberry, chicken, panda)
 consistently configured. Run from any host that can `ssh` the targets.
 
-## Stats (menu-bar system monitor)
+## Resource graph (Slab menu-bar system monitor)
 
-`stats-shared.plist` is the canonical [exelban/Stats](https://github.com/exelban/stats)
-config — it mirrors neo's menu bar: **CPU / RAM / GPU / Disk** as `mini` widgets +
-**Network** as `speed`; Sensors and Battery off. Machine-specific keys (`remote_id`,
-status-item/window positions) are excluded so each Mac lays out naturally.
+Stats is deprecated for the fleet. Slab now owns a framed ticker that rotates
+through **RAM / SSD / GPU / CPU / Network** with a live value and sparkline,
+sampled directly without another app.
+Enable it from **Slab → Resource graph**; the checkbox persists per machine.
 
 ```bash
-bash stats-sync.sh all              # neo chicken panda
-bash stats-sync.sh chicken panda    # specific hosts
+bash stats-sync.sh all              # exits with a migration reminder
 ```
 
-Each run imports the config, registers Stats as a login item (launches at boot),
-and opens it. Stats' own auto-updater keeps versions at parity once it's running.
-
-Login-at-startup uses a classic LaunchServices login item, because Stats 3.x's
-"Start at login" toggle is SMAppService-backed and not reliably settable from the
-CLI. Both mechanisms launch the same single-instance app, so there's no conflict.
+The historical plist and sync implementation remain in the tree only as a
+migration reference. New provisioning does not install or launch Stats.
 
 ## Cursor color
 
@@ -156,12 +151,12 @@ bash ssh-mesh.sh all
 
 Blueberry does **not** trust the fleet key yet and isn't SSH-reachable, so it can't
 be pushed to. `blueberry-join.sh` is a self-contained one-shot that adds the fleet
-keys to its `authorized_keys` and configures Stats. It's staged on neo, so run this
+keys to its `authorized_keys` and configures its cursor identity. It's staged on neo, so run this
 **on blueberry** (blueberry already holds a key to neo):
 
 ```bash
 ssh neo 'cat ~/blueberry-join.sh' > /tmp/bj.sh && bash /tmp/bj.sh
 ```
 
-After that, blueberry joins the mesh and `ssh-mesh.sh` / `stats-sync.sh` work on it
-like any other host.
+After that, blueberry joins the mesh and `ssh-mesh.sh` works on it like any
+other host. Enable the Slab resource graph locally from its persisted checkbox.

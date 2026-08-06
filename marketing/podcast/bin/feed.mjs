@@ -118,7 +118,7 @@ writeFileSync(resolve(OUT, "index.json"), JSON.stringify(index, null, 2) + "\n")
 // ── feed.xml (RSS 2.0 + iTunes) ────────────────────────────────────────
 const items = sidecars.map((e) => `    <item>
       <title>${xml(e.title)}</title>
-      <link>${xml(`https://papers.aesthetic.computer/${host(e)}.pdf`)}</link>
+      <link>${xml(e.link || `https://papers.aesthetic.computer/${host(e)}.pdf`)}</link>
       <guid isPermaLink="false">ac-reading-${xml(e.slug)}</guid>
       <pubDate>${xml(e.pubDate)}</pubDate>
       <description>${xml(e.description)}</description>

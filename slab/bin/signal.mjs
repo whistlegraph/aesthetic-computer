@@ -2,7 +2,7 @@
 // signal.mjs — a tiny, generic Signal Desktop bridge for the slab menubar.
 //
 // Reads Signal Desktop's encrypted SQLCipher DB (read-only) for a configured
-// contact, reports an unread/last-message summary as JSON, rings a bell on a
+// contact, reports an unread/last-message summary as JSON, optionally rings a bell on a
 // NEW inbound message, prints recent messages / a live tail, and decrypts
 // attachments to a temp dir (handing PDFs to the slab viewer).
 //
@@ -21,7 +21,7 @@
 //
 // Subcommands:
 //   signal chats [N]         list the N most recent conversations (default 20)
-//   signal status            JSON summary; rings bell on new inbound
+//   signal status            JSON summary; optional bell on new inbound
 //   signal read [N] [target] print the last N messages (default 15); with a
 //                            target (group/person name or conversationId) read
 //                            ANY thread — group reads attribute each sender
@@ -83,7 +83,7 @@ const CONFIG_STUB = {
   bellTty: "",
   bellTtyComment:
     "optional: a tty like /dev/ttys004 — writing BEL there flashes that terminal.",
-  sound: true,
+  sound: false,
   soundFile: "",
 };
 
@@ -397,7 +397,8 @@ function ringBell(cfg) {
   if (cfg.bellTty && existsSync(cfg.bellTty)) {
     try { writeFileSync(cfg.bellTty, "\x07"); } catch {}
   }
-  if (cfg.sound !== false) {
+  // Audio is opt-in so older configs without a `sound` field stay quiet.
+  if (cfg.sound === true) {
     const snd = cfg.soundFile || "/System/Library/Sounds/Glass.aiff";
     if (existsSync(snd)) spawnSync("/usr/bin/afplay", [snd], { stdio: "ignore" });
   }

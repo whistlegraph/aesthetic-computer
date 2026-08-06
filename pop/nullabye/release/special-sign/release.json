@@ -1,0 +1,124 @@
+{
+  "schema": 2,
+  "title": "Special Sign",
+  "artist": "Aesthetic Dot Computer",
+  "album": "pixsies",
+  "status": "mastered-distrokid-ready",
+  "masterLocked": "2026-07-24",
+  "distributionSubmitted": false,
+  "durationSeconds": 101.375,
+  "bpm": 76,
+  "key": "C major",
+  "acceptedAudition": "pop/nullabye/out/review/Special-Sign-SLIGHTLY-DRIER-AUDITION.wav",
+  "audio": {
+    "master": {
+      "file": "special-sign-MASTER.wav",
+      "sha256": "583147c1335da5e83766cad58a1e4099ef89da1386ad0ab143ee799c3b1d2be4",
+      "sampleRate": 48000,
+      "bitDepth": 24,
+      "channels": 2,
+      "integratedLufs": -15.0,
+      "loudnessRangeLu": 4.9,
+      "truePeakDbtp": -1.47
+    },
+    "mp3": {
+      "file": "special-sign.mp3",
+      "sha256": "176c8739edb8e57e83f23d940d2ed5c3d57a2afc9ee8f20e10318cb8d888e532",
+      "sampleRate": 48000,
+      "bitrate": 320000,
+      "coverEmbedded": true
+    },
+    "monoFoldDown": {
+      "integratedLufs": -18.8,
+      "truePeakDbtp": -4.2
+    },
+    "finalMotionMix": {
+      "topology": "intact dry master plus filtered antisymmetric spatial return",
+      "wetCurveExponent": 1.1,
+      "speedCrestWet": 0.967,
+      "motionDryPocketSeconds": [21.25, 26.75],
+      "materialKickCount": 50,
+      "reverseKickCount": 5,
+      "reverseBellCount": 5,
+      "superSpinSourceSeconds": [58.5, 74.5],
+      "superSpinReleaseSeconds": [39.552632, 55.552632],
+      "superSpinTurns": 8
+    }
+  },
+  "cover": {
+    "file": "special-sign-cover-3000.jpg",
+    "sha256": "1d59444010351b0d5f414112ff243a6267ee7561244bf247c452030c617fff00",
+    "width": 3000,
+    "height": 3000,
+    "colorSpace": "RGB",
+    "basis": "Attic Gremlin: Jeffrey live-coding to the spatial sine globe in the colored-pencil house style"
+  },
+  "visualScore": {
+    "data": {
+      "file": "special-sign.scorodeon.json",
+      "sha256": "184d2ee5b3a4c3fe93739dc98eea613ad2329c06cbe105f8e2ef10272fdf6623",
+      "engineEvents": 2009,
+      "choirEvents": 35,
+      "lanes": 13
+    },
+    "automation": {
+      "file": "special-sign.automation.json",
+      "sha256": "40e6371539e1f780511849f5754413f0b6ebeec0adc07ff7a288a4b40e9a4a92"
+    },
+    "scrollingVideo": {
+      "file": "special-sign-graphic-score.mp4",
+      "sha256": "ff791a0863fd4698e26553a3533a552b377a4feb85f1d56635cea33688319f07",
+      "durationSeconds": 101.375,
+      "width": 2160,
+      "height": 2160,
+      "fps": 30,
+      "videoCodec": "h264",
+      "audioCodec": "aac",
+      "audioSampleRate": 48000,
+      "audioChannels": 2
+    },
+    "circularVideo": {
+      "file": "special-sign-circular-score.mp4",
+      "sha256": "f7a85a316f079a634d95e015533f61557532cd24dd36a6b642ed6a2307081cad",
+      "durationSeconds": 101.375,
+      "width": 1080,
+      "height": 1080,
+      "fps": 30,
+      "videoCodec": "h264",
+      "audioCodec": "aac",
+      "audioSampleRate": 48000,
+      "audioChannels": 2
+    },
+    "spatialGraph": {
+      "file": "special-sign-3d-spatial-graph.mp4",
+      "sha256": "35468571493772d3e4f77b1d41eea8af4251d71f849c568f0b3c4d35f6042909",
+      "durationSeconds": 101.375,
+      "width": 720,
+      "height": 720,
+      "fps": 24,
+      "videoCodec": "h264",
+      "audioCodec": "aac",
+      "audioSampleRate": 48000,
+      "audioChannels": 2,
+      "camera": "first-person listener",
+      "engineSpatialWet": 0.97
+    }
+  },
+  "provenance": {
+    "file": "special-sign.provenance.json",
+    "sha256": "caa1db2e6cbf26c6d19258a150795204cd4bee21907c4a73266fe7fa63eb54b3",
+    "engine": "pop/nullabye/c/spatial-sineabye.c",
+    "choirRenderer": "pop/nullabye/bin/render-spatial-jeffrey.mjs",
+    "finalMixer": "pop/nullabye/bin/remix-special-sign-speed-wet-clean.mjs",
+    "material": "diamond",
+    "layout": "spatial"
+  },
+  "distrokid": {
+    "ready": true,
+    "submitted": false,
+    "audioFile": "distrokid/Special Sign - Aesthetic Dot Computer.wav",
+    "audioSha256": "583147c1335da5e83766cad58a1e4099ef89da1386ad0ab143ee799c3b1d2be4",
+    "coverFile": "distrokid/Special Sign - cover.jpg",
+    "coverSha256": "1d59444010351b0d5f414112ff243a6267ee7561244bf247c452030c617fff00"
+  }
+}

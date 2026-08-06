@@ -300,13 +300,23 @@ async function toolSend({ channel, to, group, text: body, confirm, machine } = {
     if (!confirm) {
       return text(
         `PREVIEW — not sent. Re-call with confirm:true to send.\n` +
-        `channel: iMessage   machine: ${isLocal(machine) ? "local" : machine}\n` +
+        `channel: Messages (iMessage/RCS/SMS)   machine: ${isLocal(machine) ? "local" : machine}\n` +
         `to: ${rcpt.displayName}  [requested: "${to}"]\n` +
         `--- message ---\n${body}`,
       );
     }
     const { stdout } = await runBridge(IMSG, ["send", body, ...toArgs], machine, { timeoutMs: 30000 });
-    return text(`✅ iMessage sent to ${rcpt.displayName}${stdout.trim() ? `: ${stdout.trim()}` : ""}`);
+    let delivery = null;
+    try { delivery = JSON.parse(stdout.trim()); } catch {}
+    if (delivery?.status) {
+      if (delivery.status === "failed") {
+        throw new Error(`Messages rejected the send to ${rcpt.displayName}`);
+      }
+      const verb = delivery.status === "delivered" ? "delivered" : "sent";
+      const service = delivery.service || "Messages";
+      return text(`✅ ${verb} to ${rcpt.displayName} via ${service}`);
+    }
+    return text(`✅ Messages send completed for ${rcpt.displayName}${stdout.trim() ? `: ${stdout.trim()}` : ""}`);
   }
 
   throw new Error(`unknown channel "${channel}" (use "signal" or "imessage")`);

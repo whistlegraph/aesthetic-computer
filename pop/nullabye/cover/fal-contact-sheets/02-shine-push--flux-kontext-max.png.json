@@ -1,0 +1,25 @@
+{
+  "provider": "fal.ai",
+  "endpoint": "fal-ai/flux-pro/kontext/max",
+  "source": "/Users/jas/aesthetic-computer/pop/nullabye/cover/special-sign-cosmic-turtle-colored-pencil-v2.png",
+  "prompt": "Edit the supplied square album cover. Preserve Jeffrey's recognizable face, natural loose brown hair, tactile colored-pencil and graphite paper texture, muted cream/indigo/turquoise/ochre palette, geometric cosmic turtle shell, tiny Pals line seal on the shell, sparse scientific signal diagrams, and absence of all typography. Recompose the turtle into a believable low close three-quarter swimming pose seen through a pronounced circular fisheye lens. The head must emerge along a plausible sea-turtle neck axis rather than a vertical human torso. Exactly four anatomically coherent flippers: the nearest front flipper is strongly foreshortened toward the lens, the far front flipper is smaller and partially occluded, and the two rear flippers follow the shell perspective. Keep one head, one shell, no human shoulders, no extra limbs. The shell curves convincingly in fisheye perspective and may crop naturally at the square edges. Keep the strange restrained 1990s alternative-rock sleeve feeling rather than glossy fantasy key art. Add a small original early-2000s console-rendered sun-shine medallion motif: chunky rounded rays, pearly gold/cyan bloom, toy-like low-poly gloss, integrated as an uncanny object near the shell. It must not copy Mario, a Shine Sprite, Nintendo symbols, or any recognizable game asset. No words, watermark, dreadlocks, braids, white hair, cable hair, horror, mascot smile, or dense starfield. Camera direction: energetic 8mm circular-fisheye exaggeration with the near flipper and shell nose entering the lens field. Keep Jeffrey's facial proportions recognizable despite lens distortion. Make the original sun medallion larger and more playful, with pearlescent GameCube-era material, rounded low-poly rays, cyan-gold lens bloom, and a faint colored-pencil halo; it remains a new generic object with no face and no copyrighted emblem.",
+  "result": {
+    "images": [
+      {
+        "url": "https://v3b.fal.media/files/b/0aa37f1c/yOW66lqWLo3khvh2Gl_-x_8ceaa55ca0ef4413a5ba4537130dd11b.png",
+        "content_type": "image/jpeg",
+        "file_name": null,
+        "file_size": null,
+        "width": 1024,
+        "height": 1024
+      }
+    ],
+    "timings": {},
+    "seed": 4163711093,
+    "has_nsfw_concepts": [
+      false
+    ],
+    "prompt": "Edit the supplied square album cover. Preserve Jeffrey's recognizable face, natural loose brown hair, tactile colored-pencil and graphite paper texture, muted cream/indigo/turquoise/ochre palette, geometric cosmic turtle shell, tiny Pals line seal on the shell, sparse scientific signal diagrams, and absence of all typography. Recompose the turtle into a believable low close three-quarter swimming pose seen through a pronounced circular fisheye lens. The head must emerge along a plausible sea-turtle neck axis rather than a vertical human torso. Exactly four anatomically coherent flippers: the nearest front flipper is strongly foreshortened toward the lens, the far front flipper is smaller and partially occluded, and the two rear flippers follow the shell perspective. Keep one head, one shell, no human shoulders, no extra limbs. The shell curves convincingly in fisheye perspective and may crop naturally at the square edges. Keep the strange restrained 1990s alternative-rock sleeve feeling rather than glossy fantasy key art. Add a small original early-2000s console-rendered sun-shine medallion motif: chunky rounded rays, pearly gold/cyan bloom, toy-like low-poly gloss, integrated as an uncanny object near the shell. It must not copy Mario, a Shine Sprite, Nintendo symbols, or any recognizable game asset. No words, watermark, dreadlocks, braids, white hair, cable hair, horror, mascot smile, or dense starfield. Camera direction: energetic 8mm circular-fisheye exaggeration with the near flipper and shell nose entering the lens field. Keep Jeffrey's facial proportions recognizable despite lens distortion. Make the original sun medallion larger and more playful, with pearlescent GameCube-era material, rounded low-poly rays, cyan-gold lens bloom, and a faint colored-pencil halo; it remains a new generic object with no face and no copyrighted emblem."
+  },
+  "generatedAt": "2026-07-24T05:22:22.529Z"
+}

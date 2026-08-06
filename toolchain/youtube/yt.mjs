@@ -32,6 +32,7 @@
 //        --category 10                       (default: 10 = Music) \
 //        --thumbnail <image.jpg>             (optional) \
 //        --playlist <playlistId>             (optional) \
+//        --language en|es|fr                 (optional metadata language) \
 //        --made-for-kids                     (default: not for kids)
 //
 // Every upload also writes a sidecar <video>.youtube.json receipt with
@@ -159,7 +160,7 @@ async function doAuth() {
     server.listen(0, "127.0.0.1", () => {
       const port = server.address().port;
       const redirect = `http://127.0.0.1:${port}`;
-      const authUrl = "https://accounts.google.com/o/oauth2/v2/auth?" + new URLSearchParams({
+      const authParams = new URLSearchParams({
         client_id: client.id,
         redirect_uri: redirect,
         response_type: "code",
@@ -167,8 +168,11 @@ async function doAuth() {
         access_type: "offline",
         prompt: "consent",
       });
+      const loginHint = flags["login-hint"] || process.env.YT_LOGIN_HINT;
+      if (loginHint) authParams.set("login_hint", String(loginHint));
+      const authUrl = "https://accounts.google.com/o/oauth2/v2/auth?" + authParams;
       server._redirect = redirect;
-      console.log(`\n▸ Opening browser — sign in as mail@aesthetic.computer and approve.`);
+      console.log(`\n▸ Opening browser — sign in as ${loginHint || "mail@aesthetic.computer"} and approve.`);
       if (CHANNEL_AS) console.log(`  In Google's account chooser, pick the "${CHANNEL_AS}" channel identity.`);
       console.log(`  If it doesn't open, paste this URL:\n\n  ${authUrl}\n`);
       openBrowser(authUrl);
@@ -236,6 +240,7 @@ async function doUpload() {
       title: String(flags.title),
       description,
       categoryId: String(flags.category || "10"), // 10 = Music
+      ...(flags.language ? { defaultLanguage: String(flags.language) } : {}),
       ...(tags ? { tags } : {}),
     },
     status: {
@@ -327,12 +332,94 @@ async function doUpload() {
   const receipt = {
     videoId, watchUrl, studioUrl,
     uploadedAt: new Date().toISOString(),
+    channel: CHANNEL_AS || "default",
+    playlistId: flags.playlist ? String(flags.playlist) : null,
     privacy, file: videoPath, bytes: size,
     metadata,
   };
   const sidecar = videoPath.replace(/\.[^.]+$/, "") + ".youtube.json";
   writeFileSync(sidecar, JSON.stringify(receipt, null, 2));
   console.log(`✓ receipt · ${sidecar}`);
+}
+
+// ── playlists ───────────────────────────────────────────────────────
+async function listPlaylists(at) {
+  const items = [];
+  let pageToken = "";
+  do {
+    const params = new URLSearchParams({
+      part: "snippet,status",
+      mine: "true",
+      maxResults: "50",
+    });
+    if (pageToken) params.set("pageToken", pageToken);
+    const res = await fetch(`https://www.googleapis.com/youtube/v3/playlists?${params}`, {
+      headers: { Authorization: `Bearer ${at}` },
+    });
+    const json = await res.json();
+    if (!res.ok) die(`playlists.list ${res.status}: ${JSON.stringify(json)}`);
+    items.push(...(json.items || []));
+    pageToken = json.nextPageToken || "";
+  } while (pageToken);
+  return items;
+}
+
+async function doPlaylists() {
+  const at = await accessToken();
+  const items = await listPlaylists(at);
+  if (flags.json) {
+    console.log(JSON.stringify(items.map((p) => ({
+      id: p.id,
+      title: p.snippet?.title,
+      privacy: p.status?.privacyStatus,
+    })), null, 2));
+    return;
+  }
+  for (const p of items) {
+    console.log(`${p.id}\t${p.status?.privacyStatus || "?"}\t${p.snippet?.title || ""}`);
+  }
+}
+
+// Create a playlist unless this channel already has one with the same title.
+// This makes batch jobs safely rerunnable after quota/network interruptions.
+async function doPlaylistEnsure() {
+  if (!flags.title) die(`usage: yt.mjs playlist-ensure --title "..." [--description ...] [--privacy unlisted]`);
+  const at = await accessToken();
+  const title = String(flags.title);
+  let description = flags.description || "";
+  if (flags["description-file"]) {
+    const dp = resolve(process.cwd(), flags["description-file"]);
+    if (!existsSync(dp)) die(`description file not found: ${dp}`);
+    description = readFileSync(dp, "utf8").trimEnd();
+  }
+  const privacy = String(flags.privacy || "unlisted").toLowerCase();
+  if (!["private", "unlisted", "public"].includes(privacy)) {
+    die(`--privacy must be private|unlisted|public`);
+  }
+
+  const existing = (await listPlaylists(at)).find((p) => p.snippet?.title === title);
+  if (existing) {
+    const result = {
+      id: existing.id,
+      title: existing.snippet?.title,
+      privacy: existing.status?.privacyStatus,
+      created: false,
+    };
+    if (flags.json) console.log(JSON.stringify(result));
+    else console.log(`✓ playlist exists · ${result.title}\n  id · ${result.id}\n  privacy · ${result.privacy}`);
+    return;
+  }
+
+  const res = await fetch("https://www.googleapis.com/youtube/v3/playlists?part=snippet,status", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${at}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ snippet: { title, description }, status: { privacyStatus: privacy } }),
+  });
+  const json = await res.json();
+  if (!res.ok) die(`playlists.insert ${res.status}: ${JSON.stringify(json)}`);
+  const result = { id: json.id, title: json.snippet?.title || title, privacy, created: true };
+  if (flags.json) console.log(JSON.stringify(result));
+  else console.log(`✓ playlist created · ${result.title}\n  id · ${result.id}\n  privacy · ${result.privacy}`);
 }
 
 // ── update a live video's metadata ──────────────────────────────────
@@ -451,6 +538,8 @@ const COMMANDS = {
   auth: doAuth,
   whoami: doWhoami,
   upload: doUpload,
+  playlists: doPlaylists,
+  "playlist-ensure": doPlaylistEnsure,
   "update-meta": doUpdateMeta,
   thumbnail: doThumbnail,
   delete: doDelete,
@@ -462,6 +551,8 @@ if (!cmd || !COMMANDS[cmd]) {
   console.log(`  auth                 one-time OAuth consent (browser)`);
   console.log(`  whoami               print the authorized channel`);
   console.log(`  upload <video> ...   resumable upload (see file header for flags)`);
+  console.log(`  playlists            list this channel's playlists`);
+  console.log(`  playlist-ensure      create/reuse a playlist by exact title`);
   console.log(`\nAll commands take --as <channel> (e.g. --as whistlegraph) to use`);
   console.log(`that channel's token (<channel>-token.json in the vault).`);
   process.exit(cmd ? 1 : 0);

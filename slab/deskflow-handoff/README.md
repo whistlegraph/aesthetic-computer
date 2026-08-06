@@ -23,7 +23,11 @@ Installed components:
 - `~/.local/bin/deskflow-claim-control` — controller-only fan-out to the other
   three machines.
 - `~/.local/bin/deskflow-role-watchdog` — health check that follows the current
-  role instead of assuming a permanent server or client.
+  role, verifies a client is connected to its configured server (not merely any
+  server), and repairs incomplete fleet topology from the winning generation.
+- `~/.local/bin/deskflow-reconcile-topology` — compares the two controllers'
+  roles and generations, demotes an older split-brain server, and retries
+  retargeting missing clients without minting a new claim.
 - `~/.local/bin/deskflow-seat-ready` — wakes the local panel and repairs an
   unhealthy core; `--fleet` reconciles and wakes the full controller/client
   topology. An Aqua LaunchAgent runs the local mode after every login. On
@@ -40,15 +44,16 @@ check.
 
 Deskflow transport uses each machine's stable Tailscale address. On the Fuser
 Wi-Fi this keeps Chicken and Panda pointer latency far steadier than the direct
-access-point route. Control and wake SSH still use `.local` hostnames on the
-shared seat LAN, and Neo's existing `computer.aesthetic.deskflow-tailscale-ensure`
-agent heals a stopped tailnet before it can strand the clients. The peer
-controller is switched synchronously; Chicken and Panda retarget in detached
-jobs so their SSH latency never delays the local confirmation sound and flash.
+access-point route. Role-control SSH uses those addresses too; Bonjour `.local`
+resolution can select a stalled link-local IPv6 route after wake. Neo's existing
+`computer.aesthetic.deskflow-tailscale-ensure` agent heals a stopped tailnet
+before it can strand the clients. The peer controller is switched synchronously;
+Chicken and Panda retarget in detached jobs so their SSH latency never delays
+the local confirmation sound and flash.
 
 The new server and old controller restart concurrently, with 50 ms readiness
-polling and a persistent SSH control socket. This avoids serially paying two
-core-start and SSH handshakes on every touch.
+polling. Role-critical SSH bypasses persistent control sockets and retries a
+fresh connection, so a stale mux cannot strand one half of the transition.
 
 MacPal records the full trackpad gesture made during the role change. Once the
 new server has restored the active destination it replays that two-axis HID
@@ -67,7 +72,9 @@ the same point.
 Every claim carries a nanosecond generation. Role setters reject older
 generations, and each host serializes the generation check through core restart,
 so simultaneous trackpad touches cannot complete out of order or leave both
-controllers in server mode.
+controllers in server mode. Login/resume and the 45-second watchdog also compare
+controller generations: the newer server reasserts the same generation to
+missing clients, while an older server demotes itself.
 
 `install.sh` installs one machine. `deploy.fish` installs the four-machine
 Neo/Blueberry/Chicken/Panda topology from Neo.

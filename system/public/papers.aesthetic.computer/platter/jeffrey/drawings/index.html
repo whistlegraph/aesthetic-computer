@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>jeffrey's drawings · platter</title>
+<meta name="description" content="A visual history of Jeffrey Alan Scudder's picture-making: 3,996 drawings completed from 2006–2016 and preserved by the drawings.rey.sc Rails archive.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='10' fill='%23111'/%3E%3Cpath d='M15 16h34v6H21v10h23v6H21v10h28v6H15z' fill='%23ff6b9d'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/berkeley-mono-variable.css">
+<style>
+:root {
+  color-scheme: dark light;
+  --bg:#111; --panel:#191919; --fg:#ddd; --dim:#888; --line:#333;
+  --pink:#ff6b9d; --cyan:#4ecdc4; --gold:#ffd93d; --image:#f4f1e8;
+  --shade:rgba(0,0,0,.94);
+}
+@media (prefers-color-scheme:light) {
+  :root { --bg:#f7f5ef; --panel:#fff; --fg:#222; --dim:#686868; --line:#d8d4cb;
+    --pink:#c92f72; --cyan:#087f78; --gold:#9f7100; --image:#eeeae0; --shade:rgba(247,245,239,.97); }
+}
+* { box-sizing:border-box; }
+html,body { margin:0; background:var(--bg); color:var(--fg); }
+body { font-family:'Berkeley Mono Variable',ui-monospace,monospace; font-size:13px; line-height:1.45; min-height:100vh; }
+a { color:var(--cyan); text-decoration:none; }
+a:hover { color:var(--pink); text-decoration:underline; }
+header { position:sticky; top:0; z-index:20; padding:14px 14px 12px; background:var(--bg); border-bottom:1px solid var(--line); }
+h1 { margin:0 0 4px; font-size:18px; font-weight:400; letter-spacing:3px; }
+.accent { color:var(--pink); }
+.sub { max-width:920px; color:var(--dim); font-size:11px; }
+.tabs { display:flex; flex-wrap:wrap; gap:6px; margin:10px 0 0; }
+.tab { border:1px solid var(--line); padding:3px 7px; color:var(--dim); }
+.tab.active { color:var(--fg); border-color:var(--pink); }
+.controls { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-top:10px; }
+.controls input,.controls select,.controls button {
+  font:inherit; font-size:12px; background:var(--panel); color:var(--fg); border:1px solid var(--line); padding:5px 8px;
+}
+.controls input { min-width:min(360px,100%); flex:1; }
+.controls input:focus,.controls select:focus { outline:none; border-color:var(--cyan); }
+.stat { margin-left:auto; color:var(--dim); font-size:11px; font-variant-numeric:tabular-nums; }
+.stat b { color:var(--fg); font-weight:400; }
+.history { padding:18px 14px 14px; border-bottom:1px solid var(--line); display:grid; gap:18px; }
+@media (min-width:900px) { .history { grid-template-columns:minmax(320px,1fr) minmax(420px,1.5fr); } }
+.history h2 { margin:0 0 7px; font-size:12px; font-weight:400; color:var(--pink); letter-spacing:2px; text-transform:uppercase; }
+.history p { margin:0 0 8px; max-width:74ch; }
+.facts { display:flex; gap:6px; flex-wrap:wrap; margin-top:10px; }
+.fact { padding:4px 7px; border:1px solid var(--line); color:var(--dim); }
+.fact b { color:var(--fg); font-weight:400; }
+.timeline { display:flex; align-items:flex-end; gap:4px; min-height:106px; padding-top:4px; }
+.year { flex:1; min-width:23px; display:flex; flex-direction:column; justify-content:flex-end; align-items:center; gap:4px; height:102px; }
+.bar { width:100%; min-height:2px; background:var(--cyan); opacity:.8; border-radius:1px 1px 0 0; }
+.year:hover .bar { background:var(--pink); opacity:1; }
+.year span { color:var(--dim); font-size:9px; transform:rotate(-45deg); transform-origin:center; margin-bottom:5px; }
+main { padding:12px 14px; display:grid; grid-template-columns:repeat(auto-fill,minmax(170px,1fr)); gap:9px; }
+.card { border:1px solid var(--line); background:var(--panel); cursor:pointer; overflow:hidden; }
+.card:hover { border-color:var(--cyan); }
+.thumb { aspect-ratio:1; display:flex; align-items:center; justify-content:center; background:var(--image); overflow:hidden; }
+.thumb img { width:100%; height:100%; object-fit:contain; display:block; }
+.meta { padding:6px 7px; min-height:52px; }
+.title { color:var(--fg); overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+.period { color:var(--dim); font-size:10px; }
+#empty { grid-column:1/-1; padding:40px; text-align:center; color:var(--dim); }
+.more-wrap { display:flex; justify-content:center; padding:4px 14px 24px; }
+#more { font:inherit; color:var(--fg); background:var(--panel); border:1px solid var(--line); padding:7px 18px; cursor:pointer; }
+#more:hover { border-color:var(--pink); color:var(--pink); }
+#lightbox { display:none; position:fixed; inset:0; z-index:100; background:var(--shade); padding:18px; overflow:auto; }
+#lightbox.open { display:flex; justify-content:center; align-items:flex-start; }
+.lb { width:min(1200px,100%); display:grid; gap:18px; }
+@media (min-width:760px) { .lb { grid-template-columns:minmax(0,1fr) 320px; } }
+.lb-image { min-height:60vh; display:flex; align-items:center; justify-content:center; background:var(--image); }
+.lb-image img { max-width:100%; max-height:calc(100vh - 40px); object-fit:contain; }
+.lb-info { display:flex; flex-direction:column; gap:9px; }
+.lb-info h2 { margin:0; font-size:17px; font-weight:400; color:var(--pink); }
+.row { display:grid; grid-template-columns:82px 1fr; gap:8px; }
+.key { color:var(--dim); font-size:10px; text-transform:uppercase; }
+.close { position:fixed; right:12px; top:10px; z-index:101; font:inherit; color:var(--fg); background:var(--bg); border:1px solid var(--line); padding:4px 9px; cursor:pointer; }
+footer { border-top:1px solid var(--line); color:var(--dim); font-size:11px; padding:20px 14px; text-align:center; }
+</style>
+</head>
+<body>
+<header>
+  <h1><a href="../../" style="color:inherit;text-decoration:none">platter</a><span class="accent">·</span>jeffrey's drawings</h1>
+  <div class="sub">a visual history of picture-making, recovered from the public <a href="https://drawings-rey-sc.jas.life" target="_blank">drawings.rey.sc</a> Ruby on Rails archive</div>
+  <nav class="tabs" aria-label="Jeffrey platter sections">
+    <a class="tab active" href="./">drawings · 3,996</a>
+    <a class="tab" href="../">instagram · 457</a>
+    <a class="tab" href="../../jeffrey-lexicon/">lexicon</a>
+  </nav>
+  <div class="controls">
+    <input id="search" type="search" placeholder="search titles, years, and slugs…">
+    <select id="year"><option value="">all years</option></select>
+    <select id="sort"><option value="new">newest first</option><option value="old">oldest first</option><option value="title">title</option></select>
+    <span class="stat" id="stat">loading manifest…</span>
+  </div>
+</header>
+
+<section class="history">
+  <div>
+    <h2>History, not portfolio</h2>
+    <p>The archive begins with drawings completed in 2006 and runs through August 2016. It holds sketchbooks, digital experiments, figures, flowers, portraits, collaborations, teaching contexts, and named working groups—not only selected finished works.</p>
+    <p>Jeffrey built the Rails catalog in 2015 in the spirit of Dieter Maurer's <em>Early Pictures</em> and Enrique Mallen's <em>On-line Picasso Project</em>: a picture practice documented through when, where, how, and with whom its images came into being.</p>
+    <div class="facts" id="facts"></div>
+  </div>
+  <div>
+    <h2>Drawings by completion year</h2>
+    <div class="timeline" id="timeline" aria-label="Drawing count by completion year"></div>
+  </div>
+</section>
+
+<main id="grid"><div id="empty">loading 3,996 drawings…</div></main>
+<div class="more-wrap"><button id="more" hidden>show more</button></div>
+
+<div id="lightbox">
+  <button class="close" id="close">close ✕</button>
+  <div class="lb" id="lb"></div>
+</div>
+
+<footer>
+  <a href="../../">all platters</a> · <a href="https://github.com/whistlegraph/drawings" target="_blank">Rails source</a> · <a href="https://drawings-rey-sc.jas.life" target="_blank">original archive</a> · <a href="https://github.com/whistlegraph/aesthetic-computer/tree/main/papers/jeffrey-platter" target="_blank">platter source</a>
+</footer>
+
+<script type="module">
+const $ = (id) => document.getElementById(id);
+const PAGE = 240;
+let manifest;
+let rows = [];
+let shown = PAGE;
+
+try {
+  manifest = await fetch('./manifest.json', { cache:'no-store' }).then((r) => {
+    if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
+    return r.json();
+  });
+  rows = manifest.rows;
+  populate();
+  render();
+} catch (error) {
+  $('grid').innerHTML = `<div id="empty">failed to load archive: ${escapeHtml(error.message)}</div>`;
+}
+
+function populate() {
+  const years = [...new Set(rows.map((row) => row.completedYear))].sort((a,b) => b-a);
+  for (const value of years) $('year').append(new Option(value, value));
+  $('facts').innerHTML = [
+    [manifest.recordCount.toLocaleString(), 'drawings'],
+    [`${manifest.completionRange.oldest.slice(0,4)}–${manifest.completionRange.newest.slice(0,4)}`, 'completion span'],
+    [manifest.groups.length, 'working groups'],
+    [manifest.locations.length, 'locations'],
+    [manifest.collaborators.length, 'collaborators'],
+  ].map(([n,label]) => `<span class="fact"><b>${n}</b> ${label}</span>`).join('');
+
+  const counts = new Map();
+  for (const row of rows) counts.set(row.completedYear, (counts.get(row.completedYear) || 0) + 1);
+  const max = Math.max(...counts.values());
+  $('timeline').innerHTML = [...counts.entries()].sort((a,b) => a[0]-b[0]).map(([year,count]) => `
+    <a class="year" href="#" data-year="${year}" title="${year}: ${count.toLocaleString()} drawings">
+      <div class="bar" style="height:${Math.max(2, Math.round((count/max)*78))}px"></div><span>${year}</span>
+    </a>`).join('');
+  for (const link of $('timeline').querySelectorAll('.year')) link.addEventListener('click', (event) => {
+    event.preventDefault(); $('year').value = link.dataset.year; shown = PAGE; render(); scrollTo({top:0,behavior:'smooth'});
+  });
+}
+
+function filtered() {
+  const q = $('search').value.trim().toLowerCase();
+  const year = Number($('year').value) || null;
+  let list = rows.filter((row) => (!year || row.completedYear === year) && (!q || `${row.title} ${row.slug} ${row.completed}`.toLowerCase().includes(q)));
+  if ($('sort').value === 'old') list = [...list].reverse();
+  if ($('sort').value === 'title') list = [...list].sort((a,b) => a.title.localeCompare(b.title));
+  return list;
+}
+
+function render() {
+  const list = filtered();
+  const visible = list.slice(0, shown);
+  $('stat').innerHTML = `<b>${Math.min(shown,list.length).toLocaleString()}</b> shown · <b>${list.length.toLocaleString()}</b> matches`;
+  if (!visible.length) {
+    $('grid').innerHTML = '<div id="empty">no matching drawings</div>';
+  } else {
+    $('grid').innerHTML = visible.map((row) => `
+      <article class="card" data-slug="${escapeHtml(row.slug)}">
+        <div class="thumb"><img src="${row.thumb}" loading="lazy" decoding="async" alt="${escapeHtml(row.title)}"></div>
+        <div class="meta"><div class="title">${escapeHtml(row.title)}</div><div class="period">${row.completedMonth} ${row.completedYear} · #${row.id}</div></div>
+      </article>`).join('');
+    for (const card of $('grid').querySelectorAll('.card')) card.addEventListener('click', () => open(rows.find((row) => row.slug === card.dataset.slug)));
+  }
+  $('more').hidden = shown >= list.length;
+  $('more').textContent = `show ${Math.min(PAGE,list.length-shown).toLocaleString()} more`;
+}
+
+function open(row) {
+  $('lb').innerHTML = `
+    <div class="lb-image"><img src="${row.thumb}" alt="${escapeHtml(row.title)}"></div>
+    <div class="lb-info">
+      <h2>${escapeHtml(row.title)}</h2>
+      <div class="row"><span class="key">completed</span><span>${row.completedMonth} ${row.completedYear}</span></div>
+      <div class="row"><span class="key">archive id</span><span>${row.id}</span></div>
+      <div class="row"><span class="key">slug</span><span>${escapeHtml(row.slug)}</span></div>
+      <a href="${row.source}" target="_blank">full catalog record ↗</a>
+      <a href="${row.original}" target="_blank">original image ↗</a>
+    </div>`;
+  $('lightbox').classList.add('open'); document.body.style.overflow = 'hidden';
+  const preview = $('lb').querySelector('.lb-image img');
+  const hires = new Image();
+  hires.onload = () => { preview.src = row.medium; };
+  hires.src = row.medium;
+}
+function close() { $('lightbox').classList.remove('open'); document.body.style.overflow = ''; }
+function escapeHtml(value) { return String(value).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+$('more').addEventListener('click', () => { shown += PAGE; render(); });
+$('close').addEventListener('click', close);
+$('lightbox').addEventListener('click', (event) => { if (event.target === $('lightbox')) close(); });
+document.addEventListener('keydown', (event) => { if (event.key === 'Escape') close(); });
+let timer;
+$('search').addEventListener('input', () => { clearTimeout(timer); timer=setTimeout(() => { shown=PAGE; render(); },100); });
+$('year').addEventListener('change', () => { shown=PAGE; render(); });
+$('sort').addEventListener('change', () => { shown=PAGE; render(); });
+</script>
+</body>
+</html>

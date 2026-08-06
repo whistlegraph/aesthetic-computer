@@ -1,0 +1,5 @@
+build/
+motion/*.mp4
+motion/archive/
+motion/trim-*.mp4
+motion/concat.txt

@@ -36,7 +36,7 @@ in `personal/honeydo.md` for the source quotes.
 
 | Opportunity | Deadline | Amount | Fit / next |
 |---|---|---|---|
-| Pollock-Krasner Foundation | rolling | up to $50,000 | Visual artists w/ exhibition record + financial need; Jeffrey qualifies (KADIST/SMK). Could fund SF / PAX East travel. Source: Fia 2026-05-15 ("got it easily before"). |
+| Pollock-Krasner Foundation | rolling | up to $50,000 (most grants ~$35,000) | **Blueberry draft recovered and strengthened 2026-07-20.** Research, career audit, candidate-image sheet, and 16-page application briefing are in `pollock-krasner-2026/` + `papers/pkf-application-briefing/`. The 3,996-work `drawings.rey.sc` history now supports the picture-making lineage without contaminating the ten recent-image submission. **Hold:** verify 10 qualifying exhibitions, document 10 eligible recent physical works, confirm 3 references, and supply real one-year costs. Current rules exclude generative, performance, video, and graphic art as the primary practice. Source: Fia 2026-05-15 + PKF guidelines verified 2026-07-20. |
 | Critical Playground (pitch) | unconfirmed | unknown | criticalplayground.org publication; Smarthistory-style pitch-first. Verify the call exists. Source: Fia 2026-04-15. |
 | CAC Individual Artist Fellowship — **Legacy** (via LAPP, LA County) | 2026-06-06 (23:59 PT) | $50,000 unrestricted | DRAFT v0 ready · 5 narrative answers (Legacy tier) + samples plan + letter-of-support plan + checklist in `cac-iaf-2026/DRAFT.md`. Local guideline PDF in `cac-iaf-2026/reference/`. Next: ask Casey Reas for the colleague letter (required, uploaded by him). |
 

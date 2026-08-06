@@ -117,6 +117,13 @@ const touch = async (p) => {
   try { await writeFile(p, "", { flag: "a" }); await utimes(p, t, t); } catch {}
 };
 
+// rollout-<timestamp>-<provider uuid>.jsonl → the stable Codex thread id.
+// Persisting this in the active marker lets Slab refresh/zzz a tracked wrapper
+// and resume the same provider conversation instead of opening a fresh one.
+function sessionIdFromRollout(file) {
+  return String(file || "").match(/-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\.jsonl$/i)?.[1] || "";
+}
+
 // Pull readable text out of a rollout content array (user prompt → subject).
 function textOf(payload) {
   const c = payload?.content;
@@ -244,7 +251,7 @@ async function main() {
   // or aging into interrupted until the user submits another prompt. After
   // that first pass `offset` makes this an ordinary incremental tail.
   let offset = 0;
-  const ctx = { lastUser: "", pending: [] };
+  const ctx = { lastUser: "", pending: [], turnActive: false, lastHeartbeatAt: 0 };
   while (wrapperAlive()) {
     let size = offset;
     try { size = (await stat(file)).size; } catch { break; }
@@ -260,6 +267,16 @@ async function main() {
       // Apply transitions in order; last one wins the visible state.
       for (const fn of ctx.pending) await fn();
       ctx.pending = [];
+    }
+    // Codex can spend many minutes inside one tool call without appending a
+    // new rollout event. Keep both marker channels fresh for the full active
+    // turn so Slab's reducer does not misclassify visible progress as an
+    // interrupted prompt. Completion/approval events clear turnActive first.
+    const now = Date.now();
+    if (ctx.turnActive && now - ctx.lastHeartbeatAt >= 5000) {
+      await touch(RUNNING);
+      await updateMarker({ state: "working" });
+      ctx.lastHeartbeatAt = now;
     }
     await sleep(600);
   }

@@ -3,8 +3,10 @@
 //
 // A frame = pixels (a downscaled JPEG thumbnail) + OCR'd text with click
 // coordinates + the Accessibility element tree (roles/titles/AXPress targets)
-// + window/cursor/frontmost state, packed into one JSON envelope. It is the
-// native-capture complement to `puppet`: `frame` OBSERVES the whole screen
+// + window/cursor/frontmost state, packed into one JSON envelope. By default
+// the pixels are isolated to the focused/frontmost window; `--screen` asks for
+// the complete display. It is the
+// native-capture complement to `puppet`: `frame` OBSERVES the focused window
 // (any native app, no DOM needed), `puppet` ACTS (trusted stroke/gesture/key).
 // Together they close an observe→act loop across the fleet.
 //
@@ -24,9 +26,10 @@
 // host (the minis are ssh aliases); set "sshHost" per machine to override.
 
 import { execFileSync, spawn } from "node:child_process";
-import { appendFileSync, existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
 import net from "node:net";
 import { dirname, join } from "node:path";
+import { tmpdir } from "node:os";
 
 const HOME = process.env.HOME;
 const CONFIG_PATH =
@@ -40,6 +43,85 @@ const SOCK_PATH = process.env.SLAB_FRAME_SOCK || join(HOME, ".local", "share", "
 const SLAB_HOME = process.env.SLAB_HOME || join(HOME, ".local", "share", "slab");
 const FRAME_REQUEST_FILE = join(SLAB_HOME, "state", "open-frame");
 const APP_BUNDLE = "computer.slab.menubar";
+const XBOX_TARGET = "xbox";
+const XBOX_VAULT_FILES = [
+  process.env.XBOX_DEVICE_PORTAL_ENV_GPG,
+  join(HOME, "aesthetic-computer-vault", "xbox", "device-portal.env.gpg"),
+  join(HOME, "aesthetic-computer", "aesthetic-computer-vault", "xbox", "device-portal.env.gpg"),
+].filter(Boolean);
+
+function parseEnvText(source) {
+  const result = {};
+  for (const raw of String(source || "").split(/\r?\n/)) {
+    const match = raw.trim().match(/^(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)=(.*)$/);
+    if (!match) continue;
+    let value = match[2].trim();
+    if ((value.startsWith('"') && value.endsWith('"')) ||
+        (value.startsWith("'") && value.endsWith("'"))) value = value.slice(1, -1);
+    result[match[1]] = value;
+  }
+  return result;
+}
+
+function xboxPortalConfig() {
+  let vault = {};
+  const encrypted = XBOX_VAULT_FILES.find((candidate) => existsSync(candidate));
+  if (encrypted) {
+    const plaintext = execFileSync("gpg", ["--batch", "--quiet", "--decrypt", encrypted], {
+      encoding: "utf8", timeout: 15000, maxBuffer: 1024 * 1024,
+    });
+    vault = parseEnvText(plaintext);
+  }
+  const config = { ...vault, ...process.env };
+  const host = config.XBOX_DEVICE_PORTAL_HOST;
+  const port = config.XBOX_DEVICE_PORTAL_PORT || "11443";
+  const username = config.XBOX_DEVICE_PORTAL_USERNAME;
+  const password = config.XBOX_DEVICE_PORTAL_PASSWORD;
+  if (!host || !username || !password) {
+    throw new Error(
+      "xbox Frame target needs Device Portal credentials in the environment or xbox/device-portal.env.gpg",
+    );
+  }
+  return { base: `https://${host}:${port}`, username, password };
+}
+
+function curlConfigValue(value) {
+  return String(value).replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+}
+
+function xboxPortalGet(endpoint) {
+  const { base, username, password } = xboxPortalConfig();
+  // Keep the Basic credential off the process argv; curl reads it from stdin.
+  const config = [
+    "silent",
+    "show-error",
+    "insecure",
+    `user = "${curlConfigValue(`auto-${username}:${password}`)}"`,
+    `url = "${curlConfigValue(`${base}${endpoint}`)}"`,
+    "",
+  ].join("\n");
+  return execFileSync("/usr/bin/curl", ["--config", "-"], {
+    input: config, timeout: 15000, maxBuffer: 32 * 1024 * 1024,
+  });
+}
+
+function captureXboxJpeg() {
+  const png = xboxPortalGet("/ext/screenshot");
+  if (png.length < 8 || png[0] !== 0x89 || png.subarray(1, 4).toString("ascii") !== "PNG") {
+    throw new Error("Xbox Device Portal screenshot was not a PNG image");
+  }
+  const conversionDir = mkdtempSync(join(tmpdir(), "frame-xbox-"));
+  const pngFile = join(conversionDir, "screen.png");
+  const jpegFile = join(conversionDir, "screen.jpg");
+  try {
+    writeFileSync(pngFile, png);
+    execFileSync("/usr/bin/sips", ["-s", "format", "jpeg", "-s", "formatOptions", "88",
+      pngFile, "--out", jpegFile], { stdio: "ignore", timeout: 15000 });
+    return readFileSync(jpegFile);
+  } finally {
+    rmSync(conversionDir, { recursive: true, force: true });
+  }
+}
 
 // The remote read-loop agent: ONE per machine, held open by the server so each
 // frame is a stdin-write + stdout-read on an already-open ssh channel — no
@@ -66,7 +148,7 @@ emit() {
   printf 'ACF1 %s %s\n' "$jl" "$pl"; cat "$j"; [ "$pl" != 0 ] && cat "$p"
 }
 while IFS= read -r mode; do
-  [ -z "$mode" ] && mode=full
+  [ -z "$mode" ] && mode=window
   rm -f "$d/frame.done"; printf '%s' "$mode" > "$d/frame.req"
   for i in $(seq 1 400); do [ -f "$d/frame.done" ] && break; sleep 0.01; done
   emit
@@ -257,7 +339,7 @@ function runServer() {
         let req;
         try { req = JSON.parse(line); } catch { sock.write(frameBytes('{"error":"bad json"}', Buffer.alloc(0))); continue; }
         try {
-          const frame = await agentRequest(req.machine, loadMachines(), req.mode || "full");
+          const frame = await agentRequest(req.machine, loadMachines(), req.mode || "window");
           sock.write(frameBytes(frame.json, frame.jpg));
         } catch (e) {
           sock.write(frameBytes(JSON.stringify({ error: String(e.message || e) }), Buffer.alloc(0)));
@@ -326,13 +408,52 @@ function directFrame(name, machines, mode, timeoutMs = 15000) {
   });
 }
 
-async function captureFrame(name, { noOCR = false, fast = false, cursor = false, cursorAt, crop, baseline = false, diff = false, out, json = false, direct = false, preview = false } = {}) {
+async function captureFrame(name, { noOCR = false, fast = false, screen = false, cursor = false, cursorAt, targetAt, targetId, manualCheck, pressAt, pressCount = 1, pressTitle, actionOnly = false, clearTarget = false, clearOverlays = false, quietOverlay = false, crop, baseline = false, diff = false, out, json = false, direct = false, preview = false } = {}) {
+  if (name === XBOX_TARGET) {
+    if (actionOnly || targetAt || targetId || manualCheck || pressAt || pressTitle || clearTarget || clearOverlays) {
+      throw new Error("xbox is an observe-only Frame target; use the native gamepad/live-publish loop for control");
+    }
+    const jpg = captureXboxJpeg();
+    const env = {
+      capture: "ok",
+      capture_scope: "screen",
+      target_kind: "xbox-device-portal",
+      meta: {
+        frontmost: { app: "Xbox display", bundle: "Windows.Xbox" },
+        screen: { w: 1920, h: 1080, scale: 1 },
+        windows: [],
+      },
+      ocr: [],
+      ax: { trusted: false, elements: [] },
+      visual: [],
+      diff: [],
+      design_context: {
+        viewing_mode: "10-foot television UI",
+        coordinate_system: "1920x1080, origin top-left",
+        review_priorities: [
+          "render representation and asset fidelity",
+          "silhouette and line continuity",
+          "focal scale and placement",
+          "negative-space balance",
+          "hierarchy and TV-distance readability",
+          "contrast and color relationships",
+        ],
+      },
+    };
+    const outPath = out || join(FRAMES_DIR, "xbox.jpg");
+    mkdirSync(dirname(outPath), { recursive: true });
+    writeFileSync(outPath, jpg);
+    if (preview) requestPreview(name, outPath);
+    if (json) process.stdout.write(JSON.stringify(env));
+    else console.log(JSON.stringify({ ...env, thumb: outPath, ocr_count: 0, ax_count: 0 }, null, 2));
+    return;
+  }
   const machines = loadMachines();
   if (!machines[name]) {
     console.error(`unknown machine "${name}" — known: ${Object.keys(machines).join(", ") || "(none)"}`);
     process.exit(1);
   }
-  const mode = [noOCR ? "noocr" : "full", fast ? "fast" : "", cursorAt ? `cursor=${cursorAt[0]},${cursorAt[1]}` : cursor ? "cursor" : "", crop ? `crop=${crop.join(",")}` : "", baseline ? "baseline" : "", diff ? "diff" : ""]
+  const mode = [screen ? "screen" : "window", noOCR ? "noocr" : "full", fast ? "fast" : "", cursorAt ? `cursor=${cursorAt[0]},${cursorAt[1]}` : cursor ? "cursor" : "", targetAt ? `target=${targetAt[0]},${targetAt[1]}` : "", targetId ? `target-id=${targetId}` : "", manualCheck ? `manual-check=${manualCheck}` : "", pressAt ? `press=${pressAt[0]},${pressAt[1]},${pressCount}` : "", pressTitle ? `press-title=${Buffer.from(pressTitle, "utf8").toString("base64")}` : "", actionOnly ? "action-only" : "", clearTarget ? "target-clear" : "", clearOverlays ? "overlay-clear" : "", quietOverlay ? "quiet-overlay" : "", crop ? `crop=${crop.join(",")}` : "", baseline ? "baseline" : "", diff ? "diff" : ""]
     .filter(Boolean).join(" ");
   // Use the resident server only if already running (opt-in; see runServer);
   // otherwise a one-shot direct ssh. Both return an ACF1 {json, jpg} frame —
@@ -402,12 +523,21 @@ function srGrant(name, machines) {
 
 function doctor(name) {
   const machines = loadMachines();
-  const names = name ? [name] : Object.keys(machines);
+  const names = name ? [name] : [...Object.keys(machines), XBOX_TARGET];
   if (!names.length) {
     console.error(`no machines registered (${CONFIG_PATH})`);
     process.exit(1);
   }
   for (const n of names) {
+    if (n === XBOX_TARGET) {
+      try {
+        const family = JSON.parse(xboxPortalGet("/api/os/devicefamily").toString("utf8"));
+        console.log(`xbox: Device Portal reachable | ${family.DeviceType || "Windows.Xbox"} | screenshot /ext/screenshot`);
+      } catch (error) {
+        console.log(`xbox: UNREACHABLE (${String(error.message || error).split("\n")[0]})`);
+      }
+      continue;
+    }
     let running = "?";
     try {
       running = runOn(n, machines, "pgrep -x slab-menubar >/dev/null && echo yes || echo no").trim();
@@ -425,6 +555,10 @@ function doctor(name) {
 }
 
 async function setup(name) {
+  if (name === XBOX_TARGET) {
+    console.log("xbox: no Screen Recording grant is needed; Frame uses the authenticated Device Portal screenshot endpoint.");
+    return;
+  }
   const machines = loadMachines();
   if (!machines[name]) {
     console.error(`unknown machine "${name}"`);
@@ -450,11 +584,8 @@ async function setup(name) {
 function list() {
   const machines = loadMachines();
   const names = Object.keys(machines);
-  if (!names.length) {
-    console.log(`(no machines in ${CONFIG_PATH})`);
-    return;
-  }
   for (const n of names) console.log(`${n}\t-> ssh ${sshHostFor(n, machines)}`);
+  console.log("xbox\t-> Device Portal /ext/screenshot (observe-only)");
 }
 
 // ---- arg parse ----
@@ -474,10 +605,19 @@ const pointOpt = (f) => {
 
 if (!cmd || cmd === "-h" || cmd === "--help") {
   console.log(
-    "frame — capture a rich frame (pixels + OCR + AX + state) of a remote Mac\n\n" +
-      "  frame <machine> [--no-ocr] [--fast] [--cursor] [--direct] [--preview] [--out file.jpg] [--json]\n" +
+    "frame — capture the focused window (pixels + OCR + AX + state) of a remote Mac\n\n" +
+      "  frame <machine> [--screen] [--no-ocr] [--fast] [--cursor] [--target-at x,y] [--target-id id] [--manual-check id] [--press-at x,y] [--action-only] [--clear-target] [--clear-overlays] [--quiet-overlay] [--direct] [--preview] [--out file.jpg] [--json]\n" +
+      "      --screen: capture the complete display instead of the focused window\n" +
       "      --fast: Vision .fast OCR (lower latency, less accurate on small text)\n" +
       "      --cursor: draw a high-contrast virtual marker at the mouse position\n" +
+      "      --target-at: dim the display and outline a proposed click target\n" +
+      "      --target-id: correlate a direct human tap with the staged action\n" +
+      "      --manual-check: consume a matching direct-tap acknowledgement\n" +
+      "      --press-at: perform the approved AX action (physical click fallback)\n" +
+      "      --action-only: acknowledge an approved action without a redundant capture\n" +
+      "      --clear-target: clear the persistent proposed-click marker\n" +
+      "      --clear-overlays: retire all Frame-owned transient overlay windows\n" +
+      "      --quiet-overlay: perform OCR without drawing its on-screen boxes\n" +
       "      --direct: bypass the resident server, do a one-shot ssh\n" +
       "      --preview: pop a labeled preview window of the pulled frame on THIS Mac\n" +
       "  frame view <machine>        capture + open the badged preview window (= --preview)\n" +
@@ -503,5 +643,5 @@ else if (cmd === "view") {
   // Sugar for `frame <machine> --preview` so it reads like the slab-video /
   // slab-pdf "show me this" verbs.
   if (!argv[1]) { console.error("usage: frame view <machine>"); process.exit(1); }
-  await captureFrame(argv[1], { noOCR: flag("--no-ocr"), fast: flag("--fast"), cursor: flag("--cursor"), direct: flag("--direct"), out: opt("--out"), preview: true });
-} else await captureFrame(cmd, { noOCR: flag("--no-ocr"), fast: flag("--fast"), cursor: flag("--cursor"), cursorAt: pointOpt("--cursor-at"), crop: opt("--crop")?.split(",").map(Number), baseline: flag("--baseline"), diff: flag("--diff"), direct: flag("--direct"), out: opt("--out"), json: flag("--json"), preview: flag("--preview") });
+  await captureFrame(argv[1], { noOCR: flag("--no-ocr"), fast: flag("--fast"), screen: flag("--screen"), cursor: flag("--cursor"), direct: flag("--direct"), out: opt("--out"), preview: true });
+} else await captureFrame(cmd, { noOCR: flag("--no-ocr"), fast: flag("--fast"), screen: flag("--screen"), cursor: flag("--cursor"), cursorAt: pointOpt("--cursor-at"), targetAt: pointOpt("--target-at"), targetId: opt("--target-id"), manualCheck: opt("--manual-check"), pressAt: pointOpt("--press-at"), pressCount: Number(opt("--press-count") || 1), pressTitle: opt("--press-title"), actionOnly: flag("--action-only"), clearTarget: flag("--clear-target"), clearOverlays: flag("--clear-overlays"), quietOverlay: flag("--quiet-overlay"), crop: opt("--crop")?.split(",").map(Number), baseline: flag("--baseline"), diff: flag("--diff"), direct: flag("--direct"), out: opt("--out"), json: flag("--json"), preview: flag("--preview") });

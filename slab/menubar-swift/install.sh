@@ -68,7 +68,9 @@ slab_sign_hash() {
 # a GUI Terminal. When it fails we run the exact same sign INSIDE the logged-in
 # Aqua session via a one-shot launchd job — the same gui-bootstrap trick the
 # frame capture uses to reach the WindowServer. Returns 1 if neither path
-# produces a "${SIGN_CN}" signature (caller then falls back to ad-hoc).
+# produces a "${SIGN_CN}" signature. The caller refuses an implicit ad-hoc
+# fallback because launching a new cdhash silently revokes this app's TCC
+# grants (Accessibility, Screen Recording, and Full Disk Access).
 codesign_app() {
     local app="$1"
     # Sign by the cert's SHA-1 HASH, never by CN. If a same-CN cert also lives in
@@ -81,11 +83,6 @@ codesign_app() {
     # falling through to the gui-bootstrap path which creates it.
     local hash=""
     hash="$(slab_sign_hash)"
-    # Only try a direct sign when we're already in an Aqua session (install.sh
-    # run from a GUI Terminal) AND we have a hash. Over SSH a direct sign fails
-    # with errSecInternalComponent AND can pop a keychain dialog on the machine's
-    # screen, so skip straight to the gui-bootstrap path below.
-    #
     # Prep the dedicated keychain FIRST, non-interactively (every command below
     # authenticates with the known "${SIGN_KC_PASS}", so none can prompt). This
     # is what keeps SUBSEQUENT rebuilds silent: without it, a re-locked
@@ -95,16 +92,20 @@ codesign_app() {
     #   • set-keychain-settings (no flags) — drop the auto-lock timeout so it STAYS unlocked
     #   • set-key-partition-list apple-tool:,apple: — pre-authorize Apple signing
     #     tools for the key, suppressing the "codesign wants to use key" prompt
-    if [ -n "${SECURITYSESSIONID:-}" ] && [ -n "${hash}" ] && [ -f "${SIGN_KEYCHAIN}" ]; then
+    if [ -n "${hash}" ] && [ -f "${SIGN_KEYCHAIN}" ]; then
         security unlock-keychain -p "${SIGN_KC_PASS}" "${SIGN_KEYCHAIN}" 2>/dev/null || true
         security set-keychain-settings "${SIGN_KEYCHAIN}" 2>/dev/null || true
         security set-key-partition-list -S apple-tool:,apple: -s \
             -k "${SIGN_KC_PASS}" "${SIGN_KEYCHAIN}" >/dev/null 2>&1 || true
-    fi
-    if [ -n "${SECURITYSESSIONID:-}" ] && [ -n "${hash}" ] && \
-       codesign --force --deep --sign "${hash}" \
-        --identifier computer.slab.menubar "${app}" >/dev/null 2>&1; then
-        return 0
+        # Once the private key has an explicit apple-tool partition grant,
+        # direct signing is non-interactive even when this shell lacks a
+        # SECURITYSESSIONID (as Codex terminals commonly do). Try it before
+        # paying for the Aqua launchd helper; a headless failure simply falls
+        # through to that helper.
+        if codesign --force --deep --sign "${hash}" \
+            --identifier computer.slab.menubar "${app}" >/dev/null 2>&1; then
+            return 0
+        fi
     fi
     local uid label script plist log i
     uid="$(id -u)"; label="ac.slabsign.$$"
@@ -344,12 +345,17 @@ if codesign_app "${APP_DIR}"; then
     SIGN_OK=1
     ok "signed with '${SIGN_CN}' (stable identity — TCC grants persist across rebuilds)"
 else
-    warn "stable signing unavailable; using ad-hoc (TCC grants reset each rebuild)"
+    warn "stable signing unavailable"
 fi
 if [[ "${SIGN_OK}" -eq 0 ]]; then
-    codesign --force --deep --sign - \
-        --identifier computer.slab.menubar \
-        "${APP_DIR}" >/dev/null 2>&1 || warn "ad-hoc codesign also failed"
+    if [[ "${SLAB_ALLOW_ADHOC:-0}" != 1 ]]; then
+        echo "Refusing an ad-hoc fallback: it would revoke Slab Menubar's TCC grants." >&2
+        echo "Repair the stable signing identity, or explicitly set SLAB_ALLOW_ADHOC=1 on a first install." >&2
+        exit 1
+    fi
+    warn "SLAB_ALLOW_ADHOC=1: signing ad-hoc; TCC grants will need approval"
+    codesign --force --deep --sign - --identifier computer.slab.menubar \
+        "${APP_DIR}" >/dev/null 2>&1 || { warn "ad-hoc codesign failed"; exit 1; }
 fi
 ok "app bundle installed"
 

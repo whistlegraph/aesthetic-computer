@@ -9,11 +9,13 @@
 #define AC_HRTF_PI 3.14159265358979323846
 typedef struct { float ring[AC_HRTF_RING]; int at; float shadowL,shadowR; } ACHrtf;
 static inline float ac_hrtf_read(const ACHrtf *h,double delay){
- double p=h->at-delay;while(p<0)p+=AC_HRTF_RING;int a=(int)p&(AC_HRTF_RING-1),b=(a+1)&(AC_HRTF_RING-1);double f=p-floor(p);return h->ring[a]*(1-f)+h->ring[b]*f;
+ double p=h->at-delay;while(p<0)p+=AC_HRTF_RING;int b=(int)floor(p)&(AC_HRTF_RING-1),a=(b-1)&(AC_HRTF_RING-1),c=(b+1)&(AC_HRTF_RING-1),d=(b+2)&(AC_HRTF_RING-1);double f=p-floor(p),y0=h->ring[a],y1=h->ring[b],y2=h->ring[c],y3=h->ring[d];return(float)(y1+.5*f*(y2-y0+f*(2*y0-5*y1+4*y2-y3+f*(3*(y1-y2)+y3-y0))));
 }
 static inline void ac_hrtf_process(ACHrtf *h,float input,double azimuth,double elevation,double distance,float *L,float *R){
- // Acoustic floor is deliberately tiny: proximity remains a compositional axis.
- double near=.004+.996/(1+.55*distance*distance),side=sin(azimuth);
+ // A gently compressed inverse-distance field keeps proximity musical without
+ // turning listener fly-bys into amplitude cliffs. Direction remains fully
+ // binaural while four room units retain roughly a quarter of direct energy.
+ double near=.012+.988/(1+.18*distance*distance),side=sin(azimuth);
  h->at=(h->at+1)&(AC_HRTF_RING-1);h->ring[h->at]=input*(float)near;
  // Woodworth-scale maximum ITD ≈ 650 μs at 48 kHz.
  double itd=fabs(side)*31.2,dl=side>0?itd:0,dr=side<0?itd:0;

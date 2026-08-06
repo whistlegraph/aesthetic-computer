@@ -176,6 +176,39 @@ export const handler = async (event) => {
             : []),
         ].join("\n"),
       );
+  } else if (post) {
+    const rawTitle = String(post.desc || "").trim();
+    const title = rawTitle ? (rawTitle.length > 120 ? `${rawTitle.slice(0, 117)}…` : rawTitle) : `Archive post ${postId}`;
+    const desc = [
+      post.date ? `Whistlegraph archive post from ${post.date}.` : "Whistlegraph archive post.",
+      post.views != null ? `${Number(post.views).toLocaleString("en-US")} views.` : "",
+    ].filter(Boolean).join(" ");
+    const img = post.thumb || DEFAULT_IMG;
+    const vid = post.media === "audio" ? null : (post.src || videoFor(post.thumb));
+    const url = `https://whistlegraph.org/post/${postId}`;
+
+    html = html
+      .replace(/<title>[^<]*<\/title>/, `<title>${esc(title)} — Whistlegraph Archive</title>`)
+      .replace(/<meta property="og:title"[^>]*>/, `<meta property="og:title" content="${esc(title)}">`)
+      .replace(/<meta property="og:description"[^>]*>/, `<meta property="og:description" content="${esc(desc)}">`)
+      .replace(
+        /<meta property="og:image"[^>]*>/,
+        [
+          `<meta property="og:image" content="${esc(img)}">`,
+          `<meta property="og:url" content="${esc(url)}">`,
+          `<meta property="og:type" content="${vid ? "video.other" : "article"}">`,
+          `<meta name="twitter:card" content="${vid ? "player" : "summary_large_image"}">`,
+          `<meta name="twitter:title" content="${esc(title)}">`,
+          `<meta name="twitter:image" content="${esc(img)}">`,
+          ...(vid
+            ? [
+                `<meta property="og:video" content="${esc(vid)}">`,
+                `<meta property="og:video:secure_url" content="${esc(vid)}">`,
+                `<meta property="og:video:type" content="video/mp4">`,
+              ]
+            : []),
+        ].join("\n"),
+      );
   }
 
   return {

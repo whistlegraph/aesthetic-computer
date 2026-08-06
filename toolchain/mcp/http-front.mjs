@@ -28,7 +28,7 @@ export function httpPort(argv, fallback) {
 
 /** One resident process, many sessions. */
 export function serveHttp({ handleMessage, port, host = "127.0.0.1", banner }) {
-  createServer(async (req, res) => {
+  return createServer(async (req, res) => {
     if (req.method !== "POST") {
       res.writeHead(405, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ jsonrpc: "2.0", id: null, error: { code: -32000, message: "stateless server: POST only" } }));
@@ -38,9 +38,14 @@ export function serveHttp({ handleMessage, port, host = "127.0.0.1", banner }) {
     for await (const chunk of req) body += chunk;
     try {
       const message = JSON.parse(body);
+      // Keep per-client metadata attached to each call. Shared HTTP MCP
+      // daemons cannot identify the calling Codex session from process.env;
+      // callers can instead forward narrowly allow-listed environment values
+      // as headers via `env_http_headers`.
+      const context = { headers: req.headers, remoteAddress: req.socket.remoteAddress };
       const response = Array.isArray(message)
-        ? (await Promise.all(message.filter(answerable).map(handleMessage))).filter(Boolean)
-        : answerable(message) ? await handleMessage(message) : null;
+        ? (await Promise.all(message.filter(answerable).map((item) => handleMessage(item, context)))).filter(Boolean)
+        : answerable(message) ? await handleMessage(message, context) : null;
       if (!response || (Array.isArray(response) && !response.length)) {
         res.writeHead(202);
         res.end();

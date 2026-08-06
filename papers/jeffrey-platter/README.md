@@ -6,6 +6,21 @@ An index of canonical photographic references for **Jeffrey Alan Scudder** — f
 
 This is **index-only**: pointers to where canonical images live. Masters live on the assets CDN and in the vault. No binary duplication into `papers/`.
 
+## Picture-making history — `drawings.rey.sc`
+
+The platter now includes a public visual history of **3,996 drawings completed from September 2006 through August 2016**, recovered from Jeffrey's still-running Ruby on Rails catalog at [drawings-rey-sc.jas.life](https://drawings-rey-sc.jas.life). The source archive describes itself as “a living archive of images” and was established March 17, 2015. It organizes the work into 102 named groups, 24 locations, and 19 collaborator records.
+
+- **Dashboard:** [papers.aesthetic.computer/platter/jeffrey/drawings/](https://papers.aesthetic.computer/platter/jeffrey/drawings/)
+- **Generated manifest:** [`system/public/papers.aesthetic.computer/platter/jeffrey/drawings/manifest.json`](../../system/public/papers.aesthetic.computer/platter/jeffrey/drawings/manifest.json)
+- **Importer:** [`import-drawings.mjs`](import-drawings.mjs) — snapshots all 96 chronological index pages at concurrency 4, checks that all 3,996 unique records are present, and preserves the original catalog/image URLs.
+- **Rails source:** [whistlegraph/drawings](https://github.com/whistlegraph/drawings) — public application source; the platter does not duplicate the original image binaries.
+
+The completion month/year comes from the archive's own chronological headings, not from the derivative-image upload timestamp. That distinction matters because much of the older work was batch-ingested into Rails in 2015. Refresh with:
+
+```bash
+node papers/jeffrey-platter/import-drawings.mjs
+```
+
 ---
 
 ## 1. In this repo

@@ -56,6 +56,7 @@ enum MenuBuilder {
         let agents = NSMenu()
         appendPopRenders(to: agents, state: state)
         appendClaude(to: agents, state: state, target: target)
+        agents.addItem(buildZzz(state: state, target: target))
         agents.addItem(info("Subagents in flight: \(state.activeSubagents)"))
         agents.addItem(.separator())
         agents.addItem(buildWindowLayout(state: state, target: target))
@@ -77,7 +78,7 @@ enum MenuBuilder {
             : "Inbox: clear"
         menu.addItem(section(inboxTitle, symbol: "tray.full.fill", submenu: inbox))
 
-        menu.addItem(buildLoopboy(target: target))
+        menu.addItem(buildLoopboy(state: state, target: target))
 
         let work = NSMenu()
         work.addItem(buildAsana(state: asana, target: target))
@@ -171,29 +172,92 @@ enum MenuBuilder {
         return it
     }
 
-    private static func buildLoopboy(target: AppDelegate) -> NSMenuItem {
+    private static func buildLoopboy(state: StateSnapshot, target: AppDelegate) -> NSMenuItem {
         let sub = NSMenu()
-        var count = 0
-        if let data = FileManager.default.contents(atPath: Paths.loopboyConfig),
-           let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-           let loops = obj["loops"] as? [String: Any] {
-            for key in loops.keys.sorted() {
-                guard let loop = loops[key] as? [String: Any] else { continue }
-                let host = (loop["host"] as? String) ?? "?"
-                let name = (loop["name"] as? String) ?? "?"
-                let wake = (loop["wake"] as? Bool) ?? false
-                sub.addItem(info("\(wake ? "↻" : "◌") \(key) → \(host):\(name)"))
-                count += 1
+        let routes = LoopboyRoutes.all()
+        let verified = LoopboyRoutes.verifiedBySession(state.claudeSessions)
+        let activeContacts = Set(verified.values)
+        for key in routes.keys.sorted() where activeContacts.contains(key) {
+            guard let route = routes[key] else { continue }
+            sub.addItem(info("\(route.wake ? "↻" : "◌") \(key) → \(route.host):\(route.name)"))
+        }
+        if activeContacts.isEmpty { sub.addItem(info("No active client loops")) }
+        let inactive = routes.keys.filter { !activeContacts.contains($0) }.sorted()
+        if !inactive.isEmpty {
+            sub.addItem(.separator())
+            for key in inactive {
+                guard let route = routes[key] else { continue }
+                sub.addItem(info("⚠ inactive route: \(key) → \(route.host):\(route.name)"))
             }
         }
-        if count == 0 { sub.addItem(info("No client loops")) }
         sub.addItem(.separator())
         sub.addItem(item("Open Loopboy routes…",
                          selector: #selector(AppDelegate.openLoopboyConfig),
                          target: target))
-        return section(count == 1 ? "Loopboy: 1 client loop" : "Loopboy: \(count) client loops",
+        let title = inactive.isEmpty
+            ? "Loopboy: \(activeContacts.count) active"
+            : "Loopboy: \(activeContacts.count) active · \(inactive.count) inactive"
+        return section(title,
                        symbol: "arrow.triangle.2.circlepath",
                        submenu: sub)
+    }
+
+    /// `zzz` is a resumable cold tier for prompts: idle live rows can be
+    /// parked now; sleeping rows wake back into their original provider thread.
+    private static func buildZzz(state: StateSnapshot, target: AppDelegate) -> NSMenuItem {
+        let sub = NSMenu()
+        let config = ZzzStore.configuration()
+        let sleeping = ZzzStore.entries()
+
+        let automatic = item(
+            "Auto zzz after \(Int(config.idleMinutes)) min",
+            selector: #selector(AppDelegate.toggleAutoZzz),
+            target: target
+        )
+        automatic.state = config.enabled ? .on : .off
+        automatic.toolTip = "Opt-in. Only complete/interrupted local prompts are parked. Working, awaiting, rendering, Loopboy-bound, remote, and subagent-owning prompts are protected."
+        sub.addItem(automatic)
+        sub.addItem(item("Open zzz harness…",
+                         selector: #selector(AppDelegate.openZzzHarness),
+                         target: target))
+
+        if !sleeping.isEmpty {
+            sub.addItem(.separator())
+            sub.addItem(info("Wake sleeping prompt" + (sleeping.count == 1 ? "" : "s")))
+            for entry in sleeping {
+                let row = NSMenuItem(
+                    title: "☀︎ \(entry.shortSubject)  ·  \((entry.cwd as NSString).lastPathComponent)",
+                    action: #selector(AppDelegate.wakeZzzSession(_:)),
+                    keyEquivalent: ""
+                )
+                row.target = target
+                row.representedObject = entry.id
+                row.toolTip = "Resume \(entry.agentType) thread \(entry.providerSessionId)"
+                sub.addItem(row)
+            }
+        }
+
+        let idle = state.claudeSessions.filter {
+            !$0.isRemote && ($0.state == .complete || $0.state == .interrupted)
+        }
+        if !idle.isEmpty {
+            sub.addItem(.separator())
+            sub.addItem(info("zzz now"))
+            for session in idle {
+                let row = NSMenuItem(
+                    title: "☾ \(session.shortSubject)  ·  \(session.cwdLabel)",
+                    action: #selector(AppDelegate.zzzIdleSession(_:)),
+                    keyEquivalent: ""
+                )
+                row.target = target
+                row.representedObject = session.sessionId
+                row.toolTip = "Park this idle prompt now; its provider thread remains resumable."
+                sub.addItem(row)
+            }
+        }
+
+        let title = sleeping.isEmpty ? "zzz: ready" : "zzz: \(sleeping.count) sleeping"
+        return section(title, symbol: "moon.zzz.fill", submenu: sub)
     }
 
     /// Consistent first-level navigation: every subsystem is represented by

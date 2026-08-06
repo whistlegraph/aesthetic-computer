@@ -32,7 +32,8 @@ wallet + full node on `jasellite`).
 
 - **`btx-miner-guard.sh`** — pauses `btx-miner.service` while Will is logged
   in or native/ChromeOS compilation is active, then resumes after ten quiet
-  minutes. The accompanying systemd timer checks every 30 seconds.
+  minutes. The accompanying systemd timer checks every 60 seconds, keeping
+  preemption responsive without filling the journal with 30-second no-op runs.
 
 ## Deploy
 

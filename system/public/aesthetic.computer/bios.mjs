@@ -6425,6 +6425,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
 
+    // Menu Fighter's pieces may execute in the disk worker. Keep WebRTC in the
+    // main Window and expose only a narrow packet/signaling bridge.
+    if (type?.startsWith("fight:rtc:")) {
+      await handleFightRtcMessage(type, content, send);
+      return;
+    }
+
     // Connect to a UDP server,
     // which will pass messages to the disk runner.
     if (type === "udp:connect") {

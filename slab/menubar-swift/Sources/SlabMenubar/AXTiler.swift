@@ -97,7 +97,16 @@ enum AXTiler {
     /// placement spatially local (assign each window to the nearest target
     /// cell so it stays roughly where it was). nil if AX can't read the frame.
     static func center(_ w: AXUIElement) -> CGPoint? {
+        guard let frame = frame(w) else { return nil }
+        return CGPoint(x: frame.midX, y: frame.midY)
+    }
+
+    /// A window's frame in the global AX/CoreGraphics coordinate space
+    /// (top-left origin, y down). Navigation flashes and focus outlines use the
+    /// complete frame; keeping the read here avoids each overlay growing its
+    /// own subtly different AX geometry helper.
+    static func frame(_ w: AXUIElement) -> CGRect? {
         guard let p = positionAttr(w), let s = sizeAttr(w) else { return nil }
-        return CGPoint(x: p.x + s.width / 2, y: p.y + s.height / 2)
+        return CGRect(origin: p, size: s)
     }
 }

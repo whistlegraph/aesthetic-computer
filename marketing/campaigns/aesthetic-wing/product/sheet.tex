@@ -1,0 +1,192 @@
+% Aesthetic Wing concept sheet — speculative, non-confidential.
+% Build from this directory: xelatex -interaction=nonstopmode sheet.tex
+\documentclass[10pt]{article}
+\usepackage[margin=0.62in]{geometry}
+\usepackage[table]{xcolor}
+\usepackage{graphicx}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage{fontspec}
+\usepackage{tikz}
+\usepackage{eso-pic}
+\pagestyle{empty}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.42em}
+\renewcommand{\arraystretch}{1.14}
+
+\definecolor{ink}{HTML}{202126}
+\definecolor{paper}{HTML}{FBF7EB}
+\definecolor{line}{HTML}{DED6C2}
+\definecolor{wingmint}{HTML}{493A72}
+\definecolor{wingcoral}{HTML}{B63A83}
+\definecolor{wingblue}{HTML}{3955C6}
+\definecolor{wingsun}{HTML}{7CA634}
+
+\newfontfamily\processing[
+  Path=../../../../system/public/type/webfonts/,
+  Extension=.ttf,
+  UprightFont=ywft-processing-regular,
+  BoldFont=ywft-processing-bold
+]{YWFT Processing}
+\newfontfamily\berkeley[
+  Path=../../../../bills/invoices/,
+  Extension=.ttf,
+  UprightFont=BerkeleyMonoVariable-Regular,
+  ItalicFont=BerkeleyMonoVariable-Italic
+]{Berkeley Mono}
+\setmainfont{Avenir Next}
+
+\newcommand{\sheetid}{AC-AWG-01}
+\newcommand{\docdate}{Concept sheet · July 23, 2026}
+\newcommand{\hero}{../gens/v6-more-lift.png}
+\newcommand{\roll}{../gens/v8-road-mode.png}
+\newcommand{\step}{../gens/v5-wing-wakes.png}
+\newcommand{\pals}{../../../../bills/invoices/pals.pdf}
+
+\AddToShipoutPictureBG{%
+  \begin{tikzpicture}[remember picture,overlay]
+    \fill[paper] (current page.south west) rectangle (current page.north east);
+    \draw[line,line width=0.45pt]
+      ([xshift=0.62in,yshift=0.55in]current page.south west) --
+      ([xshift=-0.62in,yshift=0.55in]current page.south east);
+    \node[anchor=south,inner sep=0pt] at ([yshift=0.35in]current page.south)
+      {\makebox[\dimexpr\paperwidth-1.24in\relax]{\berkeley\scriptsize\color{ink}
+      \docdate\hfill\sheetid\hfill\thepage\,/\,2}};
+  \end{tikzpicture}%
+}
+
+\newcommand{\titleblock}[2]{%
+  \begin{tabularx}{\linewidth}{@{}Xr@{}}
+    {\processing\fontsize{27pt}{28pt}\bfseries\color{#1} Aesthetic Wing} &
+    \raisebox{-0.45cm}{\includegraphics[height=1.25cm]{\pals}}\\
+    {\processing\fontsize{16pt}{18pt}\bfseries\color{ink} #2} & {}
+  \end{tabularx}
+  \vspace{0.35em}\color{#1}\rule{\linewidth}{6pt}\color{ink}\vspace{0.55em}
+}
+
+\newcommand{\head}[2]{%
+  \vspace{0.38em}{\processing\fontsize{14pt}{16pt}\bfseries\color{#1}#2}\par
+}
+
+\newcommand{\tag}[1]{%
+  \tikz[baseline=-0.6ex]{\node[fill=wingmint!12,draw=wingmint!55,
+    rounded corners=4pt,inner xsep=6pt,inner ysep=3pt]{\berkeley\scriptsize #1};}}
+
+\begin{document}
+\color{ink}
+
+\titleblock{wingmint}{Real chill street aviation}
+
+\begin{tabularx}{\linewidth}{@{}Xr@{}}
+  \textbf{Model:} \sheetid & \textbf{Status:} speculative research concept\\
+  \textbf{Class:} personal electric mobility / bounded lift &
+  \textbf{Phase I:} unmanned only
+\end{tabularx}
+
+\vspace{0.45em}
+\begin{minipage}[t]{0.54\linewidth}
+\vspace{0pt}
+\head{wingmint}{The short version}
+Aesthetic Wing is an electric one-wheel that can make an \textbf{air step}.
+Most of the time it rolls. When the surface changes, two guarded lift petals
+open, progressively unload the wheel, rise through a bounded envelope, and
+settle back onto the street.
+
+It is not a flying car. It proposes a smaller gesture between riding and flying:
+\textbf{a little more street, in every direction.}
+
+\head{wingcoral}{The research question}
+Can a compact one-wheel vehicle transition safely between rolling, partial lift,
+and controlled low hover while preserving an intuitive board-riding experience?
+
+\head{wingblue}{The interface}
+\tag{lean to move}\quad\tag{press to rise}\quad\tag{relax to settle}
+
+The rider expresses intent through stance and foot pressure. Stabilization,
+height limiting, energy reserve, and automatic settling remain machine duties.
+
+\head{wingsun}{Truth before spectacle}
+The illustration is a product vision, not flight-test evidence. Phase I contains
+no rider, no public-street operation, and no unrestricted altitude.
+\end{minipage}\hfill
+\begin{minipage}[t]{0.42\linewidth}
+\vspace{0pt}
+\begin{tikzpicture}
+  \node[inner sep=0pt] (im) {\includegraphics[width=\linewidth]{\hero}};
+  \draw[rounded corners=9pt,line,line width=0.8pt]
+    (im.south west) rectangle (im.north east);
+\end{tikzpicture}
+
+{\berkeley\scriptsize\color{ink!70}Concept illustration: Jeffrey in a controlled eight-foot hover. The vehicle depicted does not exist.}
+\end{minipage}
+
+\vfill
+\newpage
+
+\titleblock{wingblue}{Phase I research program}
+
+\head{wingblue}{Operating modes}
+\begin{tabularx}{\linewidth}{>{\bfseries}p{1.1in}X}
+Roll & One central wheel supports ordinary efficient travel.\\
+Skim & Lift partially unloads the wheel over rough ground.\\
+Air step & A short controlled rise, translation, and landing.\\
+Hover & Fully airborne movement inside a deliberately low envelope.\\
+Safe settle & Automatic descent after lost input, low reserve, or fault.\\
+\end{tabularx}
+
+\vspace{0.4em}
+\begin{minipage}[t]{0.49\linewidth}
+\vspace{0pt}
+\head{wingmint}{Phase I objectives}
+\begin{enumerate}
+  \setlength{\itemsep}{0.22em}
+  \item Model mass, lift area, power, thermal behavior, downwash, noise, and transition dynamics.
+  \item Validate guarded propulsion on a stationary full-load test article.
+  \item Develop roll-to-hover controls and automatic settling in simulation and hardware.
+  \item Demonstrate an unmanned weighted prototype rolling, unloading, crossing a controlled interruption, landing, and rolling again.
+\end{enumerate}
+
+\head{wingcoral}{Safety gates}
+Rotor containment; independent shutdown; tethered initial trials; battery
+isolation; thermal monitoring; motor-out testing; bounded height and speed;
+formal hazard review before every expansion of the envelope.
+\end{minipage}\hfill
+\begin{minipage}[t]{0.47\linewidth}
+\vspace{0pt}
+\head{wingsun}{Twelve months / \$300,000}
+\begin{tabularx}{\linewidth}{@{}p{0.65in}X@{}}
+1--2 & requirements, prior art, hazards\\
+2--4 & energy and geometry trade study\\
+3--6 & guarded-lift test rig\\
+5--8 & rolling mule and controller\\
+7--10 & integrated tethered tests\\
+9--11 & unmanned air-step demonstration\\
+11--12 & validation and Phase II design
+\end{tabularx}
+
+\vspace{0.55em}
+\begin{tikzpicture}
+  \node[inner sep=0pt] (a) {\includegraphics[width=0.48\linewidth]{\roll}};
+  \node[inner sep=0pt,anchor=west] (b) at ([xshift=5pt]a.east)
+    {\includegraphics[width=0.48\linewidth]{\step}};
+  \draw[line,line width=0.6pt] (a.south west) rectangle (a.north east);
+  \draw[line,line width=0.6pt] (b.south west) rectangle (b.north east);
+\end{tikzpicture}
+
+{\berkeley\fontsize{7.4pt}{9pt}\selectfont\color{ink!70}%
+\parbox{\linewidth}{Roll → air step. Generated concept sequence.\\
+Performance remains to be measured.}}
+\end{minipage}
+
+\head{wingmint}{Funding request}
+\textbf{\$300,000 over 12 months} to establish technical feasibility and
+demonstrate an unmanned wheel-to-hover transition. The non-confidential funding
+thesis is a deployable distributed-lift and transition-control system for
+bounded personal mobility. The product and cultural identity remain
+\textbf{Aesthetic Wing}.
+
+\vfill
+{\berkeley\small\color{ink!70}aesthetic.computer · speculative hardware research · not offered for sale}
+
+\end{document}

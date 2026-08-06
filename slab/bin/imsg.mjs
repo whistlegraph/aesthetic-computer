@@ -2,8 +2,8 @@
 // imsg.mjs — a tiny, generic iMessage bridge for the slab menubar.
 //
 // Reads Messages' chat.db (read-only) for a configured contact, reports an
-// unread/last-message summary as JSON, rings a terminal/audio bell when a
-// NEW inbound message arrives, sends replies via Messages.app, and offers a
+// unread/last-message summary as JSON, optionally rings a terminal/audio bell
+// when a NEW inbound message arrives, sends replies via Messages.app, and offers a
 // dependency-free live `tail` client.
 //
 // This file ships in the PUBLIC aesthetic.computer repo, so it carries NO
@@ -14,13 +14,15 @@
 // the `attributedBody` typedstream blob, which we decode below.
 //
 // Subcommands:
-//   imsg status        JSON summary to stdout; rings bell on new inbound
+//   imsg status        JSON summary to stdout; optional bell on new inbound
 //   imsg chats [N]     recent indexed conversations (default 20)
 //   imsg read [N]      recent messages; optional --to <name|handle>
 //   imsg search <text> full-text search; optional --to and --limit
 //   imsg index         incrementally refresh the private local FTS index
 //   imsg use <name>    switch the notification/default contact safely
-//   imsg send <text>   send to an explicitly selected contact via Messages.app
+//   imsg send <text>   send to an explicitly selected contact via its current
+//                      Messages transport and verify sent/delivered state;
+//                      --rich renders lightweight Markdown as safe styled text
 //   imsg react <kind>  classic Tapback on that contact's latest incoming message
 //   imsg tail          live terminal client (prints + BEL on new inbound)
 //   imsg open          open the Messages.app conversation
@@ -37,6 +39,12 @@ import {
 } from "node:fs";
 import { homedir } from "node:os";
 import { join, dirname } from "node:path";
+import { formatRichText } from "../lib/imessage-rich-text.mjs";
+import {
+  chooseMessagesRoute,
+  classifyMessagesDelivery,
+  shouldRetryViaSms,
+} from "../lib/imessage-send-routing.mjs";
 
 const HOME = homedir();
 const CONFIG_PATH =
@@ -62,7 +70,7 @@ const CONFIG_STUB = {
   bellTty: "",
   bellTtyComment:
     "optional: a tty like /dev/ttys004 — writing BEL there flashes that terminal. `tty` in the pane you want flashed.",
-  sound: true,
+  sound: false,
   soundFile: "",
   soundFileComment:
     "optional: path to an aiff/wav for afplay; default is the system Glass chime.",
@@ -541,7 +549,9 @@ function ringBell(cfg) {
       /* tty may be gone; ignore */
     }
   }
-  if (cfg.sound !== false) {
+  // Audio is opt-in. Existing multi-contact configs that predate this field
+  // should stay quiet instead of unexpectedly playing the system Glass chime.
+  if (cfg.sound === true) {
     const snd =
       cfg.soundFile && existsSync(cfg.soundFile)
         ? cfg.soundFile
@@ -556,36 +566,105 @@ function ringBell(cfg) {
 
 // ─── send ────────────────────────────────────────────────────────────────
 
-function sendMessage(handles, body) {
-  const to = String(handles[0]);
-  // buddy-of-first-service path is the most reliable across macOS versions.
+function latestSuccessfulRoute(handles) {
+  const ids = (handles || []).map(sqlString).join(",");
+  if (!ids) return null;
+  return sqlite(
+    `SELECT h.id AS handle, m.service AS service
+     FROM message m
+     JOIN handle h ON h.ROWID=m.handle_id
+     WHERE h.id IN (${ids}) AND m.error=0
+       AND m.service IN ('iMessage','RCS','SMS')
+     ORDER BY m.date DESC, m.ROWID DESC LIMIT 1;`,
+  )[0] || null;
+}
+
+function latestRecipientRowid(handles) {
+  const ids = (handles || []).map(sqlString).join(",");
+  return Number(sqlite(
+    `SELECT IFNULL(MAX(m.ROWID),0) AS rowid
+     FROM message m JOIN handle h ON h.ROWID=m.handle_id
+     WHERE h.id IN (${ids});`,
+  )[0]?.rowid || 0);
+}
+
+function outgoingAfter(handles, baseline) {
+  const ids = (handles || []).map(sqlString).join(",");
+  return sqlite(
+    `SELECT m.ROWID AS rowid, m.service AS service, m.error AS error,
+            m.is_sent AS is_sent, m.is_delivered AS is_delivered
+     FROM message m JOIN handle h ON h.ROWID=m.handle_id
+     WHERE h.id IN (${ids}) AND m.is_from_me=1
+       AND m.ROWID > ${Number(baseline) || 0}
+     ORDER BY m.ROWID DESC LIMIT 1;`,
+  )[0] || null;
+}
+
+function enqueueMessage(handle, body, appleService) {
   const script = `
 on run argv
   set msg to item 1 of argv
   set dest to item 2 of argv
   tell application "Messages"
-    set svc to 1st account whose service type = iMessage
+    set svc to 1st account whose service type = ${appleService}
     set bud to participant dest of svc
     send msg to bud
   end tell
 end run`;
   const r = spawnSync(
     "/usr/bin/osascript",
-    ["-e", script, body, to],
+    ["-e", script, body, handle],
     { encoding: "utf8" },
   );
-  if (r.status !== 0) {
-    // Fallback: SMS/last-used service via the generic `buddy` form.
-    const fb = `on run argv
-  tell application "Messages" to send (item 1 of argv) to buddy (item 2 of argv)
-end run`;
-    const r2 = spawnSync("/usr/bin/osascript", ["-e", fb, body, to], {
-      encoding: "utf8",
-    });
-    if (r2.status !== 0) {
-      throw new Error((r.stderr || r2.stderr || "send failed").trim());
-    }
+  if (r.status !== 0) throw new Error((r.stderr || "Messages enqueue failed").trim());
+}
+
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+async function sendAttempt(handles, body, route, timeoutMs = 14000) {
+  const baseline = latestRecipientRowid(handles);
+  enqueueMessage(route.handle, body, route.appleService);
+  const deadline = Date.now() + timeoutMs;
+  let lastRow = null;
+  while (Date.now() < deadline) {
+    lastRow = outgoingAfter(handles, baseline);
+    const state = classifyMessagesDelivery(lastRow);
+    if (state.status !== "pending") return { ...state, rowid: Number(lastRow.rowid) };
+    await wait(250);
   }
+  const rowid = Number(lastRow?.rowid) || 0;
+  throw new Error(
+    `Messages queued row ${rowid || "unknown"} via ${route.appleService} but did not confirm sending within ${timeoutMs / 1000}s`,
+  );
+}
+
+async function sendMessage(handles, body) {
+  const route = chooseMessagesRoute(handles, latestSuccessfulRoute(handles));
+  let result = await sendAttempt(handles, body, route);
+
+  // A phone number may retain a stale iMessage handle. Only retry when
+  // Messages explicitly rejects that attempt; never retry an ambiguous
+  // pending send, which could create a duplicate later.
+  if (shouldRetryViaSms(route, result)) {
+    result = await sendAttempt(handles, body, {
+      handle: route.handle,
+      appleService: "SMS",
+      observedService: "SMS fallback",
+    });
+    if (result.status === "failed") {
+      throw new Error(
+        `Messages rejected row ${result.rowid} via ${result.service || "SMS"} (error ${result.error})`,
+      );
+    }
+    return { ...result, fallbackFrom: "iMessage" };
+  }
+
+  if (result.status === "failed") {
+    throw new Error(
+      `Messages rejected row ${result.rowid} via ${result.service || route.appleService} (error ${result.error})`,
+    );
+  }
+  return result;
 }
 
 const TAPBACKS = new Map([
@@ -891,11 +970,11 @@ async function cmdTail() {
 
   const readline = await import("node:readline");
   const rl = readline.createInterface({ input: process.stdin });
-  rl.on("line", (line) => {
+  rl.on("line", async (line) => {
     const body = line.trim();
     if (!body) return;
     try {
-      sendMessage(defaultContact(cfg).handles, body);
+      await sendMessage(defaultContact(cfg).handles, body);
       acknowledge(cfg);
       process.stdout.write(`\x1b[36m  you ›\x1b[0m ${body}\n`);
     } catch (e) {
@@ -1007,19 +1086,32 @@ try {
       // Optional `--to <name|handle>` selects a contact; default otherwise.
       const args = [...rest];
       let toArg = null;
+      const richIndex = args.indexOf("--rich");
+      const rich = richIndex >= 0;
+      if (rich) args.splice(richIndex, 1);
       const ti = args.indexOf("--to");
-      if (ti >= 0) { toArg = args[ti + 1]; args.splice(ti, 2); }
-      const body = args.join(" ").trim();
+      if (ti >= 0) {
+        const candidate = args[ti + 1];
+        if (!candidate || candidate.startsWith("--")) {
+          console.error("imsg send: --to requires a nonempty contact name or handle");
+          process.exit(1);
+        }
+        toArg = candidate;
+        args.splice(ti, 2);
+      }
+      const source = args.join(" ").trim();
+      const body = rich ? formatRichText(source) : source;
       if (!body) {
-        console.error("usage: imsg send <text> [--to <name|handle>]");
+        console.error("usage: imsg send [--rich] <text> [--to <name|handle>]");
         process.exit(1);
       }
       const rcpt = resolveRecipient(cfg, toArg);
-      sendMessage(rcpt.handles, body);
+      const delivery = await sendMessage(rcpt.handles, body);
       const watched = defaultContact(cfg);
       if (watched && rcpt.handles.some((h) => watched.handles.includes(h))) {
         acknowledge(cfg);
       }
+      print({ displayName: rcpt.displayName, ...delivery });
       break;
     }
     case "react": {
@@ -1062,7 +1154,7 @@ try {
       break;
     default:
       console.error(
-        "usage: imsg status|chats [N]|read [N] [--to <name|handle>]|search <text> [--to <name|handle>] [--limit N]|index [--all] [--rebuild]|use <contact>|ack|resolve [--to] <name|handle>|send <text> [--to <name|handle>]|react <kind> --to <name|handle>|tail|open|config",
+        "usage: imsg status|chats [N]|read [N] [--to <name|handle>]|search <text> [--to <name|handle>] [--limit N]|index [--all] [--rebuild]|use <contact>|ack|resolve [--to] <name|handle>|send [--rich] <text> [--to <name|handle>]|react <kind> --to <name|handle>|tail|open|config",
       );
       process.exit(1);
   }

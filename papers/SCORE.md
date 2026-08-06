@@ -105,7 +105,7 @@ Lecture transcripts paired with commentary and references. Material that started
 ### 8. Platters (sub-platters)
 
 Smaller scoped collections. Each has its own `manifest.json` + `sync.mjs`:
-- [`jeffrey-platter/`](jeffrey-platter/) — biographical materials, image corpus, archival sources for Jeffrey-as-subject
+- [`jeffrey-platter/`](jeffrey-platter/) — biographical materials, image corpus, and archival sources for Jeffrey-as-subject, including the 3,996-work `drawings.rey.sc` history (2006–2016)
 - [`jeffrey-lexicon/`](jeffrey-lexicon/) — frequency-attributed dictionary of words used by Jeffrey, sourced only from first-hand textual + transcribed material (textual analogue of `jeffrey-platter`'s photo index and the `jeffrey-pvc` voice clone)
 - [`whistlegraph-platter/`](whistlegraph-platter/) — Whistlegraph-specific artifacts and references
 - [`people-platter/`](people-platter/) — TODO; will hold AC-adjacent people biographies
@@ -196,6 +196,7 @@ The mill's code lives at the top of `papers/` and in [`bin/`](bin/). All scripts
 | [`bin/crunch.mjs`](bin/crunch.mjs) | Build a paper on the **oven** instead of locally — for a machine with no TeX, or a document that must stay private. Tars the directory, POSTs it to `/paper-crunch`, streams the log, writes the PDF. Never commits and never publishes: the crunched PDF comes back to you and goes nowhere near `papers.aesthetic.computer` (that is `cli.mjs publish`, which builds from `main`). House `.sty` + webfonts resolve inside the oven's sandbox. |
 | [`bin/gen-cover.mjs`](bin/gen-cover.mjs) | Generate the colored-pencil vignette cover illustration for a dossier from `figures/cover-prompt.txt` via OpenAI gpt-image-2 (1024×1024 square, faded edges). |
 | [`bin/gen-qrs.mjs`](bin/gen-qrs.mjs) | Generate per-paper QR-code PNG pointing to the deployed permalink at `papers.aesthetic.computer/<siteName>.pdf`. Uses `qrencode` CLI. |
+| [`aesthetic-eye.mjs`](aesthetic-eye.mjs) | Render diagram crops from the final PDF and enforce a current visual-inference manifest with `design: pass|fail` for every diagram. See [`AESTHETIC-EYE.md`](AESTHETIC-EYE.md). |
 | [`bin/migrate-cover.mjs`](bin/migrate-cover.mjs) | One-shot migration: rewrite an old-style cover block (4em pals + 15em hero) into the new vignette layout (pals top-left + QR top-right + TikZ-overlaid title floating over faded illustration). Idempotent. |
 | [`bin/fix-people-tables.mjs`](bin/fix-people-tables.mjs) | One-shot: convert `tabularx{lXl}` people tables to `tabularx{lXX}` so the third column wraps and stops overflowing the column width. |
 

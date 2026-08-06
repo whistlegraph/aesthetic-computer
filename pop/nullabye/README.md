@@ -68,9 +68,25 @@ Its listening law is intentionally selective: distance falls steeply after a
 few room units, so wandering actively remixes the piece. Faint grey tethers in
 the video show physical source distance; colored halos and lines show the
 post-distance energy that actually reaches the stereo listener.
-From 0:50–1:18 the complete source constellation eases through two physical
-rotations. The audio and gravity use the rotating coordinates, so this passage
-produces real proximity, Doppler, and stereo movement rather than a camera spin.
+The opening starts near 30 rotations per second, completing 96 turns as it
+decelerates to a stop. Sustained resonators make that HRTF/proximity motion fuse
+into a spatial hum, but the track no longer waits inside atmosphere: the
+lullaby melody, quarter-note low pulse, and alternating air answers begin in
+bar one. From 0:50–1:18 the complete source constellation eases through two
+more physical rotations, including an eight-turn centrifuge from 1:02–1:10.
+The audio and gravity use the rotating coordinates, so these passages produce
+real proximity, Doppler, and stereo movement rather than a camera spin.
+
+In the first-person receiver view, emitters are twelve-slice spectrographic
+volumes instead of small source dots. Frequency rises vertically, live band
+energy controls each cross-section, and longitudinal ribs join the slices into
+one body. Six historical post-HRTF measurements launch expanding three-plane
+shells from each body's position at the moment its sound was emitted; captured
+per-source waveform samples deform those shells instead of leaving them as
+smooth decorative rings. The cockpit windshield is a 55 ms perspective surface
+of the exact final stereo master decoded back into C. Source-colored waveform
+particles strike it at the emitter's measured L/R position and spectral height,
+producing impact ripples on the calculated sound plane.
 The echo and air sources are follower bodies: they occupy the listener's
 position 2.2 and 5.5 seconds in the past, respectively. Their sound and gravity
 therefore chase the player; a fading breadcrumb in the video exposes the same
@@ -81,7 +97,8 @@ sh pop/nullabye/c/build-spatial.sh
 cd pop/nullabye/c
 ./spatial-sineabye --wav ../out/spatial-sineabye.wav \
   --mp3 ../out/spatial-sineabye.mp3 \
-  --video ../out/spatial-sineabye.mp4 --spatial-wet 0.58
+  --video ../out/spatial-sineabye.mp4 \
+  --spatial-wet 0.58 --noise-level 0.55
 ```
 
 `--spatial-wet 0..1` interpolates every voice between a restrained fixed-pan,
@@ -92,6 +109,62 @@ bus is implemented by `c/ac_hrtf.h`, an allocation-free procedural binaural
 core designed to compile unchanged to WebAssembly. It models fractional ITD,
 far-ear head shadow, distance and elevation-dependent pinna notches. This is
 portable directional DSP, not yet a personalized measured HRIR dataset.
+
+`--noise-level 0.05..1` scales the hat, nose, and air voices without permitting
+an unnaturally silent floor. Room, globe, and lattice renders default to the
+composed 76 BPM / 2:00 form; cosmos stays at 104 BPM unless `--bpm` overrides it.
+
+### Jeffrey choir release candidate
+
+`bin/render-spatial-jeffrey.mjs` layers the existing project-owned, pitch-locked
+Jeffrey `mm/oo/oh/ah/eh` takes over a room render. It leaves the opening spin
+free of Jeffrey's choir, then stretches compact harmonies around the takes'
+natural B2 register. During the 1:02–1:10 super-spin, the choir's orbit follows the exact
+eight-turn C trajectory. The renderer makes no network or voice-generation API
+calls and records every source and placement in a provenance sidecar.
+
+```bash
+node pop/nullabye/bin/render-spatial-jeffrey.mjs
+# → out/review/spatial-room-spin-jeffrey-MASTER.wav (48 kHz / 24-bit)
+# → out/review/spatial-room-spin-jeffrey-MASTER.mp3 (listening copy)
+
+# Reconnect the accepted master to the engine-generated picture:
+cd pop/nullabye/c
+./spatial-sineabye --wav ../out/review/spatial-room-spin-clean.wav \
+  --video ../out/review/spatial-room-spin-jeffrey.mp4 \
+  --video-audio ../out/review/spatial-room-spin-jeffrey-MASTER.wav \
+  --spatial-wet 0.58 --noise-level 0.55
+```
+
+Spatial-engine listening/video snapshot:
+
+- `release/spatial-sineabye/spatial-sineabye.mp3` — 320 kbps listening copy.
+- `release/spatial-sineabye/spatial-sineabye.mp4` — 720×720, 24 fps,
+  Git-safe H.264 delivery encode with the calculated stereo windshield.
+
+### Special Sign — locked release master
+
+The release-length work grown from this engine is **Special Sign**. Its accepted
+cut begins at source bar 6, runs 1:41.375, and keeps the lead-first assembly,
+all-body hum, Jeffrey phoneme choir, listener-relative gravity/HRTF motion, and
+the eight-turn super-spin. The final C-major cadence decelerates the spatial
+world to rest without changing musical tempo or adding a global fade.
+
+The 2026-07-24 release lock is
+`release/special-sign/special-sign-MASTER.wav`: 48 kHz/24-bit stereo, −15.0
+LUFS, 7.1 LU range, and −1.7 dBFS true peak. Its `diamond` master is linear—no
+saturation, recursive audio feedback, or added master echo. A side-only parallel
+return from the 68%-wet listener engine sits at 0.20 and rises smoothly to 0.85
+through the eight-turn super-spin; that rotation is 4.1 dB stronger in the side
+field than the previous master while remaining mono-safe. The paired 320 kbps
+MP3 carries release tags and the 3000-square radial-score cover. The same 1,967
+visible score events print as a synchronized 2160-square MP4: twelve physical
+sound-body lanes, Jeffrey's vowel lane, chords, spatial rotation, kick gravity,
+and the locked master's measured dynamic arc move through one fixed playhead.
+The paired 720-square first-person 3D spatial graph shows the physical bodies,
+wave shells, listener path, gravity field, and aligned mastered stereo receiver.
+See `release/special-sign/README.md` and `release.json` for the exact files,
+checksums, and QC receipt.
 
 ## nuellaby — the complexity-arch cut
 

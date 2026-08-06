@@ -42,6 +42,11 @@ Each machine gains, on top of its existing fields:
 The full vocabulary with descriptions lives in the `_schema` block of the
 normalized file and is queryable via the `fleet_designations` MCP tool.
 
+On fleet Macs, `fleet_cleaner` resolves “call the cleaner” to the safe local
+disk cleanup in `toolchain/macos/cleaner.sh`. It applies known-regenerable cache
+cleanup by default, offers report-only mode, and never thins APFS snapshots
+unless that separate option is explicitly requested.
+
 ## Usage
 
 ```bash

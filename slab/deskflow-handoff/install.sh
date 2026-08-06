@@ -52,7 +52,7 @@ write_fingerprints() {
   done
 }
 
-for file in deskflow-role-runner deskflow-set-role deskflow-claim-control deskflow-role-watchdog deskflow-seat-ready deskflow-active-screen deskflow-yield-control deskflow-start; do
+for file in deskflow-role-runner deskflow-set-role deskflow-role-state deskflow-retarget-client deskflow-reconcile-topology deskflow-claim-control deskflow-role-watchdog deskflow-seat-ready deskflow-active-screen deskflow-yield-control deskflow-start; do
   cp "$HERE/$file" "$HOME/.local/bin/$file"
   chmod 755 "$HOME/.local/bin/$file"
 done

@@ -1,0 +1,18 @@
+Use case: precise-object-edit
+Asset type: corrected master jewelry product photograph
+
+Primary request: Change only the terminal curl inside the pendant’s bottom-left petal.
+
+Input images:
+- Image 1 is the edit target. Preserve the entire photograph exactly outside the masked bottom-left jewelry region.
+- Image 2 is the structural reference: its bottom-left inner curl resolves as a small CLOSED loop. Follow that construction.
+- Image 3 is the original score/performance reference for the bottom-left chalk loop.
+
+Required correction:
+- Inside the large bottom-left outer petal, close the little inward gold curl into one small complete circular loop or eye.
+- The small loop is made from the same polished round gold wire and joins tangentially into the surrounding petal stroke.
+- The loop must have a clearly enclosed round negative space. It is not an open C, spiral gap, notch, heart cleft, split lobe, crevice, or loose wire end.
+- Keep the large bottom-left outer petal as one continuous lobe.
+- Keep its single white snowflake dot fixed at the outermost bottom-left petal apex.
+
+Invariants: do not alter any other petal, snowflake dot, chain, coral center, green trapezoid, card, typography, printed chalk swatch, lighting, framing, color, or texture. Exactly five petals and five white apex snowflakes remain.

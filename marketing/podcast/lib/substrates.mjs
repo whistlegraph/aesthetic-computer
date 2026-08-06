@@ -50,4 +50,5 @@ export const EPISODE_SUBSTRATE = {
   "july-10-26": "radio",
   "console-browser": "radio",
   "physical-mail": "tape",
+  "the-machine-that-came-back": "radio",
 };

@@ -1,0 +1,40 @@
+{
+  "source": "/Users/jas/aesthetic-computer/pop/nullabye/cover/special-sign-cosmic-turtle-colored-pencil-v2.png",
+  "sheets": [
+    {
+      "slug": "01-believable-fisheye",
+      "label": "BELIEVABLE FISHEYE",
+      "prompt": "Edit the supplied square album cover. Preserve Jeffrey's recognizable face, natural loose brown hair, tactile colored-pencil and graphite paper texture, muted cream/indigo/turquoise/ochre palette, geometric cosmic turtle shell, tiny Pals line seal on the shell, sparse scientific signal diagrams, and absence of all typography. Recompose the turtle into a believable low close three-quarter swimming pose seen through a pronounced circular fisheye lens. The head must emerge along a plausible sea-turtle neck axis rather than a vertical human torso. Exactly four anatomically coherent flippers: the nearest front flipper is strongly foreshortened toward the lens, the far front flipper is smaller and partially occluded, and the two rear flippers follow the shell perspective. Keep one head, one shell, no human shoulders, no extra limbs. The shell curves convincingly in fisheye perspective and may crop naturally at the square edges. Keep the strange restrained 1990s alternative-rock sleeve feeling rather than glossy fantasy key art. Add a small original early-2000s console-rendered sun-shine medallion motif: chunky rounded rays, pearly gold/cyan bloom, toy-like low-poly gloss, integrated as an uncanny object near the shell. It must not copy Mario, a Shine Sprite, Nintendo symbols, or any recognizable game asset. No words, watermark, dreadlocks, braids, white hair, cable hair, horror, mascot smile, or dense starfield. Camera direction: intimate but not comedic, approximately a 14mm full-frame fisheye feel. Keep the whole head and most of the shell readable. The medallion is subtle, about the apparent size of one eye, with restrained bloom.",
+      "contactSheet": "/Users/jas/aesthetic-computer/pop/nullabye/cover/fal-contact-sheets/01-believable-fisheye--contact-sheet.jpg"
+    },
+    {
+      "slug": "02-shine-push",
+      "label": "SHINE PUSH",
+      "prompt": "Edit the supplied square album cover. Preserve Jeffrey's recognizable face, natural loose brown hair, tactile colored-pencil and graphite paper texture, muted cream/indigo/turquoise/ochre palette, geometric cosmic turtle shell, tiny Pals line seal on the shell, sparse scientific signal diagrams, and absence of all typography. Recompose the turtle into a believable low close three-quarter swimming pose seen through a pronounced circular fisheye lens. The head must emerge along a plausible sea-turtle neck axis rather than a vertical human torso. Exactly four anatomically coherent flippers: the nearest front flipper is strongly foreshortened toward the lens, the far front flipper is smaller and partially occluded, and the two rear flippers follow the shell perspective. Keep one head, one shell, no human shoulders, no extra limbs. The shell curves convincingly in fisheye perspective and may crop naturally at the square edges. Keep the strange restrained 1990s alternative-rock sleeve feeling rather than glossy fantasy key art. Add a small original early-2000s console-rendered sun-shine medallion motif: chunky rounded rays, pearly gold/cyan bloom, toy-like low-poly gloss, integrated as an uncanny object near the shell. It must not copy Mario, a Shine Sprite, Nintendo symbols, or any recognizable game asset. No words, watermark, dreadlocks, braids, white hair, cable hair, horror, mascot smile, or dense starfield. Camera direction: energetic 8mm circular-fisheye exaggeration with the near flipper and shell nose entering the lens field. Keep Jeffrey's facial proportions recognizable despite lens distortion. Make the original sun medallion larger and more playful, with pearlescent GameCube-era material, rounded low-poly rays, cyan-gold lens bloom, and a faint colored-pencil halo; it remains a new generic object with no face and no copyrighted emblem.",
+      "contactSheet": "/Users/jas/aesthetic-computer/pop/nullabye/cover/fal-contact-sheets/02-shine-push--contact-sheet.jpg"
+    }
+  ],
+  "models": [
+    {
+      "slug": "gpt-image-2-high",
+      "label": "GPT IMAGE 2 · HIGH",
+      "endpoint": "openai/gpt-image-2/edit"
+    },
+    {
+      "slug": "nano-banana-pro",
+      "label": "NANO BANANA PRO · 2K",
+      "endpoint": "fal-ai/nano-banana-pro/edit"
+    },
+    {
+      "slug": "seedream-5-pro",
+      "label": "SEEDREAM 5 PRO",
+      "endpoint": "bytedance/seedream/v5/pro/edit"
+    },
+    {
+      "slug": "flux-kontext-max",
+      "label": "FLUX KONTEXT MAX",
+      "endpoint": "fal-ai/flux-pro/kontext/max"
+    }
+  ],
+  "generatedAt": "2026-07-24T05:25:09.330Z"
+}
