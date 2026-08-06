@@ -123,11 +123,19 @@ node xbox/tools/live.mjs deploy xbox/live/native-showcase.js
 node xbox/tools/live.mjs deploy xbox/live/photo-disc.js
 node xbox/tools/live.mjs deploy-kidlisp '$obk'
 node xbox/tools/live.mjs logs 100
+node xbox/tools/live.mjs screenshot tmp/xbox-captures/frame.png
+node xbox/tools/live.mjs video 10 tmp/xbox-captures/clip.mp4
+node xbox/tools/live.mjs frames tmp/xbox-captures/frame-trace.json
 ```
 
 The `deploy` command publishes sandboxed JavaScript into the installed package's
 `LocalState/live-piece.js`, launches the newest installed BIOS revision, and
 prints recent telemetry.
+
+`video` records a timestamped Device Portal MP4 and JSON sidecar. Portal capture
+is intentionally low-rate; `frames` exports and analyzes the latest round's
+60 Hz camera/player trace, including per-field ranges, frame steps, direction
+reversals, and the largest motion spikes.
 
 After a successful Native BIOS install, the tool removes stale uninstallable AC
 development packages from earlier experiments. Cleanup is restricted to our
