@@ -22,7 +22,7 @@ export const fuserEffectTheme = Object.freeze({
   scrollIntoView: false,
 });
 
-export default Object.freeze({
+const fuserBrandChrome = Object.freeze({
   id: "fuser",
   markAsset: join(HERE, "..", "assets", "fuser-mark.svg"),
   label: "Fuser",
@@ -56,3 +56,44 @@ export default Object.freeze({
     vertical: { edgeFraction: 0.032, markSideFraction:0.021, labelPxFraction:0.029 },
   },
 });
+
+export const learnFuserBrandChrome = Object.freeze({
+  ...fuserBrandChrome,
+  id: "learn-fuser",
+  markAsset: join(HERE, "..", "assets", "fuser-metaballs-1.png"),
+  markVideoAsset: join(HERE, "..", "assets", "fuser-metaballs-spin.mov"),
+  markPreserveColor: true,
+  markOrientation: "side",
+  markPerspective: null,
+  driftFraction: 0,
+  driftPx: 0,
+  bobFraction: 0,
+  bobPx: 0,
+  label: "Learn Fuser",
+  labelAsset: null,
+  labelAssetCrop: null,
+  labelCharacterCuts: null,
+  characterMotion: null,
+  leftMarkCenterY: 0.44,
+  leftLabelCenterY: 0.65,
+  rightMarkCenterY: 0.56,
+  rightLabelCenterY: 0.35,
+  labelStrokeFraction: 0,
+  labelShadow: false,
+  labelColor: "#4f3d59",
+  sectionLabel: true,
+  unifiedSectionStamp: true,
+  sectionLabelOpacity: 0.96,
+  formats: {
+    ...fuserBrandChrome.formats,
+    docs: {
+      ...fuserBrandChrome.formats.docs,
+      markSideFraction:0.052,
+      labelPxFraction:0.021,
+      sectionLabelPxFraction:0.021,
+      sectionLabelGapFraction:0,
+    },
+  },
+});
+
+export default fuserBrandChrome;

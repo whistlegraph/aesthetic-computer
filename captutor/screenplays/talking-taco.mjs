@@ -201,8 +201,16 @@ const creditsExpr = `[...document.querySelectorAll('button')]
   .map((button) => (button.innerText || '').replace(/\\s+/g, ' ').trim())
   .find((text) => /✦/.test(text) && /\\d/.test(text)) || ''`;
 
-export default {
-  slug: "talking-taco",
+export function createImageToVideoScreenplay({
+  slug = "talking-taco",
+  title = "Learn Fuser by making a Talking Taco",
+  subtitle = "A fresh project → a generated image → a generated video",
+  closingTitle = "One prompt became an image. That image became a video.",
+  imagePrompt = TACO_IMAGE_PROMPT,
+  motionPrompt = TACO_MOTION_PROMPT,
+} = {}) {
+return {
+  slug,
   voice: "jeffrey",
   window: "Fuser",
   desktopFrame: true,
@@ -216,8 +224,8 @@ export default {
   brandChrome: fuserBrandChrome,
   billable: true,
   fps: 60,
-  title: "Learn Fuser by making a Talking Taco",
-  subtitle: "A fresh project → a generated image → a generated video",
+  title,
+  subtitle,
   openingCard: {
     title: "Learn Fuser",
     showMark: false,
@@ -225,7 +233,7 @@ export default {
     transition: "slide",
   },
   closingCard: {
-    title: "One prompt became an image. That image became a video.",
+    title: closingTitle,
     durationMs: 2400,
     transition: "genie",
   },
@@ -347,7 +355,7 @@ export default {
       say: "Describe the image you want. Let's make a talking taco: bold, cheerful, mouth wide open mid-laugh.",
       do: async (ctx) => {
         const { cdp, check } = ctx;
-        await typePrompt(ctx, GEMINI_PROMPT, TACO_IMAGE_PROMPT);
+        await typePrompt(ctx, GEMINI_PROMPT, imagePrompt);
         check("image_prompt_entered", { text: await cdp.eval(`document.querySelector(${JSON.stringify(GEMINI_PROMPT)}).value`) });
       },
     },
@@ -458,7 +466,7 @@ export default {
       say: "Add a short motion prompt describing how the taco should move and talk.",
       do: async (ctx) => {
         const { cdp, check } = ctx;
-        await typePrompt(ctx, KLING_PROMPT, TACO_MOTION_PROMPT);
+        await typePrompt(ctx, KLING_PROMPT, motionPrompt);
         check("video_prompt_entered", { text: await cdp.eval(`document.querySelector(${JSON.stringify(KLING_PROMPT)}).value`) });
       },
     },
@@ -544,3 +552,6 @@ export default {
     },
   ],
 };
+}
+
+export default createImageToVideoScreenplay();

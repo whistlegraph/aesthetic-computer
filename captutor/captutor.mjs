@@ -37,6 +37,9 @@ import { dirname, join, resolve, basename } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { narrate } from "./lib/narrate.mjs";
+import {
+  createBeatCue, createBeatCuePlan, validateActionCuePlan,
+} from "./lib/cue-timing.mjs";
 import { attach, BrowserCrashError } from "./lib/cdp.mjs";
 import {
   clickOn, dillydallyAtPoint, dragBetween, pointAt, startNativeCursor,
@@ -277,6 +280,8 @@ function say(value, locale) {
 }
 
 async function cmdNarrate(sp, workDir, locale) {
+  // Validate action-to-word choreography before synthesis can spend money.
+  validateActionCuePlan(sp, { locale });
   console.log(`\n♪ narrating ${sp.beats.length} beats (${sp.voice || "jeffrey"} · ${LANGUAGES[locale]?.native || locale})`);
   const localized = sp.beats.map((b) => ({ ...b, say: say(b.say, locale) }));
   // The voice cache is keyed by LOCALE, not by format. The narration for a reel
@@ -409,6 +414,8 @@ async function cmdRender(sp, workDir, locale, format, attempt = 1) {
   const themedEffectOptions = (opts = {}) => ({ ...(sp.effectTheme || {}), ...opts });
   let traceSince = null;
   let bakeTimeSequence = 0;
+  let activeCue = null;
+  let activeCuePlan = null;
   const storyboardEvents = [];
   const trace = (kind, details = {}) => {
     if (traceSince == null) return;
@@ -459,6 +466,7 @@ async function cmdRender(sp, workDir, locale, format, attempt = 1) {
     };
   };
   const perform = async (kind, details, action) => {
+    activeCuePlan?.assertActionReady(kind);
     const startedAt = now();
     const before = await uiSnapshot();
     let frameAudit = null;
@@ -526,6 +534,14 @@ async function cmdRender(sp, workDir, locale, format, attempt = 1) {
       card:localizeCard(card), options,
     }, () => presentSignboard(cdp, localizeCard(card), options)),
     check: (name, evidence = {}) => trace("check", { name, evidence }),
+    cue: (phrase, options) => {
+      if (!activeCue) throw new Error("cue() is only available while a narrated beat is running");
+      return activeCue(phrase, options);
+    },
+    nextCue: () => {
+      if (!activeCuePlan) throw new Error("nextCue() is only available while a narrated beat is running");
+      return activeCuePlan.next();
+    },
     // A model wait is real capture evidence, but its inert middle is not useful
     // teaching time. Mark the exact async boundary; composition keeps a short
     // live lead, applies the canonical bake-time fold, then returns on the
@@ -781,6 +797,18 @@ async function cmdRender(sp, workDir, locale, format, attempt = 1) {
     for (const beat of beats) {
       activeBeat = beat.index;
       const startedAt = now();
+      activeCue = createBeatCue({
+        beat,
+        startedAt,
+        now,
+        sleep,
+        onCue:(details) => trace("cue", details),
+      });
+      activeCuePlan = createBeatCuePlan({
+        beat,
+        cue:activeCue,
+        required:sp.actionCuePolicy === "required" && beat.actionCues !== false,
+      });
       director.publish(directorBeatState(beats, beat.index, startedAt * 1000));
       director.playVoice(beat.mp3);
       const offsetSec = startedAt - since;
@@ -789,12 +817,15 @@ async function cmdRender(sp, workDir, locale, format, attempt = 1) {
         `  ${String(beat.index + 1).padStart(2)}. @${offsetSec.toFixed(1)}s  ${beat.say.slice(0, 52)}\n`);
 
       if (beat.do) await beat.do(ctx);
+      activeCuePlan.assertComplete();
 
       // Hold the shot for at least as long as the line takes to say. If the action
       // already outlasted it, we do NOT claw the time back — the next beat is
       // stamped where it truly starts, so the voice stays glued to the picture.
       const remain = beat.durationSec + (beat.holdMs ?? 350) / 1000 - (now() - startedAt);
       if (remain > 0) await sleep(remain * 1000);
+      activeCue = null;
+      activeCuePlan = null;
       result.push({ ...beat, offsetSec });
     }
     if (sp.closingCard) {

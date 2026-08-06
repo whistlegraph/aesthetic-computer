@@ -98,6 +98,12 @@ returns ElevenLabs' per-character alignment, so every line's exact duration — 
 every word's exact position inside it — is known *before* the camera rolls. The
 UI then performs to that clock.
 
+New screenplays set `actionCuePolicy: "required"`, declare each beat's spoken
+`cues`, and call `await nextCue()` before its visible action. Captutor validates
+every phrase before voice synthesis, blocks an action that starts before its
+first cue, and fails a take with unused cues. Older screenplays remain compatible
+while they are migrated.
+
 Two consequences worth knowing:
 
 - **Captions are free and exact.** No whisper pass, no forced aligner, and none

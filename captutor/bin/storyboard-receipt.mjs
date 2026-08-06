@@ -143,8 +143,12 @@ const validations = [
   ["Delivery geometry", videoStream?.width === expected[0] && videoStream?.height === expected[1],
     `${videoStream?.width}×${videoStream?.height}; expected ${expected.join("×")}`],
   ...(acceptance.minimumDurationSec ? [[
-    "Introduction length", duration >= acceptance.minimumDurationSec,
+    "Minimum length", duration >= acceptance.minimumDurationSec,
     `${duration.toFixed(2)} s; minimum ${acceptance.minimumDurationSec} s`,
+  ]] : []),
+  ...(acceptance.maximumDurationSec ? [[
+    "Maximum length", duration <= acceptance.maximumDurationSec,
+    `${duration.toFixed(2)} s; maximum ${acceptance.maximumDurationSec} s`,
   ]] : []),
   ...(acceptance.requireOpeningCard ? [[
     "Opening title card", Boolean(opening?.result?.filmed),

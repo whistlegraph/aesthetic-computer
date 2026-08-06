@@ -26,7 +26,10 @@ test("builds an accepted PDF from screenplay-owned QA checks", () => {
     screenplay:"receipt-smoke", locale:"en", format:"docs", theme:"light",
     title:"Receipt smoke", subtitle:"Trace-derived frame evidence",
     media:{ file:"take.mp4", width:320, height:180, durationSec:1.5, bytes:1 },
-    acceptance:{ resolution:[320, 180], minimumDurationSec:1, requiredChecks:["route_complete"] },
+    acceptance:{
+      resolution:[320, 180], minimumDurationSec:1, maximumDurationSec:2,
+      requiredChecks:["route_complete"],
+    },
     beats:[{
       index:0, offsetSec:0, durationSec:1.2, narration:"Route the output.",
       logic:"The exact upstream output reaches the downstream node.", cursorIntent:"clear",
