@@ -38,16 +38,10 @@ remain lazy until an explicit frame or reel request needs them.
 
 ### Resource TVs
 
-The optional resource strip is five small, squared category TVs: CPU, RAM,
-network, SSD, and GPU. Each independent cell has a stable category tag above a
-high-contrast LED history matrix; focusing one reveals its exact value without
-animating or replacing any labels. Light and dark appearances use separate
-faces with the same semantic colors. Hover and click share one fully opaque
-fleet board (click merely pins it). The active
-machine is always the top strip and is omitted from the board; the remaining
-PoorSlice, Blueberry, Neo, Chicken, and Panda instruments follow beneath it.
-The dot beside each machine carries worker state (ready, pressured/resting, or
-offline), while CPU, RAM, and SSD values come from the tailnet fleet workers.
+The optional resource strip is one compact five-channel meter for CPU, RAM,
+network, SSD, and GPU. Hover expands it into readable local history rows with
+current values; click pins the same panel. It does not poll or display other
+machines.
 
 ## Prompt rocks
 
@@ -152,7 +146,7 @@ calling session.
 ## ZZZ — resumable prompt parking
 
 `zzz` is Slab's cold tier for prompt processes. Automatic parking is opt-in;
-when enabled, its default idle window is 60 minutes. A local prompt that is
+when enabled, its idle window has a four-hour safety floor. A local prompt that is
 explicitly complete or interrupted is recorded under
 `~/.local/share/slab/state/zzz/` and terminated. Its terminal stays open with
 a colored `zzz resume <id>` receipt, and its provider conversation is not

@@ -1,0 +1,162 @@
+{
+  "schema": "thomas-lawson-visual-direction/v1",
+  "createdAt": "2026-07-28T03:07:55.162Z",
+  "tier": "tier-2-recompose",
+  "requestedModel": "gpt-5.6-terra",
+  "returnedModel": "gpt-5.6-terra",
+  "reasoningEffort": "medium",
+  "implementationCeiling": "CSS plus small reversible client-side DOM reordering. Preserve all copy and existing assets. No new photography. The result may materially change composition and density.",
+  "responseId": "resp_09f33e51abbbdd07016a681cd9cabc819992543379b082b73e",
+  "usage": {
+    "input_tokens": 9114,
+    "input_tokens_details": {
+      "cache_write_tokens": 0,
+      "cached_tokens": 7671
+    },
+    "output_tokens": 4781,
+    "output_tokens_details": {
+      "reasoning_tokens": 42
+    },
+    "total_tokens": 13895
+  },
+  "direction": {
+    "directionName": "Evidence-Led Artist Index",
+    "claim": "Thomas Lawson’s site should function as a calm, image-first index of an artist, writer, editor, and public practitioner: each route leads with one decisive piece of visual evidence, then gives the existing writing and archive material a disciplined reading structure.",
+    "contract": {
+      "intendedUse": "A portfolio and reference site for viewing Lawson’s artworks, studio practice, public projects, publications, and biographical writing without competing with the work itself.",
+      "governingRule": "One route, one dominant evidence field: the page title, active route, and primary image must establish the subject before supporting copy, captions, or collections appear.",
+      "mustNever": "It must never become a gallery-commerce interface, editorial magazine layout, decorative personal-brand site, image carousel, masonry feed, or a system that crops artworks so aggressively that their identity, edges, or captions become unreliable."
+    },
+    "visualGrammar": {
+      "density": "Low-density entry zones followed by deliberate reading density. Maintain one hero or primary evidence image per route, one title block, and one introductory text block before any grids or secondary assets. Use compact grids only for existing collection material such as artwork groups or publication covers.",
+      "imageScale": "Use a wide but contained evidence band on interior pages: desktop width 100%, max-height 58vh, with object-fit: contain for artwork and object-position: center for documentary photographs. Preserve complete artwork whenever the source asset allows it. Home uses one primary artwork at approximately 58% of the content width beside route navigation; mobile stacks image before navigation. Collection thumbnails use stable ratios rather than mixed uncropped heights.",
+      "typography": "Retain the existing high-contrast serif identity for the Thomas Lawson wordmark and page titles, and retain the existing sans-serif for navigation, body copy, labels, captions, and metadata. Use the serif only for identity, route titles, and named collection headings. Keep body text at 16px minimum desktop and mobile, 1.5-1.6 line-height, with readable measures of 58-75 characters. Use black or near-black text on cream; remove the isolated blue About heading unless blue is an established, documented semantic route color across the full system.",
+      "primaryAction": "The primary action is route selection and direct continuation into the page’s existing work or archive content. On Home, the route list is the action. On interior pages, the first visible collection or content group below the introduction is the action; avoid generic buttons where linked titles, images, and captions can carry navigation.",
+      "exclusions": [
+        "No new photography, illustrations, color fields, icons, animations, or ornamental dividers beyond the existing restrained rule language.",
+        "No full-bleed cropping of paintings that removes important edges, composition, or physical context.",
+        "No centered body-copy columns that become too narrow while page titles and heroes span the viewport.",
+        "No unrelated route-specific accent colors.",
+        "No hidden navigation state, hover-only labels, auto-advancing content, or text placed over complex artwork imagery.",
+        "No conversion of captions into decorative microtype or omission of existing attribution and descriptive information."
+      ]
+    },
+    "foundations": [
+      "Keep the cream background and black typography as the site-wide base; treat them as the stable viewing environment for varied artwork colors and documentary images.",
+      "Replace the current large, mostly empty header band with a consistent responsive site header: wordmark at left; primary route navigation and utility links at right on desktop; accessible menu disclosure or wrapped link list on mobile.",
+      "Make all five primary routes visible in the global navigation: Home, In the Studio, Beyond the Studio, Bookshelf, and About. Keep Contact as a utility link if it already exists.",
+      "Expose the active route with a persistent non-color cue: a 1px underline, bottom border, or adjacent label. Use aria-current=\"page\" on the active navigation link.",
+      "Set a shared content frame: width min(100% - 48px, 1300px) on desktop and width calc(100% - 32px) on mobile. Use consistent horizontal alignment between header, titles, body copy, rules, and grids.",
+      "Establish a shared vertical rhythm using a small spacing scale, for example 12px, 24px, 40px, 64px, and 96px. The screenshots currently vary sharply between oversized header voids, tight image-to-title joins, and under-spaced collection entries.",
+      "Use full-width media only inside a controlled media band; do not let different page templates independently choose arbitrary hero heights.",
+      "Preserve all existing copy, images, captions, and assets. Small reversible DOM reordering may move an existing title before or after an existing hero, or move an existing introductory block before a collection grid, but must not rewrite or remove material.",
+      "Ensure images have meaningful alt text where the asset conveys content, empty alt only where an image is purely decorative, and visible focus styles that meet contrast requirements.",
+      "Prevent footer and content clipping with normal document flow, no fixed viewport-height page wrappers, and no overflow:hidden on page-level containers."
+    ],
+    "pagePlans": [
+      {
+        "page": "Home",
+        "claim": "The home page is the site index: one Lawson artwork establishes authorship, while the route list gives immediate access to the complete practice.",
+        "composition": "Use a two-column lead section inside the shared content frame. Place the existing yellow-tree artwork in the larger left column and the route index in the narrower right column, vertically aligned to the artwork’s visual center. Keep the wordmark and global navigation in the shared header above. Move the short biography and contact/copyright footer into normal flow beneath the lead, separated by one restrained rule. On mobile, stack artwork, route index, then biography/footer.",
+        "type": "Retain the wordmark. Set route names as the strongest sans-serif navigation text, with existing descriptors directly beneath in smaller sans-serif text. Do not give every route a competing display heading. Make News and the existing route list hierarchy explicit: either retain News as a small section label above its content or, if it is a route, style it consistently with the other route links.",
+        "image": "Show the existing artwork complete within a neutral image frame. The screenshot’s image is appropriately substantial but should not be treated as a cropped hero. Preserve its square-like artwork presentation and surrounding physical edge rather than using cover cropping.",
+        "spacing": "Reduce the current excessive gap between header and lead content. Target 64-96px from header bottom to lead section on desktop and 40-56px on mobile. Use 48-64px between lead and footer material; do not allow footer text to begin below the viewport edge because of a fixed-height layout.",
+        "cssTactics": [
+          "Use .home-lead { display:grid; grid-template-columns:minmax(0, 1.45fr) minmax(260px, .85fr); gap:clamp(32px, 6vw, 96px); align-items:center; }.",
+          "Use .home-artwork img { width:100%; aspect-ratio:1 / 0.78; object-fit:contain; display:block; } and retain the asset’s full visible bounds.",
+          "Use @media (max-width:760px) { .home-lead { grid-template-columns:1fr; gap:32px; } }.",
+          "Use .route-list a[aria-current='page'], .route-list a:hover, .route-list a:focus-visible { text-decoration-thickness:1px; text-underline-offset:.25em; } without relying only on color.",
+          "Remove min-height:100vh and page-level overflow:hidden from the home wrapper; set footer sections to position:static and margin-top:64px."
+        ],
+        "mustNot": "Do not turn the home image into a slideshow, overlay route labels on the artwork, add promotional copy, or let the footer remain partially clipped at the bottom of the viewport."
+      },
+      {
+        "page": "In the Studio",
+        "claim": "In the Studio should make the painting practice primary: a complete artwork leads, followed by Lawson’s existing account of process and then the work sequence.",
+        "composition": "Use the shared header, then a contained artwork evidence band, followed by a title and introduction in the shared content frame. Keep the title directly associated with the introductory text, not floating as a separate oversized event. Place existing artwork content below this introduction in a stable collection layout. If the current DOM places a secondary image before the title or text, reversibly move it after the introduction.",
+        "type": "Set “In the Studio” as the page’s serif route title. Keep the existing studio statement in a single readable left-aligned text block. Do not center long prose. Retain any existing captions and use sans-serif labels for series, media, or contextual metadata.",
+        "image": "The current hero is severely over-cropped: it enlarges the yellow painting until its full composition and physical boundaries are lost. Replace cover behavior with a fixed evidence band that contains the full artwork where possible. If the available source is intrinsically cropped, show it without further CSS enlargement and retain the existing full image elsewhere in the page if present.",
+        "spacing": "Use 40-64px between hero and title, 20-28px from title to rule or intro, and 48-64px from introduction to the first collection item. Remove the unexplained small horizontal rule fragment visible below the paragraph unless it is a meaningful existing divider used consistently elsewhere.",
+        "cssTactics": [
+          "Use .page-hero { width:100%; max-height:58vh; overflow:hidden; background:var(--cream); } and .page-hero img { width:100%; height:min(58vh, 720px); object-fit:contain; object-position:center; display:block; }.",
+          "Use .page-intro { max-width:75ch; } and .page-intro p { margin:0; font-size:clamp(16px, 1.2vw, 18px); line-height:1.55; }.",
+          "Use .page-title { margin:0 0 24px; font-size:clamp(48px, 5.2vw, 76px); line-height:.98; }.",
+          "Apply .page-rule { border:0; border-top:1px solid currentColor; margin:24px 0 28px; } only as a shared component, not as isolated short lines.",
+          "At max-width:760px, set hero image height:auto; max-height:none; and preserve natural image ratio rather than forcing a shallow crop."
+        ],
+        "mustNot": "Do not use the artwork as abstract texture, crop it to fill a panoramic strip, or let introductory prose extend across the full desktop viewport."
+      },
+      {
+        "page": "Beyond the Studio",
+        "claim": "Beyond the Studio should establish Lawson’s public-facing work through one documentary image, then make projects immediately scannable as a structured set.",
+        "composition": "Use a shared header, a single documentary hero image in the same controlled evidence-band format as other interior pages, then title, existing introductory copy, and the existing project groups. Begin the project grid close enough to the introduction that “Painted Installations” and “Early New York” read as the immediate evidence of the page claim. Retain the two visible existing groups and any further groups without inventing categories.",
+        "type": "Use the serif title at the same scale as In the Studio and Bookshelf. Set project names as clear linked sans-serif headings above or below their representative images; preserve all existing titles and captions. Keep the introductory paragraph left aligned and limited to a readable measure.",
+        "image": "The existing public-work photograph is appropriate evidence but currently appears in a broad, edge-to-edge strip with black image margins. Preserve the image’s documentary framing and avoid cropping away the painted structures. On wide screens, fit it within a max-height rather than enlarging it purely to fill width.",
+        "spacing": "Maintain 40-64px from image to title and 48px from introduction to project grid. Use 24px between project label and image, and 32-48px grid gaps. The current view makes the hero, title, copy, and first grid feel vertically compressed after an unusually tall header.",
+        "cssTactics": [
+          "Share the interior .page-hero rules with In the Studio, using object-fit:contain for the documentary image unless the asset is already correctly framed.",
+          "Use .project-grid { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:clamp(32px, 4vw, 64px); }.",
+          "Use .project-grid img { width:100%; aspect-ratio:4 / 3; object-fit:cover; display:block; } only for existing project thumbnails, not for the hero.",
+          "Use @media (max-width:760px) { .project-grid { grid-template-columns:1fr; gap:40px; } }.",
+          "Style project links with visible focus outlines and preserve labels outside imagery: a:focus-visible { outline:2px solid currentColor; outline-offset:4px; }."
+        ],
+        "mustNot": "Do not present public projects as a generic portfolio card grid with buttons, gradients, overlaid labels, or unequal thumbnail heights that obscure the project hierarchy."
+      },
+      {
+        "page": "Bookshelf",
+        "claim": "Bookshelf should read as a usable publication archive: the shelf image establishes material context, while named publication groups and covers provide direct visual access.",
+        "composition": "Use the shared header and controlled shelf image as the evidence band, followed by the Bookshelf title, existing introductory copy, and existing named publication groups such as Artforum. Keep each group heading directly above its cover sequence. Use a compact, aligned cover grid rather than allowing items to drift across a wide page. If existing DOM order separates a group title from its covers, reorder that title immediately before its associated existing items.",
+        "type": "Use the serif page title and serif or restrained serif group title, with all publication titles, issue details, and captions in readable sans-serif. The current title is strong, but the copy begins too close beneath it and the group heading lacks enough structural distinction from the cover row.",
+        "image": "The shelf photograph can remain wide because it is contextual rather than a painting that requires complete edge visibility. However, the current crop makes it dominate the page more than the archive itself. Limit its height and reveal the title and first publication group sooner. Preserve cover aspect ratios in the archive grid; do not force them into uniform landscape thumbnails.",
+        "spacing": "Use 40-56px below hero, 20-28px between title and intro, and 56-72px before the first publication group. Within each group, use 24px between heading and cover grid. The current screenshot leaves a large, weak gap between the introductory copy and Artforum while the covers begin close to the viewport edge.",
+        "cssTactics": [
+          "Use the shared .page-hero with max-height:48vh for the shelf image; use object-fit:cover only if this existing image is intentionally contextual and no key information is lost.",
+          "Use .publication-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(120px, 1fr)); gap:20px; align-items:end; }.",
+          "Use .publication-grid img { width:100%; height:auto; max-height:260px; object-fit:contain; display:block; } to retain differing book-cover proportions.",
+          "Use .publication-group { margin-top:clamp(56px, 7vw, 96px); } and .publication-group > h2 { margin:0 0 24px; text-align:left; }.",
+          "At mobile widths use grid-template-columns:repeat(2, minmax(0, 1fr)); with 16px gaps; do not reduce cover labels below 14px."
+        ],
+        "mustNot": "Do not turn the publications into a decorative collage, crop book covers into same-size rectangles, add fake issue metadata, or reuse studio-process copy as a substitute for publication-specific content."
+      },
+      {
+        "page": "About",
+        "claim": "About should be the most direct reading page: a portrait establishes the person, while the existing first-person statement and quotation remain the evidence of the broader practice.",
+        "composition": "Use the shared header, portrait evidence band, then a left-aligned About title and a narrower text column beneath a shared rule. Keep the existing first-person statement first, followed by the existing quotation. Align the text column with the title rather than centering it in the page. On mobile, portrait, title, statement, and quotation should remain a single continuous reading sequence.",
+        "type": "Make “About” use the same serif title style and black color as all other route titles. Preserve the first-person paragraph and quotation exactly, but distinguish the quotation through italic styling, a modest inset, and a readable maximum width rather than changing color. The screenshot’s cyan title is inconsistent with the otherwise cream/black identity and has no visible semantic role.",
+        "image": "The existing portrait should retain its documentary character. The screenshot’s crop cuts closely around the subject and has a pale blank area at left; use object-position to maintain the subject while avoiding a more aggressive crop. Use the same hero height logic as other interior pages so About does not feel like a separate visual system.",
+        "spacing": "Reduce the large distance between the portrait and title while preserving a calm transition: 40-56px after image, then 24px to the rule and 28-40px to body copy. Use 40-56px between personal statement and quotation. The current centered title, wide rule, and narrow centered text create competing alignments.",
+        "cssTactics": [
+          "Use the shared .page-hero and set .about-hero img { object-fit:cover; object-position:58% center; } only after visual verification at desktop and mobile breakpoints.",
+          "Use .about-content { max-width:72ch; margin-left:0; } and .about-statement { max-width:62ch; }.",
+          "Use .about-quote { max-width:60ch; margin:48px 0 0; font-style:italic; line-height:1.5; }.",
+          "Override route-title accent styling with .page-title { color:var(--ink); text-align:left; }.",
+          "At max-width:760px, set .about-content and .about-statement { max-width:none; } and retain 16px minimum body size."
+        ],
+        "mustNot": "Do not treat the portrait as a lifestyle banner, recolor About as a special branded section, center long reading text, or add biography claims beyond the existing copy."
+      }
+    ],
+    "risks": [
+      "The current hero treatment on In the Studio visibly crops the painting so heavily that its identity and edges are unavailable; applying object-fit:cover consistently across pages would repeat this failure.",
+      "Home appears to use a viewport-constrained or otherwise clipped layout: biography, copyright, and contact information are cut at the bottom of the screenshot. This risks inaccessible content and broken mobile scrolling.",
+      "The global header exposes only About and Contact despite the home page presenting several major sections. Interior routes therefore lack clear cross-page navigation and active-route orientation.",
+      "Header height is disproportionately large on Studio, Beyond, and Bookshelf, delaying the page claim and weakening the 10% thumbnail hierarchy.",
+      "Page templates are inconsistent: Home uses a contained two-column composition, interior pages use near-full-bleed media, Bookshelf uses a different title-to-copy relation, and About introduces an unexplained blue heading and centered text column.",
+      "The current body-copy widths are inconsistent: Studio and Beyond use very wide paragraphs, while About uses a narrow centered column. Both reduce reading continuity across the site.",
+      "The Bookshelf screenshot appears to repeat studio-process copy beneath a publication heading. Preserve the existing copy under the implementation ceiling, but visually verify that source content is correctly associated before any future editorial update.",
+      "Short isolated rule fragments and different rule widths read as accidental rather than structural. A shared full-width-within-frame rule is safer than page-specific decoration.",
+      "At thumbnail scale, the current oversized blank header, cropped hero images, and absent active route make several pages difficult to distinguish before the title becomes visible."
+    ],
+    "validation": [
+      "Build desktop prototypes at 1440px and 1280px widths, then inspect each route at 10% scale. In every thumbnail, confirm that the page title, active navigation route, and one dominant image are visible without scrolling.",
+      "Build mobile prototypes at 390px and 320px widths. Confirm no horizontal scrolling, no clipped footer, no overlapping navigation, and a single clear reading order from header through page content.",
+      "Verify that every global route is keyboard reachable, has a visible focus state, and exposes the active route with aria-current=\"page\" plus a non-color visual indicator.",
+      "Inspect the Studio hero at desktop and mobile against the available asset. Confirm that CSS does not remove artwork edges or materially misrepresent the composition; use contain or natural height if it does.",
+      "Inspect Beyond and About hero crops at both breakpoints. Confirm that documentary subjects remain legible and that object-position does not cut key evidence.",
+      "Confirm all existing captions, publication labels, artwork labels, body copy, contact details, and copyright content remain present in the DOM and visible in normal scroll flow.",
+      "Check body copy at 200% browser zoom and at 320px width: minimum 16px text, no clipped lines, readable line length, and adequate line-height.",
+      "Measure color contrast for black text on cream, focus indicators, and any retained muted text. Do not retain the blue About heading unless it passes contrast and is systematized with a documented semantic purpose.",
+      "Verify the shared spacing scale across all routes: header-to-content spacing, image-to-title spacing, title-to-intro spacing, intro-to-collection spacing, and footer spacing should be visibly related rather than template-specific accidents.",
+      "Confirm publication covers preserve natural proportions, project thumbnails align within their grid, and no important image text or artwork detail is hidden by forced aspect-ratio cropping."
+    ]
+  }
+}

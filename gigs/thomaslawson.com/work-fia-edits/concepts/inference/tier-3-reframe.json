@@ -1,0 +1,169 @@
+{
+  "schema": "thomas-lawson-visual-direction/v1",
+  "createdAt": "2026-07-28T03:11:33.122Z",
+  "tier": "tier-3-reframe",
+  "requestedModel": "gpt-5.6-sol",
+  "returnedModel": "gpt-5.6-sol",
+  "reasoningEffort": "medium",
+  "implementationCeiling": "A full visual-system proposal using the current content and images: CSS, template structure, and bounded JavaScript may change. Do not invent copy or assets. Make the result distinctive enough to justify a larger build.",
+  "responseId": "resp_0f4a1b39efffc0bd016a681d8e5218819882673eb357be1824",
+  "usage": {
+    "input_tokens": 9126,
+    "input_tokens_details": {
+      "cache_write_tokens": 9123,
+      "cached_tokens": 0
+    },
+    "output_tokens": 4632,
+    "output_tokens_details": {
+      "reasoning_tokens": 426
+    },
+    "total_tokens": 13758
+  },
+  "direction": {
+    "directionName": "Claim and Evidence",
+    "claim": "Present Thomas Lawson as an artist and writer whose work moves between studio practice, public context, publishing, and reflection; every page makes one legible claim and immediately supports it with one dominant piece of existing evidence.",
+    "contract": {
+      "intendedUse": "A portfolio and archive for quickly understanding Lawson's practice, then examining existing artworks, projects, publications, captions, and authored text without visual mediation competing with them.",
+      "governingRule": "At every viewport, establish the sequence active route, page claim, dominant evidence, then supporting material; use a shared editorial grid and show artwork boundaries rather than treating artworks as decorative backgrounds.",
+      "mustNever": "It must never absorb gallery-commerce conventions, magazine-style visual noise, invented metadata, ornamental UI, automatic carousels, trend-led color, or crops that alter the apparent composition of an artwork."
+    },
+    "visualGrammar": {
+      "density": "Measured editorial density: one dominant image or image group per viewport, text in readable columns, and consistent 64–96px desktop section intervals or 36–56px mobile intervals. Reduce the current empty header-to-content gap while retaining calm margins.",
+      "imageScale": "Original proportions govern. Standalone artworks use object-fit: contain and visibly retain all edges; documentary, installation, shelf, and portrait photographs may use bounded landscape frames with an explicit focal position. Use one large evidence image before any grid, then consistent thumbnail ratios only within a clearly related series.",
+      "typography": "Retain the black serif display voice visible in the wordmark and page titles, paired with the existing neutral sans serif for navigation, prose, metadata, and captions. Display titles use clamp(2.75rem, 6vw, 5.5rem) with approximately 0.95 line-height; prose uses 17–19px, 1.5–1.65 line-height, and a 62–72ch maximum. Do not use color alone to establish hierarchy.",
+      "primaryAction": "The persistent primary action is route selection: expose the existing major sections in the header and mark the current route with both weight and a 2px underline. On Home, the section index remains the primary action and each label plus its existing descriptor forms one generous link target.",
+      "exclusions": [
+        "No invented copy, artwork, biography, dates, categories, or captions.",
+        "No slideshows, autoplay, parallax, hover-dependent information, or decorative motion.",
+        "No arbitrary square crops of artworks or edge-to-edge enlargement that hides their boundaries.",
+        "No accent colors beyond colors already inside the supplied images; reinterpret the blue About heading as black.",
+        "No cards, pills, shadows, gradients, icons, or ornamental dividers.",
+        "No justified prose, very long full-width paragraphs, or centered body copy.",
+        "No duplicate page introductions unless the supplied source content confirms that repetition is authored."
+      ]
+    },
+    "foundations": [
+      "Retain the warm cream page field and near-black text as the site identity; define --paper and --ink tokens and verify at least WCAG AA contrast.",
+      "Use one shared 12-column grid: max-width 1360px, inline padding clamp(20px, 4.5vw, 72px), and column gap clamp(16px, 2vw, 32px).",
+      "Use a shared header on all pages: wordmark left, existing section routes plus About and Contact right, 112–144px high on desktop and 76–88px on mobile.",
+      "Make the wordmark a Home link with an accessible name. Keep its two-line composition and prevent clipping with line-height: 0.86 and visible overflow.",
+      "Internal pages use the same template order: header, claim block, dominant evidence, introduction, then existing collections or entries. Home uses header, claim/index with evidence, then existing footer content.",
+      "Move page titles ahead of hero images in DOM and visual order so the claim survives a 10% thumbnail and is encountered first by screen readers.",
+      "Use semantic h1–h2 hierarchy, figure and figcaption for every supplied caption, lists for indices, aria-current=\"page\" for the active route, visible focus states, and descriptive existing alt text where available.",
+      "Reserve image space with intrinsic width and height or aspect-ratio to prevent layout shift; never infer missing dimensions, titles, dates, or media.",
+      "Keep captions attached to their images at 14–15px and 1.4 line-height. Do not reveal captions only on hover.",
+      "Current cross-page problems to correct include absent active-route states, internal navigation reduced to About and Contact, inconsistent title treatment on About, inconsistent hero crops, oversized header gaps, overly wide prose, weak separation between title and introduction, and content beginning below or being clipped by the captured viewport.",
+      "The Studio hero currently magnifies and clips the painting so its boundaries disappear; the Home presentation demonstrates that the same artwork can be shown intact.",
+      "Beyond the Studio introduces black side bars and a differently bounded hero, while Bookshelf and About use still other widths and title placements; replace these page-specific exceptions with the shared grid and evidence rules.",
+      "The Bookshelf introduction visibly repeats the Studio introduction and does not support the publishing claim. Preserve the source text, but audit its assignment before launch rather than writing a replacement."
+    ],
+    "pagePlans": [
+      {
+        "page": "Home",
+        "claim": "Thomas Lawson's practice spans studio artworks, public work, broader art contexts, and writing.",
+        "composition": "Use a compact shared header, then a two-column opening plate: one intact existing artwork across seven grid columns and the existing section index across five. Place the claim as the page h1 above the index without adding promotional copy; the existing section labels and descriptors provide the verbal claim. Keep the existing biography and contact/footer material below a full-width rule, but allow it to flow rather than clipping at the viewport edge.",
+        "type": "The wordmark remains the strongest identity mark. Section labels are 28–34px serif or the established display face, with their existing descriptors at 14–16px sans. Make label and descriptor one link; do not let the descriptors become faint microcopy.",
+        "image": "Show the supplied painting at its full intrinsic ratio with all canvas edges present. Use object-fit: contain, a neutral cream surround, and no enlargement beyond the source's useful resolution.",
+        "spacing": "Begin the opening plate 56–80px below the header instead of the current large dead zone. Use a 32–48px gap between image and index, 18–24px between section links, and 96px before the footer on desktop; halve these intervals proportionally on mobile.",
+        "cssTactics": [
+          ".home-intro { display:grid; grid-template-columns:minmax(0,7fr) minmax(18rem,5fr); gap:clamp(32px,5vw,80px); align-items:center; }",
+          ".home-intro img { width:100%; height:auto; object-fit:contain; }",
+          ".section-index a { display:block; padding-block:10px; color:var(--ink); text-decoration-thickness:2px; text-underline-offset:0.18em; }",
+          ".section-index small { display:block; margin-top:3px; font-size:clamp(14px,1.1vw,16px); line-height:1.35; }",
+          "@media (max-width:760px) { .home-intro { grid-template-columns:1fr; } .section-index { order:-1; } }",
+          ".site-footer { display:grid; grid-template-columns:2fr 1fr; gap:32px; border-top:1px solid currentColor; padding-block:32px; }"
+        ],
+        "mustNot": "Do not turn the index into generic cards, crop the painting as on the current Studio hero, hide the existing descriptors, or force biography and contact details below a fixed-height viewport."
+      },
+      {
+        "page": "In the Studio",
+        "claim": "The studio is where collected imagery is edited, combined, and translated into painting.",
+        "composition": "Place “In the Studio” as the h1 directly under the header, followed by the existing introductory paragraph in a constrained text column. Present the existing painting as the first dominant evidence below that claim, intact and centered; subsequent existing series may use alternating wide figures and paired works, with captions aligned to image edges.",
+        "type": "Use the shared black serif h1 rather than allowing the image to precede and overpower it. Set the introduction at 18px with a 68ch maximum; titles and captions must form a clear h1, h2, metadata sequence.",
+        "image": "Replace the current full-bleed close crop, which removes the painting's boundaries and changes its reading, with an intrinsic-ratio figure no wider than 1100px. Only documentary studio photographs may use cover, and their focal position must be reviewed at both breakpoints.",
+        "spacing": "Use 40–56px from h1 to introduction, 64–80px from introduction to the first artwork, and 96–128px between series. Avoid the current abrupt transition from oversized crop to title.",
+        "cssTactics": [
+          ".page-head { grid-column:1 / span 9; padding-block:clamp(48px,7vw,96px) clamp(32px,4vw,56px); }",
+          ".page-head h1 { margin:0; font-size:clamp(48px,7vw,92px); line-height:.95; }",
+          ".lede { max-width:68ch; font-size:clamp(17px,1.35vw,19px); line-height:1.58; }",
+          ".artwork-figure { width:min(100%,1100px); margin-inline:auto; }",
+          ".artwork-figure img { display:block; width:100%; height:auto; object-fit:contain; }",
+          ".artwork-figure figcaption { max-width:72ch; margin-top:12px; }"
+        ],
+        "mustNot": "Do not use an artwork as a cropped banner, suppress its caption, or let the introduction run nearly the full desktop width as it does now."
+      },
+      {
+        "page": "Beyond the Studio",
+        "claim": "Lawson carries studio ideas into public settings while condensing them without losing complexity.",
+        "composition": "Lead with the page title and existing introduction, then use the supplied public-work photograph as the dominant evidence. Follow it with the existing project groups, including visible labels such as “Painted Installations” and “Early New York,” in a stable two-column desktop grid that becomes a single chronological reading column on mobile.",
+        "type": "Use the common serif h1 and sans lede. Project-group headings should be left-aligned at 22–28px and sit with their images rather than floating centered above separate columns.",
+        "image": "Preserve the documentary photograph's full frame and existing letterboxing if it belongs to the source; do not stretch it or crop out architectural context. Related project images may share a ratio only when their complete content remains visible.",
+        "spacing": "Place 48–64px between the lede and dominant photograph, 96px before project groups, 24px from each project heading to its first image, and 72–96px between project rows.",
+        "cssTactics": [
+          ".documentary-figure img { width:100%; height:auto; object-fit:contain; background:#000; }",
+          ".project-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:clamp(48px,6vw,96px) clamp(24px,3vw,48px); align-items:start; }",
+          ".project-group h2 { margin:0 0 20px; text-align:left; }",
+          "@media (max-width:760px) { .project-grid { grid-template-columns:1fr; } }",
+          ".project-group figure + figure { margin-top:40px; }"
+        ],
+        "mustNot": "Do not crop away the street and architectural context, convert project groups into promotional cards, or allow black image bars to appear as unexplained page-width gutters."
+      },
+      {
+        "page": "Bookshelf",
+        "claim": "Writing, editing, and publishing are a primary body of Lawson's work, not a secondary image gallery.",
+        "composition": "Place “Bookshelf” and its verified existing introduction before the shelf photograph. Use that photograph as contextual evidence, then organize existing publication groups such as “Artforum” as horizontal desktop shelves with consistent baseline alignment and readable captions; wrap them into a two-column then one-column list on narrower screens.",
+        "type": "Use the common serif h1 and left-aligned group headings. Publication titles and captions must remain readable beneath each cover rather than being represented only by cover typography.",
+        "image": "Show the shelf photograph at its intrinsic landscape ratio rather than as a shallow crop. Publication covers use object-fit: contain within equal-height cells so differing book proportions remain apparent.",
+        "spacing": "Use 48–64px between introduction and shelf photograph, 96px before the first publication group, 24px between group heading and covers, and 48–64px between publication groups.",
+        "cssTactics": [
+          ".cover-list { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:32px 18px; align-items:start; }",
+          ".cover-list img { width:100%; height:clamp(190px,20vw,300px); object-fit:contain; object-position:center bottom; }",
+          ".cover-list figcaption { margin-top:10px; font-size:14px; line-height:1.4; }",
+          ".bookshelf-context img { display:block; width:100%; height:auto; object-fit:contain; }",
+          "@media (max-width:520px) { .cover-list { grid-template-columns:repeat(2,minmax(0,1fr)); } }"
+        ],
+        "mustNot": "Do not retain the visibly duplicated Studio introduction without source verification, crop covers into uniform rectangles, invent publication metadata, or make cover text the only accessible title."
+      },
+      {
+        "page": "About",
+        "claim": "Lawson makes and thinks about art through painting, writing, editing, exhibitions, and support for younger artists.",
+        "composition": "Use the shared page-head template with a black serif “About” h1 and the existing first-person paragraph as the lede. Place the supplied studio portrait beside the lede on desktop and below it on mobile. Continue existing quotations and biographical material in one readable column, preserving attribution and authored wording exactly.",
+        "type": "Remove the isolated blue sans-serif heading, which breaks the site's cream, black, serif-display identity and weakens hierarchy. Quotations remain italic only where currently authored or semantically marked with blockquote; body text stays roman for sustained readability.",
+        "image": "Use the portrait at its intrinsic ratio with the face and studio context visible. Apply object-fit: contain by default; if a bounded crop is necessary, set and test an explicit object-position rather than centering automatically.",
+        "spacing": "Reduce the current gap between title and rule. Use a 48–72px page-head interval, 32–48px between lede paragraphs, and 56–72px before quotations. Keep the text column at 62–68ch instead of the current narrow centered island surrounded by unused space.",
+        "cssTactics": [
+          ".about-intro { display:grid; grid-template-columns:minmax(0,5fr) minmax(320px,7fr); gap:clamp(32px,6vw,88px); align-items:start; }",
+          ".about-intro img { width:100%; height:auto; object-fit:contain; }",
+          ".about-copy { max-width:68ch; }",
+          "blockquote { margin:56px 0 0; max-width:62ch; font-size:1.05em; line-height:1.55; }",
+          "@media (max-width:760px) { .about-intro { grid-template-columns:1fr; } .about-copy { max-width:none; } }"
+        ],
+        "mustNot": "Do not retain the blue heading, center the body copy, detach quotation attribution, overcrop the portrait, or invent a résumé, timeline, or credentials."
+      }
+    ],
+    "risks": [
+      "The supplied screenshots do not expose all captions, image dimensions, route labels, or lower-page content; implementation must use source content rather than infer missing details.",
+      "The exact duplicate introduction visible on Studio and Bookshelf may be a content-assignment error. Correct the assignment only from an existing verified source; otherwise flag it rather than rewriting Lawson.",
+      "Artwork and documentary images need separate rendering rules. A universal cover rule would repeat the current clipping problem, while universal contain could add unintended bars around photographs.",
+      "The current header exposes only About and Contact on internal pages, making major sections difficult to reach and leaving no active-route signal.",
+      "Large fixed vertical spaces and hero heights risk pushing the claim below the fold or clipping footer and lower content at common laptop heights.",
+      "The current narrow About column, full-width internal introductions, and small Home descriptors produce inconsistent reading measures.",
+      "Font substitutions could alter the wordmark, title wrapping, and page height; use the existing licensed files where available and define metrically compatible fallbacks.",
+      "A dense publication shelf can become illegible on mobile if covers are scaled too small; captions and semantic titles must carry identification."
+    ],
+    "validation": [
+      "At a 10% desktop thumbnail, confirm that the Thomas Lawson identity, active route, page title, and one dominant image remain distinguishable on every page.",
+      "Prototype and compare at 1440×900, 1280×800, 768×1024, 390×844, and 320×568; no horizontal scrolling, clipped wordmark, cropped title, or fixed-height content loss is permitted.",
+      "Verify every standalone artwork against its source: all intended edges are visible, intrinsic ratio is preserved, and no object-fit: cover rule reaches artwork figures.",
+      "Review documentary crops at each breakpoint and record any explicit object-position value; ensure essential people, public artwork, and environmental context remain visible.",
+      "Confirm h1 appears before the dominant image in DOM order, exactly one h1 exists per page, headings do not skip levels, and project or publication groups use semantic lists or sections.",
+      "Keyboard through the shared header and Home index; focus must be visible, order must match the layout, link targets must be at least 44px high, and aria-current must identify the active page.",
+      "Test cream and black text, rules, links, and focus indicators for WCAG AA contrast; the active route must remain identifiable without color.",
+      "Measure prose: no principal paragraph exceeds 72ch or falls below 16px on mobile, and captions remain at least 14px with 1.4 line-height.",
+      "Disable CSS and JavaScript to confirm titles, introductions, images, captions, and publication or project order remain coherent. JavaScript must not be required for primary navigation or content access.",
+      "Throttle image loading and confirm reserved dimensions prevent layout shift; lazy-load only images below the initial evidence.",
+      "Compare all five templates side by side to verify identical header height, title scale, grid edges, active-route treatment, caption style, and section spacing.",
+      "Audit every rendered string and asset against the current source before launch; reject invented copy, metadata, dates, artwork names, biography, or capabilities."
+    ]
+  }
+}

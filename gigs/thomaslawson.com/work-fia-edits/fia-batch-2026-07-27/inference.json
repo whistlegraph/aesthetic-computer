@@ -1,0 +1,283 @@
+{
+  "schema": "thomas-lawson-fia-inference/v1",
+  "createdAt": "2026-07-28T05:01:26.166Z",
+  "request": {
+    "model": "gpt-5.6-terra",
+    "reasoningEffort": "medium",
+    "maxOutputTokens": 5000,
+    "screenshots": [
+      "desktop-about.jpg",
+      "mobile-about.jpg",
+      "desktop-news.jpg",
+      "mobile-news.jpg",
+      "desktop-studio.jpg",
+      "mobile-studio.jpg",
+      "desktop-beyond.jpg",
+      "mobile-beyond.jpg",
+      "desktop-writing.jpg",
+      "mobile-writing.jpg",
+      "desktop-broader.jpg",
+      "mobile-broader.jpg"
+    ]
+  },
+  "response": {
+    "id": "resp_0b06e580b59d07b8016a68377acdc8819b85c32e988f155dc1",
+    "model": "gpt-5.6-terra",
+    "usage": {
+      "input_tokens": 14019,
+      "input_tokens_details": {
+        "cache_write_tokens": 0,
+        "cached_tokens": 11770
+      },
+      "output_tokens": 3868,
+      "output_tokens_details": {
+        "reasoning_tokens": 165
+      },
+      "total_tokens": 17887
+    }
+  },
+  "feedback": [
+    "About: remove the beige/photo band peeking above the hero.",
+    "Across News, In the Studio, and sibling sections: standardize margins, prioritize legibility, remove random italics and inconsistent spacing.",
+    "In the Studio overview: keep reverse chronology but replace the current period-list design and make period headers more elegant.",
+    "Beyond the Studio: project labels must identify title, venue, and year using facts already present on their detail pages.",
+    "Writing/Bookshelf: make the publication taxonomy and section headings aligned and easy to scan so the writing leads.",
+    "Remove CSS-driven all caps, especially where it changes the authored capitalization of factual titles."
+  ],
+  "inference": {
+    "claim": "A restrained override will make the site read as a consistent artist-and-writer archive: clear page titles and introductions, legible metadata, compact image-led listings, and stable desktop/mobile hierarchy without altering authored content, image crops, links, captions, or source order.",
+    "system": {
+      "contentWidth": "min(72rem, calc(100vw - 2 * var(--site-gutter))) for page content; retain full-bleed hero media without changing its source crop or object-position.",
+      "gutters": "clamp(1rem, 4vw, 3rem) on both sides; use the same gutter for header, main content, footer, and mobile grids.",
+      "type": "One sans-serif hierarchy: system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif; page titles 2.25rem–4rem/1.05, section headings 1.125rem–1.5rem/1.2, body 1rem/1.5, metadata and captions 0.8125rem–0.9375rem/1.4.",
+      "spacing": "Use a four-step rhythm: 0.5rem, 1rem, 2rem, and clamp(3rem, 7vw, 6rem); remove fixed viewport-height gaps and empty card-row reservations.",
+      "case": "Remove CSS text-transform uppercase rules. Render authored capitalization exactly as stored; use normal font weight and letter spacing for factual titles, labels, taxonomy terms, captions, and navigation."
+    },
+    "diagnosis": [
+      {
+        "page": "About",
+        "visibleProblems": [
+          "A beige/photo strip appears above the intended hero image, making the page begin with an unintended visual band.",
+          "The biography, period headings, and artwork rows use inconsistent widths and excessive vertical gaps.",
+          "Period sections appear as disconnected lists with faint empty image boxes rather than a readable reverse-chronological archive.",
+          "Mobile has very tall empty regions between items, obscuring the period structure at a glance."
+        ],
+        "preserve": [
+          "All biography text, authored headings, period order, artwork titles, years, captions, links, and source order.",
+          "Every existing artwork image and its crop boundary.",
+          "Reverse chronology of the periods."
+        ]
+      },
+      {
+        "page": "News",
+        "visibleProblems": [
+          "The page title, introductory text, item labels, captions, and image blocks do not share a consistent content width or spacing rhythm.",
+          "Desktop uses large unexplained vertical gaps that make later entries appear absent.",
+          "Italic styling is used decoratively for labels and captions rather than consistently distinguishing authored content.",
+          "Mobile hierarchy is substantially clearer than desktop but still relies on uneven item spacing."
+        ],
+        "preserve": [
+          "All news text, item labels, captions, image crops, links, and source order.",
+          "The existing hero image and its crop boundary."
+        ]
+      },
+      {
+        "page": "In the Studio",
+        "visibleProblems": [
+          "The overview presents periods as sparse, visually detached year fragments with irregular image placement.",
+          "Many image areas reserve blank height, producing a period-list appearance rather than a compact archive overview.",
+          "Period headers are too slight to organize the chronology effectively.",
+          "Desktop and mobile spacing differ materially, with mobile becoming especially long and difficult to scan."
+        ],
+        "preserve": [
+          "The introductory text, reverse chronological order, period labels, artwork titles, years, images, links, and source order.",
+          "All existing image crop boundaries.",
+          "Any authored italics in source content; only decorative CSS italics should be removed."
+        ]
+      },
+      {
+        "page": "Beyond the Studio",
+        "visibleProblems": [
+          "Project tiles show only broad category-style labels, so the displayed labels do not identify a specific project title, venue, and year.",
+          "The grid reserves large blank areas for tiles without currently visible images.",
+          "Page title and introduction are visually oversized relative to project metadata on mobile.",
+          "Project labels use inconsistent typographic emphasis and do not form a scannable metadata system."
+        ],
+        "preserve": [
+          "All current project images, crops, links, source order, authored page title, introduction, and existing project titles.",
+          "The existing two-column desktop and two-column mobile project sequence unless a presentation-only responsive collapse is required for legibility."
+        ]
+      },
+      {
+        "page": "Bookshelf / Writing",
+        "visibleProblems": [
+          "Publication taxonomy headings are centered and visually separated from their items, weakening scanability.",
+          "Rows of publication covers can overflow or become clipped rather than reading as controlled archive groups.",
+          "Section spacing is inconsistent: some empty categories consume excessive vertical space while populated groups are compact.",
+          "The serif display treatment competes with the writing and publication material."
+        ],
+        "preserve": [
+          "All taxonomy names, publication titles, cover images, captions, links, image crop boundaries, and source order.",
+          "The existing category sequence."
+        ]
+      },
+      {
+        "page": "Art in a Broader Context and sibling archive sections",
+        "visibleProblems": [
+          "Project/exhibition labels vary in capitalization, line wrapping, weight, and placement.",
+          "The grid contains large blank reserved spaces where media is absent or delayed, making the archive appear incomplete.",
+          "Heading, introduction, tile metadata, and footer do not consistently align to one content system.",
+          "Mobile labels wrap unpredictably and compete with image size."
+        ],
+        "preserve": [
+          "All authored exhibition titles, dates, punctuation, captions, images, links, source order, and crop boundaries.",
+          "Existing factual capitalization, including acronyms and title styling stored in the content."
+        ]
+      }
+    ],
+    "implementation": [
+      {
+        "page": "Global shell, header, footer, and all archive/listing pages",
+        "css": [
+          "Load one late mu-plugin stylesheet after the active theme stylesheet and scope selectors to the existing site wrapper to avoid editor and admin styles.",
+          "Define --site-gutter, --content-width, --space-1 through --space-4, and shared type tokens on the front-end page wrapper.",
+          "Apply box-sizing:border-box to the scoped wrapper and descendants; set shared content containers, headings, introductions, grids, and footer inner content to max-width:var(--content-width) with margin-inline:auto.",
+          "Replace page-specific horizontal margins, negative offsets, and fixed-width text blocks with the shared content width and gutter rule.",
+          "Set body copy to the shared sans-serif family, normal font-style, normal letter-spacing, and readable line-height; retain italic only where an authored inline em/i element is present in the content.",
+          "Override CSS-driven text-transform on headings, cards, navigation, taxonomy labels, captions, and metadata with text-transform:none; do not alter text-node content.",
+          "Remove fixed min-height, viewport-height, or placeholder row-height rules from archive cards and image wrappers unless required to preserve an existing media aspect-ratio box.",
+          "Use grid-auto-rows:auto and align-content:start so missing or unloaded media does not create tall empty areas.",
+          "Use responsive grid gaps from the shared spacing scale and prevent horizontal overflow with min-width:0 and max-width:100%.",
+          "Align footer copy and contact information to the same content width; keep footer source content unchanged."
+        ],
+        "dom": [
+          "Add only non-content wrapper classes through JavaScript where current templates lack stable hooks: .tl-page-intro, .tl-archive-grid, .tl-card, .tl-card-meta, and .tl-footer-inner.",
+          "Do not move, clone, rewrite, or normalize authored text nodes.",
+          "Add a .tl-has-media class to cards containing an existing image and .tl-no-media to cards without one, solely to remove reserved blank media space."
+        ],
+        "contentNeeded": []
+      },
+      {
+        "page": "About",
+        "css": [
+          "Target the hero wrapper and remove the preceding background/section padding that exposes the beige/photo band above the hero; do not change the hero image dimensions, source, object-fit, object-position, or crop boundary.",
+          "Place the About title, biography, and period archive inside the shared content width.",
+          "Use a compact period stack: period heading, optional description, then an auto-flow artwork grid with consistent gap.",
+          "Style period headings as sans-serif, sentence/title case as authored, medium weight, with a restrained bottom rule or border; remove decorative line fragments and arbitrary italics.",
+          "Use a three-column artwork grid on desktop where existing card width permits, two columns on tablet, and one or two columns on mobile depending on the existing media width; never stretch images beyond their natural displayed crop boundary.",
+          "Collapse blank image placeholders so cards without rendered media occupy only their existing text/link height."
+        ],
+        "dom": [
+          "Wrap each existing period heading, its description, and its following artwork items in a .tl-period section without changing their order.",
+          "Move no artwork between periods; only associate already adjacent nodes with the preceding period heading.",
+          "Add semantic heading levels only when the current period labels are non-heading elements; preserve their exact text."
+        ],
+        "contentNeeded": []
+      },
+      {
+        "page": "News",
+        "css": [
+          "Place the title, introduction, and news list in the shared content width while leaving the existing hero full bleed.",
+          "Set a consistent news-entry rhythm: metadata/label, media, caption, then the next entry; use shared spacing rather than large fixed top margins.",
+          "Constrain displayed news media to its existing intrinsic or template-defined width and remove empty reserved height below absent media.",
+          "Render labels and captions in normal font-style unless their source markup explicitly contains authored emphasis.",
+          "Use a narrower readable measure for the introduction and text-heavy entries while retaining the shared left alignment."
+        ],
+        "dom": [
+          "Wrap each existing news item in .tl-news-item if item boundaries are not already available in the markup.",
+          "Associate each existing caption with its immediately preceding existing media using aria-describedby only where an image and caption relationship can be identified without inference."
+        ],
+        "contentNeeded": []
+      },
+      {
+        "page": "In the Studio",
+        "css": [
+          "Replace the sparse period-list presentation with a compact chronological archive grid while retaining reverse chronology.",
+          "Make each period header span the grid width and visually organize its entries with a medium-weight sans-serif heading, restrained rule, and consistent margin.",
+          "Use a stable artwork-card layout with image first where media exists, then existing title/year metadata; remove absolute positioning, manual offsets, and large reserved blank areas.",
+          "Use three columns on wide desktop, two columns at medium widths, and one or two columns on mobile according to available card width; retain source order within each period.",
+          "Standardize item metadata to normal font-style and remove non-authored italic styling.",
+          "Do not change image object-fit, object-position, aspect-ratio, or source dimensions."
+        ],
+        "dom": [
+          "Group existing nodes into .tl-studio-period sections based on current period-heading boundaries.",
+          "Wrap existing artwork link/image/title/year groups in .tl-artwork-card without changing node order.",
+          "Add .tl-artwork-meta only around already-present title/year text; do not generate or infer missing titles or years."
+        ],
+        "contentNeeded": []
+      },
+      {
+        "page": "Beyond the Studio",
+        "css": [
+          "Keep the existing project sequence but apply a consistent project-card grid and remove fixed blank tile height.",
+          "Display project metadata beneath or immediately adjacent to each existing project image/link in a compact three-line pattern: title, venue, year.",
+          "Use normal font-style, no CSS all caps, consistent line-height, and a smaller metadata scale than the page title.",
+          "Keep card image crop boundaries unchanged and use object-fit only if the current template already uses it.",
+          "Reduce mobile title scale slightly so the introduction and project grid remain visible in the initial page hierarchy at 10% scale."
+        ],
+        "dom": [
+          "Add a .tl-project-meta element inside each existing project link/card after the existing title node.",
+          "Populate .tl-project-title, .tl-project-venue, and .tl-project-year from verified detail-page fields or existing structured metadata only.",
+          "Do not replace the current visible project title with an invented title and do not reorder project cards."
+        ],
+        "contentNeeded": [
+          "Source-page extraction is required for every Beyond the Studio card lacking verified title, venue, and year fields in the overview markup.",
+          "For each card, provide the exact factual title, venue name, and year as published on its linked detail page; if a detail page lacks a venue or year, leave that field absent rather than inventing it."
+        ]
+      },
+      {
+        "page": "Bookshelf / Writing",
+        "css": [
+          "Align the Bookshelf title, introduction, taxonomy headings, and publication groups to the shared content width.",
+          "Change publication taxonomy headings from centered display labels to consistently aligned section headings with a small bottom rule or spacing separation.",
+          "Use a responsive cover grid with auto-fit/minmax sizing, stable gaps, overflow:hidden only at the group container when necessary, and no forced blank height for empty groups.",
+          "Keep writing primary by giving headings and introductory copy a clear reading order before cover grids and by reducing decorative typographic treatment.",
+          "Render taxonomy labels and publication text in normal case and normal font-style unless the authored source explicitly marks emphasis.",
+          "Use a compact empty-category treatment so categories with no visible items do not create large dead space."
+        ],
+        "dom": [
+          "Wrap each existing taxonomy heading and its following publication items in a .tl-publication-group based on current heading boundaries.",
+          "Add .tl-publication-grid around existing publication cards only; preserve card order and all links.",
+          "Mark groups with no existing publication cards as .tl-empty-group for compact styling rather than removing their authored taxonomy heading."
+        ],
+        "contentNeeded": []
+      },
+      {
+        "page": "Art in a Broader Context and related archive grids",
+        "css": [
+          "Apply the same archive-card, title, metadata, gutter, and spacing system used for In the Studio and Beyond the Studio.",
+          "Keep existing title/year strings intact and render them as normal-case metadata with predictable wrapping.",
+          "Remove arbitrary fixed card heights and unused image reservations while preserving actual image boxes and crop boundaries.",
+          "Use a two-column mobile grid only where labels remain readable; otherwise collapse to one column at the narrowest breakpoint."
+        ],
+        "dom": [
+          "Add shared .tl-archive-grid and .tl-card hooks to existing exhibition/project entries.",
+          "Wrap existing title/date text in .tl-card-meta without changing the order or wording."
+        ],
+        "contentNeeded": []
+      }
+    ],
+    "mobileRisks": [
+      "A universal two-column grid can make factual titles, venues, years, and publication labels unreadable; use a one-column fallback below the point where card metadata cannot maintain a readable measure.",
+      "Do not use fixed heights for image cards on mobile: unloaded, absent, or portrait media must not create large blank spaces.",
+      "The current mobile header has substantial blank vertical space on several pages; reduce only layout padding, not logo artwork or navigation content.",
+      "Large display page titles can push introductions and first archive items below the initial hierarchy; cap title size with clamp() and use the shared gutter.",
+      "Horizontal cover rows may clip at narrow widths; use responsive grid columns rather than horizontal scrolling unless the existing interaction explicitly requires a carousel.",
+      "Avoid JavaScript measurements based on screenshot dimensions or viewport-specific hard-coded offsets; let CSS grid and intrinsic media size determine layout.",
+      "Test at approximately 320px, 375px, 768px, and wide desktop, including at 10% browser zoom, to ensure page claim, title, introduction, and first content group remain recognizable."
+    ],
+    "validation": [
+      "Verify every override is front-end scoped and delivered through one WordPress mu-plugin stylesheet plus a small deferred DOM-hook script; no theme-template rewrite is required.",
+      "Compare DOM text before and after implementation: authored titles, captions, biography, dates, years, taxonomy labels, links, and source order must be identical.",
+      "Confirm all image src/srcset values, displayed crop boundaries, object-position values, and link targets are unchanged.",
+      "Confirm the About page no longer exposes a beige/photo band above the intended hero while the hero crop itself remains unchanged.",
+      "Confirm About and In the Studio remain reverse chronological and that period boundaries are derived only from existing heading boundaries.",
+      "Confirm News, Studio, Broader Context, and other sibling listings no longer contain fixed-height blank regions caused by absent media or layout placeholders.",
+      "Confirm Beyond the Studio displays title, venue, and year only where each value has been extracted from its linked detail page or verified structured source; unresolved fields remain absent and are logged for editorial completion.",
+      "Confirm no CSS text-transform rule changes authored capitalization anywhere in the scoped site UI.",
+      "Confirm decorative CSS italics are removed while authored em/i markup remains intact.",
+      "Check keyboard navigation, visible focus states, image alt text retention, and caption-to-image associations after wrappers are added.",
+      "At desktop and mobile 10% scale, verify that header, page title, introductory claim, and first archive/content group are visible as a coherent hierarchy without relying on zoom or hidden content."
+    ]
+  }
+}

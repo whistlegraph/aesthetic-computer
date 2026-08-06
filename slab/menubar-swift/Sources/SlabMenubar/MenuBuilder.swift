@@ -210,7 +210,7 @@ enum MenuBuilder {
         let sleeping = ZzzStore.entries()
 
         let automatic = item(
-            "Auto zzz after \(Int(config.idleMinutes)) min",
+            "Auto zzz after \(Int(config.automaticIdleMinutes)) min",
             selector: #selector(AppDelegate.toggleAutoZzz),
             target: target
         )
@@ -621,6 +621,11 @@ enum MenuBuilder {
         scatterNow.keyEquivalentModifierMask = [.command, .option]
         scatterNow.toolTip = "Shrink each session into a tiny window and scatter them across the desktop."
         sub.addItem(scatterNow)
+
+        let playRocks = item("Play prompt rocks", selector: #selector(AppDelegate.focusPromptRocks), target: target)
+        playRocks.keyEquivalent = "x"
+        playRocks.keyEquivalentModifierMask = [.command, .option]
+        sub.addItem(playRocks)
         sub.addItem(.separator())
 
         let textParent = NSMenuItem(title: "Text size", action: nil, keyEquivalent: "")
@@ -824,7 +829,7 @@ enum MenuBuilder {
     /// Video viewer submenu — slab's minimal player (VideoViewer.swift), so
     /// rendered videos preview without QuickTime. Same shape as buildPdf.
     private static func buildVideo(target: AppDelegate) -> NSMenuItem {
-        let open = VideoViewer.shared.openPaths
+        let open = VideoViewer.shared.openItems
         let parent = NSMenuItem(
             title: open.isEmpty ? "Video viewer" : "Video viewer: \(open.count)",
             action: nil, keyEquivalent: "")
@@ -833,11 +838,11 @@ enum MenuBuilder {
         sub.addItem(item("Open video…", selector: #selector(AppDelegate.openVideoFromPanel), target: target))
         if !open.isEmpty {
             sub.addItem(.separator())
-            for path in open {
-                let row = item((path as NSString).lastPathComponent,
+            for video in open {
+                let row = item(video.title,
                                selector: #selector(AppDelegate.focusVideo(_:)), target: target)
-                row.representedObject = path
-                row.toolTip = path
+                row.representedObject = video.id
+                row.toolTip = video.toolTip
                 sub.addItem(row)
             }
             sub.addItem(.separator())

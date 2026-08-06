@@ -1,0 +1,63 @@
+# flutterbappavox — sung lyric map
+#
+# Jeffrey vocal version of flutterbap. The instrumental remains flutterbap;
+# this piece sings through its existing xylophone melody. One numbered line is
+# one body bar in flutterbap.np. Hyphens mark syllables; CAPS mark held notes.
+
+[butterfly — bars 1–4]
+1   flut-ter-BAP
+2   is my FRIEND
+3   flut-ter-BAP
+4   till the END
+
+[pal of mine — bars 5–8]
+5   flut-ter-BAP
+6   pal of MINE
+7   fly with me now
+8   FLY
+
+[mommy wow — bars 9–12]
+9   LOOK
+10  at me FLY
+11  FEEL
+12  hap-py up HERE
+
+[slinky — bars 13–20]
+13  slin-ky SPRING
+14  wob-ble with ME
+15  slin-ky SPRING
+16  climb the lit-tle slin-ky stair-case
+17  down the lit-tle slin-ky stair-case
+18  round and round we
+19  tum-ble down and
+20  up we SPRING
+
+[when i fly — bars 21–28]
+21  when i fly i
+22  AM
+23  hap-py like a
+24  CLAM
+25  when i fly i
+26  feel so GLAD
+27  float-ing through the
+28  AIR with YOU
+
+[landing — bars 29–32]
+29  soft-ly now we
+30  come DOWN
+31  touch the GROUND
+32  HOME
+
+[cave — absolute bars 36–39]
+where are you now
+
+[squabble — absolute bars 40–41]
+squeak scratch out squab-ble
+
+[return — absolute bars 42–46]
+flut-ter-BAP
+is my FRIEND
+when i
+fly to the END
+FRIEND
+

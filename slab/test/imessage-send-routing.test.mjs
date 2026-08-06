@@ -2,12 +2,15 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  classifyMessagesAttachment,
+  conversationTitleMatches,
+  isMessagesComposerEmpty,
   chooseMessagesRoute,
   classifyMessagesDelivery,
   shouldRetryViaSms,
 } from "../lib/imessage-send-routing.mjs";
 
-test("routes an RCS conversation through the Messages SMS account", () => {
+test("routes an RCS conversation through the Messages RCS account", () => {
   assert.deepEqual(
     chooseMessagesRoute(["+15551234567"], {
       handle: "+15551234567",
@@ -15,7 +18,7 @@ test("routes an RCS conversation through the Messages SMS account", () => {
     }),
     {
       handle: "+15551234567",
-      appleService: "SMS",
+      appleService: "RCS",
       observedService: "RCS",
     },
   );
@@ -31,6 +34,20 @@ test("keeps an iMessage conversation on iMessage", () => {
       handle: "person@example.com",
       appleService: "iMessage",
       observedService: "iMessage",
+    },
+  );
+});
+
+test("keeps an SMS conversation on the Messages SMS account", () => {
+  assert.deepEqual(
+    chooseMessagesRoute(["+15551234567"], {
+      handle: "+15551234567",
+      service: "SMS",
+    }),
+    {
+      handle: "+15551234567",
+      appleService: "SMS",
+      observedService: "SMS",
     },
   );
 });
@@ -65,6 +82,38 @@ test("classifies asynchronous Messages delivery state", () => {
     classifyMessagesDelivery({ service: "SMS", error: 0, is_sent: 1, is_delivered: 0 }),
     { status: "sent", service: "SMS", error: 0 },
   );
+});
+
+test("requires an attachment transfer before confirming media delivery", () => {
+  assert.deepEqual(classifyMessagesAttachment(null), {
+    status: "pending", service: null, error: 0,
+  });
+  assert.deepEqual(
+    classifyMessagesAttachment({ service: "iMessage", error: 0, is_sent: 1, transfer_state: 1 }),
+    { status: "pending", service: "iMessage", error: 0, transferState: 1 },
+  );
+  assert.deepEqual(
+    classifyMessagesAttachment({ service: "iMessage", error: 0, is_sent: 0, transfer_state: 6 }),
+    { status: "failed", service: "iMessage", error: 0, transferState: 6 },
+  );
+  assert.deepEqual(
+    classifyMessagesAttachment({ service: "iMessage", error: 0, is_sent: 1, is_delivered: 1, transfer_state: 5 }),
+    { status: "delivered", service: "iMessage", error: 0, transferState: 5 },
+  );
+});
+
+test("refuses a focused Messages conversation that is not the recipient", () => {
+  assert.equal(conversationTitleMatches("Alex Freundlich", "Alex"), true);
+  assert.equal(conversationTitleMatches("Alexis", "Alex"), false);
+  assert.equal(conversationTitleMatches("Amy Lynn", "Alex"), false);
+  assert.equal(conversationTitleMatches("Maybe: jeffrey", "me@jas.life"), false);
+  assert.equal(conversationTitleMatches("", "Maybe: jeffrey"), false);
+});
+
+test("preserves an existing Messages draft", () => {
+  assert.equal(isMessagesComposerEmpty("Message"), true);
+  assert.equal(isMessagesComposerEmpty("iMessage"), true);
+  assert.equal(isMessagesComposerEmpty(" design"), false);
 });
 
 test("retries only an explicitly failed phone-number iMessage via SMS", () => {

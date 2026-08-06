@@ -28,10 +28,19 @@ struct ZzzConfiguration: Codable {
     // Process termination must be an explicit user choice. A missing config
     // file used to opt every fresh install into auto-zzz, which made Codex
     // windows disappear after only 20 minutes with no visible receipt.
-    var enabled: Bool = false
-    var idleMinutes: Double = 60
+    static let minimumAutomaticIdleMinutes: Double = 240
 
-    var idleSeconds: TimeInterval { max(60, idleMinutes * 60) }
+    var enabled: Bool = false
+    var idleMinutes: Double = minimumAutomaticIdleMinutes
+
+    // Old seat configs can retain an aggressive 20–30 minute value. Treat the
+    // stored number as a preference, but never let automatic process
+    // termination happen inside the four-hour safety floor. Manual zzz remains
+    // available for a prompt the person deliberately wants to park now.
+    var automaticIdleMinutes: Double {
+        max(Self.minimumAutomaticIdleMinutes, idleMinutes)
+    }
+    var idleSeconds: TimeInterval { automaticIdleMinutes * 60 }
 }
 
 /// Small JSON store shared by Slab and the `zzz` harness. One file per prompt
@@ -150,7 +159,7 @@ final class ZzzManager {
             guard let live = ClaudeSessionReader.active().first(where: {
                 $0.sessionId == candidate.sessionId
             }), eligible(live, minimumIdle: config.idleSeconds) == nil else { continue }
-            _ = park(live, reason: "idle-\(Int(config.idleMinutes))m",
+            _ = park(live, reason: "idle-\(Int(config.automaticIdleMinutes))m",
                      requireAge: config.idleSeconds)
         }
     }

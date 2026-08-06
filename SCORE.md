@@ -54,6 +54,23 @@ A slide passes **Slidecop** only when it works at conference-room distance.
 - Inspect the rendered slide or video, not only its source. Fail any slide whose
   claim or evidence requires zooming.
 
+### Design proposal routing
+
+A proposal with multiple directions must make the choice visible before it is
+explained.
+
+- Shared foundations are not directions. Name the common entry, then show the
+  point where the routes diverge.
+- Each direction owns a distinct visual grammar: density, image scale or ratio,
+  typography, primary action, and explicit exclusions. If two routes cannot be
+  distinguished in silent thumbnail view, collapse or redesign them.
+- Put one route map before the options and repeat a miniature on every routed
+  page. Highlight the current path; keep inactive paths visible for orientation.
+- State each route as a narrow contract: intended use, governing visual rule,
+  and what it must never absorb from the other routes.
+- Inspect the map and the differences at 10% scale. The active route and the
+  visual character of each option must remain legible without reading body copy.
+
 ## Pull Request Score
 
 Keep a small PR terse. When the work is a recovery, migration, or design change

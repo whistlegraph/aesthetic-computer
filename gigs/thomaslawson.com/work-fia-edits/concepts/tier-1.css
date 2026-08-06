@@ -1,0 +1,81 @@
+body.tier-1 { background: var(--cream); }
+
+.tier-1 .site-header {
+  min-height: 170px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 32px;
+  padding: 34px clamp(28px, 7vw, 96px);
+}
+.tier-1 .site-nav { display: flex; gap: 26px; align-items: center; }
+.tier-1 .site-nav a {
+  padding: 8px 0;
+  border-bottom: 1px solid transparent;
+  font-size: 14px;
+}
+.tier-1 .site-nav a.active { border-bottom-color: var(--ink); }
+
+.tier-1 .page-shell {
+  width: min(1280px, calc(100vw - clamp(48px, 10vw, 144px)));
+  margin: 0 auto;
+  padding-bottom: 92px;
+}
+.tier-1 .page-title {
+  margin: 32px 0 28px;
+  font-size: clamp(54px, 6.5vw, 96px);
+  line-height: 0.98;
+}
+.tier-1 .hero-media img {
+  max-height: 62vh;
+  object-fit: contain;
+  object-position: center;
+}
+.tier-1.page-beyond .hero-media img,
+.tier-1.page-bookshelf .hero-media img,
+.tier-1.page-about .hero-media img { object-fit: cover; aspect-ratio: 16 / 7; }
+.tier-1.page-about .hero-media img { object-position: center 28%; }
+.tier-1 .intro {
+  max-width: 74ch;
+  margin: 28px 0 72px;
+  font-size: 17px;
+  line-height: 1.62;
+}
+.tier-1 .gallery { grid-template-columns: repeat(3, 1fr); gap: 42px 28px; }
+.tier-1 .gallery img { aspect-ratio: 4 / 3; object-fit: contain; }
+.tier-1.page-beyond .gallery img { object-fit: cover; }
+.tier-1.page-bookshelf .gallery { grid-template-columns: repeat(7, 1fr); gap: 22px 14px; }
+.tier-1.page-bookshelf .gallery img { aspect-ratio: 3 / 4; object-fit: contain; }
+
+.tier-1.page-home .page-shell {
+  min-height: calc(100vh - 260px);
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);
+  align-items: center;
+  gap: clamp(42px, 8vw, 112px);
+}
+.tier-1.page-home .hero-media img { width: 100%; max-height: none; }
+.tier-1 .route-list { display: grid; gap: 22px; }
+.tier-1 .route-list a { padding-bottom: 18px; border-bottom: 1px solid var(--rule); }
+.tier-1 .route-list strong { font-size: clamp(24px, 2.3vw, 34px); }
+.tier-1 .route-list span { margin-top: 5px; color: var(--muted); font-size: 13px; }
+.tier-1 .site-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 30px;
+  margin: 0 clamp(28px, 4vw, 58px);
+  padding: 34px clamp(28px, 4vw, 58px) 48px;
+  font-size: 13px;
+  line-height: 1.55;
+}
+.tier-1 .site-footer p:first-child { max-width: 500px; }
+
+@media (max-width: 780px) {
+  .tier-1 .site-header { min-height: 120px; padding: 26px 20px; }
+  .tier-1 .site-nav { display: none; }
+  .tier-1 .page-shell { width: calc(100vw - 32px); }
+  .tier-1.page-home .page-shell { grid-template-columns: 1fr; gap: 34px; }
+  .tier-1 .gallery { grid-template-columns: 1fr 1fr; }
+  .tier-1.page-bookshelf .gallery { grid-template-columns: repeat(4, 1fr); }
+  .tier-1 .site-footer { flex-direction: column; margin: 0 16px; padding: 28px 0 40px; }
+}

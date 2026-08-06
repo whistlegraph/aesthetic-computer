@@ -1,0 +1,629 @@
+[
+  {
+    "tier": "tier-1",
+    "page": "home",
+    "width": 390,
+    "scrollWidth": 390,
+    "overflow": false,
+    "active": 2,
+    "images": [
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2022/07/THOMAS-LAWSON-1-301x99.png",
+        "ok": true
+      },
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2022/09/2010_Tree_HR.jpg",
+        "ok": true
+      }
+    ],
+    "title": "Thomas Lawson · Refine concept",
+    "height": 1229,
+    "imagesOk": true
+  },
+  {
+    "tier": "tier-1",
+    "page": "studio",
+    "width": 390,
+    "scrollWidth": 390,
+    "overflow": false,
+    "active": 2,
+    "images": [
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2022/07/THOMAS-LAWSON-1-301x99.png",
+        "ok": true
+      },
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2022/09/2010_Tree_HR.jpg",
+        "ok": true
+      },
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2022/06/006-Tlawson_Lone-Piper1978-1020x1024.jpg",
+        "ok": true
+      },
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2022/05/007-Tlawson_Baby-Pink-on-Blue1978.jpg",
+        "ok": true
+      },
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2022/06/009-Tlawson_Gold-Dog-Black-Orange1978-1024x717.jpg",
+        "ok": true
+      },
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2022/09/027-Tlawson_Shot-for-a-Bike1981.jpg",
+        "ok": true
+      },
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2022/09/035-Tlawson_He-Shot-His-Best-Budy1982.jpg",
+        "ok": true
+      },
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2022/09/028-Tlawson_Burn-Burn-Burn1982-1024x1018.jpg",
+        "ok": true
+      }
+    ],
+    "title": "In the Studio · Refine concept",
+    "height": 1981,
+    "imagesOk": true
+  },
+  {
+    "tier": "tier-1",
+    "page": "beyond",
+    "width": 390,
+    "scrollWidth": 390,
+    "overflow": false,
+    "active": 2,
+    "images": [
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2022/07/THOMAS-LAWSON-1-301x99.png",
+        "ok": true
+      },
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2023/09/4-beyond-the-studio.jpg",
+        "ok": true
+      },
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2023/11/1987_Anthony-Reynolds-exhibition-catalogue-drawing_LR-1024x777.jpg",
+        "ok": true
+      },
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2023/08/civic_virtue_1.jpg",
+        "ok": true
+      },
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2023/08/1992_Tiefe-Nacht_LR.jpg",
+        "ok": true
+      },
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2023/08/portrait_16.jpg",
+        "ok": true
+      },
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2023/08/glasgow-green-install-3.jpg",
+        "ok": true
+      },
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2023/08/09-Til-You-Drop-Sept-2014.jpeg",
+        "ok": true
+      }
+    ],
+    "title": "Beyond the Studio · Refine concept",
+    "height": 1721,
+    "imagesOk": true
+  },
+  {
+    "tier": "tier-1",
+    "page": "bookshelf",
+    "width": 390,
+    "scrollWidth": 390,
+    "overflow": false,
+    "active": 2,
+    "images": [
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2022/07/THOMAS-LAWSON-1-301x99.png",
+        "ok": true
+      },
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2022/06/5-bookshelf-scaled.jpg",
+        "ok": true
+      },
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/2-Artforum-Marchh-1981-872x1024.png",
+        "ok": true
+      },
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/3-Artforum-April-1981-886x1024.png",
+        "ok": true
+      },
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/4-Artforum-May-1981-925x1024.png",
+        "ok": true
+      },
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/5-Artforum-September-1981-956x1024.png",
+        "ok": true
+      },
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/6-Artforum-October-1981-960x1024.png",
+        "ok": true
+      },
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/7-Artforum-December-1981-908x1024.png",
+        "ok": true
+      },
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/8-Artforum-January-1982-922x1024.png",
+        "ok": true
+      },
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/9-Artforum-May-1982-855x1024.png",
+        "ok": true
+      },
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/10-Artforum-Summer-1982-961x1024.png",
+        "ok": true
+      },
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/11-Artforum-October-1982-881x1024.png",
+        "ok": true
+      }
+    ],
+    "title": "Bookshelf · Refine concept",
+    "height": 1853,
+    "imagesOk": true
+  },
+  {
+    "tier": "tier-1",
+    "page": "about",
+    "width": 390,
+    "scrollWidth": 390,
+    "overflow": false,
+    "active": 2,
+    "images": [
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2022/07/THOMAS-LAWSON-1-301x99.png",
+        "ok": true
+      },
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2022/05/Group-24.png",
+        "ok": true
+      },
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2022/06/013-Tlawson_Gold-Dog1978-copy-835x1024.jpg",
+        "ok": true
+      },
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2022/06/REALLIFE-1-copy-683x1024.jpg",
+        "ok": true
+      },
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2022/06/001-Tlawson_Forman-esque-25-drawings1977-copy-1.png",
+        "ok": true
+      },
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2022/05/014-Tlawson_Red-Shoe1979-1024x968.jpg",
+        "ok": true
+      }
+    ],
+    "title": "About · Refine concept",
+    "height": 1503,
+    "imagesOk": true
+  },
+  {
+    "tier": "tier-2",
+    "page": "home",
+    "width": 390,
+    "scrollWidth": 390,
+    "overflow": false,
+    "active": 2,
+    "images": [
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2022/07/THOMAS-LAWSON-1-301x99.png",
+        "ok": true
+      },
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2022/09/2010_Tree_HR.jpg",
+        "ok": true
+      }
+    ],
+    "title": "Thomas Lawson · Recompose concept",
+    "height": 1371,
+    "imagesOk": true
+  },
+  {
+    "tier": "tier-2",
+    "page": "studio",
+    "width": 390,
+    "scrollWidth": 390,
+    "overflow": false,
+    "active": 2,
+    "images": [
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2022/07/THOMAS-LAWSON-1-301x99.png",
+        "ok": true
+      },
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2022/09/2010_Tree_HR.jpg",
+        "ok": true
+      },
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2022/06/006-Tlawson_Lone-Piper1978-1020x1024.jpg",
+        "ok": true
+      },
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2022/05/007-Tlawson_Baby-Pink-on-Blue1978.jpg",
+        "ok": true
+      },
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2022/06/009-Tlawson_Gold-Dog-Black-Orange1978-1024x717.jpg",
+        "ok": true
+      },
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2022/09/027-Tlawson_Shot-for-a-Bike1981.jpg",
+        "ok": true
+      },
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2022/09/035-Tlawson_He-Shot-His-Best-Budy1982.jpg",
+        "ok": true
+      },
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2022/09/028-Tlawson_Burn-Burn-Burn1982-1024x1018.jpg",
+        "ok": true
+      }
+    ],
+    "title": "In the Studio · Recompose concept",
+    "height": 2349,
+    "imagesOk": true
+  },
+  {
+    "tier": "tier-2",
+    "page": "beyond",
+    "width": 390,
+    "scrollWidth": 390,
+    "overflow": false,
+    "active": 2,
+    "images": [
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2022/07/THOMAS-LAWSON-1-301x99.png",
+        "ok": true
+      },
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2023/09/4-beyond-the-studio.jpg",
+        "ok": true
+      },
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2023/11/1987_Anthony-Reynolds-exhibition-catalogue-drawing_LR-1024x777.jpg",
+        "ok": true
+      },
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2023/08/civic_virtue_1.jpg",
+        "ok": true
+      },
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2023/08/1992_Tiefe-Nacht_LR.jpg",
+        "ok": true
+      },
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2023/08/portrait_16.jpg",
+        "ok": true
+      },
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2023/08/glasgow-green-install-3.jpg",
+        "ok": true
+      },
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2023/08/09-Til-You-Drop-Sept-2014.jpeg",
+        "ok": true
+      }
+    ],
+    "title": "Beyond the Studio · Recompose concept",
+    "height": 2053,
+    "imagesOk": true
+  },
+  {
+    "tier": "tier-2",
+    "page": "bookshelf",
+    "width": 390,
+    "scrollWidth": 390,
+    "overflow": false,
+    "active": 2,
+    "images": [
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2022/07/THOMAS-LAWSON-1-301x99.png",
+        "ok": true
+      },
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2022/06/5-bookshelf-scaled.jpg",
+        "ok": true
+      },
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/2-Artforum-Marchh-1981-872x1024.png",
+        "ok": true
+      },
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/3-Artforum-April-1981-886x1024.png",
+        "ok": true
+      },
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/4-Artforum-May-1981-925x1024.png",
+        "ok": true
+      },
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/5-Artforum-September-1981-956x1024.png",
+        "ok": true
+      },
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/6-Artforum-October-1981-960x1024.png",
+        "ok": true
+      },
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/7-Artforum-December-1981-908x1024.png",
+        "ok": true
+      },
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/8-Artforum-January-1982-922x1024.png",
+        "ok": true
+      },
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/9-Artforum-May-1982-855x1024.png",
+        "ok": true
+      },
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/10-Artforum-Summer-1982-961x1024.png",
+        "ok": true
+      },
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/11-Artforum-October-1982-881x1024.png",
+        "ok": true
+      }
+    ],
+    "title": "Bookshelf · Recompose concept",
+    "height": 3185,
+    "imagesOk": true
+  },
+  {
+    "tier": "tier-2",
+    "page": "about",
+    "width": 390,
+    "scrollWidth": 390,
+    "overflow": false,
+    "active": 2,
+    "images": [
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2022/07/THOMAS-LAWSON-1-301x99.png",
+        "ok": true
+      },
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2022/05/Group-24.png",
+        "ok": true
+      },
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2022/06/013-Tlawson_Gold-Dog1978-copy-835x1024.jpg",
+        "ok": true
+      },
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2022/06/REALLIFE-1-copy-683x1024.jpg",
+        "ok": true
+      },
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2022/06/001-Tlawson_Forman-esque-25-drawings1977-copy-1.png",
+        "ok": true
+      },
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2022/05/014-Tlawson_Red-Shoe1979-1024x968.jpg",
+        "ok": true
+      }
+    ],
+    "title": "About · Recompose concept",
+    "height": 1788,
+    "imagesOk": true
+  },
+  {
+    "tier": "tier-3",
+    "page": "home",
+    "width": 390,
+    "scrollWidth": 390,
+    "overflow": false,
+    "active": 2,
+    "images": [
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2022/07/THOMAS-LAWSON-1-301x99.png",
+        "ok": true
+      },
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2022/09/2010_Tree_HR.jpg",
+        "ok": true
+      }
+    ],
+    "title": "Thomas Lawson · Reframe concept",
+    "height": 1304,
+    "imagesOk": true
+  },
+  {
+    "tier": "tier-3",
+    "page": "studio",
+    "width": 390,
+    "scrollWidth": 390,
+    "overflow": false,
+    "active": 2,
+    "images": [
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2022/07/THOMAS-LAWSON-1-301x99.png",
+        "ok": true
+      },
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2022/09/2010_Tree_HR.jpg",
+        "ok": true
+      },
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2022/06/006-Tlawson_Lone-Piper1978-1020x1024.jpg",
+        "ok": true
+      },
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2022/05/007-Tlawson_Baby-Pink-on-Blue1978.jpg",
+        "ok": true
+      },
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2022/06/009-Tlawson_Gold-Dog-Black-Orange1978-1024x717.jpg",
+        "ok": true
+      },
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2022/09/027-Tlawson_Shot-for-a-Bike1981.jpg",
+        "ok": true
+      },
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2022/09/035-Tlawson_He-Shot-His-Best-Budy1982.jpg",
+        "ok": true
+      },
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2022/09/028-Tlawson_Burn-Burn-Burn1982-1024x1018.jpg",
+        "ok": true
+      }
+    ],
+    "title": "In the Studio · Reframe concept",
+    "height": 4638,
+    "imagesOk": true
+  },
+  {
+    "tier": "tier-3",
+    "page": "beyond",
+    "width": 390,
+    "scrollWidth": 390,
+    "overflow": false,
+    "active": 2,
+    "images": [
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2022/07/THOMAS-LAWSON-1-301x99.png",
+        "ok": true
+      },
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2023/09/4-beyond-the-studio.jpg",
+        "ok": true
+      },
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2023/11/1987_Anthony-Reynolds-exhibition-catalogue-drawing_LR-1024x777.jpg",
+        "ok": true
+      },
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2023/08/civic_virtue_1.jpg",
+        "ok": true
+      },
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2023/08/1992_Tiefe-Nacht_LR.jpg",
+        "ok": true
+      },
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2023/08/portrait_16.jpg",
+        "ok": true
+      },
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2023/08/glasgow-green-install-3.jpg",
+        "ok": true
+      },
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2023/08/09-Til-You-Drop-Sept-2014.jpeg",
+        "ok": true
+      }
+    ],
+    "title": "Beyond the Studio · Reframe concept",
+    "height": 3884,
+    "imagesOk": true
+  },
+  {
+    "tier": "tier-3",
+    "page": "bookshelf",
+    "width": 390,
+    "scrollWidth": 390,
+    "overflow": false,
+    "active": 2,
+    "images": [
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2022/07/THOMAS-LAWSON-1-301x99.png",
+        "ok": true
+      },
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2022/06/5-bookshelf-scaled.jpg",
+        "ok": true
+      },
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/2-Artforum-Marchh-1981-872x1024.png",
+        "ok": true
+      },
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/3-Artforum-April-1981-886x1024.png",
+        "ok": true
+      },
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/4-Artforum-May-1981-925x1024.png",
+        "ok": true
+      },
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/5-Artforum-September-1981-956x1024.png",
+        "ok": true
+      },
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/6-Artforum-October-1981-960x1024.png",
+        "ok": true
+      },
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/7-Artforum-December-1981-908x1024.png",
+        "ok": true
+      },
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/8-Artforum-January-1982-922x1024.png",
+        "ok": true
+      },
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/9-Artforum-May-1982-855x1024.png",
+        "ok": true
+      },
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/10-Artforum-Summer-1982-961x1024.png",
+        "ok": true
+      },
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/11-Artforum-October-1982-881x1024.png",
+        "ok": true
+      }
+    ],
+    "title": "Bookshelf · Reframe concept",
+    "height": 7204,
+    "imagesOk": true
+  },
+  {
+    "tier": "tier-3",
+    "page": "about",
+    "width": 390,
+    "scrollWidth": 390,
+    "overflow": false,
+    "active": 2,
+    "images": [
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2022/07/THOMAS-LAWSON-1-301x99.png",
+        "ok": true
+      },
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2022/05/Group-24.png",
+        "ok": true
+      },
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2022/06/013-Tlawson_Gold-Dog1978-copy-835x1024.jpg",
+        "ok": true
+      },
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2022/06/REALLIFE-1-copy-683x1024.jpg",
+        "ok": true
+      },
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2022/06/001-Tlawson_Forman-esque-25-drawings1977-copy-1.png",
+        "ok": true
+      },
+      {
+        "src": "https://www.thomaslawson.com/wp-content/uploads/2022/05/014-Tlawson_Red-Shoe1979-1024x968.jpg",
+        "ok": true
+      }
+    ],
+    "title": "About · Reframe concept",
+    "height": 3831,
+    "imagesOk": true
+  }
+]

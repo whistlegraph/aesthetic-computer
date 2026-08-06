@@ -1,0 +1,278 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+
+\usepackage[top=0.75in,bottom=0.75in,left=0.75in,right=0.75in]{geometry}
+\usepackage{fontspec}
+\setmainfont{lmroman10-regular.otf}[BoldFont=lmroman10-bold.otf,ItalicFont=lmroman10-italic.otf,BoldItalicFont=lmroman10-bolditalic.otf]
+\setsansfont{lmsans10-regular.otf}[BoldFont=lmsans10-bold.otf,ItalicFont=lmsans10-oblique.otf,BoldItalicFont=lmsans10-boldoblique.otf]
+\newfontfamily\acbold{ywft-processing-bold}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\newfontfamily\aclight{ywft-processing-light}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\setmonofont{lmmono10-regular.otf}[Scale=0.85,BoldFont=lmmonolt10-bold.otf,ItalicFont=lmmono10-italic.otf]
+\usepackage{xcolor,titlesec,enumitem,booktabs,tabularx,array,fancyhdr,hyperref,xurl,graphicx,ragged2e,microtype,natbib,float}
+\usepackage[colorspec=0.92]{draftwatermark}
+\graphicspath{{figures/}{../../papers/arxiv-ac/figures/}}
+
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{105,105,105}
+\definecolor{ppred}{RGB}{190,35,45}
+\DraftwatermarkOptions{text=WORKING DRAFT,fontsize=3cm,color=acpink!15,angle=45}
+\hypersetup{colorlinks=true,linkcolor=acpurple,urlcolor=acpurple,citecolor=acpurple,pdftitle={ProPublica: A Dossier}}
+\titleformat{\section}{\normalfont\bfseries\normalsize\raggedright}{\thesection.}{0.5em}{\MakeUppercase}
+\titlespacing{\section}{0pt}{1.05em}{0.25em}
+\titleformat{\subsection}{\normalfont\bfseries\small}{\thesubsection}{0.5em}{}
+\titlespacing{\subsection}{0pt}{0.7em}{0.15em}
+\pagestyle{fancy}\fancyhf{}\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{acpink}\textit{Working Draft --- not for citation}}
+\fancyfoot[C]{\footnotesize\thepage}
+\setlist[itemize]{nosep,leftmargin=1.2em,itemsep=0.1em}
+\setlist[description]{nosep,leftmargin=0pt,itemindent=0pt,labelsep=0.4em}
+\setlength{\columnsep}{1.75em}\setlength{\parindent}{1em}\setlength{\parskip}{0.27em}
+\tolerance=900\emergencystretch=1.2em
+\newcommand{\papercreated}{2026-07-28}
+\newcommand{\paperrevision}{1}
+\newcommand{\papersitename}{propublica-dossier-26-arxiv}
+\newcommand{\paperurl}{https://papers.aesthetic.computer/\papersitename.pdf}
+
+\begin{document}
+\twocolumn[{%
+\noindent
+\begin{minipage}[t]{0.5\textwidth}\raggedright
+\includegraphics[height=3em]{pals}
+\end{minipage}%
+\begin{minipage}[t]{0.5\textwidth}\raggedleft
+{\footnotesize\acbold\color{acpink} Read this paper now!}\par\vspace{0.15em}
+\IfFileExists{figures/qr.png}{\href{\paperurl}{\includegraphics[height=2.2cm]{figures/qr}}}{}
+\end{minipage}\par
+\vspace{0.3em}
+\begin{center}
+\IfFileExists{figures/cover.png}{\includegraphics[width=0.48\textwidth]{figures/cover}\par\vspace{0.35em}}{}
+{\acbold\fontsize{38pt}{43pt}\selectfont\color{acdark} ProPublica}\par
+\vspace{0.1em}
+{\aclight\fontsize{19pt}{22pt}\selectfont\color{ppred} A Dossier}\par
+\vspace{0.35em}
+{\aclight\fontsize{11pt}{13pt}\selectfont\color{acgray} Origin, newsroom, distribution, people, money, influence, and accountability --- 2007 to 2026}\par
+\vspace{0.4em}
+{\normalsize\href{https://prompt.ac/@jeffrey}{@jeffrey}}\par
+{\small\color{acgray}Aesthetic.Computer · \href{https://orcid.org/0009-0007-4460-4913}{ORCID 0009-0007-4460-4913}}\par
+\vspace{0.25em}{\footnotesize\color{acgray}Created \papercreated{} · Revision \paperrevision}\par
+\vspace{0.45em}\rule{\textwidth}{1.4pt}\vspace{0.3em}
+\end{center}
+\begin{quote}
+\small\noindent\textbf{Note.} This is a dossier, not an argument. It assembles the public record of ProPublica: the donor-supported investigative newsroom founded in 2007--2008, its legal and governance structure, editorial and distribution model, regional network, data practice, people, finances, reach, awards, corrections, and disputed work. The financial spine is ProPublica's own Nonprofit Explorer rendering of its IRS Form 990 series~\citep{pp990}; current operations come from the newsroom's reports and public policies~\citep{pp2025,ppethics}. Claims of impact are attributed. There is no outlet rating, ideological verdict, or conclusion section.
+\end{quote}
+\vspace{0.2em}
+}]
+
+\section{What it is}
+
+ProPublica is an independent nonprofit newsroom devoted to investigative journalism. Its stated mission is to expose abuses of power and betrayals of public trust by government, business, and other institutions, using sustained reporting to spur reform~\citep{ppabout}. It reports nationally and locally across government, politics, business, criminal justice, environment, education, health, immigration, and technology.
+
+The name contracts the Latin \emph{pro publico}: for the public. The model separates newsroom revenue from advertising and subscriptions. Reporting is free to read; eligible articles can be republished under a Creative Commons license; donations underwrite long investigations, specialist reporters, litigation risk, data work, and regional partnerships~\citep{pprepublish,pp2025}.
+
+It is not a wire service or a general daily-news desk. Topic selection is explicitly purposive: institutional wrongdoing, affected communities, and the possibility of real-world change. ``Independent'' and ``nonpartisan'' are organizational claims supported by published policies and governance practices, not synonyms for having no point of view.
+
+\section{Origin}
+
+On October 15, 2007, Herbert and Marion Sandler announced a new nonpartisan nonprofit newsroom under the name ProPublica. The Sandler Foundation made a multi-year commitment and recruited \textbf{Paul Steiger}, retiring managing editor of \emph{The Wall Street Journal}, to build it~\citep{pplaunch}. Publishing began in 2008.
+
+The premise was structural: newspaper economics were contracting while accountability reporting remained slow, expensive, and democratically necessary. Steiger's operating design paired a dedicated investigative staff with established publishing partners. \textbf{Herbert Sandler} chaired the board through 2016; \textbf{Paul Sagan} succeeded him in 2017~\citep{ppsandler,ppleadership}.
+
+The launch dependency was concentrated. The Sandlers' funding supplied 93\% of total support in 2008. By 2018, ProPublica reported that the share had fallen below 10\% as the donor base diversified~\citep{ppsandler}. The Sandler relationship nevertheless remains visible: Sandler Foundation president Steve Daetz sits on the current board.
+
+\section{Legal structure}
+
+The legal entity is \textbf{Pro Publica, Inc.}, EIN \texttt{14-2007220}, a 501(c)(3) public charity with an IRS ruling date of February 2008. The current IRS address is \textbf{155 Avenue of the Americas, 13th Floor, New York, NY 10013}; the fiscal year ends December 31. The IRS classifies it under NTEE A20, Arts and Cultural Organizations---Multipurpose~\citep{pp990}.
+
+The 2025 annual report lists a 15-person board chaired by Paul Sagan. It spans philanthropy, finance, law, academia, technology, media, and documentary film. Affiliations include Sandler Foundation, Goldhirsh Foundation, Warburg Pincus, General Catalyst, Harvard, Northwestern Medill, Getty Images, ITVS, and Bad Robot~\citep{pp2025,ppleadership}. The full roster is preserved in \texttt{data/board.csv}.
+
+\section{Editorial model}
+
+Four linked systems distinguish the newsroom.
+
+\begin{description}
+\item[Long horizon.] Reporters remain on an institution or subject beyond the first publication; follow-up and documented policy response are part of the work.
+\item[Partnership.] Stories are co-reported or co-published with national and local outlets. In 2025 ProPublica worked with 74 publishing and reporting partners; its historic partner count reached 344~\citep{pp2025}.
+\item[Free circulation.] Most articles may be republished free with byline, canonical link, preserved links, and a PixelPing tag. Photographs and illustrations require separate permission~\citep{pprepublish}.
+\item[Impact ledger.] The newsroom tracks changes in law, policy, institutional behavior, and individual cases. These are attributed impact claims, not independent causal evaluations.
+\end{description}
+
+The Creative Commons rule is an infrastructure choice: ProPublica supplies expensive reporting while partner outlets supply place knowledge and audiences. The canonical URL and tracking tag let the originating newsroom retain attribution and measure circulation.
+
+\section{Local network}
+
+Local work moved from collaboration to permanent geographic capacity. ProPublica Illinois launched in 2017; its remit expanded into the Midwest. The current network includes regional teams in the \textbf{Midwest, Northwest, South, Southwest}, and a joint \textbf{Texas Tribune Initiative}, plus Washington, D.C. staff~\citep{pplocal,pp2025}.
+
+The \textbf{Local Reporting Network} pays the salary and benefits of reporters who remain in their home newsrooms while receiving ProPublica editing, data, engagement, design, and legal support for yearlong projects~\citep{pppartners}. The structure increases investigative capacity without acquiring the partner outlet.
+
+The public roster contains a small documentary inconsistency: the 2025 annual report labels Mara Shalhoup ``Northwest Editor'' inside the South staff block, although the accompanying description and team are Southern. The data file preserves the published label; the dossier reads the role as South editor from context rather than silently treating the page as exact.
+
+\section{Data and software}
+
+ProPublica helped normalize \textbf{computational journalism} as a newsroom function rather than a service bureau. Its News Apps team describes developers as journalists who clean, analyze, combine, and publish data with narrative context; much of the software and many datasets are released openly~\citep{ppnerds,ppnewsapps}.
+
+Representative systems:
+
+\begin{itemize}
+\item \textbf{Dollars for Docs} (2010) assembled pharmaceutical-company payment data and paired a searchable public database with reporting~\citep{ppd4d}.
+\item \textbf{Nonprofit Explorer} exposes IRS filings, financial summaries, officers, audits, full-text search, and a public API. It now indexes millions of organizations and roughly 18 million filing documents~\citep{ppnewsapps,pp990}.
+\item \textbf{Electionland} coordinated hundreds of newsrooms around voting problems in 2016, 2018, and 2020.
+\item \textbf{Collaborate} (2019) open-sourced the workflow software used to assign leads, manage tips, redact identities, and coordinate distributed data projects~\citep{ppcollaborate}.
+\end{itemize}
+
+The recursion is notable but factual: the financial evidence in this dossier is retrieved from a public-interest database built and maintained by the organization being dossiered.
+
+\section{People}
+
+\begin{table}[H]
+\ifdefined\cardindex
+\scriptsize\centering\setlength{\tabcolsep}{2pt}
+\begin{tabular}{@{}p{0.33\linewidth}p{0.62\linewidth}@{}}
+\toprule
+\textbf{Person} & \textbf{Role of record}\\
+\midrule
+Paul Steiger & Founding editor-in-chief, CEO, president; founder emeritus\\
+Richard Tofel & Founding general manager; president 2013--2021\\
+Stephen Engelberg & Editor-in-chief; FY2024 co-CEO\\
+Robin Sparkman & President; FY2024 co-CEO and treasurer\\
+Charles Ornstein & Managing Editor, Local\\
+Ginger Thompson & Managing Editor\\
+Tracy Weber & Managing Editor\\
+Tyson Evans & Chief Product and Brand Officer\\
+Ragan Rhyne & Chief Development Officer\\
+Paul Sagan & Board chair since 2017\\
+\bottomrule
+\end{tabular}
+\else
+\footnotesize\centering\setlength{\tabcolsep}{3pt}
+\begin{tabularx}{\columnwidth}{lX}
+\toprule
+\textbf{Person} & \textbf{Role of record}\\
+\midrule
+Paul Steiger & Founding editor-in-chief, CEO, president; founder emeritus\\
+Richard Tofel & Founding general manager; president 2013--2021\\
+Stephen Engelberg & Editor-in-chief; FY2024 co-CEO\\
+Robin Sparkman & President; FY2024 co-CEO and treasurer\\
+Charles Ornstein & Managing Editor, Local\\
+Ginger Thompson & Managing Editor\\
+Tracy Weber & Managing Editor\\
+Tyson Evans & Chief Product and Brand Officer\\
+Ragan Rhyne & Chief Development Officer\\
+Paul Sagan & Board chair since 2017\\
+\bottomrule
+\end{tabularx}
+\fi
+\caption{Leadership spine. Sources: \citet{pp2025,ppleadership,pp990}.}
+\end{table}
+
+The current About page describes ``more than 150 dedicated journalists''; the 2025 annual report describes ``more than 180 editorial staffers''~\citep{ppabout,pp2025}. The categories differ, so the figures are not necessarily contradictory. The annual report's staff list shows reporting, editing, research, engagement, visuals, audio, video, data, news applications, product, security, legal, development, and regional desks.
+
+On the FY2024 Form 990, Stephen Engelberg received \$459,331 reportable compensation plus \$58,851 other compensation; Robin Sparkman \$440,773 plus \$58,872; Ragan Rhyne \$352,336 plus \$19,754; and Charles Ornstein \$312,496 plus \$57,044~\citep{pp990}. Board members are separately disclosed on Part VII.
+
+\section{Money}
+
+\begin{table*}[t]
+\ifdefined\cardindex
+\scriptsize\centering\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}lrrr@{}}
+\toprule
+\textbf{FY} & \textbf{Revenue} & \textbf{Expenses} & \textbf{Net assets}\\
+\midrule
+2024 & \$64.27M & \$45.74M & \$98.06M\\
+2023 & 57.97M & 44.08M & 75.43M\\
+2022 & 44.53M & 40.32M & 57.71M\\
+2021 & 36.01M & 34.15M & 59.93M\\
+2020 & 37.51M & 30.21M & 57.78M\\
+2019 & 39.25M & 28.63M & 50.50M\\
+2018 & 26.69M & 24.10M & 39.89M\\
+2017 & 43.57M & 18.29M & 37.32M\\
+2016 & 14.55M & 13.77M & 12.05M\\
+2011 & 10.14M & 9.65M & 3.34M\\
+\bottomrule
+\end{tabular}
+\else
+\footnotesize\centering\setlength{\tabcolsep}{4pt}
+\begin{tabularx}{\textwidth}{lrrrrrr}
+\toprule
+\textbf{FY} & \textbf{Revenue} & \textbf{Contributions} & \textbf{Expenses} & \textbf{Assets} & \textbf{Liabilities} & \textbf{Net assets}\\
+\midrule
+2024 & \$64.27M & \$61.19M & \$45.74M & \$108.06M & \$10.00M & \$98.06M\\
+2023 & 57.97M & 55.86M & 44.08M & 85.51M & 10.08M & 75.43M\\
+2022 & 44.53M & 43.28M & 40.32M & 63.36M & 5.64M & 57.71M\\
+2021 & 36.01M & 35.41M & 34.15M & 60.78M & 0.86M & 59.93M\\
+2020 & 37.51M & 36.82M & 30.21M & 58.67M & 0.88M & 57.78M\\
+2019 & 39.25M & 37.37M & 28.63M & 51.25M & 0.75M & 50.50M\\
+2018 & 26.69M & 25.58M & 24.10M & 40.99M & 1.09M & 39.89M\\
+2017 & 43.57M & 43.06M & 18.29M & 38.07M & 0.75M & 37.32M\\
+2016 & 14.55M & 13.77M & 13.77M & 12.43M & 0.38M & 12.05M\\
+2011 & 10.14M & 10.12M & 9.65M & 3.59M & 0.25M & 3.34M\\
+\bottomrule
+\end{tabularx}
+\fi
+\caption{Selected Form 990 years, exact USD values rounded here. Full 2011--2024 series: \texttt{data/financials.csv}. Source: IRS filings via \citet{pp990}.}
+\end{table*}
+
+FY2024 revenue was \textbf{\$64.27 million}; expenses were \textbf{\$45.74 million}; net assets were \textbf{\$98.06 million}. Contributions supplied \$61.19 million, or \textbf{95.2\%} of revenue. Other salaries and wages were \$27.26 million, 59.6\% of expenses; executive compensation was \$2.33 million~\citep{pp990}.
+
+The 2011--2024 arc is substantial: revenue grew 6.3-fold, expenses 4.7-fold, and net assets from \$3.34 million to \$98.06 million. FY2017's \$43.57 million revenue is an early contribution spike; the 2020--2024 sequence shows sustained scale rather than a single exceptional year.
+
+The 2025 annual report supplies a later but \textbf{preliminary, unaudited} view: \$70.47 million revenue, \$51.35 million expenses, and \$70.9 million in board-designated reserves. It reports more than 80,000 donors. Revenue included \$21.71 million from foundations, \$19.51 million from individuals giving at least \$10,000, \$16.52 million from smaller individual gifts, and \$8.32 million from board contributions and related grants~\citep{pp2025}. These figures are separated from the IRS table in the companion CSV.
+
+\section{Funding and independence}
+
+Current listed supporters include the Sandler, Abrams, Arnold Ventures, Carnegie, Crankstart, Emerson Collective, Heising-Simons, Hewlett, Knight, MacArthur, Robert Wood Johnson, and Goldhirsh organizations, among many individuals and family funds~\citep{ppsupporters,pp2025}. The list names supporters but generally does not state current award amounts.
+
+The governance question is structural: a newsroom investigating concentrated power is funded by wealthy individuals and foundations. ProPublica's public response is a separation regime. Its ethics code says analysis must represent independent judgment and requires disclosure when a story subject is also a donor~\citep{ppethics}. Board affiliations and leading supporters are public, while the IRS Schedule B donor list is not public.
+
+One tested case occurred in 2022--2023. ProPublica had accepted the first \$1.6 million installment of a planned \$5 million grant from the Bankman-Fried family foundation. After fraud allegations involving Sam Bankman-Fried, it ended the relationship and reached an agreement to return the funds~\citep{ppsbf}.
+
+\section{Reach and recognition}
+
+The 2025 audience report gives scale: 4.3 million average monthly on-platform visitors, 13.9 million monthly views across owned and third-party platforms, 664,000 newsletter subscribers, 3.2 million social followers, 35.4 million video views, and 3,236 republications. These are self-reported measures; the reproducible table is \texttt{data/audience.csv}~\citep{pp2025}.
+
+The current awards archive counts \textbf{nine Pulitzer Prizes}, including three Public Service gold medals~\citep{ppawards,pulitzer2025}. The sequence begins with the 2010 Investigative Reporting prize for \emph{The Deadly Choices at Memorial}---making ProPublica the first online news organization to win a Pulitzer---and runs through the 2026 Local Reporting prize shared with The Connecticut Mirror for \emph{On the Hook}. The full nine-row record is in \texttt{data/pulitzers.csv}.
+
+Awards and audience are not the same as impact. ProPublica defines impact as changes in behavior, policy, or law and publishes attributed examples. The 2025 report, for example, connects partner investigations to legislative review, agency action, reopened cases, and changed institutional practice~\citep{pp2025}. Those connections establish sequence and cited response; they do not by themselves isolate causation.
+
+\section{Accountability and disputed work}
+
+\subsection{Corrections and policies}
+
+ProPublica maintains a public corrections index and an ethics code requiring substantive errors to be corrected promptly. The code addresses anonymous sources, document provenance, conflicts, investments, political activity, donor disclosure, and responses to fairness or accuracy challenges~\citep{ppcorrections,ppethics}. Its current AI policy requires human responsibility, independent verification, disclosure of meaningful AI use, no misleading synthetic media, and protection of confidential material~\citep{ppai}.
+
+\subsection{COMPAS / Machine Bias}
+
+The 2016 \emph{Machine Bias} investigation used Broward County data to test Northpointe's COMPAS recidivism scores and reported racially disparate error rates~\citep{ppmachinebias}. Northpointe disputed the fairness framing and methodology. ProPublica published a technical response, reran analyses, stood by the central findings, and acknowledged four records with overlapping time intervals whose exclusion did not change the result~\citep{ppcompasresponse}. Later scholarship continued to debate calibration, error-rate parity, age specification, and the incompatibility of some fairness criteria~\citep{rudin2019}. The episode is both a landmark of algorithmic accountability and a durable methodological dispute.
+
+\subsection{The Secret IRS Files}
+
+In 2021 ProPublica published private tax information about wealthy Americans from a large anonymous dataset, arguing that individual examples were necessary to show how the tax system operates~\citep{ppirs}. In January 2024 the Justice Department sentenced former IRS contractor Charles Littlejohn to five years for unauthorized disclosures to news organizations. DOJ did not name those organizations in its announcement; the Associated Press connected the case record to \emph{The New York Times} and ProPublica. ProPublica had said its reporters did not know the source's identity~\citep{dojlittlejohn,aplittlejohn}. The record therefore contains both the public-interest reporting claim and the severe legal consequence borne by the source.
+
+\section{Reading list}
+
+\begin{itemize}
+\item \textbf{Form 990 series}~\citep{pp990}: legal, financial, compensation, and governance spine.
+\item \textbf{2025 Annual Report}~\citep{pp2025}: newsroom map, partners, audience, preliminary money, staff, board, supporters, and attributed impact.
+\item \textbf{Launch announcement and Sandler remembrance}~\citep{pplaunch,ppsandler}: founding compact and donor diversification.
+\item \textbf{Ethics, corrections, AI, and republication policies}~\citep{ppethics,ppcorrections,ppai,pprepublish}: public operating rules.
+\item \textbf{News Apps and local initiatives}~\citep{ppnewsapps,pplocal}: computational and geographic infrastructure.
+\item \textbf{COMPAS record}~\citep{ppmachinebias,ppcompasresponse,rudin2019}: claim, rebuttal, correction, and continuing scholarly dispute.
+\end{itemize}
+
+\section{What this dossier is not}
+
+\begin{itemize}
+\item \textbf{Not an ideological rating.} The record states ProPublica's mission, funding, work, and policies without assigning a left--right score.
+\item \textbf{Not an impact audit.} Institutional responses are attributed; causal force is not independently measured here.
+\item \textbf{Not a donor-completeness claim.} The public supporter list is selective and IRS Schedule B is nonpublic.
+\item \textbf{Not a newsroom-quality verdict.} Awards, corrections, disputes, and policies are surfaced together.
+\item \textbf{Not a source-risk endorsement.} The Secret IRS Files section records the newsroom's rationale and the source's prosecution without collapsing one into the other.
+\end{itemize}
+
+\vspace{0.4em}
+\noindent\textbf{ORCID:} \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}
+
+\bibliographystyle{plainnat}
+{\footnotesize\bibliography{references}}
+\end{document}

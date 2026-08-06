@@ -1,0 +1,200 @@
+{
+  "schema": "thomas-lawson-revision-evidence/v1",
+  "capturedAt": "2026-07-28T05:28:44.666Z",
+  "pages": [
+    {
+      "slug": "about",
+      "url": "https://www.thomaslawson.com/about/",
+      "viewportName": "desktop",
+      "file": "desktop-about.jpg",
+      "page": {
+        "width": 1440,
+        "height": 5921
+      },
+      "horizontalOverflow": false,
+      "contextLabels": []
+    },
+    {
+      "slug": "news",
+      "url": "https://www.thomaslawson.com/notes/",
+      "viewportName": "desktop",
+      "file": "desktop-news.jpg",
+      "page": {
+        "width": 1440,
+        "height": 4790
+      },
+      "horizontalOverflow": false,
+      "contextLabels": []
+    },
+    {
+      "slug": "studio",
+      "url": "https://www.thomaslawson.com/in-the-studio/",
+      "viewportName": "desktop",
+      "file": "desktop-studio.jpg",
+      "page": {
+        "width": 1440,
+        "height": 5838
+      },
+      "horizontalOverflow": false,
+      "contextLabels": []
+    },
+    {
+      "slug": "beyond",
+      "url": "https://www.thomaslawson.com/beyond-the-studio/",
+      "viewportName": "desktop",
+      "file": "desktop-beyond.jpg",
+      "page": {
+        "width": 1440,
+        "height": 2688
+      },
+      "horizontalOverflow": false,
+      "contextLabels": []
+    },
+    {
+      "slug": "writing",
+      "url": "https://www.thomaslawson.com/bookshelf/",
+      "viewportName": "desktop",
+      "file": "desktop-writing.jpg",
+      "page": {
+        "width": 1440,
+        "height": 3423
+      },
+      "horizontalOverflow": false,
+      "contextLabels": []
+    },
+    {
+      "slug": "broader",
+      "url": "https://www.thomaslawson.com/art-in-a-broader-context/",
+      "viewportName": "desktop",
+      "file": "desktop-broader.jpg",
+      "page": {
+        "width": 1440,
+        "height": 3728
+      },
+      "horizontalOverflow": false,
+      "contextLabels": [
+        "Art SchoolCalArts, Valencia, California · 1982-present",
+        "1982-present",
+        "DissentLACE, Los Angeles · 2016",
+        "2016",
+        "The Experimental ImpulseREDCAT, Los Angeles · 2011",
+        "2011",
+        "Hot CoffeeArtists Space, New York · 1997",
+        "1997",
+        "ShimmerMunicipal Art Gallery at Barnsdall Park, Los Angeles · 1997",
+        "1997",
+        "The British Art ShowManchester · Edinburgh · Cardiff · 1994",
+        "1994",
+        "Nostalgia as ResistanceP.S.1 and The Clocktower, New York · 1988",
+        "1988",
+        "Livin' in the USADamon Brandt Gallery, New York · 1984",
+        "1984",
+        "Critical PerspectivesP.S.1, New York · 1982",
+        "1982",
+        "REALLIFE | Whitecolumns1982",
+        "1982",
+        "REALLIFE Magazine Presents​1981",
+        "1981",
+        "Pat DouthwaiteSt Andrews Festival, St Andrews · 1973",
+        "1973"
+      ]
+    },
+    {
+      "slug": "about",
+      "url": "https://www.thomaslawson.com/about/",
+      "viewportName": "mobile",
+      "file": "mobile-about.jpg",
+      "page": {
+        "width": 390,
+        "height": 10623
+      },
+      "horizontalOverflow": false,
+      "contextLabels": []
+    },
+    {
+      "slug": "news",
+      "url": "https://www.thomaslawson.com/notes/",
+      "viewportName": "mobile",
+      "file": "mobile-news.jpg",
+      "page": {
+        "width": 390,
+        "height": 2901
+      },
+      "horizontalOverflow": false,
+      "contextLabels": []
+    },
+    {
+      "slug": "studio",
+      "url": "https://www.thomaslawson.com/in-the-studio/",
+      "viewportName": "mobile",
+      "file": "mobile-studio.jpg",
+      "page": {
+        "width": 390,
+        "height": 6181
+      },
+      "horizontalOverflow": false,
+      "contextLabels": []
+    },
+    {
+      "slug": "beyond",
+      "url": "https://www.thomaslawson.com/beyond-the-studio/",
+      "viewportName": "mobile",
+      "file": "mobile-beyond.jpg",
+      "page": {
+        "width": 390,
+        "height": 3432
+      },
+      "horizontalOverflow": false,
+      "contextLabels": []
+    },
+    {
+      "slug": "writing",
+      "url": "https://www.thomaslawson.com/bookshelf/",
+      "viewportName": "mobile",
+      "file": "mobile-writing.jpg",
+      "page": {
+        "width": 390,
+        "height": 3179
+      },
+      "horizontalOverflow": false,
+      "contextLabels": []
+    },
+    {
+      "slug": "broader",
+      "url": "https://www.thomaslawson.com/art-in-a-broader-context/",
+      "viewportName": "mobile",
+      "file": "mobile-broader.jpg",
+      "page": {
+        "width": 390,
+        "height": 5071
+      },
+      "horizontalOverflow": false,
+      "contextLabels": [
+        "Art SchoolCalArts, Valencia, California · 1982-present",
+        "1982-present",
+        "DissentLACE, Los Angeles · 2016",
+        "2016",
+        "The Experimental ImpulseREDCAT, Los Angeles · 2011",
+        "2011",
+        "Hot CoffeeArtists Space, New York · 1997",
+        "1997",
+        "ShimmerMunicipal Art Gallery at Barnsdall Park, Los Angeles · 1997",
+        "1997",
+        "The British Art ShowManchester · Edinburgh · Cardiff · 1994",
+        "1994",
+        "Nostalgia as ResistanceP.S.1 and The Clocktower, New York · 1988",
+        "1988",
+        "Livin' in the USADamon Brandt Gallery, New York · 1984",
+        "1984",
+        "Critical PerspectivesP.S.1, New York · 1982",
+        "1982",
+        "REALLIFE | Whitecolumns1982",
+        "1982",
+        "REALLIFE Magazine Presents​1981",
+        "1981",
+        "Pat DouthwaiteSt Andrews Festival, St Andrews · 1973",
+        "1973"
+      ]
+    }
+  ]
+}

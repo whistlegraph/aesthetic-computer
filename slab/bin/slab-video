@@ -1,23 +1,30 @@
 #!/usr/bin/env bash
-# slab-video <file.mp4> [more.mov …] — open videos in slab's minimal player.
-# Appends absolute paths to $SLAB_HOME/state/open-video; the menubar's 2 s
-# tick consumes the file and raises a chromeless AVKit panel per movie
-# (plays immediately; Esc closes, space toggles, one "QuickTime" button
-# escapes to QuickTime Player). Re-asking for an open file brings its
-# window forward and restarts playback. The panel watches the file and
-# reloads on rewrite, so render loops feel live. See
+# slab-video [--playlist] <file.mp4> [more.mov …] — open videos in slab's
+# minimal player. Without --playlist, appends absolute paths to
+# $SLAB_HOME/state/open-video and raises one chromeless AVKit panel per movie.
+# With --playlist, writes one atomic ordered queue request and raises one panel
+# that advances through every movie (left/right changes tracks). Re-asking for
+# an open source brings its window forward and restarts playback. Single-video
+# panels watch the file and reload on rewrite. See
 # slab/menubar-swift/Sources/SlabMenubar/VideoViewer.swift.
 set -euo pipefail
 
 SLAB_HOME="${SLAB_HOME:-$HOME/.local/share/slab}"
 REQUEST="$SLAB_HOME/state/open-video"
+PLAYLIST_REQUESTS="$SLAB_HOME/state/open-video-playlists"
+
+playlist=false
+if [ "${1:-}" = "--playlist" ]; then
+    playlist=true
+    shift
+fi
 
 if [ $# -eq 0 ]; then
-    echo "usage: slab-video <file.mp4> [more.mov …]" >&2
+    echo "usage: slab-video [--playlist] <file.mp4> [more.mov …]" >&2
     exit 1
 fi
 
-mkdir -p "$SLAB_HOME/state"
+mkdir -p "$SLAB_HOME/state" "$PLAYLIST_REQUESTS"
 
 # Which Claude session asked? Walk up the process tree to the claude pid
 # (same loop as claude-prompt-log.sh) and match it against the live
@@ -47,6 +54,22 @@ for f in "$@"; do
         echo "slab-video: no such file: $f" >&2
         exit 1
     fi
+done
+
+if [ "$playlist" = true ]; then
+    request_tmp=$(mktemp "$PLAYLIST_REQUESTS/.playlist.XXXXXX")
+    trap 'rm -f "$request_tmp"' EXIT
+    for f in "$@"; do
+        abs="$(cd "$(dirname "$f")" && pwd)/$(basename "$f")"
+        printf '%s\t%s\n' "$abs" "$session_id" >> "$request_tmp"
+    done
+    request_final="$PLAYLIST_REQUESTS/$(date +%s)-$$.playlist"
+    mv "$request_tmp" "$request_final"
+    trap - EXIT
+    exit 0
+fi
+
+for f in "$@"; do
     # realpath isn't guaranteed on stock macOS bash paths — resolve by hand.
     abs="$(cd "$(dirname "$f")" && pwd)/$(basename "$f")"
     printf '%s\t%s\n' "$abs" "$session_id" >> "$REQUEST"

@@ -12,6 +12,15 @@ const thumbs = path.join(here, "thumbs");
 const archiveName = "Social Software — Cycle 2 — Scores for Social Software-1-001.zip";
 const archivePath = path.join(downloads, archiveName);
 const temp = fs.mkdtempSync(path.join(os.tmpdir(), "sosoft-index-"));
+const preservedEventSources = path.resolve(here, "..", "out", "event-originals");
+const preserveEventFiles = new Set([
+  "PXL_20260613_181248080.jpg",
+  "PXL_20260613_194004087.jpg",
+  "PXL_20260613_201009709.jpg",
+  "PXL_20260613_202338629.jpg",
+  "PXL_20260613_202347418.jpg",
+  "PXL_20260613_202953418.jpg",
+]);
 fs.mkdirSync(thumbs, { recursive: true });
 
 const run = (cmd, args) => execFileSync(cmd, args, { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
@@ -62,6 +71,11 @@ function walk(dir) {
 }
 walk(temp);
 zipImages.sort((a, b) => path.basename(a).localeCompare(path.basename(b), undefined, { numeric: true }));
+fs.mkdirSync(preservedEventSources, { recursive: true });
+for (const source of zipImages) {
+  if (!preserveEventFiles.has(path.basename(source))) continue;
+  fs.copyFileSync(source, path.join(preservedEventSources, path.basename(source)));
+}
 
 const items = [];
 let sequence = 1;
@@ -136,5 +150,6 @@ const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta n
 <header><h1>${esc(manifest.title)}</h1><div class="summary">${manifest.counts.total} assets: ${manifest.counts.images} images, ${manifest.counts.videos} videos · ${sourceCounts["today-loose-shoot"]} loose shoot · ${sourceCounts["fuser-presentation-zip"]} presentation archive · ${manifest.counts.exactDuplicates} exact duplicates</div><div class="tools"><input id="q" type="search" placeholder="Search ID, filename, date"><select id="group"><option value="">All sources</option><option value="today-loose-shoot">Today / loose shoot</option><option value="fuser-presentation-zip">Fuser presentation ZIP</option></select><a href="manifest.json">JSON</a><a href="manifest.csv">CSV</a></div></header><main>${cards}</main>
 <script>const q=document.querySelector('#q'),g=document.querySelector('#group'),cards=[...document.querySelectorAll('.card')];function filter(){const s=q.value.toLowerCase();for(const c of cards)c.classList.toggle('hidden',!!((s&&!c.dataset.search.includes(s))||(g.value&&c.dataset.group!==g.value)))}q.oninput=g.onchange=filter;</script></body></html>`;
 fs.writeFileSync(path.join(here, "index.html"), html);
+// Remove the temporary extraction only after preserving the selected masters.
 fs.rmSync(temp, { recursive: true, force: true });
 console.log(JSON.stringify(manifest.counts));

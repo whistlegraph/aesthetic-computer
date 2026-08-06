@@ -1,0 +1,32 @@
+{
+  "name": "flutterbappavox",
+  "title": "Flutterbappavox",
+  "artist": "Aesthetic Dot Computer",
+  "derivesFrom": "flutterbap",
+  "bedRenderer": "node bin/render-flutterbap.mjs --no-open",
+  "bed": "out/flutterbap.mp3",
+  "lyrics": "flutterbappavox.lyrics.txt",
+  "renderer": "node bin/render-flutterbappavox.mjs",
+  "output": "out/flutterbappavox.mp3",
+  "events": "out/flutterbappavox.events.json",
+  "status": "full-song-vocal-rendered",
+  "voice": "jeffrey",
+  "intro": "eight drum-led bars; left percussion fades first, then right, before the full stereo melody returns",
+  "vocalPipeline": [
+    "Jeffrey PVC with ElevenLabs character timestamps",
+    "Flutterbap lead-event melody score",
+    "WORLD f0 replacement at natural speech timing",
+    "per-word formant-preserving score stretch"
+  ],
+  "vocalCoverageSec": [0, 99.194],
+  "sungWordCount": 192,
+  "qc": {
+    "durationSec": 99.194,
+    "integratedLufs": -13.4,
+    "loudnessRangeLu": 8.4,
+    "truePeakDbtp": -1.1,
+    "sampleRate": 48000,
+    "masterBitDepth": 24
+  },
+  "note": "Jeffrey sings continuously on Flutterbap's exact lead pitch classes and note-change boundaries, one octave down; the instrumental ducks deeply under the louder dry lead."
+}

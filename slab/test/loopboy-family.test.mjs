@@ -3,14 +3,14 @@ import test from "node:test";
 import { IRIS_ADDRESS, aggregateMachineHeartbeat, boundedNudge,
   makeIrisContact, parseAgentAddress, resolveFleetMachine } from "../lib/loopboy-family.mjs";
 
-test("Iris is an agent contact with the locked Joeydon recovery guardrails", () => {
+test("Iris is an agent contact focused on verified Fuser tutorial recordings", () => {
   const iris = makeIrisContact();
   assert.equal(iris.address, IRIS_ADDRESS);
   assert.deepEqual(parseAgentAddress(iris.address), { kind: "agent", name: "iris", machine: "panda" });
-  assert.equal(iris.responsibility.executionHost, "chicken");
-  assert.equal(iris.responsibility.preserveOriginal, true);
-  assert.match(iris.responsibility.verification, /chunked-resource/);
-  assert.match(iris.responsibility.guardrail, /must not outrank/);
+  assert.equal(iris.responsibility.executionHost, "panda");
+  assert.equal(iris.responsibility.focus, "recording tutorial videos");
+  assert.match(iris.responsibility.verification, /inspected at delivery size/);
+  assert.match(iris.responsibility.guardrail, /stay closed/);
 });
 
 test("agent nudges are bounded and cannot be confused with iMessage routes", () => {

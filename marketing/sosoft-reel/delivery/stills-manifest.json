@@ -1,0 +1,25 @@
+{
+  "generatedAt": "2026-07-30T19:33:41.361Z",
+  "files": [
+    {
+      "file": "scores-for-social-software-stills-master-vertical.mp4",
+      "bytes": 208744061,
+      "sha256": "181faf9e0776a0609bf9ac7f7abd66069eb82a649274bbc7b48d3a0e5e7978d0"
+    },
+    {
+      "file": "scores-for-social-software-stills-review-vertical.mp4",
+      "bytes": 61062695,
+      "sha256": "2a726579a2d5206f8f0a3c7b8db49d25ecb7b276a207e2ec41c4632315a84cd3"
+    },
+    {
+      "file": "scores-for-social-software-stills-poster.jpg",
+      "bytes": 178670,
+      "sha256": "23234a4b00cdd2cac5cad08e2b4edefd6a2a169e19c62648e5c0f56d6260dbba"
+    },
+    {
+      "file": "scores-for-social-software-stills-captions.srt",
+      "bytes": 4526,
+      "sha256": "ecf39643e94169e461162cdc55cb6d580b821769a1bf0882f4f20ce3c5d50787"
+    }
+  ]
+}

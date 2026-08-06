@@ -172,7 +172,11 @@ private final class PromptParticleEffect {
 
     func close() {
         view.isEmitting = false
-        panel.orderOut(nil)
+        // `orderOut` only hides the surface. A normal-level borderless panel
+        // can remain registered with Window Server after its terminal dies,
+        // where macOS window tiling exposes it as a blank full-screen ghost.
+        // Closing retires the surface before the final strong reference goes.
+        panel.close()
     }
 }
 
@@ -215,9 +219,22 @@ final class PromptFocusHighlight {
         precondition(Thread.isMainThread)
         guard running else { return }
 
+        // tty bindings intentionally decay slowly across transient AppleScript
+        // failures, but a closed terminal must retire its particle surface on
+        // the next animation tick. Window Server is authoritative for that
+        // lifecycle: never keep or create an effect for a stale binding.
+        let visibleTerminalIDs = onScreenTerminalWindowIDs()
         let targets = PromptSigilOverlayController.shared.promptParticleTargets
+            .filter { visibleTerminalIDs.contains($0.windowID) }
         let liveIDs = Set(targets.map(\.windowID))
         let focusedID = focusedWindowID()
+
+        // Reap first so a dead full-desktop surface cannot be raised above a
+        // surviving terminal during this refresh.
+        let staleIDs = effects.keys.filter { !liveIDs.contains($0) }
+        for id in staleIDs {
+            effects.removeValue(forKey: id)?.close()
+        }
 
         for target in targets {
             let effect = effects[target.windowID] ?? makeEffect(for: target.windowID)
@@ -250,11 +267,6 @@ final class PromptFocusHighlight {
             effect.panel.orderFrontRegardless()
         }
 
-        let staleIDs = effects.keys.filter { !liveIDs.contains($0) }
-        for id in staleIDs {
-            effects.removeValue(forKey: id)?.close()
-        }
-
     }
 
     private func makeEffect(for windowID: Int) -> PromptParticleEffect {
@@ -273,7 +285,9 @@ final class PromptFocusHighlight {
             Int(CGWindowLevelForKey(.desktopWindow)) + 1)
         panel.ignoresMouseEvents = true
         panel.hidesOnDeactivate = false
-        panel.collectionBehavior = [.canJoinAllSpaces, .stationary,
+        // `.transient` keeps this visual-only canvas out of Mission Control
+        // and macOS window-tiling candidates. It is never a user window.
+        panel.collectionBehavior = [.canJoinAllSpaces, .stationary, .transient,
                                     .ignoresCycle, .fullScreenAuxiliary]
         let view = PromptParticleView()
         panel.contentView = view

@@ -256,6 +256,12 @@ const PAPER_MAP = {
     title: "A Record in the Mail",
     format: "essay",
   },
+  "essay-keymap-score": {
+    base: "keymap-score",
+    siteName: "the-keymap-is-the-score-essay",
+    title: "The Keymap Is the Score",
+    format: "essay",
+  },
   "deck-media-estate": {
     base: "media-estate",
     siteName: "media-estate-26-deck",
@@ -420,6 +426,11 @@ const PAPER_MAP = {
     siteName: "creative-capital-dossier-26-arxiv",
     title: "Creative Capital — A Dossier",
   },
+  "arxiv-propublica": {
+    base: "propublica",
+    siteName: "propublica-dossier-26-arxiv",
+    title: "ProPublica — A Dossier",
+  },
 };
 
 // Dossier swimlane — rendered in their own "dossiers;" section on the
@@ -441,6 +452,7 @@ const DOSSIER_DIRS = [
   "arxiv-heavy-manners-library",
   "arxiv-creative-time",
   "arxiv-creative-capital",
+  "arxiv-propublica",
   "arxiv-microvision",
   "arxiv-calarts-news",
 ];
@@ -505,6 +517,7 @@ const CATEGORIES = [
       "essay-granularity",
       "essay-console-browser",
       "essay-physical-mail",
+      "essay-keymap-score",
     ],
   },
   {
@@ -1065,6 +1078,11 @@ function updateIndex(entries) {
       abstract:
         "A podcast asks to become an object. This essay maps two routes from an Aesthetic Computer episode to the mailbox: Kunaki's product-and-order API for one-off vinyl, and Tape On Demand's more human cassette workflow. It argues for a shared physical-release manifest, a deliberate payment gate, and a side B that can turn physical media into correspondence.",
     },
+    "the-keymap-is-the-score-essay": {
+      detail: "A plain-spoken companion to Keymaps as Social Software &middot; essay",
+      abstract:
+        "A keymap is more than a hidden preference table: it is an agreement that travels between people, programs, and machines. This essay names the inherited AWSED piano layout, introduces notepat's notes-that-name-themselves alternative, and follows that argument into the hand-assembled Scores for Social Software edition at UCLA.",
+    },
     "the-record-is-a-better-interface-essay": {
       detail: "An essay on expressive playback &middot; podcast",
       abstract:
@@ -1336,6 +1354,11 @@ function updateIndex(entries) {
       detail: "501(c)(3) artist-grant funder &middot; 990 + grantee record &middot; arXiv",
       abstract:
         "What is publicly recoverable about Creative Capital, the New York nonprofit (1999–) that regrants to individual artists: structure, the award, people, and money from the IRS 990 series and the public grantee record. Scaffold revision — figures pending; fact-surfacing, not argument.",
+    },
+    "propublica-dossier-26-arxiv": {
+      detail: "501(c)(3) investigative newsroom &middot; IRS 990 + accountability record &middot; arXiv",
+      abstract:
+        "What is publicly recoverable about ProPublica: origin, nonprofit structure, newsroom and partner network, data tools, people, money, reach, awards, corrections, and disputed work. Fact-surfacing, not argument.",
     },
   };
 

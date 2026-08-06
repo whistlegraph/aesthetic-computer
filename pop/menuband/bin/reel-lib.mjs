@@ -138,7 +138,7 @@ export function drawIcon(ctx, x, y, px, litKeys) {
 }
 
 // ── note-particle system (vector eighth-notes), lifted from sim.mjs ────────
-export function makeParticles(ctx) {
+export function makeParticles(ctx, { fade = true, ttl = 2.2 } = {}) {
   const particles = [];
   function drawEighthNote(ox, oy, fill) {
     ctx.save(); ctx.translate(ox, oy); ctx.fillStyle = fill;
@@ -150,12 +150,13 @@ export function makeParticles(ctx) {
     ctx.restore();
   }
   return {
+    clear() { particles.length = 0; },
     spawnNote(cx, cy, color, down = false) {
       particles.push({
         x: cx + (Math.sin(particles.length * 1.7) * 6), y: cy,
         vx: (Math.sin(particles.length * 2.3)) * 60,
         vy: down ? 40 + (particles.length % 5) * 12 : -260 - (particles.length % 5) * 18,
-        life: 0, ttl: 2.2, color, rot: (particles.length % 7 - 3) * 0.12,
+        life: 0, ttl, color, rot: (particles.length % 7 - 3) * 0.12,
       });
     },
     stepAndDraw(dt) {
@@ -163,9 +164,11 @@ export function makeParticles(ctx) {
         p.life += dt;
         p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 320 * dt;
       }
-      for (let i = particles.length - 1; i >= 0; i--) if (particles[i].life > particles[i].ttl) particles.splice(i, 1);
+      for (let i = particles.length - 1; i >= 0; i--) {
+        if ((fade && particles[i].life > particles[i].ttl) || (!fade && particles[i].y > H + 90)) particles.splice(i, 1);
+      }
       for (const p of particles) {
-        const a = Math.max(0, 1 - p.life / p.ttl);
+        const a = fade ? Math.max(0, 1 - p.life / p.ttl) : 1;
         ctx.save();
         ctx.globalAlpha = a; ctx.translate(p.x, p.y); ctx.rotate(p.rot);
         drawEighthNote(2.5, 3, "rgba(0,0,0,0.5)");
@@ -196,8 +199,8 @@ export function foldToStrip(midi) {
   return base;
 }
 
-export async function loadStripRig() {
-  const dir = `${OUT}/menubar-frames`;
+export async function loadStripRig(directory = "menubar-frames") {
+  const dir = `${OUT}/${directory}`;
   const idlePath = `${dir}/mb-idle.png`;
   if (!existsSync(idlePath)) throw new Error(`missing ${idlePath} — run sim.mjs once with the MenuBand binary available`);
   const idle = await loadImage(idlePath);
@@ -297,6 +300,13 @@ export function drawStrip(ctx, rig, midis, x, y, w, alpha = 1) {
 export function stripKeyX(rig, midi, rect) {
   const k = rig.keys.get(foldToStrip(midi));
   return rect.x + rect.w * (k ? k.cx : 0.5);
+}
+export function stripKeyRect(rig, midi, rect) {
+  const k = rig.keys.get(foldToStrip(midi));
+  if (!k) return { x: rect.x + rect.w * 0.48, w: rect.w * 0.04 };
+  const x0 = rect.x + rect.w * (k.x0 / rig.idle.width);
+  const x1 = rect.x + rect.w * (k.x1 / rig.idle.width);
+  return { x: x0, w: x1 - x0 };
 }
 export function stripKeyColor(rig, midi) {
   return rig.keys.get(foldToStrip(midi))?.color ?? INK_RGB;
@@ -439,13 +449,13 @@ export function makeOnsets(lead) {
 }
 
 // ── the frame pump: drawFrame(t) → ffmpeg, muxed with the jingle ───────────
-export async function renderVideo({ canvas, audioPath, outPath, total, drawFrame, label = "sim" }) {
-  const FRAMES = Math.round(total * FPS);
-  console.log(`▸ ${label} · ${FRAMES} frames · ${total.toFixed(1)}s · ${W}x${H}@${FPS}`);
-  const enc = spawnFFmpegEncode({ audioPath, w: W, h: H, fps: FPS, outPath, crf: 18 });
+export async function renderVideo({ canvas, audioPath, outPath, total, drawFrame, label = "sim", fps = FPS }) {
+  const FRAMES = Math.round(total * fps);
+  console.log(`▸ ${label} · ${FRAMES} frames · ${total.toFixed(1)}s · ${W}x${H}@${fps}`);
+  const enc = spawnFFmpegEncode({ audioPath, w: W, h: H, fps, outPath, crf: 18 });
   const t0 = Date.now();
   for (let fi = 0; fi < FRAMES; fi++) {
-    drawFrame(fi / FPS);
+    drawFrame(fi / fps);
     if (!enc.stdin.write(canvas.toBuffer("raw"))) await once(enc.stdin, "drain");
     if (fi % 150 === 0) console.log(`  ${fi}/${FRAMES} · ${((Date.now() - t0) / 1000).toFixed(0)}s`);
   }

@@ -23,6 +23,14 @@ Locked master package for the release-length spatial-sine work.
 - `special-sign-3d-spatial-graph.mp4` — synchronized first-person 3D graph of
   the twelve physical bodies, listener path, emitted waves, and mastered
   stereo receiver plane.
+- [`special-sign-3d-spatial-overview.mp4`](https://assets.aesthetic.computer/pop/nullabye/special-sign/special-sign-3d-spatial-overview.mp4)
+  — synchronized external presentation view. Upcoming events rise from below
+  each voice, cross its spectral body at onset, and exit above while smooth
+  viewpoints separate the spatial field.
+- [`special-sign-3d-score-cylinder-tour-hd.mp4`](https://assets.aesthetic.computer/pop/nullabye/special-sign/special-sign-3d-score-cylinder-tour-hd.mp4)
+  — sharp 1440-square pastel score with uncapped note lanes and side,
+  three-quarter, high, near-axis, opposite-side, and rolled-return views joined
+  into one continuous tour.
 - `special-sign-circular-score.mp4` — the radial cover rotating beneath a
   fixed receiver needle, with the final motion-dependent wet field.
 - `special-sign.automation.json` — sample-timeline receipt for the final
@@ -63,6 +71,8 @@ cancels in mono before the final linear loudness trim.
 - MP3: 48 kHz stereo, 320 kbps, cover and release tags embedded
 - Graphic-score MP4: 2160×2160 H.264 + 48 kHz stereo AAC, exactly 1:41.375
 - 3D spatial graph: 720×720 H.264 + 48 kHz stereo AAC, exactly 1:41.375
+- 3D spatial overview: 720×720 H.264 + 48 kHz stereo AAC, exactly 1:41.375
+- HD score-cylinder tour: 1440×1440 H.264 + 48 kHz stereo AAC, exactly 1:41.375
 - Encoded frames inspected at opening, super-spin, and final run-down in both
   visual systems
 

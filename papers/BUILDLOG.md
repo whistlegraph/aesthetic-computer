@@ -60779,3 +60779,18 @@ Failed:
 - Creative Time — A Dossier [cards]
 - Creative Capital — A Dossier [en]
 - Creative Capital — A Dossier [cards]
+
+## 2026-07-28 06:12
+
+Built:
+- Repository Archaeology [ja] → repo-archaeology-26-arxiv-ja.pdf
+- Citation Diversity Audit [ja] → citation-diversity-audit-26-ja.pdf
+- Keymaps as Social Software [cards] → keymaps-social-software-26-arxiv-cards.pdf
+- notepat.com [ja] → notepat-26-arxiv-ja.pdf
+- Whistlegraph [en] → whistlegraph-26-arxiv.pdf
+- Whistlegraph [da] → whistlegraph-26-arxiv-da.pdf
+- Whistlegraph [es] → whistlegraph-26-arxiv-es.pdf
+- Whistlegraph [zh] → whistlegraph-26-arxiv-zh.pdf
+- Whistlegraph [ja] → whistlegraph-26-arxiv-ja.pdf
+- Whistlegraph [cards] → whistlegraph-26-arxiv-cards.pdf
+- Playable Folk Songs [ja] → folk-songs-26-arxiv-ja.pdf

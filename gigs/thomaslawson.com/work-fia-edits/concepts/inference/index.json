@@ -1,0 +1,27 @@
+{
+  "schema": "thomas-lawson-visual-directions/v1",
+  "createdAt": "2026-07-28T03:17:34.415Z",
+  "reports": [
+    {
+      "tier": "tier-1-refine",
+      "model": "gpt-5.6-luna",
+      "file": "tier-1-refine.json",
+      "directionName": "Measured Archive",
+      "claim": "Thomas Lawson's site is an authored archive: one consistent editorial frame lets paintings, public projects, books, and biography carry the visual weight."
+    },
+    {
+      "tier": "tier-2-recompose",
+      "model": "gpt-5.6-terra",
+      "file": "tier-2-recompose.json",
+      "directionName": "Evidence-Led Artist Index",
+      "claim": "Thomas Lawson’s site should function as a calm, image-first index of an artist, writer, editor, and public practitioner: each route leads with one decisive piece of visual evidence, then gives the existing writing and archive material a disciplined reading structure."
+    },
+    {
+      "tier": "tier-3-reframe",
+      "model": "gpt-5.6-sol",
+      "file": "tier-3-reframe.json",
+      "directionName": "Claim and Evidence",
+      "claim": "Present Thomas Lawson as an artist and writer whose work moves between studio practice, public context, publishing, and reflection; every page makes one legible claim and immediately supports it with one dominant piece of existing evidence."
+    }
+  ]
+}

@@ -1,0 +1,4582 @@
+{
+  "schema": "thomas-lawson-live-evidence/v1",
+  "capturedAt": "2026-07-28T05:07:19.435Z",
+  "pages": [
+    {
+      "slug": "about",
+      "url": "https://www.thomaslawson.com/about/",
+      "viewportName": "desktop",
+      "file": "desktop-about.jpg",
+      "title": "About – Thomas Lawson",
+      "bodyClasses": "wp-singular page-template-default page page-id-68 wp-custom-logo wp-embed-responsive wp-theme-astra ast-desktop ast-page-builder-template ast-no-sidebar astra-4.12.4 ast-single-post ast-inherit-site-logo-transparent ast-hfb-header elementor-default elementor-kit-8 elementor-page elementor-page-68 e--ua-blink e--ua-chrome e--ua-mac e--ua-webkit",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "page": {
+        "width": 1440,
+        "height": 6324
+      },
+      "horizontalOverflow": false,
+      "headings": [
+        {
+          "level": 1,
+          "text": "About"
+        },
+        {
+          "level": 1,
+          "text": "1975 - 1980"
+        },
+        {
+          "level": 5,
+          "text": "GOLD DOG"
+        },
+        {
+          "level": 6,
+          "text": "1978"
+        },
+        {
+          "level": 5,
+          "text": "REALLIFE COVER"
+        },
+        {
+          "level": 6,
+          "text": "-"
+        },
+        {
+          "level": 5,
+          "text": "FORMANESQUE DRAWING WALL"
+        },
+        {
+          "level": 6,
+          "text": "1977"
+        },
+        {
+          "level": 1,
+          "text": "1980 – 1990"
+        },
+        {
+          "level": 5,
+          "text": "RED SHOE"
+        },
+        {
+          "level": 6,
+          "text": "1979"
+        },
+        {
+          "level": 5,
+          "text": "LAST EXIT"
+        },
+        {
+          "level": 6,
+          "text": "-"
+        },
+        {
+          "level": 5,
+          "text": "SHOT FOR A BIKE"
+        },
+        {
+          "level": 6,
+          "text": "1981"
+        },
+        {
+          "level": 1,
+          "text": "1990 – 2000"
+        },
+        {
+          "level": 5,
+          "text": "THE BRITISH ART SHOW"
+        },
+        {
+          "level": 6,
+          "text": "-"
+        },
+        {
+          "level": 5,
+          "text": "BROAD STUDIOS"
+        },
+        {
+          "level": 6,
+          "text": "-"
+        },
+        {
+          "level": 5,
+          "text": "LOS ANGELES PAINTING​"
+        },
+        {
+          "level": 6,
+          "text": "1996"
+        },
+        {
+          "level": 1,
+          "text": "2000 – 2010"
+        },
+        {
+          "level": 5,
+          "text": "SUBURBAN INSTALL"
+        },
+        {
+          "level": 6,
+          "text": "-"
+        },
+        {
+          "level": 5,
+          "text": "PATRICK CAUFIELD ESSAY"
+        },
+        {
+          "level": 6,
+          "text": "-"
+        },
+        {
+          "level": 5,
+          "text": "PARTICIPANT INSTALL"
+        },
+        {
+          "level": 6,
+          "text": "-"
+        },
+        {
+          "level": 1,
+          "text": "2010 – 2020"
+        },
+        {
+          "level": 5,
+          "text": "THE JOURNEY WEST"
+        },
+        {
+          "level": 6,
+          "text": "2010"
+        },
+        {
+          "level": 5,
+          "text": "PATTERN OF THOUGHT"
+        },
+        {
+          "level": 6,
+          "text": "2011"
+        },
+        {
+          "level": 5,
+          "text": "DREAMS OF THE ARROGANT PRINCE"
+        },
+        {
+          "level": 6,
+          "text": "2017"
+        },
+        {
+          "level": 1,
+          "text": "2020 onwards"
+        },
+        {
+          "level": 5,
+          "text": "STUDIO"
+        },
+        {
+          "level": 6,
+          "text": "2021"
+        },
+        {
+          "level": 5,
+          "text": "MICHAEL ASHER"
+        },
+        {
+          "level": 6,
+          "text": "2022"
+        },
+        {
+          "level": 5,
+          "text": "DISCARDED PROTECTION"
+        },
+        {
+          "level": 6,
+          "text": "2022"
+        }
+      ],
+      "links": [],
+      "images": [
+        {
+          "alt": "Logo",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/07/THOMAS-LAWSON-1-301x99.png",
+          "complete": true,
+          "naturalWidth": 301,
+          "naturalHeight": 99,
+          "loading": "eager"
+        },
+        {
+          "alt": "Logo",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/07/THOMAS-LAWSON-1-301x99.png",
+          "complete": true,
+          "naturalWidth": 301,
+          "naturalHeight": 99,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/05/Group-24.png",
+          "complete": true,
+          "naturalWidth": 706,
+          "naturalHeight": 775,
+          "loading": "eager"
+        },
+        {
+          "alt": "Gold_Dog",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/06/013-Tlawson_Gold-Dog1978-copy-835x1024.jpg",
+          "complete": true,
+          "naturalWidth": 835,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "REALLIFE",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/06/REALLIFE-1-copy-683x1024.jpg",
+          "complete": true,
+          "naturalWidth": 683,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "FORMANESQUE",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/06/001-Tlawson_Forman-esque-25-drawings1977-copy-1.png",
+          "complete": true,
+          "naturalWidth": 1009,
+          "naturalHeight": 754,
+          "loading": "eager"
+        },
+        {
+          "alt": "RED SHOE",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/05/014-Tlawson_Red-Shoe1979-1024x968.jpg",
+          "complete": true,
+          "naturalWidth": 1024,
+          "naturalHeight": 968,
+          "loading": "eager"
+        },
+        {
+          "alt": "LAST EXIT",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/06/Last-Exit-opening-page.jpg",
+          "complete": true,
+          "naturalWidth": 430,
+          "naturalHeight": 430,
+          "loading": "eager"
+        },
+        {
+          "alt": "SHOT FOR A BIKE",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/06/027-Tlawson_Shot-for-a-Bike1981-copy-1024x1019.jpg",
+          "complete": true,
+          "naturalWidth": 1024,
+          "naturalHeight": 1019,
+          "loading": "eager"
+        },
+        {
+          "alt": "BRITISH ART SHOW",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/06/Cover-and-poster-image-775x1024.png",
+          "complete": true,
+          "naturalWidth": 775,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "BROAD STUDIOS",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/06/Broad-studios-92-1024x866.jpg",
+          "complete": true,
+          "naturalWidth": 1024,
+          "naturalHeight": 866,
+          "loading": "eager"
+        },
+        {
+          "alt": "LOS ANGELES PAINTING",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/06/1996_Los-Angeles-Painting-1-1024x742.jpg",
+          "complete": true,
+          "naturalWidth": 1024,
+          "naturalHeight": 742,
+          "loading": "eager"
+        },
+        {
+          "alt": "SUBURBAN INSTALL",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/06/Suburban-install3-1024x768.jpg",
+          "complete": true,
+          "naturalWidth": 1024,
+          "naturalHeight": 768,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2024/02/Patrick-Caulfield-essay-in-Afterall12-642x1024.jpg",
+          "complete": true,
+          "naturalWidth": 642,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "PARTICIPANT INSTALL",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/06/DSC_1743-1-1024x686.png",
+          "complete": true,
+          "naturalWidth": 1024,
+          "naturalHeight": 686,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2024/02/The-Journey-West-East-of-Borneo-2010-1536x1046.png",
+          "complete": true,
+          "naturalWidth": 1439,
+          "naturalHeight": 980,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2024/02/2011_Pattern-of-Thought_HR.jpg",
+          "complete": true,
+          "naturalWidth": 6144,
+          "naturalHeight": 4096,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2024/02/2017_Dreams-of-the-Arrogant-Prince-copy.jpg",
+          "complete": true,
+          "naturalWidth": 239,
+          "naturalHeight": 320,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2024/02/studio-2021.jpeg",
+          "complete": true,
+          "naturalWidth": 6000,
+          "naturalHeight": 4000,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2024/02/Michael-Asher-essay-East-of-Borneo-2022-1024x785.png",
+          "complete": true,
+          "naturalWidth": 1024,
+          "naturalHeight": 785,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2024/02/Discarded-Protection-2022-scaled.jpeg",
+          "complete": true,
+          "naturalWidth": 1440,
+          "naturalHeight": 1080,
+          "loading": "eager"
+        },
+        {
+          "alt": "Logo Footer",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/07/THOMAS-LAWSONFOOTER-1024x457.png",
+          "complete": true,
+          "naturalWidth": 1024,
+          "naturalHeight": 457,
+          "loading": "eager"
+        }
+      ]
+    },
+    {
+      "slug": "news",
+      "url": "https://www.thomaslawson.com/notes/",
+      "viewportName": "desktop",
+      "file": "desktop-news.jpg",
+      "title": "Notes – Thomas Lawson",
+      "bodyClasses": "wp-singular page-template-default page page-id-1898 wp-custom-logo wp-embed-responsive wp-theme-astra ast-desktop ast-page-builder-template ast-no-sidebar astra-4.12.4 ast-single-post ast-inherit-site-logo-transparent ast-hfb-header elementor-default elementor-kit-8 elementor-page elementor-page-1898 e--ua-blink e--ua-chrome e--ua-mac e--ua-webkit",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "page": {
+        "width": 1440,
+        "height": 4776
+      },
+      "horizontalOverflow": false,
+      "headings": [
+        {
+          "level": 1,
+          "text": "News"
+        },
+        {
+          "level": 5,
+          "text": "Rabkin Prize"
+        },
+        {
+          "level": 2,
+          "text": "Thomas Lawson: Sunny and Warm at Chez Max et Dorothea, Los Angeles"
+        },
+        {
+          "level": 5,
+          "text": "The Studio Reader"
+        },
+        {
+          "level": 5,
+          "text": "Thomas Lawson: Attending to the Bats at AF Projects, Los Angeles"
+        },
+        {
+          "level": 5,
+          "text": "Anthology for Unseen"
+        }
+      ],
+      "links": [
+        {
+          "text": "",
+          "href": "https://open.substack.com/pub/rabkinfoundation/p/2024-rabkin-prize-winner-thomas-lawson?utm_campaign=post&utm_medium=web"
+        },
+        {
+          "text": "",
+          "href": "https://www.chezmaxdorothea.com/exhibitions/sunny-and-warm"
+        },
+        {
+          "text": "",
+          "href": "https://www.thomaslawson.com/wp-content/uploads/2024/01/The-Studio-Reader.pdf"
+        },
+        {
+          "text": "",
+          "href": "https://vimeo.com/406160470?fl=pl&fe=sh"
+        },
+        {
+          "text": "",
+          "href": "https://www.thomaslawson.com/notes-anthology-for-unseen/"
+        }
+      ],
+      "images": [
+        {
+          "alt": "Logo",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/07/THOMAS-LAWSON-1-301x99.png",
+          "complete": true,
+          "naturalWidth": 301,
+          "naturalHeight": 99,
+          "loading": "eager"
+        },
+        {
+          "alt": "Logo",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/07/THOMAS-LAWSON-1-301x99.png",
+          "complete": true,
+          "naturalWidth": 301,
+          "naturalHeight": 99,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2024/01/Notes-hero-image-scaled.jpeg",
+          "complete": true,
+          "naturalWidth": 1440,
+          "naturalHeight": 1920,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2026/03/Lawson_Rabkin_Web_1-1024x683-1.jpg",
+          "complete": true,
+          "naturalWidth": 1024,
+          "naturalHeight": 683,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2026/03/f97caee66efa6fb0f60678ede28b8e1404c64ab6-1200x790-1.jpg",
+          "complete": true,
+          "naturalWidth": 1200,
+          "naturalHeight": 790,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2024/01/The-Studio-Reader_Page_1-768x1013.jpg",
+          "complete": true,
+          "naturalWidth": 768,
+          "naturalHeight": 1013,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2026/03/Thomas-Lawson-Flying-brick-2019-18-x-24-in-45.72-x-60.96-cm-1-768x535.jpg",
+          "complete": true,
+          "naturalWidth": 768,
+          "naturalHeight": 535,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2024/01/Anthology-for-Unseen-title-page-scaled.jpg",
+          "complete": true,
+          "naturalWidth": 1440,
+          "naturalHeight": 1080,
+          "loading": "eager"
+        },
+        {
+          "alt": "Logo Footer",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/07/THOMAS-LAWSONFOOTER-1024x457.png",
+          "complete": true,
+          "naturalWidth": 1024,
+          "naturalHeight": 457,
+          "loading": "eager"
+        }
+      ]
+    },
+    {
+      "slug": "studio",
+      "url": "https://www.thomaslawson.com/in-the-studio/",
+      "viewportName": "desktop",
+      "file": "desktop-studio.jpg",
+      "title": "In The Studio – Thomas Lawson",
+      "bodyClasses": "wp-singular page-template-default page page-id-140 wp-custom-logo wp-embed-responsive wp-theme-astra ast-desktop ast-page-builder-template ast-no-sidebar astra-4.12.4 ast-single-post ast-inherit-site-logo-transparent ast-hfb-header elementor-default elementor-kit-8 elementor-page elementor-page-140 e--ua-blink e--ua-chrome e--ua-mac e--ua-webkit",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "page": {
+        "width": 1440,
+        "height": 6998
+      },
+      "horizontalOverflow": false,
+      "headings": [
+        {
+          "level": 1,
+          "text": "In the Studio"
+        },
+        {
+          "level": 1,
+          "text": "1977"
+        },
+        {
+          "level": 1,
+          "text": "1979"
+        },
+        {
+          "level": 1,
+          "text": "1980"
+        },
+        {
+          "level": 1,
+          "text": "1982"
+        },
+        {
+          "level": 1,
+          "text": "1983"
+        },
+        {
+          "level": 1,
+          "text": "1987"
+        },
+        {
+          "level": 1,
+          "text": "1987"
+        },
+        {
+          "level": 1,
+          "text": "1990"
+        },
+        {
+          "level": 1,
+          "text": "1991"
+        },
+        {
+          "level": 1,
+          "text": "1993"
+        },
+        {
+          "level": 1,
+          "text": "1994"
+        },
+        {
+          "level": 1,
+          "text": "1998"
+        },
+        {
+          "level": 1,
+          "text": "1999"
+        },
+        {
+          "level": 1,
+          "text": "2006"
+        },
+        {
+          "level": 1,
+          "text": "2006"
+        },
+        {
+          "level": 1,
+          "text": "2010"
+        },
+        {
+          "level": 1,
+          "text": "2010"
+        },
+        {
+          "level": 1,
+          "text": "2015"
+        },
+        {
+          "level": 1,
+          "text": "2015"
+        },
+        {
+          "level": 1,
+          "text": "2016"
+        },
+        {
+          "level": 1,
+          "text": "2017"
+        },
+        {
+          "level": 1,
+          "text": "2020"
+        }
+      ],
+      "links": [],
+      "images": [
+        {
+          "alt": "Logo",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/07/THOMAS-LAWSON-1-301x99.png",
+          "complete": true,
+          "naturalWidth": 301,
+          "naturalHeight": 99,
+          "loading": "eager"
+        },
+        {
+          "alt": "Logo",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/07/THOMAS-LAWSON-1-301x99.png",
+          "complete": true,
+          "naturalWidth": 301,
+          "naturalHeight": 99,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/06/006-Tlawson_Lone-Piper1978-1020x1024.jpg",
+          "complete": true,
+          "naturalWidth": 1020,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "BABY PINK ON BLUE",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/05/007-Tlawson_Baby-Pink-on-Blue1978.jpg",
+          "complete": true,
+          "naturalWidth": 1359,
+          "naturalHeight": 1819,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/06/009-Tlawson_Gold-Dog-Black-Orange1978-1024x717.jpg",
+          "complete": true,
+          "naturalWidth": 1024,
+          "naturalHeight": 717,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/09/027-Tlawson_Shot-for-a-Bike1981.jpg",
+          "complete": true,
+          "naturalWidth": 720,
+          "naturalHeight": 717,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/09/035-Tlawson_He-Shot-His-Best-Budy1982.jpg",
+          "complete": true,
+          "naturalWidth": 756,
+          "naturalHeight": 396,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/09/028-Tlawson_Burn-Burn-Burn1982-1024x1018.jpg",
+          "complete": true,
+          "naturalWidth": 1024,
+          "naturalHeight": 1018,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/09/052-Tlawson_Betrayal1983.jpg",
+          "complete": true,
+          "naturalWidth": 488,
+          "naturalHeight": 467,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/09/061-Tlawson_Spirit-of-the-Museum-Study1985.jpg",
+          "complete": true,
+          "naturalWidth": 499,
+          "naturalHeight": 720,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/09/063-Tlawson_Swimming-Pool-2_1985.jpg",
+          "complete": true,
+          "naturalWidth": 720,
+          "naturalHeight": 507,
+          "loading": "eager"
+        },
+        {
+          "alt": "INSTALLATION KUHLENSCHMIDT 2",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/09/installation-kuhlenschmidt-08-1024x702.jpg",
+          "complete": true,
+          "naturalWidth": 1024,
+          "naturalHeight": 702,
+          "loading": "eager"
+        },
+        {
+          "alt": "Arm Juggling Light",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/09/1990_Arm-Juggling-Light_HR.jpg",
+          "complete": true,
+          "naturalWidth": 474,
+          "naturalHeight": 693,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/09/anthony-reynolds-install-1-1024x664.jpg",
+          "complete": true,
+          "naturalWidth": 1024,
+          "naturalHeight": 664,
+          "loading": "eager"
+        },
+        {
+          "alt": "OUT OF THE DARK NIGHT",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/09/1992_Out-of-the-Dark-Night_HR.jpg",
+          "complete": true,
+          "naturalWidth": 615,
+          "naturalHeight": 412,
+          "loading": "eager"
+        },
+        {
+          "alt": "FIERY SKY",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/09/1992-Fiery-Sky_HR-1024x690.jpg",
+          "complete": true,
+          "naturalWidth": 1024,
+          "naturalHeight": 690,
+          "loading": "eager"
+        },
+        {
+          "alt": "SUBURBAN DREAMS",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/09/1993_Suburban-Dreams-3_HR-1024x692.jpg",
+          "complete": true,
+          "naturalWidth": 1024,
+          "naturalHeight": 692,
+          "loading": "eager"
+        },
+        {
+          "alt": "NIGHTMARE INN",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/09/1998_Nightmare-Inn_HR.jpg",
+          "complete": true,
+          "naturalWidth": 757,
+          "naturalHeight": 796,
+          "loading": "eager"
+        },
+        {
+          "alt": "VIENNESE PAINTING 7",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/09/1995_Viennese-Painting-7_HR.jpg",
+          "complete": true,
+          "naturalWidth": 615,
+          "naturalHeight": 369,
+          "loading": "eager"
+        },
+        {
+          "alt": "DEAD CALM",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/09/1998_Dead-Calm_HR.jpg",
+          "complete": true,
+          "naturalWidth": 946,
+          "naturalHeight": 744,
+          "loading": "eager"
+        },
+        {
+          "alt": "WEATHER SYSTEM",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/09/2001_Weather-System-1024x737.jpg",
+          "complete": true,
+          "naturalWidth": 1024,
+          "naturalHeight": 737,
+          "loading": "eager"
+        },
+        {
+          "alt": "DOUBLE WORLD",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/09/2006_Double-World_HR.jpg",
+          "complete": true,
+          "naturalWidth": 669,
+          "naturalHeight": 496,
+          "loading": "eager"
+        },
+        {
+          "alt": "UNTITLED ORANGE-PINK-GREEN",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/09/2006_Untitled-Orange-Pink-Green_HR.jpg",
+          "complete": true,
+          "naturalWidth": 622,
+          "naturalHeight": 467,
+          "loading": "eager"
+        },
+        {
+          "alt": "TREE",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/09/2010_Tree_HR.jpg",
+          "complete": true,
+          "naturalWidth": 720,
+          "naturalHeight": 556,
+          "loading": "eager"
+        },
+        {
+          "alt": "HARLEQUIN",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/09/2010_Harlequin_HR.jpg",
+          "complete": true,
+          "naturalWidth": 480,
+          "naturalHeight": 720,
+          "loading": "eager"
+        },
+        {
+          "alt": "THE NEW WORLD TWINS",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/09/2008_The-New-World-Twins_HR.jpg",
+          "complete": true,
+          "naturalWidth": 572,
+          "naturalHeight": 720,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2024/02/2014_Dance-Theory-copy-min-1024x683.jpeg",
+          "complete": true,
+          "naturalWidth": 1024,
+          "naturalHeight": 683,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2024/02/2013_WatchingBeing-Watched_HR-min.jpg",
+          "complete": true,
+          "naturalWidth": 4096,
+          "naturalHeight": 6144,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2024/02/2011_Confrontation-Double-Exposure_HR-min-791x1024.jpg",
+          "complete": true,
+          "naturalWidth": 791,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "DISILLUSIONMENT",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/09/2015_Disillusionment-1024x807.jpg",
+          "complete": true,
+          "naturalWidth": 1024,
+          "naturalHeight": 807,
+          "loading": "eager"
+        },
+        {
+          "alt": "DISLOCATION",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/09/2015_Dislocation-759x1024.jpg",
+          "complete": true,
+          "naturalWidth": 759,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "DISORDER",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/09/2015_Disorder-1024x799.jpg",
+          "complete": true,
+          "naturalWidth": 1024,
+          "naturalHeight": 799,
+          "loading": "eager"
+        },
+        {
+          "alt": "HEAD IN HANDS",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/09/2019_Head-in-Hands.jpg",
+          "complete": true,
+          "naturalWidth": 871,
+          "naturalHeight": 689,
+          "loading": "eager"
+        },
+        {
+          "alt": "WHITE ON WHITE",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/09/2018_White-on-White.-png.jpg",
+          "complete": true,
+          "naturalWidth": 240,
+          "naturalHeight": 320,
+          "loading": "eager"
+        },
+        {
+          "alt": "STORMY WEATHER",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/09/2019_Stormy-Weather.jpg",
+          "complete": true,
+          "naturalWidth": 680,
+          "naturalHeight": 807,
+          "loading": "eager"
+        },
+        {
+          "alt": "Logo Footer",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/07/THOMAS-LAWSONFOOTER-1024x457.png",
+          "complete": true,
+          "naturalWidth": 1024,
+          "naturalHeight": 457,
+          "loading": "eager"
+        }
+      ]
+    },
+    {
+      "slug": "beyond",
+      "url": "https://www.thomaslawson.com/beyond-the-studio/",
+      "viewportName": "desktop",
+      "file": "desktop-beyond.jpg",
+      "title": "Beyond the Studio – Thomas Lawson",
+      "bodyClasses": "wp-singular page-template-default page page-id-1177 wp-custom-logo wp-embed-responsive wp-theme-astra ast-desktop ast-page-builder-template ast-no-sidebar astra-4.12.4 ast-single-post ast-inherit-site-logo-transparent ast-hfb-header elementor-default elementor-kit-8 elementor-page elementor-page-1177 e--ua-blink e--ua-chrome e--ua-mac e--ua-webkit",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "page": {
+        "width": 1440,
+        "height": 3052
+      },
+      "horizontalOverflow": false,
+      "headings": [
+        {
+          "level": 1,
+          "text": "Beyond the Studio"
+        },
+        {
+          "level": 5,
+          "text": "Painted Installations"
+        },
+        {
+          "level": 5,
+          "text": "Early New York"
+        },
+        {
+          "level": 5,
+          "text": "Dark Installations"
+        },
+        {
+          "level": 5,
+          "text": "Temporary Murals"
+        },
+        {
+          "level": 5,
+          "text": "Glasgow Projects"
+        },
+        {
+          "level": 5,
+          "text": "Theatre, Dance & Fashion"
+        },
+        {
+          "level": 5,
+          "text": "Los Angeles"
+        },
+        {
+          "level": 5,
+          "text": "The Scottish Project​"
+        }
+      ],
+      "links": [
+        {
+          "text": "",
+          "href": "https://www.thomaslawson.com/beyond-the-studio-painted-installations/"
+        },
+        {
+          "text": "",
+          "href": "https://www.thomaslawson.com/beyond-the-studio-early-new-york/"
+        },
+        {
+          "text": "",
+          "href": "https://www.thomaslawson.com/beyond-the-studio-dark-installations/"
+        },
+        {
+          "text": "",
+          "href": "https://www.thomaslawson.com/beyond-the-studio-portraits-of-new-york/"
+        },
+        {
+          "text": "",
+          "href": "https://www.thomaslawson.com/beyond-the-studio-glasgow-projects/"
+        },
+        {
+          "text": "",
+          "href": "https://www.thomaslawson.com/beyond-the-studio-theatre-dance-fashion/"
+        },
+        {
+          "text": "",
+          "href": "https://www.thomaslawson.com/beyond-the-studio-los-angeles/"
+        },
+        {
+          "text": "",
+          "href": "https://www.thomaslawson.com/beyond-the-studio-the-scottish-project/"
+        }
+      ],
+      "images": [
+        {
+          "alt": "Logo",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/07/THOMAS-LAWSON-1-301x99.png",
+          "complete": true,
+          "naturalWidth": 301,
+          "naturalHeight": 99,
+          "loading": "eager"
+        },
+        {
+          "alt": "Logo",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/07/THOMAS-LAWSON-1-301x99.png",
+          "complete": true,
+          "naturalWidth": 301,
+          "naturalHeight": 99,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/09/4-beyond-the-studio-1536x1048.jpg",
+          "complete": true,
+          "naturalWidth": 1439,
+          "naturalHeight": 982,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/11/1987_Anthony-Reynolds-exhibition-catalogue-drawing_LR-1024x777.jpg",
+          "complete": true,
+          "naturalWidth": 1024,
+          "naturalHeight": 777,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/08/civic_virtue_1-1536x1039.jpg",
+          "complete": true,
+          "naturalWidth": 1439,
+          "naturalHeight": 974,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/08/1992_Tiefe-Nacht_LR.jpg",
+          "complete": true,
+          "naturalWidth": 707,
+          "naturalHeight": 469,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/08/portrait_16.jpg",
+          "complete": true,
+          "naturalWidth": 910,
+          "naturalHeight": 597,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/08/glasgow-green-install-3-1536x1048.jpg",
+          "complete": true,
+          "naturalWidth": 1439,
+          "naturalHeight": 982,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/08/09-Til-You-Drop-Sept-2014-1536x864.jpeg",
+          "complete": true,
+          "naturalWidth": 1439,
+          "naturalHeight": 809,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/08/eastranch-802x802-1.jpg",
+          "complete": true,
+          "naturalWidth": 802,
+          "naturalHeight": 802,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/08/2001_02_ReformerRevolutionist-1536x1152.jpg",
+          "complete": true,
+          "naturalWidth": 1439,
+          "naturalHeight": 1079,
+          "loading": "eager"
+        },
+        {
+          "alt": "Logo Footer",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/07/THOMAS-LAWSONFOOTER-1024x457.png",
+          "complete": true,
+          "naturalWidth": 1024,
+          "naturalHeight": 457,
+          "loading": "eager"
+        }
+      ]
+    },
+    {
+      "slug": "writing",
+      "url": "https://www.thomaslawson.com/bookshelf/",
+      "viewportName": "desktop",
+      "file": "desktop-writing.jpg",
+      "title": "Bookshelf – Thomas Lawson",
+      "bodyClasses": "wp-singular page-template-default page page-id-808 wp-custom-logo wp-embed-responsive wp-theme-astra ast-desktop ast-page-builder-template ast-no-sidebar astra-4.12.4 ast-single-post ast-inherit-site-logo-transparent ast-hfb-header elementor-default elementor-kit-8 elementor-page elementor-page-808 e--ua-blink e--ua-chrome e--ua-mac e--ua-webkit",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "page": {
+        "width": 1440,
+        "height": 3494
+      },
+      "horizontalOverflow": false,
+      "headings": [
+        {
+          "level": 1,
+          "text": "Bookshelf"
+        },
+        {
+          "level": 1,
+          "text": "Publications"
+        },
+        {
+          "level": 1,
+          "text": "Artforum"
+        },
+        {
+          "level": 1,
+          "text": "Afterall"
+        },
+        {
+          "level": 1,
+          "text": "East of Borneo"
+        },
+        {
+          "level": 1,
+          "text": "Reallife Magazine"
+        },
+        {
+          "level": 1,
+          "text": "Interviews"
+        },
+        {
+          "level": 1,
+          "text": "Writings about me"
+        },
+        {
+          "level": 1,
+          "text": "Other writings"
+        },
+        {
+          "level": 1,
+          "text": "Considering other artists"
+        },
+        {
+          "level": 1,
+          "text": "Anthologies"
+        },
+        {
+          "level": 1,
+          "text": "Miscellaneous"
+        }
+      ],
+      "links": [
+        {
+          "text": "Artforum",
+          "href": "https://www.thomaslawson.com/bookshelf_artforum/"
+        },
+        {
+          "text": "Afterall",
+          "href": "https://www.thomaslawson.com/bookshelf_afterall/"
+        },
+        {
+          "text": "East of Borneo",
+          "href": "https://www.thomaslawson.com/bookshelf_eastofborneo/"
+        },
+        {
+          "text": "Reallife Magazine",
+          "href": "https://www.thomaslawson.com/bookshelf-reallife/"
+        },
+        {
+          "text": "Interviews",
+          "href": "https://www.thomaslawson.com/elementor-1796/"
+        },
+        {
+          "text": "Writings about me",
+          "href": "https://www.thomaslawson.com/bookshelf_writingsabouttl/"
+        },
+        {
+          "text": "Considering other artists",
+          "href": "https://www.thomaslawson.com/elementor-395/"
+        },
+        {
+          "text": "Anthologies",
+          "href": "https://www.thomaslawson.com/bookshelf-anthologies/"
+        }
+      ],
+      "images": [
+        {
+          "alt": "Logo",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/07/THOMAS-LAWSON-1-301x99.png",
+          "complete": true,
+          "naturalWidth": 301,
+          "naturalHeight": 99,
+          "loading": "eager"
+        },
+        {
+          "alt": "Logo",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/07/THOMAS-LAWSON-1-301x99.png",
+          "complete": true,
+          "naturalWidth": 301,
+          "naturalHeight": 99,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/06/5-bookshelf-scaled.jpg",
+          "complete": true,
+          "naturalWidth": 1440,
+          "naturalHeight": 1920,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/1-ARtforum-November-1980-817x1024.png",
+          "complete": true,
+          "naturalWidth": 817,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/2-Artforum-Marchh-1981-872x1024.png",
+          "complete": true,
+          "naturalWidth": 872,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/3-Artforum-April-1981-886x1024.png",
+          "complete": true,
+          "naturalWidth": 886,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/4-Artforum-May-1981-925x1024.png",
+          "complete": true,
+          "naturalWidth": 925,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/5-Artforum-September-1981-956x1024.png",
+          "complete": true,
+          "naturalWidth": 956,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/6-Artforum-October-1981-960x1024.png",
+          "complete": true,
+          "naturalWidth": 960,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/7-Artforum-December-1981-908x1024.png",
+          "complete": true,
+          "naturalWidth": 908,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/8-Artforum-January-1982-922x1024.png",
+          "complete": true,
+          "naturalWidth": 922,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/9-Artforum-May-1982-855x1024.png",
+          "complete": true,
+          "naturalWidth": 855,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/10-Artforum-Summer-1982-961x1024.png",
+          "complete": true,
+          "naturalWidth": 961,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/11-Artforum-October-1982-881x1024.png",
+          "complete": true,
+          "naturalWidth": 881,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/12-Artforum-November-1982-841x1024.png",
+          "complete": true,
+          "naturalWidth": 841,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/13-Artforum-February-1983-1024x640.png",
+          "complete": true,
+          "naturalWidth": 1024,
+          "naturalHeight": 640,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/14-Artforum-March-1983-884x1024.png",
+          "complete": true,
+          "naturalWidth": 884,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/15-Artforum-Summer-83-859x1024.png",
+          "complete": true,
+          "naturalWidth": 859,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/16-Artforum-September-83-923x1024.png",
+          "complete": true,
+          "naturalWidth": 923,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/17-Artforum-January-84-929x1024.png",
+          "complete": true,
+          "naturalWidth": 929,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/18-Artforum-MAy-84-928x1024.png",
+          "complete": true,
+          "naturalWidth": 928,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/19-Artforum-Summer-84-790x1024.png",
+          "complete": true,
+          "naturalWidth": 790,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/20-Artforum-September-84--797x1024.png",
+          "complete": true,
+          "naturalWidth": 797,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/21-Artforum-Novemner-84-815x1024.png",
+          "complete": true,
+          "naturalWidth": 815,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/22-Artforum-March-1986-890x1024.png",
+          "complete": true,
+          "naturalWidth": 890,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/23-Artforum-Janury-1988-929x1024.png",
+          "complete": true,
+          "naturalWidth": 929,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/24-Artforum-October-2004-943x1024.png",
+          "complete": true,
+          "naturalWidth": 943,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/01/Afterall6-cover-654x1024.jpg",
+          "complete": true,
+          "naturalWidth": 654,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/01/Afterall7-642x1024.jpg",
+          "complete": true,
+          "naturalWidth": 642,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/01/Afterall9-cover-644x1024.jpg",
+          "complete": true,
+          "naturalWidth": 644,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/01/Afterall11-cover-647x1024.jpg",
+          "complete": true,
+          "naturalWidth": 647,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/01/Afterall12-cover-642x1024.jpg",
+          "complete": true,
+          "naturalWidth": 642,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2024/01/Afterall13-656x1024.jpg",
+          "complete": true,
+          "naturalWidth": 656,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/The-Journey-West-1024x716.png",
+          "complete": true,
+          "naturalWidth": 1024,
+          "naturalHeight": 716,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/Andrea-Bowers-Interview-1024x592.png",
+          "complete": true,
+          "naturalWidth": 1024,
+          "naturalHeight": 592,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/Institutional-Whitewash-1024x712.png",
+          "complete": true,
+          "naturalWidth": 1024,
+          "naturalHeight": 712,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/Liz-Glynn-1024x640.png",
+          "complete": true,
+          "naturalWidth": 1024,
+          "naturalHeight": 640,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/Michael-Asher-obit.png",
+          "complete": true,
+          "naturalWidth": 773,
+          "naturalHeight": 979,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/4-Taxis-1024x712.png",
+          "complete": true,
+          "naturalWidth": 1024,
+          "naturalHeight": 712,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/Stephen-Prina-1024x465.png",
+          "complete": true,
+          "naturalWidth": 1024,
+          "naturalHeight": 465,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/Allan-Sekula-obit-1024x496.png",
+          "complete": true,
+          "naturalWidth": 1024,
+          "naturalHeight": 496,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/Fiona-Connor-1024x721.png",
+          "complete": true,
+          "naturalWidth": 1024,
+          "naturalHeight": 721,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/a-visit-to-Man-Ray-1024x809.png",
+          "complete": true,
+          "naturalWidth": 1024,
+          "naturalHeight": 809,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/Hopps-discovers-Cornell.png",
+          "complete": true,
+          "naturalWidth": 747,
+          "naturalHeight": 969,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/Duchamp-Wood-1024x659.png",
+          "complete": true,
+          "naturalWidth": 1024,
+          "naturalHeight": 659,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/Hopps-at-Arensbergs-1024x818.png",
+          "complete": true,
+          "naturalWidth": 1024,
+          "naturalHeight": 818,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/Cesar-Pelli-obit-1024x735.png",
+          "complete": true,
+          "naturalWidth": 1024,
+          "naturalHeight": 735,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/John-Baldessari.png",
+          "complete": true,
+          "naturalWidth": 730,
+          "naturalHeight": 972,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/Betye-Saar.png",
+          "complete": true,
+          "naturalWidth": 661,
+          "naturalHeight": 943,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/Millard-Sheets.png",
+          "complete": true,
+          "naturalWidth": 696,
+          "naturalHeight": 968,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/CalArts-story-1024x761.png",
+          "complete": true,
+          "naturalWidth": 1024,
+          "naturalHeight": 761,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/Luciano-Perna-obit.png",
+          "complete": true,
+          "naturalWidth": 725,
+          "naturalHeight": 970,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/Michael-Asher-essay-alt.png",
+          "complete": true,
+          "naturalWidth": 759,
+          "naturalHeight": 963,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/12/REALLIFE-1-cover.jpg",
+          "complete": true,
+          "naturalWidth": 619,
+          "naturalHeight": 795,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/12/REALLIFE-2-cover.jpg",
+          "complete": true,
+          "naturalWidth": 634,
+          "naturalHeight": 827,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/12/REALLIFE-3-cover.jpg",
+          "complete": true,
+          "naturalWidth": 634,
+          "naturalHeight": 827,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/12/654-Real-Life-review-of-anthology_Page_1-scaled.jpg",
+          "complete": true,
+          "naturalWidth": 1956,
+          "naturalHeight": 2560,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/12/683-Real-Life-Show_Page_1-682x1024.jpg",
+          "complete": true,
+          "naturalWidth": 682,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/12/Pfeil-Magazine-cover-and-contents_Page_1-745x1024.jpg",
+          "complete": true,
+          "naturalWidth": 745,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/12/403-Video-Data-Bank-Profile-1-674x1024.jpg",
+          "complete": true,
+          "naturalWidth": 674,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/12/497-Robbins-Interview-with-TL-1-scaled.jpg",
+          "complete": true,
+          "naturalWidth": 1922,
+          "naturalHeight": 2560,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/12/620-Robert-Rooney-Pool-Side-1-740x1024.jpg",
+          "complete": true,
+          "naturalWidth": 740,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/12/793-CAE-Art-Papers-1-scaled.jpg",
+          "complete": true,
+          "naturalWidth": 1939,
+          "naturalHeight": 2560,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/12/Cover-for-Christopher-Howard-interview-1024x589.png",
+          "complete": true,
+          "naturalWidth": 1024,
+          "naturalHeight": 589,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/12/Cover-for-McEvilly-Sischy-interview-990x1024.png",
+          "complete": true,
+          "naturalWidth": 990,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/04/650-Thomas-Lawson-at-LAXART-1.jpg",
+          "complete": true,
+          "naturalWidth": 755,
+          "naturalHeight": 747,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/04/Christopher-Miles.jpg",
+          "complete": true,
+          "naturalWidth": 755,
+          "naturalHeight": 747,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/04/Donald-Kuspit-1024x1024.jpg",
+          "complete": true,
+          "naturalWidth": 1024,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/04/Ingrid-Sischy-1014x1024.jpg",
+          "complete": true,
+          "naturalWidth": 1014,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/04/Jeane-Silverthorne-1990.jpg",
+          "complete": true,
+          "naturalWidth": 487,
+          "naturalHeight": 685,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/04/Jeanne-Silverthorn-Summer-1985.jpg",
+          "complete": true,
+          "naturalWidth": 487,
+          "naturalHeight": 610,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/04/Joan-Casademont-1024x1024.jpg",
+          "complete": true,
+          "naturalWidth": 1024,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/04/Judith-Russi-May-83.jpg",
+          "complete": true,
+          "naturalWidth": 489,
+          "naturalHeight": 557,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/04/Kate-Linker-1014x1024.jpg",
+          "complete": true,
+          "naturalWidth": 1014,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/04/Kuspit-On-Drawing-April-1982.jpg",
+          "complete": true,
+          "naturalWidth": 492,
+          "naturalHeight": 545,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/04/Artforum-March-84.jpg",
+          "complete": true,
+          "naturalWidth": 488,
+          "naturalHeight": 562,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/04/Lobel-Singerman-1024x1024.jpg",
+          "complete": true,
+          "naturalWidth": 1024,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/09/2015_Displacement-1024x793.jpg",
+          "complete": true,
+          "naturalWidth": 1024,
+          "naturalHeight": 793,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/04/Ron-Jones-1987-cover.jpg",
+          "complete": true,
+          "naturalWidth": 606,
+          "naturalHeight": 788,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/04/Ron-Jones-1985-cover.jpg",
+          "complete": true,
+          "naturalWidth": 611,
+          "naturalHeight": 841,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/04/Schjeldahl-on-Pictures-Generation_Page_1.jpg",
+          "complete": true,
+          "naturalWidth": 565,
+          "naturalHeight": 748,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/04/Sydney-Biennale-1024x1024.jpg",
+          "complete": true,
+          "naturalWidth": 1024,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/04/Deihl-review.jpg",
+          "complete": true,
+          "naturalWidth": 290,
+          "naturalHeight": 374,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2026/03/spike-71-couples-cover-web_f4b47d70-c6c8-4448-ba6c-5ab99feb149d-794x1024.jpeg",
+          "complete": true,
+          "naturalWidth": 794,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/04/359-Empire-1.jpg",
+          "complete": true,
+          "naturalWidth": 5000,
+          "naturalHeight": 7096,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/04/439-Laura-Owens-1-scaled.jpg",
+          "complete": true,
+          "naturalWidth": 1968,
+          "naturalHeight": 2560,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/04/643-Richard-Wright-1-scaled.jpg",
+          "complete": true,
+          "naturalWidth": 1824,
+          "naturalHeight": 2560,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/04/648-Michael-Hurson-1-scaled.jpg",
+          "complete": true,
+          "naturalWidth": 2558,
+          "naturalHeight": 2560,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/04/652-Paint-1-scaled.jpg",
+          "complete": true,
+          "naturalWidth": 1908,
+          "naturalHeight": 2560,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2024/03/1-Art-After-Modernism-Rethinking-Representation-721x1024.png",
+          "complete": true,
+          "naturalWidth": 721,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2024/03/2-Theories-of-Contemporary-Art-666x1024.jpeg",
+          "complete": true,
+          "naturalWidth": 666,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2024/03/3-Infotainment.jpg",
+          "complete": true,
+          "naturalWidth": 300,
+          "naturalHeight": 426,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2024/03/4-Individuals.jpg",
+          "complete": true,
+          "naturalWidth": 1024,
+          "naturalHeight": 768,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2024/03/5-Modern-Dreams.png",
+          "complete": true,
+          "naturalWidth": 585,
+          "naturalHeight": 591,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2024/03/6-Blasted-allegories-731x1024.jpeg",
+          "complete": true,
+          "naturalWidth": 731,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "Logo Footer",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/07/THOMAS-LAWSONFOOTER-1024x457.png",
+          "complete": true,
+          "naturalWidth": 1024,
+          "naturalHeight": 457,
+          "loading": "eager"
+        }
+      ]
+    },
+    {
+      "slug": "broader",
+      "url": "https://www.thomaslawson.com/art-in-a-broader-context/",
+      "viewportName": "desktop",
+      "file": "desktop-broader.jpg",
+      "title": "Art in a Broader Context – Thomas Lawson",
+      "bodyClasses": "wp-singular page-template-default page page-id-1147 wp-custom-logo wp-embed-responsive wp-theme-astra ast-desktop ast-page-builder-template ast-no-sidebar astra-4.12.4 ast-single-post ast-inherit-site-logo-transparent ast-hfb-header elementor-default elementor-kit-8 elementor-page elementor-page-1147 e--ua-blink e--ua-chrome e--ua-mac e--ua-webkit",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "page": {
+        "width": 1440,
+        "height": 4149
+      },
+      "horizontalOverflow": false,
+      "headings": [
+        {
+          "level": 1,
+          "text": "Art in a Broader Context"
+        },
+        {
+          "level": 5,
+          "text": "Familie Beck"
+        },
+        {
+          "level": 6,
+          "text": "1990"
+        },
+        {
+          "level": 5,
+          "text": "Art School, 1982-present"
+        },
+        {
+          "level": 6,
+          "text": "1982-present"
+        },
+        {
+          "level": 5,
+          "text": "Dissent, 2016"
+        },
+        {
+          "level": 6,
+          "text": "2016"
+        },
+        {
+          "level": 5,
+          "text": "The Experimental Impulse, 2011"
+        },
+        {
+          "level": 6,
+          "text": "2011"
+        },
+        {
+          "level": 5,
+          "text": "Hot Coffee, 1997"
+        },
+        {
+          "level": 6,
+          "text": "1997"
+        },
+        {
+          "level": 5,
+          "text": "Shimmer, 1997"
+        },
+        {
+          "level": 6,
+          "text": "1997"
+        },
+        {
+          "level": 5,
+          "text": "The British Art Show, 1994"
+        },
+        {
+          "level": 6,
+          "text": "1994"
+        },
+        {
+          "level": 5,
+          "text": "Nostalgia as Resistance, 1988"
+        },
+        {
+          "level": 6,
+          "text": "1988"
+        },
+        {
+          "level": 5,
+          "text": "Livin' in the USA, 1984"
+        },
+        {
+          "level": 6,
+          "text": "1984"
+        },
+        {
+          "level": 5,
+          "text": "Critical Perspectives, 1982"
+        },
+        {
+          "level": 6,
+          "text": "1982"
+        },
+        {
+          "level": 5,
+          "text": "REALLIFE | Whitecolumns, 1982"
+        },
+        {
+          "level": 6,
+          "text": "1982"
+        },
+        {
+          "level": 5,
+          "text": "REALLIFE Magazine Presents​, 1981"
+        },
+        {
+          "level": 6,
+          "text": "1981"
+        },
+        {
+          "level": 5,
+          "text": "Pat Douthwaite, 1973"
+        },
+        {
+          "level": 6,
+          "text": "1973"
+        }
+      ],
+      "links": [
+        {
+          "text": "",
+          "href": "https://www.thomaslawson.com/art-in-context-familie-beck/"
+        },
+        {
+          "text": "",
+          "href": "https://www.thomaslawson.com/elementor-1878/"
+        },
+        {
+          "text": "",
+          "href": "https://www.thomaslawson.com/art-in-context-dissent/"
+        },
+        {
+          "text": "",
+          "href": "https://www.thomaslawson.com/art-in-context-hot-coffee/"
+        },
+        {
+          "text": "",
+          "href": "https://www.thomaslawson.com/art-in-context-hot-coffee-2/"
+        },
+        {
+          "text": "",
+          "href": "https://www.thomaslawson.com/art-in-context-shimmer/"
+        },
+        {
+          "text": "",
+          "href": "https://www.thomaslawson.com/art-in-context-the-british-art-show/"
+        },
+        {
+          "text": "",
+          "href": "https://www.thomaslawson.com/art-in-context-nostalgia-as-reference/"
+        },
+        {
+          "text": "",
+          "href": "https://www.thomaslawson.com/art-in-context-livin-in-the-usa/"
+        },
+        {
+          "text": "",
+          "href": "https://www.thomaslawson.com/critical-perspectives-art-in-context/"
+        },
+        {
+          "text": "",
+          "href": "https://www.thomaslawson.com/reallife-magazine-presents-whitecolumns-art-in-context/"
+        },
+        {
+          "text": "",
+          "href": "https://www.thomaslawson.com/art-in-context-reallife-presents/"
+        },
+        {
+          "text": "",
+          "href": "https://www.thomaslawson.com/pat-douthewaite-art-in-context/"
+        }
+      ],
+      "images": [
+        {
+          "alt": "Logo",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/07/THOMAS-LAWSON-1-301x99.png",
+          "complete": true,
+          "naturalWidth": 301,
+          "naturalHeight": 99,
+          "loading": "eager"
+        },
+        {
+          "alt": "Logo",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/07/THOMAS-LAWSON-1-301x99.png",
+          "complete": true,
+          "naturalWidth": 301,
+          "naturalHeight": 99,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/08/ArtInContext-CoverImage-1536x1033.jpg",
+          "complete": true,
+          "naturalWidth": 1439,
+          "naturalHeight": 968,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/08/FAmilie-Beck-cover.jpg",
+          "complete": true,
+          "naturalWidth": 508,
+          "naturalHeight": 758,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2026/04/TomLawson_Laura-Owens-1536x1038.jpg",
+          "complete": true,
+          "naturalWidth": 1439,
+          "naturalHeight": 973,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/08/Sondra-Perry-install-1024x628.png",
+          "complete": true,
+          "naturalWidth": 1024,
+          "naturalHeight": 628,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/08/CIA_20111119_6006-1536x1024.jpg",
+          "complete": true,
+          "naturalWidth": 1439,
+          "naturalHeight": 959,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/08/97-hotcoffee-exhibitionimage-2560x-1024x775.jpg",
+          "complete": true,
+          "naturalWidth": 1024,
+          "naturalHeight": 775,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/08/Steven-Hull-color-corrected.jpg",
+          "complete": true,
+          "naturalWidth": 1172,
+          "naturalHeight": 749,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/08/Cover-and-poster-image.png",
+          "complete": true,
+          "naturalWidth": 1234,
+          "naturalHeight": 1630,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/08/Sherrie-Levine-After-Rodchenko-4-1987.png",
+          "complete": true,
+          "naturalWidth": 988,
+          "naturalHeight": 1198,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/09/Richards-Jarden-TV-Fragment-Early-Morning-Coffee-laminated-wax-relief-1983-1536x789.png",
+          "complete": true,
+          "naturalWidth": 1439,
+          "naturalHeight": 739,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/08/SAlome-Blue-Boys-1981-240x200-cm.png",
+          "complete": true,
+          "naturalWidth": 468,
+          "naturalHeight": 584,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/08/Mark-Innerst-Untitled-Two-Ships-oil-on-board-1984-1024x576.jpg",
+          "complete": true,
+          "naturalWidth": 1024,
+          "naturalHeight": 576,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/08/Greenwood-Robinson-1536x1019.jpg",
+          "complete": true,
+          "naturalWidth": 1439,
+          "naturalHeight": 955,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/08/Douthewaite-Woman-in-Red-Gown-120x90cm-1966.png",
+          "complete": true,
+          "naturalWidth": 963,
+          "naturalHeight": 1285,
+          "loading": "eager"
+        },
+        {
+          "alt": "Logo Footer",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/07/THOMAS-LAWSONFOOTER-1024x457.png",
+          "complete": true,
+          "naturalWidth": 1024,
+          "naturalHeight": 457,
+          "loading": "eager"
+        }
+      ]
+    },
+    {
+      "slug": "about",
+      "url": "https://www.thomaslawson.com/about/",
+      "viewportName": "mobile",
+      "file": "mobile-about.jpg",
+      "title": "About – Thomas Lawson",
+      "bodyClasses": "wp-singular page-template-default page page-id-68 wp-custom-logo wp-embed-responsive wp-theme-astra ast-page-builder-template ast-no-sidebar astra-4.12.4 ast-single-post ast-inherit-site-logo-transparent ast-hfb-header elementor-default elementor-kit-8 elementor-page elementor-page-68 ast-header-break-point e--ua-blink e--ua-chrome e--ua-mac e--ua-webkit",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "page": {
+        "width": 390,
+        "height": 10519
+      },
+      "horizontalOverflow": false,
+      "headings": [
+        {
+          "level": 1,
+          "text": "About"
+        },
+        {
+          "level": 1,
+          "text": "1975 - 1980"
+        },
+        {
+          "level": 5,
+          "text": "GOLD DOG"
+        },
+        {
+          "level": 6,
+          "text": "1978"
+        },
+        {
+          "level": 5,
+          "text": "REALLIFE COVER"
+        },
+        {
+          "level": 6,
+          "text": "-"
+        },
+        {
+          "level": 5,
+          "text": "FORMANESQUE DRAWING WALL"
+        },
+        {
+          "level": 6,
+          "text": "1977"
+        },
+        {
+          "level": 1,
+          "text": "1980 – 1990"
+        },
+        {
+          "level": 5,
+          "text": "RED SHOE"
+        },
+        {
+          "level": 6,
+          "text": "1979"
+        },
+        {
+          "level": 5,
+          "text": "LAST EXIT"
+        },
+        {
+          "level": 6,
+          "text": "-"
+        },
+        {
+          "level": 5,
+          "text": "SHOT FOR A BIKE"
+        },
+        {
+          "level": 6,
+          "text": "1981"
+        },
+        {
+          "level": 1,
+          "text": "1990 – 2000"
+        },
+        {
+          "level": 5,
+          "text": "THE BRITISH ART SHOW"
+        },
+        {
+          "level": 6,
+          "text": "-"
+        },
+        {
+          "level": 5,
+          "text": "BROAD STUDIOS"
+        },
+        {
+          "level": 6,
+          "text": "-"
+        },
+        {
+          "level": 5,
+          "text": "LOS ANGELES PAINTING​"
+        },
+        {
+          "level": 6,
+          "text": "1996"
+        },
+        {
+          "level": 1,
+          "text": "2000 – 2010"
+        },
+        {
+          "level": 5,
+          "text": "SUBURBAN INSTALL"
+        },
+        {
+          "level": 6,
+          "text": "-"
+        },
+        {
+          "level": 5,
+          "text": "PATRICK CAUFIELD ESSAY"
+        },
+        {
+          "level": 6,
+          "text": "-"
+        },
+        {
+          "level": 5,
+          "text": "PARTICIPANT INSTALL"
+        },
+        {
+          "level": 6,
+          "text": "-"
+        },
+        {
+          "level": 1,
+          "text": "2010 – 2020"
+        },
+        {
+          "level": 5,
+          "text": "THE JOURNEY WEST"
+        },
+        {
+          "level": 6,
+          "text": "2010"
+        },
+        {
+          "level": 5,
+          "text": "PATTERN OF THOUGHT"
+        },
+        {
+          "level": 6,
+          "text": "2011"
+        },
+        {
+          "level": 5,
+          "text": "DREAMS OF THE ARROGANT PRINCE"
+        },
+        {
+          "level": 6,
+          "text": "2017"
+        },
+        {
+          "level": 1,
+          "text": "2020 onwards"
+        },
+        {
+          "level": 5,
+          "text": "STUDIO"
+        },
+        {
+          "level": 6,
+          "text": "2021"
+        },
+        {
+          "level": 5,
+          "text": "MICHAEL ASHER"
+        },
+        {
+          "level": 6,
+          "text": "2022"
+        },
+        {
+          "level": 5,
+          "text": "DISCARDED PROTECTION"
+        },
+        {
+          "level": 6,
+          "text": "2022"
+        }
+      ],
+      "links": [],
+      "images": [
+        {
+          "alt": "Logo",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/07/THOMAS-LAWSON-1-301x99.png",
+          "complete": true,
+          "naturalWidth": 301,
+          "naturalHeight": 99,
+          "loading": "eager"
+        },
+        {
+          "alt": "Logo",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/07/THOMAS-LAWSON-1-301x99.png",
+          "complete": true,
+          "naturalWidth": 301,
+          "naturalHeight": 99,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/05/Group-24.png",
+          "complete": true,
+          "naturalWidth": 390,
+          "naturalHeight": 428,
+          "loading": "eager"
+        },
+        {
+          "alt": "Gold_Dog",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/06/013-Tlawson_Gold-Dog1978-copy-768x942.jpg",
+          "complete": true,
+          "naturalWidth": 390,
+          "naturalHeight": 478,
+          "loading": "eager"
+        },
+        {
+          "alt": "REALLIFE",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/06/REALLIFE-1-copy-683x1024.jpg",
+          "complete": true,
+          "naturalWidth": 390,
+          "naturalHeight": 584,
+          "loading": "eager"
+        },
+        {
+          "alt": "FORMANESQUE",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/06/001-Tlawson_Forman-esque-25-drawings1977-copy-1-768x574.png",
+          "complete": true,
+          "naturalWidth": 390,
+          "naturalHeight": 291,
+          "loading": "eager"
+        },
+        {
+          "alt": "RED SHOE",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/05/014-Tlawson_Red-Shoe1979-768x726.jpg",
+          "complete": true,
+          "naturalWidth": 390,
+          "naturalHeight": 368,
+          "loading": "eager"
+        },
+        {
+          "alt": "LAST EXIT",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/06/Last-Exit-opening-page.jpg",
+          "complete": true,
+          "naturalWidth": 390,
+          "naturalHeight": 390,
+          "loading": "eager"
+        },
+        {
+          "alt": "SHOT FOR A BIKE",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/06/027-Tlawson_Shot-for-a-Bike1981-copy-1024x1019.jpg",
+          "complete": true,
+          "naturalWidth": 390,
+          "naturalHeight": 388,
+          "loading": "eager"
+        },
+        {
+          "alt": "BRITISH ART SHOW",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/06/Cover-and-poster-image-768x1014.png",
+          "complete": true,
+          "naturalWidth": 390,
+          "naturalHeight": 514,
+          "loading": "eager"
+        },
+        {
+          "alt": "BROAD STUDIOS",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/06/Broad-studios-92-768x650.jpg",
+          "complete": true,
+          "naturalWidth": 390,
+          "naturalHeight": 330,
+          "loading": "eager"
+        },
+        {
+          "alt": "LOS ANGELES PAINTING",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/06/1996_Los-Angeles-Painting-1-768x557.jpg",
+          "complete": true,
+          "naturalWidth": 390,
+          "naturalHeight": 282,
+          "loading": "eager"
+        },
+        {
+          "alt": "SUBURBAN INSTALL",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/06/Suburban-install3-768x576.jpg",
+          "complete": true,
+          "naturalWidth": 390,
+          "naturalHeight": 292,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2024/02/Patrick-Caulfield-essay-in-Afterall12-642x1024.jpg",
+          "complete": true,
+          "naturalWidth": 390,
+          "naturalHeight": 622,
+          "loading": "eager"
+        },
+        {
+          "alt": "PARTICIPANT INSTALL",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/06/DSC_1743-1-768x514.png",
+          "complete": true,
+          "naturalWidth": 390,
+          "naturalHeight": 261,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2024/02/The-Journey-West-East-of-Borneo-2010-768x523.png",
+          "complete": true,
+          "naturalWidth": 390,
+          "naturalHeight": 265,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2024/02/2011_Pattern-of-Thought_HR.jpg",
+          "complete": true,
+          "naturalWidth": 6144,
+          "naturalHeight": 4096,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2024/02/2017_Dreams-of-the-Arrogant-Prince-copy.jpg",
+          "complete": true,
+          "naturalWidth": 239,
+          "naturalHeight": 320,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2024/02/studio-2021.jpeg",
+          "complete": true,
+          "naturalWidth": 6000,
+          "naturalHeight": 4000,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2024/02/Michael-Asher-essay-East-of-Borneo-2022-768x589.png",
+          "complete": true,
+          "naturalWidth": 390,
+          "naturalHeight": 299,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2024/02/Discarded-Protection-2022-scaled.jpeg",
+          "complete": true,
+          "naturalWidth": 390,
+          "naturalHeight": 292,
+          "loading": "eager"
+        },
+        {
+          "alt": "Logo Footer",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/07/THOMAS-LAWSONFOOTER-768x342.png",
+          "complete": true,
+          "naturalWidth": 390,
+          "naturalHeight": 173,
+          "loading": "eager"
+        }
+      ]
+    },
+    {
+      "slug": "news",
+      "url": "https://www.thomaslawson.com/notes/",
+      "viewportName": "mobile",
+      "file": "mobile-news.jpg",
+      "title": "Notes – Thomas Lawson",
+      "bodyClasses": "wp-singular page-template-default page page-id-1898 wp-custom-logo wp-embed-responsive wp-theme-astra ast-page-builder-template ast-no-sidebar astra-4.12.4 ast-single-post ast-inherit-site-logo-transparent ast-hfb-header elementor-default elementor-kit-8 elementor-page elementor-page-1898 ast-header-break-point e--ua-blink e--ua-chrome e--ua-mac e--ua-webkit",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "page": {
+        "width": 390,
+        "height": 3032
+      },
+      "horizontalOverflow": false,
+      "headings": [
+        {
+          "level": 1,
+          "text": "News"
+        },
+        {
+          "level": 5,
+          "text": "Rabkin Prize"
+        },
+        {
+          "level": 2,
+          "text": "Thomas Lawson: Sunny and Warm at Chez Max et Dorothea, Los Angeles"
+        },
+        {
+          "level": 5,
+          "text": "The Studio Reader"
+        },
+        {
+          "level": 5,
+          "text": "Thomas Lawson: Attending to the Bats at AF Projects, Los Angeles"
+        },
+        {
+          "level": 5,
+          "text": "Anthology for Unseen"
+        }
+      ],
+      "links": [
+        {
+          "text": "",
+          "href": "https://open.substack.com/pub/rabkinfoundation/p/2024-rabkin-prize-winner-thomas-lawson?utm_campaign=post&utm_medium=web"
+        },
+        {
+          "text": "",
+          "href": "https://www.chezmaxdorothea.com/exhibitions/sunny-and-warm"
+        },
+        {
+          "text": "",
+          "href": "https://www.thomaslawson.com/wp-content/uploads/2024/01/The-Studio-Reader.pdf"
+        },
+        {
+          "text": "",
+          "href": "https://vimeo.com/406160470?fl=pl&fe=sh"
+        },
+        {
+          "text": "",
+          "href": "https://www.thomaslawson.com/notes-anthology-for-unseen/"
+        }
+      ],
+      "images": [
+        {
+          "alt": "Logo",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/07/THOMAS-LAWSON-1-301x99.png",
+          "complete": true,
+          "naturalWidth": 301,
+          "naturalHeight": 99,
+          "loading": "eager"
+        },
+        {
+          "alt": "Logo",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/07/THOMAS-LAWSON-1-301x99.png",
+          "complete": true,
+          "naturalWidth": 301,
+          "naturalHeight": 99,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2024/01/Notes-hero-image-scaled.jpeg",
+          "complete": true,
+          "naturalWidth": 389,
+          "naturalHeight": 519,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2026/03/Lawson_Rabkin_Web_1-1024x683-1-768x512.jpg",
+          "complete": true,
+          "naturalWidth": 390,
+          "naturalHeight": 260,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2026/03/f97caee66efa6fb0f60678ede28b8e1404c64ab6-1200x790-1-768x506.jpg",
+          "complete": true,
+          "naturalWidth": 390,
+          "naturalHeight": 256,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2024/01/The-Studio-Reader_Page_1-768x1013.jpg",
+          "complete": true,
+          "naturalWidth": 390,
+          "naturalHeight": 514,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2026/03/Thomas-Lawson-Flying-brick-2019-18-x-24-in-45.72-x-60.96-cm-1-768x535.jpg",
+          "complete": true,
+          "naturalWidth": 390,
+          "naturalHeight": 271,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2024/01/Anthology-for-Unseen-title-page-scaled.jpg",
+          "complete": true,
+          "naturalWidth": 390,
+          "naturalHeight": 292,
+          "loading": "eager"
+        },
+        {
+          "alt": "Logo Footer",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/07/THOMAS-LAWSONFOOTER-768x342.png",
+          "complete": true,
+          "naturalWidth": 390,
+          "naturalHeight": 173,
+          "loading": "eager"
+        }
+      ]
+    },
+    {
+      "slug": "studio",
+      "url": "https://www.thomaslawson.com/in-the-studio/",
+      "viewportName": "mobile",
+      "file": "mobile-studio.jpg",
+      "title": "In The Studio – Thomas Lawson",
+      "bodyClasses": "wp-singular page-template-default page page-id-140 wp-custom-logo wp-embed-responsive wp-theme-astra ast-page-builder-template ast-no-sidebar astra-4.12.4 ast-single-post ast-inherit-site-logo-transparent ast-hfb-header elementor-default elementor-kit-8 elementor-page elementor-page-140 ast-header-break-point e--ua-blink e--ua-chrome e--ua-mac e--ua-webkit",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "page": {
+        "width": 390,
+        "height": 11266
+      },
+      "horizontalOverflow": false,
+      "headings": [
+        {
+          "level": 1,
+          "text": "In the Studio"
+        },
+        {
+          "level": 1,
+          "text": "1977"
+        },
+        {
+          "level": 1,
+          "text": "1979"
+        },
+        {
+          "level": 1,
+          "text": "1980"
+        },
+        {
+          "level": 1,
+          "text": "1982"
+        },
+        {
+          "level": 1,
+          "text": "1983"
+        },
+        {
+          "level": 1,
+          "text": "1987"
+        },
+        {
+          "level": 1,
+          "text": "1987"
+        },
+        {
+          "level": 1,
+          "text": "1990"
+        },
+        {
+          "level": 1,
+          "text": "1991"
+        },
+        {
+          "level": 1,
+          "text": "1993"
+        },
+        {
+          "level": 1,
+          "text": "1994"
+        },
+        {
+          "level": 1,
+          "text": "1998"
+        },
+        {
+          "level": 1,
+          "text": "1999"
+        },
+        {
+          "level": 1,
+          "text": "2006"
+        },
+        {
+          "level": 1,
+          "text": "2006"
+        },
+        {
+          "level": 1,
+          "text": "2010"
+        },
+        {
+          "level": 1,
+          "text": "2010"
+        },
+        {
+          "level": 1,
+          "text": "2015"
+        },
+        {
+          "level": 1,
+          "text": "2015"
+        },
+        {
+          "level": 1,
+          "text": "2016"
+        },
+        {
+          "level": 1,
+          "text": "2017"
+        },
+        {
+          "level": 1,
+          "text": "2020"
+        }
+      ],
+      "links": [],
+      "images": [
+        {
+          "alt": "Logo",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/07/THOMAS-LAWSON-1-301x99.png",
+          "complete": true,
+          "naturalWidth": 301,
+          "naturalHeight": 99,
+          "loading": "eager"
+        },
+        {
+          "alt": "Logo",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/07/THOMAS-LAWSON-1-301x99.png",
+          "complete": true,
+          "naturalWidth": 301,
+          "naturalHeight": 99,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/06/006-Tlawson_Lone-Piper1978-768x771.jpg",
+          "complete": true,
+          "naturalWidth": 390,
+          "naturalHeight": 391,
+          "loading": "eager"
+        },
+        {
+          "alt": "BABY PINK ON BLUE",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/05/007-Tlawson_Baby-Pink-on-Blue1978-765x1024.jpg",
+          "complete": true,
+          "naturalWidth": 390,
+          "naturalHeight": 522,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/06/009-Tlawson_Gold-Dog-Black-Orange1978-768x538.jpg",
+          "complete": true,
+          "naturalWidth": 390,
+          "naturalHeight": 273,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/09/027-Tlawson_Shot-for-a-Bike1981.jpg",
+          "complete": true,
+          "naturalWidth": 390,
+          "naturalHeight": 388,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/09/035-Tlawson_He-Shot-His-Best-Budy1982.jpg",
+          "complete": true,
+          "naturalWidth": 390,
+          "naturalHeight": 204,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/09/028-Tlawson_Burn-Burn-Burn1982-768x763.jpg",
+          "complete": true,
+          "naturalWidth": 390,
+          "naturalHeight": 387,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/09/052-Tlawson_Betrayal1983.jpg",
+          "complete": true,
+          "naturalWidth": 390,
+          "naturalHeight": 373,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/09/061-Tlawson_Spirit-of-the-Museum-Study1985.jpg",
+          "complete": true,
+          "naturalWidth": 390,
+          "naturalHeight": 562,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/09/063-Tlawson_Swimming-Pool-2_1985.jpg",
+          "complete": true,
+          "naturalWidth": 390,
+          "naturalHeight": 274,
+          "loading": "eager"
+        },
+        {
+          "alt": "INSTALLATION KUHLENSCHMIDT 2",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/09/installation-kuhlenschmidt-08-768x527.jpg",
+          "complete": true,
+          "naturalWidth": 390,
+          "naturalHeight": 267,
+          "loading": "eager"
+        },
+        {
+          "alt": "Arm Juggling Light",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/09/1990_Arm-Juggling-Light_HR.jpg",
+          "complete": true,
+          "naturalWidth": 390,
+          "naturalHeight": 570,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/09/anthony-reynolds-install-1-768x498.jpg",
+          "complete": true,
+          "naturalWidth": 390,
+          "naturalHeight": 252,
+          "loading": "eager"
+        },
+        {
+          "alt": "OUT OF THE DARK NIGHT",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/09/1992_Out-of-the-Dark-Night_HR.jpg",
+          "complete": true,
+          "naturalWidth": 390,
+          "naturalHeight": 261,
+          "loading": "eager"
+        },
+        {
+          "alt": "FIERY SKY",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/09/1992-Fiery-Sky_HR-768x518.jpg",
+          "complete": true,
+          "naturalWidth": 390,
+          "naturalHeight": 263,
+          "loading": "eager"
+        },
+        {
+          "alt": "SUBURBAN DREAMS",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/09/1993_Suburban-Dreams-3_HR-768x519.jpg",
+          "complete": true,
+          "naturalWidth": 390,
+          "naturalHeight": 263,
+          "loading": "eager"
+        },
+        {
+          "alt": "NIGHTMARE INN",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/09/1998_Nightmare-Inn_HR.jpg",
+          "complete": true,
+          "naturalWidth": 390,
+          "naturalHeight": 410,
+          "loading": "eager"
+        },
+        {
+          "alt": "VIENNESE PAINTING 7",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/09/1995_Viennese-Painting-7_HR.jpg",
+          "complete": true,
+          "naturalWidth": 390,
+          "naturalHeight": 234,
+          "loading": "eager"
+        },
+        {
+          "alt": "DEAD CALM",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/09/1998_Dead-Calm_HR-768x604.jpg",
+          "complete": true,
+          "naturalWidth": 390,
+          "naturalHeight": 306,
+          "loading": "eager"
+        },
+        {
+          "alt": "WEATHER SYSTEM",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/09/2001_Weather-System-768x553.jpg",
+          "complete": true,
+          "naturalWidth": 390,
+          "naturalHeight": 280,
+          "loading": "eager"
+        },
+        {
+          "alt": "DOUBLE WORLD",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/09/2006_Double-World_HR.jpg",
+          "complete": true,
+          "naturalWidth": 390,
+          "naturalHeight": 289,
+          "loading": "eager"
+        },
+        {
+          "alt": "UNTITLED ORANGE-PINK-GREEN",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/09/2006_Untitled-Orange-Pink-Green_HR.jpg",
+          "complete": true,
+          "naturalWidth": 390,
+          "naturalHeight": 292,
+          "loading": "eager"
+        },
+        {
+          "alt": "TREE",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/09/2010_Tree_HR.jpg",
+          "complete": true,
+          "naturalWidth": 390,
+          "naturalHeight": 301,
+          "loading": "eager"
+        },
+        {
+          "alt": "HARLEQUIN",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/09/2010_Harlequin_HR.jpg",
+          "complete": true,
+          "naturalWidth": 389,
+          "naturalHeight": 584,
+          "loading": "eager"
+        },
+        {
+          "alt": "THE NEW WORLD TWINS",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/09/2008_The-New-World-Twins_HR.jpg",
+          "complete": true,
+          "naturalWidth": 390,
+          "naturalHeight": 490,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2024/02/2014_Dance-Theory-copy-min-768x512.jpeg",
+          "complete": true,
+          "naturalWidth": 390,
+          "naturalHeight": 260,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2024/02/2013_WatchingBeing-Watched_HR-min.jpg",
+          "complete": true,
+          "naturalWidth": 4096,
+          "naturalHeight": 6144,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2024/02/2011_Confrontation-Double-Exposure_HR-min-791x1024.jpg",
+          "complete": true,
+          "naturalWidth": 390,
+          "naturalHeight": 504,
+          "loading": "eager"
+        },
+        {
+          "alt": "DISILLUSIONMENT",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/09/2015_Disillusionment-768x605.jpg",
+          "complete": true,
+          "naturalWidth": 390,
+          "naturalHeight": 307,
+          "loading": "eager"
+        },
+        {
+          "alt": "DISLOCATION",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/09/2015_Dislocation-759x1024.jpg",
+          "complete": true,
+          "naturalWidth": 390,
+          "naturalHeight": 526,
+          "loading": "eager"
+        },
+        {
+          "alt": "DISORDER",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/09/2015_Disorder-768x599.jpg",
+          "complete": true,
+          "naturalWidth": 390,
+          "naturalHeight": 304,
+          "loading": "eager"
+        },
+        {
+          "alt": "HEAD IN HANDS",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/09/2019_Head-in-Hands-768x608.jpg",
+          "complete": true,
+          "naturalWidth": 390,
+          "naturalHeight": 308,
+          "loading": "eager"
+        },
+        {
+          "alt": "WHITE ON WHITE",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/09/2018_White-on-White.-png.jpg",
+          "complete": true,
+          "naturalWidth": 240,
+          "naturalHeight": 320,
+          "loading": "eager"
+        },
+        {
+          "alt": "STORMY WEATHER",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/09/2019_Stormy-Weather.jpg",
+          "complete": true,
+          "naturalWidth": 390,
+          "naturalHeight": 462,
+          "loading": "eager"
+        },
+        {
+          "alt": "Logo Footer",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/07/THOMAS-LAWSONFOOTER-768x342.png",
+          "complete": true,
+          "naturalWidth": 390,
+          "naturalHeight": 173,
+          "loading": "eager"
+        }
+      ]
+    },
+    {
+      "slug": "beyond",
+      "url": "https://www.thomaslawson.com/beyond-the-studio/",
+      "viewportName": "mobile",
+      "file": "mobile-beyond.jpg",
+      "title": "Beyond the Studio – Thomas Lawson",
+      "bodyClasses": "wp-singular page-template-default page page-id-1177 wp-custom-logo wp-embed-responsive wp-theme-astra ast-page-builder-template ast-no-sidebar astra-4.12.4 ast-single-post ast-inherit-site-logo-transparent ast-hfb-header elementor-default elementor-kit-8 elementor-page elementor-page-1177 ast-header-break-point e--ua-blink e--ua-chrome e--ua-mac e--ua-webkit",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "page": {
+        "width": 390,
+        "height": 2000
+      },
+      "horizontalOverflow": false,
+      "headings": [
+        {
+          "level": 1,
+          "text": "Beyond the Studio"
+        },
+        {
+          "level": 5,
+          "text": "Painted Installations"
+        },
+        {
+          "level": 5,
+          "text": "Early New York"
+        },
+        {
+          "level": 5,
+          "text": "Dark Installations"
+        },
+        {
+          "level": 5,
+          "text": "Temporary Murals"
+        },
+        {
+          "level": 5,
+          "text": "Glasgow Projects"
+        },
+        {
+          "level": 5,
+          "text": "Theatre, Dance & Fashion"
+        },
+        {
+          "level": 5,
+          "text": "Los Angeles"
+        },
+        {
+          "level": 5,
+          "text": "The Scottish Project​"
+        }
+      ],
+      "links": [
+        {
+          "text": "",
+          "href": "https://www.thomaslawson.com/beyond-the-studio-painted-installations/"
+        },
+        {
+          "text": "",
+          "href": "https://www.thomaslawson.com/beyond-the-studio-early-new-york/"
+        },
+        {
+          "text": "",
+          "href": "https://www.thomaslawson.com/beyond-the-studio-dark-installations/"
+        },
+        {
+          "text": "",
+          "href": "https://www.thomaslawson.com/beyond-the-studio-portraits-of-new-york/"
+        },
+        {
+          "text": "",
+          "href": "https://www.thomaslawson.com/beyond-the-studio-glasgow-projects/"
+        },
+        {
+          "text": "",
+          "href": "https://www.thomaslawson.com/beyond-the-studio-theatre-dance-fashion/"
+        },
+        {
+          "text": "",
+          "href": "https://www.thomaslawson.com/beyond-the-studio-los-angeles/"
+        },
+        {
+          "text": "",
+          "href": "https://www.thomaslawson.com/beyond-the-studio-the-scottish-project/"
+        }
+      ],
+      "images": [
+        {
+          "alt": "Logo",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/07/THOMAS-LAWSON-1-301x99.png",
+          "complete": true,
+          "naturalWidth": 301,
+          "naturalHeight": 99,
+          "loading": "eager"
+        },
+        {
+          "alt": "Logo",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/07/THOMAS-LAWSON-1-301x99.png",
+          "complete": true,
+          "naturalWidth": 301,
+          "naturalHeight": 99,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/09/4-beyond-the-studio-768x524.jpg",
+          "complete": true,
+          "naturalWidth": 390,
+          "naturalHeight": 266,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/11/1987_Anthony-Reynolds-exhibition-catalogue-drawing_LR-768x583.jpg",
+          "complete": true,
+          "naturalWidth": 390,
+          "naturalHeight": 296,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/08/civic_virtue_1-768x519.jpg",
+          "complete": true,
+          "naturalWidth": 390,
+          "naturalHeight": 263,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/08/1992_Tiefe-Nacht_LR.jpg",
+          "complete": true,
+          "naturalWidth": 389,
+          "naturalHeight": 258,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/08/portrait_16-768x504.jpg",
+          "complete": true,
+          "naturalWidth": 390,
+          "naturalHeight": 255,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/08/glasgow-green-install-3-768x524.jpg",
+          "complete": true,
+          "naturalWidth": 390,
+          "naturalHeight": 266,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/08/09-Til-You-Drop-Sept-2014-768x432.jpeg",
+          "complete": true,
+          "naturalWidth": 390,
+          "naturalHeight": 219,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/08/eastranch-802x802-1-768x768.jpg",
+          "complete": true,
+          "naturalWidth": 390,
+          "naturalHeight": 390,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/08/2001_02_ReformerRevolutionist-768x576.jpg",
+          "complete": true,
+          "naturalWidth": 390,
+          "naturalHeight": 292,
+          "loading": "eager"
+        },
+        {
+          "alt": "Logo Footer",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/07/THOMAS-LAWSONFOOTER-768x342.png",
+          "complete": true,
+          "naturalWidth": 390,
+          "naturalHeight": 173,
+          "loading": "eager"
+        }
+      ]
+    },
+    {
+      "slug": "writing",
+      "url": "https://www.thomaslawson.com/bookshelf/",
+      "viewportName": "mobile",
+      "file": "mobile-writing.jpg",
+      "title": "Bookshelf – Thomas Lawson",
+      "bodyClasses": "wp-singular page-template-default page page-id-808 wp-custom-logo wp-embed-responsive wp-theme-astra ast-page-builder-template ast-no-sidebar astra-4.12.4 ast-single-post ast-inherit-site-logo-transparent ast-hfb-header elementor-default elementor-kit-8 elementor-page elementor-page-808 ast-header-break-point e--ua-blink e--ua-chrome e--ua-mac e--ua-webkit",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "page": {
+        "width": 390,
+        "height": 3540
+      },
+      "horizontalOverflow": false,
+      "headings": [
+        {
+          "level": 1,
+          "text": "Bookshelf"
+        },
+        {
+          "level": 1,
+          "text": "Publications"
+        },
+        {
+          "level": 1,
+          "text": "Artforum"
+        },
+        {
+          "level": 1,
+          "text": "Afterall"
+        },
+        {
+          "level": 1,
+          "text": "East of Borneo"
+        },
+        {
+          "level": 1,
+          "text": "Reallife Magazine"
+        },
+        {
+          "level": 1,
+          "text": "Interviews"
+        },
+        {
+          "level": 1,
+          "text": "Writings about me"
+        },
+        {
+          "level": 1,
+          "text": "Other writings"
+        },
+        {
+          "level": 1,
+          "text": "Considering other artists"
+        },
+        {
+          "level": 1,
+          "text": "Anthologies"
+        },
+        {
+          "level": 1,
+          "text": "Miscellaneous"
+        }
+      ],
+      "links": [
+        {
+          "text": "Artforum",
+          "href": "https://www.thomaslawson.com/bookshelf_artforum/"
+        },
+        {
+          "text": "Afterall",
+          "href": "https://www.thomaslawson.com/bookshelf_afterall/"
+        },
+        {
+          "text": "East of Borneo",
+          "href": "https://www.thomaslawson.com/bookshelf_eastofborneo/"
+        },
+        {
+          "text": "Reallife Magazine",
+          "href": "https://www.thomaslawson.com/bookshelf-reallife/"
+        },
+        {
+          "text": "Interviews",
+          "href": "https://www.thomaslawson.com/elementor-1796/"
+        },
+        {
+          "text": "Writings about me",
+          "href": "https://www.thomaslawson.com/bookshelf_writingsabouttl/"
+        },
+        {
+          "text": "Considering other artists",
+          "href": "https://www.thomaslawson.com/elementor-395/"
+        },
+        {
+          "text": "Anthologies",
+          "href": "https://www.thomaslawson.com/bookshelf-anthologies/"
+        }
+      ],
+      "images": [
+        {
+          "alt": "Logo",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/07/THOMAS-LAWSON-1-301x99.png",
+          "complete": true,
+          "naturalWidth": 301,
+          "naturalHeight": 99,
+          "loading": "eager"
+        },
+        {
+          "alt": "Logo",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/07/THOMAS-LAWSON-1-301x99.png",
+          "complete": true,
+          "naturalWidth": 301,
+          "naturalHeight": 99,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/06/5-bookshelf-scaled.jpg",
+          "complete": true,
+          "naturalWidth": 389,
+          "naturalHeight": 519,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/1-ARtforum-November-1980-817x1024.png",
+          "complete": true,
+          "naturalWidth": 817,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/2-Artforum-Marchh-1981-872x1024.png",
+          "complete": true,
+          "naturalWidth": 872,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/3-Artforum-April-1981-886x1024.png",
+          "complete": true,
+          "naturalWidth": 886,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/4-Artforum-May-1981-925x1024.png",
+          "complete": true,
+          "naturalWidth": 925,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/5-Artforum-September-1981-956x1024.png",
+          "complete": true,
+          "naturalWidth": 956,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/6-Artforum-October-1981-960x1024.png",
+          "complete": true,
+          "naturalWidth": 960,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/7-Artforum-December-1981-908x1024.png",
+          "complete": true,
+          "naturalWidth": 908,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/8-Artforum-January-1982-922x1024.png",
+          "complete": true,
+          "naturalWidth": 922,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/9-Artforum-May-1982-855x1024.png",
+          "complete": true,
+          "naturalWidth": 855,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/10-Artforum-Summer-1982-961x1024.png",
+          "complete": true,
+          "naturalWidth": 961,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/11-Artforum-October-1982-881x1024.png",
+          "complete": true,
+          "naturalWidth": 881,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/12-Artforum-November-1982-841x1024.png",
+          "complete": true,
+          "naturalWidth": 841,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/13-Artforum-February-1983-1024x640.png",
+          "complete": true,
+          "naturalWidth": 1024,
+          "naturalHeight": 640,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/14-Artforum-March-1983-884x1024.png",
+          "complete": true,
+          "naturalWidth": 884,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/15-Artforum-Summer-83-859x1024.png",
+          "complete": true,
+          "naturalWidth": 859,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/16-Artforum-September-83-923x1024.png",
+          "complete": true,
+          "naturalWidth": 923,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/17-Artforum-January-84-929x1024.png",
+          "complete": true,
+          "naturalWidth": 929,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/18-Artforum-MAy-84-928x1024.png",
+          "complete": true,
+          "naturalWidth": 928,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/19-Artforum-Summer-84-790x1024.png",
+          "complete": true,
+          "naturalWidth": 790,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/20-Artforum-September-84--797x1024.png",
+          "complete": true,
+          "naturalWidth": 797,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/21-Artforum-Novemner-84-815x1024.png",
+          "complete": true,
+          "naturalWidth": 815,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/22-Artforum-March-1986-890x1024.png",
+          "complete": true,
+          "naturalWidth": 890,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/23-Artforum-Janury-1988-929x1024.png",
+          "complete": true,
+          "naturalWidth": 929,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/24-Artforum-October-2004-943x1024.png",
+          "complete": true,
+          "naturalWidth": 943,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/01/Afterall6-cover-654x1024.jpg",
+          "complete": true,
+          "naturalWidth": 654,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/01/Afterall7-642x1024.jpg",
+          "complete": true,
+          "naturalWidth": 642,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/01/Afterall9-cover-644x1024.jpg",
+          "complete": true,
+          "naturalWidth": 644,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/01/Afterall11-cover-647x1024.jpg",
+          "complete": true,
+          "naturalWidth": 647,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/01/Afterall12-cover-642x1024.jpg",
+          "complete": true,
+          "naturalWidth": 642,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2024/01/Afterall13-656x1024.jpg",
+          "complete": true,
+          "naturalWidth": 656,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/The-Journey-West-1024x716.png",
+          "complete": true,
+          "naturalWidth": 1024,
+          "naturalHeight": 716,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/Andrea-Bowers-Interview-1024x592.png",
+          "complete": true,
+          "naturalWidth": 1024,
+          "naturalHeight": 592,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/Institutional-Whitewash-1024x712.png",
+          "complete": true,
+          "naturalWidth": 1024,
+          "naturalHeight": 712,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/Liz-Glynn-1024x640.png",
+          "complete": true,
+          "naturalWidth": 1024,
+          "naturalHeight": 640,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/Michael-Asher-obit.png",
+          "complete": true,
+          "naturalWidth": 773,
+          "naturalHeight": 979,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/4-Taxis-1024x712.png",
+          "complete": true,
+          "naturalWidth": 1024,
+          "naturalHeight": 712,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/Stephen-Prina-1024x465.png",
+          "complete": true,
+          "naturalWidth": 1024,
+          "naturalHeight": 465,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/Allan-Sekula-obit-1024x496.png",
+          "complete": true,
+          "naturalWidth": 1024,
+          "naturalHeight": 496,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/Fiona-Connor-1024x721.png",
+          "complete": true,
+          "naturalWidth": 1024,
+          "naturalHeight": 721,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/a-visit-to-Man-Ray-1024x809.png",
+          "complete": true,
+          "naturalWidth": 1024,
+          "naturalHeight": 809,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/Hopps-discovers-Cornell.png",
+          "complete": true,
+          "naturalWidth": 747,
+          "naturalHeight": 969,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/Duchamp-Wood-1024x659.png",
+          "complete": true,
+          "naturalWidth": 1024,
+          "naturalHeight": 659,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/Hopps-at-Arensbergs-1024x818.png",
+          "complete": true,
+          "naturalWidth": 1024,
+          "naturalHeight": 818,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/Cesar-Pelli-obit-1024x735.png",
+          "complete": true,
+          "naturalWidth": 1024,
+          "naturalHeight": 735,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/John-Baldessari.png",
+          "complete": true,
+          "naturalWidth": 730,
+          "naturalHeight": 972,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/Betye-Saar.png",
+          "complete": true,
+          "naturalWidth": 661,
+          "naturalHeight": 943,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/Millard-Sheets.png",
+          "complete": true,
+          "naturalWidth": 696,
+          "naturalHeight": 968,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/CalArts-story-1024x761.png",
+          "complete": true,
+          "naturalWidth": 1024,
+          "naturalHeight": 761,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/Luciano-Perna-obit.png",
+          "complete": true,
+          "naturalWidth": 725,
+          "naturalHeight": 970,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/02/Michael-Asher-essay-alt.png",
+          "complete": true,
+          "naturalWidth": 759,
+          "naturalHeight": 963,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/12/REALLIFE-1-cover.jpg",
+          "complete": true,
+          "naturalWidth": 619,
+          "naturalHeight": 795,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/12/REALLIFE-2-cover.jpg",
+          "complete": true,
+          "naturalWidth": 634,
+          "naturalHeight": 827,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/12/REALLIFE-3-cover.jpg",
+          "complete": true,
+          "naturalWidth": 634,
+          "naturalHeight": 827,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/12/654-Real-Life-review-of-anthology_Page_1-scaled.jpg",
+          "complete": true,
+          "naturalWidth": 1956,
+          "naturalHeight": 2560,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/12/683-Real-Life-Show_Page_1-682x1024.jpg",
+          "complete": true,
+          "naturalWidth": 682,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/12/Pfeil-Magazine-cover-and-contents_Page_1-745x1024.jpg",
+          "complete": true,
+          "naturalWidth": 745,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/12/403-Video-Data-Bank-Profile-1-674x1024.jpg",
+          "complete": true,
+          "naturalWidth": 674,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/12/497-Robbins-Interview-with-TL-1-scaled.jpg",
+          "complete": true,
+          "naturalWidth": 1922,
+          "naturalHeight": 2560,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/12/620-Robert-Rooney-Pool-Side-1-740x1024.jpg",
+          "complete": true,
+          "naturalWidth": 740,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/12/793-CAE-Art-Papers-1-scaled.jpg",
+          "complete": true,
+          "naturalWidth": 1939,
+          "naturalHeight": 2560,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/12/Cover-for-Christopher-Howard-interview-1024x589.png",
+          "complete": true,
+          "naturalWidth": 1024,
+          "naturalHeight": 589,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/12/Cover-for-McEvilly-Sischy-interview-990x1024.png",
+          "complete": true,
+          "naturalWidth": 990,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/04/650-Thomas-Lawson-at-LAXART-1.jpg",
+          "complete": true,
+          "naturalWidth": 755,
+          "naturalHeight": 747,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/04/Christopher-Miles.jpg",
+          "complete": true,
+          "naturalWidth": 755,
+          "naturalHeight": 747,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/04/Donald-Kuspit-1024x1024.jpg",
+          "complete": true,
+          "naturalWidth": 1024,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/04/Ingrid-Sischy-1014x1024.jpg",
+          "complete": true,
+          "naturalWidth": 1014,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/04/Jeane-Silverthorne-1990.jpg",
+          "complete": true,
+          "naturalWidth": 487,
+          "naturalHeight": 685,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/04/Jeanne-Silverthorn-Summer-1985.jpg",
+          "complete": true,
+          "naturalWidth": 487,
+          "naturalHeight": 610,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/04/Joan-Casademont-1024x1024.jpg",
+          "complete": true,
+          "naturalWidth": 1024,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/04/Judith-Russi-May-83.jpg",
+          "complete": true,
+          "naturalWidth": 489,
+          "naturalHeight": 557,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/04/Kate-Linker-1014x1024.jpg",
+          "complete": true,
+          "naturalWidth": 1014,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/04/Kuspit-On-Drawing-April-1982.jpg",
+          "complete": true,
+          "naturalWidth": 492,
+          "naturalHeight": 545,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/04/Artforum-March-84.jpg",
+          "complete": true,
+          "naturalWidth": 488,
+          "naturalHeight": 562,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/04/Lobel-Singerman-1024x1024.jpg",
+          "complete": true,
+          "naturalWidth": 1024,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/09/2015_Displacement-1024x793.jpg",
+          "complete": true,
+          "naturalWidth": 1024,
+          "naturalHeight": 793,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/04/Ron-Jones-1987-cover.jpg",
+          "complete": true,
+          "naturalWidth": 606,
+          "naturalHeight": 788,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/04/Ron-Jones-1985-cover.jpg",
+          "complete": true,
+          "naturalWidth": 611,
+          "naturalHeight": 841,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/04/Schjeldahl-on-Pictures-Generation_Page_1.jpg",
+          "complete": true,
+          "naturalWidth": 565,
+          "naturalHeight": 748,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/04/Sydney-Biennale-1024x1024.jpg",
+          "complete": true,
+          "naturalWidth": 1024,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/04/Deihl-review.jpg",
+          "complete": true,
+          "naturalWidth": 290,
+          "naturalHeight": 374,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2026/03/spike-71-couples-cover-web_f4b47d70-c6c8-4448-ba6c-5ab99feb149d-794x1024.jpeg",
+          "complete": true,
+          "naturalWidth": 794,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/04/359-Empire-1.jpg",
+          "complete": true,
+          "naturalWidth": 5000,
+          "naturalHeight": 7096,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/04/439-Laura-Owens-1-scaled.jpg",
+          "complete": true,
+          "naturalWidth": 1968,
+          "naturalHeight": 2560,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/04/643-Richard-Wright-1-scaled.jpg",
+          "complete": true,
+          "naturalWidth": 1824,
+          "naturalHeight": 2560,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/04/648-Michael-Hurson-1-scaled.jpg",
+          "complete": true,
+          "naturalWidth": 2558,
+          "naturalHeight": 2560,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/04/652-Paint-1-scaled.jpg",
+          "complete": true,
+          "naturalWidth": 1908,
+          "naturalHeight": 2560,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2024/03/1-Art-After-Modernism-Rethinking-Representation-721x1024.png",
+          "complete": true,
+          "naturalWidth": 721,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2024/03/2-Theories-of-Contemporary-Art-666x1024.jpeg",
+          "complete": true,
+          "naturalWidth": 666,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2024/03/3-Infotainment.jpg",
+          "complete": true,
+          "naturalWidth": 300,
+          "naturalHeight": 426,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2024/03/4-Individuals.jpg",
+          "complete": true,
+          "naturalWidth": 1024,
+          "naturalHeight": 768,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2024/03/5-Modern-Dreams.png",
+          "complete": true,
+          "naturalWidth": 585,
+          "naturalHeight": 591,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2024/03/6-Blasted-allegories-731x1024.jpeg",
+          "complete": true,
+          "naturalWidth": 731,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "Logo Footer",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/07/THOMAS-LAWSONFOOTER-768x342.png",
+          "complete": true,
+          "naturalWidth": 390,
+          "naturalHeight": 173,
+          "loading": "eager"
+        }
+      ]
+    },
+    {
+      "slug": "broader",
+      "url": "https://www.thomaslawson.com/art-in-a-broader-context/",
+      "viewportName": "mobile",
+      "file": "mobile-broader.jpg",
+      "title": "Art in a Broader Context – Thomas Lawson",
+      "bodyClasses": "wp-singular page-template-default page page-id-1147 wp-custom-logo wp-embed-responsive wp-theme-astra ast-page-builder-template ast-no-sidebar astra-4.12.4 ast-single-post ast-inherit-site-logo-transparent ast-hfb-header elementor-default elementor-kit-8 elementor-page elementor-page-1147 ast-header-break-point e--ua-blink e--ua-chrome e--ua-mac e--ua-webkit",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "page": {
+        "width": 390,
+        "height": 2647
+      },
+      "horizontalOverflow": false,
+      "headings": [
+        {
+          "level": 1,
+          "text": "Art in a Broader Context"
+        },
+        {
+          "level": 5,
+          "text": "Familie Beck"
+        },
+        {
+          "level": 6,
+          "text": "1990"
+        },
+        {
+          "level": 5,
+          "text": "Art School, 1982-present"
+        },
+        {
+          "level": 6,
+          "text": "1982-present"
+        },
+        {
+          "level": 5,
+          "text": "Dissent, 2016"
+        },
+        {
+          "level": 6,
+          "text": "2016"
+        },
+        {
+          "level": 5,
+          "text": "The Experimental Impulse, 2011"
+        },
+        {
+          "level": 6,
+          "text": "2011"
+        },
+        {
+          "level": 5,
+          "text": "Hot Coffee, 1997"
+        },
+        {
+          "level": 6,
+          "text": "1997"
+        },
+        {
+          "level": 5,
+          "text": "Shimmer, 1997"
+        },
+        {
+          "level": 6,
+          "text": "1997"
+        },
+        {
+          "level": 5,
+          "text": "The British Art Show, 1994"
+        },
+        {
+          "level": 6,
+          "text": "1994"
+        },
+        {
+          "level": 5,
+          "text": "Nostalgia as Resistance, 1988"
+        },
+        {
+          "level": 6,
+          "text": "1988"
+        },
+        {
+          "level": 5,
+          "text": "Livin' in the USA, 1984"
+        },
+        {
+          "level": 6,
+          "text": "1984"
+        },
+        {
+          "level": 5,
+          "text": "Critical Perspectives, 1982"
+        },
+        {
+          "level": 6,
+          "text": "1982"
+        },
+        {
+          "level": 5,
+          "text": "REALLIFE | Whitecolumns, 1982"
+        },
+        {
+          "level": 6,
+          "text": "1982"
+        },
+        {
+          "level": 5,
+          "text": "REALLIFE Magazine Presents​, 1981"
+        },
+        {
+          "level": 6,
+          "text": "1981"
+        },
+        {
+          "level": 5,
+          "text": "Pat Douthwaite, 1973"
+        },
+        {
+          "level": 6,
+          "text": "1973"
+        }
+      ],
+      "links": [
+        {
+          "text": "",
+          "href": "https://www.thomaslawson.com/art-in-context-familie-beck/"
+        },
+        {
+          "text": "",
+          "href": "https://www.thomaslawson.com/elementor-1878/"
+        },
+        {
+          "text": "",
+          "href": "https://www.thomaslawson.com/art-in-context-dissent/"
+        },
+        {
+          "text": "",
+          "href": "https://www.thomaslawson.com/art-in-context-hot-coffee/"
+        },
+        {
+          "text": "",
+          "href": "https://www.thomaslawson.com/art-in-context-hot-coffee-2/"
+        },
+        {
+          "text": "",
+          "href": "https://www.thomaslawson.com/art-in-context-shimmer/"
+        },
+        {
+          "text": "",
+          "href": "https://www.thomaslawson.com/art-in-context-the-british-art-show/"
+        },
+        {
+          "text": "",
+          "href": "https://www.thomaslawson.com/art-in-context-nostalgia-as-reference/"
+        },
+        {
+          "text": "",
+          "href": "https://www.thomaslawson.com/art-in-context-livin-in-the-usa/"
+        },
+        {
+          "text": "",
+          "href": "https://www.thomaslawson.com/critical-perspectives-art-in-context/"
+        },
+        {
+          "text": "",
+          "href": "https://www.thomaslawson.com/reallife-magazine-presents-whitecolumns-art-in-context/"
+        },
+        {
+          "text": "",
+          "href": "https://www.thomaslawson.com/art-in-context-reallife-presents/"
+        },
+        {
+          "text": "",
+          "href": "https://www.thomaslawson.com/pat-douthewaite-art-in-context/"
+        }
+      ],
+      "images": [
+        {
+          "alt": "Logo",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/07/THOMAS-LAWSON-1-301x99.png",
+          "complete": true,
+          "naturalWidth": 301,
+          "naturalHeight": 99,
+          "loading": "eager"
+        },
+        {
+          "alt": "Logo",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/07/THOMAS-LAWSON-1-301x99.png",
+          "complete": true,
+          "naturalWidth": 301,
+          "naturalHeight": 99,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/08/ArtInContext-CoverImage-768x517.jpg",
+          "complete": true,
+          "naturalWidth": 390,
+          "naturalHeight": 262,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/08/FAmilie-Beck-cover.jpg",
+          "complete": true,
+          "naturalWidth": 390,
+          "naturalHeight": 581,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2026/04/TomLawson_Laura-Owens-768x519.jpg",
+          "complete": true,
+          "naturalWidth": 390,
+          "naturalHeight": 263,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/08/Sondra-Perry-install-768x471.png",
+          "complete": true,
+          "naturalWidth": 390,
+          "naturalHeight": 239,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/08/CIA_20111119_6006-768x512.jpg",
+          "complete": true,
+          "naturalWidth": 390,
+          "naturalHeight": 260,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/08/97-hotcoffee-exhibitionimage-2560x-768x581.jpg",
+          "complete": true,
+          "naturalWidth": 390,
+          "naturalHeight": 295,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/08/Steven-Hull-color-corrected-768x491.jpg",
+          "complete": true,
+          "naturalWidth": 390,
+          "naturalHeight": 249,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/08/Cover-and-poster-image-768x1014.png",
+          "complete": true,
+          "naturalWidth": 390,
+          "naturalHeight": 514,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/08/Sherrie-Levine-After-Rodchenko-4-1987-768x931.png",
+          "complete": true,
+          "naturalWidth": 390,
+          "naturalHeight": 472,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/09/Richards-Jarden-TV-Fragment-Early-Morning-Coffee-laminated-wax-relief-1983-768x394.png",
+          "complete": true,
+          "naturalWidth": 390,
+          "naturalHeight": 200,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/08/SAlome-Blue-Boys-1981-240x200-cm.png",
+          "complete": true,
+          "naturalWidth": 390,
+          "naturalHeight": 486,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/08/Mark-Innerst-Untitled-Two-Ships-oil-on-board-1984-768x432.jpg",
+          "complete": true,
+          "naturalWidth": 390,
+          "naturalHeight": 219,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/08/Greenwood-Robinson-768x509.jpg",
+          "complete": true,
+          "naturalWidth": 390,
+          "naturalHeight": 258,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/08/Douthewaite-Woman-in-Red-Gown-120x90cm-1966-767x1024.png",
+          "complete": true,
+          "naturalWidth": 390,
+          "naturalHeight": 520,
+          "loading": "eager"
+        },
+        {
+          "alt": "Logo Footer",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/07/THOMAS-LAWSONFOOTER-768x342.png",
+          "complete": true,
+          "naturalWidth": 390,
+          "naturalHeight": 173,
+          "loading": "eager"
+        }
+      ]
+    }
+  ]
+}

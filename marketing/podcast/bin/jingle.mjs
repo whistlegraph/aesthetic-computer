@@ -274,7 +274,7 @@ export function renderBed(durationSec, outPath, opts = {}) {
 // chords bleed into each other like breathing. No drums, no bells, no melody.
 // It sits under a voice as a warm pad rather than a track. A faint octave-up
 // sine and a slow tremolo keep it from sounding like a test tone.
-export function renderSineBed(durationSec, outPath) {
+export function renderSineBed(durationSec, outPath, opts = {}) {
   const dur = Math.max(4, durationSec);
   const L = new Float32Array(Math.ceil(dur * SR));
   const R = new Float32Array(L.length);
@@ -316,6 +316,26 @@ export function renderSineBed(durationSec, outPath) {
     sine(th, t, len, 0.12, -0.35);
     sine(fi, t, len, 0.12, 0.35);
     sine(r / 2, t, len, 0.10, 0); // a soft sub-octave drone under the root
+    if (opts.melody) {
+      // A very quiet upper suspension widens the orchestration without turning
+      // the voice bed into a bright chord stack.
+      sine(th * 2, t + 0.25, Math.max(0.2, len - 0.25), 0.025, -0.48);
+      sine(fi * 2, t + 0.45, Math.max(0.2, len - 0.45), 0.022, 0.48);
+    }
+  }
+
+  if (opts.melody) {
+    // A deterministic C-major pentatonic line one to two octaves above the
+    // pad. Long decays and wide spacing let it read as melody, not notification
+    // pings, while alternating pans leave the narration clear in the center.
+    const motif = [523.25, 659.25, 783.99, 880.00, 783.99, 587.33, 659.25, 523.25];
+    const step = (60 / BED_BPM) * 1.5;
+    const phraseRest = Math.max(0, Number(opts.melodyRestBars) || 0) * bar;
+    for (let t = 1.0, i = 0; t < dur; t += step, i += 1) {
+      const phraseBreath = i % 8 === 7 ? step * 0.85 + phraseRest : 0;
+      addSine(L, R, motif[i % motif.length], t, 2.35, 0.052, i % 2 ? 0.42 : -0.42);
+      t += phraseBreath;
+    }
   }
 
   normalize(L, R, 0.6); // quieter than the felt bed — it's a wash, not a track

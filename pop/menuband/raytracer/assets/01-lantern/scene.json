@@ -1,0 +1,10 @@
+{
+  "id": "01-lantern",
+  "duration": 60,
+  "scoreWidth": 2048,
+  "scoreHeight": 8400,
+  "keyboardWidth": 2048,
+  "keyboardHeight": 140,
+  "scorePath": "pop/menuband/out/menu-band-waltzes/01-lantern/01-lantern.notes.json",
+  "notes": 234
+}
