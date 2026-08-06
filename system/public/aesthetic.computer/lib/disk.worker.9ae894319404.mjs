@@ -3853,7 +3853,7 @@ var staticColorMap = {
   0: [0, 0, 0],
   // c0 = black
   1: [255, 255, 255],
-  // c1 = white  
+  // c1 = white
   2: [255, 0, 0],
   // c2 = red
   3: [0, 255, 0],
@@ -4014,7 +4014,7 @@ var staticColorMap = {
   // c78 = steelblue
   79: [176, 224, 230],
   // c79 = powderblue
-  // 80-95: Blue spectrum  
+  // 80-95: Blue spectrum
   80: [173, 216, 230],
   // c80 = lightblue
   81: [135, 206, 235],
@@ -11050,7 +11050,7 @@ function clipToScreen(vertices) {
     { axis: "x", sign: 1, bound: 0 },
     // left: x >= 0
     { axis: "x", sign: -1, bound: width },
-    // right: x <= width  
+    // right: x <= width
     { axis: "y", sign: 1, bound: 0 },
     // top: y >= 0
     { axis: "y", sign: -1, bound: height }
@@ -14707,11 +14707,11 @@ var debug2 = {
   help: () => console.log(`
 \u{1F3AE} AC Debug Commands:
   acDebug.quiet()     - Errors only
-  acDebug.normal()    - Standard logging  
+  acDebug.normal()    - Standard logging
   acDebug.verbose()   - All logs
   acDebug.set(cat, level) - Set category level (NONE/ERROR/WARN/INFO/DEBUG/VERBOSE)
   acDebug.status()    - Show current levels
-  
+
 Categories: ${Object.keys(CATEGORY_STYLES).join(", ")}
 `)
 };
@@ -15818,7 +15818,7 @@ var KidLisp = class _KidLisp {
       densityMin: 0.5,
       // Minimum density (largest pixels)
       densityMax: 4,
-      // Maximum density (smallest pixels) 
+      // Maximum density (smallest pixels)
       densityStep: 0.5,
       // Step size for density changes
       stabilityFrames: 30,
@@ -21153,7 +21153,7 @@ ${")".repeat(missingCount)}`;
       },
       // �🖼️ Embed function - loads cached KidLisp code and creates persistent animated layers
       // Usage: (embed $pie) - loads cached code in default 256x256 layer (fixed size for cache efficiency)
-      //        (embed $pie 128 128) - loads cached code in 128x128 layer  
+      //        (embed $pie 128 128) - loads cached code in 128x128 layer
       //        (embed $pie 0 0 60 40) - loads cached code in 60x40 layer at position (0,0)
       //        (embed $pie 0 0 60 40 128) - loads cached code in 60x40 layer with alpha 128 (0-255, or 0.0-1.0)
       embed: (api, args = []) => {
@@ -21395,7 +21395,7 @@ ${")".repeat(missingCount)}`;
 (wipe red)
 (ink yellow)
 (line 0 64 128 64)
-(ink green)  
+(ink green)
 (line 64 0 64 128)`;
           }
           this.embeddedSourceCache.set(cacheId, source);
@@ -23736,7 +23736,7 @@ ${")".repeat(missingCount)}`;
       "192,192,192",
       // Light gray (depth 0)
       "255,215,0",
-      // Gold (depth 1) 
+      // Gold (depth 1)
       "255,165,0",
       // Orange (depth 2)
       "255,105,180",
