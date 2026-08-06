@@ -12,9 +12,9 @@
 // paths, and XeLaTeX runs without shell escape.
 
 import { execFile } from "node:child_process";
-import { access, readFile, readdir, realpath, stat } from "node:fs/promises";
+import { access, mkdtemp, readFile, readdir, realpath, stat, writeFile } from "node:fs/promises";
 import { constants as fsConstants } from "node:fs";
-import { homedir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { basename, dirname, extname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
@@ -304,6 +304,47 @@ async function texEngine() {
   throw new Error("no TeX engine found (install XeLaTeX/Tectonic or set XELATEX/TECTONIC).");
 }
 
+async function firstExecutable(candidates, label) {
+  for (const path of candidates.filter(Boolean)) if (await exists(path)) return path;
+  throw new Error(`${label} is unavailable (${candidates.filter(Boolean).join(", ")}).`);
+}
+
+function visualInventory(source) {
+  if (!source || extname(source.path || "").toLowerCase() !== ".tex") {
+    return { figures: [], tables: [], embeds: [] };
+  }
+  const lines = String(source.text || "").split("\n");
+  const figures = [];
+  const tables = [];
+  const embeds = [];
+  let figureDepth = 0;
+  let tableDepth = 0;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const lineNo = i + 1;
+    if (/\\begin\{figure\*?\}/.test(line)) {
+      figureDepth += 1;
+      figures.push({ line: lineNo, kind: "figure environment" });
+    }
+    if (/\\begin\{table\*?\}/.test(line)) {
+      tableDepth += 1;
+      tables.push({ line: lineNo, kind: "table environment" });
+    }
+    if (/\\captionof\{figure\}/.test(line)) figures.push({ line: lineNo, kind: "captioned embedded figure" });
+    if (/\\captionof\{table\}/.test(line)) tables.push({ line: lineNo, kind: "captioned embedded table" });
+    if (!figureDepth && /\\includegraphics(?:\[[^\]]*\])?\{/.test(line)) {
+      const hasNearbyCaption = lines.slice(i, i + 8).some((candidate) => /\\captionof\{figure\}/.test(candidate));
+      if (!hasNearbyCaption) embeds.push({ line: lineNo, kind: "standalone image" });
+    }
+    if (!figureDepth && /\\begin\{(?:tikzpicture|lstlisting)\}/.test(line)) {
+      embeds.push({ line: lineNo, kind: /tikzpicture/.test(line) ? "standalone diagram" : "standalone code card" });
+    }
+    if (/\\end\{figure\*?\}/.test(line)) figureDepth = Math.max(0, figureDepth - 1);
+    if (/\\end\{table\*?\}/.test(line)) tableDepth = Math.max(0, tableDepth - 1);
+  }
+  return { figures, tables, embeds };
+}
+
 async function buildRecord(rec, passes = 2) {
   if (!rec.sourcePath || extname(rec.sourcePath).toLowerCase() !== ".tex") {
     throw new Error(`${rec.id} has no TeX source.`);
@@ -379,6 +420,141 @@ async function toolOpen({ paper, build = false } = {}) {
   return [{ type: "text", text: `opened ${rec.title} [${rec.id}]\n${pdfPath}` }];
 }
 
+async function toolFigureTableQaCheck({ paper, build = false, dpi = 180, page } = {}) {
+  const rec = await resolvePaper(paper);
+  let pdfPath = rec.pdfPath;
+  if ((!pdfPath || !(await exists(pdfPath))) && build) pdfPath = (await buildRecord(rec, 2)).pdfPath;
+  if (!pdfPath || !(await exists(pdfPath))) throw new Error(`${rec.id} has no PDF. Build it before Figure-Table-QA-Check.`);
+
+  const pdftoppm = await firstExecutable([
+    process.env.PDFTOPPM,
+    "/opt/homebrew/bin/pdftoppm",
+    "/usr/local/bin/pdftoppm",
+    "/usr/bin/pdftoppm",
+  ], "pdftoppm");
+  const pdfinfo = await firstExecutable([
+    process.env.PDFINFO,
+    "/opt/homebrew/bin/pdfinfo",
+    "/usr/local/bin/pdfinfo",
+    "/usr/bin/pdfinfo",
+  ], "pdfinfo");
+  const montage = await firstExecutable([
+    process.env.MONTAGE,
+    "/opt/homebrew/bin/montage",
+    "/usr/local/bin/montage",
+    "/usr/bin/montage",
+  ], "ImageMagick montage");
+
+  const requestedDpi = Math.max(120, Math.min(300, Number(dpi) || 180));
+  const qaDir = await mkdtemp(join(tmpdir(), "figure-table-qa-"));
+  const prefix = join(qaDir, "page");
+  const info = await pexec(pdfinfo, [pdfPath], { timeout: 15_000, maxBuffer: 2 * 1024 * 1024 });
+  const pageCount = Number(String(info.stdout || "").match(/^Pages:\s+(\d+)/m)?.[1] || 0);
+  await pexec(pdftoppm, ["-png", "-r", String(requestedDpi), pdfPath, prefix], {
+    timeout: 180_000,
+    maxBuffer: 4 * 1024 * 1024,
+  });
+  const pageFiles = (await readdir(qaDir))
+    .filter((name) => /^page-\d+\.png$/.test(name))
+    .sort((a, b) => Number(a.match(/\d+/)?.[0]) - Number(b.match(/\d+/)?.[0]))
+    .map((name) => join(qaDir, name));
+  if (!pageFiles.length) throw new Error(`Figure-Table-QA-Check could not rasterize ${pdfPath}.`);
+
+  const sourceText = rec.sourcePath && await exists(rec.sourcePath)
+    ? await readFile(rec.sourcePath, "utf8")
+    : "";
+  const inventory = visualInventory({ path: rec.sourcePath, text: sourceText });
+  const inventoryLines = [
+    ...inventory.figures.map((item, i) => `- Figure ${i + 1}: ${item.kind}, source line ${item.line}`),
+    ...inventory.tables.map((item, i) => `- Table ${i + 1}: ${item.kind}, source line ${item.line}`),
+    ...inventory.embeds.map((item, i) => `- Embedded visual ${i + 1}: ${item.kind}, source line ${item.line}`),
+  ];
+  const rubric = [
+    "Intent and placement: the visual appears where the narrative requires it; lead art actually leads.",
+    "Reading size: body, labels, captions, code, and table text remain legible at normal PDF size; no data display below footnote size.",
+    "Geometry: no clipping, collision, accidental wrap, broken rule, orphaned caption, or misleading whitespace.",
+    "Tables: intentional widths; aligned values; semantic color; clean outlined cells; consistent headers; no avoidable line wrapping.",
+    "Figures and embeddings: unambiguous hierarchy and flow; sufficient contrast; caption and numbering match the prose.",
+    "Page composition: floats do not strand headings, reorder evidence, or create visibly unfinished pages.",
+  ];
+  const manifestPath = join(qaDir, "Figure-Table-QA-Check.md");
+  const manifest = [
+    `# Figure-Table-QA-Check: ${rec.title}`,
+    "",
+    `- Paper: ${pdfPath}`,
+    `- Pages: ${pageCount || pageFiles.length}`,
+    `- Raster: ${requestedDpi} DPI`,
+    `- Status: VISUAL INFERENCE REQUIRED`,
+    "",
+    "## Inventory",
+    "",
+    ...(inventoryLines.length ? inventoryLines : ["- No source inventory available; inspect every rendered page."]),
+    "",
+    "## OpenAI visual-inference rubric",
+    "",
+    ...rubric.map((item) => `- ${item}`),
+    "",
+    "A successful TeX build is not a pass. Inspect the overview and every page containing an inventoried item at full resolution, revise every failure, rebuild, and rerun this check.",
+  ].join("\n");
+  await writeFile(manifestPath, `${manifest}\n`, "utf8");
+
+  let imagePath;
+  let imageLabel;
+  if (page != null) {
+    const selected = Math.trunc(Number(page));
+    if (!Number.isFinite(selected) || selected < 1 || selected > pageFiles.length) {
+      throw new Error(`page must be between 1 and ${pageFiles.length}.`);
+    }
+    imagePath = pageFiles[selected - 1];
+    imageLabel = `full-resolution page ${selected}`;
+  } else {
+    imagePath = join(qaDir, "overview.png");
+    const fontCandidates = [
+      "/System/Library/Fonts/Supplemental/Verdana.ttf",
+      "/System/Library/Fonts/Helvetica.ttc",
+      "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+      "/usr/share/fonts/dejavu/DejaVuSans.ttf",
+    ];
+    let montageFont = null;
+    for (const candidate of fontCandidates) {
+      if (await exists(candidate)) { montageFont = candidate; break; }
+    }
+    const montageArgs = [
+      ...(montageFont ? ["-font", montageFont] : []),
+      "-label", "",
+      "-background", "white",
+      ...pageFiles,
+      "-thumbnail", "420x544",
+      "-tile", "3x",
+      "-geometry", "+12+12",
+      imagePath,
+    ];
+    try {
+      await pexec(montage, montageArgs, { timeout: 120_000, maxBuffer: 4 * 1024 * 1024 });
+    } catch (error) {
+      // Some ImageMagick builds return a font warning after successfully
+      // writing the montage. Accept the artifact only if it really exists.
+      if (!(await exists(imagePath))) throw error;
+    }
+    imageLabel = "all-page overview";
+  }
+  const imageData = await readFile(imagePath);
+  const textResult = [
+    `Figure-Table-QA-Check prepared for ${rec.title} [${rec.id}]`,
+    `STATUS: VISUAL INFERENCE REQUIRED — this renderer does not self-certify a pass.`,
+    `Review image: ${imageLabel}`,
+    `Bundle: ${qaDir}`,
+    `Manifest: ${manifestPath}`,
+    `Pages: ${pageFiles.join(", ")}`,
+    "",
+    manifest,
+  ].join("\n");
+  return [
+    { type: "text", text: textResult },
+    { type: "image", data: imageData.toString("base64"), mimeType: "image/png", _meta: { "codex/imageDetail": "original" } },
+  ];
+}
+
 const TOOLS = [
   {
     name: "paper_list",
@@ -413,13 +589,27 @@ const TOOLS = [
   },
   {
     name: "paper_build",
-    description: "Build a resolved .tex paper in place with XeLaTeX (no shell escape), normally two passes. SIDE EFFECT: writes the PDF and normal TeX auxiliary files beside the source.",
+    description: "Build a resolved .tex paper in place with XeLaTeX (no shell escape), normally two passes. A successful build is not visual acceptance: call paper_figure_table_qa_check afterward. SIDE EFFECT: writes the PDF and normal TeX auxiliary files beside the source.",
     inputSchema: {
       type: "object",
       properties: {
         paper: { type: "string" },
         passes: { type: "integer", minimum: 1, maximum: 4, default: 2 },
         notifyHandle: { type: "string", description: "Optional stable local prox handle to wake with the completed PDF via prox_artifact_ready." },
+      },
+      required: ["paper"],
+    },
+  },
+  {
+    name: "paper_figure_table_qa_check",
+    description: "Run Figure-Table-QA-Check: rasterize a paper, inventory figures/tables/embedded visual cards, and return an overview or full-resolution page for OpenAI visual inference. This tool never self-certifies a pass; the model must inspect every inventoried item, iterate failures, and rerun the check.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        paper: { type: "string" },
+        build: { type: "boolean", default: false, description: "Build missing TeX output first." },
+        dpi: { type: "integer", minimum: 120, maximum: 300, default: 180 },
+        page: { type: "integer", minimum: 1, description: "Optional one-based page number for full-resolution visual inference; omit for the all-page overview." },
       },
       required: ["paper"],
     },
@@ -444,6 +634,7 @@ async function callTool(name, args) {
     case "paper_find": return toolFind(args || {});
     case "paper_read": return toolRead(args || {});
     case "paper_build": return toolBuild(args || {});
+    case "paper_figure_table_qa_check": return toolFigureTableQaCheck(args || {});
     case "paper_open": return toolOpen(args || {});
     default: throw new Error(`Unknown tool: ${name}`);
   }
@@ -483,4 +674,4 @@ async function handleMessage(message) {
 
 const port = httpPort(process.argv, 7777);
 if (port) serveHttp({ handleMessage, port, banner: "📄 paper-mcp shared daemon" });
-else serveStdio({ handleMessage, banner: "📄 paper-mcp started (paper_list, paper_find, paper_read, paper_build, paper_open)" });
+else serveStdio({ handleMessage, banner: "📄 paper-mcp started (paper_list, paper_find, paper_read, paper_build, paper_figure_table_qa_check, paper_open)" });
