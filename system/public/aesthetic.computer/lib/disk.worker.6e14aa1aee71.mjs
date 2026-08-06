@@ -45649,14 +45649,14 @@ async function makeFrame({ data: { type, content } }) {
                 if (currentHUDSuperscript === ".com") {
                   const dotWidth = cachedAPI.text.width(".", "MatrixChunky8");
                   $.ink("black");
-                  $.write(".", { x: superscriptX, y: superscriptY + 1 }, void 0, void 0, false, "MatrixChunky8");
+                  $.write(".", { x: superscriptX, y: superscriptY }, void 0, void 0, false, "MatrixChunky8");
                   $.write("com", { x: superscriptX + dotWidth + 1, y: superscriptY + 1 }, void 0, void 0, false, "MatrixChunky8");
                   if (socket?.connected) {
                     $.ink(0, 255, 100);
                   } else {
                     $.ink(255, 100, 100);
                   }
-                  $.write(".", { x: superscriptX - 1, y: superscriptY }, void 0, void 0, false, "MatrixChunky8");
+                  $.write(".", { x: superscriptX - 1, y: superscriptY - 1 }, void 0, void 0, false, "MatrixChunky8");
                   $.ink(0, 220, 255);
                   $.write("com", { x: superscriptX + dotWidth, y: superscriptY }, void 0, void 0, false, "MatrixChunky8");
                 } else {
