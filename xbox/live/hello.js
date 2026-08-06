@@ -287,7 +287,7 @@ let shellPrevious = [];
 let navigationPrevious = [[], []];
 // Temporary live combat inspector. Keep this explicit so the production view
 // can return to a clean presentation without changing combat geometry.
-let debugHitboxes = true;
+let debugHitboxes = false;
 let nextInputDebugAt = 0;
 let liveSequence = 0;
 let liveNextAt = 0;
@@ -1996,6 +1996,41 @@ function circle(x, y, radius, width, color) {
   }
 }
 
+function filledDisc(x, y, radius, color) {
+  const sides = 10;
+  for (let side = 0; side < sides; side++) {
+    const a = side * Math.PI * 2 / sides;
+    const b = (side + 1) * Math.PI * 2 / sides;
+    triangle(x, y,
+      x + Math.cos(a) * radius, y + Math.sin(a) * radius,
+      x + Math.cos(b) * radius, y + Math.sin(b) * radius,
+      ...color);
+  }
+}
+
+// Standard stroked-skeleton construction: a wider silhouette pass followed by
+// color-matched bone strokes and solid round caps. Solid discs close joints on
+// native flat-capped lines without producing the outlined loops that circles do.
+function drawSkeletonSegments(segments, color, outline) {
+  const edge = Math.max(1.25, Math.min(3, cameraScale() * 1.8));
+  for (const segment of segments)
+    line(segment.x1, segment.y1, segment.x2, segment.y2,
+      segment.width + edge * 2, ...outline);
+  for (const segment of segments) {
+    const radius = segment.width / 2 + edge;
+    filledDisc(segment.x1, segment.y1, radius, outline);
+    filledDisc(segment.x2, segment.y2, radius, outline);
+  }
+  for (const segment of segments)
+    line(segment.x1, segment.y1, segment.x2, segment.y2,
+      segment.width, ...color);
+  for (const segment of segments) {
+    const radius = segment.width / 2;
+    filledDisc(segment.x1, segment.y1, radius, color);
+    filledDisc(segment.x2, segment.y2, radius, color);
+  }
+}
+
 function runnerWorldGeometry(player, t) {
   const speed = Math.min(1, Math.abs(player.vx) / 1500);
   const idle = player.grounded && !player.ducking && speed < .03;
@@ -2038,6 +2073,11 @@ function runnerWorldGeometry(player, t) {
   };
   segment(head.x, head.y + head.radius * .78, neckX, neckY, 10);
   segment(neckX, neckY, x, hipY, 10);
+  const shoulderY = neckY + 11;
+  const shoulderSpread = 12;
+  const leftShoulderX = neckX - shoulderSpread;
+  const rightShoulderX = neckX + shoulderSpread;
+  segment(leftShoulderX, shoulderY, rightShoulderX, shoulderY, 10);
   if (player.attackKind === "KICK" && attackPulse > 0) {
     const target = meleeTarget(player, runtime().monotonicUs);
     const leg = twoBone(x, hipY, target.x, target.y, 74, -player.facing);
@@ -2051,10 +2091,11 @@ function runnerWorldGeometry(player, t) {
     segment(x, hipY, x + 36, feet - 22, 10);
     segment(x + 36, feet - 22, x + 58, feet, 10);
   } else if (player.grounded) {
-    segment(x, hipY, x - 11 + stride * .45, feet - 29, 10);
-    segment(x - 11 + stride * .45, feet - 29, x + stride, feet, 10);
-    segment(x, hipY, x + 11 - stride * .45, feet - 29, 10);
-    segment(x + 11 - stride * .45, feet - 29, x - stride, feet, 10);
+    // Keep a readable stance at rest; stride crosses the feet only while moving.
+    segment(x, hipY, x - 16 + stride * .38, feet - 30, 10);
+    segment(x - 16 + stride * .38, feet - 30, x - 28 + stride, feet, 10);
+    segment(x, hipY, x + 16 - stride * .38, feet - 30, 10);
+    segment(x + 16 - stride * .38, feet - 30, x + 28 - stride, feet, 10);
   } else {
     segment(x, hipY, x - 32, feet - 32, 10);
     segment(x - 32, feet - 32, x - 7, feet - 11, 10);
@@ -2067,29 +2108,33 @@ function runnerWorldGeometry(player, t) {
   const actionNow = runtime().monotonicUs;
   if (player.itemAction && actionNow < player.itemActionUntil) {
     const target = itemHandTarget(player, actionNow);
-    const armPose = twoBone(neckX, neckY + 11,
+    const actionShoulderX = player.facing > 0 ? rightShoulderX : leftShoulderX;
+    const restShoulderX = player.facing > 0 ? leftShoulderX : rightShoulderX;
+    const armPose = twoBone(actionShoulderX, shoulderY,
       target.x, target.y, 58, player.facing);
-    segment(neckX, neckY + 11, armPose.jointX, armPose.jointY, 12);
+    segment(actionShoulderX, shoulderY, armPose.jointX, armPose.jointY, 12);
     segment(armPose.jointX, armPose.jointY,
       armPose.targetX, armPose.targetY, 12);
-    segment(neckX, neckY + 11, x - player.facing * 28, elbowY, 10);
-    segment(x - player.facing * 28, elbowY,
-      x - player.facing * 12, handY, 10);
+    segment(restShoulderX, shoulderY, x - player.facing * 32, elbowY, 10);
+    segment(x - player.facing * 32, elbowY,
+      x - player.facing * 36, handY, 10);
   } else if (player.attackKind === "PUNCH" && attackPulse > 0) {
     const target = meleeTarget(player, runtime().monotonicUs);
-    const armPose = twoBone(neckX, neckY + 11,
+    const actionShoulderX = player.facing > 0 ? rightShoulderX : leftShoulderX;
+    const restShoulderX = player.facing > 0 ? leftShoulderX : rightShoulderX;
+    const armPose = twoBone(actionShoulderX, shoulderY,
       target.x, target.y, 58, player.facing);
-    segment(neckX, neckY + 11, armPose.jointX, armPose.jointY, 12);
+    segment(actionShoulderX, shoulderY, armPose.jointX, armPose.jointY, 12);
     segment(armPose.jointX, armPose.jointY,
       armPose.targetX, armPose.targetY, 12);
-    segment(neckX, neckY + 11, x - player.facing * 28, elbowY, 10);
-    segment(x - player.facing * 28, elbowY,
-      x - player.facing * 12, handY, 10);
+    segment(restShoulderX, shoulderY, x - player.facing * 32, elbowY, 10);
+    segment(x - player.facing * 32, elbowY,
+      x - player.facing * 36, handY, 10);
   } else {
-    segment(neckX, neckY + 11, x - 25 + arm * .65, elbowY, 10);
-    segment(x - 25 + arm * .65, elbowY, x - 11 + arm * .65, handY, 10);
-    segment(neckX, neckY + 11, x + 25 - arm * .65, elbowY, 10);
-    segment(x + 25 - arm * .65, elbowY, x + 11 - arm * .65, handY, 10);
+    segment(leftShoulderX, shoulderY, x - 30 + arm * .45, elbowY, 10);
+    segment(x - 30 + arm * .45, elbowY, x - 36 + arm * .6, handY, 10);
+    segment(rightShoulderX, shoulderY, x + 30 - arm * .45, elbowY, 10);
+    segment(x + 30 - arm * .45, elbowY, x + 36 - arm * .6, handY, 10);
   }
   return { head, segments };
 }
@@ -2465,19 +2510,18 @@ function drawRunner(player, t, showLabel = true) {
     : player.frozenGeometry
       ? projectRunnerWorldGeometry(player.frozenGeometry)
     : runnerGeometry(player, t);
-  const color = player.hit > 0 ? [255, 255, 255] : player.color;
+  // Preserve the fighter's identity color during hit flash. A pure white body
+  // disappeared against the daylight arena, so impact now changes only its rim.
+  const color = player.color;
+  const outline = player.hit > 0
+    ? mixColor([255, 232, 92], [28, 34, 52], visualTheme.light)
+    : [8, 12, 24];
   const displayNow = player.frozenAt || runtime().monotonicUs;
-  for (const segment of geometry.segments)
-    line(segment.x1, segment.y1, segment.x2, segment.y2, segment.width, ...color);
-  // Round caps make shoulders, elbows, knees, hands, and feet read as joined
-  // geometry instead of disconnected stroked lines.
-  for (const segment of geometry.segments) {
-    const radius = Math.max(2, segment.width * .48);
-    const capWidth = Math.max(2, radius * 1.65);
-    circle(segment.x1, segment.y1, radius, capWidth, color);
-    circle(segment.x2, segment.y2, radius, capWidth, color);
-  }
-  circle(geometry.head.x, geometry.head.y, geometry.head.radius, 3, color);
+  drawSkeletonSegments(geometry.segments, color, outline);
+  circle(geometry.head.x, geometry.head.y, geometry.head.radius,
+    Math.max(4.5, 6 * cameraScale()), outline);
+  circle(geometry.head.x, geometry.head.y, geometry.head.radius,
+    Math.max(2.5, 3.5 * cameraScale()), color);
   drawFace(player, geometry.head, color, t, displayNow);
   drawInventory(player, displayNow);
   if (player.blocking) {
