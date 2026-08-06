@@ -909,6 +909,12 @@ test("round clock can end in a tie and resets", () => {
   assert.equal(fight.players[1].score, 0);
 });
 
+test("round end card shows only the result cause", () => {
+  assert.match(source,
+    /roundCause \|\| \(roundResult === "TIE" \? "TIE" : "TIME"\)/);
+  assert.doesNotMatch(source, /typeWrite\(roundResult,/);
+});
+
 test("round result offers an instant replay with pause, scrub, and exit", () => {
   const { fight, pads, tick } = createFight();
   for (let frame = 0; frame < 220; frame++) tick(33334);

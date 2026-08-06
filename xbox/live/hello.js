@@ -3226,7 +3226,7 @@ function paint() {
       typeWrite(controls, viewCenterX() - controls.length * 7.5,
         948, 23, ...titleInk);
     } else {
-      const cause = roundCause || "ROUND";
+      const cause = roundCause || (roundResult === "TIE" ? "TIE" : "TIME");
       const causeSize = Math.min(92,
         Math.max(40, (viewWidth() - 72) / Math.max(1, cause.length * .85)));
       const causeWidth = cause.length * causeSize * .85;
@@ -3234,13 +3234,10 @@ function paint() {
         causeWidth + 72, 126, ...titlePanel);
       typeWrite(cause, viewCenterX() - causeWidth / 2, 810,
         causeSize, ...titleInk);
-      const resultWidth = roundResult.length * 28;
-      typeWrite(roundResult, viewCenterX() - resultWidth / 2,
-        930, 34, ...titleInk);
       if (!roundViewer) {
         const replayControl = controlLocale().replay;
         typeWrite(replayControl, viewCenterX() - replayControl.length * 7.5,
-          982, 22, ...titleInk);
+          948, 22, ...titleInk);
       }
     }
   }
