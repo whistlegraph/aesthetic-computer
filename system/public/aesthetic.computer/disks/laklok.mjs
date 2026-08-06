@@ -7,7 +7,7 @@
 
 import { Chat } from "../lib/chat.mjs"; // TODO: Eventually expand to `net.Socket`
 import * as chat from "./chat.mjs"; // Import chat everywhere.
-import { qrcode as qr } from "../dep/@akamfoad/qr/qr.mjs";
+import { qrcode as qr, ErrorCorrectLevel } from "../dep/@akamfoad/qr/qr.mjs";
 
 let client;
 
@@ -29,7 +29,9 @@ function boot({ api, wipe, debug, send, hud }) {
 
   // 📱 Generate the laklok.com QR once; painted top-right each frame.
   try {
-    lakQRCells = qr("https://laklok.com").modules;
+    lakQRCells = qr("https://laklok.com", {
+      errorCorrectLevel: ErrorCorrectLevel.L,
+    }).modules;
   } catch (e) {
     console.error("laklok QR generation failed:", e);
     lakQRCells = null;
@@ -153,6 +155,8 @@ function paint($) {
     otherChat: client.system,
     hideChrome: true,
     topMargin: LAK_TOP_MARGIN, // Shorter top chrome panel than the default 42.
+    attachAfterInput: true,
+    inputPlaceholder: "Chat...",
     // 🎪 Circus marquee as the header backdrop — fills the whole chrome panel,
     // painted under the online counter so the counter stays readable on top.
     paintHeader: (api, tm) => paintLaerKlokkenSign(api, tm),
