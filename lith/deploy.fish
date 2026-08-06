@@ -174,7 +174,7 @@ echo -e "$GREEN-> Connected to $TARGET_HOST.$NC"
 
 # Deploy from pushed git state only. This avoids production drift from local rsync overlays.
 echo -e "$GREEN-> Verifying origin/$TARGET_BRANCH...$NC"
-git -C $REPO_ROOT fetch origin "refs/heads/$TARGET_BRANCH:refs/remotes/origin/$TARGET_BRANCH" --quiet
+git -C $REPO_ROOT fetch origin $TARGET_BRANCH --quiet
 set ORIGIN_HEAD (git -C $REPO_ROOT rev-parse origin/$TARGET_BRANCH)
 
 if test "$LOCAL_BRANCH" = "$TARGET_BRANCH"
@@ -187,9 +187,15 @@ if test "$LOCAL_BRANCH" = "$TARGET_BRANCH"
 end
 
 echo -e "$GREEN-> Deploying branch $TARGET_BRANCH at $ORIGIN_HEAD...$NC"
+set PREVIOUS_HEAD (ssh -i $SSH_KEY $LITH_USER@$TARGET_HOST "cd $REMOTE_DIR && git rev-parse HEAD")
+if test -z "$PREVIOUS_HEAD"
+    echo -e "$RED x Could not resolve the currently deployed commit.$NC"
+    exit 1
+end
+
 if not ssh -i $SSH_KEY $LITH_USER@$TARGET_HOST "\
 cd $REMOTE_DIR && \
-git fetch origin refs/heads/$TARGET_BRANCH:refs/remotes/origin/$TARGET_BRANCH --quiet && \
+git fetch origin $TARGET_BRANCH --quiet && \
 if git show-ref --verify --quiet refs/heads/$TARGET_BRANCH; then \
   git checkout $TARGET_BRANCH --quiet; \
 else \
@@ -198,6 +204,16 @@ fi && \
 git reset --hard origin/$TARGET_BRANCH --quiet && \
 git rev-parse HEAD > system/public/.commit-ref"
     echo -e "$RED x Failed to check out origin/$TARGET_BRANCH on $TARGET_HOST.$NC"
+    exit 1
+end
+
+echo -e "$GREEN-> Verifying disk worker bundle freshness...$NC"
+if not ssh -i $SSH_KEY $LITH_USER@$TARGET_HOST "cd $REMOTE_DIR/system && node scripts/verify-disk-worker.mjs"
+    echo -e "$RED x Disk worker bundle is missing or stale; restoring $PREVIOUS_HEAD.$NC"
+    ssh -i $SSH_KEY $LITH_USER@$TARGET_HOST "\
+cd $REMOTE_DIR && \
+git reset --hard $PREVIOUS_HEAD --quiet && \
+git rev-parse HEAD > system/public/.commit-ref"
     exit 1
 end
 
@@ -233,32 +249,11 @@ set SPACES_ENV_SRC "$VAULT_DIR/spaces/.env"
 set SPACES_ENV_GPG "$VAULT_DIR/spaces/.env.gpg"
 set TMP_SPACES (mktemp)
 set SPACES_READY false
-
-# Never source a file merely because it exists. A failed interactive GPG
-# decrypt can leave diagnostic text alongside otherwise valid assignments;
-# sourcing that file on lith turns those diagnostics into shell commands.
-function valid_dotenv --argument path
-    test -s $path; or return 1
-    awk '
-        BEGIN { assignments = 0; invalid = 0 }
-        /^[[:space:]]*($|#)/ { next }
-        /^[A-Za-z_][A-Za-z0-9_]*=/ { assignments++; next }
-        { invalid++ }
-        END { exit !(assignments > 0 && invalid == 0) }
-    ' $path
-end
-
-if test -f $SPACES_ENV_SRC; and valid_dotenv $SPACES_ENV_SRC
+if test -f $SPACES_ENV_SRC
     cp $SPACES_ENV_SRC $TMP_SPACES
     set SPACES_READY true
-else
-    if test -f $SPACES_ENV_SRC
-        echo -e "$YELLOW   ignoring malformed $SPACES_ENV_SRC; trying encrypted source.$NC"
-    end
-
-    if test -f $SPACES_ENV_GPG; and \
-            gpg --batch --pinentry-mode loopback -d $SPACES_ENV_GPG >$TMP_SPACES 2>/dev/null; and \
-            valid_dotenv $TMP_SPACES
+else if test -f $SPACES_ENV_GPG
+    if gpg --batch --pinentry-mode loopback -d $SPACES_ENV_GPG >$TMP_SPACES 2>/dev/null
         set SPACES_READY true
     end
 end

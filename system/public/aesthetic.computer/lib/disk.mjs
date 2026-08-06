@@ -3740,6 +3740,7 @@ const $commonApi = {
       // act: nopaint_act,
       buffer: null, // An overlapping brush buffer that gets drawn on top of the
       //              painting.
+      piece: null, // Canonical code + pixel layer stack for No Paint paintings.
       recording: false,
       record: [], // Store a recording here.
       gestureRecord: [], // Store the active gesture.
@@ -4059,10 +4060,12 @@ const $commonApi = {
       ) => {
         // console.log("deleting...");
         const deleted = await store.delete("painting", "local:db");
+        await store.delete("painting:piece", "local:db");
         await store.delete("painting:resolution-lock", "local:db");
         await store.delete("painting:transform", "local:db");
         system.nopaint.undo.paintings.length = 0; // Reset undo stack.
         system.painting = null;
+        system.nopaint.piece = null;
         system.nopaint.resetTransform({ system, screen }); // Reset transform.
         needsPaint();
 
@@ -4107,6 +4110,8 @@ const $commonApi = {
         painting,
         message = "(replace)",
       ) => {
+        store.delete("painting:piece", "local:db");
+        system.nopaint.piece = null;
         system.painting = painting; // Update references.
 
         // Store only the pixel data, not the full painting object
@@ -13918,6 +13923,10 @@ async function makeFrame({ data: { type, content } }) {
 
         const sys = $commonApi.system;
         sys.painting = store["painting"];
+        if (!Object.hasOwn(store, "painting:piece")) {
+          store["painting:piece"] = await store.retrieve("painting:piece", "local:db");
+        }
+        sys.nopaint.piece = store["painting:piece"] || null;
 
         // Set the painting record if one is in storage.
         if (!sys.nopaint.recording) {

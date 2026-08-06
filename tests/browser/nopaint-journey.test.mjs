@@ -14,6 +14,7 @@ const ac = await ACSession.open();
 const receiptDir = join(CONFIG.shotDir, "nopaint-journey");
 const performanceReceipt = join(receiptDir, "performance.json");
 const performanceResults = { version: 1, url: null, environment: null, proposal: null, decisions: {} };
+const workerBundleSuffix = process.env.AC_WORKER_BUNDLE === "1" ? "&workerbundle=1" : "";
 
 async function receipt(name) {
   await ac.shot(`nopaint-journey/${name}`);
@@ -22,7 +23,7 @@ async function receipt(name) {
 
 try {
   await scenario("No Paint 3.0 boots a reproducible first proposal", async (expect) => {
-    await ac.boot("nopaint?seed=nopaint-perf-v1&fresh=1&test=1");
+    await ac.boot(`nopaint?seed=nopaint-perf-v1&fresh=1&test=1${workerBundleSuffix}`);
     // The AC front door intentionally waits for a first human gesture. A
     // center-stage tap activates the piece without touching the decision bar.
     if (!(await ac.nopaintState())?.ready) {
@@ -65,6 +66,15 @@ try {
     expect(state?.freshStart === true, "query launch requests a fresh painting");
     expect(state?.operation !== "camera", `seed never begins with Camera (got ${state?.operation})`);
     expect(state?.ready === true, "proposal buffer reports ready");
+    expect(state?.piece?.schema === "aesthetic.computer/nopaint-piece",
+      "the accepted painting is a piece");
+    expect(state?.piece?.layerCount === 1, "the fresh piece begins with one substrate layer");
+    expect(state?.piece?.lastLayer?.codeLanguage === "nopaint-score",
+      "the substrate layer retains executable score code");
+    expect(state?.piece?.lastLayer?.pixelMode === "composite",
+      "the substrate layer retains its pixels");
+    expect(state?.piece?.compositeFingerprint === state?.paintingFingerprint,
+      "the piece composite is the accepted painting");
     expect(state?.cursor?.ready === true, "the original Construct cursor sheet is loaded");
     expect(
       state?.audio?.events?.some(({ name, path }) => name === `brush:${state?.operation}` && path === "legacy"),
@@ -160,6 +170,11 @@ try {
       after?.paintingFingerprint === before?.paintingFingerprint,
       "No leaves the accepted painting unchanged",
     );
+    expect(after?.piece?.id === before?.piece?.id, "No keeps the accepted piece identity");
+    expect(after?.piece?.layerCount === before?.piece?.layerCount,
+      "No appends neither code nor pixels");
+    expect(after?.piece?.compositeFingerprint === before?.piece?.compositeFingerprint,
+      "No leaves the piece composite unchanged");
     const noCue = after?.audio?.events?.findLast(({ name }) => name === "no");
     expect(Boolean(noCue), "No emits its interaction cue");
     expect(noCue?.path === "legacy", "No uses the recovered Construct sample");
@@ -176,9 +191,47 @@ try {
       after?.paintingFingerprint !== before?.paintingFingerprint,
       "Paint changes the accepted painting",
     );
+    expect(after?.piece?.layerCount === before?.piece?.layerCount + 1,
+      "Paint appends one code + pixel layer");
+    expect(after?.piece?.lastLayer?.codeLanguage === "nopaint-score",
+      "the painted layer retains executable score code");
+    expect(after?.piece?.lastLayer?.codeSource?.startsWith("paint "),
+      "the painted layer exposes its deterministic code source");
+    expect(["overlay", "composite"].includes(after?.piece?.lastLayer?.pixelMode),
+      "the painted layer retains its pixel payload");
+    expect(after?.piece?.compositeFingerprint === after?.paintingFingerprint,
+      "the piece composite and accepted pixels commit together");
+    expect(after?.decisions.at(-1)?.layerId === after?.piece?.lastLayer?.id,
+      "the decision score points to the accepted layer");
     const paintCue = after?.audio?.events?.findLast(({ name }) => name === "paint");
     expect(Boolean(paintCue), "Paint emits its interaction cue");
     expect(paintCue?.path === "legacy", "Paint uses the recovered Construct sample");
+  });
+
+  await scenario("The painting piece survives a full reload", async (expect) => {
+    const before = await ac.nopaintState();
+    await ac.boot(`nopaint?seed=nopaint-perf-v1&test=1${workerBundleSuffix}`);
+    if (!(await ac.nopaintState())?.ready) {
+      const viewport = ac.page.viewport();
+      await ac.page.mouse.click(viewport.width / 2, viewport.height / 2);
+      await ac.page.waitForFunction(
+        () => window.__acNoPaintTest?.()?.ready === true,
+        { timeout: 20000 },
+      );
+    }
+    const after = await ac.nopaintState();
+    const workerBundle = await ac.page.evaluate(() => window.acWORKER_BUNDLE || null);
+    expect(after?.piece?.id === before?.piece?.id, "reload preserves the painting piece identity");
+    expect(after?.piece?.layerCount === before?.piece?.layerCount,
+      "reload restores every accepted code + pixel layer");
+    expect(after?.piece?.compositeFingerprint === before?.piece?.compositeFingerprint,
+      "reload restores the canonical piece composite");
+    expect(after?.paintingFingerprint === before?.paintingFingerprint,
+      "reload projects the same accepted pixels");
+    if (process.env.AC_WORKER_BUNDLE === "1") {
+      expect(workerBundle?.active === true, "the refreshed bundled disk worker is active");
+      expect(workerBundle?.fallback === null, "the bundled disk worker needs no fallback");
+    }
   });
 
   await scenario("A held pointer can slide from No to Paint before release", async (expect) => {

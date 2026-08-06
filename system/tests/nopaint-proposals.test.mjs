@@ -11,6 +11,12 @@ import {
   seededRandom,
 } from "../public/aesthetic.computer/lib/nopaint-proposals.mjs";
 import * as nopaintPiece from "../public/aesthetic.computer/disks/nopaint.mjs";
+import {
+  appendNoPaintLayer,
+  createNoPaintPiece,
+  createNoPaintProposalLayer,
+  recoverNoPaintPiece,
+} from "../public/aesthetic.computer/lib/nopaint-pieces.mjs";
 
 test("fresh launch accepts query and piece arguments without mistaking false for true", () => {
   assert.equal(nopaintPiece.freshLaunchRequested(new URL("https://aesthetic.computer/nopaint?fresh=1")), true);
@@ -85,6 +91,40 @@ test("No Paint 3.0 includes the first recovered authored brush set", () => {
   }
 });
 
+test("painting pieces preserve executable scores and compact pixel layers", () => {
+  const width = 3;
+  const height = 2;
+  const substrate = new Uint8ClampedArray(width * height * 4);
+  const piece = createNoPaintPiece({ seed: "piece-test", width, height, pixels: substrate });
+  const overlay = new Uint8ClampedArray(substrate.length);
+  overlay.set([12, 34, 56, 200], (1 * width + 2) * 4);
+  const proposal = {
+    kind: "line",
+    brush: { slug: "line", params: ["blue"], colon: ["3"], parameters: { thickness: 3 } },
+    points: [{ x: 2, y: 1 }],
+  };
+  const layer = createNoPaintProposalLayer({
+    piece,
+    proposal,
+    proposalNumber: 1,
+    proposalFrame: 8,
+    pixels: overlay,
+  });
+  const composite = new Uint8ClampedArray(overlay);
+  const accepted = appendNoPaintLayer(piece, layer, composite);
+  const recovered = recoverNoPaintPiece(structuredClone(accepted), width, height);
+
+  assert.deepEqual(
+    { x: layer.pixels.x, y: layer.pixels.y, width: layer.pixels.width, height: layer.pixels.height },
+    { x: 2, y: 1, width: 1, height: 1 },
+  );
+  assert.deepEqual([...layer.pixels.data], [12, 34, 56, 200]);
+  assert.equal(layer.code.score.proposal.brush.parameters.thickness, 3);
+  assert.match(layer.code.source, /"thickness":3/);
+  assert.equal(recovered.layers.length, 2);
+  assert.deepEqual([...recovered.composite.pixels], [...composite]);
+});
+
 test("Paint commits the proposal buffer while No only discards it", () => {
   class TextButton {
     constructor() {
@@ -106,7 +146,7 @@ test("Paint commits the proposal buffer while No only discards it", () => {
     pixels: new Uint8ClampedArray(16).fill(90),
   };
   let undoCount = 0;
-  let persistCount = 0;
+  const persistedKeys = [];
   const system = {
     painting,
     nopaint: {
@@ -126,7 +166,7 @@ test("Paint commits the proposal buffer while No only discards it", () => {
     },
   });
   const store = {
-    persist() { persistCount += 1; },
+    persist(key, method) { persistedKeys.push([key, method]); },
   };
   const common = {
     canShare: false,
@@ -161,7 +201,21 @@ test("Paint commits the proposal buffer while No only discards it", () => {
 
   assert.deepEqual([...painting.pixels], new Array(16).fill(90));
   assert.equal(undoCount, 1);
-  assert.equal(persistCount, 3);
+  assert.deepEqual(persistedKeys.map(([key]) => key), [
+    "painting:piece",
+    "painting:resolution-lock",
+    "painting:piece",
+    "painting",
+    "nopaint:session",
+  ]);
+  assert.equal(persistedKeys.every(([, method]) => method === "local:db"), true);
+  assert.equal(system.nopaint.piece.schema, "aesthetic.computer/nopaint-piece");
+  assert.equal(system.nopaint.piece.layers.length, 2);
+  assert.equal(system.nopaint.piece.layers[1].code.language, "nopaint-score");
+  assert.match(system.nopaint.piece.layers[1].code.source, /^paint /);
+  assert.deepEqual([...system.nopaint.piece.layers[1].pixels.data], new Array(16).fill(90));
+  assert.deepEqual([...system.nopaint.piece.composite.pixels], new Array(16).fill(90));
+  assert.equal(store["painting:piece"], system.nopaint.piece);
   assert.deepEqual(store["nopaint:session"], {
     version: "3.0",
     seed: store["nopaint:session"].seed,
@@ -169,11 +223,13 @@ test("Paint commits the proposal buffer while No only discards it", () => {
       number: 1,
       operation: store["nopaint:session"].decisions[0].operation,
       decision: "paint",
+      layerId: system.nopaint.piece.layers[1].id,
     }],
   });
   assert.deepEqual([...buffer.pixels], new Array(16).fill(0));
 
   buffer.pixels.fill(180);
+  const acceptedPiece = system.nopaint.piece;
   nopaintPiece.act({
     ...common,
     event: { is: (name) => name === "keyboard:down:n" },
@@ -185,12 +241,15 @@ test("Paint commits the proposal buffer while No only discards it", () => {
 
   assert.deepEqual([...painting.pixels], new Array(16).fill(90));
   assert.equal(undoCount, 1);
-  assert.equal(persistCount, 4);
+  assert.equal(persistedKeys.length, 6);
+  assert.equal(system.nopaint.piece, acceptedPiece);
+  assert.equal(system.nopaint.piece.layers.length, 2);
   assert.deepEqual(store["nopaint:session"].decisions, [
     {
       number: 1,
       operation: store["nopaint:session"].decisions[0].operation,
       decision: "paint",
+      layerId: system.nopaint.piece.layers[1].id,
     },
     { number: 2, operation: store["nopaint:session"].decisions[1].operation, decision: "no" },
   ]);
@@ -303,7 +362,7 @@ test("pointer Paint survives inherited touch/lift handling before module act", (
       target,
       type,
       x: 10,
-      y: 10,
+      y: 230,
       is: (name) => name === type,
     };
     const api = { ...common, event };
