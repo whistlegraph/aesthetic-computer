@@ -3,6 +3,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
+import { computeSourceSha256 } from "./disk-worker-integrity.mjs";
 
 const scriptsDir = path.dirname(fileURLToPath(import.meta.url));
 const systemDir = process.env.AC_DISK_WORKER_SYSTEM_DIR
@@ -35,6 +36,7 @@ const result = await build({
   target: ["es2022"],
   treeShaking: true,
   legalComments: "none",
+  metafile: true,
   write: false,
   plugins: [preserveRuntimeImports],
 });
@@ -47,10 +49,14 @@ const output = Buffer.from(
 
 const sha256 = createHash("sha256").update(output).digest("hex");
 const filename = `disk.worker.${sha256.slice(0, 12)}.mjs`;
+const sources = Object.keys(result.metafile?.inputs || {}).sort();
+const sourceSha256 = await computeSourceSha256(systemDir, sources);
 const manifest = {
   filename,
   sha256,
   bytes: output.length,
+  sourceSha256,
+  sources,
 };
 
 await mkdir(libDir, { recursive: true });

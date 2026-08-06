@@ -6317,8 +6317,47 @@ function paste(from, destX = 0, destY = 0, scale7 = 1, blit = false) {
         const cY = Math.floor(crop.y);
         const cW = Math.floor(crop.w);
         const cH = Math.floor(crop.h);
-        const croppedPixels = new Uint8ClampedArray(cW * cH * 4);
         const srcWidth = from.width;
+        const srcHeight = from.height;
+        const targetW = tWidth || (scale7 && typeof scale7 === "number" ? Math.floor(cW * scale7) : cW);
+        const targetH = tHeight || (scale7 && typeof scale7 === "number" ? Math.floor(cH * scale7) : cH);
+        if ((targetW !== cW || targetH !== cH) && !angle3 && (sourcePixels.byteOffset & 3) === 0 && (pixels.byteOffset & 3) === 0) {
+          const scaleX = cW / targetW;
+          const scaleY = cH / targetH;
+          let startY = Math.max(0, -destY);
+          let endY = Math.min(targetH, height - destY);
+          let startX = Math.max(0, -destX);
+          let endX = Math.min(targetW, width - destX);
+          if (activeMask) {
+            const maskX = activeMask.x + panTranslation.x;
+            const maskY = activeMask.y + panTranslation.y;
+            startX = Math.max(startX, maskX - destX);
+            endX = Math.min(endX, maskX + activeMask.width - destX);
+            startY = Math.max(startY, maskY - destY);
+            endY = Math.min(endY, maskY + activeMask.height - destY);
+          }
+          if (endX > startX && endY > startY) {
+            blitCropScale(
+              sourcePixels,
+              srcWidth,
+              srcHeight,
+              cX,
+              cY,
+              scaleX,
+              scaleY,
+              destX,
+              destY,
+              pixels,
+              width,
+              startX,
+              startY,
+              endX,
+              endY
+            );
+          }
+          return;
+        }
+        const croppedPixels = new Uint8ClampedArray(cW * cH * 4);
         for (let y = 0; y < cH; y++) {
           const srcY = cY + y;
           if (srcY >= 0 && srcY < from.height) {
@@ -6348,8 +6387,6 @@ function paste(from, destX = 0, destY = 0, scale7 = 1, blit = false) {
           height: cH,
           pixels: croppedPixels
         };
-        const targetW = tWidth || (scale7 && typeof scale7 === "number" ? Math.floor(cW * scale7) : cW);
-        const targetH = tHeight || (scale7 && typeof scale7 === "number" ? Math.floor(cH * scale7) : cH);
         if ((targetW !== cW || targetH !== cH) && !angle3) {
           const scaleX = cW / targetW;
           const scaleY = cH / targetH;
@@ -41829,14 +41866,6 @@ async function load(parsed, fromHistory = false, alias = false, devReload = fals
           const p = { x: i2 / 4 % width2, y: floor11(i2 / 4 / width2) };
           shader(p, c4);
         }
-      }
-    } else if (lastActiveVideo) {
-      const { pixels: pixels2 } = lastActiveVideo;
-      for (let i2 = 0; i2 < pixels2.length; i2 += 4) {
-        pixels2[i2] = 255;
-        pixels2[i2 + 1] = 0;
-        pixels2[i2 + 2] = 0;
-        pixels2[i2 + 3] = 255;
       }
     }
     return activeVideo || lastActiveVideo;

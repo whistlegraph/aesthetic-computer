@@ -42,6 +42,7 @@ const TEST_URL = process.env.TEST_URL || "https://aesthetic.computer";
 const BLOCK_WORKER_MANIFEST = process.env.AC_BLOCK_WORKER_MANIFEST === "1";
 const EXPECT_WORKER_FALLBACK = process.env.AC_EXPECT_WORKER_FALLBACK === "1";
 const EXPECT_STANDARD_WORKER = process.env.AC_EXPECT_STANDARD_WORKER === "1";
+const EXPECT_WORKER_BUNDLE = process.env.AC_EXPECT_WORKER_BUNDLE === "1";
 const OUT_DIR = "./tests/performance/reports";
 const CORE = ["boot.mjs", "bios.mjs", "disk.mjs", "kidlisp.mjs", "graph.mjs"];
 const BOOT_BUDGET = 6000; // ms, anon boot target — warn (don't fail) over this
@@ -96,13 +97,28 @@ async function installBootProbe(page) {
   });
 }
 
+const NAVIGATION_CONTEXT_ERROR =
+  /Execution context was destroyed|Cannot find context with specified id|Most likely because of a navigation/i;
+
+async function evaluateThroughUrlRewrite(page, fn, ...args) {
+  for (let attempt = 0; attempt < 10; attempt++) {
+    try {
+      return await page.evaluate(fn, ...args);
+    } catch (error) {
+      if (!NAVIGATION_CONTEXT_ERROR.test(error?.message || String(error))) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+  }
+  throw new Error("Page context did not settle after URL rewrite");
+}
+
 // Wait for the authoritative complete stamp. Fall back to a settled timeline +
 // rendered canvas if the complete event never arrives (e.g. telemetry blocked).
 async function waitForBoot(page, maxMs = 60000) {
   const t0 = Date.now();
   let last = -1, stable = 0;
   while (Date.now() - t0 < maxMs) {
-    const s = await page.evaluate(() => {
+    const s = await evaluateThroughUrlRewrite(page, () => {
       const c = document.querySelector("canvas");
       return {
         complete: window.__bootComplete,
@@ -180,7 +196,7 @@ async function run() {
     const booted = await waitForBoot(page);
     const wallMs = Date.now() - wallStart;
 
-    const data = await page.evaluate(() => {
+    const data = await evaluateThroughUrlRewrite(page, () => {
       let auth = null;
       try { auth = window.acAuthTiming?.computeDurations?.() || null; } catch {}
       const nav = performance.getEntriesByType("navigation")[0] || {};
@@ -197,7 +213,7 @@ async function run() {
       };
     });
 
-    const resources = await page.evaluate(() =>
+    const resources = await evaluateThroughUrlRewrite(page, () =>
       performance.getEntriesByType("resource")
         .map((r) => ({ name: (r.name.split("/").pop() || r.name).split("?")[0], ms: r.duration, size: r.transferSize }))
         .sort((a, b) => b.ms - a.ms).slice(0, 12));
@@ -261,8 +277,13 @@ async function run() {
       ? data.workerBundle && !data.workerBundle.requested && !data.workerBundle.active
       : EXPECT_WORKER_FALLBACK
         ? data.workerBundle?.requested && Boolean(data.workerBundle.fallback)
-        : !data.workerBundle?.requested ||
-          (data.workerBundle.active && data.workerBundle.ready && !data.workerBundle.fallback);
+        : EXPECT_WORKER_BUNDLE
+          ? data.workerBundle?.requested &&
+            data.workerBundle.active &&
+            data.workerBundle.ready &&
+            !data.workerBundle.fallback
+          : !data.workerBundle?.requested ||
+            (data.workerBundle.active && data.workerBundle.ready && !data.workerBundle.fallback);
     const ok = booted.done && data.hasCanvas && timeline.length > 0 && workerBundleOk;
     console.log(ok ? "✅ booted with a render surface" : "❌ boot did not complete / no canvas");
     if (bootMs > BOOT_BUDGET) console.log(`⚠️  boot ${bootMs}ms over ${BOOT_BUDGET}ms budget (baseline note, not a failure)`);

@@ -26,6 +26,7 @@
     "media-server-caddy": "caddy run --config Caddyfile",
     "media-server-nginx": "sudo nginx -s stop; sudo nginx -c $(realpath ./nginx.conf) && sudo tail -f /var/log/nginx/access.log /var/log/nginx/error.log",
     "build:disk-worker": "node scripts/build-disk-worker.mjs",
+    "verify:disk-worker": "node scripts/verify-disk-worker.mjs",
     "codespaces-dev-debug": "kill-port 8889 8888 8080 8000 8111 3333; netlify dev --debug",
     "codespaces-dev-public": "kill-port 8080 8888 8889 8000 8111 3333; netlify dev --live",
     "local-dev-netlify": "http-server public -p 8080 --cors -c-1 -i -s --P https://127.0.0.1:443?",

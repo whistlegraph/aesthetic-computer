@@ -187,7 +187,13 @@ if test "$LOCAL_BRANCH" = "$TARGET_BRANCH"
 end
 
 echo -e "$GREEN-> Deploying branch $TARGET_BRANCH at $ORIGIN_HEAD...$NC"
-ssh -i $SSH_KEY $LITH_USER@$TARGET_HOST "\
+set PREVIOUS_HEAD (ssh -i $SSH_KEY $LITH_USER@$TARGET_HOST "cd $REMOTE_DIR && git rev-parse HEAD")
+if test -z "$PREVIOUS_HEAD"
+    echo -e "$RED x Could not resolve the currently deployed commit.$NC"
+    exit 1
+end
+
+if not ssh -i $SSH_KEY $LITH_USER@$TARGET_HOST "\
 cd $REMOTE_DIR && \
 git fetch origin $TARGET_BRANCH --quiet && \
 if git show-ref --verify --quiet refs/heads/$TARGET_BRANCH; then \
@@ -197,6 +203,19 @@ else \
 fi && \
 git reset --hard origin/$TARGET_BRANCH --quiet && \
 git rev-parse HEAD > system/public/.commit-ref"
+    echo -e "$RED x Failed to check out origin/$TARGET_BRANCH on $TARGET_HOST.$NC"
+    exit 1
+end
+
+echo -e "$GREEN-> Verifying disk worker bundle freshness...$NC"
+if not ssh -i $SSH_KEY $LITH_USER@$TARGET_HOST "cd $REMOTE_DIR/system && node scripts/verify-disk-worker.mjs"
+    echo -e "$RED x Disk worker bundle is missing or stale; restoring $PREVIOUS_HEAD.$NC"
+    ssh -i $SSH_KEY $LITH_USER@$TARGET_HOST "\
+cd $REMOTE_DIR && \
+git reset --hard $PREVIOUS_HEAD --quiet && \
+git rev-parse HEAD > system/public/.commit-ref"
+    exit 1
+end
 
 # Upload env (only if the vault has one — otherwise keep the remote's existing env)
 # Note: lith.service reads EnvironmentFile=/opt/ac/system/.env, so the canonical
