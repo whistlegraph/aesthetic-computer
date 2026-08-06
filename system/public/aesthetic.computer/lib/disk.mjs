@@ -7499,7 +7499,16 @@ class Microphone {
   recording = false;
   recordingPromise;
   permission = "";
+  permissionPending = false;
+  permissionChecked = false;
   recordingBuffer = null; // Live recording buffer for preview
+
+  requestPermission() {
+    if (this.permissionPending || this.permissionChecked) return this;
+    this.permissionPending = true;
+    send({ type: "microphone-permission-request" });
+    return this;
+  }
 
   // Note: can send `{monitor: true}` in `options` for audio feedback.
   connect(options) {
@@ -10646,6 +10655,8 @@ async function makeFrame({ data: { type, content } }) {
 
   if (type === "microphone-permission") {
     microphone.permission = content;
+    microphone.permissionPending = false;
+    microphone.permissionChecked = true;
     if (
       content === "granted" &&
       globalKidLispInstance?.containsMicrophoneFunctions?.(
