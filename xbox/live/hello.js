@@ -2797,21 +2797,69 @@ function drawSelectionScreen(t, ink, panel) {
   typeWrite(controls.select, ox + 225, 958, 28, ...ink);
 }
 
+const titlePaletteNight = [
+  [255, 105, 190], [111, 232, 210], [255, 232, 92], [130, 150, 255],
+  [255, 126, 92], [188, 128, 255], [92, 205, 255], [246, 248, 255],
+];
+const titlePaletteDay = [
+  [190, 32, 118], [0, 126, 124], [176, 112, 0], [73, 82, 190],
+  [204, 59, 43], [114, 68, 185], [24, 107, 181], [47, 56, 82],
+];
+
+function animatedTitleColor(index, t, daylight = visualTheme.light) {
+  const count = titlePaletteNight.length;
+  const phase = (index + t * .42) % count;
+  const from = Math.floor(phase);
+  const amount = phase - from;
+  const eased = amount * amount * (3 - amount * 2);
+  const night = mixColor(titlePaletteNight[from],
+    titlePaletteNight[(from + 1) % count], eased);
+  const day = mixColor(titlePaletteDay[from],
+    titlePaletteDay[(from + 1) % count], eased);
+  return mixColor(night, day, daylight);
+}
+
 function drawTitleScreen(t, ink) {
   const compact = compactLayout();
   const title = "oskiewar";
-  const titleSize = compact ? 88 : 154;
+  const breath = 1 + Math.sin(t * .9) * .018;
+  const titleSize = (compact ? 88 : 154) * breath;
   const titleWidth = handleWidth(title, titleSize);
-  const pulseY = Math.round(Math.sin(t * 1.7) * (compact ? 3 : 5));
-  typeWrite(title, viewCenterX() - titleWidth / 2,
-    viewHeight * (compact ? .38 : .35) + pulseY, titleSize, ...ink);
-  if ((t % 1.2) < .82) {
-    const prompt = controlLocale().title;
-    const promptSize = compact ? 28 : 38;
-    const promptWidth = handleWidth(prompt, promptSize);
-    typeWrite(prompt, viewCenterX() - promptWidth / 2,
-      viewHeight * (compact ? .61 : .64), promptSize, ...ink);
+  const titleX = viewCenterX() - titleWidth / 2;
+  const titleY = viewHeight * (compact ? .38 : .35);
+
+  // Sparse orbiting motes give attract mode some life without adding panels
+  // or stripes behind the wordmark.
+  const moteCount = compact ? 8 : 12;
+  for (let index = 0; index < moteCount; index++) {
+    const angle = t * (.18 + index % 3 * .025) + index * 2.39996;
+    const reach = titleWidth * (.55 + Math.sin(t * .31 + index) * .06);
+    const x = viewCenterX() + Math.cos(angle) * reach;
+    const y = titleY + titleSize * .42 +
+      Math.sin(angle * 1.17) * titleSize * (compact ? .88 : 1.05);
+    const radius = (compact ? 2 : 3) + (index % 3);
+    circle(x, y, radius, Math.max(1.5, radius * .48),
+      animatedTitleColor(index, t * .7));
   }
+
+  let cursor = titleX;
+  for (let index = 0; index < title.length; index++) {
+    const character = title[index];
+    const bob = Math.sin(t * 2.05 + index * .72) * (compact ? 5 : 8);
+    const drift = Math.cos(t * 1.12 + index * .91) * (compact ? 1.5 : 2.5);
+    typeWrite(character, cursor + drift, titleY + bob, titleSize,
+      ...animatedTitleColor(index, t));
+    cursor += comicGlyphAdvance(character, titleSize);
+  }
+
+  const prompt = controlLocale().title;
+  const promptSize = compact ? 28 : 38;
+  const promptWidth = handleWidth(prompt, promptSize);
+  const promptPulse = .58 + (Math.sin(t * 2.2) + 1) * .21;
+  const mutedInk = visualTheme.light > .55 ? [118, 128, 150] : [72, 80, 112];
+  const promptInk = mixColor(mutedInk, ink, promptPulse);
+  typeWrite(prompt, viewCenterX() - promptWidth / 2,
+    viewHeight * (compact ? .61 : .64), promptSize, ...promptInk);
 }
 
 function drawSpectatorQr(ink) {
