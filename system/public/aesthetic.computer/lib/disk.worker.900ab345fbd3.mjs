@@ -37693,6 +37693,8 @@ ${description}`;
       buffer: null,
       // An overlapping brush buffer that gets drawn on top of the
       //              painting.
+      piece: null,
+      // Canonical code + pixel layer stack for No Paint paintings.
       recording: false,
       record: [],
       // Store a recording here.
@@ -37901,10 +37903,12 @@ ${description}`;
       // Kill an existing painting.
       noBang: async ({ system: system2, store: store2, needsPaint, painting: painting2, theme, dark }, res = { w: screen.width, h: screen.height }) => {
         const deleted = await store2.delete("painting", "local:db");
+        await store2.delete("painting:piece", "local:db");
         await store2.delete("painting:resolution-lock", "local:db");
         await store2.delete("painting:transform", "local:db");
         system2.nopaint.undo.paintings.length = 0;
         system2.painting = null;
+        system2.nopaint.piece = null;
         system2.nopaint.resetTransform({ system: system2, screen });
         needsPaint();
         system2.painting = painting2(res.w, res.h, ($) => {
@@ -37933,6 +37937,8 @@ ${description}`;
       // Replace a painting entirely, remembering the last one.
       // (This will always enable fixed resolution mode.)
       replace: ({ system: system2, screen: screen2, store: store2, needsPaint }, painting2, message = "(replace)") => {
+        store2.delete("painting:piece", "local:db");
+        system2.nopaint.piece = null;
         system2.painting = painting2;
         store2["painting"] = {
           width: system2.painting.width,
@@ -45072,6 +45078,10 @@ async function makeFrame({ data: { type, content } }) {
         }
         const sys = $commonApi.system;
         sys.painting = store["painting"];
+        if (!Object.hasOwn(store, "painting:piece")) {
+          store["painting:piece"] = await store.retrieve("painting:piece", "local:db");
+        }
+        sys.nopaint.piece = store["painting:piece"] || null;
         if (!sys.nopaint.recording) {
           sys.nopaint.record = await store.retrieve("painting:record", "local:db") || [];
           if (sys.nopaint.record.length === 0) {
