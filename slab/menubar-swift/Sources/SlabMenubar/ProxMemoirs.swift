@@ -61,6 +61,9 @@ final class ProxMemoirs {
     /// already-backgrounded state gather and returns quickly; actual transcript
     /// reading and inference happen on one serial utility queue.
     func refresh(_ sessions: [ClaudeSession]) {
+        // A tutorial reel owns the machine's background inference budget. Its
+        // audit frames and encoder must not overlap optional memoir models.
+        guard !recordingReserved else { return }
         lock.lock()
         let now = Date()
         guard inFlight == nil,
@@ -173,8 +176,9 @@ final class ProxMemoirs {
         \(exchange)
         </session-data>
         """
-        var provider = "apple-foundation-model"
-        var text = onDeviceMemoir(prompt) ?? ""
+        var provider = "extractive"
+        var text = recordingReserved ? "" : (onDeviceMemoir(prompt) ?? "")
+        if !text.isEmpty { provider = "apple-foundation-model" }
         if text.isEmpty, externalProviderAllowed,
            Date() >= claudeUnavailableUntil, let binary = claudeBinary() {
             provider = "claude-haiku"
@@ -251,10 +255,14 @@ final class ProxMemoirs {
         guard UserDefaults.standard.bool(forKey: "enableExternalMemoirs") else {
             return false
         }
-        if #available(macOS 15.0, *), ScreenRecord.shared.reservesExternalProcesses {
-            return false
+        return !recordingReserved
+    }
+
+    private var recordingReserved: Bool {
+        if #available(macOS 15.0, *) {
+            return ScreenRecord.shared.reservesExternalProcesses
         }
-        return true
+        return false
     }
 
     private func fallbackMemoir(subject: String, exchange: String) -> String {
