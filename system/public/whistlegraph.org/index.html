@@ -143,6 +143,7 @@
   td.th{width:56px} td.th img{width:52px; height:65px; object-fit:cover; border:1px solid var(--ink); display:block; background:#fff}
   td.cd{white-space:nowrap}
   .sw{display:inline-block; width:.72em; height:.72em; margin-right:6px; border:1px solid rgba(0,0,0,.45); background:var(--c); vertical-align:baseline}
+  .sw.quiet{background:transparent; border-color:var(--dim)}
   td.th .sw.noglyph{width:42px; height:52px; margin:0; border:1px solid var(--ink)} /* audio-only: no frame */
   td.cd a{font-weight:normal}
   td.ti a{color:var(--ink)}
@@ -484,7 +485,7 @@ function rowHTML(w){
     ? `<span class="sw noglyph" style="--c:${w.c}"></span>`
     : `<img loading="lazy" alt="Final glyph of ${w.title}" src="${w.thumb}">`;
   return `<td class="th"><a href="/${w.code}">${thumb}</a></td>`+
-    `<td class="cd"><span class="sw" style="--c:${w.c}"></span>[<a href="/${w.code}">${w.code}</a>]</td>`+
+    `<td class="cd"><span class="sw${w.c?"":" quiet"}"${w.c?` style="--c:${w.c}"`:""}></span>[<a href="/${w.code}">${w.code}</a>]</td>`+
     `<td class="ti"><a href="/${w.code}">${w.title}</a><span class="by">${w.by}${w.perf>1?` · ${w.perf} posts`:""}</span></td>`+
     `<td class="yr">${w.year}</td>`;
 }
@@ -749,9 +750,9 @@ function showDetail(code, keepScroll){
     const hero=posts.find(post=>post.id===w.featuredPost)||posts[0]; // editorial choice, then most-seen
     D.video.poster=postThumb(hero)||(w.noGlyph?"":`${IDX}/${aset}.jpg`);
     D.video.src=hero?hero.src:`${IDX}/${aset}.mp4`;
-    if(w.film){ // the Rhizome film, not a TikTok take — its own provenance + glyph
-      D.archiveNote.innerHTML=`Code <code>${w.code}</code> &nbsp; — &nbsp; ${fmtViews(w.views)} views &nbsp;·&nbsp; the ~22-minute <a href="https://sites.rhizome.org/the-longest-whistlegraph-ever-so-far/">Rhizome commission</a>, chalk on a 4×6 blackboard.`;
-      D.glyphCap.textContent="The glyph is the whole piece, transcribed as one score."; D.glyphCap.style.display="";
+    if(w.film){ // the archive preview introduces the complete Rhizome film below
+      D.archiveNote.innerHTML=`Code <code>${w.code}</code> &nbsp; — &nbsp; ${fmtViews(w.views)} TikTok views &nbsp;·&nbsp; archive preview above; the complete ~22-minute <a href="https://sites.rhizome.org/the-longest-whistlegraph-ever-so-far/">Rhizome commission</a> is below.`;
+      D.glyphCap.textContent="Archive preview; complete film and related features below."; D.glyphCap.style.display="";
     }else{
       D.archiveNote.innerHTML=`Code <code>${w.code}</code> &nbsp; — &nbsp; ${reach} &nbsp;·&nbsp; from the <a href="https://www.tiktok.com/@whistlegraph">@whistlegraph archive</a>.`;
     }

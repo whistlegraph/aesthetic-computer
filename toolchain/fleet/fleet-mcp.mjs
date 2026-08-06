@@ -168,7 +168,7 @@ async function toolDesignations() {
   return [{ type: "text", text: L.join("\n") }];
 }
 
-async function toolCleaner({ apply = true, thinSnapshots = false } = {}) {
+async function toolCleaner({ apply = true, thinSnapshots = false, remoteBacked = false } = {}) {
   if (process.platform !== "darwin") throw new Error("Cleaner is currently defined for fleet Macs only.");
   const bin = CLEANER_BINS.find((path) => existsSync(path));
   if (!bin) throw new Error("Cleaner is not installed and no repository copy was found.");
@@ -177,6 +177,10 @@ async function toolCleaner({ apply = true, thinSnapshots = false } = {}) {
   if (thinSnapshots) {
     if (!apply) throw new Error("thinSnapshots requires apply=true");
     args.push("--thin-snapshots");
+  }
+  if (remoteBacked) {
+    if (!apply) throw new Error("remoteBacked requires apply=true");
+    args.push("--remote-backed");
   }
   return new Promise((resolve, reject) => {
     execFile(bin, args, { timeout: 10 * 60_000, maxBuffer: 8 * 1024 * 1024 }, (error, stdout, stderr) => {
@@ -209,10 +213,11 @@ const TOOLS = [
   },
   {
     name: "fleet_cleaner",
-    description: "Call the Cleaner on the local fleet Mac. By default applies the canonical safe cache cleanup; set apply=false for a report only. It protects repositories, node_modules, Downloads, models, agent state, and active-app caches. APFS snapshot thinning is separately opt-in.",
+    description: "Call the Cleaner on the local fleet Mac. By default applies canonical safe caches; set apply=false for a full storage-surface inventory. It protects repositories, worktrees, node_modules, Downloads, models, agent state, and active-app caches. APFS snapshots and verified remote-backed AC media are separately opt-in.",
     inputSchema: { type: "object", properties: {
       apply: { type: "boolean", description: "Apply safe cleanup (default true); false reports only." },
       thinSnapshots: { type: "boolean", description: "Also request APFS local-snapshot thinning (default false, requires apply)." },
+      remoteBacked: { type: "boolean", description: "Verify DigitalOcean Spaces/CDN coverage, then prune only matching ignored AC media caches (default false, requires apply)." },
     } },
   },
 ];

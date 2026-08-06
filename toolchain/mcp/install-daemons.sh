@@ -18,6 +18,7 @@
 #   chat-mcp   → http://127.0.0.1:7775/mcp
 #   fleet-mcp  → http://127.0.0.1:7776/mcp
 #   paper-mcp  → http://127.0.0.1:7777/mcp
+#   grafana-mcp→ http://127.0.0.1:7778/mcp (when fuser credentials exist)
 #
 # This script also POINTS Claude and Codex at the daemons. Claude gets same-name
 # local-scope entries that shadow the stdio ones in .mcp.json; Codex gets its
@@ -52,6 +53,19 @@ if [ -z "$EMACSCLIENT" ]; then
 fi
 AGENTS="$HOME/Library/LaunchAgents"
 mkdir -p "$AGENTS"
+
+# launchd can briefly retain a booted-out label and return EIO when the same
+# plist is immediately bootstrapped. Retry that narrow handoff instead of
+# aborting a full daemon refresh on a transient registration race.
+bootstrap_plist() {
+  local plist="$1" i=0
+  while [ $i -lt 20 ]; do
+    launchctl bootstrap "gui/$(id -u)" "$plist" 2>/dev/null && return 0
+    sleep 0.1
+    i=$((i+1))
+  done
+  launchctl bootstrap "gui/$(id -u)" "$plist"
+}
 
 # "name port script" rows. macOS ships bash 3.2 — no associative arrays. Fed to
 # the loops below by here-doc, which (unlike a pipe) keeps them in this shell so
@@ -126,7 +140,39 @@ $(extra_env "$name")    </dict>
 </plist>
 EOF
   launchctl bootout "gui/$(id -u)/$label" 2>/dev/null || true
-  launchctl bootstrap "gui/$(id -u)" "$AGENTS/$label.plist"
+  bootstrap_plist "$AGENTS/$label.plist"
+}
+
+# Grafana's Go MCP binary supports streamable HTTP directly. It is kept
+# separate from the Node table because its wrapper sources machine-local
+# credentials before execing the binary. Sharing it avoids one Go process per
+# prompt while leaving the token out of both launchd and MCP configuration.
+write_grafana_plist() {
+  local label="computer.aesthetic.grafana-mcp"
+  local wrapper="$HOME/.local/bin/mcp-grafana-fuser"
+  cat > "$AGENTS/$label.plist" <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+    <key>Label</key><string>$label</string>
+    <key>ProgramArguments</key><array>
+        <string>$wrapper</string>
+        <string>-t</string><string>streamable-http</string>
+        <string>-address</string><string>127.0.0.1:7778</string>
+    </array>
+    <key>EnvironmentVariables</key><dict>
+        <key>HOME</key><string>$HOME</string>
+        <key>PATH</key><string>$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    </dict>
+    <key>RunAtLoad</key><true/>
+    <key>KeepAlive</key><true/>
+    <key>ThrottleInterval</key><integer>5</integer>
+    <key>StandardOutPath</key><string>/tmp/$label.out</string>
+    <key>StandardErrorPath</key><string>/tmp/$label.err</string>
+</dict></plist>
+EOF
+  launchctl bootout "gui/$(id -u)/$label" 2>/dev/null || true
+  bootstrap_plist "$AGENTS/$label.plist"
 }
 
 configure_codex_prox_headers() {
@@ -191,7 +237,7 @@ write_puppet_core_plist() {
 </plist>
 EOF
   launchctl bootout "gui/$(id -u)/$label" 2>/dev/null || true
-  launchctl bootstrap "gui/$(id -u)" "$AGENTS/$label.plist"
+  bootstrap_plist "$AGENTS/$label.plist"
   echo "✓ puppet core → $HOME/.local/share/puppet/puppet.sock"
 }
 
@@ -236,6 +282,26 @@ while read -r name port script; do
   fi
 done <<<"$(servers)"
 
+HAVE_GRAFANA=0
+if [ -x "$HOME/.local/bin/mcp-grafana-fuser" ] && [ -f "$HOME/.config/fuser/grafana.env" ]; then
+  write_grafana_plist
+  HAVE_GRAFANA=1
+  echo "✓ grafana-mcp → 127.0.0.1:7778"
+  if [ "$HAVE_CLAUDE" = 1 ]; then
+    claude mcp remove grafana --scope local >/dev/null 2>&1 || true
+    claude mcp add --transport http --scope local grafana "http://127.0.0.1:7778/mcp" >/dev/null
+    echo "  ↳ claude → http://127.0.0.1:7778/mcp (local scope)"
+  fi
+  if [ "$HAVE_CODEX" = 1 ]; then
+    codex mcp remove grafana >/dev/null 2>&1 || true
+    codex mcp add grafana --url "http://127.0.0.1:7778/mcp" >/dev/null
+    echo "  ↳ codex  → http://127.0.0.1:7778/mcp"
+  fi
+else
+  launchctl bootout "gui/$(id -u)/computer.aesthetic.grafana-mcp" 2>/dev/null || true
+  echo "⚠ grafana-mcp skipped — wrapper or ~/.config/fuser/grafana.env is missing"
+fi
+
 if [ "$HAVE_CLAUDE" = 0 ]; then
   echo
   echo "⚠ 'claude' not on PATH — daemons installed, but sessions will still spawn"
@@ -268,5 +334,19 @@ while read -r name port script; do
     fail=1
   fi
 done <<<"$(servers)"
+
+if [ "$HAVE_GRAFANA" = 1 ]; then
+  i=0
+  while [ $i -lt 50 ]; do nc -z 127.0.0.1 7778 2>/dev/null && break; sleep 0.2; i=$((i+1)); done
+  if curl -s -m 5 -X POST "http://127.0.0.1:7778/mcp" \
+       -H 'Content-Type: application/json' -H 'Accept: application/json, text/event-stream' \
+       -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"install-daemons","version":"1"}}}' \
+       2>/dev/null | grep -q '"serverInfo"'; then
+    echo "✓ grafana-mcp answering on 7778"
+  else
+    echo "✗ grafana-mcp NOT answering on 7778 — see /tmp/computer.aesthetic.grafana-mcp.err"
+    fail=1
+  fi
+fi
 
 exit $fail

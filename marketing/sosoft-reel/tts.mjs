@@ -8,6 +8,7 @@ const ROOT = dirname(fileURLToPath(import.meta.url));
 const OUT = resolve(ROOT, "out");
 const text = readFileSync(resolve(ROOT, "narration.txt"), "utf8").trim();
 const force = process.argv.includes("--force");
+const forceTimestamps = process.argv.includes("--force-timestamps");
 const body = { from: text, provider: "jeffrey", voice: "neutral:0" };
 const hash = createHash("sha256").update(JSON.stringify(body)).digest("hex").slice(0, 16);
 const audio = resolve(OUT, "narration.mp3");
@@ -20,7 +21,7 @@ if (!force && existsSync(audio) && existsSync(hashPath) && readFileSync(hashPath
 }
 
 console.log(`requesting Jeffrey PVC · ${text.split(/\s+/).length} words`);
-let response = await fetch("https://aesthetic.computer/api/say", {
+let response = forceTimestamps ? null : await fetch("https://aesthetic.computer/api/say", {
   method: "POST",
   headers: { "Content-Type": "application/json" },
   body: JSON.stringify(body),
@@ -41,7 +42,7 @@ if (response?.ok) {
     return i > 0 ? [line.slice(0, i), line.slice(i + 1).replace(/^['\"]|['\"]$/g, "")] : [];
   }).filter((pair) => pair.length === 2));
   if (!env.ELEVENLABS_API_KEY) throw new Error("ELEVENLABS_API_KEY missing from lith vault");
-  console.log(`origin unavailable (${response?.status || "network"}); using direct timestamp endpoint`);
+  console.log(`${forceTimestamps ? "timestamp alignment requested" : `origin unavailable (${response?.status || "network"})`}; using direct timestamp endpoint`);
   response = await fetch("https://api.elevenlabs.io/v1/text-to-speech/ZXoQQp5X0PKHGwyZpVIT/with-timestamps", {
     method: "POST",
     headers: { "Content-Type": "application/json", "xi-api-key": env.ELEVENLABS_API_KEY },

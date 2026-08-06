@@ -240,33 +240,6 @@
           context.stroke();
         }
 
-        function dancer(time) {
-          const scale = Math.min(width, height) / 720;
-          const x = width / 2 + Math.sin(time * 0.27) * 4 * scale;
-          const y = height * (width < 520 ? 0.21 : 0.22);
-          const stroke = "rgba(126, 38, 58, 0.32)";
-
-          context.strokeStyle = stroke;
-          context.fillStyle = "rgba(126, 38, 58, 0.28)";
-          context.lineWidth = Math.max(1, scale);
-          context.lineCap = "round";
-          context.beginPath();
-          context.arc(x, y - 30 * scale, 7 * scale, 0, Math.PI * 2);
-          context.fill();
-
-          context.beginPath();
-          context.moveTo(x, y - 22 * scale);
-          context.lineTo(x - 3 * scale, y + 12 * scale);
-          context.lineTo(x - 40 * scale, y + 62 * scale);
-          context.moveTo(x - 3 * scale, y + 12 * scale);
-          context.lineTo(x + 52 * scale, y + 34 * scale);
-          context.moveTo(x, y - 11 * scale);
-          context.lineTo(x - 64 * scale, y + 4 * scale);
-          context.moveTo(x, y - 11 * scale);
-          context.lineTo(x + 62 * scale, y - 36 * scale);
-          context.stroke();
-        }
-
         function draw(now) {
           const time = reduced ? 0 : (now - start) / 1000;
           context.clearRect(0, 0, width, height);
@@ -287,7 +260,6 @@
 
           ribbon(height * 0.28, 0, "rgba(126, 38, 58, 0.28)", time);
           ribbon(height * 0.72, Math.PI, "rgba(215, 154, 163, 0.36)", time);
-          dancer(time);
 
           context.strokeStyle = "rgba(126, 38, 58, 0.18)";
           context.beginPath();

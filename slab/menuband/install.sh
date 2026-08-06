@@ -47,6 +47,9 @@ say() { printf "%s• %s%s\n" "$CYAN" "$1" "$RESET"; }
 ok()  { printf "%s✓ %s%s\n" "$GREEN" "$1" "$RESET"; }
 warn(){ printf "%s! %s%s\n" "$YELLOW" "$1" "$RESET"; }
 
+source "${SCRIPT_DIR}/../bin/build-lock.sh"
+acquire_build_lock menuband
+
 command -v swift >/dev/null 2>&1 || {
     echo "swift not found — install Xcode Command Line Tools first:"
     echo "    xcode-select --install"

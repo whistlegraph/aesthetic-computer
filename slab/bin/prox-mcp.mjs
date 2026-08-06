@@ -28,7 +28,7 @@ import { homedir, hostname } from "node:os";
 import { httpPort, serveHttp, serveStdio } from "../../toolchain/mcp/http-front.mjs";
 import { boundedNudge, makeIrisContact, parseAgentAddress } from "../lib/loopboy-family.mjs";
 import { enqueueLoopboyEvent, waitLoopboyEvent } from "../lib/loopboy-inbox.mjs";
-import { authorizeLoopboyWait } from "../lib/loopboy-request-auth.mjs";
+import { authorizeLoopboyWait, loopboyWaitIdentity } from "../lib/loopboy-request-auth.mjs";
 import {
   RUNNING_STATUSES,
   actionableTarget,
@@ -188,6 +188,86 @@ function actionResolution(rocks, handle, verb, now = Date.now()) {
   return { ...actionableTarget(resolveRocks(rocks, handle), { now, verb }), resolvedAt: now };
 }
 
+function liveGuardedLoopboys(rocks, contact, now = Date.now()) {
+  const contactKey = String(contact || "").trim().toLowerCase();
+  return rocks.filter((rock) => rock.self
+    && String(rock.loopboyContact || "").trim().toLowerCase() === contactKey
+    && RUNNING_STATUSES.has(rock.status)
+    && ledgerFreshness(rock.ledgerUpdatedAt, now).state === "fresh");
+}
+
+function preferredLoopboy(rocks, contact, now = Date.now()) {
+  return liveGuardedLoopboys(rocks, contact, now).sort((a, b) =>
+    (Number(b.started) || 0) - (Number(a.started) || 0)
+      || (Number(b.updated) || 0) - (Number(a.updated) || 0)
+      || String(a.id).localeCompare(String(b.id))
+  )[0] || null;
+}
+
+function routeRock(loop, rocks, contact, now = Date.now()) {
+  if (!loop?.sessionId) return null;
+  return liveGuardedLoopboys(rocks, contact, now).find((rock) =>
+    String(rock.id) === String(loop.sessionId)
+  ) || null;
+}
+
+function loopboyRoute(rock, contact, prior = {}) {
+  return {
+    ...prior,
+    event: "imessage",
+    channel: "imessage",
+    contact,
+    sessionId: rock.id,
+    host: rock.host,
+    name: rock.name,
+    agent: rock.agentType || prior.agent || "",
+    wake: false,
+    delivery: "bus",
+    assignedAt: prior.assignedAt || new Date().toISOString(),
+  };
+}
+
+async function writeLoopboyConfig(cfg) {
+  const dir = join(homedir(), ".config", "slab");
+  await mkdir(dir, { recursive: true });
+  const temp = join(dir, `.loopboy.json.${process.pid}.${Date.now()}.tmp`);
+  await writeFile(temp, JSON.stringify(cfg, null, 2) + "\n", { mode: 0o600 });
+  await rename(temp, LOOPBOY_CONFIG);
+}
+
+async function ensureLoopboyRoute({ contact, sessionId, rocks, now = Date.now() }) {
+  const candidates = liveGuardedLoopboys(rocks, contact, now);
+  const caller = candidates.find((rock) => String(rock.id) === String(sessionId));
+  if (!caller) {
+    throw new Error(`Loopboy ${contact} caller is not a live local guarded session`);
+  }
+  const cfg = (await readJson(LOOPBOY_CONFIG)) || { version: 1, loops: {} };
+  cfg.version = 1;
+  cfg.loops ||= {};
+  const prior = cfg.loops[contact] || {};
+  const active = routeRock(prior, rocks, contact, now);
+  if (active && String(active.id) !== String(sessionId)) {
+    throw new Error(`this Loopboy session is not the bound ${contact} listener (${canonicalHandle(active)} is live)`);
+  }
+  if (!active) {
+    const preferred = preferredLoopboy(rocks, contact, now);
+    if (!preferred || String(preferred.id) !== String(sessionId)) {
+      const owner = preferred ? canonicalHandle(preferred) : "no live guarded listener";
+      throw new Error(`this Loopboy session cannot auto-repair ${contact}; ${owner} is authoritative`);
+    }
+    cfg.loops[contact] = loopboyRoute(caller, contact, prior);
+    await writeLoopboyConfig(cfg);
+    return { cfg, loop: cfg.loops[contact], repaired: true, rock: caller };
+  }
+  if (prior.delivery !== "bus" || prior.channel !== "imessage"
+      || prior.event !== "imessage" || prior.contact !== contact) {
+    cfg.loops[contact] = loopboyRoute(caller, contact, prior);
+    await writeLoopboyConfig(cfg);
+    return { cfg, loop: cfg.loops[contact], repaired: true, rock: caller };
+  }
+  return { cfg, loop: prior, repaired: false, rock: caller };
+}
+
 // ── close plumbing (local machine only) ─────────────────────────────────────
 // Read a session's marker (tty + claude pid) by its ledger id == sessionId.
 async function readMarker(id) {
@@ -236,6 +316,48 @@ async function closeTerminalTty(tty) {
 end tell`;
   try { const { stdout } = await pexec("osascript", ["-e", osa]); return parseInt(stdout.trim(), 10) || 0; }
   catch { return 0; }
+}
+
+// A calling Loopboy cannot synchronously close the terminal that must carry
+// its MCP response. Hand the close to a detached helper, giving the agent a
+// brief window to return its shutdown receipt. Slab's terminal-population
+// watcher observes the close and re-tiles the remaining panes.
+function scheduleTerminalClose(tty, pid, delayMs = 4_000) {
+  const dev = tty.startsWith("/dev/") ? tty : `/dev/${tty}`;
+  if (!/^\/dev\/(ttys\d+|pts\/\d+)$/.test(dev)) {
+    throw new Error(`refusing unsafe tty marker: ${tty}`);
+  }
+  const osa = `tell application "Terminal"
+  set n to 0
+  repeat with w in windows
+    repeat with t in tabs of w
+      try
+        if (tty of t) is "${dev}" then
+          close w saving no
+          set n to n + 1
+        end if
+      end try
+    end repeat
+  end repeat
+  return n
+end tell`;
+  const helper = `
+const { execFile } = require("node:child_process");
+const script = process.argv[1];
+const pid = Number(process.argv[2]) || 0;
+const delay = Number(process.argv[3]) || 4000;
+setTimeout(() => {
+  execFile("/usr/bin/osascript", ["-e", script], { timeout: 8000 }, () => {
+    if (pid > 1) setTimeout(() => { try { process.kill(pid, "SIGTERM"); } catch {} }, 750);
+  });
+}, delay);
+`;
+  const child = spawn(process.execPath, ["-e", helper, osa, String(pid || 0), String(delayMs)], {
+    detached: true,
+    stdio: "ignore",
+  });
+  child.unref();
+  return child.pid;
 }
 
 // ── tools ─────────────────────────────────────────────────────────────────────
@@ -444,7 +566,7 @@ async function toolLaunch({ host, agent, cwd, prompt = "", by, loopboyContact = 
   const self = (await readJson(LOCAL_FILE))?.host || hostname().split(".")[0];
   const contactKey = String(loopboyContact || "").trim().toLowerCase();
   const loopboyListenerPrompt = contactKey
-    ? `\n\nLoopboy listener contract: after completing this turn, call prox_loopboy_wait with contact ${contactKey} and timeoutSeconds 50. Call it again after every event or timeout so this client loop remains available. Events arrive only through that private MCP inbox. Never use Terminal, clipboard, mouse, keyboard, browser, or GUI injection to wake or operate this loop.`
+    ? `\n\nLoopboy listener contract: after completing this turn, call prox_loopboy_wait with contact ${contactKey} and timeoutSeconds 50. Call it again after every event or timeout so this client loop remains available. Events arrive only through that contact's durable private MCP bus/inbox. Never use Terminal, clipboard, mouse, keyboard, browser, or GUI injection to wake or operate this loop.`
     : "";
   const launchPrompt = `${String(prompt)}${loopboyListenerPrompt}`.trim();
   if (launchPrompt.length > 4000) {
@@ -526,6 +648,9 @@ async function toolBindNotification({ handle, contact, event = "imessage" }) {
   if (!contactKey) throw new Error("`contact` is required (the key from ~/.config/slab/imsg.json)");
   const r = actionResolution(await allRocks(), handle, "bind");
   if (!r.self) throw new Error("iMessage notification wake targets must be a local prox on this machine");
+  if (!RUNNING_STATUSES.has(r.status)) {
+    throw new Error(`${canonicalHandle(r)} is ${r.status}, not a live Loopboy listener`);
+  }
   if (!r.loopboyContact) {
     throw new Error(
       `${canonicalHandle(r)} was not launched as a guarded Loopboy; ` +
@@ -537,58 +662,62 @@ async function toolBindNotification({ handle, contact, event = "imessage" }) {
       `${canonicalHandle(r)} was launched for ${r.loopboyContact}, not ${contactKey}`,
     );
   }
-  const loop = {
-    event: "imessage",
-    contact: contactKey,
-    sessionId: r.id,
-    host: r.host,
-    name: r.name,
-    wake: false,
-    delivery: "inbox",
-    assignedAt: new Date().toISOString(),
-  };
-  await mkdir(join(homedir(), ".config", "slab"), { recursive: true });
   const cfg = (await readJson(LOOPBOY_CONFIG)) || { version: 1, loops: {} };
   cfg.version = 1;
   cfg.loops ||= {};
-  cfg.loops[contactKey] = loop;
-  await writeFile(LOOPBOY_CONFIG, JSON.stringify(cfg, null, 2) + "\n", { mode: 0o600 });
-  return [{ type: "text", text: `checked_at: ${isoTime(r.resolvedAt)}\nLoopboy bound ${contactKey} → ${canonicalHandle(r)} (${r.id}) — isolated inbox delivery; no Terminal/UI injection.` }];
+  const rocks = await allRocks();
+  const active = routeRock(cfg.loops[contactKey], rocks, contactKey, r.resolvedAt);
+  if (active && String(active.id) !== String(r.id)) {
+    throw new Error(`Loopboy ${contactKey} is already live at ${canonicalHandle(active)}; close or replace it through prox_launch before rebinding`);
+  }
+  cfg.loops[contactKey] = loopboyRoute(r, contactKey, cfg.loops[contactKey]);
+  await writeLoopboyConfig(cfg);
+  return [{ type: "text", text: `checked_at: ${isoTime(r.resolvedAt)}\nLoopboy bound ${contactKey} → ${canonicalHandle(r)} (${r.id}) — durable contact bus delivery; no Terminal/UI injection.` }];
 }
 
 async function toolLoopboyWait({ handle, contact, timeoutSeconds = 50 }, context = {}) {
-  const cfg = await readJson(LOOPBOY_CONFIG);
-  const loops = cfg?.loops || {};
+  const identity = loopboyWaitIdentity({ context, requestedContact: contact });
+  const rocks = await allRocks();
+  const ensured = await ensureLoopboyRoute({
+    contact: identity.contact,
+    sessionId: identity.sessionId,
+    rocks,
+  });
+  const loops = ensured.cfg.loops || {};
   const { contact: contactKey, sessionId: callerSessionId, loop } = authorizeLoopboyWait({
     context,
     loops,
     requestedContact: contact,
   });
   if (handle) {
-    const rock = actionResolution(await allRocks(), handle, "wait on");
+    const rock = actionResolution(rocks, handle, "wait on");
     if (String(rock.id) !== callerSessionId) {
       throw new Error(`«${handle}» is not this Loopboy session`);
     }
   }
   const seconds = Math.max(0, Math.min(55, Number(timeoutSeconds) || 0));
-  const event = await waitLoopboyEvent(loop.sessionId, { timeoutMs: seconds * 1000 });
+  const event = await waitLoopboyEvent(loop.sessionId, {
+    contact: contactKey,
+    timeoutMs: seconds * 1000,
+  });
   if (!event) {
     return [{
       type: "text",
-      text: `No event arrived for Loopboy ${contactKey} during this wait. Call prox_loopboy_wait again; do not poll Messages through GUI automation.`,
+      text: `${ensured.repaired ? `Auto-repaired Loopboy ${contactKey} → ${canonicalHandle(ensured.rock)} on the global registry.\n` : ""}No event arrived for Loopboy ${contactKey} during this wait. Call prox_loopboy_wait again; do not poll Messages through GUI automation.`,
     }];
   }
   return [{
     type: "text",
     text: [
-      `Loopboy inbox event for ${contactKey} (${event.kind}, ${event.createdAt}).`,
+      `${ensured.repaired ? `Auto-repaired Loopboy ${contactKey} → ${canonicalHandle(ensured.rock)} on the global registry.` : ""}`,
+      `Loopboy inbox event for ${contactKey} (channel=${event.channel || "imessage"}, ${event.kind}, ${event.createdAt}).`,
       event.prompt,
       "After handling this event, call prox_loopboy_wait again to remain available. Never use Terminal, clipboard, mouse, keyboard, browser, or GUI injection.",
     ].filter(Boolean).join("\n\n"),
   }];
 }
 
-async function toolClose({ handle }) {
+async function toolClose({ handle }, context = {}) {
   if (!handle) throw new Error("`handle` is required (a canonical host:name#id, exact host:name, unique pet name, or session id; see prox_find).");
   const r = actionResolution(await allRocks(), handle, "close");
   // Closing means killing a process + shutting its terminal window — only doable
@@ -601,9 +730,37 @@ async function toolClose({ handle }) {
   // legacy `claude_pid` so existing Claude markers still close.
   const pid = mk?.agent_pid || mk?.claude_pid || 0;
   if (!tty && !pid) throw new Error(`no live tty/pid marker for ${r.host}:${r.name} (id ${r.id.slice(0, 8)}) — it may already be gone.`);
-  // Never close the session that is asking.
+  // Ordinary prompts can never close themselves. A guarded Loopboy is the
+  // narrow exception: an authenticated matching launch identity may release
+  // its own route and schedule its own terminal close after the MCP receipt.
   const anc = await ancestorPids(process.pid);
-  if (pid && anc.has(pid)) throw new Error(`refusing to close ${r.host}:${r.name} — that is the session calling prox_close.`);
+  let callerIdentity = null;
+  try { callerIdentity = loopboyWaitIdentity({ context }); } catch {}
+  const identifiedSelf = callerIdentity && String(callerIdentity.sessionId) === String(r.id);
+  const processSelf = pid && anc.has(pid);
+  if (identifiedSelf || processSelf) {
+    const contact = String(callerIdentity?.contact || "").toLowerCase();
+    if (!identifiedSelf || !contact || String(r.loopboyContact || "").toLowerCase() !== contact) {
+      throw new Error(`refusing to close ${r.host}:${r.name} — that is the session calling prox_close.`);
+    }
+    if (!tty) throw new Error(`no live tty marker for guarded Loopboy ${canonicalHandle(r)}`);
+    const cfg = (await readJson(LOOPBOY_CONFIG)) || { version: 1, loops: {} };
+    cfg.loops ||= {};
+    if (String(cfg.loops[contact]?.sessionId || "") !== String(r.id)) {
+      throw new Error(`this Loopboy session is not the bound ${contact} listener`);
+    }
+    delete cfg.loops[contact];
+    await writeLoopboyConfig(cfg);
+    if (process.env.SLAB_PROX_CLOSE_DRY_RUN !== "1") {
+      scheduleTerminalClose(tty, pid);
+    }
+    return [{
+      type: "text",
+      text: `checked_at: ${isoTime(r.resolvedAt)}\n` +
+        `scheduled guarded Loopboy shutdown for ${canonicalHandle(r)} — ` +
+        `released ${contact} route; terminal closes after the receipt; Slab re-tiles the remaining panes.`,
+    }];
+  }
   const steps = [];
   // Graceful first, then force. claude traps SIGTERM, so don't wait long on it.
   if (pid && pidAlive(pid)) {
@@ -706,7 +863,7 @@ const TOOLS = [
   {
     name: "prox_close",
     description:
-      "Close a prompt rock and its terminal window. DESTRUCTIVE: requires a fresh ledger and a canonical host:name#id, session id, exact host:name, or fleet-unique exact pet name; refuses fuzzy, duplicate, stale, remote, or calling-session targets.",
+      "Close a prompt rock and its terminal window. DESTRUCTIVE: requires a fresh ledger and a canonical host:name#id, session id, exact host:name, or fleet-unique exact pet name; refuses fuzzy, duplicate, stale, and remote targets. Ordinary sessions cannot close themselves; a guarded Loopboy may release its own route and schedule a self-close so Slab can re-tile.",
     inputSchema: {
       type: "object",
       properties: {
@@ -762,7 +919,7 @@ const TOOLS = [
   {
     name: "prox_loopboy_wait",
     description:
-      "Wait up to 55 seconds for the next event in one bound Loopboy session's isolated inbox. The event is claimed exactly once and returned only to that session/contact. This is the safe replacement for Terminal, clipboard, mouse, and keyboard wake injection. Call it again after handling each event.",
+      "Wait up to 55 seconds for the next event on one guarded Loopboy contact's durable private bus. A live listener auto-repairs stale registry state; each event is claimed exactly once by the active session/contact. This is the safe replacement for Terminal, clipboard, mouse, and keyboard wake injection. Call it again after handling each event.",
     inputSchema: {
       type: "object",
       properties: {

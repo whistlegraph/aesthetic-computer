@@ -22,3 +22,5 @@ site/
 # Longest Whistlegraph film + stills — pulled from Dropbox/YouTube, on the CDN
 longest/
 naming-batches/
+# generated local Reels bundle (videos, OCR audit, and review queues)
+reels-shortlist/

@@ -2,9 +2,9 @@
 import PackageDescription
 
 let package = Package(
-  name: "MenuFighterNative",
+  name: "TrackpadFighter",
   platforms: [.macOS(.v14)],
-  products: [.executable(name: "menu-fighter", targets: ["MenuFighterNative"])],
+  products: [.executable(name: "trackpad-fighter", targets: ["MenuFighterNative"])],
   targets: [
     .target(name: "TrackpadBridge", publicHeadersPath: "include"),
     .executableTarget(name: "MenuFighterNative", dependencies: ["TrackpadBridge"], linkerSettings: [.linkedFramework("Security")])

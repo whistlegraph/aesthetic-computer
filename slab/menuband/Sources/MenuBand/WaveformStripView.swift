@@ -41,10 +41,24 @@ final class WaveformStripView: NSView {
         didSet { needsDisplay = true }
     }
 
+    /// Whether pointer hover shifts the graph toward cyan. Compact and
+    /// Global Keys graphs enable this; the true full-screen LED wall disables
+    /// it so moving the pointer does not recolor the entire display.
+    var hoverColorFeedbackEnabled: Bool = true {
+        didSet { needsDisplay = true }
+    }
+
     /// Fired when the display is clicked. The popover wires this to open the
     /// full keymap view — same action as the "Keymap" button — so the live
     /// scope doubles as a keymap affordance.
     var onClick: (() -> Void)?
+
+    private var hoverTrackingArea: NSTrackingArea?
+    private var isHovered = false {
+        didSet {
+            if isHovered != oldValue { needsDisplay = true }
+        }
+    }
 
     override func mouseDown(with event: NSEvent) {
         if onClick != nil { onClick?() } else { super.mouseDown(with: event) }
@@ -52,7 +66,35 @@ final class WaveformStripView: NSView {
 
     /// Pointing-hand cursor so the display reads as clickable.
     override func resetCursorRects() {
+        super.resetCursorRects()
         if onClick != nil { addCursorRect(bounds, cursor: .pointingHand) }
+    }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let area = hoverTrackingArea { removeTrackingArea(area) }
+        hoverTrackingArea = nil
+        guard onClick != nil else {
+            isHovered = false
+            return
+        }
+        let area = NSTrackingArea(
+            rect: bounds,
+            options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect],
+            owner: self,
+            userInfo: nil
+        )
+        addTrackingArea(area)
+        hoverTrackingArea = area
+    }
+
+    override func mouseEntered(with event: NSEvent) {
+        guard onClick != nil else { return }
+        isHovered = true
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        isHovered = false
     }
 
     /// One frame's worth of the tap ring, reduced to a single min/max
@@ -318,14 +360,28 @@ final class WaveformStripView: NSView {
         let reversing = menuBand?.isRewinding ?? false
         let accent = NSColor.controlAccentColor
         let tint = tintColor ?? accent
+        // The compact and Global Keys graphs opt into this color treatment.
+        // The full-screen visualizer uses the same view but opts out; shifting
+        // the entire wall as the pointer crosses it would be distracting.
+        // Orange remains reserved for active reverse playback.
+        let hoverActive = hoverColorFeedbackEnabled && isHovered && onClick != nil
+        let cyan = NSColor(srgbRed: 0.08, green: 0.82, blue: 0.94, alpha: 1)
+        let hoverTint = tint.blended(withFraction: 0.42, of: cyan) ?? cyan
+        let displayTint = hoverActive ? hoverTint : tint
+        let frameTint = hoverActive ? hoverTint : accent
 
         // Glass. Rounded + accent-framed as the popover's recessed plate;
         // square when the host bezel supplies the framing.
         if drawsPlate {
             let plate = NSBezierPath(roundedRect: bounds.insetBy(dx: 0.5, dy: 0.5),
                                      xRadius: 4, yRadius: 4)
-            Self.glass.setFill(); plate.fill()
-            accent.withAlphaComponent(0.55).setStroke(); plate.lineWidth = 1.0; plate.stroke()
+            let glass = hoverActive
+                ? (Self.glass.blended(withFraction: 0.13, of: hoverTint) ?? Self.glass)
+                : Self.glass
+            glass.setFill(); plate.fill()
+            frameTint.withAlphaComponent(hoverActive ? 0.95 : 0.55).setStroke()
+            plate.lineWidth = hoverActive ? 1.5 : 1.0
+            plate.stroke()
         } else {
             ctx.setFillColor(Self.glass.cgColor)
             ctx.fill(bounds)
@@ -334,7 +390,7 @@ final class WaveformStripView: NSView {
         // Faint off-grid — the raster itself, always visible. One batched fill
         // of every cell; Quartz walks the rect list far faster than we can
         // issue the fills one at a time.
-        ctx.setFillColor(tint.withAlphaComponent(0.09).cgColor)
+        ctx.setFillColor(displayTint.withAlphaComponent(hoverActive ? 0.17 : 0.09).cgColor)
         ctx.fill(offRects)
 
         let halfRows = (rows - 1) / 2
@@ -388,7 +444,7 @@ final class WaveformStripView: NSView {
             let up = min(halfRows, Int((lift(gridMax[c]) * CGFloat(halfRows)).rounded()))
             let down = min(halfRows, Int((lift(-gridMin[c]) * CGFloat(halfRows)).rounded()))
             let isHead = reversing ? c == playheadCol : c == (cursor - 1 + cols) % cols
-            let base = reversing && (isHead || consumed(c)) ? NSColor.systemOrange : tint
+            let base = reversing && (isHead || consumed(c)) ? NSColor.systemOrange : displayTint
             // Reverse keeps its own flat shading (the raster is frozen, so age
             // means nothing there); the live sweep decays.
             let alpha: CGFloat
@@ -410,7 +466,8 @@ final class WaveformStripView: NSView {
         // the write head reads even over silence. Orange during reverse.
         let headCol = reversing ? playheadCol : cursor
         if headCol >= 0, headCol < cols {
-            let marker = (reversing ? NSColor.systemOrange : accent).withAlphaComponent(0.30)
+            let marker = (reversing ? NSColor.systemOrange : frameTint)
+                .withAlphaComponent(hoverActive ? 0.48 : 0.30)
             ctx.setFillColor(marker.cgColor)
             let x = cellX(headCol)
             columnRects.removeAll(keepingCapacity: true)

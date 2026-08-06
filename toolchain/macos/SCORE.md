@@ -137,6 +137,7 @@ agent state, and active-application caches.
 ```bash
 cleaner                            # inventory only
 cleaner --apply                    # known regenerable caches
+cleaner --apply --remote-backed    # verify Spaces/CDN, then prune backed AC media
 cleaner --apply --thin-snapshots   # opt-in APFS snapshot thinning
 ```
 
@@ -144,6 +145,11 @@ cleaner --apply --thin-snapshots   # opt-in APFS snapshot thinning
 The legacy `ac-disk-clean` name remains a compatibility alias.
 Running applications keep ownership of their caches; repositories, downloads,
 models, agent state, and CoreSimulator runtimes are always report-only.
+The default report also maps AC build trees, ignored generations, local asset
+mirrors, Whistlegraph downloads, Pop workspaces, worktrees, vault Git/storage,
+Final Cut/Xcode data, Docker, and local model stores. `--remote-backed` is
+interactive/explicit only: each surface is kept unless its own remote verifier
+passes, and it is never included in the weekly LaunchAgent.
 
 ### Safe regenerable buckets
 

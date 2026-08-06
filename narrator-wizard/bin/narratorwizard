@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+set -euo pipefail
+HERE="$(cd "$(dirname "$0")/.." && pwd)"
+SPEC="${1:-}"
+if [[ -z "$SPEC" ]]; then
+  SPEC="$(osascript <<'APPLESCRIPT'
+set picked to choose file with prompt "Choose a Narrator Wizard screenplay" of type {"public.json"}
+POSIX path of picked
+APPLESCRIPT
+)"
+fi
+swift build -c release --package-path "$HERE"
+exec "$HERE/.build/release/NarratorWizard" "$SPEC"

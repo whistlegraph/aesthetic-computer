@@ -54,6 +54,27 @@ system/public/assets/pop/<lane>/<slug>/
 Intermediates (`*-pitched.mp3`, `*-stretched.mp3`, `out/.tmp/`) are
 **not** stored — they regenerate locally from the vocal stem in seconds.
 
+### private workspace cache
+
+Before clearing a machine, the complete ignored `pop/*/out/` trees may be
+parked privately at
+`s3://assets-aesthetic-computer/private/pop-workspace/<lane>/out/`. This is a
+recovery cache, not the public release layout above. It preserves old auditions
+and render generations without keeping them in every checkout:
+
+```bash
+npm run pop:workspace:push                 # push every lane with an out/
+npm run pop:workspace:verify               # must report zero pending actions
+npm run pop:workspace:fetch -- marimba/flutterbap.mp3
+npm run pop:workspace:restore -- marimba   # restore a whole lane
+```
+
+The helper reads the existing Spaces credentials from the environment, or from
+`aesthetic-computer-vault/silo/.env` when that private sibling checkout is
+present. Uploads explicitly set Spaces' private ACL. Never replace the public
+per-track archive with this cache: billable vocals and finished media still go
+through `archive.mjs` and `pop:assets:up`.
+
 ## the per-track process
 
 After a track is rendered + (optionally) sung:

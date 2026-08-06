@@ -11,17 +11,25 @@
 // rattle. It carries a pet name in bubble lettering, and pointing at it
 // reveals a slowly evolving account of the session.
 //
-// Each rock is a borderless, click-through normal-level window ordered directly
-// above its own terminal. AppKit then gives it the terminal's real place in the
-// window stack: windows above that terminal also cover the rock. `overlayAt`
-// still checks the stack at the pointer so a covered stone cannot answer hover
-// or clicks during the short interval before AppKit/window snapshots settle.
+// Each rock is a borderless, click-through companion surface one level above
+// ordinary application windows. It can never fall behind its own terminal when
+// that terminal is launched, focused, or tiled. Since AppKit cannot make our
+// window a child of another process's Terminal window, `reposition` supplies
+// the missing parent relationship: every surface is shown only while its own
+// footprint belongs to that terminal in the real normal-window stack.
 
 import AppKit
 import CoreGraphics
 import ApplicationServices
 import SceneKit
 import Vision
+
+/// Cross-process windows cannot participate in AppKit's parent/child ordering.
+/// Keep prompt furniture on a dedicated level just above normal windows, then
+/// reproduce child-window occlusion from the CG window stack. This is lower
+/// than floating/status UI and does not activate Slab.
+private let promptCompanionWindowLevel =
+    NSWindow.Level(Int(CGWindowLevelForKey(.normalWindow)) + 1)
 
 /// Private (but stable, widely-used by window managers) bridge from an AX
 /// window element to its CGWindowID — lets a kAXWindowMoved callback map the
@@ -338,9 +346,9 @@ final class PlatformTargetAwarenessIdentifierBadgeView: NSView {
 /// channel. The layer spin is GPU-driven (render-server side, CPU stays idle),
 /// so the only recurring cost is the controller's light reposition tick.
 ///
-/// Compositing: the window lives at normal level and is inserted immediately
-/// above its terminal. It therefore follows the terminal's z-order instead of
-/// painting over unrelated foreground windows.
+/// Compositing: the window lives on the prompt-companion level. The controller
+/// gates it from normal-window occlusion, so it behaves like terminal content
+/// without depending on fragile cross-process sibling ordering.
 final class PromptSigilOverlay {
     private static let fuseParticle: CGImage? = {
         let side = 8
@@ -373,6 +381,7 @@ final class PromptSigilOverlay {
     /// actually changes — never on a status change (status is motion + halo).
     var frameKey: String = ""
     private var motion: (period: Double, clockwise: Bool)?
+    private var ecoPaused = false
     /// Spring-follow state: `target` is where the terminal wants the badge,
     /// `current` is where it's drawn. `advance` eases current → target each
     /// frame so the badge trails its window with a little inertia (reads as
@@ -442,10 +451,7 @@ final class PromptSigilOverlay {
         window.backgroundColor = .clear
         window.hasShadow = false
         window.ignoresMouseEvents = true
-        // Stay in the normal-window stack. `orderAbove` places this rock just
-        // above its terminal, leaving every window above that terminal above
-        // the rock as well.
-        window.level = .normal
+        window.level = promptCompanionWindowLevel
         window.collectionBehavior = [.fullScreenAuxiliary]
 
         let heartbeatInitial = NSRect(x: -2000, y: -2000, width: 160, height: 40)
@@ -1101,10 +1107,23 @@ final class PromptSigilOverlay {
         applyPlayback()
     }
 
+    /// Pressure governor from performance-guard. Keep the rock's identity and
+    /// current lighting visible, but stop its infinite compositor animation
+    /// until the host returns below budget.
+    func setEcoPaused(_ paused: Bool) {
+        guard paused != ecoPaused else { return }
+        ecoPaused = paused
+        applyPlayback()
+    }
+
     private func applyPlayback() {
-        guard rockFrames.count > 1, let (period, cw) = motion else {
+        guard !ecoPaused, rockFrames.count > 1, let (period, cw) = motion else {
             rockLayer.removeAnimation(forKey: "tumble")
             shadowMask.removeAnimation(forKey: "tumble")
+            if ecoPaused {
+                rockLayer.contents = rockFrames.first
+                shadowMask.contents = shadowFrames.first
+            }
             return
         }
         func tumble(_ vals: [CGImage]) -> CAKeyframeAnimation {
@@ -1167,10 +1186,42 @@ final class PromptSigilOverlay {
         CATransaction.commit()
     }
 
-    /// The rock's centre in CG screen coordinates (top-left origin), computed
-    /// from its terminal's bounds — the point the occlusion check samples.
-    func rockPoint(bounds b: (CGFloat, CGFloat, CGFloat, CGFloat)) -> CGPoint {
-        CGPoint(x: b.0 + b.2 - 10 - size / 2, y: b.1 + 30 + size / 2)
+    /// Sample the visible pixels of each companion surface in CG screen
+    /// coordinates (top-left origin). A surface is hidden as a unit if any
+    /// sample belongs to a covering normal window; conservative whole-surface
+    /// hiding is preferable to drawing half a rock over another application.
+    func visibilityPoints(bounds b: (CGFloat, CGFloat, CGFloat, CGFloat))
+        -> (rock: [CGPoint], heartbeat: [CGPoint], platformTarget: [CGPoint]) {
+        let rockRect = CGRect(x: b.0 + b.2 - 10 - size,
+                              y: b.1 + 30,
+                              width: size,
+                              height: size + labelH)
+        let rockInset: CGFloat = 5
+        let rock = [
+            CGPoint(x: rockRect.midX, y: rockRect.midY),
+            CGPoint(x: rockRect.minX + rockInset, y: rockRect.minY + rockInset),
+            CGPoint(x: rockRect.maxX - rockInset, y: rockRect.minY + rockInset),
+            CGPoint(x: rockRect.minX + rockInset, y: rockRect.maxY - rockInset),
+            CGPoint(x: rockRect.maxX - rockInset, y: rockRect.maxY - rockInset),
+        ]
+
+        let stripInset: CGFloat = 2
+        let stripY = b.1 + 32
+        let heartbeat = [CGFloat(0), 0.25, 0.5, 0.75, 1].map { fraction in
+            CGPoint(x: b.0 + stripInset + (b.2 - stripInset * 2) * fraction,
+                    y: stripY)
+        }
+
+        let targetRect = CGRect(x: b.0 + 10,
+                                y: b.1 + b.3 - 34,
+                                width: 60,
+                                height: 24)
+        let platformTarget = [
+            CGPoint(x: targetRect.midX, y: targetRect.midY),
+            CGPoint(x: targetRect.minX + 3, y: targetRect.minY + 3),
+            CGPoint(x: targetRect.maxX - 3, y: targetRect.maxY - 3),
+        ]
+        return (rock, heartbeat, platformTarget)
     }
 
     /// Show/hide driven by the controller's occlusion check — the "embedded"
@@ -1218,6 +1269,15 @@ final class PromptSigilOverlay {
         currentOrigin = cur
         window.setFrameOrigin(cur)
         return true
+    }
+
+    /// A completed grid tile is a discontinuous layout change, not a drag.
+    /// Land directly in the new cell so ⌘⌥T never leaves a rock visibly
+    /// chasing its terminal across the wall.
+    func snapToTarget() {
+        guard let target = targetOrigin else { return }
+        currentOrigin = target
+        window.setFrameOrigin(target)
     }
 
     func hide() {
@@ -1660,6 +1720,8 @@ final class PromptSigilOverlayController {
     /// that's already fast (which would starve under a stream of events).
     private var currentInterval: TimeInterval = 0.2
     private var lastTick = Date.distantPast
+    private var lastPressureCheck = Date.distantPast
+    private var performanceEco = false
     private var observerInstalled = false
     /// Live AX observers per terminal app pid (kept alive by this reference).
     private var axObservers: [pid_t: AXObserver] = [:]
@@ -1745,8 +1807,9 @@ final class PromptSigilOverlayController {
     /// five-second safety bind.
     func terminalsDidRetile() {
         needsRebind = true
-        promote()
         reposition()
+        for ov in overlays.values { ov.snapToTarget() }
+        promote()
     }
 
     /// Read an AXValue geometry attribute (point or size) off an element.
@@ -2522,6 +2585,11 @@ final class PromptSigilOverlayController {
         let dt = CGFloat(min(0.1, max(0.001, now.timeIntervalSince(lastTick))))
         lastTick = now
 
+        if now.timeIntervalSince(lastPressureCheck) >= 5 {
+            lastPressureCheck = now
+            performanceEco = FileManager.default.fileExists(atPath: Paths.performancePressureFlag)
+        }
+
         reposition()                       // refresh targets + z-order
         // Global mouse monitors can disappear when macOS revisits Input
         // Monitoring/TCC after a signed app update. Sampling on this already-
@@ -2531,6 +2599,7 @@ final class PromptSigilOverlayController {
         var settling = false
         var anyObserved = false
         for (sid, ov) in overlays {
+            ov.setEcoPaused(performanceEco)
             if ov.advance(dt: dt) { settling = true }
             ov.updateHeartbeatCountdown(now: now)
             // "Being read" reaction — on while the poke window is live, off once
@@ -2550,15 +2619,15 @@ final class PromptSigilOverlayController {
 
     /// In-process snapshot of the on-screen window stack. `terminals` maps
     /// each Terminal/iTerm2 window's CGWindowID to its bounds {x,y,w,h};
-    /// `stack` is EVERY normal-level window front-to-back — what the pointer
-    /// occlusion check walks to find the topmost window at a rock's spot.
-    /// Rock windows belong to this layer too, but are mouse-transparent and
-    /// are ignored below by window number when appropriate. No fork.
+    /// `stack` is every normal-level window front-to-back. Prompt
+    /// companion surfaces live one level higher and therefore never enter the
+    /// ownership test. No fork.
     private func snapshotWindows()
         -> (terminals: [Int: (CGFloat, CGFloat, CGFloat, CGFloat)], stack: [(num: Int, rect: CGRect)]) {
         let pids = Set(NSWorkspace.shared.runningApplications
             .filter { Self.terminalBundleIds.contains($0.bundleIdentifier ?? "") }
             .map { $0.processIdentifier })
+        let transparentWindowIDs = PromptFocusHighlight.shared.transparentWindowIDs
         guard let infos = CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID) as? [[String: Any]]
         else { return ([:], []) }
         var terminals: [Int: (CGFloat, CGFloat, CGFloat, CGFloat)] = [:]
@@ -2570,12 +2639,10 @@ final class PromptSigilOverlayController {
                   let x = b["X"], let y = b["Y"], let w = b["Width"], let h = b["Height"]
             else { continue }
             let ownerPid = info[kCGWindowOwnerPID as String] as? pid_t
-            // The normal-level heartbeat fuse belongs to this process. If it
-            // participates in the occlusion stack, it covers its own bound
-            // Terminal on one tick, gets hidden, then reappears on the next —
-            // an exact 5 Hz blink loop. Only external normal windows can
-            // occlude prompt overlays.
-            if ownerPid != getpid() {
+            // Companion surfaces are not layer 0, so they cannot cover their
+            // own terminal in this snapshot. Exclude only the transparent
+            // particle canvases; same-process previews/cards still occlude.
+            if !transparentWindowIDs.contains(num) {
                 stack.append((num, CGRect(x: x, y: y, width: w, height: h)))
             }
             if let pid = ownerPid, pids.contains(pid) {
@@ -2591,24 +2658,30 @@ final class PromptSigilOverlayController {
     private func reposition() {
         guard !overlays.isEmpty else { timer?.invalidate(); timer = nil; return }
         let snap = snapshotWindows()
-        let stackOrderChanged = snap.stack.map(\.num) != lastStack.map(\.num)
         lastStack = snap.stack        // the hover hit-test reads this between ticks
         let screenH = NSScreen.main?.frame.height ?? 0
         var seen: [Int: (CGFloat, CGFloat, CGFloat, CGFloat)] = [:]
+        func ownedBy(_ terminal: Int, at points: [CGPoint]) -> Bool {
+            points.allSatisfy { point in
+                let top = snap.stack.first(where: { $0.rect.contains(point) })?.num
+                return top == nil || top == terminal
+            }
+        }
         for (_, ov) in overlays {
             guard let num = binding[ov.tty], let b = snap.terminals[num] else {
                 ov.hide(); dropInteraction(for: ov); continue
             }
             ov.place(bounds: b, screenHeight: screenH)
-            // The embedded illusion: the badge floats above everything, but
-            // only SHOWS while its terminal is the topmost window at the
-            // rock's spot — covered corner ⇒ the rock hides with its window,
-            // exactly as if it were drawn inside it.
-            let p = ov.rockPoint(bounds: b)
-            let top = snap.stack.first(where: { $0.rect.contains(p) })?.num
-            let visible = (top == nil || top == num)
-            ov.setVisible(visible, above: num, reassertOrder: stackOrderChanged)
-            if !visible { dropInteraction(for: ov) }
+            // Recreate a cross-process child relationship: elevated surfaces
+            // cannot sink behind their own terminal, but each is gated by the
+            // normal window that owns all of its visible sample points.
+            let points = ov.visibilityPoints(bounds: b)
+            let rockVisible = ownedBy(num, at: points.rock)
+            ov.setVisible(
+                rock: rockVisible,
+                heartbeat: ownedBy(num, at: points.heartbeat),
+                platformTarget: ownedBy(num, at: points.platformTarget))
+            if !rockVisible { dropInteraction(for: ov) }
             seen[num] = b
             if let prev = lastBoundsByNum[num], prev != b {
                 // A tracked window moved/resized — hold display rate for a short

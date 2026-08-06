@@ -103,7 +103,8 @@ private final class PromptParticleView: NSView {
               let gradient = CGGradient(
                 colorsSpace: CGColorSpaceCreateDeviceRGB(),
                 colors: [NSColor.white.cgColor,
-                         NSColor.white.withAlphaComponent(0.5).cgColor,
+                         NSColor.white.withAlphaComponent(0.82).cgColor,
+                         NSColor.white.withAlphaComponent(0.22).cgColor,
                          NSColor.clear.cgColor] as CFArray,
                 locations: [0, 0.36, 1]) else { return nil }
         context.scaleBy(x: 1, y: size.height / size.width)
@@ -112,6 +113,50 @@ private final class PromptParticleView: NSView {
             gradient, startCenter: center, startRadius: 0,
             endCenter: center, endRadius: size.width / 2,
             options: [.drawsAfterEndLocation])
+        context.setFillColor(NSColor.white.withAlphaComponent(0.94).cgColor)
+        context.move(to: CGPoint(x: center.x, y: center.y - 6))
+        context.addLine(to: CGPoint(x: center.x + 1.15, y: center.y - 1.15))
+        context.addLine(to: CGPoint(x: center.x + 6, y: center.y))
+        context.addLine(to: CGPoint(x: center.x + 1.15, y: center.y + 1.15))
+        context.addLine(to: CGPoint(x: center.x, y: center.y + 6))
+        context.addLine(to: CGPoint(x: center.x - 1.15, y: center.y + 1.15))
+        context.addLine(to: CGPoint(x: center.x - 6, y: center.y))
+        context.addLine(to: CGPoint(x: center.x - 1.15, y: center.y - 1.15))
+        context.closePath()
+        context.fillPath()
+        return context.makeImage()
+    }()
+
+    /// A crisp, long-rayed companion used only for very brief specular pops.
+    private static let glintImage: CGImage? = {
+        let size = CGSize(width: 32, height: 32)
+        guard let context = CGContext(
+            data: nil, width: Int(size.width), height: Int(size.height),
+            bitsPerComponent: 8, bytesPerRow: Int(size.width) * 4,
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue),
+              let gradient = CGGradient(
+                colorsSpace: CGColorSpaceCreateDeviceRGB(),
+                colors: [NSColor.white.cgColor,
+                         NSColor.white.withAlphaComponent(0.42).cgColor,
+                         NSColor.clear.cgColor] as CFArray,
+                locations: [0, 0.24, 1]) else { return nil }
+        let center = CGPoint(x: size.width / 2, y: size.height / 2)
+        context.drawRadialGradient(
+            gradient, startCenter: center, startRadius: 0,
+            endCenter: center, endRadius: 9,
+            options: [.drawsAfterEndLocation])
+        context.setFillColor(NSColor.white.cgColor)
+        context.move(to: CGPoint(x: center.x, y: center.y - 14))
+        context.addLine(to: CGPoint(x: center.x + 1.2, y: center.y - 1.8))
+        context.addLine(to: CGPoint(x: center.x + 7, y: center.y))
+        context.addLine(to: CGPoint(x: center.x + 1.2, y: center.y + 1.8))
+        context.addLine(to: CGPoint(x: center.x, y: center.y + 14))
+        context.addLine(to: CGPoint(x: center.x - 1.2, y: center.y + 1.8))
+        context.addLine(to: CGPoint(x: center.x - 7, y: center.y))
+        context.addLine(to: CGPoint(x: center.x - 1.2, y: center.y - 1.8))
+        context.closePath()
+        context.fillPath()
         return context.makeImage()
     }()
 }
@@ -143,6 +188,14 @@ final class PromptFocusHighlight {
     private static let topOverlap: CGFloat = 12
     private var effects: [Int: PromptParticleEffect] = [:]
     private var running = false
+
+    /// Transparent desktop-sized particle canvases are visual children of the
+    /// terminal wall, not occluders. Prompt rocks exclude exactly these own
+    /// windows from their normal-window ownership snapshot while still letting
+    /// real Slab previews and cards cover a rock.
+    var transparentWindowIDs: Set<Int> {
+        Set(effects.values.map { $0.panel.windowNumber })
+    }
 
     private init() {}
 

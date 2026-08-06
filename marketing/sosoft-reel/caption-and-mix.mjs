@@ -6,11 +6,14 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createCanvas, registerFont } from "canvas";
 import { renderSineBed } from "../podcast/bin/jingle.mjs";
+import { loadNarrationSource, loadNarrationTimeline, sceneStart } from "./timing.mjs";
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
 const OUT = resolve(ROOT, "out");
 const VIDEO = resolve(OUT, "unboxing-spine-realtime.mp4");
-const VOICE = resolve(OUT, "narration.mp3");
+const narrationSource = loadNarrationSource(ROOT);
+const timing = loadNarrationTimeline(ROOT);
+const VOICE = narrationSource.audio;
 const BED = resolve(OUT, "sine-bed.wav");
 const MIX = resolve(OUT, "narration-sine-mix.wav");
 const OUTPUT = resolve(OUT, "scores-for-social-software-captioned-08.mp4");
@@ -19,22 +22,20 @@ if (!existsSync(VIDEO) || !existsSync(VOICE)) throw new Error("render the real-t
 
 const W = 1080, H = 1920, FPS = 30;
 const duration = Number(spawnSync("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "default=nw=1:nk=1", VOICE], { encoding: "utf8" }).stdout.trim());
-const YWFT_BOLD = resolve(ROOT, "../../slab/menuband/Sources/MenuBand/Resources/ywft-processing-bold.ttf");
-const YWFT_REGULAR = resolve(ROOT, "../../slab/menuband/Sources/MenuBand/Resources/ywft-processing-regular.ttf");
 try {
-  registerFont(YWFT_BOLD, { family: "YWFT Processing", weight: "bold" });
-  registerFont(YWFT_REGULAR, { family: "YWFT Processing", weight: "normal" });
+  registerFont("/System/Library/Fonts/Supplemental/Arial.ttf", { family: "Arial", weight: "normal" });
+  registerFont("/System/Library/Fonts/Supplemental/Arial Bold.ttf", { family: "Arial", weight: "bold" });
 } catch {}
 
 console.log("generate sine-wave bed");
 renderSineBed(duration + 0.5, BED);
-console.log("duck bed beneath Jeffrey and master to -14 LUFS");
+console.log(`duck bed beneath ${narrationSource.kind} narration and master to -14 LUFS`);
 let r = spawnSync("ffmpeg", ["-y", "-v", "error", "-i", VOICE, "-i", BED, "-filter_complex",
   "[0:a]apad,asplit=2[v][key];[1:a]volume=0.30[bed];[bed][key]sidechaincompress=threshold=0.045:ratio=7:attack=8:release=420[duck];[v][duck]amix=inputs=2:duration=first:normalize=0,loudnorm=I=-14:TP=-1.5:LRA=11[out]",
   "-map", "[out]", "-t", String(duration), "-ar", "48000", "-ac", "2", MIX]);
 if (r.status !== 0) throw new Error("audio mix failed");
 
-// Short phrases; each word retains ElevenLabs' exact time for highlighting.
+// Short phrases; each word retains the selected narrator's exact time.
 const phrases = [];
 for (let i = 0; i < words.length;) {
   const group = [];
@@ -49,24 +50,22 @@ const canvas = createCanvas(W, H), ctx = canvas.getContext("2d");
 const FRAME_BYTES = W * H * 4;
 const frame = Buffer.alloc(FRAME_BYTES);
 const image = ctx.createImageData(W, H);
-const font = "bold 68px YWFT Processing, Arial";
+const font = "bold 68px Arial";
 const lineH = 86, maxW = 850, gap = 19;
-const narration = readFileSync(resolve(ROOT, "narration.txt"), "utf8").trim();
-const alignment = JSON.parse(readFileSync(resolve(OUT, "narration-alignment.json"), "utf8")).alignment;
-const chapterStart = (phrase) => alignment.character_start_times_seconds[narration.indexOf(phrase)] * 1000;
+const chapterStart = (id) => sceneStart(timing, id) * 1000;
 const chapters = [
   { artist: "SCORES FOR SOCIAL SOFTWARE", work: "INTRODUCTION", fromMs: 0 },
-  { artist: "JEFFREY ALAN SCUDDER", work: "NOTEPAT", fromMs: chapterStart("My contribution") },
-  { artist: "ÆTHER CAVENDISH", work: "VIGIL SCORE", fromMs: chapterStart("Æther Cavendish") },
-  { artist: "CHELLY JIN", work: "SOFTWARE AS A CHOREOGRAPHY", fromMs: chapterStart("Chelly Jin") },
-  { artist: "JORDAN SILVER", work: "SONIC ARCHITECTURE", fromMs: chapterStart("Jordan Silver") },
-  { artist: "EM LUGO", work: "CUES FOR LOSING DIRECTION", fromMs: chapterStart("Em Lugo") },
-  { artist: "DARLYN PHAN", work: "LINE PIECE 1", fromMs: chapterStart("Darlyn Phan") },
-  { artist: "THOMAS NOYA", work: "BIOPHONÍA", fromMs: chapterStart("Thomas Noya") },
-  { artist: "BANYI HUANG", work: "A COSMOGRAPHIC SCORE", fromMs: chapterStart("Banyi Huang") },
-  { artist: "ALEXANDER ESPINOSA", work: "MUSIC FOR WORLD COMPUTERS", fromMs: chapterStart("Alexander Espinosa") },
-  { artist: "MAVYN VU", work: "THE RADIO IS AN ALTAR: PORTAL", fromMs: chapterStart("Mavyn Vu") },
-  { artist: "LAUREN LEE MCCARTHY + CASEY REAS", work: "AUTO TUNE", fromMs: chapterStart("Casey Reas") },
+  { artist: "JEFFREY ALAN SCUDDER", work: "NOTEPAT", fromMs: chapterStart("SSF-01") },
+  { artist: "ÆTHER CAVENDISH", work: "VIGIL SCORE", fromMs: chapterStart("SSF-02") },
+  { artist: "CHELLY JIN", work: "SOFTWARE AS A CHOREOGRAPHY", fromMs: chapterStart("SSF-03") },
+  { artist: "JORDAN SILVER", work: "SONIC ARCHITECTURE", fromMs: chapterStart("SSF-04") },
+  { artist: "EM LUGO", work: "CUES FOR LOSING DIRECTION", fromMs: chapterStart("SSF-05") },
+  { artist: "DARLYN PHAN", work: "LINE PIECE 1", fromMs: chapterStart("SSF-06") },
+  { artist: "THOMAS NOYA", work: "BIOPHONÍA", fromMs: chapterStart("SSF-07") },
+  { artist: "BANYI HUANG", work: "A COSMOGRAPHIC SCORE", fromMs: chapterStart("SSF-08") },
+  { artist: "ALEXANDER ESPINOSA", work: "MUSIC FOR WORLD COMPUTERS", fromMs: chapterStart("SSF-09") },
+  { artist: "MAVYN VU", work: "THE RADIO IS AN ALTAR: PORTAL", fromMs: chapterStart("SSF-10") },
+  { artist: "LAUREN LEE MCCARTHY + CASEY REAS", work: "SCORES FOR SOCIAL SOFTWARE", fromMs: chapterStart("SSF-11") },
 ];
 const chapterPlates = chapters.map((chapter) => {
   const plate = createCanvas(1000, 105);
@@ -77,10 +76,10 @@ const chapterPlates = chapters.map((chapter) => {
   p.strokeStyle = "rgba(0,0,0,.82)";
   p.fillStyle = "#ffffff";
   p.lineWidth = 7;
-  p.font = "bold 38px YWFT Processing, Arial";
+  p.font = "bold 38px Arial";
   p.strokeText(chapter.artist, 10, 48);
   p.fillText(chapter.artist, 10, 48);
-  p.font = "normal 27px YWFT Processing, Arial";
+  p.font = "normal 27px Arial";
   p.strokeText(chapter.work, 10, 88);
   p.fillText(chapter.work, 10, 88);
   return plate;

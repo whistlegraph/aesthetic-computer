@@ -6,6 +6,17 @@ Reel suggestions live separately in [`REELS-BACKLOG.md`](REELS-BACKLOG.md).
 
 Status: `received` → `verified` → `applied` → `live`
 
+## Received July 27, 2026
+
+| Status | Request |
+|---|---|
+| applied | Calm the archive palette: retain the ten featured colors, make ordinary records neutral, and add thumbnail-derived exhibited accents to The Longest Whistlegraph Ever (so far) and Underpainting. |
+| applied | Add the complete Longest film, official trailer, two labeled short features, and both Underpainting performances from the checked-in YouTube inventory. |
+| applied | Protect confirmed identity, attribution, and post membership with a fail-closed curation lock requiring explicit acceptance after review. |
+| applied | Audit work codes/titles/authors and manually review Kitty Head: remove the spoken explainer, move the Lost Kitty performance, and restore Little Kitty without broad reclassification. |
+| received | Do not run another Kitty Head review; Alex already completed that manual pass. Preserve its current curated membership unless he requests an exact change. |
+| received | Develop a Drawing Center show proposal spanning works on paper, the quilt, the Frog Tiara painting, and video works downstairs. |
+
 ## Received July 15, 2026
 
 | Status | Request |

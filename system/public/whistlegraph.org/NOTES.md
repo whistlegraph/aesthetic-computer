@@ -78,14 +78,6 @@ the public marketplace/mirror used to install the plugin.
   the just-repurchased Notion seat + the IG archive.
 
 ## To design / decide
-- **Left-column "cover" colors.** Hand-select the swatch color on the left of each
-  title (most archive rows currently share `#b44887`). Alex: pull colors from each
-  composition's main video thumbnail. For the featured top 10, consider pulling
-  preview thumbnails / "covers" from the Feral File performance videos.
-- **Underpainting versions.** Link the two versions of *Underpainting* on the
-  Whistlegraph YouTube channel from the `undr` detail page. (Needs a `versions`
-  array of embeddable sources — YouTube can't drop straight into the `<video>` tag,
-  so this needs either mp4 mirrors or a YouTube-embed branch in `showDetail`.)
 - **Archive combing.** Cross-check the full list against the old Notion + website
   archive; fold duplicates, decide what to keep vs. ditch, and pull in any linkable
   extras (lectures, livestreams, old blogs) not already in "Lectures, shows & press."
@@ -104,3 +96,22 @@ the public marketplace/mirror used to install the plugin.
   by Alex Freundlich per his note. A separate `enuf` *More Than Enough* (by
   Whistlegraph) still exists. Confirm whether these are the same composition and
   should fold, or stay distinct.
+
+## Resolved 2026-07-27
+
+- **Calmer cover colors.** The ten featured score-sheet works retain their
+  intentional palette. The archive is neutral except for restrained,
+  thumbnail-derived accents on the exhibited `long` and `undr` records.
+- **Exhibition media.** `long` now carries the complete film, official trailer,
+  and two clearly labeled short features; `undr` carries both named YouTube
+  performances. All six IDs are present in the checked-in YouTube inventory and
+  render through privacy-enhanced embeds with direct source links.
+- **Curation lock.** Confirmed work identity/credit and explicit post→work
+  relationships are snapshotted in `downloads/curation-lock.json`. Generation
+  now fails closed on drift; after manual review, use
+  `node toolchain/whistlegraph/gen-model.mjs --accept-curation` to accept the
+  exact proposed change.
+- **Kitty-family review.** The drawing/doodle/sketch explainer is now a standalone
+  talk; the open-source announcement that performs *Lost Kitty* moved to `lost`;
+  and the 2024 “I’m a little kitty” post restored the empty `lkty` record. The
+  Kitty/Doggy mashups remain explicitly cross-associated.

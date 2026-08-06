@@ -19,7 +19,7 @@ final class NativeMatchmaker: NSObject, URLSessionWebSocketDelegate {
 
   func start() {
     guard let token = Self.loadToken() else {
-      onStatus?("SIGN IN: menu-fighter auth <token>")
+      onStatus?("SIGN IN: trackpad-fighter auth <token>")
       return
     }
     session = URLSession(configuration: .default, delegate: self, delegateQueue: .main)

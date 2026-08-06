@@ -6,6 +6,7 @@ import Foundation
 /// surface that a guarded Loopboy receives at process launch.
 struct LoopboyRoute {
     let contact: String
+    let channel: String
     let sessionId: String
     let host: String
     let name: String
@@ -22,8 +23,14 @@ enum LoopboyRoutes {
             guard let loop = value as? [String: Any],
                   let sid = loop["sessionId"] as? String, !sid.isEmpty else { continue }
             let contact = rawContact.lowercased()
+            let channel = ((loop["channel"] as? String)
+                ?? (loop["event"] as? String) ?? "imessage").lowercased()
+            // A route is also a channel contract. Never let a future Signal or
+            // mail registration silently consume the iMessage contact bus.
+            guard channel == "imessage" else { continue }
             routes[contact] = LoopboyRoute(
                 contact: contact,
+                channel: channel,
                 sessionId: sid,
                 host: (loop["host"] as? String) ?? "?",
                 name: (loop["name"] as? String) ?? "?",

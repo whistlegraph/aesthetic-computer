@@ -3,7 +3,7 @@ function requestHeader(context, name) {
   return Array.isArray(value) ? value[0] : value || "";
 }
 
-export function authorizeLoopboyWait({ context = {}, env = process.env, loops = {}, requestedContact = "" }) {
+export function loopboyWaitIdentity({ context = {}, env = process.env, requestedContact = "" }) {
   const contact = String(
     requestHeader(context, "x-slab-loopboy-contact") || env.SLAB_LOOPBOY_CONTACT || "",
   ).trim().toLowerCase();
@@ -22,6 +22,12 @@ export function authorizeLoopboyWait({ context = {}, env = process.env, loops = 
   if (requested && requested !== contact) {
     throw new Error(`this Loopboy is bound to ${contact}, not ${requested}`);
   }
+
+  return { contact, sessionId };
+}
+
+export function authorizeLoopboyWait({ context = {}, env = process.env, loops = {}, requestedContact = "" }) {
+  const { contact, sessionId } = loopboyWaitIdentity({ context, env, requestedContact });
 
   const loop = loops[contact];
   if (!loop?.sessionId) {

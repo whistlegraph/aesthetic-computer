@@ -37,6 +37,154 @@ private final class ResourceHoverTracker: NSView {
 final class ResourceGraph: NSObject {
     static let shared = ResourceGraph()
 
+    private struct FleetWorker {
+        let name: String
+        let online: Bool
+        let cpu: Double
+        let ram: Double
+        let disk: Double
+        let memoryGB: Double
+        let cores: Int
+        let pressure: Bool
+        let reason: String
+        let accepting: Bool
+        let active: Int
+        let queued: Int
+        let role: String
+    }
+
+    /// Three transparent, status-item-width rows of the same category TVs as
+    /// the main strip. There is intentionally no enclosing card: hovering the
+    /// local instrument simply reveals more instruments directly beneath it.
+    private final class FleetStripView: NSView {
+        var workers: [FleetWorker] = [] { didSet { needsDisplay = true } }
+        var highlightedMetricIndex: Int? { didSet { needsDisplay = true } }
+
+        private let colors = [
+            NSColor(srgbRed: 0.10, green: 0.84, blue: 0.34, alpha: 1),
+            NSColor(srgbRed: 1.00, green: 0.24, blue: 0.55, alpha: 1),
+            NSColor(srgbRed: 0.00, green: 0.68, blue: 1.00, alpha: 1),
+            NSColor(srgbRed: 1.00, green: 0.55, blue: 0.06, alpha: 1),
+            NSColor(srgbRed: 0.62, green: 0.30, blue: 1.00, alpha: 1),
+        ]
+
+        private var darkAppearance: Bool {
+            effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+        }
+
+        override func draw(_ dirtyRect: NSRect) {
+            super.draw(dirtyRect)
+            let dark = darkAppearance
+            (dark
+                ? NSColor(srgbRed: 0.035, green: 0.050, blue: 0.070, alpha: 1)
+                : NSColor(srgbRed: 0.94, green: 0.96, blue: 0.97, alpha: 1)).setFill()
+            bounds.fill()
+            (dark ? NSColor.white : NSColor.black).withAlphaComponent(0.14).setStroke()
+            let boardEdge = NSBezierPath(rect: bounds.insetBy(dx: 0.5, dy: 0.5))
+            boardEdge.lineWidth = 1
+            boardEdge.stroke()
+            let content = bounds.insetBy(dx: 4, dy: 4)
+            let rowHeight: CGFloat = 20
+            let labelWidth: CGFloat = 64
+            let gap: CGFloat = 2
+            let stripWidth = content.width - labelWidth
+            for (index, worker) in workers.prefix(5).enumerated() {
+                let y = content.maxY - CGFloat(index + 1) * rowHeight - CGFloat(index) * gap
+                drawLabel(worker, in: NSRect(x: content.minX, y: y,
+                                              width: labelWidth - 4, height: rowHeight))
+                drawStrip(worker, in: NSRect(x: content.minX + labelWidth, y: y,
+                                              width: stripWidth, height: rowHeight))
+            }
+        }
+
+        private func drawLabel(_ worker: FleetWorker, in rect: NSRect) {
+            let dot = worker.online
+                ? (worker.accepting ? NSColor.systemGreen : worker.pressure ? .systemRed : .systemOrange)
+                : NSColor.tertiaryLabelColor
+            dot.setFill()
+            NSBezierPath(ovalIn: NSRect(x: rect.minX + 1, y: rect.midY - 2.5, width: 5, height: 5)).fill()
+            let name = worker.name.uppercased()
+            let attrs: [NSAttributedString.Key: Any] = [
+                .font: NSFont.monospacedSystemFont(ofSize: 7.2, weight: .semibold),
+                .foregroundColor: (darkAppearance ? NSColor.white : NSColor.black)
+                    .withAlphaComponent(worker.online ? 0.88 : 0.34),
+                .kern: 0.05,
+            ]
+            let text = NSAttributedString(string: name, attributes: attrs)
+            text.draw(at: NSPoint(x: rect.minX + 9, y: rect.midY - text.size().height / 2))
+        }
+
+        private func drawStrip(_ worker: FleetWorker, in rect: NSRect) {
+            let labels = ["CPU", "RAM", "NET", "SSD", "GPU"]
+            let values = worker.online
+                ? [String(format: "%.0f%%", worker.cpu), String(format: "%.0f%%", worker.ram),
+                   "—", String(format: "%.0f%%", worker.disk), "—"]
+                : ["—", "—", "—", "—", "—"]
+            let cellWidth = rect.width / 5
+            for index in 0..<5 {
+                let cell = NSRect(x: rect.minX + CGFloat(index) * cellWidth + 0.5,
+                                  y: rect.minY + 0.5, width: cellWidth - 1, height: rect.height - 1)
+                let path = NSBezierPath(roundedRect: cell, xRadius: 1, yRadius: 1)
+                let color = colors[index]
+                (darkAppearance
+                    ? NSColor(srgbRed: 0.015, green: 0.025, blue: 0.038, alpha: 0.96)
+                    : NSColor(srgbRed: 0.97, green: 0.98, blue: 0.985, alpha: 0.98)).setFill()
+                path.fill()
+                color.withAlphaComponent(worker.online ? 0.16 : 0.025).setFill()
+                path.fill()
+                if worker.online {
+                    let raw = [worker.cpu, worker.ram, 0, worker.disk, 0][index] / 100
+                    drawTexture(value: raw, color: color, in: cell)
+                }
+                let tagRect = NSRect(x: cell.minX + 1, y: cell.maxY - 7,
+                                     width: cell.width - 2, height: 6)
+                color.withAlphaComponent(worker.online ? 0.90 : 0.20).setFill()
+                tagRect.fill()
+                let tag = NSAttributedString(string: labels[index], attributes: [
+                    .font: NSFont.monospacedSystemFont(ofSize: 5.2, weight: .heavy),
+                    .foregroundColor: NSColor.black.withAlphaComponent(worker.online ? 0.90 : 0.42),
+                    .kern: 0.05,
+                ])
+                tag.draw(at: NSPoint(x: tagRect.midX - tag.size().width / 2,
+                                     y: tagRect.midY - tag.size().height / 2 + 0.2))
+                (worker.pressure ? NSColor.systemRed : color)
+                    .withAlphaComponent(worker.online ? (highlightedMetricIndex == index ? 0.96 : 0.62) : 0.13).setStroke()
+                path.lineWidth = worker.pressure || highlightedMetricIndex == index ? 1.05 : 0.55
+                path.stroke()
+                if highlightedMetricIndex == index {
+                    let attrs: [NSAttributedString.Key: Any] = [
+                        .font: NSFont.monospacedDigitSystemFont(ofSize: 8.5, weight: .heavy),
+                        .foregroundColor: (darkAppearance ? NSColor.white : NSColor.black)
+                            .withAlphaComponent(worker.online ? 0.98 : 0.38),
+                        .kern: -0.10,
+                    ]
+                    let text = NSAttributedString(string: values[index], attributes: attrs)
+                    text.draw(at: NSPoint(x: cell.midX - text.size().width / 2,
+                                          y: cell.midY - text.size().height / 2))
+                }
+            }
+        }
+
+        private func drawTexture(value: Double, color: NSColor, in rect: NSRect) {
+            let graph = NSRect(x: rect.minX + 1.5, y: rect.minY + 1.5,
+                               width: rect.width - 3, height: max(3, rect.height - 10))
+            let columns = 7
+            let rows = 3
+            let filled = Int(max(0, min(1, value)) * Double(rows))
+            let pixelWidth = graph.width / CGFloat(columns)
+            let pixelHeight = graph.height / CGFloat(rows)
+            for x in 0..<columns {
+                for y in 0..<rows {
+                    color.withAlphaComponent(y < filled ? 0.82 : (darkAppearance ? 0.09 : 0.13)).setFill()
+                    NSRect(x: graph.minX + CGFloat(x) * pixelWidth + 0.45,
+                           y: graph.minY + CGFloat(y) * pixelHeight + 0.35,
+                           width: max(1, pixelWidth - 0.9),
+                           height: max(1, pixelHeight - 0.7)).fill()
+                }
+            }
+        }
+    }
+
     private struct Sample {
         var ram = 0.0, ssd = 0.0, gpu = 0.0, cpu = 0.0, net = 0.0
         var down = 0.0, up = 0.0
@@ -325,6 +473,9 @@ final class ResourceGraph: NSObject {
                     self.history.removeFirst(self.history.count - self.historyLimit)
                 }
                 self.tickCount += 1
+                if self.tickCount == 1 || self.tickCount % 8 == 0 {
+                    self.updateLayout()
+                }
                 self.redraw()
             }
         }

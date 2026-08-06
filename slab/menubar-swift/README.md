@@ -30,6 +30,25 @@ The footer contains a native About Slab window and Quit Slab.
 
 Refresh cadence: 2 s. Mail unread count refreshes every 30 s (15 ticks).
 
+The installer compares Mach-O build UUIDs before touching the app bundle. An
+identical signed build is a true no-op: it is not copied, re-signed, or
+restarted, so routine fleet deployment does not churn macOS privacy prompts.
+Startup also avoids reading the current photo wallpaper; capture permissions
+remain lazy until an explicit frame or reel request needs them.
+
+### Resource TVs
+
+The optional resource strip is five small, squared category TVs: CPU, RAM,
+network, SSD, and GPU. Each independent cell has a stable category tag above a
+high-contrast LED history matrix; focusing one reveals its exact value without
+animating or replacing any labels. Light and dark appearances use separate
+faces with the same semantic colors. Hover and click share one fully opaque
+fleet board (click merely pins it). The active
+machine is always the top strip and is omitted from the board; the remaining
+PoorSlice, Blueberry, Neo, Chicken, and Panda instruments follow beneath it.
+The dot beside each machine carries worker state (ready, pressured/resting, or
+offline), while CPU, RAM, and SSD values come from the tailnet fleet workers.
+
 ## Prompt rocks
 
 `Sources/SlabMenubar/PromptSigilOverlay.swift` — the tumbling stones parked at
@@ -107,15 +126,28 @@ polling.
 Loopboy is Slab's client-loop router. Routes in
 `~/.config/slab/loopboy.json` map one private iMessage contact key to one local
 prox session. New inbound messages poke and optionally wake only that contact's
-rock. Heartbeats and messages are written to a private, per-session inbox and
-consumed by `prox_loopboy_wait`; they never type into Terminal, use the
-clipboard, or move focus. Loopboy never replies on its own. Armed Loopboy rocks spin faster, wear a
+rock. Heartbeats and messages are first written to a durable private bus keyed
+by contact, then claimed once by the active `prox_loopboy_wait`. Replacing or
+repairing a session route therefore cannot strand a client message under an
+old session id. A guarded live listener repairs a missing or stale registry
+route on its next wait, while an already-live route cannot be stolen by a
+second session. Delivery never types into Terminal, uses the clipboard, or
+moves focus. Each event names its source channel (for example `imessage` or
+`prox`), and Loopboy never replies on its own. Armed Loopboy rocks spin faster, wear a
 pink glow, show their verified contact beside the current phase, and identify
 themselves in their hover bubble. A saved route becomes active only when it
 matches the contact identity placed in the live session marker by the guarded
 launcher; editing `loopboy.json` cannot retrofit an ordinary prompt. The Slab
 menu counts verified client loops and labels stale or mismatched saved routes
 as inactive.
+
+“Shut this Loopboy down” is a lifecycle command: finish and compush in-scope
+changes, then call `prox_close` on the Loopboy's own stable handle. Only the
+guarded session whose immutable contact identity matches the active route may
+self-close. Prox releases that route first, returns a shutdown receipt, and
+then closes the terminal asynchronously; Slab's terminal-population watcher
+re-tiles the remaining panes. Ordinary prompts remain unable to close the
+calling session.
 
 ## ZZZ — resumable prompt parking
 
@@ -202,8 +234,22 @@ menubar-swift/
 ```
 
 Idempotent. Re-run after edits to rebuild, replace the binary, and bounce the launch agent.
+The installer holds a host-wide build lock, so parallel prompts cannot start
+competing release compiles. During iteration, use the cheaper debug-only path:
+
+```
+./build-dev.sh
+```
+
+Run `./install.sh` once when the change is ready to install.
 On Macs using the sandboxed Tailscale app, installation also provisions a
 user-local CLI wrapper so the fleet ledger can discover and bind its tailnet IP.
+
+Loopboy's iMessage watcher also needs one macOS privacy grant for the stable
+signed app at `~/Applications/SlabMenubar.app`: System Settings → Privacy &
+Security → Full Disk Access. The menu and logs report an authorization error
+instead of emitting a false quiet heartbeat when that grant is absent. The
+installer deliberately cannot grant or rewrite TCC on the user's behalf.
 
 ### Manual
 
