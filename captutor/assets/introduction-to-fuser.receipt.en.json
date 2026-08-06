@@ -1,0 +1,21 @@
+{
+  "title": "Introduction to Fuser",
+  "subtitle": "From canvas to image and video",
+  "openingCard": { "title": "Introduction to Fuser" },
+  "closingCard": { "title": "Thanks for watching" },
+  "beats": [
+    { "narration": "Welcome to Fuser. It is an infinite canvas where every idea becomes a node that you can place, move, and connect.", "logic": "Orient the viewer to Fuser's canvas model.", "cursorIntent": "Keep the complete live browser frame visible." },
+    { "narration": "Your project name stays at the upper left. Open it whenever you need project-level controls.", "logic": "Identify project-level controls.", "cursorIntent": "Point to the project control without cropping the browser." },
+    { "narration": "Zoom controls at the upper right keep large flows readable, from nearby details to the entire system.", "logic": "Identify canvas zoom controls.", "cursorIntent": "Point to the live zoom menu." },
+    { "narration": "Recipe shows how the project works inside, while Share lets you invite collaborators or hand off the finished result.", "logic": "Distinguish project inspection from sharing.", "cursorIntent": "Move between Recipe and Share." },
+    { "narration": "The rail on the left is your toolbelt. Start with Add a Node whenever you want to bring a new capability onto the canvas.", "logic": "Identify the tool rail and node entry point.", "cursorIntent": "Follow the left rail." },
+    { "narration": "The node picker is your library. Search directly or filter by input, output, model, and medium to choose the right building block.", "logic": "Explain node discovery.", "cursorIntent": "Follow the picker controls." },
+    { "narration": "Each node has its own controls, while the canvas remains the shared place where media, models, code, and apps connect.", "logic": "Explain nodes as composable building blocks.", "cursorIntent": "Keep the node and surrounding canvas in frame." },
+    { "narration": "At the bottom you can see available credits, get help, and change language without leaving the project.", "logic": "Identify persistent project utilities.", "cursorIntent": "Follow the lower utility controls." },
+    { "narration": "That is Fuser: the project above, tools on the left, utilities around the edges, and your connected work in the center. Now start making something.", "logic": "Summarize the interface model.", "cursorIntent": "Return attention to the canvas." },
+    { "narration": "Now watch a complete flow. A Gemini Image node turns a written prompt into a new image, and the finished image appears on its output.", "logic": "A newly returned image is visible on the Gemini Image output.", "cursorIntent": "Follow the live Panda browser capture." },
+    { "narration": "Connect that same image output to the image input of a Kling video node. The cable makes the video's starting image unambiguous.", "logic": "The exact image output is connected to Kling's image input.", "cursorIntent": "Follow the image cable into the video-generation node." },
+    { "narration": "Describe the motion in the video prompt, then choose the model, aspect ratio, and duration. The node turns the still image into a moving clip.", "logic": "Kling exposes its controls before returning video.", "cursorIntent": "Keep the node controls and browser frame visible." },
+    { "narration": "Send the finished result into a standard Video node. You can play it, route it onward, or use it in your next Fuser workflow.", "logic": "The returned video is connected into a primitive Video node.", "cursorIntent": "End on the complete, playable image-to-video graph." }
+  ]
+}
