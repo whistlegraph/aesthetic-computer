@@ -1831,7 +1831,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func toggleKeyboardLayoutShortcut() {
-        menuBand.keymap = (menuBand.keymap == .ableton) ? .notepat : .ableton
+        switch menuBand.keymap {
+        case .notepat: menuBand.keymap = .ableton
+        case .ableton: menuBand.keymap = .milkyTracker
+        case .milkyTracker: menuBand.keymap = .notepat
+        }
     }
 
     /// Drag-and-drop entry point — replays the file's notes
@@ -2795,7 +2799,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             slideOffsetX: currentSlideOffset(),
             settingsFlash: currentFlashStrength()
         )
-        let layoutName = menuBand.keymap == .ableton ? "Ableton" : "Notepat"
+        let layoutName: String
+        switch menuBand.keymap {
+        case .notepat: layoutName = "Notepat"
+        case .ableton: layoutName = "AWSED"
+        case .milkyTracker: layoutName = "MilkyTracker"
+        }
         let routing = menuBand.audioRoutingContextLabel.map { " - \($0)" } ?? ""
         button.toolTip = "\(menuBand.voiceContextLabel) - \(menuBand.octaveContextLabel) - \(layoutName) layout\(routing)"
         // Force a synchronous redraw — the click drag-loop runs the runloop

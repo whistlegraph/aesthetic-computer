@@ -7,7 +7,7 @@ import CoreMIDI
 // Indexed by Carbon kVK_ANSI_* virtual key codes for zero-allocation lookup.
 // Keymap raw values are persisted in UserDefaults — keep the `notepat` raw
 // value stable so existing settings continue to load.
-enum Keymap: String { case notepat, ableton }
+enum Keymap: String, CaseIterable { case notepat, ableton, milkyTracker }
 
 enum MenuBandLayout {
     // Pre-built dense lookup: index = virtual key code (0-127), value = semitone or Int8.min if unmapped.
@@ -77,6 +77,31 @@ enum MenuBandLayout {
         return t
     }()
 
+    /// MilkyTracker / FastTracker-style two-row keyjazz layout. The lower
+    /// octave starts at Z and the upper octave at Q; number-row keys between
+    /// QWERTY letters supply the upper octave's black notes. We intentionally
+    /// stop at U (B) so 0 remains Menu Band's direct MIDI-mode control.
+    static let semitoneByKeyCodeMilkyTracker: [Int8] = {
+        var t = [Int8](repeating: Int8.min, count: 128)
+        let mapping: [(UInt16, Int8)] = [
+            (6, 0), (1, 1), (7, 2), (2, 3), (8, 4), (9, 5),
+            (5, 6), (11, 7), (4, 8), (45, 9), (38, 10), (46, 11),
+            (12, 12), (19, 13), (13, 14), (20, 15), (14, 16), (15, 17),
+            (23, 18), (17, 19), (22, 20), (16, 21), (26, 22), (32, 23),
+        ]
+        for (kc, st) in mapping { t[Int(kc)] = st }
+        return t
+    }()
+
+    @inline(__always)
+    static func semitoneTable(for keymap: Keymap) -> [Int8] {
+        switch keymap {
+        case .notepat: return semitoneByKeyCode
+        case .ableton: return semitoneByKeyCodeAbleton
+        case .milkyTracker: return semitoneByKeyCodeMilkyTracker
+        }
+    }
+
     /// Pan (MIDI 0–127, 64 = center) per QWERTY position. Derived from
     /// notepat native's `getPanForQwertyKey` — physical keyboard
     /// column maps to stereo placement so left-hand keys sit left,
@@ -139,7 +164,7 @@ enum MenuBandLayout {
     static func octaveKeyCodes(for keymap: Keymap) -> (down: UInt16, up: UInt16) {
         switch keymap {
         case .ableton: return (6, 7)
-        case .notepat: return (43, 47)
+        case .notepat, .milkyTracker: return (43, 47)
         }
     }
 
@@ -148,7 +173,7 @@ enum MenuBandLayout {
                          octaveShift: Int,
                          keymap: Keymap = .notepat) -> UInt8? {
         guard keyCode < 128 else { return nil }
-        let table = (keymap == .ableton) ? semitoneByKeyCodeAbleton : semitoneByKeyCode
+        let table = semitoneTable(for: keymap)
         let semitone = table[Int(keyCode)]
         if semitone == Int8.min { return nil }
         let value = 60 + Int(semitone) + (octaveShift * 12)
@@ -165,7 +190,7 @@ enum MenuBandLayout {
     static func semitone(forKeyCode keyCode: UInt16,
                          keymap: Keymap = .notepat) -> Int? {
         guard keyCode < 128 else { return nil }
-        let table = (keymap == .ableton) ? semitoneByKeyCodeAbleton : semitoneByKeyCode
+        let table = semitoneTable(for: keymap)
         let s = table[Int(keyCode)]
         return s == Int8.min ? nil : Int(s)
     }
@@ -185,7 +210,7 @@ enum MenuBandLayout {
     /// keymaps contain a full C-major scale, so every degree resolves;
     /// the `?? 0` is an unreachable safety net.
     static func cMajorKeyCodes(for keymap: Keymap) -> [UInt16] {
-        let table = (keymap == .ableton) ? semitoneByKeyCodeAbleton : semitoneByKeyCode
+        let table = semitoneTable(for: keymap)
         return cMajorSemitones.map { semitone in
             UInt16(table.firstIndex(of: semitone) ?? 0)
         }

@@ -20,12 +20,24 @@ final class GamepadMappingTests: XCTestCase {
                        [0, 1, 2, 3, 5, 4, 38, 40])
     }
 
+    func testMilkyTrackerUsesCanonicalTwoRowKeyjazzNotes() {
+        let lower: [UInt16] = [6, 1, 7, 2, 8, 9, 5, 11, 4, 45, 38, 46]
+        let upper: [UInt16] = [12, 19, 13, 20, 14, 15, 23, 17, 22, 16, 26, 32]
+        let notes = (lower + upper).compactMap {
+            MenuBandLayout.midiNote(forKeyCode: $0, octaveShift: 0,
+                                    keymap: .milkyTracker)
+        }
+        XCTAssertEqual(notes, Array(UInt8(60)...UInt8(83)))
+        XCTAssertNil(MenuBandLayout.semitone(forKeyCode: 29, keymap: .milkyTracker),
+                     "0 stays available for Menu Band's MIDI-mode shortcut")
+    }
+
     /// The key codes must resolve to the actual C-major MIDI notes
     /// (60 62 64 65 67 69 71 72) through the same lookup `playKeyEvent`
-    /// uses — in both keymaps.
+    /// uses — in every keymap.
     func testKeyCodesProduceCMajorMidiNotes() {
         let expected: [UInt8] = [60, 62, 64, 65, 67, 69, 71, 72]
-        for keymap in [Keymap.notepat, .ableton] {
+        for keymap in Keymap.allCases {
             let notes = MenuBandLayout.cMajorKeyCodes(for: keymap).map {
                 MenuBandLayout.midiNote(forKeyCode: $0, octaveShift: 0, keymap: keymap)
             }

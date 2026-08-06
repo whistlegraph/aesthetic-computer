@@ -432,9 +432,7 @@ final class MenuBandController {
     /// independent. Used to filter chord suggestions down to ones the
     /// user could actually finish playing on the current QWERTY layout.
     func keymapPitchClasses() -> Set<Int> {
-        let table = (keymap == .ableton)
-            ? MenuBandLayout.semitoneByKeyCodeAbleton
-            : MenuBandLayout.semitoneByKeyCode
+        let table = MenuBandLayout.semitoneTable(for: keymap)
         var pcs: Set<Int> = []
         for st in table where st != Int8.min {
             pcs.insert(((Int(st) % 12) + 12) % 12)
@@ -1022,7 +1020,12 @@ final class MenuBandController {
     }
 
     var playableNoteRangeLabel: String {
-        let upper = keymap == .ableton ? 76 : 83
+        let upper: Int
+        switch keymap {
+        case .ableton: upper = 76
+        case .notepat: upper = 83
+        case .milkyTracker: upper = 83
+        }
         let lowerNote = UInt8(max(0, min(127, 60 + octaveShift * 12)))
         let upperNote = UInt8(max(0, min(127, upper + octaveShift * 12)))
         return "\(Self.noteName(lowerNote))-\(Self.noteName(upperNote))"
@@ -3438,7 +3441,8 @@ final class MenuBandController {
         // playback so the user can sweep out of MIDI mode by typing.
         // 3-digit cap means the 4th press starts a fresh sequence.
         // Down-events only.
-        if let digit = Self.digitForKeyCode(keyCode) {
+        if let digit = Self.digitForKeyCode(keyCode),
+           MenuBandLayout.semitone(forKeyCode: keyCode, keymap: keymap) == nil {
             // Track the digit's press/release in the control-keys
             // set so the QWERTY visualization can light it up
             // alongside note-mapped keys. Posting onLitChanged

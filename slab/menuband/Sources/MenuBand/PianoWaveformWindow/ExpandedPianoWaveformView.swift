@@ -16,11 +16,11 @@ final class ExpandedPianoWaveformView: NSView {
 
     private weak var menuBand: MenuBandController?
     private let contentStack = NSStackView()
-    /// Notepat / Conventional keymap toggle — moved here from the collapsed
+    /// Keymap selector — moved here from the collapsed
     /// picker so the full-screen view is the single place the layout is
     /// chosen (it shows the large QWERTY that the choice drives).
     private let modeStack = NSStackView()
-    private var modeButtons: [NSButton] = []
+    private let keymapPopUp = NSPopUpButton(frame: .zero, pullsDown: false)
     private let waveformSection = NSView()
     /// Needle + rolling-buffer scope — the same live "playhead with chunky
     /// min/max columns" the popover shows (`WaveformStripView`), swapped in for
@@ -267,31 +267,16 @@ final class ExpandedPianoWaveformView: NSView {
         modeStack.addArrangedSubview(recordButton)
         #endif
         let modeSymbol = NSImage.SymbolConfiguration(pointSize: 12, weight: .regular)
-        let modeSpecs: [(label: String, image: NSImage?, tag: Int)] = [
-            ("Menu Band",
-             NotepatFavicon.image
-                ?? NSImage(systemSymbolName: "keyboard", accessibilityDescription: "Menu Band")?
-                    .withSymbolConfiguration(modeSymbol),
-             0),
-            ("AWSED",
-             NSImage(systemSymbolName: "pianokeys", accessibilityDescription: "AWSED")?
-                .withSymbolConfiguration(modeSymbol),
-             1),
-        ]
-        for spec in modeSpecs {
-            let b = NSButton(title: spec.label, target: self,
-                             action: #selector(modeButtonClicked(_:)))
-            b.tag = spec.tag
-            b.bezelStyle = .recessed
-            b.setButtonType(.pushOnPushOff)
-            b.controlSize = .regular
-            b.imagePosition = .imageLeading
-            b.imageHugsTitle = true
-            b.image = spec.image
-            b.translatesAutoresizingMaskIntoConstraints = false
-            modeButtons.append(b)
-            modeStack.addArrangedSubview(b)
+        keymapPopUp.addItems(withTitles: ["Menu Band", "AWSED", "MilkyTracker"])
+        for (index, tag) in [0, 1, 2].enumerated() {
+            keymapPopUp.item(at: index)?.tag = tag
         }
+        keymapPopUp.controlSize = .regular
+        keymapPopUp.target = self
+        keymapPopUp.action = #selector(keymapPopUpChanged(_:))
+        keymapPopUp.toolTip = "Choose the computer-keyboard note layout"
+        keymapPopUp.translatesAutoresizingMaskIntoConstraints = false
+        modeStack.addArrangedSubview(keymapPopUp)
         // Gamepad — toggles the controller-config cluster, which is hidden by
         // default so it doesn't clutter the full-screen keymap view.
         let gamepadToggle = NSButton(title: "Gamepad", target: self,
@@ -712,13 +697,15 @@ final class ExpandedPianoWaveformView: NSView {
         pianoView.needsDisplay = true
     }
 
-    @objc private func modeButtonClicked(_ sender: NSButton) {
+    @objc private func keymapPopUpChanged(_ sender: NSPopUpButton) {
         guard let menuBand else { return }
-        let next: Keymap = (sender.tag == 1) ? .ableton : .notepat
-        if menuBand.keymap != next { menuBand.keymap = next }
-        for button in modeButtons {
-            button.state = (button == sender) ? .on : .off
+        let next: Keymap
+        switch sender.selectedItem?.tag ?? 0 {
+        case 1: next = .ableton
+        case 2: next = .milkyTracker
+        default: next = .notepat
         }
+        if menuBand.keymap != next { menuBand.keymap = next }
         qwertyView.keymap = menuBand.keymap
         refresh()
     }
@@ -727,10 +714,13 @@ final class ExpandedPianoWaveformView: NSView {
     private func updateModeToggle() {
         guard let menuBand else { return }
         qwertyView.keymap = menuBand.keymap
-        for button in modeButtons {
-            let isAbleton = (button.tag == 1)
-            button.state = (menuBand.keymap == .ableton) == isAbleton ? .on : .off
+        let activeTag: Int
+        switch menuBand.keymap {
+        case .notepat: activeTag = 0
+        case .ableton: activeTag = 1
+        case .milkyTracker: activeTag = 2
         }
+        keymapPopUp.selectItem(withTag: activeTag)
     }
 
     // MARK: - Sample-record pill
@@ -898,7 +888,7 @@ final class ExpandedPianoWaveformView: NSView {
     /// narrower layouts simply re-center within the fixed width.
     private func stableKeyboardWidth() -> CGFloat {
         var widest: CGFloat = 0
-        for km in [Keymap.notepat, .ableton] {
+        for km in Keymap.allCases {
             let w = KeyboardIconRenderer.withPianoWaveformKeyboard(keymap: km) {
                 KeyboardIconRenderer.pianoImageSize(layout: .tightActiveRange).width * pianoScale
             }

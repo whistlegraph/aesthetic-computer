@@ -53,11 +53,11 @@ final class CollapsedPianoWaveformView: NSView {
     /// commit on release. Mirrors the popover's old arrows hint
     /// position (under the keyboard) one level down.
     private let arrowsCluster = ArrowKeysIndicator()
-    /// Notepat / Ableton mode picker — moved out of the popover so
+    /// Keymap picker — moved out of the popover so
     /// the liquid panel reads as the operational/physical "extended
     /// instrument," and the popover stays a music-theory surface.
     private let modeStack = NSStackView()
-    private var modeButtons: [NSButton] = []
+    private let keymapPopUp = NSPopUpButton(frame: .zero, pullsDown: false)
     /// Live audio strip above the instrument name — shows the output
     /// waveform + reverse/forward direction so spacebar-rewind is debuggable.
     private let waveformStrip = WaveformStripView()
@@ -225,47 +225,29 @@ final class CollapsedPianoWaveformView: NSView {
         modeStack.alignment = .centerY
         modeStack.spacing = 6
         modeStack.translatesAutoresizingMaskIntoConstraints = false
-        let modeSymbolConfig = NSImage.SymbolConfiguration(pointSize: 11, weight: .regular)
-        let modeSpecs: [(label: String, image: NSImage?, tag: Int)] = [
-            ("Notepat",
-             NotepatFavicon.image
-                ?? NSImage(systemSymbolName: "keyboard", accessibilityDescription: "Notepat")?
-                    .withSymbolConfiguration(modeSymbolConfig),
-             0),
-            ("Ableton", AbletonLogo.image(height: 11), 1),
-        ]
-        for (idx, spec) in modeSpecs.enumerated() {
-            let b = NSButton(title: spec.label, target: self,
-                             action: #selector(modeButtonClicked(_:)))
-            b.tag = spec.tag
-            b.bezelStyle = .recessed
-            b.setButtonType(.pushOnPushOff)
-            b.controlSize = .small
-            b.imagePosition = .imageLeading
-            b.imageHugsTitle = true
-            b.image = spec.image
-            b.translatesAutoresizingMaskIntoConstraints = false
-            modeButtons.append(b)
-            modeStack.addArrangedSubview(b)
-            // "?" help button immediately after the Notepat (idx 0)
-            // button — opens the keymaps paper so the user can read
-            // why notepat looks the way it does.
-            if idx == 0 {
-                let helpConfig = NSImage.SymbolConfiguration(pointSize: 10, weight: .semibold)
-                let help = NSButton()
-                help.image = NSImage(systemSymbolName: "questionmark.circle",
-                                     accessibilityDescription: "Why this layout?")?
-                    .withSymbolConfiguration(helpConfig)
-                help.imagePosition = .imageOnly
-                help.bezelStyle = .recessed
-                help.controlSize = .small
-                help.toolTip = "Why this layout?"
-                help.target = self
-                help.action = #selector(whyKeymapClicked(_:))
-                help.translatesAutoresizingMaskIntoConstraints = false
-                modeStack.addArrangedSubview(help)
-            }
+        keymapPopUp.addItems(withTitles: ["Menu Band", "AWSED", "MilkyTracker"])
+        for (index, tag) in [0, 1, 2].enumerated() {
+            keymapPopUp.item(at: index)?.tag = tag
         }
+        keymapPopUp.controlSize = .small
+        keymapPopUp.target = self
+        keymapPopUp.action = #selector(keymapPopUpChanged(_:))
+        keymapPopUp.toolTip = "Choose the computer-keyboard note layout"
+        keymapPopUp.translatesAutoresizingMaskIntoConstraints = false
+        modeStack.addArrangedSubview(keymapPopUp)
+        let helpConfig = NSImage.SymbolConfiguration(pointSize: 10, weight: .semibold)
+        let help = NSButton()
+        help.image = NSImage(systemSymbolName: "questionmark.circle",
+                             accessibilityDescription: "Why this layout?")?
+            .withSymbolConfiguration(helpConfig)
+        help.imagePosition = .imageOnly
+        help.bezelStyle = .recessed
+        help.controlSize = .small
+        help.toolTip = "Why this layout?"
+        help.target = self
+        help.action = #selector(whyKeymapClicked(_:))
+        help.translatesAutoresizingMaskIntoConstraints = false
+        modeStack.addArrangedSubview(help)
 
         arrowsCluster.translatesAutoresizingMaskIntoConstraints = false
         arrowsCluster.displayMode = .cluster
@@ -562,10 +544,13 @@ final class CollapsedPianoWaveformView: NSView {
         qwertyMap.octaveShift = menuBand.octaveShift
 
         // Mirror the keymap selection on the mode-picker buttons.
-        let activeTag = (menuBand.keymap == .ableton) ? 1 : 0
-        for button in modeButtons {
-            button.state = (button.tag == activeTag) ? .on : .off
+        let activeTag: Int
+        switch menuBand.keymap {
+        case .notepat: activeTag = 0
+        case .ableton: activeTag = 1
+        case .milkyTracker: activeTag = 2
         }
+        keymapPopUp.selectItem(withTag: activeTag)
 
         if Self.shouldUseLiquidGlass, #available(macOS 26.0, *) {
             // Tinting is disabled for the collapsed view — even a
@@ -698,15 +683,16 @@ final class CollapsedPianoWaveformView: NSView {
         }
     }
 
-    @objc private func modeButtonClicked(_ sender: NSButton) {
+    @objc private func keymapPopUpChanged(_ sender: NSPopUpButton) {
         guard let menuBand else { return }
-        let next: Keymap = (sender.tag == 1) ? .ableton : .notepat
+        let next: Keymap
+        switch sender.selectedItem?.tag ?? 0 {
+        case 1: next = .ableton
+        case 2: next = .milkyTracker
+        default: next = .notepat
+        }
         if menuBand.keymap != next {
             menuBand.keymap = next
-        }
-        // Manual radio behaviour: only the clicked button stays .on.
-        for button in modeButtons {
-            button.state = (button == sender) ? .on : .off
         }
     }
 
