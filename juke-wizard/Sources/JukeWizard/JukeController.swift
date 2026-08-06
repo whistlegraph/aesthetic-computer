@@ -2077,6 +2077,40 @@ final class JukeController: NSWindowController, NSWindowDelegate,
         listTable.reloadData()
     }
 
+    // ── live work awareness ────────────────────────────────────────────────
+    // Slab's ledger tells us which agents are active; local process inspection
+    // catches the narrower render/bake window. Polling is read-only and cheap.
+    private func armActivityStatus() {
+        pollActivityStatus()
+        activityTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
+            self?.pollActivityStatus()
+        }
+    }
+    private func pollActivityStatus() {
+        let activities = WorkStatus.snapshot(tracks: library.tracks)
+        for t in library.tracks {
+            let matches = activities.filter { a in
+                (a.track != nil && a.track == t.title) || (a.track == nil && a.lane == t.lane)
+            }
+            t.liveStatus = matches.first.map { $0.track == nil ? "\($0.state) in \(t.lane)" : $0.state }
+        }
+        if activities.isEmpty {
+            activityLabel.stringValue = "● agents + renders idle"
+            activityLabel.textColor = Palette.inkDim
+        } else {
+            activityLabel.stringValue = activities.prefix(3).map { a in
+                let target = a.track ?? a.lane ?? "pop"
+                return "● \(target): \(a.state)"
+            }.joined(separator: "   ")
+            activityLabel.textColor = activities.contains(where: { $0.state == "baking" }) ? Palette.gold : Palette.teal
+        }
+        if let t = track {
+            laneLabel.stringValue = Self.metaLine(t)
+            laneLabel.textColor = t.liveStatus == nil ? .secondaryLabelColor : Palette.gold
+        }
+        listTable.reloadData()
+    }
+
     // ── tables ───────────────────────────────────────────────────────────────
     func numberOfRows(in tableView: NSTableView) -> Int {
         if tableView == listTable {
