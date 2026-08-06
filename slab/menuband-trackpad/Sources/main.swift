@@ -22,6 +22,7 @@ private struct ContactFrame: Codable {
     let version: Int
     let timestamp: Double
     let contacts: [WireContact]
+    let event: String?
 }
 
 /// Owns the system-pointer boundary while Menu Band is using the trackpad as
@@ -37,6 +38,8 @@ private final class TrackpadInteractionShield {
     private var exitTimer: Timer?
     private var escapeWasDown = false
     private var commandWasDown = false
+    private var commandExitArmed = false
+    private var commandExitArmAfter: CFTimeInterval = 0
     private var lastCommandTap: CFTimeInterval?
 
     var onExitRequested: (() -> Void)?
@@ -63,6 +66,7 @@ private final class TrackpadInteractionShield {
         exitTimer?.invalidate()
         exitTimer = nil
         lastCommandTap = nil
+        commandExitArmed = false
         stopEventTap()
         panels.forEach { $0.orderOut(nil) }
         panels.removeAll()
@@ -75,7 +79,9 @@ private final class TrackpadInteractionShield {
 
     /// Permission-free emergency exit. Reading combined-session key state
     /// does not require a key tap, so Escape and the same double-Command
-    /// gesture that entered focus can always dismantle the click shield.
+    /// gesture that entered focus can always dismantle the click shield. The
+    /// watcher first observes a complete release after activation so the
+    /// entry gesture can never cancel the session it just opened.
     private func startExitWatchdog() {
         exitTimer?.invalidate()
         escapeWasDown = CGEventSource.keyState(
@@ -84,6 +90,8 @@ private final class TrackpadInteractionShield {
         commandWasDown = CGEventSource.flagsState(
             .combinedSessionState
         ).contains(.maskCommand)
+        commandExitArmed = false
+        commandExitArmAfter = CACurrentMediaTime() + 0.35
         let timer = Timer(timeInterval: 1.0 / 60.0, repeats: true) {
             [weak self] _ in
             guard let self else { return }
@@ -95,8 +103,13 @@ private final class TrackpadInteractionShield {
             ).contains(.maskCommand)
             let escapePressed = escapeDown && !self.escapeWasDown
             var commandDoubleTapped = false
-            if commandDown && !self.commandWasDown {
-                let now = CACurrentMediaTime()
+            let now = CACurrentMediaTime()
+            if !self.commandExitArmed {
+                if !commandDown && now >= self.commandExitArmAfter {
+                    self.commandExitArmed = true
+                    self.lastCommandTap = nil
+                }
+            } else if commandDown && !self.commandWasDown {
                 if let prior = self.lastCommandTap, now - prior <= 0.75 {
                     commandDoubleTapped = true
                     self.lastCommandTap = nil
@@ -267,7 +280,7 @@ private final class TrackpadBridgeServer {
             self?.queue.async { [weak self] in
                 guard let self, self.captureEnabled else { return }
                 self.setCaptureEnabled(false)
-                self.client?.cancel()
+                self.sendExit()
             }
         }
         let parameters = NWParameters.tcp
@@ -388,7 +401,7 @@ private final class TrackpadBridgeServer {
     }
 
     private func send(contacts: [TrackpadContact], timestamp: Double) {
-        guard captureEnabled || contacts.isEmpty, let client else { return }
+        guard captureEnabled || contacts.isEmpty, client != nil else { return }
         let bounded = contacts.prefix(16).map {
             WireContact(
                 identifier: $0.identifier,
@@ -400,8 +413,23 @@ private final class TrackpadBridgeServer {
         let frame = ContactFrame(
             version: 1,
             timestamp: timestamp.isFinite ? timestamp : CACurrentMediaTime(),
-            contacts: bounded
+            contacts: bounded,
+            event: nil
         )
+        send(frame)
+    }
+
+    private func sendExit() {
+        send(ContactFrame(
+            version: 1,
+            timestamp: CACurrentMediaTime(),
+            contacts: [],
+            event: "exit"
+        ))
+    }
+
+    private func send(_ frame: ContactFrame) {
+        guard let client else { return }
         guard var payload = try? JSONEncoder().encode(frame),
               payload.count <= 16 * 1024 else { return }
         payload.append(0x0A)

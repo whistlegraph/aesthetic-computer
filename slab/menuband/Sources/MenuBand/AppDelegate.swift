@@ -661,12 +661,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self.trackpadPluginConnected = connected
             debugLog("TrackDrum helper \(connected ? "connected" : "disconnected")")
             if !connected, self.trackpadPluginCaptureActive {
+                // CGDisplayHideCursor's global hide count can survive a
+                // helper SIGKILL. Balance it from Menu Band before teardown
+                // so a crashed TrackDrum can never strand an invisible cursor.
+                CGDisplayShowCursor(CGMainDisplayID())
                 self.handleTrackpadFrame(
                     [], timestamp: CACurrentMediaTime(),
                     callbackTime: CACurrentMediaTime()
                 )
                 self.endPitchBendSession()
             }
+        }
+        trackpadPlugin.onExitRequested = { [weak self] in
+            self?.exitPerformanceFocusFromEscape()
         }
         trackpadPlugin.onFrame = { [weak self] contacts, timestamp, callbackTime in
             guard let self, self.trackpadPluginCaptureActive else { return }

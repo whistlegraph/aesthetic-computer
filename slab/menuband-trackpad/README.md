@@ -7,7 +7,7 @@ makes no sound: Menu Band renders and plays its existing Tracktramp widget.
 The helper listens only on `127.0.0.1`, accepts one Menu Band client, and opens
 the private trackpad device only while Menu Band has explicitly armed a
 performance session. The wire format contains at most 16 normalized contacts.
-While that session is active, TrackDrum hides and disconnects the system cursor
+While that session is active, TrackDrum hides the system cursor
 and consumes mouse buttons, two-finger context clicks, scrolling, and gestures.
 It restores them when Menu Band exits the session. Escape or another double-tap
 of Command always exits through a permission-free key-state watchdog. A session

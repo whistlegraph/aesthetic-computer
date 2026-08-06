@@ -11,6 +11,7 @@ final class MenuBandTrackpadPluginClient {
     static let helperBundleIdentifier = "computer.aestheticcomputer.menuband-trackpad"
 
     var onConnectionChanged: ((Bool) -> Void)?
+    var onExitRequested: (() -> Void)?
     var onFrame: (([TrackpadContact], Double, Double) -> Void)?
 
     private struct Command: Codable {
@@ -30,6 +31,7 @@ final class MenuBandTrackpadPluginClient {
         let version: Int
         let timestamp: Double
         let contacts: [WireContact]
+        let event: String?
     }
 
     private let queue = DispatchQueue(
@@ -41,7 +43,7 @@ final class MenuBandTrackpadPluginClient {
     private var receiveBuffer = Data()
     private var running = false
     private var captureEnabled = false
-    private var attemptedHelperLaunch = false
+    private var lastHelperLaunchAt: CFTimeInterval = -.infinity
 
     func start() {
         NSLog("MenuBand TrackDrum bridge: starting")
@@ -95,6 +97,13 @@ final class MenuBandTrackpadPluginClient {
                 self.connection = nil
                 self.reportConnection(false)
                 self.scheduleRetry()
+            case .waiting(let error):
+                NSLog("MenuBand TrackDrum bridge: connection waiting: %@",
+                      String(describing: error))
+                self.connection = nil
+                connection.cancel()
+                self.reportConnection(false)
+                self.scheduleRetry()
             case .cancelled:
                 self.connection = nil
                 self.reportConnection(false)
@@ -104,16 +113,29 @@ final class MenuBandTrackpadPluginClient {
             }
         }
         connection.start(queue: queue)
-        launchInstalledHelperOnce()
+        launchInstalledHelperIfNeeded()
     }
 
-    private func launchInstalledHelperOnce() {
-        guard !attemptedHelperLaunch else { return }
-        attemptedHelperLaunch = true
+    private func launchInstalledHelperIfNeeded() {
+        let now = CACurrentMediaTime()
+        guard now - lastHelperLaunchAt >= 2.0 else { return }
+        lastHelperLaunchAt = now
         DispatchQueue.main.async {
-            guard let url = NSWorkspace.shared.urlForApplication(
+            guard NSRunningApplication.runningApplications(
                 withBundleIdentifier: Self.helperBundleIdentifier
-            ) else { return }
+            ).isEmpty else { return }
+            let installedURL = URL(
+                fileURLWithPath: "/Applications/TrackDrum for Menu Band.app",
+                isDirectory: true
+            )
+            let url = NSWorkspace.shared.urlForApplication(
+                withBundleIdentifier: Self.helperBundleIdentifier
+            ) ?? (FileManager.default.fileExists(atPath: installedURL.path)
+                ? installedURL : nil)
+            guard let url else {
+                NSLog("MenuBand TrackDrum helper is not installed")
+                return
+            }
             let configuration = NSWorkspace.OpenConfiguration()
             configuration.activates = false
             NSWorkspace.shared.openApplication(
@@ -190,6 +212,14 @@ final class MenuBandTrackpadPluginClient {
               frame.version == 1,
               frame.timestamp.isFinite,
               frame.contacts.count <= 16 else { return }
+        if frame.event == "exit" {
+            guard frame.contacts.isEmpty else { return }
+            DispatchQueue.main.async { [weak self] in
+                self?.onExitRequested?()
+            }
+            return
+        }
+        guard frame.event == nil else { return }
         var contacts: [TrackpadContact] = []
         contacts.reserveCapacity(frame.contacts.count)
         for contact in frame.contacts {
