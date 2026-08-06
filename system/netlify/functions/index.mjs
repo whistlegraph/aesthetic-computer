@@ -1141,13 +1141,19 @@ async function fun(event, context) {
             window.acSTARTING_HASH = hash;
           })();
         </script>
-        <!-- 🚀 Eager WebSocket connection - starts BEFORE boot.mjs loads -->
+        <!-- Optional WebSocket module transport for local development. -->
         <script>
           (function() {
-            // Start WebSocket connection immediately for faster module loading
-            // boot.mjs will pick up this connection via window.acEarlyWS
+            // Production boots core modules over HTTP. Keep this transport for
+            // local hot reload and explicit module-loader diagnostics only.
             try {
               var isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+              var moduleWsParam = new URLSearchParams(location.search).get('modulews');
+              var moduleWsEnabled = isLocal || moduleWsParam === '1' || moduleWsParam === 'true';
+              if (!moduleWsEnabled) {
+                window.acEarlyWS = null;
+                return;
+              }
               var wsUrl = isLocal ? 'wss://localhost:8889' : 'wss://session-server.aesthetic.computer';
               var ws = new WebSocket(wsUrl);
               var connected = false;
@@ -1198,7 +1204,6 @@ async function fun(event, context) {
         ></script>
         ${dev ? `<!-- Modulepreload for module-loader (needed for fast WebSocket connection) -->
         <link rel="modulepreload" href="/aesthetic.computer/module-loader.mjs" />` : `<!-- Modulepreload hints for critical path modules (parallel fetch) -->
-        <link rel="modulepreload" href="/aesthetic.computer/module-loader.mjs" />
         <link rel="modulepreload" href="/aesthetic.computer/bios.mjs" />
         <link rel="modulepreload" href="/aesthetic.computer/lib/parse.mjs" />
         <link rel="modulepreload" href="/aesthetic.computer/lib/disk.mjs" />

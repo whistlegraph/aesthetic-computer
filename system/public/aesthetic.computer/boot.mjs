@@ -1,12 +1,16 @@
 // `aesthetic.computer` Bootstrap, 23.02.16.19.23
 
-// 📦 Early WebSocket module loader initialization
-// This runs before anything else to establish connection ASAP
-// Skip in PACK mode (NFT bundles use import maps)
+// 📦 Optional WebSocket module loader for local hot reload and diagnostics.
 let moduleLoader = null;
 let moduleLoaderReady = Promise.resolve(false); // Promise that resolves when loader is ready
+const moduleWsParam = new URLSearchParams(window.location.search).get("modulews");
+const moduleWsEnabled =
+  window.location.hostname === "localhost" ||
+  window.location.hostname === "127.0.0.1" ||
+  moduleWsParam === "1" ||
+  moduleWsParam === "true";
 
-if (!window.acPACK_MODE) {
+if (!window.acPACK_MODE && moduleWsEnabled) {
   try {
     // Dynamic import of module-loader (this one file loads via HTTP)
     const { moduleLoader: ml } = await import("./module-loader.mjs");
