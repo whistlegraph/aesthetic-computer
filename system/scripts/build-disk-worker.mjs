@@ -39,8 +39,11 @@ const result = await build({
   plugins: [preserveRuntimeImports],
 });
 
-const output = result.outputFiles?.[0]?.contents;
-if (!output?.length) throw new Error("Disk worker build produced no output");
+const rawOutput = result.outputFiles?.[0]?.contents;
+if (!rawOutput?.length) throw new Error("Disk worker build produced no output");
+const output = Buffer.from(
+  Buffer.from(rawOutput).toString("utf8").replace(/[ \t]+$/gm, ""),
+);
 
 const sha256 = createHash("sha256").update(output).digest("hex");
 const filename = `disk.worker.${sha256.slice(0, 12)}.mjs`;
