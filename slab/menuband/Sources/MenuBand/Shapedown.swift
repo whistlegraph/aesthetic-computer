@@ -44,10 +44,21 @@ final class Shapedown {
     /// Swallows scroll + trackpad gestures WHILE the wall is up so fingers only
     /// ever draw shapes — no scroll, pinch-zoom, rotate, or swipe underneath.
     private let gestureTap = ShapedownGestureTap()
+    private let activeLock = NSLock()
+    private var active = false
 
     /// True while the wall is showing — AppDelegate checks this to route
     /// trackpad frames here instead of into the pitch-bend fx pad.
-    var isActive: Bool { overlay?.isVisible == true }
+    var isActive: Bool {
+        activeLock.lock(); defer { activeLock.unlock() }
+        return active
+    }
+
+    private func setActive(_ value: Bool) {
+        activeLock.lock()
+        active = value
+        activeLock.unlock()
+    }
 
     // MARK: Feedback cues — the same full-screen flash and bell/click the
     // right-⌘ focus gesture uses, each independently switchable in Settings.
@@ -144,6 +155,7 @@ final class Shapedown {
 
         self.overlay = panel
         self.canvas = canvas
+        setActive(true)
         // Hide the pointer for the whole session, from a BACKGROUND app.
         // CGDisplayHideCursor alone is ignored unless the caller is frontmost,
         // which this menubar panel never is — so first flip the private
@@ -185,6 +197,7 @@ final class Shapedown {
 
     private func hide(cues: Bool = true) {
         guard let panel = overlay else { return }
+        setActive(false)
         if cues {
             flashCue(rising: false)     // "wall off" cue
             bellCue(rising: false)
@@ -274,7 +287,7 @@ final class ShapedownGestureTap {
 
     @discardableResult
     func start() -> Bool {
-        guard tap == nil else { return true }
+        if let tap { return CGEvent.tapIsEnabled(tap: tap) }
         // Raw event-type numbers the tap sees: 1/2 left mouse down/up (the
         // physical trackpad click), 3/4 right, 25/26 other; 22 = scrollWheel;
         // and the NSEvent gesture family 18/19/20 (rotate/begin/end), 29
@@ -322,18 +335,34 @@ final class ShapedownGestureTap {
         }
         self.tap = tap
         source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
+        let ready = DispatchSemaphore(value: 0)
 
         let thread = Thread { [weak self] in
-            guard let self, let source = self.source, let tap = self.tap else { return }
-            self.runLoop = CFRunLoopGetCurrent()
-            CFRunLoopAddSource(CFRunLoopGetCurrent(), source, .commonModes)
+            guard let self, let source = self.source, let tap = self.tap else {
+                ready.signal()
+                return
+            }
+            let currentRunLoop = CFRunLoopGetCurrent()
+            self.runLoop = currentRunLoop
+            CFRunLoopAddSource(currentRunLoop, source, .commonModes)
             CGEvent.tapEnable(tap: tap, enable: true)
+            // `start()` must not report success until this tap can actually
+            // consume the first physical click. Otherwise a fast wallpaper
+            // click can reach macOS Show Desktop while this thread starts.
+            CFRunLoopPerformBlock(currentRunLoop, CFRunLoopMode.commonModes.rawValue) {
+                ready.signal()
+            }
             CFRunLoopRun()
         }
         thread.qualityOfService = .userInteractive
         thread.name = "Shapedown-GestureTap"
         thread.start()
         self.thread = thread
+        let started = ready.wait(timeout: .now() + 0.25) == .success
+        guard started, CGEvent.tapIsEnabled(tap: tap) else {
+            stop()
+            return false
+        }
         return true
     }
 
@@ -355,6 +384,50 @@ final class ShapedownGestureTap {
 final class ShapedownOverlayPanel: NSPanel {
     override var canBecomeKey: Bool { false }
     override var canBecomeMain: Bool { false }
+}
+
+/// Permission-free last line of defense for focused trackpad percussion.
+/// A clear non-activating panel owns clicks on each display when macOS denies
+/// the session event tap, preventing a wallpaper click from invoking Show
+/// Desktop. The panel exists only for the focused performance session.
+final class TrackpadClickShield {
+    private var panels: [NSPanel] = []
+
+    func start() {
+        guard panels.isEmpty else { return }
+        panels = NSScreen.screens.map { screen in
+            let panel = ShapedownOverlayPanel(
+                contentRect: screen.frame,
+                styleMask: [.borderless, .nonactivatingPanel],
+                backing: .buffered,
+                defer: false
+            )
+            panel.level = .screenSaver
+            panel.backgroundColor = .clear
+            panel.isOpaque = false
+            panel.hasShadow = false
+            panel.animationBehavior = .none
+            panel.isMovable = false
+            panel.isReleasedWhenClosed = false
+            panel.hidesOnDeactivate = false
+            panel.ignoresMouseEvents = false
+            panel.sharingType = .none
+            panel.collectionBehavior = [
+                .canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle,
+            ]
+            panel.contentView = NSView(frame: NSRect(origin: .zero,
+                                                     size: screen.frame.size))
+            panel.orderFrontRegardless()
+            return panel
+        }
+    }
+
+    func stop() {
+        panels.forEach { $0.orderOut(nil) }
+        panels.removeAll()
+    }
+
+    deinit { stop() }
 }
 
 /// Pure gesture memory shared by live drawing, lift, and physical-click pinning.

@@ -1,0 +1,105 @@
+% !TEX program = xelatex
+% Working technical rider; venue specifications remain to be confirmed.
+\documentclass[11pt,letterpaper]{article}
+\usepackage{culturehub-packet}
+\renewcommand{\packetlabel}{TECHNICAL RIDER}
+\hypersetup{pdftitle={Special Sign — Live Spatial Version — Technical Rider}}
+
+\begin{document}
+\packettitle{Special Sign}{Live Spatial Version · technical rider}
+\workingtitle
+
+\vspace{0.45em}
+\pageclaim{The laptop-to-speaker relationship moves during the performance.}
+
+\begin{center}
+\begin{tikzpicture}[
+  node distance=8mm and 8mm,
+  every node/.style={font=\sffamily\bfseries\fontsize{10pt}{11pt}\selectfont,align=center},
+  box/.style={draw=acpurple,very thick,rounded corners=3pt,fill=acpale,minimum width=34mm,minimum height=14mm},
+  laptop/.style={draw=accyan,very thick,rounded corners=2pt,fill=accyan!8,minimum width=38mm,minimum height=14mm},
+  house/.style={draw=acpink,very thick,rounded corners=3pt,fill=acpink!8,minimum width=39mm,minimum height=15mm},
+  flow/.style={-{Stealth[length=3mm]},very thick,draw=acdark}
+]
+\node[box] (control) {live control\\rotation · speed\\trajectory · routing};
+\node[box,right=8mm of control] (network) {local network\\clock · transport\\spatial state};
+\node[laptop,right=8mm of network] (laptops) {six laptops\\1 · 2 · 3 · 4 · 5 · 6};
+\node[house,below=13mm of laptops] (house) {house spatial path\\verified 5.1 topology};
+\node[house,left=8mm of house] (audience) {audience inside\\the rotating field};
+\draw[flow] (control) -- (network);
+\draw[flow] (network) -- (laptops);
+\draw[flow] (laptops) -- node[right,font=\sffamily\bfseries\fontsize{9pt}{10pt}\selectfont] {six feeds} (house);
+\draw[flow] (house) -- (audience);
+\end{tikzpicture}
+\end{center}
+
+\section{System}
+\begin{itemize}
+\item Six artist-supplied laptops booted from six AC Native USB drives.
+\item Independent sound bodies distributed among the six laptops.
+\item Live control of system rotation, trajectory, speed, and voice routing.
+\item Local wired or isolated Wi-Fi network for clock, transport, and control.
+\item Six discrete audio feeds to the venue’s spatial system, subject to the verified 5.1 topology.
+\item House projection showing the live spatial score.
+\end{itemize}
+
+\clearpage
+\packettitle{House request}{Audio · network · projection · room}
+
+\begin{itemize}
+\item Kalio 5.1 system with independently addressable inputs; confirm whether the sixth path is full-range or LFE-only.
+\item Audio interface or interfaces providing six line-level outputs, with suitable DI boxes, cabling, and adapters.
+\item Projector, screen or projection wall, and HDMI input near the performance position.
+\item Dedicated router or switch isolated from public traffic.
+\item Six laptop power positions and conditioned power for audio/network gear.
+\item Six low tables or plinths around the audience field.
+\item Central seating for approximately 20–40 people, subject to room capacity and accessible routes.
+\item Separate stereo livestream/documentation feed derived from the spatial mix.
+\item One technical rehearsal with CultureHub’s audio and streaming staff.
+\end{itemize}
+
+\section{Signal plan}
+\tighttable
+\begin{tabularx}{\linewidth}{L{0.22\linewidth}Y}
+\toprule
+\textbf{Source} & \textbf{House destination} \\
+\midrule
+Laptops 1–5 & Discrete full-range house inputs 1–5 \\
+Laptop 6 & Full-range input 6 if available; otherwise a verified alternate route \\
+Control laptop & Network control and projected score; no fixed audience-audio output \\
+Documentation & Separate stereo fold-down, not the spatial performance bus \\
+\bottomrule
+\end{tabularx}
+
+\vspace{0.55em}
+The renderer will use five full-range channels if CultureHub’s sixth channel is
+LFE-only, routing only derived low-frequency material to LFE. An additional
+full-range speaker may be used if the venue supplies and approves it.
+
+\clearpage
+\packettitle{Responsibilities}{What Jeffrey brings · what the venue confirms}
+
+\section{Jeffrey brings}
+\begin{itemize}
+\item Six tested laptops and two spares.
+\item Six AC Native USB drives and two spares.
+\item Laptop power supplies and primary control laptop.
+\item Owned USB, HDMI, and network adapters.
+\item Software images and offline recovery media.
+\end{itemize}
+
+\section{Confirm with CultureHub}
+\begin{itemize}
+\item Exact Kalio speaker layout, sixth-channel bandwidth, and spatial routing interface.
+\item Available interface channel count, connectors, and sample rate.
+\item Wired network availability and house network policy.
+\item Projector resolution, throw, connectors, and screen location.
+\item Room dimensions, capacity, furniture, and accessible seating route.
+\item Livestream platform, capture format, archive ownership, and file delivery.
+\item Load-in, soundcheck, public-program, and strike hours.
+\item Whether workshop participants may boot their laptops from USB.
+\end{itemize}
+
+\palsfooter
+\credit{Aesthetic Computer \& Pals · working rider prepared 3 August 2026}
+\end{document}

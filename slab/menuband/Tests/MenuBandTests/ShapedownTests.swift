@@ -529,4 +529,88 @@ final class ShapedownTests: XCTestCase {
                        file: file, line: line)
     }
 }
+
+final class TrackpadAudioLaneTests: XCTestCase {
+    func testSkinStagesOnlyNewContacts() {
+        let output = TrackpadAudioOutputSpy()
+        let lane = TrackpadAudioLane(output: output)
+        lane.setMode(.skin)
+        let point = CGPoint(x: 0.3, y: 0.4)
+        lane.process(
+            contacts: [TrackpadContact(identifier: 7, point: point, state: 3)],
+            timestamp: 1, callbackTime: 1,
+            shiftDown: false, suppressed: false
+        )
+        lane.process(
+            contacts: [TrackpadContact(identifier: 7, point: point, state: 4)],
+            timestamp: 1.008, callbackTime: 1.008,
+            shiftDown: false, suppressed: false
+        )
+        lane.flushForTesting()
+        XCTAssertEqual(output.skinStrikes, 1)
+        XCTAssertEqual(output.marks, 1)
+    }
+
+    func testShiftKeepsSurfaceContactsButNeverStagesPercussion() {
+        let output = TrackpadAudioOutputSpy()
+        let lane = TrackpadAudioLane(output: output)
+        lane.setMode(.skin)
+        let point = CGPoint(x: 0.3, y: 0.4)
+        lane.process(
+            contacts: [TrackpadContact(identifier: 8, point: point, state: 3)],
+            timestamp: 1, callbackTime: 1,
+            shiftDown: true, suppressed: false
+        )
+        lane.process(
+            contacts: [TrackpadContact(identifier: 8, point: point, state: 4)],
+            timestamp: 1.008, callbackTime: 1.008,
+            shiftDown: false, suppressed: false
+        )
+        lane.flushForTesting()
+        XCTAssertEqual(output.skinStrikes, 0)
+        XCTAssertEqual(output.marks, 0)
+    }
+
+    func testLeavingKitReleasesHeldArticulation() {
+        let output = TrackpadAudioOutputSpy()
+        let lane = TrackpadAudioLane(output: output)
+        lane.setMode(.kit)
+        lane.process(
+            contacts: [TrackpadContact(
+                identifier: 9, point: CGPoint(x: 0.2, y: 0.8), state: 3
+            )],
+            timestamp: 1, callbackTime: 1,
+            shiftDown: false, suppressed: false
+        )
+        lane.setMode(.off)
+        lane.flushForTesting()
+        XCTAssertEqual(output.noteOns, 1)
+        XCTAssertEqual(output.noteOffs, 1)
+    }
+}
+
+private final class TrackpadAudioOutputSpy: TrackpadAudioOutput {
+    var marks = 0
+    var noteOns = 0
+    var noteOffs = 0
+    var skinStrikes = 0
+    private var nextGroup: UInt64 = 1
+
+    func markTrackpadInput(at callbackTime: Double) { marks += 1 }
+    func percussionNoteOn(_ drum: MenuBandPercussion.Drum,
+                          velocity: UInt8, pan: UInt8,
+                          accent: Bool) -> UInt64 {
+        noteOns += 1
+        defer { nextGroup += 1 }
+        return nextGroup
+    }
+    func percussionNoteOff(_ group: UInt64) { noteOffs += 1 }
+    func trackpadReverseKick(velocity: UInt8, pan: UInt8) {}
+    func trackpadDrumSkin(strike: CGPoint, anchors: [CGPoint], velocity: UInt8) {
+        skinStrikes += 1
+    }
+    func trackpadSynthSurface(strike: CGPoint, anchors: [CGPoint], velocity: UInt8) {}
+    func trackpadSurfaceLift(at point: CGPoint, anchors: [CGPoint],
+                             velocity: UInt8, synthetic: Bool) {}
+}
 #endif

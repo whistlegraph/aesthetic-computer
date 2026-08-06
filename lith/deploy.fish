@@ -233,11 +233,32 @@ set SPACES_ENV_SRC "$VAULT_DIR/spaces/.env"
 set SPACES_ENV_GPG "$VAULT_DIR/spaces/.env.gpg"
 set TMP_SPACES (mktemp)
 set SPACES_READY false
-if test -f $SPACES_ENV_SRC
+
+# Never source a file merely because it exists. A failed interactive GPG
+# decrypt can leave diagnostic text alongside otherwise valid assignments;
+# sourcing that file on lith turns those diagnostics into shell commands.
+function valid_dotenv --argument path
+    test -s $path; or return 1
+    awk '
+        BEGIN { assignments = 0; invalid = 0 }
+        /^[[:space:]]*($|#)/ { next }
+        /^[A-Za-z_][A-Za-z0-9_]*=/ { assignments++; next }
+        { invalid++ }
+        END { exit !(assignments > 0 && invalid == 0) }
+    ' $path
+end
+
+if test -f $SPACES_ENV_SRC; and valid_dotenv $SPACES_ENV_SRC
     cp $SPACES_ENV_SRC $TMP_SPACES
     set SPACES_READY true
-else if test -f $SPACES_ENV_GPG
-    if gpg --batch --pinentry-mode loopback -d $SPACES_ENV_GPG >$TMP_SPACES 2>/dev/null
+else
+    if test -f $SPACES_ENV_SRC
+        echo -e "$YELLOW   ignoring malformed $SPACES_ENV_SRC; trying encrypted source.$NC"
+    end
+
+    if test -f $SPACES_ENV_GPG; and \
+            gpg --batch --pinentry-mode loopback -d $SPACES_ENV_GPG >$TMP_SPACES 2>/dev/null; and \
+            valid_dotenv $TMP_SPACES
         set SPACES_READY true
     end
 end

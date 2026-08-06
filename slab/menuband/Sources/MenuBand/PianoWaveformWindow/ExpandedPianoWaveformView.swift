@@ -260,7 +260,7 @@ final class ExpandedPianoWaveformView: NSView {
         contentStack.addArrangedSubview(shortcutHintRow)
         contentStack.addArrangedSubview(qwertyView)
 
-        // Notepat / Conventional keymap toggle, centered under the QWERTY.
+        // Keymap selector, centered under the QWERTY.
         modeStack.orientation = .horizontal
         modeStack.alignment = .centerY
         modeStack.spacing = 8

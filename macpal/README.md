@@ -14,7 +14,8 @@ It is the seed of a distributable MacPal (an eventual Mac App Store build).
 ## What he can do
 
 - **Right-click menu** — *About MacPal*, *Gold Star* / *Silver Star* (live
-  toggle, checkmarked), *Quit MacPal*.
+  toggle, checkmarked), *TrackDrum*, *Quit MacPal*. TrackDrum ships as a signed
+  nested app and opens directly from the star.
 - **Gold or silver** — a full silver pose set ships alongside the gold one; the
   choice is remembered and even the About masthead follows it.
 - **About window** — modeled on the Menu Band About panel: star masthead,

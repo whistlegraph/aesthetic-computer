@@ -44,6 +44,46 @@ Use this anywhere you'd otherwise type a raw `Google Chrome --headless=new …`
 incantation (TL site screenshots, paper previews, etc.). Never spawn a
 loose headless Chrome — always go through this script.
 
+## fleet_browser.py — one browser lifecycle per fleet Mac
+
+Ordinary browsing and CDP consumers use the same persistent Chrome profile.
+CDP consumers identify themselves as access-lease owners and share Chrome's
+consented `DevToolsActivePort`; the last release drops access without closing
+the browser. A launchd reaper removes abandoned owners. Acquiring refuses any
+competing unmanaged debug Chrome instead of creating another profile or port.
+
+```bash
+# Default: the persistent signed-in Profile 1, without acquiring automation access.
+python3 toolchain/macos/fleet_browser.py open --url https://example.com
+
+# Enable “Allow remote debugging” once at chrome://inspect/#remote-debugging,
+# then acquire access only when a tool requires CDP.
+python3 toolchain/macos/fleet_browser.py acquire --owner puppet-neo
+python3 toolchain/macos/fleet_browser.py touch --owner puppet-neo
+python3 toolchain/macos/fleet_browser.py release --owner puppet-neo
+
+# Host health and abandoned-lease cleanup.
+python3 toolchain/macos/fleet_browser.py status --json
+python3 toolchain/macos/fleet_browser.py install-reaper --max-idle-minutes 30
+```
+
+The profile defaults to the ordinary Chrome root and `Profile 1`. Chrome owns
+the debugging port; consumers read it from `DevToolsActivePort`. Override the
+profile, expected account, and state directory with
+`SLAB_BROWSER_CHROME_PROFILE`, `SLAB_BROWSER_EXPECTED_USER`, and
+`SLAB_BROWSER_STATE_DIR`.
+Do not launch visible Chrome with an ad-hoc `--user-data-dir`; use a named
+access lease so ownership and cleanup remain visible.
+
+Chrome DevTools MCP connections use
+`toolchain/mcp/fleet-chrome-devtools.mjs`. It acquires the same remote lease,
+owns its SSH tunnel, renews while alive, and releases both on exit:
+
+```bash
+node toolchain/mcp/fleet-chrome-devtools.mjs \
+  --host=chicken --expected-user=jeffrey@fuser.studio
+```
+
 ## to-phone.mjs — push files to the iPhone (zero taps)
 
 Sends files from this Mac to @jeffrey's iPhone over the shared iCloud

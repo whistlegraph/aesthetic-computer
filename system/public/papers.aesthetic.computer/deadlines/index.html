@@ -3,6 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light dark">
+    <meta name="theme-color" id="theme-color" content="#1a1a2e">
     <title>deadlines · papers · Aesthetic Computer</title>
     <meta name="description" content="Conference, journal, and grant deadlines tracked for Aesthetic Computer papers.">
     <meta property="og:title" content="deadlines — papers · Aesthetic.Computer" />
@@ -20,6 +22,16 @@
     <link rel="preload" as="image" href="/deadlines/deadlines-header.png" />
     <link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/berkeley-mono-variable.css">
     <link rel="preload" href="https://aesthetic.computer/type/webfonts/ywft-processing-regular.woff2" as="font" type="font/woff2" crossorigin="anonymous">
+    <script>
+        // Apply a saved override before first paint. With no override, CSS
+        // follows the operating-system preference.
+        try {
+            const savedTheme = localStorage.getItem('papers-theme');
+            if (savedTheme === 'light' || savedTheme === 'dark') {
+                document.documentElement.classList.add(`${savedTheme}-mode`);
+            }
+        } catch (_) {}
+    </script>
     <style>
         @font-face {
             font-family: 'YWFT Processing';
@@ -29,6 +41,7 @@
         }
 
         :root {
+            color-scheme: dark;
             --bg: #1a1a2e;
             --text: #e8e8e8;
             --dim: #888;
@@ -44,6 +57,7 @@
 
         @media (prefers-color-scheme: light) {
             :root:not(.dark-mode) {
+                color-scheme: light;
                 --bg: #f5f5f5;
                 --text: #1a1a2e;
                 --dim: #666;
@@ -59,6 +73,7 @@
         }
 
         :root.light-mode {
+            color-scheme: light;
             --bg: #f5f5f5;
             --text: #1a1a2e;
             --dim: #666;
@@ -71,6 +86,8 @@
             --box-bg: rgba(0,0,0,0.03);
             --box-border: rgba(0,0,0,0.12);
         }
+
+        :root.dark-mode { color-scheme: dark; }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
         ::-webkit-scrollbar { display: none; }
@@ -278,6 +295,15 @@
             padding: 0.3em 0.6em;
             border-radius: 4px;
         }
+        .theme-toggle:hover,
+        .theme-toggle:focus-visible {
+            color: var(--text);
+            border-color: var(--cyan);
+        }
+        .theme-toggle:focus-visible {
+            outline: 2px solid var(--cyan);
+            outline-offset: 2px;
+        }
 
         .pals-logo-corner {
             position: fixed;
@@ -330,7 +356,7 @@
             ·
             <a href="https://aesthetic.computer">aesthetic.computer</a>
         </div>
-        <button class="theme-toggle" id="theme-toggle">theme</button>
+        <button class="theme-toggle" id="theme-toggle" type="button">light mode</button>
     </div>
 
     <script>
@@ -550,12 +576,14 @@
             {
                 section: 'open',
                 venue: 'SIGGRAPH Asia 2026',
-                venueUrl: 'https://asia.siggraph.org/2026/submissions/',
+                venueUrl: 'https://asia.siggraph.org/2026/submissions/real-time-live/',
                 track: 'Real-Time Live!',
-                deadline: '2026-08-07',
+                deadline: '2026-08-20',
+                deadlineExtra: '23:59 AoE',
                 conference: 'Dec 1–4, Kuala Lumpur',
-                status: 'new',
-                statusLabel: 'New',
+                status: 'candidate',
+                statusLabel: 'Candidate',
+                notes: 'Corrected from the superseded August 7 date on the submissions overview. Live, real-time interactive demonstrations; a viable AC Native/notepat route only if the six-laptop system can be shown as a reliable stage demo rather than a general project reel.',
             },
             {
                 section: 'open',
@@ -611,16 +639,17 @@
             },
 
             {
-                section: 'active',
+                section: 'passed',
                 venue: 'Restless Egg — Batch 2',
                 venueUrl: 'https://apply.restlessegg.com/',
                 track: 'Accelerator for artist-founders (London/Berlin) — equity, NOT a grant',
-                deadline: '2026-06-30',
+                deadline: '2026-07-17',
+                deadlineExtra: 'final deadline · closed',
                 conference: '6-month program starts Sept 2026 · remote OK',
-                status: 'go',
-                statusLabel: 'Active',
+                status: 'declined',
+                statusLabel: 'Closed',
                 draftPath: 'restless-egg-2026/DRAFT.md',
-                notes: '<strong>Equity accelerator, not a grant.</strong> ~$100k initial + up to ~$175–200k follow-on for ~5% equity, with a "Shared Earnings" side letter (durable-business OR venture path). Thesis: "luxury technologies" — products that "enhance human experience beyond mere efficiency." Pitch = <strong>Aesthetic Inc. as an instruments studio, notepat as flagship</strong> (the open AC commons stays open; the company productizes instruments out of it). Fit is clean: Aesthetic Inc. already exists (C-corp) with an equity vehicle (aesthetic.direct + SAFE "booted-by" holders). <strong>Full DRAFT v1 ready</strong> (RESEARCH + OUTLINE too). Apply via a sign-in-gated Google Form — open it to map answers to exact fields. Founder call: dilute ~5% + reconcile booted-by SAFEs. Run by William Morgan / Sylvan Rackham / Sam Lipnick (RESTLESS EGG LTD, UK).',
+                notes: '<strong>Closed July 17; retained for the next batch.</strong> Equity accelerator, not a grant: $100,000 for 5% equity, with up to $175,000 milestone-based follow-on. Pitch = <strong>Aesthetic Inc. as an instruments studio, notepat as flagship</strong> while the AC commons remains open. Full DRAFT v1, research, and outline remain in the vault.',
             },
 
             // --- Rolling ---
@@ -736,7 +765,7 @@
                 conference: 'Rolling',
                 status: 'go',
                 statusLabel: 'Rolling',
-                notes: 'For unforeseen pre-existing project expenses.',
+                notes: 'Rolling <strong>$500–$3,000</strong> support for unanticipated, unpaid costs tied to a confirmed public presentation of completed work, normally 8–10 weeks away. Residency work-in-progress showings and already-paid expenses are excluded; CultureHub qualifies only if its public program is contractually a completed presentation.',
             },
             {
                 section: 'funding',
@@ -780,18 +809,74 @@
                 conference: 'Rolling · decisions typically in about one month',
                 status: 'go',
                 statusLabel: 'Rolling',
+                draftPath: 'sigchi-development-fund-2026/DRAFT.md',
                 notes: 'Typically <strong>$5,000–$10,000</strong> for HCI community-building, mentoring, workshops, summer schools, hybrid events, or accessibility work. Applicant must be a SIGCHI member and outside-conference funds need a sponsoring organization. Does not fund ordinary research or product development; pitch a concrete creative-coding community program.',
             },
             {
                 section: 'funding',
+                venue: 'FUTO Grants',
+                venueUrl: 'https://futo.tech/grants',
+                track: 'Open technology — Aesthetic Computer / AC Native',
+                deadline: null,
+                conference: 'Applications open · terms confirmed case by case',
+                status: 'verify',
+                statusLabel: 'Fit check',
+                notes: 'Strong philosophical fit for user-owned, inspectable creative computing. FUTO lists <strong>$1,000–$5,000 microgrants</strong> and larger Legendary Grants for established open-source projects, but does not publish standard large-grant amounts or explicit company eligibility. Confirm the route before drafting.',
+            },
+            {
+                section: 'funding',
+                venue: 'Sentient Foundation',
+                venueUrl: 'https://sentient.foundation/grants',
+                track: 'Open Source AGI Grant — conditional AC route',
+                deadline: null,
+                conference: 'Rolling · public-good grant or company investment',
+                status: 'verify',
+                statusLabel: 'Only if real AI work',
+                notes: 'The public-good track claims no equity or ownership; applications are rolling within a <strong>$42 million</strong> commitment. Pursue only for a genuine open, inspectable, locally runnable AI capability that works on ordinary hardware. Integrating someone else’s model into AC is not a sufficient project.',
+            },
+            {
+                section: 'funding',
+                venue: 'NSF STEM K–12',
+                venueUrl: 'https://www.nsf.gov/funding/opportunities/stem-k-12-nsf-stem-k-12/nsf25-545/solicitation',
+                track: 'Creative-computing education research — Aesthetic Inc.',
+                deadline: null,
+                conference: 'Proposals accepted anytime',
+                status: 'candidate',
+                statusLabel: 'Large build',
+                notes: 'U.S. for-profits may lead. Suggested research/development requests are <strong>$350,000–$750,000</strong> for two to three years. A credible route would study AC Native as a low-cost creative-computing environment with real learner access, an education-research team, evaluation design, and likely human-subjects review; this is not a quick product grant.',
+            },
+            {
+                section: 'funding',
+                venue: 'MIT Solve Global Challenges',
+                venueUrl: 'https://solve.mit.edu/innovators/become-a-solver',
+                track: 'Learning / Economic Prosperity — AC Native watch',
+                deadline: null,
+                conference: 'Global Challenges usually open September–November',
+                status: 'candidate',
+                statusLabel: 'Watch September',
+                notes: 'MIT Solve says selected teams access a <strong>$1M+ prize pool</strong>; last year’s teams averaged about $40,000. Wait for the 2026 challenge language, then test AC Native’s digital-access and creative-learning route against its people-first impact and evidence requirements.',
+            },
+            {
+                section: 'funding',
+                venue: 'TinySeed',
+                venueUrl: 'https://tinyseed.com/program',
+                track: 'Remote SaaS accelerator — Aesthetic Inc.',
+                deadline: null,
+                conference: 'Applications reopen early September 2026',
+                status: 'verify',
+                statusLabel: 'Equity watch',
+                notes: '<strong>Not a grant:</strong> $120,000–$220,000 for 10–12% equity in a revenue-generating SaaS business. Consider only if Aesthetic Inc. has a real subscription product, repeatable revenue, and a deliberate desire for the accelerator/equity path.',
+            },
+            {
+                section: 'not-pursuing',
                 venue: 'AwesomeNYC',
                 venueUrl: 'https://www.awesomefoundation.org/en/submissions/new?chapter=nyc',
                 track: 'Monthly microgrant — Whistlegraph',
                 deadline: null,
                 conference: 'Monthly review · New York City',
-                status: 'candidate',
-                statusLabel: 'Rolling',
-                notes: '<strong>$1,000</strong> for a specific public-facing project in or around NYC. A concise Whistlegraph score-reading/workshop is a better fit than operating costs or startup marketing. Applications are voted on the second Monday of each month.',
+                status: 'declined',
+                statusLabel: 'Will not pursue',
+                notes: '<strong>Not eligible for the current route:</strong> the $1,000 monthly microgrant must support a specific public-facing project in or around New York City. Retained for reference if a genuine NYC partner or occasion emerges.',
             },
         ];
 
@@ -801,6 +886,7 @@
             { id: 'submitted', title: 'Submitted',       color: 'green',  blurb: 'Submitted; awaiting decision.' },
             { id: 'verify',  title: 'Verify submission', color: 'red',    blurb: 'Deadline already passed; draft was ready but submission status is unconfirmed.' },
             { id: 'open',    title: 'Open windows',      color: 'pink',   blurb: 'Sorted by closest deadline first.' },
+            { id: 'not-pursuing', title: 'Not pursuing this season', color: 'gold', blurb: 'Retained for reference after fit or eligibility review.' },
             { id: 'rolling', title: 'Rolling',           color: 'cyan',   blurb: 'Submit any time.' },
             { id: 'funding', title: 'Funding sources',   color: 'purple', blurb: 'Grants and travel awards.' },
             { id: 'decided', title: 'Decided',           color: 'red',    blurb: 'Submitted and resolved.' },
@@ -831,9 +917,8 @@
         }
 
         function render() {
-            const today = new Date();
-            const asOf = today.toISOString().slice(0, 10);
-            document.getElementById('as-of').textContent = `as of ${asOf}`;
+            const DATA_AS_OF = '2026-08-05';
+            document.getElementById('as-of').textContent = `verified ${DATA_AS_OF}`;
 
             if (REVIEW_MODE) {
                 const banner = document.createElement('div');
@@ -848,13 +933,14 @@
             const active = DEADLINES.filter(d => d.section === 'active').sort((a, b) => a.deadline.localeCompare(b.deadline));
             const submitted = DEADLINES.filter(d => d.section === 'submitted').sort((a, b) => b.deadline.localeCompare(a.deadline));
             const open = DEADLINES.filter(d => d.section === 'open').sort((a, b) => a.deadline.localeCompare(b.deadline));
+            const notPursuing = DEADLINES.filter(d => d.section === 'not-pursuing').sort((a, b) => (a.deadline || '9999-12-31').localeCompare(b.deadline || '9999-12-31'));
             const passed = DEADLINES.filter(d => d.section === 'passed').sort((a, b) => b.deadline.localeCompare(a.deadline));
             const verify = DEADLINES.filter(d => d.section === 'verify').sort((a, b) => a.deadline.localeCompare(b.deadline));
             const decided = DEADLINES.filter(d => d.section === 'decided').sort((a, b) => b.deadline.localeCompare(a.deadline));
             const rolling = DEADLINES.filter(d => d.section === 'rolling');
             const funding = DEADLINES.filter(d => d.section === 'funding');
 
-            const bySection = { active, submitted, verify, open, rolling, funding, decided, passed };
+            const bySection = { active, submitted, verify, open, 'not-pursuing': notPursuing, rolling, funding, decided, passed };
 
             for (const sec of SECTIONS) {
                 const items = bySection[sec.id] || [];
@@ -920,16 +1006,34 @@
 
         // Theme toggle
         const root = document.documentElement;
-        const saved = localStorage.getItem('papers-theme');
-        if (saved === 'light') root.classList.add('light-mode');
-        if (saved === 'dark') root.classList.add('dark-mode');
-        document.getElementById('theme-toggle').addEventListener('click', () => {
+        const themeToggle = document.getElementById('theme-toggle');
+        const themeColor = document.getElementById('theme-color');
+        const systemTheme = window.matchMedia('(prefers-color-scheme: light)');
+
+        function lightThemeIsActive() {
+            return root.classList.contains('light-mode')
+                || (!root.classList.contains('dark-mode') && systemTheme.matches);
+        }
+
+        function syncThemeControl() {
+            const isLight = lightThemeIsActive();
+            const nextTheme = isLight ? 'dark' : 'light';
+            themeToggle.textContent = `${nextTheme} mode`;
+            themeToggle.setAttribute('aria-label', `Switch to ${nextTheme} mode`);
+            themeToggle.title = `Switch to ${nextTheme} mode`;
+            themeColor.content = isLight ? '#f5f5f5' : '#1a1a2e';
+        }
+
+        themeToggle.addEventListener('click', () => {
             const isLight = root.classList.contains('light-mode')
-                || (!root.classList.contains('dark-mode') && window.matchMedia('(prefers-color-scheme: light)').matches);
+                || (!root.classList.contains('dark-mode') && systemTheme.matches);
             root.classList.remove('light-mode', 'dark-mode');
             root.classList.add(isLight ? 'dark-mode' : 'light-mode');
             localStorage.setItem('papers-theme', isLight ? 'dark' : 'light');
+            syncThemeControl();
         });
+        systemTheme.addEventListener('change', syncThemeControl);
+        syncThemeControl();
 
         render();
     </script>

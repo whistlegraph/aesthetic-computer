@@ -430,7 +430,9 @@ final class MenuBandSynth {
         sampleVoice.attach(to: engine, output: preLimiterMixer)
         // Speech easter egg: same pre-limiter sum bus, so spoken language
         // names ride the bend/space/echo fx. Idle (no player) until `speak`.
-        speechVoice.attach(to: engine, output: preLimiterMixer)
+        speechVoice.attach(
+            to: engine, output: preLimiterMixer, dryOutput: postFxMixer
+        )
         // Percussion: same pre-limiter sum bus. Renders silence until the
         // right-hand split fires a drum, so it's free while inactive.
         // Percussion routes to the DRY post-fx mixer, NOT preLimiterMixer —
@@ -900,10 +902,9 @@ final class MenuBandSynth {
         speechVoice.say(text, languageCode: languageCode)
     }
 
-    /// Immediate number-row feedback from the speech voice's pre-rendered
-    /// digit bank. Unlike `speak`, this does no synthesis on key-down.
-    func playSpokenDigit(_ digit: Int) {
-        speechVoice.playDigit(digit)
+    /// Debounced number-row feedback from the bundled Jeffrey voice bank.
+    func playSpokenNumber(_ number: Int) {
+        speechVoice.playNumber(number)
     }
 
     /// Spacebar reverse-replay: play the master-output tape backwards from
@@ -2109,7 +2110,7 @@ final class MenuBandSynth {
         // Keep the engine awake long enough for the drum tail to ring out,
         // since `activeNotes` stays empty. Re-arm the idle suspend timer so
         // it can't fire mid-tail.
-        scheduleIdleSuspendAfterPercussion()
+        if !keepEngineWarm { scheduleIdleSuspendAfterPercussion() }
     }
 
     /// A rising, suction-like bass-drum envelope for the trackpad's
@@ -2120,7 +2121,7 @@ final class MenuBandSynth {
         let p = max(-1.0, min(1.0, (Double(pan) - 64.0) / 63.0))
         triggerMelodicDuck(depth: 0.38, velocity: velocity, hold: 0.12)
         percussion.playReverseKick(velocity: velocity, pan: p)
-        scheduleIdleSuspendAfterPercussion()
+        if !keepEngineWarm { scheduleIdleSuspendAfterPercussion() }
     }
 
     func playDrumSkin(strike: CGPoint, anchors: [CGPoint], velocity: UInt8) {
@@ -2132,27 +2133,7 @@ final class MenuBandSynth {
         triggerMelodicDuck(depth: depth, velocity: velocity,
                            hold: zone == .kick ? 0.10 : 0.06)
         percussion.playDrumSkin(strike: strike, anchors: anchors, velocity: velocity)
-        scheduleIdleSuspendAfterPercussion()
-    }
-
-    /// Pressure-stage kick: reinforce the acoustic hit, then pulse the melodic
-    /// bus twice during recovery for an intentional pump/wobble.
-    func playSuperKick(strike: CGPoint, anchors: [CGPoint]) {
-        guard started else { return }
-        _ = resumeAudioEngineIfNeeded()
-        triggerMelodicDuck(depth: 0.72, velocity: 127, hold: 0.075,
-                           floor: 0.28)
-        percussion.playDrumSkin(strike: strike, anchors: anchors, velocity: 127)
-        percussion.play(.kick, velocity: 127, pan: 0)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.090) { [weak self] in
-            self?.triggerMelodicDuck(depth: 0.46, velocity: 127, hold: 0.045,
-                                     floor: 0.38)
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.180) { [weak self] in
-            self?.triggerMelodicDuck(depth: 0.30, velocity: 116, hold: 0.035,
-                                     floor: 0.44)
-        }
-        scheduleIdleSuspendAfterPercussion()
+        if !keepEngineWarm { scheduleIdleSuspendAfterPercussion() }
     }
 
     func playSynthSurface(strike: CGPoint, anchors: [CGPoint], velocity: UInt8) {
@@ -2162,7 +2143,7 @@ final class MenuBandSynth {
         triggerMelodicDuck(depth: zone == .kick ? 0.34 : 0.16,
                            velocity: velocity, hold: 0.07)
         percussion.playSynthSurface(strike: strike, anchors: anchors, velocity: velocity)
-        scheduleIdleSuspendAfterPercussion()
+        if !keepEngineWarm { scheduleIdleSuspendAfterPercussion() }
     }
 
     func playSurfaceLift(at point: CGPoint, anchors: [CGPoint],
@@ -2172,7 +2153,7 @@ final class MenuBandSynth {
         triggerMelodicDuck(depth: 0.10, velocity: velocity, hold: 0.04)
         percussion.playSurfaceLift(at: point, anchors: anchors,
                                    velocity: velocity, synthetic: synthetic)
-        scheduleIdleSuspendAfterPercussion()
+        if !keepEngineWarm { scheduleIdleSuspendAfterPercussion() }
     }
 
     func setDrumSkinScratch(at point: CGPoint, speed: Double,
@@ -2382,12 +2363,6 @@ final class MenuBandSynth {
     /// pitch-bend so we have to route this signal in-process.
     func setSamplePitchBend(amount: Float) {
         sampleVoice.setBend(amount: amount)
-    }
-
-    /// Route the trackpad pitch-bend into the internally-synthesized
-    /// drum kit so tonal drums warp with the melodic voices.
-    func setPercussionPitchBend(amount: Float) {
-        percussion.setPitchBend(amount: amount)
     }
 
     /// Route the trackpad pitch-bend into the AC GM synth. gm_synth

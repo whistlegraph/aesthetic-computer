@@ -90,6 +90,25 @@ verify_app() {
         ok "all ${#REQUIRED_RESOURCES[@]} required resources present in Contents/Resources"
     fi
 
+    # The chooser announces complete values after its type-ahead debounce.
+    # SwiftPM flattens voice-numbers/*.mp3 into Contents/Resources, so verify
+    # the whole offline bank rather than letting a partially generated release
+    # fall back to a different system voice.
+    local missing_numbers=0
+    local number
+    for ((number = 0; number <= 128; number++)); do
+        if [[ ! -f "$RES_DIR/$number.mp3" ]]; then
+            err "  missing Jeffrey voice number: $number.mp3"
+            missing_numbers=$((missing_numbers + 1))
+        fi
+    done
+    if (( missing_numbers > 0 )); then
+        err "$missing_numbers Jeffrey voice-number clip(s) absent"
+        FAIL=1
+    else
+        ok "all 129 Jeffrey voice-number clips present"
+    fi
+
     # Scan the binary for hardcoded developer paths. We only care about
     # paths the runtime might dereference — DWARF debug-info source paths
     # are cosmetic and stripped by install.sh's `strip -S` step anyway.
@@ -157,6 +176,11 @@ verify_app() {
     local missing_in_copy=0
     for r in "${REQUIRED_RESOURCES[@]}"; do
         if [[ ! -e "$copied/Contents/Resources/$r" ]]; then
+            missing_in_copy=$((missing_in_copy + 1))
+        fi
+    done
+    for ((number = 0; number <= 128; number++)); do
+        if [[ ! -f "$copied/Contents/Resources/$number.mp3" ]]; then
             missing_in_copy=$((missing_in_copy + 1))
         fi
     done

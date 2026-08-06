@@ -1,5 +1,6 @@
 import AppKit
 import Carbon.HIToolbox
+import Darwin
 
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var statusItem: NSStatusItem!
@@ -160,6 +161,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// System-wide ⌘⌥X → give every visible prompt rock a random QWERTY key
     /// and capture those keys until Escape releases the mode.
     private var promptRockFocusHotkey: GlobalHotkey?
+    /// Menu Band owns ⌥⌘+letter combinations as musical chords while its
+    /// performance focus is armed. Slab must unregister—not merely ignore—
+    /// ⌥⌘X so the X key can reach Menu Band.
+    private var menuBandPerformanceFocused = false
     /// System-wide ⌃⌥⌘A → toggle Dark Mode across this host + tailscale macs.
     private var appearanceHotkey: GlobalHotkey?
     /// System-wide ⌘⌥← → ↑ ↓ → walk focus spatially across the tiled terminal
@@ -197,6 +202,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.delegate = self
         statusItem.menu = menu
         ResourceGraph.shared.syncEnabled()
+
+        DistributedNotificationCenter.default().addObserver(
+            self,
+            selector: #selector(menuBandPerformanceFocusChanged(_:)),
+            name: NSNotification.Name(
+                "computer.aestheticcomputer.menuband.performance-focus"
+            ),
+            object: nil
+        )
+        menuBandPerformanceFocused = Self.menuBandPerformanceFocusIsLive()
 
         do {
             try passphraseServer.start()
@@ -282,13 +297,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         // Global ⌘⌥X enters Prompt Rock keyboard focus. Unlike tile/scatter,
         // it never changes terminal geometry; Escape is its explicit release.
-        let rockFocusHK = GlobalHotkey(id: 8) { [weak self] in self?.focusPromptRocks() }
-        if rockFocusHK.register(keyCode: UInt32(kVK_ANSI_X),
-                                modifiers: UInt32(cmdKey | optionKey)) {
-            promptRockFocusHotkey = rockFocusHK
-        } else {
-            NSLog("slab prompt rocks: failed to register global ⌘⌥X")
-        }
+        registerPromptRockFocusHotkeyIfAvailable()
 
         // Global ⌃⌥⌘A toggles Dark Mode on this host + the tailscale macs.
         // Distinct id so it can't collide with the tiling hotkey's slot.
@@ -390,8 +399,46 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         ResourceGraph.shared.stop()
         LedgerStore.shared.stop()
         NotificationCenter.default.removeObserver(self)
+        DistributedNotificationCenter.default().removeObserver(self)
         ResourceGraph.shared.stop()
         NSWorkspace.shared.notificationCenter.removeObserver(self)
+    }
+
+    private func registerPromptRockFocusHotkeyIfAvailable() {
+        guard !menuBandPerformanceFocused,
+              promptRockFocusHotkey == nil else { return }
+        let hotkey = GlobalHotkey(id: 8) { [weak self] in self?.focusPromptRocks() }
+        if hotkey.register(keyCode: UInt32(kVK_ANSI_X),
+                           modifiers: UInt32(cmdKey | optionKey)) {
+            promptRockFocusHotkey = hotkey
+        } else {
+            NSLog("slab prompt rocks: failed to register global ⌘⌥X")
+        }
+    }
+
+    @objc private func menuBandPerformanceFocusChanged(_ note: Notification) {
+        let focused = (note.userInfo?["focused"] as? Bool)
+            ?? Self.menuBandPerformanceFocusIsLive()
+        guard focused != menuBandPerformanceFocused else { return }
+        menuBandPerformanceFocused = focused
+        if focused {
+            promptRockFocusHotkey?.unregister()
+            promptRockFocusHotkey = nil
+        } else {
+            registerPromptRockFocusHotkeyIfAvailable()
+        }
+    }
+
+    /// Validate the owner PID so a Menu Band crash cannot strand Slab's
+    /// shortcut disabled. This also seeds the correct state if Slab launches
+    /// while Menu Band is already focused.
+    private static func menuBandPerformanceFocusIsLive() -> Bool {
+        let owner = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".local/share/menuband/trackpad-owner")
+        guard let raw = try? String(contentsOf: owner, encoding: .utf8),
+              let pid = pid_t(raw.trimmingCharacters(in: .whitespacesAndNewlines)),
+              pid > 0 else { return false }
+        return kill(pid, 0) == 0 || errno == EPERM
     }
 
     @objc private func activeSpaceDidChange(_ note: Notification) {
@@ -3335,7 +3382,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func performAXTile(generation: UInt64, resetZoom: Bool,
                                expectedSignature: [CGWindowID]?,
                                geom: ScreenGeom, textSize: TextSize) {
-        let prevFont = lastTiledFontSize
         tileQueue.async { [weak self] in
             guard let self else { return }
             let snapshot = AXTiler.snapshot()
@@ -3365,28 +3411,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 PromptSigilOverlayController.shared.terminalsDidRetile()
             }
             guard let pass, pass.nTerm > 0 else { return }
-            let needsFontUpdate = resetZoom || prevFont != pass.fontSize
-            guard needsFontUpdate || !pass.misfitTerminalIDs.isEmpty else { return }
+            // A confirmed population change is the normalization boundary.
+            // Always include every Terminal window: a just-launched prox may
+            // have inherited Terminal's large default even when the grid's
+            // computed font size is identical to the previous pass. Avoiding
+            // previous-pass ID bookkeeping also closes the superseded-layout
+            // race where a stale pass could make a new ID look already handled.
+            let fontTargetIDs = Set(pass.terminalPlacements.map(\.id))
+            guard !fontTargetIDs.isEmpty || !pass.misfitTerminalIDs.isEmpty else { return }
             // Geometry is already done — the grid snapped above. Terminal
             // text size catches up asynchronously, and only when needed:
             // the profile-font write + Default-Font-Size menu dance is the
             // slow, focus-stealing part of the old tiler.
-            // Set the shared profile size first. An explicit/automatic tile is
-            // also a normalization boundary: clear Terminal's invisible
-            // per-window Cmd +/- override via View ▸ Default Font Size so all
-            // Claude and Codex panes actually render at the same size.
+            // Apply the grid font to every window. An explicit tile also clears
+            // Terminal's invisible per-window Cmd +/- override via View ▸
+            // Default Font Size.
             var lines: [String] = []
-            if needsFontUpdate {
-                lines.append(contentsOf: [
-                    "tell application \"Terminal\"",
-                    "  set _slabIds to id of (every window whose miniaturized is false)",
-                    "  repeat with _w in (every window whose miniaturized is false)",
-                    "    try",
-                    "      set font size of current settings of _w to \(pass.fontSize)",
-                    "    end try",
-                    "  end repeat",
-                    "end tell",
-                ])
+            if !fontTargetIDs.isEmpty {
+                lines.append("tell application \"Terminal\"")
+                lines.append("  set _slabIds to id of (every window whose miniaturized is false)")
+                for id in fontTargetIDs.sorted() {
+                    lines.append("  try")
+                    lines.append("    set font size of current settings of (first window whose id is \(id)) to \(pass.fontSize)")
+                    lines.append("  end try")
+                }
+                lines.append("end tell")
             }
             if resetZoom {
                 lines.append(contentsOf: [
@@ -3405,8 +3454,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             // command can express the exact pixel cell. Finish all windows
             // after a font change, or only measured outliers otherwise, in
             // this same single AppleScript process (no extra enumeration).
-            let exactPlacements = needsFontUpdate
-                ? pass.terminalPlacements
+            let exactPlacements = !fontTargetIDs.isEmpty
+                ? pass.terminalPlacements.filter { fontTargetIDs.contains($0.id) }
                 : pass.terminalPlacements.filter { pass.misfitTerminalIDs.contains($0.id) }
             lines.append("tell application \"Terminal\"")
             for placement in exactPlacements {

@@ -236,7 +236,7 @@ Stage Mode is a reversible transaction around any Captutor command. It saves the
 current desk, closes stale QuickTime previews, switches macOS to Light appearance
 and the display to 2× HiDPI (1280×720 logical), centers the browser, raises
 encoding quality, uses a branded light wallpaper, and temporarily hides desktop
-icons, Dock, menu bar, Stats, Macpal's desktop badge, and Slab prompt sigils. The
+icons, Dock, menu bar, Macpal's desktop badge, and Slab prompt sigils. The
 recorder captures the complete physical desktop, preserving the real rounded
 window, shadow, and equal margin. A Swift desktop-level renderer supplies the
 selected client backdrop. It is click-through, runs behind every normal window,

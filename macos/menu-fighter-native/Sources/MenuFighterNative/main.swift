@@ -21,6 +21,21 @@ private let lineDark: CGFloat = 4
 private let lineLight: CGFloat = 2.5
 private let lineSpot: CGFloat = 1
 private let playWindowLevel = NSWindow.Level(rawValue: NSWindow.Level.screenSaver.rawValue + 1)
+private let menuBandTrackpadOwnerURL = FileManager.default.homeDirectoryForCurrentUser
+  .appendingPathComponent(".local/share/menuband/trackpad-owner")
+
+/// Menu Band writes its PID while its global trackpad surface owns the input.
+/// Validate liveness so a stale file after a crash never disables Fighter.
+private func menuBandOwnsTrackpad() -> Bool {
+  guard let text = try? String(contentsOf: menuBandTrackpadOwnerURL,
+                               encoding: .utf8),
+        let pid = pid_t(text.trimmingCharacters(in: .whitespacesAndNewlines)) else {
+    return false
+  }
+  if kill(pid, 0) == 0 || errno == EPERM { return true }
+  try? FileManager.default.removeItem(at: menuBandTrackpadOwnerURL)
+  return false
+}
 
 // One append-only trace for every Trackpad Fighter process and round. A round
 // that crashes or is killed simply has no terminal event, which is intentional:
@@ -292,6 +307,13 @@ private final class CornerFlashView: NSView {
     guard active != poseIsActive else { return }
     poseIsActive = active
     if active {
+      guard !menuBandOwnsTrackpad() else {
+        RoundLifetimeLog.shared.event("pose_ignored", fields: [
+          "reason": "menu_band_trackpad_owner",
+        ])
+        print("[trackpad-fighter] four-corner pose ignored — Menu Band owns trackpad")
+        return
+      }
       guard !launched else {
         RoundLifetimeLog.shared.event("pose_ignored", fields: [
           "launchActive": launched,

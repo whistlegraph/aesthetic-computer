@@ -71,6 +71,9 @@ async function toolList() {
 async function toolEval({ machine, js, target }) {
   return text(await rpc({ cmd: "eval", machine, args: { expr: js, target } }));
 }
+async function toolUpload({ machine, selector, files, target }) {
+  return text(await rpc({ cmd: "upload", machine, args: { selector, files, target } }));
+}
 async function toolWaitFor({ machine, js, timeout, interval, target }) {
   return text(await rpc({ cmd: "waitFor", machine, args: { expr: js, target, timeout, interval } }));
 }
@@ -119,6 +122,9 @@ const TOOLS = [
   { name: "puppet_eval", act: false,
     description: "Evaluate a JavaScript expression in the active page of a machine's browser (via CDP) and return the value. Reads/inspects page state; can also mutate the DOM.",
     inputSchema: { type: "object", properties: { machine: { type: "string" }, js: { type: "string", description: "Expression to evaluate (awaited if it returns a promise)." }, target: { type: "string", description: "Optional target url/id substring; defaults to most-recent http(s) page." } }, required: ["machine", "js"] } },
+  { name: "puppet_upload", act: true,
+    description: "ACTS: upload one or more browser-host files through the daemon's existing CDP session to a chosen file input.",
+    inputSchema: { type: "object", properties: { machine: { type: "string" }, selector: { type: "string", description: "CSS selector for the file input." }, files: { type: "array", items: { type: "string" }, description: "Absolute file paths on the browser host." }, target: { type: "string", description: "Optional target url/id substring." } }, required: ["machine", "selector", "files"] } },
   { name: "puppet_waitfor", act: false,
     description: "Poll a JS expression in the active page until it returns truthy (or timeout). Use to synchronize on page state instead of fixed sleeps.",
     inputSchema: { type: "object", properties: { machine: { type: "string" }, js: { type: "string" }, timeout: { type: "number", description: "ms (default 15000)" }, interval: { type: "number", description: "ms (default 150)" }, target: { type: "string" } }, required: ["machine", "js"] } },
@@ -155,7 +161,7 @@ const TOOLS = [
 ];
 
 const HANDLERS = {
-  puppet_list: toolList, puppet_eval: toolEval, puppet_waitfor: toolWaitFor,
+  puppet_list: toolList, puppet_eval: toolEval, puppet_upload: toolUpload, puppet_waitfor: toolWaitFor,
   puppet_nav: toolNav, puppet_reload: toolReload, puppet_shot: toolShot,
   puppet_stroke: toolStroke, puppet_gesture: toolGesture, puppet_key: toolKey,
   puppet_cursor: toolCursor, puppet_type: toolType, puppet_keys: toolKeys, puppet_term: toolTerm,

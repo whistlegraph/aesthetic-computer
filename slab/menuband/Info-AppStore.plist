@@ -51,6 +51,8 @@
 	<true/>
 	<key>NSHumanReadableCopyright</key>
 	<string>By aesthetic.computer</string>
+	<key>NSAppleMusicUsageDescription</key>
+	<string>Menu Band lets you browse and play your Apple Music library on its main deck.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Menu Band records short clips from your microphone when you hold ` so you can play them back as a sampling voice.</string>
 	<key>UTExportedTypeDeclarations</key>

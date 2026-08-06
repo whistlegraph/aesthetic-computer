@@ -1,6 +1,8 @@
 Menu Band brings the built-in instruments — the ones GarageBand uses — into your menu bar.
 
-A tiny piano sits at the right of your menu bar. Click any key to play, or type to play while Menu Band is the active app, using the Notepat or Ableton-style QWERTY layouts.
+A tiny piano sits at the right of your menu bar. Click any key to play, or type to play while Menu Band is the active app. Choose among three keyboard traditions: Menu Band's expansive Notepat map, the familiar AWSED piano layout, or MilkyTracker-style two-octave keyjazz.
+
+The on-screen map follows the real staggered geometry of your keyboard. Hold Command, Option, and Control combinations while playing to turn any note into major, minor, suspended, augmented, or diminished harmony — and morph between chord shapes without releasing the root.
 
 Plug in a hardware MIDI keyboard and Menu Band becomes its compact sound module. Or tune KPBJ, R8DIO, NTS 1, and NTS 2 into the separate CDJ Radio deck, scratch the live buffer, and sample a short slice onto the piano.
 

@@ -1,0 +1,95 @@
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{culturehub-packet}[2026/08/03 CultureHub submission packet]
+
+\RequirePackage[top=0.62in,bottom=0.68in,left=0.72in,right=0.72in]{geometry}
+\RequirePackage{fontspec}
+\RequirePackage{xcolor}
+\RequirePackage{graphicx}
+\RequirePackage{titlesec}
+\RequirePackage{enumitem}
+\RequirePackage{tabularx}
+\RequirePackage{booktabs}
+\RequirePackage{array}
+\RequirePackage{fancyhdr}
+\RequirePackage{hyperref}
+\RequirePackage{xurl}
+\RequirePackage{ragged2e}
+\RequirePackage{microtype}
+\RequirePackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,shapes.geometric}
+
+\setmainfont{Latin Modern Sans}[Extension=.otf,
+  UprightFont=lmsans10-regular,
+  BoldFont=lmsans10-bold,
+  ItalicFont=lmsans10-oblique]
+\setmonofont{Latin Modern Mono}[Extension=.otf,
+  UprightFont=lmmono10-regular,
+  BoldFont=lmmonolt10-bold,
+  ItalicFont=lmmono10-italic,
+  Scale=0.9]
+\newfontfamily\acbold{ywft-processing-bold}[Path=assets/,Extension=.ttf]
+\newfontfamily\aclight{ywft-processing-light}[Path=assets/,Extension=.ttf]
+
+\definecolor{acpink}{HTML}{B44887}
+\definecolor{acpurple}{HTML}{7850B4}
+\definecolor{acblue}{HTML}{1559A6}
+\definecolor{accyan}{HTML}{168F91}
+\definecolor{acdark}{HTML}{312B38}
+\definecolor{acgray}{HTML}{66636A}
+\definecolor{acpale}{HTML}{F4F1F5}
+\definecolor{acgreen}{HTML}{2D7650}
+\definecolor{acorange}{HTML}{A85D24}
+
+\graphicspath{{assets/}}
+\hypersetup{colorlinks=true,linkcolor=acpurple,urlcolor=acpurple,
+  pdfauthor={Jeffrey Alan Scudder},pdfcreator={Aesthetic Computer papers stack}}
+
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[L]{\footnotesize\color{acpink}\packetlabel}
+\fancyhead[R]{\footnotesize\color{acgray}CultureHub LA · 2026}
+\fancyfoot[L]{\footnotesize\color{acgray}Jeffrey Alan Scudder}
+\fancyfoot[R]{\footnotesize\color{acgray}\thepage}
+
+\titleformat{\section}{\acbold\fontsize{19pt}{21pt}\selectfont\color{acdark}}{}{0pt}{}
+\titlespacing{\section}{0pt}{0.55em}{0.28em}
+\titleformat{\subsection}{\bfseries\fontsize{12pt}{14pt}\selectfont\color{acdark}}{}{0pt}{}
+\titlespacing{\subsection}{0pt}{0.5em}{0.16em}
+
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.55em}
+\setlength{\emergencystretch}{1.5em}
+\setlist[itemize]{leftmargin=1.25em,itemsep=0.22em,topsep=0.2em}
+\setlist[enumerate]{leftmargin=1.35em,itemsep=0.22em,topsep=0.2em}
+\renewcommand{\arraystretch}{1.25}
+\newcolumntype{Y}{>{\RaggedRight\arraybackslash}X}
+\newcolumntype{L}[1]{>{\RaggedRight\arraybackslash}p{#1}}
+
+\newcommand{\packetlabel}{SUBMISSION PACKET}
+\newcommand{\packettitle}[2]{%
+  {\acbold\fontsize{32pt}{34pt}\selectfont\color{acdark}#1\par}%
+  \vspace{0.14em}%
+  {\aclight\fontsize{15pt}{18pt}\selectfont\color{acpink}#2\par}%
+  \vspace{0.32em}\color{acpink}\rule{\linewidth}{1.15pt}\color{black}\vspace{0.22em}%
+}
+\newcommand{\workingtitle}{%
+  \begingroup\setlength{\fboxsep}{4pt}%
+  \colorbox{acpink}{\color{white}\bfseries\footnotesize WORKING TITLE — PROVISIONAL}%
+  \endgroup}
+\newcommand{\statusready}[1]{%
+  \begingroup\setlength{\fboxsep}{4pt}%
+  \colorbox{acgreen}{\color{white}\bfseries\footnotesize #1}%
+  \endgroup}
+\newcommand{\statushold}[1]{%
+  \begingroup\setlength{\fboxsep}{4pt}%
+  \colorbox{acorange}{\color{white}\bfseries\footnotesize #1}%
+  \endgroup}
+\newcommand{\credit}[1]{{\fontsize{8.5pt}{10.5pt}\selectfont\color{acgray}#1\par}}
+\newcommand{\tighttable}{\fontsize{9.6pt}{11.8pt}\selectfont}
+\newcommand{\imageframe}[2][]{%
+  \begin{center}\includegraphics[#1]{#2}\end{center}}
+\newcommand{\palsfooter}{%
+  \begin{center}\includegraphics[height=2.1em]{pals.pdf}\end{center}}
+\newcommand{\pageclaim}[1]{%
+  {\aclight\fontsize{17pt}{20pt}\selectfont\color{acpink}#1\par}\vspace{0.25em}}

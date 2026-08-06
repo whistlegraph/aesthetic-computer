@@ -2160,6 +2160,55 @@ function invert() {
 // Notes:
 // Scale can also be a transform object: { scale, angle }
 // Blit only works with a scale of 1.
+// Nearest-neighbor crop+scale blit, sampled straight from the source buffer.
+// Kept as its own small function so V8 optimizes the hot loop independently
+// of paste()'s many other shapes. Bounds arrive pre-clamped (screen + mask);
+// out-of-source samples (crop overhang) skip, matching the zero-fill
+// semantics of the copy-based path. Alpha is the high byte (RGBA, LE).
+function blitCropScale(
+  src, srcWidth, srcHeight, cX, cY,
+  scaleX, scaleY, destX, destY,
+  dst, dstWidth, startX, startY, endX, endY,
+) {
+  // Column lookup: source x per destination x; -1 marks overhang columns.
+  const srcXs = new Int32Array(endX - startX);
+  for (let dx = startX; dx < endX; dx += 1) {
+    const sx = cX + Math.floor(dx * scaleX);
+    srcXs[dx - startX] = sx >= 0 && sx < srcWidth ? sx : -1;
+  }
+
+  const src32 = new Uint32Array(src.buffer, src.byteOffset, src.length >> 2);
+  const dst32 = new Uint32Array(dst.buffer, dst.byteOffset, dst.length >> 2);
+
+  for (let dy = startY; dy < endY; dy += 1) {
+    const srcY = cY + Math.floor(dy * scaleY);
+    if (srcY < 0 || srcY >= srcHeight) continue;
+    const srcRow = srcY * srcWidth;
+    let destIdx32 = (destY + dy) * dstWidth + destX + startX;
+    for (let dx = startX; dx < endX; dx += 1, destIdx32 += 1) {
+      const sx = srcXs[dx - startX];
+      if (sx < 0) continue;
+      const s = src32[srcRow + sx];
+      const sA = s >>> 24;
+      if (sA === 255) {
+        dst32[destIdx32] = s;
+      } else if (sA > 0) {
+        // Translucent source — blend through the byte views.
+        const srcIdx = (srcRow + sx) * 4;
+        const destIdx = destIdx32 * 4;
+        const alpha = sA + 1;
+        const invAlpha = 256 - alpha;
+        dst[destIdx] = (alpha * src[srcIdx] + invAlpha * dst[destIdx]) >> 8;
+        dst[destIdx + 1] =
+          (alpha * src[srcIdx + 1] + invAlpha * dst[destIdx + 1]) >> 8;
+        dst[destIdx + 2] =
+          (alpha * src[srcIdx + 2] + invAlpha * dst[destIdx + 2]) >> 8;
+        dst[destIdx + 3] = Math.min(255, dst[destIdx + 3] + sA);
+      }
+    }
+  }
+}
+
 function paste(from, destX = 0, destY = 0, scale = 1, blit = false) {
   const pasteStart = performance.now(); // 🚨 PERFORMANCE TRACKING
   
