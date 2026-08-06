@@ -175,7 +175,8 @@ final class ProxMemoirs {
         """
         var provider = "apple-foundation-model"
         var text = onDeviceMemoir(prompt) ?? ""
-        if text.isEmpty, Date() >= claudeUnavailableUntil, let binary = claudeBinary() {
+        if text.isEmpty, externalProviderAllowed,
+           Date() >= claudeUnavailableUntil, let binary = claudeBinary() {
             provider = "claude-haiku"
             let result = ShellRunner.run(
                 binary,
@@ -239,6 +240,21 @@ final class ProxMemoirs {
             "/usr/local/bin/claude",
         ]
         return candidates.first { FileManager.default.isExecutableFile(atPath: $0) }
+    }
+
+    /// External memoir inference is deliberately opt-in. A background GUI app
+    /// launching an agent CLI can trigger macOS App Data permission UI, and
+    /// that system dialog is capturable even when this app's own windows are
+    /// excluded. Recording is an unconditional second gate so an opted-in seat
+    /// still cannot contaminate a tutorial take.
+    private var externalProviderAllowed: Bool {
+        guard UserDefaults.standard.bool(forKey: "enableExternalMemoirs") else {
+            return false
+        }
+        if #available(macOS 15.0, *), ScreenRecord.shared.reservesExternalProcesses {
+            return false
+        }
+        return true
     }
 
     private func fallbackMemoir(subject: String, exchange: String) -> String {
