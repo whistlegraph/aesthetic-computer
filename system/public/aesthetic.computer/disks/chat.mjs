@@ -1960,10 +1960,14 @@ function paint(
   }, btnScheme[3], undefined, false, selectedTypeface);
 
   // 📎 Attach (+) button — opens a little menu to post a photo or video.
-  // Square, same height as the handle button, sitting just to its right.
+  // Square, same height as the handle button. Pieces can place it at the
+  // far-right edge after the message field (Laklok's compact phone layout).
   const plusGap = 0; // flush against the handle button (shares its right border)
   const plusBtnW = btnH;
-  const plusBtnX = handleBtn.btn.box.x + handleBtn.btn.box.w + plusGap;
+  const attachAfterInput = options?.attachAfterInput === true;
+  const plusBtnX = attachAfterInput
+    ? screen.width - 5 - plusBtnW
+    : handleBtn.btn.box.x + handleBtn.btn.box.w + plusGap;
   const plusBtnY = handleBtn.btn.box.y;
   const plusBtnH = btnH;
   attachBtnBounds = { x: plusBtnX, y: plusBtnY, w: plusBtnW, h: plusBtnH };
@@ -2001,7 +2005,7 @@ function paint(
     const itemH = 16;
     const panelW = 96;
     const panelH = items.length * itemH + 8;
-    const panelX = plusBtnX;
+    const panelX = max(4, Math.min(plusBtnX, screen.width - panelW - 4));
     const panelY = max(topMargin, plusBtnY - panelH - 3);
     attachMenuPanelBounds = { x: panelX, y: panelY, w: panelW, h: panelH };
     attachMenuItemBounds = [];
@@ -2026,8 +2030,12 @@ function paint(
   // Draw "Enter message" button with visible border - 3px taller than handle button
   const gapWidth = 1; // 1px gap between buttons
 
-  const inputBtnX = plusBtnX + plusBtnW + gapWidth;
-  const inputBtnWidth = screen.width - inputBtnX - 5; // 1px less width on right side
+  const inputBtnX = attachAfterInput
+    ? handleBtn.btn.box.x + handleBtn.btn.box.w + gapWidth
+    : plusBtnX + plusBtnW + gapWidth;
+  const inputBtnWidth = attachAfterInput
+    ? plusBtnX - inputBtnX
+    : screen.width - inputBtnX - 5; // 1px less width on right side
   const inputBtnHeight = handleBtn.btn.box.h + 2; // 2px taller than handle button (was +3)
   
   inputBtn.box = new Box(
@@ -2098,7 +2106,9 @@ function paint(
   }
 
   // Show draft text if there is any, otherwise show "Enter message..."
-  const enterMsg = hasDraft ? draftText : ("Enter message" + ellipsisTicker.text(help.repeat));
+  const enterMsg = hasDraft
+    ? draftText
+    : (options?.inputPlaceholder ?? ("Enter message" + ellipsisTicker.text(help.repeat)));
   const textColor = inputBtn.down ? "black" : (hasDraft ? "lime" : (inputBtn.over ? "white" : 200));
   
   // Use the selected font for the bottom bar text (selectedTypeface already defined above)
@@ -2711,6 +2721,7 @@ function act(
     beep,
     text,
     jump,
+    net,
     typeface,
   },
   otherChat,
@@ -3947,8 +3958,11 @@ function act(
 
     handleBtn.act(e, () => {
       const hand = handle();
-      if (!hand) store["prompt:splash"] = true;
-      jump(hand || "prompt");
+      if (!hand) {
+        net.login();
+        return;
+      }
+      jump(hand);
     });
 
     if (
