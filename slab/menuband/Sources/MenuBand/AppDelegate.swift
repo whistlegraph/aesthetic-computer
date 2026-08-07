@@ -619,11 +619,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Time constant for both axes of the FX surface. A single exponential
     /// response keeps diagonals round and attached to the finger without
     /// overshoot or frame-rate-dependent elasticity.
-    private static let fxGestureResponse: TimeInterval = 0.035
-    /// Maximum normalized surface travel per second. Bend spans ±2 while X
-    /// spans ±1, so each axis reaches its edge in the same ~330 ms without a
-    /// large first parameter step that can click pitch-shifting backends.
-    private static let fxGestureNormalizedSpeed: Float = 3.0
+    private static let fxGestureResponse: TimeInterval = 0.025
     /// Ease tick rate (Hz). Fine-grained relative to a CoreAudio render
     /// quantum so the synths see a continuous slide, not a staircase.
     private static let bendEaseHz: Double = 120.0
@@ -5886,14 +5882,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let alpha = Float(1 - exp(-elapsed / response))
             let bendDiff = self.bendGestureTarget - self.bendAmount
             let xDiff = self.fxXGestureTarget - self.fxX
-            let normalizedStep = Self.fxGestureNormalizedSpeed * Float(elapsed)
-            let bendStep = max(-normalizedStep * Self.bendRange,
-                               min(normalizedStep * Self.bendRange,
-                                   bendDiff * alpha))
-            let xStep = max(-normalizedStep,
-                            min(normalizedStep, xDiff * alpha))
-            self.bendAmount += bendStep
-            self.fxX += xStep
+            self.bendAmount += bendDiff * alpha
+            self.fxX += xDiff * alpha
             let settled = abs(bendDiff) < 0.0005 && abs(xDiff) < 0.0005
             if settled {
                 self.bendAmount = self.bendGestureTarget
