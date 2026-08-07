@@ -1,0 +1,1985 @@
+[
+  {
+    "file": "109143-bpsk125_ogg.mp3",
+    "freesoundId": 109143,
+    "durationSec": 4.61,
+    "tags": [
+      "carrier"
+    ],
+    "tonal": true,
+    "windows": [
+      {
+        "atSec": 0.3,
+        "peaks": [
+          {
+            "hz": 1012,
+            "midiNote": "B5",
+            "cents": 42
+          },
+          {
+            "hz": 1076,
+            "midiNote": "C6",
+            "cents": 48
+          },
+          {
+            "hz": 964,
+            "midiNote": "B5",
+            "cents": -42
+          },
+          {
+            "hz": 224,
+            "midiNote": "A3",
+            "cents": 31
+          },
+          {
+            "hz": 916,
+            "midiNote": "A#5",
+            "cents": -31
+          }
+        ]
+      },
+      {
+        "atSec": 1.61,
+        "peaks": [
+          {
+            "hz": 1012,
+            "midiNote": "B5",
+            "cents": 42
+          },
+          {
+            "hz": 964,
+            "midiNote": "B5",
+            "cents": -42
+          },
+          {
+            "hz": 1064,
+            "midiNote": "C6",
+            "cents": 29
+          },
+          {
+            "hz": 224,
+            "midiNote": "A3",
+            "cents": 31
+          },
+          {
+            "hz": 1108,
+            "midiNote": "C#6",
+            "cents": -1
+          }
+        ]
+      }
+    ],
+    "strongestPeak": {
+      "hz": 1012,
+      "midiNote": "B5",
+      "cents": 42
+    },
+    "rates": {
+      "E5": 0.6514
+    }
+  },
+  {
+    "file": "109145-bpsk31_ogg.mp3",
+    "freesoundId": 109145,
+    "durationSec": 8,
+    "tags": [
+      "carrier"
+    ],
+    "tonal": true,
+    "windows": [
+      {
+        "atSec": 0.3,
+        "peaks": [
+          {
+            "hz": 1016,
+            "midiNote": "B5",
+            "cents": 49
+          },
+          {
+            "hz": 224,
+            "midiNote": "A3",
+            "cents": 31
+          },
+          {
+            "hz": 120,
+            "midiNote": "B2",
+            "cents": -49
+          },
+          {
+            "hz": 1068,
+            "midiNote": "C6",
+            "cents": 35
+          },
+          {
+            "hz": 960,
+            "midiNote": "B5",
+            "cents": -49
+          }
+        ]
+      },
+      {
+        "atSec": 5,
+        "peaks": [
+          {
+            "hz": 1012,
+            "midiNote": "B5",
+            "cents": 42
+          },
+          {
+            "hz": 224,
+            "midiNote": "A3",
+            "cents": 31
+          },
+          {
+            "hz": 120,
+            "midiNote": "B2",
+            "cents": -49
+          },
+          {
+            "hz": 1052,
+            "midiNote": "C6",
+            "cents": 9
+          },
+          {
+            "hz": 3044,
+            "midiNote": "F#7",
+            "cents": 48
+          }
+        ]
+      }
+    ],
+    "strongestPeak": {
+      "hz": 1016,
+      "midiNote": "B5",
+      "cents": 49
+    },
+    "rates": {
+      "E5": 0.6489
+    }
+  },
+  {
+    "file": "109147-rtty_45_1000hz_ogg.mp3",
+    "freesoundId": 109147,
+    "durationSec": 8.99,
+    "tags": [
+      "carrier"
+    ],
+    "tonal": true,
+    "windows": [
+      {
+        "atSec": 0.3,
+        "peaks": [
+          {
+            "hz": 996,
+            "midiNote": "B5",
+            "cents": 14
+          },
+          {
+            "hz": 536,
+            "midiNote": "C5",
+            "cents": 42
+          },
+          {
+            "hz": 956,
+            "midiNote": "A#5",
+            "cents": 43
+          },
+          {
+            "hz": 1036,
+            "midiNote": "C6",
+            "cents": -17
+          },
+          {
+            "hz": 576,
+            "midiNote": "D5",
+            "cents": -34
+          }
+        ]
+      },
+      {
+        "atSec": 5.99,
+        "peaks": [
+          {
+            "hz": 2480,
+            "midiNote": "D#7",
+            "cents": -6
+          },
+          {
+            "hz": 3088,
+            "midiNote": "G7",
+            "cents": -27
+          },
+          {
+            "hz": 2884,
+            "midiNote": "F#7",
+            "cents": -45
+          },
+          {
+            "hz": 3544,
+            "midiNote": "A7",
+            "cents": 12
+          },
+          {
+            "hz": 1008,
+            "midiNote": "B5",
+            "cents": 35
+          }
+        ]
+      }
+    ],
+    "strongestPeak": {
+      "hz": 1008,
+      "midiNote": "B5",
+      "cents": 35
+    },
+    "rates": {
+      "E5": 0.654
+    }
+  },
+  {
+    "file": "158621-dialup_call.mp3",
+    "freesoundId": 158621,
+    "durationSec": 25.76,
+    "tags": [
+      "mixed",
+      "dialing",
+      "handshake"
+    ],
+    "tonal": true,
+    "windows": [
+      {
+        "atSec": 0.3,
+        "peaks": [
+          {
+            "hz": 440,
+            "midiNote": "A4",
+            "cents": 0
+          },
+          {
+            "hz": 2200,
+            "midiNote": "C#7",
+            "cents": -14
+          },
+          {
+            "hz": 1320,
+            "midiNote": "E6",
+            "cents": 2
+          },
+          {
+            "hz": 396,
+            "midiNote": "G4",
+            "cents": 18
+          },
+          {
+            "hz": 500,
+            "midiNote": "B4",
+            "cents": 21
+          }
+        ]
+      },
+      {
+        "atSec": 11.53,
+        "peaks": [
+          {
+            "hz": 440,
+            "midiNote": "A4",
+            "cents": 0
+          },
+          {
+            "hz": 396,
+            "midiNote": "G4",
+            "cents": 18
+          },
+          {
+            "hz": 484,
+            "midiNote": "B4",
+            "cents": -35
+          },
+          {
+            "hz": 348,
+            "midiNote": "F4",
+            "cents": -6
+          },
+          {
+            "hz": 532,
+            "midiNote": "C5",
+            "cents": 29
+          }
+        ]
+      },
+      {
+        "atSec": 22.76,
+        "peaks": [
+          {
+            "hz": 440,
+            "midiNote": "A4",
+            "cents": 0
+          },
+          {
+            "hz": 364,
+            "midiNote": "F#4",
+            "cents": -28
+          },
+          {
+            "hz": 516,
+            "midiNote": "C5",
+            "cents": -24
+          },
+          {
+            "hz": 312,
+            "midiNote": "D#4",
+            "cents": 5
+          },
+          {
+            "hz": 572,
+            "midiNote": "D5",
+            "cents": -46
+          }
+        ]
+      }
+    ],
+    "strongestPeak": {
+      "hz": 440,
+      "midiNote": "A4",
+      "cents": 0
+    },
+    "rates": {
+      "B3": 0.5612,
+      "E4": 0.7492,
+      "G4": 0.8909,
+      "B4": 1.1225,
+      "E5": 1.4983
+    }
+  },
+  {
+    "file": "16475-dialup_mp3.mp3",
+    "freesoundId": 16475,
+    "durationSec": 27.56,
+    "tags": [
+      "handshake",
+      "dialing"
+    ],
+    "tonal": true,
+    "windows": [
+      {
+        "atSec": 0.3,
+        "peaks": [
+          {
+            "hz": 440,
+            "midiNote": "A4",
+            "cents": 0
+          },
+          {
+            "hz": 768,
+            "midiNote": "G5",
+            "cents": -36
+          },
+          {
+            "hz": 1336,
+            "midiNote": "E6",
+            "cents": 23
+          },
+          {
+            "hz": 940,
+            "midiNote": "A#5",
+            "cents": 14
+          },
+          {
+            "hz": 1476,
+            "midiNote": "F#6",
+            "cents": -5
+          }
+        ]
+      },
+      {
+        "atSec": 12.43,
+        "peaks": [
+          {
+            "hz": 1800,
+            "midiNote": "A6",
+            "cents": 39
+          },
+          {
+            "hz": 2400,
+            "midiNote": "D7",
+            "cents": 37
+          },
+          {
+            "hz": 1500,
+            "midiNote": "F#6",
+            "cents": 23
+          },
+          {
+            "hz": 3300,
+            "midiNote": "G#7",
+            "cents": -12
+          },
+          {
+            "hz": 3000,
+            "midiNote": "F#7",
+            "cents": 23
+          }
+        ]
+      },
+      {
+        "atSec": 24.56,
+        "peaks": [
+          {
+            "hz": 1476,
+            "midiNote": "F#6",
+            "cents": -5
+          },
+          {
+            "hz": 1064,
+            "midiNote": "C6",
+            "cents": 29
+          },
+          {
+            "hz": 1712,
+            "midiNote": "A6",
+            "cents": -48
+          },
+          {
+            "hz": 1368,
+            "midiNote": "F6",
+            "cents": -36
+          },
+          {
+            "hz": 2288,
+            "midiNote": "D7",
+            "cents": -46
+          }
+        ]
+      }
+    ],
+    "strongestPeak": {
+      "hz": 440,
+      "midiNote": "A4",
+      "cents": 0
+    },
+    "rates": {
+      "B3": 0.5612,
+      "E4": 0.7492,
+      "G4": 0.8909,
+      "B4": 1.1225,
+      "E5": 1.4983
+    }
+  },
+  {
+    "file": "188828-modem_dial_wav.mp3",
+    "freesoundId": 188828,
+    "durationSec": 18.62,
+    "tags": [
+      "handshake",
+      "dialing"
+    ],
+    "tonal": true,
+    "windows": [
+      {
+        "atSec": 0.3,
+        "peaks": [
+          {
+            "hz": 1300,
+            "midiNote": "E6",
+            "cents": -24
+          },
+          {
+            "hz": 696,
+            "midiNote": "F5",
+            "cents": -6
+          },
+          {
+            "hz": 1340,
+            "midiNote": "E6",
+            "cents": 28
+          },
+          {
+            "hz": 452,
+            "midiNote": "A4",
+            "cents": 47
+          },
+          {
+            "hz": 768,
+            "midiNote": "G5",
+            "cents": -36
+          }
+        ]
+      },
+      {
+        "atSec": 7.96,
+        "peaks": [
+          {
+            "hz": 300,
+            "midiNote": "D4",
+            "cents": 37
+          },
+          {
+            "hz": 600,
+            "midiNote": "D5",
+            "cents": 37
+          },
+          {
+            "hz": 1800,
+            "midiNote": "A6",
+            "cents": 39
+          },
+          {
+            "hz": 1500,
+            "midiNote": "F#6",
+            "cents": 23
+          },
+          {
+            "hz": 2400,
+            "midiNote": "D7",
+            "cents": 37
+          }
+        ]
+      },
+      {
+        "atSec": 15.62,
+        "peaks": [
+          {
+            "hz": 232,
+            "midiNote": "A#3",
+            "cents": -8
+          },
+          {
+            "hz": 276,
+            "midiNote": "C#4",
+            "cents": -7
+          },
+          {
+            "hz": 3432,
+            "midiNote": "A7",
+            "cents": -44
+          },
+          {
+            "hz": 504,
+            "midiNote": "B4",
+            "cents": 35
+          },
+          {
+            "hz": 168,
+            "midiNote": "E3",
+            "cents": 33
+          }
+        ]
+      }
+    ],
+    "strongestPeak": {
+      "hz": 1300,
+      "midiNote": "E6",
+      "cents": -24
+    },
+    "rates": {
+      "E5": 0.5071
+    }
+  },
+  {
+    "file": "397079-digitalradio_noise4_wav.mp3",
+    "freesoundId": 397079,
+    "durationSec": 13.19,
+    "tags": [
+      "clicks"
+    ],
+    "tonal": true,
+    "windows": [
+      {
+        "atSec": 0.3,
+        "peaks": [
+          {
+            "hz": 900,
+            "midiNote": "A5",
+            "cents": 39
+          },
+          {
+            "hz": 600,
+            "midiNote": "D5",
+            "cents": 37
+          },
+          {
+            "hz": 1200,
+            "midiNote": "D6",
+            "cents": 37
+          },
+          {
+            "hz": 496,
+            "midiNote": "B4",
+            "cents": 7
+          },
+          {
+            "hz": 392,
+            "midiNote": "G4",
+            "cents": 0
+          }
+        ]
+      },
+      {
+        "atSec": 5.25,
+        "peaks": [
+          {
+            "hz": 1200,
+            "midiNote": "D6",
+            "cents": 37
+          },
+          {
+            "hz": 900,
+            "midiNote": "A5",
+            "cents": 39
+          },
+          {
+            "hz": 600,
+            "midiNote": "D5",
+            "cents": 37
+          },
+          {
+            "hz": 1800,
+            "midiNote": "A6",
+            "cents": 39
+          },
+          {
+            "hz": 736,
+            "midiNote": "F#5",
+            "cents": -9
+          }
+        ]
+      },
+      {
+        "atSec": 10.19,
+        "peaks": [
+          {
+            "hz": 600,
+            "midiNote": "D5",
+            "cents": 37
+          },
+          {
+            "hz": 1200,
+            "midiNote": "D6",
+            "cents": 37
+          },
+          {
+            "hz": 900,
+            "midiNote": "A5",
+            "cents": 39
+          },
+          {
+            "hz": 1800,
+            "midiNote": "A6",
+            "cents": 39
+          },
+          {
+            "hz": 736,
+            "midiNote": "F#5",
+            "cents": -9
+          }
+        ]
+      }
+    ],
+    "strongestPeak": {
+      "hz": 900,
+      "midiNote": "A5",
+      "cents": 39
+    },
+    "rates": {
+      "B4": 0.5488,
+      "E5": 0.7325
+    }
+  },
+  {
+    "file": "42996-alienfaxstereo_wav.mp3",
+    "freesoundId": 42996,
+    "durationSec": 15.01,
+    "tags": [
+      "carrier",
+      "mixed"
+    ],
+    "tonal": true,
+    "windows": [
+      {
+        "atSec": 0.3,
+        "peaks": [
+          {
+            "hz": 768,
+            "midiNote": "G5",
+            "cents": -36
+          },
+          {
+            "hz": 596,
+            "midiNote": "D5",
+            "cents": 25
+          },
+          {
+            "hz": 1032,
+            "midiNote": "C6",
+            "cents": -24
+          },
+          {
+            "hz": 872,
+            "midiNote": "A5",
+            "cents": -16
+          },
+          {
+            "hz": 1276,
+            "midiNote": "D#6",
+            "cents": 43
+          }
+        ]
+      },
+      {
+        "atSec": 6.15,
+        "peaks": [
+          {
+            "hz": 768,
+            "midiNote": "G5",
+            "cents": -36
+          },
+          {
+            "hz": 1788,
+            "midiNote": "A6",
+            "cents": 27
+          },
+          {
+            "hz": 872,
+            "midiNote": "A5",
+            "cents": -16
+          },
+          {
+            "hz": 1388,
+            "midiNote": "F6",
+            "cents": -11
+          },
+          {
+            "hz": 1448,
+            "midiNote": "F#6",
+            "cents": -38
+          }
+        ]
+      },
+      {
+        "atSec": 12.01,
+        "peaks": [
+          {
+            "hz": 1100,
+            "midiNote": "C#6",
+            "cents": -14
+          },
+          {
+            "hz": 768,
+            "midiNote": "G5",
+            "cents": -36
+          },
+          {
+            "hz": 1032,
+            "midiNote": "C6",
+            "cents": -24
+          },
+          {
+            "hz": 836,
+            "midiNote": "G#5",
+            "cents": 11
+          },
+          {
+            "hz": 1388,
+            "midiNote": "F6",
+            "cents": -11
+          }
+        ]
+      }
+    ],
+    "strongestPeak": {
+      "hz": 768,
+      "midiNote": "G5",
+      "cents": -36
+    },
+    "rates": {
+      "G4": 0.5104,
+      "B4": 0.6431,
+      "E5": 0.8584
+    }
+  },
+  {
+    "file": "454649-modem_3_aif.mp3",
+    "freesoundId": 454649,
+    "durationSec": 17.84,
+    "tags": [
+      "handshake"
+    ],
+    "tonal": true,
+    "windows": [
+      {
+        "atSec": 0.3,
+        "peaks": [
+          {
+            "hz": 120,
+            "midiNote": "B2",
+            "cents": -49
+          },
+          {
+            "hz": 360,
+            "midiNote": "F#4",
+            "cents": -47
+          },
+          {
+            "hz": 240,
+            "midiNote": "B3",
+            "cents": -49
+          },
+          {
+            "hz": 616,
+            "midiNote": "D#5",
+            "cents": -17
+          },
+          {
+            "hz": 1200,
+            "midiNote": "D6",
+            "cents": 37
+          }
+        ]
+      },
+      {
+        "atSec": 7.57,
+        "peaks": [
+          {
+            "hz": 984,
+            "midiNote": "B5",
+            "cents": -7
+          },
+          {
+            "hz": 1048,
+            "midiNote": "C6",
+            "cents": 2
+          },
+          {
+            "hz": 120,
+            "midiNote": "B2",
+            "cents": -49
+          },
+          {
+            "hz": 1112,
+            "midiNote": "C#6",
+            "cents": 5
+          },
+          {
+            "hz": 1180,
+            "midiNote": "D6",
+            "cents": 8
+          }
+        ]
+      },
+      {
+        "atSec": 14.84,
+        "peaks": [
+          {
+            "hz": 120,
+            "midiNote": "B2",
+            "cents": -49
+          },
+          {
+            "hz": 1024,
+            "midiNote": "C6",
+            "cents": -38
+          },
+          {
+            "hz": 1156,
+            "midiNote": "D6",
+            "cents": -28
+          },
+          {
+            "hz": 984,
+            "midiNote": "B5",
+            "cents": -7
+          },
+          {
+            "hz": 1100,
+            "midiNote": "C#6",
+            "cents": -14
+          }
+        ]
+      }
+    ],
+    "strongestPeak": {
+      "hz": 120,
+      "midiNote": "B2",
+      "cents": -49
+    },
+    "rates": {
+      "E2": 0.6868,
+      "B2": 1.0289,
+      "E3": 1.3734,
+      "G3": 1.6333
+    }
+  },
+  {
+    "file": "454650-modem_2_aif.mp3",
+    "freesoundId": 454650,
+    "durationSec": 16.58,
+    "tags": [
+      "handshake"
+    ],
+    "tonal": true,
+    "windows": [
+      {
+        "atSec": 0.3,
+        "peaks": [
+          {
+            "hz": 480,
+            "midiNote": "B4",
+            "cents": -49
+          },
+          {
+            "hz": 440,
+            "midiNote": "A4",
+            "cents": 0
+          },
+          {
+            "hz": 400,
+            "midiNote": "G4",
+            "cents": 35
+          },
+          {
+            "hz": 560,
+            "midiNote": "C#5",
+            "cents": 18
+          },
+          {
+            "hz": 1400,
+            "midiNote": "F6",
+            "cents": 4
+          }
+        ]
+      },
+      {
+        "atSec": 6.94,
+        "peaks": [
+          {
+            "hz": 480,
+            "midiNote": "B4",
+            "cents": -49
+          },
+          {
+            "hz": 440,
+            "midiNote": "A4",
+            "cents": 0
+          },
+          {
+            "hz": 1476,
+            "midiNote": "F#6",
+            "cents": -5
+          },
+          {
+            "hz": 696,
+            "midiNote": "F5",
+            "cents": -6
+          },
+          {
+            "hz": 1336,
+            "midiNote": "E6",
+            "cents": 23
+          }
+        ]
+      },
+      {
+        "atSec": 13.58,
+        "peaks": [
+          {
+            "hz": 480,
+            "midiNote": "B4",
+            "cents": -49
+          },
+          {
+            "hz": 440,
+            "midiNote": "A4",
+            "cents": 0
+          },
+          {
+            "hz": 520,
+            "midiNote": "C5",
+            "cents": -11
+          },
+          {
+            "hz": 568,
+            "midiNote": "C#5",
+            "cents": 42
+          },
+          {
+            "hz": 120,
+            "midiNote": "B2",
+            "cents": -49
+          }
+        ]
+      }
+    ],
+    "strongestPeak": {
+      "hz": 480,
+      "midiNote": "B4",
+      "cents": -49
+    },
+    "rates": {
+      "B3": 0.5145,
+      "E4": 0.6867,
+      "G4": 0.8167,
+      "B4": 1.0289,
+      "E5": 1.3735
+    }
+  },
+  {
+    "file": "454651-modem_1_aif.mp3",
+    "freesoundId": 454651,
+    "durationSec": 21.84,
+    "tags": [
+      "handshake"
+    ],
+    "tonal": true,
+    "windows": [
+      {
+        "atSec": 0.3,
+        "peaks": [
+          {
+            "hz": 440,
+            "midiNote": "A4",
+            "cents": 0
+          },
+          {
+            "hz": 352,
+            "midiNote": "F4",
+            "cents": 14
+          },
+          {
+            "hz": 1140,
+            "midiNote": "C#6",
+            "cents": 48
+          },
+          {
+            "hz": 620,
+            "midiNote": "D#5",
+            "cents": -6
+          },
+          {
+            "hz": 528,
+            "midiNote": "C5",
+            "cents": 16
+          }
+        ]
+      },
+      {
+        "atSec": 9.57,
+        "peaks": [
+          {
+            "hz": 976,
+            "midiNote": "B5",
+            "cents": -21
+          },
+          {
+            "hz": 1156,
+            "midiNote": "D6",
+            "cents": -28
+          },
+          {
+            "hz": 1200,
+            "midiNote": "D6",
+            "cents": 37
+          },
+          {
+            "hz": 1032,
+            "midiNote": "C6",
+            "cents": -24
+          },
+          {
+            "hz": 1088,
+            "midiNote": "C#6",
+            "cents": -33
+          }
+        ]
+      },
+      {
+        "atSec": 18.84,
+        "peaks": [
+          {
+            "hz": 1012,
+            "midiNote": "B5",
+            "cents": 42
+          },
+          {
+            "hz": 968,
+            "midiNote": "B5",
+            "cents": -35
+          },
+          {
+            "hz": 1060,
+            "midiNote": "C6",
+            "cents": 22
+          },
+          {
+            "hz": 860,
+            "midiNote": "A5",
+            "cents": -40
+          },
+          {
+            "hz": 1132,
+            "midiNote": "C#6",
+            "cents": 36
+          }
+        ]
+      }
+    ],
+    "strongestPeak": {
+      "hz": 440,
+      "midiNote": "A4",
+      "cents": 0
+    },
+    "rates": {
+      "B3": 0.5612,
+      "E4": 0.7492,
+      "G4": 0.8909,
+      "B4": 1.1225,
+      "E5": 1.4983
+    }
+  },
+  {
+    "file": "49608-dialup_login_dec_2001_24_bit_wav.mp3",
+    "freesoundId": 49608,
+    "durationSec": 22.48,
+    "tags": [
+      "handshake",
+      "dialing"
+    ],
+    "tonal": true,
+    "windows": [
+      {
+        "atSec": 0.3,
+        "peaks": [
+          {
+            "hz": 940,
+            "midiNote": "A#5",
+            "cents": 14
+          },
+          {
+            "hz": 852,
+            "midiNote": "G#5",
+            "cents": 44
+          },
+          {
+            "hz": 1336,
+            "midiNote": "E6",
+            "cents": 23
+          },
+          {
+            "hz": 1212,
+            "midiNote": "D#6",
+            "cents": -46
+          },
+          {
+            "hz": 700,
+            "midiNote": "F5",
+            "cents": 4
+          }
+        ]
+      },
+      {
+        "atSec": 9.89,
+        "peaks": [
+          {
+            "hz": 1200,
+            "midiNote": "D6",
+            "cents": 37
+          },
+          {
+            "hz": 1800,
+            "midiNote": "A6",
+            "cents": 39
+          },
+          {
+            "hz": 1052,
+            "midiNote": "C6",
+            "cents": 9
+          },
+          {
+            "hz": 1160,
+            "midiNote": "D6",
+            "cents": -22
+          },
+          {
+            "hz": 900,
+            "midiNote": "A5",
+            "cents": 39
+          }
+        ]
+      },
+      {
+        "atSec": 19.48,
+        "peaks": [
+          {
+            "hz": 1052,
+            "midiNote": "C6",
+            "cents": 9
+          },
+          {
+            "hz": 836,
+            "midiNote": "G#5",
+            "cents": 11
+          },
+          {
+            "hz": 1176,
+            "midiNote": "D6",
+            "cents": 2
+          },
+          {
+            "hz": 924,
+            "midiNote": "A#5",
+            "cents": -16
+          },
+          {
+            "hz": 1116,
+            "midiNote": "C#6",
+            "cents": 11
+          }
+        ]
+      }
+    ],
+    "strongestPeak": {
+      "hz": 924,
+      "midiNote": "A#5",
+      "cents": -16
+    },
+    "rates": {
+      "B4": 0.5345,
+      "E5": 0.7135
+    }
+  },
+  {
+    "file": "586442-fake_dial_up_modem_sound_tape_recorded.mp3",
+    "freesoundId": 586442,
+    "durationSec": 20.48,
+    "tags": [
+      "mixed"
+    ],
+    "tonal": true,
+    "windows": [
+      {
+        "atSec": 0.3,
+        "peaks": [
+          {
+            "hz": 432,
+            "midiNote": "A4",
+            "cents": -32
+          },
+          {
+            "hz": 1300,
+            "midiNote": "E6",
+            "cents": -24
+          },
+          {
+            "hz": 288,
+            "midiNote": "D4",
+            "cents": -34
+          },
+          {
+            "hz": 724,
+            "midiNote": "F#5",
+            "cents": -38
+          },
+          {
+            "hz": 812,
+            "midiNote": "G#5",
+            "cents": -39
+          }
+        ]
+      },
+      {
+        "atSec": 8.89,
+        "peaks": [
+          {
+            "hz": 2348,
+            "midiNote": "D7",
+            "cents": -1
+          },
+          {
+            "hz": 100,
+            "midiNote": "G2",
+            "cents": 35
+          },
+          {
+            "hz": 2084,
+            "midiNote": "C7",
+            "cents": -7
+          },
+          {
+            "hz": 1680,
+            "midiNote": "G#6",
+            "cents": 19
+          },
+          {
+            "hz": 572,
+            "midiNote": "D5",
+            "cents": -46
+          }
+        ]
+      },
+      {
+        "atSec": 17.48,
+        "peaks": [
+          {
+            "hz": 100,
+            "midiNote": "G2",
+            "cents": 35
+          },
+          {
+            "hz": 956,
+            "midiNote": "A#5",
+            "cents": 43
+          },
+          {
+            "hz": 608,
+            "midiNote": "D#5",
+            "cents": -40
+          },
+          {
+            "hz": 1656,
+            "midiNote": "G#6",
+            "cents": -5
+          },
+          {
+            "hz": 296,
+            "midiNote": "D4",
+            "cents": 14
+          }
+        ]
+      }
+    ],
+    "strongestPeak": {
+      "hz": 432,
+      "midiNote": "A4",
+      "cents": -32
+    },
+    "rates": {
+      "B3": 0.5716,
+      "E4": 0.763,
+      "G4": 0.9074,
+      "B4": 1.1432,
+      "E5": 1.5261
+    }
+  },
+  {
+    "file": "591324-vara_fm_hello_world_wav.mp3",
+    "freesoundId": 591324,
+    "durationSec": 26.63,
+    "tags": [
+      "carrier",
+      "handshake"
+    ],
+    "tonal": true,
+    "windows": [
+      {
+        "atSec": 0.3,
+        "peaks": [
+          {
+            "hz": 2536,
+            "midiNote": "D#7",
+            "cents": 32
+          },
+          {
+            "hz": 2904,
+            "midiNote": "F#7",
+            "cents": -33
+          },
+          {
+            "hz": 2352,
+            "midiNote": "D7",
+            "cents": 2
+          },
+          {
+            "hz": 2168,
+            "midiNote": "C#7",
+            "cents": -39
+          },
+          {
+            "hz": 2740,
+            "midiNote": "F7",
+            "cents": -34
+          }
+        ]
+      },
+      {
+        "atSec": 11.96,
+        "peaks": [
+          {
+            "hz": 1780,
+            "midiNote": "A6",
+            "cents": 20
+          },
+          {
+            "hz": 1828,
+            "midiNote": "A#6",
+            "cents": -34
+          },
+          {
+            "hz": 2908,
+            "midiNote": "F#7",
+            "cents": -31
+          },
+          {
+            "hz": 1688,
+            "midiNote": "G#6",
+            "cents": 28
+          },
+          {
+            "hz": 1400,
+            "midiNote": "F6",
+            "cents": 4
+          }
+        ]
+      },
+      {
+        "atSec": 23.63,
+        "peaks": [
+          {
+            "hz": 1780,
+            "midiNote": "A6",
+            "cents": 20
+          },
+          {
+            "hz": 2168,
+            "midiNote": "C#7",
+            "cents": -39
+          },
+          {
+            "hz": 2080,
+            "midiNote": "C7",
+            "cents": -11
+          },
+          {
+            "hz": 2124,
+            "midiNote": "C7",
+            "cents": 25
+          },
+          {
+            "hz": 1400,
+            "midiNote": "F6",
+            "cents": 4
+          }
+        ]
+      }
+    ],
+    "strongestPeak": {
+      "hz": 1780,
+      "midiNote": "A6",
+      "cents": 20
+    },
+    "rates": {
+      "B5": 0.5549,
+      "E6": 0.7407
+    }
+  },
+  {
+    "file": "62843-modem_mp3.mp3",
+    "freesoundId": 62843,
+    "durationSec": 28.58,
+    "tags": [
+      "handshake"
+    ],
+    "tonal": true,
+    "windows": [
+      {
+        "atSec": 0.3,
+        "peaks": [
+          {
+            "hz": 852,
+            "midiNote": "G#5",
+            "cents": 44
+          },
+          {
+            "hz": 776,
+            "midiNote": "G5",
+            "cents": -18
+          },
+          {
+            "hz": 1476,
+            "midiNote": "F#6",
+            "cents": -5
+          },
+          {
+            "hz": 448,
+            "midiNote": "A4",
+            "cents": 31
+          },
+          {
+            "hz": 348,
+            "midiNote": "F4",
+            "cents": -6
+          }
+        ]
+      },
+      {
+        "atSec": 12.94,
+        "peaks": [
+          {
+            "hz": 2100,
+            "midiNote": "C7",
+            "cents": 6
+          },
+          {
+            "hz": 1500,
+            "midiNote": "F#6",
+            "cents": 23
+          },
+          {
+            "hz": 3300,
+            "midiNote": "G#7",
+            "cents": -12
+          },
+          {
+            "hz": 3000,
+            "midiNote": "F#7",
+            "cents": 23
+          },
+          {
+            "hz": 3600,
+            "midiNote": "A7",
+            "cents": 39
+          }
+        ]
+      },
+      {
+        "atSec": 25.58,
+        "peaks": [
+          {
+            "hz": 3092,
+            "midiNote": "G7",
+            "cents": -24
+          },
+          {
+            "hz": 628,
+            "midiNote": "D#5",
+            "cents": 16
+          },
+          {
+            "hz": 740,
+            "midiNote": "F#5",
+            "cents": 0
+          },
+          {
+            "hz": 1368,
+            "midiNote": "F6",
+            "cents": -36
+          },
+          {
+            "hz": 1696,
+            "midiNote": "G#6",
+            "cents": 36
+          }
+        ]
+      }
+    ],
+    "strongestPeak": {
+      "hz": 852,
+      "midiNote": "G#5",
+      "cents": 44
+    },
+    "rates": {
+      "B4": 0.5797,
+      "E5": 0.7738
+    }
+  },
+  {
+    "file": "658932-dial_up_sound_mp3_flac.mp3",
+    "freesoundId": 658932,
+    "durationSec": 19.3,
+    "tags": [
+      "handshake",
+      "dialing"
+    ],
+    "tonal": true,
+    "windows": [
+      {
+        "atSec": 0.3,
+        "peaks": [
+          {
+            "hz": 440,
+            "midiNote": "A4",
+            "cents": 0
+          },
+          {
+            "hz": 352,
+            "midiNote": "F4",
+            "cents": 14
+          },
+          {
+            "hz": 852,
+            "midiNote": "G#5",
+            "cents": 44
+          },
+          {
+            "hz": 944,
+            "midiNote": "A#5",
+            "cents": 22
+          },
+          {
+            "hz": 2224,
+            "midiNote": "C#7",
+            "cents": 5
+          }
+        ]
+      },
+      {
+        "atSec": 8.3,
+        "peaks": [
+          {
+            "hz": 1800,
+            "midiNote": "A6",
+            "cents": 39
+          },
+          {
+            "hz": 2400,
+            "midiNote": "D7",
+            "cents": 37
+          },
+          {
+            "hz": 3300,
+            "midiNote": "G#7",
+            "cents": -12
+          },
+          {
+            "hz": 2700,
+            "midiNote": "E7",
+            "cents": 41
+          },
+          {
+            "hz": 1840,
+            "midiNote": "A#6",
+            "cents": -23
+          }
+        ]
+      },
+      {
+        "atSec": 16.3,
+        "peaks": [
+          {
+            "hz": 2044,
+            "midiNote": "C7",
+            "cents": -41
+          },
+          {
+            "hz": 2488,
+            "midiNote": "D#7",
+            "cents": -1
+          },
+          {
+            "hz": 1332,
+            "midiNote": "E6",
+            "cents": 18
+          },
+          {
+            "hz": 1776,
+            "midiNote": "A6",
+            "cents": 16
+          },
+          {
+            "hz": 3072,
+            "midiNote": "G7",
+            "cents": -36
+          }
+        ]
+      }
+    ],
+    "strongestPeak": {
+      "hz": 440,
+      "midiNote": "A4",
+      "cents": 0
+    },
+    "rates": {
+      "B3": 0.5612,
+      "E4": 0.7492,
+      "G4": 0.8909,
+      "B4": 1.1225,
+      "E5": 1.4983
+    }
+  },
+  {
+    "file": "78657-modem1200_wav.mp3",
+    "freesoundId": 78657,
+    "durationSec": 5.63,
+    "tags": [
+      "carrier"
+    ],
+    "tonal": true,
+    "windows": [
+      {
+        "atSec": 0.3,
+        "peaks": [
+          {
+            "hz": 2064,
+            "midiNote": "C7",
+            "cents": -24
+          },
+          {
+            "hz": 2104,
+            "midiNote": "C7",
+            "cents": 9
+          },
+          {
+            "hz": 2020,
+            "midiNote": "B6",
+            "cents": 39
+          },
+          {
+            "hz": 532,
+            "midiNote": "C5",
+            "cents": 29
+          },
+          {
+            "hz": 1968,
+            "midiNote": "B6",
+            "cents": -7
+          }
+        ]
+      },
+      {
+        "atSec": 2.63,
+        "peaks": [
+          {
+            "hz": 2212,
+            "midiNote": "C#7",
+            "cents": -4
+          },
+          {
+            "hz": 2064,
+            "midiNote": "C7",
+            "cents": -24
+          },
+          {
+            "hz": 2796,
+            "midiNote": "F7",
+            "cents": 1
+          },
+          {
+            "hz": 1200,
+            "midiNote": "D6",
+            "cents": 37
+          },
+          {
+            "hz": 1484,
+            "midiNote": "F#6",
+            "cents": 5
+          }
+        ]
+      }
+    ],
+    "strongestPeak": {
+      "hz": 2064,
+      "midiNote": "C7",
+      "cents": -24
+    },
+    "rates": {
+      "E6": 0.6388
+    }
+  },
+  {
+    "file": "8037-modem_1_53_wav.mp3",
+    "freesoundId": 8037,
+    "durationSec": 2.2,
+    "tags": [
+      "clicks"
+    ],
+    "tonal": true,
+    "windows": [
+      {
+        "atSec": 0.3,
+        "peaks": [
+          {
+            "hz": 1200,
+            "midiNote": "D6",
+            "cents": 37
+          },
+          {
+            "hz": 2800,
+            "midiNote": "F7",
+            "cents": 4
+          },
+          {
+            "hz": 400,
+            "midiNote": "G4",
+            "cents": 35
+          },
+          {
+            "hz": 2400,
+            "midiNote": "D7",
+            "cents": 37
+          },
+          {
+            "hz": 3600,
+            "midiNote": "A7",
+            "cents": 39
+          }
+        ]
+      }
+    ],
+    "strongestPeak": {
+      "hz": 1200,
+      "midiNote": "D6",
+      "cents": 37
+    },
+    "rates": {
+      "E5": 0.5494
+    }
+  },
+  {
+    "file": "8055-modem_1_97_wav.mp3",
+    "freesoundId": 8055,
+    "durationSec": 2.59,
+    "tags": [
+      "clicks"
+    ],
+    "tonal": false,
+    "windows": [
+      {
+        "atSec": 0.3,
+        "peaks": [
+          {
+            "hz": 1552,
+            "midiNote": "G6",
+            "cents": -18
+          },
+          {
+            "hz": 1436,
+            "midiNote": "F6",
+            "cents": 48
+          },
+          {
+            "hz": 1300,
+            "midiNote": "E6",
+            "cents": -24
+          },
+          {
+            "hz": 2708,
+            "midiNote": "E7",
+            "cents": 46
+          },
+          {
+            "hz": 2544,
+            "midiNote": "D#7",
+            "cents": 38
+          }
+        ]
+      }
+    ],
+    "strongestPeak": {
+      "hz": 1552,
+      "midiNote": "G6",
+      "cents": -18
+    },
+    "rates": {}
+  },
+  {
+    "file": "844723-at_t_internet_gateway_modem_ups_w_modem_disconne.mp3",
+    "freesoundId": 844723,
+    "durationSec": 11.28,
+    "tags": [
+      "disconnect",
+      "clicks"
+    ],
+    "tonal": true,
+    "windows": [
+      {
+        "atSec": 0.3,
+        "peaks": [
+          {
+            "hz": 644,
+            "midiNote": "E5",
+            "cents": -41
+          },
+          {
+            "hz": 120,
+            "midiNote": "B2",
+            "cents": -49
+          },
+          {
+            "hz": 420,
+            "midiNote": "G#4",
+            "cents": 19
+          },
+          {
+            "hz": 564,
+            "midiNote": "C#5",
+            "cents": 30
+          },
+          {
+            "hz": 716,
+            "midiNote": "F5",
+            "cents": 43
+          }
+        ]
+      },
+      {
+        "atSec": 4.29,
+        "peaks": [
+          {
+            "hz": 656,
+            "midiNote": "E5",
+            "cents": -9
+          },
+          {
+            "hz": 236,
+            "midiNote": "A#3",
+            "cents": 22
+          },
+          {
+            "hz": 180,
+            "midiNote": "F#3",
+            "cents": -47
+          },
+          {
+            "hz": 120,
+            "midiNote": "B2",
+            "cents": -49
+          },
+          {
+            "hz": 448,
+            "midiNote": "A4",
+            "cents": 31
+          }
+        ]
+      },
+      {
+        "atSec": 8.28,
+        "peaks": [
+          {
+            "hz": 176,
+            "midiNote": "F3",
+            "cents": 14
+          },
+          {
+            "hz": 308,
+            "midiNote": "D#4",
+            "cents": -17
+          },
+          {
+            "hz": 1364,
+            "midiNote": "F6",
+            "cents": -41
+          },
+          {
+            "hz": 612,
+            "midiNote": "D#5",
+            "cents": -29
+          },
+          {
+            "hz": 1316,
+            "midiNote": "E6",
+            "cents": -3
+          }
+        ]
+      }
+    ],
+    "strongestPeak": {
+      "hz": 644,
+      "midiNote": "E5",
+      "cents": -41
+    },
+    "rates": {
+      "E4": 0.5118,
+      "G4": 0.6087,
+      "B4": 0.7669,
+      "E5": 1.0237
+    }
+  }
+]
