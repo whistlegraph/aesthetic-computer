@@ -1,0 +1,25 @@
+{
+  "schema": "illy/v1",
+  "createdAt": "2026-08-07T07:45:39.515Z",
+  "pipeline": "pop-panel",
+  "provider": "codex-built-in",
+  "model": "gpt-image-2",
+  "mode": "edit",
+  "size": "941x1672",
+  "quality": "high",
+  "output": "/Users/jas/aesthetic-computer/pop/gunbunnies/assets/physical-coast-aim.png",
+  "promptPath": "/Users/jas/aesthetic-computer/pop/gunbunnies/physical-accuracy-manifest.json",
+  "promptHash": "4a1cf9b493062b4bf0176fb55fbd2e2c8a043329f884f0657dbe5fd60f17ac5d",
+  "references": [
+    "/Users/jas/aesthetic-computer/pop/gunbunnies/assets/physical-push-start.png"
+  ],
+  "contracts": [
+    "physical-accuracy",
+    "extreme-physical-beats"
+  ],
+  "stages": [
+    "external-generate",
+    "provenance"
+  ],
+  "note": "Interactively generated from the listed continuity reference(s) with both physical contracts in the effective prompt; the built-in image tool exposed no provider request ID."
+}

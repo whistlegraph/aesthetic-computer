@@ -1,0 +1,145 @@
+{
+  "title": "Gunbunnies: Physical Accuracy Proof",
+  "final": "out/physical-accuracy-proof.mp4",
+  "format": {
+    "width": 720,
+    "height": 1280,
+    "fps": 24,
+    "duration_seconds": 9.458333,
+    "video_codec": "h264",
+    "audio_codec": "aac"
+  },
+  "contracts": [
+    "physical-accuracy",
+    "extreme-physical-beats"
+  ],
+  "keyframe_provider": "Codex built-in image generation",
+  "keyframe_model": "gpt-image-2",
+  "keyframes": [
+    {
+      "image": "assets/physical-push-start.png",
+      "state": "push-start",
+      "prompt": "Vertical 9:16 handmade felt-diorama action keyframe. The recurring white felt bunny with red round glasses rides a red four-wheel skateboard through the same gray felt security corridor, holding the same compact cream felt fantasy gat. Exact start state: front foot bears weight on the deck over the front truck; rear foot is visibly planted on the ground behind the board at the beginning of one push; all four wheels contact the ground; knees and hips balance the forward acceleration; three wall cameras are intact. Keep the support polygon, foot contacts, wheel contacts, grip, direction of travel, and clearance fully visible."
+    },
+    {
+      "image": "assets/physical-coast-aim.png",
+      "state": "coast-aim",
+      "prompt": "Same vertical felt corridor, bunny, red glasses, cream felt gat, and red skateboard. Exact coast state after the push: both feet are planted on the deck over the trucks, all four wheels contact the ground, knees flex for balance, the free arm counters motion, and the gat is raised toward the nearest intact wall camera. No camera has transformed yet. This must join continuously from the push state and into the trigger state without changing identity, count, grip, board, or direction of travel."
+    },
+    {
+      "image": "assets/physical-fire-end.png",
+      "state": "fire-end",
+      "prompt": "Same vertical felt corridor and exact character, prop, board, and travel direction. Exact recoil-settle end state: both feet remain planted on the rolling deck over the trucks, all four wheels stay grounded, the grip remains closed around the compact felt gat, and the body shows a small mechanically credible counter-response. Only the nearest mounted camera has one contained dandelion flower at its lens; its housing and bracket remain attached. The other cameras remain intact."
+    },
+    {
+      "image": "assets/physical-impact-start.png",
+      "state": "impact-start",
+      "prompt": "Vertical target-side macro in the same handmade felt security corridor. The nearest wall camera dominates the foreground with lens intact, housing closed, and bracket visibly mounted. In the background the same bunny continues forward on the same red skateboard, both feet on the deck and wheels on the ground, aiming the same compact cream felt gat along a clear force line toward the lens. No flower, debris, smoke, or completed effect yet."
+    },
+    {
+      "image": "assets/physical-impact-end.png",
+      "state": "impact-end",
+      "prompt": "Exact end state of the target-side macro. Preserve the same camera housing and mounted bracket; a dense contained bouquet of yellow dandelions and white seed heads now grows from inside the lens opening instead of replacing or detaching the camera. The same bunny and red skateboard have moved farther forward down the corridor; both feet remain supported by the deck and the wheels remain grounded. Show settled stems and a few drifting seeds, with no metal debris, smoke, or reset."
+    }
+  ],
+  "motion_provider": "fal.ai",
+  "motion_model": "bytedance/seedance-2.0/fast/image-to-video",
+  "billed_unit_price_usd": 0.0112,
+  "billed_output_units_per_shot": 87.3,
+  "billed_cost_per_shot_usd": 0.97776,
+  "generated_cost_usd": 2.93328,
+  "shots": [
+    {
+      "name": "push-coast",
+      "start_image": "assets/physical-push-start.png",
+      "end_image": "assets/physical-coast-aim.png",
+      "video": "out/physical-push-coast.mp4",
+      "seed": 76401,
+      "request_id": "019fdb15-a7c7-7f02-833e-e4efd2027c1f",
+      "duration_seconds": 4,
+      "physical": "extreme",
+      "beats": [
+        { "at": 0.0, "action": "rear foot contacts ground behind the rolling board" },
+        { "at": 0.2, "action": "rear leg extends and pushes the body and board forward" },
+        { "at": 0.55, "action": "rear foot lifts only after the push completes" },
+        { "at": 0.9, "action": "rear foot lands on the deck over the rear truck" },
+        { "at": 1.4, "action": "both feet settle and the gat rises into aim" }
+      ],
+      "contacts": [
+        "front foot to deck throughout",
+        "rear foot to ground before lift, then rear foot to deck",
+        "four wheels to ground throughout",
+        "firing paw closed around gat"
+      ],
+      "invariants": [
+        "one bunny, one skateboard, one gat, three intact cameras",
+        "continuous forward travel",
+        "no foot teleports and no board detachment"
+      ],
+      "prompt_note": "Normalized production beat map; the submitted prompt also carried the global physical-motion contract."
+    },
+    {
+      "name": "fire-recoil",
+      "start_image": "assets/physical-coast-aim.png",
+      "end_image": "assets/physical-fire-end.png",
+      "video": "out/physical-fire-recoil.mp4",
+      "seed": 76402,
+      "request_id": "019fdb15-ab23-71f2-ba31-282b9a1f25b4",
+      "duration_seconds": 4,
+      "physical": "extreme",
+      "beats": [
+        { "at": 0.0, "action": "both feet bear weight on the deck while the gat is aimed" },
+        { "at": 1.25, "action": "trigger action begins" },
+        { "at": 1.5, "action": "one padded pulse leaves the muzzle" },
+        { "at": 1.65, "action": "arms and torso take a small opposite recoil" },
+        { "at": 2.3, "action": "the nearest camera begins its contained flower response" },
+        { "at": 3.2, "action": "bunny settles without losing deck contact" }
+      ],
+      "contacts": [
+        "both feet to deck throughout",
+        "four wheels to ground throughout",
+        "firing paw to gat throughout"
+      ],
+      "invariants": [
+        "one pulse and one responding camera",
+        "camera bracket remains mounted",
+        "no muzzle flame, bullet, smoke, injury, or reset"
+      ],
+      "prompt_note": "Normalized production beat map; the submitted prompt also carried the global physical-motion contract."
+    },
+    {
+      "name": "impact-bloom",
+      "start_image": "assets/physical-impact-start.png",
+      "end_image": "assets/physical-impact-end.png",
+      "video": "out/physical-impact-bloom.mp4",
+      "seed": 76403,
+      "request_id": "019fdb15-a700-7373-af33-cb0f5e253b68",
+      "duration_seconds": 4,
+      "physical": "extreme",
+      "beats": [
+        { "at": 0.0, "action": "intact lens and mounted bracket establish the target" },
+        { "at": 0.45, "action": "lens surface compresses inward from the incoming pulse" },
+        { "at": 0.9, "action": "one green stem emerges through the lens opening" },
+        { "at": 1.35, "action": "yellow flowers open from the stem" },
+        { "at": 2.1, "action": "white seed heads mature and release seeds" },
+        { "at": 3.0, "action": "the mounted bouquet settles while the bunny moves farther forward" }
+      ],
+      "contacts": [
+        "camera housing to bracket and bracket to wall throughout",
+        "both bunny feet to deck",
+        "skateboard wheels to ground"
+      ],
+      "invariants": [
+        "the bouquet grows from inside the existing lens opening",
+        "the camera does not detach or reset",
+        "background travel continues forward"
+      ],
+      "prompt_note": "Normalized production beat map; the submitted prompt also carried the global physical-motion contract."
+    }
+  ],
+  "edit": [
+    { "shot": "push-coast", "source_in": 0.0, "source_out": 3.1 },
+    { "shot": "fire-recoil", "source_in": 0.0, "source_out": 2.3 },
+    { "shot": "impact-bloom", "source_in": 0.0, "source_out": 4.0 }
+  ]
+}

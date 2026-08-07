@@ -1,0 +1,49 @@
+{
+  "title": "The Dandelion Rifle",
+  "final": "out/dandelion-rifle-multipov.mp4",
+  "format": {
+    "width": 720,
+    "height": 1280,
+    "fps": 24,
+    "duration_seconds": 8,
+    "video_codec": "h264",
+    "audio_codec": "aac"
+  },
+  "provider": "fal.ai",
+  "model": "bytedance/seedance-2.0/fast/image-to-video",
+  "rate_per_second_usd": 0.2419,
+  "shots": [
+    {
+      "name": "range-wide",
+      "image": "assets/dandelion-rifle-first-frame.png",
+      "video": "out/dandelion-rifle.mp4",
+      "seed": 74219,
+      "duration_seconds": 8,
+      "prompt": "The camera remains completely locked in this exact vertical side-view composition. Hold the handcrafted needle-felted texture and the bunny's exact identity, proportions, two ears, two eyes, and red glasses. For the first second the bunny aims calmly; only a tiny breath and slight ear twitch. He gently squeezes the trigger once. The fantasy felt rifle makes one soft mechanical click and a restrained woolly pop; no bullet, flame, smoke, damage, or recoil. The circular felt target instantly germinates: slender green felt stems push out around it, yellow dandelions bloom, then become round white seed heads in a quick magical wave. The target remains recognizable inside the flowers. White dandelion seeds drift left through the still morning air. One seed lands delicately on the outside of one red glasses rim. The bunny blinks once, staying grave and professional. End on a clean two-second hold. Natural miniature foley only: quiet breeze, felt mechanism click, soft pop, rapid leafy rustle, airy seed flutter. No music, speech, captions, text, camera movement, cuts, extra characters, realistic violence, or object morphing other than the target's dandelion growth."
+    },
+    {
+      "name": "bunny-pov",
+      "image": "assets/dandelion-rifle-pov.png",
+      "video": "out/dandelion-rifle-pov.mp4",
+      "seed": 74220,
+      "duration_seconds": 4,
+      "prompt": "First-person bunny POV, camera attached to his eyes and mostly steady. The two felt paws tense around the fantasy wool rifle. After one second the trigger finger gently squeezes; the rifle gives one sharp, compact backward jolt and a forceful woolly air pulse races straight downrange with no bullet, flame, or smoke. The distant circular target suddenly detonates outward into an enormous radial eruption of green felt stems, bright yellow dandelions, white seed heads, and thousands of airborne white seeds surging toward camera. Strong explosive acceleration and rushing depth, while preserving the handmade needle-felted world and exact rifle geometry. Natural action foley: mechanical trigger click, deep padded thump, fast floral whoosh, dense seed flutter. No music, speech, text, cuts, UI, realistic violence, damage, or extra characters."
+    },
+    {
+      "name": "target-impact",
+      "image": "assets/dandelion-rifle-impact.png",
+      "video": "out/dandelion-rifle-impact.mp4",
+      "seed": 74221,
+      "duration_seconds": 4,
+      "prompt": "Locked target-side macro camera. Hold for half a second, then the circular felt target erupts from its center in a spectacular radial botanical explosion: concentric rings bulge, split into hundreds of fast-growing green felt stems, yellow dandelions burst open, instantly mature into large white seed heads, and the white seeds blast past the lens in dense slow-motion layers. The target is transformed by flowers, never shattered. The distant bunny and rifle remain recognizable and stable in soft focus behind it. Make the eruption powerful, elaborate, tactile, and volumetric, with a strong outward shockwave through the grass but no fire, smoke, bullet, debris, injury, or damage. Natural miniature action foley: tight trigger crack from distance, huge padded floral boom, stems unfurling, seeds rushing past microphone. No music, speech, text, camera movement, cuts, extra characters, or realistic violence."
+    },
+    {
+      "name": "reaction",
+      "image": "assets/dandelion-rifle-reaction.png",
+      "video": "out/dandelion-rifle-reaction.mp4",
+      "seed": 74222,
+      "duration_seconds": 4,
+      "prompt": "Locked extreme close-up of the exact felt bunny after the shot. He remains grave and professional with the fantasy felt rifle lowered. A fast-moving wall of hundreds of white dandelion seeds arrives from frame right and curls around his head in layered spirals, energetic at first and then settling. Several seeds catch on the outside of both red glasses rims and in his fuzzy wool; keep both eyes visible inside the lenses. His two long ears snap backward from the soft air shockwave, then slowly return; he blinks once and gives the tiniest satisfied nod. Preserve exact identity, facial geometry, wool texture, glasses, and rifle. Natural foley: rushing seeds, soft impacts on wool, one quiet blink, breeze fading. No music, speech, text, camera movement, cuts, extra characters, morphing, injury, or realistic violence."
+    }
+  ]
+}

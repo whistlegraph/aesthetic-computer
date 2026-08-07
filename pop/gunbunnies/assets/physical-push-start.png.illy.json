@@ -1,0 +1,25 @@
+{
+  "schema": "illy/v1",
+  "createdAt": "2026-08-07T07:45:39.509Z",
+  "pipeline": "pop-panel",
+  "provider": "codex-built-in",
+  "model": "gpt-image-2",
+  "mode": "edit",
+  "size": "941x1672",
+  "quality": "high",
+  "output": "/Users/jas/aesthetic-computer/pop/gunbunnies/assets/physical-push-start.png",
+  "promptPath": "/Users/jas/aesthetic-computer/pop/gunbunnies/physical-accuracy-manifest.json",
+  "promptHash": "c9a9e64755b7512cad625434e0c268919204e481f7b3c1d970fe317012775589",
+  "references": [
+    "/Users/jas/aesthetic-computer/pop/gunbunnies/assets/skate-cameras-tracking.png"
+  ],
+  "contracts": [
+    "physical-accuracy",
+    "extreme-physical-beats"
+  ],
+  "stages": [
+    "external-generate",
+    "provenance"
+  ],
+  "note": "Interactively generated from the listed continuity reference(s) with both physical contracts in the effective prompt; the built-in image tool exposed no provider request ID."
+}

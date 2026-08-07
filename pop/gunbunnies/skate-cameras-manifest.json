@@ -1,0 +1,50 @@
+{
+  "title": "Skate Cameras",
+  "final": "out/skate-cameras-action.mp4",
+  "format": {
+    "width": 720,
+    "height": 1280,
+    "fps": 24,
+    "duration_seconds": 8.916667,
+    "video_codec": "h264",
+    "audio_codec": "aac"
+  },
+  "keyframe_provider": "OpenAI built-in image generation",
+  "motion_provider": "fal.ai",
+  "motion_model": "bytedance/seedance-2.0/fast/image-to-video",
+  "rate_per_second_usd": 0.2419,
+  "shots": [
+    {
+      "name": "tracking",
+      "image": "assets/skate-cameras-tracking.png",
+      "video": "out/skate-cameras-tracking.mp4",
+      "seed": 75301,
+      "duration_seconds": 4,
+      "prompt": "Fast side-tracking action shot. The camera dollies smoothly alongside at exactly the bunny's speed while the miniature corridor pavement and wall stream backward with strong layered parallax. The red skateboard rolls continuously left-to-right, all four cream wheels spinning rapidly, deck vibrating over felt pavement; both feet stay planted, knees flex naturally, free paw balances, two long ears and wool fibers stream backward. While rolling, the calm bunny pops the three overhead security cameras in quick succession with the compact fantasy felt gat: three restrained padded pulses, no bullets or flame. Each camera transforms in place into a spectacular outward flower burst—first yellow dandelions, then white seed heads and petals trailing behind—without metal debris or ordinary damage. Crisp readable bunny and board, energetic background, no camera shake. Action foley: skateboard wheel hum and rattles, three soft punchy pops, rapid floral whooshes, petals in wind. No music, speech, text, realistic gunfire, smoke, injury, extra characters, board detachment, or identity drift."
+    },
+    {
+      "name": "wheel",
+      "image": "assets/skate-cameras-wheel.png",
+      "video": "out/skate-cameras-wheel.mp4",
+      "seed": 75302,
+      "duration_seconds": 4,
+      "prompt": "Extreme low wheel-level tracking action. The cream felt skateboard wheel in the foreground spins extremely fast with believable axle rotation; the red deck flexes slightly, both bunny feet remain firmly planted, knees absorb tiny pavement bumps. Ground fibers race toward and under camera with strong speed parallax while the wall-mounted security cameras whip past above. The bunny holds the compact dandelion gat steady and balanced. Near the end, flower explosions bloom overhead out of frame and showers of yellow petals and white seeds streak down behind the moving board. Maintain exact handmade felt geometry and physical contact. Rich foley: fast urethane-like felt wheel rumble, trucks rattling, rushing air, distant padded flower pops, petals skittering. No music, speech, text, muzzle flash, bullet, smoke, injury, extra wheels, detached board, duplicate limbs, or camera cuts."
+    },
+    {
+      "name": "security-pov",
+      "image": "assets/skate-cameras-security-pov.png",
+      "video": "out/skate-cameras-security-pov.mp4",
+      "seed": 75303,
+      "duration_seconds": 4,
+      "prompt": "This is the security camera's own high fisheye POV. The bunny approaches rapidly on the moving red skateboard; wheels turn, corridor flows beneath him, ears stream backward, and he keeps perfect balance. He raises the compact felt gat toward the lens and fires one soft magical pulse. No bullet, flame, or smoke. At impact the viewpoint itself becomes botanical: hairline green felt stems race across the lens from the center, yellow dandelions burst open around the image edges, then huge white seed heads erupt directly through the viewpoint until airborne seeds completely engulf the frame. The transformation feels explosive and forward, not a dissolve. Physical wide-angle motion, no digital UI. Audio: rolling wheels approach, compact padded pop, lens-rushing floral boom, dense seeds brushing microphone. No music, speech, text, timestamp, crosshair, realistic gunfire, breakage, injury, extra bunny, or cut."
+    },
+    {
+      "name": "impact",
+      "image": "assets/skate-cameras-impact.png",
+      "video": "out/skate-cameras-impact.mp4",
+      "seed": 75304,
+      "duration_seconds": 4,
+      "prompt": "Locked extreme macro impact shot on the intact foreground felt security camera while the bunny rolls quickly past below in soft focus on the red skateboard. After half a second, one compact padded pulse arrives from the fantasy gat with no visible bullet, flame, or smoke. The camera does not shatter: its dark lens irises open into a yellow dandelion, green felt stems punch outward through the cream housing in a powerful radial wave, dozens of yellow blooms appear, instantly mature into white seed heads, and thousands of seeds blast past the macro lens. The bracket remains mounted beneath a dense bouquet. Background bunny, skateboard, two ears, and red glasses keep moving smoothly through frame with strong parallax. Tactile botanical explosion, no debris. Audio: rolling board, soft trigger pop, huge padded flower burst, stems creaking, seeds rushing. No music, speech, text, realistic violence, smoke, injury, extra character, camera shake, or cuts."
+    }
+  ]
+}
