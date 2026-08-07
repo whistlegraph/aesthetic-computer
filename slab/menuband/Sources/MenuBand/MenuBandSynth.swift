@@ -136,17 +136,19 @@ final class MenuBandSynth {
     /// far; this does the opposite: as the gesture pulls left it narrows the
     /// band (lifts the low cutoff, drops the high cutoff) so the sound
     /// shrinks and pulls in CLOSE — a tiny pocket-radio / cupped-hands
-    /// timbre. Flat + bypassed at center so parked-left is identical to dry.
+    /// timbre. It stays live at neutral settings instead of toggling bypass
+    /// during a gesture; changing an Audio Unit's bypass state mid-render can
+    /// introduce a discontinuity across the entire mix.
     private let proximityEQ: AVAudioUnitEQ = {
         let eq = AVAudioUnitEQ(numberOfBands: 2)
         let hp = eq.bands[0]
         hp.filterType = .highPass
-        hp.frequency = 40
-        hp.bypass = true
+        hp.frequency = 20
+        hp.bypass = false
         let lp = eq.bands[1]
         lp.filterType = .lowPass
-        lp.frequency = 18_000
-        lp.bypass = true
+        lp.frequency = 20_000
+        lp.bypass = false
         eq.globalGain = 0
         return eq
     }()
@@ -210,7 +212,7 @@ final class MenuBandSynth {
     /// scheduling jitter, so it popped constantly. 5.3 ms is still well below
     /// the perceptual threshold for a keyboard instrument; bump it back down
     /// only on a machine with headroom to spare.
-    private static let targetIOBufferFrames: UInt32 = 128
+    private static let targetIOBufferFrames: UInt32 = 512
     /// True once we've successfully taken hog mode on the active
     /// output device. Tracks the device ID alongside so we can
     /// release the right one on shutdown / device switch.
@@ -857,22 +859,15 @@ final class MenuBandSynth {
     /// (and the spring-back ramp) feeds it.
     func setSpace(_ amount: Float) {
         let p = max(0, min(1, amount))
+        guard abs(p - proximityAmount) >= 0.0005 else { return }
+        proximityAmount = p
         let hp = proximityEQ.bands[0]
         let lp = proximityEQ.bands[1]
-        if p <= 0.001 {
-            // Fully open / flat — identical to before the node existed.
-            hp.bypass = true
-            lp.bypass = true
-            proximityEQ.globalGain = 0
-            return
-        }
-        hp.bypass = false
-        lp.bypass = false
         // Lift the low cutoff (drop the body) and pull the high cutoff down
         // (drop the air) so the band closes toward a small midrange window
         // as the gesture pushes left — the "shrinking, coming closer" cue.
-        hp.frequency = 40 + p * (1_000 - 40)
-        lp.frequency = 18_000 - p * (18_000 - 2_800)
+        hp.frequency = 20 + p * (1_000 - 20)
+        lp.frequency = 20_000 - p * (20_000 - 2_800)
         // A little make-up gain so "closer" reads as present and intimate
         // rather than just thin and distant.
         proximityEQ.globalGain = p * 2.0
@@ -887,6 +882,7 @@ final class MenuBandSynth {
     /// master path, so it's independent of the selected instrument.
     func setEcho(_ amount: Float) {
         let a = max(0, min(1, amount))
+        guard abs(a - echoAmount) >= 0.0005 else { return }
         echoAmount = a
         // ≤45% wet keeps the dry transient clearly on top of the tail.
         echo.wetDryMix = a * 45
@@ -894,6 +890,7 @@ final class MenuBandSynth {
         echo.feedback = a * 78
     }
     private var echoAmount: Float = 0
+    private var proximityAmount: Float = 0
     var currentEcho: Float { echoAmount }
 
     /// Speak a short phrase through the fx bus (About-window language
