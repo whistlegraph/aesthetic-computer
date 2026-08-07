@@ -108,6 +108,14 @@ export async function handler(event) {
       await runs.updateOne(
         { pieceId },
         {
+          $setOnInsert: {
+            pieceId,
+            bootId: meta.bootId || null,
+            slug: meta.slug || null,
+            createdAt: now,
+            meta,
+            server,
+          },
           $set: { updatedAt: now, status: "error", error: data },
         },
         { upsert: true },

@@ -307,12 +307,47 @@
         context.fillText(lines[index], x, y + index * size * 1.15);
     }
 
+    let clientErrorReportStatus = "";
+    let clientErrorSequence = 0;
+    const errorReportDelay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+    async function postClientError(message) {
+      const sequence = ++clientErrorSequence;
+      const pieceId = `web-oskiewar-${Date.now()}-${sequence}`;
+      let data;
+      try { data = JSON.parse(String(message)); }
+      catch { data = { message: String(message), stack: null }; }
+      for (let attempt = 0; ; attempt++) {
+        clientErrorReportStatus = `${attempt ? "retrying server post" : "posting to server"} ${pieceId}`;
+        try {
+          const response = await fetch("/api/piece-log", {
+            method: "POST", headers: { "content-type": "application/json" },
+            body: JSON.stringify({ pieceId, phase: "error",
+              meta: { slug: "oskiewar", host: location.host,
+                platform: capabilities().platform, build: "cross-platform" },
+              data }),
+          });
+          if (response.ok) {
+            clientErrorReportStatus = `posted to server ${pieceId}`;
+            return;
+          }
+        } catch {}
+        clientErrorReportStatus = `retrying server post ${pieceId}`;
+        await errorReportDelay(Math.min(30000, 750 * 2 ** Math.min(attempt, 5)));
+      }
+    }
+
     function runtime() {
       return { monotonicUs: performance.now() * 1000, unixMs: Date.now(),
         audioLatencyMs: audioContext?.baseLatency ? audioContext.baseLatency * 1000 : 0,
-        frameRate: 60 };
+        frameRate: 60, clientErrorReportStatus };
     }
-    function telemetry(kind, message) { console.debug(kind, message); }
+    function telemetry(kind, message) {
+      console.debug(kind, message);
+      if (kind === "CLIENT_ERROR" && !clientErrorReportStatus) {
+        clientErrorReportStatus = "queued for server";
+        void postClientError(message);
+      }
+    }
 
     function browserPad(index) {
       const source = navigator.getGamepads?.()[index];

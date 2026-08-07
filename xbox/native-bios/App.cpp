@@ -349,12 +349,21 @@ public:
     };
     m_sound->get_rate = [this]() { return static_cast<int>(m_sampleRate); };
     m_api = std::make_unique<Api>(Api{{1920, 1080, 1}, {}, {}, {}, *m_graphics, *m_sound, {}});
-    m_api->system.version = "1.0.0.36";
-    m_api->telemetry = [](std::string_view line) {
+    m_api->system.version = "1.0.0.38";
+    m_api->telemetry = [this](std::string_view line) {
       std::string safe(line);
       for (auto& character : safe) if (character == '\n' || character == '\r') character = ' ';
-      if (safe.size() > 1024) safe.resize(1024);
+      constexpr std::string_view prefix = "JS CLIENT_ERROR ";
+      const bool clientError = safe.rfind(prefix, 0) == 0;
+      if (safe.size() > (clientError ? 8192u : 1024u))
+        safe.resize(clientError ? 8192u : 1024u);
       LogTelemetry("AC_NATIVE_" + safe);
+      if (clientError)
+        QueueClientErrorUpload(safe.substr(prefix.size()));
+    };
+    m_api->client_error_report_status = [this]() {
+      std::lock_guard<std::mutex> lock(m_clientErrorMutex);
+      return m_clientErrorStatus;
     };
     m_api->game_signal = [this](std::string_view event, int player, float value,
         float value2) {
@@ -410,6 +419,7 @@ public:
     if (!m_supervisor->stage({"smoke", "bundled-v1", kSmokePiece, "bundled"}, *m_api, error) ||
         !m_supervisor->activate(*m_api)) {
       OutputDebugStringA(("AC_NATIVE_BIOS_BOOT_ERROR " + error + "\n").c_str());
+      QueueClientErrorUpload("native boot: " + error);
     } else {
       OutputDebugStringA("AC_NATIVE_BIOS_READY engine=quickjs-ng piece=smoke\n");
       LogTelemetry("AC_NATIVE_BIOS_READY engine=quickjs-ng piece=smoke");
@@ -421,7 +431,8 @@ public:
   virtual void Uninitialize() {
     if (m_api) m_api->live_publish = {};
     if (m_oskiewarLive) m_oskiewarLive->shutdown();
-    DestroyReplayUploads(); DestroyGameSignals(); DestroyNetworkMidi(); DestroyMidi(); DestroyAudio();
+    DestroyClientErrorUploads(); DestroyReplayUploads(); DestroyGameSignals();
+    DestroyNetworkMidi(); DestroyMidi(); DestroyAudio();
   }
 
   virtual void Run() {
@@ -442,6 +453,7 @@ public:
       PollLivePiece();
       FlushGameSignals();
       FlushReplayUploads();
+      FlushClientErrorUploads();
       RefreshClock();
       RefreshAudioPerformance();
       m_frameRects.clear();
@@ -467,6 +479,7 @@ public:
         } catch (const std::exception& error) {
           OutputDebugStringA((std::string("AC_NATIVE_BIOS_JS_ERROR ") + error.what() + "\n").c_str());
           LogTelemetry(std::string("AC_NATIVE_BIOS_JS_ERROR ") + error.what());
+          QueueClientErrorUpload(std::string("native lifecycle: ") + error.what());
           m_supervisor->rollback(*m_api);
         }
       }
@@ -1364,6 +1377,87 @@ private:
       });
   }
 
+  void QueueClientErrorUpload(std::string detail) {
+    if (detail.empty()) detail = "unknown client error";
+    if (detail.size() > 7000) detail.resize(7000);
+    const auto sequence = ++m_clientErrorSequence;
+    const auto pieceId = "xbox-oskiewar-" + std::to_string(GetTickCount64()) +
+      "-" + std::to_string(sequence);
+    auto root = ref new JsonObject();
+    root->SetNamedValue(L"pieceId", JsonValue::CreateStringValue(
+      ref new String(Wide(pieceId).c_str())));
+    root->SetNamedValue(L"phase", JsonValue::CreateStringValue(
+      ref new String(L"error")));
+    auto meta = ref new JsonObject();
+    meta->SetNamedValue(L"slug", JsonValue::CreateStringValue(
+      ref new String(L"oskiewar")));
+    meta->SetNamedValue(L"host", JsonValue::CreateStringValue(
+      ref new String(L"xbox-native")));
+    meta->SetNamedValue(L"platform", JsonValue::CreateStringValue(
+      ref new String(L"xbox")));
+    meta->SetNamedValue(L"build", JsonValue::CreateStringValue(
+      ref new String(Wide(m_api ? m_api->system.version : "unknown").c_str())));
+    root->SetNamedValue(L"meta", meta);
+    auto data = ref new JsonObject();
+    data->SetNamedValue(L"message", JsonValue::CreateStringValue(
+      ref new String(Wide(detail).c_str())));
+    data->SetNamedValue(L"stack", JsonValue::CreateNullValue());
+    root->SetNamedValue(L"data", data);
+    const auto payload = Utf8(root->Stringify());
+    std::lock_guard<std::mutex> lock(m_clientErrorMutex);
+    if (m_clientErrorQueue.size() >= 8) m_clientErrorQueue.pop_front();
+    m_clientErrorQueue.push_back({payload, pieceId});
+    m_clientErrorStatus = "queued for server " + pieceId;
+  }
+
+  void FlushClientErrorUploads() {
+    if (m_clientErrorWriteInFlight.load()) return;
+    std::pair<std::string, std::string> report;
+    {
+      std::lock_guard<std::mutex> lock(m_clientErrorMutex);
+      if (m_clientErrorQueue.empty()) return;
+      report = std::move(m_clientErrorQueue.front());
+      m_clientErrorQueue.pop_front();
+      m_clientErrorStatus = "posting to server " + report.second;
+    }
+    bool expected = false;
+    if (!m_clientErrorWriteInFlight.compare_exchange_strong(expected, true)) return;
+    auto client = ref new HttpClient();
+    auto content = ref new HttpStringContent(
+      ref new String(Wide(report.first).c_str()), UnicodeEncoding::Utf8,
+      ref new String(L"application/json"));
+    auto uri = ref new Uri(L"https://aesthetic.computer/api/piece-log");
+    create_task(client->PostAsync(uri, content)).then(
+      [this, client, content, report](task<HttpResponseMessage^> completed) {
+        bool retry = false;
+        try {
+          const auto response = completed.get();
+          retry = !response->IsSuccessStatusCode;
+          LogTelemetry(std::string("AC_NATIVE_CLIENT_ERROR_POST status=") +
+            std::to_string(static_cast<int>(response->StatusCode)));
+        } catch (Exception^ error) {
+          retry = true;
+          LogTelemetry("AC_NATIVE_CLIENT_ERROR_POST_ERROR " + Utf8(error->Message));
+        }
+        if (retry) {
+          std::lock_guard<std::mutex> lock(m_clientErrorMutex);
+          if (m_clientErrorQueue.size() < 8) m_clientErrorQueue.push_front(report);
+          m_clientErrorStatus = "retrying server post " + report.second;
+        } else {
+          std::lock_guard<std::mutex> lock(m_clientErrorMutex);
+          m_clientErrorStatus = "posted to server " + report.second;
+        }
+        m_clientErrorWriteInFlight = false;
+        if (!retry) FlushClientErrorUploads();
+      });
+  }
+
+  void DestroyClientErrorUploads() {
+    std::lock_guard<std::mutex> lock(m_clientErrorMutex);
+    m_clientErrorQueue.clear();
+    m_clientErrorStatus.clear();
+  }
+
   void DestroyReplayUploads() {
     if (m_api) m_api->replay_save = {};
     std::lock_guard<std::mutex> lock(m_replayMutex);
@@ -1714,7 +1808,7 @@ private:
     if (!m_networkClockRequestInFlight.compare_exchange_strong(expected, true)) return;
     const auto sentAt = SystemUnixMs();
     auto client = ref new HttpClient();
-    client->DefaultRequestHeaders->UserAgent->ParseAdd("OSKIEWAR/1.0.0.36 Xbox ClockSync");
+    client->DefaultRequestHeaders->UserAgent->ParseAdd("OSKIEWAR/1.0.0.38 Xbox ClockSync");
     create_task(client->GetStringAsync(
       ref new Uri(L"https://aesthetic.computer/api/clock")))
       .then([this, client, sentAt](task<String^> completed) {
@@ -1821,7 +1915,7 @@ private:
     if (!m_acRequestInFlight.compare_exchange_strong(expected, true)) return;
 
     auto client = ref new HttpClient();
-    client->DefaultRequestHeaders->UserAgent->ParseAdd("OSKIEWAR/1.0.0.36 Xbox");
+    client->DefaultRequestHeaders->UserAgent->ParseAdd("OSKIEWAR/1.0.0.38 Xbox");
     std::vector<task<String^>> requests;
     const auto safeGet = [client](const std::wstring& url) {
       return create_task(client->GetStringAsync(ref new Uri(ref new String(url.c_str()))))
@@ -2061,6 +2155,7 @@ private:
                              *m_api, error) || !m_supervisor->activate(*m_api)) {
       for (auto& character : error) if (character == '\n' || character == '\r') character = ' ';
       LogTelemetry("AC_NATIVE_LIVE_REJECT reason=" + error);
+      QueueClientErrorUpload("live deploy rejected: " + error);
       return;
     }
     m_loggedTextFrame = false;
@@ -2521,6 +2616,11 @@ private:
   std::atomic_bool m_replayWriteInFlight{false};
   std::atomic_uint64_t m_replaysUploaded{0};
   std::atomic_uint64_t m_replaysDropped{0};
+  std::mutex m_clientErrorMutex;
+  std::deque<std::pair<std::string, std::string>> m_clientErrorQueue;
+  std::string m_clientErrorStatus;
+  std::atomic_bool m_clientErrorWriteInFlight{false};
+  std::atomic_uint64_t m_clientErrorSequence{0};
   std::vector<int16_t> m_samples;
   std::vector<int16_t> m_oscSamples;
   std::vector<uint32_t> m_cpuFrame;

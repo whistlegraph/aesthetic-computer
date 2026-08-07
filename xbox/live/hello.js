@@ -1,5 +1,5 @@
 // @bundle-qr
-const buildTimestamp = "2026.08.06.2245 PDT";
+const buildTimestamp = "2026.08.06.2330 PDT";
 const floorY = 12000;
 const ceilingY = 0;
 const wallThickness = 80;
@@ -266,7 +266,7 @@ const players = [
     attackUntil: 0, attackHit: false, blocking: false, blockFlash: 0,
     windVx: 0, knockVx: 0, gunAmmo: 0, grenadeAmmo: 0, stance: "NEUTRAL",
     heldBall: -1, grabHeld: false, crouchBlend: 0, standingOn: -1,
-    partDamage: {}, removedParts: [], pogoHit: false,
+    partDamage: {}, removedParts: [], pogoHit: false, pogoDive: false,
     commandStream: [],
     jumpLaunchAt: 0, jumpPoseUntil: 0, landPoseUntil: 0 },
   { name: "@OSKIE", rosterIndex: 2, handleColors: fighterRoster[2].colors,
@@ -283,7 +283,7 @@ const players = [
     attackUntil: 0, attackHit: false, blocking: false, blockFlash: 0,
     windVx: 0, knockVx: 0, gunAmmo: 0, grenadeAmmo: 0, stance: "NEUTRAL",
     heldBall: -1, grabHeld: false, crouchBlend: 0, standingOn: -1,
-    partDamage: {}, removedParts: [], pogoHit: false,
+    partDamage: {}, removedParts: [], pogoHit: false, pogoDive: false,
     commandStream: [],
     jumpLaunchAt: 0, jumpPoseUntil: 0, landPoseUntil: 0 },
 ];
@@ -302,16 +302,19 @@ for (const pickup of [...gunPickups, ...grenadePickups]) {
   pickup.respawnAt = 0;
 }
 const ballKinds = [
-  { type: "soccer", radius: 38, mass: .72, hitScale: 1.12,
+  { type: "soccer", spawnOwner: 0, radius: 38, mass: .72, hitScale: 1.12,
     bounce: .58, drag: .994, windFactor: .58 },
-  { type: "basketball", radius: 42, mass: 1.08, hitScale: .86,
+  { type: "basketball", spawnOwner: 1, radius: 42, mass: 1.08, hitScale: .86,
     bounce: .76, drag: .989, windFactor: .34 },
+  { type: "beach", spawnOwner: -1, radius: 46, mass: .34, hitScale: 1.25,
+    bounce: .82, drag: .998, windFactor: 1.35, gravityFactor: .62 },
 ];
-const balls = ballKinds.map((kind, spawnOwner) => ({
-  ...kind, x: players[spawnOwner].spawnX, y: floorY - kind.radius,
+const balls = ballKinds.map((kind) => ({
+  ...kind, x: kind.spawnOwner >= 0 ? players[kind.spawnOwner].spawnX : 6000,
+  y: kind.spawnOwner >= 0 ? floorY - kind.radius : platformY - 760,
   z: 0, vx: 0, vy: 0, active: true, serveAt: 0,
-  lastHitBy: spawnOwner, safeUntil: 0, safePlayers: 0,
-  spawnOwner, rotation: 0, heldBy: -1,
+  lastHitBy: kind.spawnOwner, safeUntil: 0, safePlayers: 0,
+  rotation: 0, heldBy: -1,
 }));
 // Version-one replay/spectator consumers still read the first ball by name.
 const ball = balls[0];
@@ -338,6 +341,9 @@ let touchSelectPad = 0;
 let windMph = 0;
 let windDirection = 1;
 let windAcceleration = 0;
+let windTargetMph = 0;
+let windTargetDirection = 1;
+let nextWindChangeAt = 0;
 let replay = null;
 let replayLastCommand = [-1, -1];
 let replayNextCheckpointAt = 0;
@@ -350,6 +356,7 @@ let instantReplay = null;
 let replayOfferPrevious = [];
 let shellMode = "MENU";
 let shellPrevious = [];
+let titleTransitionAt = -1;
 let navigationPrevious = [[], []];
 // Temporary live combat inspector. Keep this explicit so the production view
 // can return to a clean presentation without changing combat geometry.
@@ -389,7 +396,7 @@ function demoTick(now) {
 }
 
 function trackMatchStarted() {
-  if (typeof analytics !== "function") return;
+  if (!roundIsTimed() || typeof analytics !== "function") return;
   const device = typeof capabilities === "function" ? capabilities() : {};
   const platform = String(device.platform || "").toLowerCase();
   const surface = platform === "xbox-uwp" || platform === "xbox"
@@ -409,6 +416,14 @@ function trackMatchStarted() {
 
 function startReplay(now) {
   const run = runtime();
+  if (!roundIsTimed()) {
+    seriesName = "";
+    matchName = "";
+    previousRoundName = "";
+    replay = null;
+    spectatorQr = null;
+    return;
+  }
   seriesName = pronounceableMatchName();
   matchName = "";
   previousRoundName = "";
@@ -476,7 +491,8 @@ function spectatorState(now, nextRoundId = "") {
 
 function publishSpectator(now, { target = matchName, nextRoundId = "",
   force = false } = {}) {
-  if (!target || livePublishFailed || typeof publishLive !== "function" ||
+  if (!roundIsTimed() || !target || livePublishFailed ||
+      typeof publishLive !== "function" ||
       (!force && now < liveNextAt)) return;
   liveNextAt = now + 50000;
   try {
@@ -719,20 +735,90 @@ function playDrum(name, velocity = 1, pan = 0) {
 }
 
 let clientError = "";
+let clientErrorDetail = null;
+
+function clientStateDump() {
+  try {
+    const run = runtime();
+    return {
+      build: buildTimestamp,
+      shell: shellMode,
+      round: {
+        id: matchName || "local",
+        result: roundResult || "active",
+        elapsedMs: Math.round(roundElapsedUs / 1000),
+      },
+      runtime: {
+        sim: Number(run?.simCount || 0),
+        paint: Number(run?.paintCount || 0),
+        unixMs: Number(run?.unixMs || 0),
+      },
+      camera: {
+        x: Math.round(cameraCenter), y: Math.round(cameraCenterY),
+        width: Math.round(cameraWidth), aspect: Math.round(cameraAspect * 1000) / 1000,
+      },
+      players: players.map((player) => ({
+        handle: player.name, stance: player.stance, alive: player.alive,
+        x: Math.round(player.x), y: Math.round(player.y), z: Math.round(player.z),
+        vx: Math.round(player.vx), vy: Math.round(player.vy),
+        input: [player.inputX, player.inputY],
+        removed: player.removedParts?.slice() || [],
+      })),
+      balls: balls.filter((item) => item.active).map((item) => ({
+        type: item.type, x: Math.round(item.x), y: Math.round(item.y),
+        vx: Math.round(item.vx), vy: Math.round(item.vy), heldBy: item.heldBy,
+      })),
+    };
+  } catch (error) {
+    return { dumpError: String(error?.message || error || "state unavailable") };
+  }
+}
+
+function errorSource(stack) {
+  const match = String(stack || "").match(
+    /(?:\(|\s|^)((?:[a-z]+:\/\/)?[^\s()]+):(\d+):(\d+)\)?/i);
+  return match ? { file: match[1], line: Number(match[2]), column: Number(match[3]) }
+    : null;
+}
 
 function captureClientError(phase, error) {
-  const detail = error && (error.stack || error.message)
-    ? String(error.stack || error.message) : String(error || "unknown error");
-  clientError = (phase + ": " + detail)
+  if (clientErrorDetail) return;
+  const stack = error?.stack ? String(error.stack) : "";
+  const message = error?.message ? String(error.message)
+    : String(error || "unknown error");
+  const name = String(error?.name || "Error");
+  const state = clientStateDump();
+  clientErrorDetail = {
+    phase: String(phase || "runtime"), name, message, stack,
+    source: errorSource(stack), state,
+    reportStatus: "queued for server",
+  };
+  const detail = stack || (name + ": " + message);
+  clientError = (clientErrorDetail.phase + ": " + detail)
     .replace(/[^\x20-\x7e]+/g, " ").replace(/\s+/g, " ").trim();
-  try { telemetry("CLIENT_ERROR", clientError); } catch (_) {}
+  try {
+    telemetry("CLIENT_ERROR", JSON.stringify({
+      phase: clientErrorDetail.phase, name, message, stack,
+      source: clientErrorDetail.source, state,
+    }));
+  } catch (_) {
+    clientErrorDetail.reportStatus = "local report only";
+  }
 }
 
 function clientErrorLines(text, limit = 58) {
   const words = String(text).split(" ");
   const lines = [];
   let line = "";
-  for (const word of words) {
+  for (let word of words) {
+    if (word.length > limit) {
+      if (line) { lines.push(line); line = ""; }
+      while (word.length > limit) {
+        lines.push(word.slice(0, limit));
+        word = word.slice(limit);
+      }
+      if (!word) continue;
+    }
     if (!line) line = word;
     else if (line.length + word.length + 1 <= limit) line += " " + word;
     else { lines.push(line); line = word; }
@@ -751,6 +837,34 @@ function errorTypeWrite(text, x, y, size, ...color) {
   }
 }
 
+function errorReportStatus() {
+  try {
+    const status = String(runtime()?.clientErrorReportStatus || "").trim();
+    if (status) return status;
+  } catch (_) {}
+  return clientErrorDetail?.reportStatus || "queued for server";
+}
+
+function stateDumpLines(state) {
+  if (!state) return ["state unavailable"];
+  if (state.dumpError) return ["state unavailable: " + state.dumpError];
+  const playerLine = (player, index) => "p" + (index + 1) + " " +
+    player.handle + " " + player.stance.toLowerCase() +
+    " pos " + player.x + "," + player.y + "," + player.z +
+    " vel " + player.vx + "," + player.vy +
+    (player.removed?.length ? " lost " + player.removed.join(",") : "");
+  return [
+    "build " + state.build,
+    "mode " + state.shell.toLowerCase() + "  round " + state.round.id +
+      "  " + state.round.result.toLowerCase() + "  " + state.round.elapsedMs + "ms",
+    "camera " + state.camera.x + "," + state.camera.y +
+      "  width " + state.camera.width + "  aspect " + state.camera.aspect,
+    ...(state.players || []).map(playerLine),
+    "balls " + (state.balls || []).map((ball) => ball.type + "@" +
+      ball.x + "," + ball.y + " v" + ball.vx + "," + ball.vy).join("  "),
+  ];
+}
+
 function drawClientError() {
   let width = 1920;
   let height = 1080;
@@ -759,14 +873,49 @@ function drawClientError() {
     if (view && Number.isFinite(view.width)) width = view.width;
     if (view && Number.isFinite(view.height)) height = view.height;
   } catch (_) {}
+  const detail = clientErrorDetail || {
+    phase: "runtime", name: "Error", message: clientError,
+    stack: "", source: null, state: null,
+  };
   wipe(7, 9, 18);
-  box(48, 48, width - 96, height - 96, 42, 16, 32);
-  errorTypeWrite("client error", 92, 92, 54, 255, 112, 140);
-  const lines = clientErrorLines(clientError);
-  for (let index = 0; index < lines.length; index++)
-    errorTypeWrite(lines[index], 92, 188 + index * 58, 34, 248, 244, 255);
-  errorTypeWrite("relaunch or deploy an update", 92, height - 126,
-    28, 190, 202, 230);
+  box(48, 48, width - 96, height - 96, 30, 14, 27);
+  errorTypeWrite("oskieware error", 92, 82, 52, 255, 92, 116);
+  errorTypeWrite(detail.phase.toLowerCase(), 94, 150, 31, 255, 205, 74);
+  errorTypeWrite(detail.name, 230, 150, 31, 255, 126, 154);
+  const messageLines = clientErrorLines(detail.message, 66).slice(0, 2);
+  for (let index = 0; index < messageLines.length; index++)
+    errorTypeWrite(messageLines[index], 94, 202 + index * 42,
+      31, 248, 244, 255);
+  let cursorY = 202 + messageLines.length * 42 + 14;
+  if (detail.source) {
+    errorTypeWrite("source", 94, cursorY, 29, 112, 234, 255);
+    errorTypeWrite(detail.source.file, 214, cursorY, 29, 190, 216, 255);
+    errorTypeWrite("line " + detail.source.line + "  column " + detail.source.column,
+      Math.min(width - 430, 214 + detail.source.file.length * 17), cursorY,
+      29, 116, 255, 184);
+    cursorY += 48;
+  }
+  errorTypeWrite("state dump", 94, cursorY, 29, 116, 255, 184);
+  cursorY += 42;
+  for (const line of stateDumpLines(detail.state).slice(0, 6)) {
+    for (const wrapped of clientErrorLines(line, 82).slice(0, 2)) {
+      if (cursorY > height - 196) break;
+      errorTypeWrite(wrapped, 94, cursorY, 27, 188, 204, 230);
+      cursorY += 36;
+    }
+  }
+  const report = errorReportStatus();
+  const posted = report.startsWith("posted");
+  errorTypeWrite(report, 94, height - 150, 30,
+    ...(posted ? [116, 255, 184] : [255, 205, 74]));
+  errorTypeWrite("relaunch or deploy an update", 94, height - 104,
+    30, 190, 202, 230);
+}
+
+function drawClientErrorFallback() {
+  try { wipe(7, 9, 18); } catch (_) {}
+  try { systemWrite("oskieware error", 72, 72, 48, 255, 92, 116); } catch (_) {}
+  try { systemWrite(errorReportStatus(), 72, 146, 30, 255, 205, 74); } catch (_) {}
 }
 
 function fighterProfile(handle) {
@@ -852,12 +1001,20 @@ function enterGame(now) {
 
 function updateShell(now) {
   const down = padSnapshots[0]?.down || [];
+  if (titleTransitionAt >= 0) {
+    if (now - titleTransitionAt >= 700000) {
+      titleTransitionAt = -1;
+      enterGame(now);
+    }
+    shellPrevious = down.slice();
+    return;
+  }
   if (down.some((button) => !shellPrevious.includes(button))) {
     playDrum("hat", .55, 0);
     if (typeof titleBeep === "function") titleBeep();
     if (typeof titleVoice === "function") titleVoice();
     emitSignal("select", -1, 1, 0);
-    enterGame(now);
+    titleTransitionAt = now;
   }
   shellPrevious = down.slice();
 }
@@ -1005,33 +1162,45 @@ function updateSelect(now) {
   }
 }
 
-function rollWind() {
-  windMph = 4 + Math.floor(Math.random() * 21);
-  windDirection = windAcceleration === 0
-    ? (Math.random() < .5 ? -1 : 1) : -windDirection;
-  windAcceleration = windDirection * windMph * 16;
-  emitSignal("wind", -1, windDirection, windMph);
+function randomWindMph() {
+  return 0;
+}
+
+function rollWind(now = runtime().monotonicUs, immediate = true) {
+  windTargetMph = 0;
+  windTargetDirection = 1;
+  nextWindChangeAt = Infinity;
+  windMph = 0;
+  windDirection = 1;
+  windAcceleration = 0;
+  emitSignal("wind", -1, windTargetDirection, windTargetMph);
+}
+
+function updateWind(dt, now) {
+  windMph = 0;
+  windDirection = 1;
+  windAcceleration = 0;
 }
 
 function resetBalls(now) {
   for (const item of balls) {
-    const owner = players[item.spawnOwner];
-    item.x = owner.spawnX + owner.facing * 180;
-    item.y = floorY - item.radius;
-    // Players have no depth-axis control, so a served ball must begin in the
-    // same playable lane. The former +/-60 offset put its body outside the
-    // narrow leg capsules even when the sprites visibly overlapped.
-    item.z = owner.z;
+    const owner = item.spawnOwner >= 0 ? players[item.spawnOwner] : null;
+    item.x = owner ? owner.spawnX + owner.facing * 180 : 6000;
+    item.y = owner ? floorY - item.radius : platformY - 760;
+    // Player balls share the playable lane. The beach ball begins high above
+    // both of them and drifts down toward the center platform under wind.
+    item.z = owner ? owner.z : 0;
     item.vx = 0;
     item.vy = 0;
     item.rotation = 0;
     item.heldBy = -1;
     item.active = ballEnabled;
     item.serveAt = now + introDurationUs + 150000;
-    item.lastHitBy = owner.pad;
+    item.lastHitBy = owner ? owner.pad : -1;
     item.safeUntil = item.serveAt;
-    item.safePlayers = 1 << owner.pad;
-    emitSignal("ballserve", owner.pad, owner.facing, windMph);
+    item.safePlayers = owner ? 1 << owner.pad : 0;
+    emitSignal("ballserve", owner ? owner.pad : -1,
+      owner ? owner.facing : 0, windMph);
   }
 }
 
@@ -1181,7 +1350,7 @@ function updateRoundViewer(now, dt) {
   }
 }
 
-function boot() {
+function gameBoot() {
   syncGameView();
   startedAt = runtime().monotonicUs;
   roundStartedAt = startedAt;
@@ -1190,6 +1359,7 @@ function boot() {
   lastCountdownSecond = -1;
   emitSignal("hello", -1, 1, 0);
   shellMode = "MENU";
+  titleTransitionAt = -1;
   spectatorQr = typeof qrcode === "function"
     ? qrcode("https://oskiewar.com", { errorCorrectLevel: 1 }) : null;
   shellPrevious = [];
@@ -1277,6 +1447,7 @@ function resetRound(now, resetMatch = false) {
     player.partDamage = {};
     player.removedParts = [];
     player.pogoHit = false;
+    player.pogoDive = false;
     player.standingOn = -1;
     player.previousY = floorY;
     player.crouchBlend = 0;
@@ -1311,7 +1482,7 @@ function resetRound(now, resetMatch = false) {
   lastCountdownSecond = -1;
   lastSimAt = now;
   roundStartedAt = now;
-  rollWind();
+  rollWind(now);
   resetBalls(now);
   if (replay) replay.rounds.push([demoTick(now), windDirection, windMph,
     balls.length]);
@@ -1340,9 +1511,13 @@ function updateCamera(dt) {
     future[0].y, future[1].y);
   const maxWidth = Math.max(worldRight - worldLeft,
     (floorY - ceilingY) * cameraAspect);
-  const horizontalPadding = clamp(260 + cameraAspect * 160, 340, 620);
-  const verticalPadding = clamp(120 + cameraAspect * 55, 155, 230);
-  const minimumWidth = clamp(900 * cameraAspect / 2.1, 480, 900);
+  const separation = right - left;
+  // Stay extremely close at Street Fighter distance, then grow predictive
+  // overscan as the fighters separate so fast edge approaches remain covered.
+  const horizontalPadding = clamp(180 + Math.max(0, separation - 700) * .12,
+    180, 620);
+  const verticalPadding = clamp(72 + cameraAspect * 32, 96, 150);
+  const minimumWidth = clamp(700 * cameraAspect / 2.1, 420, 700);
   const desiredWidth = Math.max(minimumWidth, Math.min(maxWidth,
     Math.max(right - left + horizontalPadding,
       (bottom - top + verticalPadding) * cameraAspect)));
@@ -1445,11 +1620,11 @@ function updateCameraDoll(dt, now) {
   // as a final paint-time correction, which made the viewport skip a frame at
   // the safe-zone edge.
   const containmentWidth = fighterContainmentRequiredWidth(
-    (now - startedAt) / 1000000) * 1.08;
+    (now - startedAt) / 1000000) * 1.11;
   cameraContainFloor = Math.max(cameraContainFloor, containmentWidth);
   // A small overscan absorbs animated hands, feet, and perspective before
   // they reach the action-safe edge without loosening the close fight shot.
-  const naturalWidth = cameraWidth * 1.04;
+  const naturalWidth = cameraWidth * 1.015;
   // Hysteresis prevents a fighter hovering at the safe edge from repeatedly
   // switching between close and wide framing.
   if (cameraContainFloor > naturalWidth &&
@@ -1979,7 +2154,7 @@ function updateBall(ball, dt, now) {
   const floorSupported = ball.y >= floorY - ball.radius - 2;
   const grounded = (platformSupported || floorSupported) && Math.abs(ball.vy) < 180;
   if (!grounded) ball.vx += windAcceleration * (ball.windFactor || .45) * dt;
-  ball.vy += 1900 * dt;
+  ball.vy += 1900 * (ball.gravityFactor || 1) * dt;
   const previous = { x: ball.x, y: ball.y, z: ball.z };
   ball.x += ball.vx * dt;
   ball.y += ball.vy * dt;
@@ -2291,6 +2466,7 @@ function updateStance(player, input, now) {
     : player.grabHeld ? "REACHING"
     : player.attackKind ? "ATTACK"
     : player.ducking ? "CROUCH"
+    : player.pogoDive ? "POGO DOWN"
     : !player.grounded ? "AIR"
     : now < player.dashUntil ? "DASH"
     : input.horizontal === toward ? "ADVANCE"
@@ -2337,6 +2513,19 @@ function releaseCarriedBall(player, now) {
     emitSignal("release", player.pad, player.heldBall, item.mass);
   }
   player.heldBall = -1;
+}
+
+function bouncePogoOnSurface(player, surfaceY, now) {
+  player.y = surfaceY;
+  player.vy = -1320;
+  player.grounded = false;
+  player.pogoDive = false;
+  player.pogoHit = false;
+  player.stance = "POGO BOUNCE";
+  player.lastButton = "POGO BOUNCE";
+  player.lastButtonAt = now;
+  playDrum("kick", .9, panPlayer(player));
+  emitSignal("pogo", player.pad, -2, 1320);
 }
 
 function updatePlayer(player, pad, dt, now) {
@@ -2407,6 +2596,7 @@ function updatePlayer(player, pad, dt, now) {
     emitSignal("move", player.pad, input.horizontal, input.vertical);
   player.pendingMoveLabel = "";
   const upPressed = input.vertical > 0 && !player.previous.includes("MOVE_UP");
+  const downPressed = input.vertical < 0 && player.inputY >= 0;
   const crouchTarget = input.vertical < 0 && player.grounded ? 1 : 0;
   const crouchStep = dt * (crouchTarget ? 9 : 11);
   player.crouchBlend += clamp(crouchTarget - player.crouchBlend,
@@ -2474,10 +2664,20 @@ function updatePlayer(player, pad, dt, now) {
     const jumpScale = pogo ? .88 : legCount === 1 ? .78 : 1;
     player.vy = Math.min(player.vy, -1050 * jumpScale);
     player.pogoHit = false;
+    player.pogoDive = false;
     player.grounded = false;
     player.ducking = false;
     playDrum("block", 0.72, panPlayer(player));
     emitSignal("jump", player.pad, 1, 0);
+  }
+  if (pogo && !player.grounded && !hitStunned && downPressed) {
+    player.vy = Math.max(player.vy, 2250);
+    player.pogoDive = true;
+    player.pogoHit = false;
+    player.pendingMoveLabel = "POGO DOWN";
+    player.stance = "POGO DOWN";
+    playDrum("kick", .78, panPlayer(player));
+    emitSignal("pogo", player.pad, -1, player.vy);
   }
 
   for (const button of pad.down) {
@@ -2523,6 +2723,8 @@ function updatePlayer(player, pad, dt, now) {
       player.vy = -690;
       player.grounded = false;
       player.stance = "BOUNCE";
+    } else if (pogo && player.pogoDive) {
+      bouncePogoOnSurface(player, platformY, now);
     } else {
       player.vy = 0;
       player.grounded = true;
@@ -2533,6 +2735,8 @@ function updatePlayer(player, pad, dt, now) {
       player.vy = -690;
       player.grounded = false;
       player.stance = "BOUNCE";
+    } else if (pogo && player.pogoDive) {
+      bouncePogoOnSurface(player, floorY, now);
     } else {
       player.vy = 0;
       player.grounded = true;
@@ -2661,6 +2865,7 @@ function gameSim() {
       emitSignal("countdown", -1, countdownSecond, 0);
     }
   }
+  updateWind(dt, now);
   updatePlayer(players[0], padSnapshots[0], dt, now);
   updatePlayer(players[1], opponentPad, dt, now);
   resolvePlayerStanding(now);
@@ -2756,18 +2961,26 @@ function filledCapsule(x1, y1, x2, y2, width, color) {
 // Xbox batches GPU triangles above its D2D line layer, so every bone and joint
 // must share this triangle path. The wider silhouette pass and color pass form
 // conventional rounded capsules without the native renderer reordering them.
-function drawSkeletonSegments(segments, color, outline) {
+function damagedPartColor(color, player, part) {
+  const damage = Number(player?.partDamage?.[part] || 0);
+  if (!damage) return color;
+  const durability = part === "torso" ? 3 : 2;
+  const amount = clamp(damage / durability * .92, 0, .92);
+  return mixColor(color, [244, 34, 50], amount);
+}
+
+function drawSkeletonSegments(segments, color, outline, player = null) {
   const edge = Math.max(1.25, Math.min(3, cameraScale() * 1.8));
   for (const segment of segments)
     filledCapsule(segment.x1, segment.y1, segment.x2, segment.y2,
       segment.width + edge * 2, outline);
   for (const segment of segments)
     filledCapsule(segment.x1, segment.y1, segment.x2, segment.y2,
-      segment.width, color);
+      segment.width, damagedPartColor(color, player, segment.part));
 }
 
-function drawFighterSilhouette(geometry, color, outline) {
-  drawSkeletonSegments(geometry.segments, color, outline);
+function drawFighterSilhouette(geometry, color, outline, player = null) {
+  drawSkeletonSegments(geometry.segments, color, outline, player);
   const headEdge = Math.max(1.25, Math.min(3, cameraScale() * 1.8));
   // The neck connector and solid head are emitted into the same triangle
   // silhouette pass, so the head cannot detach as a separate line-layer ring.
@@ -3048,7 +3261,7 @@ function fighterContainmentRequiredWidth(t) {
     (right - left) * (stageRight - stageLeft) / safeWidth,
     (bottom - top) * cameraAspect *
       (stageBottom - stageTop) / safeHeight,
-    compactLayout() ? 720 : 900,
+    compactLayout() ? 560 : 640,
   );
 }
 
@@ -3061,7 +3274,7 @@ function containFighters(t) {
     runtime().monotonicUs - roundStartedAt >= introDurationUs;
   if (gameplayContainment) {
     cameraContainFloor = Math.max(cameraContainFloor,
-      fighterContainmentRequiredWidth(t) * 1.08);
+      fighterContainmentRequiredWidth(t) * 1.11);
     return;
   }
   const worlds = players.map((player) => player.replayGeometry ||
@@ -3106,7 +3319,7 @@ function containFighters(t) {
     (maxX - minX) * (stageRight - stageLeft) / safeWidth,
     (maxY - minY) * cameraAspect *
       (stageBottom - stageTop) / safeHeight,
-    compactLayout() ? 720 : 900,
+    compactLayout() ? 560 : 640,
   );
   if (requiredWidth > cameraDoll.width) {
     const amount = requiredWidth / Math.max(1, cameraDoll.width) * 1.04;
@@ -3625,45 +3838,31 @@ function drawDigitalHeadBurst(player, headWorld, age) {
     [255, 48, 96], [176, 18, 54], [255, 92, 126],
     player.color, [116, 8, 38],
   ];
-  const directions = [-2.74, -2.18, -1.68, -1.18, -.58, .08, .64, 1.18];
+  const directions = [-2.92, -2.61, -2.3, -2.01, -1.72, -1.43,
+    -1.14, -.83, -.52, -.21, .1, .41, .72, 1.03];
   for (let index = 0; index < directions.length; index++) {
     const angle = directions[index] + (player.pad ? .14 : -.14);
-    const speed = 92 + index * 13;
-    const distance = 10 + speed * burstAge;
-    const fall = 24 * burstAge + 170 * burstAge * burstAge;
-    const depth = (index % 3 - 1) * (9 + burstAge * 24);
-    const startWorld = {
-      x: headWorld.x + Math.cos(angle) * distance * .16,
-      y: headWorld.y + Math.sin(angle) * distance * .16,
-      z: headWorld.z + depth * .16,
-    };
-    const endWorld = {
-      x: headWorld.x + Math.cos(angle) * distance,
-      y: headWorld.y + Math.sin(angle) * distance + fall,
-      z: headWorld.z + depth,
-    };
-    const start = projectPoint(startWorld.x, startWorld.y, startWorld.z);
-    const end = projectPoint(endWorld.x, endWorld.y, endWorld.z);
-    const values = [start.x, start.y, end.x, end.y, end.z];
-    if (!values.every(Number.isFinite) ||
-        values.some((value) => Math.abs(value) > 30000)) continue;
-    const color = palette[index % palette.length];
-    triangleDepth = end.z;
-    const width = Math.max(2, (5 - index % 3) * cameraScale());
-    filledCapsule(start.x, start.y, end.x, end.y, width, color);
-    const pixel = Math.max(3, (7 - index % 2) * cameraScale());
-    screenRect(end.x - pixel / 2, end.y - pixel / 2, pixel, pixel, color);
-    if (index % 2 === 0 && burstAge > .08) {
-      const echoX = lerp(start.x, end.x, .62);
-      const echoY = lerp(start.y, end.y, .62);
-      const echo = pixel * .55;
-      screenRect(echoX - echo / 2, echoY - echo / 2, echo, echo,
-        palette[(index + 2) % palette.length]);
+    const speed = 48 + index * 4;
+    const fall = 10 * burstAge + 72 * burstAge * burstAge;
+    for (let speck = 0; speck < 3; speck++) {
+      const spread = .38 + speck * .29;
+      const distance = (5 + speed * burstAge) * spread;
+      const depth = (index % 3 - 1) * (3 + burstAge * 9) * spread;
+      const point = projectPoint(
+        headWorld.x + Math.cos(angle) * distance,
+        headWorld.y + Math.sin(angle) * distance + fall * spread,
+        headWorld.z + depth);
+      if (![point.x, point.y, point.z].every(Number.isFinite) ||
+          Math.abs(point.x) > 30000 || Math.abs(point.y) > 30000) continue;
+      triangleDepth = point.z;
+      const pixel = clamp((2.6 - speck * .48) * cameraScale(), 1.5, 4);
+      screenRect(point.x - pixel / 2, point.y - pixel / 2,
+        pixel, pixel, palette[(index + speck) % palette.length]);
     }
   }
   // The face becomes a small broken core rather than remaining an intact disc.
-  const core = Math.max(3, headWorld.radius * cameraScale() *
-    Math.max(.18, 1 - burstAge * 4.2));
+  const core = Math.max(2, headWorld.radius * cameraScale() *
+    Math.max(.08, 1 - burstAge * 6.2));
   triangleDepth = origin.z;
   for (let index = 0; index < 4; index++) {
     const side = index % 2 ? 1 : -1;
@@ -3750,22 +3949,7 @@ function drawRunner(player, t, showLabel = true) {
     ? mixColor([255, 232, 92], [28, 34, 52], visualTheme.light)
     : [8, 12, 24];
   const displayNow = player.frozenAt || runtime().monotonicUs;
-  drawFighterSilhouette(geometry, color, outline);
-  for (const segment of geometry.segments) {
-    const damage = player.partDamage?.[segment.part] || 0;
-    if (!damage) continue;
-    const dx = segment.x2 - segment.x1;
-    const dy = segment.y2 - segment.y1;
-    const length = Math.hypot(dx, dy) || 1;
-    const middleX = (segment.x1 + segment.x2) / 2;
-    const middleY = (segment.y1 + segment.y2) / 2;
-    const reach = segment.width * (.7 + damage * .16);
-    const nx = -dy / length * reach;
-    const ny = dx / length * reach;
-    filledCapsule(middleX - nx, middleY - ny,
-      middleX + nx, middleY + ny, Math.max(2, segment.width * .24),
-      [255, 126, 72]);
-  }
+  drawFighterSilhouette(geometry, color, outline, player);
   const hitNow = runtime().monotonicUs;
   if (player.hitSegment >= 0 && hitNow < player.hitSegmentUntil &&
       Math.floor(hitNow / 45000) % 2 === 0) {
@@ -3930,20 +4114,81 @@ function drawPlayerHandle(player, t, side) {
   drawGlyphs(0, 0, player.handleColors, player.color);
 }
 
+function drawHudInventory(player, side) {
+  const items = [];
+  if (player.gunAmmo > 0) items.push("gun " + player.gunAmmo);
+  if (player.grenadeAmmo > 0) items.push("grenade " + player.grenadeAmmo);
+  if (!items.length) return;
+  const text = items.join("  ");
+  const handle = playerHandleLayout(player, side);
+  const size = Math.round(hudTypeSize * .62);
+  const width = handleWidth(text, size);
+  const x = side === 0 ? handle.x : handle.x + handle.width - width;
+  const y = handle.y - size - 7;
+  const shadow = contrastShadow(player.color);
+  typeWrite(text, x + 2, y + 3, size, ...shadow);
+  typeWrite(text, x, y, size, ...player.color);
+}
+
 function drawCommandStream(player, side) {
   const glyph = { LEFT: "<", RIGHT: ">", UP: "^", DOWN: "v" };
-  const text = player.commandStream.map((entry) => glyph[entry.label] || entry.label)
-    .join("  ");
-  if (!text) return;
+  const buttonFor = { LEFT: "ArrowLeft", RIGHT: "ArrowRight",
+    UP: "ArrowUp", DOWN: "ArrowDown", A: "A", B: "B", X: "X", Y: "Y" };
+  const heldPalette = { LEFT: [78, 205, 255], RIGHT: [78, 205, 255],
+    UP: [142, 255, 94], DOWN: [142, 255, 94], A: [255, 230, 64],
+    B: [90, 235, 128], X: [255, 92, 190], Y: [255, 142, 62] };
+  const now = runtime().monotonicUs;
+  const idle = now - (player.commandStream.at(-1)?.at || now);
+  const bufferFade = clamp(1 - Math.max(0, idle - 150000) / 1200000, 0, 1);
+  const held = padSnapshots[player.pad]?.down || [];
+  const entries = player.commandStream.map((entry) => ({ ...entry,
+    text: glyph[entry.label] || entry.label,
+    fade: bufferFade,
+    held: held.includes(buttonFor[entry.label]),
+  })).filter((entry) => entry.fade > .01);
+  if (!entries.length) return;
+  const lines = [];
+  let current = [];
+  let characters = 0;
+  for (const entry of entries) {
+    const nextLength = characters + (current.length ? 1 : 0) + entry.text.length;
+    if (current.length && nextLength > 8) {
+      lines.push(current);
+      current = [];
+      characters = 0;
+    }
+    current.push(entry);
+    characters += (current.length > 1 ? 1 : 0) + entry.text.length;
+  }
+  if (current.length) lines.push(current);
   const safe = hudSafeRect();
   const size = hudTypeSize;
-  const width = handleWidth(text, size);
-  const x = side === 0 ? safe.left + 8 : safe.right - 8 - width;
   const handle = playerHandleLayout(player, side);
-  const y = handle.y - size - 15;
   const shadow = contrastShadow(player.color);
-  typeWrite(text, x + 3, y + 4, size, ...shadow);
-  typeWrite(text, x, y, size, ...player.color);
+  const background = mixColor([7, 8, 28], [230, 239, 247],
+    visualTheme.light);
+  const training = !roundIsTimed();
+  const inventoryOffset = player.gunAmmo > 0 || player.grenadeAmmo > 0
+    ? Math.round(hudTypeSize * .62) + 8 : 0;
+  const firstY = training
+    ? safe.top + (debugHitboxes ? hudTypeSize + 12 : 4)
+    : handle.y - inventoryOffset - lines.length * (size + 4) - 11;
+  for (let row = 0; row < lines.length; row++) {
+    const lineEntries = lines[row];
+    const text = lineEntries.map((entry) => entry.text).join(" ");
+    const width = handleWidth(text, size);
+    let cursor = side === 0 ? safe.left + 8 : safe.right - 8 - width;
+    const y = firstY + row * (size + 4);
+    for (const entry of lineEntries) {
+      const activeColor = entry.held
+        ? heldPalette[entry.label] || [255, 240, 90] : player.color;
+      const ink = mixColor(background, activeColor, entry.fade);
+      const shade = mixColor(background, contrastShadow(activeColor), entry.fade);
+      typeWrite(entry.text, cursor + 3, y + 4, size, ...shade);
+      typeWrite(entry.text, cursor, y, size, ...ink);
+      cursor += handleWidth(entry.text, size) + comicGlyphAdvance(" ", size);
+    }
+  }
 }
 
 function drawFightIntro(introSeconds, titleInk, statusShadow) {
@@ -4005,6 +4250,16 @@ function worldLine(x1, y1, z1, x2, y2, z2, width, color) {
   const a = projectPoint(x1, y1, z1);
   const b = projectPoint(x2, y2, z2);
   line(a.x, a.y, b.x, b.y, width, ...color);
+}
+
+function worldCapsule(x1, y1, z1, x2, y2, z2, width, color) {
+  const a = projectPoint(x1, y1, z1);
+  const b = projectPoint(x2, y2, z2);
+  if (![a.x, a.y, a.z, b.x, b.y, b.z].every(Number.isFinite)) return;
+  const previousDepth = triangleDepth;
+  triangleDepth = Math.min(a.z, b.z) - .004;
+  filledCapsule(a.x, a.y, b.x, b.y, width, color);
+  triangleDepth = previousDepth;
 }
 
 function worldQuad(a, b, c, d, color) {
@@ -4077,6 +4332,32 @@ function drawBall(ball) {
       point.x - radius > viewWidth() || point.y + radius < 0 ||
       point.y - radius > viewHeight) return;
   const soccer = ball.type === "soccer";
+  const beach = ball.type === "beach";
+  if (beach) {
+    const panels = [
+      [244, 66, 96], [255, 146, 52], [255, 226, 66], [72, 210, 126],
+      [54, 196, 224], [70, 112, 238], [184, 82, 224],
+    ];
+    const palettePhase = runtime().monotonicUs / 850000;
+    const paletteStep = Math.floor(palettePhase);
+    const paletteMix = palettePhase - paletteStep;
+    const sides = 16;
+    for (let side = 0; side < sides; side++) {
+      const a = ball.rotation + side * Math.PI * 2 / sides;
+      const b = ball.rotation + (side + 1) * Math.PI * 2 / sides;
+      const panel = (Math.floor(side / 2) + paletteStep) % panels.length;
+      const panelColor = mixColor(panels[panel],
+        panels[(panel + 1) % panels.length], paletteMix);
+      screenTriangle(point.x, point.y,
+        point.x + Math.cos(a) * radius * .92,
+        point.y + Math.sin(a) * radius * .92,
+        point.x + Math.cos(b) * radius * .92,
+        point.y + Math.sin(b) * radius * .92,
+        ...panelColor);
+    }
+    filledDisc(point.x, point.y, radius * .13, [246, 241, 220]);
+    return;
+  }
   filledDisc(point.x, point.y, radius * .92,
     soccer ? [226, 232, 224] : [232, 104, 28]);
   const seam = [42, 31, 29];
@@ -4179,23 +4460,27 @@ function drawGrenade(grenade) {
 }
 
 function drawWindFlag(t, color) {
-  const poleX = (platformLeft + platformRight) / 2;
-  const poleZ = 420;
+  const poleX = platformRight - 340;
+  const poleZ = -360;
   const poleBottom = platformY;
   const poleTop = platformY - 430;
-  const length = 125 + windMph * 8;
+  const calm = windMph < .35;
+  const length = calm ? 34 : 92 + windMph * 8;
   const gust = Math.sin(t * (4 + windMph * .16)) * (10 + windMph * .8);
   const tipX = poleX + windDirection * length;
-  const tipY = poleTop + 45 + gust;
-  const width = Math.max(2, 11 * cameraScale());
-  worldLine(poleX, poleBottom, poleZ, poleX, poleTop, poleZ, width, color);
-  worldLine(poleX, poleTop, poleZ, tipX, tipY, poleZ, width * .72, color);
-  worldLine(tipX, tipY, poleZ, poleX, poleTop + 120, poleZ,
-    width * .72, color);
-  worldLine(poleX, poleTop + 120, poleZ, poleX, poleTop, poleZ,
-    width * .72, color);
-  worldLine(poleX - 55, poleBottom, poleZ, poleX + 55, poleBottom, poleZ,
-    width, color);
+  const tipY = poleTop + (calm ? 114 : 45) + gust;
+  const width = Math.max(3, 13 * cameraScale());
+  const ink = calm ? [154, 166, 190] : color;
+  worldCapsule(poleX, poleBottom, poleZ,
+    poleX, poleTop, poleZ, width, ink);
+  worldCapsule(poleX, poleTop, poleZ,
+    tipX, tipY, poleZ, width * .72, ink);
+  worldCapsule(tipX, tipY, poleZ,
+    poleX, poleTop + 120, poleZ, width * .72, ink);
+  worldCapsule(poleX, poleTop + 120, poleZ,
+    poleX, poleTop, poleZ, width * .72, ink);
+  worldCapsule(poleX - 55, poleBottom, poleZ,
+    poleX + 55, poleBottom, poleZ, width, ink);
 }
 
 function seededWindValue(index, channel = 0) {
@@ -4209,38 +4494,29 @@ function seededWindValue(index, channel = 0) {
   return (hash >>> 0) / 4294967295;
 }
 
-function drawWindLines(t, color) {
-  const count = 7 + Math.floor(windMph / 3);
+function drawAmbientMotes(t, color) {
+  const count = 12;
   const safe = actionSafeRect();
   const safeWidth = safe.right - safe.left;
   const safeHeight = safe.bottom - safe.top;
-  const speed = .012 + windMph * .0082;
-  const baseLength = 24 + windMph * 2.5;
   const previousDepth = triangleDepth;
   for (let index = 0; index < count; index++) {
-    // Wind lives in screen-stable layers behind the fighters. Camera zoom may
-    // reveal more world, but it no longer stretches streak length or speed.
     const depthAmount = seededWindValue(index, 0);
     const z = 120 + depthAmount * (worldFar - 240);
-    const depthScale = .62 + (1 - depthAmount) * .55;
     const phase = seededWindValue(index, 1);
-    const pace = .72 + seededWindValue(index, 2) * .7;
-    const cycle = ((phase + t * speed * depthScale * pace * windDirection) % 1 + 1) % 1;
-    const length = baseLength * depthScale *
-      (.62 + seededWindValue(index, 3) * .9);
-    const x = safe.left - length + cycle * (safeWidth + length * 2);
+    const pace = .025 + seededWindValue(index, 2) * .035;
+    const cycle = (phase + t * pace) % 1;
+    const x = safe.left + cycle * safeWidth +
+      Math.sin(t * .7 + phase * Math.PI * 2) * 8;
     const row = seededWindValue(index, 4);
-    const flutterRate = 1.1 + seededWindValue(index, 5) * 2.6;
+    const flutterRate = .45 + seededWindValue(index, 5) * 1.1;
     const flutterPhase = seededWindValue(index, 6) * Math.PI * 2;
-    const y = safe.top + 20 + row * Math.max(1, safeHeight - 40) +
-      Math.sin(t * flutterRate + flutterPhase) * (2 + windMph * .22);
-    const tailX = x - windDirection * length;
-    const bend = Math.sin(t * (flutterRate + .5) + flutterPhase) *
-      (1 + windMph * .08);
-    const width = depthAmount < .35 && windMph > 12 ? 2 : 1;
-    const ink = mixColor([18, 24, 48], color, .42 + (1 - depthAmount) * .4);
+    const y = safe.top + 14 + row * Math.max(1, safeHeight - 28) +
+      Math.sin(t * flutterRate + flutterPhase) * (4 + depthAmount * 7);
+    const radius = .8 + (1 - depthAmount) * 1.8;
+    const ink = mixColor([18, 24, 48], color, .24 + (1 - depthAmount) * .34);
     triangleDepth = projectPoint(cameraCenter, cameraCenterY, z).z;
-    filledCapsule(tailX, y - bend, x, y + bend, width, ink);
+    filledDisc(x, y, radius, ink);
   }
   triangleDepth = previousDepth;
 }
@@ -4382,7 +4658,7 @@ function animatedTitleColor(index, t, daylight = visualTheme.light) {
   return mixColor(night, day, daylight);
 }
 
-function drawTitleScreen(t, ink) {
+function drawTitleScreen(t, ink, transitionAge = -1) {
   const compact = compactLayout();
   const title = "oskiewar";
   const breath = 1 + Math.sin(t * .9) * .018;
@@ -4393,7 +4669,7 @@ function drawTitleScreen(t, ink) {
 
   // Sparse orbiting motes give attract mode some life without adding panels
   // or stripes behind the wordmark.
-  const moteCount = compact ? 8 : 12;
+  const moteCount = transitionAge < 0 ? compact ? 8 : 12 : 0;
   for (let index = 0; index < moteCount; index++) {
     const angle = t * (.18 + index % 3 * .025) + index * 2.39996;
     const reach = titleWidth * (.55 + Math.sin(t * .31 + index) * .06);
@@ -4406,12 +4682,17 @@ function drawTitleScreen(t, ink) {
   }
 
   let cursor = titleX;
+  const flashPalette = [[255, 226, 48], [70, 224, 92], [181, 255, 48]];
+  const flash = transitionAge >= 0
+    ? flashPalette[Math.floor(transitionAge / .065) % flashPalette.length] : null;
+  const fade = transitionAge >= 0 ? clamp((transitionAge - .46) / .24, 0, 1) : 0;
+  const transitionInk = flash ? mixColor(flash, [7, 10, 26], fade) : null;
   for (let index = 0; index < title.length; index++) {
     const character = title[index];
     const bob = Math.sin(t * 2.05 + index * .72) * (compact ? 5 : 8);
     const drift = Math.cos(t * 1.12 + index * .91) * (compact ? 1.5 : 2.5);
     typeWrite(character, cursor + drift, titleY + bob, titleSize,
-      ...animatedTitleColor(index, t));
+      ...(transitionInk || animatedTitleColor(index, t)));
     cursor += comicGlyphAdvance(character, titleSize);
   }
 
@@ -4419,10 +4700,12 @@ function drawTitleScreen(t, ink) {
   const promptSize = hudTypeSize;
   const promptWidth = handleWidth(prompt, promptSize);
   const promptPulse = .68 + (Math.sin(t * 3.2) + 1) * .16;
-  const promptInk = mixColor([196, 142, 18], [255, 238, 82], promptPulse);
-  if (Math.floor(t * 2.4) % 2 === 0)
+  const promptInk = transitionInk ||
+    mixColor([196, 142, 18], [255, 238, 82], promptPulse);
+  if (transitionAge >= 0 || Math.floor(t * 2.4) % 2 === 0)
     typeWrite(prompt, viewCenterX() - promptWidth / 2,
       viewHeight * (compact ? .61 : .64), promptSize, ...promptInk);
+  if (transitionAge >= 0) return;
   const titleNow = pacificTimeLabel(runtime().unixMs || Date.now());
   const stamp = buildTimestamp.match(/^(\d{4})\.(\d{2})\.(\d{2})\.(\d{2})(\d{2})/);
   const version = stamp
@@ -4453,6 +4736,7 @@ function pacificTimeLabel(unixMs) {
 }
 
 function drawSpectatorQr(ink) {
+  if (shellMode === "GAME" && !roundIsTimed()) return;
   const safe = hudSafeRect();
   const compact = compactLayout();
   const metaSize = compact ? Math.max(20, hudTypeSize * .58) : hudTypeSize;
@@ -4474,12 +4758,6 @@ function drawSpectatorQr(ink) {
   triangleDepth = -1.43;
   const left = safe.right - size;
   const top = safe.top;
-  const gameLabel = "oskiewar";
-  const gameLabelWidth = handleWidth(gameLabel, metaSize);
-  const gameLabelTop = compact ? top + hudTypeSize + 10 : top + 2;
-  if (shellMode === "GAME" && !selecting)
-    typeWrite(gameLabel, left - gameLabelWidth - 16, gameLabelTop,
-      metaSize, ...ink);
   screenRect(left + 3, top + 3, size, size, shadow);
   screenRect(left, top, size, size, [250, 250, 247]);
   for (let row = 0; row < count; row++) {
@@ -4588,8 +4866,10 @@ function gamePaint() {
   wipe(...outside);
   if (shellMode === "MENU") {
     box(0, 0, viewWidth(), viewHeight, ...menuArena);
-    drawTitleScreen(t, menuInk);
-    drawSpectatorQr(menuInk);
+    const transitionAge = titleTransitionAt >= 0
+      ? (run.monotonicUs - titleTransitionAt) / 1000000 : -1;
+    drawTitleScreen(t, menuInk, transitionAge);
+    if (transitionAge < 0) drawSpectatorQr(menuInk);
     return;
   }
   if (selecting) {
@@ -4646,7 +4926,7 @@ function gamePaint() {
   const windInk = windDirection < 0
     ? mixColor([72, 174, 255], [28, 88, 188], visualTheme.light)
     : mixColor([255, 92, 132], [184, 35, 62], visualTheme.light);
-  drawWindLines(t, windInk);
+  drawAmbientMotes(t, windInk);
   drawWindFlag(t, windInk);
   const timedRound = roundIsTimed();
   const remainingSeconds = roundResult || !timedRound ? 0 : Math.max(0,
@@ -4655,7 +4935,7 @@ function gamePaint() {
     ? roundResult === "TIE" ? "tie!" : ""
     : timedRound ? String(remainingSeconds).padStart(2, "0") : "∞";
   const hud = hudSafeRect();
-  const timerSize = hudTypeSize;
+  const timerSize = timedRound ? hudTypeSize : Math.round(hudTypeSize * 1.65);
   const timerWidth = handleWidth(timerText, timerSize);
   const timerDanger = timedRound && remainingSeconds > 0 &&
     remainingSeconds <= 10;
@@ -4758,12 +5038,22 @@ function gamePaint() {
   if ((roundResult && resultUiReady) || (!roundResult && introAge >= introDurationUs)) {
     drawPlayerHandle(players[0], t, 0);
     drawPlayerHandle(players[1], t, 1);
+    drawHudInventory(players[0], 0);
+    drawHudInventory(players[1], 1);
     drawCommandStream(players[0], 0);
     drawCommandStream(players[1], 1);
   }
   drawSafeZones();
   drawDeathFlash();
   drawSpectatorQr(titleInk);
+}
+
+function boot() {
+  try {
+    gameBoot();
+  } catch (error) {
+    captureClientError("boot", error);
+  }
 }
 
 function sim() {
@@ -4777,20 +5067,24 @@ function sim() {
 
 function paint() {
   if (clientError) {
-    drawClientError();
+    try { drawClientError(); } catch (_) { drawClientErrorFallback(); }
     return;
   }
   try {
     gamePaint();
   } catch (error) {
     captureClientError("paint", error);
-    drawClientError();
+    try { drawClientError(); } catch (_) { drawClientErrorFallback(); }
   }
 }
 
 function act() {}
 function leave() {
-  roundViewerStop?.();
-  roundViewerStop = null;
-  roundViewer = null;
+  try {
+    roundViewerStop?.();
+    roundViewerStop = null;
+    roundViewer = null;
+  } catch (error) {
+    captureClientError("leave", error);
+  }
 }

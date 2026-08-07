@@ -4,6 +4,9 @@ import test from "node:test";
 
 const source = await readFile(new URL("../hello.js", import.meta.url), "utf8");
 const webShell = await readFile(new URL("../mac-test.html", import.meta.url), "utf8");
+const nativeApp = await readFile(new URL("../../native-bios/App.cpp", import.meta.url), "utf8");
+const pieceLog = await readFile(new URL(
+  "../../../system/netlify/functions/piece-log.mjs", import.meta.url), "utf8");
 const limbPartsForTest = ["left-arm", "right-arm", "left-leg", "right-leg"];
 
 function createFight(startImmediately = true, enterGame = true,
@@ -19,6 +22,7 @@ function createFight(startImmediately = true, enterGame = true,
   const drums = [];
   const triangles = [];
   const lines = [];
+  let hostErrorStatus = "";
   const pads = [0, 1].map(() => ({ connected: true, down: [], leftX: 0, leftY: 0 }));
   const noOp = () => {};
   const drawTriangle = (...values) => {
@@ -34,9 +38,11 @@ function createFight(startImmediately = true, enterGame = true,
   const drawLine = (...values) => lines.push(values);
   const fight = new Function(
     "runtime", "gamepad", "capabilities", "telemetry", "gameSignal", "saveReplay", "publishLive", "analytics", "drum", "wipe", "box", "line", "triangle", "triangle3d", "write", "systemWrite", "gameView",
-    `${source}\nreturn { boot, sim, paint, playDrum, captureClientError, drawDetachedPart, clientErrorState: () => clientError, controlLocale, animatedTitleColor, players, ball, balls, bullets, grenades, gunPickups, grenadePickups, detachedParts, runnerWorldGeometry, runnerDistanceToPoint, segmentSegmentClosest, meleeLimbContact, damagePart, isPogo, isHeadOnly, resultCardText, pacificTimeLabel, projectedBallRadius, deathCinematicState: () => deathCinematic ? { ...deathCinematic, age: deathCinematicAge() } : null, disableBall: () => { ballEnabled = false; for (const item of balls) item.active = false; }, enableBall: (index = 0) => { ballEnabled = true; const item = balls[index]; item.active = true; item.serveAt = 0; item.safeUntil = 0; item.safePlayers = 0; }, setWind: (value) => { windAcceleration = value; }, setDebugHitboxes: (value) => { debugHitboxes = Boolean(value); }, debugState: () => debugHitboxes, windState: () => ({ direction: windDirection, mph: windMph }), nextRound: () => resetRound(runtime().monotonicUs, false), knockOut: () => killPlayer(players[1], 0, runtime().monotonicUs, "KO"), wackBall: () => { players[0].attackKind = "KICK"; returnBall(ball, players[0], runtime().monotonicUs, false); }, shieldBall: () => returnBall(ball, players[0], runtime().monotonicUs, true), crossWackBall: (contact = 1) => crossWackBall(ball, players.map((player) => ({ player, contact })), runtime().monotonicUs), enterGame: () => enterGame(runtime().monotonicUs), shellState: () => ({ mode: shellMode }), startFight: () => { shellMode = "GAME"; selecting = false; startReplay(runtime().monotonicUs); resetRound(runtime().monotonicUs, true); }, selectionState: () => ({ selecting, ready: selectionReady.slice() }), cameraState: () => ({ cameraWidth, cameraCenter, cameraCenterY, cameraAspect, stageRight, stageTop, stageBottom, viewHeight, cameraContainFloor, doll: { width: cameraDoll.width, target: { ...cameraDoll.target }, position: { ...cameraDoll.position }, perspective: cameraDoll.perspective, roll: cameraDoll.roll } }), screenBounds: () => players.map((player) => runnerScreenBounds(player, runtime().monotonicUs / 1e6)), actionSafeRect, hudSafeRect, roundState: () => ({ roundResult, roundElapsedUs, matchOver }), viewerState: () => ({ active: Boolean(roundViewer), mode: roundViewerMode, status: roundViewerStatus, name: matchName }), instantReplayState: () => instantReplay ? { active: true, paused: instantReplay.paused, cursor: instantReplay.cursor, frames: instantReplay.frames.length } : { active: false }, replayFrameCount: () => roundReplayFrames.length };`
+    `${source}\nreturn { boot, sim, paint, playDrum, captureClientError, drawDetachedPart, clientErrorState: () => clientError, clientErrorDetailState: () => clientErrorDetail, errorReportStatus, controlLocale, animatedTitleColor, players, ball, balls, bullets, grenades, gunPickups, grenadePickups, detachedParts, runnerWorldGeometry, runnerDistanceToPoint, segmentSegmentClosest, meleeLimbContact, damagePart, isPogo, isHeadOnly, resultCardText, pacificTimeLabel, projectedBallRadius, deathCinematicState: () => deathCinematic ? { ...deathCinematic, age: deathCinematicAge() } : null, disableBall: () => { ballEnabled = false; for (const item of balls) item.active = false; }, enableBall: (index = 0) => { ballEnabled = true; const item = balls[index]; item.active = true; item.serveAt = 0; item.safeUntil = 0; item.safePlayers = 0; }, setWind: (value) => { windAcceleration = value; }, setDebugHitboxes: (value) => { debugHitboxes = Boolean(value); }, debugState: () => debugHitboxes, windState: () => ({ direction: windDirection, mph: windMph }), nextRound: () => resetRound(runtime().monotonicUs, false), knockOut: () => killPlayer(players[1], 0, runtime().monotonicUs, "KO"), wackBall: () => { players[0].attackKind = "KICK"; returnBall(ball, players[0], runtime().monotonicUs, false); }, shieldBall: () => returnBall(ball, players[0], runtime().monotonicUs, true), crossWackBall: (contact = 1) => crossWackBall(ball, players.map((player) => ({ player, contact })), runtime().monotonicUs), enterGame: () => enterGame(runtime().monotonicUs), shellState: () => ({ mode: shellMode }), startFight: () => { shellMode = "GAME"; selecting = false; startReplay(runtime().monotonicUs); resetRound(runtime().monotonicUs, true); }, selectionState: () => ({ selecting, ready: selectionReady.slice() }), cameraState: () => ({ cameraWidth, cameraCenter, cameraCenterY, cameraAspect, stageRight, stageTop, stageBottom, viewHeight, cameraContainFloor, doll: { width: cameraDoll.width, target: { ...cameraDoll.target }, position: { ...cameraDoll.position }, perspective: cameraDoll.perspective, roll: cameraDoll.roll } }), screenBounds: () => players.map((player) => runnerScreenBounds(player, runtime().monotonicUs / 1e6)), actionSafeRect, hudSafeRect, roundState: () => ({ roundResult, roundElapsedUs, matchOver }), viewerState: () => ({ active: Boolean(roundViewer), mode: roundViewerMode, status: roundViewerStatus, name: matchName }), instantReplayState: () => instantReplay ? { active: true, paused: instantReplay.paused, cursor: instantReplay.cursor, frames: instantReplay.frames.length } : { active: false }, replayFrameCount: () => roundReplayFrames.length };`
   )(
-    () => ({ monotonicUs: now, unixMs: 1785870000000 + Math.floor(now / 1000) }),
+    () => ({ monotonicUs: now, unixMs: 1785870000000 + Math.floor(now / 1000),
+      simCount: Math.floor(now / 16667), paintCount: 0,
+      clientErrorReportStatus: hostErrorStatus }),
     (index = 0) => ({ ...pads[index], down: pads[index].down.slice() }),
     () => ({ platform, inputFamily: platform === "xbox-uwp" ? "xbox"
       : platform === "touch" ? "touch" : "keyboard" }),
@@ -72,7 +78,8 @@ function createFight(startImmediately = true, enterGame = true,
   }
   return { fight, pads, signals, replays, liveFrames, analyticsEvents,
     telemetryEvents, drums, triangles, lines,
-    tick, tap, now: () => now };
+    tick, tap, now: () => now,
+    setHostErrorStatus: (status) => { hostErrorStatus = status; } };
 }
 
 test("browser matches emit one category-only start milestone", () => {
@@ -142,6 +149,14 @@ test("update-ready panel offers a persisted auto-update checkbox", () => {
   assert.match(webShell, /if \(autoUpdate\.checked\) \{/);
 });
 
+test("web client errors post stateful reports and expose the server receipt", () => {
+  assert.match(webShell, /async function postClientError\(message\)/);
+  assert.match(webShell, /fetch\("\/api\/piece-log"/);
+  assert.match(webShell, /phase: "error"/);
+  assert.match(webShell, /clientErrorReportStatus = `posted to server/);
+  assert.match(webShell, /frameRate: 60, clientErrorReportStatus/);
+});
+
 test("start cue uses cached ElevenLabs speech with echo and a rising beep", () => {
   assert.match(webShell, /Cached ElevenLabs male:3 rendition/);
   assert.match(webShell, /tts-cache\/f9af6e0d19a4896793f66cd146d9a72e4160cdab9b85ef35c15a707e52c2d2ba\.mp3/);
@@ -193,7 +208,7 @@ test("title letters carry distinct colors that animate between palettes", () => 
 
 test("title and fighter select use a dark background", () => {
   assert.match(source, /const menuArena = \[7, 10, 26\]/);
-  assert.match(source, /drawTitleScreen\(t, menuInk\)/);
+  assert.match(source, /drawTitleScreen\(t, menuInk, transitionAge\)/);
   assert.match(source, /drawSelectionScreen\(t, menuInk, menuPanel\)/);
 });
 
@@ -326,12 +341,21 @@ test("camera zoom-out remains continuous as fighters approach safe edges", () =>
     previousWidth = state.doll.width;
     const safe = fight.actionSafeRect();
     for (const bounds of fight.screenBounds()) {
-      assert.ok(bounds.left >= safe.left - .5);
-      assert.ok(bounds.right <= safe.right + .5);
+      assert.ok(bounds.left >= safe.left - .5,
+        `frame ${frame}: left ${bounds.left} crossed ${safe.left}`);
+      assert.ok(bounds.right <= safe.right + .5,
+        `frame ${frame}: right ${bounds.right} crossed ${safe.right}`);
     }
   }
   assert.ok(largestFrameRatio < 1.08,
     `camera width jumped ${largestFrameRatio.toFixed(3)}x in one frame`);
+});
+
+test("close 16:9 action uses the tightest full-body containment frame", () => {
+  assert.match(source,
+    /const horizontalPadding = clamp\(180 \+ Math\.max\(0, separation - 700\) \* \.12/);
+  assert.match(source, /compactLayout\(\) \? 560 : 640/);
+  assert.match(source, /fighterContainmentRequiredWidth\([\s\S]{0,80}\* 1\.11/);
 });
 
 test("camera containment releases and zooms back in when fighters converge", () => {
@@ -433,27 +457,27 @@ test("loss sequence freezes, enters killer cam, breaks the body, and returns", (
 
 test("wind flag lives on the platform without an MPH HUD label", () => {
   assert.match(source, /const poleBottom = platformY/);
-  assert.match(source, /worldLine\(poleX, poleBottom/);
+  assert.match(source, /const poleX = platformRight - 340/);
+  assert.match(source, /worldCapsule\(poleX, poleBottom/);
+  assert.match(source, /function worldCapsule/);
   assert.doesNotMatch(source, /MPH/);
   assert.match(source, /const safe = actionSafeRect\(\)/);
-  assert.match(source, /Camera zoom may[\s\S]*no longer stretches streak length or speed/);
   assert.doesNotMatch(source, /const span = cameraWidth \* 1\.18/);
 });
 
-test("round-seeded wind uses single directional streaks whose speed follows MPH", () => {
-  const windSource = source.match(/function seededWindValue[\s\S]*?\n}\n\nfunction drawSelectPortrait/)[0];
-  assert.match(windSource, /matchName \|\| seriesName/);
-  assert.match(windSource, /windMph \* \.0082/);
-  assert.match(windSource, /windDirection/);
-  assert.doesNotMatch(windSource, /middleX/);
-  assert.equal((windSource.match(/filledCapsule\(/g) || []).length, 1);
+test("round-seeded ambient dust uses tiny drifting points at varied depth", () => {
+  const moteSource = source.match(/function seededWindValue[\s\S]*?\n}\n\nfunction drawSelectPortrait/)[0];
+  assert.match(moteSource, /matchName \|\| seriesName/);
+  assert.match(moteSource, /function drawAmbientMotes/);
+  assert.match(moteSource, /const count = 12/);
+  assert.match(moteSource, /filledDisc\(x, y, radius, ink\)/);
+  assert.doesNotMatch(moteSource, /filledCapsule\(/);
 });
 
-test("debug HUD shows FPS while oskiewar remains immediately left of the QR", () => {
+test("debug HUD shows FPS without repeating oskiewar beside the round QR", () => {
   assert.match(source, /Math\.round\(displayFps \|\| 0\) \+ " fps"/);
   assert.match(source, /if \(debugHitboxes\) \{\n    const fpsLabel/);
-  assert.match(source, /const gameLabel = "oskiewar"/);
-  assert.match(source, /left - gameLabelWidth - 16/);
+  assert.doesNotMatch(source, /const gameLabel = "oskiewar"/);
 });
 
 test("debug off hides safe-zone boxes including frozen round impacts", () => {
@@ -505,7 +529,8 @@ test("spectator QR uses the raw Meet-style round URL", () => {
   assert.match(source, /screenRect\(left \+ 3, top \+ 3, size, size, shadow\)/);
   assert.match(source, /const label = matchName/);
   assert.match(source, /qrcode\("https:\/\/oskiewar\.com"/);
-  assert.match(source, /drawTitleScreen\(t, menuInk\);\n    drawSpectatorQr\(menuInk\);/);
+  assert.match(source,
+    /drawTitleScreen\(t, menuInk, transitionAge\);\n    if \(transitionAge < 0\) drawSpectatorQr\(menuInk\);/);
 });
 
 test("raw live and demo rooms run through the canonical game engine", () => {
@@ -546,7 +571,7 @@ test("raw live and demo rooms run through the canonical game engine", () => {
   assert.equal(fight.players[0].x, 5400);
 });
 
-test("yellow blinking start advances on any button with a selected sound", () => {
+test("start flashes yellow green lime before fading into pal select", () => {
   const { fight, pads, signals, drums, tick } = createFight(false, false);
   assert.equal(fight.shellState().mode, "MENU");
   assert.equal(fight.selectionState().selecting, true);
@@ -555,10 +580,15 @@ test("yellow blinking start advances on any button with a selected sound", () =>
   assert.match(source, /\[255, 238, 82\]/);
   pads[0].down = ["Y"];
   tick();
+  assert.equal(fight.shellState().mode, "MENU");
+  tick(700001);
   assert.equal(fight.shellState().mode, "GAME");
   assert.equal(fight.selectionState().selecting, true);
   assert.deepEqual(drums.map(([name]) => name), ["hat"]);
   assert.ok(signals.some(([event]) => event === "select"));
+  assert.match(source,
+    /const flashPalette = \[\[255, 226, 48\], \[70, 224, 92\], \[181, 255, 48\]\]/);
+  assert.match(source, /if \(transitionAge >= 0\) return/);
 });
 
 test("active matches publish bounded phone spectator snapshots", () => {
@@ -1076,6 +1106,40 @@ test("a limbless torso becomes a pogo and a removed torso leaves a bouncing head
   assert.equal(target.attackKind, "");
 });
 
+test("a limbless airborne torso dives on down and pogo-bounces from the floor", () => {
+  const { fight, pads, tick, now } = createFight();
+  const target = fight.players[0];
+  for (const part of ["left-arm", "right-arm", "left-leg", "right-leg"]) {
+    for (let hit = 0; hit < 2; hit++) {
+      const geometry = fight.runnerWorldGeometry(target, now() / 1000000);
+      const index = geometry.segments.findIndex((segment) => segment.part === part);
+      fight.damagePart(target, index, fight.players[1].x, 1, now());
+    }
+  }
+  assert.equal(fight.isPogo(target), true);
+  target.y = 11000;
+  target.vy = -300;
+  target.grounded = false;
+  pads[0].down = ["ArrowDown"];
+  tick();
+  assert.equal(target.pogoDive, true);
+  assert.ok(target.vy > 2200);
+  assert.equal(target.stance, "POGO DOWN");
+  target.y = 11995;
+  target.vy = 2250;
+  pads[0].down = [];
+  tick();
+  assert.equal(target.pogoDive, false);
+  assert.equal(target.grounded, false);
+  assert.ok(target.vy < 0, "the downward torso attack should rebound as a pogo");
+});
+
+test("damaged limbs redden without perpendicular segmentation marks", () => {
+  assert.match(source, /function damagedPartColor/);
+  assert.match(source, /mixColor\(color, \[244, 34, 50\], amount\)/);
+  assert.doesNotMatch(source, /middleX - nx[\s\S]{0,180}middleX \+ nx/);
+});
+
 test("simultaneous body strikes recoil without player-order bias", () => {
   const { fight, pads, tick } = createFight();
   fight.players[0].x = 5940;
@@ -1162,9 +1226,9 @@ test("a ball resting on the platform also ignores wind", () => {
   assert.equal(fight.ball.vx, 0);
 });
 
-test("each round starts one grounded ball in front of each fighter", () => {
+test("each round starts player balls plus an airborne center beach ball", () => {
   const { fight } = createFight();
-  assert.equal(fight.balls.length, 2);
+  assert.equal(fight.balls.length, 3);
   for (let index = 0; index < fight.players.length; index++) {
     const player = fight.players[index];
     const ball = fight.balls[index];
@@ -1174,26 +1238,40 @@ test("each round starts one grounded ball in front of each fighter", () => {
     assert.equal(ball.vx, 0);
     assert.equal(ball.vy, 0);
   }
+  const beach = fight.balls[2];
+  assert.equal(beach.type, "beach");
+  assert.equal(beach.spawnOwner, -1);
+  assert.equal(beach.x, 6000);
+  assert.equal(beach.y, 10400 - 760);
+  assert.ok(beach.y < fight.balls[0].y);
+  assert.ok(beach.y < fight.balls[1].y);
 });
 
-test("the two balls are a lighter soccer ball and heavier bouncier basketball", () => {
+test("soccer, basketball, and beach balls have distinct physical properties", () => {
   const { fight } = createFight();
-  const [soccer, basketball] = fight.balls;
+  const [soccer, basketball, beach] = fight.balls;
   assert.equal(soccer.type, "soccer");
   assert.equal(basketball.type, "basketball");
+  assert.equal(beach.type, "beach");
   assert.ok(soccer.mass < basketball.mass);
+  assert.ok(beach.mass < soccer.mass);
+  assert.ok(beach.windFactor > soccer.windFactor);
+  assert.ok(beach.gravityFactor < 1);
   assert.ok(soccer.hitScale > basketball.hitScale);
   assert.ok(soccer.bounce < basketball.bounce);
   assert.match(source, /ball\.type === "soccer"/);
+  assert.match(source, /ball\.type === "beach"/);
+  assert.match(source, /const panels = \[/);
 });
 
-test("wind rerolls and reverses direction every round", () => {
-  const { fight } = createFight();
-  const first = fight.windState();
-  fight.nextRound();
-  const second = fight.windState();
-  assert.equal(second.direction, -first.direction);
-  assert.ok(second.mph >= 4 && second.mph <= 24);
+test("weather is calm while ambient dust remains visible", () => {
+  const { fight, signals, tick } = createFight();
+  for (let frame = 0; frame < 375; frame++) tick(40000);
+  assert.equal(fight.windState().mph, 0);
+  assert.equal(signals.filter(([event]) => event === "wind").length, 1);
+  assert.match(source, /function randomWindMph\(\) \{\n  return 0/);
+  assert.match(source, /nextWindChangeAt = Infinity/);
+  assert.match(source, /drawAmbientMotes\(t, windInk\)/);
 });
 
 test("only one center-platform powerup appears at each ten-second interval", () => {
@@ -1328,7 +1406,21 @@ test("player command streams retain recent directions and buttons", () => {
   assert.match(source, /function drawCommandStream\(player, side\)/);
   assert.match(source,
     /const glyph = \{ LEFT: "<", RIGHT: ">", UP: "\^", DOWN: "v" \}/);
+  assert.match(source, /idle - 150000/);
+  assert.match(source, /nextLength > 8/);
+  assert.match(source, /const training = !roundIsTimed\(\)/);
+  assert.match(source, /safe\.top \+ \(debugHitboxes \? hudTypeSize \+ 12 : 4\)/);
+  assert.match(source, /held: held\.includes\(buttonFor\[entry\.label\]\)/);
+  assert.match(source, /heldPalette\[entry\.label\]/);
   assert.match(source, /const size = hudTypeSize/);
+});
+
+test("owned gun and grenade counts render above each bottom handle", () => {
+  assert.match(source, /function drawHudInventory\(player, side\)/);
+  assert.match(source, /items\.push\("gun " \+ player\.gunAmmo\)/);
+  assert.match(source, /items\.push\("grenade " \+ player\.grenadeAmmo\)/);
+  assert.match(source,
+    /drawHudInventory\(players\[0\], 0\);\n    drawHudInventory\(players\[1\], 1\);/);
 });
 
 test("ball graphics rotate from physics only and use no white line outline", () => {
@@ -1550,6 +1642,26 @@ test("dummy rounds are untimed and use an infinity clock", () => {
   assert.ok(fight.roundState().roundElapsedUs > 30000000);
   assert.match(source, /function roundIsTimed\(\)[\s\S]{0,100}!\(players\[1\]\.npc && !players\[1\]\.bot\)/);
   assert.match(source, /timedRound \? String\(remainingSeconds\)\.padStart\(2, "0"\) : "∞"/);
+  assert.match(source,
+    /timedRound \? hudTypeSize : Math\.round\(hudTypeSize \* 1\.65\)/);
+});
+
+test("dummy training has no QR, analytics, spectator feed, or replay upload", () => {
+  const { fight, analyticsEvents, liveFrames, replays, tick } =
+    createFight(false, false);
+  fight.players[1].npc = true;
+  fight.players[1].bot = false;
+  fight.players[1].name = "DUMMY";
+  fight.startFight();
+  tick(3000001);
+  tick(100000);
+  assert.deepEqual(analyticsEvents, []);
+  assert.deepEqual(liveFrames, []);
+  assert.deepEqual(replays, []);
+  assert.match(source,
+    /function drawSpectatorQr\(ink\) \{\n  if \(shellMode === "GAME" && !roundIsTimed\(\)\) return/);
+  assert.match(source,
+    /if \(!roundIsTimed\(\)\) \{[\s\S]{0,180}replay = null/);
 });
 
 test("the final ten seconds ring bells and turn the top clock into tie", () => {
@@ -1558,7 +1670,7 @@ test("the final ten seconds ring bells and turn the top clock into tie", () => {
   assert.ok(drums.some(([name]) => name === "bell"));
   assert.match(source, /emitSignal\("countdown", -1, countdownSecond, 0\)/);
   assert.match(source, /roundResult === "TIE" \? "tie!"/);
-  assert.match(source, /const timerSize = hudTypeSize/);
+  assert.match(source, /const timerSize = timedRound \? hudTypeSize/);
 });
 
 test("legacy Xbox drum allowlists cannot stop bell or whoosh cues", () => {
@@ -1577,15 +1689,36 @@ test("legacy Xbox drum allowlists cannot stop bell or whoosh cues", () => {
 });
 
 test("client failures become an on-screen error state", () => {
-  const { fight } = createFight(false, false);
-  fight.captureClientError("sim", new RangeError("unknown drum"));
+  const { fight, telemetryEvents, setHostErrorStatus } = createFight(false, false);
+  const error = new RangeError("unknown drum");
+  error.stack = "RangeError: unknown drum\n    at playDrum (hello.js:724:9)";
+  fight.captureClientError("sim", error);
   assert.match(fight.clientErrorState(), /sim: RangeError: unknown drum/);
+  assert.equal(fight.clientErrorDetailState().source.line, 724);
+  const payload = JSON.parse(telemetryEvents.find(([event]) =>
+    event === "CLIENT_ERROR")[1]);
+  assert.equal(payload.phase, "sim");
+  assert.equal(payload.source.file, "hello.js");
+  assert.equal(payload.state.players.length, 2);
+  setHostErrorStatus("posted to server xbox-oskiewar-test");
+  assert.equal(fight.errorReportStatus(), "posted to server xbox-oskiewar-test");
   assert.doesNotThrow(() => fight.paint());
-  assert.match(source, /errorTypeWrite\("client error"/);
+  assert.match(source, /errorTypeWrite\("oskieware error"/);
+  assert.match(source, /errorTypeWrite\("state dump"/);
+  assert.match(source, /line " \+ detail\.source\.line/);
   assert.match(source, /errorTypeWrite\("relaunch or deploy an update"/);
   assert.match(source, /function errorTypeWrite[\s\S]{0,120}typeWrite\(/);
   assert.match(source, /typeof comicWrite === "function"/);
-  assert.match(source, /telemetry\("CLIENT_ERROR", clientError\)/);
+  assert.match(source, /telemetry\("CLIENT_ERROR", JSON\.stringify/);
+  assert.match(nativeApp, /QueueClientErrorUpload\(safe\.substr\(prefix\.size\(\)\)\)/);
+  assert.match(nativeApp, /posted to server/);
+  assert.match(nativeApp, /native lifecycle:/);
+  assert.match(nativeApp, /live deploy rejected:/);
+  assert.match(nativeApp,
+    /https:\/\/aesthetic\.computer\/api\/piece-log/);
+  assert.match(nativeApp, /FlushClientErrorUploads\(\)/);
+  assert.match(pieceLog,
+    /if \(phase === "error"\)[\s\S]{0,240}\$setOnInsert/);
 });
 
 test("off-camera detached limbs are culled before native triangle submission", () => {
@@ -1620,7 +1753,8 @@ test("every head knockout busts the head into digital blood trails", () => {
   assert.match(source, /target\.headBustedAt = now/);
   assert.match(source, /function drawDigitalHeadBurst/);
   assert.match(source, /\[255, 48, 96\], \[176, 18, 54\]/);
-  assert.match(source, /filledCapsule\(start\.x, start\.y, end\.x, end\.y/);
+  assert.match(source, /screenRect\(point\.x - pixel \/ 2, point\.y - pixel \/ 2/);
+  assert.doesNotMatch(source, /filledCapsule\(start\.x, start\.y, end\.x/);
   assert.match(source, /drawDigitalHeadBurst\(player, world\.head, age\)/);
 });
 

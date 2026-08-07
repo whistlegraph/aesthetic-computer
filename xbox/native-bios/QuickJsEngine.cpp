@@ -572,6 +572,10 @@ JSValue RuntimeInfo(JSContext* context, JSValueConst, int, JSValueConst*) {
   JS_SetPropertyStr(context, result, "midiControlValue", JS_NewInt32(context, scope->api->audio.midi_control_value));
   JS_SetPropertyStr(context, result, "midiGate", JS_NewBool(context, scope->api->audio.midi_gate));
   JS_SetPropertyStr(context, result, "midiStatus", JS_NewString(context, scope->api->audio.midi_status.c_str()));
+  const auto clientErrorReportStatus = scope->api->client_error_report_status
+    ? scope->api->client_error_report_status() : std::string{};
+  JS_SetPropertyStr(context, result, "clientErrorReportStatus",
+    JS_NewString(context, clientErrorReportStatus.c_str()));
   return result;
 }
 
