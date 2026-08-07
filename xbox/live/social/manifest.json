@@ -1,0 +1,11 @@
+{
+  "format": "ac.oskiewar.social-preview",
+  "version": 1,
+  "build": "7a649f33598c3e3d",
+  "width": 1200,
+  "height": 630,
+  "durationSeconds": 6,
+  "framesPerSecond": 30,
+  "image": "oskiewar-title.jpg",
+  "video": "oskiewar-title.mp4"
+}

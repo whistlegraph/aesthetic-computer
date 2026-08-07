@@ -109,7 +109,8 @@ async function captureTypography(browser, origin) {
   await page.evaluate(() => document.fonts.ready);
   await tap(page, "KeyF");
   await wait(900);
-  await tap(page, "KeyH");
+  await tap(page, "KeyF");
+  await tap(page, "KeyW");
   await tap(page, "KeyF");
   await wait(3350);
   const shot = join(outputRoot, "comic-relief-game.png");
@@ -152,17 +153,18 @@ async function captureTouch(browser, origin) {
     await wait(250);
   };
   await page.touchscreen.tap(viewport.width / 2, viewport.height / 2);
-  await wait(350);
-  const hoverTarget = await canvasPoint(100, 242);
+  await wait(900);
+  const hoverTarget = await canvasPoint(350, 300);
   await page.mouse.move(hoverTarget.x, hoverTarget.y);
   await wait(250);
   const selectShot = join(outputRoot, "touch-select.png");
   const selected = await page.screenshot({ path: selectShot });
-  await tapCanvas(100, 242); // @fifi for P1.
-  await tapCanvas(50, 540);  // Focus P2.
-  await tapCanvas(100, 336); // @sat for P2.
-  await tapCanvas(160, 450); // P1 ready.
-  await tapCanvas(160, 590); // P2 ready.
+  await tapCanvas(350, 300); // @fifi.
+  const opponentShot = join(outputRoot, "touch-opponent.png");
+  const opponent = await page.screenshot({ path: opponentShot });
+  await tapCanvas(60, 150);  // Back to step one.
+  await tapCanvas(350, 300); // @fifi again.
+  await tapCanvas(350, 260); // Bot.
   await wait(3350);
   const gameShot = join(outputRoot, "touch-game.png");
   const game = await page.screenshot({ path: gameShot });
@@ -179,12 +181,12 @@ async function captureTouch(browser, origin) {
       comicRelief: document.fonts.check('32px "Comic Relief"') };
   });
   await page.close();
-  const hashes = [before, selected, game].map((buffer) =>
+  const hashes = [before, selected, opponent, game].map((buffer) =>
     createHash("sha256").update(buffer).digest("hex").slice(0, 12));
   return { name: "touch", viewport, layout,
     aspectError: Math.abs(layout.cssAspect - layout.backingAspect),
     changed: new Set(hashes).size === hashes.length, hashes, errors,
-    files: { titleShot, selectShot, gameShot } };
+    files: { titleShot, selectShot, opponentShot, gameShot } };
 }
 
 async function captureHover(browser, origin) {
@@ -203,7 +205,7 @@ async function captureHover(browser, origin) {
   await page.goto(origin, { waitUntil: "networkidle2" });
   await page.evaluate(() => document.fonts.ready);
   await page.mouse.click(viewport.width / 2, viewport.height / 2);
-  await wait(350);
+  await wait(900);
   const audioAfterStart = await page.evaluate(() => ({
     unlocked: Boolean(globalThis.__oskiewarSfx?.unlocked),
     played: Number(globalThis.__oskiewarSfx?.playedEvents || 0),
@@ -219,7 +221,7 @@ async function captureHover(browser, origin) {
   const resting = await page.screenshot({ path: restingShot });
   const restingCursor = await page.evaluate(() => getComputedStyle(
     document.querySelector("canvas")).cursor);
-  const hoverTarget = await canvasPoint(100, 242);
+  const hoverTarget = await canvasPoint(100, 300);
   await page.mouse.move(hoverTarget.x, hoverTarget.y);
   await wait(350);
   const pointer = await page.evaluate(() => ({
@@ -286,16 +288,15 @@ async function playRound(browser, origin, name, viewport, opponent = "dummy") {
   const playerVideo = join(outputRoot, `${name}-player.webm`);
   const recorder = await page.screencast({ path: playerVideo, fps: 30 });
 
-  // OSKIEWAR card -> SELECT A PAL -> ready one player + dummy or both pads.
+  // Title -> pal -> opponent. Every choice is owned by player one.
   await tap(page, "KeyF");
   await wait(900);
+  await tap(page, "KeyF");
   if (opponent === "dummy") {
-    await tap(page, "KeyH");
-    await tap(page, "KeyF");
-  } else {
-    await tap(page, "KeyF");
-    await tap(page, "KeyK");
-  }
+    await tap(page, "KeyD");
+    await tap(page, "KeyD");
+  } else if (opponent === "bot") await tap(page, "KeyW");
+  await tap(page, "KeyF");
   await wait(3350);
 
   if (opponent === "dummy") {

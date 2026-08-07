@@ -207,6 +207,16 @@ git rev-parse HEAD > system/public/.commit-ref"
     exit 1
 end
 
+echo -e "$GREEN-> Verifying OSKIEWAR social preview freshness...$NC"
+if not ssh -i $SSH_KEY $LITH_USER@$TARGET_HOST "cd $REMOTE_DIR && node xbox/live/render-social-preview.mjs --check"
+    echo -e "$RED x OSKIEWAR social preview is stale; restoring $PREVIOUS_HEAD.$NC"
+    ssh -i $SSH_KEY $LITH_USER@$TARGET_HOST "\
+cd $REMOTE_DIR && \
+git reset --hard $PREVIOUS_HEAD --quiet && \
+git rev-parse HEAD > system/public/.commit-ref"
+    exit 1
+end
+
 echo -e "$GREEN-> Verifying disk worker bundle freshness...$NC"
 if not ssh -i $SSH_KEY $LITH_USER@$TARGET_HOST "cd $REMOTE_DIR/system && node scripts/verify-disk-worker.mjs"
     echo -e "$RED x Disk worker bundle is missing or stale; restoring $PREVIOUS_HEAD.$NC"

@@ -3,9 +3,27 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>OSKIEWAR</title>
+  <title>oskiewar</title>
   <meta name="description" content="Play OSKIEWAR in your browser with a keyboard or two gamepads.">
   <meta name="theme-color" content="#07081c">
+  <meta property="og:title" content="oskiewar">
+  <meta property="og:description" content="pick a pal. pick a fight.">
+  <meta property="og:image" content="https://oskiewar.com/social/oskiewar-title.jpg">
+  <meta property="og:image:secure_url" content="https://oskiewar.com/social/oskiewar-title.jpg">
+  <meta property="og:image:type" content="image/jpeg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="the multicolor oskiewar title screen">
+  <meta property="og:video" content="https://oskiewar.com/social/oskiewar-title.mp4">
+  <meta property="og:video:secure_url" content="https://oskiewar.com/social/oskiewar-title.mp4">
+  <meta property="og:video:type" content="video/mp4">
+  <meta property="og:video:width" content="1200">
+  <meta property="og:video:height" content="630">
+  <meta property="og:url" content="https://oskiewar.com/">
+  <meta property="og:type" content="website">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="oskiewar">
+  <meta name="twitter:image" content="https://oskiewar.com/social/oskiewar-title.jpg">
   <style>
     @font-face {
       font-family: "Comic Relief";
@@ -15,6 +33,7 @@
     }
     * { box-sizing: border-box; }
     html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: #07081c; }
+    @media (prefers-color-scheme: light) { html, body { background: #ebf1f8; } }
     @supports (height: 100dvh) { html, body { height: 100dvh; } }
     body { display: grid; place-items: center; font-family: "Comic Relief", "Comic Sans MS", Arial, sans-serif;
       cursor: url("/aesthetic.computer/cursors/precise.svg") 12 12, auto; }
@@ -94,7 +113,7 @@
     </div>
     <div id="touch-actions" class="touch-cluster" role="group" aria-label="actions">
       <button class="touch-button touch-y" data-key="Y" aria-label="grenade or replay" aria-pressed="false">y</button>
-      <button class="touch-button touch-x" data-key="X" aria-label="punch or toggle player two" aria-pressed="false">x</button>
+      <button class="touch-button touch-x" data-key="X" aria-label="punch" aria-pressed="false">x</button>
       <button class="touch-button touch-b" data-key="B" aria-label="shield" aria-pressed="false">b</button>
       <button class="touch-button touch-a" data-key="A" aria-label="kick or fire" aria-pressed="false">a</button>
     </div>
@@ -123,6 +142,7 @@
       ["KeyA", [0, "ArrowLeft"]], ["KeyD", [0, "ArrowRight"]],
       ["Space", [0, "A"]], ["KeyB", [0, "X"]],
       ["KeyF", [0, "A"]], ["KeyG", [0, "B"]], ["KeyH", [0, "X"]],
+      ["Escape", [0, "B"]], ["Backspace", [0, "B"]],
       ["Tab", [0, "View"]], ["KeyQ", [0, "View"]],
       ["Enter", [0, "Menu"]],
       ["ArrowUp", [1, "ArrowUp"]], ["ArrowDown", [1, "ArrowDown"]],
@@ -399,6 +419,8 @@
       const hasGamepad = Array.from(navigator.getGamepads?.() || []).some(Boolean);
       return { platform: mac ? "macos" : "web",
         inputFamily: touchEnabled ? "touch" : hasGamepad ? "xbox" : "keyboard",
+        colorScheme: matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark",
+        socialPreview: new URLSearchParams(location.search).has("social-preview"),
         productName: mac ? "MACOS" : "WEB",
         version: "CROSS-PLATFORM", graphics: "CANVAS2D", audio: "WEB AUDIO" };
     }
@@ -687,11 +709,26 @@
         .map((name) => globalThis.__fightHost[name]));
       piece.boot();
       let selectionHoverSoundKey = "";
+      let previousPieceScreen = "title";
+      const tabTitles = ["oskiewar", "oskie war", "os ki ewar", "osk ie war",
+        "o skie war", "oskie w ar"];
+      let previousTabTitle = -1;
+      const syncTabTitle = () => {
+        const index = Math.floor(performance.now() / 1250) % tabTitles.length;
+        if (index === previousTabTitle) return;
+        previousTabTitle = index;
+        document.title = tabTitles[index];
+      };
       const syncSelectionCursor = () => {
+        const pieceScreen = globalThis.__oskiewarTouch?.screen || "";
+        if (pieceScreen === "title" && previousPieceScreen !== "title") {
+          titleOpen = true;
+          document.body.classList.add("title-open");
+        }
+        previousPieceScreen = pieceScreen;
         const hover = globalThis.__oskiewarTouch?.hover || null;
         document.body.classList.toggle("selection-hover", Boolean(hover));
-        const key = hover ? [hover.roster ?? "", hover.card ?? "",
-          hover.ready ?? "", hover.mode ?? ""].join(":") : "";
+        const key = hover ? [hover.back ? "back" : "", hover.option ?? ""].join(":") : "";
         if (key && key !== selectionHoverSoundKey && !titleOpen)
           oskiewarSfx.drum("hat", .26, 0);
         selectionHoverSoundKey = key;
@@ -706,6 +743,7 @@
         },
         paint() {
           piece.paint();
+          syncTabTitle();
           syncSelectionCursor();
         },
       });

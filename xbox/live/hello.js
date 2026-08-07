@@ -1,5 +1,5 @@
 // @bundle-qr
-const buildTimestamp = "2026.08.07.1151 PDT";
+const buildTimestamp = "2026.08.07.1234 PDT";
 const floorY = 12000;
 const ceilingY = 0;
 const wallThickness = 80;
@@ -264,6 +264,15 @@ function losAngelesSun() {
     (hourAngle > 0 ? 1 : .42);
   return { light: light * light * (3 - 2 * light), sunset };
 }
+
+function displayTheme() {
+  const sun = losAngelesSun();
+  const caps = typeof capabilities === "function" ? capabilities() : {};
+  if (caps.platform === "web" || caps.platform === "macos") {
+    return { ...sun, light: caps.colorScheme === "light" ? 1 : 0 };
+  }
+  return sun;
+}
 const players = [
   { name: "@JEFFREY", rosterIndex: 0, handleColors: fighterRoster[0].colors,
     pad: 0, spawnX: 5700, x: 5700, y: floorY, z: 0,
@@ -354,7 +363,8 @@ let acFeed = {};
 let selecting = true;
 const selectionReady = [false, false];
 const selectionPrevious = [[], []];
-let touchSelectPad = 0;
+let selectionStep = 0;
+let selectionCursor = 0;
 let windMph = 0;
 let windDirection = 1;
 let windAcceleration = 0;
@@ -972,7 +982,8 @@ function applyRoster(player, index) {
 
 function beginSelect(now) {
   selecting = true;
-  touchSelectPad = 0;
+  selectionStep = 0;
+  selectionCursor = Math.max(0, players[0].rosterIndex);
   selectionReady[0] = false;
   selectionReady[1] = false;
   selectionPrevious[0] = padSnapshots[0]?.down?.slice() || [];
@@ -991,6 +1002,23 @@ function beginSelect(now) {
   }
 }
 
+function returnToTitle(now, reason = "back") {
+  finishReplay();
+  shellMode = "MENU";
+  selecting = false;
+  titleTransitionAt = -1;
+  roundResult = "";
+  roundCause = "";
+  deathCinematic = null;
+  shellPrevious = padSnapshots[0]?.down?.slice() || [];
+  selectionPrevious[0] = shellPrevious.slice();
+  selectionPrevious[1] = padSnapshots[1]?.down?.slice() || [];
+  spectatorQr = typeof qrcode === "function"
+    ? qrcode("https://oskiewar.com", { errorCorrectLevel: 1 }) : null;
+  playDrum("block", .8, 0);
+  telemetry("SHELL", "game->title " + reason + " " + now);
+}
+
 function returnToSelectPressed(now) {
   let pressed = false;
   for (let index = 0; index < padSnapshots.length; index++) {
@@ -1004,9 +1032,7 @@ function returnToSelectPressed(now) {
     navigationPrevious[index] = down.slice();
   }
   if (!pressed || shellMode !== "GAME" || selecting) return false;
-  beginSelect(now);
-  playDrum("block", .9, 0);
-  telemetry("SHELL", "game->select " + now);
+  returnToTitle(now, "menu");
   return true;
 }
 
@@ -1036,60 +1062,94 @@ function updateShell(now) {
   shellPrevious = down.slice();
 }
 
-function cycleOpponentMode() {
-  const opponent = players[1];
-  if (!opponent.npc) {
-    opponent.npc = true;
-    opponent.bot = false;
-    selectionReady[1] = true;
-  } else if (!opponent.bot) {
-    opponent.bot = true;
-    selectionReady[1] = true;
-  } else {
-    opponent.npc = false;
-    opponent.bot = false;
-    applyRoster(opponent, 2);
-    selectionReady[1] = false;
+function selectionOptions() {
+  if (selectionStep === 0) return fighterRoster.map((fighter, rosterIndex) => ({
+    kind: "pal", fighter, rosterIndex,
+  }));
+  return [
+    { kind: "dummy", fighter: npcFighter, rosterIndex: -1 },
+    { kind: "bot", fighter: botFighter, rosterIndex: -1 },
+    ...fighterRoster.map((fighter, rosterIndex) => ({
+      kind: "player", fighter, rosterIndex,
+    })),
+  ];
+}
+
+function startSelectedRound(now) {
+  selectionReady[0] = true;
+  selectionReady[1] = true;
+  selecting = false;
+  startReplay(now);
+  resetRound(now, true);
+  emitSignal("fighters", -1, players[0].rosterIndex, players[1].rosterIndex);
+}
+
+function chooseSelection(index, now) {
+  const option = selectionOptions()[index];
+  if (!option) return;
+  if (selectionStep === 0) {
+    applyRoster(players[0], option.rosterIndex);
+    selectionReady[0] = true;
+    selectionStep = 1;
+    selectionCursor = players[1].npc
+      ? players[1].bot ? 1 : 0
+      : Math.max(0, players[1].rosterIndex) + 2;
+    playDrum("hat", .9, -.55);
+    emitSignal("select", 0, option.rosterIndex, 0);
+    return;
   }
-  if (opponent.npc) applyRoster(opponent, -1);
-  playDrum("clap", .8, 0);
+  const opponent = players[1];
+  opponent.npc = option.kind === "dummy" || option.kind === "bot";
+  opponent.bot = option.kind === "bot";
+  applyRoster(opponent, option.rosterIndex);
+  playDrum("clap", 1, .55);
+  emitSignal("select", 1, option.rosterIndex, opponent.bot ? 2 : opponent.npc ? 1 : 0);
+  startSelectedRound(now);
+}
+
+function selectionBack(now) {
+  if (selectionStep === 1) {
+    selectionStep = 0;
+    selectionCursor = Math.max(0, players[0].rosterIndex);
+    selectionReady[0] = false;
+    playDrum("block", .7, 0);
+    return;
+  }
+  returnToTitle(now, "back");
 }
 
 function selectionTouchLayout() {
+  const options = selectionOptions();
   if (compactLayout()) {
     const margin = 24;
     const width = viewWidth() - margin * 2;
-    const rosterTop = 174;
-    const rosterHeight = 42;
-    const rosterGap = 5;
-    const cardsTop = 382;
-    const cardHeight = 128;
-    const cardGap = 12;
+    const gap = 12;
+    const columns = 2;
+    const top = 205;
+    const optionWidth = (width - gap) / columns;
+    const optionHeight = selectionStep === 0 ? 214 : 146;
     return {
-      roster: fighterRoster.map((fighter, index) => ({ index,
-        x: margin, y: rosterTop + index * (rosterHeight + rosterGap),
-        width, height: rosterHeight })),
-      cards: players.map((player) => {
-        const y = cardsTop + player.pad * (cardHeight + cardGap);
-        return { pad: player.pad, x: margin, y, width, height: cardHeight,
-          ready: { x: margin + 100, y: y + 58,
-            width: width - 215, height: 58 },
-          mode: player.pad === 1 ? { x: margin + width - 105, y: y + 58,
-            width: 95, height: 58 } : null };
-      }),
+      back: { x: margin, y: 126, width: 112, height: 50 },
+      options: options.map((option, index) => ({ index,
+        x: margin + (index % columns) * (optionWidth + gap),
+        y: top + Math.floor(index / columns) * (optionHeight + gap),
+        width: optionWidth, height: optionHeight })),
     };
   }
   const ox = viewOffsetX();
+  const columns = selectionStep === 0 ? 4 : 3;
+  const gap = 28;
+  const margin = 90;
+  const width = 1920 - margin * 2;
+  const optionWidth = (width - gap * (columns - 1)) / columns;
+  const optionHeight = selectionStep === 0 ? 520 : 300;
+  const top = selectionStep === 0 ? 280 : 245;
   return {
-    roster: fighterRoster.map((fighter, index) => ({ index,
-      x: ox + 205 + index * 390, y: 170, width: 300, height: 90 })),
-    cards: players.map((player) => {
-      const x = ox + (player.pad === 0 ? 90 : 990);
-      return { pad: player.pad, x, y: 320, width: 840, height: 570,
-        ready: { x: x + 330, y: 675, width: 350, height: 100 },
-        mode: player.pad === 1
-          ? { x: x + 660, y: 785, width: 150, height: 70 } : null };
-    }),
+    back: { x: ox + margin, y: 112, width: 170, height: 70 },
+    options: options.map((option, index) => ({ index,
+      x: ox + margin + (index % columns) * (optionWidth + gap),
+      y: top + Math.floor(index / columns) * (optionHeight + gap),
+      width: optionWidth, height: optionHeight })),
   };
 }
 
@@ -1101,13 +1161,9 @@ function selectionHover(layout = selectionTouchLayout()) {
   const pointer = globalThis.__oskiewarTouch?.pointer;
   if (!pointer?.active || !Number.isFinite(pointer.x) ||
       !Number.isFinite(pointer.y)) return null;
-  const roster = layout.roster.find((rect) => pointInRect(pointer, rect));
-  if (roster) return { roster: roster.index };
-  const card = layout.cards.find((rect) => pointInRect(pointer, rect));
-  if (!card) return null;
-  return { card: card.pad,
-    ready: pointInRect(pointer, card.ready) ? card.pad : -1,
-    mode: pointInRect(pointer, card.mode) ? card.pad : -1 };
+  if (pointInRect(pointer, layout.back)) return { back: true };
+  const option = layout.options.find((rect) => pointInRect(pointer, rect));
+  return option ? { option: option.index } : null;
 }
 
 function consumeSelectTouches(now) {
@@ -1116,67 +1172,36 @@ function consumeSelectTouches(now) {
   const touches = queue.splice(0);
   const layout = selectionTouchLayout();
   for (const point of touches) {
-    const roster = layout.roster.find((rect) => pointInRect(point, rect));
-    if (roster) {
-      const player = players[touchSelectPad];
-      if (player.pad === 1 && player.npc) {
-        player.npc = false;
-        player.bot = false;
-      }
-      applyRoster(player, roster.index);
-      selectionReady[player.pad] = false;
-      playDrum("hat", .8, player.pad === 0 ? -.65 : .65);
-      continue;
+    if (pointInRect(point, layout.back)) selectionBack(now);
+    else {
+      const option = layout.options.find((rect) => pointInRect(point, rect));
+      if (option) chooseSelection(option.index, now);
     }
-    const card = layout.cards.find((rect) => pointInRect(point, rect));
-    if (!card) continue;
-    touchSelectPad = card.pad;
-    if (card.mode && pointInRect(point, card.mode)) {
-      cycleOpponentMode();
-      continue;
-    }
-    const player = players[card.pad];
-    if (pointInRect(point, card.ready) && !player.npc) {
-      selectionReady[player.pad] = !selectionReady[player.pad];
-      playDrum(selectionReady[player.pad] ? "clap" : "hat", 1,
-        player.pad === 0 ? -.65 : .65);
-      const other = players[player.pad === 0 ? 1 : 0];
-      if (selectionReady[player.pad] && !selectionReady[other.pad] && !other.npc)
-        touchSelectPad = other.pad;
-    }
+    if (!selecting || shellMode === "MENU") break;
   }
 }
 
 function updateSelect(now) {
   consumeSelectTouches(now);
-  for (const player of players) {
-    const down = padSnapshots[player.pad]?.down || [];
-    if (player.npc) {
-      selectionPrevious[player.pad] = down.slice();
-      continue;
-    }
-    const previous = selectionPrevious[player.pad];
-    const pressed = (button) => down.includes(button) && !previous.includes(button);
-    if (player.pad === 0 && pressed("X")) {
-      cycleOpponentMode();
-    }
-    if (pressed("B") && selectionReady[player.pad]) selectionReady[player.pad] = false;
-    if (!selectionReady[player.pad] && (pressed("ArrowLeft") || pressed("ArrowRight"))) {
-      applyRoster(player, player.rosterIndex + (pressed("ArrowRight") ? 1 : -1));
-      playDrum("hat", .8, player.pad === 0 ? -.65 : .65);
-    }
-    if (!selectionReady[player.pad] && pressed("A")) {
-      selectionReady[player.pad] = true;
-      playDrum("clap", 1, player.pad === 0 ? -.65 : .65);
-    }
-    selectionPrevious[player.pad] = down.slice();
+  if (!selecting || shellMode === "MENU") return;
+  const down = padSnapshots[0]?.down || [];
+  const previous = selectionPrevious[0];
+  const pressed = (button) => down.includes(button) && !previous.includes(button);
+  const columns = compactLayout() ? 2 : selectionStep === 0 ? 4 : 3;
+  const optionCount = selectionOptions().length;
+  let movement = 0;
+  if (pressed("ArrowLeft")) movement = -1;
+  else if (pressed("ArrowRight")) movement = 1;
+  else if (pressed("ArrowUp")) movement = -columns;
+  else if (pressed("ArrowDown")) movement = columns;
+  if (movement) {
+    selectionCursor = (selectionCursor + movement + optionCount) % optionCount;
+    playDrum("hat", .55, 0);
   }
-  if (selectionReady[0] && selectionReady[1]) {
-    selecting = false;
-    startReplay(now);
-    resetRound(now, true);
-    emitSignal("fighters", -1, players[0].rosterIndex, players[1].rosterIndex);
-  }
+  if (pressed("B") || pressed("Menu")) selectionBack(now);
+  else if (pressed("A")) chooseSelection(selectionCursor, now);
+  selectionPrevious[0] = down.slice();
+  selectionPrevious[1] = padSnapshots[1]?.down?.slice() || [];
 }
 
 function randomWindMph() {
@@ -2896,8 +2921,7 @@ function gameSim() {
     captureFrameTelemetry(now);
     const resultDuration = matchOver ? matchResultUs : roundResultUs;
     if (now - roundOverAt >= resultDuration) {
-      if (matchOver) beginSelect(now);
-      else resetRound(now, false);
+      returnToTitle(now, "round-end");
     }
     return;
   }
@@ -3767,12 +3791,22 @@ function runnerBodyDistanceToPoint(geometry, px, py, pz = 0) {
   return distance;
 }
 
+// Comic Relief's packaged horizontal metrics, normalized from its 2048-unit
+// em. Colored text is drawn glyph-by-glyph on every host, so using the font's
+// real advances here keeps the web canvas and Xbox DirectWrite runs identical.
+const comicAdvanceEm = {
+  a:.512, b:.593, c:.514, d:.587, e:.548, f:.508, g:.531, h:.578,
+  i:.28, j:.403, k:.54, l:.274, m:.777, n:.523, o:.526, p:.535,
+  q:.52, r:.48, s:.487, t:.471, u:.52, v:.486, w:.684, x:.59,
+  y:.521, z:.538, "0":.61, "1":.45, "2":.61, "3":.61, "4":.61,
+  "5":.61, "6":.61, "7":.61, "8":.61, "9":.61, "@":.931,
+  "!":.238, "?":.524, ".":.249, ",":.277, ":":.299, ";":.299,
+  "<":.381, ">":.381, "^":.581, " ":.299, "/":.512, "-":.417,
+  "+":.48, "∞":.837,
+};
+
 function comicGlyphAdvance(character, size) {
-  if (character === "@") return size * .92;
-  if ("MW%&".includes(character.toUpperCase())) return size * .88;
-  if ("I1!.,:;'|".includes(character)) return size * .34;
-  if ("JLTF".includes(character.toUpperCase())) return size * .52;
-  return size * .65;
+  return size * (comicAdvanceEm[String(character).toLowerCase()] ?? .58);
 }
 
 function handleWidth(handle, size) {
@@ -3818,10 +3852,11 @@ function controlLocale() {
 
 function drawHandle(handle, x, y, size, colors, fallback) {
   let cursor = x;
-  for (let index = 0; index < handle.length; index++) {
+  const characters = [...String(handle)];
+  for (let index = 0; index < characters.length; index++) {
     const color = colors?.[index] || fallback;
-    typeWrite(handle[index], cursor, y, size, ...color);
-    cursor += size * (handle[index] === "@" ? .88 : .58);
+    typeWrite(characters[index], cursor, y, size, ...color);
+    cursor += comicGlyphAdvance(characters[index], size);
   }
 }
 
@@ -4681,105 +4716,59 @@ function drawSelectPortrait(player, x, y, scale, t) {
   drawFace(player, head, contrastShadow(color), t);
 }
 
+function selectionPreview(option) {
+  return { ...players[1], name: option.fighter.handle,
+    color: option.fighter.color,
+    npc: option.kind === "dummy" || option.kind === "bot",
+    bot: option.kind === "bot" };
+}
+
 function drawSelectionScreen(t, ink, panel) {
-  const controls = controlLocale();
-  if (compactLayout()) {
-    const layout = selectionTouchLayout();
-    const hover = selectionHover(layout);
-    if (globalThis.__oskiewarTouch) globalThis.__oskiewarTouch.hover = hover;
-    const margin = layout.roster[0].x;
-    const width = layout.roster[0].width;
-    const titleY = debugHitboxes ? hudSafeRect().top + 52 : 28;
-    typeWrite("PICK A PAL", viewCenterX() - 132, titleY, 36, ...ink);
-    for (const row of layout.roster) {
-      const fighter = fighterRoster[row.index];
-      const chosen = players.filter((player) => player.rosterIndex === row.index);
-      const hovered = hover?.roster === row.index;
-      box(row.x, row.y, row.width, row.height,
-        ...mixColor(panel, fighter.color, hovered ? .38 : chosen.length ? .22 : .06));
-      box(row.x, row.y, hovered ? 10 : 6, row.height, ...fighter.color);
-      typeWrite(fighter.handle, row.x + 20, row.y + (hovered ? 5 : 7),
-        hovered ? 27 : 25,
-        ...(chosen.length ? fighter.color : ink));
-      const owners = chosen.map((player) => "p" + (player.pad + 1)).join(" ");
-      if (owners) typeWrite(owners, row.x + row.width - 72,
-        row.y + 11, 18, ...fighter.color);
-    }
-    for (const card of layout.cards) {
-      const player = players[card.pad];
-      const top = card.y;
-      const profile = fighterProfile(player.name);
-      const cardHovered = hover?.card === player.pad;
-      const readyHovered = hover?.ready === player.pad;
-      const modeHovered = hover?.mode === player.pad;
-      box(margin, top, width, card.height,
-        ...mixColor(panel, player.color, cardHovered ? .12 : 0));
-      box(margin, top, width, touchSelectPad === player.pad ? 7 : 3,
-        ...player.color);
-      drawSelectPortrait(player, margin + 54, top + 72, .36, t);
-      drawHandle(player.name, margin + 105, top + 21, 27,
-        profile.colors, player.color);
-      if (readyHovered) box(card.ready.x - 7, card.ready.y,
-        card.ready.width + 14, card.ready.height,
-        ...mixColor(panel, player.color, .26));
-      typeWrite(player.bot ? "READY TO FIGHT" : player.npc ? "STANDING BY" : selectionReady[player.pad]
-        ? "READY" : "SELECT", card.ready.x, card.ready.y + (readyHovered ? 7 : 9),
-        readyHovered ? 29 : 27,
-        ...player.color);
-      if (modeHovered && card.mode) box(card.mode.x, card.mode.y,
-        card.mode.width, card.mode.height,
-        ...mixColor(panel, player.color, .28));
-      typeWrite(player.bot ? "BOT" : player.npc ? "DUMMY" : "P" + (player.pad + 1),
-        margin + width - 96, top + 76, 18, ...ink);
-    }
-    return;
-  }
-  const ox = viewOffsetX();
   const layout = selectionTouchLayout();
   const hover = selectionHover(layout);
   if (globalThis.__oskiewarTouch) globalThis.__oskiewarTouch.hover = hover;
-  typeWrite("PICK A PAL", ox + 825, 66, 42, ...ink);
-  for (let index = 0; index < fighterRoster.length; index++) {
-    const fighter = fighterRoster[index];
-    const selected = players.some((player) => player.rosterIndex === index);
-    const hovered = hover?.roster === index;
-    const row = layout.roster[index];
-    if (hovered) box(row.x, row.y, row.width, row.height,
-      ...mixColor(panel, fighter.color, .32));
-    typeWrite(fighter.handle, ox + 260 + index * 390, 225,
-      hovered ? 40 : selected ? 38 : 28,
-      ...(selected ? fighter.color : mixColor([105,115,145],[130,140,155],visualTheme.light)));
+  const compact = compactLayout();
+  const title = selectionStep === 0 ? "pick your pal" : "who are you fighting?";
+  const titleSize = compact ? 36 : 58;
+  const titleY = compact ? 58 : 86;
+  const titleWidth = handleWidth(title, titleSize);
+  typeWrite(title, viewCenterX() - titleWidth / 2, titleY, titleSize, ...ink);
+  const stepText = (selectionStep + 1) + "/2";
+  const stepSize = compact ? 24 : 32;
+  typeWrite(stepText, layout.back.x + layout.back.width + (compact ? 18 : 28),
+    layout.back.y + (compact ? 11 : 18), stepSize,
+    ...mixColor([140, 150, 185], ink, .35));
+  const backHovered = hover?.back;
+  const options = selectionOptions();
+  for (const rect of layout.options) {
+    const option = options[rect.index];
+    const player = selectionPreview(option);
+    const hovered = hover?.option === rect.index;
+    const focused = selectionCursor === rect.index;
+    const emphasis = hovered ? .34 : focused ? .22 : .07;
+    box(rect.x, rect.y, rect.width, rect.height,
+      ...mixColor(panel, option.fighter.color, emphasis));
+    box(rect.x, rect.y, rect.width, hovered ? 10 : focused ? 7 : 3,
+      ...option.fighter.color);
+    const scale = compact
+      ? selectionStep === 0 ? .46 : .28
+      : selectionStep === 0 ? 1.05 : .58;
+    const portraitY = rect.y + rect.height * (compact ? .55 : .53);
+    drawSelectPortrait(player, rect.x + rect.width / 2, portraitY, scale, t);
+    const label = option.fighter.handle.toLowerCase();
+    const labelSize = compact
+      ? selectionStep === 0 ? 28 : 25
+      : selectionStep === 0 ? 43 : 37;
+    const labelWidth = handleWidth(label, labelSize);
+    drawHandle(label, rect.x + (rect.width - labelWidth) / 2,
+      rect.y + rect.height - labelSize - (compact ? 10 : 18), labelSize,
+      option.fighter.colors, option.fighter.color);
   }
-  for (const player of players) {
-    const left = ox + (player.pad === 0 ? 90 : 990);
-    const card = layout.cards[player.pad];
-    const cardHovered = hover?.card === player.pad;
-    const readyHovered = hover?.ready === player.pad;
-    const modeHovered = hover?.mode === player.pad;
-    const profile = fighterProfile(player.name);
-    box(left, 320, 840, 570,
-      ...mixColor(panel, player.color, cardHovered ? .1 : 0));
-    if (cardHovered) box(left, 320, 840, 7, ...player.color);
-    drawSelectPortrait(player, left + 190, 590, 1.35, t);
-    drawHandle(player.name, left + 355, 395, 46,
-      profile.colors, player.color);
-    const mood = profile.mood ? "MOOD  " + profile.mood.slice(0, 30) : "MOOD  —";
-    const chat = profile.lastChat ? "CHAT  " + profile.lastChat.slice(0, 32) : "CHAT  —";
-    typeWrite(mood + "\n" + chat, left + 355, 490, 25, ...ink);
-    if (readyHovered) box(card.ready.x, card.ready.y,
-      card.ready.width, card.ready.height,
-      ...mixColor(panel, player.color, .24));
-    typeWrite(player.bot ? "READY TO FIGHT" : player.npc ? "STANDING BY"
-      : selectionReady[player.pad] ? "READY" : "SELECT",
-      left + 355, readyHovered ? 716 : 720,
-      readyHovered ? 56 : 52, ...player.color);
-    if (modeHovered && card.mode) box(card.mode.x, card.mode.y,
-      card.mode.width, card.mode.height,
-      ...mixColor(panel, player.color, .26));
-    typeWrite(player.bot ? "BOT" : player.npc ? "DUMMY" : "P" + (player.pad + 1),
-      left + 355, 805, 30, ...ink);
-  }
-  typeWrite(controls.select, ox + 225, 958, 28, ...ink);
+  // Keep navigation above every option on narrow/tall browser layouts.
+  box(layout.back.x, layout.back.y, layout.back.width, layout.back.height,
+    ...mixColor(panel, ink, backHovered ? .25 : .08));
+  typeWrite("< back", layout.back.x + (compact ? 12 : 20),
+    layout.back.y + (compact ? 10 : 17), compact ? 25 : 34, ...ink);
 }
 
 const titlePaletteNight = [
@@ -4808,9 +4797,11 @@ function animatedTitleColor(index, t, daylight = visualTheme.light) {
 
 function drawTitleScreen(t, ink, transitionAge = -1) {
   const compact = compactLayout();
+  const socialPreview = typeof capabilities === "function" &&
+    capabilities().socialPreview === true;
   const title = "oskiewar";
   const breath = 1 + Math.sin(t * .9) * .018;
-  const titleSize = (compact ? 88 : 154) * breath;
+  const titleSize = (socialPreview ? 220 : compact ? 88 : 154) * breath;
   const titleWidth = handleWidth(title, titleSize);
   const titleX = viewCenterX() - titleWidth / 2;
   const titleY = viewHeight * (compact ? .38 : .35);
@@ -4838,7 +4829,8 @@ function drawTitleScreen(t, ink, transitionAge = -1) {
   for (let index = 0; index < title.length; index++) {
     const character = title[index];
     const bob = Math.sin(t * 2.05 + index * .72) * (compact ? 5 : 8);
-    const drift = Math.cos(t * 1.12 + index * .91) * (compact ? 1.5 : 2.5);
+    const drift = Math.cos(t * 1.12 + index * .91) * (compact ? 3 : 5) +
+      Math.sin(t * .63 + index * 1.71) * (compact ? 7 : 12);
     typeWrite(character, cursor + drift, titleY + bob, titleSize,
       ...(transitionInk || animatedTitleColor(index, t)));
     cursor += comicGlyphAdvance(character, titleSize);
@@ -4850,10 +4842,10 @@ function drawTitleScreen(t, ink, transitionAge = -1) {
   const promptPulse = .68 + (Math.sin(t * 3.2) + 1) * .16;
   const promptInk = transitionInk ||
     mixColor([196, 142, 18], [255, 238, 82], promptPulse);
-  if (transitionAge >= 0 || Math.floor(t * 2.4) % 2 === 0)
+  if (!socialPreview && (transitionAge >= 0 || Math.floor(t * 2.4) % 2 === 0))
     typeWrite(prompt, viewCenterX() - promptWidth / 2,
       viewHeight * (compact ? .61 : .64), promptSize, ...promptInk);
-  if (transitionAge >= 0) return;
+  if (transitionAge >= 0 || socialPreview) return;
   const titleNow = pacificTimeLabel(runtime().unixMs || Date.now());
   const stamp = buildTimestamp.match(/^(\d{4})\.(\d{2})\.(\d{2})\.(\d{2})(\d{2})/);
   const version = stamp
@@ -4902,6 +4894,7 @@ function drawDebugBug(safe) {
 }
 
 function drawSpectatorQr(ink) {
+  if (typeof capabilities === "function" && capabilities().socialPreview) return;
   const safe = hudSafeRect();
   const compact = compactLayout();
   const metaSize = compact ? Math.max(20, hudTypeSize * .58) : hudTypeSize;
@@ -4994,6 +4987,11 @@ function drawSafeZones() {
 function gamePaint() {
   syncGameView();
   const run = runtime();
+  if (globalThis.__oskiewarTouch) {
+    globalThis.__oskiewarTouch.screen = shellMode === "MENU"
+      ? titleTransitionAt >= 0 ? "title-transition" : "title"
+      : selecting ? "select" : "game";
+  }
   if (lastPaintAt > 0 && run.monotonicUs > lastPaintAt) {
     const sample = clamp(1000000 / (run.monotonicUs - lastPaintAt), 1, 240);
     displayFps = displayFps ? lerp(displayFps, sample, .12) : sample;
@@ -5002,7 +5000,7 @@ function gamePaint() {
   const t = (run.monotonicUs - startedAt) / 1000000;
   if (typeof ac === "function") acFeed = ac();
   for (const player of players) player.handleColors = fighterProfile(player.name).colors;
-  visualTheme = losAngelesSun();
+  visualTheme = displayTheme();
   triangleDepth = -1.4;
   const skyDay = mixColor([176, 215, 245], [255, 160, 112],
     visualTheme.sunset * .7);
@@ -5017,9 +5015,9 @@ function gamePaint() {
     visualTheme.light);
   const titleInk = mixColor([245, 248, 255], [24, 35, 72], visualTheme.light);
   const statusShadow = contrastShadow(titleInk);
-  const menuArena = [7, 10, 26];
-  const menuPanel = [20, 28, 56];
-  const menuInk = [245, 248, 255];
+  const menuArena = mixColor([7, 10, 26], [235, 241, 248], visualTheme.light);
+  const menuPanel = mixColor([20, 28, 56], [215, 225, 239], visualTheme.light);
+  const menuInk = mixColor([245, 248, 255], [24, 35, 72], visualTheme.light);
   wipe(...outside);
   if (shellMode === "MENU") {
     box(0, 0, viewWidth(), viewHeight, ...menuArena);
@@ -5032,7 +5030,6 @@ function gamePaint() {
   if (selecting) {
     box(0, 0, viewWidth(), viewHeight, ...menuArena);
     drawSelectionScreen(t, menuInk, menuPanel);
-    drawSpectatorQr(menuInk);
     return;
   }
   const cinematicAge = deathCinematicAge(run.monotonicUs);

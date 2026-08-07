@@ -1,9 +1,23 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const source = await readFile(new URL("../hello.js", import.meta.url), "utf8");
 const webShell = await readFile(new URL("../mac-test.html", import.meta.url), "utf8");
+const frameDriverSource = await readFile(new URL("../frame-driver.mjs", import.meta.url));
+const socialRenderer = await readFile(new URL(
+  "../render-social-preview.mjs", import.meta.url));
+const socialManifest = JSON.parse(await readFile(new URL(
+  "../social/manifest.json", import.meta.url), "utf8"));
+const socialPoster = await readFile(new URL(
+  "../social/oskiewar-title.jpg", import.meta.url));
+const socialVideo = await readFile(new URL(
+  "../social/oskiewar-title.mp4", import.meta.url));
+const lithDeploy = await readFile(new URL(
+  "../../../lith/deploy.fish", import.meta.url), "utf8");
+const lithWebhook = await readFile(new URL(
+  "../../../lith/webhook.sh", import.meta.url), "utf8");
 const activeCursor = await readFile(new URL(
   "../../../system/public/aesthetic.computer/cursors/active.svg",
   import.meta.url), "utf8");
@@ -44,7 +58,7 @@ function createFight(startImmediately = true, enterGame = true,
   const drawLine = (...values) => lines.push(values);
   const fight = new Function(
     "runtime", "gamepad", "capabilities", "telemetry", "gameSignal", "saveReplay", "publishLive", "analytics", "drum", "wipe", "box", "line", "triangle", "triangle3d", "write", "systemWrite", "gameView",
-    `${source}\nreturn { boot, sim, paint, playDrum, captureClientError, drawDetachedPart, clientErrorState: () => clientError, clientErrorDetailState: () => clientErrorDetail, errorReportStatus, controlLocale, animatedTitleColor, players, ball, balls, bullets, grenades, gunPickups, grenadePickups, detachedParts, runnerWorldGeometry, fighterAnimationPhase, runnerDistanceToPoint, segmentSegmentClosest, meleeLimbContact, damagePart, isPogo, isHeadOnly, resultCardText, pacificTimeLabel, projectedBallRadius, deathCinematicState: () => deathCinematic ? { ...deathCinematic, age: deathCinematicAge() } : null, disableBall: () => { ballEnabled = false; for (const item of balls) item.active = false; }, enableBall: (index = 0) => { ballEnabled = true; const item = balls[index]; item.active = true; item.serveAt = 0; item.safeUntil = 0; item.safePlayers = 0; }, setWind: (value) => { windAcceleration = value; }, setDebugHitboxes: (value) => { debugHitboxes = Boolean(value); }, debugState: () => debugHitboxes, windState: () => ({ direction: windDirection, mph: windMph }), nextRound: () => resetRound(runtime().monotonicUs, false), knockOut: () => killPlayer(players[1], 0, runtime().monotonicUs, "KO"), startAttack: (kind) => startMelee(players[0], kind, runtime().monotonicUs), bootFirstBall: () => bootBall(ball, players[0], runtime().monotonicUs), wackBall: () => { players[0].attackKind = "KICK"; returnBall(ball, players[0], runtime().monotonicUs, false); }, shieldBall: () => returnBall(ball, players[0], runtime().monotonicUs, true), crossWackBall: (contact = 1) => crossWackBall(ball, players.map((player) => ({ player, contact })), runtime().monotonicUs), enterGame: () => enterGame(runtime().monotonicUs), shellState: () => ({ mode: shellMode }), startFight: () => { shellMode = "GAME"; selecting = false; startReplay(runtime().monotonicUs); resetRound(runtime().monotonicUs, true); }, selectionState: () => ({ selecting, ready: selectionReady.slice() }), cameraState: () => ({ cameraWidth, cameraCenter, cameraCenterY, cameraAspect, stageRight, stageTop, stageBottom, viewHeight, cameraContainFloor, doll: { width: cameraDoll.width, target: { ...cameraDoll.target }, position: { ...cameraDoll.position }, perspective: cameraDoll.perspective, roll: cameraDoll.roll } }), screenBounds: () => players.map((player) => runnerScreenBounds(player, runtime().monotonicUs / 1e6)), actionSafeRect, hudSafeRect, roundState: () => ({ roundResult, roundElapsedUs, matchOver }), viewerState: () => ({ active: Boolean(roundViewer), mode: roundViewerMode, status: roundViewerStatus, name: matchName }), instantReplayState: () => instantReplay ? { active: true, paused: instantReplay.paused, cursor: instantReplay.cursor, frames: instantReplay.frames.length } : { active: false }, replayFrameCount: () => roundReplayFrames.length };`
+    `${source}\nreturn { boot, sim, paint, playDrum, captureClientError, drawDetachedPart, clientErrorState: () => clientError, clientErrorDetailState: () => clientErrorDetail, errorReportStatus, controlLocale, animatedTitleColor, comicGlyphAdvance, handleWidth, displayTheme, players, ball, balls, bullets, grenades, gunPickups, grenadePickups, detachedParts, runnerWorldGeometry, fighterAnimationPhase, runnerDistanceToPoint, segmentSegmentClosest, meleeLimbContact, damagePart, isPogo, isHeadOnly, resultCardText, pacificTimeLabel, projectedBallRadius, deathCinematicState: () => deathCinematic ? { ...deathCinematic, age: deathCinematicAge() } : null, disableBall: () => { ballEnabled = false; for (const item of balls) item.active = false; }, enableBall: (index = 0) => { ballEnabled = true; const item = balls[index]; item.active = true; item.serveAt = 0; item.safeUntil = 0; item.safePlayers = 0; }, setWind: (value) => { windAcceleration = value; }, setDebugHitboxes: (value) => { debugHitboxes = Boolean(value); }, debugState: () => debugHitboxes, windState: () => ({ direction: windDirection, mph: windMph }), nextRound: () => resetRound(runtime().monotonicUs, false), knockOut: () => killPlayer(players[1], 0, runtime().monotonicUs, "KO"), startAttack: (kind) => startMelee(players[0], kind, runtime().monotonicUs), bootFirstBall: () => bootBall(ball, players[0], runtime().monotonicUs), wackBall: () => { players[0].attackKind = "KICK"; returnBall(ball, players[0], runtime().monotonicUs, false); }, shieldBall: () => returnBall(ball, players[0], runtime().monotonicUs, true), crossWackBall: (contact = 1) => crossWackBall(ball, players.map((player) => ({ player, contact })), runtime().monotonicUs), enterGame: () => enterGame(runtime().monotonicUs), shellState: () => ({ mode: shellMode }), startFight: () => { shellMode = "GAME"; selecting = false; startReplay(runtime().monotonicUs); resetRound(runtime().monotonicUs, true); }, selectionState: () => ({ selecting, step: selectionStep, cursor: selectionCursor, ready: selectionReady.slice() }), cameraState: () => ({ cameraWidth, cameraCenter, cameraCenterY, cameraAspect, stageRight, stageTop, stageBottom, viewHeight, cameraContainFloor, doll: { width: cameraDoll.width, target: { ...cameraDoll.target }, position: { ...cameraDoll.position }, perspective: cameraDoll.perspective, roll: cameraDoll.roll } }), screenBounds: () => players.map((player) => runnerScreenBounds(player, runtime().monotonicUs / 1e6)), actionSafeRect, hudSafeRect, roundState: () => ({ roundResult, roundElapsedUs, matchOver }), viewerState: () => ({ active: Boolean(roundViewer), mode: roundViewerMode, status: roundViewerStatus, name: matchName }), instantReplayState: () => instantReplay ? { active: true, paused: instantReplay.paused, cursor: instantReplay.cursor, frames: instantReplay.frames.length } : { active: false }, replayFrameCount: () => roundReplayFrames.length };`
   )(
     () => ({ monotonicUs: now, unixMs: 1785870000000 + Math.floor(now / 1000),
       simCount: Math.floor(now / 16667), paintCount: 0,
@@ -121,7 +135,7 @@ test("desktop space kicks and B punches without changing Xbox buttons", () => {
 
 test("web touch labels follow the current combat mapping", () => {
   assert.match(webShell, /data-key="A" aria-label="kick or fire"/);
-  assert.match(webShell, /data-key="X" aria-label="punch or toggle player two"/);
+  assert.match(webShell, /data-key="X" aria-label="punch"/);
   assert.match(webShell, /data-key="B" aria-label="shield"/);
   assert.match(webShell, /data-key="Y" aria-label="grenade or replay"/);
 });
@@ -147,8 +161,8 @@ test("web selector uses the AC precise cursor and mouse hover bridge", () => {
   assert.match(uiSource, /event\?\.cursor\?\.\(hoveredButtons\.size \? "active" : "precise"\)/);
   assert.doesNotMatch(webShell, /if \(!touchEnabled\) return;/);
   assert.match(source, /function selectionHover\(/);
-  assert.match(source, /hovered \? \.38/);
-  assert.match(source, /readyHovered \? 29 : 27/);
+  assert.match(source, /const emphasis = hovered \? \.34 : focused \? \.22 : \.07/);
+  assert.match(source, /box\(rect\.x, rect\.y, rect\.width, hovered \? 10 : focused \? 7 : 3/);
 });
 
 test("web relayout observes live viewport element resizing", () => {
@@ -205,6 +219,52 @@ test("OSKIEWAR typography uses the packaged KidLisp Comic Relief face", () => {
   assert.match(source, /const timerSize = timedRound \? hudTypeSize/);
 });
 
+test("colored glyph runs share Comic Relief advances across every host", () => {
+  const { fight } = createFight(false, false);
+  assert.ok(Math.abs(fight.comicGlyphAdvance("@", 100) - 93.1) < .001);
+  assert.ok(Math.abs(fight.comicGlyphAdvance("i", 100) - 28) < .001);
+  assert.equal(Math.round(fight.handleWidth("@fifi", 100) * 10) / 10, 250.7);
+  assert.match(source,
+    /cursor \+= comicGlyphAdvance\(characters\[index\], size\)/);
+  assert.doesNotMatch(source, /handle\[index\] === "@" \? \.88 : \.58/);
+});
+
+test("web theme follows the system while arena color still follows Los Angeles", () => {
+  assert.match(webShell,
+    /matchMedia\("\(prefers-color-scheme: light\)"\)\.matches \? "light" : "dark"/);
+  assert.match(source, /const sun = losAngelesSun\(\)/);
+  assert.match(source,
+    /caps\.platform === "web" \|\| caps\.platform === "macos"/);
+  assert.match(source,
+    /return \{ \.\.\.sun, light: caps\.colorScheme === "light" \? 1 : 0 \}/);
+  assert.match(source, /visualTheme = displayTheme\(\)/);
+});
+
+test("tab title animates playful phoneme spacing", () => {
+  assert.match(webShell,
+    /\["oskiewar", "oskie war", "os ki ewar", "osk ie war",/);
+  assert.match(webShell, /document\.title = tabTitles\[index\]/);
+  assert.match(source, /Math\.sin\(t \* \.63 \+ index \* 1\.71\)/);
+});
+
+test("Open Graph social media mirrors Whistlegraph's image-first MP4 pattern", () => {
+  for (const tag of ["og:image", "og:image:secure_url", "og:image:type",
+    "og:video", "og:video:secure_url", "og:video:type", "twitter:image"])
+    assert.match(webShell, new RegExp(`(?:property|name)="${tag}"`));
+  assert.match(webShell, /content="video\/mp4"/);
+  assert.match(webShell, /content="1200"/);
+  assert.match(webShell, /content="630"/);
+  assert.equal(socialPoster[0], 0xff);
+  assert.equal(socialPoster[1], 0xd8);
+  assert.equal(socialVideo.subarray(4, 8).toString(), "ftyp");
+  assert.ok(socialVideo.length > 100000);
+  const expectedBuild = createHash("sha256").update(source).update(webShell)
+    .update(frameDriverSource).update(socialRenderer).digest("hex").slice(0, 16);
+  assert.equal(socialManifest.build, expectedBuild);
+  assert.match(lithDeploy, /render-social-preview\.mjs --check/);
+  assert.match(lithWebhook, /render-social-preview\.mjs --check/);
+});
+
 test("title letters carry distinct colors that animate between palettes", () => {
   const { animatedTitleColor } = createFight(false, false).fight;
   const firstFrame = Array.from({ length: 8 }, (_, index) =>
@@ -220,15 +280,18 @@ test("title letters carry distinct colors that animate between palettes", () => 
   }
 });
 
-test("title and fighter select use a dark background", () => {
-  assert.match(source, /const menuArena = \[7, 10, 26\]/);
+test("title and fighter select inherit the root light or dark theme", () => {
+  assert.match(source,
+    /const menuArena = mixColor\(\[7, 10, 26\], \[235, 241, 248\], visualTheme\.light\)/);
+  assert.match(webShell, /@media \(prefers-color-scheme: light\)/);
   assert.match(source, /drawTitleScreen\(t, menuInk, transitionAge\)/);
   assert.match(source, /drawSelectionScreen\(t, menuInk, menuPanel\)/);
 });
 
-test("pal selection is named pick a pal", () => {
-  assert.match(source, /typeWrite\("PICK A PAL"/);
-  assert.doesNotMatch(source, /typeWrite\("SELECT A PAL"/);
+test("pal selection is a two-step linear question", () => {
+  assert.match(source, /"pick your pal" : "who are you fighting\?"/);
+  assert.match(source, /const stepText = \(selectionStep \+ 1\) \+ "\/2"/);
+  assert.doesNotMatch(source, /READY TO FIGHT|STANDING BY/);
 });
 
 test("title shows a live Pacific clock and version timestamp", () => {
@@ -624,7 +687,7 @@ test("start flashes yellow green lime before fading into pal select", () => {
   assert.ok(signals.some(([event]) => event === "select"));
   assert.match(source,
     /const flashPalette = \[\[255, 226, 48\], \[70, 224, 92\], \[181, 255, 48\]\]/);
-  assert.match(source, /if \(transitionAge >= 0\) return/);
+  assert.match(source, /if \(transitionAge >= 0 \|\| socialPreview\) return/);
 });
 
 test("active matches publish bounded phone spectator snapshots", () => {
@@ -655,30 +718,28 @@ test("every round gets a new URL and tells spectators where the room moved", () 
   assert.equal(liveFrames.at(-1)[1].previousRoundId, firstId);
 });
 
-test("character select offers the four AC fighters and waits for both pads", () => {
-  const { fight, pads, tick } = createFight(false);
-  pads[0].down = ["ArrowRight"];
-  tick();
-  pads[0].down = [];
-  tick();
+test("one controller chooses a pal and then a named local opponent", () => {
+  const { fight, tap } = createFight(false);
+  tap(0, "ArrowRight");
+  assert.equal(fight.selectionState().cursor, 1);
+  assert.equal(fight.players[0].name, "@JEFFREY");
+  tap(0, "A");
+  assert.equal(fight.selectionState().step, 1);
   assert.equal(fight.players[0].name, "@FIFI");
-  pads[0].down = ["A"];
-  tick();
   assert.equal(fight.selectionState().selecting, true);
+  tap(0, "A");
   assert.equal(fight.players[1].name, "@OSKIE");
   assert.equal(fight.players[1].npc, false);
-  pads[0].down = [];
-  pads[1].down = ["A"];
-  tick();
   assert.equal(fight.selectionState().selecting, false);
 });
 
-test("character select status labels use the shared comic typeface", () => {
-  assert.equal((source.match(/typeWrite\(player\.bot \? "READY TO FIGHT"/g) || []).length, 2);
-  assert.doesNotMatch(source, /write\(player\.bot \? "READY TO FIGHT"/);
+test("selection cards use the shared comic typeface without readiness copy", () => {
+  assert.match(source, /drawHandle\(label,/);
+  assert.match(source, /typeWrite\("< back"/);
+  assert.doesNotMatch(source, /READY TO FIGHT|STANDING BY|\? "READY" : "SELECT"/);
 });
 
-test("portrait touch can choose both pals, toggle P2 mode, and ready", () => {
+test("portrait touch follows pal, opponent, and back as separate steps", () => {
   const { fight, tick } = createFight(false, false, "touch", null,
     { width: 499, height: 1080 });
   fight.enterGame();
@@ -688,19 +749,18 @@ test("portrait touch can choose both pals, toggle P2 mode, and ready", () => {
     tick();
   };
   try {
-    touch(100, 242);
+    touch(350, 300);
     assert.equal(fight.players[0].name, "@FIFI");
-    touch(390, 592);
-    assert.equal(fight.players[1].npc, true);
-    touch(50, 540);
-    touch(100, 336);
+    assert.equal(fight.selectionState().step, 1);
+    touch(60, 150);
+    assert.equal(fight.selectionState().step, 0);
+    assert.equal(fight.selectionState().selecting, true);
+    touch(350, 300);
+    touch(350, 590);
     assert.equal(fight.players[1].name, "@SAT");
     assert.equal(fight.players[1].npc, false);
-    touch(160, 450);
-    assert.equal(fight.selectionState().ready[0], true);
-    touch(160, 590);
     assert.equal(fight.selectionState().selecting, false);
-    globalThis.__oskiewarTouch.taps.push({ x: 100, y: 242 });
+    globalThis.__oskiewarTouch.taps.push({ x: 350, y: 300 });
     tick();
     assert.equal(globalThis.__oskiewarTouch.taps.length, 0);
   } finally {
@@ -708,12 +768,13 @@ test("portrait touch can choose both pals, toggle P2 mode, and ready", () => {
   }
 });
 
-test("Menu returns to select while View or web Tab toggles debug geometry", () => {
+test("Menu returns a round to title while View or web Tab toggles debug geometry", () => {
   for (const pad of [0, 1]) {
     const { fight, tap } = createFight();
     assert.equal(fight.selectionState().selecting, false);
     tap(pad, "Menu");
-    assert.equal(fight.selectionState().selecting, true);
+    assert.equal(fight.shellState().mode, "MENU");
+    assert.equal(fight.selectionState().selecting, false);
   }
   const { fight, tap } = createFight();
   assert.equal(fight.debugState(), false);
@@ -725,30 +786,17 @@ test("Menu returns to select while View or web Tab toggles debug geometry", () =
   assert.match(webShell, /\["Tab", \[0, "View"\]\]/);
 });
 
-test("P1 X cycles P2 between controller, dummy, and attacking bot", () => {
-  const { fight, pads, tick } = createFight(false);
-  pads[0].down = ["X"];
-  tick();
-  assert.equal(fight.players[1].name, "DUMMY");
-  assert.equal(fight.players[1].npc, true);
-  assert.equal(fight.players[1].bot, false);
-  assert.equal(fight.selectionState().ready[1], true);
-  pads[0].down = [];
-  tick();
-  pads[0].down = ["X"];
-  tick();
+test("bot is a direct opponent choice instead of a hidden mode cycle", () => {
+  const { fight, tap } = createFight(false);
+  tap(0, "A");
+  assert.equal(fight.selectionState().step, 1);
+  tap(0, "ArrowUp");
+  assert.equal(fight.selectionState().cursor, 1);
+  tap(0, "A");
   assert.equal(fight.players[1].name, "BOT");
   assert.equal(fight.players[1].npc, true);
   assert.equal(fight.players[1].bot, true);
-  assert.equal(fight.selectionState().ready[1], true);
-  pads[0].down = [];
-  tick();
-  pads[0].down = ["X"];
-  tick();
-  assert.equal(fight.players[1].name, "@OSKIE");
-  assert.equal(fight.players[1].npc, false);
-  assert.equal(fight.players[1].bot, false);
-  assert.equal(fight.selectionState().ready[1], false);
+  assert.equal(fight.selectionState().selecting, false);
 });
 
 test("bot uses the player input and physics path to pursue and strike", () => {
@@ -1731,12 +1779,13 @@ test("a close simultaneous punch and kick produce a stronger CROSS WACK", () => 
   assert.ok(signals.some(([event, pad]) => event === "crosswack" && pad === -1));
 });
 
-test("round clock can end in a tie and resets", () => {
+test("round clock can end in a tie and returns to title", () => {
   const { fight, tick } = createFight();
   for (let frame = 0; frame < 750; frame++) tick(40000);
   assert.equal(fight.roundState().roundResult, "TIE");
   tick(3000001);
   assert.equal(fight.roundState().roundResult, "");
+  assert.equal(fight.shellState().mode, "MENU");
   assert.equal(fight.players[0].score, 0);
   assert.equal(fight.players[1].score, 0);
 });
@@ -1906,21 +1955,17 @@ test("round result offers an instant replay with pause, scrub, and exit", () => 
   assert.equal(fight.instantReplayState().active, false);
 });
 
-test("first to five round wins takes the match", () => {
+test("one completed round saves its replay and closes the loop at title", () => {
   const { fight, replays, tick } = createFight();
-  for (let round = 1; round <= 5; round++) {
-    fight.players[0].score = 1;
-    for (let frame = 0; frame < 750; frame++) tick(40000);
-    assert.equal(fight.players[0].roundWins, round);
-    assert.equal(fight.roundState().matchOver, round === 5);
-    assert.equal(fight.roundState().roundResult,
-      round === 5 ? "@JEFFREY WINS MATCH" : "@JEFFREY WINS ROUND");
-    tick(round === 5 ? 5000001 : 3000001);
-    if (round < 5) tick(3000001);
-  }
-  assert.equal(fight.players[0].roundWins, 0);
+  fight.players[0].score = 1;
+  for (let frame = 0; frame < 750; frame++) tick(40000);
+  assert.equal(fight.players[0].roundWins, 1);
+  assert.equal(fight.roundState().matchOver, false);
+  assert.equal(fight.roundState().roundResult, "@JEFFREY WINS ROUND");
+  tick(3000001);
+  assert.equal(fight.shellState().mode, "MENU");
   assert.equal(fight.roundState().roundResult, "");
-  assert.equal(replays.length, 5);
+  assert.equal(replays.length, 1);
   const demos = replays.map(JSON.parse);
   const demo = demos.at(-1);
   assert.equal(demo.format, "ac.oskiedemo");
@@ -1929,11 +1974,11 @@ test("first to five round wins takes the match", () => {
   assert.match(demo.matchName, /^[a-z]{5,6}[0-9]{1,3}$/);
   assert.equal(demo.matchId, "ow-" + demo.matchName);
   assert.equal(demo.roundId, demo.matchId);
-  assert.equal(demo.roundIndex, 4);
-  assert.equal(demo.roundIds.length, 5);
-  assert.equal(demo.previousRoundId, demos[3].roundId);
+  assert.equal(demo.roundIndex, 0);
+  assert.equal(demo.roundIds.length, 1);
+  assert.equal(demo.previousRoundId, "");
   assert.ok(demos.every((entry) => entry.seriesId === demo.seriesId));
-  assert.ok(new Set(demos.map((entry) => entry.roundId)).size === 5);
+  assert.equal(new Set(demos.map((entry) => entry.roundId)).size, 1);
   assert.ok(demo.commands.length > 0);
   assert.ok(demo.checkpoints.length > 0);
 });

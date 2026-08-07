@@ -59,6 +59,12 @@ if [ "$OLD_HEAD" = "$NEW_HEAD" ]; then
   exit 0
 fi
 
+if ! node xbox/live/render-social-preview.mjs --check; then
+  log "OSKIEWAR social preview is stale; restoring $OLD_HEAD"
+  git reset --hard "$OLD_HEAD" --quiet
+  exit 1
+fi
+
 # Write commit ref for version endpoint
 echo "$NEW_HEAD" > system/public/.commit-ref
 
