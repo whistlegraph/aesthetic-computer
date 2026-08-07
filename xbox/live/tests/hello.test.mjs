@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const source = await readFile(new URL("../hello.js", import.meta.url), "utf8");
+const webShell = await readFile(new URL("../mac-test.html", import.meta.url), "utf8");
 
 function createFight(startImmediately = true, enterGame = true,
   platform = "xbox-uwp", roundBridge = null,
@@ -93,6 +94,13 @@ test("control copy follows the native host platform", () => {
   assert.equal(touch.title, "tap to start");
   assert.equal(touch.select, "");
   assert.equal(touch.replayPaused, "paused");
+});
+
+test("web touch labels follow the current combat mapping", () => {
+  assert.match(webShell, /data-key="A" aria-label="kick or fire"/);
+  assert.match(webShell, /data-key="X" aria-label="punch or toggle player two"/);
+  assert.match(webShell, /data-key="B" aria-label="shield"/);
+  assert.match(webShell, /data-key="Y" aria-label="grenade or replay"/);
 });
 
 test("an older native spectator boundary cannot stop a match", () => {
