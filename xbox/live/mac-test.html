@@ -324,6 +324,31 @@
         envelope.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
         oscillator.connect(envelope).connect(output);
         oscillator.start(now); oscillator.stop(now + 0.3);
+      } else if (name === "bell") {
+        for (const [frequency, gain, duration] of
+          [[880, .72, .34], [1320, .38, .27], [1760, .2, .18]]) {
+          const oscillator = ac.createOscillator();
+          const envelope = ac.createGain();
+          oscillator.type = frequency === 1760 ? "triangle" : "sine";
+          oscillator.frequency.value = frequency;
+          envelope.gain.setValueAtTime(gain, now);
+          envelope.gain.exponentialRampToValueAtTime(0.001, now + duration);
+          oscillator.connect(envelope).connect(output);
+          oscillator.start(now); oscillator.stop(now + duration);
+        }
+      } else if (name === "whoosh") {
+        const noise = noiseSource(ac, .34);
+        const filter = ac.createBiquadFilter();
+        const envelope = ac.createGain();
+        filter.type = "bandpass";
+        filter.frequency.setValueAtTime(550, now);
+        filter.frequency.exponentialRampToValueAtTime(4200, now + .22);
+        filter.Q.value = .7;
+        envelope.gain.setValueAtTime(.001, now);
+        envelope.gain.exponentialRampToValueAtTime(.72, now + .04);
+        envelope.gain.exponentialRampToValueAtTime(.001, now + .34);
+        noise.connect(filter).connect(envelope).connect(output);
+        noise.start(now); noise.stop(now + .34);
       } else if (name === "block") {
         const oscillator = ac.createOscillator();
         const envelope = ac.createGain();

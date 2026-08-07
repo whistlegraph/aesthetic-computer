@@ -14,6 +14,7 @@ function createFight(startImmediately = true, enterGame = true,
   const liveFrames = [];
   const analyticsEvents = [];
   const telemetryEvents = [];
+  const drums = [];
   const triangles = [];
   const lines = [];
   const pads = [0, 1].map(() => ({ connected: true, down: [], leftX: 0, leftY: 0 }));
@@ -43,7 +44,7 @@ function createFight(startImmediately = true, enterGame = true,
       ? livePublisher(matchId, payload)
       : liveFrames.push([matchId, JSON.parse(payload)]),
     (action, properties) => analyticsEvents.push([action, properties]),
-    noOp, noOp, noOp, drawLine,
+    (name, velocity, pan) => drums.push([name, velocity, pan]), noOp, noOp, drawLine,
     drawTriangle, drawTriangle3d, noOp, noOp, () => viewport
   );
   globalThis.__oskiewarRoundBridge = roundBridge;
@@ -68,7 +69,7 @@ function createFight(startImmediately = true, enterGame = true,
     tick(3000001);
   }
   return { fight, pads, signals, replays, liveFrames, analyticsEvents,
-    telemetryEvents, triangles, lines,
+    telemetryEvents, drums, triangles, lines,
     tick, tap, now: () => now };
 }
 
@@ -123,7 +124,8 @@ test("OSKIEWAR typography uses the packaged KidLisp Comic Relief face", () => {
   assert.match(source, /comicGlyphAdvance/);
   assert.match(source, /String\(text\)\.toLowerCase\(\)/);
   assert.match(source, /player\.handleColors\?\.map\(contrastShadow\)/);
-  assert.match(source, /compactLayout\(\) \? 20 : 24/);
+  assert.match(source, /const hudTypeSize = 42/);
+  assert.match(source, /const labelSize = hudTypeSize/);
 });
 
 test("title letters carry distinct colors that animate between palettes", () => {
@@ -152,7 +154,8 @@ test("title shows a live Pacific clock and version timestamp", () => {
   assert.match(fight.pacificTimeLabel(1785870000000),
     /^\d{1,2}:\d{2}(am|pm) P(D|S)T$/);
   assert.match(source, /const buildTimestamp = "\d{4}\.\d{2}\.\d{2}\.\d{4} PDT"/);
-  assert.match(source, /titleNow \+ "  build " \+ buildTimestamp/);
+  assert.match(source, /typeWrite\(titleNow,[\s\S]*hudTypeSize, \.\.\.ink\)/);
+  assert.match(source, /"build " \+ stamp\[2\]/);
 });
 
 test("web camera follows landscape, 16:9, and portrait viewports", () => {
@@ -271,7 +274,7 @@ test("camera zoom-out remains continuous as fighters approach safe edges", () =>
 
 test("gameplay camera has no procedural viewport shake", () => {
   assert.match(source,
-    /const framedWidth = Math\.max\(cameraWidth \* 1\.1, cameraContainFloor\)/);
+    /const framedWidth = Math\.max\(cameraWidth \* 1\.04, cameraContainFloor\)/);
   assert.match(source, /position: \{ x: cameraCenter,/);
   assert.match(source, /roll: 0 \}, dt, 10/);
   assert.doesNotMatch(source, /const cameraTime = now \/ 1000000/);
@@ -327,7 +330,7 @@ test("death camera closes on both fighters even when they are far apart", () => 
   }
 });
 
-test("loss sequence freezes, enters loser cam, breaks the body, and returns", () => {
+test("loss sequence freezes, enters killer cam, breaks the body, and returns", () => {
   const { fight, tick } = createFight();
   fight.knockOut();
   tick();
@@ -386,9 +389,10 @@ test("spectator QR uses the raw Meet-style round URL", () => {
   assert.match(source, /https:\/\/oskiewar\.com\/" \+ matchName/);
   assert.doesNotMatch(source, /https:\/\/oskiewar\.com\/watch\//);
   assert.doesNotMatch(source, /https:\/\/aesthetic\.computer\/oskiewar:/);
-  assert.match(source, /const labelTop = safe\.top/);
+  assert.match(source, /const labelTop = top \+ size \+ 7/);
   assert.match(source, /triangleDepth = -1\.43/);
-  assert.match(source, /screenRect\(left \+ 5, top \+ 5, size, size, shadow\)/);
+  assert.match(source, /screenRect\(left \+ 3, top \+ 3, size, size, shadow\)/);
+  assert.match(source, /const label = matchName/);
   assert.match(source, /qrcode\("https:\/\/oskiewar\.com"/);
   assert.match(source, /drawTitleScreen\(t, menuInk\);\n    drawSpectatorQr\(menuInk\);/);
 });
@@ -618,6 +622,38 @@ test("opposing bullets cancel one another", () => {
   assert.equal(fight.bullets.length, 0);
 });
 
+test("body shots recoil and stun a limb while headshots alone knock out", () => {
+  const bodyFight = createFight();
+  bodyFight.fight.setWind(0);
+  const bodyTarget = bodyFight.fight.players[1];
+  const bodyGeometry = bodyFight.fight.runnerWorldGeometry(
+    bodyTarget, bodyFight.now() / 1000000);
+  const torso = bodyGeometry.segments[1];
+  const torsoAmount = .25;
+  bodyFight.fight.bullets.push({
+    x: torso.x1 + (torso.x2 - torso.x1) * torsoAmount,
+    y: torso.y1 + (torso.y2 - torso.y1) * torsoAmount,
+    z: torso.z1, vx: 1, vy: 0, owner: 0, life: 1,
+  });
+  bodyFight.tick(1);
+  assert.equal(bodyTarget.alive, true);
+  assert.ok(bodyTarget.hitStunUntil > bodyFight.now());
+  assert.equal(bodyTarget.hitSegment, 1);
+  assert.notEqual(bodyTarget.vx, 0);
+
+  const headFight = createFight();
+  headFight.fight.setWind(0);
+  const headTarget = headFight.fight.players[1];
+  const head = headFight.fight.runnerWorldGeometry(
+    headTarget, headFight.now() / 1000000).head;
+  headFight.fight.bullets.push({ x: head.x, y: head.y, z: head.z,
+    vx: 1, vy: 0, owner: 0, life: 1 });
+  headFight.tick(1);
+  assert.equal(headTarget.alive, false);
+  assert.match(source, /else if \(headshot\) killPlayer/);
+  assert.match(source, /contact\.headDistance <= grenade\.blastRadius/);
+});
+
 test("double-tap directions trigger dash, ultra-jump, and fast-drop", () => {
   const { fight, tap, tick } = createFight();
   tap(0, "ArrowRight");
@@ -783,19 +819,22 @@ test("a neutral fighter cannot defeat an attacking fighter by contact", () => {
   pads[0].down = ["X"];
   for (let frame = 0; frame < 5; frame++) tick(16667);
   assert.equal(fight.players[0].alive, true);
-  assert.equal(fight.players[1].alive, false);
+  assert.equal(fight.players[1].alive, true);
+  assert.ok(fight.players[1].hitStunUntil > 0);
 });
 
-test("simultaneous active strikes trade without player-order bias", () => {
+test("simultaneous body strikes recoil without player-order bias", () => {
   const { fight, pads, tick } = createFight();
   fight.players[0].x = 5940;
   fight.players[1].x = 6060;
   pads[0].down = ["X"];
   pads[1].down = ["X"];
   for (let frame = 0; frame < 5; frame++) tick(16667);
-  assert.equal(fight.players[0].alive, false);
-  assert.equal(fight.players[1].alive, false);
-  assert.equal(fight.roundState().roundResult, "TIE");
+  assert.equal(fight.players[0].alive, true);
+  assert.equal(fight.players[1].alive, true);
+  assert.ok(fight.players[0].hitStunUntil > 0);
+  assert.ok(fight.players[1].hitStunUntil > 0);
+  assert.equal(fight.roundState().roundResult, "");
 });
 
 test("player lands on the center platform", () => {
@@ -990,6 +1029,9 @@ test("player command streams retain recent directions and buttons", () => {
   assert.deepEqual(fight.players[0].commandStream.map((entry) => entry.label),
     ["RIGHT", "A"]);
   assert.match(source, /function drawCommandStream\(player, side\)/);
+  assert.match(source,
+    /const glyph = \{ LEFT: "<", RIGHT: ">", UP: "\^", DOWN: "v" \}/);
+  assert.match(source, /const size = hudTypeSize/);
 });
 
 test("ball graphics rotate from physics only and use no white line outline", () => {
@@ -1192,6 +1234,15 @@ test("round clock can end in a tie and resets", () => {
   assert.equal(fight.roundState().roundResult, "");
   assert.equal(fight.players[0].score, 0);
   assert.equal(fight.players[1].score, 0);
+});
+
+test("the final ten seconds ring bells and turn the top clock into tie", () => {
+  const { fight, drums, tick } = createFight();
+  for (let frame = 0; frame < 500; frame++) tick(40000);
+  assert.ok(drums.some(([name]) => name === "bell"));
+  assert.match(source, /emitSignal\("countdown", -1, countdownSecond, 0\)/);
+  assert.match(source, /roundResult === "TIE" \? "tie!"/);
+  assert.match(source, /const timerSize = hudTypeSize/);
 });
 
 test("round end card names the winner and the finishing action", () => {

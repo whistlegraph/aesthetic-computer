@@ -1,5 +1,5 @@
 // @bundle-qr
-const buildTimestamp = "2026.08.06.1927 PDT";
+const buildTimestamp = "2026.08.06.1955 PDT";
 const floorY = 12000;
 const ceilingY = 0;
 const wallThickness = 80;
@@ -33,6 +33,8 @@ const replayTickUs = 16667;
 const replayCheckpointUs = 1000000;
 const instantReplayStepUs = 33333;
 const instantReplayMaxFrames = 240;
+const walkSpeed = 1060;
+const hudTypeSize = 42;
 const replayButtons = ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown",
   "A", "B", "X", "Y"];
 let cameraCenter = (worldLeft + worldRight) / 2;
@@ -238,6 +240,7 @@ const players = [
     vx: 0, vy: 0, vz: 0, facing: 1,
     grounded: true, ducking: false, previous: [], lastButton: "NONE",
     lastButtonAt: -10000000, color: [190, 42, 58], hit: 0,
+    hitSegment: -1, hitSegmentUntil: 0, hitStunUntil: 0,
     alive: true, respawnAt: 0, score: 0, inputX: 0, inputY: 0,
     suppressedDirections: [],
     lastTap: {}, lastRelease: {}, dashUntil: 0, dashVx: 0, roundWins: 0,
@@ -253,6 +256,7 @@ const players = [
     vx: 0, vy: 0, vz: 0, facing: -1,
     grounded: true, ducking: false, previous: [], lastButton: "NONE",
     lastButtonAt: -10000000, color: [38, 82, 176], hit: 0,
+    hitSegment: -1, hitSegmentUntil: 0, hitStunUntil: 0,
     alive: true, respawnAt: 0, score: 0, inputX: 0, inputY: 0,
     suppressedDirections: [],
     lastTap: {}, lastRelease: {}, dashUntil: 0, dashVx: 0, roundWins: 0,
@@ -296,6 +300,7 @@ let startedAt = 0;
 let roundStartedAt = 0;
 let lastSimAt = 0;
 let roundElapsedUs = 0;
+let lastCountdownSecond = -1;
 let roundOverAt = 0;
 let roundResult = "";
 let matchOver = false;
@@ -707,6 +712,7 @@ function beginSelect(now) {
   deathCinematic = null;
   matchOver = false;
   roundElapsedUs = 0;
+  lastCountdownSecond = -1;
   roundStartedAt = now;
   for (const player of players) {
     player.roundWins = 0;
@@ -969,6 +975,7 @@ function boot() {
   roundStartedAt = startedAt;
   lastSimAt = startedAt;
   roundElapsedUs = 0;
+  lastCountdownSecond = -1;
   emitSignal("hello", -1, 1, 0);
   shellMode = "MENU";
   spectatorQr = typeof qrcode === "function"
@@ -1051,6 +1058,9 @@ function resetRound(now, resetMatch = false) {
     player.heldBall = -1;
     player.grabHeld = false;
     player.commandStream = [];
+    player.hitSegment = -1;
+    player.hitSegmentUntil = 0;
+    player.hitStunUntil = 0;
     player.standingOn = -1;
     player.previousY = floorY;
     player.crouchBlend = 0;
@@ -1081,6 +1091,7 @@ function resetRound(now, resetMatch = false) {
   deathCinematic = null;
   matchOver = false;
   roundElapsedUs = 0;
+  lastCountdownSecond = -1;
   lastSimAt = now;
   roundStartedAt = now;
   rollWind();
@@ -1088,7 +1099,7 @@ function resetRound(now, resetMatch = false) {
   if (replay) replay.rounds.push([demoTick(now), windDirection, windMph,
     balls.length]);
   cameraCenter = (worldLeft + worldRight) / 2;
-  cameraWidth = 1300;
+  cameraWidth = 1120;
   cameraCenterY = floorY - cameraWidth / cameraAspect / 2;
   cameraContainFloor = 0;
 }
@@ -1112,8 +1123,8 @@ function updateCamera(dt) {
     future[0].y, future[1].y);
   const maxWidth = Math.max(worldRight - worldLeft,
     (floorY - ceilingY) * cameraAspect);
-  const desiredWidth = Math.max(1000, Math.min(maxWidth,
-    Math.max(right - left + 700, (bottom - top + 260) * cameraAspect)));
+  const desiredWidth = Math.max(900, Math.min(maxWidth,
+    Math.max(right - left + 620, (bottom - top + 230) * cameraAspect)));
   const widthSpeed = desiredWidth > cameraWidth ? 13 : 5.5;
   const widthBlend = 1 - Math.exp(-Math.max(0, dt) * widthSpeed);
   cameraWidth += (desiredWidth - cameraWidth) * widthBlend;
@@ -1164,10 +1175,10 @@ function updateCameraDoll(dt, now) {
         ? runnerWorldGeometry(winner, (now - startedAt) / 1000000).head
         : { x: cameraCenter, y: cameraCenterY, z: 0 });
       if (age < .86) {
-        cameraDoll.track({ target: winnerHead,
-          position: { x: loserHead.x, y: loserHead.y,
-            z: loserHead.z - 145 }, width: 720,
-          perspective: 1, fov: 68, roll: 0 }, dt, 11);
+        cameraDoll.track({ target: loserHead,
+          position: { x: winnerHead.x, y: winnerHead.y,
+            z: winnerHead.z - 720 }, width: 680,
+          perspective: .82, fov: 48, roll: 0 }, dt, 11);
         return;
       }
       const returnAmount = clamp((age - .86) / .59, 0, 1);
@@ -1176,11 +1187,11 @@ function updateCameraDoll(dt, now) {
         z: (players[0].z + players[1].z) / 2 };
       const span = Math.max(900, Math.abs(players[1].x - players[0].x) + 540);
       cameraDoll.track({ target: midpoint,
-        position: { x: lerp(loserHead.x, midpoint.x, returnAmount),
-          y: lerp(loserHead.y, midpoint.y - span * .08, returnAmount),
-          z: lerp(loserHead.z - 145, midpoint.z - span * 1.2, returnAmount) },
-        width: lerp(720, span, returnAmount),
-        perspective: lerp(1, .72, returnAmount), fov: 54, roll: 0 }, dt, 10);
+        position: { x: lerp(winnerHead.x, midpoint.x, returnAmount),
+          y: lerp(winnerHead.y, midpoint.y - span * .08, returnAmount),
+          z: lerp(winnerHead.z - 720, midpoint.z - span * 1.2, returnAmount) },
+        width: lerp(680, span, returnAmount),
+        perspective: lerp(.82, .72, returnAmount), fov: 50, roll: 0 }, dt, 10);
       return;
     }
     const target = { x: (players[0].x + players[1].x) / 2,
@@ -1218,9 +1229,9 @@ function updateCameraDoll(dt, now) {
   // Render containment can pull the camera back farther than the gameplay
   // target. Keep that corrected width for the complete round: relaxing it
   // caused a visible periodic snap when containment had to restore it. Ten
-  // percent overscan absorbs animated hands, feet, and perspective before
-  // they reach the action-safe edge.
-  const framedWidth = Math.max(cameraWidth * 1.1, cameraContainFloor);
+  // A small overscan absorbs animated hands, feet, and perspective before
+  // they reach the action-safe edge without loosening the close fight shot.
+  const framedWidth = Math.max(cameraWidth * 1.04, cameraContainFloor);
   // Gameplay camera is intentionally inertial but not handheld. No procedural
   // swivel, roll, or dolly motion is allowed to move a stationary viewport.
   const tilt = .026;
@@ -1309,13 +1320,6 @@ function recordCommand(player, label, now) {
   if (player.commandStream.length > 8) player.commandStream.shift();
 }
 
-function playButtonDrum(button, player) {
-  const pan = panPlayer(player);
-  if (button !== "A" && button !== "B" && button !== "X" && button !== "Y" &&
-      !button.startsWith("Arrow"))
-    drum("block", 0.75, pan);
-}
-
 function fireGun(player, input) {
   const now = runtime().monotonicUs;
   const aimX = input.horizontal || player.facing;
@@ -1344,7 +1348,8 @@ function throwGrenade(player) {
   grenades.push({ x: player.x + player.facing * 150,
     y: player.y - (player.ducking ? 80 : 145), z: player.z,
     vx: player.facing * 1850, vy: -720, owner: player.pad,
-    fuse: 1.15, alive: true, exploding: false, blastAge: 0, blastRadius: 0 });
+    fuse: 1.15, alive: true, exploding: false, blastAge: 0, blastRadius: 0,
+    hitPlayers: 0 });
   while (grenades.length > 12) grenades.shift();
   player.grenadeAmmo -= 1;
   player.itemAction = "THROW";
@@ -1446,10 +1451,21 @@ function updateBullets(dt, now) {
     if (bullet.life <= 0) continue;
     const target = players[bullet.owner === 0 ? 1 : 0];
     if (!target.alive) continue;
-    if (runnerDistanceToPoint(target, poseTime,
-      bullet.x, bullet.y, bullet.z) <= 24) {
+    const contact = runnerContactToPoint(target, poseTime,
+      bullet.x, bullet.y, bullet.z);
+    if (Math.min(contact.headDistance, contact.bodyDistance) <= 24) {
       bullet.life = 0;
-      killPlayer(target, bullet.owner, now, "SHOT");
+      impacts.push({ x: bullet.x, y: bullet.y, z: bullet.z,
+        life: .2, duration: .2, death: contact.headDistance <= 24,
+        explosion: false });
+      impactHitboxesUntil = Math.max(impactHitboxesUntil, now + 350000);
+      if (contact.headDistance <= 24)
+        killPlayer(target, bullet.owner, now, "SHOT");
+      else {
+        applyBodyHit(target, contact.segmentIndex,
+          bullet.x - bullet.vx, bullet.owner, now, 1180, 125);
+        drum("block", .9, panPlayer(target));
+      }
     }
   }
   for (let index = bullets.length - 1; index >= 0; index--)
@@ -1465,9 +1481,20 @@ function updateGrenades(dt, now) {
         Math.min(1, grenade.blastAge / grenadeBlastDuration);
       const poseTime = (now - startedAt) / 1000000;
       for (const player of players) {
-        if (player.alive && runnerDistanceToPoint(player, poseTime,
-          grenade.x, grenade.y, grenade.z) <= grenade.blastRadius)
+        if (!player.alive || (grenade.hitPlayers & (1 << player.pad))) continue;
+        const contact = runnerContactToPoint(player, poseTime,
+          grenade.x, grenade.y, grenade.z);
+        if (Math.min(contact.headDistance, contact.bodyDistance) >
+            grenade.blastRadius) continue;
+        grenade.hitPlayers |= 1 << player.pad;
+        if (contact.headDistance <= grenade.blastRadius)
           killPlayer(player, grenade.owner, now, "BLASTED");
+        else {
+          const blastForce = 1250 + 850 *
+            (1 - clamp(contact.bodyDistance / grenadeBlastRadius, 0, 1));
+          applyBodyHit(player, contact.segmentIndex, grenade.x,
+            grenade.owner, now, blastForce, 300);
+        }
       }
       if (grenade.blastAge >= grenadeBlastDuration) grenade.alive = false;
       continue;
@@ -1672,7 +1699,7 @@ function bootBall(ball, player, now) {
   emitSignal("boot", player.pad, direction, Math.round(speed));
 }
 
-function bounceBallOffBody(ball, player, now) {
+function bounceBallOffBody(ball, player, now, segmentIndex = -1) {
   const direction = Math.sign(ball.x - player.x) || -Math.sign(ball.vx) ||
     player.facing || 1;
   const incomingSpeed = Math.hypot(ball.vx, ball.vy);
@@ -1684,7 +1711,8 @@ function bounceBallOffBody(ball, player, now) {
   ball.lastHitBy = player.pad === 0 ? 1 : 0;
   ball.safeUntil = now + 160000;
   ball.safePlayers = 1 << player.pad;
-  player.hit = Math.max(player.hit, .28);
+  applyBodyHit(player, segmentIndex, ball.x - ball.vx,
+    ball.lastHitBy, now, 760, 110);
   impacts.push({ x: ball.x, y: ball.y, z: ball.z,
     life: .16, duration: .16, death: false, explosion: false });
   impactHitboxesUntil = Math.max(impactHitboxesUntil, now + 300000);
@@ -1790,8 +1818,9 @@ function updateBall(ball, dt, now) {
       { x1: previous.x, y1: previous.y, z1: previous.z,
         x2: ball.x, y2: ball.y, z2: ball.z }) - geometry.head.radius);
     const headDistance = Math.min(currentHeadDistance, sweptHeadDistance);
-    const bodyDistance = runnerBodyDistanceToPoint(geometry,
+    const bodyContact = runnerContactToPoint(player, poseTime,
       ball.x, ball.y, ball.z);
+    const bodyDistance = bodyContact.bodyDistance;
     if (Math.min(headDistance, bodyDistance) > ball.radius) continue;
     if (onFloor) {
       bootBall(ball, player, now);
@@ -1804,7 +1833,7 @@ function updateBall(ball, dt, now) {
       killPlayer(player, scorer, now, "BALLED");
       return;
     }
-    bounceBallOffBody(ball, player, now);
+    bounceBallOffBody(ball, player, now, bodyContact.segmentIndex);
     return;
   }
 }
@@ -1855,6 +1884,8 @@ function killPlayer(target, killerPad, now, cause = "KO") {
   roundCause = cause;
   impacts.push({ x: target.x, y: target.y - 120, z: target.z, life: .55,
     duration: .55, death: true, explosion: false });
+  drum("whoosh", 1.15, panPlayer(target));
+  emitSignal("killcam", killerPad, target.pad, 1);
   drum("snare", 1.15, panPlayer(target));
 }
 
@@ -1866,13 +1897,16 @@ function resolveMelee(now) {
     const target = players[attacker.pad === 0 ? 1 : 0];
     if (!target.alive) continue;
     const strike = meleeStrike(attacker, now);
-    if (runnerDistanceToPoint(target, poseTime,
-      strike.x, strike.y, strike.z) <= strike.radius) {
+    const contact = runnerContactToPoint(target, poseTime,
+      strike.x, strike.y, strike.z);
+    if (Math.min(contact.headDistance, contact.bodyDistance) <= strike.radius) {
       attacker.attackHit = true;
-      contacts.push({ attacker, target, strike });
+      contacts.push({ attacker, target, strike,
+        headshot: contact.headDistance <= strike.radius,
+        segmentIndex: contact.segmentIndex });
     }
   }
-  for (const { attacker, target, strike } of contacts) {
+  for (const { attacker, target, strike, headshot, segmentIndex } of contacts) {
     if (!target.alive && contacts.length < 2) continue;
     impacts.push({ x: strike.x, y: strike.y, z: strike.z,
       life: .2, duration: .2, death: false, explosion: false });
@@ -1896,8 +1930,14 @@ function resolveMelee(now) {
       else target.vx = 0;
       drum("block", 1.2, panPlayer(target));
       emitSignal("block", target.pad, attacker.pad, target.blocking ? 1 : 2);
-    } else killPlayer(target, attacker.pad, now,
+    } else if (headshot) killPlayer(target, attacker.pad, now,
       contacts.length >= 2 ? "TRADE" : "KO");
+    else {
+      const force = attacker.attackKind === "KICK" ? 1550 : 1200;
+      applyBodyHit(target, segmentIndex, attacker.x,
+        attacker.pad, now, force, attacker.attackKind === "KICK" ? 220 : 140);
+      drum("block", 1, panPlayer(target));
+    }
   }
 }
 
@@ -1967,6 +2007,7 @@ function updateStance(player, input, now) {
   const opponent = players[player.pad === 0 ? 1 : 0];
   const toward = Math.sign(opponent.x - player.x) || player.facing || 1;
   player.stance = !player.alive ? "HIT"
+    : now < player.hitStunUntil ? "STUN"
     : player.blocking ? "DEFEND"
     : player.heldBall >= 0 ? "HOLDING"
     : player.grabHeld ? "REACHING"
@@ -2043,6 +2084,9 @@ function updatePlayer(player, pad, dt, now) {
       player.jumpLaunchAt = 0;
       player.jumpPoseUntil = 0;
       player.landPoseUntil = 0;
+      player.hitSegment = -1;
+      player.hitSegmentUntil = 0;
+      player.hitStunUntil = 0;
       player.alive = true;
     }
     return;
@@ -2050,6 +2094,7 @@ function updatePlayer(player, pad, dt, now) {
   player.suppressedDirections = player.suppressedDirections.filter((button) =>
     pad.down.includes(button));
   const rawInput = quantizedInput(pad, player.suppressedDirections);
+  const hitStunned = now < player.hitStunUntil;
   const wasBlocking = player.blocking;
   player.blocking = pad.down.includes("B");
   if (player.blocking && !wasBlocking) {
@@ -2060,7 +2105,7 @@ function updatePlayer(player, pad, dt, now) {
     player.lastRelease = {};
   }
   const input = player.blocking ? { horizontal: 0, vertical: 0 } : rawInput;
-  const grabHeld = !player.blocking && pad.down.includes("A") &&
+  const grabHeld = !hitStunned && !player.blocking && pad.down.includes("A") &&
     pad.down.includes("X");
   if (grabHeld && !player.grabHeld && player.heldBall < 0) {
     if (!grabNearestBall(player, now)) {
@@ -2120,7 +2165,7 @@ function updatePlayer(player, pad, dt, now) {
   const controlledVx = player.blocking ? player.shieldVx || 0
     : now < player.dashUntil && Math.abs(player.dashVx) > 0
     ? player.dashVx
-    : player.ducking ? 0 : input.horizontal * 1250;
+    : player.ducking ? 0 : input.horizontal * walkSpeed;
   player.vx = controlledVx + player.windVx + player.knockVx;
   if (inputChanged) telemetry("FIGHT_MOVE", player.name +
     " pad=" + (player.pad + 1) +
@@ -2151,20 +2196,20 @@ function updatePlayer(player, pad, dt, now) {
   for (const button of pad.down) {
     if (!player.previous.includes(button)) {
       remember(player, button);
-      playButtonDrum(button, player);
       if (button === "B") {
         player.pendingMoveLabel = "SHIELD";
         drum("block", .7, panPlayer(player));
         emitSignal("shield", player.pad, 1, 0);
       }
-      else if (!player.blocking && !grabHeld && button === "A") {
+      else if (!hitStunned && !player.blocking && !grabHeld && button === "A") {
         if (player.gunAmmo > 0) fireGun(player, input);
         else startMelee(player, "KICK", now);
       }
-      else if (!player.blocking && !grabHeld && button === "X") {
+      else if (!hitStunned && !player.blocking && !grabHeld && button === "X") {
         startMelee(player, "PUNCH", now);
       }
-      else if (!player.blocking && button === "Y" && player.grenadeAmmo > 0) {
+      else if (!hitStunned && !player.blocking && button === "Y" &&
+          player.grenadeAmmo > 0) {
         throwGrenade(player);
       }
     }
@@ -2301,6 +2346,14 @@ function sim() {
     return;
   }
   roundElapsedUs += dt * 1000000;
+  const countdownSecond = Math.max(0,
+    Math.ceil((roundDurationUs - roundElapsedUs) / 1000000));
+  if (countdownSecond > 0 && countdownSecond <= 10 &&
+      countdownSecond !== lastCountdownSecond) {
+    lastCountdownSecond = countdownSecond;
+    drum("bell", 1 + (10 - countdownSecond) * .025, 0);
+    emitSignal("countdown", -1, countdownSecond, 0);
+  }
   updatePlayer(players[0], padSnapshots[0], dt, now);
   updatePlayer(players[1], opponentPad, dt, now);
   resolvePlayerStanding(now);
@@ -2317,8 +2370,11 @@ function sim() {
   recordReplayCheckpoint(now);
   for (const impact of impacts) impact.life -= dt;
   while (impacts.length && impacts[0].life <= 0) impacts.shift();
-  if (players.some((player) => !player.alive) || roundElapsedUs >= roundDurationUs)
+  if (players.some((player) => !player.alive) || roundElapsedUs >= roundDurationUs) {
+    if (roundElapsedUs >= roundDurationUs && players.every((player) => player.alive))
+      roundCause = "TIME";
     finishRound(now);
+  }
 }
 
 function circle(x, y, radius, width, color) {
@@ -2737,14 +2793,51 @@ function pointSegmentDistance(px, py, pz, segment) {
 }
 
 function runnerDistanceToPoint(player, t, px, py, pz = 0) {
+  const contact = runnerContactToPoint(player, t, px, py, pz);
+  return Math.min(contact.headDistance, contact.bodyDistance);
+}
+
+function runnerContactToPoint(player, t, px, py, pz = 0) {
   const geometry = runnerWorldGeometry(player, t);
-  let distance = Math.max(0,
+  const headDistance = Math.max(0,
     Math.hypot(px - geometry.head.x, py - geometry.head.y,
       pz - geometry.head.z) - geometry.head.radius);
-  for (const segment of geometry.segments)
-    distance = Math.min(distance,
-      Math.max(0, pointSegmentDistance(px, py, pz, segment) - segment.width / 2));
-  return distance;
+  let bodyDistance = Infinity;
+  let segmentIndex = -1;
+  for (let index = 0; index < geometry.segments.length; index++) {
+    const segment = geometry.segments[index];
+    const distance = Math.max(0,
+      pointSegmentDistance(px, py, pz, segment) - segment.width / 2);
+    if (distance < bodyDistance) {
+      bodyDistance = distance;
+      segmentIndex = index;
+    }
+  }
+  return { headDistance, bodyDistance, segmentIndex };
+}
+
+function applyBodyHit(target, segmentIndex, sourceX, sourcePad, now,
+    force = 1100, lift = 150) {
+  const direction = Math.sign(target.x - sourceX) ||
+    (sourcePad === target.pad ? -target.facing : target.facing) || 1;
+  releaseCarriedBall(target, now);
+  target.attackKind = "";
+  target.attackUntil = 0;
+  target.attackHit = false;
+  target.dashUntil = 0;
+  target.dashVx = 0;
+  target.hit = Math.max(target.hit, .52);
+  target.hitSegment = segmentIndex;
+  target.hitSegmentUntil = Math.max(target.hitSegmentUntil, now + 190000);
+  target.hitStunUntil = Math.max(target.hitStunUntil, now + 145000);
+  target.knockVx += direction * force;
+  target.vx = target.knockVx + target.windVx;
+  target.vy = Math.min(target.vy, -lift);
+  target.grounded = false;
+  target.stance = "STUN";
+  target.lastButton = "BODY HIT";
+  target.lastButtonAt = now;
+  emitSignal("bodyhit", sourcePad, target.pad, segmentIndex);
 }
 
 function runnerBodyDistanceToPoint(geometry, px, py, pz = 0) {
@@ -3026,6 +3119,15 @@ function drawRunner(player, t, showLabel = true) {
     : [8, 12, 24];
   const displayNow = player.frozenAt || runtime().monotonicUs;
   drawFighterSilhouette(geometry, color, outline);
+  const hitNow = runtime().monotonicUs;
+  if (player.hitSegment >= 0 && hitNow < player.hitSegmentUntil &&
+      Math.floor(hitNow / 45000) % 2 === 0) {
+    const segment = geometry.segments[player.hitSegment];
+    if (segment) {
+      filledCapsule(segment.x1, segment.y1, segment.x2, segment.y2,
+        segment.width + Math.max(3, 5 * cameraScale()), [255, 238, 102]);
+    }
+  }
   drawFace(player, geometry.head, contrastShadow(color), t, displayNow);
   drawInventory(player, displayNow);
   if (player.blocking) {
@@ -3050,7 +3152,10 @@ function drawDebugHitboxes(player, t) {
   const now = runtime().monotonicUs;
   const impactDebug = now < impactHitboxesUntil;
   if ((!debugHitboxes && !impactDebug) || (!player.alive && !roundResult)) return;
-  if (deathCinematic?.loserPad === player.pad && deathCinematicAge(now) >= .11)
+  const cinematicAge = deathCinematicAge(now);
+  if ((deathCinematic?.loserPad === player.pad && cinematicAge >= .11) ||
+      (deathCinematic?.winnerPad === player.pad && cinematicAge >= .11 &&
+       cinematicAge < .86))
     return;
   const world = player.replayGeometry || player.frozenGeometry ||
     runnerWorldGeometry(player, t);
@@ -3145,7 +3250,7 @@ function playerHandleLayout(player, side) {
   const safe = hudSafeRect();
   const touch = typeof capabilities === "function" &&
     capabilities().inputFamily === "touch";
-  const size = 42;
+  const size = hudTypeSize;
   const width = handleWidth(visibleHandle(player), size);
   const x = side === 0 ? safe.left + 8 : safe.right - 8 - width;
   const y = safe.bottom - size - (touch ? 250 : 18);
@@ -3180,12 +3285,12 @@ function drawPlayerHandle(player, t, side) {
 }
 
 function drawCommandStream(player, side) {
-  const glyph = { LEFT: "←", RIGHT: "→", UP: "↑", DOWN: "↓" };
+  const glyph = { LEFT: "<", RIGHT: ">", UP: "^", DOWN: "v" };
   const text = player.commandStream.map((entry) => glyph[entry.label] || entry.label)
     .join("  ");
   if (!text) return;
   const safe = hudSafeRect();
-  const size = compactLayout() ? 20 : 25;
+  const size = hudTypeSize;
   const width = handleWidth(text, size);
   const x = side === 0 ? safe.left + 8 : safe.right - 8 - width;
   const handle = playerHandleLayout(player, side);
@@ -3357,6 +3462,8 @@ function drawBallHitboxes() {
     if (!item.active) continue;
     const point = projectPoint(item.x, item.y, item.z);
     const radius = projectedBallRadius(item);
+    if (![point.x, point.y, radius].every(Number.isFinite) || radius > 5000 ||
+        Math.abs(point.x) > 30000 || Math.abs(point.y) > 30000) continue;
     filledRing(point.x, point.y, radius + 5, radius + 2, [58, 222, 255]);
   }
   triangleDepth = previousDepth;
@@ -3599,7 +3706,7 @@ function drawTitleScreen(t, ink) {
   }
 
   const prompt = controlLocale().title;
-  const promptSize = compact ? 28 : 38;
+  const promptSize = hudTypeSize;
   const promptWidth = handleWidth(prompt, promptSize);
   const promptPulse = .58 + (Math.sin(t * 2.2) + 1) * .21;
   const mutedInk = visualTheme.light > .55 ? [118, 128, 150] : [72, 80, 112];
@@ -3607,10 +3714,15 @@ function drawTitleScreen(t, ink) {
   typeWrite(prompt, viewCenterX() - promptWidth / 2,
     viewHeight * (compact ? .61 : .64), promptSize, ...promptInk);
   const titleNow = pacificTimeLabel(runtime().unixMs || Date.now());
-  const version = titleNow + "  build " + buildTimestamp;
+  const stamp = buildTimestamp.match(/^(\d{4})\.(\d{2})\.(\d{2})\.(\d{2})(\d{2})/);
+  const version = stamp
+    ? "build " + stamp[2] + "." + stamp[3] + " " + stamp[4] + ":" + stamp[5]
+    : "build " + buildTimestamp;
   const safe = hudSafeRect();
-  typeWrite(version, safe.left + 8, safe.bottom - (compact ? 20 : 24),
-    compact ? 15 : 18, ...ink);
+  typeWrite(titleNow, safe.left + 8, safe.bottom - hudTypeSize * 2 - 12,
+    hudTypeSize, ...ink);
+  typeWrite(version, safe.left + 8, safe.bottom - hudTypeSize - 4,
+    hudTypeSize, ...ink);
 }
 
 function pacificTimeLabel(unixMs) {
@@ -3634,27 +3746,19 @@ function drawSpectatorQr(ink) {
   if (!spectatorQr || typeof spectatorQr.getModuleCount !== "function") return;
   const safe = hudSafeRect();
   const count = spectatorQr.getModuleCount();
-  const quiet = 4;
+  const quiet = 2;
   const targetSize = compactLayout() ? 108 : 158;
   const cell = Math.max(2, Math.floor(targetSize / (count + quiet * 2)));
   const size = (count + quiet * 2) * cell;
-  const label = matchName || "oskiewar.com";
-  const labelSize = compactLayout() ? 20 : 24;
-  const labelPadX = compactLayout() ? 6 : 8;
-  const labelHeight = labelSize + (compactLayout() ? 8 : 10);
-  const labelWidth = handleWidth(label, labelSize) + labelPadX * 2;
-  const labelLeft = safe.right - labelWidth;
-  const labelTop = safe.top;
-  const shadow = [64, 64, 70];
+  const label = matchName;
+  const labelSize = hudTypeSize;
+  const labelWidth = label ? handleWidth(label, labelSize) : 0;
+  const shadow = [24, 26, 34];
   const previousDepth = triangleDepth;
   triangleDepth = -1.43;
-  screenRect(labelLeft + 4, labelTop + 4, labelWidth, labelHeight, shadow);
-  screenRect(labelLeft, labelTop, labelWidth, labelHeight, [5, 6, 10]);
-  typeWrite(label, labelLeft + labelPadX, labelTop + 3,
-    labelSize, 250, 250, 247);
   const left = safe.right - size;
-  const top = labelTop + labelHeight + 2;
-  screenRect(left + 5, top + 5, size, size, shadow);
+  const top = safe.top;
+  screenRect(left + 3, top + 3, size, size, shadow);
   screenRect(left, top, size, size, [250, 250, 247]);
   for (let row = 0; row < count; row++) {
     for (let column = 0; column < count; column++) {
@@ -3662,6 +3766,13 @@ function drawSpectatorQr(ink) {
         screenRect(left + (column + quiet) * cell,
           top + (row + quiet) * cell, cell, cell, [7, 8, 14]);
     }
+  }
+  if (label) {
+    const labelLeft = safe.right - labelWidth;
+    const labelTop = top + size + 7;
+    typeWrite(label, labelLeft + 3, labelTop + 4,
+      labelSize, ...shadow);
+    typeWrite(label, labelLeft, labelTop, labelSize, 250, 250, 247);
   }
   triangleDepth = previousDepth;
 }
@@ -3796,9 +3907,20 @@ function paint() {
   drawWindFlag(t, windInk);
   const remainingSeconds = roundResult ? 0 : Math.max(0,
     Math.ceil((roundDurationUs - roundElapsedUs) / 1000000));
-  const timerText = String(remainingSeconds).padStart(2, "0");
+  const timerText = roundResult
+    ? roundResult === "TIE" ? "tie!" : ""
+    : String(remainingSeconds).padStart(2, "0");
   const hud = hudSafeRect();
-  typeWrite(timerText, viewCenterX() - 32, hud.top + 2, 62, ...titleInk);
+  const timerSize = hudTypeSize;
+  const timerWidth = handleWidth(timerText, timerSize);
+  const timerDanger = remainingSeconds > 0 && remainingSeconds <= 10;
+  const timerShake = timerDanger
+    ? Math.sin(t * 35) * (11 - remainingSeconds) * .45 : 0;
+  const timerInk = timerDanger
+    ? mixColor(titleInk, [235, 38, 58], (11 - remainingSeconds) / 10)
+    : titleInk;
+  typeWrite(timerText, viewCenterX() - timerWidth / 2 + timerShake,
+    hud.top + 2, timerSize, ...timerInk);
   if (roundViewer) {
     const viewerLabel = roundViewerMode || roundViewerStatus;
     typeWrite(viewerLabel, hud.right - viewerLabel.length * 18, hud.top + 7, 24,
@@ -3821,7 +3943,8 @@ function paint() {
       kind: "grenade", item, x: item.x, y: item.y, z: item.z })),
     ...balls.filter((item) => item.active).map((item) => ({
       kind: "ball", item, x: item.x, y: item.y, z: item.z })),
-    ...players.map((item) => ({
+    ...players.filter((item) => !(cinematicAge >= .11 && cinematicAge < .86 &&
+      deathCinematic?.winnerPad === item.pad)).map((item) => ({
       kind: "player", item, x: item.x, y: item.y, z: item.z })),
   ];
   const depth = (item) => dot3({

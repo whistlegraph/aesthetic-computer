@@ -470,14 +470,8 @@ public:
           m_supervisor->rollback(*m_api);
         }
       }
-      if (m_flashFrames > 0) {
-        QueryPerformanceCounter(&profileAfterJs);
-        Render(m_flashColor);
-        --m_flashFrames;
-      } else {
-        QueryPerformanceCounter(&profileAfterJs);
-        Render(m_frameColor);
-      }
+      QueryPerformanceCounter(&profileAfterJs);
+      Render(m_frameColor);
       profileHostJsMs += (profileAfterJs.QuadPart - profileStart.QuadPart) *
         1000.0 / profileFrequency.QuadPart;
       profileRenderCpuMs += m_lastRenderCpuMs;
@@ -1080,6 +1074,18 @@ private:
         {Wave::Square, 369.6, .008, .18, .0005, .0075},
         {Wave::Noise, 8000, .040, .38, .0005, .038},
       };
+    } else if (name == "bell") {
+      layers = {
+        {Wave::Sine, 880, .34, .72, .001, .338},
+        {Wave::Sine, 1320, .27, .38, .001, .268},
+        {Wave::Triangle, 1760, .18, .20, .001, .178},
+      };
+    } else if (name == "whoosh") {
+      layers = {
+        {Wave::Noise, 1450, .34, .68, .018, .32},
+        {Wave::Noise, 4200, .18, .28, .008, .17},
+        {Wave::Triangle, 110, .28, .24, .012, .26},
+      };
     } else {
       layers = {
         {Wave::Noise, 5000, .002, .35, .0001, .0018},
@@ -1677,22 +1683,9 @@ private:
       }
     }
 
-    const unsigned menu = static_cast<unsigned>(GamepadButtons::Menu);
-    if (pressed & menu) {
-      static const uint32_t rates[] = {44100, 48000, 96000};
-      m_rateIndex = (m_rateIndex + 1) % ARRAYSIZE(rates);
-      CreateAudio(rates[m_rateIndex]);
-      m_flashColor = m_sampleRate == 44100
-        ? std::array<float, 4>{0.15f, 0.35f, 0.95f, 1.0f}
-        : m_sampleRate == 48000
-          ? std::array<float, 4>{0.15f, 0.9f, 0.35f, 1.0f}
-          : std::array<float, 4>{0.9f, 0.2f, 0.8f, 1.0f};
-    } else {
-      TriggerAudio(pressed);
-      m_flashColor = {1.0f, 0.72f, 0.08f, 1.0f};
-    }
-    m_flashFrames = 2;
-    m_needsIdleFrame = true;
+    // Controller edges belong to the active piece. The old native latency
+    // probe also played a generic tone and replaced two complete frames with
+    // a color flash, which made every game action look and sound duplicated.
   }
 
   void RefreshClock() {
@@ -2409,8 +2402,6 @@ private:
   unsigned m_lastControllerEdgePad = 0;
   bool m_controllerEdgePending = false;
   double m_lastControllerPollUs = 0;
-  unsigned m_flashFrames = 0;
-  unsigned m_rateIndex = 1;
   unsigned long long m_livePieceSignature = 0;
   unsigned long long m_nextLivePollMs = 0;
   unsigned long long m_nextCapabilityPollMs = 0;
@@ -2436,7 +2427,6 @@ private:
   std::size_t m_frameSpritesDropped = 0;
   std::string m_lastCapabilityInventory;
   uint32_t m_sampleRate = 48000;
-  std::array<float, 4> m_flashColor{1, 1, 1, 1};
   std::array<float, 4> m_frameColor{0.025f, 0.02f, 0.04f, 1.0f};
   std::vector<ac::xbox::Rect> m_frameRects;
   std::vector<ac::xbox::Line> m_frameLines;

@@ -5,8 +5,7 @@ application with native Direct3D 11 rendering, XAudio2 sound,
 Windows.Gaming.Input polling, and a QuickJS-ng interpreter compiled into the
 package.
 
-The first package boots a bundled JavaScript smoke piece. Press A/B/X/Y to
-change the Direct3D clear color and submit an XAudio2 tone. Device Portal debug
+The fallback package boots a bundled JavaScript smoke piece. Device Portal debug
 output includes `AC_NATIVE_BIOS_READY engine=quickjs-ng piece=smoke`.
 
 Package tiles and splash art are generated from the current Pals image served
@@ -104,6 +103,10 @@ spectator publishing.
 Revision 36 accepts the current short speakable round IDs in the QuickJS
 `publishLive` boundary. Older hosts can no longer stop play when spectator
 publishing encounters a newer ID: the piece disables only that transport.
+
+Revision 37 removes the native controller-probe tone and full-frame input flash
+from normal play. Piece-authored action sounds remain, with native bell and
+whoosh voices for the round countdown and knockout camera.
 
 Revision 13 also exposes bounded `stampPainting` and `blur` primitives to the
 trusted host-side KidLisp compiler. See [`../KIDLISP-NATIVE.md`](../KIDLISP-NATIVE.md)
