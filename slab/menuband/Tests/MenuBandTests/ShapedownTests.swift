@@ -353,6 +353,54 @@ final class ShapedownTests: XCTestCase {
         )
     }
 
+    func testTrackDrumShieldClickDoesNotEndFocusedCapture() {
+        XCTAssertFalse(LocalKeyCapture.shouldEndCaptureAfterResign(
+            appIsActive: true,
+            hasKeyWindow: false,
+            keepsCaptureArmed: true
+        ))
+        XCTAssertTrue(LocalKeyCapture.shouldEndCaptureAfterResign(
+            appIsActive: true,
+            hasKeyWindow: false,
+            keepsCaptureArmed: false
+        ))
+        XCTAssertFalse(LocalKeyCapture.shouldEndCaptureAfterResign(
+            appIsActive: true,
+            hasKeyWindow: true,
+            keepsCaptureArmed: false
+        ))
+        XCTAssertTrue(LocalKeyCapture.shouldEndCaptureAfterResign(
+            appIsActive: false,
+            hasKeyWindow: false,
+            keepsCaptureArmed: true
+        ))
+    }
+
+    func testFocusedFXOverlayFollowsMouseAndAvoidsTopEdge() {
+        let visible = NSRect(x: 0, y: 0, width: 1000, height: 700)
+        let size = NSSize(width: 80, height: 80)
+        let fallback = NSPoint(x: 500, y: 630)
+
+        XCTAssertEqual(AppDelegate.focusedFXOverlayAnchor(
+            mouse: NSPoint(x: 280, y: 360),
+            imageSize: size,
+            visibleFrame: visible,
+            topFallback: fallback
+        ), NSPoint(x: 280, y: 360))
+        XCTAssertEqual(AppDelegate.focusedFXOverlayAnchor(
+            mouse: NSPoint(x: 280, y: 680),
+            imageSize: size,
+            visibleFrame: visible,
+            topFallback: fallback
+        ), fallback)
+        XCTAssertEqual(AppDelegate.focusedFXOverlayAnchor(
+            mouse: NSPoint(x: -20, y: 360),
+            imageSize: size,
+            visibleFrame: visible,
+            topFallback: fallback
+        ).x, 48)
+    }
+
     func testOrdinaryPitchBendFXStillEndsAfterRelease() {
         XCTAssertTrue(AppDelegate.shouldAutoEndTrackpadFX(
             performanceSessionActive: false,

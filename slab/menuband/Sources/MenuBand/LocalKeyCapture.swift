@@ -37,11 +37,24 @@ final class LocalKeyCapture {
     /// Ordinary registered primary-button state from a physical trackpad click.
     var onTrackpadPhysicalClick: ((Bool) -> Void)?
     var cancelShortcut: MenuBandShortcut?
+    /// TrackDrum's permission-free click shield is a non-activating panel in
+    /// a helper process. AppKit can still report our hidden key panel as
+    /// resigned for that swallowed click. While percussion owns the trackpad,
+    /// keep capture armed and reclaim key status after the click finishes.
+    var keepsCaptureArmedOnResign = false
 
     private var panel: NSPanel?
     private var monitor: Any?
     private var resignKeyObserver: NSObjectProtocol?
     private(set) var isArmed = false
+
+    static func shouldEndCaptureAfterResign(
+        appIsActive: Bool,
+        hasKeyWindow: Bool,
+        keepsCaptureArmed: Bool
+    ) -> Bool {
+        !hasKeyWindow && (!keepsCaptureArmed || !appIsActive)
+    }
 
     /// Bring up the invisible panel and start listening. Idempotent — if
     /// already armed, just refreshes the panel as key.
@@ -106,7 +119,29 @@ final class LocalKeyCapture {
             ) { [weak self] _ in
                 guard let self = self else { return }
                 let stillKeyInApp = NSApp.windows.contains { $0.isKeyWindow }
-                if !stillKeyInApp { self.disarm(reason: .resignedKey) }
+                guard !stillKeyInApp else { return }
+                if self.keepsCaptureArmedOnResign {
+                    // The helper's non-activating click sink can briefly make
+                    // this panel resign without deactivating Menu Band. Wait a
+                    // turn so a real click into another app has time to update
+                    // NSApp.isActive, then distinguish the two cases.
+                    DispatchQueue.main.async { [weak self] in
+                        guard let self, self.isArmed else { return }
+                        let hasKeyWindow = NSApp.windows.contains { $0.isKeyWindow }
+                        if Self.shouldEndCaptureAfterResign(
+                            appIsActive: NSApp.isActive,
+                            hasKeyWindow: hasKeyWindow,
+                            keepsCaptureArmed: self.keepsCaptureArmedOnResign
+                        ) {
+                            self.disarm(reason: .resignedKey)
+                        } else if !hasKeyWindow {
+                            debugLog("local capture: preserving TrackDrum focus across shield click")
+                            self.arm()
+                        }
+                    }
+                } else {
+                    self.disarm(reason: .resignedKey)
+                }
             }
         }
         isArmed = true

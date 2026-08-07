@@ -1462,7 +1462,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         localCapture.onCaptureEnd = { [weak self] reason in
             // Focus lost (user clicked another app). Drop the ghost and
-            // any held notes so we don't leave anything hanging.
+            // any held notes so we don't leave anything hanging. A natural
+            // click-away gets the same visible/audible stop cue as Escape.
+            if reason == .resignedKey {
+                self?.playPerformanceFocusExitFeedback()
+            }
             self?.finishLocalCapture(reason: reason)
         }
         localCapture.onTrackpadTouchActiveChanged = { [weak self] active in
@@ -2019,8 +2023,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func finishLocalCapture(reason: LocalKeyCapture.EndReason) {
+        debugLog("local capture ended: \(reason)")
         let shouldRestoreFocus = focusCaptureArmedByShortcut && reason == .cancelled
         focusCaptureArmedByShortcut = false
+        localCapture.keepsCaptureArmedOnResign = false
         #if MAC_APP_STORE
         trackDrumInstallPromptActive = false
         #endif
@@ -2075,13 +2081,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 reason: captureWasArmed ? .programmatic : .closeButton
             )
         }
-        FocusFlashOverlay.shared.flash(rising: false)
-        menuBand.playFocusCue(rising: false)
+        playPerformanceFocusExitFeedback()
         if captureWasArmed {
             localCapture.disarm(reason: .cancelled)
         } else {
             menuBand.releaseAllHeldNotes()
         }
+    }
+
+    private func playPerformanceFocusExitFeedback() {
+        FocusFlashOverlay.shared.flash(rising: false)
+        menuBand.playFocusCue(rising: false)
     }
 
     private func toggleKeyboardLayoutShortcut() {
@@ -4831,6 +4841,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             previous: trackpadContactsByID, contacts: contacts
         )
         trackpadContactsByID = changes.activeByID
+        if !changes.began.isEmpty || !changes.lifted.isEmpty {
+            debugLog(
+                "TrackDrum contacts: began=\(changes.began.count) "
+                + "lifted=\(changes.lifted.count) active=\(changes.active.count)"
+            )
+        }
         let touches = changes.active.map(\.point)
         let priorTouchCount = mtTouches.count
         mtTouches = touches
@@ -5300,6 +5316,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         trackDrumInstallPromptActive = false
         trackpadPluginCaptureActive = false
         trackpadPlugin.setCaptureEnabled(false)
+        localCapture.keepsCaptureArmedOnResign = false
         #endif
         trackpadPadMode = .fx
         trackpadPerformanceSessionActive = false
@@ -5323,6 +5340,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         trackDrumInstallPromptActive = false
         trackpadPluginCaptureActive = false
         trackpadPlugin.setCaptureEnabled(false)
+        localCapture.keepsCaptureArmedOnResign = false
         #endif
         trackpadPadMode = .fx
         trackpadPerformanceSessionActive = false
@@ -5355,6 +5373,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         #if MAC_APP_STORE
         trackpadPluginCaptureActive = useTrackDrum
         trackpadPlugin.setCaptureEnabled(useTrackDrum)
+        localCapture.keepsCaptureArmedOnResign = useTrackDrum
         #endif
         trackpadFXPrimaryContact.reset()
         trackpadSurfaceEnergy.reset(at: CACurrentMediaTime())
@@ -5564,6 +5583,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         trackpadPluginCaptureActive = false
         trackpadPlugin.setCaptureEnabled(false)
+        localCapture.keepsCaptureArmedOnResign = false
         trackpadPadMode = .fx
         focusedInputMode = .trackDrum
         trackDrumInstallPromptActive = true
@@ -5948,13 +5968,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         let image = currentFxCursorImage()
         overlay.show(image: image,
-                     atScreenPoint: trackpadOverlayAnchor(
+                     atScreenPoint: focusedFXOverlayAnchor(
                         imageSize: image.size, fallback: pitchBendLockScreenPoint))
     }
 
-    /// Keep every trackpad surface directly beneath Menu Band itself. The
-    /// pointer remains frozen where the gesture began, but no longer decides
-    /// where the performance display lives.
+    /// Keep TrackDrum's larger surface directly beneath Menu Band itself.
     private func trackpadOverlayAnchor(imageSize: NSSize,
                                        fallback: NSPoint) -> NSPoint {
         guard let button = statusItem?.button,
@@ -5978,6 +5996,50 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return NSPoint(x: x, y: y)
     }
 
+    /// The compact melodic FX slider appears exactly where the pointer was
+    /// when the gesture began. Near the menu bar it falls back beneath Menu
+    /// Band so it cannot cover the status controls or clip offscreen.
+    private func focusedFXOverlayAnchor(imageSize: NSSize,
+                                        fallback: NSPoint) -> NSPoint {
+        let mouse = pitchBendLockScreenPoint == .zero
+            ? NSEvent.mouseLocation : pitchBendLockScreenPoint
+        let screen = NSScreen.screens.first {
+            NSMouseInRect(mouse, $0.frame, false)
+        } ?? NSScreen.main
+        guard let screen else { return fallback }
+        return Self.focusedFXOverlayAnchor(
+            mouse: mouse,
+            imageSize: imageSize,
+            visibleFrame: screen.visibleFrame,
+            topFallback: trackpadOverlayAnchor(
+                imageSize: imageSize,
+                fallback: fallback
+            )
+        )
+    }
+
+    static func focusedFXOverlayAnchor(
+        mouse: NSPoint,
+        imageSize: NSSize,
+        visibleFrame: NSRect,
+        topFallback: NSPoint
+    ) -> NSPoint {
+        let halfWidth = imageSize.width / 2
+        let halfHeight = imageSize.height / 2
+        let gap: CGFloat = 8
+        let clampX: (CGFloat) -> CGFloat = {
+            min(max($0, visibleFrame.minX + halfWidth + gap),
+                visibleFrame.maxX - halfWidth - gap)
+        }
+        let clampY: (CGFloat) -> CGFloat = {
+            min(max($0, visibleFrame.minY + halfHeight + gap),
+                visibleFrame.maxY - halfHeight - gap)
+        }
+        let isNearTop = mouse.y >= visibleFrame.maxY - imageSize.height - gap
+        let target = isNearTop ? topFallback : mouse
+        return NSPoint(x: clampX(target.x), y: clampY(target.y))
+    }
+
     private func updatePitchBendOverlayImage() {
         #if MAC_APP_STORE
         guard !trackDrumInstallPromptActive else { return }
@@ -5997,7 +6059,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         let image = currentFxCursorImage()
         overlay.update(image: image,
-                       atScreenPoint: trackpadOverlayAnchor(
+                       atScreenPoint: focusedFXOverlayAnchor(
                         imageSize: image.size, fallback: pitchBendLockScreenPoint))
     }
 
@@ -6158,6 +6220,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         #if MAC_APP_STORE
         trackpadPluginCaptureActive = false
         trackpadPlugin.setCaptureEnabled(false)
+        localCapture.keepsCaptureArmedOnResign = false
         #endif
         pitchBendEndTimer?.invalidate()
         pitchBendEndTimer = nil
