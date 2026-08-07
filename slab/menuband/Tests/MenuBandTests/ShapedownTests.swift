@@ -364,6 +364,15 @@ final class ShapedownTests: XCTestCase {
         )
     }
 
+    func testSlideReleaseDoesNotFlashTrackDrum() {
+        XCTAssertEqual(
+            AppDelegate.focusedReleasePadMode(for: .localFX), .fx
+        )
+        XCTAssertEqual(
+            AppDelegate.focusedReleasePadMode(for: .trackDrum), .skin
+        )
+    }
+
     func testTrackDrumShieldClickDoesNotEndFocusedCapture() {
         XCTAssertFalse(LocalKeyCapture.shouldEndCaptureAfterResign(
             hasKeyWindow: false,

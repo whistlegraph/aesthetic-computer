@@ -5638,6 +5638,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         trackDrumConnected ? .trackDrum : .localFX
     }
 
+    static func focusedReleasePadMode(
+        for mode: FocusedInputMode
+    ) -> TrackpadPadMode {
+        mode == .localFX ? .fx : .skin
+    }
+
     func setTrackpadTouchActive(_ active: Bool) {
         trackpadTouchActive = active
         guard !active else { return }
@@ -6269,8 +6275,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         stopTrackpadPercussionSystemClickShield()
         #endif
         stopTrackpadPercussionLocalClickShield()
-        // Every new Menu Band focus begins on the zero-step drum surface.
+        // Keep the selected visual through the return-to-center animation.
+        // Resetting this to skin here repainted the last slide frames as a
+        // brief TrackDrum flash. The next focus activation chooses its mode.
+        #if MAC_APP_STORE
+        trackpadPadMode = Self.focusedReleasePadMode(for: focusedInputMode)
+        #else
         trackpadPadMode = .skin
+        #endif
         guard pitchBendCursorLocked else {
             // Mode was latched but cursor not currently locked — still
             // make sure the fx and their visible puck settle back.
