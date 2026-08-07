@@ -1,5 +1,5 @@
 // @bundle-qr
-const buildTimestamp = "2026.08.06.2048 PDT";
+const buildTimestamp = "2026.08.06.2054 PDT";
 const floorY = 12000;
 const ceilingY = 0;
 const wallThickness = 80;
@@ -3652,7 +3652,7 @@ function drawSelectionScreen(t, ink, panel) {
       drawSelectPortrait(player, margin + 92, top + 180, .72, t);
       drawHandle(player.name, margin + 170, top + 70, 34,
         profile.colors, player.color);
-      write(player.bot ? "READY TO FIGHT" : player.npc ? "STANDING BY" : selectionReady[player.pad]
+      typeWrite(player.bot ? "READY TO FIGHT" : player.npc ? "STANDING BY" : selectionReady[player.pad]
         ? "READY" : "SELECT", margin + 170, top + 155, 34, ...player.color);
       typeWrite(player.bot ? "BOT" : player.npc ? "DUMMY" : "P" + (player.pad + 1),
         margin + 170, top + 225, 24, ...ink);
@@ -3678,7 +3678,7 @@ function drawSelectionScreen(t, ink, panel) {
     const mood = profile.mood ? "MOOD  " + profile.mood.slice(0, 30) : "MOOD  —";
     const chat = profile.lastChat ? "CHAT  " + profile.lastChat.slice(0, 32) : "CHAT  —";
     typeWrite(mood + "\n" + chat, left + 355, 490, 25, ...ink);
-    write(player.bot ? "READY TO FIGHT" : player.npc ? "STANDING BY"
+    typeWrite(player.bot ? "READY TO FIGHT" : player.npc ? "STANDING BY"
       : selectionReady[player.pad] ? "READY" : "SELECT",
       left + 355, 720, 52, ...player.color);
     typeWrite(player.bot ? "BOT" : player.npc ? "DUMMY" : "P" + (player.pad + 1),

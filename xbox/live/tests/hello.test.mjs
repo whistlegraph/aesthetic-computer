@@ -530,6 +530,11 @@ test("character select offers the four AC fighters and waits for both pads", () 
   assert.equal(fight.selectionState().selecting, false);
 });
 
+test("character select status labels use the shared comic typeface", () => {
+  assert.equal((source.match(/typeWrite\(player\.bot \? "READY TO FIGHT"/g) || []).length, 2);
+  assert.doesNotMatch(source, /write\(player\.bot \? "READY TO FIGHT"/);
+});
+
 test("Menu or View on either controller returns a fight to character select", () => {
   for (const [pad, button] of [[0, "Menu"], [1, "View"]]) {
     const { fight, tap } = createFight();
