@@ -1,0 +1,159 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper]{article}
+
+\usepackage[top=1in,bottom=1in,left=1.15in,right=1.15in]{geometry}
+\usepackage{fontspec}
+\usepackage{unicode-math}
+
+\setmainfont{Latin Modern Roman}[
+  Extension=.otf,
+  UprightFont=lmroman10-regular,
+  BoldFont=lmroman10-bold,
+  ItalicFont=lmroman10-italic,
+  BoldItalicFont=lmroman10-bolditalic,
+]
+\setsansfont{Latin Modern Sans}[
+  Extension=.otf,
+  UprightFont=lmsans10-regular,
+  BoldFont=lmsans10-bold,
+  ItalicFont=lmsans10-oblique,
+  BoldItalicFont=lmsans10-boldoblique,
+]
+\setmonofont{Latin Modern Mono}[
+  Extension=.otf,
+  UprightFont=lmmono10-regular,
+  ItalicFont=lmmono10-italic,
+  Scale=0.85,
+]
+
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{xurl}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{../ac-paper-essay}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=acpurple,
+  urlcolor=acpurple,
+  pdfauthor={@jeffrey},
+  pdftitle={Private Weather},
+  pdfsubject={Growing small intelligences on the desktop with KidLisp and pattern-guided exploration},
+}
+
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{acgray}\thepage}
+
+\newcommand{\mono}[1]{\texttt{#1}}
+
+\begin{document}
+
+\thispagestyle{empty}
+\vspace*{0.3in}
+
+\essaytitle{Private Weather}
+\essaydate{August 2026}
+
+I do not want Jastow to become another place where a large model waits for a prompt. The tower is more interesting as a garden.
+
+The things growing there would be small. A few lines of Lisp. A clock. A memory that survives the next frame. Some sensation of the desktop around them. An internal pattern they did not choose. Enough variation to make descendants, and enough consequence that some descendants continue while others end.
+
+This is a deliberately modest use of the word \textit{intelligence}. I do not mean a chatbot, a person in a box, or a claim about consciousness. I mean a situated program that can sense a narrow world, retain a little state, choose among actions, change across outcomes, and leave altered descendants through selection. We already have most of that. The missing piece is not a bigger model. It is a growth loop.
+
+\section{The Cheap Surprise}
+
+Emily Ertle, Michael Levin, and Matthias Scheutz put little agents in mazes and gave them patterns to read. The simplest agents were blind to the maze. A pixel in a fractal or painting mapped directly to a movement. Up, down, left, right. They still explored. Structured fractals and artworks guided more exploration than shuffled versions containing the same colors, and both beat uniform noise. Among the fifty strongest patterns, fractals supplied forty-six percent and art thirty percent.\footnote{Emily A. Ertle, Michael Levin, and Matthias Scheutz, ``Free Lunch? Low-Cost Intelligence Through Pattern-Guided Exploration,'' \textit{IEEE International Conference on Development and Learning}, 2025. \href{https://hrilab.tufts.edu/publications/ertleetal25icdl.pdf}{Canonical PDF}. An accessible text copy is held in the \href{https://assets.aesthetic.computer/papers/readings/text/Ertle-Levin-Scheutz-Free-Lunch-Pattern-Guided-Exploration-2025.txt}{Aesthetic Computer reading stack}.}
+
+Their learned agents produced the stranger result. Deep Q-networks given a half-and-half mixture of maze sensation and pattern input explored better than agents receiving only the maze or only the pattern. They also generalized better to unseen mazes. The authors suggest that an internal pattern can give context to states that otherwise look identical, helping an agent avoid falling into one fixed response.
+
+Then comes the useful irritation. Replacing the fractal with uniform noise did not significantly change those learned results. That control keeps the story honest. The network may not be extracting ancient navigational wisdom from a fractal. It may simply benefit from another changing coordinate---a private counterweight to what the world says now.
+
+That is enough. For the simple agents, structure mattered. For the learned agents, an unrelated internal stream helped, but fractal meaning did not. The paper does not prove that arbitrary images contain secret minds. It shows that useful behavior can emerge from a cheap relation among pattern, body, and environment. The authors ask whether the usual agent--body--environment triangle needs a fourth term: a static internal pattern source.
+
+For our Lisps, I would call that term \textit{private weather}.
+
+\section{The Organisms Are Already Here}
+
+Look at \mono{klpad.lisp}. Four values---bell, sub, string, air---are struck by different clocks and decay at different rates. They are sound and picture at once. The image is not an illustration placed on top of the music. It is a view of what the music still remembers.
+
+Look at \mono{klbutton.lisp}. A counter persists across frames. A shared UTC beat resets it. The ring expands from that remembered event while touch changes the field and plays a sound. Its comments contain a tiny theory of life in this language: \mono{def} starts over every frame, so anything that must survive uses \mono{once}; change happens through \mono{now}.\footnote{The working sources are \href{https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/klpad.lisp}{\mono{klpad.lisp}} and \href{https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/klbutton.lisp}{\mono{klbutton.lisp}} in the Aesthetic Computer repository mirror.}
+
+These are not intelligent merely because they animate. But they already have the anatomy a small intelligence needs: a body on the canvas, clocks, limited senses, persistent state, and actions with visible and audible consequences. They are also inspectable. A person can read the whole organism, change a number, and feel the result.
+
+That legibility matters more than scale. A giant model can imitate a voice while remaining impossible to survey. A KidLisp organism can be genuinely odd while still fitting on a card. If we grow these programs, we can keep every inheritance visible: this parent, this mutation, this private pattern, this result.
+
+\section{Private Weather}
+
+Each organism gets a small pattern tape. It might be a walk through a Halley fractal, the scanline of an accepted painting, the traversal of its own syntax tree, a prime rhythm, a shuffled version of one of those, or uniform noise. One value is exposed at a time. The organism can mix it with what the desktop is doing.
+
+The pattern is not a script. It does not say ``move left'' or ``play C.'' It changes readiness. At the same pointer position, on the same beat, one phase of the tape might make the organism hold while another makes it answer. This can break loops without requiring a distant sensor or an expensive model. It gives two externally identical moments different interiors.
+
+The external inputs should be few and blunt: time and beat phase; pointer direction and speed; touch or key events; canvas geometry; an audio energy envelope; the previous action and its immediate result; perhaps the state of one neighboring organism. No chats. No files. No prompts. No contacts. No raw screen recording. No microphone archive. The habitat should sense presence and rhythm without quietly turning a personal computer into a surveillance instrument.
+
+The pattern can remain static even while the behavior changes. This is the paper's most useful inversion. Intelligence does not have to begin with a rich internal model of the world. It can begin with a cheap inherited difference that becomes useful only through contact with a particular world.
+
+\section{The Painting Is a Piece}
+
+This gives No Paint 3 its unit. A painting should be an Aesthetic Computer piece, not a flattened bitmap with code attached as an explanation. Its score is an ordered stack of accepted layers. Each proposed layer contains executable code, parameters, seed, runtime version, provenance, and the pixels that code rendered.
+
+No discards the candidate code and pixels together. Paint appends both atomically. The pixels make the decision immediate, preserve exactly what the person saw, and keep export cheap. The code keeps the layer editable, replayable, forkable, and available to growth. A cached composite can still open when a runtime changes or Jastow is asleep; the score remains the living object.
+
+Not every source begins as code. A camera image or recovered raster enters as an explicit raster layer with its own provenance, never as falsely recovered source. New coded layers can grow above it. The piece can therefore contain history without pretending that every pixel was generated the same way.
+
+\section{What Jastow Grows}
+
+Jastow has a Ryzen 5 5600X, sixteen gigabytes of system memory, and an RTX 3070 with eight gigabytes of video memory. It is a good population machine and a bad hidden dependency. The fleet rule is one substantial job at a time, below thirteen gigabytes of system memory and seven and a half gigabytes of video memory, with the build lane and GPU lane kept apart.\footnote{The limits come from the local fleet report, \textit{Jas-NZXT Fleet Use Report}, July 22, 2026. The fleet ledger saw Jastow offline when this essay was prepared, last seen July 25. That is a design fact, not an emergency: accepted organisms must not depend on the worker remaining available.}
+
+So Jastow grows at night, in bounded batches. It receives compact parents and test scenes. It makes valid mutations to the KidLisp syntax tree: alter a constant, exchange a primitive, duplicate a branch, change the connection between sensation and action, swap the pattern source. It renders each child from several fixed seeds and several small desktop situations. Invalid, blank, dangerous, strobing, runaway, or over-budget children stop there.
+
+The survivors return as candidate-layer packets. Each packet contains source, parents, the exact mutation, runtime version, seeds, pattern hash, measurements, and rendered pixels. No canonical state lives on Jastow. No piece needs to phone home to it. The tower buys breadth---many births and many minutes---then returns a small, reproducible proposal.
+
+This sharpens the growth role already drawn in \textit{No Paint 3.0: The Full Shape}: remote search proposes a coded layer and its pixels; Aesthetic Computer compiles and previews; the person decides; acceptance extends the painting-piece's score. The layer contract makes its versioned candidate packet concrete.
+
+The GPU may turn out not to matter at first. A hundred tiny KidLisp programs can be rendered on the CPU. That is fine. Jastow's gift is not only CUDA. It is being away from the interactive seat, able to spend an hour failing cheaply while the desktop remains pleasant to use.
+
+\section{The Jury}
+
+Automatic fitness is useful for removing corpses. Did the program compile? Did it stay within its frame budget? Did anything change? Did it recover after the pointer vanished or the beat shifted? Did it visit more than one behavioral state? Did it repeat a short loop forever? These tests protect the habitat.
+
+They cannot tell us what deserves to live there.
+
+If one score owns reproduction, the garden will learn the score's cheapest trick. Maximize pixel change and everything flickers. Maximize novelty and nothing develops a character. Maximize resemblance to an accepted painting and the population becomes a photocopier with extra steps.
+
+The final gate should therefore be ordinary and human: two candidate layers side by side, or one with Yay, Nay, Skip, Previous, Next. Keep this one. Cross those two. Let that strange behavior continue. Explicit acceptance alone extends the piece's layer stack and lineage. A learned ranker may help choose what the person sees next, but it never gets the last word.
+
+This follows a long tradition of interactive evolution in computer graphics. Karl Sims's 1991 evolved graphics let viewers select among images; Hideyuki Takagi's 2001 survey described the fusion of machine search and human evaluation. Our version can be smaller and more personal. The user is not supplying a universal fitness function. They are cultivating a local population.
+
+\section{The First Crop}
+
+The first experiment should be tiny enough to disappoint us clearly.
+
+Take six pattern families: a Halley fractal, an accepted painting, a syntax-tree walk, a rhythmic number sequence, a shuffle preserving the source values, and uniform noise. Grow thirty-two candidate layers from each against the same host piece. Run every candidate for sixty seconds in three scenes: an empty desktop rhythm, a moving pointer with interruptions, and a sound envelope that changes once and then goes quiet.
+
+Measure coverage of available actions, short-loop avoidance, response latency, recovery after the interruption, and frame cost. Then show the survivors blind to the human jury and record the keep rate. Repeat with the pattern channel removed.
+
+This is not a benchmark for general intelligence. It asks whether private weather helps compact KidLisp layers become more varied, responsive, or worth adding to a piece. The shuffled and noise sources keep us from romanticizing paintings. The no-pattern condition keeps us from romanticizing pattern itself.
+
+If no pattern-bearing group improves behavior or human keep rate, remove the channel. If noise performs as well as art, use noise when it is cheaper and art when provenance matters. If one structured source improves only one kind of scene, treat it as a niche adaptation, not a general law. A garden becomes credible when it can kill its favorite theory.
+
+\section{Keep the Word Small}
+
+An organism accepted from this process would not know who I am. It would not understand the desktop in the way I do. It might learn that stillness after a burst of sound is a useful time to change color, or that a returning pointer should be greeted differently from a new one. Across generations, its descendants might become better at holding attention without demanding it.
+
+That is enough intelligence to interest me.
+
+The desktop has spent forty years filling with tools that wait to be commanded and services that compete to predict the next command. A habitat is different. Its inhabitants have rhythms of their own. They notice only a little. They remain legible. They can surprise without claiming authority. They can be edited, refused, crossed, or allowed to go quiet.
+
+Jastow does not need to contain their mind. It only needs to grow more possibilities than I could try by hand. Aesthetic Computer gives each one an address and a place in the layer score. The desktop gives them weather. I decide what gets another generation.
+
+The pattern is private weather. The intelligence is what learns to live through it.
+
+\colophon{Written by @jeffrey. ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913} \enspace$\cdot$\enspace aesthetic.computer}
+
+\end{document}
