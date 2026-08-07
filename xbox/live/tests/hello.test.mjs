@@ -4,6 +4,7 @@ import test from "node:test";
 
 const source = await readFile(new URL("../hello.js", import.meta.url), "utf8");
 const webShell = await readFile(new URL("../mac-test.html", import.meta.url), "utf8");
+const limbPartsForTest = ["left-arm", "right-arm", "left-leg", "right-leg"];
 
 function createFight(startImmediately = true, enterGame = true,
   platform = "xbox-uwp", roundBridge = null,
@@ -232,7 +233,7 @@ test("custom web aspects derive play bounds around their own HUD", () => {
   assert.ok(landscape.cameraAspect > portrait.cameraAspect);
 });
 
-test("HUD safe area uses one equal inset on all four screen edges", () => {
+test("HUD safe area keeps a generous equal inset on all four screen edges", () => {
   for (const viewport of [
     { width: 2560, height: 1080 },
     { width: 1920, height: 1080 },
@@ -243,6 +244,8 @@ test("HUD safe area uses one equal inset on all four screen edges", () => {
     const gaps = [safe.left, safe.top, viewport.width - safe.right,
       viewport.height - safe.bottom];
     assert.deepEqual(gaps, [gaps[0], gaps[0], gaps[0], gaps[0]]);
+    assert.ok(gaps[0] >= Math.floor(Math.min(viewport.width,
+      viewport.height) * .049));
     assert.doesNotThrow(() => fight.paint());
   }
 });
@@ -446,10 +449,17 @@ test("round-seeded wind uses single directional streaks whose speed follows MPH"
   assert.equal((windSource.match(/filledCapsule\(/g) || []).length, 1);
 });
 
-test("top HUD shows live FPS and oskiewar immediately left of the QR", () => {
+test("debug HUD shows FPS while oskiewar remains immediately left of the QR", () => {
   assert.match(source, /Math\.round\(displayFps \|\| 0\) \+ " fps"/);
+  assert.match(source, /if \(debugHitboxes\) \{\n    const fpsLabel/);
   assert.match(source, /const gameLabel = "oskiewar"/);
   assert.match(source, /left - gameLabelWidth - 16/);
+});
+
+test("debug off hides safe-zone boxes including frozen round impacts", () => {
+  assert.match(source, /function drawSafeZones\(\) \{\n  if \(!debugHitboxes\) return;/);
+  assert.match(source, /const impactDebug = !roundResult && now < impactHitboxesUntil/);
+  assert.match(source, /const impactDebug = !roundResult &&\n    runtime\(\)\.monotonicUs < impactHitboxesUntil/);
 });
 
 test("fighter geometry connects the head and renders solid capsule joints", () => {
@@ -1010,6 +1020,29 @@ test("arms and legs take localized damage and detach from collision geometry", (
     .some((segment) => segment.part === "left-arm"), false);
 });
 
+test("losing both legs grounds the pelvis in a low crouched form", () => {
+  const { fight, now } = createFight();
+  const target = fight.players[1];
+  const standing = fight.runnerWorldGeometry(target, now() / 1000000);
+  for (const part of ["left-leg", "right-leg"]) {
+    for (let hit = 0; hit < 2; hit++) {
+      const geometry = fight.runnerWorldGeometry(target, now() / 1000000);
+      const index = geometry.segments.findIndex((segment) => segment.part === part);
+      assert.notEqual(index, -1);
+      fight.damagePart(target, index, fight.players[0].x, 0, now());
+    }
+  }
+  const crouched = fight.runnerWorldGeometry(target, now() / 1000000);
+  const torso = crouched.segments.find((segment) => segment.role === "torso");
+  assert.ok(torso);
+  assert.ok(torso.y2 + torso.width / 2 >= 12000,
+    "the pelvis capsule should touch the floor");
+  assert.ok(crouched.head.y > standing.head.y + 40,
+    "the head should settle into a visibly lower form");
+  assert.equal(crouched.segments.some((segment) =>
+    segment.part === "left-leg" || segment.part === "right-leg"), false);
+});
+
 test("a limbless torso becomes a pogo and a removed torso leaves a bouncing head", () => {
   const { fight, pads, tick, now } = createFight();
   const target = fight.players[0];
@@ -1344,7 +1377,7 @@ test("native terrain and actors carry real depth with computed face normals", ()
   assert.doesNotMatch(source, /worldLine\(worldLeft, floorY/);
 });
 
-test("an airborne ball only BALLS on the head", () => {
+test("an airborne ball head hit damages every limb once without killing", () => {
   const { fight, tick, now } = createFight();
   const player = fight.players[0];
   const head = fight.runnerWorldGeometry(player, now() / 1000000).head;
@@ -1355,11 +1388,16 @@ test("an airborne ball only BALLS on the head", () => {
   fight.ball.vx = 900;
   fight.ball.vy = 0;
   tick(1000);
-  assert.equal(player.alive, false);
-  assert.equal(player.lastButton, "BALLED");
+  assert.equal(player.alive, true);
+  assert.equal(player.lastButton, "HEAD HIT");
+  assert.equal(fight.ball.active, true);
+  assert.deepEqual(Object.fromEntries(limbPartsForTest.map((part) =>
+    [part, player.partDamage[part]])), Object.fromEntries(
+    limbPartsForTest.map((part) => [part, 1])));
+  assert.deepEqual(player.removedParts, []);
 });
 
-test("swept head collision BALLS a dummy without tunneling", () => {
+test("swept ball head collision damages a dummy without tunneling", () => {
   const { fight, tick, now } = createFight();
   const dummy = fight.players[1];
   dummy.name = "DUMMY";
@@ -1372,9 +1410,10 @@ test("swept head collision BALLS a dummy without tunneling", () => {
   fight.ball.vx = 12000;
   fight.ball.vy = 0;
   tick(40000);
-  assert.equal(dummy.alive, false);
-  assert.equal(dummy.lastButton, "BALLED");
-  assert.ok(fight.players.every((player) => player.frozenGeometry));
+  assert.equal(dummy.alive, true);
+  assert.equal(dummy.lastButton, "HEAD HIT");
+  for (const part of limbPartsForTest)
+    assert.equal(dummy.partDamage[part], 1);
 });
 
 test("an airborne ball bounces off non-head body geometry", () => {
@@ -1391,6 +1430,7 @@ test("an airborne ball bounces off non-head body geometry", () => {
   tick(1000);
   assert.equal(player.alive, true);
   assert.equal(fight.ball.active, true);
+  assert.deepEqual(player.partDamage, {});
   assert.ok(signals.some(([event, pad]) => event === "bodybounce" && pad === 0));
 });
 
@@ -1500,6 +1540,18 @@ test("round clock can end in a tie and resets", () => {
   assert.equal(fight.players[1].score, 0);
 });
 
+test("dummy rounds are untimed and use an infinity clock", () => {
+  const { fight, tick } = createFight();
+  fight.players[1].npc = true;
+  fight.players[1].bot = false;
+  fight.players[1].name = "DUMMY";
+  for (let frame = 0; frame < 800; frame++) tick(40000);
+  assert.equal(fight.roundState().roundResult, "");
+  assert.ok(fight.roundState().roundElapsedUs > 30000000);
+  assert.match(source, /function roundIsTimed\(\)[\s\S]{0,100}!\(players\[1\]\.npc && !players\[1\]\.bot\)/);
+  assert.match(source, /timedRound \? String\(remainingSeconds\)\.padStart\(2, "0"\) : "∞"/);
+});
+
 test("the final ten seconds ring bells and turn the top clock into tie", () => {
   const { fight, drums, tick } = createFight();
   for (let frame = 0; frame < 500; frame++) tick(40000);
@@ -1556,6 +1608,20 @@ test("round end card names the winner and the finishing action", () => {
   assert.match(source, /winner\.toLowerCase\(\) \+ " wins!"/);
   assert.doesNotMatch(source,
     /box\(viewCenterX\(\) - causeWidth \/ 2 - 36/);
+});
+
+test("every head knockout busts the head into digital blood trails", () => {
+  const { fight, tick } = createFight();
+  const loser = fight.players[1];
+  fight.knockOut();
+  assert.ok(loser.headBustedAt >= 0);
+  tick(140000);
+  assert.doesNotThrow(() => fight.paint());
+  assert.match(source, /target\.headBustedAt = now/);
+  assert.match(source, /function drawDigitalHeadBurst/);
+  assert.match(source, /\[255, 48, 96\], \[176, 18, 54\]/);
+  assert.match(source, /filledCapsule\(start\.x, start\.y, end\.x, end\.y/);
+  assert.match(source, /drawDigitalHeadBurst\(player, world\.head, age\)/);
 });
 
 test("jump framing cannot reveal a contrasting clear-color flash", () => {
