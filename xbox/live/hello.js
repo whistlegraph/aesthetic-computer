@@ -1813,8 +1813,16 @@ function resolveMelee(now) {
       target.blockFlash = 1;
       target.lastButton = target.blocking ? "BLOCK" : "BACK BLOCK";
       target.lastButtonAt = now;
-      target.vx = 0;
-      attacker.vx = -attacker.facing * 420;
+      // An explicit shield returns the attacker's commitment as durable
+      // knockback. Keep it separate from controlled velocity so holding toward
+      // the defender cannot erase the recoil on the next simulation frame.
+      const recoil = target.blocking ? 2400 : 900;
+      attacker.dashUntil = 0;
+      attacker.dashVx = 0;
+      attacker.knockVx = -attacker.facing * recoil;
+      attacker.vx = attacker.knockVx + attacker.windVx;
+      if (target.blocking) attacker.vy = Math.min(attacker.vy, -260);
+      else target.vx = 0;
       drum("block", 1.2, panPlayer(target));
       emitSignal("block", target.pad, attacker.pad, target.blocking ? 1 : 2);
     } else killPlayer(target, attacker.pad, now,

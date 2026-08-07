@@ -647,6 +647,10 @@ test("B shield blocks melee geometry", () => {
   for (let frame = 0; frame < 5; frame++) tick(16667);
   assert.equal(fight.players[1].alive, true);
   assert.equal(fight.players[0].score, 0);
+  assert.ok(fight.players[0].x < 5000,
+    "a shielded strike should bounce the attacker backward");
+  assert.ok(fight.players[0].knockVx < -1000,
+    "shield recoil should survive the next movement update");
   assert.ok(signals.some(([event, player]) => event === "block" && player === 1));
 });
 
