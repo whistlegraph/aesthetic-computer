@@ -353,6 +353,17 @@ final class ShapedownTests: XCTestCase {
         )
     }
 
+    func testCommandFocusPrefersInstalledTrackDrum() {
+        XCTAssertEqual(
+            AppDelegate.commandFocusInputMode(trackDrumConnected: true),
+            .trackDrum
+        )
+        XCTAssertEqual(
+            AppDelegate.commandFocusInputMode(trackDrumConnected: false),
+            .localFX
+        )
+    }
+
     func testTrackDrumShieldClickDoesNotEndFocusedCapture() {
         XCTAssertFalse(LocalKeyCapture.shouldEndCaptureAfterResign(
             hasKeyWindow: false,

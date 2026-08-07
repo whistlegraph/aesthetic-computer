@@ -2005,7 +2005,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         #endif
         localCapture.arm()
         #if MAC_APP_STORE
-        focusedInputMode = preferredFocusedInputMode()
+        // Command-Command is the explicit trackpad-performance gesture. If
+        // TrackDrum is available, always arm it here even when a previous Tab
+        // choice persisted local slide. Pointer movement can still hand this
+        // same focused session straight back to local slide.
+        focusedInputMode = Self.commandFocusInputMode(
+            trackDrumConnected: trackpadPluginConnected
+        )
         if focusedInputMode == .trackDrum {
             if trackpadPluginConnected {
                 // Once installed, TrackDrum owns the focused trackpad by
@@ -5624,6 +5630,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     static func focusedInputModeAfterTab(_ mode: FocusedInputMode) -> FocusedInputMode {
         mode == .localFX ? .trackDrum : .localFX
+    }
+
+    static func commandFocusInputMode(
+        trackDrumConnected: Bool
+    ) -> FocusedInputMode {
+        trackDrumConnected ? .trackDrum : .localFX
     }
 
     func setTrackpadTouchActive(_ active: Bool) {
