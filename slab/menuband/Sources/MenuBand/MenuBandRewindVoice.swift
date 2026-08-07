@@ -60,18 +60,18 @@ final class MenuBandRewindVoice {
     /// Pitch + echo applied to the reverse playback ITSELF, so the trackpad
     /// gesture warps the tape while the spacebar is held. These have to be
     /// dedicated inserts on the rewind sub-chain (not the master fx bus): the
-    /// reverse player joins downstream of the master echo/proximity AND
+    /// reverse player joins downstream of the master echo/reverb AND
     /// downstream of the capture tap, so it can neither be processed by the
     /// shared inserts nor allowed to feed back into the ring. Pitch is a
     /// source-side shift (rate stays 1.0) like the speech voice; echo is a
-    /// private slap delay mirroring the master one's curve.
+    /// private slap delay mirroring the master send.
     private let pitch = AVAudioUnitTimePitch()
     private let echo: AVAudioUnitDelay = {
         let d = AVAudioUnitDelay()
-        d.delayTime = 0.33
-        d.feedback = 0
-        d.lowPassCutoff = 4_000
-        d.wetDryMix = 0
+        d.delayTime = 0.30
+        d.feedback = 58
+        d.lowPassCutoff = 3_600
+        d.wetDryMix = 100
         return d
     }()
     /// Format-absorbing entry stage. The reversed clip is mono and may be at a
@@ -81,6 +81,8 @@ final class MenuBandRewindVoice {
     /// its own stable output. So the rate-matching reconnect lands HERE, and
     /// the pitch/echo AUs downstream only ever see the mixer's steady format.
     private let entryMixer = AVAudioMixerNode()
+    private let dryMixer = AVAudioMixerNode()
+    private let echoSendMixer = AVAudioMixerNode()
     private let mixer = AVAudioMixerNode()
     private weak var engine: AVAudioEngine?
     private var attached = false
@@ -149,23 +151,36 @@ final class MenuBandRewindVoice {
         engine.attach(player)
         engine.attach(entryMixer)
         engine.attach(pitch)
+        engine.attach(dryMixer)
         engine.attach(echo)
+        engine.attach(echoSendMixer)
         engine.attach(mixer)
         // Connect with engine-derived (nil) formats so the rewind graph
         // tracks the device's sample rate — a hardcoded 44.1k connection
         // breaks (and `scheduleBuffer` asserts) when the user is on a 96 kHz
         // interface or hot-swaps devices. The reversed clip is built in the
         // player's *actual* output format at play time (see `playReverse`).
-        // player → entryMixer → pitch → echo → mixer → mainMixerNode: the
-        // bend/echo ride the tape but stay private to this DRY sub-chain (no
-        // recapture). entryMixer absorbs the clip's mono/rate so the AUs only
-        // ever see a stable format (the -10868 crash fix).
+        // player → entryMixer → pitch, then fan out to a dry lane and a
+        // fixed 100%-wet echo lane before rejoining at mixer. Gesture control
+        // moves only the rampable echo-send gain, not AUDelay's non-rampable
+        // wet/feedback parameters. The whole sub-chain remains outside the
+        // capture path. entryMixer absorbs the clip's mono/rate so the AUs
+        // only ever see a stable format (the -10868 crash fix).
         engine.connect(player, to: entryMixer, format: nil)
         engine.connect(entryMixer, to: pitch, format: nil)
-        engine.connect(pitch, to: echo, format: nil)
-        engine.connect(echo, to: mixer, format: nil)
+        engine.connect(pitch, to: [
+            AVAudioConnectionPoint(node: dryMixer, bus: 0),
+            AVAudioConnectionPoint(node: echo, bus: 0),
+        ], fromBus: 0, format: nil)
+        engine.connect(dryMixer, to: mixer,
+                       fromBus: 0, toBus: 0, format: nil)
+        engine.connect(echo, to: echoSendMixer, format: nil)
+        engine.connect(echoSendMixer, to: mixer,
+                       fromBus: 0, toBus: 1, format: nil)
         engine.connect(mixer, to: engine.mainMixerNode, format: nil)
         entryMixer.outputVolume = 1.0
+        dryMixer.outputVolume = 1.0
+        echoSendMixer.outputVolume = 0
         mixer.outputVolume = 1.0
         attached = true
     }
@@ -179,13 +194,11 @@ final class MenuBandRewindVoice {
         pitch.pitch = max(-2400, min(2400, amount * 1200))
     }
 
-    /// Open the private slap echo on the tape, mirroring the master echo's
-    /// wet/feedback curve so a right-swipe sounds the same on a rewind as on a
-    /// live note.
+    /// Open the private slap echo with the same click-free parallel-send
+    /// curve used by the master bus.
     func setEcho(amount: Float) {
         let a = max(0, min(1, amount))
-        echo.wetDryMix = a * 45
-        echo.feedback = a * 78
+        echoSendMixer.outputVolume = pow(a, 1.12) * 0.42
     }
 
     // MARK: Capture (audio thread)

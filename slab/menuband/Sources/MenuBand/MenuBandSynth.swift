@@ -81,7 +81,7 @@ final class MenuBandSynth {
     private let melodicDuckMixer = AVAudioMixerNode()
     /// Sums the compressed/ducked melodic bus with the DRY percussion bus
     /// immediately before the final limiter. Percussion routes here instead of through
-    /// echo/reverb/proximity, so the trackpad fx (and pitch-bend) never
+    /// echo/reverb, so the trackpad fx (and pitch-bend) never
     /// touch the drums — they still get master volume + final limiting and
     /// are captured by the tape (which taps `mainMixerNode`, downstream).
     private let postFxMixer = AVAudioMixerNode()
@@ -117,54 +117,35 @@ final class MenuBandSynth {
             componentFlagsMask: 0)
         return AVAudioUnitEffect(audioComponentDescription: desc)
     }()
-    /// Global "space" reverb on the master path — sits between the
-    /// pre-limiter sum and the limiter so EVERY backend (MIDISynth,
-    /// sampler, plugin AU, sample voice, radio) gets the exact same
-    /// ambience regardless of the selected instrument. `wetDryMix`
-    /// at 0 is fully dry: with the trackpad X-axis parked left the
-    /// sound is identical to before this node existed. Sliding the
-    /// gesture right opens the room up; left brings it back up
-    /// front to the listener.
+    /// The melodic bus is fanned into a permanently dry lane plus two
+    /// 100%-wet sends. Trackpad motion changes only mixer gain, whose Audio
+    /// Unit parameter is rampable; the delay and reverb algorithms never
+    /// receive stepped parameter changes while rendering.
+    private let dryFxMixer = AVAudioMixerNode()
+    private let echoSendMixer = AVAudioMixerNode()
+    private let reverbSendMixer = AVAudioMixerNode()
+    private let fxSumMixer = AVAudioMixerNode()
+
+    /// Dense, natural room behind both the left-side space gesture and a
+    /// small portion of the right-side echo. Keeping this 100% wet makes it
+    /// a true parallel send: the original transient stays phase-stable in
+    /// the dry lane while the room can bloom independently.
     private let spaceReverb: AVAudioUnitReverb = {
         let r = AVAudioUnitReverb()
-        r.loadFactoryPreset(.largeHall2)
-        r.wetDryMix = 0
+        r.loadFactoryPreset(.mediumHall)
+        r.wetDryMix = 100
         return r
     }()
-    /// "Proximity" filter on the master path — the LEFT half of the X-axis
-    /// gesture. Reverb (right idea, wrong direction) pushes a sound big and
-    /// far; this does the opposite: as the gesture pulls left it narrows the
-    /// band (lifts the low cutoff, drops the high cutoff) so the sound
-    /// shrinks and pulls in CLOSE — a tiny pocket-radio / cupped-hands
-    /// timbre. It stays live at neutral settings instead of toggling bypass
-    /// during a gesture; changing an Audio Unit's bypass state mid-render can
-    /// introduce a discontinuity across the entire mix.
-    private let proximityEQ: AVAudioUnitEQ = {
-        let eq = AVAudioUnitEQ(numberOfBands: 2)
-        let hp = eq.bands[0]
-        hp.filterType = .highPass
-        hp.frequency = 20
-        hp.bypass = false
-        let lp = eq.bands[1]
-        lp.filterType = .lowPass
-        lp.frequency = 20_000
-        lp.bypass = false
-        eq.globalGain = 0
-        return eq
-    }()
-    /// Global tape-style echo on the master path, sitting just BEFORE
-    /// the reverb so its repeats wash into the room (not the other way
-    /// round) and pre-master so the volume slider scales the echo tail
-    /// with everything else. `wetDryMix` at 0 is fully dry — identical
-    /// to before this node existed. The ⌥Option + horizontal trackpad
-    /// gesture opens it up; `setEcho` drives wet + feedback together so
-    /// one axis = "amount of echo".
+    /// Tape-style echo used as a fixed 100%-wet send. AUDelay's wet/feedback
+    /// parameters cannot ramp, so changing them for every trackpad frame
+    /// produces zipper transients. Its sound is fixed here; `setEcho` moves
+    /// only `echoSendMixer.outputVolume`.
     private let echo: AVAudioUnitDelay = {
         let d = AVAudioUnitDelay()
-        d.delayTime = 0.33       // slap ≈ eighth-note at ~110 BPM
-        d.feedback = 0           // ramps up with amount in setEcho
-        d.lowPassCutoff = 4_000  // darken repeats so they sit under the dry
-        d.wetDryMix = 0          // fully dry until the gesture opens it
+        d.delayTime = 0.30
+        d.feedback = 58
+        d.lowPassCutoff = 3_600
+        d.wetDryMix = 100
         return d
     }()
     /// Third-party AU instrument hosted via the Plugins picker. When non-nil
@@ -402,9 +383,12 @@ final class MenuBandSynth {
     func start() {
         guard !started else { return }
         engine.attach(preLimiterMixer)
+        engine.attach(dryFxMixer)
         engine.attach(echo)
+        engine.attach(echoSendMixer)
         engine.attach(spaceReverb)
-        engine.attach(proximityEQ)
+        engine.attach(reverbSendMixer)
+        engine.attach(fxSumMixer)
         engine.attach(melodicDuckMixer)
         engine.attach(postFxMixer)
         engine.attach(compressor)
@@ -438,12 +422,12 @@ final class MenuBandSynth {
         // Percussion: same pre-limiter sum bus. Renders silence until the
         // right-hand split fires a drum, so it's free while inactive.
         // Percussion routes to the DRY post-fx mixer, NOT preLimiterMixer —
-        // so trackpad echo/reverb/proximity (and pitch-bend) never hit the
+        // so trackpad echo/reverb (and pitch-bend) never hit the
         // drums. Still compressed + limited + tape-captured downstream.
         percussion.attach(to: engine, output: postFxMixer)
         // AC GM synth: melodic backend, so it joins the pre-limiter fx bus
         // alongside MIDISynth / sampler / radio / sample — picking up the
-        // trackpad space/echo/proximity exactly like every other melodic
+        // trackpad space/echo exactly like every other melodic
         // voice. (Its own pitch-bend is routed in-process; the fx are the
         // master ones.) Silent until a note is routed here.
         // Disabled for now (see `gmSynthEnabled`): leaving the node UNATTACHED
@@ -789,23 +773,34 @@ final class MenuBandSynth {
     /// straight to `preLimiterMixer`.
     private func connectLimiterIfNeeded() {
         guard !limiterConnected else { return }
-        // preLimiterMixer → echo → spaceReverb → proximityEQ → compressor →
-        // melodicDuckMixer → postFxMixer (+ dry percussion) → limiter → main.
-        // Echo is first so the reverb washes its repeats
-        // (not vice-versa); proximityEQ (left-axis "closer/tinier") sits
-        // last in the fx group so it shrinks the whole wet+dry blend. All
-        // sit pre-compressor so melodic tails are leveled before the selective
-        // duck. Dry percussion joins only after that automation, so compressor
-        // makeup cannot restore the pocket. The joined mixer owns master gain.
-        // the PeakLimiter remains the final brick wall at 0 dBFS.
-        engine.connect(preLimiterMixer, to: echo, format: nil)
-        engine.connect(echo, to: spaceReverb, format: nil)
-        engine.connect(spaceReverb, to: proximityEQ, format: nil)
-        engine.connect(proximityEQ, to: compressor, format: nil)
+        // preLimiterMixer fans out to dry, echo, and reverb lanes. The wet
+        // effects stay at fixed settings while their mixer sends provide
+        // click-free, sample-ramped gesture control. fxSumMixer rejoins them
+        // before the existing compressor/duck/master/limiter chain. Dry
+        // percussion still joins downstream and remains unaffected.
+        let destinations = [
+            AVAudioConnectionPoint(node: dryFxMixer, bus: 0),
+            AVAudioConnectionPoint(node: echo, bus: 0),
+            AVAudioConnectionPoint(node: spaceReverb, bus: 0),
+        ]
+        engine.connect(preLimiterMixer, to: destinations,
+                       fromBus: 0, format: nil)
+        engine.connect(dryFxMixer, to: fxSumMixer,
+                       fromBus: 0, toBus: 0, format: nil)
+        engine.connect(echo, to: echoSendMixer, format: nil)
+        engine.connect(echoSendMixer, to: fxSumMixer,
+                       fromBus: 0, toBus: 1, format: nil)
+        engine.connect(spaceReverb, to: reverbSendMixer, format: nil)
+        engine.connect(reverbSendMixer, to: fxSumMixer,
+                       fromBus: 0, toBus: 2, format: nil)
+        engine.connect(fxSumMixer, to: compressor, format: nil)
         engine.connect(compressor, to: melodicDuckMixer, format: nil)
         engine.connect(melodicDuckMixer, to: postFxMixer, format: nil)
         engine.connect(postFxMixer, to: limiter, format: nil)
         engine.connect(limiter, to: engine.mainMixerNode, format: nil)
+        dryFxMixer.outputVolume = 1
+        echoSendMixer.outputVolume = 0
+        reverbSendMixer.outputVolume = 0
 
         // "Glued master" compressor: pull quiet notes up and tame loud
         // chords toward a common level, then makeup-gain the whole bus so
@@ -850,47 +845,38 @@ final class MenuBandSynth {
         limiterConnected = true
     }
 
-    /// Master "proximity" amount, 0…1 — the LEFT half of the X gesture.
-    /// 0 = untouched / natural; 1 = pulled all the way in close and tiny.
-    /// This is the deliberate *opposite* of reverb: instead of a big hall
-    /// pushing the sound back and far, it narrows the band so the sound
-    /// shrinks and comes right up to the listener (pocket-radio / cupped-
-    /// hands timbre). Driven from `setSpace` so the same X-axis plumbing
-    /// (and the spring-back ramp) feeds it.
+    /// Parallel hall send, 0…1, on the LEFT half of the X gesture. A gently
+    /// convex curve preserves a precise dry area around center, then lets the
+    /// room bloom as the finger travels outward.
     func setSpace(_ amount: Float) {
         let p = max(0, min(1, amount))
-        guard abs(p - proximityAmount) >= 0.0005 else { return }
-        proximityAmount = p
-        let hp = proximityEQ.bands[0]
-        let lp = proximityEQ.bands[1]
-        // Lift the low cutoff (drop the body) and pull the high cutoff down
-        // (drop the air) so the band closes toward a small midrange window
-        // as the gesture pushes left — the "shrinking, coming closer" cue.
-        hp.frequency = 20 + p * (1_000 - 20)
-        lp.frequency = 20_000 - p * (20_000 - 2_800)
-        // A little make-up gain so "closer" reads as present and intimate
-        // rather than just thin and distant.
-        proximityEQ.globalGain = p * 2.0
-        // Keep the hall fully dry — proximity replaces reverb on this axis.
-        spaceReverb.wetDryMix = 0
+        guard abs(p - spaceAmount) >= 0.0005 else { return }
+        spaceAmount = p
+        updateReverbSend()
     }
 
-    /// Master echo knob, 0…1. Drives wet mix + feedback together so a
-    /// single axis sweeps "no echo" → "long trailing tape repeats".
-    /// Feedback is capped under runaway so it can hang and bloom for
-    /// character without self-oscillating into a scream. On the shared
-    /// master path, so it's independent of the selected instrument.
+    /// Parallel echo send, 0…1. The delay algorithm is deliberately fixed;
+    /// only the rampable send gain moves, eliminating zipper pops while
+    /// retaining an immediate response to the trackpad.
     func setEcho(_ amount: Float) {
         let a = max(0, min(1, amount))
         guard abs(a - echoAmount) >= 0.0005 else { return }
         echoAmount = a
-        // ≤45% wet keeps the dry transient clearly on top of the tail.
-        echo.wetDryMix = a * 45
-        // Feedback to 78%: long, obvious repeats that still decay.
-        echo.feedback = a * 78
+        echoSendMixer.outputVolume = pow(a, 1.12) * 0.42
+        updateReverbSend()
+    }
+
+    /// The left side owns the hall. Echo also receives a restrained room
+    /// wash so its taps decay into a diffuse tail instead of sounding like a
+    /// bare digital repeat. `max` keeps the two gestures from summing loudly
+    /// during the brief center crossing.
+    private func updateReverbSend() {
+        let hall = pow(spaceAmount, 1.10) * 0.52
+        let echoBloom = pow(echoAmount, 1.15) * 0.14
+        reverbSendMixer.outputVolume = max(hall, echoBloom)
     }
     private var echoAmount: Float = 0
-    private var proximityAmount: Float = 0
+    private var spaceAmount: Float = 0
     var currentEcho: Float { echoAmount }
 
     /// Speak a short phrase through the fx bus (About-window language
