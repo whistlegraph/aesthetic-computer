@@ -63,6 +63,12 @@ let cursorPoint = null;
 let cursorFrame = 0;
 let cursorWagFrames = 0;
 let checkerFrame = 0;
+let substrateFresh = false;
+// True screen dimensions captured at paint-frame start. The live screen
+// object is shared with the runtime and temporarily carries sub-buffer
+// dimensions while a page() is active, so between-frame readers (the test
+// snapshot) must use this copy instead.
+let stageScreen = null;
 const cueSamples = new Map();
 let cueEvents = [];
 const PROPOSAL_MERRY_FRAMES = 5 * 60;
@@ -248,36 +254,47 @@ function transition(next) {
 }
 
 function interfaceLayout(screen) {
-  const barHeight = Math.max(96, Math.floor(screen.height * 0.2));
-  const available = { x: 0, y: 0, w: screen.width, h: screen.height - barHeight };
+  // Read the dimensions once: the screen object is shared with the runtime
+  // and can mutate mid-call (reframes, page() sub-buffer propagation), which
+  // would tear the layout into inconsistent halves.
+  const screenWidth = screen.width;
+  const screenHeight = screen.height;
+  const barHeight = Math.max(96, Math.floor(screenHeight * 0.2));
+  const available = { x: 0, y: 0, w: screenWidth, h: screenHeight - barHeight };
   const source = paintingResolution || { width: available.w, height: available.h };
   const scale = Math.min(available.w / source.width, available.h / source.height);
+  // Clamp against float drift: when the painting matches the stage exactly,
+  // source * scale can land a hair past available and floor() would yield -1.
+  const fitted = {
+    w: Math.min(available.w, Math.round(source.width * scale)),
+    h: Math.min(available.h, Math.round(source.height * scale)),
+  };
   const viewport = {
-    x: Math.floor((available.w - source.width * scale) / 2),
-    y: Math.floor((available.h - source.height * scale) / 2),
-    w: Math.floor(source.width * scale),
-    h: Math.floor(source.height * scale),
+    x: Math.max(0, Math.floor((available.w - fitted.w) / 2)),
+    y: Math.max(0, Math.floor((available.h - fitted.h) / 2)),
+    w: fitted.w,
+    h: fitted.h,
   };
   return {
     stage: viewport,
-    bar: { x: 0, y: screen.height - barHeight, w: screen.width, h: barHeight },
+    bar: { x: 0, y: screenHeight - barHeight, w: screenWidth, h: barHeight },
     status: {
       x: 0,
-      y: screen.height,
-      w: screen.width,
+      y: screenHeight,
+      w: screenWidth,
       h: 0,
     },
     scale,
   };
 }
 
-function positionButtons(screen) {
+function positionButtons(screen, layout = interfaceLayout(screen)) {
   // The recovered instrument keeps the decision pair together along the
   // bottom edge: No on the left, Paint larger on the right. They are the
   // architecture of the surface, not ordinary toolbar buttons.
-  const { bar } = interfaceLayout(screen);
-  const gap = Math.max(4, Math.floor(screen.width * 0.006));
-  const available = screen.width - gap;
+  const { bar } = layout;
+  const gap = Math.max(4, Math.floor(bar.w * 0.006));
+  const available = bar.w - gap;
   const noWidth = Math.floor(available * 0.38);
   const paintWidth = available - noWidth;
   const buttonY = bar.y;
@@ -415,23 +432,17 @@ function seedNoiseSubstrate(painting, seed) {
     112 + Math.floor(substrateRandom() * 32),
     112 + Math.floor(substrateRandom() * 32),
   ];
-  painting.pixels.fill(0);
-  const rectWidth = Math.min(192, Math.max(48, Math.floor(painting.width * 0.4)));
-  const rectHeight = Math.min(192, Math.max(48, Math.floor(painting.height * 0.4)));
-  const left = Math.floor((painting.width - rectWidth) / 2);
-  const top = Math.floor((painting.height - rectHeight) / 2);
-  for (let y = top; y < top + rectHeight; y += 1) {
-    for (let x = left; x < left + rectWidth; x += 1) {
-      // A stippled rectangle reads as paper grain while preserving transparent
-      // interstices for AC's sparse compositor and the checker field beneath it.
-      if (substrateRandom() > 0.38) continue;
-      const index = (y * painting.width + x) * 4;
-      const grain = Math.floor(substrateRandom() * 25) - 12;
-      painting.pixels[index] = Math.max(0, Math.min(255, base[0] + grain));
-      painting.pixels[index + 1] = Math.max(0, Math.min(255, base[1] + grain));
-      painting.pixels[index + 2] = Math.max(0, Math.min(255, base[2] + grain));
-      painting.pixels[index + 3] = 150 + Math.floor(substrateRandom() * 70);
-    }
+  // An opaque paper ground: every pixel carries the base tone and a loose
+  // stipple of grain keeps the surface reading as material. New paintings
+  // never open onto the transparent checker field.
+  for (let index = 0; index < painting.pixels.length; index += 4) {
+    const grain = substrateRandom() > 0.38
+      ? 0
+      : Math.floor(substrateRandom() * 25) - 12;
+    painting.pixels[index] = Math.max(0, Math.min(255, base[0] + grain));
+    painting.pixels[index + 1] = Math.max(0, Math.min(255, base[1] + grain));
+    painting.pixels[index + 2] = Math.max(0, Math.min(255, base[2] + grain));
+    painting.pixels[index + 3] = 255;
   }
 }
 
@@ -527,6 +538,7 @@ async function loadArchivePainting(api, archiveId) {
       p.wipe(255, 255, 255, 0)
     );
     initializePiece(api, `${sessionSeed}:archive:${id}`, "archive");
+    substrateFresh = false; // An archive base keeps its own resolution.
     archiveOrigin.status = "ready";
     api.store["nopaint:origin"] = { ...archiveOrigin };
     api.store.persist("nopaint:origin", "local:db");
@@ -546,6 +558,35 @@ async function loadArchivePainting(api, archiveId) {
 function persistPiece({ store, system }) {
   store[NOPAINT_PIECE_STORE_KEY] = system.nopaint.piece;
   store.persist(NOPAINT_PIECE_STORE_KEY, "local:db");
+}
+
+// A fresh painting owns the whole stage: match the area above the control
+// bar exactly so it presents 1:1 with no letterbox bars — the same sizing
+// completePainting uses for the next painting after Done. `replace` is the
+// supported swap (store, transform, undo, present); the archive loader
+// rides the same path.
+function cutFreshSubstrate(api, seed) {
+  paintingResolution = null;
+  const { stage } = interfaceLayout(api.screen);
+  const freshPainting = api.painting(stage.w, stage.h, (p) =>
+    p.wipe(255, 255, 255));
+  seedNoiseSubstrate(freshPainting, seed);
+  api.system.nopaint.replace(
+    { system: api.system, screen: api.screen, store: api.store, needsPaint: api.needsPaint },
+    freshPainting,
+    "nopaint:fresh",
+  );
+  api.system.nopaint.buffer = api.painting(stage.w, stage.h, (p) =>
+    p.wipe(255, 255, 255, 0));
+  paintingResolution = { width: stage.w, height: stage.h };
+}
+
+// Until the participant decides anything, the substrate is a blank offer —
+// reframes (density settling at boot, phone rotation) re-cut it to the new
+// stage. The first decision is what locks the painting's resolution.
+function substrateIsPristine() {
+  return substrateFresh && decisions.length === 0 && !finishMode &&
+    !completionBusy;
 }
 
 function initializePiece(api, seed, role = "substrate") {
@@ -654,12 +695,13 @@ function paintingFingerprint(painting) {
 }
 
 function testSnapshot() {
-  if (testApi?.screen && noButton && paintButton) positionButtons(testApi.screen);
+  const snapshotScreen = stageScreen || testApi?.screen;
+  const layout = snapshotScreen ? interfaceLayout(snapshotScreen) : null;
+  if (layout && noButton && paintButton) positionButtons(snapshotScreen, layout);
   const controlBox = (control) => {
     const box = control?.box || control?.btn?.box;
     return box ? { x: box.x, y: box.y, w: box.w, h: box.h } : null;
   };
-  const layout = testApi?.screen ? interfaceLayout(testApi.screen) : null;
   const piece = testApi?.system?.nopaint?.piece;
   const lastLayer = piece?.layers?.at(-1);
   return {
@@ -708,7 +750,7 @@ function testSnapshot() {
     paintingButton: layout ? {
       x: 0,
       y: 0,
-      w: testApi.screen.width,
+      w: layout.bar.w,
       h: layout.bar.y,
       down: paintingPressed,
       over: hoveredDecision === "painting",
@@ -721,9 +763,11 @@ function testSnapshot() {
     layout: layout ? {
       paintingViewport: { ...layout.stage },
       paintingResolution: { ...paintingResolution },
+      // Derived from the same layout pass so the snapshot cannot tear when
+      // the shared screen object mutates between reads.
       screenResolution: {
-        width: testApi.screen.width,
-        height: testApi.screen.height,
+        width: layout.bar.w,
+        height: layout.bar.y + layout.bar.h,
       },
       controlBar: { ...layout.bar },
       modeline: { ...layout.status },
@@ -848,18 +892,18 @@ function boot({ colon, debug, hud, net, num, params, query = {}, screen, store, 
     record: `https://nopaint.art/${freshFromId}`,
     action: "rejected-as-start",
   } : null;
-  // AC's painting contract: the initial canvas establishes this painting's
-  // pixel resolution. Window changes after boot only alter presentation.
+  // AC's painting contract: the participant's first decision locks this
+  // painting's pixel resolution. Until then the fresh substrate re-cuts to
+  // the stage on reframe; afterwards window changes only alter presentation.
+  const needsStarterSubstrate = freshStart || (!archiveId && !paintHasContent(system.painting));
+  substrateFresh = needsStarterSubstrate;
+  if (needsStarterSubstrate) {
+    cutFreshSubstrate({ ...api, screen, store, system }, sessionSeed);
+  }
   paintingResolution = {
     width: system.painting.width,
     height: system.painting.height,
   };
-  const needsStarterSubstrate = freshStart || (!archiveId && !paintHasContent(system.painting));
-  if (needsStarterSubstrate) {
-    seedNoiseSubstrate(system.painting, sessionSeed);
-    api.flatten();
-    api.page(screen);
-  }
   const recoveredPiece = freshStart ? null : recoverNoPaintPiece(
     system.nopaint.piece || store[NOPAINT_PIECE_STORE_KEY],
     paintingResolution.width,
@@ -868,6 +912,7 @@ function boot({ colon, debug, hud, net, num, params, query = {}, screen, store, 
   if (recoveredPiece) {
     system.nopaint.piece = recoveredPiece;
     system.painting.pixels.set(recoveredPiece.composite.pixels);
+    substrateFresh = false;
   } else {
     initializePiece({ ...api, store, system }, sessionSeed,
       needsStarterSubstrate ? "substrate" : "legacy-raster");
@@ -1118,6 +1163,7 @@ function renderProposal($) {
 // 🎨 Paint
 function paint($) {
   if (!proposal || !$.system.nopaint.buffer) return false;
+  stageScreen = { width: $.screen.width, height: $.screen.height };
   renderProposal($);
   $.system.nopaint.needsPresent = true;
 
@@ -1217,6 +1263,7 @@ async function completePainting($) {
     seedNoiseSubstrate($.system.painting, `${sessionSeed}:${doneCount}`);
     $.flatten();
     initializePiece($, `${sessionSeed}:${doneCount}`);
+    substrateFresh = true;
   proposal = null;
   proposalFrame = 0;
   proposalPixels = null;
@@ -1255,6 +1302,25 @@ export function nopaintXboxAction(button, completing = false) {
 // 🎪 Act — every input surface reaches the same two decision functions.
 function act($) {
   const { event: e } = $;
+  if (e.is("reframed")) {
+    // Boot-time density settling and pre-decision rotations arrive here; a
+    // pristine substrate re-cuts to the new stage with the session's own
+    // seed, so the offer stays deterministic. Decided paintings keep their
+    // locked resolution and only re-present.
+    if (substrateIsPristine()) {
+      random = seededRandom(sessionSeed);
+      proposalNumber = 0;
+      brushCueProposal = 0;
+      cutFreshSubstrate($, sessionSeed);
+      initializePiece($, sessionSeed);
+      clearProposal($);
+      chooseProposal($);
+    }
+    positionButtons($.screen);
+    $.needsPaint();
+    publishTestState();
+    return;
+  }
   const xboxButton = xboxButtonPush(e);
   const xboxAction = nopaintXboxAction(xboxButton, finishMode);
   let cursorDeltaX = 0;

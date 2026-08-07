@@ -105,8 +105,15 @@ try {
     );
   });
 
-  await scenario("The first load locks painting resolution while its presentation responds", async (expect) => {
+  await scenario("The first decision locks painting resolution while its presentation responds", async (expect) => {
+    // A pristine substrate re-cuts to the stage on reframe (density settling,
+    // rotation). The participant's first decision is what locks the painting's
+    // resolution, so make one before probing the viewports.
+    const preDecision = await ac.nopaintState();
+    await ac.measureNopaintDecision("ArrowLeft");
     const initial = await ac.nopaintState();
+    expect(initial?.decisions?.length === (preDecision?.decisions?.length ?? 0) + 1,
+      "a first No decision locks the substrate");
     const lockedResolution = initial.layout.paintingResolution;
     const acceptedFingerprint = initial.paintingFingerprint;
     const viewports = [
