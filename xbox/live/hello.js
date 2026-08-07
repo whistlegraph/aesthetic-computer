@@ -1,5 +1,5 @@
 // @bundle-qr
-const buildTimestamp = "2026.08.06.2059 PDT";
+const buildTimestamp = "2026.08.06.2121 PDT";
 const floorY = 12000;
 const ceilingY = 0;
 const wallThickness = 80;
@@ -761,7 +761,9 @@ function enterGame(now) {
 function updateShell(now) {
   const down = padSnapshots[0]?.down || [];
   if (down.some((button) => !shellPrevious.includes(button))) {
-    drum("clap", 1, 0);
+    drum("hat", .82, -.08);
+    drum("clap", 1.08, .08);
+    emitSignal("select", -1, 1, 0);
     enterGame(now);
   }
   shellPrevious = down.slice();
@@ -827,6 +829,19 @@ function selectionTouchLayout() {
 const pointInRect = (point, rect) => rect && point.x >= rect.x &&
   point.x <= rect.x + rect.width && point.y >= rect.y &&
   point.y <= rect.y + rect.height;
+
+function selectionHover(layout = selectionTouchLayout()) {
+  const pointer = globalThis.__oskiewarTouch?.pointer;
+  if (!pointer?.active || !Number.isFinite(pointer.x) ||
+      !Number.isFinite(pointer.y)) return null;
+  const roster = layout.roster.find((rect) => pointInRect(pointer, rect));
+  if (roster) return { roster: roster.index };
+  const card = layout.cards.find((rect) => pointInRect(pointer, rect));
+  if (!card) return null;
+  return { card: card.pad,
+    ready: pointInRect(pointer, card.ready) ? card.pad : -1,
+    mode: pointInRect(pointer, card.mode) ? card.pad : -1 };
+}
 
 function consumeSelectTouches(now) {
   const queue = globalThis.__oskiewarTouch?.taps;
@@ -3002,17 +3017,17 @@ function controlLocale() {
   const keyboard = caps.inputFamily === "keyboard";
   const touch = caps.inputFamily === "touch";
   if (touch) return {
-    title: "tap to start", select: "", replayPaused: "paused",
+    title: "start", select: "", replayPaused: "paused",
     replayPlaying: "", replay: "",
   };
   return keyboard ? {
-    title: "press any key",
+    title: "start",
     select: "P1 A/D + F     P2 LEFT/RIGHT + K     H P2/DUMMY/BOT     G BACK",
     replayPaused: "PAUSED   F PLAY   A D SCRUB   G EXIT",
     replayPlaying: "F PAUSE   A D SCRUB   G EXIT",
     replay: "Q REPLAY",
   } : {
-    title: "press any button",
+    title: "start",
     select: "LEFT RIGHT SELECT     A READY     X P2 / DUMMY / BOT     B BACK",
     replayPaused: "PAUSED   A PLAY   LEFT RIGHT SCRUB   B EXIT",
     replayPlaying: "A PAUSE   LEFT RIGHT SCRUB   B EXIT",
@@ -3722,16 +3737,20 @@ function drawSelectionScreen(t, ink, panel) {
   const controls = controlLocale();
   if (compactLayout()) {
     const layout = selectionTouchLayout();
+    const hover = selectionHover(layout);
+    if (globalThis.__oskiewarTouch) globalThis.__oskiewarTouch.hover = hover;
     const margin = layout.roster[0].x;
     const width = layout.roster[0].width;
     typeWrite("SELECT A PAL", viewCenterX() - 145, 28, 36, ...ink);
     for (const row of layout.roster) {
       const fighter = fighterRoster[row.index];
       const chosen = players.filter((player) => player.rosterIndex === row.index);
+      const hovered = hover?.roster === row.index;
       box(row.x, row.y, row.width, row.height,
-        ...mixColor(panel, fighter.color, chosen.length ? .22 : .06));
-      box(row.x, row.y, 6, row.height, ...fighter.color);
-      typeWrite(fighter.handle, row.x + 20, row.y + 7, 25,
+        ...mixColor(panel, fighter.color, hovered ? .38 : chosen.length ? .22 : .06));
+      box(row.x, row.y, hovered ? 10 : 6, row.height, ...fighter.color);
+      typeWrite(fighter.handle, row.x + 20, row.y + (hovered ? 5 : 7),
+        hovered ? 27 : 25,
         ...(chosen.length ? fighter.color : ink));
       const owners = chosen.map((player) => "p" + (player.pad + 1)).join(" ");
       if (owners) typeWrite(owners, row.x + row.width - 72,
@@ -3741,41 +3760,73 @@ function drawSelectionScreen(t, ink, panel) {
       const player = players[card.pad];
       const top = card.y;
       const profile = fighterProfile(player.name);
-      box(margin, top, width, card.height, ...panel);
+      const cardHovered = hover?.card === player.pad;
+      const readyHovered = hover?.ready === player.pad;
+      const modeHovered = hover?.mode === player.pad;
+      box(margin, top, width, card.height,
+        ...mixColor(panel, player.color, cardHovered ? .12 : 0));
       box(margin, top, width, touchSelectPad === player.pad ? 7 : 3,
         ...player.color);
       drawSelectPortrait(player, margin + 54, top + 72, .36, t);
       drawHandle(player.name, margin + 105, top + 21, 27,
         profile.colors, player.color);
+      if (readyHovered) box(card.ready.x - 7, card.ready.y,
+        card.ready.width + 14, card.ready.height,
+        ...mixColor(panel, player.color, .26));
       typeWrite(player.bot ? "READY TO FIGHT" : player.npc ? "STANDING BY" : selectionReady[player.pad]
-        ? "READY" : "SELECT", card.ready.x, card.ready.y + 9, 27,
+        ? "READY" : "SELECT", card.ready.x, card.ready.y + (readyHovered ? 7 : 9),
+        readyHovered ? 29 : 27,
         ...player.color);
+      if (modeHovered && card.mode) box(card.mode.x, card.mode.y,
+        card.mode.width, card.mode.height,
+        ...mixColor(panel, player.color, .28));
       typeWrite(player.bot ? "BOT" : player.npc ? "DUMMY" : "P" + (player.pad + 1),
         margin + width - 96, top + 76, 18, ...ink);
     }
     return;
   }
   const ox = viewOffsetX();
+  const layout = selectionTouchLayout();
+  const hover = selectionHover(layout);
+  if (globalThis.__oskiewarTouch) globalThis.__oskiewarTouch.hover = hover;
   typeWrite("SELECT A PAL", ox + 810, 66, 42, ...ink);
   for (let index = 0; index < fighterRoster.length; index++) {
     const fighter = fighterRoster[index];
     const selected = players.some((player) => player.rosterIndex === index);
-    typeWrite(fighter.handle, ox + 260 + index * 390, 225, selected ? 38 : 28,
+    const hovered = hover?.roster === index;
+    const row = layout.roster[index];
+    if (hovered) box(row.x, row.y, row.width, row.height,
+      ...mixColor(panel, fighter.color, .32));
+    typeWrite(fighter.handle, ox + 260 + index * 390, 225,
+      hovered ? 40 : selected ? 38 : 28,
       ...(selected ? fighter.color : mixColor([105,115,145],[130,140,155],visualTheme.light)));
   }
   for (const player of players) {
     const left = ox + (player.pad === 0 ? 90 : 990);
+    const card = layout.cards[player.pad];
+    const cardHovered = hover?.card === player.pad;
+    const readyHovered = hover?.ready === player.pad;
+    const modeHovered = hover?.mode === player.pad;
     const profile = fighterProfile(player.name);
-    box(left, 320, 840, 570, ...panel);
+    box(left, 320, 840, 570,
+      ...mixColor(panel, player.color, cardHovered ? .1 : 0));
+    if (cardHovered) box(left, 320, 840, 7, ...player.color);
     drawSelectPortrait(player, left + 190, 590, 1.35, t);
     drawHandle(player.name, left + 355, 395, 46,
       profile.colors, player.color);
     const mood = profile.mood ? "MOOD  " + profile.mood.slice(0, 30) : "MOOD  —";
     const chat = profile.lastChat ? "CHAT  " + profile.lastChat.slice(0, 32) : "CHAT  —";
     typeWrite(mood + "\n" + chat, left + 355, 490, 25, ...ink);
+    if (readyHovered) box(card.ready.x, card.ready.y,
+      card.ready.width, card.ready.height,
+      ...mixColor(panel, player.color, .24));
     typeWrite(player.bot ? "READY TO FIGHT" : player.npc ? "STANDING BY"
       : selectionReady[player.pad] ? "READY" : "SELECT",
-      left + 355, 720, 52, ...player.color);
+      left + 355, readyHovered ? 716 : 720,
+      readyHovered ? 56 : 52, ...player.color);
+    if (modeHovered && card.mode) box(card.mode.x, card.mode.y,
+      card.mode.width, card.mode.height,
+      ...mixColor(panel, player.color, .26));
     typeWrite(player.bot ? "BOT" : player.npc ? "DUMMY" : "P" + (player.pad + 1),
       left + 355, 805, 30, ...ink);
   }
@@ -3839,14 +3890,15 @@ function drawTitleScreen(t, ink) {
     cursor += comicGlyphAdvance(character, titleSize);
   }
 
-  const prompt = controlLocale().title;
+  const prompt = "start";
   const promptSize = hudTypeSize;
   const promptWidth = handleWidth(prompt, promptSize);
   const promptPulse = .58 + (Math.sin(t * 2.2) + 1) * .21;
   const mutedInk = visualTheme.light > .55 ? [118, 128, 150] : [72, 80, 112];
   const promptInk = mixColor(mutedInk, ink, promptPulse);
-  typeWrite(prompt, viewCenterX() - promptWidth / 2,
-    viewHeight * (compact ? .61 : .64), promptSize, ...promptInk);
+  if (Math.floor(t * 1.8) % 2 === 0)
+    typeWrite(prompt, viewCenterX() - promptWidth / 2,
+      viewHeight * (compact ? .61 : .64), promptSize, ...promptInk);
   const titleNow = pacificTimeLabel(runtime().unixMs || Date.now());
   const stamp = buildTimestamp.match(/^(\d{4})\.(\d{2})\.(\d{2})\.(\d{2})(\d{2})/);
   const version = stamp

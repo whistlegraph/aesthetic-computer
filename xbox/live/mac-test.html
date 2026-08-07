@@ -16,17 +16,27 @@
     * { box-sizing: border-box; }
     html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: #07081c; }
     @supports (height: 100dvh) { html, body { height: 100dvh; } }
-    body { display: grid; place-items: center; font-family: "Comic Relief", "Comic Sans MS", Arial, sans-serif; }
-    canvas { width: 100%; height: 100%; display: block; }
+    body { display: grid; place-items: center; font-family: "Comic Relief", "Comic Sans MS", Arial, sans-serif;
+      cursor: url("/aesthetic.computer/cursors/precise.svg") 12 12, auto; }
+    canvas { position: fixed; inset: 0; width: 100vw; height: 100vh;
+      min-width: 0; min-height: 0; display: block; cursor: inherit; }
+    @supports (height: 100dvh) { canvas { height: 100dvh; } }
+    button, input, label { cursor: inherit !important; }
     #status { position: absolute; width: 1px; height: 1px; overflow: hidden;
       clip-path: inset(50%); white-space: nowrap; }
     #update-ready { position: fixed; left: 50%; bottom: max(18px, env(safe-area-inset-bottom));
-      z-index: 6; display: none; transform: translateX(-50%); padding: 10px 16px;
+      z-index: 6; display: none; transform: translateX(-50%); padding: 10px 14px;
       border: 2px solid #f3f6ff; border-radius: 999px; background: #10172c;
       color: #f3f6ff; font: 700 18px/1.1 "Comic Relief", "Comic Sans MS", Arial, sans-serif;
-      box-shadow: 0 4px 0 rgba(4, 7, 18, .55); cursor: pointer; white-space: nowrap; }
-    #update-ready.visible { display: block; }
-    #update-ready:active { transform: translate(-50%, 2px); box-shadow: 0 2px 0 rgba(4, 7, 18, .55); }
+      box-shadow: 0 4px 0 rgba(4, 7, 18, .55); white-space: nowrap;
+      align-items: center; gap: 6px; }
+    #update-ready.visible { display: flex; }
+    #update-now { appearance: none; margin: 0; padding: 0; border: 0;
+      background: transparent; color: inherit; font: inherit; }
+    #update-now:active { transform: translateY(2px); }
+    #auto-update-label { display: flex; align-items: center; gap: 6px;
+      font-size: 14px; font-weight: 400; }
+    #auto-update { width: 16px; height: 16px; margin: 0; accent-color: #ff5070; }
     #touch-controls { --unit: clamp(50px, 12vmin, 72px); --gap: 6px;
       position: fixed; inset: 0; z-index: 3; display: none; pointer-events: none;
       user-select: none; -webkit-user-select: none; touch-action: none; }
@@ -67,7 +77,10 @@
 <body>
   <canvas id="screen" width="1920" height="1080" aria-label="OSKIEWAR two-player stick fight"></canvas>
   <div id="status" role="alert" aria-live="polite"></div>
-  <button id="update-ready" type="button">update is ready</button>
+  <div id="update-ready" role="status">
+    <button id="update-now" type="button">update is ready</button>
+    <label id="auto-update-label"><input id="auto-update" type="checkbox">auto update</label>
+  </div>
   <div id="touch-controls" aria-label="touch controls">
     <div id="touch-dpad" class="touch-cluster" role="group" aria-label="movement">
       <button class="touch-button touch-up" data-key="ArrowUp" aria-label="jump" aria-pressed="false">↑</button>
@@ -94,7 +107,8 @@
     const touchControls = document.querySelector("#touch-controls");
     const touchPointers = new Map();
     const selectTaps = [];
-    globalThis.__oskiewarTouch = { taps: selectTaps };
+    globalThis.__oskiewarTouch = { taps: selectTaps,
+      pointer: { x: 0, y: 0, active: false } };
     const touchEnabled = new URLSearchParams(location.search).has("touch") ||
       navigator.maxTouchPoints > 0 || matchMedia("(pointer: coarse)").matches;
     document.body.classList.toggle("touch-enabled", touchEnabled);
@@ -129,6 +143,8 @@
     addEventListener("resize", resizeCanvas, { passive: true });
     window.visualViewport?.addEventListener("resize", resizeCanvas,
       { passive: true });
+    if (typeof ResizeObserver === "function")
+      new ResizeObserver(resizeCanvas).observe(document.documentElement);
 
     function gameView() {
       return { width: canvas.width, height: canvas.height,
@@ -458,17 +474,26 @@
     for (const type of ["pointerup", "pointercancel", "lostpointercapture"])
       touchControls.addEventListener(type, (event) => releaseTouch(event.pointerId));
     touchControls.addEventListener("contextmenu", (event) => event.preventDefault());
+    function canvasPoint(event) {
+      const bounds = canvas.getBoundingClientRect();
+      return { x: (event.clientX - bounds.left) * canvas.width / bounds.width,
+        y: (event.clientY - bounds.top) * canvas.height / bounds.height };
+    }
+    canvas.addEventListener("pointermove", (event) => {
+      Object.assign(globalThis.__oskiewarTouch.pointer,
+        canvasPoint(event), { active: true });
+    });
+    canvas.addEventListener("pointerleave", () => {
+      globalThis.__oskiewarTouch.pointer.active = false;
+    });
     canvas.addEventListener("pointerdown", (event) => {
       if (tapTitle()) {
         event.preventDefault();
         return;
       }
-      if (!touchEnabled) return;
-      const bounds = canvas.getBoundingClientRect();
-      selectTaps.push({
-        x: (event.clientX - bounds.left) * canvas.width / bounds.width,
-        y: (event.clientY - bounds.top) * canvas.height / bounds.height,
-      });
+      const point = canvasPoint(event);
+      Object.assign(globalThis.__oskiewarTouch.pointer, point, { active: true });
+      selectTaps.push(point);
       ensureAudio();
       event.preventDefault();
     });
@@ -506,7 +531,17 @@
       : null;
 
     const updateReady = document.querySelector("#update-ready");
-    updateReady.addEventListener("click", () => location.reload());
+    const updateNow = document.querySelector("#update-now");
+    const autoUpdate = document.querySelector("#auto-update");
+    try { autoUpdate.checked = localStorage.getItem("oskiewar-auto-update") === "1"; }
+    catch {}
+    updateNow.addEventListener("click", () => location.reload());
+    autoUpdate.addEventListener("change", () => {
+      try { localStorage.setItem("oskiewar-auto-update", autoUpdate.checked ? "1" : "0"); }
+      catch {}
+      if (autoUpdate.checked && updateReady.classList.contains("visible"))
+        location.reload();
+    });
     let loadedVersion = "";
     const responseVersion = (response) => response.headers.get("etag") ||
       [response.headers.get("last-modified"), response.headers.get("content-length")]
@@ -518,6 +553,11 @@
           { method: "HEAD", cache: "no-store" });
         const availableVersion = responseVersion(response);
         if (response.ok && availableVersion && availableVersion !== loadedVersion) {
+          if (autoUpdate.checked) {
+            document.querySelector("#status").textContent = "updating";
+            location.reload();
+            return;
+          }
           updateReady.classList.add("visible");
           document.querySelector("#status").textContent = "update is ready";
         }

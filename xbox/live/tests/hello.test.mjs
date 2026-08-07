@@ -83,16 +83,16 @@ test("browser matches emit one category-only start milestone", () => {
   }]]);
 });
 
-test("control copy follows the native host platform", () => {
+test("control copy follows the platform while every title says start", () => {
   const xbox = createFight(false, false, "xbox-uwp").fight.controlLocale();
   const mac = createFight(false, false, "macos").fight.controlLocale();
   const touch = createFight(false, false, "touch").fight.controlLocale();
-  assert.equal(xbox.title, "press any button");
+  assert.equal(xbox.title, "start");
   assert.match(xbox.select, /A READY/);
-  assert.equal(mac.title, "press any key");
+  assert.equal(mac.title, "start");
   assert.match(mac.select, /P1 A\/D \+ F/);
   assert.doesNotMatch(mac.select, /A READY/);
-  assert.equal(touch.title, "tap to start");
+  assert.equal(touch.title, "start");
   assert.equal(touch.select, "");
   assert.equal(touch.replayPaused, "paused");
 });
@@ -105,9 +105,32 @@ test("web touch labels follow the current combat mapping", () => {
 });
 
 test("web canvas forwards touch coordinates to the fighter selector", () => {
-  assert.match(webShell, /globalThis\.__oskiewarTouch = \{ taps: selectTaps \}/);
-  assert.match(webShell, /selectTaps\.push\(\{/);
+  assert.match(webShell, /globalThis\.__oskiewarTouch = \{ taps: selectTaps,/);
+  assert.match(webShell, /selectTaps\.push\(point\)/);
   assert.match(webShell, /canvas\.width \/ bounds\.width/);
+});
+
+test("web selector uses the AC precise cursor and mouse hover bridge", () => {
+  assert.match(webShell,
+    /cursor: url\("\/aesthetic\.computer\/cursors\/precise\.svg"\) 12 12, auto/);
+  assert.match(webShell, /canvas\.addEventListener\("pointermove"/);
+  assert.match(webShell, /pointer: \{ x: 0, y: 0, active: false \}/);
+  assert.doesNotMatch(webShell, /if \(!touchEnabled\) return;/);
+  assert.match(source, /function selectionHover\(/);
+  assert.match(source, /hovered \? \.38/);
+  assert.match(source, /readyHovered \? 29 : 27/);
+});
+
+test("web relayout observes live viewport element resizing", () => {
+  assert.match(webShell,
+    /new ResizeObserver\(resizeCanvas\)\.observe\(document\.documentElement\)/);
+  assert.match(source, /syncGameView\(\);/);
+});
+
+test("update-ready panel offers a persisted auto-update checkbox", () => {
+  assert.match(webShell, /id="auto-update" type="checkbox"/);
+  assert.match(webShell, /oskiewar-auto-update/);
+  assert.match(webShell, /if \(autoUpdate\.checked\) \{/);
 });
 
 test("an older native spectator boundary cannot stop a match", () => {
@@ -480,14 +503,18 @@ test("raw live and demo rooms run through the canonical game engine", () => {
   assert.equal(fight.players[0].x, 5400);
 });
 
-test("title screen advances directly to select a pal on any button", () => {
-  const { fight, pads, tick } = createFight(false, false);
+test("blinking start advances on any button with a selected sound", () => {
+  const { fight, pads, signals, drums, tick } = createFight(false, false);
   assert.equal(fight.shellState().mode, "MENU");
   assert.equal(fight.selectionState().selecting, true);
+  assert.match(source, /Math\.floor\(t \* 1\.8\) % 2 === 0/);
+  assert.match(source, /const prompt = "start"/);
   pads[0].down = ["Y"];
   tick();
   assert.equal(fight.shellState().mode, "GAME");
   assert.equal(fight.selectionState().selecting, true);
+  assert.deepEqual(drums.map(([name]) => name), ["hat", "clap"]);
+  assert.ok(signals.some(([event]) => event === "select"));
 });
 
 test("active matches publish bounded phone spectator snapshots", () => {
@@ -551,19 +578,19 @@ test("portrait touch can choose both pals, toggle P2 mode, and ready", () => {
     tick();
   };
   try {
-    touch(100, 221);
+    touch(100, 242);
     assert.equal(fight.players[0].name, "@FIFI");
     touch(390, 592);
     assert.equal(fight.players[1].npc, true);
     touch(50, 540);
-    touch(100, 330);
+    touch(100, 336);
     assert.equal(fight.players[1].name, "@SAT");
     assert.equal(fight.players[1].npc, false);
     touch(160, 450);
     assert.equal(fight.selectionState().ready[0], true);
     touch(160, 590);
     assert.equal(fight.selectionState().selecting, false);
-    globalThis.__oskiewarTouch.taps.push({ x: 100, y: 221 });
+    globalThis.__oskiewarTouch.taps.push({ x: 100, y: 242 });
     tick();
     assert.equal(globalThis.__oskiewarTouch.taps.length, 0);
   } finally {

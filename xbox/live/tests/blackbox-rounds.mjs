@@ -16,6 +16,7 @@ const chrome = process.env.PUPPETEER_EXECUTABLE_PATH ||
 const mime = new Map([
   [".html", "text/html; charset=utf-8"], [".js", "text/javascript; charset=utf-8"],
   [".mjs", "text/javascript; charset=utf-8"], [".ttf", "font/ttf"],
+  [".svg", "image/svg+xml"],
 ]);
 
 function fileFor(pathname) {
@@ -27,6 +28,8 @@ function fileFor(pathname) {
     return join(repo, "system/public/aesthetic.computer/lib/product-analytics.mjs");
   if (pathname === "/aesthetic.computer/lib/oskiewar-analytics.mjs")
     return join(repo, "system/public/aesthetic.computer/lib/oskiewar-analytics.mjs");
+  if (pathname === "/aesthetic.computer/cursors/precise.svg")
+    return join(repo, "system/public/aesthetic.computer/cursors/precise.svg");
   if (pathname === "/ComicRelief-Regular.ttf")
     return join(repo,
       "system/public/papers.aesthetic.computer/foundry/fonts/ComicRelief-Regular.ttf");
@@ -131,23 +134,28 @@ async function captureTouch(browser, origin) {
   await page.evaluate(() => document.fonts.ready);
   const titleShot = join(outputRoot, "touch-title.png");
   const before = await page.screenshot({ path: titleShot });
-  const tapCanvas = async (logicalX, logicalY) => {
-    const target = await page.evaluate((x, y) => {
+  const canvasPoint = async (logicalX, logicalY) =>
+    page.evaluate((x, y) => {
       const canvas = document.querySelector("canvas");
       const bounds = canvas.getBoundingClientRect();
       return { x: bounds.left + x * bounds.width / canvas.width,
         y: bounds.top + y * bounds.height / canvas.height };
     }, logicalX, logicalY);
+  const tapCanvas = async (logicalX, logicalY) => {
+    const target = await canvasPoint(logicalX, logicalY);
     await page.touchscreen.tap(target.x, target.y);
     await wait(250);
   };
   await page.touchscreen.tap(viewport.width / 2, viewport.height / 2);
   await wait(350);
+  const hoverTarget = await canvasPoint(100, 242);
+  await page.mouse.move(hoverTarget.x, hoverTarget.y);
+  await wait(250);
   const selectShot = join(outputRoot, "touch-select.png");
   const selected = await page.screenshot({ path: selectShot });
-  await tapCanvas(100, 221); // @fifi for P1.
+  await tapCanvas(100, 242); // @fifi for P1.
   await tapCanvas(50, 540);  // Focus P2.
-  await tapCanvas(100, 330); // @sat for P2.
+  await tapCanvas(100, 336); // @sat for P2.
   await tapCanvas(160, 450); // P1 ready.
   await tapCanvas(160, 590); // P2 ready.
   await wait(3350);
@@ -172,6 +180,62 @@ async function captureTouch(browser, origin) {
     aspectError: Math.abs(layout.cssAspect - layout.backingAspect),
     changed: new Set(hashes).size === hashes.length, hashes, errors,
     files: { titleShot, selectShot, gameShot } };
+}
+
+async function captureHover(browser, origin) {
+  const page = await browser.newPage();
+  const viewport = { width: 390, height: 844, deviceScaleFactor: 2 };
+  await page.setViewport(viewport);
+  const errors = [];
+  page.on("console", (message) => {
+    if (message.type() === "error") errors.push(message.text());
+  });
+  page.on("pageerror", (error) => errors.push(error.message));
+  page.on("response", (response) => {
+    if (response.status() >= 400)
+      errors.push(`${response.status()} ${response.url()}`);
+  });
+  await page.goto(origin, { waitUntil: "networkidle2" });
+  await page.evaluate(() => document.fonts.ready);
+  await page.mouse.click(viewport.width / 2, viewport.height / 2);
+  await wait(350);
+  const canvasPoint = async (logicalX, logicalY) =>
+    page.evaluate((x, y) => {
+      const canvas = document.querySelector("canvas");
+      const bounds = canvas.getBoundingClientRect();
+      return { x: bounds.left + x * bounds.width / canvas.width,
+        y: bounds.top + y * bounds.height / canvas.height };
+    }, logicalX, logicalY);
+  const restingShot = join(outputRoot, "mouse-select-resting.png");
+  const resting = await page.screenshot({ path: restingShot });
+  const hoverTarget = await canvasPoint(100, 242);
+  await page.mouse.move(hoverTarget.x, hoverTarget.y);
+  await wait(350);
+  const pointer = await page.evaluate(() => ({
+    ...globalThis.__oskiewarTouch.pointer,
+    hover: globalThis.__oskiewarTouch.hover,
+  }));
+  const hoverShot = join(outputRoot, "mouse-select-hover.png");
+  const hovered = await page.screenshot({ path: hoverShot });
+  const cursor = await page.evaluate(() => getComputedStyle(
+    document.querySelector("canvas")).cursor);
+  await page.setViewport({ width: 844, height: 390, deviceScaleFactor: 2 });
+  await wait(350);
+  const resized = await page.evaluate(() => {
+    const canvas = document.querySelector("canvas");
+    const bounds = canvas.getBoundingClientRect();
+    return { viewport: [innerWidth, innerHeight],
+      canvasCss: [bounds.width, bounds.height],
+      canvasBacking: [canvas.width, canvas.height] };
+  });
+  const resizedShot = join(outputRoot, "mouse-select-resized.png");
+  await page.screenshot({ path: resizedShot });
+  await page.close();
+  const hashes = [resting, hovered].map((buffer) =>
+    createHash("sha256").update(buffer).digest("hex").slice(0, 12));
+  return { name: "hover", viewport, cursor, pointer, resized,
+    changed: hashes[0] !== hashes[1], hashes, errors,
+    files: { restingShot, hoverShot, resizedShot } };
 }
 
 async function playRound(browser, origin, name, viewport, opponent = "dummy") {
@@ -348,6 +412,7 @@ try {
       { width: 1280, height: 720, deviceScaleFactor: 1 }, "bot"));
   if (scenario === "font") results.push(await captureTypography(browser, origin));
   if (scenario === "touch") results.push(await captureTouch(browser, origin));
+  if (scenario === "hover") results.push(await captureHover(browser, origin));
   const report = { format: "ac.oskiewar.blackbox", version: 1,
     createdAt: new Date().toISOString(), source: "public-ui-and-network-only", results };
   await writeFile(join(outputRoot, "report.json"), JSON.stringify(report, null, 2));
