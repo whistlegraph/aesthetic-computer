@@ -1,5 +1,5 @@
 // @bundle-qr
-const buildTimestamp = "2026.08.06.2054 PDT";
+const buildTimestamp = "2026.08.06.2059 PDT";
 const floorY = 12000;
 const ceilingY = 0;
 const wallThickness = 80;
@@ -326,6 +326,7 @@ let acFeed = {};
 let selecting = true;
 const selectionReady = [false, false];
 const selectionPrevious = [[], []];
+let touchSelectPad = 0;
 let windMph = 0;
 let windDirection = 1;
 let windAcceleration = 0;
@@ -716,6 +717,7 @@ function applyRoster(player, index) {
 
 function beginSelect(now) {
   selecting = true;
+  touchSelectPad = 0;
   selectionReady[0] = false;
   selectionReady[1] = false;
   selectionPrevious[0] = padSnapshots[0]?.down?.slice() || [];
@@ -765,7 +767,106 @@ function updateShell(now) {
   shellPrevious = down.slice();
 }
 
+function cycleOpponentMode() {
+  const opponent = players[1];
+  if (!opponent.npc) {
+    opponent.npc = true;
+    opponent.bot = false;
+    selectionReady[1] = true;
+  } else if (!opponent.bot) {
+    opponent.bot = true;
+    selectionReady[1] = true;
+  } else {
+    opponent.npc = false;
+    opponent.bot = false;
+    applyRoster(opponent, 2);
+    selectionReady[1] = false;
+  }
+  if (opponent.npc) applyRoster(opponent, -1);
+  drum("clap", .8, 0);
+}
+
+function selectionTouchLayout() {
+  if (compactLayout()) {
+    const margin = 24;
+    const width = viewWidth() - margin * 2;
+    const rosterTop = 174;
+    const rosterHeight = 42;
+    const rosterGap = 5;
+    const cardsTop = 382;
+    const cardHeight = 128;
+    const cardGap = 12;
+    return {
+      roster: fighterRoster.map((fighter, index) => ({ index,
+        x: margin, y: rosterTop + index * (rosterHeight + rosterGap),
+        width, height: rosterHeight })),
+      cards: players.map((player) => {
+        const y = cardsTop + player.pad * (cardHeight + cardGap);
+        return { pad: player.pad, x: margin, y, width, height: cardHeight,
+          ready: { x: margin + 100, y: y + 58,
+            width: width - 215, height: 58 },
+          mode: player.pad === 1 ? { x: margin + width - 105, y: y + 58,
+            width: 95, height: 58 } : null };
+      }),
+    };
+  }
+  const ox = viewOffsetX();
+  return {
+    roster: fighterRoster.map((fighter, index) => ({ index,
+      x: ox + 205 + index * 390, y: 170, width: 300, height: 90 })),
+    cards: players.map((player) => {
+      const x = ox + (player.pad === 0 ? 90 : 990);
+      return { pad: player.pad, x, y: 320, width: 840, height: 570,
+        ready: { x: x + 330, y: 675, width: 350, height: 100 },
+        mode: player.pad === 1
+          ? { x: x + 660, y: 785, width: 150, height: 70 } : null };
+    }),
+  };
+}
+
+const pointInRect = (point, rect) => rect && point.x >= rect.x &&
+  point.x <= rect.x + rect.width && point.y >= rect.y &&
+  point.y <= rect.y + rect.height;
+
+function consumeSelectTouches(now) {
+  const queue = globalThis.__oskiewarTouch?.taps;
+  if (!Array.isArray(queue) || !queue.length) return;
+  const touches = queue.splice(0);
+  const layout = selectionTouchLayout();
+  for (const point of touches) {
+    const roster = layout.roster.find((rect) => pointInRect(point, rect));
+    if (roster) {
+      const player = players[touchSelectPad];
+      if (player.pad === 1 && player.npc) {
+        player.npc = false;
+        player.bot = false;
+      }
+      applyRoster(player, roster.index);
+      selectionReady[player.pad] = false;
+      drum("hat", .8, player.pad === 0 ? -.65 : .65);
+      continue;
+    }
+    const card = layout.cards.find((rect) => pointInRect(point, rect));
+    if (!card) continue;
+    touchSelectPad = card.pad;
+    if (card.mode && pointInRect(point, card.mode)) {
+      cycleOpponentMode();
+      continue;
+    }
+    const player = players[card.pad];
+    if (pointInRect(point, card.ready) && !player.npc) {
+      selectionReady[player.pad] = !selectionReady[player.pad];
+      drum(selectionReady[player.pad] ? "clap" : "hat", 1,
+        player.pad === 0 ? -.65 : .65);
+      const other = players[player.pad === 0 ? 1 : 0];
+      if (selectionReady[player.pad] && !selectionReady[other.pad] && !other.npc)
+        touchSelectPad = other.pad;
+    }
+  }
+}
+
 function updateSelect(now) {
+  consumeSelectTouches(now);
   for (const player of players) {
     const down = padSnapshots[player.pad]?.down || [];
     if (player.npc) {
@@ -775,22 +876,7 @@ function updateSelect(now) {
     const previous = selectionPrevious[player.pad];
     const pressed = (button) => down.includes(button) && !previous.includes(button);
     if (player.pad === 0 && pressed("X")) {
-      const opponent = players[1];
-      if (!opponent.npc) {
-        opponent.npc = true;
-        opponent.bot = false;
-        selectionReady[1] = true;
-      } else if (!opponent.bot) {
-        opponent.bot = true;
-        selectionReady[1] = true;
-      } else {
-        opponent.npc = false;
-        opponent.bot = false;
-        applyRoster(opponent, 2);
-        selectionReady[1] = false;
-      }
-      if (opponent.npc) applyRoster(opponent, -1);
-      drum("clap", .8, 0);
+      cycleOpponentMode();
     }
     if (pressed("B") && selectionReady[player.pad]) selectionReady[player.pad] = false;
     if (!selectionReady[player.pad] && (pressed("ArrowLeft") || pressed("ArrowRight"))) {
@@ -824,7 +910,10 @@ function resetBalls(now) {
     const owner = players[item.spawnOwner];
     item.x = owner.spawnX + owner.facing * 180;
     item.y = floorY - item.radius;
-    item.z = owner.pad === 0 ? -60 : 60;
+    // Players have no depth-axis control, so a served ball must begin in the
+    // same playable lane. The former +/-60 offset put its body outside the
+    // narrow leg capsules even when the sprites visibly overlapped.
+    item.z = owner.z;
     item.vx = 0;
     item.vy = 0;
     item.rotation = 0;
@@ -2325,6 +2414,8 @@ function sim() {
   }
   padSnapshots[0] = gamepad(0);
   padSnapshots[1] = gamepad(1);
+  if (!selecting && Array.isArray(globalThis.__oskiewarTouch?.taps))
+    globalThis.__oskiewarTouch.taps.length = 0;
   if (returnToSelectPressed(now)) return;
   if (debugHitboxes && now >= nextInputDebugAt) {
     nextInputDebugAt = now + 500000;
@@ -3630,34 +3721,38 @@ function drawSelectPortrait(player, x, y, scale, t) {
 function drawSelectionScreen(t, ink, panel) {
   const controls = controlLocale();
   if (compactLayout()) {
-    const margin = 24;
-    const width = viewWidth() - margin * 2;
-    const columns = 2;
-    const rosterWidth = width / columns;
+    const layout = selectionTouchLayout();
+    const margin = layout.roster[0].x;
+    const width = layout.roster[0].width;
     typeWrite("SELECT A PAL", viewCenterX() - 145, 28, 36, ...ink);
-    for (let index = 0; index < fighterRoster.length; index++) {
-      const fighter = fighterRoster[index];
-      const selected = players.some((player) => player.rosterIndex === index);
-      const column = index % columns;
-      const row = Math.floor(index / columns);
-      typeWrite(fighter.handle, margin + column * rosterWidth,
-        92 + row * 48, selected ? 27 : 22,
-        ...(selected ? fighter.color : ink));
+    for (const row of layout.roster) {
+      const fighter = fighterRoster[row.index];
+      const chosen = players.filter((player) => player.rosterIndex === row.index);
+      box(row.x, row.y, row.width, row.height,
+        ...mixColor(panel, fighter.color, chosen.length ? .22 : .06));
+      box(row.x, row.y, 6, row.height, ...fighter.color);
+      typeWrite(fighter.handle, row.x + 20, row.y + 7, 25,
+        ...(chosen.length ? fighter.color : ink));
+      const owners = chosen.map((player) => "p" + (player.pad + 1)).join(" ");
+      if (owners) typeWrite(owners, row.x + row.width - 72,
+        row.y + 11, 18, ...fighter.color);
     }
-    for (const player of players) {
-      const top = player.pad === 0 ? 205 : 570;
+    for (const card of layout.cards) {
+      const player = players[card.pad];
+      const top = card.y;
       const profile = fighterProfile(player.name);
-      box(margin, top, width, 335, ...panel);
-      box(margin, top, width, 7, ...player.color);
-      drawSelectPortrait(player, margin + 92, top + 180, .72, t);
-      drawHandle(player.name, margin + 170, top + 70, 34,
+      box(margin, top, width, card.height, ...panel);
+      box(margin, top, width, touchSelectPad === player.pad ? 7 : 3,
+        ...player.color);
+      drawSelectPortrait(player, margin + 54, top + 72, .36, t);
+      drawHandle(player.name, margin + 105, top + 21, 27,
         profile.colors, player.color);
       typeWrite(player.bot ? "READY TO FIGHT" : player.npc ? "STANDING BY" : selectionReady[player.pad]
-        ? "READY" : "SELECT", margin + 170, top + 155, 34, ...player.color);
+        ? "READY" : "SELECT", card.ready.x, card.ready.y + 9, 27,
+        ...player.color);
       typeWrite(player.bot ? "BOT" : player.npc ? "DUMMY" : "P" + (player.pad + 1),
-        margin + 170, top + 225, 24, ...ink);
+        margin + width - 96, top + 76, 18, ...ink);
     }
-    typeWrite(controls.select, margin, 1020, 15, ...ink);
     return;
   }
   const ox = viewOffsetX();

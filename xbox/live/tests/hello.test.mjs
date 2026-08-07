@@ -104,6 +104,12 @@ test("web touch labels follow the current combat mapping", () => {
   assert.match(webShell, /data-key="Y" aria-label="grenade or replay"/);
 });
 
+test("web canvas forwards touch coordinates to the fighter selector", () => {
+  assert.match(webShell, /globalThis\.__oskiewarTouch = \{ taps: selectTaps \}/);
+  assert.match(webShell, /selectTaps\.push\(\{/);
+  assert.match(webShell, /canvas\.width \/ bounds\.width/);
+});
+
 test("an older native spectator boundary cannot stop a match", () => {
   let attempts = 0;
   const livePublisher = () => {
@@ -533,6 +539,36 @@ test("character select offers the four AC fighters and waits for both pads", () 
 test("character select status labels use the shared comic typeface", () => {
   assert.equal((source.match(/typeWrite\(player\.bot \? "READY TO FIGHT"/g) || []).length, 2);
   assert.doesNotMatch(source, /write\(player\.bot \? "READY TO FIGHT"/);
+});
+
+test("portrait touch can choose both pals, toggle P2 mode, and ready", () => {
+  const { fight, tick } = createFight(false, false, "touch", null,
+    { width: 499, height: 1080 });
+  fight.enterGame();
+  globalThis.__oskiewarTouch = { taps: [] };
+  const touch = (x, y) => {
+    globalThis.__oskiewarTouch.taps.push({ x, y });
+    tick();
+  };
+  try {
+    touch(100, 221);
+    assert.equal(fight.players[0].name, "@FIFI");
+    touch(390, 592);
+    assert.equal(fight.players[1].npc, true);
+    touch(50, 540);
+    touch(100, 330);
+    assert.equal(fight.players[1].name, "@SAT");
+    assert.equal(fight.players[1].npc, false);
+    touch(160, 450);
+    assert.equal(fight.selectionState().ready[0], true);
+    touch(160, 590);
+    assert.equal(fight.selectionState().selecting, false);
+    globalThis.__oskiewarTouch.taps.push({ x: 100, y: 221 });
+    tick();
+    assert.equal(globalThis.__oskiewarTouch.taps.length, 0);
+  } finally {
+    delete globalThis.__oskiewarTouch;
+  }
 });
 
 test("Menu or View on either controller returns a fight to character select", () => {
@@ -1016,6 +1052,18 @@ test("running into a grounded ball boots it instead of killing the player", () =
   assert.equal(player.lastButton, "BOOT");
   assert.ok(fight.ball.vx > 0);
   assert.ok(signals.some(([event, pad]) => event === "boot" && pad === 0));
+});
+
+test("a served ball stays in the player's lane and can be approached", () => {
+  const { fight, pads, tick } = createFight();
+  const player = fight.players[0];
+  fight.enableBall();
+  assert.equal(fight.ball.z, player.z);
+  pads[0].down = ["ArrowRight"];
+  for (let frame = 0; frame < 20 && player.lastButton !== "BOOT"; frame++)
+    tick();
+  assert.equal(player.lastButton, "BOOT");
+  assert.ok(fight.ball.vx > 0);
 });
 
 test("running into a center-platform ball boots it", () => {

@@ -131,22 +131,25 @@ async function captureTouch(browser, origin) {
   await page.evaluate(() => document.fonts.ready);
   const titleShot = join(outputRoot, "touch-title.png");
   const before = await page.screenshot({ path: titleShot });
-  const pressTouch = async (key) => {
-    const button = await page.$(`button[data-key="${key}"]`);
-    const bounds = await button.boundingBox();
-    await page.mouse.move(bounds.x + bounds.width / 2,
-      bounds.y + bounds.height / 2);
-    await page.mouse.down();
-    await wait(120);
-    await page.mouse.up();
-    await wait(350);
+  const tapCanvas = async (logicalX, logicalY) => {
+    const target = await page.evaluate((x, y) => {
+      const canvas = document.querySelector("canvas");
+      const bounds = canvas.getBoundingClientRect();
+      return { x: bounds.left + x * bounds.width / canvas.width,
+        y: bounds.top + y * bounds.height / canvas.height };
+    }, logicalX, logicalY);
+    await page.touchscreen.tap(target.x, target.y);
+    await wait(250);
   };
   await page.touchscreen.tap(viewport.width / 2, viewport.height / 2);
   await wait(350);
   const selectShot = join(outputRoot, "touch-select.png");
   const selected = await page.screenshot({ path: selectShot });
-  await pressTouch("X");
-  await pressTouch("A");
+  await tapCanvas(100, 221); // @fifi for P1.
+  await tapCanvas(50, 540);  // Focus P2.
+  await tapCanvas(100, 330); // @sat for P2.
+  await tapCanvas(160, 450); // P1 ready.
+  await tapCanvas(160, 590); // P2 ready.
   await wait(3350);
   const gameShot = join(outputRoot, "touch-game.png");
   const game = await page.screenshot({ path: gameShot });

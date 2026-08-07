@@ -93,6 +93,8 @@
     const keys = [new Set(), new Set()];
     const touchControls = document.querySelector("#touch-controls");
     const touchPointers = new Map();
+    const selectTaps = [];
+    globalThis.__oskiewarTouch = { taps: selectTaps };
     const touchEnabled = new URLSearchParams(location.search).has("touch") ||
       navigator.maxTouchPoints > 0 || matchMedia("(pointer: coarse)").matches;
     document.body.classList.toggle("touch-enabled", touchEnabled);
@@ -457,7 +459,18 @@
       touchControls.addEventListener(type, (event) => releaseTouch(event.pointerId));
     touchControls.addEventListener("contextmenu", (event) => event.preventDefault());
     canvas.addEventListener("pointerdown", (event) => {
-      if (tapTitle()) event.preventDefault();
+      if (tapTitle()) {
+        event.preventDefault();
+        return;
+      }
+      if (!touchEnabled) return;
+      const bounds = canvas.getBoundingClientRect();
+      selectTaps.push({
+        x: (event.clientX - bounds.left) * canvas.width / bounds.width,
+        y: (event.clientY - bounds.top) * canvas.height / bounds.height,
+      });
+      ensureAudio();
+      event.preventDefault();
     });
     addEventListener("blur", () => {
       keys.forEach((held) => held.clear());
