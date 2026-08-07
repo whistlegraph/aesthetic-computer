@@ -22,9 +22,14 @@ function createFight(startImmediately = true, enterGame = true,
       assert.ok(Number.isFinite(value) && Math.abs(value) <= 32768);
     triangles.push(values);
   };
+  const drawTriangle3d = (...values) => {
+    for (const value of values.slice(0, 9))
+      assert.ok(Number.isFinite(value) && Math.abs(value) <= 32768);
+    triangles.push(values);
+  };
   const drawLine = (...values) => lines.push(values);
   const fight = new Function(
-    "runtime", "gamepad", "capabilities", "telemetry", "gameSignal", "saveReplay", "publishLive", "analytics", "drum", "wipe", "box", "line", "triangle", "write", "systemWrite", "gameView",
+    "runtime", "gamepad", "capabilities", "telemetry", "gameSignal", "saveReplay", "publishLive", "analytics", "drum", "wipe", "box", "line", "triangle", "triangle3d", "write", "systemWrite", "gameView",
     `${source}\nreturn { boot, sim, paint, controlLocale, animatedTitleColor, players, ball, balls, bullets, grenades, gunPickups, grenadePickups, runnerWorldGeometry, runnerDistanceToPoint, disableBall: () => { ballEnabled = false; for (const item of balls) item.active = false; }, enableBall: (index = 0) => { ballEnabled = true; const item = balls[index]; item.active = true; item.serveAt = 0; item.safeUntil = 0; item.safePlayers = 0; }, setWind: (value) => { windAcceleration = value; }, setDebugHitboxes: (value) => { debugHitboxes = Boolean(value); }, windState: () => ({ direction: windDirection, mph: windMph }), nextRound: () => resetRound(runtime().monotonicUs, false), knockOut: () => killPlayer(players[1], 0, runtime().monotonicUs, "KO"), wackBall: () => { players[0].attackKind = "KICK"; returnBall(ball, players[0], runtime().monotonicUs, false); }, shieldBall: () => returnBall(ball, players[0], runtime().monotonicUs, true), crossWackBall: (contact = 1) => crossWackBall(ball, players.map((player) => ({ player, contact })), runtime().monotonicUs), enterGame: () => enterGame(runtime().monotonicUs), shellState: () => ({ mode: shellMode }), startFight: () => { shellMode = "GAME"; selecting = false; startReplay(runtime().monotonicUs); resetRound(runtime().monotonicUs, true); }, selectionState: () => ({ selecting, ready: selectionReady.slice() }), cameraState: () => ({ cameraWidth, cameraCenter, cameraCenterY, cameraAspect, stageRight, viewHeight, doll: { width: cameraDoll.width, target: { ...cameraDoll.target }, position: { ...cameraDoll.position }, roll: cameraDoll.roll } }), screenBounds: () => players.map((player) => runnerScreenBounds(player, runtime().monotonicUs / 1e6)), actionSafeRect, hudSafeRect, roundState: () => ({ roundResult, roundElapsedUs, matchOver }), viewerState: () => ({ active: Boolean(roundViewer), mode: roundViewerMode, status: roundViewerStatus, name: matchName }), instantReplayState: () => instantReplay ? { active: true, paused: instantReplay.paused, cursor: instantReplay.cursor, frames: instantReplay.frames.length } : { active: false }, replayFrameCount: () => roundReplayFrames.length };`
   )(
     () => ({ monotonicUs: now, unixMs: 1785870000000 + Math.floor(now / 1000) }),
@@ -38,7 +43,7 @@ function createFight(startImmediately = true, enterGame = true,
       : liveFrames.push([matchId, JSON.parse(payload)]),
     (action, properties) => analyticsEvents.push([action, properties]),
     noOp, noOp, noOp, drawLine,
-    drawTriangle, noOp, noOp, () => viewport
+    drawTriangle, drawTriangle3d, noOp, noOp, () => viewport
   );
   globalThis.__oskiewarRoundBridge = roundBridge;
   fight.boot();
@@ -109,7 +114,7 @@ test("OSKIEWAR typography uses the packaged KidLisp Comic Relief face", () => {
   assert.match(source, /typeof comicWrite === "function"/);
   assert.match(source, /comicGlyphAdvance/);
   assert.match(source, /String\(text\)\.toLowerCase\(\)/);
-  assert.match(source, /drawGlyphs\(3, 4, null, \[8, 12, 24\]\)/);
+  assert.match(source, /player\.handleColors\?\.map\(contrastShadow\)/);
   assert.match(source, /compactLayout\(\) \? 20 : 24/);
 });
 
@@ -257,6 +262,24 @@ test("gameplay camera has no procedural viewport shake", () => {
   assert.match(source, /const gameplayContainment = !roundResult &&/);
   assert.match(source,
     /runtime\(\)\.monotonicUs - roundStartedAt >= introDurationUs/);
+});
+
+test("intro camera keeps one smooth midpoint target through name handoffs", () => {
+  const { fight, tick } = createFight(false, false);
+  fight.startFight();
+  let previous = fight.cameraState().doll.position.x;
+  let largestStep = 0;
+  for (let frame = 0; frame < 180; frame++) {
+    tick();
+    const state = fight.cameraState().doll;
+    assert.ok(Math.abs(state.target.x - 6000) < .01);
+    largestStep = Math.max(largestStep, Math.abs(state.position.x - previous));
+    previous = state.position.x;
+  }
+  assert.ok(largestStep < 40, `intro camera stepped ${largestStep}px`);
+  assert.match(source, /function drawFightIntro/);
+  assert.match(source, /const fightText = "fight!"/);
+  assert.match(source, /const breakAge = clamp/);
 });
 
 test("death camera closes on both fighters even when they are far apart", () => {
@@ -433,12 +456,21 @@ test("Menu or View on either controller returns a fight to character select", ()
   }
 });
 
-test("P1 X toggles P2 between controller and dummy on character select", () => {
+test("P1 X cycles P2 between controller, dummy, and attacking bot", () => {
   const { fight, pads, tick } = createFight(false);
   pads[0].down = ["X"];
   tick();
   assert.equal(fight.players[1].name, "DUMMY");
   assert.equal(fight.players[1].npc, true);
+  assert.equal(fight.players[1].bot, false);
+  assert.equal(fight.selectionState().ready[1], true);
+  pads[0].down = [];
+  tick();
+  pads[0].down = ["X"];
+  tick();
+  assert.equal(fight.players[1].name, "BOT");
+  assert.equal(fight.players[1].npc, true);
+  assert.equal(fight.players[1].bot, true);
   assert.equal(fight.selectionState().ready[1], true);
   pads[0].down = [];
   tick();
@@ -446,7 +478,25 @@ test("P1 X toggles P2 between controller and dummy on character select", () => {
   tick();
   assert.equal(fight.players[1].name, "@OSKIE");
   assert.equal(fight.players[1].npc, false);
+  assert.equal(fight.players[1].bot, false);
   assert.equal(fight.selectionState().ready[1], false);
+});
+
+test("bot uses the player input and physics path to pursue and strike", () => {
+  const { fight, tick } = createFight();
+  const bot = fight.players[1];
+  bot.npc = true;
+  bot.bot = true;
+  bot.name = "BOT";
+  fight.players[0].x = 5000;
+  bot.x = 6500;
+  tick();
+  assert.ok(bot.vx < 0);
+  fight.players[0].x = 5850;
+  bot.x = 6000;
+  bot.botAttackAt = 0;
+  tick();
+  assert.ok(bot.attackKind === "PUNCH" || bot.attackKind === "KICK");
 });
 
 test("perspective intro never submits invalid ground triangles", () => {
@@ -477,7 +527,7 @@ test("melee and movement edges emit bounded Ableton signals", () => {
   const { signals, tap } = createFight();
   tap(0, "A");
   assert.ok(signals.some(([event, player]) => event === "kick" && player === 0));
-  tap(0, "B");
+  tap(0, "X");
   assert.ok(signals.some(([event, player]) => event === "punch" && player === 0));
   tap(0, "ArrowRight");
   assert.ok(signals.some(([event, player, horizontal]) =>
@@ -502,7 +552,7 @@ test("gun drops grant ammo and A fires in the quantized aim direction", () => {
   assert.ok(signals.some(([event, pad]) => event === "bullet" && pad === 0));
 });
 
-test("grenade drops grant ammo and B throws an expanding grenade", () => {
+test("grenade drops grant ammo and Y throws an expanding grenade", () => {
   const { fight, pads, signals, tick } = createFight();
   const player = fight.players[0];
   const pickup = fight.grenadePickups[0];
@@ -511,7 +561,7 @@ test("grenade drops grant ammo and B throws an expanding grenade", () => {
   pickup.y = player.y - 70;
   tick();
   assert.equal(player.grenadeAmmo, pickup.amount);
-  pads[0].down = ["B"];
+  pads[0].down = ["Y"];
   tick();
   assert.equal(player.grenadeAmmo, pickup.amount - 1);
   assert.equal(fight.grenades.length, 1);
@@ -587,17 +637,34 @@ test("a direction held across round reset waits for a real release", () => {
   assert.ok(fight.players[0].vx > 1000);
 });
 
-test("X shield blocks melee geometry", () => {
+test("B shield blocks melee geometry", () => {
   const { fight, pads, signals, tick } = createFight();
   fight.players[1].npc = false;
   fight.players[0].x = 5000;
   fight.players[1].x = 5100;
   pads[0].down = ["A"];
-  pads[1].down = ["X"];
+  pads[1].down = ["B"];
   for (let frame = 0; frame < 5; frame++) tick(16667);
   assert.equal(fight.players[1].alive, true);
   assert.equal(fight.players[0].score, 0);
   assert.ok(signals.some(([event, player]) => event === "block" && player === 1));
+});
+
+test("shield is emitted on the foreground triangle path", () => {
+  const { fight, triangles } = createFight();
+  fight.setDebugHitboxes(false);
+  triangles.length = 0;
+  fight.players[0].blocking = false;
+  fight.paint();
+  const withoutShield = triangles.length;
+  triangles.length = 0;
+  fight.players[0].blocking = true;
+  fight.paint();
+  assert.ok(triangles.length > withoutShield + 40);
+  const shieldSource = source.slice(source.indexOf("if (player.blocking) {"),
+    source.indexOf("function drawDebugHitboxes"));
+  assert.match(shieldSource, /filledRing/);
+  assert.match(shieldSource, /filledCapsule/);
 });
 
 test("shielding suppresses new ground and air control while preserving momentum", () => {
@@ -607,7 +674,7 @@ test("shielding suppresses new ground and air control while preserving momentum"
   player.vy = -380;
   player.grounded = false;
   const facing = player.facing;
-  pads[1].down = ["X", "ArrowRight", "ArrowUp"];
+  pads[1].down = ["B", "ArrowRight", "ArrowUp"];
   tick();
   assert.equal(player.blocking, true);
   assert.equal(player.inputX, 0);
@@ -615,7 +682,7 @@ test("shielding suppresses new ground and air control while preserving momentum"
   assert.equal(player.facing, facing);
   assert.ok(player.vx < 0);
   assert.ok(player.vy > -380);
-  pads[1].down = ["X", "ArrowLeft", "ArrowDown"];
+  pads[1].down = ["B", "ArrowLeft", "ArrowDown"];
   tick();
   assert.ok(player.vx < 0);
   assert.equal(player.ducking, false);
@@ -654,7 +721,7 @@ test("a neutral fighter cannot defeat an attacking fighter by contact", () => {
   const { fight, pads, tick } = createFight();
   fight.players[0].x = 5940;
   fight.players[1].x = 6060;
-  pads[0].down = ["B"];
+  pads[0].down = ["X"];
   for (let frame = 0; frame < 5; frame++) tick(16667);
   assert.equal(fight.players[0].alive, true);
   assert.equal(fight.players[1].alive, false);
@@ -664,8 +731,8 @@ test("simultaneous active strikes trade without player-order bias", () => {
   const { fight, pads, tick } = createFight();
   fight.players[0].x = 5940;
   fight.players[1].x = 6060;
-  pads[0].down = ["B"];
-  pads[1].down = ["B"];
+  pads[0].down = ["X"];
+  pads[1].down = ["X"];
   for (let frame = 0; frame < 5; frame++) tick(16667);
   assert.equal(fight.players[0].alive, false);
   assert.equal(fight.players[1].alive, false);
@@ -682,6 +749,29 @@ test("player lands on the center platform", () => {
   for (let step = 0; step < 10 && !player.grounded; step++) tick(40000);
   assert.equal(player.y, 10400);
   assert.equal(player.grounded, true);
+});
+
+test("crouch and jump use readable multi-frame pose transitions", () => {
+  const { fight, pads, tick } = createFight();
+  const player = fight.players[0];
+  pads[0].down = ["ArrowDown"];
+  tick();
+  assert.ok(player.crouchBlend > 0 && player.crouchBlend < 1);
+  assert.equal(player.ducking, false);
+  for (let frame = 0; frame < 6; frame++) tick();
+  assert.equal(player.ducking, true);
+
+  const jump = createFight();
+  jump.pads[0].down = ["ArrowUp"];
+  jump.tick();
+  assert.ok(jump.fight.players[0].jumpLaunchAt > jump.now());
+  assert.equal(jump.fight.players[0].grounded, true);
+  jump.tick(40000);
+  assert.equal(jump.fight.players[0].grounded, true);
+  jump.tick(50000);
+  assert.ok(jump.fight.players[0].vy < 0);
+  assert.match(source, /const poseT = Math\.floor\(t \* 12\) \/ 12/);
+  assert.match(source, /function drawFighterSilhouette/);
 });
 
 test("hit detection follows the animated runner geometry", () => {
@@ -723,6 +813,17 @@ test("each round starts one grounded ball in front of each fighter", () => {
   }
 });
 
+test("the two balls are a lighter soccer ball and heavier bouncier basketball", () => {
+  const { fight } = createFight();
+  const [soccer, basketball] = fight.balls;
+  assert.equal(soccer.type, "soccer");
+  assert.equal(basketball.type, "basketball");
+  assert.ok(soccer.mass < basketball.mass);
+  assert.ok(soccer.hitScale > basketball.hitScale);
+  assert.ok(soccer.bounce < basketball.bounce);
+  assert.match(source, /ball\.type === "soccer"/);
+});
+
 test("wind rerolls and reverses direction every round", () => {
   const { fight } = createFight();
   const first = fight.windState();
@@ -761,6 +862,83 @@ test("running into a grounded ball boots it instead of killing the player", () =
   assert.equal(player.lastButton, "BOOT");
   assert.ok(fight.ball.vx > 0);
   assert.ok(signals.some(([event, pad]) => event === "boot" && pad === 0));
+});
+
+test("walking contact carries a grounded ball in the player's direction", () => {
+  const { fight, pads, tick } = createFight();
+  const player = fight.players[0];
+  fight.enableBall();
+  fight.ball.x = player.x;
+  fight.ball.y = 12000 - fight.ball.radius;
+  fight.ball.z = player.z;
+  fight.ball.vx = 0;
+  fight.ball.vy = 0;
+  pads[0].down = ["ArrowLeft"];
+  tick();
+  assert.ok(fight.ball.vx < 0);
+});
+
+test("A plus X grabs and carries a ball through a jump, then releases it", () => {
+  const { fight, pads, tick } = createFight();
+  const player = fight.players[0];
+  fight.enableBall();
+  fight.ball.x = player.x + 80;
+  fight.ball.y = player.y - 90;
+  fight.ball.z = player.z;
+  pads[0].down = ["A", "X"];
+  tick();
+  assert.equal(player.heldBall, 0);
+  assert.equal(fight.ball.heldBy, 0);
+  assert.equal(player.attackKind, "");
+  pads[0].down = ["A", "X", "ArrowUp"];
+  tick();
+  tick(90000);
+  assert.ok(player.vy < 0);
+  assert.equal(fight.ball.heldBy, 0);
+  pads[0].down = [];
+  tick();
+  assert.equal(player.heldBall, -1);
+  assert.equal(fight.ball.heldBy, -1);
+  pads[0].down = ["X"];
+  tick();
+  assert.equal(player.attackKind, "PUNCH");
+});
+
+test("ball graphics rotate from physics only and use no white line outline", () => {
+  const { fight, tick } = createFight();
+  fight.enableBall();
+  fight.ball.x = 9000;
+  fight.ball.y = 12000 - fight.ball.radius;
+  fight.ball.vx = 0;
+  fight.ball.vy = 0;
+  const stillRotation = fight.ball.rotation;
+  tick();
+  assert.equal(fight.ball.rotation, stillRotation);
+  fight.ball.vx = 500;
+  tick();
+  assert.notEqual(fight.ball.rotation, stillRotation);
+  assert.match(source, /function drawBall\(ball\)/);
+  assert.doesNotMatch(source,
+    /circle\(point\.x, point\.y, radius,[^\n]*\[245, 248, 255\]/);
+});
+
+test("fighters and balls share one projected global-light shadow system", () => {
+  assert.match(source, /const globalLight = normalize3/);
+  assert.match(source, /drawSpotShadow\(player\.x, player\.y, player\.z/);
+  assert.match(source, /drawSpotShadow\(item\.x, item\.y, item\.z/);
+  assert.match(source, /const radiusY = Math\.max\(3, radiusX/);
+});
+
+test("native terrain and actors carry real depth with computed face normals", () => {
+  const { fight, triangles } = createFight();
+  triangles.length = 0;
+  fight.paint();
+  const depths = triangles.flatMap((values) => [values[2], values[5], values[8]]);
+  assert.ok(new Set(depths.map((value) => value.toFixed(4))).size > 3);
+  assert.ok(depths.every((value) => value >= -1.5 && value <= 1.5));
+  assert.match(source, /const normal = normalize3\(cross3\(ab, ac\)\)/);
+  assert.match(source, /typeof triangle3d === "function"/);
+  assert.doesNotMatch(source, /worldLine\(worldLeft, floorY/);
 });
 
 test("an airborne ball only BALLS on the head", () => {
@@ -827,7 +1005,7 @@ test("melee returns label and signal the ball as WACK", () => {
   assert.ok(signals.some(([event, pad]) => event === "wack" && pad === 0));
 });
 
-test("shielding pops a ball upward at more than three times normal return speed", () => {
+test("shielding pops a ball upward without the old extreme launch", () => {
   const { fight } = createFight();
   fight.enableBall();
   fight.ball.x = fight.players[0].x + 90;
@@ -840,8 +1018,9 @@ test("shielding pops a ball upward at more than three times normal return speed"
   fight.ball.vy = 0;
   fight.shieldBall();
   const shieldSpeed = Math.hypot(fight.ball.vx, fight.ball.vy);
-  assert.ok(shieldSpeed > normalSpeed * 3);
-  assert.ok(fight.ball.vy < -3000);
+  assert.ok(shieldSpeed > normalSpeed * 1.5);
+  assert.ok(shieldSpeed < normalSpeed * 2.8);
+  assert.ok(fight.ball.vy < -1500);
 });
 
 test("shielding a grounded ball blasts it instead of booting it", () => {
@@ -855,10 +1034,11 @@ test("shielding a grounded ball blasts it instead of booting it", () => {
   fight.ball.z = player.z;
   fight.ball.vx = -80;
   fight.ball.vy = 0;
-  pads[0].down = ["X"];
+  pads[0].down = ["B"];
   tick();
-  assert.ok(fight.ball.vx >= 6000);
-  assert.ok(fight.ball.vy < -3000);
+  assert.ok(fight.ball.vx >= 1800);
+  assert.ok(fight.ball.vx <= 4200);
+  assert.ok(fight.ball.vy < -1200);
   assert.ok(signals.some(([event, pad]) => event === "ballblock" && pad === 0));
   assert.ok(!signals.some(([event, pad]) => event === "boot" && pad === 0));
 });
@@ -921,6 +1101,19 @@ test("round end card shows only the result cause", () => {
   assert.match(source,
     /roundCause \|\| \(roundResult === "TIE" \? "TIE" : "TIME"\)/);
   assert.doesNotMatch(source, /typeWrite\(roundResult,/);
+  assert.doesNotMatch(source,
+    /box\(viewCenterX\(\) - causeWidth \/ 2 - 36/);
+});
+
+test("jump framing cannot reveal a contrasting clear-color flash", () => {
+  assert.match(source, /const outside = sky/);
+});
+
+test("facing and opponent mode are visible in fighter faces", () => {
+  assert.match(source, /const faceX = head\.x \+ direction \* r \* \.08/);
+  assert.match(source, /The facing-side foot is visibly planted forward/);
+  assert.match(source, /const inertDummy = player\.npc && !player\.bot/);
+  assert.match(source, /player\.bot && player\.alive && !player\.blocking/);
 });
 
 test("round result offers an instant replay with pause, scrub, and exit", () => {
