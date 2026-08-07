@@ -1,0 +1,27 @@
+# Dannom feature requests
+
+Captured from 6,478 public `laer-klokken` messages between June 1 and August 8,
+2026. Evidence timestamps are UTC. Implementation was checked against
+`system/public/aesthetic.computer/lib/nom.mjs` on August 7, 2026.
+
+| ID | Status | Request | Evidence | Code / next decision |
+| --- | --- | --- | --- | --- |
+| DAN-001 | Implemented locally | Show the current level. | `2026-06-30 17:17` — `@theamerican`: “perhaps one could request a level counter in dannom…”; `2026-07-03 06:12` — `@chigichigi`: “I think a counter and a leaderboard in dannom would be gr8.” | The always-visible Comic Relief HUD now reads `L#` beside the run score. |
+| DAN-002 | Implemented locally | Add a persistent leaderboard / high scores. | `2026-07-03 06:12` — `@chigichigi`: “a counter and a leaderboard”; followed by wanting everyone to see “how evil I am at that game.” World-record claims recur on June 30 and July 6. | Correct munches reward combos; clears reward level and remaining beats. `/api/nom-scores` keeps one best run per handled user and edition; score, level, correct answers, and first-achieved time resolve order. The game-over board shows the top five. Client-authored scores are not yet server-verified replays. |
+| DAN-003 | Open | Let players replay collected Danish words and inspect their meanings. | `2026-07-09 17:49` — `@q13R608tx`: “when you clicked the words on the left you could hear them and if you hover over them you see their meanings.” | Collected words are painted as inert left-side chips. Add click/tap pronunciation, hover/focus translation, and a touch-accessible equivalent. |
+| DAN-004 | Editorial decision | Review disputed Danish category answers. | `2026-07-06 19:16` — `@theamerican` questioned `bjerg` / mountain in Danish nature; `2026-07-09 17:23` — `@q13R608tx` asked whether rain is cozy; `2026-07-10 11:00–11:03` — `@theamerican` asked why rain and wind are not cozy while book is. | `NATUR.correct` contains `bjerg`; `HYGGE.correct` contains `bog`; `HYGGE.wrong` contains `regn` and `vind`. Treat these as authored judgments: retain, revise, or make the categories intentionally debatable. |
+| DAN-005 | Resolved; test needed | Prevent unavoidable death when a new level starts beside a monster. | `2026-07-06 19:28` — `@theamerican`: “when you level up and the monster is right beside you so you can't avoid it.” | `spawnTroggles()` now keeps monsters at least three Manhattan tiles from the player. Add a deterministic regression test for every spawn path. |
+| DAN-006 | Open content project | Make a recorded Dannom lecture / AC-only radio program. | `2026-07-09 20:27` — `@prutti`: “en Dannom lecture?”; `2026-07-09 21:01` — `@HendeFraHoeve`: “vi laver et dannom radioprogram der kun kan høres her på AC”; `2026-07-14 14:32` — `@theamerican`: “dannom i teori og praksis.” | Produce as a separate AC audio piece; invite community statements about Dannom theory and practice. This can become a Klokkentales episode without changing the game. |
+| DAN-007 | Parked | Add a cheat or secret transformation. | `2026-06-30 17:19` — `@theamerican`: “perhaps some sort of cheat would be in the spirit.” A June 19 rumor claimed level 10 becomes a Wolfenstein-like shooter. | Playful request, not a committed requirement. Preserve as secret-design material. |
+| DAN-008 | Needs validation | Offer a relaxed or untimed mode. | On `2026-07-09`, players discussed whether the timer creates hurry and whether the point is to ignore both timer and level number. | Inferred opportunity, not a direct request. Timer pressure may be part of the intended philosophy; validate before changing it. |
+| DAN-009 | Needs validation | Teach sentences or grammar as well as vocabulary. | `2026-07-14 19:39` — `@q13R608tx`: “dannom is only good for general vocabulary”; `@theamerican`: “you won't learn full sentenses.” | Product feedback rather than a direct feature request. Explore as a distinct mode so the word-munching game stays legible. |
+| DAN-010 | Closed; no reproduction | Track transient reports that Dannom disappeared. | `2026-08-03 20:46` — “rip dannom”; `21:37` — “is dannom gone?”; `21:38` — “its still here.” | Self-resolved in chat. Reopen only with a reproducible load failure or piece-log evidence. |
+| DAN-011 | Implemented locally | Brand Nom HUDs with Comic Relief and show cute handled identities. | Product direction, August 7. | Browser HD text loads the foundry Comic Relief face. The score HUD and leaderboard paint handles character-by-character with their saved colors, with a generated color fallback. Word tiles retain Unicode-safe text. |
+| DAN-012 | Implemented locally; device verification pending | Run the shared Nom engine in the OSKIEWAR-generation Xbox stack. | Product direction, August 7. | `xbox/tools/bundle-nom.mjs` produces a QuickJS `xbox/live/dannom.js` from the real Nom, scoring, synth, and percussion sources. The adapter uses fixed-step pad edges, native drawing/audio, and packaged `comicWrite`; its command-frame probe and rendered 1280×720 frame pass locally. Deploy against the current OSKIEWAR native BIOS remains to be verified on Xbox hardware. |
+
+## Not promoted
+
+- One life was endorsed as fitting the game, not requested as a change.
+- Removing or recategorizing `stol` / chair followed a playful conversation and
+  was disclaimed by its subject; reconsider only if the request recurs.
+- “Music for Dannom” is a community artifact, not a game feature request.

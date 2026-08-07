@@ -1,3 +1,536 @@
+// Dannom for the OSKIEWAR-generation native Xbox host. GENERATED.
+// Rebuild: node xbox/tools/bundle-nom.mjs
+(function (xboxNativeSynth) {
+// source: system/public/aesthetic.computer/lib/percussion.mjs
+// Percussion synth kit — shared between web notepat and native notepat.
+// Exports the 12-drum layout, display labels, pad colors, and a pure
+// `playPercussion(sound, letter, opts)` that fires the layered voices
+// for a single drum on the supplied AC sound API.
+//
+// Natural notes = 7 core drums (kick/snare/clap/snap/hat-c/hat-o/ride).
+// Sharps = 5 accents (crash/splash/cowbell/block/tambo).
+//
+// The native kit layered a voice-inspector and hold-release machinery on
+// top of this; both are kept callback-based here so the module itself has
+// no persistent state and works identically on web + native.
+
+// TR-808 hi-hat 6-square inharmonic cluster (trimmed to 4 for clarity).
+const HAT_FREQS = [800, 540, 522.7, 369.6];
+
+const PERCUSSION_NAMES = {
+  c: "kick", d: "snare", e: "clap", f: "snap",
+  g: "hat-c", a: "hat-o", b: "ride",
+  "c#": "crash", "d#": "splash",
+  "f#": "cowbell", "g#": "block", "a#": "tambo",
+};
+
+// 3-char display labels shown on drum pads in place of note names.
+const PERCUSSION_LABELS = {
+  c: "BAS", d: "SNR", e: "CLP", f: "SNP",
+  g: "HHC", a: "HHO", b: "RDE",
+  "c#": "CRS", "d#": "SPL",
+  "f#": "CBL", "g#": "BLK", "a#": "TMB",
+};
+
+// Metallic / earthy colors to visually distinguish drum pads from keys.
+const PERCUSSION_COLORS = {
+  c: [220, 90, 40],      // kick — deep orange
+  d: [220, 180, 110],    // snare — tan
+  e: [240, 220, 130],    // clap — pale yellow
+  f: [220, 240, 140],    // snap — yellow-green
+  g: [120, 220, 180],    // closed hat — mint
+  a: [120, 200, 240],    // open hat — cyan
+  b: [180, 180, 230],    // ride — silver-blue
+  "c#": [220, 150, 240], // crash — lavender
+  "d#": [240, 160, 220], // splash — pink
+  "f#": [200, 150, 80],  // cowbell — brass
+  "g#": [190, 120, 70],  // block — wood brown
+  "a#": [230, 210, 170], // tambourine — sandy
+};
+
+// Graphic-notation voice signatures for the pad-idle animation renderer.
+// t: "s"=sine "t"=triangle "q"=square "w"=sawtooth "n"=noise
+// Format per voice: [type, freq, volume]. Consumed by drawGrid() in each
+// notepat implementation.
+const PERCUSSION_NOTATION = {
+  c:  [["t",1800,1.0],["n",4000,0.55],["q",180,1.2],["w",90,1.0],["s",44,1.9],["s",54,1.3],["q",120,0.85]],
+  d:  [["n",2200,0.55],["t",220,0.4],["q",180,0.2]],
+  e:  [["q",2500,0.9],["n",6000,0.6],["n",1600,0.75],["n",1700,0.6],["n",1500,0.5],["n",1800,0.45]],
+  f:  [["n",3200,0.45],["q",1800,0.22],["t",2400,0.18]],
+  g:  [["n",7000,0.35],["n",5000,0.2]],
+  a:  [["n",6500,0.3],["n",4800,0.18]],
+  b:  [["n",4200,0.28],["q",3100,0.1],["q",4600,0.08]],
+  "c#": [["n",3500,0.42],["n",6500,0.28],["q",4200,0.08]],
+  "d#": [["n",5500,0.38],["n",8500,0.25]],
+  "f#": [["q",810,0.22],["q",540,0.18]],
+  "g#": [["t",900,0.35],["q",1800,0.14]],
+  "a#": [["n",7000,0.3],["n",4500,0.18],["q",6500,0.1]],
+};
+
+// Wave type → accent color for the notation glyph.
+const NOTATION_WAVE_RGB = {
+  s: [120, 200, 255],   // sine      — sky blue
+  t: [120, 255, 180],   // triangle  — mint
+  q: [255, 220, 120],   // square    — amber
+  w: [255, 140, 80],    // sawtooth  — orange
+  n: [220, 220, 230],   // noise     — pale grey
+};
+
+// Fire the layered voices for a single drum. Pure function — no
+// persistent state and no module-level side effects.
+//
+// Params:
+//   sound        AC sound API (needs .synth).
+//   letter       "c" | "d" | ... | "a#". Unknown letters are ignored.
+//   opts:
+//     volume        master volume scalar (0.1–2.2 clamped). Default 1.0.
+//     pan           stereo pan (−1..1). Default 0.
+//     pitchFactor   tone multiplier for transpose (0.25–4 clamped). Default 1.
+//     phase         "down" (live key press, sustains go into holdVoices),
+//                   "up"   (legacy release — ignored), or
+//                   "both" (self-contained one-shot, sustains play finite).
+//                   Default "both".
+//     holdVoices    array to receive live-sustain voice records. If absent
+//                   or phase !== "down", sustains fire as finite durations.
+//     onVoice       optional callback(voiceDesc) called once per voice
+//                   fired, for inspector/debug overlays. `voiceDesc` has
+//                   { type, tone, duration, volume, attack, decay, pan, kind }
+//                   where kind is "hit" or "sustain".
+function playPercussion(sound, letter, opts = {}) {
+  if (!sound?.synth) return;
+  const {
+    volume = 1.0,
+    pan = 0,
+    pitchFactor = 1.0,
+    phase = "both",
+    holdVoices = null,
+    onVoice = null,
+  } = opts;
+
+  const v = Math.max(0.1, Math.min(2.2, volume));
+  const pf = Math.max(0.25, Math.min(4, pitchFactor));
+
+  const fireDown = phase !== "up";
+  const isLive = phase === "down" && Array.isArray(holdVoices);
+  if (!fireDown) return;
+
+  // Per-hit random helpers (inline, stateless). `rj` jitters around a center
+  // by a ± fraction; `rn` returns a uniform range.
+  const rj = (center, frac) => center * (1 + (Math.random() - 0.5) * 2 * frac);
+  const rn = (min, max) => min + Math.random() * (max - min);
+
+  const inspect = (params, kind) => {
+    if (!onVoice) return;
+    onVoice({
+      type: params?.type,
+      tone: params?.tone,
+      duration: params?.duration,
+      volume: params?.volume,
+      attack: params?.attack,
+      decay: params?.decay,
+      pan: params?.pan,
+      kind,
+    });
+  };
+
+  const addSustain = (params, bothDuration, releaseFade, releaseUpdate, onRelease) => {
+    inspect({ ...params, duration: bothDuration }, "sustain");
+    if (isLive) {
+      const handle = sound.synth({ ...params, duration: Infinity });
+      if (handle) {
+        const liveEntry = { handle, releaseFade, releaseUpdate, onRelease };
+        if (params?.tone !== undefined) liveEntry.baseTone = params.tone / pf;
+        if (params?.volume !== undefined) liveEntry.baseVolumeUnit = params.volume / v;
+        if (params?.base !== undefined) liveEntry.sampleBase = params.base;
+        if (releaseUpdate?.tone !== undefined) liveEntry.releaseBaseTone = releaseUpdate.tone / pf;
+        if (releaseUpdate?.volume !== undefined) liveEntry.releaseBaseVolumeUnit = releaseUpdate.volume / v;
+        holdVoices.push(liveEntry);
+      }
+      return handle;
+    }
+    return sound.synth({ ...params, duration: bothDuration });
+  };
+
+  const addHit = (params) => {
+    inspect(params, "hit");
+    const handle = sound.synth(params);
+    if (isLive && handle) {
+      const liveEntry = {
+        handle,
+        ignoreRelease: true,
+        releaseFade: 0,
+        tailSeconds: Math.max(
+          Number(params?.duration) || 0,
+          (Number(params?.attack) || 0) + (Number(params?.decay) || 0),
+        ),
+      };
+      if (params?.tone !== undefined) liveEntry.baseTone = params.tone / pf;
+      if (params?.volume !== undefined) liveEntry.baseVolumeUnit = params.volume / v;
+      if (params?.base !== undefined) liveEntry.sampleBase = params.base;
+      holdVoices.push(liveEntry);
+    }
+    return handle;
+  };
+
+  const addReleaseBurst = (onRelease) => {
+    if (isLive && onRelease) holdVoices.push({ handle: null, releaseFade: 0, onRelease });
+  };
+
+  switch (letter) {
+    // === ONE-SHOT DRUMS (c/d/e/f/g) ===
+    case "c": { // kick — tight TR-808: transient + short body + optional sub
+      const downPan = pan + rn(-0.02, 0.02);
+      addHit({ type: "noise", tone: 2500 * pf, duration: 0.0025, volume: rj(0.50, 0.12) * v, attack: 0.0002, decay: 0.0022, pan: downPan });
+      addHit({ type: "sine", tone: 200 * pf, duration: 0.012, volume: rj(1.1, 0.10) * v, attack: 0.0005, decay: 0.011, pan: downPan });
+      addHit({ type: "sine", tone: 150 * pf, duration: 0.045, volume: rj(1.3, 0.10) * v, attack: 0.001, decay: 0.044, pan: downPan });
+      addHit({ type: "sine", tone: 90 * pf, duration: 0.080, volume: rj(0.85, 0.12) * v, attack: 0.002, decay: 0.078, pan: downPan });
+      addHit({ type: "sine", tone: 55 * pf, duration: rj(0.35, 0.20), volume: rj(1.0, 0.12) * v, attack: 0.003, decay: 0.345, pan: downPan });
+      break;
+    }
+
+    case "d": { // snare — TR-909-leaning: big transient + short tone + dominant noise
+      const downPan = pan + rn(-0.02, 0.02);
+      addHit({ type: "noise", tone: 3500 * pf, duration: 0.004, volume: rj(0.95, 0.10) * v, attack: 0.0001, decay: 0.004, pan: downPan });
+      addHit({ type: "sine", tone: 238 * pf, duration: 0.030, volume: rj(0.35, 0.12) * v, attack: 0.0003, decay: 0.029, pan: downPan });
+      addHit({ type: "sine", tone: 476 * pf, duration: 0.030, volume: rj(0.28, 0.12) * v, attack: 0.0003, decay: 0.029, pan: downPan });
+      addHit({ type: "noise", tone: 3500 * pf, duration: rj(0.11, 0.20), volume: rj(0.85, 0.10) * v, attack: 0.0005, decay: 0.108, pan: downPan + rn(-0.04, 0.04) });
+      addHit({ type: "noise", tone: 1800 * pf, duration: rj(0.07, 0.20), volume: rj(0.38, 0.15) * v, attack: 0.0008, decay: 0.068, pan: downPan + rn(-0.04, 0.04) });
+      addHit({ type: "triangle", tone: 180 * pf, duration: 0.025, volume: rj(0.22, 0.15) * v, attack: 0.001, decay: 0.024, pan: downPan });
+      break;
+    }
+
+    case "e": { // clap — TR-808 4-burst pattern via staggered attacks (one-shot)
+      const downPan = pan + rn(-0.06, 0.02);
+      addHit({ type: "noise", tone: 1000 * pf, duration: 0.025, volume: rj(0.90, 0.15) * v, attack: 0.005, decay: 0.020, pan: downPan });
+      addHit({ type: "noise", tone: 1100 * pf, duration: 0.035, volume: rj(0.95, 0.15) * v, attack: 0.015, decay: 0.020, pan: downPan });
+      addHit({ type: "noise", tone: 900 * pf,  duration: 0.045, volume: rj(0.85, 0.15) * v, attack: 0.025, decay: 0.020, pan: downPan });
+      addHit({ type: "noise", tone: 3000 * pf, duration: 0.008, volume: rj(0.55, 0.15) * v, attack: 0.001, decay: 0.007, pan: downPan });
+      addHit({ type: "noise", tone: 1000 * pf, duration: rj(0.14, 0.25), volume: rj(0.85, 0.15) * v, attack: 0.045, decay: 0.135, pan: downPan + rn(-0.02, 0.10) });
+      addHit({ type: "noise", tone: 2200 * pf, duration: rj(0.10, 0.25), volume: rj(0.35, 0.18) * v, attack: 0.050, decay: 0.095, pan: downPan + rn(-0.02, 0.10) });
+      break;
+    }
+
+    case "f": { // snap — finger snap physics (one-shot)
+      const downPan = pan + rn(-0.04, 0.04);
+      addHit({ type: "noise", tone: 6000 * pf, duration: 0.003, volume: rj(0.70, 0.15) * v, attack: 0.0001, decay: 0.0028, pan: downPan });
+      addHit({ type: "sine", tone: 2100 * pf, duration: rj(0.045, 0.20), volume: rj(0.55, 0.12) * v, attack: 0.0005, decay: 0.044, pan: downPan });
+      addHit({ type: "sine", tone: 3500 * pf, duration: rj(0.020, 0.25), volume: rj(0.28, 0.18) * v, attack: 0.0005, decay: 0.019, pan: downPan });
+      break;
+    }
+
+    case "g": { // closed hi-hat — 4-square cluster + subtle lift click on release
+      const downPan = pan + rn(-0.03, 0.03);
+      for (const f of HAT_FREQS) {
+        addHit({ type: "square", tone: f * pf, duration: rj(0.008, 0.20), volume: rj(0.18, 0.18) * v, attack: 0.0005, decay: 0.0075, pan: downPan });
+      }
+      addHit({ type: "noise", tone: 8000 * pf, duration: rj(0.040, 0.20), volume: rj(0.38, 0.12) * v, attack: 0.0005, decay: 0.038, pan: downPan });
+      addReleaseBurst(() => {
+        sound.synth({ type: "noise", tone: 9000 * pf, duration: 0.004, volume: rj(0.22, 0.20) * v, attack: 0.0002, decay: 0.0038, pan: downPan });
+        sound.synth({ type: "square", tone: 6000 * pf, duration: 0.003, volume: rj(0.08, 0.25) * v, attack: 0.0003, decay: 0.0027, pan: downPan });
+      });
+      break;
+    }
+
+    case "a": { // open hi-hat — TR-808 cluster, LONG sustain. Foot-pedal release = damp fast.
+      const downPan = pan + rn(-0.04, 0.04);
+      for (const f of HAT_FREQS) {
+        addHit({ type: "square", tone: f * pf, duration: 0.012, volume: rj(0.16, 0.18) * v, attack: 0.0005, decay: 0.011, pan: downPan });
+      }
+      addHit({ type: "noise", tone: 8200 * pf, duration: 0.012, volume: rj(0.42, 0.12) * v, attack: 0.0003, decay: 0.011, pan: downPan });
+      addSustain(
+        { type: "noise", tone: 7000 * pf, volume: rj(0.32, 0.15) * v, attack: 0.003, decay: 0, pan: downPan + rn(-0.02, 0.08) },
+        rj(0.40, 0.25),
+        0.12,
+        { tone: 3500 },
+      );
+      addSustain(
+        { type: "noise", tone: 5000 * pf, volume: rj(0.20, 0.18) * v, attack: 0.003, decay: 0, pan: downPan + rn(-0.02, 0.08) },
+        rj(0.25, 0.25),
+        0.10,
+        { tone: 2800 },
+      );
+      addSustain(
+        { type: "square", tone: 800 * pf, volume: rj(0.08, 0.20) * v, attack: 0.005, decay: 0, pan: downPan },
+        rj(0.20, 0.25),
+        0.08,
+      );
+      break;
+    }
+
+    case "b": { // ride — bell ping + long shimmer sustain
+      const downPan = pan + rn(-0.03, 0.03);
+      addHit({ type: "square", tone: 800 * pf, duration: 0.020, volume: rj(0.10, 0.18) * v, attack: 0.0005, decay: 0.019, pan: downPan });
+      addHit({ type: "square", tone: 540 * pf, duration: 0.020, volume: rj(0.08, 0.18) * v, attack: 0.0005, decay: 0.019, pan: downPan });
+      addSustain(
+        { type: "sine", tone: 440 * pf, volume: rj(0.24, 0.12) * v, attack: 0.0008, decay: 0, pan: downPan },
+        rj(0.40, 0.20),
+        0.25,
+      );
+      addSustain(
+        { type: "sine", tone: 587 * pf, volume: rj(0.20, 0.12) * v, attack: 0.0008, decay: 0, pan: downPan },
+        rj(0.40, 0.20),
+        0.25,
+      );
+      addSustain(
+        { type: "noise", tone: 4200 * pf, volume: rj(0.26, 0.12) * v, attack: 0.005, decay: 0, pan: downPan + rn(-0.03, 0.03) },
+        rj(0.9, 0.20),
+        0.30,
+      );
+      break;
+    }
+
+    case "c#": { // crash — explosive noise attack + LONG shimmer wash
+      const downPan = pan + rn(-0.05, 0.05);
+      addHit({ type: "noise", tone: 8000 * pf, duration: 0.030, volume: rj(0.75, 0.15) * v, attack: 0.0005, decay: 0.029, pan: downPan });
+      for (const f of HAT_FREQS) {
+        addHit({ type: "square", tone: f * pf, duration: 0.030, volume: rj(0.12, 0.20) * v, attack: 0.0005, decay: 0.029, pan: downPan });
+      }
+      addSustain(
+        { type: "noise", tone: 5000 * pf, volume: rj(0.45, 0.12) * v, attack: 0.008, decay: 0, pan: downPan + rn(-0.04, 0.04) },
+        rj(1.4, 0.18),
+        0.45,
+      );
+      addSustain(
+        { type: "noise", tone: 7500 * pf, volume: rj(0.30, 0.15) * v, attack: 0.008, decay: 0, pan: downPan + rn(-0.04, 0.04) },
+        rj(0.9, 0.18),
+        0.35,
+      );
+      addSustain(
+        { type: "square", tone: 800 * pf, volume: rj(0.08, 0.20) * v, attack: 0.008, decay: 0, pan: downPan },
+        rj(0.5, 0.20),
+        0.20,
+      );
+      break;
+    }
+
+    case "d#": { // splash — short bright cymbal burst (one-shot)
+      const downPan = pan + rn(-0.04, 0.04);
+      addHit({ type: "noise", tone: 9000 * pf, duration: 0.012, volume: rj(0.55, 0.15) * v, attack: 0.0003, decay: 0.011, pan: downPan });
+      addHit({ type: "square", tone: 800 * pf, duration: 0.015, volume: rj(0.14, 0.20) * v, attack: 0.0005, decay: 0.014, pan: downPan });
+      addHit({ type: "square", tone: 540 * pf, duration: 0.015, volume: rj(0.10, 0.20) * v, attack: 0.0005, decay: 0.014, pan: downPan });
+      addHit({ type: "noise", tone: 6000 * pf, duration: rj(0.35, 0.20), volume: rj(0.42, 0.12) * v, attack: 0.004, decay: 0.345, pan: downPan + rn(-0.03, 0.03) });
+      addHit({ type: "noise", tone: 8500 * pf, duration: rj(0.22, 0.20), volume: rj(0.25, 0.15) * v, attack: 0.004, decay: 0.215, pan: downPan + rn(-0.03, 0.03) });
+      break;
+    }
+
+    case "f#": { // cowbell — TR-808: two triangles 800/540 Hz (one-shot)
+      const downPan = pan + rn(-0.03, 0.03);
+      addHit({ type: "square", tone: 1800 * pf, duration: 0.004, volume: rj(0.35, 0.15) * v, attack: 0.0002, decay: 0.0038, pan: downPan });
+      addHit({ type: "triangle", tone: 800 * pf, duration: rj(0.28, 0.20), volume: rj(0.42, 0.12) * v, attack: 0.0008, decay: 0.275, pan: downPan });
+      addHit({ type: "triangle", tone: 540 * pf, duration: rj(0.28, 0.20), volume: rj(0.36, 0.12) * v, attack: 0.0008, decay: 0.275, pan: downPan });
+      break;
+    }
+
+    case "g#": { // wood block — single triangle @ 2500 Hz (one-shot)
+      const downPan = pan + rn(-0.03, 0.03);
+      addHit({ type: "noise", tone: 5000 * pf, duration: 0.002, volume: rj(0.35, 0.18) * v, attack: 0.0001, decay: 0.0018, pan: downPan });
+      addHit({ type: "triangle", tone: 2500 * pf, duration: rj(0.050, 0.25), volume: rj(0.52, 0.12) * v, attack: 0.0003, decay: 0.048, pan: downPan });
+      addHit({ type: "triangle", tone: 1250 * pf, duration: rj(0.050, 0.25), volume: rj(0.18, 0.18) * v, attack: 0.0005, decay: 0.048, pan: downPan });
+      break;
+    }
+
+    case "a#": { // tambourine — staggered jingle bursts (one-shot)
+      const downPan = pan + rn(-0.04, 0.04);
+      addHit({ type: "noise", tone: 7000 * pf, duration: 0.08, volume: rj(0.38, 0.18) * v, attack: 0.002, decay: 0.075, pan: downPan });
+      addHit({ type: "noise", tone: 7500 * pf, duration: 0.09, volume: rj(0.30, 0.18) * v, attack: 0.015, decay: 0.075, pan: downPan });
+      addHit({ type: "noise", tone: 6500 * pf, duration: 0.10, volume: rj(0.25, 0.18) * v, attack: 0.030, decay: 0.070, pan: downPan });
+      addHit({ type: "square", tone: 6000 * pf, duration: 0.030, volume: rj(0.14, 0.20) * v, attack: 0.001, decay: 0.028, pan: downPan });
+      addHit({ type: "noise", tone: 7000 * pf, duration: rj(0.20, 0.22), volume: rj(0.32, 0.18) * v, attack: 0.050, decay: 0.195, pan: downPan + rn(-0.04, 0.04) });
+      addHit({ type: "noise", tone: 4500 * pf, duration: rj(0.15, 0.22), volume: rj(0.20, 0.18) * v, attack: 0.055, decay: 0.145, pan: downPan + rn(-0.04, 0.04) });
+      break;
+    }
+  }
+}
+
+// source: system/public/aesthetic.computer/lib/synth.mjs
+// Virtual Synth Controller — a reusable instrument any AC disk piece can
+// instantiate to play pitched notes, chords, sustained voices, and the shared
+// notepat percussion kit, without re-deriving note frequencies or drum recipes.
+//
+// Usage inside a piece (sim/act both receive `sound`):
+//
+//   import { Synth } from "../lib/synth.mjs";
+//   let synth;
+//   function sim({ sound }) { synth ??= Synth(sound); }
+//   function act({ event: e, sound }) {
+//     synth ??= Synth(sound);
+//     if (e.is("keyboard:down:space")) synth.note("c4");        // pitched
+//     if (e.is("keyboard:down:k"))     synth.kick();            // drum
+//     if (e.is("keyboard:down:c"))     synth.chord(["c4","e4","g4"]);
+//     const held = synth.hold("a3");   // sustained (duration "🔁")
+//     // ...later: held.kill(0.1);
+//   }
+//
+// It wraps the piece's own `sound` API (sound.synth / sound.freq) plus the
+// shared 12-drum kit in ./percussion.mjs. No persistent global state — each
+// Synth() is an independent controller you can keep on a module variable.
+
+
+// Drum display-name → note letter (reverse of PERCUSSION_NAMES), so you can
+// say synth.perc("kick") instead of synth.perc("c").
+const NAME_TO_LETTER = Object.fromEntries(
+  Object.entries(PERCUSSION_NAMES).map(([letter, name]) => [name, letter]),
+);
+
+// Friendly aliases for the convenience drum methods (hat → closed hat, etc.).
+const DRUM_ALIASES = {
+  kick: "c", bass: "c", snare: "d", clap: "e", snap: "f",
+  hat: "g", hatClosed: "g", closedHat: "g", hatOpen: "a", openHat: "a",
+  ride: "b", crash: "c#", splash: "d#", cowbell: "f#", block: "g#", tambo: "a#",
+};
+
+// Equal-temperament fallback (A4 = 440) used only if sound.freq is absent.
+const SEMITONE = {
+  c: 0, "c#": 1, db: 1, d: 2, "d#": 3, eb: 3, e: 4, f: 5,
+  "f#": 6, gb: 6, g: 7, "g#": 8, ab: 8, a: 9, "a#": 10, bb: 10, b: 11,
+};
+function fallbackHz(str) {
+  const m = String(str).toLowerCase().match(/^([a-g](?:#|b)?)(-?\d)?$/);
+  if (!m) return parseFloat(str) || 440;
+  const semi = SEMITONE[m[1]] ?? 0;
+  const oct = m[2] != null ? parseInt(m[2], 10) : 4;
+  return 440 * Math.pow(2, (semi + (oct - 4) * 12 - 9) / 12);
+}
+
+function Synth(sound, opts = {}) {
+  if (!sound || !sound.synth) {
+    // Return an inert controller so callers never crash before audio is ready.
+    const noop = () => null;
+    return new Proxy({}, { get: () => noop });
+  }
+
+  const state = {
+    wave: opts.wave || opts.voice || "sine",
+    volume: opts.volume ?? 0.4,
+    pan: opts.pan ?? 0,
+  };
+
+  // note name (or raw Hz number) → frequency in Hz.
+  const hz = (n) =>
+    typeof n === "number" ? n : sound.freq?.(n) ?? fallbackHz(n);
+
+  // Play a single pitched note. Returns the synth handle (has .kill / .update).
+  function note(n, o = {}) {
+    const duration = o.duration ?? o.dur ?? 0.25;
+    return sound.synth({
+      type: o.wave || o.type || state.wave,
+      tone: hz(n),
+      attack: o.attack ?? 0.01,
+      decay: o.decay ?? duration * 0.5,
+      sustain: o.sustain ?? 0,
+      release: o.release ?? 0.06,
+      volume: o.volume ?? state.volume,
+      pan: o.pan ?? state.pan,
+      duration,
+    });
+  }
+
+  // Start a sustained note (loops until killed). Returns the handle — call
+  // handle.kill(fade) to release it.
+  function hold(n, o = {}) {
+    return sound.synth({
+      type: o.wave || o.type || state.wave,
+      tone: hz(n),
+      attack: o.attack ?? 0.01,
+      decay: o.decay ?? 0.9,
+      sustain: o.sustain ?? 1,
+      volume: o.volume ?? state.volume,
+      pan: o.pan ?? state.pan,
+      duration: "🔁",
+    });
+  }
+
+  // Play several notes at once (root slightly louder). Returns an array.
+  function chord(notes, o = {}) {
+    const base = o.volume ?? state.volume;
+    return (notes || []).map((n, i) =>
+      note(n, { ...o, volume: base * (i === 0 ? 1 : 0.7) }),
+    );
+  }
+
+  // Sustained chord — returns handles; kill them all with releaseAll(handles).
+  function holdChord(notes, o = {}) {
+    const base = o.volume ?? state.volume;
+    return (notes || []).map((n, i) =>
+      hold(n, { ...o, volume: base * (i === 0 ? 1 : 0.7) }),
+    );
+  }
+
+  function releaseAll(handles, fade = 0.12) {
+    (handles || []).forEach((h) => h?.kill?.(fade));
+  }
+
+  // Fire a drum from the shared kit. `name` accepts a display name ("kick",
+  // "hat-c"), an alias ("openHat"), or a raw note letter ("c", "c#").
+  function perc(name, o = {}) {
+    const letter = NAME_TO_LETTER[name] || DRUM_ALIASES[name] || name;
+    return playPercussion(sound, letter, o);
+  }
+
+  const api = {
+    note,
+    hold,
+    chord,
+    holdChord,
+    releaseAll,
+    perc,
+    // Set the default voice/waveform for subsequent note()/chord() calls.
+    voice: (w) => ((state.wave = w), w),
+    // Tweak a default (volume / pan / wave).
+    set: (k, v) => ((state[k] = v), v),
+    hz,
+    state,
+    drumNames: PERCUSSION_NAMES,
+  };
+
+  // Convenience drum methods: synth.kick(), .snare(), .hat(), .openHat(), …
+  for (const [alias, letter] of Object.entries(DRUM_ALIASES)) {
+    api[alias] = (o) => perc(letter, o);
+  }
+
+  return api;
+}
+
+// source: system/public/aesthetic.computer/lib/nom-score.mjs
+// Shared scoring rules for the Nom games.
+
+const NOM_SCORE_LIMIT = 1_000_000_000;
+
+function munchPoints(combo) {
+  const streak = Math.max(1, Math.trunc(Number(combo) || 1));
+  return 100 + (streak - 1) * 25;
+}
+
+function clearPoints(level, beatsLeft) {
+  const board = Math.max(1, Math.trunc(Number(level) || 1));
+  const beats = Math.max(0, Math.trunc(Number(beatsLeft) || 0));
+  return board * 250 + beats * 10;
+}
+
+function normalizeNomRun(value = {}) {
+  const score = Math.trunc(Number(value.score));
+  const level = Math.trunc(Number(value.level));
+  const correct = Math.trunc(Number(value.correct));
+  if (
+    !Number.isFinite(score) || score < 0 || score > NOM_SCORE_LIMIT ||
+    !Number.isFinite(level) || level < 1 || level > 10_000 ||
+    !Number.isFinite(correct) || correct < 0 || correct > 1_000_000
+  ) return null;
+  return { score, level, correct };
+}
+
+// Positive means a is the stronger run. Earlier achievement wins an exact tie.
+function compareNomRuns(a, b) {
+  if (!b) return 1;
+  if (a.score !== b.score) return a.score - b.score;
+  if (a.level !== b.level) return a.level - b.level;
+  if (a.correct !== b.correct) return a.correct - b.correct;
+  const at = new Date(a.when || 0).getTime();
+  const bt = new Date(b.when || 0).getTime();
+  return bt - at;
+}
+
+// source: system/public/aesthetic.computer/lib/nom.mjs
 // nom — shared engine for the muncher games (numbnom / engnom / mexinom / dannom / rusnom / notenom / catnom / artnom), 2026.06.07
 // Move the muncher around a 5×5 grid and eat every square that satisfies the
 // rule at the top — but dodge the Troggles. `numbnom` = numbers, `engnom` = words,
@@ -5,8 +538,6 @@
 // `catnom` = Categories-game rounds (AC pieces, code words, slang, vibes),
 // `artnom` = museum thumbnails grouped by Getty AAT art-historical styles.
 
-import { Synth } from "./synth.mjs"; // shared virtual synth + perc kit
-import { clearPoints, munchPoints } from "./nom-score.mjs";
 
 /* #region 📚 README
   Controls:
@@ -161,7 +692,7 @@ function reset() {
 
 // 🥾 Boot — reset all state, then drop straight onto a live board (no title gate
 // / "press any key"); a brief intro card fades over the playing board.
-function boot({ params, hud, clock, artnom, net, handle, authorize, num: { randInt } }) {
+function nomBoot({ params, hud, clock, artnom, net, handle, authorize, num: { randInt } }) {
   reset();
   clock?.resync?.(); // network-sync the wall clock; board beats ride this grid
   const m = resolveMode(params);
@@ -1271,7 +1802,7 @@ function idx(col, row) {
 }
 
 // 🧮 Sim ───────────────────────────────────────────────────────────────────
-function sim({ gizmo, seconds, sound, clock, num: { randInt } }) {
+function nomSim({ gizmo, seconds, sound, clock, num: { randInt } }) {
   snd = sound;
   if (sound && !synth) synth = Synth(sound);
   // 🕰️ Sample the network-synced wall clock and derive the global beat grid.
@@ -1903,7 +2434,7 @@ function announceBoard() {
 }
 
 // 🎪 Act ─────────────────────────────────────────────────────────────────────
-function act({ event: e, sound, speak, cursor, net, num: { randInt } }) {
+function nomAct({ event: e, sound, speak, cursor, net, num: { randInt } }) {
   snd = sound;
   // ⌨️/🖱️ Input mode: pressing a key hides the cursor + hover; moving the mouse
   // brings them back.
@@ -2164,7 +2695,7 @@ function cellAt(px, py) {
 // painting for exactly those frames. Tapes stay hd end-to-end: bios mirrors
 // each hd bitmap into a live MediaRecorder while recording.
 let pixelWashDark = null; // theme of the last hidden-pixel-buffer wash
-function paint(api) {
+function nomPaint(api) {
   setTheme(api.dark !== false); // 🌗 follow the system theme, live
   const layer = hiRes && api.hd ? api.hd() : null;
   if (layer) {
@@ -3028,7 +3559,7 @@ function paintLeaderboard({ ink, screen }) {
   }
 }
 
-function leave() {
+function nomLeave() {
   killChord();
   submitRun();
 }
@@ -3058,4 +3589,213 @@ function meta() {
   ]);
 }
 
-export { boot, sim, paint, act, leave, meta, makeMeta };
+// Native Xbox adapter for the shared Nom engine. Appended by bundle-nom.mjs
+// inside the same closure as nomBoot/nomSim/nomPaint/nomAct/nomLeave.
+
+let xboxNomSeed = 0x4e4f4d;
+let xboxNomScreen = { width: 1920, height: 1080 };
+let xboxNomInk = [255, 255, 255, 255];
+let xboxNomBackdrop = [0, 0, 0];
+let xboxNomPreviousButtons = new Set();
+
+function xboxNomRandom() {
+  xboxNomSeed = (Math.imul(xboxNomSeed, 1664525) + 1013904223) >>> 0;
+  return xboxNomSeed / 0x100000000;
+}
+
+function xboxNomRandInt(maximum) {
+  return Math.floor(xboxNomRandom() * (Math.max(0, Number(maximum) || 0) + 1));
+}
+
+function xboxNomView() {
+  const view = typeof gameView === "function" ? gameView() : null;
+  xboxNomScreen = {
+    width: Math.max(320, Math.round(Number(view?.width) || 1920)),
+    height: Math.max(240, Math.round(Number(view?.height) || 1080)),
+  };
+}
+
+function xboxNomColor(values) {
+  const color = values.length === 1 && Array.isArray(values[0]) ? values[0] : values;
+  return [
+    Math.max(0, Math.min(255, Math.round(Number(color[0]) || 0))),
+    Math.max(0, Math.min(255, Math.round(Number(color[1]) || 0))),
+    Math.max(0, Math.min(255, Math.round(Number(color[2]) || 0))),
+    color[3] == null ? 255 : Math.max(0, Math.min(255, Math.round(Number(color[3]) || 0))),
+  ];
+}
+
+function xboxNomOpaque(color) {
+  if (color[3] >= 250) return color;
+  const alpha = color[3] / 255;
+  return [0, 1, 2].map((index) =>
+    Math.round(color[index] * alpha + xboxNomBackdrop[index] * (1 - alpha)));
+}
+
+function xboxNomRect(x, y, width, height, style) {
+  // The current OSKIEWAR host's box primitive is opaque. Dropping translucent
+  // overlays preserves the board; drawing their blended color as an opaque
+  // rectangle would erase every command beneath it.
+  if (xboxNomInk[3] < 250) return;
+  const [r, g, b] = xboxNomOpaque(xboxNomInk);
+  if (style === "outline") {
+    box(x, y, width, 1, r, g, b);
+    box(x, y + height - 1, width, 1, r, g, b);
+    box(x, y, 1, height, r, g, b);
+    box(x + width - 1, y, 1, height, r, g, b);
+  } else box(x, y, width, height, r, g, b);
+}
+
+function xboxNomLine(x1, y1, x2, y2) {
+  const [r, g, b] = xboxNomOpaque(xboxNomInk);
+  line(x1, y1, x2, y2, 1, r, g, b);
+}
+
+function xboxNomWrite(value, position = {}) {
+  const text = String(value || "");
+  const size = Number(position.size) || 1;
+  const pixelSize = size * 10;
+  const x = position.center === "x"
+    ? (xboxNomScreen.width - text.length * 6 * size) / 2
+    : Number(position.x) || 0;
+  const y = Number(position.y) || 0;
+  const [r, g, b] = xboxNomOpaque(xboxNomInk);
+  if (typeof comicWrite === "function") comicWrite(text, x, y, pixelSize, r, g, b);
+  else write(text, x, y, pixelSize, r, g, b);
+}
+
+const xboxNomChain = {
+  box: xboxNomRect,
+  line: xboxNomLine,
+  write: xboxNomWrite,
+  hd: false,
+};
+
+function xboxNomInkFn(...values) {
+  xboxNomInk = xboxNomColor(values);
+  return xboxNomChain;
+}
+
+function xboxNomWipe(...values) {
+  xboxNomBackdrop = xboxNomColor(values).slice(0, 3);
+  wipe(...xboxNomBackdrop);
+}
+
+function xboxNomFrequency(note) {
+  const match = String(note).toLowerCase().match(/^([a-g])([#b]?)(-?\d)?$/);
+  if (!match) return Number(note) || 440;
+  const semitones = { c: 0, d: 2, e: 4, f: 5, g: 7, a: 9, b: 11 };
+  const accidental = match[2] === "#" ? 1 : match[2] === "b" ? -1 : 0;
+  const octave = match[3] == null ? 4 : Number(match[3]);
+  return 440 * Math.pow(2, (semitones[match[1]] + accidental + (octave - 4) * 12 - 9) / 12);
+}
+
+const xboxNomSound = {
+  freq: xboxNomFrequency,
+  synth(options = {}) {
+    const tone = Number(options.tone) || 440;
+    const volume = Number(options.volume) || .2;
+    if (options.duration === "🔁" && typeof oscillator === "function") {
+      oscillator(tone, volume);
+      return { kill: () => typeof oscillatorStop === "function" && oscillatorStop() };
+    }
+    xboxNativeSynth(tone, Math.max(.01, Number(options.duration) || .08));
+    return { kill() {}, update() {} };
+  },
+};
+
+class XboxNomHourglass {
+  constructor(maximum = 1, options = {}) {
+    this.maximum = Math.max(1, Number(maximum) || 1);
+    this.options = options;
+    this.ticks = 0;
+  }
+  step() {
+    this.ticks += 1;
+    if (this.ticks < this.maximum) return;
+    this.options.completed?.();
+    this.options.flipped?.();
+    if (this.options.autoFlip) this.ticks = 0;
+  }
+}
+
+const xboxNomNum = { randInt: xboxNomRandInt };
+const xboxNomGizmo = { Hourglass: XboxNomHourglass };
+const xboxNomClock = {
+  resync() {},
+  time() {
+    const snapshot = typeof runtime === "function" ? runtime() : null;
+    return new Date(Number(snapshot?.unixMs) || Date.now());
+  },
+};
+
+function xboxNomEvent(name) {
+  return { name, is: (candidate) => candidate === name };
+}
+
+function xboxNomDispatch(button, down) {
+  const key = {
+    ArrowLeft: "arrowleft", ArrowRight: "arrowright",
+    ArrowUp: "arrowup", ArrowDown: "arrowdown",
+    A: "space", Menu: "enter",
+  }[button];
+  if (!key) return;
+  nomAct({
+    event: xboxNomEvent(`keyboard:${down ? "down" : "up"}:${key}`),
+    sound: xboxNomSound,
+    speak() {}, cursor() {}, net: {}, num: xboxNomNum,
+  });
+}
+
+function xboxNomSampleInput() {
+  const snapshot = typeof gamepad === "function" ? gamepad(0) : { down: [] };
+  const current = new Set(Array.isArray(snapshot?.down) ? snapshot.down : []);
+  for (const button of current)
+    if (!xboxNomPreviousButtons.has(button)) xboxNomDispatch(button, true);
+  for (const button of xboxNomPreviousButtons)
+    if (!current.has(button)) xboxNomDispatch(button, false);
+  xboxNomPreviousButtons = current;
+}
+
+const xboxNomPaintApi = {
+  get screen() { return xboxNomScreen; },
+  get dark() { return true; },
+  wipe: xboxNomWipe,
+  ink: xboxNomInkFn,
+  box: xboxNomRect,
+  line: xboxNomLine,
+  write: xboxNomWrite,
+};
+
+globalThis.boot = function boot() {
+  xboxNomView();
+  xboxNomPreviousButtons.clear();
+  nomBoot({
+    params: ["danish"], hud: { label() {} }, clock: xboxNomClock,
+    net: {},
+    handle: () => typeof nomHandle === "function" ? nomHandle() : null,
+    authorize: null, num: xboxNomNum,
+  });
+  if (typeof telemetry === "function") telemetry("NOM_READY", "dannom shared-engine");
+};
+
+globalThis.sim = function sim() {
+  xboxNomView();
+  xboxNomSampleInput();
+  nomSim({
+    gizmo: xboxNomGizmo, seconds: (value) => value * 60,
+    sound: xboxNomSound, clock: xboxNomClock, num: xboxNomNum,
+  });
+};
+
+globalThis.paint = function paint() {
+  xboxNomView();
+  nomPaint(xboxNomPaintApi);
+};
+
+// OSKIEWAR samples controller state in its fixed simulation step too. Keeping
+// act empty prevents a native edge callback from advancing Nom twice.
+globalThis.act = function act() {};
+globalThis.leave = function leave() { nomLeave(); };
+
+})(synth);

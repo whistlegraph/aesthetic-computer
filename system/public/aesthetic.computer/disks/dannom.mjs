@@ -3,7 +3,7 @@
 // hygge. Reuses lib/nom.mjs and forces Danish word mode at boot. Each munch
 // speaks the English translation aloud, so it doubles as a vocab drill.
 
-import { boot as nomBoot, sim, paint, act, makeMeta } from "../lib/nom.mjs";
+import { boot as nomBoot, sim, paint, act, leave, makeMeta } from "../lib/nom.mjs";
 
 function boot(api) {
   nomBoot({ ...api, params: ["danish"] });
@@ -15,4 +15,4 @@ function meta() {
   return makeMeta(["danish"]);
 }
 
-export { boot, sim, paint, act, meta };
+export { boot, sim, paint, act, leave, meta };
