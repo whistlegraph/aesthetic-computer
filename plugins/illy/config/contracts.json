@@ -1,0 +1,28 @@
+{
+  "contracts": {
+    "physical-accuracy": {
+      "description": "Required physical and anatomical integrity for every illy.",
+      "prompt": [
+        "PHYSICAL ACCURACY CONTRACT — REQUIRED, NOT OPTIONAL.",
+        "Render one coherent physical state. Preserve exact object and character counts, identities, topology, and scale; no duplicates, fusions, substitutions, or parts appearing twice.",
+        "Make every support and contact legible: feet bear weight on the stated surface, wheels meet the ground, hands close around held objects, mounted objects remain attached at their brackets, and contact shadows agree with those connections.",
+        "Respect gravity, inertia, balance, joint limits, load paths, and plausible weight distribution. Limbs bend correctly; grips, stance, and object orientation must be mechanically usable.",
+        "Keep camera geometry physically coherent. A first-person camera cannot also show its owner's face or body except the explicitly visible near limbs; reflections and occlusion must agree with the viewpoint.",
+        "If the prompt names motion, depict exactly one named instant with a readable cause, current action, and supported body state. Do not collapse before, impact, and aftermath into one contradictory tableau.",
+        "Do not use blur, cropping, darkness, particles, or spectacle to hide uncertain anatomy, contact, or mechanics. Reject the image if the action only works because the relevant connection is obscured."
+      ]
+    },
+    "extreme-physical-beats": {
+      "description": "Motion-ready keyframe contract for action, POV, transformation, and multi-beat sequences.",
+      "prompt": [
+        "EXTREME PHYSICAL BEAT CONTRACT — MOTION-READY SOURCE FRAME.",
+        "The frame must be a valid start or end state for animation, not merely an attractive action pose. Show the support polygon, contact points, direction of travel, aim or force line, and available clearance needed by the next beat.",
+        "Cause must precede effect: trigger before recoil, impact before transformation, push before coast, loss of support before falling. Do not show an effect that has no visible source or an outcome that has already happened in a pre-action keyframe.",
+        "Preserve state across the implied cut: the same hands keep the same prop, the same feet stay on the same support unless a named beat moves them, mounted objects remain anchored until the named transformation, and completed changes do not reset.",
+        "For moving platforms, show mechanically credible stance, deck or vehicle contact, wheel or ground contact, and balance against acceleration. For recoil or impact, show the equal-and-opposite body or support response without teleportation.",
+        "For POV shots, place the camera at the declared physical viewpoint and show only geometry that viewpoint can see. For target-side shots, keep the target mount, incoming force direction, and background actor positions mutually consistent.",
+        "Leave every required physical relationship visible enough to inspect at full size and at a 10%-scale preview. A keyframe fails if mechanics require explanation, inference through blur, or a later render to repair them."
+      ]
+    }
+  }
+}

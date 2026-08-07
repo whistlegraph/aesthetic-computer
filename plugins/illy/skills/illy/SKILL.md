@@ -12,13 +12,32 @@ Treat an “illy” as the project’s provider-neutral illustration artifact. P
 1. Inspect the target lane before generating.
    - Marketing campaign: preserve `brand-brief.md`, `cover-prompt.txt`, `refs/`, and `gens/`.
    - Pop lane: keep still-image prompts separate from motion prompts; the illy is the source frame for `pop/lib/motion-pipeline.mjs`.
-2. Call `illy_backends` and `illy_pipelines` before selecting a paid route. Never infer that a missing credential is available.
+2. Call `illy_backends`, `illy_pipelines`, and `illy_contracts` before selecting
+   a paid route. Never infer that a missing credential is available.
 3. Call `illy_plan` before a batch or unfamiliar model. Show the chosen provider, model, references, output, and stages.
 4. Choose execution explicitly:
    - Use `illy_generate` for OpenAI/fal API generation, automation, precise model choice, or reproducibility.
-   - Use Codex’s built-in image tool for an interactive subscription-backed render when available. The MCP cannot invoke that tool; after rendering, save the image at the planned output and call `illy_record` to write provenance.
+   - Use Codex’s built-in image tool for an interactive subscription-backed
+     render when available. The MCP cannot invoke that tool: append every
+     contract resolved by the planned pipeline to the image prompt before
+     rendering, then save the image and call `illy_record` with those contract
+     identifiers. Never claim an unapplied contract in provenance.
 5. Preserve cached outputs unless the user requests a reroll. Use `force: true` only deliberately; Illy archives the replaced image.
 6. Inspect the result. Iterate with one targeted prompt change, then retain the selected take.
+
+## Physical beats
+
+- Every pipeline enforces `physical-accuracy`; `pop-panel` additionally
+  enforces `extreme-physical-beats`.
+- A dynamic illy depicts one exact temporal state. It must expose weight,
+  support, grips, mounts, contact shadows, direction of travel or force, and a
+  physically possible camera position. Reject spectacle that hides mechanics.
+- Before animating action, transformation, POV, or moving-platform panels,
+  encode the motion shot as `physical: "extreme"` with at least two ordered
+  normalized beats and explicit contacts. The shared motion pipeline rejects
+  incomplete extreme entries before any paid generation.
+- Inspect the contracted relationships in the illy itself and again in the
+  render. A final cannot repair an invalid source frame by implication.
 
 ## Provider selection
 

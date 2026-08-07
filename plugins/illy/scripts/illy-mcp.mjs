@@ -15,6 +15,7 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const REPO = resolve(ROOT, "../..");
 const PROVIDERS = JSON.parse(readFileSync(join(ROOT, "config/providers.json"), "utf8")).providers;
 const PIPELINES = JSON.parse(readFileSync(join(ROOT, "config/pipelines.json"), "utf8")).pipelines;
+const CONTRACTS = JSON.parse(readFileSync(join(ROOT, "config/contracts.json"), "utf8")).contracts;
 const VAULT_ENV = join(REPO, "aesthetic-computer-vault/.devcontainer/envs/devcontainer.env");
 const IMAGE_RE = /\.(png|jpe?g|webp|gif)$/i;
 
@@ -97,6 +98,22 @@ function selectProvider(pipeline, requested, modelRequested, mode, refCount) {
   throw new Error(`no configured backend supports ${mode} with ${refCount} reference(s) (${detail})`);
 }
 
+function resolveContracts(pipeline, requested = []) {
+  const extra = Array.isArray(requested) ? requested : String(requested || "").split(",").filter(Boolean);
+  const ids = [...new Set(["physical-accuracy", ...(pipeline.contracts || []), ...extra])];
+  for (const id of ids) if (!CONTRACTS[id]) throw new Error(`unknown contract: ${id}`);
+  return {
+    ids,
+    prompt: ids.map((id) => (CONTRACTS[id].prompt || []).join("\n")).join("\n\n"),
+  };
+}
+
+function validateRecordedContracts(requested = []) {
+  const ids = Array.isArray(requested) ? requested : String(requested || "").split(",").filter(Boolean);
+  for (const id of ids) if (!CONTRACTS[id]) throw new Error(`unknown contract: ${id}`);
+  return [...new Set(ids)];
+}
+
 function buildPlan(args = {}) {
   const pipelineName = args.pipeline || "marketing";
   const pipelineFile = args.pipelineFile ? resolve(args.pipelineFile) : null;
@@ -106,8 +123,10 @@ function buildPlan(args = {}) {
   const targetDir = resolve(args.targetDir || process.cwd());
   if (!existsSync(targetDir) || !statSync(targetDir).isDirectory()) throw new Error(`targetDir not found: ${targetDir}`);
   const promptPath = args.promptFile ? resolvePath(targetDir, args.promptFile) : firstPromptFile(targetDir, pipeline);
-  const prompt = String(args.prompt || (promptPath && readFileSync(promptPath, "utf8")) || "").trim();
-  if (!prompt) throw new Error("provide prompt or a target directory containing the pipeline prompt file");
+  const creativePrompt = String(args.prompt || (promptPath && readFileSync(promptPath, "utf8")) || "").trim();
+  if (!creativePrompt) throw new Error("provide prompt or a target directory containing the pipeline prompt file");
+  const contracts = resolveContracts(pipeline, args.contracts || []);
+  const prompt = contracts.prompt ? `${creativePrompt}\n\n${contracts.prompt}` : creativePrompt;
   const refs = collectRefs(targetDir, pipeline, args.references || []);
   for (const ref of refs) if (!existsSync(ref)) throw new Error(`reference not found: ${ref}`);
   const mode = refs.length ? "edit" : "generate";
@@ -119,7 +138,8 @@ function buildPlan(args = {}) {
   const size = args.size || pipeline.defaults?.size || "1024x1024";
   const quality = args.quality || pipeline.defaults?.quality || "high";
   return {
-    pipeline: pipelineName, pipelineFile, description: pipeline.description, targetDir, prompt, promptPath,
+    pipeline: pipelineName, pipelineFile, description: pipeline.description, targetDir,
+    creativePrompt, prompt, promptPath, contracts: contracts.ids,
     promptHash: createHash("sha256").update(prompt).digest("hex"), refs, mode,
     provider: picked.provider, model: picked.model, size, quality, slug, variant, output,
     stages: pipeline.stages, force: args.force === true,
@@ -216,7 +236,8 @@ function writeProvenance(plan, extra = {}) {
     schema: "illy/v1", createdAt: new Date().toISOString(), pipeline: plan.pipeline,
     provider: plan.provider, model: plan.model, mode: plan.mode, size: plan.size,
     quality: plan.quality, output: plan.output, promptPath: plan.promptPath,
-    promptHash: plan.promptHash, references: plan.refs, stages: plan.stages, ...extra,
+    promptHash: plan.promptHash, references: plan.refs, contracts: plan.contracts || [],
+    stages: plan.stages, ...extra,
   };
   writeFileSync(`${plan.output}.illy.json`, JSON.stringify(meta, null, 2) + "\n");
   return meta;
@@ -241,13 +262,15 @@ function record(args) {
   if (!args.output || !existsSync(output)) throw new Error("output must name an existing image");
   const prompt = String(args.prompt || "").trim();
   if (!prompt) throw new Error("prompt is required");
+  const contracts = validateRecordedContracts(args.contracts || []);
   const plan = {
     pipeline: args.pipeline || "custom", provider: args.provider || "codex-built-in",
     model: args.model || "undisclosed", mode: (args.references || []).length ? "edit" : "generate",
     size: args.size || null, quality: args.quality || null, output,
     promptPath: args.promptFile ? resolve(args.promptFile) : null,
     promptHash: createHash("sha256").update(prompt).digest("hex"),
-    refs: (args.references || []).map((path) => resolve(path)), stages: ["external-generate", "provenance"],
+    refs: (args.references || []).map((path) => resolve(path)), contracts,
+    stages: ["external-generate", "provenance"],
   };
   return writeProvenance(plan, { note: args.note || "Recorded external/interactively generated illy." });
 }
@@ -256,6 +279,7 @@ const commonProperties = {
   pipeline: { type: "string", description: `Built-ins: ${Object.keys(PIPELINES).join(", ")}; custom names are allowed with pipelineFile.` },
   pipelineFile: { type: "string", description: "Optional JSON file containing {pipeline:{...}} or {pipelines:{name:{...}}}." }, targetDir: { type: "string" },
   prompt: { type: "string" }, promptFile: { type: "string" }, references: { type: "array", items: { type: "string" } },
+  contracts: { type: "array", items: { type: "string" }, description: `Additional prompt contracts: ${Object.keys(CONTRACTS).join(", ")}. Pipeline contracts always apply.` },
   provider: { type: "string", description: "auto, openai, or fal" }, model: { type: "string" }, output: { type: "string" },
   slug: { type: "string" }, variant: { type: "string" }, size: { type: "string" }, quality: { type: "string" }, force: { type: "boolean" },
 };
@@ -263,14 +287,16 @@ const commonProperties = {
 const TOOLS = [
   { name: "illy_backends", description: "List configured illy providers/models, capabilities, and credential availability without exposing secrets.", inputSchema: { type: "object", properties: {} } },
   { name: "illy_pipelines", description: "List the marketing/pop illy pipeline presets and their stages.", inputSchema: { type: "object", properties: {} } },
-  { name: "illy_plan", description: "Resolve an illy request into a non-billing execution plan: prompt, refs, provider/model, stages, and output.", inputSchema: { type: "object", properties: commonProperties } },
+  { name: "illy_contracts", description: "List shared prompt contracts enforced by Illy pipelines, including physical and extreme motion-ready requirements.", inputSchema: { type: "object", properties: {} } },
+  { name: "illy_plan", description: "Resolve an illy request into a non-billing execution plan: creative prompt, applied contracts, effective prompt, refs, provider/model, stages, and output.", inputSchema: { type: "object", properties: commonProperties } },
   { name: "illy_generate", description: "Run a paid OpenAI or fal.ai illy pipeline. Existing outputs are cached unless force=true; successful rerolls archive the prior take and write provenance.", inputSchema: { type: "object", properties: commonProperties } },
-  { name: "illy_record", description: "Write illy provenance for an image generated outside the MCP, including a Codex built-in image-tool render.", inputSchema: { type: "object", properties: { output: { type: "string" }, prompt: { type: "string" }, pipeline: { type: "string" }, provider: { type: "string" }, model: { type: "string" }, promptFile: { type: "string" }, references: { type: "array", items: { type: "string" } }, size: { type: "string" }, quality: { type: "string" }, note: { type: "string" } }, required: ["output", "prompt"] } },
+  { name: "illy_record", description: "Write illy provenance for an image generated outside the MCP, including a Codex built-in image-tool render.", inputSchema: { type: "object", properties: { output: { type: "string" }, prompt: { type: "string" }, pipeline: { type: "string" }, provider: { type: "string" }, model: { type: "string" }, promptFile: { type: "string" }, references: { type: "array", items: { type: "string" } }, contracts: { type: "array", items: { type: "string" } }, size: { type: "string" }, quality: { type: "string" }, note: { type: "string" } }, required: ["output", "prompt"] } },
 ];
 
 async function callTool(name, args = {}) {
   if (name === "illy_backends") return Object.fromEntries(Object.entries(PROVIDERS).map(([id, provider]) => [id, { label: provider.label, credential: provider.credential, available: !!envValue(provider.credential), models: provider.models }]));
   if (name === "illy_pipelines") return PIPELINES;
+  if (name === "illy_contracts") return CONTRACTS;
   if (name === "illy_plan") return buildPlan(args);
   if (name === "illy_generate") return generate(args);
   if (name === "illy_record") return record(args);
@@ -280,7 +306,7 @@ async function callTool(name, args = {}) {
 async function handle(message) {
   const { id, method, params } = message;
   try {
-    if (method === "initialize") return { jsonrpc: "2.0", id, result: { protocolVersion: "2024-11-05", capabilities: { tools: {} }, serverInfo: { name: "illy", version: "0.1.0" } } };
+    if (method === "initialize") return { jsonrpc: "2.0", id, result: { protocolVersion: "2024-11-05", capabilities: { tools: {} }, serverInfo: { name: "illy", version: "0.2.0" } } };
     if (method === "initialized" || method === "notifications/initialized") return null;
     if (method === "ping") return { jsonrpc: "2.0", id, result: {} };
     if (method === "tools/list") return { jsonrpc: "2.0", id, result: { tools: TOOLS } };

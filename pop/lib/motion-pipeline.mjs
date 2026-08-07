@@ -22,7 +22,9 @@
 //   final    <lane>/out/<slug>-motion-yt.mp4 (previous cuts archived too)
 //
 // SHOTS table entry (per section name):
-//   { motion: "…prompt…", morphTo: "sectionName" | undefined }
+//   { motion: "…prompt…", morphTo: "sectionName" | undefined,
+//     physical: "standard" | "extreme", beats?: [{at: 0..1, action}],
+//     contacts?: ["feet → deck"], invariants?: ["same board"] }
 // morphTo uses the partner panel as the Seedance end-frame. Cuts are the
 // default — morph ONLY same-camera escalations (see pop-motion-pipeline
 // memory: cross-scene morphs invent doubled figures).
@@ -31,6 +33,44 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync, renameSync, readdir
 import { resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import { generateShot, RATE_PER_SEC } from "./fal.mjs";
+
+export const PHYSICAL_MOTION_CONTRACT = `PHYSICAL MOTION CONTRACT — REQUIRED.
+Preserve the source frame's exact identities, counts, topology, scale, mounts, grips, supports, and contact points. Gravity, inertia, balance, joint limits, load paths, wheel/ground contact, and equal-and-opposite recoil or impact response must remain mechanically credible.
+Render cause before effect and keep each beat distinct: preparation, action, force transfer, result, then settle. Do not begin the result before its cause, reset a completed change, teleport a prop or limb, detach a support, or hide broken mechanics with blur, particles, cropping, darkness, or camera shake.
+Camera motion and subject motion must agree through parallax and occlusion. A declared POV may show only geometry visible from that physical camera position. The final state must persist cleanly for the cut.`;
+
+function stringList(value) {
+  return Array.isArray(value) ? value.map(String).map((x) => x.trim()).filter(Boolean) : [];
+}
+
+export function physicalMotionContract(shot, duration) {
+  const level = shot.physical || "standard";
+  if (!["standard", "extreme"].includes(level)) throw new Error(`unknown physical contract: ${level}`);
+  if (level === "standard") return { level, prompt: PHYSICAL_MOTION_CONTRACT, beats: [], contacts: [], invariants: [] };
+
+  const beats = Array.isArray(shot.beats) ? shot.beats : [];
+  const contacts = stringList(shot.contacts);
+  const invariants = stringList(shot.invariants);
+  if (beats.length < 2) throw new Error("physical: extreme requires at least two ordered beats");
+  if (!contacts.length) throw new Error("physical: extreme requires explicit contacts");
+
+  let previous = -1;
+  const normalized = beats.map((beat, index) => {
+    const at = Number(beat?.at);
+    const action = String(beat?.action || "").trim();
+    if (!Number.isFinite(at) || at < 0 || at > 1) throw new Error(`extreme beat ${index} requires at in 0..1`);
+    if (at <= previous) throw new Error(`extreme beat ${index} must follow the previous beat`);
+    if (!action) throw new Error(`extreme beat ${index} requires action`);
+    previous = at;
+    return { at, action };
+  });
+  if (normalized[0].at !== 0) throw new Error("physical: extreme beat map must start at 0");
+
+  const beatLines = normalized.map(({ at, action }) =>
+    `${(at * duration).toFixed(2)}s (${Math.round(at * 100)}%) — ${action}`);
+  const prompt = `${PHYSICAL_MOTION_CONTRACT}\n\nEXTREME PHYSICAL BEAT MAP — DO NOT MERGE OR REORDER:\n${beatLines.join("\n")}\nCONTACTS THAT MUST REMAIN VISIBLE:\n- ${contacts.join("\n- ")}${invariants.length ? `\nSTATE INVARIANTS:\n- ${invariants.join("\n- ")}` : ""}`;
+  return { level, prompt, beats: normalized, contacts, invariants };
+}
 
 export function parseFlags(argv = process.argv) {
   const flags = {};
@@ -52,13 +92,18 @@ export function shotList(cfg) {
     const shot = cfg.shots[s.name];
     if (!shot) throw new Error(`SHOTS table missing section "${s.name}"`);
     const exact = s.endSec - s.startSec;
+    const dur = Math.min(15, Math.max(4, Math.ceil(exact)));
+    const physical = physicalMotionContract({ ...shot, physical: shot.physical || cfg.physical || "standard" }, dur);
     const morphIdx = shot.morphTo ? struct.sections.findIndex((x) => x.name === shot.morphTo) : -1;
     return {
-      i, name: s.name, exact,
-      dur: Math.min(15, Math.max(4, Math.ceil(exact))),
+      i, name: s.name, exact, dur,
       image: panel(s.name, i),
       endImage: shot.morphTo ? panel(shot.morphTo, morphIdx) : null,
-      prompt: `${shot.motion}\n\n${cfg.mediumMotion || ""}`.trim(),
+      motionPrompt: shot.motion,
+      physical: physical.level, beats: physical.beats,
+      contacts: physical.contacts, invariants: physical.invariants,
+      physicalPrompt: physical.prompt,
+      prompt: [shot.motion, cfg.mediumMotion, physical.prompt].filter(Boolean).join("\n\n").trim(),
       out: `${cfg.motionDir}/${cfg.slug}-shot-${i}-${s.name}.mp4`,
     };
   });
@@ -78,7 +123,7 @@ function makeArchiver(cfg) {
 }
 
 // The full CLI. cfg: { slug, laneDir, structPath, panelFor, shots,
-// mediumMotion, audio, finalOut, ratio?, resolution? }
+// mediumMotion, physical?, audio, finalOut, ratio?, resolution? }
 export async function runMotionCli(cfg, flags = parseFlags()) {
   cfg.motionDir = cfg.motionDir || `${cfg.laneDir}/out/motion`;
   mkdirSync(cfg.motionDir, { recursive: true });
@@ -103,6 +148,7 @@ export async function runMotionCli(cfg, flags = parseFlags()) {
   writeFileSync(`${cfg.motionDir}/shots.json`, JSON.stringify(shots.map((s) => ({
     i: s.i, name: s.name, exact: s.exact, dur: s.dur,
     image: s.image, endImage: s.endImage, prompt: s.prompt,
+    physical: s.physical, beats: s.beats, contacts: s.contacts, invariants: s.invariants,
     tier: TIER, ratePerSec: rate,
   })), null, 2));
 
@@ -126,7 +172,9 @@ export async function runMotionCli(cfg, flags = parseFlags()) {
         console.error("✗ --prompt requires --only with exactly one section");
         process.exit(1);
       }
-      todo[0].prompt = String(flags.prompt);
+      todo[0].motionPrompt = String(flags.prompt);
+      todo[0].prompt = [todo[0].motionPrompt, cfg.mediumMotion, todo[0].physicalPrompt]
+        .filter(Boolean).join("\n\n").trim();
       console.log(`  ✎ prompt override for ${todo[0].name}`);
     }
     if (!todo.length) {
