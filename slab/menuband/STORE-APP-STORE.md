@@ -35,11 +35,9 @@ listed the set's assets with their `sourceFileChecksum`s, kept the first of
 each, deleted the rest. `bin/asc.mjs` (new) wraps the JWT + common queries:
 `status` / `get <path>` / `sales` / `analytics`.
 
-**PUBLISHED — v1.6.5 (build 165), 2026-07-24.** App Store Connect reports
-`READY_FOR_SALE`. The next candidate is v1.6.6 (build 166); its gated hitlist is
-[`RELEASE-1.6.6.md`](RELEASE-1.6.6.md). In particular, the direct build's new
-percussion trackpad cannot be advertised in the store until its private
-MultitouchSupport input is replaced by the public focused-window `NSTouch` path.
+**PUBLISHED — v1.6.8 (build 168), 2026-08-04.** App Store Connect reports
+`READY_FOR_SALE`. The next candidate is v1.6.9 (build 169), adding the
+sandbox-safe TrackDrum companion bridge and the focused percussion/slider UX.
 
 ### Review log
 
