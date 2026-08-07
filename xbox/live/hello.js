@@ -1,4 +1,5 @@
 // @bundle-qr
+const buildTimestamp = "2026.08.06.1927 PDT";
 const floorY = 12000;
 const ceilingY = 0;
 const wallThickness = 80;
@@ -163,6 +164,10 @@ function screenTriangle(x1, y1, x2, y2, x3, y3, ...color) {
       x3, y3, triangleDepth, ...color);
   else triangle(x1, y1, x2, y2, x3, y3, ...color);
 }
+function screenRect(x, y, width, height, color) {
+  screenTriangle(x, y, x + width, y, x + width, y + height, ...color);
+  screenTriangle(x, y, x + width, y + height, x, y + height, ...color);
+}
 function projectedTriangle(a, b, c, color) {
   if (typeof triangle3d === "function")
     triangle3d(a.x, a.y, a.z, b.x, b.y, b.z,
@@ -239,7 +244,8 @@ const players = [
     attackKind: "", attackStartedAt: 0,
     attackUntil: 0, attackHit: false, blocking: false, blockFlash: 0,
     windVx: 0, knockVx: 0, gunAmmo: 0, grenadeAmmo: 0, stance: "NEUTRAL",
-    heldBall: -1, grabHeld: false, crouchBlend: 0,
+    heldBall: -1, grabHeld: false, crouchBlend: 0, standingOn: -1,
+    commandStream: [],
     jumpLaunchAt: 0, jumpPoseUntil: 0, landPoseUntil: 0 },
   { name: "@OSKIE", rosterIndex: 2, handleColors: fighterRoster[2].colors,
     npc: false, bot: false,
@@ -253,7 +259,8 @@ const players = [
     attackKind: "", attackStartedAt: 0,
     attackUntil: 0, attackHit: false, blocking: false, blockFlash: 0,
     windVx: 0, knockVx: 0, gunAmmo: 0, grenadeAmmo: 0, stance: "NEUTRAL",
-    heldBall: -1, grabHeld: false, crouchBlend: 0,
+    heldBall: -1, grabHeld: false, crouchBlend: 0, standingOn: -1,
+    commandStream: [],
     jumpLaunchAt: 0, jumpPoseUntil: 0, landPoseUntil: 0 },
 ];
 const impacts = [];
@@ -293,6 +300,7 @@ let roundOverAt = 0;
 let roundResult = "";
 let matchOver = false;
 let roundCause = "";
+let deathCinematic = null;
 let impactHitboxesUntil = 0;
 let nextPowerupAtUs = powerupIntervalUs;
 let powerupSequence = 0;
@@ -696,6 +704,7 @@ function beginSelect(now) {
   selectionPrevious[1] = padSnapshots[1]?.down?.slice() || [];
   roundResult = "";
   roundCause = "";
+  deathCinematic = null;
   matchOver = false;
   roundElapsedUs = 0;
   roundStartedAt = now;
@@ -962,6 +971,8 @@ function boot() {
   roundElapsedUs = 0;
   emitSignal("hello", -1, 1, 0);
   shellMode = "MENU";
+  spectatorQr = typeof qrcode === "function"
+    ? qrcode("https://oskiewar.com", { errorCorrectLevel: 1 }) : null;
   shellPrevious = [];
   navigationPrevious = [[], []];
   roundViewer = globalThis.__oskiewarRoundBridge || null;
@@ -970,8 +981,10 @@ function boot() {
     selecting = false;
     roundResult = "";
     matchOver = false;
-    spectatorQr = null;
     matchName = roundViewer.name || "";
+    spectatorQr = typeof qrcode === "function"
+      ? qrcode("https://oskiewar.com/" + matchName,
+        { errorCorrectLevel: 1 }) : spectatorQr;
     roundStartedAt = startedAt - introDurationUs;
     roundViewerStop = roundViewer.start(handleRoundViewer);
     return;
@@ -1037,6 +1050,9 @@ function resetRound(now, resetMatch = false) {
     player.itemActionUntil = 0;
     player.heldBall = -1;
     player.grabHeld = false;
+    player.commandStream = [];
+    player.standingOn = -1;
+    player.previousY = floorY;
     player.crouchBlend = 0;
     player.jumpLaunchAt = 0;
     player.jumpPoseUntil = 0;
@@ -1062,6 +1078,7 @@ function resetRound(now, resetMatch = false) {
   powerupSequence = 0;
   roundResult = "";
   roundCause = "";
+  deathCinematic = null;
   matchOver = false;
   roundElapsedUs = 0;
   lastSimAt = now;
@@ -1137,6 +1154,35 @@ function updateCameraDoll(dt, now) {
   const introAge = now - roundStartedAt;
   if (roundResult) {
     const age = Math.max(0, (now - roundOverAt) / 1000000);
+    if (deathCinematic && age < 1.45) {
+      if (age < .11) return;
+      const loser = players[deathCinematic.loserPad];
+      const winner = players[deathCinematic.winnerPad];
+      const loserHead = loser.frozenGeometry?.head ||
+        runnerWorldGeometry(loser, (now - startedAt) / 1000000).head;
+      const winnerHead = winner?.frozenGeometry?.head || (winner
+        ? runnerWorldGeometry(winner, (now - startedAt) / 1000000).head
+        : { x: cameraCenter, y: cameraCenterY, z: 0 });
+      if (age < .86) {
+        cameraDoll.track({ target: winnerHead,
+          position: { x: loserHead.x, y: loserHead.y,
+            z: loserHead.z - 145 }, width: 720,
+          perspective: 1, fov: 68, roll: 0 }, dt, 11);
+        return;
+      }
+      const returnAmount = clamp((age - .86) / .59, 0, 1);
+      const midpoint = { x: (players[0].x + players[1].x) / 2,
+        y: (players[0].y + players[1].y) / 2 - 95,
+        z: (players[0].z + players[1].z) / 2 };
+      const span = Math.max(900, Math.abs(players[1].x - players[0].x) + 540);
+      cameraDoll.track({ target: midpoint,
+        position: { x: lerp(loserHead.x, midpoint.x, returnAmount),
+          y: lerp(loserHead.y, midpoint.y - span * .08, returnAmount),
+          z: lerp(loserHead.z - 145, midpoint.z - span * 1.2, returnAmount) },
+        width: lerp(720, span, returnAmount),
+        perspective: lerp(1, .72, returnAmount), fov: 54, roll: 0 }, dt, 10);
+      return;
+    }
     const target = { x: (players[0].x + players[1].x) / 2,
       y: (players[0].y + players[1].y) / 2 - 95,
       z: (players[0].z + players[1].z) / 2 };
@@ -1250,7 +1296,17 @@ function quantizedInput(pad, suppressed = []) {
 function remember(player, button) {
   player.lastButton = buttonLabel(button);
   player.lastButtonAt = runtime().monotonicUs;
+  if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight",
+      "A", "B", "X", "Y"].includes(button))
+    recordCommand(player, player.lastButton, player.lastButtonAt);
   telemetry("FIGHT_BUTTON", player.name + " " + player.lastButton);
+}
+
+function recordCommand(player, label, now) {
+  const previous = player.commandStream.at(-1);
+  if (previous?.label === label && now - previous.at < 40000) return;
+  player.commandStream.push({ label, at: now });
+  if (player.commandStream.length > 8) player.commandStream.shift();
 }
 
 function playButtonDrum(button, player) {
@@ -1783,6 +1839,9 @@ function killPlayer(target, killerPad, now, cause = "KO") {
   if (!target.alive) return;
   releaseCarriedBall(target, now);
   freezeFinalFrame(now);
+  if (!deathCinematic && killerPad !== target.pad)
+    deathCinematic = { startedAt: now, loserPad: target.pad,
+      winnerPad: killerPad, cause };
   target.alive = false;
   target.respawnAt = now + 1200000;
   target.vx = 0;
@@ -1879,11 +1938,38 @@ function resolvePlayerPushboxes() {
   resolveRunnerBounds(right, 0);
 }
 
+function resolvePlayerStanding(now) {
+  const poseTime = (now - startedAt) / 1000000;
+  const previousStanding = players.map((player) => player.standingOn);
+  for (const player of players) player.standingOn = -1;
+  for (const rider of players) {
+    const base = players[rider.pad === 0 ? 1 : 0];
+    if (!rider.alive || !base.alive || rider.vy < 0) continue;
+    const head = runnerWorldGeometry(base, poseTime).head;
+    const top = head.y - head.radius;
+    const horizontal = Math.abs(rider.x - head.x) <= head.radius + 42;
+    const depth = Math.abs(rider.z - head.z) <= head.radius + 32;
+    const crossed = (rider.previousY ?? rider.y) <= top + 8 &&
+      rider.y >= top - 3;
+    const stayed = previousStanding[rider.pad] === base.pad &&
+      rider.y <= top + 34;
+    if (!horizontal || !depth || (!crossed && !stayed)) continue;
+    const wasGrounded = rider.grounded;
+    rider.y = top;
+    rider.vy = Math.min(0, base.vy);
+    rider.grounded = true;
+    rider.standingOn = base.pad;
+    if (!wasGrounded) rider.landPoseUntil = now + 110000;
+  }
+}
+
 function updateStance(player, input, now) {
   const opponent = players[player.pad === 0 ? 1 : 0];
   const toward = Math.sign(opponent.x - player.x) || player.facing || 1;
   player.stance = !player.alive ? "HIT"
     : player.blocking ? "DEFEND"
+    : player.heldBall >= 0 ? "HOLDING"
+    : player.grabHeld ? "REACHING"
     : player.attackKind ? "ATTACK"
     : player.ducking ? "CROUCH"
     : !player.grounded ? "AIR"
@@ -1910,7 +1996,7 @@ function grabNearestBall(player, now) {
   nearest.item.heldBy = player.pad;
   nearest.item.safeUntil = now + 180000;
   nearest.item.safePlayers = 1 << player.pad;
-  player.lastButton = "GRAB";
+  player.lastButton = "HOLDING";
   player.lastButtonAt = now;
   emitSignal("grab", player.pad, nearest.index, nearest.item.mass);
   drum("clap", .72, panPlayer(player));
@@ -1935,6 +2021,7 @@ function releaseCarriedBall(player, now) {
 }
 
 function updatePlayer(player, pad, dt, now) {
+  player.previousY = player.y;
   if (!player.alive) {
     player.previous = pad.down.slice();
     if (now >= player.respawnAt) {
@@ -1975,8 +2062,13 @@ function updatePlayer(player, pad, dt, now) {
   const input = player.blocking ? { horizontal: 0, vertical: 0 } : rawInput;
   const grabHeld = !player.blocking && pad.down.includes("A") &&
     pad.down.includes("X");
-  if (grabHeld && !player.grabHeld && player.heldBall < 0)
-    grabNearestBall(player, now);
+  if (grabHeld && !player.grabHeld && player.heldBall < 0) {
+    if (!grabNearestBall(player, now)) {
+      player.lastButton = "REACHING";
+      player.lastButtonAt = now;
+      emitSignal("reach", player.pad, player.facing, 0);
+    }
+  }
   else if (!grabHeld && player.heldBall >= 0)
     releaseCarriedBall(player, now);
   const inputChanged = input.horizontal !== player.inputX ||
@@ -2002,9 +2094,17 @@ function updatePlayer(player, pad, dt, now) {
   if (player.inputY && input.vertical !== player.inputY)
     player.lastRelease[player.inputY > 0 ? "UP" : "DOWN"] = now;
   if (input.horizontal && input.horizontal !== player.inputX)
-    directionTap(player, input.horizontal > 0 ? "RIGHT" : "LEFT", now);
+    {
+      const direction = input.horizontal > 0 ? "RIGHT" : "LEFT";
+      recordCommand(player, direction, now);
+      directionTap(player, direction, now);
+    }
   if (input.vertical && input.vertical !== player.inputY)
-    directionTap(player, input.vertical > 0 ? "UP" : "DOWN", now);
+    {
+      const direction = input.vertical > 0 ? "UP" : "DOWN";
+      recordCommand(player, direction, now);
+      directionTap(player, direction, now);
+    }
 
   if (input.horizontal) player.facing = input.horizontal;
   // Fighting-game directions are digital: full movement begins and ends on
@@ -2068,6 +2168,10 @@ function updatePlayer(player, pad, dt, now) {
         throwGrenade(player);
       }
     }
+  }
+  if (grabHeld) {
+    player.lastButton = player.heldBall >= 0 ? "HOLDING" : "REACHING";
+    player.lastButtonAt = now;
   }
   if (player.pendingMoveLabel) remember(player, player.pendingMoveLabel);
 
@@ -2199,6 +2303,7 @@ function sim() {
   roundElapsedUs += dt * 1000000;
   updatePlayer(players[0], padSnapshots[0], dt, now);
   updatePlayer(players[1], opponentPad, dt, now);
+  resolvePlayerStanding(now);
   resolvePlayerPushboxes();
   updatePowerups(now);
   updateBullets(dt, now);
@@ -2395,7 +2500,24 @@ function runnerWorldGeometry(player, t) {
   const elbowY = feet - lerp(94, 76, crouchPose) - breath;
   const handY = feet - lerp(65, 50, crouchPose) - breath * .5;
   const actionNow = runtime().monotonicUs;
-  if (player.itemAction && actionNow < player.itemActionUntil) {
+  if (player.grabHeld) {
+    const held = player.heldBall >= 0 ? balls[player.heldBall] : null;
+    const clutchX = held?.x ?? x + player.facing * 126;
+    const clutchY = held?.y ?? feet - 92;
+    const spread = held ? Math.max(12, held.radius * .34) : 20;
+    const hands = [
+      { shoulderX: leftShoulderX, x: clutchX - player.facing * 5,
+        y: clutchY - spread },
+      { shoulderX: rightShoulderX, x: clutchX - player.facing * 5,
+        y: clutchY + spread },
+    ];
+    for (const hand of hands) {
+      const pose = twoBone(hand.shoulderX, shoulderY,
+        hand.x, hand.y, 58, player.facing);
+      segment(hand.shoulderX, shoulderY, pose.jointX, pose.jointY, 12);
+      segment(pose.jointX, pose.jointY, pose.targetX, pose.targetY, 12);
+    }
+  } else if (player.itemAction && actionNow < player.itemActionUntil) {
     const target = itemHandTarget(player, actionNow);
     const actionShoulderX = player.facing > 0 ? rightShoulderX : leftShoulderX;
     const restShoulderX = player.facing > 0 ? leftShoulderX : rightShoulderX;
@@ -2815,8 +2937,82 @@ function drawInventory(player, now) {
   }
 }
 
+function drawBrokenRunner(player, age) {
+  const world = player.frozenGeometry ||
+    runnerWorldGeometry(player, (runtime().monotonicUs - startedAt) / 1000000);
+  const slow = Math.max(0, age - .11) * .32;
+  const gravity = 420 * slow * slow;
+  const outline = [8, 12, 24];
+  for (let index = 0; index < world.segments.length; index++) {
+    const segment = world.segments[index];
+    const midX = (segment.x1 + segment.x2) / 2;
+    const midY = (segment.y1 + segment.y2) / 2;
+    const side = index % 2 ? 1 : -1;
+    const dx = (side * (72 + index * 9) - player.facing * 34) * slow;
+    const dy = -(150 + index * 13) * slow + gravity;
+    const dz = side * (24 + index * 4) * slow;
+    const angle = side * slow * (1.15 + index * .08);
+    const cosine = Math.cos(angle);
+    const sine = Math.sin(angle);
+    const move = (x, y, z) => {
+      const localX = x - midX;
+      const localY = y - midY;
+      return { x: midX + localX * cosine - localY * sine + dx,
+        y: midY + localX * sine + localY * cosine + dy,
+        z: z + dz };
+    };
+    const first = move(segment.x1, segment.y1, segment.z1);
+    const second = move(segment.x2, segment.y2, segment.z2);
+    const a = projectPoint(first.x, first.y, first.z);
+    const b = projectPoint(second.x, second.y, second.z);
+    if (![a.x, a.y, b.x, b.y].every(Number.isFinite) ||
+        [a.x, a.y, b.x, b.y].some((value) => Math.abs(value) > 30000))
+      continue;
+    triangleDepth = projectPoint(midX + dx, midY + dy,
+      (segment.z1 + segment.z2) / 2 + dz).z;
+    const width = Math.max(2, segment.width * cameraScale());
+    filledCapsule(a.x, a.y, b.x, b.y, width + 3, outline);
+    filledCapsule(a.x, a.y, b.x, b.y, width, player.color);
+  }
+  const headSide = player.pad === 0 ? -1 : 1;
+  const headWorld = { x: world.head.x + headSide * 105 * slow,
+    y: world.head.y - 185 * slow + gravity,
+    z: world.head.z - headSide * 38 * slow };
+  const head = projectPoint(headWorld.x, headWorld.y, headWorld.z);
+  const headEdge = projectPoint(headWorld.x + world.head.radius,
+    headWorld.y, headWorld.z);
+  if (![head.x, head.y, headEdge.x, headEdge.y].every(Number.isFinite) ||
+      [head.x, head.y, headEdge.x, headEdge.y]
+        .some((value) => Math.abs(value) > 30000)) return;
+  const radius = Math.max(3, Math.abs(headEdge.x - head.x));
+  triangleDepth = head.z;
+  filledDisc(head.x, head.y, radius + 3, outline);
+  filledDisc(head.x, head.y, radius, player.color);
+  drawFace(player, { x: head.x, y: head.y, radius },
+    contrastShadow(player.color), age, player.frozenAt);
+}
+
+function deathCinematicAge(now = runtime().monotonicUs) {
+  return deathCinematic ? Math.max(0, (now - deathCinematic.startedAt) / 1000000) : -1;
+}
+
+function drawDeathFlash() {
+  const age = deathCinematicAge();
+  if (age < 0 || age >= .11) return;
+  const previousDepth = triangleDepth;
+  triangleDepth = -1.425;
+  const flash = age < .055 ? [255, 255, 255] : [255, 226, 116];
+  screenRect(0, 0, viewWidth(), viewHeight, flash);
+  triangleDepth = previousDepth;
+}
+
 function drawRunner(player, t, showLabel = true) {
   if (!player.alive && !roundResult) return;
+  const cinematicAge = deathCinematicAge();
+  if (deathCinematic?.loserPad === player.pad && cinematicAge >= .11) {
+    drawBrokenRunner(player, cinematicAge);
+    return;
+  }
   const geometry = player.replayGeometry
     ? projectRunnerWorldGeometry(player.replayGeometry)
     : player.frozenGeometry
@@ -2854,6 +3050,8 @@ function drawDebugHitboxes(player, t) {
   const now = runtime().monotonicUs;
   const impactDebug = now < impactHitboxesUntil;
   if ((!debugHitboxes && !impactDebug) || (!player.alive && !roundResult)) return;
+  if (deathCinematic?.loserPad === player.pad && deathCinematicAge(now) >= .11)
+    return;
   const world = player.replayGeometry || player.frozenGeometry ||
     runnerWorldGeometry(player, t);
   const geometry = projectRunnerWorldGeometry(world);
@@ -2981,6 +3179,22 @@ function drawPlayerHandle(player, t, side) {
   drawGlyphs(0, 0, player.handleColors, player.color);
 }
 
+function drawCommandStream(player, side) {
+  const glyph = { LEFT: "←", RIGHT: "→", UP: "↑", DOWN: "↓" };
+  const text = player.commandStream.map((entry) => glyph[entry.label] || entry.label)
+    .join("  ");
+  if (!text) return;
+  const safe = hudSafeRect();
+  const size = compactLayout() ? 20 : 25;
+  const width = handleWidth(text, size);
+  const x = side === 0 ? safe.left + 8 : safe.right - 8 - width;
+  const handle = playerHandleLayout(player, side);
+  const y = handle.y - size - 15;
+  const shadow = contrastShadow(player.color);
+  typeWrite(text, x + 3, y + 4, size, ...shadow);
+  typeWrite(text, x, y, size, ...player.color);
+}
+
 function drawFightIntro(introSeconds, titleInk, statusShadow) {
   const centerX = viewCenterX();
   const centerY = (stageTop + stageBottom) / 2;
@@ -3072,10 +3286,16 @@ function drawSpotShadow(x, y, z, radius, color) {
   const shadowZ = z + globalLight.z * reach;
   const center = projectPoint(shadowX, surfaceY - 2, shadowZ);
   const edge = projectPoint(shadowX + radius, surfaceY - 2, shadowZ);
+  if (![center.x, center.y, edge.x, edge.y].every(Number.isFinite) ||
+      [center.x, center.y, edge.x, edge.y].some((value) => Math.abs(value) > 30000))
+    return;
   const radiusX = Math.max(5, Math.abs(edge.x - center.x) *
     (.72 + .28 * focus));
   const radiusY = Math.max(3, radiusX * (.24 + .1 * focus));
-  triangleDepth = center.z - .004;
+  // Bind the shadow to the owning object's depth, then bias it away from the
+  // camera. It remains above the terrain pass but can never win against the
+  // object that casts it.
+  triangleDepth = projectPoint(x, y, z).z + .018;
   const sides = 14;
   for (let side = 0; side < sides; side++) {
     const a = side * Math.PI * 2 / sides;
@@ -3088,29 +3308,26 @@ function drawSpotShadow(x, y, z, radius, color) {
   }
 }
 
+function projectedBallRadius(ball) {
+  const center = projectPoint(ball.x, ball.y, ball.z);
+  const edge = projectPoint(ball.x + ball.radius, ball.y, ball.z);
+  return Math.max(8, Math.abs(edge.x - center.x));
+}
+
 function drawBall(ball) {
   if (!ball.active) return;
   const point = projectPoint(ball.x, ball.y, ball.z);
-  const radius = Math.max(8, ball.radius * cameraScale());
+  // A ball is a sphere in the orthographic world. Measuring its projected
+  // world radius keeps the screen hit shape circular while still respecting
+  // the perspective intro and loss cameras.
+  const radius = projectedBallRadius(ball);
   if (!Number.isFinite(point.x) || !Number.isFinite(point.y) ||
-      !Number.isFinite(radius) || point.x + radius < 0 ||
+      !Number.isFinite(radius) || radius > 12000 || point.x + radius < 0 ||
       point.x - radius > viewWidth() || point.y + radius < 0 ||
       point.y - radius > viewHeight) return;
   const soccer = ball.type === "soccer";
-  const palette = soccer
-    ? [[226, 232, 224], [198, 210, 204], [226, 232, 224]]
-    : [[222, 91, 28], [244, 123, 34], [196, 62, 24]];
-  const sides = soccer ? 15 : 18;
-  for (let side = 0; side < sides; side++) {
-    const a = ball.rotation - Math.PI / 2 + side * Math.PI * 2 / sides;
-    const b = ball.rotation - Math.PI / 2 + (side + 1) * Math.PI * 2 / sides;
-    screenTriangle(point.x, point.y,
-      point.x + Math.cos(a) * radius * .92,
-      point.y + Math.sin(a) * radius * .92,
-      point.x + Math.cos(b) * radius * .92,
-      point.y + Math.sin(b) * radius * .92,
-      ...palette[side % palette.length]);
-  }
+  filledDisc(point.x, point.y, radius * .92,
+    soccer ? [226, 232, 224] : [232, 104, 28]);
   const seam = [42, 31, 29];
   if (soccer) {
     filledDisc(point.x, point.y, radius * .2, seam);
@@ -3130,6 +3347,19 @@ function drawBall(ball) {
     }
     filledDisc(point.x, point.y, Math.max(1.5, width * .55), seam);
   }
+}
+
+function drawBallHitboxes() {
+  if (!debugHitboxes && runtime().monotonicUs >= impactHitboxesUntil) return;
+  const previousDepth = triangleDepth;
+  triangleDepth = -1.46;
+  for (const item of balls) {
+    if (!item.active) continue;
+    const point = projectPoint(item.x, item.y, item.z);
+    const radius = projectedBallRadius(item);
+    filledRing(point.x, point.y, radius + 5, radius + 2, [58, 222, 255]);
+  }
+  triangleDepth = previousDepth;
 }
 
 function drawGunPickup(pickup, t) {
@@ -3376,6 +3606,28 @@ function drawTitleScreen(t, ink) {
   const promptInk = mixColor(mutedInk, ink, promptPulse);
   typeWrite(prompt, viewCenterX() - promptWidth / 2,
     viewHeight * (compact ? .61 : .64), promptSize, ...promptInk);
+  const titleNow = pacificTimeLabel(runtime().unixMs || Date.now());
+  const version = titleNow + "  build " + buildTimestamp;
+  const safe = hudSafeRect();
+  typeWrite(version, safe.left + 8, safe.bottom - (compact ? 20 : 24),
+    compact ? 15 : 18, ...ink);
+}
+
+function pacificTimeLabel(unixMs) {
+  const date = new Date(unixMs);
+  const year = date.getUTCFullYear();
+  const nthSunday = (month, occurrence, hour) => {
+    const first = new Date(Date.UTC(year, month, 1));
+    const day = 1 + ((7 - first.getUTCDay()) % 7) + (occurrence - 1) * 7;
+    return Date.UTC(year, month, day, hour);
+  };
+  const daylight = unixMs >= nthSunday(2, 2, 10) &&
+    unixMs < nthSunday(10, 1, 9);
+  const zone = daylight ? "PDT" : "PST";
+  const local = new Date(unixMs - (daylight ? 7 : 8) * 3600000);
+  const hour = local.getUTCHours();
+  const minute = String(local.getUTCMinutes()).padStart(2, "0");
+  return String(hour % 12 || 12) + ":" + minute + (hour < 12 ? "am " : "pm ") + zone;
 }
 
 function drawSpectatorQr(ink) {
@@ -3386,7 +3638,7 @@ function drawSpectatorQr(ink) {
   const targetSize = compactLayout() ? 108 : 158;
   const cell = Math.max(2, Math.floor(targetSize / (count + quiet * 2)));
   const size = (count + quiet * 2) * cell;
-  const label = matchName;
+  const label = matchName || "oskiewar.com";
   const labelSize = compactLayout() ? 20 : 24;
   const labelPadX = compactLayout() ? 6 : 8;
   const labelHeight = labelSize + (compactLayout() ? 8 : 10);
@@ -3394,21 +3646,24 @@ function drawSpectatorQr(ink) {
   const labelLeft = safe.right - labelWidth;
   const labelTop = safe.top;
   const shadow = [64, 64, 70];
-  box(labelLeft + 4, labelTop + 4, labelWidth, labelHeight, ...shadow);
-  box(labelLeft, labelTop, labelWidth, labelHeight, 5, 6, 10);
+  const previousDepth = triangleDepth;
+  triangleDepth = -1.43;
+  screenRect(labelLeft + 4, labelTop + 4, labelWidth, labelHeight, shadow);
+  screenRect(labelLeft, labelTop, labelWidth, labelHeight, [5, 6, 10]);
   typeWrite(label, labelLeft + labelPadX, labelTop + 3,
     labelSize, 250, 250, 247);
   const left = safe.right - size;
   const top = labelTop + labelHeight + 2;
-  box(left + 5, top + 5, size, size, ...shadow);
-  box(left, top, size, size, 250, 250, 247);
+  screenRect(left + 5, top + 5, size, size, shadow);
+  screenRect(left, top, size, size, [250, 250, 247]);
   for (let row = 0; row < count; row++) {
     for (let column = 0; column < count; column++) {
       if (spectatorQr.isDark(row, column))
-        box(left + (column + quiet) * cell, top + (row + quiet) * cell,
-          cell, cell, 7, 8, 14);
+        screenRect(left + (column + quiet) * cell,
+          top + (row + quiet) * cell, cell, cell, [7, 8, 14]);
     }
   }
+  triangleDepth = previousDepth;
 }
 
 function drawRectOutline(rect, width, color) {
@@ -3423,6 +3678,9 @@ function drawImpacts() {
     const point = projectPoint(impact.x, impact.y, impact.z || 0);
     const radius = (30 + (1 - impact.life / impact.duration) *
       (impact.explosion ? 420 : impact.death ? 260 : 100)) * cameraScale();
+    if (![point.x, point.y, radius].every(Number.isFinite) || radius > 10000 ||
+        Math.abs(point.x) + radius > 30000 || Math.abs(point.y) + radius > 30000)
+      continue;
     filledCapsule(point.x - radius, point.y, point.x + radius, point.y,
       5, [255, 255, 255]);
     filledCapsule(point.x, point.y - radius, point.x, point.y + radius,
@@ -3477,14 +3735,17 @@ function paint() {
   if (shellMode === "MENU") {
     box(0, 0, viewWidth(), viewHeight, ...menuArena);
     drawTitleScreen(t, menuInk);
+    drawSpectatorQr(menuInk);
     return;
   }
   if (selecting) {
     box(0, 0, viewWidth(), viewHeight, ...menuArena);
     drawSelectionScreen(t, menuInk, menuPanel);
+    drawSpectatorQr(menuInk);
     return;
   }
-  containFighters(t);
+  const cinematicAge = deathCinematicAge(run.monotonicUs);
+  if (cinematicAge < 0 || cinematicAge >= 1.45) containFighters(t);
   cameraDoll.prepare();
   worldQuad(
     { x: worldLeft, y: ceilingY, z: worldFar },
@@ -3579,12 +3840,14 @@ function paint() {
   triangleDepth = -1.42;
   drawDebugHitboxes(players[0], t);
   drawDebugHitboxes(players[1], t);
+  drawBallHitboxes();
   drawImpacts();
   if (!roundResult && introAge < introDurationUs) {
     const introSeconds = introAge / 1000000;
     drawFightIntro(introSeconds, titleInk, statusShadow);
   }
-  if (roundResult) {
+  const resultUiReady = cinematicAge < 0 || cinematicAge >= 1.1;
+  if (roundResult && resultUiReady) {
     if (instantReplay) {
       const frame = Math.min(instantReplay.frames.length,
         Math.floor(instantReplay.cursor) + 1);
@@ -3620,12 +3883,15 @@ function paint() {
       }
     }
   }
-  drawSpectatorQr(titleInk);
-  if (roundResult || introAge >= introDurationUs) {
+  if ((roundResult && resultUiReady) || (!roundResult && introAge >= introDurationUs)) {
     drawPlayerHandle(players[0], t, 0);
     drawPlayerHandle(players[1], t, 1);
+    drawCommandStream(players[0], 0);
+    drawCommandStream(players[1], 1);
   }
   drawSafeZones();
+  drawDeathFlash();
+  drawSpectatorQr(titleInk);
 }
 
 function act() {}
