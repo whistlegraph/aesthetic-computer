@@ -7,7 +7,8 @@ const webShell = await readFile(new URL("../mac-test.html", import.meta.url), "u
 
 function createFight(startImmediately = true, enterGame = true,
   platform = "xbox-uwp", roundBridge = null,
-  viewport = { width: 1920, height: 1080 }, livePublisher = null) {
+  viewport = { width: 1920, height: 1080 }, livePublisher = null,
+  drumVoice = null) {
   let now = 0;
   const signals = [];
   const replays = [];
@@ -32,7 +33,7 @@ function createFight(startImmediately = true, enterGame = true,
   const drawLine = (...values) => lines.push(values);
   const fight = new Function(
     "runtime", "gamepad", "capabilities", "telemetry", "gameSignal", "saveReplay", "publishLive", "analytics", "drum", "wipe", "box", "line", "triangle", "triangle3d", "write", "systemWrite", "gameView",
-    `${source}\nreturn { boot, sim, paint, controlLocale, animatedTitleColor, players, ball, balls, bullets, grenades, gunPickups, grenadePickups, detachedParts, runnerWorldGeometry, runnerDistanceToPoint, segmentSegmentClosest, meleeLimbContact, damagePart, isPogo, isHeadOnly, resultCardText, pacificTimeLabel, projectedBallRadius, deathCinematicState: () => deathCinematic ? { ...deathCinematic, age: deathCinematicAge() } : null, disableBall: () => { ballEnabled = false; for (const item of balls) item.active = false; }, enableBall: (index = 0) => { ballEnabled = true; const item = balls[index]; item.active = true; item.serveAt = 0; item.safeUntil = 0; item.safePlayers = 0; }, setWind: (value) => { windAcceleration = value; }, setDebugHitboxes: (value) => { debugHitboxes = Boolean(value); }, debugState: () => debugHitboxes, windState: () => ({ direction: windDirection, mph: windMph }), nextRound: () => resetRound(runtime().monotonicUs, false), knockOut: () => killPlayer(players[1], 0, runtime().monotonicUs, "KO"), wackBall: () => { players[0].attackKind = "KICK"; returnBall(ball, players[0], runtime().monotonicUs, false); }, shieldBall: () => returnBall(ball, players[0], runtime().monotonicUs, true), crossWackBall: (contact = 1) => crossWackBall(ball, players.map((player) => ({ player, contact })), runtime().monotonicUs), enterGame: () => enterGame(runtime().monotonicUs), shellState: () => ({ mode: shellMode }), startFight: () => { shellMode = "GAME"; selecting = false; startReplay(runtime().monotonicUs); resetRound(runtime().monotonicUs, true); }, selectionState: () => ({ selecting, ready: selectionReady.slice() }), cameraState: () => ({ cameraWidth, cameraCenter, cameraCenterY, cameraAspect, stageRight, stageTop, stageBottom, viewHeight, cameraContainFloor, doll: { width: cameraDoll.width, target: { ...cameraDoll.target }, position: { ...cameraDoll.position }, perspective: cameraDoll.perspective, roll: cameraDoll.roll } }), screenBounds: () => players.map((player) => runnerScreenBounds(player, runtime().monotonicUs / 1e6)), actionSafeRect, hudSafeRect, roundState: () => ({ roundResult, roundElapsedUs, matchOver }), viewerState: () => ({ active: Boolean(roundViewer), mode: roundViewerMode, status: roundViewerStatus, name: matchName }), instantReplayState: () => instantReplay ? { active: true, paused: instantReplay.paused, cursor: instantReplay.cursor, frames: instantReplay.frames.length } : { active: false }, replayFrameCount: () => roundReplayFrames.length };`
+    `${source}\nreturn { boot, sim, paint, playDrum, captureClientError, clientErrorState: () => clientError, controlLocale, animatedTitleColor, players, ball, balls, bullets, grenades, gunPickups, grenadePickups, detachedParts, runnerWorldGeometry, runnerDistanceToPoint, segmentSegmentClosest, meleeLimbContact, damagePart, isPogo, isHeadOnly, resultCardText, pacificTimeLabel, projectedBallRadius, deathCinematicState: () => deathCinematic ? { ...deathCinematic, age: deathCinematicAge() } : null, disableBall: () => { ballEnabled = false; for (const item of balls) item.active = false; }, enableBall: (index = 0) => { ballEnabled = true; const item = balls[index]; item.active = true; item.serveAt = 0; item.safeUntil = 0; item.safePlayers = 0; }, setWind: (value) => { windAcceleration = value; }, setDebugHitboxes: (value) => { debugHitboxes = Boolean(value); }, debugState: () => debugHitboxes, windState: () => ({ direction: windDirection, mph: windMph }), nextRound: () => resetRound(runtime().monotonicUs, false), knockOut: () => killPlayer(players[1], 0, runtime().monotonicUs, "KO"), wackBall: () => { players[0].attackKind = "KICK"; returnBall(ball, players[0], runtime().monotonicUs, false); }, shieldBall: () => returnBall(ball, players[0], runtime().monotonicUs, true), crossWackBall: (contact = 1) => crossWackBall(ball, players.map((player) => ({ player, contact })), runtime().monotonicUs), enterGame: () => enterGame(runtime().monotonicUs), shellState: () => ({ mode: shellMode }), startFight: () => { shellMode = "GAME"; selecting = false; startReplay(runtime().monotonicUs); resetRound(runtime().monotonicUs, true); }, selectionState: () => ({ selecting, ready: selectionReady.slice() }), cameraState: () => ({ cameraWidth, cameraCenter, cameraCenterY, cameraAspect, stageRight, stageTop, stageBottom, viewHeight, cameraContainFloor, doll: { width: cameraDoll.width, target: { ...cameraDoll.target }, position: { ...cameraDoll.position }, perspective: cameraDoll.perspective, roll: cameraDoll.roll } }), screenBounds: () => players.map((player) => runnerScreenBounds(player, runtime().monotonicUs / 1e6)), actionSafeRect, hudSafeRect, roundState: () => ({ roundResult, roundElapsedUs, matchOver }), viewerState: () => ({ active: Boolean(roundViewer), mode: roundViewerMode, status: roundViewerStatus, name: matchName }), instantReplayState: () => instantReplay ? { active: true, paused: instantReplay.paused, cursor: instantReplay.cursor, frames: instantReplay.frames.length } : { active: false }, replayFrameCount: () => roundReplayFrames.length };`
   )(
     () => ({ monotonicUs: now, unixMs: 1785870000000 + Math.floor(now / 1000) }),
     (index = 0) => ({ ...pads[index], down: pads[index].down.slice() }),
@@ -44,7 +45,7 @@ function createFight(startImmediately = true, enterGame = true,
       ? livePublisher(matchId, payload)
       : liveFrames.push([matchId, JSON.parse(payload)]),
     (action, properties) => analyticsEvents.push([action, properties]),
-    (name, velocity, pan) => drums.push([name, velocity, pan]), noOp, noOp, drawLine,
+    drumVoice || ((name, velocity, pan) => drums.push([name, velocity, pan])), noOp, noOp, drawLine,
     drawTriangle, drawTriangle3d, noOp, noOp, () => viewport
   );
   globalThis.__oskiewarRoundBridge = roundBridge;
@@ -1506,6 +1507,31 @@ test("the final ten seconds ring bells and turn the top clock into tie", () => {
   assert.match(source, /emitSignal\("countdown", -1, countdownSecond, 0\)/);
   assert.match(source, /roundResult === "TIE" \? "tie!"/);
   assert.match(source, /const timerSize = hudTypeSize/);
+});
+
+test("legacy Xbox drum allowlists cannot stop bell or whoosh cues", () => {
+  const played = [];
+  const legacyDrum = (name, velocity, pan) => {
+    if (name === "bell" || name === "whoosh")
+      throw new RangeError("unknown drum");
+    played.push([name, velocity, pan]);
+  };
+  const { fight } = createFight(false, false, "xbox-uwp", null,
+    { width: 1920, height: 1080 }, null, legacyDrum);
+  assert.doesNotThrow(() => fight.playDrum("bell", 1, 0));
+  assert.doesNotThrow(() => fight.playDrum("whoosh", 1, .5));
+  assert.deepEqual(played.slice(-2).map(([name]) => name), ["hat", "block"]);
+  assert.equal(fight.clientErrorState(), "");
+});
+
+test("client failures become an on-screen error state", () => {
+  const { fight } = createFight(false, false);
+  fight.captureClientError("sim", new RangeError("unknown drum"));
+  assert.match(fight.clientErrorState(), /sim: RangeError: unknown drum/);
+  assert.doesNotThrow(() => fight.paint());
+  assert.match(source, /write\("client error"/);
+  assert.match(source, /write\("relaunch or deploy an update"/);
+  assert.match(source, /telemetry\("CLIENT_ERROR", clientError\)/);
 });
 
 test("round end card names the winner and the finishing action", () => {

@@ -1,5 +1,5 @@
 // @bundle-qr
-const buildTimestamp = "2026.08.06.2159 PDT";
+const buildTimestamp = "2026.08.06.2228 PDT";
 const floorY = 12000;
 const ceilingY = 0;
 const wallThickness = 80;
@@ -689,6 +689,64 @@ function emitSignal(event, player = -1, value = 0, value2 = 0) {
   if (typeof gameSignal === "function") gameSignal(event, player, value, value2);
 }
 
+// Revision 37 exposes native bell/woosh voices in the mixer but its QuickJS
+// allowlist predates those names. Fall back without stopping the match; newer
+// hosts and the browser still receive the authored voice unchanged.
+function playDrum(name, velocity = 1, pan = 0) {
+  if (typeof drum !== "function") return;
+  try {
+    drum(name, velocity, pan);
+  } catch (error) {
+    if (name !== "bell" && name !== "whoosh") throw error;
+    if (name === "bell" && typeof synth === "function") {
+      try { synth(880, .12); } catch (_) {}
+    }
+    try {
+      drum(name === "bell" ? "hat" : "block", velocity * .65, pan);
+    } catch (_) {}
+  }
+}
+
+let clientError = "";
+
+function captureClientError(phase, error) {
+  const detail = error && (error.stack || error.message)
+    ? String(error.stack || error.message) : String(error || "unknown error");
+  clientError = (phase + ": " + detail)
+    .replace(/[^\x20-\x7e]+/g, " ").replace(/\s+/g, " ").trim();
+  try { telemetry("CLIENT_ERROR", clientError); } catch (_) {}
+}
+
+function clientErrorLines(text, limit = 58) {
+  const words = String(text).split(" ");
+  const lines = [];
+  let line = "";
+  for (const word of words) {
+    if (!line) line = word;
+    else if (line.length + word.length + 1 <= limit) line += " " + word;
+    else { lines.push(line); line = word; }
+  }
+  if (line) lines.push(line);
+  return lines.slice(0, 9);
+}
+
+function drawClientError() {
+  let width = 1920;
+  let height = 1080;
+  try {
+    const view = typeof gameView === "function" ? gameView() : null;
+    if (view && Number.isFinite(view.width)) width = view.width;
+    if (view && Number.isFinite(view.height)) height = view.height;
+  } catch (_) {}
+  wipe(7, 9, 18);
+  box(48, 48, width - 96, height - 96, 42, 16, 32);
+  write("client error", 92, 92, 54, 255, 112, 140);
+  const lines = clientErrorLines(clientError);
+  for (let index = 0; index < lines.length; index++)
+    write(lines[index], 92, 188 + index * 58, 34, 248, 244, 255);
+  write("relaunch or deploy an update", 92, height - 126, 28, 190, 202, 230);
+}
+
 function fighterProfile(handle) {
   const live = Array.isArray(acFeed.fighters)
     ? acFeed.fighters.find((profile) => profile.handle.toUpperCase() === handle.toUpperCase())
@@ -759,7 +817,7 @@ function returnToSelectPressed(now) {
   }
   if (!pressed || shellMode !== "GAME" || selecting) return false;
   beginSelect(now);
-  drum("block", .9, 0);
+  playDrum("block", .9, 0);
   telemetry("SHELL", "game->select " + now);
   return true;
 }
@@ -773,7 +831,7 @@ function enterGame(now) {
 function updateShell(now) {
   const down = padSnapshots[0]?.down || [];
   if (down.some((button) => !shellPrevious.includes(button))) {
-    drum("hat", .55, 0);
+    playDrum("hat", .55, 0);
     if (typeof titleBeep === "function") titleBeep();
     if (typeof titleVoice === "function") titleVoice();
     emitSignal("select", -1, 1, 0);
@@ -798,7 +856,7 @@ function cycleOpponentMode() {
     selectionReady[1] = false;
   }
   if (opponent.npc) applyRoster(opponent, -1);
-  drum("clap", .8, 0);
+  playDrum("clap", .8, 0);
 }
 
 function selectionTouchLayout() {
@@ -871,7 +929,7 @@ function consumeSelectTouches(now) {
       }
       applyRoster(player, roster.index);
       selectionReady[player.pad] = false;
-      drum("hat", .8, player.pad === 0 ? -.65 : .65);
+      playDrum("hat", .8, player.pad === 0 ? -.65 : .65);
       continue;
     }
     const card = layout.cards.find((rect) => pointInRect(point, rect));
@@ -884,7 +942,7 @@ function consumeSelectTouches(now) {
     const player = players[card.pad];
     if (pointInRect(point, card.ready) && !player.npc) {
       selectionReady[player.pad] = !selectionReady[player.pad];
-      drum(selectionReady[player.pad] ? "clap" : "hat", 1,
+      playDrum(selectionReady[player.pad] ? "clap" : "hat", 1,
         player.pad === 0 ? -.65 : .65);
       const other = players[player.pad === 0 ? 1 : 0];
       if (selectionReady[player.pad] && !selectionReady[other.pad] && !other.npc)
@@ -909,11 +967,11 @@ function updateSelect(now) {
     if (pressed("B") && selectionReady[player.pad]) selectionReady[player.pad] = false;
     if (!selectionReady[player.pad] && (pressed("ArrowLeft") || pressed("ArrowRight"))) {
       applyRoster(player, player.rosterIndex + (pressed("ArrowRight") ? 1 : -1));
-      drum("hat", .8, player.pad === 0 ? -.65 : .65);
+      playDrum("hat", .8, player.pad === 0 ? -.65 : .65);
     }
     if (!selectionReady[player.pad] && pressed("A")) {
       selectionReady[player.pad] = true;
-      drum("clap", 1, player.pad === 0 ? -.65 : .65);
+      playDrum("clap", 1, player.pad === 0 ? -.65 : .65);
     }
     selectionPrevious[player.pad] = down.slice();
   }
@@ -1420,7 +1478,7 @@ function finishRound(now) {
     now + (matchOver ? matchResultUs : roundResultUs));
   roundOverAt = now;
   for (const player of players) player.vx = 0;
-  drum("clap", 1.2, roundPan);
+  playDrum("clap", 1.2, roundPan);
   captureFrameTelemetry(now, true);
   saveRoundReplay(now);
   if (matchOver) finishReplay();
@@ -1484,7 +1542,7 @@ function fireGun(player, input) {
   player.itemActionStartedAt = now;
   player.itemActionUntil = now + 170000;
   player.pendingMoveLabel = "FIRE " + player.gunAmmo;
-  drum("hat", 1.05, panPlayer(player));
+  playDrum("hat", 1.05, panPlayer(player));
   emitSignal("bullet", player.pad, aimX, aimY);
 }
 
@@ -1501,7 +1559,7 @@ function throwGrenade(player) {
   player.itemActionStartedAt = now;
   player.itemActionUntil = now + 260000;
   player.pendingMoveLabel = "GRENADE " + player.grenadeAmmo;
-  drum("kick", .95, panPlayer(player));
+  playDrum("kick", .95, panPlayer(player));
   emitSignal("grenade", player.pad, player.facing, player.ducking ? 1 : 0);
 }
 
@@ -1515,7 +1573,7 @@ function updateGunPickups(now) {
       player.gunAmmo = Math.min(12, player.gunAmmo + pickup.amount);
       pickup.active = false;
       remember(player, "GUN +" + pickup.amount);
-      drum("clap", 1.1, panPlayer(player));
+      playDrum("clap", 1.1, panPlayer(player));
       emitSignal("pickup", player.pad, 1, pickup.amount);
       break;
     }
@@ -1532,7 +1590,7 @@ function updateGrenadePickups(now) {
       player.grenadeAmmo = Math.min(4, player.grenadeAmmo + pickup.amount);
       pickup.active = false;
       remember(player, "GRENADE +" + pickup.amount);
-      drum("clap", 1.1, panPlayer(player));
+      playDrum("clap", 1.1, panPlayer(player));
       emitSignal("pickup", player.pad, 2, pickup.amount);
       break;
     }
@@ -1552,7 +1610,7 @@ function updatePowerups(now) {
       pickup.z = 0;
       powerupSequence += 1;
       emitSignal("powerup", -1, powerupSequence, nextPowerupAtUs / 1000000);
-      drum("clap", .9, 0);
+      playDrum("clap", .9, 0);
     }
     nextPowerupAtUs += powerupIntervalUs;
   }
@@ -1585,7 +1643,7 @@ function updateBullets(dt, now) {
         impacts.push({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2,
           z: (a.z + b.z) / 2, life: .18, duration: .18,
           death: false, explosion: false });
-        drum("hat", 1, 0);
+        playDrum("hat", 1, 0);
         emitSignal("cancel", -1, a.owner, b.owner);
         break;
       }
@@ -1609,7 +1667,7 @@ function updateBullets(dt, now) {
       else {
         applyBodyHit(target, contact.segmentIndex,
           bullet.x - bullet.vx, bullet.owner, now, 1180, 125);
-        drum("block", .9, panPlayer(target));
+        playDrum("block", .9, panPlayer(target));
       }
     }
   }
@@ -1679,7 +1737,7 @@ function updateGrenades(dt, now) {
       grenade.blastRadius = 0;
       grenade.vx = 0;
       grenade.vy = 0;
-      drum("kick", 1.25, panPlayer(players[grenade.owner]));
+      playDrum("kick", 1.25, panPlayer(players[grenade.owner]));
       emitSignal("blast", grenade.owner,
         grenade.x / worldRight, grenade.y / floorY);
     }
@@ -1701,7 +1759,7 @@ function startMelee(player, kind, now) {
   player.stance = "ATTACK";
   player.pendingMoveLabel = kind;
   const pan = panPlayer(player);
-  drum(kind === "KICK" ? "kick" : "snare", 1.05, pan);
+  playDrum(kind === "KICK" ? "kick" : "snare", 1.05, pan);
   emitSignal(kind.toLowerCase(), player.pad, player.facing, 0);
 }
 
@@ -1796,7 +1854,7 @@ function returnBall(ball, player, now, shielded, intensity = 1) {
   impacts.push({ x: ball.x, y: ball.y, z: ball.z,
     life: .22, duration: .22, death: false, explosion: false });
   impactHitboxesUntil = Math.max(impactHitboxesUntil, now + 350000);
-  drum(shielded ? "block" : "clap", shielded ? 1.1 : 1.25,
+  playDrum(shielded ? "block" : "clap", shielded ? 1.1 : 1.25,
     panAt(ball.x, ball.z));
   emitSignal(shielded ? "ballblock" : "wack", player.pad,
     direction, Math.round(speed));
@@ -1828,7 +1886,7 @@ function crossWackBall(ball, hitters, now) {
   impacts.push({ x: ball.x, y: ball.y, z: ball.z,
     life: .32, duration: .32, death: false, explosion: true });
   impactHitboxesUntil = Math.max(impactHitboxesUntil, now + 350000);
-  drum("clap", 1.55, panAt(ball.x, ball.z));
+  playDrum("clap", 1.55, panAt(ball.x, ball.z));
   emitSignal("crosswack", -1, direction, Math.round(speed));
 }
 
@@ -1851,7 +1909,7 @@ function bootBall(ball, player, now) {
   impacts.push({ x: ball.x, y: ball.y, z: ball.z,
     life: .16, duration: .16, death: false, explosion: false });
   impactHitboxesUntil = Math.max(impactHitboxesUntil, now + 300000);
-  drum("kick", 1.12, panAt(ball.x, ball.z));
+  playDrum("kick", 1.12, panAt(ball.x, ball.z));
   emitSignal("boot", player.pad, direction, Math.round(speed));
 }
 
@@ -1872,7 +1930,7 @@ function bounceBallOffBody(ball, player, now, segmentIndex = -1) {
   impacts.push({ x: ball.x, y: ball.y, z: ball.z,
     life: .16, duration: .16, death: false, explosion: false });
   impactHitboxesUntil = Math.max(impactHitboxesUntil, now + 300000);
-  drum("block", .82, panAt(ball.x, ball.z));
+  playDrum("block", .82, panAt(ball.x, ball.z));
   emitSignal("bodybounce", player.pad, direction, Math.round(speed));
 }
 
@@ -2012,7 +2070,7 @@ function directionTap(player, direction, now) {
       now - releasedAt < doubleTapReleaseUs) return;
   player.lastTap[direction] = -10000000;
   player.pendingMoveLabel = direction === "UP" ? "ULTRA JUMP" : "DASH " + direction;
-  drum("clap", 1.05, panPlayer(player));
+  playDrum("clap", 1.05, panPlayer(player));
   if (direction === "UP") {
     player.vy = -2500;
     player.grounded = false;
@@ -2050,9 +2108,9 @@ function killPlayer(target, killerPad, now, cause = "KO") {
   roundCause = cause;
   impacts.push({ x: target.x, y: target.y - 120, z: target.z, life: .55,
     duration: .55, death: true, explosion: false });
-  drum("whoosh", 1.15, panPlayer(target));
+  playDrum("whoosh", 1.15, panPlayer(target));
   emitSignal("killcam", killerPad, target.pad, 1);
-  drum("snare", 1.15, panPlayer(target));
+  playDrum("snare", 1.15, panPlayer(target));
 }
 
 function resolveMelee(now) {
@@ -2092,7 +2150,7 @@ function resolveMelee(now) {
       attacker.vx = attacker.knockVx + attacker.windVx;
       if (target.blocking) attacker.vy = Math.min(attacker.vy, -260);
       else target.vx = 0;
-      drum("block", 1.2, panPlayer(target));
+      playDrum("block", 1.2, panPlayer(target));
       emitSignal("block", target.pad, attacker.pad, target.blocking ? 1 : 2);
     } else if (headshot) killPlayer(target, attacker.pad, now,
       contacts.length >= 2 ? "TRADE" : "KO");
@@ -2100,7 +2158,7 @@ function resolveMelee(now) {
       const force = attacker.attackKind === "KICK" ? 1550 : 1200;
       applyBodyHit(target, segmentIndex, attacker.x,
         attacker.pad, now, force, attacker.attackKind === "KICK" ? 220 : 140);
-      drum("block", 1, panPlayer(target));
+      playDrum("block", 1, panPlayer(target));
     }
   }
 }
@@ -2129,7 +2187,7 @@ function resolvePogoAttacks(now) {
     if (contact.headshot) killPlayer(target, attacker.pad, now, "POGO");
     else applyBodyHit(target, contact.segmentIndex, attacker.x,
       attacker.pad, now, 1350, 260);
-    drum("kick", 1.1, panPlayer(attacker));
+    playDrum("kick", 1.1, panPlayer(attacker));
     emitSignal("pogo", attacker.pad, contact.headshot ? 1 : 0, 0);
   }
 }
@@ -2234,7 +2292,7 @@ function grabNearestBall(player, now) {
   player.lastButton = "HOLDING";
   player.lastButtonAt = now;
   emitSignal("grab", player.pad, nearest.index, nearest.item.mass);
-  drum("clap", .72, panPlayer(player));
+  playDrum("clap", .72, panPlayer(player));
   return true;
 }
 
@@ -2392,7 +2450,7 @@ function updatePlayer(player, pad, dt, now) {
     player.pogoHit = false;
     player.grounded = false;
     player.ducking = false;
-    drum("block", 0.72, panPlayer(player));
+    playDrum("block", 0.72, panPlayer(player));
     emitSignal("jump", player.pad, 1, 0);
   }
 
@@ -2401,7 +2459,7 @@ function updatePlayer(player, pad, dt, now) {
       remember(player, button);
       if (button === "B" && !headOnly) {
         player.pendingMoveLabel = "SHIELD";
-        drum("block", .7, panPlayer(player));
+        playDrum("block", .7, panPlayer(player));
         emitSignal("shield", player.pad, 1, 0);
       }
       else if (!headOnly && !pogo && !hitStunned && !player.blocking &&
@@ -2500,7 +2558,7 @@ function botPad(player, opponent, now) {
   return { connected: true, down, leftX: 0, leftY: 0 };
 }
 
-function sim() {
+function gameSim() {
   syncGameView();
   const now = runtime().monotonicUs;
   const dt = Math.min(0.04, Math.max(0.001, (now - lastSimAt) / 1000000));
@@ -2571,7 +2629,7 @@ function sim() {
   if (countdownSecond > 0 && countdownSecond <= 10 &&
       countdownSecond !== lastCountdownSecond) {
     lastCountdownSecond = countdownSecond;
-    drum("bell", 1 + (10 - countdownSecond) * .025, 0);
+    playDrum("bell", 1 + (10 - countdownSecond) * .025, 0);
     emitSignal("countdown", -1, countdownSecond, 0);
   }
   updatePlayer(players[0], padSnapshots[0], dt, now);
@@ -3256,7 +3314,7 @@ function damagePart(target, segmentIndex, sourceX, sourcePad, now) {
   target.attackHit = false;
   target.lastButton = part.toUpperCase() + " LOST";
   target.lastButtonAt = now;
-  drum("clap", 1.2, panPlayer(target));
+  playDrum("clap", 1.2, panPlayer(target));
 }
 
 function applyBodyHit(target, segmentIndex, sourceX, sourcePad, now,
@@ -4393,7 +4451,7 @@ function drawSafeZones() {
     17, ...actionDebug);
 }
 
-function paint() {
+function gamePaint() {
   syncGameView();
   const run = runtime();
   if (lastPaintAt > 0 && run.monotonicUs > lastPaintAt) {
@@ -4599,6 +4657,28 @@ function paint() {
   drawSafeZones();
   drawDeathFlash();
   drawSpectatorQr(titleInk);
+}
+
+function sim() {
+  if (clientError) return;
+  try {
+    gameSim();
+  } catch (error) {
+    captureClientError("sim", error);
+  }
+}
+
+function paint() {
+  if (clientError) {
+    drawClientError();
+    return;
+  }
+  try {
+    gamePaint();
+  } catch (error) {
+    captureClientError("paint", error);
+    drawClientError();
+  }
 }
 
 function act() {}
