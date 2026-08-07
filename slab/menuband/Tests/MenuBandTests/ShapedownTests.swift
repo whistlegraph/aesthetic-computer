@@ -425,9 +425,37 @@ final class ShapedownTests: XCTestCase {
         XCTAssertEqual(
             AppDelegate.bottomCenterOverlayAnchor(
                 imageSize: NSSize(width: 240, height: 160),
-                visibleFrame: NSRect(x: 100, y: 50, width: 1200, height: 800)
+                screenFrame: NSRect(x: 100, y: 50, width: 1200, height: 800),
+                visibleFrame: NSRect(x: 100, y: 50, width: 1200, height: 800),
+                mouse: NSPoint(x: 700, y: 400),
+                dockAtBottom: true
             ),
             NSPoint(x: 700, y: 146)
+        )
+    }
+
+    func testTrackDrumClearsVisibleAndRevealedDock() {
+        let screen = NSRect(x: 0, y: 0, width: 1200, height: 800)
+        let size = NSSize(width: 240, height: 160)
+        XCTAssertEqual(
+            AppDelegate.bottomCenterOverlayAnchor(
+                imageSize: size,
+                screenFrame: screen,
+                visibleFrame: NSRect(x: 0, y: 72, width: 1200, height: 728),
+                mouse: NSPoint(x: 600, y: 400),
+                dockAtBottom: true
+            ).y,
+            168
+        )
+        XCTAssertEqual(
+            AppDelegate.bottomCenterOverlayAnchor(
+                imageSize: size,
+                screenFrame: screen,
+                visibleFrame: screen,
+                mouse: NSPoint(x: 600, y: 20),
+                dockAtBottom: true
+            ).y,
+            192
         )
     }
 

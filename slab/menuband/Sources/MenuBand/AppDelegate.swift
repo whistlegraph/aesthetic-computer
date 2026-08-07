@@ -6010,23 +6010,47 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard let screen else { return fallback }
         return Self.bottomCenterOverlayAnchor(
             imageSize: imageSize,
-            visibleFrame: screen.visibleFrame
+            screenFrame: screen.frame,
+            visibleFrame: screen.visibleFrame,
+            mouse: NSEvent.mouseLocation,
+            dockAtBottom: Self.dockIsAtBottom
         )
     }
 
     static func bottomCenterOverlayAnchor(
         imageSize: NSSize,
+        screenFrame: NSRect,
         visibleFrame: NSRect,
+        mouse: NSPoint,
+        dockAtBottom: Bool,
+        autoHiddenDockClearance: CGFloat = 96,
         gap: CGFloat = 16
     ) -> NSPoint {
         let halfHeight = imageSize.height / 2
         let halfWidth = imageSize.width / 2
+        let fixedBottomInset = max(0, visibleFrame.minY - screenFrame.minY)
+        let mouseIsRevealingBottomDock = dockAtBottom
+            && fixedBottomInset < 1
+            && screenFrame.contains(mouse)
+            && mouse.y <= screenFrame.minY + autoHiddenDockClearance
+        let revealedDockTop = mouseIsRevealingBottomDock
+            ? screenFrame.minY + autoHiddenDockClearance
+            : screenFrame.minY
+        let safeBottom = max(visibleFrame.minY, revealedDockTop)
         let x = min(max(visibleFrame.midX, visibleFrame.minX + halfWidth),
                     visibleFrame.maxX - halfWidth)
-        let y = min(max(visibleFrame.minY + halfHeight + gap,
-                        visibleFrame.minY + halfHeight),
+        let y = min(max(safeBottom + halfHeight + gap,
+                        safeBottom + halfHeight),
                     visibleFrame.maxY - halfHeight)
         return NSPoint(x: x, y: y)
+    }
+
+    private static var dockIsAtBottom: Bool {
+        guard let orientation = CFPreferencesCopyAppValue(
+            "orientation" as CFString,
+            "com.apple.dock" as CFString
+        ) as? String else { return true }
+        return orientation == "bottom"
     }
 
     /// Keep the slider's near-menubar fallback beneath Menu Band.
