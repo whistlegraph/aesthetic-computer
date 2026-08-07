@@ -336,8 +336,10 @@
       }
     }
 
+    let simulationMonotonicMs = null;
     function runtime() {
-      return { monotonicUs: performance.now() * 1000, unixMs: Date.now(),
+      return { monotonicUs: (simulationMonotonicMs ?? performance.now()) * 1000,
+        unixMs: Date.now(),
         audioLatencyMs: audioContext?.baseLatency ? audioContext.baseLatency * 1000 : 0,
         frameRate: 60, clientErrorReportStatus };
     }
@@ -349,7 +351,8 @@
       }
     }
 
-    function browserPad(index) {
+    let sampledPads = [null, null];
+    function readBrowserPad(index) {
       const source = navigator.getGamepads?.()[index];
       const down = new Set(keys[index]);
       if (source) {
@@ -372,6 +375,13 @@
       };
     }
 
+    function sampleGamepads() {
+      sampledPads = [readBrowserPad(0), readBrowserPad(1)];
+    }
+
+    function browserPad(index) {
+      return sampledPads[index] || readBrowserPad(index);
+    }
     function gamepad(index = 0) { return browserPad(index); }
     function controllers() {
       return [0, 1].map((index) => ({ index, connected: browserPad(index).connected,
@@ -581,6 +591,7 @@
     });
     globalThis.__fightHost = {
       runtime, gamepad, controllers, capabilities, telemetry, gameSignal,
+      sampleInput: sampleGamepads,
       saveReplay, publishLive, ac, drum, wipe, box, line, triangle,
       write, systemWrite, comicWrite, gameView,
     };
@@ -667,10 +678,15 @@
         "line", "triangle", "write", "systemWrite", "comicWrite", "gameView"]
         .map((name) => globalThis.__fightHost[name]));
       piece.boot();
-      const driver = createFrameDriver({ paint() {
-        piece.sim();
-        piece.paint();
-      } });
+      const driver = createFrameDriver({
+        sample: globalThis.__fightHost.sampleInput,
+        simulate(simulationAt) {
+          simulationMonotonicMs = simulationAt;
+          try { piece.sim(); }
+          finally { simulationMonotonicMs = null; }
+        },
+        paint() { piece.paint(); },
+      });
       globalThis.__oskiewarFrameStats = driver.stats;
       addEventListener("visibilitychange", () =>
         driver.setVisible(document.visibilityState === "visible"));

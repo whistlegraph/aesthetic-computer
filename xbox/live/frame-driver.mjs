@@ -1,9 +1,12 @@
-// Adaptive browser frame driver: stay on vsync when it is timely and fill
-// missing deadlines when requestAnimationFrame is throttled below 60 Hz.
+// Browser game clock: render once per display refresh while combat advances on
+// a deterministic fixed-rate timeline suitable for replay and networking.
 
 export function createFrameDriver({
+  simulate,
   paint,
-  targetFps = 60,
+  sample = () => {},
+  simulationFps = 60,
+  maxCatchUpTicks = 4,
   now = () => performance.now(),
   requestFrame = (callback) => requestAnimationFrame(callback),
   cancelFrame = (handle) => cancelAnimationFrame(handle),
@@ -11,62 +14,94 @@ export function createFrameDriver({
   clearTimer = (handle) => clearTimeout(handle),
   fallbackGraceMs = 2,
 } = {}) {
+  if (typeof simulate !== "function")
+    throw new TypeError("simulate callback required");
   if (typeof paint !== "function") throw new TypeError("paint callback required");
-  const interval = 1000 / targetFps;
+  const interval = 1000 / simulationFps;
   const earlyTolerance = .35;
   let running = false;
   let visible = true;
-  let nextFrameAt = 0;
+  let nextSimulationAt = 0;
+  let simulationTime = 0;
   let timerHandle = null;
   let rafHandle = null;
-  const stats = { targetFps, frames: 0, rafFrames: 0, timerFrames: 0,
-    startedAt: 0, lastFrameAt: 0, lastCostMs: 0 };
+  const stats = {
+    simulationFps,
+    renderFrames: 0,
+    simulationTicks: 0,
+    inputSamples: 0,
+    droppedSimulationTicks: 0,
+    startedAt: 0,
+    lastRenderAt: 0,
+    lastSimulationAt: 0,
+    lastRenderCostMs: 0,
+    lastSimulationCostMs: 0,
+  };
 
-  const clearDeadlineTimer = () => {
+  const sampleInput = () => {
+    sample();
+    stats.inputSamples++;
+  };
+
+  const runSimulation = (sampleFirst) => {
+    if (sampleFirst) sampleInput();
+    const started = now();
+    simulate(simulationTime);
+    stats.simulationTicks++;
+    stats.lastSimulationAt = simulationTime;
+    stats.lastSimulationCostMs = Math.max(0, now() - started);
+  };
+
+  const clearSimulationTimer = () => {
     if (timerHandle === null) return;
     clearTimer(timerHandle);
     timerHandle = null;
   };
 
-  const armDeadlineTimer = () => {
-    clearDeadlineTimer();
+  const armSimulationTimer = () => {
+    clearSimulationTimer();
     if (!running || !visible) return;
-    // Give a healthy 60 Hz rAF first refusal. The timer only fills a deadline
-    // when the browser's animation clock is late or capped below targetFps.
-    const delay = Math.max(0, nextFrameAt + fallbackGraceMs - now());
+    // A timely animation frame gets first refusal. The timer preserves the
+    // fixed simulation rate on displays running below 60 Hz.
+    const delay = Math.max(0, nextSimulationAt + fallbackGraceMs - now());
     timerHandle = setTimer(() => {
       timerHandle = null;
-      tick(now(), "timer");
+      pumpSimulation(now(), true);
     }, delay);
   };
 
-  const tick = (timestamp, source) => {
-    if (!running || !visible) return false;
-    const current = Number.isFinite(timestamp) ? timestamp : now();
-    if (current + earlyTolerance < nextFrameAt) {
-      if (source === "timer") armDeadlineTimer();
-      return false;
+  const pumpSimulation = (current, sampleEachTick) => {
+    if (!running || !visible) return;
+    let ticks = 0;
+    while (current + earlyTolerance >= nextSimulationAt &&
+      ticks < maxCatchUpTicks) {
+      simulationTime += interval;
+      runSimulation(sampleEachTick);
+      nextSimulationAt += interval;
+      ticks++;
     }
-    const started = now();
-    paint();
-    stats.frames++;
-    if (source === "raf") stats.rafFrames++;
-    else if (source === "timer") stats.timerFrames++;
-    stats.lastFrameAt = current;
-    stats.lastCostMs = Math.max(0, now() - started);
-
-    // Keep the ideal timeline when one deadline is late, but skip missed
-    // deadlines instead of issuing catch-up paints.
-    if (nextFrameAt < current - interval) nextFrameAt = current;
-    do nextFrameAt += interval;
-    while (nextFrameAt <= current + earlyTolerance);
-    armDeadlineTimer();
-    return true;
+    if (current + earlyTolerance >= nextSimulationAt) {
+      const dropped = Math.floor((current - nextSimulationAt) / interval) + 1;
+      stats.droppedSimulationTicks += Math.max(1, dropped);
+      nextSimulationAt = current + interval;
+    }
+    armSimulationTimer();
   };
 
   const rafTick = (timestamp) => {
     if (!running) return;
-    tick(timestamp, "raf");
+    if (visible) {
+      const current = Number.isFinite(timestamp) ? timestamp : now();
+      sampleInput();
+      pumpSimulation(current, false);
+      const started = now();
+      const alpha = Math.max(0, Math.min(1,
+        (current - nextSimulationAt + interval) / interval));
+      paint(current, alpha);
+      stats.renderFrames++;
+      stats.lastRenderAt = current;
+      stats.lastRenderCostMs = Math.max(0, now() - started);
+    }
     rafHandle = requestFrame(rafTick);
   };
 
@@ -77,23 +112,31 @@ export function createFrameDriver({
       running = true;
       visible = true;
       stats.startedAt = now();
-      nextFrameAt = stats.startedAt;
-      tick(nextFrameAt, "start");
+      simulationTime = stats.startedAt;
+      nextSimulationAt = stats.startedAt;
+      sampleInput();
+      runSimulation(false);
+      nextSimulationAt += interval;
+      armSimulationTimer();
       rafHandle = requestFrame(rafTick);
     },
     stop() {
       if (!running) return;
       running = false;
-      clearDeadlineTimer();
+      clearSimulationTimer();
       if (rafHandle !== null) cancelFrame(rafHandle);
       rafHandle = null;
     },
     setVisible(value) {
       visible = Boolean(value);
-      clearDeadlineTimer();
+      clearSimulationTimer();
       if (!running || !visible) return;
-      nextFrameAt = now();
-      tick(nextFrameAt, "resume");
+      nextSimulationAt = now();
+      sampleInput();
+      simulationTime += interval;
+      runSimulation(false);
+      nextSimulationAt += interval;
+      armSimulationTimer();
     },
   };
 }

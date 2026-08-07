@@ -1,5 +1,5 @@
 // @bundle-qr
-const buildTimestamp = "2026.08.07.0940 PDT";
+const buildTimestamp = "2026.08.07.1015 PDT";
 const floorY = 12000;
 const ceilingY = 0;
 const wallThickness = 80;
@@ -31,6 +31,7 @@ const grenadeBlastDuration = .68;
 const grenadeBlastRadius = 620;
 const replayTickUs = 16667;
 const replayCheckpointUs = 1000000;
+const liveSnapshotIntervalUs = 50000;
 const instantReplayStepUs = 33333;
 const instantReplayMaxFrames = 240;
 const walkSpeed = 1060;
@@ -494,7 +495,7 @@ function publishSpectator(now, { target = matchName, nextRoundId = "",
   if (!roundIsTimed() || !target || livePublishFailed ||
       typeof publishLive !== "function" ||
       (!force && now < liveNextAt)) return;
-  liveNextAt = now + 50000;
+  liveNextAt = now + liveSnapshotIntervalUs;
   try {
     publishLive("ow-" + target,
       JSON.stringify(spectatorState(now, nextRoundId)));
