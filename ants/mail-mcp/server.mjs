@@ -45,7 +45,12 @@ const REMOTE = MAIL_HOST !== "";
 const MU = REMOTE ? "mu" : resolveBin("mu", ["/opt/homebrew/bin/mu", "/usr/bin/mu"]);
 const MBSYNC = REMOTE ? "mbsync" : resolveBin("mbsync", ["/opt/homebrew/bin/mbsync", "/usr/bin/mbsync"]);
 const MSMTP = REMOTE ? "msmtp" : resolveBin("msmtp", ["/opt/homebrew/bin/msmtp", "/usr/bin/msmtp"]);
-const MAILDIR = process.env.AC_MAIL_MAILDIR || join(HOME, ".mail-all");
+// The maildir path is used by whichever machine runs mu — so in remote mode
+// it must be jasellite's home, not this machine's ($HOME here is /Users/…
+// on a Mac, and a remote `mu init` with that path corrupts the index).
+const MAILDIR =
+  process.env.AC_MAIL_MAILDIR ||
+  (REMOTE ? "/home/jas/.mail-all" : join(HOME, ".mail-all"));
 const MU_DB = process.env.AC_MAIL_MU_DB || join(HOME, ".cache", "mu", "xapian");
 
 // jasellite's login shell is fish, and ssh hands it one flat string — so every
