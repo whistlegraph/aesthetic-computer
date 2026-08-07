@@ -1,5 +1,5 @@
 // @bundle-qr
-const buildTimestamp = "2026.08.06.2121 PDT";
+const buildTimestamp = "2026.08.06.2159 PDT";
 const floorY = 12000;
 const ceilingY = 0;
 const wallThickness = 80;
@@ -261,6 +261,7 @@ const players = [
     attackUntil: 0, attackHit: false, blocking: false, blockFlash: 0,
     windVx: 0, knockVx: 0, gunAmmo: 0, grenadeAmmo: 0, stance: "NEUTRAL",
     heldBall: -1, grabHeld: false, crouchBlend: 0, standingOn: -1,
+    partDamage: {}, removedParts: [], pogoHit: false,
     commandStream: [],
     jumpLaunchAt: 0, jumpPoseUntil: 0, landPoseUntil: 0 },
   { name: "@OSKIE", rosterIndex: 2, handleColors: fighterRoster[2].colors,
@@ -277,10 +278,12 @@ const players = [
     attackUntil: 0, attackHit: false, blocking: false, blockFlash: 0,
     windVx: 0, knockVx: 0, gunAmmo: 0, grenadeAmmo: 0, stance: "NEUTRAL",
     heldBall: -1, grabHeld: false, crouchBlend: 0, standingOn: -1,
+    partDamage: {}, removedParts: [], pogoHit: false,
     commandStream: [],
     jumpLaunchAt: 0, jumpPoseUntil: 0, landPoseUntil: 0 },
 ];
 const impacts = [];
+const detachedParts = [];
 const bullets = [];
 const grenades = [];
 const gunPickups = [
@@ -349,6 +352,8 @@ let debugHitboxes = true;
 let nextInputDebugAt = 0;
 let frameTelemetry = [];
 let frameTelemetryFlushAt = 0;
+let lastPaintAt = 0;
+let displayFps = 0;
 let liveSequence = 0;
 let liveNextAt = 0;
 let spectatorQr = null;
@@ -438,6 +443,7 @@ function spectatorState(now, nextRoundId = "") {
       grounded: player.grounded, ducking: player.ducking,
       blocking: player.blocking, score: player.score,
       roundWins: player.roundWins, attack: player.attackKind || "",
+      removedParts: player.removedParts.slice(),
     })),
     ball: { active: ball.active, x: ball.x, y: ball.y,
       z: ball.z, radius: ball.radius, type: ball.type, mass: ball.mass },
@@ -499,7 +505,9 @@ function recordReplayCommands(now, inputs = padSnapshots) {
 
 function replayFlags(player) {
   return (player.alive ? 1 : 0) | (player.grounded ? 2 : 0) |
-    (player.ducking ? 4 : 0) | (player.blocking ? 8 : 0);
+    (player.ducking ? 4 : 0) | (player.blocking ? 8 : 0) |
+    [...limbParts, "torso"].reduce((flags, part, index) =>
+      flags | (hasPart(player, part) ? 0 : 1 << (index + 4)), 0);
 }
 
 function recordReplayCheckpoint(now, force = false) {
@@ -611,6 +619,7 @@ function startInstantReplay(now) {
     previous: padSnapshots[0]?.down?.slice() || [],
     endFrame: frames[frames.length - 1] };
   impacts.length = 0;
+  detachedParts.length = 0;
   applyRoundReplayFrame(frames[0], now);
   telemetry("ROUND_REPLAY", "start frames=" + frames.length);
   return true;
@@ -741,8 +750,11 @@ function returnToSelectPressed(now) {
   for (let index = 0; index < padSnapshots.length; index++) {
     const down = padSnapshots[index]?.down || [];
     const previous = navigationPrevious[index];
-    if (["Menu", "View"].some((button) =>
-        down.includes(button) && !previous.includes(button))) pressed = true;
+    if (down.includes("View") && !previous.includes("View")) {
+      debugHitboxes = !debugHitboxes;
+      telemetry("FIGHT_DEBUG", debugHitboxes ? "on" : "off");
+    }
+    if (down.includes("Menu") && !previous.includes("Menu")) pressed = true;
     navigationPrevious[index] = down.slice();
   }
   if (!pressed || shellMode !== "GAME" || selecting) return false;
@@ -761,8 +773,9 @@ function enterGame(now) {
 function updateShell(now) {
   const down = padSnapshots[0]?.down || [];
   if (down.some((button) => !shellPrevious.includes(button))) {
-    drum("hat", .82, -.08);
-    drum("clap", 1.08, .08);
+    drum("hat", .55, 0);
+    if (typeof titleBeep === "function") titleBeep();
+    if (typeof titleVoice === "function") titleVoice();
     emitSignal("select", -1, 1, 0);
     enterGame(now);
   }
@@ -986,6 +999,8 @@ function roundDemoState(demo, now) {
       facing: vx ? Math.sign(vx) : pad ? -1 : 1,
       alive: Boolean(flags & 1), grounded: Boolean(flags & 2),
       ducking: Boolean(flags & 4), blocking: Boolean(flags & 8),
+      removedParts: [...limbParts, "torso"].filter((part, index) =>
+        Boolean(flags & (1 << (index + 4)))),
       score: Math.round(value(offset + 6)),
       roundWins: Math.round(value(offset + 7)), attack: recentAttack(pad) };
   });
@@ -1009,7 +1024,7 @@ function applyRoundViewerState(state, now, dt = 1 / 60) {
     const previousX = player.x;
     const previousY = player.y;
     for (const key of ["name", "color", "x", "y", "z", "facing", "alive",
-      "grounded", "ducking", "blocking", "score", "roundWins"])
+      "grounded", "ducking", "blocking", "score", "roundWins", "removedParts"])
       if (source[key] !== undefined) player[key] = source[key];
     player.vx = source.vx ?? (player.x - previousX) / Math.max(.001, dt);
     player.vy = source.vy ?? (player.y - previousY) / Math.max(.001, dt);
@@ -1130,6 +1145,7 @@ function resetRound(now, resetMatch = false) {
         { errorCorrectLevel: 1 }) : null;
   }
   impacts.length = 0;
+  detachedParts.length = 0;
   bullets.length = 0;
   grenades.length = 0;
   roundReplayFrames = [];
@@ -1178,6 +1194,9 @@ function resetRound(now, resetMatch = false) {
     player.hitSegment = -1;
     player.hitSegmentUntil = 0;
     player.hitStunUntil = 0;
+    player.partDamage = {};
+    player.removedParts = [];
+    player.pogoHit = false;
     player.standingOn = -1;
     player.previousY = floorY;
     player.crouchBlend = 0;
@@ -1251,35 +1270,29 @@ function updateCamera(dt) {
   cameraWidth += (desiredWidth - cameraWidth) * widthBlend;
   const halfWidth = cameraWidth / 2;
   const halfHeight = cameraWidth / cameraAspect / 2;
-  const desiredCenter = cameraWidth >= worldRight - worldLeft
+  let desiredCenter = cameraWidth >= worldRight - worldLeft
     ? (worldLeft + worldRight) / 2
     : Math.max(worldLeft + halfWidth,
       Math.min(worldRight - halfWidth, (left + right) / 2));
-  const desiredCenterY = halfHeight * 2 >= floorY - ceilingY
+  let desiredCenterY = halfHeight * 2 >= floorY - ceilingY
     ? (ceilingY + floorY) / 2
     : Math.max(ceilingY + halfHeight,
       Math.min(floorY - halfHeight, (top + bottom) / 2));
-  const centerBlend = 1 - Math.exp(-Math.max(0, dt) * 9);
-  cameraCenter += (desiredCenter - cameraCenter) * centerBlend;
-  cameraCenterY += (desiredCenterY - cameraCenterY) * centerBlend;
-  // Ease while there is spare framing, but never let smoothing leave either
-  // fighter outside the safe action area.
+  // Fold containment into the target before easing. Clamping the live camera
+  // after easing caused a one-frame reset whenever a fighter crossed the safe
+  // edge; predictive width now absorbs that motion while the center remains
+  // continuous.
   const containLeft = right + 350 - halfWidth;
   const containRight = left - 350 + halfWidth;
   if (containLeft <= containRight)
-    cameraCenter = clamp(cameraCenter, containLeft, containRight);
+    desiredCenter = clamp(desiredCenter, containLeft, containRight);
   const containTop = bottom + 130 - halfHeight;
   const containBottom = top - 130 + halfHeight;
   if (containTop <= containBottom)
-    cameraCenterY = clamp(cameraCenterY, containTop, containBottom);
-  if (cameraWidth < worldRight - worldLeft)
-    cameraCenter = Math.max(worldLeft + halfWidth,
-      Math.min(worldRight - halfWidth, cameraCenter));
-  else cameraCenter = (worldLeft + worldRight) / 2;
-  if (halfHeight * 2 < floorY - ceilingY)
-    cameraCenterY = Math.max(ceilingY + halfHeight,
-      Math.min(floorY - halfHeight, cameraCenterY));
-  else cameraCenterY = (ceilingY + floorY) / 2;
+    desiredCenterY = clamp(desiredCenterY, containTop, containBottom);
+  const centerBlend = 1 - Math.exp(-Math.max(0, dt) * 9);
+  cameraCenter += (desiredCenter - cameraCenter) * centerBlend;
+  cameraCenterY += (desiredCenterY - cameraCenterY) * centerBlend;
 }
 
 function updateCameraDoll(dt, now) {
@@ -1347,14 +1360,20 @@ function updateCameraDoll(dt, now) {
     return;
   }
   const target = { x: cameraCenter, y: cameraCenterY, z: 0 };
-  // Render containment can pull the camera back farther than the gameplay
-  // target. Keep that corrected width for the complete round: relaxing it
-  // caused a visible periodic snap when containment had to restore it. Ten
+  // Measure complete animated silhouettes before rendering. This used to run
+  // as a final paint-time correction, which made the viewport skip a frame at
+  // the safe-zone edge.
+  const containmentWidth = fighterContainmentRequiredWidth(
+    (now - startedAt) / 1000000) * 1.08;
+  cameraContainFloor = Math.max(cameraContainFloor, containmentWidth);
   // A small overscan absorbs animated hands, feet, and perspective before
   // they reach the action-safe edge without loosening the close fight shot.
   const naturalWidth = cameraWidth * 1.04;
-  if (cameraContainFloor > naturalWidth) {
-    const release = 1 - Math.exp(-Math.max(0, dt) * 3.2);
+  // Hysteresis prevents a fighter hovering at the safe edge from repeatedly
+  // switching between close and wide framing.
+  if (cameraContainFloor > naturalWidth &&
+      naturalWidth < cameraContainFloor * .84) {
+    const release = 1 - Math.exp(-Math.max(0, dt) * 1.6);
     cameraContainFloor = lerp(cameraContainFloor, naturalWidth, release);
   }
   const framedWidth = Math.max(naturalWidth, cameraContainFloor);
@@ -1670,6 +1689,11 @@ function updateGrenades(dt, now) {
 }
 
 function startMelee(player, kind, now) {
+  if (isHeadOnly(player) || isPogo(player)) return;
+  const attackingPart = kind === "KICK"
+    ? player.facing > 0 ? "right-leg" : "left-leg"
+    : player.facing > 0 ? "right-arm" : "left-arm";
+  if (!hasPart(player, attackingPart)) return;
   player.attackKind = kind;
   player.attackStartedAt = now;
   player.attackUntil = now + 220000;
@@ -1680,6 +1704,12 @@ function startMelee(player, kind, now) {
   drum(kind === "KICK" ? "kick" : "snare", 1.05, pan);
   emitSignal(kind.toLowerCase(), player.pad, player.facing, 0);
 }
+
+const limbParts = ["left-arm", "right-arm", "left-leg", "right-leg"];
+const hasPart = (player, part) => !player.removedParts?.includes(part);
+const isPogo = (player) => hasPart(player, "torso") &&
+  limbParts.every((part) => !hasPart(player, part));
+const isHeadOnly = (player) => !hasPart(player, "torso");
 
 function meleePulse(player, now) {
   if (now >= player.attackUntil || player.attackUntil <= player.attackStartedAt) return 0;
@@ -1807,10 +1837,10 @@ function bootBall(ball, player, now) {
   // direction. A melee strike remains the intentionally stronger launch.
   const direction = Math.sign(player.vx) || Math.sign(ball.x - player.x) ||
     player.facing || 1;
-  const speed = Math.min(3600, (1150 + Math.abs(player.vx) * .95) *
+  const speed = Math.min(1450, (420 + Math.abs(player.vx) * .32) *
     (ball.hitScale || 1));
   ball.vx = direction * speed;
-  ball.vy = -Math.max(220, speed * .2);
+  ball.vy = -Math.max(80, speed * .06);
   ball.x = player.x + direction * (ball.radius + 58);
   ball.y = Math.min(ball.y, floorY - ball.radius - 2);
   ball.lastHitBy = player.pad;
@@ -2032,14 +2062,12 @@ function resolveMelee(now) {
     if (!attacker.alive || attacker.attackHit || now >= attacker.attackUntil) continue;
     const target = players[attacker.pad === 0 ? 1 : 0];
     if (!target.alive) continue;
-    const strike = meleeStrike(attacker, now);
-    const contact = runnerContactToPoint(target, poseTime,
-      strike.x, strike.y, strike.z);
-    if (Math.min(contact.headDistance, contact.bodyDistance) <= strike.radius) {
+    const contact = meleeLimbContact(attacker, target, poseTime);
+    if (contact?.separation <= 3) {
       attacker.attackHit = true;
-      contacts.push({ attacker, target, strike,
-        headshot: contact.headDistance <= strike.radius,
-        segmentIndex: contact.segmentIndex });
+      contacts.push({ attacker, target,
+        strike: { x: contact.x, y: contact.y, z: contact.z },
+        headshot: contact.headshot, segmentIndex: contact.segmentIndex });
     }
   }
   for (const { attacker, target, strike, headshot, segmentIndex } of contacts) {
@@ -2077,6 +2105,35 @@ function resolveMelee(now) {
   }
 }
 
+function resolvePogoAttacks(now) {
+  const poseTime = (now - startedAt) / 1000000;
+  for (const attacker of players) {
+    if (!attacker.alive || !isPogo(attacker) || attacker.grounded ||
+        attacker.pogoHit) continue;
+    const geometry = runnerWorldGeometry(attacker, poseTime);
+    const torso = geometry.segments.find((segment) => segment.role === "torso");
+    if (!torso) continue;
+    const bottom = { x1: torso.x2, y1: torso.y2, z1: torso.z2,
+      x2: torso.x2, y2: torso.y2, z2: torso.z2,
+      width: torso.width + 6, role: "attack-pogo", part: "torso" };
+    const target = players[attacker.pad === 0 ? 1 : 0];
+    if (!target.alive) continue;
+    const contact = attackCapsuleContact([bottom], target, poseTime);
+    if (!contact || contact.separation > 3) continue;
+    attacker.pogoHit = true;
+    attacker.vy = Math.min(attacker.vy, -620);
+    attacker.lastButton = "POGO";
+    attacker.lastButtonAt = now;
+    impacts.push({ x: contact.x, y: contact.y, z: contact.z,
+      life: .2, duration: .2, death: contact.headshot, explosion: false });
+    if (contact.headshot) killPlayer(target, attacker.pad, now, "POGO");
+    else applyBodyHit(target, contact.segmentIndex, attacker.x,
+      attacker.pad, now, 1350, 260);
+    drum("kick", 1.1, panPlayer(attacker));
+    emitSignal("pogo", attacker.pad, contact.headshot ? 1 : 0, 0);
+  }
+}
+
 function resolvePlayerPushboxes() {
   if (!players[0].alive || !players[1].alive) return;
   const poseTime = (runtime().monotonicUs - startedAt) / 1000000;
@@ -2091,7 +2148,8 @@ function resolvePlayerPushboxes() {
        Math.abs(players[0].y - players[1].y) > 58)) return;
   const left = players[0].x <= players[1].x ? players[0] : players[1];
   const right = left === players[0] ? players[1] : players[0];
-  const minimumGap = 138;
+  const pushRadius = (player) => isHeadOnly(player) ? 24 : isPogo(player) ? 38 : 69;
+  const minimumGap = pushRadius(left) + pushRadius(right);
   const overlap = minimumGap - (right.x - left.x);
   if (overlap <= 0) return;
   const leftAdvancing = left.vx > 30;
@@ -2229,10 +2287,16 @@ function updatePlayer(player, pad, dt, now) {
   }
   player.suppressedDirections = player.suppressedDirections.filter((button) =>
     pad.down.includes(button));
+  const headOnly = isHeadOnly(player);
+  const pogo = isPogo(player);
+  const legCount = ["left-leg", "right-leg"]
+    .filter((part) => hasPart(player, part)).length;
+  const armCount = ["left-arm", "right-arm"]
+    .filter((part) => hasPart(player, part)).length;
   const rawInput = quantizedInput(pad, player.suppressedDirections);
   const hitStunned = now < player.hitStunUntil;
   const wasBlocking = player.blocking;
-  player.blocking = pad.down.includes("B");
+  player.blocking = !headOnly && pad.down.includes("B");
   if (player.blocking && !wasBlocking) {
     player.shieldVx = player.vx - player.windVx - player.knockVx;
     player.dashUntil = 0;
@@ -2241,8 +2305,8 @@ function updatePlayer(player, pad, dt, now) {
     player.lastRelease = {};
   }
   const input = player.blocking ? { horizontal: 0, vertical: 0 } : rawInput;
-  const grabHeld = !hitStunned && !player.blocking && pad.down.includes("A") &&
-    pad.down.includes("X");
+  const grabHeld = armCount > 0 && !pogo && !hitStunned && !player.blocking &&
+    pad.down.includes("A") && pad.down.includes("X");
   if (grabHeld && !player.grabHeld && player.heldBall < 0) {
     if (!grabNearestBall(player, now)) {
       player.lastButton = "REACHING";
@@ -2298,10 +2362,11 @@ function updatePlayer(player, pad, dt, now) {
     player.dashUntil = 0;
     player.dashVx = 0;
   }
+  const mobility = headOnly ? .55 : pogo ? .68 : legCount === 1 ? .72 : 1;
   const controlledVx = player.blocking ? player.shieldVx || 0
     : now < player.dashUntil && Math.abs(player.dashVx) > 0
     ? player.dashVx
-    : player.ducking ? 0 : input.horizontal * walkSpeed;
+    : player.ducking ? 0 : input.horizontal * walkSpeed * mobility;
   player.vx = controlledVx + player.windVx + player.knockVx;
   if (inputChanged) telemetry("FIGHT_MOVE", player.name +
     " pad=" + (player.pad + 1) +
@@ -2315,14 +2380,16 @@ function updatePlayer(player, pad, dt, now) {
     " vx=" + Math.round(player.vx) +
     " x=" + Math.round(player.x));
 
-  if (upPressed && player.grounded && !player.jumpLaunchAt) {
+  if (!headOnly && upPressed && player.grounded && !player.jumpLaunchAt) {
     player.jumpLaunchAt = now + 85000;
     player.pendingMoveLabel = "JUMP";
   }
   if (player.jumpLaunchAt && now >= player.jumpLaunchAt) {
     player.jumpLaunchAt = 0;
     player.jumpPoseUntil = now + 125000;
-    player.vy = Math.min(player.vy, -1050);
+    const jumpScale = pogo ? .88 : legCount === 1 ? .78 : 1;
+    player.vy = Math.min(player.vy, -1050 * jumpScale);
+    player.pogoHit = false;
     player.grounded = false;
     player.ducking = false;
     drum("block", 0.72, panPlayer(player));
@@ -2332,19 +2399,22 @@ function updatePlayer(player, pad, dt, now) {
   for (const button of pad.down) {
     if (!player.previous.includes(button)) {
       remember(player, button);
-      if (button === "B") {
+      if (button === "B" && !headOnly) {
         player.pendingMoveLabel = "SHIELD";
         drum("block", .7, panPlayer(player));
         emitSignal("shield", player.pad, 1, 0);
       }
-      else if (!hitStunned && !player.blocking && !grabHeld && button === "A") {
+      else if (!headOnly && !pogo && !hitStunned && !player.blocking &&
+          !grabHeld && button === "A") {
         if (player.gunAmmo > 0) fireGun(player, input);
         else startMelee(player, "KICK", now);
       }
-      else if (!hitStunned && !player.blocking && !grabHeld && button === "X") {
+      else if (!headOnly && !pogo && !hitStunned && !player.blocking &&
+          !grabHeld && button === "X") {
         startMelee(player, "PUNCH", now);
       }
-      else if (!hitStunned && !player.blocking && button === "Y" &&
+      else if (armCount > 0 && !headOnly && !pogo && !hitStunned &&
+          !player.blocking && button === "Y" &&
           player.grenadeAmmo > 0) {
         throwGrenade(player);
       }
@@ -2365,12 +2435,24 @@ function updatePlayer(player, pad, dt, now) {
   if (player.vy >= 0 && previousY <= platformY && player.y >= platformY &&
       player.x >= platformLeft && player.x <= platformRight) {
     player.y = platformY;
-    player.vy = 0;
-    player.grounded = true;
+    if (headOnly) {
+      player.vy = -690;
+      player.grounded = false;
+      player.stance = "BOUNCE";
+    } else {
+      player.vy = 0;
+      player.grounded = true;
+    }
   } else if (player.y >= floorY) {
     player.y = floorY;
-    player.vy = 0;
-    player.grounded = true;
+    if (headOnly) {
+      player.vy = -690;
+      player.grounded = false;
+      player.stance = "BOUNCE";
+    } else {
+      player.vy = 0;
+      player.grounded = true;
+    }
   }
   if (!wasGrounded && player.grounded) player.landPoseUntil = now + 110000;
   resolveRunnerBounds(player, (now - startedAt) / 1000000);
@@ -2500,7 +2582,9 @@ function sim() {
   updateBullets(dt, now);
   updateGrenades(dt, now);
   resolveMelee(now);
+  resolvePogoAttacks(now);
   for (const item of balls) updateBall(item, dt, now);
+  updateDetachedParts(dt);
   updateCamera(dt);
   updateCameraDoll(dt, now);
   captureFrameTelemetry(now);
@@ -2622,19 +2706,51 @@ function runnerWorldGeometry(player, t) {
     Math.sin(jumpAnticipation * Math.PI) * .72,
     landingRecovery * .45), 0, 1);
   const height = lerp(180, 108, crouchPose);
+  const pogo = isPogo(player);
+  const headOnly = isHeadOnly(player);
+  const formDrop = pogo ? 54 : 0;
   const lean = player.facing * (idle ? 5 : 3 + speed * 10);
   const x = player.x;
   const feet = player.y;
   const z = player.z;
-  const hipY = feet - lerp(58, 40, crouchPose);
+  const hipY = feet - lerp(58, 40, crouchPose) + formDrop;
   const neckX = x + lean;
-  const neckY = feet - height + 54 - breath;
+  const neckY = feet - height + 54 - breath + formDrop;
   const attackPulse = meleePulse(player, runtime().monotonicUs);
-  const head = { x: neckX + lean * .2, y: feet - height + 22 - breath * 1.6,
-    z, radius: 22 };
+  const head = headOnly
+    ? { x, y: feet - 22, z, radius: 22 }
+    : { x: neckX + lean * .2,
+      y: feet - height + 22 - breath * 1.6 + formDrop, z, radius: 22 };
   const segments = [];
-  const segment = (x1, y1, x2, y2, width) =>
-    segments.push({ x1, y1, z1: z, x2, y2, z2: z, width });
+  const actionArm = player.facing > 0 ? "right-arm" : "left-arm";
+  const rearArm = actionArm === "right-arm" ? "left-arm" : "right-arm";
+  const actionLeg = player.facing > 0 ? "right-leg" : "left-leg";
+  const rearLeg = actionLeg === "right-leg" ? "left-leg" : "right-leg";
+  const partForRole = (role, startX) => {
+    if (["neck", "torso", "shoulders"].includes(role)) return "torso";
+    if (role.startsWith("attack-") || role.startsWith("item-"))
+      return role.includes("arm") || role.includes("forearm")
+        ? actionArm : actionLeg;
+    if (role.startsWith("rest-")) return rearArm;
+    if (role.startsWith("lead-")) return actionLeg;
+    if (role.startsWith("rear-"))
+      return role.includes("arm") || role.includes("forearm")
+        ? rearArm : rearLeg;
+    if (role.startsWith("grab-"))
+      return startX <= neckX ? "left-arm" : "right-arm";
+    if (role.startsWith("left-"))
+      return role.includes("arm") || role.includes("forearm")
+        ? "left-arm" : "left-leg";
+    if (role.startsWith("right-"))
+      return role.includes("arm") || role.includes("forearm")
+        ? "right-arm" : "right-leg";
+    return "torso";
+  };
+  const segment = (x1, y1, x2, y2, width, role = "body") => {
+    const part = partForRole(role, x1);
+    if (!hasPart(player, part)) return;
+    segments.push({ x1, y1, z1: z, x2, y2, z2: z, width, role, part });
+  };
   const twoBone = (startX, startY, targetX, targetY, length, bend) => {
     let dx = targetX - startX;
     let dy = targetY - startY;
@@ -2655,40 +2771,43 @@ function runnerWorldGeometry(player, t) {
       jointY: middleY + dx / distance * height * bend,
       targetX, targetY };
   };
-  segment(head.x, head.y + head.radius * .78, neckX, neckY, 10);
-  segment(neckX, neckY, x, hipY, 10);
+  segment(head.x, head.y + head.radius * .78, neckX, neckY, 10, "neck");
+  segment(neckX, neckY, x, hipY, 10, "torso");
   const shoulderY = neckY + 11;
   const shoulderSpread = 12;
   const leftShoulderX = neckX - shoulderSpread;
   const rightShoulderX = neckX + shoulderSpread;
-  segment(leftShoulderX, shoulderY, rightShoulderX, shoulderY, 10);
+  segment(leftShoulderX, shoulderY, rightShoulderX, shoulderY, 10,
+    "shoulders");
   if (player.attackKind === "KICK" && attackPulse > 0) {
     const target = meleeTarget(player, runtime().monotonicUs);
     const leg = twoBone(x, hipY, target.x, target.y, 74, -player.facing);
-    segment(x, hipY, leg.jointX, leg.jointY, 12);
-    segment(leg.jointX, leg.jointY, leg.targetX, leg.targetY, 12);
-    segment(x, hipY, x - player.facing * 28, feet - 32, 10);
-    segment(x - player.facing * 28, feet - 32, x - player.facing * 8, feet, 10);
+    segment(x, hipY, leg.jointX, leg.jointY, 12, "attack-thigh");
+    segment(leg.jointX, leg.jointY, leg.targetX, leg.targetY, 12,
+      "attack-shin");
+    segment(x, hipY, x - player.facing * 28, feet - 32, 10, "rear-thigh");
+    segment(x - player.facing * 28, feet - 32, x - player.facing * 8, feet,
+      10, "rear-shin");
   } else if (crouchPose > .08) {
-    segment(x, hipY, x - 36, feet - 22, 10);
-    segment(x - 36, feet - 22, x - 4, feet, 10);
-    segment(x, hipY, x + 36, feet - 22, 10);
-    segment(x + 36, feet - 22, x + 58, feet, 10);
+    segment(x, hipY, x - 36, feet - 22, 10, "left-thigh");
+    segment(x - 36, feet - 22, x - 4, feet, 10, "left-shin");
+    segment(x, hipY, x + 36, feet - 22, 10, "right-thigh");
+    segment(x + 36, feet - 22, x + 58, feet, 10, "right-shin");
   } else if (player.grounded) {
     // The facing-side foot is visibly planted forward even at rest.
     const leadKnee = x + player.facing * 18 + stride * .38;
     const leadFoot = x + player.facing * 42 + stride;
     const rearKnee = x - player.facing * 16 - stride * .38;
     const rearFoot = x - player.facing * 28 - stride;
-    segment(x, hipY, leadKnee, feet - 30, 10);
-    segment(leadKnee, feet - 30, leadFoot, feet, 10);
-    segment(x, hipY, rearKnee, feet - 30, 10);
-    segment(rearKnee, feet - 30, rearFoot, feet, 10);
+    segment(x, hipY, leadKnee, feet - 30, 10, "lead-thigh");
+    segment(leadKnee, feet - 30, leadFoot, feet, 10, "lead-shin");
+    segment(x, hipY, rearKnee, feet - 30, 10, "rear-thigh");
+    segment(rearKnee, feet - 30, rearFoot, feet, 10, "rear-shin");
   } else {
-    segment(x, hipY, x - 32, feet - 32, 10);
-    segment(x - 32, feet - 32, x - 7, feet - 11, 10);
-    segment(x, hipY, x + 32, feet - 43, 10);
-    segment(x + 32, feet - 43, x + 50, feet - 22, 10);
+    segment(x, hipY, x - 32, feet - 32, 10, "left-thigh");
+    segment(x - 32, feet - 32, x - 7, feet - 11, 10, "left-shin");
+    segment(x, hipY, x + 32, feet - 43, 10, "right-thigh");
+    segment(x + 32, feet - 43, x + 50, feet - 22, 10, "right-shin");
   }
   const arm = idle ? idleSway : player.grounded ? -stride * .7 : 12;
   const elbowY = feet - lerp(94, 76, crouchPose) - breath;
@@ -2708,8 +2827,10 @@ function runnerWorldGeometry(player, t) {
     for (const hand of hands) {
       const pose = twoBone(hand.shoulderX, shoulderY,
         hand.x, hand.y, 58, player.facing);
-      segment(hand.shoulderX, shoulderY, pose.jointX, pose.jointY, 12);
-      segment(pose.jointX, pose.jointY, pose.targetX, pose.targetY, 12);
+      segment(hand.shoulderX, shoulderY, pose.jointX, pose.jointY, 12,
+        "grab-upper-arm");
+      segment(pose.jointX, pose.jointY, pose.targetX, pose.targetY, 12,
+        "grab-forearm");
     }
   } else if (player.itemAction && actionNow < player.itemActionUntil) {
     const target = itemHandTarget(player, actionNow);
@@ -2717,29 +2838,37 @@ function runnerWorldGeometry(player, t) {
     const restShoulderX = player.facing > 0 ? leftShoulderX : rightShoulderX;
     const armPose = twoBone(actionShoulderX, shoulderY,
       target.x, target.y, 58, player.facing);
-    segment(actionShoulderX, shoulderY, armPose.jointX, armPose.jointY, 12);
+    segment(actionShoulderX, shoulderY, armPose.jointX, armPose.jointY, 12,
+      "item-upper-arm");
     segment(armPose.jointX, armPose.jointY,
-      armPose.targetX, armPose.targetY, 12);
-    segment(restShoulderX, shoulderY, x - player.facing * 32, elbowY, 10);
+      armPose.targetX, armPose.targetY, 12, "item-forearm");
+    segment(restShoulderX, shoulderY, x - player.facing * 32, elbowY, 10,
+      "rest-upper-arm");
     segment(x - player.facing * 32, elbowY,
-      x - player.facing * 36, handY, 10);
+      x - player.facing * 36, handY, 10, "rest-forearm");
   } else if (player.attackKind === "PUNCH" && attackPulse > 0) {
     const target = meleeTarget(player, runtime().monotonicUs);
     const actionShoulderX = player.facing > 0 ? rightShoulderX : leftShoulderX;
     const restShoulderX = player.facing > 0 ? leftShoulderX : rightShoulderX;
     const armPose = twoBone(actionShoulderX, shoulderY,
       target.x, target.y, 58, player.facing);
-    segment(actionShoulderX, shoulderY, armPose.jointX, armPose.jointY, 12);
+    segment(actionShoulderX, shoulderY, armPose.jointX, armPose.jointY, 12,
+      "attack-upper-arm");
     segment(armPose.jointX, armPose.jointY,
-      armPose.targetX, armPose.targetY, 12);
-    segment(restShoulderX, shoulderY, x - player.facing * 32, elbowY, 10);
+      armPose.targetX, armPose.targetY, 12, "attack-forearm");
+    segment(restShoulderX, shoulderY, x - player.facing * 32, elbowY, 10,
+      "rest-upper-arm");
     segment(x - player.facing * 32, elbowY,
-      x - player.facing * 36, handY, 10);
+      x - player.facing * 36, handY, 10, "rest-forearm");
   } else {
-    segment(leftShoulderX, shoulderY, x - 30 + arm * .45, elbowY, 10);
-    segment(x - 30 + arm * .45, elbowY, x - 36 + arm * .6, handY, 10);
-    segment(rightShoulderX, shoulderY, x + 30 - arm * .45, elbowY, 10);
-    segment(x + 30 - arm * .45, elbowY, x + 36 - arm * .6, handY, 10);
+    segment(leftShoulderX, shoulderY, x - 30 + arm * .45, elbowY, 10,
+      "left-upper-arm");
+    segment(x - 30 + arm * .45, elbowY, x - 36 + arm * .6, handY, 10,
+      "left-forearm");
+    segment(rightShoulderX, shoulderY, x + 30 - arm * .45, elbowY, 10,
+      "right-upper-arm");
+    segment(x + 30 - arm * .45, elbowY, x + 36 - arm * .6, handY, 10,
+      "right-forearm");
   }
   return { head, segments };
 }
@@ -2757,7 +2886,8 @@ function projectRunnerWorldGeometry(world) {
       const a = projectPoint(segment.x1, segment.y1, segment.z1);
       const b = projectPoint(segment.x2, segment.y2, segment.z2);
       return { x1: a.x, y1: a.y, x2: b.x, y2: b.y,
-        width: Math.max(1.5, segment.width * cameraScale()) };
+        width: Math.max(1.5, segment.width * cameraScale()),
+        role: segment.role, part: segment.part };
     }),
   };
 }
@@ -2796,12 +2926,50 @@ function runnerScreenBounds(player, t) {
   return { left, right, top, bottom };
 }
 
+function fighterContainmentRequiredWidth(t) {
+  let left = Infinity;
+  let right = -Infinity;
+  let top = Infinity;
+  let bottom = -Infinity;
+  const include = (x, y, radius) => {
+    left = Math.min(left, x - radius);
+    right = Math.max(right, x + radius);
+    top = Math.min(top, y - radius);
+    bottom = Math.max(bottom, y + radius);
+  };
+  for (const player of players) {
+    const world = player.replayGeometry || player.frozenGeometry ||
+      runnerWorldGeometry(player, t);
+    include(world.head.x, world.head.y, world.head.radius);
+    for (const segment of world.segments) {
+      const radius = segment.width / 2;
+      include(segment.x1, segment.y1, radius);
+      include(segment.x2, segment.y2, radius);
+    }
+  }
+  const safe = actionSafeRect();
+  const safeWidth = Math.max(1, safe.right - safe.left);
+  const safeHeight = Math.max(1, safe.bottom - safe.top);
+  return Math.max(
+    (right - left) * (stageRight - stageLeft) / safeWidth,
+    (bottom - top) * cameraAspect *
+      (stageBottom - stageTop) / safeHeight,
+    compactLayout() ? 720 : 900,
+  );
+}
+
 // Final render invariant: both complete animated fighter geometries must fit
 // inside the action-safe viewport. Camera modes may orbit or focus, but this
 // aspect-aware correction recenters their shared frame and moves the dolly
 // back far enough for landscape, portrait, live, and replay projection alike.
 function containFighters(t) {
-  const widthBeforeContainment = cameraDoll.width;
+  const gameplayContainment = !roundResult &&
+    runtime().monotonicUs - roundStartedAt >= introDurationUs;
+  if (gameplayContainment) {
+    cameraContainFloor = Math.max(cameraContainFloor,
+      fighterContainmentRequiredWidth(t) * 1.08);
+    return;
+  }
   const worlds = players.map((player) => player.replayGeometry ||
     player.frozenGeometry || runnerWorldGeometry(player, t));
   if (!worlds.length) return;
@@ -2880,18 +3048,14 @@ function containFighters(t) {
     cameraDoll.width *= amount;
   }
   cameraDoll.dirty = true;
-  const gameplayContainment = !roundResult &&
-    runtime().monotonicUs - roundStartedAt >= introDurationUs;
-  if (gameplayContainment && cameraDoll.width > widthBeforeContainment + .01) {
-    cameraContainFloor = Math.max(cameraContainFloor, cameraDoll.width);
-  }
 }
 
 function resolveRunnerBounds(player, t) {
   // Walls use a stable fighting-game pushbox. Animated hands and feet remain
   // the actual hit geometry, but cannot shove the root back and forth at an
   // arena edge as a pose changes.
-  const halfWidth = player.ducking ? 76 : 62;
+  const halfWidth = isHeadOnly(player) ? 24 : isPogo(player) ? 38
+    : player.ducking ? 76 : 62;
   const leftWall = worldLeft + wallThickness;
   const rightWall = worldRight - wallThickness;
   if (player.x - halfWidth < leftWall) {
@@ -2909,7 +3073,7 @@ function resolveRunnerBounds(player, t) {
     player.dashVx = 0;
   }
   const ceiling = ceilingY + wallThickness;
-  const standingTop = player.y - (player.ducking ? 132 : 174);
+  const standingTop = runnerBounds(player, t).top;
   if (standingTop < ceiling) {
     player.y += ceiling - standingTop;
     if (player.vy < 0) player.vy = 0;
@@ -2928,6 +3092,105 @@ function pointSegmentDistance(px, py, pz, segment) {
     : 0;
   return Math.hypot(px - (segment.x1 + dx * amount),
     py - (segment.y1 + dy * amount), pz - (segment.z1 + dz * amount));
+}
+
+// Closest points between two finite 3D line segments. Fighter limbs use the
+// rendered capsule width around these lines, so collision and silhouette share
+// the same geometry instead of maintaining a hidden rectangular hitbox.
+function segmentSegmentClosest(first, second) {
+  const d1x = first.x2 - first.x1;
+  const d1y = first.y2 - first.y1;
+  const d1z = first.z2 - first.z1;
+  const d2x = second.x2 - second.x1;
+  const d2y = second.y2 - second.y1;
+  const d2z = second.z2 - second.z1;
+  const rx = first.x1 - second.x1;
+  const ry = first.y1 - second.y1;
+  const rz = first.z1 - second.z1;
+  const a = d1x * d1x + d1y * d1y + d1z * d1z;
+  const e = d2x * d2x + d2y * d2y + d2z * d2z;
+  const b = d1x * d2x + d1y * d2y + d1z * d2z;
+  const c = d1x * rx + d1y * ry + d1z * rz;
+  const f = d2x * rx + d2y * ry + d2z * rz;
+  const epsilon = .000000001;
+  let firstAmount = 0;
+  let secondAmount = 0;
+  if (a <= epsilon && e <= epsilon) {
+    firstAmount = 0;
+    secondAmount = 0;
+  } else if (a <= epsilon) {
+    secondAmount = clamp(f / e, 0, 1);
+  } else if (e <= epsilon) {
+    firstAmount = clamp(-c / a, 0, 1);
+  } else {
+    const denominator = a * e - b * b;
+    firstAmount = Math.abs(denominator) > epsilon
+      ? clamp((b * f - c * e) / denominator, 0, 1) : 0;
+    const secondNumerator = b * firstAmount + f;
+    if (secondNumerator < 0) {
+      secondAmount = 0;
+      firstAmount = clamp(-c / a, 0, 1);
+    } else if (secondNumerator > e) {
+      secondAmount = 1;
+      firstAmount = clamp((b - c) / a, 0, 1);
+    } else secondAmount = secondNumerator / e;
+  }
+  const firstPoint = {
+    x: first.x1 + d1x * firstAmount,
+    y: first.y1 + d1y * firstAmount,
+    z: first.z1 + d1z * firstAmount,
+  };
+  const secondPoint = {
+    x: second.x1 + d2x * secondAmount,
+    y: second.y1 + d2y * secondAmount,
+    z: second.z1 + d2z * secondAmount,
+  };
+  return { firstPoint, secondPoint,
+    distance: Math.hypot(firstPoint.x - secondPoint.x,
+      firstPoint.y - secondPoint.y, firstPoint.z - secondPoint.z) };
+}
+
+function attackCapsuleContact(attackingLimbs, target, t) {
+  const targetGeometry = runnerWorldGeometry(target, t);
+  if (!attackingLimbs.length) return null;
+  const head = targetGeometry.head;
+  const headCapsule = { x1: head.x, y1: head.y, z1: head.z,
+    x2: head.x, y2: head.y, z2: head.z, width: head.radius * 2 };
+  let headContact = null;
+  let bodyContact = null;
+  for (const attackingLimb of attackingLimbs) {
+    const headClosest = segmentSegmentClosest(attackingLimb, headCapsule);
+    const headSeparation = headClosest.distance -
+      (attackingLimb.width + headCapsule.width) / 2;
+    if (!headContact || headSeparation < headContact.separation)
+      headContact = { closest: headClosest, separation: headSeparation };
+    for (let index = 0; index < targetGeometry.segments.length; index++) {
+      const targetLimb = targetGeometry.segments[index];
+      const closest = segmentSegmentClosest(attackingLimb, targetLimb);
+      const separation = closest.distance -
+        (attackingLimb.width + targetLimb.width) / 2;
+      if (!bodyContact || separation < bodyContact.separation)
+        bodyContact = { closest, separation, segmentIndex: index };
+    }
+  }
+  const headshot = headContact.separation <= 3;
+  const contact = headshot ? headContact : bodyContact;
+  if (!contact) return null;
+  return {
+    x: (contact.closest.firstPoint.x + contact.closest.secondPoint.x) / 2,
+    y: (contact.closest.firstPoint.y + contact.closest.secondPoint.y) / 2,
+    z: (contact.closest.firstPoint.z + contact.closest.secondPoint.z) / 2,
+    separation: contact.separation,
+    segmentIndex: headshot ? -1 : contact.segmentIndex,
+    headshot,
+  };
+}
+
+function meleeLimbContact(attacker, target, t) {
+  const attackingGeometry = runnerWorldGeometry(attacker, t);
+  const attackingLimbs = attackingGeometry.segments.filter((segment) =>
+    segment.role?.startsWith("attack-"));
+  return attackCapsuleContact(attackingLimbs, target, t);
 }
 
 function runnerDistanceToPoint(player, t, px, py, pz = 0) {
@@ -2954,6 +3217,48 @@ function runnerContactToPoint(player, t, px, py, pz = 0) {
   return { headDistance, bodyDistance, segmentIndex };
 }
 
+function detachPart(player, part, geometry, sourceX, now) {
+  if (!hasPart(player, part)) return;
+  const direction = Math.sign(player.x - sourceX) || player.facing || 1;
+  for (const segment of geometry.segments.filter((item) => item.part === part)) {
+    detachedParts.push({ ...segment, color: player.color.slice(),
+      vx: direction * (420 + detachedParts.length % 3 * 90),
+      vy: -520 - detachedParts.length % 2 * 120,
+      spin: direction * (3.5 + detachedParts.length % 4),
+      life: 2.6, part, owner: player.pad });
+  }
+  player.removedParts.push(part);
+  player.partDamage[part] = Math.max(player.partDamage[part] || 0,
+    part === "torso" ? 3 : 2);
+  emitSignal("partremoved", player.pad,
+    [...limbParts, "torso"].indexOf(part), 1);
+}
+
+function damagePart(target, segmentIndex, sourceX, sourcePad, now) {
+  const geometry = runnerWorldGeometry(target, (now - startedAt) / 1000000);
+  const segment = geometry.segments[segmentIndex];
+  const part = segment?.part;
+  if (!part || !hasPart(target, part)) return;
+  const durability = part === "torso" ? 3 : 2;
+  target.partDamage[part] = (target.partDamage[part] || 0) + 1;
+  emitSignal("partdamage", target.pad,
+    [...limbParts, "torso"].indexOf(part), target.partDamage[part] / durability);
+  if (target.partDamage[part] < durability) return;
+  if (part === "torso") {
+    // Removing the body's attachment point releases every surviving limb;
+    // the circular head remains as the final playable form.
+    for (const limb of limbParts)
+      detachPart(target, limb, geometry, sourceX, now);
+  }
+  detachPart(target, part, geometry, sourceX, now);
+  target.attackKind = "";
+  target.attackUntil = 0;
+  target.attackHit = false;
+  target.lastButton = part.toUpperCase() + " LOST";
+  target.lastButtonAt = now;
+  drum("clap", 1.2, panPlayer(target));
+}
+
 function applyBodyHit(target, segmentIndex, sourceX, sourcePad, now,
     force = 1100, lift = 150) {
   const direction = Math.sign(target.x - sourceX) ||
@@ -2967,6 +3272,7 @@ function applyBodyHit(target, segmentIndex, sourceX, sourcePad, now,
   target.hit = Math.max(target.hit, .52);
   target.hitSegment = segmentIndex;
   target.hitSegmentUntil = Math.max(target.hitSegmentUntil, now + 190000);
+  damagePart(target, segmentIndex, sourceX, sourcePad, now);
   target.hitStunUntil = Math.max(target.hitStunUntil, now + 145000);
   target.knockVx += direction * force;
   target.vx = target.knockVx + target.windVx;
@@ -2976,6 +3282,43 @@ function applyBodyHit(target, segmentIndex, sourceX, sourcePad, now,
   target.lastButton = "BODY HIT";
   target.lastButtonAt = now;
   emitSignal("bodyhit", sourcePad, target.pad, segmentIndex);
+}
+
+function updateDetachedParts(dt) {
+  for (const fragment of detachedParts) {
+    fragment.vy += 1900 * dt;
+    const dx = fragment.vx * dt;
+    const dy = fragment.vy * dt;
+    fragment.x1 += dx;
+    fragment.y1 += dy;
+    fragment.x2 += dx;
+    fragment.y2 += dy;
+    const centerX = (fragment.x1 + fragment.x2) / 2;
+    const centerY = (fragment.y1 + fragment.y2) / 2;
+    const angle = fragment.spin * dt;
+    const cosine = Math.cos(angle);
+    const sine = Math.sin(angle);
+    for (const endpoint of [1, 2]) {
+      const xKey = "x" + endpoint;
+      const yKey = "y" + endpoint;
+      const localX = fragment[xKey] - centerX;
+      const localY = fragment[yKey] - centerY;
+      fragment[xKey] = centerX + localX * cosine - localY * sine;
+      fragment[yKey] = centerY + localX * sine + localY * cosine;
+    }
+    const bottom = Math.max(fragment.y1, fragment.y2) + fragment.width / 2;
+    if (bottom > floorY) {
+      const correction = floorY - bottom;
+      fragment.y1 += correction;
+      fragment.y2 += correction;
+      fragment.vy = -Math.abs(fragment.vy) * .42;
+      fragment.vx *= .82;
+      fragment.spin *= .78;
+    }
+    fragment.life -= dt;
+  }
+  for (let index = detachedParts.length - 1; index >= 0; index--)
+    if (detachedParts[index].life <= 0) detachedParts.splice(index, 1);
 }
 
 function runnerBodyDistanceToPoint(geometry, px, py, pz = 0) {
@@ -3022,7 +3365,7 @@ function controlLocale() {
   };
   return keyboard ? {
     title: "start",
-    select: "P1 A/D + F     P2 LEFT/RIGHT + K     H P2/DUMMY/BOT     G BACK",
+    select: "P1 A/D + SPACE     P2 LEFT/RIGHT + K     H P2/DUMMY/BOT     G BACK",
     replayPaused: "PAUSED   F PLAY   A D SCRUB   G EXIT",
     replayPlaying: "F PAUSE   A D SCRUB   G EXIT",
     replay: "Q REPLAY",
@@ -3257,6 +3600,21 @@ function drawRunner(player, t, showLabel = true) {
     : [8, 12, 24];
   const displayNow = player.frozenAt || runtime().monotonicUs;
   drawFighterSilhouette(geometry, color, outline);
+  for (const segment of geometry.segments) {
+    const damage = player.partDamage?.[segment.part] || 0;
+    if (!damage) continue;
+    const dx = segment.x2 - segment.x1;
+    const dy = segment.y2 - segment.y1;
+    const length = Math.hypot(dx, dy) || 1;
+    const middleX = (segment.x1 + segment.x2) / 2;
+    const middleY = (segment.y1 + segment.y2) / 2;
+    const reach = segment.width * (.7 + damage * .16);
+    const nx = -dy / length * reach;
+    const ny = dx / length * reach;
+    filledCapsule(middleX - nx, middleY - ny,
+      middleX + nx, middleY + ny, Math.max(2, segment.width * .24),
+      [255, 126, 72]);
+  }
   const hitNow = runtime().monotonicUs;
   if (player.hitSegment >= 0 && hitNow < player.hitSegmentUntil &&
       Math.floor(hitNow / 45000) % 2 === 0) {
@@ -3326,12 +3684,11 @@ function drawDebugHitboxes(player, t) {
 
   const displayNow = player.frozenAt || now;
   if (player.attackKind && displayNow < player.attackUntil) {
-    const strike = meleeStrike(player, displayNow);
-    const point = projectPoint(strike.x, strike.y, strike.z);
-    const radius = Math.max(2, strike.radius * cameraScale());
-    filledRing(point.x, point.y, radius, Math.max(0, radius - 3), attackColor);
-    filledCapsule(geometry.head.x, geometry.head.y, point.x, point.y,
-      1, attackColor);
+    for (const segment of geometry.segments) {
+      if (!segment.role?.startsWith("attack-")) continue;
+      filledCapsule(segment.x1, segment.y1, segment.x2, segment.y2,
+        segment.width + 5, attackColor);
+    }
   }
 
   if (!debugHitboxes) return;
@@ -3688,34 +4045,49 @@ function drawWindFlag(t, color) {
     width, color);
 }
 
+function seededWindValue(index, channel = 0) {
+  const text = (matchName || seriesName || "oskiewar") + ":" +
+    index + ":" + channel;
+  let hash = 2166136261;
+  for (let cursor = 0; cursor < text.length; cursor++) {
+    hash ^= text.charCodeAt(cursor);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0) / 4294967295;
+}
+
 function drawWindLines(t, color) {
   const count = 7 + Math.floor(windMph / 3);
   const safe = actionSafeRect();
   const safeWidth = safe.right - safe.left;
   const safeHeight = safe.bottom - safe.top;
-  const speed = .045 + windMph * .0045;
+  const speed = .012 + windMph * .0082;
   const baseLength = 24 + windMph * 2.5;
   const previousDepth = triangleDepth;
   for (let index = 0; index < count; index++) {
     // Wind lives in screen-stable layers behind the fighters. Camera zoom may
     // reveal more world, but it no longer stretches streak length or speed.
-    const depthAmount = ((index * 47) % 101) / 100;
+    const depthAmount = seededWindValue(index, 0);
     const z = 120 + depthAmount * (worldFar - 240);
     const depthScale = .62 + (1 - depthAmount) * .55;
-    const cycle = ((index * .173 + t * speed * depthScale * windDirection) % 1 + 1) % 1;
-    const length = baseLength * depthScale;
+    const phase = seededWindValue(index, 1);
+    const pace = .72 + seededWindValue(index, 2) * .7;
+    const cycle = ((phase + t * speed * depthScale * pace * windDirection) % 1 + 1) % 1;
+    const length = baseLength * depthScale *
+      (.62 + seededWindValue(index, 3) * .9);
     const x = safe.left - length + cycle * (safeWidth + length * 2);
-    const row = ((index * 47) % 101) / 100;
+    const row = seededWindValue(index, 4);
+    const flutterRate = 1.1 + seededWindValue(index, 5) * 2.6;
+    const flutterPhase = seededWindValue(index, 6) * Math.PI * 2;
     const y = safe.top + 20 + row * Math.max(1, safeHeight - 40) +
-      Math.sin(t * 1.7 + index * 2.3) * (3 + windMph * .18);
+      Math.sin(t * flutterRate + flutterPhase) * (2 + windMph * .22);
     const tailX = x - windDirection * length;
-    const middleX = x - windDirection * length * .38;
-    const bend = Math.sin(t * 2.1 + index) * (2 + windMph * .12);
+    const bend = Math.sin(t * (flutterRate + .5) + flutterPhase) *
+      (1 + windMph * .08);
     const width = depthAmount < .35 && windMph > 12 ? 2 : 1;
     const ink = mixColor([18, 24, 48], color, .42 + (1 - depthAmount) * .4);
     triangleDepth = projectPoint(cameraCenter, cameraCenterY, z).z;
-    filledCapsule(tailX, y - bend, middleX, y + bend, width, ink);
-    filledCapsule(middleX, y + bend, x, y, width, ink);
+    filledCapsule(tailX, y - bend, x, y + bend, width, ink);
   }
   triangleDepth = previousDepth;
 }
@@ -3893,10 +4265,9 @@ function drawTitleScreen(t, ink) {
   const prompt = "start";
   const promptSize = hudTypeSize;
   const promptWidth = handleWidth(prompt, promptSize);
-  const promptPulse = .58 + (Math.sin(t * 2.2) + 1) * .21;
-  const mutedInk = visualTheme.light > .55 ? [118, 128, 150] : [72, 80, 112];
-  const promptInk = mixColor(mutedInk, ink, promptPulse);
-  if (Math.floor(t * 1.8) % 2 === 0)
+  const promptPulse = .68 + (Math.sin(t * 3.2) + 1) * .16;
+  const promptInk = mixColor([196, 142, 18], [255, 238, 82], promptPulse);
+  if (Math.floor(t * 2.4) % 2 === 0)
     typeWrite(prompt, viewCenterX() - promptWidth / 2,
       viewHeight * (compact ? .61 : .64), promptSize, ...promptInk);
   const titleNow = pacificTimeLabel(runtime().unixMs || Date.now());
@@ -3929,11 +4300,15 @@ function pacificTimeLabel(unixMs) {
 }
 
 function drawSpectatorQr(ink) {
-  if (!spectatorQr || typeof spectatorQr.getModuleCount !== "function") return;
   const safe = hudSafeRect();
+  const compact = compactLayout();
+  const metaSize = compact ? Math.max(20, hudTypeSize * .58) : hudTypeSize;
+  const fpsLabel = Math.round(displayFps || 0) + " fps";
+  typeWrite(fpsLabel, safe.left + 4, safe.top + 2, metaSize, ...ink);
+  if (!spectatorQr || typeof spectatorQr.getModuleCount !== "function") return;
   const count = spectatorQr.getModuleCount();
   const quiet = 2;
-  const targetSize = compactLayout() ? 108 : 158;
+  const targetSize = compact ? 108 : 158;
   const cell = Math.max(2, Math.floor(targetSize / (count + quiet * 2)));
   const size = (count + quiet * 2) * cell;
   const label = matchName;
@@ -3944,6 +4319,12 @@ function drawSpectatorQr(ink) {
   triangleDepth = -1.43;
   const left = safe.right - size;
   const top = safe.top;
+  const gameLabel = "oskiewar";
+  const gameLabelWidth = handleWidth(gameLabel, metaSize);
+  const gameLabelTop = compact ? top + hudTypeSize + 10 : top + 2;
+  if (shellMode === "GAME" && !selecting)
+    typeWrite(gameLabel, left - gameLabelWidth - 16, gameLabelTop,
+      metaSize, ...ink);
   screenRect(left + 3, top + 3, size, size, shadow);
   screenRect(left, top, size, size, [250, 250, 247]);
   for (let row = 0; row < count; row++) {
@@ -3989,6 +4370,14 @@ function drawImpacts() {
   }
 }
 
+function drawDetachedPart(fragment) {
+  const first = projectPoint(fragment.x1, fragment.y1, fragment.z1);
+  const second = projectPoint(fragment.x2, fragment.y2, fragment.z2);
+  const width = Math.max(2, fragment.width * cameraScale());
+  filledCapsule(first.x, first.y, second.x, second.y, width + 3, [9, 12, 22]);
+  filledCapsule(first.x, first.y, second.x, second.y, width, fragment.color);
+}
+
 function drawSafeZones() {
   const hud = hudSafeRect();
   const border = mixColor([112, 136, 190], [25, 38, 72], visualTheme.light);
@@ -4007,6 +4396,11 @@ function drawSafeZones() {
 function paint() {
   syncGameView();
   const run = runtime();
+  if (lastPaintAt > 0 && run.monotonicUs > lastPaintAt) {
+    const sample = clamp(1000000 / (run.monotonicUs - lastPaintAt), 1, 240);
+    displayFps = displayFps ? lerp(displayFps, sample, .12) : sample;
+  }
+  lastPaintAt = run.monotonicUs;
   const t = (run.monotonicUs - startedAt) / 1000000;
   if (typeof ac === "function") acFeed = ac();
   for (const player of players) player.handleColors = fighterProfile(player.name).colors;
@@ -4129,6 +4523,9 @@ function paint() {
       kind: "grenade", item, x: item.x, y: item.y, z: item.z })),
     ...balls.filter((item) => item.active).map((item) => ({
       kind: "ball", item, x: item.x, y: item.y, z: item.z })),
+    ...detachedParts.map((item) => ({ kind: "detached", item,
+      x: (item.x1 + item.x2) / 2, y: (item.y1 + item.y2) / 2,
+      z: (item.z1 + item.z2) / 2 })),
     ...players.filter((item) => !(cinematicAge >= .11 && cinematicAge < .86 &&
       deathCinematic?.winnerPad === item.pad)).map((item) => ({
       kind: "player", item, x: item.x, y: item.y, z: item.z })),
@@ -4144,6 +4541,7 @@ function paint() {
     if (renderable.kind === "bullet") drawBullet(renderable.item);
     else if (renderable.kind === "grenade") drawGrenade(renderable.item);
     else if (renderable.kind === "ball") drawBall(renderable.item);
+    else if (renderable.kind === "detached") drawDetachedPart(renderable.item);
     else drawRunner(renderable.item, t, showRunnerLabels);
   }
   triangleDepth = -1.42;

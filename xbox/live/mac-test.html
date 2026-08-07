@@ -117,8 +117,10 @@
     const keyMap = new Map([
       ["KeyW", [0, "ArrowUp"]], ["KeyS", [0, "ArrowDown"]],
       ["KeyA", [0, "ArrowLeft"]], ["KeyD", [0, "ArrowRight"]],
+      ["Space", [0, "A"]], ["KeyB", [0, "X"]],
       ["KeyF", [0, "A"]], ["KeyG", [0, "B"]], ["KeyH", [0, "X"]],
-      ["KeyQ", [0, "View"]], ["Enter", [0, "Menu"]],
+      ["Tab", [0, "View"]], ["KeyQ", [0, "View"]],
+      ["Enter", [0, "Menu"]],
       ["ArrowUp", [1, "ArrowUp"]], ["ArrowDown", [1, "ArrowDown"]],
       ["ArrowLeft", [1, "ArrowLeft"]], ["ArrowRight", [1, "ArrowRight"]],
       ["KeyK", [1, "A"]], ["KeyL", [1, "B"]], ["Semicolon", [1, "X"]],
@@ -158,6 +160,40 @@
       return audioContext;
     }
 
+    // Cached ElevenLabs male:3 rendition of "Oskie War". Separate media
+    // elements create a compact feedback echo without requiring cross-origin
+    // Web Audio access to the public AC audio CDN.
+    const titleVoiceUrl = "https://art.aesthetic.computer/tts-cache/f9af6e0d19a4896793f66cd146d9a72e4160cdab9b85ef35c15a707e52c2d2ba.mp3";
+    const titleVoiceEchoes = [1, .3, .12].map((volume) => {
+      const voice = new Audio(titleVoiceUrl);
+      voice.preload = "auto";
+      voice.volume = volume;
+      return voice;
+    });
+    function titleVoice() {
+      for (const [index, voice] of titleVoiceEchoes.entries()) {
+        setTimeout(() => {
+          voice.currentTime = 0;
+          voice.play().catch(() => {});
+        }, index * 155);
+      }
+    }
+
+    function titleBeep() {
+      const ac = ensureAudio();
+      const now = ac.currentTime;
+      const oscillator = ac.createOscillator();
+      const envelope = ac.createGain();
+      oscillator.type = "sine";
+      oscillator.frequency.setValueAtTime(620, now);
+      oscillator.frequency.exponentialRampToValueAtTime(930, now + .1);
+      envelope.gain.setValueAtTime(.28, now);
+      envelope.gain.exponentialRampToValueAtTime(.001, now + .13);
+      oscillator.connect(envelope).connect(ac.destination);
+      oscillator.start(now);
+      oscillator.stop(now + .14);
+    }
+
     function dismissTitle() {
       if (!titleOpen) return false;
       titleOpen = false;
@@ -169,6 +205,7 @@
       if (!dismissTitle()) return false;
       keys[0].add("A");
       ensureAudio();
+      globalThis.__oskiewarSfx?.unlock().catch(() => {});
       setTimeout(() => keys[0].delete("A"), 90);
       return true;
     }
@@ -324,6 +361,9 @@
     }
 
     function drum(name, amount = 1, pan = 0) {
+      // The signal-routed AC mock bank is primary after unlock. This legacy
+      // inline kit remains the first-gesture/offline fallback.
+      if (globalThis.__oskiewarSfx?.unlocked) return;
       const ac = ensureAudio();
       const now = ac.currentTime;
       const output = ac.createGain();
@@ -444,6 +484,7 @@
       dismissTitle();
       keys[mapped[0]].add(mapped[1]);
       ensureAudio();
+      globalThis.__oskiewarSfx?.unlock().catch(() => {});
     });
     addEventListener("keyup", (event) => {
       const mapped = keyMap.get(event.code);
@@ -470,6 +511,7 @@
       button.setAttribute("aria-pressed", "true");
       keys[0].add(key);
       ensureAudio();
+      globalThis.__oskiewarSfx?.unlock().catch(() => {});
     });
     for (const type of ["pointerup", "pointercancel", "lostpointercapture"])
       touchControls.addEventListener(type, (event) => releaseTouch(event.pointerId));
@@ -495,6 +537,7 @@
       Object.assign(globalThis.__oskiewarTouch.pointer, point, { active: true });
       selectTaps.push(point);
       ensureAudio();
+      globalThis.__oskiewarSfx?.unlock().catch(() => {});
       event.preventDefault();
     });
     addEventListener("blur", () => {
@@ -508,12 +551,18 @@
     };
   </script>
   <script type="module">
+    import createOskiewarSfx from "/oskiewar-sfx.mjs";
     import { qrcode } from "/aesthetic.computer/dep/@akamfoad/qr/qr.mjs";
     import {
       captureOskiewarAction,
       initProductAnalytics,
     } from "/aesthetic.computer/lib/product-analytics.mjs";
     import { RoundRoom, roundNameFromPath } from "/round-room.mjs";
+    const oskiewarSfx = createOskiewarSfx({
+      contextFactory: () => ensureAudio(), volume: .64, maxVoices: 72,
+    });
+    globalThis.__oskiewarSfx = oskiewarSfx;
+    oskiewarSfx.connectSignals(globalThis);
     try {
       const response = await fetch("/api/product-analytics-config", {
         cache: "no-store",
