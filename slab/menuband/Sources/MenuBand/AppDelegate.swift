@@ -6001,18 +6001,41 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                         imageSize: image.size, fallback: pitchBendLockScreenPoint))
     }
 
-    /// Keep TrackDrum's larger surface directly beneath Menu Band itself.
+    /// Keep TrackDrum centered along the bottom of Menu Band's display.
     private func trackpadOverlayAnchor(imageSize: NSSize,
                                        fallback: NSPoint) -> NSPoint {
         guard let button = statusItem?.button,
               let buttonWindow = button.window else { return fallback }
+        let screen = buttonWindow.screen ?? NSScreen.main
+        guard let screen else { return fallback }
+        return Self.bottomCenterOverlayAnchor(
+            imageSize: imageSize,
+            visibleFrame: screen.visibleFrame
+        )
+    }
+
+    static func bottomCenterOverlayAnchor(
+        imageSize: NSSize,
+        visibleFrame: NSRect,
+        gap: CGFloat = 16
+    ) -> NSPoint {
+        let halfHeight = imageSize.height / 2
+        let halfWidth = imageSize.width / 2
+        let x = min(max(visibleFrame.midX, visibleFrame.minX + halfWidth),
+                    visibleFrame.maxX - halfWidth)
+        let y = min(max(visibleFrame.minY + halfHeight + gap,
+                        visibleFrame.minY + halfHeight),
+                    visibleFrame.maxY - halfHeight)
+        return NSPoint(x: x, y: y)
+    }
+
+    /// Keep the slider's near-menubar fallback beneath Menu Band.
+    private func menuBandOverlayAnchor(imageSize: NSSize,
+                                       fallback: NSPoint) -> NSPoint {
+        guard let button = statusItem?.button,
+              let buttonWindow = button.window else { return fallback }
         let buttonFrame = buttonWindow.convertToScreen(button.frame)
-        let screen = buttonWindow.screen
-            ?? NSScreen.screens.first {
-                NSMouseInRect(NSPoint(x: buttonFrame.midX, y: buttonFrame.midY),
-                              $0.frame, false)
-            }
-            ?? NSScreen.main
+        let screen = buttonWindow.screen ?? NSScreen.main
         guard let screen else { return fallback }
         let visible = screen.visibleFrame
         let halfHeight = imageSize.height / 2
@@ -6040,7 +6063,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             mouse: mouse,
             imageSize: imageSize,
             visibleFrame: screen.visibleFrame,
-            topFallback: trackpadOverlayAnchor(
+            topFallback: menuBandOverlayAnchor(
                 imageSize: imageSize,
                 fallback: fallback
             )

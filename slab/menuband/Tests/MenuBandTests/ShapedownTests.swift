@@ -421,6 +421,16 @@ final class ShapedownTests: XCTestCase {
         ).x, 48)
     }
 
+    func testTrackDrumOverlayUsesBottomCenterOfVisibleDisplay() {
+        XCTAssertEqual(
+            AppDelegate.bottomCenterOverlayAnchor(
+                imageSize: NSSize(width: 240, height: 160),
+                visibleFrame: NSRect(x: 100, y: 50, width: 1200, height: 800)
+            ),
+            NSPoint(x: 700, y: 146)
+        )
+    }
+
     func testOnlyTabSelectedSlideHandlesFocusedMouseMovement() {
         XCTAssertTrue(AppDelegate.shouldHandleFocusedMouseSlide(
             keyboardPerformanceFocusActive: true,
