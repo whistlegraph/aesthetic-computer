@@ -423,7 +423,7 @@ function spectatorState(now, nextRoundId = "") {
       perspective: cameraDoll.perspective, fov: cameraDoll.fov,
       roll: cameraDoll.roll },
     wind: { direction: windDirection, mph: windMph },
-    round: { remainingMs, result: roundResult || "" },
+    round: { remainingMs, result: roundResult || "", cause: roundCause || "" },
     replayUrl: "/api/oskiewar-replays?id=ow-" + matchName,
   };
   if (nextRoundId) state.nextRoundId = nextRoundId;
@@ -906,7 +906,8 @@ function applyRoundViewerState(state, now, dt = 1 / 60) {
   }
   const hadResult = Boolean(roundResult);
   roundResult = state.round.result || "";
-  roundCause = roundResult.includes("BALLED") ? "BALLED" : roundResult ? "ROUND" : "";
+  roundCause = state.round.cause ||
+    (roundResult.includes("BALLED") ? "BALLED" : roundResult ? "ROUND" : "");
   roundElapsedUs = Math.max(0, roundDurationUs - state.round.remainingMs * 1000);
   matchOver = state.phase === "match";
   roundStartedAt = now - introDurationUs - roundElapsedUs;
@@ -1221,6 +1222,17 @@ function finishRound(now) {
   captureFrameTelemetry(now, true);
   saveRoundReplay(now);
   if (matchOver) finishReplay();
+}
+
+function resultCardText() {
+  if (roundResult === "TIE") return { winner: "tie", action: "" };
+  const encoded = roundResult.match(/^(@\S+)\s+WINS\b/i);
+  const winner = encoded?.[1] ||
+    (players[0].score > players[1].score ? players[0].name : players[1].name);
+  const actions = { BALLED: "balled", KO: "knocked out", TRADE: "trade",
+    TIME: "time", ROUND: "" };
+  return { winner: winner.toLowerCase() + " wins!",
+    action: actions[roundCause] ?? roundCause.toLowerCase() };
 }
 
 function quantizedInput(pad, suppressed = []) {
@@ -2927,30 +2939,36 @@ function projectedBodyBottom(geometry) {
   return bottom;
 }
 
+function visibleHandle(player) {
+  return player.name.toLowerCase();
+}
+
 function playerHandleLayout(player, side) {
   const safe = hudSafeRect();
   const touch = typeof capabilities === "function" &&
     capabilities().inputFamily === "touch";
   const size = 42;
-  const width = handleWidth(player.name, size);
+  const width = handleWidth(visibleHandle(player), size);
   const x = side === 0 ? safe.left + 8 : safe.right - 8 - width;
   const y = safe.bottom - size - (touch ? 250 : 18);
   return { x, y, size, width };
 }
 
 function drawFloatingHandle(player, x, y, size) {
+  const handle = visibleHandle(player);
   const shadows = player.handleColors?.map(contrastShadow);
-  drawHandle(player.name, x + 3, y + 4, size,
+  drawHandle(handle, x + 3, y + 4, size,
     shadows, contrastShadow(player.color));
-  drawHandle(player.name, x, y, size, player.handleColors, player.color);
+  drawHandle(handle, x, y, size, player.handleColors, player.color);
 }
 
 function drawPlayerHandle(player, t, side) {
   const { x, y, size } = playerHandleLayout(player, side);
+  const handle = visibleHandle(player);
   const drawGlyphs = (dx, dy, colors, fallback) => {
     let cursor = x + dx;
-    for (let index = 0; index < player.name.length; index++) {
-      const character = player.name[index];
+    for (let index = 0; index < handle.length; index++) {
+      const character = handle[index];
       const color = colors?.[index] || fallback;
       typeWrite(character, cursor, y + dy, size, ...color);
       cursor += comicGlyphAdvance(character, size);
@@ -2968,7 +2986,7 @@ function drawFightIntro(introSeconds, titleInk, statusShadow) {
   const centerY = (stageTop + stageBottom) / 2;
   const nameSize = compactLayout() ? 48 : 74;
   const drawCenteredName = (player) => {
-    const width = handleWidth(player.name, nameSize);
+    const width = handleWidth(visibleHandle(player), nameSize);
     drawFloatingHandle(player, centerX - width / 2, centerY - nameSize / 2,
       nameSize);
   };
@@ -2981,37 +2999,31 @@ function drawFightIntro(introSeconds, titleInk, statusShadow) {
     return;
   }
 
+  const andText = "and";
+  const andSize = nameSize * .72;
+  const firstWidth = handleWidth(visibleHandle(players[0]), nameSize);
+  const secondWidth = handleWidth(visibleHandle(players[1]), nameSize);
+  const andWidth = handleWidth(andText, andSize);
+  const pairGap = compactLayout() ? 20 : 32;
+  const pairWidth = firstWidth + pairGap + andWidth + pairGap + secondWidth;
+  const pairLeft = centerX - pairWidth / 2;
+  const pairStarts = [pairLeft,
+    pairLeft + firstWidth + pairGap + andWidth + pairGap];
   const travel = clamp((introSeconds - 1.3) / .6, 0, 1);
   const eased = travel * travel * (3 - travel * 2);
   for (let side = 0; side < players.length; side++) {
     const player = players[side];
     const target = playerHandleLayout(player, side);
-    const startX = centerX + (side ? 34 : -34 - target.width);
+    const startX = pairStarts[side];
     const startY = centerY - target.size / 2;
     drawFloatingHandle(player, lerp(startX, target.x, eased),
       lerp(startY, target.y, eased), lerp(nameSize, target.size, eased));
   }
-  if (introSeconds < 1.9) return;
-
-  const firstHead = runnerGeometry(players[0], introSeconds).head;
-  const secondHead = runnerGeometry(players[1], introSeconds).head;
-  const versusX = (firstHead.x + secondHead.x) / 2;
-  const versusY = (firstHead.y + secondHead.y) / 2 - 24;
+  const andY = centerY - andSize / 2;
   if (introSeconds < 2.45) {
-    const breakAge = clamp((introSeconds - 2.12) / .33, 0, 1);
-    if (breakAge < .72) {
-      typeWrite("v", versusX - 40 - breakAge * 70,
-        versusY - breakAge * 34, 76, ...statusShadow);
-      typeWrite("v", versusX - 44 - breakAge * 70,
-        versusY - 5 - breakAge * 34, 76, ...titleInk);
-    }
-    if (breakAge < 1) {
-      const delayed = clamp((breakAge - .28) / .72, 0, 1);
-      typeWrite("s", versusX + 9 + delayed * 72,
-        versusY - delayed * 34, 76, ...statusShadow);
-      typeWrite("s", versusX + 5 + delayed * 72,
-        versusY - 5 - delayed * 34, 76, ...titleInk);
-    }
+    const andX = centerX - andWidth / 2;
+    typeWrite(andText, andX + 4, andY + 5, andSize, ...statusShadow);
+    typeWrite(andText, andX, andY, andSize, ...titleInk);
     return;
   }
   const fightAge = clamp((introSeconds - 2.45) / .55, 0, 1);
@@ -3585,14 +3597,22 @@ function paint() {
       typeWrite(controls, viewCenterX() - controls.length * 7.5,
         948, 23, ...titleInk);
     } else {
-      const cause = roundCause || (roundResult === "TIE" ? "TIE" : "TIME");
-      const causeSize = Math.min(92,
-        Math.max(40, (viewWidth() - 72) / Math.max(1, cause.length * .85)));
-      const causeWidth = cause.length * causeSize * .85;
-      typeWrite(cause, viewCenterX() - causeWidth / 2 + 5, 816,
-        causeSize, ...statusShadow);
-      typeWrite(cause, viewCenterX() - causeWidth / 2, 810,
-        causeSize, ...titleInk);
+      const result = resultCardText();
+      const winnerSize = Math.min(92,
+        Math.max(40, (viewWidth() - 72) / Math.max(1, result.winner.length * .85)));
+      const winnerWidth = handleWidth(result.winner, winnerSize);
+      typeWrite(result.winner, viewCenterX() - winnerWidth / 2 + 5, 816,
+        winnerSize, ...statusShadow);
+      typeWrite(result.winner, viewCenterX() - winnerWidth / 2, 810,
+        winnerSize, ...titleInk);
+      if (result.action) {
+        const actionSize = Math.min(44, winnerSize * .54);
+        const actionWidth = handleWidth(result.action, actionSize);
+        typeWrite(result.action, viewCenterX() - actionWidth / 2 + 3, 900,
+          actionSize, ...statusShadow);
+        typeWrite(result.action, viewCenterX() - actionWidth / 2, 896,
+          actionSize, ...titleInk);
+      }
       if (!roundViewer) {
         const replayControl = controlLocale().replay;
         typeWrite(replayControl, viewCenterX() - replayControl.length * 7.5,
