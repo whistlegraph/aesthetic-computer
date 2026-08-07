@@ -324,6 +324,73 @@
           "name": "wandro"
         }
       ]
+    },
+    "beds": {
+      "title": "beds",
+      "description": "12 chord + topline genomes expanded measure by measure by the C engine and current global weather",
+      "color": "pink",
+      "items": [
+        {
+          "type": "piece",
+          "code": "play~https://user-aesthetic-computer.sfo3.digitaloceanspaces.com/auth0%7C63effeeb2a7d55f8098d62f9/jukewizard/c47883d6-827e-4084-84ff-8f560141667c-01-minor-doorway-los-angeles.mp3",
+          "name": "01 minor doorway · los angeles"
+        },
+        {
+          "type": "piece",
+          "code": "play~https://user-aesthetic-computer.sfo3.digitaloceanspaces.com/auth0%7C63effeeb2a7d55f8098d62f9/jukewizard/22fbfb1f-8368-41fd-9a9e-f22f82ab23cf-02-dorian-window-copenhagen.mp3",
+          "name": "02 dorian window · copenhagen"
+        },
+        {
+          "type": "piece",
+          "code": "play~https://user-aesthetic-computer.sfo3.digitaloceanspaces.com/auth0%7C63effeeb2a7d55f8098d62f9/jukewizard/78c5e1f5-39e5-4309-ac04-a0ffb9896164-03-descending-daylight-tokyo.mp3",
+          "name": "03 descending daylight · tokyo"
+        },
+        {
+          "type": "piece",
+          "code": "play~https://user-aesthetic-computer.sfo3.digitaloceanspaces.com/auth0%7C63effeeb2a7d55f8098d62f9/jukewizard/8b34691f-880c-453a-8a7e-3738a2141dd6-04-phrygian-gravity-nairobi.mp3",
+          "name": "04 phrygian gravity · nairobi"
+        },
+        {
+          "type": "piece",
+          "code": "play~https://user-aesthetic-computer.sfo3.digitaloceanspaces.com/auth0%7C63effeeb2a7d55f8098d62f9/jukewizard/2d36c9d3-e808-4bdf-9395-90b929e53285-05-chromatic-heart-reykjavik.mp3",
+          "name": "05 chromatic heart · reykjavik"
+        },
+        {
+          "type": "piece",
+          "code": "play~https://user-aesthetic-computer.sfo3.digitaloceanspaces.com/auth0%7C63effeeb2a7d55f8098d62f9/jukewizard/55a2b734-e8e3-4ce1-94bc-f68f82f1577f-06-lydian-runway-buenos-aires.mp3",
+          "name": "06 lydian runway · buenos aires"
+        },
+        {
+          "type": "piece",
+          "code": "play~https://user-aesthetic-computer.sfo3.digitaloceanspaces.com/auth0%7C63effeeb2a7d55f8098d62f9/jukewizard/668668e5-9875-48f4-ab56-e3f67c358d7d-07-pedal-colors-new-york.mp3",
+          "name": "07 pedal colors · new york"
+        },
+        {
+          "type": "piece",
+          "code": "play~https://user-aesthetic-computer.sfo3.digitaloceanspaces.com/auth0%7C63effeeb2a7d55f8098d62f9/jukewizard/88f638f5-41b6-4065-8216-f1823f3f8910-08-deceptive-orbit-seoul.mp3",
+          "name": "08 deceptive orbit · seoul"
+        },
+        {
+          "type": "piece",
+          "code": "play~https://user-aesthetic-computer.sfo3.digitaloceanspaces.com/auth0%7C63effeeb2a7d55f8098d62f9/jukewizard/0e242b04-6481-44b8-805a-f7951ff0f389-09-mixolydian-road-lagos.mp3",
+          "name": "09 mixolydian road · lagos"
+        },
+        {
+          "type": "piece",
+          "code": "play~https://user-aesthetic-computer.sfo3.digitaloceanspaces.com/auth0%7C63effeeb2a7d55f8098d62f9/jukewizard/692bdba8-3e55-4334-8875-f6c3fb4f3e60-10-minor-plagal-sao-paulo.mp3",
+          "name": "10 minor plagal · são paulo"
+        },
+        {
+          "type": "piece",
+          "code": "play~https://user-aesthetic-computer.sfo3.digitaloceanspaces.com/auth0%7C63effeeb2a7d55f8098d62f9/jukewizard/9c68cf68-1247-45b7-8ff5-da5a2f159498-11-two-room-tension-auckland.mp3",
+          "name": "11 two-room tension · auckland"
+        },
+        {
+          "type": "piece",
+          "code": "play~https://user-aesthetic-computer.sfo3.digitaloceanspaces.com/auth0%7C63effeeb2a7d55f8098d62f9/jukewizard/fe188538-e009-4132-a190-b27ba394636e-12-suspended-home-svalbard.mp3",
+          "name": "12 suspended home · svalbard"
+        }
+      ]
     }
   }
 }
