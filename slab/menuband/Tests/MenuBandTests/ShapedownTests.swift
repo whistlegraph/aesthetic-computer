@@ -401,6 +401,29 @@ final class ShapedownTests: XCTestCase {
         ).x, 48)
     }
 
+    func testOnlyKeyboardPerformanceFocusTurnsMouseMovementIntoSlide() {
+        XCTAssertTrue(AppDelegate.shouldEnterFocusedMouseSlide(
+            keyboardPerformanceFocusActive: true,
+            localCaptureArmed: true,
+            keymapShown: false
+        ))
+        XCTAssertFalse(AppDelegate.shouldEnterFocusedMouseSlide(
+            keyboardPerformanceFocusActive: false,
+            localCaptureArmed: true,
+            keymapShown: false
+        ))
+        XCTAssertFalse(AppDelegate.shouldEnterFocusedMouseSlide(
+            keyboardPerformanceFocusActive: true,
+            localCaptureArmed: false,
+            keymapShown: false
+        ))
+        XCTAssertFalse(AppDelegate.shouldEnterFocusedMouseSlide(
+            keyboardPerformanceFocusActive: true,
+            localCaptureArmed: true,
+            keymapShown: true
+        ))
+    }
+
     func testOrdinaryPitchBendFXStillEndsAfterRelease() {
         XCTAssertTrue(AppDelegate.shouldAutoEndTrackpadFX(
             performanceSessionActive: false,
