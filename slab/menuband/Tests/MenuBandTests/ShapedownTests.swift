@@ -412,26 +412,36 @@ final class ShapedownTests: XCTestCase {
         ).x, 48)
     }
 
-    func testOnlyKeyboardPerformanceFocusTurnsMouseMovementIntoSlide() {
-        XCTAssertTrue(AppDelegate.shouldEnterFocusedMouseSlide(
+    func testOnlyTabSelectedSlideHandlesFocusedMouseMovement() {
+        XCTAssertTrue(AppDelegate.shouldHandleFocusedMouseSlide(
             keyboardPerformanceFocusActive: true,
             localCaptureArmed: true,
-            keymapShown: false
+            keymapShown: false,
+            localFXSelected: true
         ))
-        XCTAssertFalse(AppDelegate.shouldEnterFocusedMouseSlide(
+        XCTAssertFalse(AppDelegate.shouldHandleFocusedMouseSlide(
+            keyboardPerformanceFocusActive: true,
+            localCaptureArmed: true,
+            keymapShown: false,
+            localFXSelected: false
+        ))
+        XCTAssertFalse(AppDelegate.shouldHandleFocusedMouseSlide(
             keyboardPerformanceFocusActive: false,
             localCaptureArmed: true,
-            keymapShown: false
+            keymapShown: false,
+            localFXSelected: true
         ))
-        XCTAssertFalse(AppDelegate.shouldEnterFocusedMouseSlide(
+        XCTAssertFalse(AppDelegate.shouldHandleFocusedMouseSlide(
             keyboardPerformanceFocusActive: true,
             localCaptureArmed: false,
-            keymapShown: false
+            keymapShown: false,
+            localFXSelected: true
         ))
-        XCTAssertFalse(AppDelegate.shouldEnterFocusedMouseSlide(
+        XCTAssertFalse(AppDelegate.shouldHandleFocusedMouseSlide(
             keyboardPerformanceFocusActive: true,
             localCaptureArmed: true,
-            keymapShown: true
+            keymapShown: true,
+            localFXSelected: true
         ))
     }
 

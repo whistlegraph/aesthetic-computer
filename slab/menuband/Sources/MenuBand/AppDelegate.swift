@@ -878,11 +878,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     modeLatched: self.pitchBendModeLatched
                 ) {
                     if self.localCapture.isArmed {
-                        // Focus begins in local mouse FX. Merely pressing a
-                        // note does not reveal or capture the trackpad; the
-                        // first mouse move does. Tab is the explicit handoff
-                        // to TrackDrum.
-                        self.activateFocusedLocalFX()
+                        // Keep the Tab-selected mode. A note can arm the
+                        // already-selected slide, but it must never take the
+                        // trackpad away from TrackDrum.
+                        if self.focusedInputMode == .localFX {
+                            self.activateFocusedLocalFX()
+                        }
                     } else {
                         // Global TYPE-mode notes have no local focus owner and
                         // retain the transient direct-build drum behavior.
@@ -5309,8 +5310,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         trackpadEnergyTimer = timer
     }
 
-    /// Quiet focus begins with no overlay and an ordinary pointer. Any mouse
-    /// movement opens the XY slider; Tab explicitly requests percussion.
+    /// Prepare the Tab-selected slide without showing it until movement.
     private func prepareFocusedLocalFXIdle() {
         if pitchBendModeLatched || pitchBendCursorPushed
             || pitchBendCursorLocked {
@@ -5735,22 +5735,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let dy = Float(event.deltaY)
         let dx = Float(event.deltaX)
         guard dy != 0 || dx != 0 else { return }
-        let focusedMouseSlide = Self.shouldEnterFocusedMouseSlide(
+        let focusedMouseSlide = Self.shouldHandleFocusedMouseSlide(
             keyboardPerformanceFocusActive: keyboardPerformanceFocusActive,
             localCaptureArmed: localCapture.isArmed,
-            keymapShown: pianoWaveformWindowDelegate.isShown
+            keymapShown: pianoWaveformWindowDelegate.isShown,
+            localFXSelected: focusedInputMode == .localFX
         )
-        if focusedMouseSlide,
-           focusedInputMode != .localFX || trackpadPadMode != .fx
-                || !pitchBendModeLatched {
-            activateFocusedLocalFX()
-            debugLog("trackpad pad mode = fx (focused mouse movement)")
-        }
-        // In keyboard-performance focus, any pointer delta enters slide and
-        // releases TrackDrum's click shield. Outside that explicit focus,
-        // mouse-tapped piano notes remain ordinary auditions and the older
-        // held-note / Shift / release-grace gates still apply. Shift also
-        // broadcasts bend to every playing channel.
+        // Focused pointer movement drives slide only when Tab selected it.
+        // TrackDrum remains percussion until another Tab handoff. Outside
+        // explicit focus, the held-note / Shift / release-grace gates apply.
         let shift = event.modifierFlags.contains(.shift)
         // Engage ONLY while the user is actively holding a KEYBOARD note
         // (or Shift, for warping still-ringing tails). This is the gesture:
@@ -5864,12 +5857,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // until the note lifts.
     }
 
-    static func shouldEnterFocusedMouseSlide(
+    static func shouldHandleFocusedMouseSlide(
         keyboardPerformanceFocusActive: Bool,
         localCaptureArmed: Bool,
-        keymapShown: Bool
+        keymapShown: Bool,
+        localFXSelected: Bool
     ) -> Bool {
-        keyboardPerformanceFocusActive && localCaptureArmed && !keymapShown
+        keyboardPerformanceFocusActive && localCaptureArmed
+            && !keymapShown && localFXSelected
     }
 
     /// [v1 cutoff] Previously forwarded the effective pitch shift
