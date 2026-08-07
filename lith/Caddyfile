@@ -872,6 +872,12 @@ oskiewar.com {
         rewrite * /mac-test.html
         file_server
     }
+    # This module shares the /oskiewar prefix with the live API route below,
+    # so serve it explicitly before the proxy matcher claims it.
+    handle /oskiewar-sfx.mjs {
+        root * /opt/ac/xbox/live
+        file_server
+    }
     handle /oskiewar* {
         import lith_proxy
     }
