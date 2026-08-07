@@ -18,13 +18,14 @@
     @supports (height: 100dvh) { html, body { height: 100dvh; } }
     body { display: grid; place-items: center; font-family: "Comic Relief", "Comic Sans MS", Arial, sans-serif;
       cursor: url("/aesthetic.computer/cursors/precise.svg") 12 12, auto; }
-    body.selection-hover, body.title-open,
-    body:has(button:hover), body:has(label:hover) {
+    body.selection-hover, body.title-open {
       cursor: url("/aesthetic.computer/cursors/active.svg") 12 12, pointer; }
     canvas { position: fixed; inset: 0; width: 100vw; height: 100vh;
       min-width: 0; min-height: 0; display: block; cursor: inherit; }
     @supports (height: 100dvh) { canvas { height: 100dvh; } }
-    button, input, label { cursor: inherit !important; }
+    button, input, label { cursor: inherit; }
+    button:hover, input:hover, label:hover {
+      cursor: url("/aesthetic.computer/cursors/active.svg") 12 12, pointer; }
     #status { position: absolute; width: 1px; height: 1px; overflow: hidden;
       clip-path: inset(50%); white-space: nowrap; }
     #update-ready { position: fixed; left: 50%; bottom: max(18px, env(safe-area-inset-bottom));

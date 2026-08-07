@@ -276,7 +276,8 @@ const players = [
     lastTap: {}, lastRelease: {}, dashUntil: 0, dashVx: 0, roundWins: 0,
     attackKind: "", attackStartedAt: 0,
     attackUntil: 0, attackHit: false, blocking: false, blockFlash: 0,
-    windVx: 0, knockVx: 0, gunAmmo: 0, grenadeAmmo: 0, stance: "NEUTRAL",
+    windVx: 0, knockVx: 0, gunAmmo: 0, grenadeAmmo: 0,
+    gunAimX: 1, gunAimY: 0, stance: "NEUTRAL",
     heldBall: -1, grabHeld: false, crouchBlend: 0, standingOn: -1,
     partDamage: {}, removedParts: [], pogoHit: false, pogoDive: false,
     commandStream: [],
@@ -294,7 +295,8 @@ const players = [
     lastTap: {}, lastRelease: {}, dashUntil: 0, dashVx: 0, roundWins: 0,
     attackKind: "", attackStartedAt: 0,
     attackUntil: 0, attackHit: false, blocking: false, blockFlash: 0,
-    windVx: 0, knockVx: 0, gunAmmo: 0, grenadeAmmo: 0, stance: "NEUTRAL",
+    windVx: 0, knockVx: 0, gunAmmo: 0, grenadeAmmo: 0,
+    gunAimX: -1, gunAimY: 0, stance: "NEUTRAL",
     heldBall: -1, grabHeld: false, crouchBlend: 0, standingOn: -1,
     partDamage: {}, removedParts: [], pogoHit: false, pogoDive: false,
     commandStream: [],
@@ -1449,6 +1451,8 @@ function resetRound(now, resetMatch = false) {
     player.shieldVx = 0;
     player.gunAmmo = 0;
     player.grenadeAmmo = 0;
+    player.gunAimX = player.facing;
+    player.gunAimY = 0;
     player.stance = "NEUTRAL";
     player.itemAction = "";
     player.itemActionStartedAt = 0;
@@ -1740,15 +1744,12 @@ function recordCommand(player, label, now) {
 
 function fireGun(player, input) {
   const now = runtime().monotonicUs;
-  const aimX = input.horizontal || player.facing;
-  const aimY = -input.vertical;
-  const length = Math.hypot(aimX, aimY) || 1;
-  const dx = aimX / length;
-  const dy = aimY / length;
+  const pose = gunPose(player, now, input);
+  player.gunAimX = pose.dx;
+  player.gunAimY = pose.dy;
   bullets.push({
-    x: player.x + dx * 180,
-    y: player.y - (player.ducking ? 75 : 130) + dy * 80,
-    z: player.z, vx: dx * 2600, vy: dy * 2600,
+    x: pose.muzzle.x, y: pose.muzzle.y, z: pose.muzzle.z,
+    vx: pose.dx * 2600, vy: pose.dy * 2600,
     owner: player.pad, life: 1.8,
   });
   while (bullets.length > 24) bullets.shift();
@@ -1758,7 +1759,7 @@ function fireGun(player, input) {
   player.itemActionUntil = now + 170000;
   player.pendingMoveLabel = "FIRE " + player.gunAmmo;
   playDrum("hat", 1.05, panPlayer(player));
-  emitSignal("bullet", player.pad, aimX, aimY);
+  emitSignal("bullet", player.pad, pose.dx, pose.dy);
 }
 
 function throwGrenade(player) {
@@ -2018,6 +2019,23 @@ function itemHandTarget(player, now) {
   };
   return { x: player.x + player.facing * 108,
     y: player.y - 115, z: player.z };
+}
+
+function gunPose(player, now, input = null) {
+  let aimX = input?.horizontal || player.facing;
+  let aimY = input ? -input.vertical : 0;
+  if (!input && player.itemAction === "FIRE" && now < player.itemActionUntil) {
+    aimX = player.gunAimX || player.facing;
+    aimY = player.gunAimY || 0;
+  }
+  const length = Math.hypot(aimX, aimY) || 1;
+  const dx = aimX / length;
+  const dy = aimY / length;
+  const hand = itemHandTarget(player, now);
+  return {
+    hand, dx, dy,
+    muzzle: { x: hand.x + dx * 54, y: hand.y + dy * 54, z: hand.z },
+  };
 }
 
 function meleeStrike(player, now) {
@@ -3894,19 +3912,26 @@ function drawInventory(player, now) {
   const firing = player.itemAction === "FIRE" && now < player.itemActionUntil;
   const throwing = player.itemAction === "THROW" && now < player.itemActionUntil;
   if ((player.gunAmmo > 0 || firing) && !throwing) {
-    const held = itemHandTarget(player, now);
-    const hand = projectPoint(held.x, held.y, held.z);
-    const barrel = projectPoint(held.x + player.facing * 54,
-      held.y, held.z);
+    const pose = gunPose(player, now);
+    const hand = projectPoint(pose.hand.x, pose.hand.y, pose.hand.z);
+    const barrel = projectPoint(pose.muzzle.x, pose.muzzle.y, pose.muzzle.z);
     line(hand.x, hand.y, barrel.x, barrel.y,
       Math.max(3, 9 * scale), ...gunColor);
     line(hand.x, hand.y, hand.x - player.facing * 8 * scale,
       hand.y + 20 * scale, Math.max(2, 6 * scale), ...gunColor);
     if (firing) {
-      line(barrel.x, barrel.y, barrel.x + player.facing * 28 * scale,
-        barrel.y - 18 * scale, Math.max(2, 5 * scale), 255, 248, 190);
-      line(barrel.x, barrel.y, barrel.x + player.facing * 28 * scale,
-        barrel.y + 18 * scale, Math.max(2, 5 * scale), 255, 248, 190);
+      const normalX = -pose.dy;
+      const normalY = pose.dx;
+      const flashA = projectPoint(
+        pose.muzzle.x + pose.dx * 28 + normalX * 18,
+        pose.muzzle.y + pose.dy * 28 + normalY * 18, pose.muzzle.z);
+      const flashB = projectPoint(
+        pose.muzzle.x + pose.dx * 28 - normalX * 18,
+        pose.muzzle.y + pose.dy * 28 - normalY * 18, pose.muzzle.z);
+      line(barrel.x, barrel.y, flashA.x, flashA.y,
+        Math.max(2, 5 * scale), 255, 248, 190);
+      line(barrel.x, barrel.y, flashB.x, flashB.y,
+        Math.max(2, 5 * scale), 255, 248, 190);
     }
   }
   if (throwing) {

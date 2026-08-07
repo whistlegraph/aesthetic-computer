@@ -139,9 +139,11 @@ test("web selector uses the AC precise cursor and mouse hover bridge", () => {
   assert.match(webShell, /pointer: \{ x: 0, y: 0, active: false \}/);
   assert.match(webShell,
     /cursor: url\("\/aesthetic\.computer\/cursors\/active\.svg"\) 12 12, pointer/);
+  assert.match(webShell, /button:hover, input:hover, label:hover/);
+  assert.doesNotMatch(webShell, /body:has\(/);
   assert.match(webShell, /syncSelectionCursor\(\);/);
   assert.doesNotMatch(activeCursor, /<circle|<ellipse/);
-  assert.match(activeCursor, /M13 1v3 M13 20v3 M1 13h3 M20 13h3/);
+  assert.match(activeCursor, /M13 2v3 M13 21v3 M2 13h3 M21 13h3/);
   assert.match(uiSource, /event\?\.cursor\?\.\(hoveredButtons\.size \? "active" : "precise"\)/);
   assert.doesNotMatch(webShell, /if \(!touchEnabled\) return;/);
   assert.match(source, /function selectionHover\(/);
@@ -789,12 +791,22 @@ test("gun drops grant ammo and A fires in the quantized aim direction", () => {
   pickup.y = player.y - 70;
   tick();
   assert.equal(player.gunAmmo, pickup.amount);
+  const fireX = player.x;
+  const fireY = player.y;
   pads[0].down = ["ArrowUp", "ArrowRight", "A"];
   tick();
   assert.equal(player.gunAmmo, pickup.amount - 1);
   assert.equal(fight.bullets.length, 1);
   assert.ok(fight.bullets[0].vx > 0);
   assert.ok(fight.bullets[0].vy < 0);
+  const aimLength = Math.sqrt(2);
+  const frameSeconds = 16667 / 1000000;
+  const muzzleX = fireX + 108 + 54 / aimLength;
+  const muzzleY = fireY - 115 - 54 / aimLength;
+  assert.ok(Math.abs(fight.bullets[0].x -
+    (muzzleX + fight.bullets[0].vx * frameSeconds)) < .001);
+  assert.ok(Math.abs(fight.bullets[0].y -
+    (muzzleY + fight.bullets[0].vy * frameSeconds)) < .001);
   assert.ok(signals.some(([event, pad]) => event === "bullet" && pad === 0));
 });
 

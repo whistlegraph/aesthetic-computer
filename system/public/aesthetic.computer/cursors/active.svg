@@ -1,7 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
-  <!-- Selection is the precise crosshair opening outward: no ring or center dot. -->
-  <path d="M13 1v3 M13 20v3 M1 13h3 M20 13h3"
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="-1 -1 27 27">
+  <!-- The precise crosshair opens by one unit over actionable controls. -->
+  <path d="M13 2v3 M13 21v3 M2 13h3 M21 13h3"
     fill="none" stroke="#000" stroke-width="4" stroke-linecap="round"/>
-  <path d="M12 0v3 M12 19v3 M0 12h3 M19 12h3"
+  <path d="M12 1v3 M12 20v3 M1 12h3 M20 12h3"
     fill="none" stroke="#0ff" stroke-width="4" stroke-linecap="round"/>
 </svg>

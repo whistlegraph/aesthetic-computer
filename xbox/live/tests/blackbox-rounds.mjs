@@ -213,6 +213,8 @@ async function captureHover(browser, origin) {
     }, logicalX, logicalY);
   const restingShot = join(outputRoot, "mouse-select-resting.png");
   const resting = await page.screenshot({ path: restingShot });
+  const restingCursor = await page.evaluate(() => getComputedStyle(
+    document.querySelector("canvas")).cursor);
   const hoverTarget = await canvasPoint(100, 242);
   await page.mouse.move(hoverTarget.x, hoverTarget.y);
   await wait(350);
@@ -238,7 +240,7 @@ async function captureHover(browser, origin) {
   await page.close();
   const hashes = [resting, hovered].map((buffer) =>
     createHash("sha256").update(buffer).digest("hex").slice(0, 12));
-  return { name: "hover", viewport, cursor, pointer, resized,
+  return { name: "hover", viewport, restingCursor, cursor, pointer, resized,
     changed: hashes[0] !== hashes[1], hashes, errors,
     files: { restingShot, hoverShot, resizedShot } };
 }
