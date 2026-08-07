@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="1400" viewBox="0 0 1400 1400" role="img" aria-labelledby="title desc">
+  <title id="title">Klokkentales podcast cover</title>
+  <desc id="desc">A cream storybook opens beneath a midnight clock on a warm terracotta field.</desc>
+  <rect width="1400" height="1400" fill="#b4643c"/>
+  <circle cx="700" cy="532" r="330" fill="#17152a" stroke="#ffe8b6" stroke-width="28"/>
+  <g fill="#ffe8b6">
+    <circle cx="700" cy="260" r="18"/><circle cx="972" cy="532" r="18"/>
+    <circle cx="700" cy="804" r="18"/><circle cx="428" cy="532" r="18"/>
+  </g>
+  <path d="M700 532 700 334M700 532 842 616" fill="none" stroke="#ffcf60" stroke-width="34" stroke-linecap="round"/>
+  <circle cx="700" cy="532" r="34" fill="#ffcf60"/>
+  <path d="M250 900q230-74 450 58 220-132 450-58v260q-230-74-450 58-220-132-450-58z" fill="#ffe8b6" stroke="#17152a" stroke-width="24" stroke-linejoin="round"/>
+  <path d="M700 958v260" fill="none" stroke="#17152a" stroke-width="18"/>
+  <text x="700" y="1320" fill="#17152a" font-family="Arial Black, Arial, sans-serif" font-size="112" text-anchor="middle" letter-spacing="5">KLOKKENTALES</text>
+</svg>
+
