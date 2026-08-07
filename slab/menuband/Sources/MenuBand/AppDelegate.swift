@@ -353,16 +353,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// swipe pick either effect — the puck visibly slides past
     /// center to the side the user dragged.
     private var fxX: Float = 0
-    /// Post-release "dead zone": all fx hold here fully engaged for
-    /// `fxHoldDuration`, so resuming play within the window keeps the
-    /// sound intact. Fires into `startFxRamp` only if nothing resumes.
+    /// Tiny post-release catch before returning to neutral. Long holds made
+    /// the puck appear stuck and disconnected the return from the gesture.
     private var fxHoldTimer: Timer?
-    /// Linear ramp timer — eases bend/space/echo to 0 over
-    /// `fxRampDuration` once the hold expires. Replaces the old
-    /// spring/exponential so the fx never cut off sharply.
+    /// Smooth return timer for bend/space/echo once the catch expires.
     private var fxRampTimer: Timer?
-    /// Fx values snapshotted at the instant the ramp begins, so the
-    /// linear interpolation has a fixed origin.
+    /// Fx values snapshotted at the instant the return begins.
     private var fxRampFromBend: Float = 0
     private var fxRampFromSpace: Float = 0
     private var fxRampFromEcho: Float = 0
@@ -380,7 +376,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// at the source keeps each step well under a quarter-tone so nothing
     /// clicks.
     private var bendGestureTarget: Float = 0
+    /// X travels through the same filter as pitch. Previously X jumped to
+    /// every raw contact while Y eased, which made diagonal motion kink and
+    /// lag on only one axis.
+    private var fxXGestureTarget: Float = 0
     private var bendEaseTimer: Timer?
+    private var bendEaseLastTick: CFTimeInterval?
     /// Whether the in-flight ease should broadcast to all channels (Shift).
     private var bendEaseAllChannels: Bool = false
     /// True while one or more fingers rest on the trackpad (fed by
@@ -593,19 +594,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// once. Combined with momentum-decay filtering, that gives a
     /// responsive "incremental" feel without overshooting.
     private static let octaveScrollPxPerStep: CGFloat = 9
-    /// After the last note/finger releases, ALL fx hold fully
-    /// engaged for this long. Replaying within the window cancels
-    /// the release outright — the sound never even starts to fade.
-    private static let fxHoldDuration: TimeInterval = 3.5
+    /// Brief catch after the last note/finger releases. Replaying inside it
+    /// cancels the return without making the surface appear stuck.
+    private static let fxHoldDuration: TimeInterval = 0.08
     /// Post-release "catch" window for the pitch graph: after the last
     /// keyboard note lifts, trackpad movement keeps bending for this long
     /// (re-armed on each move) so a fast release-then-swipe still grabs the
     /// graph instead of dropping the gesture. 250–500ms reads as deliberate
     /// without lingering.
     private static let pitchBendReleaseGrace: TimeInterval = 0.4
-    /// Once the hold expires, bend/space/echo ramp LINEARLY to 0
-    /// over this long — a gentle glide off, never a sharp cutoff.
-    private static let fxRampDuration: TimeInterval = 1.0
+    /// Once the catch expires, bend/space/echo ease to 0 over this long.
+    private static let fxRampDuration: TimeInterval = 0.48
     /// Trackpad-points-per-unit-bend. 80pt of vertical drag pulls
     /// to a full ±1 (= ±2 semitones at default GM range), so a
     /// modest two-finger flick reads as a noticeable bend.
@@ -617,12 +616,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// AVAudioUnitTimePitch's hard limit (±2400 cents) for the radio voice,
     /// so the radio reaches its true floor/ceiling at the grid edges.
     private static let bendRange: Float = 2.0
-    /// Max bend slew, in `bendAmount` units per second, while easing the
-    /// applied bend toward the gesture target (see `bendGestureTarget`). The
-    /// The full ±range resolves in about a third of a second and a typical
-    /// one-octave gesture in about 85 ms. At 120 Hz each update stays small
-    /// enough to avoid clicks while remaining attached to the finger.
-    private static let bendSlewPerSecond: Float = 12.0
+    /// Time constant for both axes of the FX surface. A single exponential
+    /// response keeps diagonals round and attached to the finger without
+    /// overshoot or frame-rate-dependent elasticity.
+    private static let fxGestureResponse: TimeInterval = 0.035
     /// Ease tick rate (Hz). Fine-grained relative to a CoreAudio render
     /// quantum so the synths see a continuous slide, not a staircase.
     private static let bendEaseHz: Double = 120.0
@@ -5281,6 +5278,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         stopBendEase()
         bendAmount = 0
         bendGestureTarget = 0
+        fxXGestureTarget = 0
         spaceAmount = 0
         echoAmount = 0
         fxX = 0
@@ -5523,16 +5521,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             bendRange: Self.bendRange,
             echoEnabled: Self.fxEchoEnabled
         )
-        fxX = values.fxX
-        spaceAmount = values.space
-        echoAmount = values.echo
         bendGestureTarget = values.bend
+        fxXGestureTarget = values.fxX
         bendEaseAllChannels = false
         cancelFxRelease()
         startBendEase()
-        menuBand.setSpace(amount: spaceAmount)
-        menuBand.setEcho(amount: echoAmount)
-        pushStaffPitchShift()
     }
 
     private func handlePitchBendCursorMove(event: NSEvent) {
@@ -5608,9 +5601,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // swipe can't wind up any echo (and the puck won't drift into a
         // dead right half); the LEFT/space half still runs normally.
         let fxMax: Float = Self.fxEchoEnabled ? 1 : 0
-        fxX = max(Float(-1), min(fxMax, fxX + dx * xSens))
-        echoAmount = Self.fxEchoEnabled ? max(Float(0), fxX) : 0
-        spaceAmount = max(Float(0), -fxX)
         cancelFxRelease()
         // Clamp the accumulator to ±bendRange so it can't wind up past the
         // edge: at the top/bottom, the instant you move the other way it
@@ -5625,14 +5615,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // continues from there (handles a fresh grab AND a re-grab during the
         // post-release spring-back, where `cancelFxRelease` above just froze
         // `bendAmount` mid-glide).
-        if bendEaseTimer == nil { bendGestureTarget = bendAmount }
+        if bendEaseTimer == nil {
+            bendGestureTarget = bendAmount
+            fxXGestureTarget = fxX
+        }
         bendGestureTarget = max(-Self.bendRange,
                                 min(Self.bendRange, bendGestureTarget + bendDelta))
+        fxXGestureTarget = max(Float(-1),
+                               min(fxMax, fxXGestureTarget + dx * xSens))
         bendEaseAllChannels = shift
         startBendEase()
-        menuBand.setSpace(amount: spaceAmount)
-        menuBand.setEcho(amount: echoAmount)
-        pushStaffPitchShift()
         if !pitchBendCursorPushed {
             #if !MAC_APP_STORE
             // Ensure the Tab-suppression tap is live for this gesture (no-op if
@@ -5856,29 +5848,42 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         fxRampStart = nil
     }
 
-    /// Slew `bendAmount` toward `bendGestureTarget` at `bendSlewPerSecond`,
-    /// pushing each small step to every backend so the pitch slides instead
-    /// of jumping (see `bendGestureTarget` for why). Idempotent — a running
-    /// easer just keeps tracking the moving target; it self-cancels once it
-    /// reaches the target.
+    /// Apply one time-based, non-overshooting response to both dimensions.
+    /// Keeping X and Y in the same integrator makes diagonal gestures remain
+    /// diagonal instead of letting ambience jump ahead of pitch.
     private func startBendEase() {
         guard bendEaseTimer == nil else { return }
-        let dt = 1.0 / Self.bendEaseHz
-        let maxStep = Self.bendSlewPerSecond * Float(dt)
-        let timer = Timer(timeInterval: dt, repeats: true) { [weak self] t in
+        bendEaseLastTick = CACurrentMediaTime()
+        let interval = 1.0 / Self.bendEaseHz
+        let timer = Timer(timeInterval: interval, repeats: true) { [weak self] t in
             guard let self = self else { t.invalidate(); return }
-            let diff = self.bendGestureTarget - self.bendAmount
-            if abs(diff) <= maxStep {
+            let now = CACurrentMediaTime()
+            let prior = self.bendEaseLastTick ?? now - interval
+            let elapsed = max(1.0 / 240.0, min(1.0 / 30.0, now - prior))
+            self.bendEaseLastTick = now
+            let response = Self.fxGestureResponse
+            let alpha = Float(1 - exp(-elapsed / response))
+            let bendDiff = self.bendGestureTarget - self.bendAmount
+            let xDiff = self.fxXGestureTarget - self.fxX
+            self.bendAmount += bendDiff * alpha
+            self.fxX += xDiff * alpha
+            let settled = abs(bendDiff) < 0.0005 && abs(xDiff) < 0.0005
+            if settled {
                 self.bendAmount = self.bendGestureTarget
-            } else {
-                self.bendAmount += diff > 0 ? maxStep : -maxStep
+                self.fxX = self.fxXGestureTarget
             }
+            self.spaceAmount = max(0, -self.fxX)
+            self.echoAmount = Self.fxEchoEnabled ? max(0, self.fxX) : 0
             self.menuBand.setBend(amount: self.bendAmount,
                                   allChannels: self.bendEaseAllChannels)
+            self.menuBand.setSpace(amount: self.spaceAmount)
+            self.menuBand.setEcho(amount: self.echoAmount)
+            self.pushStaffPitchShift()
             self.updateTrackpadOverlayIfDue()
-            if self.bendAmount == self.bendGestureTarget {
+            if settled {
                 t.invalidate()
                 self.bendEaseTimer = nil
+                self.bendEaseLastTick = nil
             }
         }
         timer.tolerance = 0
@@ -5892,7 +5897,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func stopBendEase() {
         bendEaseTimer?.invalidate()
         bendEaseTimer = nil
+        bendEaseLastTick = nil
         bendGestureTarget = bendAmount
+        fxXGestureTarget = fxX
     }
 
     /// Ping MacPal's star so it opens its mouth + floats a note. Two paths,
@@ -5928,7 +5935,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     /// Tear down the pitch-bend cursor lock + floating overlay and
-    /// start the post-release hold→linear-ramp on the fx. Shared by
+    /// start the post-release catch→smooth-return on the fx. Shared by
     /// the two end-of-gesture triggers: all keyboard notes released
     /// with no finger on the trackpad, or the trackpad finger
     /// lifting. Idempotent.
@@ -6003,9 +6010,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         trackpadPadMode = .skin
         guard pitchBendCursorLocked else {
             // Mode was latched but cursor not currently locked — still
-            // make sure the overlay is gone and fx spring back.
+            // make sure the fx and their visible puck settle back.
             pitchBendCursorPushed = false
-            pitchBendOverlay?.dismiss()
             startFxRelease()
             return
         }
@@ -6014,14 +6020,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             NSCursor.pop()
             pitchBendCursorPushed = false
         }
-        // Hide the chart the instant the key lifts — the user asked for
-        // no lingering graph. The fx (bend/space/echo) still spring back
-        // audibly via `startFxRelease`; only the on-screen overlay goes
-        // away immediately. The real system cursor comes back now.
+        // Restore the real cursor immediately, but leave the chart visible
+        // for the brief settle so the puck and audio return together.
         showSystemCursorIfNeeded()
         CGAssociateMouseAndMouseCursorPosition(1)
         pitchBendCursorLocked = false
-        pitchBendOverlay?.dismiss()
         startFxRelease()
     }
 
@@ -6099,9 +6102,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
     #endif
 
-    /// Begin the post-release sequence: a `fxHoldDuration` dead zone
+    /// Begin the post-release sequence: a tiny `fxHoldDuration` catch
     /// where bend/space/echo stay fully engaged (so resuming play
-    /// keeps the sound intact), then a linear glide to neutral.
+    /// keeps the sound intact), then a smooth glide to neutral.
     /// Replaying cancels the whole thing via `cancelFxRelease`
     /// (from `onLitChanged` on a fresh note, and from the gesture
     /// handler when the swipe resumes).
@@ -6121,10 +6124,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         fxHoldTimer = hold
     }
 
-    /// Linear glide of bend/space/echo to neutral over
-    /// `fxRampDuration`. No easing — a straight ramp, never a sharp
-    /// cutoff. A fresh note mid-ramp cancels it (cancelFxRelease),
-    /// freezing the fx wherever the glide had reached.
+    /// Smooth, non-overshooting glide of bend/space/echo to neutral. A fresh
+    /// note mid-ramp cancels it, freezing the fx wherever the glide reached.
     private func startFxRamp() {
         fxHoldTimer?.invalidate()
         fxHoldTimer = nil
@@ -6145,7 +6146,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // start is in the past, so -timeIntervalSinceNow = elapsed.
             let elapsed = -start.timeIntervalSinceNow
             let p = Float(min(1, elapsed / Self.fxRampDuration))
-            let k = 1 - p
+            let eased = p * p * (3 - 2 * p)
+            let k = 1 - eased
             self.bendAmount = self.fxRampFromBend * k
             self.spaceAmount = self.fxRampFromSpace * k
             self.echoAmount = self.fxRampFromEcho * k
@@ -6164,6 +6166,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self.spaceAmount = 0
                 self.echoAmount = 0
                 self.fxX = 0
+                self.bendGestureTarget = 0
+                self.fxXGestureTarget = 0
                 self.menuBand.setBend(amount: 0, allChannels: true)
                 self.menuBand.setSpace(amount: 0)
                 self.menuBand.setEcho(amount: 0)
