@@ -14,6 +14,7 @@ import { nopaintProposal as lineProposal } from "./line.mjs";
 import { darkWindowProposal, gridWormProposal } from "../lib/nopaint-construct-brushes.mjs";
 import { nonConflictingConstructProposals } from "../lib/nopaint-construct-catalog.mjs";
 import { recoveredConstructTransforms } from "../lib/nopaint-construct-transforms.mjs";
+import { nopaint_adjust } from "../systems/nopaint.mjs";
 import {
   NOPAINT_PIECE_STORE_KEY,
   appendNoPaintLayer,
@@ -62,8 +63,6 @@ let cursorSheet = null;
 let cursorPoint = null;
 let cursorFrame = 0;
 let cursorWagFrames = 0;
-let checkerFrame = 0;
-let substrateFresh = false;
 // True screen dimensions captured at paint-frame start. The live screen
 // object is shared with the runtime and temporarily carries sub-buffer
 // dimensions while a page() is active, so between-frame readers (the test
@@ -262,7 +261,11 @@ function interfaceLayout(screen) {
   const barHeight = Math.max(96, Math.floor(screenHeight * 0.2));
   const available = { x: 0, y: 0, w: screenWidth, h: screenHeight - barHeight };
   const source = paintingResolution || { width: available.w, height: available.h };
-  const scale = Math.min(available.w / source.width, available.h / source.height);
+  const fit = Math.min(available.w / source.width, available.h / source.height);
+  // Whole-number upscales keep the small-pixel format crisp; fractional
+  // scaling is reserved for paintings larger than the studio, which must
+  // shrink to stay fully visible.
+  const scale = fit >= 1 ? Math.floor(fit) : fit;
   // Clamp against float drift: when the painting matches the stage exactly,
   // source * scale can land a hair past available and floor() would yield -1.
   const fitted = {
@@ -538,7 +541,6 @@ async function loadArchivePainting(api, archiveId) {
       p.wipe(255, 255, 255, 0)
     );
     initializePiece(api, `${sessionSeed}:archive:${id}`, "archive");
-    substrateFresh = false; // An archive base keeps its own resolution.
     archiveOrigin.status = "ready";
     api.store["nopaint:origin"] = { ...archiveOrigin };
     api.store.persist("nopaint:origin", "local:db");
@@ -560,33 +562,32 @@ function persistPiece({ store, system }) {
   store.persist(NOPAINT_PIECE_STORE_KEY, "local:db");
 }
 
-// A fresh painting owns the whole stage: match the area above the control
-// bar exactly so it presents 1:1 with no letterbox bars — the same sizing
-// completePainting uses for the next painting after Done. `replace` is the
-// supported swap (store, transform, undo, present); the archive loader
-// rides the same path.
-function cutFreshSubstrate(api, seed) {
-  paintingResolution = null;
-  const { stage } = interfaceLayout(api.screen);
-  const freshPainting = api.painting(stage.w, stage.h, (p) =>
-    p.wipe(255, 255, 255));
-  seedNoiseSubstrate(freshPainting, seed);
-  api.system.nopaint.replace(
-    { system: api.system, screen: api.screen, store: api.store, needsPaint: api.needsPaint },
-    freshPainting,
-    "nopaint:fresh",
-  );
-  api.system.nopaint.buffer = api.painting(stage.w, stage.h, (p) =>
-    p.wipe(255, 255, 255, 0));
-  paintingResolution = { width: stage.w, height: stage.h };
-}
+// The standard nopainting canvas: the classic square small-pixel format the
+// archive is built from. `nopaint new` and content-less launches start here;
+// explicit sizes ride the same `new` path the prompt uses.
+const NOPAINT_STANDARD_SIZE = 256;
+const NOPAINT_MIN_SIZE = 8;
+const NOPAINT_MAX_SIZE = 2048;
 
-// Until the participant decides anything, the substrate is a blank offer —
-// reframes (density settling at boot, phone rotation) re-cut it to the new
-// stage. The first decision is what locks the painting's resolution.
-function substrateIsPristine() {
-  return substrateFresh && decisions.length === 0 && !finishMode &&
-    !completionBusy;
+// Make a fresh nopainting: a system painting at a fixed resolution, created
+// through nopaint_adjust — the same abstraction behind `new w h` on the
+// prompt — then grounded with the opaque substrate. Window changes never
+// alter this resolution; the studio around it just re-centers.
+function makeNewPainting(api, w, h, seed) {
+  api.store.delete?.("painting:record", "local:db");
+  delete api.store["painting:record"];
+  if (api.system.nopaint.recording) {
+    api.system.nopaint.recording = false;
+    api.system.nopaint.record.length = 0;
+  }
+  api.system.nopaint.undo.paintings.length = 0;
+  nopaint_adjust(api, { w, h }, `new~${w}~${h}`);
+  seedNoiseSubstrate(api.system.painting, seed);
+  persistPainting({ store: api.store, system: api.system });
+  api.system.nopaint.buffer = api.painting(w, h, (p) =>
+    p.wipe(255, 255, 255, 0));
+  api.system.nopaint.needsPresent = true;
+  paintingResolution = { width: w, height: h };
 }
 
 function initializePiece(api, seed, role = "substrate") {
@@ -836,14 +837,37 @@ function boot({ colon, debug, hud, net, num, params, query = {}, screen, store, 
     if (typeof window !== "undefined") visibleURL = new URL(window.location.href);
   } catch {}
   const archiveId = params[0] === "archive" ? params[1] : null;
-  const freshFromId = params[0] === "new" ? params[1] : null;
+  const sizeToken = (value) => {
+    const n = parseInt(String(value ?? ""), 10);
+    return Number.isInteger(n) && n >= NOPAINT_MIN_SIZE && n <= NOPAINT_MAX_SIZE
+      ? n
+      : null;
+  };
+  // `nopaint 96` aliases `nopaint new 96 96`, which mirrors `new 96 96` on
+  // the prompt: nopaintings are system paintings. A non-numeric token after
+  // `new` is an archive id being rejected as a starting point. Numbers
+  // outside the size range still read as session seeds.
+  let requestedSize = null;
+  let freshFromId = null;
+  if (params[0] === "new") {
+    const w = sizeToken(params[1]);
+    if (w) requestedSize = { w, h: sizeToken(params[2]) || w };
+    else if (params[1]) freshFromId = params[1];
+    else requestedSize = { w: NOPAINT_STANDARD_SIZE, h: NOPAINT_STANDARD_SIZE };
+  } else if (!archiveId && sizeToken(params[0])) {
+    const w = sizeToken(params[0]);
+    requestedSize = { w, h: sizeToken(params[1]) || w };
+  }
   const urlSeed = query.seed || navigationURL?.searchParams.get("seed") || null;
   freshStart = freshLaunchRequested(navigationURL, colon, params) ||
     freshLaunchRequested(visibleURL, colon, params) ||
     Boolean(freshFromId) ||
+    Boolean(requestedSize) ||
     (Object.hasOwn(query, "fresh") &&
       !["0", "false", "no", "off"].includes(String(query.fresh).toLowerCase()));
-  const launchSeed = [...colon, ...params].find((value) =>
+  // Size tokens consume the params; seeds then come from the colon or query.
+  const seedTokens = requestedSize ? [...colon] : [...colon, ...params];
+  const launchSeed = seedTokens.find((value) =>
     !["fresh", "fresh=1", "new"].includes(String(value).trim().toLowerCase()));
   const requestedSeed = urlSeed || archiveId || freshFromId || launchSeed;
   const numericSeed = /^\d+$/.test(requestedSeed || "")
@@ -872,7 +896,6 @@ function boot({ colon, debug, hud, net, num, params, query = {}, screen, store, 
   cursorPoint = null;
   cursorFrame = 0;
   cursorWagFrames = 0;
-  checkerFrame = 0;
   cueEvents = [];
   brushCueProposal = 0;
   activeBrushSound = null;
@@ -892,13 +915,14 @@ function boot({ colon, debug, hud, net, num, params, query = {}, screen, store, 
     record: `https://nopaint.art/${freshFromId}`,
     action: "rejected-as-start",
   } : null;
-  // AC's painting contract: the participant's first decision locks this
-  // painting's pixel resolution. Until then the fresh substrate re-cuts to
-  // the stage on reframe; afterwards window changes only alter presentation.
+  // AC's painting contract: a nopainting is a system painting at a fixed
+  // resolution, set at creation. Window changes never alter it — the studio
+  // around the painting just re-centers.
   const needsStarterSubstrate = freshStart || (!archiveId && !paintHasContent(system.painting));
-  substrateFresh = needsStarterSubstrate;
   if (needsStarterSubstrate) {
-    cutFreshSubstrate({ ...api, screen, store, system }, sessionSeed);
+    const size = requestedSize ||
+      { w: NOPAINT_STANDARD_SIZE, h: NOPAINT_STANDARD_SIZE };
+    makeNewPainting({ ...api, screen, store, system }, size.w, size.h, sessionSeed);
   }
   paintingResolution = {
     width: system.painting.width,
@@ -912,7 +936,6 @@ function boot({ colon, debug, hud, net, num, params, query = {}, screen, store, 
   if (recoveredPiece) {
     system.nopaint.piece = recoveredPiece;
     system.painting.pixels.set(recoveredPiece.composite.pixels);
-    substrateFresh = false;
   } else {
     initializePiece({ ...api, store, system }, sessionSeed,
       needsStarterSubstrate ? "substrate" : "legacy-raster");
@@ -973,7 +996,6 @@ function boot({ colon, debug, hud, net, num, params, query = {}, screen, store, 
 
 // 🧮 Sim
 function sim({ needsPaint }) {
-  checkerFrame += 1;
   needsPaint();
   if (cursorWagFrames > 0) {
     cursorWagFrames -= 1;
@@ -1001,22 +1023,6 @@ function animatedColor(color, phase) {
     Math.max(0, Math.min(255, color[2] + pulse)),
     color[3],
   ];
-}
-
-function paintParallaxCheckers($, bar) {
-  const size = Math.max(18, Math.round(Math.min($.screen.width, $.screen.height) / 18));
-  const offsetX = Math.floor((checkerFrame * 0.08) % size);
-  const offsetY = Math.floor((checkerFrame * 0.04) % size);
-  $.ink(22, 22, 24).box(0, 0, $.screen.width, bar.y);
-  for (let y = -size + offsetY; y < bar.y; y += size) {
-    for (let x = -size + offsetX; x < $.screen.width; x += size) {
-      const column = Math.floor((x - offsetX) / size);
-      const row = Math.floor((y - offsetY) / size);
-      if ((column + row) % 2 === 0) {
-        $.ink(34, 34, 38).box(x, y, size, size);
-      }
-    }
-  }
 }
 
 function renderProposal($) {
@@ -1169,10 +1175,9 @@ function paint($) {
 
   const { bar, stage, status, scale } = interfaceLayout($.screen);
   const surface = { x: 0, y: 0, w: $.screen.width, h: bar.y };
-  // Present the entire fixed-resolution painting above the controls. The
-  // viewport may fit/letterbox responsively, but its pixels never reflow.
+  // The fixed-resolution painting sits centered in the studio above the
+  // controls, pixel-crisp at whole-number scales. Its pixels never reflow.
   $.wipe(18);
-  paintParallaxCheckers($, bar);
   if (proposalPixels) {
     $.paste($.system.nopaint.buffer, stage.x, stage.y, scale);
   } else {
@@ -1245,25 +1250,14 @@ async function completePainting($) {
     $.system.painting.code = data.code;
     $.store["painting:code"] = data.code;
     $.store.persist?.("painting:code", "local:db");
-    const layout = interfaceLayout($.screen);
-    const nextResolution = {
-      w: $.screen.width,
-      h: Math.max(1, layout.bar.y),
-    };
-    await $.system.nopaint.noBang($, nextResolution);
-    paintingResolution = {
-      width: nextResolution.w,
-      height: nextResolution.h,
-    };
-    $.system.nopaint.buffer = $.painting(
-      nextResolution.w,
-      nextResolution.h,
-      (page) => page.wipe(255, 255, 255, 0),
+    // The next canvas keeps this session's standard resolution.
+    makeNewPainting(
+      $,
+      $.system.painting.width,
+      $.system.painting.height,
+      `${sessionSeed}:${doneCount}`,
     );
-    seedNoiseSubstrate($.system.painting, `${sessionSeed}:${doneCount}`);
-    $.flatten();
     initializePiece($, `${sessionSeed}:${doneCount}`);
-    substrateFresh = true;
   proposal = null;
   proposalFrame = 0;
   proposalPixels = null;
@@ -1303,19 +1297,8 @@ export function nopaintXboxAction(button, completing = false) {
 function act($) {
   const { event: e } = $;
   if (e.is("reframed")) {
-    // Boot-time density settling and pre-decision rotations arrive here; a
-    // pristine substrate re-cuts to the new stage with the session's own
-    // seed, so the offer stays deterministic. Decided paintings keep their
-    // locked resolution and only re-present.
-    if (substrateIsPristine()) {
-      random = seededRandom(sessionSeed);
-      proposalNumber = 0;
-      brushCueProposal = 0;
-      cutFreshSubstrate($, sessionSeed);
-      initializePiece($, sessionSeed);
-      clearProposal($);
-      chooseProposal($);
-    }
+    // The painting's resolution never follows the window — only the studio
+    // presentation re-centers.
     positionButtons($.screen);
     $.needsPaint();
     publishTestState();
@@ -1556,8 +1539,8 @@ function meta() {
     title: "No Paint",
     desc: "Collaborate with a proposing machine: press No to discard or Paint to keep.",
     controls: "No: Left/N/Escape/B/X · Paint: Right/Enter/P/A · finish: Y/View · pause: Space/Menu or drag painting",
-    params: "optional deterministic session seed; fresh starts with a blank painting",
-    example: "nopaint fresh",
+    params: "new [w] [h] starts a fresh standard painting (256×256 default); a bare size aliases new (nopaint 96 → 96×96); colon value seeds the session",
+    example: "nopaint new 96",
   };
 }
 

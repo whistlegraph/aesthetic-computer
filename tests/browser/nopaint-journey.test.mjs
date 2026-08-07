@@ -35,6 +35,21 @@ try {
       );
       await ac.wait(500);
     }
+    // The activation tap races the runtime's gesture consumption: when it
+    // reaches the piece it lands on the painting — the pause/Done surface.
+    // Normalize back to proposing before asserting.
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const settled = await ac.nopaintState();
+      if (settled?.state !== "paused") break;
+      const viewport = ac.page.viewport();
+      if (settled.controls?.back) {
+        // Completion surface: tapping the painting again goes Back.
+        await ac.page.mouse.click(viewport.width / 2, viewport.height * 0.4);
+      } else {
+        await ac.page.keyboard.press("Space");
+      }
+      await ac.wait(400);
+    }
     try {
       await ac.page.waitForFunction(
         () => window.__acNoPaintTest?.()?.audio?.events?.some(
@@ -105,16 +120,14 @@ try {
     );
   });
 
-  await scenario("The first decision locks painting resolution while its presentation responds", async (expect) => {
-    // A pristine substrate re-cuts to the stage on reframe (density settling,
-    // rotation). The participant's first decision is what locks the painting's
-    // resolution, so make one before probing the viewports.
-    const preDecision = await ac.nopaintState();
-    await ac.measureNopaintDecision("ArrowLeft");
+  await scenario("Painting resolution stays fixed while its presentation responds", async (expect) => {
+    // A nopainting is a system painting at a fixed resolution set at
+    // creation (256×256 standard). Window changes only re-center it in the
+    // studio — the resolution never follows the viewport.
     const initial = await ac.nopaintState();
-    expect(initial?.decisions?.length === (preDecision?.decisions?.length ?? 0) + 1,
-      "a first No decision locks the substrate");
     const lockedResolution = initial.layout.paintingResolution;
+    expect(lockedResolution.width === 256 && lockedResolution.height === 256,
+      "a fresh nopainting is the 256×256 standard");
     const acceptedFingerprint = initial.paintingFingerprint;
     const viewports = [
       { width: 390, height: 844, label: "phone portrait" },
