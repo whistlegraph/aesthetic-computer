@@ -23,10 +23,21 @@ AC pop tracks — and the essays written about them — are work of **@jeffrey /
 ```
 platter (raw material: notes, code, conversations, papers)
   → thread (a vision worth singing)
-    → draft lyrics (in jeffrey-pvc voice + per-genre voice)
-      → vocal + beat (per-lane pipeline)
-        → mix (~1:30 mp3, audio-only)
+    → composition beds (chords + topline + rhythm + rate)
+      → election (one bed becomes the piece's musical genome)
+        → arrangement (dance, texture, sound design, lyrics, vocal)
+          → mix (~1:30 mp3, audio-only)
 ```
+
+New track lanes begin with a neutral batch from
+`node pop/bin/render-composition-beds.mjs`. Compare the beds without genre
+production, then record the choice with `--elect NN`. Do not polish rhythm,
+timbre, visual treatment, or vocal before the harmony/topline election.
+
+An elected genome may also drive a measure-by-measure native performance. The
+C engine owns timing and keeps future measures buffered; agent inference and
+time/weather inputs may shape later measures but never block audio. See
+[`REALTIME-COMPOSITION.md`](REALTIME-COMPOSITION.md).
 
 Audio-only by default. No video, no chrome. If a track later becomes a video lane, that's a recap-side concern, not a `pop` concern.
 
