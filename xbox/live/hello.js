@@ -1,5 +1,5 @@
 // @bundle-qr
-const buildTimestamp = "2026.08.07.1015 PDT";
+const buildTimestamp = "2026.08.07.1034 PDT";
 const floorY = 12000;
 const ceilingY = 0;
 const wallThickness = 80;
@@ -32,6 +32,17 @@ const grenadeBlastRadius = 620;
 const replayTickUs = 16667;
 const replayCheckpointUs = 1000000;
 const liveSnapshotIntervalUs = 50000;
+const fighterAnimationSpecs = {
+  IDLE: [48, 2, "BREATHE", true], WALK: [12, 1, "STRIDE", true],
+  DASH: [8, 1, "BURST", true], CROUCH: [8, 1, "TUCK", true],
+  "AIR CROUCH": [8, 1, "TUCK", true], JUMP: [12, 1, "ASCEND", true],
+  FALL: [12, 1, "DESCEND", true], PUNCH: [14, 1, "ATTACK", false],
+  KICK: [14, 1, "ATTACK", false], SHIELD: [12, 2, "GUARD", true],
+  REACH: [10, 1, "REACH", false], HOLD: [16, 2, "CLUTCH", true],
+  FIRE: [11, 1, "FIRE", false], THROW: [16, 1, "THROW", false],
+  HIT: [10, 1, "STUN", false], POGO: [12, 1, "BOUNCE", true],
+  KO: [16, 2, "BREAK", false],
+};
 const instantReplayStepUs = 33333;
 const instantReplayMaxFrames = 240;
 const walkSpeed = 1060;
@@ -269,7 +280,8 @@ const players = [
     heldBall: -1, grabHeld: false, crouchBlend: 0, standingOn: -1,
     partDamage: {}, removedParts: [], pogoHit: false, pogoDive: false,
     commandStream: [],
-    jumpLaunchAt: 0, jumpPoseUntil: 0, landPoseUntil: 0 },
+    jumpLaunchAt: 0, jumpPoseUntil: 0, landPoseUntil: 0,
+    crouchJump: false, attackMomentum: 1 },
   { name: "@OSKIE", rosterIndex: 2, handleColors: fighterRoster[2].colors,
     npc: false, bot: false,
     pad: 1, spawnX: 6300, x: 6300, y: floorY, z: 0,
@@ -286,7 +298,8 @@ const players = [
     heldBall: -1, grabHeld: false, crouchBlend: 0, standingOn: -1,
     partDamage: {}, removedParts: [], pogoHit: false, pogoDive: false,
     commandStream: [],
-    jumpLaunchAt: 0, jumpPoseUntil: 0, landPoseUntil: 0 },
+    jumpLaunchAt: 0, jumpPoseUntil: 0, landPoseUntil: 0,
+    crouchJump: false, attackMomentum: 1 },
 ];
 const impacts = [];
 const detachedParts = [];
@@ -311,8 +324,9 @@ const ballKinds = [
     bounce: .82, drag: .998, windFactor: 1.35, gravityFactor: .62 },
 ];
 const balls = ballKinds.map((kind) => ({
-  ...kind, x: kind.spawnOwner >= 0 ? players[kind.spawnOwner].spawnX : 6000,
-  y: kind.spawnOwner >= 0 ? floorY - kind.radius : platformY - 760,
+  ...kind, x: kind.spawnOwner >= 0 ? players[kind.spawnOwner].spawnX
+    : platformRight + 820,
+  y: kind.spawnOwner >= 0 ? floorY - kind.radius : floorY - 920,
   z: 0, vx: 0, vy: 0, active: true, serveAt: 0,
   lastHitBy: kind.spawnOwner, safeUntil: 0, safePlayers: 0,
   rotation: 0, heldBy: -1,
@@ -1186,10 +1200,10 @@ function updateWind(dt, now) {
 function resetBalls(now) {
   for (const item of balls) {
     const owner = item.spawnOwner >= 0 ? players[item.spawnOwner] : null;
-    item.x = owner ? owner.spawnX + owner.facing * 180 : 6000;
-    item.y = owner ? floorY - item.radius : platformY - 760;
-    // Player balls share the playable lane. The beach ball begins high above
-    // both of them and drifts down toward the center platform under wind.
+    item.x = owner ? owner.spawnX + owner.facing * 180 : platformRight + 820;
+    item.y = owner ? floorY - item.radius : floorY - 920;
+    // The beach ball begins airborne beyond the platform edge, so its first
+    // landing is in the open arena rather than on the center platform.
     item.z = owner ? owner.z : 0;
     item.vx = 0;
     item.vy = 0;
@@ -1455,6 +1469,8 @@ function resetRound(now, resetMatch = false) {
     player.jumpLaunchAt = 0;
     player.jumpPoseUntil = 0;
     player.landPoseUntil = 0;
+    player.crouchJump = false;
+    player.attackMomentum = 1;
     player.botAttackAt = now + 420000;
     player.botAttackUntil = 0;
     player.botAttackButton = "";
@@ -1955,6 +1971,8 @@ function startMelee(player, kind, now) {
   player.attackStartedAt = now;
   player.attackUntil = now + 220000;
   player.attackHit = false;
+  player.attackMomentum = now < player.dashUntil
+    ? clamp(Math.abs(player.vx) / walkSpeed, 1.35, 2.25) : 1;
   player.stance = "ATTACK";
   player.pendingMoveLabel = kind;
   const pan = panPlayer(player);
@@ -2025,7 +2043,9 @@ function returnBall(ball, player, now, shielded, intensity = 1) {
   const direction = ball.x >= player.x ? 1 : -1;
   const currentSpeed = Math.hypot(ball.vx, ball.vy);
   const response = ball.hitScale || 1;
-  const normalSpeed = (currentSpeed * 1.34 + 720) * intensity * response;
+  const momentum = shielded ? 1 : player.attackMomentum || 1;
+  const normalSpeed = (currentSpeed * 1.34 + 720) * intensity *
+    momentum * response;
   const shieldMinimum = (1800 + clamp(intensity, 0, 1) * 1000) * response;
   const speed = shielded
     ? Math.min(4200 * response, Math.max(shieldMinimum, normalSpeed * 1.65))
@@ -2094,16 +2114,18 @@ function bootBall(ball, player, now) {
   // direction. A melee strike remains the intentionally stronger launch.
   const direction = Math.sign(player.vx) || Math.sign(ball.x - player.x) ||
     player.facing || 1;
-  const speed = Math.min(1450, (420 + Math.abs(player.vx) * .32) *
+  const dashing = now < player.dashUntil && Math.abs(player.dashVx) > walkSpeed;
+  const speed = Math.min(dashing ? 2600 : 1450,
+    (420 + Math.abs(player.vx) * (dashing ? .58 : .32)) *
     (ball.hitScale || 1));
   ball.vx = direction * speed;
-  ball.vy = -Math.max(80, speed * .06);
+  ball.vy = -Math.max(dashing ? 420 : 80, speed * (dashing ? .24 : .06));
   ball.x = player.x + direction * (ball.radius + 58);
   ball.y = Math.min(ball.y, floorY - ball.radius - 2);
   ball.lastHitBy = player.pad;
   ball.safeUntil = now + 180000;
   ball.safePlayers = 1 << player.pad;
-  player.lastButton = "BOOT";
+  player.lastButton = dashing ? "DASH BOOT" : "BOOT";
   player.lastButtonAt = now;
   impacts.push({ x: ball.x, y: ball.y, z: ball.z,
     life: .16, duration: .16, death: false, explosion: false });
@@ -2357,9 +2379,11 @@ function resolveMelee(now) {
     } else if (headshot) killPlayer(target, attacker.pad, now,
       contacts.length >= 2 ? "TRADE" : "KO");
     else {
-      const force = attacker.attackKind === "KICK" ? 1550 : 1200;
+      const momentum = attacker.attackMomentum || 1;
+      const force = (attacker.attackKind === "KICK" ? 1550 : 1200) * momentum;
       applyBodyHit(target, segmentIndex, attacker.x,
-        attacker.pad, now, force, attacker.attackKind === "KICK" ? 220 : 140);
+        attacker.pad, now, force,
+        (attacker.attackKind === "KICK" ? 220 : 140) * momentum);
       playDrum("block", 1, panPlayer(target));
     }
   }
@@ -2466,7 +2490,7 @@ function updateStance(player, input, now) {
     : player.heldBall >= 0 ? "HOLDING"
     : player.grabHeld ? "REACHING"
     : player.attackKind ? "ATTACK"
-    : player.ducking ? "CROUCH"
+    : player.ducking ? player.grounded ? "CROUCH" : "AIR CROUCH"
     : player.pogoDive ? "POGO DOWN"
     : !player.grounded ? "AIR"
     : now < player.dashUntil ? "DASH"
@@ -2552,6 +2576,8 @@ function updatePlayer(player, pad, dt, now) {
       player.jumpLaunchAt = 0;
       player.jumpPoseUntil = 0;
       player.landPoseUntil = 0;
+      player.crouchJump = false;
+      player.attackMomentum = 1;
       player.hitSegment = -1;
       player.hitSegmentUntil = 0;
       player.hitStunUntil = 0;
@@ -2598,14 +2624,17 @@ function updatePlayer(player, pad, dt, now) {
   player.pendingMoveLabel = "";
   const upPressed = input.vertical > 0 && !player.previous.includes("MOVE_UP");
   const downPressed = input.vertical < 0 && player.inputY >= 0;
-  const crouchTarget = input.vertical < 0 && player.grounded ? 1 : 0;
+  const wasCrouched = player.ducking || player.crouchBlend >= .35;
+  const crouchTarget = input.vertical < 0 ||
+    (!player.grounded && player.crouchJump && now < player.jumpPoseUntil) ? 1 : 0;
   const crouchStep = dt * (crouchTarget ? 9 : 11);
   player.crouchBlend += clamp(crouchTarget - player.crouchBlend,
     -crouchStep, crouchStep);
-  player.ducking = player.grounded && player.crouchBlend >= .52;
+  player.ducking = player.crouchBlend >= .52;
   if (player.attackKind && now >= player.attackUntil) {
     player.attackKind = "";
     player.attackHit = false;
+    player.attackMomentum = 1;
   }
   if (player.itemAction && now >= player.itemActionUntil)
     player.itemAction = "";
@@ -2657,17 +2686,19 @@ function updatePlayer(player, pad, dt, now) {
 
   if (!headOnly && upPressed && player.grounded && !player.jumpLaunchAt) {
     player.jumpLaunchAt = now + 85000;
-    player.pendingMoveLabel = "JUMP";
+    player.crouchJump = wasCrouched;
+    player.pendingMoveLabel = wasCrouched ? "CROUCH JUMP" : "JUMP";
   }
   if (player.jumpLaunchAt && now >= player.jumpLaunchAt) {
     player.jumpLaunchAt = 0;
-    player.jumpPoseUntil = now + 125000;
+    player.jumpPoseUntil = now + (player.crouchJump ? 240000 : 125000);
     const jumpScale = pogo ? .88 : legCount === 1 ? .78 : 1;
-    player.vy = Math.min(player.vy, -1050 * jumpScale);
+    player.vy = Math.min(player.vy,
+      -(player.crouchJump ? 1170 : 1050) * jumpScale);
     player.pogoHit = false;
     player.pogoDive = false;
     player.grounded = false;
-    player.ducking = false;
+    player.ducking = player.crouchJump;
     playDrum("block", 0.72, panPlayer(player));
     emitSignal("jump", player.pad, 1, 0);
   }
@@ -2679,6 +2710,10 @@ function updatePlayer(player, pad, dt, now) {
     player.stance = "POGO DOWN";
     playDrum("kick", .78, panPlayer(player));
     emitSignal("pogo", player.pad, -1, player.vy);
+  }
+  if (!player.grounded && !pogo && input.vertical < 0) {
+    player.ducking = true;
+    player.pendingMoveLabel ||= "AIR CROUCH";
   }
 
   for (const button of pad.down) {
@@ -2743,7 +2778,10 @@ function updatePlayer(player, pad, dt, now) {
       player.grounded = true;
     }
   }
-  if (!wasGrounded && player.grounded) player.landPoseUntil = now + 110000;
+  if (!wasGrounded && player.grounded) {
+    player.landPoseUntil = now + 110000;
+    player.crouchJump = false;
+  }
   resolveRunnerBounds(player, (now - startedAt) / 1000000);
   player.hit = Math.max(0, player.hit - dt * 4);
   player.blockFlash = Math.max(0, player.blockFlash - dt * 6);
@@ -2990,16 +3028,78 @@ function drawFighterSilhouette(geometry, color, outline, player = null) {
   filledDisc(geometry.head.x, geometry.head.y, geometry.head.radius, color);
 }
 
+function fighterAnimationPhase(player, now = null) {
+  const run = runtime();
+  now ??= run.simMonotonicUs || run.monotonicUs;
+  let state = "IDLE";
+  let stateStartedAt = startedAt;
+  if (!player.alive) {
+    state = "KO";
+    stateStartedAt = player.headBustedAt || player.lastButtonAt || now;
+  } else if (now < player.hitStunUntil) {
+    state = "HIT";
+    stateStartedAt = player.lastButtonAt || now;
+  } else if (player.blocking) {
+    state = "SHIELD";
+    stateStartedAt = player.lastButtonAt || now;
+  } else if (player.heldBall >= 0) {
+    state = "HOLD";
+    stateStartedAt = player.lastButtonAt || now;
+  } else if (player.grabHeld) {
+    state = "REACH";
+    stateStartedAt = player.lastButtonAt || now;
+  } else if (player.itemAction && now < player.itemActionUntil) {
+    state = player.itemAction;
+    stateStartedAt = player.itemActionStartedAt || now;
+  } else if (player.attackKind && now < player.attackUntil) {
+    state = player.attackKind;
+    stateStartedAt = player.attackStartedAt || now;
+  } else if (isPogo(player)) {
+    state = "POGO";
+  } else if (player.ducking) {
+    state = player.grounded ? "CROUCH" : "AIR CROUCH";
+  } else if (!player.grounded) {
+    state = player.vy < 0 ? "JUMP" : "FALL";
+    stateStartedAt = player.jumpPoseUntil
+      ? player.jumpPoseUntil - (player.crouchJump ? 240000 : 125000)
+      : player.lastButtonAt || now;
+  } else if (now < player.dashUntil) {
+    state = "DASH";
+    stateStartedAt = player.lastButtonAt || now;
+  } else if (Math.abs(player.vx) > 40) {
+    state = "WALK";
+  }
+  const [steps, ticksPerStep, basePhase, loop] =
+    fighterAnimationSpecs[state] || fighterAnimationSpecs.IDLE;
+  const rawTick = Math.max(0,
+    Math.floor((now - stateStartedAt) / replayTickUs));
+  const rawStep = Math.floor(rawTick / ticksPerStep);
+  const step = loop ? rawStep % steps : Math.min(steps - 1, rawStep);
+  let phase = basePhase;
+  if (["PUNCH", "KICK", "FIRE", "THROW", "REACH"].includes(state)) {
+    const section = step / Math.max(1, steps - 1);
+    phase = section < .3 ? "STARTUP" : section < .68 ? "ACTIVE" : "RECOVERY";
+  } else if (state === "JUMP" || state === "FALL") {
+    phase = Math.abs(player.vy) < 150 ? "APEX" : state === "JUMP"
+      ? "ASCEND" : "DESCEND";
+  }
+  const cycleTick = step * ticksPerStep;
+  return { state, phase, step: step + 1, steps, tick: rawTick,
+    ticksPerStep, progress: step / Math.max(1, steps - 1),
+    frameNow: stateStartedAt + cycleTick * replayTickUs };
+}
+
 function runnerWorldGeometry(player, t) {
-  // Combat silhouettes update on a deliberate 12 fps pose clock while the
-  // physics and camera continue at full rate.
-  const poseT = Math.floor(t * 12) / 12;
-  const poseNow = runtime().monotonicUs;
+  // Rendering consumes the same fixed 60 Hz phase clock as simulation. The
+  // display can remain uncapped without inventing in-between combat poses.
+  const animation = fighterAnimationPhase(player);
+  const poseNow = animation.frameNow;
+  const poseCycle = animation.progress * Math.PI * 2;
   const speed = Math.min(1, Math.abs(player.vx) / 1500);
   const idle = player.grounded && !player.ducking && speed < .03;
-  const breath = idle ? Math.sin(poseT * 2.4 + player.pad * .7) * 5 : 0;
-  const idleSway = idle ? Math.sin(poseT * 1.55 + player.pad) * 7 : 0;
-  const stride = Math.sin(poseT * (7 + speed * 9) + player.pad * Math.PI) *
+  const breath = idle ? Math.sin(poseCycle + player.pad * .7) * 5 : 0;
+  const idleSway = idle ? Math.sin(poseCycle + player.pad) * 7 : 0;
+  const stride = Math.sin(poseCycle + player.pad * Math.PI) *
     32 * speed;
   const pogo = isPogo(player);
   const headOnly = isHeadOnly(player);
@@ -3024,7 +3124,7 @@ function runnerWorldGeometry(player, t) {
     : feet - lerp(58, 40, crouchPose) + formDrop;
   const neckX = x + lean;
   const neckY = feet - height + 54 - breath + formDrop;
-  const attackPulse = meleePulse(player, runtime().monotonicUs);
+  const attackPulse = meleePulse(player, poseNow);
   const head = headOnly
     ? { x, y: feet - 22, z, radius: 22 }
     : { x: neckX + lean * .2,
@@ -3088,7 +3188,7 @@ function runnerWorldGeometry(player, t) {
   segment(leftShoulderX, shoulderY, rightShoulderX, shoulderY, 10,
     "shoulders");
   if (player.attackKind === "KICK" && attackPulse > 0) {
-    const target = meleeTarget(player, runtime().monotonicUs);
+    const target = meleeTarget(player, poseNow);
     const leg = twoBone(x, hipY, target.x, target.y, 74, -player.facing);
     segment(x, hipY, leg.jointX, leg.jointY, 12, "attack-thigh");
     segment(leg.jointX, leg.jointY, leg.targetX, leg.targetY, 12,
@@ -3120,7 +3220,7 @@ function runnerWorldGeometry(player, t) {
   const arm = idle ? idleSway : player.grounded ? -stride * .7 : 12;
   const elbowY = feet - lerp(94, 76, crouchPose) - breath;
   const handY = feet - lerp(65, 50, crouchPose) - breath * .5;
-  const actionNow = runtime().monotonicUs;
+  const actionNow = poseNow;
   if (player.grabHeld) {
     const held = player.heldBall >= 0 ? balls[player.heldBall] : null;
     const clutchX = held?.x ?? x + player.facing * 126;
@@ -3140,7 +3240,8 @@ function runnerWorldGeometry(player, t) {
       segment(pose.jointX, pose.jointY, pose.targetX, pose.targetY, 12,
         "grab-forearm");
     }
-  } else if (player.itemAction && actionNow < player.itemActionUntil) {
+  } else if ((player.itemAction && actionNow < player.itemActionUntil) ||
+      (player.gunAmmo > 0 && player.itemAction !== "THROW")) {
     const target = itemHandTarget(player, actionNow);
     const actionShoulderX = player.facing > 0 ? rightShoulderX : leftShoulderX;
     const restShoulderX = player.facing > 0 ? leftShoulderX : rightShoulderX;
@@ -3155,7 +3256,7 @@ function runnerWorldGeometry(player, t) {
     segment(x - player.facing * 32, elbowY,
       x - player.facing * 36, handY, 10, "rest-forearm");
   } else if (player.attackKind === "PUNCH" && attackPulse > 0) {
-    const target = meleeTarget(player, runtime().monotonicUs);
+    const target = meleeTarget(player, poseNow);
     const actionShoulderX = player.facing > 0 ? rightShoulderX : leftShoulderX;
     const restShoulderX = player.facing > 0 ? leftShoulderX : rightShoulderX;
     const armPose = twoBone(actionShoulderX, shoulderY,
@@ -3788,15 +3889,12 @@ function drawFace(player, head, color, t, now = runtime().monotonicUs) {
 
 function drawInventory(player, now) {
   const scale = cameraScale();
-  const pip = Math.max(3, Math.min(7, 5 * scale));
-  const belt = projectPoint(player.x, player.y - 58, player.z);
   const gunColor = [255, 220, 72];
   const grenadeColor = [255, 105, 105];
   const firing = player.itemAction === "FIRE" && now < player.itemActionUntil;
   const throwing = player.itemAction === "THROW" && now < player.itemActionUntil;
-  if (player.gunAmmo > 0 || firing) {
-    const held = firing ? itemHandTarget(player, now)
-      : { x: player.x - player.facing * 25, y: player.y - 82, z: player.z };
+  if ((player.gunAmmo > 0 || firing) && !throwing) {
+    const held = itemHandTarget(player, now);
     const hand = projectPoint(held.x, held.y, held.z);
     const barrel = projectPoint(held.x + player.facing * 54,
       held.y, held.z);
@@ -3811,17 +3909,6 @@ function drawInventory(player, now) {
         barrel.y + 18 * scale, Math.max(2, 5 * scale), 255, 248, 190);
     }
   }
-  const gunPips = Math.min(12, player.gunAmmo);
-  for (let index = 0; index < gunPips; index++) {
-    const row = Math.floor(index / 6);
-    const column = index % 6;
-    box(belt.x - 16 * scale + column * (pip + 2),
-      belt.y + row * (pip + 2), pip, pip, ...gunColor);
-  }
-  const grenadePips = Math.min(4, player.grenadeAmmo);
-  for (let index = 0; index < grenadePips; index++)
-    box(belt.x - 18 * scale + index * (pip + 4), belt.y - 13 * scale,
-      pip + 2, pip + 2, ...grenadeColor);
   if (throwing) {
     const target = itemHandTarget(player, now);
     const hand = projectPoint(target.x, target.y, target.z);
@@ -4032,19 +4119,26 @@ function drawDebugHitboxes(player, t) {
   const mode = "P" + (player.pad + 1) + " " + player.stance +
     (player.attackKind ? "/" + player.attackKind : "");
   const bodyBottom = projectedBodyBottom(geometry);
-  const labelY = Math.min(viewHeight - 168, bodyBottom + 12);
+  const labelY = Math.min(viewHeight - 230, bodyBottom + 12);
   const labelWidth = Math.max(162, mode.length * 15);
   const pad = padSnapshots[player.pad] ||
     { connected: false, down: [], leftX: 0, leftY: 0 };
   const input = quantizedInput(pad, player.suppressedDirections);
   const inputLabel = "IN " + input.horizontal + "," + input.vertical +
     "  STK " + pad.leftX.toFixed(2) + "  VX " + Math.round(player.vx);
+  const animation = fighterAnimationPhase(player, displayNow);
+  const animationLabel = "ANIM " + animation.state + ":" + animation.phase +
+    "  STEP " + animation.step + "/" + animation.steps +
+    "  T" + animation.tick;
   const inputWidth = inputLabel.length * 10;
-  const panelWidth = Math.max(labelWidth, inputWidth + 16);
+  const animationWidth = animationLabel.length * 10;
+  const panelWidth = Math.max(labelWidth, inputWidth + 16, animationWidth + 16);
   typeWrite(mode, geometry.head.x - labelWidth / 2 + 8,
     labelY, 24, ...player.color);
-  typeWrite(inputLabel, geometry.head.x - panelWidth / 2 + 8,
+  typeWrite(animationLabel, geometry.head.x - panelWidth / 2 + 8,
     labelY + 30, 18, 215, 224, 240);
+  typeWrite(inputLabel, geometry.head.x - panelWidth / 2 + 8,
+    labelY + 54, 18, 215, 224, 240);
 }
 
 function drawPlayerHud(player, x, pad) {
@@ -4334,6 +4428,17 @@ function drawBall(ball) {
       point.y - radius > viewHeight) return;
   const soccer = ball.type === "soccer";
   const beach = ball.type === "beach";
+  const polygon = (x, y, polygonRadius, sides, rotation, color) => {
+    for (let side = 0; side < sides; side++) {
+      const a = rotation + side * Math.PI * 2 / sides;
+      const b = rotation + (side + 1) * Math.PI * 2 / sides;
+      screenTriangle(x, y,
+        x + Math.cos(a) * polygonRadius,
+        y + Math.sin(a) * polygonRadius,
+        x + Math.cos(b) * polygonRadius,
+        y + Math.sin(b) * polygonRadius, ...color);
+    }
+  };
   if (beach) {
     const panels = [
       [244, 66, 96], [255, 146, 52], [255, 226, 66], [72, 210, 126],
@@ -4363,12 +4468,17 @@ function drawBall(ball) {
     soccer ? [226, 232, 224] : [232, 104, 28]);
   const seam = [42, 31, 29];
   if (soccer) {
-    filledDisc(point.x, point.y, radius * .2, seam);
+    polygon(point.x, point.y, radius * .22, 5,
+      ball.rotation - Math.PI / 2, seam);
     for (let patch = 0; patch < 5; patch++) {
       const angle = ball.rotation + patch * Math.PI * 2 / 5;
-      filledDisc(point.x + Math.cos(angle) * radius * .58,
-        point.y + Math.sin(angle) * radius * .58,
-        radius * .105, seam);
+      const patchX = point.x + Math.cos(angle) * radius * .58;
+      const patchY = point.y + Math.sin(angle) * radius * .58;
+      filledCapsule(point.x + Math.cos(angle) * radius * .2,
+        point.y + Math.sin(angle) * radius * .2,
+        patchX, patchY, Math.max(1.5, radius * .035), seam);
+      polygon(patchX, patchY, radius * .13, 5,
+        angle - Math.PI / 2, seam);
     }
   } else {
     const width = Math.max(2, radius * .075);
@@ -4377,6 +4487,17 @@ function drawBall(ball) {
       const dy = Math.sin(angle) * radius * .84;
       filledCapsule(point.x - dx, point.y - dy,
         point.x + dx, point.y + dy, width, seam);
+    }
+    for (const direction of [-1, 1]) {
+      let previous = null;
+      for (let step = -6; step <= 6; step++) {
+        const y = step / 6 * radius * .82;
+        const x = direction * Math.cos(step / 6 * Math.PI / 2) * radius * .42;
+        const next = { x: point.x + x, y: point.y + y };
+        if (previous) filledCapsule(previous.x, previous.y,
+          next.x, next.y, width, seam);
+        previous = next;
+      }
     }
     filledDisc(point.x, point.y, Math.max(1.5, width * .55), seam);
   }
@@ -4461,8 +4582,8 @@ function drawGrenade(grenade) {
 }
 
 function drawWindFlag(t, color) {
-  const poleX = platformRight - 340;
-  const poleZ = -360;
+  const poleX = (platformLeft + platformRight) / 2;
+  const poleZ = 480;
   const poleBottom = platformY;
   const poleTop = platformY - 430;
   const calm = windMph < .35;
@@ -4543,7 +4664,8 @@ function drawSelectionScreen(t, ink, panel) {
     if (globalThis.__oskiewarTouch) globalThis.__oskiewarTouch.hover = hover;
     const margin = layout.roster[0].x;
     const width = layout.roster[0].width;
-    typeWrite("SELECT A PAL", viewCenterX() - 145, 28, 36, ...ink);
+    const titleY = debugHitboxes ? hudSafeRect().top + 52 : 28;
+    typeWrite("SELECT A PAL", viewCenterX() - 145, titleY, 36, ...ink);
     for (const row of layout.roster) {
       const fighter = fighterRoster[row.index];
       const chosen = players.filter((player) => player.rosterIndex === row.index);
@@ -4751,9 +4873,6 @@ function drawSpectatorQr(ink) {
   const targetSize = compact ? 108 : 158;
   const cell = Math.max(2, Math.floor(targetSize / (count + quiet * 2)));
   const size = (count + quiet * 2) * cell;
-  const label = matchName;
-  const labelSize = hudTypeSize;
-  const labelWidth = label ? handleWidth(label, labelSize) : 0;
   const shadow = [24, 26, 34];
   const previousDepth = triangleDepth;
   triangleDepth = -1.43;
@@ -4767,13 +4886,6 @@ function drawSpectatorQr(ink) {
         screenRect(left + (column + quiet) * cell,
           top + (row + quiet) * cell, cell, cell, [7, 8, 14]);
     }
-  }
-  if (label) {
-    const labelLeft = safe.right - labelWidth;
-    const labelTop = top + size + 7;
-    typeWrite(label, labelLeft + 3, labelTop + 4,
-      labelSize, ...shadow);
-    typeWrite(label, labelLeft, labelTop, labelSize, 250, 250, 247);
   }
   triangleDepth = previousDepth;
 }
@@ -4951,7 +5063,6 @@ function gamePaint() {
     const viewerLabel = roundViewerMode || roundViewerStatus;
     typeWrite(viewerLabel, hud.right - viewerLabel.length * 18, hud.top + 7, 24,
       ...(roundViewerMode === "LIVE" ? [210, 42, 62] : titleInk));
-    typeWrite(matchName, hud.left + 8, hud.top + 7, 20, ...titleInk);
   }
   for (const pickup of gunPickups) drawGunPickup(pickup, t);
   for (const pickup of grenadePickups) drawGrenadePickup(pickup, t);

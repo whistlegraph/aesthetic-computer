@@ -32,6 +32,8 @@ function fileFor(pathname) {
     return join(repo, "system/public/aesthetic.computer/lib/oskiewar-analytics.mjs");
   if (pathname === "/aesthetic.computer/cursors/precise.svg")
     return join(repo, "system/public/aesthetic.computer/cursors/precise.svg");
+  if (pathname === "/aesthetic.computer/cursors/active.svg")
+    return join(repo, "system/public/aesthetic.computer/cursors/active.svg");
   if (pathname === "/ComicRelief-Regular.ttf")
     return join(repo,
       "system/public/papers.aesthetic.computer/foundry/fonts/ComicRelief-Regular.ttf");
@@ -106,6 +108,7 @@ async function captureTypography(browser, origin) {
   await page.goto(origin, { waitUntil: "networkidle2" });
   await page.evaluate(() => document.fonts.ready);
   await tap(page, "KeyF");
+  await wait(900);
   await tap(page, "KeyH");
   await tap(page, "KeyF");
   await wait(3350);
@@ -268,6 +271,7 @@ async function playRound(browser, origin, name, viewport, opponent = "dummy") {
 
   // OSKIEWAR card -> SELECT A PAL -> ready one player + dummy or both pads.
   await tap(page, "KeyF");
+  await wait(900);
   if (opponent === "dummy") {
     await tap(page, "KeyH");
     await tap(page, "KeyF");

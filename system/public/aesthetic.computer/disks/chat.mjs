@@ -229,8 +229,8 @@ let attachMenuPanelBounds = null; // open-menu panel hit box
 let attachMenuItemBounds = []; // per-item hit boxes
 let attachUploading = false; // guard against overlapping uploads
 
-// 🖱️ Hover cursor — swap the crosshair (precise.svg) for an "active" reticle
-// (active.svg) while the pen is over any interactive control. Tracks the
+// 🖱️ Hover cursor — open the precise crosshair outward with active.svg while
+// the pen is over any interactive control. Tracks the
 // current state so we only call cursor() on a change, not every frame.
 let hoverCursorOn = false;
 const CURSOR_ACTIVE = "url('/aesthetic.computer/cursors/active.svg') 12 12, pointer";

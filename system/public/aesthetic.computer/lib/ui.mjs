@@ -84,6 +84,13 @@ function cached(ctx) {
 
 // Global tracking for drag-between-buttons behavior
 const activeButtons = new Set(); // Track which buttons are currently active
+const hoveredButtons = new Set(); // Shared cursor state across all ui.Button instances.
+
+function updateHoverCursor(event) {
+  for (const button of hoveredButtons)
+    if (!button.over) hoveredButtons.delete(button);
+  event?.cursor?.(hoveredButtons.size ? "active" : "precise");
+}
 
 // Debug: Track recent rollout events to detect retap-after-rollout issues
 const recentRollouts = new Map(); // buttonId -> timestamp
@@ -308,6 +315,11 @@ class Button {
   act(e, callbacks = () => {}, pens = []) {
     const btn = this.btn;
     if (btn.disabled) {
+      if (btn.over) {
+        btn.over = false;
+        hoveredButtons.delete(btn);
+        updateHoverCursor(e);
+      }
       return;
     }
 
@@ -342,6 +354,8 @@ class Button {
         
         btn.down = false;
         btn.over = false;
+        hoveredButtons.delete(btn);
+        updateHoverCursor(e);
         btn.downPointer = undefined;
   removeActiveButton(btn, "global edge detection", netLog); // Remove from activeButtons Set
         callbacks.cancel?.(btn);
@@ -586,14 +600,19 @@ class Button {
           // Enter hover (passive - no button pressed)
           callbacks.hover?.(btn);
           btn.over = true;
+          hoveredButtons.add(btn);
+          updateHoverCursor(e);
         } else if (!containsNow && btn.over && !btn.down) {
           // Leave hover (passive - no button pressed)
           callbacks.leave?.(btn);
           btn.over = false;
+          hoveredButtons.delete(btn);
+          updateHoverCursor(e);
         }
       } catch (err) {
         // ignore
       }
+      updateHoverCursor(e);
     }
 
     // if (e.is("draw:any") && !this.down && this.box.contains(e)) {
