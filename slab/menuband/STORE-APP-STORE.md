@@ -39,6 +39,10 @@ each, deleted the rest. `bin/asc.mjs` (new) wraps the JWT + common queries:
 `READY_FOR_SALE`. The next candidate is v1.6.9 (build 169), adding the
 sandbox-safe TrackDrum companion bridge and the focused percussion/slider UX.
 
+**SUBMITTED — v1.6.9 (build 169), 2026-08-07.** App Store Connect reports
+`WAITING_FOR_REVIEW`. The signed universal build passed validation and was
+submitted with automatic release enabled.
+
 ### Review log
 
 | # | Submitted | Verdict | Guideline | What Apple objected to | Fix |
@@ -48,6 +52,7 @@ sandbox-safe TrackDrum companion bridge and the focused percussion/slider UX.
 | 3 | Jul 11 (build 154) | **approved Jul 12** | — | — | Released same day. |
 | 4 | Jul 15 (build 155) | **approved Jul 16** | — | v1.5.4 post-launch fixes and submission hardening. | Released automatically as configured. |
 | 5 | Jul 18 (build 156) | pending | — | v1.5.5: menu-bar 3·2·1 count-in, save-anywhere tape export, tape cover art, spoken digits; deduplicated screenshot set. | — |
+| 6 | Aug 7 (build 169) | waiting for review | — | v1.6.9: TrackDrum companion bridge, focused percussion/slider UX, smoother slide/effects, and Dock-safe overlays. | — |
 
 ### Screenshot duplication found after release
 
