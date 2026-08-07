@@ -288,7 +288,7 @@ let shellPrevious = [];
 let navigationPrevious = [[], []];
 // Temporary live combat inspector. Keep this explicit so the production view
 // can return to a clean presentation without changing combat geometry.
-let debugHitboxes = false;
+let debugHitboxes = true;
 let nextInputDebugAt = 0;
 let frameTelemetry = [];
 let frameTelemetryFlushAt = 0;
@@ -2628,10 +2628,11 @@ function drawDebugHitboxes(player, t) {
   const attackColor = [255, 86, 220];
 
   for (const segment of geometry.segments)
-    line(segment.x1, segment.y1, segment.x2, segment.y2,
-      Math.max(2, segment.width * .22), ...bodyColor);
-  circle(geometry.head.x, geometry.head.y, geometry.head.radius,
-    Math.max(2, geometry.head.radius * .12), headColor);
+    filledCapsule(segment.x1, segment.y1, segment.x2, segment.y2,
+      Math.max(2, segment.width * .22), bodyColor);
+  filledRing(geometry.head.x, geometry.head.y, geometry.head.radius,
+    Math.max(0, geometry.head.radius - Math.max(2,
+      geometry.head.radius * .12)), headColor);
 
   const halfWidth = player.ducking ? 76 : 62;
   const top = player.y - (player.ducking ? 132 : 174);
@@ -2643,16 +2644,18 @@ function drawDebugHitboxes(player, t) {
   ];
   for (let index = 0; index < corners.length; index++) {
     const next = corners[(index + 1) % corners.length];
-    line(corners[index].x, corners[index].y, next.x, next.y, 2, ...pushColor);
+    filledCapsule(corners[index].x, corners[index].y,
+      next.x, next.y, 2, pushColor);
   }
 
   const displayNow = player.frozenAt || now;
   if (player.attackKind && displayNow < player.attackUntil) {
     const strike = meleeStrike(player, displayNow);
     const point = projectPoint(strike.x, strike.y, strike.z);
-    circle(point.x, point.y, Math.max(2, strike.radius * cameraScale()),
-      3, attackColor);
-    line(geometry.head.x, geometry.head.y, point.x, point.y, 1, ...attackColor);
+    const radius = Math.max(2, strike.radius * cameraScale());
+    filledRing(point.x, point.y, radius, Math.max(0, radius - 3), attackColor);
+    filledCapsule(geometry.head.x, geometry.head.y, point.x, point.y,
+      1, attackColor);
   }
 
   if (!debugHitboxes) return;
@@ -3018,10 +3021,26 @@ function drawSpectatorQr(ink) {
 }
 
 function drawRectOutline(rect, width, color) {
-  line(rect.left, rect.top, rect.right, rect.top, width, ...color);
-  line(rect.right, rect.top, rect.right, rect.bottom, width, ...color);
-  line(rect.right, rect.bottom, rect.left, rect.bottom, width, ...color);
-  line(rect.left, rect.bottom, rect.left, rect.top, width, ...color);
+  filledCapsule(rect.left, rect.top, rect.right, rect.top, width, color);
+  filledCapsule(rect.right, rect.top, rect.right, rect.bottom, width, color);
+  filledCapsule(rect.right, rect.bottom, rect.left, rect.bottom, width, color);
+  filledCapsule(rect.left, rect.bottom, rect.left, rect.top, width, color);
+}
+
+function drawImpacts() {
+  for (const impact of impacts) {
+    const point = projectPoint(impact.x, impact.y, impact.z || 0);
+    const radius = (30 + (1 - impact.life / impact.duration) *
+      (impact.explosion ? 420 : impact.death ? 260 : 100)) * cameraScale();
+    filledCapsule(point.x - radius, point.y, point.x + radius, point.y,
+      5, [255, 255, 255]);
+    filledCapsule(point.x, point.y - radius, point.x, point.y + radius,
+      5, [255, 255, 255]);
+    filledCapsule(point.x - radius * .7, point.y - radius * .7,
+      point.x + radius * .7, point.y + radius * .7, 4, [255, 232, 92]);
+    filledCapsule(point.x + radius * .7, point.y - radius * .7,
+      point.x - radius * .7, point.y + radius * .7, 4, [255, 105, 190]);
+  }
 }
 
 function drawSafeZones() {
@@ -3173,25 +3192,13 @@ function paint() {
         Math.max(2, radius * .09), ...accent);
     }
   }
-  for (const impact of impacts) {
-    const point = projectPoint(impact.x, impact.y, impact.z || 0);
-    const radius = (30 + (1 - impact.life / impact.duration) *
-      (impact.explosion ? 420 : impact.death ? 260 : 100)) * cameraScale();
-    line(point.x - radius, point.y, point.x + radius, point.y,
-      5, 255, 255, 255);
-    line(point.x, point.y - radius, point.x, point.y + radius,
-      5, 255, 255, 255);
-    line(point.x - radius * .7, point.y - radius * .7,
-      point.x + radius * .7, point.y + radius * .7, 4, 255, 232, 92);
-    line(point.x + radius * .7, point.y - radius * .7,
-      point.x - radius * .7, point.y + radius * .7, 4, 255, 105, 190);
-  }
   const introAge = run.monotonicUs - roundStartedAt;
   const showRunnerLabels = Boolean(roundResult) || introAge >= introDurationUs;
   drawRunner(players[0], t, showRunnerLabels);
   drawRunner(players[1], t, showRunnerLabels);
   drawDebugHitboxes(players[0], t);
   drawDebugHitboxes(players[1], t);
+  drawImpacts();
   if (!roundResult && introAge < introDurationUs) {
     const introSeconds = introAge / 1000000;
     const introText = introSeconds < .95 ? players[0].name

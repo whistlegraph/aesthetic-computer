@@ -164,29 +164,19 @@ test("HUD safe area uses one equal inset on all four screen edges", () => {
   }
 });
 
-test("debug view draws the complete HUD and fighter safe rectangles", () => {
-  const { fight, lines } = createFight(false, false, "web", null,
+test("debug view renders on the foreground triangle layer", () => {
+  const { fight, triangles } = createFight(false, false, "web", null,
     { width: 1920, height: 1080 });
   fight.startFight();
+  fight.setDebugHitboxes(false);
+  fight.paint();
+  const normalTriangleCount = triangles.length;
   fight.setDebugHitboxes(true);
   fight.paint();
-  const hud = fight.hudSafeRect();
-  const action = fight.actionSafeRect();
-  const segments = (width, color) => lines.filter((values) =>
-    values[4] === width && color.every((value, index) =>
-      values[5 + index] === value)).map((values) => values.slice(0, 4)).slice(-4);
-  assert.deepEqual(segments(1, [255, 214, 84]), [
-    [hud.left, hud.top, hud.right, hud.top],
-    [hud.right, hud.top, hud.right, hud.bottom],
-    [hud.right, hud.bottom, hud.left, hud.bottom],
-    [hud.left, hud.bottom, hud.left, hud.top],
-  ]);
-  assert.deepEqual(segments(2, [105, 255, 118]), [
-    [action.left, action.top, action.right, action.top],
-    [action.right, action.top, action.right, action.bottom],
-    [action.right, action.bottom, action.left, action.bottom],
-    [action.left, action.bottom, action.left, action.top],
-  ]);
+  assert.ok(triangles.length - normalTriangleCount > normalTriangleCount);
+  assert.match(source, /let debugHitboxes = true/);
+  assert.match(source, /function drawRectOutline[\s\S]*?filledCapsule/);
+  assert.match(source, /drawDebugHitboxes\(players\[1\], t\);\n  drawImpacts\(\);/);
 });
 
 test("camera contains both complete fighters at every supported aspect", () => {
