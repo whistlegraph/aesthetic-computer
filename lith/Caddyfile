@@ -936,9 +936,11 @@ www.oskiewar.com {
 # (touched 2026-07-19 x2 to force a reload after the DNS flip so ACME retries promptly)
 # This host's DNS points straight at lith (DigitalOcean zone, no Cloudflare
 # proxy), so it cannot ride the origin cert the :443 block uses — Caddy
-# manages a real ACME cert for it instead. Root serves the preserved 2021
-# Construct build until the native remake lands; /classic stays the
-# permanent home of that build either way.
+# manages a real ACME cert for it instead. The native remake landed, so the
+# root now forwards to the new No Paint on AC (302 while 3.0 settles;
+# promote to 301 later). /classic stays the permanent home of the preserved
+# 2021 Construct build, and /gallery + the per-painting archive record
+# pages keep serving from here.
 nopaint.art {
     # Pin issuance to LE production (Caddy demoted this host to LE staging
     # after early post-DNS-flip failures; staging's resolvers held the stale
@@ -961,6 +963,8 @@ nopaint.art {
     }
     root * /opt/ac/system/public/nopaint.art
     encode gzip
+    @nopaint_root path /
+    redir @nopaint_root https://prompt.ac/nopaint 302
     handle_path /classic* {
         file_server
     }
