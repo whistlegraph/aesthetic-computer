@@ -7,7 +7,7 @@
 
 namespace ac::xbox {
 
-// Fixed-destination, latest-only WebSocket transport for OSKIEWAR live state.
+// Fixed-destination, latest-only WebSocket transport for oskiewar live state.
 // This deliberately does not expose a general socket to downloaded pieces.
 class OskiewarLivePublisher final {
  public:

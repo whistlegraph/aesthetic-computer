@@ -32,7 +32,7 @@ final class FightAppDelegate: NSObject, NSApplicationDelegate {
             backing: .buffered,
             defer: false
         )
-        window.title = "OSKIEWAR"
+        window.title = "oskiewar"
         window.minSize = NSSize(width: 960, height: 540)
         window.contentView = webView
         window.center()

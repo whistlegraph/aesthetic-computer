@@ -534,7 +534,7 @@ JSValue PublishLive(JSContext* context, JSValueConst, int argc, JSValueConst* ar
   if (!valid) {
     JS_FreeCString(context, rawState);
     JS_FreeCString(context, rawMatch);
-    return JS_ThrowRangeError(context, "invalid OSKIEWAR live payload");
+    return JS_ThrowRangeError(context, "invalid oskiewar live payload");
   }
   scope->api->live_publish(std::string_view(rawMatch, matchLength),
     std::string_view(rawState, stateLength));

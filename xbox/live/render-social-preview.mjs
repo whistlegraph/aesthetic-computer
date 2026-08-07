@@ -1,4 +1,4 @@
-// Burn OSKIEWAR's real title renderer into Open Graph poster/video assets.
+// Burn oskiewar's real title renderer into Open Graph poster/video assets.
 
 import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";

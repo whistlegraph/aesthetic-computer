@@ -1726,7 +1726,7 @@ wss.on("connection", async (ws, req) => {
   log('🔌 Total wss.clients.size:', wss.clients.size);
   log('🔌 Current connections count:', Object.keys(connections).length);
 
-  // Public, pronounceable-ID-scoped OSKIEWAR phone spectator rooms.
+  // Public, pronounceable-ID-scoped oskiewar phone spectator rooms.
   if (oskiewarLiveManager.handleConnection(ws, req)) return;
   
   // Route status dashboard WebSocket connections separately

@@ -303,7 +303,7 @@ const PAPER_MAP = {
   "arxiv-oskiewar": {
     base: "oskiewar",
     siteName: "oskiewar-26-arxiv",
-    title: "OSKIEWAR",
+    title: "oskiewar",
   },
   "arxiv-penrose": {
     base: "penrose",

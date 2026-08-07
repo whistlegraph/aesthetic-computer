@@ -1,4 +1,4 @@
-// Dannom for the OSKIEWAR-generation native Xbox host. GENERATED.
+// Dannom for the oskiewar-generation native Xbox host. GENERATED.
 // Rebuild: node xbox/tools/bundle-nom.mjs
 (function (xboxNativeSynth) {
 // source: system/public/aesthetic.computer/lib/percussion.mjs
@@ -3633,7 +3633,7 @@ function xboxNomOpaque(color) {
 }
 
 function xboxNomRect(x, y, width, height, style) {
-  // The current OSKIEWAR host's box primitive is opaque. Dropping translucent
+  // The current oskiewar host's box primitive is opaque. Dropping translucent
   // overlays preserves the board; drawing their blended color as an opaque
   // rectangle would erase every command beneath it.
   if (xboxNomInk[3] < 250) return;
@@ -3793,7 +3793,7 @@ globalThis.paint = function paint() {
   nomPaint(xboxNomPaintApi);
 };
 
-// OSKIEWAR samples controller state in its fixed simulation step too. Keeping
+// oskiewar samples controller state in its fixed simulation step too. Keeping
 // act empty prevents a native edge callback from advancing Nom twice.
 globalThis.act = function act() {};
 globalThis.leave = function leave() { nomLeave(); };

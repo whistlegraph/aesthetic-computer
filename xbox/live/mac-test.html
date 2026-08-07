@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>oskiewar</title>
-  <meta name="description" content="Play OSKIEWAR in your browser with a keyboard or two gamepads.">
+  <meta name="description" content="Play oskiewar in your browser with a keyboard or two gamepads.">
   <meta name="theme-color" content="#07081c">
   <meta property="og:title" content="oskiewar">
   <meta property="og:description" content="pick a pal. pick a fight.">
@@ -37,7 +37,7 @@
     @supports (height: 100dvh) { html, body { height: 100dvh; } }
     body { display: grid; place-items: center; font-family: "Comic Relief", "Comic Sans MS", Arial, sans-serif;
       cursor: url("/aesthetic.computer/cursors/precise.svg") 12 12, auto; }
-    body.selection-hover, body.title-open {
+    body.selection-hover {
       cursor: url("/aesthetic.computer/cursors/active.svg") 12 12, pointer; }
     canvas { position: fixed; inset: 0; width: 100vw; height: 100vh;
       min-width: 0; min-height: 0; display: block; cursor: inherit; }
@@ -98,7 +98,7 @@
   </style>
 </head>
 <body>
-  <canvas id="screen" width="1920" height="1080" aria-label="OSKIEWAR two-player stick fight"></canvas>
+  <canvas id="screen" width="1920" height="1080" aria-label="oskiewar two-player stick fight"></canvas>
   <div id="status" role="alert" aria-live="polite"></div>
   <div id="update-ready" role="status">
     <button id="update-now" type="button">update is ready</button>
@@ -225,8 +225,18 @@
       return true;
     }
 
-    function tapTitle() {
-      if (!dismissTitle()) return false;
+    function tapTitle(point = null) {
+      if (!titleOpen) return false;
+      const button = globalThis.__oskiewarTouch?.titleButton;
+      const inside = !point || button && point.x >= button.x &&
+        point.x <= button.x + button.width && point.y >= button.y &&
+        point.y <= button.y + button.height;
+      if (!inside) {
+        ensureAudio();
+        drum("block", .32, 0);
+        return true;
+      }
+      dismissTitle();
       keys[0].add("A");
       ensureAudio();
       globalThis.__oskiewarSfx?.unlock().catch(() => {});
@@ -604,11 +614,11 @@
       globalThis.__oskiewarTouch.pointer.active = false;
     });
     canvas.addEventListener("pointerdown", (event) => {
-      if (tapTitle()) {
+      const point = canvasPoint(event);
+      if (tapTitle(point)) {
         event.preventDefault();
         return;
       }
-      const point = canvasPoint(event);
       Object.assign(globalThis.__oskiewarTouch.pointer, point, { active: true });
       selectTaps.push(point);
       ensureAudio();
@@ -727,7 +737,8 @@
         }
         previousPieceScreen = pieceScreen;
         const hover = globalThis.__oskiewarTouch?.hover || null;
-        document.body.classList.toggle("selection-hover", Boolean(hover));
+        const titleHover = globalThis.__oskiewarTouch?.titleHover === true;
+        document.body.classList.toggle("selection-hover", Boolean(hover) || titleHover);
         const key = hover ? [hover.back ? "back" : "", hover.option ?? ""].join(":") : "";
         if (key && key !== selectionHoverSoundKey && !titleOpen)
           oskiewarSfx.drum("hat", .26, 0);

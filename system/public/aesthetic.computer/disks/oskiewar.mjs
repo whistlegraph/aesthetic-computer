@@ -1,5 +1,5 @@
-// OSKIEWAR, 26.08.05
-// Opens the standalone OSKIEWAR game, live room, or replay suite.
+// oskiewar, 26.08.05
+// Opens the standalone oskiewar game, live room, or replay suite.
 
 const WORD = "(?:[bdfgklmnprstvz][aeiou]){3}";
 const ROUND_NAME = new RegExp(`^(?:${WORD}-${WORD}-${WORD}|[a-z]{4,7}[0-9]{1,3})$`);
@@ -18,8 +18,8 @@ function boot({ colon = [], params = [], jump }) {
 function meta({ params = [], colon = [] } = {}) {
   const url = target({ params, colon });
   const round = url.split("/").filter(Boolean).at(-1);
-  return { title: round && round !== "oskiewar.com" ? `OSKIEWAR ${round}` : "OSKIEWAR",
-    desc: "Play OSKIEWAR or open a live round and its demo." };
+  return { title: round && round !== "oskiewar.com" ? `oskiewar ${round}` : "oskiewar",
+    desc: "Play oskiewar or open a live round and its demo." };
 }
 
 export { boot, meta, target };

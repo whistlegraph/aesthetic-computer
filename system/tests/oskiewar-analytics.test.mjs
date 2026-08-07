@@ -7,7 +7,7 @@ import {
   oskiewarReplayProperties,
 } from "../public/aesthetic.computer/lib/oskiewar-analytics.mjs";
 
-test("OSKIEWAR events discard identifiers, handles, scores, and content", () => {
+test("oskiewar events discard identifiers, handles, scores, and content", () => {
   assert.deepEqual(
     oskiewarEvent("round_stored", {
       source_system: "lith",

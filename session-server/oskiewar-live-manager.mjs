@@ -1,4 +1,4 @@
-// OSKIEWAR Live Manager, 26.08.04
+// oskiewar Live Manager, 26.08.04
 // Small, public, match-id-scoped relay for phone spectators.
 
 import {

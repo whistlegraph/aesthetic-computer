@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Device Portal control surface for the OSKIEWAR native live JavaScript loop.
+// Device Portal control surface for the oskiewar native live JavaScript loop.
 // Designed for blueberry, where the Xbox vault credentials already live.
 
 import { spawnSync } from "node:child_process";
@@ -61,7 +61,7 @@ function packages() {
 
 function installed() {
   const item = packages()[0];
-  if (!item) throw new Error("OSKIEWAR is not installed");
+  if (!item) throw new Error("oskiewar is not installed");
   return item;
 }
 
@@ -191,7 +191,7 @@ function frameDump(outputPath = "") {
     if (offset < 0) continue;
     try { chunks.push(JSON.parse(line.slice(offset + marker.length))); } catch {}
   }
-  if (!chunks.length) throw new Error("no OSKIEWAR frame telemetry in the native log");
+  if (!chunks.length) throw new Error("no oskiewar frame telemetry in the native log");
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");
   const target = resolve(outputPath ||
     `tmp/xbox-captures/oskiewar-frames-${stamp}.json`);

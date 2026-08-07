@@ -1,4 +1,4 @@
-# OSKIEWAR
+# oskiewar
 
 Archival system report for the native Xbox game, web spectator, and shared-client direction.
 

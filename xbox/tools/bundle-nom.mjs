@@ -31,7 +31,7 @@ export async function buildNomBundle() {
     modules.push(`// source: ${path}\n${flattenModule(source, path)}`);
   }
   const adapter = await readFile(new URL("xbox/live/nom-host-adapter.js", root), "utf8");
-  return `// Dannom for the OSKIEWAR-generation native Xbox host. GENERATED.\n` +
+  return `// Dannom for the oskiewar-generation native Xbox host. GENERATED.\n` +
     `// Rebuild: node xbox/tools/bundle-nom.mjs\n(function (xboxNativeSynth) {\n${modules.join("\n\n")}\n\n${adapter}\n})(synth);\n`;
 }
 
