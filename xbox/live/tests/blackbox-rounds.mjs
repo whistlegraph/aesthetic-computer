@@ -204,6 +204,10 @@ async function captureHover(browser, origin) {
   await page.evaluate(() => document.fonts.ready);
   await page.mouse.click(viewport.width / 2, viewport.height / 2);
   await wait(350);
+  const audioAfterStart = await page.evaluate(() => ({
+    unlocked: Boolean(globalThis.__oskiewarSfx?.unlocked),
+    played: Number(globalThis.__oskiewarSfx?.playedEvents || 0),
+  }));
   const canvasPoint = async (logicalX, logicalY) =>
     page.evaluate((x, y) => {
       const canvas = document.querySelector("canvas");
@@ -226,6 +230,16 @@ async function captureHover(browser, origin) {
   const hovered = await page.screenshot({ path: hoverShot });
   const cursor = await page.evaluate(() => getComputedStyle(
     document.querySelector("canvas")).cursor);
+  const audioAfterHover = await page.evaluate(() => ({
+    unlocked: Boolean(globalThis.__oskiewarSfx?.unlocked),
+    played: Number(globalThis.__oskiewarSfx?.playedEvents || 0),
+  }));
+  await page.keyboard.down("Tab");
+  await wait(90);
+  await page.keyboard.up("Tab");
+  await wait(350);
+  const debugShot = join(outputRoot, "mouse-select-debug.png");
+  const debugged = await page.screenshot({ path: debugShot });
   await page.setViewport({ width: 844, height: 390, deviceScaleFactor: 2 });
   await wait(350);
   const resized = await page.evaluate(() => {
@@ -238,11 +252,12 @@ async function captureHover(browser, origin) {
   const resizedShot = join(outputRoot, "mouse-select-resized.png");
   await page.screenshot({ path: resizedShot });
   await page.close();
-  const hashes = [resting, hovered].map((buffer) =>
+  const hashes = [resting, hovered, debugged].map((buffer) =>
     createHash("sha256").update(buffer).digest("hex").slice(0, 12));
   return { name: "hover", viewport, restingCursor, cursor, pointer, resized,
-    changed: hashes[0] !== hashes[1], hashes, errors,
-    files: { restingShot, hoverShot, resizedShot } };
+    audio: { afterStart: audioAfterStart, afterHover: audioAfterHover },
+    changed: new Set(hashes).size === hashes.length, hashes, errors,
+    files: { restingShot, hoverShot, debugShot, resizedShot } };
 }
 
 async function playRound(browser, origin, name, viewport, opponent = "dummy") {

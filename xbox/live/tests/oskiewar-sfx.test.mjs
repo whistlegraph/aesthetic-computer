@@ -113,6 +113,8 @@ test("every signal and legacy drum route schedules bounded WebAudio voices", asy
     assert.equal(bank.signal(event, event === "wind" ? -1 : 0, 1, 2), true, event);
   for (const drum of OSKIEWAR_DRUM_NAMES)
     assert.equal(bank.drum(drum, 0.8, 0.4), true, drum);
+  assert.equal(bank.playedEvents,
+    OSKIEWAR_SIGNAL_EVENTS.length + OSKIEWAR_DRUM_NAMES.length);
   assert.ok(context.oscillators.length > OSKIEWAR_SIGNAL_EVENTS.length);
   assert.ok(context.bufferSources.length > 10);
   assert.ok(context.buffers.length === 1, "noise buffer is allocated once");

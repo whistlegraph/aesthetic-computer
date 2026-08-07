@@ -226,6 +226,11 @@ test("title and fighter select use a dark background", () => {
   assert.match(source, /drawSelectionScreen\(t, menuInk, menuPanel\)/);
 });
 
+test("pal selection is named pick a pal", () => {
+  assert.match(source, /typeWrite\("PICK A PAL"/);
+  assert.doesNotMatch(source, /typeWrite\("SELECT A PAL"/);
+});
+
 test("title shows a live Pacific clock and version timestamp", () => {
   const { fight } = createFight(false, false);
   assert.match(fight.pacificTimeLabel(1785870000000),
@@ -289,7 +294,7 @@ test("debug view renders on the foreground triangle layer", () => {
   fight.setDebugHitboxes(true);
   fight.paint();
   assert.ok(triangles.length - normalTriangleCount > normalTriangleCount);
-  assert.match(source, /let debugHitboxes = true/);
+  assert.match(source, /let debugHitboxes = false/);
   assert.match(source, /function drawRectOutline[\s\S]*?filledCapsule/);
   assert.match(source,
     /drawDebugHitboxes\(players\[1\], t\);\n  drawBallHitboxes\(\);\n  drawImpacts\(\);/);
@@ -491,8 +496,24 @@ test("round-seeded ambient dust uses tiny drifting points at varied depth", () =
 
 test("debug HUD shows FPS without repeating oskiewar beside the round QR", () => {
   assert.match(source, /Math\.round\(displayFps \|\| 0\) \+ " fps"/);
-  assert.match(source, /if \(debugHitboxes\) \{\n    const fpsLabel/);
+  assert.match(source,
+    /if \(debugHitboxes\) \{\n    drawDebugBug\(safe\);\n    const fpsLabel/);
   assert.doesNotMatch(source, /const gameLabel = "oskiewar"/);
+});
+
+test("debug starts hidden and shows a persistent bug badge when enabled", () => {
+  assert.match(source, /let debugHitboxes = false/);
+  assert.match(source, /function drawDebugBug\(safe\)/);
+  assert.match(source, /if \(debugHitboxes\) \{\n    drawDebugBug\(safe\)/);
+  assert.match(source, /typeWrite\(fpsLabel, safe\.left \+ 36/);
+});
+
+test("web UI drums route through the unlocked procedural sound bank", () => {
+  assert.match(webShell,
+    /__oskiewarSfx\.drum\(name, amount, pan\)\) return/);
+  assert.doesNotMatch(webShell,
+    /if \(globalThis\.__oskiewarSfx\?\.unlocked\) return;/);
+  assert.match(webShell, /oskiewarSfx\.drum\("hat", \.26, 0\)/);
 });
 
 test("debug off hides safe-zone boxes including frozen round impacts", () => {
@@ -695,12 +716,12 @@ test("Menu returns to select while View or web Tab toggles debug geometry", () =
     assert.equal(fight.selectionState().selecting, true);
   }
   const { fight, tap } = createFight();
-  assert.equal(fight.debugState(), true);
-  tap(1, "View");
   assert.equal(fight.debugState(), false);
+  tap(1, "View");
+  assert.equal(fight.debugState(), true);
   assert.equal(fight.selectionState().selecting, false);
   tap(0, "View");
-  assert.equal(fight.debugState(), true);
+  assert.equal(fight.debugState(), false);
   assert.match(webShell, /\["Tab", \[0, "View"\]\]/);
 });
 
@@ -1747,7 +1768,7 @@ test("dummy training has no QR, analytics, spectator feed, or replay upload", ()
   assert.deepEqual(liveFrames, []);
   assert.deepEqual(replays, []);
   assert.match(source,
-    /function drawSpectatorQr\(ink\) \{\n  if \(shellMode === "GAME" && !roundIsTimed\(\)\) return/);
+    /function drawSpectatorQr\(ink\)[\s\S]{0,420}if \(shellMode === "GAME" && !roundIsTimed\(\)\) return/);
   assert.match(source,
     /if \(!roundIsTimed\(\)\) \{[\s\S]{0,180}replay = null/);
 });

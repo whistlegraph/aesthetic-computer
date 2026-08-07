@@ -1,5 +1,5 @@
 // @bundle-qr
-const buildTimestamp = "2026.08.07.1034 PDT";
+const buildTimestamp = "2026.08.07.1151 PDT";
 const floorY = 12000;
 const ceilingY = 0;
 const wallThickness = 80;
@@ -377,7 +377,7 @@ let titleTransitionAt = -1;
 let navigationPrevious = [[], []];
 // Temporary live combat inspector. Keep this explicit so the production view
 // can return to a clean presentation without changing combat geometry.
-let debugHitboxes = true;
+let debugHitboxes = false;
 let nextInputDebugAt = 0;
 let frameTelemetry = [];
 let frameTelemetryFlushAt = 0;
@@ -4690,7 +4690,7 @@ function drawSelectionScreen(t, ink, panel) {
     const margin = layout.roster[0].x;
     const width = layout.roster[0].width;
     const titleY = debugHitboxes ? hudSafeRect().top + 52 : 28;
-    typeWrite("SELECT A PAL", viewCenterX() - 145, titleY, 36, ...ink);
+    typeWrite("PICK A PAL", viewCenterX() - 132, titleY, 36, ...ink);
     for (const row of layout.roster) {
       const fighter = fighterRoster[row.index];
       const chosen = players.filter((player) => player.rosterIndex === row.index);
@@ -4738,7 +4738,7 @@ function drawSelectionScreen(t, ink, panel) {
   const layout = selectionTouchLayout();
   const hover = selectionHover(layout);
   if (globalThis.__oskiewarTouch) globalThis.__oskiewarTouch.hover = hover;
-  typeWrite("SELECT A PAL", ox + 810, 66, 42, ...ink);
+  typeWrite("PICK A PAL", ox + 825, 66, 42, ...ink);
   for (let index = 0; index < fighterRoster.length; index++) {
     const fighter = fighterRoster[index];
     const selected = players.some((player) => player.rosterIndex === index);
@@ -4883,15 +4883,34 @@ function pacificTimeLabel(unixMs) {
   return String(hour % 12 || 12) + ":" + minute + (hour < 12 ? "am " : "pm ") + zone;
 }
 
+function drawDebugBug(safe) {
+  const x = safe.left + 16;
+  const y = safe.top + 15;
+  const shell = [255, 86, 126];
+  const detail = [22, 12, 34];
+  filledDisc(x, y + 2, 8, shell);
+  filledDisc(x, y - 6, 5, shell);
+  line(x, y - 7, x - 6, y - 13, 2, ...shell);
+  line(x, y - 7, x + 6, y - 13, 2, ...shell);
+  line(x - 5, y, x - 11, y - 4, 2, ...shell);
+  line(x + 5, y, x + 11, y - 4, 2, ...shell);
+  line(x - 5, y + 5, x - 11, y + 9, 2, ...shell);
+  line(x + 5, y + 5, x + 11, y + 9, 2, ...shell);
+  line(x, y - 1, x, y + 9, 2, ...detail);
+  filledDisc(x - 2, y - 7, 1.2, detail);
+  filledDisc(x + 2, y - 7, 1.2, detail);
+}
+
 function drawSpectatorQr(ink) {
-  if (shellMode === "GAME" && !roundIsTimed()) return;
   const safe = hudSafeRect();
   const compact = compactLayout();
   const metaSize = compact ? Math.max(20, hudTypeSize * .58) : hudTypeSize;
   if (debugHitboxes) {
+    drawDebugBug(safe);
     const fpsLabel = Math.round(displayFps || 0) + " fps";
-    typeWrite(fpsLabel, safe.left + 4, safe.top + 2, metaSize, ...ink);
+    typeWrite(fpsLabel, safe.left + 36, safe.top + 2, metaSize, ...ink);
   }
+  if (shellMode === "GAME" && !roundIsTimed()) return;
   if (!spectatorQr || typeof spectatorQr.getModuleCount !== "function") return;
   const count = spectatorQr.getModuleCount();
   const quiet = 2;

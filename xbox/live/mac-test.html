@@ -415,7 +415,8 @@
     function drum(name, amount = 1, pan = 0) {
       // The signal-routed AC mock bank is primary after unlock. This legacy
       // inline kit remains the first-gesture/offline fallback.
-      if (globalThis.__oskiewarSfx?.unlocked) return;
+      if (globalThis.__oskiewarSfx?.unlocked &&
+          globalThis.__oskiewarSfx.drum(name, amount, pan)) return;
       const ac = ensureAudio();
       const now = ac.currentTime;
       const output = ac.createGain();
@@ -685,8 +686,16 @@
         "line", "triangle", "write", "systemWrite", "comicWrite", "gameView"]
         .map((name) => globalThis.__fightHost[name]));
       piece.boot();
-      const syncSelectionCursor = () => document.body.classList.toggle(
-        "selection-hover", Boolean(globalThis.__oskiewarTouch?.hover));
+      let selectionHoverSoundKey = "";
+      const syncSelectionCursor = () => {
+        const hover = globalThis.__oskiewarTouch?.hover || null;
+        document.body.classList.toggle("selection-hover", Boolean(hover));
+        const key = hover ? [hover.roster ?? "", hover.card ?? "",
+          hover.ready ?? "", hover.mode ?? ""].join(":") : "";
+        if (key && key !== selectionHoverSoundKey && !titleOpen)
+          oskiewarSfx.drum("hat", .26, 0);
+        selectionHoverSoundKey = key;
+      };
       const driver = createFrameDriver({
         sample: globalThis.__fightHost.sampleInput,
         simulate(simulationAt) {

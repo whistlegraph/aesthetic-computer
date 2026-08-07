@@ -483,6 +483,7 @@ export function createOskiewarSfx(options = {}) {
     get context() { return context; },
     get unlocked() { return unlocked; },
     get activeVoices() { return active.size; },
+    get playedEvents() { return eventCounter; },
     events: OSKIEWAR_SIGNAL_EVENTS,
     drums: OSKIEWAR_DRUM_NAMES,
   });
