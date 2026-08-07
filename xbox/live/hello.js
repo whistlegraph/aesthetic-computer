@@ -2343,7 +2343,9 @@ function containFighters(t) {
     cameraDoll.width *= amount;
   }
   cameraDoll.dirty = true;
-  if (cameraDoll.width > widthBeforeContainment + .01) {
+  const gameplayContainment = !roundResult &&
+    runtime().monotonicUs - roundStartedAt >= introDurationUs;
+  if (gameplayContainment && cameraDoll.width > widthBeforeContainment + .01) {
     cameraContainFloor = Math.max(cameraContainFloor, cameraDoll.width);
   }
 }

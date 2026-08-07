@@ -254,6 +254,9 @@ test("gameplay camera has no procedural viewport shake", () => {
   assert.match(source, /roll: 0 \}, dt, 10/);
   assert.doesNotMatch(source, /const cameraTime = now \/ 1000000/);
   assert.doesNotMatch(source, /cameraContainTouchedAt/);
+  assert.match(source, /const gameplayContainment = !roundResult &&/);
+  assert.match(source,
+    /runtime\(\)\.monotonicUs - roundStartedAt >= introDurationUs/);
 });
 
 test("death camera closes on both fighters even when they are far apart", () => {
