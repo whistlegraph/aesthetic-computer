@@ -19,6 +19,7 @@
 #   fleet-mcp  → http://127.0.0.1:7776/mcp
 #   paper-mcp  → http://127.0.0.1:7777/mcp
 #   grafana-mcp→ http://127.0.0.1:7778/mcp (when fuser credentials exist)
+#   photo-mcp  → http://127.0.0.1:7779/mcp
 #
 # This script also POINTS Claude and Codex at the daemons. Claude gets same-name
 # local-scope entries that shadow the stdio ones in .mcp.json; Codex gets its
@@ -89,6 +90,7 @@ cal    7774 slab/bin/cal-mcp.mjs
 chat   7775 slab/bin/chat-mcp.mjs
 fleet  7776 toolchain/fleet/fleet-mcp.mjs
 paper  7777 slab/bin/paper-mcp.mjs
+photo  7779 slab/bin/photo-mcp.mjs
 ROWS
 }
 

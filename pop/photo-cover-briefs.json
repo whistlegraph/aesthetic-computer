@@ -1,0 +1,79 @@
+{
+  "version": 1,
+  "artist": "Aesthetic Dot Computer",
+  "contract": "A cover candidate must be a photograph from Jeffrey's own library whose subject, light, place, or incident has a real relationship to the track. Literal matches are optional; lived specificity is required.",
+  "songs": [
+    {
+      "slug": "americomputadora",
+      "title": "americomputadora",
+      "released": "2026-07-04",
+      "claim": "A homemade American computer pageant leaving the station.",
+      "primaryTerms": ["flag", "train"],
+      "terms": ["flag", "fireworks", "parade", "train", "celebration", "patriotic"]
+    },
+    {
+      "slug": "fluttabap360",
+      "title": "Fluttabap360",
+      "released": "2026-06-30",
+      "claim": "Six minutes of butterflies, bells, and dancing in widening circles.",
+      "primaryTerms": ["dance", "flower", "garden"],
+      "terms": ["butterfly", "dance", "park", "flower", "garden", "wings", "yellow", "circle"]
+    },
+    {
+      "slug": "marimbaba",
+      "title": "marimbaba",
+      "released": "2026-05-22",
+      "claim": "A late-night computer lullaby played by wooden keys.",
+      "primaryTerms": ["computer", "desk", "keyboard"],
+      "terms": ["computer", "keyboard", "desk", "night", "sleep", "lamp", "wood", "home"]
+    },
+    {
+      "slug": "helpabeach",
+      "title": "helpabeach",
+      "released": "2026-05-21",
+      "claim": "A soft ocean signal asking for help.",
+      "primaryTerms": ["beach", "ocean", "sunset"],
+      "terms": ["beach", "ocean", "wave", "water", "sunset", "shore", "horizon"]
+    },
+    {
+      "slug": "trancenwaltz",
+      "title": "trancenwaltz",
+      "released": "2026-05-17",
+      "claim": "A worried three-step moving through an electric night.",
+      "primaryTerms": ["concert", "stage", "night"],
+      "terms": ["dance", "night", "concert", "stage", "city", "light", "motion", "blue"]
+    },
+    {
+      "slug": "amaythingra",
+      "title": "amaythingra",
+      "released": "2026-06-03",
+      "claim": "Amazing Grace heard as breath, bells, and a return from the virtual office.",
+      "primaryTerms": ["office", "group", "sky"],
+      "terms": ["office", "group", "church", "portal", "gathering", "sky"]
+    },
+    {
+      "slug": "trancepenta",
+      "title": "trancepenta",
+      "released": "2026-05-20",
+      "claim": "A five-beat gallop from thunder toward the ocean.",
+      "primaryTerms": ["train", "horse"],
+      "terms": ["horse", "train", "thunder", "ocean", "night", "store", "rainbow", "running"]
+    },
+    {
+      "slug": "hellsine",
+      "title": "hellsine",
+      "released": "2026-05-26",
+      "claim": "One sine wave carrying hope through a heroic machine inferno.",
+      "primaryTerms": ["fire", "machine", "stage"],
+      "terms": ["fire", "machine", "typing", "crowd", "dark", "smoke", "stage"]
+    },
+    {
+      "slug": "momabobasheep",
+      "title": "momabobasheep",
+      "released": "2026-06-12",
+      "claim": "A museum day, a sweet drink, and sleep arriving among pictures.",
+      "primaryTerms": ["museum", "painting"],
+      "terms": ["museum", "gallery", "sleep", "bed", "sheep", "tea", "pond", "painting"]
+    }
+  ]
+}
