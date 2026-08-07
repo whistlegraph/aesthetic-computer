@@ -2054,7 +2054,7 @@ app.get('/news-og/:code.png', async (req, res) => {
 // KidLisp Backdrop - Animated WebP for login screens, Auth0, etc.
 // =============================================================================
 
-// Fast redirect to CDN-cached 2048px animated webp
+// Fast redirect to CDN-cached 1024px animated webp
 app.get('/kidlisp-backdrop.webp', async (req, res) => {
   try {
     // Get cached URL without triggering generation (fast!)

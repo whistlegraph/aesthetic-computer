@@ -12,6 +12,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 AC_SOURCE="$SCRIPT_DIR/../system/public/aesthetic.computer"
 FEDAC_SOURCE="$SCRIPT_DIR/../fedac"
 VAULT_OS_KEY="$SCRIPT_DIR/../aesthetic-computer-vault/oven/os-build-admin-key.txt"
+VAULT_ENV="$SCRIPT_DIR/../aesthetic-computer-vault/oven/.env"
 
 # Millisecond epoch — portable (macOS `date +%N` doesn't exist, GNU does).
 ms() { python3 -c 'import time; print(int(time.time()*1000))'; }
@@ -32,6 +33,7 @@ echo "📦 Syncing oven files..."
 rsync -avz --progress --delete \
   --exclude='node_modules' \
   --exclude='.git' \
+  --exclude='.env' \
   --exclude='*.log' \
   --exclude='ac-source' \
   --exclude='native-git' \
@@ -44,6 +46,26 @@ END_SYNC=$(ms)
 SYNC_TIME=$((END_SYNC - START_TIME))
 echo ""
 echo "✅ Oven sync complete in ${SYNC_TIME}ms"
+
+# The source tree intentionally does not contain .env. Keep rsync --delete from
+# removing production credentials, then refresh them from the local vault when
+# it is available. Runtime-managed values are appended later in this script.
+if [ -f "$VAULT_ENV" ]; then
+  echo "🔐 Syncing Oven environment from vault..."
+  rsync -az \
+    -e "ssh -i $SSH_KEY -o StrictHostKeyChecking=no" \
+    "$VAULT_ENV" \
+    "root@$OVEN_HOST:$REMOTE_DIR/.env"
+  ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no "root@$OVEN_HOST" "
+chmod 600 $REMOTE_DIR/.env
+if id -u oven >/dev/null 2>&1; then
+  chown oven:oven $REMOTE_DIR/.env
+fi
+"
+  echo "✅ Oven environment synced"
+else
+  echo "⚠️  No vault environment at $VAULT_ENV; preserving remote .env"
+fi
 
 # Sync aesthetic.computer source files needed for bundle generation
 echo ""

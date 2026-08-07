@@ -4421,7 +4421,7 @@ const backdropCache = {
 };
 
 /**
- * Get or generate KidLisp backdrop - a 2048px animated webp of a featured piece.
+ * Get or generate KidLisp backdrop - a 1024px animated webp of a featured piece.
  * Rotates daily based on top hits. Caches to CDN for fast access.
  * @param {boolean} force - Force regeneration even if cached
  * @returns {{ url: string, piece: string, cached: boolean }}
@@ -4488,16 +4488,33 @@ export async function generateKidlispBackdrop(force = false) {
     throw new Error(result.error || 'Failed to generate backdrop');
   }
   
-  // grabPiece returns cdnUrl from oven/grabs/ - use that directly
-  const url = result.cdnUrl;
-  
-  if (!url) {
-    throw new Error('No CDN URL returned from grabPiece');
+  // Promote the generated grab to a stable daily key. A cached grab may not
+  // include its buffer, so retrieve it before publishing the canonical object.
+  let buffer = result.buffer;
+  if (!buffer && result.cdnUrl) {
+    const response = await fetch(result.cdnUrl);
+    if (!response.ok) {
+      throw new Error(`Failed to read cached backdrop: ${response.status}`);
+    }
+    buffer = Buffer.from(await response.arrayBuffer());
   }
-  
-  console.log(`📤 Backdrop generated: ${url}`);
-  
-  // Update cache with the grab URL
+  if (!buffer) {
+    throw new Error('No backdrop bytes returned from grabPiece');
+  }
+
+  await spacesClient.send(new PutObjectCommand({
+    Bucket: SPACES_BUCKET,
+    Key: key,
+    Body: buffer,
+    ContentType: 'image/webp',
+    ACL: 'public-read',
+    CacheControl: 'public, max-age=31536000, immutable',
+  }));
+
+  const url = `${SPACES_CDN_BASE}/${key}`;
+  console.log(`📤 Backdrop published: ${url}`);
+
+  // Update cache with the canonical daily URL
   backdropCache.url = url;
   backdropCache.date = today;
   backdropCache.piece = piece;
@@ -4507,7 +4524,7 @@ export async function generateKidlispBackdrop(force = false) {
 
 /**
  * Get cached backdrop URL without triggering generation.
- * Returns the in-memory cached URL if available for today, null otherwise.
+ * Returns today's durable Spaces URL if available, null otherwise.
  */
 export async function getLatestBackdropUrl() {
   const today = getTodayKey();
@@ -4517,8 +4534,20 @@ export async function getLatestBackdropUrl() {
     return backdropCache.url;
   }
   
-  // No cached URL for today - caller should trigger generation
-  return null;
+  const key = `backdrop/kidlisp/${today}.webp`;
+  try {
+    await spacesClient.send(new HeadObjectCommand({
+      Bucket: SPACES_BUCKET,
+      Key: key,
+    }));
+    const url = `${SPACES_CDN_BASE}/${key}`;
+    backdropCache.url = url;
+    backdropCache.date = today;
+    return url;
+  } catch {
+    // No durable object for today - caller should trigger generation.
+    return null;
+  }
 }
 
 // =============================================================================

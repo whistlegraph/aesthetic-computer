@@ -1,7 +1,7 @@
 // recap-git-poller.mjs — polls git for recap/audience/*.mjs changes,
 // auto-triggers recap mp4 builds via startRecapBuild.
 //
-// Runs inside the oven server. Every POLL_INTERVAL_MS (default 90s),
+// Runs inside the oven server when RECAP_POLL_INTERVAL_MS is explicitly set.
 // fetches origin/main and checks if any audience config changed since
 // the last successful build. If so, pulls and triggers startRecapBuild
 // for each changed audience (one at a time — recap-builder serializes).
@@ -13,7 +13,7 @@ import { execFile } from "child_process";
 import { promises as fs } from "fs";
 import path from "path";
 
-const POLL_INTERVAL_MS = parseInt(process.env.RECAP_POLL_INTERVAL_MS || "90000", 10);
+const POLL_INTERVAL_MS = parseInt(process.env.RECAP_POLL_INTERVAL_MS || "0", 10);
 const GIT_REPO_DIR = process.env.NATIVE_GIT_DIR || "/opt/oven/native-git";
 const BRANCH = process.env.NATIVE_GIT_BRANCH || "main";
 const HASH_FILE = path.join(GIT_REPO_DIR, ".last-recap-built-hash");
@@ -138,6 +138,11 @@ async function poll() {
 export function startPoller({ startRecapBuild, addServerLog }) {
   startBuildFn = startRecapBuild;
   if (addServerLog) logFn = addServerLog;
+
+  if (!Number.isFinite(POLL_INTERVAL_MS) || POLL_INTERVAL_MS <= 0) {
+    logFn("info", "⏭️", "Recap git poller disabled (set RECAP_POLL_INTERVAL_MS to enable)");
+    return;
+  }
 
   fs.access(GIT_REPO_DIR)
     .then(() => {
