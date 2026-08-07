@@ -22,9 +22,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let trackpadPlugin = MenuBandTrackpadPluginClient()
     private var trackpadPluginConnected = false
     private var trackpadPluginCaptureActive = false
-    private var trackDrumInstallPromptVisible = false
-    private static let trackDrumDownloadURL = URL(
-        string: "https://assets.aesthetic.computer/menuband/TrackDrum-for-Menu-Band-1.2.dmg"
+    /// The selected focused input survives an idle overlay fade. Visibility is
+    /// presentation only; Tab always toggles this state.
+    private var focusedInputMode: FocusedInputMode = .localFX
+    private var trackDrumInstallPromptActive = false
+    private static let focusedInputModeDefaultsKey = "focusedTrackpadInputMode"
+    private static let trackDrumWebURL = URL(
+        string: "https://menuband.app/advanced.html#trackdrum-addon"
     )!
 #endif
 #if !MAC_APP_STORE
@@ -397,6 +401,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// between that skin and pitch-bend FX; Shift momentarily exposes sliding
     /// FX from a continuous surface.
     enum TrackpadPadMode { case fx, kit, skin, synth }
+    enum FocusedInputMode: String { case localFX, trackDrum }
     private var trackpadPadMode: TrackpadPadMode = .skin
     private var trackpadPercussionState = TrackpadPercussionPad.State()
     private var trackpadPercussionGroups: [TrackpadPercussionPad.Voice: UInt64] = [:]
@@ -662,9 +667,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             guard let self else { return }
             self.trackpadPluginConnected = connected
             debugLog("TrackDrum helper \(connected ? "connected" : "disconnected")")
-            if connected, self.trackDrumInstallPromptVisible,
+            // A newly available helper becomes the default until the player
+            // explicitly chooses a mode with Tab. Once they do, that choice
+            // survives future launches.
+            if connected,
+               UserDefaults.standard.string(
+                forKey: Self.focusedInputModeDefaultsKey
+               ) == nil {
+                self.focusedInputMode = .trackDrum
+            }
+            if connected, self.focusedInputMode == .trackDrum,
                self.localCapture.isArmed {
-                self.trackDrumInstallPromptVisible = false
+                self.trackDrumInstallPromptActive = false
                 self.activateDefaultTrackpadDrum()
                 self.showPitchBendOverlay()
                 self.pitchBendOverlay?.fadeOut(
@@ -682,6 +696,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     callbackTime: CACurrentMediaTime()
                 )
                 self.endPitchBendSession()
+                if self.localCapture.isArmed {
+                    self.showTrackDrumInstallPrompt()
+                }
             }
         }
         trackpadPlugin.onExitRequested = { [weak self] in
@@ -1981,7 +1998,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         #endif
         localCapture.arm()
+        #if MAC_APP_STORE
+        focusedInputMode = preferredFocusedInputMode()
+        if focusedInputMode == .trackDrum {
+            if trackpadPluginConnected {
+                // Once installed, TrackDrum owns the focused trackpad by
+                // default. Its surface remains hidden until the first touch.
+                activateDefaultTrackpadDrum()
+            } else {
+                showTrackDrumInstallPrompt()
+            }
+        } else {
+            prepareFocusedLocalFXIdle()
+        }
+        #else
         prepareFocusedLocalFXIdle()
+        #endif
         updateIcon()
         updatePianoWaveformWindow()
     }
@@ -1990,7 +2022,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let shouldRestoreFocus = focusCaptureArmedByShortcut && reason == .cancelled
         focusCaptureArmedByShortcut = false
         #if MAC_APP_STORE
-        trackDrumInstallPromptVisible = false
+        trackDrumInstallPromptActive = false
         #endif
         pitchBendOverlay?.dismiss()
         // Menu Band lost key focus → exit latched pitch mode too.
@@ -5264,7 +5296,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             endPitchBendSession()
         }
         #if MAC_APP_STORE
-        trackDrumInstallPromptVisible = false
+        focusedInputMode = .localFX
+        trackDrumInstallPromptActive = false
         trackpadPluginCaptureActive = false
         trackpadPlugin.setCaptureEnabled(false)
         #endif
@@ -5286,7 +5319,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// visually silent until the first real pointer delta.
     private func activateFocusedLocalFXForNote() {
         #if MAC_APP_STORE
-        trackDrumInstallPromptVisible = false
+        focusedInputMode = .localFX
+        trackDrumInstallPromptActive = false
         trackpadPluginCaptureActive = false
         trackpadPlugin.setCaptureEnabled(false)
         #endif
@@ -5309,6 +5343,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         #if MAC_APP_STORE
         let useTrackDrum = trackpadPluginConnected
+        if useTrackDrum {
+            focusedInputMode = .trackDrum
+            trackDrumInstallPromptActive = false
+        }
         #else
         let useTrackDrum = true
         setTrackpadFighterSuppressed(true)
@@ -5427,17 +5465,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
         #if MAC_APP_STORE
-        if trackDrumInstallPromptVisible {
-            if pitchBendOverlay?.isVisible == true {
-                prepareFocusedLocalFXIdle()
-                debugLog("TrackDrum install prompt dismissed")
-                return
-            }
-            // Its idle fade already finished; this Tab should reveal it
-            // again, not spend one invisible press clearing stale state.
-            trackDrumInstallPromptVisible = false
+        focusedInputMode = Self.focusedInputModeAfterTab(focusedInputMode)
+        UserDefaults.standard.set(
+            focusedInputMode.rawValue,
+            forKey: Self.focusedInputModeDefaultsKey
+        )
+        if focusedInputMode == .trackDrum {
+            FocusCueBeep.shared.play(rising: true)
+        } else {
+            FocusCueBeep.shared.click()
         }
-        if trackpadPluginCaptureActive {
+        if focusedInputMode == .localFX {
             prepareFocusedLocalFXIdle()
             debugLog("trackpad pad mode = fx (local mouse idle)")
             return
@@ -5510,6 +5548,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     #if MAC_APP_STORE
+    private func preferredFocusedInputMode() -> FocusedInputMode {
+        if let raw = UserDefaults.standard.string(
+            forKey: Self.focusedInputModeDefaultsKey
+        ), let stored = FocusedInputMode(rawValue: raw) {
+            return stored
+        }
+        return trackpadPluginConnected ? .trackDrum : .localFX
+    }
+
     private func showTrackDrumInstallPrompt() {
         if pitchBendModeLatched || pitchBendCursorPushed
             || pitchBendCursorLocked {
@@ -5518,13 +5565,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         trackpadPluginCaptureActive = false
         trackpadPlugin.setCaptureEnabled(false)
         trackpadPadMode = .fx
-        trackDrumInstallPromptVisible = true
+        focusedInputMode = .trackDrum
+        trackDrumInstallPromptActive = true
         showSystemCursorIfNeeded()
         if pitchBendCursorLocked {
             CGAssociateMouseAndMouseCursorPosition(1)
             pitchBendCursorLocked = false
         }
-        let size = NSSize(width: 172, height: 72)
+        let size = PitchBendCursorOverlayWindow.trackDrumInstallSize
         let overlay = ensurePitchBendOverlay()
         overlay.showTrackDrumInstall(
             atScreenPoint: trackpadOverlayAnchor(
@@ -5533,9 +5581,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             )
         ) { [weak self] in
             guard let self else { return }
-            self.trackDrumInstallPromptVisible = false
+            self.trackDrumInstallPromptActive = false
             self.pitchBendOverlay?.dismiss()
-            NSWorkspace.shared.open(Self.trackDrumDownloadURL)
+            NSWorkspace.shared.open(Self.trackDrumWebURL)
         }
         overlay.fadeOut(after: 6.0,
                         duration: Self.trackpadOverlayFadeDuration)
@@ -5545,6 +5593,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     static func trackpadPadModeAfterTab(_ mode: TrackpadPadMode) -> TrackpadPadMode {
         mode == .fx ? .skin : .fx
+    }
+
+    static func focusedInputModeAfterTab(_ mode: FocusedInputMode) -> FocusedInputMode {
+        mode == .localFX ? .trackDrum : .localFX
     }
 
     func setTrackpadTouchActive(_ active: Bool) {
@@ -5874,7 +5926,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func showPitchBendOverlay() {
         #if MAC_APP_STORE
-        guard !trackDrumInstallPromptVisible else { return }
+        guard !trackDrumInstallPromptActive else { return }
         #endif
         if (trackpadPadMode == .skin || trackpadPadMode == .synth),
            trackpadEnergyTimer == nil {
@@ -5928,7 +5980,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func updatePitchBendOverlayImage() {
         #if MAC_APP_STORE
-        guard !trackDrumInstallPromptVisible else { return }
+        guard !trackDrumInstallPromptActive else { return }
         #endif
         guard let overlay = pitchBendOverlay, overlay.isVisible else { return }
         trackpadOverlayLastDraw = CACurrentMediaTime()

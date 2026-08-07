@@ -344,6 +344,15 @@ final class ShapedownTests: XCTestCase {
         XCTAssertEqual(AppDelegate.trackpadPadModeAfterTab(.kit), .fx)
     }
 
+    func testFocusedInputTabToggleIgnoresOverlayVisibility() {
+        XCTAssertEqual(
+            AppDelegate.focusedInputModeAfterTab(.localFX), .trackDrum
+        )
+        XCTAssertEqual(
+            AppDelegate.focusedInputModeAfterTab(.trackDrum), .localFX
+        )
+    }
+
     func testOrdinaryPitchBendFXStillEndsAfterRelease() {
         XCTAssertTrue(AppDelegate.shouldAutoEndTrackpadFX(
             performanceSessionActive: false,

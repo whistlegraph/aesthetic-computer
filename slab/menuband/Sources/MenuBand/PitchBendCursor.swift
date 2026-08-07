@@ -1035,15 +1035,37 @@ enum PitchBendCursor {
     }
 }
 
+/// The upgrade card is one large web link, including its button. Its cursor
+/// makes that affordance explicit without changing cursor behavior for any
+/// playable surface.
+private final class TrackDrumInstallCard: NSVisualEffectView {
+    var onActivate: (() -> Void)?
+
+    override func resetCursorRects() {
+        super.resetCursorRects()
+        addCursorRect(bounds, cursor: .pointingHand)
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        onActivate?()
+    }
+}
+
 /// Borderless transparent panel that draws the trackpad surface beneath Menu
 /// Band. Floats above every app so the
 /// chart stays visible regardless of which window the mouse is
 /// over — pair with `CGDisplayHideCursor` to hide the real system
 /// cursor so the chart visibly replaces it.
 final class PitchBendCursorOverlayWindow: NSPanel {
+    static let trackDrumInstallSize = NSSize(width: 260, height: 126)
+
     private let imageView = NSImageView()
     private let tracktrampView = TracktrampMetalView()
-    private let installCard = NSVisualEffectView()
+    private let installCard = TrackDrumInstallCard()
+    private let installIcon = NSImageView()
+    private let installTagline = NSTextField(
+        labelWithString: "Play percussion with your trackpad!"
+    )
     private let installButton = NSButton()
     private var installAction: (() -> Void)?
     private var anchorScreenPoint = NSPoint.zero
@@ -1082,7 +1104,24 @@ final class PitchBendCursorOverlayWindow: NSPanel {
         installCard.layer?.cornerRadius = 10
         installCard.layer?.masksToBounds = true
         installCard.isHidden = true
+        installCard.toolTip = "Open the TrackDrum page"
+        installCard.onActivate = { [weak self] in self?.installTrackDrum() }
         contentView?.addSubview(installCard)
+
+        installIcon.image = NSImage(
+            systemSymbolName: "hand.tap.fill",
+            accessibilityDescription: "Trackpad percussion"
+        )
+        installIcon.contentTintColor = .controlAccentColor
+        installIcon.imageScaling = .scaleProportionallyUpOrDown
+        installCard.addSubview(installIcon)
+
+        installTagline.font = .systemFont(ofSize: 14, weight: .semibold)
+        installTagline.textColor = .labelColor
+        installTagline.maximumNumberOfLines = 2
+        installTagline.lineBreakMode = .byWordWrapping
+        installTagline.setAccessibilityLabel("Play percussion with your trackpad!")
+        installCard.addSubview(installTagline)
 
         installButton.title = "Install TrackDrum"
         installButton.bezelStyle = .rounded
@@ -1177,18 +1216,21 @@ final class PitchBendCursorOverlayWindow: NSPanel {
         installCard.isHidden = false
         ignoresMouseEvents = false
 
-        let size = NSSize(width: 172, height: 72)
+        let size = Self.trackDrumInstallSize
         setFrame(NSRect(x: screenPoint.x - size.width / 2,
                         y: screenPoint.y - size.height / 2,
                         width: size.width, height: size.height), display: false)
         installCard.frame = NSRect(origin: .zero, size: size)
+        installCard.discardCursorRects()
+        installCard.resetCursorRects()
+        installIcon.frame = NSRect(x: 18, y: 71, width: 38, height: 38)
+        installTagline.frame = NSRect(x: 68, y: 70,
+                                      width: size.width - 84, height: 40)
         installButton.sizeToFit()
-        let buttonSize = NSSize(width: min(size.width - 24,
-                                           installButton.frame.width + 24),
-                                height: 34)
+        let buttonSize = NSSize(width: size.width - 36, height: 36)
         installButton.frame = NSRect(
             x: (size.width - buttonSize.width) / 2,
-            y: (size.height - buttonSize.height) / 2,
+            y: 18,
             width: buttonSize.width,
             height: buttonSize.height
         )
