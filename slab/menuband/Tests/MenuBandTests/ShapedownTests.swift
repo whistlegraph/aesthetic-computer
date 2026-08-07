@@ -376,9 +376,9 @@ final class ShapedownTests: XCTestCase {
             performanceSessionActive: true,
             keyboardNotesHeld: false
         ), "explicit quiet focus owns the drum surface until focus exits")
-        XCTAssertFalse(AppDelegate.shouldFadeTrackpadOverlayAfterLift(
+        XCTAssertTrue(AppDelegate.shouldFadeTrackpadOverlayAfterLift(
             performanceSessionActive: true
-        ), "a focused drum chart should remain visible between taps")
+        ), "a focused drum chart should disappear when the trackpad is idle")
         XCTAssertTrue(AppDelegate.shouldFadeTrackpadOverlayAfterLift(
             performanceSessionActive: false
         ))

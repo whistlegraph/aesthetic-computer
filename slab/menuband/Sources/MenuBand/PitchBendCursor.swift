@@ -1043,6 +1043,9 @@ enum PitchBendCursor {
 final class PitchBendCursorOverlayWindow: NSPanel {
     private let imageView = NSImageView()
     private let tracktrampView = TracktrampMetalView()
+    private let installCard = NSVisualEffectView()
+    private let installButton = NSButton()
+    private var installAction: (() -> Void)?
     private var anchorScreenPoint = NSPoint.zero
     private var fadeTimer: Timer?
 
@@ -1071,6 +1074,36 @@ final class PitchBendCursorOverlayWindow: NSPanel {
         tracktrampView.frame = frame
         tracktrampView.isHidden = true
         contentView?.addSubview(tracktrampView)
+
+        installCard.material = .popover
+        installCard.blendingMode = .behindWindow
+        installCard.state = .active
+        installCard.wantsLayer = true
+        installCard.layer?.cornerRadius = 10
+        installCard.layer?.masksToBounds = true
+        installCard.isHidden = true
+        contentView?.addSubview(installCard)
+
+        installButton.title = "Install TrackDrum"
+        installButton.bezelStyle = .rounded
+        installButton.controlSize = .large
+        installButton.font = .systemFont(ofSize: 13, weight: .semibold)
+        installButton.target = self
+        installButton.action = #selector(installTrackDrum)
+        installButton.setAccessibilityLabel("Install TrackDrum for Menu Band")
+        installCard.addSubview(installButton)
+    }
+
+    @objc private func installTrackDrum() {
+        installAction?()
+    }
+
+    private func showImageSurface() {
+        ignoresMouseEvents = true
+        installAction = nil
+        installCard.isHidden = true
+        tracktrampView.isHidden = true
+        imageView.isHidden = false
     }
 
     /// `screenPoint` is the absolute center chosen by AppDelegate, normally
@@ -1079,8 +1112,7 @@ final class PitchBendCursorOverlayWindow: NSPanel {
         fadeTimer?.invalidate()
         fadeTimer = nil
         anchorScreenPoint = screenPoint
-        tracktrampView.isHidden = true
-        imageView.isHidden = false
+        showImageSurface()
         apply(image: image)
         alphaValue = 1
         if !isVisible { orderFrontRegardless() }
@@ -1089,15 +1121,13 @@ final class PitchBendCursorOverlayWindow: NSPanel {
     /// Update only the chart image (puck position changes); window
     /// position stays put unless the caller supplies a refreshed anchor.
     func update(image: NSImage) {
-        tracktrampView.isHidden = true
-        imageView.isHidden = false
+        showImageSurface()
         apply(image: image)
     }
 
     func update(image: NSImage, atScreenPoint screenPoint: NSPoint) {
         anchorScreenPoint = screenPoint
-        tracktrampView.isHidden = true
-        imageView.isHidden = false
+        showImageSurface()
         apply(image: image)
     }
 
@@ -1109,6 +1139,9 @@ final class PitchBendCursorOverlayWindow: NSPanel {
         fadeTimer?.invalidate()
         fadeTimer = nil
         anchorScreenPoint = screenPoint
+        ignoresMouseEvents = true
+        installAction = nil
+        installCard.isHidden = true
         applyTracktrampFrame()
         imageView.isHidden = true
         tracktrampView.isHidden = false
@@ -1121,10 +1154,46 @@ final class PitchBendCursorOverlayWindow: NSPanel {
                           touches: [CGPoint],
                           atScreenPoint screenPoint: NSPoint) {
         anchorScreenPoint = screenPoint
+        ignoresMouseEvents = true
+        installAction = nil
+        installCard.isHidden = true
         applyTracktrampFrame()
         imageView.isHidden = true
         tracktrampView.isHidden = false
         tracktrampView.update(membrane, touches: touches)
+    }
+
+    /// Missing-helper state for the Tab-selected percussion surface. This is
+    /// the one overlay state that accepts a click; every playable surface
+    /// remains click-through.
+    func showTrackDrumInstall(atScreenPoint screenPoint: NSPoint,
+                              onInstall: @escaping () -> Void) {
+        fadeTimer?.invalidate()
+        fadeTimer = nil
+        anchorScreenPoint = screenPoint
+        installAction = onInstall
+        imageView.isHidden = true
+        tracktrampView.isHidden = true
+        installCard.isHidden = false
+        ignoresMouseEvents = false
+
+        let size = NSSize(width: 172, height: 72)
+        setFrame(NSRect(x: screenPoint.x - size.width / 2,
+                        y: screenPoint.y - size.height / 2,
+                        width: size.width, height: size.height), display: false)
+        installCard.frame = NSRect(origin: .zero, size: size)
+        installButton.sizeToFit()
+        let buttonSize = NSSize(width: min(size.width - 24,
+                                           installButton.frame.width + 24),
+                                height: 34)
+        installButton.frame = NSRect(
+            x: (size.width - buttonSize.width) / 2,
+            y: (size.height - buttonSize.height) / 2,
+            width: buttonSize.width,
+            height: buttonSize.height
+        )
+        alphaValue = 1
+        if !isVisible { orderFrontRegardless() }
     }
 
     private func applyTracktrampFrame() {
@@ -1188,6 +1257,9 @@ final class PitchBendCursorOverlayWindow: NSPanel {
         fadeTimer?.invalidate()
         fadeTimer = nil
         alphaValue = 1
+        ignoresMouseEvents = true
+        installAction = nil
+        installCard.isHidden = true
         tracktrampView.pause()
         orderOut(nil)
     }

@@ -22,6 +22,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let trackpadPlugin = MenuBandTrackpadPluginClient()
     private var trackpadPluginConnected = false
     private var trackpadPluginCaptureActive = false
+    private var trackDrumInstallPromptVisible = false
+    private static let trackDrumDownloadURL = URL(
+        string: "https://assets.aesthetic.computer/menuband/TrackDrum-for-Menu-Band-1.2.dmg"
+    )!
 #endif
 #if !MAC_APP_STORE
     /// The former JukeWizard, now a first-class window and service inside this
@@ -496,7 +500,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return true
         }
 
-        guard self.pitchBendCursorPushed else { return false }
+        guard self.pitchBendCursorPushed || self.focusCaptureArmedByShortcut
+        else { return false }
 
         // These two ⌥⌘ chords are claimed globally outside Menu Band:
         // D toggles the Dock and X enters Slab's prox-keyboard focus. While
@@ -657,6 +662,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             guard let self else { return }
             self.trackpadPluginConnected = connected
             debugLog("TrackDrum helper \(connected ? "connected" : "disconnected")")
+            if connected, self.trackDrumInstallPromptVisible,
+               self.localCapture.isArmed {
+                self.trackDrumInstallPromptVisible = false
+                self.activateDefaultTrackpadDrum()
+                self.showPitchBendOverlay()
+                self.pitchBendOverlay?.fadeOut(
+                    after: Self.trackpadOverlayIdleHold,
+                    duration: Self.trackpadOverlayFadeDuration
+                )
+            }
             if !connected, self.trackpadPluginCaptureActive {
                 // CGDisplayHideCursor's global hide count can survive a
                 // helper SIGKILL. Balance it from Menu Band before teardown
@@ -845,14 +860,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     keyboardNotesHeld: kbHeld,
                     modeLatched: self.pitchBendModeLatched
                 ) {
-                    // Menubar-key capture is a real focus session, so its drum
-                    // stays open between taps. Global TYPE-mode notes have no
-                    // local focus owner and remain transient.
-                    self.activateDefaultTrackpadDrum(
-                        persistent: Self.shouldPersistKeyboardOpenedTrackpadSurface(
-                            localCaptureArmed: self.localCapture.isArmed
-                        )
-                    )
+                    if self.localCapture.isArmed {
+                        // Focus begins in local mouse FX. Merely pressing a
+                        // note does not reveal or capture the trackpad; the
+                        // first mouse move does. Tab is the explicit handoff
+                        // to TrackDrum.
+                        self.activateFocusedLocalFXForNote()
+                    } else {
+                        // Global TYPE-mode notes have no local focus owner and
+                        // retain the transient direct-build drum behavior.
+                        self.activateDefaultTrackpadDrum(persistent: false)
+                    }
                 }
                 // A keyboard note is held — keep (or arm) the pitch-bend
                 // graphic and cancel any pending teardown left over from a
@@ -860,19 +878,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self.pitchBendEndTimer?.invalidate()
                 self.pitchBendEndTimer = nil
                 self.pitchBendReleaseGraceUntil = nil
-                if Self.shouldLockPointerForKeyboardTrackpad(
-                    keymapShown: self.pianoWaveformWindowDelegate.isShown
-                ), !self.pitchBendCursorLocked {
-                    CGAssociateMouseAndMouseCursorPosition(0)
-                    self.pitchBendCursorLocked = true
-                    self.pitchBendModeLatched = true
-                    // Snapshot the cursor's screen position so the
-                    // overlay window can anchor there for the duration
-                    // of the gesture. NSEvent.mouseLocation is in
-                    // bottom-left-origin screen coords — same space
-                    // NSWindow.setFrameOrigin expects.
-                    self.pitchBendLockScreenPoint = NSEvent.mouseLocation
-                }
             } else if Self.shouldEndTrackpadSessionAfterNoteChange(
                 isLatched: self.pitchBendModeLatched,
                 performanceSessionActive: self.trackpadPerformanceSessionActive,
@@ -1369,7 +1374,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // tap exists. Modified Tab (⌘-Tab app switcher, ⌃-Tab, …) must pass
             // straight through, so require no command/option/control here.
             if keyCode == 48 /* kVK_Tab */, self.trackpadFxAvailable,
-               self.pitchBendCursorPushed,
+               (self.pitchBendCursorPushed || self.focusCaptureArmedByShortcut),
                !flags.contains(.command), !flags.contains(.option),
                !flags.contains(.control) {
                 if isDown && !isRepeat { self.toggleTrackpadPadMode() }
@@ -1976,7 +1981,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         #endif
         localCapture.arm()
-        activateDefaultTrackpadDrum()
+        prepareFocusedLocalFXIdle()
         updateIcon()
         updatePianoWaveformWindow()
     }
@@ -1984,6 +1989,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func finishLocalCapture(reason: LocalKeyCapture.EndReason) {
         let shouldRestoreFocus = focusCaptureArmedByShortcut && reason == .cancelled
         focusCaptureArmedByShortcut = false
+        #if MAC_APP_STORE
+        trackDrumInstallPromptVisible = false
+        #endif
+        pitchBendOverlay?.dismiss()
         // Menu Band lost key focus → exit latched pitch mode too.
         if pitchBendModeLatched { endPitchBendSession() }
         menuBand.releaseAllHeldNotes()
@@ -4664,7 +4673,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // The sandbox has no global focus gesture. Opening the focused
             // popover is the explicit user action that arms its public
             // NSTouch percussion surface; closing/unfocusing tears it down.
-            activateDefaultTrackpadDrum()
+            prepareFocusedLocalFXIdle()
             #endif
             DispatchQueue.main.async { [weak panel] in
                 panel?.makeKey()
@@ -5246,8 +5255,51 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         trackpadEnergyTimer = timer
     }
 
-    /// Make the physical skin immediately playable when Menu Band's quiet
-    /// focus is summoned. The cursor lock is the boundary of the global drum:
+    /// Quiet focus owns the keyboard, not the trackpad. It begins with no
+    /// overlay and an ordinary pointer; a held note plus local mouse movement
+    /// opens the XY slider, while Tab explicitly requests percussion.
+    private func prepareFocusedLocalFXIdle() {
+        if pitchBendModeLatched || pitchBendCursorPushed
+            || pitchBendCursorLocked {
+            endPitchBendSession()
+        }
+        #if MAC_APP_STORE
+        trackDrumInstallPromptVisible = false
+        trackpadPluginCaptureActive = false
+        trackpadPlugin.setCaptureEnabled(false)
+        #endif
+        trackpadPadMode = .fx
+        trackpadPerformanceSessionActive = false
+        pitchBendModeLatched = false
+        pitchBendCursorPushed = false
+        menuBand.setTrackpadPerformanceActive(false)
+        stopTrackpadPercussionLocalClickShield()
+        showSystemCursorIfNeeded()
+        if pitchBendCursorLocked {
+            CGAssociateMouseAndMouseCursorPosition(1)
+            pitchBendCursorLocked = false
+        }
+        pitchBendOverlay?.dismiss()
+    }
+
+    /// A local keyboard note makes mouse-driven FX eligible, but stays
+    /// visually silent until the first real pointer delta.
+    private func activateFocusedLocalFXForNote() {
+        #if MAC_APP_STORE
+        trackDrumInstallPromptVisible = false
+        trackpadPluginCaptureActive = false
+        trackpadPlugin.setCaptureEnabled(false)
+        #endif
+        trackpadPadMode = .fx
+        trackpadPerformanceSessionActive = false
+        pitchBendModeLatched = true
+        pitchBendLockScreenPoint = NSEvent.mouseLocation
+        menuBand.setTrackpadPerformanceActive(true)
+        pitchBendOverlay?.dismiss()
+    }
+
+    /// Make the physical skin immediately playable after the explicit Tab
+    /// handoff. The cursor lock is the boundary of the global drum:
     /// Escape/focus loss restores the ordinary pointer and ends percussion.
     private func activateDefaultTrackpadDrum(persistent: Bool = true) {
         guard trackpadFxAvailable else { return }
@@ -5375,12 +5427,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
         #if MAC_APP_STORE
-        guard trackpadPluginConnected else {
-            trackpadPadMode = .fx
-            updatePitchBendOverlayImage()
-            debugLog("trackpad pad mode remains fx (TrackDrum helper unavailable)")
+        if trackDrumInstallPromptVisible {
+            if pitchBendOverlay?.isVisible == true {
+                prepareFocusedLocalFXIdle()
+                debugLog("TrackDrum install prompt dismissed")
+                return
+            }
+            // Its idle fade already finished; this Tab should reveal it
+            // again, not spend one invisible press clearing stale state.
+            trackDrumInstallPromptVisible = false
+        }
+        if trackpadPluginCaptureActive {
+            prepareFocusedLocalFXIdle()
+            debugLog("trackpad pad mode = fx (local mouse idle)")
             return
         }
+        guard trackpadPluginConnected else {
+            showTrackDrumInstallPrompt()
+            return
+        }
+        activateDefaultTrackpadDrum()
+        showPitchBendOverlay()
+        pitchBendOverlay?.fadeOut(
+            after: Self.trackpadOverlayIdleHold,
+            duration: Self.trackpadOverlayFadeDuration
+        )
+        debugLog("trackpad pad mode = skin (Tab handoff)")
+        return
         #endif
         trackpadFXPrimaryContact.reset()
         trackpadPadMode = Self.trackpadPadModeAfterTab(trackpadPadMode)
@@ -5436,6 +5509,40 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         debugLog("trackpad pad mode = \(trackpadPadMode)")
     }
 
+    #if MAC_APP_STORE
+    private func showTrackDrumInstallPrompt() {
+        if pitchBendModeLatched || pitchBendCursorPushed
+            || pitchBendCursorLocked {
+            endPitchBendSession()
+        }
+        trackpadPluginCaptureActive = false
+        trackpadPlugin.setCaptureEnabled(false)
+        trackpadPadMode = .fx
+        trackDrumInstallPromptVisible = true
+        showSystemCursorIfNeeded()
+        if pitchBendCursorLocked {
+            CGAssociateMouseAndMouseCursorPosition(1)
+            pitchBendCursorLocked = false
+        }
+        let size = NSSize(width: 172, height: 72)
+        let overlay = ensurePitchBendOverlay()
+        overlay.showTrackDrumInstall(
+            atScreenPoint: trackpadOverlayAnchor(
+                imageSize: size,
+                fallback: NSEvent.mouseLocation
+            )
+        ) { [weak self] in
+            guard let self else { return }
+            self.trackDrumInstallPromptVisible = false
+            self.pitchBendOverlay?.dismiss()
+            NSWorkspace.shared.open(Self.trackDrumDownloadURL)
+        }
+        overlay.fadeOut(after: 6.0,
+                        duration: Self.trackpadOverlayFadeDuration)
+        debugLog("trackpad pad mode = install TrackDrum")
+    }
+    #endif
+
     static func trackpadPadModeAfterTab(_ mode: TrackpadPadMode) -> TrackpadPadMode {
         mode == .fx ? .skin : .fx
     }
@@ -5481,9 +5588,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     static func shouldFadeTrackpadOverlayAfterLift(
-        performanceSessionActive: Bool
+        performanceSessionActive _: Bool
     ) -> Bool {
-        !performanceSessionActive
+        true
     }
 
     static func shouldEndTrackpadSessionAfterNoteChange(
@@ -5552,8 +5659,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let shift = event.modifierFlags.contains(.shift)
         // Engage ONLY while the user is actively holding a KEYBOARD note
         // (or Shift, for warping still-ringing tails). This is the gesture:
-        // hold a letter key → the cursor locks (see onLitChanged) → move
-        // the pointer to bend → release the key → bend ends + cursor
+        // hold a letter key → move the pointer → the cursor locks and the
+        // slider appears → release the key → bend ends + cursor
         // unlocks. Gating on `keyboardNotesHeld` (NOT on a latched flag
         // that lingers after release) is what keeps the ORIGINAL bug fixed:
         // clicking the menubar piano keys with the MOUSE plays via the tap
@@ -5574,16 +5681,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // While the spacebar tape is reverse-playing, a mouse move bends + echoes
         // the playback itself (the fx route onto the rewind voice's own inserts),
         // so engage the gesture even with no key held.
-        #if MAC_APP_STORE
-        let focusedFallbackFX = trackpadPadMode == .fx
-            && trackpadPerformanceSessionActive
-            && localCapture.isArmed
-            && !trackpadPluginConnected
-        #else
-        let focusedFallbackFX = false
-        #endif
         guard menuBand.keyboardNotesHeld || shift || inReleaseGrace
-                || menuBand.isRewinding || focusedFallbackFX else { return }
+                || menuBand.isRewinding else { return }
         // Shift momentarily puts a continuous surface onto the original
         // sliding FX; Tab selects FX persistently.
         let momentarySurfaceFx = (trackpadPadMode == .skin
@@ -5592,6 +5691,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let dy = Float(event.deltaY)
         let dx = Float(event.deltaX)
         guard dy != 0 || dx != 0 else { return }
+        if !pitchBendCursorLocked,
+           !pianoWaveformWindowDelegate.isShown {
+            CGAssociateMouseAndMouseCursorPosition(0)
+            pitchBendCursorLocked = true
+            pitchBendModeLatched = true
+            pitchBendLockScreenPoint = NSEvent.mouseLocation
+        }
         // Keep the catch window alive while the finger is still moving in the
         // post-release grace (no key, no Shift). Stopping past the window
         // lets `armPitchBendGraceCheck` tear the session down.
@@ -5656,11 +5762,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             hideSystemCursorIfNeeded()
             showPitchBendOverlay()
         }
-        if focusedFallbackFX, pitchBendOverlay?.isVisible != true {
-            showPitchBendOverlay()
-        } else {
-            updatePitchBendOverlayImage()
-        }
+        updatePitchBendOverlayImage()
         // No idle timeout: a finger resting still on the trackpad
         // emits no .mouseMoved deltas, so any silence-based timer
         // would release the fx while the user is deliberately
@@ -5771,6 +5873,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func showPitchBendOverlay() {
+        #if MAC_APP_STORE
+        guard !trackDrumInstallPromptVisible else { return }
+        #endif
         if (trackpadPadMode == .skin || trackpadPadMode == .synth),
            trackpadEnergyTimer == nil {
             trackpadSurfaceEnergy.reset(at: CACurrentMediaTime())
@@ -5822,6 +5927,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func updatePitchBendOverlayImage() {
+        #if MAC_APP_STORE
+        guard !trackDrumInstallPromptVisible else { return }
+        #endif
         guard let overlay = pitchBendOverlay, overlay.isVisible else { return }
         trackpadOverlayLastDraw = CACurrentMediaTime()
         if showingTracktrampSkin {
