@@ -587,6 +587,7 @@
   </script>
   <script type="module">
     import createOskiewarSfx from "/oskiewar-sfx.mjs";
+    import createFrameDriver from "/frame-driver.mjs";
     import { qrcode } from "/aesthetic.computer/dep/@akamfoad/qr/qr.mjs";
     import {
       captureOskiewarAction,
@@ -666,12 +667,14 @@
         "line", "triangle", "write", "systemWrite", "comicWrite", "gameView"]
         .map((name) => globalThis.__fightHost[name]));
       piece.boot();
-      function frame() {
+      const driver = createFrameDriver({ paint() {
         piece.sim();
         piece.paint();
-        requestAnimationFrame(frame);
-      }
-      requestAnimationFrame(frame);
+      } });
+      globalThis.__oskiewarFrameStats = driver.stats;
+      addEventListener("visibilitychange", () =>
+        driver.setVisible(document.visibilityState === "visible"));
+      driver.start();
     }
     start().catch((error) => {
       console.error(error);
