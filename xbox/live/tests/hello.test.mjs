@@ -286,7 +286,9 @@ test("intro camera keeps one smooth midpoint target through name handoffs", () =
   }
   assert.ok(largestStep < 40, `intro camera stepped ${largestStep}px`);
   assert.match(source, /function drawFightIntro/);
-  assert.match(source, /const fightText = "fight!"/);
+  assert.match(source, /const startText = "start"/);
+  assert.doesNotMatch(source, /const beginText = "begin"/);
+  assert.doesNotMatch(source, /const fightText = "fight!"/);
   assert.match(source, /const andText = "and"/);
   assert.match(source, /function visibleHandle\(player\)/);
   assert.match(source, /return player\.name\.toLowerCase\(\)/);

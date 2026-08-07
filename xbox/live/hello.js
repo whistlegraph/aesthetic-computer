@@ -3028,11 +3028,11 @@ function drawFightIntro(introSeconds, titleInk, statusShadow) {
   }
   const fightAge = clamp((introSeconds - 2.45) / .55, 0, 1);
   const fightSize = lerp(72, 96, Math.sin(fightAge * Math.PI));
-  const fightText = "fight!";
-  const fightWidth = fightText.length * fightSize * .58;
-  typeWrite(fightText, centerX - fightWidth / 2 + 5,
+  const startText = "start";
+  const startWidth = startText.length * fightSize * .58;
+  typeWrite(startText, centerX - startWidth / 2 + 5,
     centerY - fightSize / 2 + 6, fightSize, ...statusShadow);
-  typeWrite(fightText, centerX - fightWidth / 2,
+  typeWrite(startText, centerX - startWidth / 2,
     centerY - fightSize / 2, fightSize, ...titleInk);
 }
 
