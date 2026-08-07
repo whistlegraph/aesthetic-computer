@@ -68,6 +68,7 @@ let cursorWagFrames = 0;
 // dimensions while a page() is active, so between-frame readers (the test
 // snapshot) must use this copy instead.
 let stageScreen = null;
+let wallpaperFrame = 0;
 const cueSamples = new Map();
 let cueEvents = [];
 const PROPOSAL_MERRY_FRAMES = 5 * 60;
@@ -896,6 +897,7 @@ function boot({ colon, debug, hud, net, num, params, query = {}, screen, store, 
   cursorPoint = null;
   cursorFrame = 0;
   cursorWagFrames = 0;
+  wallpaperFrame = 0;
   cueEvents = [];
   brushCueProposal = 0;
   activeBrushSound = null;
@@ -996,6 +998,7 @@ function boot({ colon, debug, hud, net, num, params, query = {}, screen, store, 
 
 // 🧮 Sim
 function sim({ needsPaint }) {
+  wallpaperFrame += 1;
   needsPaint();
   if (cursorWagFrames > 0) {
     cursorWagFrames -= 1;
@@ -1167,6 +1170,25 @@ function renderProposal($) {
 }
 
 // 🎨 Paint
+// The studio wallpaper: a slow parallax checker field the fixed painting
+// floats over. It is set dressing, not a transparency indicator — the
+// painting itself is always opaque.
+function paintStudioWallpaper($, bar) {
+  const size = Math.max(18, Math.round(Math.min($.screen.width, $.screen.height) / 18));
+  const offsetX = Math.floor((wallpaperFrame * 0.08) % size);
+  const offsetY = Math.floor((wallpaperFrame * 0.04) % size);
+  $.ink(22, 22, 24).box(0, 0, $.screen.width, bar.y);
+  for (let y = -size + offsetY; y < bar.y; y += size) {
+    for (let x = -size + offsetX; x < $.screen.width; x += size) {
+      const column = Math.floor((x - offsetX) / size);
+      const row = Math.floor((y - offsetY) / size);
+      if ((column + row) % 2 === 0) {
+        $.ink(30, 30, 33).box(x, y, size, size);
+      }
+    }
+  }
+}
+
 function paint($) {
   if (!proposal || !$.system.nopaint.buffer) return false;
   stageScreen = { width: $.screen.width, height: $.screen.height };
@@ -1178,6 +1200,9 @@ function paint($) {
   // The fixed-resolution painting sits centered in the studio above the
   // controls, pixel-crisp at whole-number scales. Its pixels never reflow.
   $.wipe(18);
+  paintStudioWallpaper($, bar);
+  const shadow = Math.max(2, Math.round(Math.min($.screen.width, $.screen.height) / 150));
+  $.ink(0, 0, 0, 110).box(stage.x + shadow, stage.y + shadow, stage.w, stage.h);
   if (proposalPixels) {
     $.paste($.system.nopaint.buffer, stage.x, stage.y, scale);
   } else {
