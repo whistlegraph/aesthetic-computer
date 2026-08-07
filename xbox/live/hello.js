@@ -1,5 +1,5 @@
 // @bundle-qr
-const buildTimestamp = "2026.08.06.2228 PDT";
+const buildTimestamp = "2026.08.06.2231 PDT";
 const floorY = 12000;
 const ceilingY = 0;
 const wallThickness = 80;
@@ -730,6 +730,16 @@ function clientErrorLines(text, limit = 58) {
   return lines.slice(0, 9);
 }
 
+function errorTypeWrite(text, x, y, size, ...color) {
+  try {
+    typeWrite(text, x, y, size, ...color);
+  } catch (_) {
+    // Error reporting must survive a font renderer failure of its own.
+    try { systemWrite(String(text).toLowerCase(), x, y, size, ...color); }
+    catch (_) {}
+  }
+}
+
 function drawClientError() {
   let width = 1920;
   let height = 1080;
@@ -740,11 +750,12 @@ function drawClientError() {
   } catch (_) {}
   wipe(7, 9, 18);
   box(48, 48, width - 96, height - 96, 42, 16, 32);
-  write("client error", 92, 92, 54, 255, 112, 140);
+  errorTypeWrite("client error", 92, 92, 54, 255, 112, 140);
   const lines = clientErrorLines(clientError);
   for (let index = 0; index < lines.length; index++)
-    write(lines[index], 92, 188 + index * 58, 34, 248, 244, 255);
-  write("relaunch or deploy an update", 92, height - 126, 28, 190, 202, 230);
+    errorTypeWrite(lines[index], 92, 188 + index * 58, 34, 248, 244, 255);
+  errorTypeWrite("relaunch or deploy an update", 92, height - 126,
+    28, 190, 202, 230);
 }
 
 function fighterProfile(handle) {
@@ -4432,6 +4443,14 @@ function drawDetachedPart(fragment) {
   const first = projectPoint(fragment.x1, fragment.y1, fragment.z1);
   const second = projectPoint(fragment.x2, fragment.y2, fragment.z2);
   const width = Math.max(2, fragment.width * cameraScale());
+  const values = [first.x, first.y, second.x, second.y, width];
+  if (!values.every(Number.isFinite) || width > 2000) return;
+  const margin = width + 4;
+  if (Math.abs(first.x) + margin > 30000 ||
+      Math.abs(first.y) + margin > 30000 ||
+      Math.abs(second.x) + margin > 30000 ||
+      Math.abs(second.y) + margin > 30000 ||
+      Math.hypot(second.x - first.x, second.y - first.y) > 30000) return;
   filledCapsule(first.x, first.y, second.x, second.y, width + 3, [9, 12, 22]);
   filledCapsule(first.x, first.y, second.x, second.y, width, fragment.color);
 }
