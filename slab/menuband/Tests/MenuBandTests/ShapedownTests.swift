@@ -355,24 +355,24 @@ final class ShapedownTests: XCTestCase {
 
     func testTrackDrumShieldClickDoesNotEndFocusedCapture() {
         XCTAssertFalse(LocalKeyCapture.shouldEndCaptureAfterResign(
-            appIsActive: true,
             hasKeyWindow: false,
-            keepsCaptureArmed: true
+            keepsCaptureArmed: true,
+            hasProtectedTrackDrumInput: true
         ))
         XCTAssertTrue(LocalKeyCapture.shouldEndCaptureAfterResign(
-            appIsActive: true,
             hasKeyWindow: false,
-            keepsCaptureArmed: false
+            keepsCaptureArmed: false,
+            hasProtectedTrackDrumInput: true
         ))
         XCTAssertFalse(LocalKeyCapture.shouldEndCaptureAfterResign(
-            appIsActive: true,
             hasKeyWindow: true,
-            keepsCaptureArmed: false
+            keepsCaptureArmed: false,
+            hasProtectedTrackDrumInput: false
         ))
         XCTAssertTrue(LocalKeyCapture.shouldEndCaptureAfterResign(
-            appIsActive: false,
             hasKeyWindow: false,
-            keepsCaptureArmed: true
+            keepsCaptureArmed: true,
+            hasProtectedTrackDrumInput: false
         ))
     }
 

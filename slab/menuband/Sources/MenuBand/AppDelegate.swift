@@ -4837,6 +4837,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// overlay's touch dots fresh.
     private func handleTrackpadFrame(_ contacts: [TrackpadContact], timestamp: Double,
                                      callbackTime: Double) {
+        #if MAC_APP_STORE
+        if trackpadPluginCaptureActive, !contacts.isEmpty {
+            localCapture.protectNextResignForTrackDrumInput()
+        }
+        #endif
         let changes = TrackpadContactChanges.resolve(
             previous: trackpadContactsByID, contacts: contacts
         )
