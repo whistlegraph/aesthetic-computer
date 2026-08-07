@@ -8,12 +8,43 @@
 #endregion */
 
 import { respond } from "../../backend/http.mjs";
-import { logoUrl } from "../../backend/logo.mjs";
+import { logoUrl, turnaroundUrl } from "../../backend/logo.mjs";
 
 export async function handler(event, context) {
   // Make sure this is a GET request
   if (event.httpMethod !== "GET") {
     return respond(405, { error: "Wrong request type." });
+  }
+
+  const assetPath = event.path
+    .replace(/^\/api\/logo\/?/, "")
+    .replace(/^\//, "");
+  const namedTurnaround = assetPath.match(/^(?:pals-)?([a-z0-9-]+)\.(mp4|webp)$/);
+  const turnaroundAlias = assetPath.match(/^(?:turnaround|random|auth0)\.(mp4|webp)$/);
+  const namedStill = assetPath.match(/^pals-([a-z0-9-]+)\.png$/);
+
+  const canonicalAsset = turnaroundAlias
+    ? turnaroundUrl(null, turnaroundAlias[1])
+    : namedTurnaround
+      ? turnaroundUrl(namedTurnaround[1], namedTurnaround[2])
+      : namedStill
+        ? logoUrl(namedStill[1])
+        : null;
+
+  if ((namedTurnaround || turnaroundAlias || namedStill) && !canonicalAsset) {
+    return respond(404, { error: "Pal not found." });
+  }
+
+  if (canonicalAsset) {
+    return {
+      statusCode: 302,
+      headers: {
+        Location: canonicalAsset,
+        "Access-Control-Allow-Origin": "*",
+        "Cache-Control": "public, max-age=300",
+      },
+      body: "",
+    };
   }
 
   const { got } = await import("got");
@@ -56,10 +87,11 @@ export async function handler(event, context) {
       isBase64Encoded: true,
     };
   } else {
+    const turnaround = turnaroundUrl();
     const htmlResponse = `
     <html>
         <head>
-            <link rel="icon" href="${logo}" type="image/x-icon">
+            <link rel="icon" href="${logo}" type="image/png">
             <style>
                 html { height: 100%; }
                 body { 
@@ -84,14 +116,14 @@ export async function handler(event, context) {
             </style>
         </head>
         <body>
-            <img crossorigin src="${logo}" onclick="updateQueryString()">
+            <img crossorigin src="${turnaround}" onclick="updateQueryString()">
         </body>
         <script>
             const strippedUrl = window.location.origin + window.location.pathname;
             window.history.replaceState({}, document.title, strippedUrl);
             function updateQueryString() {
               document.body.classList.add('blurred');
-              const currentLogoId = '${logo}'; 
+              const currentLogoId = '${turnaround}';
               const newURL = strippedUrl + '?previousLogo=' + encodeURIComponent(currentLogoId);
               setTimeout(() => { window.location = newURL; }, 200);
             }

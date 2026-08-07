@@ -4,7 +4,7 @@
 // insta / natural trays), authored via marketing/podcast/bin/gen-pals.mjs and
 // hosted in the pals-aesthetic-computer DO Space.
 
-const slugs = [
+export const logoSlugs = [
   "pals-av-amethyst.png",
   "pals-av-balloon.png",
   "pals-av-chrome-cool.png",
@@ -56,7 +56,16 @@ const slugs = [
   "pals-wood.png",
 ];
 
-export function logoUrl() {
-  const i = Math.floor(Math.random() * slugs.length);
-  return `https://pals-aesthetic-computer.sfo3.cdn.digitaloceanspaces.com/${slugs[i]}`;
+export const turnaroundSlugs = ["nat-amethyst"];
+
+export function logoUrl(slug = null) {
+  const file = slug ? `pals-${slug}.png` : logoSlugs[Math.floor(Math.random() * logoSlugs.length)];
+  if (!logoSlugs.includes(file)) return null;
+  return `https://pals-aesthetic-computer.sfo3.cdn.digitaloceanspaces.com/${file}`;
+}
+
+export function turnaroundUrl(slug = null, format = "webp") {
+  const selected = slug || turnaroundSlugs[Math.floor(Math.random() * turnaroundSlugs.length)];
+  if (!turnaroundSlugs.includes(selected) || !["mp4", "webp"].includes(format)) return null;
+  return `https://art.aesthetic.computer/pals/turnarounds/v1/${selected}.${format}`;
 }
