@@ -60,7 +60,7 @@ if [ "$OLD_HEAD" = "$NEW_HEAD" ]; then
 fi
 
 if ! node xbox/live/render-social-preview.mjs --check; then
-  log "OSKIEWAR social preview is stale; restoring $OLD_HEAD"
+  log "oskiewar social preview is stale; restoring $OLD_HEAD"
   git reset --hard "$OLD_HEAD" --quiet
   exit 1
 fi

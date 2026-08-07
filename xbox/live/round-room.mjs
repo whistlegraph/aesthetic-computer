@@ -1,4 +1,4 @@
-// OSKIEWAR round room transport, 26.08.05
+// oskiewar round room transport, 26.08.05
 // Keeps live and stored-demo delivery outside the shared game/render engine.
 
 const WORD = "(?:[bdfgklmnprstvz][aeiou]){3}";
@@ -15,7 +15,7 @@ export class RoundRoom {
     analytics = () => false,
     sessionOrigin = "wss://session-server.aesthetic.computer",
     replayOrigin = "" } = {}) {
-    if (!ROUND_NAME.test(name || "")) throw new Error("Invalid OSKIEWAR round name");
+    if (!ROUND_NAME.test(name || "")) throw new Error("Invalid oskiewar round name");
     this.name = name;
     this.WebSocketImpl = WebSocketImpl;
     this.fetchImpl = typeof fetchImpl === "function"

@@ -2,7 +2,7 @@
 set -eu
 
 repo_root=$(CDPATH= cd -- "$(dirname "$0")/../.." && pwd)
-app="$repo_root/xbox/builds/mac-test/OSKIEWAR.app"
+app="$repo_root/xbox/builds/mac-test/oskiewar.app"
 contents="$app/Contents"
 
 rm -rf "$app"

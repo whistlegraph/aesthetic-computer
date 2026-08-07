@@ -1,5 +1,5 @@
 // @bundle-qr
-const buildTimestamp = "2026.08.07.1251 PDT";
+const buildTimestamp = "2026.08.07.1336 PDT";
 const floorY = 12000;
 const ceilingY = 0;
 const wallThickness = 80;
@@ -4810,6 +4810,17 @@ function animatedTitleColor(index, t, daylight = visualTheme.light) {
   return mixColor(night, day, daylight);
 }
 
+function titleButtonRect() {
+  const compact = compactLayout();
+  const textSize = hudTypeSize;
+  const textWidth = handleWidth("start", textSize);
+  const width = textWidth + (compact ? 54 : 76);
+  const height = textSize + (compact ? 24 : 34);
+  return { x: viewCenterX() - width / 2,
+    y: viewHeight * (compact ? .61 : .64) - (compact ? 10 : 15),
+    width, height, textSize, textWidth };
+}
+
 function drawTitleScreen(t, ink, transitionAge = -1) {
   const compact = compactLayout();
   const socialPreview = typeof capabilities === "function" &&
@@ -4852,14 +4863,29 @@ function drawTitleScreen(t, ink, transitionAge = -1) {
   }
 
   const prompt = "start";
-  const promptSize = hudTypeSize;
-  const promptWidth = handleWidth(prompt, promptSize);
+  const button = titleButtonRect();
+  const pointer = globalThis.__oskiewarTouch?.pointer;
+  const hovered = transitionAge < 0 && pointer?.active && pointInRect(pointer, button);
+  if (globalThis.__oskiewarTouch) {
+    globalThis.__oskiewarTouch.titleButton = button;
+    globalThis.__oskiewarTouch.titleHover = Boolean(hovered);
+  }
   const promptPulse = .68 + (Math.sin(t * 3.2) + 1) * .16;
   const promptInk = transitionInk ||
     mixColor([196, 142, 18], [255, 238, 82], promptPulse);
-  if (!socialPreview && (transitionAge >= 0 || Math.floor(t * 2.4) % 2 === 0))
-    typeWrite(prompt, viewCenterX() - promptWidth / 2,
-      viewHeight * (compact ? .61 : .64), promptSize, ...promptInk);
+  if (!socialPreview) {
+    const buttonPanel = transitionInk || mixColor(
+      [18, 24, 48], [215, 225, 239], visualTheme.light);
+    const buttonEdge = hovered ? promptInk : mixColor(buttonPanel, ink, .24);
+    box(button.x + 5, button.y + 6, button.width, button.height,
+      ...mixColor([3, 5, 14], [96, 104, 118], visualTheme.light));
+    box(button.x, button.y, button.width, button.height,
+      ...mixColor(buttonPanel, promptInk, hovered ? .25 : .06));
+    box(button.x, button.y, button.width, hovered ? 7 : 4, ...buttonEdge);
+    typeWrite(prompt, button.x + (button.width - button.textWidth) / 2,
+      button.y + (button.height - button.textSize) / 2 - 2,
+      button.textSize, ...promptInk);
+  }
   if (transitionAge >= 0 || socialPreview) return;
   const titleNow = pacificTimeLabel(runtime().unixMs || Date.now());
   const stamp = buildTimestamp.match(/^(\d{4})\.(\d{2})\.(\d{2})\.(\d{2})(\d{2})/);

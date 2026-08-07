@@ -39,7 +39,7 @@
 
 \hypersetup{colorlinks=true,linkcolor=acblue,urlcolor=acblue,citecolor=acblue,
   pdfauthor={@jeffrey},
-  pdftitle={OSKIEWAR: A Cross-Platform Fighting-Game Laboratory for Aesthetic Computer}}
+  pdftitle={oskiewar: A Cross-Platform Fighting-Game Laboratory for Aesthetic Computer}}
 \titleformat{\section}{\normalfont\bfseries\normalsize\uppercase}{\thesection.}{0.45em}{}
 \titlespacing{\section}{0pt}{1.15em}{0.3em}
 \titleformat{\subsection}{\normalfont\bfseries\small}{\thesubsection}{0.45em}{}
@@ -47,7 +47,7 @@
 \pagestyle{fancy}
 \fancyhf{}
 \renewcommand{\headrulewidth}{0pt}
-\fancyhead[C]{\footnotesize\color{acpink}\textit{OSKIEWAR --- system report}}
+\fancyhead[C]{\footnotesize\color{acpink}\textit{oskiewar --- system report}}
 \fancyfoot[C]{\footnotesize\thepage}
 \setlist[itemize]{nosep,leftmargin=1.2em,itemsep=0.1em}
 \setlength{\columnsep}{1.7em}
@@ -61,7 +61,7 @@
 \emergencystretch=1em
 \graphicspath{{../arxiv-ac/figures/}}
 \newcommand{\ac}{\textsc{Aesthetic.Computer}}
-\newcommand{\game}{\textsc{OSKIEWAR}}
+\newcommand{\game}{\textsc{oskiewar}}
 \newcommand{\code}[1]{\texttt{#1}}
 \InputIfFileExists{version.tex}{}{%
   \providecommand{\paperhash}{dev}\providecommand{\paperrev}{?}}
@@ -75,7 +75,7 @@
 \twocolumn[{%
 \begin{center}
 \includegraphics[height=3.5em]{pals}\par\vspace{0.45em}
-{\acbold\fontsize{23pt}{27pt}\selectfont\color{acdark} OSKIEWAR}\par
+{\acbold\fontsize{23pt}{27pt}\selectfont\color{acdark} oskiewar}\par
 \vspace{0.2em}
 {\aclight\fontsize{12pt}{14pt}\selectfont\color{acpink}
   A Cross-Platform Fighting-Game Laboratory for Aesthetic Computer}\par
@@ -226,7 +226,7 @@ Table~\ref{tab:endpoints} is the complete network surface used by the present bu
 
 \begin{table*}[t]
 \centering
-\caption{OSKIEWAR network endpoints. Braces denote validated variables; \texttt{match} is a pronounceable three-word name and \texttt{id} is prefixed \texttt{ow-}.}
+\caption{oskiewar network endpoints. Braces denote validated variables; \texttt{match} is a pronounceable three-word name and \texttt{id} is prefixed \texttt{ow-}.}
 \label{tab:endpoints}
 \small
 \begin{tabularx}{\textwidth}{@{}p{0.19\textwidth}p{0.37\textwidth}X@{}}
@@ -272,7 +272,7 @@ Identity/HUD & @jeffrey, @oskie, @fifi, @sat, DUMMY; handle colors; MOTD/latest-
 Sound & Spatial local synthesis; event OSC; Max for Live receiver; labeled sample-free Drum Rack; raw OSC bus. & UDP redundancy reduces loss but cannot mathematically guarantee delivery; receiver must observe sequence gaps.\\
 Replay/spectator & Instant replay viewer; globally stored demos; match counts; public phone URL; QR; bounded latest-only relay. & Determinism across future physics versions requires migration or preservation of old simulation code.\\
 Web & URL-addressable read-only spectator; interpolated fighters and balls; authoritative camera projection; live/viewer status; responsive handles beneath bodies. & Browser combat input and feature-equivalent simulation are not yet integrated.\\
-Distribution & Installed name OSKIEWAR; launcher chooses OSKIEWAR or NEW GAME input lab; package 1.0.0.35. & Self-signed Developer Mode package; Microsoft Store association and certification have not been completed.\\
+Distribution & Installed name oskiewar; launcher chooses oskiewar or NEW GAME input lab; package 1.0.0.35. & Self-signed Developer Mode package; Microsoft Store association and certification have not been completed.\\
 \bottomrule
 \end{tabularx}
 \end{table*}
@@ -330,7 +330,7 @@ Microsoft, ``Windows.Gaming.Input,'' Windows App SDK documentation. \url{https:/
 M. Wright, ``Open Sound Control: an enabling technology for musical networking,'' Center for New Music and Audio Technologies, University of California, Berkeley, 2005.
 
 \bibitem{repo}
-Aesthetic Computer contributors, ``OSKIEWAR source, tests, native host, replay endpoint, spectator relay, web viewer, and Ableton devices,'' commit \code{ec3978b5b8}, 5 August 2026. \url{https://github.com/whistlegraph/aesthetic-computer}
+Aesthetic Computer contributors, ``oskiewar source, tests, native host, replay endpoint, spectator relay, web viewer, and Ableton devices,'' commit \code{ec3978b5b8}, 5 August 2026. \url{https://github.com/whistlegraph/aesthetic-computer}
 \end{thebibliography}
 
 \end{document}

@@ -27,7 +27,7 @@ test("routes omit user-published names and source", () => {
   assert.equal(safeRoutePath("/notepat?ignored=true"), "/_other");
 });
 
-test("OSKIEWAR routes collapse round identifiers", () => {
+test("oskiewar routes collapse round identifiers", () => {
   assert.equal(safeAnalyticsRoute("/", "oskiewar.com"), "/oskiewar");
   assert.equal(
     safeAnalyticsRoute("/bafegu-dorimi-kunapo", "oskiewar.com"),

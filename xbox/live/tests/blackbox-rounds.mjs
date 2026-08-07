@@ -1,4 +1,4 @@
-// OSKIEWAR browser black-box journey recorder, 26.08.05
+// oskiewar browser black-box journey recorder, 26.08.05
 // Drives only public keyboard input and observes rendered/network output.
 
 import { createServer } from "node:http";

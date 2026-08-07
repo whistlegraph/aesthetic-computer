@@ -1808,7 +1808,7 @@ private:
     if (!m_networkClockRequestInFlight.compare_exchange_strong(expected, true)) return;
     const auto sentAt = SystemUnixMs();
     auto client = ref new HttpClient();
-    client->DefaultRequestHeaders->UserAgent->ParseAdd("OSKIEWAR/1.0.0.38 Xbox ClockSync");
+    client->DefaultRequestHeaders->UserAgent->ParseAdd("oskiewar/1.0.0.38 Xbox ClockSync");
     create_task(client->GetStringAsync(
       ref new Uri(L"https://aesthetic.computer/api/clock")))
       .then([this, client, sentAt](task<String^> completed) {
@@ -1915,7 +1915,7 @@ private:
     if (!m_acRequestInFlight.compare_exchange_strong(expected, true)) return;
 
     auto client = ref new HttpClient();
-    client->DefaultRequestHeaders->UserAgent->ParseAdd("OSKIEWAR/1.0.0.38 Xbox");
+    client->DefaultRequestHeaders->UserAgent->ParseAdd("oskiewar/1.0.0.38 Xbox");
     std::vector<task<String^>> requests;
     const auto safeGet = [client](const std::wstring& url) {
       return create_task(client->GetStringAsync(ref new Uri(ref new String(url.c_str()))))

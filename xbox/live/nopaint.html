@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>No Paint Xbox — command prototype</title>
+  <meta name="theme-color" content="#f7f3e8">
+  <style>
+    * { box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: #f7f3e8; }
+    body { display: grid; place-items: center; }
+    canvas { width: 100%; height: 100%; display: block; touch-action: none; }
+    #status { position: fixed; width: 1px; height: 1px; overflow: hidden;
+      clip-path: inset(50%); white-space: nowrap; }
+  </style>
+</head>
+<body>
+  <canvas id="screen" width="1920" height="1080"
+    aria-label="No Paint command prototype"></canvas>
+  <div id="status" role="status" aria-live="polite"></div>
+  <script>
+    const canvas = document.querySelector("#screen");
+    const context = canvas.getContext("2d", { alpha: false });
+    const effectCanvas = document.createElement("canvas");
+    const effectContext = effectCanvas.getContext("2d", { alpha: false });
+    const params = new URLSearchParams(location.search);
+    const down = new Set();
+    const pointerButtons = new Map();
+    const releaseTimers = new Map();
+    const cursor = { x: 0, y: 0, inside: false };
+
+    function resizeCanvas() {
+      const bounds = canvas.getBoundingClientRect();
+      const logicalHeight = 1080;
+      const logicalWidth = Math.max(480, Math.min(3840,
+        Math.round(logicalHeight * bounds.width / Math.max(1, bounds.height))));
+      if (canvas.width !== logicalWidth) canvas.width = logicalWidth;
+      if (canvas.height !== logicalHeight) canvas.height = logicalHeight;
+    }
+    resizeCanvas();
+    addEventListener("resize", resizeCanvas, { passive: true });
+    window.visualViewport?.addEventListener("resize", resizeCanvas, { passive: true });
+
+    function color(values) {
+      const [r = 255, g = 255, b = 255, a = 255] = values;
+      return `rgba(${r}, ${g}, ${b}, ${a / 255})`;
+    }
+    function wipe(...ink) {
+      context.fillStyle = color(ink);
+      context.fillRect(0, 0, canvas.width, canvas.height);
+    }
+    function box(x, y, width, height, ...ink) {
+      context.fillStyle = color(ink);
+      context.fillRect(x, y, width, height);
+    }
+    function line(x1, y1, x2, y2, width, ...ink) {
+      context.strokeStyle = color(ink);
+      context.lineWidth = width;
+      context.lineCap = "round";
+      context.beginPath();
+      context.moveTo(x1, y1);
+      context.lineTo(x2, y2);
+      context.stroke();
+    }
+    function triangle(x1, y1, x2, y2, x3, y3, ...ink) {
+      context.fillStyle = color(ink);
+      context.beginPath();
+      context.moveTo(x1, y1);
+      context.lineTo(x2, y2);
+      context.lineTo(x3, y3);
+      context.closePath();
+      context.fill();
+    }
+    function blur(radius) {
+      const pad = Math.ceil(Math.max(0, radius) * 3);
+      const width = canvas.width + pad * 2;
+      const height = canvas.height + pad * 2;
+      if (effectCanvas.width !== width) effectCanvas.width = width;
+      if (effectCanvas.height !== height) effectCanvas.height = height;
+      effectContext.filter = "none";
+      effectContext.clearRect(0, 0, effectCanvas.width, effectCanvas.height);
+      effectContext.fillStyle = "rgb(247, 243, 232)";
+      effectContext.fillRect(0, 0, effectCanvas.width, effectCanvas.height);
+      effectContext.drawImage(canvas, pad, pad);
+      context.save();
+      context.filter = `blur(${Math.max(0, radius)}px)`;
+      context.clearRect(0, 0, canvas.width, canvas.height);
+      context.drawImage(effectCanvas, -pad, -pad);
+      context.restore();
+    }
+    function write(value, x, y, size, ...ink) {
+      context.fillStyle = color(ink);
+      context.font = `700 ${size}px ui-monospace, SFMono-Regular, Menlo, monospace`;
+      context.textBaseline = "top";
+      context.fillText(String(value), x, y);
+    }
+    function runtime() {
+      return { monotonicUs: performance.now() * 1000, unixMs: Date.now() };
+    }
+    function browserPad() {
+      const pad = navigator.getGamepads?.()[0];
+      const buttons = new Set(down);
+      const names = ["A", "B", "X", "Y", "LeftShoulder", "RightShoulder",
+        null, null, "View", "Menu"];
+      pad?.buttons.forEach((button, index) => {
+        if (button.pressed && names[index]) buttons.add(names[index]);
+      });
+      return { connected: Boolean(pad) || buttons.size > 0, down: [...buttons] };
+    }
+    function gamepad() { return browserPad(); }
+    function gameView() { return { width: canvas.width, height: canvas.height }; }
+    function pointer() { return { ...cursor }; }
+    function updateCursor(kind = null) {
+      canvas.style.cursor = kind === "A" || kind === "B" ? "pointer" : "default";
+    }
+    updateCursor();
+    function capabilities() {
+      const hasGamepad = Array.from(navigator.getGamepads?.() || []).some(Boolean);
+      const touch = navigator.maxTouchPoints > 0 ||
+        matchMedia("(pointer: coarse)").matches;
+      const forcedInput = params.get("input");
+      return { platform: "web",
+        inputFamily: ["xbox", "keyboard", "touch"].includes(forcedInput)
+          ? forcedInput : touch ? "touch" : hasGamepad ? "xbox" : "keyboard",
+        orderedEffects: true };
+    }
+
+    const keyMap = new Map([
+      ["Space", "A"], ["KeyA", "A"], ["KeyB", "B"], ["Escape", "B"],
+      ["ArrowLeft", "ArrowLeft"], ["ArrowRight", "ArrowRight"],
+      ["Enter", "Menu"], ["KeyM", "Menu"],
+    ]);
+    addEventListener("keydown", (event) => {
+      const button = keyMap.get(event.code);
+      if (!button) return;
+      event.preventDefault();
+      clearTimeout(releaseTimers.get(button));
+      down.add(button);
+    });
+    addEventListener("keyup", (event) => {
+      const button = keyMap.get(event.code);
+      if (!button) return;
+      event.preventDefault();
+      // Keep very quick keyboard taps visible to at least one 60 Hz sim step.
+      releaseTimers.set(button, setTimeout(() => {
+        down.delete(button);
+        releaseTimers.delete(button);
+      }, 34));
+    });
+    addEventListener("blur", () => {
+      for (const timer of releaseTimers.values()) clearTimeout(timer);
+      releaseTimers.clear();
+      down.clear();
+    });
+
+    function pointerButton(event) {
+      const bounds = canvas.getBoundingClientRect();
+      const x = (event.clientX - bounds.left) * canvas.width / Math.max(1, bounds.width);
+      const y = (event.clientY - bounds.top) * canvas.height / Math.max(1, bounds.height);
+      return globalThis.__nopaintXbox?.hitTest(x, y) || "Canvas";
+    }
+    canvas.addEventListener("pointermove", (event) => {
+      const bounds = canvas.getBoundingClientRect();
+      cursor.x = (event.clientX - bounds.left) * canvas.width / Math.max(1, bounds.width);
+      cursor.y = (event.clientY - bounds.top) * canvas.height / Math.max(1, bounds.height);
+      cursor.inside = true;
+      updateCursor(globalThis.__nopaintXbox?.hitTest(cursor.x, cursor.y));
+    });
+    canvas.addEventListener("pointerleave", () => {
+      cursor.inside = false;
+      updateCursor();
+    });
+    canvas.addEventListener("pointerdown", (event) => {
+      event.preventDefault();
+      canvas.setPointerCapture?.(event.pointerId);
+      const button = pointerButton(event);
+      clearTimeout(releaseTimers.get(button));
+      releaseTimers.delete(button);
+      pointerButtons.set(event.pointerId, button);
+      down.add(button);
+      updateCursor(button === "Canvas" ? null : button);
+    });
+    function releasePointer(event) {
+      const button = pointerButtons.get(event.pointerId);
+      if (!button) return;
+      pointerButtons.delete(event.pointerId);
+      if (![...pointerButtons.values()].includes(button)) {
+        releaseTimers.set(button, setTimeout(() => {
+          down.delete(button);
+          releaseTimers.delete(button);
+        }, 34));
+      }
+      updateCursor(globalThis.__nopaintXbox?.hitTest(cursor.x, cursor.y));
+    }
+    for (const type of ["pointerup", "pointercancel", "lostpointercapture"])
+      canvas.addEventListener(type, releasePointer);
+
+    globalThis.nopaintSeed = params.get("seed") || "nopaint-xbox-command-v1";
+  </script>
+  <script type="module">
+    const source = await fetch("./nopaint.js", { cache: "no-store" })
+      .then((response) => response.text());
+    const piece = new Function("runtime", "gamepad", "gameView", "capabilities",
+      "wipe", "box", "line", "triangle", "write",
+      "blur", "pointer",
+      `${source}\nreturn { boot, sim, paint, snapshot, renderPainting, controlLocale, hitTest };`
+    )(runtime, gamepad, gameView, capabilities, wipe, box, line, triangle, write,
+      blur, pointer);
+    piece.boot();
+    globalThis.__nopaintXbox = piece;
+    function frame() {
+      piece.sim();
+      piece.paint();
+      requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+  </script>
+</body>
+</html>

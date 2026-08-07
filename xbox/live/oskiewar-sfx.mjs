@@ -1,4 +1,4 @@
-// OSKIEWAR procedural SFX mock bank.
+// oskiewar procedural SFX mock bank.
 //
 // The short layered percussion voices follow Aesthetic Computer's shared
 // notepat kit (`system/public/aesthetic.computer/lib/percussion.mjs`): tiny

@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { boot, target } from "../public/aesthetic.computer/disks/oskiewar.mjs";
 
-test("the AC piece jumps out to the standalone OSKIEWAR suite", () => {
+test("the AC piece jumps out to the standalone oskiewar suite", () => {
   const destinations = [];
   boot({ jump: (url) => destinations.push(url) });
   assert.deepEqual(destinations, ["out:https://oskiewar.com/"]);

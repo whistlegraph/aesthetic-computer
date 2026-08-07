@@ -1,4 +1,4 @@
-# OSKIEWAR for Xbox
+# oskiewar for Xbox
 
 This is the no-WebView Aesthetic Computer host. It is a C++/CX UWP DirectX
 application with native Direct3D 11 rendering, XAudio2 sound,
@@ -61,7 +61,7 @@ UDP datagram per musical event. The Xbox HUD changes from
 `NETWORK-LISTENING :51337` to `NETWORK: REFACE YC` after the first packet.
 
 Revision 30 caps the DXGI device frame queue at one and records controller-edge
-to-present latency as `AC_NATIVE_INPUT_LATENCY`. OSKIEWAR emits OSC addresses
+to-present latency as `AC_NATIVE_INPUT_LATENCY`. oskiewar emits OSC addresses
 under `/oskiewar/*` on UDP `51338`; `ac-m4l/AC-GameSignals.amxd.json` turns bounded
 combat and movement-edge events into MIDI notes. The sender starts a datagram
 when `gameSignal` is called, drains its three consecutive reliability copies as
@@ -72,14 +72,14 @@ the sequence field to collapse each consecutive three-copy group and caps its
 own queue at 256 datagrams so overload drops signals instead of playing a long
 stale backlog.
 
-Revision 31 adds the allowlisted OSKIEWAR fighter profile feed for `@jeffrey`,
+Revision 31 adds the allowlisted oskiewar fighter profile feed for `@jeffrey`,
 `@fifi`, `@oskie`, and `@sat`: current mood, per-character handle colors, and
 latest public system-chat text. The sandbox still receives only the immutable
 `ac()` snapshot and has no general network access. It also packages the existing
 YWFT Processing face and exposes it through bounded `ywftWrite`; `write` remains
 the native AC block face and `systemWrite` remains the Xbox system face.
 
-OSKIEWAR also packages the KidLisp `Comic Relief` face and exposes it through
+oskiewar also packages the KidLisp `Comic Relief` face and exposes it through
 bounded `comicWrite`; its browser, macOS, replay, spectator, and Xbox clients
 therefore render the same UI typography without relying on an installed font.
 
@@ -91,13 +91,13 @@ streams. The host accepts one JSON object up to 512 KiB and uploads it to the
 fixed AC replay endpoint; pieces receive neither arbitrary networking nor
 storage credentials.
 
-Revision 34 starts each OSKIEWAR OSC datagram immediately, preserves the
+Revision 34 starts each oskiewar OSC datagram immediately, preserves the
 three-copy reliability group without a queue race, and reports native
 enqueue-to-send latency for live Ableton diagnosis.
 
-Revision 35 presents the installed Xbox app as OSKIEWAR while retaining the
+Revision 35 presents the installed Xbox app as oskiewar while retaining the
 stable `AestheticComputer.NativeBios` identity for in-place upgrades. It adds
-the OSKIEWAR / NEW GAME boot selector, a two-pad input lab, and live match
+the oskiewar / NEW GAME boot selector, a two-pad input lab, and live match
 spectator publishing.
 
 Revision 36 accepts the current short speakable round IDs in the QuickJS

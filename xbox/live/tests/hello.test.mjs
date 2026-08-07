@@ -199,7 +199,7 @@ test("an older native spectator boundary cannot stop a match", () => {
   let attempts = 0;
   const livePublisher = () => {
     attempts++;
-    throw new RangeError("invalid OSKIEWAR live payload");
+    throw new RangeError("invalid oskiewar live payload");
   };
   const { fight, tick } = createFight(false, false, "xbox-uwp", null,
     { width: 1920, height: 1080 }, livePublisher);
@@ -210,7 +210,7 @@ test("an older native spectator boundary cannot stop a match", () => {
   assert.equal(attempts, 1);
 });
 
-test("OSKIEWAR typography uses the packaged KidLisp Comic Relief face", () => {
+test("oskiewar typography uses the packaged KidLisp Comic Relief face", () => {
   assert.match(source, /typeof comicWrite === "function"/);
   assert.match(source, /comicGlyphAdvance/);
   assert.match(source, /String\(text\)\.toLowerCase\(\)/);
@@ -670,12 +670,13 @@ test("raw live and demo rooms run through the canonical game engine", () => {
   assert.equal(fight.players[0].x, 5400);
 });
 
-test("start flashes yellow green lime before fading into pal select", () => {
+test("start button flashes yellow green lime before fading into pal select", () => {
   const { fight, pads, signals, drums, tick } = createFight(false, false);
   assert.equal(fight.shellState().mode, "MENU");
   assert.equal(fight.selectionState().selecting, true);
-  assert.match(source, /Math\.floor\(t \* 2\.4\) % 2 === 0/);
   assert.match(source, /const prompt = "start"/);
+  assert.match(source, /const button = titleButtonRect\(\)/);
+  assert.match(source, /box\(button\.x, button\.y, button\.width, button\.height/);
   assert.match(source, /\[255, 238, 82\]/);
   pads[0].down = ["Y"];
   tick();
@@ -688,6 +689,15 @@ test("start flashes yellow green lime before fading into pal select", () => {
   assert.match(source,
     /const flashPalette = \[\[255, 226, 48\], \[70, 224, 92\], \[181, 255, 48\]\]/);
   assert.match(source, /if \(transitionAge >= 0 \|\| socialPreview\) return/);
+});
+
+test("title start is a bounded pointer button and negative space only duds", () => {
+  assert.match(source, /function titleButtonRect\(\)/);
+  assert.match(source, /titleButton = button/);
+  assert.match(source, /titleHover = Boolean\(hovered\)/);
+  assert.match(webShell, /if \(!inside\) \{[\s\S]{0,100}drum\("block", \.32, 0\)/);
+  assert.match(webShell, /tapTitle\(point\)/);
+  assert.doesNotMatch(webShell, /body\.selection-hover, body\.title-open/);
 });
 
 test("active matches publish bounded phone spectator snapshots", () => {
