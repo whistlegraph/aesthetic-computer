@@ -5314,9 +5314,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         #if !MAC_APP_STORE
         let globalClickShield = startTrackpadPercussionSystemClickShield()
         #endif
-        // Quiet focus: the global drum is already live, but its chart appears
-        // only after the user actually touches the trackpad.
-        pitchBendOverlay?.dismiss()
+        // TrackDrum stays visually quiet until the first strike. Without the
+        // helper, make the fallback explicit immediately: its FX puck is the
+        // available instrument and ordinary pointer motion can drive it.
+        if useTrackDrum {
+            pitchBendOverlay?.dismiss()
+        } else {
+            showPitchBendOverlay()
+        }
         #if !MAC_APP_STORE
         debugLog("trackpad pad mode = skin (focus default) clickShieldGlobal=\(globalClickShield)")
         #else
@@ -5569,8 +5574,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // While the spacebar tape is reverse-playing, a mouse move bends + echoes
         // the playback itself (the fx route onto the rewind voice's own inserts),
         // so engage the gesture even with no key held.
+        #if MAC_APP_STORE
+        let focusedFallbackFX = trackpadPadMode == .fx
+            && trackpadPerformanceSessionActive
+            && localCapture.isArmed
+            && !trackpadPluginConnected
+        #else
+        let focusedFallbackFX = false
+        #endif
         guard menuBand.keyboardNotesHeld || shift || inReleaseGrace
-                || menuBand.isRewinding else { return }
+                || menuBand.isRewinding || focusedFallbackFX else { return }
         // Shift momentarily puts a continuous surface onto the original
         // sliding FX; Tab selects FX persistently.
         let momentarySurfaceFx = (trackpadPadMode == .skin
@@ -5643,7 +5656,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             hideSystemCursorIfNeeded()
             showPitchBendOverlay()
         }
-        updatePitchBendOverlayImage()
+        if focusedFallbackFX, pitchBendOverlay?.isVisible != true {
+            showPitchBendOverlay()
+        } else {
+            updatePitchBendOverlayImage()
+        }
         // No idle timeout: a finger resting still on the trackpad
         // emits no .mouseMoved deltas, so any silence-based timer
         // would release the fx while the user is deliberately
