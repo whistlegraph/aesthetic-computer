@@ -1,5 +1,5 @@
 // @bundle-qr
-const buildTimestamp = "2026.08.06.1955 PDT";
+const buildTimestamp = "2026.08.06.2048 PDT";
 const floorY = 12000;
 const ceilingY = 0;
 const wallThickness = 80;
@@ -9,9 +9,9 @@ const worldNear = -1800;
 const worldFar = 1800;
 const stageLeft = 0;
 let stageRight = 1920;
-const stageTop = 112;
+let stageTop = 112;
 // Leave a narrow projection gutter beneath the floor for the screen-edge HUD.
-const stageBottom = 930;
+let stageBottom = 930;
 let viewHeight = 1080;
 let cameraAspect = (stageRight - stageLeft) / (stageBottom - stageTop);
 const platformLeft = 4500;
@@ -74,9 +74,22 @@ function syncGameView() {
   const next = typeof gameView === "function" ? gameView() : null;
   const width = clamp(Math.round(Number(next?.width) || 1920), 480, 2880);
   const height = clamp(Math.round(Number(next?.height) || 1080), 480, 2160);
-  if (width === stageRight && height === viewHeight) return;
+  const inputFamily = typeof capabilities === "function"
+    ? capabilities().inputFamily : "xbox";
+  const touch = inputFamily === "touch";
+  const compact = width < 1500;
+  const inset = compact ? 22 : 30;
+  const nextTop = Math.max(82, inset + hudTypeSize + 16);
+  const bottomReserve = touch
+    ? clamp(height * .36, 300, 390)
+    : clamp(height * .13, 112, 150);
+  const nextBottom = Math.max(nextTop + 280, height - bottomReserve);
+  if (width === stageRight && height === viewHeight &&
+      nextTop === stageTop && nextBottom === stageBottom) return;
   stageRight = width;
   viewHeight = height;
+  stageTop = nextTop;
+  stageBottom = nextBottom;
   cameraAspect = (stageRight - stageLeft) / (stageBottom - stageTop);
   if (typeof cameraDoll !== "undefined") cameraDoll.dirty = true;
 }
@@ -1123,8 +1136,12 @@ function updateCamera(dt) {
     future[0].y, future[1].y);
   const maxWidth = Math.max(worldRight - worldLeft,
     (floorY - ceilingY) * cameraAspect);
-  const desiredWidth = Math.max(900, Math.min(maxWidth,
-    Math.max(right - left + 620, (bottom - top + 230) * cameraAspect)));
+  const horizontalPadding = clamp(260 + cameraAspect * 160, 340, 620);
+  const verticalPadding = clamp(120 + cameraAspect * 55, 155, 230);
+  const minimumWidth = clamp(900 * cameraAspect / 2.1, 480, 900);
+  const desiredWidth = Math.max(minimumWidth, Math.min(maxWidth,
+    Math.max(right - left + horizontalPadding,
+      (bottom - top + verticalPadding) * cameraAspect)));
   const widthSpeed = desiredWidth > cameraWidth ? 13 : 5.5;
   const widthBlend = 1 - Math.exp(-Math.max(0, dt) * widthSpeed);
   cameraWidth += (desiredWidth - cameraWidth) * widthBlend;
@@ -1231,7 +1248,12 @@ function updateCameraDoll(dt, now) {
   // caused a visible periodic snap when containment had to restore it. Ten
   // A small overscan absorbs animated hands, feet, and perspective before
   // they reach the action-safe edge without loosening the close fight shot.
-  const framedWidth = Math.max(cameraWidth * 1.04, cameraContainFloor);
+  const naturalWidth = cameraWidth * 1.04;
+  if (cameraContainFloor > naturalWidth) {
+    const release = 1 - Math.exp(-Math.max(0, dt) * 3.2);
+    cameraContainFloor = lerp(cameraContainFloor, naturalWidth, release);
+  }
+  const framedWidth = Math.max(naturalWidth, cameraContainFloor);
   // Gameplay camera is intentionally inertial but not handheld. No procedural
   // swivel, roll, or dolly motion is allowed to move a stationary viewport.
   const tilt = .026;
@@ -1735,7 +1757,12 @@ function updateBall(ball, dt, now) {
       return;
     }
   }
-  const grounded = ball.y >= floorY - ball.radius - 1 && Math.abs(ball.vy) < 180;
+  const platformSupported = ball.x >= platformLeft + ball.radius &&
+    ball.x <= platformRight - ball.radius &&
+    ball.y >= platformY - ball.radius - 2 &&
+    ball.y <= platformY - ball.radius + 2;
+  const floorSupported = ball.y >= floorY - ball.radius - 2;
+  const grounded = (platformSupported || floorSupported) && Math.abs(ball.vy) < 180;
   if (!grounded) ball.vx += windAcceleration * (ball.windFactor || .45) * dt;
   ball.vy += 1900 * dt;
   const previous = { x: ball.x, y: ball.y, z: ball.z };
@@ -1769,7 +1796,10 @@ function updateBall(ball, dt, now) {
       ? -Math.abs(ball.vy) * (ball.bounce || .62) : 0;
     ball.vx *= ball.drag || .992;
   }
-  const onFloor = ball.y >= floorY - ball.radius - 1 && Math.abs(ball.vy) < 180;
+  const onSurface = ((ball.x >= platformLeft + ball.radius &&
+    ball.x <= platformRight - ball.radius &&
+    Math.abs(ball.y - (platformY - ball.radius)) <= 2) ||
+    ball.y >= floorY - ball.radius - 2) && Math.abs(ball.vy) < 180;
   const poseTime = (now - startedAt) / 1000000;
   const hitters = [];
   for (const player of players) {
@@ -1822,7 +1852,9 @@ function updateBall(ball, dt, now) {
       ball.x, ball.y, ball.z);
     const bodyDistance = bodyContact.bodyDistance;
     if (Math.min(headDistance, bodyDistance) > ball.radius) continue;
-    if (onFloor) {
+    const runningContact = player.grounded && Math.abs(player.vx) > 40 &&
+      (onSurface || ball.y >= player.y - ball.radius - 55);
+    if (runningContact) {
       bootBall(ball, player, now);
       return;
     }
@@ -3552,27 +3584,34 @@ function drawWindFlag(t, color) {
 
 function drawWindLines(t, color) {
   const count = 7 + Math.floor(windMph / 3);
-  const span = cameraWidth * 1.18;
+  const safe = actionSafeRect();
+  const safeWidth = safe.right - safe.left;
+  const safeHeight = safe.bottom - safe.top;
   const speed = .045 + windMph * .0045;
-  const length = 45 + windMph * 7;
+  const baseLength = 24 + windMph * 2.5;
+  const previousDepth = triangleDepth;
   for (let index = 0; index < count; index++) {
-    const zSpan = worldFar - worldNear;
-    const z = worldNear + 180 + ((index * 487) % Math.max(1, zSpan - 360));
-    const nearAmount = 1 - (z - worldNear) / zSpan;
-    const depthScale = .62 + nearAmount * .82;
+    // Wind lives in screen-stable layers behind the fighters. Camera zoom may
+    // reveal more world, but it no longer stretches streak length or speed.
+    const depthAmount = ((index * 47) % 101) / 100;
+    const z = 120 + depthAmount * (worldFar - 240);
+    const depthScale = .62 + (1 - depthAmount) * .55;
     const cycle = ((index * .173 + t * speed * depthScale * windDirection) % 1 + 1) % 1;
-    const x = cameraCenter - span / 2 + cycle * span;
+    const length = baseLength * depthScale;
+    const x = safe.left - length + cycle * (safeWidth + length * 2);
     const row = ((index * 47) % 101) / 100;
-    const y = cameraCenterY - cameraWidth * .27 + row * cameraWidth * .54 +
-      Math.sin(t * 1.7 + index * 2.3) * (6 + windMph * .5);
-    const tailX = x - windDirection * length * depthScale;
-    const bend = Math.sin(t * 2.1 + index) * (3 + windMph * .28);
-    worldLine(tailX, y - bend, z,
-      x - windDirection * length * depthScale * .38, y + bend, z,
-      nearAmount > .62 && windMph > 12 ? 2 : 1, color);
-    worldLine(x - windDirection * length * depthScale * .38, y + bend, z,
-      x, y, z, nearAmount > .62 && windMph > 12 ? 2 : 1, color);
+    const y = safe.top + 20 + row * Math.max(1, safeHeight - 40) +
+      Math.sin(t * 1.7 + index * 2.3) * (3 + windMph * .18);
+    const tailX = x - windDirection * length;
+    const middleX = x - windDirection * length * .38;
+    const bend = Math.sin(t * 2.1 + index) * (2 + windMph * .12);
+    const width = depthAmount < .35 && windMph > 12 ? 2 : 1;
+    const ink = mixColor([18, 24, 48], color, .42 + (1 - depthAmount) * .4);
+    triangleDepth = projectPoint(cameraCenter, cameraCenterY, z).z;
+    filledCapsule(tailX, y - bend, middleX, y + bend, width, ink);
+    filledCapsule(middleX, y + bend, x, y, width, ink);
   }
+  triangleDepth = previousDepth;
 }
 
 function drawSelectPortrait(player, x, y, scale, t) {

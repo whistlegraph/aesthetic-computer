@@ -32,7 +32,7 @@ function createFight(startImmediately = true, enterGame = true,
   const drawLine = (...values) => lines.push(values);
   const fight = new Function(
     "runtime", "gamepad", "capabilities", "telemetry", "gameSignal", "saveReplay", "publishLive", "analytics", "drum", "wipe", "box", "line", "triangle", "triangle3d", "write", "systemWrite", "gameView",
-    `${source}\nreturn { boot, sim, paint, controlLocale, animatedTitleColor, players, ball, balls, bullets, grenades, gunPickups, grenadePickups, runnerWorldGeometry, runnerDistanceToPoint, resultCardText, pacificTimeLabel, projectedBallRadius, deathCinematicState: () => deathCinematic ? { ...deathCinematic, age: deathCinematicAge() } : null, disableBall: () => { ballEnabled = false; for (const item of balls) item.active = false; }, enableBall: (index = 0) => { ballEnabled = true; const item = balls[index]; item.active = true; item.serveAt = 0; item.safeUntil = 0; item.safePlayers = 0; }, setWind: (value) => { windAcceleration = value; }, setDebugHitboxes: (value) => { debugHitboxes = Boolean(value); }, windState: () => ({ direction: windDirection, mph: windMph }), nextRound: () => resetRound(runtime().monotonicUs, false), knockOut: () => killPlayer(players[1], 0, runtime().monotonicUs, "KO"), wackBall: () => { players[0].attackKind = "KICK"; returnBall(ball, players[0], runtime().monotonicUs, false); }, shieldBall: () => returnBall(ball, players[0], runtime().monotonicUs, true), crossWackBall: (contact = 1) => crossWackBall(ball, players.map((player) => ({ player, contact })), runtime().monotonicUs), enterGame: () => enterGame(runtime().monotonicUs), shellState: () => ({ mode: shellMode }), startFight: () => { shellMode = "GAME"; selecting = false; startReplay(runtime().monotonicUs); resetRound(runtime().monotonicUs, true); }, selectionState: () => ({ selecting, ready: selectionReady.slice() }), cameraState: () => ({ cameraWidth, cameraCenter, cameraCenterY, cameraAspect, stageRight, viewHeight, doll: { width: cameraDoll.width, target: { ...cameraDoll.target }, position: { ...cameraDoll.position }, perspective: cameraDoll.perspective, roll: cameraDoll.roll } }), screenBounds: () => players.map((player) => runnerScreenBounds(player, runtime().monotonicUs / 1e6)), actionSafeRect, hudSafeRect, roundState: () => ({ roundResult, roundElapsedUs, matchOver }), viewerState: () => ({ active: Boolean(roundViewer), mode: roundViewerMode, status: roundViewerStatus, name: matchName }), instantReplayState: () => instantReplay ? { active: true, paused: instantReplay.paused, cursor: instantReplay.cursor, frames: instantReplay.frames.length } : { active: false }, replayFrameCount: () => roundReplayFrames.length };`
+    `${source}\nreturn { boot, sim, paint, controlLocale, animatedTitleColor, players, ball, balls, bullets, grenades, gunPickups, grenadePickups, runnerWorldGeometry, runnerDistanceToPoint, resultCardText, pacificTimeLabel, projectedBallRadius, deathCinematicState: () => deathCinematic ? { ...deathCinematic, age: deathCinematicAge() } : null, disableBall: () => { ballEnabled = false; for (const item of balls) item.active = false; }, enableBall: (index = 0) => { ballEnabled = true; const item = balls[index]; item.active = true; item.serveAt = 0; item.safeUntil = 0; item.safePlayers = 0; }, setWind: (value) => { windAcceleration = value; }, setDebugHitboxes: (value) => { debugHitboxes = Boolean(value); }, windState: () => ({ direction: windDirection, mph: windMph }), nextRound: () => resetRound(runtime().monotonicUs, false), knockOut: () => killPlayer(players[1], 0, runtime().monotonicUs, "KO"), wackBall: () => { players[0].attackKind = "KICK"; returnBall(ball, players[0], runtime().monotonicUs, false); }, shieldBall: () => returnBall(ball, players[0], runtime().monotonicUs, true), crossWackBall: (contact = 1) => crossWackBall(ball, players.map((player) => ({ player, contact })), runtime().monotonicUs), enterGame: () => enterGame(runtime().monotonicUs), shellState: () => ({ mode: shellMode }), startFight: () => { shellMode = "GAME"; selecting = false; startReplay(runtime().monotonicUs); resetRound(runtime().monotonicUs, true); }, selectionState: () => ({ selecting, ready: selectionReady.slice() }), cameraState: () => ({ cameraWidth, cameraCenter, cameraCenterY, cameraAspect, stageRight, stageTop, stageBottom, viewHeight, cameraContainFloor, doll: { width: cameraDoll.width, target: { ...cameraDoll.target }, position: { ...cameraDoll.position }, perspective: cameraDoll.perspective, roll: cameraDoll.roll } }), screenBounds: () => players.map((player) => runnerScreenBounds(player, runtime().monotonicUs / 1e6)), actionSafeRect, hudSafeRect, roundState: () => ({ roundResult, roundElapsedUs, matchOver }), viewerState: () => ({ active: Boolean(roundViewer), mode: roundViewerMode, status: roundViewerStatus, name: matchName }), instantReplayState: () => instantReplay ? { active: true, paused: instantReplay.paused, cursor: instantReplay.cursor, frames: instantReplay.frames.length } : { active: false }, replayFrameCount: () => roundReplayFrames.length };`
   )(
     () => ({ monotonicUs: now, unixMs: 1785870000000 + Math.floor(now / 1000) }),
     (index = 0) => ({ ...pads[index], down: pads[index].down.slice() }),
@@ -168,9 +168,21 @@ test("web camera follows landscape, 16:9, and portrait viewports", () => {
     const state = fight.cameraState();
     assert.equal(state.stageRight, expectedWidth);
     assert.equal(state.viewHeight, 1080);
-    assert.equal(state.cameraAspect, expectedWidth / (930 - 112));
+    assert.equal(state.cameraAspect,
+      expectedWidth / (state.stageBottom - state.stageTop));
     assert.doesNotThrow(() => fight.paint());
   }
+});
+
+test("custom web aspects derive play bounds around their own HUD", () => {
+  const portrait = createFight(false, false, "touch", null,
+    { width: 608, height: 1080 }).fight.cameraState();
+  const landscape = createFight(false, false, "web", null,
+    { width: 1920, height: 1080 }).fight.cameraState();
+  assert.ok(portrait.stageBottom < portrait.viewHeight - 300);
+  assert.ok(landscape.stageBottom > landscape.viewHeight - 160);
+  assert.ok(portrait.cameraAspect > 0);
+  assert.ok(landscape.cameraAspect > portrait.cameraAspect);
 });
 
 test("HUD safe area uses one equal inset on all four screen edges", () => {
@@ -272,9 +284,33 @@ test("camera zoom-out remains continuous as fighters approach safe edges", () =>
     `camera width jumped ${largestFrameRatio.toFixed(3)}x in one frame`);
 });
 
+test("camera containment releases and zooms back in when fighters converge", () => {
+  const { fight, tick } = createFight(false, false, "web");
+  fight.startFight();
+  tick(3000001);
+  fight.players[0].x = 900;
+  fight.players[1].x = 11100;
+  for (let frame = 0; frame < 120; frame++) { tick(); fight.paint(); }
+  const wide = fight.cameraState().doll.width;
+  fight.players[0].x = 5700;
+  fight.players[1].x = 6300;
+  for (let frame = 0; frame < 180; frame++) { tick(); fight.paint(); }
+  const close = fight.cameraState().doll.width;
+  assert.ok(close < wide * .55,
+    `camera stayed latched at ${close.toFixed(1)} after ${wide.toFixed(1)}`);
+  const safe = fight.actionSafeRect();
+  for (const bounds of fight.screenBounds()) {
+    assert.ok(bounds.left >= safe.left - .5);
+    assert.ok(bounds.right <= safe.right + .5);
+    assert.ok(bounds.top >= safe.top - .5);
+    assert.ok(bounds.bottom <= safe.bottom + .5);
+  }
+});
+
 test("gameplay camera has no procedural viewport shake", () => {
   assert.match(source,
-    /const framedWidth = Math\.max\(cameraWidth \* 1\.04, cameraContainFloor\)/);
+    /const framedWidth = Math\.max\(naturalWidth, cameraContainFloor\)/);
+  assert.match(source, /cameraContainFloor = lerp\(cameraContainFloor, naturalWidth/);
   assert.match(source, /position: \{ x: cameraCenter,/);
   assert.match(source, /roll: 0 \}, dt, 10/);
   assert.doesNotMatch(source, /const cameraTime = now \/ 1000000/);
@@ -349,6 +385,9 @@ test("wind flag lives on the platform without an MPH HUD label", () => {
   assert.match(source, /const poleBottom = platformY/);
   assert.match(source, /worldLine\(poleX, poleBottom/);
   assert.doesNotMatch(source, /MPH/);
+  assert.match(source, /const safe = actionSafeRect\(\)/);
+  assert.match(source, /Camera zoom may[\s\S]*no longer stretches streak length or speed/);
+  assert.doesNotMatch(source, /const span = cameraWidth \* 1\.18/);
 });
 
 test("fighter geometry connects the head and renders solid capsule joints", () => {
@@ -897,6 +936,18 @@ test("a grounded ball ignores wind", () => {
   assert.equal(signals.some(([event]) => event === "boot"), false);
 });
 
+test("a ball resting on the platform also ignores wind", () => {
+  const { fight, tick } = createFight();
+  fight.enableBall();
+  fight.setWind(1200);
+  fight.ball.x = 6000;
+  fight.ball.y = 10400 - fight.ball.radius;
+  fight.ball.vx = 0;
+  fight.ball.vy = 0;
+  tick(16667);
+  assert.equal(fight.ball.vx, 0);
+});
+
 test("each round starts one grounded ball in front of each fighter", () => {
   const { fight } = createFight();
   assert.equal(fight.balls.length, 2);
@@ -946,7 +997,7 @@ test("only one center-platform powerup appears at each ten-second interval", () 
 });
 
 test("running into a grounded ball boots it instead of killing the player", () => {
-  const { fight, signals, tick } = createFight();
+  const { fight, pads, signals, tick } = createFight();
   const player = fight.players[0];
   fight.enableBall();
   fight.ball.x = player.x;
@@ -954,12 +1005,30 @@ test("running into a grounded ball boots it instead of killing the player", () =
   fight.ball.z = player.z;
   fight.ball.vx = 0;
   fight.ball.vy = 0;
-  player.vx = 900;
+  pads[0].down = ["ArrowRight"];
   tick(16667);
   assert.equal(player.alive, true);
   assert.equal(player.lastButton, "BOOT");
   assert.ok(fight.ball.vx > 0);
   assert.ok(signals.some(([event, pad]) => event === "boot" && pad === 0));
+});
+
+test("running into a center-platform ball boots it", () => {
+  const { fight, pads, tick } = createFight();
+  const player = fight.players[0];
+  fight.enableBall();
+  player.x = 6000;
+  player.y = 10400;
+  player.grounded = true;
+  fight.ball.x = player.x + 36;
+  fight.ball.y = 10400 - fight.ball.radius;
+  fight.ball.z = player.z;
+  fight.ball.vx = 0;
+  fight.ball.vy = 0;
+  pads[0].down = ["ArrowRight"];
+  tick();
+  assert.equal(player.lastButton, "BOOT");
+  assert.ok(fight.ball.vx > 0);
 });
 
 test("walking contact carries a grounded ball in the player's direction", () => {
