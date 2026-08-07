@@ -1,0 +1,81 @@
+{
+  "fetchedAt": "2026-08-05T20:24:00-07:00",
+  "sources": {
+    "mood": "https://aesthetic.computer/api/mood/all",
+    "chat": "https://aesthetic.computer/api/chat-messages?instance=system&limit=100"
+  },
+  "items": [
+    {
+      "kind": "mood",
+      "from": "@theamerican",
+      "text": "all is noise",
+      "when": "2026-07-22T21:51:42.501Z"
+    },
+    {
+      "kind": "chat",
+      "from": "@pazuzu",
+      "text": "i found a cool stick in the woods today",
+      "when": "2026-06-12T20:43:30.548Z"
+    },
+    {
+      "kind": "mood",
+      "from": "@sol",
+      "text": "art blocked",
+      "when": "2026-07-18T02:29:21.548Z"
+    },
+    {
+      "kind": "chat",
+      "from": "@wickmrt",
+      "text": "hello im new",
+      "when": "2026-06-18T08:13:28.124Z"
+    },
+    {
+      "kind": "mood",
+      "from": "@sat",
+      "text": "go and draw",
+      "when": "2026-07-15T18:28:59.681Z"
+    },
+    {
+      "kind": "chat",
+      "from": "@handlehun",
+      "text": "Vinker til alle. Jeg er ny her. Vi ses!",
+      "when": "2026-06-18T17:40:00.933Z"
+    },
+    {
+      "kind": "mood",
+      "from": "@q13R608tx",
+      "text": "early spacetravel",
+      "when": "2026-07-08T08:33:22.710Z"
+    },
+    {
+      "kind": "chat",
+      "from": "@DaveDave",
+      "text": "what is this, where am I?",
+      "when": "2026-07-10T08:58:14.028Z"
+    },
+    {
+      "kind": "mood",
+      "from": "@steve",
+      "text": "little bits of sesame seeds in my salad",
+      "when": "2026-07-08T06:19:59.809Z"
+    },
+    {
+      "kind": "chat",
+      "from": "@KSHALE",
+      "text": "upgrade to paper",
+      "when": "2026-08-03T16:50:32.320Z"
+    },
+    {
+      "kind": "mood",
+      "from": "@HendeFraHoeve",
+      "text": "sunny side up",
+      "when": "2026-04-24T10:20:11.242Z"
+    },
+    {
+      "kind": "chat",
+      "from": "@caeneus",
+      "text": "interesting radio",
+      "when": "2026-06-01T22:45:18.143Z"
+    }
+  ]
+}
