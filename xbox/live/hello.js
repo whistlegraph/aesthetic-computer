@@ -1,5 +1,5 @@
 // @bundle-qr
-const buildTimestamp = "2026.08.07.1234 PDT";
+const buildTimestamp = "2026.08.07.1251 PDT";
 const floorY = 12000;
 const ceilingY = 0;
 const wallThickness = 80;
@@ -239,6 +239,9 @@ const npcFighter = { handle: "DUMMY", color: [105, 125, 150],
 const botFighter = { handle: "BOT", color: [205, 48, 72],
   colors: [[205,48,72],[255,102,92],[125,24,48]],
   mood: "ANGRY TRAINING BOT", lastChat: "" };
+const peopleFighter = { handle: "PPL", color: [116, 122, 136],
+  colors: [[116,122,136],[136,142,154],[116,122,136]],
+  mood: "", lastChat: "" };
 
 function losAngelesSun() {
   const radians = Math.PI / 180;
@@ -1067,11 +1070,9 @@ function selectionOptions() {
     kind: "pal", fighter, rosterIndex,
   }));
   return [
-    { kind: "dummy", fighter: npcFighter, rosterIndex: -1 },
     { kind: "bot", fighter: botFighter, rosterIndex: -1 },
-    ...fighterRoster.map((fighter, rosterIndex) => ({
-      kind: "player", fighter, rosterIndex,
-    })),
+    { kind: "dummy", fighter: npcFighter, rosterIndex: -1 },
+    { kind: "people", fighter: peopleFighter, rosterIndex: -1, disabled: true },
   ];
 }
 
@@ -1087,13 +1088,15 @@ function startSelectedRound(now) {
 function chooseSelection(index, now) {
   const option = selectionOptions()[index];
   if (!option) return;
+  if (option.disabled) {
+    playDrum("block", .45, 0);
+    return;
+  }
   if (selectionStep === 0) {
     applyRoster(players[0], option.rosterIndex);
     selectionReady[0] = true;
     selectionStep = 1;
-    selectionCursor = players[1].npc
-      ? players[1].bot ? 1 : 0
-      : Math.max(0, players[1].rosterIndex) + 2;
+    selectionCursor = players[1].npc && !players[1].bot ? 1 : 0;
     playDrum("hat", .9, -.55);
     emitSignal("select", 0, option.rosterIndex, 0);
     return;
@@ -1163,7 +1166,8 @@ function selectionHover(layout = selectionTouchLayout()) {
       !Number.isFinite(pointer.y)) return null;
   if (pointInRect(pointer, layout.back)) return { back: true };
   const option = layout.options.find((rect) => pointInRect(pointer, rect));
-  return option ? { option: option.index } : null;
+  return option && !selectionOptions()[option.index]?.disabled
+    ? { option: option.index } : null;
 }
 
 function consumeSelectTouches(now) {
@@ -1195,8 +1199,15 @@ function updateSelect(now) {
   else if (pressed("ArrowUp")) movement = -columns;
   else if (pressed("ArrowDown")) movement = columns;
   if (movement) {
-    selectionCursor = (selectionCursor + movement + optionCount) % optionCount;
-    playDrum("hat", .55, 0);
+    let next = selectionCursor;
+    for (let index = 0; index < optionCount; index++) {
+      next = (next + movement + optionCount) % optionCount;
+      if (!selectionOptions()[next]?.disabled) break;
+    }
+    if (next !== selectionCursor) {
+      selectionCursor = next;
+      playDrum("hat", .55, 0);
+    }
   }
   if (pressed("B") || pressed("Menu")) selectionBack(now);
   else if (pressed("A")) chooseSelection(selectionCursor, now);
@@ -4743,13 +4754,17 @@ function drawSelectionScreen(t, ink, panel) {
   for (const rect of layout.options) {
     const option = options[rect.index];
     const player = selectionPreview(option);
-    const hovered = hover?.option === rect.index;
-    const focused = selectionCursor === rect.index;
+    const disabled = Boolean(option.disabled);
+    const hovered = !disabled && hover?.option === rect.index;
+    const focused = !disabled && selectionCursor === rect.index;
     const emphasis = hovered ? .34 : focused ? .22 : .07;
+    const disabledInk = mixColor([74, 80, 96], [164, 168, 178],
+      visualTheme.light);
+    const optionColor = disabled ? disabledInk : option.fighter.color;
     box(rect.x, rect.y, rect.width, rect.height,
-      ...mixColor(panel, option.fighter.color, emphasis));
+      ...mixColor(panel, optionColor, disabled ? .12 : emphasis));
     box(rect.x, rect.y, rect.width, hovered ? 10 : focused ? 7 : 3,
-      ...option.fighter.color);
+      ...optionColor);
     const scale = compact
       ? selectionStep === 0 ? .46 : .28
       : selectionStep === 0 ? 1.05 : .58;
@@ -4762,7 +4777,7 @@ function drawSelectionScreen(t, ink, panel) {
     const labelWidth = handleWidth(label, labelSize);
     drawHandle(label, rect.x + (rect.width - labelWidth) / 2,
       rect.y + rect.height - labelSize - (compact ? 10 : 18), labelSize,
-      option.fighter.colors, option.fighter.color);
+      disabled ? [disabledInk] : option.fighter.colors, optionColor);
   }
   // Keep navigation above every option on narrow/tall browser layouts.
   box(layout.back.x, layout.back.y, layout.back.width, layout.back.height,

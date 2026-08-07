@@ -58,7 +58,7 @@ function createFight(startImmediately = true, enterGame = true,
   const drawLine = (...values) => lines.push(values);
   const fight = new Function(
     "runtime", "gamepad", "capabilities", "telemetry", "gameSignal", "saveReplay", "publishLive", "analytics", "drum", "wipe", "box", "line", "triangle", "triangle3d", "write", "systemWrite", "gameView",
-    `${source}\nreturn { boot, sim, paint, playDrum, captureClientError, drawDetachedPart, clientErrorState: () => clientError, clientErrorDetailState: () => clientErrorDetail, errorReportStatus, controlLocale, animatedTitleColor, comicGlyphAdvance, handleWidth, displayTheme, players, ball, balls, bullets, grenades, gunPickups, grenadePickups, detachedParts, runnerWorldGeometry, fighterAnimationPhase, runnerDistanceToPoint, segmentSegmentClosest, meleeLimbContact, damagePart, isPogo, isHeadOnly, resultCardText, pacificTimeLabel, projectedBallRadius, deathCinematicState: () => deathCinematic ? { ...deathCinematic, age: deathCinematicAge() } : null, disableBall: () => { ballEnabled = false; for (const item of balls) item.active = false; }, enableBall: (index = 0) => { ballEnabled = true; const item = balls[index]; item.active = true; item.serveAt = 0; item.safeUntil = 0; item.safePlayers = 0; }, setWind: (value) => { windAcceleration = value; }, setDebugHitboxes: (value) => { debugHitboxes = Boolean(value); }, debugState: () => debugHitboxes, windState: () => ({ direction: windDirection, mph: windMph }), nextRound: () => resetRound(runtime().monotonicUs, false), knockOut: () => killPlayer(players[1], 0, runtime().monotonicUs, "KO"), startAttack: (kind) => startMelee(players[0], kind, runtime().monotonicUs), bootFirstBall: () => bootBall(ball, players[0], runtime().monotonicUs), wackBall: () => { players[0].attackKind = "KICK"; returnBall(ball, players[0], runtime().monotonicUs, false); }, shieldBall: () => returnBall(ball, players[0], runtime().monotonicUs, true), crossWackBall: (contact = 1) => crossWackBall(ball, players.map((player) => ({ player, contact })), runtime().monotonicUs), enterGame: () => enterGame(runtime().monotonicUs), shellState: () => ({ mode: shellMode }), startFight: () => { shellMode = "GAME"; selecting = false; startReplay(runtime().monotonicUs); resetRound(runtime().monotonicUs, true); }, selectionState: () => ({ selecting, step: selectionStep, cursor: selectionCursor, ready: selectionReady.slice() }), cameraState: () => ({ cameraWidth, cameraCenter, cameraCenterY, cameraAspect, stageRight, stageTop, stageBottom, viewHeight, cameraContainFloor, doll: { width: cameraDoll.width, target: { ...cameraDoll.target }, position: { ...cameraDoll.position }, perspective: cameraDoll.perspective, roll: cameraDoll.roll } }), screenBounds: () => players.map((player) => runnerScreenBounds(player, runtime().monotonicUs / 1e6)), actionSafeRect, hudSafeRect, roundState: () => ({ roundResult, roundElapsedUs, matchOver }), viewerState: () => ({ active: Boolean(roundViewer), mode: roundViewerMode, status: roundViewerStatus, name: matchName }), instantReplayState: () => instantReplay ? { active: true, paused: instantReplay.paused, cursor: instantReplay.cursor, frames: instantReplay.frames.length } : { active: false }, replayFrameCount: () => roundReplayFrames.length };`
+    `${source}\nreturn { boot, sim, paint, playDrum, captureClientError, drawDetachedPart, clientErrorState: () => clientError, clientErrorDetailState: () => clientErrorDetail, errorReportStatus, controlLocale, animatedTitleColor, comicGlyphAdvance, handleWidth, displayTheme, players, ball, balls, bullets, grenades, gunPickups, grenadePickups, detachedParts, runnerWorldGeometry, fighterAnimationPhase, runnerDistanceToPoint, segmentSegmentClosest, meleeLimbContact, damagePart, isPogo, isHeadOnly, resultCardText, pacificTimeLabel, projectedBallRadius, deathCinematicState: () => deathCinematic ? { ...deathCinematic, age: deathCinematicAge() } : null, disableBall: () => { ballEnabled = false; for (const item of balls) item.active = false; }, enableBall: (index = 0) => { ballEnabled = true; const item = balls[index]; item.active = true; item.serveAt = 0; item.safeUntil = 0; item.safePlayers = 0; }, setWind: (value) => { windAcceleration = value; }, setDebugHitboxes: (value) => { debugHitboxes = Boolean(value); }, debugState: () => debugHitboxes, windState: () => ({ direction: windDirection, mph: windMph }), nextRound: () => resetRound(runtime().monotonicUs, false), knockOut: () => killPlayer(players[1], 0, runtime().monotonicUs, "KO"), startAttack: (kind) => startMelee(players[0], kind, runtime().monotonicUs), bootFirstBall: () => bootBall(ball, players[0], runtime().monotonicUs), wackBall: () => { players[0].attackKind = "KICK"; returnBall(ball, players[0], runtime().monotonicUs, false); }, shieldBall: () => returnBall(ball, players[0], runtime().monotonicUs, true), crossWackBall: (contact = 1) => crossWackBall(ball, players.map((player) => ({ player, contact })), runtime().monotonicUs), enterGame: () => enterGame(runtime().monotonicUs), shellState: () => ({ mode: shellMode }), startFight: () => { shellMode = "GAME"; selecting = false; startReplay(runtime().monotonicUs); resetRound(runtime().monotonicUs, true); }, selectionState: () => ({ selecting, step: selectionStep, cursor: selectionCursor, ready: selectionReady.slice() }), selectionOptions: () => selectionOptions().map((option) => ({ kind: option.kind, label: option.fighter.handle, disabled: Boolean(option.disabled) })), cameraState: () => ({ cameraWidth, cameraCenter, cameraCenterY, cameraAspect, stageRight, stageTop, stageBottom, viewHeight, cameraContainFloor, doll: { width: cameraDoll.width, target: { ...cameraDoll.target }, position: { ...cameraDoll.position }, perspective: cameraDoll.perspective, roll: cameraDoll.roll } }), screenBounds: () => players.map((player) => runnerScreenBounds(player, runtime().monotonicUs / 1e6)), actionSafeRect, hudSafeRect, roundState: () => ({ roundResult, roundElapsedUs, matchOver }), viewerState: () => ({ active: Boolean(roundViewer), mode: roundViewerMode, status: roundViewerStatus, name: matchName }), instantReplayState: () => instantReplay ? { active: true, paused: instantReplay.paused, cursor: instantReplay.cursor, frames: instantReplay.frames.length } : { active: false }, replayFrameCount: () => roundReplayFrames.length };`
   )(
     () => ({ monotonicUs: now, unixMs: 1785870000000 + Math.floor(now / 1000),
       simCount: Math.floor(now / 16667), paintCount: 0,
@@ -718,7 +718,7 @@ test("every round gets a new URL and tells spectators where the room moved", () 
   assert.equal(liveFrames.at(-1)[1].previousRoundId, firstId);
 });
 
-test("one controller chooses a pal and then a named local opponent", () => {
+test("opponent selection offers only bot, dummy, and disabled ppl", () => {
   const { fight, tap } = createFight(false);
   tap(0, "ArrowRight");
   assert.equal(fight.selectionState().cursor, 1);
@@ -727,9 +727,20 @@ test("one controller chooses a pal and then a named local opponent", () => {
   assert.equal(fight.selectionState().step, 1);
   assert.equal(fight.players[0].name, "@FIFI");
   assert.equal(fight.selectionState().selecting, true);
+  assert.deepEqual(fight.selectionOptions(), [
+    { kind: "bot", label: "BOT", disabled: false },
+    { kind: "dummy", label: "DUMMY", disabled: false },
+    { kind: "people", label: "PPL", disabled: true },
+  ]);
+  tap(0, "ArrowLeft");
+  assert.equal(fight.selectionState().cursor, 1);
+  tap(0, "ArrowRight");
+  assert.equal(fight.selectionState().cursor, 0);
+  tap(0, "ArrowLeft");
+  assert.equal(fight.selectionState().cursor, 1);
   tap(0, "A");
-  assert.equal(fight.players[1].name, "@OSKIE");
-  assert.equal(fight.players[1].npc, false);
+  assert.equal(fight.players[1].name, "DUMMY");
+  assert.equal(fight.players[1].npc, true);
   assert.equal(fight.selectionState().selecting, false);
 });
 
@@ -756,9 +767,11 @@ test("portrait touch follows pal, opponent, and back as separate steps", () => {
     assert.equal(fight.selectionState().step, 0);
     assert.equal(fight.selectionState().selecting, true);
     touch(350, 300);
-    touch(350, 590);
-    assert.equal(fight.players[1].name, "@SAT");
-    assert.equal(fight.players[1].npc, false);
+    touch(100, 430); // Disabled ppl card.
+    assert.equal(fight.selectionState().selecting, true);
+    touch(350, 260); // Dummy.
+    assert.equal(fight.players[1].name, "DUMMY");
+    assert.equal(fight.players[1].npc, true);
     assert.equal(fight.selectionState().selecting, false);
     globalThis.__oskiewarTouch.taps.push({ x: 350, y: 300 });
     tick();
@@ -790,8 +803,7 @@ test("bot is a direct opponent choice instead of a hidden mode cycle", () => {
   const { fight, tap } = createFight(false);
   tap(0, "A");
   assert.equal(fight.selectionState().step, 1);
-  tap(0, "ArrowUp");
-  assert.equal(fight.selectionState().cursor, 1);
+  assert.equal(fight.selectionState().cursor, 0);
   tap(0, "A");
   assert.equal(fight.players[1].name, "BOT");
   assert.equal(fight.players[1].npc, true);

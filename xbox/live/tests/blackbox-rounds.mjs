@@ -164,7 +164,7 @@ async function captureTouch(browser, origin) {
   const opponent = await page.screenshot({ path: opponentShot });
   await tapCanvas(60, 150);  // Back to step one.
   await tapCanvas(350, 300); // @fifi again.
-  await tapCanvas(350, 260); // Bot.
+  await tapCanvas(120, 260); // Bot.
   await wait(3350);
   const gameShot = join(outputRoot, "touch-game.png");
   const game = await page.screenshot({ path: gameShot });
