@@ -137,7 +137,7 @@
     "publish:m4l": "node ac-m4l/publish.mjs",
     "session:reset": "f() { cd session-server; npx jamsocket backend terminate $1 };f",
     "session:alive": "cd session-server; npx jamsocket backend list",
-    "session:publish": "fish aesthetic-computer-vault/session-server/deploy.fish",
+    "session:publish": "fish session-server/deploy.fish",
     "arena:probe": "node session-server/arena-probe.mjs",
     "arena:probe:local": "node session-server/arena-probe.mjs --url wss://localhost:8889",
     "land:probe": "node session-server/arena-probe.mjs --world land",
