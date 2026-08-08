@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>sleuth · papers</title>
+<meta name="description" content="Search mechanisms, online databases, browser skills, and collection routes for the Aesthetic Computer research platter.">
+<link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/berkeley-mono-variable.css">
+<style>
+:root{color-scheme:dark light;--bg:#111;--fg:#ddd;--muted:#888;--line:#333;--pink:#ff6b9d;--cyan:#4ecdc4;--panel:#1a1a1a} @media(prefers-color-scheme:light){:root{--bg:#fafafa;--fg:#222;--muted:#666;--line:#ddd;--panel:#fff;--pink:#d63384;--cyan:#087f78}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:13px/1.5 'Berkeley Mono Variable',ui-monospace,monospace}a{color:var(--cyan);text-decoration:none}a:hover{color:var(--pink);text-decoration:underline}header,main,footer{max-width:1180px;margin:auto;padding:18px 16px}header{border-bottom:1px solid var(--line)}.crumb{font-size:11px;color:var(--muted);margin-bottom:12px}h1{font-size:23px;font-weight:400;letter-spacing:4px;margin:0 0 8px}h1 span{color:var(--pink)}h1 i{color:var(--pink);font-style:normal}.lede{color:var(--muted);max-width:800px;margin:0}section{margin:28px 0}h2{font-size:14px;font-weight:400;letter-spacing:2px;color:var(--pink);margin:0 0 8px}.note{color:var(--muted);font-size:11px;max-width:800px}table{border-collapse:collapse;width:100%;font-size:12px}th{text-align:left;text-transform:uppercase;letter-spacing:1px;color:var(--muted);font-size:10px;font-weight:400;border-bottom:1px solid var(--line);padding:6px 8px}td{vertical-align:top;border-bottom:1px solid var(--line);padding:8px}.source{color:var(--fg);white-space:nowrap}.tag{color:var(--muted);font-size:10px}.route{color:var(--muted)}code{color:var(--fg);background:var(--panel);padding:1px 4px}footer{border-top:1px solid var(--line);color:var(--muted);font-size:11px}
+</style>
+</head>
+<body>
+<header><div class="crumb"><a href="/">papers</a> · <a href="/platter/">platter</a> · sleuth</div><h1>sleuth<span>·</span><i>source index</i></h1><p class="lede">Search mechanisms, online databases, browser skills, and collection routes for the research platter. A result is a lead until the primary page or file is opened and its stable identifier is recorded.</p></header>
+<main>
+<section><h2>routing rule</h2><p class="note">Choose the narrowest primary source. Search it directly when general web indexing is incomplete. Use browser inspection for visual or interactive state. Keep private-vault credentials and unreviewed private paths out of published notes.</p></section>
+<section><h2>source routes</h2><table><thead><tr><th>source</th><th>mechanism</th><th>browser / collection skill</th><th>retain</th></tr></thead><tbody>
+<tr><td class="source">Vimeo<br><span class="tag">video</span></td><td class="route">direct URL or numeric ID; Vimeo search; uploader pages; web fallback</td><td><code>browser-use:browser</code>; inspect title, uploader, player metadata</td><td>canonical URL, ID, uploader, duration, capture date</td></tr>
+<tr><td class="source">YouTube<br><span class="tag">video</span></td><td class="route">search, channel, playlist, authorized Data API</td><td><code>browser-use:browser</code>; <code>toolchain/youtube</code></td><td>watch URL, ID, channel, title, upload date</td></tr>
+<tr><td class="source">Internet Archive<br><span class="tag">archive</span></td><td class="route">Advanced Search; item and metadata APIs</td><td>browser; <code>ffprobe</code>; OCR/transcription</td><td>item ID, file name, checksum or archive URL</td></tr>
+<tr><td class="source">Dropbox vault<br><span class="tag">private</span></td><td class="route">API search; temporary links; filename variants</td><td>vault read; media metadata; local inspection</td><td>path, file name, size/date, provenance note</td></tr>
+<tr><td class="source">Web archives<br><span class="tag">archive</span></td><td class="route">Wayback/CDX snapshots and linked media</td><td><code>browser-use:browser</code>; compare capture dates</td><td>archived URL, timestamp, original URL</td></tr>
+<tr><td class="source">Scholarly indexes<br><span class="tag">bibliographic</span></td><td class="route">Crossref, OpenAlex, Semantic Scholar, catalogs</td><td>DOI/title/author disambiguation; retrieve primary source</td><td>DOI or catalog ID, edition, publisher, access date</td></tr>
+<tr><td class="source">Institutional archives<br><span class="tag">events</span></td><td class="route">museum, university, festival, venue, embedded media</td><td><code>browser-use:browser</code>; inspect programs and players</td><td>institution URL, date, venue, speaker, media link</td></tr>
+<tr><td class="source">Papers platter<br><span class="tag">local</span></td><td class="route"><code>paper_list</code>, <code>paper_find</code>, <code>paper_read</code>, manifests</td><td>consult <a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/papers/SCORE.md">SCORE</a> and sub-platter sources</td><td>consulted files, revision/date, provenance gap</td></tr>
+</tbody></table></section>
+<section><h2>video rule</h2><p class="note">Generic titles are not identities. Search by numeric ID, uploader, artist aliases, event context, and local filenames. Keep short clips and longer source recordings as separate evidence items.</p></section>
+<section><h2>machine-readable registry</h2><p class="note"><a href="/sleuth/sources.json">sources.json</a> · <a href="https://github.com/whistlegraph/aesthetic-computer/tree/main/papers/sleuth">source directory</a></p></section>
+</main><footer><a href="/platter/">research platter</a> · <a href="/">papers</a></footer>
+</body></html>

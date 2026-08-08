@@ -178,6 +178,15 @@ specified in [`GEAR-GUESS.md`](GEAR-GUESS.md).
 
 ## Tooling
 
+### Sleuth source index
+
+[`sleuth/`](sleuth/) is the platter's routing index for search mechanisms,
+online databases, browser skills, and private collection routes. Consult it
+before a research pass. It is especially important for sparse media pages:
+search Vimeo or another host directly by URL, numeric ID, uploader, and event
+context instead of assuming a general web index is complete. The machine-
+readable registry is [`sleuth/sources.json`](sleuth/sources.json).
+
 The mill's code lives at the top of `papers/` and in [`bin/`](bin/). All scripts are runnable as `node papers/bin/<name>.mjs`.
 
 ### Top-level (build, deploy, index)
