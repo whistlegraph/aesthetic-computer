@@ -5911,9 +5911,73 @@ function pacificTimeLabel(unixMs) {
   return String(hour % 12 || 12) + ":" + minute + (hour < 12 ? "am " : "pm ") + zone;
 }
 
-function drawDebugBug(safe) {
-  const x = viewCenterX();
-  const y = safe.bottom - 18;
+// Status indicators share one lane rather than each finding its own corner, so
+// they read as a set: same cell, same row, in the title-safe frame just left of
+// the wall clock. The lane is right-aligned because the clock and the round QR
+// grow leftward from the same edge.
+const statusCell = 26;
+const statusGap = 6;
+
+function hudStatusIcons() {
+  const icons = [];
+  if (typeof capabilities === "function" && capabilities().midi) icons.push("midi");
+  if (debugHitboxes) icons.push("bug");
+  return icons;
+}
+
+// The clock's footprint is computed once and shared, so the lane cannot drift
+// out of step with where the clock actually lands.
+function hudClockBox(unixMs) {
+  const safe = hudSafeRect();
+  const label = pacificTimeLabel(unixMs);
+  const size = Math.round(hudTypeSize * .62);
+  const qrBox = spectatorQrBox();
+  const right = qrBox ? qrBox.left - 14 : safe.right;
+  return { label, size, right, left: right - handleWidth(label, size) };
+}
+
+function hudStatusTray(clock) {
+  const icons = hudStatusIcons();
+  if (!icons.length) return null;
+  const right = clock.left - 14;
+  const width = icons.length * statusCell + (icons.length - 1) * statusGap;
+  return { icons, right, left: right - width, top: hudSafeRect().top,
+    height: statusCell };
+}
+
+// A one-octave keyboard: seven equal white keys with the black keys only on the
+// boundaries that have them, so it reads as a piano at this size instead of an
+// approximate smear. It brightens for a beat whenever a note leaves.
+function drawStatusPiano(x, y, lit) {
+  const width = 21, height = 14, key = width / 7;
+  const left = Math.round(x - width / 2), top = Math.round(y - height / 2);
+  box(left, top, width, height, ...(lit ? [108, 240, 168] : [176, 184, 202]));
+  for (const step of [1, 2, 4, 5, 6])
+    box(Math.round(left + step * key) - 1, top, 2, Math.round(height * .58),
+      23, 27, 40);
+}
+
+function drawHudStatusTray(clock, ink, unixMs) {
+  const tray = hudStatusTray(clock);
+  if (!tray) return;
+  // Debug draws the lane it lives in, so the zone is visible rather than
+  // inferred from where the icons happen to sit.
+  if (debugHitboxes) {
+    const pad = 3;
+    box(tray.left - pad, tray.top - pad,
+      tray.right - tray.left + pad * 2, tray.height + pad * 2, 38, 44, 62);
+  }
+  const lit = typeof capabilities === "function" &&
+    unixMs - (capabilities().midiPulse || 0) < 140;
+  tray.icons.forEach((name, index) => {
+    const x = tray.left + index * (statusCell + statusGap) + statusCell / 2;
+    const y = tray.top + tray.height / 2;
+    if (name === "midi") drawStatusPiano(x, y, lit);
+    else drawDebugBug(x, y + 2);
+  });
+}
+
+function drawDebugBug(x, y) {
   const shell = [255, 86, 126];
   const detail = [22, 12, 34];
   filledDisc(x, y + 2, 8, shell);
@@ -5952,7 +6016,7 @@ function drawSpectatorQr(ink) {
   const compact = compactLayout();
   const metaSize = compact ? Math.max(20, hudTypeSize * .58) : hudTypeSize;
   if (debugHitboxes) {
-    drawDebugBug(safe);
+    // The bug moved into the HUD status lane, where it is one of a set.
     const fpsLabel = Math.round(displayFps || 0) + " fps";
     typeWrite(fpsLabel, safe.left + 2, safe.top + 2, metaSize, ...ink);
   }
@@ -6168,12 +6232,11 @@ function gamePaint() {
     }
     // Wall clock in the top right, tucked left of the round QR and below the
     // spectator label so it never lands on either.
-    const clockLabel = pacificTimeLabel(run.unixMs || Date.now());
-    const clockSize = Math.round(hudTypeSize * .62);
-    const qrBox = spectatorQrBox();
-    const clockRight = qrBox ? qrBox.left - 14 : hud.right;
-    typeWrite(clockLabel, clockRight - handleWidth(clockLabel, clockSize),
-      hud.top + (roundViewer ? clockSize + 10 : 2), clockSize, ...titleInk);
+    const nowMs = run.unixMs || Date.now();
+    const clock = hudClockBox(nowMs);
+    typeWrite(clock.label, clock.left,
+      hud.top + (roundViewer ? clock.size + 10 : 2), clock.size, ...titleInk);
+    drawHudStatusTray(clock, titleInk, nowMs);
   }
   for (const pickup of gunPickups) drawGunPickup(pickup, t);
   for (const pickup of grenadePickups) drawGrenadePickup(pickup, t);

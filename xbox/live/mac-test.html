@@ -71,19 +71,9 @@
     /* Scoring from a DAW is anonymous dummy play, so the account door is shut
        and the corner it occupied is free for the midi lamp. */
     body.midi-out #logout { display: none; }
-    /* Placed from script against the canvas, since the HUD's title-safe frame
-       and the round QR live in game units rather than CSS ones. */
-    #midi-out { position: fixed; top: 14px; right: 14px; z-index: 6;
-      display: none; padding: 6px 8px; border: 2px solid #6e768d;
-      border-radius: 8px; background: #171b28;
-      box-shadow: 2px 3px 0 rgba(20, 25, 38, .35); line-height: 0; }
-    body.midi-out #midi-out { display: block; }
-    body.social-preview #midi-out { display: none; }
-    #midi-out .key-white { fill: #b0b8ca; transition: fill .18s ease-out; }
-    #midi-out .key-black { fill: #171b28; }
-    /* The lamp answers every note that leaves, so the corner is also the
-       cheapest possible confirmation that the bridge is really sending. */
-    #midi-out.lit .key-white { fill: #6cf0a8; transition: none; }
+    /* The midi lamp is drawn by the game in its HUD status lane, not here — an
+       overlay could never match the bug and the clock, which live in game
+       units inside the title-safe frame. */
     #touch-controls { --unit: clamp(50px, 12vmin, 72px); --gap: 6px;
       position: fixed; inset: 0; z-index: 3; display: none; pointer-events: none;
       user-select: none; -webkit-user-select: none; touch-action: none; }
@@ -124,18 +114,6 @@
   <canvas id="screen" width="1920" height="1080" aria-label="oskiewar two-player stick fight"></canvas>
   <div id="status" role="alert" aria-live="polite"></div>
   <button id="logout" type="button">log out</button>
-  <div id="midi-out" role="status" aria-label="midi out is on" title="midi out">
-    <svg width="26" height="18" viewBox="0 0 26 18" aria-hidden="true">
-      <rect class="key-white" x="0" y="0" width="26" height="18" rx="2"/>
-      <rect class="key-black" x="3.5" y="0" width="2.6" height="11" rx="1"/>
-      <rect class="key-black" x="9.1" y="0" width="2.6" height="11" rx="1"/>
-      <rect class="key-black" x="17" y="0" width="2.6" height="11" rx="1"/>
-      <rect class="key-black" x="21.4" y="0" width="2.6" height="11" rx="1"/>
-      <rect class="key-black" x="7.4" y="11" width="1.1" height="7"/>
-      <rect class="key-black" x="14.6" y="0" width="1.1" height="18"/>
-      <rect class="key-black" x="20" y="11" width="1.1" height="7"/>
-    </svg>
-  </div>
   <div id="update-ready" role="status">
     <button id="update-now" type="button">update is ready</button>
     <label id="auto-update-label"><input id="auto-update" type="checkbox">auto update</label>
@@ -520,8 +498,11 @@
         colorScheme: matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark",
         socialPreview: new URLSearchParams(location.search).has("social-preview"),
         // Scoring sessions are anonymous dummy play; the seam auth attaches to
-        // can read this to keep opponents and accounts out of the way.
+        // can read this to keep opponents and accounts out of the way. The
+        // pulse rides along so the HUD's status lamp can answer a real send
+        // without the host needing a new sandbox function to say so.
         midi: document.body.classList.contains("midi-out"),
+        midiPulse: globalThis.__oskiewarMidiPulse || 0,
         productName: mac ? "MACOS" : "WEB",
         version: "CROSS-PLATFORM", graphics: "CANVAS2D", audio: "WEB AUDIO" };
     }
@@ -798,34 +779,11 @@
     // layout is `oskiewar pads.adg` — note 36 upward, one per signal event.
     // The lamp answers every note that leaves, so the corner doubles as proof
     // the bridge is sending even when a pad is still silent.
-    const midiLamp = document.querySelector("#midi-out");
-
-    // The round QR owns the top-right corner of the HUD-safe frame whenever it
-    // is up (`hello.js` spectatorQrBox), so the lamp keeps the same corner and
-    // the same five-percent inset but sits under the band the QR reserves.
-    // These numbers mirror hudSafeInset/spectatorQrBox; the canvas keeps a
-    // stable 1080-unit height, which is what converts them into CSS pixels.
-    function layoutMidiLamp() {
-      const box = canvas.getBoundingClientRect();
-      if (!box.height) return;
-      const unit = box.height / 1080;
-      const compact = canvas.width < 1500;
-      const inset = Math.min(72, Math.max(compact ? 24 : 48,
-        Math.round(Math.min(canvas.width, 1080) * .05)));
-      const qrBand = (compact ? 108 : 158) + 12;
-      midiLamp.style.top = `${box.top + (inset + qrBand) * unit}px`;
-      midiLamp.style.right = `${innerWidth - box.right + inset * unit}px`;
-    }
-    addEventListener("resize", layoutMidiLamp);
-    addEventListener("orientationchange", layoutMidiLamp);
-
-    let lampTimer = null;
-    const flashMidiLamp = () => {
-      midiLamp.classList.add("lit");
-      clearTimeout(lampTimer);
-      lampTimer = setTimeout(() => midiLamp.classList.remove("lit"), 90);
-    };
-    const oskiewarMidi = createOskiewarMidi({ onSignal: flashMidiLamp });
+    // The HUD draws the lamp; the host only records when a note last left, so
+    // the indicator can never claim a send that did not happen.
+    const oskiewarMidi = createOskiewarMidi({
+      onSignal: () => { globalThis.__oskiewarMidiPulse = Date.now(); },
+    });
     globalThis.__oskiewarMidi = oskiewarMidi;
     // The address is the whole state, and nothing about it survives a refresh:
     // oskiewar.com is the game, `?midi` is this visit, midi.oskiewar.com is the
@@ -839,7 +797,6 @@
     if (midiMode !== null && midiMode !== "0" && midiMode !== "off") {
       if (await oskiewarMidi.enable()) {
         document.body.classList.add("midi-out");
-        layoutMidiLamp();
         oskiewarMidi.connectSignals(globalThis);
         const layered = midiMode === "both";
         if (!layered) oskiewarSfx.mute(true);

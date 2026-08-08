@@ -208,8 +208,6 @@ test("midi mode shuts the account door and lights the lamp", () => {
     "logged-in play must be out of the way while scoring");
   assert.match(webShell, /midi: document\.body\.classList\.contains\("midi-out"\)/,
     "capabilities should carry the flag the game can gate on");
-  assert.match(webShell, /id="midi-out"/);
-  assert.match(webShell, /onSignal: flashMidiLamp/, "the lamp follows real sends");
   assert.match(webShell, /classList\.add\("midi-out"\)/);
 });
 
@@ -221,12 +219,25 @@ test("midi mode never outlives the address that asked for it", () => {
     "the flag anyone already stored has to be cleared, not merely ignored");
 });
 
-test("the lamp keeps the HUD's safe frame and clears the QR's corner", () => {
-  assert.match(webShell, /function layoutMidiLamp\(\)/);
-  assert.match(webShell, /canvas\.getBoundingClientRect\(\)/);
-  assert.match(webShell, /box\.height \/ 1080/, "game units convert via the canvas");
-  assert.match(webShell, /compact \? 108 : 158/, "the QR band must be reserved");
-  assert.match(webShell, /addEventListener\("resize", layoutMidiLamp\)/);
+test("the lamp is drawn by the game, not floated over it", async () => {
+  assert.doesNotMatch(webShell, /id="midi-out"/,
+    "an overlay can never match icons that live in game units");
+  assert.match(webShell, /midiPulse: globalThis\.__oskiewarMidiPulse \|\| 0/,
+    "capabilities carries the pulse rather than adding a sandbox function");
+  assert.match(webShell, /onSignal: \(\) => \{ globalThis\.__oskiewarMidiPulse = Date\.now\(\); \}/);
+
+  const game = await readFile(new URL("../hello.js", import.meta.url), "utf8");
+  assert.match(game, /function hudStatusTray\(/, "the status lane must exist");
+  assert.match(game, /function drawStatusPiano\(/);
+  assert.match(game, /const statusCell = \d+/, "icons share one cell size");
+  // The lane is right-aligned off the clock, which itself sits left of the QR.
+  assert.match(game, /const right = clock\.left - \d+/);
+  assert.match(game, /function hudClockBox\(/,
+    "clock geometry is shared so the lane cannot drift from it");
+  assert.match(game, /if \(debugHitboxes\) \{\s*\n\s*const pad/,
+    "debug should draw the zone the icons live in");
+  assert.doesNotMatch(game, /drawDebugBug\(safe\)/,
+    "the bug belongs in the lane now, not the bottom of the screen");
 });
 
 test("the web shell keeps midi opt-in so it cannot silence the bank by surprise", () => {
