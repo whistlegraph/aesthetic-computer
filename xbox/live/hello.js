@@ -16,7 +16,10 @@ let viewHeight = 1080;
 let cameraAspect = (stageRight - stageLeft) / (stageBottom - stageTop);
 const platformLeft = 4500;
 const platformRight = 7500;
-const platformY = 10400;
+// A jump apexes 290 above the floor, so the ledge sits inside a single hop and
+// inside the tight opening frame. At its old 1600 only an ultra jump reached
+// it, which put every platform powerup out of play and off screen.
+const platformY = 11760;
 const doubleTapUs = 280000;
 const doubleTapReleaseUs = 40000;
 const roundDurationUs = 30000000;
@@ -24,6 +27,8 @@ const roundResultUs = 3000000;
 const matchResultUs = 5000000;
 const introDurationUs = 3000000;
 const matchWins = 5;
+const errorRestartUs = 16000000;
+const errorDumpBase = "https://oskiewar.com/api/oskiewar-dump?d=";
 const powerupIntervalUs = 10000000;
 const shieldRadius = 160;
 const shieldForward = 30;
@@ -40,12 +45,56 @@ const fighterAnimationSpecs = {
   KICK: [14, 1, "ATTACK", false], SHIELD: [12, 2, "GUARD", true],
   REACH: [10, 1, "REACH", false], HOLD: [16, 2, "CLUTCH", true],
   FIRE: [11, 1, "FIRE", false], THROW: [16, 1, "THROW", false],
+  WHIP: [11, 1, "ATTACK", false], BASH: [17, 1, "ATTACK", false],
   HIT: [10, 1, "STUN", false], POGO: [12, 1, "BOUNCE", true],
+  "CROUCH HOP": [8, 1, "HOP", true], SINK: [10, 1, "SINK", true],
   KO: [16, 2, "BREAK", false],
 };
+// Every melee kind in one table: how far the limb reaches at rest and at full
+// extension, how long each of its two bones is (the real reach ceiling), how
+// high it lands, how wide it reads against the ball, how long the hitbox
+// lives, and what it does on contact. A loaded hand cannot make a clean fist,
+// so an item swing is its own kind rather than a punch modifier — a pistol
+// lengthens the arm into a fast light lash, a grenade shortens it into a club.
+const meleeSpecs = {
+  PUNCH: { reach: 58, swell: 50, span: 58, height: 115, radius: 28,
+    windowUs: 220000, force: 1200, lift: 140,
+    cue: ["snare", 1.05], thud: ["block", 1] },
+  KICK: { reach: 75, swell: 62, span: 74, height: 55, radius: 35,
+    windowUs: 220000, force: 1550, lift: 220,
+    cue: ["kick", 1.05], thud: ["block", 1] },
+  WHIP: { reach: 92, swell: 74, span: 76, height: 122, radius: 24,
+    windowUs: 190000, force: 1000, lift: 110,
+    cue: ["whoosh", 1.15], thud: ["hat", 1.35] },
+  BASH: { reach: 62, swell: 40, span: 58, height: 108, radius: 40,
+    windowUs: 280000, force: 1750, lift: 210,
+    cue: ["kick", 1.3], thud: ["kick", 1.4] },
+};
+// One lookup serves both Y and the loaded punch, so the thing you can see in
+// the fighter's hand is always the thing that fires and the thing that swings.
+const itemMelee = { GUN: "WHIP", GRENADE: "BASH" };
 const instantReplayStepUs = 33333;
 const instantReplayMaxFrames = 240;
 const walkSpeed = 1060;
+// Vertical feel. The apex is the design constant — how high a fighter can
+// reach never changed — so every impulse here is paired with a gravity that
+// spends less time getting there. Rise is lighter than fall so the arc reads
+// as intent going up and commitment coming down.
+const riseGravity = 4800;
+const fallGravity = 7200;
+const jumpVelocity = 1760;
+const crouchJumpVelocity = 1960;
+const ultraJumpVelocity = 3960;
+const crouchHopVelocity = 980;
+const pogoBounceVelocity = 2100;
+const headBounceVelocity = 1100;
+const jumpAnticipationUs = 50000;
+// Letting go of up mid-rise snips the arc: a tap is a hop, a hold is a jump.
+const jumpCutScale = .55;
+const jumpPoseUs = 75000;
+const crouchJumpPoseUs = 145000;
+const crouchHopPoseUs = 190000;
+const sinkDurationUs = 250000;
 const hudTypeSize = 42;
 const replayButtons = ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown",
   "A", "B", "X", "Y"];
@@ -138,7 +187,7 @@ class FightCamDoll {
     }
     // Pull back promptly but never in a single frame; return close more
     // slowly so small changes at the action-safe edge do not pump the lens.
-    const zoomSpeed = spec.width > this.width ? speed * 1.45 : speed * .58;
+    const zoomSpeed = spec.width > this.width ? speed * 1.9 : speed * .58;
     const zoomAmount = 1 - Math.exp(-Math.max(0, dt) * zoomSpeed);
     this.width = lerp(this.width, spec.width, zoomAmount);
     this.perspective = lerp(this.perspective, spec.perspective, amount);
@@ -190,21 +239,45 @@ class FightCamDoll {
 const cameraDoll = new FightCamDoll();
 const cameraScale = () => (stageRight - stageLeft) / cameraDoll.width;
 let triangleDepth = -1.4;
-function screenTriangle(x1, y1, x2, y2, x3, y3, ...color) {
-  if (typeof triangle3d === "function")
-    triangle3d(x1, y1, triangleDepth, x2, y2, triangleDepth,
-      x3, y3, triangleDepth, ...color);
-  else triangle(x1, y1, x2, y2, x3, y3, ...color);
+// A match frame submits ~2200 faces. One host call each is the whole frame
+// budget, and the BIOS already parks every triangle in a single end-of-frame
+// GPU pass — so ordering is untouched by buffering them here. 8192 is the
+// native per-frame ceiling and the per-call cap on `triangles3d`.
+const triangleBatch = typeof triangles3d === "function"
+  ? new Float32Array(8192 * 12) : null;
+let triangleBatchAt = 0;
+function batchTriangle(x1, y1, z1, x2, y2, z2, x3, y3, z3,
+  r = 255, g = 255, b = 255) {
+  const at = triangleBatchAt;
+  triangleBatch[at] = x1; triangleBatch[at + 1] = y1; triangleBatch[at + 2] = z1;
+  triangleBatch[at + 3] = x2; triangleBatch[at + 4] = y2; triangleBatch[at + 5] = z2;
+  triangleBatch[at + 6] = x3; triangleBatch[at + 7] = y3; triangleBatch[at + 8] = z3;
+  triangleBatch[at + 9] = r; triangleBatch[at + 10] = g; triangleBatch[at + 11] = b;
+  triangleBatchAt = at + 12;
+  if (triangleBatchAt === triangleBatch.length) flushTriangles();
+}
+function flushTriangles() {
+  if (!triangleBatchAt) return;
+  const count = triangleBatchAt / 12;
+  triangleBatchAt = 0; // Clear first so a rejected batch can't replay next frame.
+  triangles3d(triangleBatch, count);
+}
+const emitTriangle = triangleBatch ? batchTriangle
+  : typeof triangle3d === "function" ? triangle3d
+  : (x1, y1, z1, x2, y2, z2, x3, y3, z3, r, g, b) =>
+    triangle(x1, y1, x2, y2, x3, y3, r, g, b);
+// r/g/b stay positional so the hottest path in the piece doesn't build a rest
+// array per face; the host defaults every missing channel to 255 the same way.
+function screenTriangle(x1, y1, x2, y2, x3, y3, r = 255, g = 255, b = 255) {
+  emitTriangle(x1, y1, triangleDepth, x2, y2, triangleDepth,
+    x3, y3, triangleDepth, r, g, b);
 }
 function screenRect(x, y, width, height, color) {
   screenTriangle(x, y, x + width, y, x + width, y + height, ...color);
   screenTriangle(x, y, x + width, y + height, x, y + height, ...color);
 }
 function projectedTriangle(a, b, c, color) {
-  if (typeof triangle3d === "function")
-    triangle3d(a.x, a.y, a.z, b.x, b.y, b.z,
-      c.x, c.y, c.z, ...color);
-  else triangle(a.x, a.y, b.x, b.y, c.x, c.y, ...color);
+  emitTriangle(a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z, ...color);
 }
 function projectPoint(x, y, z = 0) {
   return cameraDoll.project({ x, y, z });
@@ -294,6 +367,7 @@ const players = [
     partDamage: {}, removedParts: [], pogoHit: false, pogoDive: false,
     commandStream: [],
     jumpLaunchAt: 0, jumpPoseUntil: 0, landPoseUntil: 0,
+    jumpHeld: false, hopUntil: 0, sinkUntil: 0,
     crouchJump: false, attackMomentum: 1 },
   { name: "@OSKIE", rosterIndex: 2, handleColors: fighterRoster[2].colors,
     npc: false, bot: false,
@@ -313,6 +387,7 @@ const players = [
     partDamage: {}, removedParts: [], pogoHit: false, pogoDive: false,
     commandStream: [],
     jumpLaunchAt: 0, jumpPoseUntil: 0, landPoseUntil: 0,
+    jumpHeld: false, hopUntil: 0, sinkUntil: 0,
     crouchJump: false, attackMomentum: 1 },
 ];
 const impacts = [];
@@ -329,22 +404,22 @@ for (const pickup of [...gunPickups, ...grenadePickups]) {
   pickup.active = false;
   pickup.respawnAt = 0;
 }
+// Every kind carries a gravity factor so redressing the match ball in place
+// can never leave a previous kind's float behind.
 const ballKinds = [
   { type: "soccer", spawnOwner: 0, radius: 38, mass: .72, hitScale: 1.12,
-    bounce: .58, drag: .994, windFactor: .58 },
+    bounce: .58, drag: .994, windFactor: .58, gravityFactor: 1 },
   { type: "basketball", spawnOwner: 1, radius: 42, mass: 1.08, hitScale: .86,
-    bounce: .76, drag: .989, windFactor: .34 },
+    bounce: .76, drag: .989, windFactor: .34, gravityFactor: 1 },
   { type: "beach", spawnOwner: -1, radius: 46, mass: .34, hitScale: 1.25,
     bounce: .82, drag: .998, windFactor: 1.35, gravityFactor: .62 },
 ];
-const balls = ballKinds.map((kind) => ({
-  ...kind, x: kind.spawnOwner >= 0 ? players[kind.spawnOwner].spawnX
-    : platformRight + 820,
-  y: kind.spawnOwner >= 0 ? floorY - kind.radius : floorY - 920,
-  z: 0, vx: 0, vy: 0, active: true, serveAt: 0,
-  lastHitBy: kind.spawnOwner, safeUntil: 0, safePlayers: 0,
-  rotation: 0, heldBy: -1,
-}));
+let matchBallType = ballKinds[0].type;
+// A match inflates exactly one ball and keeps it for every round.
+const balls = [{ ...ballKinds[0], z: 0, vx: 0, vy: 0, rotation: 0,
+  x: players[0].spawnX, y: floorY - ballKinds[0].radius,
+  active: true, serveAt: 0, lastHitBy: 0, safeUntil: 0, safePlayers: 0,
+  heldBy: -1 }];
 // Version-one replay/spectator consumers still read the first ball by name.
 const ball = balls[0];
 let ballEnabled = true;
@@ -386,7 +461,10 @@ let instantReplay = null;
 let replayOfferPrevious = [];
 let shellMode = "MENU";
 let shellPrevious = [];
-let titleTransitionAt = -1;
+// Unset is null, never -1: the console's monotonic clock can read negative
+// (App.cpp overflows int64 converting QPC ticks past ~10 days of uptime),
+// and a >= 0 sentinel then swallows every legitimate timestamp.
+let titleTransitionAt = null;
 let navigationPrevious = [[], []];
 // Temporary live combat inspector. Keep this explicit so the production view
 // can return to a clean presentation without changing combat geometry.
@@ -450,11 +528,14 @@ function startReplay(now) {
     seriesName = "";
     matchName = "";
     previousRoundName = "";
+    // Training has no series to seed from, so the chosen pal picks the ball.
+    matchBallType = seriesBallType(players[0].name);
     replay = null;
     spectatorQr = null;
     return;
   }
   seriesName = pronounceableMatchName();
+  matchBallType = seriesBallType(seriesName);
   matchName = "";
   previousRoundName = "";
   replay = {
@@ -496,6 +577,7 @@ function spectatorState(now, nextRoundId = "") {
       z: player.z, vx: player.vx, vy: player.vy, vz: player.vz,
       facing: player.facing, alive: player.alive,
       grounded: player.grounded, ducking: player.ducking,
+      sinking: now < player.sinkUntil,
       blocking: player.blocking, score: player.score,
       roundWins: player.roundWins, attack: player.attackKind || "",
       removedParts: player.removedParts.slice(),
@@ -766,6 +848,9 @@ function playDrum(name, velocity = 1, pan = 0) {
 
 let clientError = "";
 let clientErrorDetail = null;
+let clientErrorAt = -1;
+let clientErrorQr = null;
+let clientErrorDumpUrl = "";
 
 function clientStateDump() {
   try {
@@ -804,6 +889,67 @@ function clientStateDump() {
   }
 }
 
+function errorNowUs() {
+  try {
+    const value = Number(runtime()?.monotonicUs);
+    if (Number.isFinite(value)) return value;
+  } catch (_) {}
+  return 0;
+}
+
+// btoa only speaks latin-1, so the dump flattens to ASCII before encoding.
+function base64Url(text) {
+  if (typeof btoa !== "function") return "";
+  return btoa(String(text).replace(/[^\x20-\x7e]/g, "?"))
+    .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+// The QR carries the entire dump in its own URL, so a crash stays shareable
+// even when the console never managed to post its report. Fat fields drop
+// away until the payload fits a code that is still scannable off a TV.
+function buildClientErrorDump(detail) {
+  clientErrorQr = null;
+  clientErrorDumpUrl = "";
+  const stack = String(detail.stack || "").split(/\r?\n/).slice(0, 4)
+    .map((line) => line.trim()).filter(Boolean).join(" | ").slice(0, 240);
+  for (const trace of [stack, ""]) {
+    const url = errorDumpBase + base64Url(JSON.stringify({
+      v: 1, p: detail.phase, n: detail.name, m: detail.message,
+      src: detail.source, k: trace || undefined, s: detail.state,
+    }));
+    if (url.length <= 2048 && typeof qrcode === "function") {
+      try {
+        clientErrorQr = qrcode(url, { errorCorrectLevel: 1 });
+        clientErrorDumpUrl = url;
+        return;
+      } catch (_) {}
+    }
+  }
+}
+
+function errorRestartSeconds() {
+  if (clientErrorAt < 0) return 0;
+  return Math.max(0,
+    Math.ceil((errorRestartUs - (errorNowUs() - clientErrorAt)) / 1000000));
+}
+
+// A crashed console should not sit on a dead screen forever. The error holds
+// long enough to read and scan, then the piece boots itself again.
+function restartAfterClientError() {
+  if (clientErrorAt < 0 || errorNowUs() - clientErrorAt < errorRestartUs) return;
+  clientError = "";
+  clientErrorDetail = null;
+  clientErrorAt = -1;
+  clientErrorQr = null;
+  clientErrorDumpUrl = "";
+  impacts.length = 0;
+  detachedParts.length = 0;
+  bullets.length = 0;
+  grenades.length = 0;
+  try { telemetry("SHELL", "error->restart"); } catch (_) {}
+  boot();
+}
+
 function errorSource(stack) {
   const match = String(stack || "").match(
     /(?:\(|\s|^)((?:[a-z]+:\/\/)?[^\s()]+):(\d+):(\d+)\)?/i);
@@ -826,6 +972,11 @@ function captureClientError(phase, error) {
   const detail = stack || (name + ": " + message);
   clientError = (clientErrorDetail.phase + ": " + detail)
     .replace(/[^\x20-\x7e]+/g, " ").replace(/\s+/g, " ").trim();
+  clientErrorAt = errorNowUs();
+  try { buildClientErrorDump(clientErrorDetail); } catch (_) {
+    clientErrorQr = null;
+    clientErrorDumpUrl = "";
+  }
   try {
     telemetry("CLIENT_ERROR", JSON.stringify({
       phase: clientErrorDetail.phase, name, message, stack,
@@ -867,6 +1018,43 @@ function errorTypeWrite(text, x, y, size, ...color) {
   }
 }
 
+// Diagnostic lines are dense, so every token gets its own ink: handles read as
+// people, numbers as measurements, units as scale, and the rest as labels.
+const dumpUnits = new Set(["px", "ms", "us", "fps", "vx", "vy", "vz", "in",
+  "stk", "pos", "vel", "t", "pts"]);
+
+function dumpTokens(text) {
+  return String(text).match(/@[a-z0-9_]+|[-+]?\d*\.?\d+|[a-z]+|\s+|./gi) || [];
+}
+
+function dumpTokenInk(token) {
+  if (token[0] === "@") return [255, 126, 205];
+  if (/^[-+]?[\d.]+$/.test(token)) return [116, 255, 184];
+  if (/^[a-z]+$/i.test(token)) return dumpUnits.has(token.toLowerCase())
+    ? [255, 205, 74] : [188, 204, 230];
+  return [112, 234, 255];
+}
+
+function writeTokens(write, text, x, y, size) {
+  let cursor = x;
+  for (const token of dumpTokens(text)) {
+    if (token.trim()) write(token, cursor, y, size, ...dumpTokenInk(token));
+    cursor += handleWidth(token, size);
+  }
+}
+
+const writeDumpLine = (text, x, y, size) =>
+  writeTokens(errorTypeWrite, text, x, y, size);
+
+// The HUD sits over sky and ground, so each token carries its own contrast
+// shadow the way a handle glyph does.
+function writeHudLine(text, x, y, size) {
+  writeTokens((token, tx, ty, ts, ...color) =>
+    typeWrite(token, tx + 3, ty + 4, ts, ...runShadow(color)),
+    text, x, y, size);
+  writeTokens(typeWrite, text, x, y, size);
+}
+
 function errorReportStatus() {
   try {
     const status = String(runtime()?.clientErrorReportStatus || "").trim();
@@ -875,24 +1063,94 @@ function errorReportStatus() {
   return clientErrorDetail?.reportStatus || "queued for server";
 }
 
-function stateDumpLines(state) {
-  if (!state) return ["state unavailable"];
-  if (state.dumpError) return ["state unavailable: " + state.dumpError];
-  const playerLine = (player, index) => "p" + (index + 1) + " " +
-    player.handle + " " + player.stance.toLowerCase() +
-    " pos " + player.x + "," + player.y + "," + player.z +
-    " vel " + player.vx + "," + player.vy +
-    (player.removed?.length ? " lost " + player.removed.join(",") : "");
+function stateDumpRows(state) {
+  if (!state) return [{ icon: "mode", text: "state unavailable" }];
+  if (state.dumpError)
+    return [{ icon: "mode", text: "state unavailable: " + state.dumpError }];
+  const playerRow = (player, index) => ({ icon: "player",
+    text: "p" + (index + 1) + " " + player.handle + " " +
+      player.stance.toLowerCase() + " pos " + player.x + "," + player.y +
+      "," + player.z + " vel " + player.vx + "," + player.vy +
+      (player.removed?.length ? " lost " + player.removed.join(",") : "") });
   return [
-    "build " + state.build,
-    "mode " + state.shell.toLowerCase() + "  round " + state.round.id +
-      "  " + state.round.result.toLowerCase() + "  " + state.round.elapsedMs + "ms",
-    "camera " + state.camera.x + "," + state.camera.y +
-      "  width " + state.camera.width + "  aspect " + state.camera.aspect,
-    ...(state.players || []).map(playerLine),
-    "balls " + (state.balls || []).map((ball) => ball.type + "@" +
-      ball.x + "," + ball.y + " v" + ball.vx + "," + ball.vy).join("  "),
+    { icon: "build", text: "build " + state.build },
+    { icon: "mode", text: "mode " + state.shell.toLowerCase() +
+      "  round " + state.round.id + "  " + state.round.result.toLowerCase() +
+      "  " + state.round.elapsedMs + "ms" },
+    { icon: "camera", text: "camera " + state.camera.x + "," + state.camera.y +
+      "  width " + state.camera.width + "  aspect " + state.camera.aspect },
+    ...(state.players || []).map(playerRow),
+    { icon: "ball", text: "balls " + (state.balls || []).map((ball) =>
+      ball.type + "@" + ball.x + "," + ball.y + " v" + ball.vx + "," + ball.vy)
+      .join("  ") },
   ];
+}
+
+const dumpIconInk = { build: [116, 128, 156], mode: [255, 205, 74],
+  camera: [112, 214, 255], player: [206, 166, 255], ball: [116, 255, 184] };
+
+function drawDumpIcon(kind, x, y, size) {
+  const ink = dumpIconInk[kind] || [112, 234, 255];
+  const unit = Math.max(2, Math.round(size / 9));
+  try {
+    if (kind === "build")
+      for (let row = 0; row < 3; row++)
+        box(x, y + row * unit * 3, size - row * unit * 2, unit * 2, ...ink);
+    else if (kind === "camera") {
+      strokeBox(x, y + unit, size, size - unit * 2, unit, ink);
+      box(x + unit * 3, y + unit * 3, size - unit * 6, size - unit * 6, ...ink);
+    } else if (kind === "player") {
+      box(x + unit * 2, y, size - unit * 4, unit * 3, ...ink);
+      box(x, y + unit * 4, size, size - unit * 4, ...ink);
+    } else if (kind === "ball") {
+      box(x + unit * 2, y, size - unit * 4, size, ...ink);
+      box(x, y + unit * 2, size, size - unit * 4, ...ink);
+    } else strokeBox(x, y, size, size, unit, ink);
+  } catch (_) {}
+}
+
+// Sized for a phone pointed at a television, so modules stay chunky and the
+// state dump wraps narrower to keep clear of the code.
+function errorQrGeometry(width, height) {
+  if (!clientErrorQr || typeof clientErrorQr.getModuleCount !== "function")
+    return null;
+  const count = clientErrorQr.getModuleCount();
+  const quiet = 2;
+  const cell = Math.max(2,
+    Math.floor(Math.min(width * .3, height * .52) / (count + quiet * 2)));
+  const size = (count + quiet * 2) * cell;
+  return { count, quiet, cell, size,
+    left: width - 92 - size, top: height - 96 - size };
+}
+
+// Drawn with raw boxes rather than the projected screenRect the HUD uses —
+// the triangle pipeline is exactly what may have just died. Dark modules
+// coalesce into horizontal runs so a full code stays a few hundred draws.
+function drawErrorQr(qr) {
+  if (!qr) return;
+  box(qr.left, qr.top, qr.size, qr.size, 250, 250, 247);
+  for (let row = 0; row < qr.count; row++) {
+    let run = 0;
+    for (let column = 0; column <= qr.count; column++) {
+      if (column < qr.count && clientErrorQr.isDark(row, column)) { run++; continue; }
+      if (run) box(qr.left + (column - run + qr.quiet) * qr.cell,
+        qr.top + (row + qr.quiet) * qr.cell, run * qr.cell, qr.cell, 7, 8, 14);
+      run = 0;
+    }
+  }
+}
+
+// Same two-digit face as the round timer, reddening as the restart lands.
+function drawErrorCountdown(width) {
+  const remaining = errorRestartSeconds();
+  const text = String(Math.min(99, remaining)).padStart(2, "0");
+  const danger = remaining <= 10;
+  const shake = danger
+    ? Math.sin(errorNowUs() / 1000000 * 35) * (11 - remaining) * .45 : 0;
+  let textWidth = 64;
+  try { textWidth = handleWidth(text, 52); } catch (_) {}
+  errorTypeWrite(text, width - 92 - textWidth + shake, 82, 52,
+    ...(danger ? [255, 92, 116] : [255, 205, 74]));
 }
 
 function drawClientError() {
@@ -907,9 +1165,11 @@ function drawClientError() {
     phase: "runtime", name: "Error", message: clientError,
     stack: "", source: null, state: null,
   };
+  const qr = errorQrGeometry(width, height);
   wipe(7, 9, 18);
   box(48, 48, width - 96, height - 96, 30, 14, 27);
-  errorTypeWrite("oskieware error", 92, 82, 52, 255, 92, 116);
+  errorTypeWrite("aesthetic.computer error", 92, 82, 52, 255, 92, 116);
+  drawErrorCountdown(width);
   errorTypeWrite(detail.phase.toLowerCase(), 94, 150, 31, 255, 205, 74);
   errorTypeWrite(detail.name, 230, 150, 31, 255, 126, 154);
   const messageLines = clientErrorLines(detail.message, 66).slice(0, 2);
@@ -927,13 +1187,19 @@ function drawClientError() {
   }
   errorTypeWrite("state dump", 94, cursorY, 29, 116, 255, 184);
   cursorY += 42;
-  for (const line of stateDumpLines(detail.state).slice(0, 6)) {
-    for (const wrapped of clientErrorLines(line, 82).slice(0, 2)) {
+  for (const row of stateDumpRows(detail.state).slice(0, 6)) {
+    let leading = true;
+    for (const wrapped of clientErrorLines(row.text, qr ? 68 : 78).slice(0, 2)) {
       if (cursorY > height - 196) break;
-      errorTypeWrite(wrapped, 94, cursorY, 27, 188, 204, 230);
+      if (leading) drawDumpIcon(row.icon, 94, cursorY + 4, 22);
+      writeDumpLine(wrapped, 132, cursorY, 27);
       cursorY += 36;
+      leading = false;
     }
   }
+  drawErrorQr(qr);
+  if (qr) errorTypeWrite("scan to share this dump",
+    qr.left, qr.top - 42, 27, 116, 255, 184);
   const report = errorReportStatus();
   const posted = report.startsWith("posted");
   errorTypeWrite(report, 94, height - 150, 30,
@@ -944,8 +1210,12 @@ function drawClientError() {
 
 function drawClientErrorFallback() {
   try { wipe(7, 9, 18); } catch (_) {}
-  try { systemWrite("oskieware error", 72, 72, 48, 255, 92, 116); } catch (_) {}
+  try { systemWrite("aesthetic.computer error", 72, 72, 48, 255, 92, 116); } catch (_) {}
   try { systemWrite(errorReportStatus(), 72, 146, 30, 255, 205, 74); } catch (_) {}
+  try {
+    systemWrite("restart in " + errorRestartSeconds() + "s", 72, 200, 30,
+      255, 205, 74);
+  } catch (_) {}
 }
 
 function fighterProfile(handle) {
@@ -1009,7 +1279,7 @@ function returnToTitle(now, reason = "back") {
   finishReplay();
   shellMode = "MENU";
   selecting = false;
-  titleTransitionAt = -1;
+  titleTransitionAt = null;
   roundResult = "";
   roundCause = "";
   deathCinematic = null;
@@ -1047,9 +1317,9 @@ function enterGame(now) {
 
 function updateShell(now) {
   const down = padSnapshots[0]?.down || [];
-  if (titleTransitionAt >= 0) {
+  if (titleTransitionAt !== null) {
     if (now - titleTransitionAt >= 700000) {
-      titleTransitionAt = -1;
+      titleTransitionAt = null;
       enterGame(now);
     }
     shellPrevious = down.slice();
@@ -1121,38 +1391,31 @@ function selectionBack(now) {
   returnToTitle(now, "back");
 }
 
+// One pal at a time: the cursor holds the middle of the screen and its two
+// neighbours recede to either side, so the roster reads as a wheel you turn
+// rather than a board you scan.
 function selectionTouchLayout() {
-  const options = selectionOptions();
-  if (compactLayout()) {
-    const margin = 24;
-    const width = viewWidth() - margin * 2;
-    const gap = 12;
-    const columns = 2;
-    const top = 205;
-    const optionWidth = (width - gap) / columns;
-    const optionHeight = selectionStep === 0 ? 214 : 146;
-    return {
-      back: { x: margin, y: 126, width: 112, height: 50 },
-      options: options.map((option, index) => ({ index,
-        x: margin + (index % columns) * (optionWidth + gap),
-        y: top + Math.floor(index / columns) * (optionHeight + gap),
-        width: optionWidth, height: optionHeight })),
-    };
-  }
-  const ox = viewOffsetX();
-  const columns = selectionStep === 0 ? 4 : 3;
-  const gap = 28;
-  const margin = 90;
-  const width = 1920 - margin * 2;
-  const optionWidth = (width - gap * (columns - 1)) / columns;
-  const optionHeight = selectionStep === 0 ? 520 : 300;
-  const top = selectionStep === 0 ? 280 : 245;
+  const count = selectionOptions().length;
+  const compact = compactLayout();
+  const centerX = viewCenterX();
+  const cardWidth = compact ? Math.min(236, viewWidth() * .42) : 520;
+  const cardHeight = compact ? 300 : 560;
+  const top = compact ? 200 : 240;
+  const sideScale = compact ? .5 : .62;
+  const reach = cardWidth * (1 + sideScale) / 2 + (compact ? 6 : 26);
+  const slots = count > 2 ? [-1, 0, 1] : count > 1 ? [0, 1] : [0];
   return {
-    back: { x: ox + margin, y: 112, width: 170, height: 70 },
-    options: options.map((option, index) => ({ index,
-      x: ox + margin + (index % columns) * (optionWidth + gap),
-      y: top + Math.floor(index / columns) * (optionHeight + gap),
-      width: optionWidth, height: optionHeight })),
+    back: compact
+      ? { x: 24, y: 126, width: 112, height: 50 }
+      : { x: viewOffsetX() + 90, y: 112, width: 170, height: 70 },
+    options: slots.map((slot) => {
+      const scale = slot === 0 ? 1 : sideScale;
+      const width = cardWidth * scale;
+      const height = cardHeight * scale;
+      return { index: (selectionCursor + slot + count) % count, slot,
+        x: centerX + slot * reach - width / 2,
+        y: top + (cardHeight - height) / 2, width, height };
+    }),
   };
 }
 
@@ -1175,11 +1438,19 @@ function consumeSelectTouches(now) {
   if (!Array.isArray(queue) || !queue.length) return;
   const touches = queue.splice(0);
   const layout = selectionTouchLayout();
+  const options = selectionOptions();
   for (const point of touches) {
     if (pointInRect(point, layout.back)) selectionBack(now);
     else {
-      const option = layout.options.find((rect) => pointInRect(point, rect));
-      if (option) chooseSelection(option.index, now);
+      const rect = layout.options.find((option) => pointInRect(point, option));
+      // A receding neighbour turns the wheel; the focused card commits. A
+      // disabled card duds either way.
+      if (rect && (rect.slot === 0 || options[rect.index]?.disabled))
+        chooseSelection(rect.index, now);
+      else if (rect) {
+        selectionCursor = rect.index;
+        playDrum("hat", .55, 0);
+      }
     }
     if (!selecting || shellMode === "MENU") break;
   }
@@ -1191,13 +1462,10 @@ function updateSelect(now) {
   const down = padSnapshots[0]?.down || [];
   const previous = selectionPrevious[0];
   const pressed = (button) => down.includes(button) && !previous.includes(button);
-  const columns = compactLayout() ? 2 : selectionStep === 0 ? 4 : 3;
   const optionCount = selectionOptions().length;
   let movement = 0;
-  if (pressed("ArrowLeft")) movement = -1;
-  else if (pressed("ArrowRight")) movement = 1;
-  else if (pressed("ArrowUp")) movement = -columns;
-  else if (pressed("ArrowDown")) movement = columns;
+  if (pressed("ArrowLeft") || pressed("ArrowUp")) movement = -1;
+  else if (pressed("ArrowRight") || pressed("ArrowDown")) movement = 1;
   if (movement) {
     let next = selectionCursor;
     for (let index = 0; index < optionCount; index++) {
@@ -1235,7 +1503,17 @@ function updateWind(dt, now) {
   windAcceleration = 0;
 }
 
+// The match ball is drawn from the series identity, never the clock or
+// Math.random, so a replay and its live spectators inflate the same one.
+function seriesBallType(name) {
+  const roll = hashUnit("ball:" + (name || "oskiewar"));
+  return ballKinds[Math.min(ballKinds.length - 1,
+    Math.floor(roll * ballKinds.length))].type;
+}
+
 function resetBalls(now) {
+  Object.assign(balls[0],
+    ballKinds.find((kind) => kind.type === matchBallType) || ballKinds[0]);
   for (const item of balls) {
     const owner = item.spawnOwner >= 0 ? players[item.spawnOwner] : null;
     item.x = owner ? owner.spawnX + owner.facing * 180 : platformRight + 820;
@@ -1284,7 +1562,7 @@ function roundDemoState(demo, now) {
     let kind = "";
     for (const event of demo.events || []) {
       if (event[0] > tick || event[0] < tick - 18 || event[2] !== pad) continue;
-      if (event[1] === "punch" || event[1] === "kick") kind = event[1].toUpperCase();
+      if (meleeSpecs[event[1].toUpperCase()]) kind = event[1].toUpperCase();
     }
     return kind;
   };
@@ -1412,7 +1690,7 @@ function gameBoot() {
   lastCountdownSecond = -1;
   emitSignal("hello", -1, 1, 0);
   shellMode = "MENU";
-  titleTransitionAt = -1;
+  titleTransitionAt = null;
   spectatorQr = typeof qrcode === "function"
     ? qrcode("https://oskiewar.com", { errorCorrectLevel: 1 }) : null;
   shellPrevious = [];
@@ -1509,9 +1787,15 @@ function resetRound(now, resetMatch = false) {
     player.jumpLaunchAt = 0;
     player.jumpPoseUntil = 0;
     player.landPoseUntil = 0;
+    player.jumpHeld = false;
+    player.hopUntil = 0;
+    player.sinkUntil = 0;
     player.crouchJump = false;
     player.attackMomentum = 1;
     player.botAttackAt = now + 420000;
+    player.botItemAt = now + 600000;
+    player.botSinkAt = now + 900000;
+    player.botSinkFrom = 0;
     player.botAttackUntil = 0;
     player.botAttackButton = "";
     player.botAttackSequence = 0;
@@ -1549,58 +1833,108 @@ function resetRound(now, resetMatch = false) {
   cameraContainFloor = 0;
 }
 
+// The box the camera packs. It is a fighting-game pushbox rather than the
+// animated silhouette on purpose: breathing and stride would otherwise pump
+// the lens once per idle cycle. Reach spans a fully extended punch or kick so
+// throwing one never shoves the frame; live limbs still set the containment
+// floor for anything this box misses.
+function fighterFrameRect() {
+  let left = Infinity;
+  let right = -Infinity;
+  let top = Infinity;
+  let bottom = -Infinity;
+  for (const player of players) {
+    const reach = isHeadOnly(player) ? 34 : isPogo(player) ? 56 : 104;
+    const rise = isHeadOnly(player) ? 52 : isPogo(player) ? 134 : 188;
+    left = Math.min(left, player.x - reach);
+    right = Math.max(right, player.x + reach);
+    top = Math.min(top, player.y - rise);
+    bottom = Math.max(bottom, player.y + 8);
+  }
+  return { left, right, top, bottom };
+}
+
+// Rect-pack: the camera width that makes a world rect exactly fill the
+// action-safe frame. Whichever axis runs out first decides the lens, so a
+// stacked pair frames as tightly as a spread one.
+function rectPackWidth(rect) {
+  const safe = actionSafeRect();
+  return Math.max(
+    (rect.right - rect.left) * (stageRight - stageLeft) /
+      Math.max(1, safe.right - safe.left),
+    (rect.bottom - rect.top) * cameraAspect * (stageBottom - stageTop) /
+      Math.max(1, safe.bottom - safe.top));
+}
+// A fighter reduced to a bouncing head is a few dozen units tall. Without a
+// floor the pack would keep closing until one limb filled the screen.
+const frameFloorWidth = () => compactLayout() ? 300 : 340;
+
+// Terrain is flat color, so it only has to reach as far as the lens can see.
+// Submitting the whole arena pushed its far corners past the native ±30000
+// coordinate guard whenever the camera closed in or sat against a wall, which
+// culled the ground quad and left the clear color where the stage should be.
+function terrainSpan() {
+  const reach = cameraDoll.width;
+  return { left: Math.max(worldLeft, cameraCenter - reach),
+    right: Math.min(worldRight, cameraCenter + reach),
+    top: Math.max(ceilingY, cameraCenterY - reach),
+    bottom: Math.min(floorY, cameraCenterY + reach) };
+}
+
 function updateCamera(dt) {
+  const rect = fighterFrameRect();
   // Look slightly ahead of fast movement so zoom starts before a fighter
   // reaches the safe edge instead of reacting after the crossing.
   const lookAhead = .2;
-  const future = players.map((player) => ({
-    x: player.x + (player.vx + (player.windVx || 0) +
-      (player.knockVx || 0) + (player.shieldVx || 0)) * lookAhead,
-    y: player.y + player.vy * lookAhead,
-  }));
-  const left = Math.min(players[0].x, players[1].x,
-    future[0].x, future[1].x);
-  const right = Math.max(players[0].x, players[1].x,
-    future[0].x, future[1].x);
-  const top = Math.min(players[0].y - 220, players[1].y - 220,
-    future[0].y - 220, future[1].y - 220);
-  const bottom = Math.max(players[0].y, players[1].y,
-    future[0].y, future[1].y);
+  let leftDrift = 0;
+  let rightDrift = 0;
+  let upDrift = 0;
+  let downDrift = 0;
+  for (const player of players) {
+    const dx = (player.vx + (player.windVx || 0) + (player.knockVx || 0) +
+      (player.shieldVx || 0)) * lookAhead;
+    const dy = player.vy * lookAhead;
+    leftDrift = Math.min(leftDrift, dx);
+    rightDrift = Math.max(rightDrift, dx);
+    upDrift = Math.min(upDrift, dy);
+    downDrift = Math.max(downDrift, dy);
+  }
+  rect.left += leftDrift;
+  rect.right += rightDrift;
+  rect.top += upDrift;
+  rect.bottom += downDrift;
   const maxWidth = Math.max(worldRight - worldLeft,
     (floorY - ceilingY) * cameraAspect);
-  const separation = right - left;
-  // Stay extremely close at Street Fighter distance, then grow predictive
-  // overscan as the fighters separate so fast edge approaches remain covered.
-  const horizontalPadding = clamp(180 + Math.max(0, separation - 700) * .12,
-    180, 620);
-  const verticalPadding = clamp(72 + cameraAspect * 32, 96, 150);
-  const minimumWidth = clamp(700 * cameraAspect / 2.1, 420, 700);
-  const desiredWidth = Math.max(minimumWidth, Math.min(maxWidth,
-    Math.max(right - left + horizontalPadding,
-      (bottom - top + verticalPadding) * cameraAspect)));
+  const desiredWidth = clamp(rectPackWidth(rect), frameFloorWidth(), maxWidth);
   const widthSpeed = desiredWidth > cameraWidth ? 13 : 5.5;
   const widthBlend = 1 - Math.exp(-Math.max(0, dt) * widthSpeed);
   cameraWidth += (desiredWidth - cameraWidth) * widthBlend;
   const halfWidth = cameraWidth / 2;
   const halfHeight = cameraWidth / cameraAspect / 2;
+  // Center comes from the same rect the width did, so the frame pans down as
+  // the action drops and rides up onto the platform with it.
   let desiredCenter = cameraWidth >= worldRight - worldLeft
     ? (worldLeft + worldRight) / 2
-    : Math.max(worldLeft + halfWidth,
-      Math.min(worldRight - halfWidth, (left + right) / 2));
+    : clamp((rect.left + rect.right) / 2,
+      worldLeft + halfWidth, worldRight - halfWidth);
+  // Feet plant a capsule radius under the floor line, and the ground plane
+  // keeps covering that far past it, so the frame may sit that low rather
+  // than widening just to recentre a standing pair.
+  const footRoom = 40;
   let desiredCenterY = halfHeight * 2 >= floorY - ceilingY
     ? (ceilingY + floorY) / 2
-    : Math.max(ceilingY + halfHeight,
-      Math.min(floorY - halfHeight, (top + bottom) / 2));
+    : clamp((rect.top + rect.bottom) / 2,
+      ceilingY + halfHeight, floorY + footRoom - halfHeight);
   // Fold containment into the target before easing. Clamping the live camera
   // after easing caused a one-frame reset whenever a fighter crossed the safe
-  // edge; predictive width now absorbs that motion while the center remains
+  // edge; the pack width now absorbs that motion while the center remains
   // continuous.
-  const containLeft = right + 350 - halfWidth;
-  const containRight = left - 350 + halfWidth;
+  const containLeft = rect.right - halfWidth * .92;
+  const containRight = rect.left + halfWidth * .92;
   if (containLeft <= containRight)
     desiredCenter = clamp(desiredCenter, containLeft, containRight);
-  const containTop = bottom + 130 - halfHeight;
-  const containBottom = top - 130 + halfHeight;
+  const containTop = rect.bottom - halfHeight * .92;
+  const containBottom = rect.top + halfHeight * .92;
   if (containTop <= containBottom)
     desiredCenterY = clamp(desiredCenterY, containTop, containBottom);
   const centerBlend = 1 - Math.exp(-Math.max(0, dt) * 9);
@@ -1677,15 +2011,17 @@ function updateCameraDoll(dt, now) {
   // as a final paint-time correction, which made the viewport skip a frame at
   // the safe-zone edge.
   const containmentWidth = fighterContainmentRequiredWidth(
-    (now - startedAt) / 1000000) * 1.11;
+    (now - startedAt) / 1000000) * 1.04;
   cameraContainFloor = Math.max(cameraContainFloor, containmentWidth);
   // A small overscan absorbs animated hands, feet, and perspective before
   // they reach the action-safe edge without loosening the close fight shot.
   const naturalWidth = cameraWidth * 1.015;
   // Hysteresis prevents a fighter hovering at the safe edge from repeatedly
-  // switching between close and wide framing.
+  // switching between close and wide framing. The band and the pushbox above
+  // are tuned together so the floor never has to release during an idle cycle;
+  // if it does, the lens breathes in time with the fighter's own animation.
   if (cameraContainFloor > naturalWidth &&
-      naturalWidth < cameraContainFloor * .84) {
+      naturalWidth < cameraContainFloor * .92) {
     const release = 1 - Math.exp(-Math.max(0, dt) * 1.6);
     cameraContainFloor = lerp(cameraContainFloor, naturalWidth, release);
   }
@@ -2000,20 +2336,21 @@ function updateGrenades(dt, now) {
 
 function startMelee(player, kind, now) {
   if (isHeadOnly(player) || isPogo(player)) return;
+  const spec = meleeSpecs[kind];
+  if (!spec) return;
   const attackingPart = kind === "KICK"
     ? player.facing > 0 ? "right-leg" : "left-leg"
-    : player.facing > 0 ? "right-arm" : "left-arm";
+    : itemHand(player);
   if (!hasPart(player, attackingPart)) return;
   player.attackKind = kind;
   player.attackStartedAt = now;
-  player.attackUntil = now + 220000;
+  player.attackUntil = now + spec.windowUs;
   player.attackHit = false;
   player.attackMomentum = now < player.dashUntil
     ? clamp(Math.abs(player.vx) / walkSpeed, 1.35, 2.25) : 1;
   player.stance = "ATTACK";
   player.pendingMoveLabel = kind;
-  const pan = panPlayer(player);
-  playDrum(kind === "KICK" ? "kick" : "snare", 1.05, pan);
+  playDrum(spec.cue[0], spec.cue[1], panPlayer(player));
   emitSignal(kind.toLowerCase(), player.pad, player.facing, 0);
 }
 
@@ -2022,6 +2359,18 @@ const hasPart = (player, part) => !player.removedParts?.includes(part);
 const isPogo = (player) => hasPart(player, "torso") &&
   limbParts.every((part) => !hasPart(player, part));
 const isHeadOnly = (player) => !hasPart(player, "torso");
+// A weapon rides in the lead hand — the same arm the pose already hangs it on.
+// Lose that arm and the fighter is disarmed until they turn around.
+const itemHand = (player) => player.facing > 0 ? "right-arm" : "left-arm";
+// Gun before grenade, always: the pistol is the sustained item and the one
+// drawn in the hand, so "use what you are holding" needs no mode toggle.
+const heldItem = (player) =>
+  isHeadOnly(player) || isPogo(player) || !hasPart(player, itemHand(player))
+    ? "" : player.gunAmmo > 0 ? "GUN"
+    : player.grenadeAmmo > 0 ? "GRENADE" : "";
+const itemSwinging = (player, now) =>
+  (player.attackKind === "WHIP" || player.attackKind === "BASH") &&
+  meleePulse(player, now) > 0;
 
 function meleePulse(player, now) {
   if (now >= player.attackUntil || player.attackUntil <= player.attackStartedAt) return 0;
@@ -2032,11 +2381,10 @@ function meleePulse(player, now) {
 
 function meleeTarget(player, now) {
   const pulse = meleePulse(player, now);
-  const kick = player.attackKind === "KICK";
+  const spec = meleeSpecs[player.attackKind] || meleeSpecs.PUNCH;
   return {
-    x: player.x + player.facing *
-      (kick ? 75 + 62 * pulse : 58 + 50 * pulse),
-    y: player.y - (kick ? 55 : 115), z: player.z,
+    x: player.x + player.facing * (spec.reach + spec.swell * pulse),
+    y: player.y - spec.height, z: player.z,
   };
 }
 
@@ -2048,6 +2396,9 @@ function itemActionPulse(player, now) {
 }
 
 function itemHandTarget(player, now) {
+  // A swung weapon rides the striking hand, so the drawn pistol or grenade
+  // sits on the live attack capsule instead of floating out in front.
+  if (itemSwinging(player, now)) return meleeTarget(player, now);
   const pulse = itemActionPulse(player, now);
   if (player.itemAction === "THROW") return {
     x: player.x + player.facing * (42 + 52 * pulse),
@@ -2078,7 +2429,7 @@ function meleeStrike(player, now) {
   const target = meleeTarget(player, now);
   return {
     x: target.x, y: target.y, z: target.z,
-    radius: player.attackKind === "KICK" ? 35 : 28,
+    radius: (meleeSpecs[player.attackKind] || meleeSpecs.PUNCH).radius,
   };
 }
 
@@ -2339,30 +2690,63 @@ function updateBall(ball, dt, now) {
   }
 }
 
+// Returns whether the tap was spent on a double-tap move, so a single tap can
+// still mean something else to the caller.
 function directionTap(player, direction, now) {
   const previousTap = player.lastTap[direction] || -10000000;
   const releasedAt = player.lastRelease[direction] || -10000000;
   player.lastTap[direction] = now;
   if (now - previousTap > doubleTapUs || releasedAt <= previousTap ||
-      now - releasedAt < doubleTapReleaseUs) return;
+      now - releasedAt < doubleTapReleaseUs) return false;
   player.lastTap[direction] = -10000000;
   player.pendingMoveLabel = direction === "UP" ? "ULTRA JUMP" : "DASH " + direction;
   playDrum("clap", 1.05, panPlayer(player));
   if (direction === "UP") {
-    player.vy = -2500;
+    player.vy = -ultraJumpVelocity;
     player.grounded = false;
+    player.jumpHeld = false;
     emitSignal("ultrajump", player.pad, 1, 0);
   } else if (direction === "DOWN") {
-    player.vy = 1400;
-    player.grounded = false;
-    player.ducking = false;
-    emitSignal("fastdrop", player.pad, 1, 0);
+    // Grounded anywhere above the real floor and not riding a head means the
+    // platform, wherever it has been placed. Double-crouch sinks through it.
+    if (player.grounded && player.standingOn < 0 && player.y < floorY)
+      sink(player, now);
+    else {
+      player.vy = 1400;
+      player.grounded = false;
+      player.ducking = false;
+      emitSignal("fastdrop", player.pad, 1, 0);
+    }
   } else {
     player.facing = direction === "RIGHT" ? 1 : -1;
     player.dashVx = player.facing * 2400;
     player.dashUntil = now + 110000;
     emitSignal("dash", player.pad, player.facing, 0);
   }
+  return true;
+}
+
+function sink(player, now) {
+  player.sinkUntil = now + sinkDurationUs;
+  player.grounded = false;
+  player.jumpHeld = false;
+  player.vy = Math.max(player.vy, 260);
+  player.pendingMoveLabel = "SINK";
+  playDrum("whoosh", .55, panPlayer(player));
+  emitSignal("sink", player.pad, -1, 0);
+}
+
+// A short low hop out of crouch. Crouching pins horizontal movement, so a
+// direction flick from a tuck has nothing else to mean.
+function crouchHop(player, direction, now) {
+  player.facing = direction;
+  player.vy = -crouchHopVelocity;
+  player.grounded = false;
+  player.jumpHeld = false;
+  player.hopUntil = now + crouchHopPoseUs;
+  player.pendingMoveLabel = "CROUCH HOP";
+  playDrum("block", .58, panPlayer(player));
+  emitSignal("crouchhop", player.pad, direction, 0);
 }
 
 function killPlayer(target, killerPad, now, cause = "KO") {
@@ -2426,19 +2810,18 @@ function resolveMelee(now) {
       attacker.dashVx = 0;
       attacker.knockVx = -attacker.facing * recoil;
       attacker.vx = attacker.knockVx + attacker.windVx;
-      if (target.blocking) attacker.vy = Math.min(attacker.vy, -260);
+      if (target.blocking) attacker.vy = Math.min(attacker.vy, -415);
       else target.vx = 0;
       playDrum("block", 1.2, panPlayer(target));
       emitSignal("block", target.pad, attacker.pad, target.blocking ? 1 : 2);
     } else if (headshot) killPlayer(target, attacker.pad, now,
       contacts.length >= 2 ? "TRADE" : "KO");
     else {
+      const spec = meleeSpecs[attacker.attackKind] || meleeSpecs.PUNCH;
       const momentum = attacker.attackMomentum || 1;
-      const force = (attacker.attackKind === "KICK" ? 1550 : 1200) * momentum;
-      applyBodyHit(target, segmentIndex, attacker.x,
-        attacker.pad, now, force,
-        (attacker.attackKind === "KICK" ? 220 : 140) * momentum);
-      playDrum("block", 1, panPlayer(target));
+      applyBodyHit(target, segmentIndex, attacker.x, attacker.pad, now,
+        spec.force * momentum, spec.lift * momentum);
+      playDrum(spec.thud[0], spec.thud[1], panPlayer(target));
     }
   }
 }
@@ -2459,7 +2842,7 @@ function resolvePogoAttacks(now) {
     const contact = attackCapsuleContact([bottom], target, poseTime);
     if (!contact || contact.separation > 3) continue;
     attacker.pogoHit = true;
-    attacker.vy = Math.min(attacker.vy, -620);
+    attacker.vy = Math.min(attacker.vy, -985);
     attacker.lastButton = "POGO";
     attacker.lastButtonAt = now;
     impacts.push({ x: contact.x, y: contact.y, z: contact.z,
@@ -2531,6 +2914,8 @@ function resolvePlayerStanding(now) {
     rider.vy = Math.min(0, base.vy);
     rider.grounded = true;
     rider.standingOn = base.pad;
+    rider.sinkUntil = 0;
+    rider.hopUntil = 0;
     if (!wasGrounded) rider.landPoseUntil = now + 110000;
   }
 }
@@ -2544,6 +2929,8 @@ function updateStance(player, input, now) {
     : player.heldBall >= 0 ? "HOLDING"
     : player.grabHeld ? "REACHING"
     : player.attackKind ? "ATTACK"
+    : now < player.sinkUntil ? "SINK"
+    : !player.grounded && now < player.hopUntil ? "CROUCH HOP"
     : player.ducking ? player.grounded ? "CROUCH" : "AIR CROUCH"
     : player.pogoDive ? "POGO DOWN"
     : !player.grounded ? "AIR"
@@ -2596,7 +2983,7 @@ function releaseCarriedBall(player, now) {
 
 function bouncePogoOnSurface(player, surfaceY, now) {
   player.y = surfaceY;
-  player.vy = -1320;
+  player.vy = -pogoBounceVelocity;
   player.grounded = false;
   player.pogoDive = false;
   player.pogoHit = false;
@@ -2604,7 +2991,7 @@ function bouncePogoOnSurface(player, surfaceY, now) {
   player.lastButton = "POGO BOUNCE";
   player.lastButtonAt = now;
   playDrum("kick", .9, panPlayer(player));
-  emitSignal("pogo", player.pad, -2, 1320);
+  emitSignal("pogo", player.pad, -2, pogoBounceVelocity);
 }
 
 function updatePlayer(player, pad, dt, now) {
@@ -2630,6 +3017,9 @@ function updatePlayer(player, pad, dt, now) {
       player.jumpLaunchAt = 0;
       player.jumpPoseUntil = 0;
       player.landPoseUntil = 0;
+      player.jumpHeld = false;
+      player.hopUntil = 0;
+      player.sinkUntil = 0;
       player.crouchJump = false;
       player.attackMomentum = 1;
       player.hitSegment = -1;
@@ -2680,7 +3070,8 @@ function updatePlayer(player, pad, dt, now) {
   const downPressed = input.vertical < 0 && player.inputY >= 0;
   const wasCrouched = player.ducking || player.crouchBlend >= .35;
   const crouchTarget = input.vertical < 0 ||
-    (!player.grounded && player.crouchJump && now < player.jumpPoseUntil) ? 1 : 0;
+    (!player.grounded && player.crouchJump && now < player.jumpPoseUntil) ||
+    (!player.grounded && now < player.hopUntil) ? 1 : 0;
   const crouchStep = dt * (crouchTarget ? 9 : 11);
   player.crouchBlend += clamp(crouchTarget - player.crouchBlend,
     -crouchStep, crouchStep);
@@ -2696,18 +3087,18 @@ function updatePlayer(player, pad, dt, now) {
     player.lastRelease[player.inputX > 0 ? "RIGHT" : "LEFT"] = now;
   if (player.inputY && input.vertical !== player.inputY)
     player.lastRelease[player.inputY > 0 ? "UP" : "DOWN"] = now;
-  if (input.horizontal && input.horizontal !== player.inputX)
-    {
-      const direction = input.horizontal > 0 ? "RIGHT" : "LEFT";
-      recordCommand(player, direction, now);
-      directionTap(player, direction, now);
-    }
-  if (input.vertical && input.vertical !== player.inputY)
-    {
-      const direction = input.vertical > 0 ? "UP" : "DOWN";
-      recordCommand(player, direction, now);
-      directionTap(player, direction, now);
-    }
+  if (input.horizontal && input.horizontal !== player.inputX) {
+    const direction = input.horizontal > 0 ? "RIGHT" : "LEFT";
+    recordCommand(player, direction, now);
+    if (!directionTap(player, direction, now) && player.grounded &&
+        player.ducking && !headOnly && !pogo && !hitStunned)
+      crouchHop(player, input.horizontal, now);
+  }
+  if (input.vertical && input.vertical !== player.inputY) {
+    const direction = input.vertical > 0 ? "UP" : "DOWN";
+    recordCommand(player, direction, now);
+    directionTap(player, direction, now);
+  }
 
   if (input.horizontal) player.facing = input.horizontal;
   // Fighting-game directions are digital: full movement begins and ends on
@@ -2724,7 +3115,8 @@ function updatePlayer(player, pad, dt, now) {
   const controlledVx = player.blocking ? player.shieldVx || 0
     : now < player.dashUntil && Math.abs(player.dashVx) > 0
     ? player.dashVx
-    : player.ducking ? 0 : input.horizontal * walkSpeed * mobility;
+    : player.ducking && player.grounded ? 0
+    : input.horizontal * walkSpeed * mobility;
   player.vx = controlledVx + player.windVx + player.knockVx;
   if (inputChanged) telemetry("FIGHT_MOVE", player.name +
     " pad=" + (player.pad + 1) +
@@ -2738,17 +3130,25 @@ function updatePlayer(player, pad, dt, now) {
     " vx=" + Math.round(player.vx) +
     " x=" + Math.round(player.x));
 
+  // Checked before liftoff so the launch frame itself can never be cut.
+  if (player.jumpHeld && player.vy < 0 && !player.blocking &&
+      input.vertical <= 0) {
+    player.vy *= jumpCutScale;
+    player.jumpHeld = false;
+  }
   if (!headOnly && upPressed && player.grounded && !player.jumpLaunchAt) {
-    player.jumpLaunchAt = now + 85000;
+    player.jumpLaunchAt = now + jumpAnticipationUs;
     player.crouchJump = wasCrouched;
     player.pendingMoveLabel = wasCrouched ? "CROUCH JUMP" : "JUMP";
   }
   if (player.jumpLaunchAt && now >= player.jumpLaunchAt) {
     player.jumpLaunchAt = 0;
-    player.jumpPoseUntil = now + (player.crouchJump ? 240000 : 125000);
+    player.jumpPoseUntil = now +
+      (player.crouchJump ? crouchJumpPoseUs : jumpPoseUs);
     const jumpScale = pogo ? .88 : legCount === 1 ? .78 : 1;
     player.vy = Math.min(player.vy,
-      -(player.crouchJump ? 1170 : 1050) * jumpScale);
+      -(player.crouchJump ? crouchJumpVelocity : jumpVelocity) * jumpScale);
+    player.jumpHeld = true;
     player.pogoHit = false;
     player.pogoDive = false;
     player.grounded = false;
@@ -2770,6 +3170,10 @@ function updatePlayer(player, pad, dt, now) {
     player.pendingMoveLabel ||= "AIR CROUCH";
   }
 
+  // Y is the only button that spends an item, so reaching for a kick can no
+  // longer empty a magazine. A loaded hand still colors the punch — into a
+  // swing, never a shot.
+  const acting = !headOnly && !pogo && !hitStunned && !player.blocking;
   for (const button of pad.down) {
     if (!player.previous.includes(button)) {
       remember(player, button);
@@ -2778,19 +3182,14 @@ function updatePlayer(player, pad, dt, now) {
         playDrum("block", .7, panPlayer(player));
         emitSignal("shield", player.pad, 1, 0);
       }
-      else if (!headOnly && !pogo && !hitStunned && !player.blocking &&
-          !grabHeld && button === "A") {
-        if (player.gunAmmo > 0) fireGun(player, input);
-        else startMelee(player, "KICK", now);
-      }
-      else if (!headOnly && !pogo && !hitStunned && !player.blocking &&
-          !grabHeld && button === "X") {
-        startMelee(player, "PUNCH", now);
-      }
-      else if (armCount > 0 && !headOnly && !pogo && !hitStunned &&
-          !player.blocking && button === "Y" &&
-          player.grenadeAmmo > 0) {
-        throwGrenade(player);
+      else if (acting && !grabHeld && button === "A")
+        startMelee(player, "KICK", now);
+      else if (acting && !grabHeld && button === "X")
+        startMelee(player, itemMelee[heldItem(player)] || "PUNCH", now);
+      else if (acting && button === "Y") {
+        const item = heldItem(player);
+        if (item === "GUN") fireGun(player, input);
+        else if (item === "GRENADE") throwGrenade(player);
       }
     }
   }
@@ -2802,15 +3201,17 @@ function updatePlayer(player, pad, dt, now) {
 
   const previousY = player.y;
   const wasGrounded = player.grounded;
-  player.vy += 1900 * dt;
+  player.vy += (player.vy < 0 ? riseGravity : fallGravity) * dt;
   player.x += player.vx * dt;
   player.y += player.vy * dt;
   player.grounded = false;
-  if (player.vy >= 0 && previousY <= platformY && player.y >= platformY &&
+  // A sinking fighter is transparent to the platform but never to the floor.
+  if (now >= player.sinkUntil &&
+      player.vy >= 0 && previousY <= platformY && player.y >= platformY &&
       player.x >= platformLeft && player.x <= platformRight) {
     player.y = platformY;
     if (headOnly) {
-      player.vy = -690;
+      player.vy = -headBounceVelocity;
       player.grounded = false;
       player.stance = "BOUNCE";
     } else if (pogo && player.pogoDive) {
@@ -2822,7 +3223,7 @@ function updatePlayer(player, pad, dt, now) {
   } else if (player.y >= floorY) {
     player.y = floorY;
     if (headOnly) {
-      player.vy = -690;
+      player.vy = -headBounceVelocity;
       player.grounded = false;
       player.stance = "BOUNCE";
     } else if (pogo && player.pogoDive) {
@@ -2835,6 +3236,9 @@ function updatePlayer(player, pad, dt, now) {
   if (!wasGrounded && player.grounded) {
     player.landPoseUntil = now + 110000;
     player.crouchJump = false;
+    player.jumpHeld = false;
+    player.hopUntil = 0;
+    player.sinkUntil = 0;
   }
   resolveRunnerBounds(player, (now - startedAt) / 1000000);
   player.hit = Math.max(0, player.hit - dt * 4);
@@ -2864,6 +3268,14 @@ function botPad(player, opponent, now) {
   } else {
     if (distance > 155)
       down.push(toward > 0 ? "ArrowRight" : "ArrowLeft");
+    // Items are ranged, so the bot spends them while closing rather than
+    // trading one for a swing it could land anyway. The grenade needs its arc.
+    const item = heldItem(player);
+    if (item && now >= player.botItemAt &&
+        distance >= (item === "GUN" ? 320 : 1200)) {
+      down.push("Y");
+      player.botItemAt = now + 600000;
+    }
     if (distance < 225 && now >= player.botAttackAt) {
       player.botAttackButton = player.botAttackSequence++ % 2 ? "A" : "X";
       player.botAttackUntil = now + 70000;
@@ -2878,6 +3290,18 @@ function botPad(player, opponent, now) {
     down.push("ArrowUp");
     player.botJumpAt = now + 1250000;
   }
+  // Knocked up onto the platform the bot would camp out of reach, so it plays
+  // the same double-tap-down a player would. The windows are wide enough that
+  // a dropped frame still samples each half of the tap.
+  if (player.grounded && player.standingOn < 0 && player.y < floorY - 40 &&
+      opponent.y > player.y + 200 && now >= player.botSinkAt) {
+    player.botSinkAt = now + 900000;
+    player.botSinkFrom = now;
+  }
+  const sinkAge = player.botSinkFrom ? now - player.botSinkFrom : -1;
+  if (sinkAge >= 200000) player.botSinkFrom = 0;
+  else if (sinkAge >= 0 &&
+      (sinkAge < 50000 || sinkAge >= 150000)) down.push("ArrowDown");
   return { connected: true, down, leftX: 0, leftY: 0 };
 }
 
@@ -2998,15 +3422,24 @@ function circle(x, y, radius, width, color) {
   }
 }
 
+// Discs are the piece's bulk geometry — every capsule end, every joint. The
+// unit ring is constant, so the trig runs once at load, and fanning from a rim
+// vertex covers the identical decagon in 8 faces instead of 10 from the center
+// (cull is off, depth is flat, colors are flat — the rasterized pixels match).
+const discRing = [];
+for (let side = 0; side < 10; side++) {
+  const a = side * Math.PI * 2 / 10;
+  discRing.push(Math.cos(a), Math.sin(a));
+}
 function filledDisc(x, y, radius, color) {
-  const sides = 10;
-  for (let side = 0; side < sides; side++) {
-    const a = side * Math.PI * 2 / sides;
-    const b = (side + 1) * Math.PI * 2 / sides;
-    screenTriangle(x, y,
-      x + Math.cos(a) * radius, y + Math.sin(a) * radius,
-      x + Math.cos(b) * radius, y + Math.sin(b) * radius,
-      ...color);
+  const originX = x + discRing[0] * radius, originY = y + discRing[1] * radius;
+  let lastX = x + discRing[2] * radius, lastY = y + discRing[3] * radius;
+  for (let side = 4; side < discRing.length; side += 2) {
+    const nextX = x + discRing[side] * radius;
+    const nextY = y + discRing[side + 1] * radius;
+    screenTriangle(originX, originY, lastX, lastY, nextX, nextY, ...color);
+    lastX = nextX;
+    lastY = nextY;
   }
 }
 
@@ -3109,12 +3542,18 @@ function fighterAnimationPhase(player, now = null) {
     stateStartedAt = player.attackStartedAt || now;
   } else if (isPogo(player)) {
     state = "POGO";
+  } else if (now < player.sinkUntil) {
+    state = "SINK";
+    stateStartedAt = player.sinkUntil - sinkDurationUs;
+  } else if (!player.grounded && now < player.hopUntil) {
+    state = "CROUCH HOP";
+    stateStartedAt = player.hopUntil - crouchHopPoseUs;
   } else if (player.ducking) {
     state = player.grounded ? "CROUCH" : "AIR CROUCH";
   } else if (!player.grounded) {
     state = player.vy < 0 ? "JUMP" : "FALL";
     stateStartedAt = player.jumpPoseUntil
-      ? player.jumpPoseUntil - (player.crouchJump ? 240000 : 125000)
+      ? player.jumpPoseUntil - (player.crouchJump ? crouchJumpPoseUs : jumpPoseUs)
       : player.lastButtonAt || now;
   } else if (now < player.dashUntil) {
     state = "DASH";
@@ -3129,7 +3568,8 @@ function fighterAnimationPhase(player, now = null) {
   const rawStep = Math.floor(rawTick / ticksPerStep);
   const step = loop ? rawStep % steps : Math.min(steps - 1, rawStep);
   let phase = basePhase;
-  if (["PUNCH", "KICK", "FIRE", "THROW", "REACH"].includes(state)) {
+  if (["PUNCH", "KICK", "WHIP", "BASH", "FIRE", "THROW", "REACH"]
+      .includes(state)) {
     const section = step / Math.max(1, steps - 1);
     phase = section < .3 ? "STARTUP" : section < .68 ? "ACTIVE" : "RECOVERY";
   } else if (state === "JUMP" || state === "FALL") {
@@ -3159,7 +3599,7 @@ function runnerWorldGeometry(player, t) {
   const noLegs = !hasPart(player, "left-leg") &&
     !hasPart(player, "right-leg") && !headOnly;
   const jumpAnticipation = player.jumpLaunchAt > poseNow
-    ? clamp(1 - (player.jumpLaunchAt - poseNow) / 85000, 0, 1) : 0;
+    ? clamp(1 - (player.jumpLaunchAt - poseNow) / jumpAnticipationUs, 0, 1) : 0;
   const landingRecovery = player.landPoseUntil > poseNow
     ? clamp((player.landPoseUntil - poseNow) / 110000, 0, 1) : 0;
   const crouchPose = clamp(Math.max(player.crouchBlend || 0,
@@ -3242,7 +3682,8 @@ function runnerWorldGeometry(player, t) {
     "shoulders");
   if (player.attackKind === "KICK" && attackPulse > 0) {
     const target = meleeTarget(player, poseNow);
-    const leg = twoBone(x, hipY, target.x, target.y, 74, -player.facing);
+    const leg = twoBone(x, hipY, target.x, target.y,
+      meleeSpecs.KICK.span, -player.facing);
     segment(x, hipY, leg.jointX, leg.jointY, 12, "attack-thigh");
     segment(leg.jointX, leg.jointY, leg.targetX, leg.targetY, 12,
       "attack-shin");
@@ -3274,6 +3715,8 @@ function runnerWorldGeometry(player, t) {
   const elbowY = feet - lerp(94, 76, crouchPose) - breath;
   const handY = feet - lerp(65, 50, crouchPose) - breath * .5;
   const actionNow = poseNow;
+  const armAttack = attackPulse > 0 && player.attackKind &&
+    player.attackKind !== "KICK";
   if (player.grabHeld) {
     const held = player.heldBall >= 0 ? balls[player.heldBall] : null;
     const clutchX = held?.x ?? x + player.facing * 126;
@@ -3293,6 +3736,22 @@ function runnerWorldGeometry(player, t) {
       segment(pose.jointX, pose.jointY, pose.targetX, pose.targetY, 12,
         "grab-forearm");
     }
+  } else if (armAttack) {
+    // The striking arm outranks the carry pose: a whip or bash has to publish
+    // attack capsules or an armed fighter could never land a hand strike.
+    const target = meleeTarget(player, poseNow);
+    const actionShoulderX = player.facing > 0 ? rightShoulderX : leftShoulderX;
+    const restShoulderX = player.facing > 0 ? leftShoulderX : rightShoulderX;
+    const armPose = twoBone(actionShoulderX, shoulderY, target.x, target.y,
+      (meleeSpecs[player.attackKind] || meleeSpecs.PUNCH).span, player.facing);
+    segment(actionShoulderX, shoulderY, armPose.jointX, armPose.jointY, 12,
+      "attack-upper-arm");
+    segment(armPose.jointX, armPose.jointY,
+      armPose.targetX, armPose.targetY, 12, "attack-forearm");
+    segment(restShoulderX, shoulderY, x - player.facing * 32, elbowY, 10,
+      "rest-upper-arm");
+    segment(x - player.facing * 32, elbowY,
+      x - player.facing * 36, handY, 10, "rest-forearm");
   } else if ((player.itemAction && actionNow < player.itemActionUntil) ||
       (player.gunAmmo > 0 && player.itemAction !== "THROW")) {
     const target = itemHandTarget(player, actionNow);
@@ -3304,20 +3763,6 @@ function runnerWorldGeometry(player, t) {
       "item-upper-arm");
     segment(armPose.jointX, armPose.jointY,
       armPose.targetX, armPose.targetY, 12, "item-forearm");
-    segment(restShoulderX, shoulderY, x - player.facing * 32, elbowY, 10,
-      "rest-upper-arm");
-    segment(x - player.facing * 32, elbowY,
-      x - player.facing * 36, handY, 10, "rest-forearm");
-  } else if (player.attackKind === "PUNCH" && attackPulse > 0) {
-    const target = meleeTarget(player, poseNow);
-    const actionShoulderX = player.facing > 0 ? rightShoulderX : leftShoulderX;
-    const restShoulderX = player.facing > 0 ? leftShoulderX : rightShoulderX;
-    const armPose = twoBone(actionShoulderX, shoulderY,
-      target.x, target.y, 58, player.facing);
-    segment(actionShoulderX, shoulderY, armPose.jointX, armPose.jointY, 12,
-      "attack-upper-arm");
-    segment(armPose.jointX, armPose.jointY,
-      armPose.targetX, armPose.targetY, 12, "attack-forearm");
     segment(restShoulderX, shoulderY, x - player.facing * 32, elbowY, 10,
       "rest-upper-arm");
     segment(x - player.facing * 32, elbowY,
@@ -3409,15 +3854,8 @@ function fighterContainmentRequiredWidth(t) {
       include(segment.x2, segment.y2, radius);
     }
   }
-  const safe = actionSafeRect();
-  const safeWidth = Math.max(1, safe.right - safe.left);
-  const safeHeight = Math.max(1, safe.bottom - safe.top);
-  return Math.max(
-    (right - left) * (stageRight - stageLeft) / safeWidth,
-    (bottom - top) * cameraAspect *
-      (stageBottom - stageTop) / safeHeight,
-    compactLayout() ? 560 : 640,
-  );
+  return Math.max(rectPackWidth({ left, right, top, bottom }),
+    frameFloorWidth());
 }
 
 // Final render invariant: both complete animated fighter geometries must fit
@@ -3471,11 +3909,8 @@ function containFighters(t) {
   const safeWidth = Math.max(1, safe.right - safe.left);
   const safeHeight = Math.max(1, safe.bottom - safe.top);
   const requiredWidth = Math.max(
-    (maxX - minX) * (stageRight - stageLeft) / safeWidth,
-    (maxY - minY) * cameraAspect *
-      (stageBottom - stageTop) / safeHeight,
-    compactLayout() ? 560 : 640,
-  );
+    rectPackWidth({ left: minX, right: maxX, top: minY, bottom: maxY }),
+    frameFloorWidth());
   if (requiredWidth > cameraDoll.width) {
     const amount = requiredWidth / Math.max(1, cameraDoll.width) * 1.04;
     for (const axis of ["x", "y", "z"])
@@ -3838,6 +4273,22 @@ function contrastShadow(color) {
   return luminance > 142 ? [8, 12, 24] : [232, 238, 248];
 }
 
+// Per-glyph contrast flips a single mid-tone letter to the opposite shadow
+// while its neighbors keep theirs, which reads as a mistake rather than as
+// depth. A run of type picks its direction once, from the sky behind it, and
+// each shadow keeps a trace of its own glyph's hue.
+function runShadow(color) {
+  return mixColor(color, visualTheme.light > .5 ? [10, 12, 26] : [238, 242, 252],
+    .76);
+}
+
+// Handle colors are authored per name and can be shorter than the name they
+// dress. Cycling keeps every glyph on the same palette instead of dropping
+// the tail onto a different color source.
+function glyphColor(colors, index, fallback) {
+  return colors?.length ? colors[index % colors.length] : fallback;
+}
+
 function controlLocale() {
   const caps = typeof capabilities === "function" ? capabilities() : {};
   const keyboard = caps.inputFamily === "keyboard";
@@ -3865,8 +4316,8 @@ function drawHandle(handle, x, y, size, colors, fallback) {
   let cursor = x;
   const characters = [...String(handle)];
   for (let index = 0; index < characters.length; index++) {
-    const color = colors?.[index] || fallback;
-    typeWrite(characters[index], cursor, y, size, ...color);
+    typeWrite(characters[index], cursor, y, size,
+      ...glyphColor(colors, index, fallback));
     cursor += comicGlyphAdvance(characters[index], size);
   }
 }
@@ -3957,6 +4408,9 @@ function drawInventory(player, now) {
   const grenadeColor = [255, 105, 105];
   const firing = player.itemAction === "FIRE" && now < player.itemActionUntil;
   const throwing = player.itemAction === "THROW" && now < player.itemActionUntil;
+  // A bash keeps the grenade visible in the fist; itemHandTarget already
+  // parks both weapons on the swinging hand.
+  const bashing = player.attackKind === "BASH" && itemSwinging(player, now);
   if ((player.gunAmmo > 0 || firing) && !throwing) {
     const pose = gunPose(player, now);
     const hand = projectPoint(pose.hand.x, pose.hand.y, pose.hand.z);
@@ -3980,7 +4434,7 @@ function drawInventory(player, now) {
         Math.max(2, 5 * scale), 255, 248, 190);
     }
   }
-  if (throwing) {
+  if (throwing || bashing) {
     const target = itemHandTarget(player, now);
     const hand = projectPoint(target.x, target.y, target.z);
     circle(hand.x, hand.y, Math.max(5, 15 * scale),
@@ -4184,32 +4638,6 @@ function drawDebugHitboxes(player, t) {
         segment.width + 5, attackColor);
     }
   }
-
-  if (!debugHitboxes) return;
-
-  const mode = "P" + (player.pad + 1) + " " + player.stance +
-    (player.attackKind ? "/" + player.attackKind : "");
-  const bodyBottom = projectedBodyBottom(geometry);
-  const labelY = Math.min(viewHeight - 230, bodyBottom + 12);
-  const labelWidth = Math.max(162, mode.length * 15);
-  const pad = padSnapshots[player.pad] ||
-    { connected: false, down: [], leftX: 0, leftY: 0 };
-  const input = quantizedInput(pad, player.suppressedDirections);
-  const inputLabel = "IN " + input.horizontal + "," + input.vertical +
-    "  STK " + pad.leftX.toFixed(2) + "  VX " + Math.round(player.vx);
-  const animation = fighterAnimationPhase(player, displayNow);
-  const animationLabel = "ANIM " + animation.state + ":" + animation.phase +
-    "  STEP " + animation.step + "/" + animation.steps +
-    "  T" + animation.tick;
-  const inputWidth = inputLabel.length * 10;
-  const animationWidth = animationLabel.length * 10;
-  const panelWidth = Math.max(labelWidth, inputWidth + 16, animationWidth + 16);
-  typeWrite(mode, geometry.head.x - labelWidth / 2 + 8,
-    labelY, 24, ...player.color);
-  typeWrite(animationLabel, geometry.head.x - panelWidth / 2 + 8,
-    labelY + 30, 18, 215, 224, 240);
-  typeWrite(inputLabel, geometry.head.x - panelWidth / 2 + 8,
-    labelY + 54, 18, 215, 224, 240);
 }
 
 function drawPlayerHud(player, x, pad) {
@@ -4229,15 +4657,6 @@ function drawFighterData(player, x) {
   typeWrite(mood + "  ·  " + chat, x, 82, 15, ...ink);
 }
 
-function projectedBodyBottom(geometry) {
-  let bottom = geometry.head.y + geometry.head.radius;
-  for (const segment of geometry.segments) {
-    const radius = segment.width / 2;
-    bottom = Math.max(bottom, segment.y1 + radius, segment.y2 + radius);
-  }
-  return bottom;
-}
-
 function visibleHandle(player) {
   return player.name.toLowerCase();
 }
@@ -4255,9 +4674,8 @@ function playerHandleLayout(player, side) {
 
 function drawFloatingHandle(player, x, y, size) {
   const handle = visibleHandle(player);
-  const shadows = player.handleColors?.map(contrastShadow);
-  drawHandle(handle, x + 3, y + 4, size,
-    shadows, contrastShadow(player.color));
+  const shadows = player.handleColors?.map(runShadow);
+  drawHandle(handle, x + 3, y + 4, size, shadows, runShadow(player.color));
   drawHandle(handle, x, y, size, player.handleColors, player.color);
 }
 
@@ -4268,16 +4686,46 @@ function drawPlayerHandle(player, t, side) {
     let cursor = x + dx;
     for (let index = 0; index < handle.length; index++) {
       const character = handle[index];
-      const color = colors?.[index] || fallback;
-      typeWrite(character, cursor, y + dy, size, ...color);
+      typeWrite(character, cursor, y + dy, size,
+        ...glyphColor(colors, index, fallback));
       cursor += comicGlyphAdvance(character, size);
     }
   };
-  // Shadow contrast follows each foreground glyph instead of assuming that
-  // every handle color is light.
-  drawGlyphs(3, 4, player.handleColors?.map(contrastShadow),
-    contrastShadow(player.color));
+  drawGlyphs(3, 4, player.handleColors?.map(runShadow), runShadow(player.color));
   drawGlyphs(0, 0, player.handleColors, player.color);
+}
+
+function playerStatLines(player) {
+  const pad = padSnapshots[player.pad] ||
+    { connected: false, down: [], leftX: 0, leftY: 0 };
+  const input = quantizedInput(pad, player.suppressedDirections);
+  const animation = fighterAnimationPhase(player,
+    player.frozenAt || runtime().monotonicUs);
+  return [
+    "p" + (player.pad + 1) + " " + player.stance +
+      (player.attackKind ? " " + player.attackKind : ""),
+    "in " + input.horizontal + "," + input.vertical +
+      " stk " + pad.leftX.toFixed(2) + " vx " + Math.round(player.vx),
+    "anim " + animation.state + " " + animation.step + "/" + animation.steps +
+      " t" + animation.tick,
+  ];
+}
+
+// The read-out lives at handle size directly over the handle, so anything else
+// stacking on that corner starts above it.
+const statStackHeight = () => debugHitboxes ? 3 * (hudTypeSize + 4) + 8 : 0;
+
+function drawPlayerStats(player, side) {
+  if (!debugHitboxes) return;
+  const handle = playerHandleLayout(player, side);
+  const lines = playerStatLines(player);
+  for (let row = 0; row < lines.length; row++) {
+    const text = lines[row];
+    const width = handleWidth(text, hudTypeSize);
+    writeHudLine(text,
+      side === 0 ? handle.x : handle.x + handle.width - width,
+      handle.y - (lines.length - row) * (hudTypeSize + 4) - 8, hudTypeSize);
+  }
 }
 
 function drawHudInventory(player, side) {
@@ -4290,7 +4738,7 @@ function drawHudInventory(player, side) {
   const size = Math.round(hudTypeSize * .62);
   const width = handleWidth(text, size);
   const x = side === 0 ? handle.x : handle.x + handle.width - width;
-  const y = handle.y - size - 7;
+  const y = handle.y - statStackHeight() - size - 7;
   const shadow = contrastShadow(player.color);
   typeWrite(text, x + 2, y + 3, size, ...shadow);
   typeWrite(text, x, y, size, ...player.color);
@@ -4338,7 +4786,8 @@ function drawCommandStream(player, side) {
     ? Math.round(hudTypeSize * .62) + 8 : 0;
   const firstY = training
     ? safe.top + (debugHitboxes ? hudTypeSize + 12 : 4)
-    : handle.y - inventoryOffset - lines.length * (size + 4) - 11;
+    : handle.y - statStackHeight() - inventoryOffset -
+      lines.length * (size + 4) - 11;
   for (let row = 0; row < lines.length; row++) {
     const lineEntries = lines[row];
     const text = lineEntries.map((entry) => entry.text).join(" ");
@@ -4522,7 +4971,10 @@ function drawBall(ball) {
     for (let side = 0; side < sides; side++) {
       const a = ball.rotation + side * Math.PI * 2 / sides;
       const b = ball.rotation + (side + 1) * Math.PI * 2 / sides;
-      const panel = (Math.floor(side / 2) + paletteStep) % panels.length;
+      // Native monotonic time can read negative, and a negative remainder
+      // would index off the front of the palette.
+      const panel = ((Math.floor(side / 2) + paletteStep) % panels.length +
+        panels.length) % panels.length;
       const panelColor = mixColor(panels[panel],
         panels[(panel + 1) % panels.length], paletteMix);
       screenTriangle(point.x, point.y,
@@ -4676,15 +5128,18 @@ function drawWindFlag(t, color) {
     poleX + 55, poleBottom, poleZ, width, ink);
 }
 
-function seededWindValue(index, channel = 0) {
-  const text = (matchName || seriesName || "oskiewar") + ":" +
-    index + ":" + channel;
+function hashUnit(text) {
   let hash = 2166136261;
   for (let cursor = 0; cursor < text.length; cursor++) {
     hash ^= text.charCodeAt(cursor);
     hash = Math.imul(hash, 16777619);
   }
   return (hash >>> 0) / 4294967295;
+}
+
+function seededWindValue(index, channel = 0) {
+  return hashUnit((matchName || seriesName || "oskiewar") + ":" +
+    index + ":" + channel);
 }
 
 function drawAmbientMotes(t, color) {
@@ -4751,12 +5206,15 @@ function drawSelectionScreen(t, ink, panel) {
     ...mixColor([140, 150, 185], ink, .35));
   const backHovered = hover?.back;
   const options = selectionOptions();
-  for (const rect of layout.options) {
+  // Neighbours first so the focused card always lands on top of them.
+  const wheel = [...layout.options].sort((a, b) =>
+    Math.abs(b.slot) - Math.abs(a.slot));
+  for (const rect of wheel) {
     const option = options[rect.index];
     const player = selectionPreview(option);
     const disabled = Boolean(option.disabled);
     const hovered = !disabled && hover?.option === rect.index;
-    const focused = !disabled && selectionCursor === rect.index;
+    const focused = !disabled && rect.slot === 0;
     const emphasis = hovered ? .34 : focused ? .22 : .07;
     const disabledInk = mixColor([74, 80, 96], [164, 168, 178],
       visualTheme.light);
@@ -4765,19 +5223,26 @@ function drawSelectionScreen(t, ink, panel) {
       ...mixColor(panel, optionColor, disabled ? .12 : emphasis));
     box(rect.x, rect.y, rect.width, hovered ? 10 : focused ? 7 : 3,
       ...optionColor);
-    const scale = compact
-      ? selectionStep === 0 ? .46 : .28
-      : selectionStep === 0 ? 1.05 : .58;
+    const scale = rect.height / 520 * 1.05;
     const portraitY = rect.y + rect.height * (compact ? .55 : .53);
     drawSelectPortrait(player, rect.x + rect.width / 2, portraitY, scale, t);
     const label = option.fighter.handle.toLowerCase();
-    const labelSize = compact
-      ? selectionStep === 0 ? 28 : 25
-      : selectionStep === 0 ? 43 : 37;
+    const labelSize = Math.max(16, Math.round(rect.width * .085));
     const labelWidth = handleWidth(label, labelSize);
     drawHandle(label, rect.x + (rect.width - labelWidth) / 2,
       rect.y + rect.height - labelSize - (compact ? 10 : 18), labelSize,
       disabled ? [disabledInk] : option.fighter.colors, optionColor);
+  }
+  // Chevrons inside the focused card name the gesture that turns the wheel,
+  // without crowding the neighbours they point at.
+  if (layout.options.length > 1) {
+    const focus = layout.options.find((rect) => rect.slot === 0);
+    const arrowSize = compact ? 30 : 52;
+    const arrowY = focus.y + focus.height / 2 - arrowSize / 2;
+    const inset = (compact ? 8 : 14) + Math.sin(t * 3.4) * (compact ? 3 : 6);
+    typeWrite("<", focus.x + inset, arrowY, arrowSize, ...ink);
+    typeWrite(">", focus.x + focus.width - inset -
+      comicGlyphAdvance(">", arrowSize), arrowY, arrowSize, ...ink);
   }
   // Keep navigation above every option on narrow/tall browser layouts.
   box(layout.back.x, layout.back.y, layout.back.width, layout.back.height,
@@ -4821,6 +5286,14 @@ function titleButtonRect() {
     width, height, textSize, textWidth };
 }
 
+// Screen-space outline, four boxes, no projection — safe anywhere.
+function strokeBox(x, y, width, height, thickness, color) {
+  box(x, y, width, thickness, ...color);
+  box(x, y + height - thickness, width, thickness, ...color);
+  box(x, y, thickness, height, ...color);
+  box(x + width - thickness, y, thickness, height, ...color);
+}
+
 function drawTitleScreen(t, ink, transitionAge = -1) {
   const compact = compactLayout();
   const socialPreview = typeof capabilities === "function" &&
@@ -4832,21 +5305,25 @@ function drawTitleScreen(t, ink, transitionAge = -1) {
   const titleX = viewCenterX() - titleWidth / 2;
   const titleY = viewHeight * (compact ? .38 : .35);
 
-  // Sparse orbiting motes give attract mode some life without adding panels
-  // or stripes behind the wordmark.
-  const moteCount = transitionAge < 0 ? compact ? 8 : 12 : 0;
-  for (let index = 0; index < moteCount; index++) {
-    const angle = t * (.18 + index % 3 * .025) + index * 2.39996;
-    const reach = titleWidth * (.55 + Math.sin(t * .31 + index) * .06);
-    const x = viewCenterX() + Math.cos(angle) * reach;
-    const y = titleY + titleSize * .42 +
-      Math.sin(angle * 1.17) * titleSize * (compact ? .88 : 1.05);
-    const radius = (compact ? 2 : 3) + (index % 3);
-    circle(x, y, radius, Math.max(1.5, radius * .48),
-      animatedTitleColor(index, t * .7));
-  }
+  // Air fuzzies: sparse motes drifting the whole frame, no panels or stripes
+  // behind the wordmark.
+  if (transitionAge < 0)
+    for (let index = 0; index < (compact ? 10 : 16); index++) {
+      const phase = index * 2.39996;
+      const x = stageLeft + (stageRight - stageLeft) *
+        (.5 + .47 * Math.sin(t * (.055 + index % 5 * .01) + phase));
+      const y = viewHeight *
+        (.5 + .45 * Math.cos(t * (.043 + index % 4 * .012) + phase * 1.7));
+      const radius = (compact ? 2 : 3) + (index % 3);
+      circle(x, y, radius, Math.max(1.5, radius * .48),
+        animatedTitleColor(index, t * .7));
+    }
 
   let cursor = titleX;
+  // Kerning scaffold: one cell per glyph, taken from the same advance the
+  // layout walks, so drift and bob read against their own metrics.
+  const glyphCells = debugHitboxes && transitionAge < 0 && !socialPreview
+    ? [] : null;
   const flashPalette = [[255, 226, 48], [70, 224, 92], [181, 255, 48]];
   const flash = transitionAge >= 0
     ? flashPalette[Math.floor(transitionAge / .065) % flashPalette.length] : null;
@@ -4859,7 +5336,19 @@ function drawTitleScreen(t, ink, transitionAge = -1) {
       Math.sin(t * .63 + index * 1.71) * (compact ? 7 : 12);
     typeWrite(character, cursor + drift, titleY + bob, titleSize,
       ...(transitionInk || animatedTitleColor(index, t)));
-    cursor += comicGlyphAdvance(character, titleSize);
+    const advance = comicGlyphAdvance(character, titleSize);
+    if (glyphCells) glyphCells.push([cursor + drift, titleY + bob, advance]);
+    cursor += advance;
+  }
+  if (glyphCells) {
+    strokeBox(titleX, titleY, titleWidth, titleSize, 2, [92, 132, 255]);
+    for (const [x, y, advance] of glyphCells) {
+      strokeBox(x, y, advance, titleSize, 2, [255, 92, 116]);
+      box(x, y, 2, titleSize, 116, 255, 184);
+    }
+    typeWrite("size " + Math.round(titleSize) + "  width " +
+      Math.round(titleWidth), titleX, titleY + titleSize + 12, 24,
+      116, 255, 184);
   }
 
   const prompt = "start";
@@ -4873,18 +5362,18 @@ function drawTitleScreen(t, ink, transitionAge = -1) {
   const promptPulse = .68 + (Math.sin(t * 3.2) + 1) * .16;
   const promptInk = transitionInk ||
     mixColor([196, 142, 18], [255, 238, 82], promptPulse);
+  // The word floats on its own; the rect survives only as the touch target.
+  // Yellow type on a bright sky needs an edge, so a sharp offset shadow
+  // deepens as the background lightens and lifts as it goes to night.
   if (!socialPreview) {
-    const buttonPanel = transitionInk || mixColor(
-      [18, 24, 48], [215, 225, 239], visualTheme.light);
-    const buttonEdge = hovered ? promptInk : mixColor(buttonPanel, ink, .24);
-    box(button.x + 5, button.y + 6, button.width, button.height,
-      ...mixColor([3, 5, 14], [96, 104, 118], visualTheme.light));
-    box(button.x, button.y, button.width, button.height,
-      ...mixColor(buttonPanel, promptInk, hovered ? .25 : .06));
-    box(button.x, button.y, button.width, hovered ? 7 : 4, ...buttonEdge);
-    typeWrite(prompt, button.x + (button.width - button.textWidth) / 2,
-      button.y + (button.height - button.textSize) / 2 - 2,
-      button.textSize, ...promptInk);
+    const promptX = button.x + (button.width - button.textWidth) / 2;
+    const promptY = button.y + (button.height - button.textSize) / 2 - 2;
+    const offset = Math.max(3, Math.round(button.textSize * .1));
+    if (!transitionInk)
+      typeWrite(prompt, promptX + offset, promptY + offset, button.textSize,
+        ...mixColor([10, 12, 30], [86, 26, 116], visualTheme.light));
+    typeWrite(prompt, promptX, promptY, button.textSize,
+      ...(hovered ? mixColor(promptInk, [255, 255, 255], .35) : promptInk));
   }
   if (transitionAge >= 0 || socialPreview) return;
   const titleNow = pacificTimeLabel(runtime().unixMs || Date.now());
@@ -4934,6 +5423,23 @@ function drawDebugBug(safe) {
   filledDisc(x + 2, y - 7, 1.2, detail);
 }
 
+// The round QR owns the top-right corner whenever it is up, so the HUD clock
+// asks for its footprint before choosing a lane.
+function spectatorQrBox() {
+  if (typeof capabilities === "function" && capabilities().socialPreview)
+    return null;
+  if (shellMode === "GAME" && !roundIsTimed()) return null;
+  if (!spectatorQr || typeof spectatorQr.getModuleCount !== "function")
+    return null;
+  const safe = hudSafeRect();
+  const count = spectatorQr.getModuleCount();
+  const quiet = 2;
+  const cell = Math.max(2,
+    Math.floor((compactLayout() ? 108 : 158) / (count + quiet * 2)));
+  const size = (count + quiet * 2) * cell;
+  return { left: safe.right - size, top: safe.top, size, cell, count, quiet };
+}
+
 function drawSpectatorQr(ink) {
   if (typeof capabilities === "function" && capabilities().socialPreview) return;
   const safe = hudSafeRect();
@@ -4944,18 +5450,12 @@ function drawSpectatorQr(ink) {
     const fpsLabel = Math.round(displayFps || 0) + " fps";
     typeWrite(fpsLabel, safe.left + 36, safe.top + 2, metaSize, ...ink);
   }
-  if (shellMode === "GAME" && !roundIsTimed()) return;
-  if (!spectatorQr || typeof spectatorQr.getModuleCount !== "function") return;
-  const count = spectatorQr.getModuleCount();
-  const quiet = 2;
-  const targetSize = compact ? 108 : 158;
-  const cell = Math.max(2, Math.floor(targetSize / (count + quiet * 2)));
-  const size = (count + quiet * 2) * cell;
+  const qr = spectatorQrBox();
+  if (!qr) return;
+  const { count, quiet, cell, size, left, top } = qr;
   const shadow = [24, 26, 34];
   const previousDepth = triangleDepth;
   triangleDepth = -1.43;
-  const left = safe.right - size;
-  const top = safe.top;
   screenRect(left + 3, top + 3, size, size, shadow);
   screenRect(left, top, size, size, [250, 250, 247]);
   for (let row = 0; row < count; row++) {
@@ -4968,11 +5468,16 @@ function drawSpectatorQr(ink) {
   triangleDepth = previousDepth;
 }
 
-function drawRectOutline(rect, width, color) {
-  filledCapsule(rect.left, rect.top, rect.right, rect.top, width, color);
-  filledCapsule(rect.right, rect.top, rect.right, rect.bottom, width, color);
-  filledCapsule(rect.right, rect.bottom, rect.left, rect.bottom, width, color);
-  filledCapsule(rect.left, rect.bottom, rect.left, rect.top, width, color);
+// Framing marks rather than a full box: the corners state the bounds without
+// drawing four lines through the fight.
+function drawCornerCrops(rect, reach, width, color) {
+  const arm = Math.min(reach, (rect.right - rect.left) / 3,
+    (rect.bottom - rect.top) / 3);
+  for (const [x, towardX] of [[rect.left, 1], [rect.right, -1]])
+    for (const [y, towardY] of [[rect.top, 1], [rect.bottom, -1]]) {
+      filledCapsule(x, y, x + towardX * arm, y, width, color);
+      filledCapsule(x, y, x, y + towardY * arm, width, color);
+    }
 }
 
 function drawImpacts() {
@@ -5012,17 +5517,8 @@ function drawDetachedPart(fragment) {
 
 function drawSafeZones() {
   if (!debugHitboxes) return;
-  const hud = hudSafeRect();
-  const border = mixColor([112, 136, 190], [25, 38, 72], visualTheme.light);
-  drawRectOutline(hud, 3, border);
-  const action = actionSafeRect();
-  const hudDebug = [255, 214, 84];
-  const actionDebug = [105, 255, 118];
-  drawRectOutline(hud, 1, hudDebug);
-  drawRectOutline(action, 2, actionDebug);
-  typeWrite("hud safe", hud.left + 10, hud.top + 7, 17, ...hudDebug);
-  typeWrite("fighter safe", action.left + 10, action.top + 7,
-    17, ...actionDebug);
+  drawCornerCrops(hudSafeRect(), 46, 3, [255, 214, 84]);
+  drawCornerCrops(actionSafeRect(), 34, 2, [105, 255, 118]);
 }
 
 function gamePaint() {
@@ -5030,7 +5526,7 @@ function gamePaint() {
   const run = runtime();
   if (globalThis.__oskiewarTouch) {
     globalThis.__oskiewarTouch.screen = shellMode === "MENU"
-      ? titleTransitionAt >= 0 ? "title-transition" : "title"
+      ? titleTransitionAt !== null ? "title-transition" : "title"
       : selecting ? "select" : "game";
   }
   if (lastPaintAt > 0 && run.monotonicUs > lastPaintAt) {
@@ -5062,7 +5558,7 @@ function gamePaint() {
   wipe(...outside);
   if (shellMode === "MENU") {
     box(0, 0, viewWidth(), viewHeight, ...menuArena);
-    const transitionAge = titleTransitionAt >= 0
+    const transitionAge = titleTransitionAt !== null
       ? (run.monotonicUs - titleTransitionAt) / 1000000 : -1;
     drawTitleScreen(t, menuInk, transitionAge);
     if (transitionAge < 0) drawSpectatorQr(menuInk);
@@ -5076,39 +5572,43 @@ function gamePaint() {
   const cinematicAge = deathCinematicAge(run.monotonicUs);
   if (cinematicAge < 0 || cinematicAge >= 1.45) containFighters(t);
   cameraDoll.prepare();
+  const { left: spanLeft, right: spanRight,
+    top: spanTop, bottom: spanBottom } = terrainSpan();
   worldQuad(
-    { x: worldLeft, y: ceilingY, z: worldFar },
-    { x: worldRight, y: ceilingY, z: worldFar },
-    { x: worldRight, y: floorY, z: worldFar },
-    { x: worldLeft, y: floorY, z: worldFar }, sky);
+    { x: spanLeft, y: spanTop, z: worldFar },
+    { x: spanRight, y: spanTop, z: worldFar },
+    { x: spanRight, y: spanBottom, z: worldFar },
+    { x: spanLeft, y: spanBottom, z: worldFar }, sky);
   worldQuad(
-    { x: worldLeft, y: floorY, z: worldNear },
-    { x: worldRight, y: floorY, z: worldNear },
-    { x: worldRight, y: floorY, z: worldFar },
-    { x: worldLeft, y: floorY, z: worldFar }, ground);
+    { x: spanLeft, y: floorY, z: worldNear },
+    { x: spanRight, y: floorY, z: worldNear },
+    { x: spanRight, y: floorY, z: worldFar },
+    { x: spanLeft, y: floorY, z: worldFar }, ground);
   const boundary = mixColor([12, 17, 38], arena, .72);
   worldQuad(
-    { x: worldLeft, y: ceilingY, z: worldNear },
-    { x: worldLeft, y: ceilingY, z: worldFar },
-    { x: worldRight, y: ceilingY, z: worldFar },
-    { x: worldRight, y: ceilingY, z: worldNear }, boundary);
+    { x: spanLeft, y: ceilingY, z: worldNear },
+    { x: spanLeft, y: ceilingY, z: worldFar },
+    { x: spanRight, y: ceilingY, z: worldFar },
+    { x: spanRight, y: ceilingY, z: worldNear }, boundary);
   worldQuad(
-    { x: worldLeft, y: ceilingY, z: worldNear },
-    { x: worldLeft, y: floorY, z: worldNear },
-    { x: worldLeft, y: floorY, z: worldFar },
-    { x: worldLeft, y: ceilingY, z: worldFar }, boundary);
+    { x: worldLeft, y: spanTop, z: worldNear },
+    { x: worldLeft, y: spanBottom, z: worldNear },
+    { x: worldLeft, y: spanBottom, z: worldFar },
+    { x: worldLeft, y: spanTop, z: worldFar }, boundary);
   worldQuad(
-    { x: worldRight, y: ceilingY, z: worldFar },
-    { x: worldRight, y: floorY, z: worldFar },
-    { x: worldRight, y: floorY, z: worldNear },
-    { x: worldRight, y: ceilingY, z: worldNear }, boundary);
+    { x: worldRight, y: spanTop, z: worldFar },
+    { x: worldRight, y: spanBottom, z: worldFar },
+    { x: worldRight, y: spanBottom, z: worldNear },
+    { x: worldRight, y: spanTop, z: worldNear }, boundary);
   const platformNear = -520;
   const platformFar = 520;
-  worldQuad(
-    { x: platformLeft, y: platformY, z: platformNear },
-    { x: platformRight, y: platformY, z: platformNear },
-    { x: platformRight, y: platformY, z: platformFar },
-    { x: platformLeft, y: platformY, z: platformFar }, platformColor);
+  const ledgeLeft = Math.max(platformLeft, spanLeft);
+  const ledgeRight = Math.min(platformRight, spanRight);
+  if (ledgeLeft < ledgeRight) worldQuad(
+    { x: ledgeLeft, y: platformY, z: platformNear },
+    { x: ledgeRight, y: platformY, z: platformNear },
+    { x: ledgeRight, y: platformY, z: platformFar },
+    { x: ledgeLeft, y: platformY, z: platformFar }, platformColor);
   const shadowInk = mixColor([3, 5, 14], [92, 99, 101],
     visualTheme.light * .72);
   for (const player of players)
@@ -5130,22 +5630,44 @@ function gamePaint() {
     ? roundResult === "TIE" ? "tie!" : ""
     : timedRound ? String(remainingSeconds).padStart(2, "0") : "∞";
   const hud = hudSafeRect();
-  const timerSize = timedRound ? hudTypeSize : Math.round(hudTypeSize * 1.65);
-  const timerWidth = handleWidth(timerText, timerSize);
-  const timerDanger = timedRound && remainingSeconds > 0 &&
-    remainingSeconds <= 10;
-  const timerShake = timerDanger
-    ? Math.sin(t * 35) * (11 - remainingSeconds) * .45 : 0;
-  const timerInk = timerDanger
-    ? mixColor(titleInk, [235, 38, 58], (11 - remainingSeconds) / 10)
-    : titleInk;
-  typeWrite(timerText, viewCenterX() - timerWidth / 2 + timerShake,
-    hud.top + 2, timerSize, ...timerInk);
+  // Only a television has room to let the endless glyph grow this far.
+  const timerSize = timedRound ? hudTypeSize
+    : Math.round(hudTypeSize * (compactLayout() ? 1.65 : 2.6));
+  if (timerText === "∞") {
+    // The endless clock is the whole top row in training, so let it shine:
+    // it breathes, drifts through the title palette, and drops a colored
+    // shadow a palette step behind itself.
+    const glyphSize = Math.round(timerSize * (1 + Math.sin(t * 4.6) * .07));
+    const x = viewCenterX() - handleWidth(timerText, glyphSize) / 2;
+    typeWrite(timerText, x + 7, hud.top + 9, glyphSize,
+      ...animatedTitleColor(4, t * 2.4));
+    typeWrite(timerText, x, hud.top + 2, glyphSize,
+      ...animatedTitleColor(0, t * 2.4));
+  } else {
+    const timerWidth = handleWidth(timerText, timerSize);
+    const timerDanger = timedRound && remainingSeconds > 0 &&
+      remainingSeconds <= 10;
+    const timerShake = timerDanger
+      ? Math.sin(t * 35) * (11 - remainingSeconds) * .45 : 0;
+    const timerInk = timerDanger
+      ? mixColor(titleInk, [235, 38, 58], (11 - remainingSeconds) / 10)
+      : titleInk;
+    typeWrite(timerText, viewCenterX() - timerWidth / 2 + timerShake,
+      hud.top + 2, timerSize, ...timerInk);
+  }
   if (roundViewer) {
     const viewerLabel = roundViewerMode || roundViewerStatus;
     typeWrite(viewerLabel, hud.right - viewerLabel.length * 18, hud.top + 7, 24,
       ...(roundViewerMode === "LIVE" ? [210, 42, 62] : titleInk));
   }
+  // Wall clock in the top right, tucked left of the round QR and below the
+  // spectator label so it never lands on either.
+  const clockLabel = pacificTimeLabel(run.unixMs || Date.now());
+  const clockSize = Math.round(hudTypeSize * .62);
+  const qrBox = spectatorQrBox();
+  const clockRight = qrBox ? qrBox.left - 14 : hud.right;
+  typeWrite(clockLabel, clockRight - handleWidth(clockLabel, clockSize),
+    hud.top + (roundViewer ? clockSize + 10 : 2), clockSize, ...titleInk);
   for (const pickup of gunPickups) drawGunPickup(pickup, t);
   for (const pickup of grenadePickups) drawGrenadePickup(pickup, t);
   const introAge = run.monotonicUs - roundStartedAt;
@@ -5232,6 +5754,8 @@ function gamePaint() {
   if ((roundResult && resultUiReady) || (!roundResult && introAge >= introDurationUs)) {
     drawPlayerHandle(players[0], t, 0);
     drawPlayerHandle(players[1], t, 1);
+    drawPlayerStats(players[0], 0);
+    drawPlayerStats(players[1], 1);
     drawHudInventory(players[0], 0);
     drawHudInventory(players[1], 1);
     drawCommandStream(players[0], 0);
@@ -5251,7 +5775,7 @@ function boot() {
 }
 
 function sim() {
-  if (clientError) return;
+  if (clientError) { restartAfterClientError(); return; }
   try {
     gameSim();
   } catch (error) {
@@ -5259,16 +5783,21 @@ function sim() {
   }
 }
 
+// The batch flushes inside the guards so a face the host rejects still lands
+// on the error card instead of escaping paint entirely.
 function paint() {
   if (clientError) {
-    try { drawClientError(); } catch (_) { drawClientErrorFallback(); }
+    try { drawClientError(); flushTriangles(); }
+    catch (_) { drawClientErrorFallback(); }
     return;
   }
   try {
     gamePaint();
+    flushTriangles();
   } catch (error) {
     captureClientError("paint", error);
-    try { drawClientError(); } catch (_) { drawClientErrorFallback(); }
+    try { drawClientError(); flushTriangles(); }
+    catch (_) { drawClientErrorFallback(); }
   }
 }
 

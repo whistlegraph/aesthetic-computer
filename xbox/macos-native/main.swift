@@ -541,7 +541,7 @@ private final class NativeGameHost {
         if javascriptError.isEmpty { call("paint") }
         if !javascriptError.isEmpty {
             renderer.wipe(8, 10, 20)
-            renderer.commands.append(.text("oskieware error", CGPoint(x: 72, y: 72),
+            renderer.commands.append(.text("aesthetic.computer error", CGPoint(x: 72, y: 72),
                 52, Ink(255, 92, 116), "Comic Relief"))
             renderer.commands.append(.text(javascriptError, CGPoint(x: 72, y: 150),
                 25, Ink(230, 235, 248), "Comic Relief"))

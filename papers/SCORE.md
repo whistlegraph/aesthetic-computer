@@ -20,7 +20,9 @@ Each paper starts from a question or observation inside the Aesthetic Computer p
 
 ### `/papers` request contract
 
-When a user says **“use the papers stack,” “use `/papers`,” or “render this with the paper stack,”** treat that as a request for the mill, not as a synonym for generic PDF generation. The default deliverable is a scholarly, archival LaTeX paper in the arXiv lane unless the user explicitly asks for a briefing, dossier, essay, deck, card, or another form.
+The mill is this repository's PDF pipeline. **Any request for a document as a PDF — “give me this as a pdf,” “make a pdf of X,” “print this” — routes here by default**, alongside the explicit forms (“use the papers stack,” “use `/papers`,” “render this with the paper stack”). Do not hand-roll a converter, reach for `pandoc`, or print HTML through a browser because a request sounded informal or urgent; if a one-off render is genuinely wanted, the user will say so. The default deliverable is a scholarly, archival LaTeX paper in the arXiv lane unless the user explicitly asks for a briefing, dossier, essay, deck, card, or another form.
+
+Treating a mill request as mere PDF generation is the failure this contract exists to prevent: “use the papers stack” means the whole workflow — Platter consultation, lane selection, build, QA, visual inspection — not a file with a `.pdf` extension.
 
 Before outlining or designing it, consult the Platter: this score, the rendered public Platter index, relevant sub-platter manifests, prior AC papers and their bibliographies, and the code, data, images, or other primary evidence behind the subject. Record what was consulted in the source, notes, or bibliography so the result remains reproducible. The Platter supplies context and evidence; it is not permission to inflate the scope or silently publish private vault material.
 

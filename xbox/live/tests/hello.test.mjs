@@ -2,6 +2,10 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { qrcode } from
+  "../../../system/public/aesthetic.computer/dep/@akamfoad/qr/qr.mjs";
+import { decodeDump, dumpRows } from
+  "../../../system/netlify/functions/oskiewar-dump.mjs";
 
 const source = await readFile(new URL("../hello.js", import.meta.url), "utf8");
 const webShell = await readFile(new URL("../mac-test.html", import.meta.url), "utf8");
@@ -29,11 +33,14 @@ const pieceLog = await readFile(new URL(
   "../../../system/netlify/functions/piece-log.mjs", import.meta.url), "utf8");
 const limbPartsForTest = ["left-arm", "right-arm", "left-leg", "right-leg"];
 
+// `triangleHost` picks which of the three drawing entries the host offers:
+// "triangles3d" is the Xbox BIOS batch, "triangle3d" the per-face 3D call, and
+// "triangle" the flat 2D fallback the web shell ships with.
 function createFight(startImmediately = true, enterGame = true,
   platform = "xbox-uwp", roundBridge = null,
   viewport = { width: 1920, height: 1080 }, livePublisher = null,
-  drumVoice = null) {
-  let now = 0;
+  drumVoice = null, triangleHost = "triangle3d", startUs = 0) {
+  let now = startUs;
   const signals = [];
   const replays = [];
   const liveFrames = [];
@@ -41,6 +48,7 @@ function createFight(startImmediately = true, enterGame = true,
   const telemetryEvents = [];
   const drums = [];
   const triangles = [];
+  const boxes = [];
   const lines = [];
   let hostErrorStatus = "";
   const pads = [0, 1].map(() => ({ connected: true, down: [], leftX: 0, leftY: 0 }));
@@ -55,10 +63,19 @@ function createFight(startImmediately = true, enterGame = true,
       assert.ok(Number.isFinite(value) && Math.abs(value) <= 32768);
     triangles.push(values);
   };
+  const batches = [];
+  const drawTriangles3d = (buffer, count) => {
+    assert.ok(buffer instanceof Float32Array);
+    assert.equal(buffer.byteLength % (12 * Float32Array.BYTES_PER_ELEMENT), 0);
+    assert.ok(count > 0 && count <= buffer.length / 12 && count <= 8192);
+    batches.push({ buffer, count });
+    for (let at = 0; at < count * 12; at += 12)
+      drawTriangle3d(...buffer.subarray(at, at + 12));
+  };
   const drawLine = (...values) => lines.push(values);
   const fight = new Function(
-    "runtime", "gamepad", "capabilities", "telemetry", "gameSignal", "saveReplay", "publishLive", "analytics", "drum", "wipe", "box", "line", "triangle", "triangle3d", "write", "systemWrite", "gameView",
-    `${source}\nreturn { boot, sim, paint, playDrum, captureClientError, drawDetachedPart, clientErrorState: () => clientError, clientErrorDetailState: () => clientErrorDetail, errorReportStatus, controlLocale, animatedTitleColor, comicGlyphAdvance, handleWidth, displayTheme, players, ball, balls, bullets, grenades, gunPickups, grenadePickups, detachedParts, runnerWorldGeometry, fighterAnimationPhase, runnerDistanceToPoint, segmentSegmentClosest, meleeLimbContact, damagePart, isPogo, isHeadOnly, resultCardText, pacificTimeLabel, projectedBallRadius, deathCinematicState: () => deathCinematic ? { ...deathCinematic, age: deathCinematicAge() } : null, disableBall: () => { ballEnabled = false; for (const item of balls) item.active = false; }, enableBall: (index = 0) => { ballEnabled = true; const item = balls[index]; item.active = true; item.serveAt = 0; item.safeUntil = 0; item.safePlayers = 0; }, setWind: (value) => { windAcceleration = value; }, setDebugHitboxes: (value) => { debugHitboxes = Boolean(value); }, debugState: () => debugHitboxes, windState: () => ({ direction: windDirection, mph: windMph }), nextRound: () => resetRound(runtime().monotonicUs, false), knockOut: () => killPlayer(players[1], 0, runtime().monotonicUs, "KO"), startAttack: (kind) => startMelee(players[0], kind, runtime().monotonicUs), bootFirstBall: () => bootBall(ball, players[0], runtime().monotonicUs), wackBall: () => { players[0].attackKind = "KICK"; returnBall(ball, players[0], runtime().monotonicUs, false); }, shieldBall: () => returnBall(ball, players[0], runtime().monotonicUs, true), crossWackBall: (contact = 1) => crossWackBall(ball, players.map((player) => ({ player, contact })), runtime().monotonicUs), enterGame: () => enterGame(runtime().monotonicUs), shellState: () => ({ mode: shellMode }), startFight: () => { shellMode = "GAME"; selecting = false; startReplay(runtime().monotonicUs); resetRound(runtime().monotonicUs, true); }, selectionState: () => ({ selecting, step: selectionStep, cursor: selectionCursor, ready: selectionReady.slice() }), selectionOptions: () => selectionOptions().map((option) => ({ kind: option.kind, label: option.fighter.handle, disabled: Boolean(option.disabled) })), cameraState: () => ({ cameraWidth, cameraCenter, cameraCenterY, cameraAspect, stageRight, stageTop, stageBottom, viewHeight, cameraContainFloor, doll: { width: cameraDoll.width, target: { ...cameraDoll.target }, position: { ...cameraDoll.position }, perspective: cameraDoll.perspective, roll: cameraDoll.roll } }), screenBounds: () => players.map((player) => runnerScreenBounds(player, runtime().monotonicUs / 1e6)), actionSafeRect, hudSafeRect, roundState: () => ({ roundResult, roundElapsedUs, matchOver }), viewerState: () => ({ active: Boolean(roundViewer), mode: roundViewerMode, status: roundViewerStatus, name: matchName }), instantReplayState: () => instantReplay ? { active: true, paused: instantReplay.paused, cursor: instantReplay.cursor, frames: instantReplay.frames.length } : { active: false }, replayFrameCount: () => roundReplayFrames.length };`
+    "runtime", "gamepad", "capabilities", "telemetry", "gameSignal", "saveReplay", "publishLive", "analytics", "drum", "wipe", "box", "line", "triangle", "triangle3d", "triangles3d", "write", "systemWrite", "gameView",
+    `${source}\nreturn { boot, sim, paint, playDrum, captureClientError, drawDetachedPart, clientErrorState: () => clientError, clientErrorDetailState: () => clientErrorDetail, errorReportStatus, errorRestartSeconds, runShadow, glyphColor, contrastShadow, stateDumpRows, dumpTokens, dumpTokenInk, clientErrorDumpState: () => ({ url: clientErrorDumpUrl, modules: clientErrorQr ? clientErrorQr.getModuleCount() : 0 }), controlLocale, animatedTitleColor, comicGlyphAdvance, handleWidth, displayTheme, players, ball, balls, bullets, grenades, gunPickups, grenadePickups, detachedParts, runnerWorldGeometry, fighterAnimationPhase, runnerDistanceToPoint, segmentSegmentClosest, meleeLimbContact, damagePart, isPogo, isHeadOnly, resultCardText, pacificTimeLabel, projectedBallRadius, deathCinematicState: () => deathCinematic ? { ...deathCinematic, age: deathCinematicAge() } : null, disableBall: () => { ballEnabled = false; for (const item of balls) item.active = false; }, enableBall: (index = 0) => { ballEnabled = true; const item = balls[index]; item.active = true; item.serveAt = 0; item.safeUntil = 0; item.safePlayers = 0; }, setWind: (value) => { windAcceleration = value; }, setDebugHitboxes: (value) => { debugHitboxes = Boolean(value); }, debugState: () => debugHitboxes, windState: () => ({ direction: windDirection, mph: windMph }), nextRound: () => resetRound(runtime().monotonicUs, false), knockOut: () => killPlayer(players[1], 0, runtime().monotonicUs, "KO"), startAttack: (kind) => startMelee(players[0], kind, runtime().monotonicUs), bootFirstBall: () => bootBall(ball, players[0], runtime().monotonicUs), wackBall: () => { players[0].attackKind = "KICK"; returnBall(ball, players[0], runtime().monotonicUs, false); }, shieldBall: () => returnBall(ball, players[0], runtime().monotonicUs, true), crossWackBall: (contact = 1) => crossWackBall(ball, players.map((player) => ({ player, contact })), runtime().monotonicUs), enterGame: () => enterGame(runtime().monotonicUs), shellState: () => ({ mode: shellMode }), startFight: () => { shellMode = "GAME"; selecting = false; startReplay(runtime().monotonicUs); matchBallType = "soccer"; resetRound(runtime().monotonicUs, true); }, selectionState: () => ({ selecting, step: selectionStep, cursor: selectionCursor, ready: selectionReady.slice() }), selectionOptions: () => selectionOptions().map((option) => ({ kind: option.kind, label: option.fighter.handle, disabled: Boolean(option.disabled) })), cameraState: () => ({ cameraWidth, cameraCenter, cameraCenterY, cameraAspect, stageRight, stageTop, stageBottom, viewHeight, cameraContainFloor, doll: { width: cameraDoll.width, target: { ...cameraDoll.target }, position: { ...cameraDoll.position }, perspective: cameraDoll.perspective, roll: cameraDoll.roll } }), screenBounds: () => players.map((player) => runnerScreenBounds(player, runtime().monotonicUs / 1e6)), dumpTokens, dumpTokenInk, drawCornerCrops, playerStatLines, playerHandleLayout, statStackHeight, setBallKind: (type) => { matchBallType = type; resetBalls(runtime().monotonicUs); }, ballTypeState: () => matchBallType, seriesBallType, seriesState: () => seriesName, selectionLayout: selectionTouchLayout, actionSafeRect, hudSafeRect, projectPoint, terrainSpan, stageGeometry: () => ({ platformY, platformLeft, platformRight, floorY, ceilingY, worldLeft, worldRight, worldNear, worldFar }), frameRect: () => fighterFrameRect(), roundState: () => ({ roundResult, roundElapsedUs, matchOver }), viewerState: () => ({ active: Boolean(roundViewer), mode: roundViewerMode, status: roundViewerStatus, name: matchName }), instantReplayState: () => instantReplay ? { active: true, paused: instantReplay.paused, cursor: instantReplay.cursor, frames: instantReplay.frames.length } : { active: false }, replayFrameCount: () => roundReplayFrames.length };`
   )(
     () => ({ monotonicUs: now, unixMs: 1785870000000 + Math.floor(now / 1000),
       simCount: Math.floor(now / 16667), paintCount: 0,
@@ -72,8 +89,11 @@ function createFight(startImmediately = true, enterGame = true,
       ? livePublisher(matchId, payload)
       : liveFrames.push([matchId, JSON.parse(payload)]),
     (action, properties) => analyticsEvents.push([action, properties]),
-    drumVoice || ((name, velocity, pan) => drums.push([name, velocity, pan])), noOp, noOp, drawLine,
-    drawTriangle, drawTriangle3d, noOp, noOp, () => viewport
+    drumVoice || ((name, velocity, pan) => drums.push([name, velocity, pan])), noOp,
+    (...values) => boxes.push(values), drawLine,
+    drawTriangle, triangleHost === "triangle" ? undefined : drawTriangle3d,
+    triangleHost === "triangles3d" ? drawTriangles3d : undefined,
+    noOp, noOp, () => viewport
   );
   globalThis.__oskiewarRoundBridge = roundBridge;
   fight.boot();
@@ -97,7 +117,7 @@ function createFight(startImmediately = true, enterGame = true,
     tick(3000001);
   }
   return { fight, pads, signals, replays, liveFrames, analyticsEvents,
-    telemetryEvents, drums, triangles, lines,
+    telemetryEvents, drums, triangles, batches, boxes, lines,
     tick, tap, now: () => now,
     setHostErrorStatus: (status) => { hostErrorStatus = status; } };
 }
@@ -126,11 +146,20 @@ test("control copy follows the platform while every title says start", () => {
   assert.equal(touch.replayPaused, "paused");
 });
 
-test("desktop space kicks and B punches without changing Xbox buttons", () => {
+test("desktop space kicks and B punches whatever the fighter carries", () => {
   assert.match(webShell, /\["Space", \[0, "A"\]\]/);
   assert.match(webShell, /\["KeyB", \[0, "X"\]\]/);
-  assert.match(source, /button === "A"[\s\S]{0,140}startMelee\(player, "KICK"/);
-  assert.match(source, /button === "X"[\s\S]{0,80}startMelee\(player, "PUNCH"/);
+  const { fight, pads, tick } = createFight();
+  const player = fight.players[0];
+  player.gunAmmo = 4;
+  player.grenadeAmmo = 2;
+  pads[0].down = ["A"];
+  tick();
+  assert.equal(player.attackKind, "KICK");
+  assert.equal(player.gunAmmo, 4, "the kick button never spends ammo");
+  assert.equal(player.grenadeAmmo, 2);
+  assert.equal(fight.bullets.length, 0);
+  assert.equal(fight.grenades.length, 0);
 });
 
 test("web touch labels follow the current combat mapping", () => {
@@ -214,7 +243,7 @@ test("oskiewar typography uses the packaged KidLisp Comic Relief face", () => {
   assert.match(source, /typeof comicWrite === "function"/);
   assert.match(source, /comicGlyphAdvance/);
   assert.match(source, /String\(text\)\.toLowerCase\(\)/);
-  assert.match(source, /player\.handleColors\?\.map\(contrastShadow\)/);
+  assert.match(source, /player\.handleColors\?\.map\(runShadow\)/);
   assert.match(source, /const hudTypeSize = 42/);
   assert.match(source, /const timerSize = timedRound \? hudTypeSize/);
 });
@@ -358,7 +387,7 @@ test("debug view renders on the foreground triangle layer", () => {
   fight.paint();
   assert.ok(triangles.length - normalTriangleCount > normalTriangleCount);
   assert.match(source, /let debugHitboxes = false/);
-  assert.match(source, /function drawRectOutline[\s\S]*?filledCapsule/);
+  assert.match(source, /function drawCornerCrops[\s\S]*?filledCapsule/);
   assert.match(source,
     /drawDebugHitboxes\(players\[1\], t\);\n  drawBallHitboxes\(\);\n  drawImpacts\(\);/);
 });
@@ -433,11 +462,172 @@ test("camera zoom-out remains continuous as fighters approach safe edges", () =>
     `camera width jumped ${largestFrameRatio.toFixed(3)}x in one frame`);
 });
 
-test("close 16:9 action uses the tightest full-body containment frame", () => {
-  assert.match(source,
-    /const horizontalPadding = clamp\(180 \+ Math\.max\(0, separation - 700\) \* \.12/);
-  assert.match(source, /compactLayout\(\) \? 560 : 640/);
-  assert.match(source, /fighterContainmentRequiredWidth\([\s\S]{0,80}\* 1\.11/);
+// Settle a live fight into a given horizontal separation and report the frame.
+function settleFraming(fight, tick, separation, frames = 420) {
+  const left = 6000 - separation / 2;
+  const right = 6000 + separation / 2;
+  const floorY = fight.stageGeometry().floorY;
+  for (let frame = 0; frame < frames; frame++) {
+    for (const [player, x] of [[fight.players[0], left], [fight.players[1], right]]) {
+      player.x = x;
+      player.y = floorY;
+      player.vx = 0;
+      player.vy = 0;
+      player.grounded = true;
+    }
+    tick();
+    fight.paint();
+  }
+  const safe = fight.actionSafeRect();
+  const bounds = fight.screenBounds();
+  return { state: fight.cameraState(), safe,
+    height: Math.max(...bounds.map((box) => box.bottom)) -
+      Math.min(...bounds.map((box) => box.top)),
+    width: Math.max(...bounds.map((box) => box.right)) -
+      Math.min(...bounds.map((box) => box.left)) };
+}
+
+test("close quarters pushes the lens far past the opening frame", () => {
+  const { fight, tick } = createFight(false, false, "web");
+  fight.startFight();
+  tick(3000001);
+  const opening = settleFraming(fight, tick, 600);
+  const close = settleFraming(fight, tick, 120);
+  assert.ok(close.state.doll.width < opening.state.doll.width * .68,
+    `close framing ${close.state.doll.width.toFixed(0)} against ` +
+    `opening ${opening.state.doll.width.toFixed(0)}`);
+  // The pair has to genuinely dominate the frame, not merely grow a little.
+  const safeHeight = close.safe.bottom - close.safe.top;
+  assert.ok(close.height > safeHeight * .8,
+    `fighters filled only ${(close.height / safeHeight * 100).toFixed(0)}% ` +
+    `of action-safe height`);
+  assert.ok(close.height > opening.height * 1.5,
+    `close fighters ${close.height.toFixed(0)}px against ` +
+    `opening ${opening.height.toFixed(0)}px`);
+});
+
+test("the pack fits the fighters' own rect on whichever axis binds", () => {
+  const { fight, tick } = createFight(false, false, "web");
+  fight.startFight();
+  tick(3000001);
+  const stacked = settleFraming(fight, tick, 120);
+  const spread = settleFraming(fight, tick, 1400);
+  // Stacked runs out of height first, spread runs out of width first.
+  const stackedSafe = stacked.safe.bottom - stacked.safe.top;
+  const spreadSafe = spread.safe.right - spread.safe.left;
+  assert.ok(stacked.height / stackedSafe > stacked.width /
+    (stacked.safe.right - stacked.safe.left));
+  assert.ok(spread.width / spreadSafe > spread.height /
+    (spread.safe.bottom - spread.safe.top));
+  assert.ok(spread.width > spreadSafe * .8,
+    `spread pair filled only ${(spread.width / spreadSafe * 100).toFixed(0)}% ` +
+    `of action-safe width`);
+  const rect = fight.frameRect();
+  assert.ok(rect.right - rect.left > 1400 && rect.bottom - rect.top > 150);
+});
+
+test("the frame pans vertically with the action instead of hanging fixed", () => {
+  const { fight, tick } = createFight(false, false, "web");
+  fight.startFight();
+  tick(3000001);
+  const stage = fight.stageGeometry();
+  settleFraming(fight, tick, 240);
+  const grounded = fight.cameraState().cameraCenterY;
+  const ledge = (stage.platformLeft + stage.platformRight) / 2;
+  for (let frame = 0; frame < 120; frame++) {
+    for (const player of fight.players) {
+      player.x = ledge + (player.pad ? 60 : -60);
+      player.y = stage.platformY;
+      player.vy = 0;
+      player.grounded = true;
+    }
+    tick();
+    fight.paint();
+  }
+  const raised = fight.cameraState().cameraCenterY;
+  assert.ok(grounded - raised > (stage.floorY - stage.platformY) * .7,
+    `frame only panned ${(grounded - raised).toFixed(0)} of ` +
+    `${stage.floorY - stage.platformY}`);
+  // And back down when they drop off, without ever aiming under the stage.
+  const settled = settleFraming(fight, tick, 240);
+  assert.ok(settled.state.cameraCenterY - raised >
+    (stage.floorY - stage.platformY) * .7,
+    `frame only panned back ${(settled.state.cameraCenterY - raised).toFixed(0)}`);
+  assert.ok(settled.state.cameraCenterY <= stage.floorY);
+});
+
+test("the center platform is inside the 16:9 frame at match start", () => {
+  const { fight, tick } = createFight(false, false, "web");
+  fight.startFight();
+  tick(3000001);
+  for (let frame = 0; frame < 30; frame++) { tick(); fight.paint(); }
+  const stage = fight.stageGeometry();
+  const safe = fight.actionSafeRect();
+  const ledge = fight.projectPoint(
+    (stage.platformLeft + stage.platformRight) / 2, stage.platformY, 0);
+  assert.ok(ledge.y > safe.top && ledge.y < safe.bottom,
+    `platform projected to ${ledge.y.toFixed(0)} outside ` +
+    `${safe.top}..${safe.bottom}`);
+  // Comfortably inside, not clinging to the top edge.
+  assert.ok(ledge.y > safe.top + (safe.bottom - safe.top) * .1);
+});
+
+test("a close lens against a wall still submits arena terrain", () => {
+  const { fight, tick } = createFight(false, false, "web");
+  fight.startFight();
+  tick(3000001);
+  for (const place of [[520, 660], [11340, 11480], [5940, 6060]]) {
+    for (let frame = 0; frame < 240; frame++) {
+      fight.players[0].x = place[0];
+      fight.players[1].x = place[1];
+      tick();
+      fight.paint();
+    }
+    const stage = fight.stageGeometry();
+    const span = fight.terrainSpan();
+    const corners = [
+      { x: span.left, y: stage.floorY, z: stage.worldNear },
+      { x: span.right, y: stage.floorY, z: stage.worldNear },
+      { x: span.right, y: stage.floorY, z: stage.worldFar },
+      { x: span.left, y: stage.floorY, z: stage.worldFar },
+      { x: span.left, y: span.top, z: stage.worldFar },
+      { x: span.right, y: span.bottom, z: stage.worldFar },
+    ].map((point) => fight.projectPoint(point.x, point.y, point.z));
+    for (const corner of corners)
+      assert.ok(Math.abs(corner.x) < 30000 && Math.abs(corner.y) < 30000,
+        `terrain corner ${corner.x.toFixed(0)},${corner.y.toFixed(0)} would ` +
+        `be culled at ${place[0]}`);
+    // The visible frame must stay inside the span the terrain covers.
+    const state = fight.cameraState();
+    assert.ok(span.right - span.left >= state.doll.width ||
+      (span.left === stage.worldLeft && span.right === stage.worldRight));
+  }
+});
+
+test("the lens holds still while fighters idle at close range", () => {
+  const { fight, tick } = createFight(false, false, "web");
+  fight.startFight();
+  tick(3000001);
+  settleFraming(fight, tick, 140);
+  let previous = fight.cameraState().doll.width;
+  let widest = previous;
+  let tightest = previous;
+  for (let frame = 0; frame < 240; frame++) {
+    fight.players[0].x = 5930;
+    fight.players[1].x = 6070;
+    fight.players[0].vx = 0;
+    fight.players[1].vx = 0;
+    tick();
+    fight.paint();
+    const width = fight.cameraState().doll.width;
+    assert.ok(width / previous < 1.02 && previous / width < 1.02,
+      `frame ${frame} zoomed ${(width / previous).toFixed(4)}x`);
+    widest = Math.max(widest, width);
+    tightest = Math.min(tightest, width);
+    previous = width;
+  }
+  assert.ok(widest / tightest < 1.03,
+    `idle breathing pumped the lens ${(widest / tightest).toFixed(3)}x`);
 });
 
 test("camera containment releases and zooms back in when fighters converge", () => {
@@ -625,7 +815,8 @@ test("spectator QR uses the raw Meet-style round URL", () => {
   assert.doesNotMatch(source, /https:\/\/aesthetic\.computer\/oskiewar:/);
   assert.match(source, /triangleDepth = -1\.43/);
   assert.match(source, /screenRect\(left \+ 3, top \+ 3, size, size, shadow\)/);
-  const qrSource = source.match(/function drawSpectatorQr[\s\S]*?\n}\n\nfunction drawRectOutline/)[0];
+  const qrSource = source.slice(source.indexOf("function drawSpectatorQr"),
+    source.indexOf("function drawCornerCrops"));
   assert.doesNotMatch(qrSource, /matchName|labelTop/);
   assert.match(source, /qrcode\("https:\/\/oskiewar\.com"/);
   assert.match(source,
@@ -676,7 +867,8 @@ test("start button flashes yellow green lime before fading into pal select", () 
   assert.equal(fight.selectionState().selecting, true);
   assert.match(source, /const prompt = "start"/);
   assert.match(source, /const button = titleButtonRect\(\)/);
-  assert.match(source, /box\(button\.x, button\.y, button\.width, button\.height/);
+  // The word floats: no panel, shadow, or edge is drawn behind it.
+  assert.doesNotMatch(source, /box\(button\.x/);
   assert.match(source, /\[255, 238, 82\]/);
   pads[0].down = ["Y"];
   tick();
@@ -698,6 +890,25 @@ test("title start is a bounded pointer button and negative space only duds", () 
   assert.match(webShell, /if \(!inside\) \{[\s\S]{0,100}drum\("block", \.32, 0\)/);
   assert.match(webShell, /tapTitle\(point\)/);
   assert.doesNotMatch(webShell, /body\.selection-hover, body\.title-open/);
+});
+
+test("debug mode boxes every title glyph against its own advance", () => {
+  const { fight, boxes, tick } = createFight(false, false);
+  fight.paint();
+  const quiet = boxes.length;
+  fight.setDebugHitboxes(true);
+  tick();
+  fight.paint();
+  const inked = (r, g, b) => boxes.slice(quiet)
+    .filter((values) => values[4] === r && values[5] === g && values[6] === b);
+  // Four sides around the whole wordmark, four around each of the eight
+  // glyphs in "oskiewar", and one advance rule apiece.
+  assert.equal(inked(92, 132, 255).length, 4);
+  assert.equal(inked(255, 92, 116).length, 8 * 4);
+  assert.equal(inked(116, 255, 184).length, 8);
+  assert.match(source, /glyphCells\.push\(\[cursor \+ drift, titleY \+ bob, advance\]\)/);
+  assert.match(source, /strokeBox\(titleX, titleY, titleWidth, titleSize/);
+  fight.setDebugHitboxes(false);
 });
 
 test("active matches publish bounded phone spectator snapshots", () => {
@@ -769,25 +980,55 @@ test("portrait touch follows pal, opponent, and back as separate steps", () => {
     globalThis.__oskiewarTouch.taps.push({ x, y });
     tick();
   };
+  // A receding neighbour turns the wheel; the focused card commits.
+  const turnRight = () => touch(430, 350);
+  const turnLeft = () => touch(60, 350);
+  const commit = () => touch(250, 300);
   try {
-    touch(350, 300);
+    turnRight();
+    assert.equal(fight.selectionState().cursor, 1);
+    assert.equal(fight.players[0].name, "@JEFFREY");
+    commit();
     assert.equal(fight.players[0].name, "@FIFI");
     assert.equal(fight.selectionState().step, 1);
     touch(60, 150);
     assert.equal(fight.selectionState().step, 0);
     assert.equal(fight.selectionState().selecting, true);
-    touch(350, 300);
-    touch(100, 430); // Disabled ppl card.
+    commit();
+    assert.equal(fight.selectionState().step, 1);
+    turnLeft(); // Disabled ppl card duds instead of turning.
     assert.equal(fight.selectionState().selecting, true);
-    touch(350, 260); // Dummy.
+    assert.equal(fight.selectionState().cursor, 0);
+    turnRight();
+    commit();
     assert.equal(fight.players[1].name, "DUMMY");
     assert.equal(fight.players[1].npc, true);
     assert.equal(fight.selectionState().selecting, false);
-    globalThis.__oskiewarTouch.taps.push({ x: 350, y: 300 });
+    globalThis.__oskiewarTouch.taps.push({ x: 250, y: 300 });
     tick();
     assert.equal(globalThis.__oskiewarTouch.taps.length, 0);
   } finally {
     delete globalThis.__oskiewarTouch;
+  }
+});
+
+test("the pal wheel keeps one option in focus with neighbours receding", () => {
+  for (const viewport of [{ width: 1920, height: 1080 },
+    { width: 499, height: 1080 }, { width: 480, height: 900 }]) {
+    const { fight } = createFight(false, false, "touch", null, viewport);
+    fight.enterGame();
+    const wheel = fight.selectionLayout();
+    const focus = wheel.options.find((option) => option.slot === 0);
+    assert.deepEqual(wheel.options.map((option) => option.slot), [-1, 0, 1]);
+    assert.equal(focus.index, fight.selectionState().cursor);
+    for (const side of wheel.options.filter((option) => option.slot !== 0)) {
+      // Neighbours recede: smaller, clear of the focus, and on screen.
+      assert.ok(side.width < focus.width);
+      assert.ok(side.x + side.width <= focus.x + 1 ||
+        side.x + 1 >= focus.x + focus.width);
+      assert.ok(side.x >= 0 && side.x + side.width <= viewport.width);
+    }
+    assert.doesNotThrow(() => fight.paint());
   }
 });
 
@@ -873,7 +1114,183 @@ test("melee and movement edges emit bounded Ableton signals", () => {
     event === "move" && player === 0 && horizontal === 1));
 });
 
-test("gun drops grant ammo and A fires in the quantized aim direction", () => {
+// The armed-fighter matrix: Y is the only button that spends an item, X takes
+// the item's flavor, and A stays a kick no matter what is in the hand.
+const armAndPress = (button, ammo = {}) => {
+  const context = createFight();
+  Object.assign(context.fight.players[0], ammo);
+  context.pads[0].down = [button];
+  context.tick();
+  return context;
+};
+
+test("Y spends the held item and reaches for the gun before the grenade", () => {
+  const armed = armAndPress("Y", { gunAmmo: 2, grenadeAmmo: 2 });
+  assert.equal(armed.fight.bullets.length, 1);
+  assert.equal(armed.fight.grenades.length, 0);
+  assert.equal(armed.fight.players[0].gunAmmo, 1);
+  assert.equal(armed.fight.players[0].grenadeAmmo, 2);
+  const dry = armAndPress("Y", { gunAmmo: 0, grenadeAmmo: 2 });
+  assert.equal(dry.fight.bullets.length, 0);
+  assert.equal(dry.fight.grenades.length, 1);
+  assert.equal(dry.fight.players[0].grenadeAmmo, 1);
+  const empty = armAndPress("Y");
+  assert.equal(empty.fight.bullets.length, 0);
+  assert.equal(empty.fight.grenades.length, 0);
+  assert.equal(empty.fight.players[0].attackKind, "");
+});
+
+test("X punches bare, whips a pistol, and bashes a grenade", () => {
+  const bare = armAndPress("X");
+  assert.equal(bare.fight.players[0].attackKind, "PUNCH");
+  const gun = armAndPress("X", { gunAmmo: 3 });
+  assert.equal(gun.fight.players[0].attackKind, "WHIP");
+  assert.equal(gun.fight.players[0].gunAmmo, 3, "a whip is not a shot");
+  assert.ok(gun.signals.some(([event, pad]) => event === "whip" && pad === 0));
+  assert.deepEqual(gun.drums.at(-1), ["whoosh", 1.15, gun.drums.at(-1)[2]]);
+  const grenade = armAndPress("X", { grenadeAmmo: 2 });
+  assert.equal(grenade.fight.players[0].attackKind, "BASH");
+  assert.equal(grenade.fight.players[0].grenadeAmmo, 2);
+  assert.ok(grenade.signals.some(([event, pad]) =>
+    event === "bash" && pad === 0));
+  assert.deepEqual(grenade.drums.at(-1),
+    ["kick", 1.3, grenade.drums.at(-1)[2]]);
+});
+
+test("a whip out-reaches a bash while a bash hits far harder", () => {
+  const swing = (ammo, gap) => {
+    const { fight, pads, tick, now } = createFight();
+    fight.setWind(0);
+    const attacker = fight.players[0];
+    const target = fight.players[1];
+    Object.assign(attacker, ammo);
+    attacker.x = 6060 - gap;
+    target.x = 6060;
+    pads[0].down = ["X"];
+    let tip = 0;
+    let knock = 0;
+    // Knockback decays every frame and the three kinds land on different
+    // frames, so only the peak is a fair comparison.
+    for (let frame = 0; frame < 12; frame++) {
+      tick();
+      knock = Math.max(knock, Math.abs(target.knockVx));
+      const forearm = fight.runnerWorldGeometry(attacker, now() / 1e6)
+        .segments.find((segment) => segment.role === "attack-forearm");
+      if (forearm) tip = Math.max(tip, forearm.x2 - attacker.x);
+    }
+    return { kind: attacker.attackKind, knock, tip,
+      stunned: target.hitStunUntil > 0, alive: target.alive };
+  };
+  // Only the pistol lash still lands from outside the pushbox.
+  const whipFar = swing({ gunAmmo: 3 }, 170);
+  assert.equal(whipFar.kind, "WHIP");
+  assert.ok(whipFar.stunned, "the pistol lash should connect at range");
+  assert.ok(!swing({}, 170).stunned);
+  assert.ok(!swing({ grenadeAmmo: 2 }, 170).stunned);
+
+  const punch = swing({}, 130);
+  const whip = swing({ gunAmmo: 3 }, 130);
+  const bash = swing({ grenadeAmmo: 2 }, 130);
+  for (const strike of [punch, whip, bash])
+    assert.ok(strike.stunned && strike.alive);
+  assert.ok(whip.tip > punch.tip, "the pistol lengthens the striking arm");
+  assert.ok(punch.tip > bash.tip, "a fist around a grenade shortens it");
+  assert.ok(bash.knock > punch.knock);
+  assert.ok(punch.knock > whip.knock);
+});
+
+test("item swings run their own animation and publish attack capsules", () => {
+  const swingRoles = (ammo) => {
+    const { fight, pads, tick, now } = createFight();
+    Object.assign(fight.players[0], ammo);
+    pads[0].down = ["X"];
+    tick();
+    tick(70000);
+    const geometry = fight.runnerWorldGeometry(fight.players[0], now() / 1e6);
+    return { animation: fight.fighterAnimationPhase(fight.players[0]),
+      roles: geometry.segments.filter((segment) =>
+        segment.role?.startsWith("attack-")).map((segment) => segment.role),
+      label: fight.players[0].lastButton };
+  };
+  const whip = swingRoles({ gunAmmo: 3 });
+  assert.deepEqual(whip.roles, ["attack-upper-arm", "attack-forearm"]);
+  assert.equal(whip.animation.state, "WHIP");
+  assert.equal(whip.label, "WHIP");
+  const bash = swingRoles({ grenadeAmmo: 2 });
+  assert.deepEqual(bash.roles, ["attack-upper-arm", "attack-forearm"]);
+  assert.equal(bash.animation.state, "BASH");
+  assert.equal(bash.label, "BASH");
+  // The bash is the slower, more committed swing of the two.
+  assert.ok(bash.animation.steps > whip.animation.steps);
+  assert.ok(["STARTUP", "ACTIVE", "RECOVERY"].includes(whip.animation.phase));
+});
+
+test("a lost lead arm disarms both the item button and the item swing", () => {
+  const { fight, pads, tick, now } = createFight();
+  const player = fight.players[0];
+  player.gunAmmo = 3;
+  player.facing = 1;
+  for (let hit = 0; hit < 2; hit++) {
+    const geometry = fight.runnerWorldGeometry(player, now() / 1e6);
+    const index = geometry.segments.findIndex((segment) =>
+      segment.part === "right-arm");
+    fight.damagePart(player, index, fight.players[1].x, 1, now());
+  }
+  pads[0].down = ["Y"];
+  tick();
+  assert.equal(fight.bullets.length, 0, "a missing hand cannot fire");
+  pads[0].down = [];
+  tick();
+  pads[0].down = ["X"];
+  tick();
+  assert.equal(player.attackKind, "", "a missing hand cannot whip");
+  // The surviving arm becomes the lead hand once the fighter turns around.
+  pads[0].down = [];
+  tick();
+  player.facing = -1;
+  pads[0].down = ["X"];
+  tick();
+  assert.equal(player.attackKind, "WHIP");
+});
+
+test("a bot spends a held item at range and still swings up close", () => {
+  const { fight, tick } = createFight();
+  const bot = fight.players[1];
+  bot.npc = true;
+  bot.bot = true;
+  bot.gunAmmo = 4;
+  fight.players[0].x = 5000;
+  bot.x = 7000;
+  bot.botItemAt = 0;
+  tick();
+  assert.equal(bot.gunAmmo, 3);
+  assert.equal(fight.bullets.length, 1);
+  fight.players[0].x = 5850;
+  bot.x = 6000;
+  bot.botAttackAt = 0;
+  tick();
+  assert.ok(["WHIP", "KICK"].includes(bot.attackKind));
+  assert.equal(bot.gunAmmo, 3, "close range melee never spends the magazine");
+});
+
+test("an armed exchange resimulates identically from the same inputs", () => {
+  const run = () => {
+    const { fight, pads, tick } = createFight();
+    fight.setWind(0);
+    Object.assign(fight.players[0], { gunAmmo: 3, grenadeAmmo: 2 });
+    for (const down of [[], ["Y"], [], ["X"], [], ["A"], [], ["Y"], ["X"], []]) {
+      pads[0].down = down;
+      for (let frame = 0; frame < 4; frame++) tick();
+    }
+    return JSON.stringify([fight.players.map((player) => [player.x, player.y,
+      player.vx, player.knockVx, player.attackKind, player.gunAmmo,
+      player.grenadeAmmo, player.hitStunUntil]),
+      fight.bullets.length, fight.grenades.length]);
+  };
+  assert.equal(run(), run());
+});
+
+test("gun drops grant ammo and Y fires in the quantized aim direction", () => {
   const { fight, pads, signals, tick } = createFight();
   const player = fight.players[0];
   const pickup = fight.gunPickups[0];
@@ -884,7 +1301,7 @@ test("gun drops grant ammo and A fires in the quantized aim direction", () => {
   assert.equal(player.gunAmmo, pickup.amount);
   const fireX = player.x;
   const fireY = player.y;
-  pads[0].down = ["ArrowUp", "ArrowRight", "A"];
+  pads[0].down = ["ArrowUp", "ArrowRight", "Y"];
   tick();
   assert.equal(player.gunAmmo, pickup.amount - 1);
   assert.equal(fight.bullets.length, 1);
@@ -1272,14 +1689,45 @@ test("simultaneous body strikes recoil without player-order bias", () => {
 
 test("player lands on the center platform", () => {
   const { fight, tick } = createFight();
+  const stage = fight.stageGeometry();
   const player = fight.players[0];
   player.x = 6000;
-  player.y = 10200;
+  player.y = stage.platformY - 200;
   player.vy = 300;
   player.grounded = false;
   for (let step = 0; step < 10 && !player.grounded; step++) tick(40000);
-  assert.equal(player.y, 10400);
+  assert.equal(player.y, stage.platformY);
   assert.equal(player.grounded, true);
+});
+
+test("one plain jump from the spawn floor reaches the center platform", () => {
+  const { fight, pads, tick } = createFight();
+  const stage = fight.stageGeometry();
+  const player = fight.players[0];
+  player.x = (stage.platformLeft + stage.platformRight) / 2;
+  // Held, not tapped: releasing up cuts the rise to 55% and the short hop
+  // that leaves deliberately falls short of the ledge.
+  pads[0].down = ["ArrowUp"];
+  let landed = false;
+  for (let step = 0; step < 90 && !landed; step++) {
+    tick();
+    landed = player.grounded && player.y === stage.platformY;
+  }
+  assert.ok(landed, `jump peaked at ${player.y} short of ${stage.platformY}`);
+
+  // And a tapped jump must not reach it, or the hold would mean nothing.
+  const tapped = createFight();
+  const hopper = tapped.fight.players[0];
+  hopper.x = (stage.platformLeft + stage.platformRight) / 2;
+  tapped.pads[0].down = ["ArrowUp"];
+  for (let step = 0; step < 2; step++) tapped.tick();
+  tapped.pads[0].down = [];
+  let reached = false;
+  for (let step = 0; step < 90 && !reached; step++) {
+    tapped.tick();
+    reached = hopper.grounded && hopper.y === stage.platformY;
+  }
+  assert.ok(!reached, "a tapped hop should fall short of the ledge");
 });
 
 test("crouch and jump use readable multi-frame pose transitions", () => {
@@ -1329,6 +1777,170 @@ test("fighters can crouch in air and carry a crouch into a jump", () => {
   assert.equal(jumpPlayer.ducking, true);
 });
 
+// Airtime and apex are the two numbers the jump is tuned against, so they are
+// measured here rather than asserted through the constants.
+function jumpArc(harness, pad = 0, holdFrames = 200) {
+  const player = harness.fight.players[pad];
+  // Clear of the ledge: it now sits inside a plain jump's arc, and landing on
+  // it mid-measurement would truncate both the apex and the airtime.
+  const stage = harness.fight.stageGeometry();
+  player.x = stage.platformLeft - 900;
+  const floor = player.y;
+  const startedAt = harness.now();
+  let liftAt = 0;
+  let apex = 0;
+  for (let frame = 0; frame < 200; frame++) {
+    if (frame === holdFrames) harness.pads[pad].down = [];
+    harness.tick();
+    if (!liftAt && !player.grounded) liftAt = harness.now();
+    if (!liftAt) continue;
+    apex = Math.max(apex, floor - player.y);
+    if (player.grounded)
+      return { latency: liftAt - startedAt, airtime: harness.now() - liftAt, apex };
+  }
+  return { latency: liftAt - startedAt, airtime: Infinity, apex };
+}
+
+test("a jump lifts off within four frames and lands inside two thirds of a second", () => {
+  const harness = createFight();
+  harness.pads[0].down = ["ArrowUp"];
+  const arc = jumpArc(harness);
+  assert.ok(arc.latency <= 70000, `liftoff took ${arc.latency}us`);
+  assert.ok(arc.airtime < 700000, `airtime was ${arc.airtime}us`);
+  assert.ok(arc.apex > 290, `apex was only ${arc.apex}`);
+});
+
+test("holding up jumps high while a tapped up becomes a short hop", () => {
+  const held = createFight();
+  held.pads[0].down = ["ArrowUp"];
+  const full = jumpArc(held);
+  const tapper = createFight();
+  tapper.pads[0].down = ["ArrowUp"];
+  const cut = jumpArc(tapper, 0, 2);
+  assert.ok(cut.apex > 60, `a cut jump still leaves the ground: ${cut.apex}`);
+  assert.ok(cut.apex < full.apex * .5,
+    `cut apex ${cut.apex} should be well under full apex ${full.apex}`);
+  assert.ok(cut.airtime < full.airtime * .7,
+    `cut airtime ${cut.airtime} vs full ${full.airtime}`);
+});
+
+test("the ultra jump still clears the platform after the gravity retune", () => {
+  const { fight, tap, tick } = createFight();
+  const player = fight.players[0];
+  player.x = 6000;
+  tap(0, "ArrowUp");
+  tap(0, "ArrowUp");
+  assert.equal(player.lastButton, "ULTRA JUMP");
+  for (let frame = 0; frame < 200 && !player.grounded; frame++) tick();
+  assert.ok(player.grounded);
+  assert.ok(player.y < 12000, `an ultra jump landed back on the floor at ${player.y}`);
+});
+
+test("a direction flick out of crouch becomes a low crouch hop", () => {
+  const { fight, pads, tick, signals } = createFight();
+  const player = fight.players[0];
+  const floor = player.y;
+  const startX = player.x;
+  pads[0].down = ["ArrowDown"];
+  for (let frame = 0; frame < 8; frame++) tick();
+  assert.equal(player.ducking, true);
+  pads[0].down = ["ArrowDown", "ArrowRight"];
+  tick();
+  assert.equal(player.grounded, false);
+  assert.equal(player.lastButton, "CROUCH HOP");
+  assert.equal(player.stance, "CROUCH HOP");
+  assert.equal(fight.fighterAnimationPhase(player).state, "CROUCH HOP");
+  assert.ok(signals.some(([event, pad]) => event === "crouchhop" && pad === 0));
+  let apex = 0;
+  let frames = 0;
+  for (; frames < 120; frames++) {
+    tick();
+    apex = Math.max(apex, floor - player.y);
+    if (player.grounded) break;
+  }
+  assert.ok(apex > 60 && apex < 170, `crouch hop apex was ${apex}`);
+  assert.ok(frames < 24, `crouch hop took ${frames} frames`);
+  assert.ok(player.x - startX > 250,
+    `crouch hop only travelled ${player.x - startX}`);
+});
+
+test("a crouch hop stays lower and shorter than a crouch jump", () => {
+  const arcFrom = (crouched, press) => {
+    const harness = createFight();
+    harness.pads[0].down = ["ArrowDown"];
+    for (let frame = 0; frame < 8; frame++) harness.tick();
+    harness.pads[0].down = crouched ? ["ArrowDown", press] : [press];
+    return jumpArc(harness);
+  };
+  const hop = arcFrom(true, "ArrowRight");
+  const crouchJump = arcFrom(false, "ArrowUp");
+  assert.ok(hop.apex < crouchJump.apex * .4,
+    `hop apex ${hop.apex} vs crouch jump ${crouchJump.apex}`);
+  assert.ok(hop.airtime < crouchJump.airtime,
+    `hop airtime ${hop.airtime} vs crouch jump ${crouchJump.airtime}`);
+  assert.equal(hop.latency, 16667, "a crouch hop leaves the ground immediately");
+});
+
+test("double-tapping crouch sinks through the platform but never the floor", () => {
+  const { fight, tick, tap, signals } = createFight();
+  const player = fight.players[1];
+  player.x = 6000;
+  player.y = 4000;
+  player.vy = 0;
+  player.grounded = false;
+  for (let frame = 0; frame < 200 && !player.grounded; frame++) tick();
+  const platformY = player.y;
+  assert.ok(platformY < 12000, "the fighter should be resting on the platform");
+  tap(1, "ArrowDown");
+  tap(1, "ArrowDown");
+  assert.equal(player.lastButton, "SINK");
+  assert.equal(player.stance, "SINK");
+  assert.equal(fight.fighterAnimationPhase(player).state, "SINK");
+  assert.ok(signals.some(([event, pad]) => event === "sink" && pad === 1));
+  assert.equal(player.grounded, false);
+  assert.ok(player.y > platformY);
+  for (let frame = 0; frame < 200 && !player.grounded; frame++) tick();
+  assert.equal(player.y, 12000);
+  assert.notEqual(player.stance, "SINK");
+});
+
+test("a lone crouch tap on the platform never sinks", () => {
+  const { fight, tick, tap } = createFight();
+  const player = fight.players[0];
+  player.x = 6000;
+  player.y = 4000;
+  player.grounded = false;
+  for (let frame = 0; frame < 200 && !player.grounded; frame++) tick();
+  const platformY = player.y;
+  tap(0, "ArrowDown");
+  for (let frame = 0; frame < 20; frame++) tick();
+  assert.equal(player.y, platformY);
+  assert.equal(player.grounded, true);
+});
+
+test("double-tapping crouch on the floor still fast-drops instead of sinking", () => {
+  const { fight, tap } = createFight();
+  const player = fight.players[0];
+  tap(0, "ArrowDown");
+  tap(0, "ArrowDown");
+  assert.equal(player.lastButton, "DASH DOWN");
+  assert.equal(player.y, 12000);
+});
+
+test("a bot stranded on the platform sinks back into reach", () => {
+  const { fight, tick } = createFight();
+  const bot = fight.players[1];
+  bot.bot = true;
+  bot.x = 6000;
+  bot.y = 4000;
+  bot.grounded = false;
+  for (let frame = 0; frame < 200 && !bot.grounded; frame++) tick();
+  const platformY = bot.y;
+  assert.ok(platformY < 12000);
+  for (let frame = 0; frame < 120 && bot.y <= platformY; frame++) tick();
+  assert.ok(bot.y > platformY, "the bot should drop off the platform on its own");
+});
+
 test("hit detection follows the animated runner geometry", () => {
   const { fight, tick } = createFight();
   const player = fight.players[0];
@@ -1360,44 +1972,74 @@ test("a ball resting on the platform also ignores wind", () => {
   fight.enableBall();
   fight.setWind(1200);
   fight.ball.x = 6000;
-  fight.ball.y = 10400 - fight.ball.radius;
+  fight.ball.y = fight.stageGeometry().platformY - fight.ball.radius;
   fight.ball.vx = 0;
   fight.ball.vy = 0;
   tick(16667);
   assert.equal(fight.ball.vx, 0);
 });
 
-test("each round starts player balls plus an airborne off-platform beach ball", () => {
+test("a match inflates exactly one ball and spawns it for its own kind", () => {
   const { fight } = createFight();
-  assert.equal(fight.balls.length, 3);
-  for (let index = 0; index < fight.players.length; index++) {
-    const player = fight.players[index];
-    const ball = fight.balls[index];
-    assert.equal(ball.spawnOwner, index);
-    assert.equal(ball.x, player.x + player.facing * 180);
-    assert.equal(ball.y, 12000 - ball.radius);
-    assert.equal(ball.vx, 0);
-    assert.equal(ball.vy, 0);
+  assert.equal(fight.balls.length, 1);
+  assert.equal(fight.ball, fight.balls[0]);
+  for (const type of ["soccer", "basketball", "beach"]) {
+    fight.setBallKind(type);
+    assert.equal(fight.balls.length, 1);
+    assert.equal(fight.ball.type, type);
+    assert.equal(fight.ball.vx, 0);
+    assert.equal(fight.ball.vy, 0);
+    if (fight.ball.spawnOwner >= 0) {
+      const owner = fight.players[fight.ball.spawnOwner];
+      assert.equal(fight.ball.x, owner.x + owner.facing * 180);
+      assert.equal(fight.ball.y, 12000 - fight.ball.radius);
+    } else {
+      assert.ok(fight.ball.x > 7500);
+      assert.equal(fight.ball.y, 12000 - 920);
+    }
   }
-  const beach = fight.balls[2];
-  assert.equal(beach.type, "beach");
-  assert.equal(beach.spawnOwner, -1);
-  assert.ok(beach.x > 7500);
-  assert.equal(beach.y, 12000 - 920);
-  assert.ok(beach.y < fight.balls[0].y);
-  assert.ok(beach.y < fight.balls[1].y);
+});
+
+test("the match ball kind is seeded on the series, never the clock", () => {
+  const { fight } = createFight(false, false);
+  const types = new Set();
+  for (const name of ["gubba1", "dorra9", "kimmy44", "sattu2", "fezzo7",
+    "nolly3", "vazzi8", "muddy5"]) {
+    assert.equal(fight.seriesBallType(name), fight.seriesBallType(name));
+    types.add(fight.seriesBallType(name));
+  }
+  // The roll varies by match instead of pinning every match to one ball.
+  assert.ok(types.size > 1);
+  for (const type of types)
+    assert.ok(["soccer", "basketball", "beach"].includes(type));
+});
+
+test("one ball kind survives every round of the same match", () => {
+  const { fight, tap } = createFight(false);
+  tap(0, "A");
+  tap(0, "A");
+  const series = fight.seriesState();
+  assert.ok(series);
+  assert.equal(fight.ball.type, fight.seriesBallType(series));
+  fight.nextRound();
+  assert.equal(fight.balls.length, 1);
+  assert.equal(fight.ball.type, fight.seriesBallType(series));
 });
 
 test("soccer, basketball, and beach balls have distinct physical properties", () => {
   const { fight } = createFight();
-  const [soccer, basketball, beach] = fight.balls;
-  assert.equal(soccer.type, "soccer");
-  assert.equal(basketball.type, "basketball");
-  assert.equal(beach.type, "beach");
+  const kinds = {};
+  for (const type of ["soccer", "basketball", "beach"]) {
+    fight.setBallKind(type);
+    kinds[type] = { ...fight.ball };
+  }
+  const { soccer, basketball, beach } = kinds;
   assert.ok(soccer.mass < basketball.mass);
   assert.ok(beach.mass < soccer.mass);
   assert.ok(beach.windFactor > soccer.windFactor);
   assert.ok(beach.gravityFactor < 1);
+  // Redressing in place must never leave the beach ball's float behind.
+  assert.equal(soccer.gravityFactor, 1);
   assert.ok(soccer.hitScale > basketball.hitScale);
   assert.ok(soccer.bounce < basketball.bounce);
   assert.match(source, /ball\.type === "soccer"/);
@@ -1416,8 +2058,8 @@ test("fighter animation state is a fixed simulation-tick phase", () => {
   tick(33334);
   animation = fight.fighterAnimationPhase(fight.players[0]);
   assert.equal(animation.step, firstStep % animation.steps + 1);
-  assert.match(source, /ANIM " \+ animation\.state/);
-  assert.match(source, /STEP " \+ animation\.step \+ "\/" \+ animation\.steps/);
+  assert.match(source, /"anim " \+ animation\.state/);
+  assert.match(source, /animation\.step \+ "\/" \+ animation\.steps/);
   assert.doesNotMatch(source, /Math\.floor\(t \* 12\) \/ 12/);
 });
 
@@ -1435,7 +2077,8 @@ test("dash momentum strengthens kicks and launches grounded balls", () => {
   fight.bootFirstBall();
   assert.equal(player.lastButton, "DASH BOOT");
   assert.ok(fight.ball.vy <= -420);
-  assert.match(source, /const force = \(attacker\.attackKind === "KICK" \? 1550 : 1200\) \* momentum/);
+  assert.match(source, /spec\.force \* momentum, spec\.lift \* momentum/);
+  assert.match(source, /KICK: \{ reach: 75, swell: 62, span: 74, height: 55/);
 });
 
 test("weather is calm while ambient dust remains visible", () => {
@@ -1455,7 +2098,7 @@ test("only one center-platform powerup appears at each ten-second interval", () 
     .filter((pickup) => pickup.active);
   assert.equal(active.length, 1);
   assert.equal(active[0].x, 6000);
-  assert.equal(active[0].y, 10400 - 70);
+  assert.equal(active[0].y, fight.stageGeometry().platformY - 70);
   for (let step = 0; step < 250; step++) tick(50000);
   active = [...fight.gunPickups, ...fight.grenadePickups]
     .filter((pickup) => pickup.active);
@@ -1495,13 +2138,14 @@ test("a served ball stays in the player's lane and can be approached", () => {
 
 test("running into a center-platform ball boots it", () => {
   const { fight, pads, tick } = createFight();
+  const platformY = fight.stageGeometry().platformY;
   const player = fight.players[0];
   fight.enableBall();
   player.x = 6000;
-  player.y = 10400;
+  player.y = platformY;
   player.grounded = true;
   fight.ball.x = player.x + 36;
-  fight.ball.y = 10400 - fight.ball.radius;
+  fight.ball.y = platformY - fight.ball.radius;
   fight.ball.z = player.z;
   fight.ball.vx = 0;
   fight.ball.vy = 0;
@@ -1602,6 +2246,87 @@ test("owned gun and grenade counts render above each bottom handle", () => {
   assert.doesNotMatch(source, /gunPips|grenadePips/);
 });
 
+test("player stats read above the handle at handle size", () => {
+  const { fight, pads, tick } = createFight();
+  pads[0].down = ["ArrowRight"];
+  tick();
+  const player = fight.players[0];
+  const lines = fight.playerStatLines(player);
+  assert.equal(lines.length, 3);
+  assert.match(lines[0], /^p1 /);
+  assert.match(lines[1], /^in 1,0 stk 0\.00 vx /);
+  assert.match(lines[2], /^anim \w+ \d+\/\d+ t\d+$/);
+  const handle = fight.playerHandleLayout(player, 0);
+  assert.equal(handle.size, 42);
+  // Every row clears the handle it sits over, and both sides fit the screen.
+  for (let row = 0; row < lines.length; row++) {
+    const y = handle.y - (lines.length - row) * (handle.size + 4) - 8;
+    assert.ok(y + handle.size < handle.y);
+    assert.ok(fight.handleWidth(lines[row], handle.size) * 2 <
+      fight.hudSafeRect().right - fight.hudSafeRect().left);
+  }
+  fight.setDebugHitboxes(true);
+  assert.ok(fight.statStackHeight() > lines.length * handle.size);
+  fight.setDebugHitboxes(false);
+  assert.equal(fight.statStackHeight(), 0);
+  assert.match(source,
+    /drawPlayerStats\(players\[0\], 0\);\n    drawPlayerStats\(players\[1\], 1\);/);
+  // The read-out left the world; nothing labels the fighters any more.
+  assert.doesNotMatch(source.slice(source.indexOf("function drawDebugHitboxes"),
+    source.indexOf("function drawPlayerHud")), /typeWrite/);
+});
+
+test("diagnostic lines color handles, numbers, units, labels, and punctuation", () => {
+  const { fight } = createFight(false, false);
+  const line = "@jeffrey vx -240, stk 0.50";
+  const tokens = fight.dumpTokens(line);
+  assert.equal(tokens.join(""), line);
+  const ink = (token) => fight.dumpTokenInk(token).join(",");
+  assert.equal(new Set([ink("@jeffrey"), ink("-240"), ink("vx"),
+    ink("stance"), ink(",")]).size, 5);
+  // A colored run advances on the same comic metrics a plain line would.
+  assert.equal(
+    Math.round(tokens.reduce((width, token) =>
+      width + fight.handleWidth(token, 42), 0) * 1000),
+    Math.round(fight.handleWidth(line, 42) * 1000));
+  assert.match(source, /writeDumpLine\(wrapped, 132, cursorY, 27\)/);
+  assert.match(source, /writeTokens\(typeWrite, text, x, y, size\)/);
+});
+
+test("safe-zone debug marks corners instead of drawing full boxes", () => {
+  const { fight, triangles } = createFight(false, false);
+  const rect = { left: 100, top: 100, right: 900, bottom: 700 };
+  triangles.length = 0;
+  fight.drawCornerCrops(rect, 40, 3, [255, 214, 84]);
+  assert.ok(triangles.length > 0);
+  const corners = [[100, 100], [900, 100], [100, 700], [900, 700]];
+  for (const values of triangles)
+    for (const index of [0, 3, 6])
+      assert.ok(corners.some(([x, y]) => Math.abs(values[index] - x) <= 48 &&
+        Math.abs(values[index + 1] - y) <= 48));
+  const zoneSource = source.slice(source.indexOf("function drawSafeZones"),
+    source.indexOf("function gamePaint"));
+  assert.doesNotMatch(zoneSource, /typeWrite|drawRectOutline/);
+  assert.match(zoneSource, /drawCornerCrops\(hudSafeRect\(\), 46, 3/);
+  assert.match(zoneSource, /drawCornerCrops\(actionSafeRect\(\), 34, 2/);
+});
+
+test("a negative native clock still paints the beach ball's panels", () => {
+  // App.cpp overflows int64 converting QPC ticks, so monotonicUs reads
+  // negative past ~10 days of uptime. A negative palette step used to index
+  // off the front of the panel list and crash paint with a TypeError.
+  const { fight, tick } = createFight(true, true, "xbox-uwp", null,
+    { width: 1920, height: 1080 }, null, null, "triangle3d", -3753801036);
+  fight.setBallKind("beach");
+  fight.enableBall();
+  tick();
+  // paint() swallows throws into the error card by design, so the assertion
+  // has to read what it captured rather than watch for an exception.
+  fight.paint();
+  assert.equal(fight.clientErrorState(), "",
+    "a negative clock crashed paint: " + fight.clientErrorState());
+});
+
 test("ball graphics rotate from physics only and use no white line outline", () => {
   const { fight, tick } = createFight();
   fight.enableBall();
@@ -1646,6 +2371,103 @@ test("native terrain and actors carry real depth with computed face normals", ()
   assert.match(source, /const normal = normalize3\(cross3\(ab, ac\)\)/);
   assert.match(source, /typeof triangle3d === "function"/);
   assert.doesNotMatch(source, /worldLine\(worldLeft, floorY/);
+});
+
+const batchedFight = () => createFight(true, true, "xbox-uwp", null,
+  { width: 1920, height: 1080 }, null, null, "triangles3d");
+
+// Two fights only draw the same frame with the wall clock held still — the sun
+// angle tints every color — and with the random match name pinned, since the
+// name's width sizes its HUD plate.
+function stillFrame(run) {
+  const [random, now] = [Math.random, Date.now];
+  Math.random = () => .5;
+  Date.now = () => 1785870000000;
+  try { return run(); } finally { Math.random = random; Date.now = now; }
+}
+
+// A frame's faces are quantized to float32 on the way into the batch, which is
+// exactly what the host casts them to anyway.
+const asFloat32 = (values) => values.map((value) => Math.fround(value));
+
+// Detached limbs are the cheapest way to push one paint past the host's cap.
+function litterDetachedParts(fight, count) {
+  for (let index = 0; index < count; index++)
+    fight.detachedParts.push({
+      x1: 5200 + index, y1: 9000, z1: 0,
+      x2: 5320 + index, y2: 9200, z2: 0,
+      width: 44, color: [180, 90, 60], life: 2,
+    });
+}
+
+test("the batched host receives the same face stream as the per-face host", () => {
+  const [plain, batched] = stillFrame(() => {
+    const pair = [createFight(), batchedFight()];
+    for (const host of pair) { host.triangles.length = 0; host.fight.paint(); }
+    return pair;
+  });
+  assert.ok(batched.triangles.length > 1000);
+  assert.equal(batched.batches.length, 1);
+  assert.equal(batched.batches[0].count, batched.triangles.length);
+  assert.deepEqual(batched.triangles, plain.triangles.map(asFloat32));
+});
+
+test("one paint crosses the host boundary once through one reused buffer", () => {
+  const { fight, batches } = batchedFight();
+  batches.length = 0;
+  for (let frame = 0; frame < 4; frame++) fight.paint();
+  assert.equal(batches.length, 4);
+  assert.ok(batches.every((entry) => entry.buffer === batches[0].buffer));
+  assert.equal(batches[0].buffer.length, 8192 * 12);
+});
+
+test("a paint past the host cap flushes mid-frame and keeps every face in order", () => {
+  const [plain, batched] = stillFrame(() => {
+    const pair = [createFight(), batchedFight()];
+    for (const host of pair) {
+      litterDetachedParts(host.fight, 300);
+      host.triangles.length = 0;
+      host.batches.length = 0;
+      host.fight.paint();
+    }
+    return pair;
+  });
+  assert.ok(plain.triangles.length > 8192);
+  assert.equal(batched.batches.length, 2);
+  assert.equal(batched.batches[0].count, 8192);
+  assert.deepEqual(batched.triangles, plain.triangles.map(asFloat32));
+});
+
+test("capsule ends fan from the rim instead of the center", () => {
+  const { fight, triangles } = createFight();
+  fight.paint();
+  triangles.length = 0;
+  fight.drawDetachedPart({ x1: 5200, y1: 9000, z1: 0,
+    x2: 5320, y2: 9200, z2: 0, width: 44, color: [180, 90, 60] });
+  // Silhouette pass + color pass, each 2 body faces and two 8-face decagons.
+  assert.equal(triangles.length, 2 * (2 + 8 + 8));
+  const uses = new Map();
+  for (const values of triangles)
+    for (let at = 0; at < 9; at += 3) {
+      const key = `${values[at]},${values[at + 1]}`;
+      uses.set(key, (uses.get(key) || 0) + 1);
+    }
+  // A center fan would touch its hub 10 times; a rim fan tops out at 8.
+  assert.ok(Math.max(...uses.values()) <= 8);
+});
+
+test("hosts without the batch entry still draw face by face", () => {
+  const perFace = createFight();
+  const flat = createFight(true, true, "xbox-uwp", null,
+    { width: 1920, height: 1080 }, null, null, "triangle");
+  for (const host of [perFace, flat]) {
+    host.triangles.length = 0;
+    host.fight.paint();
+    assert.equal(host.batches.length, 0);
+    assert.ok(host.triangles.length > 1000);
+  }
+  assert.ok(perFace.triangles.every((values) => values.length === 12));
+  assert.ok(flat.triangles.every((values) => values.length === 9));
 });
 
 test("an airborne ball head hit damages every limb once without killing", () => {
@@ -1823,7 +2645,39 @@ test("dummy rounds are untimed and use an infinity clock", () => {
   assert.match(source, /function roundIsTimed\(\)[\s\S]{0,100}!\(players\[1\]\.npc && !players\[1\]\.bot\)/);
   assert.match(source, /timedRound \? String\(remainingSeconds\)\.padStart\(2, "0"\) : "∞"/);
   assert.match(source,
-    /timedRound \? hudTypeSize : Math\.round\(hudTypeSize \* 1\.65\)/);
+    /Math\.round\(hudTypeSize \* \(compactLayout\(\) \? 1\.65 : 2\.6\)\)/);
+});
+
+test("the endless clock shines, hue shifts, and drops a colored shadow", () => {
+  const infinitySource = source.match(
+    /if \(timerText === "∞"\) \{[\s\S]*?\n  \} else \{/)[0];
+  assert.match(infinitySource, /Math\.sin\(t \* 4\.6\)/);
+  assert.match(infinitySource, /animatedTitleColor\(4, t \* 2\.4\)/);
+  assert.match(infinitySource, /animatedTitleColor\(0, t \* 2\.4\)/);
+  const { fight } = createFight(false, false);
+  // The shadow is a palette step behind the glyph, and both stay in gamut on
+  // the night sky and the daylight sky.
+  for (const light of [0, .5, 1]) {
+    assert.notDeepEqual(fight.animatedTitleColor(4, 2.4, light),
+      fight.animatedTitleColor(0, 2.4, light));
+    for (const index of [0, 4])
+      for (const channel of fight.animatedTitleColor(index, 2.4, light))
+        assert.ok(channel >= 0 && channel <= 255);
+  }
+});
+
+test("the in-match HUD carries a wall clock clear of the round QR", () => {
+  const clockSource = source.match(
+    /\/\/ Wall clock in the top right[\s\S]*?clockSize, \.\.\.titleInk\);/)[0];
+  assert.match(clockSource, /pacificTimeLabel\(run\.unixMs \|\| Date\.now\(\)\)/);
+  assert.match(clockSource, /qrBox \? qrBox\.left - 14 : hud\.right/);
+  assert.match(clockSource, /roundViewer \? clockSize \+ 10 : 2/);
+  const { fight, tick } = createFight();
+  // Untimed training keeps the infinity glyph and still shows the clock.
+  fight.players[1].npc = true;
+  fight.players[1].bot = false;
+  tick();
+  assert.doesNotThrow(() => fight.paint());
 });
 
 test("dummy training has no QR, analytics, spectator feed, or replay upload", () => {
@@ -1839,9 +2693,9 @@ test("dummy training has no QR, analytics, spectator feed, or replay upload", ()
   assert.deepEqual(liveFrames, []);
   assert.deepEqual(replays, []);
   assert.match(source,
-    /function drawSpectatorQr\(ink\)[\s\S]{0,420}if \(shellMode === "GAME" && !roundIsTimed\(\)\) return/);
+    /function spectatorQrBox\(\)[\s\S]{0,180}if \(shellMode === "GAME" && !roundIsTimed\(\)\) return null/);
   assert.match(source,
-    /if \(!roundIsTimed\(\)\) \{[\s\S]{0,180}replay = null/);
+    /if \(!roundIsTimed\(\)\) \{[\s\S]{0,300}replay = null/);
 });
 
 test("the final ten seconds ring bells and turn the top clock into tie", () => {
@@ -1883,7 +2737,7 @@ test("client failures become an on-screen error state", () => {
   setHostErrorStatus("posted to server xbox-oskiewar-test");
   assert.equal(fight.errorReportStatus(), "posted to server xbox-oskiewar-test");
   assert.doesNotThrow(() => fight.paint());
-  assert.match(source, /errorTypeWrite\("oskieware error"/);
+  assert.match(source, /errorTypeWrite\("aesthetic\.computer error"/);
   assert.match(source, /errorTypeWrite\("state dump"/);
   assert.match(source, /line " \+ detail\.source\.line/);
   assert.match(source, /errorTypeWrite\("relaunch or deploy an update"/);
@@ -1899,6 +2753,109 @@ test("client failures become an on-screen error state", () => {
   assert.match(nativeApp, /FlushClientErrorUploads\(\)/);
   assert.match(pieceLog,
     /if \(phase === "error"\)[\s\S]{0,240}\$setOnInsert/);
+});
+
+test("the error screen carries its whole dump in a scannable QR link", () => {
+  globalThis.qrcode = qrcode;
+  try {
+    const { fight } = createFight(true, true);
+    const error = new RangeError("invalid 3d triangle coordinates");
+    error.stack = "RangeError: invalid 3d triangle coordinates\n" +
+      "    at screenTriangle (live:1162:16)\n    at gamePaint (live:5028:3)";
+    fight.captureClientError("paint", error);
+    const { url, modules } = fight.clientErrorDumpState();
+    assert.ok(url.startsWith("https://oskiewar.com/api/oskiewar-dump?d="));
+    // A code the console can actually render large enough to scan off a TV.
+    assert.ok(modules > 0 && modules <= 125, `QR is ${modules} modules`);
+    const dump = decodeDump(url.slice(url.indexOf("?d=") + 3));
+    assert.equal(dump.p, "paint");
+    assert.equal(dump.n, "RangeError");
+    assert.equal(dump.m, "invalid 3d triangle coordinates");
+    assert.equal(dump.src.line, 1162);
+    assert.match(dump.k, /screenTriangle/);
+    assert.equal(dump.s.players.length, 2);
+    assert.equal(dump.s.build, /const buildTimestamp = "([^"]+)"/.exec(source)[1]);
+    assert.ok(dumpRows(dump).some(([label]) => label === "camera"));
+    assert.doesNotThrow(() => fight.paint());
+    assert.match(source, /errorTypeWrite\("scan to share this dump"/);
+  } finally {
+    delete globalThis.qrcode;
+  }
+});
+
+test("a run of type shadows in one direction instead of flipping a letter", () => {
+  const { fight } = createFight(false, false);
+  // DUMMY is five letters dressed by three colors, and its second color sits
+  // just over the old luminance threshold — the 'u' used to take the opposite
+  // shadow from every other glyph and read as a mistake.
+  const palette = [[105, 125, 150], [135, 155, 180], [105, 125, 150]];
+  const fallback = [105, 125, 150];
+  const glyphs = [..."dummy"].map((_, index) =>
+    fight.glyphColor(palette, index, fallback));
+
+  // The tail cycles the palette rather than dropping onto another source.
+  assert.deepEqual(glyphs[3], palette[0]);
+  assert.deepEqual(glyphs[4], palette[1]);
+  assert.deepEqual(fight.glyphColor([], 2, fallback), fallback);
+  assert.deepEqual(fight.glyphColor(null, 0, fallback), fallback);
+
+  const luminance = ([r, g, b]) => r * .2126 + g * .7152 + b * .0722;
+  const shadows = glyphs.map((color) => fight.runShadow(color));
+  const sides = new Set(shadows.map((shadow) => luminance(shadow) > 128));
+  assert.equal(sides.size, 1, "every glyph in a run shadows the same way");
+  // The old per-glyph contrast did single that letter out.
+  assert.equal(new Set(glyphs.map((color) =>
+    luminance(fight.contrastShadow(color)) > 128)).size, 2);
+  // Each shadow still carries a trace of its own glyph.
+  assert.notDeepEqual(shadows[0], shadows[1]);
+});
+
+test("the state dump is icon-led and colored token by token", () => {
+  const { fight } = createFight(true, true);
+  fight.captureClientError("paint", new RangeError("invalid 3d triangle"));
+  const rows = fight.stateDumpRows(fight.clientErrorDetailState().state);
+  assert.deepEqual(rows.map((row) => row.icon),
+    ["build", "mode", "camera", "player", "player", "ball"]);
+
+  const ink = (token) => fight.dumpTokenInk(token).join(",");
+  const handle = ink("@jeffrey");
+  const number = ink("6779");
+  const label = ink("camera");
+  const unit = ink("vel");
+  assert.equal(new Set([handle, number, label, unit]).size, 4,
+    "each token class gets its own ink");
+  assert.equal(ink("@OSKIE"), handle);
+  assert.equal(ink("-87"), number);
+  assert.equal(ink("2.255"), number);
+  assert.equal(ink("pos"), unit);
+  assert.notEqual(ink(","), number);
+
+  // Tokens must sum back to the source line or colored text would drift.
+  const line = rows.find((row) => row.icon === "player").text;
+  assert.equal(fight.dumpTokens(line).join(""), line);
+  assert.ok(fight.dumpTokens(line).includes("@JEFFREY"));
+  assert.match(source, /writeDumpLine\(wrapped, 132, cursorY, 27\)/);
+  assert.match(source, /drawDumpIcon\(row\.icon, 94/);
+});
+
+test("a crashed console counts down and restarts itself", () => {
+  const { fight, tick, telemetryEvents } = createFight(true, true);
+  fight.captureClientError("paint", new RangeError("invalid 3d triangle"));
+  assert.equal(fight.errorRestartSeconds(), 16);
+  tick(6000000);
+  assert.equal(fight.errorRestartSeconds(), 10);
+  assert.ok(fight.clientErrorState());
+  assert.match(source, /drawErrorCountdown\(width\)/);
+  assert.match(source, /String\(Math\.min\(99, remaining\)\)\.padStart\(2, "0"\)/);
+  tick(9000000);
+  assert.equal(fight.errorRestartSeconds(), 1);
+  assert.ok(fight.clientErrorState(), "holds the screen for the full countdown");
+  tick(1000000);
+  assert.equal(fight.clientErrorState(), "", "restarts once the countdown lands");
+  assert.equal(fight.clientErrorDetailState(), null);
+  assert.equal(fight.shellState().mode, "MENU");
+  assert.ok(telemetryEvents.some(([event, detail]) =>
+    event === "SHELL" && detail === "error->restart"));
 });
 
 test("off-camera detached limbs are culled before native triangle submission", () => {
