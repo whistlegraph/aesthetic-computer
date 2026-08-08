@@ -54,7 +54,10 @@ the public marketplace/mirror used to install the plugin.
 ## Data-accuracy pass (Alex, 2026-07-11) — resolve during the source-video intake
 - **Renamed codes break CDN assets.** Archive assets are keyed by the *original*
   recovered code (`index/<code>.jpg|.mp4`). Any future code rename must add an
-  `asset:"<oldcode>"` field (see `bowm`→lvme, `more`→wtm) or the thumbnail/video 404s.
+  `asset:"<oldcode>"` field (see `bowm`→lvme) or the thumbnail/video 404s.
+  *(2026-08-08: audited every derivable URL against the bucket; 12 renamed works
+  were missing their `asset` key and got one — nbff, mush, pump, tipj, bubb,
+  bpen, kiss, trip, bugy, asmr, lily, fssl. All asset URLs now resolve.)*
 - **Suspicious counts.** `2la` "Certain Personality" shows 10 videos — Alex thinks
   that's dubious. The per-page source list is the way to verify what's actually
   filed under each whistlegraph (he suspects some videos are mis-filed).
@@ -92,10 +95,8 @@ the public marketplace/mirror used to install the plugin.
   File line (Elsewhere) but the URL didn't come through in iMessage ("have the link
   be:" arrived empty). Placeholder currently points at the existing Kunstverein
   Hamburg recital video (YouTube `YXUUCkqv2LY`) — swap in the intended link.
-- **"More Than Enough" duplicate.** `wtm` was renamed to *More Than Enough* `[more]`
-  by Alex Freundlich per his note. A separate `enuf` *More Than Enough* (by
-  Whistlegraph) still exists. Confirm whether these are the same composition and
-  should fold, or stay distinct.
+- ~~**"More Than Enough" duplicate.**~~ Resolved — `wtm` and `more` both alias to
+  `enuf`, the single canonical *More Than Enough*.
 
 ## Resolved 2026-07-27
 
