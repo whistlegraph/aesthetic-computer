@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Info.plist for the STANDALONE MenuBandLauncher bundle
+     (install-launcher.sh). The embedded copy inside the SwiftPM build shares
+     Menu Band's own Info.plist instead; this one exists so the launcher can
+     run on machines where the only Menu Band installed is the Xcode /
+     App-Store fork, whose target excludes this helper.
+
+     CFBundleName is what System Settings > Privacy & Security >
+     Accessibility shows next to the checkbox — spell it for a human. -->
+<plist version="1.0">
+<dict>
+    <key>CFBundleIdentifier</key>
+    <string>computer.aestheticcomputer.menubandlauncher</string>
+    <key>CFBundleExecutable</key>
+    <string>MenuBandLauncher</string>
+    <key>CFBundleName</key>
+    <string>Menu Band Launcher</string>
+    <key>CFBundleDisplayName</key>
+    <string>Menu Band Launcher</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleShortVersionString</key>
+    <string>1.0</string>
+    <key>CFBundleVersion</key>
+    <string>1</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>11.0</string>
+    <!-- Background helper: no Dock icon, no menu bar presence of its own. -->
+    <key>LSUIElement</key>
+    <true/>
+    <key>LSBackgroundOnly</key>
+    <false/>
+</dict>
+</plist>

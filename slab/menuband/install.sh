@@ -393,7 +393,12 @@ fi
 say "writing launchd plists → ${PLIST_PATH}, ${LAUNCHER_PLIST_PATH}"
 mkdir -p "${LAUNCH_AGENTS}"
 sed "s|@HOME@|${REPO_HOME}|g" "${PLIST_TMPL}" > "${PLIST_PATH}"
-sed "s|@HOME@|${REPO_HOME}|g" "${LAUNCHER_PLIST_TMPL}" > "${LAUNCHER_PLIST_PATH}"
+# @LAUNCHER_BIN@ is templated because the launcher also ships standalone
+# (install-launcher.sh) for machines running the Xcode/App-Store fork, whose
+# target excludes this helper. Here it's the embedded copy.
+sed -e "s|@HOME@|${REPO_HOME}|g" \
+    -e "s|@LAUNCHER_BIN@|${INSTALLED_APP_DIR}/Contents/MacOS/MenuBandLauncher|g" \
+    "${LAUNCHER_PLIST_TMPL}" > "${LAUNCHER_PLIST_PATH}"
 ok "plists written"
 
 say "atomically replacing installed bundle → ${INSTALLED_APP_DIR}"
