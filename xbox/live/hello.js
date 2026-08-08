@@ -484,17 +484,34 @@ let roundViewerDemo = null;
 let roundViewerDemoStartedAt = 0;
 let livePublishFailed = false;
 
+// Match names are public URLs and must not collide, so they take real
+// entropy — but a recorded round has to reproduce, and the ball kind is
+// hashed from the series name and carries radius and mass. So the entropy is
+// drawn once per match, carried in the demo, and every name after it falls
+// out deterministically.
+let nameSeed = 1;
+function seedNames(seed) {
+  nameSeed = (seed >>> 0) || 1;
+}
+function nameRandom() {
+  nameSeed = (nameSeed + 0x6d2b79f5) >>> 0;
+  let value = nameSeed;
+  value = Math.imul(value ^ (value >>> 15), value | 1);
+  value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
+  return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
+}
+
 function pronounceableMatchName() {
   const onsets = ["b", "d", "f", "g", "k", "l", "m", "n", "p", "r",
     "s", "t", "v", "z", "ch", "sh", "th"];
   const consonants = "bdfgklmnprstvz";
   const vowels = "aeiou";
-  const onset = onsets[Math.floor(Math.random() * onsets.length)];
-  const vowel = vowels[Math.floor(Math.random() * vowels.length)];
-  const middle = consonants[Math.floor(Math.random() * consonants.length)];
-  const ending = (vowels + "y")[Math.floor(Math.random() * (vowels.length + 1))];
+  const onset = onsets[Math.floor(nameRandom() * onsets.length)];
+  const vowel = vowels[Math.floor(nameRandom() * vowels.length)];
+  const middle = consonants[Math.floor(nameRandom() * consonants.length)];
+  const ending = (vowels + "y")[Math.floor(nameRandom() * (vowels.length + 1))];
   return onset + vowel + middle + middle + ending +
-    Math.floor(Math.random() * 1000);
+    Math.floor(nameRandom() * 1000);
 }
 
 function demoTick(now) {
@@ -534,6 +551,8 @@ function startReplay(now) {
     spectatorQr = null;
     return;
   }
+  seedNames(Math.floor(Math.random() * 4294967296));
+  const nameSeedUsed = nameSeed;
   seriesName = pronounceableMatchName();
   matchBallType = seriesBallType(seriesName);
   matchName = "";
@@ -544,6 +563,7 @@ function startReplay(now) {
     matchId: "ow-" + seriesName, matchName: seriesName,
     seriesId: "ow-" + seriesName, seriesName, roundIds: [],
     startedAt: run.unixMs || 0, startedMonotonicUs: now,
+    nameSeed: nameSeedUsed, ballType: matchBallType,
     fighters: players.map((player) => player.name),
     commands: [], events: [], checkpoints: [], rounds: [],
   };
@@ -1528,8 +1548,10 @@ function updateWind(dt, now) {
   windAcceleration = 0;
 }
 
-// The match ball is drawn from the series identity, never the clock or
-// Math.random, so a replay and its live spectators inflate the same one.
+// The match ball is drawn from the series identity. That identity is itself
+// seeded once per match and recorded, so re-running a demo's inputs inflates
+// the same ball -- the name this hashes used to come straight from
+// Math.random, which silently made ball radius and mass unreproducible.
 function seriesBallType(name) {
   const roll = hashUnit("ball:" + (name || "oskiewar"));
   return ballKinds[Math.min(ballKinds.length - 1,

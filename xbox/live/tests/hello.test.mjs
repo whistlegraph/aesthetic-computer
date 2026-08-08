@@ -2390,6 +2390,40 @@ test("the match ball kind is seeded on the series, never the clock", () => {
     assert.ok(["soccer", "basketball", "beach"].includes(type));
 });
 
+test("a match records the seed its ball kind was drawn from", () => {
+  // The series name is hashed to pick the ball, and ball kind carries radius
+  // and mass. The name used to come straight from Math.random, so the same
+  // inputs could re-run with different physics.
+  const run = (seed) => {
+    const original = Math.random;
+    Math.random = () => seed;
+    try {
+      const { fight, tap } = createFight(false);
+      tap(0, "A");
+      const options = fight.selectionOptions();
+      while (options[fight.selectionState().cursor].label !== "BOT")
+        tap(0, "ArrowRight");
+      tap(0, "A");
+      return { series: fight.seriesState(), ball: fight.ball.type,
+        radius: fight.ball.radius, mass: fight.ball.mass };
+    } finally { Math.random = original; }
+  };
+  // Same entropy in, same match identity and same physics out.
+  const a = run(0.4242);
+  const b = run(0.4242);
+  assert.equal(a.series, b.series);
+  assert.equal(a.ball, b.ball);
+  assert.equal(a.radius, b.radius);
+
+  // Different entropy still gives a distinct public name, as it must.
+  const other = run(0.9137);
+  assert.notEqual(other.series, a.series);
+
+  // And the demo carries what it needs to reproduce, rather than re-deriving.
+  assert.match(source, /nameSeed: nameSeedUsed, ballType: matchBallType/);
+  assert.doesNotMatch(source, /onsets\[Math\.floor\(Math\.random/);
+});
+
 test("one ball kind survives every round of the same match", () => {
   const { fight, tap } = createFight(false);
   tap(0, "A");
