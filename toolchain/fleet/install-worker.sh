@@ -22,14 +22,19 @@ done
 case "$ROLE" in heavy|light|interactive|balanced) ;; *) echo "invalid role: $ROLE" >&2; exit 2 ;; esac
 [[ -f "$SOURCE" ]] || { echo "missing $SOURCE" >&2; exit 1; }
 
-TAILSCALE="$(command -v tailscale 2>/dev/null || true)"
-for candidate in /opt/homebrew/bin/tailscale /usr/local/bin/tailscale \
+TAILSCALE=""
+BIND=""
+for candidate in "$(command -v tailscale 2>/dev/null || true)" \
+  /opt/homebrew/bin/tailscale /usr/local/bin/tailscale \
   /Applications/Tailscale.app/Contents/MacOS/Tailscale; do
-  [[ -x "$TAILSCALE" ]] && break
-  [[ -x "$candidate" ]] && TAILSCALE="$candidate"
+  [[ -x "$candidate" ]] || continue
+  candidate_bind="$($candidate ip -4 2>/dev/null | head -1 || true)"
+  [[ "$candidate_bind" =~ ^100\. ]] || continue
+  TAILSCALE="$candidate"
+  BIND="$candidate_bind"
+  break
 done
 [[ -x "$TAILSCALE" ]] || { echo "Tailscale CLI is required" >&2; exit 1; }
-BIND="$($TAILSCALE ip -4 2>/dev/null | head -1)"
 [[ "$BIND" =~ ^100\. ]] || { echo "refusing to bind without a 100.x tailnet address" >&2; exit 1; }
 
 NODE="$(command -v node 2>/dev/null || true)"
