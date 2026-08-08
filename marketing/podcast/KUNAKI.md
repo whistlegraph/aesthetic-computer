@@ -1,4 +1,4 @@
-# Kunaki cassette production
+# Kunaki physical-media production
 
 Kunaki separates product creation from fulfillment:
 
@@ -35,3 +35,15 @@ by the quote. Product creation cannot be automated by Kunaki's fulfillment API.
 Current cassette artwork requirements are encoded in `lib/kunaki.mjs`: JPEG at
 300 DPI, 1200×1110 for the J-card, and 1062×496 for each side label. Kunaki says
 bleed is unnecessary but recommends keeping text and lines clear of the edges.
+
+The same client fulfills CDs and the `/pop` cassette. Those kits live in
+`pop/physical/` — see its README. They press Red Book masters rather than the
+released MP3s, and `pop/physical/bin/kunaki-order.mjs` wraps quote, order, and
+tracking in one command:
+
+```sh
+npm run physical:masters
+npm run physical:cd-kit
+npm run physical:cassette-kit
+npm run physical:order -- quote --quantity 3
+```

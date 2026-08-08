@@ -1,0 +1,64 @@
+{
+  "schemaVersion": 1,
+  "title": "pixsies so far",
+  "artist": "Aesthetic Dot Computer",
+  "asOf": "2026-08-07",
+  "source": "pop/RELEASES.md",
+  "tracks": [
+    {
+      "slug": "americomputadora",
+      "title": "americomputadora",
+      "audio": "https://assets.aesthetic.computer/pop/americomputadora.mp3",
+      "cover": "https://assets.aesthetic.computer/pop/americomputadora.jpg"
+    },
+    {
+      "slug": "amaythingra",
+      "title": "amaythingra",
+      "audio": "https://assets.aesthetic.computer/pop/amaythingra.mp3",
+      "cover": "https://assets.aesthetic.computer/pop/amaythingra.jpg"
+    },
+    {
+      "slug": "helpabeach",
+      "title": "helpabeach",
+      "audio": "https://assets.aesthetic.computer/pop/helpabeach.mp3",
+      "cover": "https://assets.aesthetic.computer/pop/helpabeach.jpg"
+    },
+    {
+      "slug": "marimbaba",
+      "title": "marimbaba",
+      "audio": "https://assets.aesthetic.computer/pop/marimbaba.mp3",
+      "cover": "https://assets.aesthetic.computer/pop/marimbaba.jpg"
+    },
+    {
+      "slug": "fluttabap360",
+      "title": "fluttabap360",
+      "audio": "https://assets.aesthetic.computer/pop/fluttabap360.mp3",
+      "cover": "https://assets.aesthetic.computer/pop/fluttabap360.jpg"
+    },
+    {
+      "slug": "momabobasheep",
+      "title": "momabobasheep",
+      "audio": "https://assets.aesthetic.computer/pop/momabobasheep.mp3",
+      "cover": "https://assets.aesthetic.computer/pop/momabobasheep.jpg"
+    },
+    {
+      "slug": "trancenwaltz",
+      "title": "trancenwaltz",
+      "audio": "https://assets.aesthetic.computer/pop/trancenwaltz.mp3",
+      "cover": "https://assets.aesthetic.computer/pop/trancenwaltz.jpg"
+    },
+    {
+      "slug": "trancepenta",
+      "title": "trancepenta",
+      "audio": "https://assets.aesthetic.computer/pop/trancepenta.mp3",
+      "cover": "https://assets.aesthetic.computer/pop/trancepenta.jpg"
+    },
+    {
+      "slug": "hellsine",
+      "title": "hellsine",
+      "audio": "https://assets.aesthetic.computer/pop/hellsine.mp3",
+      "cover": "https://assets.aesthetic.computer/pop/hellsine.jpg"
+    }
+  ]
+}
+

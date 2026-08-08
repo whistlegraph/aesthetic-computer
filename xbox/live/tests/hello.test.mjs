@@ -1224,6 +1224,23 @@ test("every round gets a new URL and tells spectators where the room moved", () 
 
 // Dummy play is free and anonymous, so there is no screen in front of it:
 // booting lands you in the training fight with the wordmark floating on top.
+test("the matchup card yields its seat to the wordmark", () => {
+  const { fight, tick } = createFight(false, false);
+  assert.equal(fight.shellState().mode, "MENU");
+  // Entry keeps restarting training rounds, and each one counts itself off
+  // with a card that names both fighters in the middle of the screen --
+  // exactly where the wordmark sits.
+  assert.match(source,
+    /if \(counting && shellMode === "GAME"\)\n\s*drawFightIntro/);
+  // Long enough to cross a round boundary and start another countdown.
+  for (let frame = 0; frame < 600; frame += 1) {
+    tick(40000);
+    fight.paint();
+  }
+  assert.equal(fight.shellState().mode, "MENU", "entry left the wordmark");
+  assert.equal(fight.clientErrorState(), "");
+});
+
 test("entry is already a live anonymous fight against the dummy", () => {
   const { fight, pads, tick } = createFight(false, false);
   assert.equal(fight.shellState().mode, "MENU");
@@ -2841,6 +2858,32 @@ test("safe-zone debug marks corners instead of drawing full boxes", () => {
   assert.doesNotMatch(zoneSource, /typeWrite|drawRectOutline/);
   assert.match(zoneSource, /drawCornerCrops\(hudSafeRect\(\), 46, 3/);
   assert.match(zoneSource, /drawCornerCrops\(actionSafeRect\(\), 34, 2/);
+});
+
+test("a console whose clock reads negative can still fight", () => {
+  // App.cpp overflows int64 converting QPC ticks past ~10 days of uptime.
+  // Every deadline here starts at 0, so `now < hitStunUntil` was permanently
+  // true: acting was impossible, no attack fired, and no round could be won.
+  const uptimeUs = -3753801036;
+  const { fight, pads, tick } = createFight(true, true, "xbox-uwp", null,
+    { width: 1920, height: 1080 }, null, null, "triangle3d", uptimeUs);
+  const attacker = fight.players[0];
+  const target = fight.players[1];
+  attacker.x = target.x - 120;
+  pads[0].down = ["X"];
+  let struck = false;
+  for (let frame = 0; frame < 30 && !struck; frame += 1) {
+    tick();
+    struck = Boolean(attacker.attackKind);
+  }
+  assert.ok(struck, "no attack could fire on a negative clock");
+  assert.equal(fight.clientErrorState(), "");
+
+  // Time itself must read forward from zero, not from the host's number.
+  const shown = fight.cameraState();
+  assert.ok(shown, "the frame never resolved");
+  assert.match(source, /const hostRuntime = runtime;/);
+  assert.match(source, /info\.monotonicUs = raw - clockEpoch;/);
 });
 
 test("a negative native clock still paints the beach ball's panels", () => {

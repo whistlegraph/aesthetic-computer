@@ -1,4 +1,25 @@
 // @bundle-qr
+// The console's monotonic clock can hand back a negative number: App.cpp
+// converts QPC ticks with `counter * 1000000`, which overflows int64 past
+// about ten days of uptime. Every deadline in this piece starts at 0 and is
+// compared with `now >=` or `now <`, so a negative clock made `hitStunUntil`
+// permanently in the future -- no attack could fire and no round could be
+// won -- stranded the title, silenced the input log, and indexed off the
+// front of a palette. Rebase once, here, so time starts at zero whatever the
+// host reports. The host builds a fresh object per call, so this rewrites
+// that copy rather than allocating another.
+const hostRuntime = runtime;
+let clockEpoch = null;
+runtime = function acRuntime() {
+  const info = hostRuntime();
+  const raw = Number(info.monotonicUs) || 0;
+  if (clockEpoch === null) clockEpoch = raw;
+  info.monotonicUs = raw - clockEpoch;
+  if (typeof info.simMonotonicUs === "number")
+    info.simMonotonicUs -= clockEpoch;
+  return info;
+};
+
 const buildTimestamp = "2026.08.07.1336 PDT";
 const floorY = 12000;
 const ceilingY = 0;
@@ -6014,7 +6035,10 @@ function gamePaint() {
   drawBallHitboxes();
   drawImpacts();
   const counting = !roundResult && introAge < introDurationUs;
-  if (counting) drawFightIntro(introAge / 1000000, titleInk, statusShadow);
+  // The matchup card announces two names in the middle of the screen, which
+  // is exactly where the wordmark sits. On the entry fight the word wins.
+  if (counting && shellMode === "GAME")
+    drawFightIntro(introAge / 1000000, titleInk, statusShadow);
   // The keys belong wherever a newcomer is looking: under the wordmark on the
   // way in, and again while a round counts itself off.
   if (counting || shellMode === "MENU") drawControlLegend(titleInk);

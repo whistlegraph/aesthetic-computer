@@ -19,6 +19,29 @@ export const CASSETTE_SPECS = Object.freeze({
   },
 });
 
+export const CD_SPECS = Object.freeze({
+  source: "https://kunaki.com/product-cd.html",
+  checked: "2026-08-07",
+  priceUsd: 2,
+  manufactureHours: 24,
+  audio: {
+    maxMinutes: 80,
+    maxTracks: 25,
+    gapSeconds: 2,
+    accepted: ["wav", "mp3", "aac", "wmv", "m4a"],
+  },
+  artwork: {
+    format: "jpeg",
+    dpi: 300,
+    color: "RGB",
+    bleedRequired: false,
+    disc: { width: 1394, height: 1394 },
+    frontCover: { width: 1423, height: 1411 },
+    insert: { width: 1423, height: 1411 },
+    trayCard: { width: 1772, height: 1385, spineWidth: 74 },
+  },
+});
+
 const required = (value, name) => {
   if (value === undefined || value === null || value === "") throw new Error(`Missing ${name}`);
   return String(value);

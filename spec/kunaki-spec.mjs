@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { CASSETTE_SPECS, orderUrl, parseResponse, shippingOptionsUrl } from "../marketing/podcast/lib/kunaki.mjs";
+import { CASSETTE_SPECS, CD_SPECS, orderUrl, parseResponse, shippingOptionsUrl } from "../marketing/podcast/lib/kunaki.mjs";
 
 describe("Kunaki integration", () => {
   it("encodes duplicate product fields in shipping quotes", () => {
@@ -18,5 +18,13 @@ describe("Kunaki integration", () => {
   it("tracks current cassette artwork dimensions", () => {
     assert.deepEqual(CASSETTE_SPECS.artwork.jCard, { width: 1200, height: 1110 });
     assert.deepEqual(CASSETTE_SPECS.artwork.labelA, { width: 1062, height: 496 });
+  });
+  it("tracks current jewel-case CD limits and artwork dimensions", () => {
+    assert.equal(CD_SPECS.priceUsd, 2);
+    assert.equal(CD_SPECS.audio.maxMinutes, 80);
+    assert.equal(CD_SPECS.audio.maxTracks, 25);
+    assert.deepEqual(CD_SPECS.artwork.disc, { width: 1394, height: 1394 });
+    assert.deepEqual(CD_SPECS.artwork.frontCover, { width: 1423, height: 1411 });
+    assert.deepEqual(CD_SPECS.artwork.trayCard, { width: 1772, height: 1385, spineWidth: 74 });
   });
 });

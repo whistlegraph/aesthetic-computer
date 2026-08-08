@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "note": "How each released track becomes a Red Book master. Archived masters win; renders are the documented deterministic rebuilds from pop/RELEASES.md.",
+  "space": "s3://shelf-sync",
+  "endpoint": "https://sfo3.digitaloceanspaces.com",
+  "tracks": {
+    "americomputadora": {
+      "from": "archive",
+      "key": "neo/americomputadora/americomputadora-master.wav"
+    },
+    "amaythingra": {
+      "from": "cdn",
+      "url": "https://assets.aesthetic.computer/pop/amaythingra.wav"
+    },
+    "helpabeach": {
+      "from": "render",
+      "command": ["node", "pop/chillwave/bin/render.mjs", "--slug", "helpabeach", "--no-chimes", "--no-waves", "--no-sweeps", "--no-highmel", "--voice-gain", "0.22", "--voice-start", "47", "--wav", "--out", "{scratch}/helpabeach.mp3"],
+      "produces": "{scratch}/helpabeach.wav",
+      "master": "highpass=f=24,treble=g=1.8:f=9500,loudnorm=I=-14:TP=-1.5:LRA=11,alimiter=limit=0.95"
+    },
+    "marimbaba": {
+      "from": "render",
+      "command": ["node", "pop/marimba/bin/render-marimbaba.mjs", "--wav", "{scratch}/marimbaba.wav", "--no-open"],
+      "produces": "{scratch}/marimbaba.wav"
+    },
+    "fluttabap360": {
+      "from": "archive",
+      "key": "neo/Fluttabap360-DISTROKID/Fluttabap360-MASTER.wav"
+    },
+    "momabobasheep": {
+      "from": "archive",
+      "key": "neo/momboba/momabobasheep-MASTER-c.wav"
+    },
+    "trancenwaltz": {
+      "from": "released-mp3",
+      "why": "The bake needs pop/dance/out/trance-hook-layered.mp3, the layered vocal hook. It is absent from the tree, the Shelf, and the shelf-sync Space; only trance-hook.np survives. Re-singing it would drift from the released record."
+    },
+    "trancepenta": {
+      "from": "released-mp3",
+      "why": "bake-trancepenta.sh stage 3 needs pop/dance/out/trancepenta-hum-layered.mp3 and .ac-dot-stamp-vocal.mp3. Both are gone the same way trancenwaltz's hook is."
+    },
+    "hellsine": {
+      "from": "render",
+      "command": ["node", "pop/hellsine/c/bake-c.mjs"],
+      "produces": "{home}/Documents/Shelf/hellsine/hellsine-c-MASTER.wav"
+    }
+  }
+}
