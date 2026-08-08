@@ -61,6 +61,13 @@
     #auto-update-label { display: flex; align-items: center; gap: 6px;
       font-size: 14px; font-weight: 400; }
     #auto-update { width: 16px; height: 16px; margin: 0; accent-color: #ff5070; }
+    #logout { position: fixed; top: max(14px, env(safe-area-inset-top));
+      right: max(14px, env(safe-area-inset-right)); z-index: 6;
+      appearance: none; padding: 7px 11px; border: 2px solid #6e768d;
+      border-radius: 8px; background: #b0b8ca; color: #171b28;
+      font: 700 15px/1 "Comic Relief", "Comic Sans MS", Arial, sans-serif;
+      box-shadow: 2px 3px 0 rgba(20, 25, 38, .35); }
+    body:not(.title-open) #logout, body.social-preview #logout { display: none; }
     /* Scoring from a DAW is anonymous dummy play, so the account door is shut
        and the corner it occupied is free for the midi lamp. */
     body.midi-out #logout { display: none; }
@@ -115,6 +122,7 @@
 <body>
   <canvas id="screen" width="1920" height="1080" aria-label="oskiewar two-player stick fight"></canvas>
   <div id="status" role="alert" aria-live="polite"></div>
+  <button id="logout" type="button">log out</button>
   <div id="midi-out" role="status" aria-label="midi out is on" title="midi out">
     <svg width="26" height="18" viewBox="0 0 26 18" aria-hidden="true">
       <rect class="key-white" x="0" y="0" width="26" height="18" rx="2"/>
@@ -163,6 +171,8 @@
       navigator.maxTouchPoints > 0 || matchMedia("(pointer: coarse)").matches;
     document.body.classList.toggle("touch-enabled", touchEnabled);
     document.body.classList.add("title-open");
+    document.body.classList.toggle("social-preview",
+      new URLSearchParams(location.search).has("social-preview"));
     let titleOpen = true;
     const keyMap = new Map([
       ["KeyW", [0, "ArrowUp"]], ["KeyS", [0, "ArrowDown"]],
@@ -179,6 +189,13 @@
       ["Quote", [1, "Y"]],
     ]);
     let audioContext = null;
+    const logout = document.querySelector("#logout");
+    logout.addEventListener("click", () => {
+      const target = new URL("https://hi.aesthetic.computer/v2/logout");
+      target.searchParams.set("client_id", "LVdZaMbyXctkGfZDnpzDATB5nR0ZhmMt");
+      target.searchParams.set("returnTo", "https://oskiewar.com/");
+      location.assign(target);
+    });
 
     // Keep a stable 1080-unit vertical coordinate system while allowing the
     // horizontal game surface to follow the browser's actual aspect ratio.
@@ -680,6 +697,7 @@
     }
 
     addEventListener("keydown", (event) => {
+      if (event.target instanceof HTMLButtonElement) return;
       const mapped = keyMap.get(event.code);
       if (!mapped) {
         if (tapTitle()) event.preventDefault();

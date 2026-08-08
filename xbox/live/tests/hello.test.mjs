@@ -205,7 +205,8 @@ function createPadHost({ pads = [], touch = false, agent = "Mac" } = {}) {
        seats: () => padSeats.slice() };`)(
     { userAgent: agent, getGamepads: () => pads },
     keys, touch, () => ({ matches: false }), { search: "" },
-    { querySelector: () => status },
+    { querySelector: () => status,
+      body: { classList: { contains: () => false } } },
     (type, handler) => listeners.set(type, handler), false);
   return { ...host, keys, pads, status,
     connect: (pad) => listeners.get("gamepadconnected")({ gamepad: pad }),
@@ -940,14 +941,41 @@ test("wind flag lives on the platform without an MPH HUD label", () => {
   assert.doesNotMatch(source, /MPH/);
   assert.match(source, /const safe = actionSafeRect\(\)/);
   assert.doesNotMatch(source, /const span = cameraWidth \* 1\.18/);
+  const flagSource = source.slice(source.indexOf("function drawWindFlag"),
+    source.indexOf("function hashUnit"));
+  assert.match(flagSource, /projectedTriangle\(flagPoints\[0\]/);
+  assert.match(flagSource, /const ink = calm \? \[255, 210, 54\] : color/);
+  assert.match(flagSource, /width \+ 5, outline/);
+  assert.match(source, /if \(shellMode === "GAME"\) drawWindFlag\(t, windInk\)/);
 });
 
-test("round-seeded ambient dust uses tiny drifting points at varied depth", () => {
-  const moteSource = source.match(/function seededWindValue[\s\S]*?\n}\n\nfunction drawSelectPortrait/)[0];
-  assert.match(moteSource, /matchName \|\| seriesName/);
+test("gun and grenade pickups are unlabeled world-scale objects", () => {
+  const gunSource = source.slice(source.indexOf("function drawGunPickup"),
+    source.indexOf("function drawBullet"));
+  const grenadeSource = source.slice(source.indexOf("function drawGrenadePickup"),
+    source.indexOf("function drawGrenade("));
+  assert.doesNotMatch(gunSource, /typeWrite|circle\(/);
+  assert.doesNotMatch(grenadeSource, /typeWrite|circle\(/);
+  assert.match(gunSource, /pickup\.x - 38/);
+  assert.match(gunSource, /pickup\.x \+ 44/);
+  assert.match(grenadeSource, /18 \* scale/);
+  assert.match(gunSource, /\* 8/);
+  assert.match(grenadeSource, /\* 8/);
+});
+
+test("ambient air is a simulated world-entity field", () => {
+  const moteSource = source.match(/function airSeedValue[\s\S]*?\n}\n\nfunction drawSelectPortrait/)[0];
+  assert.match(moteSource, /hashUnit\("oskiewar-air:"/);
   assert.match(moteSource, /function drawAmbientMotes/);
-  assert.match(moteSource, /const count = 12/);
-  assert.match(moteSource, /filledDisc\(x, y, radius, ink\)/);
+  assert.match(moteSource, /const count = 18/);
+  assert.match(moteSource, /id: "air:" \+ index/);
+  assert.match(moteSource, /kind: "air"/);
+  assert.match(moteSource, /function airFlowAt\(position, seconds, phase\)/);
+  assert.match(moteSource, /function simulateAirParticles\(dt, now\)/);
+  assert.match(moteSource, /entity\.position\.x = wrapWorld/);
+  assert.match(moteSource, /const point = projectPoint\(x, y, z\)/);
+  assert.match(moteSource, /filledDisc\(point\.x, point\.y, radius, ink\)/);
+  assert.doesNotMatch(moteSource, /actionSafeRect\(\)/);
   assert.doesNotMatch(moteSource, /filledCapsule\(/);
 });
 
@@ -955,14 +983,25 @@ test("debug HUD shows FPS without repeating oskiewar beside the round QR", () =>
   assert.match(source, /Math\.round\(displayFps \|\| 0\) \+ " fps"/);
   assert.match(source,
     /if \(debugHitboxes\) \{\n    drawDebugBug\(safe\);\n    const fpsLabel/);
+  assert.match(source, /typeWrite\(fpsLabel, safe\.left \+ 2, safe\.top \+ 2/);
   assert.doesNotMatch(source, /const gameLabel = "oskiewar"/);
 });
 
-test("debug starts hidden and shows a persistent bug badge when enabled", () => {
+test("debug starts hidden and parks its persistent bug at bottom center", () => {
   assert.match(source, /let debugHitboxes = false/);
   assert.match(source, /function drawDebugBug\(safe\)/);
   assert.match(source, /if \(debugHitboxes\) \{\n    drawDebugBug\(safe\)/);
-  assert.match(source, /typeWrite\(fpsLabel, safe\.left \+ 36/);
+  assert.match(source, /const x = viewCenterX\(\)/);
+  assert.match(source, /const y = safe\.bottom - 18/);
+});
+
+test("web title offers the shared account logout without entering a fight", () => {
+  assert.match(webShell, /<button id="logout" type="button">log out<\/button>/);
+  assert.match(webShell, /hi\.aesthetic\.computer\/v2\/logout/);
+  assert.match(webShell, /target\.searchParams\.set\("client_id",/);
+  assert.match(webShell, /target\.searchParams\.set\("returnTo", "https:\/\/oskiewar\.com\/"\)/);
+  assert.match(webShell, /body\.social-preview #logout \{ display: none; \}/);
+  assert.match(webShell, /event\.target instanceof HTMLButtonElement/);
 });
 
 test("web UI drums route through the unlocked procedural sound bank", () => {
@@ -2644,8 +2683,8 @@ test("fighter animation state is a fixed simulation-tick phase", () => {
   tick(33334);
   animation = fight.fighterAnimationPhase(fight.players[0]);
   assert.equal(animation.step, firstStep % animation.steps + 1);
-  assert.match(source, /"anim " \+ animation\.state/);
-  assert.match(source, /animation\.step \+ "\/" \+ animation\.steps/);
+  assert.match(source, /"anim::" \+ animation\.state/);
+  assert.match(source, /animation\.step \+ "\/" \+\n      animation\.steps/);
   assert.doesNotMatch(source, /Math\.floor\(t \* 12\) \/ 12/);
 });
 
@@ -2677,7 +2716,7 @@ test("weather is calm while ambient dust remains visible", () => {
   assert.equal(signals.filter(([event]) => event === "wind").length, rolls);
   assert.match(source, /function randomWindMph\(\) \{\n  return 0/);
   assert.match(source, /nextWindChangeAt = Infinity/);
-  assert.match(source, /drawAmbientMotes\(t, windInk\)/);
+  assert.match(source, /drawAmbientMotes\(windInk\)/);
 });
 
 test("only one center-platform powerup appears at each ten-second interval", () => {
@@ -2835,31 +2874,29 @@ test("owned gun and grenade counts render above each bottom handle", () => {
   assert.doesNotMatch(source, /gunPips|grenadePips/);
 });
 
-test("player stats read above the handle at handle size", () => {
+test("player animation state reads as a boxed syntax diagram", () => {
   const { fight, pads, tick } = createFight();
   pads[0].down = ["ArrowRight"];
   tick();
   const player = fight.players[0];
   const lines = fight.playerStatLines(player);
   assert.equal(lines.length, 3);
-  assert.match(lines[0], /^p1 /);
-  assert.match(lines[1], /^in 1,0 stk 0\.00 vx /);
-  assert.match(lines[2], /^anim \w+ \d+\/\d+ t\d+$/);
+  assert.match(lines[0], /^p1 :: /);
+  assert.match(lines[1], /^in\[1,0\] -> stk\[0\.00\] vx\[-?\d+\]$/);
+  assert.match(lines[2], /^anim::\w+ step\[\d+\/\d+\] t\[\d+\]$/);
   const handle = fight.playerHandleLayout(player, 0);
   assert.equal(handle.size, 42);
-  // Every row clears the handle it sits over, and both sides fit the screen.
-  for (let row = 0; row < lines.length; row++) {
-    const y = handle.y - (lines.length - row) * (handle.size + 4) - 8;
-    assert.ok(y + handle.size < handle.y);
-    assert.ok(fight.handleWidth(lines[row], handle.size) * 2 <
-      fight.hudSafeRect().right - fight.hudSafeRect().left);
-  }
   fight.setDebugHitboxes(true);
-  assert.ok(fight.statStackHeight() > lines.length * handle.size);
+  assert.ok(fight.statStackHeight() > 80);
   fight.setDebugHitboxes(false);
   assert.equal(fight.statStackHeight(), 0);
+  assert.match(source, /strokeBox\(x, y, width, height, 2, edge\)/);
+  assert.match(source, /for \(let step = 0; step < count; step\+\+\)/);
+  assert.match(source, /const active = step <= Math\.min\(count - 1, animation\.step\)/);
   assert.match(source,
-    /drawPlayerStats\(players\[0\], 0\);\n    drawPlayerStats\(players\[1\], 1\);/);
+    /drawPlayerStats\(players\[0\], 0, t\);\n    drawPlayerStats\(players\[1\], 1, t\);/);
+  assert.match(source, /const bounds = runnerScreenBounds\(player, t\)/);
+  assert.match(source, /bounds\.top - height - 12/);
   // The read-out left the world; nothing labels the fighters any more.
   assert.doesNotMatch(source.slice(source.indexOf("function drawDebugHitboxes"),
     source.indexOf("function drawPlayerHud")), /typeWrite/);

@@ -414,6 +414,7 @@ const gunPickups = [
 const grenadePickups = [
   { amount: 2, x: 6000, y: platformY - 70, z: 0 },
 ];
+const airParticles = [];
 for (const pickup of [...gunPickups, ...grenadePickups]) {
   pickup.active = false;
   pickup.respawnAt = 0;
@@ -1970,6 +1971,7 @@ function resetRound(now, resetMatch = false) {
   lastSimAt = now;
   roundStartedAt = now;
   rollWind(now);
+  resetAirParticles();
   resetBalls(now);
   if (replay) replay.rounds.push([demoTick(now), windDirection, windMph,
     balls.length]);
@@ -3504,6 +3506,7 @@ function gameSim() {
   const now = runtime().monotonicUs;
   const dt = Math.min(0.04, Math.max(0.001, (now - lastSimAt) / 1000000));
   lastSimAt = now;
+  simulateAirParticles(dt, now);
   if (roundViewer) {
     updateRoundViewer(now, dt);
     return;
@@ -5035,29 +5038,60 @@ function playerStatLines(player) {
   const animation = fighterAnimationPhase(player,
     player.frozenAt || runtime().monotonicUs);
   return [
-    "p" + (player.pad + 1) + " " + player.stance +
-      (player.attackKind ? " " + player.attackKind : ""),
-    "in " + input.horizontal + "," + input.vertical +
-      " stk " + pad.leftX.toFixed(2) + " vx " + Math.round(player.vx),
-    "anim " + animation.state + " " + animation.step + "/" + animation.steps +
-      " t" + animation.tick,
+    "p" + (player.pad + 1) + " :: " + player.stance +
+      (player.attackKind ? " + " + player.attackKind : ""),
+    "in[" + input.horizontal + "," + input.vertical + "] -> " +
+      "stk[" + pad.leftX.toFixed(2) + "] vx[" + Math.round(player.vx) + "]",
+    "anim::" + animation.state + " step[" + animation.step + "/" +
+      animation.steps + "] t[" + animation.tick + "]",
   ];
 }
 
-// The read-out lives at handle size directly over the handle, so anything else
-// stacking on that corner starts above it.
-const statStackHeight = () => debugHitboxes ? 3 * (hudTypeSize + 4) + 8 : 0;
+const playerStatSize = () => compactLayout() ? 16 : 22;
+const playerStatPanelHeight = () => {
+  const size = playerStatSize();
+  return 16 + 3 * (size + 7) + 10;
+};
 
-function drawPlayerStats(player, side) {
+// The bordered state card owns a fixed stack over each handle. Its rows read
+// like a tiny trace program, while the segmented foot shows animation progress
+// without asking the numeric step label to carry the whole explanation.
+const statStackHeight = () => debugHitboxes ? playerStatPanelHeight() + 8 : 0;
+
+function drawPlayerStats(player, side, t) {
   if (!debugHitboxes) return;
-  const handle = playerHandleLayout(player, side);
   const lines = playerStatLines(player);
+  const animation = fighterAnimationPhase(player,
+    player.frozenAt || runtime().monotonicUs);
+  const size = playerStatSize();
+  const padding = 8;
+  const lineHeight = size + 7;
+  const safe = hudSafeRect();
+  const contentWidth = Math.max(...lines.map((text) => handleWidth(text, size)));
+  const width = contentWidth + padding * 2;
+  const height = playerStatPanelHeight();
+  const bounds = runnerScreenBounds(player, t);
+  const x = side === 0 ? safe.left : safe.right - width;
+  const y = Math.max(safe.top + hudTypeSize + 16, bounds.top - height - 12);
+  const face = mixColor([10, 14, 30], [226, 235, 242], visualTheme.light);
+  const edge = mixColor(player.color, [28, 34, 48], visualTheme.light * .45);
+  box(x + 4, y + 5, width, height, ...runShadow(edge));
+  box(x, y, width, height, ...face);
+  strokeBox(x, y, width, height, 2, edge);
   for (let row = 0; row < lines.length; row++) {
-    const text = lines[row];
-    const width = handleWidth(text, hudTypeSize);
-    writeHudLine(text,
-      side === 0 ? handle.x : handle.x + handle.width - width,
-      handle.y - (lines.length - row) * (hudTypeSize + 4) - 8, hudTypeSize);
+    const rowY = y + padding + row * lineHeight;
+    if (row) box(x + 5, rowY - 4, width - 10, 1, ...edge);
+    writeHudLine(lines[row], x + padding, rowY, size);
+  }
+  const count = Math.max(1, Math.min(16, animation.steps));
+  const gap = 3;
+  const trackX = x + padding;
+  const trackY = y + height - 9;
+  const segmentWidth = (width - padding * 2 - gap * (count - 1)) / count;
+  for (let step = 0; step < count; step++) {
+    const active = step <= Math.min(count - 1, animation.step);
+    box(trackX + step * (segmentWidth + gap), trackY,
+      Math.max(2, segmentWidth), 4, ...(active ? player.color : edge));
   }
 }
 
@@ -5394,20 +5428,22 @@ function drawBallHitboxes() {
 
 function drawGunPickup(pickup, t) {
   if (!pickup.active) return;
-  const bobY = pickup.y + Math.sin(t * 3 + pickup.x * .001) * 24;
-  const point = projectPoint(pickup.x, bobY, pickup.z);
+  const bobY = pickup.y + Math.sin(t * 3 + pickup.x * .001) * 8;
   const scale = cameraScale();
-  const color = [255, 220, 72];
-  circle(point.x, point.y, Math.max(12, 72 * scale),
-    Math.max(3, 10 * scale), color);
-  worldLine(pickup.x - 62, bobY, pickup.z,
-    pickup.x + 70, bobY, pickup.z, Math.max(4, 17 * scale), color);
-  worldLine(pickup.x + 5, bobY, pickup.z,
-    pickup.x + 36, bobY + 58, pickup.z, Math.max(4, 15 * scale), color);
-  const labelSize = Math.max(13, Math.min(22, Math.round(48 * scale)));
-  typeWrite("GUN", point.x - labelSize * 1.05,
-    point.y - Math.max(24, 88 * scale),
-    labelSize, ...color);
+  const outline = [12, 15, 24];
+  const metal = [238, 197, 64];
+  const barrelWidth = Math.max(2, 8 * scale);
+  const gripWidth = Math.max(2, 7 * scale);
+  // A handgun-sized world object, outlined for the sky instead of enlarged
+  // into a labeled pickup icon.
+  worldLine(pickup.x - 38, bobY, pickup.z,
+    pickup.x + 44, bobY, pickup.z, barrelWidth + 4, outline);
+  worldLine(pickup.x - 38, bobY, pickup.z,
+    pickup.x + 44, bobY, pickup.z, barrelWidth, metal);
+  worldLine(pickup.x + 4, bobY + 2, pickup.z,
+    pickup.x + 18, bobY + 38, pickup.z, gripWidth + 4, outline);
+  worldLine(pickup.x + 4, bobY + 2, pickup.z,
+    pickup.x + 18, bobY + 38, pickup.z, gripWidth, metal);
 }
 
 function drawBullet(bullet) {
@@ -5423,16 +5459,18 @@ function drawBullet(bullet) {
 
 function drawGrenadePickup(pickup, t) {
   if (!pickup.active) return;
-  const bobY = pickup.y + Math.sin(t * 3.2 + pickup.x * .001) * 24;
+  const bobY = pickup.y + Math.sin(t * 3.2 + pickup.x * .001) * 8;
   const point = projectPoint(pickup.x, bobY, pickup.z);
   const scale = cameraScale();
-  const color = [255, 105, 105];
-  circle(point.x, point.y, Math.max(5, 34 * scale),
-    Math.max(2, 10 * scale), color);
-  worldLine(pickup.x, bobY - 34, pickup.z,
-    pickup.x + 28, bobY - 62, pickup.z, Math.max(2, 8 * scale), color);
-  typeWrite("GRENADE", point.x - 48, point.y - Math.max(20, 68 * scale),
-    Math.max(10, Math.min(18, Math.round(42 * scale))), ...color);
+  const outline = [12, 15, 24];
+  const shell = [208, 70, 72];
+  const radius = Math.max(3, 18 * scale);
+  filledDisc(point.x, point.y, radius + 3, outline);
+  filledDisc(point.x, point.y, radius, shell);
+  worldLine(pickup.x + 1, bobY - 16, pickup.z,
+    pickup.x + 18, bobY - 32, pickup.z, Math.max(2, 5 * scale) + 3, outline);
+  worldLine(pickup.x + 1, bobY - 16, pickup.z,
+    pickup.x + 18, bobY - 32, pickup.z, Math.max(2, 5 * scale), shell);
 }
 
 function drawGrenade(grenade) {
@@ -5464,15 +5502,33 @@ function drawWindFlag(t, color) {
   const tipX = poleX + windDirection * length;
   const tipY = poleTop + (calm ? 114 : 45) + gust;
   const width = Math.max(3, 13 * cameraScale());
-  const ink = calm ? [154, 166, 190] : color;
+  const outline = visualTheme.light > .5 ? [28, 32, 46] : [245, 248, 255];
+  const ink = calm ? [255, 210, 54] : color;
+  const flagPoints = [
+    projectPoint(poleX, poleTop, poleZ),
+    projectPoint(tipX, tipY, poleZ),
+    projectPoint(poleX, poleTop + 120, poleZ),
+  ];
+  if (flagPoints.every((point) => [point.x, point.y, point.z].every(Number.isFinite)))
+    projectedTriangle(flagPoints[0], flagPoints[1], flagPoints[2], ink);
+  worldCapsule(poleX, poleBottom, poleZ,
+    poleX, poleTop, poleZ, width + 5, outline);
   worldCapsule(poleX, poleBottom, poleZ,
     poleX, poleTop, poleZ, width, ink);
   worldCapsule(poleX, poleTop, poleZ,
+    tipX, tipY, poleZ, width * .72 + 4, outline);
+  worldCapsule(poleX, poleTop, poleZ,
     tipX, tipY, poleZ, width * .72, ink);
+  worldCapsule(tipX, tipY, poleZ,
+    poleX, poleTop + 120, poleZ, width * .72 + 4, outline);
   worldCapsule(tipX, tipY, poleZ,
     poleX, poleTop + 120, poleZ, width * .72, ink);
   worldCapsule(poleX, poleTop + 120, poleZ,
+    poleX, poleTop, poleZ, width * .72 + 4, outline);
+  worldCapsule(poleX, poleTop + 120, poleZ,
     poleX, poleTop, poleZ, width * .72, ink);
+  worldCapsule(poleX - 55, poleBottom, poleZ,
+    poleX + 55, poleBottom, poleZ, width + 5, outline);
   worldCapsule(poleX - 55, poleBottom, poleZ,
     poleX + 55, poleBottom, poleZ, width, ink);
 }
@@ -5486,34 +5542,84 @@ function hashUnit(text) {
   return (hash >>> 0) / 4294967295;
 }
 
-function seededWindValue(index, channel = 0) {
-  return hashUnit((matchName || seriesName || "oskiewar") + ":" +
-    index + ":" + channel);
+function airSeedValue(index, channel = 0) {
+  return hashUnit("oskiewar-air:" + index + ":" + channel);
 }
 
-function drawAmbientMotes(t, color) {
-  const count = 12;
-  const safe = actionSafeRect();
-  const safeWidth = safe.right - safe.left;
-  const safeHeight = safe.bottom - safe.top;
+function resetAirParticles() {
+  const count = 18;
+  const spanX = worldRight - worldLeft;
+  const spanY = floorY - ceilingY;
+  const spanZ = worldFar - worldNear;
+  airParticles.length = 0;
+  for (let index = 0; index < count; index++)
+    airParticles.push({
+      id: "air:" + index,
+      kind: "air",
+      position: {
+        x: worldLeft + airSeedValue(index, 1) * spanX,
+        y: ceilingY + 180 + airSeedValue(index, 2) * (spanY - 360),
+        z: worldNear + 100 + airSeedValue(index, 3) * (spanZ - 200),
+      },
+      velocity: { x: 0, y: 0, z: 0 },
+      radius: 8 + airSeedValue(index, 4) * 14,
+      phase: airSeedValue(index, 5) * Math.PI * 2,
+    });
+}
+
+// A stream-function curl gives the air a divergence-free-looking circulation
+// instead of independent sine wiggles. Entities relax toward this velocity,
+// advect in fixed simulation time, and wrap at arena boundaries.
+function airFlowAt(position, seconds, phase) {
+  const nx = (position.x - worldLeft) / (worldRight - worldLeft) * Math.PI * 2;
+  const ny = (position.y - ceilingY) / (floorY - ceilingY) * Math.PI * 2;
+  const age = seconds * .32 + phase;
+  const circulation = 96;
+  return {
+    x: windDirection * (42 + windMph * 12) +
+      circulation * Math.sin(nx + age) * Math.cos(ny - age * .7),
+    y: -circulation * Math.cos(nx + age) * Math.sin(ny - age * .7),
+    z: 44 * Math.sin(nx + ny + age * .55),
+  };
+}
+
+const wrapWorld = (value, low, high) => {
+  const span = high - low;
+  return low + ((value - low) % span + span) % span;
+};
+
+function simulateAirParticles(dt, now) {
+  if (!airParticles.length) resetAirParticles();
+  const seconds = now / 1000000;
+  const response = 1 - Math.exp(-dt * 2.8);
+  for (const entity of airParticles) {
+    const flow = airFlowAt(entity.position, seconds, entity.phase);
+    entity.velocity.x = lerp(entity.velocity.x, flow.x, response);
+    entity.velocity.y = lerp(entity.velocity.y, flow.y, response);
+    entity.velocity.z = lerp(entity.velocity.z, flow.z, response);
+    entity.position.x = wrapWorld(entity.position.x + entity.velocity.x * dt,
+      worldLeft, worldRight);
+    entity.position.y = wrapWorld(entity.position.y + entity.velocity.y * dt,
+      ceilingY + 120, floorY - 120);
+    entity.position.z = wrapWorld(entity.position.z + entity.velocity.z * dt,
+      worldNear + 80, worldFar - 80);
+  }
+}
+
+function drawAmbientMotes(color) {
   const previousDepth = triangleDepth;
-  for (let index = 0; index < count; index++) {
-    const depthAmount = seededWindValue(index, 0);
-    const z = 120 + depthAmount * (worldFar - 240);
-    const phase = seededWindValue(index, 1);
-    const pace = .025 + seededWindValue(index, 2) * .035;
-    const cycle = (phase + t * pace) % 1;
-    const x = safe.left + cycle * safeWidth +
-      Math.sin(t * .7 + phase * Math.PI * 2) * 8;
-    const row = seededWindValue(index, 4);
-    const flutterRate = .45 + seededWindValue(index, 5) * 1.1;
-    const flutterPhase = seededWindValue(index, 6) * Math.PI * 2;
-    const y = safe.top + 14 + row * Math.max(1, safeHeight - 28) +
-      Math.sin(t * flutterRate + flutterPhase) * (4 + depthAmount * 7);
-    const radius = .8 + (1 - depthAmount) * 1.8;
+  for (const entity of airParticles) {
+    const { x, y, z } = entity.position;
+    const point = projectPoint(x, y, z);
+    const edge = projectPoint(x + entity.radius, y, z);
+    const radius = Math.max(.8, Math.hypot(edge.x - point.x, edge.y - point.y));
+    const depthAmount = (z - worldNear) / (worldFar - worldNear);
     const ink = mixColor([18, 24, 48], color, .24 + (1 - depthAmount) * .34);
-    triangleDepth = projectPoint(cameraCenter, cameraCenterY, z).z;
-    filledDisc(x, y, radius, ink);
+    if (![point.x, point.y, point.z, radius].every(Number.isFinite) ||
+        point.x < stageLeft - radius || point.x > stageRight + radius ||
+        point.y < -radius || point.y > viewHeight + radius) continue;
+    triangleDepth = point.z;
+    filledDisc(point.x, point.y, radius, ink);
   }
   triangleDepth = previousDepth;
 }
@@ -5815,8 +5921,8 @@ function pacificTimeLabel(unixMs) {
 }
 
 function drawDebugBug(safe) {
-  const x = safe.left + 16;
-  const y = safe.top + 15;
+  const x = viewCenterX();
+  const y = safe.bottom - 18;
   const shell = [255, 86, 126];
   const detail = [22, 12, 34];
   filledDisc(x, y + 2, 8, shell);
@@ -5857,7 +5963,7 @@ function drawSpectatorQr(ink) {
   if (debugHitboxes) {
     drawDebugBug(safe);
     const fpsLabel = Math.round(displayFps || 0) + " fps";
-    typeWrite(fpsLabel, safe.left + 36, safe.top + 2, metaSize, ...ink);
+    typeWrite(fpsLabel, safe.left + 2, safe.top + 2, metaSize, ...ink);
   }
   const qr = spectatorQrBox();
   if (!qr) return;
@@ -6027,8 +6133,8 @@ function gamePaint() {
   const windInk = windDirection < 0
     ? mixColor([72, 174, 255], [28, 88, 188], visualTheme.light)
     : mixColor([255, 92, 132], [184, 35, 62], visualTheme.light);
-  drawAmbientMotes(t, windInk);
-  drawWindFlag(t, windInk);
+  drawAmbientMotes(windInk);
+  if (shellMode === "GAME") drawWindFlag(t, windInk);
   // The top row is the round's: a clock, and who is watching. The wordmark
   // screen carries its own clock, so this one waits for start.
   if (shellMode === "GAME") {
@@ -6171,8 +6277,8 @@ function gamePaint() {
       (!roundResult && introAge >= introDurationUs))) {
     drawPlayerHandle(players[0], t, 0);
     drawPlayerHandle(players[1], t, 1);
-    drawPlayerStats(players[0], 0);
-    drawPlayerStats(players[1], 1);
+    drawPlayerStats(players[0], 0, t);
+    drawPlayerStats(players[1], 1, t);
     drawHudInventory(players[0], 0);
     drawHudInventory(players[1], 1);
     drawCommandStream(players[0], 0);
