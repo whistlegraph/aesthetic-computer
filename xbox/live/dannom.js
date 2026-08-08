@@ -892,6 +892,7 @@ function setTheme(isDark) {
     leftLabel: [140, 165, 195], leftWarn: [245, 130, 130], leftOk: [150, 210, 175],
     introName: [255, 230, 120], introSub: [150, 220, 255],
     overlaySub: [210, 220, 255],
+    mineBg: [54, 44, 10], mineOutline: [255, 230, 120],
     plainText: [230, 230, 245],
   } : {
     bg: [236, 240, 247],
@@ -910,6 +911,7 @@ function setTheme(isDark) {
     leftLabel: [96, 110, 134], leftWarn: [198, 54, 54], leftOk: [34, 124, 86],
     introName: [150, 108, 6], introSub: [24, 98, 156],
     overlaySub: [64, 74, 110],
+    mineBg: [252, 238, 194], mineOutline: [150, 108, 6],
     plainText: [42, 46, 58],
   };
 }
@@ -3290,12 +3292,19 @@ function paintGame({ wipe, ink, screen, write, box, line, text, paste }) {
       mode === "art" && lastArtwork ? "I: record · press to continue" : "press any key",
     );
   if (state === "over") {
-    overlay(
+    // Banner rides high and the retry prompt drops to the bottom edge, leaving
+    // the middle of the screen to the board.
+    const bottom = overlay(
       { ink, screen, write },
       "GAME OVER",
+      null,
+      round(screen.height * 0.14),
+    );
+    paintLeaderboard({ ink, screen, write }, bottom);
+    paintHint(
+      { ink, screen },
       mode === "art" && lastArtwork ? "I: record · press to retry" : "press to retry",
     );
-    paintLeaderboard({ ink, screen, write });
   }
 }
 
@@ -3504,7 +3513,11 @@ function paintIntro({ ink, screen, write }) {
   );
 }
 
-function overlay({ ink, screen, write }, title, sub) {
+// Returns the banner's bottom edge so a caller can stack content beneath it.
+// `sub` is optional: pass a falsy sub when the space under the banner belongs
+// to something else (the game-over leaderboard). `bannerY` lifts the banner off
+// center for the same reason.
+function overlay({ ink, screen, write }, title, sub, bannerY) {
   // Lighter scrim so the board (incl. revealed missed answers) shows through.
   ink(0, 0, 0, 125).box(0, 0, screen.width, screen.height);
   // Big title on a colored banner — red for game over, green for clear.
@@ -3513,24 +3526,47 @@ function overlay({ ink, screen, write }, title, sub) {
   const ts = max(2, min(2 + hudScale, floor((screen.width * 0.85) / (title.length * 6))));
   const tw = title.length * 6 * ts;
   const tx = max(4, round(screen.width / 2 - tw / 2));
-  const ty = round(screen.height / 2 - 8 * ts - 4);
+  const ty = max(10, round(bannerY ?? screen.height / 2 - 8 * ts - 4));
   ink(...bg).box(tx - 10, ty - 6, tw + 20, 8 * ts + 12);
   ink(0, 0, 0, 150).box(tx - 10, ty - 6, tw + 20, 8 * ts + 12, "outline");
   ink(255, 248, 230).write(title, { x: tx, y: ty, size: ts });
-  const ss = max(1, round(ts / 2));
-  const sy = round(screen.height / 2 + 8 * ts);
-  const sw = sub.length * 6 * ss;
-  ink(...T.bg).box(round((screen.width - sw) / 2) - 5, sy - 3, sw + 10, 8 * ss + 6);
-  ink(...T.overlaySub).write(sub, { center: "x", y: sy, size: ss });
+  if (sub) {
+    const ss = max(1, round(ts / 2));
+    const sy = round(screen.height / 2 + 8 * ts);
+    const sw = sub.length * 6 * ss;
+    ink(...T.bg).box(round((screen.width - sw) / 2) - 5, sy - 3, sw + 10, 8 * ss + 6);
+    ink(...T.overlaySub).write(sub, { center: "x", y: sy, size: ss });
+  }
+  return ty + 8 * ts + 6;
 }
 
-function paintLeaderboard({ ink, screen }) {
-  const rows = leaderboard.slice(0, screen.height < 430 ? 3 : 5);
-  const size = max(1, min(hudScale, 2));
+// How tall the quiet bottom-pinned hint is, so the board can reserve for it.
+function hintSize() {
+  return max(1, min(hudScale - 1, 2));
+}
+
+// The retry prompt: deliberately small and pinned to the bottom edge, so the
+// middle of the game-over screen belongs to the leaderboard.
+function paintHint({ ink, screen }, text) {
+  let size = hintSize();
+  while (size > 1 && text.length * 6 * size > screen.width - 8) size -= 1;
+  const w = text.length * 6 * size;
+  const y = screen.height - 8 * size - 6;
+  ink(...T.bg).box(round((screen.width - w) / 2) - 5, y - 3, w + 10, 8 * size + 6);
+  ink(...T.overlaySub).write(text, { center: "x", y, size });
+}
+
+// The board is the point of the game-over screen, so it sizes up with the
+// display and takes the space directly under the banner (`top`), rather than
+// trailing the retry prompt. One line is held back for the status/rank note and
+// the bottom strip is left to paintHint().
+function paintLeaderboard({ ink, screen }, top) {
+  const size = max(1, min(hudScale + 1, 3));
   const lineH = 11 * size;
-  let y = round(screen.height / 2 + 78);
-  const maxY = screen.height - lineH * (rows.length + 1) - 6;
-  y = min(y, maxY);
+  const y0 = round(top ?? screen.height / 2 + 78) + 4;
+  const room = max(1, floor((screen.height - 8 * hintSize() - 12 - y0) / lineH) - 1);
+  const rows = leaderboard.slice(0, min(room, screen.height < 430 ? 3 : 5));
+  let y = y0;
   for (const row of rows) {
     const rank = `#${row.rank}`;
     const handle = String(row.handle || "@player");
@@ -3539,7 +3575,11 @@ function paintLeaderboard({ ink, screen }) {
     const width = (rank.length + handle.length + points.length) * 6 * size + gap * 2;
     let x = max(4, round((screen.width - width) / 2));
     const mine = playerHandle && handle.toLowerCase() === playerHandle.toLowerCase();
-    ink(...T.bg).box(x - 5, y - 3, width + 10, 8 * size + 6);
+    // Your row reads as selected — accent plate and outline, not just tinted
+    // text, so it's findable without relying on color alone.
+    ink(...(mine ? T.mineBg : T.bg)).box(x - 5, y - 3, width + 10, 8 * size + 6);
+    if (mine)
+      ink(...T.mineOutline).box(x - 5, y - 3, width + 10, 8 * size + 6, "outline");
     ink(...(mine ? T.introName : T.overlaySub)).write(rank, { x, y, size });
     x += rank.length * 6 * size + gap;
     x += paintHandle({ ink }, handle, row.colors, x, y, size) + gap;

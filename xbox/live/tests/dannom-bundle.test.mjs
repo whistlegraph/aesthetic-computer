@@ -31,8 +31,10 @@ test("the native Dannom bundle contains the shared engine and Xbox lifecycle", a
   const source = await buildNomBundle();
   assert.match(source, /source: system\/public\/aesthetic\.computer\/lib\/nom\.mjs/);
   assert.match(source, /const COLS = 5/);
-  assert.match(source, /if \(state === "over"\) \{[\s\S]*?paintLeaderboard/);
-  assert.match(source, /leaderboard\.slice\(0, screen\.height < 430 \? 3 : 5\)/);
+  // Game over stacks board-then-hint, so the leaderboard owns the middle.
+  assert.match(source, /if \(state === "over"\) \{[\s\S]*?paintLeaderboard[\s\S]*?paintHint/);
+  assert.match(source, /screen\.height < 430 \? 3 : 5/); // row cap survives bundling
+  assert.match(source, /T\.mineBg/); // your own row paints as selected
   assert.doesNotMatch(source, /^import\s/m);
   const probe = nativeProbe(source);
   probe.lifecycle.boot();
