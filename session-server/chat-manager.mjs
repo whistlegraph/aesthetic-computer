@@ -13,6 +13,11 @@ import { ensureIndexes as ensureHeartsIndexes, toggleHeart, countHearts } from "
 
 import { MongoClient, ObjectId } from "mongodb";
 import { broadcastToTopic } from "../shared/push.mjs"; // Standard push (no Firebase).
+import {
+  MAX_CHARS,
+  chatCapabilities,
+  profanityFiltered,
+} from "../shared/chat-capabilities.mjs";
 
 const MAX_MESSAGES = 500;
 
@@ -306,6 +311,9 @@ export class ChatManager {
           handles: this.getOnlineHandles(instance),
           messages: instance.messages,
           heartCounts,
+          // The handshake: what this channel accepts. Clients read their limit
+          // and syntax from here instead of hardcoding a copy of it.
+          capabilities: chatCapabilities(instance.config.name),
           id,
         },
         id,
@@ -358,10 +366,16 @@ export class ChatManager {
       return;
     }
 
-    // Length limit
-    const len = 128;
-    if (msg.content.text.length > len) {
-      ws.send(this.pack("too-long", { message: `Please limit to ${len} characters.` }));
+    // Length limit. Counted in UTF-16 code units — see shared/chat-capabilities.
+    if (msg.content.text.length > MAX_CHARS) {
+      ws.send(
+        this.pack("too-long", {
+          message: `Please limit to ${MAX_CHARS} characters.`,
+          maxChars: MAX_CHARS,
+          countedAs: "utf16-code-units",
+          was: msg.content.text.length,
+        }),
+      );
       return;
     }
 
@@ -422,7 +436,9 @@ export class ChatManager {
         redact(message);
         filteredText = message.text;
       } else {
-        filteredText = instance.config.name === "chat-clock" ? message.text : filter(message.text, this.filterDebug);
+        filteredText = profanityFiltered(instance.config.name)
+          ? filter(message.text, this.filterDebug)
+          : message.text;
       }
 
       // Get server time
@@ -885,6 +901,27 @@ export class ChatManager {
       name: instance.config.name,
       connections: Object.keys(instance.connections).length,
       messages: instance.messages.length,
+    }));
+  }
+
+  // The same handshake the `connected` packet carries, for callers with no
+  // socket. `host` may be a chat host or a bare channel name; without one you
+  // get every channel, since the profanity policy differs between them.
+  getCapabilities(host = null) {
+    if (host) {
+      const instance =
+        this.getInstance(host) ||
+        Object.values(this.instances).find((i) => i.config.name === host);
+      if (!instance) return null;
+      return {
+        host: instance.config.allowedHost,
+        ...chatCapabilities(instance.config.name),
+      };
+    }
+
+    return Object.values(this.instances).map((instance) => ({
+      host: instance.config.allowedHost,
+      ...chatCapabilities(instance.config.name),
     }));
   }
 

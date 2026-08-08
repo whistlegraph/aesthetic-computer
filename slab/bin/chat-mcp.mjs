@@ -21,6 +21,13 @@
 // no SDK, only node builtins + the shared http-front.
 import { httpPort, serveHttp, serveStdio } from "../../toolchain/mcp/http-front.mjs";
 import { UA, whoami } from "../../toolchain/mcp/ac-token.mjs";
+// The limit and the message syntax come from the server's own copy, so this
+// tool's contract can't drift from what chat-manager.mjs actually enforces.
+import {
+  MAX_CHARS,
+  capabilitiesBrief,
+  chatCapabilities,
+} from "../../shared/chat-capabilities.mjs";
 
 // `instance` is what /api/chat-messages calls a channel ("system" | "clock") —
 // NOT the Mongo collection name. Passing the collection, or any unknown param,
@@ -31,7 +38,7 @@ const CHANNELS = {
   clock: { host: "chat-clock.aesthetic.computer", collection: "chat-clock" },
 };
 const READ_API = "https://aesthetic.computer/api/chat-messages";
-const MAX_TEXT = 128; // chat-manager.mjs rejects anything longer with "too-long"
+const MAX_TEXT = MAX_CHARS; // chat-manager.mjs rejects anything longer with "too-long"
 
 function channel(name = "system") {
   const key = String(name).replace(/^chat-/, "");
@@ -172,13 +179,23 @@ const TOOLS = [
   },
   {
     name: "chat_send",
-    description:
+    description: [
       "Post a message to an AC chat channel AS @jeffrey, using his signed-in session. PUBLIC AND PERMANENT — it appears immediately to everyone in the channel and this server has no delete. Confirm the exact wording with him before calling.",
+      "",
+      capabilitiesBrief(chatCapabilities("chat-system")),
+    ].join("\n"),
     inputSchema: {
       type: "object",
       properties: {
-        text: { type: "string", description: "The message to post, verbatim." },
-        channel: { type: "string", description: '"system" (default) or "clock".' },
+        text: {
+          type: "string",
+          description: `The message to post, verbatim. Max ${MAX_CHARS} characters — see this tool's description for the syntax that makes pieces, handles, and codes tappable.`,
+        },
+        channel: {
+          type: "string",
+          description:
+            '"system" (default) or "clock". `clock` is the Danish laer-klokken room and skips the profanity filter.',
+        },
       },
       required: ["text"],
     },

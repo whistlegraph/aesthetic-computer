@@ -845,6 +845,23 @@ fastify.get("/chat/status", async (req) => {
   return chatManager.getStatus();
 });
 
+// *** Chat Capabilities Endpoint ***
+// The limit and syntax a bot needs before it posts, without opening a socket.
+// Served from every chat host, so `https://chat-clock.aesthetic.computer/chat/
+// capabilities` answers for the room you're actually in. Defaults to the host
+// you asked over; `?channel=` (or `all`) overrides.
+fastify.get("/chat/capabilities", async (req, reply) => {
+  reply.header("Access-Control-Allow-Origin", "*");
+  const asked = req.query?.channel || req.query?.instance;
+  if (asked === "all") return chatManager.getCapabilities();
+  const caps = chatManager.getCapabilities(asked || req.headers.host);
+  if (caps) return caps;
+  // Reached over a non-chat host (session-server itself) with no ?channel.
+  if (!asked) return chatManager.getCapabilities();
+  reply.status(404);
+  return { status: "error", message: `Unknown chat channel "${asked}".` };
+});
+
 const PROFILE_SECRET_CACHE_MS = 60 * 1000;
 let profileSecretCacheValue = null;
 let profileSecretCacheAt = 0;

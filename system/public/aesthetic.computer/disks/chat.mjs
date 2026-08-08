@@ -661,6 +661,19 @@ async function boot(
   // 🤖 Runs on every message...
   client.receiver = (id, type, content, extra) => {
     if (type === "connected") {
+      // The server states its own limit in the handshake — see
+      // shared/chat-capabilities.mjs. Older servers omit it, so the
+      // hardcoded default above stays as the fallback.
+      const advertised = content?.capabilities?.maxChars;
+      if (advertised && advertised !== chatMaxChars) {
+        console.log(
+          "💬 Chat limit from server:",
+          advertised,
+          `(${content.capabilities.countedAs})`,
+        );
+        chatMaxChars = advertised;
+        send({ type: "keyboard:set-max-chars", content: chatMaxChars });
+      }
       messagesNeedLayout = true;
       return;
     }
