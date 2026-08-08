@@ -5,9 +5,9 @@
 //   1. DNS pointing the apex at lith (209.38.133.33)
 //   2. A host block in lith/Caddyfile that rewrites "/" to the piece
 //
-// This tool owns step 0 (buying the domain via Porkbun) and hands you a
-// ready-to-paste Caddy block for the rest. Cloudflare DNS automation lands
-// once a CF token is wired in.
+// This tool owns buying the domain via Porkbun, adopting it into Cloudflare,
+// adding hosts to it, and printing a ready-to-paste Caddy block. The registrar
+// is only needed twice: once to buy, once to hand its nameservers to Cloudflare.
 //
 // Usage:
 //   node toolchain/domains/domain.mjs ping                 test API keys
@@ -17,10 +17,19 @@
 //   node toolchain/domains/domain.mjs buy nom.games        register (prompts)
 //   node toolchain/domains/domain.mjs buy nom.games --yes  register (no prompt)
 //   node toolchain/domains/domain.mjs caddy nom.games nom  print the Caddy block
+//   node toolchain/domains/domain.mjs cf adopt nom.games   create the CF zone
+//   node toolchain/domains/domain.mjs cf add nom.games api add a host to it
+//   node toolchain/domains/domain.mjs cf list nom.games    show the CF records
+//   node toolchain/domains/domain.mjs ns nom.games         registrar nameservers
+//   node toolchain/domains/domain.mjs ns nom.games a.ns b.ns   repoint them
+//   node toolchain/domains/domain.mjs dns nom.games        registrar DNS records
 //
-// Keys: PORKBUN_API_KEY / PORKBUN_SECRET_API_KEY (env or vault .env).
+// Keys: PORKBUN_API_KEY / PORKBUN_SECRET_API_KEY for the registrar (env or
+// vault .env), CLOUDFLARE_EMAIL / CLOUDFLARE_API_KEY for DNS (env or one of the
+// vault env files — see cloudflare.mjs).
 
 import { createInterface } from "node:readline/promises";
+import * as cf from "./cloudflare.mjs";
 import * as pb from "./porkbun.mjs";
 
 const LITH_IP = "209.38.133.33";
@@ -149,6 +158,101 @@ function cmdCaddy([domain, piece]) {
   printCaddy(domain, piece);
 }
 
+// --- registrar-side DNS, for domains still on Porkbun's nameservers ---
+
+async function cmdNs([domain, ...nameservers]) {
+  if (!domain) return console.error("Usage: ns <domain> [ns1 ns2 …]");
+  if (!nameservers.length) {
+    const { ns } = await pb.getNs(domain);
+    console.log(`${domain} nameservers:`);
+    for (const server of ns) console.log(`   ${server}`);
+    return;
+  }
+  const ok = await confirm(
+    `Repoint ${domain} at ${nameservers.join(", ")}? This moves DNS. [y/N]`);
+  if (!ok) return console.log("Left alone.");
+  await pb.updateNs(domain, nameservers);
+  console.log(`✅ ${domain} now points at ${nameservers.join(", ")}.`);
+  console.log("   Propagation is usually minutes; the old zone keeps answering" +
+    " until resolvers catch up.");
+}
+
+async function cmdDns([domain, action, ...rest]) {
+  if (!domain) return console.error(
+    "Usage: dns <domain> | dns <domain> add <type> <host> <answer> [ttl]");
+  if (!action) {
+    const { records } = await pb.dnsRetrieve(domain);
+    for (const r of records) {
+      console.log(`${String(r.id).padStart(12)}  ${r.type.padEnd(6)} ` +
+        `${(r.name || "@").padEnd(28)} ${r.content}`);
+    }
+    if (!records.length) console.log("(no records)");
+    return;
+  }
+  if (action === "add") {
+    const [type, host, answer, ttl = "600"] = rest;
+    if (!type || !host || !answer) return console.error(
+      "Usage: dns <domain> add <type> <host> <answer> [ttl]");
+    // Porkbun wants the label only, and an empty name for the apex.
+    const name = host === "@" ? "" : host;
+    await pb.dnsCreate(domain, { type: type.toUpperCase(), name,
+      content: answer, ttl });
+    console.log(`✅ ${type.toUpperCase()} ${host}.${domain} → ${answer}`);
+    return;
+  }
+  console.error(`Unknown dns action "${action}".`);
+}
+
+// --- Cloudflare, where every AC domain ends up ---
+
+async function cmdCf([action, domain, ...rest]) {
+  if (action === "adopt") {
+    if (!domain) return console.error("Usage: cf adopt <domain> [host…]");
+    const zone = await cf.createZone(domain);
+    console.log(`zone ${zone.id} · status ${zone.status}`);
+    // The apex and www are what every AC domain wants; extra hosts are extra.
+    for (const host of [domain, "www", ...rest]) {
+      try {
+        await cf.createRecord(zone.id, host, LITH_IP);
+        console.log(`  A ${(host === domain ? "@" : host).padEnd(6)} → ${LITH_IP}`);
+      } catch (error) {
+        console.log(`  A ${(host === domain ? "@" : host).padEnd(6)} ${error.message}`);
+      }
+    }
+    console.log("\nPoint the registrar's nameservers at:");
+    for (const server of zone.name_servers || []) console.log(`   ${server}`);
+    console.log(`\n   npm run domain ns ${domain} ` +
+      `${(zone.name_servers || []).join(" ")}`);
+    console.log("Nothing changes until that lands.");
+    return;
+  }
+  if (action === "add") {
+    const [host] = rest;
+    if (!domain || !host) return console.error("Usage: cf add <domain> <host>");
+    const zone = await cf.zone(domain);
+    if (!zone) return console.error(`${domain} is not a Cloudflare zone yet` +
+      ` — try: npm run domain cf adopt ${domain}`);
+    await cf.createRecord(zone.id, host, LITH_IP);
+    console.log(`✅ A ${host}.${domain} → ${LITH_IP} (dns-only)`);
+    console.log("   Add the host to its Caddyfile block, then deploy. Caddy" +
+      " gets the certificate on first request.");
+    return;
+  }
+  if (action === "list") {
+    if (!domain) return console.error("Usage: cf list <domain>");
+    const zone = await cf.zone(domain);
+    if (!zone) return console.error(`${domain} is not a Cloudflare zone.`);
+    console.log(`${domain} · zone ${zone.id} · ${zone.status}`);
+    for (const r of await cf.records(zone.id)) {
+      console.log(`  ${r.type.padEnd(6)} ${r.name.padEnd(30)} ${r.content}` +
+        `${r.proxied ? "  (proxied)" : ""}`);
+    }
+    return;
+  }
+  console.error("Usage: cf adopt <domain> [host…] | cf add <domain> <host> | " +
+    "cf list <domain>");
+}
+
 const commands = {
   ping: cmdPing,
   balance: cmdBalance,
@@ -156,11 +260,15 @@ const commands = {
   check: () => cmdCheck(args),
   buy: () => cmdBuy(args),
   caddy: () => cmdCaddy(args),
+  ns: () => cmdNs(args),
+  dns: () => cmdDns(args),
+  cf: () => cmdCf(args),
 };
 
 const run = commands[cmd];
 if (!run) {
-  console.error("Commands: ping | balance | price | check | buy | caddy");
+  console.error(
+    "Commands: ping | balance | price | check | buy | caddy | ns | dns | cf");
   process.exit(1);
 }
 Promise.resolve(run()).catch((e) => {

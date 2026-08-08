@@ -89,3 +89,9 @@ export const updateNs = (domain, nameservers) =>
   call(`/domain/updateNs/${domain}`, { ns: nameservers });
 
 export const dnsCreate = (domain, record) => call(`/dns/create/${domain}`, record);
+
+// Read and remove records, so a zone can be inspected before a nameserver move
+// and tidied after one. Porkbun scopes deletes by record id, which `dnsRetrieve`
+// is the only way to learn.
+export const dnsRetrieve = (domain) => call(`/dns/retrieve/${domain}`);
+export const dnsDelete = (domain, id) => call(`/dns/delete/${domain}/${id}`);
