@@ -145,6 +145,8 @@ const DROPS = STONE_STUDY
   ? STONE_DROPS.map((d) => ({ ...d, a: d.a * STONE_SCALE, z: d.z * STONE_SCALE }))
   : ORIGINAL_DROPS;
 const BREATHS = STONE_STUDY ? [] : [12, 28, 44, 60];
+// The club enters as percussion only; tonal material arrives after four bars.
+const INTRO_PERC_ONLY_BARS = STONE_CLUB ? 8 : 0;
 
 // ── watjetsto720: the wave form ───────────────────────────────────────
 // Suzanne Ciani's Seven Waves was written down, not patched, and her
@@ -309,10 +311,9 @@ for (const d of DROPS)
         kicks.push([bar(b) + k * BEAT, 128, 45, 0.06, -0.4, 0.007, 0.2]);
       continue;
     }
-    // slow build: the club intro opens halftime (1 and 3) and only commits
-    // to four-on-the-floor at bar 4 — the room assembles piece by piece
-    if (STONE_CLUB && b < 4) {
-      kickAt(bar(b)); kickAt(bar(b) + 2 * BEAT);
+    // slow build: the first four bars are percussion-only, with no kick.
+    // The low-end engine arrives after the room has established its pulse.
+    if (STONE_CLUB && b < INTRO_PERC_ONLY_BARS) {
       continue;
     }
     const fourFloor = STONE_STUDY || d.a >= 48 || (d.a === 32 && b >= 38);
@@ -334,7 +335,7 @@ if (STONE_STUDY) {
       noises.push([t, 0.085 + 0.035 * swell,
         1750 + 950 * swell, 900 + 350 * swell, 0.95 + 0.4 * swell,
         db, 0.002, 0.06 + 0.035 * swell, beat === 1 ? -0.08 : 0.08]);
-      snares.push({ t, strength: 0.68 + 0.32 * swell });
+      snares.push({ t, strength: (0.68 + 0.32 * swell) * (b < INTRO_PERC_ONLY_BARS ? 0.38 : 1) });
       snareIndex++;
     }
   }
@@ -373,7 +374,7 @@ if (STONE_CLUB) {
     }
     return hits;
   };
-  for (let b = 1; b < BARS; b++) {
+  for (let b = STONE_CLUB ? INTRO_PERC_ONLY_BARS : 1; b < BARS; b++) {
     if (inTechno(b)) continue; // techno strips to kick/rim/closed-hat
     const lateLift = b >= 54 ? 2.4 : b >= 36 ? 1.5 : b >= 18 ? 0.7 : 0;
     const k = [5, 7, 9, 11][Math.min(3, Math.floor(b / 18))];
@@ -436,7 +437,7 @@ if (STONE_CLUB) {
     [2.75, 3.25, 3.5, 3.625, 3.75],
   ];
   for (const [fillIndex, b] of [7, 17, 25, 35, 43, 53, 61, 69].entries()) {
-    if (b >= BARS) continue;
+    if (b >= BARS || (STONE_CLUB && b < INTRO_PERC_ONLY_BARS)) continue;
     const pattern = SKIP_PATTERNS[fillIndex % SKIP_PATTERNS.length];
     const flip = fillIndex % 2 ? pattern.length - 1 : 0;
     for (let i = 0; i < pattern.length; i++) {
@@ -593,7 +594,7 @@ function bellRun(b, d) {
     const yielded = (rollBar(b) && e >= 6) || pickupYield(b, e) || hookBar(b) ||
       (STONE_CLUB && CLIFF_BARS.includes(b)) || inTechno(b) ||
       (sparse && e % 2 === 1); // valleys drop the offbeat answers entirely
-    if (!yielded && gate < d.density * earlyDensity * Math.min(1, wave + 0.25)) {
+    if (!yielded && b >= INTRO_PERC_ONLY_BARS && gate < d.density * earlyDensity * Math.min(1, wave + 0.25)) {
       // Most opening bells remain pinpricks, but a deliberately rare FEM
       // strike becomes a structural tone with its full physical decay.
       const longTail = inSparseOpening && bellStep % 23 === 5;
@@ -858,7 +859,7 @@ if (STONE_CLUB) {
   //    still on. The whole arrangement is this little melody's fever dream.
   const LULLABY = [[0, "E5"], [1.5, "G5"], [3, "B5"], [5, "D6"], [6.5, "B5"],
     [7, "A5"], [8, "E5"], [9.5, "G5"], [11, "A5"], [13, "G5"], [14, "E5"]];
-  for (const [beat, note] of LULLABY)
+  if (!STONE_CLUB) for (const [beat, note] of LULLABY)
     bells.push({ t: bar(0.5) + beat * BEAT, note, vel: 0.5,
       pan: 0.25 * Math.sin(beat * 0.9), gain: Math.pow(10, -14 / 20),
       material: "glass", geometry: "glass", dur: 2.4, longTail: true, cliff: true });
@@ -916,7 +917,7 @@ for (const d of DROPS) {
       if (rnd() < d.bloops) {
         // the club outro drips dry — a lone chirp on the fade reads as a
         // stray boop, not water — and the techno strip has no water at all
-        if (STONE_CLUB && (b >= 66 || inTechno(b))) { rnd(); continue; }
+        if (STONE_CLUB && (b < INTRO_PERC_ONLY_BARS || b >= 66 || inTechno(b))) { rnd(); continue; }
         // club drips tune to the section mode (E3-octave scale tones)
         const pool = STONE_CLUB
           ? MODES[modeAt(b)].map((s) => MIDI_HZ(52 + s))
@@ -1114,6 +1115,16 @@ if (STONE_STUDY) {
     geometry: "church", dur: 2.5 });
 }
 
+// The club opening is strictly non-tonal. Several inherited canonical bell
+// figures are assembled outside bellRun(), so gate the final event list—not
+// only the walking-line generator—to keep every bell, bowl, and uke resonance
+// out until bar 8.
+if (STONE_CLUB) {
+  const afterIntro = bells.filter((s) => s.t >= bar(INTRO_PERC_ONLY_BARS));
+  bells.length = 0;
+  bells.push(...afterIntro);
+}
+
 // Redundancy sweep + line audit. Independent figures (rolls landing, octave
 // stops, bowls, chord gates) can legally ask for the same note at the same
 // instant — one mallet can't strike a bar twice at once, so the sweep keeps
@@ -1166,7 +1177,7 @@ flyby(bar(70 * STONE_SCALE), -1);
 // ── spray, whisper level: transition breaths only. Canonical deliberately
 //    has no bar-zero splash; it was too startling before the groove settled.
 for (const d of DROPS)
-  if (!(STONE_STUDY && d.a === 0))
+  if (!(STONE_STUDY && d.a === 0) && !(STONE_CLUB && d.a < INTRO_PERC_ONLY_BARS))
     noises.push([bar(d.a), 2.0, 2000, 300, 0.8, -23, 0.015, 1.8, 0]);
 if (!STONE_STUDY) noises.push([bar(80), 16 * BAR + 4, 3000, 500, 0.8, -27, 2.0, 14 * BAR, 0]);
 noises.push([0, DUR, 1100, 1100, 0.6, -41, 4, 4, 0]);
@@ -1424,7 +1435,7 @@ if (TRASH_SAMPLE && existsSync(EMPTY_TRASH)) {
   const b = decoded.stdout;
   const sample = new Float32Array(b.buffer.slice(b.byteOffset, b.byteOffset + b.length - (b.length % 4)));
   const throws = [
-    { t: bar(3) - 0.6, rate: 0.55, db: 7, pan: -0.08 }, // early, and SLOW — the first thing thrown overboard
+    { t: 0.35, rate: 0.55, db: -18, pan: -0.08, reverse: true }, // a hidden reverse swell under the hats
     { t: bar(18) - 0.72, rate: 1.18, db: 8, pan: -0.12 },
     { t: bar(36) - 0.82, rate: 0.95, db: 7, pan: 0.12 },
     { t: bar(54) - 1.00, rate: 0.78, db: 6, pan: 0 },
@@ -1436,7 +1447,8 @@ if (TRASH_SAMPLE && existsSync(EMPTY_TRASH)) {
     const gl = Math.cos(a) * Math.pow(10, s.db / 20);
     const gr = Math.sin(a) * Math.pow(10, s.db / 20);
     for (let i = 0; i < frames && at + i < ns; i++) {
-      const pos = i * s.rate;
+      const pos = s.reverse ? (sample.length / 2 - 1) - i * s.rate : i * s.rate;
+      if (pos < 0) break;
       const j = Math.floor(pos);
       if (j + 1 >= sample.length / 2) break;
       const fr = pos - j;
@@ -1592,6 +1604,27 @@ if (STONE_CLUB) {
   owlAt("465697-owl_hoot.mp3", bar(68.5), -18, -0.25);
 }
 
+// One house whip marks the bar-21 beat-two turn (36.96 s at 138 BPM).
+// It is punctual, not a new repeating voice.
+if (STONE_CLUB) {
+  const whip = decodeSample(resolve(HERE, "../../hellsine/samples/whip.wav"));
+  if (whip) {
+    const at = Math.floor((bar(21) + BEAT) * SR);
+    const n = Math.min(whip.length, ns - at);
+    const gain = Math.pow(10, -15 / 20);
+    for (let i = 0; i < n; i++) {
+      const tail = Math.min(1, (n - i) / Math.max(1, 0.09 * SR));
+      const v = whip[i] * gain * tail;
+      mix[2 * (at + i)] += v * 0.76;
+      mix[2 * (at + i) + 1] += v * 0.65;
+      if (sampleBus) {
+        sampleBus[2 * (at + i)] += v * 0.76;
+        sampleBus[2 * (at + i) + 1] += v * 0.65;
+      }
+    }
+  }
+}
+
 // ── telephones (Freesound, vault-attributed). The dial tone is the real
 //    350+440 Hz dual tone, rate-shifted so its two tones LAND ON the
 //    section's scale degrees — it harmonizes instead of clashing: ×1.1225
@@ -1630,10 +1663,43 @@ if (STONE_CLUB) {
   const RING = "663840-1970_telephone_ring_1_4_seconds_cycle_nl_wav.mp3"; // dominant ≈1616 Hz
   // off the hook outside the club — G+B over the bare E floor, fading as
   // the door opens
-  phoneAt(DIAL, bar(0.5), { db: -24, pan: 0.3, rate: 1.1225, maxDur: bar(5), fadeIn: 1.5, fadeOut: 3 });
+  phoneAt(DIAL, bar(INTRO_PERC_ONLY_BARS) + 0.5 * BEAT, {
+    db: -24, pan: 0.3, rate: 1.1225, maxDur: bar(5), fadeIn: 1.5, fadeOut: 3
+  });
+  // Carry the dial-tone dyad into the score after the finite recording ends.
+  // Its G4+B4 identity slowly resolves toward E4+B4, becoming harmony rather
+  // than disappearing as a sound effect at the door transition.
+  const dialMorphAt = bar(INTRO_PERC_ONLY_BARS) + 0.5 * BEAT;
+  const dialMorphDur = bar(12);
+  const dialMorph = (f0, f1, db, pan, attack, release) => {
+    const at = Math.floor(dialMorphAt * SR), n = Math.floor(dialMorphDur * SR);
+    const a = (pan + 1) * 0.25 * Math.PI;
+    const gl = Math.cos(a) * Math.pow(10, db / 20), gr = Math.sin(a) * Math.pow(10, db / 20);
+    let phase = 0;
+    for (let i = 0; i < n && at + i < ns; i++) {
+      const u = i / Math.max(1, n - 1);
+      const hz = f0 + (f1 - f0) * smooth(u);
+      phase += TAU * hz / SR;
+      const env = Math.min(1, i / (attack * SR), (n - i) / (release * SR));
+      const v = Math.sin(phase) * Math.max(0, env);
+      mix[2 * (at + i)] += v * gl;
+      mix[2 * (at + i) + 1] += v * gr;
+      if (sampleBus) {
+        sampleBus[2 * (at + i)] += v * gl;
+        sampleBus[2 * (at + i) + 1] += v * gr;
+      }
+    }
+  };
+  dialMorph(352 * 1.1225, 329.63, -29, -0.12, 1.8, 4.5);
+  dialMorph(440 * 1.1225, 493.88, -31, 0.14, 2.2, 5.0);
   // the bridge answers in lydian — E+G#, heard through the water
   phoneAt(DIAL, bar(45), { db: -25, pan: -0.3, rate: 0.9375, maxDur: bar(3), fadeIn: 2, fadeOut: 2.5,
     warp: { depth: 0.03, hz: 0.45 } });
+  // CC0 Freesound spin/woosh, cut short and landed exactly on the bar-45
+  // downbeat (~1:22): a Sega-era arcade gesture without using game audio.
+  phoneAt("quick-woosh-245936.mp3", bar(45), {
+    db: -14, pan: 0.05, rate: 3.4, maxDur: 1.05, fadeIn: 0.01, fadeOut: 0.24
+  });
   // pitch-matched rotary calls: the gong lands on the bar lead, 2 octaves up
   const ringAt = (b, db, pan) => {
     const m = modeAt(b);
@@ -2006,7 +2072,7 @@ if (STONE_CLUB) {
   };
   for (const d of DROPS)
     for (let b = d.a; b < d.z; b += 2) {
-      if (inTechno(b)) continue; // no strings in the machine strip
+      if (b < INTRO_PERC_ONLY_BARS || inTechno(b)) continue; // no strings in intro/machine strip
       const chord = modeChord(b, ((b - d.a) / 2) % 4);
       const w = waveAt(b);
       // 10× decay: the strings barely damp, so successive strums overlay
@@ -2036,7 +2102,8 @@ if (STONE_CLUB) {
   const FIB_STEPS = [1, 1, 2, 3, 5];
   let arpIdx = 4, arpDir = 1, arpStep = 0, fCursor = 0;
   for (let b = 0; b < BARS; b++) {
-    if (inTechno(b) || (!sparseAt(b) && sectionAt(b).name !== "bridge")) { fCursor += 8; continue; }
+    if (b < INTRO_PERC_ONLY_BARS || inTechno(b) ||
+        (!sparseAt(b) && sectionAt(b).name !== "bridge")) { fCursor += 8; continue; }
     // the arp picks from the section ladder's low half — it re-tunes too
     const arpLad = LADDERS[modeAt(b)].filter((m) => m <= 80);
     for (let e = 0; e < 8; e++, fCursor++) {
@@ -2427,7 +2494,7 @@ function loadVocal(file) {
   return new Float32Array(b.buffer.slice(b.byteOffset, b.byteOffset + b.length - (b.length % 4)));
 }
 const VOCALS = STONE_STUDY ? [] : [
-  { t: bar(0), file: "wattajetta.mp3", db: -8, rate: 1 },              // title drop over the steam
+  { t: bar(8), file: "wattajetta.mp3", db: -8, rate: 1 },              // title drop after the percussion-only intro
   { t: bar(15) - 0.15, file: "wayer.mp3", db: -6, rate: 1 },           // riding super scratch 1
   { t: bar(47) - 0.15, file: "wayer.mp3", db: -6, rate: 0.94 },        // into steel, a shade deeper
   { t: bar(63.5), file: "wayer.mp3", db: -8, rate: 0.8,

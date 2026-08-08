@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "slug": "wattajetta",
+  "ddex": {
+    "ernVersion": "4.3.2",
+    "namespace": "http://ddex.net/xml/ern/432",
+    "releaseProfileVersionId": "SimpleAudioSingle",
+    "releaseProfilesVersion": "2.3.1",
+    "avsVersionId": "11"
+  },
+  "release": {
+    "title": "wattajetta",
+    "displayArtist": "Aesthetic Dot Computer",
+    "labelName": "Aesthetic Dot Computer",
+    "releaseDate": "2026-08-07",
+    "genre": "Electronic",
+    "subGenre": "Ambient",
+    "parentalWarningType": "NotExplicit",
+    "territoryCode": "Worldwide"
+  },
+  "recording": {
+    "title": "wattajetta",
+    "type": "MusicalWorkSoundRecording",
+    "durationSeconds": 130.717021,
+    "hasVocalPerformance": false,
+    "hasForegroundVocalPerformance": false,
+    "containsAI": "None"
+  },
+  "assets": {
+    "audio": {
+      "localPath": "pop/wattajetta/out/wattajetta-stone-club-distrokid-master.wav",
+      "fileName": "wattajetta-stone-club-distrokid-master.wav",
+      "containerFormat": "WAV",
+      "audioCodecType": "PCM",
+      "samplingRate": 48000,
+      "bitsPerSample": 24,
+      "numberOfChannels": 2
+    }
+  },
+  "source": {
+    "stoneClubMix": "pop/wattajetta/out/wattajetta-stone-club-audition.mp3",
+    "arrangement": "pop/wattajetta/ARRANGEMENT.md"
+  }
+}

@@ -13,7 +13,7 @@ and comes home.
 
 | bars  | section | mode           | wave | what happens |
 |-------|---------|----------------|------|--------------|
-| 0–8   | intro   | E pentatonic   | 0.72 | bare kick + sine floor; castanet conversation (dense); slow Empty Trash throw (bar 3); first owl; tiny bells |
+| 0–8   | intro   | E pentatonic   | 0.72 | percussion/water-floor only; no bells, bowls, ukulele, strings, or harp-like resonances |
 | 8–18  | verse 1 | E aeolian      | 0.90 | walking line enters the natural minor; disco bass starts (bar 4+); flyby counter-melody descends (bar 11, with wingmen) |
 | 18–26 | chorus 1| E dorian       | 1.15 | THE HOOK (call) / line (response); cliff run bar 24; quat motif bar 22 |
 | 26–36 | verse 2 | E phrygian     | 0.90 | darkest color; flyby climbs in answer (bar 29); mini rush bar 27 |
