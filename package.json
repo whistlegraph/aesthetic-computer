@@ -10,6 +10,7 @@
     "platform": "devcontainer up --workspace-folder .; devcontainer exec --workspace-folder . fish -c 'aesthetic'",
     "test": "node run-tests.mjs",
     "test:pop-ddex": "node --test tests/pop-ddex.test.mjs",
+    "test:pop-necklace": "node --test tests/pop-necklace.test.mjs",
     "test:pop-site": "node --test tests/pop-site.test.mjs",
     "pop:ddex": "node pop/bin/ddex.mjs",
     "pop:site": "node pop/bin/publish-release-records.mjs",

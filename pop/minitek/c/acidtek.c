@@ -394,8 +394,16 @@ int main(int argc, char **argv) {
     static const int CANON[16] = {0,8,4,12,2,10,6,14,1,9,5,13,3,11,7,15};
     int okrank = 1; for (int i = 0; i < 16; i++) if (ORDER_BY_RANK[i] != CANON[i]) okrank = 0;
     fprintf(stderr, "  [%s canonical Barlow ordering]\n", okrank ? "MATCHES" : "DIFFERS FROM");
-    // Toussaint metrical "off-beatness": fraction of grid pulses whose rank is
-    // below the median — a static property of this meter (Toussaint 2005).
+    // Fraction of grid pulses whose Barlow indispensability rank is below the
+    // median — a static property of this meter, and the ceiling on how much of
+    // the grid is syncopation-capable.
+    //
+    // This was previously labelled "Toussaint off-beatness", which it is not.
+    // Toussaint's off-beatness counts the ONSETS OF A RHYTHM that land on
+    // generator pulses (gcd(p,n)=1); it is a property of a pattern, not of a
+    // meter, and for n=16 the generator set is {1,3,5,7,9,11,13,15}. That
+    // measure lives in pop/lib/c/ac_necklace.h as ac_offbeatness(); this
+    // statistic is Barlow's and stays here. See papers/rhythm-platter/digest/03.
     { int below = 0; for (int i = 0; i < 16; i++) if (INDRANK[i] < 8) below++;
       fprintf(stderr, "#   pulses below median rank (weak/syncopation-capable): %d/16 = %.3f\n",
               below, below / 16.0); }

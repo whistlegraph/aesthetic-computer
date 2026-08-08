@@ -60,10 +60,28 @@ typedef struct {
 } BellModes;
 
 // --- Presets ----------------------------------------------------------------
+//
+// BOTH PRESET LOOKUPS RETURN 0 ON SUCCESS AND -1 IF THE NAME IS UNKNOWN.
+//
+// That is the opposite of the truthy-means-success reading, so
+//
+//     if (!bell_material_preset(&m, "glass")) bell_default_material(&m);
+//
+// silently overwrites the preset with bronze EVERY TIME THE LOOKUP WORKED, and
+// the failure is inaudible-adjacent: you still get a bell, just the wrong one.
+// Always test against 0 explicitly:
+//
+//     if (bell_material_preset(&m, "glass") != 0) bell_default_material(&m);
+//
+// Note that bell_solve_modes below uses the other convention (>0 on success),
+// which is exactly why this one is worth spelling out.
+//
+// Materials: bronze brass steel aluminum silver glass gold stone
+// Geometries: see bell_geometry_preset in bell.c
 void bell_default_geometry(BellGeometry *g);            // a church-bell profile
-int bell_geometry_preset(BellGeometry *g, const char *name);
+int bell_geometry_preset(BellGeometry *g, const char *name);   // 0 = ok, -1 = unknown name
 void bell_default_material(BellMaterial *mat);          // bell bronze
-int bell_material_preset(BellMaterial *mat, const char *name);
+int bell_material_preset(BellMaterial *mat, const char *name); // 0 = ok, -1 = unknown name
 
 // --- Solve / tune / render --------------------------------------------------
 // Returns mode count (>0) on success, <0 on failure. max_m caps circumferential

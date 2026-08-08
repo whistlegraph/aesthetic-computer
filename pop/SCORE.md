@@ -141,9 +141,55 @@ The **novel-voice research lane** (research lane like `voice/` and `dsp/`, not a
 
 See [`novelizer/README.md`](novelizer/README.md) for the harness contract and batch workflow, [`novelizer/REPORT.md`](novelizer/REPORT.md) for verdicts. Status: batch 1 landed 2026-07-02 — six voices (scanner, pulsar, frictus, twomass, chaosfm, vosim), all judged keepers.
 
-### 10. (open)
+### 10. bracelet (`bracelet/`)
+
+Binaural **spatial necklaces** — the join of two things AC already had and had never connected: the Toussaint rhythm geometry running in `minitek/`, and the procedural binaural core in `nullabye/c/ac_hrtf.h`.
+
+The cycle becomes a ring of sound sources around the listener's head (step *i* at azimuth 2πi/n, step 0 ahead, horizontal plane), which turns two equivalences that are asserted on paper and never heard into physical operations: **rotation** spins the sound field — precession in time and rotation in space become the *same* operation — and **reflection** is a left/right mirror across the median plane. E(k,n) stops being a number and becomes a regular *k*-gon of sound sources around your skull.
+
+The lane's first real finding is a negative one: **most canonical timelines are achiral**. son, bossa, shiko, tresillo, cinquillo and bembé are each their own reflection up to rotation, so mirroring them only turns the ring. Only rumba, soukous and gahu are chiral — and the ring must additionally carry its centroid *off* the mirror axis, which rules out soukous. The mirror section uses **gahu**. The obvious choice would have been a null test.
+
+Voice posture: instrumental. **Headphones required** — on speakers the track collapses to mono and there is nothing left.
+
+See [`bracelet/README.md`](bracelet/README.md) for the mapping law, the form, and the per-strike verification. Status: first cut rendered 2026-08-07 (`bracelet`, 1:49, 138 BPM, A minor).
+
+### 11. (open)
 
 More lanes will land here as they prove themselves. Candidates: kidlisp-as-instrument tracks, AC-native ensemble cuts, voice-memo-grade demo lane. None of them have earned a swimlane yet — they need a real track first.
+
+## Shared tooling — rhythm
+
+`pop/lib/necklace.mjs` + `pop/lib/c/ac_necklace.h` are the one implementation of
+the geometry of musical rhythm: Bjorklund, necklace/bracelet canonical forms,
+maximal evenness (chord-sum, per Demaine et al.), balance, rhythmic oddity,
+deepness and shelling, off-beatness, syncopation measures, and the distance
+geometry (chronotonic, swap, Hamming) including **morph paths** between
+timelines. The C header is allocation-free and libm-only, same posture as
+`pop/nullabye/c/ac_hrtf.h`, so it compiles unchanged to WebAssembly.
+
+`pop/lib/necklace-space.mjs` maps a cycle onto the space around a listener's
+head — step *i* at azimuth 2πi/n — and carries the perceptual limits that bound
+the mapping (Mills' minimum audible angle, the precedence window, London's
+entrainment ceiling). It feeds `ac_hrtf.h`.
+
+Both are specified by [`papers/rhythm-platter/`](../papers/rhythm-platter/): every
+digest entry there ends in a `tools:` block naming the functions it requires, and
+where the digest and the code disagree the digest is the spec.
+
+```bash
+node pop/bin/necklace.mjs son                       # analyse a timeline
+node pop/bin/necklace.mjs E 5 16 --space --bpm 138  # place it around a head
+node pop/bin/necklace.mjs son rumba --morph         # walk one into the other
+npm run test:pop-necklace                           # the acceptance test
+```
+
+The library replaced hand-rolled copies in `minitek/c/{hypnotek,dubtek}.c`, which
+now include the header. That lift is verified lossless three ways: the test
+reproduces both engines' published numbers (mean E = 0.888, total D = 7.67, the
+0.996/0.993/0.989 clave ordering), a parity harness pins the C header against the
+JS twin across 76 rows, and both tracks re-render **byte-identical** WAVs.
+`acidtek.c` was left alone — its "off-beatness" is Barlow indispensability, not
+Toussaint's measure, and its comment now says so.
 
 ## Sample sources (commercial-safe)
 

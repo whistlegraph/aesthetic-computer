@@ -16,6 +16,11 @@
 #include <string.h>
 #include <math.h>
 
+// Necklace theory lives in one place now. This file used to carry its own copy
+// of the oddity / evenness / off-beatness measures; tests/pop-necklace.test.mjs
+// pins the shared version against the numbers this engine published.
+#include "../../lib/c/ac_necklace.h"
+
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif
@@ -294,48 +299,16 @@ static const int EUCLID_5_16[16] = { 1,0,0,1, 0,0,1,0, 0,0,1,0, 0,1,0,0 }; // E(
 //      cycle — i.e. pulses p with gcd(p, per) == 1. A higher off-beatness means
 //      the timeline resists the on-beat skeleton; it is a syncopation proxy.
 
-static int tl_onsets(const int *g, int per, int *out) {
-    int k = 0; for (int p = 0; p < per; p++) if (g[p]) out[k++] = p; return k;
-}
+static int tl_onsets(const int *g, int per, int *out) { return ac_onsets(g, per, out); }
 
-// rhythmic oddity: returns 1 if NO onset is bisected by the half-period.
-static int tl_oddity(const int *g, int per) {
-    if (per % 2) return 1;                  // odd period: vacuously holds
-    int half = per / 2;
-    for (int p = 0; p < per; p++) if (g[p] && g[(p + half) % per]) return 0;
-    return 1;
-}
+// ac_rhythmic_oddity returns -1 on odd periods, where the question is vacuous.
+// This engine's timelines are all even (16 and 12), and its original helper
+// reported odd periods as passing, so the mapping below preserves that.
+static int tl_oddity(const int *g, int per) { return ac_rhythmic_oddity(g, per) != 0; }
 
-static int gcd_i(int a, int b) { while (b) { int t = a % b; a = b; b = t; } return a; }
+static int tl_offbeatness(const int *g, int per) { return ac_offbeatness(g, per); }
 
-// off-beatness: onsets on pulses coprime to the period.
-static int tl_offbeatness(const int *g, int per) {
-    int c = 0; for (int p = 0; p < per; p++) if (g[p] && gcd_i(p, per) == 1) c++; return c;
-}
-
-// evenness ratio (1.0 == maximally even). Toussaint's geometric evenness: place
-// the n pulses as vertices of a regular n-gon on the unit circle and measure the
-// sum of the EUCLIDEAN CHORD lengths between every pair of onsets. The maximally
-// even k-onset set (the regular k-gon) provably MAXIMISES this sum, so dividing
-// the timeline's chord-sum by that ideal gives a value in (0,1], =1 only when the
-// onsets are perfectly even. (Sum of geodesic ARC lengths is degenerate for
-// near-even sets — many configurations tie — so the chord sum is the right metric.)
-static double tl_evenness(const int *g, int per) {
-    int on[32], k = tl_onsets(g, per, on);
-    if (k < 2) return 1.0;
-    double sum = 0;
-    for (int a = 0; a < k; a++) for (int b = a + 1; b < k; b++) {
-        double ang = TAU * (on[a] - on[b]) / per;
-        sum += 2.0 * fabs(sin(ang / 2.0));               // chord length on unit circle
-    }
-    // ideal: k onsets evenly spaced at angular step 2π/k (the regular k-gon).
-    double ideal = 0;
-    for (int a = 0; a < k; a++) for (int b = a + 1; b < k; b++) {
-        double ang = TAU * (a - b) / k;
-        ideal += 2.0 * fabs(sin(ang / 2.0));
-    }
-    return ideal > 0 ? sum / ideal : 1.0;
-}
+static double tl_evenness(const int *g, int per) { return ac_evenness(g, per); }
 
 static void tl_report(const char *name, const int *g, int per) {
     int on[32], k = tl_onsets(g, per, on);

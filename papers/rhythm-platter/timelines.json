@@ -1,0 +1,1861 @@
+{
+  "generated_by": "papers/rhythm-platter/build-timelines.mjs",
+  "regenerate": "node papers/rhythm-platter/fetch-sources.mjs && node papers/rhythm-platter/build-timelines.mjs",
+  "posture": "Structured facts only. Source prose is not reproduced; each row carries a locator instead.",
+  "euclidean_catalogue": {
+    "source": "toussaint-2005-bridges",
+    "count": 48,
+    "all_verified_against_bjorklund": true,
+    "rows": [
+      {
+        "id": "E(1,3)",
+        "k": 1,
+        "n": 3,
+        "onsets": [
+          0
+        ],
+        "ioi": [
+          3
+        ],
+        "box": "x..",
+        "necklace": "001",
+        "euclidean": true,
+        "verified_against_bjorklund": true,
+        "tags": [],
+        "source": "toussaint-2005-bridges",
+        "source_locator": "§4 catalogue entry E(1,3)"
+      },
+      {
+        "id": "E(2,3)",
+        "k": 2,
+        "n": 3,
+        "onsets": [
+          0,
+          1
+        ],
+        "ioi": [
+          1,
+          2
+        ],
+        "box": "xx.",
+        "necklace": "011",
+        "euclidean": true,
+        "verified_against_bjorklund": true,
+        "tags": [
+          "Greece",
+          "India",
+          "Indian",
+          "Cuba",
+          "Mexico",
+          "Africa",
+          "Bantu",
+          "Mandinka",
+          "Tuareg",
+          "Nubia",
+          "Arab",
+          "Steve Reich"
+        ],
+        "source": "toussaint-2005-bridges",
+        "source_locator": "§4 catalogue entry E(2,3)"
+      },
+      {
+        "id": "E(3,4)",
+        "k": 3,
+        "n": 4,
+        "onsets": [
+          0,
+          1,
+          2
+        ],
+        "ioi": [
+          1,
+          1,
+          2
+        ],
+        "box": "xxx.",
+        "necklace": "0111",
+        "euclidean": true,
+        "verified_against_bjorklund": true,
+        "tags": [
+          "Greece",
+          "India",
+          "Indian",
+          "Persia",
+          "Persian",
+          "Brazil",
+          "Mandinka",
+          "Colombia",
+          "Trinidad",
+          "Bali",
+          "Indonesian",
+          "flamenco"
+        ],
+        "source": "toussaint-2005-bridges",
+        "source_locator": "§4 catalogue entry E(3,4)"
+      },
+      {
+        "id": "E(2,5)",
+        "k": 2,
+        "n": 5,
+        "onsets": [
+          0,
+          2
+        ],
+        "ioi": [
+          2,
+          3
+        ],
+        "box": "x.x..",
+        "necklace": "00101",
+        "euclidean": true,
+        "verified_against_bjorklund": true,
+        "tags": [
+          "Greece",
+          "Bulgaria",
+          "Macedonia",
+          "Macedonian",
+          "Turkey",
+          "India",
+          "Persia",
+          "Persian",
+          "Africa",
+          "Tuareg",
+          "Namibia",
+          "Rwanda"
+        ],
+        "source": "toussaint-2005-bridges",
+        "source_locator": "§4 catalogue entry E(2,5)"
+      },
+      {
+        "id": "E(3,5)",
+        "k": 3,
+        "n": 5,
+        "onsets": [
+          0,
+          2,
+          4
+        ],
+        "ioi": [
+          2,
+          2,
+          1
+        ],
+        "box": "x.x.x",
+        "necklace": "01011",
+        "euclidean": true,
+        "verified_against_bjorklund": true,
+        "tags": [
+          "India",
+          "Indian",
+          "Persia",
+          "Persian",
+          "Korea",
+          "Korean"
+        ],
+        "source": "toussaint-2005-bridges",
+        "source_locator": "§4 catalogue entry E(3,5)"
+      },
+      {
+        "id": "E(4,5)",
+        "k": 4,
+        "n": 5,
+        "onsets": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "ioi": [
+          1,
+          1,
+          1,
+          2
+        ],
+        "box": "xxxx.",
+        "necklace": "01111",
+        "euclidean": true,
+        "verified_against_bjorklund": true,
+        "tags": [
+          "Greece"
+        ],
+        "source": "toussaint-2005-bridges",
+        "source_locator": "§4 catalogue entry E(4,5)"
+      },
+      {
+        "id": "E(5,6)",
+        "k": 5,
+        "n": 6,
+        "onsets": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ],
+        "ioi": [
+          1,
+          1,
+          1,
+          1,
+          2
+        ],
+        "box": "xxxxx.",
+        "necklace": "011111",
+        "euclidean": true,
+        "verified_against_bjorklund": true,
+        "tags": [
+          "Arab"
+        ],
+        "source": "toussaint-2005-bridges",
+        "source_locator": "§4 catalogue entry E(5,6)"
+      },
+      {
+        "id": "E(2,7)",
+        "k": 2,
+        "n": 7,
+        "onsets": [
+          0,
+          3
+        ],
+        "ioi": [
+          3,
+          4
+        ],
+        "box": "x..x...",
+        "necklace": "0001001",
+        "euclidean": true,
+        "verified_against_bjorklund": true,
+        "tags": [
+          "Macedonia",
+          "Macedonian"
+        ],
+        "source": "toussaint-2005-bridges",
+        "source_locator": "§4 catalogue entry E(2,7)"
+      },
+      {
+        "id": "E(3,7)",
+        "k": 3,
+        "n": 7,
+        "onsets": [
+          0,
+          2,
+          4
+        ],
+        "ioi": [
+          2,
+          2,
+          3
+        ],
+        "box": "x.x.x..",
+        "necklace": "0010101",
+        "euclidean": true,
+        "verified_against_bjorklund": true,
+        "tags": [
+          "Greece",
+          "Bulgaria",
+          "Bulgarian",
+          "Macedonia",
+          "Macedonian",
+          "Turkey",
+          "India",
+          "Indian",
+          "Sudan",
+          "Turkestan",
+          "Serbia",
+          "Serbian"
+        ],
+        "source": "toussaint-2005-bridges",
+        "source_locator": "§4 catalogue entry E(3,7)"
+      },
+      {
+        "id": "E(4,7)",
+        "k": 4,
+        "n": 7,
+        "onsets": [
+          0,
+          2,
+          4,
+          6
+        ],
+        "ioi": [
+          2,
+          2,
+          2,
+          1
+        ],
+        "box": "x.x.x.x",
+        "necklace": "0101011",
+        "euclidean": true,
+        "verified_against_bjorklund": true,
+        "tags": [
+          "Greek",
+          "Bulgaria",
+          "Bulgarian",
+          "Nubia"
+        ],
+        "source": "toussaint-2005-bridges",
+        "source_locator": "§4 catalogue entry E(4,7)"
+      },
+      {
+        "id": "E(5,7)",
+        "k": 5,
+        "n": 7,
+        "onsets": [
+          0,
+          2,
+          3,
+          5,
+          6
+        ],
+        "ioi": [
+          2,
+          1,
+          2,
+          1,
+          1
+        ],
+        "box": "x.xx.xx",
+        "necklace": "0110111",
+        "euclidean": true,
+        "verified_against_bjorklund": true,
+        "tags": [
+          "Nubia",
+          "Arab"
+        ],
+        "source": "toussaint-2005-bridges",
+        "source_locator": "§4 catalogue entry E(5,7)"
+      },
+      {
+        "id": "E(6,7)",
+        "k": 6,
+        "n": 7,
+        "onsets": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "ioi": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          2
+        ],
+        "box": "xxxxxx.",
+        "necklace": "0111111",
+        "euclidean": true,
+        "verified_against_bjorklund": true,
+        "tags": [
+          "Greece"
+        ],
+        "source": "toussaint-2005-bridges",
+        "source_locator": "§4 catalogue entry E(6,7)"
+      },
+      {
+        "id": "E(3,8)",
+        "k": 3,
+        "n": 8,
+        "onsets": [
+          0,
+          3,
+          6
+        ],
+        "ioi": [
+          3,
+          3,
+          2
+        ],
+        "box": "x..x..x.",
+        "necklace": "00100101",
+        "euclidean": true,
+        "verified_against_bjorklund": true,
+        "tags": [
+          "Cuba",
+          "Cuban"
+        ],
+        "source": "toussaint-2005-bridges",
+        "source_locator": "§4 catalogue entry E(3,8)"
+      },
+      {
+        "id": "E(5,8)",
+        "k": 5,
+        "n": 8,
+        "onsets": [
+          0,
+          2,
+          3,
+          5,
+          6
+        ],
+        "ioi": [
+          2,
+          1,
+          2,
+          1,
+          2
+        ],
+        "box": "x.xx.xx.",
+        "necklace": "01011011",
+        "euclidean": true,
+        "verified_against_bjorklund": true,
+        "tags": [
+          "Turkey",
+          "Persia",
+          "Persian",
+          "Cuba",
+          "Cuban",
+          "Africa",
+          "Trinidad",
+          "Calypso",
+          "Korea",
+          "Korean",
+          "ragtime",
+          "electronic dance music"
+        ],
+        "source": "toussaint-2005-bridges",
+        "source_locator": "§4 catalogue entry E(5,8)"
+      },
+      {
+        "id": "E(7,8)",
+        "k": 7,
+        "n": 8,
+        "onsets": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6
+        ],
+        "ioi": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          2
+        ],
+        "box": "xxxxxxx.",
+        "necklace": "01111111",
+        "euclidean": true,
+        "verified_against_bjorklund": true,
+        "tags": [
+          "Tuareg",
+          "Indonesian"
+        ],
+        "source": "toussaint-2005-bridges",
+        "source_locator": "§4 catalogue entry E(7,8)"
+      },
+      {
+        "id": "E(4,9)",
+        "k": 4,
+        "n": 9,
+        "onsets": [
+          0,
+          2,
+          4,
+          6
+        ],
+        "ioi": [
+          2,
+          2,
+          2,
+          3
+        ],
+        "box": "x.x.x.x..",
+        "necklace": "001010101",
+        "euclidean": true,
+        "verified_against_bjorklund": true,
+        "tags": [
+          "Greece",
+          "Bulgaria",
+          "Bulgarian",
+          "Macedonia",
+          "Macedonian",
+          "Turkey",
+          "India",
+          "Indian",
+          "Serbia"
+        ],
+        "source": "toussaint-2005-bridges",
+        "source_locator": "§4 catalogue entry E(4,9)"
+      },
+      {
+        "id": "E(5,9)",
+        "k": 5,
+        "n": 9,
+        "onsets": [
+          0,
+          2,
+          4,
+          6,
+          8
+        ],
+        "ioi": [
+          2,
+          2,
+          2,
+          2,
+          1
+        ],
+        "box": "x.x.x.x.x",
+        "necklace": "010101011",
+        "euclidean": true,
+        "verified_against_bjorklund": true,
+        "tags": [
+          "Greece",
+          "Turkey",
+          "India",
+          "Africa",
+          "Arab"
+        ],
+        "source": "toussaint-2005-bridges",
+        "source_locator": "§4 catalogue entry E(5,9)"
+      },
+      {
+        "id": "E(7,9)",
+        "k": 7,
+        "n": 9,
+        "onsets": [
+          0,
+          2,
+          3,
+          4,
+          6,
+          7,
+          8
+        ],
+        "ioi": [
+          2,
+          1,
+          1,
+          2,
+          1,
+          1,
+          1
+        ],
+        "box": "x.xxx.xxx",
+        "necklace": "011101111",
+        "euclidean": true,
+        "verified_against_bjorklund": true,
+        "tags": [
+          "Greece"
+        ],
+        "source": "toussaint-2005-bridges",
+        "source_locator": "§4 catalogue entry E(7,9)"
+      },
+      {
+        "id": "E(3,10)",
+        "k": 3,
+        "n": 10,
+        "onsets": [
+          0,
+          3,
+          6
+        ],
+        "ioi": [
+          3,
+          3,
+          4
+        ],
+        "box": "x..x..x...",
+        "necklace": "0001001001",
+        "euclidean": true,
+        "verified_against_bjorklund": true,
+        "tags": [
+          "Tuareg"
+        ],
+        "source": "toussaint-2005-bridges",
+        "source_locator": "§4 catalogue entry E(3,10)"
+      },
+      {
+        "id": "E(7,10)",
+        "k": 7,
+        "n": 10,
+        "onsets": [
+          0,
+          2,
+          3,
+          5,
+          6,
+          8,
+          9
+        ],
+        "ioi": [
+          2,
+          1,
+          2,
+          1,
+          2,
+          1,
+          1
+        ],
+        "box": "x.xx.xx.xx",
+        "necklace": "0110110111",
+        "euclidean": true,
+        "verified_against_bjorklund": true,
+        "tags": [
+          "Turkey"
+        ],
+        "source": "toussaint-2005-bridges",
+        "source_locator": "§4 catalogue entry E(7,10)"
+      },
+      {
+        "id": "E(3,11)",
+        "k": 3,
+        "n": 11,
+        "onsets": [
+          0,
+          4,
+          8
+        ],
+        "ioi": [
+          4,
+          4,
+          3
+        ],
+        "box": "x...x...x..",
+        "necklace": "00010001001",
+        "euclidean": true,
+        "verified_against_bjorklund": true,
+        "tags": [
+          "India",
+          "Indian"
+        ],
+        "source": "toussaint-2005-bridges",
+        "source_locator": "§4 catalogue entry E(3,11)"
+      },
+      {
+        "id": "E(4,11)",
+        "k": 4,
+        "n": 11,
+        "onsets": [
+          0,
+          3,
+          6,
+          9
+        ],
+        "ioi": [
+          3,
+          3,
+          3,
+          2
+        ],
+        "box": "x..x..x..x.",
+        "necklace": "00100100101",
+        "euclidean": true,
+        "verified_against_bjorklund": true,
+        "tags": [
+          "India",
+          "Serbia",
+          "Serbian"
+        ],
+        "source": "toussaint-2005-bridges",
+        "source_locator": "§4 catalogue entry E(4,11)"
+      },
+      {
+        "id": "E(5,11)",
+        "k": 5,
+        "n": 11,
+        "onsets": [
+          0,
+          2,
+          4,
+          6,
+          8
+        ],
+        "ioi": [
+          2,
+          2,
+          2,
+          2,
+          3
+        ],
+        "box": "x.x.x.x.x..",
+        "necklace": "00101010101",
+        "euclidean": true,
+        "verified_against_bjorklund": true,
+        "tags": [
+          "Bulgaria",
+          "Bulgarian",
+          "Macedonia",
+          "Macedonian",
+          "India",
+          "Serbia"
+        ],
+        "source": "toussaint-2005-bridges",
+        "source_locator": "§4 catalogue entry E(5,11)"
+      },
+      {
+        "id": "E(5,12)",
+        "k": 5,
+        "n": 12,
+        "onsets": [
+          0,
+          3,
+          5,
+          8,
+          10
+        ],
+        "ioi": [
+          3,
+          2,
+          3,
+          2,
+          2
+        ],
+        "box": "x..x.x..x.x.",
+        "necklace": "001010010101",
+        "euclidean": true,
+        "verified_against_bjorklund": true,
+        "tags": [
+          "Macedonia",
+          "Macedonian",
+          "Cuba",
+          "Africa",
+          "African",
+          "Tuareg",
+          "Central African Republic",
+          "Aka",
+          "Pygmies"
+        ],
+        "source": "toussaint-2005-bridges",
+        "source_locator": "§4 catalogue entry E(5,12)"
+      },
+      {
+        "id": "E(7,12)",
+        "k": 7,
+        "n": 12,
+        "onsets": [
+          0,
+          2,
+          3,
+          5,
+          7,
+          8,
+          10
+        ],
+        "ioi": [
+          2,
+          1,
+          2,
+          2,
+          1,
+          2,
+          2
+        ],
+        "box": "x.xx.x.xx.x.",
+        "necklace": "010101101011",
+        "euclidean": true,
+        "verified_against_bjorklund": true,
+        "tags": [
+          "Brazil",
+          "Cuba",
+          "Cuban",
+          "Africa",
+          "African",
+          "Ghana",
+          "Ashanti",
+          "Aka"
+        ],
+        "source": "toussaint-2005-bridges",
+        "source_locator": "§4 catalogue entry E(7,12)"
+      },
+      {
+        "id": "E(11,12)",
+        "k": 11,
+        "n": 12,
+        "onsets": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10
+        ],
+        "ioi": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          2
+        ],
+        "box": "xxxxxxxxxxx.",
+        "necklace": "011111111111",
+        "euclidean": true,
+        "verified_against_bjorklund": true,
+        "tags": [],
+        "source": "toussaint-2005-bridges",
+        "source_locator": "§4 catalogue entry E(11,12)"
+      },
+      {
+        "id": "E(5,13)",
+        "k": 5,
+        "n": 13,
+        "onsets": [
+          0,
+          3,
+          5,
+          8,
+          10
+        ],
+        "ioi": [
+          3,
+          2,
+          3,
+          2,
+          3
+        ],
+        "box": "x..x.x..x.x..",
+        "necklace": "0010010100101",
+        "euclidean": true,
+        "verified_against_bjorklund": true,
+        "tags": [
+          "Macedonia"
+        ],
+        "source": "toussaint-2005-bridges",
+        "source_locator": "§4 catalogue entry E(5,13)"
+      },
+      {
+        "id": "E(6,13)",
+        "k": 6,
+        "n": 13,
+        "onsets": [
+          0,
+          2,
+          4,
+          6,
+          8,
+          10
+        ],
+        "ioi": [
+          2,
+          2,
+          2,
+          2,
+          2,
+          3
+        ],
+        "box": "x.x.x.x.x.x..",
+        "necklace": "0010101010101",
+        "euclidean": true,
+        "verified_against_bjorklund": true,
+        "tags": [
+          "Bulgaria",
+          "Macedonia",
+          "Macedonian"
+        ],
+        "source": "toussaint-2005-bridges",
+        "source_locator": "§4 catalogue entry E(6,13)"
+      },
+      {
+        "id": "E(9,13)",
+        "k": 9,
+        "n": 13,
+        "onsets": [
+          0,
+          2,
+          3,
+          5,
+          6,
+          8,
+          9,
+          11,
+          12
+        ],
+        "ioi": [
+          2,
+          1,
+          2,
+          1,
+          2,
+          1,
+          2,
+          1,
+          1
+        ],
+        "box": "x.xx.xx.xx.xx",
+        "necklace": "0110110110111",
+        "euclidean": true,
+        "verified_against_bjorklund": true,
+        "tags": [
+          "Bohlen-Pierce"
+        ],
+        "source": "toussaint-2005-bridges",
+        "source_locator": "§4 catalogue entry E(9,13)"
+      },
+      {
+        "id": "E(3,14)",
+        "k": 3,
+        "n": 14,
+        "onsets": [
+          0,
+          5,
+          10
+        ],
+        "ioi": [
+          5,
+          5,
+          4
+        ],
+        "box": "x....x....x...",
+        "necklace": "00001000010001",
+        "euclidean": true,
+        "verified_against_bjorklund": true,
+        "tags": [
+          "India",
+          "Indian"
+        ],
+        "source": "toussaint-2005-bridges",
+        "source_locator": "§4 catalogue entry E(3,14)"
+      },
+      {
+        "id": "E(9,14)",
+        "k": 9,
+        "n": 14,
+        "onsets": [
+          0,
+          2,
+          3,
+          5,
+          6,
+          8,
+          9,
+          11,
+          12
+        ],
+        "ioi": [
+          2,
+          1,
+          2,
+          1,
+          2,
+          1,
+          2,
+          1,
+          2
+        ],
+        "box": "x.xx.xx.xx.xx.",
+        "necklace": "01011011011011",
+        "euclidean": true,
+        "verified_against_bjorklund": true,
+        "tags": [],
+        "source": "toussaint-2005-bridges",
+        "source_locator": "§4 catalogue entry E(9,14)"
+      },
+      {
+        "id": "E(4,15)",
+        "k": 4,
+        "n": 15,
+        "onsets": [
+          0,
+          4,
+          8,
+          12
+        ],
+        "ioi": [
+          4,
+          4,
+          4,
+          3
+        ],
+        "box": "x...x...x...x..",
+        "necklace": "000100010001001",
+        "euclidean": true,
+        "verified_against_bjorklund": true,
+        "tags": [
+          "India",
+          "Indian"
+        ],
+        "source": "toussaint-2005-bridges",
+        "source_locator": "§4 catalogue entry E(4,15)"
+      },
+      {
+        "id": "E(7,15)",
+        "k": 7,
+        "n": 15,
+        "onsets": [
+          0,
+          2,
+          4,
+          6,
+          8,
+          10,
+          12
+        ],
+        "ioi": [
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          3
+        ],
+        "box": "x.x.x.x.x.x.x..",
+        "necklace": "001010101010101",
+        "euclidean": true,
+        "verified_against_bjorklund": true,
+        "tags": [
+          "Bulgaria",
+          "Bulgarian"
+        ],
+        "source": "toussaint-2005-bridges",
+        "source_locator": "§4 catalogue entry E(7,15)"
+      },
+      {
+        "id": "E(5,16)",
+        "k": 5,
+        "n": 16,
+        "onsets": [
+          0,
+          3,
+          6,
+          9,
+          12
+        ],
+        "ioi": [
+          3,
+          3,
+          3,
+          3,
+          4
+        ],
+        "box": "x..x..x..x..x...",
+        "necklace": "0001001001001001",
+        "euclidean": true,
+        "verified_against_bjorklund": true,
+        "tags": [
+          "Brazil",
+          "Bossa-Nova"
+        ],
+        "source": "toussaint-2005-bridges",
+        "source_locator": "§4 catalogue entry E(5,16)"
+      },
+      {
+        "id": "E(7,16)",
+        "k": 7,
+        "n": 16,
+        "onsets": [
+          0,
+          3,
+          5,
+          7,
+          10,
+          12,
+          14
+        ],
+        "ioi": [
+          3,
+          2,
+          2,
+          3,
+          2,
+          2,
+          2
+        ],
+        "box": "x..x.x.x..x.x.x.",
+        "necklace": "0010101001010101",
+        "euclidean": true,
+        "verified_against_bjorklund": true,
+        "tags": [
+          "Macedonia",
+          "Macedonian",
+          "Brazil",
+          "Ghana",
+          "Samba"
+        ],
+        "source": "toussaint-2005-bridges",
+        "source_locator": "§4 catalogue entry E(7,16)"
+      },
+      {
+        "id": "E(9,16)",
+        "k": 9,
+        "n": 16,
+        "onsets": [
+          0,
+          2,
+          3,
+          5,
+          7,
+          9,
+          10,
+          12,
+          14
+        ],
+        "ioi": [
+          2,
+          1,
+          2,
+          2,
+          2,
+          1,
+          2,
+          2,
+          2
+        ],
+        "box": "x.xx.x.x.xx.x.x.",
+        "necklace": "0101010110101011",
+        "euclidean": true,
+        "verified_against_bjorklund": true,
+        "tags": [
+          "Cuba",
+          "Cuban",
+          "Africa",
+          "African",
+          "Rumba"
+        ],
+        "source": "toussaint-2005-bridges",
+        "source_locator": "§4 catalogue entry E(9,16)"
+      },
+      {
+        "id": "E(7,17)",
+        "k": 7,
+        "n": 17,
+        "onsets": [
+          0,
+          3,
+          5,
+          8,
+          10,
+          13,
+          15
+        ],
+        "ioi": [
+          3,
+          2,
+          3,
+          2,
+          3,
+          2,
+          2
+        ],
+        "box": "x..x.x..x.x..x.x.",
+        "necklace": "00101001010010101",
+        "euclidean": true,
+        "verified_against_bjorklund": true,
+        "tags": [
+          "Macedonia",
+          "Macedonian"
+        ],
+        "source": "toussaint-2005-bridges",
+        "source_locator": "§4 catalogue entry E(7,17)"
+      },
+      {
+        "id": "E(8,17)",
+        "k": 8,
+        "n": 17,
+        "onsets": [
+          0,
+          2,
+          4,
+          6,
+          8,
+          10,
+          12,
+          14
+        ],
+        "ioi": [
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          3
+        ],
+        "box": "x.x.x.x.x.x.x.x..",
+        "necklace": "00101010101010101",
+        "euclidean": true,
+        "verified_against_bjorklund": true,
+        "tags": [
+          "Bulgaria",
+          "Bulgarian"
+        ],
+        "source": "toussaint-2005-bridges",
+        "source_locator": "§4 catalogue entry E(8,17)"
+      },
+      {
+        "id": "E(7,18)",
+        "k": 7,
+        "n": 18,
+        "onsets": [
+          0,
+          3,
+          5,
+          8,
+          10,
+          13,
+          15
+        ],
+        "ioi": [
+          3,
+          2,
+          3,
+          2,
+          3,
+          2,
+          3
+        ],
+        "box": "x..x.x..x.x..x.x..",
+        "necklace": "001001010010100101",
+        "euclidean": true,
+        "verified_against_bjorklund": true,
+        "tags": [
+          "Bulgaria",
+          "Bulgarian"
+        ],
+        "source": "toussaint-2005-bridges",
+        "source_locator": "§4 catalogue entry E(7,18)"
+      },
+      {
+        "id": "E(8,19)",
+        "k": 8,
+        "n": 19,
+        "onsets": [
+          0,
+          3,
+          5,
+          7,
+          10,
+          12,
+          14,
+          17
+        ],
+        "ioi": [
+          3,
+          2,
+          2,
+          3,
+          2,
+          2,
+          3,
+          2
+        ],
+        "box": "x..x.x.x..x.x.x..x.",
+        "necklace": "0010100101010010101",
+        "euclidean": true,
+        "verified_against_bjorklund": true,
+        "tags": [
+          "Bulgaria",
+          "Bulgarian"
+        ],
+        "source": "toussaint-2005-bridges",
+        "source_locator": "§4 catalogue entry E(8,19)"
+      },
+      {
+        "id": "E(9,20)",
+        "k": 9,
+        "n": 20,
+        "onsets": [
+          0,
+          3,
+          5,
+          7,
+          9,
+          12,
+          14,
+          16,
+          18
+        ],
+        "ioi": [
+          3,
+          2,
+          2,
+          2,
+          3,
+          2,
+          2,
+          2,
+          2
+        ],
+        "box": "x..x.x.x.x..x.x.x.x.",
+        "necklace": "00101010100101010101",
+        "euclidean": true,
+        "verified_against_bjorklund": true,
+        "tags": [],
+        "source": "toussaint-2005-bridges",
+        "source_locator": "§4 catalogue entry E(9,20)"
+      },
+      {
+        "id": "E(11,20)",
+        "k": 11,
+        "n": 20,
+        "onsets": [
+          0,
+          2,
+          3,
+          5,
+          7,
+          9,
+          11,
+          12,
+          14,
+          16,
+          18
+        ],
+        "ioi": [
+          2,
+          1,
+          2,
+          2,
+          2,
+          2,
+          1,
+          2,
+          2,
+          2,
+          2
+        ],
+        "box": "x.xx.x.x.x.xx.x.x.x.",
+        "necklace": "01010101011010101011",
+        "euclidean": true,
+        "verified_against_bjorklund": true,
+        "tags": [],
+        "source": "toussaint-2005-bridges",
+        "source_locator": "§4 catalogue entry E(11,20)"
+      },
+      {
+        "id": "E(9,22)",
+        "k": 9,
+        "n": 22,
+        "onsets": [
+          0,
+          3,
+          5,
+          8,
+          10,
+          13,
+          15,
+          18,
+          20
+        ],
+        "ioi": [
+          3,
+          2,
+          3,
+          2,
+          3,
+          2,
+          3,
+          2,
+          2
+        ],
+        "box": "x..x.x..x.x..x.x..x.x.",
+        "necklace": "0010100101001010010101",
+        "euclidean": true,
+        "verified_against_bjorklund": true,
+        "tags": [
+          "Bulgaria",
+          "Bulgarian"
+        ],
+        "source": "toussaint-2005-bridges",
+        "source_locator": "§4 catalogue entry E(9,22)"
+      },
+      {
+        "id": "E(9,23)",
+        "k": 9,
+        "n": 23,
+        "onsets": [
+          0,
+          3,
+          5,
+          8,
+          10,
+          13,
+          15,
+          18,
+          20
+        ],
+        "ioi": [
+          3,
+          2,
+          3,
+          2,
+          3,
+          2,
+          3,
+          2,
+          3
+        ],
+        "box": "x..x.x..x.x..x.x..x.x..",
+        "necklace": "00100101001010010100101",
+        "euclidean": true,
+        "verified_against_bjorklund": true,
+        "tags": [
+          "Bulgaria"
+        ],
+        "source": "toussaint-2005-bridges",
+        "source_locator": "§4 catalogue entry E(9,23)"
+      },
+      {
+        "id": "E(11,24)",
+        "k": 11,
+        "n": 24,
+        "onsets": [
+          0,
+          3,
+          5,
+          7,
+          9,
+          11,
+          14,
+          16,
+          18,
+          20,
+          22
+        ],
+        "ioi": [
+          3,
+          2,
+          2,
+          2,
+          2,
+          3,
+          2,
+          2,
+          2,
+          2,
+          2
+        ],
+        "box": "x..x.x.x.x.x..x.x.x.x.x.",
+        "necklace": "001010101010010101010101",
+        "euclidean": true,
+        "verified_against_bjorklund": true,
+        "tags": [
+          "Bulgaria",
+          "Bulgarian",
+          "Africa",
+          "Aka"
+        ],
+        "source": "toussaint-2005-bridges",
+        "source_locator": "§4 catalogue entry E(11,24)"
+      },
+      {
+        "id": "E(13,24)",
+        "k": 13,
+        "n": 24,
+        "onsets": [
+          0,
+          2,
+          3,
+          5,
+          7,
+          9,
+          11,
+          13,
+          14,
+          16,
+          18,
+          20,
+          22
+        ],
+        "ioi": [
+          2,
+          1,
+          2,
+          2,
+          2,
+          2,
+          2,
+          1,
+          2,
+          2,
+          2,
+          2,
+          2
+        ],
+        "box": "x.xx.x.x.x.x.xx.x.x.x.x.",
+        "necklace": "010101010101101010101011",
+        "euclidean": true,
+        "verified_against_bjorklund": true,
+        "tags": [
+          "Aka",
+          "Pygmies"
+        ],
+        "source": "toussaint-2005-bridges",
+        "source_locator": "§4 catalogue entry E(13,24)"
+      },
+      {
+        "id": "E(19,30)",
+        "k": 19,
+        "n": 30,
+        "onsets": [
+          0,
+          2,
+          3,
+          5,
+          7,
+          8,
+          10,
+          11,
+          13,
+          14,
+          16,
+          18,
+          19,
+          21,
+          22,
+          24,
+          25,
+          27,
+          29
+        ],
+        "ioi": [
+          2,
+          1,
+          2,
+          2,
+          1,
+          2,
+          1,
+          2,
+          1,
+          2,
+          2,
+          1,
+          2,
+          1,
+          2,
+          1,
+          2,
+          2,
+          1
+        ],
+        "box": "x.xx.x.xx.xx.xx.x.xx.xx.xx.x.x",
+        "necklace": "010110110101101101101011011011",
+        "euclidean": true,
+        "verified_against_bjorklund": true,
+        "tags": [],
+        "source": "toussaint-2005-bridges",
+        "source_locator": "§4 catalogue entry E(19,30)"
+      },
+      {
+        "id": "E(15,34)",
+        "k": 15,
+        "n": 34,
+        "onsets": [
+          0,
+          3,
+          5,
+          7,
+          9,
+          12,
+          14,
+          16,
+          18,
+          21,
+          23,
+          25,
+          27,
+          30,
+          32
+        ],
+        "ioi": [
+          3,
+          2,
+          2,
+          2,
+          3,
+          2,
+          2,
+          2,
+          3,
+          2,
+          2,
+          2,
+          3,
+          2,
+          2
+        ],
+        "box": "x..x.x.x.x..x.x.x.x..x.x.x.x..x.x.",
+        "necklace": "0010101001010101001010101001010101",
+        "euclidean": true,
+        "verified_against_bjorklund": true,
+        "tags": [
+          "Bulgaria",
+          "Bulgarian"
+        ],
+        "source": "toussaint-2005-bridges",
+        "source_locator": "§4 catalogue entry E(15,34)"
+      }
+    ]
+  },
+  "named_timelines": {
+    "count": 9,
+    "rows": [
+      {
+        "id": "son",
+        "k": 5,
+        "n": 16,
+        "onsets": [
+          0,
+          3,
+          6,
+          10,
+          12
+        ],
+        "ioi": [
+          3,
+          3,
+          4,
+          2,
+          4
+        ],
+        "box": "x..x..x...x.x...",
+        "necklace": "0001001001000101",
+        "euclidean": false,
+        "tags": [
+          "Cuba"
+        ],
+        "gloss": "The 3-2 son clave. IOI (3,3,4,2,4) — not maximally even, so NOT a Euclidean rhythm.",
+        "source": "toussaint-2002-clave / toussaint-2013-book",
+        "checked": false
+      },
+      {
+        "id": "rumba",
+        "k": 5,
+        "n": 16,
+        "onsets": [
+          0,
+          3,
+          7,
+          10,
+          12
+        ],
+        "ioi": [
+          3,
+          4,
+          3,
+          2,
+          4
+        ],
+        "box": "x..x...x..x.x...",
+        "necklace": "0001001000100101",
+        "euclidean": false,
+        "tags": [
+          "Cuba"
+        ],
+        "gloss": "The 3-2 rumba clave: the son with its third stroke displaced by one pulse.",
+        "source": "toussaint-2002-clave / toussaint-2013-book",
+        "checked": false
+      },
+      {
+        "id": "bossa",
+        "k": 5,
+        "n": 16,
+        "onsets": [
+          0,
+          3,
+          6,
+          10,
+          13
+        ],
+        "ioi": [
+          3,
+          3,
+          4,
+          3,
+          3
+        ],
+        "box": "x..x..x...x..x..",
+        "necklace": "0001001001001001",
+        "euclidean": true,
+        "tags": [
+          "Brazil",
+          "Bossa-Nova"
+        ],
+        "gloss": "The bossa-nova clave. This — not the son — is the E(5,16) necklace.",
+        "source": "toussaint-2002-clave / toussaint-2013-book",
+        "checked": false
+      },
+      {
+        "id": "shiko",
+        "k": 5,
+        "n": 16,
+        "onsets": [
+          0,
+          4,
+          6,
+          10,
+          12
+        ],
+        "ioi": [
+          4,
+          2,
+          4,
+          2,
+          4
+        ],
+        "box": "x...x.x...x.x...",
+        "necklace": "0001000101000101",
+        "euclidean": false,
+        "tags": [
+          "Africa"
+        ],
+        "gloss": "Bell timeline, IOI (4,2,4,2,4).",
+        "source": "toussaint-2002-clave / toussaint-2013-book",
+        "checked": false
+      },
+      {
+        "id": "soukous",
+        "k": 5,
+        "n": 16,
+        "onsets": [
+          0,
+          3,
+          6,
+          10,
+          11
+        ],
+        "ioi": [
+          3,
+          3,
+          4,
+          1,
+          5
+        ],
+        "box": "x..x..x...xx....",
+        "necklace": "0000100100100011",
+        "euclidean": false,
+        "tags": [
+          "Africa"
+        ],
+        "gloss": "Congolese timeline, IOI (3,3,4,1,5).",
+        "source": "toussaint-2002-clave / toussaint-2013-book",
+        "checked": false
+      },
+      {
+        "id": "gahu",
+        "k": 5,
+        "n": 16,
+        "onsets": [
+          0,
+          3,
+          6,
+          10,
+          14
+        ],
+        "ioi": [
+          3,
+          3,
+          4,
+          4,
+          2
+        ],
+        "box": "x..x..x...x...x.",
+        "necklace": "0001000101001001",
+        "euclidean": false,
+        "tags": [
+          "Ghana"
+        ],
+        "gloss": "Ewe timeline, IOI (3,3,4,4,2).",
+        "source": "toussaint-2002-clave / toussaint-2013-book",
+        "checked": false
+      },
+      {
+        "id": "tresillo",
+        "k": 3,
+        "n": 8,
+        "onsets": [
+          0,
+          3,
+          6
+        ],
+        "ioi": [
+          3,
+          3,
+          2
+        ],
+        "box": "x..x..x.",
+        "necklace": "00100101",
+        "euclidean": true,
+        "tags": [
+          "Cuba"
+        ],
+        "gloss": "First bar of the son clave; the E(3,8) necklace.",
+        "source": "toussaint-2002-clave / toussaint-2013-book",
+        "checked": false
+      },
+      {
+        "id": "cinquillo",
+        "k": 5,
+        "n": 8,
+        "onsets": [
+          0,
+          2,
+          3,
+          5,
+          6
+        ],
+        "ioi": [
+          2,
+          1,
+          2,
+          1,
+          2
+        ],
+        "box": "x.xx.xx.",
+        "necklace": "01011011",
+        "euclidean": true,
+        "tags": [
+          "Cuba"
+        ],
+        "gloss": "The E(5,8) necklace.",
+        "source": "toussaint-2002-clave / toussaint-2013-book",
+        "checked": false
+      },
+      {
+        "id": "bembe",
+        "k": 7,
+        "n": 12,
+        "onsets": [
+          0,
+          2,
+          4,
+          5,
+          7,
+          9,
+          11
+        ],
+        "ioi": [
+          2,
+          2,
+          1,
+          2,
+          2,
+          2,
+          1
+        ],
+        "box": "x.x.xx.x.x.x",
+        "necklace": "010101101011",
+        "euclidean": true,
+        "tags": [
+          "Africa",
+          "Ghana"
+        ],
+        "gloss": "The standard 12-pulse bell; the E(7,12) necklace.",
+        "source": "toussaint-2002-clave / toussaint-2013-book",
+        "checked": false
+      }
+    ]
+  }
+}

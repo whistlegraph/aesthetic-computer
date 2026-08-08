@@ -16,6 +16,11 @@
 #include <string.h>
 #include <math.h>
 
+// Necklace theory lives in one place now. This file used to carry its own copy
+// of Bjorklund and the evenness metrics; tests/pop-necklace.test.mjs pins the
+// shared version against the numbers this engine published.
+#include "../../lib/c/ac_necklace.h"
+
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif
@@ -41,46 +46,15 @@ static inline double midi_hz(double m) { return 440.0 * pow(2.0, (m - 69.0) / 12
 // (n-k) "[0]" buckets, then repeatedly fold the smaller pile onto the larger
 // until one pile has <=1 group; concatenate to read off the maximally-even
 // onset string. Returns out[0..n-1] as 0/1. (rot rotates the start offset.)
-static void bjorklund(int k, int n, int rot, int *out) {
-    for (int i = 0; i < n; i++) out[i] = 0;
-    if (n <= 0) return;
-    if (k <= 0) return;
-    if (k >= n) { for (int i = 0; i < n; i++) out[i] = 1; return; }
-    // buckets: arrays of bits; we track them as lists of small bit-strings.
-    int a = k, b = n - k;                 // counts of the two group types
-    int la = 1, lb = 1;                   // each group's current length (bits)
-    int A[64], B[64];                     // bit contents of one "a" group / one "b" group
-    A[0] = 1; B[0] = 0;
-    while (b > 1) {
-        int m = a < b ? a : b;            // how many pairs we can fold
-        // new "a" group = old a-group followed by one b-group
-        int nla = la + lb, nA[64];
-        for (int i = 0; i < la; i++) nA[i] = A[i];
-        for (int i = 0; i < lb; i++) nA[la + i] = B[i];
-        // leftovers of the larger pile become the new "b" group
-        int na, nb;
-        if (a > b) { na = b; nb = a - b; /* leftover a-groups */ }
-        else       { na = a; nb = b - a; }
-        // the remaining (un-folded) pile keeps the old group of the larger type
-        int nlb, nBb[64];
-        if (a > b) { nlb = la; for (int i = 0; i < la; i++) nBb[i] = A[i]; }
-        else       { nlb = lb; for (int i = 0; i < lb; i++) nBb[i] = B[i]; }
-        (void)m;
-        a = na; b = nb; la = nla; lb = nlb;
-        for (int i = 0; i < la; i++) A[i] = nA[i];
-        for (int i = 0; i < lb; i++) B[i] = nBb[i];
-    }
-    // read off: a copies of A, then b copies of B
-    int pos = 0;
-    for (int g = 0; g < a && pos < n; g++) for (int i = 0; i < la && pos < n; i++) out[pos++] = A[i];
-    for (int g = 0; g < b && pos < n; g++) for (int i = 0; i < lb && pos < n; i++) out[pos++] = B[i];
-    // rotate start offset (the per-phrase precession)
-    if (rot) {
-        int tmp[64]; rot = ((rot % n) + n) % n;
-        for (int i = 0; i < n; i++) tmp[i] = out[(i + rot) % n];
-        for (int i = 0; i < n; i++) out[i] = tmp[i];
-    }
-}
+//
+// NOTE ON ROTATION SIGN. This engine's original rotate read out[i] =
+// pattern[(i+rot)%n] — it advances the *start offset*, so a positive rot pulls
+// the pattern EARLIER. ac_necklace.h uses the opposite (and more usual)
+// convention: positive rot moves the pattern LATER in the cycle. The two agree
+// at rot=0, which is why the printed EXPERIMENT 1 numbers are unaffected either
+// way, but every precessing lane would drift the other direction and re-render
+// different audio. Negating here keeps this track bit-identical.
+static void bjorklund(int k, int n, int rot, int *out) { ac_bjorklund(k, n, -rot, out); }
 
 // ── evenness metrics (necklace theory) ───────────────────────────────────────
 // Toussaint (2005) frames a maximally-even rhythm as one whose onsets sit as
@@ -100,50 +74,13 @@ static void bjorklund(int k, int n, int rot, int *out) {
 
 typedef struct { int k; double ioiVar; double evenness; double vertexDist; } EvenMetrics;
 
-// gather onset step-indices of a 0/1 pattern of length n.
-static int onsets_of(const int *p, int n, int *idx) {
-    int k = 0; for (int i = 0; i < n; i++) if (p[i]) idx[k++] = i; return k;
-}
-
 static EvenMetrics measure_evenness(const int *p, int n) {
-    EvenMetrics em = { 0, 0, 1, 0 };
-    int idx[64]; int k = onsets_of(p, n, idx); em.k = k;
-    if (k < 2) return em;
-    double ideal = (double)n / k;
-    // cyclic inter-onset intervals
-    double mean = 0; double dev = 0; double var = 0;
-    double iois[64];
-    for (int i = 0; i < k; i++) {
-        int g = (i + 1 < k) ? idx[i + 1] - idx[i] : idx[0] + n - idx[i];
-        iois[i] = g; mean += g;
-    }
-    mean /= k;
-    for (int i = 0; i < k; i++) { double d = iois[i] - mean; var += d * d; dev += fabs(iois[i] - ideal); }
-    var /= k; em.ioiVar = var;
-    double meanAbsDev = dev / k;
-    // worst case (all onsets adjacent): k-1 gaps of 1, one gap of n-(k-1).
-    double worstDev = ((k - 1) * fabs(1.0 - ideal) + fabs((double)(n - (k - 1)) - ideal)) / k;
-    em.evenness = (worstDev > 1e-9) ? (1.0 - meanAbsDev / worstDev) : 1.0;
-    // geometric vertex distance: nearest ideal k-gon vertex (in step units),
-    // vertices at j*ideal. Sum of nearest-vertex distances over onsets, min over
-    // a global vertex phase offset (the k-gon may be rotated to best fit).
-    double best = 1e18;
-    for (int ph = 0; ph < n; ph++) {
-        double sum = 0;
-        for (int i = 0; i < k; i++) {
-            double pos = idx[i];
-            // nearest vertex j*ideal + ph/ ... search nearest among k vertices
-            double bestv = 1e18;
-            for (int j = 0; j < k; j++) {
-                double v = j * ideal + ph * ideal / n; // sub-step phase sweep
-                double d = fabs(pos - v); if (d > n / 2.0) d = n - d;
-                if (d < bestv) bestv = d;
-            }
-            sum += bestv;
-        }
-        if (sum < best) best = sum;
-    }
-    em.vertexDist = best;
+    int idx[AC_NECKLACE_MAX];
+    EvenMetrics em = { ac_onsets(p, n, idx), 0, 1, 0 };
+    if (em.k < 2) return em;
+    em.ioiVar     = ac_ioi_variance(p, n);
+    em.evenness   = ac_evenness_ioi(p, n);
+    em.vertexDist = ac_vertex_distance(p, n);
     return em;
 }
 

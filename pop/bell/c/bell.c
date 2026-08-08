@@ -764,6 +764,10 @@ int bell_export_modes_json(const BellGeometry *g, const BellMaterial *mat,
 // 8. WAV writer + CLI
 // ===========================================================================
 
+// The CLI and its helpers. Guarded so other engines can link bell.c as a
+// library and supply their own main — pop/bracelet/ does this to strike FEM
+// bells around a head. Build without -DBELL_NO_MAIN to get the tool unchanged.
+#ifndef BELL_NO_MAIN
 static void write_wav_f32_stereo(const char *path, const float *L,
                                   const float *R, long n, int sr) {
   FILE *f = fopen(path, "wb");
@@ -905,3 +909,4 @@ int main(int argc, char **argv) {
 
   return 0;
 }
+#endif // BELL_NO_MAIN
