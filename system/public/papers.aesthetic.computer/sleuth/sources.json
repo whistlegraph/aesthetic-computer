@@ -1,0 +1,15 @@
+{
+  "name": "sleuth",
+  "version": 1,
+  "purpose": "Index of research search mechanisms, online databases, browser skills, and collection routes for the papers platter.",
+  "sources": [
+    {"id":"vimeo","kind":"video","mechanisms":["direct-url-or-id","vimeo-search","uploader-pages","web-search-fallback"],"skills":["browser-use:browser"],"evidence":["canonical URL","numeric video ID","uploader","duration","capture date"]},
+    {"id":"youtube","kind":"video","mechanisms":["youtube-search","data-api-when-authorized","channel-pages","playlist-pages"],"skills":["browser-use:browser","toolchain/youtube"]},
+    {"id":"internet-archive","kind":"archive","mechanisms":["advanced-search","item-pages","metadata-api"],"skills":["browser-use:browser","ffprobe","ocr-or-transcription"]},
+    {"id":"dropbox-vault","kind":"private-collection","mechanisms":["dropbox-api-search","temporary-links","filename-variants"],"skills":["vault-read","media-metadata","local-inspection"],"privacy":"never publish credentials; review private material before surfacing"},
+    {"id":"web-archives","kind":"archive","mechanisms":["wayback","cdx","snapshot-links"],"skills":["browser-use:browser"]},
+    {"id":"scholarly-indexes","kind":"bibliographic","mechanisms":["crossref","openalex","semantic-scholar","library-catalogs"],"skills":["doi-and-author-disambiguation"]},
+    {"id":"institutional-archives","kind":"event-and-media","mechanisms":["institution-pages","museum-pages","festival-programs","venue-pages","embedded-media"],"skills":["browser-use:browser"]},
+    {"id":"papers-platter","kind":"local-research","mechanisms":["paper_list","paper_find","paper_read","local-manifests"],"skills":["papers-score-consult","sub-platter-manifests"]}
+  ]
+}

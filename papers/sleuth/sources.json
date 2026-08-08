@@ -1,0 +1,21 @@
+{
+  "name": "sleuth",
+  "version": 1,
+  "purpose": "Index of research search mechanisms, online databases, browser skills, and collection routes for the papers platter.",
+  "rules": [
+    "Search the narrowest primary source directly.",
+    "Treat generic web results as leads, not confirmation.",
+    "Record stable identifiers and provenance before citing.",
+    "Never publish private vault credentials or unreviewed private paths."
+  ],
+  "sources": [
+    {"id":"vimeo","kind":"video","mechanisms":["direct-url-or-id","vimeo-search","uploader-pages","web-search-fallback"],"skills":["browser-use:browser"],"evidence":["canonical URL","numeric video ID","uploader","duration","capture date"]},
+    {"id":"youtube","kind":"video","mechanisms":["youtube-search","data-api-when-authorized","channel-pages","playlist-pages"],"skills":["browser-use:browser","toolchain/youtube"],"evidence":["watch URL","video ID","channel","title","upload date"]},
+    {"id":"internet-archive","kind":"archive","mechanisms":["advanced-search","item-pages","metadata-api"],"skills":["browser-use:browser","ffprobe","ocr-or-transcription"],"evidence":["item identifier","file name","checksum-or-archive URL"]},
+    {"id":"dropbox-vault","kind":"private-collection","mechanisms":["dropbox-api-search","temporary-links","filename-variants"],"skills":["vault-read","media-metadata","local-inspection"],"evidence":["Dropbox path","file name","size/date","local provenance note"],"privacy":"never publish credentials; review private material before surfacing"},
+    {"id":"web-archives","kind":"archive","mechanisms":["wayback","cdx","snapshot-links"],"skills":["browser-use:browser"],"evidence":["archived URL","capture timestamp","original URL"]},
+    {"id":"scholarly-indexes","kind":"bibliographic","mechanisms":["crossref","openalex","semantic-scholar","library-catalogs"],"skills":["doi-and-author-disambiguation"],"evidence":["DOI-or-catalog-ID","edition","publisher","access date"]},
+    {"id":"institutional-archives","kind":"event-and-media","mechanisms":["institution-pages","museum-pages","festival-programs","venue-pages","embedded-media"],"skills":["browser-use:browser"],"evidence":["institution URL","event date","venue","speaker","media link"]},
+    {"id":"papers-platter","kind":"local-research","mechanisms":["paper_list","paper_find","paper_read","local-manifests"],"skills":["papers-score-consult","sub-platter-manifests"],"evidence":["consulted files","revision/date","provenance gap"]}
+  ]
+}
