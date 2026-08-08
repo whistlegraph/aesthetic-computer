@@ -43,6 +43,7 @@ private final class TrackpadInteractionShield {
     private var lastCommandTap: CFTimeInterval?
 
     var onExitRequested: (() -> Void)?
+    var onCommandDoubleTap: (() -> Void)?
 
     func start() {
         precondition(Thread.isMainThread)
@@ -58,13 +59,10 @@ private final class TrackpadInteractionShield {
         } else {
             NSLog("TrackDrum for Menu Band: click/context shield active")
         }
-        startExitWatchdog()
     }
 
     func stop() {
         precondition(Thread.isMainThread)
-        exitTimer?.invalidate()
-        exitTimer = nil
         lastCommandTap = nil
         commandExitArmed = false
         stopEventTap()
@@ -77,12 +75,11 @@ private final class TrackpadInteractionShield {
         }
     }
 
-    /// Permission-free emergency exit. Reading combined-session key state
-    /// does not require a key tap, so Escape and the same double-Command
-    /// gesture that entered focus can always dismantle the click shield. The
-    /// watcher first observes a complete release after activation so the
-    /// entry gesture can never cancel the session it just opened.
-    private func startExitWatchdog() {
+    /// Permission-free Command-Command watcher. Reading combined-session key
+    /// state does not require a key tap, so the companion can summon MenuBand
+    /// even while the App Store process is not running. While capture is
+    /// active, the same gesture remains the emergency exit path.
+    private func startCommandWatchdog() {
         exitTimer?.invalidate()
         escapeWasDown = CGEventSource.keyState(
             .combinedSessionState, key: 53
@@ -120,7 +117,11 @@ private final class TrackpadInteractionShield {
             self.escapeWasDown = escapeDown
             self.commandWasDown = commandDown
             if escapePressed || commandDoubleTapped {
-                self.onExitRequested?()
+                if escapePressed {
+                    self.onExitRequested?()
+                } else {
+                    self.onCommandDoubleTap?()
+                }
             }
         }
         RunLoop.main.add(timer, forMode: .common)
@@ -204,6 +205,18 @@ private final class TrackpadInteractionShield {
         tapRunLoop = nil
     }
 
+    func startGlobalCommandWatchdog() {
+        precondition(Thread.isMainThread)
+        guard exitTimer == nil else { return }
+        startCommandWatchdog()
+    }
+
+    func shutdownGlobalCommandWatchdog() {
+        precondition(Thread.isMainThread)
+        exitTimer?.invalidate()
+        exitTimer = nil
+    }
+
     private func startFallbackPanels() {
         guard panels.isEmpty else { return }
         panels = NSScreen.screens.map { screen in
@@ -273,6 +286,7 @@ private final class TrackpadBridgeServer {
     private var client: NWConnection?
     private var receiveBuffer = Data()
     private var captureEnabled = false
+    private var pendingSummon = false
     private let interactionShield = TrackpadInteractionShield()
 
     func start() throws {
@@ -283,6 +297,18 @@ private final class TrackpadBridgeServer {
                 self.sendExit()
             }
         }
+        interactionShield.onCommandDoubleTap = { [weak self] in
+            self?.queue.async { [weak self] in
+                guard let self else { return }
+                if self.captureEnabled {
+                    self.setCaptureEnabled(false)
+                    self.sendExit()
+                } else {
+                    self.requestSummon()
+                }
+            }
+        }
+        performOnMain { self.interactionShield.startGlobalCommandWatchdog() }
         let parameters = NWParameters.tcp
         parameters.requiredLocalEndpoint = .hostPort(
             host: NWEndpoint.Host("127.0.0.1"),
@@ -314,6 +340,7 @@ private final class TrackpadBridgeServer {
 
     func stop() {
         setCaptureEnabled(false)
+        performOnMain { self.interactionShield.shutdownGlobalCommandWatchdog() }
         client?.cancel()
         client = nil
         listener?.cancel()
@@ -330,6 +357,7 @@ private final class TrackpadBridgeServer {
             switch state {
             case .ready:
                 self.receive(on: connection)
+                self.sendPendingSummonIfReady()
             case .failed, .cancelled:
                 self.client = nil
                 self.setCaptureEnabled(false)
@@ -390,6 +418,63 @@ private final class TrackpadBridgeServer {
             performOnMain { self.interactionShield.stop() }
         }
         NSLog("TrackDrum for Menu Band: capture %@", captureEnabled ? "on" : "off")
+    }
+
+    private func requestSummon() {
+        queue.async { [weak self] in
+            guard let self else { return }
+            self.pendingSummon = true
+            if self.client != nil {
+                self.sendPendingSummonIfReady()
+            } else {
+                self.launchMenuBandIfNeeded()
+            }
+        }
+    }
+
+    private func sendPendingSummonIfReady() {
+        guard pendingSummon, let client,
+              case .ready = client.state else { return }
+        pendingSummon = false
+        send(ContactFrame(
+            version: 1,
+            timestamp: CACurrentMediaTime(),
+            contacts: [],
+            event: "summon"
+        ))
+    }
+
+    private func launchMenuBandIfNeeded() {
+        DispatchQueue.main.async {
+            let bundleID = "computer.aesthetic.menuband"
+            if let running = NSRunningApplication.runningApplications(
+                withBundleIdentifier: bundleID
+            ).first {
+                running.activate(options: [.activateAllWindows])
+                return
+            }
+            guard let url = NSWorkspace.shared.urlForApplication(
+                withBundleIdentifier: bundleID
+            ) else {
+                NSLog("TrackDrum for Menu Band: MenuBand app is not installed")
+                return
+            }
+            let configuration = NSWorkspace.OpenConfiguration()
+            configuration.activates = true
+            // The launch itself carries the focus intent, so the first
+            // global ⌘⌘ is enough even if the localhost bridge is still
+            // negotiating. The pending summon frame remains as a fallback
+            // for builds that do not consume this launch argument.
+            configuration.arguments = ["--focus-on-launch"]
+            NSWorkspace.shared.openApplication(
+                at: url, configuration: configuration
+            ) { _, error in
+                if let error {
+                    NSLog("TrackDrum for Menu Band: MenuBand launch failed: %@",
+                          error.localizedDescription)
+                }
+            }
+        }
     }
 
     private func performOnMain(_ work: @escaping () -> Void) {

@@ -711,6 +711,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         trackpadPlugin.onExitRequested = { [weak self] in
             self?.exitPerformanceFocusFromEscape()
         }
+        trackpadPlugin.onSummonRequested = { [weak self] in
+            guard let self else { return }
+            // TrackDrum owns the global gesture, including while this app was
+            // not running. Always leave the gesture at the useful endpoint:
+            // the popover is visible and keyboard/trackpad focus is armed.
+            if !self.isPopoverPanelShown {
+                self.showPopover()
+            }
+            DispatchQueue.main.async { [weak self] in
+                self?.beginFocusCaptureFromShortcut(keepPopoverOpen: true)
+            }
+        }
         trackpadPlugin.onFrame = { [weak self] contacts, timestamp, callbackTime in
             guard let self, self.trackpadPluginCaptureActive else { return }
             self.handleTrackpadFrame(

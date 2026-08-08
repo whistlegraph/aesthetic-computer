@@ -12,6 +12,7 @@ final class MenuBandTrackpadPluginClient {
 
     var onConnectionChanged: ((Bool) -> Void)?
     var onExitRequested: (() -> Void)?
+    var onSummonRequested: (() -> Void)?
     var onFrame: (([TrackpadContact], Double, Double) -> Void)?
 
     private struct Command: Codable {
@@ -216,6 +217,13 @@ final class MenuBandTrackpadPluginClient {
             guard frame.contacts.isEmpty else { return }
             DispatchQueue.main.async { [weak self] in
                 self?.onExitRequested?()
+            }
+            return
+        }
+        if frame.event == "summon" {
+            guard frame.contacts.isEmpty else { return }
+            DispatchQueue.main.async { [weak self] in
+                self?.onSummonRequested?()
             }
             return
         }
