@@ -448,9 +448,14 @@
   }
   .trackdrum-preview h2 {
     margin: 0 0 5px;
-    color: var(--ink-head);
-    font-family: var(--display-stack);
-    font-size: 24px;
+    color: #fff;
+    font-family: "Comic Sans MS", "Chalkboard SE", var(--display-stack);
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: .01em;
+    -webkit-text-stroke: 1.5px #141414;
+    paint-order: stroke fill;
+    text-shadow: 2px 2px 0 var(--tahoe-blue);
   }
   .trackdrum-preview > p {
     margin: 0 auto 13px;
@@ -500,6 +505,7 @@
   .drum-zone[data-drum="click"] {
     inset: 5px;
     background: #f7e8c4;
+    box-shadow: inset 0 0 0 2px rgba(20,20,20,.62);
   }
   .drum-zone[data-drum="hat"] {
     inset: 5.5% 3.35%;
@@ -540,13 +546,11 @@
     transition: opacity 90ms linear;
   }
   .trackdrum-surface.is-active .track-contact { opacity: 1; }
-  .trackdrum-hint {
-    margin: 9px 0 9px;
-    color: var(--ink-soft);
-    font: 10px "Berkeley Mono Variable", "SF Mono", Menlo, monospace;
-  }
   .trackdrum-link {
+    display: inline-block;
+    margin-top: 9px;
     color: var(--tahoe-blue);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
     font-weight: 700;
     text-underline-offset: 3px;
   }
@@ -579,15 +583,16 @@
       z-index: 13;
       left: 50%;
       bottom: 14px;
-      width: 360px;
+      width: 300px;
       margin: 0;
       transform: translateX(-50%);
     }
-    .trackdrum-preview h2 { font-size: 17px; }
+    .white-key { padding-bottom: 1px; font-size: 8px; }
+    .black-key { padding-bottom: 0; font-size: 6px; }
+    .trackdrum-preview h2 { font-size: 16px; -webkit-text-stroke-width: 1.2px; }
     .trackdrum-preview > p { display: none; }
-    .trackdrum-surface { width: 300px; }
-    .trackdrum-hint { margin: 6px 0 4px; }
-    .trackdrum-link { font-size: 12px; }
+    .trackdrum-surface { width: 250px; border-radius: 15px; }
+    .trackdrum-link { margin-top: 6px; font-size: 12px; }
   }
 
   ul.modes {
@@ -787,7 +792,7 @@
     .film-grid { grid-template-columns: 1fr; }
     .film-heading { padding: 0 16px; }
     .trackdrum-preview { margin-top: 34px; }
-    .trackdrum-surface { width: min(420px, 100%); }
+    .trackdrum-surface { width: min(310px, 100%); }
     .learn-tab { top: auto; right: 14px; bottom: 14px; translate: 0; }
     .learn-drawer { top: auto; right: 8px; bottom: 58px; width: calc(100vw - 16px); translate: 0 calc(100% + 80px); }
     .learn-drawer.is-open { translate: 0 0; }
@@ -861,6 +866,13 @@
     .badge {
       box-shadow: 0 1px 0 rgba(255, 255, 255, 0.25) inset;
     }
+    .trackdrum-surface { background: #7a6e57; }
+    .drum-zone { border-color: rgba(255,255,255,.32); }
+    .drum-zone[data-drum="click"] { background: #7a6e57; box-shadow: inset 0 0 0 2px rgba(255,255,255,.62); }
+    .drum-zone[data-drum="hat"] { background-color: #57634a; }
+    .drum-zone[data-drum="snare"] { background-color: #6e402b; }
+    .drum-zone[data-drum="tom"] { background: #6e5733; }
+    .drum-zone[data-drum="kick"] { background: #3d261a; }
   }
 
 </style>
@@ -977,7 +989,6 @@
       <span class="drum-zone" data-drum="kick" aria-hidden="true"></span>
       <span class="track-contact" id="track-contact" aria-hidden="true"></span>
     </div>
-    <div class="trackdrum-hint" data-i18n="trackdrumHint">one-finger web simulation · tap, click, or drag</div>
     <a class="trackdrum-link" href="/advanced#trackdrum-addon" data-i18n="trackdrumCta">Add TrackDrum →</a>
     <span id="trackdrum-live" class="sr-only" aria-live="polite"></span>
   </section>
@@ -1473,7 +1484,6 @@
         by: "by",
         lede: "Play your Mac instead of opening a workstation. Menu Band puts a two-octave instrument in the menu bar: type notes, connect a MIDI keyboard, tune live radio, or send notes to your DAW. Hundreds of built-in sounds are ready when nothing else is connected.",
         trackdrumClaim: "Turn your Mac trackpad into Menu Band’s percussion surface.",
-        trackdrumHint: "one-finger web simulation · tap, click, or drag",
         trackdrumCta: "Add TrackDrum →",
         testimonial: "“i use it on my macbook neo. practice notepat, play ableton without leaving my menu bar.”",
         modesTitle: "Three modes",
@@ -1513,7 +1523,6 @@
         by: "por",
         lede: "Toca tu Mac sin abrir una estación de trabajo. Menu Band pone un instrumento de dos octavas en la barra de menús: escribe notas, conecta un teclado MIDI, sintoniza radio en directo o envía notas a tu DAW. Cientos de sonidos integrados están listos cuando no hay nada más conectado.",
         trackdrumClaim: "Convierte el trackpad de tu Mac en la superficie de percusión de Menu Band.",
-        trackdrumHint: "simulación web con un dedo · toca, haz clic o arrastra",
         trackdrumCta: "Añade TrackDrum →",
         testimonial: "«lo uso en mi macbook neo. practico notepat y toco ableton sin salir de la barra de menús».",
         modesTitle: "Tres modos",
