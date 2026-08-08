@@ -2561,9 +2561,19 @@ wss.on("connection", async (ws, req) => {
         fetch(`https://aesthetic.computer/handle/${encodeURIComponent(userSub)}`)
           .then(response => {
             log("📡 Handle API response status:", response.status, "for", userSub.substring(0, 20) + "...");
+            // A user who hasn't claimed a handle gets a 404 whose body is an
+            // HTML error page. Parsing that as JSON throws, which made the
+            // ordinary no-handle case log as a failure. Only read the body
+            // when it is actually JSON; anything else means "no handle".
+            const type = response.headers.get("content-type") || "";
+            if (!response.ok || !type.includes("application/json")) return null;
             return response.json();
           })
           .then(data => {
+            if (!data) {
+              log("⚠️  User logged in (no handle):", userSub.substring(0, 12) + "...", "connection:", id);
+              return;
+            }
             log("📦 Handle API data:", JSON.stringify(data), "for connection:", id);
             if (data.handle) {
               clients[id].handle = data.handle;
