@@ -476,6 +476,19 @@ let displayFps = 0;
 let liveSequence = 0;
 let liveNextAt = 0;
 let spectatorQr = null;
+// Encoding a code costs about 59ms and is the whole 50-100ms tail in the
+// frame histogram: it ran at every round reset, for a URL that changes once
+// per round. Same URL, same code -- so keep the last one.
+let spectatorQrUrl = "";
+let spectatorQrCache = null;
+function spectatorCode(url) {
+  if (typeof qrcode !== "function") return null;
+  if (url === spectatorQrUrl && spectatorQrCache) return spectatorQrCache;
+  spectatorQrUrl = url;
+  spectatorQrCache = qrcode(url, { errorCorrectLevel: 1 });
+  return spectatorQrCache;
+}
+
 let roundViewer = null;
 let roundViewerStop = null;
 let roundViewerMode = "";
@@ -1309,7 +1322,7 @@ function returnToTitle(now, reason = "back") {
   selectionPrevious[0] = shellPrevious.slice();
   selectionPrevious[1] = padSnapshots[1]?.down?.slice() || [];
   spectatorQr = typeof qrcode === "function"
-    ? qrcode("https://oskiewar.com", { errorCorrectLevel: 1 }) : null;
+    ? spectatorCode("https://oskiewar.com") : null;
   playDrum("block", .8, 0);
   telemetry("SHELL", "game->title " + reason + " " + now);
 }
@@ -1739,7 +1752,7 @@ function gameBoot() {
   shellMode = "MENU";
   titleTransitionAt = null;
   spectatorQr = typeof qrcode === "function"
-    ? qrcode("https://oskiewar.com", { errorCorrectLevel: 1 }) : null;
+    ? spectatorCode("https://oskiewar.com") : null;
   shellPrevious = [];
   navigationPrevious = [[], []];
   roundViewer = globalThis.__oskiewarRoundBridge || null;
@@ -1750,8 +1763,7 @@ function gameBoot() {
     matchOver = false;
     matchName = roundViewer.name || "";
     spectatorQr = typeof qrcode === "function"
-      ? qrcode("https://oskiewar.com/" + matchName,
-        { errorCorrectLevel: 1 }) : spectatorQr;
+      ? spectatorCode("https://oskiewar.com/" + matchName) : spectatorQr;
     roundStartedAt = startedAt - introDurationUs;
     roundViewerStop = roundViewer.start(handleRoundViewer);
     return;
@@ -1773,8 +1785,7 @@ function resetRound(now, resetMatch = false) {
     matchName = nextRoundName;
     replay.roundIds.push("ow-" + matchName);
     spectatorQr = typeof qrcode === "function"
-      ? qrcode("https://oskiewar.com/" + matchName,
-        { errorCorrectLevel: 1 }) : null;
+      ? spectatorCode("https://oskiewar.com/" + matchName) : null;
   }
   impacts.length = 0;
   detachedParts.length = 0;
