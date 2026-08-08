@@ -29,6 +29,12 @@ import * as vec3 from "../dep/gl-matrix/vec3.mjs";
 import * as vec4 from "../dep/gl-matrix/vec4.mjs";
 
 import * as graph from "./graph.mjs";
+import {
+  splitColorCodes,
+  stripColorCodes as stripCodes,
+  hasColorCodes,
+  mapColorCodes,
+} from "./color-codes.mjs";
 
 import * as num from "./num.mjs";
 import * as text from "./text.mjs";
@@ -591,9 +597,9 @@ function replaceColorCodesWithShadows(text, defaultTextColor = "white") {
 
   let currentTextColor = defaultTextColor;
 
-  COLOR_CODE_MATCH_REGEX.lastIndex = 0;
-  return text.replace(COLOR_CODE_MATCH_REGEX, (match, colorStr) => {
-    if (!colorStr) return match;
+  // Rewrite every code, leave the text (and its escapes) alone.
+  return mapColorCodes(text, (colorStr) => {
+    if (!colorStr) return colorStr;
 
     const normalized = colorStr.trim();
     const lower = normalized.toLowerCase();
@@ -604,11 +610,9 @@ function replaceColorCodesWithShadows(text, defaultTextColor = "white") {
       currentTextColor = normalized;
     }
 
-    // Get the appropriate shadow color for this text color
-    const shadowColor = getShadowColorForText(currentTextColor);
-
-    // Return the shadow color code
-    return `\\${shadowColor}\\`;
+    // Get the appropriate shadow color for this text color.
+    // mapColorCodes re-wraps this in the `\…\` delimiters itself.
+    return getShadowColorForText(currentTextColor);
   });
 }
 
@@ -2074,26 +2078,17 @@ if (typeof window !== 'undefined') {
 }
 //currentPromptButton;
 
-const COLOR_CODE_MATCH_REGEX = /\\([^\\]+)\\/g;
-const COLOR_CODE_TEST_REGEX = /\\[^\\]+\\/;
+// Color codes are scanned by lib/color-codes.mjs, which knows that `\\` is an
+// escaped backslash — the producers escape text they didn't author, so a user
+// who types `\red\` gets those characters instead of red text.
 
 // Utility function to strip color codes from text
 function stripColorCodes(str) {
-  if (!str) return str;
-  // Remove all \\color\\ sequences including:
-  // - Named colors: \\red\\, \\blue\\, \\cyan\\
-  // - RGB values: \\255,20,147\\, \\192,192,192\\
-  // - Complex patterns: \\color(args)\\
-  COLOR_CODE_MATCH_REGEX.lastIndex = 0;
-  return str.replace(
-    COLOR_CODE_MATCH_REGEX,
-    "",
-  );
+  return stripCodes(str);
 }
 
 function textContainsColorCodes(str) {
-  if (!str) return false;
-  return COLOR_CODE_TEST_REGEX.test(str);
+  return hasColorCodes(str);
 }
 
 function hasKidLispMarkers(text) {
@@ -5589,9 +5584,10 @@ const $paintApi = {
       let charColors = [];
       let currentColor = null;
 
-      // Split text by color codes and process each segment
-      COLOR_CODE_MATCH_REGEX.lastIndex = 0;
-      const segments = text.split(COLOR_CODE_MATCH_REGEX);
+      // Split text by color codes and process each segment.
+      // [text, code, text, code, …] — the text halves arrive unescaped, so a
+      // literal backslash the author typed lands in cleanText as one character.
+      const segments = splitColorCodes(text);
 
       for (let i = 0; i < segments.length; i++) {
         if (i % 2 === 0) {
@@ -5650,8 +5646,6 @@ const $paintApi = {
 
         }
       }
-
-      COLOR_CODE_MATCH_REGEX.lastIndex = 0;
 
       // Check if we have any actual text to display after removing color codes
       if (cleanText.trim().length === 0) {

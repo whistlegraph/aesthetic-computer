@@ -2,6 +2,7 @@
 // Shared utilities for parsing and highlighting chat messages with @handles, URLs, 'prompts', and KidLisp code.
 
 import { isKidlispSource, tokenize, KidLisp } from "./kidlisp.mjs";
+import { escapeColorCodes, escapedIndexMap } from "./color-codes.mjs";
 
 // Simple client-side check for potentially sensitive URLs
 // These URLs will show as "[click to reveal link]" in chat
@@ -284,12 +285,19 @@ export function parseMessageElements(message) {
 // Returns a string with embedded \color\ codes for rendering
 // colorMap should map element types to color strings/arrays: { handle: "pink", url: "cyan", ... }
 export function applyColorCodes(message, elements, colorMap, defaultColor = [255, 255, 255]) {
+  // The `\…\` codes below are markup we own; the message is somebody else's
+  // typing. Escape it on the way in so a chatter who types `\red\hi\reset\`
+  // sees those characters instead of dyeing the room red.
   if (!elements || elements.length === 0) {
-    return message; // No highlighting needed
+    return escapeColorCodes(message); // No highlighting needed
   }
 
+  // Escaping shifts every character right of a backslash, so element offsets —
+  // measured against the raw message — have to move with it.
+  const at = escapedIndexMap(message);
+
   // Build the color-coded string by processing elements in reverse order (to maintain indices)
-  let colorCodedMessage = message;
+  let colorCodedMessage = escapeColorCodes(message);
   const sortedElements = [...elements].sort((a, b) => b.start - a.start);
 
   for (const element of sortedElements) {
@@ -311,9 +319,10 @@ export function applyColorCodes(message, elements, colorMap, defaultColor = [255
       const colorStr = Array.isArray(color) ? color.join(',') : color;
       const defaultColorStr = Array.isArray(defaultColor) ? defaultColor.join(',') : defaultColor;
       
-      const textBefore = colorCodedMessage.substring(0, element.start);
-      const elementText = displayText || colorCodedMessage.substring(element.start, element.end);
-      const textAfter = colorCodedMessage.substring(element.end);
+      const textBefore = colorCodedMessage.substring(0, at[element.start]);
+      const elementText =
+        displayText || colorCodedMessage.substring(at[element.start], at[element.end]);
+      const textAfter = colorCodedMessage.substring(at[element.end]);
       
       colorCodedMessage = `${textBefore}\\${colorStr}\\${elementText}\\${defaultColorStr}\\${textAfter}`;
     }

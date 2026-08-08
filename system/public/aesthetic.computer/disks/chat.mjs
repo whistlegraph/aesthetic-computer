@@ -38,6 +38,12 @@ import { getCommandDescription, isPromptOnlyCommand } from "../lib/prompt-comman
 import { parseFightCommand } from "../lib/fight/challenge.mjs";
 import { FIGHT_MANIFEST } from "../lib/fight/protocol.mjs";
 import { createHandleAutocomplete } from "../lib/autocomplete.mjs";
+import {
+  escapeColorCodes,
+  escapedIndexMap,
+  mapColorCodes,
+  stripColorCodes,
+} from "../lib/color-codes.mjs";
 import { iOS } from "../lib/platform.mjs";
 
 // 🎨 Handle Colors System
@@ -135,21 +141,13 @@ function getFontTimestampGap(fontId) {
   return fontConfig.timestampGap ?? 4;
 }
 
+// What the text looks like once the `\color\` markup is gone — the string to
+// measure, so a measured width matches a drawn width. Shares one scanner with
+// the renderer; measuring with a different notion of escaping than `write` uses
+// is how a line ends up wider than the box it was fitted to.
 function stripInlineColorCodes(s) {
-  // Removes inline color markup of the form: \color\text\reset\
-  // Single-pass O(n) scanner.
   if (!s || typeof s !== "string") return "";
-  let out = "", i = 0;
-  while (i < s.length) {
-    if (s[i] === "\\") {
-      i++; // skip opening backslash
-      while (i < s.length && s[i] !== "\\") i++; // skip color spec
-      i++; // skip closing backslash
-    } else {
-      out += s[i++];
-    }
-  }
-  return out;
+  return stripColorCodes(s);
 }
 
 let input, inputBtn, handleBtn, token, currentUserSub;
@@ -1198,8 +1196,11 @@ function paint(
         const lineStart = tempCharPos;
         const lineEnd = tempCharPos + line.length;
 
-        // Build color-coded version of this line
-        let colorCodedLine = line;
+        // Build color-coded version of this line. The line is chat text, so it
+        // gets escaped before any of our own `\…\` codes go near it; `at` moves
+        // element offsets onto the escaped copy.
+        const at = escapedIndexMap(line);
+        let colorCodedLine = escapeColorCodes(line);
 
         // Find elements that overlap with this line and apply colors (in reverse order)
         const lineElements = parsedElements
@@ -1238,7 +1239,7 @@ function paint(
                   for (let ci = 0; ci < elementText.length; ci++) {
                     const char = elementText[ci];
                     const col = customColors[ci];
-                    perCharText += `\\${col.r},${col.g},${col.b}\\${char}\\${textColorStr}\\`;
+                    perCharText += `\\${col.r},${col.g},${col.b}\\${escapeColorCodes(char)}\\${textColorStr}\\`;
                   }
                   customColorCodedText = perCharText;
                 } else {
@@ -1267,28 +1268,35 @@ function paint(
               color = isHovered ? theme.youtubeHover : theme.youtube;
             }
 
+            // Splice against the escaped line, so the offsets have to move too.
+            const spliceStart = at[elemStartInLine];
+            const spliceEnd = at[elemEndInLine];
+
             if (customColorCodedText) {
               colorCodedLine =
-                colorCodedLine.substring(0, elemStartInLine) +
+                colorCodedLine.substring(0, spliceStart) +
                 customColorCodedText +
-                colorCodedLine.substring(elemEndInLine);
+                colorCodedLine.substring(spliceEnd);
             } else if (color) {
               const colorStr = Array.isArray(color) ? color.join(',') : color;
               const textColorStr = Array.isArray(theme.messageText) ? theme.messageText.join(',') : theme.messageText;
-              const colorCodedText = `\\${colorStr}\\${elementText}\\${textColorStr}\\`;
+              const colorCodedText = `\\${colorStr}\\${escapeColorCodes(elementText)}\\${textColorStr}\\`;
               colorCodedLine =
-                colorCodedLine.substring(0, elemStartInLine) +
+                colorCodedLine.substring(0, spliceStart) +
                 colorCodedText +
-                colorCodedLine.substring(elemEndInLine);
+                colorCodedLine.substring(spliceEnd);
             }
           }
         }
 
-        // Pre-compute shadow line
-        const shadowLine = colorCodedLine.replace(
-          /\\(\d+),(\d+),(\d+)(?:,\d+)?\\/g,
-          (_, r, g, b) => `\\${Math.floor(r * 0.25)},${Math.floor(g * 0.25)},${Math.floor(b * 0.25)}\\`
-        );
+        // Pre-compute shadow line. Walked code-by-code rather than by regex:
+        // a regex would read the two halves of an escaped `\\` in the message
+        // text as a code delimiter and corrupt it.
+        const shadowLine = mapColorCodes(colorCodedLine, (code) => {
+          const rgb = code.match(/^(\d+),(\d+),(\d+)(?:,\d+)?$/);
+          if (!rgb) return code;
+          return `${floor(rgb[1] * 0.25)},${floor(rgb[2] * 0.25)},${floor(rgb[3] * 0.25)}`;
+        });
 
         cachedLines.push({ colorCodedLine, shadowLine });
         tempCharPos += line.length;
