@@ -5888,10 +5888,21 @@ function drawTitleScreen(t, ink, transitionAge = -1) {
     ? "build " + stamp[2] + "." + stamp[3] + " " + stamp[4] + ":" + stamp[5]
     : "build " + buildTimestamp;
   const safe = hudSafeRect();
-  typeWrite(titleNow, safe.left + 8, safe.bottom - hudTypeSize * 2 - 12,
-    hudTypeSize, ...ink);
-  typeWrite(version, safe.left + 8, safe.bottom - hudTypeSize - 4,
-    hudTypeSize, ...ink);
+  const clockY = safe.bottom - hudTypeSize * 2 - 12;
+  const versionY = safe.bottom - hudTypeSize - 4;
+  // The control legend is centred and grows in both directions, so on a narrow
+  // view its left edge reaches back across the stamp. Between a clock and the
+  // buttons you are about to press, the buttons win — the stamp yields here for
+  // the same reason it yields to a thumb.
+  const legendEntries = combatLegendKeys(players[0]);
+  const legendSize = compactLayout() ? 18 : 24;
+  const legendLeft = viewCenterX() - keycapRunWidth(legendEntries, legendSize) / 2;
+  const legendTop = Math.min(viewHeight - 62, stageBottom + 14);
+  const stampRight = safe.left + 8 + Math.max(
+    handleWidth(titleNow, hudTypeSize), handleWidth(version, hudTypeSize));
+  if (stampRight + 16 > legendLeft && legendTop < versionY + hudTypeSize) return;
+  typeWrite(titleNow, safe.left + 8, clockY, hudTypeSize, ...ink);
+  typeWrite(version, safe.left + 8, versionY, hudTypeSize, ...ink);
 }
 
 function pacificTimeLabel(unixMs) {
