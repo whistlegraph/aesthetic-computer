@@ -29,10 +29,12 @@ Object.defineProperty(globalThis, "navigator", {
   },
 });
 
+// The greeting is off unless a test asks for it: its timers outlive the test
+// that started them, and would otherwise rain notes into the next one's wire.
 async function bridge(options = {}) {
   const wire = [];
   sink = wire;
-  const midi = createOskiewarMidi({ noteMs: 5, ...options });
+  const midi = createOskiewarMidi({ noteMs: 5, handshake: false, ...options });
   assert.equal(await midi.enable(), true, midi.lastError);
   return { midi, wire };
 }
@@ -171,6 +173,44 @@ test("the chart names every pad in note order", async () => {
   assert.deepEqual(chart.map((pad) => pad.note),
     [...chart.map((pad) => pad.note)].sort((a, b) => a - b));
   assert.equal(chart.at(-1).pad, "result theme");
+});
+
+test("the port opens with a greeting so the DAW answers first", async () => {
+  const { midi, wire } = await bridge({ handshake: true });
+  await new Promise((resolve) => setTimeout(resolve, 500));
+  const struck = wire.filter(([status]) => status === NOTE_ON).map(([, note]) => note);
+  assert.deepEqual(struck, ["hello", "countdown", "roundwin", "matchwin"]
+    .map((event) => OSKIEWAR_MIDI_NOTES[event]));
+  assert.equal(midi.currentTheme, null, "the greeting must not move the theme");
+});
+
+test("the greeting can be declined", async () => {
+  const { wire } = await bridge({ handshake: false });
+  await new Promise((resolve) => setTimeout(resolve, 200));
+  assert.equal(wire.length, 0);
+});
+
+test("panic cancels a greeting still in flight", async () => {
+  const { midi, wire } = await bridge({ handshake: true });
+  midi.panic();
+  wire.length = 0;
+  await new Promise((resolve) => setTimeout(resolve, 500));
+  assert.ok(!wire.some(([status]) => status === NOTE_ON), "a note escaped after panic");
+});
+
+test("the subdomain turns midi on without a query string", () => {
+  assert.match(webShell, /location\.hostname\.startsWith\("midi\."\)/);
+  assert.match(caddyfile, /oskiewar\.com, midi\.oskiewar\.com \{/);
+});
+
+test("midi mode shuts the account door and lights the lamp", () => {
+  assert.match(webShell, /body\.midi-out #logout \{ display: none; \}/,
+    "logged-in play must be out of the way while scoring");
+  assert.match(webShell, /midi: document\.body\.classList\.contains\("midi-out"\)/,
+    "capabilities should carry the flag the game can gate on");
+  assert.match(webShell, /id="midi-out"/);
+  assert.match(webShell, /onSignal: flashMidiLamp/, "the lamp follows real sends");
+  assert.match(webShell, /classList\.add\("midi-out"\)/);
 });
 
 test("the web shell keeps midi opt-in so it cannot silence the bank by surprise", () => {

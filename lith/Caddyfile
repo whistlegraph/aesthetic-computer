@@ -851,7 +851,10 @@
 # --- oskiewar.com ---
 # Porkbun DNS points directly at lith, so this host needs a publicly trusted
 # certificate rather than the Cloudflare origin certificate on the :443 block.
-oskiewar.com {
+# midi.oskiewar.com is the same site: the shell reads the host name and turns
+# the MIDI bridge on, so scoring from a DAW needs no query string. It needs its
+# own A record at Porkbun — there is no wildcard on this zone.
+oskiewar.com, midi.oskiewar.com {
     tls {
         issuer acme {
             dir https://acme-v02.api.letsencrypt.org/directory

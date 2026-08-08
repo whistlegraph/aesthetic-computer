@@ -57,6 +57,16 @@ const THEME_CUES = Object.freeze({
 // note so a filter can follow it while a pad still marks the change.
 const CONTINUOUS = Object.freeze({ wind: 1 });
 
+// Played once the port opens, so the DAW answers before any gameplay does.
+// It strikes real pads rather than arbitrary notes, which makes it a check that
+// sounds are actually loaded and not just that bytes are moving.
+const HANDSHAKE = Object.freeze([
+  { event: "hello", after: 0, value: .55 },
+  { event: "countdown", after: 120, value: .7 },
+  { event: "roundwin", after: 240, value: .85 },
+  { event: "matchwin", after: 380, value: 1 },
+]);
+
 const NOTE_ON = 0x90, NOTE_OFF = 0x80, CONTROL = 0xB0;
 
 export function createOskiewarMidi(options = {}) {
@@ -115,6 +125,7 @@ export function createOskiewarMidi(options = {}) {
     }
     enabled = true;
     lastError = null;
+    if (options.handshake !== false) handshake();
     return true;
   }
 
@@ -140,6 +151,32 @@ export function createOskiewarMidi(options = {}) {
   function velocityFor(value) {
     const amount = Math.abs(Number(value) || 0);
     return amount > 0 ? clamp(Math.round(amount * 127), 1, 127) : restVelocity;
+  }
+
+  // Struck directly rather than through signal(), so the greeting cannot drag
+  // the theme along with it or count as gameplay.
+  function strike(note, value, when) {
+    const timer = setTimeout(() => {
+      timers.delete(timer);
+      const status = baseChannel - 1;
+      channelsUsed.add(baseChannel);
+      send([NOTE_ON | status, note, velocityFor(value)]);
+      const release = setTimeout(() => {
+        timers.delete(release);
+        send([NOTE_OFF | status, note, 0]);
+      }, noteMs);
+      timers.add(release);
+    }, when);
+    timers.add(timer);
+  }
+
+  function handshake() {
+    if (!enabled) return false;
+    for (const step of HANDSHAKE) {
+      const note = notes[step.event];
+      if (note !== undefined) strike(note, step.value, step.after);
+    }
+    return true;
   }
 
   // A theme is held rather than struck: its note stays down for as long as that
@@ -237,7 +274,7 @@ export function createOskiewarMidi(options = {}) {
   }
 
   return Object.freeze({
-    enable, disable, signal, cc, connectSignals, panic, chart, theme,
+    enable, disable, signal, cc, connectSignals, panic, chart, theme, handshake,
     mute(value = true) { muted = Boolean(value); },
     get currentTheme() { return currentTheme; },
     get enabled() { return enabled; },

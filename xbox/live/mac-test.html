@@ -61,6 +61,21 @@
     #auto-update-label { display: flex; align-items: center; gap: 6px;
       font-size: 14px; font-weight: 400; }
     #auto-update { width: 16px; height: 16px; margin: 0; accent-color: #ff5070; }
+    /* Scoring from a DAW is anonymous dummy play, so the account door is shut
+       and the corner it occupied is free for the midi lamp. */
+    body.midi-out #logout { display: none; }
+    #midi-out { position: fixed; top: max(14px, env(safe-area-inset-top));
+      right: max(14px, env(safe-area-inset-right)); z-index: 6; display: none;
+      padding: 6px 8px; border: 2px solid #6e768d; border-radius: 8px;
+      background: #171b28; box-shadow: 2px 3px 0 rgba(20, 25, 38, .35);
+      line-height: 0; }
+    body.midi-out #midi-out { display: block; }
+    body.social-preview #midi-out { display: none; }
+    #midi-out .key-white { fill: #b0b8ca; transition: fill .18s ease-out; }
+    #midi-out .key-black { fill: #171b28; }
+    /* The lamp answers every note that leaves, so the corner is also the
+       cheapest possible confirmation that the bridge is really sending. */
+    #midi-out.lit .key-white { fill: #6cf0a8; transition: none; }
     #touch-controls { --unit: clamp(50px, 12vmin, 72px); --gap: 6px;
       position: fixed; inset: 0; z-index: 3; display: none; pointer-events: none;
       user-select: none; -webkit-user-select: none; touch-action: none; }
@@ -100,6 +115,18 @@
 <body>
   <canvas id="screen" width="1920" height="1080" aria-label="oskiewar two-player stick fight"></canvas>
   <div id="status" role="alert" aria-live="polite"></div>
+  <div id="midi-out" role="status" aria-label="midi out is on" title="midi out">
+    <svg width="26" height="18" viewBox="0 0 26 18" aria-hidden="true">
+      <rect class="key-white" x="0" y="0" width="26" height="18" rx="2"/>
+      <rect class="key-black" x="3.5" y="0" width="2.6" height="11" rx="1"/>
+      <rect class="key-black" x="9.1" y="0" width="2.6" height="11" rx="1"/>
+      <rect class="key-black" x="17" y="0" width="2.6" height="11" rx="1"/>
+      <rect class="key-black" x="21.4" y="0" width="2.6" height="11" rx="1"/>
+      <rect class="key-black" x="7.4" y="11" width="1.1" height="7"/>
+      <rect class="key-black" x="14.6" y="0" width="1.1" height="18"/>
+      <rect class="key-black" x="20" y="11" width="1.1" height="7"/>
+    </svg>
+  </div>
   <div id="update-ready" role="status">
     <button id="update-now" type="button">update is ready</button>
     <label id="auto-update-label"><input id="auto-update" type="checkbox">auto update</label>
@@ -474,6 +501,9 @@
         inputFamily: touchEnabled ? "touch" : hasGamepad ? "xbox" : "keyboard",
         colorScheme: matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark",
         socialPreview: new URLSearchParams(location.search).has("social-preview"),
+        // Scoring sessions are anonymous dummy play; the seam auth attaches to
+        // can read this to keep opponents and accounts out of the way.
+        midi: document.body.classList.contains("midi-out"),
         productName: mac ? "MACOS" : "WEB",
         version: "CROSS-PLATFORM", graphics: "CANVAS2D", audio: "WEB AUDIO" };
     }
@@ -747,17 +777,29 @@
     // sends every signal to the IAC bus and silences the built-in voices,
     // `?midi=both` layers them, and the choice sticks in localStorage. The pad
     // layout is `oskiewar pads.adg` — note 36 upward, one per signal event.
-    const oskiewarMidi = createOskiewarMidi();
+    // The lamp answers every note that leaves, so the corner doubles as proof
+    // the bridge is sending even when a pad is still silent.
+    const midiLamp = document.querySelector("#midi-out");
+    let lampTimer = null;
+    const flashMidiLamp = () => {
+      midiLamp.classList.add("lit");
+      clearTimeout(lampTimer);
+      lampTimer = setTimeout(() => midiLamp.classList.remove("lit"), 90);
+    };
+    const oskiewarMidi = createOskiewarMidi({ onSignal: flashMidiLamp });
     globalThis.__oskiewarMidi = oskiewarMidi;
     const midiParam = new URLSearchParams(location.search).get("midi");
     let midiMode = midiParam;
-    if (midiParam === null) {
-      try { midiMode = localStorage.getItem("oskiewar-midi"); } catch {}
-    } else {
+    if (midiParam !== null) {
       try { localStorage.setItem("oskiewar-midi", midiParam || "1"); } catch {}
+    } else if (location.hostname.startsWith("midi.")) {
+      midiMode = "1";   // the subdomain is the ask; no query string to remember
+    } else {
+      try { midiMode = localStorage.getItem("oskiewar-midi"); } catch {}
     }
     if (midiMode !== null && midiMode !== "0" && midiMode !== "off") {
       if (await oskiewarMidi.enable()) {
+        document.body.classList.add("midi-out");
         oskiewarMidi.connectSignals(globalThis);
         const layered = midiMode === "both";
         if (!layered) oskiewarSfx.mute(true);
