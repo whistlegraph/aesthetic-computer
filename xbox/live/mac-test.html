@@ -704,6 +704,7 @@
   </script>
   <script type="module">
     import createOskiewarSfx from "/oskiewar-sfx.mjs";
+    import createOskiewarMidi from "/oskiewar-midi.mjs";
     import createFrameDriver from "/frame-driver.mjs";
     import { qrcode } from "/aesthetic.computer/dep/@akamfoad/qr/qr.mjs";
     import {
@@ -716,6 +717,38 @@
     });
     globalThis.__oskiewarSfx = oskiewarSfx;
     oskiewarSfx.connectSignals(globalThis);
+
+    // Web MIDI out, so a DAW on the same machine can score the fight instead of
+    // the procedural bank. Opt-in, because it takes the bank's place: `?midi`
+    // sends every signal to the IAC bus and silences the built-in voices,
+    // `?midi=both` layers them, and the choice sticks in localStorage. The pad
+    // layout is `oskiewar pads.adg` — note 36 upward, one per signal event.
+    const oskiewarMidi = createOskiewarMidi();
+    globalThis.__oskiewarMidi = oskiewarMidi;
+    const midiParam = new URLSearchParams(location.search).get("midi");
+    let midiMode = midiParam;
+    if (midiParam === null) {
+      try { midiMode = localStorage.getItem("oskiewar-midi"); } catch {}
+    } else {
+      try { localStorage.setItem("oskiewar-midi", midiParam || "1"); } catch {}
+    }
+    if (midiMode !== null && midiMode !== "0" && midiMode !== "off") {
+      if (await oskiewarMidi.enable()) {
+        oskiewarMidi.connectSignals(globalThis);
+        const layered = midiMode === "both";
+        if (!layered) oskiewarSfx.mute(true);
+        console.log(`%c[midi]%c out -> ${oskiewarMidi.portName} · ` +
+          `${oskiewarMidi.chart().length} pads on notes ` +
+          `${oskiewarMidi.chart()[0].note}-${oskiewarMidi.chart().at(-1).note} · ` +
+          `procedural bank ${layered ? "layered" : "muted"} · ` +
+          `__oskiewarMidi.chart() for the map`,
+          "color:#0f0;font-weight:bold", "color:inherit");
+      } else {
+        console.warn(`[midi] off — ${oskiewarMidi.lastError}`);
+      }
+    }
+    // A tab hidden mid-match would otherwise leave its last notes held down.
+    addEventListener("pagehide", () => oskiewarMidi.panic());
     try {
       const response = await fetch("/api/product-analytics-config", {
         cache: "no-store",
