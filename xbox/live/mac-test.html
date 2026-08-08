@@ -71,11 +71,12 @@
     /* Scoring from a DAW is anonymous dummy play, so the account door is shut
        and the corner it occupied is free for the midi lamp. */
     body.midi-out #logout { display: none; }
-    #midi-out { position: fixed; top: max(14px, env(safe-area-inset-top));
-      right: max(14px, env(safe-area-inset-right)); z-index: 6; display: none;
-      padding: 6px 8px; border: 2px solid #6e768d; border-radius: 8px;
-      background: #171b28; box-shadow: 2px 3px 0 rgba(20, 25, 38, .35);
-      line-height: 0; }
+    /* Placed from script against the canvas, since the HUD's title-safe frame
+       and the round QR live in game units rather than CSS ones. */
+    #midi-out { position: fixed; top: 14px; right: 14px; z-index: 6;
+      display: none; padding: 6px 8px; border: 2px solid #6e768d;
+      border-radius: 8px; background: #171b28;
+      box-shadow: 2px 3px 0 rgba(20, 25, 38, .35); line-height: 0; }
     body.midi-out #midi-out { display: block; }
     body.social-preview #midi-out { display: none; }
     #midi-out .key-white { fill: #b0b8ca; transition: fill .18s ease-out; }
@@ -798,6 +799,26 @@
     // The lamp answers every note that leaves, so the corner doubles as proof
     // the bridge is sending even when a pad is still silent.
     const midiLamp = document.querySelector("#midi-out");
+
+    // The round QR owns the top-right corner of the HUD-safe frame whenever it
+    // is up (`hello.js` spectatorQrBox), so the lamp keeps the same corner and
+    // the same five-percent inset but sits under the band the QR reserves.
+    // These numbers mirror hudSafeInset/spectatorQrBox; the canvas keeps a
+    // stable 1080-unit height, which is what converts them into CSS pixels.
+    function layoutMidiLamp() {
+      const box = canvas.getBoundingClientRect();
+      if (!box.height) return;
+      const unit = box.height / 1080;
+      const compact = canvas.width < 1500;
+      const inset = Math.min(72, Math.max(compact ? 24 : 48,
+        Math.round(Math.min(canvas.width, 1080) * .05)));
+      const qrBand = (compact ? 108 : 158) + 12;
+      midiLamp.style.top = `${box.top + (inset + qrBand) * unit}px`;
+      midiLamp.style.right = `${innerWidth - box.right + inset * unit}px`;
+    }
+    addEventListener("resize", layoutMidiLamp);
+    addEventListener("orientationchange", layoutMidiLamp);
+
     let lampTimer = null;
     const flashMidiLamp = () => {
       midiLamp.classList.add("lit");
@@ -806,18 +827,19 @@
     };
     const oskiewarMidi = createOskiewarMidi({ onSignal: flashMidiLamp });
     globalThis.__oskiewarMidi = oskiewarMidi;
+    // The address is the whole state, and nothing about it survives a refresh:
+    // oskiewar.com is the game, `?midi` is this visit, midi.oskiewar.com is the
+    // way to keep it. Remembering the choice meant one visit to `?midi` left the
+    // procedural bank muted on the plain site forever, with nothing on screen
+    // saying why — so the old flag is cleared rather than read.
+    try { localStorage.removeItem("oskiewar-midi"); } catch {}
     const midiParam = new URLSearchParams(location.search).get("midi");
-    let midiMode = midiParam;
-    if (midiParam !== null) {
-      try { localStorage.setItem("oskiewar-midi", midiParam || "1"); } catch {}
-    } else if (location.hostname.startsWith("midi.")) {
-      midiMode = "1";   // the subdomain is the ask; no query string to remember
-    } else {
-      try { midiMode = localStorage.getItem("oskiewar-midi"); } catch {}
-    }
+    const midiMode = midiParam !== null ? midiParam
+      : location.hostname.startsWith("midi.") ? "1" : null;
     if (midiMode !== null && midiMode !== "0" && midiMode !== "off") {
       if (await oskiewarMidi.enable()) {
         document.body.classList.add("midi-out");
+        layoutMidiLamp();
         oskiewarMidi.connectSignals(globalThis);
         const layered = midiMode === "both";
         if (!layered) oskiewarSfx.mute(true);

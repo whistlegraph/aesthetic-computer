@@ -213,9 +213,24 @@ test("midi mode shuts the account door and lights the lamp", () => {
   assert.match(webShell, /classList\.add\("midi-out"\)/);
 });
 
+test("midi mode never outlives the address that asked for it", () => {
+  assert.doesNotMatch(webShell, /localStorage\.getItem\("oskiewar-midi"\)/,
+    "a remembered flag would mute the plain site's bank with nothing saying why");
+  assert.doesNotMatch(webShell, /localStorage\.setItem\("oskiewar-midi"/);
+  assert.match(webShell, /localStorage\.removeItem\("oskiewar-midi"\)/,
+    "the flag anyone already stored has to be cleared, not merely ignored");
+});
+
+test("the lamp keeps the HUD's safe frame and clears the QR's corner", () => {
+  assert.match(webShell, /function layoutMidiLamp\(\)/);
+  assert.match(webShell, /canvas\.getBoundingClientRect\(\)/);
+  assert.match(webShell, /box\.height \/ 1080/, "game units convert via the canvas");
+  assert.match(webShell, /compact \? 108 : 158/, "the QR band must be reserved");
+  assert.match(webShell, /addEventListener\("resize", layoutMidiLamp\)/);
+});
+
 test("the web shell keeps midi opt-in so it cannot silence the bank by surprise", () => {
   assert.match(webShell, /import createOskiewarMidi from "\/oskiewar-midi\.mjs"/);
-  assert.match(webShell, /localStorage\.getItem\("oskiewar-midi"\)/);
   assert.match(webShell, /oskiewarMidi\.connectSignals\(globalThis\)/);
   assert.match(webShell, /oskiewarSfx\.mute\(true\)/, "the bank is muted unless layered");
   assert.match(webShell, /pagehide[\s\S]{0,60}panic\(\)/, "held notes are released on hide");
