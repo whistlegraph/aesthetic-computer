@@ -390,21 +390,59 @@
       }
     }
 
+    // Browsers hand out gamepad indices however they please and reuse freed
+    // slots, so a seat is claimed on arrival and held until that exact pad
+    // leaves. Player one never gets bumped when player two plugs in.
+    const padSeats = [null, null];
     let sampledPads = [null, null];
-    function readBrowserPad(index) {
-      const source = navigator.getGamepads?.()[index];
-      const down = new Set(keys[index]);
-      if (source) {
-        const names = ["A", "B", "X", "Y", "LeftShoulder", "RightShoulder",
-          null, null, "View", "Menu", "LeftStick", "RightStick",
-          "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"];
-        source.buttons.forEach((button, buttonIndex) => {
-          if (button.pressed && names[buttonIndex]) down.add(names[buttonIndex]);
-        });
+    let oddPads = [];
+
+    // The W3C standard layout. It only describes a pad that says it speaks
+    // standard; anything else arranges its buttons its own way, and a guess
+    // there hands the fighter the wrong punch.
+    const padButtons = ["A", "B", "X", "Y", "LeftShoulder", "RightShoulder",
+      null, null, "View", "Menu", "LeftStick", "RightStick",
+      "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"];
+
+    function scanPads() {
+      const live = [];
+      oddPads = [];
+      for (const pad of navigator.getGamepads?.() || []) {
+        if (!pad || pad.connected === false) continue;
+        if (pad.mapping === "standard") live.push(pad);
+        else oddPads.push(pad.id || `gamepad ${pad.index}`);
       }
+      const present = (padIndex) => live.some((pad) => pad.index === padIndex);
+      for (let seat = 0; seat < padSeats.length; seat++)
+        if (padSeats[seat] !== null && !present(padSeats[seat]))
+          padSeats[seat] = null;
+      for (const pad of live) {
+        if (padSeats.includes(pad.index)) continue;
+        const seat = padSeats.indexOf(null);
+        if (seat < 0) break;
+        padSeats[seat] = pad.index;
+      }
+      return live;
+    }
+
+    function seatedPad(seat, live) {
+      const padIndex = padSeats[seat];
+      return padIndex === null ? null
+        : live.find((pad) => pad.index === padIndex) || null;
+    }
+
+    function readBrowserPad(seat, live = scanPads()) {
+      const source = seatedPad(seat, live);
+      const down = new Set(keys[seat]);
+      if (source) source.buttons.forEach((button, buttonIndex) => {
+        if (button.pressed && padButtons[buttonIndex])
+          down.add(padButtons[buttonIndex]);
+      });
       return {
-        connected: Boolean(source) || down.size > 0 || index === 0,
+        connected: Boolean(source) || down.size > 0 || seat === 0,
         down: [...down],
+        // Sticks stay raw. `quantizedInput` gates at .48, the same number the
+        // console reads, so a deadzone here would only stack onto that one.
         leftX: source?.axes?.[0] || 0,
         leftY: -(source?.axes?.[1] || 0),
         rightX: source?.axes?.[2] || 0,
@@ -415,7 +453,8 @@
     }
 
     function sampleGamepads() {
-      sampledPads = [readBrowserPad(0), readBrowserPad(1)];
+      const live = scanPads();
+      sampledPads = [readBrowserPad(0, live), readBrowserPad(1, live)];
     }
 
     function browserPad(index) {
@@ -423,12 +462,14 @@
     }
     function gamepad(index = 0) { return browserPad(index); }
     function controllers() {
+      const live = scanPads();
       return [0, 1].map((index) => ({ index, connected: browserPad(index).connected,
-        name: navigator.getGamepads?.()[index]?.id || `KEYBOARD P${index + 1}` }));
+        name: seatedPad(index, live)?.id || `KEYBOARD P${index + 1}`,
+        standard: padSeats[index] !== null }));
     }
     function capabilities() {
       const mac = navigator.userAgent.includes("Mac");
-      const hasGamepad = Array.from(navigator.getGamepads?.() || []).some(Boolean);
+      const hasGamepad = padSeats.some((padIndex) => padIndex !== null);
       return { platform: mac ? "macos" : "web",
         inputFamily: touchEnabled ? "touch" : hasGamepad ? "xbox" : "keyboard",
         colorScheme: matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark",
@@ -436,6 +477,30 @@
         productName: mac ? "MACOS" : "WEB",
         version: "CROSS-PLATFORM", graphics: "CANVAS2D", audio: "WEB AUDIO" };
     }
+
+    // Chrome, Firefox and Safari all keep a pad out of `getGamepads` until
+    // someone presses a button on it, and all three fire this at that press —
+    // it is the first moment the legend can stop saying SPACE.
+    function announcePads(arrived) {
+      const line = document.querySelector("#status");
+      if (oddPads.length) {
+        line.textContent =
+          `${oddPads[0]} reports a non-standard layout — use the keyboard`;
+        return;
+      }
+      const seat = arrived ? padSeats.indexOf(arrived.index) : -1;
+      line.textContent = seat >= 0 ? `gamepad ready for player ${seat + 1}`
+        : `gamepads connected: ${padSeats.filter((at) => at !== null).length}`;
+    }
+    addEventListener("gamepadconnected", (event) => {
+      scanPads();
+      announcePads(event.gamepad);
+    });
+    addEventListener("gamepaddisconnected", () => {
+      scanPads();
+      announcePads(null);
+    });
+    scanPads();
 
     function noiseSource(ac, duration) {
       const buffer = ac.createBuffer(1, Math.ceil(ac.sampleRate * duration), ac.sampleRate);

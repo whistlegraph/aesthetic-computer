@@ -185,6 +185,116 @@ test("every combat button is reachable from a keyboard on both pads", () => {
         `pad ${Number(pad) + 1} cannot press ${button}`);
 });
 
+// The web shell's controller plumbing runs inside the page, so lift the block
+// out of the HTML and hand it a navigator whose buttons the test can press.
+function createPadHost({ pads = [], touch = false, agent = "Mac" } = {}) {
+  const opens = webShell.indexOf("    // Browsers hand out gamepad indices");
+  const closes = webShell.indexOf("    function noiseSource(");
+  assert.ok(opens > 0 && closes > opens, "the web shell's pad block moved");
+  const keys = [new Set(), new Set()];
+  const listeners = new Map();
+  const status = { textContent: "" };
+  const host = new Function("navigator", "keys", "touchEnabled", "matchMedia",
+    "location", "document", "addEventListener",
+    `${webShell.slice(opens, closes)}
+     return { scanPads, sampleGamepads, gamepad, controllers, capabilities,
+       seats: () => padSeats.slice() };`)(
+    { userAgent: agent, getGamepads: () => pads },
+    keys, touch, () => ({ matches: false }), { search: "" },
+    { querySelector: () => status },
+    (type, handler) => listeners.set(type, handler));
+  return { ...host, keys, pads, status,
+    connect: (pad) => listeners.get("gamepadconnected")({ gamepad: pad }),
+    disconnect: () => listeners.get("gamepaddisconnected")({}) };
+}
+
+function fakePad(index, { mapping = "standard", pressed = [],
+  axes = [0, 0, 0, 0] } = {}) {
+  return { index, mapping, connected: true, axes,
+    id: `Xbox Wireless Controller ${index}`,
+    buttons: Array.from({ length: 16 }, (unused, at) =>
+      ({ pressed: pressed.includes(at), value: pressed.includes(at) ? 1 : 0 })) };
+}
+
+test("a browser pad takes a player seat from whatever index it landed on", () => {
+  // Browsers recycle freed slots, so the pad the player is holding is often
+  // not at getGamepads()[0] or [1].
+  const host = createPadHost({ pads: [null, null, fakePad(2, { pressed: [0] }),
+    null, fakePad(4, { pressed: [2] })] });
+  host.sampleGamepads();
+  assert.deepEqual(host.seats(), [2, 4]);
+  assert.deepEqual(host.gamepad(0).down, ["A"]);
+  assert.deepEqual(host.gamepad(1).down, ["X"]);
+  assert.equal(host.capabilities().inputFamily, "xbox");
+  assert.equal(host.controllers()[0].name, "Xbox Wireless Controller 2");
+});
+
+test("a seated pad keeps its player across connects and drops", () => {
+  const host = createPadHost({ pads: [null, null, null, fakePad(3)] });
+  host.sampleGamepads();
+  assert.deepEqual(host.seats(), [3, null]);
+  host.pads[1] = fakePad(1);
+  host.connect(host.pads[1]);
+  assert.deepEqual(host.seats(), [3, 1], "player one does not slide to pad 1");
+  // Player two walks away mid-match; player one stays exactly where they were.
+  host.pads[1] = null;
+  host.disconnect();
+  assert.deepEqual(host.seats(), [3, null]);
+  host.pads[0] = fakePad(0, { pressed: [1] });
+  host.sampleGamepads();
+  assert.deepEqual(host.seats(), [3, 0]);
+  assert.deepEqual(host.gamepad(0).down, []);
+  assert.deepEqual(host.gamepad(1).down, ["B"]);
+});
+
+test("a non-standard pad is refused instead of mis-mapped", () => {
+  const host = createPadHost({ pads: [fakePad(0, { mapping: "", pressed: [0] })] });
+  host.sampleGamepads();
+  assert.deepEqual(host.seats(), [null, null]);
+  assert.deepEqual(host.gamepad(0).down, []);
+  assert.equal(host.capabilities().inputFamily, "keyboard");
+  host.connect(host.pads[0]);
+  assert.match(host.status.textContent, /non-standard layout/);
+  assert.equal(host.controllers()[0].standard, false);
+});
+
+test("a gamepad and a keyboard can share the fight", () => {
+  const host = createPadHost({ pads: [fakePad(0, { pressed: [3] })] });
+  host.keys[1].add("A");
+  host.sampleGamepads();
+  assert.deepEqual(host.gamepad(0).down, ["Y"]);
+  assert.deepEqual(host.gamepad(1).down, ["A"]);
+  host.keys[0].add("ArrowLeft");
+  host.sampleGamepads();
+  assert.deepEqual(host.gamepad(0).down.sort(), ["ArrowLeft", "Y"]);
+});
+
+test("the web stick passes through to the one 0.48 gate the console reads", () => {
+  const host = createPadHost({ pads: [fakePad(0, { axes: [.3, -.6, 0, 0] })] });
+  host.sampleGamepads();
+  const pad = host.gamepad(0);
+  assert.equal(pad.leftX, .3, "no second deadzone squashes the raw axis");
+  assert.equal(pad.leftY, .6, "screen up is stick up");
+  assert.match(source, /Math\.abs\(pad\.leftX\) >= 0\.48/);
+  assert.match(nativeApp, /std::abs\(state\.left_x\) >= \.48f/);
+  const { fight, pads, tick } = createFight();
+  pads[0].leftX = .3;
+  tick();
+  assert.equal(fight.players[0].vx, 0, "under the gate the fighter holds still");
+  pads[0].leftX = .6;
+  tick();
+  assert.ok(fight.players[0].vx > 0);
+});
+
+test("a detected pad swaps the round legend onto gamepad wording", () => {
+  const host = createPadHost({ pads: [fakePad(0)] });
+  host.sampleGamepads();
+  assert.equal(host.capabilities().inputFamily, "xbox");
+  const { fight } = createFight(false, false, "xbox-uwp");
+  assert.equal(fight.combatLegend(fight.players[0]),
+    "A KICK   X PUNCH   B SHIELD   Y USE ITEM   UP JUMP");
+});
+
 test("the round intro names what each button does", () => {
   const { fight } = createFight(false, false);
   const locale = fight.controlLocale();
