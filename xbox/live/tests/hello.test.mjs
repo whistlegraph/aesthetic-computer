@@ -944,8 +944,10 @@ test("wind flag lives on the platform without an MPH HUD label", () => {
   const flagSource = source.slice(source.indexOf("function drawWindFlag"),
     source.indexOf("function hashUnit"));
   assert.match(flagSource, /projectedTriangle\(flagPoints\[0\]/);
-  assert.match(flagSource, /const ink = calm \? \[255, 210, 54\] : color/);
-  assert.match(flagSource, /width \+ 5, outline/);
+  assert.match(flagSource, /const poleInk = mixColor/);
+  assert.match(flagSource, /const fabric = calm/);
+  assert.match(flagSource, /\[92, 205, 255\], \[35, 112, 190\]/);
+  assert.doesNotMatch(flagSource, /width \+ 5|\[255, 210, 54\]/);
   assert.match(source, /if \(shellMode === "GAME"\) drawWindFlag\(t, windInk\)/);
 });
 
@@ -956,9 +958,14 @@ test("gun and grenade pickups are unlabeled world-scale objects", () => {
     source.indexOf("function drawGrenade("));
   assert.doesNotMatch(gunSource, /typeWrite|circle\(/);
   assert.doesNotMatch(grenadeSource, /typeWrite|circle\(/);
-  assert.match(gunSource, /pickup\.x - 38/);
-  assert.match(gunSource, /pickup\.x \+ 44/);
-  assert.match(grenadeSource, /18 \* scale/);
+  assert.match(gunSource, /pickup\.x - 16/);
+  assert.match(gunSource, /pickup\.x \+ 20/);
+  assert.match(grenadeSource, /9 \* scale/);
+  assert.match(gunSource, /const metal = mixColor/);
+  assert.match(gunSource, /const grip = mixColor/);
+  assert.match(grenadeSource, /const shell = mixColor/);
+  assert.doesNotMatch(gunSource, /outline|\[238, 197, 64\]/);
+  assert.doesNotMatch(grenadeSource, /outline|radius \+ 3/);
   assert.match(gunSource, /\* 8/);
   assert.match(grenadeSource, /\* 8/);
 });
@@ -2725,7 +2732,7 @@ test("only one center-platform powerup appears at each ten-second interval", () 
   let active = [...fight.gunPickups, ...fight.grenadePickups]
     .filter((pickup) => pickup.active);
   assert.equal(active.length, 1);
-  assert.equal(active[0].x, 6000);
+  assert.equal(active[0].x, 5640);
   assert.equal(active[0].y, fight.stageGeometry().platformY - 70);
   for (let step = 0; step < 250; step++) tick(50000);
   active = [...fight.gunPickups, ...fight.grenadePickups]

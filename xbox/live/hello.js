@@ -2341,7 +2341,10 @@ function updatePowerups(now) {
       const choices = [gunPickups[0], grenadePickups[0]];
       const pickup = choices[powerupSequence % choices.length];
       pickup.active = true;
-      pickup.x = (platformLeft + platformRight) / 2;
+      // The flag owns exact center. Alternating pickup lanes keep a real-sized
+      // weapon from reading as hardware attached to its pole.
+      pickup.x = (platformLeft + platformRight) / 2 +
+        (powerupSequence % 2 ? 360 : -360);
       pickup.y = platformY - 70;
       pickup.z = 0;
       powerupSequence += 1;
@@ -5430,20 +5433,16 @@ function drawGunPickup(pickup, t) {
   if (!pickup.active) return;
   const bobY = pickup.y + Math.sin(t * 3 + pickup.x * .001) * 8;
   const scale = cameraScale();
-  const outline = [12, 15, 24];
-  const metal = [238, 197, 64];
-  const barrelWidth = Math.max(2, 8 * scale);
-  const gripWidth = Math.max(2, 7 * scale);
-  // A handgun-sized world object, outlined for the sky instead of enlarged
-  // into a labeled pickup icon.
-  worldLine(pickup.x - 38, bobY, pickup.z,
-    pickup.x + 44, bobY, pickup.z, barrelWidth + 4, outline);
-  worldLine(pickup.x - 38, bobY, pickup.z,
-    pickup.x + 44, bobY, pickup.z, barrelWidth, metal);
-  worldLine(pickup.x + 4, bobY + 2, pickup.z,
-    pickup.x + 18, bobY + 38, pickup.z, gripWidth + 4, outline);
-  worldLine(pickup.x + 4, bobY + 2, pickup.z,
-    pickup.x + 18, bobY + 38, pickup.z, gripWidth, metal);
+  const metal = mixColor([202, 212, 228], [52, 59, 72], visualTheme.light);
+  const grip = mixColor([126, 106, 88], [40, 43, 52], visualTheme.light);
+  const barrelWidth = Math.max(2, 5 * scale);
+  const gripWidth = Math.max(2, 4 * scale);
+  // A handgun-sized world object in gunmetal and grip material, not a glowing
+  // pickup glyph with a second silhouette around it.
+  worldLine(pickup.x - 16, bobY, pickup.z,
+    pickup.x + 20, bobY, pickup.z, barrelWidth, metal);
+  worldLine(pickup.x + 2, bobY + 1, pickup.z,
+    pickup.x + 8, bobY + 18, pickup.z, gripWidth, grip);
 }
 
 function drawBullet(bullet) {
@@ -5462,15 +5461,12 @@ function drawGrenadePickup(pickup, t) {
   const bobY = pickup.y + Math.sin(t * 3.2 + pickup.x * .001) * 8;
   const point = projectPoint(pickup.x, bobY, pickup.z);
   const scale = cameraScale();
-  const outline = [12, 15, 24];
-  const shell = [208, 70, 72];
-  const radius = Math.max(3, 18 * scale);
-  filledDisc(point.x, point.y, radius + 3, outline);
+  const shell = mixColor([166, 194, 112], [72, 96, 58], visualTheme.light);
+  const fuse = mixColor([210, 218, 232], [45, 50, 60], visualTheme.light);
+  const radius = Math.max(3, 9 * scale);
   filledDisc(point.x, point.y, radius, shell);
-  worldLine(pickup.x + 1, bobY - 16, pickup.z,
-    pickup.x + 18, bobY - 32, pickup.z, Math.max(2, 5 * scale) + 3, outline);
-  worldLine(pickup.x + 1, bobY - 16, pickup.z,
-    pickup.x + 18, bobY - 32, pickup.z, Math.max(2, 5 * scale), shell);
+  worldLine(pickup.x + 1, bobY - 10, pickup.z,
+    pickup.x + 11, bobY - 20, pickup.z, Math.max(2, 3 * scale), fuse);
 }
 
 function drawGrenade(grenade) {
@@ -5495,42 +5491,37 @@ function drawWindFlag(t, color) {
   const poleX = (platformLeft + platformRight) / 2;
   const poleZ = 480;
   const poleBottom = platformY;
-  const poleTop = platformY - 430;
+  const poleTop = platformY - 150;
   const calm = windMph < .35;
-  const length = calm ? 34 : 92 + windMph * 8;
-  const gust = Math.sin(t * (4 + windMph * .16)) * (10 + windMph * .8);
+  const flagHeight = 68;
+  const length = calm ? 58 : 78 + windMph * 7;
+  const gust = calm ? 0
+    : Math.sin(t * (4 + windMph * .16)) * (10 + windMph * .8);
   const tipX = poleX + windDirection * length;
-  const tipY = poleTop + (calm ? 114 : 45) + gust;
+  const tipY = poleTop + flagHeight * .5 + gust;
   const width = Math.max(3, 13 * cameraScale());
-  const outline = visualTheme.light > .5 ? [28, 32, 46] : [245, 248, 255];
-  const ink = calm ? [255, 210, 54] : color;
+  const poleInk = mixColor([214, 222, 236], [50, 57, 70], visualTheme.light);
+  const edgeInk = mixColor([242, 246, 252], [26, 31, 44], visualTheme.light);
+  const fabric = calm
+    ? mixColor([92, 205, 255], [35, 112, 190], visualTheme.light) : color;
   const flagPoints = [
     projectPoint(poleX, poleTop, poleZ),
     projectPoint(tipX, tipY, poleZ),
-    projectPoint(poleX, poleTop + 120, poleZ),
+    projectPoint(poleX, poleTop + flagHeight, poleZ),
   ];
   if (flagPoints.every((point) => [point.x, point.y, point.z].every(Number.isFinite)))
-    projectedTriangle(flagPoints[0], flagPoints[1], flagPoints[2], ink);
+    projectedTriangle(flagPoints[0], flagPoints[1], flagPoints[2], fabric);
   worldCapsule(poleX, poleBottom, poleZ,
-    poleX, poleTop, poleZ, width + 5, outline);
-  worldCapsule(poleX, poleBottom, poleZ,
-    poleX, poleTop, poleZ, width, ink);
+    poleX, poleTop, poleZ, width, poleInk);
+  const edgeWidth = Math.max(2, width * .34);
   worldCapsule(poleX, poleTop, poleZ,
-    tipX, tipY, poleZ, width * .72 + 4, outline);
-  worldCapsule(poleX, poleTop, poleZ,
-    tipX, tipY, poleZ, width * .72, ink);
+    tipX, tipY, poleZ, edgeWidth, edgeInk);
   worldCapsule(tipX, tipY, poleZ,
-    poleX, poleTop + 120, poleZ, width * .72 + 4, outline);
-  worldCapsule(tipX, tipY, poleZ,
-    poleX, poleTop + 120, poleZ, width * .72, ink);
-  worldCapsule(poleX, poleTop + 120, poleZ,
-    poleX, poleTop, poleZ, width * .72 + 4, outline);
-  worldCapsule(poleX, poleTop + 120, poleZ,
-    poleX, poleTop, poleZ, width * .72, ink);
-  worldCapsule(poleX - 55, poleBottom, poleZ,
-    poleX + 55, poleBottom, poleZ, width + 5, outline);
-  worldCapsule(poleX - 55, poleBottom, poleZ,
-    poleX + 55, poleBottom, poleZ, width, ink);
+    poleX, poleTop + flagHeight, poleZ, edgeWidth, edgeInk);
+  worldCapsule(poleX, poleTop + flagHeight, poleZ,
+    poleX, poleTop, poleZ, edgeWidth, edgeInk);
+  worldCapsule(poleX - 35, poleBottom, poleZ,
+    poleX + 35, poleBottom, poleZ, width, poleInk);
 }
 
 function hashUnit(text) {
