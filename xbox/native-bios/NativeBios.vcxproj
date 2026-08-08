@@ -24,6 +24,12 @@
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <PropertyGroup>
+    <!-- The Device Portal live-reload lane. 1 for development, 0 for anything
+         submitted to a store: Store Policy 10.2.5 requires console products to
+         install and update only through the Store, so the retail build must not
+         contain the code path at all. Set with /p:AcDevLivePiece=0.
+         See xbox/GDK-PORT.md. -->
+    <AcDevLivePiece Condition="'$(AcDevLivePiece)'==''">1</AcDevLivePiece>
     <GenerateAppInstallerFile>false</GenerateAppInstallerFile>
     <AppxBundle>Never</AppxBundle>
     <AppxPackageSigningEnabled>true</AppxPackageSigningEnabled>
@@ -37,7 +43,7 @@
       <!-- C++/CX (/ZW) is incompatible with /std:c++20 in MSVC. -->
       <LanguageStandard>stdcpp17</LanguageStandard>
       <AdditionalIncludeDirectories>third_party\quickjs-ng;..\runtime\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>WINAPI_FAMILY=WINAPI_FAMILY_APP;QUICKJS_NG_BUILD;WIN32_LEAN_AND_MEAN;_WIN32_WINNT=0x0A00;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>AC_DEV_LIVE_PIECE=$(AcDevLivePiece);WINAPI_FAMILY=WINAPI_FAMILY_APP;QUICKJS_NG_BUILD;WIN32_LEAN_AND_MEAN;_WIN32_WINNT=0x0A00;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link><SubSystem>Windows</SubSystem><AdditionalDependencies>d3d11.lib;d2d1.lib;dwrite.lib;dxgi.lib;xaudio2.lib;OneCore.lib;%(AdditionalDependencies)</AdditionalDependencies></Link>
   </ItemDefinitionGroup>
@@ -61,6 +67,17 @@
     <ClCompile Include="third_party\quickjs-ng\libunicode.c"><PrecompiledHeader>NotUsing</PrecompiledHeader><CompileAsWinRT>false</CompileAsWinRT><CompileAs>CompileAsC</CompileAs><AdditionalOptions>/std:c17 /experimental:c11atomics /wd4146 /wd4703 %(AdditionalOptions)</AdditionalOptions></ClCompile>
     <AppxManifest Include="Package.appxmanifest" />
   </ItemGroup>
+  <!-- The game. App.cpp reads this out of the package at boot; without it the
+       package ships the twelve-line kSmokePiece fallback and nothing else. -->
+  <ItemGroup>
+    <Content Include="..\live\hello.js">
+      <Link>hello.js</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+  <!-- Unused at runtime: kSmokePiece in App.cpp is the real fallback and this
+       is a stale duplicate of it. Kept only until the packaging change above is
+       verified on hardware. -->
   <ItemGroup><Content Include="smoke_piece.js"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content></ItemGroup>
   <ItemGroup><Content Include="Assets\JeffreyTexture.rgba"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content></ItemGroup>
   <ItemGroup>

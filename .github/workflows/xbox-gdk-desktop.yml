@@ -1,0 +1,136 @@
+# The Microsoft GDK build of the native BIOS, PC target.
+#
+# Separate from the AppVeyor UWP MSIX lane on purpose: that one is still how the
+# console gets its builds, and nothing here should be able to break it.
+#
+# The GDK arrives as a NuGet payload rather than an installer. The public GDK is
+# free and needs no licence — https://github.com/microsoft/GDK — and Microsoft
+# publishes the headers and libs as Microsoft.GDK.Windows for exactly this
+# "build without installing" case. Only the PC target is reachable this way and
+# from any hosted runner at all: the Xbox Extensions that produce
+# Gaming.Xbox.Scarlett.x64 are gated behind an NDA developer program.
+#
+# Since the October 2025 GDK the new layout replaces the Gaming.Desktop.x64
+# custom MSBuild platform with stock x64 plus include/lib paths, which is what
+# the project uses.
+
+name: Xbox native BIOS (GDK desktop)
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "xbox/native-bios/**"
+      - "xbox/runtime/**"
+      - "xbox/live/hello.js"
+      - ".github/workflows/xbox-gdk-desktop.yml"
+  pull_request:
+    paths:
+      - "xbox/native-bios/**"
+      - "xbox/runtime/**"
+      - ".github/workflows/xbox-gdk-desktop.yml"
+
+env:
+  # Pin the edition. Bumping this is a deliberate act, and the cache key follows.
+  GDK_PACKAGE: microsoft.gdk.windows
+  GDK_VERSION: 2604.3.7874
+
+jobs:
+  build:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache the GDK payload
+        id: gdk-cache
+        uses: actions/cache@v4
+        with:
+          path: .gdk
+          key: gdk-${{ env.GDK_PACKAGE }}-${{ env.GDK_VERSION }}
+
+      # ~141 MB down, ~14 MB kept.
+      - name: Fetch the public GDK
+        if: steps.gdk-cache.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $package = $env:GDK_PACKAGE
+          $version = $env:GDK_VERSION
+          $url = "https://api.nuget.org/v3-flatcontainer/$package/$version/$package.$version.nupkg"
+          $nupkg = Join-Path $env:RUNNER_TEMP 'gdk.nupkg'
+          Write-Host "GET $url"
+          Invoke-WebRequest -Uri $url -OutFile $nupkg -UseBasicParsing
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $root = Join-Path $env:GITHUB_WORKSPACE '.gdk'
+          $archive = [IO.Compression.ZipFile]::OpenRead($nupkg)
+          try {
+            # Every header, and only the binaries this target links or is about
+            # to. The rest is ARM64 and the multi-hundred-megabyte XSAPI debug
+            # libs; taking all of lib/x64 would put ~600 MB in the cache.
+            $wanted = '^native/\d+/(windows/(?:include/.+|(?:lib|bin)/x64/(?:xgameruntime[^/]*|GameInput\.lib|libHttpClient\.(?:lib|dll)|XCurl\.(?:lib|dll))))$'
+            $kept = 0
+            foreach ($entry in $archive.Entries) {
+              if (-not $entry.Name) { continue }  # directory entry
+              # native/<edition>/windows/... -> .gdk/windows/...
+              if ($entry.FullName -match $wanted) {
+                $target = Join-Path $root ($Matches[1] -replace '/', '\')
+                New-Item -ItemType Directory -Force (Split-Path $target) | Out-Null
+                [IO.Compression.ZipFileExtensions]::ExtractToFile($entry, $target, $true)
+                $kept++
+              }
+            }
+            Write-Host "extracted $kept files"
+          } finally { $archive.Dispose() }
+          if (-not (Test-Path (Join-Path $root 'windows\include\XGameRuntime.h'))) {
+            throw 'GDK payload is missing XGameRuntime.h'
+          }
+
+      - name: Report the GDK edition
+        shell: pwsh
+        run: |
+          $grdk = Get-Content (Join-Path $env:GITHUB_WORKSPACE '.gdk\windows\include\grdk.h') -Raw
+          if ($grdk -match '#define\s+_GRDK_EDITION\s+(\d{6})') {
+            Write-Host "GDK edition $($Matches[1])"
+          } else { throw 'could not read _GRDK_EDITION from grdk.h' }
+
+      - name: Build Gaming.Desktop (stock x64 + GDK new layout)
+        shell: cmd
+        run: |
+          for /f "usebackq tokens=*" %%i in (`"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -requires Microsoft.Component.MSBuild -find MSBuild\**\Bin\MSBuild.exe`) do set "MSBUILD=%%i"
+          if not defined MSBUILD exit /b 2
+          "%MSBUILD%" xbox\native-bios\gdk\NativeBiosGdk.vcxproj /m /v:minimal ^
+            /p:Configuration=Release /p:Platform=x64 ^
+            /p:GDKCrossPlatformPath=%GITHUB_WORKSPACE%\.gdk\
+
+      # The whole point. Fails the job on any required check, and names it.
+      - name: Run the GDK smoke
+        shell: cmd
+        run: artifacts\native-bios-gdk\Release\NativeBiosGdk.exe
+
+      # Informational: does the interpreter core sit inside the console API
+      # subset? WINAPI_FAMILY_GAMES is what a Gaming.Xbox.* build compiles
+      # against. This cannot be conclusive without the NDA-gated Xbox
+      # Extensions, so it reports rather than gates.
+      - name: Console API subset probe (informational)
+        continue-on-error: true
+        shell: cmd
+        run: |
+          for /f "usebackq tokens=*" %%i in (`"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath`) do set "VSROOT=%%i"
+          call "%VSROOT%\VC\Auxiliary\Build\vcvars64.bat" >nul || exit /b 2
+          set "QJS=xbox\native-bios\third_party\quickjs-ng"
+          for %%f in (quickjs dtoa libregexp libunicode) do (
+            cl /nologo /c /O2 /TC /std:c17 /experimental:c11atomics ^
+              /DWINAPI_FAMILY=WINAPI_FAMILY_GAMES /DQUICKJS_NG_BUILD /wd4146 /wd4703 ^
+              /I"%QJS%" "%QJS%\%%f.c" /Fo:"%TEMP%\%%f.games.obj" || exit /b 1
+          )
+          cl /nologo /c /O2 /EHsc /std:c++17 /W4 ^
+            /DWINAPI_FAMILY=WINAPI_FAMILY_GAMES /DQUICKJS_NG_BUILD ^
+            /I"xbox\native-bios" /I"xbox\runtime\include" /I"%QJS%" ^
+            xbox\native-bios\QuickJsEngine.cpp /Fo:"%TEMP%\QuickJsEngine.games.obj" || exit /b 1
+          echo interpreter core compiles under WINAPI_FAMILY_GAMES
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: xbox-native-bios-gdk-x64
+          path: artifacts/native-bios-gdk/Release/**
+          if-no-files-found: error

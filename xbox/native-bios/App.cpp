@@ -415,14 +415,25 @@ public:
     RefreshNetworkClock(true);
     m_engine = std::make_unique<QuickJsEngine>();
     m_supervisor = std::make_unique<PieceSupervisor>(*m_engine);
+    // The game ships inside the signed package, next to the shaders and the
+    // fonts. kSmokePiece is the fallback for a package built without it, not
+    // the thing players are meant to get.
+    const auto packaged = ReadPackageBytes(L"hello.js");
+    const bool haveGame = !packaged.empty();
+    const std::string source = haveGame
+      ? std::string(packaged.begin(), packaged.end()) : std::string(kSmokePiece);
+    const char* slug = haveGame ? "hello" : "smoke";
+
     std::string error;
-    if (!m_supervisor->stage({"smoke", "bundled-v1", kSmokePiece, "bundled"}, *m_api, error) ||
+    if (!m_supervisor->stage({slug, "packaged-v1", source, "packaged"}, *m_api, error) ||
         !m_supervisor->activate(*m_api)) {
       OutputDebugStringA(("AC_NATIVE_BIOS_BOOT_ERROR " + error + "\n").c_str());
       QueueClientErrorUpload("native boot: " + error);
     } else {
-      OutputDebugStringA("AC_NATIVE_BIOS_READY engine=quickjs-ng piece=smoke\n");
-      LogTelemetry("AC_NATIVE_BIOS_READY engine=quickjs-ng piece=smoke");
+      const std::string ready = std::string("AC_NATIVE_BIOS_READY engine=quickjs-ng piece=") +
+        slug + " bytes=" + std::to_string(source.size());
+      OutputDebugStringA((ready + "\n").c_str());
+      LogTelemetry(ready);
     }
     m_photoDisc->scan();
   }
@@ -450,7 +461,9 @@ public:
       RefreshNetworkClock(false);
       PollController();
       PollMidi();
+#if AC_DEV_LIVE_PIECE
       PollLivePiece();
+#endif
       FlushGameSignals();
       FlushReplayUploads();
       FlushClientErrorUploads();
@@ -1765,9 +1778,12 @@ private:
           LARGE_INTEGER now{}, frequency{};
           QueryPerformanceCounter(&now);
           QueryPerformanceFrequency(&frequency);
+          // Same split divide as RefreshClock. This one was missed the first
+          // time and still wrapped negative past eleven days of uptime.
           LogTelemetry("AC_NATIVE_INPUT button=" + std::string(named.name) +
-            " qpc_us=" + std::to_string(
-              static_cast<unsigned long long>(now.QuadPart * 1000000 / frequency.QuadPart)));
+            " qpc_us=" + std::to_string(static_cast<unsigned long long>(
+              now.QuadPart / frequency.QuadPart * 1000000 +
+              now.QuadPart % frequency.QuadPart * 1000000 / frequency.QuadPart)));
           m_lastAudioEventQpc = now.QuadPart;
           try { m_supervisor->active()->act(*m_api, {named.name, 1, 0}); }
           catch (const std::exception& error) {
@@ -1786,8 +1802,12 @@ private:
     LARGE_INTEGER counter{}, frequency{};
     QueryPerformanceCounter(&counter);
     QueryPerformanceFrequency(&frequency);
+    // Split the divide. counter * 1000000 overflows int64 at about ten days of
+    // uptime on a 10 MHz QPC, and reported negative time three times in the
+    // field before anyone connected it to how long the console had been on.
     m_api->clock.monotonic_us = static_cast<std::uint64_t>(
-      counter.QuadPart * 1000000 / frequency.QuadPart);
+      counter.QuadPart / frequency.QuadPart * 1000000 +
+      counter.QuadPart % frequency.QuadPart * 1000000 / frequency.QuadPart);
     m_api->clock.seconds = static_cast<double>(counter.QuadPart) / frequency.QuadPart;
     m_api->seconds = m_api->clock.seconds;
     const auto localUnixMs = SystemUnixMs();
@@ -2121,6 +2141,11 @@ private:
       });
   }
 
+#if AC_DEV_LIVE_PIECE
+  // Dev only. Store Policy 10.2.5 requires console products to be "installed
+  // and updated only through the Microsoft Store", and XR-009 restates it as
+  // "installed, serviced, and updated only through the Store". A retail build
+  // defines AC_DEV_LIVE_PIECE=0 and this function does not exist in it.
   void PollLivePiece() {
     const auto now = GetTickCount64();
     if (now < m_nextLivePollMs) return;
@@ -2162,6 +2187,7 @@ private:
     LogTelemetry("AC_NATIVE_LIVE_READY bytes=" + std::to_string(source.size()) +
       " generation=" + std::to_string(m_supervisor->generation()));
   }
+#endif  // AC_DEV_LIVE_PIECE
 
   void ApplyBoxBlur(unsigned radius) {
     BoxBlurBgra(m_cpuFrame, m_frameWidth, m_frameHeight, radius, m_blurScratch);
@@ -2497,8 +2523,10 @@ private:
   unsigned m_lastControllerEdgePad = 0;
   bool m_controllerEdgePending = false;
   double m_lastControllerPollUs = 0;
+#if AC_DEV_LIVE_PIECE
   unsigned long long m_livePieceSignature = 0;
   unsigned long long m_nextLivePollMs = 0;
+#endif
   unsigned long long m_nextCapabilityPollMs = 0;
   unsigned long long m_nextAcPollMs = 0;
   unsigned long long m_nextNetworkClockPollMs = 0;

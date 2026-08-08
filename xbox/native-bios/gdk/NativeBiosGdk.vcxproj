@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The Microsoft GDK build of the native BIOS, PC target.
+
+  Deliberately a *second* project rather than a configuration of
+  NativeBios.vcxproj: that one is the UWP MSIX the console gets today, it is
+  AppContainer + C++/CX, and nothing here should be able to break it.
+
+  Stock x64, not Gaming.Desktop.x64. As of the October 2025 GDK the new header
+  and library layout replaces the Gaming.Desktop.x64 custom MSBuild platform
+  with the stock x64 platform plus include/lib paths, which is also the only
+  shape that works from the NuGet redistribution — the custom platform's
+  .props/.targets ship with the installer, not with the package. See
+  https://learn.microsoft.com/en-us/gaming/gdk/docs/gdk-dev/pc-dev/overviews/gdk-new-layout
+
+  Point GDKCrossPlatformPath at an extracted GDK (must end with a separator):
+    msbuild gdk\NativeBiosGdk.vcxproj /p:Configuration=Release /p:Platform=x64 ^
+      /p:GDKCrossPlatformPath=C:\gdk\
+  With the GDK installed, GameDKCoreLatest is already in the environment and
+  nothing needs passing.
+-->
+<Project DefaultTargets="Build" ToolsVersion="Current" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64"><Configuration>Debug</Configuration><Platform>x64</Platform></ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64"><Configuration>Release</Configuration><Platform>x64</Platform></ProjectConfiguration>
+  </ItemGroup>
+
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{2E1F5C4A-9D3B-4A17-9E52-1B4C7A0F8D31}</ProjectGuid>
+    <RootNamespace>NativeBiosGdk</RootNamespace>
+    <DefaultLanguage>en-US</DefaultLanguage>
+    <MinimumVisualStudioVersion>17.0</MinimumVisualStudioVersion>
+    <!-- Latest installed. GDK 2510 and later want the Windows 11 SDK. -->
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+
+  <PropertyGroup Condition="'$(Configuration)'=='Debug'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType><UseDebugLibraries>true</UseDebugLibraries><PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)'=='Release'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType><UseDebugLibraries>false</UseDebugLibraries><PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
+
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+
+  <PropertyGroup>
+    <!-- GameDKCoreLatest is set by the public GDK; GameDKXboxLatest by the
+         Xbox Extensions. Either is fine here — the PC headers are the same. -->
+    <GDKCrossPlatformPath Condition="'$(GDKCrossPlatformPath)'==''">$(GameDKCoreLatest)</GDKCrossPlatformPath>
+    <GDKCrossPlatformPath Condition="'$(GDKCrossPlatformPath)'==''">$(GameDKXboxLatest)</GDKCrossPlatformPath>
+    <GdkInclude>$(GDKCrossPlatformPath)windows\include</GdkInclude>
+    <GdkLib>$(GDKCrossPlatformPath)windows\lib\x64</GdkLib>
+    <GdkBin>$(GDKCrossPlatformPath)windows\bin\x64</GdkBin>
+    <IncludePath>$(GdkInclude);$(IncludePath)</IncludePath>
+    <LibraryPath>$(GdkLib);$(LibraryPath)</LibraryPath>
+    <!-- The live-reload lane has no GDK implementation and no place in a Store
+         build; see xbox/GDK-PORT.md §3. Retail shape is the default here. -->
+    <AcDevLivePiece Condition="'$(AcDevLivePiece)'==''">0</AcDevLivePiece>
+    <!-- Everything build-generated lands outside the source tree, next to what
+         the AppVeyor UWP lane already writes. -->
+    <OutDir>$(MSBuildThisFileDirectory)..\..\..\artifacts\native-bios-gdk\$(Configuration)\</OutDir>
+    <IntDir>$(MSBuildThisFileDirectory)..\..\..\artifacts\native-bios-gdk\obj\$(Configuration)\</IntDir>
+  </PropertyGroup>
+
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <WarningLevel>Level4</WarningLevel>
+      <SDLCheck>true</SDLCheck>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <AdditionalIncludeDirectories>..;..\third_party\quickjs-ng;..\..\runtime\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <!-- The GDK PC target is a plain desktop process: full Win32, which is
+           what makes D3D11, Direct2D and DirectWrite available here and not on
+           the Game OS. Console would be WINAPI_FAMILY_GAMES + xgameplatform.lib
+           + /NODEFAULTLIB, which needs the NDA-gated Xbox Extensions. -->
+      <PreprocessorDefinitions>AC_DEV_LIVE_PIECE=$(AcDevLivePiece);WINAPI_FAMILY=WINAPI_FAMILY_DESKTOP_APP;QUICKJS_NG_BUILD;WIN32_LEAN_AND_MEAN;NOMINMAX;_WIN32_WINNT=0x0A00;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <!-- GameInput.lib is deliberately absent: GameInput.dll is not in the box
+           on every Windows edition, so the backend resolves it at runtime and a
+           machine without it reports "no pad" rather than failing to start. -->
+      <AdditionalDependencies>xgameruntime.lib;d3d11.lib;d2d1.lib;dwrite.lib;dxgi.lib;xaudio2.lib;psapi.lib;uuid.lib;kernel32.lib;user32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+    <FxCompile>
+      <ShaderModel>5.0</ShaderModel>
+      <EntryPointName>main</EntryPointName>
+      <ObjectFileOutput>$(OutDir)%(Filename).cso</ObjectFileOutput>
+    </FxCompile>
+  </ItemDefinitionGroup>
+
+  <ItemGroup>
+    <ClCompile Include="gdk_smoke.cpp" />
+    <ClCompile Include="..\platform\gdk\ac_platform_gdk.cpp" />
+    <ClCompile Include="..\QuickJsEngine.cpp" />
+    <!-- QuickJS-ng wants C11 atomics; its intentional unsigned wraparound trips
+         C4146/C4703 under MSVC's optimized checks. Same flags as the UWP lane. -->
+    <ClCompile Include="..\third_party\quickjs-ng\quickjs.c"><CompileAs>CompileAsC</CompileAs><AdditionalOptions>/std:c17 /experimental:c11atomics /wd4146 /wd4703 %(AdditionalOptions)</AdditionalOptions></ClCompile>
+    <ClCompile Include="..\third_party\quickjs-ng\dtoa.c"><CompileAs>CompileAsC</CompileAs><AdditionalOptions>/std:c17 /experimental:c11atomics /wd4146 /wd4703 %(AdditionalOptions)</AdditionalOptions></ClCompile>
+    <ClCompile Include="..\third_party\quickjs-ng\libregexp.c"><CompileAs>CompileAsC</CompileAs><AdditionalOptions>/std:c17 /experimental:c11atomics /wd4146 /wd4703 %(AdditionalOptions)</AdditionalOptions></ClCompile>
+    <ClCompile Include="..\third_party\quickjs-ng\libunicode.c"><CompileAs>CompileAsC</CompileAs><AdditionalOptions>/std:c17 /experimental:c11atomics /wd4146 /wd4703 %(AdditionalOptions)</AdditionalOptions></ClCompile>
+  </ItemGroup>
+
+  <ItemGroup>
+    <FxCompile Include="..\TriangleVertexShader.hlsl"><ShaderType>Vertex</ShaderType></FxCompile>
+    <FxCompile Include="..\TrianglePixelShader.hlsl"><ShaderType>Pixel</ShaderType></FxCompile>
+    <FxCompile Include="..\PostVertexShader.hlsl"><ShaderType>Vertex</ShaderType></FxCompile>
+    <FxCompile Include="..\PostPixelShader.hlsl"><ShaderType>Pixel</ShaderType></FxCompile>
+    <FxCompile Include="..\SpriteVertexShader.hlsl"><ShaderType>Vertex</ShaderType></FxCompile>
+    <FxCompile Include="..\SpritePixelShader.hlsl"><ShaderType>Pixel</ShaderType></FxCompile>
+  </ItemGroup>
+
+  <!-- The layout the smoke harness reads back, laid out exactly as the MSIX is:
+       hello.js and the .cso files at the root, the fonts under Assets. -->
+  <ItemGroup>
+    <AcPackageRoot Include="..\..\live\hello.js" />
+    <AcPackageAssets Include="..\..\..\system\public\type\webfonts\ywft-processing-regular.ttf" />
+    <AcPackageAssets Include="..\..\..\system\public\papers.aesthetic.computer\foundry\fonts\ComicRelief-Regular.ttf" />
+    <AcPackageAssets Include="..\Assets\JeffreyTexture.rgba" />
+  </ItemGroup>
+
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+
+  <Target Name="AcRequireGdk" BeforeTargets="ClCompile">
+    <Error Condition="!Exists('$(GdkInclude)\XGameRuntime.h')"
+           Text="Microsoft GDK not found. Looked for '$(GdkInclude)\XGameRuntime.h'. Install the public GDK (winget install Microsoft.Gaming.GDK) or pass /p:GDKCrossPlatformPath=&lt;dir ending in a separator&gt;." />
+    <Message Importance="high" Text="GDK: $(GDKCrossPlatformPath)" />
+  </Target>
+
+  <Target Name="AcStagePackage" AfterTargets="Build">
+    <Copy SourceFiles="@(AcPackageRoot)" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(AcPackageAssets)" DestinationFolder="$(OutDir)Assets\" SkipUnchangedFiles="true" />
+    <!-- The Gaming Runtime redist. Without it beside the exe the loader cannot
+         resolve xgameruntime.lib's imports and the binary will not start. -->
+    <ItemGroup>
+      <AcGameRuntimeRedist Include="$(GdkBin)\xgameruntime.dll" Condition="Exists('$(GdkBin)\xgameruntime.dll')" />
+      <AcGameRuntimeRedist Include="$(GdkBin)\xgameruntime.thunks.dll" Condition="Exists('$(GdkBin)\xgameruntime.thunks.dll')" />
+    </ItemGroup>
+    <Copy SourceFiles="@(AcGameRuntimeRedist)" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" />
+    <Warning Condition="'@(AcGameRuntimeRedist)'==''" Text="xgameruntime.dll was not found under $(GdkBin); the built exe will not launch." />
+  </Target>
+</Project>

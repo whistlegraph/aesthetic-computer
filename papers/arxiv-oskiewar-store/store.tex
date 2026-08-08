@@ -1,0 +1,403 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+
+\usepackage[top=0.72in,bottom=0.72in,left=0.72in,right=0.72in]{geometry}
+\usepackage{fontspec}
+\setmainfont{Latin Modern Roman}[
+  Extension=.otf,UprightFont=lmroman10-regular,BoldFont=lmroman10-bold,
+  ItalicFont=lmroman10-italic,BoldItalicFont=lmroman10-bolditalic]
+\setsansfont{Latin Modern Sans}[
+  Extension=.otf,UprightFont=lmsans10-regular,BoldFont=lmsans10-bold,
+  ItalicFont=lmsans10-oblique,BoldItalicFont=lmsans10-boldoblique]
+\setmonofont{Latin Modern Mono}[Extension=.otf,UprightFont=lmmono10-regular,Scale=0.82]
+\newfontfamily\acbold{ywft-processing-bold}[
+  Path=../../system/public/type/webfonts/,Extension=.ttf]
+\newfontfamily\aclight{ywft-processing-light}[
+  Path=../../system/public/type/webfonts/,Extension=.ttf]
+
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{xurl}
+\usepackage{graphicx}
+\usepackage{microtype}
+\usepackage{listings}
+\usepackage[numbers,sort&compress]{natbib}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,fit}
+
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acblue}{RGB}{44,92,188}
+\definecolor{acred}{RGB}{190,48,62}
+\definecolor{acdark}{RGB}{48,43,56}
+\definecolor{acgray}{RGB}{105,105,110}
+\definecolor{aclightgray}{RGB}{244,243,246}
+
+\hypersetup{colorlinks=true,linkcolor=acblue,urlcolor=acblue,citecolor=acblue,
+  pdfauthor={@jeffrey},
+  pdftitle={The Door Is Shut: oskiewar, UWP, and the Route to a Retail Xbox}}
+\titleformat{\section}{\normalfont\bfseries\normalsize\uppercase}{\thesection.}{0.45em}{}
+\titlespacing{\section}{0pt}{1.15em}{0.3em}
+\titleformat{\subsection}{\normalfont\bfseries\small}{\thesubsection}{0.45em}{}
+\titlespacing{\subsection}{0pt}{0.8em}{0.2em}
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{acpink}\textit{oskiewar --- retail store route}}
+\fancyfoot[C]{\footnotesize\thepage}
+\setlist[itemize]{nosep,leftmargin=1.2em,itemsep=0.1em}
+\setlength{\columnsep}{1.7em}
+\setlength{\parindent}{1em}
+\setlength{\parskip}{0.25em}
+\makeatletter
+\setlength{\@fptop}{0pt}
+\setlength{\@dblfptop}{0pt}
+\makeatother
+% Tall evidence tables must land near their discussion, not on a float page
+% after the bibliography. Loosen the default area fractions accordingly.
+\renewcommand{\topfraction}{0.92}
+\renewcommand{\dbltopfraction}{0.92}
+\renewcommand{\bottomfraction}{0.9}
+\renewcommand{\textfraction}{0.06}
+\renewcommand{\floatpagefraction}{0.72}
+\renewcommand{\dblfloatpagefraction}{0.72}
+\setcounter{topnumber}{3}
+\setcounter{dbltopnumber}{3}
+\setcounter{totalnumber}{4}
+% Left-aligned wrapping cells: justified text in a 2in column produces rivers.
+\newcolumntype{L}{>{\raggedright\arraybackslash}X}
+\newcolumntype{P}[1]{>{\raggedright\arraybackslash}p{#1}}
+\tolerance=900
+\emergencystretch=1em
+\graphicspath{{../arxiv-ac/figures/}}
+\newcommand{\ac}{\textsc{Aesthetic.Computer}}
+\newcommand{\game}{\textsc{oskiewar}}
+\newcommand{\code}[1]{\texttt{#1}}
+\InputIfFileExists{version.tex}{}{%
+  \providecommand{\paperhash}{dev}\providecommand{\paperrev}{?}}
+
+\lstset{basicstyle=\ttfamily\footnotesize,breaklines=true,frame=single,
+  rulecolor=\color{acgray!30},backgroundcolor=\color{aclightgray},
+  xleftmargin=0.4em,xrightmargin=0.4em,aboveskip=0.5em,belowskip=0.5em}
+
+\begin{document}
+
+\twocolumn[{%
+\begin{center}
+\includegraphics[height=3.5em]{pals}\par\vspace{0.45em}
+{\acbold\fontsize{23pt}{27pt}\selectfont\color{acdark} The Door Is Shut}\par
+\vspace{0.2em}
+{\aclight\fontsize{12pt}{14pt}\selectfont\color{acpink}
+  UWP, ID@Xbox, and the Route from oskiewar's Developer-Mode Build to a Retail Console}\par
+\vspace{0.55em}
+{\normalsize\href{https://prompt.ac/@jeffrey}{@jeffrey}}\par
+{\small\color{acgray} Aesthetic.Computer --- 7 August 2026}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.35em}
+{\small\color{acblue}\url{https://aesthetic.computer}}\par
+\vspace{0.55em}\rule{\textwidth}{1.5pt}\vspace{0.35em}
+\end{center}
+
+\begin{quote}
+\small\noindent\textbf{Abstract.}
+\game{} runs today as a self-signed Universal Windows Platform package on an Xbox in Developer Mode. This report establishes what stands between that build and a retail console, working only from Microsoft-owned primary sources read on 7 August 2026 and from the shipped source at commit \code{2fcb1b6f4}. The controlling finding is that the platform is closed: Microsoft states that ``UWP based games are no longer accepted in the Xbox Store,'' which retires the entire \code{xbox/native-bios} target as a distribution vehicle no matter how well it works. Store Policy 10.13.1 routes every Xbox console game through ID@Xbox, and an approved game concept is a precondition of joining rather than a step after it. Program fees are now zero --- both the \$19 individual and \$99 company Partner Center registration fees are waived --- so the price is engineering time and unpriced devkit hardware. The port is a platform-layer rewrite, not a recompile: the QuickJS core, the shaders, the audio graph, and the game script are portable, while every WinRT surface \code{App.cpp} touches has a different GDK replacement. Two failures survive even a clean port. The game is not in the package --- continuous integration ships a twelve-line demo, and the 5,813-line game arrives over a Device Portal path that cannot exist on retail --- and the title has no Xbox platform integration at all, where achievements are mandatory and gamertags are required as the primary display name. Two errors in Aesthetic Computer's own documentation are corrected: Developer Mode never carried a fee, and the over-the-air lane's policy note cites Apple's rulebook against a Microsoft submission. Microsoft's live documents contradict each other about whether the Xbox Creators program still exists; that contradiction is reported rather than resolved, because resolving it the other way would change the recommendation.
+\end{quote}
+\vspace{0.4em}
+}]
+
+\section{The Question}
+
+\game{} is playable. Two people sit in front of an Xbox, pick handles, and fight \cite{scudder2026oskiewar}. The console is in Developer Mode, the package is signed with a certificate that says \code{CN=AestheticComputerDev}, and the only way anyone else gets to play is by standing in the room. The obvious next question --- how does this reach someone who owns an Xbox and has never met me --- turns out to have a short answer and a long one.
+
+The short answer is that the thing it is built out of is no longer accepted. Microsoft's UWP-on-Xbox FAQ carries a note at the top of the page: ``Please note that UWP based games are no longer accepted in the Xbox Store. Please use the ID@XBOX program''~\cite{msUwpFaq}. \game{} is a UWP application. Every hour spent on \code{xbox/native-bios} bought a working console game and zero progress toward a storefront page.
+
+The long answer is the rest of this report. It is a research finding rather than a plan: the point is to establish, from primary sources, which routes exist, what each one costs, and which requirements the current build fails --- and to be explicit where Microsoft's own documentation is stale, self-contradictory, or locked behind an NDA. A schedule follows from that, but the schedule is the cheap part. Knowing that the platform underneath a year of work is a dead end for distribution is the expensive part, and it is better to know it now.
+
+\section{Method}
+
+Two bodies of evidence, and one deliberate exclusion.
+
+The artifact side is the repository at commit \code{2fcb1b6f4}~\cite{acrepo}: \code{xbox/\allowbreak native-bios/\allowbreak App.cpp} (2,653 lines), \code{Package.\allowbreak appxmanifest}, the Visual C++ project files, \code{xbox/\allowbreak live/\allowbreak hello.js} (5,813 lines), \code{xbox/\allowbreak native-bios/\allowbreak smoke\allowbreak\_piece.js} (12 lines), \code{xbox/tools/}, and \code{xbox/ota/}. Claims about what the app does are grep-checked against that source rather than against memory or prior notes. Where the internal research note \code{xbox/PUBLISHING.md} \cite{acpublishing} and the source disagree --- it records \code{hello.js} at 5,549 lines --- the source wins and the divergence is stated.
+
+The policy side is Microsoft-owned pages only, each fetched and read in full on 7 August 2026: the Microsoft Store Policies document, the Xbox Requirements (XR) list for console games, individual XR pages, the game-publishing onboarding guide, the two registration-fee notices, the UWP platform pages, the Developer Mode activation terms, and the Xbox Accessibility Guidelines. Where a page carries its own version and effective date, both are recorded in the bibliography alongside the access date, because several of these documents are versioned independently of the day they were last touched.
+
+The exclusion: no third-party summary, forum answer, or news article is used as evidence anywhere in this report. That includes a widely-cited Microsoft Q\&A answer on exactly this question which carries Microsoft's own AI-generated-content disclaimer. It also includes several live, indexed Microsoft pages that are demonstrably stale --- most sharply the body of the UWP-on-Xbox FAQ, whose page date is 29 March 2017 and which still instructs readers to ``register with ID@XBOX or be part of the Xbox Live Creators Program,'' directly beneath a banner saying UWP games are not accepted at all~\cite{msUwpFaq}. Only the banner is treated as current. Where a source could not be read --- NDA-gated documents, JavaScript-rendered support pages --- that is recorded in \S\ref{sec:limits} rather than papered over with inference.
+
+\section{The Artifact as It Stands}
+
+\code{AestheticComputer.NativeBios}, display name \code{oskiewar}, version 1.0.0.38. Table~\ref{tab:build} records the shipped configuration. Three properties of it govern everything downstream.
+
+\begin{table}[!t]
+\centering
+\caption{The current build, read from the manifest, the project files, and CI configuration at commit \code{2fcb1b6f4}.}
+\label{tab:build}
+\footnotesize
+\begin{tabularx}{\columnwidth}{@{}P{0.30\columnwidth}L@{}}
+\toprule
+Property & Value \\
+\midrule
+Application type & \code{Windows Store}; \code{AppContainer\-Application=true} \\
+Device family & \code{Windows.Universal}, min 10.0.17763.0 \\
+Language & C++/CX (\code{CompileAsWinRT}), toolset v143, x64 only \\
+Capabilities & \code{internetClient}, \code{private\-Network\-Client\-Server}, \code{removable\-Storage}, \code{optical} \\
+Runtime & QuickJS-ng vendored \cite{quickjs}; D3D11 at a fixed 1920$\times$1080 backbuffer; XAudio2 \\
+Piece in package & \code{smoke\_piece.js}, 12 lines \\
+Piece at runtime & \code{hello.js}, 5,813 lines, delivered out of band \\
+Signing & Self-signed \code{CN=Aesthetic\-Computer\-Dev}; \code{SideloadOnly} MSIX \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+First, it is UWP in the strong sense. \code{App.cpp} is not portable C++ with a thin Windows shim; it is C++/CX, using \code{ref new} in 46 places, and it is written against \code{CoreWindow}, \code{Application\-Data}, \code{Windows.\allowbreak Gaming.\allowbreak Input}, \code{Windows.\allowbreak Web.\allowbreak Http}, \code{Windows.\allowbreak Networking.\allowbreak Sockets}, and \code{Windows.\allowbreak Devices.\allowbreak Midi}. The dialect and the platform go together, and both have to leave.
+
+Second, the game is not in the package. Continuous integration builds an MSIX containing \code{smoke\_piece.js} --- a wipe, four button colors, and a beep. The actual game arrives because \code{PollLivePiece()} stats \code{LocalState\textbackslash live-piece.js} every 500\,ms and hot-swaps when it changes, and \code{xbox/tools/live.mjs} writes that file across the Xbox Device Portal. This is an excellent development loop and it is also, precisely, a Developer-Mode-only mechanism. Ship the current MSIX to a retail console and a player gets the twelve-line color demo.
+
+Third, the app knows nothing about Xbox. There is no user model, no achievement, no privilege check, no suspend or resume handler. Player identity is \ac{} identity: \code{@jeffrey}, \code{@fifi}, \code{@oskie}, \code{@sat}, rendered in per-handle colors, enriched with mood strings and the latest public system-chat line pulled from \ac{} endpoints \cite{scudder2026url}. That is the design, and on a console it is a certification problem.
+
+\section{The Routes}
+
+Table~\ref{tab:routes} is the complete set of documented paths from here to a player, with what each one actually reaches.
+
+\begin{table*}[!t]
+\centering
+\caption{Documented distribution routes as of 7 August 2026. Only route 1 reaches a retail console with a storefront page.}
+\label{tab:routes}
+\footnotesize
+\begin{tabularx}{\textwidth}{@{}P{0.20\textwidth}P{0.16\textwidth}L@{}}
+\toprule
+Route & Reaches & Standing \\
+\midrule
+ID@Xbox + GDK & Retail consoles, Store page & The only console path. Store Policy 10.13.1 requires it; concept approval gates entry. Program fees \$0; devkit hardware unpriced. Costs a platform-layer rewrite plus every Xbox integration the app lacks. \\
+PC self-serve (GDK, Win32) & Windows PCs, Store page & Real and open. No ID@Xbox, no concept approval, no Xbox services. Reaches no consoles. Cheapest way to learn Store certification on a product that ships. \\
+PC self-serve (MSIX or PWA) & Windows PCs, Store page & Microsoft's published path decision routes an existing UWP game and a web game alike to ``the MSIX or PWA game option.'' Applies to PC; nothing in that guidance extends it to consoles. \\
+Non-game UWP app on the Xbox device family & Nominally consoles & Closed by categorization. Store Policy 10.1 requires game products to be categorized as games. Whether the Partner Center checkbox still functions for new submissions is undocumented. \\
+Developer Mode & Three consoles, in the room & What exists today. Free. Program terms cap it at ``three Xbox One consoles at any one time'' for testing and ``demonstrating your applications.'' Adequate for an installation or a gallery; reaches nobody's living room. \\
+Microsoft Edge on retail consoles & Every retail console, today & \code{oskiewar.com} already runs. Zero cost, zero certification, no port. Distribution is a URL, which is weak, and gamepad behavior was not verifiable from a primary source. \\
+\bottomrule
+\end{tabularx}
+\end{table*}
+
+\subsection{ID@Xbox is the console path, and concept approval is its door}
+
+Store Policy 10.13.1, in Store Policies version 7.19, states that game products targeting Xbox consoles ``must use Xbox network services through the ID@Xbox program''~\cite{msStorePolicies}. The onboarding guide is unambiguous about the ordering: ``An approved game concept is required for all XBOX games and to continue your application to ID@XBOX, you must submit at least one game concept for approval''~\cite{msJoinId}. Concept approval is not a milestone reached after joining; it is how joining happens. Up to ten concepts may be in review simultaneously, and review ``can take up to \textbf{3 weeks} (typically \textbf{10--15 business days})''~\cite{msJoinId}.
+
+Nothing in that path costs money. Registration as an Xbox partner, Partner Center enrollment, the ID@Xbox application, and concept submission are all free, and the GDK is public and installs without an NDA, so the port can be spiked in parallel with the application. What is not free is hardware: the ID@Xbox flow collects a shipping address for development kits~\cite{msJoinId}, and Microsoft does not publish devkit pricing anywhere I could reach.
+
+\subsection{The fees are gone}
+
+Both Partner Center registration fees have been waived. Microsoft's individual-developer notice is explicit --- ``The \$19 registration fee is waived in the new flow'' --- and equally explicit that the waiver is bound to one entry point: ``You must begin your journey at \url{https://storedeveloper.microsoft.com}. This is the only supported entry point for the new flow. Other paths (e.g. direct via Partner Center, Xbox, or Visual Studio) will show the legacy flow''~\cite{msIndividualFee}. The company-account fee is waived on the same terms~\cite{msCompanyFee}. Arriving through Partner Center, Xbox, or Visual Studio lands in the legacy paid flow, whose current pricing Microsoft does not publish.
+
+The account-type choice is consequential and not reversible. Store Policy 10.14 requires a company account for ``any person acting in relation to their trade or profession'' and where ``a reasonable consumer would interpret your application or publisher name to be that of a business entity''~\cite{msStorePolicies}, and the ID@Xbox application asks for a registered business number~\cite{msJoinId}.
+
+\subsection{PC is open, and PC is not a console}
+
+In 2026 Microsoft opened a self-serve path for Win32 PC games built with the GDK, ``without requiring managed partner enrollment or concept approval''~\cite{msPcSelfServe}. Its FAQ answers the two questions that matter here directly: ``Xbox services are not required to publish a PC-only game using this path,'' and ``If you plan to publish to Xbox consoles in the future, you'll need to enroll in the appropriate managed Xbox program at that time.''
+
+Two details of that page are worth more than they first appear. Its published path decision routes ``UWP game (existing) that you want to publish'' and ``Web-based game (PWA)'' alike to the MSIX-or-PWA option, which means \code{oskiewar.com} itself is a submittable artifact on PC without any port at all. And the whole path is a rehearsal: IARC rating, privacy policy, MSIXVC packaging, and the certification loop are the same machinery a console submission will need, exercised on a product that ships.
+
+\subsection{Categorization closes the side door}
+
+Partner Center's Xbox device-family checkbox is documented as self-checkable if the product is not a game~\cite{msUploadPackages}, which invites the obvious dodge. It does not work. Store Policy 10.1 requires that game products ``must be categorized as a game in our Store''~\cite{msStorePolicies}; calling \game{} an application to route around the game gate is the thing that policy exists to stop. Independently, 10.13.4 bars products on Xbox consoles from enabling ``general browsing of the operating system, file systems or attached physical media file structures,'' and the page describing the checkbox still names the Xbox Live Creators Program as a live option, which dates it.
+
+\section{The Port Surface}
+
+The port is not a recompile. Table~\ref{tab:port} walks the platform layer API by API. The pattern is consistent: everything that is arithmetic, rendering, or interpretation is portable, and everything that touches the operating system is a substitution.
+
+\begin{table*}[!t]
+\centering
+\caption{Platform-layer port surface. GDK titles are standard x64 Win32. Replacement names are the documented GDK equivalents; the mapping is a plan, not a measured result.}
+\label{tab:port}
+\footnotesize
+\begin{tabularx}{\textwidth}{@{}P{0.20\textwidth}P{0.26\textwidth}L@{}}
+\toprule
+Concern & Current (UWP / C++/CX) & GDK replacement \\
+\midrule
+Application model & \code{CoreApplicationView}, \code{CoreWindow} & Win32 window and message loop \\
+Language dialect & C++/CX --- \code{ref new}, \code{String\^{}}, \code{TypedEventHandler}, \code{create\_task} & Standard C++ against flat C APIs \\
+Controller input & \code{Windows.Gaming.Input} & \code{GameInput} \\
+Local persistence & \code{ApplicationData::\allowbreak Current->\allowbreak LocalFolder}, WinRT \code{StorageFile} & \code{XGameSave} / \code{XPersistent\-Local\-Storage} \\
+HTTPS & \code{Windows.Web.Http.HttpClient} & \code{libHttpClient} or WinHTTP \\
+Sockets (UDP, WebSocket) & \code{Windows.Networking.Sockets} & Winsock \\
+MIDI inlet & \code{Windows.Devices.Midi} & No console equivalent; cut or gate \\
+Image decode & Windows Imaging & Own decoder or middleware \\
+Script engine & QuickJS-ng, vendored & Ports unchanged \\
+Rendering & D3D11, six HLSL shaders & Ports unchanged \\
+Audio & XAudio2 graph & Ports unchanged \\
+Game logic & \code{hello.js}, 5,813 lines & Ports unchanged \\
+\bottomrule
+\end{tabularx}
+\end{table*}
+
+That division is the good news buried in the finding. The parts of \game{} that are actually \game{} --- the fixed-step simulation, the pose and hitbox geometry, the camera, the synthesis, the replay format --- live above the boundary and do not care which operating system is underneath. The parts that have to be rewritten are the parts that were never the work. It is the same seam the web spectator already proved: one deterministic core, platform adapters at the edges \cite{scudder2026pieces,scudder2026os}. A GDK host is a third adapter.
+
+The narrow question worth answering before committing to any of it is whether QuickJS, the D3D11 renderer, and \code{hello.js} boot at all under GameCore x64. If they do, the remainder is API substitution with a known shape. If they do not, that is the moment to stop.
+
+\section{What Fails Certification}
+
+Table~\ref{tab:xr} is the requirement inventory, each row anchored to a numbered Store policy or Xbox Requirement and checked against the current source. Version 16.3 of the console XR document, dated 1 July 2026, is the edition read~\cite{msXR}.
+
+\begin{table*}[!t]
+\centering
+\caption{Certification requirements against the current build. Sources: Microsoft Store Policies v7.19 \cite{msStorePolicies}; Xbox Requirements v16.3 \cite{msXR}; XR-018 v1.6 \cite{msXR018}.}
+\label{tab:xr}
+\footnotesize
+\begin{tabularx}{\textwidth}{@{}P{0.13\textwidth}P{0.32\textwidth}L@{}}
+\toprule
+Requirement & What it demands & Current state \\
+\midrule
+10.2.5 & Products on Xbox consoles ``must be installed and updated only through the Microsoft Store.'' & \code{PollLivePiece()} loads code from local storage; the OTA lane would fetch it over the network. Both are foreclosed on console. \\
+10.2.2 / XR-009 & No ``dynamic inclusion of code'' that changes or extends described functionality. & Intent-based. Turns on how the Store listing describes the product. \\
+10.13.5, XR-046 & Gamertag as the primary display and profile name. & \code{@handle} in handle colors is the player name and the visual identity of character select. \\
+XR-047 & Gamercard access wherever display names are enumerated. & Absent. \\
+XR-055, XR-060 & Achievements mandatory for all console titles; minimum 10 achievements and 1000 gamerscore at launch; none above 200 GS; published achievements can never be removed and their unlock rules never changed. & None exist. Requires full Xbox services, therefore downstream of concept approval. \\
+XR-112, XR-001 & Establish an active user before any profile action; handle suspend and constrained modes. & No user model; no suspend or resume handlers in \code{App.cpp}. \\
+XR-045 & Privilege checks: UGC (247), Communications (252), Multiplayer (254), CrossNetworkPlay (185). & None. \\
+XR-018, 11.12 & Content guidelines published; in-product reporting or proactive text detection; removal at Microsoft's request. & \ac{} chat text and handles are rendered with no reporting path and no filtration. \\
+XR-067 & Online multiplayer must maintain session state on the Xbox network --- via MPSD \emph{or} the Multiplayer Activity Recent Player feature. & Self-hosted relay is permitted; the reporting call is missing. \\
+XR-064, XR-124, XR-070 & Shell joinability; platform invitations; Xbox friends list primary and never persisted on game servers. & Absent, and scoped only if joinable sessions are offered. \\
+XR-022 & Naming per the current terminology list --- which no longer contains ``Xbox Live''; the term is ``Xbox network.'' & Requires a copy audit. \\
+XR-133 & No more than 1 GiB of writes to persistent local storage in any 5-minute window. & \code{discCopy} writes numbered image copies into \code{LocalState}; unmeasured. \\
+XR-130 & Support the entire device family of the targeted generation. & Untested beyond the development console. \\
+10.13.4 & No ``general browsing of the operating system, file systems or attached physical media file structures.'' & Photo-disc scans mounted removable volumes and displays up to 4,096 images. \\
+10.5.1, 10.13.11 & Privacy policy covering use, storage, security, disclosure parties, and user controls; independent-controller statement; no social-graph storage; check Microsoft's deleted-account list at least every 30 days. & Current policy is seven sentences and names no processor. The 30-day check is a standing job, not a document. \\
+11.11, 11.1 & IARC rating questionnaire at submission; store metadata limited to PEGI 12 / ESRB E10+ or lower regardless of the game's own rating. & Not begun. The store page has a tighter content bar than the game. \\
+\bottomrule
+\end{tabularx}
+\end{table*}
+
+Four of these deserve more than a table row.
+
+\subsection{Achievements are permanent, and they are late}
+
+The XR document's achievements section opens flatly: ``All games targeting Xbox consoles are required to have Achievements''~\cite{msXR}. XR-055 sets the launch floor at 10 achievements and 1000 gamerscore, caps any single achievement at 200, and requires all of them to be achievable; the certification scenario ``A game doesn't support the minimum 10 achievements and 1,000 gamerscore'' is scored Critical~\cite{msXR055}. XR-060 then makes the design irreversible: ``After an achievement is published to users, it can't be removed, nor can its unlock rules or rewards be changed''~\cite{msXR}. Only the name, description, and art stay editable.
+
+The scheduling consequence is worse than the design consequence. Achievements require Xbox services, which require concept approval, so this work cannot be started early to de-risk the rest. It sits after the gate, and it must be got right the first time.
+
+\subsection{Handles versus gamertags, and a way through}
+
+XR-046 is one sentence: ``On Xbox consoles, titles must use the gamertag as their primary display name''~\cite{msXR}. Store Policy 10.13.5 says the same thing independently~\cite{msStorePolicies}. \game{}'s roster is \ac{} handles in \ac{} colors, and the colors are not decoration --- they are the identity system \cite{scudder2026url}. Read alone, XR-046 reads like the end of that.
+
+Read together with XR-007 it is not. XR-007 contemplates exactly this case for cross-network titles and provides a shape: content from non-Xbox-network users must be either ``anonymous and curated by the publisher'' or ``displayed using the publisher's central account name \dots{} clearly distinguishable from the user's Xbox network account name''~\cite{msXR}. An \ac{} handle is a publisher-managed account name. The compliant arrangement is therefore not deletion but demotion: gamertag as the primary display name, \code{@handle} carried alongside it as a visually distinct secondary badge. That is a design problem worth solving on purpose, and it is a smaller one than it looked.
+
+\subsection{The community feed is user-generated content, probably}
+
+\code{App.cpp} polls \ac{}'s chat endpoint and renders public system-chat text and handle colors from a live community. XR-018 requires, for products containing UGC, an in-product reporting path or proactive detection, published content guidelines, and readiness to remove content at Microsoft's request; and it names the Forbidden Terms List as ``a minimum baseline for blocking or obfuscation from non-local players''~\cite{msXR018}. XR-045 gates the display itself behind \code{XPRIVILEGE\_USER\_CREATED\_CONTENT} (247) and \code{XPRIVILEGE\_COMMUNICATIONS} (252)~\cite{msXR}. None of this exists in the codebase.
+
+There is a cheap way through and an unresolved question. The cheap way: XR-018 states that titles using the \code{StringService} API ``meet the proactive detection requirement (for text scenarios) automatically''~\cite{msXR018,msStringService}, which collapses the moderation work from a project into an integration --- and \code{StringService} is Xbox-services-only, so it, too, sits behind concept approval. The unresolved question is whether the feed is in scope at all. XR-018 defines UGC as ``in-game digital content produced by a player,'' and this text was not produced by a player of the title, in the title; it was written elsewhere by members of a different community and displayed. XR-018 exempts ``real-time transient text communications'' from proactive filtration and exempts local-only content entirely, while XR-007 clearly does contemplate text sourced outside the Xbox network. The documents do not settle it. I read the requirement as applying and would build to it, but that is a reading, not a citation.
+
+Worth knowing before scoping the fallback: the Forbidden Terms List itself lives under \code{learn.\allowbreak microsoft.\allowbreak com/\allowbreak gaming/\allowbreak xbox-nda-docs/}, which returns 404 without NDA credentials~\cite{msForbiddenTerms}. The obligation is public; the wordlist that discharges it is not.
+
+\subsection{Self-hosted multiplayer survives}
+
+This is the one requirement that came back better than expected. XR-067: ``titles with online multiplayer functionality must maintain session-state information on the Xbox network. Titles do this through the Xbox Multiplayer Session Directory (MPSD) or if a title has their own multiplayer session state functionality, they may instead choose to record player interactions using the Multiplayer Activity Recent Player feature''~\cite{msXR}. The session server and the \code{oskiewar-live} relay do not have to be replaced. They have to be \emph{reported}.
+
+Whether \game{} even triggers the joinable-session requirements is genuinely unclear and worth asking a representative directly. The game is two players on one console; its network layer is one-way spectator publishing plus a replay upload. Whether that is ``synchronous network play'' under Store Policy 10.13.2 --- which would require Xbox network integration and ID@Xbox approval regardless of the rest --- the policy text does not decide.
+
+\section{Correcting the Record}
+
+Two claims in Aesthetic Computer's own documentation are wrong, and both are wrong in ways that would cost real time.
+
+\subsection{Developer Mode was never \$19}
+
+\code{xbox/README.md} lists as a prerequisite ``Xbox in Developer Mode (\$19 one-time fee at partner.microsoft.com).'' The activation terms Microsoft publishes for the Developer Mode program state a purpose, a three-console device limit, an update obligation, a feedback grant, and two prohibitions --- and no fee of any kind~\cite{msDevMode}. The \$19 was the Partner Center \emph{individual registration} fee, which is a different thing and which is now waived outright~\cite{msIndividualFee}. Dev Mode is free, was free, and is capped at ``three Xbox One consoles at any one time'' for testing and ``demonstrating your applications''~\cite{msDevMode}. The primary Dev Mode documentation now lives under \code{/previous-versions/}~\cite{msDevkitActivation}, which is its own signal.
+
+\subsection{The OTA lane cites the wrong regulator}
+\label{sec:ota}
+
+This is the more interesting error. \code{xbox/ota/README.md} closes with a policy note: ``Store certification needs an explicit policy review: downloaded pieces must remain content within AC's declared creative runtime, not arbitrary programs.'' That framing --- a sandboxed interpreter permitted to run downloaded content so long as it stays inside the app's declared purpose --- is Apple's. It is the shape of App Review guideline 2.5.2~\cite{appleGuidelines}. Microsoft has no such policy, and arguing it to a Microsoft submission would be arguing from the wrong rulebook.
+
+What actually applies is Store Policy 10.2.5, and it is categorical rather than intent-based: ``any products offered on Xbox consoles must be submitted using supported package types for ingestion and distribution by the Microsoft Store. For any products submitted in this manner, such products and in-product offerings must be installed and updated only through the Microsoft Store''~\cite{msStorePolicies}. XR-009 restates it in blunter older phrasing: ``All of your apps, modules, and in-app products must be installed, serviced, and updated only through the Store''~\cite{msXR}. There is no sandbox exception and no creative-runtime exception. On console, the OTA lane is retired.
+
+On PC the applicable rule is 10.2.2, and it \emph{is} intent-based: a product ``must not attempt to fundamentally change or extend its described functionality \dots{} through any form of dynamic inclusion of code''~\cite{msStorePolicies}. Note what that turns on. Compliance is a function of the store listing, not of the packaging. A listing that describes \game{} as a fighting game and then hot-loads new pieces changes its described functionality. A listing that describes an \ac{} runtime whose entire declared purpose is running \ac{} pieces is a different conversation --- one that has to be had deliberately, in the listing copy, before submission rather than after.
+
+The correction matters beyond the citation. It moves the OTA question from ``can we argue this'' to ``on console, no; on PC, it depends on what we say the product is.''
+
+\section{Accessibility Is Not a Gate}
+
+Contrary to the usual assumption, there is no accessibility XR. The Xbox Accessibility Guidelines say so about themselves: they are ``a set of best practices,'' and ``The XAGs aren't intended to act as a checklist to validate any type of compliance or legal requirements''~\cite{msXAG}. The Store's ``Accessible'' tag is an optional self-declaration~\cite{msAccessibleTag}.
+
+This is worth stating precisely because it is easy to get backwards in both directions. Accessibility work on \game{} should happen because it is right and because the game is better for it. It should not be budgeted as certification, and no certification schedule should be padded for it.
+
+\section{Cost and Schedule}
+
+Table~\ref{tab:cost} sequences the work. Nothing before step 4 requires a decision about the port, and nothing before step 4 costs money.
+
+\begin{table}[!t]
+\centering
+\caption{Sequence and cost. Durations for steps 3 and 6 are Microsoft's published figures; the rest are my estimates for a solo developer.}
+\label{tab:cost}
+\footnotesize
+\begin{tabularx}{\columnwidth}{@{}P{0.04\columnwidth}LP{0.20\columnwidth}@{}}
+\toprule
+\# & Step & Cost / time \\
+\midrule
+1 & Measure Edge on a retail console: gamepad mapping and latency at \code{oskiewar.com} & \$0 / 1 hour \\
+2 & Bake \code{hello.js} into the package; compile \code{PollLivePiece()} out of release builds & \$0 / 1--2 days \\
+3 & Register at \code{store\-developer.\-microsoft.\-com} --- company account, new dedicated MSA & \$0 / 2--5 business days \\
+4 & Install the GDK; spike the platform layer. Does QuickJS + D3D11 + \code{hello.js} boot under GameCore x64? & \$0 / 1--2 weeks \\
+5 & Ship the PC build. IARC, privacy policy, packaging, the certification loop & \$0 / 2--4 weeks \\
+6 & Apply to ID@Xbox with a concept & \$0 / 10--15 business days, up to 3 weeks \\
+7 & Achievements, Xbox user model, name layer, privilege checks, suspend/resume, Recent Player reporting & devkit / 1--2 months \\
+8 & Cut photo-disc; gate the UDP lanes; UGC path; rewrite the privacy policy; stand up the 30-day check & --- / weeks \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Total program fees: \$0. Devkit hardware: unpriced by Microsoft. Engineering: realistically four to six months for one person, concentrated in steps 4, 7, and 8. Steps 5 and 6 do not block each other and should run concurrently.
+
+The ordering has one property worth defending. Step 1 is an hour and could make the rest less urgent, because a retail console can already reach \game{} through Edge today at zero cost and zero certification. Step 2 is required by every route including the ones nobody chooses, and it is independently correct: a package whose shipped artifact is a twelve-line color demo is not a game, and fixing that is a day.
+
+\section{Limitations and Open Questions}
+\label{sec:limits}
+
+\subsection{What could not be verified}
+
+Stated plainly rather than smoothed over.
+
+\begin{itemize}
+  \item \textbf{No formal Creators Program retirement exists.} Its death is inferred from dead enrollment URLs and the UWP closure, not from an announcement on any Microsoft domain.
+  \item \textbf{No formal UWP deprecation exists.} The platform guide says only that ``Although still supported, UWP is not under active development''~\cite{msUwpGuide}. For Xbox \emph{games} the door is shut~\cite{msUwpFaq}; for UWP generally it is not. No UWP-to-GDK migration guide was found anywhere on a Microsoft domain.
+  \item \textbf{Devkit pricing is not public.} The Entertainment Developer Store does not publish it and the ID@Xbox flow only collects a shipping address.
+  \item \textbf{Legacy registration pricing is not stated.} That the legacy flow is still \$19/\$99 is inference from the waiver notices, not a quoted figure.
+  \item \textbf{Whether Partner Center's Xbox device-family checkbox still functions} for new submissions is undocumented and untestable without an account.
+  \item \textbf{Gamepad behavior for arbitrary web games in Edge on Xbox} could not be established: the support article is JavaScript-rendered and returned no readable body.
+  \item \textbf{The Forbidden Terms List and the Xbox Game Store Policy PDF are NDA-gated.} The 404 was confirmed; the contents were not read~\cite{msForbiddenTerms}.
+  \item \textbf{The GDK replacement column of Table~\ref{tab:port} is a plan.} Those are the documented equivalents. Nothing in this report was compiled against the GDK.
+\end{itemize}
+
+One claim in the internal research note is not supported by the source it cites, and is withdrawn here. That note attributes the fate of \game{}'s LAN UDP lanes --- MIDI inlet on 51337, OSC broadcast to 255.255.255.255 on 51338 --- to XR-132. XR-132 is titled Service Access Limitations and governs rate limits when ``calling Xbox network services''~\cite{msXR}; it says nothing about a title opening a local broadcast socket. I could locate no XR and no Store policy that governs the question either way. The practical instinct --- that a retail console title broadcasting UDP to the local subnet is an unusual shape that will attract attention --- may well be right, and gating both lanes behind a build flag costs nothing since no part of the game depends on them. But it is an instinct, and it should not be dressed as a requirement.
+
+\subsection{The one contradiction that could change the answer}
+
+Store Policy 10.13.1 --- in version 7.19, on a page Microsoft revised on 30 July 2026 --- still offers the alternative: ``Optionally, you may publish your game product to console without integration of Xbox network Services through the Xbox Creators program''~\cite{msStorePolicies}. Every enrollment URL for that program 404s or redirects to ID@Xbox, no retirement announcement exists, and the program's only technology was UWP, which is the thing that closed.
+
+The overwhelmingly likely reading is stale policy text that survived a revision because nobody deleted the sentence. That is the reading this report proceeds on, and every recommendation above assumes it. But it is an inference about a live sentence in a governing document, and it is the single thing here that would change the recommendation if it were wrong --- a functioning Creators path to console without Xbox services would remove concept approval, achievements, the user model, and most of Table~\ref{tab:xr} from the critical path at a stroke. It is worth one direct question to a Microsoft representative before committing a month to anything downstream of it.
+
+\subsection{The rest of the questions worth asking}
+
+\begin{itemize}
+  \item \textbf{Does ID@Xbox accept a sole proprietorship?} The public hub lists three hard requirements --- 18 or older, sign an NDA, be in a supported country~\cite{msIdHub} --- and mentions no entity, while the application form asks for a registered business number~\cite{msJoinId}. The FAQ item that would settle it is JavaScript-rendered and could not be read. For a solo developer this gates everything from step 6 onward.
+  \item \textbf{What does ``limited Xbox features'' include before approval?} The onboarding guide says GDK development begins ``with limited XBOX features''~\cite{msJoinId} and documents only that publishing and achievements are excluded. How much of step 7 can start early depends entirely on the answer.
+  \item \textbf{Is two-player-local plus one-way spectator publishing ``synchronous network play'' under 10.13.2?} It decides whether the current spectator architecture survives as-is.
+  \item \textbf{Does \code{StringService} satisfy XR-018 for text pulled from a third-party community feed?} If so, moderation collapses from a project to an integration.
+\end{itemize}
+
+\section{Conclusion}
+
+The finding is not that the Store is hard. The finding is that the thing \game{} is made of is not accepted there, and that no amount of polish on the current build changes it. \code{xbox/native-bios} bought a working console game and a development loop that is genuinely good; it bought nothing toward distribution, and it never could have, because Microsoft closed UWP to Xbox Store games and did so without a deprecation notice, a migration guide, or a correction to the pages that still say otherwise.
+
+What is left is honest and not discouraging. Program fees are zero. The port is bounded and lands almost entirely in the platform layer --- the simulation, the geometry, the synthesis, and the script all cross unchanged, which is the same seam the web spectator already proved. Self-hosted multiplayer survives XR-067 intact. Accessibility is not a gate. And the requirement that looked most like an identity crisis, gamertags displacing \code{@handles}, has a sourced shape under XR-007 in which both survive and only the hierarchy changes.
+
+The right sequence is therefore not to argue with the console. It is to spend an hour measuring Edge on retail hardware --- because \game{} already runs at \code{oskiewar.com} for zero dollars and zero certification, and that may be the whole answer to ``people can play it on their own Xbox'' this week. Then bake the game into its own package, which is a day and is correct regardless. Then ship the PC build and learn certification for real on something that ships. ID@Xbox is worth doing, and it is a deliberate multi-month project with a permanent achievement design at the end of it. It is not a packaging step, and the most expensive mistake available here would be to treat it as one.
+
+% Set smaller so 26 dated, URL-bearing entries consolidate rather than
+% stranding a near-empty final column.
+\footnotesize
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

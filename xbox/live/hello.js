@@ -239,31 +239,12 @@ class FightCamDoll {
 const cameraDoll = new FightCamDoll();
 const cameraScale = () => (stageRight - stageLeft) / cameraDoll.width;
 let triangleDepth = -1.4;
-// A match frame submits ~2200 faces. One host call each is the whole frame
-// budget, and the BIOS already parks every triangle in a single end-of-frame
-// GPU pass — so ordering is untouched by buffering them here. 8192 is the
-// native per-frame ceiling and the per-call cap on `triangles3d`.
-const triangleBatch = typeof triangles3d === "function"
-  ? new Float32Array(8192 * 12) : null;
-let triangleBatchAt = 0;
-function batchTriangle(x1, y1, z1, x2, y2, z2, x3, y3, z3,
-  r = 255, g = 255, b = 255) {
-  const at = triangleBatchAt;
-  triangleBatch[at] = x1; triangleBatch[at + 1] = y1; triangleBatch[at + 2] = z1;
-  triangleBatch[at + 3] = x2; triangleBatch[at + 4] = y2; triangleBatch[at + 5] = z2;
-  triangleBatch[at + 6] = x3; triangleBatch[at + 7] = y3; triangleBatch[at + 8] = z3;
-  triangleBatch[at + 9] = r; triangleBatch[at + 10] = g; triangleBatch[at + 11] = b;
-  triangleBatchAt = at + 12;
-  if (triangleBatchAt === triangleBatch.length) flushTriangles();
-}
-function flushTriangles() {
-  if (!triangleBatchAt) return;
-  const count = triangleBatchAt / 12;
-  triangleBatchAt = 0; // Clear first so a rejected batch can't replay next frame.
-  triangles3d(triangleBatch, count);
-}
-const emitTriangle = triangleBatch ? batchTriangle
-  : typeof triangle3d === "function" ? triangle3d
+// A match frame submits ~2100 faces. Buffering them into a Float32Array first
+// cost 5.7ms a frame where handing each one straight over costs 1.8ms —
+// twelve typed-array element writes in QuickJS are dearer than twelve
+// arguments to one C call. The batched host call itself measured 0.05ms, so
+// the boundary crossing was never the expense.
+const emitTriangle = typeof triangle3d === "function" ? triangle3d
   : (x1, y1, z1, x2, y2, z2, x3, y3, z3, r, g, b) =>
     triangle(x1, y1, x2, y2, x3, y3, r, g, b);
 // r/g/b stay positional so the hottest path in the piece doesn't build a rest
@@ -273,8 +254,9 @@ function screenTriangle(x1, y1, x2, y2, x3, y3, r = 255, g = 255, b = 255) {
     x3, y3, triangleDepth, r, g, b);
 }
 function screenRect(x, y, width, height, color) {
-  screenTriangle(x, y, x + width, y, x + width, y + height, ...color);
-  screenTriangle(x, y, x + width, y + height, x, y + height, ...color);
+  const [r, g, b] = color;
+  screenTriangle(x, y, x + width, y, x + width, y + height, r, g, b);
+  screenTriangle(x, y, x + width, y + height, x, y + height, r, g, b);
 }
 function projectedTriangle(a, b, c, color) {
   emitTriangle(a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z, ...color);
@@ -306,15 +288,23 @@ const fighterRoster = [
     [130,204,213],[161,232,0],[253,122,2],[222,90,205]],
     mood: "i hope its not ai generated", lastChat: "meow" },
 ];
-const npcFighter = { handle: "DUMMY", color: [105, 125, 150],
-  colors: [[105,125,150],[135,155,180],[105,125,150]],
+// Per-glyph color is how a community @handle carries its owner's identity.
+// The house opponents are not people, so they hold one flat color each and
+// let the glyph walk fall back to it.
+const npcFighter = { handle: "DUMMY", color: [105, 125, 150], colors: [],
   mood: "TRAINING DUMMY · NO BOT AI", lastChat: "" };
-const botFighter = { handle: "BOT", color: [205, 48, 72],
-  colors: [[205,48,72],[255,102,92],[125,24,48]],
+const botFighter = { handle: "BOT", color: [205, 48, 72], colors: [],
   mood: "ANGRY TRAINING BOT", lastChat: "" };
-const peopleFighter = { handle: "PPL", color: [116, 122, 136],
-  colors: [[116,122,136],[136,142,154],[116,122,136]],
+const peopleFighter = { handle: "PPL", color: [116, 122, 136], colors: [],
   mood: "", lastChat: "" };
+// Self-play needs two nameplates nobody can mix up, or the result card reads
+// "BOT WINS" with no way to tell which bot won.
+const selfPlayFighters = [
+  { handle: "BOT 1", color: [205, 48, 72], colors: [],
+    mood: "MECHANICAL TEST · SELF PLAY", lastChat: "" },
+  { handle: "BOT 2", color: [48, 118, 205], colors: [],
+    mood: "MECHANICAL TEST · SELF PLAY", lastChat: "" },
+];
 
 function losAngelesSun() {
   const radians = Math.PI / 180;
@@ -366,6 +356,7 @@ const players = [
     heldBall: -1, grabHeld: false, crouchBlend: 0, standingOn: -1,
     partDamage: {}, removedParts: [], pogoHit: false, pogoDive: false,
     commandStream: [],
+    botPresses: {},
     jumpLaunchAt: 0, jumpPoseUntil: 0, landPoseUntil: 0,
     jumpHeld: false, hopUntil: 0, sinkUntil: 0,
     crouchJump: false, attackMomentum: 1 },
@@ -386,6 +377,7 @@ const players = [
     heldBall: -1, grabHeld: false, crouchBlend: 0, standingOn: -1,
     partDamage: {}, removedParts: [], pogoHit: false, pogoDive: false,
     commandStream: [],
+    botPresses: {},
     jumpLaunchAt: 0, jumpPoseUntil: 0, landPoseUntil: 0,
     jumpHeld: false, hopUntil: 0, sinkUntil: 0,
     crouchJump: false, attackMomentum: 1 },
@@ -424,6 +416,10 @@ const balls = [{ ...ballKinds[0], z: 0, vx: 0, vy: 0, rotation: 0,
 const ball = balls[0];
 let ballEnabled = true;
 let padSnapshots = [null, null];
+// The pad each fighter actually feels. A bot writes its synthesized presses
+// here, so the HUD, the debug read-out, the replay and the physics all read
+// bot input off the same wire as a hand on a controller.
+let inputPads = [null, null];
 let startedAt = 0;
 let roundStartedAt = 0;
 let lastSimAt = 0;
@@ -439,6 +435,9 @@ let nextPowerupAtUs = powerupIntervalUs;
 let powerupSequence = 0;
 let acFeed = {};
 let selecting = true;
+// Self-play is a harness mode: both fighters run the bot, no pad can enter or
+// leave it, and rounds roll over on their own.
+let selfPlay = false;
 const selectionReady = [false, false];
 const selectionPrevious = [[], []];
 let selectionStep = 0;
@@ -517,7 +516,8 @@ function trackMatchStarted() {
     input_family: ["gamepad", "keyboard", "xbox"].includes(family)
       ? family
       : "unknown",
-    opponent_type: players[1].bot ? "bot"
+    opponent_type: selfPlay ? "self-play"
+      : players[1].bot ? "bot"
       : players[1].npc ? "dummy" : "local-player",
   });
 }
@@ -1224,7 +1224,8 @@ function fighterProfile(handle) {
     : null;
   const fallback = handle === "DUMMY" ? npcFighter
     : handle === "BOT" ? botFighter
-    : fighterRoster.find((profile) => profile.handle === handle);
+    : selfPlayFighters.find((profile) => profile.handle === handle) ||
+      fighterRoster.find((profile) => profile.handle === handle);
   return {
     mood: live?.mood || (handle === "@JEFFREY" && acFeed.moodHandle === "@jeffrey"
       ? acFeed.mood : "") || fallback?.mood || "",
@@ -1237,7 +1238,8 @@ function fighterProfile(handle) {
 
 function applyRoster(player, index) {
   if (player.npc) {
-    const fighter = player.bot ? botFighter : npcFighter;
+    const fighter = selfPlay ? selfPlayFighters[player.pad]
+      : player.bot ? botFighter : npcFighter;
     player.rosterIndex = -1;
     player.name = fighter.handle;
     player.color = fighter.color.slice();
@@ -1292,6 +1294,24 @@ function returnToTitle(now, reason = "back") {
   telemetry("SHELL", "game->title " + reason + " " + now);
 }
 
+// A mechanical test drives both fighters with the same bot and says so on the
+// nameplates, instead of flying a handle nobody is holding. Entered through
+// `__oskiewarSelfPlay` before boot or by calling this — never from a button,
+// so normal play cannot fall into it.
+function startSelfPlay(now) {
+  selfPlay = true;
+  shellMode = "GAME";
+  selecting = false;
+  titleTransitionAt = null;
+  for (const player of players) {
+    player.npc = true;
+    player.bot = true;
+    player.rosterIndex = -1;
+  }
+  startReplay(now);
+  resetRound(now, true);
+}
+
 function returnToSelectPressed(now) {
   let pressed = false;
   for (let index = 0; index < padSnapshots.length; index++) {
@@ -1304,7 +1324,9 @@ function returnToSelectPressed(now) {
     if (down.includes("Menu") && !previous.includes("Menu")) pressed = true;
     navigationPrevious[index] = down.slice();
   }
-  if (!pressed || shellMode !== "GAME" || selecting) return false;
+  // Self-play has no title to return to — a stray Menu press would strand the
+  // loop on a screen nobody is there to start.
+  if (!pressed || selfPlay || shellMode !== "GAME" || selecting) return false;
   returnToTitle(now, "menu");
   return true;
 }
@@ -1366,7 +1388,10 @@ function chooseSelection(index, now) {
     applyRoster(players[0], option.rosterIndex);
     selectionReady[0] = true;
     selectionStep = 1;
-    selectionCursor = players[1].npc && !players[1].bot ? 1 : 0;
+    // The dummy is where a fight should start: it stands still and lets you
+    // learn the buttons. Picking the bot is a decision, not a default.
+    selectionCursor = Math.max(0,
+      selectionOptions().findIndex((option) => option.kind === "dummy"));
     playDrum("hat", .9, -.55);
     emitSignal("select", 0, option.rosterIndex, 0);
     return;
@@ -1398,10 +1423,10 @@ function selectionTouchLayout() {
   const count = selectionOptions().length;
   const compact = compactLayout();
   const centerX = viewCenterX();
-  const cardWidth = compact ? Math.min(236, viewWidth() * .42) : 520;
-  const cardHeight = compact ? 300 : 560;
-  const top = compact ? 200 : 240;
-  const sideScale = compact ? .5 : .62;
+  const cardWidth = compact ? Math.min(280, viewWidth() * .44) : 680;
+  const cardHeight = compact ? 360 : 720;
+  const top = compact ? 176 : 190;
+  const sideScale = compact ? .5 : .66;
   const reach = cardWidth * (1 + sideScale) / 2 + (compact ? 6 : 26);
   const slots = count > 2 ? [-1, 0, 1] : count > 1 ? [0, 1] : [0];
   return {
@@ -1709,6 +1734,10 @@ function gameBoot() {
     roundViewerStop = roundViewer.start(handleRoundViewer);
     return;
   }
+  if (globalThis.__oskiewarSelfPlay) {
+    startSelfPlay(startedAt);
+    return;
+  }
   beginSelect(startedAt);
 }
 
@@ -1792,18 +1821,21 @@ function resetRound(now, resetMatch = false) {
     player.sinkUntil = 0;
     player.crouchJump = false;
     player.attackMomentum = 1;
+    player.botPresses = {};
     player.botAttackAt = now + 420000;
     player.botItemAt = now + 600000;
     player.botSinkAt = now + 900000;
-    player.botSinkFrom = 0;
-    player.botAttackUntil = 0;
-    player.botAttackButton = "";
+    player.botSinkTaps = 0;
+    player.botSinkNextAt = 0;
     player.botAttackSequence = 0;
     player.botJumpAt = now + 900000;
     delete player.frozenGeometry;
     delete player.frozenAt;
     delete player.headBustedAt;
-    player.previous = padSnapshots[player.pad]?.down?.slice() || [];
+    // Only a hand can still be leaning on a button across the reset; a bot's
+    // presses were just cleared, so inheriting pad two would suppress them.
+    player.previous = player.npc || player.bot ? []
+      : padSnapshots[player.pad]?.down?.slice() || [];
     player.suppressedDirections = player.previous.filter((button) =>
       button.startsWith("Arrow"));
     player.lastButton = "NONE";
@@ -3251,10 +3283,57 @@ function updatePlayer(player, pad, dt, now) {
   updateStance(player, input, now);
 }
 
+// How long a bot leans on a button, per action rather than one house number.
+// A jump has to outlast the whole rise (1760 / 4800 ≈ .37s) or jumpCutScale
+// clips the arc to a third of its height and the platform goes out of reach;
+// a strike is a stab; a sink tap is half of a double-tap.
+const botHoldUs = {
+  walk: 90000, jump: 440000, sinkTap: 60000,
+  strike: 70000, shield: 120000, item: 110000,
+};
+// A press cannot reopen until it has been up this long, so `lastRelease`
+// always sees a real gap — that gap is what keeps dash, ultra jump and sink
+// readable from synthetic input. Four frames clears doubleTapReleaseUs even
+// when the release lands a frame late.
+const botRestUs = 66668;
+// A thumb cannot hold both ends of an axis, so opening one closes the other.
+const botAxis = { ArrowLeft: "ArrowRight", ArrowRight: "ArrowLeft",
+  ArrowUp: "ArrowDown", ArrowDown: "ArrowUp" };
+
+// The one door every synthetic press goes through. Pressing a button that is
+// already down extends it, so a pursuit reads as one lean instead of a
+// stutter; pressing one that is still resting is refused.
+function botPress(player, button, holdUs, now) {
+  const press = player.botPresses[button];
+  if (press && now < press.until) {
+    press.until = Math.max(press.until, now + holdUs);
+    return true;
+  }
+  if (press && now < press.until + botRestUs) return false;
+  const other = player.botPresses[botAxis[button]];
+  if (other && now < other.until) other.until = now;
+  player.botPresses[button] = { until: now + holdUs };
+  return true;
+}
+
+const botHeld = (player, button, now) =>
+  now < (player.botPresses[button]?.until || 0);
+
+function botDown(player, now) {
+  return Object.keys(player.botPresses)
+    .filter((button) => now < player.botPresses[button].until);
+}
+
 function botPad(player, opponent, now) {
-  const down = [];
-  if (!player.bot || !player.alive || !opponent.alive)
-    return { connected: true, down, leftX: 0, leftY: 0 };
+  if (!player.bot) {
+    player.botPresses = {};
+    return { connected: true, down: [], leftX: 0, leftY: 0 };
+  }
+  // Downed, or standing over a downed opponent, the bot opens nothing new —
+  // but presses already out still run their length instead of vanishing
+  // mid-hold, which would read as a poke.
+  if (!player.alive || !opponent.alive)
+    return { connected: true, down: botDown(player, now), leftX: 0, leftY: 0 };
 
   const dx = opponent.x - player.x;
   const distance = Math.abs(dx);
@@ -3262,47 +3341,48 @@ function botPad(player, opponent, now) {
   const opponentThreatening = opponent.attackKind &&
     now < opponent.attackUntil && distance < 245 &&
     opponent.facing === -toward;
+  const striking = botHeld(player, "A", now) || botHeld(player, "X", now);
 
-  if (opponentThreatening && now >= player.botAttackUntil) {
-    down.push("B");
-  } else {
+  if (opponentThreatening && !striking)
+    botPress(player, "B", botHoldUs.shield, now);
+  else {
     if (distance > 155)
-      down.push(toward > 0 ? "ArrowRight" : "ArrowLeft");
+      botPress(player, toward > 0 ? "ArrowRight" : "ArrowLeft",
+        botHoldUs.walk, now);
     // Items are ranged, so the bot spends them while closing rather than
     // trading one for a swing it could land anyway. The grenade needs its arc.
     const item = heldItem(player);
     if (item && now >= player.botItemAt &&
-        distance >= (item === "GUN" ? 320 : 1200)) {
-      down.push("Y");
+        distance >= (item === "GUN" ? 320 : 1200) &&
+        botPress(player, "Y", botHoldUs.item, now))
       player.botItemAt = now + 600000;
-    }
-    if (distance < 225 && now >= player.botAttackAt) {
-      player.botAttackButton = player.botAttackSequence++ % 2 ? "A" : "X";
-      player.botAttackUntil = now + 70000;
+    if (distance < 225 && now >= player.botAttackAt &&
+        botPress(player, player.botAttackSequence % 2 ? "A" : "X",
+          botHoldUs.strike, now)) {
+      player.botAttackSequence += 1;
       player.botAttackAt = now + 330000 + (player.botAttackSequence % 3) * 70000;
     }
-    if (now < player.botAttackUntil && player.botAttackButton)
-      down.push(player.botAttackButton);
   }
 
   if (player.grounded && opponent.y < player.y - 180 &&
-      now >= player.botJumpAt) {
-    down.push("ArrowUp");
+      now >= player.botJumpAt &&
+      botPress(player, "ArrowUp", botHoldUs.jump, now))
     player.botJumpAt = now + 1250000;
-  }
   // Knocked up onto the platform the bot would camp out of reach, so it plays
-  // the same double-tap-down a player would. The windows are wide enough that
-  // a dropped frame still samples each half of the tap.
+  // the same double-tap-down a player would: two real presses with a real
+  // release between them.
   if (player.grounded && player.standingOn < 0 && player.y < floorY - 40 &&
       opponent.y > player.y + 200 && now >= player.botSinkAt) {
     player.botSinkAt = now + 900000;
-    player.botSinkFrom = now;
+    player.botSinkTaps = 2;
+    player.botSinkNextAt = now;
   }
-  const sinkAge = player.botSinkFrom ? now - player.botSinkFrom : -1;
-  if (sinkAge >= 200000) player.botSinkFrom = 0;
-  else if (sinkAge >= 0 &&
-      (sinkAge < 50000 || sinkAge >= 150000)) down.push("ArrowDown");
-  return { connected: true, down, leftX: 0, leftY: 0 };
+  if (player.botSinkTaps > 0 && now >= player.botSinkNextAt &&
+      botPress(player, "ArrowDown", botHoldUs.sinkTap, now)) {
+    player.botSinkTaps -= 1;
+    player.botSinkNextAt = now + botHoldUs.sinkTap + botRestUs;
+  }
+  return { connected: true, down: botDown(player, now), leftX: 0, leftY: 0 };
 }
 
 function gameSim() {
@@ -3316,13 +3396,24 @@ function gameSim() {
   }
   padSnapshots[0] = gamepad(0);
   padSnapshots[1] = gamepad(1);
+  inputPads[0] = padSnapshots[0];
+  inputPads[1] = padSnapshots[1];
   if (!selecting && Array.isArray(globalThis.__oskiewarTouch?.taps))
     globalThis.__oskiewarTouch.taps.length = 0;
   if (returnToSelectPressed(now)) return;
+  if (shellMode === "MENU") {
+    updateShell(now);
+    return;
+  }
+  for (const player of players)
+    inputPads[player.pad] = player.bot
+      ? botPad(player, players[player.pad ? 0 : 1], now)
+      : player.npc ? { connected: true, down: [], leftX: 0, leftY: 0 }
+        : padSnapshots[player.pad];
   if (debugHitboxes && now >= nextInputDebugAt) {
     nextInputDebugAt = now + 500000;
     const values = players.map((player) => {
-      const pad = padSnapshots[player.pad];
+      const pad = inputPads[player.pad];
       const input = quantizedInput(pad, player.suppressedDirections);
       return "P" + (player.pad + 1) + " down=" +
         (pad.down.join("+") || "NONE") + " stick=" +
@@ -3332,16 +3423,7 @@ function gameSim() {
     });
     telemetry("FIGHT_INPUT", values.join(" | "));
   }
-  if (shellMode === "MENU") {
-    updateShell(now);
-    return;
-  }
-  const opponentPad = players[1].bot
-    ? botPad(players[1], players[0], now)
-    : players[1].npc
-      ? { connected: true, down: [], leftX: 0, leftY: 0 }
-      : padSnapshots[1];
-  recordReplayCommands(now, [padSnapshots[0], opponentPad]);
+  recordReplayCommands(now, inputPads);
   publishSpectator(now);
   if (roundResult) {
     if (instantReplay) {
@@ -3356,7 +3438,8 @@ function gameSim() {
     captureFrameTelemetry(now);
     const resultDuration = matchOver ? matchResultUs : roundResultUs;
     if (now - roundOverAt >= resultDuration) {
-      returnToTitle(now, "round-end");
+      if (selfPlay) startSelfPlay(now);
+      else returnToTitle(now, "round-end");
     }
     return;
   }
@@ -3382,8 +3465,8 @@ function gameSim() {
     }
   }
   updateWind(dt, now);
-  updatePlayer(players[0], padSnapshots[0], dt, now);
-  updatePlayer(players[1], opponentPad, dt, now);
+  updatePlayer(players[0], inputPads[0], dt, now);
+  updatePlayer(players[1], inputPads[1], dt, now);
   resolvePlayerStanding(now);
   resolvePlayerPushboxes();
   updatePowerups(now);
@@ -3426,24 +3509,38 @@ function circle(x, y, radius, width, color) {
 // unit ring is constant, so the trig runs once at load, and fanning from a rim
 // vertex covers the identical decagon in 8 faces instead of 10 from the center
 // (cull is off, depth is flat, colors are flat — the rasterized pixels match).
-const discRing = [];
-for (let side = 0; side < 10; side++) {
-  const a = side * Math.PI * 2 / 10;
-  discRing.push(Math.cos(a), Math.sin(a));
-}
+// A silhouette only has to be as fine as its size on screen. A limb cap a few
+// pixels across reads round at six sides; a head at ninety does not, and used
+// to show its corners. Rings are precomputed per step so no trig runs inside a
+// frame, and the small end is cheaper than the one fixed ring it replaces.
+const discRings = [6, 8, 12, 16, 24, 32].map((sides) => {
+  const ring = [];
+  for (let side = 0; side < sides; side++) {
+    const a = side * Math.PI * 2 / sides;
+    ring.push(Math.cos(a), Math.sin(a));
+  }
+  return ring;
+});
+const discRingFor = (radius) => discRings[
+  radius < 6 ? 0 : radius < 13 ? 1 : radius < 26 ? 2
+    : radius < 52 ? 3 : radius < 110 ? 4 : 5];
+
 function filledDisc(x, y, radius, color) {
-  const originX = x + discRing[0] * radius, originY = y + discRing[1] * radius;
-  let lastX = x + discRing[2] * radius, lastY = y + discRing[3] * radius;
-  for (let side = 4; side < discRing.length; side += 2) {
-    const nextX = x + discRing[side] * radius;
-    const nextY = y + discRing[side + 1] * radius;
-    screenTriangle(originX, originY, lastX, lastY, nextX, nextY, ...color);
+  const [r, g, b] = color;
+  const ring = discRingFor(radius);
+  const originX = x + ring[0] * radius, originY = y + ring[1] * radius;
+  let lastX = x + ring[2] * radius, lastY = y + ring[3] * radius;
+  for (let side = 4; side < ring.length; side += 2) {
+    const nextX = x + ring[side] * radius;
+    const nextY = y + ring[side + 1] * radius;
+    screenTriangle(originX, originY, lastX, lastY, nextX, nextY, r, g, b);
     lastX = nextX;
     lastY = nextY;
   }
 }
 
 function filledRing(x, y, outerRadius, innerRadius, color) {
+  const [r, g, b] = color;
   const sides = 14;
   const inner = Math.max(0, Math.min(outerRadius, innerRadius));
   for (let side = 0; side < sides; side++) {
@@ -3458,13 +3555,14 @@ function filledRing(x, y, outerRadius, innerRadius, color) {
     const innerB = { x: x + Math.cos(b) * inner,
       y: y + Math.sin(b) * inner };
     screenTriangle(outerA.x, outerA.y, innerA.x, innerA.y,
-      outerB.x, outerB.y, ...color);
+      outerB.x, outerB.y, r, g, b);
     screenTriangle(innerA.x, innerA.y, innerB.x, innerB.y,
-      outerB.x, outerB.y, ...color);
+      outerB.x, outerB.y, r, g, b);
   }
 }
 
 function filledCapsule(x1, y1, x2, y2, width, color) {
+  const [r, g, b] = color;
   const dx = x2 - x1;
   const dy = y2 - y1;
   const length = Math.hypot(dx, dy);
@@ -3476,9 +3574,9 @@ function filledCapsule(x1, y1, x2, y2, width, color) {
   const nx = -dy / length * radius;
   const ny = dx / length * radius;
   screenTriangle(x1 + nx, y1 + ny, x1 - nx, y1 - ny,
-    x2 + nx, y2 + ny, ...color);
+    x2 + nx, y2 + ny, r, g, b);
   screenTriangle(x1 - nx, y1 - ny, x2 - nx, y2 - ny,
-    x2 + nx, y2 + ny, ...color);
+    x2 + nx, y2 + ny, r, g, b);
   filledDisc(x1, y1, radius, color);
   filledDisc(x2, y2, radius, color);
 }
@@ -4296,6 +4394,7 @@ function controlLocale() {
   if (touch) return {
     title: "start", select: "", replayPaused: "paused",
     replayPlaying: "", replay: "",
+    combat: "A KICK   X PUNCH   B SHIELD   Y USE ITEM",
   };
   return keyboard ? {
     title: "start",
@@ -4303,13 +4402,24 @@ function controlLocale() {
     replayPaused: "PAUSED   F PLAY   A D SCRUB   G EXIT",
     replayPlaying: "F PAUSE   A D SCRUB   G EXIT",
     replay: "Q REPLAY",
+    combat: "SPACE KICK   B PUNCH   G SHIELD   V USE ITEM   W JUMP",
   } : {
     title: "start",
     select: "LEFT RIGHT SELECT     A READY     X P2 / DUMMY / BOT     B BACK",
     replayPaused: "PAUSED   A PLAY   LEFT RIGHT SCRUB   B EXIT",
     replayPlaying: "A PAUSE   LEFT RIGHT SCRUB   B EXIT",
     replay: "Y REPLAY",
+    combat: "A KICK   X PUNCH   B SHIELD   Y USE ITEM   UP JUMP",
   };
+}
+
+// What the buttons do, named on the way into a round. X changes meaning with
+// what the hand is carrying, so the legend reads the fighter rather than
+// reciting a fixed map.
+function combatLegend(player) {
+  const locale = controlLocale();
+  const swing = itemMelee[heldItem(player)];
+  return swing ? locale.combat.replace("PUNCH", swing) : locale.combat;
 }
 
 function drawHandle(handle, x, y, size, colors, fallback) {
@@ -4696,7 +4806,7 @@ function drawPlayerHandle(player, t, side) {
 }
 
 function playerStatLines(player) {
-  const pad = padSnapshots[player.pad] ||
+  const pad = inputPads[player.pad] ||
     { connected: false, down: [], leftX: 0, leftY: 0 };
   const input = quantizedInput(pad, player.suppressedDirections);
   const animation = fighterAnimationPhase(player,
@@ -4754,7 +4864,7 @@ function drawCommandStream(player, side) {
   const now = runtime().monotonicUs;
   const idle = now - (player.commandStream.at(-1)?.at || now);
   const bufferFade = clamp(1 - Math.max(0, idle - 150000) / 1200000, 0, 1);
-  const held = padSnapshots[player.pad]?.down || [];
+  const held = inputPads[player.pad]?.down || [];
   const entries = player.commandStream.map((entry) => ({ ...entry,
     text: glyph[entry.label] || entry.label,
     fade: bufferFade,
@@ -5215,14 +5325,12 @@ function drawSelectionScreen(t, ink, panel) {
     const disabled = Boolean(option.disabled);
     const hovered = !disabled && hover?.option === rect.index;
     const focused = !disabled && rect.slot === 0;
-    const emphasis = hovered ? .34 : focused ? .22 : .07;
     const disabledInk = mixColor([74, 80, 96], [164, 168, 178],
       visualTheme.light);
     const optionColor = disabled ? disabledInk : option.fighter.color;
-    box(rect.x, rect.y, rect.width, rect.height,
-      ...mixColor(panel, optionColor, disabled ? .12 : emphasis));
-    box(rect.x, rect.y, rect.width, hovered ? 10 : focused ? 7 : 3,
-      ...optionColor);
+    if (hovered || focused)
+      box(rect.x, rect.y + rect.height - (hovered ? 8 : 5), rect.width,
+        hovered ? 8 : 5, ...optionColor);
     const scale = rect.height / 520 * 1.05;
     const portraitY = rect.y + rect.height * (compact ? .55 : .53);
     drawSelectPortrait(player, rect.x + rect.width / 2, portraitY, scale, t);
@@ -5458,11 +5566,16 @@ function drawSpectatorQr(ink) {
   triangleDepth = -1.43;
   screenRect(left + 3, top + 3, size, size, shadow);
   screenRect(left, top, size, size, [250, 250, 247]);
+  // Dark modules coalesce into horizontal runs so a full code stays a few
+  // dozen faces instead of a few hundred — drawErrorQr already draws this way.
+  const dark = [7, 8, 14];
   for (let row = 0; row < count; row++) {
-    for (let column = 0; column < count; column++) {
-      if (spectatorQr.isDark(row, column))
-        screenRect(left + (column + quiet) * cell,
-          top + (row + quiet) * cell, cell, cell, [7, 8, 14]);
+    let run = 0;
+    for (let column = 0; column <= count; column++) {
+      if (column < count && spectatorQr.isDark(row, column)) { run++; continue; }
+      if (run) screenRect(left + (column - run + quiet) * cell,
+        top + (row + quiet) * cell, run * cell, cell, dark);
+      run = 0;
     }
   }
   triangleDepth = previousDepth;
@@ -5713,6 +5826,12 @@ function gamePaint() {
   if (!roundResult && introAge < introDurationUs) {
     const introSeconds = introAge / 1000000;
     drawFightIntro(introSeconds, titleInk, statusShadow);
+    const legend = combatLegend(players[0]);
+    const legendWidth = handleWidth(legend, 24);
+    const legendY = Math.min(viewHeight - 54, stageBottom + 18);
+    typeWrite(legend, viewCenterX() - legendWidth / 2 + 3, legendY + 3, 24,
+      ...statusShadow);
+    typeWrite(legend, viewCenterX() - legendWidth / 2, legendY, 24, ...titleInk);
   }
   const resultUiReady = cinematicAge < 0 || cinematicAge >= 1.1;
   if (roundResult && resultUiReady) {
@@ -5783,20 +5902,17 @@ function sim() {
   }
 }
 
-// The batch flushes inside the guards so a face the host rejects still lands
-// on the error card instead of escaping paint entirely.
 function paint() {
   if (clientError) {
-    try { drawClientError(); flushTriangles(); }
+    try { drawClientError(); }
     catch (_) { drawClientErrorFallback(); }
     return;
   }
   try {
     gamePaint();
-    flushTriangles();
   } catch (error) {
     captureClientError("paint", error);
-    try { drawClientError(); flushTriangles(); }
+    try { drawClientError(); }
     catch (_) { drawClientErrorFallback(); }
   }
 }

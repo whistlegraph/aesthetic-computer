@@ -305,6 +305,11 @@ const PAPER_MAP = {
     siteName: "oskiewar-26-arxiv",
     title: "oskiewar",
   },
+  "arxiv-oskiewar-store": {
+    base: "store",
+    siteName: "oskiewar-store-26-arxiv",
+    title: "The Door Is Shut: oskiewar and the Retail Xbox Store",
+  },
   "arxiv-penrose": {
     base: "penrose",
     siteName: "diagrams-from-data-26-arxiv",
@@ -481,6 +486,7 @@ const CATEGORIES = [
       "arxiv-pieces",
       "arxiv-notepat",
       "arxiv-oskiewar",
+      "arxiv-oskiewar-store",
       "arxiv-cal",
       "arxiv-kidlisp-reference",
       "arxiv-kidlisp-cards",

@@ -75,7 +75,7 @@ function createFight(startImmediately = true, enterGame = true,
   const drawLine = (...values) => lines.push(values);
   const fight = new Function(
     "runtime", "gamepad", "capabilities", "telemetry", "gameSignal", "saveReplay", "publishLive", "analytics", "drum", "wipe", "box", "line", "triangle", "triangle3d", "triangles3d", "write", "systemWrite", "gameView",
-    `${source}\nreturn { boot, sim, paint, playDrum, captureClientError, drawDetachedPart, clientErrorState: () => clientError, clientErrorDetailState: () => clientErrorDetail, errorReportStatus, errorRestartSeconds, runShadow, glyphColor, contrastShadow, stateDumpRows, dumpTokens, dumpTokenInk, clientErrorDumpState: () => ({ url: clientErrorDumpUrl, modules: clientErrorQr ? clientErrorQr.getModuleCount() : 0 }), controlLocale, animatedTitleColor, comicGlyphAdvance, handleWidth, displayTheme, players, ball, balls, bullets, grenades, gunPickups, grenadePickups, detachedParts, runnerWorldGeometry, fighterAnimationPhase, runnerDistanceToPoint, segmentSegmentClosest, meleeLimbContact, damagePart, isPogo, isHeadOnly, resultCardText, pacificTimeLabel, projectedBallRadius, deathCinematicState: () => deathCinematic ? { ...deathCinematic, age: deathCinematicAge() } : null, disableBall: () => { ballEnabled = false; for (const item of balls) item.active = false; }, enableBall: (index = 0) => { ballEnabled = true; const item = balls[index]; item.active = true; item.serveAt = 0; item.safeUntil = 0; item.safePlayers = 0; }, setWind: (value) => { windAcceleration = value; }, setDebugHitboxes: (value) => { debugHitboxes = Boolean(value); }, debugState: () => debugHitboxes, windState: () => ({ direction: windDirection, mph: windMph }), nextRound: () => resetRound(runtime().monotonicUs, false), knockOut: () => killPlayer(players[1], 0, runtime().monotonicUs, "KO"), startAttack: (kind) => startMelee(players[0], kind, runtime().monotonicUs), bootFirstBall: () => bootBall(ball, players[0], runtime().monotonicUs), wackBall: () => { players[0].attackKind = "KICK"; returnBall(ball, players[0], runtime().monotonicUs, false); }, shieldBall: () => returnBall(ball, players[0], runtime().monotonicUs, true), crossWackBall: (contact = 1) => crossWackBall(ball, players.map((player) => ({ player, contact })), runtime().monotonicUs), enterGame: () => enterGame(runtime().monotonicUs), shellState: () => ({ mode: shellMode }), startFight: () => { shellMode = "GAME"; selecting = false; startReplay(runtime().monotonicUs); matchBallType = "soccer"; resetRound(runtime().monotonicUs, true); }, selectionState: () => ({ selecting, step: selectionStep, cursor: selectionCursor, ready: selectionReady.slice() }), selectionOptions: () => selectionOptions().map((option) => ({ kind: option.kind, label: option.fighter.handle, disabled: Boolean(option.disabled) })), cameraState: () => ({ cameraWidth, cameraCenter, cameraCenterY, cameraAspect, stageRight, stageTop, stageBottom, viewHeight, cameraContainFloor, doll: { width: cameraDoll.width, target: { ...cameraDoll.target }, position: { ...cameraDoll.position }, perspective: cameraDoll.perspective, roll: cameraDoll.roll } }), screenBounds: () => players.map((player) => runnerScreenBounds(player, runtime().monotonicUs / 1e6)), dumpTokens, dumpTokenInk, drawCornerCrops, playerStatLines, playerHandleLayout, statStackHeight, setBallKind: (type) => { matchBallType = type; resetBalls(runtime().monotonicUs); }, ballTypeState: () => matchBallType, seriesBallType, seriesState: () => seriesName, selectionLayout: selectionTouchLayout, actionSafeRect, hudSafeRect, projectPoint, terrainSpan, stageGeometry: () => ({ platformY, platformLeft, platformRight, floorY, ceilingY, worldLeft, worldRight, worldNear, worldFar }), frameRect: () => fighterFrameRect(), roundState: () => ({ roundResult, roundElapsedUs, matchOver }), viewerState: () => ({ active: Boolean(roundViewer), mode: roundViewerMode, status: roundViewerStatus, name: matchName }), instantReplayState: () => instantReplay ? { active: true, paused: instantReplay.paused, cursor: instantReplay.cursor, frames: instantReplay.frames.length } : { active: false }, replayFrameCount: () => roundReplayFrames.length };`
+    `${source}\nreturn { boot, sim, paint, playDrum, captureClientError, drawDetachedPart, clientErrorState: () => clientError, clientErrorDetailState: () => clientErrorDetail, errorReportStatus, errorRestartSeconds, combatLegend, filledDisc, runShadow, glyphColor, contrastShadow, stateDumpRows, dumpTokens, dumpTokenInk, clientErrorDumpState: () => ({ url: clientErrorDumpUrl, modules: clientErrorQr ? clientErrorQr.getModuleCount() : 0 }), controlLocale, animatedTitleColor, comicGlyphAdvance, handleWidth, displayTheme, players, ball, balls, bullets, grenades, gunPickups, grenadePickups, detachedParts, runnerWorldGeometry, fighterAnimationPhase, runnerDistanceToPoint, segmentSegmentClosest, meleeLimbContact, damagePart, isPogo, isHeadOnly, resultCardText, pacificTimeLabel, projectedBallRadius, deathCinematicState: () => deathCinematic ? { ...deathCinematic, age: deathCinematicAge() } : null, disableBall: () => { ballEnabled = false; for (const item of balls) item.active = false; }, enableBall: (index = 0) => { ballEnabled = true; const item = balls[index]; item.active = true; item.serveAt = 0; item.safeUntil = 0; item.safePlayers = 0; }, setWind: (value) => { windAcceleration = value; }, setDebugHitboxes: (value) => { debugHitboxes = Boolean(value); }, debugState: () => debugHitboxes, windState: () => ({ direction: windDirection, mph: windMph }), nextRound: () => resetRound(runtime().monotonicUs, false), knockOut: () => killPlayer(players[1], 0, runtime().monotonicUs, "KO"), startAttack: (kind) => startMelee(players[0], kind, runtime().monotonicUs), bootFirstBall: () => bootBall(ball, players[0], runtime().monotonicUs), wackBall: () => { players[0].attackKind = "KICK"; returnBall(ball, players[0], runtime().monotonicUs, false); }, shieldBall: () => returnBall(ball, players[0], runtime().monotonicUs, true), crossWackBall: (contact = 1) => crossWackBall(ball, players.map((player) => ({ player, contact })), runtime().monotonicUs), enterGame: () => enterGame(runtime().monotonicUs), shellState: () => ({ mode: shellMode }), startFight: () => { shellMode = "GAME"; selecting = false; startReplay(runtime().monotonicUs); matchBallType = "soccer"; resetRound(runtime().monotonicUs, true); }, selectionState: () => ({ selecting, step: selectionStep, cursor: selectionCursor, ready: selectionReady.slice() }), selectionOptions: () => selectionOptions().map((option) => ({ kind: option.kind, label: option.fighter.handle, disabled: Boolean(option.disabled) })), cameraState: () => ({ cameraWidth, cameraCenter, cameraCenterY, cameraAspect, stageRight, stageTop, stageBottom, viewHeight, cameraContainFloor, doll: { width: cameraDoll.width, target: { ...cameraDoll.target }, position: { ...cameraDoll.position }, perspective: cameraDoll.perspective, roll: cameraDoll.roll } }), screenBounds: () => players.map((player) => runnerScreenBounds(player, runtime().monotonicUs / 1e6)), dumpTokens, dumpTokenInk, drawCornerCrops, playerStatLines, playerHandleLayout, statStackHeight, setBallKind: (type) => { matchBallType = type; resetBalls(runtime().monotonicUs); }, ballTypeState: () => matchBallType, seriesBallType, seriesState: () => seriesName, selectionLayout: selectionTouchLayout, actionSafeRect, hudSafeRect, projectPoint, terrainSpan, stageGeometry: () => ({ platformY, platformLeft, platformRight, floorY, ceilingY, worldLeft, worldRight, worldNear, worldFar }), frameRect: () => fighterFrameRect(), roundState: () => ({ roundResult, roundElapsedUs, matchOver }), viewerState: () => ({ active: Boolean(roundViewer), mode: roundViewerMode, status: roundViewerStatus, name: matchName }), instantReplayState: () => instantReplay ? { active: true, paused: instantReplay.paused, cursor: instantReplay.cursor, frames: instantReplay.frames.length } : { active: false }, replayFrameCount: () => roundReplayFrames.length, inputPadDown: (index) => inputPads[index]?.down?.slice() || [], startSelfPlay: () => startSelfPlay(runtime().monotonicUs), selfPlayState: () => selfPlay };`
   )(
     () => ({ monotonicUs: now, unixMs: 1785870000000 + Math.floor(now / 1000),
       simCount: Math.floor(now / 16667), paintCount: 0,
@@ -163,10 +163,43 @@ test("desktop space kicks and B punches whatever the fighter carries", () => {
 });
 
 test("web touch labels follow the current combat mapping", () => {
-  assert.match(webShell, /data-key="A" aria-label="kick or fire"/);
-  assert.match(webShell, /data-key="X" aria-label="punch"/);
+  assert.match(webShell, /data-key="A" aria-label="kick"/);
+  assert.match(webShell, /data-key="X" aria-label="punch, or swing what you hold"/);
   assert.match(webShell, /data-key="B" aria-label="shield"/);
-  assert.match(webShell, /data-key="Y" aria-label="grenade or replay"/);
+  assert.match(webShell, /data-key="Y" aria-label="use item"/);
+});
+
+test("every combat button is reachable from a keyboard on both pads", () => {
+  const keymap = /const keyMap = new Map\(\[([\s\S]*?)\]\);/.exec(webShell)[1];
+  const bound = [...keymap.matchAll(/\[(\d), "([A-Za-z]+)"\]/g)]
+    .reduce((pads, [, pad, button]) => {
+      (pads[pad] ||= new Set()).add(button);
+      return pads;
+    }, {});
+  // Y is the item button; before this it had no key at all and the action
+  // was unreachable in the browser.
+  for (const pad of ["0", "1"])
+    for (const button of ["A", "B", "X", "Y", "ArrowUp", "ArrowDown",
+      "ArrowLeft", "ArrowRight"])
+      assert.ok(bound[pad]?.has(button),
+        `pad ${Number(pad) + 1} cannot press ${button}`);
+});
+
+test("the round intro names what each button does", () => {
+  const { fight } = createFight(false, false);
+  const locale = fight.controlLocale();
+  for (const action of ["KICK", "PUNCH", "SHIELD", "USE ITEM"])
+    assert.match(locale.combat, new RegExp(action));
+  // X reads as whatever the hand is carrying.
+  const player = fight.players[0];
+  player.gunAmmo = 3;
+  assert.match(fight.combatLegend(player), /WHIP/);
+  assert.doesNotMatch(fight.combatLegend(player), /PUNCH/);
+  player.gunAmmo = 0;
+  player.grenadeAmmo = 2;
+  assert.match(fight.combatLegend(player), /BASH/);
+  player.grenadeAmmo = 0;
+  assert.match(fight.combatLegend(player), /PUNCH/);
 });
 
 test("web canvas forwards touch coordinates to the fighter selector", () => {
@@ -190,8 +223,7 @@ test("web selector uses the AC precise cursor and mouse hover bridge", () => {
   assert.match(uiSource, /event\?\.cursor\?\.\(hoveredButtons\.size \? "active" : "precise"\)/);
   assert.doesNotMatch(webShell, /if \(!touchEnabled\) return;/);
   assert.match(source, /function selectionHover\(/);
-  assert.match(source, /const emphasis = hovered \? \.34 : focused \? \.22 : \.07/);
-  assert.match(source, /box\(rect\.x, rect\.y, rect\.width, hovered \? 10 : focused \? 7 : 3/);
+  assert.match(source, /box\(rect\.x, rect\.y \+ rect\.height - \(hovered \? 8 : 5\)/);
 });
 
 test("web relayout observes live viewport element resizing", () => {
@@ -953,11 +985,11 @@ test("opponent selection offers only bot, dummy, and disabled ppl", () => {
     { kind: "dummy", label: "DUMMY", disabled: false },
     { kind: "people", label: "PPL", disabled: true },
   ]);
-  tap(0, "ArrowLeft");
+  // The wheel opens on the dummy and turns off it in either direction.
   assert.equal(fight.selectionState().cursor, 1);
-  tap(0, "ArrowRight");
-  assert.equal(fight.selectionState().cursor, 0);
   tap(0, "ArrowLeft");
+  assert.equal(fight.selectionState().cursor, 0);
+  tap(0, "ArrowRight");
   assert.equal(fight.selectionState().cursor, 1);
   tap(0, "A");
   assert.equal(fight.players[1].name, "DUMMY");
@@ -1054,7 +1086,11 @@ test("bot is a direct opponent choice instead of a hidden mode cycle", () => {
   const { fight, tap } = createFight(false);
   tap(0, "A");
   assert.equal(fight.selectionState().step, 1);
-  assert.equal(fight.selectionState().cursor, 0);
+  // The dummy holds the default slot, so the bot is one deliberate turn away.
+  const options = fight.selectionOptions();
+  assert.equal(options[fight.selectionState().cursor].label, "DUMMY");
+  while (options[fight.selectionState().cursor].label !== "BOT")
+    tap(0, "ArrowRight");
   tap(0, "A");
   assert.equal(fight.players[1].name, "BOT");
   assert.equal(fight.players[1].npc, true);
@@ -1077,6 +1113,220 @@ test("bot uses the player input and physics path to pursue and strike", () => {
   bot.botAttackAt = 0;
   tick();
   assert.ok(bot.attackKind === "PUNCH" || bot.attackKind === "KICK");
+});
+
+// Every unbroken run of a held bot button, in frames, on both pads at once.
+// A synthetic press only reads as human if it has a length and a release.
+function botPressRuns(harness, frames) {
+  const runs = [];
+  const open = [new Map(), new Map()];
+  for (let frame = 0; frame < frames; frame++) {
+    harness.tick();
+    for (const pad of [0, 1]) {
+      const down = harness.fight.inputPadDown(pad);
+      for (const button of down)
+        if (!open[pad].has(button))
+          open[pad].set(button, { pad, button, start: frame, frames: 0 });
+      for (const [button, run] of [...open[pad]]) {
+        if (down.includes(button)) run.frames += 1;
+        else {
+          runs.push(run);
+          open[pad].delete(button);
+        }
+      }
+    }
+  }
+  return runs;
+}
+
+test("a bot holds its jump long enough to land on the platform it chases", () => {
+  const harness = createFight();
+  const { fight, tick } = harness;
+  const stage = fight.stageGeometry();
+  const bot = fight.players[1];
+  const chased = fight.players[0];
+  bot.npc = true;
+  bot.bot = true;
+  bot.name = "BOT";
+  bot.x = 6000;
+  bot.botJumpAt = 0;
+  let upFrames = 0;
+  let landed = false;
+  for (let frame = 0; frame < 90; frame++) {
+    // Park the chased fighter on the ledge so the bot has a reason to climb.
+    chased.x = 6000;
+    chased.y = stage.platformY;
+    chased.vy = 0;
+    chased.grounded = true;
+    tick();
+    if (fight.inputPadDown(1).includes("ArrowUp")) upFrames += 1;
+    if (bot.grounded && bot.y <= stage.platformY + .5) landed = true;
+  }
+  // A one-frame up is always a cut jump, and a cut jump tops out around 109
+  // against a 240 ledge — the bot could never get there.
+  assert.ok(upFrames >= 24, `up was held for only ${upFrames} frames`);
+  assert.ok(landed, "the bot never reached the platform");
+  assert.ok(stage.floorY - stage.platformY > 200);
+});
+
+test("every synthetic press has a human hold and a clean release", () => {
+  const harness = createFight(false, false);
+  harness.fight.startSelfPlay();
+  harness.fight.disableBall();
+  harness.tick(3000001);
+  const runs = botPressRuns(harness, 480);
+  assert.ok(runs.length > 12, `only ${runs.length} bot presses in eight seconds`);
+  for (const run of runs)
+    assert.ok(run.frames >= 4,
+      `${run.button} on pad ${run.pad + 1} was held ${run.frames} frame(s)`);
+  // Double-tap detection reads `lastRelease`, so a re-press always leaves a
+  // gap the sampler can see.
+  for (const pad of [0, 1])
+    for (const button of new Set(runs.map((run) => run.button))) {
+      const same = runs.filter((run) => run.pad === pad && run.button === button);
+      for (let index = 1; index < same.length; index++) {
+        const gap = same[index].start -
+          (same[index - 1].start + same[index - 1].frames);
+        assert.ok(gap >= 3,
+          `${button} reopened after only ${gap} frame(s) up`);
+      }
+    }
+  // Lengths are per action, not one house number: a stab is short and fixed,
+  // a shield leans, and a pursuit renews for as long as it is chasing.
+  const lengths = (buttons) => runs
+    .filter((run) => buttons.includes(run.button)).map((run) => run.frames);
+  const strikes = lengths(["A", "X"]);
+  const shields = lengths(["B"]);
+  const walks = lengths(["ArrowLeft", "ArrowRight"]);
+  assert.ok(strikes.length && shields.length && walks.length,
+    "the bots never struck, shielded, and chased in the same run");
+  assert.deepEqual([...new Set(strikes)], [5], "a stab is one fixed length");
+  assert.ok(Math.min(...shields) > Math.max(...strikes),
+    "a shield should outlast a stab");
+  assert.ok(Math.max(...walks) > Math.min(...walks),
+    "a pursuit should renew rather than repeat one canned length");
+});
+
+test("bot presses reach the HUD command stream and the input read-out", () => {
+  const { fight, pads, tick } = createFight();
+  const bot = fight.players[1];
+  bot.npc = true;
+  bot.bot = true;
+  bot.name = "BOT";
+  fight.players[0].x = 5000;
+  assert.deepEqual(pads[1].down, [], "nothing is plugged into pad two");
+  for (let frame = 0; frame < 30; frame++) tick();
+  const down = fight.inputPadDown(1);
+  assert.ok(down.length > 0, "the pad the bot fighter feels reports nothing");
+  assert.ok(bot.commandStream.some((entry) => entry.label === "LEFT"));
+  assert.notEqual(bot.lastButton, "NONE");
+  // drawCommandStream lights an entry only while its button is still down and
+  // reads that from the same pad the fighter feels.
+  const buttonFor = { LEFT: "ArrowLeft", RIGHT: "ArrowRight",
+    UP: "ArrowUp", DOWN: "ArrowDown" };
+  assert.ok(bot.commandStream.some((entry) =>
+    down.includes(buttonFor[entry.label] || entry.label)),
+    "no bot press was ever drawn as held");
+  assert.doesNotThrow(() => fight.paint());
+});
+
+test("two fresh bot-versus-bot sims move and press identically", () => {
+  const run = () => {
+    const harness = createFight(false, false);
+    harness.fight.startSelfPlay();
+    harness.fight.disableBall();
+    harness.tick(3000001);
+    const trace = [];
+    for (let frame = 0; frame < 300; frame++) {
+      harness.tick();
+      trace.push([harness.fight.inputPadDown(0).join("+"),
+        harness.fight.inputPadDown(1).join("+"),
+        ...harness.fight.players.map((player) => [
+          Math.round(player.x * 1000), Math.round(player.y * 1000),
+          Math.round(player.vx * 1000), Math.round(player.vy * 1000),
+          player.stance, player.lastButton, player.score])]);
+    }
+    return JSON.stringify(trace);
+  };
+  assert.equal(run(), run());
+});
+
+test("self play runs bot against bot and says so on both nameplates", () => {
+  const { fight, tick } = createFight(false, false);
+  assert.equal(fight.selfPlayState(), false);
+  fight.startSelfPlay();
+  tick(3000001);
+  assert.equal(fight.selfPlayState(), true);
+  assert.equal(fight.shellState().mode, "GAME");
+  assert.equal(fight.selectionState().selecting, false);
+  for (const player of fight.players) {
+    assert.equal(player.bot, true);
+    assert.equal(player.npc, true);
+  }
+  assert.deepEqual(fight.players.map((player) => player.name),
+    ["BOT 1", "BOT 2"]);
+  assert.ok(!fight.players.some((player) => player.name.startsWith("@")),
+    "a mechanical test must not fly a handle nobody is holding");
+  assert.notDeepEqual(fight.players[0].color, fight.players[1].color);
+  // Both sides are really driven, not just relabelled.
+  for (let frame = 0; frame < 120; frame++) tick();
+  for (const pad of [0, 1])
+    assert.ok(fight.players[pad].commandStream.length > 0,
+      `pad ${pad + 1} never pressed anything`);
+  assert.doesNotThrow(() => fight.paint());
+});
+
+test("self play rolls rounds over forever with nobody at the controls", () => {
+  const { fight, replays, tick } = createFight(false, false);
+  fight.startSelfPlay();
+  fight.disableBall();
+  tick(3000001);
+  const results = [];
+  let previous = "";
+  // Two full thirty-second rounds and the gaps around them.
+  for (let frame = 0; frame < 2400; frame++) {
+    tick(40000);
+    const result = fight.roundState().roundResult;
+    if (result && result !== previous) results.push(result);
+    previous = result;
+    // A title screen would end the run: nobody is there to press start.
+    assert.notEqual(fight.shellState().mode, "MENU");
+  }
+  assert.ok(results.length >= 2, `only ${results.length} rounds finished`);
+  for (const result of results) assert.match(result, /^(BOT [12] WINS|TIE)/);
+  assert.equal(fight.roundState().roundResult, "");
+  assert.equal(fight.selfPlayState(), true);
+  assert.ok(replays.length >= 1, "self play never published a round");
+  assert.deepEqual(fight.players.map((player) => player.name),
+    ["BOT 1", "BOT 2"]);
+});
+
+test("self play cannot be reached by pressing through normal selection", () => {
+  const { fight, tap } = createFight(false);
+  for (const step of [0, 1])
+    for (let turn = 0; turn < 5; turn++) {
+      tap(0, "ArrowRight");
+      assert.equal(fight.selfPlayState(), false, `step ${step} turn ${turn}`);
+    }
+  tap(0, "A");
+  tap(0, "A");
+  assert.equal(fight.selfPlayState(), false);
+  assert.equal(fight.players[0].name.startsWith("@"), true);
+});
+
+test("a harness can arm self play before boot", () => {
+  globalThis.__oskiewarSelfPlay = true;
+  try {
+    const { fight, tick } = createFight(false, false);
+    tick();
+    assert.equal(fight.selfPlayState(), true);
+    assert.equal(fight.shellState().mode, "GAME");
+    assert.deepEqual(fight.players.map((player) => player.name),
+      ["BOT 1", "BOT 2"]);
+  } finally {
+    delete globalThis.__oskiewarSelfPlay;
+  }
+  assert.equal(createFight(false, false).fight.selfPlayState(), false);
 });
 
 test("perspective intro never submits invalid ground triangles", () => {
@@ -1937,8 +2187,24 @@ test("a bot stranded on the platform sinks back into reach", () => {
   for (let frame = 0; frame < 200 && !bot.grounded; frame++) tick();
   const platformY = bot.y;
   assert.ok(platformY < 12000);
-  for (let frame = 0; frame < 120 && bot.y <= platformY; frame++) tick();
-  assert.ok(bot.y > platformY, "the bot should drop off the platform on its own");
+  // The sink is a double-tap, so it has to arrive as two separate presses
+  // with a gap `lastRelease` can see — not one long hold.
+  const taps = [];
+  let held = 0;
+  let dropped = false;
+  for (let frame = 0; frame < 120; frame++) {
+    tick();
+    if (fight.inputPadDown(1).includes("ArrowDown")) held += 1;
+    else if (held) {
+      taps.push(held);
+      held = 0;
+    }
+    dropped ||= bot.y > platformY;
+  }
+  assert.ok(dropped, "the bot should drop off the platform on its own");
+  assert.ok(taps.length >= 2, `the sink used ${taps.length} press(es)`);
+  for (const tap of taps)
+    assert.ok(tap >= 3 && tap <= 6, `a sink tap ran ${tap} frames`);
 });
 
 test("hit detection follows the animated runner geometry", () => {
@@ -2017,9 +2283,13 @@ test("the match ball kind is seeded on the series, never the clock", () => {
 test("one ball kind survives every round of the same match", () => {
   const { fight, tap } = createFight(false);
   tap(0, "A");
+  // A dummy round is training and carries no series, so a match needs the bot.
+  const options = fight.selectionOptions();
+  while (options[fight.selectionState().cursor].label !== "BOT")
+    tap(0, "ArrowRight");
   tap(0, "A");
   const series = fight.seriesState();
-  assert.ok(series);
+  assert.ok(series, "the bot opponent should start a series");
   assert.equal(fight.ball.type, fight.seriesBallType(series));
   fight.nextRound();
   assert.equal(fight.balls.length, 1);
@@ -2400,72 +2670,61 @@ function litterDetachedParts(fight, count) {
     });
 }
 
-test("the batched host receives the same face stream as the per-face host", () => {
-  const [plain, batched] = stillFrame(() => {
-    const pair = [createFight(), batchedFight()];
-    for (const host of pair) { host.triangles.length = 0; host.fight.paint(); }
-    return pair;
-  });
-  assert.ok(batched.triangles.length > 1000);
-  assert.equal(batched.batches.length, 1);
-  assert.equal(batched.batches[0].count, batched.triangles.length);
-  assert.deepEqual(batched.triangles, plain.triangles.map(asFloat32));
-});
-
-test("one paint crosses the host boundary once through one reused buffer", () => {
-  const { fight, batches } = batchedFight();
-  batches.length = 0;
-  for (let frame = 0; frame < 4; frame++) fight.paint();
-  assert.equal(batches.length, 4);
-  assert.ok(batches.every((entry) => entry.buffer === batches[0].buffer));
-  assert.equal(batches[0].buffer.length, 8192 * 12);
-});
-
-test("a paint past the host cap flushes mid-frame and keeps every face in order", () => {
-  const [plain, batched] = stillFrame(() => {
-    const pair = [createFight(), batchedFight()];
-    for (const host of pair) {
-      litterDetachedParts(host.fight, 300);
-      host.triangles.length = 0;
-      host.batches.length = 0;
-      host.fight.paint();
-    }
-    return pair;
-  });
-  assert.ok(plain.triangles.length > 8192);
-  assert.equal(batched.batches.length, 2);
-  assert.equal(batched.batches[0].count, 8192);
-  assert.deepEqual(batched.triangles, plain.triangles.map(asFloat32));
-});
-
 test("capsule ends fan from the rim instead of the center", () => {
   const { fight, triangles } = createFight();
   fight.paint();
   triangles.length = 0;
   fight.drawDetachedPart({ x1: 5200, y1: 9000, z1: 0,
     x2: 5320, y2: 9200, z2: 0, width: 44, color: [180, 90, 60] });
-  // Silhouette pass + color pass, each 2 body faces and two 8-face decagons.
-  assert.equal(triangles.length, 2 * (2 + 8 + 8));
+  // Silhouette pass + color pass, each 2 body faces and two end caps whose
+  // face count follows the cap radius rather than a fixed ring.
+  const caps = (triangles.length / 2 - 2) / 2;
+  assert.equal(triangles.length, 2 * (2 + caps * 2));
   const uses = new Map();
   for (const values of triangles)
     for (let at = 0; at < 9; at += 3) {
       const key = `${values[at]},${values[at + 1]}`;
       uses.set(key, (uses.get(key) || 0) + 1);
     }
-  // A center fan would touch its hub 10 times; a rim fan tops out at 8.
-  assert.ok(Math.max(...uses.values()) <= 8);
+  // A center fan touches its hub once per side; a rim fan never exceeds
+  // sides - 2, so the hub count is the tell.
+  assert.ok(Math.max(...uses.values()) <= caps);
 });
 
-test("hosts without the batch entry still draw face by face", () => {
+test("a disc spends its faces on the silhouettes that show them", () => {
+  const { fight, triangles } = createFight();
+  const facesFor = (radius) => {
+    triangles.length = 0;
+    fight.filledDisc(400, 400, radius, [10, 20, 30]);
+    return triangles.length;
+  };
+  const cap = facesFor(4);
+  const head = facesFor(90);
+  // A head used to be the same decagon as a limb cap, and showed its corners.
+  assert.ok(head > cap * 4, `head ${head} faces against cap ${cap}`);
+  // And a tiny cap is cheaper than the one fixed ring it replaced.
+  assert.ok(cap < 8, `a 4px cap still costs ${cap} faces`);
+  // Monotonic: never fewer faces for a larger disc.
+  let previous = 0;
+  for (const radius of [2, 8, 20, 45, 90, 200]) {
+    const faces = facesFor(radius);
+    assert.ok(faces >= previous, `radius ${radius} dropped to ${faces}`);
+    previous = faces;
+  }
+});
+
+test("both per-face host shapes still receive every face", () => {
   const perFace = createFight();
   const flat = createFight(true, true, "xbox-uwp", null,
     { width: 1920, height: 1080 }, null, null, "triangle");
   for (const host of [perFace, flat]) {
     host.triangles.length = 0;
     host.fight.paint();
-    assert.equal(host.batches.length, 0);
-    assert.ok(host.triangles.length > 1000);
+    assert.ok(host.triangles.length > 400,
+      `only ${host.triangles.length} faces`);
   }
+  // The point is parity: the same scene, whichever entry the host offers.
+  assert.equal(perFace.triangles.length, flat.triangles.length);
   assert.ok(perFace.triangles.every((values) => values.length === 12));
   assert.ok(flat.triangles.every((values) => values.length === 9));
 });
@@ -2781,6 +3040,25 @@ test("the error screen carries its whole dump in a scannable QR link", () => {
   } finally {
     delete globalThis.qrcode;
   }
+});
+
+test("house opponents wear one flat color, community handles do not", () => {
+  const { fight } = createFight(false, false);
+  // BOT, DUMMY and PPL are not people; per-glyph color is handle identity.
+  for (const handle of ["BOT", "DUMMY", "PPL"]) {
+    const roster = new RegExp(
+      `handle: "${handle}", color: (\\[[^\\]]+\\]), colors: (\\[[^\\]]*\\])`);
+    const match = roster.exec(source);
+    assert.ok(match, `${handle} is not declared with a flat color`);
+    assert.deepEqual(JSON.parse(match[2]), [], `${handle} still speckles`);
+    const flat = JSON.parse(match[1]);
+    const glyphs = [...handle].map((_, index) =>
+      fight.glyphColor([], index, flat));
+    assert.equal(new Set(glyphs.map(String)).size, 1,
+      `${handle} drew ${new Set(glyphs.map(String)).size} colors`);
+  }
+  // A community handle keeps its per-glyph palette.
+  assert.ok(fight.players[0].handleColors.length > 1);
 });
 
 test("a run of type shadows in one direction instead of flipping a letter", () => {
