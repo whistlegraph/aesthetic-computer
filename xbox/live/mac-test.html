@@ -172,7 +172,11 @@
     logout.addEventListener("click", () => {
       const target = new URL("https://hi.aesthetic.computer/v2/logout");
       target.searchParams.set("client_id", "LVdZaMbyXctkGfZDnpzDATB5nR0ZhmMt");
-      target.searchParams.set("returnTo", "https://oskiewar.com/");
+      // Return to the host you logged out from, not always the apex — coming
+      // back to oskiewar.com from midi.oskiewar.com would silently drop you out
+      // of midi mode. Auth0 checks this against its allowed logout URLs, so
+      // both hosts have to be listed there.
+      target.searchParams.set("returnTo", location.origin + "/");
       location.assign(target);
     });
 
