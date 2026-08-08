@@ -578,6 +578,11 @@ let captionFrame = 0; // frame the caption was set (for a quick fade-in)
 const warmed = new Set(); // utterances already sent to the TTS cache this session
 let muncher = { col: 2, row: 2 }; // logical grid position
 let muncherVis = { col: 2, row: 2 }; // smoothed display position (slides)
+// 🐞 Tab toggles the engine-state overlay (paint-only). Deliberately NOT
+// cleared by reset(): the engine is one singleton reused across every nom
+// edition, so a debug session survives hopping dannom → engnom → numbnom.
+let debug = false;
+let bgDots = 0; // backdrop dots drawn last frame, surfaced in the debug overlay
 let hover = null; // { col, row } cell under the mouse, for hover highlight
 let swallowTap = false; // 👆 set when a tap was consumed (e.g. advancing an overlay)
 let walkTarget = null; // 👆 tap-to-move destination cell — sim walks the muncher there
@@ -1917,7 +1922,7 @@ function nomSim({ gizmo, seconds, sound, clock, num: { randInt } }) {
       walkTarget.col === muncher.col && walkTarget.row === muncher.row
     ) {
       walkTarget = null;
-      munch();
+      if (edible(muncher.col, muncher.row)) munch(); // arrive quietly on a hole
     }
   }
 
@@ -1978,35 +1983,29 @@ function timeUp() {
   flash("TIME!"); // show the reason; the overlay says GAME OVER after the fall
 }
 
-// 🥁 Metronome tick — real notepat perc kit: kick on the global downbeat (every
-// 4th beat of the shared wall-clock grid, so all boards land the kick together),
-// closed hi-hat on the off-beats (falls back to a synth click if the kit is
-// absent). In the final 3 beats it plays a distinct, rising warning beep.
+// 🥁 Metronome tick — a soft synth click marks the beat: a low pulse on the
+// global downbeat (every 4th beat of the shared wall-clock grid, so all boards
+// land together) and a short tick on the off-beats. No drum kit: a kick/hat on
+// every single beat wore out fast, so the beat is felt, not drummed. In the
+// final 3 beats it plays a distinct, rising warning beep.
 const WARN_BEEPS = { 3: 700, 2: 950, 1: 1300 }; // rising pitch = more urgent
 function tick(remainingBeats) {
   const warn = WARN_BEEPS[remainingBeats];
   if (warn) {
-    if (synth) synth.kick({ volume: 0.4 }); // pulse under the beep
     note({ type: "square", tone: warn, duration: 0.14, volume: 0.36, attack: 0.001 });
     if (remainingBeats === 1) // last gasp: a quick second blip
       playMelody([{ tone: warn * 1.5, type: "square", dur: 0.1, vol: 0.3, t: 6 }], 0);
     return;
   }
   const downbeat = beatIndex % 4 === 0; // global grid → synced across instances
-  if (synth) {
-    if (downbeat) synth.kick({ volume: 0.55 });
-    else synth.hat({ volume: 0.3 });
-  } else if (downbeat) {
-    note({ type: "sine", tone: 92, duration: 0.09, volume: 0.22 });
-  } else {
-    note({ type: "square", tone: 1100, duration: 0.015, volume: 0.09 });
-  }
+  if (downbeat) note({ type: "sine", tone: 92, duration: 0.09, volume: 0.22 });
+  else note({ type: "square", tone: 1100, duration: 0.015, volume: 0.09 });
   groove(downbeat);
 }
 
 // 🎶 Background groove — a tiny band riding the shared wall-clock beat grid:
-// a walking triangle bass under the kick/hat pattern, a soft snare backbeat,
-// and a sparkle arpeggio on each bar turn. Chords cycle i–VI–III–VII
+// a walking triangle bass under the beat clicks and a sparkle arpeggio on each
+// bar turn. Melodic only — no backbeat. Chords cycle i–VI–III–VII
 // (Am F C G), one chord per 4 global beats, so every board everywhere is
 // grooving in the same key at the same moment — like the synced metronomes.
 // Note mode sits this out (its boards make their own music from the scale).
@@ -2025,7 +2024,6 @@ function groove(downbeat) {
   // Bass walk: root on the one, up an octave between, the fifth on the three.
   const bass = beatInBar === 0 ? root : beatInBar === 2 ? root * 1.5 : root * 2;
   note({ type: "triangle", tone: bass, duration: 0.22, volume: 0.17, attack: 0.008 });
-  if (beatInBar === 2 && synth) synth.snare({ volume: 0.16 }); // soft backbeat
   // Sparkle arp turning the bar — sits out in panic time (warn beeps own it).
   if (beatInBar === 3 && beatsLeft > 6) {
     const tri = GROOVE_TRIADS[bar];
@@ -2054,6 +2052,14 @@ function move(dx, dy) {
   if (abs(muncher.row - pr) > 1) muncherVis.row = muncher.row;
   if (muncher.col !== pc || muncher.row !== pr) moveBlip();
   checkTroggleHit();
+}
+
+// 👆 Is there anything left to eat here? Eaten and X'd squares are inert, so a
+// tap that lands on one should walk there and stop — chomping at an empty hole
+// only spent an animation and a blip on nothing.
+function edible(col, row) {
+  const cell = grid[idx(col, row)];
+  return !!cell && !cell.eaten && !cell.failed;
 }
 
 function munch() {
@@ -2462,6 +2468,14 @@ function nomAct({ event: e, sound, speak, cursor, net, num: { randInt } }) {
     return;
   }
 
+  // 🐞 Tab toggles the debug overlay, in any state. Above the end-screen
+  // "any key advances" gate on purpose: inspecting a game over must not
+  // restart the game. Paint-only — it never touches play.
+  if (e.is("keyboard:down:tab")) {
+    debug = !debug;
+    return;
+  }
+
   // Advance from end-of-board states (clear → next level, over/win → fresh game).
   const advance = () => {
     if (state === "clear") {
@@ -2510,7 +2524,7 @@ function nomAct({ event: e, sound, speak, cursor, net, num: { randInt } }) {
       const t = cellAt(e.x, e.y);
       if (!t || (t.col === muncher.col && t.row === muncher.row)) {
         walkTarget = null;
-        munch();
+        if (edible(muncher.col, muncher.row)) munch();
       } else {
         walkTarget = { col: t.col, row: t.row };
         walkTick = 0; // first step lands immediately
@@ -2712,10 +2726,12 @@ function nomPaint(api) {
     const a = hdApi(layer);
     paintGame(a);
     paintCaption(a);
+    if (debug) paintDebug(a); // 🐞 after the caption band, which is drawn last
   } else {
     pixelWashDark = null; // pixel path owns the buffer again — wash on re-entry
     paintGame(api);
     paintCaption(api);
+    if (debug) paintDebug(api);
   }
 }
 
@@ -2964,11 +2980,24 @@ function paintGame({ wipe, ink, screen, write, box, line, text, paste }) {
   // 😱 Whole-screen red blink when about to die.
   if (lowTime && blink) ink(150, 0, 0, 115).box(0, 0, screen.width, screen.height);
 
-  // ⏳ Beat timeline bar across the very top (height rides the HUD scale).
+  // ⏳ Beat timeline across the very top — one segment per beat still on the
+  // clock, draining right to left. Discrete ticks make the countdown countable
+  // (you can see "four beats left"), where a smooth bar only read as a slide.
+  // Boards run 20–52 beats, so segments stay a few pixels wide even on a phone;
+  // if they ever wouldn't, fall back to the solid bar.
   const tcol = tf > 0.5 ? T.timeHi : tf > 0.25 ? T.timeMid : T.timeLow;
   const barH = 2 + hudScale + (beatPulse > 4 ? 1 : 0);
   ink(...T.trackBg).box(0, 0, screen.width, barH);
-  ink(...tcol).box(0, 0, round(screen.width * tf), barH);
+  const segW = screen.width / max(1, beatsMax);
+  if (segW >= 3) {
+    const gap = segW >= 6 ? 1 : 0;
+    for (let i = 0; i < beatsLeft; i += 1) {
+      const sx = round(i * segW);
+      ink(...tcol).box(sx, 0, max(1, round((i + 1) * segW) - sx - gap), barH);
+    }
+  } else {
+    ink(...tcol).box(0, 0, round(screen.width * tf), barH);
+  }
 
   // ⏳ Big timer (beats left), top-left — blinks near zero.
   const timeCol = lowTime ? (blink ? T.timerPanic : T.timerPanicAlt) : tcol;
@@ -3197,30 +3226,37 @@ function paintGame({ wipe, ink, screen, write, box, line, text, paste }) {
   if (wa > 0)
     ink(round(wr), round(wg), round(wb), round(wa * 255)).box(0, 0, screen.width, screen.height);
 
-  // 🔢 Items-left, bottom-right, big — riding just above the caption strip.
-  const hudBottom = screen.height - captionBandH(screen);
+  // 🔢 Bottom HUD — both corners float to the true bottom edge of the display.
+  // (This used to subtract a caption band, but the caption sits *above* the
+  // board now, so that only pushed the corners up off a strip nothing occupies.)
+  // The right block is measured first so the left block can be capped against
+  // it and the two can never overlap on a narrow screen.
+  const hudBottom = screen.height - 4;
+  const leftN = `${remaining}`;
+  const lsz = timerSize;
+  const leftX = screen.width - 8 - leftN.length * 6 * lsz;
+  bigNum(ink, leftN, leftX, hudBottom - 8 * lsz - 4, lsz, remaining <= 3 ? T.leftWarn : T.leftOk);
+  const lls = max(1, hudScale);
+  const leftLabelX = max(4, leftX - ("LEFT".length * 6 * lls + 8));
+  ink(...T.leftLabel).write("LEFT", {
+    x: leftLabelX,
+    y: hudBottom - 8 * lls - 8,
+    size: lls,
+  });
+
+  // Run readout + handle, bottom-left, sharing the same baseline.
+  const runRoom = max(40, leftLabelX - 12); // never reach into the LEFT block
   const runLabel = `L${level}  ${score}`;
   let runSize = min(3, 1 + hudScale);
-  while (runSize > 1 && runLabel.length * 6 * runSize > screen.width * 0.38) runSize -= 1;
+  while (runSize > 1 && runLabel.length * 6 * runSize > runRoom) runSize -= 1;
   const runY = hudBottom - 8 * runSize - 4;
   ink(...T.introName).write(runLabel, { x: 8, y: runY, size: runSize });
   if (playerHandle) {
     let handleSize = max(1, min(2, hudScale));
-    while (handleSize > 1 && playerHandle.length * 6 * handleSize > screen.width * 0.4)
+    while (handleSize > 1 && playerHandle.length * 6 * handleSize > runRoom)
       handleSize -= 1;
     paintHandle({ ink }, playerHandle, playerColors, 8, runY - 10 * handleSize - 2, handleSize);
   }
-  const leftN = `${remaining}`;
-  const lsz = timerSize;
-  const leftW = leftN.length * 6 * lsz;
-  const leftX = screen.width - 8 - leftW;
-  bigNum(ink, leftN, leftX, hudBottom - 8 * lsz - 4, lsz, remaining <= 3 ? T.leftWarn : T.leftOk);
-  const lls = max(1, hudScale);
-  ink(...T.leftLabel).write("LEFT", {
-    x: max(4, leftX - ("LEFT".length * 6 * lls + 8)),
-    y: hudBottom - 8 * lls - 8,
-    size: lls,
-  });
 
   // 🍽️ Collected answers — stack down the left, measured to fit the margin.
   // Word boards run near edge-to-edge, so on narrow screens there's no gutter
@@ -3306,6 +3342,7 @@ function paintGame({ wipe, ink, screen, write, box, line, text, paste }) {
       mode === "art" && lastArtwork ? "I: record · press to retry" : "press to retry",
     );
   }
+
 }
 
 // Cute monster: fatter the more it has eaten; shrinks + trembles when starving
@@ -3319,6 +3356,7 @@ function paintBackground({ ink, box, screen }) {
   const dx = (frames * 0.18) % sp;
   const dy = (frames * 0.11) % sp;
   const pulse = beatPulse > 0 ? 6 : 0;
+  bgDots = 0; // the debug overlay reports this — it dominates the draw count
   for (let gy = -sp; gy < screen.height + sp; gy += sp) {
     for (let gx = -sp; gx < screen.width + sp; gx += sp) {
       // Faint, just barely off the background — brighter on dark, dimmer on light.
@@ -3326,6 +3364,7 @@ function paintBackground({ ink, box, screen }) {
       if (dark) ink(14 + round(b * 0.4), 16 + round(b * 0.5), 32 + round(b)); // dim blue-violet
       else ink(225 - round(b * 1.2), 229 - round(b * 1.1), 240 - round(b * 0.6)); // soft graphite-blue
       box(gx + dx, gy + dy, 2, 2);
+      bgDots += 1;
     }
   }
 }
@@ -3538,6 +3577,48 @@ function overlay({ ink, screen, write }, title, sub, bannerY) {
     ink(...T.overlaySub).write(sub, { center: "x", y: sy, size: ss });
   }
   return ty + 8 * ts + 6;
+}
+
+// 🐞 Debug overlay (Tab) — the engine's live state, in reading order: what the
+// machine thinks it is doing, then where things are, then what it costs to draw.
+// Deliberately surfaces the values that are otherwise invisible or misleading:
+// `intro` runs while state is already "play" (the board is live under the title
+// card), and `dots` is the backdrop grid, which is the bulk of the draw calls
+// while covering a fraction of a percent of the screen.
+function paintDebug({ ink, screen }) {
+  const trog = troggles.map((t) => `${t.col},${t.row}`).join(" ") || "—";
+  const walk = walkTarget ? `→${walkTarget.col},${walkTarget.row}` : "";
+  const lines = [
+    `${mode}/${lang}  state ${state}${introTimer > 0 ? `  intro ${introTimer}` : ""}`,
+    `lvl ${level}  score ${score}  combo ${combo}`,
+    `beats ${beatsLeft}/${beatsMax}  idx ${beatIndex}  ${round(beatMs)}ms`,
+    `rem ${remaining}/${boardCorrectTotal}  found ${foundValues.length}`,
+    `death ${deathPhase}  clear ${clearPhase}  invuln ${invuln}`,
+    `mun ${muncher.col},${muncher.row}${walk}  face ${facing.x},${facing.y}`,
+    `trog ${troggles.length}: ${trog}`,
+    `scr ${screen.width}x${screen.height}  hud ${hudScale}  cell ${round(layout.cell)}`,
+    `hd ${hiRes}  dots ${bgDots}  frame ${frames}`,
+    `${playerHandle || "(no handle)"}${leaderboardRank ? `  #${leaderboardRank}` : ""}`,
+    leaderboardStatus || "",
+  ].filter(Boolean);
+
+  // The panel is always dark, in both themes, so its text uses fixed light
+  // values rather than T.* — theme colors are chosen against the board, and the
+  // light theme's dark body text vanished into this backing.
+  const size = screen.width >= 700 ? 2 : 1;
+  const lineH = 9 * size;
+  const longest = lines.reduce((m, l) => max(m, l.length), 0);
+  const w = min(screen.width - 8, longest * 6 * size + 10);
+  const h = lines.length * lineH + 8;
+  const y0 = 6 + (2 + hudScale) + 2; // clear of the beat bar
+  ink(6, 8, 16, 232).box(4, y0, w, h);
+  ink(255, 210, 90).box(4, y0, w, h, "outline");
+  let y = y0 + 4;
+  for (const line of lines) {
+    ink(232, 238, 255).write(line, { x: 8, y, size });
+    y += lineH;
+  }
+  ink(255, 210, 90).write("TAB", { x: 8, y: y0 + h + 3, size: 1 });
 }
 
 // How tall the quiet bottom-pinned hint is, so the board can reserve for it.
