@@ -75,7 +75,7 @@ function createFight(startImmediately = true, enterGame = true,
   const drawLine = (...values) => lines.push(values);
   const fight = new Function(
     "runtime", "gamepad", "capabilities", "telemetry", "gameSignal", "saveReplay", "publishLive", "analytics", "drum", "wipe", "box", "line", "triangle", "triangle3d", "triangles3d", "write", "systemWrite", "gameView",
-    `${source}\nreturn { boot, sim, paint, playDrum, captureClientError, drawDetachedPart, clientErrorState: () => clientError, clientErrorDetailState: () => clientErrorDetail, errorReportStatus, errorRestartSeconds, combatLegend, filledDisc, spectatorCode, runShadow, glyphColor, contrastShadow, stateDumpRows, dumpTokens, dumpTokenInk, clientErrorDumpState: () => ({ url: clientErrorDumpUrl, modules: clientErrorQr ? clientErrorQr.getModuleCount() : 0 }), controlLocale, animatedTitleColor, comicGlyphAdvance, handleWidth, displayTheme, players, ball, balls, bullets, grenades, gunPickups, grenadePickups, detachedParts, runnerWorldGeometry, fighterAnimationPhase, runnerDistanceToPoint, segmentSegmentClosest, meleeLimbContact, damagePart, isPogo, isHeadOnly, resultCardText, pacificTimeLabel, projectedBallRadius, deathCinematicState: () => deathCinematic ? { ...deathCinematic, age: deathCinematicAge() } : null, disableBall: () => { ballEnabled = false; for (const item of balls) item.active = false; }, enableBall: (index = 0) => { ballEnabled = true; const item = balls[index]; item.active = true; item.serveAt = 0; item.safeUntil = 0; item.safePlayers = 0; }, setWind: (value) => { windAcceleration = value; }, setDebugHitboxes: (value) => { debugHitboxes = Boolean(value); }, debugState: () => debugHitboxes, windState: () => ({ direction: windDirection, mph: windMph }), nextRound: () => resetRound(runtime().monotonicUs, false), knockOut: () => killPlayer(players[1], 0, runtime().monotonicUs, "KO"), startAttack: (kind) => startMelee(players[0], kind, runtime().monotonicUs), bootFirstBall: () => bootBall(ball, players[0], runtime().monotonicUs), wackBall: () => { players[0].attackKind = "KICK"; returnBall(ball, players[0], runtime().monotonicUs, false); }, shieldBall: () => returnBall(ball, players[0], runtime().monotonicUs, true), crossWackBall: (contact = 1) => crossWackBall(ball, players.map((player) => ({ player, contact })), runtime().monotonicUs), enterGame: () => enterGame(runtime().monotonicUs), shellState: () => ({ mode: shellMode }), startFight: () => { shellMode = "GAME"; selecting = false; startReplay(runtime().monotonicUs); matchBallType = "soccer"; resetRound(runtime().monotonicUs, true); }, selectionState: () => ({ selecting, step: selectionStep, cursor: selectionCursor, ready: selectionReady.slice() }), selectionOptions: () => selectionOptions().map((option) => ({ kind: option.kind, label: option.fighter.handle, disabled: Boolean(option.disabled) })), cameraState: () => ({ cameraWidth, cameraCenter, cameraCenterY, cameraAspect, stageRight, stageTop, stageBottom, viewHeight, cameraContainFloor, doll: { width: cameraDoll.width, target: { ...cameraDoll.target }, position: { ...cameraDoll.position }, perspective: cameraDoll.perspective, roll: cameraDoll.roll } }), screenBounds: () => players.map((player) => runnerScreenBounds(player, runtime().monotonicUs / 1e6)), dumpTokens, dumpTokenInk, drawCornerCrops, playerStatLines, playerHandleLayout, statStackHeight, setBallKind: (type) => { matchBallType = type; resetBalls(runtime().monotonicUs); }, ballTypeState: () => matchBallType, seriesBallType, seriesState: () => seriesName, selectionLayout: selectionTouchLayout, actionSafeRect, hudSafeRect, projectPoint, terrainSpan, stageGeometry: () => ({ platformY, platformLeft, platformRight, floorY, ceilingY, worldLeft, worldRight, worldNear, worldFar }), frameRect: () => fighterFrameRect(), roundState: () => ({ roundResult, roundElapsedUs, matchOver }), viewerState: () => ({ active: Boolean(roundViewer), mode: roundViewerMode, status: roundViewerStatus, name: matchName }), instantReplayState: () => instantReplay ? { active: true, paused: instantReplay.paused, cursor: instantReplay.cursor, frames: instantReplay.frames.length } : { active: false }, replayFrameCount: () => roundReplayFrames.length, inputPadDown: (index) => inputPads[index]?.down?.slice() || [], startSelfPlay: () => startSelfPlay(runtime().monotonicUs), selfPlayState: () => selfPlay };`
+    `${source}\nreturn { boot, sim, paint, playDrum, captureClientError, drawDetachedPart, clientErrorState: () => clientError, clientErrorDetailState: () => clientErrorDetail, errorReportStatus, errorRestartSeconds, combatLegend, filledDisc, spectatorCode, runShadow, glyphColor, contrastShadow, stateDumpRows, dumpTokens, dumpTokenInk, clientErrorDumpState: () => ({ url: clientErrorDumpUrl, modules: clientErrorQr ? clientErrorQr.getModuleCount() : 0 }), controlLocale, animatedTitleColor, comicGlyphAdvance, handleWidth, displayTheme, players, ball, balls, bullets, grenades, gunPickups, grenadePickups, detachedParts, runnerWorldGeometry, fighterAnimationPhase, runnerDistanceToPoint, segmentSegmentClosest, meleeLimbContact, damagePart, isPogo, isHeadOnly, resultCardText, pacificTimeLabel, projectedBallRadius, deathCinematicState: () => deathCinematic ? { ...deathCinematic, age: deathCinematicAge() } : null, disableBall: () => { ballEnabled = false; for (const item of balls) item.active = false; }, enableBall: (index = 0) => { ballEnabled = true; const item = balls[index]; item.active = true; item.serveAt = 0; item.safeUntil = 0; item.safePlayers = 0; }, setWind: (value) => { windAcceleration = value; }, setDebugHitboxes: (value) => { debugHitboxes = Boolean(value); }, debugState: () => debugHitboxes, windState: () => ({ direction: windDirection, mph: windMph }), nextRound: () => resetRound(runtime().monotonicUs, false), knockOut: () => killPlayer(players[1], 0, runtime().monotonicUs, "KO"), startAttack: (kind) => startMelee(players[0], kind, runtime().monotonicUs), bootFirstBall: () => bootBall(ball, players[0], runtime().monotonicUs), wackBall: () => { players[0].attackKind = "KICK"; returnBall(ball, players[0], runtime().monotonicUs, false); }, shieldBall: () => returnBall(ball, players[0], runtime().monotonicUs, true), crossWackBall: (contact = 1) => crossWackBall(ball, players.map((player) => ({ player, contact })), runtime().monotonicUs), enterGame: () => enterGame(runtime().monotonicUs), shellState: () => ({ mode: shellMode }), startFight: () => { shellMode = "GAME"; selecting = false; players[1].npc = false; players[1].bot = false; applyRoster(players[1], 2); startReplay(runtime().monotonicUs); matchBallType = "soccer"; resetRound(runtime().monotonicUs, true); }, startFightAgainst: (kind) => startFightAgainst(kind, runtime().monotonicUs), palSelect: () => PAL_SELECT, titleToyState: () => ({ title: titleToys.map((toy) => ({ ...toy })), prompt: promptToys.map((toy) => ({ ...toy })), bounce: promptBounce }), selectionState: () => ({ selecting, step: selectionStep, cursor: selectionCursor, ready: selectionReady.slice() }), selectionOptions: () => selectionOptions().map((option) => ({ kind: option.kind, label: option.fighter.handle, disabled: Boolean(option.disabled) })), cameraState: () => ({ cameraWidth, cameraCenter, cameraCenterY, cameraAspect, stageRight, stageTop, stageBottom, viewHeight, cameraContainFloor, doll: { width: cameraDoll.width, target: { ...cameraDoll.target }, position: { ...cameraDoll.position }, perspective: cameraDoll.perspective, roll: cameraDoll.roll } }), screenBounds: () => players.map((player) => runnerScreenBounds(player, runtime().monotonicUs / 1e6)), dumpTokens, dumpTokenInk, drawCornerCrops, playerStatLines, playerHandleLayout, statStackHeight, setBallKind: (type) => { matchBallType = type; resetBalls(runtime().monotonicUs); }, ballTypeState: () => matchBallType, seriesBallType, seriesState: () => seriesName, selectionLayout: selectionTouchLayout, actionSafeRect, hudSafeRect, projectPoint, terrainSpan, stageGeometry: () => ({ platformY, platformLeft, platformRight, floorY, ceilingY, worldLeft, worldRight, worldNear, worldFar }), frameRect: () => fighterFrameRect(), roundState: () => ({ roundResult, roundElapsedUs, matchOver }), viewerState: () => ({ active: Boolean(roundViewer), mode: roundViewerMode, status: roundViewerStatus, name: matchName }), instantReplayState: () => instantReplay ? { active: true, paused: instantReplay.paused, cursor: instantReplay.cursor, frames: instantReplay.frames.length } : { active: false }, replayFrameCount: () => roundReplayFrames.length, inputPadDown: (index) => inputPads[index]?.down?.slice() || [], startSelfPlay: () => startSelfPlay(runtime().monotonicUs), selfPlayState: () => selfPlay };`
   )(
     () => ({ monotonicUs: now, unixMs: 1785870000000 + Math.floor(now / 1000),
       simCount: Math.floor(now / 16667), paintCount: 0,
@@ -334,6 +334,8 @@ test("web selector uses the AC precise cursor and mouse hover bridge", () => {
   assert.doesNotMatch(webShell, /if \(!touchEnabled\) return;/);
   assert.match(source, /function selectionHover\(/);
   assert.match(source, /box\(rect\.x, rect\.y \+ rect\.height - \(hovered \? 8 : 5\)/);
+  // A wordmark letter is grabbable, so the pointer says so over one.
+  assert.match(webShell, /titleHover \|\| titleGlyph >= 0/);
 });
 
 test("web relayout observes live viewport element resizing", () => {
@@ -459,7 +461,17 @@ test("title and fighter select inherit the root light or dark theme", () => {
   assert.match(source, /drawSelectionScreen\(t, menuInk, menuPanel\)/);
 });
 
-test("pal selection is a two-step linear question", () => {
+// Pal select is deprecated, not deleted: you are your own handle, so there is
+// nobody to pick. The two-step screen stays whole behind one flag while the
+// entry UI is still moving.
+test("pal select is flagged out of the build but kept intact", () => {
+  const { fight } = createFight(false, false);
+  assert.equal(fight.palSelect(), false);
+  assert.equal(fight.selectionState().selecting, false);
+  assert.match(source, /const PAL_SELECT = false/);
+  assert.match(source, /if \(PAL_SELECT && selecting\)/);
+  assert.match(source, /if \(PAL_SELECT\) beginSelect\(now\)/);
+  // The screen it guards is still all there, ready to be switched back on.
   assert.match(source, /"pick your pal" : "who are you fighting\?"/);
   assert.match(source, /const stepText = \(selectionStep \+ 1\) \+ "\/2"/);
   assert.doesNotMatch(source, /READY TO FIGHT|STANDING BY/);
@@ -524,10 +536,20 @@ test("debug view renders on the foreground triangle layer", () => {
   fight.startFight();
   fight.setDebugHitboxes(false);
   fight.paint();
-  const normalTriangleCount = triangles.length;
+  const plain = triangles.splice(0);
   fight.setDebugHitboxes(true);
   fight.paint();
-  assert.ok(triangles.length - normalTriangleCount > normalTriangleCount);
+  const debug = triangles.splice(0);
+  // Counting faces could not tell a debug layer from a frame that threw
+  // halfway and drew nothing, which is exactly how this test failed once. So
+  // say what the layer is: the scene projects inside ±1.4 and the band in
+  // front of it is reserved for overlays. Every face debug adds lands there,
+  // none of the plain frame's do, and the scene underneath is untouched.
+  const inFront = (frame) => frame.filter(([, , z]) => z < -1.4);
+  assert.equal(fight.clientErrorState(), "");
+  assert.equal(inFront(plain).length, 0);
+  assert.ok(inFront(debug).length > 100);
+  assert.equal(debug.length - inFront(debug).length, plain.length);
   assert.match(source, /let debugHitboxes = false/);
   assert.match(source, /function drawCornerCrops[\s\S]*?filledCapsule/);
   assert.match(source,
@@ -963,8 +985,10 @@ test("spectator QR uses the raw Meet-style round URL", () => {
   assert.match(source, /spectatorCode\("https:\/\/oskiewar\.com"\)/);
   // Encoding is ~59ms; the same URL must reuse the code it already made.
   assert.match(source, /if \(url === spectatorQrUrl && spectatorQrCache\)/);
+  // The wordmark now sits on top of a live fight, so the code is drawn after
+  // it and only once the start flash is not covering the screen.
   assert.match(source,
-    /drawTitleScreen\(t, menuInk, transitionAge\);\n    if \(transitionAge < 0\) drawSpectatorQr\(menuInk\);/);
+    /drawTitleScreen\(t, menuInk, transitionAge\);\n    if \(transitionAge >= 0\) return;\n  \}\n  drawSpectatorQr\(titleInk\);/);
 });
 
 test("the spectator code is encoded once per URL, not once per round", () => {
@@ -1034,10 +1058,10 @@ test("raw live and demo rooms run through the canonical game engine", () => {
   assert.equal(fight.players[0].x, 5400);
 });
 
-test("start button flashes yellow green lime before fading into pal select", () => {
+test("start button flashes yellow green lime before lifting off the fight", () => {
   const { fight, pads, signals, drums, tick } = createFight(false, false);
   assert.equal(fight.shellState().mode, "MENU");
-  assert.equal(fight.selectionState().selecting, true);
+  assert.equal(fight.selectionState().selecting, false);
   assert.match(source, /const prompt = "start"/);
   assert.match(source, /const button = titleButtonRect\(\)/);
   // The word floats: no panel, shadow, or edge is drawn behind it.
@@ -1048,21 +1072,107 @@ test("start button flashes yellow green lime before fading into pal select", () 
   assert.equal(fight.shellState().mode, "MENU");
   tick(700001);
   assert.equal(fight.shellState().mode, "GAME");
-  assert.equal(fight.selectionState().selecting, true);
+  assert.equal(fight.selectionState().selecting, false);
+  // Start lifts the wordmark; it never restarts the round underneath it.
+  assert.equal(fight.roundState().roundElapsedUs > 0, true);
   assert.deepEqual(drums.map(([name]) => name), ["hat"]);
   assert.ok(signals.some(([event]) => event === "select"));
   assert.match(source,
     /const flashPalette = \[\[255, 226, 48\], \[70, 224, 92\], \[181, 255, 48\]\]/);
-  assert.match(source, /if \(transitionAge >= 0 \|\| socialPreview\) return/);
+  assert.match(source, /if \(transitionAge >= 0 \|\| socialPreview \|\|/);
 });
 
 test("title start is a bounded pointer button and negative space only duds", () => {
   assert.match(source, /function titleButtonRect\(\)/);
   assert.match(source, /titleButton = button/);
-  assert.match(source, /titleHover = Boolean\(hovered\)/);
+  assert.match(source, /titleHover = hovered/);
   assert.match(webShell, /if \(!inside\) \{[\s\S]{0,100}drum\("block", \.32, 0\)/);
   assert.match(webShell, /tapTitle\(point\)/);
   assert.doesNotMatch(webShell, /body\.selection-hover, body\.title-open/);
+});
+
+// Each letter of the wordmark is its own target and its own toy: hovering one
+// swells and shudders that letter, its neighbours hold their place, and the
+// word settles once the pointer leaves.
+test("hovering a wordmark letter grows and wiggles that letter alone", () => {
+  const { fight, tick } = createFight(false, false, "web", null,
+    { width: 1920, height: 1080 });
+  const pointer = { x: 0, y: 0, active: false };
+  globalThis.__oskiewarTouch = { taps: [], pointer };
+  const at = (x, y) => Object.assign(pointer, { x, y, active: true });
+  const row = 1080 * .35 + 70;
+  const run = (frames) => {
+    for (let frame = 0; frame < frames; frame++) { tick(); fight.paint(); }
+  };
+  try {
+    fight.paint();
+    // Sweep the wordmark's row: every letter should answer somewhere, and
+    // nothing outside the word should.
+    const hits = new Map();
+    for (let x = 0; x < 1920; x += 4) {
+      at(x, row);
+      fight.paint();
+      const glyph = globalThis.__oskiewarTouch.titleGlyph;
+      if (glyph < 0) continue;
+      const span = hits.get(glyph) || [x, x];
+      hits.set(glyph, [Math.min(span[0], x), Math.max(span[1], x)]);
+    }
+    assert.equal(hits.size, 8, "oskiewar has eight separate letters to touch");
+    at(0, row);
+    fight.paint();
+    assert.equal(globalThis.__oskiewarTouch.titleGlyph, -1);
+
+    // A letter kicks the instant it is touched, then swells while held. Aim
+    // at the middle of its cell: the letters drift, and an edge slides away.
+    const [left, right] = hits.get(3);
+    at((left + right) / 2, row);
+    run(1);
+    assert.ok(fight.titleToyState().title[3].kick > .9, "no shudder on contact");
+    run(30);
+    const held = fight.titleToyState().title;
+    assert.ok(held[3].grow > .8, "the held letter never grew");
+    assert.ok(held.every((toy, index) => index === 3 || toy.grow < .05),
+      "a neighbour reacted to a letter that was not touched");
+
+    // And it settles back once the pointer leaves the word.
+    pointer.active = false;
+    run(45);
+    assert.ok(fight.titleToyState().title.every((toy) => toy.grow < .05));
+  } finally {
+    delete globalThis.__oskiewarTouch;
+  }
+});
+
+test("hovering start bounces its letters and lets them fall back", () => {
+  const { fight, tick } = createFight(false, false, "web", null,
+    { width: 1920, height: 1080 });
+  const pointer = { x: 0, y: 0, active: false };
+  globalThis.__oskiewarTouch = { taps: [], pointer };
+  const run = (frames) => {
+    for (let frame = 0; frame < frames; frame++) { tick(); fight.paint(); }
+  };
+  try {
+    fight.paint();
+    const button = globalThis.__oskiewarTouch.titleButton;
+    Object.assign(pointer, { x: button.x + button.width / 2,
+      y: button.y + button.height / 2, active: true });
+    run(30);
+    assert.equal(globalThis.__oskiewarTouch.titleHover, true);
+    assert.ok(fight.titleToyState().bounce > .9);
+    // The letter under the pointer swells on top of the shared bounce.
+    assert.ok(fight.titleToyState().prompt.some((toy) => toy.grow > .5));
+    // The bounce is a wave: each letter takes it a beat after the one before.
+    assert.match(source, /Math\.abs\(Math\.sin\(t \* 5\.4 - index \* \.62\)\)/);
+    // The sharp offset shadow still rides every letter.
+    assert.match(source,
+      /typeWrite\(character, x \+ offset, y \+ offset, size, \.\.\.shadowInk\)/);
+    pointer.active = false;
+    run(60);
+    assert.equal(globalThis.__oskiewarTouch.titleHover, false);
+    assert.ok(fight.titleToyState().bounce < .05);
+  } finally {
+    delete globalThis.__oskiewarTouch;
+  }
 });
 
 test("debug mode boxes every title glyph against its own advance", () => {
@@ -1112,30 +1222,36 @@ test("every round gets a new URL and tells spectators where the room moved", () 
   assert.equal(liveFrames.at(-1)[1].previousRoundId, firstId);
 });
 
-test("opponent selection offers only bot, dummy, and disabled ppl", () => {
-  const { fight, tap } = createFight(false);
-  tap(0, "ArrowRight");
-  assert.equal(fight.selectionState().cursor, 1);
+// Dummy play is free and anonymous, so there is no screen in front of it:
+// booting lands you in the training fight with the wordmark floating on top.
+test("entry is already a live anonymous fight against the dummy", () => {
+  const { fight, pads, tick } = createFight(false, false);
+  assert.equal(fight.shellState().mode, "MENU");
   assert.equal(fight.players[0].name, "@JEFFREY");
-  tap(0, "A");
-  assert.equal(fight.selectionState().step, 1);
-  assert.equal(fight.players[0].name, "@FIFI");
-  assert.equal(fight.selectionState().selecting, true);
-  assert.deepEqual(fight.selectionOptions(), [
-    { kind: "bot", label: "BOT", disabled: false },
-    { kind: "dummy", label: "DUMMY", disabled: false },
-    { kind: "people", label: "PPL", disabled: true },
-  ]);
-  // The wheel opens on the dummy and turns off it in either direction.
-  assert.equal(fight.selectionState().cursor, 1);
-  tap(0, "ArrowLeft");
-  assert.equal(fight.selectionState().cursor, 0);
-  tap(0, "ArrowRight");
-  assert.equal(fight.selectionState().cursor, 1);
-  tap(0, "A");
   assert.equal(fight.players[1].name, "DUMMY");
   assert.equal(fight.players[1].npc, true);
-  assert.equal(fight.selectionState().selecting, false);
+  assert.equal(fight.players[1].bot, false);
+  // No countdown between arriving and moving: the intro is spent up front, so
+  // the very first press walks the fighter while the wordmark is still up.
+  const start = fight.players[0].x;
+  pads[0].down = ["ArrowRight"];
+  for (let frame = 0; frame < 8; frame++) tick();
+  assert.notEqual(fight.players[0].x, start);
+  assert.equal(fight.shellState().mode, "MENU");
+});
+
+test("training rounds stay off the wire while the bot doorway is shut", () => {
+  const { fight, replays, liveFrames, analyticsEvents, tick } =
+    createFight(false, false);
+  for (let frame = 0; frame < 60; frame++) tick();
+  // Training has no series, so it publishes no match, no live frame, and no
+  // replay — the things a handle will buy.
+  assert.equal(fight.seriesState(), "");
+  assert.deepEqual(replays, []);
+  assert.deepEqual(liveFrames, []);
+  assert.deepEqual(analyticsEvents, []);
+  assert.match(source, /function startFightAgainst\(kind, now\)/);
+  assert.match(source, /startFightAgainst\("dummy", now\)/);
 });
 
 test("selection cards use the shared comic typeface without readiness copy", () => {
@@ -1144,47 +1260,26 @@ test("selection cards use the shared comic typeface without readiness copy", () 
   assert.doesNotMatch(source, /READY TO FIGHT|STANDING BY|\? "READY" : "SELECT"/);
 });
 
-test("portrait touch follows pal, opponent, and back as separate steps", () => {
+// The tap queue existed to drive the pal wheel. With that screen gone a tap
+// on the canvas is the shell's business (mac-test's `tapTitle`) and the piece
+// must not hold on to stale points once the fight is running.
+test("portrait touch leaves no taps queued now that the wheel is gone", () => {
   const { fight, tick } = createFight(false, false, "touch", null,
     { width: 499, height: 1080 });
   fight.enterGame();
   globalThis.__oskiewarTouch = { taps: [] };
-  const touch = (x, y) => {
-    globalThis.__oskiewarTouch.taps.push({ x, y });
-    tick();
-  };
-  // A receding neighbour turns the wheel; the focused card commits.
-  const turnRight = () => touch(430, 350);
-  const turnLeft = () => touch(60, 350);
-  const commit = () => touch(250, 300);
   try {
-    turnRight();
-    assert.equal(fight.selectionState().cursor, 1);
-    assert.equal(fight.players[0].name, "@JEFFREY");
-    commit();
-    assert.equal(fight.players[0].name, "@FIFI");
-    assert.equal(fight.selectionState().step, 1);
-    touch(60, 150);
-    assert.equal(fight.selectionState().step, 0);
-    assert.equal(fight.selectionState().selecting, true);
-    commit();
-    assert.equal(fight.selectionState().step, 1);
-    turnLeft(); // Disabled ppl card duds instead of turning.
-    assert.equal(fight.selectionState().selecting, true);
-    assert.equal(fight.selectionState().cursor, 0);
-    turnRight();
-    commit();
     assert.equal(fight.players[1].name, "DUMMY");
-    assert.equal(fight.players[1].npc, true);
-    assert.equal(fight.selectionState().selecting, false);
     globalThis.__oskiewarTouch.taps.push({ x: 250, y: 300 });
     tick();
     assert.equal(globalThis.__oskiewarTouch.taps.length, 0);
+    assert.equal(fight.players[1].name, "DUMMY", "a tap chooses nobody");
   } finally {
     delete globalThis.__oskiewarTouch;
   }
 });
 
+// Kept whole behind PAL_SELECT: if the wheel comes back it comes back intact.
 test("the pal wheel keeps one option in focus with neighbours receding", () => {
   for (const viewport of [{ width: 1920, height: 1080 },
     { width: 499, height: 1080 }, { width: 480, height: 900 }]) {
@@ -1223,20 +1318,18 @@ test("Menu returns a round to title while View or web Tab toggles debug geometry
   assert.match(webShell, /\["Tab", \[0, "View"\]\]/);
 });
 
-test("bot is a direct opponent choice instead of a hidden mode cycle", () => {
-  const { fight, tap } = createFight(false);
-  tap(0, "A");
-  assert.equal(fight.selectionState().step, 1);
-  // The dummy holds the default slot, so the bot is one deliberate turn away.
-  const options = fight.selectionOptions();
-  assert.equal(options[fight.selectionState().cursor].label, "DUMMY");
-  while (options[fight.selectionState().cursor].label !== "BOT")
-    tap(0, "ArrowRight");
-  tap(0, "A");
+// The bot is now reached through the one door auth will guard, not a menu.
+test("bot is a direct opponent choice behind the one fight door", () => {
+  const { fight } = createFight(false);
+  assert.equal(fight.players[1].name, "DUMMY");
+  fight.startFightAgainst("bot");
   assert.equal(fight.players[1].name, "BOT");
   assert.equal(fight.players[1].npc, true);
   assert.equal(fight.players[1].bot, true);
+  assert.equal(fight.shellState().mode, "GAME");
   assert.equal(fight.selectionState().selecting, false);
+  // Unlike training, the bot is a real match: it carries a series.
+  assert.ok(fight.seriesState());
 });
 
 test("bot uses the player input and physics path to pursue and strike", () => {
@@ -1442,17 +1535,15 @@ test("self play rolls rounds over forever with nobody at the controls", () => {
     ["BOT 1", "BOT 2"]);
 });
 
-test("self play cannot be reached by pressing through normal selection", () => {
-  const { fight, tap } = createFight(false);
-  for (const step of [0, 1])
-    for (let turn = 0; turn < 5; turn++) {
-      tap(0, "ArrowRight");
-      assert.equal(fight.selfPlayState(), false, `step ${step} turn ${turn}`);
+test("self play cannot be reached by pressing through the entry fight", () => {
+  const { fight, tap } = createFight(false, false);
+  for (const button of ["ArrowRight", "ArrowLeft", "A", "B", "X", "Y", "Menu"])
+    for (let press = 0; press < 3; press++) {
+      tap(0, button);
+      assert.equal(fight.selfPlayState(), false, `${button} press ${press}`);
     }
-  tap(0, "A");
-  tap(0, "A");
-  assert.equal(fight.selfPlayState(), false);
   assert.equal(fight.players[0].name.startsWith("@"), true);
+  assert.equal(fight.players[1].name, "DUMMY");
 });
 
 test("a harness can arm self play before boot", () => {
@@ -2429,12 +2520,9 @@ test("a match records the seed its ball kind was drawn from", () => {
     const original = Math.random;
     Math.random = () => seed;
     try {
-      const { fight, tap } = createFight(false);
-      tap(0, "A");
-      const options = fight.selectionOptions();
-      while (options[fight.selectionState().cursor].label !== "BOT")
-        tap(0, "ArrowRight");
-      tap(0, "A");
+      const { fight } = createFight(false);
+      // Training carries no series, so a seeded match needs the bot.
+      fight.startFightAgainst("bot");
       return { series: fight.seriesState(), ball: fight.ball.type,
         radius: fight.ball.radius, mass: fight.ball.mass };
     } finally { Math.random = original; }
@@ -2456,13 +2544,9 @@ test("a match records the seed its ball kind was drawn from", () => {
 });
 
 test("one ball kind survives every round of the same match", () => {
-  const { fight, tap } = createFight(false);
-  tap(0, "A");
+  const { fight } = createFight(false);
   // A dummy round is training and carries no series, so a match needs the bot.
-  const options = fight.selectionOptions();
-  while (options[fight.selectionState().cursor].label !== "BOT")
-    tap(0, "ArrowRight");
-  tap(0, "A");
+  fight.startFightAgainst("bot");
   const series = fight.seriesState();
   assert.ok(series, "the bot opponent should start a series");
   assert.equal(fight.ball.type, fight.seriesBallType(series));
@@ -2528,9 +2612,12 @@ test("dash momentum strengthens kicks and launches grounded balls", () => {
 
 test("weather is calm while ambient dust remains visible", () => {
   const { fight, signals, tick } = createFight();
+  // Wind is rolled once per round start — the entry training round and the
+  // versus round here — and then never again while a round is running.
+  const rolls = signals.filter(([event]) => event === "wind").length;
   for (let frame = 0; frame < 375; frame++) tick(40000);
   assert.equal(fight.windState().mph, 0);
-  assert.equal(signals.filter(([event]) => event === "wind").length, 1);
+  assert.equal(signals.filter(([event]) => event === "wind").length, rolls);
   assert.match(source, /function randomWindMph\(\) \{\n  return 0/);
   assert.match(source, /nextWindChangeAt = Infinity/);
   assert.match(source, /drawAmbientMotes\(t, windInk\)/);
@@ -3084,7 +3171,7 @@ test("dummy rounds are untimed and use an infinity clock", () => {
 
 test("the endless clock shines, hue shifts, and drops a colored shadow", () => {
   const infinitySource = source.match(
-    /if \(timerText === "∞"\) \{[\s\S]*?\n  \} else \{/)[0];
+    /if \(timerText === "∞"\) \{[\s\S]*?\n    \} else \{/)[0];
   assert.match(infinitySource, /Math\.sin\(t \* 4\.6\)/);
   assert.match(infinitySource, /animatedTitleColor\(4, t \* 2\.4\)/);
   assert.match(infinitySource, /animatedTitleColor\(0, t \* 2\.4\)/);
@@ -3117,10 +3204,8 @@ test("the in-match HUD carries a wall clock clear of the round QR", () => {
 test("dummy training has no QR, analytics, spectator feed, or replay upload", () => {
   const { fight, analyticsEvents, liveFrames, replays, tick } =
     createFight(false, false);
-  fight.players[1].npc = true;
-  fight.players[1].bot = false;
-  fight.players[1].name = "DUMMY";
-  fight.startFight();
+  fight.startFightAgainst("dummy");
+  assert.equal(fight.players[1].name, "DUMMY");
   tick(3000001);
   tick(100000);
   assert.deepEqual(analyticsEvents, []);

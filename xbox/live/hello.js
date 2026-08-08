@@ -434,7 +434,13 @@ let impactHitboxesUntil = 0;
 let nextPowerupAtUs = powerupIntervalUs;
 let powerupSequence = 0;
 let acFeed = {};
-let selecting = true;
+// Pal select is retired: you are your own handle, so there is nobody to pick,
+// and the dummy is already the default opponent. The whole two-step screen
+// stays behind this one flag rather than being deleted, because the entry UI
+// is still moving and this is the shape we may want to compare against. Flip
+// it true and the wheel comes back exactly as it was.
+const PAL_SELECT = false;
+let selecting = false;
 // Self-play is a harness mode: both fighters run the bot, no pad can enter or
 // leave it, and rounds roll over on their own.
 let selfPlay = false;
@@ -464,6 +470,13 @@ let shellPrevious = [];
 // (App.cpp overflows int64 converting QPC ticks past ~10 days of uptime),
 // and a >= 0 sentinel then swallows every legitimate timestamp.
 let titleTransitionAt = null;
+// The wordmark is a toy: every letter of "oskiewar" and of "start" keeps its
+// own swell and shudder, and the prompt keeps one shared bounce the letters
+// take in turn. Paint owns these because they are pointer feel, not state.
+const titleToys = [];
+const promptToys = [];
+let promptBounce = 0;
+let titleToyAt = -1;
 let navigationPrevious = [[], []];
 // Temporary live combat inspector. Keep this explicit so the production view
 // can return to a clean presentation without changing combat geometry.
@@ -1288,6 +1301,35 @@ function applyRoster(player, index) {
   player.handleColors = profile.colors;
 }
 
+// The one door into a fight, and the seam auth will attach to. Dummy is free
+// and anonymous — it is the front door and must never ask for anything. Bot
+// and ppl are what a handle buys, because they persist: a series, a published
+// match, a replay, a ranking. Sign-in belongs on this call, not in front of
+// the game. Nothing opens those doors yet, so only training reaches here.
+function startFightAgainst(kind, now) {
+  const opponent = players[1];
+  opponent.npc = kind === "dummy" || kind === "bot";
+  opponent.bot = kind === "bot";
+  // Pad two is @OSKIE until ppl arrives carrying a handle of its own.
+  applyRoster(opponent, opponent.npc ? -1 : 2);
+  selecting = false;
+  shellMode = "GAME";
+  titleTransitionAt = null;
+  startReplay(now);
+  resetRound(now, true);
+  emitSignal("fighters", -1, players[0].rosterIndex, players[1].rosterIndex);
+}
+
+// Whatever you land on is already a live training fight; the wordmark simply
+// floats over it. The intro countdown is spent before the first frame so
+// somebody arriving from a QR code is moving, not watching a number.
+function beginTraining(now) {
+  startFightAgainst("dummy", now);
+  shellMode = "MENU";
+  roundStartedAt = now - introDurationUs;
+}
+
+// Deprecated with PAL_SELECT — see the flag.
 function beginSelect(now) {
   selecting = true;
   selectionStep = 0;
@@ -1312,12 +1354,7 @@ function beginSelect(now) {
 
 function returnToTitle(now, reason = "back") {
   finishReplay();
-  shellMode = "MENU";
-  selecting = false;
-  titleTransitionAt = null;
-  roundResult = "";
-  roundCause = "";
-  deathCinematic = null;
+  beginTraining(now);
   shellPrevious = padSnapshots[0]?.down?.slice() || [];
   selectionPrevious[0] = shellPrevious.slice();
   selectionPrevious[1] = padSnapshots[1]?.down?.slice() || [];
@@ -1345,7 +1382,7 @@ function startSelfPlay(now) {
   resetRound(now, true);
 }
 
-function returnToSelectPressed(now) {
+function consumeSystemButtons(now) {
   let pressed = false;
   for (let index = 0; index < padSnapshots.length; index++) {
     const down = padSnapshots[index]?.down || [];
@@ -1364,10 +1401,11 @@ function returnToSelectPressed(now) {
   return true;
 }
 
+// Start lifts the wordmark off a fight that is already running underneath.
 function enterGame(now) {
   shellMode = "GAME";
   shellPrevious = padSnapshots[0]?.down?.slice() || [];
-  beginSelect(now);
+  if (PAL_SELECT) beginSelect(now);
 }
 
 function updateShell(now) {
@@ -1390,6 +1428,8 @@ function updateShell(now) {
   shellPrevious = down.slice();
 }
 
+// Everything from here through `updateSelect` is the deprecated pal select,
+// held behind PAL_SELECT — see the flag.
 function selectionOptions() {
   if (selectionStep === 0) return fighterRoster.map((fighter, rosterIndex) => ({
     kind: "pal", fighter, rosterIndex,
@@ -1404,10 +1444,8 @@ function selectionOptions() {
 function startSelectedRound(now) {
   selectionReady[0] = true;
   selectionReady[1] = true;
-  selecting = false;
-  startReplay(now);
-  resetRound(now, true);
-  emitSignal("fighters", -1, players[0].rosterIndex, players[1].rosterIndex);
+  startFightAgainst(
+    players[1].bot ? "bot" : players[1].npc ? "dummy" : "ppl", now);
 }
 
 function chooseSelection(index, now) {
@@ -1772,7 +1810,7 @@ function gameBoot() {
     startSelfPlay(startedAt);
     return;
   }
-  beginSelect(startedAt);
+  beginTraining(startedAt);
 }
 
 function resetRound(now, resetMatch = false) {
@@ -3433,11 +3471,10 @@ function gameSim() {
   inputPads[1] = padSnapshots[1];
   if (!selecting && Array.isArray(globalThis.__oskiewarTouch?.taps))
     globalThis.__oskiewarTouch.taps.length = 0;
-  if (returnToSelectPressed(now)) return;
-  if (shellMode === "MENU") {
-    updateShell(now);
-    return;
-  }
+  if (consumeSystemButtons(now)) return;
+  // The wordmark screen is a live training round, so the shell reads start
+  // and then falls straight through into the fight it is sitting on top of.
+  if (shellMode === "MENU") updateShell(now);
   for (const player of players)
     inputPads[player.pad] = player.bot
       ? botPad(player, players[player.pad ? 0 : 1], now)
@@ -3476,7 +3513,7 @@ function gameSim() {
     }
     return;
   }
-  if (selecting) {
+  if (PAL_SELECT && selecting) {
     updateSelect(now);
     return;
   }
@@ -4446,13 +4483,80 @@ function controlLocale() {
   };
 }
 
+// Each entry is the cap to draw, what it does, and the button that lights it,
+// so the legend can show a key rather than spell one.
+function combatKeys() {
+  const caps = typeof capabilities === "function" ? capabilities() : {};
+  if (caps.inputFamily === "keyboard") return [
+    ["SPACE", "KICK", "A"], ["B", "PUNCH", "X"], ["G", "SHIELD", "B"],
+    ["V", "USE ITEM", "Y"], ["W", "JUMP", "ArrowUp"]];
+  if (caps.inputFamily === "touch") return [
+    ["A", "KICK", "A"], ["X", "PUNCH", "X"],
+    ["B", "SHIELD", "B"], ["Y", "USE ITEM", "Y"]];
+  return [
+    ["A", "KICK", "A"], ["X", "PUNCH", "X"], ["B", "SHIELD", "B"],
+    ["Y", "USE ITEM", "Y"], ["UP", "JUMP", "ArrowUp"]];
+}
+
 // What the buttons do, named on the way into a round. X changes meaning with
 // what the hand is carrying, so the legend reads the fighter rather than
 // reciting a fixed map.
-function combatLegend(player) {
-  const locale = controlLocale();
+function combatLegendKeys(player) {
   const swing = itemMelee[heldItem(player)];
-  return swing ? locale.combat.replace("PUNCH", swing) : locale.combat;
+  return combatKeys().map(([cap, action, button]) =>
+    [cap, swing && action === "PUNCH" ? swing : action, button]);
+}
+
+function combatLegend(player) {
+  return combatLegendKeys(player)
+    .map(([cap, action]) => cap + " " + action).join("   ");
+}
+
+// A key drawn as a key: a gray cap with a line around it, sunk and brightened
+// while it is actually held.
+function drawKeycap(label, x, y, size, pressed) {
+  const padX = Math.round(size * .42);
+  const height = Math.round(size * 1.5);
+  const width = handleWidth(label, size) + padX * 2;
+  const drop = pressed ? 2 : 0;
+  const face = pressed
+    ? mixColor([96, 104, 126], [206, 214, 232], visualTheme.light)
+    : mixColor([44, 50, 66], [176, 184, 202], visualTheme.light);
+  const edge = pressed
+    ? mixColor([210, 220, 240], [40, 46, 62], visualTheme.light)
+    : mixColor([112, 122, 146], [96, 104, 124], visualTheme.light);
+  if (!pressed)
+    box(x + 2, y + 4, width, height, ...mixColor([6, 8, 18], [92, 99, 112],
+      visualTheme.light * .7));
+  box(x, y + drop, width, height, ...face);
+  strokeBox(x, y + drop, width, height, 2, edge);
+  typeWrite(label, x + padX, y + drop + Math.round((height - size) / 2), size,
+    ...(pressed ? [12, 14, 26] : [238, 242, 252]));
+  return width;
+}
+
+function drawControlLegend(ink) {
+  const entries = combatLegendKeys(players[0]);
+  const size = compactLayout() ? 18 : 24;
+  drawKeycapRun(entries, viewCenterX() - keycapRunWidth(entries, size) / 2,
+    Math.min(viewHeight - 62, stageBottom + 14), size,
+    inputPads[0]?.down || [], ink);
+}
+
+function keycapRunWidth(entries, size) {
+  const padX = Math.round(size * .42);
+  return entries.reduce((total, [cap, action]) =>
+    total + handleWidth(cap, size) + padX * 2 + 8 +
+      handleWidth(action, size) + 26, 0) - 26;
+}
+
+function drawKeycapRun(entries, x, y, size, held, ink) {
+  let cursor = x;
+  for (const [cap, action, button] of entries) {
+    cursor += drawKeycap(cap, cursor, y, size, held.includes(button)) + 8;
+    typeWrite(action, cursor, y + Math.round(size * .25), size, ...ink);
+    cursor += handleWidth(action, size) + 26;
+  }
 }
 
 function drawHandle(handle, x, y, size, colors, fallback) {
@@ -5427,6 +5531,21 @@ function titleButtonRect() {
     width, height, textSize, textWidth };
 }
 
+// A letter you can push around. `grow` eases toward 1 while the pointer is on
+// it and `kick` is a decaying shudder fired the frame it is first touched, so
+// the word answers one letter at a time instead of inflating as a block.
+function toyGlyph(toys, index, hot, dt) {
+  const toy = toys[index] || (toys[index] = { grow: 0, kick: 0, hot: false });
+  toy.grow += ((hot ? 1 : 0) - toy.grow) * (1 - Math.exp(-dt * (hot ? 16 : 7)));
+  if (hot && !toy.hot) toy.kick = 1;
+  toy.hot = hot;
+  toy.kick *= Math.exp(-dt * 5.5);
+  return toy;
+}
+
+const pointInCell = (point, x, y, width, height) => point && x <= point.x &&
+  point.x <= x + width && y <= point.y && point.y <= y + height;
+
 // Screen-space outline, four boxes, no projection — safe anywhere.
 function strokeBox(x, y, width, height, thickness, color) {
   box(x, y, width, thickness, ...color);
@@ -5470,14 +5589,35 @@ function drawTitleScreen(t, ink, transitionAge = -1) {
     ? flashPalette[Math.floor(transitionAge / .065) % flashPalette.length] : null;
   const fade = transitionAge >= 0 ? clamp((transitionAge - .46) / .24, 0, 1) : 0;
   const transitionInk = flash ? mixColor(flash, [7, 10, 26], fade) : null;
+  // Toys ease in real time, and the burn renders headless with no pointer, so
+  // the poster stays the same picture it always was.
+  const dt = titleToyAt < 0 ? 0 : clamp(t - titleToyAt, 0, .1);
+  titleToyAt = t;
+  const raw = globalThis.__oskiewarTouch?.pointer;
+  const pointer = transitionAge < 0 && !socialPreview && raw?.active &&
+    Number.isFinite(raw.x) && Number.isFinite(raw.y) ? raw : null;
+  let held = -1;
   for (let index = 0; index < title.length; index++) {
     const character = title[index];
     const bob = Math.sin(t * 2.05 + index * .72) * (compact ? 5 : 8);
     const drift = Math.cos(t * 1.12 + index * .91) * (compact ? 3 : 5) +
       Math.sin(t * .63 + index * 1.71) * (compact ? 7 : 12);
-    typeWrite(character, cursor + drift, titleY + bob, titleSize,
-      ...(transitionInk || animatedTitleColor(index, t)));
     const advance = comicGlyphAdvance(character, titleSize);
+    // The cell is what the pointer touches, so a letter that has swollen out
+    // of it cannot chase the cursor or shove its neighbours along the line.
+    const hot = pointInCell(pointer, cursor + drift, titleY + bob,
+      advance, titleSize);
+    if (hot) held = index;
+    const toy = toyGlyph(titleToys, index, hot, dt);
+    const size = titleSize *
+      (1 + toy.grow * .38 + toy.kick * Math.sin(t * 31 + index) * .17);
+    const shudder = toy.kick * Math.sin(t * 27 + index * 1.3) *
+      (compact ? 6 : 11);
+    typeWrite(character,
+      cursor + drift + (advance - comicGlyphAdvance(character, size)) / 2 +
+        shudder,
+      titleY + bob - (size - titleSize) * .5 - toy.grow * (compact ? 6 : 11),
+      size, ...(transitionInk || animatedTitleColor(index, t)));
     if (glyphCells) glyphCells.push([cursor + drift, titleY + bob, advance]);
     cursor += advance;
   }
@@ -5494,12 +5634,14 @@ function drawTitleScreen(t, ink, transitionAge = -1) {
 
   const prompt = "start";
   const button = titleButtonRect();
-  const pointer = globalThis.__oskiewarTouch?.pointer;
-  const hovered = transitionAge < 0 && pointer?.active && pointInRect(pointer, button);
+  const hovered = Boolean(pointer) && pointInRect(pointer, button);
   if (globalThis.__oskiewarTouch) {
     globalThis.__oskiewarTouch.titleButton = button;
-    globalThis.__oskiewarTouch.titleHover = Boolean(hovered);
+    globalThis.__oskiewarTouch.titleHover = hovered;
+    globalThis.__oskiewarTouch.titleGlyph = held;
   }
+  promptBounce += ((hovered ? 1 : 0) - promptBounce) *
+    (1 - Math.exp(-dt * (hovered ? 14 : 6)));
   const promptPulse = .68 + (Math.sin(t * 3.2) + 1) * .16;
   const promptInk = transitionInk ||
     mixColor([196, 142, 18], [255, 238, 82], promptPulse);
@@ -5507,16 +5649,35 @@ function drawTitleScreen(t, ink, transitionAge = -1) {
   // Yellow type on a bright sky needs an edge, so a sharp offset shadow
   // deepens as the background lightens and lifts as it goes to night.
   if (!socialPreview) {
-    const promptX = button.x + (button.width - button.textWidth) / 2;
+    let promptCursor = button.x + (button.width - button.textWidth) / 2;
     const promptY = button.y + (button.height - button.textSize) / 2 - 2;
     const offset = Math.max(3, Math.round(button.textSize * .1));
-    if (!transitionInk)
-      typeWrite(prompt, promptX + offset, promptY + offset, button.textSize,
-        ...mixColor([10, 12, 30], [86, 26, 116], visualTheme.light));
-    typeWrite(prompt, promptX, promptY, button.textSize,
-      ...(hovered ? mixColor(promptInk, [255, 255, 255], .35) : promptInk));
+    const shadowInk = mixColor([10, 12, 30], [86, 26, 116], visualTheme.light);
+    const litInk = hovered
+      ? mixColor(promptInk, [255, 255, 255], .35) : promptInk;
+    for (let index = 0; index < prompt.length; index++) {
+      const character = prompt[index];
+      const advance = comicGlyphAdvance(character, button.textSize);
+      const toy = toyGlyph(promptToys, index,
+        pointInCell(pointer, promptCursor, promptY, advance, button.textSize),
+        dt);
+      // The whole word takes the bounce, but each letter takes it a beat after
+      // the one before, so start reads as a hop travelling along the word.
+      const hop = promptBounce * button.textSize * .3 *
+        Math.abs(Math.sin(t * 5.4 - index * .62));
+      const size = button.textSize * (1 + toy.grow * .2 + toy.kick * .12);
+      const x = promptCursor + (advance - comicGlyphAdvance(character, size)) / 2;
+      const y = promptY - hop - (size - button.textSize) * .5;
+      if (!transitionInk)
+        typeWrite(character, x + offset, y + offset, size, ...shadowInk);
+      typeWrite(character, x, y, size, ...litInk);
+      promptCursor += advance;
+    }
   }
-  if (transitionAge >= 0 || socialPreview) return;
+  // Touch play keeps its thumbs in the bottom corners, and the fight is live
+  // under this screen now, so the stamp yields the pad rather than sit on it.
+  if (transitionAge >= 0 || socialPreview || (typeof capabilities ===
+      "function" && capabilities().inputFamily === "touch")) return;
   const titleNow = pacificTimeLabel(runtime().unixMs || Date.now());
   const stamp = buildTimestamp.match(/^(\d{4})\.(\d{2})\.(\d{2})\.(\d{2})(\d{2})/);
   const version = stamp
@@ -5702,15 +5863,7 @@ function gamePaint() {
   const menuPanel = mixColor([20, 28, 56], [215, 225, 239], visualTheme.light);
   const menuInk = mixColor([245, 248, 255], [24, 35, 72], visualTheme.light);
   wipe(...outside);
-  if (shellMode === "MENU") {
-    box(0, 0, viewWidth(), viewHeight, ...menuArena);
-    const transitionAge = titleTransitionAt !== null
-      ? (run.monotonicUs - titleTransitionAt) / 1000000 : -1;
-    drawTitleScreen(t, menuInk, transitionAge);
-    if (transitionAge < 0) drawSpectatorQr(menuInk);
-    return;
-  }
-  if (selecting) {
+  if (PAL_SELECT && selecting) {
     box(0, 0, viewWidth(), viewHeight, ...menuArena);
     drawSelectionScreen(t, menuInk, menuPanel);
     return;
@@ -5769,51 +5922,55 @@ function gamePaint() {
     : mixColor([255, 92, 132], [184, 35, 62], visualTheme.light);
   drawAmbientMotes(t, windInk);
   drawWindFlag(t, windInk);
-  const timedRound = roundIsTimed();
-  const remainingSeconds = roundResult || !timedRound ? 0 : Math.max(0,
-    Math.ceil((roundDurationUs - roundElapsedUs) / 1000000));
-  const timerText = roundResult
-    ? roundResult === "TIE" ? "tie!" : ""
-    : timedRound ? String(remainingSeconds).padStart(2, "0") : "∞";
-  const hud = hudSafeRect();
-  // Only a television has room to let the endless glyph grow this far.
-  const timerSize = timedRound ? hudTypeSize
-    : Math.round(hudTypeSize * (compactLayout() ? 1.65 : 2.6));
-  if (timerText === "∞") {
-    // The endless clock is the whole top row in training, so let it shine:
-    // it breathes, drifts through the title palette, and drops a colored
-    // shadow a palette step behind itself.
-    const glyphSize = Math.round(timerSize * (1 + Math.sin(t * 4.6) * .07));
-    const x = viewCenterX() - handleWidth(timerText, glyphSize) / 2;
-    typeWrite(timerText, x + 7, hud.top + 9, glyphSize,
-      ...animatedTitleColor(4, t * 2.4));
-    typeWrite(timerText, x, hud.top + 2, glyphSize,
-      ...animatedTitleColor(0, t * 2.4));
-  } else {
-    const timerWidth = handleWidth(timerText, timerSize);
-    const timerDanger = timedRound && remainingSeconds > 0 &&
-      remainingSeconds <= 10;
-    const timerShake = timerDanger
-      ? Math.sin(t * 35) * (11 - remainingSeconds) * .45 : 0;
-    const timerInk = timerDanger
-      ? mixColor(titleInk, [235, 38, 58], (11 - remainingSeconds) / 10)
-      : titleInk;
-    typeWrite(timerText, viewCenterX() - timerWidth / 2 + timerShake,
-      hud.top + 2, timerSize, ...timerInk);
+  // The top row is the round's: a clock, and who is watching. The wordmark
+  // screen carries its own clock, so this one waits for start.
+  if (shellMode === "GAME") {
+    const timedRound = roundIsTimed();
+    const remainingSeconds = roundResult || !timedRound ? 0 : Math.max(0,
+      Math.ceil((roundDurationUs - roundElapsedUs) / 1000000));
+    const timerText = roundResult
+      ? roundResult === "TIE" ? "tie!" : ""
+      : timedRound ? String(remainingSeconds).padStart(2, "0") : "∞";
+    const hud = hudSafeRect();
+    // Only a television has room to let the endless glyph grow this far.
+    const timerSize = timedRound ? hudTypeSize
+      : Math.round(hudTypeSize * (compactLayout() ? 1.65 : 2.6));
+    if (timerText === "∞") {
+      // The endless clock is the whole top row in training, so let it shine:
+      // it breathes, drifts through the title palette, and drops a colored
+      // shadow a palette step behind itself.
+      const glyphSize = Math.round(timerSize * (1 + Math.sin(t * 4.6) * .07));
+      const x = viewCenterX() - handleWidth(timerText, glyphSize) / 2;
+      typeWrite(timerText, x + 7, hud.top + 9, glyphSize,
+        ...animatedTitleColor(4, t * 2.4));
+      typeWrite(timerText, x, hud.top + 2, glyphSize,
+        ...animatedTitleColor(0, t * 2.4));
+    } else {
+      const timerWidth = handleWidth(timerText, timerSize);
+      const timerDanger = timedRound && remainingSeconds > 0 &&
+        remainingSeconds <= 10;
+      const timerShake = timerDanger
+        ? Math.sin(t * 35) * (11 - remainingSeconds) * .45 : 0;
+      const timerInk = timerDanger
+        ? mixColor(titleInk, [235, 38, 58], (11 - remainingSeconds) / 10)
+        : titleInk;
+      typeWrite(timerText, viewCenterX() - timerWidth / 2 + timerShake,
+        hud.top + 2, timerSize, ...timerInk);
+    }
+    if (roundViewer) {
+      const viewerLabel = roundViewerMode || roundViewerStatus;
+      typeWrite(viewerLabel, hud.right - viewerLabel.length * 18, hud.top + 7,
+        24, ...(roundViewerMode === "LIVE" ? [210, 42, 62] : titleInk));
+    }
+    // Wall clock in the top right, tucked left of the round QR and below the
+    // spectator label so it never lands on either.
+    const clockLabel = pacificTimeLabel(run.unixMs || Date.now());
+    const clockSize = Math.round(hudTypeSize * .62);
+    const qrBox = spectatorQrBox();
+    const clockRight = qrBox ? qrBox.left - 14 : hud.right;
+    typeWrite(clockLabel, clockRight - handleWidth(clockLabel, clockSize),
+      hud.top + (roundViewer ? clockSize + 10 : 2), clockSize, ...titleInk);
   }
-  if (roundViewer) {
-    const viewerLabel = roundViewerMode || roundViewerStatus;
-    typeWrite(viewerLabel, hud.right - viewerLabel.length * 18, hud.top + 7, 24,
-      ...(roundViewerMode === "LIVE" ? [210, 42, 62] : titleInk));
-  }
-  // Wall clock in the top right, tucked left of the round QR and below the
-  // spectator label so it never lands on either.
-  const clockLabel = pacificTimeLabel(run.unixMs || Date.now());
-  const clockSize = Math.round(hudTypeSize * .62);
-  const qrBox = spectatorQrBox();
-  const clockRight = qrBox ? qrBox.left - 14 : hud.right;
-  typeWrite(clockLabel, clockRight - handleWidth(clockLabel, clockSize),
-    hud.top + (roundViewer ? clockSize + 10 : 2), clockSize, ...titleInk);
   for (const pickup of gunPickups) drawGunPickup(pickup, t);
   for (const pickup of grenadePickups) drawGrenadePickup(pickup, t);
   const introAge = run.monotonicUs - roundStartedAt;
@@ -5856,16 +6013,11 @@ function gamePaint() {
   drawDebugHitboxes(players[1], t);
   drawBallHitboxes();
   drawImpacts();
-  if (!roundResult && introAge < introDurationUs) {
-    const introSeconds = introAge / 1000000;
-    drawFightIntro(introSeconds, titleInk, statusShadow);
-    const legend = combatLegend(players[0]);
-    const legendWidth = handleWidth(legend, 24);
-    const legendY = Math.min(viewHeight - 54, stageBottom + 18);
-    typeWrite(legend, viewCenterX() - legendWidth / 2 + 3, legendY + 3, 24,
-      ...statusShadow);
-    typeWrite(legend, viewCenterX() - legendWidth / 2, legendY, 24, ...titleInk);
-  }
+  const counting = !roundResult && introAge < introDurationUs;
+  if (counting) drawFightIntro(introAge / 1000000, titleInk, statusShadow);
+  // The keys belong wherever a newcomer is looking: under the wordmark on the
+  // way in, and again while a round counts itself off.
+  if (counting || shellMode === "MENU") drawControlLegend(titleInk);
   const resultUiReady = cinematicAge < 0 || cinematicAge >= 1.1;
   if (roundResult && resultUiReady) {
     if (instantReplay) {
@@ -5903,7 +6055,10 @@ function gamePaint() {
       }
     }
   }
-  if ((roundResult && resultUiReady) || (!roundResult && introAge >= introDurationUs)) {
+  // Nameplates and stats wait for the wordmark to lift; the entry frame is
+  // the word, the keys, and the two fighters, and nothing else.
+  if (shellMode === "GAME" && ((roundResult && resultUiReady) ||
+      (!roundResult && introAge >= introDurationUs))) {
     drawPlayerHandle(players[0], t, 0);
     drawPlayerHandle(players[1], t, 1);
     drawPlayerStats(players[0], 0);
@@ -5915,6 +6070,12 @@ function gamePaint() {
   }
   drawSafeZones();
   drawDeathFlash();
+  if (shellMode === "MENU") {
+    const transitionAge = titleTransitionAt !== null
+      ? (run.monotonicUs - titleTransitionAt) / 1000000 : -1;
+    drawTitleScreen(t, menuInk, transitionAge);
+    if (transitionAge >= 0) return;
+  }
   drawSpectatorQr(titleInk);
 }
 

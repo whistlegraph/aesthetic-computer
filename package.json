@@ -30,6 +30,7 @@
     "test:browser:headed": "AC_HEADED=1 AC_SLOWMO=60 node tests/browser/prompt-search.test.mjs",
     "test:browser:local": "AC_TEST_URL=https://localhost:8888 node tests/browser/prompt-search.test.mjs",
     "xbox:test:mac": "sh xbox/tools/mac-test-app.sh",
+    "xbox:play": "node xbox/tools/serve-live.mjs",
     "xbox:test:oskiewar:blackbox": "node xbox/live/tests/blackbox-rounds.mjs",
     "xbox:burn:oskiewar-social": "node xbox/live/render-social-preview.mjs",
     "xbox:check:oskiewar-social": "node xbox/live/render-social-preview.mjs --check",

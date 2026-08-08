@@ -64,7 +64,6 @@
       position: fixed; inset: 0; z-index: 3; display: none; pointer-events: none;
       user-select: none; -webkit-user-select: none; touch-action: none; }
     body.touch-enabled #touch-controls { display: block; }
-    body.title-open #touch-controls { display: none; }
     .touch-cluster { position: absolute; display: grid;
       grid-template: repeat(3, var(--unit)) / repeat(3, var(--unit));
       gap: var(--gap); pointer-events: none; }
@@ -805,7 +804,10 @@
         previousPieceScreen = pieceScreen;
         const hover = globalThis.__oskiewarTouch?.hover || null;
         const titleHover = globalThis.__oskiewarTouch?.titleHover === true;
-        document.body.classList.toggle("selection-hover", Boolean(hover) || titleHover);
+        // A letter of the wordmark is a thing you can grab, so say so.
+        const titleGlyph = globalThis.__oskiewarTouch?.titleGlyph ?? -1;
+        document.body.classList.toggle("selection-hover",
+          Boolean(hover) || titleHover || titleGlyph >= 0);
         const key = hover ? [hover.back ? "back" : "", hover.option ?? ""].join(":") : "";
         if (key && key !== selectionHoverSoundKey && !titleOpen)
           oskiewarSfx.drum("hat", .26, 0);
