@@ -35,6 +35,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// The former JukeWizard, now a first-class window and service inside this
     /// process. It starts lazily when the user chooses Juke.
     private let juke = MenuBandJuke()
+    /// TrackDrum is App-Store-build only, so there is no second focused input
+    /// to hand the trackpad to here — focus is always local FX. The real
+    /// `var` above lives in the MAC_APP_STORE block; this constant keeps the
+    /// two shared read sites (`handlePitchBendCursorMove`, the transient
+    /// surface gate) free of their own #if, which is how they came to be
+    /// ungated and break this build in the first place.
+    private let focusedInputMode: FocusedInputMode = .localFX
 #endif
     /// Live conductible drone/arp/drum loop (see MenuBandEngine + the
     /// `engine.*` distributed-notification handlers).
