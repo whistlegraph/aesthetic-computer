@@ -91,9 +91,15 @@ if (!opts.events) projection.events = 0;
 
 async function main() {
   const database = await connect();
-  const runs = database.db.collection("piece-runs");
-  let results = await runs.find(query, { projection }).sort({ updatedAt: -1 }).limit(opts.limit).toArray();
-  await database.disconnect();
+  let results;
+  try {
+    const runs = database.db.collection("piece-runs");
+    results = await runs.find(query, { projection }).sort({ updatedAt: -1 }).limit(opts.limit).toArray();
+  } finally {
+    // Disconnect even if the query throws, so a failed lookup cannot leave the
+    // driver holding a live connection.
+    await database.disconnect();
+  }
 
   if (opts.grep) {
     const re = new RegExp(opts.grep, "i");
@@ -135,7 +141,13 @@ function truncate(s, n) {
   return s.length > n ? s.slice(0, n - 1) + "…" : s;
 }
 
-main().catch((err) => {
-  console.error("piece-logs-cli failed:", err?.stack || err);
-  process.exit(1);
-});
+// Exit explicitly rather than waiting for the event loop to drain. The Mongo
+// driver can keep a handle alive past disconnect(), and this is a one-shot
+// read-only query — without this, invocations linger forever. On lith, 32 of
+// them had accumulated over three weeks holding ~890MB.
+main()
+  .then(() => process.exit(0))
+  .catch((err) => {
+    console.error("piece-logs-cli failed:", err?.stack || err);
+    process.exit(1);
+  });
