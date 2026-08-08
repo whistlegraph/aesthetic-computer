@@ -1,8 +1,8 @@
 {
-  "filename": "disk.worker.b31e45906813.mjs",
-  "sha256": "b31e4590681378b6709e1ce18613080793ace9ae3c8e1a375dd12881e227609e",
-  "bytes": 1656275,
-  "sourceSha256": "13ef2d4053eed92f97d9a000c55b1a158c2138d4ed6a5ce7d117e9acf59a0c51",
+  "filename": "disk.worker.6c93a6903cd9.mjs",
+  "sha256": "6c93a6903cd9ee227bea03ad796628d95d838c9be39e819ee869381668a02667",
+  "bytes": 1657265,
+  "sourceSha256": "3be59cbfec3c08352e5d7330467f7ef1596b01ff376b6d407a687a3545f814a9",
   "sources": [
     "public/aesthetic.computer/dep/@akamfoad/qr/qr.mjs",
     "public/aesthetic.computer/dep/gl-matrix/common.mjs",
@@ -21,6 +21,7 @@
     "public/aesthetic.computer/lib/ask.mjs",
     "public/aesthetic.computer/lib/cam-doll.mjs",
     "public/aesthetic.computer/lib/chat.mjs",
+    "public/aesthetic.computer/lib/color-codes.mjs",
     "public/aesthetic.computer/lib/color-highlighting.mjs",
     "public/aesthetic.computer/lib/disk.mjs",
     "public/aesthetic.computer/lib/fade-state.mjs",
