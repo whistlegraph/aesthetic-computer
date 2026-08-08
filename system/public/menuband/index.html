@@ -213,36 +213,6 @@
   .voice-control input { width: 32px; padding: 0; border: 0; outline: 0; color: inherit; background: transparent; font: inherit; text-align: center; }
   @keyframes key-score { 0%, 6%, 100% { filter: none; transform: none; } 2% { filter: brightness(0.94) saturate(1.15); transform: translateY(2px); } }
 
-  /* Learn lives beside the instrument, like a little pull-out music stand. */
-  .learn-tab { position: fixed; z-index: 20; right: 12px; top: 50%; width: 42px; height: 42px; translate: 0 -50%; padding: 0; border: 1px solid rgba(34,45,58,.35); border-radius: 50%; background: rgba(246,251,255,.88); color: var(--ink-head); box-shadow: 0 6px 24px rgba(30,44,64,.16); font: 800 20px/1 Georgia, serif; cursor: pointer; backdrop-filter: blur(16px); }
-  .learn-tab:hover, .learn-tab[aria-expanded="true"] { color: #fff; background: var(--tahoe-blue); }
-  .learn-drawer { position: fixed; z-index: 19; top: 50%; right: 64px; width: min(340px, calc(100vw - 82px)); translate: calc(100% + 70px) -50%; opacity: 0; pointer-events: none; transition: translate 280ms var(--ease-apple), opacity 180ms ease; }
-  .learn-drawer.is-open { translate: 0 -50%; opacity: 1; pointer-events: auto; }
-  .learn-card { overflow: hidden; border: 1px solid rgba(37,49,64,.28); border-radius: 18px; background: rgba(247,251,255,.94); box-shadow: 0 22px 70px rgba(25,37,60,.24), 0 1px 0 #fff inset; backdrop-filter: blur(28px) saturate(1.2); text-align: left; }
-  .learn-head { display: flex; align-items: center; justify-content: space-between; padding: 13px 14px 10px; }
-  .learn-head strong { font: 800 13px "Berkeley Mono Variable", "SF Mono", monospace; letter-spacing: .04em; }
-  .learn-close { width: 28px; height: 28px; border: 0; border-radius: 50%; background: rgba(31,40,52,.08); color: inherit; font-size: 18px; cursor: pointer; }
-  .learn-kinds { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 0 12px 10px; }
-  .learn-kinds button, .lesson-grid button, .learn-actions button { border: 1px solid rgba(35,47,62,.16); border-radius: 8px; background: rgba(255,255,255,.66); color: var(--ink-head); font: 750 11px "Berkeley Mono Variable", "SF Mono", monospace; cursor: pointer; }
-  .learn-kinds button { height: 30px; }
-  .learn-kinds button[aria-selected="true"], .lesson-grid button[aria-current="true"] { color: #fff; border-color: var(--tahoe-blue-edge); background: var(--tahoe-blue); }
-  .lesson-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; padding: 0 12px 12px; }
-  .lesson-grid button { min-width: 0; height: 31px; padding: 0; }
-  .lesson-player { padding: 13px 14px 15px; border-top: 1px solid rgba(35,47,62,.13); background: rgba(224,239,250,.54); }
-  .lesson-title { margin: 0 0 4px; font-size: 17px; }
-  .lesson-keys { min-height: 18px; margin-bottom: 10px; color: var(--tahoe-indigo); font: 800 11px "Berkeley Mono Variable", "SF Mono", monospace; letter-spacing: .08em; }
-  .lesson-caption { display: flex; align-items: center; justify-content: center; min-height: 70px; padding: 10px 12px; border-radius: 11px; background: rgba(15,22,35,.88); color: #fff; text-align: center; font: 700 14px/1.35 -apple-system, BlinkMacSystemFont, sans-serif; }
-  .lesson-progress { width: 100%; height: 4px; margin: 10px 0; border: 0; border-radius: 9px; overflow: hidden; appearance: none; background: rgba(30,43,60,.12); }
-  .lesson-progress::-webkit-progress-bar { background: rgba(30,43,60,.12); }
-  .lesson-progress::-webkit-progress-value { background: var(--tahoe-blue); }
-  .learn-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
-  .learn-actions button { height: 36px; }
-  .learn-actions .primary { color: #fff; background: var(--tahoe-blue); }
-  .lesson-feedback { min-height: 17px; margin: 9px 0 0; color: var(--ink-soft); text-align: center; font: 700 11px "Berkeley Mono Variable", "SF Mono", monospace; }
-  .piano-key.is-taught { animation: none !important; color: #15131a; background: #ffd33d; filter: saturate(1.15); box-shadow: 0 0 12px rgba(255,190,20,.78); }
-  .piano-key.is-correct { animation: none !important; background: #68d391; box-shadow: 0 0 13px rgba(42,190,105,.68); }
-  body.learn-open .white-key { animation-play-state: paused; }
-
   /* Apple Garamond italic — the "Think different" / classic-product wordmark
      feel. Falls back through ITC Garamond, Hoefler Text, and Garamond on
      stock macOS. */
@@ -386,56 +356,6 @@
   section.panel p { margin: 0 0 10px; color: var(--ink-body); }
   section.panel p:last-child { margin-bottom: 0; }
 
-  .film-shelf {
-    position: relative;
-    z-index: 1;
-    max-width: 820px;
-    margin: 34px auto 0;
-  }
-  .film-heading {
-    max-width: 520px;
-    margin: 0 auto 16px;
-    text-align: center;
-  }
-  .film-heading h3 {
-    margin: 0 0 6px;
-    font-family: var(--display-stack);
-    font-size: 22px;
-    color: var(--ink-head);
-  }
-  .film-heading p { margin: 0; color: var(--ink-body); }
-  .film-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 14px;
-  }
-  .film-card {
-    overflow: hidden;
-    margin: 0;
-    background: rgba(255, 255, 255, 0.52);
-    backdrop-filter: blur(24px) saturate(180%);
-    -webkit-backdrop-filter: blur(24px) saturate(180%);
-    border: 1px solid rgba(255, 255, 255, 0.72);
-    border-radius: 18px;
-    box-shadow: 0 12px 34px -22px rgba(15, 30, 60, 0.34);
-  }
-  .film-card video {
-    display: block;
-    width: 100%;
-    aspect-ratio: 16 / 9;
-    object-fit: cover;
-    background: #101216;
-  }
-  .film-card figcaption { padding: 14px 16px 16px; }
-  .film-card strong {
-    display: block;
-    margin-bottom: 3px;
-    font-family: var(--display-stack);
-    font-size: 15px;
-    color: var(--ink-head);
-  }
-  .film-card span { color: var(--ink-body); }
-
   /* TrackDrum's real four-zone launch surface, using the browser's honest
      one-contact input contract. Desktop docks it like hardware; mobile keeps
      it in the page flow where a thumb can reach it. */
@@ -445,17 +365,6 @@
     width: min(500px, calc(100% - 24px));
     margin: 42px auto 0;
     text-align: center;
-  }
-  .trackdrum-preview h2 {
-    margin: 0 0 5px;
-    color: #fff;
-    font-family: "Comic Sans MS", "Chalkboard SE", var(--display-stack);
-    font-size: 22px;
-    font-weight: 700;
-    letter-spacing: .01em;
-    -webkit-text-stroke: 1.5px #141414;
-    paint-order: stroke fill;
-    text-shadow: 2px 2px 0 var(--tahoe-blue);
   }
   .trackdrum-preview > p {
     margin: 0 auto 13px;
@@ -578,6 +487,14 @@
       padding: 0;
     }
     .menu-strip { width: 322px; }
+    section.panel.purchase-panel {
+      position: absolute;
+      top: calc((100vh - 64px) / 2);
+      left: 50%;
+      width: min(520px, calc(100% - 48px));
+      margin: 0;
+      transform: translate(-50%, -50%);
+    }
     .trackdrum-preview {
       position: fixed;
       z-index: 13;
@@ -587,12 +504,15 @@
       margin: 0;
       transform: translateX(-50%);
     }
-    .white-key { padding-bottom: 1px; font-size: 8px; }
-    .black-key { padding-bottom: 0; font-size: 6px; }
-    .trackdrum-preview h2 { font-size: 16px; -webkit-text-stroke-width: 1.2px; }
+    .white-key { padding-bottom: 3px; font-size: 8px; }
+    .black-key { padding-bottom: 1px; font-size: 6px; }
     .trackdrum-preview > p { display: none; }
     .trackdrum-surface { width: 250px; border-radius: 15px; }
     .trackdrum-link { margin-top: 6px; font-size: 12px; }
+  }
+
+  @media (max-width: 699px) {
+    .hero { min-height: 320px; }
   }
 
   ul.modes {
@@ -780,7 +700,7 @@
   /* Narrow viewports — tighten paddings, smaller hero. */
   @media (max-width: 520px) {
     body { padding: 16px 8px 48px; }
-    .hero { padding: 24px 18px 20px; border-radius: 14px; }
+    .hero { min-height: 240px; padding: 24px 18px 20px; border-radius: 14px; }
     .icon-stage { width: 192px; height: 192px; }
     .icon-stage img.app-icon { width: 192px; height: 192px; }
     .instrument-stage { margin-left: -15px; margin-right: -15px; padding-top: 18px; }
@@ -788,16 +708,8 @@
     .black-key { border-radius: 0 0 5px 5px; }
     h2.app-title { font-size: 40px; }
     section.panel { padding: 16px 18px; border-radius: 12px; }
-    .film-shelf { margin-top: 26px; }
-    .film-grid { grid-template-columns: 1fr; }
-    .film-heading { padding: 0 16px; }
     .trackdrum-preview { margin-top: 34px; }
     .trackdrum-surface { width: min(310px, 100%); }
-    .learn-tab { top: auto; right: 14px; bottom: 14px; translate: 0; }
-    .learn-drawer { top: auto; right: 8px; bottom: 58px; width: calc(100vw - 16px); translate: 0 calc(100% + 80px); }
-    .learn-drawer.is-open { translate: 0 0; }
-    .learn-card { border-radius: 16px; }
-    .lesson-caption { min-height: 58px; }
   }
 
   /* Honor reduced-motion preference — kill the music drift. */
@@ -839,7 +751,7 @@
     body::before {
       background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='180' viewBox='0 0 240 180'><g opacity='0.28' font-family='Georgia,serif'><text x='10' y='34' fill='%23ff8a8a' font-size='34' transform='rotate(-14 10 34)'>♪</text><text x='80' y='28' fill='%23ffb964' font-size='52' transform='rotate(8 80 28)'>♫</text><text x='170' y='44' fill='%23ffd757' font-size='22' transform='rotate(-28 170 44)'>♩</text><text x='215' y='80' fill='%2387dd9c' font-size='40' transform='rotate(18 215 80)'>♬</text><text x='38' y='80' fill='%2379b1ff' font-size='62' transform='rotate(22 38 80)'>♬</text><text x='118' y='98' fill='%23bf95ee' font-size='18' transform='rotate(-42 118 98)'>♭</text><text x='195' y='138' fill='%23ff8a8a' font-size='30' transform='rotate(12 195 138)'>♯</text><text x='12' y='148' fill='%23ffb964' font-size='28' transform='rotate(-6 12 148)'>♮</text><text x='72' y='162' fill='%2387dd9c' font-size='44' transform='rotate(28 72 162)'>♩</text><text x='148' y='172' fill='%2379b1ff' font-size='20' transform='rotate(-18 148 172)'>♪</text><text x='100' y='58' fill='%23bf95ee' font-size='16' transform='rotate(55 100 58)'>♭</text><text x='160' y='110' fill='%23ff8a8a' font-size='24' transform='rotate(-50 160 110)'>♯</text></g></svg>");
     }
-    .hero, section.panel, .film-card {
+    .hero, section.panel {
       background: rgba(28, 28, 30, 0.55);
       border-color: rgba(255, 255, 255, 0.08);
       box-shadow:
@@ -848,11 +760,6 @@
     }
     .hero { background: transparent; border: 0; box-shadow: none; }
     .white-key { background: linear-gradient(#eceef0, #bfc3c8); color: rgba(20,18,28,0.76); }
-    .learn-tab { background: rgba(35,35,38,.9); border-color: rgba(255,255,255,.18); }
-    .learn-card { background: rgba(28,28,31,.96); border-color: rgba(255,255,255,.15); box-shadow: 0 22px 70px rgba(0,0,0,.58); }
-    .learn-close, .learn-kinds button, .lesson-grid button, .learn-actions button { color: var(--ink-head); background: rgba(255,255,255,.07); border-color: rgba(255,255,255,.14); }
-    .learn-kinds button[aria-selected="true"], .lesson-grid button[aria-current="true"], .learn-actions .primary { background: var(--tahoe-blue); }
-    .lesson-player { border-color: rgba(255,255,255,.12); background: rgba(8,16,28,.42); }
     code {
       background: #2c2c2e;
       border-color: #3a3a3c;
@@ -880,29 +787,6 @@
 <body>
 
 <h1 id="corner-label">menuband</h1>
-
-<button class="learn-tab" id="learn-tab" type="button" aria-label="Learn chords and scales" aria-expanded="false" aria-controls="learn-drawer"><span aria-hidden="true">♫</span></button>
-<aside class="learn-drawer" id="learn-drawer" aria-label="Learn Menu Band" aria-hidden="true">
-  <div class="learn-card">
-    <div class="learn-head"><strong>learn Menu Band</strong><button class="learn-close" id="learn-close" type="button" aria-label="Close lessons">×</button></div>
-    <div class="learn-kinds" role="tablist" aria-label="Lesson type">
-      <button type="button" data-kind="chord" aria-selected="true">major chords</button>
-      <button type="button" data-kind="scale" aria-selected="false">major scales</button>
-    </div>
-    <div class="lesson-grid" id="lesson-grid" aria-label="Choose a root note"></div>
-    <div class="lesson-player">
-      <h2 class="lesson-title" id="lesson-title">C major chord</h2>
-      <div class="lesson-keys" id="lesson-keys">c + e + g</div>
-      <div class="lesson-caption" id="lesson-caption" aria-live="polite">Watch the keys, then play it yourself.</div>
-      <progress class="lesson-progress" id="lesson-progress" max="1" value="0"></progress>
-      <div class="learn-actions">
-        <button class="primary" id="lesson-demo" type="button">▶ watch &amp; hear</button>
-        <button id="lesson-practice" type="button">practice</button>
-      </div>
-      <p class="lesson-feedback" id="lesson-feedback">choose any chord or scale</p>
-    </div>
-  </div>
-</aside>
 
 <article class="window" aria-label="Menu Band">
   <div class="hero">
@@ -942,7 +826,7 @@
     <div class="now-playing" id="now-playing" hidden aria-live="polite">079 · whistle · octave 0</div>
   </div>
 
-  <section class="panel">
+  <section class="panel purchase-panel">
     <p data-i18n="lede">Play your Mac instead of opening a workstation. Menu Band puts a two-octave instrument in the menu bar: type notes, connect a MIDI keyboard, tune live radio, or send notes to your DAW. Hundreds of built-in sounds are ready when nothing else is connected.</p>
     <div class="button-row">
       <a id="store-link" class="aqua" href="https://apps.apple.com/us/app/menu-band/id6767311903?mt=12"><span data-i18n="storeCta">Get Menu Band</span><small data-i18n="storeMeta">$4.99 once · macOS 11+</small></a>
@@ -951,35 +835,7 @@
     <p class="aux"><a href="/advanced" data-i18n="advanced">advanced</a> · <a href="https://tangled.org/@aesthetic.computer/core/tree/main/slab/menuband" data-i18n="viewSource">view source</a></p>
   </section>
 
-  <section class="film-shelf" aria-labelledby="films-title">
-    <div class="film-heading">
-      <h3 id="films-title" data-i18n="filmsTitle">Menu Band in motion</h3>
-      <p data-i18n="filmsIntro">Two tiny films about making music without leaving the menu bar.</p>
-    </div>
-    <div class="film-grid">
-      <figure class="film-card">
-        <video controls playsinline preload="metadata" poster="/menuband/video/meet-menuband-poster.jpg">
-          <source src="/menuband/video/meet-menuband.mp4" type="video/mp4">
-        </video>
-        <figcaption>
-          <strong data-i18n="filmMeet">Meet Menu Band</strong>
-          <span data-i18n="filmMeetBody">The menu-bar instrument in under a minute.</span>
-        </figcaption>
-      </figure>
-      <figure class="film-card">
-        <video controls playsinline preload="metadata" poster="/menuband/video/sing-the-scale-poster.jpg">
-          <source src="/menuband/video/sing-the-scale.mp4" type="video/mp4">
-        </video>
-        <figcaption>
-          <strong data-i18n="filmScale">Sing the scale</strong>
-          <span data-i18n="filmScaleBody">C D E F G… but weird.</span>
-        </figcaption>
-      </figure>
-    </div>
-  </section>
-
-  <section class="trackdrum-preview" aria-labelledby="trackdrum-title">
-    <h2 id="trackdrum-title">TrackDrum</h2>
+  <section class="trackdrum-preview" aria-label="TrackDrum">
     <p data-i18n="trackdrumClaim">Turn your Mac trackpad into Menu Band’s percussion surface.</p>
     <div class="trackdrum-surface" id="trackdrum-surface" role="button" tabindex="0" aria-label="One-finger TrackDrum web simulation. Click, touch, or drag to play percussion.">
       <span class="drum-zone" data-drum="click" aria-hidden="true"></span>
@@ -1013,176 +869,6 @@
     let voiceName = "whistle";
     let digitBuffer = "";
     let lastDigitAt = 0;
-    const lesson = { kind: "chord", root: 0, mode: "idle", timers: [], step: 0, matched: new Set(), voices: new Map(), narration: null };
-    const ROOTS = ["C", "C♯", "D", "E♭", "E", "F", "F♯", "G", "A♭", "A", "B♭", "B"];
-    const KEY_FOR_MIDI = new Map(keys.map((key) => [Number(key.dataset.midi), key]));
-    const SCALE_STEPS = [0, 2, 4, 5, 7, 9, 11, 12];
-    const noteName = (midi) => ROOTS[((midi % 12) + 12) % 12];
-    const currentLesson = () => {
-      const rootMidi = 60 + lesson.root;
-      const notes = lesson.kind === "chord"
-        ? [rootMidi, rootMidi + 4, rootMidi + 7]
-        : SCALE_STEPS.map((step) => rootMidi + step);
-      return { rootMidi, notes, title: `${ROOTS[lesson.root]} major ${lesson.kind}` };
-    };
-
-    const lessonTab = document.getElementById("learn-tab");
-    const lessonDrawer = document.getElementById("learn-drawer");
-    const lessonGrid = document.getElementById("lesson-grid");
-    const lessonTitle = document.getElementById("lesson-title");
-    const lessonKeys = document.getElementById("lesson-keys");
-    const lessonCaption = document.getElementById("lesson-caption");
-    const lessonProgress = document.getElementById("lesson-progress");
-    const lessonFeedback = document.getElementById("lesson-feedback");
-    const demoButton = document.getElementById("lesson-demo");
-    const practiceButton = document.getElementById("lesson-practice");
-
-    const clearLessonTimers = () => {
-      lesson.timers.forEach(clearTimeout);
-      lesson.timers.length = 0;
-      keys.forEach((key) => key.classList.remove("is-taught", "is-correct"));
-      [...Array(24)].forEach((_, i) => instrument.release(`lesson:${i}`));
-      globalThis.speechSynthesis?.cancel?.();
-      if (lesson.narration) { lesson.narration.pause(); lesson.narration.currentTime = 0; lesson.narration = null; }
-    };
-    const later = (fn, ms) => lesson.timers.push(setTimeout(fn, ms));
-    const showLessonNotes = (notes, className = "is-taught") => {
-      keys.forEach((key) => key.classList.remove("is-taught", "is-correct"));
-      notes.forEach((midi) => KEY_FOR_MIDI.get(midi)?.classList.add(className));
-    };
-    const say = (text) => {
-      if (!("speechSynthesis" in window)) return;
-      speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.rate = 0.92; utterance.pitch = 0.96; utterance.volume = 0.82;
-      const preferred = speechSynthesis.getVoices().find((voice) => /jeffrey/i.test(voice.name))
-        || speechSynthesis.getVoices().find((voice) => /^en[-_ ]?US/i.test(voice.lang));
-      if (preferred) utterance.voice = preferred;
-      speechSynthesis.speak(utterance);
-    };
-    const narrate = (text) => {
-      const id = `${lesson.kind}-${["c", "c-sharp", "d", "e-flat", "e", "f", "f-sharp", "g", "a-flat", "a", "b-flat", "b"][lesson.root]}`;
-      const src = lesson.voices.get(id);
-      if (!src) { say(text); return; }
-      lesson.narration = new Audio(src);
-      lesson.narration.play().catch(() => say(text));
-    };
-    const playLessonNote = (midi, slot, duration = 420) => {
-      const id = `lesson:${slot}`;
-      instrument.pressMidi(midi, id);
-      later(() => instrument.release(id), duration);
-    };
-    const renderLesson = () => {
-      clearLessonTimers(); lesson.mode = "idle"; lesson.step = 0; lesson.matched.clear();
-      const spec = currentLesson();
-      lessonTitle.textContent = spec.title;
-      lessonKeys.textContent = spec.notes.map((midi) => KEY_FOR_MIDI.get(midi)?.dataset.key).join(lesson.kind === "chord" ? " + " : "  ");
-      lessonCaption.textContent = "Watch the keys, then play it yourself.";
-      lessonFeedback.textContent = "choose watch & hear or practice";
-      lessonProgress.value = 0;
-      [...lessonGrid.children].forEach((button, index) => button.setAttribute("aria-current", String(index === lesson.root)));
-    };
-    const finishDemo = () => {
-      lesson.mode = "idle"; demoButton.textContent = "↻ watch again";
-      lessonProgress.value = 1;
-      lessonCaption.textContent = "Now you play it.";
-      lessonFeedback.textContent = "press practice and follow the glowing keys";
-      showLessonNotes([]);
-    };
-    const startDemo = async () => {
-      clearLessonTimers(); lesson.mode = "demo"; lessonProgress.value = 0;
-      demoButton.textContent = "■ stop"; lessonFeedback.textContent = "listen and watch";
-      const spec = currentLesson();
-      const patch = await instrument.ready().catch(() => null);
-      await Promise.all(spec.notes.map((midi) => patch?.prefetch?.(midi))).catch(() => null);
-      if (lesson.kind === "chord") {
-        const names = spec.notes.map(noteName);
-        const intro = `Here’s ${ROOTS[lesson.root]} major. ${names.join(", ")}. Three notes, one chord.`;
-        lessonCaption.textContent = `Here’s ${ROOTS[lesson.root]} major.`; narrate(intro);
-        spec.notes.forEach((midi, i) => later(() => {
-          showLessonNotes([midi]); playLessonNote(midi, i, 560);
-          lessonCaption.textContent = `${names[i]} — key ${KEY_FOR_MIDI.get(midi)?.dataset.key}`;
-          lessonProgress.value = (i + 1) / 5;
-        }, 850 + i * 720));
-        later(() => {
-          showLessonNotes(spec.notes);
-          spec.notes.forEach((midi, i) => playLessonNote(midi, 8 + i, 1150));
-          lessonCaption.textContent = `${names.join(" + ")} — ${ROOTS[lesson.root]} major.`;
-          lessonProgress.value = .82;
-        }, 3150);
-        later(finishDemo, 4550);
-      } else {
-        const intro = lesson.root === 0
-          ? "Here’s how to type out the C scale. Watch it climb, then play it back."
-          : `Here’s the ${ROOTS[lesson.root]} major scale. Watch it climb, then play it back.`;
-        lessonCaption.textContent = `Here’s the ${ROOTS[lesson.root]} major scale.`; narrate(intro);
-        spec.notes.forEach((midi, i) => later(() => {
-          showLessonNotes([midi]); playLessonNote(midi, i, 330);
-          lessonCaption.textContent = `${noteName(midi)} — key ${KEY_FOR_MIDI.get(midi)?.dataset.key}`;
-          lessonProgress.value = (i + 1) / (spec.notes.length + 1);
-        }, 1000 + i * 390));
-        later(finishDemo, 1000 + spec.notes.length * 390 + 500);
-      }
-    };
-    const startPractice = () => {
-      clearLessonTimers(); lesson.mode = "practice"; lesson.step = 0; lesson.matched.clear();
-      const spec = currentLesson();
-      practiceButton.textContent = "reset"; demoButton.textContent = "▶ watch & hear";
-      lessonProgress.value = 0;
-      lessonCaption.textContent = lesson.kind === "chord" ? "Find all three glowing notes." : "Play the glowing keys in order.";
-      lessonFeedback.textContent = "your turn";
-      showLessonNotes(lesson.kind === "chord" ? spec.notes : [spec.notes[0]]);
-    };
-    const hearPracticeNote = (midi) => {
-      if (lesson.mode !== "practice") return;
-      const spec = currentLesson();
-      if (lesson.kind === "chord") {
-        if (!spec.notes.includes(midi)) { lessonFeedback.textContent = `${noteName(midi)} isn’t in this chord — keep going`; return; }
-        lesson.matched.add(midi); KEY_FOR_MIDI.get(midi)?.classList.add("is-correct");
-        lessonProgress.value = lesson.matched.size / spec.notes.length;
-        lessonFeedback.textContent = `${lesson.matched.size} of ${spec.notes.length}`;
-        if (lesson.matched.size === spec.notes.length) {
-          lessonCaption.textContent = `${spec.title}. You got it!`; lessonFeedback.textContent = "✓ chord complete";
-          say(`${spec.title}. You got it!`); lesson.mode = "complete";
-        }
-      } else {
-        const expected = spec.notes[lesson.step];
-        if (midi !== expected) { lessonFeedback.textContent = `try ${KEY_FOR_MIDI.get(expected)?.dataset.key} next`; return; }
-        KEY_FOR_MIDI.get(midi)?.classList.add("is-correct"); lesson.step += 1;
-        lessonProgress.value = lesson.step / spec.notes.length;
-        if (lesson.step === spec.notes.length) {
-          lessonCaption.textContent = `${spec.title}. You played it!`; lessonFeedback.textContent = "✓ scale complete";
-          say(`${spec.title}. You played it!`); lesson.mode = "complete"; showLessonNotes(spec.notes, "is-correct");
-        } else {
-          lessonCaption.textContent = `${noteName(midi)}. Next: ${noteName(spec.notes[lesson.step])}.`;
-          showLessonNotes([spec.notes[lesson.step]]);
-          lessonFeedback.textContent = `${lesson.step} of ${spec.notes.length}`;
-        }
-      }
-    };
-    const setLearnOpen = (open) => {
-      lessonDrawer.classList.toggle("is-open", open); lessonDrawer.setAttribute("aria-hidden", String(!open));
-      lessonTab.setAttribute("aria-expanded", String(open)); document.body.classList.toggle("learn-open", open);
-      if (!open) { clearLessonTimers(); lesson.mode = "idle"; }
-    };
-    ROOTS.forEach((root, index) => {
-      const button = document.createElement("button"); button.type = "button"; button.textContent = root;
-      button.addEventListener("click", () => { lesson.root = index; renderLesson(); }); lessonGrid.append(button);
-    });
-    document.querySelectorAll(".learn-kinds button").forEach((button) => button.addEventListener("click", () => {
-      lesson.kind = button.dataset.kind;
-      document.querySelectorAll(".learn-kinds button").forEach((item) => item.setAttribute("aria-selected", String(item === button)));
-      renderLesson();
-    }));
-    lessonTab.addEventListener("click", () => setLearnOpen(!lessonDrawer.classList.contains("is-open")));
-    document.getElementById("learn-close").addEventListener("click", () => setLearnOpen(false));
-    demoButton.addEventListener("click", () => lesson.mode === "demo" ? renderLesson() : startDemo());
-    practiceButton.addEventListener("click", startPractice);
-    fetch("/menuband/audio/learn/manifest.json", { cache: "force-cache" }).then((response) => response.ok ? response.json() : null).then((manifest) => {
-      manifest?.lessons?.forEach((voice) => lesson.voices.set(voice.id, voice.src));
-    }).catch(() => {});
-    renderLesson();
-
     const label = () => {
       const down = keys.filter((key) => key.classList.contains("is-down")).map((key) => key.dataset.key);
       const octave = instrument.octave > 0 ? `+${instrument.octave}` : String(instrument.octave);
@@ -1199,7 +885,6 @@
       const id = `pointer:${pointerId}:${key.dataset.midi}`;
       pointers.set(pointerId, { id, key });
       light(key, true);
-      hearPracticeNote(Number(key.dataset.midi));
       instrument.pressMidi(Number(key.dataset.midi), id).catch(() => { status.textContent = "tap again to wake audio"; });
     };
     const endPointer = (pointerId) => {
@@ -1228,7 +913,6 @@
       if (event.detail !== 0) return; // Pointer gestures already sounded above.
       const id = `activate:${key.dataset.midi}`;
       light(key, true);
-      hearPracticeNote(Number(key.dataset.midi));
       instrument.pressMidi(Number(key.dataset.midi), id);
       setTimeout(() => { instrument.release(id); light(key, false); }, 220);
     }));
@@ -1274,7 +958,6 @@
       digitBuffer = "";
       heldKeyboard.add(letter);
       light(keyByLetter.get(letter), true);
-      hearPracticeNote(instrument.midiForKey(letter));
       instrument.pressKey(letter).catch(() => { status.textContent = "press again to wake audio"; });
     });
     addEventListener("keyup", (event) => {
@@ -1475,12 +1158,6 @@
         purchaseNote: "The complete instrument. No subscription or in-app unlocks.",
         advanced: "advanced",
         viewSource: "view source",
-        filmsTitle: "Menu Band in motion",
-        filmsIntro: "Two tiny films about making music without leaving the menu bar.",
-        filmMeet: "Meet Menu Band",
-        filmMeetBody: "The menu-bar instrument in under a minute.",
-        filmScale: "Sing the scale",
-        filmScaleBody: "C D E F G… but weird.",
         by: "by",
         lede: "Play your Mac instead of opening a workstation. Menu Band puts a two-octave instrument in the menu bar: type notes, connect a MIDI keyboard, tune live radio, or send notes to your DAW. Hundreds of built-in sounds are ready when nothing else is connected.",
         trackdrumClaim: "Turn your Mac trackpad into Menu Band’s percussion surface.",
@@ -1514,12 +1191,6 @@
         purchaseNote: "El instrumento completo. Sin suscripción ni desbloqueos dentro de la app.",
         advanced: "avanzado",
         viewSource: "ver código",
-        filmsTitle: "Menu Band en movimiento",
-        filmsIntro: "Dos minipelículas para hacer música sin salir de la barra de menús.",
-        filmMeet: "Conoce Menu Band",
-        filmMeetBody: "El instrumento de la barra de menús en menos de un minuto.",
-        filmScale: "Canta la escala",
-        filmScaleBody: "Do re mi fa sol… pero raro.",
         by: "por",
         lede: "Toca tu Mac sin abrir una estación de trabajo. Menu Band pone un instrumento de dos octavas en la barra de menús: escribe notas, conecta un teclado MIDI, sintoniza radio en directo o envía notas a tu DAW. Cientos de sonidos integrados están listos cuando no hay nada más conectado.",
         trackdrumClaim: "Convierte el trackpad de tu Mac en la superficie de percusión de Menu Band.",
