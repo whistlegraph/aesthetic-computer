@@ -1,11 +1,15 @@
 {
   "format": "ac.oskiewar.social-preview",
-  "version": 1,
-  "build": "ab01f2199c4f925c",
-  "width": 1200,
-  "height": 630,
-  "durationSeconds": 6,
+  "version": 2,
+  "build": "afff43e88a3f5a48",
+  "theme": "light",
+  "imageWidth": 1200,
+  "imageHeight": 630,
+  "videoWidth": 720,
+  "videoHeight": 1280,
+  "durationSeconds": 4,
   "framesPerSecond": 30,
+  "audio": false,
   "image": "oskiewar-title.jpg",
   "video": "oskiewar-title.mp4"
 }

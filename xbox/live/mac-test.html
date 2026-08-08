@@ -5,7 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>oskiewar</title>
   <meta name="description" content="Play oskiewar in your browser with a keyboard or two gamepads.">
-  <meta name="theme-color" content="#07081c">
+  <meta name="theme-color" content="#ebf1f8" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#07081c" media="(prefers-color-scheme: dark)">
   <meta property="og:title" content="oskiewar">
   <meta property="og:description" content="pick a pal. pick a fight.">
   <meta property="og:image" content="https://oskiewar.com/social/oskiewar-title.jpg">
@@ -17,8 +18,8 @@
   <meta property="og:video" content="https://oskiewar.com/social/oskiewar-title.mp4">
   <meta property="og:video:secure_url" content="https://oskiewar.com/social/oskiewar-title.mp4">
   <meta property="og:video:type" content="video/mp4">
-  <meta property="og:video:width" content="1200">
-  <meta property="og:video:height" content="630">
+  <meta property="og:video:width" content="720">
+  <meta property="og:video:height" content="1280">
   <meta property="og:url" content="https://oskiewar.com/">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary_large_image">
@@ -545,6 +546,24 @@
           oscillator.connect(envelope).connect(output);
           oscillator.start(now); oscillator.stop(now + duration);
         }
+      } else if (name === "modem") {
+        // A tiny negotiated connection: three dry carrier chirps followed by
+        // one settled tone. It is an upload receipt, not a victory fanfare.
+        for (const [offset, frequency, duration, gain] of [
+          [0, 1180, .055, .48], [.07, 1760, .045, .4],
+          [.128, 980, .06, .44], [.205, 1420, .11, .28]]) {
+          const oscillator = ac.createOscillator();
+          const envelope = ac.createGain();
+          oscillator.type = offset === .205 ? "sine" : "square";
+          oscillator.frequency.setValueAtTime(frequency, now + offset);
+          envelope.gain.setValueAtTime(.001, now + offset);
+          envelope.gain.exponentialRampToValueAtTime(gain, now + offset + .008);
+          envelope.gain.exponentialRampToValueAtTime(.001,
+            now + offset + duration);
+          oscillator.connect(envelope).connect(output);
+          oscillator.start(now + offset);
+          oscillator.stop(now + offset + duration);
+        }
       } else if (name === "whoosh") {
         const noise = noiseSource(ac, .34);
         const filter = ac.createBiquadFilter();
@@ -590,10 +609,15 @@
 
     async function saveReplay(payload) {
       try {
-        await fetch("https://aesthetic.computer/api/oskiewar-replays?surface=web", {
+        const response = await fetch("https://aesthetic.computer/api/oskiewar-replays?surface=web", {
           method: "POST", headers: { "content-type": "application/json" }, body: payload,
         });
-      } catch (error) { telemetry("REPLAY_WEB_ERROR", error.message); }
+        if (!response.ok) throw new Error(`upload returned ${response.status}`);
+        return true;
+      } catch (error) {
+        telemetry("REPLAY_WEB_ERROR", error.message);
+        return false;
+      }
     }
 
     const liveSockets = new Map();

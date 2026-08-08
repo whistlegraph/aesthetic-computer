@@ -47,6 +47,7 @@ const roundDurationUs = 30000000;
 const roundResultUs = 3000000;
 const matchResultUs = 5000000;
 const introDurationUs = 3000000;
+const dummyGuideDurationUs = 150000000;
 const matchWins = 5;
 const errorRestartUs = 16000000;
 const errorDumpBase = "https://oskiewar.com/api/oskiewar-dump?d=";
@@ -461,6 +462,10 @@ let acFeed = {};
 // is still moving and this is the shape we may want to compare against. Flip
 // it true and the wheel comes back exactly as it was.
 const PAL_SELECT = false;
+// The frame recorder remains intact for future review tooling, but replay is
+// not part of the match flow. One flag restores the viewer, its controls and
+// its offer together; production currently moves directly through results.
+const INSTANT_REPLAY = false;
 let selecting = false;
 // Self-play is a harness mode: both fighters run the bot, no pad can enter or
 // leave it, and rounds roll over on their own.
@@ -487,6 +492,10 @@ let instantReplay = null;
 let replayOfferPrevious = [];
 let shellMode = "MENU";
 let shellPrevious = [];
+// Training teaches for two and a half minutes once the title lifts. This is
+// session time, not round time: a knockout or a visit back to the title must
+// not restart onboarding that the player has already outgrown.
+let dummyGuideStartedAt = null;
 // Unset is null, never -1: the console's monotonic clock can read negative
 // (App.cpp overflows int64 converting QPC ticks past ~10 days of uptime),
 // and a >= 0 sentinel then swallows every legitimate timestamp.
@@ -753,6 +762,7 @@ function makeRoundReplayFrame(now) {
 }
 
 function captureRoundReplay(now, force = false) {
+  if (!INSTANT_REPLAY) return;
   if (!force && now - roundReplayLastAt < instantReplayStepUs) return;
   roundReplayLastAt = now;
   roundReplayFrames.push(makeRoundReplayFrame(now));
@@ -819,6 +829,7 @@ function finishInstantReplay(now) {
 }
 
 function startInstantReplay(now) {
+  if (!INSTANT_REPLAY) return false;
   if (roundReplayFrames.length < 2) return false;
   const frames = roundReplayFrames.slice();
   instantReplay = { frames, cursor: 0, lastAt: now, paused: false,
@@ -880,7 +891,16 @@ function saveRoundReplay(now) {
   delete demo.startedMonotonicUs;
   const payload = JSON.stringify(demo);
   if (payload.length <= 524288 && typeof saveReplay === "function") {
-    saveReplay(payload);
+    const upload = saveReplay(payload);
+    // Only promise-returning hosts can prove the upload completed. The web
+    // host does; older native hosts keep saving silently until they adopt the
+    // same acknowledgement contract.
+    if (upload && typeof upload.then === "function")
+      upload.then((saved) => {
+        if (saved !== true) return;
+        playDrum("modem", .72, 0);
+        telemetry("REPLAY", "uploaded " + demo.roundId);
+      }).catch((error) => telemetry("REPLAY", "upload-error " + error.message));
     telemetry("REPLAY", "queued " + demo.roundId + " bytes=" + payload.length);
   } else telemetry("REPLAY", "not-saved bytes=" + payload.length);
 }
@@ -1425,6 +1445,8 @@ function consumeSystemButtons(now) {
 // Start lifts the wordmark off a fight that is already running underneath.
 function enterGame(now) {
   shellMode = "GAME";
+  if (dummyGuideStartedAt === null && players[1].npc && !players[1].bot)
+    dummyGuideStartedAt = now;
   shellPrevious = padSnapshots[0]?.down?.slice() || [];
   if (PAL_SELECT) beginSelect(now);
 }
@@ -3517,14 +3539,16 @@ function gameSim() {
   recordReplayCommands(now, inputPads);
   publishSpectator(now);
   if (roundResult) {
-    if (instantReplay) {
+    if (INSTANT_REPLAY && instantReplay) {
       updateInstantReplay(now, dt);
       return;
     }
-    const replayDown = padSnapshots[0]?.down || [];
-    if (replayDown.includes("Y") && !replayOfferPrevious.includes("Y") &&
-        startInstantReplay(now)) return;
-    replayOfferPrevious = replayDown.slice();
+    if (INSTANT_REPLAY) {
+      const replayDown = padSnapshots[0]?.down || [];
+      if (replayDown.includes("Y") && !replayOfferPrevious.includes("Y") &&
+          startInstantReplay(now)) return;
+      replayOfferPrevious = replayDown.slice();
+    }
     updateCameraDoll(dt, now);
     captureFrameTelemetry(now);
     const resultDuration = matchOver ? matchResultUs : roundResultUs;
@@ -4533,6 +4557,36 @@ function combatLegend(player) {
     .map(([cap, action]) => cap + " " + action).join("   ");
 }
 
+function selectionControlKeys() {
+  const family = typeof capabilities === "function"
+    ? capabilities().inputFamily : "xbox";
+  if (family === "touch") return [];
+  if (family === "keyboard") return [
+    [["A", "D"], "SELECT", "ArrowLeft"], ["SPACE", "READY", "A"],
+    ["H", "OPPONENT", "X"], ["G", "BACK", "B"]];
+  return [[["LEFT", "RIGHT"], "SELECT", "ArrowLeft"], ["A", "READY", "A"],
+    ["X", "OPPONENT", "X"], ["B", "BACK", "B"]];
+}
+
+function replayControlKeys(paused) {
+  const family = typeof capabilities === "function"
+    ? capabilities().inputFamily : "xbox";
+  if (family === "touch") return [];
+  if (family === "keyboard") return [
+    ["F", paused ? "PLAY" : "PAUSE", "A"],
+    [["A", "D"], "SCRUB", "ArrowLeft"], ["G", "EXIT", "B"]];
+  return [["A", paused ? "PLAY" : "PAUSE", "A"],
+    [["LEFT", "RIGHT"], "SCRUB", "ArrowLeft"], ["B", "EXIT", "B"]];
+}
+
+function replayOfferKeys() {
+  const family = typeof capabilities === "function"
+    ? capabilities().inputFamily : "xbox";
+  if (family === "touch") return [];
+  return family === "keyboard" ? [["Q", "REPLAY", "Y"]]
+    : [["Y", "REPLAY", "Y"]];
+}
+
 // A key drawn as a key: a gray cap with a line around it, sunk and brightened
 // while it is actually held.
 function drawKeycap(label, x, y, size, pressed) {
@@ -4567,17 +4621,28 @@ function drawControlLegend(ink) {
 function keycapRunWidth(entries, size) {
   const padX = Math.round(size * .42);
   return entries.reduce((total, [cap, action]) =>
-    total + handleWidth(cap, size) + padX * 2 + 8 +
+    total + (Array.isArray(cap) ? cap : [cap]).reduce((width, label, index) =>
+      width + handleWidth(label, size) + padX * 2 + (index ? 5 : 0), 0) + 8 +
       handleWidth(action, size) + 26, 0) - 26;
 }
 
 function drawKeycapRun(entries, x, y, size, held, ink) {
   let cursor = x;
   for (const [cap, action, button] of entries) {
-    cursor += drawKeycap(cap, cursor, y, size, held.includes(button)) + 8;
+    for (const [index, label] of (Array.isArray(cap) ? cap : [cap]).entries()) {
+      if (index) cursor += 5;
+      cursor += drawKeycap(label, cursor, y, size, held.includes(button));
+    }
+    cursor += 8;
     typeWrite(action, cursor, y + Math.round(size * .25), size, ...ink);
     cursor += handleWidth(action, size) + 26;
   }
+}
+
+function drawCenteredKeycapRun(entries, y, size, held, ink) {
+  if (!entries.length) return;
+  drawKeycapRun(entries, viewCenterX() - keycapRunWidth(entries, size) / 2,
+    y, size, held, ink);
 }
 
 function drawHandle(handle, x, y, size, colors, fallback) {
@@ -5023,8 +5088,16 @@ function drawCommandStream(player, side) {
   const idle = now - (player.commandStream.at(-1)?.at || now);
   const bufferFade = clamp(1 - Math.max(0, idle - 150000) / 1200000, 0, 1);
   const held = inputPads[player.pad]?.down || [];
+  const keyboard = typeof capabilities === "function" &&
+    capabilities().inputFamily === "keyboard";
+  const keyboardCaps = player.pad === 0
+    ? { LEFT: "A", RIGHT: "D", UP: "W", DOWN: "S",
+      A: "SPACE", B: "G", X: "B", Y: "V" }
+    : { LEFT: "LEFT", RIGHT: "RIGHT", UP: "UP", DOWN: "DOWN",
+      A: "K", B: "L", X: ";", Y: "'" };
   const entries = player.commandStream.map((entry) => ({ ...entry,
-    text: glyph[entry.label] || entry.label,
+    text: keyboard ? keyboardCaps[entry.label]
+      : glyph[entry.label] || entry.label,
     fade: bufferFade,
     held: held.includes(buttonFor[entry.label]),
   })).filter((entry) => entry.fade > .01);
@@ -5044,7 +5117,8 @@ function drawCommandStream(player, side) {
   }
   if (current.length) lines.push(current);
   const safe = hudSafeRect();
-  const size = hudTypeSize;
+  const size = keyboard ? Math.max(15, Math.round(hudTypeSize * .72)) : hudTypeSize;
+  const lineHeight = keyboard ? Math.round(size * 1.5) + 5 : size + 4;
   const handle = playerHandleLayout(player, side);
   const shadow = contrastShadow(player.color);
   const background = mixColor([7, 8, 28], [230, 239, 247],
@@ -5055,14 +5129,21 @@ function drawCommandStream(player, side) {
   const firstY = training
     ? safe.top + (debugHitboxes ? hudTypeSize + 12 : 4)
     : handle.y - statStackHeight() - inventoryOffset -
-      lines.length * (size + 4) - 11;
+      lines.length * lineHeight - 11;
   for (let row = 0; row < lines.length; row++) {
     const lineEntries = lines[row];
-    const text = lineEntries.map((entry) => entry.text).join(" ");
-    const width = handleWidth(text, size);
+    const capPad = Math.round(size * .42);
+    const width = keyboard
+      ? lineEntries.reduce((sum, entry, index) => sum +
+        handleWidth(entry.text, size) + capPad * 2 + (index ? 5 : 0), 0)
+      : handleWidth(lineEntries.map((entry) => entry.text).join(" "), size);
     let cursor = side === 0 ? safe.left + 8 : safe.right - 8 - width;
-    const y = firstY + row * (size + 4);
+    const y = firstY + row * lineHeight;
     for (const entry of lineEntries) {
+      if (keyboard) {
+        cursor += drawKeycap(entry.text, cursor, y, size, entry.held) + 5;
+        continue;
+      }
       const activeColor = entry.held
         ? heldPalette[entry.label] || [255, 240, 90] : player.color;
       const ink = mixColor(background, activeColor, entry.fade);
@@ -5515,6 +5596,9 @@ function drawSelectionScreen(t, ink, panel) {
     ...mixColor(panel, ink, backHovered ? .25 : .08));
   typeWrite("< back", layout.back.x + (compact ? 12 : 20),
     layout.back.y + (compact ? 10 : 17), compact ? 25 : 34, ...ink);
+  const controls = selectionControlKeys();
+  drawCenteredKeycapRun(controls, viewHeight - (compact ? 52 : 66),
+    compact ? 15 : 20, inputPads[0]?.down || [], ink);
 }
 
 const titlePaletteNight = [
@@ -5581,7 +5665,9 @@ function drawTitleScreen(t, ink, transitionAge = -1) {
     capabilities().socialPreview === true;
   const title = "oskiewar";
   const breath = 1 + Math.sin(t * .9) * .018;
-  const titleSize = (socialPreview ? 220 : compact ? 88 : 154) * breath;
+  const socialTitleSize = Math.min(220,
+    (stageRight - stageLeft - 56) / handleWidth(title, 1));
+  const titleSize = (socialPreview ? socialTitleSize : compact ? 88 : 154) * breath;
   const titleWidth = handleWidth(title, titleSize);
   const titleX = viewCenterX() - titleWidth / 2;
   const titleY = viewHeight * (compact ? .38 : .35);
@@ -6041,20 +6127,21 @@ function gamePaint() {
     drawFightIntro(introAge / 1000000, titleInk, statusShadow);
   // The keys belong wherever a newcomer is looking: under the wordmark on the
   // way in, and again while a round counts itself off.
-  if (counting || shellMode === "MENU") drawControlLegend(titleInk);
+  const dummyGuideVisible = shellMode === "GAME" && !roundResult &&
+    players[1].npc && !players[1].bot && dummyGuideStartedAt !== null &&
+    run.monotonicUs - dummyGuideStartedAt < dummyGuideDurationUs;
+  if (counting || shellMode === "MENU" || dummyGuideVisible)
+    drawControlLegend(titleInk);
   const resultUiReady = cinematicAge < 0 || cinematicAge >= 1.1;
   if (roundResult && resultUiReady) {
-    if (instantReplay) {
+    if (INSTANT_REPLAY && instantReplay) {
       const frame = Math.min(instantReplay.frames.length,
         Math.floor(instantReplay.cursor) + 1);
       const replayLabel = "REPLAY  " + frame + "/" + instantReplay.frames.length;
       typeWrite(replayLabel, viewCenterX() - replayLabel.length * 10,
         820, 30, ...titleInk);
-      const locale = controlLocale();
-      const controls = instantReplay.paused
-        ? locale.replayPaused : locale.replayPlaying;
-      typeWrite(controls, viewCenterX() - controls.length * 7.5,
-        948, 23, ...titleInk);
+      drawCenteredKeycapRun(replayControlKeys(instantReplay.paused),
+        940, 19, inputPads[0]?.down || [], titleInk);
     } else {
       const result = resultCardText();
       const winnerSize = Math.min(92,
@@ -6072,10 +6159,9 @@ function gamePaint() {
         typeWrite(result.action, viewCenterX() - actionWidth / 2, 896,
           actionSize, ...titleInk);
       }
-      if (!roundViewer) {
-        const replayControl = controlLocale().replay;
-        typeWrite(replayControl, viewCenterX() - replayControl.length * 7.5,
-          948, 22, ...titleInk);
+      if (!roundViewer && INSTANT_REPLAY) {
+        drawCenteredKeycapRun(replayOfferKeys(), 940, 19,
+          inputPads[0]?.down || [], titleInk);
       }
     }
   }

@@ -82,9 +82,13 @@ function createFight(startImmediately = true, enterGame = true,
       clientErrorReportStatus: hostErrorStatus }),
     (index = 0) => ({ ...pads[index], down: pads[index].down.slice() }),
     () => ({ platform, inputFamily: platform === "xbox-uwp" ? "xbox"
-      : platform === "touch" ? "touch" : "keyboard" }),
+      : platform === "touch" ? "touch"
+      : platform === "mouse" ? "mouse" : "keyboard" }),
     (event, detail) => telemetryEvents.push([event, detail]),
-    (...signal) => signals.push(signal), (payload) => replays.push(payload),
+    (...signal) => signals.push(signal), (payload) => {
+      replays.push(payload);
+      return Promise.resolve(true);
+    },
     (matchId, payload) => livePublisher
       ? livePublisher(matchId, payload)
       : liveFrames.push([matchId, JSON.parse(payload)]),
@@ -195,14 +199,14 @@ function createPadHost({ pads = [], touch = false, agent = "Mac" } = {}) {
   const listeners = new Map();
   const status = { textContent: "" };
   const host = new Function("navigator", "keys", "touchEnabled", "matchMedia",
-    "location", "document", "addEventListener",
+    "location", "document", "addEventListener", "mouseFighting",
     `${webShell.slice(opens, closes)}
      return { scanPads, sampleGamepads, gamepad, controllers, capabilities,
        seats: () => padSeats.slice() };`)(
     { userAgent: agent, getGamepads: () => pads },
     keys, touch, () => ({ matches: false }), { search: "" },
     { querySelector: () => status },
-    (type, handler) => listeners.set(type, handler));
+    (type, handler) => listeners.set(type, handler), false);
   return { ...host, keys, pads, status,
     connect: (pad) => listeners.get("gamepadconnected")({ gamepad: pad }),
     disconnect: () => listeners.get("gamepaddisconnected")({}) };
@@ -293,6 +297,32 @@ test("a detected pad swaps the round legend onto gamepad wording", () => {
   const { fight } = createFight(false, false, "xbox-uwp");
   assert.equal(fight.combatLegend(fight.players[0]),
     "A KICK   X PUNCH   B SHIELD   Y USE ITEM   UP JUMP");
+});
+
+test("every instructional keyboard key uses the shared gray keycap renderer", () => {
+  assert.match(source, /function selectionControlKeys\(\)/);
+  assert.match(source, /\[\["A", "D"\], "SELECT"/);
+  assert.match(source, /\[\["A", "D"\], "SCRUB"/);
+  assert.match(source, /\["Q", "REPLAY", "Y"\]/);
+  assert.match(source, /drawCenteredKeycapRun\(controls/);
+  assert.match(source, /drawCenteredKeycapRun\(replayControlKeys/);
+  assert.match(source, /drawCenteredKeycapRun\(replayOfferKeys/);
+  assert.doesNotMatch(source, /typeWrite\(controls, viewCenterX/);
+  assert.doesNotMatch(source, /typeWrite\(replayControl, viewCenterX/);
+  const streamSource = source.slice(source.indexOf("function drawCommandStream"),
+    source.indexOf("function drawFightIntro"));
+  assert.match(streamSource, /A: "SPACE", B: "G", X: "B", Y: "V"/);
+  assert.match(streamSource, /drawKeycap\(entry\.text, cursor, y, size, entry\.held\)/);
+});
+
+test("dummy play keeps its key guide for one session-scoped teaching window", () => {
+  assert.match(source, /const dummyGuideDurationUs = 150000000/);
+  assert.match(source, /if \(dummyGuideStartedAt === null && players\[1\]\.npc && !players\[1\]\.bot\)/);
+  assert.match(source, /run\.monotonicUs - dummyGuideStartedAt < dummyGuideDurationUs/);
+  assert.match(source, /counting \|\| shellMode === "MENU" \|\| dummyGuideVisible/);
+  const resetSource = source.slice(source.indexOf("function resetRound"),
+    source.indexOf("function fighterFrameRect"));
+  assert.doesNotMatch(resetSource, /dummyGuideStartedAt\s*=/);
 });
 
 test("the round intro names what each button does", () => {
@@ -420,13 +450,23 @@ test("tab title animates playful phoneme spacing", () => {
   assert.match(source, /Math\.sin\(t \* \.63 \+ index \* 1\.71\)/);
 });
 
-test("Open Graph social media mirrors Whistlegraph's image-first MP4 pattern", () => {
+test("Open Graph uses a landscape fallback and silent vertical title loop", () => {
   for (const tag of ["og:image", "og:image:secure_url", "og:image:type",
     "og:video", "og:video:secure_url", "og:video:type", "twitter:image"])
     assert.match(webShell, new RegExp(`(?:property|name)="${tag}"`));
   assert.match(webShell, /content="video\/mp4"/);
-  assert.match(webShell, /content="1200"/);
-  assert.match(webShell, /content="630"/);
+  assert.match(webShell, /property="og:image:width" content="1200"/);
+  assert.match(webShell, /property="og:image:height" content="630"/);
+  assert.match(webShell, /property="og:video:width" content="720"/);
+  assert.match(webShell, /property="og:video:height" content="1280"/);
+  assert.equal(socialManifest.theme, "light");
+  assert.equal(socialManifest.videoWidth, 720);
+  assert.equal(socialManifest.videoHeight, 1280);
+  assert.equal(socialManifest.durationSeconds, 4);
+  assert.equal(socialManifest.audio, false);
+  assert.match(source, /const socialTitleSize = Math\.min\(220,/);
+  assert.match(source,
+    /\(stageRight - stageLeft - 56\) \/ handleWidth\(title, 1\)/);
   assert.equal(socialPoster[0], 0xff);
   assert.equal(socialPoster[1], 0xd8);
   assert.equal(socialVideo.subarray(4, 8).toString(), "ftyp");
@@ -3487,32 +3527,32 @@ test("facing and opponent mode are visible in fighter faces", () => {
   assert.match(source, /player\.bot && player\.alive && !player\.blocking/);
 });
 
-test("round result offers an instant replay with pause, scrub, and exit", () => {
+test("instant replay is deprecated out of the match flow", () => {
   const { fight, pads, tick } = createFight();
   for (let frame = 0; frame < 220; frame++) tick(33334);
-  assert.ok(fight.replayFrameCount() > 100);
+  assert.equal(fight.replayFrameCount(), 0);
   fight.players[0].score = 1;
   for (let frame = 0; frame < 680; frame++) tick(33334);
   assert.match(fight.roundState().roundResult, /WINS ROUND/);
   pads[0].down = ["Y"];
   tick();
-  assert.equal(fight.instantReplayState().active, true);
-  pads[0].down = [];
-  tick();
-  pads[0].down = ["A"];
-  tick();
-  assert.equal(fight.instantReplayState().paused, true);
-  const beforeScrub = fight.instantReplayState().cursor;
-  pads[0].down = [];
-  tick();
-  pads[0].down = ["ArrowRight"];
-  tick();
-  assert.ok(fight.instantReplayState().cursor > beforeScrub);
-  pads[0].down = [];
-  tick();
-  pads[0].down = ["B"];
-  tick();
   assert.equal(fight.instantReplayState().active, false);
+  assert.match(source, /const INSTANT_REPLAY = false/);
+  assert.match(source, /if \(!INSTANT_REPLAY\) return false/);
+  assert.match(source, /if \(!roundViewer && INSTANT_REPLAY\)/);
+});
+
+test("a completed demo plays one modem receipt only after upload", async () => {
+  const { fight, drums, tick } = createFight();
+  fight.players[0].score = 1;
+  for (let frame = 0; frame < 920; frame++) tick(33334);
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(drums.filter(([name]) => name === "modem").length, 1);
+  assert.match(source, /upload\.then\(\(saved\) =>/);
+  assert.match(source, /playDrum\("modem", \.72, 0\)/);
+  assert.match(webShell, /name === "modem"/);
+  assert.match(webShell, /if \(!response\.ok\) throw new Error/);
+  assert.match(webShell, /return true/);
 });
 
 test("one completed round saves its replay and closes the loop at title", () => {

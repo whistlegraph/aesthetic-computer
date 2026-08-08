@@ -14,6 +14,10 @@ const output = join(live, "social");
 const poster = join(output, "oskiewar-title.jpg");
 const video = join(output, "oskiewar-title.mp4");
 const manifestPath = join(output, "manifest.json");
+const posterSize = { width: 1200, height: 630 };
+const videoSize = { width: 720, height: 1280 };
+const captureSeconds = 2;
+const loopSeconds = captureSeconds * 2;
 const sources = ["hello.js", "mac-test.html", "frame-driver.mjs"];
 const sourceHash = createHash("sha256");
 for (const name of sources) sourceHash.update(await readFile(join(live, name)));
@@ -88,24 +92,39 @@ const browser = await puppeteer.launch({ headless: true, executablePath: chrome,
   args: ["--autoplay-policy=no-user-gesture-required"] });
 try {
   const page = await browser.newPage();
-  await page.setViewport({ width: 1200, height: 630, deviceScaleFactor: 1 });
-  await page.emulateMediaFeatures([{ name: "prefers-color-scheme", value: "dark" }]);
+  await page.setViewport({ ...posterSize, deviceScaleFactor: 1 });
+  await page.emulateMediaFeatures([{ name: "prefers-color-scheme", value: "light" }]);
   await page.goto(`${origin}/?social-preview`, { waitUntil: "networkidle2" });
   await page.evaluate(() => document.fonts.ready);
   await new Promise((resolveWait) => setTimeout(resolveWait, 900));
   await page.screenshot({ path: poster, type: "jpeg", quality: 94 });
+
+  // The MP4 is a phone-shaped, silent light-mode title loop. Reversing the
+  // short capture back to its first frame removes the visible loop seam.
+  await page.setViewport({ ...videoSize, deviceScaleFactor: 1 });
+  await page.goto(`${origin}/?social-preview`, { waitUntil: "networkidle2" });
+  await page.evaluate(() => document.fonts.ready);
+  await new Promise((resolveWait) => setTimeout(resolveWait, 900));
   const recorder = await page.screencast({ path: webm, fps: 30 });
-  await new Promise((resolveWait) => setTimeout(resolveWait, 6000));
+  await new Promise((resolveWait) => setTimeout(resolveWait,
+    captureSeconds * 1000 + 150));
   await recorder.stop();
   await page.close();
+  const loopFilter = `[0:v]trim=duration=${captureSeconds},` +
+    "setpts=PTS-STARTPTS,split[forward][reverse];" +
+    "[reverse]reverse,setpts=PTS-STARTPTS[backward];" +
+    "[forward][backward]concat=n=2:v=1:a=0,fps=30,format=yuv420p[loop]";
   const encoded = spawnSync("ffmpeg", ["-y", "-i", webm, "-an",
+    "-filter_complex", loopFilter, "-map", "[loop]",
     "-c:v", "libx264", "-profile:v", "main", "-level", "3.1",
-    "-pix_fmt", "yuv420p", "-r", "30", "-movflags", "+faststart",
-    "-t", "6", video], { encoding: "utf8" });
+    "-crf", "23", "-movflags", "+faststart", "-t", `${loopSeconds}`,
+    video], { encoding: "utf8" });
   if (encoded.status !== 0) throw new Error(encoded.stderr || "ffmpeg failed");
   await writeFile(manifestPath, JSON.stringify({
-    format: "ac.oskiewar.social-preview", version: 1, build,
-    width: 1200, height: 630, durationSeconds: 6, framesPerSecond: 30,
+    format: "ac.oskiewar.social-preview", version: 2, build,
+    theme: "light", imageWidth: posterSize.width, imageHeight: posterSize.height,
+    videoWidth: videoSize.width, videoHeight: videoSize.height,
+    durationSeconds: loopSeconds, framesPerSecond: 30, audio: false,
     image: "oskiewar-title.jpg", video: "oskiewar-title.mp4",
   }, null, 2) + "\n");
   console.log(`burned ${poster}\nburned ${video}\nbuild ${build}`);
