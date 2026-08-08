@@ -347,6 +347,12 @@
     font-weight: 400;
     text-shadow: 0 -1px 0 rgba(0, 0, 0, 0.2);
   }
+  .purchase-note {
+    margin: 10px auto 0 !important;
+    color: var(--ink-soft) !important;
+    font: 11px "Berkeley Mono Variable", "SF Mono", Menlo, monospace;
+    text-align: center;
+  }
 
   /* ── Body sections ────────────────────────────────────────────────────── */
 
@@ -429,6 +435,160 @@
     color: var(--ink-head);
   }
   .film-card span { color: var(--ink-body); }
+
+  /* TrackDrum's real four-zone launch surface, using the browser's honest
+     one-contact input contract. Desktop docks it like hardware; mobile keeps
+     it in the page flow where a thumb can reach it. */
+  .trackdrum-preview {
+    position: relative;
+    z-index: 12;
+    width: min(500px, calc(100% - 24px));
+    margin: 42px auto 0;
+    text-align: center;
+  }
+  .trackdrum-preview h2 {
+    margin: 0 0 5px;
+    color: var(--ink-head);
+    font-family: var(--display-stack);
+    font-size: 24px;
+  }
+  .trackdrum-preview > p {
+    margin: 0 auto 13px;
+    color: var(--ink-body);
+  }
+  .trackdrum-surface {
+    position: relative;
+    width: min(360px, 100%);
+    aspect-ratio: 1.64 / 1;
+    margin: 0 auto;
+    overflow: hidden;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    cursor: crosshair;
+    outline: none;
+    border: 2px solid rgba(10, 132, 255, .72);
+    border-radius: 18px;
+    background: #f7e8c4;
+    box-shadow:
+      0 1px 0 rgba(255,255,255,.14) inset,
+      0 24px 48px -22px rgba(12,18,30,.72);
+  }
+  .trackdrum-surface:focus-visible {
+    box-shadow: 0 0 0 4px rgba(10,132,255,.25),
+                0 24px 48px -22px rgba(12,18,30,.72);
+  }
+  .trackdrum-surface::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+      repeating-radial-gradient(ellipse at center, transparent 0 14px, rgba(255,255,255,.025) 15px 16px),
+      linear-gradient(135deg, rgba(255,255,255,.08), transparent 38%, rgba(0,0,0,.16));
+    mix-blend-mode: screen;
+  }
+  .drum-zone {
+    position: absolute;
+    overflow: hidden;
+    pointer-events: none;
+    border: 1px solid rgba(38,27,20,.42);
+    border-radius: 14px;
+    transform: translateZ(0);
+    transition: filter 80ms linear, transform 80ms linear;
+  }
+  .drum-zone[data-drum="click"] {
+    inset: 5px;
+    background: #f7e8c4;
+  }
+  .drum-zone[data-drum="hat"] {
+    inset: 5.5% 3.35%;
+    background:
+      repeating-linear-gradient(102deg, transparent 0 10px, rgba(255,255,255,.26) 11px 12px),
+      #b8c49e;
+  }
+  .drum-zone[data-drum="snare"] {
+    inset: 16.4% 10%;
+    background:
+      repeating-linear-gradient(135deg, transparent 0 7px, rgba(20,10,5,.16) 8px 9px),
+      #c2734d;
+  }
+  .drum-zone[data-drum="tom"] {
+    inset: 24.5% 14.95%;
+    background: #d6ad66;
+  }
+  .drum-zone[data-drum="kick"] {
+    inset: 31.8% 19.4%;
+    background: #7a4a30;
+  }
+  .drum-zone.is-struck {
+    filter: brightness(1.65) saturate(1.3);
+    transform: scale(.975);
+  }
+  .track-contact {
+    position: absolute;
+    z-index: 3;
+    width: 32px;
+    height: 32px;
+    margin: -16px 0 0 -16px;
+    pointer-events: none;
+    opacity: 0;
+    border: 3px solid rgba(7,7,9,.92);
+    border-radius: 50%;
+    background: radial-gradient(circle, var(--tahoe-blue) 0 24%, rgba(255,255,255,.94) 28% 62%, transparent 66%);
+    box-shadow: 0 2px 12px rgba(0,0,0,.42);
+    transition: opacity 90ms linear;
+  }
+  .trackdrum-surface.is-active .track-contact { opacity: 1; }
+  .trackdrum-hint {
+    margin: 9px 0 9px;
+    color: var(--ink-soft);
+    font: 10px "Berkeley Mono Variable", "SF Mono", Menlo, monospace;
+  }
+  .trackdrum-link {
+    color: var(--tahoe-blue);
+    font-weight: 700;
+    text-underline-offset: 3px;
+  }
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  @media (min-width: 700px) {
+    body { padding-bottom: 280px; }
+    .instrument-stage {
+      position: fixed;
+      z-index: 14;
+      top: 14px;
+      right: 16px;
+      width: 322px;
+      margin: 0;
+      padding: 0;
+    }
+    .menu-strip { width: 322px; }
+    .trackdrum-preview {
+      position: fixed;
+      z-index: 13;
+      left: 50%;
+      bottom: 14px;
+      width: 360px;
+      margin: 0;
+      transform: translateX(-50%);
+    }
+    .trackdrum-preview h2 { font-size: 17px; }
+    .trackdrum-preview > p { display: none; }
+    .trackdrum-surface { width: 300px; }
+    .trackdrum-hint { margin: 6px 0 4px; }
+    .trackdrum-link { font-size: 12px; }
+  }
 
   ul.modes {
     list-style: none;
@@ -626,6 +786,8 @@
     .film-shelf { margin-top: 26px; }
     .film-grid { grid-template-columns: 1fr; }
     .film-heading { padding: 0 16px; }
+    .trackdrum-preview { margin-top: 34px; }
+    .trackdrum-surface { width: min(420px, 100%); }
     .learn-tab { top: auto; right: 14px; bottom: 14px; translate: 0; }
     .learn-drawer { top: auto; right: 8px; bottom: 58px; width: calc(100vw - 16px); translate: 0 calc(100% + 80px); }
     .learn-drawer.is-open { translate: 0 0; }
@@ -701,78 +863,11 @@
     }
   }
 
-  /* Language switcher — corner chip pair, same vibe as kidlisp.com /
-     help.aesthetic.computer. Tucks into the top-right so it doesn't fight
-     the hero icon for attention. Active language is filled, the other is
-     a flat outline; both share the precise-cursor hand on hover. */
-  #lang-switch {
-    position: fixed;
-    top: 12px;
-    right: 16px;
-    z-index: 4;
-    display: inline-flex;
-    gap: 4px;
-    padding: 4px;
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.55);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    box-shadow:
-      0 1px 0 rgba(255, 255, 255, 0.7) inset,
-      0 1px 4px rgba(15, 30, 60, 0.08);
-  }
-  #lang-switch button {
-    appearance: none;
-    border: 0;
-    background: transparent;
-    color: var(--ink-soft);
-    font: inherit;
-    font-size: 12px;
-    font-weight: 600;
-    line-height: 1;
-    padding: 6px 10px;
-    border-radius: 999px;
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    transition: background 120ms var(--ease-apple), color 120ms var(--ease-apple);
-  }
-  #lang-switch button:hover { color: var(--ink-head); }
-  #lang-switch button[aria-pressed="true"] {
-    background: var(--tahoe-blue);
-    color: #fff;
-    box-shadow: 0 1px 2px rgba(10, 132, 255, 0.35);
-  }
-  #lang-switch button .flag { font-size: 13px; }
-  @media (max-width: 520px) {
-    #lang-switch button .label { display: none; }
-    #lang-switch button { padding: 6px 8px; }
-  }
-  @media (prefers-color-scheme: dark) {
-    #lang-switch {
-      background: rgba(28, 28, 30, 0.65);
-      box-shadow:
-        0 1px 0 rgba(255, 255, 255, 0.06) inset,
-        0 1px 6px rgba(0, 0, 0, 0.4);
-    }
-    #lang-switch button { color: rgba(235, 235, 245, 0.6); }
-    #lang-switch button:hover { color: rgba(235, 235, 245, 0.95); }
-  }
 </style>
 </head>
 <body>
 
 <h1 id="corner-label">menuband</h1>
-
-<div id="lang-switch" role="group" aria-label="Language">
-  <button type="button" data-lang="en" aria-pressed="true">
-    <span class="flag" aria-hidden="true">🇺🇸</span><span class="label">EN</span>
-  </button>
-  <button type="button" data-lang="es" aria-pressed="false">
-    <span class="flag" aria-hidden="true">🇪🇸</span><span class="label">ES</span>
-  </button>
-</div>
 
 <button class="learn-tab" id="learn-tab" type="button" aria-label="Learn chords and scales" aria-expanded="false" aria-controls="learn-drawer"><span aria-hidden="true">♫</span></button>
 <aside class="learn-drawer" id="learn-drawer" aria-label="Learn Menu Band" aria-hidden="true">
@@ -836,10 +931,11 @@
   </div>
 
   <section class="panel">
-    <p data-i18n="lede" data-i18n-html="true">A tiny piano lives in the right side of your menu bar. Click the keys, type letters, or pipe notes to your DAW over MIDI — Menu Band publishes a virtual MIDI source named <code>Menu Band</code> that any DAW can pick as input. When nothing's listening, a built-in General MIDI synth covers hundreds of patches.</p>
+    <p data-i18n="lede">Play your Mac instead of opening a workstation. Menu Band puts a two-octave instrument in the menu bar: type notes, connect a MIDI keyboard, tune live radio, or send notes to your DAW. Hundreds of built-in sounds are ready when nothing else is connected.</p>
     <div class="button-row">
-      <a id="store-link" class="aqua" href="https://apps.apple.com/us/app/menu-band/id6767311903?mt=12"><span data-i18n="storeCta">🍏 Mac App Store</span><small data-i18n="storeMeta">$4.99 · macOS 11+</small></a>
+      <a id="store-link" class="aqua" href="https://apps.apple.com/us/app/menu-band/id6767311903?mt=12"><span data-i18n="storeCta">Get Menu Band</span><small data-i18n="storeMeta">$4.99 once · macOS 11+</small></a>
     </div>
+    <p class="purchase-note" data-i18n="purchaseNote">The complete instrument. No subscription or in-app unlocks.</p>
     <p class="aux"><a href="/advanced" data-i18n="advanced">advanced</a> · <a href="https://tangled.org/@aesthetic.computer/core/tree/main/slab/menuband" data-i18n="viewSource">view source</a></p>
   </section>
 
@@ -868,6 +964,22 @@
         </figcaption>
       </figure>
     </div>
+  </section>
+
+  <section class="trackdrum-preview" aria-labelledby="trackdrum-title">
+    <h2 id="trackdrum-title">TrackDrum</h2>
+    <p data-i18n="trackdrumClaim">Turn your Mac trackpad into Menu Band’s percussion surface.</p>
+    <div class="trackdrum-surface" id="trackdrum-surface" role="button" tabindex="0" aria-label="One-finger TrackDrum web simulation. Click, touch, or drag to play percussion.">
+      <span class="drum-zone" data-drum="click" aria-hidden="true"></span>
+      <span class="drum-zone" data-drum="hat" aria-hidden="true"></span>
+      <span class="drum-zone" data-drum="snare" aria-hidden="true"></span>
+      <span class="drum-zone" data-drum="tom" aria-hidden="true"></span>
+      <span class="drum-zone" data-drum="kick" aria-hidden="true"></span>
+      <span class="track-contact" id="track-contact" aria-hidden="true"></span>
+    </div>
+    <div class="trackdrum-hint" data-i18n="trackdrumHint">one-finger web simulation · tap, click, or drag</div>
+    <a class="trackdrum-link" href="/advanced#trackdrum-addon" data-i18n="trackdrumCta">Add TrackDrum →</a>
+    <span id="trackdrum-live" class="sr-only" aria-live="polite"></span>
   </section>
 </article>
 
@@ -1165,19 +1277,191 @@
     label();
   })();
 
-  // ── i18n. Same plug-and-play shape as kidlisp.com / help.aesthetic.computer:
-  //    one table per language, `data-i18n` attributes on every translatable
-  //    element, and `data-i18n-html="true"` for strings that need to keep
-  //    inline markup (links, <b>, <code>). The pref is persisted under
-  //    `menuband-lang` so the user lands in their last language on return.
+  // ── TrackDrum web simulation. Browsers expose a pointer rather than raw
+  //    trackpad contacts, so this preserves the product's spatial strike,
+  //    drag, sound, and membrane feedback for one mouse or touch contact.
+  (function trackDrumSimulation() {
+    const surface = document.getElementById("trackdrum-surface");
+    const contact = document.getElementById("track-contact");
+    const live = document.getElementById("trackdrum-live");
+    if (!surface || !contact) return;
+
+    const zones = [...surface.querySelectorAll(".drum-zone")];
+    const names = { kick: "kick", tom: "tom", snare: "snare", hat: "hi-hat", click: "edge click" };
+    let context = null;
+    let noiseBuffer = null;
+    let activePointer = null;
+    let lastPoint = null;
+    let lastStrikeAt = 0;
+    let keyboardStep = 0;
+
+    function audio() {
+      if (!context) {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContext) return null;
+        context = new AudioContext();
+        noiseBuffer = context.createBuffer(1, context.sampleRate * 0.3, context.sampleRate);
+        const data = noiseBuffer.getChannelData(0);
+        for (let index = 0; index < data.length; index += 1) data[index] = Math.random() * 2 - 1;
+      }
+      if (context.state === "suspended") context.resume();
+      return context;
+    }
+
+    function tone(type, startHz, endHz, duration, level) {
+      const ctx = audio();
+      if (!ctx) return;
+      const now = ctx.currentTime;
+      const oscillator = ctx.createOscillator();
+      const gain = ctx.createGain();
+      oscillator.type = type;
+      oscillator.frequency.setValueAtTime(startHz, now);
+      oscillator.frequency.exponentialRampToValueAtTime(Math.max(20, endHz), now + duration);
+      gain.gain.setValueAtTime(level, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+      oscillator.connect(gain).connect(ctx.destination);
+      oscillator.start(now);
+      oscillator.stop(now + duration + 0.02);
+    }
+
+    function noise(cutoff, duration, level) {
+      const ctx = audio();
+      if (!ctx || !noiseBuffer) return;
+      const now = ctx.currentTime;
+      const source = ctx.createBufferSource();
+      const filter = ctx.createBiquadFilter();
+      const gain = ctx.createGain();
+      source.buffer = noiseBuffer;
+      filter.type = "highpass";
+      filter.frequency.value = cutoff;
+      gain.gain.setValueAtTime(level, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+      source.connect(filter).connect(gain).connect(ctx.destination);
+      source.start(now);
+      source.stop(now + duration + 0.02);
+    }
+
+    function play(kind, velocity) {
+      const level = 0.12 + velocity * 0.22;
+      if (kind === "kick") tone("sine", 135, 42, 0.24, level * 1.45);
+      if (kind === "snare") { noise(760, 0.14, level); tone("triangle", 190, 105, 0.09, level * 0.42); }
+      if (kind === "hat") noise(5600, 0.065, level * 0.78);
+      if (kind === "tom") tone("triangle", 245, 82, 0.22, level);
+      if (kind === "click") { noise(4300, 0.025, level * 0.28); tone("square", 920, 610, 0.025, level * 0.16); }
+    }
+
+    function roundedDistance(x, y) {
+      const sx = (x - 0.5) * 2;
+      const sy = (y - 0.5) * 2;
+      const halfWidth = 0.82;
+      const halfHeight = 0.50;
+      const corner = 0.055;
+      const px = Math.abs(sx) * halfWidth;
+      const py = Math.abs(sy) * halfHeight;
+      const qx = px - (halfWidth - corner);
+      const qy = py - (halfHeight - corner);
+      const outside = Math.hypot(Math.max(qx, 0), Math.max(qy, 0));
+      const inside = Math.min(Math.max(qx, qy), 0);
+      const signedDistance = outside + inside - corner;
+      const inwardDepth = Math.max(0, -signedDistance);
+      return 1 - Math.min(1, inwardDepth / halfHeight);
+    }
+
+    function kindAt(x, y) {
+      const distance = roundedDistance(x, y);
+      if (distance < 0.30) return "kick";
+      if (distance < 0.46) return "tom";
+      if (distance < 0.64) return "snare";
+      if (distance < 0.88) return "hat";
+      return "click";
+    }
+
+    function surfaceEnergy(x, y) {
+      const sx = (x - 0.5) * 2;
+      const sy = (y - 0.5) * 2;
+      const depth = 1 - roundedDistance(x, y);
+      const contour = 0.36 + 0.64 * Math.pow(Math.max(0, depth), 0.62);
+      const modal = 0.91 + 0.09 * Math.cos(sx * Math.PI) * Math.cos(sy * Math.PI);
+      return Math.max(0.22, Math.min(1, contour * modal));
+    }
+
+    function strike(x, y, velocity = 1) {
+      const kind = kindAt(x, y);
+      const zone = zones.find((candidate) => candidate.dataset.drum === kind);
+      contact.style.left = `${x * 100}%`;
+      contact.style.top = `${y * 100}%`;
+      zone.classList.remove("is-struck");
+      void zone.offsetWidth;
+      zone.classList.add("is-struck");
+      setTimeout(() => zone.classList.remove("is-struck"), 105);
+      play(kind, surfaceEnergy(x, y) * velocity);
+      live.textContent = names[kind];
+    }
+
+    function normalized(event) {
+      const rect = surface.getBoundingClientRect();
+      return {
+        x: Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width)),
+        y: Math.max(0, Math.min(1, (event.clientY - rect.top) / rect.height)),
+      };
+    }
+
+    surface.addEventListener("pointerdown", (event) => {
+      if (activePointer !== null || (event.isPrimary === false)) return;
+      event.preventDefault();
+      activePointer = event.pointerId;
+      surface.setPointerCapture?.(event.pointerId);
+      surface.classList.add("is-active");
+      lastPoint = normalized(event);
+      lastStrikeAt = performance.now();
+      strike(lastPoint.x, lastPoint.y, 1);
+    });
+
+    surface.addEventListener("pointermove", (event) => {
+      if (event.pointerId !== activePointer) return;
+      event.preventDefault();
+      const point = normalized(event);
+      contact.style.left = `${point.x * 100}%`;
+      contact.style.top = `${point.y * 100}%`;
+      const distance = lastPoint ? Math.hypot(point.x - lastPoint.x, point.y - lastPoint.y) : 0;
+      const now = performance.now();
+      if (distance > 0.045 && now - lastStrikeAt > 70) {
+        strike(point.x, point.y, Math.min(0.75, 0.28 + distance * 3.5));
+        lastPoint = point;
+        lastStrikeAt = now;
+      }
+    });
+
+    function release(event) {
+      if (event.pointerId !== activePointer) return;
+      activePointer = null;
+      lastPoint = null;
+      surface.classList.remove("is-active");
+    }
+    surface.addEventListener("pointerup", release);
+    surface.addEventListener("pointercancel", release);
+
+    surface.addEventListener("keydown", (event) => {
+      if (event.key !== " " && event.key !== "Enter") return;
+      event.preventDefault();
+      const points = [[0.5, 0.5], [0.82, 0.5], [0.86, 0.5], [0.92, 0.5], [0.99, 0.5]];
+      const point = points[keyboardStep++ % points.length];
+      surface.classList.add("is-active");
+      strike(point[0], point[1], 1);
+      setTimeout(() => surface.classList.remove("is-active"), 130);
+    });
+  })();
+
+  // ── Automatic browser-language localization. ──────────────────────────
   (function menubandI18n() {
     const i18n = {
       en: {
         title: "Menu Band — Built-in instruments, in the menu bar.",
         description: "Menu Band brings the built-in instruments — the ones GarageBand uses — to your menu bar. Tap, type, or send to your DAW over MIDI.",
         tagline: "Taking your Mac's standard instruments out of the 🎸 Garage and kickin' it on the curb!",
-        storeCta: "🍏 Mac App Store",
-        storeMeta: "$4.99 · macOS 11+",
+        storeCta: "Get Menu Band",
+        storeMeta: "$4.99 once · macOS 11+",
+        purchaseNote: "The complete instrument. No subscription or in-app unlocks.",
         advanced: "advanced",
         viewSource: "view source",
         filmsTitle: "Menu Band in motion",
@@ -1187,7 +1471,10 @@
         filmScale: "Sing the scale",
         filmScaleBody: "C D E F G… but weird.",
         by: "by",
-        lede: 'A tiny piano lives in the right side of your menu bar. Click the keys, type letters, or pipe notes to your DAW over MIDI — Menu Band publishes a virtual MIDI source named <code>Menu Band</code> that any DAW can pick as input. When nothing\'s listening, a built-in General MIDI synth covers hundreds of patches.',
+        lede: "Play your Mac instead of opening a workstation. Menu Band puts a two-octave instrument in the menu bar: type notes, connect a MIDI keyboard, tune live radio, or send notes to your DAW. Hundreds of built-in sounds are ready when nothing else is connected.",
+        trackdrumClaim: "Turn your Mac trackpad into Menu Band’s percussion surface.",
+        trackdrumHint: "one-finger web simulation · tap, click, or drag",
+        trackdrumCta: "Add TrackDrum →",
         testimonial: "“i use it on my macbook neo. practice notepat, play ableton without leaving my menu bar.”",
         modesTitle: "Three modes",
         modePointer: "Pointer",
@@ -1212,8 +1499,9 @@
         title: "Menu Band — Los instrumentos integrados, en la barra de menús.",
         description: "Menu Band trae los instrumentos integrados — los que usa GarageBand — a tu barra de menús. Toca, escribe o envíalos a tu DAW por MIDI.",
         tagline: "¡Sacando los instrumentos clásicos de tu Mac del 🎸 Garage para tocarlos en la acera!",
-        storeCta: "🍏 Mac App Store",
-        storeMeta: "4,99 $ · macOS 11+",
+        storeCta: "Obtén Menu Band",
+        storeMeta: "4,99 $ una vez · macOS 11+",
+        purchaseNote: "El instrumento completo. Sin suscripción ni desbloqueos dentro de la app.",
         advanced: "avanzado",
         viewSource: "ver código",
         filmsTitle: "Menu Band en movimiento",
@@ -1223,7 +1511,10 @@
         filmScale: "Canta la escala",
         filmScaleBody: "Do re mi fa sol… pero raro.",
         by: "por",
-        lede: 'Un piano diminuto vive a la derecha de tu barra de menús. Toca las teclas, escribe letras o envía notas a tu DAW por MIDI — Menu Band publica una fuente MIDI virtual llamada <code>Menu Band</code> que cualquier DAW puede tomar como entrada. Cuando nadie escucha, un sintetizador General MIDI integrado cubre cientos de timbres.',
+        lede: "Toca tu Mac sin abrir una estación de trabajo. Menu Band pone un instrumento de dos octavas en la barra de menús: escribe notas, conecta un teclado MIDI, sintoniza radio en directo o envía notas a tu DAW. Cientos de sonidos integrados están listos cuando no hay nada más conectado.",
+        trackdrumClaim: "Convierte el trackpad de tu Mac en la superficie de percusión de Menu Band.",
+        trackdrumHint: "simulación web con un dedo · toca, haz clic o arrastra",
+        trackdrumCta: "Añade TrackDrum →",
         testimonial: "«lo uso en mi macbook neo. practico notepat y toco ableton sin salir de la barra de menús».",
         modesTitle: "Tres modos",
         modePointer: "Puntero",
@@ -1248,8 +1539,6 @@
 
     const supported = Object.keys(i18n);
     function detectDefault() {
-      const stored = localStorage.getItem("menuband-lang");
-      if (stored && supported.includes(stored)) return stored;
       const pref = (navigator.language || "en").toLowerCase();
       for (const code of supported) if (pref.startsWith(code)) return code;
       return "en";
@@ -1281,25 +1570,7 @@
         }
       });
 
-      document.querySelectorAll("#lang-switch button").forEach((btn) => {
-        const isActive = btn.getAttribute("data-lang") === currentLang;
-        btn.setAttribute("aria-pressed", isActive ? "true" : "false");
-      });
     }
-
-    function setLanguage(code) {
-      if (!supported.includes(code) || code === currentLang) return;
-      currentLang = code;
-      localStorage.setItem("menuband-lang", code);
-      applyLanguage();
-      window.dispatchEvent(new CustomEvent("menuband-lang-change", { detail: code }));
-    }
-
-    document.querySelectorAll("#lang-switch button").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        setLanguage(btn.getAttribute("data-lang"));
-      });
-    });
 
     applyLanguage();
   })();
