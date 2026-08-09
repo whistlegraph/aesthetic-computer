@@ -176,6 +176,12 @@ export default class Fart {
   }
 
   next() {
+    // 🍿 A finished voice must stay silent. The mixer prunes its queue only
+    // between render quanta, so it keeps asking for samples after this one is
+    // done; without the guard those fall past the release branch and return
+    // at full volume, which is a click. See lib/sound/synth.mjs.
+    if (!this.playing) return 0;
+
     // Interpolated parameter updates
 
     // Pressure updates (affects amplitude)

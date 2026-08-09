@@ -372,6 +372,8 @@ var Synth = class {
   // Unique for every playing instrument.
   fading = false;
   // If we are fading and then stopping playback.
+  fadeGain = 1;
+  fadeStep = 0;
   fadeProgress;
   fadeDuration;
   type;
@@ -531,6 +533,9 @@ var Synth = class {
     this.#futureVolume = this.volume;
   }
   next(channelIndex) {
+    // 🍿 A finished voice must stay silent — the mixer prunes its queue only
+    // between render quanta. Mirrors lib/sound/synth.mjs.
+    if (!this.playing) return 0;
     if (this.#frequencyUpdatesLeft > 0) {
       this.#frequency += this.#frequencyUpdateSlice;
       this.#wavelength = sampleRate / this.#frequency;
@@ -729,14 +734,15 @@ var Synth = class {
     }
     let out = value * this.volume;
     if (this.fading) {
-      if (this.fadeProgress < this.fadeDuration) {
-        this.fadeProgress += 1;
-        out *= 1 - this.fadeProgress / this.fadeDuration;
-      } else {
+      this.fadeGain -= this.fadeStep;
+      if (this.fadeGain <= 0) {
+        this.fadeGain = 0;
         this.fading = false;
         this.playing = false;
         return 0;
       }
+      this.fadeProgress += 1;
+      out *= this.fadeGain;
     }
     return out;
   }
@@ -774,13 +780,14 @@ var Synth = class {
   }
   // Use a 25ms fade by default.
   kill(fade = 0.025) {
-    if (!fade) {
-      this.playing = false;
-    } else {
-      this.fading = true;
-      this.fadeProgress = 0;
-      this.fadeDuration = fade * sampleRate;
-    }
+    // Every kill ramps, and a kill on an already-releasing voice may only
+    // shorten the tail — never restart it louder. See lib/sound/synth.mjs.
+    const seconds = Math.max(fade || 0, 2e-3);
+    const step = this.fadeGain / (seconds * sampleRate);
+    this.fadeStep = this.fading ? Math.max(this.fadeStep, step) : step;
+    this.fading = true;
+    this.fadeProgress = 0;
+    this.fadeDuration = seconds * sampleRate;
   }
   // Return an integer from 0->1 representing the progress of this sound so far.
   progress() {
@@ -844,6 +851,8 @@ var Bubble = class {
   playing = true;
   fading = false;
   // If we are fading and then stopping playback.
+  fadeGain = 1;
+  fadeStep = 0;
   fadeProgress;
   fadeDuration;
   #volume = 1;
@@ -951,6 +960,9 @@ var Bubble = class {
     console.log(`\u{1F9CB} disableSustain() for bubble ${this.id || "unknown"}`);
   }
   next() {
+    // 🍿 A finished voice must stay silent — the mixer prunes its queue only
+    // between render quanta. Mirrors lib/sound/synth.mjs.
+    if (!this.playing) return 0;
     if (this.#radiusUpdatesLeft > 0) {
       this.#radius += this.#radiusUpdateSlice;
       const pRadius = this.#radius * Math.sqrt(this.#radius);
@@ -990,14 +1002,15 @@ var Bubble = class {
     if (out > this.#maxOut) this.#maxOut = out;
     out = out / this.#maxOut;
     if (this.fading) {
-      if (this.fadeProgress < this.fadeDuration) {
-        this.fadeProgress += 1;
-        out *= 1 - this.fadeProgress / this.fadeDuration;
-      } else {
+      this.fadeGain -= this.fadeStep;
+      if (this.fadeGain <= 0) {
+        this.fadeGain = 0;
         this.fading = false;
         this.playing = false;
         return 0;
       }
+      this.fadeProgress += 1;
+      out *= this.fadeGain;
     }
     return out;
   }
@@ -1016,13 +1029,14 @@ var Bubble = class {
   }
   // Use a 25ms fade by default.
   kill(fade = 0.025) {
-    if (!fade) {
-      this.playing = false;
-    } else {
-      this.fading = true;
-      this.fadeProgress = 0;
-      this.fadeDuration = fade * sampleRate;
-    }
+    // Every kill ramps, and a kill on an already-releasing voice may only
+    // shorten the tail — never restart it louder. See lib/sound/synth.mjs.
+    const seconds = Math.max(fade || 0, 2e-3);
+    const step = this.fadeGain / (seconds * sampleRate);
+    this.fadeStep = this.fading ? Math.max(this.fadeStep, step) : step;
+    this.fading = true;
+    this.fadeProgress = 0;
+    this.fadeDuration = seconds * sampleRate;
   }
 };
 
@@ -1465,7 +1479,7 @@ var SpeakerProcessor = class extends AudioWorkletProcessor {
         output[0][s] += instrument.pan(0, amplitude);
         output[1][s] += instrument.pan(1, amplitude);
         if (instrument.fading) {
-          voices += instrument.volume * (1 - instrument.fadeProgress / instrument.fadeDuration);
+          voices += instrument.volume * instrument.fadeGain;
         } else {
           if (instrument.type !== "sample") {
             voices += instrument.volume;

@@ -6,7 +6,14 @@ export default class Synth {
   playing = true;
   id; // Unique for every playing instrument.
 
+  // 🍿 Shortest release any kill can ask for. Below ~2ms the ramp stops
+  // rounding the waveform's corner and starts sounding like the cut it
+  // replaced.
+  static MIN_RELEASE = 0.002;
+
   fading = false; // If we are fading and then stopping playback.
+  fadeGain = 1; // Release multiplier — walks 1 → 0 and never back up.
+  fadeStep = 0; // How much `fadeGain` drops per sample.
   fadeProgress;
   fadeDuration;
 
@@ -309,6 +316,15 @@ export default class Synth {
   }
 
   next(channelIndex) {
+    // 🍿 Once a voice is done it stays done. The mixer only prunes the queue
+    // between render quanta, so a note that finishes mid-block keeps getting
+    // asked for samples until the next block starts. Without this guard those
+    // leftover samples fall past the release branch (`fading` is already
+    // false) and come back at FULL volume — up to 2.7ms of the note blaring
+    // after its fade, then a hard cut to silence when the prune finally runs.
+    // That step is the click you hear at the end of a pad.
+    if (!this.playing) return 0;
+
     // 🚥 Intepolated Properties 🎼
 
     // 📊 Frequency
@@ -774,16 +790,19 @@ export default class Synth {
     // }
 
     // ➰💀 "Fade 2 kill." - 25.02.15.00.14
+    // The release rides a gain that only ever walks downhill. Tracking the
+    // gain itself (rather than a position along a ramp) is what lets a second
+    // kill() land safely — see kill().
     if (this.fading) {
-      if (this.fadeProgress < this.fadeDuration) {
-        this.fadeProgress += 1;
-        // Apply the fade envelope to the output.
-        out *= 1 - this.fadeProgress / this.fadeDuration;
-      } else {
+      this.fadeGain -= this.fadeStep;
+      if (this.fadeGain <= 0) {
+        this.fadeGain = 0;
         this.fading = false;
         this.playing = false;
         return 0;
       }
+      this.fadeProgress += 1;
+      out *= this.fadeGain;
     }
 
     return out;
@@ -870,15 +889,28 @@ export default class Synth {
   }
 
   // Use a 25ms fade by default.
+  //
+  // 🍿 Two rules keep a release from clicking, and both are about the *step*
+  // in amplitude, not the length of the tail:
+  //
+  //   1. Every kill ramps. `kill(0)` used to drop `playing` on the spot,
+  //      cutting the waveform wherever it happened to be — a full-scale
+  //      discontinuity, which is the definition of a click. The floor below
+  //      is short enough to still read as "immediate" and long enough to
+  //      round the corner.
+  //   2. A kill on an already-fading voice may only *shorten* the tail.
+  //      Notepat routinely kills the same voice twice (the button `up`
+  //      handler, then `cleanupOrphanedSounds`); restarting the ramp meant
+  //      the gain jumped from wherever it had faded to back up to 1 — a pop
+  //      louder than the note. Carrying `fadeGain` across kills and only
+  //      raising `fadeStep` makes the second call a no-op or a speed-up.
   kill(fade = 0.025) {
-    if (!fade) {
-      this.playing = false;
-    } else {
-      // Fade over 'fade' seconds, before stopping playback.
-      this.fading = true;
-      this.fadeProgress = 0;
-      this.fadeDuration = fade * sampleRate; // Convert seconds to samples.
-    }
+    const seconds = max(fade || 0, Synth.MIN_RELEASE);
+    const step = this.fadeGain / (seconds * sampleRate);
+    this.fadeStep = this.fading ? max(this.fadeStep, step) : step;
+    this.fading = true;
+    this.fadeProgress = 0;
+    this.fadeDuration = seconds * sampleRate;
   }
 
   // Return an integer from 0->1 representing the progress of this sound so far.

@@ -390,8 +390,12 @@ const wavetypes = [
   "stample", // 8
   "drum", // 9 - shared 12-drum kit (lib/percussion.mjs), both octaves
 ];
-let waveIndex = 0; // 0;
-const STARTING_WAVE = wavetypes[waveIndex]; //"sine";
+// Sine is the instrument notepat opens on — the plainest voice in the list,
+// and the one every other wave is heard against. GM sits at index 0 only
+// because the number-row patch picker wants it first; boot into sine and let
+// a digit press promote the wave switcher to "gm".
+let waveIndex = wavetypes.indexOf("sine");
+const STARTING_WAVE = wavetypes[waveIndex];
 let wave = STARTING_WAVE;
 // let hold = false;
 let slide = false;

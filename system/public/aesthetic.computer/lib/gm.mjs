@@ -299,10 +299,20 @@ function scheduleNote(ctx, audioBuffer, opts) {
     stopped = true;
     const time = Math.max(t, ctx.currentTime);
     try {
-      gain.gain.cancelScheduledValues(time);
-      // Hold current value, then ramp to 0 over `release` seconds.
-      const current = gain.gain.value;
-      gain.gain.setValueAtTime(current, time);
+      // 🍿 Release the note from wherever the envelope actually is. A bare
+      // cancelScheduledValues() drops the pending ramp *event*, so a note
+      // let go during attack or decay snaps back to the last committed
+      // value — audibly, a click right at note-off. cancelAndHoldAtTime
+      // freezes the in-flight ramp at its current value instead; the
+      // cancel/read/set dance below is the fallback for engines that
+      // don't implement it.
+      if (typeof gain.gain.cancelAndHoldAtTime === "function") {
+        gain.gain.cancelAndHoldAtTime(time);
+      } else {
+        const current = gain.gain.value;
+        gain.gain.cancelScheduledValues(time);
+        gain.gain.setValueAtTime(current, time);
+      }
       gain.gain.linearRampToValueAtTime(0.0001, time + release);
       // Schedule actual stop slightly after the release fade.
       scheduledStop = time + release + 0.02;

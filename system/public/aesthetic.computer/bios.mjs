@@ -3831,9 +3831,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                 total: 0,
                 max: 0,
                 lastAt: 0,
+                events: [],
               });
               t.total += msg.content.count || 0;
               if ((msg.content.max || 0) > t.max) t.max = msg.content.max;
+              t.events = t.events || [];
+              // Keep the tail bounded — this is a debugging window, not a log.
+              for (const ev of msg.content.events || []) t.events.push(ev);
+              if (t.events.length > 64) t.events.splice(0, t.events.length - 64);
               t.lastAt = Date.now();
             }
             return;

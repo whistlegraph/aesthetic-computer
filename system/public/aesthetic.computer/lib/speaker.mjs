@@ -96,6 +96,7 @@ class SpeakerProcessor extends AudioWorkletProcessor {
   #popPrev = 0;
   #popCount = 0;
   #popMax = 0;
+  #popEvents = [];
   #popLastReport = 0;
 
   // Demand gate for frequency analysis (see get-frequencies).
@@ -821,9 +822,7 @@ class SpeakerProcessor extends AudioWorkletProcessor {
         output[1][s] += instrument.pan(1, amplitude);
 
         if (instrument.fading) {
-          voices +=
-            instrument.volume *
-            (1 - instrument.fadeProgress / instrument.fadeDuration);
+          voices += instrument.volume * instrument.fadeGain;
         } else {
           // console.log(instrument, "Volume:", instrument.volume)
           if (instrument.type !== "sample") {
@@ -858,6 +857,22 @@ class SpeakerProcessor extends AudioWorkletProcessor {
         if (d > 0.3) {
           this.#popCount += 1;
           if (d > this.#popMax) this.#popMax = d;
+          // A count alone says a click happened; these say *what* it was —
+          // the two samples that stepped, how many voices were live, and
+          // whether the one that ended was mid-release. console.log can't
+          // escape an AudioWorklet, so the detail rides the report out.
+          if (this.#popEvents.length < 16) {
+            const tail = this.#queue[this.#queue.length - 1];
+            this.#popEvents.push({
+              d: +d.toFixed(4),
+              prev: +this.#popPrev.toFixed(4),
+              now: +output[0][s].toFixed(4),
+              voices: this.#queue.length,
+              div: +this.#mixDivisor.toFixed(3),
+              fading: tail ? !!tail.fading : null,
+              gain: tail?.fadeGain !== undefined ? +tail.fadeGain.toFixed(4) : null,
+            });
+          }
         }
         this.#popPrev = output[0][s];
       }
@@ -961,9 +976,11 @@ class SpeakerProcessor extends AudioWorkletProcessor {
         count: this.#popCount,
         max: +this.#popMax.toFixed(3),
         at: currentTime,
+        events: this.#popEvents,
       });
       this.#popCount = 0;
       this.#popMax = 0;
+      this.#popEvents = [];
       this.#popLastReport = currentTime;
     }
 
