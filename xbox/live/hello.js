@@ -139,6 +139,15 @@ const crouchJumpPoseUs = 145000;
 const crouchHopPoseUs = 190000;
 const sinkDurationUs = 250000;
 const hudTypeSize = 42;
+// The command stream is a record of what you just did, so it is long enough to
+// hold a whole exchange and it does not start dissolving while you are still
+// playing. Only once the pad goes quiet does it age out, oldest glyph first,
+// so the last thing you pressed is the last thing to leave.
+const commandStreamDepth = 20;
+const commandStreamRows = 5;
+const commandStreamColumns = 8;
+const commandHoldUs = 1100000;
+const commandFadeUs = 1900000;
 const replayButtons = ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown",
   "A", "B", "X", "Y"];
 let cameraCenter = (worldLeft + worldRight) / 2;
@@ -2372,7 +2381,8 @@ function recordCommand(player, label, now) {
   const previous = player.commandStream.at(-1);
   if (previous?.label === label && now - previous.at < 40000) return;
   player.commandStream.push({ label, at: now });
-  if (player.commandStream.length > 8) player.commandStream.shift();
+  while (player.commandStream.length > commandStreamDepth)
+    player.commandStream.shift();
 }
 
 function fireGun(player, input) {
@@ -4121,10 +4131,16 @@ function fighterAnimationPhase(player, now = null) {
     phase = Math.abs(player.vy) < 150 ? "APEX" : state === "JUMP"
       ? "ASCEND" : "DESCEND";
   }
-  const cycleTick = step * ticksPerStep;
+  // `frameNow` is the clock, not the cycle. It has to keep climbing with real
+  // time — the looping states anchor `stateStartedAt` at match start, so a
+  // cycle-position clock wraps back to the first second forever and every
+  // "is this timestamp still in the future" test answers yes for the rest of
+  // the round. That is what pinned a landed fighter in the crouch pose and
+  // froze the legs. Quantizing to the tick grid keeps the pose on the sim's
+  // 60 Hz phase without inventing in-between frames.
   return { state, phase, step: step + 1, steps, tick: rawTick,
     ticksPerStep, progress: step / Math.max(1, steps - 1),
-    frameNow: stateStartedAt + cycleTick * replayTickUs };
+    frameNow: stateStartedAt + rawTick * replayTickUs };
 }
 
 function runnerWorldGeometry(player, t) {
@@ -4921,24 +4937,30 @@ function replayOfferKeys() {
 
 // A key drawn as a key: a gray cap with a line around it, sunk and brightened
 // while it is actually held.
-function drawKeycap(label, x, y, size, pressed) {
+// `fade` is how present the cap is: 1 draws it, 0 dissolves it into the stage
+// behind. The legend always passes 1; only the command stream ages its caps
+// out, and it needs the whole cap to go — face, edge and letter together.
+function drawKeycap(label, x, y, size, pressed, fade = 1) {
   const padX = Math.round(size * .42);
   const height = Math.round(size * 1.5);
   const width = handleWidth(label, size) + padX * 2;
+  if (fade <= .01) return width;
   const drop = pressed ? 2 : 0;
-  const face = pressed
+  const ground = mixColor([7, 8, 28], [230, 239, 247], visualTheme.light);
+  const veil = (color) => fade >= 1 ? color : mixColor(ground, color, fade);
+  const face = veil(pressed
     ? mixColor([96, 104, 126], [206, 214, 232], visualTheme.light)
-    : mixColor([44, 50, 66], [176, 184, 202], visualTheme.light);
-  const edge = pressed
+    : mixColor([44, 50, 66], [176, 184, 202], visualTheme.light));
+  const edge = veil(pressed
     ? mixColor([210, 220, 240], [40, 46, 62], visualTheme.light)
-    : mixColor([112, 122, 146], [96, 104, 124], visualTheme.light);
+    : mixColor([112, 122, 146], [96, 104, 124], visualTheme.light));
   if (!pressed)
-    box(x + 2, y + 4, width, height, ...mixColor([6, 8, 18], [92, 99, 112],
-      visualTheme.light * .7));
+    box(x + 2, y + 4, width, height, ...veil(mixColor([6, 8, 18], [92, 99, 112],
+      visualTheme.light * .7)));
   box(x, y + drop, width, height, ...face);
   strokeBox(x, y + drop, width, height, 2, edge);
   typeWrite(label, x + padX, y + drop + Math.round((height - size) / 2), size,
-    ...(pressed ? [12, 14, 26] : [238, 242, 252]));
+    ...veil(pressed ? [12, 14, 26] : [238, 242, 252]));
   return width;
 }
 
@@ -5445,6 +5467,17 @@ function drawHudInventory(player, side) {
   typeWrite(text, x, y, size, ...player.color);
 }
 
+// How present one glyph of the buffer is. `settle` is how far into the idle
+// the dissolve has travelled: 0 for as long as the pad is still saying
+// something, 1 once the whole stream has left. Doubling it and offsetting by
+// each glyph's place in the stream spends the first half on the oldest glyph
+// and the last half on the newest, so the buffer leaves in reading order
+// rather than dimming as one sheet.
+function commandFade(index, count, idle) {
+  const settle = clamp((idle - commandHoldUs) / commandFadeUs, 0, 1);
+  return clamp(index / Math.max(1, count - 1) + 1 - settle * 2, 0, 1);
+}
+
 function drawCommandStream(player, side) {
   const glyph = { LEFT: "<", RIGHT: ">", UP: "^", DOWN: "v" };
   const buttonFor = { LEFT: "ArrowLeft", RIGHT: "ArrowRight",
@@ -5454,7 +5487,7 @@ function drawCommandStream(player, side) {
     B: [90, 235, 128], X: [255, 92, 190], Y: [255, 142, 62] };
   const now = runtime().monotonicUs;
   const idle = now - (player.commandStream.at(-1)?.at || now);
-  const bufferFade = clamp(1 - Math.max(0, idle - 150000) / 1200000, 0, 1);
+  const count = player.commandStream.length;
   const held = inputPads[player.pad]?.down || [];
   const keyboard = typeof capabilities === "function" &&
     capabilities().inputFamily === "keyboard";
@@ -5463,10 +5496,10 @@ function drawCommandStream(player, side) {
       A: "SPACE", B: "G", X: "B", Y: "V" }
     : { LEFT: "LEFT", RIGHT: "RIGHT", UP: "UP", DOWN: "DOWN",
       A: "K", B: "L", X: ";", Y: "'" };
-  const entries = player.commandStream.map((entry) => ({ ...entry,
+  const entries = player.commandStream.map((entry, index) => ({ ...entry,
     text: keyboard ? keyboardCaps[entry.label]
       : glyph[entry.label] || entry.label,
-    fade: bufferFade,
+    fade: commandFade(index, count, idle),
     held: held.includes(buttonFor[entry.label]),
   })).filter((entry) => entry.fade > .01);
   if (!entries.length) return;
@@ -5475,7 +5508,7 @@ function drawCommandStream(player, side) {
   let characters = 0;
   for (const entry of entries) {
     const nextLength = characters + (current.length ? 1 : 0) + entry.text.length;
-    if (current.length && nextLength > 8) {
+    if (current.length && nextLength > commandStreamColumns) {
       lines.push(current);
       current = [];
       characters = 0;
@@ -5484,6 +5517,11 @@ function drawCommandStream(player, side) {
     characters += (current.length > 1 ? 1 : 0) + entry.text.length;
   }
   if (current.length) lines.push(current);
+  // A deep buffer on a wide-text platform can outgrow the corner it lives in.
+  // Dropping whole rows off the top keeps the newest commands on screen rather
+  // than letting the block climb out of the safe area.
+  if (lines.length > commandStreamRows)
+    lines.splice(0, lines.length - commandStreamRows);
   const safe = hudSafeRect();
   const size = keyboard ? Math.max(15, Math.round(hudTypeSize * .72)) : hudTypeSize;
   const lineHeight = keyboard ? Math.round(size * 1.5) + 5 : size + 4;
@@ -5509,7 +5547,8 @@ function drawCommandStream(player, side) {
     const y = firstY + row * lineHeight;
     for (const entry of lineEntries) {
       if (keyboard) {
-        cursor += drawKeycap(entry.text, cursor, y, size, entry.held) + 5;
+        cursor += drawKeycap(entry.text, cursor, y, size, entry.held,
+          entry.fade) + 5;
         continue;
       }
       const activeColor = entry.held
