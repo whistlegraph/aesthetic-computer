@@ -33,14 +33,22 @@ warn() { printf "%s! %s%s\n" "$YELLOW" "$1" "$RESET"; }
 err()  { printf "%s✗ %s%s\n" "$RED" "$1" "$RESET"; }
 
 # Resources every shipped bundle MUST contain. Grow this list when new
-# Bundle.module.url(forResource:) call sites land.
+# Bundle.appResources.url(forResource:) call sites land — every name below
+# is looked up by string at runtime, so a missing one is a crash or a
+# silently dead feature on a fresh machine, not a build error.
 REQUIRED_RESOURCES=(
     "WaveformShaders.metalsource"
+    "TracktrampShaders.metalsource"
     "keymaps-social-software-26-arxiv.pdf"
     "sheet.html"
     "verovio-toolkit-wasm.js"
     "ywft-processing-bold.ttf"
     "ywft-processing-regular.ttf"
+    "Bravura.otf"
+    "looking-for-players.png"
+    "countin-1.mp3"
+    "countin-2.mp3"
+    "countin-3.mp3"
 )
 
 verify_app() {
@@ -123,12 +131,15 @@ verify_app() {
             # Drop debug-info paths: anything that ends in a source-file
             # extension or with a trailing slash. The Swift compiler
             # embeds these in __DWARF; they're not runtime-resolved.
+            # `.swiftmodule` belongs here too — the Xcode target does not
+            # run install.sh's `strip -S`, so its module references survive
+            # into the shipped binary and would otherwise read as leaks.
             local runtime_user_strings
             runtime_user_strings="$(echo "$user_strings" \
-                | grep -vE '(\.swift|\.swift\.o|\.o|\.h|\.hpp|\.c|\.cpp|\.cxx|\.cc|\.m|\.mm|/)$' \
+                | grep -vE '(\.swift|\.swiftmodule|\.swift\.o|\.o|\.h|\.hpp|\.c|\.cpp|\.cxx|\.cc|\.m|\.mm|/)$' \
                 || true)"
             local debug_count
-            debug_count="$(echo "$user_strings" | grep -cE '(\.swift|\.swift\.o|\.o|\.h|\.hpp|\.c|\.cpp|\.cxx|\.cc|\.m|\.mm|/)$' || true)"
+            debug_count="$(echo "$user_strings" | grep -cE '(\.swift|\.swiftmodule|\.swift\.o|\.o|\.h|\.hpp|\.c|\.cpp|\.cxx|\.cc|\.m|\.mm|/)$' || true)"
             if (( debug_count > 0 )); then
                 warn "binary carries $debug_count DWARF source paths — install.sh's strip -S step removes these"
             fi
@@ -227,10 +238,24 @@ verify_dmg() {
 }
 
 # ── Arg parsing. ─────────────────────────────────────────────────────────
-MODE="app"
-TARGET="${HOME}/Applications/Menu Band.app"
+# The two distribution channels install under different names in different
+# roots: the direct download lands in ~/Applications as "Menu Band.app", the
+# App Store fork in /Applications as "MenuBand.app". Defaulting to the first
+# meant that on a machine carrying only the fork — which is every machine
+# running the TrackDrum helper — the check reported "no .app" and verified
+# nothing at all. So with no argument, verify every install found, and fail
+# if there are none.
+INSTALL_CANDIDATES=(
+    "${HOME}/Applications/Menu Band.app"
+    "/Applications/Menu Band.app"
+    "/Applications/MenuBand.app"
+)
+
+MODE="installed"
+TARGET=""
 
 if [[ $# -ge 1 ]]; then
+    MODE="app"
     case "$1" in
         --dmg)
             MODE="dmg"; shift
@@ -249,6 +274,23 @@ if [[ $# -ge 1 ]]; then
 fi
 
 case "$MODE" in
+    installed)
+        FOUND=0
+        RC=0
+        for candidate in "${INSTALL_CANDIDATES[@]}"; do
+            [[ -d "$candidate" ]] || continue
+            FOUND=$((FOUND + 1))
+            verify_app "$candidate" || RC=1
+        done
+        if (( FOUND == 0 )); then
+            err "no Menu Band install found in:"
+            printf '    %s\n' "${INSTALL_CANDIDATES[@]}"
+            err "  → pass a path explicitly, or build and install first"
+            exit 1
+        fi
+        say "checked $FOUND install(s)"
+        exit $RC
+        ;;
     dmg)
         verify_dmg "$TARGET"
         ;;
