@@ -5394,8 +5394,9 @@ function drawKeycap(label, x, y, size, pressed, fade = 1) {
 function drawControlLegend(ink) {
   const entries = combatLegendKeys(players[0]);
   const size = compactLayout() ? 18 : 24;
-  drawKeycapRun(entries, viewCenterX() - keycapRunWidth(entries, size) / 2,
-    Math.min(viewHeight - 104, stageBottom + 14), size,
+  const safe = hudSafeRect();
+  drawKeycapRun(entries, safe.left + 8,
+    safe.top + hudTypeSize + 18, size,
     inputPads[0]?.down || [], ink);
 }
 
@@ -6014,7 +6015,7 @@ function drawCommandStream(player, side) {
   // Commands are notation, not player-state furniture: both read from the
   // top edge, with P1 owning top-left and P2 mirrored so the lists cannot
   // overwrite one another.
-  const firstY = safe.top + hudTypeSize + 12;
+  const firstY = safe.top + hudTypeSize * 3 + 18;
   for (let row = 0; row < lines.length; row++) {
     const lineEntries = lines[row];
     const width = lineEntries.reduce((sum, entry, index) => sum +
@@ -6816,12 +6817,11 @@ function pacificTimeLabel(unixMs) {
 // the wall clock. The lane is right-aligned because the clock and the round QR
 // grow leftward from the same edge.
 const statusGap = 6;
-const statusCellSize = () => shellMode === "GAME" && debugHitboxes ? 42 : 26;
+const statusCellSize = () => shellMode === "GAME" && debugHitboxes ? 56 : 26;
 
 function hudStatusIcons() {
   const icons = [];
   if (typeof capabilities === "function" && capabilities().midi) icons.push("midi");
-  if (debugHitboxes) icons.push("bug");
   return icons;
 }
 
@@ -6860,22 +6860,26 @@ function drawStatusPiano(x, y, lit) {
 
 function drawHudStatusTray(clock, ink, unixMs) {
   const tray = hudStatusTray(clock);
-  if (!tray) return;
   const statusCell = statusCellSize();
-  // Debug draws the lane it lives in, so the zone is visible rather than
-  // inferred from where the icons happen to sit.
+  // Debug is global state, so its large indicator owns bottom-center rather than
+  // masquerading as another peripheral in the clock-side status tray.
   if (debugHitboxes) {
+    const safe = hudSafeRect();
     const pad = 3;
-    box(tray.left - pad, tray.top - pad,
-      tray.right - tray.left + pad * 2, tray.height + pad * 2, 38, 44, 62);
+    const top = safe.bottom - statusCell;
+    const left = viewCenterX() - statusCell / 2;
+    box(left - pad, top - pad, statusCell + pad * 2,
+      statusCell + pad * 2, 38, 44, 62);
+    drawDebugBug(viewCenterX(), top + statusCell / 2 + 2,
+      statusCell / 26);
   }
+  if (!tray) return;
   const lit = typeof capabilities === "function" &&
     unixMs - (capabilities().midiPulse || 0) < 140;
   tray.icons.forEach((name, index) => {
     const x = tray.left + index * (statusCell + statusGap) + statusCell / 2;
     const y = tray.top + tray.height / 2;
     if (name === "midi") drawStatusPiano(x, y, lit);
-    else drawDebugBug(x, y + 2, statusCell / 26);
   });
 }
 
@@ -7174,14 +7178,6 @@ function gamePaint() {
     z: item.z - cameraDoll.position.z,
   }, viewDirection);
   renderables.sort((a, b) => depth(b) - depth(a));
-  // Debug geometry is world evidence, not UI. Submit it first at the far
-  // screen depth so actors, faces, title type, controls, and HUD always win
-  // the depth test even though the inspector remains visible around them.
-  triangleDepth = .999;
-  drawDebugHitboxes(players[0], t);
-  drawDebugHitboxes(players[1], t);
-  drawBallHitboxes();
-  drawSafeZones();
   for (const renderable of renderables) {
     triangleDepth = projectPoint(renderable.x, renderable.y, renderable.z).z;
     if (renderable.kind === "bullet") drawBullet(renderable.item);
@@ -7190,6 +7186,14 @@ function gamePaint() {
     else if (renderable.kind === "detached") drawDetachedPart(renderable.item);
     else drawRunner(renderable.item, t, showRunnerLabels);
   }
+  // Debug geometry sits above the world but below the -1.42 screen-UI lane.
+  // It must remain visible through fighter bodies without cutting across the
+  // title, controls, command notation, names, clock, or other HUD furniture.
+  triangleDepth = -1.4;
+  drawDebugHitboxes(players[0], t);
+  drawDebugHitboxes(players[1], t);
+  drawBallHitboxes();
+  drawSafeZones();
   triangleDepth = -1.42;
   drawImpacts();
   const counting = !roundResult && introAge < introDurationUs;

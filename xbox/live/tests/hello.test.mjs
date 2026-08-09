@@ -589,7 +589,7 @@ test("HUD safe area keeps a generous equal inset on all four screen edges", () =
   }
 });
 
-test("debug world geometry renders behind actors and screen UI", () => {
+test("debug geometry renders above actors but behind screen UI", () => {
   const { fight, triangles } = createFight(false, false, "web", null,
     { width: 1920, height: 1080 });
   fight.startFight();
@@ -601,12 +601,13 @@ test("debug world geometry renders behind actors and screen UI", () => {
   const debug = triangles.splice(0);
   assert.equal(fight.clientErrorState(), "");
   assert.ok(debug.length > plain.length);
-  assert.match(source, /if \(debugHitboxes\) icons\.push\("bug"\)/);
+  assert.doesNotMatch(source, /icons\.push\("bug"\)/);
   assert.match(source, /let debugHitboxes = false/);
   assert.match(source, /function drawCornerCrops[\s\S]*?filledCapsule/);
-  assert.match(source, /triangleDepth = \.999;\n  drawDebugHitboxes/);
-  assert.ok(source.indexOf("drawBallHitboxes();") <
-    source.indexOf("for (const renderable of renderables)"));
+  assert.match(source, /triangleDepth = -1\.4;\n  drawDebugHitboxes/);
+  const paintLayer = source.lastIndexOf("for (const renderable of renderables)");
+  assert.ok(source.indexOf("drawBallHitboxes();", paintLayer) > paintLayer);
+  assert.match(source, /drawSafeZones\(\);\n  triangleDepth = -1\.42/);
 });
 
 test("camera contains both complete fighters at every supported aspect", () => {
@@ -1034,17 +1035,15 @@ test("debug HUD shows FPS without repeating oskiewar beside the round QR", () =>
   assert.doesNotMatch(source, /const gameLabel = "oskiewar"/);
 });
 
-// The bug used to be parked on its own at bottom center. It is a status icon
-// now, sharing the HUD's top-right lane with the MIDI piano, so it is placed
-// by the tray rather than by a corner of its own.
-test("debug starts hidden and shows its bug in the HUD status lane", () => {
+// The bug is a large bottom-center global-mode indicator. MIDI remains in its
+// own clock-side peripheral tray.
+test("debug starts hidden and shows its enlarged bottom-center bug", () => {
   assert.match(source, /let debugHitboxes = false/);
   assert.match(source, /function drawDebugBug\(x, y, scale = 1\)/);
-  assert.match(source, /statusCellSize = \(\) => shellMode === "GAME" && debugHitboxes \? 42 : 26/);
-  assert.match(source, /if \(debugHitboxes\) icons\.push\("bug"\)/);
-  assert.match(source,
-    /if \(name === "midi"\) drawStatusPiano\(x, y, lit\);\n\s*else drawDebugBug\(x, y \+ 2, statusCell \/ 26\)/);
-  assert.doesNotMatch(source, /const y = safe\.bottom - 18/);
+  assert.match(source, /statusCellSize = \(\) => shellMode === "GAME" && debugHitboxes \? 56 : 26/);
+  assert.match(source, /drawDebugBug\(viewCenterX\(\), top \+ statusCell \/ 2 \+ 2/);
+  assert.match(source, /const top = safe\.bottom - statusCell/);
+  assert.doesNotMatch(source, /icons\.push\("bug"\)/);
 });
 
 test("web title offers the shared account logout without entering a fight", () => {
@@ -3000,7 +2999,7 @@ test("player command streams retain recent directions and buttons", () => {
     /const glyph = \{ LEFT: "<", RIGHT: ">", UP: "\^", DOWN: "v" \}/);
   assert.match(source, /fade: commandFade\(index, count, idle\)/);
   assert.match(source, /nextLength > commandStreamColumns/);
-  assert.match(source, /const firstY = safe\.top \+ hudTypeSize \+ 12/);
+  assert.match(source, /const firstY = safe\.top \+ hudTypeSize \* 3 \+ 18/);
   assert.doesNotMatch(source, /recordCommand\(player, "RUN", now\)/);
   assert.match(source, /buttonFor\[entry\.label\]\.some\(\(button\) => held\.includes\(button\)\)/);
   // The held tint lives in the pad-button renderer now, not a local palette.
