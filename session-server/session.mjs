@@ -259,7 +259,7 @@ async function verifyFightIdentity(token) {
   const authUser = await verifyACToken(token);
   if (!authUser?.sub) return null;
   try {
-    const response = await fetch(`https://aesthetic.computer/handle/${encodeURIComponent(authUser.sub)}`);
+    const response = await fetch(`https://aesthetic.computer/handle?for=${encodeURIComponent(authUser.sub)}`);
     if (!response.ok) return null;
     const data = await response.json();
     if (!data?.handle) return null;
