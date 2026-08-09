@@ -1,5 +1,5 @@
 {
-  "_comment": "Source of truth for the Menu Band downloads page (committed, served by lith at /menuband/manifest.json). The macOS app reads a smaller-schema sibling at https://assets.aesthetic.computer/menuband/latest.json — both are written by slab/menuband/bin/publish-release.fish so they stay in sync. /api/menuband-downloads validates POST {version} against this file's `versions[].version` allowlist.",
+  "_comment": "Historical release index for the retired direct download (committed, served by lith at /menuband/manifest.json). The website no longer offers a direct Menu Band DMG — the Mac App Store is the only version sold, and /advanced carries only the free TrackDrum companion — so no page reads this file anymore. It is kept because already-installed direct builds poll a smaller-schema sibling at https://assets.aesthetic.computer/menuband/latest.json, both are written by slab/menuband/bin/publish-release.fish, and /api/menuband-downloads still validates POST {version} against this file's `versions[].version` allowlist.",
   "latest": "1.6.5",
   "versions": [
     {
