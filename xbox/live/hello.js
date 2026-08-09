@@ -108,6 +108,12 @@ const meleeSpecs = {
 // the fighter's hand is always the thing that fires and the thing that swings.
 const itemMelee = { GUN: "WHIP", GRENADE: "BASH" };
 const instantReplayStepUs = 33333;
+// Replay speed ramping: how far a full-force hit drags the playhead down, how
+// many frames of warning the ramp gets, and how fast the speed itself may
+// change — the last one is what keeps a slowdown from reading as a stutter.
+const replaySlowest = .18;
+const replayActionLead = 8;
+const replayRampPerSecond = 3.2;
 const instantReplayMaxFrames = 240;
 const walkSpeed = 1060;
 // Vertical feel. The apex is the design constant — how high a fighter can
@@ -857,12 +863,54 @@ function finishInstantReplay(now) {
   replayOfferPrevious = padSnapshots[0]?.down?.slice() || [];
 }
 
+// A replay is worth watching at the speed the eye needs, not the speed the
+// clock kept. Frames already record what a hit looks like, so the playhead can
+// read its own footage and slow itself into the action rather than being told
+// where the action is — which means every replay already in the store gets
+// this without being re-recorded.
+function frameAction(frame) {
+  let action = 0;
+  for (const player of frame.players) {
+    if (!player.alive) action = Math.max(action, 1);
+    if (player.hit) action = Math.max(action, 1);
+    if (player.blockFlash > 0) action = Math.max(action, .7 * player.blockFlash);
+    // A swing that has started but not yet landed is the part worth stretching.
+    if (player.attackKind && player.attackUntilOffset > 0)
+      action = Math.max(action, .35);
+  }
+  return action;
+}
+
+// Look ahead, so the ramp is already down by the time the punch arrives. A
+// slowdown that begins on the frame of impact has missed the impact.
+function replayActionCurve(frames) {
+  const raw = frames.map(frameAction);
+  return raw.map((_, index) => {
+    let peak = 0;
+    for (let at = index; at < Math.min(raw.length, index + replayActionLead); at++)
+      peak = Math.max(peak, raw[at] * (1 - (at - index) / replayActionLead * .35));
+    return peak;
+  });
+}
+
+// One step of the speed ramp, kept pure so it can be tested and so the demo
+// viewer can share it when its playhead learns to accumulate. Easing rather
+// than snapping — and capping how far the speed may travel per second of real
+// time — is what keeps a dense run of hits reading as one long stretch rather
+// than a stutter.
+function replayRampStep(speed, action, elapsedSeconds) {
+  const target = lerp(1, replaySlowest, clamp(action, 0, 1));
+  return speed + (target - speed) *
+    Math.min(1, Math.max(0, elapsedSeconds) * replayRampPerSecond);
+}
+
 function startInstantReplay(now) {
   if (!INSTANT_REPLAY) return false;
   if (roundReplayFrames.length < 2) return false;
   const frames = roundReplayFrames.slice();
   instantReplay = { frames, cursor: 0, lastAt: now, paused: false,
     previous: padSnapshots[0]?.down?.slice() || [],
+    action: replayActionCurve(frames), speed: 1,
     endFrame: frames[frames.length - 1] };
   impacts.length = 0;
   detachedParts.length = 0;
@@ -885,8 +933,12 @@ function updateInstantReplay(now, dt) {
     instantReplay.paused = true;
     instantReplay.cursor += pressed("ArrowLeft") ? -15 : 15;
   }
+  const elapsed = Math.max(0, now - instantReplay.lastAt) / 1000000;
+  instantReplay.speed = replayRampStep(instantReplay.speed,
+    instantReplay.action?.[Math.floor(instantReplay.cursor)] || 0, elapsed);
   if (!instantReplay.paused)
-    instantReplay.cursor += (now - instantReplay.lastAt) / instantReplayStepUs;
+    instantReplay.cursor += (now - instantReplay.lastAt) /
+      instantReplayStepUs * instantReplay.speed;
   instantReplay.lastAt = now;
   instantReplay.cursor = clamp(instantReplay.cursor, 0,
     instantReplay.frames.length);

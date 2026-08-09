@@ -512,12 +512,24 @@
     // latches only moves `value`. Half travel is a press either way.
     const padDown = (button) => button.pressed || button.value > .5;
 
+    // Chrome only stamps `mapping: "standard"` on pads it recognizes by name,
+    // and it does not recognize every pad that is nevertheless wired in the
+    // standard order. Refusing those outright is what made an 8BitDo read as
+    // no pad at all -- the trigger mapping below never got a chance to run.
+    // A narrow table of known ids is a knowable layout rather than a guess,
+    // and it still demands the button and axis count the layout implies.
+    // Anything not on the table keeps going to oddPads, where the HUD names it.
+    const knownStandardPads = [/8bitdo/i, /vendor:\s*2dc8/i, /\b2dc8\b/i];
+    const standardLayout = (pad) => pad.mapping === "standard" ||
+      (knownStandardPads.some((known) => known.test(pad.id || "")) &&
+        (pad.buttons?.length || 0) >= 8 && (pad.axes?.length || 0) >= 2);
+
     function scanPads() {
       const live = [];
       oddPads = [];
       for (const pad of navigator.getGamepads?.() || []) {
         if (!pad || pad.connected === false) continue;
-        if (pad.mapping === "standard") live.push(pad);
+        if (standardLayout(pad)) live.push(pad);
         else oddPads.push(pad.id || `gamepad ${pad.index}`);
       }
       const present = (padIndex) => live.some((pad) => pad.index === padIndex);
