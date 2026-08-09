@@ -343,7 +343,16 @@ const emitTriangle = typeof triangle3d === "function" ? triangle3d
     triangle(x1, y1, x2, y2, x3, y3, r, g, b);
 // r/g/b stay positional so the hottest path in the piece doesn't build a rest
 // array per face; the host defaults every missing channel to 255 the same way.
+//
+// The native buffer speaks int16: a coordinate past ±32768 — or the NaN a
+// projection returns after crossing the camera plane — is a RangeError and a
+// dead frame on console. Geometry that broken was never going to be visible,
+// so the seam culls it instead of crashing. NaN fails a comparison on its
+// own, which keeps the guard to plain compares on the hottest path.
+const triangleSafe = (value) => value > -32200 && value < 32200;
 function screenTriangle(x1, y1, x2, y2, x3, y3, r = 255, g = 255, b = 255) {
+  if (!(triangleSafe(x1) && triangleSafe(y1) && triangleSafe(x2) &&
+      triangleSafe(y2) && triangleSafe(x3) && triangleSafe(y3))) return;
   emitTriangle(x1, y1, triangleDepth, x2, y2, triangleDepth,
     x3, y3, triangleDepth, r, g, b);
 }
@@ -353,6 +362,9 @@ function screenRect(x, y, width, height, color) {
   screenTriangle(x, y, x + width, y + height, x, y + height, r, g, b);
 }
 function projectedTriangle(a, b, c, color) {
+  if (!(triangleSafe(a.x) && triangleSafe(a.y) && triangleSafe(a.z) &&
+      triangleSafe(b.x) && triangleSafe(b.y) && triangleSafe(b.z) &&
+      triangleSafe(c.x) && triangleSafe(c.y) && triangleSafe(c.z))) return;
   emitTriangle(a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z, ...color);
 }
 // Sutherland-Hodgman, one plane at a time. Both clips below are the same walk:
