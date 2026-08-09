@@ -39,6 +39,16 @@ end
 
 echo "🚀 Deploying session server → $HOST  (ref: $REF)"
 
+# Resolve the ref HERE, against knot, and make the box prove it landed on it.
+# The droplet fetches from the GitHub mirror, so its idea of origin/main can be
+# hours behind knot's while every other signal still reads green.
+set -l EXPECT (git rev-parse --verify --quiet $REF)
+if test -z "$EXPECT"
+    echo "❌ cannot resolve $REF locally — run `git fetch origin` first."
+    exit 1
+end
+echo "   expecting (string sub -l 9 $EXPECT) from knot"
+
 # The whole remote deploy runs as one Bash script so PRE (the rollback point)
 # and the health gate share state. Fish cannot parse Bash heredocs, so keep the
 # remote program in its own syntax-checked file and stream it over SSH.
@@ -46,8 +56,9 @@ set -l node_bin_q (string escape -- $NODE_BIN)
 set -l remote_q (string escape -- $REMOTE)
 set -l ref_q (string escape -- $REF)
 set -l boot_budget_q (string escape -- $BOOT_BUDGET)
+set -l expect_q (string escape -- $EXPECT)
 ssh -i $KEY -o ConnectTimeout=15 $HOST \
-    "env NODE_BIN=$node_bin_q REMOTE=$remote_q REF=$ref_q BOOT_BUDGET=$boot_budget_q bash -s" \
+    "env NODE_BIN=$node_bin_q REMOTE=$remote_q REF=$ref_q EXPECT=$expect_q BOOT_BUDGET=$boot_budget_q bash -s" \
     < $REMOTE_SCRIPT
 
 set -l ssh_status $status
@@ -61,6 +72,9 @@ if test $ssh_status -eq 0; and test "$code" = "200"
     echo "✅ deployed and healthy."
 else
     echo "⚠️  deploy did not end healthy (ssh=$ssh_status, http=$code) — see the RESULT line above."
+    echo "   RESULT=fail:stale* means the box's remote is behind knot, NOT that the"
+    echo "   server is unwell — it was left running untouched. Advance the mirror"
+    echo "   (git push github main) and redeploy."
     echo "   Logs:  ssh -i $KEY $HOST 'tail -40 /tmp/session-server.log'"
     exit 1
 end
