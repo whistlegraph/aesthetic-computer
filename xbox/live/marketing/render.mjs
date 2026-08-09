@@ -252,7 +252,8 @@ export async function renderReel(spec, { log = console.log } = {}) {
         recorder.stop();
       });
       recorder.start(200);
-      return { contexts: contexts.length, tracks: tracks.length };
+      return { contexts: contexts.length, tracks: tracks.length,
+        startedAt: Date.now() };
     });
     log(`   audio tee · ${audio.contexts} context(s) · ${audio.tracks} track(s)`);
 
@@ -343,17 +344,23 @@ export async function renderReel(spec, { log = console.log } = {}) {
     // stretches its frame instead of speeding the whole reel up.
     const list = stamps.map((stamp, index) => {
       const span = index < stamps.length - 1
-        ? stamps[index + 1].at - stamp.at : 1 / 30;
+        ? stamps[index + 1].at - stamp.at : 1 / 60;
       return `file 'frames/${stamp.file}'\nduration ${Math.max(span, 1 / 240).toFixed(4)}`;
     }).join("\n") + `\nfile 'frames/${stamps.at(-1).file}'\n`;
     writeFileSync(join(out, "frames.txt"), list);
 
+    const audioLeadMs = haveAudio && audio.startedAt && zero !== null
+      ? Math.max(0, Math.round(zero * 1000 - audio.startedAt)) : 0;
+    if (audioLeadMs) log("   audio leads video by " + audioLeadMs + "ms - trimming the head");
+
     const base = join(out, "base.mp4");
-    // 30 fps CFR, H.264 High/yuv420p, AAC 128k at 48 kHz, faststart — every
-    // one of those is a line in Meta's Reels spec table, not a preference.
+    // 60 fps CFR (the capture runs at ~60 and Meta allows 23-60), H.264
+    // High/yuv420p, AAC 128k at 48 kHz, faststart — every one of those is a
+    // line in Meta's Reels spec table, not a preference.
     const ffmpeg = spawnSync("ffmpeg", ["-y", "-f", "concat", "-safe", "0",
-      "-i", join(out, "frames.txt"), ...(haveAudio ? ["-i", track] : []),
-      "-vsync", "cfr", "-r", "30", "-c:v", "libx264", "-preset", "medium",
+      "-i", join(out, "frames.txt"),
+      ...(haveAudio ? ["-ss", (audioLeadMs / 1000).toFixed(3), "-i", track] : []),
+      "-vsync", "cfr", "-r", "60", "-c:v", "libx264", "-preset", "medium",
       "-crf", "19", "-pix_fmt", "yuv420p",
       ...(haveAudio
         ? ["-map", "0:v", "-map", "1:a", "-c:a", "aac", "-b:a", "128k", "-ar", "48000",
