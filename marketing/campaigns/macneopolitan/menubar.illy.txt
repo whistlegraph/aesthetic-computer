@@ -1,0 +1,34 @@
+A warm, hand-drawn illustration — painterly and poster-like, not a photo, not a screenshot.
+Soft off-white paper ground, confident inked outlines, gentle gouache-like shading, a little
+hand-drawn texture and grain.
+
+Scene: an extreme close-up of the TOP-RIGHT CORNER of one open laptop screen, drawn large
+and centred so the strip of interface runs across the middle of the frame. We are looking
+straight on at the top edge of the display. The rest of the screen below is a soft plain
+wash of colour with nothing on it; the machine's bezel and the thin top edge of its lid
+frame the strip.
+
+The machine is the BLUSH MacBook Neo. Its aluminium is a soft dusty pink, warm, pale and
+clearly desaturated — around #dfc7c7, a barely-there pink. It must NOT be a saturated rose,
+magenta or bubblegum pink. Match the Apple product photograph supplied as a reference.
+
+Running along that top edge, left to right, draw a row of small simple menu-bar symbols,
+evenly spaced, all at the same size and on the same baseline:
+• a small WiFi arc symbol
+• a small battery symbol, drawn as a rounded rectangle about two-thirds full
+• then, sitting in the row exactly like the others, A TINY PIANO — a small horizontal strip
+  of miniature keyboard, pale near-white natural keys with a few narrow deeper accent keys
+  standing among them, three of its keys lit and gently glowing in deep teal
+• then the time, drawn as an unreadable soft suggestion of small tick-marks and shapes, NOT
+  as legible words or numerals
+
+The tiny piano is the same visual weight and size as the WiFi and battery beside it — it
+belongs in that row, an ordinary built-in facility of the machine, not a special decoration.
+That equality is the whole point of the picture.
+
+Three or four small musical notes rise gently from the lit keys of the tiny piano and drift
+up past the top edge of the frame, tinted deep teal, sparse and delicate.
+
+Keep it clean, quiet and elegant, with generous negative space. No text, no words, no
+readable numerals, no letters, no logos, no brand marks, no fruit symbol, no hands, no
+people, no cursor, no open windows or popovers.

@@ -1,0 +1,745 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Whistlegraph presents: Special Sign &amp; MacNeoPolitan · CultureHub Los Angeles Residency · 2026</title>
+<meta name="description" content="Jeffrey Alan Scudder's submitted proposal for the CultureHub Los Angeles residency (Fall 2026–Winter/Spring 2027): Notepat Jam — a six-channel audio piece performed solo on six salvaged laptops booted into AC Native, each voicing one channel of CultureHub LA's 5:1 Kalio surround, plus open programming teaching the software.">
+<link rel="icon" href="https://aesthetic.computer/icon/128x128/prompt.png" type="image/png">
+<link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/berkeley-mono-variable.css">
+<style>
+  @font-face {
+    font-family: 'YWFT Processing';
+    src: url('https://aesthetic.computer/type/webfonts/ywft-processing-regular.woff2') format('woff2');
+    font-weight: normal;
+    font-display: swap;
+  }
+  @font-face {
+    font-family: 'YWFT Processing';
+    src: url('https://aesthetic.computer/type/webfonts/ywft-processing-bold.woff2') format('woff2');
+    font-weight: bold;
+    font-display: swap;
+  }
+
+  :root {
+    --bg: #1c1812;
+    --text: #ecdfc1;
+    --dim: #b8a47e;
+    --pink: #d4929d;
+    --cyan: #a8bcc1;
+    --purple: #b3a4ce;
+    --gold: #dab87e;
+    --green: #b8c895;
+    --red: #d6a098;
+    --box-bg: rgba(228,216,188,0.05);
+    --box-border: rgba(228,216,188,0.18);
+  }
+  @media (prefers-color-scheme: light) {
+    :root:not(.dark-mode) {
+      --bg: #f0e6cf;
+      --text: #2d2014;
+      --dim: #5e4a30;
+      --pink: #8e3a5b;
+      --cyan: #2f5566;
+      --purple: #4a3878;
+      --gold: #6e4f10;
+      --green: #3f4f25;
+      --red: #762522;
+      --box-bg: rgba(61,46,31,0.06);
+      --box-border: rgba(61,46,31,0.24);
+    }
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  ::-webkit-scrollbar { display: none; }
+
+  html, body { background: var(--bg); color: var(--text); }
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+    font-size: 16.5px;
+    line-height: 1.62;
+    -webkit-text-size-adjust: none;
+    padding: 1.4em 1.6em 4em;
+    min-height: 100vh;
+    font-feature-settings: "ss01", "cv11";
+  }
+  @media (min-width: 900px) { body { padding: 1.8em 2.2em 5em; } }
+
+  .mono, code {
+    font-family: 'Berkeley Mono Variable', 'Menlo', ui-monospace, SFMono-Regular, monospace;
+  }
+
+  a { color: var(--cyan); text-decoration: none; }
+  a:hover { color: var(--pink); }
+
+  .wrap { max-width: 900px; margin: 0 auto; }
+
+  .status-banner {
+    background: var(--green);
+    color: #131806;
+    padding: 0.7em 1em;
+    margin: -1em -1em 1.6em -1em;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.95em;
+    letter-spacing: 0.04em;
+    text-align: center;
+    border-radius: 4px;
+  }
+  .status-banner strong { font-size: 1.05em; }
+  .status-banner em { font-style: normal; color: #2c3a0c; }
+
+  .mast { margin-bottom: 2em; }
+  .eyebrow {
+    color: var(--dim);
+    font-size: 0.78em;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    font-weight: 600;
+  }
+  .eyebrow .tag { color: var(--purple); }
+  .eyebrow .done { color: var(--green); }
+
+  h1 {
+    font-family: 'YWFT Processing', 'Inter', sans-serif;
+    font-size: clamp(34px, 5.8vw, 60px);
+    font-weight: normal;
+    letter-spacing: -0.01em;
+    line-height: 1.02;
+    margin: 0.2em 0 0.2em;
+  }
+  h1 .dot { color: var(--pink); }
+  h1 em { font-style: normal; color: var(--cyan); }
+
+  .sub {
+    color: var(--dim);
+    font-size: 0.95em;
+    margin-bottom: 1.1em;
+  }
+  .sub strong { color: var(--text); font-weight: normal; }
+
+  .meta {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 0.3em 1.4em;
+    padding: 1em 1.2em;
+    background: var(--box-bg);
+    border: 1px solid var(--box-border);
+    border-radius: 4px;
+    font-size: 0.94em;
+  }
+  .meta dt { color: var(--dim); font-size: 0.92em; padding-top: 0.12em; font-weight: 500; }
+  .meta dd { margin: 0; }
+  .meta .due { color: var(--green); }
+  .meta .partner { color: var(--purple); }
+
+  section { margin: 2.4em 0; }
+  h2 {
+    font-family: 'Inter', -apple-system, sans-serif;
+    font-size: 1.35em;
+    font-weight: 600;
+    color: var(--text);
+    letter-spacing: -0.005em;
+    padding-bottom: 0.3em;
+    border-bottom: 1px solid var(--box-border);
+    margin-bottom: 1em;
+  }
+  h2 .ord {
+    color: var(--pink);
+    margin-right: 0.4em;
+    font-family: 'Inter', sans-serif;
+  }
+  h2 .count { float: right; color: var(--dim); font-size: 0.78em; padding-top: 0.7em; font-family: 'Inter', sans-serif; font-weight: normal; letter-spacing: 0; }
+
+  .glance {
+    margin: 1.4em 0 2.2em;
+    padding: 1em 1.2em;
+    background: linear-gradient(180deg, var(--box-bg) 0%, transparent 100%);
+    border: 1px solid var(--box-border);
+    border-left: 3px solid var(--green);
+    border-radius: 4px;
+  }
+  .glance .hint { color: var(--dim); font-size: 0.85em; margin-bottom: 1em; font-style: italic; }
+  .glance dl {
+    display: grid;
+    grid-template-columns: 170px 1fr;
+    gap: 0.8em 1.2em;
+    margin: 0;
+  }
+  .glance dt {
+    color: var(--dim);
+    font-family: 'Inter', -apple-system, sans-serif;
+    font-size: 0.86em;
+    font-weight: 600;
+    padding-top: 0.32em;
+    align-self: start;
+    letter-spacing: 0;
+  }
+  .glance dt .cap {
+    display: block;
+    color: var(--green);
+    font-family: 'Inter', sans-serif;
+    font-size: 0.82em;
+    margin-top: 0.2em;
+    font-weight: normal;
+    letter-spacing: 0;
+  }
+  .glance dd {
+    margin: 0;
+    padding-bottom: 1em;
+    border-bottom: 1px dotted var(--box-border);
+    line-height: 1.6;
+    font-size: 1em;
+  }
+  .glance dd:last-child { border-bottom: none; padding-bottom: 0; }
+  .glance dd strong { color: var(--text); }
+  .glance dd em { color: var(--pink); font-style: normal; }
+  .glance .statement { font-size: 0.96em; color: var(--text); line-height: 1.6; }
+  .glance .excerpt { color: var(--dim); font-size: 0.96em; margin: 0 0 0.5em; line-height: 1.6; }
+  .glance .jump {
+    display: inline-block;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.84em;
+    color: var(--cyan);
+    letter-spacing: 0;
+  }
+  .glance .jump:hover { color: var(--pink); }
+  @media (max-width: 640px) {
+    .glance dl { grid-template-columns: 1fr; gap: 0.3em 0; }
+    .glance dt { padding-top: 0.8em; font-size: 0.7em; }
+    .glance dd { padding-bottom: 0.6em; }
+  }
+
+  .pitch p { margin: 0 0 1em; font-size: 1.02em; line-height: 1.65; }
+  .pitch p:last-child { margin-bottom: 0; }
+  .pitch .drop {
+    font-family: 'Inter', sans-serif;
+    font-size: 1.25em;
+    color: var(--cyan);
+    display: block;
+    margin: 1.4em 0 0.6em;
+  }
+  .pitch em { color: var(--pink); font-style: normal; }
+  .pitch strong { color: var(--text); }
+  .pitch q { quotes: "\201C" "\201D"; color: var(--gold); font-style: italic; }
+  .pitch code {
+    font-family: 'Inter', sans-serif;
+    font-size: 0.9em;
+    padding: 0 0.25em;
+    background: var(--box-bg);
+    border-radius: 2px;
+    color: var(--cyan);
+  }
+
+  .anchors {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 0.6em;
+    margin: 1em 0;
+  }
+  .anchor {
+    padding: 0.8em 1em;
+    background: var(--box-bg);
+    border: 1px solid var(--box-border);
+    border-left: 2px solid var(--pink);
+    border-radius: 3px;
+  }
+  .anchor b {
+    display: block;
+    color: var(--pink);
+    font-family: 'Inter', sans-serif;
+    font-size: 1.1em;
+    font-weight: normal;
+    margin-bottom: 0.3em;
+  }
+  .anchor p { margin: 0; color: var(--text); font-size: 0.94em; line-height: 1.55; }
+
+  /* Surround diagram — six laptops, six channels */
+  .stage {
+    margin: 1em 0;
+    padding: 0.9em 1em;
+    background: var(--box-bg);
+    border: 1px solid var(--box-border);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .stage-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 0.4em;
+    margin-bottom: 0.5em;
+  }
+  @media (max-width: 720px) {
+    .stage-grid { grid-template-columns: repeat(3, 1fr); }
+  }
+  .player {
+    background: rgba(28, 24, 18, 0.7);
+    border: 1px solid var(--box-border);
+    border-radius: 3px;
+    padding: 0.5em 0.6em 0.6em;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.8em;
+    color: var(--text);
+    line-height: 1.5;
+  }
+  @media (prefers-color-scheme: light) {
+    :root:not(.dark-mode) .player { background: rgba(255,255,255,0.4); }
+  }
+  .player .roll {
+    height: 0.9em;
+    background: linear-gradient(90deg,
+      transparent 0 12%,
+      var(--pink) 12% 13%,
+      transparent 13% 28%,
+      var(--cyan) 28% 29%,
+      transparent 29% 32%,
+      var(--cyan) 32% 33%,
+      transparent 33% 56%,
+      var(--gold) 56% 57%,
+      transparent 57% 70%,
+      var(--green) 70% 71%,
+      transparent 71% 88%,
+      var(--purple) 88% 89%,
+      transparent 89% 100%);
+    border-radius: 1px;
+    margin-bottom: 0.3em;
+    opacity: 0.85;
+  }
+  .player .role { color: var(--pink); display: block; }
+  .player .who { color: var(--dim); }
+  .player .where { color: var(--cyan); display: block; font-size: 0.92em; }
+  .stage-floor {
+    border-top: 1px dashed var(--box-border);
+    padding-top: 0.5em;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.85em;
+    color: var(--dim);
+    text-align: center;
+    letter-spacing: 0;
+  }
+  .stage-floor .pin { color: var(--pink); }
+
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 0.6em;
+    margin: 1em 0;
+  }
+  .stat {
+    padding: 0.9em 1em;
+    background: var(--box-bg);
+    border: 1px solid var(--box-border);
+    border-radius: 3px;
+    text-align: left;
+  }
+  .stat .n {
+    display: block;
+    font-family: 'Inter', sans-serif;
+    font-size: 1.8em;
+    color: var(--cyan);
+    line-height: 1;
+    margin-bottom: 0.15em;
+  }
+  .stat .l { color: var(--dim); font-size: 0.86em; font-weight: 500; letter-spacing: 0; }
+  .stat.loaded .n { color: var(--pink); }
+  .stats-status { font-size: 0.88em; color: var(--dim); margin-top: 0.5em; }
+  .stats-status .ok { color: var(--green); }
+  .stats-status .err { color: var(--red); }
+
+  .features {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 0.5em;
+    margin: 1em 0;
+  }
+  .feat {
+    padding: 0.75em 0.95em;
+    border-left: 2px solid var(--purple);
+    background: var(--box-bg);
+    border-radius: 0 3px 3px 0;
+    font-size: 0.94em;
+    line-height: 1.55;
+  }
+  .feat b { color: var(--purple); font-family: 'Inter', sans-serif; font-weight: normal; display: block; margin-bottom: 0.25em; font-size: 1.06em; }
+  .feat.green { border-left-color: var(--green); }
+  .feat.green b { color: var(--green); }
+  .feat.cyan { border-left-color: var(--cyan); }
+  .feat.cyan b { color: var(--cyan); }
+  .feat.gold { border-left-color: var(--gold); }
+  .feat.gold b { color: var(--gold); }
+
+  .lineage { display: grid; gap: 0.5em; }
+  .lineage .row {
+    display: grid;
+    grid-template-columns: 180px 1fr;
+    gap: 1em;
+    padding: 0.5em 0;
+    border-bottom: 1px dotted var(--box-border);
+    font-size: 0.92em;
+  }
+  .lineage .row:last-child { border-bottom: none; }
+  .lineage .who { color: var(--cyan); }
+  .lineage .claim { color: var(--text); }
+  .lineage .claim em { color: var(--pink); font-style: normal; }
+
+  .themes { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px,1fr)); gap: 0.5em; margin: 1em 0; }
+  .theme {
+    padding: 0.75em 0.95em;
+    background: var(--box-bg);
+    border: 1px solid var(--box-border);
+    border-radius: 3px;
+    font-size: 0.92em;
+    line-height: 1.55;
+  }
+  .theme b { color: var(--gold); font-family: 'Inter', sans-serif; font-weight: normal; display: block; margin-bottom: 0.2em; }
+
+  .check { list-style: none; padding: 0; font-size: 0.96em; line-height: 1.6; }
+  .check li { padding: 0.35em 0; display: flex; gap: 0.6em; }
+  .check li::before { font-family: 'Inter', sans-serif; width: 1em; text-align: center; }
+  .check .done { color: var(--dim); }
+  .check .done::before { content: "\2713"; color: var(--green); }
+  .check .now::before { content: "\25B8"; color: var(--gold); }
+  .check .now { color: var(--text); }
+  .check .now em { color: var(--gold); font-style: normal; }
+
+  footer {
+    margin-top: 4em;
+    padding-top: 1em;
+    border-top: 1px solid var(--box-border);
+    color: var(--dim);
+    font-size: 0.86em;
+    letter-spacing: 0;
+    line-height: 1.6;
+  }
+  footer a { color: var(--dim); }
+  footer a:hover { color: var(--cyan); }
+
+  @media (max-width: 560px) {
+    body { padding: 1.2em 1em 3em; font-size: 13px; }
+    .lineage .row { grid-template-columns: 1fr; gap: 0.1em; }
+    .meta { grid-template-columns: 1fr; gap: 0.05em; }
+    .meta dt { padding-top: 0.6em; }
+  }
+</style>
+</head>
+<body>
+<main class="wrap">
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       EMBARGOED DRAFT — DO NOT COPY INTO system/public/ AND DO NOT
+       DEPLOY until CultureHub's formal resident announcement (expected
+       late August / early September 2026). Delete this comment and the
+       .embargo banner below when promoting. See ../README.md § Embargo.
+       ═══════════════════════════════════════════════════════════════ -->
+  <div class="status-banner" style="background:#7a1d2e;border-color:#b3455c;color:#ffe3e8">
+    <strong>⛔ EMBARGOED DRAFT</strong> &middot; not for publication before CultureHub's formal resident announcement &middot; <em style="color:#ffc9d3">remove this banner when promoting</em>
+  </div>
+
+  <div class="status-banner">
+    <strong>✓ IN RESIDENCE</strong> &middot; CultureHub Los Angeles Residency &middot; <strong>September 16&ndash;25, 2026</strong> &middot; <em>two works, presented by Whistlegraph</em>
+  </div>
+
+  <header class="mast">
+    <div class="eyebrow"><span class="tag">CultureHub Los Angeles</span> &middot; residency 2026 &middot; <span class="done">in residence</span></div>
+    <h1>Whistlegraph<br><em>presents</em><span class="dot">.</span></h1>
+    <p class="sub" style="font-family: 'Inter', sans-serif;font-size:1.05em;color:var(--dim);margin-top:-0.3em;margin-bottom:0.9em">Two works for laptop ensemble &mdash; <span style="color:var(--pink)">Special&nbsp;Sign</span>, on six salvaged laptops booted into AC&nbsp;Native, and <span style="color:var(--pink)">MacNeoPolitan</span>, on three brand-new MacBook&nbsp;Neos playing Menu&nbsp;Band. Same instrument, opposite ends of a computer's life.</p>
+    <p class="sub">By <strong>@jeffrey</strong> (Jeffrey Alan Scudder) &middot; <a href="https://aesthetic.computer">aesthetic.computer</a></p>
+    <dl class="meta">
+      <dt>Status</dt><dd class="due">In residence &middot; September 16&ndash;25, 2026</dd>
+      <dt>Venue</dt><dd>CultureHub Los Angeles &middot; flexible studio &middot; 5:1 Kalio Audio surround &middot; showroom space</dd>
+      <dt>Program</dt><dd><em>Special Sign</em> &mdash; live spatial version &middot; <em>MacNeoPolitan</em> &mdash; a spatial audio play</dd>
+      <dt>Support</dt><dd>$2,000 stipend &middot; technical support &middot; documentation &middot; public offerings</dd>
+      <dt>Instruments</dt><dd><span class="partner">notepat</span> &middot; a keyboard piano inside Aesthetic.Computer &middot; and <span class="partner">Menu Band</span> &middot; a piano that lives in the macOS menu bar &middot; <a href="https://prompt.ac/menuband">prompt.ac/menuband</a></dd>
+      <dt>System</dt><dd><span class="partner">AC Native</span> &middot; a bootable operating system that turns a laptop into an Aesthetic.Computer instrument</dd>
+      <dt>Call</dt><dd><a href="https://www.culturehub.org/los-angeles">culturehub.org/los-angeles</a> &middot; <a href="https://www.culturehub.org/residency">residency</a></dd>
+      <dt>Source</dt><dd><a href="https://github.com/whistlegraph/aesthetic-computer/tree/main/fedac/native">fedac/native/</a> &middot; <a href="https://github.com/whistlegraph/aesthetic-computer/tree/main/grants/culturehub-2026">grants/culturehub-2026/</a></dd>
+    </dl>
+  </header>
+
+  <!-- ── HEADER ILLUSTRATION ─────────────────── -->
+  <section class="hero" style="margin: 0 0 2.4em">
+    <figure style="margin:0; border: 1px solid var(--box-border); border-radius: 4px; overflow: hidden; background: #f0e6cf;">
+      <img src="header.png" alt="Colored-pencil and gouache illustration on cream paper: a dim sound-art showroom where six old, mismatched, salvaged laptops sit in a ring on low plywood tables, lids open and turned screens-away, a soft colored glow — pink, cyan, gold, green, purple — spilling from behind each lid. Six to eight people of varied ages sit low on the floor in a circle inside the ring, listening; loudspeakers on tall stands encircle the room. One performer, off-center and at the same eye-level as the audience, sits at one of the salvaged laptops. The colored glow washes up onto every face; the edges of the image dissolve into bare cream paper." style="display:block; width:100%; height:auto;" loading="lazy">
+      <figcaption style="padding: 0.6em 0.95em; font-family: 'Inter', sans-serif; font-size: 0.86em; color: var(--dim); border-top: 1px solid var(--box-border); letter-spacing: 0;">
+        <span style="color: var(--text)">&#9656; Special Sign, in the round</span>
+        &nbsp;&middot;&nbsp; six salvaged laptops booted into AC Native &nbsp;&middot;&nbsp; one voice per channel of the 5:1 Kalio surround &nbsp;&middot;&nbsp; the audience seated inside the piece
+        <br><span style="opacity:0.75">Interim art from the submitted proposal. A two-work illustration is in production &mdash; see <code>POSTER.md</code>.</span>
+      </figcaption>
+    </figure>
+  </section>
+
+  <!-- ── THE PROGRAM (two works) ─────── -->
+  <section class="glance" id="program">
+    <h2><span class="ord">&sect;</span>The Program<span class="count">two works &middot; nine laptops</span></h2>
+    <p class="hint">Presented by Whistlegraph, closing the residency. Dates are provisional until CultureHub confirms the venue calendar.</p>
+
+    <dl class="meta">
+      <dt><em>Special Sign</em><span class="cap">live spatial version</span></dt>
+      <dd class="statement">A composition for twelve moving sound bodies, expanded live from a fixed 1:41 recording. Six salvaged laptops, booted into <span class="partner">AC Native</span> and running <span class="partner">notepat</span>, become one distributed instrument inside the 5:1 Kalio surround. From a live control surface I rotate the whole field, change its speed and trajectory, and redistribute its voices among the computers. It can go differently every time it is played.</dd>
+
+      <dt><em>MacNeoPolitan</em><span class="cap">new work &middot; a spatial audio play</span></dt>
+      <dd class="statement">Three MacBook Neos &mdash; indigo, citrus, blush &mdash; each played through <span class="partner">Menu Band</span>, the menu-bar piano. Three flavors in a block. The keyboard sits at the top of the screen beside the clock, the WiFi, and the battery, which is the entire argument: an instrument should be a built-in facility of a computer, not an application you go out and get.</dd>
+
+      <dt>The pairing<span class="cap">why two works</span></dt>
+      <dd class="statement">One work runs on machines pulled back from e-waste. One runs on machines bought new off the shelf. It is the same instrument either way &mdash; <span class="partner">notepat</span> and <span class="partner">Menu Band</span> share a lineage and a keymap. The contrast is the point.</dd>
+    </dl>
+
+    <div class="stage">
+      <div class="stage-grid" aria-label="three MacBook Neos, each playing Menu Band">
+        <div class="player">
+          <span class="role">Indigo</span>
+          <div class="roll"></div>
+          <span class="who">MacBook Neo</span>
+          <span class="where">macOS &middot; Menu Band</span>
+        </div>
+        <div class="player">
+          <span class="role">Citrus</span>
+          <div class="roll"></div>
+          <span class="who">MacBook Neo</span>
+          <span class="where">macOS &middot; Menu Band</span>
+        </div>
+        <div class="player" style="border-color:var(--pink); border-left: 2px solid var(--pink);">
+          <span class="role" style="color:var(--gold)">Blush</span>
+          <div class="roll"></div>
+          <span class="who">MacBook Neo</span>
+          <span class="where" style="color:var(--gold)">macOS &middot; Menu Band</span>
+        </div>
+      </div>
+      <div class="stage-floor">
+        <span class="pin">&#9656;</span> <em>MacNeoPolitan</em> &middot; three machines, three colors, three voices &middot; Menu Band is free and open source at <a href="https://prompt.ac/menuband">prompt.ac/menuband</a>
+      </div>
+    </div>
+
+    <p class="hint"><strong>Public programs (proposed).</strong> <em>Menu Band Jam</em> &mdash; Sat Sep 19, 2:00&ndash;3:30 p.m. Bring a Mac and install Menu Band, or bring any other laptop and boot AC Native from a USB stick, which changes nothing on your disk. No programming or musical experience required; loaners available. &nbsp;&middot;&nbsp; <em>Performance and conversation</em> &mdash; Thu Sep 24, 7:00&ndash;8:00 p.m.</p>
+  </section>
+
+  <!-- ── APPLICATION AT A GLANCE (form answers) ─────── -->
+  <section class="glance" id="glance">
+    <h2><span class="ord">&sect;</span>The Submitted Proposal<span class="count">CultureHub LA residency form &middot; as submitted</span></h2>
+    <p class="hint">Kept as the public record of what was submitted on 2026-05-21, under the working title <em>Notepat Jam</em>. The residency was accepted and the program has since grown into the two works above; this section is history, not the current plan.</p>
+
+    <dl>
+      <dt>Project title</dt>
+      <dd><strong>Notepat Jam</strong></dd>
+
+      <dt>One-sentence description</dt>
+      <dd>A six-channel audio piece performed solo on six aging laptops &mdash; donated, thrifted, e-waste-bound &mdash; each revived by booting it into <em>AC Native</em>, each running the <em>notepat</em> instrument and voicing one channel of CultureHub LA's 5:1 Kalio surround, the audience seated inside the speaker field.</dd>
+
+      <dt>Project &amp; use of time<span class="cap">~1450 / 1500 chars</span></dt>
+      <dd>
+        <p class="excerpt">notepat is an instrument inside Aesthetic.Computer: a keyboard piano where every key is a note and the screen is the score. AC Native is an operating system that boots from a USB stick &mdash; plug it into almost any laptop and the whole machine becomes one Aesthetic.Computer instrument: no desktop, no apps, just notepat, fullscreen. I revive a rack of six aging laptops by booting each into AC Native, synced over the studio's local network into one tempo and key, each voicing one discrete speaker of the 5:1 Kalio surround. I perform the piece solo. The residency runs in three parts: <strong>build</strong>, <strong>open programming</strong>, and <strong>perform</strong>.</p>
+        <a class="jump" href="#pitch">Read the full pitch &darr;</a>
+      </dd>
+
+      <dt>Public engagement<span class="cap">two open events</span></dt>
+      <dd class="statement">Two open events. Mid-residency, <em>open programming</em>: a public workshop and dialogue where anyone can bring a laptop and, with me, boot it into AC Native and play notepat &mdash; turning a dead machine into an instrument in an hour. The residency culminates in the <em>Notepat Jam</em> concert: a ~30-minute six-channel piece performed solo in the 5:1 Kalio surround field, the audience seated inside the speaker array. Live-streamed; the multitrack and the AC Native image released open-source.</dd>
+
+      <dt>Artist bio<span class="cap">~675 / 750 chars</span></dt>
+      <dd>Jeffrey Alan Scudder is an artist, educator, and technologist based in Los Angeles who builds musical instruments and creative tools for other artists. He holds an MFA from Yale and is an Author in Residence at UCLA Social Software, hosted by Casey Reas. He created Aesthetic.Computer &mdash; a mobile-first runtime and social network for creative computing &mdash; along with Whistlegraph and AC Native, a bootable operating system that turns a laptop into an instrument. He hosts NELA Computer Club, a biweekly demo night at Plot.Place in Chinatown. His work is held in the collections of KADIST and SMK, the National Gallery of Denmark.</dd>
+
+      <dt>LA-based?<span class="cap">required</span></dt>
+      <dd>Yes &mdash; based in Los Angeles; hosts NELA Computer Club biweekly at Plot.Place in Chinatown.</dd>
+
+      <dt>Work samples<span class="cap">2 links</span></dt>
+      <dd><a href="https://aesthetic.computer/notepat">aesthetic.computer/notepat</a> &mdash; play the instrument live in the browser &middot; <a href="https://aesthetic.computer">aesthetic.computer</a> &mdash; the full runtime and the body of work the residency draws from.</dd>
+    </dl>
+  </section>
+
+  <!-- ── SURROUND DIAGRAM ───────────────────── -->
+  <section>
+    <h2><span class="ord">&sect;</span>The Room<span class="count">six laptops, six channels</span></h2>
+    <p style="color:var(--dim);margin-bottom:0.4em;font-size:0.9em">Each of the six revived laptops drives one channel of CultureHub LA's 5:1 Kalio surround. The piece is genuinely multi-channel &mdash; six voices placed around the audience, who sit inside the piece rather than facing a stage.</p>
+    <div class="stage">
+      <div class="stage-grid" aria-label="six salvaged laptops, each voicing one surround channel">
+        <div class="player">
+          <span class="role">Front L</span>
+          <div class="roll"></div>
+          <span class="who">salvaged laptop</span>
+          <span class="where">AC Native &middot; notepat</span>
+        </div>
+        <div class="player">
+          <span class="role">Front C</span>
+          <div class="roll"></div>
+          <span class="who">salvaged laptop</span>
+          <span class="where">AC Native &middot; notepat</span>
+        </div>
+        <div class="player">
+          <span class="role">Front R</span>
+          <div class="roll"></div>
+          <span class="who">salvaged laptop</span>
+          <span class="where">AC Native &middot; notepat</span>
+        </div>
+        <div class="player">
+          <span class="role">Surround L</span>
+          <div class="roll"></div>
+          <span class="who">salvaged laptop</span>
+          <span class="where">AC Native &middot; notepat</span>
+        </div>
+        <div class="player">
+          <span class="role">Surround R</span>
+          <div class="roll"></div>
+          <span class="who">salvaged laptop</span>
+          <span class="where">AC Native &middot; notepat</span>
+        </div>
+        <div class="player" style="border-color:var(--pink); border-left: 2px solid var(--pink);">
+          <span class="role" style="color:var(--gold)">Low / sub</span>
+          <div class="roll"></div>
+          <span class="who">salvaged laptop</span>
+          <span class="where" style="color:var(--gold)">AC Native &middot; notepat</span>
+        </div>
+      </div>
+      <div class="stage-floor">
+        <span class="pin">&#9656;</span> one performer at the center &middot; six laptops synced over the studio's local network &middot; audience seated inside the 5:1 Kalio field
+      </div>
+    </div>
+  </section>
+
+  <!-- ── PITCH ───────────────────────────────── -->
+  <section class="pitch" id="pitch">
+    <h2><span class="ord">&sect;</span>Pitch</h2>
+
+    <p><strong>Notepat Jam is a six-channel audio piece for six laptops &mdash; and the six laptops are the point.</strong></p>
+
+    <span class="drop">notepat &mdash; the keyboard as a piano.</span>
+
+    <p>notepat is an instrument inside Aesthetic.Computer: a keyboard piano where every key is a note and the screen is the score. You can play it right now at <code>aesthetic.computer/notepat</code>. It is small, immediate, and made to be picked up by anyone.</p>
+
+    <span class="drop">AC Native &mdash; the laptop as the instrument.</span>
+
+    <p>AC Native (<code>fedac/native/</code>) is an operating system I build that boots from a USB stick. Plug it into almost any laptop and the whole machine becomes one Aesthetic.Computer instrument: no desktop, no menubar, no apps &mdash; just notepat, fullscreen. <em>A 40-year-old desktop convention is set aside; the machine becomes a single thing you play.</em></p>
+
+    <span class="drop">Six salvaged machines.</span>
+
+    <p>For this residency I revive a rack of six aging laptops &mdash; donated, thrifted, e-waste-bound &mdash; by booting each into AC Native. <strong>The instruments are not bought; they are rescued.</strong> The six are synced over the studio's local network &mdash; no internet, no cloud &mdash; into one tempo and one key.</p>
+
+    <span class="drop">A piece composed for the room.</span>
+
+    <p>CultureHub LA's 5:1 Kalio surround system is why this belongs here. Each laptop drives a discrete speaker, so the piece is genuinely multi-channel &mdash; six voices placed around the audience, who <strong>sit inside the piece rather than facing a stage.</strong> I perform it solo: live notepat played over parts I build into the machines across the residency.</p>
+
+    <span class="drop">Open programming.</span>
+
+    <p>Alongside the concert, I run open programming: a public workshop and dialogue where anyone can bring a laptop and, with me, boot it into AC Native and play notepat. <strong>A dead machine becomes an instrument in an hour.</strong> The point of the residency is not only the piece &mdash; it is showing the room how the piece is made, and handing the method back.</p>
+  </section>
+
+  <!-- ── FOUR REGISTERS ──────────────────────── -->
+  <section>
+    <h2><span class="ord">&sect;</span>Four Registers</h2>
+    <div class="anchors">
+      <div class="anchor">
+        <b>notepat</b>
+        <p>A keyboard piano inside Aesthetic.Computer: every key a note, the screen the score. Playable live at <code>aesthetic.computer/notepat</code>. The instrument.</p>
+      </div>
+      <div class="anchor">
+        <b>AC Native</b>
+        <p>A bootable operating system (<code>fedac/native/</code>). A USB stick turns almost any laptop &mdash; including a salvaged one &mdash; into a single Aesthetic.Computer instrument.</p>
+      </div>
+      <div class="anchor">
+        <b>The Piece</b>
+        <p>A ~30-minute six-channel composition, performed solo. Six revived laptops, each one voice of the 5:1 Kalio surround. The audience inside the field.</p>
+      </div>
+      <div class="anchor">
+        <b>Open Programming</b>
+        <p>A public workshop and dialogue. Bring a laptop, boot it into AC Native, play notepat. The method handed back to the room.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── THEMES ─────────────────────────────── -->
+  <section>
+    <h2><span class="ord">&sect;</span>How It Answers the Call<span class="count">CultureHub LA themes</span></h2>
+    <div class="themes">
+      <div class="theme"><b>Integration of old + new tech</b>AC Native boots a modern creative-computing OS on old, discarded laptops; the salvaged machine becomes the new instrument.</div>
+      <div class="theme"><b>Ecological responsibility</b>The six instruments are revived e-waste. No new equipment is fabricated for the show &mdash; the sustainability is structural, not a statement.</div>
+      <div class="theme"><b>Localized networks</b>Six laptops synced over the studio's own local network &mdash; no internet, no cloud. The local network is the instrument's spine.</div>
+      <div class="theme"><b>Human connection</b>The audience seated inside the surround field, not facing a stage; the open programming opens the software to anyone who walks in, hands-on and in dialogue.</div>
+    </div>
+  </section>
+
+  <!-- ── LIVE STATS ─────────────────────────── -->
+  <section>
+    <h2><span class="ord">&sect;</span>The Network, Right Now<span class="count">live from aesthetic.computer/api/metrics</span></h2>
+    <div class="stats" id="stats">
+      <div class="stat" data-k="handles"><span class="n">&hellip;</span><span class="l">Handles</span></div>
+      <div class="stat" data-k="kidlisp"><span class="n">&hellip;</span><span class="l">KidLisp pieces</span></div>
+      <div class="stat" data-k="pieces"><span class="n">&hellip;</span><span class="l">User pieces</span></div>
+      <div class="stat" data-k="active"><span class="n">&hellip;</span><span class="l">Active now</span></div>
+    </div>
+    <div class="stats-status" id="stats-status">Fetching <span class="ok">api/metrics</span> &hellip;</div>
+  </section>
+
+  <!-- ── LINEAGE ─────────────────────────── -->
+  <section>
+    <h2><span class="ord">&sect;</span>The Lineage<span class="count">specific, not canonical</span></h2>
+    <div class="lineage">
+      <div class="row"><div class="who">PLOrk &middot; Princeton</div><div class="claim">The original laptop orchestra (2005&ndash;). Six laptops, one piece, hand-fabricated speaker hemispheres. Notepat Jam keeps the format but folds it to one performer and a surround system.</div></div>
+      <div class="row"><div class="who">The Hub</div><div class="claim">Bay Area network-music ensemble (1986&ndash;). Cross-machine signal as composition. <em>Here the network is local and small &mdash; six machines, one room.</em></div></div>
+      <div class="row"><div class="who">Mark Fell &middot; Multistability</div><div class="claim">Tight gridded notation as compositional material. notepat's key-is-a-note, screen-is-the-score posture inherits that notation-as-instrument stance.</div></div>
+      <div class="row"><div class="who">Goodiepal</div><div class="claim"><em>Radical Computer Music</em>. The argument that the computer itself is under-designed as an artistic instrument. I toured Europe with him in 2018; AC Native descends from those conversations.</div></div>
+      <div class="row"><div class="who">Permacomputing / salvage</div><div class="claim">The growing practice of keeping old hardware alive instead of discarding it. AC Native makes a USB stick the act of revival &mdash; an e-waste laptop becomes a working instrument.</div></div>
+    </div>
+  </section>
+
+  <!-- ── CALENDAR ─────────────────────────── -->
+  <section id="calendar">
+    <h2><span class="ord">&sect;</span>Residency Plan<span class="count">1&ndash;2 weeks &middot; build / open / perform</span></h2>
+    <div class="features">
+      <div class="feat cyan"><b>Build</b>Revive and image six salvaged laptops with AC Native. Set up per-laptop spatial routing into the 5:1 Kalio system and local-network sync. Tune the showroom configuration.</div>
+      <div class="feat gold"><b>Open programming</b>A public workshop and dialogue: anyone brings a laptop, boots it into AC Native, plays notepat. A dead machine into an instrument in an hour.</div>
+      <div class="feat"><b>Rehearse</b>Write the parts into the machines; rehearse the solo performance against the surround field. Lock the ~30-minute piece.</div>
+      <div class="feat" style="border-left-color:var(--pink)"><b style="color:var(--pink)">Perform</b>The public Notepat Jam concert in the showroom. Six-channel piece + short Q&amp;A. Live-streamed.</div>
+      <div class="feat green"><b>Ship</b>Edit the multitrack; release it and the AC Native image open-source so the method travels past the residency.</div>
+    </div>
+  </section>
+
+  <!-- ── STATUS ──────────────────────────── -->
+  <section>
+    <h2><span class="ord">&sect;</span>Status<span class="count">&#10003; submitted</span></h2>
+    <ul class="check">
+      <li class="done">Concept lock &middot; single spine: Notepat Jam, a six-channel piece on six salvaged AC Native laptops</li>
+      <li class="done">Instrument &middot; notepat, playable live at <code>aesthetic.computer/notepat</code></li>
+      <li class="done">System &middot; AC Native (<code>fedac/native/</code>), bootable from a USB stick</li>
+      <li class="done">Form answered &middot; all CultureHub LA residency fields drafted within character limits</li>
+      <li class="done">Submitted &middot; 2026-05-21</li>
+      <li class="now">Awaiting decision &middot; <em>residency window Fall 2026 &ndash; Winter/Spring 2027</em></li>
+      <li class="now">If selected &middot; source the six salvaged laptops; prove the local-network sync + 5:1 routing before the residency</li>
+    </ul>
+  </section>
+
+  <footer>
+    <a href="https://aesthetic.computer/culture-hub-2026">aesthetic.computer/culture-hub-2026</a> &middot; submitted proposal &middot; venue <a href="https://www.culturehub.org/los-angeles">CultureHub Los Angeles</a> &middot; instrument <a href="https://aesthetic.computer/notepat">notepat</a> &middot; system <a href="https://github.com/whistlegraph/aesthetic-computer/tree/main/fedac/native">AC Native</a>
+  </footer>
+
+</main>
+
+<script>
+(async () => {
+  const STATS_API = "https://aesthetic.computer/api/metrics";
+  const statusEl = document.getElementById("stats-status");
+  const root = document.getElementById("stats");
+
+  function fmt(n) {
+    if (typeof n !== "number") return "…";
+    return n.toLocaleString("en-US");
+  }
+
+  try {
+    const r = await fetch(STATS_API);
+    if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
+    const data = await r.json();
+    for (const stat of root.querySelectorAll(".stat")) {
+      const key = stat.dataset.k;
+      const val = data[key];
+      const n = stat.querySelector(".n");
+      if (typeof val === "number") {
+        n.textContent = fmt(val);
+        stat.classList.add("loaded");
+      }
+    }
+    const when = data.time ? `(${data.time})` : "";
+    statusEl.innerHTML = `<span class="ok">● Live</span> · pulled from <a href="${STATS_API}">api/metrics</a> · ${when}`;
+  } catch (err) {
+    statusEl.innerHTML = `<span class="err">● API error</span> · ${err.message}`;
+  }
+})();
+</script>
+</body>
+</html>

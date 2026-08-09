@@ -1,0 +1,109 @@
+A warm, hand-drawn illustration for a music-piece poster — painterly and poster-like, not a
+photo. Soft off-white paper ground, confident inked outlines, gentle gouache-like shading, a
+little hand-drawn texture and grain, subtle drop shadows so the machines feel like objects
+resting on the page.
+
+Scene: an overhead, top-down view of THREE small thin laptops, open, lying side by side in
+one straight row across the frame, all three parallel and facing the same way, lid hinges at
+the top. Keyboards and trackpads fill the frame. Redraw the machine from the laptop
+reference images — same proportions, same wedge body, same flat keyboard layout, same
+trackpad shape and position. Even spacing between the three, a little breathing room at the
+left and right edges. Read as a block of three-flavour Neapolitan ice cream: three solid
+bands of colour side by side.
+
+The three bodies, left to right. Match the Apple product photographs supplied as
+references — these are the real machine's three colours and the anodised aluminium is
+matte, soft and slightly desaturated, never candy or plastic:
+• LEFT — INDIGO: a dark slate navy blue, deep and a little greyed, not a bright royal blue.
+• CENTRE — CITRUS: a bright lemon yellow, warm and gold-leaning. It is YELLOW, not green
+  and not chartreuse.
+• RIGHT — BLUSH: a soft dusty pink, warm, pale and clearly desaturated — a barely-there
+  pink, not a saturated rose or magenta.
+
+Each machine's keycaps are colour-matched to its body in a LIGHTER shade, as on the real
+product: pale, near-white caps faintly tinted toward that body colour.
+
+=== 1. THE COMPUTER KEYBOARD, COLOURED LIKE A PIANO ===
+
+CRITICAL: each machine keeps its ORDINARY QWERTY COMPUTER KEYBOARD — the full flat grid of
+small square keycaps in straight even rows, exactly as in the laptop reference photos:
+function row, number row, QWERTYUIOP, ASDFGHJKL, ZXCVBNM, modifiers and a spacebar, each cap
+carrying its own printed legend.
+
+DO NOT draw a piano keyboard. DO NOT draw long white piano keys or narrow black piano keys on
+the laptop body. There is no musical keyboard instrument anywhere in this picture. The
+machine is a laptop and its keyboard is a computer keyboard.
+
+The piano idea is expressed ONLY through how the existing square keycaps are COLOURED. Most
+keycaps are the "white" naturals: pale, near-white, only faintly tinted with that machine's
+colourway and clearly LIGHTER than its body.
+
+The home row must be drawn with its real full complement, ending
+A S D F G H J K L ; ' before the return key — the apostrophe/quote key MUST be present.
+
+On each machine EXACTLY TWELVE of those square keycaps stand in for the "black" semitone keys
+of a piano — same square keycap shape as every other cap, just filled in the accent colour.
+They are, and only they are:
+  • top letter row — Q, W, R, T, Y, U, O, P  (eight)
+  • home row — S, and the apostrophe/quote ' key  (two)
+  • bottom row — Z and V  (two)
+Paint these twelve in that machine's saturated contrasting accent hue, darker and richer than
+the pale naturals, and give them a soft gentle glow in their own colour:
+  • the INDIGO machine's twelve semitone keys are CITRUS YELLOW
+  • the CITRUS machine's twelve semitone keys are BLUE-VIOLET
+  • the BLUSH machine's twelve semitone keys are DEEP TEAL
+
+These must NOT be accent-coloured and must stay plain pale naturals: the E and I keys on the
+top row — I especially, it is a natural and is a common mistake; A, D, F, G, H, J, K, L and
+the semicolon ; key on the home row; X, C, B, N, M on the bottom row; and every number,
+symbol, modifier and function key. Identical twelve-key pattern on all three machines.
+
+Every key stays legible: EVERY keycap on all three keyboards clearly shows its own legend —
+the letters A–Z, the number row, the symbols, the esc / tab / shift / command / option
+labels, and the function-row F1–F12 icons. Do not leave any keycap blank.
+
+=== 2. THE TRACKPAD IS A DRUM ===
+
+Each trackpad carries the TrackDrum instrument map, copied from the square TrackDrum icon
+reference image. Draw it as a set of NESTED ROUNDED RECTANGLES filling the trackpad, one
+inside the next, from the outside in:
+  • outermost ring — soft sage green (the hi-hat)
+  • next ring in — terracotta orange, filled with fine evenly spaced DIAGONAL hatch lines
+    (the snare wires)
+  • next ring in — warm ochre gold (the tom)
+  • innermost solid centre — deep dark umber brown (the kick)
+Each zone slightly raised off the one beneath with a soft inner edge and a thin shadow, like
+stacked drum pads. Keep every zone strictly inside the trackpad rectangle.
+
+Nothing sits on top of the zones. NO touch dots, NO white spots, NO tether or connecting
+line, NO fingerprints or strike marks anywhere on the trackpad — the drum surface is drawn
+bare, exactly as in the TrackDrum icon reference. The keep-out applies to all three machines.
+
+=== 3. THE SCREENS SHOW THE REAL MENU BAND INTERFACE ===
+
+Do not invent an interface. Redraw the Menu Band interface from the supplied screenshot
+reference, hand-drawn in this illustration's style, on each open lid — foreshortened
+correctly for the top-down view. On every screen include, stacked in this order:
+  • along the very top edge, a menu bar holding a small multi-segment keyboard strip with a
+    few segments lit in that machine's accent colour, and to its right a soft unreadable
+    suggestion of a clock
+  • a dark rounded panel showing a musical STAFF of horizontal lines with three or four small
+    round coloured note-dots sitting on it, each with a gentle halo
+  • a row of four small pale rounded chord chips beneath the staff
+  • a grid of two rows of small square keycaps — the layout picker — with a few caps dark and
+    the rest pale
+  • three stacked rounded rows beneath, the topmost one filled dark as the selected mode
+Keep it small, calm and legible as shapes. Render all of it as drawn marks, NOT as legible
+words, letters or numerals.
+
+=== 4. THEY ARE TALKING TO EACH OTHER ===
+
+Small musical notes hop in short dotted arcs from the left machine to the centre machine and
+from the centre machine to the right machine, and one long dotted arc curves back underneath
+from the right machine to the left, closing the circle — a single tune being passed along,
+one note at a time. Draw the notes small, sparse and elegant, each arc tinted the accent
+colour of the machine it left.
+
+Clean, uncluttered, elegant, with generous negative space above and below the row for a
+headline. No text, no words, no readable letters or numerals anywhere, no logos, no brand
+marks, no fruit symbol on any lid, no hands, no people.
