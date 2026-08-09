@@ -107,10 +107,34 @@ async function connect() {
   throw lastError;
 }
 
+// `client` is a module-level singleton, so for a long-lived process (lith's
+// Express server, or a Lambda container) the right move is to keep the pool
+// open and let the next request reuse it — closing it here would tear the pool
+// out from under the ~108 handlers that call this per request.
+//
+// A one-shot script is the opposite case: the open pool's sockets keep the
+// event loop alive, so the process never exits. That is how 18 abandoned
+// `node -e` and piece-logs-cli invocations accumulated on lith over three
+// weeks, holding ~535MB. Scripts should call `closePool()` (or exit
+// explicitly, as system/backend/piece-logs-cli.mjs does); setting
+// AC_DB_CLOSE=1 makes plain `disconnect()` do it too, which is the easiest fix
+// for an ad-hoc `node -e` one-liner run on a server.
 async function disconnect() {
-  // In serverless, don't actually close - let connection be reused
-  // The connection will be cleaned up when the Lambda container is recycled
-  // if (client) await client.close?.();
+  if (process.env.AC_DB_CLOSE === "1") await closePool();
+}
+
+// Actually close the pool and drop the singleton, so a short-lived process can
+// exit on its own. Safe to call more than once.
+async function closePool() {
+  if (!client) return;
+  const closing = client;
+  client = null;
+  clientPromise = null;
+  try {
+    await closing.close();
+  } catch (e) {
+    // Already closed, or the socket died first — nothing left to release.
+  }
 }
 
 // Re-usable calls to the application.
@@ -217,7 +241,7 @@ async function getMoodByRkey(database, handle, rkey) {
 }
 
 
-export { connect, ObjectId, moodFor, allMoods, getMoodByRkey };
+export { connect, closePool, ObjectId, moodFor, allMoods, getMoodByRkey };
 
 // Demo code from MongoDB's connection page: (23.08.15.19.59)
 
