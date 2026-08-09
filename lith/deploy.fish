@@ -232,6 +232,18 @@ end
 # vault source lives at aesthetic-computer-vault/lith/.env and is uploaded into
 # system/.env on the remote host.
 if test $UPLOAD_ENV = true
+    # The env is the one thing a deploy ships without ever trying it first, and
+    # on 2026-08-09 a stale MongoDB password rode one up and took every
+    # database-backed endpoint down for fourteen hours. Try the credential from
+    # here; a password that will not open the database on this machine will not
+    # open it on the server either.
+    echo -e "$GREEN-> Verifying environment credentials...$NC"
+    if not node $REPO_ROOT/lith/verify-env.mjs $SERVICE_ENV
+        echo -e "$RED x Refusing to upload an environment that cannot reach its database.$NC"
+        echo -e "$YELLOW   $SERVICE_ENV is stale. Production is untouched — the running$NC"
+        echo -e "$YELLOW   env on $TARGET_HOST is still whatever last worked.$NC"
+        exit 1
+    end
     echo -e "$GREEN-> Uploading environment...$NC"
     scp -i $SSH_KEY $SERVICE_ENV $LITH_USER@$TARGET_HOST:$REMOTE_DIR/system/.env
 else
@@ -302,6 +314,31 @@ systemctl reload caddy"
 # Restart lith service
 echo -e "$GREEN-> Restarting lith...$NC"
 ssh -i $SSH_KEY $LITH_USER@$TARGET_HOST "systemctl restart lith"
+
+# And confirm the thing that actually went dark on 2026-08-09: a database-backed
+# endpoint answering for real. The code check above passes happily while every
+# query behind it fails, because a dead credential is not a stale build. This
+# does not roll anything back — a bad env is not fixed by restoring a commit —
+# it just refuses to let the deploy report success over an outage.
+echo -e "$GREEN-> Verifying the database is answering...$NC"
+set DB_PROBE "https://$TARGET_HOST/api/oskiewar-replays?limit=1"
+set DB_OK false
+for attempt in 1 2 3 4 5 6 7 8 9 10
+    set DB_CODE (curl -s -o /dev/null -w '%{http_code}' --max-time 15 $DB_PROBE)
+    if test "$DB_CODE" = "200"
+        set DB_OK true
+        break
+    end
+    sleep 3
+end
+if test $DB_OK = true
+    echo -e "$GREEN   database: answering$NC"
+else
+    echo -e "$RED x lith is up but its database is not answering (HTTP $DB_CODE).$NC"
+    echo -e "$YELLOW   The code deployed. Queries are failing — check the credentials in$NC"
+    echo -e "$YELLOW   $SERVICE_ENV and: ssh $LITH_USER@$TARGET_HOST journalctl -u lith -n 50$NC"
+    exit 1
+end
 
 # Purge the Cloudflare cache so new code is served immediately. Runtime .mjs
 # (kidlisp, disk, graph, …) are STATIC sub-imports without the ?v= cache-bust
