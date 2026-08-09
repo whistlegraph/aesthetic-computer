@@ -75,10 +75,13 @@ export async function handler(event) {
     // this endpoint has no deploy step of its own to hang it off.
     await collection.createIndex({ at: 1 },
       { expireAfterSeconds: TTL_SECONDS }).catch(() => {});
+    // `$subtract` will take one date from another and hand back milliseconds,
+    // but only in that order — a bare number on the left is an error, and an
+    // empty collection never evaluates the expression to tell you so.
     const rows = await collection.aggregate([
       { $match: { at: { $gte: new Date(now - MAX_HOURS * HOUR) } } },
       { $group: {
-        _id: { $floor: { $divide: [{ $subtract: [now, "$at"] }, HOUR] } },
+        _id: { $floor: { $divide: [{ $subtract: [new Date(now), "$at"] }, HOUR] } },
         pops: { $sum: 1 } } },
     ]).toArray();
     await database.disconnect();
