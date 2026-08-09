@@ -1723,9 +1723,21 @@ final class JukeController: NSWindowController, NSWindowDelegate,
             return ["ok": true, "count": library.tracks.count, "tracks": rows, "truncated": rows.count < library.tracks.count]
         case "select", "play":
             if let path = request["path"] as? String {
-                let wanted = URL(fileURLWithPath: (path as NSString).expandingTildeInPath).standardizedFileURL.path
-                guard let i = library.tracks.firstIndex(where: { $0.url.standardizedFileURL.path == wanted }) else {
-                    return ["ok": false, "error": "exact path is not in the queue"]
+                let url = URL(fileURLWithPath: (path as NSString).expandingTildeInPath)
+                let wanted = url.standardizedFileURL.path
+                var found = library.tracks.firstIndex(where: { $0.url.standardizedFileURL.path == wanted })
+                if found == nil {
+                    // A fresh render that is not in the library yet: fold it
+                    // into the queue the way `--select` always has, laned by
+                    // the directory above its out/ folder.
+                    let lane = url.deletingLastPathComponent().deletingLastPathComponent().lastPathComponent
+                    if library.addFile(url, lane: lane) != nil {
+                        listTable.reloadData()
+                        found = library.tracks.count - 1
+                    }
+                }
+                guard let i = found else {
+                    return ["ok": false, "error": "path is not in the queue and is not a readable audio file"]
                 }
                 select(i, autoplay: command == "play")
             } else if let title = request["title"] as? String {

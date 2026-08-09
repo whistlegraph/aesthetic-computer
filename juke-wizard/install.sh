@@ -1,73 +1,41 @@
 #!/bin/sh
 # Juke is a Menu Band feature; this compatibility entry point installs the
-# owning application and its control-only `jukewizard` shell command.
+# owning application and its control-only `jukewizard` shell command. It no
+# longer builds or registers a standalone JukeWizard process — the one that
+# existed before Juke moved into Menu Band is torn down below.
 set -eu
 
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 INSTALL_ROOT="${JUKEWIZARD_HOME:-$HOME/.local/lib/jukewizard}"
 BIN_DIR="${JUKEWIZARD_BIN_DIR:-$HOME/.local/bin}"
-LAUNCH_LABEL="computer.aesthetic.jukewizard"
-LAUNCH_AGENT_DIR="$HOME/Library/LaunchAgents"
-LAUNCH_AGENT="$LAUNCH_AGENT_DIR/$LAUNCH_LABEL.plist"
-LOG_DIR="$HOME/Library/Logs"
+LEGACY_LAUNCH_LABEL="computer.aesthetic.jukewizard"
+LEGACY_LAUNCH_AGENT="$HOME/Library/LaunchAgents/$LEGACY_LAUNCH_LABEL.plist"
 
-swift build -c release --package-path "$ROOT"
-BUILD_BIN="$(swift build -c release --package-path "$ROOT" --show-bin-path)"
-BUNDLE="$BUILD_BIN/JukeWizard_JukeWizard.bundle"
-
-test -x "$BUILD_BIN/JukeWizard"
-test -d "$BUNDLE"
-/bin/mkdir -p "$INSTALL_ROOT" "$BIN_DIR"
-/usr/bin/install -m 0755 "$BUILD_BIN/JukeWizard" "$INSTALL_ROOT/JukeWizard"
-/usr/bin/ditto "$BUNDLE" "$INSTALL_ROOT/JukeWizard_JukeWizard.bundle"
-/usr/bin/install -m 0755 "$ROOT/bin/juke-cloud.mjs" "$INSTALL_ROOT/juke-cloud.mjs"
-/usr/bin/install -m 0755 "$ROOT/../tezos/ac-login.mjs" "$INSTALL_ROOT/ac-login.mjs"
-/usr/bin/install -m 0755 "$ROOT/bin/jukewizard-installed" "$BIN_DIR/jukewizard"
-
-# Own the resident menu-bar process with the user's Aqua launchd session.
-# Abnormal exits restart; a deliberate Quit exits successfully and stays quit.
-/bin/mkdir -p "$LAUNCH_AGENT_DIR" "$LOG_DIR"
-/bin/cat > "$LAUNCH_AGENT" <<EOF
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-  <key>Label</key>
-  <string>$LAUNCH_LABEL</string>
-  <key>ProgramArguments</key>
-  <array>
-    <string>$BIN_DIR/jukewizard</string>
-    <string>--background</string>
-  </array>
-  <key>RunAtLoad</key>
-  <true/>
-  <key>KeepAlive</key>
-  <dict>
-    <key>SuccessfulExit</key>
-    <false/>
-  </dict>
-  <key>ProcessType</key>
-  <string>Interactive</string>
-  <key>LimitLoadToSessionType</key>
-  <string>Aqua</string>
-  <key>ThrottleInterval</key>
-  <integer>5</integer>
-  <key>StandardOutPath</key>
-  <string>$LOG_DIR/JukeWizard.log</string>
-  <key>StandardErrorPath</key>
-  <string>$LOG_DIR/JukeWizard.log</string>
-</dict>
-</plist>
-EOF
-/usr/bin/plutil -lint "$LAUNCH_AGENT" >/dev/null
+# Retire the pre-Menu-Band standalone: its launch agent, resident process,
+# and installed binary. The control CLI and cloud helpers stay.
 uid="$(/usr/bin/id -u)"
-/bin/launchctl bootout "gui/$uid/$LAUNCH_LABEL" 2>/dev/null || true
+/bin/launchctl bootout "gui/$uid/$LEGACY_LAUNCH_LABEL" 2>/dev/null || true
+/bin/rm -f "$LEGACY_LAUNCH_AGENT"
 /usr/bin/pkill -x JukeWizard 2>/dev/null || true
-# A prior deliberate Quit can leave the label disabled even after bootout;
-# bootstrap then fails with launchd error 5 until the label is re-enabled.
-/bin/launchctl enable "gui/$uid/$LAUNCH_LABEL"
-/bin/launchctl bootstrap "gui/$uid" "$LAUNCH_AGENT"
+/bin/rm -f "$INSTALL_ROOT/JukeWizard"
+/bin/rm -rf "$INSTALL_ROOT/JukeWizard_JukeWizard.bundle"
 
-echo "installed JukeWizard -> $INSTALL_ROOT/JukeWizard"
-echo "launcher -> $BIN_DIR/jukewizard"
-echo "launch agent -> $LAUNCH_AGENT"
+/bin/mkdir -p "$INSTALL_ROOT" "$BIN_DIR"
+/usr/bin/install -m 0755 "$ROOT/bin/juke-cloud.mjs" "$INSTALL_ROOT/juke-cloud.mjs"
+/usr/bin/install -m 0755 "$ROOT/bin/jukewizard-control.mjs" "$INSTALL_ROOT/jukewizard-control.mjs"
+/usr/bin/install -m 0755 "$ROOT/../tezos/ac-login.mjs" "$INSTALL_ROOT/ac-login.mjs"
+# A machine with the checkout can symlink this at the repo so edits to the
+# wrapper take effect without reinstalling. Copying over that link would put
+# the drift back, so leave a link the way we found it.
+if [ -L "$BIN_DIR/jukewizard" ]; then
+  echo "jukewizard: $BIN_DIR/jukewizard is a symlink — leaving it pointed at $(readlink "$BIN_DIR/jukewizard")"
+else
+  /usr/bin/install -m 0755 "$ROOT/bin/jukewizard-installed" "$BIN_DIR/jukewizard"
+fi
+
+# The owning application. Menu Band's installer builds, signs, and registers
+# the launch agents that keep the Juke's process resident.
+bash "$ROOT/../slab/menuband/install.sh"
+
+echo "jukewizard command -> $BIN_DIR/jukewizard"
+echo "Juke lives inside Menu Band; control socket at ~/.config/jukewizard/control.sock"

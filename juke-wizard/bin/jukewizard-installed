@@ -1,47 +1,38 @@
 #!/bin/sh
 # Installed compatibility command for Juke inside Menu Band. It never launches
-# a separate JukeWizard process.
+# a separate JukeWizard process: every verb goes over the control socket, and
+# jukewizard-control.mjs wakes Menu Band's Juke when it is asleep.
 set -eu
 INSTALL_ROOT="${JUKEWIZARD_HOME:-$HOME/.local/lib/jukewizard}"
-if [ "${1:-}" = "login" ]; then
-  shift
-  if command -v ac-login >/dev/null 2>&1; then exec ac-login "$@"; fi
-  exec node "$INSTALL_ROOT/ac-login.mjs" "$@"
-fi
-if [ "${1:-}" = "cloud" ]; then
-  shift
-  exec node "$INSTALL_ROOT/juke-cloud.mjs" "$@"
-fi
-if [ "${1:-}" = "--help" ] || [ "${1:-}" = "help" ]; then
-  node "$INSTALL_ROOT/juke-cloud.mjs" --help
-  exit 0
-fi
+CONTROL="$INSTALL_ROOT/jukewizard-control.mjs"
 
-# The app stays resident when its window closes. Reuse that menu-bar process;
-# killing a launchd-owned copy here would race KeepAlive and can stack players.
-JUKE_PID="$(pgrep -x JukeWizard | head -n 1 || true)"
-if [ -n "$JUKE_PID" ]; then
-  osascript \
-    -e 'on run argv' \
-    -e 'tell application "System Events" to set frontmost of first process whose unix id is (item 1 of argv as integer) to true' \
-    -e 'end run' "$JUKE_PID" >/dev/null 2>&1 || true
-  echo "JukeWizard is already running; raised the resident menu-bar instance." >&2
-  exit 0
-fi
-
-JUKE_LOCK="${TMPDIR:-/tmp}/computer.aesthetic.jukewizard.launching"
-if ! mkdir "$JUKE_LOCK" 2>/dev/null; then
-  for _juke_wait in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
-    JUKE_PID="$(pgrep -x JukeWizard | head -n 1 || true)"
-    [ -n "$JUKE_PID" ] && break
-    sleep 0.05
-  done
-  if [ -n "$JUKE_PID" ]; then
-    echo "JukeWizard is already launching; using the resident menu-bar instance." >&2
+case "${1:-}" in
+  login)
+    shift
+    if command -v ac-login >/dev/null 2>&1; then exec ac-login "$@"; fi
+    exec node "$INSTALL_ROOT/ac-login.mjs" "$@"
+    ;;
+  cloud)
+    shift
+    exec node "$INSTALL_ROOT/juke-cloud.mjs" "$@"
+    ;;
+  --help|help)
+    node "$INSTALL_ROOT/juke-cloud.mjs" --help
     exit 0
-  fi
-  rmdir "$JUKE_LOCK" 2>/dev/null || true
-  mkdir "$JUKE_LOCK" 2>/dev/null || exit 0
+    ;;
+  open|"")
+    # Show the Juke window — the notification both wakes a sleeping Juke and
+    # raises a hidden one.
+    osascript -l JavaScript -e 'ObjC.import("Foundation");
+$.NSDistributedNotificationCenter.defaultCenter.postNotificationNameObjectUserInfoDeliverImmediately("computer.aestheticcomputer.menuband.showJuke", $(), $(), true)' >/dev/null
+    exec node "$CONTROL" status
+    ;;
+esac
+
+# A specific audio file → queue it (added if it's a fresh draft) and play.
+if [ -f "$1" ]; then
+  case "$1" in /*) SEL="$1";; *) SEL="$(pwd)/$1";; esac
+  exec node "$CONTROL" play "$SEL"
 fi
-trap 'rmdir "$JUKE_LOCK" 2>/dev/null || true' EXIT HUP INT TERM
-"$INSTALL_ROOT/JukeWizard" "$@"
+
+exec node "$CONTROL" "$@"

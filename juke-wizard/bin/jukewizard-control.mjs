@@ -1,11 +1,42 @@
 #!/usr/bin/env node
+import { execFile } from "node:child_process";
 import { connect } from "node:net";
+import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 
 const SOCKET = process.env.JUKEWIZARD_SOCKET || join(homedir(), ".config", "jukewizard", "control.sock");
+const WAKE_NOTIFICATION = "computer.aestheticcomputer.menuband.showJuke";
 
-export function request(command) {
+// The Juke lives inside Menu Band and starts lazily, so right after login or
+// a Menu Band relaunch the control socket is missing — or worse, a stale
+// socket file from the previous process refuses connections. Ask Menu Band to
+// open its Juke, give it a moment to bind, and retry.
+function wake() {
+  return new Promise((resolvePromise) => {
+    // nil must be $() here — a JS null makes the post silently vanish.
+    const script = `ObjC.import("Foundation");
+$.NSDistributedNotificationCenter.defaultCenter.postNotificationNameObjectUserInfoDeliverImmediately("${WAKE_NOTIFICATION}", $(), $(), true);`;
+    execFile("/usr/bin/osascript", ["-l", "JavaScript", "-e", script], () => {
+      setTimeout(resolvePromise, 1200);
+    });
+  });
+}
+
+export async function request(command) {
+  const deadline = Date.now() + 10_000;
+  let lastError;
+  if (existsSync(SOCKET)) {
+    try { return await send(command); } catch (error) { lastError = error; }
+  }
+  while (Date.now() < deadline) {
+    await wake();
+    try { return await send(command); } catch (error) { lastError = error; }
+  }
+  throw lastError;
+}
+
+function send(command) {
   return new Promise((resolvePromise, reject) => {
     const client = connect(SOCKET);
     let response = "";
