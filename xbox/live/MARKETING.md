@@ -200,17 +200,22 @@ node xbox/live/marketing/reel.mjs --publish <id>        # dry run — writes pay
 node xbox/live/marketing/reel.mjs --publish <id> --live # the only call that posts
 ```
 
-**Clockwork.** The oven already runs git pollers on a loop
-(`oven/*-git-poller.mjs`); the cheapest honest scheduler is a systemd timer or a
-crontab entry on the oven that runs the three slots and leaves them staged:
+**Clockwork.** Three crons on neo (where the vault and Chrome live), one
+slot each at 9:00, 14:00 and 19:00 Pacific:
 
 ```cron
-17 6 * * *  cd /opt/oven/native-git && node xbox/live/marketing/reel.mjs --slots 3 >> /var/log/oskiewar-reels.log 2>&1
+7 9 * * *   bash -lc 'cd ~/aesthetic-computer && set -a && source ~/aesthetic-computer-vault/oskiewar/instagram.env && set +a && node xbox/live/marketing/reel.mjs --index 0 --slots 1 --auto >> ~/.local/state/oskiewar-reels.log 2>&1'
+7 14 * * *  bash -lc 'cd ~/aesthetic-computer && set -a && source ~/aesthetic-computer-vault/oskiewar/instagram.env && set +a && node xbox/live/marketing/reel.mjs --index 1 --slots 1 --auto >> ~/.local/state/oskiewar-reels.log 2>&1'
+7 19 * * *  bash -lc 'cd ~/aesthetic-computer && set -a && source ~/aesthetic-computer-vault/oskiewar/instagram.env && set +a && node xbox/live/marketing/reel.mjs --index 2 --slots 1 --auto >> ~/.local/state/oskiewar-reels.log 2>&1'
 ```
 
-Publishing stays a separate, human-triggered command until @jeffrey decides
-otherwise. Automating stage 4 is one line — do it after a few weeks of watching
-what the queue produces, not before.
+`--auto` renders the slot and posts it only when BOTH gates pass — Meta's
+spec table and the sync meter. A reel that fails either is held in the queue
+for a human, loudly, and the day goes on. @jeffrey lifted the human-per-post
+review on 2026-08-09, after approving the pipeline reel by reel; `--publish
+<id> --live` remains the manual override, and `ledger.json` records every
+post either road makes. The monthly token refresh rides its own cron:
+`node toolchain/instagram/ig.mjs refresh --all` on the 1st.
 
 ---
 

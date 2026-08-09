@@ -115,6 +115,24 @@ async function buildSlot(day, index) {
   return record;
 }
 
+// The only road to Instagram, shared by the human-triggered --publish --live
+// and the cron's --auto. Uploads to Spaces, runs Meta's three-step sequence,
+// and writes the ledger — the record insights get hung on later.
+async function goLive(record) {
+  const paths = { reel: record.files.reel, cover: record.files.cover };
+  const bucket = process.env.OSKIEWAR_SPACES_BUCKET || "art-aesthetic-computer";
+  const urls = await uploadPublic(paths,
+    { bucket, prefix: `oskiewar/reels/${record.id}`, log });
+  const posted = await publishLive(record, urls, {
+    igUserId: process.env.OSKIEWAR_IG_USER_ID,
+    token: process.env.OSKIEWAR_IG_TOKEN, log });
+  appendLedger({ mode: "live", id: record.id, slot: record.slot, day: record.day,
+    index: record.index, segment: record.segment, seed: record.seed,
+    kind: record.kind, round: record.round, publishedAt: new Date().toISOString(),
+    urls, ...posted, insights: null });
+  return posted;
+}
+
 async function main() {
   if (flags.queue) {
     const queued = listQueue();
@@ -137,22 +155,13 @@ async function main() {
   if (flags.publish) {
     const dir = join(staging, flags.publish);
     const record = JSON.parse(readFileSync(join(dir, "reel.json"), "utf8"));
-    const paths = { reel: record.files.reel, cover: record.files.cover };
     if (!flags.live) {
+      const paths = { reel: record.files.reel, cover: record.files.cover };
       dryRun(record, paths, { igUserId: process.env.OSKIEWAR_IG_USER_ID }, log);
       log("   → add --live (and a token) to actually post");
       return;
     }
-    const bucket = process.env.OSKIEWAR_SPACES_BUCKET || "art-aesthetic-computer";
-    const urls = await uploadPublic(paths,
-      { bucket, prefix: `oskiewar/reels/${record.id}`, log });
-    const posted = await publishLive(record, urls, {
-      igUserId: process.env.OSKIEWAR_IG_USER_ID,
-      token: process.env.OSKIEWAR_IG_TOKEN, log });
-    appendLedger({ mode: "live", id: record.id, slot: record.slot, day: record.day,
-      index: record.index, segment: record.segment, seed: record.seed,
-      kind: record.kind, round: record.round, publishedAt: new Date().toISOString(),
-      urls, ...posted, insights: null });
+    await goLive(record);
     return;
   }
 
@@ -164,6 +173,23 @@ async function main() {
   const built = [];
   for (let index = first; index < first + count; index++)
     built.push(await buildSlot(day, index));
+
+  // --auto is the clockwork: render, and post whatever passed both gates —
+  // Meta's spec table and the sync meter. A reel that fails either stays in
+  // the queue for a human, loudly, and the day goes on. @jeffrey turned this
+  // on 2026-08-09 after approving the pipeline reel by reel.
+  if (flags.auto) {
+    for (const record of built) {
+      if (!record.meta.ok || !record.sync?.ok) {
+        log(`⛔ ${record.id} held for review — ` +
+          `${!record.meta.ok ? "spec" : "sync"} gate failed`);
+        continue;
+      }
+      const posted = await goLive(record);
+      log(`📤 ${record.id} → live as ${posted.mediaId}`);
+    }
+    return;
+  }
 
   const wall = built.reduce((total, item) => total + item.render.wall, 0);
   const footage = built.reduce((total, item) => total + item.meta.seconds, 0);
