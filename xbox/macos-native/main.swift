@@ -445,6 +445,14 @@ private final class NativeGameHost {
     private var paintCount = 0
     private var runtimeSeconds = CACurrentMediaTime()
     private var javascriptError = ""
+    // Opt-in frame accounting. The number that matters for a tvOS port is what
+    // `sim` costs without a JIT, since third-party apps get JavaScriptCore in
+    // interpreter mode on tvOS. Run with OSKIEWAR_PERF=1 and again under
+    // JSC_useJIT=0 to read the same fight both ways.
+    private let perf = ProcessInfo.processInfo.environment["OSKIEWAR_PERF"] == "1"
+    private var perfSimSeconds = 0.0
+    private var perfPaintSeconds = 0.0
+    private var perfFrames = 0
 
     init(view: GameView) {
         self.view = view
@@ -472,6 +480,11 @@ private final class NativeGameHost {
         javascript.evaluateScript(qr + "\n" + hello,
             withSourceURL: URL(fileURLWithPath: "oskiewar/hello.js"))
         call("boot")
+        // A title screen barely simulates anything, so measuring one tells you
+        // nothing. Self-play drops straight into a real fight.
+        if ProcessInfo.processInfo.environment["OSKIEWAR_SELFPLAY"] == "1" {
+            javascript.evaluateScript("startSelfPlay(0)")
+        }
         var link: CVDisplayLink?
         if CVDisplayLinkCreateWithActiveCGDisplays(&link) == kCVReturnSuccess,
            let link {
@@ -534,11 +547,14 @@ private final class NativeGameHost {
             steps += 1
         }
         if steps == 6 { accumulator = 0 }
+        if perf { perfSimSeconds += CACurrentMediaTime() - now }
         updateLogicalSize()
         renderer.beginFrame()
         runtimeSeconds = now
         paintCount += 1
+        let paintStarted = CACurrentMediaTime()
         if javascriptError.isEmpty { call("paint") }
+        if perf { reportPerf(paintSeconds: CACurrentMediaTime() - paintStarted) }
         if !javascriptError.isEmpty {
             renderer.wipe(8, 10, 20)
             renderer.commands.append(.text("aesthetic.computer error", CGPoint(x: 72, y: 72),
@@ -548,6 +564,25 @@ private final class NativeGameHost {
         }
         syncCursor()
         view.needsDisplay = true
+    }
+
+    // Averaged over a second, because a single frame is noise. `sim+paint` is
+    // the JavaScript half of the budget; everything left over is CoreGraphics
+    // and the display link.
+    private func reportPerf(paintSeconds: Double) {
+        perfPaintSeconds += paintSeconds
+        perfFrames += 1
+        guard perfFrames >= 60 else { return }
+        let sim = perfSimSeconds / Double(perfFrames) * 1000
+        let paint = perfPaintSeconds / Double(perfFrames) * 1000
+        let jit = ProcessInfo.processInfo.environment["JSC_useJIT"] ?? "(default)"
+        print(String(format:
+            "oskiewar perf · sim %.2f ms · paint %.2f ms · js %.2f ms of 16.67 · JSC_useJIT=%@",
+            sim, paint, sim + paint, jit))
+        fflush(stdout)
+        perfSimSeconds = 0
+        perfPaintSeconds = 0
+        perfFrames = 0
     }
 
     private func updateLogicalSize() {
