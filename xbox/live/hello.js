@@ -2551,7 +2551,7 @@ function remember(player, button) {
   player.lastButton = buttonLabel(button);
   player.lastButtonAt = runtime().monotonicUs;
   if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight",
-      "A", "B", "X", "Y"].includes(button))
+      "A", "B", "X", "Y", "LeftShoulder", "RightShoulder"].includes(button))
     recordCommand(player, player.lastButton, player.lastButtonAt);
   telemetry("FIGHT_BUTTON", player.name + " " + player.lastButton);
 }
@@ -3706,10 +3706,10 @@ function updatePlayer(player, pad, dt, now) {
   const rawInput = quantizedInput(pad, player.suppressedDirections);
   const hitStunned = now < player.hitStunUntil;
   const wasBlocking = player.blocking;
-  // A broken shield stays down until B is let go, so the opening it bought is
+  // A broken shield stays down until X is let go, so the opening it bought is
   // spent on attacking rather than on re-guarding by reflex.
-  if (player.shieldLocked && !pad.down.includes("B")) player.shieldLocked = false;
-  player.blocking = !headOnly && pad.down.includes("B") && !player.shieldLocked;
+  if (player.shieldLocked && !pad.down.includes("X")) player.shieldLocked = false;
+  player.blocking = !headOnly && pad.down.includes("X") && !player.shieldLocked;
   if (player.blocking && !wasBlocking) {
     player.shieldVx = player.vx - player.windVx - player.knockVx;
     player.dashUntil = 0;
@@ -3719,7 +3719,7 @@ function updatePlayer(player, pad, dt, now) {
   }
   const input = player.blocking ? { horizontal: 0, vertical: 0 } : rawInput;
   const grabHeld = armCount > 0 && !pogo && !hitStunned && !player.blocking &&
-    pad.down.includes("A") && pad.down.includes("X");
+    pad.down.includes("A") && pad.down.includes("B");
   if (grabHeld && !player.grabHeld && player.heldBall < 0) {
     if (!grabNearestBall(player, now)) {
       player.lastButton = "REACHING";
@@ -3853,23 +3853,23 @@ function updatePlayer(player, pad, dt, now) {
     player.pendingMoveLabel ||= "AIR CROUCH";
   }
 
-  // Y is the only button that spends an item, so reaching for a kick can no
+  // Y and either shoulder spend an item, so reaching for a kick can no
   // longer empty a magazine. A loaded hand still colors the punch — into a
   // swing, never a shot.
   const acting = !headOnly && !pogo && !hitStunned && !player.blocking;
   for (const button of pad.down) {
     if (!player.previous.includes(button)) {
       remember(player, button);
-      if (button === "B" && !headOnly) {
+      if (button === "X" && !headOnly) {
         player.pendingMoveLabel = "SHIELD";
         playDrum("block", .7, panPlayer(player));
         emitSignal("shield", player.pad, 1, 0);
       }
       else if (acting && !grabHeld && button === "A")
         startMelee(player, "KICK", now);
-      else if (acting && !grabHeld && button === "X")
+      else if (acting && !grabHeld && button === "B")
         startMelee(player, itemMelee[heldItem(player)] || "PUNCH", now);
-      else if (acting && button === "Y") {
+      else if (acting && ["Y", "LeftShoulder", "RightShoulder"].includes(button)) {
         const item = heldItem(player);
         if (item === "GUN") fireGun(player, input);
         else if (item === "GRENADE") throwGrenade(player);
@@ -4056,7 +4056,7 @@ function botPad(player, opponent, now) {
   }
 
   if (opponentThreatening && !striking && now >= player.botShieldAt)
-    botPress(player, "B", botHoldUs.shield, now);
+    botPress(player, "X", botHoldUs.shield, now);
   else {
     // The old spacing was tuned for a bigger fighter: stop walking at 155,
     // swing at 225. A punch capsule tops out near 130 of separation and a
@@ -4076,7 +4076,7 @@ function botPad(player, opponent, now) {
         botPress(player, "Y", botHoldUs.item, now))
       player.botItemAt = now + 600000;
     if (distance < 165 && now >= player.botAttackAt &&
-        botPress(player, player.botAttackSequence % 2 ? "A" : "X",
+        botPress(player, player.botAttackSequence % 2 ? "A" : "B",
           botHoldUs.strike, now)) {
       player.botAttackSequence += 1;
       player.botAttackAt = now + 330000 + (player.botAttackSequence % 3) * 70000;
@@ -5210,7 +5210,7 @@ function controlLocale() {
   if (touch) return {
     title: "start", select: "", replayPaused: "paused",
     replayPlaying: "", replay: "",
-    combat: "A KICK   X PUNCH   B SHIELD   Y USE ITEM",
+    combat: "A KICK   B PUNCH   X SHIELD   Y USE ITEM",
   };
   return keyboard ? {
     title: "start",
@@ -5218,14 +5218,14 @@ function controlLocale() {
     replayPaused: "PAUSED   F PLAY   A D SCRUB   G EXIT",
     replayPlaying: "F PAUSE   A D SCRUB   G EXIT",
     replay: "Q REPLAY",
-    combat: "SPACE KICK   B PUNCH   G SHIELD   V USE ITEM   W JUMP",
+    combat: "SPACE KICK   ENTER PUNCH   SHIFT SHIELD   ALT USE ITEM   W JUMP",
   } : {
     title: "start",
     select: "LEFT RIGHT SELECT     A READY     X P2 / DUMMY / BOT     B BACK",
     replayPaused: "PAUSED   A PLAY   LEFT RIGHT SCRUB   B EXIT",
     replayPlaying: "A PAUSE   LEFT RIGHT SCRUB   B EXIT",
     replay: "Y REPLAY",
-    combat: "A KICK   X PUNCH   B SHIELD   Y USE ITEM   UP JUMP",
+    combat: "A KICK   B PUNCH   X SHIELD   Y/LB/RB USE ITEM   UP JUMP",
   };
 }
 
@@ -5234,17 +5234,18 @@ function controlLocale() {
 function combatKeys() {
   const caps = typeof capabilities === "function" ? capabilities() : {};
   if (caps.inputFamily === "keyboard") return [
-    ["SPACE", "KICK", "A"], ["B", "PUNCH", "X"], ["G", "SHIELD", "B"],
-    ["V", "USE ITEM", "Y"], ["W", "JUMP", "ArrowUp"]];
+    ["SPACE", "KICK", "A"], ["ENTER", "PUNCH", "B"],
+    ["SHIFT", "SHIELD", "X"], ["ALT", "USE ITEM", "Y"],
+    ["W", "JUMP", "ArrowUp"]];
   if (caps.inputFamily === "touch") return [
-    ["A", "KICK", "A"], ["X", "PUNCH", "X"],
-    ["B", "SHIELD", "B"], ["Y", "USE ITEM", "Y"]];
+    ["A", "KICK", "A"], ["B", "PUNCH", "B"],
+    ["X", "SHIELD", "X"], ["Y", "USE ITEM", "Y"]];
   return [
-    ["A", "KICK", "A"], ["X", "PUNCH", "X"], ["B", "SHIELD", "B"],
-    ["Y", "USE ITEM", "Y"], ["UP", "JUMP", "ArrowUp"]];
+    ["A", "KICK", "A"], ["B", "PUNCH", "B"], ["X", "SHIELD", "X"],
+    ["Y/LB/RB", "USE ITEM", "Y"], ["UP", "JUMP", "ArrowUp"]];
 }
 
-// What the buttons do, named on the way into a round. X changes meaning with
+// What the buttons do, named on the way into a round. B changes meaning with
 // what the hand is carrying, so the legend reads the fighter rather than
 // reciting a fixed map.
 function combatLegendKeys(player) {
@@ -5264,7 +5265,7 @@ function selectionControlKeys() {
   if (family === "touch") return [];
   if (family === "keyboard") return [
     [["A", "D"], "SELECT", "ArrowLeft"], ["SPACE", "READY", "A"],
-    ["H", "OPPONENT", "X"], ["G", "BACK", "B"]];
+    ["SHIFT", "OPPONENT", "X"], ["ENTER", "BACK", "B"]];
   return [[["LEFT", "RIGHT"], "SELECT", "ArrowLeft"], ["A", "READY", "A"],
     ["X", "OPPONENT", "X"], ["B", "BACK", "B"]];
 }
@@ -5886,7 +5887,8 @@ function commandFade(index, count, idle) {
 function drawCommandStream(player, side) {
   const glyph = { LEFT: "<", RIGHT: ">", UP: "^", DOWN: "v" };
   const buttonFor = { LEFT: "ArrowLeft", RIGHT: "ArrowRight",
-    UP: "ArrowUp", DOWN: "ArrowDown", A: "A", B: "B", X: "X", Y: "Y" };
+    UP: "ArrowUp", DOWN: "ArrowDown", A: "A", B: "B", X: "X", Y: "Y",
+    LB: "LeftShoulder", RB: "RightShoulder" };
   const now = runtime().monotonicUs;
   const idle = now - (player.commandStream.at(-1)?.at || now);
   const count = player.commandStream.length;
@@ -5895,7 +5897,7 @@ function drawCommandStream(player, side) {
     capabilities().inputFamily === "keyboard";
   const keyboardCaps = player.pad === 0
     ? { LEFT: "A", RIGHT: "D", UP: "W", DOWN: "S",
-      A: "SPACE", B: "G", X: "B", Y: "V" }
+      A: "SPACE", B: "ENTER", X: "SHIFT", Y: "ALT" }
     : { LEFT: "LEFT", RIGHT: "RIGHT", UP: "UP", DOWN: "DOWN",
       A: "K", B: "L", X: ";", Y: "'" };
   const entries = player.commandStream.map((entry, index) => ({ ...entry,

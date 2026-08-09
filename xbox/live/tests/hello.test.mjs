@@ -155,9 +155,13 @@ test("control copy follows the platform while every title says start", () => {
   assert.equal(touch.replayPaused, "paused");
 });
 
-test("desktop space kicks and B punches whatever the fighter carries", () => {
+test("desktop Space kicks and Enter punches whatever the fighter carries", () => {
   assert.match(webShell, /\["Space", \[0, "A"\]\]/);
-  assert.match(webShell, /\["KeyB", \[0, "X"\]\]/);
+  assert.match(webShell, /\["Enter", \[0, "B"\]\]/);
+  assert.match(webShell, /\["ShiftLeft", \[0, "X"\]\]/);
+  assert.match(webShell, /\["ShiftRight", \[0, "X"\]\]/);
+  assert.match(webShell, /\["AltLeft", \[0, "Y"\]\]/);
+  assert.match(webShell, /\["AltRight", \[0, "Y"\]\]/);
   const { fight, pads, tick } = createFight();
   const player = fight.players[0];
   player.gunAmmo = 4;
@@ -173,8 +177,8 @@ test("desktop space kicks and B punches whatever the fighter carries", () => {
 
 test("web touch labels follow the current combat mapping", () => {
   assert.match(webShell, /data-key="A" aria-label="kick"/);
-  assert.match(webShell, /data-key="X" aria-label="punch, or swing what you hold"/);
-  assert.match(webShell, /data-key="B" aria-label="shield"/);
+  assert.match(webShell, /data-key="B" aria-label="punch, or swing what you hold"/);
+  assert.match(webShell, /data-key="X" aria-label="shield"/);
   assert.match(webShell, /data-key="Y" aria-label="use item"/);
 });
 
@@ -302,7 +306,7 @@ test("a detected pad swaps the round legend onto gamepad wording", () => {
   assert.equal(host.capabilities().inputFamily, "xbox");
   const { fight } = createFight(false, false, "xbox-uwp");
   assert.equal(fight.combatLegend(fight.players[0]),
-    "A KICK   X PUNCH   B SHIELD   Y USE ITEM   UP JUMP");
+    "A KICK   B PUNCH   X SHIELD   Y/LB/RB USE ITEM   UP JUMP");
 });
 
 test("every instructional keyboard key uses the shared gray keycap renderer", () => {
@@ -317,7 +321,7 @@ test("every instructional keyboard key uses the shared gray keycap renderer", ()
   assert.doesNotMatch(source, /typeWrite\(replayControl, viewCenterX/);
   const streamSource = source.slice(source.indexOf("function drawCommandStream"),
     source.indexOf("function drawFightIntro"));
-  assert.match(streamSource, /A: "SPACE", B: "G", X: "B", Y: "V"/);
+  assert.match(streamSource, /A: "SPACE", B: "ENTER", X: "SHIFT", Y: "ALT"/);
   // Keyboard keeps keycaps; every other family draws controller discs
   // through the same seam.
   assert.match(streamSource,
@@ -1588,8 +1592,8 @@ test("every synthetic press has a human hold and a clean release", () => {
   // a shield leans, and a pursuit renews for as long as it is chasing.
   const lengths = (buttons) => runs
     .filter((run) => buttons.includes(run.button)).map((run) => run.frames);
-  const strikes = lengths(["A", "X"]);
-  const shields = lengths(["B"]);
+  const strikes = lengths(["A", "B"]);
+  const shields = lengths(["X"]);
   const walks = lengths(["ArrowLeft", "ArrowRight"]);
   assert.ok(strikes.length && shields.length && walks.length,
     "the bots never struck, shielded, and chased in the same run");
@@ -1748,15 +1752,15 @@ test("melee and movement edges emit bounded Ableton signals", () => {
   const { signals, tap } = createFight();
   tap(0, "A");
   assert.ok(signals.some(([event, player]) => event === "kick" && player === 0));
-  tap(0, "X");
+  tap(0, "B");
   assert.ok(signals.some(([event, player]) => event === "punch" && player === 0));
   tap(0, "ArrowRight");
   assert.ok(signals.some(([event, player, horizontal]) =>
     event === "move" && player === 0 && horizontal === 1));
 });
 
-// The armed-fighter matrix: Y is the only button that spends an item, X takes
-// the item's flavor, and A stays a kick no matter what is in the hand.
+// The armed-fighter matrix: Y and either shoulder spend an item, B takes the
+// item's flavor, and A stays a kick no matter what is in the hand.
 const armAndPress = (button, ammo = {}) => {
   const context = createFight();
   Object.assign(context.fight.players[0], ammo);
@@ -1781,15 +1785,23 @@ test("Y spends the held item and reaches for the gun before the grenade", () => 
   assert.equal(empty.fight.players[0].attackKind, "");
 });
 
-test("X punches bare, whips a pistol, and bashes a grenade", () => {
-  const bare = armAndPress("X");
+test("either shoulder is a synonym for use item", () => {
+  for (const shoulder of ["LeftShoulder", "RightShoulder"]) {
+    const armed = armAndPress(shoulder, { gunAmmo: 2 });
+    assert.equal(armed.fight.bullets.length, 1);
+    assert.equal(armed.fight.players[0].gunAmmo, 1);
+  }
+});
+
+test("B punches bare, whips a pistol, and bashes a grenade", () => {
+  const bare = armAndPress("B");
   assert.equal(bare.fight.players[0].attackKind, "PUNCH");
-  const gun = armAndPress("X", { gunAmmo: 3 });
+  const gun = armAndPress("B", { gunAmmo: 3 });
   assert.equal(gun.fight.players[0].attackKind, "WHIP");
   assert.equal(gun.fight.players[0].gunAmmo, 3, "a whip is not a shot");
   assert.ok(gun.signals.some(([event, pad]) => event === "whip" && pad === 0));
   assert.deepEqual(gun.drums.at(-1), ["whoosh", 1.15, gun.drums.at(-1)[2]]);
-  const grenade = armAndPress("X", { grenadeAmmo: 2 });
+  const grenade = armAndPress("B", { grenadeAmmo: 2 });
   assert.equal(grenade.fight.players[0].attackKind, "BASH");
   assert.equal(grenade.fight.players[0].grenadeAmmo, 2);
   assert.ok(grenade.signals.some(([event, pad]) =>
@@ -1807,7 +1819,7 @@ test("a whip out-reaches a bash while a bash hits far harder", () => {
     Object.assign(attacker, ammo);
     attacker.x = 6060 - gap;
     target.x = 6060;
-    pads[0].down = ["X"];
+    pads[0].down = ["B"];
     let tip = 0;
     let knock = 0;
     // Knockback decays every frame and the three kinds land on different
@@ -1844,7 +1856,7 @@ test("item swings run their own animation and publish attack capsules", () => {
   const swingRoles = (ammo) => {
     const { fight, pads, tick, now } = createFight();
     Object.assign(fight.players[0], ammo);
-    pads[0].down = ["X"];
+    pads[0].down = ["B"];
     tick();
     tick(70000);
     const geometry = fight.runnerWorldGeometry(fight.players[0], now() / 1e6);
@@ -1882,14 +1894,14 @@ test("a lost lead arm disarms both the item button and the item swing", () => {
   assert.equal(fight.bullets.length, 0, "a missing hand cannot fire");
   pads[0].down = [];
   tick();
-  pads[0].down = ["X"];
+  pads[0].down = ["B"];
   tick();
   assert.equal(player.attackKind, "", "a missing hand cannot whip");
   // The surviving arm becomes the lead hand once the fighter turns around.
   pads[0].down = [];
   tick();
   player.facing = -1;
-  pads[0].down = ["X"];
+  pads[0].down = ["B"];
   tick();
   assert.equal(player.attackKind, "WHIP");
 });
@@ -2079,13 +2091,13 @@ test("a direction held across round reset waits for a real release", () => {
   assert.ok(fight.players[0].vx > 1000);
 });
 
-test("B shield blocks melee geometry", () => {
+test("X shield blocks melee geometry", () => {
   const { fight, pads, signals, tick } = createFight();
   fight.players[1].npc = false;
   fight.players[0].x = 5000;
   fight.players[1].x = 5100;
   pads[0].down = ["A"];
-  pads[1].down = ["B"];
+  pads[1].down = ["X"];
   for (let frame = 0; frame < 5; frame++) tick(16667);
   assert.equal(fight.players[1].alive, true);
   assert.equal(fight.players[0].score, 0);
@@ -2120,7 +2132,7 @@ test("shielding suppresses new ground and air control while preserving momentum"
   player.vy = -380;
   player.grounded = false;
   const facing = player.facing;
-  pads[1].down = ["B", "ArrowRight", "ArrowUp"];
+  pads[1].down = ["X", "ArrowRight", "ArrowUp"];
   tick();
   assert.equal(player.blocking, true);
   assert.equal(player.inputX, 0);
@@ -2128,7 +2140,7 @@ test("shielding suppresses new ground and air control while preserving momentum"
   assert.equal(player.facing, facing);
   assert.ok(player.vx < 0);
   assert.ok(player.vy > -380);
-  pads[1].down = ["B", "ArrowLeft", "ArrowDown"];
+  pads[1].down = ["X", "ArrowLeft", "ArrowDown"];
   tick();
   assert.ok(player.vx < 0);
   assert.equal(player.ducking, false);
@@ -2182,7 +2194,7 @@ test("a neutral fighter cannot defeat an attacking fighter by contact", () => {
   const { fight, pads, tick } = createFight();
   fight.players[0].x = 5940;
   fight.players[1].x = 6060;
-  pads[0].down = ["X"];
+  pads[0].down = ["B"];
   for (let frame = 0; frame < 10; frame++) tick(16667);
   assert.equal(fight.players[0].alive, true);
   assert.equal(fight.players[1].alive, true);
@@ -2193,7 +2205,7 @@ test("melee collision uses the animated attacking limb capsules", () => {
   const { fight, pads, tick, now } = createFight();
   fight.players[0].x = 5940;
   fight.players[1].x = 6060;
-  pads[0].down = ["X"];
+  pads[0].down = ["B"];
   tick();
   tick(70000);
   const geometry = fight.runnerWorldGeometry(fight.players[0], now() / 1000000);
@@ -2295,7 +2307,7 @@ test("a limbless torso becomes a pogo and a removed torso leaves a bouncing head
   tick();
   tick(90000);
   assert.ok(target.vy < 0);
-  pads[0].down = ["X"];
+  pads[0].down = ["B"];
   tick();
   assert.equal(target.attackKind, "");
   damage("torso", 3);
@@ -2348,8 +2360,8 @@ test("simultaneous body strikes recoil without player-order bias", () => {
   const { fight, pads, tick } = createFight();
   fight.players[0].x = 5940;
   fight.players[1].x = 6060;
-  pads[0].down = ["X"];
-  pads[1].down = ["X"];
+  pads[0].down = ["B"];
+  pads[1].down = ["B"];
   for (let frame = 0; frame < 5; frame++) tick(16667);
   assert.equal(fight.players[0].alive, true);
   assert.equal(fight.players[1].alive, true);
@@ -2934,19 +2946,19 @@ test("walking contact carries a grounded ball in the player's direction", () => 
   assert.ok(fight.ball.vx < 0);
 });
 
-test("A plus X grabs and carries a ball through a jump, then releases it", () => {
+test("A plus B grabs and carries a ball through a jump, then releases it", () => {
   const { fight, pads, tick } = createFight();
   const player = fight.players[0];
   fight.enableBall();
   fight.ball.x = player.x + 80;
   fight.ball.y = player.y - 90;
   fight.ball.z = player.z;
-  pads[0].down = ["A", "X"];
+  pads[0].down = ["A", "B"];
   tick();
   assert.equal(player.heldBall, 0);
   assert.equal(fight.ball.heldBy, 0);
   assert.equal(player.attackKind, "");
-  pads[0].down = ["A", "X", "ArrowUp"];
+  pads[0].down = ["A", "B", "ArrowUp"];
   tick();
   tick(90000);
   assert.ok(player.vy < 0);
@@ -2955,15 +2967,15 @@ test("A plus X grabs and carries a ball through a jump, then releases it", () =>
   tick();
   assert.equal(player.heldBall, -1);
   assert.equal(fight.ball.heldBy, -1);
-  pads[0].down = ["X"];
+  pads[0].down = ["B"];
   tick();
   assert.equal(player.attackKind, "PUNCH");
 });
 
-test("A plus X shows reaching and two-hand holding poses", () => {
+test("A plus B shows reaching and two-hand holding poses", () => {
   const { fight, pads, tick } = createFight();
   const player = fight.players[0];
-  pads[0].down = ["A", "X"];
+  pads[0].down = ["A", "B"];
   tick();
   assert.equal(player.stance, "REACHING");
   assert.equal(player.lastButton, "REACHING");
@@ -2972,7 +2984,7 @@ test("A plus X shows reaching and two-hand holding poses", () => {
   fight.enableBall();
   fight.ball.x = player.x + 100;
   fight.ball.y = player.y - 82;
-  pads[0].down = ["A", "X"];
+  pads[0].down = ["A", "B"];
   tick();
   assert.equal(player.stance, "HOLDING");
   assert.equal(player.lastButton, "HOLDING");
@@ -3238,7 +3250,7 @@ test("a console whose clock reads negative can still fight", () => {
   const attacker = fight.players[0];
   const target = fight.players[1];
   attacker.x = target.x - 120;
-  pads[0].down = ["X"];
+  pads[0].down = ["B"];
   let struck = false;
   for (let frame = 0; frame < 30 && !struck; frame += 1) {
     tick();
@@ -3502,7 +3514,7 @@ test("shielding a grounded ball blasts it instead of booting it", () => {
   fight.ball.z = player.z;
   fight.ball.vx = -80;
   fight.ball.vy = 0;
-  pads[0].down = ["B"];
+  pads[0].down = ["X"];
   tick();
   assert.ok(fight.ball.vx >= 1800);
   assert.ok(fight.ball.vx <= 4200);
@@ -3927,9 +3939,9 @@ function shieldBreakFight(kind = "KICK") {
   attacker.facing = 1;
   shielder.facing = -1;
   shielder.x = attacker.x + 70;
-  harness.pads[1].down = ["B"];
+  harness.pads[1].down = ["X"];
   harness.tick();
-  assert.equal(shielder.blocking, true, "B raises the shield");
+  assert.equal(shielder.blocking, true, "X raises the shield");
   harness.fight.startAttack(kind);
   for (let step = 0; step < 12 && !shielder.shieldLocked; step++) harness.tick(16000);
   return { ...harness, attacker, shielder };
@@ -3955,7 +3967,7 @@ test("shield-break stun scales with what the shield ate", () => {
 
 test("a broken shield frees the shielder to swing without releasing block", () => {
   const { shielder, pads, tick } = shieldBreakFight();
-  pads[1].down = ["B", "X"];
+  pads[1].down = ["X", "B"];
   tick();
   assert.equal(shielder.attackKind, "PUNCH",
     "the opening the break bought is spendable straight away");
@@ -3966,7 +3978,7 @@ test("a shielded bullet goes back the way it came", () => {
   fight.setWind(0);
   const shielder = fight.players[1];
   shielder.facing = -1;
-  pads[1].down = ["B"];
+  pads[1].down = ["X"];
   tick();
   // Chest height, not the shield's centre — that sits 90 off the floor, inside
   // the wall guard that retires any bullet straying too near the ground.

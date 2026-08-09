@@ -146,8 +146,8 @@
     </div>
     <div id="touch-actions" class="touch-cluster" role="group" aria-label="actions">
       <button class="touch-button touch-y" data-key="Y" aria-label="use item" aria-pressed="false">y</button>
-      <button class="touch-button touch-x" data-key="X" aria-label="punch, or swing what you hold" aria-pressed="false">x</button>
-      <button class="touch-button touch-b" data-key="B" aria-label="shield" aria-pressed="false">b</button>
+      <button class="touch-button touch-x" data-key="X" aria-label="shield" aria-pressed="false">x</button>
+      <button class="touch-button touch-b" data-key="B" aria-label="punch, or swing what you hold" aria-pressed="false">b</button>
       <button class="touch-button touch-a" data-key="A" aria-label="kick" aria-pressed="false">a</button>
     </div>
     <div id="touch-system" role="group" aria-label="system controls">
@@ -175,12 +175,11 @@
     const keyMap = new Map([
       ["KeyW", [0, "ArrowUp"]], ["KeyS", [0, "ArrowDown"]],
       ["KeyA", [0, "ArrowLeft"]], ["KeyD", [0, "ArrowRight"]],
-      ["Space", [0, "A"]], ["KeyB", [0, "X"]],
-      ["KeyF", [0, "A"]], ["KeyG", [0, "B"]], ["KeyH", [0, "X"]],
-      ["KeyV", [0, "Y"]], ["KeyR", [0, "Y"]],
-      ["Escape", [0, "B"]], ["Backspace", [0, "B"]],
+      ["Space", [0, "A"]], ["Enter", [0, "B"]],
+      ["ShiftLeft", [0, "X"]], ["ShiftRight", [0, "X"]],
+      ["AltLeft", [0, "Y"]], ["AltRight", [0, "Y"]],
+      ["Escape", [0, "Menu"]], ["Backspace", [0, "Menu"]],
       ["Tab", [0, "View"]], ["KeyQ", [0, "View"]],
-      ["Enter", [0, "Menu"]],
       ["ArrowUp", [1, "ArrowUp"]], ["ArrowDown", [1, "ArrowDown"]],
       ["ArrowLeft", [1, "ArrowLeft"]], ["ArrowRight", [1, "ArrowRight"]],
       ["KeyK", [1, "A"]], ["KeyL", [1, "B"]], ["Semicolon", [1, "X"]],
