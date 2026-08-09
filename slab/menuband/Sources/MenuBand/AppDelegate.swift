@@ -2049,10 +2049,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         #else
         prepareFocusedLocalFXIdle()
         #endif
-        // Focus owns the pointer in every mode, and the hidden cursor is what
-        // says so. This lands after the mode branch because local FX idles
-        // with an ordinary pointer when unfocused and shows it on the way in.
+        // Focus owns the pointer in every mode, and the hidden, pinned cursor
+        // is what says so. This lands after the mode branch because local FX
+        // idles with an ordinary pointer when unfocused, showing and
+        // unlocking on the way in, and would otherwise undo both.
         hideSystemCursorIfNeeded()
+        lockSystemCursorIfNeeded()
         startFocusCursorWatchdog()
         updateIcon()
         updatePianoWaveformWindow()
@@ -2060,6 +2062,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func finishLocalCapture(reason: LocalKeyCapture.EndReason) {
         stopFocusCursorWatchdog()
+        unlockSystemCursorIfNeeded()
         showSystemCursorIfNeeded()
         debugLog("local capture ended: \(reason)")
         let shouldRestoreFocus = keyboardPerformanceFocusActive && reason == .cancelled
@@ -2860,7 +2863,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // If we crashed (or were killed) mid-pitch-bend, the system
         // cursor stays hidden across sessions because CGDisplayHide/Show
         // are reference-counted globally. Restore here so the user never
-        // ends up with an invisible cursor on next launch.
+        // ends up with an invisible cursor on next launch. The pointer
+        // association matters more on the way out than the drawing does:
+        // a pointer left disassociated is a mouse that does not move.
+        unlockSystemCursorIfNeeded()
         showSystemCursorIfNeeded()
         pitchBendOverlay?.dismiss()
     }
@@ -5957,6 +5963,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard pitchBendSystemCursorHidden else { return }
         CGDisplayShowCursor(CGMainDisplayID())
         pitchBendSystemCursorHidden = false
+    }
+
+    /// Disassociate the pointer from the mouse so the trackpad drives only
+    /// this app. Hiding the cursor stops it being *drawn*; it keeps moving
+    /// underneath, and every app it crosses still gets mouseMoved — hover
+    /// states light up in other windows while the user is playing a drum.
+    /// Deltas still arrive while disassociated, so focused FX is unaffected.
+    private func lockSystemCursorIfNeeded() {
+        guard !pitchBendCursorLocked else { return }
+        pitchBendLockScreenPoint = NSEvent.mouseLocation
+        CGAssociateMouseAndMouseCursorPosition(0)
+        pitchBendCursorLocked = true
+    }
+
+    private func unlockSystemCursorIfNeeded() {
+        guard pitchBendCursorLocked else { return }
+        CGAssociateMouseAndMouseCursorPosition(1)
+        pitchBendCursorLocked = false
     }
 
     /// The hidden cursor is the proof Menu Band owns the pointer. If it comes
