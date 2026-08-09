@@ -545,3 +545,4 @@ slab/menuband/build/export-*/
 scratchpad-jas-nzxt-acl.md
 toolchain/tapes/.tape-cache/
 toolchain/tapes/.jam-shots/
+crm/.cache/

@@ -23,9 +23,43 @@ import {
   paintingImageUrl,
 } from "../system/backend/linked-art.mjs";
 import { docToNTriples } from "../system/backend/rdf.mjs";
+import { readFile, writeFile, mkdir, rename } from "node:fs/promises";
+import { dirname } from "node:path";
+import { fileURLToPath } from "node:url";
+import { createHash } from "node:crypto";
 
 const OXIGRAPH_URL = process.env.OXIGRAPH_URL || "http://127.0.0.1:7878";
 const log = (...a) => console.log("🔭", ...a);
+
+// Expansion cache: content hash of a Linked Art doc → its N-Triples. Lives
+// beside the code so a redeploy keeps it; losing it costs one slow run, never
+// correctness. Keyed by content, so an edited handle/license expands again on
+// its own without any invalidation logic.
+const CACHE_PATH = process.env.CRM_CACHE_PATH || fileURLToPath(new URL(".cache/expansions.json", import.meta.url));
+
+function cacheKey(doc) {
+  return createHash("sha256").update(JSON.stringify(doc)).digest("hex").slice(0, 24);
+}
+
+async function loadCache() {
+  try {
+    return new Map(Object.entries(JSON.parse(await readFile(CACHE_PATH, "utf8"))));
+  } catch {
+    return new Map(); // First run, or a corrupt/half-written file — rebuild it.
+  }
+}
+
+async function saveCache(entries) {
+  try {
+    await mkdir(dirname(CACHE_PATH), { recursive: true });
+    // Write-then-rename so a crash mid-write can't leave a torn cache behind.
+    const tmp = `${CACHE_PATH}.tmp`;
+    await writeFile(tmp, JSON.stringify(Object.fromEntries(entries)));
+    await rename(tmp, CACHE_PATH);
+  } catch (e) {
+    log(`⚠️ could not persist expansion cache: ${e.message}`);
+  }
+}
 
 async function main() {
   const t0 = Date.now();
@@ -123,17 +157,69 @@ async function main() {
   await database.disconnect();
 
   // 7. Expand all docs → N-Triples (one mapping, can't drift from the JSON-LD).
-  log(`expanding ${docs.length} docs to CIDOC CRM triples…`);
-  const chunks = [];
+  //
+  // This is ~98% of the runtime (499s of a 508s run), and almost all of it used
+  // to be wasted: paintings, pieces and moods are immutable once created, so
+  // most of the corpus expanded to byte-identical triples every 30 minutes.
+  // docToNTriples is now a pure function of its input, so the result can be
+  // cached by content — a doc only pays for expansion when it actually changes.
+  const cache = await loadCache();
+  const fresh = new Map();
+  let hits = 0;
+  const chunks = new Array(docs.length);
+
+  // Expand misses with bounded concurrency; the box has 2 cores and the work is
+  // CPU-bound, so a small pool is the whole win — more just adds contention.
+  const misses = [];
   for (let i = 0; i < docs.length; i++) {
-    chunks.push(await docToNTriples(docs[i]));
-    if (i % 1000 === 999) log(`  …${i + 1}/${docs.length}`);
+    const key = cacheKey(docs[i]);
+    const hit = cache.get(key);
+    if (hit !== undefined) {
+      chunks[i] = hit;
+      fresh.set(key, hit);
+      hits++;
+    } else {
+      misses.push({ i, key });
+    }
   }
+  log(`${hits} cached, ${misses.length} to expand`);
+
+  let done = 0;
+  const CONCURRENCY = 4;
+  await Promise.all(
+    Array.from({ length: Math.min(CONCURRENCY, misses.length) }, async () => {
+      while (misses.length) {
+        const { i, key } = misses.pop();
+        const nt = await docToNTriples(docs[i]);
+        chunks[i] = nt;
+        fresh.set(key, nt);
+        if (++done % 1000 === 0) log(`  …expanded ${done}`);
+      }
+    }),
+  );
+
+  // Persist only what this run actually used, so the cache can't grow without
+  // bound as entities are edited or deleted.
+  await saveCache(fresh);
+
   const dump = chunks.join("");
   const triples = dump.split("\n").filter(Boolean).length;
   log(`${triples} triples (${(dump.length / 1e6).toFixed(1)} MB)`);
 
-  // 8. Atomically replace the Oxigraph default graph.
+  // 8. Atomically replace the Oxigraph default graph — but only if the graph
+  // would actually differ. Two consecutive runs used to produce byte-identical
+  // dumps (223821 triples, 26.3 MB, twice) and PUT all of it anyway. Comparing
+  // the dump against the last one we loaded turns a no-op cycle into a no-op,
+  // and is the redundancy behind any event-driven trigger: if a change event is
+  // ever missed, the next sweep still catches it, and if nothing was missed the
+  // sweep costs nothing.
+  const digest = createHash("sha256").update(dump).digest("hex");
+  const previous = await readFile(`${CACHE_PATH}.graph`, "utf8").catch(() => null);
+  if (previous === digest) {
+    log(`✅ no change (${triples} triples) — store left alone, ${((Date.now() - t0) / 1000).toFixed(1)}s`);
+    return;
+  }
+
   log(`loading into ${OXIGRAPH_URL} …`);
   const res = await fetch(`${OXIGRAPH_URL}/store?default`, {
     method: "PUT",
@@ -141,6 +227,9 @@ async function main() {
     body: dump,
   });
   if (!res.ok) throw new Error(`Oxigraph load failed: ${res.status} ${await res.text()}`);
+  // Only record the digest after the store accepted it, so a failed load
+  // retries next run instead of being remembered as already applied.
+  await writeFile(`${CACHE_PATH}.graph`, digest).catch(() => {});
 
   log(`✅ done in ${((Date.now() - t0) / 1000).toFixed(1)}s — ${triples} triples live`);
 }
