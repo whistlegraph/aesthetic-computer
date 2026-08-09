@@ -24,6 +24,8 @@ const ONLY_LOCAL = args.has("--local");
 const ONLY_PROD = args.has("--prod");
 const STRICT = args.has("--strict");
 
+const REPO = join(import.meta.dirname, "..");
+
 // ── probes ──────────────────────────────────────────────────────────────────
 
 // Is a TCP port accepting connections? (the truest "is it up" for local servers)
@@ -108,6 +110,48 @@ function bin(name) {
   });
 }
 
+// Is the GitHub mirror still a faithful copy of knot?
+//
+// knot is canonical, but `session-server/deploy.fish` reaches a box that fetches
+// from the GitHub mirror, so whenever the mirror lags, that deploy ships stale
+// code — and every other signal stays green while it does. On 2026-08-08 the
+// mirror sat 20 commits behind with a commit of its own on top, and the outage
+// surfaced only because someone said so in chat.
+//
+// Read-only and offline-tolerant: it asks both remotes for their tip and, when
+// this clone happens to hold both commits, says exactly how far apart they are.
+function git(args, timeout = 12000) {
+  return new Promise((resolve) => {
+    execFile("git", args, { cwd: REPO, timeout }, (err, out) =>
+      resolve(err ? null : out.trim()));
+  });
+}
+
+async function mirrorInSync() {
+  const t0 = Date.now();
+  const tip = async (remote) => {
+    const line = await git(["ls-remote", remote, "refs/heads/main"]);
+    return line ? line.split(/\s+/)[0] : null;
+  };
+  const [knot, mirror] = await Promise.all([tip("origin"), tip("github")]);
+  const ms = Date.now() - t0;
+  if (!knot || !mirror)
+    return { ok: true, ms, note: `unreachable (${!knot ? "knot" : "github"}) — skipped` };
+  if (knot === mirror) return { ok: true, ms, note: `in sync @ ${knot.slice(0, 9)}` };
+
+  // Counts need both objects locally; a partial clone may not have the mirror's.
+  const behind = await git(["rev-list", "--count", `${mirror}..${knot}`]);
+  const ahead = await git(["rev-list", "--count", `${knot}..${mirror}`]);
+  if (behind === null || ahead === null)
+    return { ok: false, ms, note: `DIFFERS — knot ${knot.slice(0, 9)}, mirror ` +
+      `${mirror.slice(0, 9)} (fetch both to compare)` };
+  if (ahead === "0")
+    return { ok: false, ms, note: `mirror is ${behind} commits BEHIND knot — ` +
+      `session-server deploys will be stale; git push github main` };
+  return { ok: false, ms, note: `DIVERGED — mirror has ${ahead} commit(s) knot ` +
+    `lacks and is ${behind} behind; reconcile before deploying` };
+}
+
 // ── the checklist ────────────────────────────────────────────────────────────
 // group · label · run() → {ok, ms?, note?} · critical? · scope (local|prod|tool)
 
@@ -123,6 +167,10 @@ const CHECKS = [
   { group: "Production", label: "oven (OTA builds)",         scope: "prod", run: () => http("https://oven.aesthetic.computer") },
   { group: "Production", label: "ai.aesthetic.computer",     scope: "prod", run: () => http("https://ai.aesthetic.computer") },
   { group: "Production", label: "help (aa bridge)",          scope: "prod", run: () => http("https://help.aesthetic.computer") },
+
+  // Deploy provenance — reachability says a box answers, not that it answers
+  // with the code you shipped.
+  { group: "Deploy", label: "knot ↔ github mirror", scope: "prod", run: () => mirrorInSync() },
 
   // Host tooling — the binaries pipelines shell out to.
   { group: "Host tooling", label: "node",         scope: "tool", run: () => bin("node") },
