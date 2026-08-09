@@ -233,6 +233,15 @@ export async function renderReel(spec, { log = console.log } = {}) {
     }
 
     const audio = await page.evaluate(async () => {
+      // Ground truth for the sync verifier: every sound the game asks for,
+      // wall-stamped on the same clock the screencast frames carry. The
+      // verifier compares these against onsets measured in the encoded file,
+      // so a drifting mux gets caught by arithmetic instead of by ear.
+      globalThis.__reelSignals = [];
+      addEventListener("oskiewar:signal", ({ detail = {} }) => {
+        globalThis.__reelSignals.push(
+          { event: detail.event, player: detail.player, at: Date.now() });
+      });
       const contexts = globalThis.__acCtxs || [];
       for (const context of contexts)
         if (context.state === "suspended") await context.resume();
@@ -374,6 +383,17 @@ export async function renderReel(spec, { log = console.log } = {}) {
     if (ffmpeg.status !== 0) throw new Error(ffmpeg.stderr?.slice(-800) || "ffmpeg failed");
 
     const matches = await page.evaluate(() => globalThis.__reelMatches || []);
+    // Signals mapped onto the reel's own clock: t=0 is the first kept frame,
+    // which is also where the trimmed audio begins. Anything stamped before
+    // the recording window belongs to the warm-up and is dropped.
+    const rawSignals = await page.evaluate(() => globalThis.__reelSignals || []);
+    const signals = rawSignals
+      .map(({ event, player, at }) =>
+        ({ event, player, t: +((at - zero * 1000) / 1000).toFixed(3) }))
+      .filter(({ t }) => t >= 0 && t <= captured.seconds);
+    log(`   signals ${rawSignals.length} raw → ${signals.length} in window` +
+      (rawSignals.length && !signals.length
+        ? ` (first at ${((rawSignals[0].at - zero * 1000) / 1000).toFixed(1)}s)` : ""));
     const played = shell.demos.slice(-rounds).map((demo) => ({
       round: demo.roundName, winner: demo.winner,
       seconds: +(demo.durationTicks / 60).toFixed(1) }));
@@ -382,7 +402,7 @@ export async function renderReel(spec, { log = console.log } = {}) {
       (wall / captured.seconds).toFixed(1)}× realtime] · ${
       played.map((round) => round.round).join(", ") || "no round completed"}`);
     return { base, wall, ...captured, matches, rounds: played, complete,
-      hasAudio: Boolean(haveAudio), replayPosts: shell.replayPosts };
+      hasAudio: Boolean(haveAudio), replayPosts: shell.replayPosts, signals };
   } finally {
     await browser.close();
     await shell.close();

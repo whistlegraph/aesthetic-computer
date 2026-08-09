@@ -600,6 +600,9 @@ let roundStartedAt = 0;
 let lastSimAt = 0;
 let roundElapsedUs = 0;
 let lastCountdownSecond = -1;
+// The intro's own clock: which "3, 2, 1" second last rang, and whether the
+// round-open accent has fired. -1 means the accent is still owed.
+let lastIntroSecond = 0;
 let roundOverAt = 0;
 let roundResult = "";
 let matchOver = false;
@@ -1584,6 +1587,7 @@ function beginSelect(now) {
   matchOver = false;
   roundElapsedUs = 0;
   lastCountdownSecond = -1;
+  lastIntroSecond = 0;
   roundStartedAt = now;
   for (const player of players) {
     player.roundWins = 0;
@@ -2029,6 +2033,7 @@ function gameBoot() {
   lastSimAt = startedAt;
   roundElapsedUs = 0;
   lastCountdownSecond = -1;
+  lastIntroSecond = 0;
   emitSignal("hello", -1, 1, 0);
   shellMode = "MENU";
   titleTransitionAt = null;
@@ -2177,6 +2182,7 @@ function resetRound(now, resetMatch = false) {
   matchOver = false;
   roundElapsedUs = 0;
   lastCountdownSecond = -1;
+  lastIntroSecond = 0;
   lastSimAt = now;
   roundStartedAt = now;
   rollWind(now);
@@ -4064,9 +4070,27 @@ function gameSim() {
     return;
   }
   if (now - roundStartedAt < introDurationUs) {
+    // The intro used to pass in silence — a reel that opens on the countdown
+    // opened on three mute seconds, and a player heard the round begin with
+    // nothing. Ring the "3, 2, 1" on the same two channels the round clock
+    // uses: the drum for the ear, the signal for the record.
+    const introSecond = Math.ceil(
+      (introDurationUs - (now - roundStartedAt)) / 1000000);
+    if (introSecond !== lastIntroSecond) {
+      lastIntroSecond = introSecond;
+      playDrum("bell", .72 + (3 - introSecond) * .12, 0);
+      emitSignal("countdown-bell", -1, introSecond, 0);
+    }
     updateCameraDoll(dt, now);
     captureFrameTelemetry(now);
     return;
+  }
+  if (lastIntroSecond > 0) {
+    // The first live tick after the intro is the round opening — one accent,
+    // so "go" is a sound and not just a vanished number.
+    lastIntroSecond = -1;
+    playDrum("block", 1.1, 0);
+    emitSignal("fighters-lock", -1, 0, 0);
   }
   roundElapsedUs += dt * 1000000;
   const timedRound = roundIsTimed();

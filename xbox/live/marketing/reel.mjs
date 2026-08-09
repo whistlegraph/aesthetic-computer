@@ -19,6 +19,7 @@ import { join, resolve } from "node:path";
 import { pickSource, seed32 } from "./source.mjs";
 import { renderReel } from "./render.mjs";
 import { cover, inspect, thumbnail, writeSidecar } from "./dress.mjs";
+import { verifySync } from "./verify.mjs";
 import { appendLedger, dryRun, publishLive, queueDir, readLedger, reveal,
   segmentReport, uploadPublic } from "./publish.mjs";
 import { repo } from "./shell.mjs";
@@ -84,6 +85,16 @@ async function buildSlot(day, index) {
   const poster = cover(reel, join(dir, "cover.jpg"));
   const tenth = thumbnail(reel, join(dir, "thumbnail-10-percent.jpg"));
   const spec1080 = inspect(reel);
+  // The feedback loop: the game stamped every sound it asked for; measure
+  // what the encoded file actually plays and hold the two together.
+  const sync = verifySync(reel, render.signals || []);
+  log(`   sync ${sync.ok ? "✓" : "✗"} · ${sync.expectedSignals} signals expected` +
+    ` · ${sync.matchedOnsets}/${sync.heardOnsets} onsets` +
+    ` · median ${sync.medianSkew ?? "—"}s · worst ${sync.worstSkew ?? "—"}s` +
+    ` · audible ${Math.round((sync.audibleFraction ?? 0) * 100)}%`);
+  for (const span of sync.silences || [])
+    log(`   silent ${span.from}–${span.to}s` +
+      (span.signals.length ? ` over ${span.signals.join(" ")}` : ""));
   if (!render.complete)
     log(`   ⚠ the match never finished inside the ${spec.cap}s cap — fragment`);
 
@@ -93,7 +104,7 @@ async function buildSlot(day, index) {
       matches: render.matches, rounds: render.rounds, complete: render.complete,
       replayPostsSwallowed: render.replayPosts },
     files: { reel, cover: poster, thumbnail: tenth },
-    meta: spec1080 };
+    meta: spec1080, sync, signals: render.signals || [] };
   writeSidecar(join(dir, "reel.json"), record);
   log(`${spec1080.ok ? "✓" : "✗"} ${spec.id} · ${spec1080.width}×${spec1080.height} · ` +
     `${Math.floor(spec1080.seconds / 60)}m${String(Math.round(spec1080.seconds % 60))
