@@ -3924,6 +3924,24 @@ function botPad(player, opponent, now) {
   if (!player.alive || !opponent.alive)
     return { connected: true, down: botDown(player, now), leftX: 0, leftY: 0 };
 
+  // A scored bot plays its sheet instead of thinking: rows of {at, button,
+  // hold} in µs from round start, through the same botPress door so holds
+  // and releases stay human-shaped. An empty score is a dummy that stands
+  // there and takes it — which is exactly what a sync lab needs on the
+  // receiving end. Scores arrive via globalThis.__oskiewarBotScores at round
+  // start; no score, and the brain below plays as always.
+  if (player.botScore) {
+    const at = now - roundStartedAt;
+    while (player.botScoreAt < player.botScore.length &&
+        player.botScore[player.botScoreAt].at <= at) {
+      const row = player.botScore[player.botScoreAt];
+      if (botPress(player, row.button, row.hold ?? botHoldUs.strike, now))
+        player.botScoreAt += 1;
+      else break;
+    }
+    return { connected: true, down: botDown(player, now), leftX: 0, leftY: 0 };
+  }
+
   const dx = opponent.x - player.x;
   const distance = Math.abs(dx);
   const toward = Math.sign(dx) || player.facing || -1;
@@ -5709,17 +5727,12 @@ function drawCommandStream(player, side) {
   const safe = hudSafeRect();
   const size = keyboard ? Math.max(15, Math.round(hudTypeSize * .72)) : hudTypeSize;
   const lineHeight = keyboard ? Math.round(size * 1.5) + 5 : size + 4;
-  const handle = playerHandleLayout(player, side);
-  const shadow = contrastShadow(player.color);
   const background = mixColor([7, 8, 28], [230, 239, 247],
     visualTheme.light);
-  const training = !roundIsTimed();
-  const inventoryOffset = player.gunAmmo > 0 || player.grenadeAmmo > 0
-    ? Math.round(hudTypeSize * .62) + 8 : 0;
-  const firstY = training
-    ? safe.top + (debugHitboxes ? hudTypeSize + 12 : 4)
-    : handle.y - statStackHeight() - inventoryOffset -
-      lines.length * lineHeight - 11;
+  // The buffer reads top-down from the top corners — up where the eye already
+  // checks the timer, not down in the nameplates. One HUD row of clearance
+  // keeps it out of the round clock and the wall clock.
+  const firstY = safe.top + hudTypeSize + 12;
   for (let row = 0; row < lines.length; row++) {
     const lineEntries = lines[row];
     const capPad = Math.round(size * .42);
@@ -6780,11 +6793,36 @@ function gamePaint() {
   const platformFar = 520;
   const ledgeLeft = Math.max(platformLeft, spanLeft);
   const ledgeRight = Math.min(platformRight, spanRight);
-  if (ledgeLeft < ledgeRight) worldQuad(
-    { x: ledgeLeft, y: platformY, z: platformNear },
-    { x: ledgeRight, y: platformY, z: platformNear },
-    { x: ledgeRight, y: platformY, z: platformFar },
-    { x: ledgeLeft, y: platformY, z: platformFar }, platformColor);
+  if (ledgeLeft < ledgeRight) {
+    // A slab, not a sheet of paper: the walkable top, then a front face and
+    // two end caps falling away beneath it, each a step darker the way the
+    // arena walls already shade. The fighters still stand on platformY —
+    // the body hangs below the surface, so nothing about play moves.
+    const platformDepth = 190;
+    const under = platformY + platformDepth;
+    const face = mixColor([16, 20, 34], [174, 160, 134], visualTheme.light);
+    const cap = mixColor([12, 15, 27], [148, 135, 112], visualTheme.light);
+    worldQuad(
+      { x: ledgeLeft, y: platformY, z: platformNear },
+      { x: ledgeRight, y: platformY, z: platformNear },
+      { x: ledgeRight, y: platformY, z: platformFar },
+      { x: ledgeLeft, y: platformY, z: platformFar }, platformColor);
+    worldQuad(
+      { x: ledgeLeft, y: platformY, z: platformNear },
+      { x: ledgeLeft, y: under, z: platformNear },
+      { x: ledgeRight, y: under, z: platformNear },
+      { x: ledgeRight, y: platformY, z: platformNear }, face);
+    worldQuad(
+      { x: ledgeLeft, y: platformY, z: platformFar },
+      { x: ledgeLeft, y: under, z: platformFar },
+      { x: ledgeLeft, y: under, z: platformNear },
+      { x: ledgeLeft, y: platformY, z: platformNear }, cap);
+    worldQuad(
+      { x: ledgeRight, y: platformY, z: platformNear },
+      { x: ledgeRight, y: under, z: platformNear },
+      { x: ledgeRight, y: under, z: platformFar },
+      { x: ledgeRight, y: platformY, z: platformFar }, cap);
+  }
   const shadowInk = mixColor([3, 5, 14], [92, 99, 101],
     visualTheme.light * .72);
   for (const player of players)
@@ -6897,11 +6935,12 @@ function gamePaint() {
   if (counting && shellMode === "GAME")
     drawFightIntro(introAge / 1000000, titleInk, statusShadow);
   // The keys belong wherever a newcomer is looking: under the wordmark on the
-  // way in, and again while a round counts itself off.
+  // way in, and again while a round counts itself off. Self-play has no
+  // newcomer — two bots need no tutorial, and neither does a reel of them.
   const dummyGuideVisible = shellMode === "GAME" && !roundResult &&
     players[1].npc && !players[1].bot && dummyGuideStartedAt !== null &&
     run.monotonicUs - dummyGuideStartedAt < dummyGuideDurationUs;
-  if (counting || shellMode === "MENU" || dummyGuideVisible)
+  if (!selfPlay && (counting || shellMode === "MENU" || dummyGuideVisible))
     drawControlLegend(titleInk);
   const resultUiReady = cinematicAge < 0 || cinematicAge >= 1.1;
   if (roundResult && resultUiReady) {
