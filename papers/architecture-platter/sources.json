@@ -1,0 +1,45 @@
+{
+  "platter": "architecture-platter",
+  "purpose": "Reading platter for foundational architectural treatises — the proportion, order, and modular-composition systems (Palladio's orders, Durand's grid method) indexed for citation in AC papers.",
+  "posture": "Index and citation only. PDFs are fetched into sources/ (gitignored) by fetch-sources.mjs from their public hosts (Internet Archive, Getty Virtual Library); nothing is mirrored into the repo. The Getty Durand translation is in copyright and distributed free by Getty — cite it, never redistribute it.",
+  "checked_key": {
+    "true": "citation details confirmed against a primary or publisher source during a platter pass",
+    "false": "written from working knowledge; wants a verification pass before it is cited in a paper"
+  },
+  "last_verification_pass": "2026-08-08",
+  "shelves": {
+    "treatise": "Primary treatises — the books themselves, in their canonical scanned or publisher editions."
+  },
+  "sources": [
+    {
+      "id": "palladio-1738-ware",
+      "shelf": "treatise",
+      "authors": ["Palladio, Andrea"],
+      "year": 1738,
+      "title": "The Four Books of Architecture",
+      "venue": "London: Printed for R. Ware (Isaac Ware's English edition of I quattro libri dell'architettura, Venice 1570)",
+      "pages": "[10], 110, [2] pp. text + 212 leaves of plates",
+      "open_access": true,
+      "pdf": "https://archive.org/download/gri_33125011569684/gri_33125011569684.pdf",
+      "url": "https://archive.org/details/gri_33125011569684",
+      "locator": "https://archive.org/details/gri_33125011569684/page/n389/mode/2up",
+      "checked": true,
+      "why": "The canonical proportional system: the five orders (Book I), villa plans (Book II), civic works (Book III), Roman temples (Book IV). Getty Research Institute scan of Ware's 1738 folio — the plate-accurate English edition. The locator marks the spread this ingestion started from."
+    },
+    {
+      "id": "durand-2000-precis",
+      "shelf": "treatise",
+      "authors": ["Durand, Jean-Nicolas-Louis"],
+      "year": 2000,
+      "title": "Précis of the Lectures on Architecture; with, Graphic Portion of the Lectures on Architecture",
+      "venue": "Los Angeles: Getty Research Institute, Texts & Documents series. Introduction by Antoine Picon; translation by David Britt. Original: Précis des leçons d'architecture données à l'École polytechnique (Paris, 1802–1805) + Partie graphique (1821)",
+      "pages": "363 pp.",
+      "isbn": "0-89236-580-3",
+      "open_access": true,
+      "pdf": "https://media.getty.edu/Text/4504042b-d056-59ec-bfd3-2a6a5b456eec.pdf",
+      "url": "https://www.getty.edu/publications/virtuallibrary/0892365803.html",
+      "checked": true,
+      "why": "The proto-computational treatise: Durand replaces Vitruvian proportion with a modular grid, combinatorial composition of standard elements, and economy as the governing criterion — architecture as a generative procedure. The most direct historical ancestor of piece-based composition."
+    }
+  ]
+}
