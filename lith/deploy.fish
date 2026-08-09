@@ -314,32 +314,6 @@ systemctl reload caddy"
 # Restart lith service
 echo -e "$GREEN-> Restarting lith...$NC"
 ssh -i $SSH_KEY $LITH_USER@$TARGET_HOST "systemctl restart lith"
-
-# And confirm the thing that actually went dark on 2026-08-09: a database-backed
-# endpoint answering for real. The code check above passes happily while every
-# query behind it fails, because a dead credential is not a stale build. This
-# does not roll anything back — a bad env is not fixed by restoring a commit —
-# it just refuses to let the deploy report success over an outage.
-echo -e "$GREEN-> Verifying the database is answering...$NC"
-set DB_PROBE "https://$TARGET_HOST/api/oskiewar-replays?limit=1"
-set DB_OK false
-for attempt in 1 2 3 4 5 6 7 8 9 10
-    set DB_CODE (curl -s -o /dev/null -w '%{http_code}' --max-time 15 $DB_PROBE)
-    if test "$DB_CODE" = "200"
-        set DB_OK true
-        break
-    end
-    sleep 3
-end
-if test $DB_OK = true
-    echo -e "$GREEN   database: answering$NC"
-else
-    echo -e "$RED x lith is up but its database is not answering (HTTP $DB_CODE).$NC"
-    echo -e "$YELLOW   The code deployed. Queries are failing — check the credentials in$NC"
-    echo -e "$YELLOW   $SERVICE_ENV and: ssh $LITH_USER@$TARGET_HOST journalctl -u lith -n 50$NC"
-    exit 1
-end
-
 # Purge the Cloudflare cache so new code is served immediately. Runtime .mjs
 # (kidlisp, disk, graph, …) are STATIC sub-imports without the ?v= cache-bust
 # boot.mjs puts on top-level modules, so the edge would otherwise serve stale
@@ -415,4 +389,42 @@ if test -x "$MIRROR_SYNC"
     echo -e "$GREEN-> Syncing menuband mirror...$NC"
     bash "$MIRROR_SYNC" 2>&1 | tail -3
     or echo -e "$YELLOW   menuband mirror sync failed (non-fatal)$NC"
+end
+
+# Last, and deliberately last: ask a database-backed endpoint for a real answer.
+#
+# Everything above can pass while every query behind it fails — that is exactly
+# what happened on 2026-08-09, when a stale credential rode up with a perfectly
+# good build and nothing noticed for fourteen hours. So the deploy is not
+# allowed to report success without one live query having worked.
+#
+# It runs after the purge and the mirror rather than before, because a failure
+# here is a report, not a gate: the code is already out, and skipping the cache
+# purge on the way past would only add a second problem. Nor does it roll back
+# — restoring a commit does not fix a password, and pretending it might would
+# hide the actual fault.
+#
+# The public host, not $TARGET_HOST: lith.aesthetic.computer is the SSH target
+# and serves no vhost, so probing it only ever measures curl's disappointment.
+set DB_PROBE_HOST "aesthetic.computer"
+if set -q LITH_PROBE_HOST
+    set DB_PROBE_HOST $LITH_PROBE_HOST
+end
+echo -e "$GREEN-> Verifying the database is answering...$NC"
+set DB_CODE "000"
+for attempt in 1 2 3 4 5 6 7 8 9 10
+    set DB_CODE (curl -s -o /dev/null -w '%{http_code}' --max-time 15 \
+        "https://$DB_PROBE_HOST/api/oskiewar-replays?limit=1")
+    if test "$DB_CODE" = "200"
+        break
+    end
+    sleep 3
+end
+if test "$DB_CODE" = "200"
+    echo -e "$GREEN   database: $DB_PROBE_HOST is answering queries$NC"
+else
+    echo -e "$RED x Deployed, but the database is not answering (HTTP $DB_CODE).$NC"
+    echo -e "$YELLOW   The code is live; queries are failing. Check the credentials in$NC"
+    echo -e "$YELLOW   $SERVICE_ENV, then: ssh $LITH_USER@$TARGET_HOST journalctl -u lith -n 50$NC"
+    exit 1
 end

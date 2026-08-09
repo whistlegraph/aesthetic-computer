@@ -59,15 +59,21 @@ test("an env that cannot be verified is shipped, not blocked", () => {
 });
 
 test("deploy checks the credential before upload and the database after", () => {
-  const beforeUpload = deploy.indexOf("lith/verify-env.mjs");
+  const check = deploy.indexOf("lith/verify-env.mjs");
   const upload = deploy.indexOf("scp -i $SSH_KEY $SERVICE_ENV");
   const restart = deploy.indexOf("systemctl restart lith");
+  const purge = deploy.indexOf("Purging Cloudflare cache");
   const probe = deploy.indexOf("Verifying the database is answering");
-  assert.ok(beforeUpload > 0 && upload > beforeUpload,
+  assert.ok(check > 0 && upload > check,
     "the credential is tried before the env is uploaded");
   assert.ok(probe > restart, "the database is probed after the restart");
+  // And after the cache purge, so a failing probe cannot skip work that was
+  // already earned. The probe reports; it does not gate.
+  assert.ok(probe > purge, "the probe runs after the purge, not instead of it");
   assert.match(deploy, /Refusing to upload an environment that cannot reach its database/);
-  // The probe reports rather than rolls back: restoring a commit does not fix
-  // a credential, and pretending otherwise would hide the real fault.
-  assert.match(deploy, /lith is up but its database is not answering/);
+  assert.match(deploy, /Deployed, but the database is not answering/);
+  // lith.aesthetic.computer is the SSH target and serves no vhost, so probing
+  // it measures nothing. This cost one confusing red HTTP 000.
+  assert.match(deploy, /set DB_PROBE_HOST "aesthetic\.computer"/);
+  assert.doesNotMatch(deploy, /https:\/\/\$TARGET_HOST\/api\//);
 });
