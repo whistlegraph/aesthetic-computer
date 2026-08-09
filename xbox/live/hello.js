@@ -2929,7 +2929,8 @@ const itemHand = (player) => player.facing > 0 ? "right-arm" : "left-arm";
 // Gun before grenade, always: the pistol is the sustained item and the one
 // drawn in the hand, so "use what you are holding" needs no mode toggle.
 const heldItem = (player) =>
-  isHeadOnly(player) || isPogo(player) || !hasPart(player, itemHand(player))
+  isHeadOnly(player) ? player.gunAmmo > 0 ? "GUN" : ""
+    : isPogo(player) || !hasPart(player, itemHand(player))
     ? "" : player.gunAmmo > 0 ? "GUN"
     : player.grenadeAmmo > 0 ? "GRENADE" : "";
 const itemSwinging = (player, now) =>
@@ -2960,6 +2961,12 @@ function itemActionPulse(player, now) {
 }
 
 function itemHandTarget(player, now) {
+  // A surviving head grips the pistol at the mouth. It can still aim and fire,
+  // but grenades and melee weapons remain limb-dependent.
+  if (isHeadOnly(player)) return {
+    x: player.x + player.facing * 18,
+    y: player.y - 20, z: player.z,
+  };
   // A swung weapon rides the striking hand, so the drawn pistol or grenade
   // sits on the live attack capsule instead of floating out in front.
   if (itemSwinging(player, now)) return meleeTarget(player, now);
@@ -3793,6 +3800,32 @@ function updatePlayer(player, pad, dt, now) {
     const direction = input.vertical > 0 ? "UP" : "DOWN";
     recordCommand(player, direction, now);
     directionTap(player, direction, now);
+    if (headOnly) {
+      const alternating = player.headPumpDirection &&
+        player.headPumpDirection !== input.vertical &&
+        now - (player.headPumpAt || 0) <= 520000;
+      player.headBounceCharge = clamp((player.headBounceCharge || 0) +
+        (alternating ? .2 : .035), 0, 1);
+      player.headPumpDirection = input.vertical;
+      player.headPumpAt = now;
+      if (alternating && player.grounded) {
+        player.vy = -lerp(420, headBounceVelocity * 1.7,
+          player.headBounceCharge);
+        player.grounded = false;
+        player.stance = "BOUNCE " + Math.round(player.headBounceCharge * 5);
+        playDrum("block", .45 + player.headBounceCharge * .45,
+          panPlayer(player));
+        emitSignal("head-bounce", player.pad, input.vertical,
+          player.headBounceCharge);
+      }
+    }
+  }
+
+  if (headOnly) {
+    const sincePump = now - (player.headPumpAt || 0);
+    if (sincePump > 650000)
+      player.headBounceCharge = Math.max(0,
+        (player.headBounceCharge || 0) - dt * .22);
   }
 
   if (input.horizontal) player.facing = input.horizontal;
@@ -3814,7 +3847,10 @@ function updatePlayer(player, pad, dt, now) {
   }
   if (!player.grounded || !input.horizontal || player.blocking ||
       player.ducking || hitStunned) player.runSince = 0;
-  const mobility = headOnly ? .55 : pogo ? .68 : legCount === 1 ? .72 : 1;
+  const headAirControl = player.grounded ? .55
+    : lerp(.55, .9, player.headBounceCharge || 0);
+  const mobility = headOnly ? headAirControl
+    : pogo ? .68 : legCount === 1 ? .72 : 1;
   const runSpeed = player.runSince
     ? Math.min(runTopSpeed, runStartSpeed +
       (now - player.runSince) / 1000000 * runAcceleration) : 0;
@@ -3894,7 +3930,8 @@ function updatePlayer(player, pad, dt, now) {
         startMelee(player, "KICK", now);
       else if (acting && !grabHeld && button === "B")
         startMelee(player, itemMelee[heldItem(player)] || "PUNCH", now);
-      else if (acting && ["Y", "LeftShoulder", "RightShoulder"].includes(button)) {
+      else if ((acting || (headOnly && !hitStunned)) &&
+          ["Y", "LeftShoulder", "RightShoulder"].includes(button)) {
         const item = heldItem(player);
         if (item === "GUN") fireGun(player, input);
         else if (item === "GRENADE") throwGrenade(player);
@@ -3925,9 +3962,9 @@ function updatePlayer(player, pad, dt, now) {
       player.x >= platformLeft && player.x <= platformRight) {
     player.y = platformY;
     if (headOnly) {
-      player.vy = -headBounceVelocity;
-      player.grounded = false;
-      player.stance = "BOUNCE";
+      player.vy = 0;
+      player.grounded = true;
+      player.stance = input.horizontal ? "ROLL" : "HEAD ONLY";
     } else if (pogo && player.pogoDive) {
       bouncePogoOnSurface(player, platformY, now);
     } else {
@@ -3937,9 +3974,9 @@ function updatePlayer(player, pad, dt, now) {
   } else if (player.y >= floorY) {
     player.y = floorY;
     if (headOnly) {
-      player.vy = -headBounceVelocity;
-      player.grounded = false;
-      player.stance = "BOUNCE";
+      player.vy = 0;
+      player.grounded = true;
+      player.stance = input.horizontal ? "ROLL" : "HEAD ONLY";
     } else if (pogo && player.pogoDive) {
       bouncePogoOnSurface(player, floorY, now);
     } else {
@@ -5357,7 +5394,10 @@ function drawPadButton(label, x, y, size, pressed, fade = 1) {
     return radius * 2;
   }
   const glyphX = Math.round(cx - handleWidth(text, glyphSize) / 2);
-  const glyphY = Math.round(cy - glyphSize / 2);
+  // DirectWrite's cap shapes carry more visual weight below their nominal
+  // midpoint. Lift the Xbox face letters together so A/B/X/Y read centered in
+  // the colored hardware circles rather than sitting on their lower halves.
+  const glyphY = Math.round(cy - glyphSize * (padButtonInk[label] ? .62 : .5));
   if (padButtonInk[label] || /^[KPSI<>^v]$/.test(text))
     systemWrite(text, glyphX, glyphY, glyphSize, ...veil([12, 14, 26]));
   else typeWrite(text, glyphX, glyphY, glyphSize, ...veil([12, 14, 26]));
@@ -6778,16 +6818,17 @@ function drawTitleScreen(t, ink, transitionAge = -1) {
   const version = stamp
     ? "build " + stamp[2] + "." + stamp[3] + " " + stamp[4] + ":" + stamp[5]
     : "build " + buildTimestamp;
-  // The stamp lives top-left now. The bottom-left corner belongs to whoever
-  // is signed in — the handle and its logout button sit there in the shell —
-  // and the build number has no business crowding a person's name. Nothing up
-  // here to collide with, so the old yield-to-the-legend bail is gone with it.
+  // Build provenance belongs to the title itself. Center it directly beneath
+  // the wordmark so the top-left remains the persistent input legend and live
+  // command score.
   const safe = hudSafeRect();
   const versionSize = Math.round(hudTypeSize * .62);
-  typeWrite(version, safe.left + 2, safe.top + 2, versionSize, ...ink);
+  typeWrite(version, viewCenterX() - handleWidth(version, versionSize) / 2,
+    titleY + titleSize + 18, versionSize, ...ink);
   if (debugHitboxes) {
     const fpsLabel = Math.round(displayFps || 0) + " fps";
-    typeWrite(fpsLabel, safe.left + 2, safe.top + versionSize + 12,
+    typeWrite(fpsLabel, viewCenterX() - handleWidth(fpsLabel, versionSize) / 2,
+      titleY + titleSize + versionSize + 26,
       versionSize, ...ink);
   }
   const clock = hudClockBox(titleUnixMs);
@@ -6922,9 +6963,18 @@ function drawSpectatorQr(ink) {
   const compact = compactLayout();
   const metaSize = compact ? Math.max(20, hudTypeSize * .58) : hudTypeSize;
   if (debugHitboxes && shellMode === "GAME") {
-    // The bug moved into the HUD status lane, where it is one of a set.
-    const fpsLabel = Math.round(displayFps || 0) + " fps";
-    typeWrite(fpsLabel, safe.left + 2, safe.top + 2, metaSize, ...ink);
+    const run = runtime();
+    const measuredHz = Number(run.refreshHz) || displayFps || 0;
+    const aa = Math.max(1, Math.round(Number(run.antialiasingSamples) || 1));
+    const surfaceLabel = Math.round(Number(run.width) || stageRight) + "x" +
+      Math.round(Number(run.height) || viewHeight) + " @ " +
+      measuredHz.toFixed(1) + "hz  aa " + aa + "x";
+    const timingLabel = "frame " + (Number(run.frameMs) || 0).toFixed(2) +
+      "ms  render " + (Number(run.renderCpuMs) || 0).toFixed(2) +
+      "ms  present " + (Number(run.presentMs) || 0).toFixed(2) + "ms";
+    typeWrite(surfaceLabel, safe.left + 2, safe.top + 2, metaSize, ...ink);
+    typeWrite(timingLabel, safe.left + 2, safe.top + metaSize + 5,
+      Math.max(18, metaSize * .72), ...ink);
   }
   const qr = spectatorQrBox();
   if (!qr) return;
@@ -7204,11 +7254,10 @@ function gamePaint() {
   // The keys belong wherever a newcomer is looking: under the wordmark on the
   // way in, and again while a round counts itself off. Self-play has no
   // newcomer — two bots need no tutorial, and neither does a reel of them.
-  const dummyGuideVisible = shellMode === "GAME" && !roundResult &&
-    players[1].npc && !players[1].bot && dummyGuideStartedAt !== null &&
-    run.monotonicUs - dummyGuideStartedAt < dummyGuideDurationUs;
-  if (!selfPlay && (counting || shellMode === "MENU" || dummyGuideVisible))
-    drawControlLegend(titleInk);
+  // The legend is the stable key for the score written beneath it. Keep it
+  // present throughout every player-controlled screen; only unattended bot
+  // self-play and marketing reels have no learner to serve.
+  if (!selfPlay) drawControlLegend(titleInk);
   const resultUiReady = cinematicAge < 0 || cinematicAge >= 1.1;
   if (roundResult && resultUiReady) {
     if (INSTANT_REPLAY && instantReplay) {

@@ -153,6 +153,11 @@ struct System {
   std::uint64_t memory_usage_bytes = 0;
   std::uint64_t memory_limit_bytes = 0;
   std::uint64_t expected_memory_limit_bytes = 0;
+  double refresh_hz = 0;
+  double frame_ms = 0;
+  double render_cpu_ms = 0;
+  double present_ms = 0;
+  std::uint32_t antialiasing_samples = 1;
   bool dark = true;
   bool online = false;
 };

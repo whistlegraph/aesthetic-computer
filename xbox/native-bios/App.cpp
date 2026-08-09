@@ -503,12 +503,21 @@ public:
       profileRenderCpuMs += m_lastRenderCpuMs;
       profilePresentMs += m_lastPresentMs;
       if (++profileFrames >= 120) {
+        const auto frameMs = (profileHostJsMs + profileRenderCpuMs +
+          profilePresentMs) / profileFrames;
+        m_api->system.frame_ms = frameMs;
+        m_api->system.refresh_hz = frameMs > 0 ? 1000.0 / frameMs : 0;
+        m_api->system.render_cpu_ms = profileRenderCpuMs / profileFrames;
+        m_api->system.present_ms = profilePresentMs / profileFrames;
         LogTelemetry("AC_NATIVE_PROFILE hostJsMs=" +
           std::to_string(profileHostJsMs / profileFrames) + " renderCpuMs=" +
           std::to_string(profileRenderCpuMs / profileFrames) + " presentMs=" +
           std::to_string(profilePresentMs / profileFrames) + " totalMs=" +
-          std::to_string((profileHostJsMs + profileRenderCpuMs + profilePresentMs) /
-            profileFrames));
+          std::to_string(frameMs) + " measuredHz=" +
+          std::to_string(m_api->system.refresh_hz) + " surface=" +
+          std::to_string(m_api->screen.width) + "x" +
+          std::to_string(m_api->screen.height) + " aa=" +
+          std::to_string(m_api->system.antialiasing_samples) + "x");
         profileFrames = 0; profileHostJsMs = 0; profileRenderCpuMs = 0;
         profilePresentMs = 0;
       }

@@ -330,11 +330,11 @@ test("every instructional keyboard key uses the shared gray keycap renderer", ()
   assert.doesNotMatch(streamSource, /drawPadButton\(entry\.text/);
 });
 
-test("dummy play keeps its key guide for one session-scoped teaching window", () => {
+test("player-controlled play keeps its top-left key guide after start", () => {
   assert.match(source, /const dummyGuideDurationUs = 150000000/);
   assert.match(source, /if \(dummyGuideStartedAt === null && players\[1\]\.npc && !players\[1\]\.bot\)/);
   assert.match(source, /run\.monotonicUs - dummyGuideStartedAt < dummyGuideDurationUs/);
-  assert.match(source, /counting \|\| shellMode === "MENU" \|\| dummyGuideVisible/);
+  assert.match(source, /if \(!selfPlay\) drawControlLegend\(titleInk\)/);
   const resetSource = source.slice(source.indexOf("function resetRound"),
     source.indexOf("function fighterFrameRect"));
   assert.doesNotMatch(resetSource, /dummyGuideStartedAt\s*=/);
@@ -1028,10 +1028,12 @@ test("ambient air is a simulated world-entity field", () => {
   assert.doesNotMatch(moteSource, /filledCapsule\(/);
 });
 
-test("debug HUD shows FPS without repeating oskiewar beside the round QR", () => {
-  assert.match(source, /Math\.round\(displayFps \|\| 0\) \+ " fps"/);
-  assert.match(source, /if \(debugHitboxes\) \{[\s\S]{0,140}const fpsLabel/);
-  assert.match(source, /typeWrite\(fpsLabel, safe\.left \+ 2, safe\.top \+ 2/);
+test("debug HUD shows native surface and timing without repeating oskiewar", () => {
+  assert.match(source, /const surfaceLabel = Math\.round\(Number\(run\.width\)/);
+  assert.match(source, /measuredHz\.toFixed\(1\) \+ "hz  aa " \+ aa \+ "x"/);
+  assert.match(source, /const timingLabel = "frame "/);
+  assert.match(source, /Number\(run\.presentMs\)[\s\S]{0,60}"ms"/);
+  assert.match(source, /typeWrite\(surfaceLabel, safe\.left \+ 2, safe\.top \+ 2/);
   assert.doesNotMatch(source, /const gameLabel = "oskiewar"/);
 });
 
@@ -2283,7 +2285,7 @@ test("losing both legs grounds the pelvis in a low crouched form", () => {
     segment.part === "left-leg" || segment.part === "right-leg"), false);
 });
 
-test("a limbless torso becomes a pogo and a removed torso leaves a bouncing head", () => {
+test("a removed torso leaves a rolling, pump-bouncing, gun-firing head", () => {
   const { fight, pads, tick, now } = createFight();
   const target = fight.players[0];
   const damage = (part, hits) => {
@@ -2310,7 +2312,22 @@ test("a limbless torso becomes a pogo and a removed torso leaves a bouncing head
   target.y = 12000;
   target.vy = 20;
   tick();
-  assert.ok(target.vy < 0, "the final head form should rebound from the floor");
+  assert.equal(target.vy, 0, "the head should settle onto the floor to roll");
+  assert.equal(target.grounded, true);
+  pads[0].down = ["ArrowUp"];
+  tick();
+  pads[0].down = [];
+  tick();
+  pads[0].down = ["ArrowDown"];
+  tick();
+  assert.ok(target.vy < 0, "alternating up/down should pump a head bounce");
+  assert.ok(target.headBounceCharge > 0);
+  target.gunAmmo = 2;
+  pads[0].down = [];
+  tick();
+  pads[0].down = ["Y"];
+  tick();
+  assert.equal(target.gunAmmo, 1, "the mouth-held gun should fire");
   pads[0].down = ["X", "A"];
   tick();
   assert.equal(target.attackKind, "");
