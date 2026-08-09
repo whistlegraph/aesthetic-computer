@@ -1030,7 +1030,8 @@ test("ambient air is a simulated world-entity field", () => {
 
 test("debug HUD shows native surface and timing without repeating oskiewar", () => {
   assert.match(source, /const surfaceLabel = Math\.round\(Number\(run\.width\)/);
-  assert.match(source, /measuredHz\.toFixed\(1\) \+ "hz  aa " \+ aa \+ "x"/);
+  assert.match(source, /const aaLabel = String\(run\.antialiasingMode/);
+  assert.match(source, /measuredHz\.toFixed\(1\) \+ "hz  aa " \+ aaLabel/);
   assert.match(source, /const timingLabel = "frame "/);
   assert.match(source, /Number\(run\.presentMs\)[\s\S]{0,60}"ms"/);
   assert.match(source, /typeWrite\(surfaceLabel, safe\.left \+ 2, safe\.top \+ 2/);

@@ -517,7 +517,8 @@ public:
           std::to_string(m_api->system.refresh_hz) + " surface=" +
           std::to_string(m_api->screen.width) + "x" +
           std::to_string(m_api->screen.height) + " aa=" +
-          std::to_string(m_api->system.antialiasing_samples) + "x");
+          std::to_string(m_api->system.antialiasing_samples) + "x mode=" +
+          m_api->system.antialiasing_mode);
         profileFrames = 0; profileHostJsMs = 0; profileRenderCpuMs = 0;
         profilePresentMs = 0;
       }
@@ -942,7 +943,7 @@ private:
     stencil.FrontFace.StencilFunc = D3D11_COMPARISON_EQUAL;
     stencil.BackFace = stencil.FrontFace;
     Check(m_device->CreateDepthStencilState(&stencil, &m_postStencilState));
-    LogTelemetry("AC_NATIVE_POST ready=1 filter=point effects=scan,dither,vignette stencil=d24s8-write overlay=off");
+    LogTelemetry("AC_NATIVE_POST ready=1 filter=point effects=scan,dither,vignette geometryAA=fxaa stencil=d24s8");
   }
 
   void UpdatePostConstants(float stencilPass) {
@@ -980,9 +981,14 @@ private:
     m_context->OMSetDepthStencilState(nullptr, 0);
     m_context->OMSetRenderTargets(1, m_target.GetAddressOf(), nullptr);
     m_context->Draw(3, 0);
-    // Geometry and sprites still write the real D24S8 mask. Keep the costly
-    // second fullscreen stencil overlay off by default; it can be re-enabled
-    // as a quality tier once the 60 Hz budget has headroom.
+    // The second pass is rejected everywhere except triangle geometry, keeping
+    // the D2D terrain and point-sampled sprite lanes crisp.
+    UpdatePostConstants(1);
+    m_context->PSSetSamplers(0, 1, m_linearSampler.GetAddressOf());
+    m_context->OMSetDepthStencilState(m_postStencilState.Get(), 1);
+    m_context->OMSetRenderTargets(1, m_target.GetAddressOf(),
+      m_triangleDepthView.Get());
+    m_context->Draw(3, 0);
     ID3D11ShaderResourceView* nullView = nullptr;
     m_context->PSSetShaderResources(0, 1, &nullView);
     m_context->OMSetDepthStencilState(nullptr, 0);

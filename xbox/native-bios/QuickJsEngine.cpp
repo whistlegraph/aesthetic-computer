@@ -555,6 +555,8 @@ JSValue RuntimeInfo(JSContext* context, JSValueConst, int, JSValueConst*) {
   JS_SetPropertyStr(context, result, "presentMs", JS_NewFloat64(context, scope->api->system.present_ms));
   JS_SetPropertyStr(context, result, "antialiasingSamples",
     JS_NewInt32(context, scope->api->system.antialiasing_samples));
+  JS_SetPropertyStr(context, result, "antialiasingMode",
+    JS_NewString(context, scope->api->system.antialiasing_mode.c_str()));
   JS_SetPropertyStr(context, result, "sampleRate", JS_NewInt32(context, scope->api->sound.sample_rate()));
   JS_SetPropertyStr(context, result, "simCount", JS_NewInt64(context, scope->api->sim_count));
   JS_SetPropertyStr(context, result, "paintCount", JS_NewInt64(context, scope->api->paint_count));
@@ -671,6 +673,8 @@ JSValue Capabilities(JSContext* context, JSValueConst, int, JSValueConst*) {
   JS_SetPropertyStr(context, result, "presentMs", JS_NewFloat64(context, scope->api->system.present_ms));
   JS_SetPropertyStr(context, result, "antialiasingSamples",
     JS_NewInt32(context, scope->api->system.antialiasing_samples));
+  JS_SetPropertyStr(context, result, "antialiasingMode",
+    JS_NewString(context, scope->api->system.antialiasing_mode.c_str()));
   JS_SetPropertyStr(context, result, "liveLocalState", JS_NewBool(context, true));
   return result;
 }

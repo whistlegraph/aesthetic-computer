@@ -158,6 +158,7 @@ struct System {
   double render_cpu_ms = 0;
   double present_ms = 0;
   std::uint32_t antialiasing_samples = 1;
+  std::string antialiasing_mode = "geometry-fxaa";
   bool dark = true;
   bool online = false;
 };

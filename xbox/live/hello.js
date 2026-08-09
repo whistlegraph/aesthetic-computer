@@ -6966,9 +6966,10 @@ function drawSpectatorQr(ink) {
     const run = runtime();
     const measuredHz = Number(run.refreshHz) || displayFps || 0;
     const aa = Math.max(1, Math.round(Number(run.antialiasingSamples) || 1));
+    const aaLabel = String(run.antialiasingMode || (aa + "x"));
     const surfaceLabel = Math.round(Number(run.width) || stageRight) + "x" +
       Math.round(Number(run.height) || viewHeight) + " @ " +
-      measuredHz.toFixed(1) + "hz  aa " + aa + "x";
+      measuredHz.toFixed(1) + "hz  aa " + aaLabel;
     const timingLabel = "frame " + (Number(run.frameMs) || 0).toFixed(2) +
       "ms  render " + (Number(run.renderCpuMs) || 0).toFixed(2) +
       "ms  present " + (Number(run.presentMs) || 0).toFixed(2) + "ms";
