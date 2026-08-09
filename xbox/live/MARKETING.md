@@ -111,9 +111,15 @@ sampled at **45% of the reel's duration**, not a fixed offset: a fixed 6 s used
 to land inside the opening countdown, so every cover was two motionless
 figures.
 
-`inspect()` also checks **audio bitrate** (≥64 kbps). That row is not really
-about the codec — a track far under Meta's 128 kbps means the match was silent,
-which means two bots never closed distance, which is a reel nobody should post.
+`inspect()` also checks **audio loudness** (volumedetect: peak above −20 dB,
+mean above −45 dB). That row is not about the codec — a dead capture measures
+around −91 dB, and a silent match is a reel nobody should post. It used to be
+a ≥64 kbps bitrate gate, until homebrew's ffmpeg 8 started spending ~21 kbps
+on loud-but-sparse synth SFX that ffmpeg 7 padded to 128 — the proxy failed
+healthy reels, so the check now asks the waveform directly. Bitrate still
+prints, as information. On macOS the mux prefers `aac_at` (AudioToolbox),
+which treats sparse content best; elsewhere it falls back to ffmpeg's native
+`aac`.
 
 Caption = one line of copy, the address, then nine hashtags. Meta allows 2200
 characters and 30 tags; a keyword dump is not a post.
@@ -138,7 +144,7 @@ On one M-series laptop, Chrome headless, nothing else running:
 
 | | |
 |---|---|
-| Capture rate | **59.8–60.0 fps** at 1080×1920 (median frame gap 16.70 ms) |
+| Capture rate | **59.8–60.0 fps** at 1080×1920 (median frame gap 16.70 ms), encoded at 60 CFR |
 | Reel length | one full round — **35–40 s** |
 | Render wall clock | **~107 s** per reel, warm-up round included |
 | Ratio | **2.4–3.0× realtime** |

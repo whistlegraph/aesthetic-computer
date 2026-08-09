@@ -47,6 +47,18 @@ export function thumbnail(reel, out, at = 0.45) {
   return existsSync(out) ? out : null;
 }
 
+// A silent match is a reel nobody should post. Ask the waveform, not the
+// encoder: ffmpeg 8 spends ~21 kbps on sparse synth SFX that ffmpeg 7 padded
+// to 128, so bitrate stopped meaning what it meant when this check was born.
+export function loudness(reel) {
+  const probe = spawnSync("ffmpeg", ["-hide_banner", "-i", reel, "-map",
+    "0:a", "-af", "volumedetect", "-f", "null", "-"], { encoding: "utf8" });
+  const text = probe.stderr || "";
+  const mean = Number(text.match(/mean_volume: (-?[\d.]+) dB/)?.[1] ?? NaN);
+  const peak = Number(text.match(/max_volume: (-?[\d.]+) dB/)?.[1] ?? NaN);
+  return { mean, peak };
+}
+
 // What Meta's spec table asks about, answered from the file itself.
 export function inspect(reel) {
   const probe = spawnSync("ffprobe", ["-v", "error", "-show_entries",
@@ -73,10 +85,20 @@ export function inspect(reel) {
     aspect: { ok: Math.abs(aspect - 9 / 16) < 0.001, value: aspect.toFixed(4) },
     duration: { ok: seconds >= 3 && seconds <= 900, value: seconds.toFixed(2) },
     fileSize: { ok: megabytes <= 300, value: `${megabytes.toFixed(1)} MB` },
-    // Meta asks for 128 kbps. A track far under it is not a codec problem —
-    // it is a silent match, which is a reel nobody should post.
-    audioBitrate: { ok: Number(audio.bit_rate) >= 64000,
+    // Meta lists 128 kbps as a ceiling, not a floor, and re-encodes
+    // everything anyway — bitrate rides along as information only. ffmpeg 8
+    // spends ~21 kbps on a loud but sparse synth track that ffmpeg 7 padded
+    // to 128, so the old >=64k gate failed healthy reels.
+    audioBitrate: { ok: Number(audio.bit_rate) > 0,
       value: `${Math.round(Number(audio.bit_rate || 0) / 1000)} kbps` },
+    // The question the bitrate gate was trying to ask: did the match make
+    // sound? A dead tee measures about -91 dB mean; a healthy round runs
+    // about -22 mean / -0.5 peak.
+    audioLoudness: (() => {
+      const { mean, peak } = loudness(reel);
+      return { ok: Number.isFinite(peak) && peak > -20 && mean > -45,
+        value: `mean ${mean} dB · peak ${peak} dB` };
+    })(),
   };
   return { width: video.width, height: video.height, seconds, megabytes, fps,
     checks, ok: Object.values(checks).every((check) => check.ok) };

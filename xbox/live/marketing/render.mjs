@@ -363,7 +363,11 @@ export async function renderReel(spec, { log = console.log } = {}) {
       "-vsync", "cfr", "-r", "60", "-c:v", "libx264", "-preset", "medium",
       "-crf", "19", "-pix_fmt", "yuv420p",
       ...(haveAudio
-        ? ["-map", "0:v", "-map", "1:a", "-c:a", "aac", "-b:a", "128k", "-ar", "48000",
+        ? ["-map", "0:v", "-map", "1:a",
+          ...(process.platform === "darwin"
+            ? ["-c:a", "aac_at", "-aac_at_mode", "cbr"]
+            : ["-c:a", "aac"]),
+          "-b:a", "128k", "-ar", "48000",
           "-ac", "2", "-shortest"]
         : ["-map", "0:v"]),
       "-movflags", "+faststart", base], { encoding: "utf8" });
