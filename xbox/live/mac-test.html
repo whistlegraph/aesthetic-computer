@@ -90,40 +90,6 @@
     /* The midi lamp is drawn by the game in its HUD status lane, not here — an
        overlay could never match the bug and the clock, which live in game
        units inside the title-safe frame. */
-    #touch-controls { --unit: clamp(50px, 12vmin, 72px); --gap: 6px;
-      position: fixed; inset: 0; z-index: 3; display: none; pointer-events: none;
-      user-select: none; -webkit-user-select: none; touch-action: none; }
-    body.touch-enabled #touch-controls { display: block; }
-    .touch-cluster { position: absolute; display: grid;
-      grid-template: repeat(3, var(--unit)) / repeat(3, var(--unit));
-      gap: var(--gap); pointer-events: none; }
-    #touch-dpad { left: max(12px, env(safe-area-inset-left));
-      bottom: max(12px, env(safe-area-inset-bottom)); }
-    #touch-actions { right: max(12px, env(safe-area-inset-right));
-      bottom: max(12px, env(safe-area-inset-bottom)); }
-    .touch-button { appearance: none; -webkit-appearance: none;
-      min-width: 0; min-height: 0; margin: 0; padding: 0;
-      border: 2px solid rgba(236, 242, 255, .72); border-radius: 50%;
-      background: rgba(8, 14, 34, .42); color: #f3f6ff;
-      font: 700 clamp(20px, 5vmin, 32px)/1 "Comic Relief", "Comic Sans MS", Arial, sans-serif;
-      text-transform: lowercase; text-shadow: 2px 3px 0 #080c18;
-      box-shadow: 0 3px 0 rgba(4, 7, 18, .65); pointer-events: auto;
-      touch-action: none; }
-    .touch-button[aria-pressed="true"] { background: rgba(255, 80, 112, .76);
-      transform: translateY(2px); box-shadow: 0 1px 0 rgba(4, 7, 18, .65); }
-    .touch-up, .touch-y { grid-area: 1 / 2; }
-    .touch-left, .touch-x { grid-area: 2 / 1; }
-    .touch-right, .touch-b { grid-area: 2 / 3; }
-    .touch-down, .touch-a { grid-area: 3 / 2; }
-    #touch-system { position: absolute; left: 50%;
-      bottom: calc(max(12px, env(safe-area-inset-bottom)) + var(--unit) * 2.35);
-      transform: translateX(-50%); display: flex; gap: 8px; pointer-events: none; }
-    #touch-system .touch-button { width: calc(var(--unit) * 1.2);
-      height: calc(var(--unit) * .55); border-radius: 999px; font-size: 14px; }
-    @media (max-height: 500px) {
-      #touch-controls { --unit: clamp(44px, 15vh, 58px); }
-      .touch-button { border-width: 1px; }
-    }
   </style>
 </head>
 <body>
@@ -137,30 +103,10 @@
     <button id="update-now" type="button">update is ready</button>
     <label id="auto-update-label"><input id="auto-update" type="checkbox">auto update</label>
   </div>
-  <div id="touch-controls" aria-label="touch controls">
-    <div id="touch-dpad" class="touch-cluster" role="group" aria-label="movement">
-      <button class="touch-button touch-up" data-key="ArrowUp" aria-label="jump" aria-pressed="false">↑</button>
-      <button class="touch-button touch-left" data-key="ArrowLeft" aria-label="left" aria-pressed="false">←</button>
-      <button class="touch-button touch-right" data-key="ArrowRight" aria-label="right" aria-pressed="false">→</button>
-      <button class="touch-button touch-down" data-key="ArrowDown" aria-label="down" aria-pressed="false">↓</button>
-    </div>
-    <div id="touch-actions" class="touch-cluster" role="group" aria-label="actions">
-      <button class="touch-button touch-y" data-key="Y" aria-label="use item" aria-pressed="false">y</button>
-      <button class="touch-button touch-x" data-key="X" aria-label="shield" aria-pressed="false">x</button>
-      <button class="touch-button touch-b" data-key="B" aria-label="punch, or swing what you hold" aria-pressed="false">b</button>
-      <button class="touch-button touch-a" data-key="A" aria-label="kick" aria-pressed="false">a</button>
-    </div>
-    <div id="touch-system" role="group" aria-label="system controls">
-      <button class="touch-button" data-key="View" aria-label="view" aria-pressed="false">view</button>
-      <button class="touch-button" data-key="Menu" aria-label="menu" aria-pressed="false">menu</button>
-    </div>
-  </div>
-
   <script>
     const canvas = document.querySelector("#screen");
     const context = canvas.getContext("2d");
     const keys = [new Set(), new Set()];
-    const touchControls = document.querySelector("#touch-controls");
     const touchPointers = new Map();
     const selectTaps = [];
     globalThis.__oskiewarTouch = { taps: selectTaps,
@@ -251,15 +197,25 @@
     // horizontal game surface to follow the browser's actual aspect ratio.
     // 16:9 therefore remains exactly 1920x1080, while 9:16 becomes 608x1080
     // instead of a letterboxed landscape image.
+    let logicalWidth = 1920;
+    let logicalHeight = 1080;
     function resizeCanvas() {
       const bounds = canvas.getBoundingClientRect();
       const width = Math.max(1, bounds.width);
       const height = Math.max(1, bounds.height);
-      const logicalHeight = 1080;
-      const logicalWidth = Math.max(480, Math.min(2880,
+      logicalHeight = 1080;
+      logicalWidth = Math.max(480, Math.min(2880,
         Math.round(logicalHeight * width / height)));
-      if (canvas.width !== logicalWidth) canvas.width = logicalWidth;
-      if (canvas.height !== logicalHeight) canvas.height = logicalHeight;
+      const density = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
+      const pixelWidth = Math.round(logicalWidth * density);
+      const pixelHeight = Math.round(logicalHeight * density);
+      if (canvas.width !== pixelWidth || canvas.height !== pixelHeight) {
+        canvas.width = pixelWidth;
+        canvas.height = pixelHeight;
+        context.setTransform(density, 0, 0, density, 0, 0);
+        context.imageSmoothingEnabled = true;
+        context.imageSmoothingQuality = "high";
+      }
     }
     resizeCanvas();
     addEventListener("resize", resizeCanvas, { passive: true });
@@ -269,9 +225,9 @@
       new ResizeObserver(resizeCanvas).observe(document.documentElement);
 
     function gameView() {
-      return { width: canvas.width, height: canvas.height,
-        aspect: canvas.width / canvas.height,
-        orientation: canvas.width < canvas.height ? "portrait" : "landscape" };
+      return { width: logicalWidth, height: logicalHeight,
+        aspect: logicalWidth / logicalHeight,
+        orientation: logicalWidth < logicalHeight ? "portrait" : "landscape" };
     }
 
     function ensureAudio() {
@@ -347,7 +303,7 @@
 
     function wipe(...ink) {
       context.fillStyle = color(ink);
-      context.fillRect(0, 0, canvas.width, canvas.height);
+      context.fillRect(0, 0, logicalWidth, logicalHeight);
     }
 
     function box(x, y, width, height, ...ink) {
@@ -834,30 +790,29 @@
       const active = touchPointers.get(pointerId);
       if (!active) return;
       touchPointers.delete(pointerId);
-      active.button.setAttribute("aria-pressed", "false");
       if (![...touchPointers.values()].some((item) => item.key === active.key))
         keys[0].delete(active.key);
     }
-    touchControls.addEventListener("pointerdown", (event) => {
-      const button = event.target.closest("button[data-key]");
-      if (!button) return;
-      event.preventDefault();
-      dismissTitle();
-      button.setPointerCapture?.(event.pointerId);
-      const key = button.dataset.key;
-      touchPointers.set(event.pointerId, { button, key });
-      button.setAttribute("aria-pressed", "true");
-      keys[0].add(key);
-      ensureAudio();
-      globalThis.__oskiewarSfx?.unlock().catch(() => {});
-    });
-    for (const type of ["pointerup", "pointercancel", "lostpointercapture"])
-      touchControls.addEventListener(type, (event) => releaseTouch(event.pointerId));
-    touchControls.addEventListener("contextmenu", (event) => event.preventDefault());
     function canvasPoint(event) {
       const bounds = canvas.getBoundingClientRect();
-      return { x: (event.clientX - bounds.left) * canvas.width / bounds.width,
-        y: (event.clientY - bounds.top) * canvas.height / bounds.height };
+      return { x: (event.clientX - bounds.left) * logicalWidth / bounds.width,
+        y: (event.clientY - bounds.top) * logicalHeight / bounds.height };
+    }
+    function touchKeyAt(point) {
+      if (!touchEnabled) return null;
+      const spread = 64;
+      const cy = logicalHeight - 140;
+      const clusters = [
+        [130, [[0, -1, "ArrowUp"], [0, 1, "ArrowDown"],
+          [-1, 0, "ArrowLeft"], [1, 0, "ArrowRight"]]],
+        [logicalWidth - 130, [[0, -1, "Y"], [0, 1, "A"],
+          [-1, 0, "X"], [1, 0, "B"]]],
+      ];
+      for (const [cx, buttons] of clusters)
+        for (const [dx, dy, key] of buttons)
+          if (Math.hypot(point.x - (cx + dx * spread),
+              point.y - (cy + dy * spread)) <= 40) return key;
+      return null;
     }
     canvas.addEventListener("pointermove", (event) => {
       Object.assign(globalThis.__oskiewarTouch.pointer,
@@ -868,6 +823,17 @@
     });
     canvas.addEventListener("pointerdown", (event) => {
       const point = canvasPoint(event);
+      const touchKey = touchKeyAt(point);
+      if (touchKey) {
+        event.preventDefault();
+        dismissTitle();
+        canvas.setPointerCapture?.(event.pointerId);
+        touchPointers.set(event.pointerId, { key: touchKey });
+        keys[0].add(touchKey);
+        ensureAudio();
+        globalThis.__oskiewarSfx?.unlock().catch(() => {});
+        return;
+      }
       if (tapTitle(point)) {
         event.preventDefault();
         return;
@@ -878,6 +844,9 @@
       globalThis.__oskiewarSfx?.unlock().catch(() => {});
       event.preventDefault();
     });
+    for (const type of ["pointerup", "pointercancel", "lostpointercapture"])
+      canvas.addEventListener(type, (event) => releaseTouch(event.pointerId));
+    canvas.addEventListener("contextmenu", (event) => event.preventDefault());
     addEventListener("blur", () => {
       keys.forEach((held) => held.clear());
       for (const pointerId of touchPointers.keys()) releaseTouch(pointerId);

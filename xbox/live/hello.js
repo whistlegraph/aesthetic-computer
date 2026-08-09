@@ -2550,9 +2550,11 @@ function quantizedInput(pad, suppressed = []) {
 function remember(player, button) {
   player.lastButton = buttonLabel(button);
   player.lastButtonAt = runtime().monotonicUs;
+  const command = { A: "K", B: "P", X: "S", Y: "I",
+    LeftShoulder: "I", RightShoulder: "I" }[button] || player.lastButton;
   if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight",
       "A", "B", "X", "Y", "LeftShoulder", "RightShoulder"].includes(button))
-    recordCommand(player, player.lastButton, player.lastButtonAt);
+    recordCommand(player, command, player.lastButtonAt);
   telemetry("FIGHT_BUTTON", player.name + " " + player.lastButton);
 }
 
@@ -5225,7 +5227,7 @@ function controlLocale() {
     replayPaused: "PAUSED   A PLAY   LEFT RIGHT SCRUB   B EXIT",
     replayPlaying: "A PAUSE   LEFT RIGHT SCRUB   B EXIT",
     replay: "Y REPLAY",
-    combat: "A KICK   B PUNCH   X SHIELD   Y/LB/RB USE ITEM   UP JUMP",
+    combat: "A KICK   B PUNCH   X SHIELD   Y USE ITEM   UP JUMP",
   };
 }
 
@@ -5242,7 +5244,7 @@ function combatKeys() {
     ["X", "SHIELD", "X"], ["Y", "USE ITEM", "Y"]];
   return [
     ["A", "KICK", "A"], ["B", "PUNCH", "B"], ["X", "SHIELD", "X"],
-    ["Y/LB/RB", "USE ITEM", "Y"], ["UP", "JUMP", "ArrowUp"]];
+    ["Y", "USE ITEM", "Y"], ["STICK_UP", "JUMP", "ArrowUp"]];
 }
 
 // What the buttons do, named on the way into a round. B changes meaning with
@@ -5256,7 +5258,8 @@ function combatLegendKeys(player) {
 
 function combatLegend(player) {
   return combatLegendKeys(player)
-    .map(([cap, action]) => cap + " " + action).join("   ");
+    .map(([cap, action]) => (cap === "STICK_UP" ? "STICK" : cap) +
+      " " + action).join("   ");
 }
 
 function selectionControlKeys() {
@@ -5301,7 +5304,8 @@ function replayOfferKeys() {
 const padButtonInk = {
   A: [96, 200, 80], B: [235, 78, 78], X: [86, 148, 235], Y: [240, 198, 60],
 };
-const padGlyph = { UP: "^", DOWN: "v", LEFT: "<", RIGHT: ">" };
+const padGlyph = { UP: "↑", DOWN: "↓", LEFT: "←", RIGHT: "→" };
+const padGlyphLift = { X: .1, UP: .06, DOWN: .06, LEFT: .06, RIGHT: .06 };
 const padButtonDiameter = (size) => Math.round(size * .78) * 2;
 function drawPadButton(label, x, y, size, pressed, fade = 1) {
   const radius = Math.round(size * .78);
@@ -5319,9 +5323,19 @@ function drawPadButton(label, x, y, size, pressed, fade = 1) {
   if (pressed) filledRing(cx, cy, radius, radius - 3, veil([245, 248, 255]));
   const text = padGlyph[label] || label;
   const glyphSize = Math.round(size * .82);
+  if (label === "STICK_UP") {
+    const stem = Math.max(2, Math.round(radius * .12));
+    const knobY = cy - radius * .32;
+    filledCapsule(cx, cy + radius * .34, cx, knobY, stem,
+      veil([12, 14, 26]));
+    filledRing(cx, knobY, radius * .24, radius * .11, veil([12, 14, 26]));
+    return radius * 2;
+  }
+  const opticalLift = glyphSize * (padGlyphLift[label] || 0);
   typeWrite(text,
     Math.round(cx - handleWidth(text, glyphSize) / 2),
-    Math.round(cy - glyphSize * .52), glyphSize, ...veil([12, 14, 26]));
+    Math.round(cy - glyphSize * .52 - opticalLift), glyphSize,
+    ...veil([12, 14, 26]));
   return radius * 2;
 }
 
@@ -5358,6 +5372,35 @@ function drawControlLegend(ink) {
   drawKeycapRun(entries, viewCenterX() - keycapRunWidth(entries, size) / 2,
     Math.min(viewHeight - 104, stageBottom + 14), size,
     inputPads[0]?.down || [], ink);
+}
+
+// Touch is part of the game surface, not a DOM overlay. One drawn d-pad and
+// four action discs share the exact centers used by mac-test's canvas hit zones.
+function drawTouchControls() {
+  if (typeof capabilities !== "function" ||
+      capabilities().inputFamily !== "touch" || capabilities().socialPreview)
+    return;
+  const held = inputPads[0]?.down || [];
+  const spread = 64;
+  const cy = viewHeight - 140;
+  const dpadX = 130;
+  const idle = mixColor([58, 66, 86], [170, 180, 196], visualTheme.light);
+  const live = mixColor([110, 220, 150], [38, 128, 88], visualTheme.light);
+  const arm = 38;
+  const thick = 18;
+  const directions = [[0, -1, "ArrowUp"], [0, 1, "ArrowDown"],
+    [-1, 0, "ArrowLeft"], [1, 0, "ArrowRight"]];
+  for (const [dx, dy, key] of directions)
+    filledCapsule(dpadX + dx * 8, cy + dy * 8,
+      dpadX + dx * arm, cy + dy * arm, thick,
+      held.includes(key) ? live : idle);
+  filledDisc(dpadX, cy, thick, held.some((key) => key.startsWith("Arrow"))
+    ? live : idle);
+  const actionX = viewWidth() - 130;
+  for (const [dx, dy, key] of [[0, -1, "Y"], [0, 1, "A"],
+      [-1, 0, "X"], [1, 0, "B"]])
+    drawPadButton(key, actionX + dx * spread - 27,
+      cy + dy * spread - 25, 35, held.includes(key));
 }
 
 function keycapRunWidth(entries, size) {
@@ -5832,9 +5875,9 @@ function drawPlayerStats(player, side, t) {
   const contentWidth = Math.max(...lines.map((text) => handleWidth(text, size)));
   const width = contentWidth + padding * 2;
   const height = playerStatPanelHeight();
-  const bounds = runnerScreenBounds(player, t);
+  const handle = playerHandleLayout(player, side);
   const x = side === 0 ? safe.left : safe.right - width;
-  const y = Math.max(safe.top + hudTypeSize + 16, bounds.top - height - 12);
+  const y = handle.y - height - 12;
   const face = mixColor([10, 14, 30], [226, 235, 242], visualTheme.light);
   const edge = mixColor(player.color, [28, 34, 48], visualTheme.light * .45);
   box(x + 4, y + 5, width, height, ...runShadow(edge));
@@ -5885,26 +5928,20 @@ function commandFade(index, count, idle) {
 }
 
 function drawCommandStream(player, side) {
-  const glyph = { LEFT: "<", RIGHT: ">", UP: "^", DOWN: "v" };
+  const glyph = { LEFT: "←", RIGHT: "→", UP: "↑", DOWN: "↓" };
   const buttonFor = { LEFT: "ArrowLeft", RIGHT: "ArrowRight",
-    UP: "ArrowUp", DOWN: "ArrowDown", A: "A", B: "B", X: "X", Y: "Y",
-    LB: "LeftShoulder", RB: "RightShoulder" };
+    UP: "ArrowUp", DOWN: "ArrowDown", K: "A", P: "B", S: "X",
+    I: ["Y", "LeftShoulder", "RightShoulder"] };
   const now = runtime().monotonicUs;
   const idle = now - (player.commandStream.at(-1)?.at || now);
   const count = player.commandStream.length;
   const held = inputPads[player.pad]?.down || [];
-  const keyboard = typeof capabilities === "function" &&
-    capabilities().inputFamily === "keyboard";
-  const keyboardCaps = player.pad === 0
-    ? { LEFT: "A", RIGHT: "D", UP: "W", DOWN: "S",
-      A: "SPACE", B: "ENTER", X: "SHIFT", Y: "ALT" }
-    : { LEFT: "LEFT", RIGHT: "RIGHT", UP: "UP", DOWN: "DOWN",
-      A: "K", B: "L", X: ";", Y: "'" };
   const entries = player.commandStream.map((entry, index) => ({ ...entry,
-    text: keyboard ? keyboardCaps[entry.label]
-      : glyph[entry.label] || entry.label,
+    text: glyph[entry.label] || entry.label,
     fade: commandFade(index, count, idle),
-    held: held.includes(buttonFor[entry.label]),
+    held: Array.isArray(buttonFor[entry.label])
+      ? buttonFor[entry.label].some((button) => held.includes(button))
+      : held.includes(buttonFor[entry.label]),
   })).filter((entry) => entry.fade > .01);
   // A held button lights only its newest appearance — not every earlier
   // press of the same button still sitting in the buffer's history.
@@ -5922,7 +5959,7 @@ function drawCommandStream(player, side) {
   for (const entry of entries) {
     // A disc is a disc: pad rows wrap by count, not by how many letters the
     // label would have spelled — eight buttons to a line, not four.
-    const cost = keyboard ? entry.text.length : 1;
+    const cost = 1;
     const nextLength = characters + (current.length ? 1 : 0) + cost;
     if (current.length && nextLength > commandStreamColumns) {
       lines.push(current);
@@ -5931,7 +5968,7 @@ function drawCommandStream(player, side) {
     }
     current.push(entry);
     characters += (current.length > 1 ? 1 : 0) +
-      (keyboard ? entry.text.length : 1);
+      1;
   }
   if (current.length) lines.push(current);
   // A deep buffer on a wide-text platform can outgrow the corner it lives in.
@@ -5948,23 +5985,18 @@ function drawCommandStream(player, side) {
   const handle = playerHandleLayout(player, side);
   const inventoryOffset = player.gunAmmo > 0 || player.grenadeAmmo > 0
     ? Math.round(hudTypeSize * .62) + 8 : 0;
-  const firstY = keyboard
-    ? safe.top + hudTypeSize + 12
-    : handle.y - statStackHeight() - inventoryOffset -
-      lines.length * lineHeight - 11;
+  const firstY = handle.y - statStackHeight() - inventoryOffset -
+    lines.length * lineHeight - 11;
   for (let row = 0; row < lines.length; row++) {
     const lineEntries = lines[row];
     const capPad = Math.round(size * .42);
     const width = lineEntries.reduce((sum, entry, index) => sum +
-      (keyboard ? handleWidth(entry.text, size) + capPad * 2
-        : padButtonDiameter(size)) + (index ? 5 : 0), 0);
+      padButtonDiameter(size) + (index ? 5 : 0), 0);
     let cursor = side === 0 ? safe.left + 8 : safe.right - 8 - width;
     const y = firstY + row * lineHeight;
     for (const entry of lineEntries) {
-      cursor += (keyboard
-        ? drawKeycap(entry.text, cursor, y, size, entry.held, entry.fade)
-        : drawPadButton(entry.label, cursor, y, size, entry.held,
-          entry.fade)) + 5;
+      cursor += drawPadButton(entry.label, cursor, y, size, entry.held,
+        entry.fade) + 5;
     }
   }
 }
@@ -6760,8 +6792,8 @@ function pacificTimeLabel(unixMs) {
 // they read as a set: same cell, same row, in the title-safe frame just left of
 // the wall clock. The lane is right-aligned because the clock and the round QR
 // grow leftward from the same edge.
-const statusCell = 26;
 const statusGap = 6;
+const statusCellSize = () => shellMode === "GAME" && debugHitboxes ? 42 : 26;
 
 function hudStatusIcons() {
   const icons = [];
@@ -6775,7 +6807,7 @@ function hudStatusIcons() {
 function hudClockBox(unixMs) {
   const safe = hudSafeRect();
   const label = pacificTimeLabel(unixMs);
-  const size = Math.round(hudTypeSize * .62);
+  const size = hudTypeSize;
   const qrBox = spectatorQrBox();
   const right = qrBox ? qrBox.left - 14 : safe.right;
   return { label, size, right, left: right - handleWidth(label, size) };
@@ -6784,6 +6816,7 @@ function hudClockBox(unixMs) {
 function hudStatusTray(clock) {
   const icons = hudStatusIcons();
   if (!icons.length) return null;
+  const statusCell = statusCellSize();
   const right = clock.left - 14;
   const width = icons.length * statusCell + (icons.length - 1) * statusGap;
   return { icons, right, left: right - width, top: hudSafeRect().top,
@@ -6805,6 +6838,7 @@ function drawStatusPiano(x, y, lit) {
 function drawHudStatusTray(clock, ink, unixMs) {
   const tray = hudStatusTray(clock);
   if (!tray) return;
+  const statusCell = statusCellSize();
   // Debug draws the lane it lives in, so the zone is visible rather than
   // inferred from where the icons happen to sit.
   if (debugHitboxes) {
@@ -6818,24 +6852,24 @@ function drawHudStatusTray(clock, ink, unixMs) {
     const x = tray.left + index * (statusCell + statusGap) + statusCell / 2;
     const y = tray.top + tray.height / 2;
     if (name === "midi") drawStatusPiano(x, y, lit);
-    else drawDebugBug(x, y + 2);
+    else drawDebugBug(x, y + 2, statusCell / 26);
   });
 }
 
-function drawDebugBug(x, y) {
+function drawDebugBug(x, y, scale = 1) {
   const shell = [255, 86, 126];
   const detail = [22, 12, 34];
-  filledDisc(x, y + 2, 8, shell);
-  filledDisc(x, y - 6, 5, shell);
-  line(x, y - 7, x - 6, y - 13, 2, ...shell);
-  line(x, y - 7, x + 6, y - 13, 2, ...shell);
-  line(x - 5, y, x - 11, y - 4, 2, ...shell);
-  line(x + 5, y, x + 11, y - 4, 2, ...shell);
-  line(x - 5, y + 5, x - 11, y + 9, 2, ...shell);
-  line(x + 5, y + 5, x + 11, y + 9, 2, ...shell);
-  line(x, y - 1, x, y + 9, 2, ...detail);
-  filledDisc(x - 2, y - 7, 1.2, detail);
-  filledDisc(x + 2, y - 7, 1.2, detail);
+  filledDisc(x, y + 2 * scale, 8 * scale, shell);
+  filledDisc(x, y - 6 * scale, 5 * scale, shell);
+  line(x, y - 7 * scale, x - 6 * scale, y - 13 * scale, 2 * scale, ...shell);
+  line(x, y - 7 * scale, x + 6 * scale, y - 13 * scale, 2 * scale, ...shell);
+  line(x - 5 * scale, y, x - 11 * scale, y - 4 * scale, 2 * scale, ...shell);
+  line(x + 5 * scale, y, x + 11 * scale, y - 4 * scale, 2 * scale, ...shell);
+  line(x - 5 * scale, y + 5 * scale, x - 11 * scale, y + 9 * scale, 2 * scale, ...shell);
+  line(x + 5 * scale, y + 5 * scale, x + 11 * scale, y + 9 * scale, 2 * scale, ...shell);
+  line(x, y - scale, x, y + 9 * scale, 2 * scale, ...detail);
+  filledDisc(x - 2 * scale, y - 7 * scale, 1.2 * scale, detail);
+  filledDisc(x + 2 * scale, y - 7 * scale, 1.2 * scale, detail);
 }
 
 // The round QR owns the top-right corner whenever it is up, so the HUD clock
@@ -7198,6 +7232,7 @@ function gamePaint() {
     if (transitionAge >= 0) return;
   }
   drawSpectatorQr(titleInk);
+  drawTouchControls();
 }
 
 function boot() {

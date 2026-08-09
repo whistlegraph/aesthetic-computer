@@ -175,11 +175,11 @@ test("desktop Space kicks and Enter punches whatever the fighter carries", () =>
   assert.equal(fight.grenades.length, 0);
 });
 
-test("web touch labels follow the current combat mapping", () => {
-  assert.match(webShell, /data-key="A" aria-label="kick"/);
-  assert.match(webShell, /data-key="B" aria-label="punch, or swing what you hold"/);
-  assert.match(webShell, /data-key="X" aria-label="shield"/);
-  assert.match(webShell, /data-key="Y" aria-label="use item"/);
+test("mobile controls live in the canvas rather than DOM buttons", () => {
+  assert.doesNotMatch(webShell, /id="touch-controls"|data-key=/);
+  assert.match(webShell, /function touchKeyAt\(point\)/);
+  assert.match(source, /function drawTouchControls\(\)/);
+  assert.match(source, /drawTouchControls\(\);/);
 });
 
 test("every combat button is reachable from a keyboard on both pads", () => {
@@ -306,7 +306,7 @@ test("a detected pad swaps the round legend onto gamepad wording", () => {
   assert.equal(host.capabilities().inputFamily, "xbox");
   const { fight } = createFight(false, false, "xbox-uwp");
   assert.equal(fight.combatLegend(fight.players[0]),
-    "A KICK   B PUNCH   X SHIELD   Y/LB/RB USE ITEM   UP JUMP");
+    "A KICK   B PUNCH   X SHIELD   Y USE ITEM   STICK JUMP");
 });
 
 test("every instructional keyboard key uses the shared gray keycap renderer", () => {
@@ -321,11 +321,9 @@ test("every instructional keyboard key uses the shared gray keycap renderer", ()
   assert.doesNotMatch(source, /typeWrite\(replayControl, viewCenterX/);
   const streamSource = source.slice(source.indexOf("function drawCommandStream"),
     source.indexOf("function drawFightIntro"));
-  assert.match(streamSource, /A: "SPACE", B: "ENTER", X: "SHIFT", Y: "ALT"/);
-  // Keyboard keeps keycaps; every other family draws controller discs
-  // through the same seam.
-  assert.match(streamSource,
-    /drawKeycap\(entry\.text, cursor, y, size, entry\.held, entry\.fade\)/);
+  assert.match(streamSource, /LEFT: "←", RIGHT: "→", UP: "↑", DOWN: "↓"/);
+  assert.match(streamSource, /K: "A", P: "B", S: "X"/);
+  assert.doesNotMatch(streamSource, /keyboardCaps|drawKeycap\(entry\.text/);
   assert.match(streamSource,
     /drawPadButton\(entry\.label, cursor, y, size, entry\.held,/);
 });
@@ -360,7 +358,7 @@ test("the round intro names what each button does", () => {
 test("web canvas forwards touch coordinates to the fighter selector", () => {
   assert.match(webShell, /globalThis\.__oskiewarTouch = \{ taps: selectTaps,/);
   assert.match(webShell, /selectTaps\.push\(point\)/);
-  assert.match(webShell, /canvas\.width \/ bounds\.width/);
+  assert.match(webShell, /logicalWidth \/ bounds\.width/);
 });
 
 test("web selector uses the AC precise cursor and mouse hover bridge", () => {
@@ -387,6 +385,8 @@ test("web relayout observes live viewport element resizing", () => {
   assert.match(webShell,
     /new ResizeObserver\(resizeCanvas\)\.observe\(document\.documentElement\)/);
   assert.match(source, /syncGameView\(\);/);
+  assert.match(webShell, /window\.devicePixelRatio \|\| 1/);
+  assert.match(webShell, /context\.setTransform\(density, 0, 0, density, 0, 0\)/);
 });
 
 test("update-ready panel offers a persisted auto-update checkbox", () => {
@@ -1049,10 +1049,11 @@ test("debug HUD shows FPS without repeating oskiewar beside the round QR", () =>
 // by the tray rather than by a corner of its own.
 test("debug starts hidden and shows its bug in the HUD status lane", () => {
   assert.match(source, /let debugHitboxes = false/);
-  assert.match(source, /function drawDebugBug\(x, y\)/);
+  assert.match(source, /function drawDebugBug\(x, y, scale = 1\)/);
+  assert.match(source, /statusCellSize = \(\) => shellMode === "GAME" && debugHitboxes \? 42 : 26/);
   assert.match(source, /if \(debugHitboxes\) icons\.push\("bug"\)/);
   assert.match(source,
-    /if \(name === "midi"\) drawStatusPiano\(x, y, lit\);\n\s*else drawDebugBug\(x, y \+ 2\)/);
+    /if \(name === "midi"\) drawStatusPiano\(x, y, lit\);\n\s*else drawDebugBug\(x, y \+ 2, statusCell \/ 26\)/);
   assert.doesNotMatch(source, /const y = safe\.bottom - 18/);
 });
 
@@ -2997,18 +2998,14 @@ test("player command streams retain recent directions and buttons", () => {
   pads[0].down = ["ArrowRight", "A"];
   tick();
   assert.deepEqual(fight.players[0].commandStream.map((entry) => entry.label),
-    ["RIGHT", "A"]);
+    ["RIGHT", "K"]);
   assert.match(source, /function drawCommandStream\(player, side\)/);
   assert.match(source,
-    /const glyph = \{ LEFT: "<", RIGHT: ">", UP: "\^", DOWN: "v" \}/);
+    /const glyph = \{ LEFT: "←", RIGHT: "→", UP: "↑", DOWN: "↓" \}/);
   assert.match(source, /fade: commandFade\(index, count, idle\)/);
   assert.match(source, /nextLength > commandStreamColumns/);
-  // Keyboard reads from the top corners by the clocks; a controller reads
-  // bottom-up from above its own nameplate.
-  assert.match(source, /\? safe\.top \+ hudTypeSize \+ 12/);
-  assert.match(source,
-    /: handle\.y - statStackHeight\(\) - inventoryOffset -/);
-  assert.match(source, /held: held\.includes\(buttonFor\[entry\.label\]\)/);
+  assert.match(source, /const firstY = handle\.y - statStackHeight\(\) - inventoryOffset -/);
+  assert.match(source, /buttonFor\[entry\.label\]\.some\(\(button\) => held\.includes\(button\)\)/);
   // The held tint lives in the pad-button renderer now, not a local palette.
   assert.match(source, /padButtonInk\[label\]/);
   assert.match(source, /const size = hudTypeSize/);
@@ -3198,8 +3195,8 @@ test("player animation state reads as a boxed syntax diagram", () => {
   assert.match(source, /const active = step <= Math\.min\(count - 1, animation\.step\)/);
   assert.match(source,
     /drawPlayerStats\(players\[0\], 0, t\);\n    drawPlayerStats\(players\[1\], 1, t\);/);
-  assert.match(source, /const bounds = runnerScreenBounds\(player, t\)/);
-  assert.match(source, /bounds\.top - height - 12/);
+  assert.match(source, /const handle = playerHandleLayout\(player, side\)/);
+  assert.match(source, /handle\.y - height - 12/);
   // The read-out left the world; nothing labels the fighters any more.
   assert.doesNotMatch(source.slice(source.indexOf("function drawDebugHitboxes"),
     source.indexOf("function drawPlayerHud")), /typeWrite/);
