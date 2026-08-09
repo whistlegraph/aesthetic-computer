@@ -603,6 +603,10 @@ let lastCountdownSecond = -1;
 // The intro's own clock: which "3, 2, 1" second last rang, and whether the
 // round-open accent has fired. -1 means the accent is still owed.
 let lastIntroSecond = 0;
+// The scored tail's clocks: the next heartbeat of the killcam dwell, and
+// whether the result card has had its sting.
+let resultPulseAt = 0;
+let resultCardStung = false;
 let roundOverAt = 0;
 let roundResult = "";
 let matchOver = false;
@@ -1588,6 +1592,8 @@ function beginSelect(now) {
   roundElapsedUs = 0;
   lastCountdownSecond = -1;
   lastIntroSecond = 0;
+  resultPulseAt = 0;
+  resultCardStung = false;
   roundStartedAt = now;
   for (const player of players) {
     player.roundWins = 0;
@@ -2034,6 +2040,8 @@ function gameBoot() {
   roundElapsedUs = 0;
   lastCountdownSecond = -1;
   lastIntroSecond = 0;
+  resultPulseAt = 0;
+  resultCardStung = false;
   emitSignal("hello", -1, 1, 0);
   shellMode = "MENU";
   titleTransitionAt = null;
@@ -2183,6 +2191,8 @@ function resetRound(now, resetMatch = false) {
   roundElapsedUs = 0;
   lastCountdownSecond = -1;
   lastIntroSecond = 0;
+  resultPulseAt = 0;
+  resultCardStung = false;
   lastSimAt = now;
   roundStartedAt = now;
   rollWind(now);
@@ -4064,6 +4074,21 @@ function gameSim() {
   recordReplayCommands(now, inputPads);
   publishSpectator(now);
   if (roundResult) {
+    // The scored tail. The killcam dwell used to be the reel's quietest
+    // seconds under its most dramatic frames, so the dwell keeps a slow
+    // heartbeat and the result card lands with a sting of its own. Voice on
+    // the drum channel, record on unrouted signal names, as everywhere.
+    if (!resultPulseAt) resultPulseAt = roundOverAt + 900000;
+    if (now >= resultPulseAt) {
+      resultPulseAt = now + 1050000;
+      playDrum("kick", .3, 0);
+      emitSignal("result-pulse", -1, 0, 0);
+    }
+    if (!resultCardStung && now - roundOverAt >= 1100000) {
+      resultCardStung = true;
+      playDrum("bell", .95, 0);
+      emitSignal("result-card", -1, roundResult === "TIE" ? 0 : 1, 0);
+    }
     if (INSTANT_REPLAY && instantReplay) {
       updateInstantReplay(now, dt);
       return;
@@ -4096,8 +4121,11 @@ function gameSim() {
       (introDurationUs - (now - roundStartedAt)) / 1000000);
     if (introSecond !== lastIntroSecond) {
       lastIntroSecond = introSecond;
+      // playDrum is the voice, the signal is the record — the "countdown"
+      // name is deliberately not in the sfx routes, or the web would voice
+      // every bell twice. value2 marks these as the intro's.
       playDrum("bell", .72 + (3 - introSecond) * .12, 0);
-      emitSignal("countdown-bell", -1, introSecond, 0);
+      emitSignal("countdown", -1, introSecond, 1);
     }
     updateCameraDoll(dt, now);
     captureFrameTelemetry(now);
@@ -6793,36 +6821,14 @@ function gamePaint() {
   const platformFar = 520;
   const ledgeLeft = Math.max(platformLeft, spanLeft);
   const ledgeRight = Math.min(platformRight, spanRight);
-  if (ledgeLeft < ledgeRight) {
-    // A slab, not a sheet of paper: the walkable top, then a front face and
-    // two end caps falling away beneath it, each a step darker the way the
-    // arena walls already shade. The fighters still stand on platformY —
-    // the body hangs below the surface, so nothing about play moves.
-    const platformDepth = 190;
-    const under = platformY + platformDepth;
-    const face = mixColor([16, 20, 34], [174, 160, 134], visualTheme.light);
-    const cap = mixColor([12, 15, 27], [148, 135, 112], visualTheme.light);
-    worldQuad(
-      { x: ledgeLeft, y: platformY, z: platformNear },
-      { x: ledgeRight, y: platformY, z: platformNear },
-      { x: ledgeRight, y: platformY, z: platformFar },
-      { x: ledgeLeft, y: platformY, z: platformFar }, platformColor);
-    worldQuad(
-      { x: ledgeLeft, y: platformY, z: platformNear },
-      { x: ledgeLeft, y: under, z: platformNear },
-      { x: ledgeRight, y: under, z: platformNear },
-      { x: ledgeRight, y: platformY, z: platformNear }, face);
-    worldQuad(
-      { x: ledgeLeft, y: platformY, z: platformFar },
-      { x: ledgeLeft, y: under, z: platformFar },
-      { x: ledgeLeft, y: under, z: platformNear },
-      { x: ledgeLeft, y: platformY, z: platformNear }, cap);
-    worldQuad(
-      { x: ledgeRight, y: platformY, z: platformNear },
-      { x: ledgeRight, y: under, z: platformNear },
-      { x: ledgeRight, y: under, z: platformFar },
-      { x: ledgeRight, y: platformY, z: platformFar }, cap);
-  }
+  // The platform wants to be a slab, but the stage paints in order with no
+  // depth buffer — the volume's faces landed over the fighters on console.
+  // Back to the plane until the volume can be drawn behind them properly.
+  if (ledgeLeft < ledgeRight) worldQuad(
+    { x: ledgeLeft, y: platformY, z: platformNear },
+    { x: ledgeRight, y: platformY, z: platformNear },
+    { x: ledgeRight, y: platformY, z: platformFar },
+    { x: ledgeLeft, y: platformY, z: platformFar }, platformColor);
   const shadowInk = mixColor([3, 5, 14], [92, 99, 101],
     visualTheme.light * .72);
   for (const player of players)
