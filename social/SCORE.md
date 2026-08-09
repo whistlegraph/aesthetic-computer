@@ -95,6 +95,7 @@ Everything below already exists in the monorepo. This is the map; `/social` is t
 | `portraits/jeffrey/bin/ig-social-graph.py` + `ig-social-*.mjs` | Follower graph build → art-world classify → query → report (social-graph suite) |
 | `silo/server.mjs` | Backend IG client (instagram-private-api), persistent `insta-sessions` in MongoDB |
 | `xbox/live/marketing/reel.mjs` | **@oskiewar reel factory** — seeded gameplay → 1080×1920 reel → staged queue; official Graph publish behind `--live` |
+| `toolchain/instagram/ig.mjs` | Zero-dep official-API CLI (graph.instagram.com) — `--as oskiewar\|whistlegraph\|aesthetic`: me/quota/token refresh (monthly cron via `refresh --all`)/reel post/insights/snapshot; creds `vault/<account>/instagram.env` |
 
 Creds: `vault/silo/instagram.env`, `vault/silo/.env`. Sessions: `portraits/jeffrey/sessions/`. Archives: `portraits/jeffrey/ig-archive/<account>/`.
 
