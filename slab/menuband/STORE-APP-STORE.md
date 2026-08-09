@@ -42,8 +42,9 @@ sandbox-safe TrackDrum companion bridge and the focused percussion/slider UX.
 **PUBLISHED — v1.6.9 (build 169), 2026-08-07.** App Store Connect reports
 `READY_FOR_SALE`.
 
-**CANDIDATE — v1.6.10 (build 170), 2026-08-09.** Fixes TrackDrum focus
-activation, physical-click focus loss, and false Command-gesture activation.
+**SUBMITTED — v1.6.10 (build 170), 2026-08-09.** App Store Connect reports
+`WAITING_FOR_REVIEW`. Fixes TrackDrum focus activation, physical-click focus
+loss, and false Command-gesture activation. Automatic release is enabled.
 
 ### Review log
 
