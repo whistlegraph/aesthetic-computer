@@ -21,6 +21,22 @@ anonymous persists, so there is no guest-to-account merge to write.
 
 ## Ready to build
 
+**Self-play fighters stop closing distance after the opening exchange.**
+Since the morning movement commits (117a2a407 "Give a landed fighter their
+legs back", cc509c1b0 and siblings), every self-play round plays the same
+way: a real exchange in the first ~7 seconds, then both bots plant and hold
+ground for the remaining ~28 while their input logs keep firing attacks out
+of range. Four out of four reel-factory renders on 2026-08-09 ended
+"match over · tie · 33s" — Friday's builds produced mid-round clashes and
+KOs from the same seeds' slots. Storyboard evidence: frames at 10/15/20/25/30s
+show identical standing poses while keycaps churn. The reel factory
+(xbox/live/marketing/) depends on lively self-play; its pipeline is verified
+healthy, so quiet reels trace here, not to capture. *Verify:* render
+`node xbox/live/marketing/reel.mjs --slots 1` and watch the middle third of
+the reel — fighters should close, clash, and someone should usually win
+before the clock does; ties should be the exception again, not 4/4.
+
+
 **Harden the piece against a negative clock.** `App.cpp`'s int64 QPC overflow
 caused four separate failures in one day: a title screen that would not
 advance, an input log that went silent, a crash in the beach ball's palette,
