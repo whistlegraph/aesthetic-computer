@@ -59,11 +59,15 @@ async function direct() {
   const [knot, mirror] = await Promise.all([tip("origin"), tip("github")]);
   const services = await Promise.all(FLEET.map(async ({ service, health }) => {
     try {
+      // A degraded service still answers with its sha (silo returns 503 when
+      // mongo is unreachable), so read the body before judging the status —
+      // otherwise "unhealthy" would erase "and here is what it is running".
       const r = await fetch(health, { signal: AbortSignal.timeout(8000) });
-      if (!r.ok) return { service, sha: null, note: `HTTP ${r.status}` };
-      const body = await r.json();
+      const body = await r.json().catch(() => null);
       const sha = typeof body?.sha === "string" ? body.sha : null;
-      return { service, sha, note: sha ? undefined : "no provenance yet" };
+      if (!sha) return { service, sha: null, note: `HTTP ${r.status}` };
+      return { service, sha, dirty: body?.dirty === true,
+        degraded: r.ok ? undefined : `degraded (HTTP ${r.status})` };
     } catch (e) {
       return { service, sha: null,
         note: e.name === "TimeoutError" ? "timeout" : "unreachable" };
@@ -95,7 +99,9 @@ for (const s of report.services) {
   if (mine === null) { s.current = null; s.note ??= "history unavailable"; continue; }
   s.behind = Number(mine);
   s.unrelated = Number(total ?? 0) - s.behind;
-  s.current = s.behind === 0;
+  // A box running files that are in no commit is never "current", however
+  // flattering its sha looks — that sha names a commit it does not contain.
+  s.current = s.behind === 0 && !s.dirty;
 }
 
 if (JSON_OUT) {
@@ -118,11 +124,13 @@ for (const s of report.services) {
   if (s.sha && s.current !== true) stale++;
   // "current" means nothing it depends on has moved — unrelated commits are
   // reported quietly so the count stays honest without turning the row red.
-  const detail = s.current === true
-    ? (s.unrelated ? `current (${s.unrelated} unrelated)` : "current")
-    : s.behind !== undefined
-      ? `${s.behind} commit${s.behind === 1 ? "" : "s"} behind on its own paths`
-      : s.note || "drifted";
+  const detail = s.dirty
+    ? "running uncommitted files — sha is not the truth"
+    : s.current === true
+      ? (s.unrelated ? `current (${s.unrelated} unrelated)` : "current")
+      : s.behind !== undefined
+        ? `${s.behind} commit${s.behind === 1 ? "" : "s"} behind on its own paths`
+        : s.note || "drifted";
   console.log(`  ${icon} ${s.service.padEnd(16)} ${short(s.sha).padEnd(11)} ${detail}`);
 }
 

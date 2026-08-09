@@ -138,10 +138,17 @@ function parseMongoHost(uri) {
 // --- MongoDB (primary) ---
 let mongoClient, db;
 
-async function connectMongo() {
+let mongoRetryTimer = null;
+
+// Retries, because a single failed connect used to be permanent: db stayed null
+// for the life of the process, every mongo-backed route stayed broken, and silo
+// went on answering 200. That is how the 2026-08-09 credential mismatch hid —
+// mongod was healthy the whole time and one restart would have recovered it.
+async function connectMongo(attempt = 0) {
   const uri = process.env.MONGODB_CONNECTION_STRING;
   if (!uri) { log("error", "MONGODB_CONNECTION_STRING not set"); return; }
   try {
+    if (mongoClient) await mongoClient.close().catch(() => {});
     const isLocal = uri.includes("localhost") || uri.includes("127.0.0.1");
     mongoClient = new MongoClient(uri, {
       ...(isLocal ? {} : { tls: true }),
@@ -154,7 +161,15 @@ async function connectMongo() {
     db = mongoClient.db(process.env.MONGODB_NAME || "aesthetic");
     log("info", `mongo connected (${parseMongoHost(uri)})`);
   } catch (err) {
-    log("error", `mongo connect failed: ${err.message}`);
+    db = null;
+    // Backs off to 5 min and keeps going. Bad credentials will never heal on
+    // their own, but the retry line in the log is a heartbeat that says which
+    // failure it is, instead of one buried message at boot.
+    const delay = Math.min(300000, 2000 * 2 ** attempt);
+    log("error", `mongo connect failed: ${err.message} — retrying in ${Math.round(delay / 1000)}s`);
+    clearTimeout(mongoRetryTimer);
+    mongoRetryTimer = setTimeout(() => connectMongo(attempt + 1), delay);
+    mongoRetryTimer.unref?.();
   }
 }
 
@@ -940,10 +955,17 @@ app.use("/api", requireAdmin);
 // than guessed, so "unknown" never passes for "current".
 app.get("/health", async (req, res) => {
   const mongoOk = db ? await db.admin().ping().then(() => true).catch(() => false) : false;
-  res.json({
-    status: "ok",
+  // A service that cannot reach its database is not healthy, and saying so in
+  // the status code is the whole point: `mongo:false` inside a 200 body is a
+  // sentence nothing was reading. Body shape is unchanged either way, so a
+  // caller after provenance still gets the sha from a degraded silo.
+  res.status(mongoOk ? 200 : 503).json({
+    status: mongoOk ? "ok" : "degraded",
     service: "silo",
     sha: process.env.AC_GIT_SHA?.trim() || null,
+    // True when the deploy shipped working-tree files that are in no commit, so
+    // the sha above names a commit that does not contain what is running.
+    dirty: process.env.AC_GIT_DIRTY === "1" || undefined,
     startedAt: new Date(SERVER_START_TIME).toISOString(),
     uptime: Date.now() - SERVER_START_TIME,
     mongo: mongoOk,
@@ -982,18 +1004,22 @@ app.get("/api/fleet/drift", async (req, res) => {
 
   const services = await Promise.all(FLEET.map(async ({ service, health }) => {
     try {
+      // Read the body before judging the status: a degraded service still
+      // reports which commit it is running, and that is the question here.
       const r = await fetch(health, { signal: AbortSignal.timeout(8000) });
-      if (!r.ok) return { service, sha: null, note: `HTTP ${r.status}` };
-      const body = await r.json();
+      const body = await r.json().catch(() => null);
       const sha = typeof body?.sha === "string" ? body.sha : null;
+      if (!sha) return { service, sha: null, note: `HTTP ${r.status}` };
       return {
         service,
         sha,
         startedAt: body?.startedAt ?? null,
-        // null (not false) when either side is unknown — an unreported sha must
-        // never read as agreement.
-        current: sha && knot ? sha === knot : null,
-        note: sha ? undefined : "no provenance yet",
+        degraded: r.ok ? undefined : `HTTP ${r.status}`,
+        // Deliberately NOT called "current". With no checkout, exact match
+        // against knot's tip is the most this can know, and reading that as
+        // currency marks the whole fleet stale on any unrelated commit. Callers
+        // holding the history (ac-fleet) decide what current means.
+        matchesKnotTip: knot ? sha === knot : null,
       };
     } catch (e) {
       return { service, sha: null, note: e.name === "TimeoutError" ? "timeout" : "unreachable" };

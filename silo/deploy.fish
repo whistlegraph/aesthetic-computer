@@ -71,8 +71,11 @@ else
     # stale — and overwriting it blind takes mongo down with no way back:
     # 2026-08-09 this replaced a working aesthetic_app password with a stale one
     # and there was no copy of the old file anywhere.
+    # \$(date) so the REMOTE shell stamps it — and because fish only does
+    # command substitution inside double quotes as $(...), never (...), which
+    # silently shipped a literal paren to bash the first time this ran.
     ssh -i $SSH_KEY $SILO_USER@$SILO_HOST \
-        "test -f $REMOTE_DIR/.env && cp -a $REMOTE_DIR/.env $REMOTE_DIR/.env.bak.(date +%Y%m%d-%H%M%S) || true"
+        "test -f $REMOTE_DIR/.env && cp -a $REMOTE_DIR/.env $REMOTE_DIR/.env.bak.\$(date +%Y%m%d-%H%M%S) || true"
 
     # Upload production .env from vault
     scp -i $SSH_KEY -o StrictHostKeyChecking=no \
@@ -83,10 +86,23 @@ else
     # running?" — and without that answer a stale silo looks identical to a
     # current one, which is the failure this whole contract exists to catch.
     set -l SHA (git -C $SCRIPT_DIR/.. rev-parse HEAD 2>/dev/null)
+    # This deploy scp's the working tree, not a git checkout, so an uncommitted
+    # silo/ file ships while the stamp still names HEAD — provenance that reads
+    # clean and is not. Say so rather than let the fleet believe a sha that does
+    # not contain what is running.
+    set -l DIRTY 0
+    if test -n (git -C $SCRIPT_DIR/.. status --porcelain -- silo/ | head -1)
+        set DIRTY 1
+    end
     if test -n "$SHA"
-        echo -e "$GREEN-> Stamping AC_GIT_SHA="(string sub -l 9 $SHA)"$NC"
+        set -l suffix ""
+        test $DIRTY -eq 1; and set suffix " + UNCOMMITTED silo/ changes"
+        echo -e "$GREEN-> Stamping AC_GIT_SHA="(string sub -l 9 $SHA)"$suffix$NC"
+        test $DIRTY -eq 1; and echo -e "$RED   ! shipping files that are not in any commit — ac-fleet will flag this$NC"
         ssh -i $SSH_KEY $SILO_USER@$SILO_HOST \
-            "sed -i '/^AC_GIT_SHA=/d' $REMOTE_DIR/.env; echo 'AC_GIT_SHA=$SHA' >> $REMOTE_DIR/.env"
+            "sed -i '/^AC_GIT_SHA=/d;/^AC_GIT_DIRTY=/d' $REMOTE_DIR/.env
+             echo 'AC_GIT_SHA=$SHA' >> $REMOTE_DIR/.env
+             echo 'AC_GIT_DIRTY=$DIRTY' >> $REMOTE_DIR/.env"
     else
         echo -e "$RED   ! could not resolve HEAD — silo will report sha:null$NC"
     end
