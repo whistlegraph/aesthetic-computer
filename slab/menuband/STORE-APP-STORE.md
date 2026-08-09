@@ -39,9 +39,11 @@ each, deleted the rest. `bin/asc.mjs` (new) wraps the JWT + common queries:
 `READY_FOR_SALE`. The next candidate is v1.6.9 (build 169), adding the
 sandbox-safe TrackDrum companion bridge and the focused percussion/slider UX.
 
-**SUBMITTED — v1.6.9 (build 169), 2026-08-07.** App Store Connect reports
-`WAITING_FOR_REVIEW`. The signed universal build passed validation and was
-submitted with automatic release enabled.
+**PUBLISHED — v1.6.9 (build 169), 2026-08-07.** App Store Connect reports
+`READY_FOR_SALE`.
+
+**CANDIDATE — v1.6.10 (build 170), 2026-08-09.** Fixes TrackDrum focus
+activation, physical-click focus loss, and false Command-gesture activation.
 
 ### Review log
 
