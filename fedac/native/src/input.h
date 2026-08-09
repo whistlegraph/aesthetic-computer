@@ -45,6 +45,38 @@ typedef struct {
     int key_code;        // Linux keycode equivalent
 } ACAnalogKey;
 
+// One live finger on the multitouch surface. Slots follow the kernel's
+// MT-B protocol: a driver addresses a slot with ABS_MT_SLOT, then hands it
+// a tracking id that persists for the whole life of that contact.
+#define MAX_TOUCH_SLOTS 10
+
+typedef struct {
+    int tracking_id;    // -1 when the slot holds no finger
+    int raw_x, raw_y;   // most recent absolute position, device units
+    int have_pos;       // a position has arrived since touch-down
+    float x, y;         // normalized across the pad, 0..1, y down
+    float pressure;     // 0..1 from ABS_MT_PRESSURE, 0 when unreported
+    double down_at;     // monotonic seconds at touch-down
+} ACTouchSlot;
+
+// The absolute surface we track whole contacts on — a laptop trackpad.
+// Geometry comes from EVIOCGABS, so normalized coordinates and `aspect`
+// describe the real pad instead of a guess. Only one surface is tracked;
+// a laptop has one, and the pointer already assumed as much.
+typedef struct {
+    int fd_index;       // evdev slot that owns the surface, -1 = none
+    int has_slots;      // driver speaks MT-B (ABS_MT_SLOT exists)
+    int x_min, x_max, y_min, y_max;
+    int x_res, y_res;   // units per mm, 0 when the driver stays quiet
+    float aspect;       // pad width / height, 1 when resolution is unknown
+    int slot;           // slot that ABS_MT_* fields currently address
+    int contacts;       // live contacts as of the last SYN_REPORT
+    int generation;     // bumped whenever a SYN_REPORT changes the contacts
+    int primary_id;     // tracking id driving the pointer, -1 = none
+    int primary_x, primary_y;   // that contact's position at the last report
+    ACTouchSlot slots[MAX_TOUCH_SLOTS];
+} ACTouchSurface;
+
 typedef struct {
     int fds[MAX_INPUT_DEVICES];
     int fd_is_analog[MAX_INPUT_DEVICES]; // Set if this evdev belongs to an analog keyboard
@@ -59,6 +91,10 @@ typedef struct {
     int abs_y_min, abs_y_max;
     int abs_x_res, abs_y_res;    // Resolution (units/mm), 0 = unknown
     int fd_is_trackpad[MAX_INPUT_DEVICES]; // This evdev is an abs trackpad
+
+    // Whole-hand contacts on the trackpad, kept alongside the pointer so a
+    // piece can play the pad as a surface while the cursor still works.
+    ACTouchSurface surface;
 
     // HID raw devices (for analog keyboards like NuPhy HE)
     int hidraw_fds[MAX_HIDRAW_DEVICES];
@@ -109,5 +145,14 @@ ACInput *input_init_wayland(void *wayland_display, int screen_w, int screen_h, i
 
 // Map Linux keycode to AC key name
 const char *input_key_name(int code);
+
+// Copy the live trackpad contacts into `out` (normalized 0..1, y down),
+// newest slot order. Returns how many were written, 0 when there is no
+// surface or no finger on it.
+int input_touch_contacts(const ACInput *input, ACTouchSlot *out, int max);
+
+// Pad width / height as a ratio of real millimeters — 1.0 when the driver
+// reports no resolution. The membrane's boundary math needs the true shape.
+float input_touch_aspect(const ACInput *input);
 
 #endif

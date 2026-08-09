@@ -315,6 +315,147 @@ static void hidraw_process_nuphy(ACInput *input, unsigned char *buf, int len) {
     }
 }
 
+// ── Multitouch surface ───────────────────────────────────────────────
+// MT-B delivers fingers as a slot cursor (ABS_MT_SLOT) followed by that
+// slot's fields, committed at SYN_REPORT. We keep every contact rather
+// than folding them into one pointer: a drum head needs the resting
+// fingers as much as the striking one, since they damp its modes.
+
+static void surface_clear(ACTouchSurface *s) {
+    for (int i = 0; i < MAX_TOUCH_SLOTS; i++) {
+        s->slots[i].tracking_id = -1;
+        s->slots[i].have_pos = 0;
+    }
+    s->slot = 0;
+    s->contacts = 0;
+    s->primary_id = -1;
+}
+
+// Fold one ABS_MT_* field into the addressed slot. Nothing is normalized
+// or counted here — SYN_REPORT commits the frame.
+static void surface_abs(ACTouchSurface *s, const struct input_event *ev) {
+    if (ev->code == ABS_MT_SLOT) {
+        // A pad with more slots than we track addresses the extras into
+        // -1, where every later field is discarded until the next slot.
+        s->slot = (ev->value >= 0 && ev->value < MAX_TOUCH_SLOTS)
+            ? ev->value : -1;
+        return;
+    }
+    if (s->slot < 0) return;
+    ACTouchSlot *t = &s->slots[s->slot];
+
+    switch (ev->code) {
+        case ABS_MT_TRACKING_ID:
+            if (ev->value < 0) {
+                t->tracking_id = -1;
+                t->have_pos = 0;
+            } else if (t->tracking_id != ev->value) {
+                t->tracking_id = ev->value;
+                t->have_pos = 0;
+                t->pressure = 0;
+                t->down_at = monotonic_sec();
+            }
+            break;
+        case ABS_MT_POSITION_X:
+            t->raw_x = ev->value;
+            t->have_pos |= 1;
+            break;
+        case ABS_MT_POSITION_Y:
+            t->raw_y = ev->value;
+            t->have_pos |= 2;
+            break;
+        case ABS_MT_PRESSURE: {
+            // Pads disagree wildly on full scale; 255 is the common ceiling
+            // and clamping is kinder than reading EVIOCGABS per contact.
+            float p = ev->value / 255.0f;
+            t->pressure = p < 0 ? 0 : (p > 1 ? 1 : p);
+            break;
+        }
+        default: break;
+    }
+}
+
+// Commit a frame: normalize live contacts, recount, and hand the pointer
+// its delta from whichever finger is driving it.
+static void surface_sync(ACInput *input) {
+    ACTouchSurface *s = &input->surface;
+    float span_x = (float)(s->x_max - s->x_min);
+    float span_y = (float)(s->y_max - s->y_min);
+    if (span_x <= 0) span_x = 1;
+    if (span_y <= 0) span_y = 1;
+
+    int contacts = 0, primary_slot = -1;
+    for (int i = 0; i < MAX_TOUCH_SLOTS; i++) {
+        ACTouchSlot *t = &s->slots[i];
+        if (t->tracking_id < 0 || t->have_pos != 3) continue;
+        float x = (t->raw_x - s->x_min) / span_x;
+        float y = (t->raw_y - s->y_min) / span_y;
+        t->x = x < 0 ? 0 : (x > 1 ? 1 : x);
+        t->y = y < 0 ? 0 : (y > 1 ? 1 : y);
+        contacts++;
+        // Keep the finger that already owns the pointer; otherwise adopt
+        // the lowest live slot, so a lift hands off without a cursor jump.
+        if (t->tracking_id == s->primary_id) primary_slot = i;
+        else if (primary_slot < 0 && s->primary_id < 0) primary_slot = i;
+    }
+    if (primary_slot < 0 && contacts > 0) {
+        for (int i = 0; i < MAX_TOUCH_SLOTS; i++) {
+            ACTouchSlot *t = &s->slots[i];
+            if (t->tracking_id >= 0 && t->have_pos == 3) { primary_slot = i; break; }
+        }
+    }
+
+    if (contacts != s->contacts) s->generation++;
+    s->contacts = contacts;
+
+    if (primary_slot < 0) {
+        s->primary_id = -1;
+        return;
+    }
+
+    // Relative pointer motion, from the primary contact only. The old path
+    // summed every finger's absolute jumps into one delta, so a two-finger
+    // rest made the cursor bolt across the screen.
+    ACTouchSlot *p = &s->slots[primary_slot];
+    if (p->tracking_id == s->primary_id) {
+        int dx_raw = p->raw_x - s->primary_x;
+        int dy_raw = p->raw_y - s->primary_y;
+        float dx = (float)dx_raw / (float)(s->x_res > 0 ? s->x_res : 92) * 30.0f;
+        float dy = (float)dy_raw / (float)(s->y_res > 0 ? s->y_res : 91) * 30.0f;
+        input->pointer_x += (int)dx;
+        input->pointer_y += (int)dy;
+        input->delta_x += (int)dx;
+        input->delta_y += (int)dy;
+        if (input->pointer_x < 0) input->pointer_x = 0;
+        if (input->pointer_y < 0) input->pointer_y = 0;
+        if (input->pointer_x >= input->screen_w) input->pointer_x = input->screen_w - 1;
+        if (input->pointer_y >= input->screen_h) input->pointer_y = input->screen_h - 1;
+    }
+    s->primary_id = p->tracking_id;
+    s->primary_x = p->raw_x;
+    s->primary_y = p->raw_y;
+}
+
+int input_touch_contacts(const ACInput *input, ACTouchSlot *out, int max) {
+    if (!input || !out || max <= 0) return 0;
+    const ACTouchSurface *s = &input->surface;
+    int n = 0;
+    for (int i = 0; i < MAX_TOUCH_SLOTS && n < max; i++) {
+        if (s->slots[i].tracking_id < 0 || s->slots[i].have_pos != 3) continue;
+        out[n++] = s->slots[i];
+    }
+    return n;
+}
+
+float input_touch_aspect(const ACInput *input) {
+    if (!input) return 1.0f;
+    const ACTouchSurface *s = &input->surface;
+    if (s->x_res <= 0 || s->y_res <= 0) return 1.0f;
+    float w = (float)(s->x_max - s->x_min) / (float)s->x_res;
+    float h = (float)(s->y_max - s->y_min) / (float)s->y_res;
+    return (w > 0 && h > 0) ? w / h : 1.0f;
+}
+
 ACInput *input_init(int screen_w, int screen_h, int scale) {
     ACInput *input = calloc(1, sizeof(ACInput));
     if (!input) return NULL;
@@ -325,6 +466,9 @@ ACInput *input_init(int screen_w, int screen_h, int scale) {
     input->last_poll_time = monotonic_sec();
     input->abs_prev_x = INT_MIN;
     input->abs_prev_y = INT_MIN;
+    input->surface.fd_index = -1;
+    input->surface.aspect = 1.0f;
+    surface_clear(&input->surface);
 
     // Scan /dev/input/ for event devices
     DIR *dir = opendir("/dev/input");
@@ -373,10 +517,17 @@ ACInput *input_init(int screen_w, int screen_h, int scale) {
             input->fd_is_trackpad[input->count] = 0;
             if (evbits & (1 << EV_ABS)) {
                 struct input_absinfo abs_x, abs_y;
-                if (ioctl(fd, EVIOCGABS(ABS_MT_POSITION_X), &abs_x) >= 0 &&
+                // INPUT_PROP_DIRECT marks a device you touch *on* the image
+                // (touchscreen); INPUT_PROP_POINTER marks one that moves a
+                // cursor. Convertibles carry both, and the old range test
+                // called the touchscreen a trackpad.
+                unsigned long props = 0;
+                ioctl(fd, EVIOCGPROP(sizeof(props)), &props);
+                int direct = (props & (1UL << INPUT_PROP_DIRECT)) != 0;
+                if (!direct &&
+                    ioctl(fd, EVIOCGABS(ABS_MT_POSITION_X), &abs_x) >= 0 &&
                     ioctl(fd, EVIOCGABS(ABS_MT_POSITION_Y), &abs_y) >= 0 &&
                     (abs_x.maximum - abs_x.minimum) > 1000) {
-                    // Wide absolute range = trackpad (not a touchscreen)
                     input->fd_is_trackpad[input->count] = 1;
                     input->abs_x_min = abs_x.minimum;
                     input->abs_x_max = abs_x.maximum;
@@ -384,6 +535,24 @@ ACInput *input_init(int screen_w, int screen_h, int scale) {
                     input->abs_y_max = abs_y.maximum;
                     input->abs_x_res = abs_x.resolution > 0 ? abs_x.resolution : 92;
                     input->abs_y_res = abs_y.resolution > 0 ? abs_y.resolution : 91;
+
+                    // Claim the first trackpad as the playable surface.
+                    if (input->surface.fd_index < 0) {
+                        ACTouchSurface *s = &input->surface;
+                        s->fd_index = input->count;
+                        s->x_min = abs_x.minimum; s->x_max = abs_x.maximum;
+                        s->y_min = abs_y.minimum; s->y_max = abs_y.maximum;
+                        s->x_res = abs_x.resolution;
+                        s->y_res = abs_y.resolution;
+                        struct input_absinfo abs_slot;
+                        s->has_slots =
+                            ioctl(fd, EVIOCGABS(ABS_MT_SLOT), &abs_slot) >= 0;
+                        s->aspect = input_touch_aspect(input);
+                        fprintf(stderr,
+                                "[input] Surface: %d slots, %.2f:1 aspect\n",
+                                s->has_slots ? abs_slot.maximum + 1 : 1,
+                                s->aspect);
+                    }
                     fprintf(stderr, "[input] Trackpad detected: X[%d..%d] Y[%d..%d] res=%d/%d\n",
                             abs_x.minimum, abs_x.maximum, abs_y.minimum, abs_y.maximum,
                             input->abs_x_res, input->abs_y_res);
@@ -418,7 +587,15 @@ ACInput *input_init(int screen_w, int screen_h, int scale) {
 
 static int input_debug_frames = 0;
 
+// AC_TOUCH_DEBUG=1 logs every change to the contact set — the fastest way
+// to see what a new pad reports before any sound is wired to it.
+static int touch_debug = -1;
+
 void input_poll(ACInput *input) {
+    if (touch_debug < 0) {
+        const char *e = getenv("AC_TOUCH_DEBUG");
+        touch_debug = (e && *e && *e != '0') ? 1 : 0;
+    }
     if (!input) return;
     input->event_count = 0;
     input->delta_x = 0;
@@ -563,8 +740,38 @@ poll_evdev: ;
                     fprintf(stderr, "[input] tablet mode: %s\n",
                             input->tablet_mode ? "ON" : "OFF");
                 }
+            } else if (ev.type == EV_SYN) {
+                // Commit the surface frame. Contacts only make sense as a
+                // set — a strike and the fingers damping it arrive in the
+                // same report, and reading mid-frame would mix them up.
+                if (ev.code == SYN_REPORT && d == input->surface.fd_index &&
+                    input->surface.has_slots) {
+                    int before = input->surface.generation;
+                    int px = input->pointer_x, py = input->pointer_y;
+                    surface_sync(input);
+                    if (input->pointer_down &&
+                        (input->pointer_x != px || input->pointer_y != py)) {
+                        ae->type = AC_EVENT_DRAW;
+                        ae->x = input->pointer_x / input->scale;
+                        ae->y = input->pointer_y / input->scale;
+                        input->event_count++;
+                    }
+                    if (touch_debug && input->surface.generation != before) {
+                        ACTouchSlot pts[MAX_TOUCH_SLOTS];
+                        int n = input_touch_contacts(input, pts, MAX_TOUCH_SLOTS);
+                        fprintf(stderr, "[touch] %d contact%s:", n, n == 1 ? "" : "s");
+                        for (int i = 0; i < n; i++)
+                            fprintf(stderr, " (%.3f,%.3f p%.2f)",
+                                    pts[i].x, pts[i].y, pts[i].pressure);
+                        fprintf(stderr, "\n");
+                    }
+                }
             } else if (ev.type == EV_ABS) {
-                if (input->fd_is_trackpad[d]) {
+                if (d == input->surface.fd_index && input->surface.has_slots) {
+                    // MT-B pad: slots own the contacts, and surface_sync
+                    // drives the pointer from the primary one at SYN.
+                    surface_abs(&input->surface, &ev);
+                } else if (input->fd_is_trackpad[d]) {
                     // Trackpad: convert absolute coords to relative deltas.
                     // BCM5974 reports ~(-4415..5050) for X, ~(-55..6680) for Y.
                     // Use INT_MIN as sentinel for "no previous value this touch".
@@ -626,8 +833,18 @@ poll_evdev: ;
             for (int j = d; j < input->count - 1; j++) {
                 input->fds[j] = input->fds[j + 1];
                 input->fd_is_analog[j] = input->fd_is_analog[j + 1];
+                input->fd_is_trackpad[j] = input->fd_is_trackpad[j + 1];
             }
             input->count--;
+            // The surface indexes into the same array, so a device leaving
+            // below it slides it down; losing the pad itself drops it.
+            if (input->surface.fd_index == d) {
+                input->surface.fd_index = -1;
+                input->surface.has_slots = 0;
+                surface_clear(&input->surface);
+            } else if (input->surface.fd_index > d) {
+                input->surface.fd_index--;
+            }
             d--;
         }
     }
@@ -1129,6 +1346,11 @@ ACInput *input_init_wayland(void *wayland_display, int screen_w, int screen_h, i
     input->repeat_key = -1;
     input->repeat_rate = 25;   // default: 25 keys/sec
     input->repeat_delay = 600; // default: 600ms
+    // No raw surface under Wayland — the compositor owns the pad. Clear the
+    // slots anyway so a zeroed tracking id never reads as a live finger.
+    input->surface.fd_index = -1;
+    input->surface.aspect = 1.0f;
+    surface_clear(&input->surface);
 
     wd->input = input;
 
