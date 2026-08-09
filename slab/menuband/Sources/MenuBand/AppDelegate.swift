@@ -581,6 +581,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// hides leak across app sessions, so this guards a 1-to-1
     /// pairing.
     private var pitchBendSystemCursorHidden = false
+    /// Polls the cursor while focus is armed — see `startFocusCursorWatchdog`.
+    private var focusCursorWatchdog: Timer?
+    private var focusCursorGraceUntil: CFTimeInterval = 0
     /// Screen position the cursor occupied when the bend lock engaged. The
     /// display normally anchors beneath Menu Band; this remains its fallback
     /// if the status item's window is temporarily unavailable.
@@ -2046,11 +2049,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         #else
         prepareFocusedLocalFXIdle()
         #endif
+        // Focus owns the pointer in every mode, and the hidden cursor is what
+        // says so. This lands after the mode branch because local FX idles
+        // with an ordinary pointer when unfocused and shows it on the way in.
+        hideSystemCursorIfNeeded()
+        startFocusCursorWatchdog()
         updateIcon()
         updatePianoWaveformWindow()
     }
 
     private func finishLocalCapture(reason: LocalKeyCapture.EndReason) {
+        stopFocusCursorWatchdog()
+        showSystemCursorIfNeeded()
         debugLog("local capture ended: \(reason)")
         let shouldRestoreFocus = keyboardPerformanceFocusActive && reason == .cancelled
         keyboardPerformanceFocusActive = false
@@ -5947,6 +5957,43 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard pitchBendSystemCursorHidden else { return }
         CGDisplayShowCursor(CGMainDisplayID())
         pitchBendSystemCursorHidden = false
+    }
+
+    /// The hidden cursor is the proof Menu Band owns the pointer. If it comes
+    /// back while focus is armed the focus is a lie: keys and the trackpad are
+    /// still being read out from under a pointer the user can see moving.
+    /// Re-hiding would paper over whatever showed it, so exit instead and let
+    /// the state not persist.
+    ///
+    /// This watches our own hide, which is the case that actually arises —
+    /// several focused paths (local FX idle, ending a bend session) call
+    /// `showSystemCursorIfNeeded` mid-session. A show from outside this
+    /// process cannot be seen: `CGCursorIsVisible` is unavailable now and has
+    /// no public replacement, so there is nothing to poll. The helper's own
+    /// hide is balanced against its capture flag on its side.
+    private func startFocusCursorWatchdog() {
+        stopFocusCursorWatchdog()
+        // Arming hides the cursor across several call sites; let them settle
+        // before the watchdog starts believing what it reads.
+        focusCursorGraceUntil = CACurrentMediaTime() + 0.6
+        let timer = Timer(timeInterval: 0.1, repeats: true) { [weak self] _ in
+            guard let self else { return }
+            guard self.localCapture.isArmed else {
+                self.stopFocusCursorWatchdog()
+                return
+            }
+            guard CACurrentMediaTime() >= self.focusCursorGraceUntil,
+                  !self.pitchBendSystemCursorHidden else { return }
+            debugLog("focus cursor watchdog: cursor visible while armed — exiting focus")
+            self.exitPerformanceFocusFromEscape()
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        focusCursorWatchdog = timer
+    }
+
+    private func stopFocusCursorWatchdog() {
+        focusCursorWatchdog?.invalidate()
+        focusCursorWatchdog = nil
     }
 
     private func ensurePitchBendOverlay() -> PitchBendCursorOverlayWindow {
