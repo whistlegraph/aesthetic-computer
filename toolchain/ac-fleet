@@ -65,7 +65,10 @@ async function direct() {
       const r = await fetch(health, { signal: AbortSignal.timeout(8000) });
       const body = await r.json().catch(() => null);
       const sha = typeof body?.sha === "string" ? body.sha : null;
-      if (!sha) return { service, sha: null, note: `HTTP ${r.status}` };
+      // A healthy answer with no sha means the service hasn't adopted the
+      // contract yet — say that, rather than print a 200 as if it were a fault.
+      if (!sha) return { service, sha: null,
+        note: r.ok ? "no provenance yet" : `HTTP ${r.status}` };
       return { service, sha, dirty: body?.dirty === true,
         degraded: r.ok ? undefined : `degraded (HTTP ${r.status})` };
     } catch (e) {
