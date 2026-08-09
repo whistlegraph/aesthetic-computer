@@ -255,15 +255,24 @@ ssh -i $SSH_KEY $LITH_USER@$TARGET_HOST "cd $REMOTE_DIR/lith && npm install --om
 # permanently in /opt/ac/system/.env. If the vault file is missing or
 # GPG can't decrypt it, the build still runs — `--sync-spaces` just
 # gracefully skips the upload with a warning.
+#
+# The remote sources this file with `.`, so it must contain assignments and
+# nothing else. A plaintext vault .env written by a `gpg -d > .env` that
+# forgot to redirect stderr carries gpg's "encrypted with … key" preamble on
+# its first lines, and each of those becomes a `command not found` on lith.
+# Keep only well-formed KEY=VALUE lines — the whole line is preserved, so
+# values containing `=` or spaces survive intact.
 set SPACES_ENV_SRC "$VAULT_DIR/spaces/.env"
 set SPACES_ENV_GPG "$VAULT_DIR/spaces/.env.gpg"
 set TMP_SPACES (mktemp)
 set SPACES_READY false
 if test -f $SPACES_ENV_SRC
-    cp $SPACES_ENV_SRC $TMP_SPACES
+    grep -E '^[A-Za-z_][A-Za-z0-9_]*=' $SPACES_ENV_SRC >$TMP_SPACES
     set SPACES_READY true
 else if test -f $SPACES_ENV_GPG
-    if gpg --batch --pinentry-mode loopback -d $SPACES_ENV_GPG >$TMP_SPACES 2>/dev/null
+    gpg --batch --pinentry-mode loopback -d $SPACES_ENV_GPG 2>/dev/null \
+        | grep -E '^[A-Za-z_][A-Za-z0-9_]*=' >$TMP_SPACES
+    if test -s $TMP_SPACES
         set SPACES_READY true
     end
 end
