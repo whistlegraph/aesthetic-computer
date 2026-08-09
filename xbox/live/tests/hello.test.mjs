@@ -586,12 +586,18 @@ test("debug view renders on the foreground triangle layer", () => {
   // halfway and drew nothing, which is exactly how this test failed once. So
   // say what the layer is: the scene projects inside ±1.4 and the band in
   // front of it is reserved for overlays. Every face debug adds lands there,
-  // none of the plain frame's do, and the scene underneath is untouched.
+  // none of the plain frame's do, and the scene underneath is untouched —
+  // apart from the bug, which is a HUD status icon beside the MIDI piano now
+  // and so draws in the HUD's lane rather than on the overlay band.
   const inFront = (frame) => frame.filter(([, , z]) => z < -1.4);
+  const behind = (frame) => frame.length - inFront(frame).length;
   assert.equal(fight.clientErrorState(), "");
   assert.equal(inFront(plain).length, 0);
   assert.ok(inFront(debug).length > 100);
-  assert.equal(debug.length - inFront(debug).length, plain.length);
+  const strays = behind(debug) - plain.length;
+  assert.ok(strays > 0 && strays < 40,
+    `debug added ${strays} faces behind the overlay; only the status-lane bug belongs there`);
+  assert.match(source, /if \(debugHitboxes\) icons\.push\("bug"\)/);
   assert.match(source, /let debugHitboxes = false/);
   assert.match(source, /function drawCornerCrops[\s\S]*?filledCapsule/);
   assert.match(source,
@@ -1018,25 +1024,31 @@ test("ambient air is a simulated world-entity field", () => {
 
 test("debug HUD shows FPS without repeating oskiewar beside the round QR", () => {
   assert.match(source, /Math\.round\(displayFps \|\| 0\) \+ " fps"/);
-  assert.match(source,
-    /if \(debugHitboxes\) \{\n    drawDebugBug\(safe\);\n    const fpsLabel/);
+  assert.match(source, /if \(debugHitboxes\) \{[\s\S]{0,140}const fpsLabel/);
   assert.match(source, /typeWrite\(fpsLabel, safe\.left \+ 2, safe\.top \+ 2/);
   assert.doesNotMatch(source, /const gameLabel = "oskiewar"/);
 });
 
-test("debug starts hidden and parks its persistent bug at bottom center", () => {
+// The bug used to be parked on its own at bottom center. It is a status icon
+// now, sharing the HUD's top-right lane with the MIDI piano, so it is placed
+// by the tray rather than by a corner of its own.
+test("debug starts hidden and shows its bug in the HUD status lane", () => {
   assert.match(source, /let debugHitboxes = false/);
-  assert.match(source, /function drawDebugBug\(safe\)/);
-  assert.match(source, /if \(debugHitboxes\) \{\n    drawDebugBug\(safe\)/);
-  assert.match(source, /const x = viewCenterX\(\)/);
-  assert.match(source, /const y = safe\.bottom - 18/);
+  assert.match(source, /function drawDebugBug\(x, y\)/);
+  assert.match(source, /if \(debugHitboxes\) icons\.push\("bug"\)/);
+  assert.match(source,
+    /if \(name === "midi"\) drawStatusPiano\(x, y, lit\);\n\s*else drawDebugBug\(x, y \+ 2\)/);
+  assert.doesNotMatch(source, /const y = safe\.bottom - 18/);
 });
 
 test("web title offers the shared account logout without entering a fight", () => {
   assert.match(webShell, /<button id="logout" type="button">log out<\/button>/);
   assert.match(webShell, /hi\.aesthetic\.computer\/v2\/logout/);
   assert.match(webShell, /target\.searchParams\.set\("client_id",/);
-  assert.match(webShell, /target\.searchParams\.set\("returnTo", "https:\/\/oskiewar\.com\/"\)/);
+  // Auth0 checks returnTo against its allowed logout URLs, so the shell hands
+  // back the origin it is actually being served from rather than a hardcoded
+  // oskiewar.com that no preview or local host could ever match.
+  assert.match(webShell, /target\.searchParams\.set\("returnTo", location\.origin \+ "\/"\)/);
   assert.match(webShell, /body\.social-preview #logout \{ display: none; \}/);
   assert.match(webShell, /event\.target instanceof HTMLButtonElement/);
 });
@@ -1051,8 +1063,11 @@ test("web UI drums route through the unlocked procedural sound bank", () => {
 
 test("debug off hides safe-zone boxes including frozen round impacts", () => {
   assert.match(source, /function drawSafeZones\(\) \{\n  if \(!debugHitboxes\) return;/);
-  assert.match(source, /const impactDebug = !roundResult && now < impactHitboxesUntil/);
-  assert.match(source, /const impactDebug = !roundResult &&\n    runtime\(\)\.monotonicUs < impactHitboxesUntil/);
+  // Two sessions left two different spellings of this line behind, neither of
+  // them the one that shipped. The impact flash is debug-only, so `debugHitboxes`
+  // gates it first and the round-result freeze only decides how long it lasts.
+  assert.match(source,
+    /const impactDebug = debugHitboxes && !roundResult && now < impactHitboxesUntil/);
 });
 
 test("fighter geometry connects the head and renders solid capsule joints", () => {
@@ -3478,11 +3493,17 @@ test("the endless clock shines, hue shifts, and drops a colored shadow", () => {
 });
 
 test("the in-match HUD carries a wall clock clear of the round QR", () => {
+  // The clock's footprint moved into `hudClockBox` so the status tray could
+  // share it, so the lane arithmetic is asserted where it now lives and the
+  // draw site only has to place what the box already measured.
+  const boxSource = source.match(
+    /function hudClockBox\(unixMs\) \{[\s\S]*?\n\}/)[0];
+  assert.match(boxSource, /pacificTimeLabel\(unixMs\)/);
+  assert.match(boxSource, /qrBox \? qrBox\.left - 14 : safe\.right/);
   const clockSource = source.match(
-    /\/\/ Wall clock in the top right[\s\S]*?clockSize, \.\.\.titleInk\);/)[0];
-  assert.match(clockSource, /pacificTimeLabel\(run\.unixMs \|\| Date\.now\(\)\)/);
-  assert.match(clockSource, /qrBox \? qrBox\.left - 14 : hud\.right/);
-  assert.match(clockSource, /roundViewer \? clockSize \+ 10 : 2/);
+    /\/\/ Wall clock in the top right[\s\S]*?clock\.size, \.\.\.titleInk\);/)[0];
+  assert.match(clockSource, /run\.unixMs \|\| Date\.now\(\)/);
+  assert.match(clockSource, /roundViewer \? clock\.size \+ 10 : 2/);
   const { fight, tick } = createFight();
   // Untimed training keeps the infinity glyph and still shows the clock.
   fight.players[1].npc = true;
