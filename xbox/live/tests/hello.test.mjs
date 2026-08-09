@@ -105,8 +105,10 @@ function createFight(startImmediately = true, enterGame = true,
     noOp, noOp, () => viewport
   );
   globalThis.__oskiewarRoundBridge = roundBridge;
+  globalThis.__oskiewarAttractVariant = "still";
   fight.boot();
   globalThis.__oskiewarRoundBridge = null;
+  delete globalThis.__oskiewarAttractVariant;
   if (enterGame) fight.enterGame();
 
   const tick = (elapsedUs = 16667) => {
@@ -1388,19 +1390,23 @@ test("the matchup card yields its seat to the wordmark", () => {
   assert.equal(fight.clientErrorState(), "");
 });
 
-test("entry is already a live anonymous fight against the dummy", () => {
+test("entry A/B tests cross-legged against a still standing face-off", () => {
   const { fight, pads, tick } = createFight(false, false);
   assert.equal(fight.shellState().mode, "MENU");
-  assert.equal(fight.players[0].name, "@JEFFREY");
-  assert.equal(fight.players[1].name, "DUMMY");
+  const action = fight.players[0].name === "BOT";
+  assert.equal(fight.players[1].name, action ? "BOT" : "DUMMY");
   assert.equal(fight.players[1].npc, true);
-  assert.equal(fight.players[1].bot, false);
+  assert.equal(fight.players[1].bot, action);
+  assert.match(source, /hashUnit\(matchName\) < \.5 \? "still" : "action"/);
+  assert.match(source, /if \(titleAttractMode === "action"\) \{/);
+  assert.match(source, /player\.bot && shellMode === "GAME"/);
+  assert.match(source, /titleAttractMode === "action"\)\n\s*drawFace/);
   // No countdown between arriving and moving: the intro is spent up front, so
   // the very first press walks the fighter while the wordmark is still up.
   const start = fight.players[0].x;
   pads[0].down = ["ArrowRight"];
   for (let frame = 0; frame < 8; frame++) tick();
-  assert.notEqual(fight.players[0].x, start);
+  if (!action) assert.notEqual(fight.players[0].x, start);
   assert.equal(fight.shellState().mode, "MENU");
 });
 
@@ -1706,8 +1712,8 @@ test("self play cannot be reached by pressing through the entry fight", () => {
       tap(0, button);
       assert.equal(fight.selfPlayState(), false, `${button} press ${press}`);
     }
-  assert.equal(fight.players[0].name.startsWith("@"), true);
-  assert.equal(fight.players[1].name, "DUMMY");
+  assert.match(source, /if \(globalThis\.__oskiewarSelfPlay\) \{/);
+  assert.equal(fight.selfPlayState(), false);
 });
 
 test("a harness can arm self play before boot", () => {
@@ -3004,7 +3010,8 @@ test("player command streams retain recent directions and buttons", () => {
     /const glyph = \{ LEFT: "←", RIGHT: "→", UP: "↑", DOWN: "↓" \}/);
   assert.match(source, /fade: commandFade\(index, count, idle\)/);
   assert.match(source, /nextLength > commandStreamColumns/);
-  assert.match(source, /const firstY = handle\.y - statStackHeight\(\) - inventoryOffset -/);
+  assert.match(source, /const firstY = safe\.top \+ hudTypeSize \+ 12/);
+  assert.doesNotMatch(source, /recordCommand\(player, "RUN", now\)/);
   assert.match(source, /buttonFor\[entry\.label\]\.some\(\(button\) => held\.includes\(button\)\)/);
   // The held tint lives in the pad-button renderer now, not a local palette.
   assert.match(source, /padButtonInk\[label\]/);

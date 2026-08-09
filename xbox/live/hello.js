@@ -657,6 +657,12 @@ let selecting = false;
 // Self-play is a harness mode: both fighters run the bot, no pad can enter or
 // leave it, and rounds roll over on their own.
 let selfPlay = false;
+// The title is also the attract screen. Half of sessions get the quiet,
+// cross-legged tableau; half get a standing face-off. Both remain still so
+// the wordmark stays readable until the player asks the fight to begin.
+// Hashing the already-created round name keeps the split stable for a visit
+// without spending a second Math.random call (reel seeding relies on one).
+let titleAttractMode = "still";
 const selectionReady = [false, false];
 const selectionPrevious = [[], []];
 let selectionStep = 0;
@@ -1606,6 +1612,17 @@ function beginTraining(now) {
   startFightAgainst("dummy", now);
   shellMode = "MENU";
   roundStartedAt = now - introDurationUs;
+  const forcedAttract = globalThis.__oskiewarAttractVariant;
+  titleAttractMode = forcedAttract === "still" || forcedAttract === "action"
+    ? forcedAttract : hashUnit(matchName) < .5 ? "still" : "action";
+  if (titleAttractMode === "action") {
+    for (const player of players) {
+      player.npc = true;
+      player.bot = true;
+      player.spiderDummy = false;
+      applyRoster(player, -1);
+    }
+  }
 }
 
 // Deprecated with PAL_SELECT — see the flag.
@@ -1686,6 +1703,13 @@ function consumeSystemButtons(now) {
 
 // Start lifts the wordmark off a fight that is already running underneath.
 function enterGame(now) {
+  if (titleAttractMode === "action") {
+    selfPlay = false;
+    players[0].npc = false;
+    players[0].bot = false;
+    players[0].spiderDummy = false;
+    applyRoster(players[0], Math.max(0, players[0].rosterIndex));
+  }
   shellMode = "GAME";
   if (dummyGuideStartedAt === null && players[1].npc && !players[1].bot)
     dummyGuideStartedAt = now;
@@ -3787,7 +3811,6 @@ function updatePlayer(player, pad, dt, now) {
     player.dashUntil > 0 && now >= player.dashUntil;
   if (dashRunningOut && !player.runSince) {
     player.runSince = now;
-    recordCommand(player, "RUN", now);
   }
   if (!player.grounded || !input.horizontal || player.blocking ||
       player.ducking || hitStunned) player.runSince = 0;
@@ -4128,7 +4151,7 @@ function gameSim() {
   // and then falls straight through into the fight it is sitting on top of.
   if (shellMode === "MENU") updateShell(now);
   for (const player of players)
-    inputPads[player.pad] = player.bot
+    inputPads[player.pad] = player.bot && shellMode === "GAME"
       ? botPad(player, players[player.pad ? 0 : 1], now)
       : player.npc ? { connected: true, down: [], leftX: 0, leftY: 0 }
         : padSnapshots[player.pad];
@@ -4414,7 +4437,7 @@ function fighterAnimationPhase(player, now = null) {
     stateStartedAt = player.jumpPoseUntil
       ? player.jumpPoseUntil - (player.crouchJump ? crouchJumpPoseUs : jumpPoseUs)
       : player.lastButtonAt || now;
-  } else if (shellMode === "MENU") {
+  } else if (shellMode === "MENU" && titleAttractMode === "still") {
     state = "MEDITATE";
   } else if (now < player.dashUntil) {
     state = "DASH";
@@ -4460,7 +4483,8 @@ function runnerWorldGeometry(player, t) {
   const poseNow = animation.frameNow;
   const poseCycle = animation.progress * Math.PI * 2;
   const speed = Math.min(1, Math.abs(player.vx) / 1500);
-  const meditating = shellMode === "MENU" && titleTransitionAt === null;
+  const meditating = shellMode === "MENU" && titleTransitionAt === null &&
+    titleAttractMode === "still";
   const idle = player.grounded && !player.ducking && speed < .03;
   const breath = idle ? Math.sin(poseCycle + player.pad * .7) * 5 : 0;
   const idleSway = idle ? Math.sin(poseCycle + player.pad) * 7 : 0;
@@ -5305,7 +5329,6 @@ const padButtonInk = {
   A: [96, 200, 80], B: [235, 78, 78], X: [86, 148, 235], Y: [240, 198, 60],
 };
 const padGlyph = { UP: "↑", DOWN: "↓", LEFT: "←", RIGHT: "→" };
-const padGlyphLift = { X: .1, UP: .06, DOWN: .06, LEFT: .06, RIGHT: .06 };
 const padButtonDiameter = (size) => Math.round(size * .78) * 2;
 function drawPadButton(label, x, y, size, pressed, fade = 1) {
   const radius = Math.round(size * .78);
@@ -5321,21 +5344,23 @@ function drawPadButton(label, x, y, size, pressed, fade = 1) {
   const cy = y + Math.round(size * .75);
   filledDisc(cx, cy, radius, veil(face));
   if (pressed) filledRing(cx, cy, radius, radius - 3, veil([245, 248, 255]));
-  const text = padGlyph[label] || label;
+  const text = (padGlyph[label] || label).toUpperCase();
   const glyphSize = Math.round(size * .82);
   if (label === "STICK_UP") {
-    const stem = Math.max(2, Math.round(radius * .12));
-    const knobY = cy - radius * .32;
-    filledCapsule(cx, cy + radius * .34, cx, knobY, stem,
-      veil([12, 14, 26]));
-    filledRing(cx, knobY, radius * .24, radius * .11, veil([12, 14, 26]));
+    const arrowInk = veil([12, 14, 26]);
+    const thickness = Math.max(2, Math.round(radius * .11));
+    const tipY = cy - radius * .42;
+    const wingY = cy - radius * .08;
+    filledCapsule(cx, cy + radius * .4, cx, tipY, thickness, arrowInk);
+    filledCapsule(cx, tipY, cx - radius * .32, wingY, thickness, arrowInk);
+    filledCapsule(cx, tipY, cx + radius * .32, wingY, thickness, arrowInk);
     return radius * 2;
   }
-  const opticalLift = glyphSize * (padGlyphLift[label] || 0);
-  typeWrite(text,
-    Math.round(cx - handleWidth(text, glyphSize) / 2),
-    Math.round(cy - glyphSize * .52 - opticalLift), glyphSize,
-    ...veil([12, 14, 26]));
+  const glyphX = Math.round(cx - handleWidth(text, glyphSize) / 2);
+  const glyphY = Math.round(cy - glyphSize / 2);
+  if (padButtonInk[label])
+    systemWrite(text, glyphX, glyphY, glyphSize, ...veil([12, 14, 26]));
+  else typeWrite(text, glyphX, glyphY, glyphSize, ...veil([12, 14, 26]));
   return radius * 2;
 }
 
@@ -5710,7 +5735,8 @@ function drawRunner(player, t, showLabel = true) {
         segment.width + Math.max(3, 5 * cameraScale()), [255, 238, 102]);
     }
   }
-  if (shellMode !== "MENU" || titleTransitionAt !== null)
+  if (shellMode !== "MENU" || titleTransitionAt !== null ||
+      titleAttractMode === "action")
     drawFace(player, geometry.head, contrastShadow(color), t, displayNow);
   drawInventory(player, displayNow);
   if (player.blocking) {
@@ -5979,14 +6005,10 @@ function drawCommandStream(player, side) {
   const safe = hudSafeRect();
   const size = Math.max(15, Math.round(hudTypeSize * .72));
   const lineHeight = Math.round(size * 1.5) + 5;
-  // Keyboard play reads top-down from the top corners, by the clocks. A
-  // controller reads bottom-up from above its own nameplate — @jeffrey wants
-  // the pad buffer with the fighter identities, not the timekeeping.
-  const handle = playerHandleLayout(player, side);
-  const inventoryOffset = player.gunAmmo > 0 || player.grenadeAmmo > 0
-    ? Math.round(hudTypeSize * .62) + 8 : 0;
-  const firstY = handle.y - statStackHeight() - inventoryOffset -
-    lines.length * lineHeight - 11;
+  // Commands are notation, not player-state furniture: both read from the
+  // top edge, with P1 owning top-left and P2 mirrored so the lists cannot
+  // overwrite one another.
+  const firstY = safe.top + hudTypeSize + 12;
   for (let row = 0; row < lines.length; row++) {
     const lineEntries = lines[row];
     const capPad = Math.round(size * .42);
