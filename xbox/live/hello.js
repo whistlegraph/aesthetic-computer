@@ -673,6 +673,9 @@ let instantReplay = null;
 let replayOfferPrevious = [];
 let shellMode = "MENU";
 let shellPrevious = [];
+// Whether the stick was already leaned last frame, so a held lean reads as
+// one gesture at the title rather than a machine-gun of entries.
+let shellStickLive = false;
 // Training teaches for two and a half minutes once the title lifts. This is
 // session time, not round time: a knockout or a visit back to the title must
 // not restart onboarding that the player has already outgrown.
@@ -1682,16 +1685,24 @@ function enterGame(now) {
 }
 
 function updateShell(now) {
-  const down = padSnapshots[0]?.down || [];
+  const pad = padSnapshots[0] || {};
+  // View and Menu are the system's buttons — View toggles the debug HUD and
+  // must not double as "start the game". Everything else, and a real lean on
+  // the analog stick, says the player wants in.
+  const down = (pad.down || [])
+    .filter((button) => button !== "View" && button !== "Menu");
+  const stickLive = Math.abs(pad.leftX || 0) > .5 || Math.abs(pad.leftY || 0) > .5;
   if (titleTransitionAt !== null) {
     if (now - titleTransitionAt >= 700000) {
       titleTransitionAt = null;
       enterGame(now);
     }
     shellPrevious = down.slice();
+    shellStickLive = stickLive;
     return;
   }
-  if (down.some((button) => !shellPrevious.includes(button))) {
+  if (down.some((button) => !shellPrevious.includes(button)) ||
+      (stickLive && !shellStickLive)) {
     playDrum("hat", .55, 0);
     if (typeof titleBeep === "function") titleBeep();
     if (typeof titleVoice === "function") titleVoice();
@@ -1699,6 +1710,7 @@ function updateShell(now) {
     titleTransitionAt = now;
   }
   shellPrevious = down.slice();
+  shellStickLive = stickLive;
 }
 
 // Everything from here through `updateSelect` is the deprecated pal select,
@@ -5196,6 +5208,36 @@ function replayOfferKeys() {
 // `fade` is how present the cap is: 1 draws it, 0 dissolves it into the stage
 // behind. The legend always passes 1; only the command stream ages its caps
 // out, and it needs the whole cap to go — face, edge and letter together.
+// A controller button drawn as a controller button: the letter in its Xbox
+// color on a dark disc with a colored rim; pressed inverts to a filled disc.
+// Directions are the same disc with an arrow glyph in neutral ink. Keyboard
+// input keeps its keycaps; every other family gets these.
+const padButtonInk = {
+  A: [96, 200, 80], B: [235, 78, 78], X: [86, 148, 235], Y: [240, 198, 60],
+};
+const padGlyph = { UP: "^", DOWN: "v", LEFT: "<", RIGHT: ">" };
+const padButtonDiameter = (size) => Math.round(size * .78) * 2;
+function drawPadButton(label, x, y, size, pressed, fade = 1) {
+  const radius = Math.round(size * .78);
+  if (fade <= .01) return radius * 2;
+  const ground = mixColor([7, 8, 28], [230, 239, 247], visualTheme.light);
+  const veil = (color) => fade >= 1 ? color : mixColor(ground, color, fade);
+  const ink = padButtonInk[label] || mixColor([148, 158, 178], [96, 104, 124],
+    visualTheme.light);
+  const face = pressed ? ink
+    : mixColor([16, 19, 36], [214, 222, 236], visualTheme.light);
+  const cx = x + radius;
+  const cy = y + Math.round(size * .75);
+  filledDisc(cx, cy, radius, veil(face));
+  filledRing(cx, cy, radius, radius - 3, veil(ink));
+  const text = padGlyph[label] || label;
+  const glyphSize = Math.round(size * .82);
+  const letter = pressed ? [12, 14, 26] : ink;
+  typeWrite(text, cx - Math.round(handleWidth(text, glyphSize) / 2),
+    cy - Math.round(glyphSize / 2), glyphSize, ...veil(letter));
+  return radius * 2;
+}
+
 function drawKeycap(label, x, y, size, pressed, fade = 1) {
   const padX = Math.round(size * .42);
   const height = Math.round(size * 1.5);
@@ -5232,19 +5274,29 @@ function drawControlLegend(ink) {
 }
 
 function keycapRunWidth(entries, size) {
+  const keyboard = keycapFamily();
   const padX = Math.round(size * .42);
+  const capWidth = (label) => keyboard
+    ? handleWidth(label, size) + padX * 2 : padButtonDiameter(size);
   return entries.reduce((total, [cap, action]) =>
     total + (Array.isArray(cap) ? cap : [cap]).reduce((width, label, index) =>
-      width + handleWidth(label, size) + padX * 2 + (index ? 5 : 0), 0) + 8 +
+      width + capWidth(label) + (index ? 5 : 0), 0) + 8 +
       handleWidth(action, size) + 26, 0) - 26;
 }
 
+// Keyboard reads as keycaps; every other family reads as controller discs.
+const keycapFamily = () => (typeof capabilities === "function"
+  ? String(capabilities().inputFamily || "") : "") === "keyboard";
+
 function drawKeycapRun(entries, x, y, size, held, ink) {
+  const keyboard = keycapFamily();
   let cursor = x;
   for (const [cap, action, button] of entries) {
     for (const [index, label] of (Array.isArray(cap) ? cap : [cap]).entries()) {
       if (index) cursor += 5;
-      cursor += drawKeycap(label, cursor, y, size, held.includes(button));
+      cursor += keyboard
+        ? drawKeycap(label, cursor, y, size, held.includes(button))
+        : drawPadButton(label, cursor, y, size, held.includes(button));
     }
     cursor += 8;
     typeWrite(action, cursor, y + Math.round(size * .25), size, ...ink);
@@ -5738,9 +5790,6 @@ function drawCommandStream(player, side) {
   const glyph = { LEFT: "<", RIGHT: ">", UP: "^", DOWN: "v" };
   const buttonFor = { LEFT: "ArrowLeft", RIGHT: "ArrowRight",
     UP: "ArrowUp", DOWN: "ArrowDown", A: "A", B: "B", X: "X", Y: "Y" };
-  const heldPalette = { LEFT: [78, 205, 255], RIGHT: [78, 205, 255],
-    UP: [142, 255, 94], DOWN: [142, 255, 94], A: [255, 230, 64],
-    B: [90, 235, 128], X: [255, 92, 190], Y: [255, 142, 62] };
   const now = runtime().monotonicUs;
   const idle = now - (player.commandStream.at(-1)?.at || now);
   const count = player.commandStream.length;
@@ -5779,36 +5828,31 @@ function drawCommandStream(player, side) {
   if (lines.length > commandStreamRows)
     lines.splice(0, lines.length - commandStreamRows);
   const safe = hudSafeRect();
-  const size = keyboard ? Math.max(15, Math.round(hudTypeSize * .72)) : hudTypeSize;
-  const lineHeight = keyboard ? Math.round(size * 1.5) + 5 : size + 4;
-  const background = mixColor([7, 8, 28], [230, 239, 247],
-    visualTheme.light);
-  // The buffer reads top-down from the top corners — up where the eye already
-  // checks the timer, not down in the nameplates. One HUD row of clearance
-  // keeps it out of the round clock and the wall clock.
-  const firstY = safe.top + hudTypeSize + 12;
+  const size = Math.max(15, Math.round(hudTypeSize * .72));
+  const lineHeight = Math.round(size * 1.5) + 5;
+  // Keyboard play reads top-down from the top corners, by the clocks. A
+  // controller reads bottom-up from above its own nameplate — @jeffrey wants
+  // the pad buffer with the fighter identities, not the timekeeping.
+  const handle = playerHandleLayout(player, side);
+  const inventoryOffset = player.gunAmmo > 0 || player.grenadeAmmo > 0
+    ? Math.round(hudTypeSize * .62) + 8 : 0;
+  const firstY = keyboard
+    ? safe.top + hudTypeSize + 12
+    : handle.y - statStackHeight() - inventoryOffset -
+      lines.length * lineHeight - 11;
   for (let row = 0; row < lines.length; row++) {
     const lineEntries = lines[row];
     const capPad = Math.round(size * .42);
-    const width = keyboard
-      ? lineEntries.reduce((sum, entry, index) => sum +
-        handleWidth(entry.text, size) + capPad * 2 + (index ? 5 : 0), 0)
-      : handleWidth(lineEntries.map((entry) => entry.text).join(" "), size);
+    const width = lineEntries.reduce((sum, entry, index) => sum +
+      (keyboard ? handleWidth(entry.text, size) + capPad * 2
+        : padButtonDiameter(size)) + (index ? 5 : 0), 0);
     let cursor = side === 0 ? safe.left + 8 : safe.right - 8 - width;
     const y = firstY + row * lineHeight;
     for (const entry of lineEntries) {
-      if (keyboard) {
-        cursor += drawKeycap(entry.text, cursor, y, size, entry.held,
-          entry.fade) + 5;
-        continue;
-      }
-      const activeColor = entry.held
-        ? heldPalette[entry.label] || [255, 240, 90] : player.color;
-      const ink = mixColor(background, activeColor, entry.fade);
-      const shade = mixColor(background, contrastShadow(activeColor), entry.fade);
-      typeWrite(entry.text, cursor + 3, y + 4, size, ...shade);
-      typeWrite(entry.text, cursor, y, size, ...ink);
-      cursor += handleWidth(entry.text, size) + comicGlyphAdvance(" ", size);
+      cursor += (keyboard
+        ? drawKeycap(entry.text, cursor, y, size, entry.held, entry.fade)
+        : drawPadButton(entry.label, cursor, y, size, entry.held,
+          entry.fade)) + 5;
     }
   }
 }

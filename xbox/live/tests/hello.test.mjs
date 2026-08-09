@@ -318,8 +318,12 @@ test("every instructional keyboard key uses the shared gray keycap renderer", ()
   const streamSource = source.slice(source.indexOf("function drawCommandStream"),
     source.indexOf("function drawFightIntro"));
   assert.match(streamSource, /A: "SPACE", B: "G", X: "B", Y: "V"/);
+  // Keyboard keeps keycaps; every other family draws controller discs
+  // through the same seam.
   assert.match(streamSource,
-    /drawKeycap\(entry\.text, cursor, y, size, entry\.held,\s*\n\s*entry\.fade\)/);
+    /drawKeycap\(entry\.text, cursor, y, size, entry\.held, entry\.fade\)/);
+  assert.match(streamSource,
+    /drawPadButton\(entry\.label, cursor, y, size, entry\.held,/);
 });
 
 test("dummy play keeps its key guide for one session-scoped teaching window", () => {
@@ -2958,13 +2962,14 @@ test("player command streams retain recent directions and buttons", () => {
     /const glyph = \{ LEFT: "<", RIGHT: ">", UP: "\^", DOWN: "v" \}/);
   assert.match(source, /fade: commandFade\(index, count, idle\)/);
   assert.match(source, /nextLength > commandStreamColumns/);
-  // The buffer lives in the top corners now, one HUD row below the clocks —
-  // never down in the nameplates.
-  assert.match(source, /const firstY = safe\.top \+ hudTypeSize \+ 12/);
-  assert.doesNotMatch(source,
-    /handle\.y - statStackHeight\(\) - inventoryOffset/);
+  // Keyboard reads from the top corners by the clocks; a controller reads
+  // bottom-up from above its own nameplate.
+  assert.match(source, /\? safe\.top \+ hudTypeSize \+ 12/);
+  assert.match(source,
+    /: handle\.y - statStackHeight\(\) - inventoryOffset -/);
   assert.match(source, /held: held\.includes\(buttonFor\[entry\.label\]\)/);
-  assert.match(source, /heldPalette\[entry\.label\]/);
+  // The held tint lives in the pad-button renderer now, not a local palette.
+  assert.match(source, /padButtonInk\[label\]/);
   assert.match(source, /const size = hudTypeSize/);
 });
 
