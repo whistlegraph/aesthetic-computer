@@ -61,12 +61,36 @@
     #auto-update-label { display: flex; align-items: center; gap: 6px;
       font-size: 14px; font-weight: 400; }
     #auto-update { width: 16px; height: 16px; margin: 0; accent-color: #ff5070; }
-    #logout { position: fixed; top: max(14px, env(safe-area-inset-top));
-      right: max(14px, env(safe-area-inset-right)); z-index: 6;
-      appearance: none; padding: 7px 11px; border: 2px solid #6e768d;
+    /* The wordmark lives in the canvas, whose vertical unit is always 1080 no
+       matter the viewport (see resizeCanvas), so the band between the title and
+       `start` is addressable from CSS as a fraction of the canvas height.
+       drawTitleScreen puts the wordmark at .35 of 1080 at size 154 and
+       titleButtonRect puts `start` at .64, which leaves 532..661 units free. */
+    #account { position: fixed; top: calc(52vh + 4px);
+      left: 50%; transform: translateX(-50%); z-index: 6;
+      display: flex; flex-direction: column; align-items: center; }
+    @supports (height: 100dvh) { #account { top: calc(52dvh + 4px); } }
+    /* compactLayout() is stageRight < 1500, and stageRight is 1080 * aspect,
+       so the game goes compact at exactly 25/18 — where the wordmark drops to
+       .38 at size 88 and `start` climbs to .61. */
+    @media (max-aspect-ratio: 25/18) {
+      #account { top: calc(48vh + 4px); }
+      @supports (height: 100dvh) { #account { top: calc(48dvh + 4px); } }
+    }
+    /* The silent auth check answers well after the first paint, so the handle
+       hangs above the button rather than sitting in the flow — otherwise the
+       door everyone is aiming at would jump a second into the title screen. */
+    #account-handle { position: absolute; bottom: 100%; margin-bottom: 7px;
+      white-space: nowrap;
+      font: 700 17px/1 "Comic Relief", "Comic Sans MS", Arial, sans-serif;
+      color: #f3f6ff; text-shadow: 2px 3px 0 rgba(4, 7, 18, .65); }
+    #account-handle[hidden] { display: none; }
+    #logout { appearance: none; padding: 7px 11px; border: 2px solid #6e768d;
       border-radius: 8px; background: #b0b8ca; color: #171b28;
       font: 700 15px/1 "Comic Relief", "Comic Sans MS", Arial, sans-serif;
       box-shadow: 2px 3px 0 rgba(20, 25, 38, .35); }
+    body:not(.title-open) #account, body.social-preview #account { display: none; }
+    body.midi-out #account { display: none; }
     body:not(.title-open) #logout, body.social-preview #logout { display: none; }
     /* Scoring from a DAW is anonymous dummy play, so the account door is shut
        and the corner it occupied is free for the midi lamp. */
@@ -113,7 +137,10 @@
 <body>
   <canvas id="screen" width="1920" height="1080" aria-label="oskiewar two-player stick fight"></canvas>
   <div id="status" role="alert" aria-live="polite"></div>
-  <button id="logout" type="button">log out</button>
+  <div id="account">
+    <span id="account-handle" hidden></span>
+    <button id="logout" type="button">log out</button>
+  </div>
   <div id="update-ready" role="status">
     <button id="update-now" type="button">update is ready</button>
     <label id="auto-update-label"><input id="auto-update" type="checkbox">auto update</label>
@@ -179,6 +206,55 @@
       target.searchParams.set("returnTo", location.origin + "/");
       location.assign(target);
     });
+
+    // The shell holds no session of its own: oskiewar.com is a different
+    // registrable domain from aesthetic.computer, so neither cookie nor
+    // localStorage crosses. The Auth0 SSO cookie on hi.aesthetic.computer is
+    // the only shared ground, so ask it silently — no redirect, no interruption
+    // to a title screen someone may have opened just to play.
+    const accountHandle = document.querySelector("#account-handle");
+    function loadAuth0() {
+      return new Promise((resolve, reject) => {
+        const script = document.createElement("script");
+        script.src = "/aesthetic.computer/dep/auth0-spa-js.production.js";
+        script.crossOrigin = "anonymous";
+        script.onload = resolve;
+        script.onerror = () => reject(new Error("auth0 script failed"));
+        document.head.appendChild(script);
+      });
+    }
+    async function showAccountHandle() {
+      // A silent check also fails when oskiewar.com is missing from Auth0's
+      // allowed web origins, which is indistinguishable here from being logged
+      // out — so an unknown session shows no handle and still offers the door,
+      // rather than hiding the way out from someone who is actually signed in.
+      try {
+        await loadAuth0();
+        const client = await globalThis.auth0?.createAuth0Client({
+          domain: "https://hi.aesthetic.computer",
+          clientId: "LVdZaMbyXctkGfZDnpzDATB5nR0ZhmMt",
+          cacheLocation: "localstorage",
+          useRefreshTokens: true,
+          authorizationParams: { redirect_uri: location.origin },
+        });
+        if (!client) return;
+        await client.checkSession();
+        const sub = (await client.getUser())?.sub;
+        if (!sub) return;
+        // Same endpoint the fight coordinator verifies against, and it answers
+        // cross-origin, so the handle needs no proxy route of its own.
+        const response = await fetch(
+          "https://aesthetic.computer/handle?for=" + encodeURIComponent(sub));
+        if (!response.ok) return;
+        const handle = (await response.json())?.handle;
+        if (!handle) return;
+        accountHandle.textContent = "@" + handle;
+        accountHandle.hidden = false;
+      } catch (_) {}
+    }
+    // The poster and the loop are burned headless from this same shell, and a
+    // handle is nobody's business in an Open Graph card.
+    if (!document.body.classList.contains("social-preview")) showAccountHandle();
 
     // Keep a stable 1080-unit vertical coordinate system while allowing the
     // horizontal game surface to follow the browser's actual aspect ratio.
