@@ -3286,6 +3286,12 @@ function killPlayer(target, killerPad, now, cause = "KO") {
   playDrum("whoosh", 1.15, panPlayer(target));
   emitSignal("killcam", killerPad, target.pad, 1);
   playDrum("snare", 1.15, panPlayer(target));
+  // The dummy is the opponent everybody gets for free, and its fight is
+  // already running under the title screen — so its head is the one number
+  // the whole site can share without anybody signing in. Balling yourself
+  // does not count; somebody has to have popped it.
+  if (target.npc && !target.bot && killerPad !== target.pad)
+    emitSignal("dummy-popped", killerPad, target.pad, 1);
 }
 
 // The crater. Everything about it is decided by the fall: a pound from a hop
@@ -6217,6 +6223,37 @@ function animatedTitleColor(index, t, daylight = visualTheme.light) {
   return mixColor(night, day, daylight);
 }
 
+// The dummy count, as a sentence. The host hands over a window and a total;
+// the window is already the shortest one that had anything in it, so all that
+// is left here is to say it in English. Zero returns nothing at all — an
+// arcade does not advertise that nobody played today.
+function dummyPopLine(stat) {
+  const pops = Math.floor(Number(stat?.pops) || 0);
+  const hours = Math.floor(Number(stat?.hours) || 0);
+  if (pops <= 0 || hours <= 0 || hours > 48) return "";
+  return pops + " dummy head" + (pops === 1 ? "" : "s") + " popped in the last " +
+    (hours === 1 ? "hour" : hours + " hours");
+}
+
+function drawDummyPopLine(button, transitionInk) {
+  // Not on the poster: the social preview is burned to a file whose hash is
+  // checked at deploy, and a number that moves would make it stale hourly.
+  if (typeof capabilities !== "function" ||
+      capabilities().socialPreview === true) return;
+  const line = dummyPopLine(capabilities().pops);
+  if (!line) return;
+  const size = Math.round(hudTypeSize * (compactLayout() ? .46 : .56));
+  const width = handleWidth(line, size);
+  const x = viewCenterX() - width / 2;
+  const y = button.y + button.height + (compactLayout() ? 14 : 22);
+  if (y + size > viewHeight - 8) return;
+  const ink = transitionInk ||
+    mixColor([198, 206, 232], [58, 70, 104], visualTheme.light);
+  typeWrite(line, x + 2, y + 2, size,
+    ...mixColor([8, 10, 26], [226, 234, 246], visualTheme.light));
+  typeWrite(line, x, y, size, ...ink);
+}
+
 function titleButtonRect() {
   const compact = compactLayout();
   const textSize = hudTypeSize;
@@ -6372,6 +6409,7 @@ function drawTitleScreen(t, ink, transitionAge = -1) {
       typeWrite(character, x, y, size, ...litInk);
       promptCursor += advance;
     }
+    drawDummyPopLine(button, transitionInk);
   }
   // Touch play keeps its thumbs in the bottom corners, and the fight is live
   // under this screen now, so the stamp yields the pad rather than sit on it.

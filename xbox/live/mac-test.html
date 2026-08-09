@@ -589,6 +589,14 @@
         name: seatedPad(index, live)?.id || `KEYBOARD P${index + 1}`,
         standard: padSeats[index] !== null }));
     }
+    // The shared dummy tally. `null` means nobody has answered yet, which the
+    // title reads as "say nothing" rather than as zero. Declared up here
+    // because `capabilities` hands it out and is called before the reporting
+    // helpers further down have run.
+    let dummyPops = null;
+    const popsEndpoint = "/api/oskiewar-pops";
+    const socialPreview = new URLSearchParams(location.search).has("social-preview");
+
     function capabilities() {
       const mac = navigator.userAgent.includes("Mac");
       const hasGamepad = padSeats.some((padIndex) => padIndex !== null);
@@ -602,6 +610,9 @@
         // without the host needing a new sandbox function to say so.
         midi: document.body.classList.contains("midi-out"),
         midiPulse: globalThis.__oskiewarMidiPulse || 0,
+        // The shared dummy count. Null until the first fetch answers, and the
+        // title screen simply says nothing while it is.
+        pops: dummyPops,
         productName: mac ? "MACOS" : "WEB",
         version: "CROSS-PLATFORM", graphics: "CANVAS2D", audio: "WEB AUDIO" };
     }
@@ -729,7 +740,31 @@
       }
     }
 
+    async function readDummyPops() {
+      if (socialPreview) return;
+      try {
+        const response = await fetch(popsEndpoint, { cache: "no-store" });
+        if (!response.ok) return;
+        const body = await response.json();
+        if (Number.isFinite(body?.pops) && Number.isFinite(body?.hours))
+          dummyPops = { pops: body.pops, hours: body.hours };
+      } catch {}
+    }
+
+    // Reporting is fire-and-forget: a pop that does not reach the counter is
+    // worth less than a frame spent waiting on it. The local tally moves
+    // straight away so the number you just earned is on screen when the round
+    // hands you back to the title.
+    function reportDummyPop() {
+      if (socialPreview) return;
+      if (dummyPops) dummyPops = { ...dummyPops, pops: dummyPops.pops + 1 };
+      fetch(popsEndpoint, { method: "POST", keepalive: true,
+        headers: { "content-type": "application/json" }, body: "{}" })
+        .catch(() => {});
+    }
+
     function gameSignal(event, player = -1, value = 0, value2 = 0) {
+      if (event === "dummy-popped") reportDummyPop();
       dispatchEvent(new CustomEvent("oskiewar:signal", {
         detail: { event, player, value, value2, at: performance.now() },
       }));
@@ -979,6 +1014,12 @@
         "line", "triangle", "write", "systemWrite", "comicWrite", "gameView"]
         .map((name) => globalThis.__fightHost[name]));
       piece.boot();
+      // The tally is a title-screen ornament, so it is fetched alongside the
+      // first frame rather than gating it, and refreshed slowly — the count
+      // only has to be roughly true, and the local bump already covers the
+      // pop you just earned.
+      readDummyPops();
+      if (!socialPreview) setInterval(readDummyPops, 120000);
       let selectionHoverSoundKey = "";
       let previousPieceScreen = "title";
       const tabTitles = ["oskiewar", "oskie war", "os ki ewar", "osk ie war",
