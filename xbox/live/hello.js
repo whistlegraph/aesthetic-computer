@@ -5808,19 +5808,32 @@ function drawCommandStream(player, side) {
     fade: commandFade(index, count, idle),
     held: held.includes(buttonFor[entry.label]),
   })).filter((entry) => entry.fade > .01);
+  // A held button lights only its newest appearance — not every earlier
+  // press of the same button still sitting in the buffer's history.
+  const claimed = new Set();
+  for (let index = entries.length - 1; index >= 0; index--) {
+    const entry = entries[index];
+    if (!entry.held) continue;
+    if (claimed.has(entry.label)) entry.held = false;
+    else claimed.add(entry.label);
+  }
   if (!entries.length) return;
   const lines = [];
   let current = [];
   let characters = 0;
   for (const entry of entries) {
-    const nextLength = characters + (current.length ? 1 : 0) + entry.text.length;
+    // A disc is a disc: pad rows wrap by count, not by how many letters the
+    // label would have spelled — eight buttons to a line, not four.
+    const cost = keyboard ? entry.text.length : 1;
+    const nextLength = characters + (current.length ? 1 : 0) + cost;
     if (current.length && nextLength > commandStreamColumns) {
       lines.push(current);
       current = [];
       characters = 0;
     }
     current.push(entry);
-    characters += (current.length > 1 ? 1 : 0) + entry.text.length;
+    characters += (current.length > 1 ? 1 : 0) +
+      (keyboard ? entry.text.length : 1);
   }
   if (current.length) lines.push(current);
   // A deep buffer on a wide-text platform can outgrow the corner it lives in.
