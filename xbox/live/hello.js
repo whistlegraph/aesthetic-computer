@@ -5224,17 +5224,18 @@ function drawPadButton(label, x, y, size, pressed, fade = 1) {
   const veil = (color) => fade >= 1 ? color : mixColor(ground, color, fade);
   const ink = padButtonInk[label] || mixColor([148, 158, 178], [96, 104, 124],
     visualTheme.light);
-  const face = pressed ? ink
-    : mixColor([16, 19, 36], [214, 222, 236], visualTheme.light);
+  // Filled like the real thing: the color IS the button. Held brightens it
+  // and rims it white; the glyph stays dark and dead-center either way.
+  const face = pressed ? mixColor(ink, [255, 255, 255], .3) : ink;
   const cx = x + radius;
   const cy = y + Math.round(size * .75);
   filledDisc(cx, cy, radius, veil(face));
-  filledRing(cx, cy, radius, radius - 3, veil(ink));
+  if (pressed) filledRing(cx, cy, radius, radius - 3, veil([245, 248, 255]));
   const text = padGlyph[label] || label;
   const glyphSize = Math.round(size * .82);
-  const letter = pressed ? [12, 14, 26] : ink;
-  typeWrite(text, cx - Math.round(handleWidth(text, glyphSize) / 2),
-    cy - Math.round(glyphSize / 2), glyphSize, ...veil(letter));
+  typeWrite(text,
+    Math.round(cx - handleWidth(text, glyphSize) / 2),
+    Math.round(cy - glyphSize * .52), glyphSize, ...veil([12, 14, 26]));
   return radius * 2;
 }
 
@@ -5987,7 +5988,10 @@ function drawSpotShadow(x, y, z, radius, color) {
   const radiusY = Math.max(3, radiusX * (.24 + .1 * focus));
   // Bind the shadow to the owning object's depth, then bias it away from the
   // camera. It remains above the terrain pass but can never win against the
-  // object that casts it.
+  // object that casts it. Restore the depth after — this used to leak, and
+  // everything drawn until the next assignment inherited the last shadow
+  // caster's depth: nondeterministic layering, frame to frame, on console.
+  const previousDepth = triangleDepth;
   triangleDepth = projectPoint(x, y, z).z + .018;
   const sides = 14;
   for (let side = 0; side < sides; side++) {
@@ -5999,6 +6003,7 @@ function drawSpotShadow(x, y, z, radius, color) {
       center.x + Math.cos(b) * radiusX,
       center.y + Math.sin(b) * radiusY, ...color);
   }
+  triangleDepth = previousDepth;
 }
 
 function projectedBallRadius(ball) {
@@ -6123,9 +6128,12 @@ function drawGunPickup(pickup, t) {
   const gripWidth = Math.max(2, 4 * scale);
   // A handgun-sized world object in gunmetal and grip material, not a glowing
   // pickup glyph with a second silhouette around it.
-  worldLine(pickup.x - 16, bobY, pickup.z,
+  // Capsules, not line() — the native renderer buries the whole line
+  // stratum beneath the world's triangles, which is how the gun spent a day
+  // drawn under the floor on console while the web shell showed it fine.
+  worldCapsule(pickup.x - 16, bobY, pickup.z,
     pickup.x + 20, bobY, pickup.z, barrelWidth, metal);
-  worldLine(pickup.x + 2, bobY + 1, pickup.z,
+  worldCapsule(pickup.x + 2, bobY + 1, pickup.z,
     pickup.x + 8, bobY + 18, pickup.z, gripWidth, grip);
 }
 
@@ -6149,7 +6157,7 @@ function drawGrenadePickup(pickup, t) {
   const fuse = mixColor([210, 218, 232], [45, 50, 60], visualTheme.light);
   const radius = Math.max(3, 9 * scale);
   filledDisc(point.x, point.y, radius, shell);
-  worldLine(pickup.x + 1, bobY - 10, pickup.z,
+  worldCapsule(pickup.x + 1, bobY - 10, pickup.z,
     pickup.x + 11, bobY - 20, pickup.z, Math.max(2, 3 * scale), fuse);
 }
 
