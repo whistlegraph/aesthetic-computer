@@ -572,14 +572,14 @@ const impacts = [];
 const detachedParts = [];
 const bullets = [];
 const grenades = [];
-// Pickups float at the old ledge height whether or not the ledge exists —
-// a jump target needs airspace, not furniture, and a floor-level pickup is
-// collected by whoever happens to stand near the spawn lane.
+// Pickups belong to a surface the player can actually see. When the optional
+// ledge is gone they sit just above the floor instead of floating at its old
+// invisible height.
 const gunPickups = [
-  { amount: 6, x: 6000, y: platformY - 70, z: 0 },
+  { amount: 6, x: 6000, y: PLATFORM ? platformY - 70 : floorY - 35, z: 0 },
 ];
 const grenadePickups = [
-  { amount: 2, x: 6000, y: platformY - 70, z: 0 },
+  { amount: 2, x: 6000, y: PLATFORM ? platformY - 70 : floorY - 35, z: 0 },
 ];
 // Two trees grow out of the side walls, one per side, and they are the only
 // thing in the round that gives a body back. A fighter who has been taken
@@ -2574,8 +2574,8 @@ function quantizedInput(pad, suppressed = []) {
 function remember(player, button) {
   player.lastButton = buttonLabel(button);
   player.lastButtonAt = runtime().monotonicUs;
-  const command = { A: "K", B: "P", X: "S", Y: "I",
-    LeftShoulder: "I", RightShoulder: "I" }[button] || player.lastButton;
+  const command = { A: "/", B: "*", X: ")", Y: "+",
+    LeftShoulder: "+", RightShoulder: "+" }[button] || player.lastButton;
   if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight",
       "A", "B", "X", "Y", "LeftShoulder", "RightShoulder"].includes(button))
     recordCommand(player, command, player.lastButtonAt);
@@ -2714,10 +2714,10 @@ function drawBodyTree(tree, t) {
     ? mixColor([120, 226, 138], [46, 150, 84], visualTheme.light)
     : mixColor([96, 140, 104], [44, 84, 60], visualTheme.light);
   const tipY = crownY + sway;
-  worldLine(tree.x, tree.y, tree.z, tipX, tipY, tree.z,
+  worldCapsule(tree.x, tree.y, tree.z, tipX, tipY, tree.z,
     Math.max(2, (11 + 9 * tree.growth) * scale), bark);
   for (const spread of [-1, -.35, .35, 1]) {
-    worldLine(tipX, tipY, tree.z,
+    worldCapsule(tipX, tipY, tree.z,
       tipX + toward * (60 + 90 * tree.growth),
       tipY + spread * (60 + 70 * tree.growth), tree.z,
       Math.max(2, (8 + 8 * tree.growth) * scale), leaf);
@@ -2740,8 +2740,8 @@ function updatePowerups(now) {
       // The flag owns exact center. Alternating pickup lanes keep a real-sized
       // weapon from reading as hardware attached to its pole.
       pickup.x = (platformLeft + platformRight) / 2 +
-        (powerupSequence % 2 ? 360 : -360);
-      pickup.y = platformY - 70;
+        (powerupSequence % 2 ? 1400 : -1400);
+      pickup.y = PLATFORM ? platformY - 70 : floorY - 35;
       pickup.z = 0;
       powerupSequence += 1;
       emitSignal("powerup", -1, powerupSequence, nextPowerupAtUs / 1000000);
@@ -5358,7 +5358,7 @@ function drawPadButton(label, x, y, size, pressed, fade = 1) {
   }
   const glyphX = Math.round(cx - handleWidth(text, glyphSize) / 2);
   const glyphY = Math.round(cy - glyphSize / 2);
-  if (padButtonInk[label])
+  if (padButtonInk[label] || /^[KPSI<>^v]$/.test(text))
     systemWrite(text, glyphX, glyphY, glyphSize, ...veil([12, 14, 26]));
   else typeWrite(text, glyphX, glyphY, glyphSize, ...veil([12, 14, 26]));
   return radius * 2;
@@ -5531,10 +5531,16 @@ function drawFace(player, head, color, t, now = runtime().monotonicUs) {
       : (pad.down || []).includes("ArrowDown") ? -1 : 0;
     const lookX = digitalX || (Math.abs(rawX) >= deadzone ? rawX : 0) || direction * .2;
     const lookY = digitalY || (Math.abs(rawY) >= deadzone ? rawY : 0);
-    const pupilX = clamp(lookX, -1, 1) * eyeWidth * .7;
-    const pupilY = clamp(-lookY, -1, 1) * eyeWidth * .7;
-    filledDisc(faceX - eyeGap + pupilX, eyeY + pupilY, eyeWidth * 1.05, color);
-    filledDisc(faceX + eyeGap + pupilX, eyeY + pupilY, eyeWidth * 1.05, color);
+    const pupilX = clamp(lookX, -1, 1) * eyeWidth * 1.05;
+    const pupilY = clamp(-lookY, -1, 1) * eyeWidth * 1.05;
+    const socketRadius = eyeWidth * 2.35;
+    const pupilRadius = eyeWidth * .9;
+    const pupilInk = visualTheme.light > .5 ? [10, 14, 28] : [244, 248, 255];
+    for (const offset of [-eyeGap, eyeGap]) {
+      filledDisc(faceX + offset, eyeY, socketRadius, color);
+      filledDisc(faceX + offset + pupilX, eyeY + pupilY,
+        pupilRadius, pupilInk);
+    }
   }
   if (player.bot && player.alive && !player.blocking) {
     const browY = eyeY - r * .32;
@@ -5954,10 +5960,10 @@ function commandFade(index, count, idle) {
 }
 
 function drawCommandStream(player, side) {
-  const glyph = { LEFT: "←", RIGHT: "→", UP: "↑", DOWN: "↓" };
+  const glyph = { LEFT: "<", RIGHT: ">", UP: "^", DOWN: "v" };
   const buttonFor = { LEFT: "ArrowLeft", RIGHT: "ArrowRight",
-    UP: "ArrowUp", DOWN: "ArrowDown", K: "A", P: "B", S: "X",
-    I: ["Y", "LeftShoulder", "RightShoulder"] };
+    UP: "ArrowUp", DOWN: "ArrowDown", "/": "A", "*": "B", ")": "X",
+    "+": ["Y", "LeftShoulder", "RightShoulder"] };
   const now = runtime().monotonicUs;
   const idle = now - (player.commandStream.at(-1)?.at || now);
   const count = player.commandStream.length;
@@ -6011,14 +6017,18 @@ function drawCommandStream(player, side) {
   const firstY = safe.top + hudTypeSize + 12;
   for (let row = 0; row < lines.length; row++) {
     const lineEntries = lines[row];
-    const capPad = Math.round(size * .42);
     const width = lineEntries.reduce((sum, entry, index) => sum +
-      padButtonDiameter(size) + (index ? 5 : 0), 0);
+      handleWidth(entry.text, size) + (index ? Math.round(size * .34) : 0), 0);
     let cursor = side === 0 ? safe.left + 8 : safe.right - 8 - width;
     const y = firstY + row * lineHeight;
     for (const entry of lineEntries) {
-      cursor += drawPadButton(entry.label, cursor, y, size, entry.held,
-        entry.fade) + 5;
+      const quiet = mixColor([104, 114, 136], [82, 90, 108], visualTheme.light);
+      const live = entry.held ? player.color : quiet;
+      const glyphInk = entry.fade >= 1 ? live
+        : mixColor(visualTheme.light > .5 ? [230, 239, 247] : [7, 8, 28],
+          live, entry.fade);
+      typeWrite(entry.text, cursor, y, size, ...glyphInk);
+      cursor += handleWidth(entry.text, size) + Math.round(size * .34);
     }
   }
 }
@@ -6148,9 +6158,9 @@ function drawSpotShadow(x, y, z, radius, color) {
   if (![center.x, center.y, edge.x, edge.y].every(Number.isFinite) ||
       [center.x, center.y, edge.x, edge.y].some((value) => Math.abs(value) > 30000))
     return;
-  const radiusX = Math.max(5, Math.abs(edge.x - center.x) *
-    (.72 + .28 * focus));
-  const radiusY = Math.max(3, radiusX * (.24 + .1 * focus));
+  const radiusX = Math.max(4, Math.abs(edge.x - center.x) *
+    (.5 + .18 * focus));
+  const radiusY = Math.max(2, radiusX * (.2 + .08 * focus));
   // Bind the shadow to the owning object's depth, then bias it away from the
   // camera. It remains above the terrain pass but can never win against the
   // object that casts it. Restore the depth after — this used to leak, and
@@ -6270,8 +6280,6 @@ function drawBall(ball) {
 
 function drawBallHitboxes() {
   if (!debugHitboxes) return;
-  const previousDepth = triangleDepth;
-  triangleDepth = -1.46;
   for (const item of balls) {
     if (!item.active) continue;
     const point = projectPoint(item.x, item.y, item.z);
@@ -6280,7 +6288,6 @@ function drawBallHitboxes() {
         Math.abs(point.x) > 30000 || Math.abs(point.y) > 30000) continue;
     filledRing(point.x, point.y, radius + 5, radius + 2, [58, 222, 255]);
   }
-  triangleDepth = previousDepth;
 }
 
 function drawGunPickup(pickup, t) {
@@ -6303,14 +6310,8 @@ function drawGunPickup(pickup, t) {
 }
 
 function drawBullet(bullet) {
-  const color = players[bullet.owner].color;
   const point = projectPoint(bullet.x, bullet.y, bullet.z);
-  const speed = Math.hypot(bullet.vx, bullet.vy) || 1;
-  const tail = projectPoint(bullet.x - bullet.vx / speed * 130,
-    bullet.y - bullet.vy / speed * 130, bullet.z);
-  filledCapsule(tail.x, tail.y, point.x, point.y,
-    Math.max(3, 13 * cameraScale()), color);
-  filledDisc(point.x, point.y, Math.max(3, 12 * cameraScale()), color);
+  filledDisc(point.x, point.y, Math.max(3, 6 * cameraScale()), [8, 10, 16]);
 }
 
 function drawGrenadePickup(pickup, t) {
@@ -6916,7 +6917,7 @@ function drawSpectatorQr(ink) {
   const safe = hudSafeRect();
   const compact = compactLayout();
   const metaSize = compact ? Math.max(20, hudTypeSize * .58) : hudTypeSize;
-  if (debugHitboxes) {
+  if (debugHitboxes && shellMode === "GAME") {
     // The bug moved into the HUD status lane, where it is one of a set.
     const fpsLabel = Math.round(displayFps || 0) + " fps";
     typeWrite(fpsLabel, safe.left + 2, safe.top + 2, metaSize, ...ink);
@@ -7084,7 +7085,7 @@ function gamePaint() {
     visualTheme.light * .72);
   for (const player of players)
     if (player.alive || roundResult)
-      drawSpotShadow(player.x, player.y, player.z, player.ducking ? 72 : 92,
+      drawSpotShadow(player.x, player.y, player.z, player.ducking ? 52 : 64,
         shadowInk);
   for (const item of balls)
     if (item.active)
@@ -7173,6 +7174,14 @@ function gamePaint() {
     z: item.z - cameraDoll.position.z,
   }, viewDirection);
   renderables.sort((a, b) => depth(b) - depth(a));
+  // Debug geometry is world evidence, not UI. Submit it first at the far
+  // screen depth so actors, faces, title type, controls, and HUD always win
+  // the depth test even though the inspector remains visible around them.
+  triangleDepth = .999;
+  drawDebugHitboxes(players[0], t);
+  drawDebugHitboxes(players[1], t);
+  drawBallHitboxes();
+  drawSafeZones();
   for (const renderable of renderables) {
     triangleDepth = projectPoint(renderable.x, renderable.y, renderable.z).z;
     if (renderable.kind === "bullet") drawBullet(renderable.item);
@@ -7182,9 +7191,6 @@ function gamePaint() {
     else drawRunner(renderable.item, t, showRunnerLabels);
   }
   triangleDepth = -1.42;
-  drawDebugHitboxes(players[0], t);
-  drawDebugHitboxes(players[1], t);
-  drawBallHitboxes();
   drawImpacts();
   const counting = !roundResult && introAge < introDurationUs;
   // The matchup card announces two names in the middle of the screen, which
@@ -7245,7 +7251,6 @@ function gamePaint() {
     drawCommandStream(players[0], 0);
     drawCommandStream(players[1], 1);
   }
-  drawSafeZones();
   drawDeathFlash();
   if (shellMode === "MENU") {
     const transitionAge = titleTransitionAt !== null

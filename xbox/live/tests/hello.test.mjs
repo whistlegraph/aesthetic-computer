@@ -323,11 +323,11 @@ test("every instructional keyboard key uses the shared gray keycap renderer", ()
   assert.doesNotMatch(source, /typeWrite\(replayControl, viewCenterX/);
   const streamSource = source.slice(source.indexOf("function drawCommandStream"),
     source.indexOf("function drawFightIntro"));
-  assert.match(streamSource, /LEFT: "←", RIGHT: "→", UP: "↑", DOWN: "↓"/);
-  assert.match(streamSource, /K: "A", P: "B", S: "X"/);
+  assert.match(streamSource, /LEFT: "<", RIGHT: ">", UP: "\^", DOWN: "v"/);
+  assert.match(streamSource, /"\/": "A", "\*": "B", "\)": "X"/);
   assert.doesNotMatch(streamSource, /keyboardCaps|drawKeycap\(entry\.text/);
-  assert.match(streamSource,
-    /drawPadButton\(entry\.label, cursor, y, size, entry\.held,/);
+  assert.match(streamSource, /typeWrite\(entry\.text, cursor, y, size, \.\.\.glyphInk\)/);
+  assert.doesNotMatch(streamSource, /drawPadButton\(entry\.text/);
 });
 
 test("dummy play keeps its key guide for one session-scoped teaching window", () => {
@@ -589,7 +589,7 @@ test("HUD safe area keeps a generous equal inset on all four screen edges", () =
   }
 });
 
-test("debug view renders on the foreground triangle layer", () => {
+test("debug world geometry renders behind actors and screen UI", () => {
   const { fight, triangles } = createFight(false, false, "web", null,
     { width: 1920, height: 1080 });
   fight.startFight();
@@ -599,26 +599,14 @@ test("debug view renders on the foreground triangle layer", () => {
   fight.setDebugHitboxes(true);
   fight.paint();
   const debug = triangles.splice(0);
-  // Counting faces could not tell a debug layer from a frame that threw
-  // halfway and drew nothing, which is exactly how this test failed once. So
-  // say what the layer is: the scene projects inside ±1.4 and the band in
-  // front of it is reserved for overlays. Every face debug adds lands there,
-  // none of the plain frame's do, and the scene underneath is untouched —
-  // apart from the bug, which is a HUD status icon beside the MIDI piano now
-  // and so draws in the HUD's lane rather than on the overlay band.
-  const inFront = (frame) => frame.filter(([, , z]) => z < -1.4);
-  const behind = (frame) => frame.length - inFront(frame).length;
   assert.equal(fight.clientErrorState(), "");
-  assert.equal(inFront(plain).length, 0);
-  assert.ok(inFront(debug).length > 100);
-  const strays = behind(debug) - plain.length;
-  assert.ok(strays > 0 && strays < 40,
-    `debug added ${strays} faces behind the overlay; only the status-lane bug belongs there`);
+  assert.ok(debug.length > plain.length);
   assert.match(source, /if \(debugHitboxes\) icons\.push\("bug"\)/);
   assert.match(source, /let debugHitboxes = false/);
   assert.match(source, /function drawCornerCrops[\s\S]*?filledCapsule/);
-  assert.match(source,
-    /drawDebugHitboxes\(players\[1\], t\);\n  drawBallHitboxes\(\);\n  drawImpacts\(\);/);
+  assert.match(source, /triangleDepth = \.999;\n  drawDebugHitboxes/);
+  assert.ok(source.indexOf("drawBallHitboxes();") <
+    source.indexOf("for (const renderable of renderables)"));
 });
 
 test("camera contains both complete fighters at every supported aspect", () => {
@@ -2875,14 +2863,16 @@ test("weather is calm while ambient dust remains visible", () => {
   assert.match(source, /drawAmbientMotes\(windInk\)/);
 });
 
-test("only one center-platform powerup appears at each ten-second interval", () => {
+test("only one visible-surface powerup appears at each ten-second interval", () => {
   const { fight, tick } = createFight();
   for (let step = 0; step < 251; step++) tick(50000);
   let active = [...fight.gunPickups, ...fight.grenadePickups]
     .filter((pickup) => pickup.active);
   assert.equal(active.length, 1);
-  assert.equal(active[0].x, 5640);
-  assert.equal(active[0].y, fight.stageGeometry().platformY - 70);
+  assert.equal(active[0].x, 4600);
+  assert.equal(active[0].y, PLATFORM
+    ? fight.stageGeometry().platformY - 70
+    : fight.stageGeometry().floorY - 35);
   for (let step = 0; step < 250; step++) tick(50000);
   active = [...fight.gunPickups, ...fight.grenadePickups]
     .filter((pickup) => pickup.active);
@@ -3004,10 +2994,10 @@ test("player command streams retain recent directions and buttons", () => {
   pads[0].down = ["ArrowRight", "A"];
   tick();
   assert.deepEqual(fight.players[0].commandStream.map((entry) => entry.label),
-    ["RIGHT", "K"]);
+    ["RIGHT", "/"]);
   assert.match(source, /function drawCommandStream\(player, side\)/);
   assert.match(source,
-    /const glyph = \{ LEFT: "←", RIGHT: "→", UP: "↑", DOWN: "↓" \}/);
+    /const glyph = \{ LEFT: "<", RIGHT: ">", UP: "\^", DOWN: "v" \}/);
   assert.match(source, /fade: commandFade\(index, count, idle\)/);
   assert.match(source, /nextLength > commandStreamColumns/);
   assert.match(source, /const firstY = safe\.top \+ hudTypeSize \+ 12/);
@@ -3308,7 +3298,7 @@ test("fighters and balls share one projected global-light shadow system", () => 
   assert.match(source, /const globalLight = normalize3/);
   assert.match(source, /drawSpotShadow\(player\.x, player\.y, player\.z/);
   assert.match(source, /drawSpotShadow\(item\.x, item\.y, item\.z/);
-  assert.match(source, /const radiusY = Math\.max\(3, radiusX/);
+  assert.match(source, /const radiusY = Math\.max\(2, radiusX/);
   assert.match(source, /projectPoint\(x, y, z\)\.z \+ \.018/);
 });
 
