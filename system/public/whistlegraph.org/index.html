@@ -9,7 +9,8 @@
 <meta property="og:description" content="A drawing you sing. The score teaches you how to play it.">
 <meta property="og:image" content="https://assets.aesthetic.computer/whistlegraph/butterfly-cosplayer/butterfly-cosplayer.webp">
 <link rel="alternate" type="application/json" href="/api/commands" title="Whistlegraph command feed">
-<meta name="theme-color" content="#fcf7c5">
+<meta name="theme-color" content="#fffdf6" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#15122b">
 <link rel="icon" type="image/png" href="/favicon.png">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <style>
@@ -18,16 +19,46 @@
     src:url('https://aesthetic.computer/type/webfonts/ywft-processing-bold.woff2') format('woff2');
     font-weight:normal; font-style:normal; font-display:swap;
   }
+  /* The page is dark by default — night is when whistlegraphs get watched.
+     Every colour is a token so the light paper can be swapped back in below;
+     nothing but the artwork plates (--art) is allowed a literal colour. */
   :root{
-    --paper:#fffdf6;      /* near-white, faintly warm */
-    --ink:#25204a;        /* dark purple-blue (AC prompt light text) */
-    --dim:#645e85;
-    --margin:#b44887;     /* acpink — accent */
-    --link:#1a56d6;       /* blue */
-    --seen:#7850b4;       /* acpurple, visited */
-    --hi:#fff3a0;         /* highlighter */
+    color-scheme:dark light;
+    --paper:#15122b;      /* deep purple-blue (AC prompt dark ground) */
+    --ink:#ece7ff;        /* lavender-white */
+    --dim:#9a92c4;
+    --margin:#ff77bd;     /* acpink, lifted for dark */
+    --link:#82b2ff;       /* blue */
+    --seen:#bb9dff;       /* acpurple, visited */
+    --hi:#544918;         /* highlighter, burned down to an ember */
+    --line:rgba(236,231,255,.36);   /* box edges — ink would shout on dark */
+    --rule:rgba(236,231,255,.30);   /* horizontal rules */
+    --hair:rgba(236,231,255,.14);   /* the table's row hairlines */
+    --tint:rgba(255,255,255,.06);   /* raised panels + button hovers */
+    --zebra:rgba(255,119,189,.08);  /* alternating index rung */
+    --rowhi:rgba(255,243,160,.13);  /* the row under the cursor */
+    --edge:rgba(255,255,255,.45);   /* colour-swatch outline */
+    --art:#fffdf6;        /* backing for the drawings — paper stays paper */
     --sans:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
     --mono:ui-monospace,"Berkeley Mono Variable",Menlo,"DejaVu Sans Mono",monospace;
+  }
+  @media (prefers-color-scheme: light){
+    :root{
+      --paper:#fffdf6;    /* near-white, faintly warm */
+      --ink:#25204a;      /* dark purple-blue (AC prompt light text) */
+      --dim:#645e85;
+      --margin:#b44887;   /* acpink — accent */
+      --link:#1a56d6;
+      --seen:#7850b4;
+      --hi:#fff3a0;
+      --line:#25204a;     /* on paper the edge is just the ink */
+      --rule:rgba(40,30,90,.35);
+      --hair:rgba(40,30,90,.16);
+      --tint:rgba(255,255,255,.38);
+      --zebra:rgba(180,72,135,.07);
+      --rowhi:rgba(255,243,160,.6);
+      --edge:rgba(0,0,0,.45);
+    }
   }
   *{margin:0;padding:0;box-sizing:border-box}
   html{-webkit-text-size-adjust:100%}
@@ -65,7 +96,7 @@
   .est{color:var(--dim); font-size:12px; margin-top:6px; letter-spacing:.04em}
   .est b{color:var(--margin); font-weight:normal}
 
-  hr{border:0; border-top:1px solid rgba(40,30,90,.35); margin:16px 0}
+  hr{border:0; border-top:1px solid var(--rule); margin:16px 0}
   hr.thick{border-top:2px solid var(--margin)}
 
   blockquote{margin:10px 0; font-size:15.5px}
@@ -81,7 +112,7 @@
   /* index sort chips — legal-pad tabs */
   #idxSearch{
     font-family:inherit; font-size:14px; color:var(--ink); background:var(--paper);
-    border:1px solid var(--ink); border-radius:2px; padding:6px 9px; width:100%; max-width:340px;
+    border:1px solid var(--line); border-radius:2px; padding:6px 9px; width:100%; max-width:340px;
     margin:8px 0 2px; box-sizing:border-box;
   }
   #idxSearch:focus{outline:none; border-color:var(--margin); box-shadow:0 0 0 2px rgba(180,72,135,.18)}
@@ -95,14 +126,14 @@
   }
   .sortbar button{
     font-family:inherit; font-size:11.5px; color:var(--ink); background:transparent;
-    border:1px solid var(--ink); border-radius:2px; padding:2px 8px; cursor:pointer; line-height:1.4;
+    border:1px solid var(--line); border-radius:2px; padding:2px 8px; cursor:pointer; line-height:1.4;
   }
-  .sortbar button:hover{background:rgba(255,255,255,.4)}
+  .sortbar button:hover{background:var(--tint)}
   .sortbar button.on{background:var(--margin); color:var(--paper); border-color:var(--margin)}
-  .sectionbar{display:flex; flex-wrap:wrap; gap:0; margin:7px 0 13px; border-bottom:2px solid var(--ink); align-items:flex-end}
+  .sectionbar{display:flex; flex-wrap:wrap; gap:0; margin:7px 0 13px; border-bottom:2px solid var(--line); align-items:flex-end}
   .sectionbar .sl{font-size:11px; color:var(--dim); padding:7px 9px 6px 0; text-transform:uppercase; letter-spacing:.08em}
   .sectionbar button{font:inherit; font-size:14px; color:var(--ink); border:1px solid transparent; border-bottom:0; background:transparent; padding:7px 11px 6px; cursor:pointer; margin-bottom:-2px}
-  .sectionbar button:hover{border-color:var(--ink); background:rgba(255,255,255,.4)}
+  .sectionbar button:hover{border-color:var(--line); background:var(--tint)}
   .sectionbar button.on{background:var(--ink); color:var(--paper); border-color:var(--ink)}
   .archive-kind{display:block; font-size:9px; letter-spacing:.03em; text-transform:uppercase; color:var(--margin)}
   .archive-desc{display:block; max-width:520px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
@@ -111,7 +142,7 @@
 
   /* the codes note — a bordered wiki box */
   .note{
-    border:1px solid var(--ink); background:rgba(255,255,255,.35);
+    border:1px solid var(--line); background:var(--tint);
     padding:11px 13px; margin:12px 0; font-size:13.5px; line-height:1.7;
   }
   code,.kbd{font-family:var(--mono); background:var(--ink); color:var(--paper); padding:1px 6px; border-radius:2px}
@@ -123,13 +154,13 @@
   /* fixed layout: the three narrow columns are declared, and whatever is left
      over is the title's — a finite width is what lets its lines ellipsize. */
   table.idx{border-collapse:collapse; table-layout:fixed; width:100%; font-size:14px}
-  table.idx td{padding:5px 7px; border-bottom:1px solid rgba(40,30,90,.16); vertical-align:middle}
-  tr.row:nth-of-type(odd) td{background:rgba(180,72,135,.07)} /* a warm rung, not a grey one */
-  td.th{width:66px} td.th img{width:52px; height:66px; object-fit:cover; border:1px solid var(--ink); display:block; background:#fff}
+  table.idx td{padding:5px 7px; border-bottom:1px solid var(--hair); vertical-align:middle}
+  tr.row:nth-of-type(odd) td{background:var(--zebra)} /* a warm rung, not a grey one */
+  td.th{width:66px} td.th img{width:52px; height:66px; object-fit:cover; border:1px solid var(--line); display:block; background:var(--art)}
   td.cd{width:96px; white-space:nowrap; font-family:var(--mono); font-size:15px; overflow:hidden}
-  .sw{display:inline-block; width:.72em; height:.72em; margin-right:6px; border:1px solid rgba(0,0,0,.45); background:var(--c); vertical-align:baseline}
+  .sw{display:inline-block; width:.72em; height:.72em; margin-right:6px; border:1px solid var(--edge); background:var(--c); vertical-align:baseline}
   .sw.quiet{background:transparent; border-color:var(--dim)}
-  td.th .sw.noglyph{width:36px; height:46px; margin:0; border:1px solid var(--ink)} /* audio-only: no frame */
+  td.th .sw.noglyph{width:36px; height:46px; margin:0; border:1px solid var(--line)} /* audio-only: no frame */
   td.cd a{font-weight:normal}
   /* max-width:0 hands the title cell exactly the space the other three leave —
      which is what gives its two lines something finite to ellipsize against. */
@@ -139,14 +170,14 @@
   td.yr{width:104px; color:var(--dim); text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums; font-size:12.5px}
   td.yr .vw{display:block; font-size:11px}
   @media (min-width:561px){ td.yr .vw::after{content:" views"} }
-  tr.row:hover td{background:rgba(255,243,160,.6)}
+  tr.row:hover td{background:var(--rowhi)}
 
   ul.plain{list-style:none} ul.plain li{padding:3px 0}
   ul.plain li::before{content:"– "; color:var(--margin)}
   p.glab{color:var(--margin); font-size:11.5px; letter-spacing:.06em; text-transform:uppercase; margin:12px 0 2px}
   a.zine{display:inline-block; background:none}
   a.zine:hover{background:none}
-  a.zine img{width:118px; height:auto; border:1px solid var(--ink); background:#fff; display:block; margin:5px 0 3px}
+  a.zine img{width:118px; height:auto; border:1px solid var(--line); background:var(--art); display:block; margin:5px 0 3px}
   a.zine:hover img{outline:2px solid var(--hi)}
 
   .rail{margin:6px 0}
@@ -161,24 +192,26 @@
   #detail{display:none}
   #detail.on{display:block}
   #index.off{display:none}
-  #detail .score{width:300px; max-width:64vw; height:auto; border:1px solid var(--ink); background:#fff; float:left; margin:4px 16px 10px 0}
+  #detail .score{width:300px; max-width:64vw; height:auto; border:1px solid var(--line); background:var(--art); float:left; margin:4px 16px 10px 0}
   #detail .post-title{font-size:clamp(24px,6vw,38px)!important; line-height:1.08}
-  #detail video{width:300px; max-width:64vw; aspect-ratio:1824/2280; height:auto; border:1px solid var(--ink); background:#000; display:block; clear:both; margin-top:6px}
+  #detail video{width:300px; max-width:64vw; aspect-ratio:1824/2280; height:auto; border:1px solid var(--line); background:#000; display:block; clear:both; margin-top:6px}
   #detail video.wide{width:560px; max-width:88vw; aspect-ratio:16/9} /* the Longest Whistlegraph film is landscape */
-  #detail video.canon{width:360px; max-width:74vw; aspect-ratio:900/1080; background:var(--paper)}
+  /* the canonical render opens on the score's own paper — back it with the same
+     cream so the box it loads into is the box it becomes */
+  #detail video.canon{width:360px; max-width:74vw; aspect-ratio:900/1080; background:var(--art)}
   #detail .lbl{font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--margin); margin:0 0 7px}
   #detail .back{font-size:13px}
-  #dVersions video.ver{width:300px; max-width:64vw; height:auto; border:1px solid var(--ink); background:#000; display:block; margin:6px 0 2px}
-  #dVersions iframe.ver{width:560px; max-width:88vw; aspect-ratio:16/9; height:auto; border:1px solid var(--ink); background:#000; display:block; margin:6px 0 2px}
+  #dVersions video.ver{width:300px; max-width:64vw; height:auto; border:1px solid var(--line); background:#000; display:block; margin:6px 0 2px}
+  #dVersions iframe.ver{width:560px; max-width:88vw; aspect-ratio:16/9; height:auto; border:1px solid var(--line); background:#000; display:block; margin:6px 0 2px}
   /* Posts gallery — every published appearance of a whistlegraph */
   /* Takes list — jukebox style: the featured take plays in the top player and
      the rest are a tap-to-play list underneath. Each row is a lazy thumbnail +
      metadata (no per-row <video>), so even a 39-take record stays light. */
   #dPosts .posts{display:flex; flex-direction:column; gap:8px; clear:both}
-  #dPosts .posts .post{display:flex; flex-direction:row; gap:11px; align-items:stretch; border:1px solid var(--ink); border-radius:2px; padding:8px 10px; background:var(--paper); cursor:pointer; font-size:11.5px}
+  #dPosts .posts .post{display:flex; flex-direction:row; gap:11px; align-items:stretch; border:1px solid var(--line); border-radius:2px; padding:8px 10px; background:var(--paper); cursor:pointer; font-size:11.5px}
   #dPosts .posts .post:hover{border-color:var(--margin)}
   #dPosts .posts .post.active{border-color:var(--margin); box-shadow:inset 0 0 0 1px var(--margin)}
-  #dPosts .post .thm{position:relative; flex:0 0 52px; width:52px; aspect-ratio:9/16; border:1px solid var(--ink); background:#000; overflow:hidden}
+  #dPosts .post .thm{position:relative; flex:0 0 52px; width:52px; aspect-ratio:9/16; border:1px solid var(--line); background:#000; overflow:hidden}
   #dPosts .post .thm img{width:100%; height:100%; object-fit:cover; display:block}
   #dPosts .post .thm .pl{position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:#fff; font-size:13px; text-shadow:0 1px 3px #000; pointer-events:none}
   #dPosts .post.active .thm .pl{color:var(--margin)}
@@ -186,7 +219,7 @@
   /* Audio-only takes: a plain vertical list, separate from the video grid. */
   #dPosts .albl{margin-top:18px}
   #dPosts .audlist{display:flex; flex-direction:column; gap:12px}
-  #dPosts .arow{display:flex; align-items:center; gap:12px; border:1px solid var(--ink); border-radius:2px; padding:10px 12px; background:var(--paper)}
+  #dPosts .arow{display:flex; align-items:center; gap:12px; border:1px solid var(--line); border-radius:2px; padding:10px 12px; background:var(--paper)}
   #dPosts .arow .aico{font-size:22px; line-height:1; color:var(--margin); flex:0 0 auto}
   #dPosts .arow .acol{flex:1 1 auto; min-width:0}
   #dPosts .arow audio{width:100%; height:34px; display:block}
@@ -387,7 +420,6 @@
     </div>
     <div id="dCanonWrap" style="display:none">
       <hr>
-      <p class="lbl">The score, drawn — every stroke lands on its sung syllable</p>
       <video id="dCanon" class="canon" controls playsinline preload="metadata" loop></video>
       <p class="dim" style="font-size:11.5px">Derived from the score's own frames + the sung take. <a href="/imab">How →</a></p>
     </div>
