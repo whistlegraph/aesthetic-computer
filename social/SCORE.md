@@ -22,7 +22,7 @@ Two brands, one funnel: **@whistlegraph** (established audience) feeds **@aesthe
 | **Aesthetic Dot Computer** | YouTube | primary growth target (4 subs · 70 views) | ✅ **full** — `yt.mjs` (upload/edit/thumb/delete) |
 | **@aesthetic.computer** | Bluesky | changelog + paintings feed (81 fo) | ✅ **full** — `at/*.mjs` app password |
 | **AC Readings** | Podcast (pod.prompt.ac) | essay audio → Spotify/Apple/YT | ✅ publish via Buzzsprout API (`reading` skill) |
-| **@oskiewar** | Instagram | game's own marketing output function (3 reels/day, staged) | ⚠️ factory built, account **not created** — `xbox/live/MARKETING.md` |
+| **@oskiewar** | Instagram | game posts itself (3 reels/day staged; 2 fo · 2026-08-09) | ✅ **full** — xbox/live/marketing/reel.mjs --publish --live; vault/oskiewar/instagram.env |
 | @whistlegraph | Instagram | established funnel source | ⚠️ archive/read tooling only (instaloader/instagrapi) |
 | @whistlegraph | TikTok | established funnel source (2.6M fo · 99M likes) | ⚠️ download/analyze only (`toolchain/whistlegraph/`) |
 | @whistlegraph | YouTube | established funnel source (5.3k subs · 2.1M views) | ✅ **full** — `yt.mjs --as whistlegraph` (2026-07-05) |

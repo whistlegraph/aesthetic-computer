@@ -210,6 +210,8 @@ what the queue produces, not before.
 
 ## Provisioning — the parts only @jeffrey can do
 
+**Done 2026-08-09.** @oskiewar exists (Professional/Creator), Meta app 969732799453332, IG app 1681994666247197, IG user 17841443390705938. Long-lived token + Spaces creds in vault/oskiewar/instagram.env; refresh monthly. The dry-run and read-only API calls are verified; --live still waits on the three-reel review below.
+
 Ordered. Nothing in stage 4 works until all of these are done.
 
 1. **Create the Instagram account** `@oskiewar` and set it to a **Professional
@@ -298,7 +300,7 @@ expect drift from the app UI.
 
 ### Not verified
 
-- Whether the real cap is 50 or 100. Meta contradicts itself; read the endpoint.
+- ~~Whether the real cap is 50 or 100~~ — resolved 2026-08-09: this account answers quota_total 100 per 24h.
 - Any byte-range / redirect requirement on `video_url` beyond "publicly
   accessible server".
 - The widely repeated 90-second Reels-tab eligibility ceiling — it appears on no

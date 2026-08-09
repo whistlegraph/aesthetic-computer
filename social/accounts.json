@@ -59,15 +59,15 @@
       "platform": "instagram",
       "url": "https://instagram.com/oskiewar",
       "role": "product-account-automated",
-      "goal": "Clockwork gameplay reels from xbox/live/marketing/ \u2014 3 slots/day on a fixed market rotation; 1,000 followers unlocks Trial Reels",
-      "access": "NOT YET PROVISIONED \u2014 official Instagram API with Instagram Login only (graph.instagram.com). See xbox/live/MARKETING.md for the human setup steps. Never the private/mobile API.",
+      "goal": "Clockwork gameplay reels from xbox/live/marketing/ — 3 slots/day on a fixed market rotation; 1,000 followers unlocks Trial Reels",
+      "access": "PROVISIONED 2026-08-09 — official Instagram API with Instagram Login (graph.instagram.com). Meta app 969732799453332 / IG app 1681994666247197; creds vault/oskiewar/instagram.env (60-day token, refresh monthly). Quota read from the account: 100 posts/24h. Never the private/mobile API.",
       "snapshots": [
         {
-          "date": null,
-          "followers": null,
+          "date": "2026-08-09",
+          "followers": 2,
           "following": null,
-          "posts": null,
-          "notes": "Account not created yet. Factory builds and stages reels; publishing is behind --live."
+          "posts": 0,
+          "notes": "From graph.instagram.com /me at provisioning; account_type MEDIA_CREATOR"
         }
       ]
     },
@@ -78,7 +78,7 @@
       "url": "https://www.youtube.com/channel/UCnCkxAsgrBqEXk8XiHl0JGg",
       "role": "primary-growth-target",
       "goal": "Music visualizers + readings; grow alongside IG/TikTok",
-      "access": "full API \u2014 toolchain/youtube/yt.mjs (default token)",
+      "access": "full API — toolchain/youtube/yt.mjs (default token)",
       "snapshots": [
         {
           "date": "2026-07-05",
@@ -96,7 +96,7 @@
       "url": "https://www.youtube.com/channel/UCZ_5AuCebRbm9t9_Y7SrckQ",
       "role": "established-funnel-source",
       "goal": "Maintain; funnel to primary",
-      "access": "full API \u2014 yt.mjs --as whistlegraph (authorized 2026-07-05)",
+      "access": "full API — yt.mjs --as whistlegraph (authorized 2026-07-05)",
       "snapshots": [
         {
           "date": "2026-07-05",
@@ -114,7 +114,7 @@
       "url": "https://bsky.app/profile/aesthetic.computer",
       "role": "changelog-and-paintings-feed",
       "goal": "Keep alive via at/ scripts; low-effort mirror",
-      "access": "full API \u2014 at/*.mjs (app password in vault/at/.env)",
+      "access": "full API — at/*.mjs (app password in vault/at/.env)",
       "snapshots": [
         {
           "date": "2026-07-05",
@@ -148,7 +148,7 @@
       "url": "https://x.com/promptDOTac",
       "role": "dormant-brand-outlet",
       "goal": "Revive via x.mjs mirror of Bluesky cadence",
-      "access": "none \u2014 no developer app yet",
+      "access": "none — no developer app yet",
       "snapshots": [
         {
           "date": null,
@@ -165,7 +165,7 @@
       "url": "https://x.com/whistlegraph",
       "role": "dormant-funnel-source",
       "goal": "Maintain; occasional funnel to primary",
-      "access": "none \u2014 no developer app yet",
+      "access": "none — no developer app yet",
       "snapshots": [
         {
           "date": null,
@@ -181,7 +181,7 @@
       "platform": "spotify-artist",
       "url": "https://open.spotify.com",
       "role": "music-distribution",
-      "goal": "Claim Spotify for Artists (blocked on first IG post \u2014 pop/spotify-for-artists-claim-reply.md)",
+      "goal": "Claim Spotify for Artists (blocked on first IG post — pop/spotify-for-artists-claim-reply.md)",
       "access": "distribution via DistroKid (Playwright semi-auto); no S4A yet",
       "snapshots": [
         {
