@@ -90,8 +90,12 @@ else
     # silo/ file ships while the stamp still names HEAD — provenance that reads
     # clean and is not. Say so rather than let the fleet believe a sha that does
     # not contain what is running.
+    # Counted, not string-tested: an empty command substitution expands to zero
+    # arguments, so `test -n (...)` becomes a bare `test -n` — which is true,
+    # and would have marked every clean deploy dirty.
     set -l DIRTY 0
-    if test -n (git -C $SCRIPT_DIR/.. status --porcelain -- silo/ | head -1)
+    set -l silo_changes (git -C $SCRIPT_DIR/.. status --porcelain -- silo/)
+    if test (count $silo_changes) -gt 0
         set DIRTY 1
     end
     if test -n "$SHA"
