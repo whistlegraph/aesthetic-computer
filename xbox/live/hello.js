@@ -56,6 +56,18 @@ const shieldRadius = 160;
 const shieldForward = 30;
 const grenadeBlastDuration = .68;
 const grenadeBlastRadius = 620;
+// Ground pound. Double-tapping DOWN in the air used to be a plain fast drop
+// that did nothing on arrival; now it commits you. Holding DOWN through the
+// fall buys speed, the crater scales with how far you actually fell, and the
+// landing balls you — so the move is a trade, never a free hit.
+const poundLaunchVelocity = 1500;
+const poundHoldAcceleration = 5600;
+const poundMaxVelocity = 4600;
+// Roughly a jump-and-a-half of floor-to-ceiling travel. Falling further than
+// this cannot buy a bigger crater, so the ceiling is not a weapon.
+const poundFullFall = 900;
+const poundMinRadius = 240;
+const poundMaxRadius = 760;
 const replayTickUs = 16667;
 const replayCheckpointUs = 1000000;
 const liveSnapshotIntervalUs = 50000;
@@ -373,10 +385,12 @@ const players = [
     lastTap: {}, lastRelease: {}, dashUntil: 0, dashVx: 0, roundWins: 0,
     attackKind: "", attackStartedAt: 0,
     attackUntil: 0, attackHit: false, blocking: false, blockFlash: 0,
+    shieldLocked: false, shieldBrokenAt: 0,
     windVx: 0, knockVx: 0, gunAmmo: 0, grenadeAmmo: 0,
     gunAimX: 1, gunAimY: 0, stance: "NEUTRAL",
     heldBall: -1, grabHeld: false, crouchBlend: 0, standingOn: -1,
     partDamage: {}, removedParts: [], pogoHit: false, pogoDive: false,
+    pounding: false, poundFrom: 0,
     commandStream: [],
     botPresses: {},
     jumpLaunchAt: 0, jumpPoseUntil: 0, landPoseUntil: 0,
@@ -394,10 +408,12 @@ const players = [
     lastTap: {}, lastRelease: {}, dashUntil: 0, dashVx: 0, roundWins: 0,
     attackKind: "", attackStartedAt: 0,
     attackUntil: 0, attackHit: false, blocking: false, blockFlash: 0,
+    shieldLocked: false, shieldBrokenAt: 0,
     windVx: 0, knockVx: 0, gunAmmo: 0, grenadeAmmo: 0,
     gunAimX: -1, gunAimY: 0, stance: "NEUTRAL",
     heldBall: -1, grabHeld: false, crouchBlend: 0, standingOn: -1,
     partDamage: {}, removedParts: [], pogoHit: false, pogoDive: false,
+    pounding: false, poundFrom: 0,
     commandStream: [],
     botPresses: {},
     jumpLaunchAt: 0, jumpPoseUntil: 0, landPoseUntil: 0,
@@ -414,6 +430,18 @@ const gunPickups = [
 const grenadePickups = [
   { amount: 2, x: 6000, y: platformY - 70, z: 0 },
 ];
+// Two trees grow out of the side walls, one per side, and they are the only
+// thing in the round that gives a body back. A fighter who has been taken
+// apart limb by limb can walk to the wall and be whole again — which is worth
+// crossing the stage for, and worth the fifteen seconds it puts back on the
+// clock. They take the whole round to ripen, so each one is picked at most
+// once and the walk has to be timed.
+const bodyTrees = [
+  { x: worldLeft + wallThickness, y: floorY - 60, z: 0, growth: 0 },
+  { x: worldRight - wallThickness, y: floorY - 60, z: 0, growth: 0 },
+];
+const treeRipenUs = 18000000;
+const treeTimeBonusUs = 15000000;
 const airParticles = [];
 for (const pickup of [...gunPickups, ...grenadePickups]) {
   pickup.active = false;
@@ -1905,6 +1933,8 @@ function resetRound(now, resetMatch = false) {
     player.attackHit = false;
     player.blocking = false;
     player.blockFlash = 0;
+    player.shieldLocked = false;
+    player.shieldBrokenAt = 0;
     player.windVx = 0;
     player.knockVx = 0;
     player.shieldVx = 0;
@@ -1926,6 +1956,8 @@ function resetRound(now, resetMatch = false) {
     player.removedParts = [];
     player.pogoHit = false;
     player.pogoDive = false;
+    player.pounding = false;
+    player.poundFrom = 0;
     player.standingOn = -1;
     player.previousY = floorY;
     player.crouchBlend = 0;
@@ -1961,6 +1993,7 @@ function resetRound(now, resetMatch = false) {
     pickup.active = false;
     pickup.respawnAt = 0;
   }
+  for (const tree of bodyTrees) tree.growth = 0;
   nextPowerupAtUs = powerupIntervalUs;
   powerupSequence = 0;
   roundResult = "";
@@ -2334,6 +2367,74 @@ function updateGrenadePickups(now) {
   }
 }
 
+// Ripe fruit is a new body and fifteen seconds. The clock is `roundElapsedUs`
+// counting up toward `roundDurationUs`, so winding it back is what "adds
+// time" means here — and it is clamped at zero, because a tree cannot make
+// the round longer than a round.
+// The tree leans in off its wall, so both the picture and the pickup test have
+// to agree about where the fruit ended up. One function owns that.
+// The tree climbs its wall more than it leans off it, because a fighter pinned
+// against that wall still has to be able to reach the fruit from a jump. One
+// function owns the geometry so the picture and the pickup test agree.
+function treeFruit(tree) {
+  const toward = tree.x < (worldLeft + worldRight) / 2 ? 1 : -1;
+  const reach = 90 + 330 * tree.growth;
+  return { x: tree.x + toward * (reach * .5 + 60), y: tree.y - reach * .9,
+    z: tree.z, toward, reach,
+    tipX: tree.x + toward * reach * .5, tipY: tree.y - reach * .9 };
+}
+
+function updateBodyTrees(dt, now) {
+  const poseTime = (now - startedAt) / 1000000;
+  for (const tree of bodyTrees) {
+    if (tree.growth < 1) {
+      tree.growth = Math.min(1, tree.growth + dt * 1000000 / treeRipenUs);
+      continue;
+    }
+    const fruit = treeFruit(tree);
+    for (const player of players) {
+      if (!player.alive) continue;
+      if (runnerDistanceToPoint(player, poseTime, fruit.x, fruit.y, fruit.z) > 320)
+        continue;
+      tree.growth = 0;
+      player.removedParts = [];
+      player.partDamage = {};
+      roundElapsedUs = Math.max(0, roundElapsedUs - treeTimeBonusUs);
+      remember(player, "NEW BODY");
+      playDrum("bell", 1.15, panPlayer(player));
+      emitSignal("powerup", player.pad, 3, treeTimeBonusUs / 1000000);
+      break;
+    }
+  }
+}
+
+function drawBodyTree(tree, t) {
+  const scale = cameraScale();
+  const ripe = tree.growth >= 1;
+  // Unripe reads as a sapling rather than a dimmed icon: the trunk and canopy
+  // are literally shorter, so the stage tells you how long the walk can wait.
+  const { x: fruitX, y: fruitY, toward, tipX, tipY: crownY } = treeFruit(tree);
+  const sway = Math.sin(t * 1.4 + tree.x * .0007) * (3 + 9 * tree.growth);
+  const bark = mixColor([120, 92, 64], [58, 46, 38], visualTheme.light);
+  const leaf = ripe
+    ? mixColor([120, 226, 138], [46, 150, 84], visualTheme.light)
+    : mixColor([96, 140, 104], [44, 84, 60], visualTheme.light);
+  const tipY = crownY + sway;
+  worldLine(tree.x, tree.y, tree.z, tipX, tipY, tree.z,
+    Math.max(2, (11 + 9 * tree.growth) * scale), bark);
+  for (const spread of [-1, -.35, .35, 1]) {
+    worldLine(tipX, tipY, tree.z,
+      tipX + toward * (60 + 90 * tree.growth),
+      tipY + spread * (60 + 70 * tree.growth), tree.z,
+      Math.max(2, (8 + 8 * tree.growth) * scale), leaf);
+  }
+  if (!ripe) return;
+  // The fruit is the part you aim at, so it only exists once it can be taken.
+  const point = projectPoint(fruitX, fruitY + sway, tree.z);
+  filledDisc(point.x, point.y, Math.max(3, 46 * scale),
+    mixColor([236, 108, 132], [188, 62, 92], visualTheme.light));
+}
+
 function updatePowerups(now) {
   while (roundElapsedUs >= nextPowerupAtUs) {
     const occupied = [...gunPickups, ...grenadePickups]
@@ -2394,6 +2495,23 @@ function updateBullets(dt, now) {
     if (bullet.life <= 0) continue;
     const target = players[bullet.owner === 0 ? 1 : 0];
     if (!target.alive) continue;
+    // A raised shield answers a bullet by sending it home, and hands it over:
+    // flipping `owner` is what lets the returned shot hurt whoever fired it.
+    if (target.blocking) {
+      const shield = shieldGeometry(target);
+      if (Math.hypot(bullet.x - shield.x, bullet.y - shield.y,
+          bullet.z - shield.z) <= shield.radius + 24) {
+        bullet.vx = -bullet.vx;
+        bullet.vy = -Math.abs(bullet.vy) * .35;
+        bullet.owner = target.pad;
+        bullet.life = Math.max(bullet.life, .55);
+        impacts.push({ x: bullet.x, y: bullet.y, z: bullet.z,
+          life: .18, duration: .18, death: false, explosion: false });
+        breakShield(target, now);
+        emitSignal("ballblock", target.pad, 1, 0);
+        continue;
+      }
+    }
     const contact = runnerContactToPoint(target, poseTime,
       bullet.x, bullet.y, bullet.z);
     if (Math.min(contact.headDistance, contact.bodyDistance) <= 24) {
@@ -2594,6 +2712,29 @@ function shieldGeometry(player) {
   };
 }
 
+// A shield is spent the moment it does its job. It eats exactly one hit, then
+// drops — and `shieldLocked` keeps a still-held B from raising it again on the
+// very next frame, which is what turns the break into a real opening instead
+// of a flicker nobody can see. The shielder is deliberately left free to act:
+// breaking the shield is what buys them the swing.
+function breakShield(player, now) {
+  player.blocking = false;
+  player.shieldLocked = true;
+  player.shieldBrokenAt = now;
+  player.blockFlash = 1;
+  player.stance = "SHIELD BREAK";
+  player.pendingMoveLabel = "SHIELD BREAK";
+  playDrum("bell", 1, panPlayer(player));
+  emitSignal("shieldbreak", player.pad, 1, 0);
+}
+
+// Stun scales with what the shield ate, so a BASH buys a longer punish than a
+// WHIP. The floor is still long enough to answer at 60fps (~8 frames) and the
+// ceiling short enough (~18) that a blocked attacker is opened, not deleted.
+function shieldStunUs(force) {
+  return Math.round(140000 + clamp((force - 1000) / 750, 0, 1) * 160000);
+}
+
 function returnBall(ball, player, now, shielded, intensity = 1) {
   const incomingVx = ball.vx;
   const incomingVy = ball.vy;
@@ -2713,6 +2854,22 @@ function bounceBallOffBody(ball, player, now, segmentIndex = -1) {
 }
 
 function updateBall(ball, dt, now) {
+  // A popped ball is gone, not retired — a crater should cost the round its
+  // ball for a moment, not for good. It re-inflates over the middle once its
+  // serve time comes round.
+  if (!ball.active && ballEnabled && ball.serveAt && now >= ball.serveAt) {
+    ball.active = true;
+    ball.x = (platformLeft + platformRight) / 2;
+    ball.y = ceilingY + ball.radius + 120;
+    ball.z = 0;
+    ball.vx = 0;
+    ball.vy = 0;
+    ball.rotation = 0;
+    ball.lastHitBy = -1;
+    ball.safeUntil = now + 250000;
+    ball.safePlayers = 0;
+    emitSignal("ballserve", -1, 0, 0);
+  }
   if (!ball.active || now < ball.serveAt) return;
   if (ball.heldBy >= 0) {
     const carrier = players[ball.heldBy];
@@ -2863,10 +3020,19 @@ function directionTap(player, direction, now) {
     // platform, wherever it has been placed. Double-crouch sinks through it.
     if (player.grounded && player.standingOn < 0 && player.y < floorY)
       sink(player, now);
+    // Standing on the floor there is nothing under you to drop through and no
+    // height to convert, so the double-tap is spent rather than sold cheap.
+    else if (player.grounded) return true;
     else {
-      player.vy = 1400;
+      // In the air this is a ground pound, and the height it starts from is
+      // the whole economy of the move — remember it now, because the crater
+      // is measured against where the fall actually began.
+      player.pounding = true;
+      player.poundFrom = player.y;
+      player.vy = Math.max(player.vy, poundLaunchVelocity);
       player.grounded = false;
       player.ducking = false;
+      player.pendingMoveLabel = "GROUND POUND";
       emitSignal("fastdrop", player.pad, 1, 0);
     }
   } else {
@@ -2927,6 +3093,62 @@ function killPlayer(target, killerPad, now, cause = "KO") {
   playDrum("snare", 1.15, panPlayer(target));
 }
 
+// The crater. Everything about it is decided by the fall: a pound from a hop
+// is a shove, a pound from the ceiling clears the stage. Whoever is standing
+// inside the ring when it lands wears it; whoever is in the air over it has
+// jumped it, which is the only defence and is meant to be readable from the
+// silhouette alone. The ball in the ring is popped and re-served.
+//
+// Then it balls the pounder. That is the point of the move — it is a trade
+// offered at full price, and because a death ends the round the exchange is
+// the whole round: land it and the kill scores before the self-ball, miss it
+// and you have handed away a tie.
+function groundPound(player, now) {
+  player.pounding = false;
+  const fall = clamp(player.y - player.poundFrom, 0, poundFullFall);
+  const power = fall / poundFullFall;
+  const radius = poundMinRadius + (poundMaxRadius - poundMinRadius) * power;
+  const poseTime = (now - startedAt) / 1000000;
+  player.stance = "HIT";
+  player.lastButton = "GROUND POUND";
+  player.lastButtonAt = now;
+  impacts.push({ x: player.x, y: floorY, z: player.z,
+    life: .34, duration: .34, death: false, explosion: true });
+  impactHitboxesUntil = Math.max(impactHitboxesUntil, now + 350000);
+  playDrum("kick", 1.3, panPlayer(player));
+  emitSignal("blast", player.pad, player.x / worldRight, power);
+
+  for (const target of players) {
+    if (target.pad === player.pad || !target.alive) continue;
+    const contact = runnerContactToPoint(target, poseTime,
+      player.x, floorY, player.z);
+    if (Math.min(contact.headDistance, contact.bodyDistance) > radius) continue;
+    if (!target.grounded) {
+      // Airborne over the ring is the dodge. It still throws you.
+      applyBodyHit(target, contact.segmentIndex, player.x, player.pad, now,
+        900 + 700 * power, 620);
+      continue;
+    }
+    killPlayer(target, player.pad, now, "BLASTED");
+  }
+
+  for (const item of balls) {
+    if (!item.active) continue;
+    if (Math.hypot(item.x - player.x, item.y - floorY) > radius + item.radius)
+      continue;
+    item.active = false;
+    item.heldBy = -1;
+    item.vx = 0;
+    item.vy = 0;
+    item.serveAt = now + 1200000;
+    impacts.push({ x: item.x, y: item.y, z: item.z,
+      life: .22, duration: .22, death: false, explosion: false });
+    emitSignal("ballblock", player.pad, 1, power);
+  }
+
+  killPlayer(player, player.pad, now, "BALLED");
+}
+
 function resolveMelee(now) {
   const poseTime = (now - startedAt) / 1000000;
   const contacts = [];
@@ -2966,6 +3188,18 @@ function resolveMelee(now) {
       else target.vx = 0;
       playDrum("block", 1.2, panPlayer(target));
       emitSignal("block", target.pad, attacker.pad, target.blocking ? 1 : 2);
+      // Only a real shield trades. A back-block still just shoves, because it
+      // costs nothing to hold a direction.
+      if (target.blocking) {
+        const spec = meleeSpecs[attacker.attackKind] || meleeSpecs.PUNCH;
+        const stun = shieldStunUs(spec.force * (attacker.attackMomentum || 1));
+        attacker.hitStunUntil = Math.max(attacker.hitStunUntil, now + stun);
+        attacker.attackHit = true;
+        attacker.attackKind = "";
+        attacker.attackUntil = 0;
+        attacker.stance = "STUN";
+        breakShield(target, now);
+      }
     } else if (headshot) killPlayer(target, attacker.pad, now,
       contacts.length >= 2 ? "TRADE" : "KO");
     else {
@@ -3192,7 +3426,10 @@ function updatePlayer(player, pad, dt, now) {
   const rawInput = quantizedInput(pad, player.suppressedDirections);
   const hitStunned = now < player.hitStunUntil;
   const wasBlocking = player.blocking;
-  player.blocking = !headOnly && pad.down.includes("B");
+  // A broken shield stays down until B is let go, so the opening it bought is
+  // spent on attacking rather than on re-guarding by reflex.
+  if (player.shieldLocked && !pad.down.includes("B")) player.shieldLocked = false;
+  player.blocking = !headOnly && pad.down.includes("B") && !player.shieldLocked;
   if (player.blocking && !wasBlocking) {
     player.shieldVx = player.vx - player.windVx - player.knockVx;
     player.dashUntil = 0;
@@ -3303,6 +3540,7 @@ function updatePlayer(player, pad, dt, now) {
     player.jumpHeld = true;
     player.pogoHit = false;
     player.pogoDive = false;
+    player.pounding = false;
     player.grounded = false;
     player.ducking = player.crouchJump;
     playDrum("block", 0.72, panPlayer(player));
@@ -3354,6 +3592,12 @@ function updatePlayer(player, pad, dt, now) {
   const previousY = player.y;
   const wasGrounded = player.grounded;
   player.vy += (player.vy < 0 ? riseGravity : fallGravity) * dt;
+  // Keeping DOWN held through a pound drives it down harder. The button is
+  // the only thing that makes a pound faster, so the height you fell from and
+  // the pressure you kept on it are the two dials on the crater.
+  if (player.pounding && input.vertical < 0)
+    player.vy = Math.min(poundMaxVelocity,
+      player.vy + poundHoldAcceleration * dt);
   player.x += player.vx * dt;
   player.y += player.vy * dt;
   player.grounded = false;
@@ -3391,6 +3635,7 @@ function updatePlayer(player, pad, dt, now) {
     player.jumpHeld = false;
     player.hopUntil = 0;
     player.sinkUntil = 0;
+    if (player.pounding) groundPound(player, now);
   }
   resolveRunnerBounds(player, (now - startedAt) / 1000000);
   player.hit = Math.max(0, player.hit - dt * 4);
@@ -3592,6 +3837,7 @@ function gameSim() {
   resolvePlayerStanding(now);
   resolvePlayerPushboxes();
   updatePowerups(now);
+  updateBodyTrees(dt, now);
   updateBullets(dt, now);
   updateGrenades(dt, now);
   resolveMelee(now);
@@ -6249,6 +6495,7 @@ function gamePaint() {
       hud.top + (roundViewer ? clock.size + 10 : 2), clock.size, ...titleInk);
     drawHudStatusTray(clock, titleInk, nowMs);
   }
+  for (const tree of bodyTrees) drawBodyTree(tree, t);
   for (const pickup of gunPickups) drawGunPickup(pickup, t);
   for (const pickup of grenadePickups) drawGrenadePickup(pickup, t);
   const introAge = run.monotonicUs - roundStartedAt;

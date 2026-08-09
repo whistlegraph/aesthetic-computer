@@ -75,7 +75,7 @@ function createFight(startImmediately = true, enterGame = true,
   const drawLine = (...values) => lines.push(values);
   const fight = new Function(
     "runtime", "gamepad", "capabilities", "telemetry", "gameSignal", "saveReplay", "publishLive", "analytics", "drum", "wipe", "box", "line", "triangle", "triangle3d", "triangles3d", "write", "systemWrite", "gameView",
-    `${source}\nreturn { boot, sim, paint, playDrum, captureClientError, drawDetachedPart, clientErrorState: () => clientError, clientErrorDetailState: () => clientErrorDetail, errorReportStatus, errorRestartSeconds, combatLegend, filledDisc, spectatorCode, runShadow, glyphColor, contrastShadow, stateDumpRows, dumpTokens, dumpTokenInk, clientErrorDumpState: () => ({ url: clientErrorDumpUrl, modules: clientErrorQr ? clientErrorQr.getModuleCount() : 0 }), controlLocale, animatedTitleColor, comicGlyphAdvance, handleWidth, displayTheme, players, ball, balls, bullets, grenades, gunPickups, grenadePickups, detachedParts, runnerWorldGeometry, fighterAnimationPhase, runnerDistanceToPoint, segmentSegmentClosest, meleeLimbContact, damagePart, isPogo, isHeadOnly, resultCardText, pacificTimeLabel, projectedBallRadius, deathCinematicState: () => deathCinematic ? { ...deathCinematic, age: deathCinematicAge() } : null, disableBall: () => { ballEnabled = false; for (const item of balls) item.active = false; }, enableBall: (index = 0) => { ballEnabled = true; const item = balls[index]; item.active = true; item.serveAt = 0; item.safeUntil = 0; item.safePlayers = 0; }, setWind: (value) => { windAcceleration = value; }, setDebugHitboxes: (value) => { debugHitboxes = Boolean(value); }, debugState: () => debugHitboxes, windState: () => ({ direction: windDirection, mph: windMph }), nextRound: () => resetRound(runtime().monotonicUs, false), knockOut: () => killPlayer(players[1], 0, runtime().monotonicUs, "KO"), startAttack: (kind) => startMelee(players[0], kind, runtime().monotonicUs), bootFirstBall: () => bootBall(ball, players[0], runtime().monotonicUs), wackBall: () => { players[0].attackKind = "KICK"; returnBall(ball, players[0], runtime().monotonicUs, false); }, shieldBall: () => returnBall(ball, players[0], runtime().monotonicUs, true), crossWackBall: (contact = 1) => crossWackBall(ball, players.map((player) => ({ player, contact })), runtime().monotonicUs), enterGame: () => enterGame(runtime().monotonicUs), shellState: () => ({ mode: shellMode }), startFight: () => { shellMode = "GAME"; selecting = false; players[1].npc = false; players[1].bot = false; applyRoster(players[1], 2); startReplay(runtime().monotonicUs); matchBallType = "soccer"; resetRound(runtime().monotonicUs, true); }, startFightAgainst: (kind) => startFightAgainst(kind, runtime().monotonicUs), palSelect: () => PAL_SELECT, titleToyState: () => ({ title: titleToys.map((toy) => ({ ...toy })), prompt: promptToys.map((toy) => ({ ...toy })), bounce: promptBounce }), selectionState: () => ({ selecting, step: selectionStep, cursor: selectionCursor, ready: selectionReady.slice() }), selectionOptions: () => selectionOptions().map((option) => ({ kind: option.kind, label: option.fighter.handle, disabled: Boolean(option.disabled) })), cameraState: () => ({ cameraWidth, cameraCenter, cameraCenterY, cameraAspect, stageRight, stageTop, stageBottom, viewHeight, cameraContainFloor, doll: { width: cameraDoll.width, target: { ...cameraDoll.target }, position: { ...cameraDoll.position }, perspective: cameraDoll.perspective, roll: cameraDoll.roll } }), screenBounds: () => players.map((player) => runnerScreenBounds(player, runtime().monotonicUs / 1e6)), dumpTokens, dumpTokenInk, drawCornerCrops, playerStatLines, playerHandleLayout, statStackHeight, setBallKind: (type) => { matchBallType = type; resetBalls(runtime().monotonicUs); }, ballTypeState: () => matchBallType, seriesBallType, seriesState: () => seriesName, selectionLayout: selectionTouchLayout, actionSafeRect, hudSafeRect, projectPoint, terrainSpan, stageGeometry: () => ({ platformY, platformLeft, platformRight, floorY, ceilingY, worldLeft, worldRight, worldNear, worldFar }), frameRect: () => fighterFrameRect(), roundState: () => ({ roundResult, roundElapsedUs, matchOver }), viewerState: () => ({ active: Boolean(roundViewer), mode: roundViewerMode, status: roundViewerStatus, name: matchName }), instantReplayState: () => instantReplay ? { active: true, paused: instantReplay.paused, cursor: instantReplay.cursor, frames: instantReplay.frames.length } : { active: false }, replayFrameCount: () => roundReplayFrames.length, inputPadDown: (index) => inputPads[index]?.down?.slice() || [], startSelfPlay: () => startSelfPlay(runtime().monotonicUs), selfPlayState: () => selfPlay };`
+    `${source}\nreturn { boot, sim, paint, playDrum, captureClientError, drawDetachedPart, clientErrorState: () => clientError, clientErrorDetailState: () => clientErrorDetail, errorReportStatus, errorRestartSeconds, combatLegend, filledDisc, spectatorCode, runShadow, glyphColor, contrastShadow, stateDumpRows, dumpTokens, dumpTokenInk, clientErrorDumpState: () => ({ url: clientErrorDumpUrl, modules: clientErrorQr ? clientErrorQr.getModuleCount() : 0 }), controlLocale, animatedTitleColor, comicGlyphAdvance, handleWidth, displayTheme, players, ball, balls, bullets, grenades, gunPickups, grenadePickups, bodyTrees, treeFruit, detachedParts, runnerWorldGeometry, fighterAnimationPhase, runnerDistanceToPoint, segmentSegmentClosest, meleeLimbContact, damagePart, isPogo, isHeadOnly, resultCardText, pacificTimeLabel, projectedBallRadius, deathCinematicState: () => deathCinematic ? { ...deathCinematic, age: deathCinematicAge() } : null, disableBall: () => { ballEnabled = false; for (const item of balls) item.active = false; }, enableBall: (index = 0) => { ballEnabled = true; const item = balls[index]; item.active = true; item.serveAt = 0; item.safeUntil = 0; item.safePlayers = 0; }, setWind: (value) => { windAcceleration = value; }, setDebugHitboxes: (value) => { debugHitboxes = Boolean(value); }, debugState: () => debugHitboxes, windState: () => ({ direction: windDirection, mph: windMph }), nextRound: () => resetRound(runtime().monotonicUs, false), knockOut: () => killPlayer(players[1], 0, runtime().monotonicUs, "KO"), startAttack: (kind) => startMelee(players[0], kind, runtime().monotonicUs), bootFirstBall: () => bootBall(ball, players[0], runtime().monotonicUs), wackBall: () => { players[0].attackKind = "KICK"; returnBall(ball, players[0], runtime().monotonicUs, false); }, shieldBall: () => returnBall(ball, players[0], runtime().monotonicUs, true), crossWackBall: (contact = 1) => crossWackBall(ball, players.map((player) => ({ player, contact })), runtime().monotonicUs), enterGame: () => enterGame(runtime().monotonicUs), shellState: () => ({ mode: shellMode }), startFight: () => { shellMode = "GAME"; selecting = false; players[1].npc = false; players[1].bot = false; applyRoster(players[1], 2); startReplay(runtime().monotonicUs); matchBallType = "soccer"; resetRound(runtime().monotonicUs, true); }, startFightAgainst: (kind) => startFightAgainst(kind, runtime().monotonicUs), palSelect: () => PAL_SELECT, titleToyState: () => ({ title: titleToys.map((toy) => ({ ...toy })), prompt: promptToys.map((toy) => ({ ...toy })), bounce: promptBounce }), selectionState: () => ({ selecting, step: selectionStep, cursor: selectionCursor, ready: selectionReady.slice() }), selectionOptions: () => selectionOptions().map((option) => ({ kind: option.kind, label: option.fighter.handle, disabled: Boolean(option.disabled) })), cameraState: () => ({ cameraWidth, cameraCenter, cameraCenterY, cameraAspect, stageRight, stageTop, stageBottom, viewHeight, cameraContainFloor, doll: { width: cameraDoll.width, target: { ...cameraDoll.target }, position: { ...cameraDoll.position }, perspective: cameraDoll.perspective, roll: cameraDoll.roll } }), screenBounds: () => players.map((player) => runnerScreenBounds(player, runtime().monotonicUs / 1e6)), dumpTokens, dumpTokenInk, drawCornerCrops, playerStatLines, playerHandleLayout, statStackHeight, setBallKind: (type) => { matchBallType = type; resetBalls(runtime().monotonicUs); }, ballTypeState: () => matchBallType, seriesBallType, seriesState: () => seriesName, selectionLayout: selectionTouchLayout, actionSafeRect, hudSafeRect, projectPoint, terrainSpan, stageGeometry: () => ({ platformY, platformLeft, platformRight, floorY, ceilingY, worldLeft, worldRight, worldNear, worldFar }), frameRect: () => fighterFrameRect(), roundState: () => ({ roundResult, roundElapsedUs, matchOver }), viewerState: () => ({ active: Boolean(roundViewer), mode: roundViewerMode, status: roundViewerStatus, name: matchName }), instantReplayState: () => instantReplay ? { active: true, paused: instantReplay.paused, cursor: instantReplay.cursor, frames: instantReplay.frames.length } : { active: false }, replayFrameCount: () => roundReplayFrames.length, inputPadDown: (index) => inputPads[index]?.down?.slice() || [], startSelfPlay: () => startSelfPlay(runtime().monotonicUs), selfPlayState: () => selfPlay };`
   )(
     () => ({ monotonicUs: now, unixMs: 1785870000000 + Math.floor(now / 1000),
       simCount: Math.floor(now / 16667), paintCount: 0,
@@ -1975,9 +1975,12 @@ test("double-tap directions trigger dash, ultra-jump, and fast-drop", () => {
   assert.equal(fight.players[0].lastButton, "ULTRA JUMP");
   assert.ok(fight.players[0].vy < -1100);
 
+  // Airborne, double-tap DOWN is the ground pound, not a nameless fast drop —
+  // it commits the fighter and remembers the height it started from.
   tap(0, "ArrowDown");
   tap(0, "ArrowDown");
-  assert.equal(fight.players[0].lastButton, "DASH DOWN");
+  assert.equal(fight.players[0].lastButton, "GROUND POUND");
+  assert.equal(fight.players[0].pounding, true);
   assert.ok(fight.players[0].vy > 1200);
 });
 
@@ -3625,4 +3628,131 @@ test("one completed round saves its replay and closes the loop at title", () => 
   assert.equal(new Set(demos.map((entry) => entry.roundId)).size, 1);
   assert.ok(demo.commands.length > 0);
   assert.ok(demo.checkpoints.length > 0);
+});
+
+// A shield that eats a hit is spent doing it. These four cover the trade the
+// break is meant to buy: the hitter is opened for long enough to be answered,
+// and the shielder is free to answer immediately even with block still held.
+function shieldBreakFight(kind = "KICK") {
+  const harness = createFight();
+  harness.fight.setWind(0);
+  const [attacker, shielder] = harness.fight.players;
+  attacker.facing = 1;
+  shielder.facing = -1;
+  shielder.x = attacker.x + 70;
+  harness.pads[1].down = ["B"];
+  harness.tick();
+  assert.equal(shielder.blocking, true, "B raises the shield");
+  harness.fight.startAttack(kind);
+  for (let step = 0; step < 12 && !shielder.shieldLocked; step++) harness.tick(16000);
+  return { ...harness, attacker, shielder };
+}
+
+test("a shielded hit spends the shield and stuns the hitter", () => {
+  const { attacker, shielder, now } = shieldBreakFight();
+  assert.equal(shielder.shieldLocked, true, "the shield breaks on the hit it eats");
+  assert.equal(shielder.blocking, false, "and drops even though B is still held");
+  assert.ok(attacker.hitStunUntil > now(), "the hitter is left stunned");
+  assert.equal(attacker.attackKind, "", "their swing is spent, not still live");
+});
+
+test("shield-break stun scales with what the shield ate", () => {
+  const heavy = shieldBreakFight("BASH");
+  const light = shieldBreakFight("WHIP");
+  const heavyStun = heavy.attacker.hitStunUntil - heavy.now();
+  const lightStun = light.attacker.hitStunUntil - light.now();
+  assert.ok(heavyStun > lightStun,
+    `BASH (${heavyStun}us) should open the hitter longer than WHIP (${lightStun}us)`);
+  assert.ok(lightStun >= 100000, "even the lightest shielded hit is answerable");
+});
+
+test("a broken shield frees the shielder to swing without releasing block", () => {
+  const { shielder, pads, tick } = shieldBreakFight();
+  pads[1].down = ["B", "X"];
+  tick();
+  assert.equal(shielder.attackKind, "PUNCH",
+    "the opening the break bought is spendable straight away");
+});
+
+test("a shielded bullet goes back the way it came", () => {
+  const { fight, pads, tick } = createFight();
+  fight.setWind(0);
+  const shielder = fight.players[1];
+  shielder.facing = -1;
+  pads[1].down = ["B"];
+  tick();
+  // Chest height, not the shield's centre — that sits 90 off the floor, inside
+  // the wall guard that retires any bullet straying too near the ground.
+  fight.bullets.push({ x: shielder.x + shielder.facing * 30, y: shielder.y - 200,
+    z: shielder.z, vx: 2600, vy: 0, owner: 0, life: 1 });
+  tick(1);
+  assert.equal(fight.bullets.length, 1, "the shot survives to travel back");
+  assert.ok(fight.bullets[0].vx < 0, "reversed");
+  assert.equal(fight.bullets[0].owner, 1, "and now belongs to whoever shielded it");
+  assert.equal(shielder.shieldLocked, true, "returning a shot costs the shield too");
+});
+
+// The ground pound is a trade, and these cover both sides of it: the crater
+// scales with the fall it was bought with, and the fighter who threw it does
+// not walk away. Its cost is the reason it is allowed to be this strong.
+test("a ground pound craters on landing and balls the fighter who threw it", () => {
+  const { fight, pads, tick, signals } = createFight();
+  const [pounder] = fight.players;
+  const { floorY, platformLeft } = fight.stageGeometry();
+  // Off the platform, so the drop is measured against the real floor rather
+  // than being caught 240 units early by the ledge.
+  pounder.x = platformLeft - 1500;
+  pounder.y = floorY - 700;
+  pounder.grounded = false;
+  pounder.pounding = true;
+  pounder.poundFrom = floorY - 700;
+  pads[0].down = ["ArrowDown"];
+  for (let frame = 0; frame < 90 && pounder.pounding; frame++) tick();
+  const named = signals.map((signal) => signal[0]);
+  assert.ok(named.includes("blast"), "the landing sets off a crater");
+  assert.ok(named.includes("balled"), "and balls the pounder");
+  assert.equal(pounder.alive, false, "the trade is paid immediately");
+  const blast = signals.find((signal) => signal[0] === "blast");
+  assert.ok(blast[3] > 0.75,
+    `a 700-unit fall of a 900 maximum buys most of the crater, got ${blast[3]}`);
+});
+
+test("a ground pound from a standing start is spent, not sold cheap", () => {
+  const { fight, tap } = createFight();
+  const [player] = fight.players;
+  assert.equal(player.grounded, true);
+  tap(0, "ArrowDown");
+  tap(0, "ArrowDown");
+  assert.equal(player.pounding, false, "there is no height to convert");
+  assert.equal(player.alive, true, "so nothing is traded away");
+});
+
+// The wall trees are the only thing in a round that gives a body back.
+test("a ripe wall tree returns a body and fifteen seconds", () => {
+  const { fight, tick } = createFight();
+  const [player] = fight.players;
+  const tree = fight.bodyTrees[0];
+  player.removedParts = ["left-arm", "right-leg"];
+  assert.ok(player.removedParts.length > 0, "the fighter starts this broken");
+  // Real frames, not one-second jumps: the sim clamps a long delta, so a
+  // coarse tick would never actually spend eighteen seconds of growth.
+  for (let frame = 0; frame < 1400 && tree.growth < 1; frame++) tick();
+  assert.equal(tree.growth, 1, "the tree ripens inside the round");
+  // Ripening takes eighteen of the round's thirty seconds, which leaves the
+  // clock sitting right on the fifteen-second clamp. Spend a few more so the
+  // bonus has somewhere to go and the assertion means something.
+  for (let frame = 0; frame < 420; frame++) tick();
+  const before = fight.roundState().roundElapsedUs;
+  assert.ok(before > 15000000, "there is more than the bonus left to wind back");
+  const fruit = fight.treeFruit(tree);
+  player.x = fruit.x;
+  player.y = fruit.y + 90;
+  tick();
+  assert.deepEqual(player.removedParts, [], "the fruit is a whole new body");
+  // Give or take the frame the harvest landed on, which advances the clock
+  // in the same tick that winds it back.
+  const wound = before - fight.roundState().roundElapsedUs;
+  assert.ok(Math.abs(wound - 15000000) < 20000,
+    `fifteen seconds back onto the clock, got ${wound}us`);
+  assert.equal(tree.growth, 0, "the tree starts over rather than being farmed");
 });
