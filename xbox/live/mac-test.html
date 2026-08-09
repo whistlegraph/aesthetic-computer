@@ -996,6 +996,11 @@
           titleOpen = true;
           document.body.classList.add("title-open");
         }
+        // The title is a live round now, so leaving it is not always an
+        // explicit dismiss. Follow the piece instead of waiting to be told,
+        // or the account controls hang over a fight nobody wants them in.
+        else if (pieceScreen && pieceScreen !== "title" && titleOpen)
+          dismissTitle();
         previousPieceScreen = pieceScreen;
         const hover = globalThis.__oskiewarTouch?.hover || null;
         const titleHover = globalThis.__oskiewarTouch?.titleHover === true;
