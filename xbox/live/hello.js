@@ -154,6 +154,29 @@ let cameraCenter = (worldLeft + worldRight) / 2;
 let cameraWidth = worldRight - worldLeft;
 let cameraCenterY = floorY - cameraWidth / cameraAspect / 2;
 let cameraContainFloor = 0;
+// Two different distances, because they answer two different questions.
+//
+// `cameraPin` is where a single projected point stops being allowed to get any
+// nearer. Nothing can clip a point — a shadow ellipse or a capsule end is one
+// coordinate, not a face — so the best available answer is to hold it at a
+// sane depth and accept that a thing behind the lens is drawn wrong. This is
+// the distance the projection has always used.
+const cameraPin = 80;
+// `cameraNear` is the real near plane, and faces are cut at it. It is much
+// closer than the pin on purpose. The cut is a straight line at constant
+// depth, and where that line lands on screen is decided by how much the lens
+// magnifies at the plane -- and this lens is only a tenth perspective in
+// normal play, which dilutes that magnification tenfold. Clipping the floor at
+// the pin distance put its cut line just inside the bottom of the frame and
+// opened a band of sky under the fighters' feet. Ten times nearer drives the
+// cut off screen for any camera that is meaningfully above the floor, and the
+// coordinates it asks for in exchange are what the guard band is for.
+const cameraNear = 8;
+// Projected faces are cut to a band one viewport wide on every side before
+// they are handed over. The scene is allowed to run off screen; it is not
+// allowed to run off into coordinates the rasterizer cannot hold, which is
+// what a vertex sitting on the near plane will otherwise ask for.
+const guardBand = 1;
 const clamp = (value, low, high) => Math.max(low, Math.min(high, value));
 const mixColor = (dark, light, amount) => dark.map((value, index) =>
   Math.round(value + (light[index] - value) * amount));
@@ -270,21 +293,40 @@ class FightCamDoll {
     this.dirty = false;
   }
 
-  project(point) {
+  // World space to camera space, with the near distance left alone. Anything
+  // that wants to survive contact with the near plane has to see the honest
+  // depth first — `project` is where it gets clamped, and a clamp is a lie for
+  // anything behind the lens.
+  toView(point) {
     if (this.dirty || !this.view) this.prepare();
-    const { forward, right, up, centerX, centerY, orthoScale, focal } = this.view;
+    const { forward, right, up } = this.view;
     const delta = { x: point.x - this.position.x, y: point.y - this.position.y,
       z: point.z - this.position.z };
-    const viewX = dot3(delta, right);
-    const viewY = dot3(delta, up);
-    const viewZ = Math.max(80, dot3(delta, forward));
-    const orthoX = centerX + viewX * orthoScale;
-    const orthoY = centerY - viewY * orthoScale;
-    const perspectiveX = centerX + viewX * focal / viewZ;
-    const perspectiveY = centerY - viewY * focal / viewZ;
+    return { x: dot3(delta, right), y: dot3(delta, up),
+      z: dot3(delta, forward) };
+  }
+
+  projectView(view) {
+    if (this.dirty || !this.view) this.prepare();
+    const { centerX, centerY, orthoScale, focal } = this.view;
+    const depth = Math.max(cameraNear, view.z);
+    const orthoX = centerX + view.x * orthoScale;
+    const orthoY = centerY - view.y * orthoScale;
+    const perspectiveX = centerX + view.x * focal / depth;
+    const perspectiveY = centerY - view.y * focal / depth;
     return { x: lerp(orthoX, perspectiveX, this.perspective),
       y: lerp(orthoY, perspectiveY, this.perspective),
-      z: clamp(viewZ / 16000 * 2.8 - 1.4, -1.4, 1.4) };
+      z: clamp(depth / 16000 * 2.8 - 1.4, -1.4, 1.4) };
+  }
+
+  // A lone point cannot be clipped, so it is held at the pin rather than
+  // allowed to divide by a depth it does not have. Faces go through
+  // `worldTriangle`, which cuts them at the near plane and then comes back
+  // here with vertices that are already in front of it.
+  project(point) {
+    const view = this.toView(point);
+    view.z = Math.max(cameraPin, view.z);
+    return this.projectView(view);
   }
 }
 
@@ -312,6 +354,70 @@ function screenRect(x, y, width, height, color) {
 }
 function projectedTriangle(a, b, c, color) {
   emitTriangle(a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z, ...color);
+}
+// Sutherland-Hodgman, one plane at a time. Both clips below are the same walk:
+// step the polygon's edges, keep the vertices that are inside, and whenever an
+// edge crosses out or in, keep the crossing point too.
+function clipPolygon(polygon, distance, mix) {
+  const kept = [];
+  for (let index = 0; index < polygon.length; index++) {
+    const current = polygon[index];
+    const next = polygon[(index + 1) % polygon.length];
+    const here = distance(current);
+    const there = distance(next);
+    if (here >= 0) kept.push(current);
+    if ((here >= 0) !== (there >= 0))
+      kept.push(mix(current, next, here / (here - there)));
+  }
+  return kept;
+}
+const mixVertex = (a, b, amount) => ({ x: lerp(a.x, b.x, amount),
+  y: lerp(a.y, b.y, amount), z: lerp(a.z, b.z, amount) });
+// The near plane, in camera space, before the divide. This is the whole point:
+// a vertex behind the lens has a negative depth, and pinning it to the near
+// distance keeps its sideways offset while dividing by a distance it never
+// had — so a face that crosses the plane used to shear halfway across the
+// screen, or blow past the coordinate guard and vanish outright. Cutting it at
+// the plane leaves only geometry that is honestly in front of the camera.
+const clipViewNear = (polygon) =>
+  clipPolygon(polygon, (vertex) => vertex.z - cameraNear, mixVertex);
+// And the guard band, in screen space, after it. A vertex sitting exactly on
+// the near plane projects to focal/near times its offset — twenty-three times,
+// at this lens — so a legitimately visible floor can still ask for coordinates
+// far outside anything the rasterizer will take. Cut it to a band a viewport
+// wide instead of dropping the face and leaving a hole in the ground.
+function clipScreenBand(polygon) {
+  const width = viewWidth();
+  const margin = guardBand;
+  const edges = [
+    (vertex) => vertex.x + width * margin,
+    (vertex) => width * (1 + margin) - vertex.x,
+    (vertex) => vertex.y + viewHeight * margin,
+    (vertex) => viewHeight * (1 + margin) - vertex.y,
+  ];
+  let clipped = polygon;
+  for (const distance of edges) {
+    if (clipped.length < 3) return [];
+    clipped = clipPolygon(clipped, distance, mixVertex);
+  }
+  return clipped;
+}
+// One world-space face, all the way through: to camera space, cut at the near
+// plane, projected, cut to the guard band, then fanned into whatever triangles
+// are left. Zero of them is a face entirely behind the camera, which is a
+// perfectly good answer.
+function worldTriangle(a, b, c, color) {
+  const near = clipViewNear([cameraDoll.toView(a), cameraDoll.toView(b),
+    cameraDoll.toView(c)]);
+  if (near.length < 3) return;
+  const projected = near.map((vertex) => cameraDoll.projectView(vertex));
+  if (projected.some((point) => !Number.isFinite(point.x) ||
+    !Number.isFinite(point.y))) return;
+  // A near-plane fan can be a quad; fanning it before the band clip would
+  // clip the same interior edge twice, so the band takes the whole polygon.
+  const face = clipScreenBand(projected);
+  for (let corner = 2; corner < face.length; corner++)
+    projectedTriangle(face[0], face[corner - 1], face[corner], color);
 }
 function projectPoint(x, y, z = 0) {
   return cameraDoll.project({ x, y, z });
@@ -5617,36 +5723,57 @@ function drawFightIntro(introSeconds, titleInk, statusShadow) {
     centerY - fightSize / 2, fightSize, ...titleInk);
 }
 
+// A pole or a branch crossing the near plane has the same problem a face does,
+// and the same cure — trim the segment at the plane rather than letting the
+// far end pin itself to the near distance and rake across the screen. Null is
+// a segment wholly behind the camera.
+// Trimmed at the pin rather than the near plane: a line is handed to the host
+// whole, with no band to catch it, so a pole crossing the plane would draw a
+// streak the length of the guard band. Pulling the cut back to the pin costs
+// nothing visible — nothing in the arena passes within eighty units of the
+// lens — and keeps both ends of every line on the map.
+function worldSegment(x1, y1, z1, x2, y2, z2) {
+  let a = cameraDoll.toView({ x: x1, y: y1, z: z1 });
+  let b = cameraDoll.toView({ x: x2, y: y2, z: z2 });
+  if (a.z < cameraPin && b.z < cameraPin) return null;
+  if (a.z < cameraPin)
+    a = mixVertex(a, b, (cameraPin - a.z) / (b.z - a.z));
+  else if (b.z < cameraPin)
+    b = mixVertex(b, a, (cameraPin - b.z) / (a.z - b.z));
+  const from = cameraDoll.projectView(a);
+  const to = cameraDoll.projectView(b);
+  return [from.x, from.y, from.z, to.x, to.y, to.z].every(Number.isFinite)
+    ? { from, to } : null;
+}
+
 function worldLine(x1, y1, z1, x2, y2, z2, width, color) {
-  const a = projectPoint(x1, y1, z1);
-  const b = projectPoint(x2, y2, z2);
-  line(a.x, a.y, b.x, b.y, width, ...color);
+  const segment = worldSegment(x1, y1, z1, x2, y2, z2);
+  if (!segment) return;
+  line(segment.from.x, segment.from.y, segment.to.x, segment.to.y,
+    width, ...color);
 }
 
 function worldCapsule(x1, y1, z1, x2, y2, z2, width, color) {
-  const a = projectPoint(x1, y1, z1);
-  const b = projectPoint(x2, y2, z2);
-  if (![a.x, a.y, a.z, b.x, b.y, b.z].every(Number.isFinite)) return;
+  const segment = worldSegment(x1, y1, z1, x2, y2, z2);
+  if (!segment) return;
+  const { from, to } = segment;
   const previousDepth = triangleDepth;
-  triangleDepth = Math.min(a.z, b.z) - .004;
-  filledCapsule(a.x, a.y, b.x, b.y, width, color);
+  triangleDepth = Math.min(from.z, to.z) - .004;
+  filledCapsule(from.x, from.y, to.x, to.y, width, color);
   triangleDepth = previousDepth;
 }
 
 function worldQuad(a, b, c, d, color) {
-  const points = [a, b, c, d].map((point) =>
-    projectPoint(point.x, point.y, point.z));
-  if (points.some((point) => !Number.isFinite(point.x) ||
-      !Number.isFinite(point.y) || Math.abs(point.x) > 30000 ||
-      Math.abs(point.y) > 30000)) return;
+  // Lighting is decided in world space, off the surface the quad names, so it
+  // is the same shade however the clipper ends up cutting the face up.
   const ab = { x: b.x - a.x, y: b.y - a.y, z: b.z - a.z };
   const ac = { x: c.x - a.x, y: c.y - a.y, z: c.z - a.z };
   const normal = normalize3(cross3(ab, ac));
   const light = { x: -globalLight.x, y: -globalLight.y, z: -globalLight.z };
   const illumination = .72 + Math.max(0, dot3(normal, light)) * .28;
   const lit = color.map((channel) => Math.round(channel * illumination));
-  projectedTriangle(points[0], points[1], points[2], lit);
-  projectedTriangle(points[0], points[2], points[3], lit);
+  worldTriangle(a, b, c, lit);
+  worldTriangle(a, c, d, lit);
 }
 
 function shadowSurfaceY(x, y) {
