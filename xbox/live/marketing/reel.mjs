@@ -44,10 +44,23 @@ function listQueue() {
     .map((name) => JSON.parse(readFileSync(join(staging, name, "reel.json"), "utf8")));
 }
 
+// The game's HUD carries a live Los Angeles clock, so the reel's palette
+// follows the same clock: render in daylight and the reel is light, render
+// at night and it is dark. Coherence, not preference — a HUD that says
+// 11pm over a light theme reads as a mistake. --theme overrides for review.
+function themeNow() {
+  if (flags.theme === "light" || flags.theme === "dark") return flags.theme;
+  const hour = Number(new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Los_Angeles", hour: "numeric", hourCycle: "h23",
+  }).format(new Date()));
+  return hour >= 7 && hour < 19 ? "light" : "dark";
+}
+
 async function buildSlot(day, index) {
   const spec = await pickSource({ date: new Date(`${day}T12:00:00Z`), index,
     slotsPerDay, cap: Number(flags.cap || 600),
     allowReplays: flags["no-replays"] !== true, log });
+  spec.theme = themeNow();
   // Forcing a market is a review affordance, not part of the grid. The slot
   // keeps its number so the ledger stays honest about which slot ran.
   if (flags.segment && spec.segment !== flags.segment) {
@@ -58,6 +71,7 @@ async function buildSlot(day, index) {
     log(`   forced market → ${spec.segmentName}`);
   }
 
+  log(`   theme ${spec.theme} (LA clock)`);
   const dir = queueDir(staging, spec);
   const work = join(dir, "work");
   mkdirSync(work, { recursive: true });
