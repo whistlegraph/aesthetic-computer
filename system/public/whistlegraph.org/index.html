@@ -40,7 +40,7 @@
   /* the page: one plain paper column */
   .pad{
     max-width:820px; margin:0 auto; min-height:100vh;
-    padding:28px 24px 60px; position:relative;
+    padding:24px 18px 56px; position:relative;
   }
   a{color:var(--link); text-decoration:underline; text-underline-offset:2px}
   a:visited{color:var(--seen)}
@@ -87,8 +87,12 @@
   #idxSearch:focus{outline:none; border-color:var(--margin); box-shadow:0 0 0 2px rgba(180,72,135,.18)}
   #idxSearch::placeholder{color:var(--dim)}
   #idxSentinel{height:1px}
-  .sortbar{display:flex; flex-wrap:wrap; gap:6px; margin:6px 0 11px; align-items:baseline}
-  .sortbar .sl{font-size:11.5px; color:var(--dim); margin-right:2px}
+  .sortbar{display:flex; flex-wrap:wrap; gap:5px; margin:6px 0 10px; align-items:center}
+  /* the word first, so the row reads as a label and then its choices */
+  .sortbar .sl{
+    font-size:10.5px; color:var(--dim); margin-right:4px; white-space:nowrap;
+    text-transform:uppercase; letter-spacing:.09em; flex:0 0 auto;
+  }
   .sortbar button{
     font-family:inherit; font-size:11.5px; color:var(--ink); background:transparent;
     border:1px solid var(--ink); border-radius:2px; padding:2px 8px; cursor:pointer; line-height:1.4;
@@ -100,9 +104,10 @@
   .sectionbar button{font:inherit; font-size:14px; color:var(--ink); border:1px solid transparent; border-bottom:0; background:transparent; padding:7px 11px 6px; cursor:pointer; margin-bottom:-2px}
   .sectionbar button:hover{border-color:var(--ink); background:rgba(255,255,255,.4)}
   .sectionbar button.on{background:var(--ink); color:var(--paper); border-color:var(--ink)}
-  .archive-kind{font-size:10px; letter-spacing:.06em; text-transform:uppercase; color:var(--margin)}
+  .archive-kind{display:block; font-size:9px; letter-spacing:.03em; text-transform:uppercase; color:var(--margin)}
   .archive-desc{display:block; max-width:520px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
-  .archive-links{display:block; color:var(--dim); font-size:11.5px; margin-top:2px}
+  .archive-links{display:block; color:var(--dim); font-size:11.5px; margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .archive-links a{font-size:inherit}
 
   /* the codes note — a bordered wiki box */
   .note{
@@ -111,20 +116,30 @@
   }
   code,.kbd{font-family:var(--mono); background:var(--ink); color:var(--paper); padding:1px 6px; border-radius:2px}
 
-  /* the index table — dense, Web 1.0 */
+  /* the index table — dense, Web 1.0. Every row is exactly two lines: the title
+     and its facts, each clipped rather than wrapped, so the list stays a ruler
+     you can run your eye down. Alternating tint gives that eye something to grip. */
   .wrap{overflow-x:auto}
-  table.idx{border-collapse:collapse; width:100%; font-size:14px}
-  table.idx td{padding:7px 8px; border-bottom:1px dotted rgba(40,30,90,.4); vertical-align:top}
-  td.th{width:72px} td.th img{width:64px; height:80px; object-fit:cover; border:1px solid var(--ink); display:block; background:#fff}
-  td.cd{white-space:nowrap; font-family:var(--mono); font-size:13px}
+  /* fixed layout: the three narrow columns are declared, and whatever is left
+     over is the title's — a finite width is what lets its lines ellipsize. */
+  table.idx{border-collapse:collapse; table-layout:fixed; width:100%; font-size:14px}
+  table.idx td{padding:5px 7px; border-bottom:1px solid rgba(40,30,90,.16); vertical-align:middle}
+  tr.row:nth-of-type(odd) td{background:rgba(180,72,135,.07)} /* a warm rung, not a grey one */
+  td.th{width:66px} td.th img{width:52px; height:66px; object-fit:cover; border:1px solid var(--ink); display:block; background:#fff}
+  td.cd{width:96px; white-space:nowrap; font-family:var(--mono); font-size:15px; overflow:hidden}
   .sw{display:inline-block; width:.72em; height:.72em; margin-right:6px; border:1px solid rgba(0,0,0,.45); background:var(--c); vertical-align:baseline}
   .sw.quiet{background:transparent; border-color:var(--dim)}
-  td.th .sw.noglyph{width:42px; height:52px; margin:0; border:1px solid var(--ink)} /* audio-only: no frame */
+  td.th .sw.noglyph{width:36px; height:46px; margin:0; border:1px solid var(--ink)} /* audio-only: no frame */
   td.cd a{font-weight:normal}
-  td.ti a{color:var(--ink)}
-  td.ti .by{display:block; color:var(--dim); font-size:12px}
-  td.yr{color:var(--dim); text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums}
-  tr.row:hover td{background:rgba(255,243,160,.5)}
+  /* max-width:0 hands the title cell exactly the space the other three leave —
+     which is what gives its two lines something finite to ellipsize against. */
+  td.ti{max-width:0}
+  td.ti a{color:var(--ink); display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  td.ti .by{display:block; color:var(--dim); font-size:11.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  td.yr{width:104px; color:var(--dim); text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums; font-size:12.5px}
+  td.yr .vw{display:block; font-size:11px}
+  @media (min-width:561px){ td.yr .vw::after{content:" views"} }
+  tr.row:hover td{background:rgba(255,243,160,.6)}
 
   ul.plain{list-style:none} ul.plain li{padding:3px 0}
   ul.plain li::before{content:"– "; color:var(--margin)}
@@ -193,16 +208,23 @@
   .pn .pncode{font-family:var(--mono); color:var(--margin)}
 
   /* phones: the inline color chip doubles what the thumbnail already says —
-     give its width back to the title so rows wrap a line less */
-  @media (max-width:480px){
-    table.idx td{padding:7px 5px}
+     give its width back to the title so a row holds its one line. The page
+     gutter goes narrow and, above all, EQUAL: the column is centred glass. */
+  @media (max-width:560px){
+    .pad{padding-left:11px; padding-right:11px}
+    table.idx td{padding:4px 4px}
     td.cd .sw{display:none}
-    td.yr{font-size:12px}
-    .pad{padding-left:40px; padding-right:14px}
+    td.cd{width:70px; font-size:14px}
+    td.th{width:48px} td.th img{width:40px; height:50px}
+    td.yr{width:54px}
+    td.ti > a{font-size:13.5px}
+    td.ti .by{font-size:11px}
+    td.yr{font-size:11.5px} td.yr .vw{font-size:10.5px}
+    .archive-desc{max-width:none}
   }
   /* touch: sort chips + section tabs get real finger room */
   @media (pointer:coarse){
-    .sortbar button{padding:6px 11px}
+    .sortbar button{padding:5px 9px}
     .sectionbar button{padding:9px 13px 8px}
   }
 </style>
@@ -484,8 +506,10 @@ function rowHTML(w){
     : `<img loading="lazy" alt="Final glyph of ${w.title}" data-thumb-post="${thumbPost(w)}" src="${w.thumb||`${IDX}/${w.asset||w.code}.jpg`}">`;
   return `<td class="th"><a href="/${w.code}">${thumb}</a></td>`+
     `<td class="cd"><span class="sw${w.c?"":" quiet"}"${w.c?` style="--c:${w.c}"`:""}></span>[<a href="/${w.code}">${w.code}</a>]</td>`+
-    `<td class="ti"><a href="/${w.code}">${w.title}</a><span class="by">${w.by}${w.perf>1?` · ${w.perf} posts`:""}${w.views?` · ${fmtViews(w.views)} views`:""}</span></td>`+
-    `<td class="yr">${w.year}</td>`;
+    `<td class="ti"><a href="/${w.code}">${w.title}</a><span class="by">${w.by}${w.perf>1?` · ${w.perf} posts`:""}</span></td>`+
+    // Reach rides in the year column: it is the one number a scanning eye wants
+    // aligned, and moving it out keeps the byline to a single unbroken line.
+    `<td class="yr">${w.year}${w.views?`<span class="vw">${fmtViews(w.views)}</span>`:""}</td>`;
 }
 // The row's own <a href="/code"> is intercepted by one delegated click handler
 // on the tbody (installed once) — thousands of rows share one listener instead of
@@ -508,8 +532,8 @@ const postRowHTML=p=>{
   return `<td class="th"><a href="${postPath}">${thumb}</a></td>`+
     `<td class="cd"><span class="archive-kind">${KIND_LABEL[p.kind]||"Post"}</span></td>`+
     `<td class="ti"><a class="archive-desc" href="${postPath}">${esc(postTitle(p))}</a>`+
-      `<span class="archive-links">${related||esc(p.platform||"archive")}${p.views!=null?` · ${fmtViews(p.views)} views`:""}</span></td>`+
-    `<td class="yr">${p.date?p.date.slice(0,4):""}</td>`;
+      `<span class="archive-links">${related||esc(p.platform||"archive")}</span></td>`+
+    `<td class="yr">${p.date?p.date.slice(0,4):""}${p.views!=null?`<span class="vw">${fmtViews(p.views)}</span>`:""}</td>`;
 };
 const postTR=p=>`<tr class="row archive-row" data-post="${p.id}">${postRowHTML(p)}</tr>`;
 
