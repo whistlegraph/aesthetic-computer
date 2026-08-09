@@ -1034,5 +1034,26 @@
     "mutation": "blind",
     "trait": "five-fold quasicrystal plane-wave interference field x golden-ratio-tuned five-voice bell/pluck chord",
     "born": "2026-07-21T11:36:23.633Z"
+  },
+  "gloon": {
+    "parent": "ploo",
+    "second": null,
+    "mutation": "voice",
+    "trait": "concentric shockwave/starburst bloom x underwater bubble+flute pentatonic voice (patient pressure-swell  surfacing pop, not riser  gong drop)",
+    "born": "2026-08-08T22:06:52.126Z"
+  },
+  "puvo": {
+    "parent": null,
+    "second": null,
+    "mutation": "blind",
+    "trait": "Bernoulli site-percolation lattice x cluster-size-voiced pluck/bell/sub chord",
+    "born": "2026-08-08T23:38:02.404Z"
+  },
+  "shuvo": {
+    "parent": "ploo",
+    "second": null,
+    "mutation": "push",
+    "trait": "drag-comet trail of petal light x continuous theremin glide",
+    "born": "2026-08-08T23:41:32.580Z"
   }
 }
