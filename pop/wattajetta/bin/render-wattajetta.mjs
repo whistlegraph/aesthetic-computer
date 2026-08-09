@@ -48,19 +48,27 @@ mkdirSync(BELL_CACHE, { recursive: true });
 const NEXT = process.argv.includes("--next");
 const INDUSTRIAL = process.argv.includes("--industrial");
 const WORLD = NEXT || process.argv.includes("--world");
+const STONE_CLUB = process.argv.includes("--stone-club");
+const STONE_STUDY = STONE_CLUB || process.argv.includes("--stone-study");
+// The club cut is the canonical stone form let out to twice its length:
+// every span doubles, so the ensemble introduction unfolds at half the
+// rate and the accelerando has twice as far to climb.
+const STONE_SCALE = STONE_CLUB ? 2 : 1;
 const outputStem = INDUSTRIAL ? "wattajetta-industrial"
-  : NEXT ? "wattajetta-world-v2" : WORLD ? "wattajetta-world" : "wattajetta";
+  : NEXT ? "wattajetta-world-v2" : WORLD ? "wattajetta-world"
+  : STONE_CLUB ? "wattajetta-stone-club" : "wattajetta";
 
 const SR = 48000;
 const TAU = 2 * Math.PI;
 const BPM = 138;
 const BEAT = 60 / BPM;
 const BAR = BEAT * 4;
-const STONE_STUDY = process.argv.includes("--stone-study");
-const BARS = STONE_STUDY ? 72 : 96;
-const DUR = BARS * BAR + 5.5; // room for the last toll to settle
+const BARS = STONE_STUDY ? 72 * STONE_SCALE : 96;
+const INTRO_BARS = WORLD ? 4 : 0;
+const DUR = (INTRO_BARS + BARS) * BAR + (WORLD ? 3.2 : 5.5);
 const TINY_BELLS = STONE_STUDY || process.argv.includes("--tiny-bells");
-const TINY_BELL_END = 45;
+const TINY_BELL_END = 45 * STONE_SCALE;
+const MUTATION = 18 * STONE_SCALE; // bars per stone mutation
 
 // deterministic sprinkle — same track every bake
 let _s = 0xa7757e77;
@@ -111,7 +119,9 @@ const STONE_DROPS = [
   { a: 36, z: 54, mat: "stone", bowl: "stone", geom: "tubular", durs: [1.6, 1.0, 0.7], density: 0.98, gainDb: -11.2, bloops: 0.84 },
   { a: 54, z: 72, mat: "stone", bowl: "stone", geom: "glass", durs: [1.6, 1.0, 0.7], density: 1, gainDb: -10.8, bloops: 0.9 },
 ];
-const DROPS = STONE_STUDY ? STONE_DROPS : ORIGINAL_DROPS;
+const DROPS = STONE_STUDY
+  ? STONE_DROPS.map((d) => ({ ...d, a: d.a * STONE_SCALE, z: d.z * STONE_SCALE }))
+  : ORIGINAL_DROPS;
 const BREATHS = STONE_STUDY ? [] : [12, 28, 44, 60];
 
 // The world audition keeps a pulse in every breath and adds weather without
@@ -223,13 +233,13 @@ for (const d of DROPS)
 // wave, but it never doubles: the dependable 2-and-4 silhouette stays intact.
 if (STONE_STUDY) {
   let snareIndex = 0;
-  for (let b = 4; b < BARS; b++) {
-    if (bar(b) < 45 && b % 2 === 1) continue;
+  for (let b = 4 * STONE_SCALE; b < BARS; b++) {
+    if (bar(b) < TINY_BELL_END && b % 2 === 1) continue;
     for (const beat of [1, 3]) {
       const phase = (snareIndex % 12) / 12;
       const swell = 0.5 - 0.5 * Math.cos(TAU * phase);
       const t = bar(b) + beat * BEAT;
-      const db = (bar(b) < 45 ? -15 : -13) + 3.2 * swell;
+      const db = (bar(b) < TINY_BELL_END ? -15 : -13) + 3.2 * swell;
       noises.push([t, 0.085 + 0.035 * swell,
         1750 + 950 * swell, 900 + 350 * swell, 0.95 + 0.4 * swell,
         db, 0.002, 0.06 + 0.035 * swell, beat === 1 ? -0.08 : 0.08]);
@@ -239,7 +249,7 @@ if (STONE_STUDY) {
   }
 }
 // coda: the downbeat only, letting the stone ring between hits
-for (let b = 76; b < 80; b++) kickAt(bar(b));
+if (!STONE_STUDY) for (let b = 76; b < 80; b++) kickAt(bar(b));
 // Reverse-kick inhalations pull into the major world-cut landings.
 if (WORLD) for (const b of [12, 16, 28, 32, 44, 48, 60, 64, 76]) {
   const land = bar(b);
@@ -267,7 +277,7 @@ for (const d of DROPS)
       subNote(bar(b), 2 * BAR - 0.08, root, -7.5);
     }
   }
-subNote(bar(76), 4 * BAR - 0.1, ROOTS[0], -9); // coda holds the root
+if (!STONE_STUDY) subNote(bar(76), 4 * BAR - 0.1, ROOTS[0], -9); // coda holds the root
 // each breath: the sub lets go and rises an octave into vapor
 for (const b of BREATHS)
   sines.push([bar(b), 4 * BAR, 41.203, 82.407, -11, 1.0, 2.2, 0, 0, 0, 0]);
@@ -281,12 +291,12 @@ let bellDirection = 1;
 let bellStep = 0;
 const BELL_MOVES = [1, 1, 0, 2, -1, 1, -2, 1, 0, 1, 2, -1, 0, -2, 1, 1, -1];
 function bellRun(b, d) {
-  const inSparseOpening = STONE_STUDY && bar(b) < 45;
+  const inSparseOpening = STONE_STUDY && bar(b) < TINY_BELL_END;
   const earlyDensity = inSparseOpening ? 0.48 : 1;
   for (let e = 0; e < 8; e++) {
     if (bellStep > 0 && (bellStep % 11 === 0 || bellStep % 29 === 0))
       bellDirection *= -1;
-    const move = BELL_MOVES[(bellStep + Math.floor(b / 18) * 3) % BELL_MOVES.length];
+    const move = BELL_MOVES[(bellStep + Math.floor(b / MUTATION) * 3) % BELL_MOVES.length];
     bellIndex += move * bellDirection;
     while (bellIndex < 0 || bellIndex >= DROP_NOTES.length) {
       if (bellIndex < 0) bellIndex = -bellIndex;
@@ -326,7 +336,7 @@ if (STONE_STUDY) {
     [24, "A4", "glass", "glass", 10, -13.0, -0.32],
   ];
   for (const [b, note, material, geometry, dur, db, pan] of blooms)
-    bells.push({ t: bar(b) + 0.25 * BEAT, note, vel: 0.82, pan,
+    bells.push({ t: bar(b * STONE_SCALE) + 0.25 * BEAT, note, vel: 0.82, pan,
       gain: Math.pow(10, db / 20), material, geometry, dur, longTail: true });
 }
 
@@ -366,10 +376,10 @@ function choirChord(t, dur, db) {
   choirNote(t, dur, 164.81, db, 0.35);       // e3
   choirNote(t, dur, 196.0, db - 4, -0.15);   // g3 — the minor color
 }
-choirChord(bar(28), 4 * BAR, -19);
-choirChord(bar(44), 4 * BAR, -17);
-choirChord(bar(60), 4 * BAR, -17);
-choirChord(bar(80), 8 * BAR, -20); // the mist hums it one last time
+choirChord(bar(28 * STONE_SCALE), 4 * BAR, -19);
+choirChord(bar(44 * STONE_SCALE), 4 * BAR, -17);
+choirChord(bar(60 * STONE_SCALE), 4 * BAR, -17);
+choirChord(bar(80 * STONE_SCALE), 8 * BAR, -20); // the mist hums it one last time
 
 // ── chimes: tubular bells in quick clusters — wind chimes on the
 //    canopy rail, breath sections and the mist ─────────────────────────
@@ -410,9 +420,9 @@ if (WORLD) {
 // ── bowls: a low anchor each 2-bar downbeat, material morphing too ────
 for (const d of DROPS)
   for (let b = d.a; b < d.z; b += 2) {
-    // In canonical's first 45 seconds, bowls arrive every four bars instead
+    // In canonical's sparse opening, bowls arrive every four bars instead
     // of every two. The kick and sine floor remain; only bell traffic thins.
-    if (STONE_STUDY && bar(b) < 45 && ((b - d.a) / 2) % 2 === 1) continue;
+    if (STONE_STUDY && bar(b) < TINY_BELL_END && ((b - d.a) / 2) % 2 === 1) continue;
     bells.push({ t: bar(b), note: ROOT_BELLS[((b - d.a) / 2) % 4],
                  vel: 0.7, pan: (b / 2) % 2 === 0 ? -0.2 : 0.2,
                  gain: Math.pow(10, -16 / 20),
@@ -425,16 +435,18 @@ for (const d of DROPS)
 const longBowl = (t, note, mat, db, dur = 7, extra = {}) =>
   bells.push({ t, note, vel: 0.8, pan: 0, gain: Math.pow(10, db / 20),
                material: mat, geometry: "bowl", dur: WORLD ? Math.min(dur, 4.4) : dur, ...extra });
-longBowl(bar(12), "E4", "silver", -15, 7, { morph: WORLD });
-longBowl(bar(44), "E4", "brass", -15, 7, { morph: WORLD });
-longBowl(bar(60), "E4", "gold", -15, 7, { warp: { depth: 0.03, hz: 0.7 }, morph: WORLD });
-longBowl(bar(76), "E3", "stone", -14, 8, { morph: WORLD });
-longBowl(bar(80), "E4", "silver", -17, WORLD ? 6 : 9,
-         { warp: { depth: 0.035, hz: 0.55 }, morph: WORLD });
+if (!STONE_STUDY) {
+  longBowl(bar(12), "E4", "silver", -15, 7, { morph: WORLD });
+  longBowl(bar(44), "E4", "brass", -15, 7, { morph: WORLD });
+  longBowl(bar(60), "E4", "gold", -15, 7, { warp: { depth: 0.03, hz: 0.7 }, morph: WORLD });
+  longBowl(bar(76), "E3", "stone", -14, 8, { morph: WORLD });
+  longBowl(bar(80), "E4", "silver", -17, WORLD ? 6 : 9,
+           { warp: { depth: 0.035, hz: 0.55 }, morph: WORLD });
+}
 // foreshadow tolls — the ear learns each material before its drop
 const foreshadow = [[30, "E5", "bronze"], [46, "B5", "steel"], [62, "G5", "stone"]];
 for (const [b, n, m] of foreshadow)
-  bells.push({ t: bar(b), note: n, vel: 0.6, pan: 0.3, gain: Math.pow(10, -16 / 20),
+  bells.push({ t: bar(b * STONE_SCALE), note: n, vel: 0.6, pan: 0.3, gain: Math.pow(10, -16 / 20),
                material: m, geometry: "glass", dur: WORLD ? 1.6 : 2.5, crush: WORLD });
 // breath sparkles — breath 4's come through water
 for (const b of [13.5, 14.5, 29, 45.5, 61, 62.5])
@@ -451,7 +463,7 @@ bells.push({ t: bar(78), note: "E3", vel: 0.55, pan: 0.15, gain: Math.pow(10, -1
 const MIST_TOLLS = WORLD
   ? [[80, "E5"], [81, "G5"], [82.5, "A5"], [84, "E5"], [86, "D6"]]
   : [[80, "E5"], [81, "G5"], [82.5, "A5"], [84, "E5"], [86, "D6"], [88.5, "G5"], [91, "A5"]];
-for (const [b, n] of MIST_TOLLS)
+if (!STONE_STUDY) for (const [b, n] of MIST_TOLLS)
   bells.push({ t: bar(b), note: n, vel: 0.55, pan: (rnd() * 2 - 1) * 0.4,
                gain: Math.pow(10, (-16 - (b - 80) * 0.4) / 20),
                material: "stone", geometry: "glass", dur: WORLD ? 1.25 : 2.0,
@@ -475,10 +487,10 @@ if (NEXT) {
 if (STONE_STUDY) {
   // Remove the parent arrangement's aluminum/bronze foreshadows and its
   // out-of-range coda. The locked form is strictly the bar-64 stone vocabulary.
-  const canonicalStone = bells.filter((s) => s.t < bar(68) && s.material === "stone");
+  const canonicalStone = bells.filter((s) => s.t < bar(68 * STONE_SCALE) && s.material === "stone");
   bells.length = 0;
   bells.push(...canonicalStone);
-  bells.push({ t: bar(63), note: "E4", vel: 0.55, pan: 0,
+  bells.push({ t: bar(63 * STONE_SCALE), note: "E4", vel: 0.55, pan: 0,
     gain: Math.pow(10, -17 / 20), material: "stone",
     geometry: "church", dur: 2.5 });
 }
@@ -488,17 +500,17 @@ function flyby(t, dir) {
   const d = 2 * BAR;
   sines.push([t, d, 760, 185, -17, d * 0.4, d * 0.45, -dir, dir, 0, 0]);
 }
-flyby(bar(13), 1);
-flyby(bar(29), -1);
-flyby(bar(53), 1);
-flyby(bar(70), -1);
+flyby(bar(13 * STONE_SCALE), 1);
+flyby(bar(29 * STONE_SCALE), -1);
+flyby(bar(53 * STONE_SCALE), 1);
+flyby(bar(70 * STONE_SCALE), -1);
 
 // ── spray, whisper level: transition breaths only. Canonical deliberately
 //    has no bar-zero splash; it was too startling before the groove settled.
 for (const d of DROPS)
   if (!(STONE_STUDY && d.a === 0))
     noises.push([bar(d.a), 2.0, 2000, 300, 0.8, -23, 0.015, 1.8, 0]);
-noises.push([bar(80), 16 * BAR + 4, 3000, 500, 0.8, -27, 2.0, 14 * BAR, 0]);
+if (!STONE_STUDY) noises.push([bar(80), 16 * BAR + 4, 3000, 500, 0.8, -27, 2.0, 14 * BAR, 0]);
 noises.push([0, DUR, 1100, 1100, 0.6, -41, 4, 4, 0]);
 
 // ── bake + render the engine part ─────────────────────────────────────
@@ -547,6 +559,11 @@ const smooth = (p) => p * p * (3 - 2 * p);
   const DRIVE = 2.4;
   const norm = Math.tanh(DRIVE);
   const blendAt = (t) => {
+    if (STONE_CLUB) {
+      // The long cut earns its granite: glassier open, hardening steadily
+      // toward the canonical 0.85-and-past by the final mutation.
+      return 0.6 + 0.3 * smooth(Math.max(0, Math.min(1, t / DUR)));
+    }
     if (STONE_STUDY) return 0.85;
     if (t < bar(24)) return 0;
     if (t < bar(64)) return 0.85 * smooth((t - bar(24)) / (bar(64) - bar(24)));
@@ -1360,8 +1377,16 @@ const mixedPath = resolve(OUT, `${outputStem}.mixed.f32.raw`);
 writeFileSync(mixedPath, Buffer.from(outputMix.buffer, outputMix.byteOffset, outputMix.length * 4));
 
 // ── master: firmer than the pure cut — the crunch ramp wants a spine,
-//    but the opening still breathes ─────────────────────────────────────
-const MASTER = [
+//    but the opening still breathes. The club cut instead masters in the
+//    stone-club-audition-2 lineage: gentler compression, real dynamics
+//    (≈ -13 LUFS, LRA around 5) instead of the canonical's pressed loaf ──
+const MASTER = STONE_CLUB ? [
+  "highpass=f=24",
+  "acompressor=threshold=-16dB:ratio=1.7:attack=12:release=180:makeup=1.2:knee=8",
+  "equalizer=f=50:t=q:w=1.2:g=2.5",
+  "alimiter=limit=0.94:attack=4:release=80",
+  "areverse", "silenceremove=start_periods=1:start_threshold=-70dB", "areverse",
+] : [
   "highpass=f=24",
   "acompressor=threshold=-19dB:ratio=2.8:attack=10:release=150:makeup=2.2:knee=6",
   "equalizer=f=50:t=q:w=1.2:g=2.5", // the boom under the kick — no treble boost; laptop speakers read it as tang
@@ -1374,13 +1399,15 @@ const MASTER = [
   // vinyl arrangement already owns its ending, so preserve that exact clock.
   ...(!NEXT ? ["areverse", "silenceremove=start_periods=1:start_threshold=-70dB", "areverse"] : []),
 ];
-const mp3 = resolve(OUT, STONE_STUDY
+const mp3 = resolve(OUT, STONE_CLUB
+  ? "wattajetta-stone-club.mp3"
+  : STONE_STUDY
   ? "wattajetta-stone-canonical.mp3"
   : TINY_BELLS ? "wattajetta-tinybells.mp3" : "wattajetta.mp3");
 const ff = spawnSync("ffmpeg", ["-hide_banner", "-y", "-loglevel", "error",
   "-f", "f32le", "-ar", String(SR), "-ac", "2", "-i", mixedPath,
   "-af", MASTER.join(","), "-c:a", "libmp3lame", "-q:a", "2",
-  "-metadata", `title=${STONE_STUDY ? "wattajetta stone canonical" : TINY_BELLS ? "wattajetta tiny bells" : "wattajetta"}`, "-metadata", "album=pixsies",
+  "-metadata", `title=${STONE_CLUB ? "wattajetta stone club" : STONE_STUDY ? "wattajetta stone canonical" : TINY_BELLS ? "wattajetta tiny bells" : "wattajetta"}`, "-metadata", "album=pixsies",
   mp3], { stdio: "inherit" });
 if (ff.status !== 0) { console.error("✗ ffmpeg failed"); process.exit(1); }
 if (WORLD) {
@@ -1392,5 +1419,8 @@ if (WORLD) {
   if (fw.status !== 0) { console.error("✗ world WAV failed"); process.exit(1); }
   console.log(`✓ ${wav} (24-bit spatial audition)`);
 }
-for (const p of [rawPath, kickPath, mixedPath]) { try { unlinkSync(p); } catch {} }
+// --keep-mixed leaves the pre-master mix on disk for external master passes
+// (release WAVs want a different chain than the canonical mp3).
+const scratch = process.argv.includes("--keep-mixed") ? [rawPath, kickPath] : [rawPath, kickPath, mixedPath];
+for (const p of scratch) { try { unlinkSync(p); } catch {} }
 console.log(`✓ ${mp3} (${INDUSTRIAL ? "steel/stone press line · disciplined scratches · negative space" : "glass↔staccato transmogrification · rhythmic scratch voice · water world"})`);

@@ -75,6 +75,33 @@ Open follow-ups (queued, not blockers):
 
 ---
 
+## Wattajetta Stone Club — SUBMITTED 2026-08-09 (DistroKid, manual upload)
+
+- **Lane:** `pop/wattajetta/` · the canonical 72-bar stone form (bar-64 stone-drop
+  vocabulary, 127→138 BPM accelerando, four seamless 18-bar mutations), ~2:11
+- **Master (locked):** `pop/wattajetta/out/auditions/wattajetta stone club audition 2.mp3`
+  — the neo-rendered audition-2 master (2026-08-08 01:36), −13.2 LUFS · LRA 5.0 ·
+  TP −1.1 dBFS. Converted do-no-harm to 44.1 k/16-bit WAV (triangular dither);
+  the exact chain that produced it was not recovered from the neo session, so the
+  mp3→WAV conversion IS the release master. Canonical tagged copy with embedded
+  cover: `pop/wattajetta/out/wattajetta-stone-club.mp3`.
+- **DistroKid folder:** `~/Documents/Shelf/wattajetta-stone-club-DISTROKID/`
+  (release.json · MASTER.wav · cover-3000.jpg) — validated with
+  `node pop/bin/distrokid-submit.mjs ~/Documents/Shelf/wattajetta-stone-club-DISTROKID --dry-run`
+- **Cover:** photo (no AI) — IMG_4049.HEIC from the Photos library (syndication
+  scope, 2026-07-01): Jeffrey on the cabin porch under the blue canopy, crochet
+  hood, laptop on lap. Tight square crop, brighten/sharpen, 3000². Source asset
+  UUID `31606BCC-49BA-4DCE-A027-A07233755B4E`.
+- **Metadata:** artist Aesthetic Dot Computer · album Wattajetta Stone Club (single) ·
+  Electronic · songwriter Jeffrey Scudder · instrumental (single spoken
+  "wattajetta" title-drop, no lyrics) · release asap
+- Related renders in the lane: `wattajetta-stone-canonical.mp3` (same form, pressed
+  −11.1 LUFS master) and `wattajetta-stone-club-extended.mp3` (2× 144-bar club cut,
+  `render-wattajetta.mjs --stone-club`, auditioned 2026-08-09 — passed over for
+  the original length).
+
+---
+
 ## boombaboom — WIP
 
 - **Lane:** `pop/boombaboom/` · sine-techno · D minor · ~3:19 (accelerando) ·

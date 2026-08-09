@@ -68,7 +68,8 @@ function walkMp3(dir, acc) {
 // name, anything named in RELEASES.md, and the keep-all session lanes.
 function isCanonical(title, laneTop, laneDirRel, releases) {
   if (KEEP_ALL.has(laneTop) || laneDirRel.includes("lullabies")) return true;
-  if (releases[title.toLowerCase()]) return true;
+  // RELEASES.md headers use spaces; render stems use hyphens. Same name.
+  if (releases[title.toLowerCase()] || releases[title.toLowerCase().replace(/-/g, " ")]) return true;
   return !title.includes("-");
 }
 
@@ -146,7 +147,8 @@ for (const p of files) {
   const title = basename(p, ".mp3");
   if (!isCanonical(title, laneTop, laneDirRel, releases)) continue;
   const st = statSync(p);
-  const relInfo = releases[title.toLowerCase()] || releases[laneTop.toLowerCase()] || null;
+  const relInfo = releases[title.toLowerCase()] || releases[title.toLowerCase().replace(/-/g, " ")]
+    || releases[laneTop.toLowerCase()] || null;
   const laneAbs = `pop/${laneDirRel}`;
   if (gitCache[laneAbs] === undefined) gitCache[laneAbs] = gitCount(laneAbs);
   const { art, media } = findMedia(p, title);
