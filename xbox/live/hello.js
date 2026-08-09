@@ -72,7 +72,10 @@ const replayTickUs = 16667;
 const replayCheckpointUs = 1000000;
 const liveSnapshotIntervalUs = 50000;
 const fighterAnimationSpecs = {
-  IDLE: [48, 2, "BREATHE", true], WALK: [12, 1, "STRIDE", true],
+  // WALK ran a whole stride in 12 ticks — five cycles a second, which the eye
+  // reads as a vibrating fighter rather than as legs taking steps. Three ticks
+  // a frame puts the cycle at 600ms, close to a real walk, so the steps count.
+  IDLE: [48, 2, "BREATHE", true], WALK: [12, 3, "STRIDE", true],
   DASH: [8, 1, "BURST", true], CROUCH: [8, 1, "TUCK", true],
   "AIR CROUCH": [8, 1, "TUCK", true], JUMP: [12, 1, "ASCEND", true],
   FALL: [12, 1, "DESCEND", true], PUNCH: [14, 1, "ATTACK", false],
@@ -384,7 +387,7 @@ const players = [
     pad: 0, spawnX: 5700, x: 5700, y: floorY, z: 0,
     vx: 0, vy: 0, vz: 0, facing: 1,
     grounded: true, ducking: false, previous: [], lastButton: "NONE",
-    lastButtonAt: -10000000, color: [190, 42, 58], hit: 0,
+    lastButtonAt: 0, color: [190, 42, 58], hit: 0,
     hitSegment: -1, hitSegmentUntil: 0, hitStunUntil: 0,
     alive: true, respawnAt: 0, score: 0, inputX: 0, inputY: 0,
     suppressedDirections: [],
@@ -407,7 +410,7 @@ const players = [
     pad: 1, spawnX: 6300, x: 6300, y: floorY, z: 0,
     vx: 0, vy: 0, vz: 0, facing: -1,
     grounded: true, ducking: false, previous: [], lastButton: "NONE",
-    lastButtonAt: -10000000, color: [38, 82, 176], hit: 0,
+    lastButtonAt: 0, color: [38, 82, 176], hit: 0,
     hitSegment: -1, hitSegmentUntil: 0, hitStunUntil: 0,
     alive: true, respawnAt: 0, score: 0, inputX: 0, inputY: 0,
     suppressedDirections: [],
@@ -2039,7 +2042,7 @@ function resetRound(now, resetMatch = false) {
     player.suppressedDirections = player.previous.filter((button) =>
       button.startsWith("Arrow"));
     player.lastButton = "NONE";
-    player.lastButtonAt = -10000000;
+    player.lastButtonAt = 0;
   }
   for (const pickup of [...gunPickups, ...grenadePickups]) {
     pickup.active = false;
@@ -2189,11 +2192,35 @@ function updateCameraDoll(dt, now) {
       const winnerHead = winner?.frozenGeometry?.head || (winner
         ? runnerWorldGeometry(winner, (now - startedAt) / 1000000).head
         : { x: cameraCenter, y: cameraCenterY, z: 0 });
+      // The killcam used to sit inside the winner's own head, so the winner
+      // had to be culled or their body would have filled the lens — which is
+      // why the fighter who had just won blinked out for three quarters of a
+      // second. It stands off their shoulder now: back along the line between
+      // the two of them, raised, and aimed at a point most of the way to the
+      // fighter going down. Both are in the frustum, so nothing is hidden to
+      // make the shot and nobody vanishes.
+      //
+      // Every distance is drawn from the gap between the heads, because the
+      // pair can be a step apart or the width of the stage apart, and a fixed
+      // stand-off frames only one of those.
+      const shoulderSide = Math.sign(loserHead.x - winnerHead.x) || 1;
+      const headGap = Math.max(320, Math.abs(loserHead.x - winnerHead.x));
+      const shoulder = { x: winnerHead.x - shoulderSide * headGap * .62,
+        y: winnerHead.y - headGap * .34,
+        z: winnerHead.z - headGap * 1.3 };
+      // Aimed past the winner rather than at the loser: dead centre on the
+      // loser is what threw the winner off the edge of the frame.
+      const focus = { x: lerp(winnerHead.x, loserHead.x, .78),
+        y: lerp(winnerHead.y, loserHead.y, .78),
+        z: lerp(winnerHead.z, loserHead.z, .78) };
+      // Wider than the old close-up had to be, because it now has to hold two
+      // fighters rather than one — the 64° lens buys most of that back. Past
+      // about a 1300 gap this would open onto empty stage, so beyond there it
+      // settles toward the span the returning wide shot uses.
+      const shotWidth = Math.min(headGap * 1.7, headGap + 900);
       if (age < .86) {
-        cameraDoll.track({ target: loserHead,
-          position: { x: winnerHead.x, y: winnerHead.y,
-            z: winnerHead.z - 720 }, width: 680,
-          perspective: .82, fov: 48, roll: 0 }, dt, 11);
+        cameraDoll.track({ target: focus, position: shoulder,
+          width: shotWidth, perspective: .82, fov: 64, roll: 0 }, dt, 11);
         return;
       }
       const returnAmount = clamp((age - .86) / .59, 0, 1);
@@ -2202,10 +2229,10 @@ function updateCameraDoll(dt, now) {
         z: (players[0].z + players[1].z) / 2 };
       const span = Math.max(900, Math.abs(players[1].x - players[0].x) + 540);
       cameraDoll.track({ target: midpoint,
-        position: { x: lerp(winnerHead.x, midpoint.x, returnAmount),
-          y: lerp(winnerHead.y, midpoint.y - span * .08, returnAmount),
-          z: lerp(winnerHead.z - 720, midpoint.z - span * 1.2, returnAmount) },
-        width: lerp(680, span, returnAmount),
+        position: { x: lerp(shoulder.x, midpoint.x, returnAmount),
+          y: lerp(shoulder.y, midpoint.y - span * .08, returnAmount),
+          z: lerp(shoulder.z, midpoint.z - span * 1.2, returnAmount) },
+        width: lerp(shotWidth, span, returnAmount),
         perspective: lerp(.82, .72, returnAmount), fov: 50, roll: 0 }, dt, 10);
       return;
     }
@@ -5183,8 +5210,8 @@ function drawDeathFlash() {
 }
 
 function drawRunner(player, t, showLabel = true) {
-  if (!player.alive && !roundResult) return;
-  const cinematicAge = deathCinematicAge();
+  // A fighter who is down is still on the stage: they read as the broken body
+  // rather than as nothing. There is no state in which a fighter is skipped.
   const headBurstAge = player.headBustedAt
     ? Math.max(0, (runtime().monotonicUs - player.headBustedAt) / 1000000) : -1;
   if (!player.alive && headBurstAge >= .11) {
@@ -5243,10 +5270,7 @@ function drawDebugHitboxes(player, t) {
   const impactDebug = debugHitboxes && !roundResult && now < impactHitboxesUntil;
   if ((!debugHitboxes && !impactDebug) || (!player.alive && !roundResult)) return;
   const cinematicAge = deathCinematicAge(now);
-  if ((deathCinematic?.loserPad === player.pad && cinematicAge >= .11) ||
-      (deathCinematic?.winnerPad === player.pad && cinematicAge >= .11 &&
-       cinematicAge < .86))
-    return;
+  if (deathCinematic?.loserPad === player.pad && cinematicAge >= .11) return;
   const world = player.replayGeometry || player.frozenGeometry ||
     runnerWorldGeometry(player, t);
   const geometry = projectRunnerWorldGeometry(world);
@@ -6567,8 +6591,9 @@ function gamePaint() {
     ...detachedParts.map((item) => ({ kind: "detached", item,
       x: (item.x1 + item.x2) / 2, y: (item.y1 + item.y2) / 2,
       z: (item.z1 + item.z2) / 2 })),
-    ...players.filter((item) => !(cinematicAge >= .11 && cinematicAge < .86 &&
-      deathCinematic?.winnerPad === item.pad)).map((item) => ({
+    // Both fighters are always in this list. A fighter is never removed from
+    // the frame to make a camera move work — the shot is what moves.
+    ...players.map((item) => ({
       kind: "player", item, x: item.x, y: item.y, z: item.z })),
   ];
   const depth = (item) => dot3({

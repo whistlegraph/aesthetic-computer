@@ -932,6 +932,35 @@ test("loss sequence freezes, enters killer cam, breaks the body, and returns", (
   assert.ok(fight.deathCinematicState().age > 1.45);
 });
 
+// The killcam used to be shot from inside the winner's head, which meant the
+// winner had to be culled out of the render list or their body would have
+// filled the lens — so winning made your fighter disappear for three quarters
+// of a second. The shot stands off their shoulder now and hides nobody.
+test("the killcam keeps the winner in frame instead of deleting them", () => {
+  const { fight, tick } = createFight();
+  for (let frame = 0; frame < 90; frame++) { tick(); fight.paint(); }
+  fight.knockOut();
+  let framed = 0;
+  for (let frame = 0; frame < 70; frame++) {
+    tick();
+    fight.paint();
+    const cinematic = fight.deathCinematicState();
+    if (!cinematic || cinematic.age < .11 || cinematic.age >= .86) continue;
+    const safe = fight.actionSafeRect();
+    const winner = fight.screenBounds()[cinematic.winnerPad];
+    assert.ok(winner.left >= safe.left && winner.right <= safe.right,
+      `winner left the frame at ${cinematic.age.toFixed(2)}s: ` +
+      `[${winner.left.toFixed(0)}, ${winner.right.toFixed(0)}] ` +
+      `outside [${safe.left.toFixed(0)}, ${safe.right.toFixed(0)}]`);
+    framed += 1;
+  }
+  assert.ok(framed > 30, `killcam only held for ${framed} frames`);
+  // No fighter is ever taken out of the frame to make a camera move work, and
+  // a fighter who is down draws as the broken body rather than as nothing.
+  assert.doesNotMatch(source, /deathCinematic\?\.winnerPad === item\.pad/);
+  assert.doesNotMatch(source, /if \(!player\.alive && !roundResult\) return;/);
+});
+
 test("wind flag lives on the platform without an MPH HUD label", () => {
   assert.match(source, /const poleBottom = platformY/);
   assert.match(source, /const poleX = \(platformLeft \+ platformRight\) \/ 2/);
@@ -2339,6 +2368,50 @@ test("crouch and jump use readable multi-frame pose transitions", () => {
   assert.ok(jump.fight.players[0].vy < 0);
   assert.match(source, /const animation = fighterAnimationPhase\(player\)/);
   assert.match(source, /function drawFighterSilhouette/);
+});
+
+// A stride used to run its twelve frames in twelve ticks — five whole cycles a
+// second, which the eye reads as a fighter vibrating rather than as one taking
+// steps. The cycle is 600ms now, so the steps are countable.
+test("a walk cycle reads as steps rather than a vibration", () => {
+  const { fight, pads, tick } = createFight();
+  pads[0].down = ["ArrowRight"];
+  for (let frame = 0; frame < 30; frame++) tick();
+  const player = fight.players[0];
+  const opening = fight.fighterAnimationPhase(player);
+  assert.equal(opening.state, "WALK");
+  assert.equal(opening.steps, 12);
+  let advances = 0;
+  let previous = opening.step;
+  for (let frame = 0; frame < 36; frame++) {
+    tick();
+    const { step } = fight.fighterAnimationPhase(player);
+    if (step !== previous) advances += 1;
+    previous = step;
+  }
+  // 36 ticks is 600ms: one stride, twelve steps — not five strides.
+  assert.ok(advances >= 11 && advances <= 13,
+    `stride advanced ${advances} times across 36 ticks`);
+});
+
+// `fighterAnimationPhase` dates most poses from `player.lastButtonAt || now`.
+// The unpressed sentinel was -10000000, which is truthy, so the fallback never
+// fired and a fighter who had touched nothing yet dated their pose from ten
+// seconds before the round — far enough back that a non-looping pose like the
+// hit stun opened already pinned to its final frame.
+test("a fighter's pose clock never opens from a negative sentinel", () => {
+  assert.doesNotMatch(source, /lastButtonAt: -\d/);
+  assert.doesNotMatch(source, /lastButtonAt = -\d/);
+  const { fight, tick } = createFight();
+  tick();
+  const player = fight.players[0];
+  assert.equal(player.lastButtonAt, 0,
+    "an unpressed fighter carries 0 so `|| now` can fall through");
+  player.hitStunUntil = Number.MAX_SAFE_INTEGER;
+  const stun = fight.fighterAnimationPhase(player);
+  assert.equal(stun.state, "HIT");
+  assert.equal(stun.step, 1,
+    `a fresh stun opened on frame ${stun.step} of ${stun.steps}`);
 });
 
 test("fighters can crouch in air and carry a crouch into a jump", () => {
