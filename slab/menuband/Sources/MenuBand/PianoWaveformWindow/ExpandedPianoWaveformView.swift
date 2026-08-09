@@ -301,6 +301,14 @@ final class ExpandedPianoWaveformView: NSView {
         // REC + Squawk are Menu Band's deliberately magical, system-level
         // features. Keep their place in the product visible without making
         // the main layout row read like a control dump.
+        //
+        // The sandboxed build shows nothing here. It used to carry a dimmed
+        // twin pointing at the direct download, which spent a slot in the row
+        // advertising another way to get the app rather than doing anything.
+        // If these come back it will be the way the trackpad did — through the
+        // helper that already holds the event tap the sandbox denies — and the
+        // button returns enabled, keyed to whether that helper is present
+        // rather than to which build this is.
         #if !MAC_APP_STORE
         configureMagicPopover(symbolConfiguration: modeSymbol)
         let magicButton = HoverFeedbackButton(
@@ -318,20 +326,6 @@ final class ExpandedPianoWaveformView: NSView {
         magicButton.translatesAutoresizingMaskIntoConstraints = false
         configureBottomBarHover(magicButton)
         magicToggle = magicButton
-        modeStack.addArrangedSubview(magicButton)
-        #else
-        let magicButton = NSButton(title: "", target: nil, action: nil)
-        magicButton.bezelStyle = .recessed
-        magicButton.controlSize = .regular
-        magicButton.imagePosition = .imageOnly
-        magicButton.image = NSImage(systemSymbolName: "sparkles",
-                                    accessibilityDescription: "REC and Squawk")?
-            .withSymbolConfiguration(modeSymbol)
-        magicButton.setAccessibilityLabel("REC and Squawk — direct download only")
-        magicButton.isEnabled = false
-        magicButton.alphaValue = 0.42
-        magicButton.toolTip = "Install Menu Band directly from menuband.app to use REC + Squawk."
-        magicButton.translatesAutoresizingMaskIntoConstraints = false
         modeStack.addArrangedSubview(magicButton)
         #endif
         // LLMs — opens the copy-paste guide that teaches an LLM (Claude, etc.)
