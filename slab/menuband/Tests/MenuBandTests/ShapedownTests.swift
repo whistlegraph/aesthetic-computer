@@ -396,6 +396,40 @@ final class ShapedownTests: XCTestCase {
         ))
     }
 
+    /// The resign guard is renewed from `began`, so a finger that simply
+    /// stays down must not read as a new contact. If it does, the guard never
+    /// lapses and TrackDrum reclaims focus forever instead of exiting.
+    func testRestingFingerIsNotANewContact() {
+        let down = TrackpadContact(
+            identifier: 7, point: CGPoint(x: 0.4, y: 0.6), state: 3
+        )
+        let landing = TrackpadContactChanges.resolve(previous: [:], contacts: [down])
+        XCTAssertEqual(landing.began.count, 1)
+
+        // Same finger, still down, several frames later.
+        let resting = TrackpadContact(
+            identifier: 7, point: CGPoint(x: 0.4, y: 0.6), state: 4
+        )
+        var previous = landing.activeByID
+        for _ in 0..<8 {
+            let frame = TrackpadContactChanges.resolve(
+                previous: previous, contacts: [resting]
+            )
+            XCTAssertTrue(frame.began.isEmpty)
+            XCTAssertEqual(frame.active.count, 1)
+            previous = frame.activeByID
+        }
+
+        // A second finger landing beside it is a new contact again.
+        let second = TrackpadContact(
+            identifier: 9, point: CGPoint(x: 0.7, y: 0.3), state: 3
+        )
+        let both = TrackpadContactChanges.resolve(
+            previous: previous, contacts: [resting, second]
+        )
+        XCTAssertEqual(both.began.count, 1)
+    }
+
     func testFocusedFXOverlayFollowsMouseAndAvoidsTopEdge() {
         let visible = NSRect(x: 0, y: 0, width: 1000, height: 700)
         let size = NSSize(width: 80, height: 80)

@@ -8,6 +8,7 @@ final class TracktrampAppDelegate: NSObject, NSApplicationDelegate, NSWindowDele
     private var window: NSWindow?
     private var keyMonitor: Any?
     private var instrumentStarted = false
+    private var hasBeenActive = false
     private var isQuitting = false
     private var lastTrackpadDeviceSize: NSSize?
     private var systemColorsObserver: NSObjectProtocol?
@@ -58,7 +59,7 @@ final class TracktrampAppDelegate: NSObject, NSApplicationDelegate, NSWindowDele
             )
         }
 
-        surface.onDefocus = { [weak self] in self?.quitInstrument() }
+        surface.onEscape = { [weak self] in self?.quitInstrument() }
         surface.showEscapeInstructionTemporarily()
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) {
             [weak self] event in
@@ -137,12 +138,27 @@ final class TracktrampAppDelegate: NSObject, NSApplicationDelegate, NSWindowDele
     }
 
     func applicationDidBecomeActive(_ notification: Notification) {
+        // A quit already restored the pointer; re-hiding it during the
+        // teardown bell would leave the cursor gone with nothing to drum on.
+        guard !isQuitting else { return }
+        hasBeenActive = true
         surface.syncPointerVisibility(applicationActive: window?.isVisible == true)
     }
 
     func applicationDidResignActive(_ notification: Notification) {
         surface.syncPointerVisibility(applicationActive: false)
         performer.releaseAllContacts()
+        // Touches reach TrackDrum only while it is frontmost, so an unfocused
+        // window is an inert ghost: still drawn, still over the screen, but
+        // deaf to the trackpad it was opened to play. Losing focus is the
+        // same exit as Escape.
+        //
+        // A resign before the instrument is live is a different event —
+        // launching from Menu Band briefly contests activation, and
+        // vanishing mid-launch is the worse failure. Mute for those; only
+        // an instrument that actually got its turn at the front quits.
+        guard hasBeenActive, instrumentStarted else { return }
+        quitInstrument()
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
@@ -580,7 +596,7 @@ private final class TracktrampView: NSView {
     private var menubandSurface: TracktrampMetalView?
     private let focusInstruction = TrackDrumInstructionView(frame: .zero)
     private var trackpadSize = TracktrampMetalView.logicalSize
-    var onDefocus: (() -> Void)?
+    var onEscape: (() -> Void)?
     var onTrackpadFrame: (([TrackpadContact], Double, Double) -> Void)?
     var onTrackpadDeviceSize: ((NSSize) -> Void)?
     private var pointerHidden = false
@@ -679,7 +695,7 @@ private final class TracktrampView: NSView {
     }
 
     override func keyDown(with event: NSEvent) {
-        if event.keyCode == 53 { onDefocus?() } else { super.keyDown(with: event) }
+        if event.keyCode == 53 { onEscape?() } else { super.keyDown(with: event) }
     }
 
     override func touchesBegan(with event: NSEvent) { reportTouches(from: event) }

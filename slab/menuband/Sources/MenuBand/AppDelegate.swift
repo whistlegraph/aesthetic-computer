@@ -4858,15 +4858,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// overlay's touch dots fresh.
     private func handleTrackpadFrame(_ contacts: [TrackpadContact], timestamp: Double,
                                      callbackTime: Double) {
-        #if MAC_APP_STORE
-        if trackpadPluginCaptureActive, !contacts.isEmpty {
-            localCapture.protectNextResignForTrackDrumInput()
-        }
-        #endif
         let changes = TrackpadContactChanges.resolve(
             previous: trackpadContactsByID, contacts: contacts
         )
         trackpadContactsByID = changes.activeByID
+        #if MAC_APP_STORE
+        // Only a landing finger can produce the synthesized click this guard
+        // exists to absorb. Renewing it for every frame that merely *had* a
+        // contact meant one resting finger held the instrument open forever:
+        // the pad streams frames continuously, so the window never lapsed,
+        // every app switch took the `arm()` branch instead, and TrackDrum
+        // stole focus straight back. A finger already down is not a new click.
+        if trackpadPluginCaptureActive, !changes.began.isEmpty {
+            localCapture.protectNextResignForTrackDrumInput()
+        }
+        #endif
         if !changes.began.isEmpty || !changes.lifted.isEmpty {
             debugLog(
                 "TrackDrum contacts: began=\(changes.began.count) "

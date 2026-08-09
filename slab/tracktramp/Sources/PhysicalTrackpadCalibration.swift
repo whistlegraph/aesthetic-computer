@@ -1,13 +1,25 @@
 import AppKit
 
 enum TrackDrumDockLayout {
-    /// AppKit owns the sandbox-safe usable-screen calculation. TrackDrum adds
-    /// bottom clearance for an auto-hidden Dock without reading Dock settings.
+    /// AppKit owns the sandbox-safe usable-screen calculation. The clearance
+    /// TrackDrum adds is only for a Dock that could *appear* at the bottom —
+    /// one that is auto-hidden. Reserving it unconditionally stacked a second
+    /// Dock's worth of margin on top of the one `visibleFrame` already carves
+    /// out, floating the surface high against a Dock that was plainly there.
     static func safeFrame(for screen: NSScreen) -> NSRect {
         var safe = screen.visibleFrame
-        let reserve = min(72, safe.height / 5)
-        safe.origin.y += reserve
-        safe.size.height = max(0, safe.height - reserve)
+        let full = screen.frame
+        let reveal = min(72, safe.height / 5)
+        // A Dock showing along the bottom is already excluded from
+        // `visibleFrame`, so the space is spoken for.
+        let reserved = safe.minY - full.minY
+        if reserved >= reveal { return safe }
+        // A Dock showing on either side proves it does not live at the
+        // bottom, so no reveal strip can open there.
+        if safe.minX > full.minX || safe.maxX < full.maxX { return safe }
+        let clearance = reveal - reserved
+        safe.origin.y += clearance
+        safe.size.height = max(0, safe.height - clearance)
         return safe
     }
 }
