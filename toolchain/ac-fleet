@@ -21,11 +21,22 @@ const JSON_OUT = process.argv.includes("--json");
 const REPO = join(import.meta.dirname, "..");
 const SILO = "https://silo.aesthetic.computer/api/fleet/drift";
 
-const FALLBACK = [
-  { service: "session-server", health: "https://session-server.aesthetic.computer/health" },
-  { service: "silo", health: "https://silo.aesthetic.computer/health" },
-  { service: "oven", health: "https://oven.aesthetic.computer/health" },
-  { service: "lith", health: "https://aesthetic.computer/api/health" },
+// What each service actually reads. Not a guess: session-server's list is its
+// own sparse-checkout set, which is the box declaring which files it needs.
+//
+// This is what makes the tool worth reading. Measured against knot's tip, every
+// box goes red the moment anyone commits anything, and a signal that is always
+// red is one you stop looking at — the exact failure this was built to escape.
+// A box is behind when it is missing a commit that touched ITS paths.
+const FLEET = [
+  { service: "session-server", health: "https://session-server.aesthetic.computer/health",
+    paths: ["session-server/", "shared/", "system/public/aesthetic.computer/lib/"] },
+  { service: "silo", health: "https://silo.aesthetic.computer/health",
+    paths: ["silo/"] },
+  { service: "oven", health: "https://oven.aesthetic.computer/health",
+    paths: ["oven/"] },
+  { service: "lith", health: "https://aesthetic.computer/api/health",
+    paths: ["lith/", "system/", "shared/"] },
 ];
 
 const git = (args) => new Promise((resolve) => {
@@ -46,14 +57,13 @@ async function direct() {
     return line ? line.split(/\s+/)[0] : null;
   };
   const [knot, mirror] = await Promise.all([tip("origin"), tip("github")]);
-  const services = await Promise.all(FALLBACK.map(async ({ service, health }) => {
+  const services = await Promise.all(FLEET.map(async ({ service, health }) => {
     try {
       const r = await fetch(health, { signal: AbortSignal.timeout(8000) });
       if (!r.ok) return { service, sha: null, note: `HTTP ${r.status}` };
       const body = await r.json();
       const sha = typeof body?.sha === "string" ? body.sha : null;
-      return { service, sha, current: sha && knot ? sha === knot : null,
-        note: sha ? undefined : "no provenance yet" };
+      return { service, sha, note: sha ? undefined : "no provenance yet" };
     } catch (e) {
       return { service, sha: null,
         note: e.name === "TimeoutError" ? "timeout" : "unreachable" };
@@ -71,11 +81,21 @@ try {
   report = await direct();
 }
 
-// How many commits each box is behind, when this clone holds both ends.
+// The verdict is reached HERE, never taken from silo: silo has no checkout, so
+// the best it can say is whether a sha equals knot's tip, and that reads every
+// unrelated commit as a fleet-wide outage.
 for (const s of report.services) {
-  if (!s.sha || !report.knot || s.current) continue;
-  const count = await git(["rev-list", "--count", `${s.sha}..${report.knot}`]);
-  if (count !== null) s.behind = Number(count);
+  if (!s.sha || !report.knot) continue;
+  const paths = FLEET.find((f) => f.service === s.service)?.paths ?? [];
+  const range = `${s.sha}..${report.knot}`;
+  const total = await git(["rev-list", "--count", range]);
+  const mine = paths.length
+    ? await git(["rev-list", "--count", range, "--", ...paths])
+    : total;
+  if (mine === null) { s.current = null; s.note ??= "history unavailable"; continue; }
+  s.behind = Number(mine);
+  s.unrelated = Number(total ?? 0) - s.behind;
+  s.current = s.behind === 0;
 }
 
 if (JSON_OUT) {
@@ -96,9 +116,13 @@ let stale = 0;
 for (const s of report.services) {
   const icon = s.current === true ? "✅" : s.sha ? "❌" : "⚠️ ";
   if (s.sha && s.current !== true) stale++;
-  const detail = s.current === true ? "current"
-    : s.behind !== undefined ? `${s.behind} commits behind`
-    : s.note || "drifted";
+  // "current" means nothing it depends on has moved — unrelated commits are
+  // reported quietly so the count stays honest without turning the row red.
+  const detail = s.current === true
+    ? (s.unrelated ? `current (${s.unrelated} unrelated)` : "current")
+    : s.behind !== undefined
+      ? `${s.behind} commit${s.behind === 1 ? "" : "s"} behind on its own paths`
+      : s.note || "drifted";
   console.log(`  ${icon} ${s.service.padEnd(16)} ${short(s.sha).padEnd(11)} ${detail}`);
 }
 
