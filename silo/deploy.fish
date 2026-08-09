@@ -66,6 +66,14 @@ else
         $SCRIPT_DIR/package-lock.json \
         $SILO_USER@$SILO_HOST:$REMOTE_DIR/
 
+    # Keep the .env we are about to replace. The box's copy can drift from the
+    # vault's — credentials get rotated on the box and the vault copy goes
+    # stale — and overwriting it blind takes mongo down with no way back:
+    # 2026-08-09 this replaced a working aesthetic_app password with a stale one
+    # and there was no copy of the old file anywhere.
+    ssh -i $SSH_KEY $SILO_USER@$SILO_HOST \
+        "test -f $REMOTE_DIR/.env && cp -a $REMOTE_DIR/.env $REMOTE_DIR/.env.bak.(date +%Y%m%d-%H%M%S) || true"
+
     # Upload production .env from vault
     scp -i $SSH_KEY -o StrictHostKeyChecking=no \
         $SERVICE_ENV $SILO_USER@$SILO_HOST:$REMOTE_DIR/.env
