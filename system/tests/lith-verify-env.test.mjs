@@ -4,7 +4,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { readEnv, redactUri } from "../../lith/verify-env.mjs";
+import { missingKeys, readEnv, redactUri } from "../../lith/verify-env.mjs";
 
 const source = await readFile(
   new URL("../../lith/verify-env.mjs", import.meta.url), "utf8");
@@ -47,6 +47,28 @@ test("the password is never repeated back, even to say it was wrong", () => {
   // Nothing to redact is left alone rather than mangled.
   assert.equal(redactUri("mongodb://host:27017/db"), "mongodb://host:27017/db");
   assert.equal(redactUri("not a uri"), "not a uri");
+});
+
+// A stale env is not only a wrong password. The plaintext on the deploy
+// machine had quietly become a *subset* of the encrypted copy — ten keys
+// short — and deploy.fish uploaded the subset, so push notifications, device
+// provisioning and the nela OIDC client were simply absent from production
+// for weeks without anything failing loudly.
+test("an env that has lost keys is caught by name", () => {
+  const manifest = ["# what production needs", "", "MONGODB_NAME",
+    "VAPID_PRIVATE_KEY", "APNS_KEY", "AC_DEVICE_SECRET"].join("\n");
+  const complete = { MONGODB_NAME: "aesthetic", VAPID_PRIVATE_KEY: "x",
+    APNS_KEY: "y", AC_DEVICE_SECRET: "z" };
+  assert.deepEqual(missingKeys(complete, manifest), []);
+  // Comments and blank lines in the manifest are not keys.
+  assert.deepEqual(missingKeys({ ...complete, EXTRA: "fine" }, manifest), [],
+    "an env may carry more than the manifest asks for");
+  const { VAPID_PRIVATE_KEY: _dropped, ...lost } = complete;
+  assert.deepEqual(missingKeys(lost, manifest), ["VAPID_PRIVATE_KEY"]);
+  // Present-but-empty is missing: an unset value switches the feature off
+  // just as thoroughly as an absent line.
+  assert.deepEqual(missingKeys({ ...complete, APNS_KEY: "" }, manifest),
+    ["APNS_KEY"]);
 });
 
 test("an env that cannot be verified is shipped, not blocked", () => {

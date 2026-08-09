@@ -58,8 +58,17 @@ export function redactUri(uri) {
   return text.slice(0, start + colon) + ":***" + text.slice(start + at);
 }
 
-// Only the CLI below runs the check. The two pure helpers above are imported
-// by the tests, and importing this file must not open a connection, print
+// Which key names the env is expected to carry, if a manifest sits beside it.
+// Names only: the manifest lists what production needs, never what it is.
+export function missingKeys(env, manifest) {
+  const wanted = manifest.split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line && !line.startsWith("#"));
+  return wanted.filter((key) => !env[key]);
+}
+
+// Only the CLI below runs the check. The pure helpers above are imported by
+// the tests, and importing this file must not open a connection, print
 // anything, or take the importing process down with it.
 async function main(path) {
   if (!path) {
@@ -73,6 +82,26 @@ async function main(path) {
   } catch (error) {
     console.error(red(`verify-env: cannot read ${path}: ${error.message}`));
     return 1;
+  }
+
+  // A stale env does not only hold the wrong password — it can also be a
+  // *subset* of the real one. The plaintext on the deploy machine had quietly
+  // lost ten keys (push, APNs, device provisioning, the nela OIDC client) and
+  // deploy.fish uploaded that subset verbatim, so production ran without them
+  // for weeks. Nothing failed loudly; those features simply were not there.
+  try {
+    const missing = missingKeys(env, await readFile(`${path}.keys`, "utf8"));
+    if (missing.length) {
+      console.error(red(`   env is missing ${missing.length} key(s) the ` +
+        `manifest requires:`));
+      for (const key of missing) console.error(red(`     ${key}`));
+      console.error(yellow("   This env is a subset of what production needs. " +
+        "Deploying it would silently switch those features off. Merge from " +
+        `the encrypted copy, or update ${path}.keys if a key is truly gone.`));
+      return 1;
+    }
+  } catch {
+    // No manifest beside this env: nothing to compare against, carry on.
   }
 
   const uri = env.MONGODB_CONNECTION_STRING;
