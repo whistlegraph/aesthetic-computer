@@ -35,6 +35,12 @@ let stageTop = 112;
 let stageBottom = 930;
 let viewHeight = 1080;
 let cameraAspect = (stageRight - stageLeft) / (stageBottom - stageTop);
+// The stage furniture is flagged out for now — @jeffrey wants the arena to
+// read as one floor. Flip PLATFORM true and the ledge comes back whole:
+// drawing, collision, pickup lanes, grenade and ball bounces, the bot's
+// sink-and-chase play. The wind flag rides its own switch the same way.
+const PLATFORM = false;
+const WIND_FLAG = false;
 const platformLeft = 4500;
 const platformRight = 7500;
 // A jump apexes 290 above the floor, so the ledge sits inside a single hop and
@@ -560,6 +566,9 @@ const impacts = [];
 const detachedParts = [];
 const bullets = [];
 const grenades = [];
+// Pickups float at the old ledge height whether or not the ledge exists —
+// a jump target needs airspace, not furniture, and a floor-level pickup is
+// collected by whoever happens to stand near the spawn lane.
 const gunPickups = [
   { amount: 6, x: 6000, y: platformY - 70, z: 0 },
 ];
@@ -2229,6 +2238,9 @@ function fighterFrameRect() {
   let top = Infinity;
   let bottom = -Infinity;
   for (const player of players) {
+    // Trimmed 2026-08-09 — @jeffrey wanted the lens closer to the fight.
+    // The rect still tracks live position, so jumps and knockbacks widen
+    // the frame as they happen; this is standing headroom, not arc room.
     const reach = isHeadOnly(player) ? 34 : isPogo(player) ? 56 : 104;
     const rise = isHeadOnly(player) ? 52 : isPogo(player) ? 134 : 188;
     left = Math.min(left, player.x - reach);
@@ -2252,7 +2264,8 @@ function rectPackWidth(rect) {
 }
 // A fighter reduced to a bouncing head is a few dozen units tall. Without a
 // floor the pack would keep closing until one limb filled the screen.
-const frameFloorWidth = () => compactLayout() ? 300 : 340;
+// Lowered with the reach/rise trim above: the closest the lens may sit.
+const frameFloorWidth = () => compactLayout() ? 285 : 315;
 
 // Terrain is flat color, so it only has to reach as far as the lens can see.
 // Submitting the whole arena pushed its far corners past the native ±30000
@@ -2806,7 +2819,7 @@ function updateGrenades(dt, now) {
       grenade.y = ceilingY + inset;
       grenade.vy = Math.abs(grenade.vy) * .65;
     }
-    if (grenade.vy >= 0 && previousY <= platformY - 30 &&
+    if (PLATFORM && grenade.vy >= 0 && previousY <= platformY - 30 &&
         grenade.y >= platformY - 30 && grenade.x >= platformLeft &&
         grenade.x <= platformRight) {
       grenade.y = platformY - 30;
@@ -3112,7 +3125,7 @@ function updateBall(ball, dt, now) {
       return;
     }
   }
-  const platformSupported = ball.x >= platformLeft + ball.radius &&
+  const platformSupported = PLATFORM && ball.x >= platformLeft + ball.radius &&
     ball.x <= platformRight - ball.radius &&
     ball.y >= platformY - ball.radius - 2 &&
     ball.y <= platformY - ball.radius + 2;
@@ -3138,7 +3151,7 @@ function updateBall(ball, dt, now) {
     ball.vy = Math.abs(ball.vy);
   }
   const platformTop = platformY - ball.radius;
-  if (ball.vy >= 0 && previous.y <= platformTop && ball.y >= platformTop &&
+  if (PLATFORM && ball.vy >= 0 && previous.y <= platformTop && ball.y >= platformTop &&
       ball.x >= platformLeft + ball.radius &&
       ball.x <= platformRight - ball.radius) {
     ball.y = platformTop;
@@ -3151,7 +3164,7 @@ function updateBall(ball, dt, now) {
       ? -Math.abs(ball.vy) * (ball.bounce || .62) : 0;
     ball.vx *= ball.drag || .992;
   }
-  const onSurface = ((ball.x >= platformLeft + ball.radius &&
+  const onSurface = ((PLATFORM && ball.x >= platformLeft + ball.radius &&
     ball.x <= platformRight - ball.radius &&
     Math.abs(ball.y - (platformY - ball.radius)) <= 2) ||
     ball.y >= floorY - ball.radius - 2) && Math.abs(ball.vy) < 180;
@@ -3836,7 +3849,7 @@ function updatePlayer(player, pad, dt, now) {
   player.y += player.vy * dt;
   player.grounded = false;
   // A sinking fighter is transparent to the platform but never to the floor.
-  if (now >= player.sinkUntil &&
+  if (PLATFORM && now >= player.sinkUntil &&
       player.vy >= 0 && previousY <= platformY && player.y >= platformY &&
       player.x >= platformLeft && player.x <= platformRight) {
     player.y = platformY;
@@ -4031,7 +4044,8 @@ function botPad(player, opponent, now) {
   // Knocked up onto the platform the bot would camp out of reach, so it plays
   // the same double-tap-down a player would: two real presses with a real
   // release between them.
-  if (player.grounded && player.standingOn < 0 && player.y < floorY - 40 &&
+  if (PLATFORM && player.grounded && player.standingOn < 0 &&
+      player.y < floorY - 40 &&
       opponent.y > player.y + 200 && now >= player.botSinkAt) {
     player.botSinkAt = now + 900000;
     player.botSinkTaps = 2;
@@ -5822,7 +5836,7 @@ function drawFightIntro(introSeconds, titleInk, statusShadow) {
   const firstWidth = handleWidth(visibleHandle(players[0]), nameSize);
   const secondWidth = handleWidth(visibleHandle(players[1]), nameSize);
   const andWidth = handleWidth(andText, andSize);
-  const pairGap = compactLayout() ? 20 : 32;
+  const pairGap = compactLayout() ? 320 - 30 : 320;
   const pairWidth = firstWidth + pairGap + andWidth + pairGap + secondWidth;
   const pairLeft = centerX - pairWidth / 2;
   const pairStarts = [pairLeft,
@@ -5908,7 +5922,7 @@ function worldQuad(a, b, c, d, color) {
 }
 
 function shadowSurfaceY(x, y) {
-  return x >= platformLeft && x <= platformRight && y <= platformY + 1
+  return PLATFORM && x >= platformLeft && x <= platformRight && y <= platformY + 1
     ? platformY : floorY;
 }
 
@@ -6836,7 +6850,7 @@ function gamePaint() {
   // The platform wants to be a slab, but the stage paints in order with no
   // depth buffer — the volume's faces landed over the fighters on console.
   // Back to the plane until the volume can be drawn behind them properly.
-  if (ledgeLeft < ledgeRight) worldQuad(
+  if (PLATFORM && ledgeLeft < ledgeRight) worldQuad(
     { x: ledgeLeft, y: platformY, z: platformNear },
     { x: ledgeRight, y: platformY, z: platformNear },
     { x: ledgeRight, y: platformY, z: platformFar },
@@ -6854,7 +6868,7 @@ function gamePaint() {
     ? mixColor([72, 174, 255], [28, 88, 188], visualTheme.light)
     : mixColor([255, 92, 132], [184, 35, 62], visualTheme.light);
   drawAmbientMotes(windInk);
-  if (shellMode === "GAME") drawWindFlag(t, windInk);
+  if (WIND_FLAG && shellMode === "GAME") drawWindFlag(t, windInk);
   // The top row is the round's: a clock, and who is watching. The wordmark
   // screen carries its own clock, so this one waits for start.
   if (shellMode === "GAME") {

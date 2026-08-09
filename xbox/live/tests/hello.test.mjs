@@ -31,6 +31,11 @@ const uiSource = await readFile(new URL(
 const nativeApp = await readFile(new URL("../../native-bios/App.cpp", import.meta.url), "utf8");
 const pieceLog = await readFile(new URL(
   "../../../system/netlify/functions/piece-log.mjs", import.meta.url), "utf8");
+// Stage furniture rides build flags; its tests sleep while the flags are off
+// and wake, unchanged, when they flip back.
+const PLATFORM = /const PLATFORM = true/.test(source);
+const WIND_FLAG = /const WIND_FLAG = true/.test(source);
+
 const limbPartsForTest = ["left-arm", "right-arm", "left-leg", "right-leg"];
 
 // `triangleHost` picks which of the three drawing entries the host offers:
@@ -968,7 +973,7 @@ test("the killcam keeps the winner in frame instead of deleting them", () => {
   assert.doesNotMatch(source, /if \(!player\.alive && !roundResult\) return;/);
 });
 
-test("wind flag lives on the platform without an MPH HUD label", () => {
+test("wind flag lives on the platform without an MPH HUD label", { skip: !WIND_FLAG }, () => {
   assert.match(source, /const poleBottom = platformY/);
   assert.match(source, /const poleX = \(platformLeft \+ platformRight\) \/ 2/);
   assert.match(source, /const poleZ = 480/);
@@ -1521,7 +1526,7 @@ function botPressRuns(harness, frames) {
   return runs;
 }
 
-test("a bot holds its jump long enough to land on the platform it chases", () => {
+test("a bot holds its jump long enough to land on the platform it chases", { skip: !PLATFORM }, () => {
   const harness = createFight();
   const { fight, tick } = harness;
   const stage = fight.stageGeometry();
@@ -2320,7 +2325,7 @@ test("simultaneous body strikes recoil without player-order bias", () => {
   assert.equal(fight.roundState().roundResult, "");
 });
 
-test("player lands on the center platform", () => {
+test("player lands on the center platform", { skip: !PLATFORM }, () => {
   const { fight, tick } = createFight();
   const stage = fight.stageGeometry();
   const player = fight.players[0];
@@ -2333,7 +2338,7 @@ test("player lands on the center platform", () => {
   assert.equal(player.grounded, true);
 });
 
-test("one plain jump from the spawn floor reaches the center platform", () => {
+test("one plain jump from the spawn floor reaches the center platform", { skip: !PLATFORM }, () => {
   const { fight, pads, tick } = createFight();
   const stage = fight.stageGeometry();
   const player = fight.players[0];
@@ -2501,7 +2506,7 @@ test("holding up jumps high while a tapped up becomes a short hop", () => {
     `cut airtime ${cut.airtime} vs full ${full.airtime}`);
 });
 
-test("the ultra jump still clears the platform after the gravity retune", () => {
+test("the ultra jump still clears the platform after the gravity retune", { skip: !PLATFORM }, () => {
   const { fight, tap, tick } = createFight();
   const player = fight.players[0];
   player.x = 6000;
@@ -2558,7 +2563,7 @@ test("a crouch hop stays lower and shorter than a crouch jump", () => {
   assert.equal(hop.latency, 16667, "a crouch hop leaves the ground immediately");
 });
 
-test("double-tapping crouch sinks through the platform but never the floor", () => {
+test("double-tapping crouch sinks through the platform but never the floor", { skip: !PLATFORM }, () => {
   const { fight, tick, tap, signals } = createFight();
   const player = fight.players[1];
   player.x = 6000;
@@ -2604,7 +2609,7 @@ test("double-tapping crouch on the floor still fast-drops instead of sinking", (
   assert.equal(player.y, 12000);
 });
 
-test("a bot stranded on the platform sinks back into reach", () => {
+test("a bot stranded on the platform sinks back into reach", { skip: !PLATFORM }, () => {
   const { fight, tick } = createFight();
   const bot = fight.players[1];
   bot.bot = true;
@@ -2863,7 +2868,7 @@ test("a served ball stays in the player's lane and can be approached", () => {
   assert.ok(fight.ball.vy > -120);
 });
 
-test("running into a center-platform ball boots it", () => {
+test("running into a center-platform ball boots it", { skip: !PLATFORM }, () => {
   const { fight, pads, tick } = createFight();
   const platformY = fight.stageGeometry().platformY;
   const player = fight.players[0];
