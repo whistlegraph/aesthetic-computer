@@ -2147,6 +2147,11 @@ function resetRound(now, resetMatch = false) {
     player.botSinkNextAt = 0;
     player.botAttackSequence = 0;
     player.botJumpAt = now + 900000;
+    player.botThreatSeen = 0;
+    player.botShieldAt = Infinity;
+    player.botPunishedAt = 0;
+    player.botRngState = (Math.round(now / 1000) ^
+      Math.imul(player.pad + 1, 0x9e3779b9)) >>> 0;
     delete player.frozenGeometry;
     delete player.frozenAt;
     delete player.headBustedAt;
@@ -3866,6 +3871,18 @@ const botRestUs = 66668;
 const botAxis = { ArrowLeft: "ArrowRight", ArrowRight: "ArrowLeft",
   ArrowUp: "ArrowDown", ArrowDown: "ArrowUp" };
 
+// The bot's dice. Not Math.random, deliberately: two fresh sims must roll
+// identically (the determinism test holds that line), and the reel factory
+// reserves the global stream for the match name. Seeded per fighter at round
+// start from the round clock, so rounds differ live while a replayed sim
+// replays exactly.
+function botRoll(player) {
+  let s = player.botRngState = (player.botRngState + 0x6d2b79f5) >>> 0;
+  s = Math.imul(s ^ (s >>> 15), s | 1);
+  s ^= s + Math.imul(s ^ (s >>> 7), s | 61);
+  return ((s ^ (s >>> 14)) >>> 0) / 4294967296;
+}
+
 // The one door every synthetic press goes through. Pressing a button that is
 // already down extends it, so a pursuit reads as one lean instead of a
 // stutter; pressing one that is still resting is refused.
@@ -3909,10 +3926,41 @@ function botPad(player, opponent, now) {
     opponent.facing === -toward;
   const striking = botHeld(player, "A", now) || botHeld(player, "X", now);
 
-  if (opponentThreatening && !striking)
+  // A guard that answers every swing the frame it starts turns the round into
+  // punch-into-shield until the clock dies — the signal census reads punch×6,
+  // shield×6 per five seconds and nothing else. So the guard is human now:
+  // each incoming swing is noticed once, answered late, and sometimes not at
+  // all. The lapse is what lets damage through, and damage is what ends
+  // rounds.
+  if (opponentThreatening) {
+    if (player.botThreatSeen !== opponent.attackStartedAt) {
+      player.botThreatSeen = opponent.attackStartedAt;
+      const roll = botRoll(player);
+      player.botShieldAt = roll < 0.55
+        ? now + 70000 + Math.round(roll * 250000) : Infinity;
+    }
+  } else player.botShieldAt = Infinity;
+
+  // A shield that just ate a swing bought a stun. Swing into it now — the
+  // neutral-game cooldown would let the opening close unanswered.
+  if (player.shieldBrokenAt &&
+      player.shieldBrokenAt !== player.botPunishedAt &&
+      now - player.shieldBrokenAt < 80000) {
+    player.botPunishedAt = player.shieldBrokenAt;
+    player.botAttackAt = now;
+  }
+
+  if (opponentThreatening && !striking && now >= player.botShieldAt)
     botPress(player, "B", botHoldUs.shield, now);
   else {
-    if (distance > 155)
+    // The old spacing was tuned for a bigger fighter: stop walking at 155,
+    // swing at 225. A punch capsule tops out near 130 of separation and a
+    // kick near 170, so that band was whiff purgatory — the census read
+    // punch after punch with no body hit until the clock died. Close to
+    // where a swing actually lands, and swing only from there — and only on
+    // the ground: steering mid-air wedged the bot against a platform lip it
+    // used to clear.
+    if (player.grounded && distance > 95)
       botPress(player, toward > 0 ? "ArrowRight" : "ArrowLeft",
         botHoldUs.walk, now);
     // Items are ranged, so the bot spends them while closing rather than
@@ -3922,7 +3970,7 @@ function botPad(player, opponent, now) {
         distance >= (item === "GUN" ? 320 : 1200) &&
         botPress(player, "Y", botHoldUs.item, now))
       player.botItemAt = now + 600000;
-    if (distance < 225 && now >= player.botAttackAt &&
+    if (distance < 165 && now >= player.botAttackAt &&
         botPress(player, player.botAttackSequence % 2 ? "A" : "X",
           botHoldUs.strike, now)) {
       player.botAttackSequence += 1;
