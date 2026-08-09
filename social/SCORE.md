@@ -22,6 +22,7 @@ Two brands, one funnel: **@whistlegraph** (established audience) feeds **@aesthe
 | **Aesthetic Dot Computer** | YouTube | primary growth target (4 subs · 70 views) | ✅ **full** — `yt.mjs` (upload/edit/thumb/delete) |
 | **@aesthetic.computer** | Bluesky | changelog + paintings feed (81 fo) | ✅ **full** — `at/*.mjs` app password |
 | **AC Readings** | Podcast (pod.prompt.ac) | essay audio → Spotify/Apple/YT | ✅ publish via Buzzsprout API (`reading` skill) |
+| **@oskiewar** | Instagram | game's own marketing output function (3 reels/day, staged) | ⚠️ factory built, account **not created** — `xbox/live/MARKETING.md` |
 | @whistlegraph | Instagram | established funnel source | ⚠️ archive/read tooling only (instaloader/instagrapi) |
 | @whistlegraph | TikTok | established funnel source (2.6M fo · 99M likes) | ⚠️ download/analyze only (`toolchain/whistlegraph/`) |
 | @whistlegraph | YouTube | established funnel source (5.3k subs · 2.1M views) | ✅ **full** — `yt.mjs --as whistlegraph` (2026-07-05) |
@@ -93,6 +94,7 @@ Everything below already exists in the monorepo. This is the map; `/social` is t
 | `portraits/jeffrey/bin/ig-pull-comments.py` | Fetch comments from archived posts |
 | `portraits/jeffrey/bin/ig-social-graph.py` + `ig-social-*.mjs` | Follower graph build → art-world classify → query → report (social-graph suite) |
 | `silo/server.mjs` | Backend IG client (instagram-private-api), persistent `insta-sessions` in MongoDB |
+| `xbox/live/marketing/reel.mjs` | **@oskiewar reel factory** — seeded gameplay → 1080×1920 reel → staged queue; official Graph publish behind `--live` |
 
 Creds: `vault/silo/instagram.env`, `vault/silo/.env`. Sessions: `portraits/jeffrey/sessions/`. Archives: `portraits/jeffrey/ig-archive/<account>/`.
 
@@ -159,6 +161,7 @@ Which content mill feeds which account. Plan campaigns by picking a row and a ca
 |---|---|---|
 | `pop/` (music mill) | tracks + 1920×1080 visualizers + 9:16 cuts | DistroKid → streaming; YT (AC channel); IG/TikTok reels |
 | `marketing/kidlisp-reels/` | 9:16 KidLisp process reels | IG + TikTok (@aesthetic.computer) — the Trial-Reels at-bats |
+| `xbox/live/marketing/` | 9:16 oskiewar gameplay reels, real synth audio, market-tagged | IG (@oskiewar) — 3 slots/day on a fixed rotation |
 | `recap/` | narrated 1080×1920 verticals | IG/TikTok |
 | `papers/` essays → `reading` skill | audio readings + caption video | Buzzsprout → Spotify/Apple/YT |
 | `at/` scripts | changelog threads, painting shares | Bluesky |

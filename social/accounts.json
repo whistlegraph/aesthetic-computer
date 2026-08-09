@@ -9,7 +9,13 @@
       "role": "primary-growth-target",
       "goal": "1000 followers (unlocks Instagram Trial Reels)",
       "snapshots": [
-        { "date": null, "followers": null, "following": null, "posts": null, "notes": "TODO: fill in current numbers" }
+        {
+          "date": null,
+          "followers": null,
+          "following": null,
+          "posts": null,
+          "notes": "TODO: fill in current numbers"
+        }
       ]
     },
     {
@@ -20,7 +26,14 @@
       "role": "primary-growth-target",
       "goal": "Grow in tandem with IG; feed cross-traffic to IG",
       "snapshots": [
-        { "date": "2026-07-03", "followers": 391, "following": null, "posts": 3, "likes": 133, "notes": "Public web scrape (profile HTML)" }
+        {
+          "date": "2026-07-03",
+          "followers": 391,
+          "following": null,
+          "posts": 3,
+          "likes": 133,
+          "notes": "Public web scrape (profile HTML)"
+        }
       ]
     },
     {
@@ -31,7 +44,31 @@
       "role": "established-funnel-source",
       "goal": "Maintain; occasional 'made with aesthetic.computer' funnel to primary",
       "snapshots": [
-        { "date": null, "followers": null, "following": null, "posts": null, "notes": "TODO: fill in current numbers" }
+        {
+          "date": null,
+          "followers": null,
+          "following": null,
+          "posts": null,
+          "notes": "TODO: fill in current numbers"
+        }
+      ]
+    },
+    {
+      "id": "oskiewar-ig",
+      "handle": "@oskiewar",
+      "platform": "instagram",
+      "url": "https://instagram.com/oskiewar",
+      "role": "product-account-automated",
+      "goal": "Clockwork gameplay reels from xbox/live/marketing/ \u2014 3 slots/day on a fixed market rotation; 1,000 followers unlocks Trial Reels",
+      "access": "NOT YET PROVISIONED \u2014 official Instagram API with Instagram Login only (graph.instagram.com). See xbox/live/MARKETING.md for the human setup steps. Never the private/mobile API.",
+      "snapshots": [
+        {
+          "date": null,
+          "followers": null,
+          "following": null,
+          "posts": null,
+          "notes": "Account not created yet. Factory builds and stages reels; publishing is behind --live."
+        }
       ]
     },
     {
@@ -41,9 +78,15 @@
       "url": "https://www.youtube.com/channel/UCnCkxAsgrBqEXk8XiHl0JGg",
       "role": "primary-growth-target",
       "goal": "Music visualizers + readings; grow alongside IG/TikTok",
-      "access": "full API — toolchain/youtube/yt.mjs (default token)",
+      "access": "full API \u2014 toolchain/youtube/yt.mjs (default token)",
       "snapshots": [
-        { "date": "2026-07-05", "followers": 4, "posts": 13, "views": 70, "notes": "Data API v3; 13 uploads incl. private/unlisted, top video Trancenwaltz 28 views" }
+        {
+          "date": "2026-07-05",
+          "followers": 4,
+          "posts": 13,
+          "views": 70,
+          "notes": "Data API v3; 13 uploads incl. private/unlisted, top video Trancenwaltz 28 views"
+        }
       ]
     },
     {
@@ -53,9 +96,15 @@
       "url": "https://www.youtube.com/channel/UCZ_5AuCebRbm9t9_Y7SrckQ",
       "role": "established-funnel-source",
       "goal": "Maintain; funnel to primary",
-      "access": "full API — yt.mjs --as whistlegraph (authorized 2026-07-05)",
+      "access": "full API \u2014 yt.mjs --as whistlegraph (authorized 2026-07-05)",
       "snapshots": [
-        { "date": "2026-07-05", "followers": 5340, "posts": 210, "views": 2116520, "notes": "Data API v3; 210 uploads incl. non-public, top video 'mommy wow WHISTLING GRAPHIX' 245k views" }
+        {
+          "date": "2026-07-05",
+          "followers": 5340,
+          "posts": 210,
+          "views": 2116520,
+          "notes": "Data API v3; 210 uploads incl. non-public, top video 'mommy wow WHISTLING GRAPHIX' 245k views"
+        }
       ]
     },
     {
@@ -65,9 +114,15 @@
       "url": "https://bsky.app/profile/aesthetic.computer",
       "role": "changelog-and-paintings-feed",
       "goal": "Keep alive via at/ scripts; low-effort mirror",
-      "access": "full API — at/*.mjs (app password in vault/at/.env)",
+      "access": "full API \u2014 at/*.mjs (app password in vault/at/.env)",
       "snapshots": [
-        { "date": "2026-07-05", "followers": 81, "following": 16, "posts": 46, "notes": "public.api.bsky.app getProfile" }
+        {
+          "date": "2026-07-05",
+          "followers": 81,
+          "following": 16,
+          "posts": 46,
+          "notes": "public.api.bsky.app getProfile"
+        }
       ]
     },
     {
@@ -79,7 +134,11 @@
       "goal": "Monthly essay readings; fans out to Spotify/Apple/YouTube via Buzzsprout",
       "access": "Buzzsprout API (id 2628235) via reading skill",
       "snapshots": [
-        { "date": null, "followers": null, "notes": "TODO: pull Buzzsprout download stats" }
+        {
+          "date": null,
+          "followers": null,
+          "notes": "TODO: pull Buzzsprout download stats"
+        }
       ]
     },
     {
@@ -89,9 +148,14 @@
       "url": "https://x.com/promptDOTac",
       "role": "dormant-brand-outlet",
       "goal": "Revive via x.mjs mirror of Bluesky cadence",
-      "access": "none — no developer app yet",
+      "access": "none \u2014 no developer app yet",
       "snapshots": [
-        { "date": null, "followers": null, "posts": null, "notes": "TODO: fill in current numbers" }
+        {
+          "date": null,
+          "followers": null,
+          "posts": null,
+          "notes": "TODO: fill in current numbers"
+        }
       ]
     },
     {
@@ -101,9 +165,14 @@
       "url": "https://x.com/whistlegraph",
       "role": "dormant-funnel-source",
       "goal": "Maintain; occasional funnel to primary",
-      "access": "none — no developer app yet",
+      "access": "none \u2014 no developer app yet",
       "snapshots": [
-        { "date": null, "followers": null, "posts": null, "notes": "TODO: fill in current numbers" }
+        {
+          "date": null,
+          "followers": null,
+          "posts": null,
+          "notes": "TODO: fill in current numbers"
+        }
       ]
     },
     {
@@ -112,10 +181,14 @@
       "platform": "spotify-artist",
       "url": "https://open.spotify.com",
       "role": "music-distribution",
-      "goal": "Claim Spotify for Artists (blocked on first IG post — pop/spotify-for-artists-claim-reply.md)",
+      "goal": "Claim Spotify for Artists (blocked on first IG post \u2014 pop/spotify-for-artists-claim-reply.md)",
       "access": "distribution via DistroKid (Playwright semi-auto); no S4A yet",
       "snapshots": [
-        { "date": null, "followers": null, "notes": "TODO: monthly listeners once S4A claim lands" }
+        {
+          "date": null,
+          "followers": null,
+          "notes": "TODO: monthly listeners once S4A claim lands"
+        }
       ]
     },
     {
@@ -127,7 +200,11 @@
       "goal": "Vault ARENA_TOKEN; generalize gigs/are-na-annual-vol-8 scripts",
       "access": "API proven via gig scripts; token not vaulted",
       "snapshots": [
-        { "date": null, "followers": null, "notes": "TODO: profile URL + current numbers" }
+        {
+          "date": null,
+          "followers": null,
+          "notes": "TODO: profile URL + current numbers"
+        }
       ]
     },
     {
@@ -138,7 +215,14 @@
       "role": "established-funnel-source",
       "goal": "Maintain; occasional funnel to primary",
       "snapshots": [
-        { "date": "2026-07-03", "followers": 2600000, "following": null, "posts": 950, "likes": 99000000, "notes": "Public web scrape (profile HTML); TikTok-rounded figures" }
+        {
+          "date": "2026-07-03",
+          "followers": 2600000,
+          "following": null,
+          "posts": 950,
+          "likes": 99000000,
+          "notes": "Public web scrape (profile HTML); TikTok-rounded figures"
+        }
       ]
     }
   ]
