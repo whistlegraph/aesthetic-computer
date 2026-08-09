@@ -15,6 +15,9 @@
 
 import net from "node:net";
 import { execFile } from "node:child_process";
+import { existsSync, readdirSync, statSync } from "node:fs";
+import { homedir } from "node:os";
+import { join } from "node:path";
 
 const args = new Set(process.argv.slice(2));
 const ONLY_LOCAL = args.has("--local");
@@ -62,6 +65,40 @@ async function http(url, { method = "HEAD", timeout = 6000, expect } = {}) {
   }
 }
 
+// Can gpg actually sign, or is its keyring wedged?
+//
+// GnuPG locks its keybox by hard-linking `pubring.db.lock` to a file named
+// `.#lk<addr>.<host>.<pid>`. A process killed mid-operation — a `timeout` around
+// a commit, a reaped background job — leaves that pair behind, and every later
+// gpg call blocks for two minutes and then times out. Commits fail with
+// "gpg failed to sign the data", which reads like a key problem and is not one.
+// It is machine-wide, so it takes down every agent and every shell at once.
+//
+// Reads only: it reports the stale lock and how to clear it rather than deleting
+// anything, since a lock whose owner is alive is doing its job.
+async function gpgSigning() {
+  const dir = join(homedir(), ".gnupg", "public-keys.d");
+  const lock = join(dir, "pubring.db.lock");
+  if (!existsSync(lock)) return { ok: true, note: "unlocked" };
+  let owner = null;
+  try {
+    const target = statSync(lock).ino;
+    for (const name of readdirSync(dir)) {
+      if (!name.startsWith(".#lk")) continue;
+      if (statSync(join(dir, name)).ino === target) owner = name.split(".").pop();
+    }
+  } catch { return { ok: true, note: "unreadable" }; }
+  if (!owner) return { ok: true, note: "locked, owner unknown" };
+  const alive = await new Promise((resolve) => {
+    execFile("ps", ["-p", owner, "-o", "pid="], (err, out) =>
+      resolve(!err && out.trim().length > 0));
+  });
+  if (alive) return { ok: true, note: `locked by live pid ${owner}` };
+  return { ok: false, note: `STALE lock from dead pid ${owner} — signing is ` +
+    `blocked; clear with: rm ~/.gnupg/public-keys.d/pubring.db.lock ` +
+    `~/.gnupg/public-keys.d/.#lk*.${owner}` };
+}
+
 // Is a command-line tool on PATH? (host tooling the pipelines shell out to)
 function bin(name) {
   return new Promise((resolve) => {
@@ -94,6 +131,9 @@ const CHECKS = [
   { group: "Host tooling", label: "doctl (CDN flush)", scope: "tool", run: () => bin("doctl") },
   { group: "Host tooling", label: "gh",           scope: "tool", run: () => bin("gh") },
   { group: "Host tooling", label: "jq",           scope: "tool", run: () => bin("jq") },
+  // Wedged signing blocks every commit on the machine, so it belongs in the
+  // preflight rather than being discovered by a failing commit.
+  { group: "Host tooling", label: "gpg signing",  scope: "tool", run: () => gpgSigning() },
 ];
 
 // ── run ──────────────────────────────────────────────────────────────────────
