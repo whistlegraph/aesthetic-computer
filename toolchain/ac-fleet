@@ -1,0 +1,110 @@
+#!/usr/bin/env node
+// ac-fleet — what commit is every box actually running?
+//
+// Reachability has never been the hard question; provenance is. On 2026-08-08
+// session-server served a four-hour-old commit while lith, the CDN, the oven
+// and its own health gate all read green, and the only thing that surfaced it
+// was somebody typing about it in laklok.
+//
+//   ac-fleet            the fleet, and how far each box is behind knot
+//   ac-fleet --json     same, machine-readable
+//
+// Asks silo (which polls the fleet continuously) and falls back to polling the
+// services directly — silo going down should not also blind you to the fleet.
+// The "behind" column is computed HERE, because this machine holds the history
+// and neither silo nor the boxes do.
+
+import { execFile } from "node:child_process";
+import { join } from "node:path";
+
+const JSON_OUT = process.argv.includes("--json");
+const REPO = join(import.meta.dirname, "..");
+const SILO = "https://silo.aesthetic.computer/api/fleet/drift";
+
+const FALLBACK = [
+  { service: "session-server", health: "https://session-server.aesthetic.computer/health" },
+  { service: "silo", health: "https://silo.aesthetic.computer/health" },
+  { service: "oven", health: "https://oven.aesthetic.computer/health" },
+  { service: "lith", health: "https://aesthetic.computer/api/health" },
+];
+
+const git = (args) => new Promise((resolve) => {
+  execFile("git", args, { cwd: REPO, timeout: 15000 }, (err, out) =>
+    resolve(err ? null : out.trim()));
+});
+
+async function viaSilo() {
+  const r = await fetch(SILO, { signal: AbortSignal.timeout(20000) });
+  if (!r.ok) throw new Error(`silo HTTP ${r.status}`);
+  return { ...(await r.json()), source: "silo" };
+}
+
+// Same shape silo returns, assembled locally.
+async function direct() {
+  const tip = async (remote) => {
+    const line = await git(["ls-remote", remote, "refs/heads/main"]);
+    return line ? line.split(/\s+/)[0] : null;
+  };
+  const [knot, mirror] = await Promise.all([tip("origin"), tip("github")]);
+  const services = await Promise.all(FALLBACK.map(async ({ service, health }) => {
+    try {
+      const r = await fetch(health, { signal: AbortSignal.timeout(8000) });
+      if (!r.ok) return { service, sha: null, note: `HTTP ${r.status}` };
+      const body = await r.json();
+      const sha = typeof body?.sha === "string" ? body.sha : null;
+      return { service, sha, current: sha && knot ? sha === knot : null,
+        note: sha ? undefined : "no provenance yet" };
+    } catch (e) {
+      return { service, sha: null,
+        note: e.name === "TimeoutError" ? "timeout" : "unreachable" };
+    }
+  }));
+  return { knot, mirror, mirrorInSync: knot && mirror ? knot === mirror : null,
+    services, checkedAt: new Date().toISOString(), source: "direct" };
+}
+
+let report;
+try {
+  report = await viaSilo();
+} catch (e) {
+  if (!JSON_OUT) console.log(`(silo unavailable: ${e.message} — polling directly)\n`);
+  report = await direct();
+}
+
+// How many commits each box is behind, when this clone holds both ends.
+for (const s of report.services) {
+  if (!s.sha || !report.knot || s.current) continue;
+  const count = await git(["rev-list", "--count", `${s.sha}..${report.knot}`]);
+  if (count !== null) s.behind = Number(count);
+}
+
+if (JSON_OUT) {
+  console.log(JSON.stringify(report, null, 2));
+  process.exit(0);
+}
+
+const short = (s) => (s ? s.slice(0, 9) : "—");
+console.log(`\n🛰  fleet provenance  ·  knot ${short(report.knot)}  ·  via ${report.source}\n`);
+
+const mirrorIcon = report.mirrorInSync === true ? "✅"
+  : report.mirrorInSync === null ? "⚠️ " : "❌";
+console.log(`  ${mirrorIcon} github mirror  ${short(report.mirror)}` +
+  (report.mirrorInSync === false ? "  DRIFTED — pull-based deploys will be stale" : ""));
+console.log("");
+
+let stale = 0;
+for (const s of report.services) {
+  const icon = s.current === true ? "✅" : s.sha ? "❌" : "⚠️ ";
+  if (s.sha && s.current !== true) stale++;
+  const detail = s.current === true ? "current"
+    : s.behind !== undefined ? `${s.behind} commits behind`
+    : s.note || "drifted";
+  console.log(`  ${icon} ${s.service.padEnd(16)} ${short(s.sha).padEnd(11)} ${detail}`);
+}
+
+const unknown = report.services.filter((s) => !s.sha).length;
+console.log(`\n  ${report.services.length - stale - unknown}/${report.services.length} current` +
+  (stale ? `  ·  ${stale} STALE` : "") +
+  (unknown ? `  ·  ${unknown} not reporting` : "") + "\n");
+
+process.exit(stale > 0 || report.mirrorInSync === false ? 1 : 0);

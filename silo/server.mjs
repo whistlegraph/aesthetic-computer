@@ -8,6 +8,7 @@ import http from "http";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+import { execFile } from "child_process";
 import { MongoClient, ObjectId } from "mongodb";
 import { createClient } from "redis";
 import { S3Client, ListObjectsV2Command, PutObjectCommand } from "@aws-sdk/client-s3";
@@ -932,9 +933,80 @@ app.get("/api/tiktok/callback", async (req, res) => {
 
 app.use("/api", requireAdmin);
 
+// Provenance rides along with liveness, in the fleet-wide shape from
+// shared/provenance.mjs: { service, sha, startedAt }. silo is deployed as loose
+// files with no git repo on the box, so it cannot derive its own commit — the
+// deploy stamps AC_GIT_SHA into .env. A null sha is reported honestly rather
+// than guessed, so "unknown" never passes for "current".
 app.get("/health", async (req, res) => {
   const mongoOk = db ? await db.admin().ping().then(() => true).catch(() => false) : false;
-  res.json({ status: "ok", uptime: Date.now() - SERVER_START_TIME, mongo: mongoOk });
+  res.json({
+    status: "ok",
+    service: "silo",
+    sha: process.env.AC_GIT_SHA?.trim() || null,
+    startedAt: new Date(SERVER_START_TIME).toISOString(),
+    uptime: Date.now() - SERVER_START_TIME,
+    mongo: mongoOk,
+  });
+});
+
+// Which boxes are running which commit — the question no existing check asked.
+//
+// Reachability tells you a service answers. This tells you what it answers
+// WITH, by joining three facts nothing previously joined: knot's tip (what
+// "current" means), the GitHub mirror's tip (what the pull-based deploys can
+// actually reach), and each service's self-reported sha.
+//
+// Reports facts rather than verdicts. silo has no checkout, so it cannot say
+// how far behind a box is — only whether it matches. Callers holding a repo
+// (`ac-fleet`, `npm run doctor`) do the ancestry.
+const FLEET = [
+  { service: "session-server", health: "https://session-server.aesthetic.computer/health" },
+  { service: "silo", health: "https://silo.aesthetic.computer/health" },
+  { service: "oven", health: "https://oven.aesthetic.computer/health" },
+  { service: "lith", health: "https://aesthetic.computer/api/health" },
+];
+
+function remoteTip(url) {
+  return new Promise((resolve) => {
+    execFile("git", ["ls-remote", url, "refs/heads/main"], { timeout: 15000 },
+      (err, out) => resolve(err ? null : (out.trim().split(/\s+/)[0] || null)));
+  });
+}
+
+app.get("/api/fleet/drift", async (req, res) => {
+  const [knot, mirror] = await Promise.all([
+    remoteTip("https://knot.aesthetic.computer/aesthetic.computer/core"),
+    remoteTip("https://github.com/whistlegraph/aesthetic-computer.git"),
+  ]);
+
+  const services = await Promise.all(FLEET.map(async ({ service, health }) => {
+    try {
+      const r = await fetch(health, { signal: AbortSignal.timeout(8000) });
+      if (!r.ok) return { service, sha: null, note: `HTTP ${r.status}` };
+      const body = await r.json();
+      const sha = typeof body?.sha === "string" ? body.sha : null;
+      return {
+        service,
+        sha,
+        startedAt: body?.startedAt ?? null,
+        // null (not false) when either side is unknown — an unreported sha must
+        // never read as agreement.
+        current: sha && knot ? sha === knot : null,
+        note: sha ? undefined : "no provenance yet",
+      };
+    } catch (e) {
+      return { service, sha: null, note: e.name === "TimeoutError" ? "timeout" : "unreachable" };
+    }
+  }));
+
+  res.json({
+    knot,
+    mirror,
+    mirrorInSync: knot && mirror ? knot === mirror : null,
+    services,
+    checkedAt: new Date().toISOString(),
+  });
 });
 
 app.get("/api/overview", async (req, res) => {

@@ -70,6 +70,19 @@ else
     scp -i $SSH_KEY -o StrictHostKeyChecking=no \
         $SERVICE_ENV $SILO_USER@$SILO_HOST:$REMOTE_DIR/.env
 
+    # Stamp the commit being shipped. silo is scp'd as loose files with no git
+    # repo on the box, so this is the only way it can answer "what am I
+    # running?" — and without that answer a stale silo looks identical to a
+    # current one, which is the failure this whole contract exists to catch.
+    set -l SHA (git -C $SCRIPT_DIR/.. rev-parse HEAD 2>/dev/null)
+    if test -n "$SHA"
+        echo -e "$GREEN-> Stamping AC_GIT_SHA="(string sub -l 9 $SHA)"$NC"
+        ssh -i $SSH_KEY $SILO_USER@$SILO_HOST \
+            "sed -i '/^AC_GIT_SHA=/d' $REMOTE_DIR/.env; echo 'AC_GIT_SHA=$SHA' >> $REMOTE_DIR/.env"
+    else
+        echo -e "$RED   ! could not resolve HEAD — silo will report sha:null$NC"
+    end
+
     # Fix ownership, install deps if needed, restart
     echo -e "$GREEN-> Installing dependencies & restarting...$NC"
     ssh -i $SSH_KEY $SILO_USER@$SILO_HOST "

@@ -54,6 +54,7 @@ import { fileURLToPath, pathToFileURL } from "url";
 import { createServer as createHttpsServer } from "https";
 import { createServer as createHttpServer } from "http";
 import { resolveFunctionName } from "./route-resolution.mjs";
+import { provenance } from "../shared/provenance.mjs";
 import {
   browserAnalyticsConfig,
   createEndpointAnalytics,
@@ -171,6 +172,17 @@ app.use((req, res, next) => {
   res.set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
   if (req.method === "OPTIONS") return res.sendStatus(204);
   next();
+});
+
+// Provenance, in the fleet-wide shape from shared/provenance.mjs. Under /api/
+// rather than /health because the root namespace belongs to pieces — a bare
+// /health would shadow anyone who publishes a piece by that name.
+//
+// lith deploys by pulling knot into a real checkout, so it can read its own
+// commit; scp-deployed services get theirs stamped at deploy time instead.
+app.get("/api/health", (_req, res) => {
+  res.set("Cache-Control", "no-store");
+  res.json(provenance("lith"));
 });
 
 app.get("/api/product-analytics-config", (_req, res) => {

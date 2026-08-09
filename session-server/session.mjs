@@ -115,6 +115,7 @@ import { exec } from "child_process";
 
 // 🔔 Push notifications (standard Web Push + direct APNs — no Firebase).
 import { broadcastToTopic } from "../shared/push.mjs";
+import { provenance } from "../shared/provenance.mjs";
 
 // Initialize ChatManager for multi-instance chat support
 const chatManager = new ChatManager({ dev: process.env.NODE_ENV === "development" });
@@ -1394,6 +1395,13 @@ log(
 fastify.get("/status", async (request, reply) => {
   return getFullStatus();
 });
+
+// Provenance. `/status` says how the server is doing; this says WHICH SERVER it
+// is — the commit actually running. The deploy that shipped stale code here
+// passed every liveness gate it had, because none of them could tell one commit
+// from another. Kept separate from /status so the fleet has one uniform shape
+// to poll across services.
+fastify.get("/health", async () => provenance("session-server"));
 
 // Status dashboard HTML at root
 fastify.get("/", async (request, reply) => {
