@@ -1681,6 +1681,7 @@ const buttonLabel = (button) => ({
   ArrowUp: "UP", ArrowDown: "DOWN", ArrowLeft: "LEFT", ArrowRight: "RIGHT",
   LeftShoulder: "LB", RightShoulder: "RB", LeftStick: "LEFT STICK",
   RightStick: "RIGHT STICK", View: "VIEW", Menu: "MENU",
+  LeftTrigger: "LT", RightTrigger: "RT",
 }[button] || String(button).toUpperCase());
 
 function roundDemoState(demo, now) {
@@ -4616,11 +4617,14 @@ function drawKeycap(label, x, y, size, pressed) {
   return width;
 }
 
+// Lifted clear of the bottom edge, because the signed-in handle and its
+// logout button now sit in that corner and the legend used to run straight
+// through them on a narrow view.
 function drawControlLegend(ink) {
   const entries = combatLegendKeys(players[0]);
   const size = compactLayout() ? 18 : 24;
   drawKeycapRun(entries, viewCenterX() - keycapRunWidth(entries, size) / 2,
-    Math.min(viewHeight - 62, stageBottom + 14), size,
+    Math.min(viewHeight - 104, stageBottom + 14), size,
     inputPads[0]?.down || [], ink);
 }
 
@@ -4931,9 +4935,14 @@ function drawRunner(player, t, showLabel = true) {
 
 }
 
+// Hitboxes are an inspector, not a garnish. They used to flash on every
+// impact for anyone watching, which put green boxes over ordinary play and
+// over every recording of it. VIEW (tab) is now the only thing that shows
+// them — `impactHitboxesUntil` still times the flash, but only for someone
+// who has already asked to see the geometry.
 function drawDebugHitboxes(player, t) {
   const now = runtime().monotonicUs;
-  const impactDebug = !roundResult && now < impactHitboxesUntil;
+  const impactDebug = debugHitboxes && !roundResult && now < impactHitboxesUntil;
   if ((!debugHitboxes && !impactDebug) || (!player.alive && !roundResult)) return;
   const cinematicAge = deathCinematicAge(now);
   if ((deathCinematic?.loserPad === player.pad && cinematicAge >= .11) ||
@@ -5413,9 +5422,7 @@ function drawBall(ball) {
 }
 
 function drawBallHitboxes() {
-  const impactDebug = !roundResult &&
-    runtime().monotonicUs < impactHitboxesUntil;
-  if (!debugHitboxes && !impactDebug) return;
+  if (!debugHitboxes) return;
   const previousDepth = triangleDepth;
   triangleDepth = -1.46;
   for (const item of balls) {
@@ -5887,22 +5894,15 @@ function drawTitleScreen(t, ink, transitionAge = -1) {
   const version = stamp
     ? "build " + stamp[2] + "." + stamp[3] + " " + stamp[4] + ":" + stamp[5]
     : "build " + buildTimestamp;
+  // The stamp lives top-left now. The bottom-left corner belongs to whoever
+  // is signed in — the handle and its logout button sit there in the shell —
+  // and the build number has no business crowding a person's name. Nothing up
+  // here to collide with, so the old yield-to-the-legend bail is gone with it.
   const safe = hudSafeRect();
-  const clockY = safe.bottom - hudTypeSize * 2 - 12;
-  const versionY = safe.bottom - hudTypeSize - 4;
-  // The control legend is centred and grows in both directions, so on a narrow
-  // view its left edge reaches back across the stamp. Between a clock and the
-  // buttons you are about to press, the buttons win — the stamp yields here for
-  // the same reason it yields to a thumb.
-  const legendEntries = combatLegendKeys(players[0]);
-  const legendSize = compactLayout() ? 18 : 24;
-  const legendLeft = viewCenterX() - keycapRunWidth(legendEntries, legendSize) / 2;
-  const legendTop = Math.min(viewHeight - 62, stageBottom + 14);
-  const stampRight = safe.left + 8 + Math.max(
-    handleWidth(titleNow, hudTypeSize), handleWidth(version, hudTypeSize));
-  if (stampRight + 16 > legendLeft && legendTop < versionY + hudTypeSize) return;
-  typeWrite(titleNow, safe.left + 8, clockY, hudTypeSize, ...ink);
+  const versionY = safe.top + 4;
+  const clockY = safe.top + hudTypeSize + 8;
   typeWrite(version, safe.left + 8, versionY, hudTypeSize, ...ink);
+  typeWrite(titleNow, safe.left + 8, clockY, hudTypeSize, ...ink);
 }
 
 function pacificTimeLabel(unixMs) {

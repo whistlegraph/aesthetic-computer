@@ -61,28 +61,20 @@
     #auto-update-label { display: flex; align-items: center; gap: 6px;
       font-size: 14px; font-weight: 400; }
     #auto-update { width: 16px; height: 16px; margin: 0; accent-color: #ff5070; }
-    /* The wordmark lives in the canvas, whose vertical unit is always 1080 no
-       matter the viewport (see resizeCanvas), so the band between the title and
-       `start` is addressable from CSS as a fraction of the canvas height.
-       drawTitleScreen puts the wordmark at .35 of 1080 at size 154 and
-       titleButtonRect puts `start` at .64, which leaves 532..661 units free. */
-    #account { position: fixed; top: calc(52vh + 4px);
-      left: 50%; transform: translateX(-50%); z-index: 6;
-      display: flex; flex-direction: column; align-items: center; }
-    @supports (height: 100dvh) { #account { top: calc(52dvh + 4px); } }
-    /* compactLayout() is stageRight < 1500, and stageRight is 1080 * aspect,
-       so the game goes compact at exactly 25/18 — where the wordmark drops to
-       .38 at size 88 and `start` climbs to .61. */
-    @media (max-aspect-ratio: 25/18) {
-      #account { top: calc(48vh + 4px); }
-      @supports (height: 100dvh) { #account { top: calc(48dvh + 4px); } }
-    }
-    /* The silent auth check answers well after the first paint, so the handle
-       hangs above the button rather than sitting in the flow — otherwise the
-       door everyone is aiming at would jump a second into the title screen. */
-    #account-handle { position: absolute; bottom: 100%; margin-bottom: 7px;
-      white-space: nowrap;
-      font: 700 17px/1 "Comic Relief", "Comic Sans MS", Arial, sans-serif;
+    /* Whoever is signed in owns the bottom-left corner: handle first, then the
+       door out. It used to float in the middle of the title screen, under the
+       wordmark, which put a person's name in the same band as the game's own
+       type and made the logout button read as a menu item. The build stamp
+       moved to the top-left to clear this corner (see drawTitleScreen). */
+    #account { position: fixed; z-index: 6;
+      left: max(14px, env(safe-area-inset-left));
+      bottom: max(14px, env(safe-area-inset-bottom));
+      display: flex; flex-direction: row; align-items: center; gap: 10px; }
+    /* The silent auth check answers well after the first paint. In a row that
+       is fine — the handle appears to the left of a button that has not moved
+       — where the old stacked layout made the door jump a second in. */
+    #account-handle { white-space: nowrap;
+      font: 700 19px/1 "Comic Relief", "Comic Sans MS", Arial, sans-serif;
       color: #f3f6ff; text-shadow: 2px 3px 0 rgba(4, 7, 18, .65); }
     #account-handle[hidden] { display: none; }
     #logout { appearance: none; padding: 7px 11px; border: 2px solid #6e768d;
@@ -504,8 +496,21 @@
     // standard; anything else arranges its buttons its own way, and a guess
     // there hands the fighter the wrong punch.
     const padButtons = ["A", "B", "X", "Y", "LeftShoulder", "RightShoulder",
-      null, null, "View", "Menu", "LeftStick", "RightStick",
+      "LeftTrigger", "RightTrigger", "View", "Menu", "LeftStick", "RightStick",
       "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"];
+
+    // Six and seven used to be nameless, because the triggers are analog and
+    // the game reads them as `leftTrigger`/`rightTrigger` instead. Nothing in
+    // the fight ever read those, so on a small pad — the 8BitDo Micro, whose
+    // L2 and R2 are ordinary digital shoulders — two buttons did nothing at
+    // all. They are aliases, not a new vocabulary: the triggers raise the same
+    // attacks as the face buttons, which also means holding both is the A+X
+    // grab chord without reaching across the pad.
+    const padAliases = { LeftTrigger: "A", RightTrigger: "X" };
+
+    // A digital trigger reports `pressed`; an analog one on a pad that never
+    // latches only moves `value`. Half travel is a press either way.
+    const padDown = (button) => button.pressed || button.value > .5;
 
     function scanPads() {
       const live = [];
@@ -538,8 +543,10 @@
       const source = seatedPad(seat, live);
       const down = new Set(keys[seat]);
       if (source) source.buttons.forEach((button, buttonIndex) => {
-        if (button.pressed && padButtons[buttonIndex])
-          down.add(padButtons[buttonIndex]);
+        const name = padButtons[buttonIndex];
+        if (!name || !padDown(button)) return;
+        down.add(name);
+        if (padAliases[name]) down.add(padAliases[name]);
       });
       return {
         connected: Boolean(source) || down.size > 0 || seat === 0,
