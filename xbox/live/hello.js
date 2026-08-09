@@ -82,6 +82,7 @@ const fighterAnimationSpecs = {
   // reads as a vibrating fighter rather than as legs taking steps. Three ticks
   // a frame puts the cycle at 600ms, close to a real walk, so the steps count.
   IDLE: [48, 2, "BREATHE", true], WALK: [12, 3, "STRIDE", true],
+  RUN: [10, 1, "RUN", true], MEDITATE: [24, 2, "STILL", true],
   DASH: [8, 1, "BURST", true], CROUCH: [8, 1, "TUCK", true],
   "AIR CROUCH": [8, 1, "TUCK", true], JUMP: [12, 1, "ASCEND", true],
   FALL: [12, 1, "DESCEND", true], PUNCH: [14, 1, "ATTACK", false],
@@ -125,6 +126,9 @@ const replayActionLead = 8;
 const replayRampPerSecond = 3.2;
 const instantReplayMaxFrames = 240;
 const walkSpeed = 1060;
+const runStartSpeed = 1320;
+const runTopSpeed = 2350;
+const runAcceleration = 820;
 // Vertical feel. The apex is the design constant — how high a fighter can
 // reach never changed — so every impulse here is paired with a gravity that
 // spends less time getting there. Rise is lighter than fall so the arc reads
@@ -469,6 +473,8 @@ const fighterRoster = [
 // let the glyph walk fall back to it.
 const npcFighter = { handle: "DUMMY", color: [105, 125, 150], colors: [],
   mood: "TRAINING DUMMY · NO BOT AI", lastChat: "" };
+const spiderDummyFighter = { handle: "SPIDERDUMMY", color: [76, 88, 108],
+  colors: [], mood: "GIANT SEGMENTED TRAINING FOE · NO BOT AI", lastChat: "" };
 const botFighter = { handle: "BOT", color: [205, 48, 72], colors: [],
   mood: "ANGRY TRAINING BOT", lastChat: "" };
 const peopleFighter = { handle: "PPL", color: [116, 122, 136], colors: [],
@@ -524,7 +530,7 @@ const players = [
     hitSegment: -1, hitSegmentUntil: 0, hitStunUntil: 0,
     alive: true, respawnAt: 0, score: 0, inputX: 0, inputY: 0,
     suppressedDirections: [],
-    lastTap: {}, lastRelease: {}, dashUntil: 0, dashVx: 0, roundWins: 0,
+    lastTap: {}, lastRelease: {}, dashUntil: 0, dashVx: 0, runSince: 0, roundWins: 0,
     attackKind: "", attackStartedAt: 0,
     attackUntil: 0, attackHit: false, blocking: false, blockFlash: 0,
     shieldLocked: false, shieldBrokenAt: 0,
@@ -547,7 +553,7 @@ const players = [
     hitSegment: -1, hitSegmentUntil: 0, hitStunUntil: 0,
     alive: true, respawnAt: 0, score: 0, inputX: 0, inputY: 0,
     suppressedDirections: [],
-    lastTap: {}, lastRelease: {}, dashUntil: 0, dashVx: 0, roundWins: 0,
+    lastTap: {}, lastRelease: {}, dashUntil: 0, dashVx: 0, runSince: 0, roundWins: 0,
     attackKind: "", attackStartedAt: 0,
     attackUntil: 0, attackHit: false, blocking: false, blockFlash: 0,
     shieldLocked: false, shieldBrokenAt: 0,
@@ -1485,15 +1491,14 @@ function drawClientError() {
   const qr = errorQrGeometry(width, height);
   wipe(7, 9, 18);
   box(48, 48, width - 96, height - 96, 30, 14, 27);
-  errorTypeWrite("aesthetic.computer error", 92, 82, 52, 255, 92, 116);
+  errorTypeWrite("the game needs a moment", 92, 82, 52, 255, 92, 116);
   drawErrorCountdown(width);
-  errorTypeWrite(detail.phase.toLowerCase(), 94, 150, 31, 255, 205, 74);
-  errorTypeWrite(detail.name, 230, 150, 31, 255, 126, 154);
+  errorTypeWrite("restarting safely", 94, 158, 31, 255, 205, 74);
   const messageLines = clientErrorLines(detail.message, 66).slice(0, 2);
   for (let index = 0; index < messageLines.length; index++)
-    errorTypeWrite(messageLines[index], 94, 202 + index * 42,
+    errorTypeWrite(messageLines[index], 94, 226 + index * 42,
       31, 248, 244, 255);
-  let cursorY = 202 + messageLines.length * 42 + 14;
+  let cursorY = 226 + messageLines.length * 42 + 28;
   if (detail.source) {
     errorTypeWrite("source", 94, cursorY, 29, 112, 234, 255);
     errorTypeWrite(detail.source.file, 214, cursorY, 29, 190, 216, 255);
@@ -1540,6 +1545,7 @@ function fighterProfile(handle) {
     ? acFeed.fighters.find((profile) => profile.handle.toUpperCase() === handle.toUpperCase())
     : null;
   const fallback = handle === "DUMMY" ? npcFighter
+    : handle === "SPIDERDUMMY" ? spiderDummyFighter
     : handle === "BOT" ? botFighter
     : selfPlayFighters.find((profile) => profile.handle === handle) ||
       fighterRoster.find((profile) => profile.handle === handle);
@@ -1556,7 +1562,8 @@ function fighterProfile(handle) {
 function applyRoster(player, index) {
   if (player.npc) {
     const fighter = selfPlay ? selfPlayFighters[player.pad]
-      : player.bot ? botFighter : npcFighter;
+      : player.bot ? botFighter
+      : player.spiderDummy ? spiderDummyFighter : npcFighter;
     player.rosterIndex = -1;
     player.name = fighter.handle;
     player.color = fighter.color.slice();
@@ -1579,8 +1586,9 @@ function applyRoster(player, index) {
 // the game. Nothing opens those doors yet, so only training reaches here.
 function startFightAgainst(kind, now) {
   const opponent = players[1];
-  opponent.npc = kind === "dummy" || kind === "bot";
+  opponent.npc = kind === "dummy" || kind === "spiderdummy" || kind === "bot";
   opponent.bot = kind === "bot";
+  opponent.spiderDummy = kind === "spiderdummy";
   // Pad two is @OSKIE until ppl arrives carrying a handle of its own.
   applyRoster(opponent, opponent.npc ? -1 : 2);
   selecting = false;
@@ -1650,6 +1658,7 @@ function startSelfPlay(now) {
   for (const player of players) {
     player.npc = true;
     player.bot = true;
+    player.spiderDummy = false;
     player.rosterIndex = -1;
   }
   startReplay(now);
@@ -1722,6 +1731,7 @@ function selectionOptions() {
   return [
     { kind: "bot", fighter: botFighter, rosterIndex: -1 },
     { kind: "dummy", fighter: npcFighter, rosterIndex: -1 },
+    { kind: "spiderdummy", fighter: spiderDummyFighter, rosterIndex: -1 },
     { kind: "people", fighter: peopleFighter, rosterIndex: -1, disabled: true },
   ];
 }
@@ -1730,7 +1740,8 @@ function startSelectedRound(now) {
   selectionReady[0] = true;
   selectionReady[1] = true;
   startFightAgainst(
-    players[1].bot ? "bot" : players[1].npc ? "dummy" : "ppl", now);
+    players[1].bot ? "bot" : players[1].spiderDummy ? "spiderdummy"
+    : players[1].npc ? "dummy" : "ppl", now);
 }
 
 function chooseSelection(index, now) {
@@ -1753,8 +1764,10 @@ function chooseSelection(index, now) {
     return;
   }
   const opponent = players[1];
-  opponent.npc = option.kind === "dummy" || option.kind === "bot";
+  opponent.npc = option.kind === "dummy" || option.kind === "spiderdummy" ||
+    option.kind === "bot";
   opponent.bot = option.kind === "bot";
+  opponent.spiderDummy = option.kind === "spiderdummy";
   applyRoster(opponent, option.rosterIndex);
   playDrum("clap", 1, .55);
   emitSignal("select", 1, option.rosterIndex, opponent.bot ? 2 : opponent.npc ? 1 : 0);
@@ -2144,6 +2157,8 @@ function resetRound(now, resetMatch = false) {
     player.lastTap = {};
     player.lastRelease = {};
     player.dashUntil = 0;
+    player.dashVx = 0;
+    player.runSince = 0;
     player.attackKind = "";
     player.attackUntil = 0;
     player.attackHit = false;
@@ -3358,10 +3373,9 @@ function killPlayer(target, killerPad, now, cause = "KO") {
 // jumped it, which is the only defence and is meant to be readable from the
 // silhouette alone. The ball in the ring is popped and re-served.
 //
-// Then it balls the pounder. That is the point of the move — it is a trade
-// offered at full price, and because a death ends the round the exchange is
-// the whole round: land it and the kill scores before the self-ball, miss it
-// and you have handed away a tie.
+// The landing consumes the pounder's body but not their life. They continue as
+// the existing controllable bouncing-head form, making the move a permanent
+// mobility trade without prematurely ending the round.
 function groundPound(player, now) {
   player.pounding = false;
   const fall = clamp(player.y - player.poundFrom, 0, poundFullFall);
@@ -3405,7 +3419,14 @@ function groundPound(player, now) {
     emitSignal("ballblock", player.pad, 1, power);
   }
 
-  killPlayer(player, player.pad, now, "BALLED");
+  const geometry = runnerWorldGeometry(player, poseTime);
+  for (const limb of limbParts)
+    detachPart(player, limb, geometry, player.x, now);
+  detachPart(player, "torso", geometry, player.x, now);
+  player.alive = true;
+  player.stance = "BOUNCE";
+  player.lastButton = "HEAD ONLY";
+  player.lastButtonAt = now;
 }
 
 function resolveMelee(now) {
@@ -3758,11 +3779,24 @@ function updatePlayer(player, pad, dt, now) {
       Math.sign(player.dashVx) !== input.horizontal) {
     player.dashUntil = 0;
     player.dashVx = 0;
+    player.runSince = 0;
   }
+  const dashRunningOut = player.grounded && input.horizontal &&
+    player.dashUntil > 0 && now >= player.dashUntil;
+  if (dashRunningOut && !player.runSince) {
+    player.runSince = now;
+    recordCommand(player, "RUN", now);
+  }
+  if (!player.grounded || !input.horizontal || player.blocking ||
+      player.ducking || hitStunned) player.runSince = 0;
   const mobility = headOnly ? .55 : pogo ? .68 : legCount === 1 ? .72 : 1;
+  const runSpeed = player.runSince
+    ? Math.min(runTopSpeed, runStartSpeed +
+      (now - player.runSince) / 1000000 * runAcceleration) : 0;
   const controlledVx = player.blocking ? player.shieldVx || 0
     : now < player.dashUntil && Math.abs(player.dashVx) > 0
     ? player.dashVx
+    : player.runSince ? input.horizontal * runSpeed * mobility
     : player.ducking && player.grounded ? 0
     : input.horizontal * walkSpeed * mobility;
   player.vx = controlledVx + player.windVx + player.knockVx;
@@ -4378,9 +4412,14 @@ function fighterAnimationPhase(player, now = null) {
     stateStartedAt = player.jumpPoseUntil
       ? player.jumpPoseUntil - (player.crouchJump ? crouchJumpPoseUs : jumpPoseUs)
       : player.lastButtonAt || now;
+  } else if (shellMode === "MENU") {
+    state = "MEDITATE";
   } else if (now < player.dashUntil) {
     state = "DASH";
     stateStartedAt = player.lastButtonAt || now;
+  } else if (player.runSince) {
+    state = "RUN";
+    stateStartedAt = player.runSince;
   } else if (Math.abs(player.vx) > 40) {
     state = "WALK";
   }
@@ -4412,12 +4451,14 @@ function fighterAnimationPhase(player, now = null) {
 }
 
 function runnerWorldGeometry(player, t) {
+  if (player.spiderDummy) return spiderDummyWorldGeometry(player, t);
   // Rendering consumes the same fixed 60 Hz phase clock as simulation. The
   // display can remain uncapped without inventing in-between combat poses.
   const animation = fighterAnimationPhase(player);
   const poseNow = animation.frameNow;
   const poseCycle = animation.progress * Math.PI * 2;
   const speed = Math.min(1, Math.abs(player.vx) / 1500);
+  const meditating = shellMode === "MENU" && titleTransitionAt === null;
   const idle = player.grounded && !player.ducking && speed < .03;
   const breath = idle ? Math.sin(poseCycle + player.pad * .7) * 5 : 0;
   const idleSway = idle ? Math.sin(poseCycle + player.pad) * 7 : 0;
@@ -4519,6 +4560,11 @@ function runnerWorldGeometry(player, t) {
     segment(x, hipY, x - player.facing * 28, feet - 32, 10, "rear-thigh");
     segment(x - player.facing * 28, feet - 32, x - player.facing * 8, feet,
       10, "rear-shin");
+  } else if (meditating) {
+    segment(x, hipY, x - 48, feet - 12, 11, "left-thigh");
+    segment(x - 48, feet - 12, x + 8, feet, 11, "left-shin");
+    segment(x, hipY, x + 48, feet - 12, 11, "right-thigh");
+    segment(x + 48, feet - 12, x - 8, feet, 11, "right-shin");
   } else if (crouchPose > .08) {
     segment(x, hipY, x - 36, feet - 22, 10, "left-thigh");
     segment(x - 36, feet - 22, x - 4, feet, 10, "left-shin");
@@ -4605,6 +4651,45 @@ function runnerWorldGeometry(player, t) {
       "right-upper-arm");
     segment(x + 30 - arm * .45, elbowY, x + 36 - arm * .6, handY, 10,
       "right-forearm");
+  }
+  return { head, segments };
+}
+
+// The first spider dummy deliberately shares the inert dummy controller. Its
+// threat is physical scale: four independently destructible leg-pairs spread
+// across a daddy-long-legs silhouette around one large central body.
+function spiderDummyWorldGeometry(player, t) {
+  const x = player.x;
+  const feet = player.y;
+  const z = player.z;
+  const bodyY = feet - 176;
+  const sway = Math.sin(t * 1.7 + player.pad) * 5;
+  const head = { x, y: bodyY + sway, z, radius: 48 };
+  const segments = [];
+  const add = (x1, y1, x2, y2, width, role, part) => {
+    if (!hasPart(player, part)) return;
+    segments.push({ x1, y1, z1: z, x2, y2, z2: z, width, role, part });
+  };
+  add(x - 42, bodyY, x + 42, bodyY, 38, "torso", "torso");
+  add(x, bodyY - 30, x, bodyY + 31, 34, "spider-body", "torso");
+  const legs = [
+    [-1, -1, "left-arm"], [-1, -.55, "left-arm"],
+    [-1, .25, "left-leg"], [-1, .72, "left-leg"],
+    [1, -1, "right-arm"], [1, -.55, "right-arm"],
+    [1, .25, "right-leg"], [1, .72, "right-leg"],
+  ];
+  for (let index = 0; index < legs.length; index++) {
+    const [side, lane, part] = legs[index];
+    const rootX = x + side * 31;
+    const rootY = bodyY + lane * 31 + sway;
+    const kneeX = x + side * (150 + Math.abs(lane) * 45);
+    const kneeY = bodyY - 68 + Math.abs(lane) * 44;
+    const ankleX = x + side * (270 + Math.abs(lane) * 72);
+    const ankleY = feet - 42 - (index % 2) * 18;
+    const footX = ankleX + side * 54;
+    add(rootX, rootY, kneeX, kneeY, 13, `spider-leg-${index + 1}-upper`, part);
+    add(kneeX, kneeY, ankleX, ankleY, 11, `spider-leg-${index + 1}-middle`, part);
+    add(ankleX, ankleY, footX, feet, 9, `spider-leg-${index + 1}-lower`, part);
   }
   return { head, segments };
 }
@@ -5367,10 +5452,20 @@ function drawFace(player, head, color, t, now = runtime().monotonicUs) {
     stroke(faceX + eyeGap - eyeWidth, eyeY, faceX + eyeGap + eyeWidth,
       eyeY, lineWidth);
   } else {
-    filledDisc(faceX - eyeGap + direction * eyeWidth * .35,
-      eyeY, eyeWidth * 1.05, color);
-    filledDisc(faceX + eyeGap + direction * eyeWidth * .35,
-      eyeY, eyeWidth * 1.05, color);
+    const pad = inputPads[player.pad] || {};
+    const rawX = Number(pad.leftX) || 0;
+    const rawY = Number(pad.leftY) || 0;
+    const deadzone = .48;
+    const digitalX = (pad.down || []).includes("ArrowRight") ? 1
+      : (pad.down || []).includes("ArrowLeft") ? -1 : 0;
+    const digitalY = (pad.down || []).includes("ArrowUp") ? 1
+      : (pad.down || []).includes("ArrowDown") ? -1 : 0;
+    const lookX = digitalX || (Math.abs(rawX) >= deadzone ? rawX : 0) || direction * .2;
+    const lookY = digitalY || (Math.abs(rawY) >= deadzone ? rawY : 0);
+    const pupilX = clamp(lookX, -1, 1) * eyeWidth * .7;
+    const pupilY = clamp(-lookY, -1, 1) * eyeWidth * .7;
+    filledDisc(faceX - eyeGap + pupilX, eyeY + pupilY, eyeWidth * 1.05, color);
+    filledDisc(faceX + eyeGap + pupilX, eyeY + pupilY, eyeWidth * 1.05, color);
   }
   if (player.bot && player.alive && !player.blocking) {
     const browY = eyeY - r * .32;
@@ -5571,7 +5666,8 @@ function drawRunner(player, t, showLabel = true) {
         segment.width + Math.max(3, 5 * cameraScale()), [255, 238, 102]);
     }
   }
-  drawFace(player, geometry.head, contrastShadow(color), t, displayNow);
+  if (shellMode !== "MENU" || titleTransitionAt !== null)
+    drawFace(player, geometry.head, contrastShadow(color), t, displayNow);
   drawInventory(player, displayNow);
   if (player.blocking) {
     const worldShield = shieldGeometry(player);
@@ -6619,7 +6715,7 @@ function drawTitleScreen(t, ink, transitionAge = -1) {
   // under this screen now, so the stamp yields the pad rather than sit on it.
   if (transitionAge >= 0 || socialPreview || (typeof capabilities ===
       "function" && capabilities().inputFamily === "touch")) return;
-  const titleNow = pacificTimeLabel(runtime().unixMs || Date.now());
+  const titleUnixMs = runtime().unixMs || Date.now();
   const stamp = buildTimestamp.match(/^(\d{4})\.(\d{2})\.(\d{2})\.(\d{2})(\d{2})/);
   const version = stamp
     ? "build " + stamp[2] + "." + stamp[3] + " " + stamp[4] + ":" + stamp[5]
@@ -6629,10 +6725,16 @@ function drawTitleScreen(t, ink, transitionAge = -1) {
   // and the build number has no business crowding a person's name. Nothing up
   // here to collide with, so the old yield-to-the-legend bail is gone with it.
   const safe = hudSafeRect();
-  const versionY = safe.top + 4;
-  const clockY = safe.top + hudTypeSize + 8;
-  typeWrite(version, safe.left + 8, versionY, hudTypeSize, ...ink);
-  typeWrite(titleNow, safe.left + 8, clockY, hudTypeSize, ...ink);
+  const versionSize = Math.round(hudTypeSize * .62);
+  typeWrite(version, safe.left + 2, safe.top + 2, versionSize, ...ink);
+  if (debugHitboxes) {
+    const fpsLabel = Math.round(displayFps || 0) + " fps";
+    typeWrite(fpsLabel, safe.left + 2, safe.top + versionSize + 12,
+      versionSize, ...ink);
+  }
+  const clock = hudClockBox(titleUnixMs);
+  typeWrite(clock.label, clock.left, safe.top + 2, clock.size, ...ink);
+  drawHudStatusTray(clock, ink, titleUnixMs);
 }
 
 function pacificTimeLabel(unixMs) {

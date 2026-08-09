@@ -533,7 +533,9 @@ test("title shows a live Pacific clock and version timestamp", () => {
   assert.match(fight.pacificTimeLabel(1785870000000),
     /^\d{1,2}:\d{2}(am|pm) P(D|S)T$/);
   assert.match(source, /const buildTimestamp = "\d{4}\.\d{2}\.\d{2}\.\d{4} PDT"/);
-  assert.match(source, /typeWrite\(titleNow,[\s\S]*hudTypeSize, \.\.\.ink\)/);
+  assert.match(source, /const clock = hudClockBox\(titleUnixMs\)/);
+  assert.match(source, /typeWrite\(clock\.label, clock\.left, safe\.top \+ 2/);
+  assert.match(source, /const fpsLabel = Math\.round\(displayFps \|\| 0\)/);
   assert.match(source, /"build " \+ stamp\[2\]/);
 });
 
@@ -2225,6 +2227,33 @@ test("arms and legs take localized damage and detach from collision geometry", (
     .some((segment) => segment.part === "left-arm"), false);
 });
 
+test("spiderdummy is a giant inert foe with destructible segmented legs", () => {
+  const { fight, now } = createFight();
+  fight.startFightAgainst("spiderdummy");
+  const spider = fight.players[1];
+  const geometry = fight.runnerWorldGeometry(spider, now() / 1000000);
+  assert.equal(spider.name, "SPIDERDUMMY");
+  assert.equal(spider.npc, true);
+  assert.equal(spider.bot, false);
+  assert.equal(spider.spiderDummy, true);
+  assert.equal(geometry.segments
+    .filter((segment) => segment.role.startsWith("spider-leg-")).length, 24);
+  assert.ok(geometry.head.radius >= 48);
+  const xs = geometry.segments.flatMap((segment) => [segment.x1, segment.x2]);
+  assert.ok(Math.max(...xs) - Math.min(...xs) > 600,
+    "long legs make the spider much wider than a fighter");
+  for (let hit = 0; hit < 2; hit++) {
+    const current = fight.runnerWorldGeometry(spider, now() / 1000000);
+    const index = current.segments.findIndex((segment) =>
+      segment.part === "left-arm");
+    fight.damagePart(spider, index, fight.players[0].x, 0, now());
+  }
+  assert.equal(fight.runnerWorldGeometry(spider, now() / 1000000).segments
+    .some((segment) => segment.part === "left-arm"), false);
+  assert.ok(fight.detachedParts.filter((part) =>
+    part.part === "left-arm").length >= 6);
+});
+
 test("losing both legs grounds the pelvis in a low crouched form", () => {
   const { fight, now } = createFight();
   const target = fight.players[1];
@@ -3644,7 +3673,7 @@ test("client failures become an on-screen error state", () => {
   setHostErrorStatus("posted to server xbox-oskiewar-test");
   assert.equal(fight.errorReportStatus(), "posted to server xbox-oskiewar-test");
   assert.doesNotThrow(() => fight.paint());
-  assert.match(source, /errorTypeWrite\("aesthetic\.computer error"/);
+  assert.match(source, /errorTypeWrite\("the game needs a moment"/);
   assert.match(source, /errorTypeWrite\("state dump"/);
   assert.match(source, /line " \+ detail\.source\.line/);
   assert.match(source, /errorTypeWrite\("relaunch or deploy an update"/);
@@ -3950,10 +3979,9 @@ test("a shielded bullet goes back the way it came", () => {
   assert.equal(shielder.shieldLocked, true, "returning a shot costs the shield too");
 });
 
-// The ground pound is a trade, and these cover both sides of it: the crater
-// scales with the fall it was bought with, and the fighter who threw it does
-// not walk away. Its cost is the reason it is allowed to be this strong.
-test("a ground pound craters on landing and balls the fighter who threw it", () => {
+// The ground pound is a trade: the crater scales with the fall, and the
+// fighter gives up their body while remaining playable as a bouncing head.
+test("a ground pound craters on landing and leaves its fighter head-only", () => {
   const { fight, pads, tick, signals } = createFight();
   const [pounder] = fight.players;
   const { floorY, platformLeft } = fight.stageGeometry();
@@ -3968,8 +3996,11 @@ test("a ground pound craters on landing and balls the fighter who threw it", () 
   for (let frame = 0; frame < 90 && pounder.pounding; frame++) tick();
   const named = signals.map((signal) => signal[0]);
   assert.ok(named.includes("blast"), "the landing sets off a crater");
-  assert.ok(named.includes("balled"), "and balls the pounder");
-  assert.equal(pounder.alive, false, "the trade is paid immediately");
+  assert.equal(named.includes("balled"), false, "the pounder is not killed");
+  assert.equal(pounder.alive, true);
+  assert.equal(fight.isHeadOnly(pounder), true,
+    "the pounder's torso and limbs pay for the crater");
+  assert.equal(fight.runnerWorldGeometry(pounder, 0).segments.length, 0);
   const blast = signals.find((signal) => signal[0] === "blast");
   assert.ok(blast[3] > 0.75,
     `a 700-unit fall of a 900 maximum buys most of the crater, got ${blast[3]}`);
