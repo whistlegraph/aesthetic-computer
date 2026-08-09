@@ -714,11 +714,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         trackpadPlugin.onSummonRequested = { [weak self] in
             guard let self else { return }
             // TrackDrum owns the global gesture, including while this app was
-            // not running. Always leave the gesture at the useful endpoint:
-            // the popover is visible and keyboard/trackpad focus is armed.
-            if !self.isPopoverPanelShown {
-                self.showPopover()
-            }
+            // not running. Land it where the in-process ⌘⌘ lands: focus armed,
+            // popover untouched. Opening the panel here made the same gesture
+            // mean two different things depending on whether Menu Band
+            // happened to be running — the glow and the rising bell are the
+            // cue that it landed, not a panel in the way of the instrument.
             DispatchQueue.main.async { [weak self] in
                 self?.beginFocusCaptureFromShortcut(keepPopoverOpen: true)
             }
@@ -4863,13 +4863,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
         trackpadContactsByID = changes.activeByID
         #if MAC_APP_STORE
-        // Only a landing finger can produce the synthesized click this guard
-        // exists to absorb. Renewing it for every frame that merely *had* a
-        // contact meant one resting finger held the instrument open forever:
-        // the pad streams frames continuously, so the window never lapsed,
-        // every app switch took the `arm()` branch instead, and TrackDrum
-        // stole focus straight back. A finger already down is not a new click.
-        if trackpadPluginCaptureActive, !changes.began.isEmpty {
+        // Renewed from any live contact, which is too loose: a resting finger
+        // streams frames forever, so the guard never lapses and an app switch
+        // re-arms instead of exiting — TrackDrum stealing focus back is that
+        // bug. Narrowing this to `began` broke play instead, because the
+        // resign worth protecting does not land inside one contact's onset.
+        // The signal actually wanted is the click the helper's shield ate,
+        // which only the helper can see; until it reports one over the bridge
+        // this stays loose on purpose.
+        if trackpadPluginCaptureActive, !contacts.isEmpty {
             localCapture.protectNextResignForTrackDrumInput()
         }
         #endif
