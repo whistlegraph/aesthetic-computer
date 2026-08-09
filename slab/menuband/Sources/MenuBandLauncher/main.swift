@@ -84,6 +84,7 @@ final class Launcher {
         ensureInputMonitoring()
 
         let mask = (1 << CGEventType.flagsChanged.rawValue) |
+                   (1 << CGEventType.keyDown.rawValue) |
                    (1 << CGEventType.tapDisabledByTimeout.rawValue) |
                    (1 << CGEventType.tapDisabledByUserInput.rawValue)
 
@@ -123,9 +124,21 @@ final class Launcher {
             if let tap = tap { CGEvent.tapEnable(tap: tap, enable: true) }
             return
         }
-        guard type == .flagsChanged else { return }
-
         let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
+
+        // Any real key between the taps breaks the run, unconditionally —
+        // otherwise ⌘C ⌘ reads as tap-tap and summons the app mid-copy.
+        // The Command keycodes themselves are exempt: synthesized input
+        // (System Events' `key code 54`) delivers them as keyDowns. No log
+        // line here — this daemon's log is a plain file nothing rotates.
+        if type == .keyDown {
+            if keyCode != Self.leftCommandKeyCode && keyCode != Self.rightCommandKeyCode {
+                lastPressAt = 0
+                lastPressWasRight = nil
+            }
+            return
+        }
+        guard type == .flagsChanged else { return }
         let flags = event.flags
         let rawFlags = flags.rawValue
         let isCmdKey = (keyCode == Self.leftCommandKeyCode || keyCode == Self.rightCommandKeyCode)
@@ -136,7 +149,13 @@ final class Launcher {
         // Log Command keys only. This daemon runs forever, and its log is a
         // plain file that nothing rotates — one line per shift/option/fn press
         // fills it with noise that is never the thing you came to read.
-        guard isCmdKey else { return }
+        // (A different modifier moving between the taps still breaks the run:
+        // that's a chord brewing, not a double-tap.)
+        guard isCmdKey else {
+            lastPressAt = 0
+            lastPressWasRight = nil
+            return
+        }
         NSLog("MenuBandLauncher: flagsChanged keyCode=\(keyCode) side=\(side) flags=0x\(String(rawFlags, radix: 16))")
 
         // Down edge: .maskCommand is set on press, cleared on release.

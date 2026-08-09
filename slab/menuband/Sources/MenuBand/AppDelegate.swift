@@ -247,14 +247,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// side (or a lapsed window) restarts the run.
     private var quietFocusMonitorGlobal: Any?
     private var quietFocusMonitorLocal: Any?
-#if MAC_APP_STORE
-    /// Store builds cannot rely on an NSEvent global keyboard monitor (it asks
-    /// for Accessibility trust). A listen-only CGEventTap uses the sandbox-safe
-    /// Input Monitoring grant instead and carries the same flagsChanged data.
-    private var quietFocusStoreTap: CFMachPort?
-    private var quietFocusStoreTapSource: CFRunLoopSource?
-    private var quietFocusStoreHandler: ((NSEvent) -> Void)?
-#endif
+    /// Both builds prefer a listen-only CGEventTap over an NSEvent global
+    /// keyboard monitor. Store builds because the monitor asks for
+    /// Accessibility trust the sandbox can't have (Input Monitoring covers
+    /// the tap instead) — direct builds because the monitor has silently
+    /// delivered zero keyDowns while flagsChanged kept flowing, which let
+    /// ⌘C read as a bare ⌘ tap (MenuBandLauncher's header tells the story).
+    private var quietFocusTap: CFMachPort?
+    private var quietFocusTapSource: CFRunLoopSource?
+    private var quietFocusTapHandler: ((NSEvent.EventType, UInt16, NSEvent.ModifierFlags) -> Void)?
     private var quietFocusRunCount = 0
     private var lastQuietFocusTapAt: CFTimeInterval = 0
     /// Physical side of the last clean Command down edge. A qualifying pair
@@ -2047,7 +2048,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             prepareFocusedLocalFXIdle()
         }
         #else
-        prepareFocusedLocalFXIdle()
+        // Direct builds have the in-process MultitouchSupport TrackDrum, so
+        // Command focus should enter its skin immediately. Starting in the
+        // mouse-FX idle state left the realtime audio lane off and let the FX
+        // release timer restore the cursor, which made the focus watchdog
+        // cancel the session before the first strike.
+        activateDefaultTrackpadDrum()
         #endif
         // Focus owns the pointer in every mode, and the hidden, pinned cursor
         // is what says so. This lands after the mode branch because local FX
@@ -2538,24 +2544,32 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// keymap window — which frees right-⌘ double-tap to be what it always
     /// should have been.)
     ///
-    /// A bare modifier isn't a valid Carbon hotkey, so we ride the same
-    /// global/local .flagsChanged stream the shift monitor already has
-    /// permission for — nothing new.
+    /// A bare modifier isn't a valid Carbon hotkey, so we watch the raw
+    /// flagsChanged/keyDown stream — through a listen-only CGEventTap, with
+    /// NSEvent monitors only as a fallback (see `installQuietFocusTap`).
     private func startQuietFocusTapMonitor() {
-        let handler: (NSEvent) -> Void = { [weak self] event in
+        let handler: (NSEvent.EventType, UInt16, NSEvent.ModifierFlags) -> Void = {
+            [weak self] eventType, keyCode, modifierFlags in
             guard let self = self else { return }
-            // ⌘ + something = a chord, not a tap. `.flagsChanged` fires the
-            // instant ⌘ goes down, BEFORE the letter lands — so rattling off
-            // ⌘C ⌘V looks exactly like two bare ⌘ taps unless we notice the key
-            // that followed and kill the run. (Inherited from the retired
-            // visualizer triple-tap, which is where this hazard was first found;
-            // it matters more now that focus is a two-tap gesture.) Only a REAL
-            // key cancels: a modifier's own keycode can arrive as a keyDown from
-            // synthesized input (System Events' `key code 54`), and treating
-            // that as a chord would cancel the very run it's trying to make.
-            if event.type == .keyDown {
+            // The two taps must be DIRECTLY consecutive — any real key between
+            // them breaks the run, unconditionally. `.flagsChanged` fires the
+            // instant ⌘ goes down, BEFORE the letter lands, so rattling off
+            // ⌘C ⌘V looks exactly like two bare ⌘ taps unless we notice the
+            // keys in between. An earlier version only cancelled while ⌘ was
+            // still held, but a keystroke can land either side of the ⌘
+            // release, so ⌘C ⌘ (and even ⌘ c ⌘) still paired up. Only the
+            // Command keycodes themselves are exempt: synthesized input
+            // (System Events' `key code 54`) delivers a modifier's own keycode
+            // as a keyDown, and treating that as a chord would cancel the very
+            // run it's trying to make.
+            if eventType == .keyDown {
+                let isCommandKey = keyCode == Self.leftCommandKeyCode
+                    || keyCode == Self.rightCommandKeyCode
+                if !isCommandKey {
+                    self.quietFocusRunCount = 0
+                }
 #if !MAC_APP_STORE
-                if event.keyCode == 53 /* Escape */ {
+                if keyCode == 53 /* Escape */ {
                     // Escape cancels a count-in, or dumps a rolling take.
                     if !self.countInWork.isEmpty { self.cancelCountIn(); return }
                     if self.menuBand.isTapeRecording {
@@ -2564,23 +2578,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     }
                 }
 #endif
-                let isModifierKey = event.keyCode == Self.leftCommandKeyCode
-                    || event.keyCode == Self.rightCommandKeyCode
-                if event.modifierFlags.contains(.command), !isModifierKey {
-                    self.quietFocusRunCount = 0
-                }
                 return
             }
-            guard event.type == .flagsChanged else { return }
-            let side = event.keyCode
+            guard eventType == .flagsChanged else { return }
+            let side = keyCode
             guard side == Self.leftCommandKeyCode || side == Self.rightCommandKeyCode
-            else { return }
+            else {
+                // A different modifier moved between the taps — a chord in
+                // progress, not a double-tap. (⇧/⌥/⌃ edges never reach the
+                // keyDown cancel above, so break the run here.)
+                self.quietFocusRunCount = 0
+                return
+            }
 
             // Prefer the event's physical-side flags. `keyState` aliases the
             // two Command keycodes on some hardware, so right Command alone can
             // otherwise appear to mean "both held". Fall back only for devices
             // that omit side flags entirely.
-            let commandState = self.commandKeyState(for: event)
+            let commandState = self.commandKeyState(modifierFlags: modifierFlags)
             self.commandKeysHeld = commandState
             let sideIsHeld = side == Self.leftCommandKeyCode
                 ? commandState.left : commandState.right
@@ -2594,13 +2609,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
 #if !MAC_APP_STORE
             // Both ⌘ held together (bare) → start the 3s record count-in.
-            let mask = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+            let mask = modifierFlags.intersection([.shift, .control, .option, .command])
             if bothHeld, mask == .command {
                 self.beginCountIn()
                 return
             }
 #else
-            let mask = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+            let mask = modifierFlags.intersection([.shift, .control, .option, .command])
 #endif
             // Otherwise: bare-⌘ double-tap tracking for PLAY.
             guard mask == .command else { self.quietFocusRunCount = 0; return }
@@ -2617,65 +2632,99 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self.quietFocusRunCount = 0
             self.lastQuietFocusTapAt = 0
             self.lastQuietFocusSide = nil
+            debugLog("quiet focus gesture qualified side=\(side)")
             FocusCueBeep.shared.click()
             self.toggleQuietFocusFromCommandTap()
         }
+        quietFocusTapHandler = handler
 #if MAC_APP_STORE
-        let installStoreTap: () -> Bool = {
-            let mask: CGEventMask =
-                (1 << CGEventType.flagsChanged.rawValue) |
-                (1 << CGEventType.keyDown.rawValue)
-            let callback: CGEventTapCallBack = { _, type, event, refcon in
-                guard let refcon,
-                      type == .flagsChanged || type == .keyDown,
-                      let nsEvent = NSEvent(cgEvent: event) else {
-                    return Unmanaged.passUnretained(event)
-                }
-                let appDelegate = Unmanaged<AppDelegate>
-                    .fromOpaque(refcon).takeUnretainedValue()
-                appDelegate.quietFocusStoreHandler?(nsEvent)
-                return Unmanaged.passUnretained(event)
-            }
-            guard let tap = CGEvent.tapCreate(
-                tap: .cgSessionEventTap,
-                place: .headInsertEventTap,
-                options: .listenOnly,
-                eventsOfInterest: mask,
-                callback: callback,
-                userInfo: Unmanaged.passUnretained(self).toOpaque()
-            ) else { return false }
-            self.quietFocusStoreTap = tap
-            let source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
-            self.quietFocusStoreTapSource = source
-            CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
-            CGEvent.tapEnable(tap: tap, enable: true)
-            return true
-        }
-        quietFocusStoreHandler = handler
         if CGPreflightListenEventAccess() || CGRequestListenEventAccess() {
-            if !installStoreTap() {
+            if !installQuietFocusTap() {
                 NSLog("MenuBand: Input Monitoring granted but Command gesture tap failed")
             }
         } else {
             NSLog("MenuBand: Input Monitoring not granted; Command gesture is local-only")
             quietFocusMonitorLocal = NSEvent.addLocalMonitorForEvents(
                 matching: [.flagsChanged, .keyDown]
-            ) { handler($0); return $0 }
+            ) { handler($0.type, $0.keyCode, $0.modifierFlags); return $0 }
         }
 #else
-        quietFocusMonitorGlobal = NSEvent.addGlobalMonitorForEvents(
-            matching: [.flagsChanged, .keyDown]
-        ) { handler($0) }
-        quietFocusMonitorLocal = NSEvent.addLocalMonitorForEvents(
-            matching: [.flagsChanged, .keyDown]
-        ) { handler($0); return $0 }
+        // Direct build: the tap is the primary route here too. The NSEvent
+        // global monitor has silently stopped delivering keyDowns while
+        // flagsChanged kept flowing — which starves the cancel above and
+        // lets ⌘C ⌘ arm focus. Fall back to the monitors only when the tap
+        // can't be created (Accessibility trust missing or stale).
+        if !installQuietFocusTap() {
+            NSLog("MenuBand: ⌘⌘ tap creation failed — falling back to NSEvent monitors")
+            quietFocusMonitorGlobal = NSEvent.addGlobalMonitorForEvents(
+                matching: [.flagsChanged, .keyDown]
+            ) { handler($0.type, $0.keyCode, $0.modifierFlags) }
+            quietFocusMonitorLocal = NSEvent.addLocalMonitorForEvents(
+                matching: [.flagsChanged, .keyDown]
+            ) { handler($0.type, $0.keyCode, $0.modifierFlags); return $0 }
+        }
 #endif
+    }
+
+    /// Listen-only session tap feeding `quietFocusTapHandler`. Re-enables
+    /// itself when macOS disables it (timeout / user input), the failure
+    /// that otherwise kills a tap permanently and silently.
+    private func installQuietFocusTap() -> Bool {
+        let mask: CGEventMask =
+            (1 << CGEventType.flagsChanged.rawValue) |
+            (1 << CGEventType.keyDown.rawValue)
+        let callback: CGEventTapCallBack = { _, type, event, refcon in
+            guard let refcon else { return Unmanaged.passUnretained(event) }
+            let appDelegate = Unmanaged<AppDelegate>
+                .fromOpaque(refcon).takeUnretainedValue()
+            if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
+                if let tap = appDelegate.quietFocusTap {
+                    CGEvent.tapEnable(tap: tap, enable: true)
+                }
+                return Unmanaged.passUnretained(event)
+            }
+            guard type == .flagsChanged || type == .keyDown else {
+                return Unmanaged.passUnretained(event)
+            }
+            // Deliver the way the NSEvent monitors did: as an ordinary
+            // main-queue callout, not from inside event dispatch. Arming
+            // focus does real AppKit work — the capture panel's key-window
+            // dance, the click shield's synchronous readiness handshake —
+            // and running that mid-tap resigned the capture and tripped the
+            // cursor watchdog. Snapshot the primitive values the handler
+            // consumes; carrying an NSEvent across this boundary can expose
+            // recycled flags on the main queue.
+            guard let eventType = NSEvent.EventType(rawValue: UInt(type.rawValue))
+            else { return Unmanaged.passUnretained(event) }
+            let keyCode = UInt16(event.getIntegerValueField(.keyboardEventKeycode))
+            let flags = NSEvent.ModifierFlags(rawValue: UInt(event.flags.rawValue))
+            DispatchQueue.main.async {
+                appDelegate.quietFocusTapHandler?(eventType, keyCode, flags)
+            }
+            return Unmanaged.passUnretained(event)
+        }
+        guard let tap = CGEvent.tapCreate(
+            tap: .cgSessionEventTap,
+            place: .headInsertEventTap,
+            options: .listenOnly,
+            eventsOfInterest: mask,
+            callback: callback,
+            userInfo: Unmanaged.passUnretained(self).toOpaque()
+        ) else { return false }
+        quietFocusTap = tap
+        let source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
+        quietFocusTapSource = source
+        CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
+        CGEvent.tapEnable(tap: tap, enable: true)
+        return true
     }
 
     /// Recording's physical-key gate. Both Command keys must remain down for
     /// the entire count-in; a single Command key can only use its tap gesture.
-    private func commandKeyState(for event: NSEvent) -> (left: Bool, right: Bool) {
-        let raw = event.modifierFlags.rawValue
+    private func commandKeyState(
+        modifierFlags: NSEvent.ModifierFlags
+    ) -> (left: Bool, right: Bool) {
+        let raw = modifierFlags.rawValue
         let left = (raw & Self.nxDeviceLeftCommand) != 0
         let right = (raw & Self.nxDeviceRightCommand) != 0
         if left || right { return (left, right) }
@@ -4890,7 +4939,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if trackpadPluginCaptureActive, !contacts.isEmpty {
             localCapture.protectNextResignForTrackDrumInput()
         }
-        #endif
+#else
+        if keyboardPerformanceFocusActive, trackpadPadMode == .skin,
+           !contacts.isEmpty {
+            localCapture.protectNextResignForTrackDrumInput()
+        }
+#endif
         if !changes.began.isEmpty || !changes.lifted.isEmpty {
             debugLog(
                 "TrackDrum contacts: began=\(changes.began.count) "
@@ -5429,8 +5483,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         #if MAC_APP_STORE
         trackpadPluginCaptureActive = useTrackDrum
         trackpadPlugin.setCaptureEnabled(useTrackDrum)
+#endif
         localCapture.keepsCaptureArmedOnResign = useTrackDrum
-        #endif
         trackpadFXPrimaryContact.reset()
         trackpadSurfaceEnergy.reset(at: CACurrentMediaTime())
         trackpadMembrane.reset(at: CACurrentMediaTime())
@@ -5959,10 +6013,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         pitchBendSystemCursorHidden = true
     }
 
-    private func showSystemCursorIfNeeded() {
+    private func showSystemCursorIfNeeded(caller: String = #function) {
         guard pitchBendSystemCursorHidden else { return }
         CGDisplayShowCursor(CGMainDisplayID())
         pitchBendSystemCursorHidden = false
+        // The watchdog exits focus the moment this flag drops while armed,
+        // so the show is worth attributing — it names whichever path
+        // un-hid the cursor out from under a session.
+        debugLog("system cursor shown by \(caller)")
     }
 
     /// Disassociate the pointer from the mouse so the trackpad drives only
@@ -6391,6 +6449,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func endPitchBendSession() {
+        // The release grace ends one strike's visual/audio tail, not the
+        // focused TrackDrum session. Keep its cursor lock and both click
+        // shields alive between hits; Escape/focus loss clears
+        // keyboardPerformanceFocusActive before returning here and performs
+        // the full teardown below.
+        if keyboardPerformanceFocusActive, trackpadPadMode == .skin {
+            releaseTrackpadPercussion()
+            trackpadSkinTouches.removeAll()
+            trackpadEnergyTimer?.invalidate()
+            trackpadEnergyTimer = nil
+            startFxRelease()
+            return
+        }
         #if MAC_APP_STORE
         trackpadPluginCaptureActive = false
         trackpadPlugin.setCaptureEnabled(false)
