@@ -74,7 +74,7 @@ npm run assets:sync:down               # Sync assets from DO Spaces (:up to push
 
 ### AC Native OS (fedac/native/)
 
-**Routine OTA releases are built remotely on the oven.** When fedac/native/ changes land on `origin/main`, oven's git poller auto-triggers a build.
+**Routine OTA releases are built remotely on the oven, and you must ask for them.** Landing fedac/native/ changes on `origin/main` builds nothing — the oven's native git poller ships disabled (`NATIVE_POLL_INTERVAL_MS` defaults to 0), so pushing and waiting means the published OTA silently stays stale. Run `ac-os oven` to release.
 
 ```bash
 ac-os oven          # Trigger remote OTA build for HEAD

@@ -16,12 +16,13 @@ All of the following must be true:
 
 ### Default path: remote OTA via oven (preferred)
 
-OTAs are built remotely on `oven.aesthetic.computer`. After landing
-fedac/native/ changes on `origin/main`, the oven git poller auto-triggers
-a build — but you can also trigger and observe explicitly:
+OTAs are built remotely on `oven.aesthetic.computer`, and every one is
+asked for. The oven's native git poller ships disabled, so landing changes
+on `origin/main` builds nothing and the published OTA stays where it was
+until someone runs the trigger. Releasing is a separate act from merging:
 
 ```bash
-ac-os oven          # Trigger remote OTA build for HEAD (or push to main)
+ac-os oven          # Trigger remote OTA build for HEAD — required to release
 ac-os oven status   # Show oven build queue + last builds
 ac-os oven watch    # Tail logs for the active oven build (SSE)
 ac-os oven cancel   # Cancel the active oven job

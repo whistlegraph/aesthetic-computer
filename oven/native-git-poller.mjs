@@ -1,8 +1,15 @@
-// native-git-poller.mjs — polls git for fedac/native/ changes, auto-triggers OTA builds
+// native-git-poller.mjs — optional git poller for fedac/native/ OTA builds
 //
-// Runs inside the oven server. Every POLL_INTERVAL_MS (default 60s), fetches
-// origin/main from the configured native checkout remote and checks if any fedac/native/ paths changed since the last
-// successful build. If so, pulls and triggers startNativeBuild().
+// OFF unless NATIVE_POLL_INTERVAL_MS is set, and nothing in this repo sets it:
+// native OTAs are released deliberately, by `ac-os oven`, not by merging. The
+// papers poller is the one that runs on a timer (60s); this one and recap's
+// both default to 0. Leave it that way unless the intent is that every commit
+// touching fedac/native/ ships to devices on its own.
+//
+// When enabled it runs inside the oven server: every POLL_INTERVAL_MS it
+// fetches origin/main from the configured native checkout, checks whether any
+// fedac/native/ path changed since the last successful build, and if so pulls
+// and triggers startNativeBuild().
 //
 // Requires a git clone at GIT_REPO_DIR (default /opt/oven/native-git/).
 // deploy.sh sets this up on first deploy.
