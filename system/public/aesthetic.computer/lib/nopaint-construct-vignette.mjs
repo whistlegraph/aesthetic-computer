@@ -1,0 +1,172 @@
+// Vignette and Aura, recovered from the Construct sheets of the same names.
+// Both lay a soft coloured field over the painting rather than drawing a shape,
+// and both take their colours from hslaToRgba with recovered ranges, so they
+// share a module. Constants read out of the compiled expression table.
+
+const frozen = (value) => Object.freeze(value);
+const choose = (random, values) => values[Math.floor(random() * values.length)];
+const between = (random, [low, high]) => low + random() * (high - low);
+
+export const VIGNETTE = frozen({
+  canvas: 256,
+  sizes: frozen([16, 32, 64, 96, 128]),
+  // hardness = round(random(radius / 2, radius - 2))
+  hardness: frozen([.5, 1]),
+  hardnessInset: 2,
+  dark: frozen([0, 1]),               // choose(0, 1): dark vignette or light
+  drift: frozen([-3, 3]),             // choose(-3, 3)
+  angle: frozen([0, 360]),
+  // hslaToRgba(random(0,1), random(0,1), random(.05,.2) | random(.7,.9), 1)
+  darkLightness: frozen([.05, .2]),
+  lightLightness: frozen([.7, .9]),
+  cue: "vignette - theme",
+  tween: frozen(["Radius", "Hardness"]),
+});
+
+export const AURA = frozen({
+  canvas: 256,
+  spray: frozen([90, 110]),           // random(90, 110)
+  rate: frozen([2, 4]),               // random(2, 4)
+  // The three AdjustHSL parameters the emitter is given at birth.
+  hue: frozen([0, 100]),
+  saturation: frozen([25, 120]),
+  lightness: frozen([60, 180]),
+  changeSeconds: 1,                   // Timer "Change"
+  changeHue: frozen([-100, 100]),     // and lightness is re-rolled from its range
+  changeAngle: frozen([0, 360]),
+  cue: "aura - theme",
+  cueVolume: frozen([-100, -7.5]),    // faded in over three seconds
+  cueFadeSeconds: 3,
+});
+
+export function hslaToRgba(hue, saturation, lightness) {
+  const chroma = (1 - Math.abs(2 * lightness - 1)) * saturation;
+  const sector = ((hue % 1) + 1) % 1 * 6;
+  const second = chroma * (1 - Math.abs(sector % 2 - 1));
+  const [r, g, b] = [[chroma, second, 0], [second, chroma, 0], [0, chroma, second],
+    [0, second, chroma], [second, 0, chroma], [chroma, 0, second]][Math.floor(sector) % 6];
+  const base = lightness - chroma / 2;
+  return frozen([r, g, b].map((channel) => Math.round((channel + base) * 255)));
+}
+
+// One soft radial field, opaque inside `hardness` and falling to nothing at the
+// rim — the same ramp Softy stamps, drawn once and large.
+function field(layer, centerX, centerY, radius, hardness, color, peak) {
+  const falloff = Math.max(1, radius - hardness);
+  const top = Math.max(0, Math.floor(centerY - radius));
+  const bottom = Math.min(layer.height - 1, Math.ceil(centerY + radius));
+  for (let y = top; y <= bottom; y += 1) {
+    const span = Math.sqrt(Math.max(0, radius * radius - (y - centerY) ** 2));
+    const left = Math.max(0, Math.floor(centerX - span));
+    const right = Math.min(layer.width - 1, Math.ceil(centerX + span));
+    for (let x = left; x <= right; x += 1) {
+      const distance = Math.hypot(x - centerX, y - centerY);
+      const alpha = distance <= hardness
+        ? peak
+        : peak * (1 - (distance - hardness) / falloff);
+      if (alpha <= 0) continue;
+      const at = (y * layer.width + x) * 4;
+      if (layer.pixels[at + 3] >= alpha) continue;
+      layer.pixels[at] = color[0];
+      layer.pixels[at + 1] = color[1];
+      layer.pixels[at + 2] = color[2];
+      layer.pixels[at + 3] = alpha;
+    }
+  }
+}
+
+const layers = new WeakMap();
+function layerFor(score, draw) {
+  let layer = layers.get(score);
+  if (!layer) {
+    const width = Math.max(1, Math.round(score.width));
+    const height = Math.max(1, Math.round(score.height));
+    layer = { width, height, pixels: new Uint8ClampedArray(width * height * 4) };
+    layers.set(score, layer);
+    draw(layer);
+  }
+  return layer;
+}
+
+export const vignetteProposal = frozen({
+  version: 1,
+  slug: "vignette",
+  label: "Vignette",
+  compatible: true,
+  source: frozen({ ...VIGNETTE, actionSheet: "Vignette",
+    // Construct tweened Radius and Hardness; the proposal holds one pose.
+    reconstructed: frozen(["the radius/hardness tween"]) }),
+  generate({ random, width, height, base }) {
+    const size = choose(random, VIGNETTE.sizes);
+    const scale = Math.min(width, height) / VIGNETTE.canvas;
+    const radius = Math.max(2, size * scale);
+    const hardness = Math.round(between(random,
+      [radius / 2, Math.max(radius / 2, radius - VIGNETTE.hardnessInset)]));
+    const dark = choose(random, VIGNETTE.dark) === 0;
+    const lightness = between(random,
+      dark ? VIGNETTE.darkLightness : VIGNETTE.lightLightness);
+    return frozen({ ...base, kind: "vignette",
+      size, radius, hardness, dark,
+      color: hslaToRgba(random(), random(), lightness),
+      angle: Math.floor(between(random, VIGNETTE.angle)),
+      drift: choose(random, VIGNETTE.drift),
+      x: Math.floor(random() * width), y: Math.floor(random() * height),
+      width, height,
+      brush: frozen({ slug: "vignette", params: frozen([String(size)]),
+        colon: frozen([]),
+        parameters: frozen({ size, hardness, dark, cue: VIGNETTE.cue }) }) });
+  },
+  render({ paste }, score, tick) {
+    const layer = layerFor(score, (target) => {
+      field(target, score.x, score.y, score.radius, score.hardness, score.color, 200);
+    });
+    paste(layer, 0, 0);
+  },
+});
+
+export const auraProposal = frozen({
+  version: 1,
+  slug: "aura",
+  label: "Aura",
+  compatible: true,
+  source: frozen({ ...AURA, actionSheet: "Aura", object: "AuraParticles",
+    // The emitter's AdjustHSL numbers are exact; how its particles look is not
+    // in the sheet, so the bloom is an AC reading.
+    reconstructed: frozen(["the particle bloom"]) }),
+  generate({ random, width, height, base }) {
+    const scale = Math.min(width, height) / AURA.canvas;
+    const spray = between(random, AURA.spray);
+    const rate = between(random, AURA.rate);
+    const angle = Math.floor(between(random, AURA.changeAngle));
+    const hue = between(random, AURA.hue) / 100;
+    const saturation = between(random, AURA.saturation) / 120;
+    const lightness = between(random, AURA.lightness) / 180;
+    const petals = Math.max(2, Math.round(rate * 4));
+    return frozen({ ...base, kind: "aura",
+      spray, rate, angle, petals,
+      radius: Math.max(4, between(random, [25, 120]) * scale),
+      color: hslaToRgba(hue, saturation, Math.min(.9, lightness)),
+      x: Math.floor(random() * width), y: Math.floor(random() * height),
+      width, height,
+      brush: frozen({ slug: "aura",
+        params: frozen([String(Math.round(spray)), String(angle)]),
+        colon: frozen([]),
+        parameters: frozen({ spray, rate, angle, cue: AURA.cue }) }) });
+  },
+  render({ paste }, score, tick) {
+    const layer = layerFor(score, (target) => {
+      // The emitter sprays through `spray` degrees around `angle` at `rate`.
+      for (let petal = 0; petal < score.petals; petal += 1) {
+        const offset = (petal / Math.max(1, score.petals - 1) - .5) * score.spray;
+        const radians = (score.angle + offset) * Math.PI / 180;
+        const reach = score.radius * (.4 + .6 * (petal % 3) / 2);
+        field(target,
+          score.x + Math.cos(radians) * reach,
+          score.y + Math.sin(radians) * reach,
+          score.radius / 2, score.radius / 8, score.color, 90);
+      }
+      field(target, score.x, score.y, score.radius / 2, 0, score.color, 140);
+    });
+    paste(layer, 0, 0);
+  },
+});

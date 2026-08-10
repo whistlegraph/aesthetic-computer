@@ -24,6 +24,9 @@ import { nopaintProposal as gridWormPieceProposal } from "./grid-worm.mjs";
 import { nopaintProposal as trianglePieceProposal } from "./triangle.mjs";
 import { nopaintProposal as ellipsePieceProposal } from "./ellipse.mjs";
 import { nopaintProposal as rainbowPieceProposal } from "./rainbow.mjs";
+import { nopaintProposal as breathePieceProposal } from "./breathe.mjs";
+import { nopaintProposal as vignettePieceProposal } from "./vignette.mjs";
+import { nopaintProposal as auraPieceProposal } from "./aura.mjs";
 import { gridWormProposal } from "../lib/nopaint-construct-brushes.mjs";
 import { nonConflictingConstructProposals } from "../lib/nopaint-construct-catalog.mjs";
 import { recoveredConstructTransforms } from "../lib/nopaint-construct-transforms.mjs";
@@ -56,6 +59,9 @@ const COMPATIBLE_BRUSHES = Object.freeze(new Map([
   [trianglePieceProposal.slug, trianglePieceProposal],
   [ellipsePieceProposal.slug, ellipsePieceProposal],
   [rainbowPieceProposal.slug, rainbowPieceProposal],
+  [breathePieceProposal.slug, breathePieceProposal],
+  [vignettePieceProposal.slug, vignettePieceProposal],
+  [auraPieceProposal.slug, auraPieceProposal],
 ]));
 
 let loopState = "choosing";

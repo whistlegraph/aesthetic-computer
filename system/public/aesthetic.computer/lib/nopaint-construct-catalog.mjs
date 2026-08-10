@@ -39,23 +39,8 @@ export const walkerProposal = contract("walker", "Walker",
   ({ random, width, height, base }) => ({ points: points(random, width, height, 24), color: base.color }),
   ({ ink }, s, frame) => { const visible = Math.max(2, Math.min(s.points.length, Math.ceil(frame / 3))); for (let i = 1; i < visible; i++) ink(s.color).line(s.points[i - 1].x, s.points[i - 1].y, s.points[i].x, s.points[i].y, s.thickness); });
 
-export const auraProposal = contract("aura", "Aura",
-  { angle: [90, 110], repetitions: [2, 4], amount: [0, 100], radius: [25, 120], spread: [60, 180] },
-  ({ random, width, height, base }) => ({ center: frozen({ x: random() * width, y: random() * height }), radius: 25 + random() * 95, repetitions: random() < .5 ? 2 : 4, color: base.color }),
-  ({ ink }, s, frame) => { for (let i = s.repetitions; i > 0; i--) { const r = s.radius * i / s.repetitions * (1 + .08 * Math.sin(frame / 30)); ink(s.color[0], s.color[1], s.color[2], 35).oval(s.center.x, s.center.y, r * 2, r * 2, false, Math.max(1, r / 10)); } });
-
-export const breatheProposal = contract("breathe", "Breathe",
-  { sizes: [64, 96, 128, 196, 256], bulge: "BulgeCycle" },
-  ({ random, width, height, base }) => ({ size: [64, 96, 128, 196, 256][Math.floor(random() * 5)], center: frozen({ x: random() * width, y: random() * height }), color: base.color }),
-  ({ ink }, s, frame) => { const scale = .6 + .4 * (1 + Math.sin(frame / 30)); ink(s.color).oval(s.center.x, s.center.y, s.size * scale, s.size * scale, true); });
-
-export const vignetteProposal = contract("vignette", "Vignette", { parameters: ["Radius", "Hardness"] },
-  ({ random, width, height, base }) => ({ center: frozen({ x: width / 2, y: height / 2 }), radius: Math.min(width, height) * (.25 + random() * .25), color: base.color }),
-  ({ ink }, s) => { for (let i = 5; i > 0; i--) ink(s.color[0], s.color[1], s.color[2], 16).oval(s.center.x, s.center.y, s.radius * (1 + i * .18) * 2, s.radius * (1 + i * .18) * 2, false, Math.max(2, s.radius * .12)); });
-
 // A name only stays in this fallback catalog until a real piece owns it; what is
 // left here is the last of the procedural brushes.
 export const nonConflictingConstructProposals = frozen([
-  buildProposal, bubblesProposal, bannerProposal,
-  walkerProposal, auraProposal, breatheProposal, vignetteProposal,
+  buildProposal, bubblesProposal, bannerProposal, walkerProposal,
 ]);
