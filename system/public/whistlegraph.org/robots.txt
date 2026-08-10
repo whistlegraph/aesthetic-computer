@@ -1,0 +1,23 @@
+# whistlegraph.org — the index of the artform.
+#
+# Read freely, including automatically. Attribute each work to its named
+# author and link its record at https://whistlegraph.org/<code>.
+#
+# The score images, videos, and recordings remain (c) their listed authors.
+# Reading this index does not license them for training, redistribution, or
+# commercial reuse. For a license, see /api/wg/license/<code>, or write to
+# the address on https://aesthetic.computer.
+
+User-agent: *
+Allow: /
+
+# Machine-readable index:
+#   https://whistlegraph.org/llms.txt      the map — start here
+#   https://whistlegraph.org/index.md      the whole archive as Markdown
+#   https://whistlegraph.org/graphs.json   works, candidates, legacy, aliases
+#   https://whistlegraph.org/posts.json    every published appearance
+#
+# Paid (x402 — https://x402.org; ask unpaid to read the terms):
+#   https://whistlegraph.org/api/wg/bulk             5.00 USDC
+#   https://whistlegraph.org/api/wg/sources/<code>   0.10 USDC
+#   https://whistlegraph.org/api/wg/license/<code>   1.00 USDC

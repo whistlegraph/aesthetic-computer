@@ -1,0 +1,44 @@
+# Whistlegraph
+
+> A whistlegraph is a drawing you sing: one continuous mark, made on whatever
+> surface is at hand, while the person drawing it whistles the same shape they
+> are drawing. The drawing is the score. Invented 2019; grown on TikTok; the
+> full archive — 291 confirmed works across 2483 posts and
+> 1,526,032,122 views — is published at whistlegraph.org.
+
+Every whistlegraph has a four-character code, and the code is the address.
+Visit `https://whistlegraph.org/<code>` for the record, or type the code at the prompt on
+`https://aesthetic.computer` to perform it.
+
+## The index
+
+- [The Whistlegraph Index](https://whistlegraph.org/index.md): Every work, candidate, and archived code as Markdown, with resolved score and video URLs. Start here.
+- [graphs.json](https://whistlegraph.org/graphs.json): The same records as JSON — works, candidates, legacy, aliases.
+- [posts.json](https://whistlegraph.org/posts.json): All 2483 published appearances with per-post metrics and many-to-many work relationships.
+- [commands.json](https://whistlegraph.org/api/commands): The canonical prompt feed consumed by aesthetic.computer, prompt.ac, and ac-native.
+
+## Reading a record
+
+- [Score image](https://assets.aesthetic.computer/whistlegraph/index/imab.jpg): `https://assets.aesthetic.computer/whistlegraph/index/<code>.jpg` — but use the `asset` key where the index provides one; renamed works kept their original asset key.
+- [Video](https://assets.aesthetic.computer/whistlegraph/index/imab.mp4): `https://assets.aesthetic.computer/whistlegraph/index/<code>.mp4`, same caveat.
+- [Example record](https://whistlegraph.org/imab): Butterfly Cosplayer — the most-viewed whistlegraph.
+
+## Context
+
+- [Whistlegraph: Drawing, Singing, and the Graphic Score as Viral Form](https://papers.aesthetic.computer/whistlegraph-26-arxiv.pdf): The paper.
+- [What is a Whistlegraph?](https://dirt.fyi/article/2023/09/whistlegraph): Dirt, 2023.
+- [Record your own](https://aesthetic.computer/whistlegraph): The recorder, on aesthetic.computer.
+- [TikTok](https://www.tiktok.com/@whistlegraph): Where it grew.
+
+## Machine access
+
+Reading and quoting this index is free; attribution to each work's named
+author and a link to its record is expected. The score images, videos, and
+recordings remain © their listed authors and are not licensed for training,
+redistribution, or commercial reuse.
+
+- [Bulk dataset](https://whistlegraph.org/api/wg/bulk): Every work and post in one document. 5.00 USDC via [x402](https://x402.org) — request it unpaid to read the terms.
+- [Per-work sources](https://whistlegraph.org/api/wg/sources/imab): `/api/wg/sources/<code>` — the source videos behind one work's numbers. 0.10 USDC.
+- [Redistribution license](https://whistlegraph.org/api/wg/license/imab): `/api/wg/license/<code>` — a signed, verifiable license to reuse one work. 1.00 USDC.
+
+Generated 2026-07-22.

@@ -43,3 +43,33 @@ non-followers** — so a watermarked TikTok export posted to IG gets no
 cold-start reach. If funnelling @whistlegraph clips to IG, re-render from a
 clean (watermark-free) source, not the yt-dlp download. Background + sources:
 `social/research/instagram-official-guidance.md`.
+
+## The machine-readable index
+
+`gen-llms.mjs` publishes the archive for LLM and agent readers, generated from
+the same `graphs.json` / `posts.json` the site renders — so the machine view can
+never drift from the human one.
+
+```bash
+node gen-llms.mjs --dry     # report sizes + counts, write nothing
+node gen-llms.mjs           # write into system/public/whistlegraph.org/
+```
+
+It writes three files:
+
+| File | What it is |
+|---|---|
+| `llms.txt` | The [llms.txt](https://llmstxt.org) convention — a short linked map. The first thing an agent reads. |
+| `index.md` | The entire index as Markdown: every confirmed work, candidate, legacy code, and alias, with resolved score/video URLs. Also served at `/llms-full.txt`. |
+| `robots.txt` | The licensing assertion, plus pointers to the above and to the paid endpoints. |
+
+Prose lives in `llms-prose.md` and is spliced in at its `SLOT` markers — **edit
+that file, never the generated `index.md`.** Rerun after every `gen-model.mjs`.
+
+The free tier is deliberately everything: `graphs.json` and `posts.json` are
+already served unauthenticated, so gating the same facts behind a paywall would
+be theater. What is sold instead lives in
+`system/netlify/functions/whistlegraph-llm.mjs`, metered with
+[x402](https://x402.org) — bulk export, the per-work source-video audit trail,
+and signed redistribution licenses. That function fails closed: with no wallet
+configured it answers 503 rather than serving paid data for free.
