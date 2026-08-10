@@ -21,7 +21,7 @@ runtime = function acRuntime() {
 };
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 25;
+const buildVersion = 26;
 const floorY = 1800;
 const ceilingY = 0;
 const wallThickness = 80;
@@ -6954,7 +6954,7 @@ function drawRunner(player, t, showLabel = true) {
       terrainFloorAt(player.x - 72) + 5, player.z);
     const boardEdge = projectPoint(player.x + 72,
       terrainFloorAt(player.x + 72) + 5, player.z);
-    const reach = Math.max(28, Math.abs(boardEdge.x - board.x));
+    const reach = Math.max(.5, Math.abs(boardEdge.x - board.x));
     const rotation = Math.atan2(boardEdge.y - leftEdge.y,
       boardEdge.x - leftEdge.x);
     drawSkateboardSymbol(board, reach, rotation);
@@ -7609,7 +7609,10 @@ function drawSpotShadow(x, y, z, radius, color) {
 function projectedBallRadius(ball) {
   const center = projectPoint(ball.x, ball.y, ball.z);
   const edge = projectPoint(ball.x + ball.radius, ball.y, ball.z);
-  return Math.max(8, Math.abs(edge.x - center.x));
+  // Do not impose a screen-space minimum: on the long street the camera can
+  // pull far back, and a fixed eight-pixel prop looked as if it grew relative
+  // to fighters and terrain.
+  return Math.max(.5, Math.abs(edge.x - center.x));
 }
 
 function drawSkateboardSymbol(point, radius, rotation = 0) {
@@ -7622,21 +7625,21 @@ function drawSkateboardSymbol(point, radius, rotation = 0) {
   const truck = [174, 184, 202];
   filledCapsule(point.x - alongX * .86, point.y - alongY * .86,
     point.x + alongX * .86, point.y + alongY * .86,
-    Math.max(8, radius * .22), edge);
+    Math.max(.5, radius * .22), edge);
   filledCapsule(point.x - alongX * .82, point.y - alongY * .82,
     point.x + alongX * .82, point.y + alongY * .82,
-    Math.max(5, radius * .14), deck);
+    Math.max(.4, radius * .14), deck);
   for (const direction of [-1, 1]) {
     const truckX = point.x + alongX * direction * .56;
     const truckY = point.y + alongY * direction * .56;
     filledCapsule(truckX - normalX * radius * .22,
       truckY - normalY * radius * .22,
       truckX + normalX * radius * .22,
-      truckY + normalY * radius * .22, Math.max(2, radius * .055), truck);
+      truckY + normalY * radius * .22, Math.max(.35, radius * .055), truck);
     for (const side of [-1, 1])
       filledDisc(truckX + normalX * radius * side * .26,
         truckY + normalY * radius * side * .26,
-        Math.max(3, radius * .09), [22, 25, 34]);
+        Math.max(.45, radius * .09), [22, 25, 34]);
   }
 }
 

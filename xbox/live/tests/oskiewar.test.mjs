@@ -4250,6 +4250,14 @@ test("the long street preserves terrain density and quarter-pipe ends", () => {
   assert.match(source, /const transitionRadius = 720/);
 });
 
+test("skateboard deck trucks and wheels scale together with camera zoom", () => {
+  assert.match(source, /return Math\.max\(\.5, Math\.abs\(edge\.x - center\.x\)\)/);
+  assert.doesNotMatch(source, /Math\.max\(8, radius \* \.22\)/);
+  assert.doesNotMatch(source, /Math\.max\(5, radius \* \.14\)/);
+  assert.doesNotMatch(source, /Math\.max\(3, radius \* \.09\)/);
+  assert.doesNotMatch(source, /const reach = Math\.max\(28,/);
+});
+
 test("nation flags are optional HUD identity and replay metadata", () => {
   assert.match(webShell, /\/api\/oskiewar-country/);
   assert.match(source, /nations: players\.map/);
