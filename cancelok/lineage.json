@@ -490,11 +490,11 @@
     "born": "2026-07-17T20:01:19.264Z"
   },
   "ripplo": {
-    "parent": "nuxo",
-    "second": null,
-    "mutation": "eye",
-    "trait": "pond ripple rings (expanding, interfering, per-pitch) x plucked-harp/bell/sub-bass",
-    "born": "2026-07-17T21:07:59.333Z"
+    "parent": "ploo",
+    "second": "wandro",
+    "mutation": "cross",
+    "trait": "radial shockwave/starburst bloom (ploo) x independent just-intonation pendulum voices (wandro)",
+    "born": "2026-08-10T04:45:03.201Z"
   },
   "arvo": {
     "parent": "varo",
@@ -597,9 +597,9 @@
   "reedo": {
     "parent": "nuxo",
     "second": null,
-    "mutation": "eye",
-    "trait": "growing meadow of wind-swayed reeds x pentatonic harp (pluck/bell/sub)",
-    "born": "2026-07-18T17:46:06.368Z"
+    "mutation": "voice",
+    "trait": "peg-and-thread string art x breath-swelled flute & bubble physical models",
+    "born": "2026-08-09T20:03:35.426Z"
   },
   "glorp": {
     "parent": "ploo",
@@ -694,10 +694,10 @@
   },
   "shivo": {
     "parent": "varo",
-    "second": null,
-    "mutation": "push",
-    "trait": "a live moir grid that follows your finger x continuously-detuned pad voice, its beat rate set by drag speed",
-    "born": "2026-07-19T01:37:03.205Z"
+    "second": "nuxo",
+    "mutation": "cross",
+    "trait": "moir ring-grid (varo) x plucked harp/bell/sub voice (nuxo)",
+    "born": "2026-08-09T17:46:04.695Z"
   },
   "cogwo": {
     "parent": null,
@@ -833,11 +833,11 @@
     "born": "2026-07-20T02:02:55.405Z"
   },
   "harko": {
-    "parent": "varo",
-    "second": null,
-    "mutation": "voice",
-    "trait": "moir ring interference x plucked-harp arpeggio with echo tail",
-    "born": "2026-07-20T02:06:22.654Z"
+    "parent": "wandro",
+    "second": "nuxo",
+    "mutation": "cross",
+    "trait": "pendulum-wave visual (wandro) x harp pluck/bell/sub voice (nuxo)",
+    "born": "2026-08-09T22:19:00.294Z"
   },
   "welmo": {
     "parent": "ploo",
@@ -1055,5 +1055,124 @@
     "mutation": "push",
     "trait": "drag-comet trail of petal light x continuous theremin glide",
     "born": "2026-08-08T23:41:32.580Z"
+  },
+  "flendro": {
+    "parent": "wandro",
+    "second": null,
+    "mutation": "voice",
+    "trait": "pendulum-wave (bob length traces melody, swing period = just-intonation ratio) x physically-modeled flute + bubble voice",
+    "born": "2026-08-09T17:49:42.296Z"
+  },
+  "pingo": {
+    "parent": null,
+    "second": null,
+    "mutation": "blind",
+    "trait": "rotating sonar-scope sweep revealing decaying echo blips x two-tone chirp/pluck ping with reverberant return",
+    "born": "2026-08-09T18:56:25.714Z"
+  },
+  "kopno": {
+    "parent": null,
+    "second": null,
+    "mutation": "blind",
+    "trait": "heat-threshold kernel-pop field (grid of kernels heating in a pan, popping into ballistic arcs, settling into a growing pile) x percussive pluck/crack pop voice, pentatonic by pan column",
+    "born": "2026-08-09T19:01:02.919Z"
+  },
+  "cambro": {
+    "parent": null,
+    "second": null,
+    "mutation": "blind",
+    "trait": "circular knitting-machine cam ring (needles cycling through a cam track, banking stitch rows into a scrolling flattened fabric) x pluck-clack stitch voice with a droning motor hum and row-complete chime",
+    "born": "2026-08-09T20:08:15.786Z"
+  },
+  "orlo": {
+    "parent": "wandro",
+    "second": null,
+    "mutation": "eye",
+    "trait": "rotating just-intonation orrery (hand length = melody contour, hands cross top/bottom to pluck, conjunction blooms) x wandro's pluck/bell/sub voice",
+    "born": "2026-08-09T21:10:59.347Z"
+  },
+  "yanko": {
+    "parent": "wandro",
+    "second": null,
+    "mutation": "push",
+    "trait": "grabbed-pendulum drag control (kinematic pull  spring release) x bent-string squeak / true-pitch snap voice",
+    "born": "2026-08-09T21:16:15.201Z"
+  },
+  "wilmo": {
+    "parent": "wandro",
+    "second": null,
+    "mutation": "invert",
+    "trait": "a struck unison pendulum row that decays into stillness x a mallet chord that dies note-by-note into silence",
+    "born": "2026-08-10T01:24:46.666Z"
+  },
+  "vozo": {
+    "parent": "nuxo",
+    "second": null,
+    "mutation": "invert",
+    "trait": "unstringing string-art harp (full web erodes to bare pegs each pass, then quietly restrings) x fraying Karplus-Strong pluck that thins to silence as the pass wears down",
+    "born": "2026-08-10T01:29:10.985Z"
+  },
+  "phaso": {
+    "parent": "varo",
+    "second": null,
+    "mutation": "voice",
+    "trait": "moir interference (two ring grids) x Reich-style rhythmic phasing with a plucky bubble voice",
+    "born": "2026-08-10T02:32:04.180Z"
+  },
+  "dwindo": {
+    "parent": "ploo",
+    "second": null,
+    "mutation": "invert",
+    "trait": "imploding vortex bloom (contracting rings + petals swallowed toward a black-hole core) x descending drain voice (falling riser, muffled sink instead of a gong drop)",
+    "born": "2026-08-10T02:36:02.988Z"
+  },
+  "brumo": {
+    "parent": null,
+    "second": null,
+    "mutation": "blind",
+    "trait": "ideal-gas Brownian particle box (wall-collision kinetic theory, no orbits/pendulums/looms) x ambient drone chord + steam-tick percussion sonifying collision energy",
+    "born": "2026-08-10T03:40:38.647Z"
+  },
+  "brumek": {
+    "parent": null,
+    "second": null,
+    "mutation": "blind",
+    "trait": "rock-paper-scissors cyclic-dominance reaction-diffusion (Lotka-Volterra-May rune lattice, three species eating in a loop, spiral fronts) x three-note round-robin drone chord that tracks which species dominates the field",
+    "born": "2026-08-10T03:41:49.586Z"
+  },
+  "krendo": {
+    "parent": null,
+    "second": null,
+    "mutation": "blind",
+    "trait": "independent stochastic decay-chain particle field (a renewal process  no neighbors, no orbit, no automaton rule) x Geiger-click percussion sonifying each decay event, position-panned and generation-pitched",
+    "born": "2026-08-10T04:50:59.525Z"
+  },
+  "fendo": {
+    "parent": "varo",
+    "second": null,
+    "mutation": "invert",
+    "trait": "converging twin-grid moir that erodes toward blackness between beats x detuned pad strikes that ring out and settle toward unison",
+    "born": "2026-08-10T05:55:51.995Z"
+  },
+  "tenzo": {
+    "parent": "wandro",
+    "second": "nuxo",
+    "mutation": "cross",
+    "trait": "pendulum-wave visual (wandro) x pentatonic harp voice (nuxo)",
+    "born": "2026-08-10T05:59:04.809Z"
+  },
+  "yendro": {
+    "parent": null,
+    "second": null,
+    "mutation": "blind",
+    "trait": "Warnsdorff knight's-tour walk on a chessboard x move-shape-indexed pentatonic voice",
+    "born": "2026-08-10T20:25:07.101Z"
+  },
+  "shefto": {
+    "parent": null,
+    "second": null,
+    "mutation": "blind",
+    "trait": "elevator call-and-response dispatch queue x floor-height-as-pitch chime/pluck voice",
+    "born": "2026-08-10T20:30:42.151Z"
   }
 }
