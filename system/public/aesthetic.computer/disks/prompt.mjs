@@ -228,6 +228,7 @@ const topRightBtnChoice = "products"; // Curtain product carousel (cycles live S
 let clearBtn; // 🧹 "Blank" button (fixed top-right, appears at 32+ chars)
 let clearBtnConfirming = false; // Two-tap confirmation state
 let clearBtnConfirmTimeout = null; // Reset timer for confirmation
+let curtainHoverTarget = null; // Sound once when entering a visible curtain action.
 
 let resendVerificationText;
 let ellipsisTicker;
@@ -1232,6 +1233,7 @@ async function boot({
         input: input?.text ?? null,
         flair: flairEnabled,
         fps: currentFps,
+        curtainHoverTarget,
         kidlispMode: !!system?.prompt?.kidlispMode,
         deprecateUniticker: DEPRECATE_UNITICKER,
         ac: ac
@@ -8046,6 +8048,52 @@ function act({
       volume: 0.15,
     });
   };
+
+  const hoverSound = () => {
+    synth({
+      type: "sine",
+      tone: 1000,
+      attack: 0.005,
+      decay: 0.8,
+      volume: 0.12,
+      duration: 0.015,
+    });
+  };
+
+  // The curtain contains several independently-rendered button types. Track
+  // their visible hitboxes here so rollover audio fires once per entry instead
+  // of once per draw event. Invisible ticker scrub regions stay silent.
+  const curtainVisible =
+    theme === "default" &&
+    !system.prompt.input.canType &&
+    !system.prompt.input.text &&
+    ((!login?.btn.disabled && !profile) ||
+      (!login && !profile?.btn.disabled));
+  if (!curtainVisible) curtainHoverTarget = null;
+
+  if (e.is("move")) {
+    const curtainActions = curtainVisible
+      ? [
+          ["login", login?.btn],
+          ["signup", signup?.btn],
+          ["profile", profile?.btn],
+          ["wallet", walletBtn?.btn],
+          ["give", giveBtn?.btn],
+          ["so", soBtn?.btn],
+          ["soft", softBtn?.btn],
+          ["os", osBtn?.btn],
+          ["blank", blankAdBtn?.btn],
+          ["product", products.getShopBoxButton()],
+        ]
+      : [];
+    const nextHover =
+      curtainActions.find(([, btn]) =>
+        btn?.disabled === false && btn.box?.contains(e)
+      )?.[0] || null;
+
+    if (nextHover && nextHover !== curtainHoverTarget) hoverSound();
+    curtainHoverTarget = nextHover;
+  }
 
   // 🎮 Process button interactions (must be called early so state is ready for paint)
   if (!net.sandboxed) {
