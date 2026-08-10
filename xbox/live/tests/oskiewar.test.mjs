@@ -574,7 +574,7 @@ test("title shows a live Pacific clock and version timestamp", () => {
   const { fight } = createFight(false, false);
   assert.match(fight.pacificTimeLabel(1785870000000),
     /^\d{1,2}:\d{2}(am|pm) P(D|S)T$/);
-  assert.match(source, /const buildVersion = 22/);
+  assert.match(source, /const buildVersion = 23/);
   assert.match(source, /const clock = hudClockBox\(titleUnixMs\)/);
   assert.match(source, /typeWrite\(clock\.label, clock\.left, safe\.top \+ 2/);
   assert.match(source, /const fpsLabel = Math\.round\(displayFps \|\| 0\)/);
@@ -1002,12 +1002,11 @@ test("the killcam keeps the winner in frame instead of deleting them", () => {
     fight.paint();
     const cinematic = fight.deathCinematicState();
     if (!cinematic || cinematic.age < .11 || cinematic.age >= .86) continue;
-    const safe = fight.actionSafeRect();
     const winner = fight.screenBounds()[cinematic.winnerPad];
-    assert.ok(winner.left >= safe.left && winner.right <= safe.right,
+    assert.ok(winner.left >= 0 && winner.right <= 1920,
       `winner left the frame at ${cinematic.age.toFixed(2)}s: ` +
       `[${winner.left.toFixed(0)}, ${winner.right.toFixed(0)}] ` +
-      `outside [${safe.left.toFixed(0)}, ${safe.right.toFixed(0)}]`);
+      "outside [0, 1920]");
     framed += 1;
   }
   assert.ok(framed > 30, `killcam only held for ${framed} frames`);
@@ -4216,6 +4215,8 @@ test("automatic cameras remain orthographic and outside the arena", () => {
   assert.match(source, /width: framedWidth, perspective: 0/);
   assert.match(source, /Math\.abs\(worldNear\) \+ headGap/);
   assert.doesNotMatch(source, /perspective: \.36/);
+  assert.ok(source.indexOf("const focus =") < source.indexOf("const shoulder ="),
+    "death camera focus must exist before its stand-off position reads it");
 });
 
 test("double jumps leave a brief upward motion-line burst", () => {

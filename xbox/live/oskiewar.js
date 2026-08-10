@@ -21,7 +21,7 @@ runtime = function acRuntime() {
 };
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 22;
+const buildVersion = 23;
 const floorY = 1800;
 const ceilingY = 0;
 const wallThickness = 80;
@@ -2587,17 +2587,16 @@ function updateCameraDoll(dt, now) {
       // Every distance is drawn from the gap between the heads, because the
       // pair can be a step apart or the width of the stage apart, and a fixed
       // stand-off frames only one of those.
-      const shoulderSide = Math.sign(loserHead.x - winnerHead.x) || 1;
       const headGap = Math.max(320, Math.abs(loserHead.x - winnerHead.x));
+      // Center the complete pair. Favoring the loser pushed the winner across
+      // the viewport edge during the eased handoff.
+      const focus = { x: lerp(winnerHead.x, loserHead.x, .5),
+        y: lerp(winnerHead.y, loserHead.y, .5),
+        z: lerp(winnerHead.z, loserHead.z, .5) };
       const shoulder = { x: focus.x, y: focus.y,
         // Stay outside the whole arena depth. The old close killcam entered
         // the world volume and near-clipped limbs, floor, and wall polygons.
         z: focus.z - Math.max(headGap * 1.3, Math.abs(worldNear) + headGap) };
-      // Aimed past the winner rather than at the loser: dead centre on the
-      // loser is what threw the winner off the edge of the frame.
-      const focus = { x: lerp(winnerHead.x, loserHead.x, .78),
-        y: lerp(winnerHead.y, loserHead.y, .78),
-        z: lerp(winnerHead.z, loserHead.z, .78) };
       // Wider than the old close-up had to be, because it now has to hold two
       // fighters rather than one — the 64° lens buys most of that back. Past
       // about a 1300 gap this would open onto empty stage, so beyond there it
