@@ -29,7 +29,7 @@ export const NOPAINT_RECOVERED_CATALOG = Object.freeze({
 export const NOPAINT_IMPLEMENTED_OPERATIONS = Object.freeze([
   "box", "ellipse", "line", "softy", "bubbles", "grid-worm", "walker",
   "banner", "wafer", "dark-window", "build", "aura", "triangle", "breathe",
-  "vignette", "caterpillar", "frame", "rainbow", "wipe", "camera",
+  "vignette", "caterpillar", "frame", "rainbow", "stamp", "wipe", "camera",
   "contrast", "flip", "invert", "light-bump", "mirror", "quicksand",
   "recurse", "saturate", "scroll", "sharpen", "spin", "turn", "zoom",
 ]);
@@ -56,6 +56,9 @@ export const NOPAINT_PROPOSAL_CATALOG = Object.freeze([
   Object.freeze({ name: "walker", label: "Walker", family: "authored", weight: 0.2 }),
   Object.freeze({ name: "banner", label: "Banner", family: "authored", weight: 1 }),
   Object.freeze({ name: "wafer", label: "Wafer", family: "authored", weight: 1 }),
+  // One recovered stamp is a small mark on a whole canvas, so it proposes
+  // itself less often than a brush that fills the frame.
+  Object.freeze({ name: "stamp", label: "Stamp", family: "authored", weight: 0.4 }),
   Object.freeze({ name: "wipe", label: "Wash", family: "transform", weight: 1 }),
   Object.freeze({ name: "contrast", label: "Contrast", family: "transform", weight: 1 }),
   Object.freeze({ name: "flip", label: "Flip", family: "transform", weight: 1 }),

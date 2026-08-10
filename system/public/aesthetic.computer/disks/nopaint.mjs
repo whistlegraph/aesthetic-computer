@@ -15,6 +15,9 @@ import { nopaintProposal as boxProposal } from "./box.mjs";
 import { nopaintProposal as bubblesProposal } from "./bubbles.mjs";
 import { nopaintProposal as darkWindowProposal } from "./dark-window.mjs";
 import { nopaintProposal as walkerProposal } from "./walker.mjs";
+import { nopaintProposal as stampProposal } from "./stamp.mjs";
+import { nopaintProposal as frameProposal } from "./frame.mjs";
+import { nopaintProposal as caterpillarProposal } from "./caterpillar.mjs";
 import { gridWormProposal } from "../lib/nopaint-construct-brushes.mjs";
 import { nonConflictingConstructProposals } from "../lib/nopaint-construct-catalog.mjs";
 import { recoveredConstructTransforms } from "../lib/nopaint-construct-transforms.mjs";
@@ -38,6 +41,9 @@ const COMPATIBLE_BRUSHES = Object.freeze(new Map([
   [bubblesProposal.slug, bubblesProposal],
   [walkerProposal.slug, walkerProposal],
   [boxProposal.slug, boxProposal],
+  [stampProposal.slug, stampProposal],
+  [frameProposal.slug, frameProposal],
+  [caterpillarProposal.slug, caterpillarProposal],
 ]));
 
 let loopState = "choosing";
@@ -105,6 +111,7 @@ const BRUSH_CUES = Object.freeze({
   oval: "elipse - start.webm",
   line: "line - start.webm",
   softy: "softy - landed.webm",
+  stamp: "stamp - stick.webm",
   bubbles: "bubbles - theme.webm",
   "grid-worm": "grid worm - theme.webm",
   "dark-window:1": "dark window - note 1.webm",
@@ -115,6 +122,8 @@ const BRUSH_CUES = Object.freeze({
   build: "build - builder's beat.webm",
   breathe: "breathe - theme.webm",
   caterpillar: "caterpillar - trotting along.webm",
+  // Seven segments is the original rainbow-road easter egg.
+  "caterpillar:rainbow": "caterpillar - rain bow road.webm",
   ellipse: "elipse - start.webm",
   frame: "frame - knock.webm",
   rainbow: "rainbow - theme.webm",
@@ -188,7 +197,9 @@ function playCue(api, name) {
 
 function playBrushCue(api, kind) {
   if (brushCueProposal === proposalNumber) return;
-  const sampleKey = kind === "dark-window" ? `${kind}:${(proposal?.note ?? 0) + 1}` : kind;
+  const sampleKey = kind === "dark-window"
+    ? `${kind}:${(proposal?.note ?? 0) + 1}`
+    : kind === "caterpillar" && proposal?.rainbow ? "caterpillar:rainbow" : kind;
   const sample = brushCueSamples.get(sampleKey);
   if (!sample || !api.sound?.play) return;
   stopBrushCue();
@@ -1655,4 +1666,7 @@ function meta() {
 // the accepted painting without silently accepting the live proposal.
 export const system = "nopaint:bake-on-leave";
 
+// Exported so tests can prove a slug resolves to the standalone piece's own
+// contract object rather than a look-alike fallback.
+export { COMPATIBLE_BRUSHES };
 export { act, bake, boot, freshLaunchRequested, leave, meta, paint, sim };

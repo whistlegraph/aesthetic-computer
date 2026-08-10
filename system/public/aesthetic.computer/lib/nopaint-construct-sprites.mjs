@@ -10,6 +10,7 @@ const B0 = "/nopaint.art/images/bubbles-sheet0.png";
 const B1 = "/nopaint.art/images/bubbles-sheet1.png";
 const W0 = "/nopaint.art/images/walkerella-sheet0.png";
 const W1 = "/nopaint.art/images/walkerella-sheet1.png";
+const F0 = "/nopaint.art/images/frames-sheet0.png";
 
 export const bubblesAnimations = frozen({
   XS: animation(4, [frame(B1, 19, 49, 8, 8), frame(B1, 19, 33, 8, 8)]),
@@ -18,6 +19,13 @@ export const bubblesAnimations = frozen({
   L: animation(1, [frame(B0, 67, 65, 48, 48), frame(B0, 67, 129, 48, 48)]),
   XL: animation(1, [frame(B0, 1, 67, 64, 64), frame(B0, 1, 1, 64, 64)]),
 });
+
+// The Frames object holds one still animation of eleven 256×256 borders drawn
+// from the top-left. Construct's CycleFrame walks them in this exact order.
+export const frameFrames = frozen([
+  [1, 1], [513, 1], [1, 513], [517, 513], [259, 513], [517, 1025],
+  [1, 1025], [259, 1025], [517, 1537], [1, 1537], [259, 1537],
+].map(([x, y]) => frame(F0, x, y, 256, 256, 0, 0)));
 
 // Compact transcription of all nine WalkerElla animations. Each row is
 // [sheet, x, y, width, height, originX, originY].
@@ -36,13 +44,16 @@ const walkerRows = frozen({
 export const walkerAnimations = frozen(Object.fromEntries(Object.entries(walkerRows)
   .map(([name, rows]) => [name, animation(5, rows.map(([sheet, ...values]) => frame(sheet ? W1 : W0, ...values)))])));
 
-function spritePaste({ paste, nopaintAssets }, sprite, x, y, scale = 1) {
+// Paste one recovered frame with its Construct origin honoured. Returns false
+// when the sheet has not loaded yet so callers can fall back to a primitive.
+export function spritePaste({ paste, nopaintAssets }, sprite, x, y, scale = 1, angle = 0) {
   const painting = nopaintAssets?.get(sprite.sheet);
   if (!painting) return false;
   paste(painting,
     Math.round(x - sprite.w * sprite.ox * scale),
     Math.round(y - sprite.h * sprite.oy * scale), {
       scale,
+      angle,
       crop: { x: sprite.x, y: sprite.y, w: sprite.w, h: sprite.h },
     });
   return true;
@@ -99,5 +110,43 @@ export const walkerProposal = frozen({
     const y = score.fromTop ? travel : score.height - travel;
     if (!spritePaste(api, sprite, x, y, score.scale))
       api.ink(score.color).box(x - 3, y - 3, 6, 6);
+  },
+});
+
+// Construct starts frameIndex at 1 and runs a repeating one second "CycleFrame"
+// timer: knock, then frameIndex = (frameIndex + 1) % AnimationFrameCount. At
+// 60hz that is 60 ticks a border.
+export const FRAME_CYCLE_TICKS = 60;
+export const FRAME_START_INDEX = 1;
+
+export const frameProposal = frozen({
+  version: 1, slug: "frame", label: "Frame", compatible: true,
+  assets: frozen([F0]),
+  source: frozen({ actionSheet: "Frame", object: "Frames", cycle: "CycleFrame",
+    frames: frameFrames.length, cycleSeconds: 1, start: FRAME_START_INDEX,
+    cue: "frame - knock", knockPlaybackRate: frozen([.25, 2]),
+    reconstructed: "the border stretches to fill the painting" }),
+  generate({ base, width, height }) {
+    // The original never randomised its border: it always opened on index 1
+    // and let the second-by-second cycle decide what you kept.
+    const start = FRAME_START_INDEX;
+    return frozen({ ...base, kind: "frame", start, width, height,
+      brush: frozen({ slug: "frame", params: frozen([String(start)]), colon: frozen([]),
+        parameters: frozen({ start, frames: frameFrames.length, cycleSeconds: 1 }) }) });
+  },
+  render(api, score, tick) {
+    const index = (score.start + Math.floor(tick / FRAME_CYCLE_TICKS)) % frameFrames.length;
+    const sprite = frameFrames[index];
+    const sheet = api.nopaintAssets?.get(sprite.sheet);
+    if (sheet) {
+      api.paste(sheet, 0, 0, {
+        width: score.width, height: score.height,
+        crop: { x: sprite.x, y: sprite.y, w: sprite.w, h: sprite.h },
+      });
+      return;
+    }
+    const inset = Math.round(Math.min(score.width, score.height) * .04);
+    api.ink(score.color).box(inset, inset,
+      score.width - inset * 2, score.height - inset * 2, "outline:" + inset);
   },
 });

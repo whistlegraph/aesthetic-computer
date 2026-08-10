@@ -71,20 +71,14 @@ export const vignetteProposal = contract("vignette", "Vignette", { parameters: [
   ({ random, width, height, base }) => ({ center: frozen({ x: width / 2, y: height / 2 }), radius: Math.min(width, height) * (.25 + random() * .25), color: base.color }),
   ({ ink }, s) => { for (let i = 5; i > 0; i--) ink(s.color[0], s.color[1], s.color[2], 16).oval(s.center.x, s.center.y, s.radius * (1 + i * .18) * 2, s.radius * (1 + i * .18) * 2, false, Math.max(2, s.radius * .12)); });
 
-export const caterpillarProposal = contract("caterpillar", "Caterpillar",
-  { segmentChoices: [1, 3, 32], scales: [.2, .7], frames: [0, 1, 2, 3] },
-  ({ random, width, height, base }) => ({ count: [1, 3, 32][Math.floor(random() * 3)], points: points(random, width, height, 32), color: base.color }),
-  ({ ink }, s, frame) => s.points.slice(0, s.count).forEach((p, i) => ink(s.color).oval(p.x + Math.sin(frame / 12 + i) * p.size, p.y, p.size, p.size, true)));
-
-export const frameProposal = contract("frame", "Frame", { cycle: "CycleFrame", sound: "frame - knock" },
-  ({ base }) => ({ color: base.color }), ({ ink }, s, frame) => { const inset = Math.floor(frame / 15) % Math.max(1, Math.floor(Math.min(s.w, s.h) / 4)); ink(s.color).box(s.x + inset, s.y + inset, s.w - inset * 2, 2); ink(s.color).box(s.x + inset, s.y + s.h - inset - 2, s.w - inset * 2, 2); ink(s.color).box(s.x + inset, s.y + inset, 2, s.h - inset * 2); ink(s.color).box(s.x + s.w - inset - 2, s.y + inset, 2, s.h - inset * 2); });
-
 export const rainbowProposal = contract("rainbow", "Rainbow",
   { effect: "AdjustHSL", hueRange: [-100, 100] },
   ({ base }) => ({ color: base.color }), ({ ink }, s, frame) => { for (let i = 0; i < 7; i++) { const hue = (frame / 120 + i / 7) * Math.PI * 2; ink(Math.round(128 + Math.sin(hue) * 127), Math.round(128 + Math.sin(hue + 2.094) * 127), Math.round(128 + Math.sin(hue + 4.188) * 127), 96).box(s.x, s.y + i * s.h / 7, s.w, Math.ceil(s.h / 7)); } });
 
+// Frame and Caterpillar graduated to their own disks; a name only stays in this
+// fallback catalog until a real piece owns it.
 export const nonConflictingConstructProposals = frozen([
   softyProposal, buildProposal, bubblesProposal, bannerProposal, waferProposal,
   walkerProposal, auraProposal, triangleProposal, ellipseProposal, breatheProposal,
-  vignetteProposal, caterpillarProposal, frameProposal, rainbowProposal,
+  vignetteProposal, rainbowProposal,
 ]);

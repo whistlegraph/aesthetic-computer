@@ -3,8 +3,12 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { seededRandom } from "../public/aesthetic.computer/lib/nopaint-proposals.mjs";
 import {
+  FRAME_CYCLE_TICKS,
+  FRAME_START_INDEX,
   bubblesAnimations,
   bubblesProposal,
+  frameFrames,
+  frameProposal,
   walkerAnimations,
   walkerProposal,
 } from "../public/aesthetic.computer/lib/nopaint-construct-sprites.mjs";
@@ -71,8 +75,41 @@ test("sprite-backed contracts are deterministic and render cropped source frames
   }
 });
 
-test("Bubbles, Walker, and Dark Window are standalone No Paint piece modules", async () => {
-  for (const slug of ["bubbles", "walker", "dark-window"]) {
+test("Frame retains the eleven Construct borders in CycleFrame order", () => {
+  const [original] = Object.values(constructAnimations("Frames"));
+  assert.deepEqual(frameFrames, original.frames);
+  assert.equal(original.fps, 0, "the borders are a still collection Frame cycles itself");
+});
+
+test("Frame advances one border per recovered one second cycle", () => {
+  const make = () => frameProposal.generate({
+    random: seededRandom("frame"), width: 320, height: 240,
+    base: Object.freeze({ color: Object.freeze([20, 40, 60, 128]) }),
+  });
+  const score = make();
+  assert.deepEqual(score, make());
+  assert.equal(score.start, FRAME_START_INDEX, "Construct always opened on index 1");
+  const cropAt = (tick) => {
+    let call = null;
+    frameProposal.render({
+      nopaintAssets: new Map(frameProposal.assets.map((path) => [path, { path }])),
+      paste: (...args) => { call = args; },
+      ink: () => ({ box() {} }),
+    }, score, tick);
+    return call;
+  };
+  const [source, x, y, transform] = cropAt(0);
+  assert.ok(source.path);
+  assert.deepEqual([x, y], [0, 0], "the border covers the whole painting");
+  assert.deepEqual([transform.width, transform.height], [320, 240]);
+  assert.deepEqual(cropAt(0)[3].crop, cropAt(FRAME_CYCLE_TICKS - 1)[3].crop);
+  assert.notDeepEqual(cropAt(0)[3].crop, cropAt(FRAME_CYCLE_TICKS)[3].crop);
+  assert.deepEqual(cropAt(0)[3].crop,
+    cropAt(FRAME_CYCLE_TICKS * frameFrames.length)[3].crop);
+});
+
+test("Bubbles, Walker, Dark Window, and Frame are standalone No Paint piece modules", async () => {
+  for (const slug of ["bubbles", "walker", "dark-window", "frame"]) {
     const piece = await import(`../public/aesthetic.computer/disks/${slug}.mjs`);
     assert.equal(piece.system, "nopaint");
     assert.equal(piece.nopaintProposal.slug, slug);

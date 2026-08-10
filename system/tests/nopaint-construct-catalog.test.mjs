@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { seededRandom } from "../public/aesthetic.computer/lib/nopaint-proposals.mjs";
 import { nonConflictingConstructProposals } from "../public/aesthetic.computer/lib/nopaint-construct-catalog.mjs";
 
-const expected = ["aura", "banner", "breathe", "bubbles", "build", "caterpillar", "ellipse", "frame", "rainbow", "softy", "triangle", "vignette", "wafer", "walker"];
+const expected = ["aura", "banner", "breathe", "bubbles", "build", "ellipse", "rainbow", "softy", "triangle", "vignette", "wafer", "walker"];
 const base = Object.freeze({ color: Object.freeze([20, 40, 60, 128]), x: 20, y: 30, w: 180, h: 140, drift: 8, thickness: 3, points: Object.freeze([]), phase: 0 });
 
 test("all non-conflicting recovered brush names have deterministic contracts", () => {
