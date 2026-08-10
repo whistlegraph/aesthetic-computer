@@ -92,7 +92,7 @@ const poundMaxVelocity = 4600;
 const poundFullFall = 900;
 const poundMinRadius = 240;
 const poundMaxRadius = 760;
-const boosterX = 1800;
+const boosterXs = [650, 2950];
 const boosterRadius = 115;
 const boosterVelocity = 6500;
 const replayTickUs = 16667;
@@ -4346,7 +4346,7 @@ function updatePlayer(player, pad, dt, now) {
     }
   }
   if (!wasGrounded && player.grounded) {
-    const onBooster = Math.abs(player.x - boosterX) <= boosterRadius;
+    const onBooster = boosterXs.some((x) => Math.abs(player.x - x) <= boosterRadius);
     player.landPoseUntil = now + 110000;
     player.crouchJump = false;
     player.jumpHeld = false;
@@ -6969,17 +6969,19 @@ function drawTerrainGrass(left, right, color) {
 }
 
 function drawBoosterPad(t) {
-  const y = terrainFloorAt(boosterX) - 7;
   const pulse = .5 + .5 * Math.sin(t * 4);
   const color = mixColor([55, 174, 244], [255, 224, 74], pulse * .55);
-  worldQuad(
-    { x: boosterX - boosterRadius, y, z: -86 },
-    { x: boosterX + boosterRadius, y, z: -86 },
-    { x: boosterX + boosterRadius, y, z: 86 },
-    { x: boosterX - boosterRadius, y, z: 86 }, color);
-  for (const offset of [-42, 0, 42])
-    worldCapsule(boosterX + offset, y - 3, -54,
-      boosterX + offset, y - 3, 54, 7, [255, 245, 180], -.01);
+  for (const boosterX of boosterXs) {
+    const y = terrainFloorAt(boosterX) - 7;
+    worldQuad(
+      { x: boosterX - boosterRadius, y, z: -86 },
+      { x: boosterX + boosterRadius, y, z: -86 },
+      { x: boosterX + boosterRadius, y, z: 86 },
+      { x: boosterX - boosterRadius, y, z: 86 }, color);
+    for (const offset of [-42, 0, 42])
+      worldCapsule(boosterX + offset, y - 3, -54,
+        boosterX + offset, y - 3, 54, 7, [255, 245, 180], -.01);
+  }
 }
 
 function drawSkyAtmosphere(sky, arena) {
