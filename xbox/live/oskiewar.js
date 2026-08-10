@@ -6509,6 +6509,26 @@ function drawTerrainSurface(left, right, near, far, color) {
   }
 }
 
+function drawTerrainFrontWall(left, right, near, color) {
+  // Close the near edge with a terrain-following skirt so camera pitch never
+  // exposes the clear layer beneath the floor.
+  const step = (right - left) / terrainSamples;
+  const wallBottom = floorY + 720;
+  for (let index = 0; index < terrainSamples; index++) {
+    const x1 = left + index * step;
+    const x2 = index === terrainSamples - 1 ? right : x1 + step;
+    const y1 = terrainFloorAt(x1);
+    const y2 = terrainFloorAt(x2);
+    const grain = .5 + .5 * Math.sin(index * 9.71 + terrainPhase * 3.13);
+    const wall = mixColor(color, [63, 54, 46], .3 + grain * .12);
+    worldQuad(
+      { x: x1, y: y1, z: near - 2 },
+      { x: x2, y: y2, z: near - 2 },
+      { x: x2, y: wallBottom, z: near - 2 },
+      { x: x1, y: wallBottom, z: near - 2 }, wall);
+  }
+}
+
 function drawRoomSurfaces(left, right, top, bottom, color) {
   const columns = 6;
   const rows = 2;
@@ -7359,15 +7379,19 @@ function drawHudStatusTray(clock, ink, unixMs) {
 function drawDebugBug(x, y, scale = 1) {
   const shell = [255, 86, 126];
   const detail = [22, 12, 34];
+  const limb = (x1, y1, x2, y2, width, color) =>
+    filledCapsule(x1, y1, x2, y2, width, color);
   filledDisc(x, y + 2 * scale, 8 * scale, shell);
   filledDisc(x, y - 6 * scale, 5 * scale, shell);
-  line(x, y - 7 * scale, x - 6 * scale, y - 13 * scale, 2 * scale, ...shell);
-  line(x, y - 7 * scale, x + 6 * scale, y - 13 * scale, 2 * scale, ...shell);
-  line(x - 5 * scale, y, x - 11 * scale, y - 4 * scale, 2 * scale, ...shell);
-  line(x + 5 * scale, y, x + 11 * scale, y - 4 * scale, 2 * scale, ...shell);
-  line(x - 5 * scale, y + 5 * scale, x - 11 * scale, y + 9 * scale, 2 * scale, ...shell);
-  line(x + 5 * scale, y + 5 * scale, x + 11 * scale, y + 9 * scale, 2 * scale, ...shell);
-  line(x, y - scale, x, y + 9 * scale, 2 * scale, ...detail);
+  limb(x, y - 7 * scale, x - 6 * scale, y - 13 * scale, 2 * scale, shell);
+  limb(x, y - 7 * scale, x + 6 * scale, y - 13 * scale, 2 * scale, shell);
+  limb(x - 5 * scale, y, x - 11 * scale, y - 4 * scale, 2 * scale, shell);
+  limb(x + 5 * scale, y, x + 11 * scale, y - 4 * scale, 2 * scale, shell);
+  limb(x - 5 * scale, y + 5 * scale, x - 11 * scale, y + 9 * scale,
+    2 * scale, shell);
+  limb(x + 5 * scale, y + 5 * scale, x + 11 * scale, y + 9 * scale,
+    2 * scale, shell);
+  limb(x, y - scale, x, y + 9 * scale, 2 * scale, detail);
   filledDisc(x - 2 * scale, y - 7 * scale, 1.2 * scale, detail);
   filledDisc(x + 2 * scale, y - 7 * scale, 1.2 * scale, detail);
 }
@@ -7390,7 +7414,7 @@ function spectatorQrBox() {
 }
 
 function drawDebugPerformance(ink) {
-  if (!debugHitboxes) return;
+  if (!debugHitboxes || roundResult) return;
   const safe = hudSafeRect();
   const compact = compactLayout();
   const metaSize = compact ? 19 : 24;
@@ -7539,6 +7563,7 @@ function gamePaint() {
     top: spanTop, bottom: spanBottom } = terrainSpan();
   drawRoomSurfaces(spanLeft, spanRight, spanTop, spanBottom, arena);
   drawTerrainSurface(spanLeft, spanRight, worldNear, worldFar, ground);
+  drawTerrainFrontWall(spanLeft, spanRight, worldNear, ground);
   drawTerrainGrass(spanLeft, spanRight, ground);
   const platformNear = -520;
   const platformFar = 520;
