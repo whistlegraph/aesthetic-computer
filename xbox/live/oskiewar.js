@@ -21,7 +21,7 @@ runtime = function acRuntime() {
 };
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 29;
+const buildVersion = 30;
 const floorY = 1800;
 const ceilingY = 0;
 const wallThickness = 80;
@@ -7418,10 +7418,12 @@ function worldQuad(a, b, c, d, color) {
 }
 
 function drawTerrainSurface(left, right, near, far, color) {
-  const step = (right - left) / terrainSamples;
-  for (let index = 0; index < terrainSamples; index++) {
-    const x1 = left + index * step;
-    const x2 = index === terrainSamples - 1 ? right : x1 + step;
+  const step = (worldRight - worldLeft) / terrainSamples;
+  const first = clamp(Math.floor((left - worldLeft) / step), 0, terrainSamples - 1);
+  const last = clamp(Math.ceil((right - worldLeft) / step), first + 1, terrainSamples);
+  for (let index = first; index < last; index++) {
+    const x1 = worldLeft + index * step;
+    const x2 = worldLeft + (index + 1) * step;
     const y1 = terrainFloorAt(x1);
     const y2 = terrainFloorAt(x2);
     const slope = Math.abs(y2 - y1) / Math.max(1, step);
@@ -7437,11 +7439,13 @@ function drawTerrainSurface(left, right, near, far, color) {
 function drawTerrainFrontWall(left, right, near, color) {
   // Close the near edge with a terrain-following skirt so camera pitch never
   // exposes the clear layer beneath the floor.
-  const step = (right - left) / terrainSamples;
+  const step = (worldRight - worldLeft) / terrainSamples;
   const wallBottom = floorY + 720;
-  for (let index = 0; index < terrainSamples; index++) {
-    const x1 = left + index * step;
-    const x2 = index === terrainSamples - 1 ? right : x1 + step;
+  const first = clamp(Math.floor((left - worldLeft) / step), 0, terrainSamples - 1);
+  const last = clamp(Math.ceil((right - worldLeft) / step), first + 1, terrainSamples);
+  for (let index = first; index < last; index++) {
+    const x1 = worldLeft + index * step;
+    const x2 = worldLeft + (index + 1) * step;
     const y1 = terrainFloorAt(x1);
     const y2 = terrainFloorAt(x2);
     const grain = .5 + .5 * Math.sin(index * 9.71 + terrainPhase * 3.13);
@@ -7455,20 +7459,26 @@ function drawTerrainFrontWall(left, right, near, color) {
 }
 
 function drawRoomSurfaces(left, right, top, bottom, color) {
-  const columns = 6;
+  // The old six columns were rebuilt between the current visible edges. That
+  // made every camera pan bend and recolor the room. Thirty global columns
+  // preserve the former density across the five-times-long street.
+  const columns = 30;
   const rows = 2;
+  const step = (worldRight - worldLeft) / columns;
+  const first = clamp(Math.floor((left - worldLeft) / step), 0, columns - 1);
+  const last = clamp(Math.ceil((right - worldLeft) / step), first + 1, columns);
   for (let row = 0; row < rows; row++) {
-    for (let column = 0; column < columns; column++) {
-      const x1 = lerp(left, right, column / columns);
-      const x2 = lerp(left, right, (column + 1) / columns);
+    for (let column = first; column < last; column++) {
+      const x1 = worldLeft + column * step;
+      const x2 = worldLeft + (column + 1) * step;
       // Bury the wall slightly into the floor. Shared coplanar edges can expose
       // a one-pixel clear-color crescent after perspective rasterization.
       const floor1 = terrainFloorAt(x1) + 120;
       const floor2 = terrainFloorAt(x2) + 120;
-      const y1Left = lerp(top, floor1, row / rows);
-      const y1Right = lerp(top, floor2, row / rows);
-      const y2Left = lerp(top, floor1, (row + 1) / rows);
-      const y2Right = lerp(top, floor2, (row + 1) / rows);
+      const y1Left = lerp(ceilingY, floor1, row / rows);
+      const y1Right = lerp(ceilingY, floor2, row / rows);
+      const y2Left = lerp(ceilingY, floor1, (row + 1) / rows);
+      const y2Right = lerp(ceilingY, floor2, (row + 1) / rows);
       const grain = .5 + .5 * Math.sin(column * 17.7 + row * 43.1 +
         terrainPhase * 2.4);
       const plaster = mixColor([255, 198, 151], [198, 146, 184], grain);
@@ -7484,26 +7494,30 @@ function drawRoomSurfaces(left, right, top, bottom, color) {
   // Segmenting it keeps the diorama corner visible without recreating the old
   // full-depth opaque slab that could pass in front of the camera and blackout
   // the fight during an orbit.
-  const sideFloor = terrainFloorAt(left) + 120;
+  const sideFloor = terrainFloorAt(worldLeft) + 120;
   for (let row = 0; row < 2; row++) {
     for (let depth = 0; depth < 2; depth++) {
-      const y1 = lerp(top, sideFloor, row / 2);
-      const y2 = lerp(top, sideFloor, (row + 1) / 2);
+      const y1 = lerp(ceilingY, sideFloor, row / 2);
+      const y2 = lerp(ceilingY, sideFloor, (row + 1) / 2);
       const z1 = lerp(0, worldFar, depth / 2);
       const z2 = lerp(0, worldFar, (depth + 1) / 2);
       const pigment = (row + depth) % 2 ? [218, 151, 163] : [247, 188, 143];
       const shade = mixColor(color, pigment, .13);
-      worldQuad({ x: left, y: y1, z: z1 },
-        { x: left, y: y1, z: z2 },
-        { x: left, y: y2, z: z2 },
-        { x: left, y: y2, z: z1 }, shade);
+      worldQuad({ x: worldLeft, y: y1, z: z1 },
+        { x: worldLeft, y: y1, z: z2 },
+        { x: worldLeft, y: y2, z: z2 },
+        { x: worldLeft, y: y2, z: z1 }, shade);
     }
   }
   const edge = mixColor(color, [64, 78, 72], .24);
-  worldQuad({ x: left, y: ceilingY, z: worldNear },
-    { x: left, y: ceilingY, z: worldFar },
-    { x: right, y: ceilingY, z: worldFar },
-    { x: right, y: ceilingY, z: worldNear }, edge);
+  for (let column = first; column < last; column++) {
+    const x1 = worldLeft + column * step;
+    const x2 = worldLeft + (column + 1) * step;
+    worldQuad({ x: x1, y: ceilingY, z: worldNear },
+      { x: x1, y: ceilingY, z: worldFar },
+      { x: x2, y: ceilingY, z: worldFar },
+      { x: x2, y: ceilingY, z: worldNear }, edge);
+  }
   worldLine(worldLeft, top, worldFar - 4, worldLeft, bottom, worldFar - 4,
     9, edge);
   worldLine(worldRight, top, worldFar - 4, worldRight, bottom, worldFar - 4,
@@ -7513,10 +7527,11 @@ function drawRoomSurfaces(left, right, top, bottom, color) {
 function drawTerrainGrass(left, right, color) {
   // Twenty deterministic tufts cost forty native lines total. Keeping them on
   // the line layer avoids turning background dressing into hundreds of faces.
-  const count = 20;
+  const count = 100;
   for (let index = 0; index < count; index++) {
     const seed = .5 + .5 * Math.sin(index * 91.73 + terrainPhase * 2.31);
-    const x = lerp(left, right, (index + .5) / count);
+    const x = lerp(worldLeft, worldRight, (index + .5) / count);
+    if (x < left || x > right) continue;
     // Keep dressing in the near half of the floor. At the far plane the same
     // blades collapse into horizon ticks instead of reading as foreground grass.
     const z = lerp(worldNear * .88, worldNear * .22,

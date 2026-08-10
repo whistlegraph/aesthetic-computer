@@ -4257,6 +4257,17 @@ test("the long street preserves terrain density and quarter-pipe ends", () => {
   assert.match(source, /const transitionRadius = 720/);
 });
 
+test("camera bounds only cull an immutable globally mapped arena", () => {
+  assert.match(source,
+    /const step = \(worldRight - worldLeft\) \/ terrainSamples/);
+  assert.doesNotMatch(source,
+    /const step = \(right - left\) \/ terrainSamples/);
+  assert.match(source, /const columns = 30/);
+  assert.match(source,
+    /const x = lerp\(worldLeft, worldRight, \(index \+ \.5\) \/ count\)/);
+  assert.match(source, /terrainFloorAt\(worldLeft\) \+ 120/);
+});
+
 test("skateboard deck trucks and wheels scale together with camera zoom", () => {
   assert.match(source, /return Math\.max\(\.5, Math\.abs\(edge\.x - center\.x\)\)/);
   assert.doesNotMatch(source, /Math\.max\(8, radius \* \.22\)/);
