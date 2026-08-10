@@ -573,7 +573,8 @@ const players = [
     attackUntil: 0, attackHit: false, blocking: false, blockFlash: 0,
     shieldLocked: false, shieldBrokenAt: 0,
     windVx: 0, knockVx: 0, gunAmmo: 0, grenadeAmmo: 0,
-    gunAimX: 1, gunAimY: 0, gunMode: "HANDGUN", stance: "NEUTRAL",
+    gunAimX: 1, gunAimY: 0, gunMode: "HANDGUN", nextGunShotAt: 0,
+    stance: "NEUTRAL",
     heldBall: -1, heldPart: -1, heldPlayer: -1, grabbedBy: -1,
     grabHeld: false, crouchBlend: 0, standingOn: -1,
     partDamage: {}, removedParts: [], pogoHit: false, pogoDive: false,
@@ -598,7 +599,8 @@ const players = [
     attackUntil: 0, attackHit: false, blocking: false, blockFlash: 0,
     shieldLocked: false, shieldBrokenAt: 0,
     windVx: 0, knockVx: 0, gunAmmo: 0, grenadeAmmo: 0,
-    gunAimX: -1, gunAimY: 0, gunMode: "HANDGUN", stance: "NEUTRAL",
+    gunAimX: -1, gunAimY: 0, gunMode: "HANDGUN", nextGunShotAt: 0,
+    stance: "NEUTRAL",
     heldBall: -1, heldPart: -1, heldPlayer: -1, grabbedBy: -1,
     grabHeld: false, crouchBlend: 0, standingOn: -1,
     partDamage: {}, removedParts: [], pogoHit: false, pogoDive: false,
@@ -619,8 +621,8 @@ const grenades = [];
 const gunPickups = [
   { kind: "HANDGUN", amount: 6, x: 850, startsActive: true,
     y: PLATFORM ? platformY - 70 : floorY - 35, z: 0 },
-  { kind: "RUBBER SMG", amount: 12, x: 1150, startsActive: true,
-    y: PLATFORM ? platformY - 70 : floorY - 35, z: 0 },
+  { kind: "RUBBER SMG", amount: 18, x: 1000, startsActive: true,
+    airborne: true, y: ceilingY + 330, z: 0 },
 ];
 const grenadePickups = [
   { amount: 2, x: 1800, y: PLATFORM ? platformY - 70 : floorY - 35, z: 0 },
@@ -641,7 +643,8 @@ const airParticles = [];
 for (const pickup of [...gunPickups, ...grenadePickups]) {
   pickup.active = Boolean(pickup.startsActive);
   pickup.respawnAt = 0;
-  pickup.y = PLATFORM ? platformY - 70 : terrainFloorAt(pickup.x) - 35;
+  pickup.y = pickup.airborne ? ceilingY + 330
+    : PLATFORM ? platformY - 70 : terrainFloorAt(pickup.x) - 35;
 }
 // Every kind carries a gravity factor so redressing the match ball in place
 // can never leave a previous kind's float behind.
@@ -2298,6 +2301,7 @@ function resetRound(now, resetMatch = false) {
     player.gunAimX = player.facing;
     player.gunAimY = 0;
     player.gunMode = "HANDGUN";
+    player.nextGunShotAt = 0;
     player.stance = "NEUTRAL";
     player.itemAction = "";
     player.itemActionStartedAt = 0;
@@ -2731,6 +2735,7 @@ function fireGun(player, input) {
   }
   while (bullets.length > 24) bullets.shift();
   player.gunAmmo -= shots;
+  player.nextGunShotAt = now + (smg ? 85000 : 220000);
   player.itemAction = "FIRE";
   player.itemActionStartedAt = now;
   player.itemActionUntil = now + 170000;
@@ -2767,7 +2772,7 @@ function updateGunPickups(now) {
     for (const player of players) {
       if (!player.alive || runnerDistanceToPoint(player, poseTime,
         pickup.x, pickup.y, pickup.z) > 90) continue;
-      player.gunAmmo = Math.min(12, player.gunAmmo + pickup.amount);
+      player.gunAmmo = Math.min(30, player.gunAmmo + pickup.amount);
       player.gunMode = pickup.kind || "HANDGUN";
       pickup.active = false;
       remember(player, player.gunMode + " +" + pickup.amount);
@@ -4323,6 +4328,10 @@ function updatePlayer(player, pad, dt, now) {
   // longer empty a magazine. A loaded hand still colors the punch — into a
   // swing, never a shot.
   const acting = !headOnly && !pogo && !hitStunned && !player.blocking;
+  if (acting && player.gunMode === "RUBBER SMG" && player.gunAmmo > 0 &&
+      pad.down.includes("Y") && player.previous.includes("Y") &&
+      now >= player.nextGunShotAt)
+    fireGun(player, input);
   for (const button of pad.down) {
     if (!player.previous.includes(button)) {
       remember(player, button);
@@ -6265,9 +6274,10 @@ function drawFace(player, head, color, t, now = runtime().monotonicUs) {
     const pupilY = clamp(-lookY, -1, 1) * eyeWidth * 1.05;
     const socketRadius = eyeWidth * 2.35;
     const pupilRadius = eyeWidth * .9;
-    const pupilInk = visualTheme.light > .5 ? [10, 14, 28] : [244, 248, 255];
+    const socketInk = [246, 248, 244];
+    const pupilInk = [8, 12, 24];
     for (const offset of [-eyeGap, eyeGap]) {
-      filledDisc(faceX + offset, eyeY, socketRadius, color);
+      filledDisc(faceX + offset, eyeY, socketRadius, socketInk);
       triangleDepth = bodyDepth - .02;
       filledDisc(faceX + offset + pupilX, eyeY + pupilY,
         pupilRadius, pupilInk);
@@ -7253,15 +7263,24 @@ function drawGunPickup(pickup, t) {
   const grip = mixColor([126, 106, 88], [40, 43, 52], visualTheme.light);
   const barrelWidth = Math.max(2, 5 * scale);
   const gripWidth = Math.max(2, 4 * scale);
+  const smg = pickup.kind === "RUBBER SMG";
   // A handgun-sized world object in gunmetal and grip material, not a glowing
   // pickup glyph with a second silhouette around it.
   // Capsules, not line() — the native renderer buries the whole line
   // stratum beneath the world's triangles, which is how the gun spent a day
   // drawn under the floor on console while the web shell showed it fine.
-  worldCapsule(pickup.x - 16, bobY, pickup.z,
-    pickup.x + 20, bobY, pickup.z, barrelWidth, metal, -.02);
-  worldCapsule(pickup.x + 2, bobY + 1, pickup.z,
-    pickup.x + 8, bobY + 18, pickup.z, gripWidth, grip, -.02);
+  worldCapsule(pickup.x - (smg ? 42 : 16), bobY, pickup.z,
+    pickup.x + (smg ? 48 : 20), bobY, pickup.z,
+    smg ? barrelWidth * 1.45 : barrelWidth, metal, -.02);
+  worldCapsule(pickup.x + (smg ? 8 : 2), bobY + 1, pickup.z,
+    pickup.x + (smg ? 13 : 8), bobY + (smg ? 27 : 18), pickup.z,
+    smg ? gripWidth * 1.5 : gripWidth, grip, -.02);
+  if (smg) {
+    worldCapsule(pickup.x - 42, bobY, pickup.z,
+      pickup.x - 65, bobY + 18, pickup.z, barrelWidth, grip, -.02);
+    worldCapsule(pickup.x - 6, bobY + 4, pickup.z,
+      pickup.x - 1, bobY + 30, pickup.z, gripWidth * 1.4, metal, -.02);
+  }
 }
 
 function drawBullet(bullet) {
