@@ -5,7 +5,6 @@
 
 import { spawn } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
-import { homedir } from "node:os";
 import { resolve } from "node:path";
 import { httpPort, serveHttp, serveStdio } from "../../toolchain/mcp/http-front.mjs";
 
@@ -17,7 +16,7 @@ const accounts = { oskiewar: "OSKIEWAR", whistlegraph: "WHISTLEGRAPH",
 const text = (value) => [{ type: "text", text: String(value) }];
 
 function vaultPath(account) {
-  return resolve(homedir(), "aesthetic-computer-vault", account, "instagram.env");
+  return resolve(root, "vault", account, "instagram.env");
 }
 function provisioned(account) {
   const prefix = accounts[account];
@@ -102,7 +101,7 @@ async function handleMessage(message) {
     if (method === "initialize") return { jsonrpc: "2.0", id, result: {
       protocolVersion: "2024-11-05", capabilities: { tools: {} },
       serverInfo: { name: "instagram-mcp", version: "1.0.0" },
-      instructions: "Official Instagram Graph API only. Credentials resolve from ~/aesthetic-computer-vault/<account>/instagram.env and are never returned." } };
+      instructions: "Official Instagram Graph API only. Credentials resolve from <aesthetic-computer>/vault/<account>/instagram.env and are never returned." } };
     if (method === "initialized" || method === "notifications/initialized") return null;
     if (method === "ping") return { jsonrpc: "2.0", id, result: {} };
     if (method === "tools/list") return { jsonrpc: "2.0", id, result: { tools: TOOLS } };

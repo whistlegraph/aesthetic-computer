@@ -208,9 +208,9 @@ node xbox/live/marketing/reel.mjs --publish <id> --live # the only call that pos
 slot each at 9:00, 14:00 and 19:00 Pacific:
 
 ```cron
-7 9 * * *   bash -lc 'cd ~/aesthetic-computer && set -a && source ~/aesthetic-computer-vault/oskiewar/instagram.env && set +a && node xbox/live/marketing/reel.mjs --index 0 --slots 1 --auto >> ~/.local/state/oskiewar-reels.log 2>&1'
-7 14 * * *  bash -lc 'cd ~/aesthetic-computer && set -a && source ~/aesthetic-computer-vault/oskiewar/instagram.env && set +a && node xbox/live/marketing/reel.mjs --index 1 --slots 1 --auto >> ~/.local/state/oskiewar-reels.log 2>&1'
-7 19 * * *  bash -lc 'cd ~/aesthetic-computer && set -a && source ~/aesthetic-computer-vault/oskiewar/instagram.env && set +a && node xbox/live/marketing/reel.mjs --index 2 --slots 1 --auto >> ~/.local/state/oskiewar-reels.log 2>&1'
+7 9 * * *   bash -lc 'cd ~/aesthetic-computer && set -a && source vault/oskiewar/instagram.env && set +a && node xbox/live/marketing/reel.mjs --index 0 --slots 1 --auto >> ~/.local/state/oskiewar-reels.log 2>&1'
+7 14 * * *  bash -lc 'cd ~/aesthetic-computer && set -a && source vault/oskiewar/instagram.env && set +a && node xbox/live/marketing/reel.mjs --index 1 --slots 1 --auto >> ~/.local/state/oskiewar-reels.log 2>&1'
+7 19 * * *  bash -lc 'cd ~/aesthetic-computer && set -a && source vault/oskiewar/instagram.env && set +a && node xbox/live/marketing/reel.mjs --index 2 --slots 1 --auto >> ~/.local/state/oskiewar-reels.log 2>&1'
 ```
 
 `--auto` renders the slot and posts it only when BOTH gates pass — Meta's

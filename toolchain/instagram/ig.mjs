@@ -8,7 +8,7 @@
 // account during a ban wave, and it is not worth revisiting.
 //
 // Credentials live in the vault, NOT this repo:
-//   ~/aesthetic-computer-vault/<account>/instagram.env
+//   <aesthetic-computer>/vault/<account>/instagram.env
 //     <PREFIX>_IG_USER_ID=...    prefix = OSKIEWAR / WHISTLEGRAPH / AESTHETIC
 //     <PREFIX>_IG_TOKEN=...      60-day long-lived token — refresh monthly
 //     <PREFIX>_SPACES_*          DO Spaces creds (fall back to shared ART_SPACES_*)
@@ -30,8 +30,9 @@
 // media id and the exact metadata that was sent.
 
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { homedir } from "node:os";
 import { basename, join, resolve } from "node:path";
+
+const root = resolve(import.meta.dirname, "../..");
 
 const HOST = "https://graph.instagram.com";
 const API_VERSION = "v25.0";
@@ -66,7 +67,7 @@ const mask = (t) => (t ? `${String(t).slice(0, 8)}…` : "(none)");
 
 // ── account credentials ──────────────────────────────────────────────
 function vaultPath(account) {
-  return join(homedir(), "aesthetic-computer-vault", account, "instagram.env");
+  return join(root, "vault", account, "instagram.env");
 }
 
 // KEY=VALUE lines only; comments and blanks pass through untouched. The
@@ -379,7 +380,7 @@ function help(code = 0) {
   console.log(`ig.mjs — aesthetic.computer Instagram CLI (official graph.instagram.com only)
 
 usage: node toolchain/instagram/ig.mjs --as <account> <command>
-accounts: ${Object.keys(ACCOUNTS).join(" | ")}   (creds: ~/aesthetic-computer-vault/<account>/instagram.env)
+accounts: ${Object.keys(ACCOUNTS).join(" | ")}   (creds: <repo>/vault/<account>/instagram.env)
 
 commands:
   me                       account identity + follower/media counts (token health check)
