@@ -206,7 +206,7 @@ test("phone action buttons speak the canonical command stream", () => {
   assert.match(controls, /commandGlyph\[key\]/);
 });
 
-test("phone names shrink and the PDT clock fits beside the notch", () => {
+test("phone names shrink and the clock fits beside the notch", () => {
   assert.match(webShell, /viewport-fit=cover/);
   assert.match(source, /const size = touch \? 24 : hudTypeSize/);
   assert.match(source, /const nameSize = touch \? 32 : compactLayout\(\) \? 48 : 74/);
@@ -577,8 +577,8 @@ test("pal select is flagged out of the build but kept intact", () => {
 test("title shows a live Pacific clock and version timestamp", () => {
   const { fight } = createFight(false, false);
   assert.match(fight.pacificTimeLabel(1785870000000),
-    /^\d{1,2}:\d{2}(am|pm) P(D|S)T$/);
-  assert.match(source, /const buildVersion = 23/);
+    /^\d{1,2}:\d{2}:\d{2}(am|pm)$/);
+  assert.match(source, /const buildVersion = 32/);
   assert.match(source, /const clock = hudClockBox\(titleUnixMs\)/);
   assert.match(source, /typeWrite\(clock\.label, clock\.left, safe\.top \+ 2/);
   assert.match(source, /const fpsLabel = Math\.round\(displayFps \|\| 0\)/);

@@ -21,7 +21,7 @@ runtime = function acRuntime() {
 };
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 30;
+const buildVersion = 32;
 const floorY = 1800;
 const ceilingY = 0;
 const wallThickness = 80;
@@ -8341,11 +8341,12 @@ function pacificTimeLabel(unixMs) {
   };
   const daylight = unixMs >= nthSunday(2, 2, 10) &&
     unixMs < nthSunday(10, 1, 9);
-  const zone = daylight ? "PDT" : "PST";
   const local = new Date(unixMs - (daylight ? 7 : 8) * 3600000);
   const hour = local.getUTCHours();
   const minute = String(local.getUTCMinutes()).padStart(2, "0");
-  return String(hour % 12 || 12) + ":" + minute + (hour < 12 ? "am " : "pm ") + zone;
+  const second = String(local.getUTCSeconds()).padStart(2, "0");
+  return String(hour % 12 || 12) + ":" + minute + ":" + second +
+    (hour < 12 ? "am" : "pm");
 }
 
 // Status indicators share one lane rather than each finding its own corner, so
