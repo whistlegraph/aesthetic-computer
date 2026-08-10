@@ -21,14 +21,14 @@ runtime = function acRuntime() {
 };
 
 const buildVersion = 500;
-const floorY = 2400;
+const floorY = 1800;
 const ceilingY = 0;
 const wallThickness = 80;
 const worldLeft = 0;
-const worldRight = 3600;
-const worldNear = -650;
-const worldFar = 650;
-const terrainAmplitude = 64;
+const worldRight = 2000;
+const worldNear = -450;
+const worldFar = 450;
+const terrainAmplitude = 46;
 const terrainSamples = 48;
 let terrainPhase = 0;
 function terrainSeed(value) {
@@ -47,9 +47,9 @@ function terrainFloorAt(x) {
   // Booster pads live at the bottoms of two smooth bowls. The shoulders are
   // wide enough to walk down, but a fighter crossing the edge naturally falls
   // into the launch lane instead of stepping on a sticker on flat ground.
-  const pit = [650, 2950].reduce((depth, center) => {
-    const distance = (x - center) / 250;
-    return depth + Math.exp(-distance * distance * 1.7) * 250;
+  const pit = [320, 1680].reduce((depth, center) => {
+    const distance = (x - center) / 175;
+    return depth + Math.exp(-distance * distance * 1.7) * 190;
   }, 0);
   return floorY - (broad + detail) * terrainAmplitude * edge + pit;
 }
@@ -66,12 +66,12 @@ let cameraAspect = (stageRight - stageLeft) / (stageBottom - stageTop);
 // sink-and-chase play. The wind flag rides its own switch the same way.
 const PLATFORM = false;
 const WIND_FLAG = false;
-const platformLeft = 1200;
-const platformRight = 2400;
+const platformLeft = 650;
+const platformRight = 1350;
 // A jump apexes 290 above the floor, so the ledge sits inside a single hop and
 // inside the tight opening frame. At its old 1600 only an ultra jump reached
 // it, which put every platform powerup out of play and off screen.
-const platformY = 2160;
+const platformY = 1560;
 const doubleTapUs = 280000;
 const doubleTapReleaseUs = 40000;
 const roundDurationUs = 30000000;
@@ -99,7 +99,7 @@ const poundMaxVelocity = 4600;
 const poundFullFall = 900;
 const poundMinRadius = 240;
 const poundMaxRadius = 760;
-const boosterXs = [650, 2950];
+const boosterXs = [320, 1680];
 const boosterRadius = 115;
 const boosterVelocity = 6500;
 const replayTickUs = 16667;
@@ -560,13 +560,13 @@ function displayTheme() {
 }
 const players = [
   { name: "@JEFFREY", rosterIndex: 0, handleColors: fighterRoster[0].colors,
-    pad: 0, spawnX: 1500, x: 1500, y: floorY, z: 0,
+    pad: 0, spawnX: 800, x: 800, y: floorY, z: 0,
     vx: 0, vy: 0, vz: 0, facing: 1,
     grounded: true, ducking: false, previous: [], lastButton: "NONE",
     lastButtonAt: 0, color: [190, 42, 58], hit: 0,
     hitSegment: -1, hitSegmentUntil: 0, hitStunUntil: 0,
     alive: true, respawnAt: 0, score: 0, inputX: 0, inputY: 0,
-    skateboard: false,
+    skateboard: false, skateVx: 0,
     suppressedDirections: [],
     lastTap: {}, lastRelease: {}, dashUntil: 0, dashVx: 0, runSince: 0, roundWins: 0,
     attackKind: "", attackStartedAt: 0,
@@ -577,7 +577,7 @@ const players = [
     heldBall: -1, heldPart: -1, heldPlayer: -1, grabbedBy: -1,
     grabHeld: false, crouchBlend: 0, standingOn: -1,
     partDamage: {}, removedParts: [], pogoHit: false, pogoDive: false,
-    pounding: false, poundFrom: 0,
+    pounding: false, poundFrom: 0, poundLevel: 0,
     commandStream: [],
     botPresses: {},
     jumpLaunchAt: 0, jumpPoseUntil: 0, landPoseUntil: 0,
@@ -585,13 +585,13 @@ const players = [
     crouchJump: false, attackMomentum: 1 },
   { name: "@OSKIE", rosterIndex: 2, handleColors: fighterRoster[2].colors,
     npc: false, bot: false,
-    pad: 1, spawnX: 2100, x: 2100, y: floorY, z: 0,
+    pad: 1, spawnX: 1200, x: 1200, y: floorY, z: 0,
     vx: 0, vy: 0, vz: 0, facing: -1,
     grounded: true, ducking: false, previous: [], lastButton: "NONE",
     lastButtonAt: 0, color: [38, 82, 176], hit: 0,
     hitSegment: -1, hitSegmentUntil: 0, hitStunUntil: 0,
     alive: true, respawnAt: 0, score: 0, inputX: 0, inputY: 0,
-    skateboard: false,
+    skateboard: false, skateVx: 0,
     suppressedDirections: [],
     lastTap: {}, lastRelease: {}, dashUntil: 0, dashVx: 0, runSince: 0, roundWins: 0,
     attackKind: "", attackStartedAt: 0,
@@ -602,7 +602,7 @@ const players = [
     heldBall: -1, heldPart: -1, heldPlayer: -1, grabbedBy: -1,
     grabHeld: false, crouchBlend: 0, standingOn: -1,
     partDamage: {}, removedParts: [], pogoHit: false, pogoDive: false,
-    pounding: false, poundFrom: 0,
+    pounding: false, poundFrom: 0, poundLevel: 0,
     commandStream: [],
     botPresses: {},
     jumpLaunchAt: 0, jumpPoseUntil: 0, landPoseUntil: 0,
@@ -617,9 +617,9 @@ const grenades = [];
 // ledge is gone they sit just above the floor instead of floating at its old
 // invisible height.
 const gunPickups = [
-  { kind: "HANDGUN", amount: 6, x: 1350,
+  { kind: "HANDGUN", amount: 6, x: 850, startsActive: true,
     y: PLATFORM ? platformY - 70 : floorY - 35, z: 0 },
-  { kind: "RUBBER SMG", amount: 12, x: 2250,
+  { kind: "RUBBER SMG", amount: 12, x: 1150, startsActive: true,
     y: PLATFORM ? platformY - 70 : floorY - 35, z: 0 },
 ];
 const grenadePickups = [
@@ -639,8 +639,9 @@ const treeRipenUs = 18000000;
 const treeTimeBonusUs = 15000000;
 const airParticles = [];
 for (const pickup of [...gunPickups, ...grenadePickups]) {
-  pickup.active = false;
+  pickup.active = Boolean(pickup.startsActive);
   pickup.respawnAt = 0;
+  pickup.y = PLATFORM ? platformY - 70 : terrainFloorAt(pickup.x) - 35;
 }
 // Every kind carries a gravity factor so redressing the match ball in place
 // can never leave a previous kind's float behind.
@@ -2306,6 +2307,7 @@ function resetRound(now, resetMatch = false) {
     player.heldPlayer = -1;
     player.grabbedBy = -1;
     player.skateboard = false;
+    player.skateVx = 0;
     player.grabHeld = false;
     player.commandStream = [];
     player.hitSegment = -1;
@@ -2318,6 +2320,7 @@ function resetRound(now, resetMatch = false) {
     player.pogoDive = false;
     player.pounding = false;
     player.poundFrom = 0;
+    player.poundLevel = 0;
     player.standingOn = -1;
     player.previousY = player.y;
     player.crouchBlend = 0;
@@ -2356,7 +2359,7 @@ function resetRound(now, resetMatch = false) {
     player.lastButtonAt = 0;
   }
   for (const pickup of [...gunPickups, ...grenadePickups]) {
-    pickup.active = false;
+    pickup.active = Boolean(pickup.startsActive);
     pickup.respawnAt = 0;
   }
   for (const tree of bodyTrees) tree.growth = 0;
@@ -2723,7 +2726,7 @@ function fireGun(player, input) {
       x: pose.muzzle.x, y: pose.muzzle.y, z: pose.muzzle.z,
       vx: pose.dx * (smg ? 5000 : 4200),
       vy: (pose.dy + spread) * (smg ? 5000 : 4200),
-      owner: player.pad, life: 1, rubber: smg,
+      owner: player.pad, life: 1, rubber: smg, safeUntil: now + 100000,
     });
   }
   while (bullets.length > 24) bullets.shift();
@@ -2866,7 +2869,7 @@ function updatePowerups(now) {
     const occupied = [...gunPickups, ...grenadePickups]
       .some((pickup) => pickup.active);
     if (!occupied) {
-      const choices = [gunPickups[0], grenadePickups[0]];
+      const choices = [...gunPickups, grenadePickups[0]];
       const pickup = choices[powerupSequence % choices.length];
       pickup.active = true;
       // The flag owns exact center. Alternating pickup lanes keep a real-sized
@@ -2932,8 +2935,10 @@ function updateBullets(dt, now) {
   const poseTime = (now - startedAt) / 1000000;
   for (const bullet of bullets) {
     if (bullet.life <= 0) continue;
-    const target = players[bullet.owner === 0 ? 1 : 0];
-    if (!target.alive) continue;
+    const targets = [players[bullet.owner === 0 ? 1 : 0], players[bullet.owner]];
+    for (const target of targets) {
+    if (!target?.alive || (target.pad === bullet.owner && now < bullet.safeUntil))
+      continue;
     // A raised shield answers a bullet by sending it home, and hands it over:
     // flipping `owner` is what lets the returned shot hurt whoever fired it.
     if (target.blocking) {
@@ -2951,30 +2956,35 @@ function updateBullets(dt, now) {
         continue;
       }
     }
-    let contact = runnerContactToPoint(target, poseTime,
-      bullet.x, bullet.y, bullet.z);
-    // Fast rounds sample the whole travelled segment, not just its end point.
-    // This prevents a 40 ms frame from stepping clean through a thin limb.
-    for (const amount of [.2, .4, .6, .8]) {
-      const sample = runnerContactToPoint(target, poseTime,
-        lerp(bullet.previousX ?? bullet.x, bullet.x, amount),
-        lerp(bullet.previousY ?? bullet.y, bullet.y, amount), bullet.z);
-      if (Math.min(sample.headDistance, sample.bodyDistance) <
-          Math.min(contact.headDistance, contact.bodyDistance)) contact = sample;
-    }
-    if (Math.min(contact.headDistance, contact.bodyDistance) <= 24) {
+    const contact = attackCapsuleContact([{
+      x1: bullet.previousX ?? bullet.x, y1: bullet.previousY ?? bullet.y,
+      z1: bullet.z, x2: bullet.x, y2: bullet.y, z2: bullet.z,
+      width: 48, role: "bullet", part: "bullet",
+    }], target, poseTime);
+    if (contact && contact.separation <= 3) {
+      const pointContact = runnerContactToPoint(target, poseTime,
+        bullet.x, bullet.y, bullet.z);
+      const endpointHit = Math.min(pointContact.headDistance,
+        pointContact.bodyDistance) <= 24;
+      const headshot = endpointHit
+        ? pointContact.headDistance <= pointContact.bodyDistance
+        : contact.headshot;
+      const segmentIndex = endpointHit && !headshot
+        ? pointContact.segmentIndex : contact.segmentIndex;
       bullet.life = 0;
-      impacts.push({ x: bullet.x, y: bullet.y, z: bullet.z,
-        life: .2, duration: .2, death: contact.headDistance <= 24,
+      impacts.push({ x: contact.x, y: contact.y, z: contact.z,
+        life: .2, duration: .2, death: headshot,
         explosion: false });
       impactHitboxesUntil = Math.max(impactHitboxesUntil, now + 350000);
-      if (contact.headDistance <= 24)
+      if (headshot)
         killPlayer(target, bullet.owner, now, "SHOT");
       else {
-        applyBodyHit(target, contact.segmentIndex,
+        applyBodyHit(target, segmentIndex,
           bullet.x - bullet.vx, bullet.owner, now, 1180, 125);
         playDrum("block", .9, panPlayer(target));
       }
+      break;
+    }
     }
   }
   for (let index = bullets.length - 1; index >= 0; index--)
@@ -3489,6 +3499,15 @@ function directionTap(player, direction, now) {
     player.jumpHeld = false;
     emitSignal("ultrajump", player.pad, 1, 0);
   } else if (direction === "DOWN") {
+    if (player.pounding) {
+      player.poundLevel = Math.min(3, Math.max(1, player.poundLevel) + 1);
+      const cap = poundMaxVelocity * (1 + .5 * (player.poundLevel - 1));
+      player.vy = Math.min(cap, Math.max(poundLaunchVelocity, player.vy * 1.55));
+      player.pendingMoveLabel = "GROUND POUND " + player.poundLevel;
+      playSine(620 + player.poundLevel * 190, .12 + player.poundLevel * .04);
+      emitSignal("fastdrop", player.pad, player.poundLevel, player.vy);
+      return true;
+    }
     // Grounded anywhere above the real floor and not riding a head means the
     // platform, wherever it has been placed. Double-crouch sinks through it.
     if (player.grounded && player.standingOn < 0 &&
@@ -3503,6 +3522,7 @@ function directionTap(player, direction, now) {
       // is measured against where the fall actually began.
       player.pounding = true;
       player.poundFrom = player.y;
+      player.poundLevel = 1;
       player.vy = Math.max(player.vy, poundLaunchVelocity);
       player.grounded = false;
       player.ducking = false;
@@ -3585,8 +3605,10 @@ function killPlayer(target, killerPad, now, cause = "KO") {
 // mobility trade without prematurely ending the round.
 function groundPound(player, now) {
   player.pounding = false;
+  const poundLevel = Math.max(1, player.poundLevel || 1);
+  player.poundLevel = 0;
   const fall = clamp(player.y - player.poundFrom, 0, poundFullFall);
-  const power = fall / poundFullFall;
+  const power = clamp(fall / poundFullFall + (poundLevel - 1) * .22, 0, 1);
   const radius = poundMinRadius + (poundMaxRadius - poundMinRadius) * power;
   const poseTime = (now - startedAt) / 1000000;
   player.stance = "HIT";
@@ -3598,7 +3620,7 @@ function groundPound(player, now) {
     blastRadius: radius, power });
   impactHitboxesUntil = Math.max(impactHitboxesUntil, now + 350000);
   playDrum("kick", 1.3, panPlayer(player));
-  playSine(76 + power * 34, .38);
+  playSine(76 + power * 34 + poundLevel * 18, .32 + poundLevel * .09);
   emitSignal("blast", player.pad, player.x / worldRight, power);
 
   for (const target of players) {
@@ -3826,6 +3848,7 @@ function updateStance(player, input, now) {
     : !player.grounded && now < player.hopUntil ? "CROUCH HOP"
     : player.ducking ? player.grounded ? "CROUCH" : "AIR CROUCH"
     : player.pogoDive ? "POGO DOWN"
+    : player.skateboard && player.grounded ? "SKATE"
     : !player.grounded ? "AIR"
     : now < player.dashUntil ? "DASH"
     : input.horizontal === toward ? "ADVANCE"
@@ -4221,12 +4244,20 @@ function updatePlayer(player, pad, dt, now) {
   const runSpeed = player.runSince
     ? Math.min(runTopSpeed, runStartSpeed +
       (now - player.runSince) / 1000000 * runAcceleration) : 0;
-  const controlledVx = player.blocking ? player.shieldVx || 0
+  let controlledVx = player.blocking ? player.shieldVx || 0
     : now < player.dashUntil && Math.abs(player.dashVx) > 0
     ? player.dashVx
     : player.runSince ? input.horizontal * runSpeed * mobility
     : player.ducking && player.grounded ? 0
     : input.horizontal * walkSpeed * mobility;
+  if (player.skateboard && player.grounded && !player.blocking) {
+    const skateTarget = input.horizontal * 2700;
+    const turnRate = Math.sign(skateTarget) !== Math.sign(player.skateVx) ? 1.8 : 3.2;
+    player.skateVx += (skateTarget - player.skateVx) *
+      (1 - Math.exp(-dt * turnRate));
+    if (!input.horizontal) player.skateVx *= Math.max(0, 1 - dt * .65);
+    controlledVx = player.skateVx;
+  } else if (!player.skateboard) player.skateVx = 0;
   player.vx = controlledVx + player.windVx + player.knockVx;
   if (inputChanged) telemetry("FIGHT_MOVE", player.name +
     " pad=" + (player.pad + 1) +
@@ -4252,14 +4283,16 @@ function updatePlayer(player, pad, dt, now) {
     player.jumpLaunchAt = now + (airJump ? 1 : jumpAnticipationUs);
     player.crouchJump = !airJump && wasCrouched;
     if (airJump) player.airJumpsUsed++;
-    player.pendingMoveLabel = airJump ? "DOUBLE JUMP"
+    player.pendingMoveLabel = player.skateboard ? "OLLIE"
+      : airJump ? "DOUBLE JUMP"
       : wasCrouched ? "CROUCH JUMP" : "JUMP";
   }
   if (player.jumpLaunchAt && now >= player.jumpLaunchAt) {
     player.jumpLaunchAt = 0;
     player.jumpPoseUntil = now +
       (player.crouchJump ? crouchJumpPoseUs : jumpPoseUs);
-    const jumpScale = pogo ? .88 : legCount === 1 ? .78 : 1;
+    const jumpScale = player.skateboard ? 1.12
+      : pogo ? .88 : legCount === 1 ? .78 : 1;
     player.vy = Math.min(player.vy,
       -(player.crouchJump ? crouchJumpVelocity : jumpVelocity) * jumpScale);
     player.jumpHeld = true;
@@ -4323,7 +4356,8 @@ function updatePlayer(player, pad, dt, now) {
   // the only thing that makes a pound faster, so the height you fell from and
   // the pressure you kept on it are the two dials on the crater.
   if (player.pounding && input.vertical < 0)
-    player.vy = Math.min(poundMaxVelocity,
+    player.vy = Math.min(poundMaxVelocity *
+      (1 + .5 * Math.max(0, player.poundLevel - 1)),
       player.vy + poundHoldAcceleration * dt);
   player.x += player.vx * dt;
   player.y += player.vy * dt;
@@ -4632,6 +4666,7 @@ function gameSim() {
     // Severed pieces belong to the action too; the result clock must not pin
     // them in mid-air while the surviving body completes its landing.
     updateDetachedParts(dt);
+    updateResultImpactDebris(dt);
     updateCameraDoll(dt, now);
     captureFrameTelemetry(now);
     const resultDuration = matchOver ? matchResultUs : roundResultUs;
@@ -4740,6 +4775,36 @@ function gameSim() {
       roundCause = "TIME";
     finishRound(now);
   }
+}
+
+function updateResultImpactDebris(dt) {
+  for (const impact of impacts) {
+    if (!impact.debris) {
+      const count = impact.death ? 20 : impact.explosion ? 24 : 6;
+      impact.debris = Array.from({ length: count }, (_, index) => {
+        const angle = index / count * Math.PI * 2 +
+          Math.sin(impact.x * .013 + impact.y * .007) * .7;
+        const force = (impact.death ? 920 : impact.explosion ? 1180 : 420) *
+          (.65 + (index % 3) * .17);
+        return { x: impact.x, y: impact.y, z: impact.z || 0,
+          vx: Math.cos(angle) * force, vy: Math.sin(angle) * force - 360,
+          vz: Math.sin(angle * 1.7) * force * .28,
+          radius: impact.death ? 7 : impact.explosion ? 9 : 6 };
+      });
+    }
+    for (const mote of impact.debris) {
+      mote.vy += fallGravity * .72 * dt;
+      mote.x += mote.vx * dt; mote.y += mote.vy * dt; mote.z += mote.vz * dt;
+      const surface = terrainFloorAt(mote.x) - mote.radius;
+      if (mote.y > surface) {
+        mote.y = surface;
+        mote.vy = -Math.abs(mote.vy) * .32;
+        mote.vx *= .76; mote.vz *= .76;
+      }
+    }
+    impact.life -= dt;
+  }
+  while (impacts.length && impacts[0].life <= 0) impacts.shift();
 }
 
 function circle(x, y, radius, width, color) {
@@ -5639,6 +5704,7 @@ function damageAllLimbs(target, sourceX, sourcePad, now) {
 function dismountSkateboard(target, now) {
   if (!target.skateboard) return false;
   target.skateboard = false;
+  target.skateVx = 0;
   const board = balls.find((item) => item.type === "skateboard") || balls[0];
   Object.assign(board, ballKinds.find((kind) => kind.type === "skateboard"));
   board.active = true;
@@ -6010,7 +6076,8 @@ function drawControlLegend(ink) {
   const directionActive = (button) => held.includes(button) ||
     (button === "ArrowLeft" && pad.leftX < -.12) ||
     (button === "ArrowRight" && pad.leftX > .12) ||
-    (button === "ArrowUp" && pad.leftY > .12);
+    (button === "ArrowUp" && pad.leftY > .12) ||
+    (button === "ArrowDown" && pad.leftY < -.12);
   const size = compactLayout() ? 18 : 24;
   const x = safe.left + 8;
   const both = held.includes("A") && held.includes("B");
@@ -6021,6 +6088,7 @@ function drawControlLegend(ink) {
     ["RIGHT", "ArrowRight", dash ? "DASH >>" :
       directionActive("ArrowRight") ? "MOVE" : ""],
     ["STICK_UP", "ArrowUp", directionActive("ArrowUp") ? "JUMP" : ""],
+    ["DOWN", "ArrowDown", directionActive("ArrowDown") ? "CROUCH" : ""],
     ["A", "A", both ? "GRAB" : held.includes("A") ? "KICK" : ""],
     ["B", "B", !both && held.includes("B") ? "PUNCH" : ""],
     ["X", "X", held.includes("X") ? "SHIELD" : ""],
@@ -6031,7 +6099,8 @@ function drawControlLegend(ink) {
   for (const [row, [cap, button, action]] of controls.entries()) {
     const y = safe.top + row * step;
     const width = keyboard
-      ? drawKeycap(cap === "STICK_UP" ? "W" : cap, x, y, size,
+      ? drawKeycap(cap === "STICK_UP" ? "W" : cap === "DOWN" ? "S" : cap,
+        x, y, size,
         directionActive(button))
       : drawPadButton(cap, x, y, size,
         button.startsWith("Arrow") ? directionActive(button) : held.includes(button));
@@ -6123,6 +6192,8 @@ function drawHandle(handle, x, y, size, colors, fallback) {
 
 function drawFace(player, head, color, t, now = runtime().monotonicUs) {
   if (head.radius < 5) return;
+  const bodyDepth = triangleDepth;
+  triangleDepth = bodyDepth - .012;
   const r = head.radius;
   const direction = player.facing || 1;
   const stroke = (x1, y1, x2, y2, width, ink = color) =>
@@ -6197,8 +6268,10 @@ function drawFace(player, head, color, t, now = runtime().monotonicUs) {
     const pupilInk = visualTheme.light > .5 ? [10, 14, 28] : [244, 248, 255];
     for (const offset of [-eyeGap, eyeGap]) {
       filledDisc(faceX + offset, eyeY, socketRadius, color);
+      triangleDepth = bodyDepth - .02;
       filledDisc(faceX + offset + pupilX, eyeY + pupilY,
         pupilRadius, pupilInk);
+      triangleDepth = bodyDepth - .012;
     }
   }
   if (player.bot && player.alive && !player.blocking) {
@@ -6235,6 +6308,7 @@ function drawFace(player, head, color, t, now = runtime().monotonicUs) {
     stroke(faceX, mouthY + r * .09, faceX + r * .23,
       mouthY - smile, lineWidth);
   }
+  triangleDepth = bodyDepth;
 }
 
 function drawInventory(player, now) {
@@ -6449,16 +6523,20 @@ function drawRunner(player, t, showLabel = true) {
 
 function drawDiveMotion(player, t) {
   if (player.grounded || (!player.pounding && !player.pogoDive)) return;
-  const speed = clamp(Math.abs(player.vy) / poundMaxVelocity, .25, 1);
-  const color = mixColor(player.color, [255, 245, 196], .46);
-  for (let index = 0; index < 5; index++) {
-    const spread = (index - 2) * 30;
+  const level = player.pounding ? Math.max(1, player.poundLevel || 1) : 1;
+  const speed = clamp(Math.abs(player.vy) / poundMaxVelocity, .25, 1.8);
+  const color = mixColor(player.color,
+    level === 3 ? [255, 80, 92] : level === 2 ? [255, 190, 62] : [255, 245, 196],
+    .46 + level * .12);
+  const count = 3 + level * 3;
+  for (let index = 0; index < count; index++) {
+    const spread = (index - (count - 1) / 2) * 24;
     const wobble = Math.sin(t * 13 + index * 2.1) * 9;
     const x = player.x + spread + wobble;
     const startY = player.y - 125 - index % 2 * 36;
     const endY = startY - (95 + index * 17) * speed;
     worldCapsule(x, startY, player.z + 18, x, endY, player.z + 18,
-      4 + speed * 4, color, .028);
+      3 + speed * 3 + level, color, .028);
   }
 }
 
@@ -6706,44 +6784,17 @@ function drawCommandStream(player, side) {
     else claimed.add(entry.label);
   }
   if (!entries.length) return;
-  const lines = [];
-  let current = [];
-  let characters = 0;
-  for (const entry of entries) {
-    // A disc is a disc: pad rows wrap by count, not by how many letters the
-    // label would have spelled — eight buttons to a line, not four.
-    const cost = 1;
-    const nextLength = characters + (current.length ? 1 : 0) + cost;
-    if (current.length && nextLength > commandStreamColumns) {
-      lines.push(current);
-      current = [];
-      characters = 0;
-    }
-    current.push(entry);
-    characters += (current.length > 1 ? 1 : 0) +
-      1;
-  }
-  if (current.length) lines.push(current);
-  // A deep buffer on a wide-text platform can outgrow the corner it lives in.
-  // Dropping whole rows off the top keeps the newest commands on screen rather
-  // than letting the block climb out of the safe area.
-  if (lines.length > commandStreamRows)
-    lines.splice(0, lines.length - commandStreamRows);
-  const safe = hudSafeRect();
+  // One reading line: the newest command owns the left edge and history trails
+  // rightward into progressively quieter ink.
+  entries.reverse();
   const size = Math.max(15, Math.round(hudTypeSize * .72));
-  const lineHeight = Math.round(size * 1.5) + 5;
-  // Commands are notation, not player-state furniture: both read from the
-  // top edge, with P1 owning top-left and P2 mirrored so the lists cannot
-  // overwrite one another.
-  const firstY = safe.top + hudTypeSize * 3 + 18;
-  for (let row = 0; row < lines.length; row++) {
-    const lineEntries = lines[row];
-    const width = lineEntries.reduce((sum, entry, index) => sum +
+  const lineEntries = entries.slice(0, commandStreamDepth);
+  const width = lineEntries.reduce((sum, entry, index) => sum +
       handleWidth(entry.text, size) + (index ? Math.round(size * .34) : 0), 0);
-    let cursor = side === 0 ? safe.left + controlRailWidth()
-      : safe.right - 8 - width;
-    const y = firstY + row * lineHeight;
-    for (const entry of lineEntries) {
+  const handle = playerHandleLayout(player, side);
+  let cursor = side === 0 ? handle.x : handle.x + handle.width - width;
+  const y = handle.y - statStackHeight() - size * 2 - 16;
+  for (const entry of lineEntries) {
       const quiet = mixColor([104, 114, 136], [82, 90, 108], visualTheme.light);
       const live = entry.held ? player.color : quiet;
       const glyphInk = entry.fade >= 1 ? live
@@ -6753,7 +6804,6 @@ function drawCommandStream(player, side) {
         ...contrastShadow(glyphInk));
       typeWrite(entry.text, cursor, y, size, ...glyphInk);
       cursor += handleWidth(entry.text, size) + Math.round(size * .34);
-    }
   }
 }
 
@@ -6990,9 +7040,6 @@ function drawBoosterPad(t) {
       { x: boosterX + boosterRadius, y, z: -86 },
       { x: boosterX + boosterRadius, y, z: 86 },
       { x: boosterX - boosterRadius, y, z: 86 }, color);
-    for (const offset of [-42, 0, 42])
-      worldCapsule(boosterX + offset, y - 3, -54,
-        boosterX + offset, y - 3, 54, 7, [255, 245, 180], -.01);
   }
 }
 
@@ -7218,7 +7265,12 @@ function drawGunPickup(pickup, t) {
 }
 
 function drawBullet(bullet) {
+  const previous = projectPoint(bullet.previousX ?? bullet.x,
+    bullet.previousY ?? bullet.y, bullet.z);
   const point = projectPoint(bullet.x, bullet.y, bullet.z);
+  filledCapsule(previous.x, previous.y, point.x, point.y,
+    Math.max(2, (bullet.rubber ? 4 : 3) * cameraScale()),
+    bullet.rubber ? [42, 48, 58] : [92, 96, 105]);
   filledDisc(point.x, point.y, Math.max(3, 6 * cameraScale()), [8, 10, 16]);
 }
 
@@ -7621,7 +7673,7 @@ function drawTitleScreen(t, ink, transitionAge = -1) {
       (advance - comicGlyphAdvance(character, size)) / 2 + shudder;
     const glyphY = titleY + bob - (size - titleSize) * .5 -
       toy.grow * (compact ? 6 : 11);
-    const shadowOffset = Math.max(4, Math.round(size * .055));
+    const shadowOffset = Math.max(4, Math.min(5, Math.round(size * .025)));
     typeWrite(character, glyphX + shadowOffset, glyphY + shadowOffset,
       size, ...mixColor([8, 10, 24], [73, 43, 55], visualTheme.light * .35));
     typeWrite(character, glyphX, glyphY,
@@ -7897,13 +7949,18 @@ function drawImpacts() {
     if (impact.explosion && impact.blastRadius) {
       const age = clamp(1 - impact.life / impact.duration, 0, 1);
       const center = projectPoint(impact.x, impact.y - 3, impact.z || 0);
-      const edge = projectPoint(impact.x + impact.blastRadius *
-        (.18 + age * .82), impact.y - 3, impact.z || 0);
+      const edge = projectPoint(impact.x + impact.blastRadius,
+        impact.y - 3, impact.z || 0);
       const radius = Math.abs(edge.x - center.x);
-      if ([center.x, center.y, radius].every(Number.isFinite) && radius < 4000)
+      if ([center.x, center.y, radius].every(Number.isFinite) && radius < 4000) {
         filledRing(center.x, center.y, radius,
-          Math.max(0, radius - Math.max(5, 18 * (1 - age))),
+          Math.max(0, radius - Math.max(7, 22 * (1 - age))),
           mixColor([255, 218, 86], [111, 74, 48], age));
+        const shockRadius = radius * (.18 + age * .72);
+        filledRing(center.x, center.y, shockRadius,
+          Math.max(0, shockRadius - Math.max(4, 13 * (1 - age))),
+          mixColor([255, 246, 184], [164, 92, 52], age));
+      }
     }
     for (const mote of impact.debris || []) {
       const point = projectPoint(mote.x, mote.y, mote.z);
@@ -8022,7 +8079,6 @@ function gamePaint() {
   const windInk = windDirection < 0
     ? mixColor([72, 174, 255], [28, 88, 188], visualTheme.light)
     : mixColor([255, 92, 132], [184, 35, 62], visualTheme.light);
-  drawAmbientMotes(windInk);
   if (WIND_FLAG && shellMode === "GAME") drawWindFlag(t, windInk);
   // The top row is the round's: a clock, and who is watching. The wordmark
   // screen carries its own clock, so this one waits for start.
