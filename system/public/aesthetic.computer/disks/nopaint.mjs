@@ -18,6 +18,7 @@ import { nopaintProposal as walkerProposal } from "./walker.mjs";
 import { nopaintProposal as stampProposal } from "./stamp.mjs";
 import { nopaintProposal as frameProposal } from "./frame.mjs";
 import { nopaintProposal as caterpillarProposal } from "./caterpillar.mjs";
+import { nopaintProposal as softyProposal } from "./softy.mjs";
 import { gridWormProposal } from "../lib/nopaint-construct-brushes.mjs";
 import { nonConflictingConstructProposals } from "../lib/nopaint-construct-catalog.mjs";
 import { recoveredConstructTransforms } from "../lib/nopaint-construct-transforms.mjs";
@@ -44,6 +45,7 @@ const COMPATIBLE_BRUSHES = Object.freeze(new Map([
   [stampProposal.slug, stampProposal],
   [frameProposal.slug, frameProposal],
   [caterpillarProposal.slug, caterpillarProposal],
+  [softyProposal.slug, softyProposal],
 ]));
 
 let loopState = "choosing";
@@ -1155,17 +1157,6 @@ function renderProposal($) {
     );
   } else if (proposal.kind === "line") {
     lineProposal.render($, proposal, proposalFrame);
-  } else if (proposal.kind === "softy") {
-    proposal.points.slice(0, 12).forEach((point, index) => {
-      const breathe = 1 + Math.sin(phase + index * 0.7) * 0.18;
-      ink(color[0], color[1], color[2], 22).oval(
-        point.x + drift,
-        point.y - drift,
-        point.size * 2.8 * breathe,
-        point.size * 2.8 * breathe,
-        true,
-      );
-    });
   } else if (proposal.kind === "bubbles") {
     proposal.points.forEach((point, index) => {
       const rise = (proposalFrame * (0.08 + (index % 4) * 0.03)) % buffer.height;

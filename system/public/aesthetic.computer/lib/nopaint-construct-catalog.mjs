@@ -19,11 +19,6 @@ function contract(slug, label, source, generateScore, render) {
     }, render });
 }
 
-export const softyProposal = contract("softy", "Softy",
-  { modes: ["S", "M", "L"], radii: [[6, 16], [16, 48], [48, 64]], landingFrames: 4 },
-  ({ random, width, height, base }) => ({ points: points(random, width, height, 12), mode: ["S", "M", "L"][Math.floor(random() * 3)], color: base.color }),
-  ({ ink }, s, frame) => s.points.forEach((p, i) => ink(s.color[0], s.color[1], s.color[2], 22).oval(p.x, p.y, p.size * (1 + .18 * Math.sin(frame / 24 + i * .7)), p.size * (1 + .18 * Math.sin(frame / 24 + i * .7)), true)));
-
 export const buildProposal = contract("build", "Build",
   { brickSizes: [4, 8, 16, 32, 64, 128], colorAlpha: 1 },
   ({ random, width, height, base }) => ({ brickSize: [4, 8, 16, 32, 64, 128][Math.floor(random() * 6)], points: points(random, width, height, 24), color: base.color }),
@@ -75,10 +70,10 @@ export const rainbowProposal = contract("rainbow", "Rainbow",
   { effect: "AdjustHSL", hueRange: [-100, 100] },
   ({ base }) => ({ color: base.color }), ({ ink }, s, frame) => { for (let i = 0; i < 7; i++) { const hue = (frame / 120 + i / 7) * Math.PI * 2; ink(Math.round(128 + Math.sin(hue) * 127), Math.round(128 + Math.sin(hue + 2.094) * 127), Math.round(128 + Math.sin(hue + 4.188) * 127), 96).box(s.x, s.y + i * s.h / 7, s.w, Math.ceil(s.h / 7)); } });
 
-// Frame and Caterpillar graduated to their own disks; a name only stays in this
-// fallback catalog until a real piece owns it.
+// Frame, Caterpillar, and Softy graduated to their own disks; a name only stays
+// in this fallback catalog until a real piece owns it.
 export const nonConflictingConstructProposals = frozen([
-  softyProposal, buildProposal, bubblesProposal, bannerProposal, waferProposal,
+  buildProposal, bubblesProposal, bannerProposal, waferProposal,
   walkerProposal, auraProposal, triangleProposal, ellipseProposal, breatheProposal,
   vignetteProposal, rainbowProposal,
 ]);

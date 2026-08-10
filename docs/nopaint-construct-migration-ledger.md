@@ -46,8 +46,9 @@ of the Construct implementation.
 
 ## Pieces that own their slug
 
-`bubbles`, `walker`, `dark-window`, `line`, `box`, `stamp`, `frame`, and
-`caterpillar` are real AC pieces that export their own `nopaintProposal`;
+`bubbles`, `walker`, `dark-window`, `line`, `box`, `stamp`, `frame`,
+`caterpillar`, and `softy` are real AC pieces that export their own
+`nopaintProposal`;
 `disks/nopaint.mjs` imports each one and registers it after the fallback
 catalog, so the piece's contract wins by slug. A name leaves
 `nopaint-construct-catalog.mjs` on the day a piece takes it over — that catalog
@@ -67,6 +68,20 @@ values. Both are now read out of `C3_ExpressionFuncs`:
   for seven segments (`Caterpillar: 7`) is the original rainbow-road easter
   egg: `length == 6` swaps the cue and cycles hue along the body instead of
   fading lightness.
+
+## Redrawing versus accumulating
+
+Most recovered brushes are a function of the frame, so `render` can redraw them
+whole. Softy is not: it stamps a soft circle into a layer on every Move tick,
+and the stroke is the accumulation. Redrawing the whole stroke each frame costs
+**~1.7s a frame** at the largest radius, so Softy keeps a per-score layer,
+composites only the stamps the clock has newly reached, and pastes that layer
+once — peak 7ms on the first frame, 0.4ms after. Any future brush that paints
+a trail rather than a shape wants the same treatment.
+
+Because a Construct stroke ran until you pressed Paint and a proposal has to
+end, Softy's walk is capped at a fixed number of stamps. That length is the one
+invented number in it.
 
 The safe image filters/transforms `contrast`, `flip`, `invert`, `light-bump`,
 `mirror`, `quicksand`, `recurse`, `saturate`, `scroll`, `sharpen`, `spin`,

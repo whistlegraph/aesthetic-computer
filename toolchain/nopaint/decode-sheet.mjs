@@ -36,9 +36,12 @@ const expression = (value) => {
 };
 
 // [type, id, behavior, sid, flags, …, params]; params sit at index 6 for
-// actions and index 9 for conditions.
+// actions and index 9 for conditions. Type 2 is an audio file reference —
+// [name, isLooping] — not an expression, so print it as written.
 const parameters = (list) => (list || [])
-  .map(([type, value]) => `      p${type}: ${expression(value)}`).join("\n");
+  .map(([type, value]) => `      p${type}: ${type === 2
+    ? `audio ${JSON.stringify(value?.[0])}${value?.[1] ? " (looping)" : ""}`
+    : expression(value)}`).join("\n");
 
 function walk(node, depth) {
   if (!Array.isArray(node)) return;
