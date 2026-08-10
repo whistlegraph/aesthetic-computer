@@ -1051,6 +1051,8 @@ if (window.acDEBUG === true || window.acDEBUG === false) {
   window.location.hostname.endsWith(".ac") ||
   window.location.hostname === "notepat.com" ||
   window.location.hostname === "www.notepat.com" ||
+  window.location.hostname === "nopaint.art" ||
+  window.location.hostname === "www.nopaint.art" ||
   window.location.hostname === "oskiewar.com" ||
   window.location.hostname === "www.oskiewar.com" ||
   window.location.hostname === "laklok.com" ||
@@ -1092,6 +1094,12 @@ if (
   location.hostname === "www.notepat.com"
 ) {
   window.acSTARTING_PIECE = "notepat";
+}
+if (
+  location.hostname === "nopaint.art" ||
+  location.hostname === "www.nopaint.art"
+) {
+  window.acSTARTING_PIECE = "nopaint";
 }
 if (
   location.hostname === "oskiewar.com" ||

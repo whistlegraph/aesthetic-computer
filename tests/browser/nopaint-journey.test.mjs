@@ -120,14 +120,20 @@ try {
     );
   });
 
-  await scenario("Painting resolution stays fixed while its presentation responds", async (expect) => {
-    // A nopainting is a system painting at a fixed resolution set at
-    // creation (256×256 standard). Window changes only re-center it in the
-    // studio — the resolution never follows the viewport.
+  await scenario("The first decision locks painting resolution while its presentation responds", async (expect) => {
+    const fresh = await ac.nopaintState();
+    expect(
+      fresh.layout.paintingResolution.width === fresh.layout.paintingViewport.w &&
+      fresh.layout.paintingResolution.height === fresh.layout.paintingViewport.h &&
+      fresh.layout.paintingViewport.x === 0 && fresh.layout.paintingViewport.y === 0,
+      "a fresh nopainting is an isolated 1:1 canvas filling the area above the controls",
+    );
+    const preDecision = fresh;
+    await ac.measureNopaintDecision("ArrowLeft");
     const initial = await ac.nopaintState();
+    expect(initial?.decisions?.length === (preDecision?.decisions?.length ?? 0) + 1,
+      "a first No decision locks the substrate");
     const lockedResolution = initial.layout.paintingResolution;
-    expect(lockedResolution.width === 256 && lockedResolution.height === 256,
-      "a fresh nopainting is the 256×256 standard");
     const acceptedFingerprint = initial.paintingFingerprint;
     const viewports = [
       { width: 390, height: 844, label: "phone portrait" },

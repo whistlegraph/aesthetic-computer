@@ -941,10 +941,9 @@ www.oskiewar.com {
 # This host's DNS points straight at lith (DigitalOcean zone, no Cloudflare
 # proxy), so it cannot ride the origin cert the :443 block uses — Caddy
 # manages a real ACME cert for it instead. The native remake landed, so the
-# root now forwards to the new No Paint on AC (302 while 3.0 settles;
-# promote to 301 later). /classic stays the permanent home of the preserved
-# 2021 Construct build, and /gallery + the per-painting archive record
-# pages keep serving from here.
+# root now serves the new No Paint on AC without leaving nopaint.art.
+# /classic stays the permanent home of the preserved 2021 Construct build,
+# and /gallery + the per-painting archive record pages keep serving here.
 nopaint.art {
     # Pin issuance to LE production (Caddy demoted this host to LE staging
     # after early post-DNS-flip failures; staging's resolvers held the stale
@@ -968,7 +967,50 @@ nopaint.art {
     root * /opt/ac/system/public/nopaint.art
     encode gzip
     @nopaint_root path /
-    redir @nopaint_root https://prompt.ac/nopaint 302
+    handle @nopaint_root {
+        rewrite * /nopaint
+        import lith_proxy
+    }
+    # AC runtime routes used by the native remake at the branded root.
+    handle /api/* {
+        import lith_proxy
+    }
+    handle /.netlify/functions/* {
+        import lith_proxy
+    }
+    handle /media/* {
+        import lith_proxy
+    }
+    handle /disks/* {
+        uri strip_prefix /disks
+        root * /opt/ac/system/public/aesthetic.computer/disks
+        file_server
+    }
+    handle /lib/* {
+        uri strip_prefix /lib
+        root * /opt/ac/system/public/aesthetic.computer/lib
+        file_server
+    }
+    handle /aesthetic.computer/* {
+        root * /opt/ac/system/public
+        file_server
+    }
+    handle /type/* {
+        root * /opt/ac/system/public
+        file_server
+    }
+    handle /sw.js {
+        root * /opt/ac/system/public
+        file_server
+    }
+    handle /manifest.json {
+        root * /opt/ac/system/public
+        file_server
+    }
+    handle_path /nopaint.art/* {
+        root * /opt/ac/system/public/nopaint.art
+        file_server
+    }
     handle_path /classic* {
         file_server
     }

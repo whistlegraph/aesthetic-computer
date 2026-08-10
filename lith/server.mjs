@@ -267,6 +267,11 @@ app.use((req, _res, next) => {
     req.url = "/notepat" + (req.url === "/" ? "" : req.url.slice(req.path.length));
   }
 
+  // Preserve branded nopaint.art URLs while serving the /nopaint piece.
+  if ((host === "nopaint.art" || host === "www.nopaint.art") && req.path === "/") {
+    req.url = "/nopaint" + (req.url === "/" ? "" : req.url.slice(req.path.length));
+  }
+
   // api.aesthetic.computer / api.prompt.ac → api-docs function (public API reference)
   if (host === "api.aesthetic.computer" || host === "api.prompt.ac") {
     if (req.path === "/" || req.path === "") {

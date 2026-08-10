@@ -255,6 +255,8 @@ const SAME_ORIGIN_BUILT_IN_PIECE_HOSTS = new Set([
   "www.kidlisp.com",
   "notepat.com",
   "www.notepat.com",
+  "nopaint.art",
+  "www.nopaint.art",
   "oskiewar.com",
   "www.oskiewar.com",
   "laklok.com",

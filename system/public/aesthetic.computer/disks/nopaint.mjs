@@ -63,6 +63,7 @@ let cursorSheet = null;
 let cursorPoint = null;
 let cursorFrame = 0;
 let cursorWagFrames = 0;
+let substrateFresh = false;
 // True screen dimensions captured at paint-frame start. The live screen
 // object is shared with the runtime and temporarily carries sub-buffer
 // dimensions while a page() is active, so between-frame readers (the test
@@ -472,9 +473,13 @@ function chooseProposal(api) {
         base: baseProposal,
       })
     : baseProposal;
+  // Pixel transforms operate on the accepted No Paint composite, never the
+  // composited screen. The screen also contains the proposal UI and controls.
+  const acceptedPixels = api.system.nopaint.piece?.composite?.pixels ||
+    api.system.painting.pixels;
   proposalPixels = compatibleBrush?.applyPixels
     ? compatibleBrush.applyPixels(
-        api.system.painting.pixels,
+        new Uint8ClampedArray(acceptedPixels),
         resolution.width,
         resolution.height,
         proposal.brush.parameters,
@@ -542,6 +547,7 @@ async function loadArchivePainting(api, archiveId) {
       p.wipe(255, 255, 255, 0)
     );
     initializePiece(api, `${sessionSeed}:archive:${id}`, "archive");
+    substrateFresh = false;
     archiveOrigin.status = "ready";
     api.store["nopaint:origin"] = { ...archiveOrigin };
     api.store.persist("nopaint:origin", "local:db");
@@ -563,12 +569,36 @@ function persistPiece({ store, system }) {
   store.persist(NOPAINT_PIECE_STORE_KEY, "local:db");
 }
 
-// The standard nopainting canvas: the classic square small-pixel format the
-// archive is built from. `nopaint new` and content-less launches start here;
-// explicit sizes ride the same `new` path the prompt uses.
-const NOPAINT_STANDARD_SIZE = 256;
 const NOPAINT_MIN_SIZE = 8;
 const NOPAINT_MAX_SIZE = 2048;
+
+// A fresh painting is an isolated sub-painting exactly matching the area
+// above the controls. It presents at 1:1 and cannot contain interface pixels.
+function cutFreshSubstrate(api, seed) {
+  paintingResolution = null;
+  const { stage } = interfaceLayout(api.screen);
+  const freshPainting = api.painting(stage.w, stage.h, (p) =>
+    p.wipe(255, 255, 255));
+  seedNoiseSubstrate(freshPainting, seed);
+  api.system.nopaint.replace(
+    {
+      system: api.system,
+      screen: api.screen,
+      store: api.store,
+      needsPaint: api.needsPaint,
+    },
+    freshPainting,
+    "nopaint:fresh",
+  );
+  api.system.nopaint.buffer = api.painting(stage.w, stage.h, (p) =>
+    p.wipe(255, 255, 255, 0));
+  paintingResolution = { width: stage.w, height: stage.h };
+}
+
+function substrateIsPristine() {
+  return substrateFresh && decisions.length === 0 && !finishMode &&
+    !completionBusy;
+}
 
 // Make a fresh nopainting: a system painting at a fixed resolution, created
 // through nopaint_adjust — the same abstraction behind `new w h` on the
@@ -854,7 +884,6 @@ function boot({ colon, debug, hud, net, num, params, query = {}, screen, store, 
     const w = sizeToken(params[1]);
     if (w) requestedSize = { w, h: sizeToken(params[2]) || w };
     else if (params[1]) freshFromId = params[1];
-    else requestedSize = { w: NOPAINT_STANDARD_SIZE, h: NOPAINT_STANDARD_SIZE };
   } else if (!archiveId && sizeToken(params[0])) {
     const w = sizeToken(params[0]);
     requestedSize = { w, h: sizeToken(params[1]) || w };
@@ -917,14 +946,17 @@ function boot({ colon, debug, hud, net, num, params, query = {}, screen, store, 
     record: `https://nopaint.art/${freshFromId}`,
     action: "rejected-as-start",
   } : null;
-  // AC's painting contract: a nopainting is a system painting at a fixed
-  // resolution, set at creation. Window changes never alter it — the studio
-  // around the painting just re-centers.
+  // Plain `nopaint` and `nopaint new` cut an isolated canvas to the stage.
+  // Explicit dimensions remain fixed-size paintings.
   const needsStarterSubstrate = freshStart || (!archiveId && !paintHasContent(system.painting));
   if (needsStarterSubstrate) {
-    const size = requestedSize ||
-      { w: NOPAINT_STANDARD_SIZE, h: NOPAINT_STANDARD_SIZE };
-    makeNewPainting({ ...api, screen, store, system }, size.w, size.h, sessionSeed);
+    if (requestedSize) {
+      makeNewPainting({ ...api, screen, store, system }, requestedSize.w, requestedSize.h, sessionSeed);
+      substrateFresh = false;
+    } else {
+      cutFreshSubstrate({ ...api, screen, store, system }, sessionSeed);
+      substrateFresh = true;
+    }
   }
   paintingResolution = {
     width: system.painting.width,
@@ -938,6 +970,7 @@ function boot({ colon, debug, hud, net, num, params, query = {}, screen, store, 
   if (recoveredPiece) {
     system.nopaint.piece = recoveredPiece;
     system.painting.pixels.set(recoveredPiece.composite.pixels);
+    substrateFresh = false;
   } else {
     initializePiece({ ...api, store, system }, sessionSeed,
       needsStarterSubstrate ? "substrate" : "legacy-raster");
@@ -1275,14 +1308,9 @@ async function completePainting($) {
     $.system.painting.code = data.code;
     $.store["painting:code"] = data.code;
     $.store.persist?.("painting:code", "local:db");
-    // The next canvas keeps this session's standard resolution.
-    makeNewPainting(
-      $,
-      $.system.painting.width,
-      $.system.painting.height,
-      `${sessionSeed}:${doneCount}`,
-    );
+    cutFreshSubstrate($, `${sessionSeed}:${doneCount}`);
     initializePiece($, `${sessionSeed}:${doneCount}`);
+    substrateFresh = true;
   proposal = null;
   proposalFrame = 0;
   proposalPixels = null;
@@ -1322,8 +1350,17 @@ export function nopaintXboxAction(button, completing = false) {
 function act($) {
   const { event: e } = $;
   if (e.is("reframed")) {
-    // The painting's resolution never follows the window — only the studio
-    // presentation re-centers.
+    // Before the first decision, keep a new canvas flush with the stage as
+    // boot density settles or the device rotates. A decision locks it.
+    if (substrateIsPristine()) {
+      random = seededRandom(sessionSeed);
+      proposalNumber = 0;
+      brushCueProposal = 0;
+      cutFreshSubstrate($, sessionSeed);
+      initializePiece($, sessionSeed);
+      clearProposal($);
+      chooseProposal($);
+    }
     positionButtons($.screen);
     $.needsPaint();
     publishTestState();
