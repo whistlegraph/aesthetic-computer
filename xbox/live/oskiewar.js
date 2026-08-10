@@ -1675,12 +1675,17 @@ function beginTraining(now) {
   titleAttractMode = forcedAttract === "still" || forcedAttract === "action"
     ? forcedAttract : hashUnit(matchName) < .5 ? "still" : "action";
   if (titleAttractMode === "action") {
-    for (const player of players) {
-      player.npc = true;
-      player.bot = true;
-      player.spiderDummy = false;
-      applyRoster(player, -1);
-    }
+    // The title demonstration is a bot working a training dummy, not two
+    // anonymous red bots. Preserve the dummy's cool neutral material so the
+    // matchup is legible before START is pressed.
+    players[0].npc = true;
+    players[0].bot = true;
+    players[0].spiderDummy = false;
+    applyRoster(players[0], -1);
+    players[1].npc = true;
+    players[1].bot = false;
+    players[1].spiderDummy = false;
+    applyRoster(players[1], -1);
   }
 }
 
@@ -7414,7 +7419,7 @@ function spectatorQrBox() {
 }
 
 function drawDebugPerformance(ink) {
-  if (!debugHitboxes || roundResult) return;
+  if (!debugHitboxes || shellMode !== "GAME" || roundResult) return;
   const safe = hudSafeRect();
   const compact = compactLayout();
   const metaSize = compact ? 19 : 24;
@@ -7428,15 +7433,11 @@ function drawDebugPerformance(ink) {
   const timingLabel = "frame " + (Number(run.frameMs) || 0).toFixed(2) +
     "ms  render " + (Number(run.renderCpuMs) || 0).toFixed(2) +
     "ms  present " + (Number(run.presentMs) || 0).toFixed(2) + "ms";
-  const surfaceWidth = handleWidth(surfaceLabel, metaSize);
   const surfaceY = safe.bottom - metaSize - 4;
-  typeWrite(surfaceLabel, viewCenterX() - surfaceWidth / 2,
-    surfaceY, metaSize, ...ink);
-  if (shellMode !== "GAME") return;
+  typeWrite(surfaceLabel, safe.left, surfaceY, metaSize, ...ink);
   const timingSize = Math.max(17, metaSize * .76);
-  const timingWidth = handleWidth(timingLabel, timingSize);
-  typeWrite(timingLabel, viewCenterX() - timingWidth / 2,
-    surfaceY - timingSize - 5, timingSize, ...ink);
+  typeWrite(timingLabel, safe.left, surfaceY - timingSize - 5,
+    timingSize, ...ink);
 }
 
 function drawSpectatorQr(ink) {
