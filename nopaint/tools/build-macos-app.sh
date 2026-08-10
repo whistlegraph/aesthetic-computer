@@ -42,8 +42,36 @@ if [ "$install" -eq 1 ]; then
   destination="/Applications/No Paint.app"
   rm -rf "$destination"
   ditto "$app" "$destination"
+  dock_snapshot=$(mktemp "${TMPDIR:-/tmp}/nopaint-dock.XXXXXX.plist")
+  dock_found=0
+  if defaults export com.apple.dock "$dock_snapshot" >/dev/null 2>&1; then
+    dock_index=0
+    while dock_url=$(/usr/libexec/PlistBuddy -c \
+        "Print :persistent-apps:$dock_index:tile-data:file-data:_CFURLString" \
+        "$dock_snapshot" 2>/dev/null); do
+      normalized_url=$(printf '%s' "$dock_url" | sed 's/%20/ /g' | tr '[:upper:]' '[:lower:]')
+      if [ "$normalized_url" = "file:///applications/no paint.app/" ]; then
+        /usr/libexec/PlistBuddy -c \
+          "Set :persistent-apps:$dock_index:tile-data:file-data:_CFURLString file:///Applications/No%20Paint.app/" \
+          "$dock_snapshot"
+        /usr/libexec/PlistBuddy -c \
+          "Set :persistent-apps:$dock_index:tile-data:file-label No Paint" \
+          "$dock_snapshot"
+        defaults import com.apple.dock "$dock_snapshot" >/dev/null
+        dock_found=1
+        break
+      fi
+      dock_index=$((dock_index + 1))
+    done
+  fi
+  rm -f "$dock_snapshot"
+  if [ "$dock_found" -eq 0 ]; then
+    defaults write com.apple.dock persistent-apps -array-add \
+      '{"tile-data"={"file-data"={"_CFURLString"="file:///Applications/No%20Paint.app/";"_CFURLStringType"=15;};"file-label"="No Paint";};"tile-type"="file-tile";}'
+  fi
+  killall Dock 2>/dev/null || true
   open "$destination"
-  echo "Installed and opened $destination"
+  echo "Installed, pinned, and opened $destination"
 else
   echo "Built $app"
 fi

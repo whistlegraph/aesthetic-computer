@@ -33,5 +33,7 @@ test("the Oskiewar-style builder emits a signed installable app", () => {
   assert.match(build, /iconutil -c icns/);
   assert.match(build, /codesign --force --deep --sign -/);
   assert.match(build, /\/Applications\/No Paint\.app/);
+  assert.match(build, /com\.apple\.dock persistent-apps/);
+  assert.match(build, /file:\/\/\/Applications\/No%20Paint\.app\//);
   assert.match(build, /open "\$destination"/);
 });
