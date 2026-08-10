@@ -20,7 +20,8 @@ runtime = function acRuntime() {
   return info;
 };
 
-const buildVersion = 500;
+// Monotonic count of committed revisions to this piece (next revision included).
+const buildVersion = 19;
 const floorY = 1800;
 const ceilingY = 0;
 const wallThickness = 80;
@@ -2322,6 +2323,7 @@ function resetRound(now, resetMatch = false) {
     player.gunAimX = player.facing;
     player.gunAimY = 0;
     player.gunMode = "HANDGUN";
+    player.itemArm = "";
     player.nextGunShotAt = 0;
     player.nextSpitAt = 0;
     player.resultReaction = "";
@@ -2334,6 +2336,7 @@ function resetRound(now, resetMatch = false) {
     player.heldBall = -1;
     player.heldPart = -1;
     player.heldPlayer = -1;
+    player.carryArm = "";
     player.grabbedBy = -1;
     player.skateboard = false;
     player.skateVx = 0;
@@ -2729,9 +2732,12 @@ function updateResultReactions(now) {
       !resultReactionPrevious[player.pad].includes(button));
     if (pressed) {
       const winner = player.pad === winningPad;
+      if (pressed === "ArrowLeft") player.facing = -1;
+      if (pressed === "ArrowRight") player.facing = 1;
       player.resultReaction = winner
-        ? ({ A: "DANCE", B: "LAUGH", X: "POSE", Y: "WIGGLE" }[pressed] ||
-          "DANCE")
+        ? ({ A: "KICK", B: "PUNCH", X: "POSE", Y: "DANCE",
+            ArrowLeft: "DASH", ArrowRight: "DASH", ArrowUp: "JUMP",
+            ArrowDown: "CROUCH" }[pressed] || "DANCE")
         : ({ A: "CRY", B: "WOE", X: "SULK", Y: "WIGGLE" }[pressed] ||
           "WOE");
       player.resultReactionAt = now;
@@ -2871,9 +2877,10 @@ function updateGunPickups(now) {
     if (!pickup.active) continue;
     for (const player of players) {
       if (!player.alive || runnerDistanceToPoint(player, poseTime,
-        pickup.x, pickup.y, pickup.z) > 90) continue;
+        pickup.x, pickup.y, pickup.z) > 90 || !availableArm(player)) continue;
       player.gunAmmo = Math.min(30, player.gunAmmo + pickup.amount);
       player.gunMode = pickup.kind || "HANDGUN";
+      player.itemArm = availableArm(player);
       pickup.active = false;
       remember(player, player.gunMode + " +" + pickup.amount);
       playDrum("clap", 1.1, panPlayer(player));
@@ -2889,8 +2896,9 @@ function updateGrenadePickups(now) {
     if (!pickup.active) continue;
     for (const player of players) {
       if (!player.alive || runnerDistanceToPoint(player, poseTime,
-        pickup.x, pickup.y, pickup.z) > 90) continue;
+        pickup.x, pickup.y, pickup.z) > 90 || !availableArm(player)) continue;
       player.grenadeAmmo = Math.min(4, player.grenadeAmmo + pickup.amount);
+      player.itemArm = availableArm(player);
       pickup.active = false;
       remember(player, "GRENADE +" + pickup.amount);
       playDrum("clap", 1.1, panPlayer(player));
@@ -3063,14 +3071,29 @@ function updateBullets(dt, now) {
     for (const target of targets) {
     if (!target?.alive || (target.pad === bullet.owner && now < bullet.safeUntil))
       continue;
-    // A raised shield answers a bullet by sending it home, and hands it over:
-    // flipping `owner` is what lets the returned shot hurt whoever fired it.
+    // Reflect across the circular shield's local surface normal. A square hit
+    // returns home; a glancing hit leaves at the corresponding ricochet angle.
+    // Flipping `owner` lets the returned shot hurt whoever fired it.
     if (target.blocking) {
       const shield = shieldGeometry(target);
       if (Math.hypot(bullet.x - shield.x, bullet.y - shield.y,
           bullet.z - shield.z) <= shield.radius + 24) {
-        bullet.vx = -bullet.vx;
-        bullet.vy = -Math.abs(bullet.vy) * .35;
+        let nx = bullet.x - shield.x;
+        let ny = bullet.y - shield.y;
+        const normalLength = Math.hypot(nx, ny);
+        if (normalLength > .001) {
+          nx /= normalLength;
+          ny /= normalLength;
+        } else {
+          const speed = Math.hypot(bullet.vx, bullet.vy) || 1;
+          nx = -bullet.vx / speed;
+          ny = -bullet.vy / speed;
+        }
+        const normalVelocity = bullet.vx * nx + bullet.vy * ny;
+        bullet.vx -= 2 * normalVelocity * nx;
+        bullet.vy -= 2 * normalVelocity * ny;
+        bullet.x = shield.x + nx * (shield.radius + 25);
+        bullet.y = shield.y + ny * (shield.radius + 25);
         bullet.owner = target.pad;
         bullet.life = Math.max(bullet.life, .55);
         impacts.push({ x: bullet.x, y: bullet.y, z: bullet.z,
@@ -3233,14 +3256,20 @@ const hasPart = (player, part) => !player.removedParts?.includes(part);
 const isPogo = (player) => hasPart(player, "torso") &&
   limbParts.every((part) => !hasPart(player, part));
 const isHeadOnly = (player) => !hasPart(player, "torso");
-// A weapon rides in the lead hand — the same arm the pose already hangs it on.
-// Lose that arm and the fighter is disarmed until they turn around.
-const itemHand = (player) => player.facing > 0 ? "right-arm" : "left-arm";
+const availableArm = (player) => {
+  const lead = player.facing > 0 ? "right-arm" : "left-arm";
+  if (hasPart(player, lead)) return lead;
+  const other = lead === "right-arm" ? "left-arm" : "right-arm";
+  return hasPart(player, other) ? other : "";
+};
+// Ownership stays attached to the arm that picked the object up; turning or
+// boarding cannot teleport a gun between hands.
+const itemHand = (player) => player.itemArm || availableArm(player);
 // Gun before grenade, always: the pistol is the sustained item and the one
 // drawn in the hand, so "use what you are holding" needs no mode toggle.
 const heldItem = (player) =>
   isHeadOnly(player) ? player.gunAmmo > 0 ? "GUN" : ""
-    : isPogo(player) || !hasPart(player, itemHand(player))
+    : isPogo(player) || !itemHand(player) || !hasPart(player, itemHand(player))
     ? "" : player.gunAmmo > 0 ? "GUN"
     : player.grenadeAmmo > 0 ? "GRENADE" : "";
 const itemSwinging = (player, now) =>
@@ -4043,6 +4072,7 @@ function grabNearestBall(player, now) {
   }
   if (!nearest) return false;
   player.heldBall = nearest.index;
+  player.carryArm = availableArm(player);
   nearest.item.heldBy = player.pad;
   nearest.item.safeUntil = now + 180000;
   nearest.item.safePlayers = 1 << player.pad;
@@ -4060,6 +4090,7 @@ function grabNearestFighter(player, now) {
       candidate.y - (player.y - 72), candidate.z - player.z) < 210);
   if (!target) return false;
   player.heldPlayer = target.pad;
+  player.carryArm = availableArm(player);
   target.grabbedBy = player.pad;
   target.vx = target.vy = target.vz = 0;
   target.lastButton = "GRABBED";
@@ -4088,6 +4119,7 @@ function grabNearestPart(player, now) {
   if (bestIndex < 0) return false;
   const part = detachedParts[bestIndex];
   player.heldPart = bestIndex;
+  player.carryArm = availableArm(player);
   part.heldBy = player.pad;
   part.owner = player.pad;
   part.vx = part.vy = 0;
@@ -4120,11 +4152,15 @@ function stealHeldObject(player, now) {
     player.gunAmmo = target.gunAmmo;
     player.gunMode = target.gunMode;
     target.gunAmmo = 0;
+    player.itemArm = availableArm(player);
+    target.itemArm = "";
     target.gunMode = "HANDGUN";
     label = player.gunMode;
   } else if (target.grenadeAmmo > 0) {
     player.grenadeAmmo = target.grenadeAmmo;
     target.grenadeAmmo = 0;
+    player.itemArm = availableArm(player);
+    target.itemArm = "";
     label = "GRENADES";
   } else if (target.skateboard) {
     target.skateboard = false;
@@ -4155,6 +4191,7 @@ function releaseCarriedPart(player, now) {
     emitSignal("throw-part", player.pad, player.heldPart, player.facing);
   }
   player.heldPart = -1;
+  player.carryArm = "";
 }
 
 function releaseCarriedFighter(player, now) {
@@ -4172,6 +4209,7 @@ function releaseCarriedFighter(player, now) {
     emitSignal("throw-player", player.pad, target.pad, player.facing);
   }
   player.heldPlayer = -1;
+  player.carryArm = "";
 }
 
 function releaseCarriedBall(player, now) {
@@ -4189,6 +4227,7 @@ function releaseCarriedBall(player, now) {
     emitSignal("release", player.pad, player.heldBall, item.mass);
   }
   player.heldBall = -1;
+  player.carryArm = "";
 }
 
 function bouncePogoOnSurface(player, surfaceY, now) {
@@ -4303,14 +4342,18 @@ function updatePlayer(player, pad, dt, now) {
   player.blocking = !carrying && !headOnly && pad.down.includes("X") &&
     !player.shieldLocked;
   if (player.blocking && !wasBlocking) {
-    player.shieldVx = player.vx - player.windVx - player.knockVx;
+    player.shieldVx = 0;
+    player.vx = player.windVx + player.knockVx;
     player.dashUntil = 0;
     player.dashVx = 0;
     player.lastTap = {};
     player.lastRelease = {};
     shieldBash(player, now);
   }
-  const input = player.blocking ? { horizontal: 0, vertical: 0 } : rawInput;
+  // Guard plants the fighter immediately, but DOWN remains meaningful: a
+  // standing guard can settle into a crouching guard and stays there while held.
+  const input = player.blocking
+    ? { horizontal: 0, vertical: Math.min(0, rawInput.vertical) } : rawInput;
   const grabHeld = armCount > 0 && !pogo && !hitStunned && !player.blocking &&
     pad.down.includes("A") && pad.down.includes("B");
   if (grabHeld && !player.grabHeld && player.heldBall < 0 &&
@@ -4868,6 +4911,7 @@ function gameSim() {
     captureFrameTelemetry(now);
     const resultDuration = matchOver ? matchResultUs : roundResultUs;
     if (now - roundOverAt >= resultDuration) {
+      emitSignal("update-safe", -1, buildVersion, 0);
       if (selfPlay) startSelfPlay(now);
       else returnToTitle(now, "round-end");
     }
@@ -5200,6 +5244,11 @@ function fighterAnimationPhase(player, now = null) {
   } else if (now < player.hitStunUntil) {
     state = "HIT";
     stateStartedAt = player.lastButtonAt || now;
+  } else if (roundResult && ["KICK", "PUNCH", "POSE", "DANCE", "DASH",
+      "JUMP", "CROUCH"].includes(player.resultReaction)) {
+    state = player.resultReaction === "POSE" || player.resultReaction === "DANCE"
+      ? "MEDITATE" : player.resultReaction;
+    stateStartedAt = player.resultReactionAt || now;
   } else if (player.blocking) {
     state = "SHIELD";
     stateStartedAt = player.lastButtonAt || now;
@@ -5439,7 +5488,7 @@ function runnerWorldGeometry(player, t) {
   const actionNow = poseNow;
   const armAttack = attackPulse > 0 && player.attackKind &&
     player.attackKind !== "KICK";
-  if (player.skateboard && player.grounded && !armAttack) {
+  if (player.skateboard && player.grounded && !armAttack && !heldItem(player)) {
     const balance = Math.sin(poseCycle) * 18;
     segment(leftShoulderX, shoulderY, x - 42, elbowY - 10 - balance,
       10, "left-upper-arm");
@@ -5472,8 +5521,9 @@ function runnerWorldGeometry(player, t) {
     // The striking arm outranks the carry pose: a whip or bash has to publish
     // attack capsules or an armed fighter could never land a hand strike.
     const target = meleeTarget(player, poseNow);
-    const actionShoulderX = player.facing > 0 ? rightShoulderX : leftShoulderX;
-    const restShoulderX = player.facing > 0 ? leftShoulderX : rightShoulderX;
+    const itemOnRight = itemHand(player) === "right-arm";
+    const actionShoulderX = itemOnRight ? rightShoulderX : leftShoulderX;
+    const restShoulderX = itemOnRight ? leftShoulderX : rightShoulderX;
     const armPose = twoBone(actionShoulderX, shoulderY, target.x, target.y,
       (meleeSpecs[player.attackKind] || meleeSpecs.PUNCH).span, player.facing);
     segment(actionShoulderX, shoulderY, armPose.jointX, armPose.jointY, 12,
@@ -5487,8 +5537,9 @@ function runnerWorldGeometry(player, t) {
   } else if ((player.itemAction && actionNow < player.itemActionUntil) ||
       (player.gunAmmo > 0 && player.itemAction !== "THROW")) {
     const target = itemHandTarget(player, actionNow);
-    const actionShoulderX = player.facing > 0 ? rightShoulderX : leftShoulderX;
-    const restShoulderX = player.facing > 0 ? leftShoulderX : rightShoulderX;
+    const itemOnRight = itemHand(player) === "right-arm";
+    const actionShoulderX = itemOnRight ? rightShoulderX : leftShoulderX;
+    const restShoulderX = itemOnRight ? leftShoulderX : rightShoulderX;
     const armPose = twoBone(actionShoulderX, shoulderY,
       target.x, target.y, 58, player.facing);
     segment(actionShoulderX, shoulderY, armPose.jointX, armPose.jointY, 12,
@@ -5938,6 +5989,24 @@ function damagePart(target, segmentIndex, sourceX, sourcePad, now) {
       detachPart(target, limb, geometry, sourceX, now);
   }
   detachPart(target, part, geometry, sourceX, now);
+  if (target.itemArm === part) {
+    if (target.gunAmmo > 0) gunPickups.push({ kind: target.gunMode,
+      amount: target.gunAmmo, x: target.x, y: target.y - 70, z: target.z,
+      active: true, startsActive: false, respawnAt: Infinity });
+    if (target.grenadeAmmo > 0) grenadePickups.push({
+      amount: target.grenadeAmmo, x: target.x, y: target.y - 70, z: target.z,
+      active: true, startsActive: false, respawnAt: Infinity });
+    target.gunAmmo = 0;
+    target.grenadeAmmo = 0;
+    target.itemArm = "";
+    emitSignal("item-drop", target.pad, sourcePad, 1);
+  }
+  if (target.carryArm === part) {
+    if (target.heldBall >= 0) releaseCarriedBall(target, now);
+    if (target.heldPart >= 0) releaseCarriedPart(target, now);
+    if (target.heldPlayer >= 0) releaseCarriedFighter(target, now);
+    target.carryArm = "";
+  }
   target.attackKind = "";
   target.attackUntil = 0;
   target.attackHit = false;

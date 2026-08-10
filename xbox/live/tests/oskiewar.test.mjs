@@ -425,10 +425,11 @@ test("web relayout observes live viewport element resizing", () => {
   assert.match(webShell, /context\.setTransform\(density, 0, 0, density, 0, 0\)/);
 });
 
-test("update-ready panel offers a persisted auto-update checkbox", () => {
-  assert.match(webShell, /id="auto-update" type="checkbox"/);
-  assert.match(webShell, /oskiewar-auto-update/);
-  assert.match(webShell, /if \(autoUpdate\.checked\) \{/);
+test("update-ready panel automatically reloads at the round boundary", () => {
+  assert.doesNotMatch(webShell, /id="auto-update"/);
+  assert.match(webShell, /update is ready/);
+  assert.match(webShell, /pieceScreen === "title" && previousPieceScreen !== "title"/);
+  assert.match(webShell, /updateReady\.classList\.contains\("visible"\)/);
 });
 
 test("web client errors post stateful reports and expose the server receipt", () => {
@@ -572,7 +573,7 @@ test("title shows a live Pacific clock and version timestamp", () => {
   const { fight } = createFight(false, false);
   assert.match(fight.pacificTimeLabel(1785870000000),
     /^\d{1,2}:\d{2}(am|pm) P(D|S)T$/);
-  assert.match(source, /const buildVersion = 500/);
+  assert.match(source, /const buildVersion = 19/);
   assert.match(source, /const clock = hudClockBox\(titleUnixMs\)/);
   assert.match(source, /typeWrite\(clock\.label, clock\.left, safe\.top \+ 2/);
   assert.match(source, /const fpsLabel = Math\.round\(displayFps \|\| 0\)/);
@@ -4151,22 +4152,50 @@ test("a broken shield frees the shielder to swing without releasing block", () =
     "the opening the break bought is spendable straight away");
 });
 
-test("a shielded bullet goes back the way it came", () => {
+test("a shielded bullet reflects from the shield surface normal", () => {
   const { fight, pads, tick } = createFight();
   fight.setWind(0);
   const shielder = fight.players[1];
   shielder.facing = -1;
   pads[1].down = ["X"];
   tick();
-  // Chest height, not the shield's centre — that sits 90 off the floor, inside
-  // the wall guard that retires any bullet straying too near the ground.
-  fight.bullets.push({ x: shielder.x + shielder.facing * 30, y: shielder.y - 200,
+  // Enter near the upper-left surface so the circle normal contributes both
+  // a horizontal return and a vertical glancing angle.
+  fight.bullets.push({ x: shielder.x + shielder.facing * 30 - 150,
+    y: shielder.y - 150,
     z: shielder.z, vx: 2600, vy: 0, owner: 0, life: 1 });
   tick(1);
   assert.equal(fight.bullets.length, 1, "the shot survives to travel back");
   assert.ok(fight.bullets[0].vx < 0, "reversed");
+  assert.ok(fight.bullets[0].vy < 0,
+    "an off-centre hit ricochets at an angle instead of using a fixed return");
   assert.equal(fight.bullets[0].owner, 1, "and now belongs to whoever shielded it");
   assert.equal(shielder.shieldLocked, true, "returning a shot costs the shield too");
+});
+
+test("shielding plants a runner but preserves crouch input", () => {
+  assert.match(source, /player\.shieldVx = 0;/);
+  assert.match(source,
+    /vertical: Math\.min\(0, rawInput\.vertical\)/);
+});
+
+test("victory controls select directional attack and movement frames", () => {
+  assert.match(source, /A: "KICK", B: "PUNCH"/);
+  assert.match(source, /ArrowLeft: "DASH", ArrowRight: "DASH", ArrowUp: "JUMP"/);
+  assert.match(source, /player\.resultReactionAt \|\| now/);
+});
+
+test("shield directions aim the eyes while guard suppresses movement", () => {
+  assert.match(source, /const digitalX = \(pad\.down \|\| \[\]\)\.includes\("ArrowRight"\)/);
+  assert.match(source, /player\.blocking\s*\? \{ horizontal: 0/);
+});
+
+test("held objects belong to one intact arm, including on a skateboard", () => {
+  assert.match(source, /const itemHand = \(player\) => player\.itemArm/);
+  assert.match(source, /target\.itemArm === part/);
+  assert.match(source, /target\.carryArm === part/);
+  assert.match(source,
+    /player\.skateboard && player\.grounded && !armAttack && !heldItem\(player\)/);
 });
 
 // The ground pound is a trade: the crater scales with the fall, and the

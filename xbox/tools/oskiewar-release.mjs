@@ -81,8 +81,13 @@ function sourceState(previous = null) {
       .split("\n").filter(Boolean);
   } catch {}
   const changed = [...new Set([...committedChanges, ...workingChanges])];
+  const buildMatch = bytes.toString("utf8").match(/const buildVersion = (\d+);/);
+  const build = buildMatch ? Number(buildMatch[1]) : null;
+  const expectedBuild = Number(git("rev-list", "--count", "HEAD", "--",
+    "xbox/live/oskiewar.js")) + (dirty ? 1 : 0);
   return { hash: sha256(bytes), tracked, dirty, changed,
-    commit: git("rev-parse", "HEAD"), severity: classifySeverity(changed) };
+    commit: git("rev-parse", "HEAD"), severity: classifySeverity(changed),
+    build, expectedBuild };
 }
 
 async function verifyWeb(hash) {
@@ -137,6 +142,9 @@ async function main() {
   if (command === "deploy") {
     if (!current.tracked || current.dirty)
       throw new Error("Oskiewar source must be tracked and committed before a unified release");
+    if (current.build !== current.expectedBuild)
+      throw new Error(`Oskiewar build v${current.build ?? "?"} does not match ` +
+        `its committed source revision count v${current.expectedBuild}`);
     const receipt = newRelease(current.hash, current.commit, current.severity, previous);
     save(receipt);
     await reconcile(receipt, { dryRun });

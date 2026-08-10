@@ -58,9 +58,6 @@
     #update-now { appearance: none; margin: 0; padding: 0; border: 0;
       background: transparent; color: inherit; font: inherit; }
     #update-now:active { transform: translateY(2px); }
-    #auto-update-label { display: flex; align-items: center; gap: 6px;
-      font-size: 14px; font-weight: 400; }
-    #auto-update { width: 16px; height: 16px; margin: 0; accent-color: #ff5070; }
     /* Whoever is signed in owns the bottom-left corner: handle first, then the
        door out. It used to float in the middle of the title screen, under the
        wordmark, which put a person's name in the same band as the game's own
@@ -105,7 +102,6 @@
   </div>
   <div id="update-ready" role="status">
     <button id="update-now" type="button">update is ready</button>
-    <label id="auto-update-label"><input id="auto-update" type="checkbox">auto update</label>
   </div>
   <script>
     const canvas = document.querySelector("#screen");
@@ -955,17 +951,7 @@
 
     const updateReady = document.querySelector("#update-ready");
     const updateNow = document.querySelector("#update-now");
-    const autoUpdate = document.querySelector("#auto-update");
-    try { autoUpdate.checked = new URLSearchParams(location.search).get("app") === "ios" ||
-      localStorage.getItem("oskiewar-auto-update") === "1"; }
-    catch {}
     updateNow.addEventListener("click", () => location.reload());
-    autoUpdate.addEventListener("change", () => {
-      try { localStorage.setItem("oskiewar-auto-update", autoUpdate.checked ? "1" : "0"); }
-      catch {}
-      if (autoUpdate.checked && updateReady.classList.contains("visible"))
-        location.reload();
-    });
     let loadedVersion = "";
     const responseVersion = (response) => response.headers.get("etag") ||
       [response.headers.get("last-modified"), response.headers.get("content-length")]
@@ -977,11 +963,6 @@
           { method: "HEAD", cache: "no-store" });
         const availableVersion = responseVersion(response);
         if (response.ok && availableVersion && availableVersion !== loadedVersion) {
-          if (autoUpdate.checked) {
-            document.querySelector("#status").textContent = "updating";
-            location.reload();
-            return;
-          }
           updateReady.classList.add("visible");
           document.querySelector("#status").textContent = "update is ready";
         }
@@ -1026,6 +1007,11 @@
       const syncSelectionCursor = () => {
         const pieceScreen = globalThis.__oskiewarTouch?.screen || "";
         if (pieceScreen === "title" && previousPieceScreen !== "title") {
+          if (updateReady.classList.contains("visible")) {
+            document.querySelector("#status").textContent = "updating";
+            location.reload();
+            return;
+          }
           titleOpen = true;
           document.body.classList.add("title-open");
         }
