@@ -206,7 +206,11 @@ let scroll = 0,
 let paintingPreviewCache = new Map(); // Store loaded painting previews
 let paintingLoadQueue = new Set(); // Track which paintings are being loaded
 let paintingLoadProgress = new Map(); // Track loading progress (0-1) for each painting
-// 🛑 Codes whose load failed (bad slug, 404, CORS, network). Without this the
+// Hashtag-shaped text is only a painting after /api/painting-code confirms it.
+// Keep confirmed 404s separate from broken image loads so ordinary hashtags
+// collapse back to plain chat text instead of showing a broken preview.
+let nonPaintingCodeCache = new Set();
+// 🛑 Codes whose image load failed (bad slug, CORS, network). Without this the
 // paint loop re-fires loadPaintingPreview every frame for a broken code,
 // flooding the network + console and locking up the whole chat. Failures stick
 // for the session; a reload clears them (so a fixed code can retry).
@@ -1461,12 +1465,12 @@ function paint(
       const code = message.layout.paintingCodes[codeIdx];
       const cached = paintingPreviewCache.get(code);
       
-      if (!cached && !paintingLoadQueue.has(code) && !paintingFailedCache.has(code)) {
+      if (!cached && !paintingLoadQueue.has(code) && !paintingFailedCache.has(code) && !nonPaintingCodeCache.has(code)) {
         // Trigger async loading
-        loadPaintingPreview(code, api.get, store).then(result => {
-          if (result) {
-            help.repeat(); // Trigger repaint when preview loads
-          }
+        loadPaintingPreview(code, api.get, store).then(() => {
+          // Recompute layout both when a preview loads and when a 404 proves
+          // that hashtag-shaped text is not a painting.
+          help.repeat();
         });
       }
       
@@ -4427,6 +4431,9 @@ async function loadPaintingPreview(code, get, store) {
   if (paintingFailedCache.has(code)) {
     return null;
   }
+  if (nonPaintingCodeCache.has(code)) {
+    return null;
+  }
 
   // Check if already loading
   if (paintingLoadQueue.has(code)) {
@@ -4462,6 +4469,12 @@ async function loadPaintingPreview(code, get, store) {
     } else {
       const response = await fetch(`/api/painting-code?code=${normalized}`);
       if (!response.ok) {
+        if (response.status === 404) {
+          paintingLoadQueue.delete(code);
+          paintingLoadProgress.delete(code);
+          nonPaintingCodeCache.add(code);
+          return null;
+        }
         markFailed();
         return null;
       }
@@ -5165,7 +5178,13 @@ function buildWordPositionMap(originalMessage, textBoxLines) {
 }
 
 // Use shared parsing function from chat-highlighting.mjs
-const parseMessageElements = parseMessageElementsShared;
+function parseMessageElements(message) {
+  return parseMessageElementsShared(message).filter((element) => {
+    if (element.type !== "painting") return true;
+    const code = element.text.replace(/^#/, "");
+    return !nonPaintingCodeCache.has(code);
+  });
+}
 
 // Calculate the rendered position of an interactive element in the text layout
 function calculateElementPosition(element, fullMessage, textLines, text, currentRowHeight, typefaceName) {
