@@ -17,6 +17,7 @@ test("the app is a focused native No Paint host", () => {
 
 test("New Painting requests a fresh full-stage No Paint canvas", () => {
   assert.match(source, /withTitle: "New Painting"/);
+  assert.match(source, /loadFresh\(true\)/);
   assert.match(source, /URLQueryItem\(name: "fresh", value: "1"\)/);
 });
 

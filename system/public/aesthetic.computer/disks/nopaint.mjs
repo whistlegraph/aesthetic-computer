@@ -461,6 +461,22 @@ function seedNoiseSubstrate(painting, seed) {
   }
 }
 
+// The accepted artwork lives in disk.mjs's isolated system painting. Never
+// derive transform input from the screen, proposal buffer, or retained layer
+// metadata: each of those may contain presentation state or stale pixels.
+export function cloneAcceptedPaintingPixels(system, width, height) {
+  const painting = system?.painting;
+  const expectedLength = width * height * 4;
+  if (!painting?.pixels || painting.width !== width || painting.height !== height ||
+      painting.pixels.length !== expectedLength) {
+    throw new Error(
+      `No Paint accepted substrate mismatch: expected ${width}x${height}, got ` +
+      `${painting?.width || 0}x${painting?.height || 0}`,
+    );
+  }
+  return new Uint8ClampedArray(painting.pixels);
+}
+
 function chooseProposal(api) {
   stopBrushCue();
   decisionHeld = false;
@@ -483,13 +499,15 @@ function chooseProposal(api) {
         base: baseProposal,
       })
     : baseProposal;
-  // Pixel transforms operate on the accepted No Paint composite, never the
+  // Pixel transforms operate on disk.mjs's accepted sub-painting, never the
   // composited screen. The screen also contains the proposal UI and controls.
-  const acceptedPixels = api.system.nopaint.piece?.composite?.pixels ||
-    api.system.painting.pixels;
   proposalPixels = compatibleBrush?.applyPixels
     ? compatibleBrush.applyPixels(
-        new Uint8ClampedArray(acceptedPixels),
+        cloneAcceptedPaintingPixels(
+          api.system,
+          resolution.width,
+          resolution.height,
+        ),
         resolution.width,
         resolution.height,
         proposal.brush.parameters,

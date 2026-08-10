@@ -48,7 +48,7 @@ private final class NoPaintApp: NSObject, NSApplicationDelegate, WKNavigationDel
         window.makeKeyAndOrderFront(nil)
 
         installMenu()
-        loadFresh(false)
+        loadFresh(true)
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
