@@ -42,6 +42,13 @@
         "slab/bin/paper-mcp.mjs"
       ]
     },
+    "instagram": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "slab/bin/instagram-mcp.mjs"
+      ]
+    },
     "photo": {
       "type": "stdio",
       "command": "node",
