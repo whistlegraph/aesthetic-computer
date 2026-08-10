@@ -88,7 +88,13 @@ score. Build and Wafer have multi-cue event vocabularies, while the current No
 Paint conductor owns one active brush sample at a time. Their primary sample is
 wired; exact per-event cue sequencing requires a conductor audio-timeline API.
 
-Three recovered behaviours are carried in the score but not drawn, because the
-AC surface has no equivalent yet: Stamp's `mirrored` (Construct mirrored on a
-negative X scale), Caterpillar's per-segment tint (Construct's Set color), and
-Frame's per-cycle knock playback rate.
+Stamp's `mirrored` is real: Construct mirrored on a negative X scale, and
+`paste` now reaches that by handing `grid` a per-axis `{x, y}` scale.
+`grid` had the flip scaffolding already but measured each reversed cell
+backwards, so every negative-scale draw came out empty; `spritePaste` flips the
+frame origin to `1 - ox` to keep a mirrored sprite in the same box.
+
+Two recovered behaviours are still carried in the score but not drawn, because
+the AC surface has no equivalent yet: Caterpillar's per-segment tint
+(Construct's Set color — `paste` has no colour multiply) and Frame's per-cycle
+knock playback rate.

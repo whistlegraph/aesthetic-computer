@@ -46,13 +46,21 @@ export const walkerAnimations = frozen(Object.fromEntries(Object.entries(walkerR
 
 // Paste one recovered frame with its Construct origin honoured. Returns false
 // when the sheet has not loaded yet so callers can fall back to a primitive.
-export function spritePaste({ paste, nopaintAssets }, sprite, x, y, scale = 1, angle = 0) {
+//
+// Mirroring is Construct's negative X scale, which `paste` reaches by handing
+// grid a per-axis {x, y}. The origin has to flip with it: a mirrored frame is
+// anchored from its right edge, so the offset becomes 1 - ox. An unmirrored
+// paste keeps its plain number scale and its fast path.
+export function spritePaste(
+  { paste, nopaintAssets }, sprite, x, y, scale = 1, { angle = 0, mirrored = false } = {},
+) {
   const painting = nopaintAssets?.get(sprite.sheet);
   if (!painting) return false;
+  const ox = mirrored ? 1 - sprite.ox : sprite.ox;
   paste(painting,
-    Math.round(x - sprite.w * sprite.ox * scale),
+    Math.round(x - sprite.w * ox * scale),
     Math.round(y - sprite.h * sprite.oy * scale), {
-      scale,
+      scale: mirrored ? { x: -scale, y: scale } : scale,
       angle,
       crop: { x: sprite.x, y: sprite.y, w: sprite.w, h: sprite.h },
     });

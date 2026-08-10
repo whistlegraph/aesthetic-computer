@@ -2517,7 +2517,10 @@ function paste(from, destX = 0, destY = 0, scale = 1, blit = false) {
              return;
         }
         
-        if (tWidth || tHeight || (typeof scale === 'number' && scale !== 1) || angle) {
+        // A per-axis {x, y} scale only means anything to grid, so always hand
+        // it over — that is how a mirror ({x: -1, y: 1}) gets drawn.
+        if (tWidth || tHeight || (typeof scale === 'number' && scale !== 1) ||
+            (scale && typeof scale === 'object') || angle) {
              grid(
             {
               box: { x: destX, y: destY, w: cW, h: cH },
@@ -4718,8 +4721,10 @@ function grid(
   const colPix = w / cols,
     rowPix = h / rows;
 
-  if (scale.x < 0) x -= w + 1;
-  if (scale.y < 0) y -= h + 1;
+  // A reversed axis runs from the far edge back, so shift the anchor by the
+  // (negative) span to keep a flip inside the same box as an unflipped draw.
+  if (scale.x < 0) x -= w;
+  if (scale.y < 0) y -= h;
 
   angle = wrap(angle, 360); // Keep angle positive.
 
@@ -4939,10 +4944,18 @@ function grid(
 
             // Calculate destination pixel ranges ensuring no gaps
             // Use colPix/rowPix which are the actual pixel sizes (w/cols, h/rows)
-            const destStartX = Math.round(x + i * colPix); // Round to nearest pixel for better centering
-            const destEndX = Math.round(x + (i + 1) * colPix);
-            const destStartY = Math.round(y + j * rowPix);
-            const destEndY = Math.round(y + (j + 1) * rowPix);
+            // A negative scale runs its axis backwards, so the cell's two
+            // edges arrive swapped; order them or the cell measures negative
+            // and never draws. Walking the source forwards across a reversed
+            // axis is what makes the mirror.
+            const edgeX = Math.round(x + i * colPix); // Round to nearest pixel for better centering
+            const edgeX2 = Math.round(x + (i + 1) * colPix);
+            const edgeY = Math.round(y + j * rowPix);
+            const edgeY2 = Math.round(y + (j + 1) * rowPix);
+            const destStartX = Math.min(edgeX, edgeX2);
+            const destEndX = Math.max(edgeX, edgeX2);
+            const destStartY = Math.min(edgeY, edgeY2);
+            const destEndY = Math.max(edgeY, edgeY2);
 
             const pixelWidth = destEndX - destStartX;
             const pixelHeight = destEndY - destStartY;

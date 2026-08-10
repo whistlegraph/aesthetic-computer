@@ -94,8 +94,29 @@ test("Stamp's proposal is deterministic and pastes cropped source frames", async
   assert.equal(pasted.length, 1, "one recovered stamp per proposal");
   const [source, x, y, transform] = pasted[0];
   assert.ok(source.path && Number.isFinite(x) && Number.isFinite(y));
-  assert.equal(transform.scale, score.scale);
   assert.ok(transform.crop, "the sheet is cropped to the chosen frame");
+  assert.deepEqual(transform.scale,
+    score.mirrored ? { x: -score.scale, y: score.scale } : score.scale);
+});
+
+test("a mirrored stamp reverses its pixels and keeps its box", async () => {
+  const { paste, setBuffer, color } =
+    await import("../public/aesthetic.computer/lib/graph.mjs");
+  // Four distinct columns, so a horizontal flip is unambiguous.
+  const sheet = { width: 4, height: 1, pixels: new Uint8ClampedArray([
+    1, 0, 0, 255, 2, 0, 0, 255, 3, 0, 0, 255, 4, 0, 0, 255]) };
+  const columns = (mirrored) => {
+    const painting = { width: 4, height: 1, pixels: new Uint8ClampedArray(16) };
+    setBuffer(painting);
+    color(255, 255, 255, 255);
+    paste(sheet, 0, 0, {
+      scale: mirrored ? { x: -1, y: 1 } : 1,
+      crop: { x: 0, y: 0, w: 4, h: 1 },
+    });
+    return Array.from({ length: 4 }, (_, index) => painting.pixels[index * 4]);
+  };
+  assert.deepEqual(columns(false), [1, 2, 3, 4]);
+  assert.deepEqual(columns(true), [4, 3, 2, 1]);
 });
 
 test("a looping handle advances through its own frames while a still holds", async () => {

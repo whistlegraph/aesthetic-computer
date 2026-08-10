@@ -39,9 +39,9 @@ const nopaintProposal = Object.freeze({
     // proposal, so the rule is recorded but not enforced.
     lastChosenUserRule: "recovered, not modeled",
     reconstructed: Object.freeze(["placement", "size range", "angle range"]),
-    // Construct mirrored on negative X scale; AC's paste has no mirror, so the
-    // flag rides along in the score without changing pixels.
-    mirrorRendering: "not modeled",
+    // Construct mirrored on a negative X scale, which paste now reaches by
+    // handing grid a per-axis {x, y}.
+    mirrorRendering: "negative x scale",
   }),
   generate({ random, width, height, base }) {
     const user = STAMP_USERS[Math.floor(random() * STAMP_USERS.length)];
@@ -79,7 +79,8 @@ const nopaintProposal = Object.freeze({
       ? Math.floor(frame * animation.fps / 60) % animation.frames.length
       : score.index;
     const sprite = animation.frames[index];
-    if (spritePaste(api, sprite, score.x, score.y, score.scale, score.angle)) return;
+    if (spritePaste(api, sprite, score.x, score.y, score.scale,
+      { angle: score.angle, mirrored: score.mirrored })) return;
     api.ink(score.color).box(
       score.x - sprite.w * sprite.ox * score.scale,
       score.y - sprite.h * sprite.oy * score.scale,
