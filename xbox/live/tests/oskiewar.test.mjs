@@ -2117,7 +2117,8 @@ test("body shots recoil and stun a limb while headshots alone knock out", () => 
     vx: 1, vy: 0, owner: 0, life: 1 });
   headFight.tick(1);
   assert.equal(headTarget.alive, false);
-  assert.match(source, /else if \(headshot\) killPlayer/);
+  assert.match(source,
+    /else if \(headshot\) \{[\s\S]*?if \(isHeadOnly\(target\)\) \{[\s\S]*?killPlayer/);
   assert.match(source, /contact\.headDistance <= grenade\.blastRadius/);
 });
 

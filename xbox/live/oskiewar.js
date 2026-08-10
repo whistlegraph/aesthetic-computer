@@ -44,7 +44,14 @@ function terrainFloorAt(x) {
   const edge = Math.sin(nx * Math.PI) ** 2;
   const broad = Math.sin(nx * Math.PI * 3 + terrainPhase);
   const detail = Math.sin(nx * Math.PI * 7 - terrainPhase * .63) * .34;
-  return floorY - (broad + detail) * terrainAmplitude * edge;
+  // Booster pads live at the bottoms of two smooth bowls. The shoulders are
+  // wide enough to walk down, but a fighter crossing the edge naturally falls
+  // into the launch lane instead of stepping on a sticker on flat ground.
+  const pit = [650, 2950].reduce((depth, center) => {
+    const distance = (x - center) / 250;
+    return depth + Math.exp(-distance * distance * 1.7) * 250;
+  }, 0);
+  return floorY - (broad + detail) * terrainAmplitude * edge + pit;
 }
 const stageLeft = 0;
 let stageRight = 1920;
@@ -3684,6 +3691,11 @@ function resolveMelee(now) {
         breakShield(target, now);
       }
     } else if (headshot) {
+      if (isHeadOnly(target)) {
+        killPlayer(target, attacker.pad, now,
+          contacts.length >= 2 ? "TRADE" : "KO");
+        continue;
+      }
       const poseTime = (now - startedAt) / 1000000;
       target.fallenBodyGeometry = runnerWorldGeometry(target, poseTime);
       target.removedParts = [...limbParts, "torso"];
