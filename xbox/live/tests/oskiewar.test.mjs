@@ -585,7 +585,6 @@ test("title shows a live Pacific clock and version timestamp", () => {
   assert.match(source, /const buildVersion = 36/);
   assert.match(source, /const clock = hudClockBox\(titleUnixMs\)/);
   assert.match(source, /drawHudClock\(clock, safe\.top \+ 2, ink, titleUnixMs\)/);
-  assert.match(source, /const fpsLabel = Math\.round\(displayFps \|\| 0\)/);
   assert.match(source, /const version = "v" \+ buildVersion/);
 });
 
@@ -1119,14 +1118,34 @@ test("ambient air is a simulated world-entity field", () => {
   assert.doesNotMatch(moteSource, /filledCapsule\(/);
 });
 
-test("debug HUD shows native surface and timing without repeating oskiewar", () => {
-  assert.match(source, /const surfaceLabel = Math\.round\(Number\(run\.width\)/);
-  assert.match(source, /const aaLabel = String\(run\.antialiasingMode/);
-  assert.match(source, /measuredHz\.toFixed\(1\) \+ "hz  aa " \+ aaLabel/);
-  assert.match(source, /const timingLabel = "frame "/);
-  assert.match(source, /Number\(run\.presentMs\)[\s\S]{0,60}"ms"/);
-  assert.match(source, /typeWrite\(surfaceLabel, safe\.left \+ 2, safe\.top \+ 2/);
+// The read-out reports what the host actually measured and nothing else. On the
+// console that is a refresh rate, a render surface and per-stage timings; in a
+// browser it is the frame rate alone, because the browser reports no surface and
+// no timings, and printing zeroed milliseconds read as a stall. It stacks above
+// the nameplate rather than across it.
+test("debug HUD reports only measured performance, above the nameplate", () => {
+  const perf = source.match(/function drawDebugPerformance[\s\S]*?\n}\n/)[0];
+  assert.match(perf, /const refreshHz = Number\(run\.refreshHz\) \|\| 0/);
+  assert.match(perf,
+    /refreshHz\.toFixed\(1\) \+ " Hz" : Math\.round\(displayFps \|\| 0\) \+ " fps"/);
+  assert.match(perf, /renderWidth && renderHeight\n\s*\? "  ·  "/);
+  assert.match(perf, /const frameMs = Number\(run\.frameMs\) \|\| 0/);
+  assert.match(perf, /const timing = frameMs\n\s*\? "frame "/);
+  assert.match(perf, /const lane = playerHandleLayout\(players\[0\], 0\)/);
+  assert.match(perf, /let y = lane\.y - metaSize - 6/);
+  assert.match(perf, /typeWrite\(label, lane\.x, y, size/);
+  // Never anchored to the bottom edge again — that lane belongs to a handle.
+  assert.doesNotMatch(perf, /safe\.bottom/);
   assert.doesNotMatch(source, /const gameLabel = "oskiewar"/);
+});
+
+// One fps read-out, in one place. The wordmark screen used to carry its own
+// centered copy plus a caption measuring the title type, which sat on the
+// kerning cells the debug scaffold was drawing.
+test("the wordmark screen carries no performance or type read-out", () => {
+  const title = source.match(/function drawTitleScreen[\s\S]*?\n}\n/)[0];
+  assert.doesNotMatch(title, /fps/);
+  assert.doesNotMatch(title, /"size "/);
 });
 
 test("the round timer cannot leak through the start screen", () => {
@@ -4289,6 +4308,28 @@ test("skateboard deck trucks and wheels scale together with camera zoom", () => 
   assert.doesNotMatch(source, /Math\.max\(5, radius \* \.14\)/);
   assert.doesNotMatch(source, /Math\.max\(3, radius \* \.09\)/);
   assert.doesNotMatch(source, /const reach = Math\.max\(28,/);
+});
+
+// The fighters ride one plane, so a board is only ever seen edge-on and the
+// profile is what has to be right: two trucks under the deck with one wheel
+// each. The trucks used to straddle the deck and put a wheel on either face,
+// which from the only available angle read as wheels above the plank too.
+test("the skateboard is drawn as a side profile with its wheels underneath", () => {
+  const symbol = source.match(/function drawSkateboardSymbol[\s\S]*?\n}\n/)[0];
+  assert.match(symbol,
+    /drawSkateboardSymbol\(point, radius, rotation = 0, underside = 1\)/);
+  assert.match(symbol, /const downX = -Math\.sin\(rotation\) \* underside/);
+  assert.match(symbol, /const downY = Math\.cos\(rotation\) \* underside/);
+  // One wheel and one hub per truck — not a wheel per face of the deck.
+  assert.equal(symbol.match(/filledDisc\(/g).length, 2);
+  assert.doesNotMatch(symbol, /for \(const side of \[-1, 1\]\)/);
+  // Trucks and wheels are placed at positive `down`, i.e. beneath the deck.
+  assert.match(symbol,
+    /plank\(at\(direction \* \.44, \.07\), at\(direction \* \.44, \.15\)/);
+  assert.match(symbol, /const hub = at\(direction \* \.44, \.23\)/);
+  // Riding the right-hand wall flips which way the wheels hang.
+  assert.match(source,
+    /drawSkateboardSymbol\(board, reach, rotation,\n\s*player\.skateWallSide > 0 \? -1 : 1\)/);
 });
 
 test("skateboard momentum follows half-pipe tangents into wallrides", () => {

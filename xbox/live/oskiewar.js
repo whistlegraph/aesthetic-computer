@@ -7020,7 +7020,10 @@ function drawRunner(player, t, showLabel = true) {
       boardEdge.y - leftEdge.y) / 2);
     const rotation = Math.atan2(boardEdge.y - leftEdge.y,
       boardEdge.x - leftEdge.x);
-    drawSkateboardSymbol(board, reach, rotation);
+    // The wallride board reads nose-down whichever wall it is on, so the right
+    // wall needs its underside flipped to keep the wheels on the bricks.
+    drawSkateboardSymbol(board, reach, rotation,
+      player.skateWallSide > 0 ? -1 : 1);
   }
   drawFighterSilhouette(geometry, color, outline, player);
   const hitNow = runtime().monotonicUs;
@@ -7693,31 +7696,47 @@ function projectedBallRadius(ball) {
   return Math.max(.5, Math.abs(edge.x - center.x));
 }
 
-function drawSkateboardSymbol(point, radius, rotation = 0) {
-  const alongX = Math.cos(rotation) * radius;
-  const alongY = Math.sin(rotation) * radius;
-  const normalX = -Math.sin(rotation);
-  const normalY = Math.cos(rotation);
+// A skateboard on this stage is only ever seen from the side, because the
+// fighters ride a single plane, so it is drawn as a side profile rather than as
+// a board in the round: a kicked deck, two trucks hanging under it, and one
+// wheel apiece. The trucks used to straddle the deck with a wheel on each face,
+// which from the only available angle read as wheels above *and* below the
+// plank. `underside` says which way is down for this board, so a wallride keeps
+// its wheels against the wall instead of hanging them through it.
+function drawSkateboardSymbol(point, radius, rotation = 0, underside = 1) {
+  const alongX = Math.cos(rotation);
+  const alongY = Math.sin(rotation);
+  const downX = -Math.sin(rotation) * underside;
+  const downY = Math.cos(rotation) * underside;
   const deck = [236, 76, 118];
   const edge = [34, 25, 39];
   const truck = [174, 184, 202];
-  filledCapsule(point.x - alongX * .86, point.y - alongY * .86,
-    point.x + alongX * .86, point.y + alongY * .86,
-    Math.max(.5, radius * .22), edge);
-  filledCapsule(point.x - alongX * .82, point.y - alongY * .82,
-    point.x + alongX * .82, point.y + alongY * .82,
-    Math.max(.4, radius * .14), deck);
+  const wheel = [242, 226, 158];
+  // Board space: `along` runs nose to tail, `down` points at the ground the
+  // wheels are on. Every measurement below is a fraction of the board's reach,
+  // so a pickup-sized board and a ridden one are the same drawing.
+  const at = (along, down) => ({
+    x: point.x + (alongX * along + downX * down) * radius,
+    y: point.y + (alongY * along + downY * down) * radius,
+  });
+  const plank = (from, to, width, color) =>
+    filledCapsule(from.x, from.y, to.x, to.y,
+      Math.max(.35, radius * width), color);
+  // Nose and tail kick away from the wheels, so the deck reads as a board and
+  // not as a plank even at the size it drops in at.
+  for (const end of [-1, 1]) {
+    plank(at(end * .66, 0), at(end * .93, -.15), .2, edge);
+    plank(at(end * .66, 0), at(end * .9, -.135), .12, deck);
+  }
+  plank(at(-.7, 0), at(.7, 0), .22, edge);
+  plank(at(-.68, 0), at(.68, 0), .14, deck);
+  // The wheels tuck up under the deck rather than dangling off long legs, so
+  // the whole board still reads as one object at ball size.
   for (const direction of [-1, 1]) {
-    const truckX = point.x + alongX * direction * .56;
-    const truckY = point.y + alongY * direction * .56;
-    filledCapsule(truckX - normalX * radius * .22,
-      truckY - normalY * radius * .22,
-      truckX + normalX * radius * .22,
-      truckY + normalY * radius * .22, Math.max(.35, radius * .055), truck);
-    for (const side of [-1, 1])
-      filledDisc(truckX + normalX * radius * side * .26,
-        truckY + normalY * radius * side * .26,
-        Math.max(.45, radius * .09), [22, 25, 34]);
+    plank(at(direction * .44, .07), at(direction * .44, .15), .07, truck);
+    const hub = at(direction * .44, .23);
+    filledDisc(hub.x, hub.y, Math.max(.45, radius * .115), wheel);
+    filledDisc(hub.x, hub.y, Math.max(.2, radius * .042), [22, 25, 34]);
   }
 }
 
@@ -8326,9 +8345,6 @@ function drawTitleScreen(t, ink, transitionAge = -1) {
       strokeBox(x, y, advance, titleSize, 2, [255, 92, 116]);
       box(x, y, 2, titleSize, 116, 255, 184);
     }
-    typeWrite("size " + Math.round(titleSize) + "  width " +
-      Math.round(titleWidth), titleX, titleY + titleSize + 12, 24,
-      116, 255, 184);
   }
 
   const prompt = "start";
@@ -8379,13 +8395,10 @@ function drawTitleScreen(t, ink, transitionAge = -1) {
       "function" && capabilities().inputFamily === "touch")) return;
   const titleUnixMs = runtime().unixMs || Date.now();
   const safe = hudSafeRect();
-  const debugSize = Math.round(hudTypeSize * .62);
-  if (debugHitboxes) {
-    const fpsLabel = Math.round(displayFps || 0) + " fps";
-    typeWrite(fpsLabel, viewCenterX() - handleWidth(fpsLabel, debugSize) / 2,
-      titleY + titleSize + debugSize + 26,
-      debugSize, ...ink);
-  }
+  // No frame rate under the wordmark. The read-out has one home — the
+  // bottom-left lane above the nameplate, where a fight already shows it —
+  // and a second copy parked in the middle of the poster only crowded the
+  // kerning cells it was sitting next to.
   const clock = hudClockBox(titleUnixMs);
   drawHudClock(clock, safe.top + 2, ink, titleUnixMs);
   drawHudStatusTray(clock, ink, titleUnixMs);
@@ -8554,24 +8567,39 @@ function spectatorQrBox() {
 
 function drawDebugPerformance(ink) {
   if (!debugHitboxes || shellMode !== "GAME" || roundResult) return;
-  const safe = hudSafeRect();
-  const compact = compactLayout();
-  const metaSize = compact ? 19 : 24;
+  const metaSize = compactLayout() ? 19 : 24;
   const run = runtime();
-  const measuredHz = Number(run.refreshHz) || displayFps || 0;
+  // Only the console fills in a refresh rate, a render surface, and per-stage
+  // timings. The browser reports none of them, and the read-out used to answer
+  // with the logical stage size, the measured frame rate wearing a Hz label,
+  // and a row of zeroed milliseconds — three numbers that looked like
+  // instruments and were not. Each line waits for a real measurement now, so
+  // the web build says the one true thing it knows: how fast it is drawing.
+  const refreshHz = Number(run.refreshHz) || 0;
+  const rate = refreshHz
+    ? refreshHz.toFixed(1) + " Hz" : Math.round(displayFps || 0) + " fps";
+  const renderWidth = Math.round(Number(run.renderWidth) || Number(run.width) || 0);
+  const renderHeight = Math.round(Number(run.renderHeight) || Number(run.height) || 0);
   const aa = Math.max(1, Math.round(Number(run.antialiasingSamples) || 1));
-  const aaLabel = String(run.antialiasingMode || (aa + "x"));
-  const surfaceLabel = Math.round(Number(run.renderWidth) || run.width || stageRight) +
-    "x" + Math.round(Number(run.renderHeight) || run.height || viewHeight) + " @ " +
-    measuredHz.toFixed(1) + " Hz  ·  " + aaLabel;
-  const timingLabel = "frame " + (Number(run.frameMs) || 0).toFixed(2) +
-    "ms  render " + (Number(run.renderCpuMs) || 0).toFixed(2) +
-    "ms  present " + (Number(run.presentMs) || 0).toFixed(2) + "ms";
-  const surfaceY = safe.bottom - metaSize - 4;
-  typeWrite(surfaceLabel, safe.left, surfaceY, metaSize, ...ink);
-  const timingSize = Math.max(17, metaSize * .76);
-  typeWrite(timingLabel, safe.left, surfaceY - timingSize - 5,
-    timingSize, ...ink);
+  const surface = renderWidth && renderHeight
+    ? "  ·  " + renderWidth + "x" + renderHeight + "  ·  " +
+      String(run.antialiasingMode || (aa + "x")) : "";
+  const frameMs = Number(run.frameMs) || 0;
+  const timing = frameMs
+    ? "frame " + frameMs.toFixed(2) + "ms  render " +
+      (Number(run.renderCpuMs) || 0).toFixed(2) + "ms  present " +
+      (Number(run.presentMs) || 0).toFixed(2) + "ms" : "";
+  // The bottom-left corner belongs to a fighter's nameplate, so the read-out
+  // stacks upward from just above it instead of printing across a handle. The
+  // ammo row keeps its own lane a stat card further up, well clear of this.
+  const lane = playerHandleLayout(players[0], 0);
+  let y = lane.y - metaSize - 6;
+  for (const [index, label] of [rate + surface, timing].entries()) {
+    if (!label) continue;
+    const size = index ? Math.max(17, Math.round(metaSize * .76)) : metaSize;
+    typeWrite(label, lane.x, y, size, ...ink);
+    y -= size + 5;
+  }
 }
 
 function drawSpectatorQr(ink, placement = null) {
