@@ -21,13 +21,21 @@
 import { execFile } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { httpPort, serveHttp, serveStdio } from "../mcp/http-front.mjs";
 
 const HOME = homedir();
+const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 // Prefer the normalized/proposal file, fall back to canonical. Override with env.
+// The vault lives INSIDE the repo (the convention the rest of toolchain/ uses);
+// the bare-$HOME spellings are kept last for machines laid out the old way.
 const CANDIDATES = [
   process.env.FLEET_MACHINES,
+  join(REPO, "aesthetic-computer-vault", "machines.normalized.json"),
+  join(REPO, "aesthetic-computer-vault", "machines.json"),
+  join(REPO, "vault", "machines.normalized.json"),
+  join(REPO, "vault", "machines.json"),
   join(HOME, "aesthetic-computer-vault", "machines.normalized.json"),
   join(HOME, "aesthetic-computer-vault", "machines.json"),
 ].filter(Boolean);
