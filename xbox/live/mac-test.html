@@ -800,7 +800,7 @@
 
     function ac() {
       const player = accountProfile.handle ? accountProfile : {
-        handle: "@GUEST", colors: [[72,176,156],[118,214,188],
+        handle: "", colors: [[72,176,156],[118,214,188],
           [54,128,168],[230,205,92]], anonymous: true,
       };
       return { fighters: accountProfile.handle ? [{
@@ -985,6 +985,11 @@
           { method: "HEAD", cache: "no-store" });
         const availableVersion = responseVersion(response);
         if (response.ok && availableVersion && availableVersion !== loadedVersion) {
+          if (globalThis.__oskiewarTouch?.screen === "title") {
+            document.querySelector("#status").textContent = "updating";
+            location.reload();
+            return;
+          }
           updateReady.classList.add("visible");
           document.querySelector("#status").textContent = "update is ready";
         }

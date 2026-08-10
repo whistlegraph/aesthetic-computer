@@ -430,6 +430,7 @@ test("update-ready panel automatically reloads at the round boundary", () => {
   assert.match(webShell, /update is ready/);
   assert.match(webShell, /pieceScreen === "title" && previousPieceScreen !== "title"/);
   assert.match(webShell, /updateReady\.classList\.contains\("visible"\)/);
+  assert.match(webShell, /__oskiewarTouch\?\.screen === "title"/);
 });
 
 test("web client errors post stateful reports and expose the server receipt", () => {
@@ -573,7 +574,7 @@ test("title shows a live Pacific clock and version timestamp", () => {
   const { fight } = createFight(false, false);
   assert.match(fight.pacificTimeLabel(1785870000000),
     /^\d{1,2}:\d{2}(am|pm) P(D|S)T$/);
-  assert.match(source, /const buildVersion = 21/);
+  assert.match(source, /const buildVersion = 22/);
   assert.match(source, /const clock = hudClockBox\(titleUnixMs\)/);
   assert.match(source, /typeWrite\(clock\.label, clock\.left, safe\.top \+ 2/);
   assert.match(source, /const fpsLabel = Math\.round\(displayFps \|\| 0\)/);
@@ -4228,11 +4229,16 @@ test("the large wordmark is retired while start remains", () => {
   assert.match(source, /const prompt = "start";/);
 });
 
-test("anonymous web players can log in and never borrow Jeffrey's handle", () => {
+test("anonymous web players can log in without receiving a fake handle", () => {
   assert.match(webShell, /<button id="logout" type="button">log in<\/button>/);
   assert.match(webShell, /loginWithRedirect/);
-  assert.match(webShell, /handle: "@GUEST"/);
-  assert.match(source, /const anonymousFighter = \{ handle: "@GUEST"/);
+  assert.match(webShell, /handle: "", colors:/);
+  assert.match(source, /const anonymousFighter = \{ handle: ""/);
+});
+
+test("the persistent PC rail uses keyboard action caps", () => {
+  assert.match(source, /A: "SPACE", B: "ENTER", X: "SHIFT", Y: "ALT"/);
+  assert.match(source, /drawKeycap\(keyboardCap\[cap\] \|\| cap/);
 });
 
 test("result simulation keeps projectiles and explosions moving without combat", () => {

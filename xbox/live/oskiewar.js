@@ -21,7 +21,7 @@ runtime = function acRuntime() {
 };
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 21;
+const buildVersion = 22;
 const floorY = 1800;
 const ceilingY = 0;
 const wallThickness = 80;
@@ -519,7 +519,7 @@ const fighterRoster = [
 // let the glyph walk fall back to it.
 const npcFighter = { handle: "DUMMY", color: [105, 125, 150], colors: [],
   mood: "TRAINING DUMMY · NO BOT AI", lastChat: "" };
-const anonymousFighter = { handle: "@GUEST", color: [72, 176, 156], colors: [
+const anonymousFighter = { handle: "", color: [72, 176, 156], colors: [
   [72,176,156],[118,214,188],[54,128,168],[230,205,92]],
   mood: "ANONYMOUS", lastChat: "" };
 const spiderDummyFighter = { handle: "SPIDERDUMMY", color: [76, 88, 108],
@@ -6439,11 +6439,13 @@ function drawControlLegend(ink) {
     ["Y", "Y", held.includes("Y") ? "USE ITEM" : ""],
   ];
   const keyboard = keycapFamily();
+  const keyboardCap = { LEFT: "A", RIGHT: "D", STICK_UP: "W", DOWN: "S",
+    A: "SPACE", B: "ENTER", X: "SHIFT", Y: "ALT" };
   const step = Math.round(size * 1.82);
   for (const [row, [cap, button, action]] of controls.entries()) {
     const y = safe.top + row * step;
     const width = keyboard
-      ? drawKeycap(cap === "STICK_UP" ? "W" : cap === "DOWN" ? "S" : cap,
+      ? drawKeycap(keyboardCap[cap] || cap,
         x, y, size,
         directionActive(button))
       : drawPadButton(cap, x, y, size,
