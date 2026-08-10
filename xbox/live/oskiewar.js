@@ -97,8 +97,11 @@ const poundMaxVelocity = 4600;
 // Roughly a jump-and-a-half of floor-to-ceiling travel. Falling further than
 // this cannot buy a bigger crater, so the ceiling is not a weapon.
 const poundFullFall = 900;
-const poundMinRadius = 240;
-const poundMaxRadius = 760;
+// A first-stage landing is deliberately body-sized: the visible ring is the
+// attack, not a warning decal for a much larger invisible hit. Repeated DOWN
+// taps still grow it, but never into a room-clearing shortcut.
+const poundMinRadius = 165;
+const poundMaxRadius = 420;
 const boosterXs = [320, 1680];
 const boosterRadius = 115;
 const boosterVelocity = 6500;
@@ -2415,6 +2418,18 @@ function fighterFrameRect() {
     // projected arc so camera yaw cannot shave them off at a safe-zone edge.
     bottom = Math.max(bottom, player.y + (isHeadOnly(player) ? 18 : 38));
   }
+  // A shot remains physical until it hits something, so it remains a camera
+  // subject too. Include both ends of its swept path to prevent a fast round
+  // flickering outside the action-safe frame between simulation ticks.
+  for (const bullet of bullets) {
+    if (bullet.life <= 0) continue;
+    const previousX = bullet.previousX ?? bullet.x;
+    const previousY = bullet.previousY ?? bullet.y;
+    left = Math.min(left, previousX - 32, bullet.x - 32);
+    right = Math.max(right, previousX + 32, bullet.x + 32);
+    top = Math.min(top, previousY - 32, bullet.y - 32);
+    bottom = Math.max(bottom, previousY + 32, bullet.y + 32);
+  }
   return { left, right, top, bottom };
 }
 
@@ -2723,13 +2738,14 @@ function fireGun(player, input) {
   player.gunAimX = pose.dx;
   player.gunAimY = pose.dy;
   const smg = player.gunMode === "RUBBER SMG";
-  const shots = smg ? Math.min(3, player.gunAmmo) : 1;
+  // Automatic means a fast succession of discrete rounds, never a shotgun
+  // fan. Holding fire schedules the next SMG round below.
+  const shots = 1;
   for (let shot = 0; shot < shots; shot++) {
-    const spread = smg ? (shot - (shots - 1) / 2) * .035 : 0;
     bullets.push({
       x: pose.muzzle.x, y: pose.muzzle.y, z: pose.muzzle.z,
       vx: pose.dx * (smg ? 5000 : 4200),
-      vy: (pose.dy + spread) * (smg ? 5000 : 4200),
+      vy: pose.dy * (smg ? 5000 : 4200),
       owner: player.pad, life: 1, rubber: smg, safeUntil: now + 100000,
     });
   }
@@ -3614,7 +3630,8 @@ function groundPound(player, now) {
   player.poundLevel = 0;
   const fall = clamp(player.y - player.poundFrom, 0, poundFullFall);
   const power = clamp(fall / poundFullFall + (poundLevel - 1) * .22, 0, 1);
-  const radius = poundMinRadius + (poundMaxRadius - poundMinRadius) * power;
+  const radius = Math.min(poundMaxRadius,
+    poundMinRadius + power * 70 + (poundLevel - 1) * 88);
   const poseTime = (now - startedAt) / 1000000;
   player.stance = "HIT";
   player.lastButton = "GROUND POUND";
@@ -3819,7 +3836,10 @@ function resolvePlayerStanding(now) {
   for (const player of players) player.standingOn = -1;
   for (const rider of players) {
     const base = players[rider.pad === 0 ? 1 : 0];
-    if (!rider.alive || !base.alive || rider.vy < 0) continue;
+    // A committed dive passes through a head contact and completes against
+    // the terrain. Treating it as ordinary standing used to zero its velocity
+    // and leave the fighter strangely paused on the opponent's scalp.
+    if (!rider.alive || !base.alive || rider.vy < 0 || rider.pounding) continue;
     const head = runnerWorldGeometry(base, poseTime).head;
     const top = head.y - head.radius;
     const horizontal = Math.abs(rider.x - head.x) <= head.radius + 42;
@@ -6017,11 +6037,12 @@ function drawPadButton(label, x, y, size, pressed, fade = 1, display = null) {
   if (pressed) filledRing(cx, cy, radius, radius - 3, veil([245, 248, 255]));
   const text = display ?? (padGlyph[label] || label).toUpperCase();
   const glyphSize = Math.round(size * .82);
-  if (label === "STICK_UP" || label === "LEFT" || label === "RIGHT") {
+  if (label === "STICK_UP" || label === "DOWN" ||
+      label === "LEFT" || label === "RIGHT") {
     const arrowInk = veil([12, 14, 26]);
     const thickness = Math.max(2, Math.round(radius * .11));
     const dx = label === "LEFT" ? -1 : label === "RIGHT" ? 1 : 0;
-    const dy = label === "STICK_UP" ? -1 : 0;
+    const dy = label === "STICK_UP" ? -1 : label === "DOWN" ? 1 : 0;
     const tipX = cx + dx * radius * .42;
     const tipY = cy + dy * radius * .42;
     const tailX = cx - dx * radius * .4;
@@ -6041,7 +6062,7 @@ function drawPadButton(label, x, y, size, pressed, fade = 1, display = null) {
   // DirectWrite's cap shapes carry more visual weight below their nominal
   // midpoint. Lift the Xbox face letters together so A/B/X/Y read centered in
   // the colored hardware circles rather than sitting on their lower halves.
-  const glyphY = Math.round(cy - glyphSize * (padButtonInk[label] ? .62 : .5));
+  const glyphY = Math.round(cy - glyphSize * (padButtonInk[label] ? .56 : .5));
   if (padButtonInk[label] || Object.hasOwn(padGlyph, label) ||
       /^[KPSI<>^v]$/.test(text))
     systemWrite(text, glyphX, glyphY, glyphSize, ...veil([12, 14, 26]));
@@ -6323,7 +6344,8 @@ function drawFace(player, head, color, t, now = runtime().monotonicUs) {
 
 function drawInventory(player, now) {
   const scale = cameraScale();
-  const gunColor = [255, 220, 72];
+  const gunColor = player.gunMode === "RUBBER SMG"
+    ? [38, 53, 72] : [63, 43, 76];
   const grenadeColor = [255, 105, 105];
   const firing = player.itemAction === "FIRE" && now < player.itemActionUntil;
   const throwing = player.itemAction === "THROW" && now < player.itemActionUntil;
@@ -6339,14 +6361,23 @@ function drawInventory(player, now) {
     // Xbox batches its native line layer underneath GPU fighter triangles.
     // Held items therefore use the same depth-aware capsule path as the hand.
     filledCapsule(hand.x, hand.y, barrel.x, barrel.y,
-      barrelWidth + 3, [9, 12, 22]);
-    filledCapsule(hand.x, hand.y, barrel.x, barrel.y,
       barrelWidth, gunColor);
     const gripX = hand.x - player.facing * 8 * scale;
     const gripY = hand.y + 20 * scale;
-    filledCapsule(hand.x, hand.y, gripX, gripY,
-      gripWidth + 3, [9, 12, 22]);
     filledCapsule(hand.x, hand.y, gripX, gripY, gripWidth, gunColor);
+    if (player.gunMode === "RUBBER SMG") {
+      // One uninterrupted dark silhouette: longer receiver, rear stock, and a
+      // forward magazine distinguish it from the short pistol in-hand.
+      const stockX = hand.x - pose.dx * 32 * scale;
+      const stockY = hand.y - pose.dy * 32 * scale;
+      filledCapsule(hand.x, hand.y, stockX, stockY,
+        barrelWidth * 1.12, gunColor);
+      const magazineX = hand.x + pose.dx * 18 * scale - pose.dy * 17 * scale;
+      const magazineY = hand.y + pose.dy * 18 * scale + pose.dx * 17 * scale;
+      filledCapsule(hand.x + pose.dx * 18 * scale,
+        hand.y + pose.dy * 18 * scale, magazineX, magazineY,
+        gripWidth, gunColor);
+    }
     if (firing) {
       const normalX = -pose.dy;
       const normalY = pose.dx;
@@ -7287,10 +7318,16 @@ function drawBullet(bullet) {
   const previous = projectPoint(bullet.previousX ?? bullet.x,
     bullet.previousY ?? bullet.y, bullet.z);
   const point = projectPoint(bullet.x, bullet.y, bullet.z);
+  const blink = Math.floor(runtime().monotonicUs / 65000 + bullet.owner) % 2;
+  const core = blink
+    ? [255, 255, 248]
+    : bullet.rubber ? [255, 226, 58] : [255, 178, 76];
+  const trail = blink
+    ? [255, 244, 178]
+    : bullet.rubber ? [214, 178, 42] : [224, 116, 62];
   filledCapsule(previous.x, previous.y, point.x, point.y,
-    Math.max(2, (bullet.rubber ? 4 : 3) * cameraScale()),
-    bullet.rubber ? [42, 48, 58] : [92, 96, 105]);
-  filledDisc(point.x, point.y, Math.max(3, 6 * cameraScale()), [8, 10, 16]);
+    Math.max(2, (bullet.rubber ? 4 : 3) * cameraScale()), trail);
+  filledDisc(point.x, point.y, Math.max(4, 7 * cameraScale()), core);
 }
 
 function drawGrenadePickup(pickup, t) {
