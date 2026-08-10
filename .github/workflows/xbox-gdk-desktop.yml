@@ -22,7 +22,7 @@ on:
     paths:
       - "xbox/native-bios/**"
       - "xbox/runtime/**"
-      - "xbox/live/hello.js"
+      - "xbox/live/oskiewar.js"
       - ".github/workflows/xbox-gdk-desktop.yml"
   pull_request:
     paths:

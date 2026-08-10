@@ -69,7 +69,7 @@ class FakeAudioContext {
   }
 }
 
-test("signal vocabulary covers every current hello.js game event", () => {
+test("signal vocabulary covers every current oskiewar.js game event", () => {
   const required = [
     "hello", "select", "fighters", "wind", "ballserve", "countdown",
     "tie", "roundwin", "matchwin", "move", "jump", "ultrajump",

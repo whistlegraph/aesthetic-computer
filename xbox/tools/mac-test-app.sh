@@ -12,7 +12,7 @@ swiftc -O "$repo_root/xbox/mac-test/main.swift" \
   -o "$contents/MacOS/Oskiewar"
 cp "$repo_root/xbox/mac-test/Info.plist" "$contents/Info.plist"
 cp "$repo_root/xbox/live/mac-test.html" "$contents/Resources/live/mac-test.html"
-cp "$repo_root/xbox/live/hello.js" "$contents/Resources/live/hello.js"
+cp "$repo_root/xbox/live/oskiewar.js" "$contents/Resources/live/oskiewar.js"
 cp "$repo_root/system/public/papers.aesthetic.computer/foundry/fonts/ComicRelief-Regular.ttf" \
   "$contents/Resources/live/ComicRelief-Regular.ttf"
 

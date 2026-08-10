@@ -24,6 +24,7 @@ private enum DrawCommand {
     case box(CGRect, Ink)
     case line(CGPoint, CGPoint, CGFloat, Ink)
     case triangle(CGPoint, CGPoint, CGPoint, Ink)
+    case triangle3d(CGPoint, CGFloat, CGPoint, CGFloat, CGPoint, CGFloat, Ink)
     case text(String, CGPoint, CGFloat, Ink, String)
 }
 
@@ -403,6 +404,18 @@ private final class GameView: NSView {
                 context.closePath()
                 context.setFillColor(ink.color.cgColor)
                 context.fillPath()
+            case let .triangle3d(first, _, second, _, third, _, ink):
+                // AppKit remains the compatibility renderer. It deliberately
+                // ignores depth here; Metal/SDL hosts consume the same command
+                // with a real depth attachment instead of erasing z at the JS
+                // boundary as this host did previously.
+                context.beginPath()
+                context.move(to: first)
+                context.addLine(to: second)
+                context.addLine(to: third)
+                context.closePath()
+                context.setFillColor(ink.color.cgColor)
+                context.fillPath()
             case let .text(text, point, size, ink, family):
                 let font = NSFont(name: family, size: size) ?? NSFont.systemFont(ofSize: size)
                 let attributes: [NSAttributedString.Key: Any] = [
@@ -467,7 +480,7 @@ private final class NativeGameHost {
         GCController.startWirelessControllerDiscovery(completionHandler: nil)
         guard let resources = Bundle.main.resourceURL,
               let hello = try? String(contentsOf:
-                resources.appendingPathComponent("live/hello.js"), encoding: .utf8),
+                resources.appendingPathComponent("live/oskiewar.js"), encoding: .utf8),
               var qr = try? String(contentsOf:
                 resources.appendingPathComponent("live/qr.mjs"), encoding: .utf8) else {
             javascriptError = "missing native game resources"
@@ -478,7 +491,7 @@ private final class NativeGameHost {
                 range: NSRange(qr.startIndex..., in: qr), withTemplate: "\n")
         }
         javascript.evaluateScript(qr + "\n" + hello,
-            withSourceURL: URL(fileURLWithPath: "oskiewar/hello.js"))
+            withSourceURL: URL(fileURLWithPath: "oskiewar/oskiewar.js"))
         call("boot")
         // A title screen barely simulates anything, so measuring one tells you
         // nothing. Self-play drops straight into a real fight.
@@ -644,9 +657,11 @@ private final class NativeGameHost {
                     CGPoint(x: x3, y: y3), Ink(r, g, b)))
             }
         let triangle3d: @convention(block) (Double, Double, Double, Double, Double, Double, Double, Double, Double, Double, Double, Double) -> Void =
-            { [weak self] x1, y1, _, x2, y2, _, x3, y3, _, r, g, b in
-                self?.renderer.commands.append(.triangle(CGPoint(x: x1, y: y1), CGPoint(x: x2, y: y2),
-                    CGPoint(x: x3, y: y3), Ink(r, g, b)))
+            { [weak self] x1, y1, z1, x2, y2, z2, x3, y3, z3, r, g, b in
+                self?.renderer.commands.append(.triangle3d(
+                    CGPoint(x: x1, y: y1), CGFloat(z1),
+                    CGPoint(x: x2, y: y2), CGFloat(z2),
+                    CGPoint(x: x3, y: y3), CGFloat(z3), Ink(r, g, b)))
             }
         let text: (String) -> @convention(block) (String, Double, Double, Double, Double, Double, Double) -> Void =
             { family in { [weak self] value, x, y, size, r, g, b in

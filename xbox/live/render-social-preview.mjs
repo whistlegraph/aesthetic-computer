@@ -18,7 +18,7 @@ const posterSize = { width: 1200, height: 630 };
 const videoSize = { width: 720, height: 1280 };
 const captureSeconds = 2;
 const loopSeconds = captureSeconds * 2;
-const sources = ["hello.js", "mac-test.html", "frame-driver.mjs"];
+const sources = ["oskiewar.js", "mac-test.html", "frame-driver.mjs"];
 const sourceHash = createHash("sha256");
 for (const name of sources) sourceHash.update(await readFile(join(live, name)));
 sourceHash.update(await readFile(new URL(import.meta.url)));
@@ -42,7 +42,7 @@ function fileFor(pathname) {
     return join(live, "mac-test.html");
   // Every module the shell imports has to be listed, or the page dies on a 404
   // and the capture comes out empty rather than loudly wrong.
-  if (["/hello.js", "/oskiewar-sfx.mjs", "/oskiewar-midi.mjs", "/frame-driver.mjs",
+  if (["/oskiewar.js", "/oskiewar-sfx.mjs", "/oskiewar-midi.mjs", "/frame-driver.mjs",
       "/round-room.mjs"].includes(pathname)) return join(live, pathname.slice(1));
   if (pathname === "/aesthetic.computer/dep/@akamfoad/qr/qr.mjs")
     return join(repo, "system/public/aesthetic.computer/dep/@akamfoad/qr/qr.mjs");

@@ -1,6 +1,6 @@
 // Stage 2 — burn a source spec into a 1080x1920 mp4 with the game's own audio.
 //
-// The renderer is the real game in a real browser: `hello.js` under
+// The renderer is the real game in a real browser: `oskiewar.js` under
 // `mac-test.html`, painted at 60 Hz by the same frame driver a player gets.
 // Two halves, muxed by ffmpeg, both borrowed from `marketing/av-reels`:
 //
@@ -14,7 +14,7 @@
 //           the headless rAF throttle that leaves `canvas.captureStream()`
 //           empty.
 //
-// Determinism: `hello.js` calls `Math.random` exactly once, to seed the match
+// Determinism: `oskiewar.js` calls `Math.random` exactly once, to seed the match
 // name — everything downstream (ball kind, round names, the whole physics
 // sim) falls out of that. Replacing `Math.random` with a seeded generator
 // before boot therefore makes an entire match reproducible from a string.
@@ -26,7 +26,7 @@ import { serveShell, repo } from "./shell.mjs";
 
 const wait = (ms) => new Promise((done) => setTimeout(done, ms));
 
-// Both read off `hello.js`. A round announces its end by POSTing its replay,
+// Both read off `oskiewar.js`. A round announces its end by POSTing its replay,
 // and that POST lands at the START of the result card, not the end of it —
 // `roundResultUs` of card still has to play before the next round begins.
 // Getting this backwards is what put ~3 s of the previous round's card on the
@@ -74,7 +74,7 @@ async function loadPuppeteer() {
 }
 
 // A fight worth watching, spelled in the keys a person actually holds.
-// `hello.js` reads pad one from W/A/S/D + F(kick) G(shield) H(punch) V(item),
+// `oskiewar.js` reads pad one from W/A/S/D + F(kick) G(shield) H(punch) V(item),
 // so the score is legible against the on-screen legend.
 const combatKeys = { kick: "KeyF", punch: "KeyH", shield: "KeyG",
   item: "KeyV", jump: "KeyW", left: "KeyA", right: "KeyD" };
@@ -302,7 +302,7 @@ export async function renderReel(spec, { log = console.log } = {}) {
       }
     })() : null;
 
-    // A match ends when the game posts its demo. `hello.js` carries a
+    // A match ends when the game posts its demo. `oskiewar.js` carries a
     // best-of-five constant, but nothing accumulates round wins toward it —
     // self-play calls `startSelfPlay` again at every round end, and normal
     // play returns to the title, so every recorded round is its own match.

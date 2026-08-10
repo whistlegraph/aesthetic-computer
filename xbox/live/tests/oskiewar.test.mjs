@@ -7,7 +7,7 @@ import { qrcode } from
 import { decodeDump, dumpRows } from
   "../../../system/netlify/functions/oskiewar-dump.mjs";
 
-const source = await readFile(new URL("../hello.js", import.meta.url), "utf8");
+const source = await readFile(new URL("../oskiewar.js", import.meta.url), "utf8");
 const webShell = await readFile(new URL("../mac-test.html", import.meta.url), "utf8");
 const frameDriverSource = await readFile(new URL("../frame-driver.mjs", import.meta.url));
 const socialRenderer = await readFile(new URL(
@@ -106,9 +106,13 @@ function createFight(startImmediately = true, enterGame = true,
   );
   globalThis.__oskiewarRoundBridge = roundBridge;
   globalThis.__oskiewarAttractVariant = "still";
+  const opponentOverride = globalThis.__oskiewarOpponent;
+  if (opponentOverride === undefined) globalThis.__oskiewarOpponent = "dummy";
   fight.boot();
   globalThis.__oskiewarRoundBridge = null;
   delete globalThis.__oskiewarAttractVariant;
+  if (opponentOverride === undefined) delete globalThis.__oskiewarOpponent;
+  else globalThis.__oskiewarOpponent = opponentOverride;
   if (enterGame) fight.enterGame();
 
   const tick = (elapsedUs = 16667) => {
@@ -182,6 +186,36 @@ test("mobile controls live in the canvas rather than DOM buttons", () => {
   assert.match(webShell, /function touchKeyAt\(point\)/);
   assert.match(source, /function drawTouchControls\(\)/);
   assert.match(source, /drawTouchControls\(\);/);
+});
+
+test("touch controls need no duplicate tutorial legend", () => {
+  const legend = source.slice(source.indexOf("function drawControlLegend"),
+    source.indexOf("function drawTouchControls"));
+  assert.match(legend, /capabilities\(\)\.inputFamily === "touch"\) return/);
+  assert.match(webShell, /\.touch-enabled #account/);
+});
+
+test("phone action buttons speak the canonical command stream", () => {
+  const controls = source.slice(source.indexOf("function drawTouchControls"),
+    source.indexOf("function keycapRunWidth"));
+  assert.match(controls, /commandGlyph = \{ A: "\/", B: "\*", X: "\)", Y: "\+" \}/);
+  assert.match(controls, /commandGlyph\[key\]/);
+});
+
+test("phone names shrink and the PDT clock fits beside the notch", () => {
+  assert.match(webShell, /viewport-fit=cover/);
+  assert.match(source, /const size = touch \? 24 : hudTypeSize/);
+  assert.match(source, /const nameSize = touch \? 32 : compactLayout\(\) \? 48 : 74/);
+  const clock = source.slice(source.indexOf("function hudClockBox"),
+    source.indexOf("function hudStatusTray"));
+  assert.match(clock, /const size = touch \? 16 : hudTypeSize/);
+  assert.match(clock, /left: right - handleWidth\(label, size\)/);
+});
+
+test("the iOS shell can pulse debug without inventing another input", () => {
+  assert.match(webShell, /globalThis\.__oskiewarToggleDebug = \(\) =>/);
+  assert.match(webShell, /keys\[0\]\.add\("View"\)/);
+  assert.match(webShell, /keys\[0\]\.delete\("View"\)/);
 });
 
 test("every combat button is reachable from a keyboard on both pads", () => {
@@ -308,7 +342,7 @@ test("a detected pad swaps the round legend onto gamepad wording", () => {
   assert.equal(host.capabilities().inputFamily, "xbox");
   const { fight } = createFight(false, false, "xbox-uwp");
   assert.equal(fight.combatLegend(fight.players[0]),
-    "A KICK   B PUNCH   X SHIELD   Y USE ITEM   STICK JUMP");
+    "LEFT,RIGHT MOVE   RIGHT,RIGHT >> DASH   A KICK   B PUNCH   X SHIELD   Y USE ITEM   STICK JUMP");
 });
 
 test("every instructional keyboard key uses the shared gray keycap renderer", () => {
@@ -538,7 +572,7 @@ test("title shows a live Pacific clock and version timestamp", () => {
   const { fight } = createFight(false, false);
   assert.match(fight.pacificTimeLabel(1785870000000),
     /^\d{1,2}:\d{2}(am|pm) P(D|S)T$/);
-  assert.match(source, /const buildTimestamp = "\d{4}\.\d{2}\.\d{2}\.\d{4} PDT"/);
+  assert.match(source, /const buildVersion = 500/);
   assert.match(source, /const clock = hudClockBox\(titleUnixMs\)/);
   assert.match(source, /typeWrite\(clock\.label, clock\.left, safe\.top \+ 2/);
   assert.match(source, /const fpsLabel = Math\.round\(displayFps \|\| 0\)/);
@@ -974,6 +1008,38 @@ test("the killcam keeps the winner in frame instead of deleting them", () => {
   assert.doesNotMatch(source, /if \(!player\.alive && !roundResult\) return;/);
 });
 
+test("a dismembered diving winner keeps animating through the KO shot", () => {
+  const { fight, tick } = createFight();
+  const winner = fight.players[0];
+  winner.removedParts = ["left-arm", "right-leg"];
+  winner.y = 1800;
+  winner.vy = 420;
+  winner.grounded = false;
+  const before = winner.y;
+  fight.knockOut();
+  tick();
+  assert.equal(winner.frozenGeometry, undefined);
+  assert.ok(winner.y > before, "winner should continue the dive under neutral physics");
+  assert.ok(fight.runnerWorldGeometry(winner, 0).segments
+    .every((segment) => !winner.removedParts.includes(segment.part)));
+  assert.match(source, /updatePlayer\(cinematicWinner,/);
+  assert.match(source, /updateDetachedParts\(dt\)/);
+  assert.match(source, /const victoryAmount = deathCinematic\?\.winnerPad/);
+  assert.match(source, /Math\.sign\(defeated\.x - player\.x\)/);
+});
+
+test("hilly terrain shares one deterministic surface with physics and foot IK", () => {
+  assert.match(source, /function terrainFloorAt\(x\)/);
+  assert.match(source, /const broad = Math\.sin/);
+  assert.match(source, /const detail = Math\.sin/);
+  assert.match(source, /function drawTerrainSurface\(/);
+  assert.match(source, /player\.y >= terrainFloorAt\(player\.x\)/);
+  assert.match(source, /const leadGround = terrainFloorAt\(leadFoot\)/);
+  assert.match(source, /const rearGround = terrainFloorAt\(rearFoot\)/);
+  assert.match(source, /terrainFloorAt\(ball\.x\) - ball\.radius/);
+  assert.match(source, /terrainPhase = terrainSeed\("oskiewar-physics-1-hills"\)/);
+});
+
 test("wind flag lives on the platform without an MPH HUD label", { skip: !WIND_FLAG }, () => {
   assert.match(source, /const poleBottom = platformY/);
   assert.match(source, /const poleX = \(platformLeft \+ platformRight\) \/ 2/);
@@ -1036,6 +1102,35 @@ test("debug HUD shows native surface and timing without repeating oskiewar", () 
   assert.match(source, /Number\(run\.presentMs\)[\s\S]{0,60}"ms"/);
   assert.match(source, /typeWrite\(surfaceLabel, safe\.left \+ 2, safe\.top \+ 2/);
   assert.doesNotMatch(source, /const gameLabel = "oskiewar"/);
+});
+
+test("the round timer cannot leak through the start screen", () => {
+  assert.match(source, /let gameplayStarted = false/);
+  assert.match(source, /function beginTraining[\s\S]{0,180}gameplayStarted = false/);
+  const enter = source.slice(source.indexOf("function enterGame"),
+    source.indexOf("function updateShell"));
+  assert.match(enter, /gameplayStarted = true/);
+  assert.match(source, /if \(shellMode === "GAME" && gameplayStarted\) \{/);
+});
+
+test("starting after action attract becomes player versus dummy", () => {
+  const enter = source.slice(source.indexOf("function enterGame"),
+    source.indexOf("function updateShell"));
+  assert.match(enter, /players\[0\]\.bot = false/);
+  assert.match(enter, /players\[1\]\.npc = true/);
+  assert.match(enter, /players\[1\]\.bot = false/);
+  assert.match(enter, /players\[1\]\.spiderDummy = false/);
+});
+
+test("raw left stick gives pupils subtle pre-deadzone gaze", () => {
+  const face = source.slice(source.indexOf("function drawFace"),
+    source.indexOf("function drawInventory"));
+  assert.match(face, /const movementDeadzone = \.48/);
+  assert.match(face, /const gazeNoiseFloor = \.015/);
+  assert.match(face, /const rawMagnitude = Math\.hypot\(rawX, rawY\)/);
+  assert.match(face, /movementDeadzone - gazeNoiseFloor/);
+  assert.match(face, /lerp\(direction \* \.2, rawX, gazeAmount\)/);
+  assert.doesNotMatch(face, /Math\.abs\(rawX\) >= deadzone/);
 });
 
 // The bug is a large bottom-center global-mode indicator. MIDI remains in its
@@ -2263,6 +2358,33 @@ test("spiderdummy is a giant inert foe with destructible segmented legs", () => 
     part.part === "left-arm").length >= 6);
 });
 
+test("spiderdummy remains directly reachable while pal select is retired", () => {
+  globalThis.__oskiewarOpponent = "spiderdummy";
+  const { fight } = createFight(false, false);
+  delete globalThis.__oskiewarOpponent;
+  assert.equal(fight.players[1].name, "SPIDERDUMMY");
+  assert.equal(fight.players[1].spiderDummy, true);
+  assert.match(webShell, /get\("opponent"\)/);
+});
+
+test("fresh training sessions choose only dummy or spiderdummy 50/50", () => {
+  const choice = source.slice(source.indexOf("function trainingOpponentKind"),
+    source.indexOf("const selectionReady"));
+  assert.match(choice, /requested === "dummy" \|\| requested === "spiderdummy"/);
+  assert.match(choice, /hashUnit\("training-opponent:"/);
+  assert.match(choice, /< \.5\s*\? "dummy" : "spiderdummy"/);
+  assert.doesNotMatch(choice, /\bbot\b/);
+});
+
+test("skateboard is a deterministic physical match prop with native geometry", () => {
+  assert.match(source, /\{ type: "skateboard", spawnOwner: -1, radius: 52/);
+  const drawSource = source.slice(source.indexOf("function drawBall"),
+    source.indexOf("function drawBallHitboxes"));
+  assert.match(drawSource, /ball\.type === "skateboard"/);
+  assert.match(drawSource, /filledCapsule/);
+  assert.match(drawSource, /filledDisc/);
+});
+
 test("losing both legs grounds the pelvis in a low crouched form", () => {
   const { fight, now } = createFight();
   const target = fight.players[1];
@@ -2523,7 +2645,7 @@ function jumpArc(harness, pad = 0, holdFrames = 200) {
   // Clear of the ledge: it now sits inside a plain jump's arc, and landing on
   // it mid-measurement would truncate both the apex and the airtime.
   const stage = harness.fight.stageGeometry();
-  player.x = stage.platformLeft - 900;
+  if (PLATFORM) player.x = stage.platformLeft - 900;
   const floor = player.y;
   const startedAt = harness.now();
   let liftAt = 0;
@@ -2660,10 +2782,11 @@ test("a lone crouch tap on the platform never sinks", () => {
 test("double-tapping crouch on the floor still fast-drops instead of sinking", () => {
   const { fight, tap } = createFight();
   const player = fight.players[0];
+  const ground = player.y;
   tap(0, "ArrowDown");
   tap(0, "ArrowDown");
   assert.equal(player.lastButton, "DASH DOWN");
-  assert.equal(player.y, 12000);
+  assert.equal(player.y, ground);
 });
 
 test("a bot stranded on the platform sinks back into reach", { skip: !PLATFORM }, () => {
@@ -3179,13 +3302,17 @@ test("owned gun and grenade counts render above each bottom handle", () => {
   assert.match(source, /function drawHudInventory\(player, side\)/);
   assert.match(source, /items\.push\("gun " \+ player\.gunAmmo\)/);
   assert.match(source, /items\.push\("grenade " \+ player\.grenadeAmmo\)/);
-  assert.match(source,
-    /drawHudInventory\(players\[0\], 0\);\n    drawHudInventory\(players\[1\], 1\);/);
+  assert.match(source, /drawHudInventory\(player, side\)/);
   const { fight } = createFight();
   fight.players[0].gunAmmo = 3;
   assert.ok(fight.runnerWorldGeometry(fight.players[0], 0).segments
     .some((segment) => segment.role === "item-forearm"));
   assert.doesNotMatch(source, /gunPips|grenadePips/);
+  const inventorySource = source.slice(source.indexOf("function drawInventory"),
+    source.indexOf("function drawDigitalHeadBurst"));
+  assert.match(inventorySource,
+    /filledCapsule\(hand\.x, hand\.y, barrel\.x, barrel\.y/);
+  assert.doesNotMatch(inventorySource, /\bline\(/);
 });
 
 test("player animation state reads as a boxed syntax diagram", () => {
@@ -3196,24 +3323,70 @@ test("player animation state reads as a boxed syntax diagram", () => {
   const lines = fight.playerStatLines(player);
   assert.equal(lines.length, 3);
   assert.match(lines[0], /^p1 :: /);
-  assert.match(lines[1], /^in\[1,0\] -> stk\[0\.00\] vx\[-?\d+\]$/);
-  assert.match(lines[2], /^anim::\w+ step\[\d+\/\d+\] t\[\d+\]$/);
+  assert.match(lines[1], /^in\[ 1, 0\] -> stk\[ 0\.00\] vx\[\s*-?\d+\]$/);
+  assert.match(lines[2], /^anim::\w+\s+ step\[\s*\d+\/\s*\d+\] t\[\s*\d+\]$/);
   const handle = fight.playerHandleLayout(player, 0);
   assert.equal(handle.size, 42);
   fight.setDebugHitboxes(true);
   assert.ok(fight.statStackHeight() > 80);
   fight.setDebugHitboxes(false);
   assert.equal(fight.statStackHeight(), 0);
-  assert.match(source, /strokeBox\(x, y, width, height, 2, edge\)/);
-  assert.match(source, /for \(let step = 0; step < count; step\+\+\)/);
-  assert.match(source, /const active = step <= Math\.min\(count - 1, animation\.step\)/);
-  assert.match(source,
-    /drawPlayerStats\(players\[0\], 0, t\);\n    drawPlayerStats\(players\[1\], 1, t\);/);
+  assert.match(source, /triangleDepth = -1\.445/);
+  assert.match(source, /screenStrokeRect\(x, y, width, height, 2, edge\)/);
+  assert.doesNotMatch(source.slice(source.indexOf("function drawPlayerStats"),
+    source.indexOf("function drawHudInventory")), /\bbox\(/);
+  assert.match(source, /const width = compactLayout\(\) \? 360 : 520/);
+  assert.doesNotMatch(source.slice(source.indexOf("function drawPlayerStats"),
+    source.indexOf("function drawHudInventory")), /const track|segmentWidth/);
+  assert.match(source, /const hudPlayers = spatialHudPlayers\(\)/);
+  assert.match(source, /drawPlayerStats\(player, side, t\)/);
   assert.match(source, /const handle = playerHandleLayout\(player, side\)/);
   assert.match(source, /handle\.y - height - 12/);
   // The read-out left the world; nothing labels the fighters any more.
   assert.doesNotMatch(source.slice(source.indexOf("function drawDebugHitboxes"),
     source.indexOf("function drawPlayerHud")), /typeWrite/);
+});
+
+test("HUD ownership follows fighter position with crossing hysteresis", () => {
+  assert.match(source, /function spatialHudPlayers\(\)/);
+  assert.match(source, /if \(other\.x < left\.x - 36\) hudLeftPad = other\.pad/);
+  assert.match(source, /drawPlayerHandle\(player, t, side\)/);
+  assert.match(source, /drawCommandStream\(player, side\)/);
+});
+
+test("persistent controls teach the two-button hold chord", () => {
+  assert.match(source, /both \? "GRAB" : held\.includes\("A"\) \? "KICK"/);
+  assert.match(source, /!both && held\.includes\("B"\) \? "PUNCH"/);
+  assert.doesNotMatch(source, /= HOLD/);
+  assert.match(source, /safe\.top \+ row \* step/);
+  assert.match(source, /const controlRailWidth/);
+  assert.match(source, /pad\.leftX < -\.12/);
+  assert.match(source, /pad\.leftX > \.12/);
+  assert.match(source, /pad\.leftY > \.12/);
+  assert.match(source, /const step = Math\.round\(size \* 1\.82\)/);
+  assert.match(source, /\[\["RIGHT", "RIGHT"\], ">> DASH"/);
+  assert.match(source, /\[\["LEFT", "RIGHT"\], "MOVE"/);
+  assert.match(source, /Object\.hasOwn\(padGlyph, label\)/);
+  assert.match(source,
+    /label === "STICK_UP" \|\| label === "LEFT" \|\| label === "RIGHT"/);
+});
+
+test("handle palette gradients survive on detached limbs and anchor the head at @", () => {
+  assert.match(source, /function drawPaletteCapsule\(/);
+  assert.match(source, /const bands = colors\?\.length > 1 \? 6 : 1/);
+  assert.match(source, /player\.handleColors\[0\] : color/);
+  assert.match(source, /colors: player\.npc \? \[\] : player\.handleColors/);
+  assert.match(source, /paletteCoordinate/);
+});
+
+test("dummy state card describes an inert destructible target", () => {
+  const { fight } = createFight();
+  fight.startFightAgainst("dummy");
+  const lines = fight.playerStatLines(fight.players[1]);
+  assert.deepEqual(lines.length, 3);
+  assert.match(lines[0], /^p2 :: training dummy$/);
+  assert.match(lines[1], /^target::inert parts\[ 5\/ 5\] dmg\[ 0\]$/);
+  assert.doesNotMatch(lines.join(" "), /stk|vx/);
 });
 
 test("diagnostic lines color handles, numbers, units, labels, and punctuation", () => {
@@ -3684,14 +3857,14 @@ test("legacy Xbox drum allowlists cannot stop bell or whoosh cues", () => {
 test("client failures become an on-screen error state", () => {
   const { fight, telemetryEvents, setHostErrorStatus } = createFight(false, false);
   const error = new RangeError("unknown drum");
-  error.stack = "RangeError: unknown drum\n    at playDrum (hello.js:724:9)";
+  error.stack = "RangeError: unknown drum\n    at playDrum (oskiewar.js:724:9)";
   fight.captureClientError("sim", error);
   assert.match(fight.clientErrorState(), /sim: RangeError: unknown drum/);
   assert.equal(fight.clientErrorDetailState().source.line, 724);
   const payload = JSON.parse(telemetryEvents.find(([event]) =>
     event === "CLIENT_ERROR")[1]);
   assert.equal(payload.phase, "sim");
-  assert.equal(payload.source.file, "hello.js");
+  assert.equal(payload.source.file, "oskiewar.js");
   assert.equal(payload.state.players.length, 2);
   setHostErrorStatus("posted to server xbox-oskiewar-test");
   assert.equal(fight.errorReportStatus(), "posted to server xbox-oskiewar-test");
@@ -3733,7 +3906,8 @@ test("the error screen carries its whole dump in a scannable QR link", () => {
     assert.equal(dump.src.line, 1162);
     assert.match(dump.k, /screenTriangle/);
     assert.equal(dump.s.players.length, 2);
-    assert.equal(dump.s.build, /const buildTimestamp = "([^"]+)"/.exec(source)[1]);
+    assert.equal(dump.s.build, "v" +
+      Number(/const buildVersion = (\d+)/.exec(source)[1]));
     assert.ok(dumpRows(dump).some(([label]) => label === "camera"));
     assert.doesNotThrow(() => fight.paint());
     assert.match(source, /errorTypeWrite\("scan to share this dump"/);

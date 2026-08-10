@@ -136,6 +136,9 @@ function launch() {
 function publish(sourcePath) {
   if (!sourcePath) throw new Error("usage: xbox-live publish <piece.js>");
   const absolute = resolve(sourcePath);
+  if (basename(absolute) === "oskiewar.js" &&
+      process.env.OSKIEWAR_UNIFIED_DEPLOY !== "1")
+    throw new Error("canonical Oskiewar deploys must use npm run oskiewar:deploy");
   if (!existsSync(absolute)) throw new Error(`piece not found: ${absolute}`);
   let source = readFileSync(absolute, "utf8");
   if (source.startsWith("// @bundle-qr")) {

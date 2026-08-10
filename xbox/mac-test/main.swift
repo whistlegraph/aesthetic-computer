@@ -10,7 +10,7 @@ final class FightAppDelegate: NSObject, NSApplicationDelegate {
         }
         let live = resources.appendingPathComponent("live", isDirectory: true)
         let html = live.appendingPathComponent("mac-test.html")
-        let piece = live.appendingPathComponent("hello.js")
+        let piece = live.appendingPathComponent("oskiewar.js")
         guard let pieceSource = try? String(contentsOf: piece, encoding: .utf8),
               let encoded = try? JSONSerialization.data(withJSONObject: [pieceSource]),
               let sourceArray = String(data: encoded, encoding: .utf8) else {

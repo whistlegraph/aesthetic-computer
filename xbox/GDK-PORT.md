@@ -51,7 +51,7 @@ across twelve WinRT namespaces. The inventory:
 What crosses untouched is more than it looks. `QuickJsEngine.cpp` — 873 lines,
 the entire interpreter binding — contains **zero** WinRT references. All six HLSL
 shaders, the D3D11 render graph, the XAudio2 voice graph and its DSP, the image
-effects in `xbox/runtime/`, and `hello.js` are portable. Storage is nearly free
+effects in `xbox/runtime/`, and `oskiewar.js` are portable. Storage is nearly free
 because every read is already `_wfopen_s` on a wide path; only *acquiring* the
 path is WinRT.
 
@@ -350,9 +350,9 @@ rulebook; that framing should go.
 What survives is better than nothing: the retail title can legitimately pull
 **data** after release through Global Title Storage or PlayFab Title Data — new
 fighter rosters, tuning constants, seasonal palettes, event schedules, the AC
-community feed — as long as it is data the shipped `hello.js` interprets, not a
-replacement for `hello.js`. If the live loop matters enough, the design move is
-to widen what `hello.js` reads as data, so a large fraction of what is currently
+community feed — as long as it is data the shipped `oskiewar.js` interprets, not a
+replacement for `oskiewar.js`. If the live loop matters enough, the design move is
+to widen what `oskiewar.js` reads as data, so a large fraction of what is currently
 hot-reloaded as script becomes content the certified runtime consumes.
 
 On PC the calculus differs, because only 10.2.2 applies and it is intent-based.
@@ -409,12 +409,12 @@ being passed.
 ### Getting the game into the package
 
 Landed, and it is the smallest high-value change here. `App.cpp` now reads
-`hello.js` out of the package at boot through the existing `ReadPackageBytes`,
+`oskiewar.js` out of the package at boot through the existing `ReadPackageBytes`,
 and falls back to `kSmokePiece` only if the file is absent. `NativeBios.vcxproj`
-adds `..\live\hello.js` as Content, alongside the shaders and the fonts.
+adds `..\live\oskiewar.js` as Content, alongside the shaders and the fonts.
 
 Package Content rather than a compiled-in byte array, for three reasons. MSVC
-rejects string literals over 65,535 characters and `hello.js` is 237 KB, so the
+rejects string literals over 65,535 characters and `oskiewar.js` is 237 KB, so the
 obvious raw-string approach does not compile. Package content is signed,
 immutable, and Store-delivered, which is precisely what 10.2.5 asks for. And it
 keeps the game a file in the repo that the existing tooling can still edit. If
@@ -425,7 +425,7 @@ package is the unit the Store signs and distributes.
 ### CI
 
 `.github/workflows/xbox-gdk-desktop.yml`, on `windows-2022`, on any push
-touching `xbox/native-bios/**`, `xbox/runtime/**` or `xbox/live/hello.js` —
+touching `xbox/native-bios/**`, `xbox/runtime/**` or `xbox/live/oskiewar.js` —
 the game is package content now, so it belongs in the trigger.
 
 GitHub Actions rather than AppVeyor, for one reason: AppVeyor's config here is a
@@ -446,7 +446,7 @@ rather than gates, because without the Xbox Extensions it cannot be conclusive.
 **The retail dev/live split described above is still design, not code.** The
 `AcDevLivePiece` property and the `AC_DEV_LIVE_PIECE` define exist in both
 projects and the GDK one defaults to `0`, but the string scan over a built
-package and the `hello.js` size assertion are not written, and the WinRT lane's
+package and the `oskiewar.js` size assertion are not written, and the WinRT lane's
 dev/retail jobs are not written. That is a separate change against
 `appveyor.yml` and should be one.
 
@@ -593,9 +593,9 @@ and run.
 
 **Changed in the previous pass, still not compiler-checked** (the UWP lane
 builds on AppVeyor, so `main` being green covers these, but no one has looked):
-the `App.cpp:1806` clock fix, boot reading `hello.js` out of the package, the
+the `App.cpp:1806` clock fix, boot reading `oskiewar.js` out of the package, the
 `#if AC_DEV_LIVE_PIECE` guards, and `NativeBios.vcxproj`'s `AcDevLivePiece`
-property and `..\live\hello.js` Content entry.
+property and `..\live\oskiewar.js` Content entry.
 
 **Deliberately left alone:** `smoke_piece.js` and its Content entry, which are
 dead; the `xbox/ota/` lane; `xbox/live/**`; and the 2,678 lines of `App.cpp`

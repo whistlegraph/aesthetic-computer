@@ -1,0 +1,16 @@
+{
+  "game": "oskiewar",
+  "simulation": "oskiewar-physics-1",
+  "tickRate": 60,
+  "build": 37,
+  "matchId": "ow-demo-old",
+  "matchName": "demo-old",
+  "roundId": "ow-demo-old",
+  "roundName": "demo-old",
+  "durationTicks": 8,
+  "fighters": ["@OLD", "DUMMY"],
+  "inputs": [[0, 0, 2], [2, 1, 16], [4, 0, 0], [7, 1, 0]],
+  "events": [],
+  "checkpoints": [],
+  "rounds": []
+}

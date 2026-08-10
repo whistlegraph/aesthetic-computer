@@ -1,7 +1,7 @@
 // oskiewar Web MIDI bridge.
 //
 // Every gameSignal is already broadcast as an `oskiewar:signal` CustomEvent so
-// `oskiewar-sfx.mjs` can synthesize it (`hello.js` `emitSignal`). This module is
+// `oskiewar-sfx.mjs` can synthesize it (`oskiewar.js` `emitSignal`). This module is
 // a second subscriber on the same bus that sends the stream out as MIDI, so a
 // DAW on the same machine can be the instrument instead of the procedural bank.
 // It never touches the sfx module; muting one is the host's decision.

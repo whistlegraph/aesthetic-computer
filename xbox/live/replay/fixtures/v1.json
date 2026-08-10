@@ -1,0 +1,20 @@
+{
+  "format": "ac.oskiedemo",
+  "version": 1,
+  "game": "oskiewar",
+  "simulation": "oskiewar-physics-1",
+  "tickRate": 60,
+  "build": 500,
+  "matchId": "ow-demo-new",
+  "matchName": "demo-new",
+  "roundId": "ow-demo-new",
+  "roundName": "demo-new",
+  "roundIds": ["ow-demo-new"],
+  "roundIndex": 0,
+  "durationTicks": 5,
+  "fighters": ["@NEW", "DUMMY"],
+  "commands": [[0, 0, 1], [1, 0, 17], [3, 0, 0]],
+  "events": [],
+  "checkpoints": [],
+  "rounds": []
+}

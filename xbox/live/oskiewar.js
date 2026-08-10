@@ -634,6 +634,9 @@ const ballKinds = [
     bounce: .76, drag: .989, windFactor: .34, gravityFactor: 1 },
   { type: "beach", spawnOwner: -1, radius: 46, mass: .34, hitScale: 1.25,
     bounce: .82, drag: .998, windFactor: 1.35, gravityFactor: .62 },
+  { type: "skateboard", spawnOwner: -1, radius: 52, mass: 1.4,
+    hitScale: .82, bounce: .34, drag: .982, windFactor: .12,
+    gravityFactor: 1 },
 ];
 let matchBallType = ballKinds[0].type;
 // A match inflates exactly one ball and keeps it for every round.
@@ -691,6 +694,15 @@ let hudLeftPad = 0;
 // Hashing the already-created round name keeps the split stable for a visit
 // without spending a second Math.random call (reel seeding relies on one).
 let titleAttractMode = "still";
+let trainingOpponent = "";
+function trainingOpponentKind() {
+  const requested = String(globalThis.__oskiewarOpponent || "").toLowerCase();
+  if (requested === "dummy" || requested === "spiderdummy") return requested;
+  if (!trainingOpponent) trainingOpponent =
+    hashUnit("training-opponent:" + String(runtime().unixMs || Date.now())) < .5
+      ? "dummy" : "spiderdummy";
+  return trainingOpponent;
+}
 const selectionReady = [false, false];
 const selectionPrevious = [[], []];
 let selectionStep = 0;
@@ -1655,7 +1667,7 @@ function startFightAgainst(kind, now) {
 // floats over it. The intro countdown is spent before the first frame so
 // somebody arriving from a QR code is moving, not watching a number.
 function beginTraining(now) {
-  startFightAgainst("dummy", now);
+  startFightAgainst(trainingOpponentKind(), now);
   shellMode = "MENU";
   gameplayStarted = false;
   roundStartedAt = now - introDurationUs;
@@ -6497,6 +6509,39 @@ function drawTerrainSurface(left, right, near, far, color) {
   }
 }
 
+function drawRoomSurfaces(left, right, top, bottom, color) {
+  const columns = 6;
+  const rows = 2;
+  for (let row = 0; row < rows; row++) {
+    for (let column = 0; column < columns; column++) {
+      const x1 = lerp(left, right, column / columns);
+      const x2 = lerp(left, right, (column + 1) / columns);
+      const floor1 = terrainFloorAt(x1);
+      const floor2 = terrainFloorAt(x2);
+      const y1Left = lerp(top, floor1, row / rows);
+      const y1Right = lerp(top, floor2, row / rows);
+      const y2Left = lerp(top, floor1, (row + 1) / rows);
+      const y2Right = lerp(top, floor2, (row + 1) / rows);
+      const grain = .5 + .5 * Math.sin(column * 17.7 + row * 43.1 +
+        terrainPhase * 2.4);
+      const shade = mixColor(color, [112, 126, 116], .08 + grain * .12);
+      worldQuad({ x: x1, y: y1Left, z: worldFar },
+        { x: x2, y: y1Right, z: worldFar },
+        { x: x2, y: y2Right, z: worldFar },
+        { x: x1, y: y2Left, z: worldFar }, shade);
+    }
+  }
+  const edge = mixColor(color, [64, 78, 72], .24);
+  worldQuad({ x: left, y: ceilingY, z: worldNear },
+    { x: left, y: ceilingY, z: worldFar },
+    { x: right, y: ceilingY, z: worldFar },
+    { x: right, y: ceilingY, z: worldNear }, edge);
+  worldLine(worldLeft, top, worldFar - 4, worldLeft, bottom, worldFar - 4,
+    9, edge);
+  worldLine(worldRight, top, worldFar - 4, worldRight, bottom, worldFar - 4,
+    9, edge);
+}
+
 function drawTerrainGrass(left, right, color) {
   // Twenty deterministic tufts cost forty native lines total. Keeping them on
   // the line layer avoids turning background dressing into hundreds of faces.
@@ -6599,6 +6644,7 @@ function drawBall(ball) {
       point.y - radius > viewHeight) return;
   const soccer = ball.type === "soccer";
   const beach = ball.type === "beach";
+  const skateboard = ball.type === "skateboard";
   const polygon = (x, y, polygonRadius, sides, rotation, color) => {
     for (let side = 0; side < sides; side++) {
       const a = rotation + side * Math.PI * 2 / sides;
@@ -6610,6 +6656,34 @@ function drawBall(ball) {
         y + Math.sin(b) * polygonRadius, ...color);
     }
   };
+  if (skateboard) {
+    const alongX = Math.cos(ball.rotation) * radius;
+    const alongY = Math.sin(ball.rotation) * radius;
+    const normalX = -Math.sin(ball.rotation);
+    const normalY = Math.cos(ball.rotation);
+    const deck = [236, 76, 118];
+    const edge = [34, 25, 39];
+    const truck = [174, 184, 202];
+    filledCapsule(point.x - alongX * .86, point.y - alongY * .86,
+      point.x + alongX * .86, point.y + alongY * .86,
+      Math.max(8, radius * .22), edge);
+    filledCapsule(point.x - alongX * .82, point.y - alongY * .82,
+      point.x + alongX * .82, point.y + alongY * .82,
+      Math.max(5, radius * .14), deck);
+    for (const direction of [-1, 1]) {
+      const truckX = point.x + alongX * direction * .56;
+      const truckY = point.y + alongY * direction * .56;
+      filledCapsule(truckX - normalX * radius * .22,
+        truckY - normalY * radius * .22,
+        truckX + normalX * radius * .22,
+        truckY + normalY * radius * .22, Math.max(2, radius * .055), truck);
+      for (const side of [-1, 1])
+        filledDisc(truckX + normalX * radius * side * .26,
+          truckY + normalY * radius * side * .26,
+          Math.max(3, radius * .09), [22, 25, 34]);
+    }
+    return;
+  }
   if (beach) {
     const panels = [
       [244, 66, 96], [255, 146, 52], [255, 226, 66], [72, 210, 126],
@@ -7464,6 +7538,7 @@ function gamePaint() {
   cameraDoll.prepare();
   const { left: spanLeft, right: spanRight,
     top: spanTop, bottom: spanBottom } = terrainSpan();
+  drawRoomSurfaces(spanLeft, spanRight, spanTop, spanBottom, arena);
   drawTerrainSurface(spanLeft, spanRight, worldNear, worldFar, ground);
   drawTerrainGrass(spanLeft, spanRight, ground);
   const platformNear = -520;

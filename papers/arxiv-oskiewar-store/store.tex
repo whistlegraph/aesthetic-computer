@@ -121,7 +121,7 @@ The long answer is the rest of this report. It is a research finding rather than
 
 Two bodies of evidence, and one deliberate exclusion.
 
-The artifact side is the repository at commit \code{2fcb1b6f4}~\cite{acrepo}: \code{xbox/\allowbreak native-bios/\allowbreak App.cpp} (2,653 lines), \code{Package.\allowbreak appxmanifest}, the Visual C++ project files, \code{xbox/\allowbreak live/\allowbreak hello.js} (5,813 lines), \code{xbox/\allowbreak native-bios/\allowbreak smoke\allowbreak\_piece.js} (12 lines), \code{xbox/tools/}, and \code{xbox/ota/}. Claims about what the app does are grep-checked against that source rather than against memory or prior notes. Where the internal research note \code{xbox/PUBLISHING.md} \cite{acpublishing} and the source disagree --- it records \code{hello.js} at 5,549 lines --- the source wins and the divergence is stated.
+The artifact side is the repository at commit \code{2fcb1b6f4}~\cite{acrepo}: \code{xbox/\allowbreak native-bios/\allowbreak App.cpp} (2,653 lines), \code{Package.\allowbreak appxmanifest}, the Visual C++ project files, \code{xbox/\allowbreak live/\allowbreak oskiewar.js} (5,813 lines), \code{xbox/\allowbreak native-bios/\allowbreak smoke\allowbreak\_piece.js} (12 lines), \code{xbox/tools/}, and \code{xbox/ota/}. Claims about what the app does are grep-checked against that source rather than against memory or prior notes. Where the internal research note \code{xbox/PUBLISHING.md} \cite{acpublishing} and the source disagree --- it records \code{oskiewar.js} at 5,549 lines --- the source wins and the divergence is stated.
 
 The policy side is Microsoft-owned pages only, each fetched and read in full on 7 August 2026: the Microsoft Store Policies document, the Xbox Requirements (XR) list for console games, individual XR pages, the game-publishing onboarding guide, the two registration-fee notices, the UWP platform pages, the Developer Mode activation terms, and the Xbox Accessibility Guidelines. Where a page carries its own version and effective date, both are recorded in the bibliography alongside the access date, because several of these documents are versioned independently of the day they were last touched.
 
@@ -146,7 +146,7 @@ Language & C++/CX (\code{CompileAsWinRT}), toolset v143, x64 only \\
 Capabilities & \code{internetClient}, \code{private\-Network\-Client\-Server}, \code{removable\-Storage}, \code{optical} \\
 Runtime & QuickJS-ng vendored \cite{quickjs}; D3D11 at a fixed 1920$\times$1080 backbuffer; XAudio2 \\
 Piece in package & \code{smoke\_piece.js}, 12 lines \\
-Piece at runtime & \code{hello.js}, 5,813 lines, delivered out of band \\
+Piece at runtime & \code{oskiewar.js}, 5,813 lines, delivered out of band \\
 Signing & Self-signed \code{CN=Aesthetic\-Computer\-Dev}; \code{SideloadOnly} MSIX \\
 \bottomrule
 \end{tabularx}
@@ -227,14 +227,14 @@ Image decode & Windows Imaging & Own decoder or middleware \\
 Script engine & QuickJS-ng, vendored & Ports unchanged \\
 Rendering & D3D11, six HLSL shaders & Ports unchanged \\
 Audio & XAudio2 graph & Ports unchanged \\
-Game logic & \code{hello.js}, 5,813 lines & Ports unchanged \\
+Game logic & \code{oskiewar.js}, 5,813 lines & Ports unchanged \\
 \bottomrule
 \end{tabularx}
 \end{table*}
 
 That division is the good news buried in the finding. The parts of \game{} that are actually \game{} --- the fixed-step simulation, the pose and hitbox geometry, the camera, the synthesis, the replay format --- live above the boundary and do not care which operating system is underneath. The parts that have to be rewritten are the parts that were never the work. It is the same seam the web spectator already proved: one deterministic core, platform adapters at the edges \cite{scudder2026pieces,scudder2026os}. A GDK host is a third adapter.
 
-The narrow question worth answering before committing to any of it is whether QuickJS, the D3D11 renderer, and \code{hello.js} boot at all under GameCore x64. If they do, the remainder is API substitution with a known shape. If they do not, that is the moment to stop.
+The narrow question worth answering before committing to any of it is whether QuickJS, the D3D11 renderer, and \code{oskiewar.js} boot at all under GameCore x64. If they do, the remainder is API substitution with a known shape. If they do not, that is the moment to stop.
 
 \section{What Fails Certification}
 
@@ -336,9 +336,9 @@ Table~\ref{tab:cost} sequences the work. Nothing before step 4 requires a decisi
 \# & Step & Cost / time \\
 \midrule
 1 & Measure Edge on a retail console: gamepad mapping and latency at \code{oskiewar.com} & \$0 / 1 hour \\
-2 & Bake \code{hello.js} into the package; compile \code{PollLivePiece()} out of release builds & \$0 / 1--2 days \\
+2 & Bake \code{oskiewar.js} into the package; compile \code{PollLivePiece()} out of release builds & \$0 / 1--2 days \\
 3 & Register at \code{store\-developer.\-microsoft.\-com} --- company account, new dedicated MSA & \$0 / 2--5 business days \\
-4 & Install the GDK; spike the platform layer. Does QuickJS + D3D11 + \code{hello.js} boot under GameCore x64? & \$0 / 1--2 weeks \\
+4 & Install the GDK; spike the platform layer. Does QuickJS + D3D11 + \code{oskiewar.js} boot under GameCore x64? & \$0 / 1--2 weeks \\
 5 & Ship the PC build. IARC, privacy policy, packaging, the certification loop & \$0 / 2--4 weeks \\
 6 & Apply to ID@Xbox with a concept & \$0 / 10--15 business days, up to 3 weeks \\
 7 & Achievements, Xbox user model, name layer, privilege checks, suspend/resume, Recent Player reporting & devkit / 1--2 months \\

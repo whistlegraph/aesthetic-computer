@@ -103,7 +103,7 @@ The result remains a laboratory rather than a claim to a finished competitive fi
 
 \section{System Architecture}
 
-The system has four layers (Figure~\ref{fig:architecture}). The Xbox shell owns Windows.Gaming.Input, rendering, audio, storage, HTTPS, UDP, and WebSocket transports. A QuickJS context runs \code{xbox/live/hello.js}. The script owns match rules and native presentation. A relay accepts latest-only spectator snapshots, the web piece renders them with the standard Aesthetic Computer lifecycle, and the monolith stores bounded replay demos. Ableton Live receives redundant OSC datagrams over the local network.
+The system has four layers (Figure~\ref{fig:architecture}). The Xbox shell owns Windows.Gaming.Input, rendering, audio, storage, HTTPS, UDP, and WebSocket transports. A QuickJS context runs \code{xbox/live/oskiewar.js}. The script owns match rules and native presentation. A relay accepts latest-only spectator snapshots, the web piece renders them with the standard Aesthetic Computer lifecycle, and the monolith stores bounded replay demos. Ableton Live receives redundant OSC datagrams over the local network.
 
 \begin{figure*}[t]
 \centering
@@ -117,7 +117,7 @@ The system has four layers (Figure~\ref{fig:architecture}). The Xbox shell owns 
   arrow/.style={-{Latex[length=2mm]},thick,draw=acdark!70}]
   \node[box] (pads) {Two Xbox\\controllers};
   \node[core,right=of pads] (host) {UWP native host\\v1.0.0.35};
-  \node[core,right=of host] (piece) {QuickJS piece\\\code{hello.js}};
+  \node[core,right=of host] (piece) {QuickJS piece\\\code{oskiewar.js}};
   \node[box,above=of piece] (render) {D3D11 renderer\\XAudio2 synth};
   \node[net,right=of piece] (relay) {Match relay\\WSS, latest-only};
   \node[net,below=of relay] (phone) {Web spectator\\\code{/oskiewar:match}};
@@ -218,7 +218,7 @@ The present browser piece is deliberately a spectator, not a second implementati
 \label{fig:web-spectator}
 \end{figure}
 
-Playable web parity should not maintain a second copy of the rules. The next architecture extracts quantized commands, fixed-step simulation, collision geometry, pose state, replay serialization, and camera targets from \code{xbox/live/hello.js} into shared modules. Native and web adapters supply input, drawing, sound, persistence, and transport. Keyboard and browser gamepads map onto the same deterministic command core.
+Playable web parity should not maintain a second copy of the rules. The next architecture extracts quantized commands, fixed-step simulation, collision geometry, pose state, replay serialization, and camera targets from \code{xbox/live/oskiewar.js} into shared modules. Native and web adapters supply input, drawing, sound, persistence, and transport. Keyboard and browser gamepads map onto the same deterministic command core.
 
 \section{Network and Capabilities}
 

@@ -91,7 +91,7 @@ export const segments = {
 
 export const segmentKeys = Object.keys(segments);
 
-// One accent per market, drawn from the fighters' own palette in `hello.js`
+// One accent per market, drawn from the fighters' own palette in `oskiewar.js`
 // so a reel never introduces a colour the game does not already own.
 export const accents = {
   fgc: "#cd3048", gamedev: "#6fe8d2", homebrew: "#3076cd",

@@ -1,0 +1,389 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		1B43BAF5E41E93E3D9208197 /* product-analytics.mjs in Resources */ = {isa = PBXBuildFile; fileRef = A5CDAFE515D4323680797051 /* product-analytics.mjs */; };
+		21F3367D32F88CB3B2A52859 /* oskiewar-sfx.mjs in Resources */ = {isa = PBXBuildFile; fileRef = 2E725A92F239CBD5114A9A1E /* oskiewar-sfx.mjs */; };
+		359F92BBF72AEE001B8BFD71 /* oskiewar-analytics.mjs in Resources */ = {isa = PBXBuildFile; fileRef = A0AEFE9FB2DD8B296D83443D /* oskiewar-analytics.mjs */; };
+		4D00E7B7BFD0CDAA972C6F12 /* ComicRelief-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 179EE75D06881E64B8C2C164 /* ComicRelief-Regular.ttf */; };
+		5893AAD738853ADCCD1C6259 /* round-room.mjs in Resources */ = {isa = PBXBuildFile; fileRef = D5D135855C9371BD15F15377 /* round-room.mjs */; };
+		6F079803CD79934E3D119B92 /* mac-test.html in Resources */ = {isa = PBXBuildFile; fileRef = 8265144AA3E23B010A51E65A /* mac-test.html */; };
+		7729C117BEC5343C9CB8BAFC /* oskiewar-midi.mjs in Resources */ = {isa = PBXBuildFile; fileRef = 26C7F4ADC37CB30558AAE696 /* oskiewar-midi.mjs */; };
+		7D438ADCB6BECAD5D0E6C8F7 /* MetalSceneView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 812FA65365747604E58B98E7 /* MetalSceneView.swift */; };
+		82A4DA7DFB26C3E87F9AB609 /* oskiewar.js in Resources */ = {isa = PBXBuildFile; fileRef = AB2FCD0A93F17F907A54302C /* oskiewar.js */; };
+		98991A7AC85B7CAE426E8D15 /* qr.mjs in Resources */ = {isa = PBXBuildFile; fileRef = A50E50A82D3F715FB8B31490 /* qr.mjs */; };
+		C0C46FBB6805F1A1E055FED7 /* OskiewarApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = C43902C050551AD2D6DA0EF9 /* OskiewarApp.swift */; };
+		DE990881EAE44FB2BE4592FF /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = FCECE2875B24DB7356CB0FDC /* Assets.xcassets */; };
+		F10250364FF369A809057B31 /* frame-driver.mjs in Resources */ = {isa = PBXBuildFile; fileRef = 4C7C4D62E6C706C3AB30BB3B /* frame-driver.mjs */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		179EE75D06881E64B8C2C164 /* ComicRelief-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "ComicRelief-Regular.ttf"; sourceTree = "<group>"; };
+		26C7F4ADC37CB30558AAE696 /* oskiewar-midi.mjs */ = {isa = PBXFileReference; path = "oskiewar-midi.mjs"; sourceTree = "<group>"; };
+		2E725A92F239CBD5114A9A1E /* oskiewar-sfx.mjs */ = {isa = PBXFileReference; path = "oskiewar-sfx.mjs"; sourceTree = "<group>"; };
+		4C7C4D62E6C706C3AB30BB3B /* frame-driver.mjs */ = {isa = PBXFileReference; path = "frame-driver.mjs"; sourceTree = "<group>"; };
+		812FA65365747604E58B98E7 /* MetalSceneView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetalSceneView.swift; sourceTree = "<group>"; };
+		8265144AA3E23B010A51E65A /* mac-test.html */ = {isa = PBXFileReference; lastKnownFileType = text.html; path = "mac-test.html"; sourceTree = "<group>"; };
+		A0AEFE9FB2DD8B296D83443D /* oskiewar-analytics.mjs */ = {isa = PBXFileReference; path = "oskiewar-analytics.mjs"; sourceTree = "<group>"; };
+		A50E50A82D3F715FB8B31490 /* qr.mjs */ = {isa = PBXFileReference; path = qr.mjs; sourceTree = "<group>"; };
+		A5CDAFE515D4323680797051 /* product-analytics.mjs */ = {isa = PBXFileReference; path = "product-analytics.mjs"; sourceTree = "<group>"; };
+		AB2FCD0A93F17F907A54302C /* oskiewar.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = oskiewar.js; sourceTree = "<group>"; };
+		C43902C050551AD2D6DA0EF9 /* OskiewarApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OskiewarApp.swift; sourceTree = "<group>"; };
+		D5D135855C9371BD15F15377 /* round-room.mjs */ = {isa = PBXFileReference; path = "round-room.mjs"; sourceTree = "<group>"; };
+		F05D439B6814C2DE2C8CCBF7 /* Oskiewar.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Oskiewar.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		FCECE2875B24DB7356CB0FDC /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		41977401E108AFD8508FEB8B /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				812FA65365747604E58B98E7 /* MetalSceneView.swift */,
+				C43902C050551AD2D6DA0EF9 /* OskiewarApp.swift */,
+			);
+			path = Sources;
+			sourceTree = "<group>";
+		};
+		5B8907180072A0F4F1552C04 /* fonts */ = {
+			isa = PBXGroup;
+			children = (
+				179EE75D06881E64B8C2C164 /* ComicRelief-Regular.ttf */,
+			);
+			name = fonts;
+			path = ../../system/public/papers.aesthetic.computer/foundry/fonts;
+			sourceTree = "<group>";
+		};
+		9CBE8B5C340FA47D25810A30 /* lib */ = {
+			isa = PBXGroup;
+			children = (
+				A0AEFE9FB2DD8B296D83443D /* oskiewar-analytics.mjs */,
+				A5CDAFE515D4323680797051 /* product-analytics.mjs */,
+			);
+			name = lib;
+			path = ../../system/public/aesthetic.computer/lib;
+			sourceTree = "<group>";
+		};
+		A38CD8BDA4C5FDCC8523D207 /* qr */ = {
+			isa = PBXGroup;
+			children = (
+				A50E50A82D3F715FB8B31490 /* qr.mjs */,
+			);
+			name = qr;
+			path = "../../system/public/aesthetic.computer/dep/@akamfoad/qr";
+			sourceTree = "<group>";
+		};
+		B86C25C7192D4BF489863DD3 = {
+			isa = PBXGroup;
+			children = (
+				FCECE2875B24DB7356CB0FDC /* Assets.xcassets */,
+				5B8907180072A0F4F1552C04 /* fonts */,
+				9CBE8B5C340FA47D25810A30 /* lib */,
+				E0FA0D9930BC45B45B9D078E /* live */,
+				A38CD8BDA4C5FDCC8523D207 /* qr */,
+				41977401E108AFD8508FEB8B /* Sources */,
+				ED4D4D26449D520C8D063F1F /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		E0FA0D9930BC45B45B9D078E /* live */ = {
+			isa = PBXGroup;
+			children = (
+				4C7C4D62E6C706C3AB30BB3B /* frame-driver.mjs */,
+				8265144AA3E23B010A51E65A /* mac-test.html */,
+				26C7F4ADC37CB30558AAE696 /* oskiewar-midi.mjs */,
+				2E725A92F239CBD5114A9A1E /* oskiewar-sfx.mjs */,
+				AB2FCD0A93F17F907A54302C /* oskiewar.js */,
+				D5D135855C9371BD15F15377 /* round-room.mjs */,
+			);
+			name = live;
+			path = ../../xbox/live;
+			sourceTree = "<group>";
+		};
+		ED4D4D26449D520C8D063F1F /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				F05D439B6814C2DE2C8CCBF7 /* Oskiewar.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		D6286D05C2E5100975A6DFD3 /* Oskiewar */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AC9AF44B32267614B0997002 /* Build configuration list for PBXNativeTarget "Oskiewar" */;
+			buildPhases = (
+				CBE857A579B09F47F7616678 /* Sources */,
+				9FD85112367974CDC28A85B9 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Oskiewar;
+			packageProductDependencies = (
+			);
+			productName = Oskiewar;
+			productReference = F05D439B6814C2DE2C8CCBF7 /* Oskiewar.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		8D001550F21155AC339C20BF /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					D6286D05C2E5100975A6DFD3 = {
+						DevelopmentTeam = FB5948YR3S;
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = 742DBA68B21F7933A0C07CD1 /* Build configuration list for PBXProject "Oskiewar" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = B86C25C7192D4BF489863DD3;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = ED4D4D26449D520C8D063F1F /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				D6286D05C2E5100975A6DFD3 /* Oskiewar */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		9FD85112367974CDC28A85B9 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				DE990881EAE44FB2BE4592FF /* Assets.xcassets in Resources */,
+				4D00E7B7BFD0CDAA972C6F12 /* ComicRelief-Regular.ttf in Resources */,
+				F10250364FF369A809057B31 /* frame-driver.mjs in Resources */,
+				6F079803CD79934E3D119B92 /* mac-test.html in Resources */,
+				359F92BBF72AEE001B8BFD71 /* oskiewar-analytics.mjs in Resources */,
+				7729C117BEC5343C9CB8BAFC /* oskiewar-midi.mjs in Resources */,
+				21F3367D32F88CB3B2A52859 /* oskiewar-sfx.mjs in Resources */,
+				82A4DA7DFB26C3E87F9AB609 /* oskiewar.js in Resources */,
+				1B43BAF5E41E93E3D9208197 /* product-analytics.mjs in Resources */,
+				98991A7AC85B7CAE426E8D15 /* qr.mjs in Resources */,
+				5893AAD738853ADCCD1C6259 /* round-room.mjs in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		CBE857A579B09F47F7616678 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7D438ADCB6BECAD5D0E6C8F7 /* MetalSceneView.swift in Sources */,
+				C0C46FBB6805F1A1E055FED7 /* OskiewarApp.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		59EC86057665E45491E5C218 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Oskiewar.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				INFOPLIST_FILE = Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = computer.aesthetic.oskiewar;
+				PRODUCT_NAME = oskiewar;
+				SDKROOT = iphoneos;
+				SUPPORTS_MACCATALYST = NO;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		6A016B6E7F9613AD1A8A8C5C /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = FB5948YR3S;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		76F065EDF681572487AF5C0E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = FB5948YR3S;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		D6EE6F69FFC046A86BC8AC2E /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Oskiewar.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				INFOPLIST_FILE = Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = computer.aesthetic.oskiewar;
+				PRODUCT_NAME = oskiewar;
+				SDKROOT = iphoneos;
+				SUPPORTS_MACCATALYST = NO;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		742DBA68B21F7933A0C07CD1 /* Build configuration list for PBXProject "Oskiewar" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				76F065EDF681572487AF5C0E /* Debug */,
+				6A016B6E7F9613AD1A8A8C5C /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		AC9AF44B32267614B0997002 /* Build configuration list for PBXNativeTarget "Oskiewar" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				59EC86057665E45491E5C218 /* Debug */,
+				D6EE6F69FFC046A86BC8AC2E /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 8D001550F21155AC339C20BF /* Project object */;
+}

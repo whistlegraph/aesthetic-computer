@@ -1,7 +1,7 @@
 # oskiewar for macOS
 
 The installed macOS game is an AppKit application with no WebView. JavaScriptCore
-runs the same `xbox/live/hello.js` lifecycle as Xbox; AppKit/CoreGraphics,
+runs the same `xbox/live/oskiewar.js` lifecycle as Xbox; AppKit/CoreGraphics,
 AVFoundation, and GameController provide native graphics, audio, and input.
 
 ```bash

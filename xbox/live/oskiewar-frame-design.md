@@ -1,6 +1,6 @@
 # oskiewar pose and frame system
 
-Target: original geometry-only fighters in `xbox/live/hello.js`, simulated at 60 Hz. Street Fighter references are timing and readability research only. Do not import, trace, ship, or derive coordinates from copyrighted sprites, captures, models, or hitbox images.
+Target: original geometry-only fighters in `xbox/live/oskiewar.js`, simulated at 60 Hz. Street Fighter references are timing and readability research only. Do not import, trace, ship, or derive coordinates from copyrighted sprites, captures, models, or hitbox images.
 
 ## Current behavior to replace
 

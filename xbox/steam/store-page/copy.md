@@ -87,7 +87,7 @@ to him. Or the bot, who does not block for your benefit.
 | Claim | Why it stays out |
 |---|---|
 | Online multiplayer / netplay | Does not exist. The network layer is one-way spectator publishing and replay upload. Remote Play Together is the honest version of this sentence. |
-| Best of five | `hello.js` carries `matchWins = 5` but nothing accumulates round wins — a match is a round today (`xbox/live/MARKETING.md`). If that changes, the copy can too. |
+| Best of five | `oskiewar.js` carries `matchWins = 5` but nothing accumulates round wins — a match is a round today (`xbox/live/MARKETING.md`). If that changes, the copy can too. |
 | "24 seconds on the clock" | The retro reel hook says 24; the sim says `roundDurationUs = 30000000`. The copy just says a round clock and stays right either way. |
 | Deterministic replays you can browse | True on the web (`/api/oskiewar-replays`), but not a shipped Steam-build feature until the shell exposes it. Determinism itself is safe to mention; a replay browser is not. |
 | Achievements | Add the category and a line only once the list is designed and wired. |

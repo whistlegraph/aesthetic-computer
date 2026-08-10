@@ -7,7 +7,7 @@ somewhere else entirely.
 
 Every platform-capability claim below is sourced, with the date it was read.
 Every performance number comes from a probe in `tmp/oskiewar-world/`, run on
-this machine against `xbox/live/hello.js` at commit `2fcb1b6f4`.
+this machine against `xbox/live/oskiewar.js` at commit `2fcb1b6f4`.
 
 ---
 
@@ -21,8 +21,8 @@ client has to be corrected by interpolation — the thing the replay system
 already does with 1-second checkpoints, which is what you build when you can't
 trust re-simulation.
 
-It can. The probe loads `hello.js` into a `new Function` sandbox with stub
-hosts — the same trick `xbox/live/tests/hello.test.mjs` already uses — and
+It can. The probe loads `oskiewar.js` into a `new Function` sandbox with stub
+hosts — the same trick `xbox/live/tests/oskiewar.test.mjs` already uses — and
 drives `sim()` by advancing `runtime().monotonicUs` exactly 16,667 µs per call.
 No wall clock is consulted anywhere in the loop.
 
@@ -54,9 +54,9 @@ match ids A: ow-tuzzu835 ow-thikke939
 match ids B: ow-buvva169 ow-shammy583
 ```
 
-At every round transition `pronounceableMatchName()` (`hello.js:487–498`) calls
+At every round transition `pronounceableMatchName()` (`oskiewar.js:487–498`) calls
 `Math.random()` five times to build a round name. `seriesBallType()`
-(`hello.js:1533`) then hashes that name to pick the match ball — and ball type
+(`oskiewar.js:1533`) then hashes that name to pick the match ball — and ball type
 carries radius and mass. The comment above it reads "never the clock or
 Math.random," and it is wrong: the name it hashes is a `Math.random` product.
 One PRNG laundered through FNV-1a into the physics.
@@ -104,7 +104,7 @@ seconds costs 31 ms. Reconciliation is affordable by a wide margin.
 
 The probe ran Node v24.18.1 on one machine. It does not prove bit-identical
 results between Node on the server and QuickJS on the console, or between x86
-and ARM. `hello.js` makes 84 transcendental calls (`Math.sin`, `Math.cos`,
+and ARM. `oskiewar.js` makes 84 transcendental calls (`Math.sin`, `Math.cos`,
 `Math.atan2`, `**`), and those are the one place IEEE-754 does not guarantee
 agreement across implementations. QuickJS was not available on this machine to
 test against.
@@ -604,7 +604,7 @@ different game.
 Today's camera rect-packs both fighters' hitboxes to fill the frame, and it
 took the action from 51% to 83% of action-safe height. It is the best change of
 the day. It is also unconditionally two-player: `fighterFrameRect()`
-(`hello.js:1873`) packs a rect around the fighters and `cameraDoll.track()`
+(`oskiewar.js:1873`) packs a rect around the fighters and `cameraDoll.track()`
 frames it.
 
 With eight players spread across 12,000 units, framing everyone means everyone
@@ -701,9 +701,9 @@ console smurf costs an Xbox account too.
 
 ## 11. Where the sim runs
 
-The probe already runs `hello.js` headless in Node, driven at a fixed tick,
+The probe already runs `oskiewar.js` headless in Node, driven at a fixed tick,
 producing bit-identical results across processes. That is the interim answer
-and it works today: the shard loads `hello.js` into a `new Function` sandbox
+and it works today: the shard loads `oskiewar.js` into a `new Function` sandbox
 with stub hosts — `wipe`, `box`, `line`, `triangle`, `write` all no-ops — and
 never calls `paint()`.
 
@@ -713,23 +713,23 @@ server process that needs none of it.
 
 **The destination is an extracted `oskiewar-sim.mjs`** — one module, imported by
 both the client and the shard, containing the physics, the hit resolution, the
-round rules, and nothing that draws or makes sound. `hello.js` keeps the render
+round rules, and nothing that draws or makes sound. `oskiewar.js` keeps the render
 pass, the audio, the input mapping, and the shell. The client imports the sim
 and calls it; the server imports the sim and calls it. One implementation, two
 callers, no drift possible by construction.
 
-### What has to change in `hello.js`
+### What has to change in `oskiewar.js`
 
 In dependency order, each independently verifiable:
 
-1. **Seed the RNG.** `pronounceableMatchName()` (`hello.js:487–498`) is the
+1. **Seed the RNG.** `pronounceableMatchName()` (`oskiewar.js:487–498`) is the
    sim's only nondeterminism, via `seriesBallType()` hashing its output into
    ball radius and mass. Seed it from the server-assigned match ID. Measured:
    fixes 2 of 5 diverging seeds; all 5 become bit-identical.
    *Verify:* `node tmp/oskiewar-world/wire.mjs 5400` reports
    `repeatIdentical: true` on every seed without the `seeded` override.
 
-2. **Fixed timestep.** `gameSim()` (`hello.js:3388–3392`) derives dt from
+2. **Fixed timestep.** `gameSim()` (`oskiewar.js:3388–3392`) derives dt from
    wall clock: `Math.min(0.04, Math.max(0.001, (now - lastSimAt) / 1000000))`.
    Replace with a fixed 1/60 and an accumulator that runs 0, 1, or 2 ticks per
    frame depending on elapsed real time. The client's render loop stays
@@ -746,7 +746,7 @@ In dependency order, each independently verifiable:
    to iteration over a player list keyed by entity ID, with "the other player"
    becoming "the encounter opponent" — which is a real concept in the new
    design, not a workaround.
-   *Verify:* `grep -c 'players\[[01]\]' xbox/live/hello.js` reaches 0.
+   *Verify:* `grep -c 'players\[[01]\]' xbox/live/oskiewar.js` reaches 0.
 
 5. **Widen the wire contracts.** `oskiewar-live-manager.mjs:69` and
    `oskiewar-replays.mjs:58` both reject any state where
@@ -807,7 +807,7 @@ Each step is verifiable on its own and leaves the game playable.
    test suite still passes and that the probe's wall-clock test converges.
 
 3. **Headless shard on WebSocket, 2 players, no prediction.** Node process,
-   `hello.js` in the sandbox, 60 Hz loop, 2-byte input up, JSON snapshot down
+   `oskiewar.js` in the sandbox, 60 Hz loop, 2-byte input up, JSON snapshot down
    at 20 Hz, client renders the server's state with no local sim. It will feel
    bad. Verify: two browsers fight, the server decides, nothing desyncs.
 

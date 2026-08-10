@@ -1,6 +1,6 @@
 // The rasterization front end, on its own bench.
 //
-// `hello.test.mjs` drives whole frames; this file drives the camera and the
+// `oskiewar.test.mjs` drives whole frames; this file drives the camera and the
 // clipper directly, because the artifacts they produce are geometric and a
 // frame is too coarse a thing to see them in. Everything here loads the same
 // source through the same sandbox, but only reaches for the projection and
@@ -9,7 +9,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-const source = await readFile(new URL("../hello.js", import.meta.url), "utf8");
+const source = await readFile(new URL("../oskiewar.js", import.meta.url), "utf8");
 
 // One face per emitted triangle, with the vertices as the host receives them.
 function createRenderer({ width = 1920, height = 1080 } = {}) {

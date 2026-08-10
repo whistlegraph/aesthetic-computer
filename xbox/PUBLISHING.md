@@ -21,11 +21,11 @@ The port is not a recompile. `xbox/native-bios/App.cpp` is C++/CX against
 `CoreWindow`, `ApplicationData`, `Windows.Gaming.Input`, `Windows.Web.Http`,
 `Windows.Networking.Sockets`, `Windows.Devices.Midi`, and WinRT `StorageFile`.
 GDK titles are plain x64 Win32 with a different API surface for every one of
-those. The QuickJS core, the renderer's HLSL, the DSP, and `hello.js` port
+those. The QuickJS core, the renderer's HLSL, the DSP, and `oskiewar.js` port
 cleanly; the platform layer is a rewrite.
 
 Two things would fail certification even after a clean port. The game is not in
-the package — only `smoke_piece.js` ships, and `hello.js` arrives through the
+the package — only `smoke_piece.js` ships, and `oskiewar.js` arrives through the
 `live-piece.js` sideload path, which cannot exist on retail. And the app has zero
 Xbox platform integration: no achievements (mandatory, minimum ten and 1000
 gamerscore), no Xbox user model, no privilege checks, and it displays AC
@@ -46,7 +46,7 @@ doing, but as a deliberate multi-month project, not a packaging step.
 - **Runtime:** QuickJS-ng v0.15.1 vendored, 124 bound globals, D3D11 renderer at
   a fixed 1920×1080 backbuffer scaled to output, XAudio2.
 - **Shipped piece:** `smoke_piece.js`, twelve lines — wipe, four button colors, a
-  beep. `hello.js` (5,549 lines, the actual game) is not in the package.
+  beep. `oskiewar.js` (5,549 lines, the actual game) is not in the package.
 - **Piece delivery:** `PollLivePiece()` stats `LocalState\live-piece.js` every
   500 ms and hot-swaps on change. `xbox/tools/live.mjs` writes that file over
   Device Portal. The signed-manifest OTA design in `xbox/ota/` has no UWP adapter
@@ -155,12 +155,12 @@ door is shut. Everything below assumes the GDK port happens first.
 Windows Imaging. GDK titles are standard x64 Win32. Every one of those needs a
 replacement — `XGameSave`/`XPersistentLocalStorage`, `GameInput`, `libHttpClient`
 or WinHTTP, Winsock. The QuickJS engine, the six HLSL shaders, the audio graph,
-and `hello.js` are portable; `App.cpp`'s platform layer is not.
+and `oskiewar.js` are portable; `App.cpp`'s platform layer is not.
 
-**The game is not in the package.** CI packages `smoke_piece.js`. `hello.js`
+**The game is not in the package.** CI packages `smoke_piece.js`. `oskiewar.js`
 reaches the console only through `PollLivePiece()` reading
 `LocalState\live-piece.js`, written by Device Portal, which does not exist on
-retail. A Store build ships a twelve-line color demo. `hello.js` has to be baked
+retail. A Store build ships a twelve-line color demo. `oskiewar.js` has to be baked
 in as a package asset, and `PollLivePiece()` has to be compiled out of release
 builds — not merely inert, removed.
 
@@ -294,7 +294,7 @@ Nothing before step 4 requires a decision about the port, and nothing before ste
    answer to "people can play it on their own Xbox" available this week, and it
    changes how urgent everything below is.
 
-2. **Bake `hello.js` into the package and delete the sideload path from release
+2. **Bake `oskiewar.js` into the package and delete the sideload path from release
    builds.** One to two days. This is required for every route, is independently
    correct, and turns the MSIX into an actual game rather than a shell. Keep
    `PollLivePiece()` behind a debug configuration so the dev loop survives.
@@ -309,7 +309,7 @@ Nothing before step 4 requires a decision about the port, and nothing before ste
 
 4. **Install the GDK and spike the platform layer.** One to two weeks. Public, no
    NDA, `winget`. The question to answer is narrow: does QuickJS plus the D3D11
-   renderer plus `hello.js` boot under GameCore x64? If it does, the port is
+   renderer plus `oskiewar.js` boot under GameCore x64? If it does, the port is
    bounded and the rest is API substitution. If it does not, that is the moment to
    reconsider.
 

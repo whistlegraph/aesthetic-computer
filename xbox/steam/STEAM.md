@@ -154,13 +154,13 @@ Three runtimes for one game file, in very different states of Steam-readiness:
 
 | Runtime | State | Steam fit |
 |---|---|---|
-| **Browser** — `mac-test.html` + `frame-driver.mjs` + `hello.js` | The most-exercised runtime in the repo: the reel factory renders it three times a day, the blackbox tests drive it headlessly, the social-preview burner hashes it. Chromium's Gamepad API already plays it. | Ships anywhere Chromium ships. |
+| **Browser** — `mac-test.html` + `frame-driver.mjs` + `oskiewar.js` | The most-exercised runtime in the repo: the reel factory renders it three times a day, the blackbox tests drive it headlessly, the social-preview burner hashes it. Chromium's Gamepad API already plays it. | Ships anywhere Chromium ships. |
 | **macOS native** — `xbox/macos-native/main.swift` | 806 lines of AppKit/JavaScriptCore, no WebView: CoreGraphics rasterizes the draw commands, AVAudioEngine synthesizes the drums, GameController reads pads. Installed and working today. | Steam-shippable for macOS after a Steamworks binding — but macOS only. |
 | **Windows native** — `xbox/native-bios/` | QuickJS + D3D11 + XAudio2 under **UWP** (C++/CX, CoreWindow). | Steam ships plain Win32 executables, not UWP/MSIX packages. `PUBLISHING.md` already established this platform layer is a rewrite for any non-UWP target; Steam does not change that. There is no Linux shell at all. |
 
 ### The three options
 
-**Electron.** Wrap the browser runtime — the exact `hello.js` + frame-driver
+**Electron.** Wrap the browser runtime — the exact `oskiewar.js` + frame-driver
 pair the factory verifies daily — in Electron for Windows, macOS, and Linux
 from one shell. [`steamworks.js`](https://github.com/ceifa/steamworks.js/)
 provides Steamworks bindings with a documented Electron path, including

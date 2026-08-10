@@ -181,7 +181,7 @@ The code is the repository working tree at commit \code{daf4372f1}
 \cite{acrepo}: \code{xbox/live/marketing/} --- \code{source.mjs} (93 lines),
 \code{render.mjs} (367), \code{dress.mjs} (73), \code{publish.mjs} (209),
 \code{segments.mjs} (129), \code{shell.mjs} (135), \code{reel.mjs} (153) --- plus
-\code{xbox/live/hello.js} (6,404 lines) and \code{xbox/live/mac-test.html}
+\code{xbox/live/oskiewar.js} (6,404 lines) and \code{xbox/live/mac-test.html}
 (1,027). Claims about behaviour are grep-checked against that source. Where the
 operator's manual \cite{acmarketing} and the source disagree, the source wins
 and the divergence is stated.
@@ -252,7 +252,7 @@ endpoint on 8 August 2026 it returned an authentication error, which means the
 fallback --- not the replay lane --- is what would run today.
 
 The seed works at all because of a property of the game rather than of the
-factory. \code{hello.js} calls \code{Math.random} exactly once, at line 611, to
+factory. \code{oskiewar.js} calls \code{Math.random} exactly once, at line 611, to
 seed the match-name generator; ball kind, round names, and the fighters all fall
 out of that one draw. Replacing \code{Math.random} with a seeded generator
 before the page boots therefore fixes the identity of the entire match from a
@@ -262,7 +262,7 @@ earlier version drew ball radius and mass from \code{Math.random} directly,
 
 \section{Stage 2 --- Render: the Real Game, at the Real Shape}
 
-Stage two runs \code{mac-test.html} and \code{hello.js} in headless Chrome
+Stage two runs \code{mac-test.html} and \code{oskiewar.js} in headless Chrome
 through the same frame driver a player gets, served by a small local shell
 (\code{shell.mjs}) that lists every module the page imports. Video and audio are
 captured by two separate mechanisms, both borrowed from the sibling
@@ -606,7 +606,7 @@ is enough.
 
 \subsection{A match is a round}
 
-\code{hello.js} declares \code{matchWins = 5} and the result screen prints it,
+\code{oskiewar.js} declares \code{matchWins = 5} and the result screen prints it,
 but nothing accumulates round wins toward it: self-play calls
 \code{startSelfPlay} again at every round end, and normal play returns to the
 title. The replay store agrees --- the operator's audit found all 464 stored

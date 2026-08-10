@@ -15,7 +15,7 @@ swiftc -swift-version 5 -O "$repo_root/xbox/macos-native/main.swift" \
   -framework GameController -framework JavaScriptCore \
   -o "$contents/MacOS/oskiewar"
 cp "$repo_root/xbox/macos-native/Info.plist" "$contents/Info.plist"
-cp "$repo_root/xbox/live/hello.js" "$contents/Resources/live/hello.js"
+cp "$repo_root/xbox/live/oskiewar.js" "$contents/Resources/live/oskiewar.js"
 cp "$repo_root/system/public/aesthetic.computer/dep/@akamfoad/qr/qr.mjs" \
   "$contents/Resources/live/qr.mjs"
 cp "$repo_root/system/public/papers.aesthetic.computer/foundry/fonts/ComicRelief-Regular.ttf" \

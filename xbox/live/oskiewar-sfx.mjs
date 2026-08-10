@@ -21,7 +21,7 @@ const POP_TONES = Object.freeze({
   hellsine: [185, 220, 277.18, 329.63],
 });
 
-// Complete literal/dynamic gameSignal vocabulary audited from hello.js.
+// Complete literal/dynamic gameSignal vocabulary audited from oskiewar.js.
 export const OSKIEWAR_SIGNAL_EVENTS = Object.freeze([
   "hello", "select", "fighters", "wind", "ballserve",
   "countdown", "tie", "roundwin", "matchwin",

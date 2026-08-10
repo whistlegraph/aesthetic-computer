@@ -70,7 +70,7 @@ const commands = [];
 let background = [8, 10, 20];
 let clock = 0;
 
-const source = await readFile(join(HERE, "hello.js"), "utf8");
+const source = await readFile(join(HERE, "oskiewar.js"), "utf8");
 const noOp = () => {};
 const pads = [0, 1].map(() => ({ connected: true, down: [], leftX: 0, leftY: 0 }));
 

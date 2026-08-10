@@ -35,7 +35,7 @@ robots sparring; which round is still arithmetic — the seed indexes the
 filtered list. If the store is unreachable or has nothing over seven seconds,
 it falls back to self-play and says so.
 
-Seeding works because `hello.js` calls `Math.random` **exactly once**, to seed
+Seeding works because `oskiewar.js` calls `Math.random` **exactly once**, to seed
 the match name; everything downstream — round names, ball kind, the fighters —
 falls out of it. `render.mjs` replaces `Math.random` with a seeded generator
 before the game boots.
@@ -49,7 +49,7 @@ renderer is moved onto a fixed timestep.
 
 ### 2 · Render — the real game, at the real shape
 
-Headless Chrome runs `mac-test.html` + `hello.js` through the same frame driver
+Headless Chrome runs `mac-test.html` + `oskiewar.js` through the same frame driver
 a player gets. Two halves, both borrowed from `marketing/av-reels`:
 
 - **Video** — CDP `Page.startScreencast` → timestamped JPEG frames, concatenated
@@ -80,7 +80,7 @@ result card. Head and tail are trimmed; nothing inside is cut.
 > Verified by eye on the first and last frames — the reel opens on its own
 > countdown and closes on its own card.
 
-> **What "a match" means here.** `hello.js` carries `matchWins = 5`, but
+> **What "a match" means here.** `oskiewar.js` carries `matchWins = 5`, but
 > nothing accumulates round wins toward it — self-play calls `startSelfPlay`
 > again at every round end and normal play returns to the title. All 464 rounds
 > in the replay store have `roundIndex: 0`. So a match *is* a round today:

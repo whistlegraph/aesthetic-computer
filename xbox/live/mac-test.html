@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>oskiewar</title>
   <meta name="description" content="Play oskiewar in your browser with a keyboard or two gamepads.">
   <meta name="theme-color" content="#ebf1f8" media="(prefers-color-scheme: light)">
@@ -70,6 +70,10 @@
       left: max(14px, env(safe-area-inset-left));
       bottom: max(14px, env(safe-area-inset-bottom));
       display: flex; flex-direction: row; align-items: center; gap: 10px; }
+    .touch-enabled #account {
+      top: max(12px, env(safe-area-inset-top));
+      bottom: auto;
+    }
     /* The silent auth check answers well after the first paint. In a row that
        is fine — the handle appears to the left of a button that has not moved
        — where the old stacked layout made the door jump a second in. */
@@ -117,6 +121,11 @@
     document.body.classList.add("title-open");
     document.body.classList.toggle("social-preview",
       new URLSearchParams(location.search).has("social-preview"));
+    // Direct native/web route for the large destructible training opponent.
+    // Pal select is intentionally retired; this keeps Spiderdummy reachable
+    // without restoring a screen that no longer matches the front door.
+    globalThis.__oskiewarOpponent =
+      new URLSearchParams(location.search).get("opponent") || "";
     let titleOpen = true;
     const keyMap = new Map([
       ["KeyW", [0, "ArrowUp"]], ["KeyS", [0, "ArrowDown"]],
@@ -131,6 +140,10 @@
       ["KeyK", [1, "A"]], ["KeyL", [1, "B"]], ["Semicolon", [1, "X"]],
       ["Quote", [1, "Y"]],
     ]);
+    globalThis.__oskiewarToggleDebug = () => {
+      keys[0].add("View");
+      setTimeout(() => keys[0].delete("View"), 90);
+    };
     let audioContext = null;
     const logout = document.querySelector("#logout");
     logout.addEventListener("click", () => {
@@ -150,6 +163,7 @@
     // the only shared ground, so ask it silently — no redirect, no interruption
     // to a title screen someone may have opened just to play.
     const accountHandle = document.querySelector("#account-handle");
+    const accountProfile = { handle: "", colors: [] };
     function loadAuth0() {
       return new Promise((resolve, reject) => {
         const script = document.createElement("script");
@@ -187,6 +201,13 @@
         if (!handle) return;
         accountHandle.textContent = "@" + handle;
         accountHandle.hidden = false;
+        accountProfile.handle = "@" + String(handle).toUpperCase();
+        try {
+          const colorsResponse = await fetch("https://aesthetic.computer/api/handle-colors?handle=" +
+            encodeURIComponent(handle), { cache: "no-store" });
+          const colors = colorsResponse.ok ? (await colorsResponse.json())?.colors : null;
+          accountProfile.colors = Array.isArray(colors) ? colors : [];
+        } catch (_) {}
       } catch (_) {}
     }
     // The poster and the loop are burned headless from this same shell, and a
@@ -764,7 +785,9 @@
     }
 
     function ac() {
-      return { fighters: [], moodHandle: "", mood: "", source: "web-fallback" };
+      return { fighters: accountProfile.handle ? [{
+        handle: accountProfile.handle, colors: accountProfile.colors,
+      }] : [], player: accountProfile, moodHandle: "", mood: "", source: "web-auth" };
     }
 
     addEventListener("keydown", (event) => {
@@ -933,7 +956,8 @@
     const updateReady = document.querySelector("#update-ready");
     const updateNow = document.querySelector("#update-now");
     const autoUpdate = document.querySelector("#auto-update");
-    try { autoUpdate.checked = localStorage.getItem("oskiewar-auto-update") === "1"; }
+    try { autoUpdate.checked = new URLSearchParams(location.search).get("app") === "ios" ||
+      localStorage.getItem("oskiewar-auto-update") === "1"; }
     catch {}
     updateNow.addEventListener("click", () => location.reload());
     autoUpdate.addEventListener("change", () => {
@@ -949,7 +973,7 @@
     async function checkForUpdate() {
       if (!loadedVersion || updateReady.classList.contains("visible")) return;
       try {
-        const response = await fetch(`/hello.js?update-check=${Date.now()}`,
+        const response = await fetch(`/oskiewar.js?update-check=${Date.now()}`,
           { method: "HEAD", cache: "no-store" });
         const availableVersion = responseVersion(response);
         if (response.ok && availableVersion && availableVersion !== loadedVersion) {
@@ -967,10 +991,10 @@
     async function start() {
       let source = globalThis.__fightPieceSource;
       if (!source) {
-        const response = await fetch("/hello.js", { cache: "no-store" });
+        const response = await fetch("/oskiewar.js", { cache: "no-store" });
         loadedVersion = responseVersion(response);
         source = await response.text();
-        setInterval(checkForUpdate, 15000);
+        setInterval(checkForUpdate, 2000);
       }
       const piece = new Function(
         "runtime", "gamepad", "controllers", "capabilities", "telemetry",

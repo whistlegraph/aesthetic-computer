@@ -226,7 +226,7 @@ test("the lamp is drawn by the game, not floated over it", async () => {
     "capabilities carries the pulse rather than adding a sandbox function");
   assert.match(webShell, /onSignal: \(\) => \{ globalThis\.__oskiewarMidiPulse = Date\.now\(\); \}/);
 
-  const game = await readFile(new URL("../hello.js", import.meta.url), "utf8");
+  const game = await readFile(new URL("../oskiewar.js", import.meta.url), "utf8");
   assert.match(game, /function hudStatusTray\(/, "the status lane must exist");
   assert.match(game, /function drawStatusPiano\(/);
   assert.match(game, /const statusCell = \d+/, "icons share one cell size");

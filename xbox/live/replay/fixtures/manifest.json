@@ -1,0 +1,22 @@
+{
+  "format": "ac.oskiewar.replay-fixtures",
+  "version": 1,
+  "fixtures": [
+    {
+      "name": "legacy-build-37",
+      "file": "legacy-v0.json",
+      "recordingBuild": 37,
+      "minimumPlayerBuild": 500,
+      "replayDigest": "6889787b66b1708b8915be809e0afcb7728e34dd199a8b6a59bc2763d9a02078",
+      "timelineDigest": "a6d46e00073439d314fce7d278a2827078a9fcedc6c1eb3eb22c01e34aea330b"
+    },
+    {
+      "name": "version-one-build-500",
+      "file": "v1.json",
+      "recordingBuild": 500,
+      "minimumPlayerBuild": 500,
+      "replayDigest": "ca36d27675af75123121de9b3a72af1af2a7bb21e6ade38798ce2ce470022437",
+      "timelineDigest": "865d88c02a15a9fb9328f674e2811cee08f7971edb724fbb16df2ad2760b98c5"
+    }
+  ]
+}
