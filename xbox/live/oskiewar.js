@@ -21,7 +21,7 @@ runtime = function acRuntime() {
 };
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 35;
+const buildVersion = 36;
 const floorY = 1800;
 const ceilingY = 0;
 const wallThickness = 80;
@@ -8248,14 +8248,10 @@ function drawTitleScreen(t, ink, transitionAge = -1) {
   const version = "v" + buildVersion;
   const versionSize = Math.round(titleSize * .3);
   const versionWidth = handleWidth(version, versionSize);
-  const qrTarget = Math.round(titleSize * .68);
   const lockupGap = compact ? 10 : 18;
-  const lockupWidth = qrTarget + lockupGap + titleWidth + lockupGap + versionWidth;
-  const titleX = viewCenterX() - lockupWidth / 2 + qrTarget + lockupGap;
+  const lockupWidth = titleWidth + lockupGap + versionWidth;
+  const titleX = viewCenterX() - lockupWidth / 2;
   const titleY = viewHeight * (compact ? .38 : .35);
-
-  if (!socialPreview)
-    drawTitleQr(titleX - lockupGap, titleY, titleSize, qrTarget);
 
   // Air fuzzies: sparse motes drifting the whole frame, no panels or stripes
   // behind the wordmark.
@@ -8410,8 +8406,7 @@ function pacificTimeLabel(unixMs) {
   const hour = local.getUTCHours();
   const minute = String(local.getUTCMinutes()).padStart(2, "0");
   const second = String(local.getUTCSeconds()).padStart(2, "0");
-  return String(hour % 12 || 12) + ":" + minute + ":" + second +
-    (hour < 12 ? "am" : "pm");
+  return String(hour % 12 || 12) + ":" + minute + ":" + second;
 }
 
 // Status indicators share one lane rather than each finding its own corner, so
@@ -8447,27 +8442,34 @@ function hudClockBox(unixMs) {
 function drawHudClock(clock, y, ink, unixMs) {
   typeWrite(clock.label, clock.left + 3, y + 3,
     clock.size, ...contrastShadow(ink));
-  const match = clock.label.match(/^(\d+)(:)(\d{2})(:)(\d{2})(am|pm)$/);
+  const match = clock.label.match(/^(\d+)(:)(\d{2})(:)(\d{2})$/);
   const parts = match ? match.slice(1) : [clock.label];
   const syntax = visualTheme.light ? titlePaletteDay : titlePaletteNight;
-  const colors = [syntax[0], ink, syntax[1], ink, syntax[2], syntax[5]];
+  const colors = [syntax[0], ink, syntax[1], ink, syntax[2]];
   let x = clock.left;
   parts.forEach((part, index) => {
     typeWrite(part, x, y, clock.size, ...(colors[index] || ink));
     x += handleWidth(part, clock.size);
   });
   const centerY = y + clock.size * .48;
-  const seconds = (unixMs / 1000) % 60;
-  const angle = seconds / 60 * Math.PI * 2 - Math.PI / 2;
-  circle(clock.dialX + 2, centerY + 2, clock.dialRadius, 2,
+  const seconds = ((unixMs / 1000) % 60 + 60) % 60;
+  const segments = 24;
+  const filled = seconds / 60 * segments;
+  filledDisc(clock.dialX + 2, centerY + 2, clock.dialRadius,
     contrastShadow(ink));
+  filledDisc(clock.dialX, centerY, clock.dialRadius,
+    mixColor([20, 24, 38], [238, 241, 247], visualTheme.light));
+  for (let segment = 0; segment < Math.ceil(filled); segment++) {
+    const start = -Math.PI / 2 + segment / segments * Math.PI * 2;
+    const end = -Math.PI / 2 + Math.min(segment + 1, filled) /
+      segments * Math.PI * 2;
+    screenTriangle(clock.dialX, centerY,
+      clock.dialX + Math.cos(start) * clock.dialRadius,
+      centerY + Math.sin(start) * clock.dialRadius,
+      clock.dialX + Math.cos(end) * clock.dialRadius,
+      centerY + Math.sin(end) * clock.dialRadius, ...syntax[2]);
+  }
   circle(clock.dialX, centerY, clock.dialRadius, 2, ink);
-  line(clock.dialX, centerY,
-    clock.dialX + Math.cos(angle) * clock.dialRadius * .78,
-    centerY + Math.sin(angle) * clock.dialRadius * .78,
-    Math.max(2, clock.size * .1), ...syntax[2]);
-  circle(clock.dialX, centerY, Math.max(1.5, clock.size * .07),
-    Math.max(1.5, clock.size * .07), syntax[0]);
 }
 
 function hudStatusTray(clock) {
@@ -8550,20 +8552,6 @@ function spectatorQrBox() {
   return { left: safe.right - size, top: safe.top, size, cell, count, quiet };
 }
 
-function qrBoxAt(right, top, targetSize) {
-  if (!spectatorQr || typeof spectatorQr.getModuleCount !== "function") return null;
-  const count = spectatorQr.getModuleCount();
-  const quiet = 2;
-  const cell = Math.max(1, Math.floor(targetSize / (count + quiet * 2)));
-  const size = (count + quiet * 2) * cell;
-  return { left: right - size, top, size, cell, count, quiet };
-}
-
-function drawTitleQr(right, titleY, titleSize, targetSize) {
-  const qr = qrBoxAt(right, titleY + (titleSize - targetSize) / 2, targetSize);
-  if (qr) drawSpectatorQr(null, qr);
-}
-
 function drawDebugPerformance(ink) {
   if (!debugHitboxes || shellMode !== "GAME" || roundResult) return;
   const safe = hudSafeRect();
@@ -8588,7 +8576,6 @@ function drawDebugPerformance(ink) {
 
 function drawSpectatorQr(ink, placement = null) {
   if (typeof capabilities === "function" && capabilities().socialPreview) return;
-  if (!placement && shellMode === "MENU") return;
   const qr = placement || spectatorQrBox();
   if (!qr) return;
   const { count, quiet, cell, size, left, top } = qr;

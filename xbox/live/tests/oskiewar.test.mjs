@@ -216,7 +216,8 @@ test("phone names shrink and the clock fits beside the notch", () => {
   assert.match(clock, /left: textRight - handleWidth\(label, size\)/);
   assert.match(clock, /function drawHudClock\(clock, y, ink, unixMs\)/);
   assert.match(clock, /const colors = \[syntax\[0\], ink, syntax\[1\], ink,/);
-  assert.match(clock, /const seconds = \(unixMs \/ 1000\) % 60/);
+  assert.match(clock, /const seconds = \(\(unixMs \/ 1000\) % 60 \+ 60\) % 60/);
+  assert.match(clock, /const filled = seconds \/ 60 \* segments/);
 });
 
 test("the iOS shell can pulse debug without inventing another input", () => {
@@ -580,8 +581,8 @@ test("pal select is flagged out of the build but kept intact", () => {
 test("title shows a live Pacific clock and version timestamp", () => {
   const { fight } = createFight(false, false);
   assert.match(fight.pacificTimeLabel(1785870000000),
-    /^\d{1,2}:\d{2}:\d{2}(am|pm)$/);
-  assert.match(source, /const buildVersion = 35/);
+    /^\d{1,2}:\d{2}:\d{2}$/);
+  assert.match(source, /const buildVersion = 36/);
   assert.match(source, /const clock = hudClockBox\(titleUnixMs\)/);
   assert.match(source, /drawHudClock\(clock, safe\.top \+ 2, ink, titleUnixMs\)/);
   assert.match(source, /const fpsLabel = Math\.round\(displayFps \|\| 0\)/);
@@ -3819,8 +3820,9 @@ test("the in-match HUD carries a wall clock clear of the round QR", () => {
     /function hudClockBox\(unixMs\) \{[\s\S]*?\n\}/)[0];
   assert.match(boxSource, /pacificTimeLabel\(unixMs\)/);
   assert.match(boxSource, /qrBox \? qrBox\.left - 14 : safe\.right/);
-  const clockSource = source.match(
-    /\/\/ Wall clock in the top right[\s\S]*?clock\.size, \.\.\.titleInk\);/)[0];
+  const clockSource = source.slice(source.indexOf("// Wall clock in the top right"),
+    source.indexOf("drawHudStatusTray(clock", source.indexOf(
+      "// Wall clock in the top right")));
   assert.match(clockSource, /run\.unixMs \|\| Date\.now\(\)/);
   assert.match(clockSource, /roundViewer \? clock\.size \+ 10 : 2/);
   const { fight, tick } = createFight();
@@ -4246,11 +4248,12 @@ test("the Oskiewar wordmark remains visible with start", () => {
   assert.match(source, /const prompt = "start";/);
 });
 
-test("title lockup places QR before O, version after title, and pops beneath", () => {
-  assert.match(source, /drawTitleQr\(titleX - lockupGap, titleY, titleSize, qrTarget\)/);
+test("title keeps QR in the top-right HUD, version after title, and pops beneath", () => {
+  assert.doesNotMatch(source, /drawTitleQr|qrTarget/);
+  assert.match(source, /return \{ left: safe\.right - size, top: safe\.top/);
   assert.match(source, /const versionX = titleX \+ titleWidth \+ lockupGap/);
   assert.match(source, /drawDummyPopLine\(titleY, titleSize, transitionInk\)/);
-  assert.match(source, /if \(!placement && shellMode === "MENU"\) return/);
+  assert.doesNotMatch(source, /if \(!placement && shellMode === "MENU"\) return/);
 });
 
 test("the Replay Oven captures HUD-free 60 fps high-quality masters", () => {
