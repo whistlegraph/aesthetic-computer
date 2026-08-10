@@ -19,6 +19,7 @@ import { nopaintProposal as stampProposal } from "./stamp.mjs";
 import { nopaintProposal as frameProposal } from "./frame.mjs";
 import { nopaintProposal as caterpillarProposal } from "./caterpillar.mjs";
 import { nopaintProposal as softyProposal } from "./softy.mjs";
+import { nopaintProposal as waferProposal } from "./wafer.mjs";
 import { gridWormProposal } from "../lib/nopaint-construct-brushes.mjs";
 import { nonConflictingConstructProposals } from "../lib/nopaint-construct-catalog.mjs";
 import { recoveredConstructTransforms } from "../lib/nopaint-construct-transforms.mjs";
@@ -46,6 +47,7 @@ const COMPATIBLE_BRUSHES = Object.freeze(new Map([
   [frameProposal.slug, frameProposal],
   [caterpillarProposal.slug, caterpillarProposal],
   [softyProposal.slug, softyProposal],
+  [waferProposal.slug, waferProposal],
 ]));
 
 let loopState = "choosing";
@@ -1199,22 +1201,6 @@ function renderProposal($) {
         proposal.w,
         Math.max(2, proposal.h / stripes - 1),
       );
-    }
-  } else if (proposal.kind === "wafer") {
-    const cols = 7;
-    const rows = 7;
-    const cw = proposal.w / cols;
-    const ch = proposal.h / rows;
-    for (let row = 0; row < rows; row += 1) {
-      for (let col = 0; col < cols; col += 1) {
-        const lift = Math.sin(phase + row * 0.5 + col * 0.35) * 3;
-        ink(color[0], color[1], color[2], (row + col) % 2 ? 70 : 150).box(
-          proposal.x + col * cw,
-          proposal.y + row * ch + lift,
-          Math.max(1, cw - 1),
-          Math.max(1, ch - 1),
-        );
-      }
     }
   } else if (proposal.kind === "wipe") {
     // A recovered "wipe" is a translucent wash in No Paint 3.0. Random

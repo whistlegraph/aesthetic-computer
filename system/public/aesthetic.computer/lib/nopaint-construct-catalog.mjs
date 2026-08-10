@@ -34,11 +34,6 @@ export const bannerProposal = contract("banner", "Banner",
   ({ random, base }) => ({ segments: [4, 8, 16][Math.floor(random() * 3)], color: base.color }),
   ({ ink }, s, frame) => { for (let i = 0; i < s.segments; i++) ink(s.color[0], s.color[1], s.color[2], 60 + i * 8).box(s.x + Math.sin(frame / 24 + i * .5) * s.drift, s.y + i * s.h / s.segments, s.w, Math.max(1, s.h / s.segments - 1)); });
 
-export const waferProposal = contract("wafer", "Wafer",
-  { cellSizes: [16, 16, 32, 32, 32, 32, 48, 48, 48, 64, 64, 96], bites: 3 },
-  ({ random, base }) => ({ cellSize: [16, 16, 32, 32, 32, 32, 48, 48, 48, 64, 64, 96][Math.floor(random() * 12)], color: base.color }),
-  ({ ink }, s, frame) => { for (let y = 0; y < s.h; y += s.cellSize) for (let x = 0; x < s.w; x += s.cellSize) if ((x / s.cellSize + y / s.cellSize + Math.floor(frame / 30)) % 5) ink(s.color).box(s.x + x, s.y + y, s.cellSize - 1, s.cellSize - 1); });
-
 export const walkerProposal = contract("walker", "Walker",
   { blip: true, noiseShift: 1 / 30, alphaLevels: [60, 80] },
   ({ random, width, height, base }) => ({ points: points(random, width, height, 24), color: base.color }),
@@ -70,10 +65,10 @@ export const rainbowProposal = contract("rainbow", "Rainbow",
   { effect: "AdjustHSL", hueRange: [-100, 100] },
   ({ base }) => ({ color: base.color }), ({ ink }, s, frame) => { for (let i = 0; i < 7; i++) { const hue = (frame / 120 + i / 7) * Math.PI * 2; ink(Math.round(128 + Math.sin(hue) * 127), Math.round(128 + Math.sin(hue + 2.094) * 127), Math.round(128 + Math.sin(hue + 4.188) * 127), 96).box(s.x, s.y + i * s.h / 7, s.w, Math.ceil(s.h / 7)); } });
 
-// Frame, Caterpillar, and Softy graduated to their own disks; a name only stays
-// in this fallback catalog until a real piece owns it.
+// Frame, Caterpillar, Softy, and Wafer graduated to their own disks; a name only
+// stays in this fallback catalog until a real piece owns it.
 export const nonConflictingConstructProposals = frozen([
-  buildProposal, bubblesProposal, bannerProposal, waferProposal,
+  buildProposal, bubblesProposal, bannerProposal,
   walkerProposal, auraProposal, triangleProposal, ellipseProposal, breatheProposal,
   vignetteProposal, rainbowProposal,
 ]);

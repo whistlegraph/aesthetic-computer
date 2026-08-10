@@ -54,9 +54,11 @@ function walk(node, depth) {
     console.log(`${pad}// ${node[1].replace(/\s+/g, " ").slice(0, 120)}`);
     return;
   }
-  // An event block is [0, …, conditions, actions, children].
-  if (node[0] === 0 && Array.isArray(node[6]) && Array.isArray(node[7])) {
-    console.log(`${pad}event`);
+  // An event block is [0, …, conditions, actions, children]; a function block
+  // is [4, [name, …], …] with the same tail. Naming the functions matters —
+  // a brush's real work usually lives in them, and the sheet only calls them.
+  if ((node[0] === 0 || node[0] === 4) && Array.isArray(node[6]) && Array.isArray(node[7])) {
+    console.log(`${pad}${node[0] === 4 ? `function ${node[1][0]}` : "event"}`);
     for (const condition of node[6]) {
       console.log(`${pad}  when object=${condition[0]} ace=${condition[1]}${condition[2] ? ` (${condition[2]})` : ""}`);
       const printed = parameters(condition[9]);

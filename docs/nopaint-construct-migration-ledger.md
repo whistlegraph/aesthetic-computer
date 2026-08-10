@@ -47,7 +47,7 @@ of the Construct implementation.
 ## Pieces that own their slug
 
 `bubbles`, `walker`, `dark-window`, `line`, `box`, `stamp`, `frame`,
-`caterpillar`, and `softy` are real AC pieces that export their own
+`caterpillar`, `softy`, and `wafer` are real AC pieces that export their own
 `nopaintProposal`;
 `disks/nopaint.mjs` imports each one and registers it after the fallback
 catalog, so the piece's contract wins by slug. A name leaves
@@ -83,6 +83,19 @@ Because a Construct stroke ran until you pressed Paint and a proposal has to
 end, Softy's walk is capped at a fixed number of stamps. That length is the one
 invented number in it.
 
+Wafer accumulates the same way, for a different reason: a bite *erases*
+(Construct switches to blend mode 7, cuts an ellipse, switches back), so the
+biscuit is only ever the sum of what has been taken out of it.
+
+## Reading a brush's real work
+
+Most of a brush's behaviour lives in **function blocks**, not in the sheet's
+top-level events — the sheet just calls `Bite`, `BiscuitEnlarge`,
+`CircularBite`. A function block is a type-`4` node carrying its name in
+`node[1][0]` with the same conditions/actions/children tail as an event, and
+`decode-sheet.mjs` prints them as `function <name>`. If a decoded sheet looks
+too thin to be the whole brush, the work is in the functions.
+
 The safe image filters/transforms `contrast`, `flip`, `invert`, `light-bump`,
 `mirror`, `quicksand`, `recurse`, `saturate`, `scroll`, `sharpen`, `spin`,
 `turn`, and `zoom` are also migrated and wired into the proposal conductor.
@@ -99,9 +112,11 @@ renderers use bounded translucent primitives and do not claim pixel parity.
 
 Dark Window selects and plays each of its four original note samples, and
 Caterpillar picks between `trotting along` and `rain bow road` from its own
-score. Build and Wafer have multi-cue event vocabularies, while the current No
-Paint conductor owns one active brush sample at a time. Their primary sample is
-wired; exact per-event cue sequencing requires a conductor audio-timeline API.
+score. Build and Wafer have multi-cue event vocabularies — Wafer alone has
+five, one per bite plus appear and enlarge — while the current No Paint
+conductor owns one active brush sample at a time. Their primary sample is
+wired, and the full vocabulary is recorded in each contract's `source`; exact
+per-event cue sequencing requires a conductor audio-timeline API.
 
 Stamp's `mirrored` is real: Construct mirrored on a negative X scale, and
 `paste` now reaches that by handing `grid` a per-axis `{x, y}` scale.
