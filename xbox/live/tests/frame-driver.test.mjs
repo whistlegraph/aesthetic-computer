@@ -114,3 +114,17 @@ test("pauses simulation timers while hidden and resumes without fast-forwarding"
   h.driver.stop();
   assert.equal(h.timerCount(), 0);
 });
+
+test("offline stepping produces one fixed simulation tick and paint per frame", () => {
+  const h = harness();
+  for (let frame = 0; frame < 6; frame++) h.driver.stepOffline();
+
+  assert.equal(h.simulations.length, 6);
+  assert.equal(h.paints.length, 6);
+  assert.equal(h.driver.stats.simulationTicks, 6);
+  assert.equal(h.driver.stats.renderFrames, 6);
+  assert.deepEqual(h.simulations.map((at) => Math.round(at * 100) / 100),
+    [0, 16.67, 33.33, 50, 66.67, 83.33]);
+  h.driver.start();
+  assert.throws(() => h.driver.stepOffline(), /cannot step offline/);
+});

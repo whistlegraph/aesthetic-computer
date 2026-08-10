@@ -60,6 +60,7 @@ export async function serveShell({ replays = "stub", log = () => {} } = {}) {
   // best-of-five target is the only honest end-of-match signal the page
   // gives, and it arrives before the result card does.
   const demos = [];
+  const replayBodies = new Map();
   const readBody = (request) => new Promise((done) => {
     let body = "";
     request.on("data", (chunk) => { body += chunk; });
@@ -79,6 +80,8 @@ export async function serveShell({ replays = "stub", log = () => {} } = {}) {
         const body = await readBody(request);
         try {
           const demo = JSON.parse(body);
+          const key = String(demo.roundName || demo.matchName || "").replace(/^ow-/, "");
+          if (key) replayBodies.set(key, demo);
           demos.push({ at: Date.now(), roundName: demo.roundName || demo.matchName,
             roundIndex: demo.roundIndex ?? 0, winner: demo.winner ?? null,
             finalRoundWins: demo.finalRoundWins || [0, 0],
@@ -86,6 +89,13 @@ export async function serveShell({ replays = "stub", log = () => {} } = {}) {
         } catch {}
         response.writeHead(201, { "content-type": "application/json" });
         response.end(JSON.stringify({ ok: true, stored: false, sink: true }));
+        return;
+      }
+      const requested = String(url.searchParams.get("id") || "").replace(/^ow-/, "");
+      if (request.method === "GET" && requested && replayBodies.has(requested)) {
+        response.writeHead(200, { "content-type": "application/json",
+          "cache-control": "no-store" });
+        response.end(JSON.stringify({ replay: replayBodies.get(requested) }));
         return;
       }
       if (replays === "proxy") {
@@ -129,6 +139,7 @@ export async function serveShell({ replays = "stub", log = () => {} } = {}) {
   return {
     origin,
     demos,
+    replayBodies,
     get replayPosts() { return posts; },
     close: () => new Promise((closed) => server.close(closed)),
   };

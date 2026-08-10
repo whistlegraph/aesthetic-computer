@@ -221,6 +221,7 @@ scp -i "$HOME/.ssh/$SSH_KEY_NAME" -o StrictHostKeyChecking=no $SCRIPT_DIR/baker.
 scp -i "$HOME/.ssh/$SSH_KEY_NAME" -o StrictHostKeyChecking=no $SCRIPT_DIR/grabber.mjs root@$DROPLET_IP:/opt/oven/
 scp -i "$HOME/.ssh/$SSH_KEY_NAME" -o StrictHostKeyChecking=no $SCRIPT_DIR/recap-builder.mjs root@$DROPLET_IP:/opt/oven/
 scp -i "$HOME/.ssh/$SSH_KEY_NAME" -o StrictHostKeyChecking=no $SCRIPT_DIR/recap-git-poller.mjs root@$DROPLET_IP:/opt/oven/
+scp -i "$HOME/.ssh/$SSH_KEY_NAME" -o StrictHostKeyChecking=no $SCRIPT_DIR/oskiewar-reel-builder.mjs root@$DROPLET_IP:/opt/oven/
 scp -i "$HOME/.ssh/$SSH_KEY_NAME" -o StrictHostKeyChecking=no $SERVICE_ENV root@$DROPLET_IP:/opt/oven/.env
 
 # Update .env for production

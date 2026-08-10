@@ -53,11 +53,14 @@ renderer is moved onto a fixed timestep.
 
 ### 2 · Render — the real game, at the real shape
 
-Headless Chrome runs `mac-test.html` + `oskiewar.js` through the same frame driver
-a player gets. Two halves, both borrowed from `marketing/av-reels`:
+The remote Replay Oven runs `mac-test.html` + `oskiewar.js` from an immutable
+`origin/main` commit. A latest-build bot fight produces the authoritative
+replay and audio; then the replay is painted again through the same renderer at
+an exact fixed 60 Hz.
 
-- **Video** — CDP `Page.startScreencast` → timestamped JPEG frames, concatenated
-  with per-frame durations so playback is true speed. Measured 59.8–60.0 fps.
+- **Video** — the live pass is never publication footage. Its replay is stepped
+  offline and captured once per simulation tick. A sparse browser screencast
+  can no longer be disguised as 60 fps by duplicated frames.
 - **Audio** — `AudioNode.prototype.connect` is patched before boot so anything
   routed to `ctx.destination` also tees into a `MediaStreamDestination` an
   in-page `MediaRecorder` records. This is the established AC technique; there
@@ -140,19 +143,25 @@ The ledger records segment, seed, slot, kind, round, timestamp, media id, and
 later the retrieved insights — which is the whole reason a segment is recorded
 at all. `reel.mjs --report` rolls it up per market.
 
+Remote production starts with `npm run oskiewar:oven -- --day YYYY-MM-DD
+--index 0`. Oven checks out the requested commit, forces bot-only source, and
+returns the mp4, cover, thumbnail, and sidecar. It has no Instagram credentials.
+The local publish command remains the only road to Instagram. The motion gate
+requires `fixed-step-60` and at least 59.5 source frames per second.
+
 ---
 
 ## Measured throughput, and the slot grid it justifies
 
-On one M-series laptop, Chrome headless, nothing else running:
+Latest fixed-step proof on an M-series laptop, Chrome headless:
 
 | | |
 |---|---|
-| Capture rate | **59.8–60.0 fps** at 1080×1920 (median frame gap 16.70 ms), encoded at 60 CFR |
-| Reel length | one full round — **35–40 s** |
-| Render wall clock | **~107 s** per reel, warm-up round included |
-| Ratio | **2.4–3.0× realtime** |
-| Output | 1080×1920, H.264, AAC 127 kbps / 48 kHz, ~5 MB |
+| Source cadence | **60 fixed-step frames/s** at 1080×1920 |
+| Proof Reel | 11.2 s, 674 source frames |
+| Render wall clock | 161 s, including live bot fight, offline replay, and encode |
+| Audio sync | 23/23 onsets, 4 ms median skew, 30 ms worst skew |
+| Output | 1080×1920, H.264/AAC, 1.6 MB |
 
 **Three slots a day.** The defence is arithmetic, not vibes:
 

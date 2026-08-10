@@ -8,11 +8,11 @@ import { renderReel } from "./render.mjs";
 
 export const replayOvenProfile = Object.freeze({
   fps: 60,
-  sourceQuality: 100,
+  sourceQuality: 92,
   videoCodec: "h264",
   crf: 14,
   hud: false,
-  offlinePasses: Object.freeze(["contrast", "color", "detail"]),
+  offlinePasses: Object.freeze(["fixed-step", "contrast", "color", "detail"]),
 });
 
 export function bakeReplay(spec, options) {

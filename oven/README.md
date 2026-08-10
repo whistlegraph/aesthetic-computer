@@ -218,6 +218,21 @@ Tars the directory (minus build artifacts), uploads it, streams the log, and
 writes the PDF next to the source. Reads `OVEN_URL` (default
 `https://oven.aesthetic.computer`) and `OS_BUILD_ADMIN_KEY` (else the vault).
 
+### Oskiewar Replay Oven
+
+`POST /oskiewar-reel` accepts `{day,index,ref,theme}` under the Oven admin key.
+It checks out the exact Git commit, runs a latest-build bot fight, renders its
+replay as a fixed-step 60 Hz image sequence, and applies media, sync, and motion
+gates. It never publishes.
+
+- `GET /oskiewar-reel` — active and recent jobs
+- `GET /oskiewar-reel/:id?logs=1` — status and logs
+- `GET /oskiewar-reel/:id/{reel|cover|thumbnail|sidecar}` — artifacts
+- `POST /oskiewar-reel/:id/cancel` — cancel
+
+Submit with `npm run oskiewar:oven -- --day YYYY-MM-DD --index 0`. Artifacts
+land in the normal local Reel queue for review and publication.
+
 ## Deployment Strategy
 
 ### Following Existing Patterns

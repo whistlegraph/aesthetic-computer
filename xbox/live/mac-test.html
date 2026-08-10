@@ -1096,12 +1096,17 @@
         },
       });
       globalThis.__oskiewarFrameStats = driver.stats;
+      const offlineRender = new URLSearchParams(location.search).has("offline-render");
+      if (offlineRender) {
+        globalThis.__oskiewarOfflineStep = () => driver.stepOffline();
+        globalThis.__oskiewarOfflineReady = true;
+      }
       addEventListener("visibilitychange", () =>
         driver.setVisible(document.visibilityState === "visible"));
       addEventListener("pointermove", syncSelectionCursor, { passive: true });
       addEventListener("pointerleave", () =>
         document.body.classList.remove("selection-hover"), { passive: true });
-      driver.start();
+      if (!offlineRender) driver.start();
     }
     start().catch((error) => {
       console.error(error);

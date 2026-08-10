@@ -14,6 +14,7 @@
 // card — trimmed at both ends, uncut in between. See MARKETING.md for the
 // measured cost per reel and the slot grid it justifies.
 
+import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { pickSource, seed32 } from "./source.mjs";
@@ -37,6 +38,12 @@ export const staging = resolve(flags.out ||
   join(repo, "tmp/oskiewar-reels/queue"));
 const slotsPerDay = Number(flags["slots-per-day"] || 3);
 const log = console.log;
+const sourceCommit = (() => {
+  try {
+    return execFileSync("git", ["rev-parse", "HEAD"],
+      { cwd: repo, encoding: "utf8" }).trim();
+  } catch { return "unknown"; }
+})();
 
 function listQueue() {
   if (!existsSync(staging)) return [];
@@ -78,8 +85,8 @@ async function buildSlot(day, index) {
   mkdirSync(work, { recursive: true });
   const render = await bakeReplay({ ...spec, out: work }, { log });
 
-  // The capture *is* the reel — nothing is drawn on it and nothing rescales
-  // it, so it moves into place rather than being encoded a second time.
+  // Replay Oven already returned the fixed-step delivery master; dressing adds
+  // no pixels, so it moves into place without another encode.
   const reel = join(dir, "reel.mp4");
   renameSync(render.base, reel);
   const poster = cover(reel, join(dir, "cover.jpg"));
@@ -88,6 +95,13 @@ async function buildSlot(day, index) {
   // The feedback loop: the game stamped every sound it asked for; measure
   // what the encoded file actually plays and hold the two together.
   const sync = verifySync(reel, render.signals || []);
+  const motion = {
+    mode: render.frameCadence || "unknown",
+    frames: render.frames,
+    seconds: render.seconds,
+    sourceFps: render.seconds > 0 ? +(render.frames / render.seconds).toFixed(2) : 0,
+  };
+  motion.ok = motion.mode === "fixed-step-60" && motion.sourceFps >= 59.5;
   log(`   sync ${sync.ok ? "✓" : "✗"} · ${sync.expectedSignals} signals expected` +
     ` · ${sync.matchedOnsets}/${sync.heardOnsets} onsets` +
     ` · median ${sync.medianSkew ?? "—"}s · worst ${sync.worstSkew ?? "—"}s` +
@@ -98,13 +112,14 @@ async function buildSlot(day, index) {
   if (!render.complete)
     log(`   ⚠ the match never finished inside the ${spec.cap}s cap — fragment`);
 
-  const record = { ...spec, builtAt: new Date().toISOString(),
+  const record = { ...spec, sourceCommit, builtAt: new Date().toISOString(),
     render: { wall: render.wall, frames: render.frames,
+      liveFrames: render.liveFrames, frameCadence: render.frameCadence,
       seconds: render.seconds, hasAudio: render.hasAudio,
       matches: render.matches, rounds: render.rounds, complete: render.complete,
       replayPostsSwallowed: render.replayPosts },
     files: { reel, cover: poster, thumbnail: tenth },
-    meta: spec1080, sync, signals: render.signals || [] };
+    meta: spec1080, sync, motion, signals: render.signals || [] };
   writeSidecar(join(dir, "reel.json"), record);
   log(`${spec1080.ok ? "✓" : "✗"} ${spec.id} · ${spec1080.width}×${spec1080.height} · ` +
     `${Math.floor(spec1080.seconds / 60)}m${String(Math.round(spec1080.seconds % 60))
@@ -112,6 +127,7 @@ async function buildSlot(day, index) {
     `${render.rounds.length} rounds · meta spec ${spec1080.ok ? "pass" : "FAIL"}`);
   if (!spec1080.ok) for (const [name, check] of Object.entries(spec1080.checks))
     if (!check.ok) log(`   ✗ ${name}: ${check.value}`);
+  if (!motion.ok) log(`   ✗ motion: ${motion.mode} · ${motion.sourceFps} source fps`);
   return record;
 }
 
@@ -119,6 +135,8 @@ async function buildSlot(day, index) {
 // and the cron's --auto. Uploads to Spaces, runs Meta's three-step sequence,
 // and writes the ledger — the record insights get hung on later.
 async function goLive(record) {
+  if (!record.meta?.ok || !record.sync?.ok || !record.motion?.ok)
+    throw new Error(`${record.id} is not publishable: media, sync, and fixed-step motion must all pass`);
   const paths = { reel: record.files.reel, cover: record.files.cover };
   const bucket = process.env.OSKIEWAR_SPACES_BUCKET || "art-aesthetic-computer";
   const urls = await uploadPublic(paths,
@@ -180,9 +198,9 @@ async function main() {
   // on 2026-08-09 after approving the pipeline reel by reel.
   if (flags.auto) {
     for (const record of built) {
-      if (!record.meta.ok || !record.sync?.ok) {
+      if (!record.meta.ok || !record.sync?.ok || !record.motion?.ok) {
         log(`⛔ ${record.id} held for review — ` +
-          `${!record.meta.ok ? "spec" : "sync"} gate failed`);
+          `${!record.meta.ok ? "spec" : !record.sync?.ok ? "sync" : "motion"} gate failed`);
         continue;
       }
       const posted = await goLive(record);

@@ -73,6 +73,46 @@ async function loadPuppeteer() {
   return (await import(`${dir}/lib/esm/puppeteer/puppeteer.js`)).default;
 }
 
+async function captureOfflineReplay({ browser, shell, demo, frames, width,
+  height, theme, seconds, log }) {
+  const round = String(demo?.roundName || demo?.matchName || "").replace(/^ow-/, "");
+  if (!round) throw new Error("completed bot fight did not return a replay name");
+  rmSync(frames, { recursive: true, force: true });
+  mkdirSync(frames, { recursive: true });
+
+  const page = await browser.newPage();
+  try {
+    await page.setViewport({ width, height, deviceScaleFactor: 1 });
+    await page.emulateMediaFeatures([
+      { name: "prefers-color-scheme", value: theme === "light" ? "light" : "dark" }]);
+    await page.evaluateOnNewDocument(() => {
+      globalThis.WebSocket = function () {
+        return { readyState: 3, send() {}, close() {},
+          addEventListener() {}, removeEventListener() {} };
+      };
+    });
+    await page.goto(`${shell.origin}/${round}?social-preview&replay-oven&offline-render`,
+      { waitUntil: "domcontentloaded", timeout: 45000 });
+    await page.evaluate(() => document.fonts.ready);
+    await page.waitForFunction(() => globalThis.__oskiewarOfflineReady === true &&
+      globalThis.__oskiewarReplayReady === true, { timeout: 15000 });
+
+    const total = Math.max(1, Math.ceil(seconds * 60));
+    const stamps = [];
+    for (let index = 0; index < total; index++) {
+      await page.evaluate(() => globalThis.__oskiewarOfflineStep());
+      const file = `frame-${String(index).padStart(5, "0")}.jpg`;
+      await page.screenshot({ path: join(frames, file), type: "jpeg", quality: 92 });
+      stamps.push({ file, at: index / 60 });
+      if ((index + 1) % 120 === 0 || index + 1 === total)
+        log(`   offline replay ${index + 1}/${total} exact frames`);
+    }
+    return stamps;
+  } finally {
+    await page.close();
+  }
+}
+
 // A fight worth watching, spelled in the keys a person actually holds.
 // `oskiewar.js` reads pad one from W/A/S/D + F(kick) G(shield) H(punch) V(item),
 // so the score is legible against the on-screen legend.
@@ -350,13 +390,21 @@ export async function renderReel(spec, { log = console.log } = {}) {
     log(`   ${stamps.length} frames over ${captured.seconds.toFixed(1)}s · audio ${
       haveAudio ? (captured.audioBytes / 1000).toFixed(0) + "KB" : "MISSING"}`);
 
-    // Per-frame durations from the real timestamps, so a dropped repaint
-    // stretches its frame instead of speeding the whole reel up.
-    const list = stamps.map((stamp, index) => {
-      const span = index < stamps.length - 1
-        ? stamps[index + 1].at - stamp.at : 1 / 60;
-      return `file 'frames/${stamp.file}'\nduration ${Math.max(span, 1 / 240).toFixed(4)}`;
-    }).join("\n") + `\nfile 'frames/${stamps.at(-1).file}'\n`;
+    const replayName = shell.demos.at(-1)?.roundName;
+    const replayDemo = replayName ? shell.replayBodies.get(replayName) : null;
+    if (!replayDemo) throw new Error("completed bot fight replay payload is missing");
+    const offlineStamps = await captureOfflineReplay({ browser, shell,
+      demo: replayDemo, frames, width, height, theme,
+      seconds: captured.seconds, log });
+    captured.liveFrames = captured.frames;
+    captured.frames = offlineStamps.length;
+    captured.frameCadence = "fixed-step-60";
+
+    // Every source image owns exactly one frame. FFmpeg no longer launders a
+    // sparse screencast into nominal 60 fps by duplicating long-held images.
+    const list = offlineStamps.map((stamp) => {
+      return `file 'frames/${stamp.file}'\nduration ${(1 / 60).toFixed(6)}`;
+    }).join("\n") + `\nfile 'frames/${offlineStamps.at(-1).file}'\n`;
     writeFileSync(join(out, "frames.txt"), list);
 
     const audioLeadMs = haveAudio && audio.startedAt && zero !== null

@@ -37,6 +37,7 @@
     "instagram:accounts": "node toolchain/instagram/ig.mjs accounts",
     "instagram:whistlegraph": "node toolchain/instagram/whistlegraph-ig.mjs",
     "instagram:aesthetic": "node toolchain/instagram/aesthetic-ig.mjs",
+    "oskiewar:oven": "node toolchain/instagram/oskiewar-oven.mjs",
     "xbox:test:oskiewar:blackbox": "node xbox/live/tests/blackbox-rounds.mjs",
     "xbox:burn:oskiewar-social": "node xbox/live/render-social-preview.mjs",
     "xbox:check:oskiewar-social": "node xbox/live/render-social-preview.mjs --check",

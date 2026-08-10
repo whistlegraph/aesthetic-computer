@@ -25,6 +25,7 @@ export function createFrameDriver({
   let simulationTime = 0;
   let timerHandle = null;
   let rafHandle = null;
+  let offlineStarted = false;
   const stats = {
     simulationFps,
     renderFrames: 0,
@@ -107,6 +108,27 @@ export function createFrameDriver({
 
   return {
     stats,
+    // Deterministic capture lane. The caller advances exactly one simulation
+    // tick and one paint per invocation; no rAF/timer or wall-clock catch-up
+    // participates. This is deliberately unavailable while the live driver
+    // is running.
+    stepOffline() {
+      if (running) throw new Error("cannot step offline while frame driver is running");
+      if (!offlineStarted) {
+        offlineStarted = true;
+        stats.startedAt = now();
+        simulationTime = stats.startedAt - interval;
+        sampleInput();
+      }
+      simulationTime += interval;
+      runSimulation(false);
+      const started = now();
+      paint(simulationTime, 0);
+      stats.renderFrames++;
+      stats.lastRenderAt = simulationTime;
+      stats.lastRenderCostMs = Math.max(0, now() - started);
+      return { frame: stats.renderFrames, simulationTime };
+    },
     start() {
       if (running) return;
       running = true;

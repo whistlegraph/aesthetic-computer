@@ -24,6 +24,8 @@ import { startPapersBuild, getPapersBuild, getPapersBuildsSummary, cancelPapersB
 import { startPoller as startPapersGitPoller, getPollerStatus as getPapersPollerStatus } from './papers-git-poller.mjs';
 import { startPaperCrunch, getPaperCrunch, getPaperCrunchesSummary, getPaperCrunchPdf, cancelPaperCrunch, CRUNCH_LIMITS } from './paper-crunch.mjs';
 import { startRecapBuild, getRecapBuild, getRecapBuildsSummary, cancelRecapBuild, getRecapMp4Path } from './recap-builder.mjs';
+import { startOskiewarReel, getOskiewarReel, getOskiewarReels,
+  getOskiewarReelFile, cancelOskiewarReel } from './oskiewar-reel-builder.mjs';
 import { startPoller as startRecapGitPoller, getPollerStatus as getRecapPollerStatus } from './recap-git-poller.mjs';
 import { join, dirname, basename } from 'path';
 import { fileURLToPath } from 'url';
@@ -4129,6 +4131,48 @@ app.post('/recap-build/:jobId/cancel', requireOSBuildAdmin, (req, res) => {
   const result = cancelRecapBuild(req.params.jobId);
   if (!result.ok) return res.status(400).json(result);
   addServerLog('info', '🛑', `Recap build cancel requested: ${req.params.jobId}`);
+  return res.json(result);
+});
+
+// ── Oskiewar Replay Oven ──────────────────────────────────────────────────
+// Remote-only rendering. Oven receives a date/slot/ref, checks out that exact
+// commit, runs a latest-build bot fight, and returns gated review artifacts.
+// Instagram credentials and publication remain on the operator machine.
+app.get('/oskiewar-reel', requireOSBuildAdmin, (req, res) =>
+  res.json(getOskiewarReels()));
+
+app.get('/oskiewar-reel/:jobId', requireOSBuildAdmin, (req, res) => {
+  const job = getOskiewarReel(req.params.jobId,
+    req.query.logs === '1' || req.query.logs === 'true');
+  if (!job) return res.status(404).json({ error: 'Job not found' });
+  return res.json(job);
+});
+
+app.get('/oskiewar-reel/:jobId/:artifact(reel|cover|thumbnail|sidecar)',
+  requireOSBuildAdmin, (req, res) => {
+    const file = getOskiewarReelFile(req.params.jobId, req.params.artifact);
+    if (!file) return res.status(404).json({ error: 'Artifact not available' });
+    const type = req.params.artifact === 'reel' ? 'video/mp4'
+      : req.params.artifact === 'sidecar' ? 'application/json' : 'image/jpeg';
+    res.type(type).sendFile(file);
+  });
+
+app.post('/oskiewar-reel', requireOSBuildAdmin, (req, res) => {
+  try {
+    const job = startOskiewarReel(req.body || {});
+    addServerLog('info', '🥊', `Oskiewar Reel job ${job.id} · ${job.day} #${job.index}`);
+    return res.status(202).json(job);
+  } catch (error) {
+    if (error.code === 'REEL_JOB_BUSY')
+      return res.status(409).json({ error: error.message, activeJobId: error.activeJobId });
+    if (error.code === 'BAD_REEL_JOB') return res.status(400).json({ error: error.message });
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/oskiewar-reel/:jobId/cancel', requireOSBuildAdmin, (req, res) => {
+  const result = cancelOskiewarReel(req.params.jobId);
+  if (!result.ok) return res.status(400).json(result);
   return res.json(result);
 });
 

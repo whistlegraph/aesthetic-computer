@@ -2252,6 +2252,7 @@ function handleRoundViewer(message) {
     roundViewerDemo = message.content;
     roundViewerDemoStartedAt = now;
     roundViewerMode = "DEMO";
+    globalThis.__oskiewarReplayReady = true;
     return;
   }
   if (message.type === "state") {
