@@ -6516,8 +6516,10 @@ function drawRoomSurfaces(left, right, top, bottom, color) {
     for (let column = 0; column < columns; column++) {
       const x1 = lerp(left, right, column / columns);
       const x2 = lerp(left, right, (column + 1) / columns);
-      const floor1 = terrainFloorAt(x1);
-      const floor2 = terrainFloorAt(x2);
+      // Bury the wall slightly into the floor. Shared coplanar edges can expose
+      // a one-pixel clear-color crescent after perspective rasterization.
+      const floor1 = terrainFloorAt(x1) + 120;
+      const floor2 = terrainFloorAt(x2) + 120;
       const y1Left = lerp(top, floor1, row / rows);
       const y1Right = lerp(top, floor2, row / rows);
       const y2Left = lerp(top, floor1, (row + 1) / rows);
@@ -7340,11 +7342,7 @@ function drawHudStatusTray(clock, ink, unixMs) {
   // masquerading as another peripheral in the clock-side status tray.
   if (debugHitboxes) {
     const safe = hudSafeRect();
-    const pad = 3;
     const top = safe.bottom - statusCell;
-    const left = viewCenterX() - statusCell / 2;
-    box(left - pad, top - pad, statusCell + pad * 2,
-      statusCell + pad * 2, 38, 44, 62);
     drawDebugBug(viewCenterX(), top + statusCell / 2 + 2,
       statusCell / 26);
   }
@@ -7392,6 +7390,7 @@ function spectatorQrBox() {
 }
 
 function drawDebugPerformance(ink) {
+  if (!debugHitboxes) return;
   const safe = hudSafeRect();
   const compact = compactLayout();
   const metaSize = compact ? 19 : 24;
@@ -7409,7 +7408,7 @@ function drawDebugPerformance(ink) {
   const surfaceY = safe.bottom - metaSize - 4;
   typeWrite(surfaceLabel, viewCenterX() - surfaceWidth / 2,
     surfaceY, metaSize, ...ink);
-  if (!debugHitboxes || shellMode !== "GAME") return;
+  if (shellMode !== "GAME") return;
   const timingSize = Math.max(17, metaSize * .76);
   const timingWidth = handleWidth(timingLabel, timingSize);
   typeWrite(timingLabel, viewCenterX() - timingWidth / 2,
