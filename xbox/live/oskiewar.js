@@ -21,7 +21,7 @@ runtime = function acRuntime() {
 };
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 27;
+const buildVersion = 28;
 const floorY = 1800;
 const ceilingY = 0;
 const wallThickness = 80;
@@ -8672,6 +8672,22 @@ function gamePaint() {
     typeWrite(clock.label, clock.left,
       hud.top + (roundViewer ? clock.size + 10 : 2), clock.size, ...titleInk);
     drawHudStatusTray(clock, titleInk, nowMs);
+    const updateReady = typeof capabilities === "function" &&
+      capabilities().updateReady === true;
+    if (updateReady) {
+      const label = "update ready";
+      const size = Math.round(clock.size * .58);
+      const width = handleWidth(label, size);
+      const x = clock.right - width;
+      const y = clock.top + clock.size + 12;
+      typeWrite(label, x + 2, y + 3, size, ...contrastShadow(titleInk));
+      typeWrite(label, x, y, size, ...titleInk);
+      if (globalThis.__oskiewarTouch)
+        globalThis.__oskiewarTouch.updateButton =
+          { x: x - 8, y: y - 6, width: width + 16, height: size + 12 };
+    } else if (globalThis.__oskiewarTouch) {
+      globalThis.__oskiewarTouch.updateButton = null;
+    }
   }
   for (const tree of bodyTrees) drawBodyTree(tree, t);
   for (const pickup of gunPickups) drawGunPickup(pickup, t);

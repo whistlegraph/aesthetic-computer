@@ -4289,6 +4289,13 @@ test("Tab is the only PC keyboard debug binding", () => {
   assert.doesNotMatch(webShell, /\["KeyQ", \[0, "View"\]\]/);
 });
 
+test("update readiness is canvas HUD beneath the clock, never DOM chrome", () => {
+  assert.doesNotMatch(webShell, /id="update-ready"/);
+  assert.match(webShell, /updateReady: updateAvailable/);
+  assert.match(source, /const label = "update ready"/);
+  assert.match(source, /const y = clock\.top \+ clock\.size \+ 12/);
+});
+
 test("a victory laugh opens the mouth and emits floating notes", () => {
   assert.match(source, /laughChord/);
   assert.match(source, /emitSignal\("laugh"/);

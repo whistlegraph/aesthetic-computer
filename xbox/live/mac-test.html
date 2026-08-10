@@ -48,16 +48,6 @@
       cursor: url("/aesthetic.computer/cursors/active.svg") 12 12, pointer; }
     #status { position: absolute; width: 1px; height: 1px; overflow: hidden;
       clip-path: inset(50%); white-space: nowrap; }
-    #update-ready { position: fixed; left: 50%; bottom: max(18px, env(safe-area-inset-bottom));
-      z-index: 6; display: none; transform: translateX(-50%); padding: 10px 14px;
-      border: 2px solid #f3f6ff; border-radius: 999px; background: #10172c;
-      color: #f3f6ff; font: 700 18px/1.1 "Comic Relief", "Comic Sans MS", Arial, sans-serif;
-      box-shadow: 0 4px 0 rgba(4, 7, 18, .55); white-space: nowrap;
-      align-items: center; gap: 6px; }
-    #update-ready.visible { display: flex; }
-    #update-now { appearance: none; margin: 0; padding: 0; border: 0;
-      background: transparent; color: inherit; font: inherit; }
-    #update-now:active { transform: translateY(2px); }
     /* Whoever is signed in owns the bottom-left corner: handle first, then the
        door out. It used to float in the middle of the title screen, under the
        wordmark, which put a person's name in the same band as the game's own
@@ -99,9 +89,6 @@
   <div id="account">
     <span id="account-handle" hidden></span>
     <button id="logout" type="button">log in</button>
-  </div>
-  <div id="update-ready" role="status">
-    <button id="update-now" type="button">update is ready</button>
   </div>
   <script>
     const canvas = document.querySelector("#screen");
@@ -585,6 +572,7 @@
     // helpers further down have run.
     let dummyPops = null;
     let localCountry = "";
+    let updateAvailable = false;
     const popsEndpoint = "/api/oskiewar-pops";
     const socialPreview = new URLSearchParams(location.search).has("social-preview");
     const replayOven = new URLSearchParams(location.search).has("replay-oven");
@@ -601,6 +589,7 @@
         // cannot accidentally leak into the live game.
         replayOven,
         country: localCountry,
+        updateReady: updateAvailable,
         // Scoring sessions are anonymous dummy play; the seam auth attaches to
         // can read this to keep opponents and accounts out of the way. The
         // pulse rides along so the HUD's status lamp can answer a real send
@@ -897,6 +886,13 @@
         event.preventDefault();
         return;
       }
+      const updateButton = globalThis.__oskiewarTouch?.updateButton;
+      if (updateAvailable && updateButton && point.x >= updateButton.x &&
+          point.x <= updateButton.x + updateButton.width &&
+          point.y >= updateButton.y && point.y <= updateButton.y + updateButton.height) {
+        location.reload();
+        return;
+      }
       // A primary mouse/trackpad click is the web equivalent of Y / Use Item.
       // Title interaction returns above, so starting the game never spends or
       // fires an item on the same click.
@@ -998,15 +994,12 @@
       ? new RoundRoom(roundName, { analytics })
       : null;
 
-    const updateReady = document.querySelector("#update-ready");
-    const updateNow = document.querySelector("#update-now");
-    updateNow.addEventListener("click", () => location.reload());
     let loadedVersion = "";
     const responseVersion = (response) => response.headers.get("etag") ||
       [response.headers.get("last-modified"), response.headers.get("content-length")]
         .filter(Boolean).join(":");
     async function checkForUpdate() {
-      if (!loadedVersion || updateReady.classList.contains("visible")) return;
+      if (!loadedVersion || updateAvailable) return;
       try {
         const response = await fetch(`/oskiewar.js?update-check=${Date.now()}`,
           { method: "HEAD", cache: "no-store" });
@@ -1017,7 +1010,7 @@
             location.reload();
             return;
           }
-          updateReady.classList.add("visible");
+          updateAvailable = true;
           document.querySelector("#status").textContent = "update is ready";
         }
       } catch {}
