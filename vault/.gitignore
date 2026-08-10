@@ -1,5 +1,0 @@
-# vault — sensitive credentials, never commit
-*.env
-*.secrets
-*.key
-*.pem

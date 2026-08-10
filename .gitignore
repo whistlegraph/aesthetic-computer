@@ -546,3 +546,8 @@ scratchpad-jas-nzxt-acl.md
 toolchain/tapes/.tape-cache/
 toolchain/tapes/.jam-shots/
 crm/.cache/
+
+# Canonical checkout of the private, GPG-encrypted credentials repository.
+# It lives inside this workspace on every machine but remains a separate Git
+# history; only ciphertext from that repository is ever pushed.
+/vault/
