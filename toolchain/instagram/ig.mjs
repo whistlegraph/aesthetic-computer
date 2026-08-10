@@ -366,8 +366,15 @@ async function doSnapshot(creds) {
   }));
 }
 
+function doAccounts() {
+  for (const account of Object.keys(ACCOUNTS))
+    console.log(`${isProvisioned(account) ? "✓" : "•"} @${account} · ` +
+      `${isProvisioned(account) ? "provisioned" : "not provisioned"} · ${vaultPath(account)}`);
+}
+
 // ── dispatch ─────────────────────────────────────────────────────────
 const COMMANDS = {
+  accounts: doAccounts,
   me: doMe,
   quota: doQuota,
   refresh: doRefresh,
@@ -383,6 +390,7 @@ usage: node toolchain/instagram/ig.mjs --as <account> <command>
 accounts: ${Object.keys(ACCOUNTS).join(" | ")}   (creds: <repo>/vault/<account>/instagram.env)
 
 commands:
+  accounts                 list aliases and vault provisioning state (no secrets)
   me                       account identity + follower/media counts (token health check)
   quota                    content_publishing_limit — posts used/allowed per 24h
   refresh                  refresh the 60-day token, rewrite the vault env file in place
@@ -401,7 +409,9 @@ if (flags.help || cmd === "help") help(0);
 if (!cmd || !COMMANDS[cmd]) help(cmd ? 1 : 0);
 
 try {
-  if (cmd === "refresh" && flags.all) {
+  if (cmd === "accounts") {
+    doAccounts();
+  } else if (cmd === "refresh" && flags.all) {
     await doRefreshAll();
   } else {
     if (flags.as === true || !flags.as) {

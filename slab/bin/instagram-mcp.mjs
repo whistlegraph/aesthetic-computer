@@ -11,6 +11,10 @@ import { httpPort, serveHttp, serveStdio } from "../../toolchain/mcp/http-front.
 const root = resolve(import.meta.dirname, "../..");
 const ig = resolve(root, "toolchain/instagram/ig.mjs");
 const reel = resolve(root, "xbox/live/marketing/reel.mjs");
+const reelApps = {
+  whistlegraph: resolve(root, "toolchain/instagram/whistlegraph-ig.mjs"),
+  aesthetic: resolve(root, "toolchain/instagram/aesthetic-ig.mjs"),
+};
 const accounts = { oskiewar: "OSKIEWAR", whistlegraph: "WHISTLEGRAPH",
   aesthetic: "AESTHETIC" };
 const text = (value) => [{ type: "text", text: String(value) }];
@@ -32,6 +36,10 @@ function provisioned(account) {
 }
 function account(value = "oskiewar") {
   if (!accounts[value]) throw new Error(`unknown account ${value}; use ${Object.keys(accounts).join(", ")}`);
+  return value;
+}
+function reelApp(value) {
+  if (!reelApps[value]) throw new Error(`unknown Reel app ${value}; use ${Object.keys(reelApps).join(", ")}`);
   return value;
 }
 function run(script, args, timeout = 420_000) {
@@ -61,6 +69,9 @@ const TOOLS = [
   { name: "oskiewar_reel_queue", description: "List staged Oskiewar Reel artifacts and their verification state.", inputSchema: { type: "object", properties: {} } },
   { name: "oskiewar_reel_render", description: "Render and verify an Oskiewar Reel into tmp/oskiewar-reels/queue. This may take several minutes but does not publish.", inputSchema: { type: "object", properties: { day: { type: "string", description: "YYYY-MM-DD" }, index: { type: "integer", minimum: 0 }, segment: { type: "string" }, seconds: { type: "number", minimum: 8, maximum: 120 } } } },
   { name: "oskiewar_reel_publish", description: "Run the Oskiewar queue publisher. live:false writes/returns the dry-run payload; live:true uploads and posts. SIDE EFFECT when live:true. Requires confirm:true for live publication.", inputSchema: { type: "object", properties: { id: { type: "string" }, live: { type: "boolean", default: false }, confirm: { type: "boolean" } }, required: ["id"] } },
+  { name: "instagram_reel_app_queue", description: "List staged Reel artifacts for the Whistlegraph or Aesthetic Computer Instagram app.", inputSchema: { type: "object", properties: { account: { type: "string", enum: Object.keys(reelApps) } }, required: ["account"] } },
+  { name: "instagram_reel_app_build", description: "Build and verify one deterministic Whistlegraph or Aesthetic Computer Reel slot. Stages locally; never publishes.", inputSchema: { type: "object", properties: { account: { type: "string", enum: Object.keys(reelApps) }, day: { type: "string", description: "YYYY-MM-DD" }, index: { type: "integer", minimum: 0 }, redo: { type: "boolean", default: false } }, required: ["account"] } },
+  { name: "instagram_reel_app_publish", description: "Publish or dry-run one staged Whistlegraph/Aesthetic Reel. live:false writes the payload only; live:true creates a live Instagram Reel and requires confirm:true.", inputSchema: { type: "object", properties: { account: { type: "string", enum: Object.keys(reelApps) }, id: { type: "string" }, live: { type: "boolean", default: false }, confirm: { type: "boolean" } }, required: ["account", "id"] } },
 ];
 
 async function callTool(name, args = {}) {
@@ -91,6 +102,22 @@ async function callTool(name, args = {}) {
   if (name === "oskiewar_reel_publish") {
     if (args.live && args.confirm !== true) throw new Error("confirm:true is required for live publication");
     return text(await run(reel, ["--publish", args.id, ...(args.live ? ["--live"] : [])], 600_000));
+  }
+  if (name === "instagram_reel_app_queue")
+    return text(await run(reelApps[reelApp(args.account)], ["--queue"]));
+  if (name === "instagram_reel_app_build") {
+    const app = reelApp(args.account);
+    const argv = [];
+    if (args.day) argv.push("--day", args.day);
+    if (args.index !== undefined) argv.push("--index", String(args.index));
+    if (args.redo) argv.push("--redo");
+    return text(await run(reelApps[app], argv, 1_200_000));
+  }
+  if (name === "instagram_reel_app_publish") {
+    const app = reelApp(args.account);
+    if (args.live && args.confirm !== true) throw new Error("confirm:true is required for live publication");
+    return text(await run(reelApps[app], ["--publish", args.id,
+      ...(args.live ? ["--live"] : [])], 600_000));
   }
   throw new Error(`unknown tool ${name}`);
 }

@@ -17,13 +17,13 @@ Two brands, one funnel: **@whistlegraph** (established audience) feeds **@aesthe
 
 | Handle | Platform | Role | API access today |
 |---|---|---|---|
-| **@aesthetic.computer** | Instagram | **primary growth target** (1k → Trial Reels) | ⚠️ unofficial (silo private-api / session cookies) — no publish |
+| **@aesthetic.computer** | Instagram | **primary growth target** (1k → Trial Reels) | 🟡 official Reel app staged — `aesthetic-ig.mjs`; separate Meta app/token still needs provisioning |
 | **@aesthetic.computer** | TikTok | primary growth target (391 fo · 2026-07-03) | ⚠️ OAuth app exists (silo); posting still manual |
 | **Aesthetic Dot Computer** | YouTube | primary growth target (4 subs · 70 views) | ✅ **full** — `yt.mjs` (upload/edit/thumb/delete) |
 | **@aesthetic.computer** | Bluesky | changelog + paintings feed (81 fo) | ✅ **full** — `at/*.mjs` app password |
 | **AC Readings** | Podcast (pod.prompt.ac) | essay audio → Spotify/Apple/YT | ✅ publish via Buzzsprout API (`reading` skill) |
 | **@oskiewar** | Instagram | game posts itself (3 reels/day staged; 2 fo · 2026-08-09) | ✅ **full** — xbox/live/marketing/reel.mjs --publish --live; vault/oskiewar/instagram.env |
-| @whistlegraph | Instagram | established funnel source | ⚠️ archive/read tooling only (instaloader/instagrapi) |
+| @whistlegraph | Instagram | established funnel source | 🟡 official Reel app staged — `whistlegraph-ig.mjs`; separate Meta app/token still needs provisioning |
 | @whistlegraph | TikTok | established funnel source (2.6M fo · 99M likes) | ⚠️ download/analyze only (`toolchain/whistlegraph/`) |
 | @whistlegraph | YouTube | established funnel source (5.3k subs · 2.1M views) | ✅ **full** — `yt.mjs --as whistlegraph` (2026-07-05) |
 | @promptDOTac | X | dormant AC-brand outlet | ❌ none — no developer app |
@@ -36,7 +36,7 @@ Two brands, one funnel: **@whistlegraph** (established audience) feeds **@aesthe
 
 ### API access build-out (next moves, in value order)
 
-1. **Instagram official publishing — the keystone.** Today we have read-only unofficial access (silo `instagram-private-api`, instaloader archives; see `reports/instagram-api-migration-2026-03-29.md`). Build the official path via the **Instagram API with Instagram Login** (no Facebook Page needed since the 2024 API): both accounts must be Professional; create a Meta app at developers.facebook.com, add the Instagram product, connect our own accounts as testers — **own-account publishing works in dev mode without app review**. Then an `ig.mjs` CLI in `toolchain/` mirroring `yt.mjs` (`--as whistlegraph`). Triple payoff: (a) scripted reels toward the 1k Trial-Reels gate, (b) same for @whistlegraph funnel posts, (c) **the first trancenwaltz IG post unblocks the Spotify for Artists claim** (draft reply waiting in `pop/spotify-for-artists-claim-reply.md`).
+1. **Provision the two Instagram apps.** The official multi-account CLI and isolated Whistlegraph/Aesthetic Reel factories are built. Both accounts still need to be Professional; create one Meta app per account with **Instagram API with Instagram Login**, authorize the three business scopes, and store each long-lived token in its own vault directory. Follow `toolchain/instagram/REEL-APPS.md`; leave each `*_IG_AUTO=0` until three staged Reels and one human-triggered live post pass review.
 2. **X developer app** — nothing exists. Free tier (~500 writes/mo) covers a mirror cadence for @promptDOTac + @whistlegraph; a small `x.mjs` CLI posts the same short-form drops as Bluesky. Needs jeffrey to create the app at developer.x.com under whichever account owns the brand.
 3. **TikTok Content Posting API audit** — silo holds the OAuth app (key/secret, callback `silo.aesthetic.computer/api/tiktok/callback`, sessions in Mongo `tiktok-sessions`). Unaudited = private/draft posting only; apply for the audit to get scripted publish where the 2.6M audience is.
 4. **Are.na token → vault** — scripts already speak the API; store `ARENA_TOKEN` at `vault/arena/.env` and lift the gig scripts into a small generic CLI when needed.
@@ -96,6 +96,9 @@ Everything below already exists in the monorepo. This is the map; `/social` is t
 | `silo/server.mjs` | Backend IG client (instagram-private-api), persistent `insta-sessions` in MongoDB |
 | `xbox/live/marketing/reel.mjs` | **@oskiewar reel factory** — seeded gameplay → 1080×1920 reel → staged queue; official Graph publish behind `--live` |
 | `toolchain/instagram/ig.mjs` | Zero-dep official-API CLI (graph.instagram.com) — `--as oskiewar\|whistlegraph\|aesthetic`: me/quota/token refresh (monthly cron via `refresh --all`)/reel post/insights/snapshot; creds `vault/<account>/instagram.env` |
+| `toolchain/instagram/whistlegraph-ig.mjs` | **@whistlegraph Reel app** — reviewed archive pool → deterministic 1080×1920 queue → dry/live official publish; auto gate in its own vault |
+| `toolchain/instagram/aesthetic-ig.mjs` | **@aesthetic.computer Reel app** — proven live AV performances → deterministic queue → dry/live official publish; auto gate in its own vault |
+| `slab/bin/instagram-mcp.mjs` | Discoverable account health, quota, insights, and isolated Oskiewar/Whistlegraph/Aesthetic Reel queue tools |
 
 Creds: `vault/silo/instagram.env`, `vault/silo/.env`. Sessions: `portraits/jeffrey/sessions/`. Archives: `portraits/jeffrey/ig-archive/<account>/`.
 

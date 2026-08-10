@@ -8,6 +8,7 @@
       "url": "https://instagram.com/aesthetic.computer",
       "role": "primary-growth-target",
       "goal": "1000 followers (unlocks Instagram Trial Reels)",
+      "access": "Official Reel app staged in toolchain/instagram/aesthetic-ig.mjs; separate Instagram Login Meta app, IG user ID, and long-lived token still need human provisioning. Keep AESTHETIC_IG_AUTO=0 through staged review and the first manual live post.",
       "snapshots": [
         {
           "date": null,
@@ -43,6 +44,7 @@
       "url": "https://instagram.com/whistlegraph",
       "role": "established-funnel-source",
       "goal": "Maintain; occasional 'made with aesthetic.computer' funnel to primary",
+      "access": "Official Reel app staged in toolchain/instagram/whistlegraph-ig.mjs; separate Instagram Login Meta app, IG user ID, and long-lived token still need human provisioning. Source pool is watermark-audited and visually reviewed; keep WHISTLEGRAPH_IG_AUTO=0 through staged review and the first manual live post.",
       "snapshots": [
         {
           "date": null,
