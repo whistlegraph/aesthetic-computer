@@ -4284,6 +4284,11 @@ test("a primary web click maps to use item after the title", () => {
   assert.match(webShell, /touchPointers\.set\(event\.pointerId, \{ key: "Y" \}\)/);
 });
 
+test("Tab is the only PC keyboard debug binding", () => {
+  assert.match(webShell, /\["Tab", \[0, "View"\]\]/);
+  assert.doesNotMatch(webShell, /\["KeyQ", \[0, "View"\]\]/);
+});
+
 test("a victory laugh opens the mouth and emits floating notes", () => {
   assert.match(source, /laughChord/);
   assert.match(source, /emitSignal\("laugh"/);
