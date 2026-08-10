@@ -46,13 +46,26 @@ of the Construct implementation.
 
 ## Pieces that own their slug
 
-`bubbles`, `walker`, `dark-window`, `line`, `box`, `stamp`, `frame`,
-`caterpillar`, `softy`, and `wafer` are real AC pieces that export their own
-`nopaintProposal`;
+Every recovered brush now has one: `bubbles`, `walker`, `dark-window`, `line`,
+`box`, `stamp`, `frame`, `caterpillar`, `softy`, `wafer`, `grid-worm`,
+`triangle`, `ellipse`, `rainbow`, `breathe`, `vignette`, `aura`, `build`, and
+`banner` are real AC pieces that export their own `nopaintProposal`;
 `disks/nopaint.mjs` imports each one and registers it after the fallback
-catalog, so the piece's contract wins by slug. A name leaves
-`nopaint-construct-catalog.mjs` on the day a piece takes it over — that catalog
-shrinking to nothing is the finish line.
+catalog, so the piece's contract wins by slug.
+
+`nopaint-construct-catalog.mjs` is down from fourteen fallbacks to two, and the
+two left — `bubbles` and `walker` — are already owned by their pieces through
+import order. It is an inventory now, not an implementation.
+
+## Three of them were never brushes
+
+`rainbow` and `breathe` draw nothing. Their sheets put a Construct effect over
+the whole painting — AdjustHSL and Bulge — and walk its parameter on a timer, so
+both belong with the pixel transforms and rewrite the accepted painting instead
+of proposing into the buffer. `vignette` and `aura` lay a field rather than a
+shape. Reading a name as "a brush" because it sits in the brush picker is the
+third kind of mistake this migration kept making, after misreading expression
+indices as literals and missing function blocks.
 
 ## Corrections
 

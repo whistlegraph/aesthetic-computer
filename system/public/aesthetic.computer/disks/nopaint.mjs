@@ -27,6 +27,8 @@ import { nopaintProposal as rainbowPieceProposal } from "./rainbow.mjs";
 import { nopaintProposal as breathePieceProposal } from "./breathe.mjs";
 import { nopaintProposal as vignettePieceProposal } from "./vignette.mjs";
 import { nopaintProposal as auraPieceProposal } from "./aura.mjs";
+import { nopaintProposal as buildPieceProposal } from "./build.mjs";
+import { nopaintProposal as bannerPieceProposal } from "./banner.mjs";
 import { gridWormProposal } from "../lib/nopaint-construct-brushes.mjs";
 import { nonConflictingConstructProposals } from "../lib/nopaint-construct-catalog.mjs";
 import { recoveredConstructTransforms } from "../lib/nopaint-construct-transforms.mjs";
@@ -62,6 +64,8 @@ const COMPATIBLE_BRUSHES = Object.freeze(new Map([
   [breathePieceProposal.slug, breathePieceProposal],
   [vignettePieceProposal.slug, vignettePieceProposal],
   [auraPieceProposal.slug, auraPieceProposal],
+  [buildPieceProposal.slug, buildPieceProposal],
+  [bannerPieceProposal.slug, bannerPieceProposal],
 ]));
 
 let loopState = "choosing";
@@ -1195,18 +1199,6 @@ function renderProposal($) {
       x = nextX;
       y = nextY;
     });
-  } else if (proposal.kind === "banner") {
-    const stripes = 9;
-    for (let index = 0; index < stripes; index += 1) {
-      const y = proposal.y + (proposal.h / stripes) * index;
-      const sway = Math.sin(phase + index * 0.55) * proposal.drift;
-      ink(color[0], color[1], color[2], 80 + index * 14).box(
-        proposal.x + sway,
-        y,
-        proposal.w,
-        Math.max(2, proposal.h / stripes - 1),
-      );
-    }
   } else if (proposal.kind === "wipe") {
     // A recovered "wipe" is a translucent wash in No Paint 3.0. Random
     // proposals must accumulate history; they may never replace it opaquely.
