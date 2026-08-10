@@ -40,7 +40,7 @@ final class ResourceGraph: NSObject {
     private struct Sample {
         var ram = 0.0, ssd = 0.0, gpu = 0.0, cpu = 0.0, net = 0.0
         var down = 0.0, up = 0.0
-        var ramUsedGB = 0.0, ramTotalGB = 0.0
+        var ramAvailablePct = 0.0, ramTotalGB = 0.0
         var ssdUsedGB = 0.0, ssdFreeGB = 0.0, ssdTotalGB = 0.0
         var gpuMemoryGB = 0.0
         var load = 0.0
@@ -168,7 +168,8 @@ final class ResourceGraph: NSObject {
             case .cpu:
                 return String(format: "%.0f%%  %.1f load", current.cpu * 100, current.load)
             case .ram:
-                return String(format: "%.1f/%.0f GB", current.ramUsedGB, current.ramTotalGB)
+                return String(format: "%.0f%% available · %.0f GB",
+                              current.ramAvailablePct, current.ramTotalGB)
             case .network:
                 return "↓\(rate(current.down)) ↑\(rate(current.up))"
             case .ssd:
@@ -199,6 +200,8 @@ final class ResourceGraph: NSObject {
     private var sampleInFlight = false
     private var hoverTracker: ResourceHoverTracker?
     private var hoverPanel: NSPanel?
+    private var aboutWindow: NSWindow?
+    private weak var aboutIconView: NSImageView?
     private var hoverPinned = false
     private var highlightedMetric: Metric?
     private let localStatsView = LocalStatsView(frame: .zero)
@@ -289,11 +292,19 @@ final class ResourceGraph: NSObject {
     private func start() {
         guard item == nil else { return }
         let status = NSStatusBar.system.statusItem(withLength: meterWidth)
+        if let button = status.button {
+            let cell = NoHighlightStatusBarCell()
+            cell.imagePosition = .imageOnly
+            cell.isBordered = false
+            cell.highlightsBy = []
+            button.cell = cell
+            button.isBordered = false
+        }
         status.button?.imagePosition = .imageOnly
         status.button?.imageScaling = .scaleNone
         status.button?.target = self
         status.button?.action = #selector(toggleStatsPanel(_:))
-        status.button?.sendAction(on: [.leftMouseUp])
+        status.button?.sendAction(on: [.rightMouseUp])
         item = status
         installHoverTracker(on: status.button)
         tick(forceSlow: true)
@@ -337,6 +348,7 @@ final class ResourceGraph: NSObject {
     private func redraw() {
         guard let button = item?.button else { return }
         button.image = render()
+        aboutIconView?.image = aboutIcon()
         button.contentTintColor = nil
         // The same local panel serves hover and click; there is deliberately no
         // second click-only menu or tooltip path.
@@ -471,7 +483,7 @@ final class ResourceGraph: NSObject {
         var s = previous
         let memory = memoryUse()
         s.ram = memory.fraction
-        s.ramUsedGB = memory.usedGB
+        s.ramAvailablePct = memory.availablePct
         s.ramTotalGB = memory.totalGB
         if readDisk {
             let disk = diskUse()
@@ -562,18 +574,140 @@ final class ResourceGraph: NSObject {
     }
 
     @objc private func toggleStatsPanel(_ sender: Any?) {
-        hoverPinned.toggle()
-        if hoverPinned {
-            showHoverCard()
-        } else {
-            syncHoverToPointer()
-            if let button = item?.button, let window = button.window {
-                let rect = window.convertToScreen(button.convert(button.bounds, to: nil))
-                if !rect.insetBy(dx: -1, dy: -2).contains(NSEvent.mouseLocation) {
-                    hideHoverCard()
-                }
-            }
+        if NSApp.currentEvent?.type == .rightMouseUp, let button = item?.button,
+           let event = NSApp.currentEvent {
+            highlightedMetric = nil
+            hideHoverCard()
+            redraw()
+            let menu = NSMenu()
+            let about = NSMenuItem(title: "About SlabStats",
+                                   action: #selector(showAbout), keyEquivalent: "")
+            about.target = self
+            menu.addItem(about)
+            menu.addItem(.separator())
+            let quit = NSMenuItem(title: "Quit SlabStats",
+                                  action: #selector(quitStats), keyEquivalent: "")
+            quit.target = self
+            menu.addItem(quit)
+            NSMenu.popUpContextMenu(menu, with: event, for: button)
         }
+    }
+
+    @objc private func showAbout() {
+        if let aboutWindow {
+            aboutWindow.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+            return
+        }
+
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 320, height: 330),
+            styleMask: [.titled, .closable, .fullSizeContentView],
+            backing: .buffered, defer: false)
+        window.titlebarAppearsTransparent = true
+        window.titleVisibility = .hidden
+        window.isMovableByWindowBackground = true
+        window.isReleasedWhenClosed = false
+        window.level = .normal
+        window.center()
+
+        let icon = NSImageView(image: aboutIcon())
+        icon.imageScaling = .scaleProportionallyUpOrDown
+        icon.translatesAutoresizingMaskIntoConstraints = false
+        icon.widthAnchor.constraint(equalToConstant: 104).isActive = true
+        icon.heightAnchor.constraint(equalToConstant: 104).isActive = true
+        aboutIconView = icon
+
+        let name = NSTextField(labelWithString: "SlabStats")
+        name.font = .systemFont(ofSize: 22, weight: .bold)
+        name.alignment = .center
+        let tagline = NSTextField(labelWithString: "the pulse of this Mac")
+        tagline.font = .systemFont(ofSize: 12)
+        tagline.textColor = .secondaryLabelColor
+        tagline.alignment = .center
+        let channels = NSTextField(labelWithString: "CPU · RAM · NET · SSD · GPU")
+        channels.font = .monospacedSystemFont(ofSize: 12, weight: .semibold)
+        channels.textColor = .controlAccentColor
+        channels.alignment = .center
+        let detail = NSTextField(wrappingLabelWithString:
+            "RAM follows memory pressure, so reclaimable caches stay out of the danger signal.")
+        detail.font = .systemFont(ofSize: 13)
+        detail.alignment = .center
+        detail.maximumNumberOfLines = 3
+        detail.preferredMaxLayoutWidth = 256
+        detail.translatesAutoresizingMaskIntoConstraints = false
+        detail.widthAnchor.constraint(equalToConstant: 256).isActive = true
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString")
+            as? String ?? "Development build"
+        let footer = NSTextField(labelWithString: "Version \(version)  ·  © 2026 Aesthetic, Inc.")
+        footer.font = .systemFont(ofSize: 11)
+        footer.textColor = .tertiaryLabelColor
+        footer.alignment = .center
+
+        let stack = NSStackView(views: [icon, name, tagline, channels, detail, footer])
+        stack.orientation = .vertical
+        stack.alignment = .centerX
+        stack.spacing = 8
+        stack.setCustomSpacing(12, after: icon)
+        stack.setCustomSpacing(16, after: tagline)
+        stack.setCustomSpacing(16, after: detail)
+        stack.edgeInsets = NSEdgeInsets(top: 24, left: 32, bottom: 24, right: 32)
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        window.contentView = NSView()
+        window.contentView?.addSubview(stack)
+        NSLayoutConstraint.activate([
+            stack.leadingAnchor.constraint(equalTo: window.contentView!.leadingAnchor),
+            stack.trailingAnchor.constraint(equalTo: window.contentView!.trailingAnchor),
+            stack.topAnchor.constraint(equalTo: window.contentView!.topAnchor),
+            stack.bottomAnchor.constraint(equalTo: window.contentView!.bottomAnchor),
+        ])
+
+        aboutWindow = window
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
+    private func aboutIcon() -> NSImage {
+        let size = NSSize(width: 104, height: 104)
+        let image = NSImage(size: size)
+        image.lockFocus()
+        let frame = NSBezierPath(roundedRect: NSRect(origin: .zero, size: size)
+            .insetBy(dx: 5, dy: 5), xRadius: 20, yRadius: 20)
+        NSGradient(starting: NSColor(deviceWhite: 0.18, alpha: 1),
+                   ending: NSColor(deviceWhite: 0.07, alpha: 1))?
+            .draw(in: frame, angle: -90)
+        NSColor.white.withAlphaComponent(0.18).setStroke()
+        frame.lineWidth = 1.5
+        frame.stroke()
+        for (index, metric) in Metric.allCases.enumerated() {
+            let track = NSRect(x: 15 + CGFloat(index) * 15,
+                               y: 17, width: 14, height: 70)
+            let key = NSBezierPath(roundedRect: track, xRadius: 3.5, yRadius: 3.5)
+            NSColor(deviceWhite: 0.92, alpha: 1).setFill()
+            key.fill()
+            let value = max(0, min(1, metric.value(sample)))
+            let live = NSRect(x: track.minX, y: track.minY,
+                              width: track.width,
+                              height: max(value > 0 ? 2 : 0,
+                                          track.height * CGFloat(value)))
+            NSGraphicsContext.saveGraphicsState()
+            key.addClip()
+            metric.color.setFill()
+            live.fill()
+            NSGraphicsContext.restoreGraphicsState()
+            NSColor.black.withAlphaComponent(0.34).setStroke()
+            key.lineWidth = 1
+            key.stroke()
+        }
+        image.unlockFocus()
+        image.isTemplate = false
+        return image
+    }
+
+    @objc private func quitStats() {
+        UserDefaults.standard.set(true, forKey: "resourceGraphConfigured")
+        try? FileManager.default.removeItem(atPath: Paths.resourceGraphFlag)
+        stop()
     }
 
     private func showHoverCard() {
@@ -591,9 +725,9 @@ final class ResourceGraph: NSObject {
         let panel = NSPanel(contentRect: NSRect(origin: origin, size: size),
                             styleMask: [.borderless, .nonactivatingPanel],
                             backing: .buffered, defer: false)
-        panel.isOpaque = true
-        panel.backgroundColor = .windowBackgroundColor
-        panel.hasShadow = false
+        panel.isOpaque = false
+        panel.backgroundColor = .clear
+        panel.hasShadow = true
         panel.level = .statusBar
         panel.isFloatingPanel = true
         panel.hidesOnDeactivate = false
@@ -602,6 +736,9 @@ final class ResourceGraph: NSObject {
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
         localStatsView.frame = NSRect(origin: .zero, size: size)
         localStatsView.autoresizingMask = [.width, .height]
+        localStatsView.wantsLayer = true
+        localStatsView.layer?.cornerRadius = 8
+        localStatsView.layer?.masksToBounds = true
         localStatsView.samples = history
         localStatsView.current = sample
         localStatsView.highlightedMetric = highlightedMetric
@@ -622,7 +759,7 @@ final class ResourceGraph: NSObject {
         localStatsView.highlightedMetric = highlightedMetric
     }
 
-    private func memoryUse() -> (fraction: Double, usedGB: Double, totalGB: Double) {
+    private func memoryUse() -> (fraction: Double, availablePct: Double, totalGB: Double) {
         var stats = vm_statistics64()
         var count = mach_msg_type_number_t(MemoryLayout<vm_statistics64_data_t>.size / MemoryLayout<integer_t>.size)
         let result = withUnsafeMutablePointer(to: &stats) { p in
@@ -635,8 +772,16 @@ final class ResourceGraph: NSObject {
         let usedPages = Double(stats.active_count + stats.inactive_count + stats.wire_count + stats.compressor_page_count)
         let totalPages = usedPages + Double(stats.free_count + stats.speculative_count)
         let gb = 1_073_741_824.0
-        return (totalPages > 0 ? usedPages / totalPages : 0,
-                usedPages * pageSize / gb, totalPages * pageSize / gb)
+        var level: Int32 = 0
+        var levelSize = MemoryLayout<Int32>.size
+        let hasLevel = sysctlbyname(
+            "kern.memorystatus_level", &level, &levelSize, nil, 0) == 0
+        let available = hasLevel ? max(0, min(100, Double(level)))
+            : (totalPages > 0 ? Double(stats.free_count + stats.speculative_count)
+                / totalPages * 100 : 0)
+        // The bar represents pressure, not macOS's cache-inclusive allocation.
+        // This is the same availability signal shown by `memory_pressure`.
+        return (1 - available / 100, available, totalPages * pageSize / gb)
     }
 
     private func diskUse() -> (fraction: Double, usedGB: Double, freeGB: Double, totalGB: Double) {

@@ -317,7 +317,22 @@ fi
 # are already enabled. The Mach-O UUID survives signing and identifies the
 # compiled payload, so an identical, valid bundle is a true no-op.
 binary_uuid() {
-    /usr/bin/dwarfdump --uuid "$1" 2>/dev/null | awk '{print $2}' | paste -sd, -
+    local target="$1" out pid i
+    out="$(mktemp /tmp/slab-uuid.XXXXXX)"
+    /usr/bin/dwarfdump --uuid "${target}" >"${out}" 2>/dev/null &
+    pid=$!
+    for i in 1 2 3 4 5 6 7 8; do
+        kill -0 "${pid}" 2>/dev/null || break
+        sleep 0.25
+    done
+    if kill -0 "${pid}" 2>/dev/null; then
+        kill -TERM "${pid}" 2>/dev/null || true
+        sleep 0.1
+        kill -KILL "${pid}" 2>/dev/null || true
+    fi
+    wait "${pid}" 2>/dev/null || true
+    awk '{print $2}' "${out}" | paste -sd, -
+    rm -f "${out}"
 }
 BUILT_UUID="$(binary_uuid "${BUILT}")"
 APP_UUID="$(binary_uuid "${APP_BIN}")"

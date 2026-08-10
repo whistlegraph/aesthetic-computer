@@ -304,6 +304,27 @@ final class PromptFocusHighlight {
         return Int(id)
     }
 
+    private func onScreenTerminalWindowIDs() -> Set<Int> {
+        let terminalPIDs = Set(NSWorkspace.shared.runningApplications.compactMap { app -> pid_t? in
+            switch app.bundleIdentifier {
+            case "com.apple.Terminal", "com.googlecode.iterm2": return app.processIdentifier
+            default: return nil
+            }
+        })
+        guard !terminalPIDs.isEmpty,
+              let infos = CGWindowListCopyWindowInfo(
+                [.optionOnScreenOnly], kCGNullWindowID) as? [[String: Any]]
+        else { return [] }
+        return Set(infos.compactMap { info -> Int? in
+            guard let layer = info[kCGWindowLayer as String] as? Int, layer == 0,
+                  let pid = info[kCGWindowOwnerPID as String] as? pid_t,
+                  terminalPIDs.contains(pid),
+                  let number = info[kCGWindowNumber as String] as? Int
+            else { return nil }
+            return number
+        })
+    }
+
     private func appKitFrame(for cgFrame: CGRect) -> CGRect {
         let desktopTop = NSScreen.screens.map(\.frame.maxY).max() ?? 0
         return CGRect(x: cgFrame.minX, y: desktopTop - cgFrame.maxY,

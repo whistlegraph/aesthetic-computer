@@ -29,12 +29,21 @@ enum ShellRunner {
             try? inPipe.fileHandleForWriting.close()
         }
 
+        let timeoutLock = NSLock()
         var timedOut = false
         if let timeout = timeout {
             DispatchQueue.global().asyncAfter(deadline: .now() + timeout) {
                 if proc.isRunning {
+                    timeoutLock.lock()
                     timedOut = true
+                    timeoutLock.unlock()
                     proc.terminate()
+                    // Some Apple-event and helper processes ignore SIGTERM
+                    // while wedged in IPC. Escalate so waitUntilExit cannot
+                    // strand Slab's worker forever or accumulate children.
+                    DispatchQueue.global().asyncAfter(deadline: .now() + 0.5) {
+                        if proc.isRunning { kill(proc.processIdentifier, SIGKILL) }
+                    }
                 }
             }
         }
@@ -42,7 +51,10 @@ enum ShellRunner {
         proc.waitUntilExit()
         let data = outPipe.fileHandleForReading.readDataToEndOfFile()
         _ = errPipe.fileHandleForReading.readDataToEndOfFile()
-        let status = timedOut ? Int32(-2) : proc.terminationStatus
+        timeoutLock.lock()
+        let didTimeOut = timedOut
+        timeoutLock.unlock()
+        let status = didTimeOut ? Int32(-2) : proc.terminationStatus
         return (status, String(data: data, encoding: .utf8) ?? "")
     }
 

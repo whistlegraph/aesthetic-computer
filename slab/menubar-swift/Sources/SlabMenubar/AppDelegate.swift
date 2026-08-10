@@ -182,11 +182,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// twice isn't one. See CtrlDoubleTap.
     private var zoomLensTap: CtrlDoubleTap?
 
-    /// ⌃⌃ → magnify the window under the pointer. Not a `GlobalHotkey`: Carbon
-    /// can only register a keycode+modifier chord, and a bare modifier tapped
-    /// twice isn't one. See CtrlDoubleTap.
-    private var zoomLensTap: CtrlDoubleTap?
-
     /// Macs (beyond this host) to flip when going dark/light. ssh aliases that
     /// resolve on the LAN/tailnet; unreachable ones are skipped silently.
     private static let appearanceHosts = ["panda", "chicken", "blueberry"]
@@ -212,6 +207,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             object: nil
         )
         menuBandPerformanceFocused = Self.menuBandPerformanceFocusIsLive()
+
+        // Bring the fleet control plane up before any optional probes. A
+        // wedged Messages, Terminal, or system-metrics subprocess must not
+        // take prox and the local ledger down with the UI refresh path.
+        LedgerStore.shared.start()
 
         do {
             try passphraseServer.start()
@@ -377,7 +377,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         NotificationCenter.default.addObserver(
             self, selector: #selector(handleLedgerWake(_:)),
             name: LedgerStore.wakeNote, object: nil)
-        LedgerStore.shared.start()
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -965,6 +964,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let wake = (loop["wake"] as? Bool) ?? false
         let autoRespond = (loop["autoRespond"] as? Bool) ?? false
         LedgerStore.shared.pokeLocal(sessionId: sid, by: "loopboy:\(contact)")
+        guard wake else { return }
 
         let clean = message.replacingOccurrences(of: "\n", with: " ")
             .trimmingCharacters(in: .whitespacesAndNewlines)
@@ -995,6 +995,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let nudgeScreen = boundSession?.nudgeScreen ?? ""
         let sessionCwd = boundSession?.cwd ?? Paths.acRepo
         let agentType = boundSession?.agentType ?? "claude"
+        guard let tty = ttyForSession(sid) else {
+            NSLog("💬 [loopboy] \(contact) prox \(sid.prefix(8)) has no live tty")
+            return
+        }
         guard !loopboyWakeInFlight.contains(contact) else {
             NSLog("💬 [loopboy] \(contact) wake already in flight; coalescing")
             return
@@ -1034,6 +1038,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             return tty
         }
         return nil
+    }
+
+    @objc private func handleLedgerWake(_ note: Notification) {
+        guard let sid = note.userInfo?["id"] as? String,
+              let prompt = note.userInfo?["prompt"] as? String,
+              !sid.isEmpty, !prompt.isEmpty,
+              let tty = ttyForSession(sid) else { return }
+        let session = state.claudeSessions.first(where: { $0.sessionId == sid })
+        wakeTerminal(tty: tty, prompt: prompt,
+                     providerSessionId: session?.providerSessionId ?? "",
+                     nudgeScreen: session?.nudgeScreen ?? "",
+                     cwd: session?.cwd ?? Paths.acRepo,
+                     agentType: session?.agentType ?? "claude") { status in
+            NSLog("🪨 [wake] prox \(sid.prefix(8)) finished status=\(status)")
+        }
     }
 
     /// Stable Loopboy bindings, keyed by session id. A bound client loop is
@@ -1647,10 +1666,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                                  args: ["--kill-slab-afplay"])
         }
         refresh()
-    }
-
-    @objc func toggleResourceGraph() {
-        ResourceGraph.shared.toggle()
     }
 
     @objc func syncBoth() { syncMail(account: nil) }

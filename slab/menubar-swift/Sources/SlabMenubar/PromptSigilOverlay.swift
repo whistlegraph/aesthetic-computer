@@ -1339,16 +1339,21 @@ final class PromptSigilOverlay {
     /// illusion. The badge floats above everything, but it only *shows* while
     /// its corner of the terminal is genuinely visible, so it hides and
     /// reappears with its window exactly as if it were part of it.
-    func setVisible(_ v: Bool, above terminalWindowNumber: Int,
-                    reassertOrder: Bool) {
-        if v {
+    func setVisible(rock rockVisible: Bool,
+                    heartbeat heartbeatVisible: Bool,
+                    platformTarget platformTargetVisible: Bool) {
+        if rockVisible {
             if !window.isVisible { window.orderFrontRegardless() }
-            if loopboyStyled && !heartbeatWindow.isVisible { heartbeatWindow.orderFrontRegardless() }
-        } else if window.isVisible {
+        } else {
             setHovered(false)   // a covered rock stops reacting to the pointer
-            window.orderOut(nil)
+            if window.isVisible { window.orderOut(nil) }
+        }
+        if loopboyStyled && heartbeatVisible {
+            if !heartbeatWindow.isVisible { heartbeatWindow.orderFrontRegardless() }
+        } else if heartbeatWindow.isVisible {
             heartbeatWindow.orderOut(nil)
         }
+        _ = platformTargetVisible
     }
 
     /// Is the badge actually on screen right now? A hidden rock keeps its
@@ -2169,21 +2174,21 @@ final class PromptSigilOverlayController {
         }
     }
 
-    func flyPrompt(sessionId: String, text: String) {
+    private func legacyFlyPrompt(sessionId: String, text: String) {
         guard let overlay = overlays[sessionId],
               let target = overlay.promptFlightTarget else { return }
-        let destination = cursorDestination(tty: overlay.tty, screen: target.3) ?? target.1
+        let destination = legacyCursorDestination(tty: overlay.tty, screen: target.3) ?? target.1
         let availableWidth = max(120, target.4 - destination.x - 12)
         PromptGlyphFlight.show(text: text, from: target.0, to: destination,
                                color: target.2, maxWidth: availableWidth,
                                on: target.3)
     }
 
-    func setPromptColor(sessionId: String, color: NSColor) {
+    private func legacySetPromptColor(sessionId: String, color: NSColor) {
         overlays[sessionId]?.setPromptColor(color)
     }
 
-    func setHeartbeatColor(sessionId: String, color: NSColor) {
+    private func legacySetHeartbeatColor(sessionId: String, color: NSColor) {
         overlays[sessionId]?.setHeartbeatColor(color)
     }
 
@@ -2192,7 +2197,7 @@ final class PromptSigilOverlayController {
     /// AppKit's bottom-left coordinates, so flip it against the desktop top.
     /// Some terminal versions omit parameterized range bounds; callers retain
     /// the visually safe last-line fallback for that case.
-    private func cursorDestination(tty: String, screen: NSScreen) -> CGPoint? {
+    private func legacyCursorDestination(tty: String, screen: NSScreen) -> CGPoint? {
         let bare = (tty as NSString).lastPathComponent
         guard let wanted = binding[bare] else { return nil }
         let bundleIds = Set(["com.apple.Terminal", "com.googlecode.iterm2"])
@@ -2313,7 +2318,7 @@ final class PromptSigilOverlayController {
 
     /// Raise the terminal window already bound to this tty using Accessibility
     /// only. This avoids Apple Events/TCC while preserving exact-window focus.
-    func focusTerminal(tty: String) -> Bool {
+    private func legacyFocusTerminal(tty: String) -> Bool {
         let bare = (tty as NSString).lastPathComponent
         guard let wanted = binding[bare] else { return false }
         let bundleIds = Set(["com.apple.Terminal", "com.googlecode.iterm2"])
@@ -2341,7 +2346,7 @@ final class PromptSigilOverlayController {
     }
 
     func pulseLoopboys() {
-        let ids = loopboySessions()
+        let ids = Set(verifiedLoopboyContacts.keys)
         let beat = CACurrentMediaTime() + 0.08
         for (sid, overlay) in overlays where ids.contains(sid) {
             overlay.heartbeatPulse(beginTime: beat)
@@ -2539,6 +2544,7 @@ final class PromptSigilOverlayController {
         let liveIds = Set(live.map { $0.sessionId })
         let loopContacts = LoopboyRoutes.verifiedBySession(live)
         verifiedLoopboyContacts = loopContacts
+        let loopIds = Set(loopContacts.keys)
         let dark = AppDelegate.isDarkAppearance()
         var liveParticleTtys = Set<String>()
 
@@ -2638,8 +2644,8 @@ final class PromptSigilOverlayController {
             ov.setName(SigilRenderer.name(for: s), dark: dark)
             let title = s.emoji.isEmpty ? ov.name : "\(s.emoji) \(ov.name)"
             ov.tooltipTitle = loopboy ? "↻ Loopboy · \(title)" : title
-            ov.tooltipBody = (s.loopboyResponse.isEmpty ? nil : s.loopboyResponse)
-                ?? RockSummaries.shared.sentence(seed: seed, subject: s.subject)
+            let story = (s.loopboyResponse.isEmpty ? nil : s.loopboyResponse)
+                ?? ProxMemoirs.shared.text(for: s.sessionId)
                 ?? Self.fallbackBody(summary: s.titleString, subject: s.shortSubject)
             let metrics = Self.sessionMetrics(s)
             ov.tooltipBody = story
