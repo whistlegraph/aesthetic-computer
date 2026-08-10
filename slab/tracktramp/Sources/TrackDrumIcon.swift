@@ -118,8 +118,45 @@ enum TrackDrumIcon {
         raised(kick, in: kickBox, top: umberTop, bottom: umberBottom,
                shadowY: -7, blur: 10)
 
-        // No touch dots or finger tether yet — the icon is the drum surface
-        // alone. Live-contact indicators come back once the trackpad plugin
-        // actually drives them, rather than being painted in as decoration.
+        // Two restrained registration points make this read as the live
+        // touch surface, not a cassette, even at Dock size.
+        let touches = [
+            NSPoint(x: pad.minX + pad.width * 0.36,
+                    y: pad.minY + pad.height * 0.68),
+            NSPoint(x: pad.minX + pad.width * 0.65,
+                    y: pad.minY + pad.height * 0.36),
+        ]
+        let tether = NSBezierPath()
+        tether.move(to: touches[0])
+        tether.line(to: touches[1])
+        NSGraphicsContext.saveGraphicsState()
+        let tetherShadow = NSShadow()
+        tetherShadow.shadowColor = NSColor.black.withAlphaComponent(0.55)
+        tetherShadow.shadowBlurRadius = s(8)
+        tetherShadow.shadowOffset = NSSize(width: 0, height: -s(5))
+        tetherShadow.set()
+        accent.withAlphaComponent(0.64).setStroke()
+        tether.lineWidth = s(12)
+        tether.stroke()
+        NSGraphicsContext.restoreGraphicsState()
+        for point in touches {
+            let radius = s(20)
+            let dot = NSBezierPath(ovalIn: NSRect(
+                x: point.x - radius, y: point.y - radius,
+                width: radius * 2, height: radius * 2
+            ))
+            NSGraphicsContext.saveGraphicsState()
+            let glow = NSShadow()
+            glow.shadowColor = accent.withAlphaComponent(0.80)
+            glow.shadowBlurRadius = s(12)
+            glow.shadowOffset = .zero
+            glow.set()
+            NSColor.white.withAlphaComponent(0.98).setFill()
+            dot.fill()
+            NSGraphicsContext.restoreGraphicsState()
+            accent.setStroke()
+            dot.lineWidth = s(5)
+            dot.stroke()
+        }
     }
 }

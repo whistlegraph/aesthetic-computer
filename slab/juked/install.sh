@@ -17,14 +17,7 @@ mkdir -p "$install_root" "$bin_dir" "$config_dir" "$cache_dir"
 chmod 700 "$config_dir" "$cache_dir"
 cargo install spotify_player --version "$version" --locked \
   --root "$install_root" --no-default-features --features daemon,rodio-backend
-# A machine with the checkout can symlink this at the repo so edits to the
-# script take effect without reinstalling. Copying over that link would put
-# the drift back, so leave a link the way we found it.
-if [[ -L "$bin_dir/juked" ]]; then
-  echo "juked: $bin_dir/juked is a symlink — leaving it pointed at $(readlink "$bin_dir/juked")"
-else
-  install -m 0755 "$root/bin/juked" "$bin_dir/juked"
-fi
+install -m 0755 "$root/bin/juked" "$bin_dir/juked"
 if [[ ! -f "$config_dir/app.toml" ]]; then
   install -m 0600 "$root/config/app.toml" "$config_dir/app.toml"
 fi

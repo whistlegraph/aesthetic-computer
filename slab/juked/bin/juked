@@ -23,20 +23,6 @@ daemon_pids() {
   /usr/bin/pgrep -f "^${engine} --config-folder ${config_dir} --cache-folder ${cache_dir} --daemon$" 2>/dev/null \
     | grep -v "^${listener}$" || true
 }
-# At login launchd starts us before Wi-Fi is up. The engine reads a transport
-# error from its token refresh as an expired refresh token and drops into
-# interactive re-auth, opening a browser login whose 127.0.0.1 callback server
-# dies with this process — so the redirect lands on a dead port. Let the
-# network arrive before handing the engine its cached token.
-await_auth_host() {
-  for _ in {1..60}; do
-    if /usr/bin/curl -s -o /dev/null -m 2 https://accounts.spotify.com/; then
-      return 0
-    fi
-    sleep 1
-  done
-  echo "juked: accounts.spotify.com unreachable after 60s; starting anyway" >&2
-}
 start() {
   [[ -n "$(daemon_pid)" ]] && return 0
   stale="$(daemon_pids)"
@@ -44,7 +30,6 @@ start() {
     while read -r pid; do [[ -z "$pid" ]] || kill "$pid" 2>/dev/null || true; done <<< "$stale"
     sleep 0.25
   fi
-  await_auth_host
   "$engine" "${base[@]}" --daemon
   for _ in {1..50}; do
     [[ -n "$(daemon_pid)" ]] && return 0
