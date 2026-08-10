@@ -213,7 +213,10 @@ test("phone names shrink and the clock fits beside the notch", () => {
   const clock = source.slice(source.indexOf("function hudClockBox"),
     source.indexOf("function hudStatusTray"));
   assert.match(clock, /const size = touch \? 16 : hudTypeSize/);
-  assert.match(clock, /left: right - handleWidth\(label, size\)/);
+  assert.match(clock, /left: textRight - handleWidth\(label, size\)/);
+  assert.match(clock, /function drawHudClock\(clock, y, ink, unixMs\)/);
+  assert.match(clock, /const colors = \[syntax\[0\], ink, syntax\[1\], ink,/);
+  assert.match(clock, /const seconds = \(unixMs \/ 1000\) % 60/);
 });
 
 test("the iOS shell can pulse debug without inventing another input", () => {
@@ -578,9 +581,9 @@ test("title shows a live Pacific clock and version timestamp", () => {
   const { fight } = createFight(false, false);
   assert.match(fight.pacificTimeLabel(1785870000000),
     /^\d{1,2}:\d{2}:\d{2}(am|pm)$/);
-  assert.match(source, /const buildVersion = 32/);
+  assert.match(source, /const buildVersion = 33/);
   assert.match(source, /const clock = hudClockBox\(titleUnixMs\)/);
-  assert.match(source, /typeWrite\(clock\.label, clock\.left, safe\.top \+ 2/);
+  assert.match(source, /drawHudClock\(clock, safe\.top \+ 2, ink, titleUnixMs\)/);
   assert.match(source, /const fpsLabel = Math\.round\(displayFps \|\| 0\)/);
   assert.match(source, /const version = "v" \+ buildVersion/);
 });

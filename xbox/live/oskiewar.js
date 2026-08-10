@@ -21,7 +21,7 @@ runtime = function acRuntime() {
 };
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 32;
+const buildVersion = 33;
 const floorY = 1800;
 const ceilingY = 0;
 const wallThickness = 80;
@@ -8325,9 +8325,7 @@ function drawTitleScreen(t, ink, transitionAge = -1) {
       debugSize, ...ink);
   }
   const clock = hudClockBox(titleUnixMs);
-  typeWrite(clock.label, clock.left + 3, safe.top + 5,
-    clock.size, ...contrastShadow(ink));
-  typeWrite(clock.label, clock.left, safe.top + 2, clock.size, ...ink);
+  drawHudClock(clock, safe.top + 2, ink, titleUnixMs);
   drawHudStatusTray(clock, ink, titleUnixMs);
 }
 
@@ -8373,7 +8371,37 @@ function hudClockBox(unixMs) {
   const size = touch ? 16 : hudTypeSize;
   const qrBox = spectatorQrBox();
   const right = qrBox ? qrBox.left - 14 : safe.right;
-  return { label, size, right, left: right - handleWidth(label, size) };
+  const dialRadius = Math.max(6, Math.round(size * .38));
+  const dialGap = Math.max(5, Math.round(size * .2));
+  const textRight = right - dialRadius * 2 - dialGap;
+  return { label, size, right, textRight, dialRadius,
+    dialX: right - dialRadius, left: textRight - handleWidth(label, size) };
+}
+
+function drawHudClock(clock, y, ink, unixMs) {
+  typeWrite(clock.label, clock.left + 3, y + 3,
+    clock.size, ...contrastShadow(ink));
+  const match = clock.label.match(/^(\d+)(:)(\d{2})(:)(\d{2})(am|pm)$/);
+  const parts = match ? match.slice(1) : [clock.label];
+  const syntax = visualTheme.light ? titlePaletteDay : titlePaletteNight;
+  const colors = [syntax[0], ink, syntax[1], ink, syntax[2], syntax[5]];
+  let x = clock.left;
+  parts.forEach((part, index) => {
+    typeWrite(part, x, y, clock.size, ...(colors[index] || ink));
+    x += handleWidth(part, clock.size);
+  });
+  const centerY = y + clock.size * .48;
+  const seconds = (unixMs / 1000) % 60;
+  const angle = seconds / 60 * Math.PI * 2 - Math.PI / 2;
+  circle(clock.dialX + 2, centerY + 2, clock.dialRadius, 2,
+    contrastShadow(ink));
+  circle(clock.dialX, centerY, clock.dialRadius, 2, ink);
+  line(clock.dialX, centerY,
+    clock.dialX + Math.cos(angle) * clock.dialRadius * .78,
+    centerY + Math.sin(angle) * clock.dialRadius * .78,
+    Math.max(2, clock.size * .1), ...syntax[2]);
+  circle(clock.dialX, centerY, Math.max(1.5, clock.size * .07),
+    Math.max(1.5, clock.size * .07), syntax[0]);
 }
 
 function hudStatusTray(clock) {
@@ -8706,11 +8734,8 @@ function gamePaint() {
     // spectator label so it never lands on either.
     const nowMs = run.unixMs || Date.now();
     const clock = hudClockBox(nowMs);
-    typeWrite(clock.label, clock.left + 3,
-      hud.top + (roundViewer ? clock.size + 13 : 5),
-      clock.size, ...contrastShadow(titleInk));
-    typeWrite(clock.label, clock.left,
-      hud.top + (roundViewer ? clock.size + 10 : 2), clock.size, ...titleInk);
+    drawHudClock(clock,
+      hud.top + (roundViewer ? clock.size + 10 : 2), titleInk, nowMs);
     drawHudStatusTray(clock, titleInk, nowMs);
     const updateReady = typeof capabilities === "function" &&
       capabilities().updateReady === true;
