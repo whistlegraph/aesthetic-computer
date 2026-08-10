@@ -21,7 +21,7 @@ runtime = function acRuntime() {
 };
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 28;
+const buildVersion = 29;
 const floorY = 1800;
 const ceilingY = 0;
 const wallThickness = 80;
@@ -8099,7 +8099,7 @@ function dummyPopLine(stat) {
     (hours === 1 ? "hour" : hours + " hours");
 }
 
-function drawDummyPopLine(button, transitionInk) {
+function drawDummyPopLine(titleY, titleSize, transitionInk) {
   // Not on the poster: the social preview is burned to a file whose hash is
   // checked at deploy, and a number that moves would make it stale hourly.
   if (typeof capabilities !== "function" ||
@@ -8109,7 +8109,7 @@ function drawDummyPopLine(button, transitionInk) {
   const size = Math.round(hudTypeSize * (compactLayout() ? .46 : .56));
   const width = handleWidth(line, size);
   const x = viewCenterX() - width / 2;
-  const y = button.y + button.height + (compactLayout() ? 14 : 22);
+  const y = titleY + titleSize + (compactLayout() ? 12 : 18);
   if (y + size > viewHeight - 8) return;
   const ink = transitionInk ||
     mixColor([198, 206, 232], [58, 70, 104], visualTheme.light);
@@ -8164,8 +8164,17 @@ function drawTitleScreen(t, ink, transitionAge = -1) {
     (stageRight - stageLeft - 56) / handleWidth(title, 1));
   const titleSize = (socialPreview ? socialTitleSize : compact ? 88 : 154) * breath;
   const titleWidth = handleWidth(title, titleSize);
-  const titleX = viewCenterX() - titleWidth / 2;
+  const version = "v" + buildVersion;
+  const versionSize = Math.round(titleSize * .3);
+  const versionWidth = handleWidth(version, versionSize);
+  const qrTarget = Math.round(titleSize * .68);
+  const lockupGap = compact ? 10 : 18;
+  const lockupWidth = qrTarget + lockupGap + titleWidth + lockupGap + versionWidth;
+  const titleX = viewCenterX() - lockupWidth / 2 + qrTarget + lockupGap;
   const titleY = viewHeight * (compact ? .38 : .35);
+
+  if (!socialPreview)
+    drawTitleQr(titleX - lockupGap, titleY, titleSize, qrTarget);
 
   // Air fuzzies: sparse motes drifting the whole frame, no panels or stripes
   // behind the wordmark.
@@ -8227,6 +8236,13 @@ function drawTitleScreen(t, ink, transitionAge = -1) {
     if (glyphCells) glyphCells.push([cursor + drift, titleY + bob, advance]);
     cursor += advance;
   }
+  const versionX = titleX + titleWidth + lockupGap;
+  const versionY = titleY + titleSize - versionSize * 1.15;
+  typeWrite(version, versionX + 2, versionY + 3, versionSize,
+    ...mixColor([8, 10, 24], [73, 43, 55], visualTheme.light * .35));
+  typeWrite(version, versionX, versionY, versionSize,
+    ...(transitionInk || ink));
+  drawDummyPopLine(titleY, titleSize, transitionInk);
   if (glyphCells) {
     strokeBox(titleX, titleY, titleWidth, titleSize, 2, [92, 132, 255]);
     for (const [x, y, advance] of glyphCells) {
@@ -8279,26 +8295,19 @@ function drawTitleScreen(t, ink, transitionAge = -1) {
       typeWrite(character, x, y, size, ...litInk);
       promptCursor += advance;
     }
-    drawDummyPopLine(button, transitionInk);
   }
   // Touch play keeps its thumbs in the bottom corners, and the fight is live
   // under this screen now, so the stamp yields the pad rather than sit on it.
   if (transitionAge >= 0 || socialPreview || (typeof capabilities ===
       "function" && capabilities().inputFamily === "touch")) return;
   const titleUnixMs = runtime().unixMs || Date.now();
-  const version = "v" + buildVersion;
-  // Build provenance belongs to the title itself. Center it directly beneath
-  // the wordmark so the top-left remains the persistent input legend and live
-  // command score.
   const safe = hudSafeRect();
-  const versionSize = Math.round(hudTypeSize * .62);
-  typeWrite(version, viewCenterX() - handleWidth(version, versionSize) / 2,
-    titleY + titleSize + 18, versionSize, ...ink);
+  const debugSize = Math.round(hudTypeSize * .62);
   if (debugHitboxes) {
     const fpsLabel = Math.round(displayFps || 0) + " fps";
-    typeWrite(fpsLabel, viewCenterX() - handleWidth(fpsLabel, versionSize) / 2,
-      titleY + titleSize + versionSize + 26,
-      versionSize, ...ink);
+    typeWrite(fpsLabel, viewCenterX() - handleWidth(fpsLabel, debugSize) / 2,
+      titleY + titleSize + debugSize + 26,
+      debugSize, ...ink);
   }
   const clock = hudClockBox(titleUnixMs);
   typeWrite(clock.label, clock.left + 3, safe.top + 5,
@@ -8430,6 +8439,20 @@ function spectatorQrBox() {
   return { left: safe.right - size, top: safe.top, size, cell, count, quiet };
 }
 
+function qrBoxAt(right, top, targetSize) {
+  if (!spectatorQr || typeof spectatorQr.getModuleCount !== "function") return null;
+  const count = spectatorQr.getModuleCount();
+  const quiet = 2;
+  const cell = Math.max(1, Math.floor(targetSize / (count + quiet * 2)));
+  const size = (count + quiet * 2) * cell;
+  return { left: right - size, top, size, cell, count, quiet };
+}
+
+function drawTitleQr(right, titleY, titleSize, targetSize) {
+  const qr = qrBoxAt(right, titleY + (titleSize - targetSize) / 2, targetSize);
+  if (qr) drawSpectatorQr(null, qr);
+}
+
 function drawDebugPerformance(ink) {
   if (!debugHitboxes || shellMode !== "GAME" || roundResult) return;
   const safe = hudSafeRect();
@@ -8452,10 +8475,10 @@ function drawDebugPerformance(ink) {
     timingSize, ...ink);
 }
 
-function drawSpectatorQr(ink) {
+function drawSpectatorQr(ink, placement = null) {
   if (typeof capabilities === "function" && capabilities().socialPreview) return;
-  const safe = hudSafeRect();
-  const qr = spectatorQrBox();
+  if (!placement && shellMode === "MENU") return;
+  const qr = placement || spectatorQrBox();
   if (!qr) return;
   const { count, quiet, cell, size, left, top } = qr;
   const shadow = [24, 26, 34];

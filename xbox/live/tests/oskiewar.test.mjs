@@ -4234,6 +4234,13 @@ test("the Oskiewar wordmark remains visible with start", () => {
   assert.match(source, /const prompt = "start";/);
 });
 
+test("title lockup places QR before O, version after title, and pops beneath", () => {
+  assert.match(source, /drawTitleQr\(titleX - lockupGap, titleY, titleSize, qrTarget\)/);
+  assert.match(source, /const versionX = titleX \+ titleWidth \+ lockupGap/);
+  assert.match(source, /drawDummyPopLine\(titleY, titleSize, transitionInk\)/);
+  assert.match(source, /if \(!placement && shellMode === "MENU"\) return/);
+});
+
 test("the Replay Oven captures HUD-free 60 fps high-quality masters", () => {
   assert.match(webShell, /replayOven/);
   assert.match(source, /if \(!replayOven\) drawDebugPerformance/);
