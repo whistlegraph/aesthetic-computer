@@ -8332,6 +8332,7 @@ function drawTitleScreen(t, ink, transitionAge = -1) {
 }
 
 function pacificTimeLabel(unixMs) {
+  // The arena clock follows Pacific time without displaying a zone suffix.
   const date = new Date(unixMs);
   const year = date.getUTCFullYear();
   const nthSunday = (month, occurrence, hour) => {
