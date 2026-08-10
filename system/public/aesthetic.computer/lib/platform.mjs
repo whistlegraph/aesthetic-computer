@@ -11,6 +11,10 @@ export const Safari = /apple/i.test(nav.vendor);
 export const Android = /(Android)/g.test(nav.userAgent);
 export const MetaBrowser = /(OculusBrowser)/g.test(nav.userAgent);
 export const Desktop = !iOS && !Android && !MetaBrowser;
+// iPadOS can advertise itself as Macintosh. A touch-capable "Mac" is an iPad,
+// so keep the desktop-only display treatment off of it.
+export const MacOS = /(Macintosh|Mac OS X)/g.test(nav.userAgent) &&
+  (nav.maxTouchPoints || 0) <= 1;
 export const Instagram = /(Instagram)/g.test(nav.userAgent);
 export const TikTok = /BytedanceWebview/i.test(nav.userAgent);
 export const Aesthetic = /Aesthetic/i.test(nav.userAgent);

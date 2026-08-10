@@ -79,7 +79,7 @@ const forgetful = true;
 
 const BARE_KIDLISP_CODE = /^[0-9A-Za-z]{3,64}$/;
 
-import { Android, MetaBrowser, iOS } from "../lib/platform.mjs";
+import { Android, MacOS, MetaBrowser, iOS } from "../lib/platform.mjs";
 import { validateHandle } from "../lib/text.mjs";
 import { commandDescriptions } from "../lib/prompt-commands.mjs";
 import { nopaint_adjust } from "../systems/nopaint.mjs";
@@ -1087,6 +1087,7 @@ async function boot({
   glaze,
   api,
   cursor,
+  resolution,
   gizmo,
   net,
   system,
@@ -1111,6 +1112,9 @@ async function boot({
   // Prompt owns the standard SVG pointer. Reassert it on every entry because
   // pieces that hide or replace the cursor leave their choice in the DOM.
   cursor("precise");
+  // Pieces may restore resolution()'s default 8px gap. The macOS browser
+  // prompt is full-bleed, so reassert gap 0 whenever it takes over.
+  if (MacOS) resolution(undefined, undefined, 0);
   promptSend = send;
   promptNeedsPaint = needsPaint;
   cachedGizmo = gizmo; // Cache gizmo for use in act() function
