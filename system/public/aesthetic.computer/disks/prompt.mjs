@@ -1086,6 +1086,7 @@ let lastPressedKey = null;
 async function boot({
   glaze,
   api,
+  cursor,
   gizmo,
   net,
   system,
@@ -1107,6 +1108,9 @@ async function boot({
   vscode,
 }) {
   paintingCompletionBusy = false;
+  // Prompt owns the standard SVG pointer. Reassert it on every entry because
+  // pieces that hide or replace the cursor leave their choice in the DOM.
+  cursor("precise");
   promptSend = send;
   promptNeedsPaint = needsPaint;
   cachedGizmo = gizmo; // Cache gizmo for use in act() function
@@ -4326,18 +4330,24 @@ async function halt($, text) {
 
     // Clear storage and reset state (without creating a painting yet)
     await store.delete("painting", "local:db");
+    await store.delete("painting:piece", "local:db");
     await store.delete("painting:resolution-lock", "local:db");
     await store.delete("painting:transform", "local:db");
     await store.delete("painting:record", "local:db");
+    await store.delete("nopaint:origin", "local:db");
 
     // Also clear from memory to ensure nopaint_adjust doesn't see stale values
     delete store["painting"];
+    delete store["painting:piece"];
     delete store["painting:resolution-lock"];
     delete store["painting:transform"];
     delete store["painting:record"];
+    delete store["nopaint:origin"];
 
     system.nopaint.undo.paintings.length = 0; // Reset undo stack.
     system.painting = null;
+    system.nopaint.piece = null;
+    system.nopaint.buffer = null;
     system.nopaint.resetTransform({ system, screen }); // Reset transform.
 
     if (system.nopaint.recording) {
@@ -4350,6 +4360,13 @@ async function halt($, text) {
 
     // Now create the new painting at the specified size
     nopaint_adjust(api, size, fullText);
+
+    // A brush overlay is separate from the stored painting. Recreate it too,
+    // otherwise unfinished pixels from the previous painting remain visible.
+    system.nopaint.buffer = painting(size.w, size.h, (p) =>
+      p.wipe(255, 255, 255, 0)
+    );
+    system.nopaint.brush.dragBox = undefined;
 
     system.nopaint.startRecord(fullText); // Start recording paintings.
 
