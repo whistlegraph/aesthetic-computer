@@ -10,6 +10,16 @@
 <meta property="og:image" content="https://assets.aesthetic.computer/whistlegraph/butterfly-cosplayer/butterfly-cosplayer.webp">
 <link rel="alternate" type="application/json" href="/api/commands" title="Whistlegraph command feed">
 <meta name="theme-color" content="#fffdf6">
+<script>
+  (()=>{
+    const choice=localStorage.getItem("whistlegraph-theme")||"auto";
+    const hour=new Date().getHours();
+    const night=hour>=18||hour<6;
+    const systemDark=matchMedia("(prefers-color-scheme: dark)").matches;
+    document.documentElement.dataset.theme=choice==="auto"?(night&&systemDark?"dark":"light"):choice;
+    document.documentElement.dataset.themeChoice=choice;
+  })();
+</script>
 <link rel="icon" type="image/png" href="/favicon.png">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <style>
@@ -18,8 +28,8 @@
     src:url('https://aesthetic.computer/type/webfonts/ywft-processing-bold.woff2') format('woff2');
     font-weight:normal; font-style:normal; font-display:swap;
   }
-  /* Whistlegraph is a paper archive. Keep its light presentation independent
-     from the visitor's system appearance setting. */
+  /* Whistlegraph is a paper archive. Auto stays light unless local time and
+     the visitor's system appearance both call for the night palette. */
   :root{
     color-scheme:light;
     --paper:#fffdf6;
@@ -40,6 +50,23 @@
     --sans:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
     --mono:ui-monospace,"Berkeley Mono Variable",Menlo,"DejaVu Sans Mono",monospace;
   }
+  html[data-theme="dark"]{
+    color-scheme:dark;
+    --paper:#15122b;
+    --ink:#ece7ff;
+    --dim:#9a92c4;
+    --margin:#ff77bd;
+    --link:#82b2ff;
+    --seen:#bb9dff;
+    --hi:#544918;
+    --line:rgba(236,231,255,.36);
+    --rule:rgba(236,231,255,.30);
+    --hair:rgba(236,231,255,.14);
+    --tint:rgba(255,255,255,.06);
+    --zebra:rgba(255,119,189,.08);
+    --rowhi:rgba(255,243,160,.13);
+    --edge:rgba(255,255,255,.45);
+  }
   *{margin:0;padding:0;box-sizing:border-box}
   html{-webkit-text-size-adjust:100%}
   body{
@@ -57,7 +84,18 @@
   a:visited{color:var(--seen)}
   a:hover{background:var(--hi); text-decoration:none}
 
-  header{padding:8px 0 4px}
+  header{padding:8px 0 4px;position:relative}
+  .theme-open{position:absolute;right:0;top:0;border:1px solid var(--line);background:var(--paper);color:var(--ink);font:18px/1 var(--sans);padding:8px;cursor:pointer;z-index:2}
+  .theme-open:hover,.theme-choice:hover,.theme-close:hover{background:var(--hi)}
+  .theme-dialog{color:var(--ink);background:var(--paper);border:2px solid var(--line);padding:18px;width:min(340px,calc(100vw - 32px));margin:auto;box-shadow:8px 8px 0 color-mix(in srgb,var(--ink) 22%,transparent)}
+  .theme-dialog::backdrop{background:rgba(21,18,43,.58)}
+  .theme-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+  .theme-head h2{margin:0}
+  .theme-close{border:0;background:transparent;color:var(--ink);font:22px/1 var(--sans);padding:5px 7px;cursor:pointer}
+  .theme-options{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
+  .theme-choice{border:1px solid var(--line);background:var(--paper);color:var(--ink);font:14px/1.2 var(--sans);padding:11px 6px;cursor:pointer}
+  .theme-choice[aria-pressed="true"]{background:var(--ink);color:var(--paper)}
+  .theme-status{color:var(--dim);font-size:12.5px;margin:12px 0 0}
   /* the real hand-lettered whistlegraph wordmark — cut into 12 letters */
   .logo{display:block; position:relative; width:100%; max-width:520px; aspect-ratio:1517/266; margin:2px 0 0 -3px}
   .logo.mini{max-width:230px; margin-bottom:6px}
@@ -245,9 +283,23 @@
 <body>
 <div class="pad">
 
+  <dialog class="theme-dialog" id="themeDialog" aria-labelledby="themeTitle">
+    <div class="theme-head">
+      <h2 id="themeTitle">Appearance</h2>
+      <button class="theme-close" id="themeClose" type="button" aria-label="Close appearance settings">×</button>
+    </div>
+    <div class="theme-options" aria-label="Theme">
+      <button class="theme-choice" type="button" data-theme-choice="auto">Auto</button>
+      <button class="theme-choice" type="button" data-theme-choice="light">Light</button>
+      <button class="theme-choice" type="button" data-theme-choice="dark">Dark</button>
+    </div>
+    <p class="theme-status" id="themeStatus"></p>
+  </dialog>
+
   <!-- ══════════ INDEX ══════════ -->
   <div id="index">
     <header>
+      <button class="theme-open" type="button" aria-label="Appearance settings" title="Appearance settings">⚙</button>
       <div class="logo" role="img" aria-label="Whistlegraph">
         <img src="/letters/00-w.png" alt="" width="164" height="180" style="left:0.066%;top:0.376%;width:10.811%">
         <img src="/letters/01-h.png" alt="" width="125" height="174" style="left:11.668%;top:21.053%;width:8.240%">
@@ -381,6 +433,7 @@
 
   <!-- ══════════ DETAIL ══════════ -->
   <div id="detail">
+    <button class="theme-open" type="button" aria-label="Appearance settings" title="Appearance settings">⚙</button>
     <a href="/" id="homelogo" style="display:block;background:none">
       <div class="logo mini" role="img" aria-label="Whistlegraph">
         <img src="/letters/00-w.png" alt="" width="164" height="180" style="left:0.066%;top:0.376%;width:10.811%">
@@ -428,6 +481,31 @@
 </div>
 
 <script>
+const THEME_KEY="whistlegraph-theme";
+const themeQuery=matchMedia("(prefers-color-scheme: dark)");
+const themeChoice=()=>localStorage.getItem(THEME_KEY)||"auto";
+const isLocalNight=()=>{const hour=new Date().getHours();return hour>=18||hour<6};
+function applyTheme(choice=themeChoice()){
+  const resolved=choice==="auto"?(isLocalNight()&&themeQuery.matches?"dark":"light"):choice;
+  document.documentElement.dataset.theme=resolved;
+  document.documentElement.dataset.themeChoice=choice;
+  document.querySelector('meta[name="theme-color"]').content=resolved==="dark"?"#15122b":"#fffdf6";
+  document.querySelectorAll("[data-theme-choice]").forEach(button=>button.setAttribute("aria-pressed",String(button.dataset.themeChoice===choice)));
+  const status=document.getElementById("themeStatus");
+  if(status) status.textContent=choice==="auto"?`Auto: ${resolved}. Dark requires system dark mode after 6 PM.`:`Forced ${resolved}.`;
+}
+const themeDialog=document.getElementById("themeDialog");
+document.querySelectorAll(".theme-open").forEach(button=>button.addEventListener("click",()=>{applyTheme();themeDialog.showModal()}));
+document.getElementById("themeClose").addEventListener("click",()=>themeDialog.close());
+themeDialog.addEventListener("click",event=>{if(event.target===themeDialog)themeDialog.close()});
+document.querySelectorAll("[data-theme-choice]").forEach(button=>button.addEventListener("click",()=>{
+  localStorage.setItem(THEME_KEY,button.dataset.themeChoice);
+  applyTheme(button.dataset.themeChoice);
+}));
+themeQuery.addEventListener("change",()=>{if(themeChoice()==="auto")applyTheme()});
+setInterval(()=>{if(themeChoice()==="auto")applyTheme()},60_000);
+applyTheme();
+
 const CDN="https://assets.aesthetic.computer/whistlegraph"; // curated slug assets
 const IDX=CDN+"/index"; // recovered graphs: /index/<code>.{jpg,mp4}
 const fmtViews=v=>v>=1e6?`${(v/1e6).toFixed(1)}M`:v>=1e3?`${Math.round(v/1e3)}K`:`${v}`;

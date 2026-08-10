@@ -1,14 +1,19 @@
 import { readFileSync } from "node:fs";
 
 describe("Whistlegraph color curation", () => {
-  it("keeps the paper presentation light regardless of system appearance", () => {
+  it("uses dark mode only for late-night system dark mode unless overridden", () => {
     const page = readFileSync(
       new URL("../system/public/whistlegraph.org/index.html", import.meta.url),
       "utf8",
     );
-    expect(page).toContain("color-scheme:light");
+    expect(page).toContain('const night=hour>=18||hour<6');
+    expect(page).toContain('night&&systemDark?"dark":"light"');
+    expect(page).toContain('matchMedia("(prefers-color-scheme: dark)")');
+    expect(page).toContain('localStorage.setItem(THEME_KEY,button.dataset.themeChoice)');
+    expect(page).toContain('data-theme-choice="auto"');
+    expect(page).toContain('data-theme-choice="light"');
+    expect(page).toContain('data-theme-choice="dark"');
     expect(page).toContain('<meta name="theme-color" content="#fffdf6">');
-    expect(page).not.toContain("prefers-color-scheme");
   });
 
   it("keeps the featured ten colors and defaults the rest to magenta", () => {
