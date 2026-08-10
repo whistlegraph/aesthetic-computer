@@ -17,6 +17,7 @@
 #include <windows.devices.enumeration.h>
 #include <windows.devices.midi.h>
 #include <windows.graphics.imaging.h>
+#include <windows.graphics.display.h>
 #include <windows.security.exchangeactivesyncprovisioning.h>
 #include <windows.system.h>
 #include <windows.system.profile.h>

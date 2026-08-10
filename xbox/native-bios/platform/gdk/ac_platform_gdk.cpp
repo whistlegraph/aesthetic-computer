@@ -601,7 +601,7 @@ std::unique_ptr<Platform> make_platform(HostEvents& host) {
 std::string packaged_piece(Paths& paths) {
   const auto root = paths.package();
   if (root.empty()) return {};
-  const std::wstring path = root + L"\\hello.js";
+  const std::wstring path = root + L"\\oskiewar.js";
   FILE* file = nullptr;
   if (_wfopen_s(&file, path.c_str(), L"rb") != 0 || !file) return {};
   std::fseek(file, 0, SEEK_END);

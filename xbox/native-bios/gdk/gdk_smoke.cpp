@@ -1,6 +1,6 @@
 // The GDK spike, as an executable.
 //
-// The paper's question was: do QuickJS, D3D11 and hello.js come up under the
+// The paper's question was: do QuickJS, D3D11 and oskiewar.js come up under the
 // GDK? This answers it for the PC target — the only one a hosted runner can
 // build, since the Xbox Extensions are NDA-gated. Every check prints its own
 // verdict; required checks that fail set the exit code, so CI fails loudly and
@@ -202,8 +202,8 @@ int main(int argc, char** argv) {
   }
 
   // ---- the game, out of the package
-  const auto hello = ReadPackageBytes(package, L"hello.js");
-  Report("packaged hello.js", hello.size() > 200 * 1024, true,
+  const auto hello = ReadPackageBytes(package, L"oskiewar.js");
+  Report("packaged oskiewar.js", hello.size() > 200 * 1024, true,
          std::to_string(hello.size()) + " bytes");
 
   // ---- QuickJS. The core, and the fastest real signal: the whole interpreter
@@ -242,7 +242,7 @@ int main(int argc, char** argv) {
     std::string error;
     auto piece = engine.compile(
       {"hello", "packaged", std::string(hello.begin(), hello.end()), ""}, {}, error);
-    Report("hello.js compiles", piece != nullptr, true,
+    Report("oskiewar.js compiles", piece != nullptr, true,
            piece ? "top level evaluated under QuickJS-ng" : error);
     if (piece) {
       // Boot is reported, not required: the shipped game expects a live host
@@ -260,7 +260,7 @@ int main(int argc, char** argv) {
         ok = false;
         detail = std::string("threw: ") + thrown.what();
       }
-      Report("hello.js runs headless", ok, false, detail);
+      Report("oskiewar.js runs headless", ok, false, detail);
     }
   }
 

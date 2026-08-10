@@ -247,7 +247,7 @@ class Platform {
 // the build configuration, not a runtime branch.
 std::unique_ptr<Platform> make_platform(HostEvents&);
 
-// The piece the package ships. Retail reads `hello.js` out of the signed
+// The piece the package ships. Retail reads `oskiewar.js` out of the signed
 // package; there is no other source of script in a retail build.
 [[nodiscard]] std::string packaged_piece(Paths&);
 

@@ -549,6 +549,10 @@ JSValue RuntimeInfo(JSContext* context, JSValueConst, int, JSValueConst*) {
   JSValue result = JS_NewObject(context);
   JS_SetPropertyStr(context, result, "width", JS_NewInt32(context, scope->api->screen.width));
   JS_SetPropertyStr(context, result, "height", JS_NewInt32(context, scope->api->screen.height));
+  JS_SetPropertyStr(context, result, "renderWidth",
+    JS_NewInt32(context, scope->api->system.render_width));
+  JS_SetPropertyStr(context, result, "renderHeight",
+    JS_NewInt32(context, scope->api->system.render_height));
   JS_SetPropertyStr(context, result, "refreshHz", JS_NewFloat64(context, scope->api->system.refresh_hz));
   JS_SetPropertyStr(context, result, "frameMs", JS_NewFloat64(context, scope->api->system.frame_ms));
   JS_SetPropertyStr(context, result, "renderCpuMs", JS_NewFloat64(context, scope->api->system.render_cpu_ms));
@@ -667,6 +671,10 @@ JSValue Capabilities(JSContext* context, JSValueConst, int, JSValueConst*) {
     JS_NewInt64(context, scope->api->system.expected_memory_limit_bytes));
   JS_SetPropertyStr(context, result, "width", JS_NewInt32(context, scope->api->screen.width));
   JS_SetPropertyStr(context, result, "height", JS_NewInt32(context, scope->api->screen.height));
+  JS_SetPropertyStr(context, result, "renderWidth",
+    JS_NewInt32(context, scope->api->system.render_width));
+  JS_SetPropertyStr(context, result, "renderHeight",
+    JS_NewInt32(context, scope->api->system.render_height));
   JS_SetPropertyStr(context, result, "refreshHz", JS_NewFloat64(context, scope->api->system.refresh_hz));
   JS_SetPropertyStr(context, result, "frameMs", JS_NewFloat64(context, scope->api->system.frame_ms));
   JS_SetPropertyStr(context, result, "renderCpuMs", JS_NewFloat64(context, scope->api->system.render_cpu_ms));

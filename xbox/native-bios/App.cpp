@@ -15,6 +15,7 @@ using namespace Windows::Data::Json;
 using namespace Windows::Devices::Enumeration;
 using namespace Windows::Devices::Midi;
 using namespace Windows::Graphics::Imaging;
+using namespace Windows::Graphics::Display;
 using namespace Windows::Security::ExchangeActiveSyncProvisioning;
 using namespace Windows::Storage;
 using namespace Windows::Storage::Streams;
@@ -349,7 +350,9 @@ public:
     };
     m_sound->get_rate = [this]() { return static_cast<int>(m_sampleRate); };
     m_api = std::make_unique<Api>(Api{{1920, 1080, 1}, {}, {}, {}, *m_graphics, *m_sound, {}});
-    m_api->system.version = "1.0.0.38";
+    m_api->system.render_width = m_frameWidth;
+    m_api->system.render_height = m_frameHeight;
+    m_api->system.version = "1.0.0.40";
     m_api->telemetry = [this](std::string_view line) {
       std::string safe(line);
       for (auto& character : safe) if (character == '\n' || character == '\r') character = ' ';
@@ -418,7 +421,7 @@ public:
     // The game ships inside the signed package, next to the shaders and the
     // fonts. kSmokePiece is the fallback for a package built without it, not
     // the thing players are meant to get.
-    const auto packaged = ReadPackageBytes(L"hello.js");
+    const auto packaged = ReadPackageBytes(L"oskiewar.js");
     const bool haveGame = !packaged.empty();
     const std::string source = haveGame
       ? std::string(packaged.begin(), packaged.end()) : std::string(kSmokePiece);
@@ -570,8 +573,22 @@ private:
     // Xbox may choose its 8x8 placeholder surface when width/height are left at
     // zero for a CoreWindow swap chain. Solid clears still stretch fullscreen,
     // hiding the mistake while every useful drawing coordinate gets clipped.
-    desc.Width = 1920;
-    desc.Height = 1080;
+    unsigned requestedWidth = 1920;
+    unsigned requestedHeight = 1080;
+    try {
+      const auto display = DisplayInformation::GetForCurrentView();
+      const auto rawWidth = display->ScreenWidthInRawPixels;
+      const auto rawHeight = display->ScreenHeightInRawPixels;
+      if (rawWidth >= 1920 && rawHeight >= 1080) {
+        requestedWidth = (std::min)(3840u, rawWidth);
+        requestedHeight = (std::min)(2160u, rawHeight);
+      }
+    } catch (...) {
+      // Early Xbox activation can withhold display information. Keep the
+      // explicit 1080p fallback instead of accepting DXGI's 8x8 placeholder.
+    }
+    desc.Width = requestedWidth;
+    desc.Height = requestedHeight;
     desc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
     desc.SampleDesc.Count = 1;
     desc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
@@ -586,6 +603,10 @@ private:
     m_backBuffer->GetDesc(&backBufferDesc);
     m_frameWidth = backBufferDesc.Width;
     m_frameHeight = backBufferDesc.Height;
+    LogTelemetry("AC_NATIVE_SURFACE requested=" +
+      std::to_string(requestedWidth) + "x" + std::to_string(requestedHeight) +
+      " actual=" + std::to_string(m_frameWidth) + "x" +
+      std::to_string(m_frameHeight));
     Check(m_device->CreateRenderTargetView(m_backBuffer.Get(), nullptr, &m_target));
 
     D3D11_TEXTURE2D_DESC sceneDesc = backBufferDesc;

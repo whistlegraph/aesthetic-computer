@@ -153,6 +153,8 @@ struct System {
   std::uint64_t memory_usage_bytes = 0;
   std::uint64_t memory_limit_bytes = 0;
   std::uint64_t expected_memory_limit_bytes = 0;
+  std::uint32_t render_width = 1920;
+  std::uint32_t render_height = 1080;
   double refresh_hz = 0;
   double frame_ms = 0;
   double render_cpu_ms = 0;

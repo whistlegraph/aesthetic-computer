@@ -113,9 +113,9 @@
   </ItemGroup>
 
   <!-- The layout the smoke harness reads back, laid out exactly as the MSIX is:
-       hello.js and the .cso files at the root, the fonts under Assets. -->
+       oskiewar.js and the .cso files at the root, the fonts under Assets. -->
   <ItemGroup>
-    <AcPackageRoot Include="..\..\live\hello.js" />
+    <AcPackageRoot Include="..\..\live\oskiewar.js" />
     <AcPackageAssets Include="..\..\..\system\public\type\webfonts\ywft-processing-regular.ttf" />
     <AcPackageAssets Include="..\..\..\system\public\papers.aesthetic.computer\foundry\fonts\ComicRelief-Regular.ttf" />
     <AcPackageAssets Include="..\Assets\JeffreyTexture.rgba" />

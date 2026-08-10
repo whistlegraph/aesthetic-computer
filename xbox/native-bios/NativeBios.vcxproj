@@ -70,8 +70,8 @@
   <!-- The game. App.cpp reads this out of the package at boot; without it the
        package ships the twelve-line kSmokePiece fallback and nothing else. -->
   <ItemGroup>
-    <Content Include="..\live\hello.js">
-      <Link>hello.js</Link>
+    <Content Include="..\live\oskiewar.js">
+      <Link>oskiewar.js</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
