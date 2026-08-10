@@ -46,9 +46,17 @@ function terrainFloorAt(x) {
   const edge = Math.sin(nx * Math.PI) ** 2;
   const broad = Math.sin(nx * Math.PI * 3 + terrainPhase);
   const detail = Math.sin(nx * Math.PI * 7 - terrainPhase * .63) * .34;
-  // Both side walls flow continuously into steep half-pipe ramps.
-  const halfPipeRise = Math.pow(Math.abs(nx - .5) * 2, 4) * 430;
-  return floorY - (broad + detail) * terrainAmplitude * edge - halfPipeRise;
+  // Two circular quarter-pipes meet the floor tangentially and approach a
+  // vertical tangent at each coping: an actual half-pipe cross-section.
+  const transitionRadius = 720;
+  const wallDistance = Math.min(x - worldLeft, worldRight - x);
+  const transition = clamp((transitionRadius - wallDistance) /
+    transitionRadius, 0, 1);
+  const halfPipeRise = transitionRadius *
+    (1 - Math.sqrt(Math.max(0, 1 - transition * transition)));
+  const terrainNoise = (broad + detail) * terrainAmplitude * edge *
+    (1 - transition);
+  return floorY - terrainNoise - halfPipeRise;
 }
 const stageLeft = 0;
 let stageRight = 1920;
@@ -568,7 +576,8 @@ const players = [
     alive: true, respawnAt: 0, score: 0, inputX: 0, inputY: 0,
     skateboard: false, skateVx: 0,
     suppressedDirections: [],
-    lastTap: {}, lastRelease: {}, dashUntil: 0, dashVx: 0, runSince: 0, roundWins: 0,
+    lastTap: {}, lastRelease: {}, dashUntil: 0, dashVx: 0, runSince: 0,
+    walkSince: 0, roundWins: 0,
     attackKind: "", attackStartedAt: 0,
     attackUntil: 0, attackHit: false, blocking: false, blockFlash: 0,
     shieldLocked: false, shieldBrokenAt: 0,
@@ -594,7 +603,8 @@ const players = [
     alive: true, respawnAt: 0, score: 0, inputX: 0, inputY: 0,
     skateboard: false, skateVx: 0,
     suppressedDirections: [],
-    lastTap: {}, lastRelease: {}, dashUntil: 0, dashVx: 0, runSince: 0, roundWins: 0,
+    lastTap: {}, lastRelease: {}, dashUntil: 0, dashVx: 0, runSince: 0,
+    walkSince: 0, roundWins: 0,
     attackKind: "", attackStartedAt: 0,
     attackUntil: 0, attackHit: false, blocking: false, blockFlash: 0,
     shieldLocked: false, shieldBrokenAt: 0,
@@ -2294,6 +2304,7 @@ function resetRound(now, resetMatch = false) {
     player.dashUntil = 0;
     player.dashVx = 0;
     player.runSince = 0;
+    player.walkSince = 0;
     player.attackKind = "";
     player.attackUntil = 0;
     player.attackHit = false;
@@ -4359,6 +4370,12 @@ function updatePlayer(player, pad, dt, now) {
   }
   if (!player.grounded || !input.horizontal || player.blocking ||
       player.ducking || hitStunned) player.runSince = 0;
+  const walkingCleanly = player.grounded && input.horizontal && !player.blocking &&
+    !player.ducking && !hitStunned && now >= player.dashUntil;
+  if (!walkingCleanly) player.walkSince = 0;
+  else if (!player.walkSince) player.walkSince = now;
+  else if (!player.runSince && now - player.walkSince >= 650000)
+    player.runSince = now;
   const headAirControl = player.grounded ? .55
     : lerp(.55, .9, player.headBounceCharge || 0);
   const mobility = headOnly ? headAirControl
@@ -4377,6 +4394,10 @@ function updatePlayer(player, pad, dt, now) {
     const turnRate = Math.sign(skateTarget) !== Math.sign(player.skateVx) ? 1.8 : 3.2;
     player.skateVx += (skateTarget - player.skateVx) *
       (1 - Math.exp(-dt * turnRate));
+    const terrainSlope = clamp((terrainFloorAt(player.x + 8) -
+      terrainFloorAt(player.x - 8)) / 16, -2.5, 2.5);
+    player.skateVx += terrainSlope * 1900 * dt;
+    player.skateVx = clamp(player.skateVx, -4200, 4200);
     if (!input.horizontal) player.skateVx *= Math.max(0, 1 - dt * .65);
     controlledVx = player.skateVx;
   } else if (!player.skateboard) player.skateVx = 0;
@@ -6696,9 +6717,14 @@ function drawRunner(player, t, showLabel = true) {
   const displayNow = player.frozenAt || runtime().monotonicUs;
   if (player.skateboard) {
     const board = projectPoint(player.x, player.y + 5, player.z);
-    const boardEdge = projectPoint(player.x + 72, player.y + 5, player.z);
+    const leftEdge = projectPoint(player.x - 72,
+      terrainFloorAt(player.x - 72) + 5, player.z);
+    const boardEdge = projectPoint(player.x + 72,
+      terrainFloorAt(player.x + 72) + 5, player.z);
     const reach = Math.max(28, Math.abs(boardEdge.x - board.x));
-    drawSkateboardSymbol(board, reach, 0);
+    const rotation = Math.atan2(boardEdge.y - leftEdge.y,
+      boardEdge.x - leftEdge.x);
+    drawSkateboardSymbol(board, reach, rotation);
   }
   drawFighterSilhouette(geometry, color, outline, player);
   const hitNow = runtime().monotonicUs;
