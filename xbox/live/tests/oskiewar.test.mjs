@@ -3762,7 +3762,7 @@ test("round clock can end in a tie and returns to title", () => {
   assert.equal(fight.players[1].score, 0);
 });
 
-test("dummy rounds are untimed and use an infinity clock", () => {
+test("dummy rounds are untimed and omit the round clock", () => {
   const { fight, tick } = createFight();
   fight.players[1].npc = true;
   fight.players[1].bot = false;
@@ -3771,27 +3771,13 @@ test("dummy rounds are untimed and use an infinity clock", () => {
   assert.equal(fight.roundState().roundResult, "");
   assert.ok(fight.roundState().roundElapsedUs > 30000000);
   assert.match(source, /function roundIsTimed\(\)[\s\S]{0,100}!\(players\[1\]\.npc && !players\[1\]\.bot\)/);
-  assert.match(source, /timedRound \? String\(remainingSeconds\)\.padStart\(2, "0"\) : "∞"/);
-  assert.match(source,
-    /Math\.round\(hudTypeSize \* \(compactLayout\(\) \? 1\.65 : 2\.6\)\)/);
+  assert.match(source, /timedRound \? String\(remainingSeconds\)\.padStart\(2, "0"\) : ""/);
+  assert.doesNotMatch(source, /timerText === "∞"/);
 });
 
-test("the endless clock shines, hue shifts, and drops a colored shadow", () => {
-  const infinitySource = source.match(
-    /if \(timerText === "∞"\) \{[\s\S]*?\n    \} else \{/)[0];
-  assert.match(infinitySource, /Math\.sin\(t \* 4\.6\)/);
-  assert.match(infinitySource, /animatedTitleColor\(4, t \* 2\.4\)/);
-  assert.match(infinitySource, /animatedTitleColor\(0, t \* 2\.4\)/);
-  const { fight } = createFight(false, false);
-  // The shadow is a palette step behind the glyph, and both stay in gamut on
-  // the night sky and the daylight sky.
-  for (const light of [0, .5, 1]) {
-    assert.notDeepEqual(fight.animatedTitleColor(4, 2.4, light),
-      fight.animatedTitleColor(0, 2.4, light));
-    for (const index of [0, 4])
-      for (const channel of fight.animatedTitleColor(index, 2.4, light))
-        assert.ok(channel >= 0 && channel <= 255);
-  }
+test("the deprecated endless clock is absent", () => {
+  assert.doesNotMatch(source, /timerText === "∞"/);
+  assert.doesNotMatch(source, /Math\.sin\(t \* 4\.6\)/);
 });
 
 test("the in-match HUD carries a wall clock clear of the round QR", () => {
@@ -3807,7 +3793,7 @@ test("the in-match HUD carries a wall clock clear of the round QR", () => {
   assert.match(clockSource, /run\.unixMs \|\| Date\.now\(\)/);
   assert.match(clockSource, /roundViewer \? clock\.size \+ 10 : 2/);
   const { fight, tick } = createFight();
-  // Untimed training keeps the infinity glyph and still shows the clock.
+  // Untimed training omits the round timer and still shows the wall clock.
   fight.players[1].npc = true;
   fight.players[1].bot = false;
   tick();
