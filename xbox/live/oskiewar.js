@@ -21,7 +21,7 @@ runtime = function acRuntime() {
 };
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 19;
+const buildVersion = 20;
 const floorY = 1800;
 const ceilingY = 0;
 const wallThickness = 80;
@@ -569,7 +569,7 @@ function displayTheme() {
 }
 const players = [
   { name: "@JEFFREY", rosterIndex: 0, handleColors: fighterRoster[0].colors,
-    pad: 0, spawnX: 1500, x: 1500, y: floorY, z: 0,
+    pad: 0, spawnX: 2240, x: 2240, y: floorY, z: 0,
     vx: 0, vy: 0, vz: 0, facing: 1,
     grounded: true, ducking: false, previous: [], lastButton: "NONE",
     lastButtonAt: 0, color: [190, 42, 58], hit: 0,
@@ -596,7 +596,7 @@ const players = [
     crouchJump: false, attackMomentum: 1 },
   { name: "@OSKIE", rosterIndex: 2, handleColors: fighterRoster[2].colors,
     npc: false, bot: false,
-    pad: 1, spawnX: 3500, x: 3500, y: floorY, z: 0,
+    pad: 1, spawnX: 2760, x: 2760, y: floorY, z: 0,
     vx: 0, vy: 0, vz: 0, facing: -1,
     grounded: true, ducking: false, previous: [], lastButton: "NONE",
     lastButtonAt: 0, color: [38, 82, 176], hit: 0,
@@ -2415,7 +2415,7 @@ function resetRound(now, resetMatch = false) {
   if (replay) replay.rounds.push([demoTick(now), windDirection, windMph,
     balls.length]);
   cameraCenter = (worldLeft + worldRight) / 2;
-  cameraWidth = 1120;
+  cameraWidth = 960;
   cameraCenterY = floorY - cameraWidth / cameraAspect / 2;
   cameraContainFloor = 0;
 }
@@ -6203,8 +6203,10 @@ function contrastShadow(color) {
 // depth. A run of type picks its direction once, from the sky behind it, and
 // each shadow keeps a trace of its own glyph's hue.
 function runShadow(color) {
-  return mixColor(color, visualTheme.light > .5 ? [10, 12, 26] : [238, 242, 252],
-    .76);
+  // Match disk.mjs corner labels: the shadow is always dark, with a trace of
+  // the foreground hue. Dark mode must never turn a dark glyph's shadow white.
+  return mixColor(color, visualTheme.light > .5 ? [30, 20, 50] : [6, 4, 16],
+    .78);
 }
 
 // Handle colors are authored per name and can be shorter than the name they
@@ -7070,9 +7072,7 @@ const playerStatPanelHeight = () => {
   return 16 + 3 * (size + 7) + 10;
 };
 
-// The bordered state card owns a fixed stack over each handle. Its rows read
-// like a tiny trace program, while the segmented foot shows animation progress
-// without asking the numeric step label to carry the whole explanation.
+// The state trace owns a fixed stack over each handle without a container.
 const statStackHeight = () => debugHitboxes ? playerStatPanelHeight() + 8 : 0;
 
 function drawPlayerStats(player, side, t) {
@@ -7093,13 +7093,8 @@ function drawPlayerStats(player, side, t) {
   const handle = playerHandleLayout(player, side);
   const x = side === 0 ? safe.left : safe.right - width;
   const y = handle.y - height - 12;
-  const face = mixColor([10, 14, 30], [226, 235, 242], visualTheme.light);
-  const edge = mixColor(player.color, [28, 34, 48], visualTheme.light * .45);
   const previousDepth = triangleDepth;
   triangleDepth = -1.445;
-  screenRect(x + 4, y + 5, width, height, runShadow(edge));
-  screenRect(x, y, width, height, face);
-  screenStrokeRect(x, y, width, height, 2, edge);
   for (let row = 0; row < lines.length; row++) {
     const rowY = y + padding + row * lineHeight;
     writeHudLine(lines[row], x + padding, rowY, size);

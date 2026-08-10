@@ -573,11 +573,11 @@ test("title shows a live Pacific clock and version timestamp", () => {
   const { fight } = createFight(false, false);
   assert.match(fight.pacificTimeLabel(1785870000000),
     /^\d{1,2}:\d{2}(am|pm) P(D|S)T$/);
-  assert.match(source, /const buildVersion = 19/);
+  assert.match(source, /const buildVersion = 20/);
   assert.match(source, /const clock = hudClockBox\(titleUnixMs\)/);
   assert.match(source, /typeWrite\(clock\.label, clock\.left, safe\.top \+ 2/);
   assert.match(source, /const fpsLabel = Math\.round\(displayFps \|\| 0\)/);
-  assert.match(source, /"build " \+ stamp\[2\]/);
+  assert.match(source, /const version = "v" \+ buildVersion/);
 });
 
 test("web camera follows landscape, 16:9, and portrait viewports", () => {
@@ -594,6 +594,12 @@ test("web camera follows landscape, 16:9, and portrait viewports", () => {
       expectedWidth / (state.stageBottom - state.stageTop));
     assert.doesNotThrow(() => fight.paint());
   }
+});
+
+test("fighters start within a close twelve-foot read", () => {
+  assert.match(source, /pad: 0, spawnX: 2240, x: 2240/);
+  assert.match(source, /pad: 1, spawnX: 2760, x: 2760/);
+  assert.match(source, /cameraWidth = 960;/);
 });
 
 test("custom web aspects derive play bounds around their own HUD", () => {
@@ -4196,6 +4202,12 @@ test("held objects belong to one intact arm, including on a skateboard", () => {
   assert.match(source, /target\.carryArm === part/);
   assert.match(source,
     /player\.skateboard && player\.grounded && !armAttack && !heldItem\(player\)/);
+});
+
+test("debug stats are unboxed and HUD shadows remain dark", () => {
+  assert.doesNotMatch(source, /screenStrokeRect\(x, y, width, height, 2, edge\)/);
+  assert.match(source,
+    /visualTheme\.light > \.5 \? \[30, 20, 50\] : \[6, 4, 16\]/);
 });
 
 // The ground pound is a trade: the crater scales with the fall, and the
