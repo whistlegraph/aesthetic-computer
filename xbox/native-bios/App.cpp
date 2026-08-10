@@ -16,6 +16,7 @@ using namespace Windows::Devices::Enumeration;
 using namespace Windows::Devices::Midi;
 using namespace Windows::Graphics::Imaging;
 using namespace Windows::Graphics::Display;
+using namespace Windows::Graphics::Display::Core;
 using namespace Windows::Security::ExchangeActiveSyncProvisioning;
 using namespace Windows::Storage;
 using namespace Windows::Storage::Streams;
@@ -352,7 +353,7 @@ public:
     m_api = std::make_unique<Api>(Api{{1920, 1080, 1}, {}, {}, {}, *m_graphics, *m_sound, {}});
     m_api->system.render_width = m_frameWidth;
     m_api->system.render_height = m_frameHeight;
-    m_api->system.version = "1.0.0.40";
+    m_api->system.version = "1.0.0.41";
     m_api->telemetry = [this](std::string_view line) {
       std::string safe(line);
       for (auto& character : safe) if (character == '\n' || character == '\r') character = ' ';
@@ -576,10 +577,16 @@ private:
     unsigned requestedWidth = 1920;
     unsigned requestedHeight = 1080;
     try {
+      const auto hdmi = HdmiDisplayInformation::GetForCurrentView();
+      const auto mode = hdmi ? hdmi->GetCurrentDisplayMode() : nullptr;
+      if (mode) {
+        requestedWidth = (std::min)(3840u, mode->ResolutionWidthInRawPixels);
+        requestedHeight = (std::min)(2160u, mode->ResolutionHeightInRawPixels);
+      }
       const auto display = DisplayInformation::GetForCurrentView();
       const auto rawWidth = display->ScreenWidthInRawPixels;
       const auto rawHeight = display->ScreenHeightInRawPixels;
-      if (rawWidth >= 1920 && rawHeight >= 1080) {
+      if (requestedWidth <= 1920 && rawWidth >= 1920 && rawHeight >= 1080) {
         requestedWidth = (std::min)(3840u, rawWidth);
         requestedHeight = (std::min)(2160u, rawHeight);
       }
