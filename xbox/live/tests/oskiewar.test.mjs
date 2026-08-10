@@ -436,7 +436,7 @@ test("update-ready panel automatically reloads at the round boundary", () => {
   assert.doesNotMatch(webShell, /id="auto-update"/);
   assert.match(webShell, /update is ready/);
   assert.match(webShell, /pieceScreen === "title" && previousPieceScreen !== "title"/);
-  assert.match(webShell, /updateReady\.classList\.contains\("visible"\)/);
+  assert.match(webShell, /if \(updateAvailable\)/);
   assert.match(webShell, /__oskiewarTouch\?\.screen === "title"/);
 });
 
@@ -581,7 +581,7 @@ test("title shows a live Pacific clock and version timestamp", () => {
   const { fight } = createFight(false, false);
   assert.match(fight.pacificTimeLabel(1785870000000),
     /^\d{1,2}:\d{2}:\d{2}(am|pm)$/);
-  assert.match(source, /const buildVersion = 33/);
+  assert.match(source, /const buildVersion = 34/);
   assert.match(source, /const clock = hudClockBox\(titleUnixMs\)/);
   assert.match(source, /drawHudClock\(clock, safe\.top \+ 2, ink, titleUnixMs\)/);
   assert.match(source, /const fpsLabel = Math\.round\(displayFps \|\| 0\)/);
@@ -1091,6 +1091,15 @@ test("gun and grenade pickups are unlabeled world-scale objects", () => {
   assert.doesNotMatch(grenadeSource, /outline|radius \+ 3/);
   assert.match(gunSource, /\* 8/);
   assert.match(grenadeSource, /\* 8/);
+});
+
+test("bullets and their blink trails shrink with the projected world", () => {
+  const bulletSource = source.slice(source.indexOf("function drawBullet"),
+    source.indexOf("function drawGrenadePickup"));
+  assert.match(bulletSource, /const scale = cameraScale\(\)/);
+  assert.match(bulletSource, /Math\.max\(\.6, \(bullet\.rubber \? 4 : 3\) \* scale\)/);
+  assert.match(bulletSource, /Math\.max\(\.9, 7 \* scale\)/);
+  assert.doesNotMatch(bulletSource, /Math\.max\(4, 7 \* cameraScale\(\)\)/);
 });
 
 test("ambient air is a simulated world-entity field", () => {

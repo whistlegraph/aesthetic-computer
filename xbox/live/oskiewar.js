@@ -21,7 +21,7 @@ runtime = function acRuntime() {
 };
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 33;
+const buildVersion = 34;
 const floorY = 1800;
 const ceilingY = 0;
 const wallThickness = 80;
@@ -318,6 +318,16 @@ class FightCamDoll {
     this.perspective = lerp(this.perspective, spec.perspective, amount);
     this.fov = lerp(this.fov, spec.fov || 55, amount);
     this.roll = lerp(this.roll, spec.roll || 0, amount);
+    this.dirty = true;
+  }
+
+  snap(spec) {
+    this.target = { ...spec.target };
+    this.position = { ...spec.position };
+    this.width = spec.width;
+    this.perspective = spec.perspective;
+    this.fov = spec.fov || 55;
+    this.roll = spec.roll || 0;
     this.dirty = true;
   }
 
@@ -1782,6 +1792,19 @@ function beginSelect(now) {
 function returnToTitle(now, reason = "back") {
   finishReplay();
   beginTraining(now);
+  // Menu is a hard navigation boundary: discard the prior fight's zoom and
+  // right-stick diorama angle before the very first title frame is painted.
+  playerCameraYaw = 0;
+  playerCameraPitch = 0;
+  cameraCenter = (players[0].x + players[1].x) / 2;
+  cameraCenterY = (players[0].y + players[1].y) / 2 - 90;
+  cameraWidth = Math.max(980, Math.abs(players[1].x - players[0].x) + 760);
+  cameraContainFloor = 0;
+  const cameraTarget = { x: cameraCenter, y: cameraCenterY, z: 0 };
+  cameraDoll.snap({ target: cameraTarget,
+    position: { x: cameraCenter, y: cameraCenterY,
+      z: -cameraWidth * 1.2 },
+    width: cameraWidth, perspective: 0, fov: 55, roll: 0 });
   shellPrevious = padSnapshots[0]?.down?.slice() || [];
   selectionPrevious[0] = shellPrevious.slice();
   selectionPrevious[1] = padSnapshots[1]?.down?.slice() || [];
@@ -7815,9 +7838,12 @@ function drawBullet(bullet) {
     ? [255, 244, 178]
     : bullet.spit ? bullet.heavy ? [182, 48, 116] : [58, 190, 132]
     : bullet.rubber ? [214, 178, 42] : [224, 116, 62];
+  const scale = cameraScale();
+  // Project the complete projectile. The old 2px/4px floors made both the
+  // trail and blinking core behave like HUD icons once the street zoomed out.
   filledCapsule(previous.x, previous.y, point.x, point.y,
-    Math.max(2, (bullet.rubber ? 4 : 3) * cameraScale()), trail);
-  filledDisc(point.x, point.y, Math.max(4, 7 * cameraScale()), core);
+    Math.max(.6, (bullet.rubber ? 4 : 3) * scale), trail);
+  filledDisc(point.x, point.y, Math.max(.9, 7 * scale), core);
 }
 
 function drawGrenadePickup(pickup, t) {

@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <link rel="icon" href="data:,">
   <title>oskiewar</title>
   <meta name="description" content="Play oskiewar in your browser with a keyboard or two gamepads.">
   <meta name="theme-color" content="#ebf1f8" media="(prefers-color-scheme: light)">
@@ -1055,7 +1056,7 @@
       const syncSelectionCursor = () => {
         const pieceScreen = globalThis.__oskiewarTouch?.screen || "";
         if (pieceScreen === "title" && previousPieceScreen !== "title") {
-          if (updateReady.classList.contains("visible")) {
+          if (updateAvailable) {
             document.querySelector("#status").textContent = "updating";
             location.reload();
             return;
