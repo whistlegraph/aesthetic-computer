@@ -3889,6 +3889,51 @@ function grabNearestPart(player, now) {
   return true;
 }
 
+function stealHeldObject(player, now) {
+  const target = players[player.pad === 0 ? 1 : 0];
+  if (!target?.alive || Math.hypot(target.x - player.x,
+      target.y - player.y, target.z - player.z) > 220) return false;
+  let label = "";
+  if (target.heldBall >= 0) {
+    const index = target.heldBall;
+    const item = balls[index];
+    target.heldBall = -1;
+    player.heldBall = index;
+    if (item) item.heldBy = player.pad;
+    label = "BALL";
+  } else if (target.heldPart >= 0) {
+    const index = target.heldPart;
+    const part = detachedParts[index];
+    target.heldPart = -1;
+    player.heldPart = index;
+    if (part) { part.heldBy = player.pad; part.owner = player.pad; }
+    label = part?.part?.toUpperCase() || "LIMB";
+  } else if (target.gunAmmo > 0) {
+    player.gunAmmo = target.gunAmmo;
+    player.gunMode = target.gunMode;
+    target.gunAmmo = 0;
+    target.gunMode = "HANDGUN";
+    label = player.gunMode;
+  } else if (target.grenadeAmmo > 0) {
+    player.grenadeAmmo = target.grenadeAmmo;
+    target.grenadeAmmo = 0;
+    label = "GRENADES";
+  } else if (target.skateboard) {
+    target.skateboard = false;
+    player.skateboard = true;
+    label = "SKATEBOARD";
+  }
+  if (!label) return false;
+  target.lastButton = label + " TAKEN";
+  target.lastButtonAt = now;
+  player.lastButton = "STOLE " + label;
+  player.lastButtonAt = now;
+  target.hitStunUntil = Math.max(target.hitStunUntil, now + 160000);
+  playDrum("clap", 1, panPlayer(player));
+  emitSignal("steal", player.pad, target.pad, 1);
+  return true;
+}
+
 function releaseCarriedPart(player, now) {
   if (player.heldPart < 0) return;
   const part = detachedParts[player.heldPart];
@@ -4058,7 +4103,8 @@ function updatePlayer(player, pad, dt, now) {
   if (grabHeld && !player.grabHeld && player.heldBall < 0 &&
       player.heldPart < 0 &&
       player.heldPlayer < 0) {
-    if (!grabNearestBall(player, now) && !grabNearestPart(player, now) &&
+    if (!stealHeldObject(player, now) && !grabNearestBall(player, now) &&
+        !grabNearestPart(player, now) &&
         !grabNearestFighter(player, now)) {
       player.lastButton = "REACHING";
       player.lastButtonAt = now;
