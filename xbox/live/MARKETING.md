@@ -213,17 +213,18 @@ node xbox/live/marketing/reel.mjs --publish <id>        # dry run — writes pay
 node xbox/live/marketing/reel.mjs --publish <id> --live # the only call that posts
 ```
 
-**Clockwork.** Three crons on neo (where the vault and Chrome live), one
+**Clockwork.** Three crons on neo, with rendering delegated to Oven and only
+credentialed publication kept local:
 slot each at 9:00, 14:00 and 19:00 Pacific:
 
 ```cron
-7 9 * * *   bash -lc 'cd ~/aesthetic-computer && set -a && source vault/oskiewar/instagram.env && set +a && node xbox/live/marketing/reel.mjs --index 0 --slots 1 --auto >> ~/.local/state/oskiewar-reels.log 2>&1'
-7 14 * * *  bash -lc 'cd ~/aesthetic-computer && set -a && source vault/oskiewar/instagram.env && set +a && node xbox/live/marketing/reel.mjs --index 1 --slots 1 --auto >> ~/.local/state/oskiewar-reels.log 2>&1'
-7 19 * * *  bash -lc 'cd ~/aesthetic-computer && set -a && source vault/oskiewar/instagram.env && set +a && node xbox/live/marketing/reel.mjs --index 2 --slots 1 --auto >> ~/.local/state/oskiewar-reels.log 2>&1'
+7 9 * * *   bash -lc 'cd ~/aesthetic-computer && set -a && source vault/oskiewar/instagram.env && set +a && node toolchain/instagram/oskiewar-oven.mjs --index 0 --auto >> ~/.local/state/oskiewar-reels.log 2>&1'
+7 14 * * *  bash -lc 'cd ~/aesthetic-computer && set -a && source vault/oskiewar/instagram.env && set +a && node toolchain/instagram/oskiewar-oven.mjs --index 1 --auto >> ~/.local/state/oskiewar-reels.log 2>&1'
+7 19 * * *  bash -lc 'cd ~/aesthetic-computer && set -a && source vault/oskiewar/instagram.env && set +a && node toolchain/instagram/oskiewar-oven.mjs --index 2 --auto >> ~/.local/state/oskiewar-reels.log 2>&1'
 ```
 
-`--auto` renders the slot and posts it only when BOTH gates pass — Meta's
-spec table and the sync meter. A reel that fails either is held in the queue
+`--auto` posts only when all three gates pass — Meta's spec table, the sync
+meter, and fixed-step motion. A reel that fails any gate is held in the queue
 for a human, loudly, and the day goes on. @jeffrey lifted the human-per-post
 review on 2026-08-09, after approving the pipeline reel by reel; `--publish
 <id> --live` remains the manual override, and `ledger.json` records every

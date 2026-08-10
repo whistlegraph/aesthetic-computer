@@ -2,7 +2,7 @@
 // Submit one latest-build bot fight to the remote Replay Oven and download the
 // gated artifacts. Publication is intentionally a separate local command.
 
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
@@ -18,6 +18,7 @@ const index = Number(value("index", "0"));
 const ref = value("ref", "origin/main");
 const theme = value("theme", "light");
 const outRoot = resolve(value("out", "tmp/oskiewar-reels/queue"));
+const auto = argv.includes("--auto");
 
 function adminKey() {
   if (process.env.OS_BUILD_ADMIN_KEY?.trim()) return process.env.OS_BUILD_ADMIN_KEY.trim();
@@ -71,3 +72,12 @@ if (record.sourceCommit !== job.resolvedRef || !record.meta?.ok ||
   throw new Error("downloaded Reel failed commit or quality verification");
 console.log(`✓ ${record.id} · ${record.motion.sourceFps} fixed-step source fps · ${record.sourceCommit.slice(0, 9)}`);
 console.log(dir);
+if (auto) {
+  if (process.env.OSKIEWAR_IG_AUTO !== "1")
+    throw new Error("OSKIEWAR_IG_AUTO=1 is required for automatic publication");
+  const reel = resolve("xbox/live/marketing/reel.mjs");
+  const posted = spawnSync(process.execPath,
+    [reel, "--out", outRoot, "--publish", record.id, "--live"],
+    { cwd: process.cwd(), env: process.env, stdio: "inherit" });
+  if (posted.status !== 0) throw new Error(`local publication failed (${posted.status})`);
+}
