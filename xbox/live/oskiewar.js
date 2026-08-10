@@ -21,7 +21,7 @@ runtime = function acRuntime() {
 };
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 20;
+const buildVersion = 21;
 const floorY = 1800;
 const ceilingY = 0;
 const wallThickness = 80;
@@ -519,6 +519,9 @@ const fighterRoster = [
 // let the glyph walk fall back to it.
 const npcFighter = { handle: "DUMMY", color: [105, 125, 150], colors: [],
   mood: "TRAINING DUMMY · NO BOT AI", lastChat: "" };
+const anonymousFighter = { handle: "@GUEST", color: [72, 176, 156], colors: [
+  [72,176,156],[118,214,188],[54,128,168],[230,205,92]],
+  mood: "ANONYMOUS", lastChat: "" };
 const spiderDummyFighter = { handle: "SPIDERDUMMY", color: [76, 88, 108],
   colors: [], mood: "GIANT SEGMENTED TRAINING FOE · NO BOT AI", lastChat: "" };
 const botFighter = { handle: "BOT", color: [205, 48, 72], colors: [],
@@ -1680,6 +1683,13 @@ function applyRoster(player, index) {
     player.handleColors = fighter.colors;
     return;
   }
+  if (player.pad === 0 && !acFeed?.player?.handle) {
+    player.rosterIndex = -1;
+    player.name = anonymousFighter.handle;
+    player.color = anonymousFighter.color.slice();
+    player.handleColors = anonymousFighter.colors;
+    return;
+  }
   const rosterIndex = (index + fighterRoster.length) % fighterRoster.length;
   const fighter = fighterRoster[rosterIndex];
   const profile = fighterProfile(fighter.handle);
@@ -2361,6 +2371,7 @@ function resetRound(now, resetMatch = false) {
     player.landPoseUntil = 0;
     player.jumpHeld = false;
     player.airJumpsUsed = 0;
+    player.doubleJumpLinesUntil = 0;
     player.hopUntil = 0;
     player.sinkUntil = 0;
     player.crouchJump = false;
@@ -2578,9 +2589,10 @@ function updateCameraDoll(dt, now) {
       // stand-off frames only one of those.
       const shoulderSide = Math.sign(loserHead.x - winnerHead.x) || 1;
       const headGap = Math.max(320, Math.abs(loserHead.x - winnerHead.x));
-      const shoulder = { x: winnerHead.x - shoulderSide * headGap * .62,
-        y: winnerHead.y - headGap * .34,
-        z: winnerHead.z - headGap * 1.3 };
+      const shoulder = { x: focus.x, y: focus.y,
+        // Stay outside the whole arena depth. The old close killcam entered
+        // the world volume and near-clipped limbs, floor, and wall polygons.
+        z: focus.z - Math.max(headGap * 1.3, Math.abs(worldNear) + headGap) };
       // Aimed past the winner rather than at the loser: dead centre on the
       // loser is what threw the winner off the edge of the frame.
       const focus = { x: lerp(winnerHead.x, loserHead.x, .78),
@@ -2593,7 +2605,7 @@ function updateCameraDoll(dt, now) {
       const shotWidth = Math.min(headGap * 1.7, headGap + 900);
       if (age < .86) {
         cameraDoll.track({ target: focus, position: shoulder,
-          width: shotWidth, perspective: .82, fov: 64, roll: 0 }, dt, 11);
+          width: shotWidth, perspective: 0, fov: 55, roll: 0 }, dt, 11);
         return;
       }
       const returnAmount = clamp((age - .86) / .59, 0, 1);
@@ -2602,11 +2614,10 @@ function updateCameraDoll(dt, now) {
         z: (players[0].z + players[1].z) / 2 };
       const span = Math.max(900, Math.abs(players[1].x - players[0].x) + 540);
       cameraDoll.track({ target: midpoint,
-        position: { x: lerp(shoulder.x, midpoint.x, returnAmount),
-          y: lerp(shoulder.y, midpoint.y - span * .08, returnAmount),
+        position: { x: midpoint.x, y: midpoint.y,
           z: lerp(shoulder.z, midpoint.z - span * 1.2, returnAmount) },
         width: lerp(shotWidth, span, returnAmount),
-        perspective: lerp(.82, .72, returnAmount), fov: 50, roll: 0 }, dt, 10);
+        perspective: 0, fov: 55, roll: 0 }, dt, 10);
       return;
     }
     const target = { x: (players[0].x + players[1].x) / 2,
@@ -2614,12 +2625,13 @@ function updateCameraDoll(dt, now) {
       z: (players[0].z + players[1].z) / 2 };
     const horizontalSpan = Math.abs(players[1].x - players[0].x);
     const verticalSpan = Math.abs(players[1].y - players[0].y) * cameraAspect;
-    const closeWidth = Math.max(820, horizontalSpan + 540, verticalSpan + 520);
+    const closeWidth = Math.max(820, horizontalSpan + 540, verticalSpan + 520,
+      rectPackWidth(fighterFrameRect()) * 1.22);
     cameraDoll.track({ target,
       position: { x: target.x,
-        y: target.y - closeWidth * .08,
+        y: target.y,
         z: target.z - closeWidth * 1.2 },
-      width: closeWidth, perspective: clamp(age / .7, 0, .72), fov: 50,
+      width: closeWidth, perspective: 0, fov: 55,
       roll: 0 }, dt, 7);
     return;
   }
@@ -2631,12 +2643,9 @@ function updateCameraDoll(dt, now) {
       y: (players[0].y + players[1].y) / 2 - 90,
       z: (players[0].z + players[1].z) / 2 };
     const span = Math.max(980, Math.abs(players[1].x - players[0].x) + 760);
-    const angle = lerp(-.3, .3, eased);
     cameraDoll.track({ target,
-      position: { x: target.x + Math.sin(angle) * span * .34,
-        y: target.y - lerp(90, 150, eased),
-        z: target.z - Math.cos(angle) * span * .72 },
-      width: span, perspective: clamp(progress / .34, 0, 1), fov: 50 }, dt, 7);
+      position: { x: target.x, y: target.y, z: target.z - span * 1.2 },
+      width: span, perspective: 0, fov: 55, roll: 0 }, dt, 7);
     return;
   }
   const target = { x: cameraCenter, y: cameraCenterY, z: 0 };
@@ -2646,7 +2655,7 @@ function updateCameraDoll(dt, now) {
   const containmentWidth = fighterContainmentRequiredWidth(
     (now - startedAt) / 1000000) * 1.04;
   cameraContainFloor = Math.max(cameraContainFloor, containmentWidth);
-  // A small overscan absorbs animated hands, feet, and perspective before
+  // A small overscan absorbs animated hands and feet before
   // they reach the action-safe edge without loosening the close fight shot.
   const naturalWidth = cameraWidth * 1.015;
   // Hysteresis prevents a fighter hovering at the safe edge from repeatedly
@@ -2659,8 +2668,8 @@ function updateCameraDoll(dt, now) {
     cameraContainFloor = lerp(cameraContainFloor, naturalWidth, release);
   }
   const framedWidth = Math.max(naturalWidth, cameraContainFloor);
-  // The right stick deliberately turns the fight into a small diorama. Its
-  // angle persists when released, while FightCamDoll supplies the smoothing.
+  // Automatic framing stays orthographic, preventing camera movement from
+  // bending the arena. The right stick may still rotate the diorama explicitly.
   const tilt = .026 + playerCameraPitch;
   const dolly = 1.35;
   cameraDoll.track({ target,
@@ -2668,7 +2677,7 @@ function updateCameraDoll(dt, now) {
       x: cameraCenter + Math.sin(playerCameraYaw) * framedWidth * dolly,
       y: cameraCenterY - framedWidth * tilt,
       z: -Math.cos(playerCameraYaw) * framedWidth * dolly },
-      width: framedWidth, perspective: .36, fov: 55,
+      width: framedWidth, perspective: 0, fov: 55,
       roll: 0 }, dt, 10);
 }
 
@@ -3001,7 +3010,7 @@ function updatePowerups(now) {
   updateGrenadePickups(now);
 }
 
-function updateBullets(dt, now) {
+function updateBullets(dt, now, combat = true) {
   for (const bullet of bullets) {
     if (bullet.life <= 0) continue;
     bullet.vx += windAcceleration * .12 * dt;
@@ -3045,6 +3054,7 @@ function updateBullets(dt, now) {
       }
     }
   }
+  if (!combat) return;
   const poseTime = (now - startedAt) / 1000000;
   for (const bullet of bullets) {
     if (bullet.life <= 0) continue;
@@ -3140,7 +3150,7 @@ function updateBullets(dt, now) {
     if (bullets[index].life <= 0) bullets.splice(index, 1);
 }
 
-function updateGrenades(dt, now) {
+function updateGrenades(dt, now, combat = true) {
   for (const grenade of grenades) {
     if (!grenade.alive) continue;
     if (grenade.exploding) {
@@ -3148,7 +3158,7 @@ function updateGrenades(dt, now) {
       grenade.blastRadius = grenadeBlastRadius *
         Math.min(1, grenade.blastAge / grenadeBlastDuration);
       const poseTime = (now - startedAt) / 1000000;
-      for (const player of players) {
+      for (const player of combat ? players : []) {
         if (!player.alive || (grenade.hitPlayers & (1 << player.pad))) continue;
         const contact = runnerContactToPoint(player, poseTime,
           grenade.x, grenade.y, grenade.z);
@@ -3177,7 +3187,7 @@ function updateGrenades(dt, now) {
     grenade.fuse -= dt;
     if (grenade.rocket) {
       const poseTime = (now - startedAt) / 1000000;
-      for (const target of players) {
+      for (const target of combat ? players : []) {
         if (!target.alive || target.pad === grenade.owner) continue;
         if (runnerDistanceToPoint(target, poseTime,
           grenade.x, grenade.y, grenade.z) > 34) continue;
@@ -4514,7 +4524,10 @@ function updatePlayer(player, pad, dt, now) {
     const airJump = !player.grounded;
     player.jumpLaunchAt = now + (airJump ? 1 : jumpAnticipationUs);
     player.crouchJump = !airJump && wasCrouched;
-    if (airJump) player.airJumpsUsed++;
+    if (airJump) {
+      player.airJumpsUsed++;
+      player.doubleJumpLinesUntil = now + 280000;
+    }
     player.pendingMoveLabel = player.skateboard ? "OLLIE"
       : airJump ? "DOUBLE JUMP"
       : wasCrouched ? "CROUCH JUMP" : "JUMP";
@@ -4905,6 +4918,8 @@ function gameSim() {
       { connected: true, down: [], leftX: 0, leftY: 0 }, dt, now);
     // Severed pieces belong to the action too; the result clock must not pin
     // them in mid-air while the surviving body completes its landing.
+    updateBullets(dt, now, false);
+    updateGrenades(dt, now, false);
     updateDetachedParts(dt);
     updateResultImpactDebris(dt);
     updateCameraDoll(dt, now);
@@ -6924,6 +6939,21 @@ function drawDiveMotion(player, t) {
   }
 }
 
+function drawDoubleJumpMotion(player, t) {
+  const now = runtime().monotonicUs;
+  if (now >= (player.doubleJumpLinesUntil || 0)) return;
+  const life = clamp((player.doubleJumpLinesUntil - now) / 280000, 0, 1);
+  const color = mixColor(player.color, [244, 250, 255], .55);
+  for (let index = 0; index < 7; index++) {
+    const spread = (index - 3) * 24 + Math.sin(t * 18 + index) * 5;
+    const startY = player.y + 28 + (index % 2) * 18;
+    const endY = startY + (70 + index * 11) * life;
+    worldCapsule(player.x + spread, startY, player.z + 16,
+      player.x + spread, endY, player.z + 16,
+      3 + life * 3, color, .029);
+  }
+}
+
 // Hitboxes are an inspector, not a garnish. They used to flash on every
 // impact for anyone watching, which put green boxes over ordinary play and
 // over every recording of it. VIEW (tab) is now the only thing that shows
@@ -8045,7 +8075,8 @@ function drawTitleScreen(t, ink, transitionAge = -1) {
   const compact = compactLayout();
   const socialPreview = typeof capabilities === "function" &&
     capabilities().socialPreview === true;
-  const title = "oskiewar";
+  // The large wordmark has retired; the live fighters and START are the title.
+  const title = "";
   const breath = 1 + Math.sin(t * .9) * .018;
   const socialTitleSize = Math.min(220,
     (stageRight - stageLeft - 56) / handleWidth(title, 1));
@@ -8591,6 +8622,7 @@ function gamePaint() {
     else if (renderable.kind === "detached") drawDetachedPart(renderable.item);
     else {
       drawDiveMotion(renderable.item, t);
+      drawDoubleJumpMotion(renderable.item, t);
       drawRunner(renderable.item, t, showRunnerLabels);
     }
   }

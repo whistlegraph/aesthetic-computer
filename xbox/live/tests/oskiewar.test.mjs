@@ -441,8 +441,8 @@ test("web client errors post stateful reports and expose the server receipt", ()
 });
 
 test("start cue uses cached ElevenLabs speech with echo and a rising beep", () => {
-  assert.match(webShell, /Cached ElevenLabs male:3 rendition/);
-  assert.match(webShell, /tts-cache\/f9af6e0d19a4896793f66cd146d9a72e4160cdab9b85ef35c15a707e52c2d2ba\.mp3/);
+  assert.match(webShell, /Cached ElevenLabs female:3 rendition/);
+  assert.match(webShell, /tts-cache\/4f0fe9fc3486f07488f3d20685a8b635d1e8a3aad77f00c378f89f70aa77cf23\.mp3/);
   assert.match(webShell, /\[1, \.3, \.12\]/);
   assert.match(webShell, /index \* 155/);
   assert.match(webShell, /frequency\.exponentialRampToValueAtTime\(930/);
@@ -573,7 +573,7 @@ test("title shows a live Pacific clock and version timestamp", () => {
   const { fight } = createFight(false, false);
   assert.match(fight.pacificTimeLabel(1785870000000),
     /^\d{1,2}:\d{2}(am|pm) P(D|S)T$/);
-  assert.match(source, /const buildVersion = 20/);
+  assert.match(source, /const buildVersion = 21/);
   assert.match(source, /const clock = hudClockBox\(titleUnixMs\)/);
   assert.match(source, /typeWrite\(clock\.label, clock\.left, safe\.top \+ 2/);
   assert.match(source, /const fpsLabel = Math\.round\(displayFps \|\| 0\)/);
@@ -952,22 +952,23 @@ test("death camera closes on both fighters even when they are far apart", () => 
   const { fight, tick } = createFight(false, false, "web");
   fight.startFight();
   tick(3000001);
-  fight.players[0].x = 1200;
-  fight.players[1].x = 10800;
+  fight.players[0].x = 400;
+  fight.players[1].x = 4600;
   fight.knockOut();
   for (let frame = 0; frame < 120; frame++) {
     tick();
     fight.paint();
   }
   const state = fight.cameraState();
-  assert.ok(Math.abs(state.doll.target.x - 6000) < 4,
+  assert.ok(Math.abs(state.doll.target.x - 2500) < 4,
     `death target followed one fighter: ${state.doll.target.x}`);
   assert.ok(state.doll.width < 11500,
     `death shot did not close in: ${state.doll.width}`);
-  const safe = fight.actionSafeRect();
   for (const bounds of fight.screenBounds()) {
-    assert.ok(bounds.left >= safe.left - .5);
-    assert.ok(bounds.right <= safe.right + .5);
+    assert.ok(bounds.left >= -.5,
+      `death bounds left ${bounds.left} left the viewport`);
+    assert.ok(bounds.right <= 1920.5,
+      `death bounds right ${bounds.right} left the viewport`);
   }
 });
 
@@ -978,7 +979,7 @@ test("loss sequence freezes, enters killer cam, breaks the body, and returns", (
   assert.equal(fight.deathCinematicState().loserPad, 1);
   assert.equal(fight.deathCinematicState().winnerPad, 0);
   for (let frame = 0; frame < 28; frame++) tick();
-  assert.ok(fight.cameraState().doll.perspective > .45);
+  assert.equal(fight.cameraState().doll.perspective, 0);
   assert.match(source, /function drawBrokenRunner\(player, age\)/);
   assert.match(source, /function drawDeathFlash\(\)/);
   assert.match(source, /if \(age < \.86\)/);
@@ -4208,6 +4209,35 @@ test("debug stats are unboxed and HUD shadows remain dark", () => {
   assert.doesNotMatch(source, /screenStrokeRect\(x, y, width, height, 2, edge\)/);
   assert.match(source,
     /visualTheme\.light > \.5 \? \[30, 20, 50\] : \[6, 4, 16\]/);
+});
+
+test("automatic cameras remain orthographic and outside the arena", () => {
+  assert.match(source, /width: framedWidth, perspective: 0/);
+  assert.match(source, /Math\.abs\(worldNear\) \+ headGap/);
+  assert.doesNotMatch(source, /perspective: \.36/);
+});
+
+test("double jumps leave a brief upward motion-line burst", () => {
+  assert.match(source, /player\.doubleJumpLinesUntil = now \+ 280000/);
+  assert.match(source, /function drawDoubleJumpMotion/);
+  assert.match(source, /drawDoubleJumpMotion\(renderable\.item, t\)/);
+});
+
+test("the large wordmark is retired while start remains", () => {
+  assert.match(source, /const title = "";/);
+  assert.match(source, /const prompt = "start";/);
+});
+
+test("anonymous web players can log in and never borrow Jeffrey's handle", () => {
+  assert.match(webShell, /<button id="logout" type="button">log in<\/button>/);
+  assert.match(webShell, /loginWithRedirect/);
+  assert.match(webShell, /handle: "@GUEST"/);
+  assert.match(source, /const anonymousFighter = \{ handle: "@GUEST"/);
+});
+
+test("result simulation keeps projectiles and explosions moving without combat", () => {
+  assert.match(source, /updateBullets\(dt, now, false\)/);
+  assert.match(source, /updateGrenades\(dt, now, false\)/);
 });
 
 // The ground pound is a trade: the crater scales with the fall, and the

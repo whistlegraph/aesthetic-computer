@@ -98,7 +98,7 @@
   <div id="status" role="alert" aria-live="polite"></div>
   <div id="account">
     <span id="account-handle" hidden></span>
-    <button id="logout" type="button">log out</button>
+    <button id="logout" type="button">log in</button>
   </div>
   <div id="update-ready" role="status">
     <button id="update-now" type="button">update is ready</button>
@@ -142,7 +142,18 @@
     };
     let audioContext = null;
     const logout = document.querySelector("#logout");
-    logout.addEventListener("click", () => {
+    let accountClient = null;
+    let accountSignedIn = false;
+    logout.addEventListener("click", async () => {
+      if (!accountSignedIn) {
+        try {
+          const client = await getAccountClient();
+          await client?.loginWithRedirect({ authorizationParams: {
+            redirect_uri: location.origin,
+          }});
+        } catch (_) {}
+        return;
+      }
       const target = new URL("https://hi.aesthetic.computer/v2/logout");
       target.searchParams.set("client_id", "LVdZaMbyXctkGfZDnpzDATB5nR0ZhmMt");
       // Return to the host you logged out from, not always the apex — coming
@@ -170,20 +181,25 @@
         document.head.appendChild(script);
       });
     }
+    async function getAccountClient() {
+      if (accountClient) return accountClient;
+      if (!globalThis.auth0) await loadAuth0();
+      accountClient = await globalThis.auth0?.createAuth0Client({
+        domain: "https://hi.aesthetic.computer",
+        clientId: "LVdZaMbyXctkGfZDnpzDATB5nR0ZhmMt",
+        cacheLocation: "localstorage",
+        useRefreshTokens: true,
+        authorizationParams: { redirect_uri: location.origin },
+      });
+      return accountClient;
+    }
     async function showAccountHandle() {
       // A silent check also fails when oskiewar.com is missing from Auth0's
       // allowed web origins, which is indistinguishable here from being logged
       // out — so an unknown session shows no handle and still offers the door,
       // rather than hiding the way out from someone who is actually signed in.
       try {
-        await loadAuth0();
-        const client = await globalThis.auth0?.createAuth0Client({
-          domain: "https://hi.aesthetic.computer",
-          clientId: "LVdZaMbyXctkGfZDnpzDATB5nR0ZhmMt",
-          cacheLocation: "localstorage",
-          useRefreshTokens: true,
-          authorizationParams: { redirect_uri: location.origin },
-        });
+        const client = await getAccountClient();
         if (!client) return;
         await client.checkSession();
         const sub = (await client.getUser())?.sub;
@@ -197,6 +213,8 @@
         if (!handle) return;
         accountHandle.textContent = "@" + handle;
         accountHandle.hidden = false;
+        accountSignedIn = true;
+        logout.textContent = "log out";
         accountProfile.handle = "@" + String(handle).toUpperCase();
         try {
           const colorsResponse = await fetch("https://aesthetic.computer/api/handle-colors?handle=" +
@@ -253,10 +271,10 @@
       return audioContext;
     }
 
-    // Cached ElevenLabs male:3 rendition of "Oskie War". Separate media
+    // Cached ElevenLabs female:3 rendition of "Oskie War". Separate media
     // elements create a compact feedback echo without requiring cross-origin
     // Web Audio access to the public AC audio CDN.
-    const titleVoiceUrl = "https://art.aesthetic.computer/tts-cache/f9af6e0d19a4896793f66cd146d9a72e4160cdab9b85ef35c15a707e52c2d2ba.mp3";
+    const titleVoiceUrl = "https://art.aesthetic.computer/tts-cache/4f0fe9fc3486f07488f3d20685a8b635d1e8a3aad77f00c378f89f70aa77cf23.mp3";
     const titleVoiceEchoes = [1, .3, .12].map((volume) => {
       const voice = new Audio(titleVoiceUrl);
       voice.preload = "auto";
@@ -781,9 +799,13 @@
     }
 
     function ac() {
+      const player = accountProfile.handle ? accountProfile : {
+        handle: "@GUEST", colors: [[72,176,156],[118,214,188],
+          [54,128,168],[230,205,92]], anonymous: true,
+      };
       return { fighters: accountProfile.handle ? [{
         handle: accountProfile.handle, colors: accountProfile.colors,
-      }] : [], player: accountProfile, moodHandle: "", mood: "", source: "web-auth" };
+      }] : [], player, moodHandle: "", mood: "", source: "web-auth" };
     }
 
     addEventListener("keydown", (event) => {
