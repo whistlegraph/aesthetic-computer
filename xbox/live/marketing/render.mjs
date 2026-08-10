@@ -107,7 +107,7 @@ export async function renderReel(spec, { log = console.log } = {}) {
   // `cap` is a ceiling, not a target: recording ends when the game says the
   // match is over, and only runs out the clock if something has gone wrong.
   const { id, kind, seed, cap = 240, rounds = 1, width = 1080, height = 1920,
-    theme = "dark", out } = spec;
+    theme = "dark", ovenStyle = "cinematic", out } = spec;
   const started = Date.now();
   rmSync(out, { recursive: true, force: true });
   const frames = join(out, "frames");
@@ -202,8 +202,8 @@ export async function renderReel(spec, { log = console.log } = {}) {
     }, seed32(seed), kind === "self-play");
 
     const address = kind === "replay"
-      ? `${shell.origin}/${spec.round}?social-preview`
-      : `${shell.origin}/?social-preview`;
+      ? `${shell.origin}/${spec.round}?social-preview&replay-oven`
+      : `${shell.origin}/?social-preview&replay-oven`;
     log(`🎬 ${id} · ${kind} · seed "${seed}" · ${width}×${height} · ${rounds} full match(es), cap ${cap}s`);
     log(`   ${address}`);
     await page.goto(address, { waitUntil: "domcontentloaded", timeout: 45000 });
@@ -284,7 +284,8 @@ export async function renderReel(spec, { log = console.log } = {}) {
           `rounds ${shell.demos.length}`);
     });
     await client.send("Page.startScreencast",
-      { format: "jpeg", quality: 92, everyNthFrame: 1, maxWidth: width, maxHeight: height });
+      { format: "jpeg", quality: 100, everyNthFrame: 1,
+        maxWidth: width, maxHeight: height });
 
     // Pad one only ever plays in the modes that have an empty seat. Self-play
     // and replays already carry both fighters.
@@ -363,14 +364,19 @@ export async function renderReel(spec, { log = console.log } = {}) {
     if (audioLeadMs) log("   audio leads video by " + audioLeadMs + "ms - trimming the head");
 
     const base = join(out, "base.mp4");
-    // 60 fps CFR (the capture runs at ~60 and Meta allows 23-60), H.264
-    // High/yuv420p, AAC 128k at 48 kHz, faststart — every one of those is a
-    // line in Meta's Reels spec table, not a preference.
+    // The Replay Oven keeps the delivery master at Meta's 60 fps ceiling.
+    // JPEG 100 source frames plus CRF 14 preserve thin limbs, eyes, trails,
+    // and particles before Instagram performs its own unavoidable encode.
+    const ovenFilter = ovenStyle === "raw" ? null :
+      "eq=contrast=1.035:saturation=1.08:brightness=0.005," +
+      "unsharp=5:5:0.32:3:3:0.12";
     const ffmpeg = spawnSync("ffmpeg", ["-y", "-f", "concat", "-safe", "0",
       "-i", join(out, "frames.txt"),
       ...(haveAudio ? ["-ss", (audioLeadMs / 1000).toFixed(3), "-i", track] : []),
-      "-vsync", "cfr", "-r", "60", "-c:v", "libx264", "-preset", "medium",
-      "-crf", "19", "-pix_fmt", "yuv420p",
+      ...(ovenFilter ? ["-vf", ovenFilter] : []),
+      "-vsync", "cfr", "-r", "60", "-c:v", "libx264", "-preset", "slow",
+      "-crf", "14", "-profile:v", "high", "-level", "4.2",
+      "-pix_fmt", "yuv420p",
       ...(haveAudio
         ? ["-map", "0:v", "-map", "1:a",
           ...(process.platform === "darwin"

@@ -21,18 +21,21 @@ runtime = function acRuntime() {
 };
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 24;
+const buildVersion = 25;
 const floorY = 1800;
 const ceilingY = 0;
 const wallThickness = 80;
 const worldLeft = 0;
-// Spiderdummy owns a lair rather than the compact sparring box. The camera
-// reveals the larger room as the fight moves through it.
-const worldRight = 5000;
+// A long street gives the skateboard room to gather speed between the two
+// quarter-pipe ends. Fighters still spawn close together near the left end;
+// the camera reveals the rest only when play travels there.
+const worldRight = 25000;
 const worldNear = -900;
 const worldFar = 900;
 const terrainAmplitude = 46;
-const terrainSamples = 48;
+// Preserve roughly the same tessellation density as the former 5,000-unit
+// arena so stretching the street does not stretch its floor polygons.
+const terrainSamples = 240;
 let terrainPhase = 0;
 function terrainSeed(value) {
   let hash = 2166136261;
@@ -585,6 +588,7 @@ const players = [
     attackKind: "", attackStartedAt: 0,
     attackUntil: 0, attackHit: false, blocking: false, blockFlash: 0,
     shieldLocked: false, shieldBrokenAt: 0,
+    shieldCrouched: false, shieldAimX: 0, shieldAimY: 0,
     windVx: 0, knockVx: 0, gunAmmo: 0, grenadeAmmo: 0,
     gunAimX: 1, gunAimY: 0, gunMode: "HANDGUN", nextGunShotAt: 0,
     stance: "NEUTRAL",
@@ -612,6 +616,7 @@ const players = [
     attackKind: "", attackStartedAt: 0,
     attackUntil: 0, attackHit: false, blocking: false, blockFlash: 0,
     shieldLocked: false, shieldBrokenAt: 0,
+    shieldCrouched: false, shieldAimX: 0, shieldAimY: 0,
     windVx: 0, knockVx: 0, gunAmmo: 0, grenadeAmmo: 0,
     gunAimX: -1, gunAimY: 0, gunMode: "HANDGUN", nextGunShotAt: 0,
     stance: "NEUTRAL",
@@ -903,6 +908,7 @@ function startReplay(now) {
     startedAt: run.unixMs || 0, startedMonotonicUs: now,
     nameSeed: nameSeedUsed, ballType: matchBallType,
     fighters: players.map((player) => player.name),
+    nations: players.map((player) => player.nation || ""),
     commands: [], events: [], checkpoints: [], rounds: [],
   };
   replayLastCommand = [-1, -1];
@@ -931,7 +937,8 @@ function spectatorState(now, nextRoundId = "") {
     seriesId: "ow-" + seriesName, roundId: "ow-" + matchName,
     previousRoundId: previousRoundName ? "ow-" + previousRoundName : "",
     fighters: players.map((player) => ({
-      name: player.name, color: player.color, x: player.x, y: player.y,
+      name: player.name, nation: player.nation || "", color: player.color,
+      x: player.x, y: player.y,
       z: player.z, vx: player.vx, vy: player.vy, vz: player.vz,
       facing: player.facing, alive: player.alive,
       grounded: player.grounded, ducking: player.ducking,
@@ -2124,7 +2131,8 @@ function roundDemoState(demo, now) {
     const profile = name === "DUMMY" ? npcFighter : name === "BOT" ? botFighter
       : fighterRoster.find((fighter) => fighter.handle === name);
     const vx = value(offset + 3);
-    return { name, color: profile?.color || players[pad].color,
+    return { name, nation: demo.nations?.[pad] || "",
+      color: profile?.color || players[pad].color,
       x: value(offset), y: value(offset + 1), z: value(offset + 2),
       vx, vy: value(offset + 4), vz: 0,
       facing: vx ? Math.sign(vx) : pad ? -1 : 1,
@@ -2154,7 +2162,7 @@ function applyRoundViewerState(state, now, dt = 1 / 60) {
     const player = players[index];
     const previousX = player.x;
     const previousY = player.y;
-    for (const key of ["name", "color", "x", "y", "z", "facing", "alive",
+    for (const key of ["name", "nation", "color", "x", "y", "z", "facing", "alive",
       "grounded", "ducking", "blocking", "score", "roundWins", "removedParts"])
       if (source[key] !== undefined) player[key] = source[key];
     player.vx = source.vx ?? (player.x - previousX) / Math.max(.001, dt);
@@ -2324,6 +2332,9 @@ function resetRound(now, resetMatch = false) {
     player.blocking = false;
     player.blockFlash = 0;
     player.shieldLocked = false;
+    player.shieldCrouched = false;
+    player.shieldAimX = 0;
+    player.shieldAimY = 0;
     player.shieldBrokenAt = 0;
     player.windVx = 0;
     player.knockVx = 0;
@@ -2736,21 +2747,28 @@ function updateResultReactions(now) {
     : players[0].score > players[1].score ? 0 : 1;
   for (const player of players) {
     const down = inputPads[player.pad]?.down || [];
-    const pressed = down.find((button) =>
-      !resultReactionPrevious[player.pad].includes(button));
+    const previous = resultReactionPrevious[player.pad];
+    const laughChord = down.includes("A") && down.includes("B") &&
+      (!previous.includes("A") || !previous.includes("B"));
+    const pressed = laughChord ? "LAUGH" : down.find((button) =>
+      !previous.includes(button));
     if (pressed) {
       const winner = player.pad === winningPad;
       if (pressed === "ArrowLeft") player.facing = -1;
       if (pressed === "ArrowRight") player.facing = 1;
       player.resultReaction = winner
-        ? ({ A: "KICK", B: "PUNCH", X: "POSE", Y: "DANCE",
+        ? ({ LAUGH: "LAUGH", A: "KICK", B: "PUNCH", X: "POSE", Y: "DANCE",
             ArrowLeft: "DASH", ArrowRight: "DASH", ArrowUp: "JUMP",
             ArrowDown: "CROUCH" }[pressed] || "DANCE")
         : ({ A: "CRY", B: "WOE", X: "SULK", Y: "WIGGLE" }[pressed] ||
           "WOE");
       player.resultReactionAt = now;
-      playSine(winner ? 520 : 145, .1);
-      emitSignal("reaction", player.pad, winner ? 1 : -1, 0);
+      if (player.resultReaction === "LAUGH")
+        emitSignal("laugh", player.pad, 1, 0);
+      else {
+        playSine(winner ? 520 : 145, .1);
+        emitSignal("reaction", player.pad, winner ? 1 : -1, 0);
+      }
     }
     resultReactionPrevious[player.pad] = down.slice();
   }
@@ -3327,6 +3345,14 @@ function itemHandTarget(player, now) {
     x: player.x + player.facing * (42 + 52 * pulse),
     y: player.y - 118 - 52 * pulse, z: player.z,
   };
+  if (player.itemAimLocked ||
+      (player.itemAction === "FIRE" && now < player.itemActionUntil)) {
+    const aimX = player.gunAimX || player.facing;
+    const aimY = player.gunAimY || 0;
+    const length = Math.hypot(aimX, aimY) || 1;
+    return { x: player.x + aimX / length * 108,
+      y: player.y - 102 + aimY / length * 92, z: player.z };
+  }
   return { x: player.x + player.facing * 108,
     y: player.y - 115, z: player.z };
 }
@@ -3334,7 +3360,8 @@ function itemHandTarget(player, now) {
 function gunPose(player, now, input = null) {
   let aimX = input?.horizontal || player.facing;
   let aimY = input ? -input.vertical : 0;
-  if (!input && player.itemAction === "FIRE" && now < player.itemActionUntil) {
+  if (!input && (player.itemAimLocked ||
+      (player.itemAction === "FIRE" && now < player.itemActionUntil))) {
     aimX = player.gunAimX || player.facing;
     aimY = player.gunAimY || 0;
   }
@@ -3357,9 +3384,13 @@ function meleeStrike(player, now) {
 }
 
 function shieldGeometry(player) {
+  const aimX = player.shieldAimX || player.facing;
+  const aimY = player.shieldAimY || 0;
+  const length = Math.hypot(aimX, aimY) || 1;
   return {
-    x: player.x + player.facing * shieldForward,
-    y: player.y - 90,
+    x: player.x + aimX / length * shieldForward,
+    y: player.y - (player.shieldCrouched ? 58 : 90) -
+      aimY / length * shieldForward,
     z: player.z,
     radius: shieldRadius,
   };
@@ -4345,12 +4376,19 @@ function updatePlayer(player, pad, dt, now) {
     player.heldPlayer >= 0 || Boolean(heldItem(player));
   const aimLocked = carrying && pad.down.includes("X");
   player.itemAimLocked = aimLocked;
+  if (aimLocked && (rawInput.horizontal || rawInput.vertical)) {
+    player.gunAimX = rawInput.horizontal;
+    player.gunAimY = -rawInput.vertical;
+    if (rawInput.horizontal) player.facing = rawInput.horizontal;
+  }
   // A broken shield stays down until X is let go, so the opening it bought is
   // spent on attacking rather than on re-guarding by reflex.
   if (player.shieldLocked && !pad.down.includes("X")) player.shieldLocked = false;
   player.blocking = !carrying && !headOnly && pad.down.includes("X") &&
     !player.shieldLocked;
   if (player.blocking && !wasBlocking) {
+    player.shieldCrouched = rawInput.vertical < 0 || player.ducking ||
+      player.crouchBlend >= .35;
     player.shieldVx = 0;
     player.vx = player.windVx + player.knockVx;
     player.dashUntil = 0;
@@ -4359,10 +4397,21 @@ function updatePlayer(player, pad, dt, now) {
     player.lastRelease = {};
     shieldBash(player, now);
   }
+  if (player.blocking && rawInput.vertical < 0) player.shieldCrouched = true;
+  if (player.blocking) {
+    player.shieldAimX = rawInput.horizontal;
+    player.shieldAimY = rawInput.vertical;
+    if (rawInput.horizontal) player.facing = rawInput.horizontal;
+  } else {
+    player.shieldCrouched = false;
+    player.shieldAimX = 0;
+    player.shieldAimY = 0;
+  }
   // Guard plants the fighter immediately, but DOWN remains meaningful: a
-  // standing guard can settle into a crouching guard and stays there while held.
+  // standing guard can settle into a crouching guard. Once crouched, the pose
+  // latches until the shield itself drops even if DOWN is released first.
   const input = player.blocking
-    ? { horizontal: 0, vertical: Math.min(0, rawInput.vertical) } : rawInput;
+    ? { horizontal: 0, vertical: player.shieldCrouched ? -1 : 0 } : rawInput;
   const grabHeld = armCount > 0 && !pogo && !hitStunned && !player.blocking &&
     pad.down.includes("A") && pad.down.includes("B");
   if (grabHeld && !player.grabHeld && player.heldBall < 0 &&
@@ -5370,7 +5419,8 @@ function runnerWorldGeometry(player, t) {
     landingRecovery * .45, noLegs ? .45 : 0), 0, 1);
   const height = lerp(180, 108, crouchPose);
   const formDrop = pogo ? 54 : noLegs ? 31 : 0;
-  const lean = player.facing * (idle ? 5 : 3 + speed * 10);
+  const aimPose = player.itemAimLocked ? player.gunAimX || player.facing : 0;
+  const lean = player.facing * (idle ? 5 : 3 + speed * 10) + aimPose * 7;
   const x = player.x;
   const feet = player.y;
   const z = player.z;
@@ -5379,7 +5429,8 @@ function runnerWorldGeometry(player, t) {
   const hipY = noLegs ? feet - 5
     : feet - lerp(58, 40, crouchPose) + formDrop;
   const neckX = x + lean;
-  const neckY = feet - height + 54 - breath + formDrop;
+  const neckY = feet - height + 54 - breath + formDrop +
+    (player.itemAimLocked ? (player.gunAimY || 0) * 8 : 0);
   const attackPulse = meleePulse(player, poseNow);
   const head = headOnly
     ? { x, y: feet - 22, z, radius: 22 }
@@ -6582,7 +6633,7 @@ function drawFace(player, head, color, t, now = runtime().monotonicUs) {
       stroke(faceX + offset + eyeWidth, eyeY - eyeWidth,
         faceX + offset - eyeWidth, eyeY + eyeWidth, lineWidth);
     }
-  } else if (player.blocking || blink) {
+  } else if (blink) {
     stroke(faceX - eyeGap - eyeWidth, eyeY, faceX - eyeGap + eyeWidth,
       eyeY, lineWidth);
     stroke(faceX + eyeGap - eyeWidth, eyeY, faceX + eyeGap + eyeWidth,
@@ -6641,7 +6692,20 @@ function drawFace(player, head, color, t, now = runtime().monotonicUs) {
         Math.max(1.5, lineWidth * .72), tear);
   }
   const mouthY = head.y + r * .3;
-  if (celebrating || victoryAmount > 0) {
+  if (player.resultReaction === "LAUGH") {
+    const age = Math.max(0, (now - player.resultReactionAt) / 1000000);
+    const open = .35 + Math.abs(Math.sin(age * 18)) * .65;
+    filledRing(faceX + direction * r * .08, mouthY,
+      r * (.12 + open * .1), r * .045, color);
+    for (let index = 0; index < 3; index++) {
+      const noteAge = (age * .72 + index * .27) % 1;
+      const note = index % 2 ? "♫" : "♪";
+      systemWrite(note,
+        faceX + direction * r * (.34 + noteAge * 1.25) + index * direction * 3,
+        mouthY - r * (.25 + noteAge * 1.75),
+        Math.max(8, r * (.55 - noteAge * .16)), ...color);
+    }
+  } else if (celebrating || victoryAmount > 0) {
     const grin = r * (.09 + victoryAmount * .2);
     const width = r * (.23 + victoryAmount * .12);
     stroke(faceX - width, mouthY - grin * .18, faceX,
@@ -7026,6 +7090,13 @@ function visibleHandle(player) {
   return player.name.toLowerCase();
 }
 
+function nationFlag(country) {
+  const code = String(country || "").toUpperCase();
+  if (!/^[A-Z]{2}$/.test(code)) return "";
+  return [...code].map((letter) => String.fromCodePoint(
+    0x1f1e6 + letter.charCodeAt(0) - 65)).join("");
+}
+
 function playerHandleLayout(player, side) {
   const safe = hudSafeRect();
   const touch = typeof capabilities === "function" &&
@@ -7060,6 +7131,12 @@ function drawPlayerHandle(player, t, side) {
   };
   drawGlyphs(3, 4, player.handleColors?.map(runShadow), runShadow(player.color));
   drawGlyphs(0, 0, player.handleColors, player.color);
+  const flag = nationFlag(player.nation);
+  if (flag) {
+    const flagSize = Math.round(size * .92);
+    const flagX = side === 0 ? x : x + Math.max(0, handleWidth(handle, size));
+    systemWrite(flag, flagX, y - flagSize * 1.05, flagSize, 255, 255, 255);
+  }
 }
 
 function playerStatLines(player) {
@@ -8479,8 +8556,16 @@ function gamePaint() {
   const t = (run.monotonicUs - startedAt) / 1000000;
   if (typeof ac === "function") acFeed = ac();
   syncSignedInFighter();
+  const localNation = typeof capabilities === "function"
+    ? String(capabilities().country || "").toUpperCase() : "";
+  if (/^[A-Z]{2}$/.test(localNation)) {
+    players[0].nation = localNation;
+    if (!players[1].npc) players[1].nation = localNation;
+  }
   for (const player of players) player.handleColors = fighterProfile(player.name).colors;
   visualTheme = displayTheme();
+  const replayOven = typeof capabilities === "function" &&
+    capabilities().replayOven === true;
   triangleDepth = -1.4;
   const skyDay = mixColor([176, 215, 245], [255, 160, 112],
     visualTheme.sunset * .7);
@@ -8548,7 +8633,7 @@ function gamePaint() {
   if (WIND_FLAG && shellMode === "GAME") drawWindFlag(t, windInk);
   // The top row is the round's: a clock, and who is watching. The wordmark
   // screen carries its own clock, so this one waits for start.
-  if (shellMode === "GAME" && gameplayStarted) {
+  if (!replayOven && shellMode === "GAME" && gameplayStarted) {
     const timedRound = roundIsTimed();
     const remainingSeconds = roundResult || !timedRound ? 0 : Math.max(0,
       Math.ceil((roundDurationUs - roundElapsedUs) / 1000000));
@@ -8589,7 +8674,8 @@ function gamePaint() {
   for (const pickup of gunPickups) drawGunPickup(pickup, t);
   for (const pickup of grenadePickups) drawGrenadePickup(pickup, t);
   const introAge = run.monotonicUs - roundStartedAt;
-  const showRunnerLabels = Boolean(roundResult) || introAge >= introDurationUs;
+  const showRunnerLabels = !replayOven &&
+    (Boolean(roundResult) || introAge >= introDurationUs);
   const viewDirection = normalize3({
     x: cameraDoll.target.x - cameraDoll.position.x,
     y: cameraDoll.target.y - cameraDoll.position.y,
@@ -8641,7 +8727,7 @@ function gamePaint() {
   const counting = !roundResult && introAge < introDurationUs;
   // The matchup card announces two names in the middle of the screen, which
   // is exactly where the wordmark sits. On the entry fight the word wins.
-  if (counting && shellMode === "GAME")
+  if (!replayOven && counting && shellMode === "GAME")
     drawFightIntro(introAge / 1000000, titleInk, statusShadow);
   // The keys belong wherever a newcomer is looking: under the wordmark on the
   // way in, and again while a round counts itself off. Self-play has no
@@ -8649,9 +8735,9 @@ function gamePaint() {
   // The legend is the stable key for the score written beneath it. Keep it
   // present throughout every player-controlled screen; only unattended bot
   // self-play and marketing reels have no learner to serve.
-  if (!selfPlay) drawControlLegend(titleInk);
+  if (!replayOven && !selfPlay) drawControlLegend(titleInk);
   const resultUiReady = cinematicAge < 0 || cinematicAge >= 1.1;
-  if (roundResult && resultUiReady) {
+  if (!replayOven && roundResult && resultUiReady) {
     if (INSTANT_REPLAY && instantReplay) {
       const frame = Math.min(instantReplay.frames.length,
         Math.floor(instantReplay.cursor) + 1);
@@ -8687,7 +8773,7 @@ function gamePaint() {
   }
   // Nameplates and stats wait for the wordmark to lift; the entry frame is
   // the word, the keys, and the two fighters, and nothing else.
-  if (shellMode === "GAME" && ((roundResult && resultUiReady) ||
+  if (!replayOven && shellMode === "GAME" && ((roundResult && resultUiReady) ||
       (!roundResult && introAge >= introDurationUs))) {
     const hudPlayers = spatialHudPlayers();
     for (let side = 0; side < hudPlayers.length; side++) {
@@ -8698,7 +8784,7 @@ function gamePaint() {
       drawCommandStream(player, side);
     }
   }
-  drawDebugPerformance(titleInk);
+  if (!replayOven) drawDebugPerformance(titleInk);
   drawDeathFlash();
   if (shellMode === "MENU") {
     const transitionAge = titleTransitionAt !== null
@@ -8706,8 +8792,10 @@ function gamePaint() {
     drawTitleScreen(t, menuInk, transitionAge);
     if (transitionAge >= 0) return;
   }
-  drawSpectatorQr(titleInk);
-  drawTouchControls();
+  if (!replayOven) {
+    drawSpectatorQr(titleInk);
+    drawTouchControls();
+  }
 }
 
 function boot() {

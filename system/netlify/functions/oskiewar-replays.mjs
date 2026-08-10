@@ -10,6 +10,11 @@ import {
   oskiewarReplayProperties,
 } from "../../public/aesthetic.computer/lib/oskiewar-analytics.mjs";
 import { createPostHogEventCapture } from "../../../shared/posthog-event-capture.mjs";
+import {
+  countryFromHeaders,
+  normalizeCountry,
+  trustedFighterNations,
+} from "../../backend/oskiewar-country.mjs";
 
 const COLLECTION = "oskiewar-replays";
 const MAX_BYTES = 524288;
@@ -58,6 +63,13 @@ export function validateDemo(value) {
   if (!Array.isArray(value.fighters) || value.fighters.length !== 2 ||
       value.fighters.some((fighter) => typeof fighter !== "string" ||
         !/^@?[A-Z0-9_-]{1,24}$/i.test(fighter))) return "Invalid fighters";
+  // Optional for compatibility with every demo recorded before nations were
+  // introduced. The server replaces this field at write time, but validating
+  // its shape keeps the version-1 document contract bounded.
+  if (value.nations !== undefined &&
+      (!Array.isArray(value.nations) || value.nations.length !== 2 ||
+       value.nations.some((country) => country !== null &&
+         normalizeCountry(country) === null))) return "Invalid nations";
   if (value.winner !== null && value.winner !== undefined &&
       !value.fighters.includes(value.winner)) return "Invalid winner";
   if (!Array.isArray(value.finalRoundWins) || value.finalRoundWins.length !== 2 ||
@@ -97,6 +109,17 @@ function publicReplay(document) {
   return { ...safe, id: document._id, _id: undefined };
 }
 
+export function normalizeNationRows(rows = [], matchesPlayed = 0) {
+  const nations = rows
+    .map((row) => ({ country: normalizeCountry(row?._id),
+      games: Number(row?.games) || 0 }))
+    .filter((row) => row.country && row.games > 0)
+    .sort((a, b) => b.games - a.games || a.country.localeCompare(b.country));
+  const knownGames = nations.reduce((total, row) => total + row.games, 0);
+  return { matchesPlayed, knownGames,
+    unknownGames: Math.max(0, matchesPlayed - knownGames), nations };
+}
+
 export function captureStoredReplay(
   demo,
   surface,
@@ -118,6 +141,20 @@ export async function handler(event) {
 
     if (event.httpMethod === "GET") {
       const params = event.queryStringParameters || {};
+      if (params.stats === "nations") {
+        const [matchesPlayed, rows] = await Promise.all([
+          collection.countDocuments({}),
+          collection.aggregate([
+            { $match: { country: { $type: "string" } } },
+            { $group: { _id: "$country", games: { $sum: 1 } } },
+            { $sort: { games: -1, _id: 1 } },
+          ]).toArray(),
+        ]);
+        await database.disconnect();
+        return respond(200, normalizeNationRows(rows, matchesPlayed), {
+          "Cache-Control": "public, max-age=60",
+        });
+      }
       if (params.id) {
         const replay = await collection.findOne({ _id: params.id });
         await database.disconnect();
@@ -180,9 +217,18 @@ export async function handler(event) {
       return respond(429, { error: "Replay rate limit reached" });
     }
     const recordedAt = new Date();
+    const country = countryFromHeaders(event.headers);
+    const nations = trustedFighterNations(demo.fighters, country);
+    // Country is server-owned. Drop any body value so a client cannot choose
+    // its flag or poison the aggregate.
+    const {
+      country: _untrustedCountry,
+      nations: _untrustedNations,
+      ...safeDemo
+    } = demo;
     const result = await collection.updateOne({ _id: demo.matchId }, {
-      $setOnInsert: { _id: demo.matchId, ...demo, recordedAt,
-        sourceDigest: digest },
+      $setOnInsert: { _id: demo.matchId, ...safeDemo, recordedAt,
+        nations, ...(country ? { country } : {}), sourceDigest: digest },
     }, { upsert: true });
     await database.disconnect();
     if (result.upsertedCount) {

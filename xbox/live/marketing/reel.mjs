@@ -17,7 +17,7 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { pickSource, seed32 } from "./source.mjs";
-import { renderReel } from "./render.mjs";
+import { bakeReplay } from "./replay-oven.mjs";
 import { cover, inspect, thumbnail, writeSidecar } from "./dress.mjs";
 import { verifySync } from "./verify.mjs";
 import { appendLedger, dryRun, publishLive, queueDir, readLedger, reveal,
@@ -76,7 +76,7 @@ async function buildSlot(day, index) {
   const dir = queueDir(staging, spec);
   const work = join(dir, "work");
   mkdirSync(work, { recursive: true });
-  const render = await renderReel({ ...spec, out: work }, { log });
+  const render = await bakeReplay({ ...spec, out: work }, { log });
 
   // The capture *is* the reel — nothing is drawn on it and nothing rescales
   // it, so it moves into place rather than being encoded a second time.

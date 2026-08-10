@@ -6,6 +6,10 @@ today — the slot number decides, and the operator's only job is to watch three
 videos and say yes.
 
 Code: `xbox/live/marketing/`. Staged output: `tmp/oskiewar-reels/queue/`.
+Every Reel passes through the Oskiewar Replay Oven
+(`marketing/replay-oven.mjs`): deterministic demo playback, no HUD, 60 fps,
+JPEG-100 source frames, a CRF-14 H.264 master, and offline-only color/detail
+passes. Future ray/depth treatments belong at that seam, never in live play.
 Account ledger row: `social/accounts.json` → `oskiewar-ig`.
 
 **Nothing posts to Instagram without `--live` and a token in the environment.**

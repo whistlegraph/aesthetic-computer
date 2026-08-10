@@ -9,6 +9,10 @@ import { decodeDump, dumpRows } from
 
 const source = await readFile(new URL("../oskiewar.js", import.meta.url), "utf8");
 const webShell = await readFile(new URL("../mac-test.html", import.meta.url), "utf8");
+const reelRenderer = await readFile(new URL(
+  "../marketing/render.mjs", import.meta.url), "utf8");
+const replayOven = await readFile(new URL(
+  "../marketing/replay-oven.mjs", import.meta.url), "utf8");
 const frameDriverSource = await readFile(new URL("../frame-driver.mjs", import.meta.url));
 const socialRenderer = await readFile(new URL(
   "../render-social-preview.mjs", import.meta.url));
@@ -4228,6 +4232,55 @@ test("double jumps leave a brief upward motion-line burst", () => {
 test("the Oskiewar wordmark remains visible with start", () => {
   assert.match(source, /const title = "oskiewar";/);
   assert.match(source, /const prompt = "start";/);
+});
+
+test("the Replay Oven captures HUD-free 60 fps high-quality masters", () => {
+  assert.match(webShell, /replayOven/);
+  assert.match(source, /if \(!replayOven\) drawDebugPerformance/);
+  assert.match(source, /if \(!replayOven && !selfPlay\) drawControlLegend/);
+  assert.match(reelRenderer, /quality: 100/);
+  assert.match(reelRenderer, /"-r", "60"/);
+  assert.match(reelRenderer, /"-crf", "14"/);
+  assert.match(replayOven, /hud: false/);
+});
+
+test("the long street preserves terrain density and quarter-pipe ends", () => {
+  assert.match(source, /const worldRight = 25000/);
+  assert.match(source, /const terrainSamples = 240/);
+  assert.match(source, /const transitionRadius = 720/);
+});
+
+test("nation flags are optional HUD identity and replay metadata", () => {
+  assert.match(webShell, /\/api\/oskiewar-country/);
+  assert.match(source, /nations: players\.map/);
+  assert.match(source, /function nationFlag\(country\)/);
+  assert.match(source, /systemWrite\(flag/);
+});
+
+test("crouched shield aim latches the pose and keeps directional eyes open", () => {
+  assert.match(source, /player\.shieldCrouched = rawInput\.vertical < 0/);
+  assert.match(source, /vertical: player\.shieldCrouched \? -1 : 0/);
+  assert.match(source, /player\.shieldAimX = rawInput\.horizontal/);
+  assert.doesNotMatch(source, /player\.blocking \|\| blink/);
+});
+
+test("held-item shield aim previews the same eight-way body and muzzle vector", () => {
+  assert.match(source, /player\.gunAimX = rawInput\.horizontal/);
+  assert.match(source, /player\.gunAimY = -rawInput\.vertical/);
+  assert.match(source, /player\.itemAimLocked \? player\.gunAimX/);
+  assert.match(source, /if \(player\.itemAimLocked \|\|/);
+});
+
+test("a primary web click maps to use item after the title", () => {
+  assert.match(webShell, /event\.button === 0/);
+  assert.match(webShell, /touchPointers\.set\(event\.pointerId, \{ key: "Y" \}\)/);
+});
+
+test("a victory laugh opens the mouth and emits floating notes", () => {
+  assert.match(source, /laughChord/);
+  assert.match(source, /emitSignal\("laugh"/);
+  assert.match(source, /const note = index % 2 \? "♫" : "♪"/);
+  assert.match(source, /Math\.sin\(age \* 18\)/);
 });
 
 test("anonymous web players can log in without receiving a fake handle", () => {

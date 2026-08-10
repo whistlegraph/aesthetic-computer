@@ -18,6 +18,11 @@ const demo = {
 
 test("accepts a bounded versioned demo stream", () => {
   assert.equal(validateDemo(demo), null);
+  assert.equal(validateDemo({ ...demo, nations: ["US", null] }), null);
+  assert.equal(validateDemo({ ...demo, nations: ["XX", null] }),
+    "Invalid nations");
+  assert.equal(validateDemo({ ...demo, nations: ["US"] }),
+    "Invalid nations");
   assert.equal(validateDemo({ ...demo, matchName: "shuppy652",
     matchId: "ow-shuppy652" }), null);
 });

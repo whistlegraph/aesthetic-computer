@@ -77,6 +77,7 @@ const ROUTES = Object.freeze({
   balled: "balled",
   ko: "ko",
   killcam: "killcam",
+  laugh: "atonal-laugh",
 });
 
 const DRUM_ROUTES = Object.freeze({
@@ -368,6 +369,14 @@ export function createOskiewarSfx(options = {}) {
         bell(cue, .78, 0, POP_TONES.marimbaba[1] * 2);
         bell(cue, .72, .11, POP_TONES.marimbaba[2] * 2);
         bell(cue, .8, .22, POP_TONES.helpabeach[3] * 2);
+        break;
+      case "atonal-laugh":
+        // Three uneven, detuned syllables: recognizably a chuckle but never a
+        // sampled human voice or a tonal little melody.
+        bubble(cue, .58, 0, 173, 1.42);
+        bubble(cue, .68, .085, 241, .71);
+        bubble(cue, .62, .19, 137, 1.83);
+        hat(cue, .18, .11);
         break;
       case "step": block(cue, .15, 0); break;
       case "jump": bubble(cue, .68, 0, 220, 3.2); break;

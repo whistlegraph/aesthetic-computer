@@ -584,8 +584,10 @@
     // because `capabilities` hands it out and is called before the reporting
     // helpers further down have run.
     let dummyPops = null;
+    let localCountry = "";
     const popsEndpoint = "/api/oskiewar-pops";
     const socialPreview = new URLSearchParams(location.search).has("social-preview");
+    const replayOven = new URLSearchParams(location.search).has("replay-oven");
 
     function capabilities() {
       const mac = navigator.userAgent.includes("Mac");
@@ -594,6 +596,11 @@
         inputFamily: touchEnabled ? "touch" : hasGamepad ? "xbox" : "keyboard",
         colorScheme: matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark",
         socialPreview: new URLSearchParams(location.search).has("social-preview"),
+        // Offline replay burns ask the game for world pixels only. This is a
+        // render capability, never a player preference, so HUD-free footage
+        // cannot accidentally leak into the live game.
+        replayOven,
+        country: localCountry,
         // Scoring sessions are anonymous dummy play; the seam auth attaches to
         // can read this to keep opponents and accounts out of the way. The
         // pulse rides along so the HUD's status lamp can answer a real send
@@ -605,6 +612,17 @@
         pops: dummyPops,
         productName: mac ? "MACOS" : "WEB",
         version: "CROSS-PLATFORM", graphics: "CANVAS2D", audio: "WEB AUDIO" };
+    }
+
+    async function readLocalCountry() {
+      try {
+        const response = await fetch("/api/oskiewar-country", {
+          cache: "no-store", credentials: "omit",
+        });
+        if (!response.ok) return;
+        const value = String((await response.json())?.country || "").toUpperCase();
+        if (/^[A-Z]{2}$/.test(value)) localCountry = value;
+      } catch {}
     }
 
     // Chrome, Firefox and Safari all keep a pad out of `getGamepads` until
@@ -879,6 +897,15 @@
         event.preventDefault();
         return;
       }
+      // A primary mouse/trackpad click is the web equivalent of Y / Use Item.
+      // Title interaction returns above, so starting the game never spends or
+      // fires an item on the same click.
+      if (!touchEnabled && event.button === 0 &&
+          globalThis.__oskiewarTouch?.screen === "game") {
+        canvas.setPointerCapture?.(event.pointerId);
+        touchPointers.set(event.pointerId, { key: "Y" });
+        keys[0].add("Y");
+      }
       Object.assign(globalThis.__oskiewarTouch.pointer, point, { active: true });
       selectTaps.push(point);
       ensureAudio();
@@ -1019,6 +1046,7 @@
       // only has to be roughly true, and the local bump already covers the
       // pop you just earned.
       readDummyPops();
+      if (!socialPreview) readLocalCountry();
       if (!socialPreview) setInterval(readDummyPops, 120000);
       let selectionHoverSoundKey = "";
       let previousPieceScreen = "title";
