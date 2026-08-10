@@ -25,9 +25,11 @@ const floorY = 1800;
 const ceilingY = 0;
 const wallThickness = 80;
 const worldLeft = 0;
-const worldRight = 2000;
-const worldNear = -450;
-const worldFar = 450;
+// Spiderdummy owns a lair rather than the compact sparring box. The camera
+// reveals the larger room as the fight moves through it.
+const worldRight = 5000;
+const worldNear = -900;
+const worldFar = 900;
 const terrainAmplitude = 46;
 const terrainSamples = 48;
 let terrainPhase = 0;
@@ -47,8 +49,8 @@ function terrainFloorAt(x) {
   // Booster pads live at the bottoms of two smooth bowls. The shoulders are
   // wide enough to walk down, but a fighter crossing the edge naturally falls
   // into the launch lane instead of stepping on a sticker on flat ground.
-  const pit = [320, 1680].reduce((depth, center) => {
-    const distance = (x - center) / 175;
+  const pit = boosterXs.reduce((depth, center) => {
+    const distance = (x - center) / 260;
     return depth + Math.exp(-distance * distance * 1.7) * 190;
   }, 0);
   return floorY - (broad + detail) * terrainAmplitude * edge + pit;
@@ -102,7 +104,7 @@ const poundFullFall = 900;
 // taps still grow it, but never into a room-clearing shortcut.
 const poundMinRadius = 165;
 const poundMaxRadius = 420;
-const boosterXs = [320, 1680];
+const boosterXs = [700, 4300];
 const boosterRadius = 115;
 const boosterVelocity = 6500;
 const replayTickUs = 16667;
@@ -563,7 +565,7 @@ function displayTheme() {
 }
 const players = [
   { name: "@JEFFREY", rosterIndex: 0, handleColors: fighterRoster[0].colors,
-    pad: 0, spawnX: 800, x: 800, y: floorY, z: 0,
+    pad: 0, spawnX: 1500, x: 1500, y: floorY, z: 0,
     vx: 0, vy: 0, vz: 0, facing: 1,
     grounded: true, ducking: false, previous: [], lastButton: "NONE",
     lastButtonAt: 0, color: [190, 42, 58], hit: 0,
@@ -589,7 +591,7 @@ const players = [
     crouchJump: false, attackMomentum: 1 },
   { name: "@OSKIE", rosterIndex: 2, handleColors: fighterRoster[2].colors,
     npc: false, bot: false,
-    pad: 1, spawnX: 1200, x: 1200, y: floorY, z: 0,
+    pad: 1, spawnX: 3500, x: 3500, y: floorY, z: 0,
     vx: 0, vy: 0, vz: 0, facing: -1,
     grounded: true, ducking: false, previous: [], lastButton: "NONE",
     lastButtonAt: 0, color: [38, 82, 176], hit: 0,
@@ -622,13 +624,13 @@ const grenades = [];
 // ledge is gone they sit just above the floor instead of floating at its old
 // invisible height.
 const gunPickups = [
-  { kind: "HANDGUN", amount: 6, x: 850, startsActive: true,
+  { kind: "HANDGUN", amount: 6, x: 2050, startsActive: true,
     y: PLATFORM ? platformY - 70 : floorY - 35, z: 0 },
-  { kind: "RUBBER SMG", amount: 18, x: 1000, startsActive: true,
+  { kind: "RUBBER SMG", amount: 18, x: 2500, startsActive: true,
     airborne: true, y: ceilingY + 330, z: 0 },
 ];
 const grenadePickups = [
-  { amount: 2, x: 1800, y: PLATFORM ? platformY - 70 : floorY - 35, z: 0 },
+  { amount: 2, x: 2950, y: PLATFORM ? platformY - 70 : floorY - 35, z: 0 },
 ];
 // Two trees grow out of the side walls, one per side, and they are the only
 // thing in the round that gives a body back. A fighter who has been taken
@@ -721,10 +723,8 @@ let titleAttractMode = "still";
 let trainingOpponent = "";
 function trainingOpponentKind() {
   const requested = String(globalThis.__oskiewarOpponent || "").toLowerCase();
-  if (requested === "dummy" || requested === "spiderdummy") return requested;
-  if (!trainingOpponent) trainingOpponent =
-    hashUnit("training-opponent:" + String(runtime().unixMs || Date.now())) < .5
-      ? "dummy" : "spiderdummy";
+  if (requested === "spiderdummy") return requested;
+  if (!trainingOpponent) trainingOpponent = "spiderdummy";
   return trainingOpponent;
 }
 const selectionReady = [false, false];
@@ -1713,7 +1713,7 @@ function beginTraining(now) {
     applyRoster(players[0], -1);
     players[1].npc = true;
     players[1].bot = false;
-    players[1].spiderDummy = false;
+    players[1].spiderDummy = true;
     applyRoster(players[1], -1);
   }
 }
@@ -1807,7 +1807,7 @@ function enterGame(now) {
     // opens the anonymous front door: one player versus an inert dummy.
     players[1].npc = true;
     players[1].bot = false;
-    players[1].spiderDummy = false;
+    players[1].spiderDummy = true;
     applyRoster(players[1], -1);
   }
   shellMode = "GAME";
@@ -2305,6 +2305,7 @@ function resetRound(now, resetMatch = false) {
     player.gunAimY = 0;
     player.gunMode = "HANDGUN";
     player.nextGunShotAt = 0;
+    player.nextSpitAt = 0;
     player.stance = "NEUTRAL";
     player.itemAction = "";
     player.itemActionStartedAt = 0;
@@ -2764,6 +2765,27 @@ function fireGun(player, input) {
   emitSignal("bullet", player.pad, pose.dx, pose.dy);
 }
 
+function spit(player, heavy = false) {
+  const now = runtime().monotonicUs;
+  if (now < (player.nextSpitAt || 0)) return;
+  const direction = player.facing || 1;
+  bullets.push({
+    x: player.x + direction * 34, y: player.y - 22, z: player.z,
+    previousX: player.x + direction * 34, previousY: player.y - 22,
+    vx: direction * (heavy ? 3100 : 3900), vy: heavy ? -170 : -45,
+    owner: player.pad, life: 1, spit: true, heavy,
+    safeUntil: now + 90000,
+  });
+  while (bullets.length > 24) bullets.shift();
+  player.nextSpitAt = now + (heavy ? 520000 : 260000);
+  player.lastButton = heavy ? "HEAVY SPIT" : "SPIT";
+  player.lastButtonAt = now;
+  player.pendingMoveLabel = player.lastButton;
+  playSine(heavy ? 118 : 190, heavy ? .16 : .1);
+  playDrum(heavy ? "kick" : "hat", heavy ? .82 : .55, panPlayer(player));
+  emitSignal("spit", player.pad, heavy ? 2 : 1, direction);
+}
+
 function throwGrenade(player) {
   const now = runtime().monotonicUs;
   grenades.push({ x: player.x + player.facing * 150,
@@ -2956,6 +2978,25 @@ function updateBullets(dt, now) {
   const poseTime = (now - startedAt) / 1000000;
   for (const bullet of bullets) {
     if (bullet.life <= 0) continue;
+    const shot = { x1: bullet.previousX ?? bullet.x,
+      y1: bullet.previousY ?? bullet.y, z1: bullet.z,
+      x2: bullet.x, y2: bullet.y, z2: bullet.z, width: 48 };
+    for (const fragment of detachedParts) {
+      const contact = segmentSegmentClosest(shot, fragment);
+      if (contact.distance > (shot.width + fragment.width) / 2) continue;
+      const impulse = bullet.heavy ? 1500 : bullet.spit ? 900 : 1200;
+      fragment.vx += Math.sign(bullet.vx || 1) * impulse;
+      fragment.vy -= bullet.heavy ? 520 : 300;
+      fragment.owner = bullet.owner;
+      fragment.hitAfter = now + 120000;
+      bullet.life = 0;
+      impacts.push({ x: contact.secondPoint.x, y: contact.secondPoint.y,
+        z: contact.secondPoint.z, life: .18, duration: .18,
+        death: false, explosion: false });
+      playDrum("hat", .72, panAt(fragment.x1, fragment.z1));
+      break;
+    }
+    if (bullet.life <= 0) continue;
     const targets = [players[bullet.owner === 0 ? 1 : 0], players[bullet.owner]];
     for (const target of targets) {
     if (!target?.alive || (target.pad === bullet.owner && now < bullet.safeUntil))
@@ -3001,7 +3042,9 @@ function updateBullets(dt, now) {
         killPlayer(target, bullet.owner, now, "SHOT");
       else {
         applyBodyHit(target, segmentIndex,
-          bullet.x - bullet.vx, bullet.owner, now, 1180, 125);
+          bullet.x - bullet.vx, bullet.owner, now,
+          bullet.heavy ? 1680 : bullet.spit ? 920 : 1180,
+          bullet.heavy ? 260 : bullet.spit ? 90 : 125);
         playDrum("block", .9, panPlayer(target));
       }
       break;
@@ -3688,6 +3731,31 @@ function resolveMelee(now) {
   const contacts = [];
   for (const attacker of players) {
     if (!attacker.alive || attacker.attackHit || now >= attacker.attackUntil) continue;
+    const attackingLimbs = runnerWorldGeometry(attacker, poseTime).segments
+      .filter((segment) => segment.role?.startsWith("attack-"));
+    for (const fragment of detachedParts) {
+      let closest = null;
+      for (const limb of attackingLimbs) {
+        const candidate = segmentSegmentClosest(limb, fragment);
+        const separation = candidate.distance - (limb.width + fragment.width) / 2;
+        if (!closest || separation < closest.separation)
+          closest = { ...candidate, separation };
+      }
+      if (!closest || closest.separation > 3) continue;
+      const spec = meleeSpecs[attacker.attackKind] || meleeSpecs.PUNCH;
+      fragment.vx += attacker.facing * spec.force * .8;
+      fragment.vy -= Math.max(220, spec.lift);
+      fragment.owner = attacker.pad;
+      fragment.hitAfter = now + 120000;
+      attacker.attackHit = true;
+      impacts.push({ x: closest.secondPoint.x, y: closest.secondPoint.y,
+        z: closest.secondPoint.z, life: .18, duration: .18,
+        death: false, explosion: false });
+      playDrum("clap", .82, panPlayer(attacker));
+      emitSignal("part-hit", attacker.pad, -1, spec.force);
+      break;
+    }
+    if (attacker.attackHit) continue;
     const target = players[attacker.pad === 0 ? 1 : 0];
     if (!target.alive) continue;
     const contact = meleeLimbContact(attacker, target, poseTime);
@@ -4364,6 +4432,10 @@ function updatePlayer(player, pad, dt, now) {
         startMelee(player, "KICK", now);
       else if (acting && !grabHeld && button === "B")
         startMelee(player, itemMelee[heldItem(player)] || "PUNCH", now);
+      else if (headOnly && !hitStunned && button === "A")
+        spit(player, false);
+      else if (headOnly && !hitStunned && button === "B")
+        spit(player, true);
       else if ((acting || (headOnly && !hitStunned)) &&
           ["Y", "LeftShoulder", "RightShoulder"].includes(button)) {
         const item = heldItem(player);
@@ -5845,7 +5917,10 @@ function updateDetachedParts(dt) {
         break;
       }
     }
-    fragment.life -= dt;
+    // Dismembered anatomy remains a physical arena object. It can settle,
+    // be picked up again, thrown, and strike either fighter for the rest of
+    // the round rather than evaporating on a cosmetic timer.
+    fragment.life = Math.max(fragment.life, 1);
   }
   for (let index = detachedParts.length - 1; index >= 0; index--) {
     if (detachedParts[index].life > 0 || detachedParts[index].heldBy >= 0) continue;
@@ -6825,17 +6900,27 @@ function drawCommandStream(player, side) {
     else claimed.add(entry.label);
   }
   if (!entries.length) return;
-  // One reading line: the newest command owns the left edge and history trails
-  // rightward into progressively quieter ink.
+  // Commands emerge immediately to the right of the handle. Eight glyphs form
+  // a phrase; completed phrases rise as a unit while a fresh phrase takes the
+  // handle lane beneath it.
   entries.reverse();
   const size = Math.max(15, Math.round(hudTypeSize * .72));
   const lineEntries = entries.slice(0, commandStreamDepth);
-  const width = lineEntries.reduce((sum, entry, index) => sum +
-      handleWidth(entry.text, size) + (index ? Math.round(size * .34) : 0), 0);
   const handle = playerHandleLayout(player, side);
-  let cursor = side === 0 ? handle.x : handle.x + handle.width - width;
-  const y = handle.y - statStackHeight() - size * 2 - 16;
-  for (const entry of lineEntries) {
+  const gap = Math.round(size * .34);
+  const rows = [];
+  for (let index = 0; index < lineEntries.length; index += 8)
+    rows.push(lineEntries.slice(index, index + 8));
+  const safe = hudSafeRect();
+  for (let row = 0; row < rows.length; row++) {
+    const rowEntries = rows[row];
+    const width = rowEntries.reduce((sum, entry, index) => sum +
+      handleWidth(entry.text, size) + (index ? gap : 0), 0);
+    let cursor = Math.min(handle.x + handle.width + 12, safe.right - width);
+    const newestAt = Math.max(...rowEntries.map((entry) => entry.at));
+    const rise = clamp((now - newestAt) / 900000, 0, 1) * size * .8;
+    const y = handle.y - statStackHeight() - row * (size + 7) - rise;
+    for (const entry of rowEntries) {
       const quiet = mixColor([104, 114, 136], [82, 90, 108], visualTheme.light);
       const live = entry.held ? player.color : quiet;
       const glyphInk = entry.fade >= 1 ? live
@@ -6844,7 +6929,8 @@ function drawCommandStream(player, side) {
       typeWrite(entry.text, cursor + 2, y + 3, size,
         ...contrastShadow(glyphInk));
       typeWrite(entry.text, cursor, y, size, ...glyphInk);
-      cursor += handleWidth(entry.text, size) + Math.round(size * .34);
+      cursor += handleWidth(entry.text, size) + gap;
+    }
   }
 }
 
@@ -7321,9 +7407,11 @@ function drawBullet(bullet) {
   const blink = Math.floor(runtime().monotonicUs / 65000 + bullet.owner) % 2;
   const core = blink
     ? [255, 255, 248]
+    : bullet.spit ? bullet.heavy ? [255, 92, 174] : [118, 255, 196]
     : bullet.rubber ? [255, 226, 58] : [255, 178, 76];
   const trail = blink
     ? [255, 244, 178]
+    : bullet.spit ? bullet.heavy ? [182, 48, 116] : [58, 190, 132]
     : bullet.rubber ? [214, 178, 42] : [224, 116, 62];
   filledCapsule(previous.x, previous.y, point.x, point.y,
     Math.max(2, (bullet.rubber ? 4 : 3) * cameraScale()), trail);
