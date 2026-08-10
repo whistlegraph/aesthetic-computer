@@ -732,7 +732,7 @@ let trainingOpponent = "";
 function trainingOpponentKind() {
   const requested = String(globalThis.__oskiewarOpponent || "").toLowerCase();
   if (requested === "spiderdummy") return requested;
-  if (!trainingOpponent) trainingOpponent = "spiderdummy";
+  if (!trainingOpponent) trainingOpponent = "dummy";
   return trainingOpponent;
 }
 const selectionReady = [false, false];
@@ -1730,7 +1730,7 @@ function beginTraining(now) {
     applyRoster(players[0], -1);
     players[1].npc = true;
     players[1].bot = false;
-    players[1].spiderDummy = true;
+    players[1].spiderDummy = false;
     applyRoster(players[1], -1);
   }
 }
@@ -1824,7 +1824,7 @@ function enterGame(now) {
     // opens the anonymous front door: one player versus an inert dummy.
     players[1].npc = true;
     players[1].bot = false;
-    players[1].spiderDummy = true;
+    players[1].spiderDummy = false;
     applyRoster(players[1], -1);
   }
   shellMode = "GAME";
@@ -5126,6 +5126,19 @@ function paletteColorAt(colors, coordinate, fallback) {
 
 function drawPaletteCapsule(segment, colors, coordinate, fallback, player = null) {
   const bands = colors?.length > 1 ? 6 : 1;
+  if (bands === 1) {
+    filledCapsule(segment.x1, segment.y1, segment.x2, segment.y2,
+      segment.width, damagedPartColor(fallback, player, segment.part));
+    return;
+  }
+  const dx = segment.x2 - segment.x1;
+  const dy = segment.y2 - segment.y1;
+  const length = Math.hypot(dx, dy) || 1;
+  const radius = segment.width / 2;
+  const nx = -dy / length * radius;
+  const ny = dx / length * radius;
+  let firstColor = fallback;
+  let lastColor = fallback;
   for (let band = 0; band < bands; band++) {
     const from = band / bands;
     const to = (band + 1) / bands;
@@ -5137,9 +5150,16 @@ function drawPaletteCapsule(segment, colors, coordinate, fallback, player = null
     const y2 = lerp(segment.y1, segment.y2, Math.min(1, to + overlap));
     const mapped = paletteColorAt(colors,
       coordinate + (from + to) * .5, fallback);
-    filledCapsule(x1, y1, x2, y2, segment.width,
-      damagedPartColor(mapped, player, segment.part));
+    const color = damagedPartColor(mapped, player, segment.part);
+    if (band === 0) firstColor = color;
+    if (band === bands - 1) lastColor = color;
+    screenTriangle(x1 + nx, y1 + ny, x1 - nx, y1 - ny,
+      x2 + nx, y2 + ny, ...color);
+    screenTriangle(x1 - nx, y1 - ny, x2 - nx, y2 - ny,
+      x2 + nx, y2 + ny, ...color);
   }
+  filledDisc(segment.x1, segment.y1, radius, firstColor);
+  filledDisc(segment.x2, segment.y2, radius, lastColor);
 }
 
 function drawFighterSilhouette(geometry, color, outline, player = null) {
@@ -6910,7 +6930,9 @@ function playerHandleLayout(player, side) {
     capabilities().inputFamily === "touch";
   const size = touch ? 24 : hudTypeSize;
   const width = handleWidth(visibleHandle(player), size);
-  const x = side === 0 ? safe.left + 8 : safe.right - 8 - width;
+  const phraseReserve = size * 8 * .68;
+  const x = side === 0 ? safe.left + 8
+    : safe.right - 8 - width - phraseReserve;
   const y = safe.bottom - size - (touch ? 250 : 18);
   return { x, y, size, width };
 }
@@ -7082,9 +7104,9 @@ function drawCommandStream(player, side) {
   // a phrase; completed phrases rise as a unit while a fresh phrase takes the
   // handle lane beneath it.
   entries.reverse();
-  const size = Math.max(15, Math.round(hudTypeSize * .72));
-  const lineEntries = entries.slice(0, commandStreamDepth);
   const handle = playerHandleLayout(player, side);
+  const size = handle.size;
+  const lineEntries = entries.slice(0, commandStreamDepth);
   const gap = Math.round(size * .34);
   const rows = [];
   for (let index = 0; index < lineEntries.length; index += 8)
@@ -7094,7 +7116,7 @@ function drawCommandStream(player, side) {
     const rowEntries = rows[row];
     const width = rowEntries.reduce((sum, entry, index) => sum +
       handleWidth(entry.text, size) + (index ? gap : 0), 0);
-    let cursor = Math.min(handle.x + handle.width + 12, safe.right - width);
+    let cursor = handle.x + handle.width + 12;
     const newestAt = Math.max(...rowEntries.map((entry) => entry.at));
     const rise = clamp((now - newestAt) / 900000, 0, 1) * size * .8;
     const y = handle.y - statStackHeight() - row * (size + 7) - rise;
