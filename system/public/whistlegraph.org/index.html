@@ -174,11 +174,12 @@
   table.idx{border-collapse:collapse; table-layout:fixed; width:100%; font-size:14px}
   table.idx td{padding:5px 7px; border-bottom:1px solid var(--hair); vertical-align:middle}
   tr.row:nth-of-type(odd) td{background:var(--zebra)} /* a warm rung, not a grey one */
-  td.th{width:66px} td.th img{width:52px; height:66px; object-fit:cover; border:1px solid var(--line); display:block; background:var(--art)}
+  td.th{width:78px} td.th img{width:64px; height:80px; object-fit:cover; object-position:center 70%; border:1px solid var(--line); display:block; background:var(--art)}
   td.cd{width:96px; white-space:nowrap; font-family:var(--mono); font-size:15px; overflow:hidden}
   .sw{display:inline-block; width:.72em; height:.72em; margin-right:6px; border:1px solid var(--edge); background:var(--c); vertical-align:baseline}
   .sw.quiet{background:transparent; border-color:var(--dim)}
-  td.th .sw.noglyph{width:36px; height:46px; margin:0; border:1px solid var(--line)} /* audio-only: no frame */
+  .sw.noglyph{display:inline-flex; align-items:center; justify-content:center; color:var(--ink); font-size:22px; line-height:1}
+  td.th .sw.noglyph{width:64px; height:80px; margin:0; border:1px solid var(--line)}
   td.cd a{font-weight:normal}
   /* max-width:0 hands the title cell exactly the space the other three leave —
      which is what gives its two lines something finite to ellipsize against. */
@@ -204,7 +205,6 @@
 
   footer{margin-top:22px; color:var(--dim); font-size:12px; line-height:1.8}
   footer a{color:var(--dim)}
-  .badge{border:1px solid var(--dim); padding:1px 6px; display:inline-block; margin-top:6px}
 
   /* detail "page" */
   #detail{display:none}
@@ -229,8 +229,9 @@
   #dPosts .posts .post{display:flex; flex-direction:row; gap:11px; align-items:stretch; border:1px solid var(--line); border-radius:2px; padding:8px 10px; background:var(--paper); cursor:pointer; font-size:11.5px}
   #dPosts .posts .post:hover{border-color:var(--margin)}
   #dPosts .posts .post.active{border-color:var(--margin); box-shadow:inset 0 0 0 1px var(--margin)}
-  #dPosts .post .thm{position:relative; flex:0 0 52px; width:52px; aspect-ratio:9/16; border:1px solid var(--line); background:#000; overflow:hidden}
-  #dPosts .post .thm img{width:100%; height:100%; object-fit:cover; display:block}
+  #dPosts .post .thm{position:relative; flex:0 0 64px; width:64px; aspect-ratio:9/16; border:1px solid var(--line); background:#000; overflow:hidden}
+  #dPosts .post .thm img{width:100%; height:100%; object-fit:cover; object-position:center 70%; display:block}
+  #dPosts .post .thm .noglyph{width:100%; height:100%; margin:0; border:0; background:var(--art)}
   #dPosts .post .thm .pl{position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:#fff; font-size:13px; text-shadow:0 1px 3px #000; pointer-events:none}
   #dPosts .post.active .thm .pl{color:var(--margin)}
   #dPosts .post .pmeta{flex:1 1 auto; min-width:0; align-self:center; margin-top:0}
@@ -266,7 +267,7 @@
     table.idx td{padding:4px 4px}
     td.cd .sw{display:none}
     td.cd{width:70px; font-size:14px}
-    td.th{width:48px} td.th img{width:40px; height:50px}
+    td.th{width:60px} td.th img,td.th .sw.noglyph{width:52px; height:65px}
     td.yr{width:54px}
     td.ti > a{font-size:13.5px}
     td.ti .by{font-size:11px}
@@ -329,6 +330,7 @@
       <button data-sort="year">By year</button>
       <button data-sort="title">Title A–Z</button>
       <button data-sort="author">Author A–Z</button>
+      <button id="reverseSort" type="button" aria-pressed="false" hidden>Reverse</button>
     </div>
     <div class="sortbar" id="archiveFilterbar" style="display:none">
       <span class="sl">Filter:</span>
@@ -427,7 +429,6 @@
     <footer>
       Last updated 2026.08.08<br>
       Media from the <a href="https://aesthetic.computer">aesthetic.computer</a> archive.
-      <span class="badge">Best drawn slowly · Sung quietly 🦋</span>
     </footer>
   </div>
 
@@ -529,8 +530,20 @@ let LIVE_CURATION={works:{},posts:{}}; // Auth0-admin edits, stored durably by l
 const KIND_LABEL={performance:"Performance",talk:"Talk",other:"Other"};
 const postThumb=p=>p?.thumb||(p?.platform==="tiktok"&&p?.id?`${IDX}/posts/${p.id}.jpg`:"");
 const thumbPost=p=>String(p?.thumbPost||p?.id||"");
-const videoPoster=p=>p?.platform==="tiktok"&&p?.id?`/api/whistlegraph-thumbnail?id=${encodeURIComponent(p.id)}`:postThumb(p);
-document.addEventListener("error",event=>{const img=event.target;if(img?.tagName!=="IMG")return;const id=img.dataset.thumbPost;if(!id||img.dataset.thumbRecovered)return;img.dataset.thumbRecovered="1";img.src=`/api/whistlegraph-thumbnail?id=${encodeURIComponent(id)}`},true);
+const videoPoster=p=>p?.platform==="tiktok"&&p?.id?`https://aesthetic.computer/api/whistlegraph-thumbnail?id=${encodeURIComponent(p.id)}`:postThumb(p);
+document.addEventListener("error",event=>{
+  const img=event.target;if(img?.tagName!=="IMG")return;
+  const id=img.dataset.thumbPost;if(!id)return;
+  if(!img.dataset.thumbRecovered){
+    img.dataset.thumbRecovered="1";
+    img.src=`https://aesthetic.computer/api/whistlegraph-thumbnail?id=${encodeURIComponent(id)}`;
+    return;
+  }
+  const fallback=document.createElement("span");
+  fallback.className="sw noglyph"; fallback.textContent="♪";
+  fallback.setAttribute("role","img"); fallback.setAttribute("aria-label","Audio-only; no image");
+  img.replaceWith(fallback);
+},true);
 const esc=s=>String(s||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 
 // Generated files remain the reproducible baseline. Small live patches from
@@ -599,7 +612,7 @@ function renderPosts(code){
 
 function rowHTML(w){
   const thumb=!w.thumb
-    ? `<span class="sw noglyph" style="--c:${w.c}"></span>`
+    ? `<span class="sw noglyph" style="--c:${w.c}" role="img" aria-label="Audio-only; no image">♪</span>`
     : `<img loading="lazy" alt="Final glyph of ${w.title}" data-thumb-post="${thumbPost(w)}" src="${w.thumb||`${IDX}/${w.asset||w.code}.jpg`}">`;
   return `<td class="th"><a href="/${w.code}">${thumb}</a></td>`+
     `<td class="cd"><span class="sw${w.c?"":" quiet"}"${w.c?` style="--c:${w.c}"`:""}></span>[<a href="/${w.code}">${w.code}</a>]</td>`+
@@ -623,7 +636,7 @@ const postTitle=p=>{
 const postRowHTML=p=>{
   const thumb=postThumb(p)
     ? `<img loading="lazy" alt="" data-thumb-post="${thumbPost(p)}" src="${postThumb(p)}">`
-    : `<span class="sw noglyph" style="--c:#b44887"></span>`;
+    : `<span class="sw noglyph" style="--c:#b44887" role="img" aria-label="Audio-only; no image">♪</span>`;
   const related=(p.works||[]).map(code=>`<a href="/${code}" data-work="${code}">[${code}] ${esc(BY[code]?.title||code)}</a>`).join(" · ");
   const postPath=`/post/${encodeURIComponent(p.id)}`;
   return `<td class="th"><a href="${postPath}">${thumb}</a></td>`+
@@ -644,19 +657,27 @@ let curSection="works", curArchiveKind="all", archiveSort="viewed";
 function sortedWorks(key){
   const byViews=(a,b)=>b.views-a.views;
   const g=[...WORKS];
-  if(key==="videos") return g.sort((a,b)=>b.perf-a.perf||byViews(a,b));
-  if(key==="viewed") return g.sort(byViews);
-  if(key==="year")   return g.sort((a,b)=>a.year-b.year||byViews(a,b)); // oldest first
-  if(key==="title")  return g.sort((a,b)=>a.title.localeCompare(b.title));
-  if(key==="author") return g.sort((a,b)=>a.by.localeCompare(b.by)||byViews(a,b));
-  return null;
+  let sorted=null;
+  if(key==="videos") sorted=g.sort((a,b)=>b.perf-a.perf||byViews(a,b));
+  if(key==="viewed") sorted=g.sort(byViews);
+  if(key==="year")   sorted=g.sort((a,b)=>a.year-b.year||byViews(a,b)); // oldest first
+  if(key==="title")  sorted=g.sort((a,b)=>a.title.localeCompare(b.title));
+  if(key==="author") sorted=g.sort((a,b)=>a.by.localeCompare(b.by)||byViews(a,b));
+  return sorted&&sortReversed?[...sorted].reverse():sorted;
 }
 // The archive holds 2000+ rows; painting them all (and their thumbnails) up front
 // is the slow part. So we window it — the full ordered VIEW lives in memory, but
 // only PAGE rows are in the DOM at a time, extended as a sentinel scrolls near
 // (async; thumbnails stay lazy). Search + sort just rebuild VIEW.
 const PAGE=60;
-let curSort=null, curQuery="", VIEW=[], SHOWN=0;
+let curSort=null, sortReversed=false, curQuery="", VIEW=[], SHOWN=0;
+const reversibleSorts=new Set(["year","title","author"]);
+function syncReverseSort(){
+  const button=document.getElementById("reverseSort");
+  button.hidden=!reversibleSorts.has(curSort);
+  button.classList.toggle("on",sortReversed);
+  button.setAttribute("aria-pressed",String(sortReversed));
+}
 const divHTML=`<tr class="divider"><td colspan="4" style="padding:12px 8px 6px;color:var(--margin);font-size:12.5px;border-bottom:1px solid var(--margin)">— more from the archive —</td></tr>`;
 
 // Build the ordered VIEW for the active sort + query. Featured splices in the
@@ -803,12 +824,16 @@ Promise.all([
   const search=document.getElementById("idxSearch");
   search.addEventListener("input",()=>{ curQuery=search.value; renderReset(true); });
   renderReset();
-  document.querySelectorAll("#workSortbar button").forEach(b=>b.addEventListener("click",()=>{
-    document.querySelectorAll("#workSortbar button").forEach(x=>x.classList.remove("on"));
+  document.querySelectorAll("#workSortbar button[data-sort]").forEach(b=>b.addEventListener("click",()=>{
+    document.querySelectorAll("#workSortbar button[data-sort]").forEach(x=>x.classList.remove("on"));
     b.classList.add("on");
     curSort=b.dataset.sort==="featured"?null:b.dataset.sort;
+    sortReversed=false; syncReverseSort();
     renderReset(true);
   }));
+  document.getElementById("reverseSort").addEventListener("click",()=>{
+    sortReversed=!sortReversed; syncReverseSort(); renderReset(true);
+  });
   document.querySelectorAll("#archiveFilterbar button").forEach(b=>b.addEventListener("click",()=>{
     document.querySelectorAll("#archiveFilterbar button").forEach(x=>x.classList.remove("on"));
     b.classList.add("on"); curArchiveKind=b.dataset.kind; renderReset(true);

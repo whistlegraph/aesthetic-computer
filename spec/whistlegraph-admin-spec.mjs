@@ -79,9 +79,18 @@ describe("Whistlegraph Desk", () => {
 
   it("recovers TikTok posters without routing archival media through TikTok", () => {
     const page = readFileSync(new URL("../system/public/whistlegraph.org/index.html", import.meta.url), "utf8");
-    expect(page).toContain('const videoPoster=p=>p?.platform==="tiktok"&&p?.id?`/api/whistlegraph-thumbnail?id=${encodeURIComponent(p.id)}`:postThumb(p)');
+    expect(page).toContain('const videoPoster=p=>p?.platform==="tiktok"&&p?.id?`https://aesthetic.computer/api/whistlegraph-thumbnail?id=${encodeURIComponent(p.id)}`:postThumb(p)');
+    expect(page).toContain('fallback.setAttribute("aria-label","Audio-only; no image")');
     expect(page).toContain("D.video.poster=hero?videoPoster(hero)");
     expect(page).toContain("D.video.poster=videoPoster(p)");
+  });
+
+  it("reverses chronological and alphabetical work sorts", () => {
+    const page = readFileSync(new URL("../system/public/whistlegraph.org/index.html", import.meta.url), "utf8");
+    expect(page).toContain('id="reverseSort"');
+    expect(page).toContain('new Set(["year","title","author"])');
+    expect(page).toContain('sortReversed=!sortReversed');
+    expect(page).toContain('sortReversed=false; syncReverseSort()');
   });
 
   it("supports shareable Desk search and view URLs", () => {
