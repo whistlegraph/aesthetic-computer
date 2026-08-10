@@ -875,9 +875,9 @@ oskiewar.com, midi.oskiewar.com {
         rewrite * /mac-test.html
         file_server
     }
-    # These modules share the /oskiewar prefix with the live API route below,
-    # so serve them explicitly before the proxy matcher claims them.
-    @oskiewarmodules path /oskiewar-sfx.mjs /oskiewar-midi.mjs
+    # The game source and modules share the /oskiewar prefix with the live API
+    # route below, so serve them before the proxy matcher claims them.
+    @oskiewarmodules path /oskiewar.js /oskiewar-sfx.mjs /oskiewar-midi.mjs
     handle @oskiewarmodules {
         root * /opt/ac/xbox/live
         file_server
