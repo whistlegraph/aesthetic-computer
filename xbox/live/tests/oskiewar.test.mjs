@@ -1066,8 +1066,8 @@ test("gun and grenade pickups are unlabeled world-scale objects", () => {
     source.indexOf("function drawGrenade("));
   assert.doesNotMatch(gunSource, /typeWrite|circle\(/);
   assert.doesNotMatch(grenadeSource, /typeWrite|circle\(/);
-  assert.match(gunSource, /pickup\.x - 16/);
-  assert.match(gunSource, /pickup\.x \+ 20/);
+  assert.match(gunSource, /rocket \? 58 : smg \? 42 : 16/);
+  assert.match(gunSource, /rocket \? 62 : smg \? 48 : 20/);
   assert.match(grenadeSource, /9 \* scale/);
   assert.match(gunSource, /const metal = mixColor/);
   assert.match(gunSource, /const grip = mixColor/);

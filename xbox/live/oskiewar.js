@@ -631,8 +631,10 @@ const grenades = [];
 const gunPickups = [
   { kind: "HANDGUN", amount: 6, x: 2050, startsActive: true,
     y: PLATFORM ? platformY - 70 : floorY - 35, z: 0 },
-  { kind: "RUBBER SMG", amount: 18, x: 2500, startsActive: true,
-    airborne: true, y: ceilingY + 330, z: 0 },
+  { kind: "RUBBER SMG", amount: 18, x: 850, startsActive: true,
+    airborne: true, y: ceilingY + 240, z: 0 },
+  { kind: "ROCKET LAUNCHER", amount: 3, x: 4150, startsActive: true,
+    airborne: true, y: ceilingY + 240, z: 0 },
 ];
 const grenadePickups = [
   { amount: 2, x: 2950, y: PLATFORM ? platformY - 70 : floorY - 35, z: 0 },
@@ -2777,6 +2779,24 @@ function fireGun(player, input) {
   player.gunAimX = pose.dx;
   player.gunAimY = pose.dy;
   const smg = player.gunMode === "RUBBER SMG";
+  const rocket = player.gunMode === "ROCKET LAUNCHER";
+  if (rocket) {
+    grenades.push({ x: pose.muzzle.x, y: pose.muzzle.y, z: pose.muzzle.z,
+      vx: pose.dx * 2850, vy: pose.dy * 2850, owner: player.pad,
+      fuse: 3.2, alive: true, exploding: false, blastAge: 0, blastRadius: 0,
+      hitPlayers: 0, rocket: true });
+    while (grenades.length > 12) grenades.shift();
+    player.gunAmmo -= 1;
+    player.nextGunShotAt = now + 650000;
+    player.itemAction = "FIRE";
+    player.itemActionStartedAt = now;
+    player.itemActionUntil = now + 240000;
+    player.pendingMoveLabel = "ROCKET " + player.gunAmmo;
+    playDrum("kick", 1.15, panPlayer(player));
+    playSine(92, .22);
+    emitSignal("rocket", player.pad, pose.dx, pose.dy);
+    return;
+  }
   // Automatic means a fast succession of discrete rounds, never a shotgun
   // fan. Holding fire schedules the next SMG round below.
   const shots = 1;
@@ -2824,11 +2844,15 @@ function spit(player, heavy = false) {
   emitSignal("spit", player.pad, heavy ? 2 : 1, direction);
 }
 
-function throwGrenade(player) {
+function throwGrenade(player, input = null) {
   const now = runtime().monotonicUs;
+  const aimX = input?.horizontal || player.facing;
+  const aimY = input ? -input.vertical : -.25;
+  const length = Math.hypot(aimX, aimY) || 1;
   grenades.push({ x: player.x + player.facing * 150,
     y: player.y - (player.ducking ? 80 : 145), z: player.z,
-    vx: player.facing * 1850, vy: -720, owner: player.pad,
+    vx: aimX / length * 1950, vy: aimY / length * 1950,
+    owner: player.pad,
     fuse: 1.15, alive: true, exploding: false, blastAge: 0, blastRadius: 0,
     hitPlayers: 0 });
   while (grenades.length > 12) grenades.shift();
@@ -3121,22 +3145,37 @@ function updateGrenades(dt, now) {
       continue;
     }
     const previousY = grenade.y;
-    grenade.vx += windAcceleration * .45 * dt;
-    grenade.vy += 1800 * dt;
+    if (!grenade.rocket) {
+      grenade.vx += windAcceleration * .45 * dt;
+      grenade.vy += 1800 * dt;
+    }
     grenade.x += grenade.vx * dt;
     grenade.y += grenade.vy * dt;
     grenade.fuse -= dt;
+    if (grenade.rocket) {
+      const poseTime = (now - startedAt) / 1000000;
+      for (const target of players) {
+        if (!target.alive || target.pad === grenade.owner) continue;
+        if (runnerDistanceToPoint(target, poseTime,
+          grenade.x, grenade.y, grenade.z) > 34) continue;
+        grenade.fuse = 0;
+        break;
+      }
+    }
     const inset = wallThickness + 35;
     if (grenade.x < worldLeft + inset) {
       grenade.x = worldLeft + inset;
       grenade.vx = Math.abs(grenade.vx) * .65;
+      if (grenade.rocket) grenade.fuse = 0;
     } else if (grenade.x > worldRight - inset) {
       grenade.x = worldRight - inset;
       grenade.vx = -Math.abs(grenade.vx) * .65;
+      if (grenade.rocket) grenade.fuse = 0;
     }
     if (grenade.y < ceilingY + inset) {
       grenade.y = ceilingY + inset;
       grenade.vy = Math.abs(grenade.vy) * .65;
+      if (grenade.rocket) grenade.fuse = 0;
     }
     if (PLATFORM && grenade.vy >= 0 && previousY <= platformY - 30 &&
         grenade.y >= platformY - 30 && grenade.x >= platformLeft &&
@@ -3148,6 +3187,7 @@ function updateGrenades(dt, now) {
       grenade.y = terrainFloorAt(grenade.x) - 30;
       grenade.vy = -Math.abs(grenade.vy) * .55;
       grenade.vx *= .82;
+      if (grenade.rocket) grenade.fuse = 0;
     }
     if (grenade.fuse <= 0) {
       grenade.exploding = true;
@@ -4253,10 +4293,15 @@ function updatePlayer(player, pad, dt, now) {
   const rawInput = quantizedInput(pad, player.suppressedDirections);
   const hitStunned = now < player.hitStunUntil;
   const wasBlocking = player.blocking;
+  const carrying = player.heldBall >= 0 || player.heldPart >= 0 ||
+    player.heldPlayer >= 0 || Boolean(heldItem(player));
+  const aimLocked = carrying && pad.down.includes("X");
+  player.itemAimLocked = aimLocked;
   // A broken shield stays down until X is let go, so the opening it bought is
   // spent on attacking rather than on re-guarding by reflex.
   if (player.shieldLocked && !pad.down.includes("X")) player.shieldLocked = false;
-  player.blocking = !headOnly && pad.down.includes("X") && !player.shieldLocked;
+  player.blocking = !carrying && !headOnly && pad.down.includes("X") &&
+    !player.shieldLocked;
   if (player.blocking && !wasBlocking) {
     player.shieldVx = player.vx - player.windVx - player.knockVx;
     player.dashUntil = 0;
@@ -4383,7 +4428,8 @@ function updatePlayer(player, pad, dt, now) {
   const runSpeed = player.runSince
     ? Math.min(runTopSpeed, runStartSpeed +
       (now - player.runSince) / 1000000 * runAcceleration) : 0;
-  let controlledVx = player.blocking ? player.shieldVx || 0
+  let controlledVx = aimLocked ? 0
+    : player.blocking ? player.shieldVx || 0
     : now < player.dashUntil && Math.abs(player.dashVx) > 0
     ? player.dashVx
     : player.runSince ? input.horizontal * runSpeed * mobility
@@ -4420,7 +4466,7 @@ function updatePlayer(player, pad, dt, now) {
     player.vy *= jumpCutScale;
     player.jumpHeld = false;
   }
-  if (!headOnly && upPressed && !player.jumpLaunchAt &&
+  if (!aimLocked && !headOnly && upPressed && !player.jumpLaunchAt &&
       (player.grounded || player.airJumpsUsed < 1)) {
     const airJump = !player.grounded;
     player.jumpLaunchAt = now + (airJump ? 1 : jumpAnticipationUs);
@@ -4490,7 +4536,7 @@ function updatePlayer(player, pad, dt, now) {
           ["Y", "LeftShoulder", "RightShoulder"].includes(button)) {
         const item = heldItem(player);
         if (item === "GUN") fireGun(player, input);
-        else if (item === "GRENADE") throwGrenade(player);
+        else if (item === "GRENADE") throwGrenade(player, input);
       }
     }
   }
@@ -6517,8 +6563,8 @@ function drawFace(player, head, color, t, now = runtime().monotonicUs) {
 
 function drawInventory(player, now) {
   const scale = cameraScale();
-  const gunColor = player.gunMode === "RUBBER SMG"
-    ? [38, 53, 72] : [63, 43, 76];
+  const gunColor = player.gunMode === "ROCKET LAUNCHER" ? [48, 61, 52]
+    : player.gunMode === "RUBBER SMG" ? [38, 53, 72] : [63, 43, 76];
   const grenadeColor = [255, 105, 105];
   const firing = player.itemAction === "FIRE" && now < player.itemActionUntil;
   const throwing = player.itemAction === "THROW" && now < player.itemActionUntil;
@@ -6550,6 +6596,13 @@ function drawInventory(player, now) {
       filledCapsule(hand.x + pose.dx * 18 * scale,
         hand.y + pose.dy * 18 * scale, magazineX, magazineY,
         gripWidth, gunColor);
+    }
+    if (player.gunMode === "ROCKET LAUNCHER") {
+      const rearX = hand.x - pose.dx * 38 * scale;
+      const rearY = hand.y - pose.dy * 38 * scale;
+      filledCapsule(rearX, rearY, barrel.x, barrel.y,
+        barrelWidth * 1.8, gunColor);
+      filledDisc(barrel.x, barrel.y, barrelWidth * 1.45, [104, 62, 48]);
     }
     if (firing) {
       const normalX = -pose.dy;
@@ -7510,14 +7563,16 @@ function drawGunPickup(pickup, t) {
   const barrelWidth = Math.max(2, 5 * scale);
   const gripWidth = Math.max(2, 4 * scale);
   const smg = pickup.kind === "RUBBER SMG";
+  const rocket = pickup.kind === "ROCKET LAUNCHER";
   // A handgun-sized world object in gunmetal and grip material, not a glowing
   // pickup glyph with a second silhouette around it.
   // Capsules, not line() — the native renderer buries the whole line
   // stratum beneath the world's triangles, which is how the gun spent a day
   // drawn under the floor on console while the web shell showed it fine.
-  worldCapsule(pickup.x - (smg ? 42 : 16), bobY, pickup.z,
-    pickup.x + (smg ? 48 : 20), bobY, pickup.z,
-    smg ? barrelWidth * 1.45 : barrelWidth, metal, -.02);
+  worldCapsule(pickup.x - (rocket ? 58 : smg ? 42 : 16), bobY, pickup.z,
+    pickup.x + (rocket ? 62 : smg ? 48 : 20), bobY, pickup.z,
+    rocket ? barrelWidth * 2.2 : smg ? barrelWidth * 1.45 : barrelWidth,
+    rocket ? [48, 61, 52] : metal, -.02);
   worldCapsule(pickup.x + (smg ? 8 : 2), bobY + 1, pickup.z,
     pickup.x + (smg ? 13 : 8), bobY + (smg ? 27 : 18), pickup.z,
     smg ? gripWidth * 1.5 : gripWidth, grip, -.02);
@@ -7526,6 +7581,12 @@ function drawGunPickup(pickup, t) {
       pickup.x - 65, bobY + 18, pickup.z, barrelWidth, grip, -.02);
     worldCapsule(pickup.x - 6, bobY + 4, pickup.z,
       pickup.x - 1, bobY + 30, pickup.z, gripWidth * 1.4, metal, -.02);
+  }
+  if (rocket) {
+    worldCapsule(pickup.x + 50, bobY, pickup.z,
+      pickup.x + 68, bobY, pickup.z, barrelWidth * 2.8, [104, 62, 48], -.02);
+    worldCapsule(pickup.x - 8, bobY + 3, pickup.z,
+      pickup.x - 3, bobY + 30, pickup.z, gripWidth * 1.5, [38, 45, 42], -.02);
   }
 }
 
@@ -7570,6 +7631,19 @@ function drawGrenade(grenade) {
     const width = Math.max(3, 10 * cameraScale());
     filledRing(point.x, point.y, radius,
       Math.max(0, radius - width), [255, 105, 105]);
+    return;
+  }
+  if (grenade.rocket) {
+    const length = Math.hypot(grenade.vx, grenade.vy) || 1;
+    const tail = projectPoint(grenade.x - grenade.vx / length * 54,
+      grenade.y - grenade.vy / length * 54, grenade.z);
+    filledCapsule(tail.x, tail.y, point.x, point.y,
+      Math.max(5, 13 * cameraScale()), [52, 65, 56]);
+    filledDisc(point.x, point.y, Math.max(5, 12 * cameraScale()), [190, 74, 54]);
+    const flame = projectPoint(grenade.x - grenade.vx / length * 88,
+      grenade.y - grenade.vy / length * 88, grenade.z);
+    filledCapsule(flame.x, flame.y, tail.x, tail.y,
+      Math.max(3, 7 * cameraScale()), [255, 214, 72]);
     return;
   }
   const blink = grenade.fuse < .45 && Math.floor(grenade.fuse * 20) % 2 === 0;
