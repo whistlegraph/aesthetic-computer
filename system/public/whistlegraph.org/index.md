@@ -1632,6 +1632,23 @@ The twenty-five most-viewed posts:
 
 - [The Whistlegraph Zine](https://sexmag.shop/products/the-whistlegraph-zine) — Sex Magazine (ed. Asher Penn), 2023. 60pp, 750 copies.
 
+## Future
+
+A whistlegraph has always been drawn flat — on snow, on wet pavement, on paper.
+The site carries a set of concept drawings for what it looks like when that
+surface opens into a volume: people whistling together in one space, each line
+held in the air where it was drawn, a handle floating beside whoever drew it.
+
+These are proposals, **not** shipped features — with one exception. The Ashland,
+2022 panel is documentary: it records work made with
+[Wand](https://aesthetic.computer/wand), an in-house VR drawing tool running
+inside aesthetic.computer, on two headsets swapped in turn so the line never had
+to stop for a battery. That work became the *Freaky Flowers* series. The
+whistlegraph line and the wand line are the same hand.
+
+Do not report the other six as existing capabilities of whistlegraph.org or
+aesthetic.computer. They are drawings.
+
 ## Elsewhere
 
 - [TikTok](https://www.tiktok.com/@whistlegraph) — where it grew (2.6M followers, no ads)

@@ -203,6 +203,22 @@
   .rail div{padding:3px 0}
   .rail b{color:var(--margin); font-weight:normal; margin-right:8px}
 
+  /* Concept drawings for what comes next. They are colored pencil on white
+     paper, so they keep the paper backing (--art) in either theme rather than
+     floating on the night ground. */
+  .future{display:grid; grid-template-columns:1fr; gap:18px; margin:10px 0 4px}
+  @media (min-width:620px){ .future{grid-template-columns:1fr 1fr; gap:20px} }
+  .future figure{margin:0}
+  /* Landscape panels take the full width instead of sitting beside a portrait,
+     which otherwise leaves a column-height hole under them. */
+  .future figure.wide{grid-column:1/-1}
+  .future img{width:100%; height:auto; display:block; border:1px solid var(--line);
+    background:var(--art); margin:0 0 6px}
+  .future figcaption{color:var(--dim); font-size:12.5px; line-height:1.55}
+  .future figcaption b{color:var(--ink); font-weight:600; display:block; font-size:13px}
+  .future .doc{color:var(--margin); font-family:var(--mono); font-size:10.5px;
+    letter-spacing:.06em; text-transform:uppercase}
+
   footer{margin-top:22px; color:var(--dim); font-size:12px; line-height:1.8}
   footer a{color:var(--dim)}
 
@@ -401,6 +417,83 @@
     <p class="glab">Publication</p>
     <a class="zine" href="https://sexmag.shop/products/the-whistlegraph-zine"><img src="/sexmag-zine.jpg" alt="The Whistlegraph Zine cover — Sex Magazine, 2023" width="768" height="1023" loading="lazy"></a>
     <p class="dim" style="font-size:12.5px;margin-top:0">The Whistlegraph Zine — <a href="https://sexmag.shop/products/the-whistlegraph-zine">Sex Magazine</a> (ed. Asher Penn), 2023. 60pp, 750 copies.</p>
+
+    <hr>
+    <h2>Future</h2>
+    <p class="dim" style="font-size:13px;max-width:62ch;margin-top:0">
+      A whistlegraph has always been drawn flat — on snow, on wet pavement, on paper.
+      These are concept drawings for what it looks like when the surface opens into a
+      volume: people whistling together in one space, each line held in the air where
+      it was drawn, a handle floating beside whoever drew it. They are proposals, not
+      products — except one, which already happened.
+    </p>
+    <div class="future">
+      <figure>
+        <img src="/future/wand-lineage.jpg" alt="Colored-pencil drawing: a man in a VR headset in a spare room, whistling, drawing a large striped ribbon creature in the air. A second headset charges on a folding table." width="600" height="900" loading="lazy">
+        <figcaption>
+          <b>Ashland, 2022</b>
+          <span class="doc">Documentary</span> — Recorded with <a href="https://aesthetic.computer/wand">Wand</a>,
+          our own drawing tool, on two headsets swapped in turn so the line never had to
+          stop for a battery. The result was <em>Freaky Flowers</em>. The whistlegraph line
+          and the wand line are the same hand.
+        </figcaption>
+      </figure>
+      <figure>
+        <img src="/future/choir-in-the-round.jpg" alt="Colored-pencil drawing: four people standing in a ring in white space, each whistling and drawing a different score in the air, the four ribbons braiding into one knot above them." width="600" height="900" loading="lazy">
+        <figcaption>
+          <b>Choir in the round</b>
+          Four people, four scores, one knot where the lines meet overhead. Everyone can
+          see who drew which line, because the handle stays with the hand.
+        </figcaption>
+      </figure>
+      <figure class="wide">
+        <img src="/future/mathic-hall.jpg" alt="Colored-pencil drawing: a small figure inside a large hypercube lattice of ruled pencil lines, their striped ribbon wrapping the edges and leaving through one face." width="900" height="600" loading="lazy">
+        <figcaption>
+          <b>More than two dimensions</b>
+          The score wraps the lattice, then leaves through a face and keeps going somewhere
+          the drawn geometry does not account for. A whistlegraph you cannot flatten back
+          onto a page.
+        </figcaption>
+      </figure>
+      <figure>
+        <img src="/future/visor-self-portrait.jpg" alt="Colored-pencil drawing: a person sitting cross-legged wearing a thin visor, lips pursed mid-whistle, drawing a striped bird in the air — the same bird curving in the visor's reflection." width="600" height="900" loading="lazy">
+        <figcaption>
+          <b>What the drawer sees</b>
+          The bird appears twice: once in the air at our angle, once bent across the visor
+          at theirs. Nobody in the room is looking at the same score.
+        </figcaption>
+      </figure>
+      <figure>
+        <img src="/future/passing-the-marker.jpg" alt="Colored-pencil drawing: two people at different distances in white space, one offering the end of a striped ribbon, the other reaching up to take it, the joint still wet." width="600" height="900" loading="lazy">
+        <figcaption>
+          <b>Passing the marker</b>
+          A line can be handed over while it is still wet. Whistlegraphs were always made
+          in company; this is what a duet looks like when the paper is gone.
+        </figcaption>
+      </figure>
+      <figure class="wide">
+        <img src="/future/workshop-in-the-round.jpg" alt="Colored-pencil drawing: nine people of different ages spread through an open volume, each drawing a different ribbon, an older figure walking between them looking at a child's work." width="900" height="600" loading="lazy">
+        <figcaption>
+          <b>A workshop, in the round</b>
+          Nine people, nine lines, none alike — some finished and left hanging, one
+          abandoned entirely. Teaching it is the same job it always was: walking between
+          people and looking at what they made.
+        </figcaption>
+      </figure>
+      <figure>
+        <img src="/future/walk-around-the-score.jpg" alt="Colored-pencil drawing: a large butterfly whistlegraph built from a striped ribbon hanging in white space, with a small person below looking up at it, and a paper tag tied to the line." width="600" height="900" loading="lazy">
+        <figcaption>
+          <b>Walk around the score</b>
+          <a href="/imab">Butterfly Cosplayer</a> as an object you can circle and read from a
+          new angle. The tag tied to the line is the whole exhibition label — there is no
+          wall to hang one on.
+        </figcaption>
+      </figure>
+    </div>
+    <p class="dim" style="font-size:12px;margin-top:2px">
+      Drawn in colored pencil, 2026. The handles shown are placeholders except
+      <code>@jeffrey</code> and <code>@minanimals</code>.
+    </p>
 
     <hr>
     <h2>Elsewhere</h2>
