@@ -87,7 +87,9 @@ Open follow-ups (queued, not blockers):
   cover: `pop/wattajetta/out/wattajetta-stone-club.mp3`.
 - **DistroKid folder:** `~/Documents/Shelf/wattajetta-stone-club-DISTROKID/`
   (release.json · MASTER.wav · cover-3000.jpg) — validated with
-  `node pop/bin/distrokid-submit.mjs ~/Documents/Shelf/wattajetta-stone-club-DISTROKID --dry-run`
+  `node pop/bin/distrokid-submit.mjs ~/Documents/Shelf/wattajetta-stone-club-DISTROKID --dry-run`.
+  The delivery WAV title tag is `Wattajetta Stone Club` (corrected from the
+  audition filename on 2026-08-09 without changing its decoded audio).
 - **Cover:** photo (no AI) — IMG_4049.HEIC from the Photos library (syndication
   scope, 2026-07-01): Jeffrey on the cabin porch under the blue canopy, crochet
   hood, laptop on lap. Tight square crop, brighten/sharpen, 3000². Source asset
