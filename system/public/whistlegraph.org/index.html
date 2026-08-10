@@ -9,8 +9,7 @@
 <meta property="og:description" content="A drawing you sing. The score teaches you how to play it.">
 <meta property="og:image" content="https://assets.aesthetic.computer/whistlegraph/butterfly-cosplayer/butterfly-cosplayer.webp">
 <link rel="alternate" type="application/json" href="/api/commands" title="Whistlegraph command feed">
-<meta name="theme-color" content="#fffdf6" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#15122b">
+<meta name="theme-color" content="#fffdf6">
 <link rel="icon" type="image/png" href="/favicon.png">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <style>
@@ -19,46 +18,27 @@
     src:url('https://aesthetic.computer/type/webfonts/ywft-processing-bold.woff2') format('woff2');
     font-weight:normal; font-style:normal; font-display:swap;
   }
-  /* The page is dark by default — night is when whistlegraphs get watched.
-     Every colour is a token so the light paper can be swapped back in below;
-     nothing but the artwork plates (--art) is allowed a literal colour. */
+  /* Whistlegraph is a paper archive. Keep its light presentation independent
+     from the visitor's system appearance setting. */
   :root{
-    color-scheme:dark light;
-    --paper:#15122b;      /* deep purple-blue (AC prompt dark ground) */
-    --ink:#ece7ff;        /* lavender-white */
-    --dim:#9a92c4;
-    --margin:#ff77bd;     /* acpink, lifted for dark */
-    --link:#82b2ff;       /* blue */
-    --seen:#bb9dff;       /* acpurple, visited */
-    --hi:#544918;         /* highlighter, burned down to an ember */
-    --line:rgba(236,231,255,.36);   /* box edges — ink would shout on dark */
-    --rule:rgba(236,231,255,.30);   /* horizontal rules */
-    --hair:rgba(236,231,255,.14);   /* the table's row hairlines */
-    --tint:rgba(255,255,255,.06);   /* raised panels + button hovers */
-    --zebra:rgba(255,119,189,.08);  /* alternating index rung */
-    --rowhi:rgba(255,243,160,.13);  /* the row under the cursor */
-    --edge:rgba(255,255,255,.45);   /* colour-swatch outline */
-    --art:#fffdf6;        /* backing for the drawings — paper stays paper */
+    color-scheme:light;
+    --paper:#fffdf6;
+    --ink:#25204a;
+    --dim:#645e85;
+    --margin:#b44887;
+    --link:#1a56d6;
+    --seen:#7850b4;
+    --hi:#fff3a0;
+    --line:#25204a;
+    --rule:rgba(40,30,90,.35);
+    --hair:rgba(40,30,90,.16);
+    --tint:rgba(255,255,255,.38);
+    --zebra:rgba(180,72,135,.07);
+    --rowhi:rgba(255,243,160,.6);
+    --edge:rgba(0,0,0,.45);
+    --art:#fffdf6;
     --sans:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
     --mono:ui-monospace,"Berkeley Mono Variable",Menlo,"DejaVu Sans Mono",monospace;
-  }
-  @media (prefers-color-scheme: light){
-    :root{
-      --paper:#fffdf6;    /* near-white, faintly warm */
-      --ink:#25204a;      /* dark purple-blue (AC prompt light text) */
-      --dim:#645e85;
-      --margin:#b44887;   /* acpink — accent */
-      --link:#1a56d6;
-      --seen:#7850b4;
-      --hi:#fff3a0;
-      --line:#25204a;     /* on paper the edge is just the ink */
-      --rule:rgba(40,30,90,.35);
-      --hair:rgba(40,30,90,.16);
-      --tint:rgba(255,255,255,.38);
-      --zebra:rgba(180,72,135,.07);
-      --rowhi:rgba(255,243,160,.6);
-      --edge:rgba(0,0,0,.45);
-    }
   }
   *{margin:0;padding:0;box-sizing:border-box}
   html{-webkit-text-size-adjust:100%}
@@ -332,26 +312,33 @@
     <h2>Lectures, shows &amp; press</h2>
     <p class="glab">Talks &amp; lectures</p>
     <ul class="plain">
+      <li><em>Whistlegraph Lecture</em> — RISD, Providence — 2021</li>
+      <li><em>Whistlegraph Lecture</em> — Willem de Kooning Academie, Rotterdam — 2021</li>
+      <li><em>Bananskolen + Whistlegraph + Fanfare voor Vooruitstrevende Volksmuziek</em> — OCCII, Amsterdam — 2021</li>
       <li><a href="https://www.youtube.com/watch?v=upgQTJtBeL4">New Dynamic Graphics — HCI Korea 2020 keynote</a> — 2020</li>
       <li><a href="https://www.youtube.com/watch?v=Q0fRogwoGt0">New Dynamic Graphics — India HCI 2019</a> — 2019</li>
-      <li><a href="https://assets.aesthetic.computer/whistlegraph/lectures/art-for-covid-relief-india.mp4">Art for COVID Relief India — workshop</a> — 2021</li>
+      <li><a href="https://assets.aesthetic.computer/whistlegraph/lectures/art-for-covid-relief-india.mp4"><em>Art Hangout with Whistlegraph</em></a> — Art for COVID Relief, India — 2021</li>
       <li><a href="https://www.youtube.com/watch?v=vXUfFexHuLw">What is a Picture? — college lecture</a> — 2020</li>
       <li><a href="https://media.ccc.de/v/35c3-9774-radical_digital_painting">Radical Digital Painting — 35c3, Leipzig</a> — 2018</li>
       <li><a href="https://gazelliarthouse.com/news/gazelli-connect-live-jeffrey-alan-scudder/">Gazelli Connect Live</a> — 2020</li>
     </ul>
     <p class="glab">Livestreams &amp; recitals</p>
     <ul class="plain">
+      <li><em>Narc Beacon 20th Anniversary Jubilee</em> — Valby Kulturhus, Copenhagen — 2021</li>
+      <li><em>Whistlegraph Performs During a Photography Exhibition</em> — Gæsteværelset, Copenhagen — 2021</li>
+      <li><em>Anything Goes</em> — oneroom, Providence — 2021</li>
+      <li><a href="https://www.youtube.com/watch?v=YXUUCkqv2LY"><em>Carnivalesca</em></a> — Kunstverein Hamburg, remote — 2021</li>
       <li><a href="https://www.youtube.com/watch?v=vCkTJrLVTLY">Whistlegraph LIVE</a> — the nightly streams — spring 2020</li>
       <li><a href="https://www.youtube.com/watch?v=uKMtpKTAytU">Whistlegraph LIVE: Cat Charmer</a> — 2021</li>
-      <li><a href="https://www.youtube.com/watch?v=YXUUCkqv2LY">Recital @ Kunstverein Hamburg</a> — 2021</li>
       <li><a href="https://www.youtube.com/watch?v=wAyFF1bX2tM">Live in Copenhagen</a> — 2021</li>
       <li><a href="https://sites.rhizome.org/the-longest-whistlegraph-ever-so-far/about/">The Longest Whistlegraph Ever (so far)</a> @ The New Museum — 2022 · <a href="https://www.youtube.com/watch?v=PN0H4fWafMk">trailer</a></li>
     </ul>
     <p class="glab">Exhibitions</p>
     <ul class="plain">
+      <li><em>Virtual Creative Industries</em> — Schneider Museum of Art, remote — 2021</li>
+      <li><em>Art Beyond Festival</em> — Schneider Museum of Art, Ashland — 2021</li>
       <li><a href="https://feralfile.com/exhibitions/ten-whistlegraphs-thv">Ten Whistlegraphs</a> — Feral File — 2022</li>
       <li><a href="https://www.newmuseum.org/exhibition/first-look-the-longest-whistlegraph-ever-so-far/">First Look</a> — The New Museum — 2022</li>
-      <li><a href="https://sma.sou.edu/whistlegraph/">Schneider Museum of Art</a> — Ashland — 2021</li>
       <li><a href="https://www.youtube.com/watch?v=eD-6j1cNgMo">School of Truth</a> — Galerie Yeche Lange — 2022</li>
       <li>Taipei Dangdai — 2022</li>
     </ul>

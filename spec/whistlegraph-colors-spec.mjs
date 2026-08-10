@@ -1,6 +1,16 @@
 import { readFileSync } from "node:fs";
 
 describe("Whistlegraph color curation", () => {
+  it("keeps the paper presentation light regardless of system appearance", () => {
+    const page = readFileSync(
+      new URL("../system/public/whistlegraph.org/index.html", import.meta.url),
+      "utf8",
+    );
+    expect(page).toContain("color-scheme:light");
+    expect(page).toContain('<meta name="theme-color" content="#fffdf6">');
+    expect(page).not.toContain("prefers-color-scheme");
+  });
+
   it("keeps the featured ten colors and defaults the rest to magenta", () => {
     const archive = JSON.parse(
       readFileSync(new URL("../system/public/whistlegraph.org/graphs.json", import.meta.url), "utf8"),

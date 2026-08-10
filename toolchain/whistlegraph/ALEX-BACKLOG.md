@@ -6,6 +6,18 @@ Reel suggestions live separately in [`REELS-BACKLOG.md`](REELS-BACKLOG.md).
 
 Status: `received` → `verified` → `applied` → `live`
 
+## Received August 10, 2026
+
+| Status | Request |
+|---|---|
+| live | Rename “Symmetry Game” to “A Symmetry Game.” |
+| live | Rename “A Syllable Game” to “Syllable Game.” |
+| applied | Keep whistlegraph.org in its light paper presentation regardless of the visitor's system dark-mode setting. |
+| live | Use video post `6932441051730824453` as the poster for “I Just Found A Little Rock” instead of its highest-viewed audio-only post. |
+| live | Use video post `7228276139695951146` as the poster for “All of the Windows” instead of its higher-viewed audio-only posts. |
+| received | Review remaining works without thumbnails; prefer existing source-video frames, then consider archive photos or commissioned drawings for truly audio-only works. |
+| applied | Add the nine 2021 CV line items from Alex's screenshot to the site's lectures, performances, and exhibitions lists without duplicating existing entries. |
+
 ## Received July 27, 2026
 
 | Status | Request |
