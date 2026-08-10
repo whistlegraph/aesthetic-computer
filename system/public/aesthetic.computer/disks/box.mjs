@@ -98,4 +98,33 @@ function meta() {
   };
 }
 
-export { overlay, lift, meta };
+// Machine-readable proposal contract beside the real Box brush. No Paint 3
+// imports this module instead of maintaining a separate rectangle imitation.
+const nopaintProposal = Object.freeze({
+  version: 1,
+  slug: "rect",
+  label: "Box",
+  compatible: true,
+  parameters: Object.freeze({
+    color: Object.freeze({ type: "rgba", alpha: [24, 192] }),
+    rectangle: Object.freeze({ type: "box" }),
+  }),
+  generate({ base }) {
+    return Object.freeze({
+      ...base,
+      kind: "rect",
+      brush: Object.freeze({
+        slug: "box",
+        params: Object.freeze(base.color.map(String)),
+        colon: Object.freeze([]),
+        parameters: Object.freeze({ width: base.w, height: base.h }),
+      }),
+    });
+  },
+  render({ ink }, score, frame) {
+    const drift = Math.round(Math.sin(frame / 24) * score.drift);
+    ink(score.color).box(score.x + drift, score.y - drift, score.w, score.h);
+  },
+});
+
+export { overlay, lift, meta, nopaintProposal };

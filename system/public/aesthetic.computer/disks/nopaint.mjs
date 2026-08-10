@@ -11,7 +11,11 @@ import {
   seedFrom,
 } from "../lib/nopaint-proposals.mjs";
 import { nopaintProposal as lineProposal } from "./line.mjs";
-import { darkWindowProposal, gridWormProposal } from "../lib/nopaint-construct-brushes.mjs";
+import { nopaintProposal as boxProposal } from "./box.mjs";
+import { nopaintProposal as bubblesProposal } from "./bubbles.mjs";
+import { nopaintProposal as darkWindowProposal } from "./dark-window.mjs";
+import { nopaintProposal as walkerProposal } from "./walker.mjs";
+import { gridWormProposal } from "../lib/nopaint-construct-brushes.mjs";
 import { nonConflictingConstructProposals } from "../lib/nopaint-construct-catalog.mjs";
 import { recoveredConstructTransforms } from "../lib/nopaint-construct-transforms.mjs";
 import { nopaint_adjust } from "../systems/nopaint.mjs";
@@ -29,6 +33,11 @@ const COMPATIBLE_BRUSHES = Object.freeze(new Map([
   [darkWindowProposal.slug, darkWindowProposal],
   ...nonConflictingConstructProposals.map((contract) => [contract.slug, contract]),
   ...recoveredConstructTransforms.map((contract) => [contract.slug, contract]),
+  // Standalone piece modules own these contracts; keep them after the
+  // recovered fallback catalog so the original sprite renderers win.
+  [bubblesProposal.slug, bubblesProposal],
+  [walkerProposal.slug, walkerProposal],
+  [boxProposal.slug, boxProposal],
 ]));
 
 let loopState = "choosing";
@@ -132,6 +141,7 @@ const BRUSH_CUES = Object.freeze({
 });
 
 const brushCueSamples = new Map();
+const proposalAssets = new Map();
 let brushCueProposal = 0;
 let activeBrushSound = null;
 let activeBrushKind = null;
@@ -929,6 +939,7 @@ function boot({ colon, debug, hud, net, num, params, query = {}, screen, store, 
   wallpaperFrame = 0;
   cueEvents = [];
   brushCueProposal = 0;
+  proposalAssets.clear();
   activeBrushSound = null;
   activeBrushKind = null;
   decisionHeld = false;
@@ -995,6 +1006,20 @@ function boot({ colon, debug, hud, net, num, params, query = {}, screen, store, 
         api.needsPaint();
       })
       .catch(() => {});
+    for (const contract of new Set(COMPATIBLE_BRUSHES.values())) {
+      for (const path of contract.assets || []) {
+        if (proposalAssets.has(path)) continue;
+        // A pending null reserves the path so contracts sharing a sheet do
+        // not schedule duplicate fetches.
+        proposalAssets.set(path, null);
+        net.preload(path)
+          .then((image) => {
+            proposalAssets.set(path, image?.img || image);
+            api.needsPaint();
+          })
+          .catch(() => proposalAssets.delete(path));
+      }
+    }
     const interactionLoads = new Map();
     for (const [name, filename] of Object.entries(LEGACY_CUES)) {
       let loading = interactionLoads.get(filename);
@@ -1080,7 +1105,7 @@ function renderProposal($) {
   } else {
     page(buffer).wipe(255, 255, 255, 0);
     if (contract?.render && proposal.kind !== "line") {
-    contract.render($, proposal, proposalFrame);
+      contract.render({ ...$, nopaintAssets: proposalAssets }, proposal, proposalFrame);
     } else
 
     if (proposal.kind === "rect") {
