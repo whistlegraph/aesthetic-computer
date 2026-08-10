@@ -44,14 +44,6 @@ export const auraProposal = contract("aura", "Aura",
   ({ random, width, height, base }) => ({ center: frozen({ x: random() * width, y: random() * height }), radius: 25 + random() * 95, repetitions: random() < .5 ? 2 : 4, color: base.color }),
   ({ ink }, s, frame) => { for (let i = s.repetitions; i > 0; i--) { const r = s.radius * i / s.repetitions * (1 + .08 * Math.sin(frame / 30)); ink(s.color[0], s.color[1], s.color[2], 35).oval(s.center.x, s.center.y, r * 2, r * 2, false, Math.max(1, r / 10)); } });
 
-export const triangleProposal = contract("triangle", "Triangle",
-  { colorChannels: [5, 6], frameCycle: 3 },
-  ({ random, width, height, base }) => ({ points: points(random, width, height, 3), color: base.color }),
-  ({ ink }, s) => ink(s.color).poly(s.points.map(p => [p.x, p.y])));
-
-export const ellipseProposal = contract("ellipse", "Ellipse", { speed: .35 },
-  ({ base }) => ({ color: base.color }), ({ ink }, s, frame) => ink(s.color).oval(s.x + s.w / 2, s.y + s.h / 2, s.w * (1 + .1 * Math.sin(frame * .35)), s.h * (1 + .1 * Math.sin(frame * .35)), true));
-
 export const breatheProposal = contract("breathe", "Breathe",
   { sizes: [64, 96, 128, 196, 256], bulge: "BulgeCycle" },
   ({ random, width, height, base }) => ({ size: [64, 96, 128, 196, 256][Math.floor(random() * 5)], center: frozen({ x: random() * width, y: random() * height }), color: base.color }),
@@ -61,14 +53,9 @@ export const vignetteProposal = contract("vignette", "Vignette", { parameters: [
   ({ random, width, height, base }) => ({ center: frozen({ x: width / 2, y: height / 2 }), radius: Math.min(width, height) * (.25 + random() * .25), color: base.color }),
   ({ ink }, s) => { for (let i = 5; i > 0; i--) ink(s.color[0], s.color[1], s.color[2], 16).oval(s.center.x, s.center.y, s.radius * (1 + i * .18) * 2, s.radius * (1 + i * .18) * 2, false, Math.max(2, s.radius * .12)); });
 
-export const rainbowProposal = contract("rainbow", "Rainbow",
-  { effect: "AdjustHSL", hueRange: [-100, 100] },
-  ({ base }) => ({ color: base.color }), ({ ink }, s, frame) => { for (let i = 0; i < 7; i++) { const hue = (frame / 120 + i / 7) * Math.PI * 2; ink(Math.round(128 + Math.sin(hue) * 127), Math.round(128 + Math.sin(hue + 2.094) * 127), Math.round(128 + Math.sin(hue + 4.188) * 127), 96).box(s.x, s.y + i * s.h / 7, s.w, Math.ceil(s.h / 7)); } });
-
-// Frame, Caterpillar, Softy, and Wafer graduated to their own disks; a name only
-// stays in this fallback catalog until a real piece owns it.
+// A name only stays in this fallback catalog until a real piece owns it; what is
+// left here is the last of the procedural brushes.
 export const nonConflictingConstructProposals = frozen([
   buildProposal, bubblesProposal, bannerProposal,
-  walkerProposal, auraProposal, triangleProposal, ellipseProposal, breatheProposal,
-  vignetteProposal, rainbowProposal,
+  walkerProposal, auraProposal, breatheProposal, vignetteProposal,
 ]);

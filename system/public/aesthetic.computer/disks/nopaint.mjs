@@ -20,6 +20,10 @@ import { nopaintProposal as frameProposal } from "./frame.mjs";
 import { nopaintProposal as caterpillarProposal } from "./caterpillar.mjs";
 import { nopaintProposal as softyProposal } from "./softy.mjs";
 import { nopaintProposal as waferProposal } from "./wafer.mjs";
+import { nopaintProposal as gridWormPieceProposal } from "./grid-worm.mjs";
+import { nopaintProposal as trianglePieceProposal } from "./triangle.mjs";
+import { nopaintProposal as ellipsePieceProposal } from "./ellipse.mjs";
+import { nopaintProposal as rainbowPieceProposal } from "./rainbow.mjs";
 import { gridWormProposal } from "../lib/nopaint-construct-brushes.mjs";
 import { nonConflictingConstructProposals } from "../lib/nopaint-construct-catalog.mjs";
 import { recoveredConstructTransforms } from "../lib/nopaint-construct-transforms.mjs";
@@ -48,6 +52,10 @@ const COMPATIBLE_BRUSHES = Object.freeze(new Map([
   [caterpillarProposal.slug, caterpillarProposal],
   [softyProposal.slug, softyProposal],
   [waferProposal.slug, waferProposal],
+  [gridWormPieceProposal.slug, gridWormPieceProposal],
+  [trianglePieceProposal.slug, trianglePieceProposal],
+  [ellipsePieceProposal.slug, ellipsePieceProposal],
+  [rainbowPieceProposal.slug, rainbowPieceProposal],
 ]));
 
 let loopState = "choosing";
@@ -1171,15 +1179,6 @@ function renderProposal($) {
         Math.max(1, proposal.thickness / 3),
       );
     });
-  } else if (proposal.kind === "grid-worm") {
-    const cell = Math.max(8, Math.floor(Math.min(buffer.width, buffer.height) / 14));
-    const path = proposal.points.map((point, index) => ({
-      x: Math.floor(point.x / cell) * cell + Math.sin(phase + index) * 2,
-      y: Math.floor(point.y / cell) * cell + Math.cos(phase + index) * 2,
-    }));
-    for (let index = 1; index < path.length; index += 1) {
-      ink(color).line(path[index - 1].x, path[index - 1].y, path[index].x, path[index].y, proposal.thickness);
-    }
   } else if (proposal.kind === "walker") {
     let x = proposal.x;
     let y = proposal.y;
