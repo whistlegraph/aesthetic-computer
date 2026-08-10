@@ -21,7 +21,7 @@ runtime = function acRuntime() {
 };
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 23;
+const buildVersion = 24;
 const floorY = 1800;
 const ceilingY = 0;
 const wallThickness = 80;
@@ -8076,8 +8076,9 @@ function drawTitleScreen(t, ink, transitionAge = -1) {
   const compact = compactLayout();
   const socialPreview = typeof capabilities === "function" &&
     capabilities().socialPreview === true;
-  // The large wordmark has retired; the live fighters and START are the title.
-  const title = "";
+  // Keep the game identity visible on the opening frame. The live fighters
+  // and START remain interactive beneath the wordmark.
+  const title = "oskiewar";
   const breath = 1 + Math.sin(t * .9) * .018;
   const socialTitleSize = Math.min(220,
     (stageRight - stageLeft - 56) / handleWidth(title, 1));

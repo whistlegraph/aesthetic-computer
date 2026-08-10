@@ -4225,8 +4225,8 @@ test("double jumps leave a brief upward motion-line burst", () => {
   assert.match(source, /drawDoubleJumpMotion\(renderable\.item, t\)/);
 });
 
-test("the large wordmark is retired while start remains", () => {
-  assert.match(source, /const title = "";/);
+test("the Oskiewar wordmark remains visible with start", () => {
+  assert.match(source, /const title = "oskiewar";/);
   assert.match(source, /const prompt = "start";/);
 });
 
