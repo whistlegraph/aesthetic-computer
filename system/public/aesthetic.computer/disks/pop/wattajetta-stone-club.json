@@ -1,0 +1,22 @@
+{
+  "slug": "wattajetta-stone-club",
+  "title": "Wattajetta Stone Club",
+  "artist": "Aesthetic Dot Computer",
+  "album": "Wattajetta Stone Club",
+  "bpm": "127–138",
+  "key": "E minor pentatonic",
+  "meter": "4/4",
+  "duration": 130.716708,
+  "audio": "https://assets.aesthetic.computer/pop/wattajetta-stone-club.mp3",
+  "cover": "https://assets.aesthetic.computer/pop/wattajetta-stone-club.jpg",
+  "sections": [
+    {
+      "name": "stone club",
+      "t": 0,
+      "illy": "https://assets.aesthetic.computer/pop/wattajetta-stone-club.jpg",
+      "code": "a",
+      "color": [86, 190, 220]
+    }
+  ],
+  "credits": "Water-engine stone club single. Composition and production: Aesthetic Dot Computer."
+}
