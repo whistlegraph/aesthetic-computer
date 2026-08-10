@@ -581,7 +581,7 @@ test("title shows a live Pacific clock and version timestamp", () => {
   const { fight } = createFight(false, false);
   assert.match(fight.pacificTimeLabel(1785870000000),
     /^\d{1,2}:\d{2}:\d{2}(am|pm)$/);
-  assert.match(source, /const buildVersion = 34/);
+  assert.match(source, /const buildVersion = 35/);
   assert.match(source, /const clock = hudClockBox\(titleUnixMs\)/);
   assert.match(source, /drawHudClock\(clock, safe\.top \+ 2, ink, titleUnixMs\)/);
   assert.match(source, /const fpsLabel = Math\.round\(displayFps \|\| 0\)/);
@@ -4286,6 +4286,16 @@ test("skateboard deck trucks and wheels scale together with camera zoom", () => 
   assert.doesNotMatch(source, /Math\.max\(5, radius \* \.14\)/);
   assert.doesNotMatch(source, /Math\.max\(3, radius \* \.09\)/);
   assert.doesNotMatch(source, /const reach = Math\.max\(28,/);
+});
+
+test("skateboard momentum follows half-pipe tangents into wallrides", () => {
+  assert.match(source, /function terrainTangentAt\(x, span = 12\)/);
+  assert.match(source, /terrainSlope = clamp\(terrainTangentAt\(player\.x\)/);
+  assert.match(source, /player\.skateWallSide = -1/);
+  assert.match(source, /player\.skateWallSide = 1/);
+  assert.match(source, /player\.vy = -Math\.max\(820, Math\.abs\(player\.skateVx\) \* \.82\)/);
+  assert.match(source, /emitSignal\("skate-wallride"/);
+  assert.match(source, /Math\.hypot\(boardEdge\.x - leftEdge\.x,/);
 });
 
 test("nation flags are optional HUD identity and replay metadata", () => {

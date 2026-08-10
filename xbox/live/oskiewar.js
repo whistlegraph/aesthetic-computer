@@ -21,7 +21,7 @@ runtime = function acRuntime() {
 };
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 34;
+const buildVersion = 35;
 const floorY = 1800;
 const ceilingY = 0;
 const wallThickness = 80;
@@ -61,6 +61,12 @@ function terrainFloorAt(x) {
   const terrainNoise = (broad + detail) * terrainAmplitude * edge *
     (1 - transition);
   return floorY - terrainNoise - halfPipeRise;
+}
+function terrainTangentAt(x, span = 12) {
+  const left = terrainFloorAt(clamp(x - span, worldLeft, worldRight));
+  const right = terrainFloorAt(clamp(x + span, worldLeft, worldRight));
+  return (right - left) / Math.max(1, Math.min(worldRight, x + span) -
+    Math.max(worldLeft, x - span));
 }
 const stageLeft = 0;
 let stageRight = 1920;
@@ -591,7 +597,7 @@ const players = [
     lastButtonAt: 0, color: [190, 42, 58], hit: 0,
     hitSegment: -1, hitSegmentUntil: 0, hitStunUntil: 0,
     alive: true, respawnAt: 0, score: 0, inputX: 0, inputY: 0,
-    skateboard: false, skateVx: 0,
+    skateboard: false, skateVx: 0, skateWallSide: 0,
     suppressedDirections: [],
     lastTap: {}, lastRelease: {}, dashUntil: 0, dashVx: 0, runSince: 0,
     walkSince: 0, roundWins: 0,
@@ -619,7 +625,7 @@ const players = [
     lastButtonAt: 0, color: [38, 82, 176], hit: 0,
     hitSegment: -1, hitSegmentUntil: 0, hitStunUntil: 0,
     alive: true, respawnAt: 0, score: 0, inputX: 0, inputY: 0,
-    skateboard: false, skateVx: 0,
+    skateboard: false, skateVx: 0, skateWallSide: 0,
     suppressedDirections: [],
     lastTap: {}, lastRelease: {}, dashUntil: 0, dashVx: 0, runSince: 0,
     walkSince: 0, roundWins: 0,
@@ -2384,6 +2390,7 @@ function resetRound(now, resetMatch = false) {
     player.grabbedBy = -1;
     player.skateboard = false;
     player.skateVx = 0;
+    player.skateWallSide = 0;
     player.grabHeld = false;
     player.commandStream = [];
     player.hitSegment = -1;
@@ -4559,13 +4566,23 @@ function updatePlayer(player, pad, dt, now) {
     : player.runSince ? input.horizontal * runSpeed * mobility
     : player.ducking && player.grounded ? 0
     : input.horizontal * walkSpeed * mobility;
-  if (player.skateboard && player.grounded && !player.blocking) {
+  if (player.skateboard && player.skateWallSide) {
+    // Once the board reaches a coping, horizontal momentum has become upward
+    // wall momentum. Keep the root on that wall until gravity spends it; the
+    // player can also steer away to peel off early.
+    const peelAway = input.horizontal === -player.skateWallSide;
+    if (player.vy >= 0 || peelAway) {
+      const side = player.skateWallSide;
+      player.skateWallSide = 0;
+      player.skateVx = -side * Math.max(720, Math.abs(player.skateVx) * .42);
+      controlledVx = player.skateVx;
+    } else controlledVx = 0;
+  } else if (player.skateboard && player.grounded && !player.blocking) {
     const skateTarget = input.horizontal * 2700;
     const turnRate = Math.sign(skateTarget) !== Math.sign(player.skateVx) ? 1.8 : 3.2;
     player.skateVx += (skateTarget - player.skateVx) *
       (1 - Math.exp(-dt * turnRate));
-    const terrainSlope = clamp((terrainFloorAt(player.x + 8) -
-      terrainFloorAt(player.x - 8)) / 16, -2.5, 2.5);
+    const terrainSlope = clamp(terrainTangentAt(player.x), -2.5, 2.5);
     player.skateVx += terrainSlope * 1900 * dt;
     player.skateVx = clamp(player.skateVx, -4200, 4200);
     if (!input.horizontal) player.skateVx *= Math.max(0, 1 - dt * .65);
@@ -4616,6 +4633,7 @@ function updatePlayer(player, pad, dt, now) {
     player.pogoDive = false;
     player.pounding = false;
     player.grounded = false;
+    player.skateWallSide = 0;
     player.ducking = player.crouchJump;
     playDrum("block", 0.72, panPlayer(player));
     emitSignal("jump", player.pad, 1, 0);
@@ -5880,6 +5898,14 @@ function resolveRunnerBounds(player, t) {
   const rightWall = worldRight - wallThickness;
   if (player.x - halfWidth < leftWall) {
     player.x = leftWall + halfWidth;
+    if (player.skateboard && player.grounded && player.skateVx < -900) {
+      player.skateWallSide = -1;
+      player.vy = -Math.max(820, Math.abs(player.skateVx) * .82);
+      player.grounded = false;
+      player.vx = 0;
+      playDrum("block", .52, panPlayer(player));
+      emitSignal("skate-wallride", player.pad, -1, Math.abs(player.skateVx));
+    }
     player.vx = Math.max(0, player.vx);
     player.knockVx = Math.max(0, player.knockVx);
     player.dashUntil = 0;
@@ -5887,6 +5913,14 @@ function resolveRunnerBounds(player, t) {
   }
   if (player.x + halfWidth > rightWall) {
     player.x = rightWall - halfWidth;
+    if (player.skateboard && player.grounded && player.skateVx > 900) {
+      player.skateWallSide = 1;
+      player.vy = -Math.max(820, Math.abs(player.skateVx) * .82);
+      player.grounded = false;
+      player.vx = 0;
+      playDrum("block", .52, panPlayer(player));
+      emitSignal("skate-wallride", player.pad, 1, Math.abs(player.skateVx));
+    }
     player.vx = Math.min(0, player.vx);
     player.knockVx = Math.min(0, player.knockVx);
     player.dashUntil = 0;
@@ -6116,6 +6150,7 @@ function dismountSkateboard(target, now) {
   if (!target.skateboard) return false;
   target.skateboard = false;
   target.skateVx = 0;
+  target.skateWallSide = 0;
   const board = balls.find((item) => item.type === "skateboard") || balls[0];
   Object.assign(board, ballKinds.find((kind) => kind.type === "skateboard"));
   board.active = true;
@@ -6973,11 +7008,16 @@ function drawRunner(player, t, showLabel = true) {
   const displayNow = player.frozenAt || runtime().monotonicUs;
   if (player.skateboard) {
     const board = projectPoint(player.x, player.y + 5, player.z);
-    const leftEdge = projectPoint(player.x - 72,
-      terrainFloorAt(player.x - 72) + 5, player.z);
-    const boardEdge = projectPoint(player.x + 72,
-      terrainFloorAt(player.x + 72) + 5, player.z);
-    const reach = Math.max(.5, Math.abs(boardEdge.x - board.x));
+    const leftEdge = player.skateWallSide
+      ? projectPoint(player.x, player.y - 67, player.z)
+      : projectPoint(player.x - 72,
+        terrainFloorAt(player.x - 72) + 5, player.z);
+    const boardEdge = player.skateWallSide
+      ? projectPoint(player.x, player.y + 77, player.z)
+      : projectPoint(player.x + 72,
+        terrainFloorAt(player.x + 72) + 5, player.z);
+    const reach = Math.max(.5, Math.hypot(boardEdge.x - leftEdge.x,
+      boardEdge.y - leftEdge.y) / 2);
     const rotation = Math.atan2(boardEdge.y - leftEdge.y,
       boardEdge.x - leftEdge.x);
     drawSkateboardSymbol(board, reach, rotation);
