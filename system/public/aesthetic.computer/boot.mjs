@@ -1,5 +1,23 @@
 // `aesthetic.computer` Bootstrap, 23.02.16.19.23
 
+// Painting permalinks belong to Aesthetic Computer. Fragments never reach the
+// server, so branded Laklok hosts must hand them off before booting the piece.
+const laklokHost =
+  window.location.hostname === "laklok.com" ||
+  window.location.hostname === "www.laklok.com";
+const laklokHash = window.location.hash.slice(1).trim();
+const laklokPaintingHash =
+  /^[A-Za-z0-9]{3,12}$/.test(laklokHash) &&
+  laklokHash.toLowerCase() !== "debug" &&
+  laklokHash.toLowerCase() !== "nodebug";
+
+if (laklokHost && laklokPaintingHash) {
+  window.location.replace(
+    `https://aesthetic.computer/${window.location.search}${window.location.hash}`,
+  );
+  await new Promise(() => {});
+}
+
 // 📦 Optional WebSocket module loader for local hot reload and diagnostics.
 let moduleLoader = null;
 let moduleLoaderReady = Promise.resolve(false); // Promise that resolves when loader is ready

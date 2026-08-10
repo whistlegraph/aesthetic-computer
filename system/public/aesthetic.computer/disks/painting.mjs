@@ -322,13 +322,18 @@ function boot({
 
     handle = record.handle || "anon";
     
-    // Split combined slug if present (anonymous paintings with recordings)
+    // A short code is the stable resolver route. A user painting's stored slug
+    // is already fully qualified (auth0|…/painting/…), and passing it through
+    // get.painting() produces an invalid /media/paintings/<full-slug> URL.
+    imageCode = canonicalCode || record.slug;
+
+    // Only combined anonymous records carry a separate recording object.
     if (record.slug && record.slug.includes(':')) {
-      [imageCode, recordingCode] = record.slug.split(':');
-      console.log(`🎨 Split combined slug: imageCode=${imageCode}, recordingCode=${recordingCode}`);
+      const [, combinedRecordingCode] = record.slug.split(':');
+      recordingCode = combinedRecordingCode || null;
+      console.log(`🎨 Resolved combined painting: imageCode=${imageCode}, recordingCode=${recordingCode}`);
     } else {
-      imageCode = record.slug;
-      recordingCode = record.slug;
+      recordingCode = null;
     }
     
     isNuked = record.nuked || false; // Capture nuked state from metadata
