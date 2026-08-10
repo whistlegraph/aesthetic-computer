@@ -46,14 +46,9 @@ function terrainFloorAt(x) {
   const edge = Math.sin(nx * Math.PI) ** 2;
   const broad = Math.sin(nx * Math.PI * 3 + terrainPhase);
   const detail = Math.sin(nx * Math.PI * 7 - terrainPhase * .63) * .34;
-  // Booster pads live at the bottoms of two smooth bowls. The shoulders are
-  // wide enough to walk down, but a fighter crossing the edge naturally falls
-  // into the launch lane instead of stepping on a sticker on flat ground.
-  const pit = boosterXs.reduce((depth, center) => {
-    const distance = (x - center) / 260;
-    return depth + Math.exp(-distance * distance * 1.7) * 190;
-  }, 0);
-  return floorY - (broad + detail) * terrainAmplitude * edge + pit;
+  // Both side walls flow continuously into steep half-pipe ramps.
+  const halfPipeRise = Math.pow(Math.abs(nx - .5) * 2, 4) * 430;
+  return floorY - (broad + detail) * terrainAmplitude * edge - halfPipeRise;
 }
 const stageLeft = 0;
 let stageRight = 1920;
@@ -104,7 +99,7 @@ const poundFullFall = 900;
 // taps still grow it, but never into a room-clearing shortcut.
 const poundMinRadius = 165;
 const poundMaxRadius = 420;
-const boosterXs = [700, 4300];
+const boosterXs = [];
 const boosterRadius = 115;
 const boosterVelocity = 6500;
 const replayTickUs = 16667;
@@ -690,6 +685,7 @@ let lastIntroSecond = 0;
 // whether the result card has had its sting.
 let resultPulseAt = 0;
 let resultCardStung = false;
+const resultReactionPrevious = [[], []];
 let roundOverAt = 0;
 let roundResult = "";
 let matchOver = false;
@@ -862,8 +858,8 @@ function startReplay(now) {
     seriesName = "";
     matchName = "";
     previousRoundName = "";
-    // Training has no series to seed from, so the chosen pal picks the ball.
-    matchBallType = seriesBallType(players[0].name);
+    // Spiderdummy training carries exactly one board and no second match ball.
+    matchBallType = "skateboard";
     replay = null;
     spectatorQr = null;
     return;
@@ -879,6 +875,15 @@ function startReplay(now) {
     simulation: "oskiewar-physics-1", tickRate: 60,
     matchId: "ow-" + seriesName, matchName: seriesName,
     seriesId: "ow-" + seriesName, seriesName, roundIds: [],
+    recordedDisplay: {
+      width: Number(run.width) || viewWidth(),
+      height: Number(run.height) || viewHeight,
+      aspectRatio: (Number(run.width) || viewWidth()) /
+        Math.max(1, Number(run.height) || viewHeight),
+      surfaceWidth: Number(run.surfaceWidth) || Number(run.width) || viewWidth(),
+      surfaceHeight: Number(run.surfaceHeight) || Number(run.height) || viewHeight,
+      refreshHz: Number(run.refreshHz) || Number(run.measuredHz) || 0,
+    },
     startedAt: run.unixMs || 0, startedMonotonicUs: now,
     nameSeed: nameSeedUsed, ballType: matchBallType,
     fighters: players.map((player) => player.name),
@@ -2306,6 +2311,9 @@ function resetRound(now, resetMatch = false) {
     player.gunMode = "HANDGUN";
     player.nextGunShotAt = 0;
     player.nextSpitAt = 0;
+    player.resultReaction = "";
+    player.resultReactionAt = 0;
+    resultReactionPrevious[player.pad] = [];
     player.stance = "NEUTRAL";
     player.itemAction = "";
     player.itemActionStartedAt = 0;
@@ -2530,6 +2538,7 @@ function updateCamera(dt) {
 function updateCameraDoll(dt, now) {
   const introAge = now - roundStartedAt;
   if (roundResult) {
+    updateResultReactions(now);
     const age = Math.max(0, (now - roundOverAt) / 1000000);
     if (deathCinematic && age < 1.45) {
       if (age < .11) return;
@@ -2590,13 +2599,12 @@ function updateCameraDoll(dt, now) {
     const horizontalSpan = Math.abs(players[1].x - players[0].x);
     const verticalSpan = Math.abs(players[1].y - players[0].y) * cameraAspect;
     const closeWidth = Math.max(820, horizontalSpan + 540, verticalSpan + 520);
-    const orbit = Math.sin(age * .72) * closeWidth * .075;
     cameraDoll.track({ target,
-      position: { x: target.x + orbit,
-        y: target.y - closeWidth * .08 + Math.sin(age * .8) * closeWidth * .035,
+      position: { x: target.x,
+        y: target.y - closeWidth * .08,
         z: target.z - closeWidth * 1.2 },
       width: closeWidth, perspective: clamp(age / .7, 0, .72), fov: 50,
-      roll: Math.sin(age * .9) * .008 }, dt, 7);
+      roll: 0 }, dt, 7);
     return;
   }
   if (introAge < introDurationUs) {
@@ -2696,10 +2704,29 @@ function resultCardText() {
   const encoded = roundResult.match(/^(@\S+)\s+WINS\b/i);
   const winner = encoded?.[1] ||
     (players[0].score > players[1].score ? players[0].name : players[1].name);
-  const actions = { BALLED: "balled", KO: "knocked out", TRADE: "trade",
-    TIME: "time", ROUND: "" };
-  return { winner: winner.toLowerCase() + " wins!",
-    action: actions[roundCause] ?? roundCause.toLowerCase() };
+  return { winner: winner.toLowerCase(), action: "" };
+}
+
+function updateResultReactions(now) {
+  const winningPad = players[0].score === players[1].score ? -1
+    : players[0].score > players[1].score ? 0 : 1;
+  for (const player of players) {
+    const down = inputPads[player.pad]?.down || [];
+    const pressed = down.find((button) =>
+      !resultReactionPrevious[player.pad].includes(button));
+    if (pressed) {
+      const winner = player.pad === winningPad;
+      player.resultReaction = winner
+        ? ({ A: "DANCE", B: "LAUGH", X: "POSE", Y: "WIGGLE" }[pressed] ||
+          "DANCE")
+        : ({ A: "CRY", B: "WOE", X: "SULK", Y: "WIGGLE" }[pressed] ||
+          "WOE");
+      player.resultReactionAt = now;
+      playSine(winner ? 520 : 145, .1);
+      emitSignal("reaction", player.pad, winner ? 1 : -1, 0);
+    }
+    resultReactionPrevious[player.pad] = down.slice();
+  }
 }
 
 function quantizedInput(pad, suppressed = []) {
@@ -3149,6 +3176,8 @@ function startMelee(player, kind, now) {
 }
 
 const limbParts = ["left-arm", "right-arm", "left-leg", "right-leg"];
+const spiderLegParts = Array.from({ length: 8 }, (_, index) =>
+  `spider-leg-${index + 1}`);
 const hasPart = (player, part) => !player.removedParts?.includes(part);
 const isPogo = (player) => hasPart(player, "torso") &&
   limbParts.every((part) => !hasPart(player, part));
@@ -5281,6 +5310,16 @@ function runnerWorldGeometry(player, t) {
     segment(x - 48, feet - 12, x + 8, feet, 11, "left-shin");
     segment(x, hipY, x + 48, feet - 12, 11, "right-thigh");
     segment(x + 48, feet - 12, x - 8, feet, 11, "right-shin");
+  } else if (player.skateboard && player.grounded) {
+    const plantedX = x + player.facing * 28;
+    const push = Math.sin(poseCycle) * 34;
+    segment(x, hipY, plantedX, feet - 27, 11, "lead-thigh");
+    segment(plantedX, feet - 27, plantedX + player.facing * 18,
+      feet - 6, 11, "lead-shin");
+    const pushKnee = x - player.facing * (22 + push * .3);
+    segment(x, hipY, pushKnee, feet - 31, 10, "rear-thigh");
+    segment(pushKnee, feet - 31,
+      x - player.facing * (46 + Math.max(0, push)), feet, 10, "rear-shin");
   } else if (crouchPose > .08) {
     segment(x, hipY, x - 36, feet - 22, 10, "left-thigh");
     segment(x - 36, feet - 22, x - 4, feet, 10, "left-shin");
@@ -5312,7 +5351,17 @@ function runnerWorldGeometry(player, t) {
   const actionNow = poseNow;
   const armAttack = attackPulse > 0 && player.attackKind &&
     player.attackKind !== "KICK";
-  if (player.grabHeld) {
+  if (player.skateboard && player.grounded && !armAttack) {
+    const balance = Math.sin(poseCycle) * 18;
+    segment(leftShoulderX, shoulderY, x - 42, elbowY - 10 - balance,
+      10, "left-upper-arm");
+    segment(x - 42, elbowY - 10 - balance, x - 66, handY - balance,
+      10, "left-forearm");
+    segment(rightShoulderX, shoulderY, x + 42, elbowY - 10 + balance,
+      10, "right-upper-arm");
+    segment(x + 42, elbowY - 10 + balance, x + 66, handY + balance,
+      10, "right-forearm");
+  } else if (player.grabHeld) {
     const held = player.heldBall >= 0 ? balls[player.heldBall] : null;
     const clutchX = held?.x ?? x + player.facing * 126;
     const clutchY = held?.y ?? feet - 92;
@@ -5384,7 +5433,7 @@ function spiderDummyWorldGeometry(player, t) {
   const z = player.z;
   const bodyY = feet - 176;
   const sway = Math.sin(t * 1.7 + player.pad) * 5;
-  const head = { x, y: bodyY + sway, z, radius: 48 };
+  const head = { x, y: bodyY + sway, z, radius: 22 };
   const segments = [];
   const add = (x1, y1, x2, y2, width, role, part) => {
     if (!hasPart(player, part)) return;
@@ -5393,23 +5442,29 @@ function spiderDummyWorldGeometry(player, t) {
   add(x - 42, bodyY, x + 42, bodyY, 38, "torso", "torso");
   add(x, bodyY - 30, x, bodyY + 31, 34, "spider-body", "torso");
   const legs = [
-    [-1, -1, "left-arm"], [-1, -.55, "left-arm"],
-    [-1, .25, "left-leg"], [-1, .72, "left-leg"],
-    [1, -1, "right-arm"], [1, -.55, "right-arm"],
-    [1, .25, "right-leg"], [1, .72, "right-leg"],
+    [-1, -1], [-1, -.55], [-1, .25], [-1, .72],
+    [1, -1], [1, -.55], [1, .25], [1, .72],
   ];
   for (let index = 0; index < legs.length; index++) {
-    const [side, lane, part] = legs[index];
+    const [side, lane] = legs[index];
+    const part = spiderLegParts[index];
     const rootX = x + side * 31;
     const rootY = bodyY + lane * 31 + sway;
-    const kneeX = x + side * (150 + Math.abs(lane) * 45);
-    const kneeY = bodyY - 68 + Math.abs(lane) * 44;
-    const ankleX = x + side * (270 + Math.abs(lane) * 72);
-    const ankleY = feet - 42 - (index % 2) * 18;
-    const footX = ankleX + side * 54;
-    add(rootX, rootY, kneeX, kneeY, 13, `spider-leg-${index + 1}-upper`, part);
-    add(kneeX, kneeY, ankleX, ankleY, 11, `spider-leg-${index + 1}-middle`, part);
-    add(ankleX, ankleY, footX, feet, 9, `spider-leg-${index + 1}-lower`, part);
+    const lift = 34 + Math.abs(lane) * 28;
+    const points = [
+      [rootX, rootY],
+      [x + side * 76, bodyY - lift],
+      [x + side * 126, bodyY - lift * .42],
+      [x + side * 171, bodyY + 24 + Math.abs(lane) * 19],
+      [x + side * 211, feet - 51 - (index % 2) * 12],
+      [x + side * 246, feet],
+    ];
+    for (let joint = 0; joint < points.length - 1; joint++) {
+      const [x1, y1] = points[joint];
+      const [x2, y2] = points[joint + 1];
+      add(x1, y1, x2, y2, 13 - joint,
+        `spider-leg-${index + 1}-segment-${joint + 1}`, part);
+    }
   }
   return { head, segments };
 }
@@ -5773,7 +5828,9 @@ function damagePart(target, segmentIndex, sourceX, sourcePad, now) {
   const segment = geometry.segments[segmentIndex];
   const part = segment?.part;
   if (!part || !hasPart(target, part)) return;
-  const durability = part === "torso" ? 3 : 2;
+  const durability = target.spiderDummy
+    ? part === "torso" ? 5 : 3
+    : part === "torso" ? 3 : 2;
   target.partDamage[part] = (target.partDamage[part] || 0) + 1;
   emitSignal("partdamage", target.pad,
     [...limbParts, "torso"].indexOf(part), target.partDamage[part] / durability);
@@ -5781,7 +5838,7 @@ function damagePart(target, segmentIndex, sourceX, sourcePad, now) {
   if (part === "torso") {
     // Removing the body's attachment point releases every surviving limb;
     // the circular head remains as the final playable form.
-    for (const limb of limbParts)
+    for (const limb of target.spiderDummy ? spiderLegParts : limbParts)
       detachPart(target, limb, geometry, sourceX, now);
   }
   detachPart(target, part, geometry, sourceX, now);
@@ -6303,6 +6360,9 @@ function drawFace(player, head, color, t, now = runtime().monotonicUs) {
   const direction = player.facing || 1;
   const stroke = (x1, y1, x2, y2, width, ink = color) =>
     filledCapsule(x1, y1, x2, y2, width, ink);
+  const celebrating = ["DANCE", "LAUGH", "POSE", "WIGGLE"]
+    .includes(player.resultReaction);
+  const grieving = ["CRY", "WOE", "SULK"].includes(player.resultReaction);
   if (player.name === "@FIFI") {
     const hair = visualTheme.light > .55 ? [105, 38, 116] : [245, 118, 230];
     const sway = Math.sin(t * 2.2 + player.pad) * r * .08;
@@ -6389,8 +6449,16 @@ function drawFace(player, head, color, t, now = runtime().monotonicUs) {
       faceX + eyeGap + eyeWidth * 1.25, browY - r * .08,
       lineWidth * 1.15);
   }
+  if (grieving) {
+    const tear = [112, 208, 255];
+    const fall = (t * 34) % Math.max(3, r * .55);
+    for (const offset of [-eyeGap, eyeGap])
+      stroke(faceX + offset, eyeY + eyeWidth * 1.5,
+        faceX + offset, eyeY + eyeWidth * 1.5 + r * .34 + fall,
+        Math.max(1.5, lineWidth * .72), tear);
+  }
   const mouthY = head.y + r * .3;
-  if (victoryAmount > 0) {
+  if (celebrating || victoryAmount > 0) {
     const grin = r * (.09 + victoryAmount * .2);
     const width = r * (.23 + victoryAmount * .12);
     stroke(faceX - width, mouthY - grin * .18, faceX,
@@ -6402,7 +6470,7 @@ function drawFace(player, head, color, t, now = runtime().monotonicUs) {
       Math.max(1.8, r * .13), Math.max(.4, r * .05), color);
   } else if (player.blocking) {
     stroke(faceX - r * .26, mouthY, faceX + r * .26, mouthY, lineWidth);
-  } else if (!player.alive || player.hit > .6) {
+  } else if (grieving || !player.alive || player.hit > .6) {
     stroke(faceX - r * .24, mouthY + r * .08, faceX,
       mouthY - r * .06, lineWidth);
     stroke(faceX, mouthY - r * .06, faceX + r * .24,
@@ -6582,6 +6650,17 @@ function drawRunner(player, t, showLabel = true) {
     ? Math.max(0, (runtime().monotonicUs - player.headBustedAt) / 1000000) : -1;
   if (!player.alive && headBurstAge >= .11) {
     drawBrokenRunner(player, headBurstAge);
+    if (["CRY", "WOE", "SULK"].includes(player.resultReaction)) {
+      const head = player.frozenGeometry?.head;
+      if (head) {
+        const point = projectPoint(head.x, head.y, head.z);
+        const sway = Math.sin(t * 11) * 5;
+        for (const side of [-1, 1])
+          filledCapsule(point.x + side * 7 + sway, point.y,
+            point.x + side * 7 - sway, point.y + 34 + (t * 31) % 18,
+            3, [112, 208, 255]);
+      }
+    }
     return;
   }
   if (player.fallenBodyGeometry) {
@@ -6593,6 +6672,21 @@ function drawRunner(player, t, showLabel = true) {
     : player.frozenGeometry
       ? projectRunnerWorldGeometry(player.frozenGeometry)
     : runnerGeometry(player, t);
+  if (roundResult && player.resultReaction) {
+    const age = (runtime().monotonicUs - player.resultReactionAt) / 1000000;
+    const amount = player.resultReaction === "POSE" ||
+      player.resultReaction === "SULK" ? 3 : 8;
+    const dx = Math.sin(age * (player.resultReaction === "DANCE" ? 15 : 9)) * amount;
+    const dy = player.resultReaction === "DANCE"
+      ? -Math.abs(Math.sin(age * 9)) * 15
+      : Math.sin(age * 12) * amount * .35;
+    geometry.head.x += dx;
+    geometry.head.y += dy;
+    for (const segment of geometry.segments) {
+      segment.x1 += dx; segment.x2 += dx;
+      segment.y1 += dy; segment.y2 += dy;
+    }
+  }
   // Preserve the fighter's identity color during hit flash. A pure white body
   // disappeared against the daylight arena, so impact now changes only its rim.
   const color = player.color;
@@ -6604,12 +6698,7 @@ function drawRunner(player, t, showLabel = true) {
     const board = projectPoint(player.x, player.y + 5, player.z);
     const boardEdge = projectPoint(player.x + 72, player.y + 5, player.z);
     const reach = Math.max(28, Math.abs(boardEdge.x - board.x));
-    filledCapsule(board.x - reach, board.y, board.x + reach, board.y,
-      Math.max(6, 10 * cameraScale()), [42, 48, 66]);
-    filledDisc(board.x - reach * .65, board.y + 7 * cameraScale(),
-      Math.max(3, 6 * cameraScale()), [235, 190, 62]);
-    filledDisc(board.x + reach * .65, board.y + 7 * cameraScale(),
-      Math.max(3, 6 * cameraScale()), [235, 190, 62]);
+    drawSkateboardSymbol(board, reach, 0);
   }
   drawFighterSilhouette(geometry, color, outline, player);
   const hitNow = runtime().monotonicUs;
@@ -6769,7 +6858,8 @@ function playerStatLines(player) {
     player.frozenAt || runtime().monotonicUs);
   const slot = (value, width) => String(value).padStart(width, " ");
   if (player.npc && !player.bot) {
-    const parts = [...limbParts, "torso"];
+    const parts = player.spiderDummy
+      ? [...spiderLegParts, "torso"] : [...limbParts, "torso"];
     const remaining = parts.filter((part) => hasPart(player, part)).length;
     const damage = parts.reduce((total, part) =>
       total + Number(player.partDamage?.[part] || 0), 0);
@@ -7240,6 +7330,34 @@ function projectedBallRadius(ball) {
   return Math.max(8, Math.abs(edge.x - center.x));
 }
 
+function drawSkateboardSymbol(point, radius, rotation = 0) {
+  const alongX = Math.cos(rotation) * radius;
+  const alongY = Math.sin(rotation) * radius;
+  const normalX = -Math.sin(rotation);
+  const normalY = Math.cos(rotation);
+  const deck = [236, 76, 118];
+  const edge = [34, 25, 39];
+  const truck = [174, 184, 202];
+  filledCapsule(point.x - alongX * .86, point.y - alongY * .86,
+    point.x + alongX * .86, point.y + alongY * .86,
+    Math.max(8, radius * .22), edge);
+  filledCapsule(point.x - alongX * .82, point.y - alongY * .82,
+    point.x + alongX * .82, point.y + alongY * .82,
+    Math.max(5, radius * .14), deck);
+  for (const direction of [-1, 1]) {
+    const truckX = point.x + alongX * direction * .56;
+    const truckY = point.y + alongY * direction * .56;
+    filledCapsule(truckX - normalX * radius * .22,
+      truckY - normalY * radius * .22,
+      truckX + normalX * radius * .22,
+      truckY + normalY * radius * .22, Math.max(2, radius * .055), truck);
+    for (const side of [-1, 1])
+      filledDisc(truckX + normalX * radius * side * .26,
+        truckY + normalY * radius * side * .26,
+        Math.max(3, radius * .09), [22, 25, 34]);
+  }
+}
+
 function drawBall(ball) {
   if (!ball.active) return;
   const point = projectPoint(ball.x, ball.y, ball.z);
@@ -7266,31 +7384,7 @@ function drawBall(ball) {
     }
   };
   if (skateboard) {
-    const alongX = Math.cos(ball.rotation) * radius;
-    const alongY = Math.sin(ball.rotation) * radius;
-    const normalX = -Math.sin(ball.rotation);
-    const normalY = Math.cos(ball.rotation);
-    const deck = [236, 76, 118];
-    const edge = [34, 25, 39];
-    const truck = [174, 184, 202];
-    filledCapsule(point.x - alongX * .86, point.y - alongY * .86,
-      point.x + alongX * .86, point.y + alongY * .86,
-      Math.max(8, radius * .22), edge);
-    filledCapsule(point.x - alongX * .82, point.y - alongY * .82,
-      point.x + alongX * .82, point.y + alongY * .82,
-      Math.max(5, radius * .14), deck);
-    for (const direction of [-1, 1]) {
-      const truckX = point.x + alongX * direction * .56;
-      const truckY = point.y + alongY * direction * .56;
-      filledCapsule(truckX - normalX * radius * .22,
-        truckY - normalY * radius * .22,
-        truckX + normalX * radius * .22,
-        truckY + normalY * radius * .22, Math.max(2, radius * .055), truck);
-      for (const side of [-1, 1])
-        filledDisc(truckX + normalX * radius * side * .26,
-          truckY + normalY * radius * side * .26,
-          Math.max(3, radius * .09), [22, 25, 34]);
-    }
+    drawSkateboardSymbol(point, radius, ball.rotation);
     return;
   }
   if (beach) {
@@ -8339,12 +8433,14 @@ function gamePaint() {
         940, 19, inputPads[0]?.down || [], titleInk);
     } else {
       const result = resultCardText();
-      const winnerSize = Math.min(92,
-        Math.max(40, (viewWidth() - 72) / Math.max(1, result.winner.length * .85)));
+      // The result is a small ownership mark, not a second title screen.
+      // Character reactions carry the emotional result in the arena.
+      const winnerSize = compactLayout() ? 30 : 42;
       const winnerWidth = handleWidth(result.winner, winnerSize);
-      typeWrite(result.winner, viewCenterX() - winnerWidth / 2 + 5, 816,
+      const resultY = hudSafeRect().top + 62;
+      typeWrite(result.winner, viewCenterX() - winnerWidth / 2 + 3, resultY + 4,
         winnerSize, ...statusShadow);
-      typeWrite(result.winner, viewCenterX() - winnerWidth / 2, 810,
+      typeWrite(result.winner, viewCenterX() - winnerWidth / 2, resultY,
         winnerSize, ...titleInk);
       if (result.action) {
         const actionSize = Math.min(44, winnerSize * .54);

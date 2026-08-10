@@ -21,6 +21,12 @@ refresh rate, frame drops, and wall time do not participate. Fixture digests pin
 both the migrated payload and expanded input timeline so decoder drift fails in
 focused tests.
 
+New recordings also preserve `recordedDisplay`: logical width and height,
+aspect ratio, native surface width and height, and the host-reported refresh
+rate. These values are presentation provenance, not simulation input. A player
+may reproduce the original framing or adapt it deliberately, but must never let
+a display difference alter fixed-tick commands or physics.
+
 `fixtures/manifest.json` is itself versioned and records the producing build,
 minimum player build, canonical replay digest, and expanded-timeline digest for
 each preserved recording. The minimum build says where the decoder first

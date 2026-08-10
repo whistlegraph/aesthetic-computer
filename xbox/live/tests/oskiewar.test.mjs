@@ -1975,7 +1975,7 @@ test("a lost lead arm disarms both the item button and the item swing", () => {
   const player = fight.players[0];
   player.gunAmmo = 3;
   player.facing = 1;
-  for (let hit = 0; hit < 2; hit++) {
+  for (let hit = 0; hit < 5; hit++) {
     const geometry = fight.runnerWorldGeometry(player, now() / 1e6);
     const index = geometry.segments.findIndex((segment) =>
       segment.part === "right-arm");
@@ -2342,21 +2342,21 @@ test("spiderdummy is a giant inert foe with destructible segmented legs", () => 
   assert.equal(spider.bot, false);
   assert.equal(spider.spiderDummy, true);
   assert.equal(geometry.segments
-    .filter((segment) => segment.role.startsWith("spider-leg-")).length, 24);
-  assert.ok(geometry.head.radius >= 48);
+    .filter((segment) => segment.role.startsWith("spider-leg-")).length, 40);
+  assert.equal(geometry.head.radius, 22);
   const xs = geometry.segments.flatMap((segment) => [segment.x1, segment.x2]);
-  assert.ok(Math.max(...xs) - Math.min(...xs) > 600,
-    "long legs make the spider much wider than a fighter");
-  for (let hit = 0; hit < 2; hit++) {
+  assert.ok(Math.max(...xs) - Math.min(...xs) > 480,
+    "compact articulated legs still make the spider wider than a fighter");
+  for (let hit = 0; hit < 3; hit++) {
     const current = fight.runnerWorldGeometry(spider, now() / 1000000);
     const index = current.segments.findIndex((segment) =>
-      segment.part === "left-arm");
+      segment.part === "spider-leg-1");
     fight.damagePart(spider, index, fight.players[0].x, 0, now());
   }
   assert.equal(fight.runnerWorldGeometry(spider, now() / 1000000).segments
-    .some((segment) => segment.part === "left-arm"), false);
+    .some((segment) => segment.part === "spider-leg-1"), false);
   assert.ok(fight.detachedParts.filter((part) =>
-    part.part === "left-arm").length >= 6);
+    part.part === "spider-leg-1").length >= 5);
 });
 
 test("spiderdummy remains directly reachable while pal select is retired", () => {
@@ -4013,8 +4013,8 @@ test("round end card names the winner and the finishing action", () => {
   fight.knockOut();
   tick();
   assert.deepEqual(fight.resultCardText(),
-    { winner: "@jeffrey wins!", action: "knocked out" });
-  assert.match(source, /winner\.toLowerCase\(\) \+ " wins!"/);
+    { winner: "@jeffrey", action: "" });
+  assert.doesNotMatch(source, /winner\.toLowerCase\(\) \+ " wins!"/);
   assert.doesNotMatch(source,
     /box\(viewCenterX\(\) - causeWidth \/ 2 - 36/);
 });
