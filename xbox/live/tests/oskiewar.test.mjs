@@ -2343,6 +2343,12 @@ test("spiderdummy is a giant inert foe with destructible segmented legs", () => 
   assert.equal(spider.spiderDummy, true);
   assert.equal(geometry.segments
     .filter((segment) => segment.role.startsWith("spider-leg-")).length, 40);
+  assert.equal(geometry.segments
+    .filter((segment) => segment.role.startsWith("spider-hitbox-")).length, 8);
+  assert.ok(new Set(geometry.segments
+    .filter((segment) => segment.role.startsWith("spider-leg-"))
+    .flatMap((segment) => [segment.z1, segment.z2])).size >= 8,
+  "legs occupy distinct depth lanes instead of one stacked plane");
   assert.equal(geometry.head.radius, 22);
   const xs = geometry.segments.flatMap((segment) => [segment.x1, segment.x2]);
   assert.ok(Math.max(...xs) - Math.min(...xs) > 480,

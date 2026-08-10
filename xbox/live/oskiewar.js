@@ -5060,10 +5060,11 @@ function damagedPartColor(color, player, part) {
 
 function drawSkeletonSegments(segments, color, outline, player = null) {
   const edge = Math.max(1.25, Math.min(3, cameraScale() * 1.8));
-  for (const segment of segments)
+  for (const segment of segments.filter((item) => !item.hitboxOnly))
     filledCapsule(segment.x1, segment.y1, segment.x2, segment.y2,
       segment.width + edge * 2, outline);
   for (const [index, segment] of segments.entries()) {
+    if (segment.hitboxOnly) continue;
     drawPaletteCapsule(segment, player && !player.npc
       ? player.handleColors : null, index, color, player);
   }
@@ -5456,9 +5457,10 @@ function spiderDummyWorldGeometry(player, t) {
   const sway = Math.sin(t * 1.7 + player.pad) * 5;
   const head = { x, y: bodyY + sway, z, radius: 22 };
   const segments = [];
-  const add = (x1, y1, x2, y2, width, role, part) => {
+  const add = (x1, y1, x2, y2, width, role, part,
+    z1 = z, z2 = z, hitboxOnly = false) => {
     if (!hasPart(player, part)) return;
-    segments.push({ x1, y1, z1: z, x2, y2, z2: z, width, role, part });
+    segments.push({ x1, y1, z1, x2, y2, z2, width, role, part, hitboxOnly });
   };
   add(x - 42, bodyY, x + 42, bodyY, 38, "torso", "torso");
   add(x, bodyY - 30, x, bodyY + 31, 34, "spider-body", "torso");
@@ -5472,20 +5474,25 @@ function spiderDummyWorldGeometry(player, t) {
     const rootX = x + side * 31;
     const rootY = bodyY + lane * 31 + sway;
     const lift = 34 + Math.abs(lane) * 28;
+    const depthLane = (index - 3.5) * 72;
     const points = [
-      [rootX, rootY],
-      [x + side * 76, bodyY - lift],
-      [x + side * 126, bodyY - lift * .42],
-      [x + side * 171, bodyY + 24 + Math.abs(lane) * 19],
-      [x + side * 211, feet - 51 - (index % 2) * 12],
-      [x + side * 246, feet],
+      [rootX, rootY, z + depthLane * .2],
+      [x + side * 76, bodyY - lift, z + depthLane * .48],
+      [x + side * 126, bodyY - lift * .42, z + depthLane * .72],
+      [x + side * 171, bodyY + 24 + Math.abs(lane) * 19, z + depthLane],
+      [x + side * 211, feet - 51 - (index % 2) * 12, z + depthLane * 1.08],
+      [x + side * 246, feet, z + depthLane],
     ];
     for (let joint = 0; joint < points.length - 1; joint++) {
-      const [x1, y1] = points[joint];
-      const [x2, y2] = points[joint + 1];
+      const [x1, y1, z1] = points[joint];
+      const [x2, y2, z2] = points[joint + 1];
       add(x1, y1, x2, y2, 13 - joint,
-        `spider-leg-${index + 1}-segment-${joint + 1}`, part);
+        `spider-leg-${index + 1}-segment-${joint + 1}`, part, z1, z2);
     }
+    // One broad top-level combat proxy per complete leg keeps the boss
+    // readable to melee even though the visible joints fan through Z.
+    add(rootX, rootY, points.at(-1)[0], points.at(-1)[1], 32,
+      `spider-hitbox-${index + 1}`, part, z, z, true);
   }
   return { head, segments };
 }
@@ -5504,7 +5511,8 @@ function projectRunnerWorldGeometry(world) {
       const b = projectPoint(segment.x2, segment.y2, segment.z2);
       return { x1: a.x, y1: a.y, x2: b.x, y2: b.y,
         width: Math.max(1.5, segment.width * cameraScale()),
-        role: segment.role, part: segment.part };
+        role: segment.role, part: segment.part,
+        hitboxOnly: segment.hitboxOnly };
     }),
   };
 }
@@ -5827,7 +5835,8 @@ function runnerContactToPoint(player, t, px, py, pz = 0) {
 function detachPart(player, part, geometry, sourceX, now) {
   if (!hasPart(player, part)) return;
   const direction = Math.sign(player.x - sourceX) || player.facing || 1;
-  for (const segment of geometry.segments.filter((item) => item.part === part)) {
+  for (const segment of geometry.segments.filter((item) =>
+    item.part === part && !item.hitboxOnly)) {
     const paletteCoordinate = geometry.segments.indexOf(segment);
     detachedParts.push({ ...segment, color: player.color.slice(),
       colors: player.npc ? [] : player.handleColors?.map((value) => value.slice()) || [],
