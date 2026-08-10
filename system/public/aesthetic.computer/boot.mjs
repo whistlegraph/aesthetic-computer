@@ -1810,6 +1810,20 @@ function receive(event) {
       window.acSEND({ type: "history-load", content: parse(slug) });
     }
     return;
+  } else if (event.data?.type === "prompt:dom-input") {
+    // prompt.ac renders the prompt in native DOM, but the prompt system remains
+    // authoritative for input state, history, command aliases, and execution.
+    // Forward the DOM value to the worker instead of duplicating that logic in
+    // the shell. shellhtml only suppresses pixel composition and local acts.
+    window.acSEND?.({
+      type: "prompt:dom-input",
+      content: {
+        text: String(event.data.text ?? ""),
+        active: event.data.active !== false,
+        submit: event.data.submit === true,
+      },
+    });
+    return;
   } else if (event.data?.type === "kidlisp-reload") {
     // Live reload from kidlisp.com editor
     const code = event.data.code;
@@ -2017,6 +2031,12 @@ async function handleKeepMintPrepare(data) {
 }
 
 window.addEventListener("message", receive);
+
+// The early `ready` signal keeps legacy hosts from reloading, but this one is
+// the contract for shells that need the complete postMessage command bridge.
+if (window.parent !== window) {
+  window.parent.postMessage({ type: "ac:bridge-ready" }, "*");
+}
 
 // Forward post-to-parent messages (used by kidlisp.mjs for trace and other messages)
 window.addEventListener("message", (event) => {

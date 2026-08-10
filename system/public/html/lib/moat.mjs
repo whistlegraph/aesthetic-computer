@@ -123,8 +123,10 @@ export class ACFrame {
     this.origin = origin;
     this.piece = null;
     this.ready = false;
+    this.bridgeReady = false;
     this._onPiece = [];
     this._onReady = [];
+    this._onBridgeReady = [];
     window.addEventListener("message", (e) => {
       if (e.source !== iframe.contentWindow) return;
       const d = e.data || {};
@@ -135,6 +137,11 @@ export class ACFrame {
         if (!this.ready) {
           this.ready = true;
           this._onReady.forEach((cb) => cb());
+        }
+      } else if (d.type === "ac:bridge-ready") {
+        if (!this.bridgeReady) {
+          this.bridgeReady = true;
+          this._onBridgeReady.forEach((cb) => cb());
         }
       }
     });
@@ -155,6 +162,7 @@ export class ACFrame {
   }
   onPiece(cb) { this._onPiece.push(cb); return this; }
   onReady(cb) { this._onReady.push(cb); return this; }
+  onBridgeReady(cb) { this._onBridgeReady.push(cb); return this; }
 }
 
 // ── Piece-name parsing (shell command bar) ─────────────────────────────────

@@ -9722,8 +9722,8 @@ async function load(
           noPaint = true;
         }
 
-        // shellhtml: the host page's DOM bar IS the prompt — never composite
-        // the low-res typable input over the buffer.
+        // shellhtml: the host page's DOM layer IS the prompt — never composite
+        // the low-res typable input over the stage beneath it.
         const promptPainted = shellHTMLMode ? false : prompt.prompt_paint($);
         return noPaint || promptPainted;
       };
@@ -10263,6 +10263,29 @@ async function makeFrame({ data: { type, content } }) {
       $commonApi.jump(target);
     } else {
       console.warn("🧭 Navigate failed: target=", target, "$commonApi=", !!$commonApi, "jump=", !!$commonApi?.jump);
+    }
+    return;
+  }
+
+  // Native DOM prompt bridge (prompt.ac). Keep the TextInput and prompt piece
+  // as the source of truth while leaving their low-resolution composition off.
+  if (type === "prompt:dom-input") {
+    const promptInput = $commonApi?.system?.prompt?.input;
+    if (!promptInput || $commonApi?.slug !== "prompt") return;
+
+    const text = String(content?.text ?? "");
+    promptInput.text = text;
+    promptInput.addUserText?.(text);
+    promptInput.runnable = text.trim().length > 0;
+    promptInput.canType = content?.active !== false;
+    if (promptInput.enter?.btn) {
+      promptInput.enter.btn.disabled = !promptInput.runnable;
+    }
+    promptInput.snap?.();
+    $commonApi.needsPaint?.();
+
+    if (content?.submit === true && promptInput.runnable) {
+      await promptInput.run($commonApi.store);
     }
     return;
   }
