@@ -1776,18 +1776,22 @@ function syncSignedInFighter() {
 
 function applyRoster(player, index) {
   if (player.npc) {
-    const fighter = selfPlay ? selfPlayFighters[player.pad]
+    const fighter = selfPlay && player.bot ? selfPlayFighters[player.pad]
       : player.bot ? botFighter
       : player.spiderDummy ? spiderDummyFighter : npcFighter;
     player.rosterIndex = -1;
     player.name = fighter.handle;
     player.color = fighter.color.slice();
     player.handleColors = fighter.colors;
-    if (selfPlay) {
+    if (selfPlay && player.bot) {
       // The color IS the nameplate: a self-play bot is called what it wears,
       // so the card reads "CORAL WINS ROUND" and the demo carries the color
-      // name out to any replay that wants to dress the fighter again.
-      const dressed = selfPlayWardrobe(player.pad);
+      // name out to any replay that wants to dress the fighter again. The
+      // harness may force the first seat's color by name for a proof bout.
+      const forcedName = String(globalThis.__oskiewarWardrobe || "").toLowerCase();
+      const forcedWorn = player.pad === 0 && forcedName &&
+        cssColorBook.find((entry) => entry.name === forcedName);
+      const dressed = forcedWorn || selfPlayWardrobe(player.pad);
       player.color = dressed.rgb.slice();
       player.colorName = dressed.name;
       player.name = dressed.name.toUpperCase();
@@ -1934,6 +1938,12 @@ function startSelfPlay(now) {
     player.spiderDummy = false;
     player.rosterIndex = -1;
   }
+  // The reel harness may seat the training dummy in the second chair — a
+  // scripted "COLOR vs DUMMY" proof bout. The dummy has no bot AI, so the
+  // timed-training flag keeps the round on the clock it would otherwise
+  // drop.
+  if (globalThis.__oskiewarSelfPlayOpponent === "dummy")
+    players[1].bot = false;
   startReplay(now);
   resetRound(now, true);
 }

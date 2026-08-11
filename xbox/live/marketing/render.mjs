@@ -179,9 +179,10 @@ export async function renderReel(spec, { log = console.log } = {}) {
     page.on("pageerror", (error) => log(`  ⚠ page ${error.message.slice(0, 140)}`));
 
     // Everything below runs before a byte of the game does.
-    await page.evaluateOnNewDocument((seedValue, selfPlay, wardrobe, timedTraining) => {
+    await page.evaluateOnNewDocument((seedValue, selfPlay, wardrobe, timedTraining, opponent) => {
       if (wardrobe) globalThis.__oskiewarWardrobe = wardrobe;
       if (timedTraining) globalThis.__oskiewarTimedTraining = true;
+      if (opponent) globalThis.__oskiewarSelfPlayOpponent = opponent;
       let state = seedValue >>> 0;
       Math.random = () => {
         state = (state + 0x6d2b79f5) >>> 0;
@@ -253,7 +254,7 @@ export async function renderReel(spec, { log = console.log } = {}) {
       globalThis.AudioContext = Teed;
       if (globalThis.webkitAudioContext) globalThis.webkitAudioContext = Teed;
     }, seed32(seed), kind === "self-play", spec.wardrobe || "",
-      kind === "training");
+      kind === "training" || spec.opponent === "dummy", spec.opponent || "");
 
     const address = kind === "replay"
       ? `${shell.origin}/${spec.round}?social-preview&replay-oven`
