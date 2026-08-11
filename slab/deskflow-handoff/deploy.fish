@@ -10,6 +10,14 @@ set chicken_ssh fusermacminichicken@100.98.158.126
 set panda_ssh fusermacminipanda@100.88.155.94
 set ssh_opts -o BatchMode=yes -o ConnectTimeout=8 -o ConnectionAttempts=1 -o ControlMaster=no -o ControlPath=none
 
+# NOTE: the 100.x addresses below are tailnet-only, so this script will not run
+# on a network where the tailnet is unavailable — some networks filter VPN
+# traffic, which leaves a machine's 100.x address dark even though the box is up.
+# For those, swap the *_ssh values for the `chicken`/`panda`/`blueberry`
+# ssh-config aliases, which prefer the LAN when Bonjour answers, and pass LAN
+# addresses for --address / --server-host. --server-name stays a name either way:
+# it is what lets deskflow-role-watchdog re-resolve a server whose lease moved.
+
 for host in $blueberry_ssh $chicken_ssh $panda_ssh
     ssh $ssh_opts $host "rm -rf $stage; mkdir -p $stage"
     or exit 1
@@ -19,11 +27,11 @@ end
 
 bash $here/install.sh --defer-start --machine neo --screen-name neo --address 100.108.5.81 --controller --clients $blueberry_ssh,$chicken_ssh,$panda_ssh --role server --server-host 100.108.5.81 --trusted-servers $blueberry_fp --trusted-clients $blueberry_fp,$chicken_fp,$panda_fp
 or exit 1
-ssh $ssh_opts $blueberry_ssh "bash $stage/install.sh --defer-start --machine blueberry --screen-name blueberry.local --address 100.79.75.53 --controller --clients jas@100.108.5.81,fusermacminichicken@100.98.158.126,fusermacminipanda@100.88.155.94 --role client --server-host 100.108.5.81 --trusted-servers $neo_fp --trusted-clients $neo_fp,$chicken_fp,$panda_fp"
+ssh $ssh_opts $blueberry_ssh "bash $stage/install.sh --defer-start --machine blueberry --screen-name blueberry.local --address 100.79.75.53 --controller --clients jas@100.108.5.81,fusermacminichicken@100.98.158.126,fusermacminipanda@100.88.155.94 --role client --server-host 100.108.5.81 --server-name neo --trusted-servers $neo_fp --trusted-clients $neo_fp,$chicken_fp,$panda_fp"
 or exit 1
-ssh $ssh_opts $chicken_ssh "bash $stage/install.sh --defer-start --machine chicken --screen-name chicken.local --address 100.98.158.126 --role client --server-host 100.108.5.81 --trusted-servers $neo_fp,$blueberry_fp"
+ssh $ssh_opts $chicken_ssh "bash $stage/install.sh --defer-start --machine chicken --screen-name chicken.local --address 100.98.158.126 --role client --server-host 100.108.5.81 --server-name neo --trusted-servers $neo_fp,$blueberry_fp"
 or exit 1
-ssh $ssh_opts $panda_ssh "bash $stage/install.sh --defer-start --machine panda --screen-name panda.local --address 100.88.155.94 --role client --server-host 100.108.5.81 --trusted-servers $neo_fp,$blueberry_fp"
+ssh $ssh_opts $panda_ssh "bash $stage/install.sh --defer-start --machine panda --screen-name panda.local --address 100.88.155.94 --role client --server-host 100.108.5.81 --server-name neo --trusted-servers $neo_fp,$blueberry_fp"
 or exit 1
 
 ~/.local/bin/deskflow-start

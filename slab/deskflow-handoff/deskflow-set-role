@@ -4,6 +4,12 @@ set -euo pipefail
 ROLE=${1:-}
 SERVER_HOST=${2:-}
 EPOCH=${3:-0}
+# SERVER_NAME is the resolvable name behind SERVER_HOST. remoteHost has to be a
+# bare IPv4 (see deskflow-resolve-ipv4), so recording the name is the only way
+# the watchdog can later notice the server's DHCP lease moved and re-resolve it.
+# Optional and additive: older callers that pass three arguments still work, and
+# a client simply keeps whatever serverName it already had.
+SERVER_NAME=${4:-}
 STATE="$HOME/.config/slab/deskflow.json"
 CLIENT_CONF="$HOME/Library/Deskflow/Deskflow-client-role.conf"
 EPOCH_FILE="$HOME/.config/slab/deskflow-role-epoch"
@@ -65,9 +71,9 @@ CURRENT_HOST=$(sed -n 's/^remoteHost=//p' "$CLIENT_CONF" 2>/dev/null | head -1)
 META=()
 TMP="$STATE.tmp.$$"
 META_FILE="$STATE.meta.$$"
-/usr/bin/python3 - "$STATE" "$HOME/.config/slab/deskflow-handoff.json" "$TMP" "$META_FILE" "$ROLE" <<'PY'
+/usr/bin/python3 - "$STATE" "$HOME/.config/slab/deskflow-handoff.json" "$TMP" "$META_FILE" "$ROLE" "$SERVER_NAME" <<'PY'
 import json, sys
-state_path, handoff_path, dst, meta_path, role = sys.argv[1:]
+state_path, handoff_path, dst, meta_path, role, server_name = sys.argv[1:]
 try:
     with open(state_path) as f:
         state = json.load(f)
@@ -88,6 +94,13 @@ state.update({
     "label": state.get("label", "Deskflow"),
     "agent": "computer.aesthetic.deskflow",
 })
+if role == "client":
+    if server_name:
+        state["serverName"] = server_name
+elif "serverName" in state:
+    # A server has no upstream to re-resolve; leaving a stale name behind would
+    # only mislead the watchdog after the next handoff.
+    del state["serverName"]
 with open(dst, "w") as f:
     json.dump(state, f, indent=2, sort_keys=True)
     f.write("\n")

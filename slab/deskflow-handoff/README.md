@@ -25,6 +25,14 @@ Installed components:
 - `~/.local/bin/deskflow-role-watchdog` — health check that follows the current
   role, verifies a client is connected to its configured server (not merely any
   server), and repairs incomplete fleet topology from the winning generation.
+  It also closes the DHCP hole described under **Addressing** below: an unhealthy
+  client re-resolves its recorded `serverName` and retargets itself before
+  resorting to a core restart, and a healthy server keeps its own `address`
+  record matched to its live interface. Both actions are appended to
+  `~/Library/Logs/deskflow-role-watchdog.log` — `logger` output alone is not
+  retrievable via `log show` on current macOS, so the file is the real record.
+- `~/.local/bin/deskflow-resolve-ipv4` — resolves a fleet name to its current
+  IPv4 and nothing else. See **Addressing**.
 - `~/.local/bin/deskflow-reconcile-topology` — compares the two controllers'
   roles and generations, demotes an older split-brain server, and retries
   retargeting missing clients without minting a new claim.
@@ -41,6 +49,39 @@ The installer also provisions both eligible servers' TLS fingerprints on every
 client and all three client fingerprints on each controller. A TCP socket alone
 is not considered a successful handoff; Deskflow must complete its mutual trust
 check.
+
+## Addressing
+
+Deskflow's `remoteHost` **must be a bare IPv4 address.** It cannot be a name:
+mDNS answers `<host>.local` with an `fe80::` link-local address *first*, and
+deskflow-core takes whatever comes back first and then gives up with
+`could not resolve address '<host>.local'`. Bonjour can also select a stalled
+link-local route after wake, which is the same trap from a different direction.
+
+That requirement makes the whole fleet hostage to a DHCP lease, and a stale one
+is a silent fleet-wide outage: every client sits logging `Host is down` while the
+server logs `failed to accept secure socket` and looks like a TLS problem. Two
+mechanisms keep it honest, both in `deskflow-role-watchdog` (45s):
+
+- A **client** that is unhealthy re-resolves the `serverName` recorded in
+  `~/.config/slab/deskflow.json` via `deskflow-resolve-ipv4` and retargets itself
+  if the answer changed, *before* falling back to restarting the core — a restart
+  against a dead address only loops. It acts only on a genuine change, so a
+  server that is really offline does not get its conf rewritten every tick.
+- A **server** keeps the `address` in `~/.config/slab/deskflow-handoff.json`
+  matched to its live interface, so a trackpad claim fans out a reachable address
+  rather than the one it happened to hold at install time.
+
+`serverName` is threaded through `deskflow-set-role`'s optional 4th argument by
+`claim-control`, `yield-control`, `retarget-client`, and `install.sh --server-name`.
+
+**When the KVM is dead, check addressing first:** compare
+`grep remoteHost ~/Library/Deskflow/Deskflow-client-role.conf` on a client
+against `ipconfig getifaddr en0` on the server.
+
+`deskflow-resolve-ipv4` prefers the `.local` form for bare names on purpose — via
+MagicDNS a bare name can return the tailnet address of a long-offline node — and
+discards loopback answers, since mDNS resolves a machine's own name to 127.0.0.1.
 
 Deskflow transport uses each machine's stable Tailscale address. On the Fuser
 Wi-Fi this keeps Chicken and Panda pointer latency far steadier than the direct

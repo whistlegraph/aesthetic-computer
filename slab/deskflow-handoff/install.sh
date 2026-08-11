@@ -6,6 +6,9 @@ SCREEN_NAME=""
 ADDRESS=""
 ROLE="client"
 SERVER_HOST=""
+# Resolvable name for SERVER_HOST. remoteHost must be a bare IPv4, so this is
+# what lets deskflow-role-watchdog re-resolve the server after a DHCP change.
+SERVER_NAME=""
 CONTROLLER=false
 CLIENTS=""
 DEFER_START=false
@@ -19,6 +22,7 @@ while [[ $# -gt 0 ]]; do
     --address) ADDRESS=$2; shift 2 ;;
     --role) ROLE=$2; shift 2 ;;
     --server-host) SERVER_HOST=$2; shift 2 ;;
+    --server-name) SERVER_NAME=$2; shift 2 ;;
     --controller) CONTROLLER=true; shift ;;
     --clients) CLIENTS=$2; shift 2 ;;
     --defer-start) DEFER_START=true; shift ;;
@@ -29,7 +33,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ -z "$MACHINE" || -z "$SCREEN_NAME" || -z "$ADDRESS" ]]; then
-  echo "usage: install.sh --machine NAME --screen-name NAME --address IP [--controller --clients a,b,c] [--role server|client --server-host IP]" >&2
+  echo "usage: install.sh --machine NAME --screen-name NAME --address IP [--controller --clients a,b,c] [--role server|client --server-host IP --server-name NAME]" >&2
   exit 64
 fi
 if [[ -z "$SERVER_HOST" ]]; then SERVER_HOST="$ADDRESS"; fi
@@ -52,7 +56,7 @@ write_fingerprints() {
   done
 }
 
-for file in deskflow-role-runner deskflow-set-role deskflow-role-state deskflow-retarget-client deskflow-reconcile-topology deskflow-claim-control deskflow-role-watchdog deskflow-seat-ready deskflow-active-screen deskflow-yield-control deskflow-start; do
+for file in deskflow-role-runner deskflow-set-role deskflow-role-state deskflow-retarget-client deskflow-reconcile-topology deskflow-claim-control deskflow-role-watchdog deskflow-seat-ready deskflow-active-screen deskflow-yield-control deskflow-start deskflow-resolve-ipv4; do
   cp "$HERE/$file" "$HOME/.local/bin/$file"
   chmod 755 "$HOME/.local/bin/$file"
 done
@@ -100,14 +104,18 @@ EOF
 /usr/bin/python3 -c 'import json,sys; path,machine,screen,address,controller,clients=sys.argv[1:]; data={"enabled":True,"machine":machine,"screenName":screen,"address":address,"controller":controller=="true","clients":[x for x in clients.split(",") if x]}; f=open(path,"w"); json.dump(data,f,indent=2,sort_keys=True); f.write("\n"); f.close()' \
   "$HOME/.config/slab/deskflow-handoff.json" "$MACHINE" "$SCREEN_NAME" "$ADDRESS" "$CONTROLLER" "$CLIENTS"
 
-/usr/bin/python3 - "$HOME/.config/slab/deskflow.json" "$ROLE" <<'PY'
+/usr/bin/python3 - "$HOME/.config/slab/deskflow.json" "$ROLE" "$SERVER_NAME" <<'PY'
 import json, sys
-path, role = sys.argv[1:]
+path, role, server_name = sys.argv[1:]
 try:
     with open(path) as f: data = json.load(f)
 except Exception:
     data = {}
 data.update({"enabled": True, "role": role, "label": data.get("label", "Deskflow"), "agent": "computer.aesthetic.deskflow"})
+if role == "client" and server_name:
+    data["serverName"] = server_name
+elif role == "server":
+    data.pop("serverName", None)
 with open(path, "w") as f:
     json.dump(data, f, indent=2, sort_keys=True)
     f.write("\n")

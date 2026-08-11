@@ -1,0 +1,53 @@
+#!/bin/bash
+# Resolve a fleet machine's name to its current IPv4 address, and nothing else.
+#
+# Deskflow's remoteHost cannot be a name. mDNS answers `<host>.local` with an
+# `fe80::` link-local address FIRST, and deskflow-core takes whatever comes back
+# first, then fails with `could not resolve address '<host>.local'`. So the
+# handoff scripts store a bare IPv4 in the client conf — which makes them
+# hostage to a DHCP lease. This resolver is how they get the current one back.
+#
+# dscacheutil (not dig) is deliberate: dig has no mDNS resolver, so it cannot
+# answer for `.local` at all. Only the `ip_address:` lines are read, which is
+# what filters out the link-local answer that started this whole problem.
+set -euo pipefail
+
+NAME=${1:-}
+if [[ -z "$NAME" ]]; then
+  echo "usage: deskflow-resolve-ipv4 NAME" >&2
+  exit 64
+fi
+
+# Screen names are inconsistent across the fleet — neo records `neo` while
+# blueberry records `blueberry.local` — so a bare name has to be tried both ways.
+#
+# `.local` MUST come first. On a machine using MagicDNS as its resolver a bare
+# name resolves through the tailnet search domain and will happily return the
+# tailnet address of a node that has been OFFLINE for weeks — that is how this
+# ordering was found. mDNS only answers for hosts actually present on the link,
+# which is precisely the question being asked here.
+if [[ "$NAME" == *.* ]]; then
+  CANDIDATES=("$NAME")
+else
+  CANDIDATES=("${NAME}.local" "$NAME")
+fi
+
+for candidate in "${CANDIDATES[@]}"; do
+  # A literal IPv4 needs no lookup; accept it so callers can pass either form.
+  if [[ "$candidate" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]]; then
+    printf '%s\n' "$candidate"
+    exit 0
+  fi
+  # Loopback and 0.0.0.0 are dropped: mDNS resolves a machine's OWN name to
+  # 127.0.0.1, and a client that wrote that into remoteHost would sit forever
+  # trying to reach a Deskflow server on itself.
+  address=$(dscacheutil -q host -a name "$candidate" 2>/dev/null \
+    | sed -n 's/^ip_address: *//p' \
+    | grep -vE '^(127\.|0\.0\.0\.0$)' | head -1)
+  if [[ -n "$address" ]]; then
+    printf '%s\n' "$address"
+    exit 0
+  fi
+done
+
+exit 68

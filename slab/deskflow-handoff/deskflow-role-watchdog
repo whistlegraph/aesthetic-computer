@@ -7,8 +7,49 @@ STATE="$HOME/.config/slab/deskflow.json"
 HANDOFF="$HOME/.config/slab/deskflow-handoff.json"
 CLIENT_CONF="$HOME/Library/Deskflow/Deskflow-client-role.conf"
 MISS="$HOME/.deskflow-role-watchdog.miss"
+RESOLVE="$HOME/.local/bin/deskflow-resolve-ipv4"
+SET_ROLE="$HOME/.local/bin/deskflow-set-role"
+LOG="$HOME/Library/Logs/deskflow-role-watchdog.log"
+
+# `logger` alone is not enough: on current macOS its output is not retrievable
+# via `log show` at all (a probe with a unique string returns nothing), so a
+# silent self-heal would leave no evidence — and the DHCP outage this watchdog
+# exists to fix went unnoticed for days precisely because nothing said so.
+# Keep the syslog call for anyone tailing it, but the file is the real record.
+note() {
+  printf '%s %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$1" >> "$LOG"
+  logger -t deskflow-role-watchdog "$1"
+}
 
 ROLE=$(/usr/bin/python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("role", "client"))' "$STATE" 2>/dev/null || echo client)
+SERVER_NAME=$(/usr/bin/python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("serverName", ""))' "$STATE" 2>/dev/null || echo "")
+
+# The server's own address record is what a trackpad claim fans out to every
+# client, so a stale one converts one DHCP lease change into a fleet-wide
+# outage at the next handoff. Keep it matched to the live interface.
+refresh_local_address() {
+  local live current
+  live=$(ipconfig getifaddr en0 2>/dev/null || ipconfig getifaddr en1 2>/dev/null || true)
+  [[ -n "$live" ]] || return 0
+  current=$(/usr/bin/python3 -c \
+    'import json,sys; print(json.load(open(sys.argv[1])).get("address", ""))' \
+    "$HANDOFF" 2>/dev/null || echo "")
+  [[ "$live" != "$current" ]] || return 0
+  /usr/bin/python3 - "$HANDOFF" "$live" <<'PY' || return 0
+import json, sys
+path, address = sys.argv[1], sys.argv[2]
+with open(path) as f:
+    config = json.load(f)
+config["address"] = address
+tmp = path + ".tmp"
+with open(tmp, "w") as f:
+    json.dump(config, f, indent=2, sort_keys=True)
+    f.write("\n")
+import os
+os.replace(tmp, path)
+PY
+  note "local address record ${current:-unset} -> $live"
+}
 
 healthy=0
 if [[ "$ROLE" == "server" ]]; then
@@ -24,6 +65,9 @@ fi
 
 if [[ "$healthy" == "1" ]]; then
   rm -f "$MISS"
+  if [[ "$ROLE" == "server" ]]; then
+    refresh_local_address
+  fi
   if [[ "$ROLE" == "server" && -x "$HOME/.local/bin/deskflow-reconcile-topology" ]]; then
     expected=$(/usr/bin/python3 -c \
       'import json,sys; print(len(json.load(open(sys.argv[1])).get("clients", [])))' \
@@ -44,5 +88,24 @@ if [[ ! -f "$MISS" ]]; then
 fi
 
 rm -f "$MISS"
+
+# A client that cannot reach its server may simply be holding the server's old
+# DHCP lease. Re-resolve the recorded server name before bouncing the core:
+# restarting against a dead address just loops, which is exactly how the fleet
+# sat down for days when Neo moved from .14 to .13. Only act when the answer
+# actually differs, so a genuinely-offline server still falls through to the
+# kickstart below rather than rewriting the conf every 45 seconds.
+if [[ "$ROLE" == "client" && -n "$SERVER_NAME" && -x "$RESOLVE" && -x "$SET_ROLE" ]]; then
+  resolved=$("$RESOLVE" "$SERVER_NAME" 2>/dev/null || true)
+  if [[ -n "$resolved" && "$resolved" != "$remote_host" ]]; then
+    note \
+      "server $SERVER_NAME moved ${remote_host:-unset} -> $resolved — retargeting"
+    # set-role rewrites the conf and restarts the one launchd job itself, so
+    # there is deliberately no kickstart after it.
+    "$SET_ROLE" client "$resolved" 0 "$SERVER_NAME" >/dev/null 2>&1 && exit 0
+    note "retarget to $resolved failed — kicking instead"
+  fi
+fi
+
 /bin/launchctl kickstart -k "gui/${UID_}/${LABEL}" 2>/dev/null
-logger -t deskflow-role-watchdog "$ROLE core unhealthy — kicked $LABEL"
+note "$ROLE core unhealthy — kicked $LABEL"

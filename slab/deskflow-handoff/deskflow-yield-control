@@ -3,8 +3,11 @@ set -euo pipefail
 
 SERVER_HOST=${1:-}
 EPOCH=${2:-0}
+# The incoming server's name, so this machine can re-resolve it later if its
+# DHCP lease moves while we are the client.
+SERVER_NAME=${3:-}
 if [[ -z "$SERVER_HOST" ]]; then
-  echo "usage: deskflow-yield-control SERVER_HOST [EPOCH]" >&2
+  echo "usage: deskflow-yield-control SERVER_HOST [EPOCH] [SERVER_NAME]" >&2
   exit 64
 fi
 
@@ -38,6 +41,6 @@ PY
     UNIPOINTER_STATE=$("$HOME/.local/bin/unipointer" 2>/dev/null || true)
   fi
 fi
-"$HOME/.local/bin/deskflow-set-role" client "$SERVER_HOST" "$EPOCH"
+"$HOME/.local/bin/deskflow-set-role" client "$SERVER_HOST" "$EPOCH" "$SERVER_NAME"
 [[ -n "$ACTIVE_SCREEN" ]] && echo "active-screen $ACTIVE_SCREEN"
 [[ -n "$UNIPOINTER_STATE" ]] && echo "unipointer-state $ACTIVE_SCREEN $UNIPOINTER_STATE"

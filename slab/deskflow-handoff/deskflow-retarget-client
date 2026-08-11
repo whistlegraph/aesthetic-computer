@@ -4,10 +4,13 @@ set -euo pipefail
 PEER=${1:-}
 SERVER_HOST=${2:-}
 EPOCH=${3:-0}
+# Passing the server's name alongside its address lets the remote watchdog
+# re-resolve it after a DHCP change instead of retrying a dead IP forever.
+SERVER_NAME=${4:-}
 LOG="$HOME/Library/Logs/deskflow-handoff.log"
 
 if [[ -z "$PEER" || -z "$SERVER_HOST" || ! "$EPOCH" =~ ^[0-9]+$ ]]; then
-  echo "usage: deskflow-retarget-client PEER SERVER_HOST EPOCH" >&2
+  echo "usage: deskflow-retarget-client PEER SERVER_HOST EPOCH [SERVER_NAME]" >&2
   exit 64
 fi
 
@@ -19,7 +22,7 @@ SSH_OPTS=(-n -o BatchMode=yes -o ConnectTimeout=4
 status=1
 for attempt in 1 2 3; do
   if ssh "${SSH_OPTS[@]}" "$PEER" \
-      "~/.local/bin/deskflow-set-role client '$SERVER_HOST' '$EPOCH'"; then
+      "~/.local/bin/deskflow-set-role client '$SERVER_HOST' '$EPOCH' '$SERVER_NAME'"; then
     exit 0
   else
     status=$?
