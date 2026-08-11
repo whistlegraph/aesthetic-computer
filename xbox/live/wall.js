@@ -24,11 +24,13 @@ const palettes = {
     ground: [11, 11, 13], panel: [21, 21, 26], edge: [38, 38, 46],
     ink: [242, 242, 245], dim: [138, 138, 153], faint: [74, 74, 88],
     hot: [255, 210, 63], cool: [79, 195, 247], live: [110, 231, 168],
+    panelAlpha: 222,
   },
   light: {
     ground: [244, 244, 242], panel: [255, 255, 255], edge: [222, 222, 222],
     ink: [20, 20, 26], dim: [106, 106, 118], faint: [180, 180, 192],
     hot: [184, 134, 11], cool: [2, 119, 189], live: [27, 138, 85],
+    panelAlpha: 232,
   },
 };
 
@@ -48,17 +50,148 @@ function boot() {
 
 function sim() {
   stats = typeof wallStats === "function" ? wallStats() : null;
-  // The game's HUD takes its palette from a Los Angeles clock — light in the
-  // daytime, dark at night — so the wall in the same room agrees with it.
-  const zone = stats?.timezone || "America/Los_Angeles";
-  const hour = Number(new Intl.DateTimeFormat("en-US", {
-    timeZone: zone, hour: "numeric", hourCycle: "h23",
-  }).format(new Date()));
-  theme = hour >= 7 && hour < 19 ? palettes.light : palettes.dark;
+  // The wall keeps its night. The game's HUD follows a Los Angeles clock and
+  // goes light in the daytime, but this is a lit room's dark surface: a night
+  // field under a light panel set reads as a mistake, and the world is the
+  // reason to look at it. `palettes.light` stays for a daylight variant.
+  theme = palettes.dark;
   if (typeof gameView === "function") {
     const measured = gameView();
     if (measured?.width && measured?.height) view = measured;
   }
+}
+
+// --- the world behind the numbers --------------------------------------------
+
+// oskiewar's own night, taken from the colours the game mixes when its Los
+// Angeles clock says dark: sky [7,8,28], the arena wall behind the fighters
+// [24,18,42], earth [13,25,29], and grass pulled toward [48,92,54]. The wall
+// stands in the same room as the game, so it stands in the same weather.
+const night = {
+  sky: [7, 8, 28], skyHigh: [4, 4, 18], arena: [24, 18, 42],
+  ground: [13, 25, 29], grass: [48, 92, 54], star: [198, 210, 255],
+  red: [214, 62, 62], blue: [72, 118, 226],
+};
+
+// Deterministic value noise: the same index always gives the same number, so
+// stars and tufts hold still between frames instead of boiling. The game seeds
+// its grass the same way rather than storing an array.
+//
+// One sine of one multiplier is not enough for a starfield: neighbouring
+// indices land on neighbouring phases and the "random" points draw visible
+// arcs across the sky. Taking the fraction of a large product breaks that
+// correlation, which is the difference between scattered and swept.
+const wiggle = (index, phase = 0) => {
+  const value = Math.sin(index * 127.1 + phase * 1.7) * 43758.5453;
+  return value - Math.floor(value);
+};
+
+function paintSky(time) {
+  const { width, height } = view;
+  wipe(...night.sky);
+  // A few flat bands rather than a gradient: the game's sky is banded too, and
+  // banding survives being photographed off a wall where a gradient posterises.
+  const bands = 7;
+  for (let index = 0; index < bands; index++) {
+    const amount = index / (bands - 1);
+    box(0, Math.round(height * amount * 0.62 / 1), width,
+      Math.ceil(height * 0.62 / bands) + 1,
+      ...mix(night.skyHigh, night.sky, amount));
+  }
+  // Stars, drifting slowly and breathing out of phase with each other.
+  for (let index = 0; index < 90; index++) {
+    const x = wiggle(index) * width;
+    const y = wiggle(index + 400) * height * 0.52;
+    const twinkle = 0.35 + 0.65 * Math.abs(Math.sin(time * 0.5 + index));
+    const size = 1 + Math.round(wiggle(index + 900) * 2);
+    box(Math.round(x), Math.round(y), size, size,
+      ...night.star, Math.round(60 + twinkle * 150));
+  }
+}
+
+const mix = (a, b, amount) => [
+  Math.round(a[0] + (b[0] - a[0]) * amount),
+  Math.round(a[1] + (b[1] - a[1]) * amount),
+  Math.round(a[2] + (b[2] - a[2]) * amount),
+];
+
+// The world gets a stage of its own along the bottom rather than living behind
+// the panels, where the glass dimmed it to nothing and the horizon cut through
+// a readout. Panels stop above it; the fighters walk in the open.
+const FIELD = 230;
+
+function paintGround(time) {
+  const { width, height } = view;
+  const horizon = height - Math.round(FIELD * 0.42);
+  // The arena wall the fighters stand in front of, then the earth.
+  box(0, horizon - 150, width, 150, ...night.arena);
+  box(0, horizon, width, height - horizon, ...night.ground);
+  // Grass, swayed by one shared phase exactly as drawTerrainGrass does, so the
+  // whole field leans together instead of shimmering per blade.
+  const phase = time * 0.6;
+  for (let index = 0; index < 150; index++) {
+    const seed = wiggle(index, phase * 2.31);
+    const x = ((index + 0.5) / 150) * width;
+    const tall = 20 + seed * 26;
+    const lean = Math.sin(phase + index * 0.4) * 6;
+    const ink = mix(night.ground, night.grass, 0.42 + seed * 0.28);
+    line(x, horizon, x - 5 + lean, horizon - tall, 2, ...ink);
+    line(x, horizon, x + 5 + lean, horizon - tall * 0.82, 2, ...ink);
+  }
+  return horizon;
+}
+
+// A stick fighter, built the way the game builds one: a head and a run of
+// limbs off a spine. Not the real geometry -- that lives in the simulation and
+// needs a whole fight to drive it -- but the same silhouette, walking.
+function paintFighter(x, groundY, scale, ink, time, phase, facing) {
+  const s = scale;
+  const stride = Math.sin(time * 3.4 + phase);
+  const bob = Math.abs(Math.cos(time * 3.4 + phase)) * 3 * s;
+  const hipY = groundY - 46 * s - bob;
+  const shoulderY = groundY - 78 * s - bob;
+  const headY = shoulderY - 13 * s;
+  // Legs swing opposite each other; the planted one stays under the hip.
+  line(x, hipY, x + stride * 15 * s, groundY, 3.4 * s, ...ink);
+  line(x, hipY, x - stride * 15 * s, groundY, 3.4 * s, ...ink);
+  // Spine.
+  line(x, hipY, x, shoulderY, 3.8 * s, ...ink);
+  // Arms counter-swing, and the lead arm reaches out the way it is facing.
+  line(x, shoulderY, x - stride * 13 * s, shoulderY + 22 * s, 3 * s, ...ink);
+  line(x, shoulderY, x + facing * 16 * s + stride * 6 * s,
+    shoulderY + 14 * s, 3 * s, ...ink);
+  circle(x, headY, 11 * s, ...ink);
+  // Two eyes, facing the way it walks -- the game's fighters have them and it
+  // is most of what makes the silhouette read as a character.
+  const eye = 3.4 * s;
+  circle(x + facing * 3.4 * s - 3 * s, headY - 2 * s, eye * 0.42, 12, 12, 20);
+  circle(x + facing * 3.4 * s + 3 * s, headY - 2 * s, eye * 0.42, 12, 12, 20);
+}
+
+// Four of them, crossing the field at their own speeds and wrapping around.
+function paintFighters(time, groundY) {
+  const { width } = view;
+  const cast = [
+    { ink: night.red, speed: 38, phase: 0, scale: 1.5, at: 0.10 },
+    { ink: night.blue, speed: -30, phase: 1.7, scale: 1.35, at: 0.42 },
+    { ink: night.red, speed: 22, phase: 3.1, scale: 1.1, at: 0.68 },
+    { ink: night.blue, speed: -46, phase: 4.4, scale: 1.7, at: 0.88 },
+  ];
+  for (const walker of cast) {
+    const travelled = walker.at * width + time * walker.speed;
+    // Wrap with a margin so nobody pops in at the very edge.
+    const span = width + 200;
+    let x = ((travelled % span) + span) % span - 100;
+    paintFighter(x, groundY, walker.scale, walker.ink, time, walker.phase,
+      walker.speed >= 0 ? 1 : -1);
+  }
+}
+
+function paintWorld() {
+  const time = typeof wallClock === "function" ? wallClock() : 0;
+  paintSky(time);
+  const horizon = paintGround(time);
+  paintFighters(time, horizon);
 }
 
 // --- letters -----------------------------------------------------------------
@@ -86,7 +219,10 @@ function commas(value) {
 // --- furniture ---------------------------------------------------------------
 
 function panel(x, y, width, height) {
-  box(x, y, width, height, ...theme.panel);
+  // Glass, not paint: the world is the point of the wall now, so a panel is a
+  // darkened pane over it rather than a lid on it. The alpha is high enough
+  // that the HUD font still reads from across the room.
+  box(x, y, width, height, ...theme.panel, theme.panelAlpha);
   // A one-pixel edge rather than a border radius: the HUD has no curves.
   line(x, y, x + width, y, 1, ...theme.edge);
   line(x, y + height, x + width, y + height, 1, ...theme.edge);
@@ -150,7 +286,7 @@ function splitBar(x, y, width, height, dummy, human) {
 
 function chrome() {
   const { width } = view;
-  wipe(...theme.ground);
+  paintWorld();
   comicWrite("oskie", 48, 34, 46, ...theme.ink);
   comicWrite("war", 48 + 118, 34, 46, ...theme.hot);
   const stamp = stats
@@ -161,14 +297,15 @@ function chrome() {
 }
 
 function paintTop(top) {
-  const { width, height } = view;
+  const { width } = view;
+  const height = view.height - FIELD;
   const today = stats.today;
   const margin = 48;
   const inner = width - margin * 2;
 
   // The hero takes the slack. A chart given the remainder stretches an empty
   // axis over half the monitor on a day with no play, which reads as breakage.
-  const heroHeight = height - top - 340 - margin;
+  const heroHeight = height - top - 420 - margin;
   panel(margin, top, inner, heroHeight);
   const column = Math.floor(inner / 3);
   const heroSize = Math.min(190, Math.floor(heroHeight * 0.52));
@@ -196,7 +333,8 @@ function paintTop(top) {
 }
 
 function paintBottom(top) {
-  const { width, height } = view;
+  const { width } = view;
+  const height = view.height - FIELD;
   const all = stats.allTime;
   const margin = 48;
   const inner = width - margin * 2;
@@ -313,6 +451,6 @@ function paint() {
   if (age != null) {
     const stale = age > 150;
     writeRight(stale ? `STALE ${Math.round(age)}S` : `UPDATED ${Math.round(age)}S AGO`,
-      view.width - 48, view.height - 40, 20, stale ? theme.hot : theme.faint);
+      view.width - 48, view.height - 34, 20, stale ? theme.hot : theme.faint);
   }
 }

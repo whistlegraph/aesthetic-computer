@@ -92,6 +92,18 @@ function line(x1, y1, x2, y2, width, ...ink) {
   context.stroke();
 }
 
+// Heads are round, so the world needs one. oskiewar's own host has this too.
+function circle(x, y, radius, ...ink) {
+  context.fillStyle = color(ink);
+  context.beginPath();
+  context.arc(x, y, Math.max(0, radius), 0, Math.PI * 2);
+  context.fill();
+}
+
+// Seconds since the page opened. Injected rather than taken from Date inside
+// the piece so a native host can hand over its own monotonic clock later.
+const wallClock = () => performance.now() / 1000;
+
 function triangle(x1, y1, x2, y2, x3, y3, ...ink) {
   context.fillStyle = color(ink);
   context.beginPath();
@@ -224,7 +236,7 @@ const wallAge = () => (lastAt == null ? null : (Date.now() - lastAt) / 1000);
 // --- the piece --------------------------------------------------------------
 
 const HOST = {
-  wipe, box, line, triangle, write, comicWrite, gameView,
+  wipe, box, line, triangle, circle, write, comicWrite, gameView, wallClock,
   wallStats, wallPane, wallError, wallAge, reelFrame, reelCount,
 };
 const NAMES = Object.keys(HOST);
