@@ -2229,9 +2229,16 @@ function roundDemoState(demo, now) {
     const name = demo.fighters?.[pad] || `P${pad + 1}`;
     const profile = name === "DUMMY" ? npcFighter : name === "BOT" ? botFighter
       : fighterRoster.find((fighter) => fighter.handle === name);
+    // A self-play demo replays under the round's own name, so the wardrobe
+    // hash deals the repaint the same colors the live pass wore — without
+    // this the roster lookup misses and both bots fall back to the house
+    // red and blue.
+    const selfPlayPad = selfPlayFighters.findIndex(
+      (fighter) => fighter.handle === name);
     const vx = value(offset + 3);
     return { name, nation: demo.nations?.[pad] || "",
-      color: profile?.color || players[pad].color,
+      color: selfPlayPad >= 0 ? selfPlayWardrobe(selfPlayPad).rgb.slice()
+        : profile?.color || players[pad].color,
       x: value(offset), y: value(offset + 1), z: value(offset + 2),
       vx, vy: value(offset + 4), vz: 0,
       facing: vx ? Math.sign(vx) : pad ? -1 : 1,
