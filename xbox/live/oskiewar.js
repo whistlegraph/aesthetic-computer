@@ -902,6 +902,7 @@ let roundViewerMode = "";
 let roundViewerStatus = "CONNECTING";
 let roundViewerDemo = null;
 let roundViewerDemoStartedAt = 0;
+let roundViewerImpactTick = -1;
 let livePublishFailed = false;
 
 // Match names are public URLs and must not collide, so they take real
@@ -995,7 +996,7 @@ function startReplay(now) {
     nameSeed: nameSeedUsed, ballType: matchBallType,
     fighters: players.map((player) => player.name),
     nations: players.map((player) => player.nation || ""),
-    commands: [], events: [], checkpoints: [], rounds: [],
+    commands: [], events: [], checkpoints: [], rounds: [], impacts: [],
   };
   replayLastCommand = [-1, -1];
   replayNextCheckpointAt = now;
@@ -1106,7 +1107,8 @@ function replayFlags(player) {
     (player.ducking ? 4 : 0) | (player.blocking ? 8 : 0) |
     [...limbParts, "torso"].reduce((flags, part, index) =>
       flags | (hasPart(player, part) ? 0 : 1 << (index + 4)), 0) |
-    (player.facing > 0 ? 4096 : 0) | 8192;
+    (player.facing > 0 ? 4096 : 0) | 8192 |
+    (player.hit > .05 ? 16384 : 0) | (player.blockFlash > .05 ? 32768 : 0);
 }
 
 function recordReplayCheckpoint(now, force = false) {
@@ -1120,7 +1122,23 @@ function recordReplayCheckpoint(now, force = false) {
   values.push(Math.round(ball.x), Math.round(ball.y), Math.round(ball.z),
     Math.round(ball.vx), Math.round(ball.vy), ball.active ? 1 : 0,
     Math.round(cameraCenter), Math.round(cameraCenterY), Math.round(cameraWidth));
+  // The full camera pose rides along so a replay can stand the lens exactly
+  // where the live pass stood it — re-deriving position from width parks the
+  // camera inside close shots and near-clips the bodies it came to frame.
+  values.push(Math.round(cameraDoll.position.x),
+    Math.round(cameraDoll.position.y), Math.round(cameraDoll.position.z),
+    cameraDoll.perspective || 0, cameraDoll.fov || 55, cameraDoll.roll || 0);
   replay.checkpoints.push(values);
+  // Dense demos also carry every impact the fight spawned, so the repaint
+  // can put the sparks and debris back instead of only moving bodies.
+  if (replayCheckpointUs() < 100000) for (const impact of impacts)
+    if (!impact.recordedTick) {
+      impact.recordedTick = demoTick(now) + 1;
+      replay.impacts?.push([demoTick(now), Math.round(impact.x),
+        Math.round(impact.y), Math.round(impact.z || 0),
+        impact.death ? 1 : impact.explosion ? 2 : 0,
+        Math.round((impact.duration || .3) * 1000)]);
+    }
 }
 
 function makeRoundReplayFrame(now) {
@@ -2294,6 +2312,7 @@ function roundDemoState(demo, now) {
       ducking: Boolean(flags & 4), blocking: Boolean(flags & 8),
       removedParts: [...limbParts, "torso"].filter((part, index) =>
         Boolean(flags & (1 << (index + 4)))),
+      hit: flags & 16384 ? .9 : 0, blockFlash: flags & 32768 ? 1 : 0,
       score: Math.round(value(offset + 6)),
       roundWins: Math.round(value(offset + 7)), attack: swing.kind,
       attackTicks: swing.age };
@@ -2302,8 +2321,18 @@ function roundDemoState(demo, now) {
   const nearEnd = tick >= endTick - 20;
   const replayBall = { x: value(17), y: value(18), z: value(19),
     radius: 42, active: Boolean(before[22]), spawnOwner: 0 };
-  return { phase: "replay", fighters, ball: replayBall, balls: [replayBall],
-    camera: { x: value(23), y: value(24), width: Math.max(100, value(25)) },
+  const camera = { x: value(23), y: value(24),
+    width: Math.max(100, value(25)) };
+  // Newer demos carry the live pass's whole camera pose; without it the
+  // lens position is re-derived from width and close shots near-clip.
+  if (before.length > 26) {
+    camera.position = { x: value(26), y: value(27), z: value(28) };
+    camera.perspective = value(29);
+    camera.fov = value(30);
+    camera.roll = value(31);
+  }
+  return { phase: "replay", tick, fighters, ball: replayBall,
+    balls: [replayBall], camera,
     wind: { direction: round[1], mph: round[2] },
     round: { remainingMs: Math.max(0, Math.round((endTick - tick) * 1000 /
       (demo.tickRate || 60))), result: nearEnd
@@ -2330,8 +2359,8 @@ function applyRoundViewerState(state, now, dt = 1 / 60) {
       ? now - (source.attackTicks != null
         ? source.attackTicks * replayTickUs : 80000) : 0;
     player.attackUntil = player.attackKind ? now + 120000 : 0;
-    player.hit = 0;
-    player.blockFlash = 0;
+    player.hit = source.hit || 0;
+    player.blockFlash = source.blockFlash || 0;
   }
   const sources = state.balls || [state.ball];
   for (let index = 0; index < balls.length; index++) {
@@ -2396,8 +2425,31 @@ function handleRoundViewer(message) {
 function updateRoundViewer(now, dt) {
   if (roundViewerDemo && roundViewerMode === "DEMO") {
     const state = roundDemoState(roundViewerDemo, now);
-    if (state) applyRoundViewerState(state, now, dt);
+    if (state) {
+      applyRoundViewerState(state, now, dt);
+      replayViewerImpacts(state.tick, dt);
+    }
   }
+}
+
+// A demo carries the impacts the live pass spawned. Replaying them puts the
+// sparks and debris back into a repaint that otherwise only moves bodies.
+// The demo loops, so a tick that runs backwards restarts the sweep clean.
+function replayViewerImpacts(tick, dt) {
+  const rows = roundViewerDemo?.impacts || [];
+  if (tick < roundViewerImpactTick) {
+    roundViewerImpactTick = -1;
+    impacts.length = 0;
+  }
+  for (const row of rows)
+    if (row[0] > roundViewerImpactTick && row[0] <= tick) {
+      const seconds = (row[5] || 300) / 1000;
+      impacts.push({ x: row[1], y: row[2], z: row[3],
+        life: seconds, duration: seconds,
+        death: row[4] === 1, explosion: row[4] === 2 });
+    }
+  roundViewerImpactTick = tick;
+  updateResultImpactDebris(dt);
 }
 
 function gameBoot() {
