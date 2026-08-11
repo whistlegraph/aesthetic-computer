@@ -78,13 +78,15 @@ Records come in three states:
 - [Radical Digital Painting — 35c3, Leipzig](https://media.ccc.de/v/35c3-9774-radical_digital_painting) — 2018
 - [Gazelli Connect Live](https://gazelliarthouse.com/news/gazelli-connect-live-jeffrey-alan-scudder/) — 2020
 
-**Livestreams & recitals**
+**Performances & streams**
 
+- [*Ars Scientia Presents*](https://arsscientia.online/) — KAJE, Brooklyn, New York — 2023
+- *Presenting Whistlegraphs* — New York Times Building, New York — 2023
 - [Whistlegraph LIVE](https://www.youtube.com/watch?v=vCkTJrLVTLY) — the nightly streams — spring 2020
 - [Whistlegraph LIVE: Cat Charmer](https://www.youtube.com/watch?v=uKMtpKTAytU) — 2021
 - [Recital @ Kunstverein Hamburg](https://www.youtube.com/watch?v=YXUUCkqv2LY) — 2021
 - [Live in Copenhagen](https://www.youtube.com/watch?v=wAyFF1bX2tM) — 2021
-- [The Longest Whistlegraph Ever (so far)](https://sites.rhizome.org/the-longest-whistlegraph-ever-so-far/about/) @ The New Museum — 2022
+- [The Longest Whistlegraph Ever (So Far)](https://sites.rhizome.org/the-longest-whistlegraph-ever-so-far/about/) — Rhizome commission / [New Museum First Look](https://www.newmuseum.org/exhibition/first-look-the-longest-whistlegraph-ever-so-far/) / FR MoCA, Fall River, Massachusetts — 2022
 
 **Exhibitions**
 
