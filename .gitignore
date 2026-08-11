@@ -551,3 +551,4 @@ crm/.cache/
 # It lives inside this workspace on every machine but remains a separate Git
 # history; only ciphertext from that repository is ever pushed.
 /vault/
+tmp/nopaint-sheets/

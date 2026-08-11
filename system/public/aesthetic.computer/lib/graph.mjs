@@ -2260,9 +2260,13 @@ function paste(from, destX = 0, destY = 0, scale = 1, blit = false) {
       }
     }
 
-    // Fast path for simple integer scaling (no rotation, no custom dimensions)
+    // Fast path for simple integer scaling (no rotation, no custom dimensions).
+    // It blits from.width × from.height wholesale, so it must decline anything
+    // cropped — otherwise a cropped sprite silently pastes its entire sheet,
+    // and only when the sheet happens to fit, which hides the bug.
     if (
       !angle &&
+      !crop &&
       !tWidth &&
       !tHeight &&
       !anchor &&
