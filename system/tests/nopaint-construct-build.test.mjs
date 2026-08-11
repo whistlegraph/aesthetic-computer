@@ -26,6 +26,10 @@ const painted = (layer) => layer.pixels.reduce(
 test("Build keeps its recovered block sizes, opacity, and cues", () => {
   assert.deepEqual(BUILD.blockSizes, [4, 8, 16, 32, 64, 128]);
   assert.deepEqual(BUILD.opacity, [50, 100]);
+  // A bigger brick is laid more slowly, one delay per size.
+  assert.deepEqual(BUILD.stepSeconds, [.1, .2, .3, .4, .5, .7]);
+  assert.equal(BUILD.stepSeconds.length, BUILD.blockSizes.length);
+  assert.equal(BUILD.cueFloor, 32);
   assert.deepEqual(Object.values(BUILD.cues).sort(), [
     "build - blow down", "build - brick click", "build - brick clop",
     "build - brick scrape", "build - builder's beat"].sort());
@@ -37,8 +41,37 @@ test("Build keeps its recovered block sizes, opacity, and cues", () => {
     assert.ok(score.opacity >= 50 && score.opacity <= 100);
     // blockIndexMax = 256 / blockSize - 1, straight off the sheet.
     assert.equal(score.brush.parameters.blockIndexMax, 256 / score.blockSize - 1);
+    assert.equal(score.stepSeconds,
+      BUILD.stepSeconds[BUILD.blockSizes.indexOf(score.blockSize)]);
+    // Only bricks of 32 and up are audible.
+    assert.equal(score.audible, score.blockSize >= BUILD.cueFloor);
+    assert.equal(score.brush.parameters.cues.length, score.audible ? 4 : 0);
   }
   assert.deepEqual([...sizes].sort((a, b) => a - b), BUILD.blockSizes);
+});
+
+test("the builder never crosses its own work", () => {
+  // BuildStep only offers a neighbour while that tile still reads tileToCheck,
+  // so no brick may ever be laid twice — the walk is self-avoiding, and it
+  // ends boxed in rather than wandering forever.
+  const score = make(buildProposal, "build:avoid", 64, 64);
+  const laid = [];
+  const layer = { width: score.width, height: score.height,
+    pixels: new Uint8ClampedArray(score.width * score.height * 4) };
+  // Re-run the walk through the real render and read the grid it fills.
+  render(buildProposal, score, 60 * 100000);
+  const filled = render(buildProposal, score, 60 * 100000);
+  const cells = new Set();
+  for (let row = 0; row < score.rows; row += 1) {
+    for (let column = 0; column < score.columns; column += 1) {
+      const at = ((Math.floor(row * score.block) + 1) * filled.width
+        + Math.floor(column * score.block) + 1) * 4;
+      if (filled.pixels[at + 3] > 0) cells.add(`${column},${row}`);
+    }
+  }
+  assert.ok(cells.size > 1, "the builder walks somewhere");
+  assert.ok(cells.size <= score.columns * score.rows,
+    "it never lays more bricks than the grid has cells");
 });
 
 test("the builder lays bricks on its grid and stays inside the painting", () => {

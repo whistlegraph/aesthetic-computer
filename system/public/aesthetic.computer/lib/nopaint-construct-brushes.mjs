@@ -21,16 +21,29 @@ export const gridWormProposal = Object.freeze({
   label: "Grid Worm",
   compatible: true,
   source: Object.freeze({
-    gridSizes: Object.freeze([32, 64, 128, 256]),
+    // division = choose(32, 64, 128, 256) is how many divisions the buffer is
+    // cut into, NOT the size of a cell: width = GridWormBuffer.Width /
+    // division. Reading it as a cell size gave 256px cells on a 256 painting,
+    // which is why the worm used to render as two stray lines.
+    divisions: Object.freeze([32, 64, 128, 256]),
+    canvas: 256,
+    wormLength: "division",         // wormLength = division
     loopRates: Object.freeze([[0.1, 0.09], [0.05, 0.1], [0.1, 0.05, 0.02]]),
     channelAlpha: Object.freeze([153, 204, 153]), // Construct 0.6, 0.8, 0.6
     blend: "exclusion",
+    renderFunction: "DrawGridWorm",
+    // Each GridWormSegments row is [column, row, colour] and DrawGridWorm
+    // fills that one cell; the AC read draws the chain instead.
+    reconstructed: Object.freeze(["cells drawn as a chain, not per-cell fills"]),
   }),
   generate({ random, width, height, base }) {
-    const gridSize = this.source.gridSizes[Math.floor(random() * this.source.gridSizes.length)];
-    const columns = Math.max(1, Math.ceil(width / gridSize));
-    const rows = Math.max(1, Math.ceil(height / gridSize));
-    const length = Math.max(8, Math.min(64, Math.ceil((columns + rows) * 1.5)));
+    const { divisions, canvas } = this.source;
+    const division = divisions[Math.floor(random() * divisions.length)];
+    const scale = Math.min(width, height) / canvas;
+    const cell = Math.max(1, canvas / division * scale);
+    const columns = Math.max(1, Math.ceil(width / cell));
+    const rows = Math.max(1, Math.ceil(height / cell));
+    const length = division; // wormLength = division
     let column = Math.floor(random() * columns);
     let row = Math.floor(random() * rows);
     const cells = [{ column, row }];
@@ -49,31 +62,33 @@ export const gridWormProposal = Object.freeze({
       ...base,
       kind: this.slug,
       color: colors[0],
-      gridSize,
+      division,
+      gridSize: cell,
       cells: freezePoints(cells),
       colors,
       brush: Object.freeze({
         slug: this.slug,
-        params: Object.freeze([String(gridSize)]),
+        params: Object.freeze([String(division)]),
         colon: Object.freeze([]),
-        parameters: Object.freeze({ gridSize, columns, rows, length, blend: "exclusion" }),
+        parameters: Object.freeze({ division, cell, columns, rows, length, blend: "exclusion" }),
       }),
     });
   },
   render({ ink }, score, frame) {
-    const center = (cell, channel) => ({
+    const center = (cell) => ({
       x: cell.column * score.gridSize + score.gridSize / 2,
       y: cell.row * score.gridSize + score.gridSize / 2,
-      channel,
     });
     for (let channel = 0; channel < 3; channel += 1) {
       const rates = this.source.loopRates[channel];
+      // The loop rates crawl each exclusion channel around the worm at its own
+      // speed; they do not reveal it. The worm is `division` segments long from
+      // the first frame — drawing a growing prefix left it a dot.
       const offset = Math.floor(frame * rates[frame % rates.length]) % score.cells.length;
-      const visible = Math.max(2, Math.min(score.cells.length, 2 + Math.floor(frame * rates[0])));
-      for (let step = 1; step < visible; step += 1) {
-        const from = center(score.cells[(offset + step - 1) % score.cells.length], channel);
-        const to = center(score.cells[(offset + step) % score.cells.length], channel);
-        ink(score.colors[channel]).line(from.x, from.y, to.x, to.y, Math.max(1, score.gridSize / 8));
+      for (let step = 1; step < score.cells.length; step += 1) {
+        const from = center(score.cells[(offset + step - 1) % score.cells.length]);
+        const to = center(score.cells[(offset + step) % score.cells.length]);
+        ink(score.colors[channel]).line(from.x, from.y, to.x, to.y, Math.max(1, score.gridSize / 2));
       }
     }
   },

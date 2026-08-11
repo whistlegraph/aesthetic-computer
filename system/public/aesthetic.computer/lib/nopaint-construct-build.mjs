@@ -12,7 +12,11 @@ export const BUILD = frozen({
   canvas: 256,
   blockSizes: frozen([4, 8, 16, 32, 64, 128]),
   opacity: frozen([50, 100]),          // random(50, 100)
-  stepSeconds: .1,                     // the builder's beat
+  // The "Draw" timer is one-shot and re-armed with a delay chosen by brick
+  // size, so a big brick is laid slowly. Indexed against blockSizes.
+  stepSeconds: frozen([.1, .2, .3, .4, .5, .7]),
+  // Only the heavy bricks are audible; each pair is a 50/50 choose(0, 1).
+  cueFloor: 32,
   cues: frozen({
     theme: "build - builder's beat",
     scrape: "build - brick scrape",
@@ -131,48 +135,71 @@ export const buildProposal = frozen({
   slug: "build",
   label: "Build",
   compatible: true,
-  source: frozen({ ...BUILD, actionSheet: "Build",
-    grid: "blockIndexMax = 256 / blockSize - 1; the builder steps ±1 and clamps",
-    // The builder's own sprite and the blow-down lifecycle are not modeled;
-    // what is here is where it walks and what it leaves.
-    reconstructed: frozen(["the builder sprite", "the blow-down lifecycle"]) }),
+  source: frozen({ ...BUILD, actionSheet: "Build", renderFunction: "BuildStep",
+    grid: "blockIndexMax = 256 / blockSize - 1",
+    // BuildStep is the whole brush. For each of the four neighbours it asks
+    // whether that tile is still `tileToCheck` — the untouched colour — and
+    // only offers it as a candidate if so, then picks one at random. The
+    // builder therefore never crosses its own work: it is a self-avoiding
+    // walk that fills the painting and gets boxed in, which is what the
+    // blow-down cue is for.
+    walk: "self-avoiding: a neighbour is a candidate only while it still reads tileToCheck",
+    reconstructed: frozen(["the builder sprite", "what follows a blow-down"]) }),
   generate({ random, width, height, base }) {
-    const blockSize = choose(random, BUILD.blockSizes);
+    const index = Math.floor(random() * BUILD.blockSizes.length);
+    const blockSize = BUILD.blockSizes[index];
     const scale = Math.min(width, height) / BUILD.canvas;
     const opacity = Math.round(between(random, BUILD.opacity));
+    const block = Math.max(1, blockSize * scale);
     return frozen({ ...base, kind: "build",
       seed: Math.floor(random() * 0xffffffff),
-      blockSize, opacity, scale,
-      block: Math.max(1, blockSize * scale),
-      columns: Math.max(1, Math.ceil(width / Math.max(1, blockSize * scale))),
-      rows: Math.max(1, Math.ceil(height / Math.max(1, blockSize * scale))),
+      blockSize, opacity, scale, block,
+      stepSeconds: BUILD.stepSeconds[index],
+      audible: blockSize >= BUILD.cueFloor,
+      columns: Math.max(1, Math.ceil(width / block)),
+      rows: Math.max(1, Math.ceil(height / block)),
       color: hslaToRgba(random(), random(), random()),
       width, height,
       brush: frozen({ slug: "build", params: frozen([String(blockSize)]),
         colon: frozen([]),
         parameters: frozen({ blockSize, opacity,
-          blockIndexMax: BUILD.canvas / blockSize - 1, cue: BUILD.cues.theme }) }) });
+          blockIndexMax: BUILD.canvas / blockSize - 1,
+          stepSeconds: BUILD.stepSeconds[index],
+          cue: BUILD.cues.theme,
+          cues: blockSize >= BUILD.cueFloor
+            ? frozen([BUILD.cues.scrape, BUILD.cues.blowDown,
+              BUILD.cues.click, BUILD.cues.clop])
+            : frozen([]) }) }) });
   },
   render({ paste }, score, tick) {
     const state = layerFor(score);
-    // The builder lays its first brick on the first frame, not a beat later.
-    const due = 1 + Math.floor(tick / 60 / BUILD.stepSeconds);
-    if (state.placed === 0) {
+    const due = 1 + Math.floor(tick / 60 / score.stepSeconds);
+    if (!state.built) {
+      state.built = new Uint8Array(score.columns * score.rows);
       state.column = Math.floor(state.random() * score.columns);
       state.row = Math.floor(state.random() * score.rows);
+      state.stuck = false;
     }
-    // The builder walks ±1 on one axis at a time, clamped to the grid, laying
-    // a brick wherever it lands.
-    const bricks = Math.min(due, score.columns * score.rows * 4);
-    while (state.placed < bricks) {
+    while (state.placed < due && !state.stuck) {
       state.placed += 1;
+      state.built[state.row * score.columns + state.column] = 1;
       fill(state.layer, state.column * score.block, state.row * score.block,
         score.block, score.block, score.color,
         Math.round(score.opacity / 100 * 255));
-      const axis = state.random() < .5;
-      const step = state.random() < .5 ? -1 : 1;
-      if (axis) state.column = Math.max(0, Math.min(score.columns - 1, state.column + step));
-      else state.row = Math.max(0, Math.min(score.rows - 1, state.row + step));
+      // Right, Left, Up, Down — offered only while still untouched.
+      const candidates = [];
+      if (state.column < score.columns - 1
+        && !state.built[state.row * score.columns + state.column + 1]) candidates.push([1, 0]);
+      if (state.column > 0
+        && !state.built[state.row * score.columns + state.column - 1]) candidates.push([-1, 0]);
+      if (state.row > 0
+        && !state.built[(state.row - 1) * score.columns + state.column]) candidates.push([0, -1]);
+      if (state.row < score.rows - 1
+        && !state.built[(state.row + 1) * score.columns + state.column]) candidates.push([0, 1]);
+      if (!candidates.length) { state.stuck = true; break; }
+      const [dx, dy] = candidates[Math.floor(state.random() * candidates.length)];
+      state.column += dx;
+      state.row += dy;
     }
     paste(state.layer, 0, 0);
   },

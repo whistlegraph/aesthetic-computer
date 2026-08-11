@@ -9,7 +9,12 @@ const generate = (contract, seed) => contract.generate({ random: seededRandom(se
 test("Grid Worm is deterministic and retains Construct's quantized grid", () => {
   const score = generate(gridWormProposal, "worm");
   assert.deepEqual(score, generate(gridWormProposal, "worm"));
-  assert.ok([32, 64, 128, 256].includes(score.gridSize));
+  // division is how many divisions the buffer is cut into; the cell is
+  // canvas / division, and the worm is `division` segments long.
+  assert.ok([32, 64, 128, 256].includes(score.division));
+  assert.equal(score.cells.length, score.division);
+  assert.equal(score.gridSize, 256 / score.division * (480 / 256));
+  assert.ok(score.gridSize < 32, "a cell is far smaller than the division count");
   assert.equal(score.colors.length, 3);
   assert.deepEqual(score.colors.map((color) => color[3]), [153, 204, 153]);
   for (let index = 1; index < score.cells.length; index += 1) {
