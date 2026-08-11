@@ -101,7 +101,7 @@ export function mergeReelSources(ledger, stored = []) {
   for (const row of stored) {
     const existing = byId.get(row._id) || {
       mode: "live", id: row._id, day: row.day, segment: row.segment,
-      publishedAt: row.publishedAt, urls: { cover: row.cover },
+      publishedAt: row.publishedAt, urls: { cover: row.cover, reel: row.reel },
     };
     byId.set(row._id, { ...existing, insights: row.insights, insightsAt: row.insightsAt });
   }
@@ -144,6 +144,10 @@ export function shapeReels(ledger) {
         segment: post.segment,
         publishedAt: post.publishedAt,
         cover: post.urls?.cover || null,
+        // The reel itself, so a wall can loop the thing it is reporting on. It is
+        // already a public object on Spaces — the same URL Meta was handed to
+        // fetch the video at publish time.
+        reel: post.urls?.reel || null,
         insights: post.insights || null,
       })),
   };
@@ -189,6 +193,7 @@ async function storeReelInsights(database, posts) {
           segment: post.segment ?? null,
           publishedAt: post.publishedAt ?? null,
           cover: post.urls?.cover ?? post.cover ?? null,
+          reel: post.urls?.reel ?? post.reel ?? null,
           insights: post.insights,
           insightsAt: post.insightsAt || new Date().toISOString(),
         },
