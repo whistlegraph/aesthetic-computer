@@ -112,6 +112,9 @@ async function signalAccount(machine) {
 async function resolveSignalRecipient(to, machine) {
   if (!to) throw new Error("`to` is required for a Signal send (ACI, +number, or a name)");
   if (/^\+[0-9]{6,}$/.test(to)) return { id: to, label: to, how: "e164" };
+  // signal-cli takes the bare UUID as a recipient; an `aci:` prefix makes it
+  // fall through to phone-number normalization (strips to digits) and the
+  // send silently misfires.
   if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(to))
     return { id: to, label: `ACI ${to}`, how: "aci" };
   const acct = await signalAccount(machine);
@@ -148,6 +151,18 @@ async function resolveSignalGroup(group, machine) {
   if (!hits.length) throw new Error(`no Signal group matched "${group}" — try dm_groups to find its name`);
   if (hits.length > 1) throw new Error(`"${group}" matched ${hits.length} Signal groups — pass the exact group name or signal-cli group id`);
   return { id: hits[0].id, label: hits[0].name || "(unnamed Signal group)", how: exact.length ? "exact group name" : "group name" };
+}
+
+function inspectOutgoingFiles(inputs) {
+  return inputs.map((input) => {
+    const path = resolve(String(input));
+    if (!existsSync(path)) throw new Error(`attachment does not exist: ${path}`);
+    const stat = statSync(path);
+    if (!stat.isFile()) throw new Error(`attachment is not a file: ${path}`);
+    if (stat.size > 100 * 1024 * 1024) throw new Error(`attachment exceeds 100 MB: ${path}`);
+    const sha256 = createHash("sha256").update(readFileSync(path)).digest("hex");
+    return { path, bytes: stat.size, sha256 };
+  });
 }
 
 const text = (s) => [{ type: "text", text: s }];
@@ -262,7 +277,19 @@ async function toolContacts({ query, machine } = {}) {
 
 // Send — two-step by design. First call previews the resolved target + message;
 // only `confirm: true` actually sends.
-async function toolSend({ channel, to, group, text: body, confirm, machine } = {}) {
+async function toolSend({
+  channel,
+  to,
+  group,
+  text: body,
+  image,
+  attachments,
+  linkPreview,
+  mediaTransport = "auto",
+  visibleTitle,
+  confirm,
+  machine,
+} = {}) {
   const ch = (channel || "").toLowerCase();
   const requestedFiles = [image, ...(Array.isArray(attachments) ? attachments : [attachments])].filter(Boolean);
   const files = inspectOutgoingFiles(requestedFiles);
@@ -281,19 +308,32 @@ async function toolSend({ channel, to, group, text: body, confirm, machine } = {
       return text(
         `PREVIEW — not sent. Re-call with confirm:true to send.\n` +
         `channel: Signal   machine: ${isLocal(machine) ? "local" : machine}\n` +
-        `${isGroup ? "group" : "to"}: ${rcpt.label}  [${rcpt.how}]\n--- message ---\n${body}`,
+        `${isGroup ? "group" : "to"}: ${rcpt.label}  [${rcpt.how}]\n` +
+        files.map((file) => `attachment: ${file.path} (${file.bytes} bytes, sha256 ${file.sha256})`).join("\n") +
+        `${files.length ? "\n" : ""}--- message ---\n${message}`,
       );
     }
     const acct = await signalAccount(machine);
-    const sendArgs = ["-a", acct, "send", "-m", body];
+    const sendArgs = ["-a", acct, "send"];
+    if (message) sendArgs.push("-m", message);
     if (isGroup) sendArgs.push("--group-id", rcpt.id);
     else sendArgs.push(rcpt.id);
-    const { stdout } = await runSignalCli(sendArgs, machine, { timeoutMs: 60000 });
+    // signal-cli's --attachment accepts a variadic tail. Keep the recipient
+    // before it or the recipient is consumed as an attachment path.
+    if (files.length) sendArgs.push("--attachment", ...files.map((file) => file.path));
+    const { stdout, stderr } = await runSignalCli(sendArgs, machine, { timeoutMs: 60000 });
+    // signal-cli confirms a send by printing the 13-digit ms timestamp; treat
+    // anything else as failure — run() resolves on nonzero exit when stdout is
+    // non-empty, so without this check a failed send reads as "✅ sent".
+    const out = `${stdout}\n${stderr || ""}`;
+    const ts = (out.match(/\b\d{13}\b/) || [])[0];
+    if (!ts || /failed|error|unregistered|invalid/i.test(out)) {
+      throw new Error(`signal-cli did not confirm the send: ${out.trim().slice(0, 400) || "(no output)"}`);
+    }
     // Best effort: if this is the conversation Slab watches, replying is also
     // an acknowledgement. Other conversations keep independent cursors.
     await runBridge(SIGNAL, ["ack", "--to", String(group || to)], machine).catch(() => {});
-    const ts = (stdout.match(/\d{10,}/) || [])[0];
-    return text(`✅ sent to ${isGroup ? "Signal group " : ""}${rcpt.label}${ts ? ` (ts ${ts})` : ""}`);
+    return text(`✅ sent to ${isGroup ? "Signal group " : ""}${rcpt.label} (ts ${ts})`);
   }
 
   if (ch === "imessage" || ch === "imsg") {
@@ -506,6 +546,11 @@ const TOOLS = [
         to: { type: "string", description: "Direct recipient. Signal: ACI / +number / contact name. iMessage: named imsg.json contact or raw +number/email." },
         group: { type: "string", description: "Signal only: exact/unambiguous group name or signal-cli group id. Use dm_groups to find names. Mutually exclusive with `to`." },
         text: { type: "string", description: "The message body (multi-line ok)." },
+        image: { type: "string", description: "Optional image or file path to attach." },
+        attachments: { type: "array", items: { type: "string" }, description: "Optional local file paths to attach." },
+        linkPreview: { type: "string", description: "iMessage only: URL to send as a rich link preview." },
+        mediaTransport: { type: "string", enum: ["auto", "backend", "ui"], description: "iMessage attachment transport (default auto)." },
+        visibleTitle: { type: "string", description: "iMessage UI fallback recipient-title guard." },
         confirm: { type: "boolean", description: "Must be true to actually send. Omit/false = preview only." },
         machine: { type: "string", description: "Machine (default local; signal-cli sends route over ssh for remote)." },
       },
