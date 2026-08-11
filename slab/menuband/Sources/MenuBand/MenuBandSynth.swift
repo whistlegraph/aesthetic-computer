@@ -49,6 +49,7 @@ final class MenuBandSynth {
     /// melodic-only routing semantics as the radio backend (channel 9
     /// drums always pass through to GM).
     private let sampleVoice = MenuBandSampleVoice()
+    private let inputMonitor = MenuBandInputMonitor()
     /// Speaks a language's own name (About-window easter egg) through the
     /// same pre-limiter fx bus, so the spoken voice picks up bend/space/echo.
     private let speechVoice = MenuBandSpeechVoice()
@@ -338,6 +339,15 @@ final class MenuBandSynth {
         tape.attach(to: engine, output: preLimiterMixer)
     }
 
+    func setInputMonitoringEnabled(_ enabled: Bool) {
+        inputMonitor.setEnabled(enabled)
+        sampleVoice.setInputMonitoringEnabled(enabled)
+    }
+
+    func ingestMonitoredInput(_ buffer: AVAudioPCMBuffer) {
+        inputMonitor.ingest(buffer)
+    }
+
     /// Pin the hot mic running for a named reason (the tape uses
     /// "tape-record" while REC is engaged). Forwards to the sample
     /// voice's pin mechanism. Returns true if the mic stream is now
@@ -414,6 +424,7 @@ final class MenuBandSynth {
         // closed until the user records a clip and `setSampleBackend`
         // opens it. Voice nodes attach lazily on first noteOn.
         sampleVoice.attach(to: engine, output: preLimiterMixer)
+        inputMonitor.attach(to: engine, output: preLimiterMixer)
         // Speech easter egg: same pre-limiter sum bus, so spoken language
         // names ride the bend/space/echo fx. Idle (no player) until `speak`.
         speechVoice.attach(

@@ -27,7 +27,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     init(menuBand: MenuBandController?) {
         self.menuBand = menuBand
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 320, height: 200),
+            contentRect: NSRect(x: 0, y: 0, width: 320, height: 250),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false
@@ -113,6 +113,21 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
             : "This Mac has no Force Touch trackpad."
         stack.addArrangedSubview(haptics)
 
+        let inputMonitor = NSButton(
+            checkboxWithTitle: "Monitor audio input",
+            target: self,
+            action: #selector(toggleInputMonitoring(_:)))
+        inputMonitor.state = (menuBand?.inputMonitoringEnabled ?? false) ? .on : .off
+        inputMonitor.toolTip = "Hear the Mac's selected input (including Focusrite interfaces) through Menu Band. Use headphones to avoid feedback."
+        stack.addArrangedSubview(inputMonitor)
+
+        let inputNote = NSTextField(
+            labelWithString: "Records the selected macOS input as the tape's microphone stem.")
+        inputNote.font = NSFont.systemFont(ofSize: 11)
+        inputNote.textColor = .tertiaryLabelColor
+        inputNote.maximumNumberOfLines = 2
+        stack.addArrangedSubview(inputNote)
+
         if !MenuBandHaptics.isAvailable {
             let note = NSTextField(labelWithString: "No Force Touch trackpad on this Mac.")
             note.font = NSFont.systemFont(ofSize: 11)
@@ -171,6 +186,10 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
 
     @objc private func toggleHaptics(_ sender: NSButton) {
         menuBand?.hapticsEnabled = (sender.state == .on)
+    }
+
+    @objc private func toggleInputMonitoring(_ sender: NSButton) {
+        menuBand?.inputMonitoringEnabled = (sender.state == .on)
     }
 
     #if !MAC_APP_STORE

@@ -128,7 +128,7 @@ final class MenuBandSampleVoice {
     // Smaller tap buffer = faster handoff from CoreAudio HAL into
     // our ingest loop, so the recording captures from the *first*
     // ms the user holds the key. 128 frames @ 44.1 kHz ≈ 2.9 ms.
-    private let inputTapBufferFrames: AVAudioFrameCount = 128
+    private let inputTapBufferFrames: AVAudioFrameCount = 32
 
     /// Mix bus for all per-note voices. Connects to the host's
     /// pre-limiter mixer once on attach. Master gate lives here.
@@ -142,6 +142,19 @@ final class MenuBandSampleVoice {
     /// conflicts when the output graph is pinned to a Multi-Output device or
     /// other output-only hardware.
     private let recordEngine = AVAudioEngine()
+    private let inputMonitorPlayer = AVAudioPlayerNode()
+    private let inputMonitorGain = AVAudioUnitEQ(numberOfBands: 0)
+    private var inputMonitoringEnabled = false
+    private var boundInputDeviceID: AudioDeviceID = 0
+    private var inputMonitorConnected = false
+    private var inputMonitorFormat: AVAudioFormat?
+    private let inputMonitorQueueLock = NSLock()
+    private var inputMonitorQueuedBuffers = 0
+    private var monitorOutputTapInstalled = false
+    private var lastMonitorInputLog: TimeInterval = 0
+    private var lastMonitorOutputLog: TimeInterval = 0
+    private var monitorConfigObserver: NSObjectProtocol?
+    private var monitorConfigRecovery: DispatchWorkItem?
     private var inputTapInstalled = false
     private var hotMicStopWork: DispatchWorkItem?
     /// External callers (the tape recorder) pin the hot mic on while
@@ -259,6 +272,13 @@ final class MenuBandSampleVoice {
         // Mirrors `KPBJRadioStream.crossfadeMixer.outputVolume`.
         voiceMixer.outputVolume = 0.0
         attached = true
+        if monitorConfigObserver == nil {
+            monitorConfigObserver = NotificationCenter.default.addObserver(
+                forName: .AVAudioEngineConfigurationChange,
+                object: recordEngine,
+                queue: .main
+            ) { [weak self] _ in self?.scheduleMonitorConfigurationRecovery() }
+        }
         // Pre-build the melodic sample playback graph before the host
         // engine starts. Lazy attachment after AVAudioEngine is already
         // running can produce silent player nodes on some CoreAudio graphs.
@@ -287,6 +307,34 @@ final class MenuBandSampleVoice {
                 self?.scheduleHotMicStop()
             }
         }
+    }
+
+    private func scheduleMonitorConfigurationRecovery() {
+        guard inputMonitoringEnabled || !hotMicPinReasons.isEmpty || recording else {
+            return
+        }
+        monitorConfigRecovery?.cancel()
+        let work = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            NSLog("MenuBand SampleVoice: monitor device changed — recovering")
+            self.recordEngine.stop()
+            if self.inputTapInstalled {
+                self.recordEngine.inputNode.removeTap(onBus: 0)
+                self.inputTapInstalled = false
+            }
+            if self.monitorOutputTapInstalled {
+                self.recordEngine.mainMixerNode.removeTap(onBus: 0)
+                self.monitorOutputTapInstalled = false
+            }
+            self.inputConverter = nil
+            self.inputFormat = nil
+            // Core Audio device IDs are ephemeral across USB reconnects.
+            self.boundInputDeviceID = 0
+            _ = self.ensureHotMicRunning()
+            self.recordEngine.mainMixerNode.outputVolume = 0
+        }
+        monitorConfigRecovery = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35, execute: work)
     }
 
     func setOutputEnabled(_ enabled: Bool) {
@@ -401,6 +449,7 @@ final class MenuBandSampleVoice {
 
     private func ensureHotMicRunning() -> Bool {
         if inputTapInstalled, recordEngine.isRunning { return true }
+        selectPreferredHardwareInput()
         let input = recordEngine.inputNode
         let format = input.inputFormat(forBus: 0)
         // Some virtual input devices return a 0-channel / 0-Hz format
@@ -421,6 +470,34 @@ final class MenuBandSampleVoice {
                 self?.ingestInput(buffer)
             }
             inputTapInstalled = true
+        }
+        if inputMonitoringEnabled && !inputMonitorConnected {
+            // Scarlett exposes mic + instrument as a stereo pair. Feed only
+            // physical input 1 into a mono player; AVAudioEngine upmixes that
+            // mono stream equally to both output channels. One 128-frame block
+            // is the entire bridge latency.
+            guard let mono = AVAudioFormat(
+                commonFormat: .pcmFormatFloat32,
+                sampleRate: format.sampleRate,
+                channels: 1,
+                interleaved: false) else { return false }
+            inputMonitorFormat = mono
+            inputMonitorGain.globalGain = 18
+            recordEngine.attach(inputMonitorPlayer)
+            recordEngine.attach(inputMonitorGain)
+            recordEngine.connect(inputMonitorPlayer, to: inputMonitorGain,
+                                 format: mono)
+            recordEngine.connect(inputMonitorGain,
+                                 to: recordEngine.mainMixerNode, format: mono)
+            inputMonitorConnected = true
+        }
+        if inputMonitoringEnabled && !monitorOutputTapInstalled {
+            recordEngine.mainMixerNode.installTap(
+                onBus: 0, bufferSize: 512, format: nil
+            ) { [weak self] buffer, _ in
+                self?.logMonitorLevel(buffer, output: true)
+            }
+            monitorOutputTapInstalled = true
         }
         if !recordEngine.isRunning {
             // CRITICAL: silence the record engine's output path BEFORE
@@ -454,6 +531,146 @@ final class MenuBandSampleVoice {
         }
         NSLog("MenuBand SampleVoice: hot mic ready (input format ch=\(format.channelCount) sr=\(format.sampleRate) buffer=\(inputTapBufferFrames))")
         return true
+    }
+
+    /// Prefer an attached Focusrite/Scarlett for recording and monitoring
+    /// without changing the user's system-wide default input. This mirrors
+    /// Narrator Wizard's Core Audio device enumeration, but binds the device
+    /// directly to Menu Band's input AUHAL.
+    private func selectPreferredHardwareInput() {
+        guard let device = Self.preferredFocusriteInputDevice(),
+              device.id != boundInputDeviceID else { return }
+        let priorOutput = Self.systemAudioDevice(
+            selector: kAudioHardwarePropertyDefaultOutputDevice)
+        let priorSystemOutput = Self.systemAudioDevice(
+            selector: kAudioHardwarePropertyDefaultSystemOutputDevice)
+        var id = device.id
+        var defaultInputAddress = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyDefaultInputDevice,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain)
+        let status = AudioObjectSetPropertyData(
+            AudioObjectID(kAudioObjectSystemObject), &defaultInputAddress,
+            0, nil, UInt32(MemoryLayout<AudioDeviceID>.size), &id)
+        // Some interfaces promote themselves to output when selected as input.
+        // Reassert both output selectors so monitoring remains audible through
+        // the speakers/headphones the user was already listening to.
+        if let priorOutput {
+            Self.setSystemAudioDevice(
+                priorOutput, selector: kAudioHardwarePropertyDefaultOutputDevice)
+        }
+        if let priorSystemOutput {
+            Self.setSystemAudioDevice(
+                priorSystemOutput,
+                selector: kAudioHardwarePropertyDefaultSystemOutputDevice)
+        }
+        if status == noErr {
+            boundInputDeviceID = id
+            // Ask the interface for a 128-frame hardware buffer. At 48 kHz
+            // this is 2.7 ms per block and keeps the direct monitor path close
+            // to hardware-monitor latency without busy-spinning the host.
+            var frames = UInt32(32)
+            var bufferAddress = AudioObjectPropertyAddress(
+                mSelector: kAudioDevicePropertyBufferFrameSize,
+                mScope: kAudioObjectPropertyScopeGlobal,
+                mElement: kAudioObjectPropertyElementMain)
+            let bufferStatus = AudioObjectSetPropertyData(
+                id, &bufferAddress, 0, nil,
+                UInt32(MemoryLayout<UInt32>.size), &frames)
+            NSLog("MenuBand SampleVoice: input device → \(device.name) (\(id))")
+            NSLog("MenuBand SampleVoice: input buffer32=\(bufferStatus)")
+        } else {
+            NSLog("MenuBand SampleVoice: could not bind \(device.name) (CoreAudio \(status))")
+        }
+    }
+
+    private static func systemAudioDevice(
+        selector: AudioObjectPropertySelector) -> AudioDeviceID? {
+        var id = AudioDeviceID(0)
+        var size = UInt32(MemoryLayout<AudioDeviceID>.size)
+        var address = AudioObjectPropertyAddress(
+            mSelector: selector,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain)
+        guard AudioObjectGetPropertyData(
+            AudioObjectID(kAudioObjectSystemObject), &address,
+            0, nil, &size, &id) == noErr, id != 0 else { return nil }
+        return id
+    }
+
+    private static func setSystemAudioDevice(
+        _ device: AudioDeviceID, selector: AudioObjectPropertySelector) {
+        var id = device
+        var address = AudioObjectPropertyAddress(
+            mSelector: selector,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain)
+        _ = AudioObjectSetPropertyData(
+            AudioObjectID(kAudioObjectSystemObject), &address,
+            0, nil, UInt32(MemoryLayout<AudioDeviceID>.size), &id)
+    }
+
+
+    private static func preferredFocusriteInputDevice()
+        -> (id: AudioDeviceID, name: String)? {
+        var devicesAddress = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyDevices,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain)
+        var bytes: UInt32 = 0
+        guard AudioObjectGetPropertyDataSize(
+            AudioObjectID(kAudioObjectSystemObject), &devicesAddress,
+            0, nil, &bytes) == noErr else { return nil }
+        var ids = [AudioDeviceID](
+            repeating: 0,
+            count: Int(bytes) / MemoryLayout<AudioDeviceID>.size)
+        guard AudioObjectGetPropertyData(
+            AudioObjectID(kAudioObjectSystemObject), &devicesAddress,
+            0, nil, &bytes, &ids) == noErr else { return nil }
+        for id in ids {
+            var streamsAddress = AudioObjectPropertyAddress(
+                mSelector: kAudioDevicePropertyStreams,
+                mScope: kAudioDevicePropertyScopeInput,
+                mElement: kAudioObjectPropertyElementMain)
+            var streamBytes: UInt32 = 0
+            guard AudioObjectGetPropertyDataSize(
+                id, &streamsAddress, 0, nil, &streamBytes) == noErr,
+                  streamBytes > 0,
+                  let name = audioDeviceName(id) else { continue }
+            let lower = name.lowercased()
+            if lower.contains("focusrite") || lower.contains("scarlett") {
+                return (id, name)
+            }
+        }
+        return nil
+    }
+
+    private static func audioDeviceName(_ id: AudioDeviceID) -> String? {
+        var value: Unmanaged<CFString>?
+        var size = UInt32(MemoryLayout<Unmanaged<CFString>?>.size)
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioObjectPropertyName,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain)
+        guard AudioObjectGetPropertyData(
+            id, &address, 0, nil, &size, &value) == noErr,
+              let name = value?.takeUnretainedValue() else { return nil }
+        return name as String
+    }
+
+    /// Direct input monitoring, matching Narrator Wizard's proven graph:
+    /// inputNode → this engine's mainMixerNode → selected system output.
+    /// The existing input tap continues feeding the sampler and tape stem.
+    func setInputMonitoringEnabled(_ enabled: Bool) {
+        inputMonitoringEnabled = enabled
+        if enabled {
+            guard ensureHotMicRunning() else { return }
+        } else {
+            inputMonitorPlayer.stop()
+            inputMonitorQueueLock.withLock { inputMonitorQueuedBuffers = 0 }
+        }
+        recordEngine.mainMixerNode.outputVolume = 0
+        NSLog("MenuBand SampleVoice: input monitoring \(enabled ? "on" : "off")")
     }
 
     private func scheduleHotMicStop() {
@@ -827,6 +1044,7 @@ final class MenuBandSampleVoice {
     /// real ceiling). Also computes per-block RMS and forwards to
     /// `onLevel` for the menubar VU meter.
     private func ingestInput(_ buffer: AVAudioPCMBuffer) {
+        if inputMonitoringEnabled { logMonitorLevel(buffer, output: false) }
         // Fork to the tape (or any other mic consumer) BEFORE the
         // sample-voice recording gate — the tape's REC is independent
         // of the sample-voice backtick capture, so it needs frames
@@ -965,6 +1183,65 @@ final class MenuBandSampleVoice {
             recordWriteFrame += producedFrames
             scratch.frameLength = AVAudioFrameCount(recordWriteFrame)
         }
+    }
+
+    private func feedInputMonitor(_ buffer: AVAudioPCMBuffer) {
+        guard let format = inputMonitorFormat,
+              let source = buffer.floatChannelData?[0],
+              buffer.frameLength > 0,
+              let mono = AVAudioPCMBuffer(
+                pcmFormat: format, frameCapacity: buffer.frameLength),
+              let destination = mono.floatChannelData?[0] else { return }
+        mono.frameLength = buffer.frameLength
+        memcpy(destination, source,
+               Int(buffer.frameLength) * MemoryLayout<Float>.size)
+        let queued = inputMonitorQueueLock.withLock { inputMonitorQueuedBuffers }
+        if queued > 3 {
+            // Never let live monitoring turn into delayed playback. Dropping
+            // queued history is preferable to hearing the mic tens or hundreds
+            // of milliseconds late after a scheduling hiccup.
+            inputMonitorPlayer.stop()
+            inputMonitorQueueLock.withLock { inputMonitorQueuedBuffers = 0 }
+        }
+        inputMonitorQueueLock.withLock { inputMonitorQueuedBuffers += 1 }
+        inputMonitorPlayer.scheduleBuffer(
+            mono,
+            completionCallbackType: .dataConsumed
+        ) { [weak self] _ in
+            guard let self else { return }
+            self.inputMonitorQueueLock.withLock {
+                self.inputMonitorQueuedBuffers = max(
+                    0, self.inputMonitorQueuedBuffers - 1)
+            }
+        }
+        if !inputMonitorPlayer.isPlaying { inputMonitorPlayer.play() }
+    }
+
+    private func logMonitorLevel(_ buffer: AVAudioPCMBuffer, output: Bool) {
+        let now = ProcessInfo.processInfo.systemUptime
+        if output {
+            guard now - lastMonitorOutputLog >= 1 else { return }
+            lastMonitorOutputLog = now
+        } else {
+            guard now - lastMonitorInputLog >= 1 else { return }
+            lastMonitorInputLog = now
+        }
+        guard let data = buffer.floatChannelData else { return }
+        let frames = Int(buffer.frameLength)
+        guard frames > 0 else { return }
+        let channels = Int(buffer.format.channelCount)
+        var levels: [String] = []
+        for channel in 0..<channels {
+            var sum: Float = 0
+            for frame in 0..<frames {
+                let sample = data[channel][frame]
+                sum += sample * sample
+            }
+            let rms = sqrt(sum / Float(frames))
+            let db = rms > 0 ? 20 * log10(rms) : -120
+            levels.append(String(format: "ch%d=%.1fdB", channel + 1, db))
+        }
+        NSLog("MenuBand monitor \(output ? "output" : "input"): \(levels.joined(separator: " "))")
     }
 
     private func publishLevel(sumSq: Float, frames: Int) {
@@ -1347,5 +1624,12 @@ final class MenuBandSampleVoice {
                 NSWorkspace.shared.open(url)
             }
         }
+    }
+}
+
+private extension NSLock {
+    func withLock<T>(_ body: () -> T) -> T {
+        lock(); defer { unlock() }
+        return body()
     }
 }

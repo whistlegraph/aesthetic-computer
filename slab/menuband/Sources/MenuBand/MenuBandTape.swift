@@ -76,6 +76,10 @@ final class MenuBandTape {
     private static let leadTrimFrames = Int(sampleRate * 0.035) // ~35 ms
     private var synthLeadSkip: Int = 0
     private var micLeadSkip: Int = 0
+    /// The wet voice already reached the captured master bus. The dry mic
+    /// stem remains in channels 3–4 for editing, but must not be summed twice
+    /// during Menu Band playback or compressed export.
+    private var micAlreadyInMix = false
 
     private(set) var state: State = .idle {
         didSet { if oldValue != state { postChange() } }
@@ -163,7 +167,7 @@ final class MenuBandTape {
 
     // MARK: - Transport
 
-    func record() {
+    func record(micAlreadyInMix: Bool = false) {
         switch state {
         case .recording: return
         case .playing, .paused: stop()
@@ -183,6 +187,7 @@ final class MenuBandTape {
         playFrame = 0
         synthLeadSkip = Self.leadTrimFrames
         micLeadSkip = Self.leadTrimFrames
+        self.micAlreadyInMix = micAlreadyInMix
         recordStartDate = Date()
         cachedEject = nil
         bufferLock.unlock()
@@ -738,7 +743,7 @@ final class MenuBandTape {
             // channels. Same mix the eject path bakes into mix.m4a so
             // the user hears exactly what gets exported.
             for i in 0..<frames {
-                let s = mc[startFrame + i]
+                let s = micAlreadyInMix ? 0 : mc[startFrame + i]
                 ol[i] = sl[startFrame + i] + s
                 or[i] = sr[startFrame + i] + s
             }
@@ -791,7 +796,8 @@ final class MenuBandTape {
             if start >= end { break }
             var sumSq: Float = 0
             for i in start..<end {
-                let mix = (sl[i] + sr[i]) * 0.5 + mc[i]
+                let mix = (sl[i] + sr[i]) * 0.5
+                    + (micAlreadyInMix ? 0 : mc[i])
                 sumSq += mix * mix
             }
             out[b] = sqrt(sumSq / Float(end - start))

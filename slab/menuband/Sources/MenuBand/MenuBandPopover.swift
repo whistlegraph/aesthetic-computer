@@ -418,6 +418,7 @@ final class MenuBandPopoverViewController: NSViewController {
     /// Unified CDJ Radio card. Direct-download builds additionally expose the
     /// Spotify source; App Store builds use the same deck for radio stations.
     private var cdjRadioView: MenuBandCDJRadioView?
+    private var inputMonitorButton: NSButton?
     /// Transport controls that appear next to the metronome when a
     /// Menu Band PDF score has been loaded into the staff. Play
     /// restarts from the head; Stop cancels in-flight playback.
@@ -1152,6 +1153,34 @@ final class MenuBandPopoverViewController: NSViewController {
         }
 #endif
 
+        let monitorButton = HoverFeedbackButton()
+        monitorButton.bezelStyle = .inline
+        monitorButton.isBordered = false
+        monitorButton.controlSize = .small
+        monitorButton.imagePosition = .imageOnly
+        monitorButton.target = self
+        monitorButton.action = #selector(toggleInputMonitoring(_:))
+        monitorButton.setAccessibilityLabel("Monitor audio input")
+        inputMonitorButton = monitorButton
+        refreshInputMonitorButton()
+
+        // Listening tools get their own small row above the footer: disc on
+        // the left, input-monitor headset on the right, both aligned over Quit.
+        let listeningRow = NSStackView()
+        listeningRow.orientation = .horizontal
+        listeningRow.alignment = .centerY
+        listeningRow.spacing = 6
+        let listeningSpacer = NSView()
+        listeningSpacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        listeningRow.addArrangedSubview(listeningSpacer)
+#if !MAC_APP_STORE
+        listeningRow.addArrangedSubview(jukeButton)
+#endif
+        listeningRow.addArrangedSubview(monitorButton)
+        stack.addArrangedSubview(listeningRow)
+        listeningRow.widthAnchor.constraint(equalTo: stack.widthAnchor,
+                                             constant: -16).isActive = true
+
         // (Gamepad config moved to the full-screen Keymap overlay's bottom-right
         // corner — see ExpandedPianoWaveformView.installGamepadCluster. It lives
         // next to the large QWERTY/piano where a controller player is actually
@@ -1183,9 +1212,6 @@ final class MenuBandPopoverViewController: NSViewController {
         quitSpacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
         quitRow.addArrangedSubview(aboutButton)
         quitRow.addArrangedSubview(keymapButton)
-#if !MAC_APP_STORE
-        quitRow.addArrangedSubview(jukeButton)
-#endif
         quitRow.addArrangedSubview(quitSpacer)
         quitRow.addArrangedSubview(quit)
         stack.addArrangedSubview(quitRow)
@@ -2617,6 +2643,24 @@ final class MenuBandPopoverViewController: NSViewController {
 
     @objc private func openJuke(_ sender: Any?) {
         onJukeToggle?()
+    }
+
+    @objc private func toggleInputMonitoring(_ sender: Any?) {
+        menuBand?.inputMonitoringEnabled.toggle()
+        refreshInputMonitorButton()
+    }
+
+    private func refreshInputMonitorButton() {
+        let enabled = menuBand?.inputMonitoringEnabled == true
+        let symbol = enabled ? "headphones.circle.fill" : "headphones"
+        inputMonitorButton?.image = NSImage(
+            systemSymbolName: symbol,
+            accessibilityDescription: "Monitor audio input")
+        inputMonitorButton?.contentTintColor = enabled
+            ? .systemGreen : .secondaryLabelColor
+        inputMonitorButton?.toolTip = enabled
+            ? "Audio input monitoring on — click to turn off"
+            : "Monitor audio input — click to turn on"
     }
 
     @objc private func openNotepat() {

@@ -45,6 +45,7 @@ final class MenuBandCDJRadioView: NSView, NSSearchFieldDelegate {
         artwork.layer?.masksToBounds = true
         artwork.image = MenuBandCDArtworkRenderer.fallback(side: 58)
 
+
         deckLabel.font = .systemFont(ofSize: 8, weight: .bold)
         deckLabel.textColor = .secondaryLabelColor
         deckLabel.stringValue = "CDJ RADIO"

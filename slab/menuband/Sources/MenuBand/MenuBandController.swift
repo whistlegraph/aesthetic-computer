@@ -49,6 +49,22 @@ final class MenuBandController {
     let tape = MenuBandTape()
     private let tapeMicPinReason = "tape-record"
     private let tapeWaveformPinReason = "tape"
+    private let inputMonitorPinReason = "input-monitor"
+    private static let inputMonitoringKey = "MBInputMonitoring"
+    var inputMonitoringEnabled: Bool {
+        get { UserDefaults.standard.bool(forKey: Self.inputMonitoringKey) }
+        set {
+            UserDefaults.standard.set(newValue, forKey: Self.inputMonitoringKey)
+            synth.setInputMonitoringEnabled(newValue)
+            if newValue {
+                _ = synth.pinHotMic(reason: inputMonitorPinReason)
+            } else {
+                synth.unpinHotMic(reason: inputMonitorPinReason)
+            }
+            NotificationCenter.default.post(
+                name: .menuBandInputMonitoringChanged, object: self)
+        }
+    }
     private var keyTap: KeyEventTap?
     private var heldNotes: [UInt16: UInt8] = [:]
     /// Chord EXTENSION voices for a held key, keyed by interval (semitones
@@ -1771,7 +1787,7 @@ final class MenuBandController {
         // already lands in the buffer.
         synth.addWaveformTapPin(tapeWaveformPinReason)
         synth.pinHotMic(reason: tapeMicPinReason)
-        tape.record()
+        tape.record(micAlreadyInMix: inputMonitoringEnabled)
     }
 
     func stopTape() { tape.stop() }
@@ -1897,6 +1913,11 @@ final class MenuBandController {
         }
         synth.onMicInputBuffer = { [weak self] buffer in
             self?.tape.ingestMic(buffer)
+            self?.synth.ingestMonitoredInput(buffer)
+        }
+        if inputMonitoringEnabled {
+            synth.setInputMonitoringEnabled(true)
+            _ = synth.pinHotMic(reason: inputMonitorPinReason)
         }
         // Capture the note performance as MIDI alongside the audio, so a take
         // carries editable notes (a .mid drops onto an Ableton MIDI track).
