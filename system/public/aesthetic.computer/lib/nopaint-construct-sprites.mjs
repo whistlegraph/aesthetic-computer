@@ -139,7 +139,9 @@ export const frameProposal = frozen({
     // and let the second-by-second cycle decide what you kept.
     const start = FRAME_START_INDEX;
     return frozen({ ...base, kind: "frame", start, width, height,
-      brush: frozen({ slug: "frame", params: frozen([String(start)]), colon: frozen([]),
+      // The operation is `frame`; the piece that owns it is `frames`, the way
+      // Box owns `rect`.
+      brush: frozen({ slug: "frames", params: frozen([String(start)]), colon: frozen([]),
         parameters: frozen({ start, frames: frameFrames.length, cycleSeconds: 1 }) }) });
   },
   render(api, score, tick) {

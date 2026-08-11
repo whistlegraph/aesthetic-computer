@@ -16,7 +16,7 @@ import { nopaintProposal as bubblesProposal } from "./bubbles.mjs";
 import { nopaintProposal as darkWindowProposal } from "./dark-window.mjs";
 import { nopaintProposal as walkerProposal } from "./walker.mjs";
 import { nopaintProposal as stampProposal } from "./stamp.mjs";
-import { nopaintProposal as frameProposal } from "./frame.mjs";
+import { nopaintProposal as frameProposal } from "./frames.mjs";
 import { nopaintProposal as caterpillarProposal } from "./caterpillar.mjs";
 import { nopaintProposal as softyProposal } from "./softy.mjs";
 import { nopaintProposal as waferProposal } from "./wafer.mjs";

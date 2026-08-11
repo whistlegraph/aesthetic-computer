@@ -44,10 +44,25 @@ of the Construct implementation.
 `stamp` was on that list until the existing `disks/stamp.mjs` grew a
 `nopaintProposal` beside its own brush, the way `box` already had.
 
+## Piece names versus operation names
+
+`disks/` is one flat folder and a file name is a URL, so every recovered brush
+spends a word out of the whole site's namespace. Usually that is fine and the
+piece takes the operation's name. Twice it is not:
+
+- `box.mjs` owns the operation `rect`.
+- `frames.mjs` owns the operation `frame` — `frame` is too useful a word to
+  spend on one brush, and `Frames` is what Construct called the object.
+
+The operation name is what `nopaintProposal.slug` and the recovered catalogs
+use; the piece name is what `brush.slug` records, so a score always names the
+piece you would rerun. Nothing resolves `brush.slug` to a disk automatically —
+it is provenance — but keep it pointing at a real piece.
+
 ## Pieces that own their slug
 
 Every recovered brush now has one: `bubbles`, `walker`, `dark-window`, `line`,
-`box`, `stamp`, `frame`, `caterpillar`, `softy`, `wafer`, `grid-worm`,
+`box`, `stamp`, `frames`, `caterpillar`, `softy`, `wafer`, `grid-worm`,
 `triangle`, `ellipse`, `rainbow`, `breathe`, `vignette`, `aura`, `build`, and
 `banner` are real AC pieces that export their own `nopaintProposal`;
 `disks/nopaint.mjs` imports each one and registers it after the fallback

@@ -108,15 +108,35 @@ test("Frame advances one border per recovered one second cycle", () => {
     cropAt(FRAME_CYCLE_TICKS * frameFrames.length)[3].crop);
 });
 
-test("Bubbles, Walker, Dark Window, and Frame are standalone No Paint piece modules", async () => {
-  for (const slug of ["bubbles", "walker", "dark-window", "frame"]) {
-    const piece = await import(`../public/aesthetic.computer/disks/${slug}.mjs`);
+// A piece's file name is its URL; a proposal's slug is the recovered Construct
+// operation. They are usually the same word, and are allowed not to be — Box
+// owns `rect`, Frames owns `frame`. What must always hold is that the score
+// points back at the piece through brush.slug.
+test("the sprite pieces are standalone No Paint modules", async () => {
+  const pieces = { bubbles: "bubbles", walker: "walker",
+    "dark-window": "dark-window", frames: "frame" };
+  for (const [file, operation] of Object.entries(pieces)) {
+    const piece = await import(`../public/aesthetic.computer/disks/${file}.mjs`);
     assert.equal(piece.system, "nopaint");
-    assert.equal(piece.nopaintProposal.slug, slug);
+    assert.equal(piece.nopaintProposal.slug, operation);
     assert.equal(typeof piece.paint, "function");
     assert.equal(typeof piece.bake, "function");
     assert.equal(typeof piece.meta, "function");
   }
+});
+
+test("Frames owns the frame operation and points its score back at itself", async () => {
+  const piece = await import("../public/aesthetic.computer/disks/frames.mjs");
+  const { COMPATIBLE_BRUSHES } = await import(
+    "../public/aesthetic.computer/disks/nopaint.mjs");
+  assert.equal(piece.nopaintProposal.slug, "frame", "the operation keeps its name");
+  assert.equal(COMPATIBLE_BRUSHES.get("frame"), piece.nopaintProposal);
+  const score = piece.nopaintProposal.generate({
+    base: Object.freeze({ color: Object.freeze([1, 2, 3, 4]) }),
+    width: 64, height: 64,
+  });
+  assert.equal(score.kind, "frame");
+  assert.equal(score.brush.slug, "frames", "the score names the piece to rerun");
 });
 
 test("Line and Box publish the proposal contracts consumed by No Paint 3", async () => {
