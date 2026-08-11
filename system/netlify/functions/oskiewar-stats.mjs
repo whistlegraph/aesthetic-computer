@@ -28,6 +28,12 @@ export { localDay };
 const REPLAYS = "oskiewar-replays";
 const POPS = "oskiewar-pops";
 const POP_DAYS = "oskiewar-pop-days";
+// Reel figures reach here twice over. The ledger file is the record a human
+// reads, but it only changes on the machine that publishes and only arrives on
+// lith with a deploy — so a nightly insights pull would sit in git while the wall
+// kept quoting whatever the last deploy happened to carry. The clockwork posts
+// them here as well, and this collection wins when it has anything to say.
+const REEL_INSIGHTS = "oskiewar-reel-insights";
 const HOUR = 60 * 60 * 1000;
 const DAY = 24 * HOUR;
 // The wall shows a month of history and a day of detail.
@@ -82,10 +88,30 @@ export function shapeHourly(rows, hours = HOURLY_HOURS) {
   return out;
 }
 
-// Sum the reels the ledger says actually went out. `insights` is null until
-// something pulls it, so a reel that has never been measured contributes its
-// existence and nothing else — the wall says "2 live, 0 measured" rather than
-// quietly reporting zero views as though that were a result.
+// Stored rows and ledger rows are merged on id, with the stored insights winning
+// because they are the ones that can be newer than the deploy. A reel the ledger
+// has never heard of still counts — it was published, whatever this checkout
+// knows — so the union is taken rather than the ledger's list alone.
+export function mergeReelSources(ledger, stored = []) {
+  const posts = Array.isArray(ledger?.posts) ? ledger.posts : [];
+  const byId = new Map();
+  for (const post of posts) {
+    if (post.mode === "live") byId.set(post.id, { ...post });
+  }
+  for (const row of stored) {
+    const existing = byId.get(row._id) || {
+      mode: "live", id: row._id, day: row.day, segment: row.segment,
+      publishedAt: row.publishedAt, urls: { cover: row.cover },
+    };
+    byId.set(row._id, { ...existing, insights: row.insights, insightsAt: row.insightsAt });
+  }
+  return { posts: [...byId.values()] };
+}
+
+// Sum the reels that actually went out. `insights` is null until something pulls
+// it, so a reel that has never been measured contributes its existence and
+// nothing else — the wall says "2 live, 0 measured" rather than quietly reporting
+// zero views as though that were a result.
 export function shapeReels(ledger) {
   const posts = Array.isArray(ledger?.posts) ? ledger.posts : [];
   const live = posts.filter((post) => post.mode === "live");
@@ -146,12 +172,57 @@ function readLedger() {
   }
 }
 
+// The clockwork's half of the loop: whatever it pulled from Meta is upserted per
+// reel, keyed by the ledger's own id. Only the wall key opens this, since it is
+// the same secret that is allowed to read the figures back out.
+async function storeReelInsights(database, posts) {
+  const rows = (Array.isArray(posts) ? posts : [])
+    .filter((post) => post && typeof post.id === "string" && post.insights);
+  if (!rows.length) return 0;
+  const collection = database.db.collection(REEL_INSIGHTS);
+  await collection.bulkWrite(rows.map((post) => ({
+    updateOne: {
+      filter: { _id: post.id },
+      update: {
+        $set: {
+          day: post.day ?? null,
+          segment: post.segment ?? null,
+          publishedAt: post.publishedAt ?? null,
+          cover: post.urls?.cover ?? post.cover ?? null,
+          insights: post.insights,
+          insightsAt: post.insightsAt || new Date().toISOString(),
+        },
+      },
+      upsert: true,
+    },
+  })), { ordered: false });
+  return rows.length;
+}
+
 export async function handler(event) {
   if (event.httpMethod === "OPTIONS") return respond(204, "");
+
+  if (event.httpMethod === "POST") {
+    if (!reelsPermitted(event))
+      return respond(403, { error: "Wall key required" });
+    let database;
+    try {
+      const body = JSON.parse(event.body || "{}");
+      database = await connect();
+      const stored = await storeReelInsights(database, body.posts);
+      await database.disconnect();
+      return respond(200, { ok: true, stored });
+    } catch (error) {
+      if (database) await database.disconnect();
+      return respond(500, { error: error.message || "Insight storage failed" });
+    }
+  }
+
   if (event.httpMethod !== "GET")
     return respond(405, { error: "Method not allowed" });
 
   const timezone = event.queryStringParameters?.tz || WALL_TIMEZONE;
+  const wantsReels = reelsPermitted(event);
   let database;
   try {
     database = await connect();
@@ -160,7 +231,7 @@ export async function handler(event) {
     const key = dayKey("$recordedAt", timezone);
     const replays = database.db.collection(REPLAYS);
 
-    const [facets, popRows, popDays] = await Promise.all([
+    const [facets, popRows, popDays, storedReels] = await Promise.all([
       replays.aggregate([{
         $facet: {
           // Everything ever recorded, in one pass.
@@ -247,6 +318,10 @@ export async function handler(event) {
       // and the wall labels it rather than passing it off as all-time.
       database.db.collection(POP_DAYS).find({})
         .sort({ _id: 1 }).limit(400).toArray(),
+      // Only worth fetching for a caller who may read them back out.
+      wantsReels
+        ? database.db.collection(REEL_INSIGHTS).find({}).limit(400).toArray()
+        : Promise.resolve([]),
     ]);
 
     await database.disconnect();
@@ -319,7 +394,9 @@ export async function handler(event) {
       },
       hourly: shapeHourly(facet.hourly || []),
       daily,
-      reels: reelsPermitted(event) ? shapeReels(readLedger()) : null,
+      reels: wantsReels
+        ? shapeReels(mergeReelSources(readLedger(), storedReels))
+        : null,
     }, {
       // The wall polls this; a minute stale costs nothing and keeps a reload
       // storm off the database.
