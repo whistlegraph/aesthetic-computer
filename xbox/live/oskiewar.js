@@ -1007,6 +1007,11 @@ function startReplay(now) {
 }
 
 function roundIsTimed() {
+  // Training against the dummy runs without a clock — except under the reel
+  // harness, where a scripted dummy bout wants the full round apparatus
+  // (clock, demo, result card) so it can be recorded and repainted like any
+  // match.
+  if (globalThis.__oskiewarTimedTraining === true) return true;
   return !(players[1].npc && !players[1].bot);
 }
 
@@ -1094,10 +1099,14 @@ function recordReplayCommands(now, inputs = padSnapshots) {
 }
 
 function replayFlags(player) {
+  // Bit 12 carries which way the fighter faces. Older demos lack it, so a
+  // replay treats "no facing bits" as "guess from velocity" — bit 13 marks
+  // that the pair below is real rather than an old demo's zero.
   return (player.alive ? 1 : 0) | (player.grounded ? 2 : 0) |
     (player.ducking ? 4 : 0) | (player.blocking ? 8 : 0) |
     [...limbParts, "torso"].reduce((flags, part, index) =>
-      flags | (hasPart(player, part) ? 0 : 1 << (index + 4)), 0);
+      flags | (hasPart(player, part) ? 0 : 1 << (index + 4)), 0) |
+    (player.facing > 0 ? 4096 : 0) | 8192;
 }
 
 function recordReplayCheckpoint(now, force = false) {
@@ -1775,9 +1784,13 @@ function applyRoster(player, index) {
     player.color = fighter.color.slice();
     player.handleColors = fighter.colors;
     if (selfPlay) {
+      // The color IS the nameplate: a self-play bot is called what it wears,
+      // so the card reads "CORAL WINS ROUND" and the demo carries the color
+      // name out to any replay that wants to dress the fighter again.
       const dressed = selfPlayWardrobe(player.pad);
       player.color = dressed.rgb.slice();
       player.colorName = dressed.name;
+      player.name = dressed.name.toUpperCase();
     }
     return;
   }
@@ -1786,6 +1799,16 @@ function applyRoster(player, index) {
     player.name = anonymousFighter.handle;
     player.color = anonymousFighter.color.slice();
     player.handleColors = anonymousFighter.colors;
+    // A test harness may dress the anonymous seat by CSS color name —
+    // "YELLOW vs DUMMY" is a scripted sonic and orientation proof, so the
+    // fighter's look has to be as reproducible as the fight.
+    const forced = String(globalThis.__oskiewarWardrobe || "").toLowerCase();
+    const worn = forced && cssColorBook.find((entry) => entry.name === forced);
+    if (worn) {
+      player.name = worn.name.toUpperCase();
+      player.color = worn.rgb.slice();
+      player.handleColors = [];
+    }
     return;
   }
   const rosterIndex = (index + fighterRoster.length) % fighterRoster.length;
@@ -2238,20 +2261,25 @@ function roundDemoState(demo, now) {
     const name = demo.fighters?.[pad] || `P${pad + 1}`;
     const profile = name === "DUMMY" ? npcFighter : name === "BOT" ? botFighter
       : fighterRoster.find((fighter) => fighter.handle === name);
-    // A self-play demo replays under the round's own name, so the wardrobe
-    // hash deals the repaint the same colors the live pass wore — without
-    // this the roster lookup misses and both bots fall back to the house
-    // red and blue.
+    // A self-play fighter is called what it wears, so a demo's fighter name
+    // is first tried against the color book itself — the repaint dresses
+    // straight from the nameplate. Older demos still say "BOT 1"/"BOT 2";
+    // those deal from the wardrobe hash so they don't fall back to the
+    // house red and blue.
+    const wornColor = cssColorBook.find(
+      (entry) => entry.name === name.toLowerCase());
     const selfPlayPad = selfPlayFighters.findIndex(
       (fighter) => fighter.handle === name);
     const swing = recentAttack(pad);
     const vx = value(offset + 3);
     return { name, nation: demo.nations?.[pad] || "",
-      color: selfPlayPad >= 0 ? selfPlayWardrobe(selfPlayPad).rgb.slice()
+      color: wornColor ? wornColor.rgb.slice()
+        : selfPlayPad >= 0 ? selfPlayWardrobe(selfPlayPad).rgb.slice()
         : profile?.color || players[pad].color,
       x: value(offset), y: value(offset + 1), z: value(offset + 2),
       vx, vy: value(offset + 4), vz: 0,
-      facing: vx ? Math.sign(vx) : pad ? -1 : 1,
+      facing: flags & 8192 ? (flags & 4096 ? 1 : -1)
+        : vx ? Math.sign(vx) : pad ? -1 : 1,
       alive: Boolean(flags & 1), grounded: Boolean(flags & 2),
       ducking: Boolean(flags & 4), blocking: Boolean(flags & 8),
       removedParts: [...limbParts, "torso"].filter((part, index) =>
@@ -7329,9 +7357,10 @@ function playerHandleLayout(player, side) {
     capabilities().inputFamily === "touch";
   const size = touch ? 24 : hudTypeSize;
   const width = handleWidth(visibleHandle(player), size);
-  const phraseReserve = size * 8 * .68;
-  const x = side === 0 ? safe.left + 8
-    : safe.right - 8 - width - phraseReserve;
+  // One name per corner: the left fighter reads from the left edge, the
+  // right fighter from the right. The command phrase mirrors to the inside,
+  // so neither name has to give up its corner to make room for it.
+  const x = side === 0 ? safe.left + 8 : safe.right - 8 - width;
   const y = safe.bottom - size - (touch ? 250 : 18);
   return { x, y, size, width };
 }
@@ -7498,8 +7527,9 @@ function drawCommandStream(player, side) {
     else claimed.add(entry.label);
   }
   if (!entries.length) return;
-  // Commands emerge immediately to the right of the handle. Eight glyphs form
-  // a phrase; completed phrases rise as a unit while a fresh phrase takes the
+  // Commands emerge beside the handle on its inward side — right of the
+  // left corner's name, left of the right corner's. Eight glyphs form a
+  // phrase; completed phrases rise as a unit while a fresh phrase takes the
   // handle lane beneath it.
   entries.reverse();
   const handle = playerHandleLayout(player, side);
@@ -7514,7 +7544,8 @@ function drawCommandStream(player, side) {
     const rowEntries = rows[row];
     const width = rowEntries.reduce((sum, entry, index) => sum +
       handleWidth(entry.text, size) + (index ? gap : 0), 0);
-    let cursor = handle.x + handle.width + 12;
+    let cursor = side === 0 ? handle.x + handle.width + 12
+      : handle.x - 12 - width;
     const newestAt = Math.max(...rowEntries.map((entry) => entry.at));
     const rise = clamp((now - newestAt) / 900000, 0, 1) * size * .8;
     const y = handle.y - statStackHeight() - row * (size + 7) - rise;

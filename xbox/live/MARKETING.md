@@ -129,8 +129,8 @@ prints, as information. On macOS the mux prefers `aac_at` (AudioToolbox),
 which treats sparse content best; elsewhere it falls back to ffmpeg's native
 `aac`.
 
-Caption = one line of copy, the address, then nine hashtags. Meta allows 2200
-characters and 30 tags; a keyword dump is not a post.
+Caption = three big-traffic hashtags and nothing else — no prose, no address;
+the fight speaks and the bio carries the link. (@jeffrey, 2026-08-11.)
 
 ### 4 · Publish — dry by default
 

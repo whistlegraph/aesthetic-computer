@@ -115,15 +115,23 @@ export function share() {
     [key, `${count}/${rotation.length}`]));
 }
 
-// A caption is one line of copy, one line of address, then the tags. Meta
-// allows 2200 characters and 30 hashtags; nine tags and three lines is a post,
-// not a keyword dump.
+// A caption is three hashtags and nothing else. No prose — the fight speaks
+// and the bio carries the link. The three are each market's biggest-traffic
+// tags, the ones people actually browse, so a post spends its whole caption
+// on being findable.
+export const bigTags = {
+  fgc: ["fgc", "fightinggame", "indiegame"],
+  gamedev: ["gamedev", "indiedev", "indiegame"],
+  homebrew: ["xbox", "homebrew", "indiegame"],
+  retro: ["retrogaming", "pixelart", "arcade"],
+  gen: ["generativeart", "creativecoding", "digitalart"],
+};
+
 export function dress(segmentKey, pick, facts) {
   const segment = segments[segmentKey];
   const hook = segment.hooks[pick % segment.hooks.length];
-  const body = segment.captions[pick % segment.captions.length];
-  const caption = [body, "", `▶ play it free in a browser — ${segment.tail}`, "",
-    segment.tags.map((tag) => "#" + tag).join(" ")].join("\n");
-  return { hook, tail: segment.tail, caption, tags: segment.tags,
+  const tags = bigTags[segmentKey] || segment.tags.slice(0, 3);
+  const caption = tags.map((tag) => "#" + tag).join(" ");
+  return { hook, tail: segment.tail, caption, tags,
     lines: { hook, under: facts.under } };
 }

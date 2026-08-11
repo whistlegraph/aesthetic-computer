@@ -1813,8 +1813,13 @@ test("self play runs bot against bot and says so on both nameplates", () => {
     assert.equal(player.bot, true);
     assert.equal(player.npc, true);
   }
-  assert.deepEqual(fight.players.map((player) => player.name),
-    ["BOT 1", "BOT 2"]);
+  // A self-play bot is called what it wears — a CSS color name — so the
+  // nameplates teach the color book while staying impossible to mix up.
+  for (const player of fight.players) {
+    assert.match(player.name, /^[A-Z]+$/, "nameplate is a color word");
+    assert.equal(player.colorName, player.name.toLowerCase());
+  }
+  assert.notEqual(fight.players[0].name, fight.players[1].name);
   assert.ok(!fight.players.some((player) => player.name.startsWith("@")),
     "a mechanical test must not fly a handle nobody is holding");
   assert.notDeepEqual(fight.players[0].color, fight.players[1].color);
@@ -1843,12 +1848,13 @@ test("self play rolls rounds over forever with nobody at the controls", () => {
     assert.notEqual(fight.shellState().mode, "MENU");
   }
   assert.ok(results.length >= 2, `only ${results.length} rounds finished`);
-  for (const result of results) assert.match(result, /^(BOT [12] WINS|TIE)/);
+  for (const result of results) assert.match(result, /^([A-Z]+ WINS|TIE)/);
   assert.equal(fight.roundState().roundResult, "");
   assert.equal(fight.selfPlayState(), true);
   assert.ok(replays.length >= 1, "self play never published a round");
-  assert.deepEqual(fight.players.map((player) => player.name),
-    ["BOT 1", "BOT 2"]);
+  for (const player of fight.players)
+    assert.match(player.name, /^[A-Z]+$/, "nameplate is a color word");
+  assert.notEqual(fight.players[0].name, fight.players[1].name);
 });
 
 test("self play cannot be reached by pressing through the entry fight", () => {
@@ -1869,8 +1875,9 @@ test("a harness can arm self play before boot", () => {
     tick();
     assert.equal(fight.selfPlayState(), true);
     assert.equal(fight.shellState().mode, "GAME");
-    assert.deepEqual(fight.players.map((player) => player.name),
-      ["BOT 1", "BOT 2"]);
+    for (const player of fight.players)
+      assert.match(player.name, /^[A-Z]+$/, "nameplate is a color word");
+    assert.notEqual(fight.players[0].name, fight.players[1].name);
   } finally {
     delete globalThis.__oskiewarSelfPlay;
   }
@@ -3838,7 +3845,9 @@ test("dummy rounds are untimed and omit the round clock", () => {
   for (let frame = 0; frame < 800; frame++) tick(40000);
   assert.equal(fight.roundState().roundResult, "");
   assert.ok(fight.roundState().roundElapsedUs > 30000000);
-  assert.match(source, /function roundIsTimed\(\)[\s\S]{0,100}!\(players\[1\]\.npc && !players\[1\]\.bot\)/);
+  // The reel harness may put a scripted dummy bout on the clock; the
+  // untimed default survives beneath that exception.
+  assert.match(source, /function roundIsTimed\(\)[\s\S]{0,600}!\(players\[1\]\.npc && !players\[1\]\.bot\)/);
   assert.match(source, /timedRound \? String\(remainingSeconds\)\.padStart\(2, "0"\) : ""/);
   assert.doesNotMatch(source, /timerText === "∞"/);
 });
