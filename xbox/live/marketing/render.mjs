@@ -189,6 +189,12 @@ export async function renderReel(spec, { log = console.log } = {}) {
         return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
       };
       if (selfPlay) globalThis.__oskiewarSelfPlay = true;
+      // The store's demos checkpoint once a second, which is plenty for a
+      // round-room viewer and nowhere near enough for footage: a fight
+      // smoothed through one-second keyframes glides instead of fighting.
+      // The reel's live pass records every tick, and the demo never leaves
+      // this shell.
+      globalThis.__oskiewarDenseReplay = true;
 
       // A round publishes itself to the live spectator channel as it plays.
       // A marketing render is not a match anybody should be able to walk in

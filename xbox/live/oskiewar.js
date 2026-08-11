@@ -121,7 +121,12 @@ const boosterXs = [];
 const boosterRadius = 115;
 const boosterVelocity = 6500;
 const replayTickUs = 16667;
-const replayCheckpointUs = 1000000;
+// The store's demos hold one checkpoint a second — cheap enough to keep
+// hundreds of matches. A marketing render replays its demo AS the footage,
+// and a fight smoothed through one-second keyframes stops feeling like a
+// fight, so the reel factory asks for a checkpoint every simulation tick.
+const replayCheckpointUs = () =>
+  globalThis.__oskiewarDenseReplay ? 16667 : 1000000;
 const liveSnapshotIntervalUs = 50000;
 const fighterAnimationSpecs = {
   // WALK ran a whole stride in 12 ticks — five cycles a second, which the eye
@@ -1097,7 +1102,7 @@ function replayFlags(player) {
 
 function recordReplayCheckpoint(now, force = false) {
   if (!replay || (!force && now < replayNextCheckpointAt)) return;
-  replayNextCheckpointAt = now + replayCheckpointUs;
+  replayNextCheckpointAt = now + replayCheckpointUs();
   const values = [demoTick(now)];
   for (const player of players) values.push(
     Math.round(player.x), Math.round(player.y), Math.round(player.z),
@@ -2217,11 +2222,15 @@ function roundDemoState(demo, now) {
   const value = (index) => lerp(before[index], after[index], amount);
   const recentAttack = (pad) => {
     let kind = "";
+    let age = 0;
     for (const event of demo.events || []) {
       if (event[0] > tick || event[0] < tick - 18 || event[2] !== pad) continue;
-      if (meleeSpecs[event[1].toUpperCase()]) kind = event[1].toUpperCase();
+      if (meleeSpecs[event[1].toUpperCase()]) {
+        kind = event[1].toUpperCase();
+        age = tick - event[0];
+      }
     }
-    return kind;
+    return { kind, age };
   };
   const fighters = [0, 1].map((pad) => {
     const offset = 1 + pad * 8;
@@ -2235,6 +2244,7 @@ function roundDemoState(demo, now) {
     // red and blue.
     const selfPlayPad = selfPlayFighters.findIndex(
       (fighter) => fighter.handle === name);
+    const swing = recentAttack(pad);
     const vx = value(offset + 3);
     return { name, nation: demo.nations?.[pad] || "",
       color: selfPlayPad >= 0 ? selfPlayWardrobe(selfPlayPad).rgb.slice()
@@ -2247,7 +2257,8 @@ function roundDemoState(demo, now) {
       removedParts: [...limbParts, "torso"].filter((part, index) =>
         Boolean(flags & (1 << (index + 4)))),
       score: Math.round(value(offset + 6)),
-      roundWins: Math.round(value(offset + 7)), attack: recentAttack(pad) };
+      roundWins: Math.round(value(offset + 7)), attack: swing.kind,
+      attackTicks: swing.age };
   });
   const round = demo.rounds?.[roundIndex] || [startTick, 1, 0, 1];
   const nearEnd = tick >= endTick - 20;
@@ -2275,7 +2286,11 @@ function applyRoundViewerState(state, now, dt = 1 / 60) {
     player.vy = source.vy ?? (player.y - previousY) / Math.max(.001, dt);
     player.vz = source.vz || 0;
     player.attackKind = source.attack || "";
-    player.attackStartedAt = player.attackKind ? now - 80000 : 0;
+    // A demo knows which tick a swing began on, so the replayed pose can run
+    // its real arc instead of freezing at one canned mid-swing phase.
+    player.attackStartedAt = player.attackKind
+      ? now - (source.attackTicks != null
+        ? source.attackTicks * replayTickUs : 80000) : 0;
     player.attackUntil = player.attackKind ? now + 120000 : 0;
     player.hit = 0;
     player.blockFlash = 0;
