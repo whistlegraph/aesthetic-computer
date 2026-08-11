@@ -1,5 +1,6 @@
 #define _GNU_SOURCE
 #include "js-bindings.h"
+#include "version.h"
 #include "usb-midi.h"
 #include "recorder.h"
 #include <pthread.h>
@@ -6732,42 +6733,36 @@ static JSValue build_system_obj(JSContext *ctx) {
         else
             JS_SetPropertyStr(ctx, hw, "vendor", JS_NewString(ctx, "unknown"));
 
-        // CPU model: first "model name" line from /proc/cpuinfo
+        // CPU model and core count, read once. /proc/cpuinfo was opened and
+        // scanned line-by-line TWICE on every build_api call — three times a
+        // frame — to recover two facts that cannot change while the machine is
+        // running. Statics, filled on first use.
         {
-            FILE *cpuinfo = fopen("/proc/cpuinfo", "r");
-            char cpuline[256] = {0};
-            if (cpuinfo) {
-                char line[512];
-                while (fgets(line, sizeof(line), cpuinfo)) {
-                    if (strncmp(line, "model name", 10) == 0) {
-                        char *colon = strchr(line, ':');
-                        if (colon) {
-                            colon++;
-                            while (*colon == ' ') colon++;
-                            // Trim newline
-                            char *nl = strchr(colon, '\n');
-                            if (nl) *nl = 0;
-                            strncpy(cpuline, colon, sizeof(cpuline) - 1);
+            static char cpuline[256];
+            static int cores = -1;
+            if (cores < 0) {
+                cores = 0;
+                FILE *cpuinfo = fopen("/proc/cpuinfo", "r");
+                if (cpuinfo) {
+                    char line[512];
+                    while (fgets(line, sizeof(line), cpuinfo)) {
+                        if (!cpuline[0] && strncmp(line, "model name", 10) == 0) {
+                            char *colon = strchr(line, ':');
+                            if (colon) {
+                                colon++;
+                                while (*colon == ' ') colon++;
+                                char *nl = strchr(colon, '\n');
+                                if (nl) *nl = 0;
+                                strncpy(cpuline, colon, sizeof(cpuline) - 1);
+                            }
                         }
-                        break;
+                        // Both facts now come from a single pass.
+                        if (strncmp(line, "processor", 9) == 0) cores++;
                     }
+                    fclose(cpuinfo);
                 }
-                fclose(cpuinfo);
             }
             JS_SetPropertyStr(ctx, hw, "cpu", JS_NewString(ctx, cpuline[0] ? cpuline : "unknown"));
-        }
-
-        // CPU cores: count "processor" lines in /proc/cpuinfo
-        {
-            FILE *cpuinfo = fopen("/proc/cpuinfo", "r");
-            int cores = 0;
-            if (cpuinfo) {
-                char line[256];
-                while (fgets(line, sizeof(line), cpuinfo)) {
-                    if (strncmp(line, "processor", 9) == 0) cores++;
-                }
-                fclose(cpuinfo);
-            }
             JS_SetPropertyStr(ctx, hw, "cores", JS_NewInt32(ctx, cores));
         }
 
@@ -6976,16 +6971,11 @@ static JSValue build_system_obj(JSContext *ctx) {
             JS_SetPropertyStr(ctx, hw, "devices", devs);
         }
 
-        // Build name (baked in at compile time)
-#ifdef AC_BUILD_NAME
-        JS_SetPropertyStr(ctx, hw, "buildName", JS_NewString(ctx, AC_BUILD_NAME));
-#endif
-#ifdef AC_GIT_HASH
-        JS_SetPropertyStr(ctx, hw, "gitHash", JS_NewString(ctx, AC_GIT_HASH));
-#endif
-#ifdef AC_BUILD_TS
-        JS_SetPropertyStr(ctx, hw, "buildTs", JS_NewString(ctx, AC_BUILD_TS));
-#endif
+        // Build stamp, from version.c. Always present — version.c substitutes
+        // "dev"/"unknown" — so these no longer need to be conditional.
+        JS_SetPropertyStr(ctx, hw, "buildName", JS_NewString(ctx, ac_build_name));
+        JS_SetPropertyStr(ctx, hw, "gitHash", JS_NewString(ctx, ac_git_hash));
+        JS_SetPropertyStr(ctx, hw, "buildTs", JS_NewString(ctx, ac_build_ts));
 
         // Display driver and GPU info
         {
@@ -7272,29 +7262,11 @@ static JSValue build_system_obj(JSContext *ctx) {
         JS_SetPropertyStr(ctx, sys, "qrError", JS_NULL);
     }
 
-    // OS update version string — matches OTA format: "buildname githash-buildts"
-#ifdef AC_BUILD_NAME
-#  ifdef AC_GIT_HASH
-#    ifdef AC_BUILD_TS
-    JS_SetPropertyStr(ctx, sys, "version",
-                      JS_NewString(ctx, AC_BUILD_NAME " " AC_GIT_HASH "-" AC_BUILD_TS));
-#    else
-    JS_SetPropertyStr(ctx, sys, "version",
-                      JS_NewString(ctx, AC_BUILD_NAME " " AC_GIT_HASH));
-#    endif
-#  else
-    JS_SetPropertyStr(ctx, sys, "version", JS_NewString(ctx, AC_BUILD_NAME));
-#  endif
-#elif defined(AC_GIT_HASH)
-#  ifdef AC_BUILD_TS
-    JS_SetPropertyStr(ctx, sys, "version",
-                      JS_NewString(ctx, AC_GIT_HASH "-" AC_BUILD_TS));
-#  else
-    JS_SetPropertyStr(ctx, sys, "version", JS_NewString(ctx, AC_GIT_HASH));
-#  endif
-#else
-    JS_SetPropertyStr(ctx, sys, "version", JS_NewString(ctx, "unknown"));
-#endif
+    // OS update version string — matches OTA format: "buildname githash-buildts".
+    // The nine-way #ifdef ladder this replaces existed only because the parts
+    // were macros that might not be defined; version.c always defines them, so
+    // one composed string does the same job.
+    JS_SetPropertyStr(ctx, sys, "version", JS_NewString(ctx, ac_version_long()));
 
     // Firmware capability probe — exposed as `system.firmware` so os.mjs can
     // gate the firmware-update panel on machines where flashing is actually
@@ -8535,26 +8507,36 @@ void js_call_act(ACRuntime *rt) {
 
     if (!JS_IsFunction(rt->ctx, rt->act_fn)) return;
 
-    for (int i = 0; i < input->event_count; i++) {
+    // One api per FRAME, not per event. build_api assembles the entire surface
+    // a piece sees — on the order of 160 fresh function objects and 500
+    // property writes — and rebuilding it inside this loop multiplied all of
+    // that by the event count, up to MAX_EVENTS_PER_FRAME. A held key repeating
+    // or a hand moving across the trackpad was paying for dozens of complete
+    // API graphs in a single frame, all of it immediately garbage. Only `event`
+    // differs between iterations, so only `event` is replaced; the assignment
+    // releases the previous one.
+    if (input->event_count > 0) {
         JSValue api = build_api(rt->ctx, rt, "act");
-        JSValue event = make_event_object(rt->ctx, &input->events[i]);
-        JS_SetPropertyStr(rt->ctx, api, "event", event);
+        for (int i = 0; i < input->event_count; i++) {
+            JSValue event = make_event_object(rt->ctx, &input->events[i]);
+            JS_SetPropertyStr(rt->ctx, api, "event", event);
 
-        JSValue result = JS_Call(rt->ctx, rt->act_fn, JS_UNDEFINED, 1, &api);
-        if (JS_IsException(result)) {
-            JSValue exc = JS_GetException(rt->ctx);
-            const char *str = JS_ToCString(rt->ctx, exc);
-            JSValue stack = JS_GetPropertyStr(rt->ctx, exc, "stack");
-            const char *stack_str = JS_ToCString(rt->ctx, stack);
-            fprintf(stderr, "[js] act() error: %s\n%s\n", str, stack_str ? stack_str : "");
-            ac_log("[js] act() error: %s\n%s\n", str, stack_str ? stack_str : "");
-            js_record_crash(rt, "act", str);
-            if (stack_str) JS_FreeCString(rt->ctx, stack_str);
-            JS_FreeValue(rt->ctx, stack);
-            JS_FreeCString(rt->ctx, str);
-            JS_FreeValue(rt->ctx, exc);
+            JSValue result = JS_Call(rt->ctx, rt->act_fn, JS_UNDEFINED, 1, &api);
+            if (JS_IsException(result)) {
+                JSValue exc = JS_GetException(rt->ctx);
+                const char *str = JS_ToCString(rt->ctx, exc);
+                JSValue stack = JS_GetPropertyStr(rt->ctx, exc, "stack");
+                const char *stack_str = JS_ToCString(rt->ctx, stack);
+                fprintf(stderr, "[js] act() error: %s\n%s\n", str, stack_str ? stack_str : "");
+                ac_log("[js] act() error: %s\n%s\n", str, stack_str ? stack_str : "");
+                js_record_crash(rt, "act", str);
+                if (stack_str) JS_FreeCString(rt->ctx, stack_str);
+                JS_FreeValue(rt->ctx, stack);
+                JS_FreeCString(rt->ctx, str);
+                JS_FreeValue(rt->ctx, exc);
+            }
+            JS_FreeValue(rt->ctx, result);
         }
-        JS_FreeValue(rt->ctx, result);
         JS_FreeValue(rt->ctx, api);
     }
 }

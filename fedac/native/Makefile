@@ -15,7 +15,13 @@ BUILD_TS   ?= $(shell date -u '+%Y-%m-%dT%H:%M')
 BUILD_NAME := $(shell scripts/build-name.sh --bump 2>/dev/null || echo "local-build")
 QUIRCDIR   := lib/quirc/lib
 QRGENDIR   := lib/qrcodegen
-CFLAGS     := -O2 -Wall -Wextra -std=gnu11 -I$(QJSDIR) -I$(QUIRCDIR) -I$(QRGENDIR) -DAC_GIT_HASH=\"$(GIT_HASH)\" -DAC_BUILD_TS=\"$(BUILD_TS)\" -DAC_BUILD_NAME=\"$(BUILD_NAME)\"
+CFLAGS     := -O2 -Wall -Wextra -std=gnu11 -I$(QJSDIR) -I$(QUIRCDIR) -I$(QRGENDIR)
+# The build stamp goes on ONE translation unit, not all of them. It used to be
+# part of CFLAGS, and since BUILD_NAME is bumped on every invocation that made
+# the CFLAGS signature below differ every single build — deleting every object
+# file and guaranteeing a ccache miss on all 23 units, quickjs.c included. Now
+# only version.o carries it, so a new build name recompiles one small file.
+STAMP_CFLAGS := -DAC_GIT_HASH=\"$(GIT_HASH)\" -DAC_BUILD_TS=\"$(BUILD_TS)\" -DAC_BUILD_NAME=\"$(BUILD_NAME)\"
 LDFLAGS  := -Wl,--as-needed -lm -lpthread -lasound -lutil -ldl
 
 # Static build: only when musl-gcc is available (musl has bundled static libc)
@@ -102,7 +108,8 @@ SRCS := $(SRCDIR)/ac-native.c \
         $(SRCDIR)/swank-bridge.c \
         $(SRCDIR)/js-bindings.c \
         $(SRCDIR)/audio-decode.c \
-        $(SRCDIR)/recorder.c
+        $(SRCDIR)/recorder.c \
+        $(SRCDIR)/version.c
 
 ifeq ($(HAVE_RAYLIB),1)
   SRCS += $(SRCDIR)/raylib-soft.c
@@ -151,9 +158,11 @@ $(TARGET): $(OBJS) $(QJS_OBJS) $(QUIRC_OBJS) $(QRGEN_OBJS) $(WL_PROTO_OBJS)
 # All .c files depend on all project headers (simple but correct)
 HEADERS := $(wildcard $(SRCDIR)/*.h)
 
-# Track CFLAGS changes — force full rebuild when git hash, build name, or any flag changes.
-# Make only watches source timestamps, not compiler flags, so without this the binary
-# retains stale AC_BUILD_NAME / AC_GIT_HASH after new commits with no C source changes.
+# Track CFLAGS changes — force a full rebuild when a real compiler flag changes.
+# Make watches source timestamps, not flags, so a changed -I or -D would
+# otherwise leave stale objects. The build stamp is deliberately NOT part of
+# this signature (see STAMP_CFLAGS): it changes every invocation, and including
+# it turned this safety net into an unconditional `rm -f *.o`.
 CFLAGS_FILE := $(BUILDDIR)/.cflags
 CFLAGS_SIG  := $(shell echo '$(CFLAGS)' | md5sum | cut -d' ' -f1)
 CFLAGS_PREV := $(shell cat $(CFLAGS_FILE) 2>/dev/null)
@@ -162,8 +171,23 @@ ifneq ($(CFLAGS_SIG),$(CFLAGS_PREV))
   $(shell rm -f $(BUILDDIR)/*.o)
 endif
 
+# The stamp gets its own signature file. version.o rebuilds when the stamp
+# changes and at no other time, which is what keeps the reported build name
+# honest without dragging the other 22 units along.
+STAMP_FILE := $(BUILDDIR)/.stamp
+STAMP_SIG  := $(shell echo '$(STAMP_CFLAGS)' | md5sum | cut -d' ' -f1)
+STAMP_PREV := $(shell cat $(STAMP_FILE) 2>/dev/null)
+ifneq ($(STAMP_SIG),$(STAMP_PREV))
+  $(shell mkdir -p $(BUILDDIR) && echo '$(STAMP_SIG)' > $(STAMP_FILE))
+  $(shell rm -f $(BUILDDIR)/version.o)
+endif
+
 $(BUILDDIR)/%.o: $(SRCDIR)/%.c $(HEADERS) | $(BUILDDIR)
 	$(CC) $(CFLAGS) -c -o $@ $<
+
+# version.c is the only unit compiled with the build stamp.
+$(BUILDDIR)/version.o: $(SRCDIR)/version.c $(SRCDIR)/version.h | $(BUILDDIR)
+	$(CC) $(CFLAGS) $(STAMP_CFLAGS) -c -o $@ $<
 
 $(BUILDDIR)/qjs-%.o: $(QJSDIR)/%.c | $(BUILDDIR)
 	$(CC) $(CFLAGS) -DCONFIG_VERSION=\"0.8.0\" -c -o $@ $<

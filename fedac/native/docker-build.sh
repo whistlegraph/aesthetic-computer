@@ -83,7 +83,11 @@ run_make_with_heartbeat() {
 # ── ccache setup (persisted via Docker volume at /ccache) ──
 export CCACHE_DIR="${CCACHE_DIR:-/ccache}"
 mkdir -p "$CCACHE_DIR"
-export CCACHE_MAXSIZE="${CCACHE_MAXSIZE:-2G}"
+# 2G could not hold a 6.19 kernel tree plus ac-native even compressed, so the
+# cache thrashed and evicted the objects it was about to be asked for. Worth
+# raising now that the build stamp no longer poisons every lookup (see the
+# Makefile's STAMP_CFLAGS) and hits are actually achievable.
+export CCACHE_MAXSIZE="${CCACHE_MAXSIZE:-10G}"
 export CCACHE_COMPRESS=1
 if command -v ccache &>/dev/null; then
     CC_USE="ccache gcc"
@@ -728,7 +732,10 @@ log "Step 2b: Embedding SBCL + Swank..."
 # Build libquickjs.so for CL CFFI bindings
 QJSDIR="/cache/quickjs-2024-01-13"
 log "  Building libquickjs.so..."
-gcc -shared -fPIC -O2 -Wl,-soname,libquickjs.so \
+# ${CC_USE} rather than bare gcc: this compiles the whole QuickJS amalgam on
+# every build, and calling gcc directly walked straight past ccache — the one
+# place in the build where a cache hit is nearly free and worth the most.
+${CC_USE} -shared -fPIC -O2 -Wl,-soname,libquickjs.so \
     -o /lib64/libquickjs.so \
     "$QJSDIR/quickjs.c" "$QJSDIR/libunicode.c" \
     "$QJSDIR/libregexp.c" "$QJSDIR/cutils.c" "$QJSDIR/libbf.c" \
@@ -736,7 +743,7 @@ gcc -shared -fPIC -O2 -Wl,-soname,libquickjs.so \
 
 CL_DIR="$NATIVE/cl"
 log "  Building libquickjs-shim.so..."
-gcc -shared -fPIC -O2 -Wl,-soname,libquickjs-shim.so \
+${CC_USE} -shared -fPIC -O2 -Wl,-soname,libquickjs-shim.so \
     -o /lib64/libquickjs-shim.so \
     "$CL_DIR/quickjs-shim.c" \
     -I"$QJSDIR" -L/lib64 -lquickjs -lm 2>&1 || { err "shim build failed"; }
@@ -780,13 +787,26 @@ CL_PIECES=$(ls "$IROOT/pieces/"*.lisp 2>/dev/null | wc -l)
 log "  CL pieces: $CL_PIECES"
 
 # ══════════════════════════════════════════════
-# Step 3: Pack initramfs (cpio + lz4)
+# Step 3: Pack initramfs (cpio + gzip, one pass)
 # ══════════════════════════════════════════════
 log "Step 3/4: Packing initramfs..."
 cd "$IROOT"
-find . -print0 | cpio --null -ov --format=newc 2>/dev/null | lz4 -l -9 -f - "$BUILD/initramfs.cpio.lz4"
-INITRAMFS_SIZE=$(stat -c%s "$BUILD/initramfs.cpio.lz4")
-log "  Initramfs: $((INITRAMFS_SIZE / 1048576))MB compressed"
+# The kernel's EFI stub loads this externally via the baked-in
+# `initrd=\initramfs.cpio.gz` cmdline token, so gzip is the shipping format and
+# the only one we need. This used to pack ~1GB through `lz4 -l -9` — lz4's
+# slowest mode — and then decompress that and re-gzip it a few hundred lines
+# later, paying max-effort compression for a file nothing ever read. Straight
+# to gzip, and in parallel when pigz is available.
+if command -v pigz >/dev/null 2>&1; then
+    GZIP_CMD="pigz -6 -p $(nproc)"
+else
+    GZIP_CMD="gzip -6"
+fi
+# -v was printing every filename straight into /dev/null.
+find . -print0 | cpio --null -o --format=newc 2>/dev/null \
+    | ${GZIP_CMD} -c > "$BUILD/initramfs.cpio.gz"
+INITRAMFS_SIZE=$(stat -c%s "$BUILD/initramfs.cpio.gz")
+log "  Initramfs: $((INITRAMFS_SIZE / 1048576))MB compressed (${GZIP_CMD%% *})"
 
 # ══════════════════════════════════════════════
 # Step 4: Build kernel with embedded initramfs
@@ -897,15 +917,18 @@ if [ -n "$FW_LIST" ]; then
     log "  Built-in firmware files: $FW_LIST"
 fi
 
-# Pack initramfs as gzip up front — the kernel's EFI stub loads it externally
-# via the baked-in `initrd=\initramfs.cpio.gz` cmdline token. The .lz4 stays
-# around as the canonical build artifact (smaller + faster to repack), but the
-# kernel itself no longer embeds initramfs, so pure code changes skip the
-# kernel link step entirely.
-log "  Packing initramfs.cpio.gz (external initrd)..."
-lz4 -d "$BUILD/initramfs.cpio.lz4" -c 2>/dev/null | gzip -c > "$BUILD/initramfs.cpio.gz"
-cp "$BUILD/initramfs.cpio.gz" "$OUT/initramfs.cpio.gz" 2>/dev/null || true
-log "  initramfs.cpio.gz: $(($(stat -c%s "$BUILD/initramfs.cpio.gz") / 1048576))MB"
+# The initramfs was already packed as gzip in Step 3 — the kernel's EFI stub
+# loads it externally via the baked-in `initrd=\initramfs.cpio.gz` cmdline
+# token, and the kernel no longer embeds it, so pure code changes skip the
+# kernel link step entirely. All that remains is publishing it to $OUT.
+#
+# This copy is NOT allowed to fail quietly. It used to end in `|| true`, which
+# meant a failure here left whatever initramfs was already sitting in $OUT to
+# be picked up and published under the new build's name — a green build
+# shipping the previous release's userspace under a fresh kernel.
+[ -f "$BUILD/initramfs.cpio.gz" ] || { err "initramfs.cpio.gz missing after pack"; exit 1; }
+cp "$BUILD/initramfs.cpio.gz" "$OUT/initramfs.cpio.gz"
+log "  initramfs.cpio.gz: $(($(stat -c%s "$BUILD/initramfs.cpio.gz") / 1048576))MB → \$OUT"
 
 # Configure — force-disable bloated GPU drivers that olddefconfig enables
 cd "$LINUX_DIR"

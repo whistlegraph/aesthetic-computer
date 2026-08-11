@@ -17,16 +17,8 @@
 extern void ac_log(const char *fmt, ...);
 extern char g_machine_id[64];
 
-// Compile-time build info (set by Makefile)
-#ifndef AC_BUILD_NAME
-#define AC_BUILD_NAME "dev"
-#endif
-#ifndef AC_GIT_HASH
-#define AC_GIT_HASH "unknown"
-#endif
-#ifndef AC_BUILD_TS
-#define AC_BUILD_TS "unknown"
-#endif
+// Build info comes from version.c, the one unit compiled with the stamp.
+#include "version.h"
 
 #define WS_URL "wss://session-server.aesthetic.computer/machines"
 
@@ -223,8 +215,8 @@ static void send_register(ACMachines *m, ACWifi *wifi) {
         "\"charging\":%s,"
         "\"hostname\":\"%s\","
         "\"hw\":{\"display\":\"%s\",\"displayDriver\":\"%s\",\"gpu\":\"%s\"}}",
-        AC_BUILD_NAME, AC_GIT_HASH, AC_BUILD_TS,
-        AC_BUILD_NAME, AC_GIT_HASH, AC_BUILD_TS,
+        ac_build_name, ac_git_hash, ac_build_ts,
+        ac_build_name, ac_git_hash, ac_build_ts,
         m->current_piece,
         wifi ? wifi->ip_address : "",
         wifi ? wifi->connected_ssid : "",

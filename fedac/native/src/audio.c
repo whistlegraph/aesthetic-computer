@@ -1936,8 +1936,15 @@ static void *audio_thread_fn(void *arg) {
                 float vol = dk->volume * cf * audio->deck_master_volume;
                 mix_l += sl * vol;
                 mix_r += sr * vol;
-                // Wake decoder thread if ring drained below 50%
-                if ((dec->ring_write - dec->ring_read) < dec->ring_size / 2) {
+                // Wake the decoder if the ring drained below 50%, but only on
+                // the first frame of the period. This check sits in the
+                // per-SAMPLE loop: at 192kHz a draining deck was taking a
+                // mutex and signalling a condvar up to 192,000 times a second
+                // from the SCHED_FIFO thread, which is a futex storm on the
+                // one thread that must never block. Once per period is 1ms
+                // granularity — far faster than the decoder can refill, and
+                // three orders of magnitude fewer syscalls.
+                if (i == 0 && (dec->ring_write - dec->ring_read) < dec->ring_size / 2) {
                     pthread_mutex_lock(&dec->mutex);
                     pthread_cond_signal(&dec->cond);
                     pthread_mutex_unlock(&dec->mutex);
@@ -2438,7 +2445,25 @@ ACAudio *audio_init(void) {
     audio->bpm = 120.0;
     audio->actual_rate = AUDIO_SAMPLE_RATE; // default, overwritten after ALSA negotiation
     audio->glitch_rate = AUDIO_SAMPLE_RATE / 1600;
-    pthread_mutex_init(&audio->lock, NULL);
+    // Priority inheritance is not optional here. The render thread runs
+    // SCHED_FIFO and holds this lock across a whole period, while sixteen
+    // main-thread call sites reach for it to change synth state. With a plain
+    // mutex, the RT thread can block on a lock owned by a normal-priority
+    // thread that the scheduler is in no hurry to run — textbook priority
+    // inversion, at a 1ms deadline. Missing that deadline is the audible
+    // tearing / underrun already noted in PROGRESS.md. Inheritance lifts the
+    // holder to the waiter's priority so it finishes and releases promptly.
+    {
+        pthread_mutexattr_t attr;
+        if (pthread_mutexattr_init(&attr) == 0) {
+            if (pthread_mutexattr_setprotocol(&attr, PTHREAD_PRIO_INHERIT) != 0)
+                ac_log("[audio] PRIO_INHERIT unavailable — mutex stays plain\n");
+            pthread_mutex_init(&audio->lock, &attr);
+            pthread_mutexattr_destroy(&attr);
+        } else {
+            pthread_mutex_init(&audio->lock, NULL);
+        }
+    }
 
     // Build the sine wavetable used by the GM modal/FM voices (idempotent).
     gm_synth_init();

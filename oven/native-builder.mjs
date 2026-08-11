@@ -509,14 +509,41 @@ async function runBuildJob(job) {
       const isoOut = `/tmp/oven-iso-${job.id}`;
       const slimOut = `/tmp/oven-vmlinuz-slim-${job.id}`;
       const initramfsOut = `/tmp/oven-initramfs-${job.id}`;
+      // The initramfs and slim kernel are NOT optional, and their extraction
+      // must not be allowed to fail quietly. On 2026-08-11 a build compiled
+      // the right commit, logged the right stamps, exited 0 — and published
+      // the PREVIOUS release's initramfs under the new build's name. The
+      // device came up with a new kernel over month-old userspace, so a
+      // freshly shipped feature was simply absent with nothing anywhere
+      // reporting a problem. Every `|| true` on this path was load-bearing in
+      // producing that outcome: a missing artifact silently became a stale one.
       await runPhase(job, "extract", "bash", ["-c", [
+        "set -o pipefail",
         `docker cp ${cid}:/tmp/ac-build/vmlinuz ${vmlinuzOut}`,
+        // The ISO genuinely is optional — it is a convenience artifact.
         `docker cp ${cid}:/tmp/ac-build/ac-os.iso ${isoOut} 2>/dev/null || docker cp ${cid}:/out/ac-os.iso ${isoOut} 2>/dev/null || true`,
-        `docker cp ${cid}:/tmp/ac-build/vmlinuz-slim ${slimOut} 2>/dev/null || docker cp ${cid}:/out/vmlinuz-slim ${slimOut} 2>/dev/null || true`,
-        `docker cp ${cid}:/tmp/ac-build/initramfs.cpio.gz ${initramfsOut} 2>/dev/null || docker cp ${cid}:/out/initramfs.cpio.gz ${initramfsOut} 2>/dev/null || true`,
-        `ls -lh ${slimOut} ${initramfsOut} 2>/dev/null || echo "WARNING: slim/initramfs not extracted"`,
+        `docker cp ${cid}:/tmp/ac-build/vmlinuz-slim ${slimOut} 2>/dev/null || docker cp ${cid}:/out/vmlinuz-slim ${slimOut}`,
+        `docker cp ${cid}:/tmp/ac-build/initramfs.cpio.gz ${initramfsOut} 2>/dev/null || docker cp ${cid}:/out/initramfs.cpio.gz ${initramfsOut}`,
+        `ls -lh ${slimOut} ${initramfsOut}`,
         `docker rm ${cid} >/dev/null`,
-      ].join("; ")], repoDir);
+      ].join("\n")], repoDir);
+
+      // Prove the artifact belongs to THIS build before anything publishes it.
+      // ac-native embeds AC_GIT_HASH as a string literal, so the commit we
+      // asked for has to be findable inside the packed userspace. grep -m1
+      // stops at the first hit, so this costs a partial decompress, not a
+      // full one — cheap next to shipping the wrong month's software.
+      const stampRef = (job.ref || "").slice(0, 9);
+      if (stampRef) {
+        await runPhase(job, "verify-initramfs", "bash", ["-c", [
+          "set -o pipefail",
+          `if ! zcat ${initramfsOut} 2>/dev/null | grep -a -q -m1 ${stampRef}; then`,
+          `  echo "initramfs does not contain build stamp ${stampRef} — it is not this build's artifact" >&2`,
+          "  exit 1",
+          "fi",
+          `echo "initramfs carries ${stampRef}"`,
+        ].join("\n")], repoDir);
+      }
 
       job.percent = 80;
 
@@ -529,8 +556,11 @@ async function runBuildJob(job) {
       await fs.mkdir(uploadDir, { recursive: true });
       await fs.rename(vmlinuzOut, vmlinuzUpload);
       try { await fs.rename(isoOut, isoUpload); } catch {}
-      try { await fs.rename(slimOut, slimUpload); } catch {}
-      try { await fs.rename(initramfsOut, initramfsUpload); } catch {}
+      // Not swallowed: upload-release.sh publishes whichever siblings it finds,
+      // so a rename that quietly failed here left the previous release's file
+      // to be published in this build's place. Fail the job instead.
+      await fs.rename(slimOut, slimUpload);
+      await fs.rename(initramfsOut, initramfsUpload);
       // upload-release.sh auto-detects sibling files (vmlinuz-slim, initramfs.cpio.gz, ac-os.iso)
       await runPhase(job, "upload", "bash", [uploadScript, vmlinuzUpload], NATIVE_DIR, uploadEnv);
 

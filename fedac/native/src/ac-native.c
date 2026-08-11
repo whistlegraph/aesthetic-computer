@@ -25,6 +25,7 @@
 #include <pthread.h>
 
 #include "drm-display.h"
+#include "version.h"
 #include "framebuffer.h"
 #include "graph.h"
 #include "font.h"
@@ -2731,10 +2732,8 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
 
     // Check if this is a fresh boot of a new version
     int is_new_version = 0;
-#ifdef AC_GIT_HASH
-#ifdef AC_BUILD_TS
     {
-        const char *current_ver = AC_GIT_HASH "-" AC_BUILD_TS;
+        const char *current_ver = ac_version_string();
         char prev_ver[128] = "";
         FILE *vf = fopen("/mnt/booted-version", "r");
         if (vf) {
@@ -2765,8 +2764,6 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
         }
         sync();
     }
-#endif
-#endif
 
     // Generate or load persistent machine ID (needs /mnt mounted)
     init_machine_id();
@@ -2775,11 +2772,7 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
     machines_init(&g_machines);
 
     // LAN dev server: HTTP control endpoint + mDNS (.local) responder
-#ifdef AC_BUILD_NAME
-    lanserv_start(AC_BUILD_NAME);
-#else
-    lanserv_start("dev");
-#endif
+    lanserv_start(ac_build_name);
 
     // Read cached city once for both TTS greeting (f==10) and subtitle (f>130).
     char greet_city[96];
@@ -2847,17 +2840,13 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
                 else                               tod = "good evening";
                 // The release announces itself after the greeting, so a boot
                 // says out loud which world you are in before the build name.
-#ifdef AC_BUILD_NAME
+                // Hyphens read as pauses, so the build name is spoken as words.
                 char name_tts[64];
-                strncpy(name_tts, AC_BUILD_NAME, sizeof(name_tts) - 1);
+                strncpy(name_tts, ac_build_name, sizeof(name_tts) - 1);
                 name_tts[sizeof(name_tts) - 1] = 0;
                 for (char *p = name_tts; *p; p++) { if (*p == '-') *p = ' '; }
                 snprintf(greet, sizeof(greet), "%s %s. enjoy %s! %s! %s.",
                          tod, at + 1, greet_city, AC_RELEASE_TAGLINE, name_tts);
-#else
-                snprintf(greet, sizeof(greet), "%s %s. enjoy %s! %s!",
-                         tod, at + 1, greet_city, AC_RELEASE_TAGLINE);
-#endif
                 tts_speak(tts, greet);
             } else if (audio) {
                 // No handle — play a short ascending arpeggio (C E G C')
@@ -3001,21 +2990,14 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
         }
 
         // Version + build name + build date (high-contrast panel, top-right)
-#ifdef AC_GIT_HASH
         if (alpha > 40) {
             char ver[64];
             char bts[64];
             char bname[64] = "";
             char ddrv[64] = "";
-            snprintf(ver, sizeof(ver), "version %s", AC_GIT_HASH);
-#ifdef AC_BUILD_TS
-            snprintf(bts, sizeof(bts), "%s", AC_BUILD_TS);
-#else
-            snprintf(bts, sizeof(bts), "build unknown");
-#endif
-#ifdef AC_BUILD_NAME
-            snprintf(bname, sizeof(bname), "%s", AC_BUILD_NAME);
-#endif
+            snprintf(ver, sizeof(ver), "version %s", ac_git_hash);
+            snprintf(bts, sizeof(bts), "%s", ac_build_ts);
+            snprintf(bname, sizeof(bname), "%s", ac_build_name);
             const char *driver = drm_display_driver(display);
             snprintf(ddrv, sizeof(ddrv), "display %s", driver);
             int wv = font_measure_matrix(ver, 1);
@@ -3063,7 +3045,6 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
                 font_draw_matrix(graph, "FRESH", panel_x - font_measure_matrix("FRESH", 1) - 4, panel_y + 6, 1);
             }
         }
-#endif
 
         // Subtitle: prefer the user's stored mood (boot_mood) over the
         // default "enjoy <city>!" line. Mood comes from /mnt/last-mood
