@@ -1,0 +1,52 @@
+# Docker build context excludes.
+#
+# Only one image builds from the repo root: fedac/native/Dockerfile.builder,
+# the AC Native OS builder (see fedac/native/Dockerfile.builder:4 and
+# oven/native-builder.mjs, which passes this directory as the context).
+# session-server builds from its own directory, so nothing here affects it.
+#
+# Why this file exists: Dockerfile.builder ends in `COPY . /repo`, so without
+# it the daemon tars the ENTIRE checkout — tens of gigabytes of music, video,
+# paintings, and git packs — before the build can start, and that COPY layer
+# is invalidated by any file change anywhere in the repo. The OS build reads
+# only fedac/native/**, a handful of .mjs files under
+# system/public/aesthetic.computer/, and system/public/install-firmware.sh.
+#
+# Everything below is either large, generated, or private, and none of it is
+# read by docker-build.sh. Add here freely; if the build ever needs one of
+# these paths it will fail loudly with a missing file, not silently.
+
+# Version control. docker-build.sh:25 wants `git rev-parse` for the short
+# hash, but it falls back to "unknown" and the oven always passes AC_GIT_HASH
+# explicitly (oven/native-builder.mjs:490) — so the real builds keep their
+# provenance and the context loses the single largest directory.
+.git
+.worktrees
+
+# Dependencies and build output — reinstalled or regenerated in the image.
+node_modules
+**/node_modules
+fedac/native/build
+fedac/native/wasm/node_modules
+
+# Private client work. Beyond size, this simply should not be entering an
+# image layer.
+aesthetic-computer-vault
+
+# Media and generated artifacts.
+pop
+portraits
+marketing
+captutor
+juke-wizard
+wave-wizard
+papers
+grants
+outputs
+tmp
+system/public/assets
+
+# Agent and editor scratch.
+.claude
+.vscode
+.DS_Store

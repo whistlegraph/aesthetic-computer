@@ -6996,18 +6996,31 @@ static JSValue build_system_obj(JSContext *ctx) {
             } else {
                 JS_SetPropertyStr(ctx, hw, "displayDriver", JS_NewString(ctx, "wayland"));
             }
-            // Read GPU renderer from sysfs (Mesa exposes via DRI)
-            char gpu_name[128] = "unknown";
-            FILE *fp = popen("cat /sys/kernel/debug/dri/0/name 2>/dev/null || "
-                             "cat /sys/class/drm/card0/device/label 2>/dev/null || "
-                             "echo unknown", "r");
-            if (fp) {
-                if (fgets(gpu_name, sizeof(gpu_name), fp)) {
-                    // Strip trailing newline
-                    char *nl = strchr(gpu_name, '\n');
-                    if (nl) *nl = '\0';
+            // GPU renderer, read from sysfs once and remembered. This used to
+            // popen() a shell — inside build_api, which runs for act, sim and
+            // paint every frame AND once per input event, so a held key or a
+            // finger dragging across the pad forked a shell and a `cat` dozens
+            // of times in a single frame. The name cannot change while we are
+            // running, so reading it once is both cheaper and no less correct.
+            static char gpu_name[128];
+            if (!gpu_name[0]) {
+                static const char *const gpu_paths[] = {
+                    "/sys/kernel/debug/dri/0/name",
+                    "/sys/class/drm/card0/device/label",
+                };
+                for (size_t gi = 0;
+                     gi < sizeof(gpu_paths) / sizeof(gpu_paths[0]) && !gpu_name[0];
+                     gi++) {
+                    FILE *gf = fopen(gpu_paths[gi], "r");
+                    if (!gf) continue;
+                    if (fgets(gpu_name, sizeof(gpu_name), gf)) {
+                        char *nl = strchr(gpu_name, '\n');
+                        if (nl) *nl = '\0';
+                    }
+                    fclose(gf);
                 }
-                pclose(fp);
+                if (!gpu_name[0])
+                    snprintf(gpu_name, sizeof(gpu_name), "unknown");
             }
             JS_SetPropertyStr(ctx, hw, "gpu", JS_NewString(ctx, gpu_name));
         }
@@ -7902,6 +7915,36 @@ static JSValue build_api(JSContext *ctx, ACRuntime *rt, const char *phase) {
         JSValue trackpad = JS_NewObject(ctx);
         JS_SetPropertyStr(ctx, trackpad, "dx", JS_NewInt32(ctx, rt->input->delta_x));
         JS_SetPropertyStr(ctx, trackpad, "dy", JS_NewInt32(ctx, rt->input->delta_y));
+
+        // Whole-hand contacts. The tracker in input.c has kept real MT-B
+        // slots since the pad became playable, but nothing carried them
+        // across into JS, so a piece could only ever see the summed pointer.
+        // A drum head needs the set: the finger that strikes AND the ones
+        // resting, which damp the modes the strike excites.
+        //
+        // `generation` bumps only when a SYN_REPORT actually changed the
+        // contact set, so a piece can skip work on frames where the hand
+        // has not moved. `aspect` is the pad's true width/height from
+        // EVIOCGABS — the membrane's boundary math needs the real shape,
+        // not the square one normalized coordinates imply.
+        ACTouchSlot pts[MAX_TOUCH_SLOTS];
+        int touch_n = input_touch_contacts(rt->input, pts, MAX_TOUCH_SLOTS);
+        JSValue contacts = JS_NewArray(ctx);
+        for (int i = 0; i < touch_n; i++) {
+            JSValue c = JS_NewObject(ctx);
+            JS_SetPropertyStr(ctx, c, "id", JS_NewInt32(ctx, pts[i].tracking_id));
+            JS_SetPropertyStr(ctx, c, "x", JS_NewFloat64(ctx, (double)pts[i].x));
+            JS_SetPropertyStr(ctx, c, "y", JS_NewFloat64(ctx, (double)pts[i].y));
+            JS_SetPropertyStr(ctx, c, "pressure", JS_NewFloat64(ctx, (double)pts[i].pressure));
+            JS_SetPropertyStr(ctx, c, "downAt", JS_NewFloat64(ctx, pts[i].down_at));
+            JS_SetPropertyUint32(ctx, contacts, (uint32_t)i, c);
+        }
+        JS_SetPropertyStr(ctx, trackpad, "contacts", contacts);
+        JS_SetPropertyStr(ctx, trackpad, "aspect",
+                          JS_NewFloat64(ctx, (double)input_touch_aspect(rt->input)));
+        JS_SetPropertyStr(ctx, trackpad, "generation",
+                          JS_NewInt32(ctx, rt->input->surface.generation));
+        JS_SetPropertyStr(ctx, trackpad, "grabbed", JS_NewBool(ctx, rt->surface_grab));
         JS_SetPropertyStr(ctx, api, "trackpad", trackpad);
 
         // Analog key pressures — object mapping key names to 0.0-1.0 pressure
@@ -8194,6 +8237,7 @@ int js_load_piece(ACRuntime *rt, const char *path) {
         "if(typeof beat==='function')globalThis.beat=beat;"
         "if(typeof configureAutopat==='function')globalThis.configureAutopat=configureAutopat;"
         "if(typeof system!=='undefined')globalThis.__pieceSystem=system;"
+        "if(typeof surface!=='undefined')globalThis.__pieceSurface=surface;"
         "if(typeof fpsOpts!=='undefined')globalThis.__pieceFpsOpts=fpsOpts;"
         // FPS system wiring — runs only when piece opts in.
         "if(globalThis.__pieceSystem==='fps'&&globalThis.__FpsSystem){"
@@ -8268,6 +8312,25 @@ int js_load_piece(ACRuntime *rt, const char *path) {
         }
     }
     JS_FreeValue(ctx, sys_val);
+
+    // Capture piece's `export const surface` value ("drum" = play the pad).
+    rt->surface_mode[0] = '\0';
+    JSValue surf_val = JS_GetPropertyStr(ctx, global, "__pieceSurface");
+    if (JS_IsString(surf_val)) {
+        const char *s = JS_ToCString(ctx, surf_val);
+        if (s) {
+            strncpy(rt->surface_mode, s, sizeof(rt->surface_mode) - 1);
+            rt->surface_mode[sizeof(rt->surface_mode) - 1] = '\0';
+            JS_FreeCString(ctx, s);
+        }
+    }
+    JS_FreeValue(ctx, surf_val);
+
+    // A piece that claims the surface takes the pointer with it. Load time is
+    // the right moment to grab: the piece cannot miss the first strike waiting
+    // for its own boot to ask. Swapping to a piece without the export releases
+    // it, so a crashed or exited instrument can never strand a dead cursor.
+    rt->surface_grab = (strcmp(rt->surface_mode, "drum") == 0) ? 1 : 0;
 
     // Auto-detect FPS mode
     if (strcmp(rt->system_mode, "fps") == 0)
@@ -8407,6 +8470,14 @@ void js_call_act(ACRuntime *rt) {
         for (int i = 0; i < input->event_count; i++) {
             ACEvent *ev = &input->events[i];
             if (ev->type == AC_EVENT_KEYBOARD_DOWN && ev->key_code == KEY_ESC) {
+                // A piece holding the surface owns its own exit. One Escape is
+                // too cheap for an instrument — the key sits under the
+                // drummer's left hand — so those pieces count their own
+                // presses and jump when they mean it. Returning here would
+                // steal the key before act() ever ran: that is why notepat's
+                // triple-escape, warning tones and all, had never once fired
+                // on this OS. Let the event through instead.
+                if (rt->surface_grab) break;
                 // Reset FPS camera state if active
                 if (rt->pen_locked) {
                     rt->pen_locked = 0;
@@ -8420,6 +8491,23 @@ void js_call_act(ACRuntime *rt) {
                 return; // Skip passing events to piece
             }
         }
+    }
+
+    // A grabbed surface swallows pointer emulation. The contacts still reach
+    // the piece through `api.trackpad.contacts`; what stops here is the single
+    // synthesized pointer, which would otherwise have every drum strike also
+    // pressing whatever on-screen control sat under the cursor.
+    if (rt->surface_grab) {
+        int kept = 0;
+        for (int i = 0; i < input->event_count; i++) {
+            ACEvent *ev = &input->events[i];
+            if (ev->type == AC_EVENT_TOUCH || ev->type == AC_EVENT_DRAW ||
+                ev->type == AC_EVENT_LIFT)
+                continue;
+            if (kept != i) input->events[kept] = *ev;
+            kept++;
+        }
+        input->event_count = kept;
     }
 
     // Nopaint: update brush position and state from touch/mouse events

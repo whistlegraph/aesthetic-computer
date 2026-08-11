@@ -328,6 +328,7 @@ static void surface_clear(ACTouchSurface *s) {
     }
     s->slot = 0;
     s->contacts = 0;
+    s->id_hash = 0;
     s->primary_id = -1;
 }
 
@@ -353,6 +354,7 @@ static void surface_abs(ACTouchSurface *s, const struct input_event *ev) {
                 t->tracking_id = ev->value;
                 t->have_pos = 0;
                 t->pressure = 0;
+                t->have_pressure = 0;
                 t->down_at = monotonic_sec();
             }
             break;
@@ -369,6 +371,20 @@ static void surface_abs(ACTouchSurface *s, const struct input_event *ev) {
             // and clamping is kinder than reading EVIOCGABS per contact.
             float p = ev->value / 255.0f;
             t->pressure = p < 0 ? 0 : (p > 1 ? 1 : p);
+            t->have_pressure = 1;
+            break;
+        }
+        case ABS_MT_TOUCH_MAJOR: {
+            // Most laptop pads never report ABS_MT_PRESSURE at all — they
+            // report contact area, and a harder strike flattens the fingertip
+            // into a wider ellipse. Without this, a velocity-sensitive
+            // instrument reads every hit as pressure 0 and plays flat.
+            // Area is the fallback only: a pad that reports real pressure
+            // keeps it, since `have_pressure` latches and wins.
+            if (!t->have_pressure) {
+                float a = ev->value / (float)TOUCH_MAJOR_FULL;
+                t->pressure = a < 0 ? 0 : (a > 1 ? 1 : a);
+            }
             break;
         }
         default: break;
@@ -405,8 +421,20 @@ static void surface_sync(ACInput *input) {
         }
     }
 
-    if (contacts != s->contacts) s->generation++;
+    // Bump on any change to WHICH fingers are down, not merely how many.
+    // Counting alone missed the swap where one finger lands as another lifts
+    // in the same report: the count is unchanged, but a new contact — a
+    // strike, to an instrument reading this — has arrived. Order is stable
+    // (slot index), so hashing the live ids in place is enough to notice.
+    unsigned id_hash = 2166136261u;
+    for (int i = 0; i < MAX_TOUCH_SLOTS; i++) {
+        const ACTouchSlot *t = &s->slots[i];
+        if (t->tracking_id < 0 || t->have_pos != 3) continue;
+        id_hash = (id_hash ^ (unsigned)t->tracking_id) * 16777619u;
+    }
+    if (contacts != s->contacts || id_hash != s->id_hash) s->generation++;
     s->contacts = contacts;
+    s->id_hash = id_hash;
 
     if (primary_slot < 0) {
         s->primary_id = -1;

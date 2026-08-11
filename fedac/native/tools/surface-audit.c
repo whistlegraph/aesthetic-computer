@@ -129,6 +129,23 @@ int main(void) {
     checkf("clamped x", pts[0].x, 1.0f);
     checkf("clamped y", pts[0].y, 0.0f);
 
+    // A drum reads `generation` to know the hand changed. Counting contacts
+    // alone could not see one finger land as another lifted inside a single
+    // report — same count, different hand — and an instrument polling per
+    // frame would swallow that strike entirely.
+    printf("\none finger replacing another in one report is a change:\n");
+    SLOT(2); ID(-1); SLOT(3); ID(92); X(PAD_CX); Y(PAD_CY); SYN();
+    check("contacts", s->contacts, 1);
+    int gen_swap = s->generation;
+    SLOT(3); ID(-1); SLOT(4); ID(93); X(PAD_CX); Y(PAD_CY); SYN();
+    check("still one contact", s->contacts, 1);
+    advanced("generation", gen_swap, s->generation);
+
+    printf("\nan unchanged hand does not bump generation:\n");
+    int gen_still = s->generation;
+    SYN();
+    check("generation held", s->generation, gen_still);
+
     printf("\n%s (%d failure%s)\n", fails ? "FAILED" : "PASSED",
            fails, fails == 1 ? "" : "s");
     return fails != 0;

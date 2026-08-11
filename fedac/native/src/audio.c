@@ -1774,7 +1774,10 @@ static void *audio_thread_fn(void *arg) {
     }
 
     while (audio->running) {
-        memset(buffer, 0, sizeof(buffer));
+        // `buffer` is a pointer, so sizeof cleared 8 bytes, not the period.
+        // The s16 path happens to assign every slot before use, which is why
+        // nothing was audibly wrong; the s32 path reads the whole buffer.
+        memset(buffer, 0, period_frames * AUDIO_CHANNELS * sizeof(buffer[0]));
 
         pthread_mutex_lock(&audio->lock);
 

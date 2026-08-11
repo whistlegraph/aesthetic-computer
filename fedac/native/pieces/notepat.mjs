@@ -261,6 +261,12 @@ let spacePressStartMs = 0;
 let pitchShift = 0; // -1 to +1, 0 = no shift
 let lastAppliedPitch = 0; // last pitch actually sent to synths (throttle)
 
+// Claim the trackpad as a drum head rather than a pointer. The runtime reads
+// this at load: it stops synthesizing pointer events from the pad, hides the
+// cursor, and leaves Escape to us (three presses exit, counted below). The
+// pad's fingers arrive instead through `api.trackpad.contacts`.
+const surface = "drum";
+
 // Trackpad FX control (\ toggles on/off)
 let trackpadFX = false;
 let trackpadEffectBindings = {
@@ -1794,6 +1800,292 @@ function flashDrum(letter, kit = "perc") {
   const color = table[letter] || [200, 200, 200];
   drumFlashes.push({ color, frame, life: DRUM_FLASH_LIFE });
   if (drumFlashes.length > 8) drumFlashes.shift();
+}
+
+// ─── Trackpad drum head ────────────────────────────────────────────────
+// A port of Menu Band's TrackDrum, so the laptop pad plays the same
+// instrument on both. AC OS tracked real multitouch slots for a while before
+// anything could read them; now `api.trackpad.contacts` carries the whole
+// hand, and `surface = "drum"` is what makes the runtime stop emulating a
+// pointer and hide the cursor while notepat is up.
+//
+// The head is a struck circular membrane: ten Bessel modes excited where the
+// finger lands and damped by wherever the other fingers rest. That damping is
+// the entire reason a strike needs the whole contact set and not just the
+// newest finger — a palm on the head mutes what a fingertip beside it
+// excites. Five concentric instruments ride on the membrane: kick at the
+// centroid, then tom, snare, hat, and a dry chassis click over the last few
+// percent of the perimeter.
+//
+// Coordinates arrive normalized 0..1 with y DOWN, where Menu Band's were
+// y up. Only cos(m·θ) reads θ and cosine is even, so the flip is inaudible
+// and no correction is applied.
+
+// Mode number and Bessel root for the first ten modes of a circular
+// membrane, with the relative weight each contributes to a strike.
+const PAD_MODES = [
+  { m: 0, root: 2.4048, gain: 0.46 },
+  { m: 1, root: 3.8317, gain: 0.70 },
+  { m: 2, root: 5.1356, gain: 0.58 },
+  { m: 0, root: 5.5201, gain: 0.34 },
+  { m: 3, root: 6.3802, gain: 0.40 },
+  { m: 1, root: 7.0156, gain: 0.34 },
+  { m: 4, root: 7.5883, gain: 0.29 },
+  { m: 2, root: 8.4172, gain: 0.24 },
+  { m: 0, root: 8.6537, gain: 0.15 },
+  { m: 5, root: 8.7715, gain: 0.18 },
+];
+
+const PAD_HAT_FREQS = [6900, 8400, 9600];
+
+// One colour per concentric instrument, for the background pulse.
+const PAD_ZONE_COLORS = {
+  kick: [210, 60, 60],
+  tom: [225, 130, 55],
+  snare: [235, 220, 170],
+  hat: [110, 215, 225],
+  click: [180, 140, 235],
+};
+
+// Pads that report no resolution give aspect 1.0, which is not a real
+// trackpad shape. Fall back to the 1.64:1 Menu Band tuned against.
+const PAD_FALLBACK_ASPECT = 1.64;
+
+let padContacts = new Map();   // tracking id -> { x, y }
+let padGeneration = -1;        // last surface generation acted on
+let padStrikes = [];           // { x, y, zone, frame } for paint feedback
+let padLastZone = null;        // most recent zone, for the readout
+
+function padClamp(v, lo, hi) {
+  return v < lo ? lo : v > hi ? hi : v;
+}
+
+function padSmoothstep(edge0, edge1, x) {
+  const t = padClamp((x - edge0) / (edge1 - edge0), 0, 1);
+  return t * t * (3 - 2 * t);
+}
+
+// Bessel J of integer order by ascending series. The membrane only ever asks
+// for m ≤ 5 and x ≤ 8.8 (the outermost root at the rim), where this converges
+// in a handful of terms. Terms are built by ratio so no factorial is ever
+// formed and nothing overflows.
+function padBesselJ(m, x) {
+  const h = x / 2;
+  let term = 1;
+  for (let i = 1; i <= m; i++) term *= h / i; // (x/2)^m / m!
+  let sum = term;
+  const h2 = h * h;
+  for (let k = 1; k < 24; k++) {
+    term *= -h2 / (k * (k + m));
+    sum += term;
+    if (Math.abs(term) < 1e-9) break;
+  }
+  return sum;
+}
+
+// Half-extents of the pad in normalized-signed space. Height is fixed and
+// width follows the real measured aspect, so equal movement in x and y
+// crosses material bands at the rates the physical pad implies.
+function padHalfExtent(aspect) {
+  const a = aspect > 1.05 ? aspect : PAD_FALLBACK_ASPECT;
+  return { hw: 0.5 * a, hh: 0.5 };
+}
+
+// Depth from the centroid out to the real rounded-rectangle boundary:
+// 0 at the middle, 1 at every side and corner. Standard signed-distance
+// geometry, so each contour stays parallel to the actual perimeter.
+function padDepth(sx, sy, aspect) {
+  const { hw, hh } = padHalfExtent(aspect);
+  const corner = 0.055;
+  const px = Math.abs(sx) * hw;
+  const py = Math.abs(sy) * hh;
+  const qx = px - (hw - corner);
+  const qy = py - (hh - corner);
+  const outside = Math.hypot(Math.max(qx, 0), Math.max(qy, 0));
+  const inside = Math.min(Math.max(qx, qy), 0);
+  const inward = Math.max(0, -(outside + inside - corner));
+  return 1 - Math.min(1, inward / hh);
+}
+
+// Which of the five concentric instruments a strike lands on.
+function padZone(radius) {
+  if (radius < 0.30) return "kick";
+  if (radius < 0.46) return "tom";
+  if (radius < 0.64) return "snare";
+  if (radius < 0.88) return "hat";
+  return "click";
+}
+
+// How hard the strike was. A pad that reports pressure — or contact area,
+// which input.c folds into the same field for the many pads that report only
+// that — sets the level directly. With neither axis the geometry stands in:
+// strikes nearer the middle carry more energy, and a crowded head a little
+// less.
+function padStrikeVelocity(contact, anchorCount, sx, sy, aspect) {
+  if (contact.pressure > 0.01) {
+    return padClamp(Math.round(30 + contact.pressure * 97), 1, 127);
+  }
+  const depth = 1 - padDepth(sx, sy, aspect);
+  const contour = 0.36 + 0.64 * Math.pow(Math.max(0, depth), 0.62);
+  const modal = 0.91 + 0.09 * Math.cos(sx * Math.PI) * Math.cos(sy * Math.PI);
+  const anchorGain = 1 - Math.min(0.30, anchorCount * 0.055);
+  const energy = padClamp(contour * modal * anchorGain, 0.22, 1);
+  return padClamp(Math.round(42 + energy * 85), 1, 127);
+}
+
+// Strike the head at (x, y) with `anchors` resting on it. Builds the voice
+// set the same way Menu Band does and hands each one to the native synth.
+function playPadStrike(sound, x, y, anchors, velocity, aspect) {
+  if (!sound?.synth) return;
+  const v = padClamp(velocity / 100, 0.1, 2.2);
+  const { hw, hh } = padHalfExtent(aspect);
+  const sx = (x - 0.5) * 2;
+  const sy = (y - 0.5) * 2;
+  const radius = padDepth(sx, sy, aspect);
+  const theta = Math.atan2(sy * hh, sx * hw);
+  const pan = padClamp(sx * 0.72, -1, 1);
+
+  // The centroid carries the head's full energy; perimeter materials are
+  // progressively quieter so bright rim spectra cannot win the mix on
+  // loudness alone.
+  const strikeLevel = v * (1 - 0.38 * padSmoothstep(0.46, 1, radius));
+  const edge = padSmoothstep(0.62, 0.70, radius);
+  const outerClick = padSmoothstep(0.88, 0.965, radius);
+  const hatEdge = edge * (1 - outerClick * 0.94);
+  const tomBand = padSmoothstep(0.23, 0.31, radius)
+    * (1 - padSmoothstep(0.40, 0.48, radius));
+  const snareBand = padSmoothstep(0.40, 0.48, radius)
+    * (1 - padSmoothstep(0.62, 0.70, radius));
+
+  // Each resting finger tightens the head slightly and shortens its tails.
+  const tension = 1 + Math.min(0.45, anchors.length * 0.10);
+  const fingerDamping = Math.min(0.68, anchors.length * 0.13);
+  // A taut shallow hand drum, not a deep timpani: the elevated fundamental
+  // and short tails keep a centre strike light and stop it reading as reverb.
+  const fundamental = (104 + radius * 28) * tension;
+
+  const hit = (type, tone, duration, volume, attack, decay) => {
+    if (!(volume > 0.001) || !(tone > 0)) return;
+    sound.synth({ type, tone, duration, volume, attack, decay, pan });
+  };
+
+  // A compact kick anchors the centroid; the membrane around it supplies the
+  // pitched tom ring.
+  const centerKick = 1 - padSmoothstep(0.10, 0.38, radius);
+  if (centerKick > 0.01) {
+    const k = centerKick * strikeLevel;
+    hit("noise", 2500, 0.0025, 0.48 * k, 0.0002, 0.0022);
+    hit("sine", 200, 0.012, 0.90 * k, 0.0005, 0.011);
+    hit("sine", 150, 0.045, 1.05 * k, 0.001, 0.044);
+    hit("sine", 90, 0.080, 0.70 * k, 0.002, 0.078);
+    hit("sine", 55, 0.17, 0.74 * k, 0.003, 0.164);
+  }
+
+  const membraneBlend = 0.12 + 0.88 * padSmoothstep(0.12, 0.40, radius);
+  for (let i = 0; i < PAD_MODES.length; i++) {
+    const mode = PAD_MODES[i];
+    const strikeShape = Math.abs(
+      padBesselJ(mode.m, mode.root * radius) * Math.cos(mode.m * theta),
+    );
+    // Every resting finger sits on a nodal pattern of its own and pins the
+    // modes it touches. A mode shaped strongly where a finger rests barely
+    // sounds; one with a node there rings on.
+    let constraint = 1;
+    for (let a = 0; a < anchors.length; a++) {
+      const ax = (anchors[a].x - 0.5) * 2;
+      const ay = (anchors[a].y - 0.5) * 2;
+      const ar = padDepth(ax, ay, aspect);
+      const at = Math.atan2(ay * hh, ax * hw);
+      const shape = Math.abs(
+        padBesselJ(mode.m, mode.root * ar) * Math.cos(mode.m * at),
+      );
+      constraint *= Math.max(0.18, 1 - shape * 0.72);
+    }
+    const amplitude = mode.gain * strikeShape * constraint
+      * (1 - edge) * strikeLevel * membraneBlend;
+    if (!(amplitude > 0.004)) continue;
+    const ratio = mode.root / PAD_MODES[0].root;
+    const duration = Math.max(0.060, (0.285 - i * 0.019) * (1 - fingerDamping));
+    hit("sine", fundamental * ratio, duration, amplitude * 0.82,
+        0.0008, duration * 0.94);
+  }
+
+  // Contact texture crosses into a hat band, then collapses to a dry click
+  // over the last few percent of the perimeter.
+  const contactDuration = 0.012 + hatEdge * 0.014;
+  hit("noise", 2400 + hatEdge * 6200, contactDuration,
+      (0.22 + hatEdge * 0.09) * (1 - outerClick * 0.58) * strikeLevel,
+      0.0002, contactDuration * 0.92);
+  if (tomBand > 0.01) {
+    hit("sine", 148 * tension, 0.105, 0.25 * tomBand * strikeLevel, 0.0005, 0.098);
+    hit("triangle", 222 * tension, 0.052, 0.12 * tomBand * strikeLevel, 0.0003, 0.048);
+  }
+  if (snareBand > 0.01) {
+    hit("noise", 4300, 0.064, 0.24 * snareBand * strikeLevel, 0.0003, 0.060);
+    hit("square", 196 * tension, 0.038, 0.045 * snareBand * strikeLevel, 0.0004, 0.035);
+  }
+  if (hatEdge > 0.02) {
+    for (let f = 0; f < PAD_HAT_FREQS.length; f++) {
+      hit("square", PAD_HAT_FREQS[f], 0.008 + hatEdge * 0.014,
+          0.035 * hatEdge * strikeLevel, 0.0002, 0.007 + hatEdge * 0.012);
+    }
+  }
+  if (outerClick > 0.01) {
+    // The chassis click carries its own energy rather than inheriting the
+    // membrane's edge attenuation, so it still punches on laptop speakers.
+    const click = outerClick * v;
+    hit("noise", 7200, 0.0020, 0.50 * click, 0.00005, 0.00165);
+    hit("triangle", 1650 * tension, 0.0040, 0.38 * click, 0.00008, 0.0035);
+    hit("sine", 520 * tension, 0.0055, 0.20 * click, 0.0001, 0.0048);
+  }
+
+  // Visual feedback: pulse the background in the zone's colour and keep the
+  // strike for a moment so paint can mark where the hand landed.
+  const zone = padZone(radius);
+  padLastZone = zone;
+  drumFlashes.push({
+    color: PAD_ZONE_COLORS[zone] || [200, 200, 200],
+    frame,
+    life: DRUM_FLASH_LIFE,
+  });
+  if (drumFlashes.length > 8) drumFlashes.shift();
+  padStrikes.push({ x, y, zone, frame });
+  if (padStrikes.length > 12) padStrikes.shift();
+}
+
+// Poll the pad once a frame and turn newly-arrived contacts into strikes.
+// A contact is a strike the frame its tracking id first appears; every other
+// live contact is an anchor damping it. Ids are the whole trick — a resting
+// finger keeps its id, so it never re-triggers.
+function updatePadDrum(trackpad, sound) {
+  if (!trackpad) return;
+  const contacts = trackpad.contacts || [];
+  // `generation` only moves when the contact set actually changed, so an
+  // unmoving hand costs one integer compare per frame.
+  if (trackpad.generation === padGeneration && contacts.length === padContacts.size) {
+    return;
+  }
+  padGeneration = trackpad.generation;
+  const aspect = trackpad.aspect || PAD_FALLBACK_ASPECT;
+
+  const next = new Map();
+  for (let i = 0; i < contacts.length; i++) {
+    const c = contacts[i];
+    next.set(c.id, { x: c.x, y: c.y });
+  }
+  for (let i = 0; i < contacts.length; i++) {
+    const c = contacts[i];
+    if (padContacts.has(c.id)) continue; // already resting — not a new strike
+    const anchors = [];
+    for (let j = 0; j < contacts.length; j++) {
+      if (contacts[j].id !== c.id) anchors.push(contacts[j]);
+    }
+    const sx = (c.x - 0.5) * 2;
+    const sy = (c.y - 0.5) * 2;
+    const velocity = padStrikeVelocity(c, anchors.length, sx, sy, aspect);
+    playPadStrike(sound, c.x, c.y, anchors, velocity, aspect);
+  }
+  padContacts = next;
 }
 
 function makePercussionHold(letter, volume, pan, pitchFactor, voices = [], gridOffset = 0, baseVolume = volume) {
@@ -8719,11 +9011,77 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     box(0, 0, 2, H, true);        // left
     box(W - 2, 0, 2, H, true);    // right
   }
+
+  paintPadDrum({ ink, box, write, screen, trackpad });
 }
 
-function sim({ pressures, sound }) {
+// A small map of the drum head in the corner: the five zone rings, every
+// finger currently resting, and a fading mark where each strike landed. The
+// pad is invisible while you play it, so this is the only way to learn where
+// the snare band ends and the hat begins without listening for it.
+function paintPadDrum({ ink, box, write, screen, trackpad }) {
+  if (!trackpad?.grabbed) return;
+  const aspect = trackpad.aspect || PAD_FALLBACK_ASPECT;
+  const w = Math.min(84, Math.floor(screen.width * 0.22));
+  const h = Math.max(10, Math.round(w / aspect));
+  const x0 = screen.width - w - 6;
+  const y0 = screen.height - h - 6;
+
+  // Pad body, and a band edge at each zone boundary so the rings read.
+  ink(20, 22, 30, 170);
+  box(x0, y0, w, h, true);
+  for (const [radius, color] of [
+    [0.30, PAD_ZONE_COLORS.kick],
+    [0.46, PAD_ZONE_COLORS.tom],
+    [0.64, PAD_ZONE_COLORS.snare],
+    [0.88, PAD_ZONE_COLORS.hat],
+  ]) {
+    // Contours are parallel to the perimeter, so an inset rectangle is a
+    // faithful enough sketch of each boundary at this size.
+    const ix = Math.round((w / 2) * (1 - radius));
+    const iy = Math.round((h / 2) * (1 - radius));
+    ink(color[0], color[1], color[2], 70);
+    box(x0 + ix, y0 + iy, w - ix * 2, h - iy * 2, "outline");
+  }
+
+  // Fading strike marks, oldest dimmest.
+  for (let i = 0; i < padStrikes.length; i++) {
+    const s = padStrikes[i];
+    const age = frame - s.frame;
+    if (age > 24) continue;
+    const alpha = Math.max(0, 230 - age * 9);
+    const c = PAD_ZONE_COLORS[s.zone] || [220, 220, 220];
+    const px = x0 + Math.round(s.x * (w - 1));
+    const py = y0 + Math.round(s.y * (h - 1));
+    ink(c[0], c[1], c[2], alpha);
+    box(px - 1, py - 1, 3, 3, true);
+  }
+
+  // Live contacts on top, so a resting hand is visible as it damps.
+  const contacts = trackpad.contacts || [];
+  ink(255, 255, 255, 220);
+  for (let i = 0; i < contacts.length; i++) {
+    const px = x0 + Math.round(contacts[i].x * (w - 1));
+    const py = y0 + Math.round(contacts[i].y * (h - 1));
+    box(px, py, 2, 2, true);
+  }
+
+  // Name the zone the last strike hit — the fastest way to connect a sound
+  // to a place on the pad.
+  if (padLastZone) {
+    ink(200, 205, 220, 150);
+    write(padLastZone, { x: x0, y: y0 - 8, size: 1, font: "font_1" });
+  }
+}
+
+function sim({ pressures, sound, trackpad }) {
   // Flush any due setTimeout callbacks (polyfill for missing QuickJS timer)
   __tickPendingTimeouts();
+
+  // Play the pad. Polled here rather than in act() because a strike is a
+  // change in the contact SET, not a discrete event — the runtime reports the
+  // set, and act() only ever sees keys now that pointer emulation is off.
+  updatePadDrum(trackpad, sound);
   // Auto-stop recording at max duration
   if (recording && (Date.now() - recStartTime) / 1000 >= MAX_REC_SECS) {
     stopSampleRecording(sound, "max-duration");

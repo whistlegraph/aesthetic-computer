@@ -50,12 +50,19 @@ typedef struct {
 // a tracking id that persists for the whole life of that contact.
 #define MAX_TOUCH_SLOTS 10
 
+// Contact-area value treated as a full-force strike when a pad reports area
+// instead of pressure. Synaptics and Elan pads land a firm fingertip around
+// 700-900 in ABS_MT_TOUCH_MAJOR units; 800 puts a normal hit near the top of
+// the range without clipping every strike to 1.0.
+#define TOUCH_MAJOR_FULL 800
+
 typedef struct {
     int tracking_id;    // -1 when the slot holds no finger
     int raw_x, raw_y;   // most recent absolute position, device units
     int have_pos;       // a position has arrived since touch-down
     float x, y;         // normalized across the pad, 0..1, y down
-    float pressure;     // 0..1 from ABS_MT_PRESSURE, 0 when unreported
+    float pressure;     // 0..1 from ABS_MT_PRESSURE, else contact area, 0 if neither
+    int have_pressure;  // 1 once ABS_MT_PRESSURE arrived, so area stops overriding
     double down_at;     // monotonic seconds at touch-down
 } ACTouchSlot;
 
@@ -72,6 +79,8 @@ typedef struct {
     int slot;           // slot that ABS_MT_* fields currently address
     int contacts;       // live contacts as of the last SYN_REPORT
     int generation;     // bumped whenever a SYN_REPORT changes the contacts
+    unsigned id_hash;   // hash of the live tracking ids, so a same-count
+                        // finger swap still counts as a change
     int primary_id;     // tracking id driving the pointer, -1 = none
     int primary_x, primary_y;   // that contact's position at the last report
     ACTouchSlot slots[MAX_TOUCH_SLOTS];

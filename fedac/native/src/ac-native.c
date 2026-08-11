@@ -429,7 +429,10 @@ void ac_log(const char *fmt, ...) {
     va_end(args);
     if (logfile) {
         vfprintf(logfile, fmt, args2);
-        fflush(logfile);
+        // No flush here. The log lives on USB vfat and every key press writes
+        // a line, so flushing per call made typing wait on the stick. The
+        // 300-frame flush plus the fsync at exit still get it to disk;
+        // `log_dirty` is what tells them there is something to write.
         log_dirty = 1;
     }
     va_end(args2);
@@ -2584,6 +2587,76 @@ static int is_installed_on_hd(void) {
     return 0;
 }
 
+// What this release calls itself, spoken at boot and drawn under the title.
+// Bump it when the season turns — it is deliberately one string in one place
+// rather than something derived, so the announcement is always a decision.
+#define AC_RELEASE_TAGLINE "AC August 26"
+
+// Summer horizon behind the boot title: a sun rising out of the bottom edge
+// with heat shimmering off the band it clears. Everything is a function of
+// `f` (frame) and `fade` (0..1 splash fade), so it costs no state and starts
+// wherever the splash does. Day boots get a bright hard sun on a pale sky;
+// night boots get a deep ember one, since the same colours would vanish.
+static void draw_summer_intro(ACGraph *graph, ACFramebuffer *screen,
+                              int f, double fade, int is_day) {
+    if (fade <= 0.01) return;
+    const int w = screen->width, h = screen->height;
+    // The sun rises over roughly the first two seconds, then holds just
+    // above the horizon rather than sailing off the top of the frame.
+    double rise = f / 120.0;
+    if (rise > 1.0) rise = 1.0;
+    rise = rise * rise * (3 - 2 * rise);          // ease, so it settles
+    const int horizon = (int)(h * 0.78);
+    const int radius = (int)(h * 0.17);
+    const int cy = horizon + radius - (int)(rise * radius * 1.7);
+    const int cx = w / 2;
+
+    // Body of the sun, drawn as concentric rings so it carries a gradient
+    // without needing a shader: hot core, cooler rim.
+    for (int r = radius; r > 0; r -= 2) {
+        double edge = (double)r / radius;          // 1 at rim, 0 at core
+        int a = (int)(fade * (is_day ? 150 : 190) * (1.0 - edge * 0.55));
+        if (a <= 0) continue;
+        ACColor c = is_day
+            ? (ACColor){ 255, (uint8_t)(210 - edge * 70), (uint8_t)(120 - edge * 90),
+                         (uint8_t)a }
+            : (ACColor){ (uint8_t)(255 - edge * 40), (uint8_t)(130 - edge * 60),
+                         (uint8_t)(60 - edge * 40), (uint8_t)a };
+        graph_ink(graph, c);
+        graph_circle(graph, cx, cy, r, 1);
+    }
+
+    // Heat shimmer: horizontal bands over the horizon, each sliding at its
+    // own rate so the air looks like it is moving rather than scrolling.
+    for (int i = 0; i < 14; i++) {
+        int by = horizon + i * 3;
+        if (by >= h) break;
+        double phase = f * (0.05 + i * 0.011) + i * 1.7;
+        int off = (int)(sin(phase) * (3 + i));
+        int a = (int)(fade * (70 - i * 4));
+        if (a <= 0) continue;
+        graph_ink(graph, is_day
+            ? (ACColor){ 255, 220, 170, (uint8_t)a }
+            : (ACColor){ 255, 150, 90, (uint8_t)a });
+        graph_line(graph, off, by, w / 2 + off, by);
+        graph_line(graph, w / 2 - off, by, w - off, by);
+    }
+
+    // The release name, small and centred under where the title will land,
+    // fading up a beat after the sun so the two do not arrive together.
+    if (f > 24) {
+        int a = (int)(fade * 200);
+        if (a > 0) {
+            graph_ink(graph, is_day
+                ? (ACColor){ 150, 90, 40, (uint8_t)a }
+                : (ACColor){ 255, 190, 120, (uint8_t)a });
+            int tw = font_measure_matrix(AC_RELEASE_TAGLINE, 1);
+            font_draw_matrix(graph, AC_RELEASE_TAGLINE,
+                             (w - tw) / 2, h / 2 + 14, 1);
+        }
+    }
+}
+
 // Draw startup fade animation (black → white with title)
 // Returns 1 if user pressed W and confirmed install, 0 otherwise
 static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
@@ -2772,20 +2845,30 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
                 if (hour >= 5 && hour < 12)       tod = "good morning";
                 else if (hour >= 12 && hour < 17)  tod = "good afternoon";
                 else                               tod = "good evening";
+                // The release announces itself after the greeting, so a boot
+                // says out loud which world you are in before the build name.
 #ifdef AC_BUILD_NAME
                 char name_tts[64];
                 strncpy(name_tts, AC_BUILD_NAME, sizeof(name_tts) - 1);
                 name_tts[sizeof(name_tts) - 1] = 0;
                 for (char *p = name_tts; *p; p++) { if (*p == '-') *p = ' '; }
-                snprintf(greet, sizeof(greet), "%s %s. enjoy %s! %s.", tod, at + 1, greet_city, name_tts);
+                snprintf(greet, sizeof(greet), "%s %s. enjoy %s! %s! %s.",
+                         tod, at + 1, greet_city, AC_RELEASE_TAGLINE, name_tts);
 #else
-                snprintf(greet, sizeof(greet), "%s %s. enjoy %s!", tod, at + 1, greet_city);
+                snprintf(greet, sizeof(greet), "%s %s. enjoy %s! %s!",
+                         tod, at + 1, greet_city, AC_RELEASE_TAGLINE);
 #endif
                 tts_speak(tts, greet);
             } else if (audio) {
                 // No handle — play a short ascending arpeggio (C E G C')
                 audio_synth(audio, WAVE_SINE, 523.3, 0.15, 0.6, 0.003, 0.10, -0.3); // C5
             }
+        }
+        // A handle-less device still names the release, spoken after the
+        // arpeggio has cleared rather than over it. Kept out of the greeting's
+        // else-chain above so it cannot swallow the arpeggio's first note.
+        if (f == 55 && !strchr(boot_title, '@') && tts) {
+            tts_speak(tts, AC_RELEASE_TAGLINE "!");
         }
         // Stagger the arpeggio notes across frames for no-handle boot
         if (!strchr(boot_title, '@') && audio) {
@@ -2873,6 +2956,13 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
                 }
             }
         }
+
+        // Summer horizon — the release motif. A sun climbs out of the bottom
+        // of the frame while heat shimmers over the band it leaves behind, so
+        // the boot reads as a season rather than a version number. It sits
+        // between the rain and the title on purpose: the rain stays visible
+        // through the sun's edge, and the title stays legible over both.
+        draw_summer_intro(graph, screen, f, fade_t, is_day);
 
         // Device-id badge: small "acN" in the top-right corner. Fades in
         // with the splash so it's not visible during the dark moment.
@@ -4561,14 +4651,18 @@ int main(int argc, char *argv[]) {
             // Global escape → prompt fallback. If the current piece doesn't
             // jump() or otherwise consume an escape key-down this frame, we
             // transparently route the user back to the prompt after act()
-            // returns. Notepat has its own triple-escape-to-exit behavior and
-            // the prompt itself uses escape to clear input, so both are
-            // exempt from the fallback.
+            // returns. A piece holding the surface counts its own escapes
+            // (notepat speaks "one", "two", "exit") and the prompt itself uses
+            // escape to clear input, so both are exempt from the fallback.
+            // The grab check is what generalizes this: keying it on the piece
+            // name alone left every other instrument one stray tap from losing
+            // the pad.
             int escape_pressed_this_frame = 0;
             for (int i = 0; i < input->event_count; i++) {
                 if (input->events[i].type == AC_EVENT_KEYBOARD_DOWN &&
                     input->events[i].key_code == KEY_ESC) {
-                    if (strcmp(rt->piece, "notepat") != 0 &&
+                    if (!rt->surface_grab &&
+                        strcmp(rt->piece, "notepat") != 0 &&
                         strcmp(rt->piece, "prompt") != 0) {
                         escape_pressed_this_frame = 1;
                     }
@@ -4871,8 +4965,11 @@ int main(int argc, char *argv[]) {
                 }
             }
 
-            // Software cursor on its own overlay buffer (unaffected by KidLisp effects)
-            if (cursor_fb && input && (input->pointer_x || input->pointer_y)) {
+            // Software cursor on its own overlay buffer (unaffected by KidLisp effects).
+            // A piece holding the surface is playing the pad, not pointing with
+            // it — drawing a cursor there would track the drummer's palm.
+            if (cursor_fb && input && !(rt && rt->surface_grab) &&
+                (input->pointer_x || input->pointer_y)) {
                 fb_clear(cursor_fb, 0x00000000); // transparent
                 graph_page(&graph, cursor_fb);
                 int cx = input->pointer_x / pixel_scale, cy = input->pointer_y / pixel_scale;

@@ -133,6 +133,15 @@ typedef struct {
     int fps_system_active;               // 1 = piece uses system="fps" (3D mode)
     char system_mode[32];                // piece's `export const system` value, e.g. "prompt", "fps", "nopaint"
 
+    // Surface grab — a piece that plays the trackpad as an instrument rather
+    // than pointing with it (`export const surface = "drum"`). While held, the
+    // pad's contacts reach the piece but its pointer emulation does not: no
+    // cursor is drawn and no touch/draw/lift events are delivered. Such a
+    // piece also owns Escape, so it can count presses and exit on its own
+    // terms instead of losing the surface to a single stray tap.
+    char surface_mode[32];               // piece's `export const surface` value, "" = none
+    int surface_grab;                    // 1 = pad is an instrument, pointer suppressed
+
     // User config (read from /mnt/config.json on EFI partition)
     char handle[64];                     // e.g. "jeffrey" (without @)
     char piece[64];                      // default piece name, e.g. "notepat"
