@@ -3,6 +3,8 @@
 // and both take their colours from hslaToRgba with recovered ranges, so they
 // share a module. Constants read out of the compiled expression table.
 
+import { canvasFor } from "./nopaint-canvas.mjs";
+
 const frozen = (value) => Object.freeze(value);
 const choose = (random, values) => values[Math.floor(random() * values.length)];
 const between = (random, [low, high]) => low + random() * (high - low);
@@ -49,45 +51,6 @@ export function hslaToRgba(hue, saturation, lightness) {
   return frozen([r, g, b].map((channel) => Math.round((channel + base) * 255)));
 }
 
-// A soft radial field, opaque inside `hardness` and falling to nothing at the
-// rim — the same ramp Softy stamps, drawn once and large.
-function field(layer, centerX, centerY, radius, hardness, color, peak) {
-  const falloff = Math.max(1, radius - hardness);
-  const top = Math.max(0, Math.floor(centerY - radius));
-  const bottom = Math.min(layer.height - 1, Math.ceil(centerY + radius));
-  for (let y = top; y <= bottom; y += 1) {
-    const span = Math.sqrt(Math.max(0, radius * radius - (y - centerY) ** 2));
-    const left = Math.max(0, Math.floor(centerX - span));
-    const right = Math.min(layer.width - 1, Math.ceil(centerX + span));
-    for (let x = left; x <= right; x += 1) {
-      const distance = Math.hypot(x - centerX, y - centerY);
-      const alpha = distance <= hardness
-        ? peak
-        : peak * (1 - (distance - hardness) / falloff);
-      if (alpha <= 0) continue;
-      const at = (y * layer.width + x) * 4;
-      if (layer.pixels[at + 3] >= alpha) continue;
-      layer.pixels[at] = color[0];
-      layer.pixels[at + 1] = color[1];
-      layer.pixels[at + 2] = color[2];
-      layer.pixels[at + 3] = alpha;
-    }
-  }
-}
-
-const layers = new WeakMap();
-function layerFor(score, draw) {
-  let layer = layers.get(score);
-  if (!layer) {
-    const width = Math.max(1, Math.round(score.width));
-    const height = Math.max(1, Math.round(score.height));
-    layer = { width, height, pixels: new Uint8ClampedArray(width * height * 4) };
-    layers.set(score, layer);
-    draw(layer);
-  }
-  return layer;
-}
-
 export const vignetteProposal = frozen({
   version: 1,
   slug: "vignette",
@@ -118,27 +81,16 @@ export const vignetteProposal = frozen({
         colon: frozen([]),
         parameters: frozen({ size, hardness, dark, cue: VIGNETTE.cue }) }) });
   },
-  render({ paste }, score, tick) {
-    const layer = layerFor(score, (target) => {
+  render({ paste }, score) {
+    const { canvas } = canvasFor(score, (target) => {
       // Construct's Vignette effect darkens *away* from its centre: the
       // painting stays clear around the vehicle and closes in past the radius.
       // Drawing it as a soft spot, which is what this did first, is the
       // opposite picture.
-      const falloff = Math.max(1, score.radius - score.hardness);
-      for (let y = 0; y < target.height; y += 1) {
-        for (let x = 0; x < target.width; x += 1) {
-          const distance = Math.hypot(x - score.x, y - score.y);
-          if (distance <= score.hardness) continue;
-          const alpha = Math.min(1, (distance - score.hardness) / falloff) * 235;
-          const at = (y * target.width + x) * 4;
-          target.pixels[at] = score.color[0];
-          target.pixels[at + 1] = score.color[1];
-          target.pixels[at + 2] = score.color[2];
-          target.pixels[at + 3] = alpha;
-        }
-      }
+      target.soft(score.x, score.y, score.radius, score.hardness, score.color,
+        { peak: 235, invert: true });
     });
-    paste(layer, 0, 0);
+    paste(canvas, 0, 0);
   },
 });
 
@@ -172,25 +124,26 @@ export const auraProposal = frozen({
         colon: frozen([]),
         parameters: frozen({ spray, rate, angle, cue: AURA.cue }) }) });
   },
-  render({ paste }, score, tick) {
-    const layer = layerFor(score, (target) => {
+  render({ paste }, score) {
+    const { canvas } = canvasFor(score, (target) => {
       // The emitter sprays `spray` degrees wide around `angle`. Particles are
-      // laid along each ray so the bloom reads as spray rather than as blobs.
+      // laid along each ray so the bloom reads as spray rather than as blobs,
+      // and each keeps the strongest coverage so it stays one bloom.
       for (let petal = 0; petal < score.petals; petal += 1) {
         const offset = (petal / Math.max(1, score.petals - 1) - .5) * score.spray;
         const radians = (score.angle + offset) * Math.PI / 180;
         for (let along = 1; along <= 5; along += 1) {
           const reach = score.radius * along / 5;
           const size = score.radius / 3 * (1 - along / 8);
-          field(target,
-            score.x + Math.cos(radians) * reach,
+          target.soft(score.x + Math.cos(radians) * reach,
             score.y + Math.sin(radians) * reach,
-            size, size / 4, score.color, 150 - along * 18);
+            size, size / 4, score.color,
+            { peak: 150 - along * 18, blend: "strongest" });
         }
       }
-      field(target, score.x, score.y, score.radius / 2, score.radius / 6,
-        score.color, 190);
+      target.soft(score.x, score.y, score.radius / 2, score.radius / 6,
+        score.color, { peak: 190, blend: "strongest" });
     });
-    paste(layer, 0, 0);
+    paste(canvas, 0, 0);
   },
 });

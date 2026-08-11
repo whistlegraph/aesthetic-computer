@@ -4,6 +4,8 @@
 // redrawn from the frame number. Constants read out of the compiled expression
 // table (toolchain/nopaint/expressions.mjs).
 
+import { canvasFor, seededStream } from "./nopaint-canvas.mjs";
+
 const frozen = (value) => Object.freeze(value);
 const choose = (random, values) => values[Math.floor(random() * values.length)];
 const between = (random, [low, high]) => low + random() * (high - low);
@@ -56,80 +58,6 @@ function hslaToRgba(hue, saturation, lightness) {
   return frozen([r, g, b].map((channel) => Math.round((channel + base) * 255)));
 }
 
-function seededWalk(seed) {
-  let state = seed >>> 0 || 1;
-  return () => {
-    state += 0x6d2b79f5;
-    let value = state;
-    value = Math.imul(value ^ (value >>> 15), value | 1);
-    value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
-    return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-function fill(layer, x, y, w, h, color, alpha) {
-  const left = Math.max(0, Math.floor(x));
-  const top = Math.max(0, Math.floor(y));
-  const right = Math.min(layer.width, Math.ceil(x + w));
-  const bottom = Math.min(layer.height, Math.ceil(y + h));
-  for (let py = top; py < bottom; py += 1) {
-    for (let px = left; px < right; px += 1) {
-      const at = (py * layer.width + px) * 4;
-      const source = alpha;
-      const under = layer.pixels[at + 3] * (255 - source) / 255;
-      const total = source + under || 1;
-      layer.pixels[at] = (color[0] * source + layer.pixels[at] * under) / total;
-      layer.pixels[at + 1] = (color[1] * source + layer.pixels[at + 1] * under) / total;
-      layer.pixels[at + 2] = (color[2] * source + layer.pixels[at + 2] * under) / total;
-      layer.pixels[at + 3] = Math.min(255, total);
-    }
-  }
-}
-
-// Scanline fill of a convex quad — the banner's ribbon segment.
-function quad(layer, points, color) {
-  const top = Math.max(0, Math.floor(Math.min(...points.map((p) => p[1]))));
-  const bottom = Math.min(layer.height - 1, Math.ceil(Math.max(...points.map((p) => p[1]))));
-  for (let y = top; y <= bottom; y += 1) {
-    let left = Infinity;
-    let right = -Infinity;
-    for (let index = 0; index < points.length; index += 1) {
-      const [ax, ay] = points[index];
-      const [bx, by] = points[(index + 1) % points.length];
-      if ((ay <= y && by > y) || (by <= y && ay > y)) {
-        const x = ax + (y - ay) / (by - ay) * (bx - ax);
-        left = Math.min(left, x);
-        right = Math.max(right, x);
-      }
-    }
-    if (left > right) continue;
-    const start = Math.max(0, Math.round(left));
-    const end = Math.min(layer.width - 1, Math.round(right));
-    for (let x = start; x <= end; x += 1) {
-      const at = (y * layer.width + x) * 4;
-      layer.pixels[at] = color[0];
-      layer.pixels[at + 1] = color[1];
-      layer.pixels[at + 2] = color[2];
-      layer.pixels[at + 3] = 255;
-    }
-  }
-}
-
-const layers = new WeakMap();
-function layerFor(score) {
-  let state = layers.get(score);
-  if (!state) {
-    const width = Math.max(1, Math.round(score.width));
-    const height = Math.max(1, Math.round(score.height));
-    state = {
-      random: seededWalk(score.seed), placed: 0,
-      layer: { width, height, pixels: new Uint8ClampedArray(width * height * 4) },
-    };
-    layers.set(score, state);
-  }
-  return state;
-}
-
 export const buildProposal = frozen({
   version: 1,
   slug: "build",
@@ -172,20 +100,21 @@ export const buildProposal = frozen({
             : frozen([]) }) }) });
   },
   render({ paste }, score, tick) {
-    const state = layerFor(score);
+    const state = canvasFor(score, (canvas, held) => {
+      held.random = seededStream(score.seed);
+      held.built = new Uint8Array(score.columns * score.rows);
+      held.column = Math.floor(held.random() * score.columns);
+      held.row = Math.floor(held.random() * score.rows);
+      held.stuck = false;
+    });
+    // The builder lays its first brick on the first frame, not a beat later.
     const due = 1 + Math.floor(tick / 60 / score.stepSeconds);
-    if (!state.built) {
-      state.built = new Uint8Array(score.columns * score.rows);
-      state.column = Math.floor(state.random() * score.columns);
-      state.row = Math.floor(state.random() * score.rows);
-      state.stuck = false;
-    }
     while (state.placed < due && !state.stuck) {
       state.placed += 1;
       state.built[state.row * score.columns + state.column] = 1;
-      fill(state.layer, state.column * score.block, state.row * score.block,
-        score.block, score.block, score.color,
-        Math.round(score.opacity / 100 * 255));
+      state.canvas.box(state.column * score.block, state.row * score.block,
+        score.block, score.block,
+        [...score.color, Math.round(score.opacity / 100 * 255)]);
       // Right, Left, Up, Down — offered only while still untouched.
       const candidates = [];
       if (state.column < score.columns - 1
@@ -201,7 +130,7 @@ export const buildProposal = frozen({
       state.column += dx;
       state.row += dy;
     }
-    paste(state.layer, 0, 0);
+    paste(state.canvas, 0, 0);
   },
 });
 
@@ -237,14 +166,14 @@ export const bannerProposal = frozen({
           cueRate: BANNER.cueRate(speed), cueVolume: BANNER.cueVolume(size) }) }) });
   },
   render({ paste }, score, tick) {
-    const state = layerFor(score);
+    const state = canvasFor(score, (canvas, held) => {
+      held.random = seededStream(score.seed);
+      held.angle = score.startAngle;
+      held.target = score.startAngle;
+      held.x = score.x;
+      held.y = score.y;
+    });
     const due = 1 + Math.floor(tick / 60 / BANNER.drawSeconds);
-    if (state.placed === 0) {
-      state.angle = score.startAngle;
-      state.target = score.startAngle;
-      state.x = score.x;
-      state.y = score.y;
-    }
     const steps = Math.min(due, 600);
     while (state.placed < steps) {
       state.placed += 1;
@@ -266,7 +195,7 @@ export const bannerProposal = frozen({
       const half = score.band / 2;
       const dx = Math.cos(across) * half;
       const dy = Math.sin(across) * half;
-      quad(state.layer, [
+      state.canvas.poly([
         [from.x + dx, from.y + dy], [from.x - dx, from.y - dy],
         [state.x - dx, state.y - dy], [state.x + dx, state.y + dy],
       ], state.placed % 2 ? score.dark : score.light);
@@ -276,6 +205,6 @@ export const bannerProposal = frozen({
       const toward = ((state.target - state.angle + 540) % 360) - 180;
       state.angle += Math.sign(toward) * Math.min(Math.abs(toward), 6);
     }
-    paste(state.layer, 0, 0);
+    paste(state.canvas, 0, 0);
   },
 });

@@ -11,6 +11,8 @@
 // clock has actually reached. Redrawing the whole stroke each frame instead
 // costs ~1.7s a frame at the largest radius; pasting the layer costs ~0.2ms.
 
+import { canvasFor, seededStream, softMask } from "./nopaint-canvas.mjs";
+
 const frozen = (value) => Object.freeze(value);
 
 export const SOFTY = frozen({
@@ -58,7 +60,7 @@ function hslaToRgba(hue, saturation, lightness) {
 // walk is generated once at whatever rates the score drew rather than re-derived
 // per frame. Capping it at SOFTY.stamps keeps a redraw bounded.
 function walkOf(score) {
-  const random = seededWalk(score.seed);
+  const random = seededStream(score.seed);
   const turnEvery = score.turnSeconds / score.moveSeconds;
   const colorEvery = SOFTY.colorSeconds / score.moveSeconds;
   let angle = score.startAngle - 90;
@@ -82,74 +84,6 @@ function walkOf(score) {
     y += Math.sin(radians) * score.step;
   }
   return frozen(stamps);
-}
-
-function seededWalk(seed) {
-  let state = seed >>> 0 || 1;
-  return () => {
-    state += 0x6d2b79f5;
-    let value = state;
-    value = Math.imul(value ^ (value >>> 15), value | 1);
-    value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
-    return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-// Construct's soft circle, as an alpha mask: opaque inside `hardness`, falling
-// linearly to nothing at the rim. One per score, tinted as it is stamped.
-function softMask(radius, hardness) {
-  const size = Math.max(1, Math.ceil(radius * 2));
-  const alpha = new Uint8ClampedArray(size * size);
-  const falloff = Math.max(1, radius - hardness);
-  for (let y = 0; y < size; y += 1) {
-    for (let x = 0; x < size; x += 1) {
-      const distance = Math.hypot(x - radius, y - radius);
-      alpha[y * size + x] = distance <= hardness
-        ? 255
-        : 255 - (distance - hardness) / falloff * 255;
-    }
-  }
-  return { size, alpha };
-}
-
-// Source-over of one tinted stamp into the score's layer.
-function stampInto(layer, mask, centerX, centerY, color) {
-  const left = Math.round(centerX - mask.size / 2);
-  const top = Math.round(centerY - mask.size / 2);
-  for (let y = 0; y < mask.size; y += 1) {
-    const destY = top + y;
-    if (destY < 0 || destY >= layer.height) continue;
-    for (let x = 0; x < mask.size; x += 1) {
-      const source = mask.alpha[y * mask.size + x];
-      if (source === 0) continue;
-      const destX = left + x;
-      if (destX < 0 || destX >= layer.width) continue;
-      const at = (destY * layer.width + destX) * 4;
-      const under = layer.pixels[at + 3] * (255 - source) / 255;
-      const total = source + under;
-      layer.pixels[at] = (color[0] * source + layer.pixels[at] * under) / total;
-      layer.pixels[at + 1] = (color[1] * source + layer.pixels[at + 1] * under) / total;
-      layer.pixels[at + 2] = (color[2] * source + layer.pixels[at + 2] * under) / total;
-      layer.pixels[at + 3] = total;
-    }
-  }
-}
-
-const layers = new WeakMap();
-function layerFor(score) {
-  let layer = layers.get(score);
-  if (!layer) {
-    const width = Math.max(1, Math.round(score.width));
-    const height = Math.max(1, Math.round(score.height));
-    layers.set(score, layer = {
-      width, height,
-      pixels: new Uint8ClampedArray(width * height * 4),
-      mask: softMask(Math.max(1, score.radius * score.scale), score.hardness * score.scale),
-      stamps: walkOf(score),
-      placed: 0,
-    });
-  }
-  return layer;
 }
 
 export const softyProposal = frozen({
@@ -201,14 +135,18 @@ export const softyProposal = frozen({
     });
   },
   render({ paste }, score, tick) {
-    const layer = layerFor(score);
-    const due = Math.min(layer.stamps.length,
+    const held = canvasFor(score, (canvas, state) => {
+      state.mask = softMask(Math.max(1, score.radius * score.scale),
+        score.hardness * score.scale);
+      state.stamps = walkOf(score);
+    });
+    const due = Math.min(held.stamps.length,
       1 + Math.floor(tick / 60 / score.moveSeconds));
-    while (layer.placed < due) {
-      const { x, y, color } = layer.stamps[layer.placed];
-      stampInto(layer, layer.mask, x, y, color);
-      layer.placed += 1;
+    while (held.placed < due) {
+      const { x, y, color } = held.stamps[held.placed];
+      held.canvas.stamp(held.mask, x, y, color);
+      held.placed += 1;
     }
-    paste(layer, 0, 0);
+    paste(held.canvas, 0, 0);
   },
 });

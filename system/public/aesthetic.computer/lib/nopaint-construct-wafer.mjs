@@ -14,6 +14,8 @@
 // ellipse, and switches back. Like Softy, the biscuit is therefore a layer that
 // accumulates rather than a shape that can be redrawn from the frame number.
 
+import { canvasFor, seededStream } from "./nopaint-canvas.mjs";
+
 const frozen = (value) => Object.freeze(value);
 
 export const WAFER = frozen({
@@ -53,47 +55,7 @@ export function permutation(random, count) {
   return frozen(order);
 }
 
-function seededWalk(seed) {
-  let state = seed >>> 0 || 1;
-  return () => {
-    state += 0x6d2b79f5;
-    let value = state;
-    value = Math.imul(value ^ (value >>> 15), value | 1);
-    value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
-    return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-function disc(layer, centerX, centerY, radius, color) {
-  const top = Math.max(0, Math.floor(centerY - radius));
-  const bottom = Math.min(layer.height - 1, Math.ceil(centerY + radius));
-  for (let y = top; y <= bottom; y += 1) {
-    const span = Math.sqrt(Math.max(0, radius * radius - (y - centerY) ** 2));
-    const left = Math.max(0, Math.floor(centerX - span));
-    const right = Math.min(layer.width - 1, Math.ceil(centerX + span));
-    for (let x = left; x <= right; x += 1) {
-      const at = (y * layer.width + x) * 4;
-      layer.pixels[at] = color[0];
-      layer.pixels[at + 1] = color[1];
-      layer.pixels[at + 2] = color[2];
-      layer.pixels[at + 3] = 255;
-    }
-  }
-}
-
-// Construct's blend mode 7 on an ellipse: the bite takes the biscuit away.
-function erase(layer, centerX, centerY, radius) {
-  const top = Math.max(0, Math.floor(centerY - radius));
-  const bottom = Math.min(layer.height - 1, Math.ceil(centerY + radius));
-  for (let y = top; y <= bottom; y += 1) {
-    const span = Math.sqrt(Math.max(0, radius * radius - (y - centerY) ** 2));
-    const left = Math.max(0, Math.floor(centerX - span));
-    const right = Math.min(layer.width - 1, Math.ceil(centerX + span));
-    for (let x = left; x <= right; x += 1) layer.pixels[(y * layer.width + x) * 4 + 3] = 0;
-  }
-}
-
-function biteInto(layer, state, score) {
+function biteInto(canvas, state, score) {
   const angle = WAFER.arc * state.order[state.index % WAFER.positions];
   for (let cut = 0; cut < WAFER.bitesPerVisit; cut += 1) {
     const { random } = state;
@@ -103,40 +65,32 @@ function biteInto(layer, state, score) {
     const reach = state.radius
       + random() * WAFER.biteDistanceJitter * 2 - WAFER.biteDistanceJitter;
     const radians = adjusted * Math.PI / 180;
-    erase(layer, score.x + Math.cos(radians) * reach,
+    canvas.erase(score.x + Math.cos(radians) * reach,
       score.y + Math.sin(radians) * reach, biteRadius);
   }
   state.index += 1;
   return angle;
 }
 
-const layers = new WeakMap();
-function layerFor(score) {
-  let state = layers.get(score);
-  if (!state) {
-    const width = Math.max(1, Math.round(score.width));
-    const height = Math.max(1, Math.round(score.height));
-    const random = seededWalk(score.seed);
-    state = {
-      random, index: 0, drawn: 0, generation: 0,
-      radius: score.radius,
-      order: permutation(random, WAFER.positions),
-      layer: { width, height, pixels: new Uint8ClampedArray(width * height * 4) },
-    };
-    layers.set(score, state);
-    reset(state, score);
-  }
-  return state;
+// BiscuitRender redraws the biscuit whole, then CircularBite takes twelve bites
+// out of its rim before the first frame is ever shown.
+function reset(canvas, state, score) {
+  canvas.wipe().disc(score.x, score.y, state.radius, score.color);
+  state.index = 0;
+  for (let bite = 0; bite < WAFER.positions; bite += 1) biteInto(canvas, state, score);
+  state.index = 0;
 }
 
-// BiscuitRender: the biscuit is redrawn whole, then nibbled. CircularBite runs
-// twelve bites before the first frame is ever shown.
-function reset(state, score) {
-  state.layer.pixels.fill(0);
-  disc(state.layer, score.x, score.y, state.radius, score.color);
-  state.index = 0;
-  for (let bite = 0; bite < WAFER.positions; bite += 1) biteInto(state.layer, state, score);
-  state.index = 0;
+function biscuitFor(score) {
+  return canvasFor(score, (canvas, state) => {
+    state.random = seededStream(score.seed);
+    state.index = 0;
+    state.drawn = 0;
+    state.generation = 0;
+    state.radius = score.radius;
+    state.order = permutation(state.random, WAFER.positions);
+    reset(canvas, state, score);
+  });
 }
 
 export const waferProposal = frozen({
@@ -177,12 +131,13 @@ export const waferProposal = frozen({
     });
   },
   render({ paste }, score, tick) {
-    const state = layerFor(score);
+    const state = biscuitFor(score);
+    const canvas = state.canvas;
     const due = Math.floor(tick / 60 / WAFER.drawSeconds);
     while (state.drawn < due) {
       state.drawn += 1;
       if (state.index < WAFER.bitesBeforeEnlarge) {
-        biteInto(state.layer, state, score);
+        biteInto(canvas, state, score);
         continue;
       }
       // BiscuitEnlarge: grow, reshuffle, and start nibbling again. Stop once
@@ -192,8 +147,8 @@ export const waferProposal = frozen({
       state.radius = grown;
       state.generation += 1;
       state.order = permutation(state.random, WAFER.positions);
-      reset(state, score);
+      reset(canvas, state, score);
     }
-    paste(state.layer, 0, 0);
+    paste(canvas, 0, 0);
   },
 });
