@@ -31,7 +31,7 @@
         "ig_reels_video_view_total_time": 7550436,
         "reels_skip_rate": 48.1
       },
-      "insightsAt": "2026-08-11T04:41:18.800Z"
+      "insightsAt": "2026-08-11T04:46:30.465Z"
     },
     {
       "mode": "live",
@@ -103,6 +103,38 @@
       "containerId": "18079518551446357",
       "mediaId": "17869369959634940",
       "insights": {
+        "views": 16,
+        "reach": 0,
+        "likes": 0,
+        "comments": 0,
+        "saved": 0,
+        "shares": 0,
+        "total_interactions": 0,
+        "ig_reels_avg_watch_time": 0,
+        "ig_reels_video_view_total_time": 0,
+        "reels_skip_rate": 0
+      },
+      "insightsAt": "2026-08-11T04:46:31.039Z"
+    },
+    {
+      "mode": "live",
+      "id": "2026-08-10-s0-fgc",
+      "slot": 663,
+      "day": "2026-08-10",
+      "index": 0,
+      "segment": "fgc",
+      "seed": "2026-08-10#0",
+      "kind": "self-play",
+      "round": "siggy605",
+      "audioName": "siggy605",
+      "publishedAt": "2026-08-11T04:46:10.642Z",
+      "urls": {
+        "reel": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/oskiewar/reels/2026-08-10-s0-fgc/reel.mp4",
+        "cover": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/oskiewar/reels/2026-08-10-s0-fgc/cover.jpg"
+      },
+      "containerId": "18079519502446357",
+      "mediaId": "18220501075332625",
+      "insights": {
         "views": 0,
         "reach": 0,
         "likes": 0,
@@ -114,7 +146,7 @@
         "ig_reels_video_view_total_time": 0,
         "reels_skip_rate": 0
       },
-      "insightsAt": "2026-08-11T04:41:20.780Z"
+      "insightsAt": "2026-08-11T04:46:31.407Z"
     }
   ]
 }
