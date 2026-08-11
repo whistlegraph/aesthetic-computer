@@ -430,10 +430,19 @@ void ac_log(const char *fmt, ...) {
     va_end(args);
     if (logfile) {
         vfprintf(logfile, fmt, args2);
-        // No flush here. The log lives on USB vfat and every key press writes
-        // a line, so flushing per call made typing wait on the stick. The
-        // 300-frame flush plus the fsync at exit still get it to disk;
-        // `log_dirty` is what tells them there is something to write.
+        // Flush every line, on purpose. Dropping this looked like a free win —
+        // the log lives on USB vfat and every key press writes a line — but it
+        // is the wrong thing to economize: without it, a line sits in this
+        // process's stdio buffer, and a boot that dies before the 300-frame
+        // flush takes the last few seconds of log down with it. Those are
+        // exactly the seconds that explain why it died, and a failed boot is
+        // the one situation where the log is the only instrument available.
+        //
+        // The cost is smaller than it looks: fflush hands the bytes to the
+        // kernel with a write(), it does not wait for the stick. The part that
+        // actually touches slow media is the fsync, and that stays batched
+        // (ac_log_flush, every 300 frames) — which is what `log_dirty` marks.
+        fflush(logfile);
         log_dirty = 1;
     }
     va_end(args2);
