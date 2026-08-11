@@ -2710,54 +2710,21 @@ function updateCameraDoll(dt, now) {
     return;
   }
   if (introAge < introDurationUs) {
-    // Three seconds used to hold one wide two-shot — the widest the camera ever
-    // got — and it introduced nobody: two figures the height of a thumbnail
-    // standing apart. It is three beats now. A second on one fighter's face, a
-    // whip across to the other's, then out to the shot the fight opens on.
-    //
-    // The heads come from the same geometry the killcam frames, so a face shot
-    // is the head's own radius rather than a guess at how big a fighter is.
+    // The opening shot, pulled in for a vertical frame like every other shot.
+    // A three-beat face intro was tried here and is worth trying again, but it
+    // has to be built against the record-then-replay path the reels actually
+    // render through, not against the live camera alone.
     const age = introAge / 1000000;
-    const beat = introDurationUs / 1000000 / 3;
-    const poseTime = (now - startedAt) / 1000000;
-    const headOf = (player) =>
-      (player.frozenGeometry || runnerWorldGeometry(player, poseTime)).head;
-    // Enough room around a head to read as a portrait rather than an eyeball.
-    const faceWidth = (head) => Math.max(96, head.radius * 6.5);
-
-    const opening = { x: (players[0].x + players[1].x) / 2,
+    const progress = clamp(age / (introDurationUs / 1000000), 0, 1);
+    const eased = progress * progress * (3 - progress * 2);
+    const target = { x: (players[0].x + players[1].x) / 2,
       y: (players[0].y + players[1].y) / 2 - 90,
       z: (players[0].z + players[1].z) / 2 };
-    const openingWidth = Math.max(980,
-      Math.abs(players[1].x - players[0].x) + 760) * portraitPull();
-
-    let target;
-    let width;
-    if (age < beat * 2) {
-      // The whip is the ease itself: `track` is still travelling from the first
-      // face when the second is asked for, so the pan happens for free and at a
-      // speed the rest of the camera already agrees with.
-      const head = headOf(players[age < beat ? 0 : 1]);
-      target = { x: head.x, y: head.y, z: head.z };
-      width = faceWidth(head);
-    } else {
-      const out = clamp((age - beat * 2) / beat, 0, 1);
-      const eased = out * out * (3 - out * 2);
-      const head = headOf(players[1]);
-      target = { x: lerp(head.x, opening.x, eased),
-        y: lerp(head.y, opening.y, eased),
-        z: lerp(head.z, opening.z, eased) };
-      width = lerp(faceWidth(head), openingWidth, eased);
-    }
-    // Stand off outside the arena depth. The framing is orthographic, so the
-    // distance costs nothing and `width` alone decides how close the shot
-    // reads — but a lens parked a face's width from a head sits inside the
-    // world volume and near-clips the head it came to look at, which is the
-    // same trap the killcam fell into and had to be pulled back out of.
-    const standOff = Math.max(width * 1.35, Math.abs(worldNear) + 400);
+    const span = Math.max(980, Math.abs(players[1].x - players[0].x) + 760) *
+      portraitPull();
     cameraDoll.track({ target,
-      position: { x: target.x, y: target.y, z: target.z - standOff },
-      width, perspective: 0, fov: 55, roll: 0 }, dt, 9);
+      position: { x: target.x, y: target.y, z: target.z - span * 1.2 },
+      width: span, perspective: 0, fov: 55, roll: 0 }, dt, 7);
     return;
   }
   const target = { x: cameraCenter, y: cameraCenterY, z: 0 };
