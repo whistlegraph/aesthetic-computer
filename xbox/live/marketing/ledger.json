@@ -27,11 +27,11 @@
         "saved": 1,
         "shares": 0,
         "total_interactions": 7,
-        "ig_reels_avg_watch_time": 7099,
-        "ig_reels_video_view_total_time": 7532840,
+        "ig_reels_avg_watch_time": 7102,
+        "ig_reels_video_view_total_time": 7550436,
         "reels_skip_rate": 48.1
       },
-      "insightsAt": "2026-08-11T02:01:49.560Z"
+      "insightsAt": "2026-08-11T04:41:18.800Z"
     },
     {
       "mode": "live",
@@ -102,7 +102,19 @@
       },
       "containerId": "18079518551446357",
       "mediaId": "17869369959634940",
-      "insights": null
+      "insights": {
+        "views": 0,
+        "reach": 0,
+        "likes": 0,
+        "comments": 0,
+        "saved": 0,
+        "shares": 0,
+        "total_interactions": 0,
+        "ig_reels_avg_watch_time": 0,
+        "ig_reels_video_view_total_time": 0,
+        "reels_skip_rate": 0
+      },
+      "insightsAt": "2026-08-11T04:41:20.780Z"
     }
   ]
 }
