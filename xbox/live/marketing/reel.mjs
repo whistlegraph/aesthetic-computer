@@ -22,7 +22,7 @@ import { pickSource, seed32 } from "./source.mjs";
 import { bakeReplay } from "./replay-oven.mjs";
 import { cover, inspect, thumbnail, writeSidecar } from "./dress.mjs";
 import { verifySync } from "./verify.mjs";
-import { appendLedger, dryRun, publishLive, queueDir, readLedger,
+import { appendLedger, audioNameFor, dryRun, publishLive, queueDir, readLedger,
   refreshInsights, reveal, segmentReport, uploadPublic } from "./publish.mjs";
 import { repo } from "./shell.mjs";
 import { dress, segments, share } from "./segments.mjs";
@@ -70,6 +70,7 @@ async function buildSlot(day, index) {
     slotsPerDay, cap: Number(flags.cap || 600),
     allowReplays: flags["no-replays"] !== true, log });
   spec.theme = themeNow();
+  spec.hud = flags["no-hud"] !== true;
   // Forcing a market is a review affordance, not part of the grid. The slot
   // keeps its number so the ledger stays honest about which slot ran.
   if (flags.segment && spec.segment !== flags.segment) {
@@ -113,7 +114,8 @@ async function buildSlot(day, index) {
   if (!render.complete)
     log(`   ⚠ the match never finished inside the ${spec.cap}s cap — fragment`);
 
-  const record = { ...spec, sourceCommit, builtAt: new Date().toISOString(),
+  const audioName = audioNameFor({ ...spec, render });
+  const record = { ...spec, audioName, sourceCommit, builtAt: new Date().toISOString(),
     render: { wall: render.wall, frames: render.frames,
       liveFrames: render.liveFrames, frameCadence: render.frameCadence,
       seconds: render.seconds, hasAudio: render.hasAudio,
@@ -125,7 +127,8 @@ async function buildSlot(day, index) {
   log(`${spec1080.ok ? "✓" : "✗"} ${spec.id} · ${spec1080.width}×${spec1080.height} · ` +
     `${Math.floor(spec1080.seconds / 60)}m${String(Math.round(spec1080.seconds % 60))
       .padStart(2, "0")}s · ${spec1080.megabytes.toFixed(1)}MB · ` +
-    `${render.rounds.length} rounds · meta spec ${spec1080.ok ? "pass" : "FAIL"}`);
+    `${render.rounds.length} rounds · audio "${audioName || "unnamed"}" · ` +
+    `meta spec ${spec1080.ok ? "pass" : "FAIL"}`);
   if (!spec1080.ok) for (const [name, check] of Object.entries(spec1080.checks))
     if (!check.ok) log(`   ✗ ${name}: ${check.value}`);
   if (!motion.ok) log(`   ✗ motion: ${motion.mode} · ${motion.sourceFps} source fps`);
@@ -145,9 +148,11 @@ async function goLive(record) {
   const posted = await publishLive(record, urls, {
     igUserId: process.env.OSKIEWAR_IG_USER_ID,
     token: process.env.OSKIEWAR_IG_TOKEN, log });
+  const audioName = audioNameFor(record);
   appendLedger({ mode: "live", id: record.id, slot: record.slot, day: record.day,
     index: record.index, segment: record.segment, seed: record.seed,
-    kind: record.kind, round: record.round, publishedAt: new Date().toISOString(),
+    kind: record.kind, round: audioName, audioName,
+    publishedAt: new Date().toISOString(),
     urls, ...posted, insights: null });
   return posted;
 }

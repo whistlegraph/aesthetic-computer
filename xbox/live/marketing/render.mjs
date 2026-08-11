@@ -73,8 +73,13 @@ async function loadPuppeteer() {
   return (await import(`${dir}/lib/esm/puppeteer/puppeteer.js`)).default;
 }
 
+export function offlineReplayAddress(origin, round, { hud = true } = {}) {
+  return `${origin}/${round}?social-preview&replay-oven&offline-render` +
+    (hud ? "&reel-hud" : "");
+}
+
 async function captureOfflineReplay({ browser, shell, demo, frames, width,
-  height, theme, seconds, log }) {
+  height, theme, seconds, hud, log }) {
   const round = String(demo?.roundName || demo?.matchName || "").replace(/^ow-/, "");
   if (!round) throw new Error("completed bot fight did not return a replay name");
   rmSync(frames, { recursive: true, force: true });
@@ -91,7 +96,7 @@ async function captureOfflineReplay({ browser, shell, demo, frames, width,
           addEventListener() {}, removeEventListener() {} };
       };
     });
-    await page.goto(`${shell.origin}/${round}?social-preview&replay-oven&offline-render`,
+    await page.goto(offlineReplayAddress(shell.origin, round, { hud }),
       { waitUntil: "domcontentloaded", timeout: 45000 });
     await page.evaluate(() => document.fonts.ready);
     await page.waitForFunction(() => globalThis.__oskiewarOfflineReady === true &&
@@ -147,7 +152,7 @@ export async function renderReel(spec, { log = console.log } = {}) {
   // `cap` is a ceiling, not a target: recording ends when the game says the
   // match is over, and only runs out the clock if something has gone wrong.
   const { id, kind, seed, cap = 240, rounds = 1, width = 1080, height = 1920,
-    theme = "dark", ovenStyle = "cinematic", out } = spec;
+    theme = "dark", ovenStyle = "cinematic", hud = true, out } = spec;
   const started = Date.now();
   rmSync(out, { recursive: true, force: true });
   const frames = join(out, "frames");
@@ -395,7 +400,7 @@ export async function renderReel(spec, { log = console.log } = {}) {
     if (!replayDemo) throw new Error("completed bot fight replay payload is missing");
     const offlineStamps = await captureOfflineReplay({ browser, shell,
       demo: replayDemo, frames, width, height, theme,
-      seconds: captured.seconds, log });
+      seconds: captured.seconds, hud, log });
     captured.liveFrames = captured.frames;
     captured.frames = offlineStamps.length;
     captured.frameCadence = "fixed-step-60";

@@ -261,8 +261,12 @@ const hudSafeRect = () => {
     right: stageRight - inset, bottom: viewHeight - inset };
 };
 const actionSafeRect = () => {
-  const marginX = compactLayout() ? 34 : 64;
-  const marginY = 26;
+  // A television is watched across a room behind a bezel; a reel is held at
+  // arm's length with nothing over its edges, so the action-safe frame there is
+  // a courtesy rather than a hedge against overscan.
+  const portrait = stageBottom - stageTop > stageRight - stageLeft;
+  const marginX = portrait ? 18 : (compactLayout() ? 34 : 64);
+  const marginY = portrait ? 14 : 26;
   return { left: stageLeft + marginX, top: stageTop + marginY,
     right: stageRight - marginX, bottom: stageBottom - marginY };
 };
@@ -2467,10 +2471,22 @@ function resetRound(now, resetMatch = false) {
   resetBalls(now);
   if (replay) replay.rounds.push([demoTick(now), windDirection, windMph,
     balls.length]);
-  cameraCenter = (worldLeft + worldRight) / 2;
+  // A new round opens on its fighters, not the midpoint of the 25,000-unit
+  // street. Keeping the stale world midpoint here made the first gameplay
+  // tick jump thousands of units away from the three-beat portrait intro.
+  cameraCenter = (players[0].x + players[1].x) / 2;
   cameraWidth = 960;
-  cameraCenterY = floorY - cameraWidth / cameraAspect / 2;
+  cameraCenterY = (players[0].y + players[1].y) / 2 - 90;
   cameraContainFloor = 0;
+  const openingHead = runnerWorldGeometry(players[0],
+    (now - startedAt) / 1000000).head;
+  const openingWidth = Math.max(96, openingHead.radius * 6.5);
+  const openingTarget = { x: openingHead.x, y: openingHead.y, z: openingHead.z };
+  cameraDoll.snap({ target: openingTarget,
+    position: { x: openingTarget.x, y: openingTarget.y,
+      z: openingTarget.z - Math.max(openingWidth * 1.35,
+        Math.abs(worldNear) + 400) },
+    width: openingWidth, perspective: 0, fov: 55, roll: 0 });
 }
 
 // The box the camera packs. It is a fighting-game pushbox rather than the
@@ -2514,18 +2530,33 @@ function fighterFrameRect() {
 // Rect-pack: the camera width that makes a world rect exactly fill the
 // action-safe frame. Whichever axis runs out first decides the lens, so a
 // stacked pair frames as tightly as a spread one.
+// Framing is width-driven, which is right for a television and wrong for a
+// phone. A 9:16 frame has height to spare and width to spend, so the pair that
+// fills a 16:9 shot lands in the middle third of a vertical one with empty sky
+// above it and dead ground below — which is exactly how the reels read.
+//
+// Pull the lens in by how far the frame is from 16:9. A wide stage is untouched
+// (the ratio is 1), and the floor stops a very tall frame from closing so far
+// that a jump crops. Every framing path runs through rectPackWidth, so applying
+// it here keeps the fight, the containment floor and the result shot agreeing
+// with each other instead of each needing its own factor.
+const portraitPull = () => clamp(cameraAspect / (16 / 9), .52, 1);
+
 function rectPackWidth(rect) {
   const safe = actionSafeRect();
   return Math.max(
     (rect.right - rect.left) * (stageRight - stageLeft) /
       Math.max(1, safe.right - safe.left),
     (rect.bottom - rect.top) * cameraAspect * (stageBottom - stageTop) /
-      Math.max(1, safe.bottom - safe.top));
+      Math.max(1, safe.bottom - safe.top)) * portraitPull();
 }
 // A fighter reduced to a bouncing head is a few dozen units tall. Without a
 // floor the pack would keep closing until one limb filled the screen.
 // Lowered with the reach/rise trim above: the closest the lens may sit.
-const frameFloorWidth = () => compactLayout() ? 285 : 315;
+// The tightest the automatic camera may go. It scales with the same pull, or a
+// portrait shot closes to the pull and then hits a floor sized for a television.
+const frameFloorWidth = () =>
+  (compactLayout() ? 285 : 315) * portraitPull();
 
 // Terrain is flat color, so it only has to reach as far as the lens can see.
 // Submitting the whole arena pushed its far corners past the native ±30000
@@ -2643,7 +2674,7 @@ function updateCameraDoll(dt, now) {
       // fighters rather than one — the 64° lens buys most of that back. Past
       // about a 1300 gap this would open onto empty stage, so beyond there it
       // settles toward the span the returning wide shot uses.
-      const shotWidth = Math.min(headGap * 1.7, headGap + 900);
+      const shotWidth = Math.min(headGap * 1.7, headGap + 900) * portraitPull();
       if (age < .86) {
         cameraDoll.track({ target: focus, position: shoulder,
           width: shotWidth, perspective: 0, fov: 55, roll: 0 }, dt, 11);
@@ -2653,7 +2684,8 @@ function updateCameraDoll(dt, now) {
       const midpoint = { x: (players[0].x + players[1].x) / 2,
         y: (players[0].y + players[1].y) / 2 - 95,
         z: (players[0].z + players[1].z) / 2 };
-      const span = Math.max(900, Math.abs(players[1].x - players[0].x) + 540);
+      const span = Math.max(900, Math.abs(players[1].x - players[0].x) + 540) *
+      portraitPull();
       cameraDoll.track({ target: midpoint,
         position: { x: midpoint.x, y: midpoint.y,
           z: lerp(shoulder.z, midpoint.z - span * 1.2, returnAmount) },
@@ -2666,7 +2698,8 @@ function updateCameraDoll(dt, now) {
       z: (players[0].z + players[1].z) / 2 };
     const horizontalSpan = Math.abs(players[1].x - players[0].x);
     const verticalSpan = Math.abs(players[1].y - players[0].y) * cameraAspect;
-    const closeWidth = Math.max(820, horizontalSpan + 540, verticalSpan + 520,
+    const closeWidth = Math.max(
+      Math.max(820, horizontalSpan + 540, verticalSpan + 520) * portraitPull(),
       rectPackWidth(fighterFrameRect()) * 1.22);
     cameraDoll.track({ target,
       position: { x: target.x,
@@ -2677,16 +2710,54 @@ function updateCameraDoll(dt, now) {
     return;
   }
   if (introAge < introDurationUs) {
+    // Three seconds used to hold one wide two-shot — the widest the camera ever
+    // got — and it introduced nobody: two figures the height of a thumbnail
+    // standing apart. It is three beats now. A second on one fighter's face, a
+    // whip across to the other's, then out to the shot the fight opens on.
+    //
+    // The heads come from the same geometry the killcam frames, so a face shot
+    // is the head's own radius rather than a guess at how big a fighter is.
     const age = introAge / 1000000;
-    const progress = clamp(age / (introDurationUs / 1000000), 0, 1);
-    const eased = progress * progress * (3 - progress * 2);
-    const target = { x: (players[0].x + players[1].x) / 2,
+    const beat = introDurationUs / 1000000 / 3;
+    const poseTime = (now - startedAt) / 1000000;
+    const headOf = (player) =>
+      (player.frozenGeometry || runnerWorldGeometry(player, poseTime)).head;
+    // Enough room around a head to read as a portrait rather than an eyeball.
+    const faceWidth = (head) => Math.max(96, head.radius * 6.5);
+
+    const opening = { x: (players[0].x + players[1].x) / 2,
       y: (players[0].y + players[1].y) / 2 - 90,
       z: (players[0].z + players[1].z) / 2 };
-    const span = Math.max(980, Math.abs(players[1].x - players[0].x) + 760);
+    const openingWidth = Math.max(980,
+      Math.abs(players[1].x - players[0].x) + 760) * portraitPull();
+
+    let target;
+    let width;
+    if (age < beat * 2) {
+      // The whip is the ease itself: `track` is still travelling from the first
+      // face when the second is asked for, so the pan happens for free and at a
+      // speed the rest of the camera already agrees with.
+      const head = headOf(players[age < beat ? 0 : 1]);
+      target = { x: head.x, y: head.y, z: head.z };
+      width = faceWidth(head);
+    } else {
+      const out = clamp((age - beat * 2) / beat, 0, 1);
+      const eased = out * out * (3 - out * 2);
+      const head = headOf(players[1]);
+      target = { x: lerp(head.x, opening.x, eased),
+        y: lerp(head.y, opening.y, eased),
+        z: lerp(head.z, opening.z, eased) };
+      width = lerp(faceWidth(head), openingWidth, eased);
+    }
+    // Stand off outside the arena depth. The framing is orthographic, so the
+    // distance costs nothing and `width` alone decides how close the shot
+    // reads — but a lens parked a face's width from a head sits inside the
+    // world volume and near-clips the head it came to look at, which is the
+    // same trap the killcam fell into and had to be pulled back out of.
+    const standOff = Math.max(width * 1.35, Math.abs(worldNear) + 400);
     cameraDoll.track({ target,
-      position: { x: target.x, y: target.y, z: target.z - span * 1.2 },
-      width: span, perspective: 0, fov: 55, roll: 0 }, dt, 7);
+      position: { x: target.x, y: target.y, z: target.z - standOff },
+      width, perspective: 0, fov: 55, roll: 0 }, dt, 9);
     return;
   }
   const target = { x: cameraCenter, y: cameraCenterY, z: 0 };
@@ -8719,6 +8790,9 @@ function gamePaint() {
   visualTheme = displayTheme();
   const replayOven = typeof capabilities === "function" &&
     capabilities().replayOven === true;
+  const reelHud = typeof capabilities === "function" &&
+    capabilities().reelHud === true;
+  const matchHud = !replayOven || reelHud;
   triangleDepth = -1.4;
   const skyDay = mixColor([176, 215, 245], [255, 160, 112],
     visualTheme.sunset * .7);
@@ -8786,7 +8860,7 @@ function gamePaint() {
   if (WIND_FLAG && shellMode === "GAME") drawWindFlag(t, windInk);
   // The top row is the round's: a clock, and who is watching. The wordmark
   // screen carries its own clock, so this one waits for start.
-  if (!replayOven && shellMode === "GAME" && gameplayStarted) {
+  if (matchHud && shellMode === "GAME" && gameplayStarted) {
     const timedRound = roundIsTimed();
     const remainingSeconds = roundResult || !timedRound ? 0 : Math.max(0,
       Math.ceil((roundDurationUs - roundElapsedUs) / 1000000));
@@ -8840,7 +8914,7 @@ function gamePaint() {
   for (const pickup of gunPickups) drawGunPickup(pickup, t);
   for (const pickup of grenadePickups) drawGrenadePickup(pickup, t);
   const introAge = run.monotonicUs - roundStartedAt;
-  const showRunnerLabels = !replayOven &&
+  const showRunnerLabels = matchHud &&
     (Boolean(roundResult) || introAge >= introDurationUs);
   const viewDirection = normalize3({
     x: cameraDoll.target.x - cameraDoll.position.x,
@@ -8893,7 +8967,7 @@ function gamePaint() {
   const counting = !roundResult && introAge < introDurationUs;
   // The matchup card announces two names in the middle of the screen, which
   // is exactly where the wordmark sits. On the entry fight the word wins.
-  if (!replayOven && counting && shellMode === "GAME")
+  if (matchHud && counting && shellMode === "GAME")
     drawFightIntro(introAge / 1000000, titleInk, statusShadow);
   // The keys belong wherever a newcomer is looking: under the wordmark on the
   // way in, and again while a round counts itself off. Self-play has no
@@ -8903,7 +8977,7 @@ function gamePaint() {
   // self-play and marketing reels have no learner to serve.
   if (!replayOven && !selfPlay) drawControlLegend(titleInk);
   const resultUiReady = cinematicAge < 0 || cinematicAge >= 1.1;
-  if (!replayOven && roundResult && resultUiReady) {
+  if (matchHud && roundResult && resultUiReady) {
     if (INSTANT_REPLAY && instantReplay) {
       const frame = Math.min(instantReplay.frames.length,
         Math.floor(instantReplay.cursor) + 1);
@@ -8939,7 +9013,7 @@ function gamePaint() {
   }
   // Nameplates and stats wait for the wordmark to lift; the entry frame is
   // the word, the keys, and the two fighters, and nothing else.
-  if (!replayOven && shellMode === "GAME" && ((roundResult && resultUiReady) ||
+  if (matchHud && shellMode === "GAME" && ((roundResult && resultUiReady) ||
       (!roundResult && introAge >= introDurationUs))) {
     const hudPlayers = spatialHudPlayers();
     for (let side = 0; side < hudPlayers.length; side++) {

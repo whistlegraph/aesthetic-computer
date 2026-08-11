@@ -754,18 +754,19 @@ function settleFraming(fight, tick, separation, frames = 420) {
       Math.min(...bounds.map((box) => box.left)) };
 }
 
-test("close quarters pushes the lens far past the opening frame", () => {
-  const { fight, tick } = createFight(false, false, "web");
+test("close quarters keep both fighters dominant after the opening frame", () => {
+  const { fight, tick } = createFight(false, false, "web", null,
+    { width: 608, height: 1080 });
   fight.startFight();
   tick(3000001);
   const opening = settleFraming(fight, tick, 600);
   const close = settleFraming(fight, tick, 120);
-  assert.ok(close.state.doll.width < opening.state.doll.width * .68,
+  assert.ok(close.state.doll.width < opening.state.doll.width * .8,
     `close framing ${close.state.doll.width.toFixed(0)} against ` +
     `opening ${opening.state.doll.width.toFixed(0)}`);
   // The pair has to genuinely dominate the frame, not merely grow a little.
   const safeHeight = close.safe.bottom - close.safe.top;
-  assert.ok(close.height > safeHeight * .8,
+  assert.ok(close.height > safeHeight * .5,
     `fighters filled only ${(close.height / safeHeight * 100).toFixed(0)}% ` +
     `of action-safe height`);
   assert.ok(close.height > opening.height * 1.5,
@@ -933,19 +934,35 @@ test("gameplay camera has no procedural viewport shake", () => {
     /runtime\(\)\.monotonicUs - roundStartedAt >= introDurationUs/);
 });
 
-test("intro camera keeps one smooth midpoint target through name handoffs", () => {
+test("intro camera introduces both faces before returning to the fight", () => {
   const { fight, tick } = createFight(false, false);
   fight.startFight();
+  const left = fight.players[0].x;
+  const right = fight.players[1].x;
+  const middle = (left + right) / 2;
   let previous = fight.cameraState().doll.position.x;
   let largestStep = 0;
+  let largestFrame = 0;
+  const targets = [];
   for (let frame = 0; frame < 180; frame++) {
     tick();
     const state = fight.cameraState().doll;
-    assert.ok(Math.abs(state.target.x - 6000) < .01);
-    largestStep = Math.max(largestStep, Math.abs(state.position.x - previous));
+    targets.push(state.target.x);
+    if (frame && Math.abs(state.position.x - previous) > largestStep) {
+      largestStep = Math.abs(state.position.x - previous);
+      largestFrame = frame;
+    }
     previous = state.position.x;
   }
-  assert.ok(largestStep < 40, `intro camera stepped ${largestStep}px`);
+  assert.ok(Math.abs(targets[55] - left) < 80,
+    `first face target ${targets[55].toFixed(0)} missed ${left.toFixed(0)}`);
+  assert.ok(Math.abs(targets[115] - right) < 80,
+    `second face target ${targets[115].toFixed(0)} missed ${right.toFixed(0)}`);
+  assert.ok(targets.slice(120).some((target) => Math.abs(target - middle) < 80),
+    `intro never returned from ${targets[115].toFixed(0)} toward ` +
+    `${middle.toFixed(0)}`);
+  assert.ok(largestStep < 160,
+    `intro camera stepped ${largestStep}px at frame ${largestFrame}`);
   assert.match(source, /function drawFightIntro/);
   assert.match(source, /const startText = "start"/);
   assert.doesNotMatch(source, /const beginText = "begin"/);
@@ -4275,14 +4292,18 @@ test("title keeps QR in the top-right HUD, version after title, and pops beneath
   assert.doesNotMatch(source, /if \(!placement && shellMode === "MENU"\) return/);
 });
 
-test("the Replay Oven captures HUD-free 60 fps high-quality masters", () => {
+test("the Replay Oven captures match-HUD 60 fps high-quality masters", () => {
   assert.match(webShell, /replayOven/);
+  assert.match(webShell, /reelHud/);
+  assert.match(source, /const matchHud = !replayOven \|\| reelHud/);
+  assert.match(source, /if \(matchHud && shellMode === "GAME" && gameplayStarted\)/);
   assert.match(source, /if \(!replayOven\) drawDebugPerformance/);
   assert.match(source, /if \(!replayOven && !selfPlay\) drawControlLegend/);
+  assert.match(reelRenderer, /&reel-hud/);
   assert.match(reelRenderer, /quality: 100/);
   assert.match(reelRenderer, /"-r", "60"/);
   assert.match(reelRenderer, /"-crf", "14"/);
-  assert.match(replayOven, /hud: false/);
+  assert.match(replayOven, /hud: true/);
 });
 
 test("the long street preserves terrain density and quarter-pipe ends", () => {

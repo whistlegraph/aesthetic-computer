@@ -36,6 +36,9 @@ export function appendLedger(entry) {
   return entry;
 }
 
+export const audioNameFor = (spec) =>
+  spec.audioName || spec.render?.rounds?.[0]?.round || spec.round || null;
+
 // The container body, exactly as Meta's reference spells it. `share_to_feed`
 // is on because a reel that only lives in the Reels tab is invisible to the
 // handful of people who already follow the account.
@@ -47,6 +50,10 @@ export function payloadFor(spec, { igUserId, videoUrl, coverUrl }) {
     share_to_feed: true,
   };
   if (coverUrl) body.cover_url = coverUrl;
+  // Original audio can only be named once. Bind it to the round captured in
+  // the reel so Instagram's audio page remains findable by match identity.
+  const audioName = audioNameFor(spec);
+  if (audioName) body.audio_name = audioName;
   return {
     container: {
       method: "POST",

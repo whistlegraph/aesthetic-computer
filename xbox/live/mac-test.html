@@ -577,6 +577,7 @@
     const popsEndpoint = "/api/oskiewar-pops";
     const socialPreview = new URLSearchParams(location.search).has("social-preview");
     const replayOven = new URLSearchParams(location.search).has("replay-oven");
+    const reelHud = new URLSearchParams(location.search).has("reel-hud");
 
     function capabilities() {
       const mac = navigator.userAgent.includes("Mac");
@@ -589,6 +590,9 @@
         // render capability, never a player preference, so HUD-free footage
         // cannot accidentally leak into the live game.
         replayOven,
+        // The Reel lane keeps the match's own timer, names, stats and command
+        // stream without admitting controls, debug meters, touch UI or QR.
+        reelHud,
         country: localCountry,
         updateReady: updateAvailable,
         // Scoring sessions are anonymous dummy play; the seam auth attaches to
