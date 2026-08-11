@@ -315,11 +315,11 @@
     "born": "2026-07-16T05:10:56.055Z"
   },
   "harno": {
-    "parent": "nuxo",
-    "second": "wandro",
+    "parent": "ploo",
+    "second": "nuxo",
     "mutation": "cross",
-    "trait": "string-art peg/thread visual (nuxo) x just-intonation phase-fired pluck voice (wandro)",
-    "born": "2026-07-16T05:14:45.467Z"
+    "trait": "ploo's radial shockwave/starburst visual generator x nuxo's plucked-harp synth voice",
+    "born": "2026-08-10T22:46:08.397Z"
   },
   "velro": {
     "parent": null,
@@ -490,11 +490,11 @@
     "born": "2026-07-17T20:01:19.264Z"
   },
   "ripplo": {
-    "parent": "ploo",
-    "second": "wandro",
-    "mutation": "cross",
-    "trait": "radial shockwave/starburst bloom (ploo) x independent just-intonation pendulum voices (wandro)",
-    "born": "2026-08-10T04:45:03.201Z"
+    "parent": "nuxo",
+    "second": null,
+    "mutation": "eye",
+    "trait": "pond-ripple interference field x nuxo's pentatonic harp voice (pluck/bell/sub)",
+    "born": "2026-08-11T00:57:48.749Z"
   },
   "arvo": {
     "parent": "varo",
@@ -1088,8 +1088,8 @@
     "parent": "wandro",
     "second": null,
     "mutation": "eye",
-    "trait": "rotating just-intonation orrery (hand length = melody contour, hands cross top/bottom to pluck, conjunction blooms) x wandro's pluck/bell/sub voice",
-    "born": "2026-08-09T21:10:59.347Z"
+    "trait": "heliocentric orbit diagram (planets on concentric rings, transiting a sun-meridian) x wandro's just-intonation pluck/bell/sub voice",
+    "born": "2026-08-11T01:00:37.046Z"
   },
   "yanko": {
     "parent": "wandro",
@@ -1174,5 +1174,40 @@
     "mutation": "blind",
     "trait": "elevator call-and-response dispatch queue x floor-height-as-pitch chime/pluck voice",
     "born": "2026-08-10T20:30:42.151Z"
+  },
+  "fluvo": {
+    "parent": "nuxo",
+    "second": null,
+    "mutation": "voice",
+    "trait": "string-art harp pegboard (nail+thread web with tension bloom) x breathy flute/bubble legato drone",
+    "born": "2026-08-10T22:43:28.598Z"
+  },
+  "javro": {
+    "parent": null,
+    "second": null,
+    "mutation": "blind",
+    "trait": "siteswap juggling arcs (throw height IS pitch) x pluck/bell/sub voice",
+    "born": "2026-08-10T23:49:47.427Z"
+  },
+  "welgo": {
+    "parent": null,
+    "second": null,
+    "mutation": "blind",
+    "trait": "paper-glider flight autopilot (lift/stall/dive/recover state machine) x altitude-quantized pentatonic voice with phase-specific timbre",
+    "born": "2026-08-10T23:55:20.377Z"
+  },
+  "venko": {
+    "parent": null,
+    "second": null,
+    "mutation": "blind",
+    "trait": "radial slider-crank engine (breathing piston star) x chiptune-square firing chord over a sub-bass idle rumble",
+    "born": "2026-08-11T03:26:28.782Z"
+  },
+  "ebbo": {
+    "parent": "ploo",
+    "second": null,
+    "mutation": "invert",
+    "trait": "collapsing shockwave / closing iris x sinking arpeggio voice",
+    "born": "2026-08-11T03:31:19.913Z"
   }
 }
