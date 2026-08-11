@@ -1,0 +1,91 @@
+#!/usr/bin/env bash
+# The oskiewar wall — one Chrome window per monitor, fullscreened onto it.
+#
+# Two windows rather than one tall one because Mutter clamps a normal window to a
+# single monitor's work area: ask for 2560x2880 and it comes back about 1371
+# tall. The fleet cockpit learned this the same way and ended up as two xterms.
+#
+# Chrome is forced through XWayland (--ozone-platform=x11) because under Wayland
+# it ignores --window-position, and position is the whole trick: Chrome
+# fullscreens onto whichever output the window's position lands in.
+#
+# Outputs are read from xrandr, never from `xdotool getdisplaygeometry` — that
+# reports the primary output's size, not the X screen's, which on this stacked
+# pair means 2560x1440 for a 2560x2880 desktop.
+#
+#   oskiewar-wall             # start (restarts if already up)
+#   oskiewar-wall stop        # close both panes
+set -euo pipefail
+
+ROOT="${OSKIEWAR_WALL_ROOT:-$HOME/.local/share/oskiewar-wall}"
+PORT="${OSKIEWAR_WALL_PORT:-7799}"
+API="${OSKIEWAR_WALL_API:-https://oskiewar.com}"
+CHROME="${OSKIEWAR_WALL_CHROME:-google-chrome}"
+export DISPLAY="${DISPLAY:-:0}"
+
+# The launcher is started by GNOME autostart, which does not run inside the
+# session's X authority by default.
+if [ -z "${XAUTHORITY:-}" ]; then
+  for candidate in /run/user/$(id -u)/.mutter-Xwaylandauth.*; do
+    [ -e "$candidate" ] && export XAUTHORITY="$candidate" && break
+  done
+fi
+
+stop() {
+  pkill -f "user-data-dir=$ROOT/chrome-" 2>/dev/null || true
+}
+if [ "${1:-}" = "stop" ]; then stop; echo "wall stopped"; exit 0; fi
+
+mkdir -p "$ROOT"
+KEY="$(cat "$ROOT/wall.key" 2>/dev/null || true)"
+
+# A wall that goes to sleep is not a wall.
+gsettings set org.gnome.desktop.session idle-delay 0 2>/dev/null || true
+gsettings set org.gnome.desktop.screensaver lock-enabled false 2>/dev/null || true
+
+# "y x" for every connected output, sorted by y — so the first row is the top
+# monitor and the last is the bottom, whichever DP-n they happen to be.
+mapfile -t PLACES < <(xrandr --current |
+  grep -oE '[0-9]+x[0-9]+\+[0-9]+\+[0-9]+' |
+  awk -F'[x+]' '{print $4" "$3}' | sort -n -k1,1)
+
+if [ "${#PLACES[@]}" -lt 1 ]; then
+  echo "oskiewar-wall: no outputs found on DISPLAY=$DISPLAY" >&2
+  exit 1
+fi
+
+open_pane() { # open_pane <pane> <x> <y>
+  local pane=$1 x=$2 y=$3
+  local url="http://127.0.0.1:$PORT/wall.html?pane=$pane&api=$API"
+  [ -n "$KEY" ] && url="$url&key=$KEY"
+  "$CHROME" \
+    --ozone-platform=x11 \
+    --user-data-dir="$ROOT/chrome-$pane" \
+    --app="$url" \
+    --window-position="$x,$y" \
+    --window-size=2560,1440 \
+    --start-fullscreen \
+    --no-first-run --no-default-browser-check \
+    --disable-session-crashed-bubble --hide-crash-restore-bubble \
+    --disable-infobars --noerrdialogs \
+    >"$ROOT/$pane.log" 2>&1 &
+  echo "  $pane pane → +$x+$y"
+}
+
+stop
+sleep 1
+
+read -r top_y top_x <<<"${PLACES[0]}"
+open_pane top "$top_x" "$top_y"
+
+# One monitor is a legitimate configuration — the top pane is the one that
+# matters, so a single-output machine simply shows that and stops.
+if [ "${#PLACES[@]}" -ge 2 ]; then
+  sleep 2  # let Chrome claim the first output before the second window appears
+  read -r bottom_y bottom_x <<<"${PLACES[-1]}"
+  open_pane bottom "$bottom_x" "$bottom_y"
+else
+  echo "  (only one output — bottom pane skipped)"
+fi
+
+echo "oskiewar wall up · serving from 127.0.0.1:$PORT · stats from $API"

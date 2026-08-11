@@ -172,11 +172,66 @@ export const reelMetrics = ["views", "reach", "likes", "comments", "saved",
   "shares", "total_interactions", "reposts", "ig_reels_avg_watch_time",
   "ig_reels_video_view_total_time", "reels_skip_rate"];
 
-export async function pullInsights(mediaId, token) {
-  const body = await call(`${host()}/${apiVersion()}/${mediaId}/insights` +
-    `?metric=${reelMetrics.join(",")}&access_token=${token}`);
+// Meta rejects the *whole* request if any single metric is unsupported, and
+// which metrics are supported drifts with the API version, the account type and
+// the login path — `reposts` is documented but refused on Instagram Login as of
+// 2026-08-10. It names the offenders in the error, so drop exactly those and ask
+// again. Asking is cheaper than maintaining a list here that quietly rots, and
+// it means a newly-supported metric starts appearing on its own.
+const UNSUPPORTED = /does not support the metrics:\s*([a-z_,\s]+)/i;
+
+export async function pullInsights(mediaId, token, metrics = reelMetrics) {
+  let body;
+  try {
+    body = await call(`${host()}/${apiVersion()}/${mediaId}/insights` +
+      `?metric=${metrics.join(",")}&access_token=${token}`);
+  } catch (error) {
+    const named = UNSUPPORTED.exec(error.message || "");
+    const dropped = (named?.[1] || "").split(",")
+      .map((name) => name.trim()).filter(Boolean);
+    const kept = metrics.filter((name) => !dropped.includes(name));
+    // Only retry when the error actually narrowed the set — otherwise this is a
+    // different failure (a dead token, a deleted post) and it belongs upstream.
+    if (!kept.length || kept.length === metrics.length) throw error;
+    return pullInsights(mediaId, token, kept);
+  }
   return Object.fromEntries((body.data || []).map((row) =>
     [row.name, row.values?.[0]?.value ?? row.total_value?.value ?? null]));
+}
+
+// Insights are the one thing a reel cannot report about itself at publish time:
+// they only exist once people have watched. So they are pulled on a pass of
+// their own, over every live post, and hung on the ledger entry that was left
+// with `insights: null` when it went out.
+//
+// A metric Meta has not computed yet comes back missing rather than zero, and
+// `pullInsights` preserves that as null — which is why a fresh reel must read as
+// "not measured" on any dashboard instead of as a reel that got no views.
+export async function refreshInsights(token, {
+  log = console.log,
+  pull = pullInsights,
+} = {}) {
+  if (!token) throw new Error("OSKIEWAR_IG_TOKEN required");
+  const ledger = readLedger();
+  const refreshed = [];
+  for (const post of ledger.posts) {
+    if (post.mode !== "live" || !post.mediaId) continue;
+    try {
+      post.insights = await pull(post.mediaId, token);
+      post.insightsAt = new Date().toISOString();
+      refreshed.push(post.id);
+      log(`📈 ${post.id} · views ${post.insights.views ?? "—"} · ` +
+        `reach ${post.insights.reach ?? "—"} · ` +
+        `skip ${post.insights.reels_skip_rate ?? "—"}`);
+    } catch (error) {
+      // One reel Meta will not talk about must not cost the others their
+      // refresh, and must not blank the figure already on the ledger.
+      log(`⚠️  ${post.id} · ${error.message}`);
+    }
+  }
+  if (refreshed.length)
+    writeFileSync(ledgerPath, JSON.stringify(ledger, null, 2) + "\n");
+  return refreshed;
 }
 
 export function segmentReport(ledger = readLedger()) {

@@ -1,0 +1,68 @@
+{
+  "format": "ac.oskiewar.reel-ledger",
+  "version": 1,
+  "posts": [
+    {
+      "mode": "live",
+      "id": "2026-08-09-s0-fgc",
+      "slot": 660,
+      "day": "2026-08-09",
+      "index": 0,
+      "segment": "fgc",
+      "seed": "2026-08-09#0",
+      "kind": "self-play",
+      "round": null,
+      "publishedAt": "2026-08-09T23:24:42.378Z",
+      "urls": {
+        "reel": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/oskiewar/reels/2026-08-09-s0-fgc/reel.mp4",
+        "cover": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/oskiewar/reels/2026-08-09-s0-fgc/cover.jpg"
+      },
+      "containerId": "18079051220446357",
+      "mediaId": "18349296478171889",
+      "insights": {
+        "views": 1358,
+        "reach": 1072,
+        "likes": 6,
+        "comments": 0,
+        "saved": 1,
+        "shares": 0,
+        "total_interactions": 7,
+        "ig_reels_avg_watch_time": 7085,
+        "ig_reels_video_view_total_time": 7510253,
+        "reels_skip_rate": 48.1
+      },
+      "insightsAt": "2026-08-11T00:53:27.550Z"
+    },
+    {
+      "mode": "live",
+      "id": "2026-08-10-s2-homebrew",
+      "slot": 665,
+      "day": "2026-08-10",
+      "index": 2,
+      "segment": "homebrew",
+      "seed": "2026-08-10#2",
+      "kind": "self-play",
+      "round": null,
+      "publishedAt": "2026-08-10T19:50:37.933Z",
+      "urls": {
+        "reel": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/oskiewar/reels/2026-08-10-s2-homebrew/reel.mp4",
+        "cover": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/oskiewar/reels/2026-08-10-s2-homebrew/cover.jpg"
+      },
+      "containerId": "18079390346446357",
+      "mediaId": "18364064911240314",
+      "insights": {
+        "views": 146,
+        "reach": 126,
+        "likes": 0,
+        "comments": 0,
+        "saved": 0,
+        "shares": 0,
+        "total_interactions": 0,
+        "ig_reels_avg_watch_time": 2426,
+        "ig_reels_video_view_total_time": 303266,
+        "reels_skip_rate": 76
+      },
+      "insightsAt": "2026-08-11T00:53:28.073Z"
+    }
+  ]
+}

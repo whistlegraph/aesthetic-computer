@@ -1,0 +1,16 @@
+[Unit]
+# Serves wall.html to the two Chrome panes over loopback. The page could be
+# opened as file:// instead, but a file:// origin is opaque and Chrome's handling
+# of cross-origin fetch from one is not something a wall should depend on.
+Description=oskiewar wall static server
+After=graphical-session.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/.local/share/oskiewar-wall
+ExecStart=/usr/bin/python3 -m http.server 7799 --bind 127.0.0.1
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=default.target

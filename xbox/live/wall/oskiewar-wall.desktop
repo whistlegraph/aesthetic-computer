@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=oskiewar Wall
+Comment=oskiewar play and reel stats across both monitors
+Exec=/usr/local/bin/oskiewar-wall
+# The static server and the X session both need to be up first; the fleet cockpit
+# used 8s for the same reason.
+X-GNOME-Autostart-enabled=true
+X-GNOME-Autostart-Delay=8
+Terminal=false

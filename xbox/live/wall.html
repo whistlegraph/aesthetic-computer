@@ -1,0 +1,339 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>oskiewar wall</title>
+<!--
+  The oskiewar wall. One page, two panes, one per monitor:
+
+    wall.html?pane=top      DP-2, at eye level — what happened today
+    wall.html?pane=bottom   DP-1, below       — all time, and how the reels did
+
+  It is two windows rather than one tall one because Mutter clamps a normal
+  window to a single monitor's work area, so a 2560x2880 window comes back about
+  1371 tall. The same reason the fleet cockpit is two xterms. The panes are
+  designed to be read as one column, so the seam between the monitors falls
+  between sections rather than through one.
+
+  Everything is read from /api/oskiewar-stats. Reel figures need the wall key —
+  without it that block is not served at all, and the pane says so instead of
+  drawing zeroes. Nothing here loads from another host, so the wall keeps working
+  on a machine with no fonts installed and no CDN reachable.
+-->
+<style>
+  /* The game's HUD carries a Los Angeles clock and takes its palette from it —
+     light in the daytime, dark at night. The wall follows the same clock so the
+     room and the game never disagree about what time it is. */
+  :root {
+    --bg: #0b0b0d; --panel: #15151a; --line: #26262e;
+    --ink: #f2f2f5; --dim: #8a8a99; --faint: #4a4a58;
+    --hot: #ffd23f; --cool: #4fc3f7; --live: #6ee7a8; --warn: #ff6b6b;
+    --gap: 1.4vh;
+  }
+  :root[data-theme="light"] {
+    --bg: #f4f4f2; --panel: #ffffff; --line: #dedede;
+    --ink: #14141a; --dim: #6a6a76; --faint: #b4b4c0;
+    --hot: #b8860b; --cool: #0277bd; --live: #1b8a55; --warn: #c62828;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; overflow: hidden; }
+  body {
+    background: var(--bg); color: var(--ink);
+    font-family: ui-monospace, "DejaVu Sans Mono", "Liberation Mono", monospace;
+    font-variant-numeric: tabular-nums; /* so a changing digit never shifts the row */
+    display: flex; flex-direction: column;
+    padding: 2vh 2.2vw; gap: var(--gap);
+  }
+
+  header { display: flex; align-items: baseline; gap: 1.2vw; flex: 0 0 auto; }
+  .mark { font-size: 3.1vh; font-weight: 700; letter-spacing: 0.22em; }
+  .mark em { font-style: normal; color: var(--hot); }
+  header .spacer { flex: 1; }
+  .meta { font-size: 1.7vh; color: var(--dim); letter-spacing: 0.08em; }
+  /* A wall must say when it stopped being true. */
+  .stale { color: var(--warn); }
+  .dot {
+    display: inline-block; width: 0.9vh; height: 0.9vh; border-radius: 50%;
+    background: var(--live); vertical-align: middle; margin-right: 0.5vw;
+  }
+  .stale .dot { background: var(--warn); }
+
+  section {
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: 0.8vh; padding: 1.6vh 1.6vw;
+    display: flex; flex-direction: column; gap: 1vh;
+  }
+  section.grow { flex: 1 1 auto; min-height: 0; }
+  /* The hero numbers are the reason the wall exists, so they take the slack and
+     sit centred in it. A chart is given a fixed slice instead of the remainder:
+     left greedy, a day with no play stretches an empty axis over half the
+     monitor, which reads as a broken screen rather than as a quiet day. */
+  section.hero { flex: 1 1 auto; justify-content: center; }
+  section.chart { flex: 0 0 30vh; }
+  h2 {
+    font-size: 1.6vh; font-weight: 600; color: var(--dim);
+    letter-spacing: 0.2em; text-transform: uppercase;
+  }
+  h2 small { color: var(--faint); letter-spacing: 0.1em; text-transform: none; }
+
+  .tiles { display: grid; gap: 1.4vw; grid-auto-flow: column; grid-auto-columns: 1fr; }
+  .tile { display: flex; flex-direction: column; gap: 0.4vh; min-width: 0; }
+  .tile .label {
+    font-size: 1.5vh; color: var(--dim); letter-spacing: 0.18em;
+    text-transform: uppercase; white-space: nowrap;
+  }
+  /* The one number each tile exists to show. Sized so it survives being read
+     from across a room, and from a photograph of the wall at 10%. */
+  .tile .value { font-size: 13vh; line-height: 0.92; font-weight: 700; }
+  .tile.sub .value { font-size: 7vh; }
+  .tile .note { font-size: 1.5vh; color: var(--faint); }
+  .value.zero { color: var(--faint); }
+
+  /* Bars are divs rather than a canvas: crisp at any scale, no redraw on
+     resize, and legible in a screenshot. */
+  .bars { display: flex; align-items: flex-end; gap: 0.22vw; flex: 1 1 auto; min-height: 0; }
+  .bars .bar { flex: 1 1 0; background: var(--cool); border-radius: 0.2vh 0.2vh 0 0; min-height: 1px; }
+  .bars .bar.empty { background: var(--line); }
+  .bars .bar.now { background: var(--hot); }
+  .axis { display: flex; justify-content: space-between; font-size: 1.3vh; color: var(--faint); }
+
+  .split { display: flex; height: 3.4vh; border-radius: 0.4vh; overflow: hidden; background: var(--line); }
+  .split div { display: flex; align-items: center; justify-content: center;
+    font-size: 1.5vh; font-weight: 600; color: #0b0b0d; white-space: nowrap; }
+  .split .dummy { background: var(--faint); color: var(--ink); }
+  .split .human { background: var(--live); }
+  .legend { display: flex; gap: 1.6vw; font-size: 1.5vh; color: var(--dim); }
+  .legend b { color: var(--ink); }
+
+  table { width: 100%; border-collapse: collapse; font-size: 1.9vh; }
+  th {
+    text-align: right; font-size: 1.35vh; color: var(--dim); font-weight: 600;
+    letter-spacing: 0.14em; text-transform: uppercase;
+    padding-bottom: 0.7vh; border-bottom: 1px solid var(--line);
+  }
+  th:first-child, td:first-child { text-align: left; }
+  td { text-align: right; padding: 0.85vh 0; border-bottom: 1px solid var(--line); }
+  tr:last-child td { border-bottom: 0; }
+  td.seg { color: var(--cool); }
+  td.big { font-weight: 700; }
+  tfoot td { color: var(--ink); font-weight: 700; border-top: 1px solid var(--line); border-bottom: 0; }
+  .locked { font-size: 1.9vh; color: var(--faint); line-height: 1.6; }
+  .locked code { color: var(--dim); }
+</style>
+</head>
+<body>
+<header>
+  <div class="mark">OSKIE<em>WAR</em></div>
+  <div class="spacer"></div>
+  <div class="meta" id="day"></div>
+  <div class="meta" id="freshness"></div>
+</header>
+<main id="pane" style="display:flex;flex-direction:column;gap:var(--gap);flex:1 1 auto;min-height:0"></main>
+
+<script type="module">
+const params = new URLSearchParams(location.search);
+const pane = params.get("pane") === "bottom" ? "bottom" : "top";
+// The wall key rides in the URL because this page is opened by a launcher on one
+// machine, never typed. Without it the reel block is not served at all.
+const key = params.get("key") || "";
+// Same origin by default, so the page works wherever it is served from. The
+// launcher on the wall serves this file locally and points `api` at production.
+const origin = params.get("api") ||
+  (location.protocol.startsWith("http") ? location.origin : "https://oskiewar.com");
+const REFRESH_MS = Number(params.get("every") || 60) * 1000;
+
+const paneEl = document.getElementById("pane");
+const dayEl = document.getElementById("day");
+const freshEl = document.getElementById("freshness");
+
+const num = (value) => (value ?? 0).toLocaleString("en-US");
+const pct = (value) => `${(value * 100).toFixed(1)}%`;
+// Meta reports watch time in milliseconds.
+const secs = (ms) => (ms == null ? "—" : `${(ms / 1000).toFixed(1)}s`);
+
+function tile({ label, value, note, sub }) {
+  const zero = !value || value === "0" ? " zero" : "";
+  return `<div class="tile${sub ? " sub" : ""}">
+    <div class="label">${label}</div>
+    <div class="value${zero}">${value}</div>
+    ${note ? `<div class="note">${note}</div>` : ""}
+  </div>`;
+}
+
+// Zeroes are real answers and must look different from missing data, so an empty
+// bar is drawn as a floor rather than left blank.
+function bars(series, { highlightLast = false } = {}) {
+  const peak = Math.max(1, ...series);
+  return `<div class="bars">${series.map((value, index) => {
+    const height = value ? Math.max(2, (value / peak) * 100) : 1.5;
+    const kind = !value ? " empty" : (highlightLast && index === series.length - 1 ? " now" : "");
+    return `<div class="bar${kind}" style="height:${height}%" title="${value}"></div>`;
+  }).join("")}</div>`;
+}
+
+function splitBar(dummy, human) {
+  const total = dummy + human;
+  if (!total) return `<div class="split"><div style="flex:1" class="dummy">no rounds yet</div></div>`;
+  return `<div class="split">
+    ${dummy ? `<div class="dummy" style="flex:${dummy}">dummy ${Math.round(dummy / total * 100)}%</div>` : ""}
+    ${human ? `<div class="human" style="flex:${human}">player ${Math.round(human / total * 100)}%</div>` : ""}
+  </div>`;
+}
+
+function renderTop(stats) {
+  const today = stats.today;
+  // When today has no play yet, the split still has something true to say — so
+  // it widens to all time and relabels rather than showing an empty bar.
+  const liveSplit = today.rounds > 0;
+  const dummy = liveSplit ? today.dummy : stats.allTime.dummy;
+  const human = liveSplit ? today.localPlayer : stats.allTime.localPlayer;
+  return `
+    <section class="hero">
+      <div class="tiles">
+        ${tile({ label: "rounds today", value: num(today.rounds) })}
+        ${tile({ label: "players today", value: num(today.players) })}
+        ${tile({ label: "pops today", value: num(today.pops) })}
+      </div>
+    </section>
+    <section class="chart">
+      <h2>rounds, last 24 hours <small>each bar one hour, now at right</small></h2>
+      ${bars(stats.hourly, { highlightLast: true })}
+      <div class="axis"><span>24h ago</span><span>12h</span><span>now</span></div>
+    </section>
+    <section>
+      <h2>who was on the other side <small>${liveSplit ? "today" : "all time — nothing played today yet"}</small></h2>
+      ${splitBar(dummy, human)}
+      <div class="legend">
+        <span>matches today <b>${num(today.matches)}</b></span>
+        <span>last round <b>${stats.allTime.latestAt ? new Date(stats.allTime.latestAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "—"}</b></span>
+      </div>
+    </section>`;
+}
+
+function reelRows(reels) {
+  if (!reels) {
+    return `<section class="grow">
+      <h2>instagram reels</h2>
+      <div class="locked">
+        Reel figures are not public, so they are only served to a caller holding
+        the wall key.<br>
+        Set <code>OSKIEWAR_WALL_KEY</code> on lith and add <code>&amp;key=…</code>
+        to this page's URL.
+      </div>
+    </section>`;
+  }
+  const rows = reels.posts.map((post) => {
+    const got = post.insights;
+    return `<tr>
+      <td>${post.day}</td>
+      <td class="seg">${post.segment ?? "—"}</td>
+      <td class="big">${got ? num(got.views) : "—"}</td>
+      <td>${got ? num(got.reach) : "—"}</td>
+      <td>${got ? num(got.total_interactions) : "—"}</td>
+      <td>${got?.ig_reels_avg_watch_time != null ? secs(got.ig_reels_avg_watch_time) : "—"}</td>
+      <td>${got?.reels_skip_rate != null ? `${got.reels_skip_rate}%` : "—"}</td>
+    </tr>`;
+  }).join("");
+  const totals = reels.totals;
+  return `<section class="grow">
+    <h2>instagram reels
+      <small>${reels.live} live · ${reels.measured} measured${reels.measured < reels.live ? " · the rest not yet reported" : ""}</small>
+    </h2>
+    <table>
+      <thead><tr>
+        <th>day</th><th>segment</th><th>views</th><th>reach</th>
+        <th>interactions</th><th>avg watch</th><th>skip</th>
+      </tr></thead>
+      <tbody>${rows || `<tr><td colspan="7">nothing published yet</td></tr>`}</tbody>
+      <tfoot><tr>
+        <td>total</td><td></td>
+        <td>${num(totals.views)}</td><td>${num(totals.reach)}</td>
+        <td>${num(totals.interactions)}</td>
+        <td>${secs(reels.avgWatchTime)}</td><td></td>
+      </tr></tfoot>
+    </table>
+  </section>`;
+}
+
+function renderBottom(stats) {
+  const all = stats.allTime;
+  const daily = stats.daily;
+  return `
+    <section>
+      <div class="tiles">
+        ${tile({ label: "rounds all time", value: num(all.rounds), sub: true })}
+        ${tile({ label: "matches finished", value: num(all.matches), sub: true, note: `${pct(all.completionRatio)} of rounds` })}
+        ${tile({ label: "matches started", value: num(all.series), sub: true })}
+        ${tile({ label: "players ever", value: num(all.players), sub: true, note: "distinct fighters, dummy excluded" })}
+      </div>
+    </section>
+    <section class="grow">
+      <h2>rounds per day <small>${daily.length} days · today at right</small></h2>
+      ${bars(daily.map((row) => row.rounds), { highlightLast: true })}
+      <div class="axis"><span>${daily[0]?.day ?? ""}</span><span>${daily.at(-1)?.day ?? ""}</span></div>
+    </section>
+    ${reelRows(stats.reels)}`;
+}
+
+// The wall must never go blank because a request failed — it keeps the last good
+// figures on screen and says how old they are.
+let lastGood = null;
+let lastAt = null;
+
+function paintFreshness() {
+  if (!lastAt) { freshEl.textContent = "connecting…"; return; }
+  const age = Math.round((Date.now() - lastAt) / 1000);
+  // Two missed polls is the point at which the numbers stop being "now".
+  const stale = age > (REFRESH_MS / 1000) * 2 + 30;
+  freshEl.className = "meta" + (stale ? " stale" : "");
+  freshEl.innerHTML = `<span class="dot"></span>${stale
+    ? `stale · ${age}s since last update`
+    : `updated ${new Date(lastAt).toLocaleTimeString("en-US", { hour12: false })}`}`;
+}
+
+function theme(stats) {
+  const hour = Number(new Intl.DateTimeFormat("en-US", {
+    timeZone: stats?.timezone || "America/Los_Angeles",
+    hour: "numeric", hourCycle: "h23",
+  }).format(new Date()));
+  document.documentElement.dataset.theme =
+    hour >= 7 && hour < 19 ? "light" : "dark";
+}
+
+function paint(stats) {
+  theme(stats);
+  dayEl.textContent = `${stats.day} · ${pane}`;
+  paneEl.innerHTML = pane === "top" ? renderTop(stats) : renderBottom(stats);
+}
+
+async function poll() {
+  const url = new URL("/api/oskiewar-stats", origin);
+  if (key) url.searchParams.set("key", key);
+  try {
+    const response = await fetch(url, { cache: "no-store" });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const stats = await response.json();
+    lastGood = stats;
+    lastAt = Date.now();
+    paint(stats);
+  } catch (error) {
+    // Leave whatever is on screen; freshness is what tells the truth here.
+    if (!lastGood) {
+      paneEl.innerHTML = `<section class="grow"><h2>waiting for ${origin}</h2>
+        <div class="locked">${String(error.message || error)}</div></section>`;
+    }
+  }
+  paintFreshness();
+}
+
+// Set before the first fetch so the error state is dressed for the room too,
+// rather than sitting in the dark default until stats arrive.
+theme(null);
+await poll();
+setInterval(poll, REFRESH_MS);
+// The palette follows the clock, so it has to be re-checked as the day turns.
+setInterval(() => theme(lastGood), 10 * 60 * 1000);
+setInterval(paintFreshness, 5000);
+</script>
+</body>
+</html>

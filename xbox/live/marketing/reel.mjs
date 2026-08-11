@@ -7,6 +7,7 @@
 //   node xbox/live/marketing/reel.mjs --queue            # list what is staged
 //   node xbox/live/marketing/reel.mjs --publish <id>     # dry run by default
 //   node xbox/live/marketing/reel.mjs --publish <id> --live   # actually posts
+//   node xbox/live/marketing/reel.mjs --insights         # pull Meta's numbers
 //
 // A reel is one whole match, recorded at 1080x1920 and never composed on:
 // no plate, no bands, no rescale. Recording waits out the round already in
@@ -21,8 +22,8 @@ import { pickSource, seed32 } from "./source.mjs";
 import { bakeReplay } from "./replay-oven.mjs";
 import { cover, inspect, thumbnail, writeSidecar } from "./dress.mjs";
 import { verifySync } from "./verify.mjs";
-import { appendLedger, dryRun, publishLive, queueDir, readLedger, reveal,
-  segmentReport, uploadPublic } from "./publish.mjs";
+import { appendLedger, dryRun, publishLive, queueDir, readLedger,
+  refreshInsights, reveal, segmentReport, uploadPublic } from "./publish.mjs";
 import { repo } from "./shell.mjs";
 import { dress, segments, share } from "./segments.mjs";
 
@@ -167,6 +168,14 @@ async function main() {
     return;
   }
   if (flags.report) {
+    log(JSON.stringify(segmentReport(), null, 2));
+    return;
+  }
+  // Pulling every live post each time is cheap and keeps the ledger a snapshot
+  // of now rather than a patchwork of whenever each reel was last asked about.
+  if (flags.insights) {
+    const refreshed = await refreshInsights(process.env.OSKIEWAR_IG_TOKEN, { log });
+    log(`📊 ${refreshed.length} reel(s) refreshed`);
     log(JSON.stringify(segmentReport(), null, 2));
     return;
   }

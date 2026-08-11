@@ -12,7 +12,29 @@ import { connect } from "../../backend/database.mjs";
 import { respond } from "../../backend/http.mjs";
 
 const COLLECTION = "oskiewar-pops";
+// Individual pops are swept after two days, which is all the window logic below
+// ever needs. But a total that resets every two days is not a total, so each pop
+// also increments a per-day counter that is never swept. One extra small upsert
+// on the hottest path buys a history that would otherwise be unrecoverable —
+// and it has to be written now, because a day that has already been swept can
+// never be counted again.
+const DAYS_COLLECTION = "oskiewar-pop-days";
 const HOUR = 60 * 60 * 1000;
+// The wall, the site and the day counters must agree on where a day ends, so the
+// boundary is defined once, here, and imported by anything that buckets by day.
+export const WALL_TIMEZONE = process.env.OSKIEWAR_WALL_TIMEZONE ||
+  "America/Los_Angeles";
+
+// A calendar day in the room, not in UTC — asked of Intl so it matches the keys
+// Mongo produces from the same timezone with `$dateToString`.
+export function localDay(instant, timeZone = WALL_TIMEZONE) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone, year: "numeric", month: "2-digit", day: "2-digit",
+  }).formatToParts(instant);
+  const value = {};
+  for (const part of parts) value[part.type] = part.value;
+  return `${value.year}-${value.month}-${value.day}`;
+}
 // The longest window the statistic will ever quote, and so the longest a row
 // is worth keeping. An hour of slack past it covers the sweep's own latency.
 export const MAX_HOURS = 48;
@@ -66,7 +88,16 @@ export async function handler(event) {
         await database.disconnect();
         return respond(429, { error: "Pop rate limit reached" });
       }
-      await collection.insertOne({ at: new Date(now), sourceDigest: digest });
+      const at = new Date(now);
+      await collection.insertOne({ at, sourceDigest: digest });
+      // Counted after the pop is stored, so a failed rollup cannot invent a pop
+      // that never happened — the reverse, a stored pop missing from the day
+      // total, is the error worth preferring.
+      await database.db.collection(DAYS_COLLECTION).updateOne(
+        { _id: localDay(at) },
+        { $inc: { pops: 1 }, $set: { updatedAt: at } },
+        { upsert: true },
+      ).catch(() => {});
       await database.disconnect();
       return respond(201, { ok: true });
     }
