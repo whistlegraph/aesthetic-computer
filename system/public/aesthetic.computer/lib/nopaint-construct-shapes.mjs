@@ -16,6 +16,8 @@ export const SHAPE = frozen({
   shakeSeconds: 1,
   jitter: frozen([-1, 0, 1]),
   jitterCue: "common - jitter",
+  // TriangleRender fills twice: the shadow at exactly +1, +1, then the shape.
+  shadowOffset: 1,
   // Ellipse's width and height are ProcessNumericParameter(n, 3, 255) — three
   // is the floor, not zero.
   minimumSize: 3,
@@ -70,7 +72,7 @@ export const triangleProposal = frozen({
   source: frozen({ ...SHAPE, actionSheet: "Triangle",
     parameters: frozen(["x1", "y1", "x2", "y2", "x3", "y3", "colour"]),
     cue: "triangle - start",
-    reconstructed: frozen(["the shadow offset"]) }),
+    renderFunction: "TriangleRender" }),
   generate({ random, width, height, base }) {
     const points = frozen(Array.from({ length: 3 }, () => frozen({
       x: Math.floor(random() * width), y: Math.floor(random() * height),
@@ -87,8 +89,11 @@ export const triangleProposal = frozen({
     const drift = shakeAt(score, 6, tick);
     const corners = score.points.map(({ x, y }, index) =>
       [x + drift[index * 2], y + drift[index * 2 + 1]]);
-    ink(score.shadow).poly(corners.map(([x, y]) => [x + 2, y + 2]));
-    ink(score.color).poly(corners);
+    // Construct fills both passes; `shape` fills by default where `poly` only
+    // outlines, which is what made this read as three stray lines.
+    const offset = SHAPE.shadowOffset;
+    ink(score.shadow).shape(corners.map(([x, y]) => [x + offset, y + offset]));
+    ink(score.color).shape(corners);
   },
 });
 
@@ -100,7 +105,7 @@ export const ellipseProposal = frozen({
   source: frozen({ ...SHAPE, actionSheet: "Ellipse",
     parameters: frozen(["x", "y", "width", "height", "colour"]),
     cue: "elipse - start", // The original file name is misspelled; keep it.
-    reconstructed: frozen(["the shadow offset"]) }),
+    renderFunction: "EllipseRender" }),
   generate({ random, width, height, base }) {
     const size = (extent) => Math.max(SHAPE.minimumSize,
       Math.floor(SHAPE.minimumSize + random() * (extent - SHAPE.minimumSize)));
@@ -116,7 +121,8 @@ export const ellipseProposal = frozen({
     // x, y, and w all shake; h is the one coordinate the sheet leaves alone.
     const [driftX, driftY, driftW] = shakeAt(score, 3, tick);
     const rx = Math.max(SHAPE.minimumSize / 2, score.rx + driftW / 2);
-    ink(score.shadow).oval(score.cx + driftX + 2, score.cy + driftY + 2,
+    const offset = SHAPE.shadowOffset;
+    ink(score.shadow).oval(score.cx + driftX + offset, score.cy + driftY + offset,
       rx * 2, score.ry * 2, true);
     ink(score.color).oval(score.cx + driftX, score.cy + driftY,
       rx * 2, score.ry * 2, true);

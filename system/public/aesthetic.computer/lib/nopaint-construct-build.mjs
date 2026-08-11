@@ -82,6 +82,35 @@ function fill(layer, x, y, w, h, color, alpha) {
   }
 }
 
+// Scanline fill of a convex quad — the banner's ribbon segment.
+function quad(layer, points, color) {
+  const top = Math.max(0, Math.floor(Math.min(...points.map((p) => p[1]))));
+  const bottom = Math.min(layer.height - 1, Math.ceil(Math.max(...points.map((p) => p[1]))));
+  for (let y = top; y <= bottom; y += 1) {
+    let left = Infinity;
+    let right = -Infinity;
+    for (let index = 0; index < points.length; index += 1) {
+      const [ax, ay] = points[index];
+      const [bx, by] = points[(index + 1) % points.length];
+      if ((ay <= y && by > y) || (by <= y && ay > y)) {
+        const x = ax + (y - ay) / (by - ay) * (bx - ax);
+        left = Math.min(left, x);
+        right = Math.max(right, x);
+      }
+    }
+    if (left > right) continue;
+    const start = Math.max(0, Math.round(left));
+    const end = Math.min(layer.width - 1, Math.round(right));
+    for (let x = start; x <= end; x += 1) {
+      const at = (y * layer.width + x) * 4;
+      layer.pixels[at] = color[0];
+      layer.pixels[at + 1] = color[1];
+      layer.pixels[at + 2] = color[2];
+      layer.pixels[at + 3] = 255;
+    }
+  }
+}
+
 const layers = new WeakMap();
 function layerFor(score) {
   let state = layers.get(score);
@@ -157,7 +186,7 @@ export const bannerProposal = frozen({
   source: frozen({ ...BANNER, actionSheet: "Banner",
     imagePoints: frozen(["BaseLeft", "BaseRight", "TopLeft", "TopRight",
       "BottomLeft", "BottomRight"]),
-    reconstructed: frozen(["the ribbon's quad geometry"]) }),
+    reconstructed: frozen(["the ribbon's quad geometry", "the advance per step"]) }),
   generate({ random, width, height, base }) {
     const size = choose(random, BANNER.sizes);
     const speed = choose(random, BANNER.speeds);
@@ -185,6 +214,7 @@ export const bannerProposal = frozen({
     const due = 1 + Math.floor(tick / 60 / BANNER.drawSeconds);
     if (state.placed === 0) {
       state.angle = score.startAngle;
+      state.target = score.startAngle;
       state.x = score.x;
       state.y = score.y;
     }
@@ -192,14 +222,32 @@ export const bannerProposal = frozen({
     while (state.placed < steps) {
       state.placed += 1;
       // Draw and Turn share a tenth-second beat, so every laid segment also
-      // turns by one of choose(-45, 45, -15, 15).
+      // turns by one of choose(-45, 45, -15, 15). The banner is a ribbon of
+      // width `band` between successive cross-sections — its six image points
+      // are BaseLeft/BaseRight and the two corners at each end — so lay a quad
+      // rather than a loose square, or it reads as confetti.
       const radians = state.angle * Math.PI / 180;
-      state.x += Math.cos(radians) * score.speed * score.depth;
-      state.y += Math.sin(radians) * score.speed * score.depth;
-      fill(state.layer, state.x - score.band / 2, state.y - score.band / 2,
-        score.band, score.band,
-        state.placed % 2 ? score.dark : score.light, 255);
-      state.angle += choose(state.random, BANNER.turns);
+      const from = { x: state.x, y: state.y };
+      // The sheet gives speed and depth but not a distance — speed feeds the
+      // theme's playback rate, and depth reads as a layer count. Advancing by
+      // the band width is what keeps the ribbon a ribbon instead of a row of
+      // loose squares, so that is the reconstructed part.
+      const advance = score.band;
+      state.x += Math.cos(radians) * advance;
+      state.y += Math.sin(radians) * advance;
+      const across = radians + Math.PI / 2;
+      const half = score.band / 2;
+      const dx = Math.cos(across) * half;
+      const dy = Math.sin(across) * half;
+      quad(state.layer, [
+        [from.x + dx, from.y + dy], [from.x - dx, from.y - dy],
+        [state.x - dx, state.y - dy], [state.x + dx, state.y + dy],
+      ], state.placed % 2 ? score.dark : score.light);
+      // turnAngle is a target the banner rotates toward, not a per-step snap:
+      // snapping ±45° every tenth of a second makes a scribble, not a banner.
+      if (state.placed % 8 === 0) state.target = state.angle + choose(state.random, BANNER.turns);
+      const toward = ((state.target - state.angle + 540) % 360) - 180;
+      state.angle += Math.sign(toward) * Math.min(Math.abs(toward), 6);
     }
     paste(state.layer, 0, 0);
   },

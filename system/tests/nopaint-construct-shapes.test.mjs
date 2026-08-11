@@ -44,11 +44,13 @@ test("both shapes are deterministic and draw a shadow under themselves", () => {
     const inks = [];
     const ink = (...color) => {
       inks.push(color.length === 1 ? color[0] : color);
-      return { poly() {}, oval() {} };
+      // Construct fills both passes, so Triangle uses `shape`, not `poly`.
+      return { shape() {}, oval() {} };
     };
     contract.render({ ink }, score, 0);
     assert.deepEqual(inks[0], score.shadow, `${contract.slug} lays its shadow first`);
     assert.deepEqual(inks[1], score.color, `${contract.slug} draws over it`);
+    assert.equal(SHAPE.shadowOffset, 1, "TriangleRender offsets the shadow by one");
   }
 });
 
@@ -57,7 +59,7 @@ test("the shake moves every coordinate by one step a second", () => {
   const corners = (tick) => {
     const drawn = [];
     triangleProposal.render({
-      ink: () => ({ poly: (points) => drawn.push(points) }),
+      ink: () => ({ shape: (points) => drawn.push(points) }),
     }, score, tick);
     return drawn[1]; // The shape itself, not its shadow.
   };

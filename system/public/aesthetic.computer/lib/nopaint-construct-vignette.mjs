@@ -49,7 +49,7 @@ export function hslaToRgba(hue, saturation, lightness) {
   return frozen([r, g, b].map((channel) => Math.round((channel + base) * 255)));
 }
 
-// One soft radial field, opaque inside `hardness` and falling to nothing at the
+// A soft radial field, opaque inside `hardness` and falling to nothing at the
 // rim — the same ramp Softy stamps, drawn once and large.
 function field(layer, centerX, centerY, radius, hardness, color, peak) {
   const falloff = Math.max(1, radius - hardness);
@@ -95,6 +95,8 @@ export const vignetteProposal = frozen({
   compatible: true,
   source: frozen({ ...VIGNETTE, actionSheet: "Vignette",
     // Construct tweened Radius and Hardness; the proposal holds one pose.
+    effect: "Vignette",
+    vehicle: "VignetteVehicle",
     reconstructed: frozen(["the radius/hardness tween"]) }),
   generate({ random, width, height, base }) {
     const size = choose(random, VIGNETTE.sizes);
@@ -118,7 +120,23 @@ export const vignetteProposal = frozen({
   },
   render({ paste }, score, tick) {
     const layer = layerFor(score, (target) => {
-      field(target, score.x, score.y, score.radius, score.hardness, score.color, 200);
+      // Construct's Vignette effect darkens *away* from its centre: the
+      // painting stays clear around the vehicle and closes in past the radius.
+      // Drawing it as a soft spot, which is what this did first, is the
+      // opposite picture.
+      const falloff = Math.max(1, score.radius - score.hardness);
+      for (let y = 0; y < target.height; y += 1) {
+        for (let x = 0; x < target.width; x += 1) {
+          const distance = Math.hypot(x - score.x, y - score.y);
+          if (distance <= score.hardness) continue;
+          const alpha = Math.min(1, (distance - score.hardness) / falloff) * 235;
+          const at = (y * target.width + x) * 4;
+          target.pixels[at] = score.color[0];
+          target.pixels[at + 1] = score.color[1];
+          target.pixels[at + 2] = score.color[2];
+          target.pixels[at + 3] = alpha;
+        }
+      }
     });
     paste(layer, 0, 0);
   },
@@ -144,7 +162,8 @@ export const auraProposal = frozen({
     const petals = Math.max(2, Math.round(rate * 4));
     return frozen({ ...base, kind: "aura",
       spray, rate, angle, petals,
-      radius: Math.max(4, between(random, [25, 120]) * scale),
+      // The emitter's own radius range; a bloom this size actually reads.
+      radius: Math.max(24, between(random, [25, 120]) * scale),
       color: hslaToRgba(hue, saturation, Math.min(.9, lightness)),
       x: Math.floor(random() * width), y: Math.floor(random() * height),
       width, height,
@@ -155,17 +174,22 @@ export const auraProposal = frozen({
   },
   render({ paste }, score, tick) {
     const layer = layerFor(score, (target) => {
-      // The emitter sprays through `spray` degrees around `angle` at `rate`.
+      // The emitter sprays `spray` degrees wide around `angle`. Particles are
+      // laid along each ray so the bloom reads as spray rather than as blobs.
       for (let petal = 0; petal < score.petals; petal += 1) {
         const offset = (petal / Math.max(1, score.petals - 1) - .5) * score.spray;
         const radians = (score.angle + offset) * Math.PI / 180;
-        const reach = score.radius * (.4 + .6 * (petal % 3) / 2);
-        field(target,
-          score.x + Math.cos(radians) * reach,
-          score.y + Math.sin(radians) * reach,
-          score.radius / 2, score.radius / 8, score.color, 90);
+        for (let along = 1; along <= 5; along += 1) {
+          const reach = score.radius * along / 5;
+          const size = score.radius / 3 * (1 - along / 8);
+          field(target,
+            score.x + Math.cos(radians) * reach,
+            score.y + Math.sin(radians) * reach,
+            size, size / 4, score.color, 150 - along * 18);
+        }
       }
-      field(target, score.x, score.y, score.radius / 2, 0, score.color, 140);
+      field(target, score.x, score.y, score.radius / 2, score.radius / 6,
+        score.color, 190);
     });
     paste(layer, 0, 0);
   },

@@ -100,26 +100,73 @@ export const walkerProposal = frozen({
   source: frozen({ actionSheet: "Walker", object: "WalkerElla",
     animations: walkerAnimations, movement: "reconstructed from fromTop/fromRight/step" }),
   generate({ random, width, height, base }) {
-    const name = String(1 + Math.floor(random() * 9));
-    const fromTop = random() < .5;
-    const fromRight = random() < .5;
-    const scale = .35 + random() * .65;
-    return frozen({ ...base, kind: "walker", animation: name, fromTop, fromRight,
-      start: frozen({ x: fromRight ? width : 0, y: fromTop ? 0 : height }),
-      step: 1 + random() * 2, scale, width, height,
-      brush: frozen({ slug: "walker", params: frozen([name]), colon: frozen([]),
-        parameters: frozen({ animation: name, fromTop, fromRight, step: true, scale }) }) });
+    return frozen({ ...base, kind: "walker",
+      seed: Math.floor(random() * 0xffffffff), width, height,
+      brush: frozen({ slug: "walker", params: frozen([]), colon: frozen([]),
+        parameters: frozen({ scales: WALKER_SCALES, respawnSeconds: 1 }) }) });
   },
   render(api, score, tick) {
-    const animation = walkerAnimations[score.animation];
+    const life = walkerLife(score, tick);
+    if (!life) return;
+    const animation = walkerAnimations[life.animation];
     const sprite = animation.frames[Math.floor(tick * animation.fps / 60) % animation.frames.length];
-    const travel = tick * score.step;
-    const x = score.fromRight ? score.width - travel : travel;
-    const y = score.fromTop ? travel : score.height - travel;
-    if (!spritePaste(api, sprite, x, y, score.scale))
+    const { x, y } = walkerPlace(life);
+    if (!spritePaste(api, sprite, x, y, life.scale))
       api.ink(score.color).box(x - 3, y - 3, 6, 6);
   },
 });
+
+// WalkerSetup picks a fresh animation and scale every time, and a repeating one
+// second "CheckWalkerBounds" timer calls it again the moment the walker leaves
+// the layout. Without that respawn a proposal is empty after a second or two.
+export const WALKER_SCALES = frozen([.5, .75, 1, 1, 1, 1, 1.25]);
+
+// step = max(3, max(2, frameWidth / 8) - 2), off the sheet.
+const walkerStep = (sprite) => Math.max(3, Math.max(2, sprite.w / 8) - 2);
+
+function walkerLife(score, tick) {
+  let state = (score.seed >>> 0 || 1);
+  const random = () => {
+    state += 0x6d2b79f5;
+    let value = state;
+    value = Math.imul(value ^ (value >>> 15), value | 1);
+    value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
+    return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
+  };
+  let elapsed = 0;
+  // 512 crossings is far more than a proposal will ever be watched for.
+  for (let index = 0; index < 512; index += 1) {
+    const animation = String(1 + Math.floor(random() * 9));
+    const scale = WALKER_SCALES[Math.floor(random() * WALKER_SCALES.length)];
+    // The sheet walks one axis and wobbles the other; `vertical` is which.
+    const vertical = random() < .5;
+    const forward = random() < .5;
+    const wobble = random();
+    const sprite = walkerAnimations[animation].frames[0];
+    const step = walkerStep(sprite) * scale;
+    const reach = vertical ? score.height : score.width;
+    const span = reach + Math.max(sprite.w, sprite.h) * scale * 2;
+    const frames = Math.max(1, Math.ceil(span / step));
+    if (tick < elapsed + frames) {
+      const travel = (tick - elapsed) * step - Math.max(sprite.w, sprite.h) * scale;
+      const across = (vertical ? score.width : score.height) * wobble;
+      return { animation, scale, vertical, forward, step, travel, across, score };
+    }
+    elapsed += frames;
+  }
+  return null;
+}
+
+// One axis moves by `step`; the other drifts by choose(-step/4, 0, 0, 0, step/4)
+// — mostly nothing, occasionally a quarter step sideways.
+function walkerPlace(life) {
+  const { score, travel, across } = life;
+  const lead = life.forward ? travel : (life.vertical ? score.height : score.width) - travel;
+  const drift = Math.sin(travel / 24) * life.step / 4;
+  return life.vertical
+    ? { x: across + drift, y: lead }
+    : { x: lead, y: across + drift };
+}
 
 // Construct starts frameIndex at 1 and runs a repeating one second "CycleFrame"
 // timer: knock, then frameIndex = (frameIndex + 1) % AnimationFrameCount. At

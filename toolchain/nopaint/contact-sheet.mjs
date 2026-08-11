@@ -35,6 +35,7 @@ function apiFor(assets) {
         oval: (...a) => graph.oval(...a),
         line: (...a) => graph.line(...a),
         poly: (...a) => graph.poly(...a),
+        shape: (...a) => graph.shape(...a),
       };
     },
   };
