@@ -1577,52 +1577,47 @@ The twenty-five most-viewed posts:
 
 
 
-## A rough spine
-
-- **2019** — The form is invented.
-- **2020** — The trio forms in a cabin in Ashland.
-- **2021** — Rhizome commissions *The Longest Whistlegraph Ever (So Far)*.
-- **2022** — *Ten Whistlegraphs* at Feral File. The New Museum. Taipei Dangdai.
-- **2023** — The zine (Sex Magazine, 750 copies).
-- **2026** — The full archive opens at whistlegraph.org.
-
 ## Lectures, shows & press
 
-**Talks & lectures**
-
-- [New Dynamic Graphics — HCI Korea 2020 keynote](https://www.youtube.com/watch?v=upgQTJtBeL4) — 2020
-- [New Dynamic Graphics — India HCI 2019](https://www.youtube.com/watch?v=Q0fRogwoGt0) — 2019
-- [Art for COVID Relief India — workshop](https://assets.aesthetic.computer/whistlegraph/lectures/art-for-covid-relief-india.mp4) — 2021
-- [What is a Picture? — college lecture](https://www.youtube.com/watch?v=vXUfFexHuLw) — 2020
-- [Radical Digital Painting — 35c3, Leipzig](https://media.ccc.de/v/35c3-9774-radical_digital_painting) — 2018
-- [Gazelli Connect Live](https://gazelliarthouse.com/news/gazelli-connect-live-jeffrey-alan-scudder/) — 2020
-
-**Performances & streams**
+**Appearances** — talks, performances, and streams in one list. The line between
+a lecture and a performance was never clean for this work, so the site stopped
+drawing one.
 
 - [*Ars Scientia Presents*](https://arsscientia.online/) — KAJE, Brooklyn, New York — 2023
-- *Presenting Whistlegraphs* — New York Times Building, New York — 2023
-- [Whistlegraph LIVE](https://www.youtube.com/watch?v=vCkTJrLVTLY) — the nightly streams — spring 2020
+- *Presenting Whistlegraphs* — New York Times Building, New York, New York — 2023
+- [*Bananskolen + Whistlegraph + Fanfare voor Vooruitstrevende Volksmuziek*](https://occii.org/events/bananskolen-goodiepal-pals/) — OCCII, Amsterdam, Netherlands — 2021
+- *Narc Beacon 20th Anniversary Jubilee* — Valby Kulturhus, Copenhagen, Denmark — 2021
+- *Whistlegraph Performs During a Photography Exhibition* — Gæsteværelset, Copenhagen, Denmark — 2021
+- [*Carnivalesca*](https://www.youtube.com/watch?v=YXUUCkqv2LY) — Kunstverein Hamburg, Hamburg, Germany, remote — 2021
 - [Whistlegraph LIVE: Cat Charmer](https://www.youtube.com/watch?v=uKMtpKTAytU) — 2021
-- [Recital @ Kunstverein Hamburg](https://www.youtube.com/watch?v=YXUUCkqv2LY) — 2021
 - [Live in Copenhagen](https://www.youtube.com/watch?v=wAyFF1bX2tM) — 2021
-- [The Longest Whistlegraph Ever (So Far)](https://sites.rhizome.org/the-longest-whistlegraph-ever-so-far/about/) — Rhizome commission / [New Museum First Look](https://www.newmuseum.org/exhibition/first-look-the-longest-whistlegraph-ever-so-far/) / FR MoCA, Fall River, Massachusetts — 2022
+- *Whistlegraph Lecture* — RISD, Providence, Rhode Island — 2021
+- *Whistlegraph Lecture* — Willem de Kooning Academie, Rotterdam, Netherlands — 2021
+- [*Virtual Creative Industries Discussion: Whistlegraph*](https://sma.sou.edu/virtual-creative-industries-discussion-whistlegraph/) — Schneider Museum of Art, remote — 2021
+- [Whistlegraph LIVE](https://www.youtube.com/watch?v=vCkTJrLVTLY) — the nightly streams — spring 2020
+- [New Dynamic Graphics — HCI Korea 2020 keynote](https://www.youtube.com/watch?v=upgQTJtBeL4) — 2020
+- [What is a Picture? — college lecture](https://www.youtube.com/watch?v=vXUfFexHuLw) — 2020
+- [Gazelli Connect Live](https://gazelliarthouse.com/news/gazelli-connect-live-jeffrey-alan-scudder/) — 2020
+- [New Dynamic Graphics — India HCI 2019](https://www.youtube.com/watch?v=Q0fRogwoGt0) — 2019
+- [Radical Digital Painting — 35c3, Leipzig](https://media.ccc.de/v/35c3-9774-radical_digital_painting) — 2018
 
 **Exhibitions**
 
 - [Ten Whistlegraphs](https://feralfile.com/exhibitions/ten-whistlegraphs-thv) — Feral File — 2022
-- [First Look](https://www.newmuseum.org/exhibition/first-look-the-longest-whistlegraph-ever-so-far/) — The New Museum — 2022
+- [The Longest Whistlegraph Ever (So Far)](https://sites.rhizome.org/the-longest-whistlegraph-ever-so-far/about/) — Rhizome commission / [New Museum First Look](https://www.newmuseum.org/exhibition/first-look-the-longest-whistlegraph-ever-so-far/) / FR MoCA, Fall River, Massachusetts — 2022 ([trailer](https://www.youtube.com/watch?v=PN0H4fWafMk), [editorial](https://rhizome.org/editorial/2022/sep/13/first-look-the-longest-whistlegraph-ever-so-far/))
 - [Schneider Museum of Art](https://sma.sou.edu/whistlegraph/) — Ashland — 2021
 - [School of Truth](https://www.youtube.com/watch?v=eD-6j1cNgMo) — Galerie Yeche Lange — 2022
 - Taipei Dangdai — 2022
 
-**Workshops**
+**Workshops & public programs**
 
+- [*Art Hangout with Whistlegraph*](https://assets.aesthetic.computer/whistlegraph/lectures/art-for-covid-relief-india.mp4) — Art for COVID Relief, India, remote — 2021
 - [Write a Whistlegraph](https://rhizome.org/editorial/2022/mar/02/apply-to-whistlegraph-workshops/) with Rhizome — 2022 ([documentation](https://rhizome.org/editorial/2022/oct/05/write-a-whistlegraph-workshop-documentation/))
+- [*Art Beyond Festival*](https://sma.sou.edu/free-family-days-with-whistlegraph/) — Schneider Museum of Art, Ashland, Oregon — 2021
 
 **Press & writing**
 
 - [What is a Whistlegraph?](https://dirt.fyi/article/2023/09/whistlegraph) — Dirt — 2023
-- [First Look](https://rhizome.org/editorial/2022/sep/13/first-look-the-longest-whistlegraph-ever-so-far/) — Rhizome editorial — 2022
 - [Doodling Clockwork in Lore and Score](https://feralfile.com/journal/close-up/whistlegraph-doodling-clockwork-in-lore-and-score) — Dorothy Howard, Feral File — 2022
 
 **Papers**
