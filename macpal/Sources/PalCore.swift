@@ -77,6 +77,16 @@ struct PalConfig {
     var colorFile: String { supportDir + "/color" }
     var avatar2DFlag: String { supportDir + "/avatar2d" }   // present ⇒ 2D mode
     var noteSignalFile: String { noteSignalDir + "/note" }
+    var agentFile: String { supportDir + "/agent" }         // resident agent name (e.g. "iris" on panda)
+}
+
+/// Resolve the agent-contact avatar for `name`. Artwork staged in the support
+/// dir wins (updatable over the wire, no recompile), else the bundled
+/// `agent-<name>.png` fallback. Nil means no artwork — the chip stays hidden.
+func resolveAgentAvatar(name: String, supportDir: String) -> String? {
+    let staged = supportDir + "/agent-\(name).png"
+    if FileManager.default.fileExists(atPath: staged) { return staged }
+    return Bundle.main.path(forResource: "agent-\(name)", ofType: "png")
 }
 
 // ── plugin protocol ─────────────────────────────────────────────────────────
@@ -114,6 +124,12 @@ final class PassThroughView: NSView {
         for r in liveRects where r.contains(p) { return super.hitTest(p) }
         return nil
     }
+}
+
+// Display-only image: the agent-contact disc overlaps the glyph, whose clicks
+// belong to the pal (collapse toggle, drag) — never to the artwork.
+final class GhostImageView: NSImageView {
+    override func hitTest(_ p: NSPoint) -> NSView? { nil }
 }
 
 // The pal is also his own handle: press-and-move drags the whole window, a still
@@ -303,6 +319,13 @@ final class PalController: NSObject {
     var glyphState = 0
     let nameLabel = WiggleLabel()
     let microLabel = NSTextField(labelWithString: "")
+    // Agent contact — the machine's resident agent (Iris on panda), declared in
+    // the plain <supportDir>/agent file and worn as a small avatar disc tucked
+    // into the glyph's corner, contact-card style. File-driven like everything
+    // else on the badge: no recompile to adopt, change, or retire an agent.
+    let agentChip = GhostImageView()
+    var agentName = ""
+    private var agentTicks = 0
     var draggingBadge = false
     var hovering = false
     // Menu Band "sing" easter egg state.
@@ -429,6 +452,15 @@ final class PalController: NSObject {
         content.addSubview(nameLabel)
         content.addSubview(microLabel)
 
+        agentChip.imageScaling = .scaleProportionallyUpOrDown
+        agentChip.wantsLayer = true
+        agentChip.layer?.masksToBounds = true
+        agentChip.layer?.borderWidth = 1.5
+        agentChip.layer?.borderColor = accent.cgColor
+        agentChip.layer?.backgroundColor = NSColor.white.cgColor
+        agentChip.isHidden = true
+        content.addSubview(agentChip)
+
         // Plugins build their rows before the click-catcher so they sit beneath it.
         for p in plugins { p.attach(to: self) }
 
@@ -464,8 +496,10 @@ final class PalController: NSObject {
         // Plugins poll on their own cadence off a 1s tick (cheap; each gates itself).
         Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
             self?.plugins.forEach { $0.tick() }
+            self?.tickAgentContact()
         }
         plugins.forEach { $0.tick() }   // first fill immediately
+        refreshAgentContact()
         NotificationCenter.default.addObserver(self, selector: #selector(layout),
             name: NSApplication.didChangeScreenParametersNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(accentChanged),
@@ -488,6 +522,33 @@ final class PalController: NSObject {
                           fill: .white, stroke: NSColor(white: 0.08, alpha: 1), strokeW: 4)
         glyphView?.needsDisplay = true
         microLabel.needsDisplay = true
+        agentChip.layer?.borderColor = accent.cgColor
+    }
+
+    // ── agent contact ─────────────────────────────────────────────────────
+    // Same file contract as the rest of the badge: <supportDir>/agent names the
+    // machine's resident agent; artwork resolves wire-first, then the bundle.
+    // Absent, empty, or artless names simply keep the chip hidden.
+    private func tickAgentContact() {
+        agentTicks += 1
+        if agentTicks % 5 == 0 { refreshAgentContact() }
+    }
+
+    func refreshAgentContact() {
+        let raw = (try? String(contentsOfFile: config.agentFile, encoding: .utf8)) ?? ""
+        let name = raw.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard name != agentName else { return }
+        agentName = name
+        guard !name.isEmpty,
+              let path = resolveAgentAvatar(name: name, supportDir: config.supportDir),
+              let image = NSImage(contentsOfFile: path) else {
+            agentChip.image = nil
+            agentChip.isHidden = true
+            return
+        }
+        agentChip.image = image
+        agentChip.toolTip = name
+        layout()
     }
 
     // ── glyph art ─────────────────────────────────────────────────────────
@@ -895,6 +956,7 @@ final class PalController: NSObject {
             microChipRect = NSRect(x: 0, y: 0, width: totalW, height: micro)
             clickCatcher.frame = microChipRect
             content.liveRects = [microChipRect]
+            agentChip.isHidden = true
             plugins.forEach { $0.setCollapsed(true) }
             if let l = glyphView.layer {
                 l.anchorPoint = CGPoint(x: 0.5, y: 0.5)
@@ -934,6 +996,18 @@ final class PalController: NSObject {
         let gw: CGFloat = (glyphView is NSImageView) ? glyphW : win
         glyphView.frame = NSRect(x: (win - gw) / 2, y: glyphY, width: gw, height: glyphH)
         nameLabel.frame = NSRect(x: 0, y: nameY, width: win, height: nameH)
+        // Agent contact disc, tucked into the glyph's lower-right — where a
+        // messaging app pins a contact's presence. Re-adding keeps it above a
+        // glyph that rebuildGlyph() may have re-stacked.
+        agentChip.isHidden = agentChip.image == nil
+        if agentChip.image != nil {
+            let disc: CGFloat = 30
+            agentChip.frame = NSRect(x: glyphView.frame.maxX - disc + 8,
+                                     y: glyphView.frame.minY + 2,
+                                     width: disc, height: disc)
+            agentChip.layer?.cornerRadius = disc / 2
+            content.addSubview(agentChip, positioned: .above, relativeTo: glyphView)
+        }
         clickCatcher.frame = glyphView.frame
         content.liveRects = [glyphView.frame]
         // Plugins lay their rows out bottom-up from y=12 and append any live rects.

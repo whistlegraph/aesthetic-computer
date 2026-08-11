@@ -35,6 +35,11 @@ cp Resources/Info.plist "$APP/Contents/Info.plist"
 # Resources/ are source the fuser installer (macpal/fuser/install.sh) stages
 # on-device — they're loaded from disk, not the bundle.
 cp Resources/star-*.svg "$APP/Contents/Resources/"
+# Agent-contact avatars (Iris on panda) ride in every bundle as fallback art;
+# a wire-staged <supportDir>/agent-<name>.png still wins at runtime.
+for f in Resources/agent-*.png; do
+    [[ -f "$f" ]] && cp "$f" "$APP/Contents/Resources/"
+done
 [[ -f Resources/AppIcon.icns ]] && cp Resources/AppIcon.icns "$APP/Contents/Resources/"
 TRACKDRUM_APP="../slab/tracktramp/build/TrackDrum.app"
 if [[ -d "$TRACKDRUM_APP" ]]; then

@@ -193,6 +193,26 @@ if let snapPath = argValue("--snapshot") {
     exit(0)
 }
 
+// Headless agent-contact contract check: wire-staged artwork must beat the
+// bundled fallback, unknown agents resolve to nothing, and a bundle that
+// carries agent art must actually decode.
+if argv.contains("--test-agent-chip") {
+    let tmp = NSTemporaryDirectory() + "macpal-agent-test-\(getpid())"
+    try? FileManager.default.createDirectory(atPath: tmp, withIntermediateDirectories: true)
+    precondition(resolveAgentAvatar(name: "nobody-here", supportDir: tmp) == nil)
+    let staged = tmp + "/agent-iris.png"
+    FileManager.default.createFile(atPath: staged, contents: Data([0x89]))
+    precondition(resolveAgentAvatar(name: "iris", supportDir: tmp) == staged)
+    if let bundled = Bundle.main.path(forResource: "agent-iris", ofType: "png") {
+        precondition(NSImage(contentsOfFile: bundled) != nil)
+        print("agent-chip contract ✓ (bundled iris art present)")
+    } else {
+        print("agent-chip contract ✓ (no bundled art in this build)")
+    }
+    try? FileManager.default.removeItem(atPath: tmp)
+    exit(0)
+}
+
 // Headless contract smoke test used by CI/local verification. It exercises the
 // Swift renderer model without opening a Macpal window.
 if argv.contains("--test-loopboy-heartbeat") {

@@ -29,6 +29,10 @@ cp Resources/Info.plist "$APP/Contents/Info.plist"
 # Only the star's art ships; fuser machine glyphs in Resources/ are installer
 # source (macpal/fuser), loaded from disk on the fleet, not from the bundle.
 cp Resources/star-*.svg "$APP/Contents/Resources/"
+# Agent-contact avatars (Iris on panda) ship in every bundle as fallback art.
+for f in Resources/agent-*.png; do
+    [[ -f "$f" ]] && cp "$f" "$APP/Contents/Resources/"
+done
 cp Resources/AppIcon.icns "$APP/Contents/Resources/"
 
 echo "› building signed TrackDrum helper"
