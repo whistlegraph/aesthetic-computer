@@ -552,13 +552,74 @@ const botFighter = { handle: "BOT", color: [205, 48, 72], colors: [],
 const peopleFighter = { handle: "PPL", color: [116, 122, 136], colors: [],
   mood: "", lastChat: "" };
 // Self-play needs two nameplates nobody can mix up, or the result card reads
-// "BOT WINS" with no way to tell which bot won.
+// "BOT WINS" with no way to tell which bot won. The colors here are only the
+// fallback — each round deals fresh ones from the CSS color book below.
 const selfPlayFighters = [
   { handle: "BOT 1", color: [205, 48, 72], colors: [],
     mood: "MECHANICAL TEST · SELF PLAY", lastChat: "" },
   { handle: "BOT 2", color: [48, 118, 205], colors: [],
     mood: "MECHANICAL TEST · SELF PLAY", lastChat: "" },
 ];
+
+// Self-play dresses its bots from the CSS color book instead of the house
+// red and blue. The picks hash out of the round name, so the offline replay
+// that repaints a reel deals the same pairing the live pass wore, and every
+// round is a fresh matchup. The book carries only names that can hold a
+// nameplate on either theme — the washed-out and near-black entries stay
+// home — and the second pick stands off a sixth of the color wheel from the
+// first so the result card never reads as a mirror match.
+const cssColorBook = ("crimson dc143c,firebrick b22222,red ff0000," +
+  "orangered ff4500,tomato ff6347,coral ff7f50,darkorange ff8c00," +
+  "orange ffa500,gold ffd700,goldenrod daa520,darkgoldenrod b8860b," +
+  "yellowgreen 9acd32,chartreuse 7fff00,lawngreen 7cfc00,limegreen 32cd32," +
+  "forestgreen 228b22,green 008000,seagreen 2e8b57,mediumseagreen 3cb371," +
+  "springgreen 00ff7f,mediumspringgreen 00fa9a,lightseagreen 20b2aa," +
+  "teal 008080,darkcyan 008b8b,darkturquoise 00ced1,turquoise 40e0d0," +
+  "mediumturquoise 48d1cc,cadetblue 5f9ea0,deepskyblue 00bfff," +
+  "dodgerblue 1e90ff,cornflowerblue 6495ed,steelblue 4682b4," +
+  "royalblue 4169e1,blue 0000ff,mediumblue 0000cd,darkslateblue 483d8b," +
+  "slateblue 6a5acd,mediumslateblue 7b68ee,mediumpurple 9370db," +
+  "blueviolet 8a2be2,darkviolet 9400d3,darkorchid 9932cc," +
+  "mediumorchid ba55d3,orchid da70d6,violet ee82ee,magenta ff00ff," +
+  "mediumvioletred c71585,deeppink ff1493,hotpink ff69b4," +
+  "palevioletred db7093,indianred cd5c5c,salmon fa8072,darksalmon e9967a," +
+  "lightcoral f08080,rosybrown bc8f8f,sienna a0522d,chocolate d2691e," +
+  "peru cd853f,sandybrown f4a460,olivedrab 6b8e23,olive 808000," +
+  "darkkhaki bdb76b,rebeccapurple 663399,aquamarine 7fffd4," +
+  "mediumaquamarine 66cdaa,lightgreen 90ee90,skyblue 87ceeb," +
+  "lightskyblue 87cefa,plum dda0dd,khaki f0e68c,greenyellow adff2f," +
+  "yellow ffff00,cyan 00ffff,lime 00ff00").split(",").map((entry) => {
+    const [name, hex] = entry.split(" ");
+    const value = parseInt(hex, 16);
+    return { name, rgb: [value >> 16 & 255, value >> 8 & 255, value & 255] };
+  }).filter(({ rgb }) => {
+    const high = Math.max(...rgb);
+    const low = Math.min(...rgb);
+    return high - low >= 60 && high + low >= 140 && high + low <= 400;
+  });
+
+const hueOf = ([red, green, blue]) => {
+  const high = Math.max(red, green, blue);
+  const low = Math.min(red, green, blue);
+  const span = high - low || 1;
+  const sixth = high === red ? (green - blue) / span
+    : high === green ? 2 + (blue - red) / span : 4 + (red - green) / span;
+  return (sixth * 60 + 360) % 360;
+};
+
+function selfPlayWardrobe(pad) {
+  const round = matchName || seriesName;
+  const first = cssColorBook[Math.floor(
+    hashUnit(round + " one") * cssColorBook.length) % cssColorBook.length];
+  if (pad === 0) return first;
+  const start = Math.floor(hashUnit(round + " two") * cssColorBook.length);
+  for (let step = 0; step < cssColorBook.length; step++) {
+    const pick = cssColorBook[(start + step) % cssColorBook.length];
+    const apart = Math.abs(hueOf(pick.rgb) - hueOf(first.rgb));
+    if (Math.min(apart, 360 - apart) >= 60) return pick;
+  }
+  return cssColorBook[(start + 1) % cssColorBook.length];
+}
 
 function losAngelesSun() {
   const radians = Math.PI / 180;
@@ -1708,6 +1769,11 @@ function applyRoster(player, index) {
     player.name = fighter.handle;
     player.color = fighter.color.slice();
     player.handleColors = fighter.colors;
+    if (selfPlay) {
+      const dressed = selfPlayWardrobe(player.pad);
+      player.color = dressed.rgb.slice();
+      player.colorName = dressed.name;
+    }
     return;
   }
   if (player.pad === 0 && !acFeed?.player?.handle) {
