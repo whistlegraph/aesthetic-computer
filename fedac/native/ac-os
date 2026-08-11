@@ -1729,26 +1729,45 @@ pull_ota() {
     local PULLED_SLIM="${PULL_DIR}/vmlinuz-slim"
     local PULLED_INITRAMFS="${PULL_DIR}/initramfs.cpio.gz"
     if curl -sf --head "${SLIM_URL}" >/dev/null 2>&1; then
-        # Cache-aware downloads for slim+initramfs too. We don't have a
-        # published hash for these, so we use HEAD's Content-Length as
-        # a cheap freshness check — if the local size matches remote,
-        # assume the file is the one the kernel hash above verified.
-        local SLIM_REMOTE_SIZE=$(curl -sfI "${SLIM_URL}" | awk -F'[: ]+' '/^[Cc]ontent-[Ll]ength:/ {print $2+0}' | tr -d '\r')
+        # Cache-aware downloads for slim+initramfs. These have no published
+        # hash, and the previous check compared Content-Length only — which is
+        # useless precisely when it matters: consecutive kernel builds come out
+        # byte-identical in SIZE, so a cached vmlinuz-slim from a previous
+        # release looked "fresh" forever. That is not hypothetical; on
+        # 2026-08-11 /tmp/ac-os-pull/vmlinuz-slim was still two releases old
+        # while its size matched the current one exactly.
+        #
+        # The ETag is the right key. Treat it as opaque — Spaces returns a
+        # plain MD5 for simple uploads and a "<hash>-<parts>" form for
+        # multipart, and we don't care which, only whether it changed since the
+        # bytes on disk were fetched. Stored next to each file.
+        remote_etag() {
+            curl -sfI "$1" | awk -F': *' 'tolower($1)=="etag"{gsub(/[\r"]/,"",$2); print $2}'
+        }
+        # Fetch $1 to $2 unless the stored etag still matches the remote one.
+        fetch_if_stale() {
+            local url="$1" dest="$2" label="$3"
+            local tag_file="${dest}.etag"
+            local remote; remote=$(remote_etag "${url}")
+            local cached=""; [ -f "${tag_file}" ] && cached=$(cat "${tag_file}" 2>/dev/null)
+            if [ -n "${remote}" ] && [ -f "${dest}" ] && [ "${remote}" = "${cached}" ]; then
+                log "Cached ${label} is current (etag ${remote:0:12}) — skipping download"
+                return 0
+            fi
+            log "Downloading ${label}..."
+            # No `|| true`: a failed transfer must not leave a previous
+            # release's file sitting here to be flashed as if it were current.
+            rm -f "${tag_file}"
+            curl -f --retry 5 --retry-all-errors --progress-bar -o "${dest}" "${url}" || {
+                err "Failed to download ${label}"
+                rm -f "${dest}"
+                exit 1
+            }
+            [ -n "${remote}" ] && printf '%s' "${remote}" > "${tag_file}"
+        }
         local INIT_REMOTE_SIZE=$(curl -sfI "${INITRAMFS_URL}" | awk -F'[: ]+' '/^[Cc]ontent-[Ll]ength:/ {print $2+0}' | tr -d '\r')
-        local SLIM_LOCAL_SIZE=$([ -f "${PULLED_SLIM}" ] && wc -c < "${PULLED_SLIM}" 2>/dev/null | tr -d ' ' || echo 0)
-        local INIT_LOCAL_SIZE=$([ -f "${PULLED_INITRAMFS}" ] && wc -c < "${PULLED_INITRAMFS}" 2>/dev/null | tr -d ' ' || echo 0)
-        if [ "${SLIM_LOCAL_SIZE}" = "${SLIM_REMOTE_SIZE}" ] && [ "${SLIM_REMOTE_SIZE}" -gt 0 ]; then
-            log "Cached slim kernel matches — skipping download"
-        else
-            log "Downloading slim kernel..."
-            curl -f --retry 5 --retry-all-errors -C - --progress-bar -o "${PULLED_SLIM}" "${SLIM_URL}" || true
-        fi
-        if [ "${INIT_LOCAL_SIZE}" = "${INIT_REMOTE_SIZE}" ] && [ "${INIT_REMOTE_SIZE}" -gt 0 ]; then
-            log "Cached initramfs matches — skipping download"
-        else
-            log "Downloading initramfs..."
-            curl -f --retry 5 --retry-all-errors -C - --progress-bar -o "${PULLED_INITRAMFS}" "${INITRAMFS_URL}" || true
-        fi
+        fetch_if_stale "${SLIM_URL}" "${PULLED_SLIM}" "slim kernel"
+        fetch_if_stale "${INITRAMFS_URL}" "${PULLED_INITRAMFS}" "initramfs"
         # A dropped transfer above leaves a truncated file (the || true
         # swallows curl's error) — flashing it makes an unbootable stick.
         # Compare against the remote Content-Length before proceeding.
