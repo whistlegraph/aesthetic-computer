@@ -494,6 +494,10 @@ grants/lacma-2026/*.log
 # pop/ — code is source of truth; rendered audio + caches are media,
 # backed up to the assets system (DO Spaces), never git. See pop/ASSETS.md.
 pop/*/out/
+pop/nullabye/release/**/*.jpg
+pop/nullabye/release/**/*.mp3
+pop/nullabye/release/**/*.mp4
+pop/nullabye/release/**/*.wav
 pop/.venv/
 pop/**/__pycache__/
 pop/voice/.cache/

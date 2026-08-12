@@ -257,7 +257,7 @@ size_errors=0
 
 while IFS= read -r -d '' file; do
   case "$file" in
-    pop/*/out/*|pop/*/*/out/*|*/.build/*|slab/menuband/build/*.xcarchive/*|slab/menuband/build/export-*/*|papers/BUILDLOG.md)
+    pop/*/out/*|pop/*/*/out/*|pop/nullabye/release/*.jpg|pop/nullabye/release/*.mp3|pop/nullabye/release/*.mp4|pop/nullabye/release/*.wav|*/.build/*|slab/menuband/build/*.xcarchive/*|slab/menuband/build/export-*/*|papers/BUILDLOG.md)
       echo -e "${RED}🚫 Generated output must not be committed: ${file}${NC}"
       size_errors=$((size_errors + 1))
       continue

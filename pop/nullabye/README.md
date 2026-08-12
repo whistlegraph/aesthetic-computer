@@ -39,6 +39,10 @@ node pop/nullabye/bin/render-nullabye.mjs --proof    # flat EQ ⇒ bit-exact sil
 `--proof` renders with every band forced flat and asserts the output is
 bit-exact digital zero — the cancellation is real, not just quiet.
 
+Release media is archived privately at
+`s3://assets-aesthetic-computer/private/pop-release/nullabye/release/`;
+checksums, provenance, automation, and release notes remain in Git.
+
 ## sineabye — the oscillator cut
 
 `bin/render-sineabye.mjs` recasts the lullaby around sine voices, with a very
@@ -140,7 +144,7 @@ Spatial-engine listening/video snapshot:
 
 - `release/spatial-sineabye/spatial-sineabye.mp3` — 320 kbps listening copy.
 - `release/spatial-sineabye/spatial-sineabye.mp4` — 720×720, 24 fps,
-  Git-safe H.264 delivery encode with the calculated stereo windshield.
+  H.264 delivery encode with the calculated stereo windshield.
 
 ### Special Sign — locked release master
 
