@@ -79,7 +79,7 @@ export function offlineReplayAddress(origin, round, { hud = true } = {}) {
 }
 
 async function captureOfflineReplay({ browser, shell, demo, frames, width,
-  height, theme, seconds, hud, log }) {
+  height, theme, seconds, hud, debugOverlay, log }) {
   const round = String(demo?.roundName || demo?.matchName || "").replace(/^ow-/, "");
   if (!round) throw new Error("completed bot fight did not return a replay name");
   rmSync(frames, { recursive: true, force: true });
@@ -93,13 +93,14 @@ async function captureOfflineReplay({ browser, shell, demo, frames, width,
     // A demo carrying bot seeds re-simulates: the offline page reruns the
     // real fight through the engine instead of puppeting recorded state.
     const resim = Array.isArray(demo?.botSeeds);
-    await page.evaluateOnNewDocument((armResim) => {
+    await page.evaluateOnNewDocument((armResim, debugOverlay) => {
       if (armResim) globalThis.__oskiewarResim = true;
+      if (debugOverlay) globalThis.__oskiewarDebugOverlay = true;
       globalThis.WebSocket = function () {
         return { readyState: 3, send() {}, close() {},
           addEventListener() {}, removeEventListener() {} };
       };
-    }, resim);
+    }, resim, debugOverlay === true);
     await page.goto(offlineReplayAddress(shell.origin, round, { hud }),
       { waitUntil: "domcontentloaded", timeout: 45000 });
     await page.evaluate(() => document.fonts.ready);
@@ -425,7 +426,7 @@ export async function renderReel(spec, { log = console.log } = {}) {
     writeFileSync(join(out, "demo.json"), JSON.stringify(replayDemo));
     const offlineStamps = await captureOfflineReplay({ browser, shell,
       demo: replayDemo, frames, width, height, theme,
-      seconds: captured.seconds, hud, log });
+      seconds: captured.seconds, hud, debugOverlay: spec.debugOverlay, log });
     captured.liveFrames = captured.frames;
     captured.frames = offlineStamps.length;
     captured.frameCadence = "fixed-step-60";

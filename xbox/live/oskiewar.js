@@ -2602,6 +2602,9 @@ function replayViewerImpacts(tick, dt) {
 
 function gameBoot() {
   syncGameView();
+  // The reel harness may boot with the debug overlay lit — safe-zone crops,
+  // stat chassis, input read-outs — to diagnose framing on a rendered reel.
+  if (globalThis.__oskiewarDebugOverlay === true) debugHitboxes = true;
   startedAt = runtime().monotonicUs;
   roundStartedAt = startedAt;
   lastSimAt = startedAt;
@@ -2829,8 +2832,10 @@ function fighterFrameRect() {
     // Trimmed 2026-08-09 — @jeffrey wanted the lens closer to the fight.
     // The rect still tracks live position, so jumps and knockbacks widen
     // the frame as they happen; this is standing headroom, not arc room.
+    // Rise trimmed 2026-08-11 — @jeffrey read the old headroom as fighters
+    // sitting too low in a vertical frame; less sky, more fighter.
     const reach = isHeadOnly(player) ? 34 : isPogo(player) ? 56 : 104;
-    const rise = isHeadOnly(player) ? 58 : isPogo(player) ? 148 : 210;
+    const rise = isHeadOnly(player) ? 48 : isPogo(player) ? 128 : 150;
     left = Math.min(left, player.x - reach);
     right = Math.max(right, player.x + reach);
     top = Math.min(top, player.y - rise);
@@ -2882,14 +2887,19 @@ function rectPackWidth(rect) {
 // The tightest the automatic camera may go. It scales with the same pull, or a
 // portrait shot closes to the pull and then hits a floor sized for a television.
 const frameFloorWidth = () =>
-  (compactLayout() ? 285 : 315) * portraitPull();
+  (compactLayout() ? 240 : 315) * portraitPull();
 
 // Terrain is flat color, so it only has to reach as far as the lens can see.
 // Submitting the whole arena pushed its far corners past the native ±30000
 // coordinate guard whenever the camera closed in or sat against a wall, which
 // culled the ground quad and left the clear color where the stage should be.
 function terrainSpan() {
-  const reach = cameraDoll.width;
+  // A perspective lens sees far more floor near its own plane than its
+  // nominal width says — the orbiting killcam especially. Without the extra
+  // reach the ground is only drawn a camera-width wide and visibly runs out
+  // close to the lens.
+  const reach = cameraDoll.width +
+    (cameraDoll.perspective ? 2600 : 600);
   return { left: Math.max(worldLeft, cameraCenter - reach),
     right: Math.min(worldRight, cameraCenter + reach),
     top: Math.max(ceilingY, cameraCenterY - reach),
