@@ -46,8 +46,7 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
         PalsSpec(x: 0.96, scale: 0.78, riseSeconds: 41, turnSeconds: 30, phase: 0.98, sway: 0.037, reverse: true),
     ]
 
-    private let background = CAGradientLayer()
-    private let fogOverlay = CAGradientLayer()
+    private let background = CALayer()
     private let sceneView = SCNView(frame: .zero)
     private let scene = SCNScene()
     private let camera = SCNNode()
@@ -57,6 +56,17 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
     private var motionEpoch: TimeInterval?
     private var modelWidth: CGFloat = 1
     private var modelHeight: CGFloat = 1
+
+    // ── slab status tint ──────────────────────────────────────────────────
+    // SlabMenubar publishes its aggregate prompt colour (theme-by-status) as
+    // current-color.json plus a distributed notification; the backdrop follows
+    // that tone so the field breathes with the themed terminals. Until slab
+    // has spoken once, the system-accent wash stands in.
+    private static let tintFile = NSString(
+        string: "~/.local/share/slab/wallpaper/desktop/current-color.json").expandingTildeInPath
+    private static let tintNote = Notification.Name(
+        "computer.aesthetic.slab.desktop-tint.changed")
+    private var statusTint: NSColor?
 
     override init(frame: NSRect) {
         super.init(frame: frame)
@@ -76,11 +86,13 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
         sceneView.rendersContinuously = true
         sceneView.isPlaying = true
         addSubview(sceneView)
-        fogOverlay.isOpaque = false
-        root.addSublayer(fogOverlay)
         NotificationCenter.default.addObserver(
             self, selector: #selector(systemColorsDidChange),
             name: NSColor.systemColorsDidChangeNotification, object: nil)
+        statusTint = Self.readTintFile()
+        DistributedNotificationCenter.default().addObserver(
+            self, selector: #selector(tintDidChange(_:)),
+            name: Self.tintNote, object: nil)
 
         loadModel()
         buildCameraAndLights()
@@ -89,7 +101,10 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
 
     required init?(coder: NSCoder) { nil }
 
-    deinit { NotificationCenter.default.removeObserver(self) }
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+        DistributedNotificationCenter.default().removeObserver(self)
+    }
 
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
@@ -106,10 +121,41 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
         applyAccentColor(animated: true)
     }
 
+    @objc private func tintDidChange(_ note: Notification) {
+        statusTint = Self.color(from: note.userInfo) ?? Self.readTintFile()
+        updateAppearance(animated: true)
+    }
+
+    private static func readTintFile() -> NSColor? {
+        guard let data = FileManager.default.contents(atPath: tintFile),
+              let obj = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+        else { return nil }
+        return color(from: obj)
+    }
+
+    private static func color(from info: [AnyHashable: Any]?) -> NSColor? {
+        guard let r = (info?["red"] as? NSNumber)?.doubleValue,
+              let g = (info?["green"] as? NSNumber)?.doubleValue,
+              let b = (info?["blue"] as? NSNumber)?.doubleValue
+        else { return nil }
+        return NSColor(srgbRed: r / 65535, green: g / 65535, blue: b / 65535, alpha: 1)
+    }
+
+    /// The live flat backdrop: slab's status tint when published, otherwise
+    /// the accent-tinted wash.
+    private func backdropColor() -> NSColor {
+        if let tint = statusTint { return tint }
+        let dark = effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        let accent = NSColor.controlAccentColor.usingColorSpace(.sRGB) ?? .systemBlue
+        let base = dark
+            ? NSColor(srgbRed: 0.028, green: 0.072, blue: 0.225, alpha: 1)
+            : NSColor(srgbRed: 0.74, green: 0.84, blue: 0.96, alpha: 1)
+        return base.blended(withFraction: dark ? 0.12 : 0.13, of: accent) ?? base
+    }
+
     override func layout() {
         super.layout()
         background.frame = bounds
-        fogOverlay.frame = bounds
         guard bounds.width > 0, bounds.height > 0 else { return }
 
         let aspect = bounds.width / bounds.height
@@ -232,15 +278,9 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
 
     private func applyAccentColor(animated: Bool) {
         let accent = NSColor.controlAccentColor.usingColorSpace(.sRGB) ?? .systemBlue
-        let dark = effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-        let backgroundBase = dark
-            ? NSColor(srgbRed: 0.028, green: 0.072, blue: 0.225, alpha: 1)
-            : NSColor(srgbRed: 0.74, green: 0.84, blue: 0.96, alpha: 1)
-        // Match the active middle gradient stop, including its system-accent
-        // tint, then split the final Pals colour exactly 50/50 with the accent.
-        let activeBackground = backgroundBase.blended(
-            withFraction: dark ? 0.12 : 0.13, of: accent) ?? backgroundBase
-        let faded = accent.blended(withFraction: 0.5, of: activeBackground) ?? accent
+        // Split the final Pals colour exactly 50/50 between the accent and
+        // whatever backdrop is live, so the marks always sit in its tone.
+        let faded = accent.blended(withFraction: 0.5, of: backdropColor()) ?? accent
         SCNTransaction.begin()
         SCNTransaction.animationDuration = animated ? 0.45 : 0
         for material in materials {
@@ -276,38 +316,9 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
 
     private func updateAppearance(animated: Bool) {
         applyAccentColor(animated: animated)
-        let dark = effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-        let accent = NSColor.controlAccentColor.usingColorSpace(.sRGB) ?? .systemBlue
-        let bases: [NSColor] = dark ? Array(repeating:
-            NSColor(srgbRed: 0.028, green: 0.072, blue: 0.225, alpha: 1),
-            count: 3) : [
-            NSColor(srgbRed: 0.92, green: 0.96, blue: 1.00, alpha: 1),
-            NSColor(srgbRed: 0.74, green: 0.84, blue: 0.96, alpha: 1),
-            NSColor(srgbRed: 0.84, green: 0.83, blue: 0.98, alpha: 1),
-        ]
-        let strengths: [CGFloat] = dark
-            ? Array(repeating: 0.12, count: 3)
-            : [0.08, 0.13, 0.10]
-        let colors = zip(bases, strengths).map {
-            $0.0.blended(withFraction: $0.1, of: accent) ?? $0.0
-        }
         CATransaction.begin()
         CATransaction.setAnimationDuration(animated ? 0.65 : 0)
-        background.startPoint = CGPoint(x: 0.03, y: 0.94)
-        background.endPoint = CGPoint(x: 0.98, y: 0.05)
-        background.colors = colors.map(\.cgColor)
-        background.locations = [0.0, 0.56, 1.0]
-        // Atmospheric haze is composited after SceneKit instead of using
-        // depth fog.  It therefore shares the field palette and cannot form
-        // a differently coloured fringe around antialiased geometry.
-        fogOverlay.startPoint = CGPoint(x: 0.12, y: 0.98)
-        fogOverlay.endPoint = CGPoint(x: 0.88, y: 0.02)
-        fogOverlay.colors = dark ? Array(repeating: NSColor.clear.cgColor, count: 3) : [
-            NSColor(srgbRed: 0.88, green: 0.94, blue: 1.00, alpha: 0.08).cgColor,
-            NSColor(srgbRed: 0.76, green: 0.84, blue: 0.98, alpha: 0.18).cgColor,
-            NSColor(srgbRed: 0.90, green: 0.90, blue: 1.00, alpha: 0.10).cgColor,
-        ]
-        fogOverlay.locations = [0.0, 0.52, 1.0]
+        background.backgroundColor = backdropColor().cgColor
         CATransaction.commit()
     }
 }
