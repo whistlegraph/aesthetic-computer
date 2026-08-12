@@ -43,6 +43,7 @@ const ACCOUNTS = {
   oskiewar: "OSKIEWAR",
   whistlegraph: "WHISTLEGRAPH",
   aesthetic: "AESTHETIC",
+  menuband: "MENUBAND", // IG handle is @menuband.app
 };
 
 // ── tiny arg parser ──────────────────────────────────────────────────

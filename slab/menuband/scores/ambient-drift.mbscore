@@ -1,0 +1,22 @@
+{
+  "title": "Ambient Drift",
+  "composer": "Menu Band, 2026",
+  "machines": 2,
+  "bpm": 66,
+  "lead": 3.0,
+  "description": "A slow ambient set (~105s): long warm pad tones drifting between the two machines, low drones on one side, high answers floating over from the other, generous silence in between. Nothing hurries.",
+  "voices": [
+    {
+      "name": "low drift",
+      "program": 88,
+      "velocity": 56,
+      "notes": "60:8,r:4,64:8,r:4,67:8,r:2,65:8,r:4,60:8,r:4,69:8,r:4,64:8,r:2,62:8,r:4,65:8,r:4,60:10,r:4"
+    },
+    {
+      "name": "high drift",
+      "program": 91,
+      "velocity": 50,
+      "notes": "r:6,72:8,r:4,76:8,r:4,79:8,r:4,77:8,r:4,81:8,r:4,76:8,r:4,74:8,r:4,79:8,r:4,72:10,r:6"
+    }
+  ]
+}

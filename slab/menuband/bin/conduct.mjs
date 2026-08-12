@@ -167,7 +167,19 @@ if (argv[0] === "stop") {
 
 const { score } = loadScore(argv[0]);
 const flags = argv.slice(1).filter((a) => a.startsWith("--"));
-const hosts = argv.slice(1).filter((a) => !a.startsWith("--"));
+const hosts = argv.slice(1).filter((a) => !a.startsWith("--") && !a.includes("="));
+
+// Skew args: `neo=-0.0745` after the host list — measured clock offset per
+// host in seconds (host clock minus conductor clock). A host whose clock runs
+// behind gets an earlier epoch so all machines SOUND at the same true moment.
+const skews = {};
+for (const a of argv.slice(1))
+  if (a.includes("=") && !a.startsWith("--")) {
+    const [h, v] = a.split("=");
+    skews[shortName(h)] = Number(v);
+  }
+const skewFor = (host) => skews[shortName(host)] ?? 0;
+const skewed = (host, epoch) => (Number(epoch) + skewFor(host)).toFixed(3);
 const need = score.machines;
 const talk = !flags.includes("--quiet"); // machines greet + sign off unless silenced
 
@@ -223,6 +235,14 @@ if (talk)
     bcur += sayDur(byeText(i)) + SPEAK_GAP;
   }
 
+// Machine-readable speech schedule (consumed by perform.mjs for subtitles):
+// each line a machine speaks, with its epoch and estimated spoken length.
+if (talk)
+  for (let i = 0; i < roster.length; i++) {
+    console.log(`  say v${i} @${greetAt[i].toFixed(3)} ~${sayDur(greetText(i)).toFixed(2)} "${greetText(i)}"`);
+    console.log(`  say v${i} @${byeAt[i].toFixed(3)} ~${sayDur(byeText(i)).toFixed(2)} "${byeText(i)}"`);
+  }
+
 async function run() {
   const sends = []; // { host, kind, ok }
 
@@ -230,17 +250,17 @@ async function run() {
     console.log(`\n  greetings…`);
     for (let i = 0; i < roster.length; i++)
       if (ready[i])
-        sends.push({ host: roster[i], kind: "greeting", ok: await fireSay(roster[i], greetText(i), SAY_VOICES[i % SAY_VOICES.length], greetAt[i].toFixed(3)) });
+        sends.push({ host: roster[i], kind: "greeting", ok: await fireSay(roster[i], greetText(i), SAY_VOICES[i % SAY_VOICES.length], skewed(roster[i], greetAt[i])) });
   }
 
   console.log(`\n  downbeat at epoch ${downbeat.toFixed(3)} (in ${(downbeat - Date.now() / 1000).toFixed(1)}s)…`);
   for (let i = 0; i < roster.length; i++)
-    sends.push({ host: roster[i], kind: "music", ok: ready[i] ? await firePlay(roster[i], score.voices[i], score.bpm, downbeat.toFixed(3), score.title) : false });
+    sends.push({ host: roster[i], kind: "music", ok: ready[i] ? await firePlay(roster[i], score.voices[i], score.bpm, skewed(roster[i], downbeat), score.title) : false });
 
   if (talk) {
     for (let i = 0; i < roster.length; i++)
       if (ready[i])
-        sends.push({ host: roster[i], kind: "farewell", ok: await fireSay(roster[i], byeText(i), SAY_VOICES[i % SAY_VOICES.length], byeAt[i].toFixed(3)) });
+        sends.push({ host: roster[i], kind: "farewell", ok: await fireSay(roster[i], byeText(i), SAY_VOICES[i % SAY_VOICES.length], skewed(roster[i], byeAt[i])) });
   }
 
   // Honest reporting: which voices actually accepted their cues.

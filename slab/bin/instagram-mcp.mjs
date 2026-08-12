@@ -16,7 +16,7 @@ const reelApps = {
   aesthetic: resolve(root, "toolchain/instagram/aesthetic-ig.mjs"),
 };
 const accounts = { oskiewar: "OSKIEWAR", whistlegraph: "WHISTLEGRAPH",
-  aesthetic: "AESTHETIC" };
+  aesthetic: "AESTHETIC", menuband: "MENUBAND" }; // menuband = @menuband.app
 const text = (value) => [{ type: "text", text: String(value) }];
 
 function vaultPath(account) {
