@@ -1,0 +1,25 @@
+{
+  "format": "ac.instagram.reel-ledger",
+  "version": 1,
+  "account": "menuband",
+  "posts": [
+    {
+      "mediaId": "18016803581922033",
+      "containerId": "18085596776299689",
+      "publishedAt": "2026-08-12T05:29:56.964Z",
+      "permalink": "https://www.instagram.com/reel/Db7aeZADckW/",
+      "caption": "Double tap ⌘ to open Menu Band.\n\nPlay C major with A S D F G H J K. Press Escape to return to your Mac.\n\nMenuBand.app",
+      "source": "slab/menuband/marketing/instrument-playing/out/menu-band-command-scale-instagram-reel-v10.mp4",
+      "voiceover": true
+    },
+    {
+      "mediaId": "18422809765199530",
+      "containerId": "18085600193299689",
+      "publishedAt": "2026-08-12T05:45:46.960Z",
+      "permalink": "https://www.instagram.com/reel/Db7cNlzDsg3/",
+      "caption": "Lantern — Menu Band Waltz No. 1. MenuBand.app",
+      "source": "pop/menuband/out/menu-band-waltzes/01-lantern/01-lantern.mp4",
+      "voiceover": false
+    }
+  ]
+}
