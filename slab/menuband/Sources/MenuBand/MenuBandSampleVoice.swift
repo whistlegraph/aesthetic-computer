@@ -287,26 +287,13 @@ final class MenuBandSampleVoice {
                 _ = ensureVoice(channel: channel, slot: slot)
             }
         }
-        // Prewarm the record engine if the user has already granted
-        // microphone permission AND the default input isn't a
-        // Bluetooth headset. Pre-warming on a BT mic (AirPods, etc.)
-        // forces the headset into bidirectional voice mode — locks
-        // the output to 24 kHz stereo, kills the 48 kHz music
-        // profile, and the user immediately hears the degraded
-        // "FaceTime call" sound quality even though no recording is
-        // happening. Skip prewarm on BT and accept ~50–200 ms on
-        // the first record-key press; the device stays in music
-        // mode the rest of the time. See `defaultInputIsBluetooth`.
-        if AVCaptureDevice.authorizationStatus(for: .audio) == .authorized,
-           !Self.defaultInputIsBluetooth() {
-            DispatchQueue.main.async { [weak self] in
-                _ = self?.ensureHotMicRunning()
-                // Don't leave the mic hot forever — schedule the
-                // normal idle-off timer so we drop the engine if
-                // the user never actually records.
-                self?.scheduleHotMicStop()
-            }
-        }
+        // No launch-time hot-mic prewarm: opening the input device here made
+        // macOS surface the mic-mode HUD (Standard / Voice Isolation) at
+        // EVERY launch, even when the user never monitors or records. The
+        // mic now opens only when something actually needs it — monitoring
+        // toggled on, or the first record-key press (which pays the
+        // documented ~50–200 ms cold start once; the mic then stays hot for
+        // `hotMicIdleSeconds` so subsequent takes are instant).
     }
 
     private func scheduleMonitorConfigurationRecovery() {
@@ -499,6 +486,10 @@ final class MenuBandSampleVoice {
             }
             monitorOutputTapInstalled = true
         }
+        // Route the picked monitor channel into the tap the same way the
+        // duplex engine hears it, so the tape's dry stem matches what the
+        // user monitors. No-op unless a channel was ever picked.
+        applyMonitorInputChannelMap()
         if !recordEngine.isRunning {
             // CRITICAL: silence the record engine's output path BEFORE
             // start(). AVAudioEngine lazily attaches mainMixerNode and
@@ -533,12 +524,27 @@ final class MenuBandSampleVoice {
         return true
     }
 
-    /// Prefer an attached Focusrite/Scarlett for recording and monitoring
-    /// without changing the user's system-wide default input. This mirrors
-    /// Narrator Wizard's Core Audio device enumeration, but binds the device
-    /// directly to Menu Band's input AUHAL.
+    /// Public re-run of the input-device preference, for the headphone
+    /// icon's right-click menu. Clearing `boundInputDeviceID` forces the
+    /// re-evaluation even when the resolved device happens to match the
+    /// one already bound (the pin may have just changed underneath it).
+    func reassertPreferredHardwareInput() {
+        boundInputDeviceID = 0
+        selectPreferredHardwareInput()
+    }
+
+    /// Prefer the user's pinned input device (headphone-menu pick), then an
+    /// attached Focusrite/Scarlett, for recording and monitoring. This
+    /// mirrors Narrator Wizard's Core Audio device enumeration, but binds
+    /// the device directly to Menu Band's input AUHAL.
     private func selectPreferredHardwareInput() {
-        guard let device = Self.preferredFocusriteInputDevice(),
+        let pinned: (id: AudioDeviceID, name: String)? = {
+            guard let uid = MenuBandAudioDevices.pinnedInputUID,
+                  let dev = MenuBandAudioDevices.device(uid: uid),
+                  dev.inputChannels > 0 else { return nil }
+            return (dev.id, dev.name)
+        }()
+        guard let device = pinned ?? Self.preferredFocusriteInputDevice(),
               device.id != boundInputDeviceID else { return }
         let priorOutput = Self.systemAudioDevice(
             selector: kAudioHardwarePropertyDefaultOutputDevice)
@@ -671,6 +677,32 @@ final class MenuBandSampleVoice {
         }
         recordEngine.mainMixerNode.outputVolume = 0
         NSLog("MenuBand SampleVoice: input monitoring \(enabled ? "on" : "off")")
+    }
+
+    /// Apply the persisted monitor-channel pick onto the record engine's
+    /// input AU. The AUHAL only honours the map while uninitialized, so a
+    /// hot engine is bounced around the write — the input tap and graph
+    /// survive a stop/start, and the mainMixer silence pin is re-asserted
+    /// both sides exactly like `ensureHotMicRunning` does.
+    func applyMonitorInputChannelMap() {
+        guard MenuBandAudioDevices.monitorChannelWasEverSet,
+              let au = recordEngine.inputNode.audioUnit else { return }
+        let clientChannels = Int(recordEngine.inputNode.inputFormat(forBus: 0).channelCount)
+        guard clientChannels > 0 else { return }
+        let wasRunning = recordEngine.isRunning
+        if wasRunning { recordEngine.stop() }
+        MenuBandAudioDevices.applyChannelMap(
+            to: au, clientChannels: clientChannels, label: "record")
+        if wasRunning {
+            recordEngine.mainMixerNode.outputVolume = 0
+            do {
+                recordEngine.prepare()
+                try recordEngine.start()
+            } catch {
+                NSLog("MenuBand SampleVoice: record engine restart after channel map failed: \(error)")
+            }
+            recordEngine.mainMixerNode.outputVolume = 0
+        }
     }
 
     private func scheduleHotMicStop() {

@@ -50,6 +50,12 @@ final class MenuBandSynth {
     /// drums always pass through to GM).
     private let sampleVoice = MenuBandSampleVoice()
     private let inputMonitor = MenuBandInputMonitor()
+    /// Mirror of the controller's persisted monitoring toggle (its
+    /// `MBInputMonitoring` default), seeded here so bootstrap can decide
+    /// the duplex attach before the controller's post-start
+    /// `setInputMonitoringEnabled` call arrives.
+    private var inputMonitoringWanted =
+        UserDefaults.standard.bool(forKey: "MBInputMonitoring")
     /// Speaks a language's own name (About-window easter egg) through the
     /// same pre-limiter fx bus, so the spoken voice picks up bend/space/echo.
     private let speechVoice = MenuBandSpeechVoice()
@@ -340,8 +346,76 @@ final class MenuBandSynth {
     }
 
     func setInputMonitoringEnabled(_ enabled: Bool) {
+        inputMonitoringWanted = enabled
+        let needsAttach = enabled && !inputMonitor.isAttached && duplexMonitorEligible()
+        let needsDetach = !enabled && inputMonitor.isAttached
+        if needsAttach || needsDetach {
+            engineLock.lock()
+            if started {
+                // Wiring inputNode in or out of a live engine only
+                // negotiates cleanly across a start — bounce it. A
+                // self-initiated stop → start does not post
+                // AVAudioEngineConfigurationChange, so this never enters
+                // the device-switch recovery path.
+                engine.stop()
+                syncInputMonitorGraph()
+                applyInputChannelMap()
+                do { try engine.start() } catch {
+                    NSLog("MenuBand: engine restart after monitor graph change failed: \(error)")
+                }
+                applyOutputDeviceOverride()
+                lowerOutputBufferSizeIfNeeded()
+            }
+            // Pre-start the wish is applied by bootstrap's own
+            // syncInputMonitorGraph — nothing to do here.
+            engineLock.unlock()
+        }
+        if enabled && !inputMonitor.isAttached {
+            NSLog("MenuBand: monitoring on but duplex ineligible — input and output are different devices; pick the same interface for both")
+        }
         inputMonitor.setEnabled(enabled)
         sampleVoice.setInputMonitoringEnabled(enabled)
+    }
+
+    /// The direct duplex monitor is only wired when the engine's output
+    /// device and the system default input resolve to the SAME hardware
+    /// (the Scarlett-as-mic-and-headphone-amp setup it was built for).
+    /// When they differ, AVAudioEngine silently hosts the duplex graph on
+    /// a private aggregate device — and `applyOutputDeviceOverride`'s
+    /// raw-device bind then fights that aggregate: the CurrentDevice write
+    /// returns -10851, the engine stops, and the configuration-change
+    /// recovery spins forever with no sound (reproduced in isolation).
+    /// Skipping the input side keeps the engine a pure output graph that
+    /// binds anywhere happily — and the microphone is never opened unless
+    /// the user is actually monitoring or recording, so the macOS
+    /// mic-mode HUD stays away.
+    private func duplexMonitorEligible() -> Bool {
+        guard let input = MenuBandAudioDevices.systemDefaultInputID() else { return false }
+        let output: AudioDeviceID?
+        if let uid = MenuBandAudioDevices.pinnedOutputUID,
+           let pinned = MenuBandAudioDevices.device(uid: uid),
+           pinned.outputChannels > 0 {
+            output = pinned.id
+        } else {
+            output = MenuBandAudioDevices.systemDefaultOutputID()
+        }
+        return output == input
+    }
+
+    /// Attach or detach the duplex monitor to match `inputMonitoringWanted`
+    /// and current device eligibility. Callers run this while the engine is
+    /// stopped (bootstrap pre-start, a configuration-change recovery, or an
+    /// explicit bounce) and hold `engineLock` where one is live.
+    private func syncInputMonitorGraph() {
+        if inputMonitoringWanted, duplexMonitorEligible() {
+            inputMonitor.attach(to: engine, output: preLimiterMixer)
+            inputMonitor.setEnabled(true)
+        } else {
+            if inputMonitor.isAttached {
+                NSLog("MenuBand: duplex monitor detached (devices diverged or monitoring off)")
+            }
+            inputMonitor.detach(from: engine)
+        }
     }
 
     func ingestMonitoredInput(_ buffer: AVAudioPCMBuffer) {
@@ -424,7 +498,11 @@ final class MenuBandSynth {
         // closed until the user records a clip and `setSampleBackend`
         // opens it. Voice nodes attach lazily on first noteOn.
         sampleVoice.attach(to: engine, output: preLimiterMixer)
-        inputMonitor.attach(to: engine, output: preLimiterMixer)
+        // Duplex monitor: attached only when monitoring is actually wanted
+        // AND the input/output resolve to the same interface — see
+        // `duplexMonitorEligible` for why an unconditional attach kills
+        // the whole engine when they differ.
+        syncInputMonitorGraph()
         // Speech easter egg: same pre-limiter sum bus, so spoken language
         // names ride the bend/space/echo fx. Idle (no player) until `speak`.
         speechVoice.attach(
@@ -462,6 +540,10 @@ final class MenuBandSynth {
         // Setting it after engine.start() works too but causes a brief
         // restart on the underlying AU.
         lowerOutputBufferSizeIfNeeded()
+        // Pre-start is the one moment the input AUHAL reliably honours a
+        // channel-map write, so the persisted monitor-channel pick lands
+        // here (no-op unless the user ever picked one).
+        applyInputChannelMap()
         do {
             try engine.start()
             started = true
@@ -541,6 +623,14 @@ final class MenuBandSynth {
         // Make sure the engine is live so we can re-point + rebuild on the
         // new device.
         if !engine.isRunning {
+            // The device that moved may have made the duplex monitor
+            // eligible (Scarlett plugged, picked for both sides) or
+            // ineligible (Scarlett yanked, input fell back to the built-in
+            // mic) — re-decide the graph while the engine is down, then
+            // re-assert the monitor-channel map, which the (possibly new)
+            // input AUHAL only accepts in this stopped window.
+            syncInputMonitorGraph()
+            applyInputChannelMap()
             do { try engine.start() }
             catch { NSLog("MenuBand: engine start after device change failed: \(error)") }
         }
@@ -600,6 +690,8 @@ final class MenuBandSynth {
         rebuildArmedForEpoch = nil
         guard started else { return }
         if !engine.isRunning {
+            syncInputMonitorGraph()
+            applyInputChannelMap()
             do { try engine.start() }
             catch { NSLog("MenuBand: engine start before MIDISynth rebuild failed: \(error)") }
         }
@@ -1239,19 +1331,31 @@ final class MenuBandSynth {
     /// AVAudioEngine's AUHAL layer bypasses Multi-Output / Aggregate devices
     /// and connects directly to the underlying clock-source hardware device,
     /// so audio never reaches secondary members (e.g. BlackHole). Explicitly
-    /// setting CurrentDevice to the system default after every engine start
-    /// forces the engine to honour the full virtual device and its routing.
+    /// setting CurrentDevice after every engine start forces the engine to
+    /// honour the full virtual device and its routing. The device is the
+    /// user's pinned output pick when one is set, otherwise the system
+    /// default (the original behavior).
     private func applyOutputDeviceOverride() {
         guard let au = engine.outputNode.audioUnit else { return }
-        var addr = AudioObjectPropertyAddress(
-            mSelector: kAudioHardwarePropertyDefaultOutputDevice,
-            mScope:    kAudioObjectPropertyScopeGlobal,
-            mElement:  kAudioObjectPropertyElementMain)
         var deviceID = AudioDeviceID(0)
-        var size = UInt32(MemoryLayout<AudioDeviceID>.size)
-        guard AudioObjectGetPropertyData(
-            AudioObjectID(kAudioObjectSystemObject), &addr, 0, nil, &size, &deviceID
-        ) == noErr, deviceID != 0 else { return }
+        // A user pick from the headphone icon's right-click menu wins over
+        // the system default — but only while that device is actually
+        // attached; a stale pin (interface unplugged) falls through to the
+        // default so the engine never binds into a void.
+        if let uid = MenuBandAudioDevices.pinnedOutputUID,
+           let pinned = MenuBandAudioDevices.device(uid: uid),
+           pinned.outputChannels > 0 {
+            deviceID = pinned.id
+        } else {
+            var addr = AudioObjectPropertyAddress(
+                mSelector: kAudioHardwarePropertyDefaultOutputDevice,
+                mScope:    kAudioObjectPropertyScopeGlobal,
+                mElement:  kAudioObjectPropertyElementMain)
+            var size = UInt32(MemoryLayout<AudioDeviceID>.size)
+            guard AudioObjectGetPropertyData(
+                AudioObjectID(kAudioObjectSystemObject), &addr, 0, nil, &size, &deviceID
+            ) == noErr, deviceID != 0 else { return }
+        }
         // Skip the write when the AU is already bound to the default device —
         // a redundant CurrentDevice set can still emit a configuration-change
         // notification, and this is called from the settle-window rebuild
@@ -1271,6 +1375,72 @@ final class MenuBandSynth {
         } else {
             NSLog("MenuBand: output device override — engine re-bound \(current) → \(deviceID)")
         }
+    }
+
+    // MARK: - Device picks (headphone icon right-click menu)
+
+    /// Bind playback to `uid` (nil = follow the system default output, the
+    /// launch behavior). Persisted; the live re-bind emits a configuration
+    /// change that the existing recovery machinery absorbs exactly like a
+    /// headphone switch.
+    func setPreferredOutputDevice(uid: String?) {
+        MenuBandAudioDevices.pinnedOutputUID = uid
+        engineLock.lock()
+        defer { engineLock.unlock() }
+        guard started else { return }
+        applyOutputDeviceOverride()
+        lowerOutputBufferSizeIfNeeded()
+    }
+
+    /// Pin the capture device (nil = automatic: prefer a Focusrite/Scarlett
+    /// when attached). Both directions re-resolve through the record path's
+    /// device preference — it owns the set-default-input + reassert-outputs
+    /// dance, and the duplex monitor engine follows the default-input flip
+    /// through its configuration-change recovery.
+    func setPreferredInputDevice(uid: String?) {
+        MenuBandAudioDevices.pinnedInputUID = uid
+        sampleVoice.reassertPreferredHardwareInput()
+    }
+
+    /// Monitor/record channel: 0 = mix all input channels, k = device
+    /// channel k only. Applied to BOTH input AUs (duplex monitor + record
+    /// engine) so what the user hears in the headset is exactly what lands
+    /// on the tape's dry stem.
+    func setMonitorInputChannel(_ channel: Int) {
+        MenuBandAudioDevices.monitorChannel = channel
+        engineLock.lock()
+        if started {
+            // The AUHAL only honours a channel-map write while it is
+            // uninitialized, so bounce the engine around the write. A
+            // self-initiated stop → start does not post
+            // AVAudioEngineConfigurationChange, so this never enters the
+            // device-switch recovery path.
+            engine.stop()
+            applyInputChannelMap()
+            do { try engine.start() } catch {
+                NSLog("MenuBand: engine restart after channel-map change failed: \(error)")
+            }
+            applyOutputDeviceOverride()
+            lowerOutputBufferSizeIfNeeded()
+        }
+        engineLock.unlock()
+        sampleVoice.applyMonitorInputChannelMap()
+    }
+
+    /// Re-assert the persisted monitor-channel pick onto the duplex input
+    /// AU. Must run while the engine is stopped (bootstrap pre-start, or a
+    /// configuration-change recovery before the restart) — see
+    /// `MenuBandAudioDevices.applyChannelMap`.
+    private func applyInputChannelMap() {
+        // Never touch `engine.inputNode` unless the duplex graph is wired:
+        // merely ACCESSING the property creates the input AU and makes the
+        // engine consider itself duplex — an unconnected input AU then
+        // fails engine start with kAudioUnitErr_Uninitialized (kAUStartIO).
+        guard inputMonitor.isAttached else { return }
+        guard let au = engine.inputNode.audioUnit else { return }
+        let clientChannels = Int(engine.inputNode.inputFormat(forBus: 0).channelCount)
+        MenuBandAudioDevices.applyChannelMap(
+            to: au, clientChannels: clientChannels, label: "duplex")
     }
 
     /// Drive the engine's output AU toward a 128-frame IO buffer so

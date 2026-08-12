@@ -419,6 +419,10 @@ final class MenuBandPopoverViewController: NSViewController {
     /// Spotify source; App Store builds use the same deck for radio stations.
     private var cdjRadioView: MenuBandCDJRadioView?
     private var inputMonitorButton: NSButton?
+    /// Right-click menu on the headset button: audio input device /
+    /// monitored input channel / output device. Rebuilt on every open so
+    /// it always reflects what is actually plugged in.
+    private var monitorDeviceMenu: NSMenu?
     /// Transport controls that appear next to the metronome when a
     /// Menu Band PDF score has been loaded into the staff. Play
     /// restarts from the head; Stop cancels in-flight playback.
@@ -1162,6 +1166,13 @@ final class MenuBandPopoverViewController: NSViewController {
         monitorButton.action = #selector(toggleInputMonitoring(_:))
         monitorButton.setAccessibilityLabel("Monitor audio input")
         inputMonitorButton = monitorButton
+        // Right-click: the audio-routing menu (input device / monitored
+        // channel / output device). Left-click stays the monitoring toggle,
+        // so the headset is both the switch and the patchbay.
+        let deviceMenu = NSMenu()
+        deviceMenu.delegate = self
+        monitorButton.menu = deviceMenu
+        monitorDeviceMenu = deviceMenu
         refreshInputMonitorButton()
 
         // Listening tools get their own small row above the footer: disc on
@@ -2658,9 +2669,125 @@ final class MenuBandPopoverViewController: NSViewController {
             accessibilityDescription: "Monitor audio input")
         inputMonitorButton?.contentTintColor = enabled
             ? .systemGreen : .secondaryLabelColor
-        inputMonitorButton?.toolTip = enabled
+        inputMonitorButton?.toolTip = (enabled
             ? "Audio input monitoring on — click to turn off"
-            : "Monitor audio input — click to turn on"
+            : "Monitor audio input — click to turn on")
+            + " · right-click to pick input / channel / output"
+    }
+
+    // MARK: - Headset right-click: audio-routing menu
+
+    /// Disabled row that titles a section of the routing menu. macOS 14's
+    /// native `sectionHeader` items aren't available at our deployment
+    /// target, so this is the classic hand-rolled equivalent.
+    private static func audioMenuHeader(_ title: String) -> NSMenuItem {
+        let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+        item.isEnabled = false
+        return item
+    }
+
+    /// Rebuild the routing menu against live hardware. Three sections:
+    ///
+    ///  Input — device the mic/instrument comes from. "Automatic" is the
+    ///  shipping behavior (prefer an attached Scarlett); a named pick pins
+    ///  that device. The `–` (mixed) mark shows which device Automatic is
+    ///  currently resolving to.
+    ///
+    ///  Monitor Channel — only offered when the active input has more than
+    ///  one channel: mix, or one physical input alone (Scarlett Solo: 1 =
+    ///  mic, 2 = instrument). Applies to the headset monitor AND the
+    ///  tape's dry stem.
+    ///
+    ///  Output — where Menu Band plays. "System Default" follows macOS
+    ///  (the shipping behavior); a named pick binds the engine directly
+    ///  and leaves the system-wide setting alone.
+    fileprivate func buildAudioRoutingMenu(into menu: NSMenu) {
+        menu.autoenablesItems = false
+        let devices = MenuBandAudioDevices.all()
+        let inputs = devices.filter { $0.inputChannels > 0 }
+        let outputs = devices.filter { $0.outputChannels > 0 }
+        let pinnedInputUID = MenuBandAudioDevices.pinnedInputUID
+        let currentInputID = MenuBandAudioDevices.systemDefaultInputID()
+
+        menu.addItem(Self.audioMenuHeader("Input"))
+        let auto = NSMenuItem(
+            title: "Automatic (prefer Scarlett)",
+            action: #selector(pickAudioInput(_:)), keyEquivalent: "")
+        auto.target = self
+        auto.state = pinnedInputUID == nil ? .on : .off
+        menu.addItem(auto)
+        for dev in inputs {
+            let item = NSMenuItem(
+                title: dev.name,
+                action: #selector(pickAudioInput(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = dev.uid
+            item.state = pinnedInputUID == dev.uid
+                ? .on
+                : (pinnedInputUID == nil && dev.id == currentInputID ? .mixed : .off)
+            menu.addItem(item)
+        }
+
+        // The channel list belongs to whichever device the monitor actually
+        // hears right now: the pinned pick, else the system default input.
+        let monitored = inputs.first {
+            pinnedInputUID != nil ? $0.uid == pinnedInputUID : $0.id == currentInputID
+        }
+        if let monitored, monitored.inputChannels > 1 {
+            menu.addItem(.separator())
+            menu.addItem(Self.audioMenuHeader("Monitor Channel"))
+            let picked = MenuBandAudioDevices.monitorChannel
+            let mix = NSMenuItem(
+                title: "Mix (all channels)",
+                action: #selector(pickMonitorChannel(_:)), keyEquivalent: "")
+            mix.target = self
+            mix.representedObject = 0
+            mix.state = picked == 0 ? .on : .off
+            menu.addItem(mix)
+            for ch in 1...min(monitored.inputChannels, 8) {
+                let item = NSMenuItem(
+                    title: "Channel \(ch)",
+                    action: #selector(pickMonitorChannel(_:)), keyEquivalent: "")
+                item.target = self
+                item.representedObject = ch
+                item.state = picked == ch ? .on : .off
+                menu.addItem(item)
+            }
+        }
+
+        menu.addItem(.separator())
+        menu.addItem(Self.audioMenuHeader("Output"))
+        let pinnedOutputUID = MenuBandAudioDevices.pinnedOutputUID
+        let currentOutputID = MenuBandAudioDevices.systemDefaultOutputID()
+        let sysDefault = NSMenuItem(
+            title: "System Default",
+            action: #selector(pickAudioOutput(_:)), keyEquivalent: "")
+        sysDefault.target = self
+        sysDefault.state = pinnedOutputUID == nil ? .on : .off
+        menu.addItem(sysDefault)
+        for dev in outputs {
+            let item = NSMenuItem(
+                title: dev.name,
+                action: #selector(pickAudioOutput(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = dev.uid
+            item.state = pinnedOutputUID == dev.uid
+                ? .on
+                : (pinnedOutputUID == nil && dev.id == currentOutputID ? .mixed : .off)
+            menu.addItem(item)
+        }
+    }
+
+    @objc private func pickAudioInput(_ sender: NSMenuItem) {
+        menuBand?.setAudioInputDevice(uid: sender.representedObject as? String)
+    }
+
+    @objc private func pickMonitorChannel(_ sender: NSMenuItem) {
+        menuBand?.setAudioMonitorChannel(sender.representedObject as? Int ?? 0)
+    }
+
+    @objc private func pickAudioOutput(_ sender: NSMenuItem) {
+        menuBand?.setAudioOutputDevice(uid: sender.representedObject as? String)
     }
 
     @objc private func openNotepat() {
@@ -2693,5 +2820,16 @@ final class MenuBandPopoverRootView: NSView {
     override func viewDidChangeEffectiveAppearance() {
         super.viewDidChangeEffectiveAppearance()
         onAppearanceChange?()
+    }
+}
+
+/// The headset button's right-click menu is rebuilt each time it opens, so
+/// a freshly plugged interface (or one that walked away) is always
+/// reflected — there is no cached device list to go stale.
+extension MenuBandPopoverViewController: NSMenuDelegate {
+    func menuNeedsUpdate(_ menu: NSMenu) {
+        guard menu === monitorDeviceMenu else { return }
+        menu.removeAllItems()
+        buildAudioRoutingMenu(into: menu)
     }
 }

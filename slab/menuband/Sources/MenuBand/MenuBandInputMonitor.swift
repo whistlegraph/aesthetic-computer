@@ -8,6 +8,8 @@ final class MenuBandInputMonitor {
     private let monoMixer = AVAudioMixerNode()
     private var attached = false
 
+    var isAttached: Bool { attached }
+
     func attach(to engine: AVAudioEngine, output: AVAudioNode) {
         guard !attached else { return }
         let input = engine.inputNode
@@ -23,6 +25,18 @@ final class MenuBandInputMonitor {
         monoMixer.outputVolume = 0
         attached = true
         NSLog("MenuBand monitor: direct duplex ch=\(inputFormat.channelCount) sr=\(inputFormat.sampleRate)")
+    }
+
+    /// Unwire the duplex graph so the engine goes back to being a pure
+    /// output graph (no aggregate, no open microphone). Callers stop the
+    /// engine around this — inputNode wiring only negotiates cleanly
+    /// across a start.
+    func detach(from engine: AVAudioEngine) {
+        guard attached else { return }
+        engine.disconnectNodeOutput(engine.inputNode)
+        engine.disconnectNodeOutput(monoMixer)
+        engine.detach(monoMixer)
+        attached = false
     }
 
     func setEnabled(_ value: Bool) {

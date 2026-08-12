@@ -65,6 +65,12 @@ final class MenuBandController {
                 name: .menuBandInputMonitoringChanged, object: self)
         }
     }
+    /// Audio-routing picks from the headphone icon's right-click menu.
+    /// Thin forwards — the persistence + engine plumbing live with the
+    /// synth (see `MenuBandAudioDevices`).
+    func setAudioInputDevice(uid: String?) { synth.setPreferredInputDevice(uid: uid) }
+    func setAudioOutputDevice(uid: String?) { synth.setPreferredOutputDevice(uid: uid) }
+    func setAudioMonitorChannel(_ channel: Int) { synth.setMonitorInputChannel(channel) }
     private var keyTap: KeyEventTap?
     private var heldNotes: [UInt16: UInt8] = [:]
     /// Chord EXTENSION voices for a held key, keyed by interval (semitones
