@@ -21,21 +21,25 @@ runtime = function acRuntime() {
 };
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 56;
+const buildVersion = 57;
 const floorY = 1800;
 const ceilingY = 0;
 const wallThickness = 80;
 const worldLeft = 0;
-// A long street gives the skateboard room to gather speed between the two
-// quarter-pipe ends. Fighters still spawn close together near the left end;
-// the camera reveals the rest only when play travels there.
-const worldRight = 25000;
+// The padded room. The long street gave the skateboard a runway and gave a
+// stray camera twenty thousand empty units to get lost in — @jeffrey wants
+// the fight in a room again. Every piece of furniture (platform, pickups,
+// spawns, both wall trees) already lived inside the first five thousand
+// units, and a room this size caps the worst-case draw span, which the
+// console's interpreter pays for directly.
+const worldRight = 5000;
 const worldNear = -900;
 const worldFar = 900;
-const terrainAmplitude = 46;
-// Preserve roughly the same tessellation density as the former 5,000-unit
-// arena so stretching the street does not stretch its floor polygons.
-const terrainSamples = 240;
+// A padded room is flat: the rolling hills were tuned for the street and
+// compressed fivefold they put real slopes under the spawn marks. The
+// quarter-pipe wall transitions are the padding, and they stay.
+const terrainAmplitude = 0;
+const terrainSamples = 48;
 let terrainPhase = 0;
 function terrainSeed(value) {
   let hash = 2166136261;
@@ -2859,10 +2863,12 @@ function fighterFrameRect() {
   // A shot remains physical until it hits something, so it remains a camera
   // subject too. Include both ends of its swept path to prevent a fast round
   // flickering outside the action-safe frame between simulation ticks —
-  // but only while it stays near the fight. A ricocheting stray sailing
-  // down the empty street dragged the lens street-wide, and the draw span
-  // with it; the Xbox rode that road to eleven frames a second.
-  const bulletLeash = 1600;
+  // but only while it stays near the fight. In the padded room the leash
+  // spans the whole map, so every shot is framed like it always was; it
+  // exists because on the old street a ricocheting stray dragged the lens
+  // twenty thousand units from two idle fighters and the draw span took
+  // the Xbox to eleven frames a second.
+  const bulletLeash = 5200;
   for (const bullet of bullets) {
     if (bullet.life <= 0) continue;
     if (!players.some((player) =>

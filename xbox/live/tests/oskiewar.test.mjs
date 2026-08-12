@@ -735,8 +735,10 @@ test("camera zoom-out remains continuous as fighters approach safe edges", () =>
 
 // Settle a live fight into a given horizontal separation and report the frame.
 function settleFraming(fight, tick, separation, frames = 420) {
-  const left = 6000 - separation / 2;
-  const right = 6000 + separation / 2;
+  // Mid-room on the padded floor — the old 6000 was mid-street and now
+  // sits outside the right wall.
+  const left = 2500 - separation / 2;
+  const right = 2500 + separation / 2;
   const floorY = fight.stageGeometry().floorY;
   for (let frame = 0; frame < frames; frame++) {
     for (const [player, x] of [[fight.players[0], left], [fight.players[1], right]]) {
@@ -885,8 +887,8 @@ test("the lens holds still while fighters idle at close range", () => {
   let widest = previous;
   let tightest = previous;
   for (let frame = 0; frame < 240; frame++) {
-    fight.players[0].x = 5930;
-    fight.players[1].x = 6070;
+    fight.players[0].x = 2430;
+    fight.players[1].x = 2570;
     fight.players[0].vx = 0;
     fight.players[1].vx = 0;
     tick();
@@ -907,11 +909,11 @@ test("camera containment releases and zooms back in when fighters converge", () 
   fight.startFight();
   tick(3000001);
   fight.players[0].x = 900;
-  fight.players[1].x = 11100;
+  fight.players[1].x = 4100;
   for (let frame = 0; frame < 120; frame++) { tick(); fight.paint(); }
   const wide = fight.cameraState().doll.width;
-  fight.players[0].x = 5700;
-  fight.players[1].x = 6300;
+  fight.players[0].x = 2200;
+  fight.players[1].x = 2800;
   for (let frame = 0; frame < 180; frame++) { tick(); fight.paint(); }
   const close = fight.cameraState().doll.width;
   assert.ok(close < wide * .55,
@@ -2331,11 +2333,11 @@ test("an airborne fighter can cross over the other fighter", () => {
   const { fight, pads, tick } = createFight();
   const jumper = fight.players[0];
   const standing = fight.players[1];
-  jumper.x = 5940;
+  jumper.x = 2440;
   jumper.y = standing.y - 190;
   jumper.vy = 0;
   jumper.grounded = false;
-  standing.x = 6060;
+  standing.x = 2560;
   pads[0].down = ["ArrowRight"];
   for (let frame = 0; frame < 8; frame++) tick(16667);
   assert.ok(jumper.x > standing.x);
@@ -2827,7 +2829,7 @@ test("a crouch hop stays lower and shorter than a crouch jump", () => {
 test("double-tapping crouch sinks through the platform but never the floor", { skip: !PLATFORM }, () => {
   const { fight, tick, tap, signals } = createFight();
   const player = fight.players[1];
-  player.x = 6000;
+  player.x = 2500;
   player.y = 4000;
   player.vy = 0;
   player.grounded = false;
@@ -2850,7 +2852,7 @@ test("double-tapping crouch sinks through the platform but never the floor", { s
 test("a lone crouch tap on the platform never sinks", () => {
   const { fight, tick, tap } = createFight();
   const player = fight.players[0];
-  player.x = 6000;
+  player.x = 2500;
   player.y = 4000;
   player.grounded = false;
   for (let frame = 0; frame < 200 && !player.grounded; frame++) tick();
@@ -2918,7 +2920,7 @@ test("a grounded ball ignores wind", () => {
   const { fight, signals, tick } = createFight();
   fight.enableBall();
   fight.setWind(1200);
-  fight.ball.x = 6000;
+  fight.ball.x = 2500;
   fight.ball.y = 12000 - fight.ball.radius;
   fight.ball.vx = 0;
   fight.ball.vy = 0;
@@ -2931,7 +2933,7 @@ test("a ball resting on the platform also ignores wind", () => {
   const { fight, tick } = createFight();
   fight.enableBall();
   fight.setWind(1200);
-  fight.ball.x = 6000;
+  fight.ball.x = 2500;
   fight.ball.y = fight.stageGeometry().platformY - fight.ball.radius;
   fight.ball.vx = 0;
   fight.ball.vy = 0;
@@ -4322,10 +4324,11 @@ test("the Replay Oven captures match-HUD 60 fps high-quality masters", () => {
   assert.match(replayOven, /hud: true/);
 });
 
-test("the long street preserves terrain density and quarter-pipe ends", () => {
-  assert.match(source, /const worldRight = 25000/);
-  assert.match(source, /const terrainSamples = 240/);
+test("the padded room keeps its size, flat floor, and quarter-pipe padding", () => {
+  assert.match(source, /const worldRight = 5000/);
+  assert.match(source, /const terrainSamples = 48/);
   assert.match(source, /const transitionRadius = 720/);
+  assert.match(source, /const terrainAmplitude = 0/);
 });
 
 test("camera bounds only cull an immutable globally mapped arena", () => {
