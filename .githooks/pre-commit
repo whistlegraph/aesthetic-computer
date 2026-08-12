@@ -2,6 +2,7 @@
 # Pre-commit hook to:
 # 1. Warn about large deletions in critical files (prevents clobbering during merges)
 # 2. Block commits containing secrets/credentials (prevents leaks)
+# 3. Block newly added generated outputs and oversized blobs
 
 RED='\033[0;31m'
 YELLOW='\033[1;33m'
@@ -248,7 +249,37 @@ if [ "$warnings" -gt 0 ]; then
 fi
 
 ###############################################################################
-# PART 3: PAPERS — oven builds PDFs automatically on push to main
+# PART 3: REPOSITORY SIZE GUARD
+###############################################################################
+
+MAX_NEW_BLOB_BYTES=$((25 * 1024 * 1024))
+size_errors=0
+
+while IFS= read -r -d '' file; do
+  case "$file" in
+    pop/*/out/*|pop/*/*/out/*|*/.build/*|slab/menuband/build/*.xcarchive/*|slab/menuband/build/export-*/*|papers/BUILDLOG.md)
+      echo -e "${RED}🚫 Generated output must not be committed: ${file}${NC}"
+      size_errors=$((size_errors + 1))
+      continue
+      ;;
+  esac
+
+  blob_size=$(git cat-file -s ":$file" 2>/dev/null || echo 0)
+  if [ "$blob_size" -gt "$MAX_NEW_BLOB_BYTES" ]; then
+    size_mb=$((blob_size / 1024 / 1024))
+    echo -e "${RED}🚫 New ${size_mb} MiB blob must use object storage: ${file}${NC}"
+    size_errors=$((size_errors + 1))
+  fi
+done < <(git diff --cached --name-only --diff-filter=A -z)
+
+if [ "$size_errors" -gt 0 ]; then
+  echo ""
+  echo "Archive durable media in the assets bucket; keep regenerable output ignored."
+  exit 1
+fi
+
+###############################################################################
+# PART 4: PAPERS — oven builds PDFs automatically on push to main
 # (see papers/SCORE.md § Building § Automatic)
 # No local rebuild needed in pre-commit.
 ###############################################################################
