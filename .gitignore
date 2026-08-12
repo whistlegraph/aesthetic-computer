@@ -539,6 +539,9 @@ slab/menuband/build/export-*/
 # project directory; intermediate renders and QA scratch stay local.
 /outputs/
 
+# Generated paper build ledger; archival outputs belong in Platter, not Git.
+/papers/BUILDLOG.md
+
 # Generated media workspaces and local executable builds.
 /marketing/essay-reels/out/
 /marketing/talking-head/out/
