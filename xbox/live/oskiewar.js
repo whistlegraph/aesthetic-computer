@@ -1979,6 +1979,9 @@ function startSelfPlay(now) {
   if (replay && replayCheckpointUs() < 100000) {
     replay.botSeeds = players.map((player) => player.botRngState >>> 0);
     replay.spawns = players.map((player) => Math.round(player.spawnX));
+    // Animation runs off the page-boot clock, and limb pose decides where a
+    // strike lands — a rerun needs the same phase or contacts wander.
+    replay.posePhaseUs = Math.round(now - startedAt);
   }
 }
 
@@ -1995,8 +1998,33 @@ let resimCheckpoints = null;
 let resimCommands = null;
 let resimFirstRowTick = 0;
 let resimCommandCursor = 0;
-let resimExpectedCommand = [0, 0];
-let resimActualCommand = [0, 0];
+let resimMask = [0, 0];
+
+// The inverse of `inputCommand`: a recorded mask back into the pad shape the
+// sim reads. Replaying the live pass's actual inputs — instead of letting
+// bot AI re-decide — pins every action to its recorded tick, which is what
+// keeps the rerun's hits on the audio's timestamps.
+function resimPad(pad) {
+  const mask = resimMask[pad] || 0;
+  const down = [];
+  if (mask & 1) down.push("ArrowLeft");
+  if (mask & 2) down.push("ArrowRight");
+  if (mask & 4) down.push("ArrowUp");
+  if (mask & 8) down.push("ArrowDown");
+  for (let index = 4; index < replayButtons.length; index++)
+    if (mask & (1 << index)) down.push(replayButtons[index]);
+  return { connected: true, down, leftX: 0, leftY: 0, rightX: 0, rightY: 0 };
+}
+
+function advanceResimCommands() {
+  if (!resimCommands) return;
+  while (resimCommandCursor < resimCommands.length &&
+    resimCommands[resimCommandCursor][0] <= resimTick) {
+    const [, pad, mask] = resimCommands[resimCommandCursor];
+    resimMask[pad] = mask;
+    resimCommandCursor++;
+  }
+}
 function startResim(demo, now) {
   resimActive = true;
   // The reset step is demo tick zero; every later sim step counts one.
@@ -2006,8 +2034,7 @@ function startResim(demo, now) {
   resimFirstRowTick = demo.checkpoints?.[0]?.[0] ?? 0;
   resimCommands = demo.commands || null;
   resimCommandCursor = 0;
-  resimExpectedCommand = [0, 0];
-  resimActualCommand = [0, 0];
+  resimMask = [0, 0];
   globalThis.__oskiewarResimDrift = { ticks: 0, maxDrift: 0, atTick: 0 };
   selfPlay = true;
   shellMode = "GAME";
@@ -2041,6 +2068,13 @@ function startResim(demo, now) {
       if (demo.botSeeds[index] != null)
         player.botRngState = demo.botSeeds[index] >>> 0;
     });
+  // The recording says which tick its fight opened on; anchoring the intro
+  // clock to that tick removes the ±1-step phase that clock rounding deals
+  // each pass, so replayed inputs land exactly where they were pressed.
+  const fightOpen = demo.checkpoints?.[0]?.[0];
+  if (fightOpen) roundStartedAt = now + fightOpen * 16667 -
+    introDurationUs - 8000;
+  if (demo.posePhaseUs != null) startedAt = now - demo.posePhaseUs;
 }
 
 function trackResimDrift(now) {
@@ -2057,27 +2091,6 @@ function trackResimDrift(now) {
     report.endedAt = resimTick;
     report.endedWith = roundResult;
     report.endedCause = roundCause;
-  }
-  // The recorded commands are the live bots' actual decisions; the first
-  // tick where this rerun would record something different is where the
-  // two histories part.
-  if (report.firstCommandMismatch === undefined && resimCommands) {
-    while (resimCommandCursor < resimCommands.length &&
-      resimCommands[resimCommandCursor][0] <= resimTick) {
-      const [, pad, mask] = resimCommands[resimCommandCursor];
-      resimExpectedCommand[pad] = mask;
-      resimCommandCursor++;
-    }
-    for (let pad = 0; pad < players.length; pad++) {
-      const actual = players[pad].npc && !players[pad].bot
-        ? 0 : inputCommand(inputPads[pad]);
-      if (actual !== resimActualCommand[pad]) resimActualCommand[pad] = actual;
-      if (actual !== resimExpectedCommand[pad]) {
-        report.firstCommandMismatch = { tick: resimTick, pad,
-          expected: resimExpectedCommand[pad], actual };
-        break;
-      }
-    }
   }
   const row = resimCheckpoints.get(alignedTick);
   if (!row) return;
@@ -2887,7 +2900,7 @@ function rectPackWidth(rect) {
 // The tightest the automatic camera may go. It scales with the same pull, or a
 // portrait shot closes to the pull and then hits a floor sized for a television.
 const frameFloorWidth = () =>
-  (compactLayout() ? 240 : 315) * portraitPull();
+  (compactLayout() ? 215 : 315) * portraitPull();
 
 // Terrain is flat color, so it only has to reach as far as the lens can see.
 // Submitting the whole arena pushed its far corners past the native ±30000
@@ -2934,9 +2947,9 @@ function updateCamera(dt) {
   // Perspective orbit and uneven ground skew the projected silhouette beyond
   // its orthographic pushbox. A small fixed overscan keeps complete bodies in
   // the action-safe rectangle without making the compact room feel distant.
-  const desiredWidth = clamp(rectPackWidth(rect) * 1.12,
+  const desiredWidth = clamp(rectPackWidth(rect) * 1.08,
     frameFloorWidth(), maxWidth);
-  const widthSpeed = desiredWidth > cameraWidth ? 13 : 5.5;
+  const widthSpeed = desiredWidth > cameraWidth ? 17 : 5.5;
   const widthBlend = 1 - Math.exp(-Math.max(0, dt) * widthSpeed);
   cameraWidth += (desiredWidth - cameraWidth) * widthBlend;
   const halfWidth = cameraWidth / 2;
@@ -5353,6 +5366,7 @@ function gameSim() {
     // Demo ticks count every sim step from the reset, intro included — the
     // drift meter has to count in the same currency.
     resimTick++;
+    advanceResimCommands();
   }
   if (roundViewer) {
     updateRoundViewer(now, dt);
@@ -5376,10 +5390,12 @@ function gameSim() {
   // and then falls straight through into the fight it is sitting on top of.
   if (shellMode === "MENU") updateShell(now);
   for (const player of players)
-    inputPads[player.pad] = player.bot && shellMode === "GAME"
-      ? botPad(player, players[player.pad ? 0 : 1], now)
-      : player.npc ? { connected: true, down: [], leftX: 0, leftY: 0 }
-        : padSnapshots[player.pad];
+    inputPads[player.pad] = resimActive && resimCommands
+      ? resimPad(player.pad)
+      : player.bot && shellMode === "GAME"
+        ? botPad(player, players[player.pad ? 0 : 1], now)
+        : player.npc ? { connected: true, down: [], leftX: 0, leftY: 0 }
+          : padSnapshots[player.pad];
   if (debugHitboxes && now >= nextInputDebugAt) {
     nextInputDebugAt = now + 500000;
     const values = players.map((player) => {
