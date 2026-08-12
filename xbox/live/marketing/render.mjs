@@ -90,12 +90,16 @@ async function captureOfflineReplay({ browser, shell, demo, frames, width,
     await page.setViewport({ width, height, deviceScaleFactor: 1 });
     await page.emulateMediaFeatures([
       { name: "prefers-color-scheme", value: theme === "light" ? "light" : "dark" }]);
-    await page.evaluateOnNewDocument(() => {
+    // A demo carrying bot seeds re-simulates: the offline page reruns the
+    // real fight through the engine instead of puppeting recorded state.
+    const resim = Array.isArray(demo?.botSeeds);
+    await page.evaluateOnNewDocument((armResim) => {
+      if (armResim) globalThis.__oskiewarResim = true;
       globalThis.WebSocket = function () {
         return { readyState: 3, send() {}, close() {},
           addEventListener() {}, removeEventListener() {} };
       };
-    });
+    }, resim);
     await page.goto(offlineReplayAddress(shell.origin, round, { hud }),
       { waitUntil: "domcontentloaded", timeout: 45000 });
     await page.evaluate(() => document.fonts.ready);
@@ -110,7 +114,15 @@ async function captureOfflineReplay({ browser, shell, demo, frames, width,
       await page.screenshot({ path: join(frames, file), type: "jpeg", quality: 92 });
       stamps.push({ file, at: index / 60 });
       if ((index + 1) % 120 === 0 || index + 1 === total)
-        log(`   offline replay ${index + 1}/${total} exact frames`);
+        log(`   offline ${resim ? "re-sim" : "replay"} ${index + 1}/${total} exact frames`);
+    }
+    if (resim) {
+      const drift = await page.evaluate(() => globalThis.__oskiewarResimDrift);
+      log(`   re-sim drift ${drift?.maxDrift ?? "?"} units` +
+        ` (worst at tick ${drift?.atTick ?? "?"}, ${drift?.ticks ?? 0} ticks checked` +
+        (drift?.firstDriftTick !== undefined
+          ? `, first >4 at tick ${drift.firstDriftTick} pad ${drift.firstDriftPad}`
+          : ", never over 4") + ")");
     }
     return stamps;
   } finally {
@@ -408,6 +420,9 @@ export async function renderReel(spec, { log = console.log } = {}) {
     const replayName = shell.demos.at(-1)?.roundName;
     const replayDemo = replayName ? shell.replayBodies.get(replayName) : null;
     if (!replayDemo) throw new Error("completed bot fight replay payload is missing");
+    // The demo sticks around beside the frames — it is the whole recording,
+    // and a re-sim investigation should not need another live pass to get one.
+    writeFileSync(join(out, "demo.json"), JSON.stringify(replayDemo));
     const offlineStamps = await captureOfflineReplay({ browser, shell,
       demo: replayDemo, frames, width, height, theme,
       seconds: captured.seconds, hud, log });

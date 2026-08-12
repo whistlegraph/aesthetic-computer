@@ -125,8 +125,11 @@ const replayTickUs = 16667;
 // hundreds of matches. A marketing render replays its demo AS the footage,
 // and a fight smoothed through one-second keyframes stops feeling like a
 // fight, so the reel factory asks for a checkpoint every simulation tick.
+// The dense interval sits just under one true sim step (16666.67us) — at
+// exactly one tick the < gate loses the rounding race and records every
+// OTHER step, which halves a re-simulation's drift meter.
 const replayCheckpointUs = () =>
-  globalThis.__oskiewarDenseReplay ? 16667 : 1000000;
+  globalThis.__oskiewarDenseReplay ? 16000 : 1000000;
 const liveSnapshotIntervalUs = 50000;
 const fighterAnimationSpecs = {
   // WALK ran a whole stride in 12 ticks — five cycles a second, which the eye
@@ -1013,6 +1016,8 @@ function roundIsTimed() {
   // (clock, demo, result card) so it can be recorded and repainted like any
   // match.
   if (globalThis.__oskiewarTimedTraining === true) return true;
+  // Every round that reaches a re-simulation was a timed, recorded round.
+  if (resimActive) return true;
   return !(players[1].npc && !players[1].bot);
 }
 
@@ -1967,6 +1972,132 @@ function startSelfPlay(now) {
     players[1].bot = false;
   startReplay(now);
   resetRound(now, true);
+  // The bots' dice are seeded off the round clock, which a re-simulation
+  // cannot reproduce — so a dense demo carries the seeds themselves, and a
+  // replayed sim rolls exactly what the live pass rolled. Spawns ride along
+  // for the same reason: the fight can only rerun from where it stood.
+  if (replay && replayCheckpointUs() < 100000) {
+    replay.botSeeds = players.map((player) => player.botRngState >>> 0);
+    replay.spawns = players.map((player) => Math.round(player.spawnX));
+  }
+}
+
+// Re-simulation: the offline renderer's honest path. Instead of puppeting
+// recorded state, the page reruns the ACTUAL fight — same name stream, same
+// ball, same bot dice — through the real simulation at the fixed step. Every
+// limb tint, item drop, and debris mote is the engine's own, in the current
+// build, with nothing lost to the demo schema. State checkpoints remain as a
+// drift meter, not as the picture.
+let resimActive = false;
+let resimPending = null;
+let resimTick = -1;
+let resimCheckpoints = null;
+let resimCommands = null;
+let resimFirstRowTick = 0;
+let resimCommandCursor = 0;
+let resimExpectedCommand = [0, 0];
+let resimActualCommand = [0, 0];
+function startResim(demo, now) {
+  resimActive = true;
+  // The reset step is demo tick zero; every later sim step counts one.
+  resimTick = 0;
+  resimCheckpoints = new Map(
+    (demo.checkpoints || []).map((row) => [row[0], row]));
+  resimFirstRowTick = demo.checkpoints?.[0]?.[0] ?? 0;
+  resimCommands = demo.commands || null;
+  resimCommandCursor = 0;
+  resimExpectedCommand = [0, 0];
+  resimActualCommand = [0, 0];
+  globalThis.__oskiewarResimDrift = { ticks: 0, maxDrift: 0, atTick: 0 };
+  selfPlay = true;
+  shellMode = "GAME";
+  gameplayStarted = true;
+  selecting = false;
+  titleTransitionAt = null;
+  for (const player of players) {
+    player.npc = true;
+    player.bot = true;
+    player.spiderDummy = false;
+    player.rosterIndex = -1;
+  }
+  if (demo.fighters?.[1] === "DUMMY") players[1].bot = false;
+  // A forced first-seat color survives in the demo as the fighter's own
+  // name, so the rerun dresses itself without being told.
+  const worn = String(demo.fighters?.[0] || "").toLowerCase();
+  if (cssColorBook.some((entry) => entry.name === worn))
+    globalThis.__oskiewarWardrobe = worn;
+  seedNames(demo.nameSeed >>> 0);
+  seriesName = demo.seriesName || demo.matchName || "";
+  matchBallType = demo.ballType || seriesBallType(seriesName);
+  matchName = String(demo.roundName || "").replace(/^ow-/, "");
+  if (Array.isArray(demo.spawns))
+    players.forEach((player, index) => {
+      if (demo.spawns[index] != null) player.spawnX = demo.spawns[index];
+    });
+  replay = null;
+  resetRound(now, true);
+  if (Array.isArray(demo.botSeeds))
+    players.forEach((player, index) => {
+      if (demo.botSeeds[index] != null)
+        player.botRngState = demo.botSeeds[index] >>> 0;
+    });
+}
+
+function trackResimDrift(now) {
+  if (!resimActive || !resimCheckpoints) return;
+  const report = globalThis.__oskiewarResimDrift;
+  // The intro's length lands ±1 tick depending on each pass's clock
+  // rounding, so tick spaces are aligned on the fight's own first physics
+  // step — this call site is only reached once the fight is live, and the
+  // recording likewise begins there.
+  if (report.tickOffset === undefined)
+    report.tickOffset = resimFirstRowTick - resimTick;
+  const alignedTick = resimTick + report.tickOffset;
+  if (roundResult && !report.endedAt) {
+    report.endedAt = resimTick;
+    report.endedWith = roundResult;
+    report.endedCause = roundCause;
+  }
+  // The recorded commands are the live bots' actual decisions; the first
+  // tick where this rerun would record something different is where the
+  // two histories part.
+  if (report.firstCommandMismatch === undefined && resimCommands) {
+    while (resimCommandCursor < resimCommands.length &&
+      resimCommands[resimCommandCursor][0] <= resimTick) {
+      const [, pad, mask] = resimCommands[resimCommandCursor];
+      resimExpectedCommand[pad] = mask;
+      resimCommandCursor++;
+    }
+    for (let pad = 0; pad < players.length; pad++) {
+      const actual = players[pad].npc && !players[pad].bot
+        ? 0 : inputCommand(inputPads[pad]);
+      if (actual !== resimActualCommand[pad]) resimActualCommand[pad] = actual;
+      if (actual !== resimExpectedCommand[pad]) {
+        report.firstCommandMismatch = { tick: resimTick, pad,
+          expected: resimExpectedCommand[pad], actual };
+        break;
+      }
+    }
+  }
+  const row = resimCheckpoints.get(alignedTick);
+  if (!row) return;
+  report.ticks++;
+  for (let pad = 0; pad < players.length; pad++) {
+    const offset = 1 + pad * 8;
+    const drift = Math.hypot(players[pad].x - row[offset],
+      players[pad].y - row[offset + 1]);
+    if (drift > 4 && report.firstDriftTick === undefined) {
+      report.firstDriftTick = alignedTick;
+      report.firstDriftPad = pad;
+      report.firstDrift = Math.round(drift * 10) / 10;
+      report.liveAt = [row[offset], row[offset + 1]];
+      report.resimAt = [Math.round(players[pad].x), Math.round(players[pad].y)];
+    }
+    if (drift > report.maxDrift) {
+      report.maxDrift = Math.round(drift * 10) / 10;
+      report.atTick = alignedTick;
+    }
+  }
 }
 
 function consumeSystemButtons(now) {
@@ -2411,6 +2542,20 @@ function handleRoundViewer(message) {
     return;
   }
   if (message.type === "demo") {
+    // A demo with bot seeds can be re-simulated — the honest path. The
+    // bridge hands over the recording and steps aside so the real sim runs;
+    // seedless demos (older, or human-driven) still puppet through the
+    // viewer below.
+    if (globalThis.__oskiewarResim && Array.isArray(message.content?.botSeeds)) {
+      roundViewerStop?.();
+      roundViewer = null;
+      // The reset waits for the first stepped tick so it lands inside the
+      // sim clock the way a live round roll does — resetting here, on the
+      // bridge's wall clock, would skew the intro against the recording.
+      resimPending = message.content;
+      globalThis.__oskiewarReplayReady = true;
+      return;
+    }
     roundViewerDemo = message.content;
     roundViewerDemoStartedAt = now;
     roundViewerMode = "DEMO";
@@ -5187,6 +5332,14 @@ function gameSim() {
   const dt = Math.min(0.04, Math.max(0.001, (now - lastSimAt) / 1000000));
   lastSimAt = now;
   simulateAirParticles(dt, now);
+  if (resimPending) {
+    startResim(resimPending, now);
+    resimPending = null;
+  } else if (resimActive) {
+    // Demo ticks count every sim step from the reset, intro included — the
+    // drift meter has to count in the same currency.
+    resimTick++;
+  }
   if (roundViewer) {
     updateRoundViewer(now, dt);
     return;
@@ -5334,6 +5487,7 @@ function gameSim() {
   captureFrameTelemetry(now);
   captureRoundReplay(now);
   recordReplayCheckpoint(now);
+  trackResimDrift(now);
   for (const impact of impacts) {
     if (!impact.debris) {
       const count = impact.explosion ? 24 : impact.death ? 10 : 6;
