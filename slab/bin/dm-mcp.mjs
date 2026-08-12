@@ -277,6 +277,16 @@ async function toolContacts({ query, machine } = {}) {
 
 // Send — two-step by design. First call previews the resolved target + message;
 // only `confirm: true` actually sends.
+// decorative-reply: a small flourish leading the bubble. `true` gets the
+// whistlegraph pen; a string is its own motif. Text-only — an empty body
+// stays empty rather than sending a bare ornament.
+const DECOR_MOTIF = "🖋️〰️";
+function decorate(message, decorativeReply) {
+  if (!decorativeReply || !message) return message;
+  const motif = decorativeReply === true ? DECOR_MOTIF : String(decorativeReply).trim();
+  return message.startsWith(motif) ? message : `${motif} ${message}`;
+}
+
 async function toolSend({
   channel,
   to,
@@ -287,13 +297,14 @@ async function toolSend({
   linkPreview,
   mediaTransport = "auto",
   visibleTitle,
+  decorativeReply,
   confirm,
   machine,
 } = {}) {
   const ch = (channel || "").toLowerCase();
   const requestedFiles = [image, ...(Array.isArray(attachments) ? attachments : [attachments])].filter(Boolean);
   const files = inspectOutgoingFiles(requestedFiles);
-  const message = String(body || "");
+  const message = decorate(String(body || ""), decorativeReply);
   if (!message && !files.length && !linkPreview) {
     throw new Error("provide `text`, `image`/`attachments`, or `linkPreview`");
   }
@@ -551,6 +562,7 @@ const TOOLS = [
         linkPreview: { type: "string", description: "iMessage only: URL to send as a rich link preview." },
         mediaTransport: { type: "string", enum: ["auto", "backend", "ui"], description: "iMessage attachment transport (default auto)." },
         visibleTitle: { type: "string", description: "iMessage UI fallback recipient-title guard." },
+        decorativeReply: { anyOf: [{ type: "boolean" }, { type: "string" }], description: "decorative-reply: lead the text with a flourish. true = the whistlegraph pen (🖋️〰️); a string is a custom motif. Shown in the preview." },
         confirm: { type: "boolean", description: "Must be true to actually send. Omit/false = preview only." },
         machine: { type: "string", description: "Machine (default local; signal-cli sends route over ssh for remote)." },
       },
