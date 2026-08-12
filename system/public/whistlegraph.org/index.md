@@ -1627,7 +1627,7 @@ drawing one.
 
 **Publication**
 
-- [The Whistlegraph Zine](https://sexmag.shop/products/the-whistlegraph-zine) — Sex Magazine (ed. Asher Penn), 2023. 60pp, 750 copies.
+- The Whistlegraph Zine — Sex Magazine (ed. Asher Penn), 2023. 60pp, 750 copies.
 
 ## Future
 
