@@ -21,7 +21,7 @@ runtime = function acRuntime() {
 };
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 54;
+const buildVersion = 55;
 const floorY = 1800;
 const ceilingY = 0;
 const wallThickness = 80;
@@ -9023,8 +9023,10 @@ function drawDebugPerformance(ink) {
   // instruments and were not. Each line waits for a real measurement now, so
   // the web build says the one true thing it knows: how fast it is drawing.
   const refreshHz = Number(run.refreshHz) || 0;
-  const rate = refreshHz
-    ? refreshHz.toFixed(1) + " Hz" : Math.round(displayFps || 0) + " fps";
+  // Measured first, always — the display's refresh rate is a constant, not
+  // an instrument, so it rides behind the number that actually moves.
+  const rate = Math.round(displayFps || 0) + " fps" +
+    (refreshHz ? " @ " + refreshHz.toFixed(0) + " Hz" : "");
   const renderWidth = Math.round(Number(run.renderWidth) || Number(run.width) || 0);
   const renderHeight = Math.round(Number(run.renderHeight) || Number(run.height) || 0);
   const aa = Math.max(1, Math.round(Number(run.antialiasingSamples) || 1));
