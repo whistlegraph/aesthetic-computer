@@ -21,7 +21,7 @@ runtime = function acRuntime() {
 };
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 55;
+const buildVersion = 56;
 const floorY = 1800;
 const ceilingY = 0;
 const wallThickness = 80;
@@ -2858,9 +2858,16 @@ function fighterFrameRect() {
   }
   // A shot remains physical until it hits something, so it remains a camera
   // subject too. Include both ends of its swept path to prevent a fast round
-  // flickering outside the action-safe frame between simulation ticks.
+  // flickering outside the action-safe frame between simulation ticks —
+  // but only while it stays near the fight. A ricocheting stray sailing
+  // down the empty street dragged the lens street-wide, and the draw span
+  // with it; the Xbox rode that road to eleven frames a second.
+  const bulletLeash = 1600;
   for (const bullet of bullets) {
     if (bullet.life <= 0) continue;
+    if (!players.some((player) =>
+      Math.abs(bullet.x - player.x) < bulletLeash &&
+      Math.abs(bullet.y - player.y) < bulletLeash)) continue;
     const previousX = bullet.previousX ?? bullet.x;
     const previousY = bullet.previousY ?? bullet.y;
     left = Math.min(left, previousX - 32, bullet.x - 32);
