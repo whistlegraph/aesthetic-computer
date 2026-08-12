@@ -21,7 +21,7 @@ runtime = function acRuntime() {
 };
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 36;
+const buildVersion = 53;
 const floorY = 1800;
 const ceilingY = 0;
 const wallThickness = 80;
