@@ -326,6 +326,11 @@ final class PalController: NSObject {
     let agentChip = GhostImageView()
     var agentName = ""
     private var agentTicks = 0
+    // Camera-shy: while SlabMenubar's reel is recording (a Captutor Stage take
+    // films the whole screen), the badge orders itself off so it never lands in
+    // the footage. Watched at 20Hz so it's gone before the first frame.
+    private let reelStateFile = NSString(string: "~/.local/share/slab/state/reel.state").expandingTildeInPath
+    private var hiddenForRecording = false
     var draggingBadge = false
     var hovering = false
     // Menu Band "sing" easter egg state.
@@ -492,6 +497,7 @@ final class PalController: NSObject {
         Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { [weak self] _ in
             self?.updateClickability()
             self?.tickNotes()
+            self?.checkRecordingHide()
         }
         // Plugins poll on their own cadence off a 1s tick (cheap; each gates itself).
         Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
@@ -523,6 +529,28 @@ final class PalController: NSObject {
         glyphView?.needsDisplay = true
         microLabel.needsDisplay = true
         agentChip.layer?.borderColor = accent.cgColor
+    }
+
+    // ── camera-shy hide ─────────────────────────────────────────────────────
+    // Order the whole pal off while a screen recording is live, restore after.
+    // The reel writes {"recording":true} into its state file the instant it
+    // starts, so a Captutor Stage take never films the badge in the corner.
+    private func checkRecordingHide() {
+        let recording: Bool
+        if let data = FileManager.default.contents(atPath: reelStateFile),
+           let obj = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] {
+            recording = (obj["recording"] as? Bool) ?? false
+        } else {
+            recording = false
+        }
+        if recording && !hiddenForRecording {
+            hiddenForRecording = true
+            window.orderOut(nil)
+        } else if !recording && hiddenForRecording {
+            hiddenForRecording = false
+            window.orderFrontRegardless()
+            layout()
+        }
     }
 
     // ── agent contact ─────────────────────────────────────────────────────
