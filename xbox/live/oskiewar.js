@@ -2894,12 +2894,13 @@ const frameFloorWidth = () =>
 // coordinate guard whenever the camera closed in or sat against a wall, which
 // culled the ground quad and left the clear color where the stage should be.
 function terrainSpan() {
-  // A perspective lens sees far more floor near its own plane than its
-  // nominal width says — the orbiting killcam especially. Without the extra
-  // reach the ground is only drawn a camera-width wide and visibly runs out
-  // close to the lens.
-  const reach = cameraDoll.width +
-    (cameraDoll.perspective ? 2600 : 600);
+  // A lens sees more floor than its nominal width says — perspective, yaw,
+  // and the orbiting killcam all sweep past it, and a close shot's bottom
+  // corners un-project far along the ground plane. Twice the width plus a
+  // fixed apron keeps the sheet under every corner of the frame; the near
+  // clipper has owned the old ±30000 native guard since it learned to cut
+  // faces instead of culling them.
+  const reach = cameraDoll.width * 2 + 2600;
   return { left: Math.max(worldLeft, cameraCenter - reach),
     right: Math.min(worldRight, cameraCenter + reach),
     top: Math.max(ceilingY, cameraCenterY - reach),
@@ -2950,9 +2951,12 @@ function updateCamera(dt) {
   // keeps covering that far past it, so the frame may sit that low rather
   // than widening just to recentre a standing pair.
   const footRoom = 40;
+  // Aim below the fighters' middle, not at it. A vertical frame centered on
+  // the bodies spends its whole upper half on sky; leaning the aim down
+  // rides them into the upper third with ground filling in beneath.
   let desiredCenterY = halfHeight * 2 >= floorY - ceilingY
     ? (ceilingY + floorY) / 2
-    : clamp((rect.top + rect.bottom) / 2,
+    : clamp((rect.top + rect.bottom) / 2 + halfHeight * .22,
       ceilingY + halfHeight, floorY + footRoom - halfHeight);
   // Fold containment into the target before easing. Clamping the live camera
   // after easing caused a one-frame reset whenever a fighter crossed the safe
