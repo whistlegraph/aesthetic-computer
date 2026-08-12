@@ -1338,7 +1338,10 @@ function saveRoundReplay(now) {
   demo.finalRoundWins = players.map((player) => player.roundWins);
   delete demo.startedMonotonicUs;
   const payload = JSON.stringify(demo);
-  if (payload.length <= 524288 && typeof saveReplay === "function") {
+  // A dense reel demo is fat by design and never leaves the local shell; the
+  // half-megabyte gate is for demos headed to the production store.
+  const payloadLimit = globalThis.__oskiewarDenseReplay ? 8388608 : 524288;
+  if (payload.length <= payloadLimit && typeof saveReplay === "function") {
     const upload = saveReplay(payload);
     // Only promise-returning hosts can prove the upload completed. The web
     // host does; older native hosts keep saving silently until they adopt the
