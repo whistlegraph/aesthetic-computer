@@ -21,6 +21,11 @@ import {
 
 const MAX_MESSAGES = 500;
 
+// A dead or unreachable Mongo should cost a chat connection seconds, not the
+// driver's default 30s of server selection — several awaits sit on the path
+// between a socket opening and its `connected` handshake.
+const mongoClientOptions = { serverSelectionTimeoutMS: 8000 };
+
 // Chat instance configurations
 export const chatInstances = {
   "chat-system.aesthetic.computer": {
@@ -101,11 +106,11 @@ export class ChatManager {
     if (this.mongoConnectionString) {
       try {
         console.log("💬 Connecting to MongoDB...");
-        this.mongoClient = new MongoClient(this.mongoConnectionString);
+        this.mongoClient = new MongoClient(this.mongoConnectionString, mongoClientOptions);
         await this.mongoClient.connect();
         this.db = this.mongoClient.db(this.mongoDbName);
         console.log("💬 MongoDB connected!");
-        
+
         // Ensure hearts indexes exist
         await ensureHeartsIndexes(this.db);
 
@@ -118,6 +123,26 @@ export class ChatManager {
       }
     } else {
       console.log("💬 No MongoDB connection string, running without persistence");
+    }
+
+    // Chat must outlive its database: messages that fail to persist stay in
+    // memory (`sub`, no `id`) and this flush retries them until Mongo returns.
+    // Without it, recovery only happened at shutdown — a whole outage's worth
+    // of messages rode on the process exiting cleanly.
+    if (!this.dev && this.mongoConnectionString) {
+      this.persistTimer = setInterval(async () => {
+        const stranded = Object.values(this.instances).reduce(
+          (n, instance) => n + instance.messages.filter((m) => m.sub && !m.id).length,
+          0,
+        );
+        if (stranded === 0) return;
+        console.log(`💬 Retrying persistence for ${stranded} stranded message(s)...`);
+        try {
+          await this.persistAllMessages();
+        } catch (err) {
+          console.error("💬 Persistence retry failed:", err.message);
+        }
+      }, 60000);
     }
   }
 
@@ -294,11 +319,18 @@ export class ChatManager {
       }, id));
     });
 
-    // Load heart counts for current message window
+    // Load heart counts for current message window. This await sits between
+    // the socket opening and the `connected` packet — if it throws, the client
+    // never finishes its handshake and chat reads as offline (the 2026-08-12
+    // credential-rotation outage). Hearts are decoration; degrade to none.
     let heartCounts = {};
     if (this.db) {
-      const messageIds = instance.messages.filter((m) => m.id).map((m) => m.id);
-      heartCounts = await countHearts(this.db, instance.config.name, messageIds);
+      try {
+        const messageIds = instance.messages.filter((m) => m.id).map((m) => m.id);
+        heartCounts = await countHearts(this.db, instance.config.name, messageIds);
+      } catch (err) {
+        console.error(`💬 [${instance.config.name}] Heart counts unavailable, connecting without:`, err.message);
+      }
     }
 
     // Send welcome message
@@ -455,20 +487,27 @@ export class ChatManager {
         }
       }
 
-      // Store in MongoDB (production only, non-muted users)
+      // Store in MongoDB (production only, non-muted users). Persistence is
+      // best-effort: a failure here must not stop the broadcast below — the
+      // message stays in memory with `sub` and no `id`, which is exactly what
+      // the periodic persistAllMessages flush looks for once Mongo recovers.
       let insertedId;
       if (!this.dev && !userIsMuted && this.db) {
-        const dbmsg = {
-          user: message.sub,
-          text: message.text,
-          when,
-          font: message.font || "font_1", // 🔤 Store user's font preference
-        };
-        const collection = this.db.collection(instance.config.name);
-        await collection.createIndex({ when: 1 });
-        const result = await collection.insertOne(dbmsg);
-        insertedId = result.insertedId?.toString();
-        console.log("💬 Message stored");
+        try {
+          const dbmsg = {
+            user: message.sub,
+            text: message.text,
+            when,
+            font: message.font || "font_1", // 🔤 Store user's font preference
+          };
+          const collection = this.db.collection(instance.config.name);
+          await collection.createIndex({ when: 1 });
+          const result = await collection.insertOne(dbmsg);
+          insertedId = result.insertedId?.toString();
+          console.log("💬 Message stored");
+        } catch (err) {
+          console.error(`💬 [${instance.config.name}] Message store failed, broadcasting anyway:`, err.message);
+        }
       }
 
       const out = {
@@ -946,7 +985,7 @@ export class ChatManager {
     if (!this.db && this.mongoConnectionString) {
       try {
         console.log("💬 Connecting to MongoDB for message persistence...");
-        this.mongoClient = new MongoClient(this.mongoConnectionString);
+        this.mongoClient = new MongoClient(this.mongoConnectionString, mongoClientOptions);
         await this.mongoClient.connect();
         this.db = this.mongoClient.db(this.mongoDbName);
         console.log("💬 MongoDB connected for persistence!");
@@ -986,10 +1025,21 @@ export class ChatManager {
 
         const result = await collection.insertMany(docs, { ordered: false });
         totalPersisted += result.insertedCount;
+        // Stamp each message with its new id so it stops matching the
+        // unpersisted filter — this runs on a timer now, and without the
+        // stamp every pass would insert the same messages again.
+        for (const [i, insertedId] of Object.entries(result.insertedIds)) {
+          if (unpersisted[i]) unpersisted[i].id = insertedId.toString();
+        }
         console.log(`💬 [${collectionName}] Persisted ${result.insertedCount} messages`);
       } catch (err) {
         // insertMany with ordered:false continues on duplicate errors
         if (err.insertedCount) totalPersisted += err.insertedCount;
+        if (err.result?.insertedIds) {
+          for (const [i, insertedId] of Object.entries(err.result.insertedIds)) {
+            if (unpersisted[i]) unpersisted[i].id = insertedId.toString();
+          }
+        }
         console.error(`💬 [${collectionName}] Persistence error:`, err.message);
       }
     }
@@ -999,6 +1049,7 @@ export class ChatManager {
 
   async shutdown() {
     console.log("💬 ChatManager shutting down...");
+    if (this.persistTimer) clearInterval(this.persistTimer);
     const count = await this.persistAllMessages();
     console.log(`💬 Persisted ${count} total messages`);
 
