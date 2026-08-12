@@ -528,8 +528,12 @@ wave-wizard/samples/
 
 # Mac App Store build output
 slab/menuband/.build-mas/
+slab/menuband/build/local-derived/
 slab/menuband/build/*.xcarchive/
 slab/menuband/build/export-*/
+
+# SwiftPM compiler products are reproducible and never source.
+.build/
 
 # Thread-scoped Codex artifact workspaces. Final deliverables belong in their
 # project directory; intermediate renders and QA scratch stay local.
