@@ -21,7 +21,7 @@ runtime = function acRuntime() {
 };
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 57;
+const buildVersion = 58;
 const floorY = 1800;
 const ceilingY = 0;
 const wallThickness = 80;
@@ -158,6 +158,13 @@ const fighterAnimationSpecs = {
 // lives, and what it does on contact. A loaded hand cannot make a clean fist,
 // so an item swing is its own kind rather than a punch modifier — a pistol
 // lengthens the arm into a fast light lash, a grenade shortens it into a club.
+// A blade in the item hand stretches every hand strike. Kicks are legs.
+const meleeSpecFor = (player, kind) => {
+  const spec = meleeSpecs[kind] || meleeSpecs.PUNCH;
+  if (!player?.swordHeld || kind === "KICK") return spec;
+  return { ...spec, reach: spec.reach * 1.5, span: spec.span * 1.45,
+    swell: spec.swell * 1.3, force: spec.force * 1.15 };
+};
 const meleeSpecs = {
   PUNCH: { reach: 58, swell: 50, span: 58, height: 115, radius: 28,
     windowUs: 220000, force: 1200, lift: 140,
@@ -798,6 +805,8 @@ let lastIntroSecond = 0;
 // The scored tail's clocks: the next heartbeat of the killcam dwell, and
 // whether the result card has had its sting.
 let resultPulseAt = 0;
+let resultLaughAt = 0;
+let resultLaughStep = 0;
 let resultCardStung = false;
 const resultReactionPrevious = [[], []];
 let roundOverAt = 0;
@@ -1918,6 +1927,8 @@ function beginSelect(now) {
   lastCountdownSecond = -1;
   lastIntroSecond = 0;
   resultPulseAt = 0;
+  resultLaughAt = 0;
+  resultLaughStep = 0;
   resultCardStung = false;
   roundStartedAt = now;
   for (const player of players) {
@@ -1976,6 +1987,11 @@ function startSelfPlay(now) {
     players[1].bot = false;
   startReplay(now);
   resetRound(now, true);
+  // The bout's standing matchup: the left corner rides, the right corner
+  // cuts. One board and one blade per map, dealt at the bell and never
+  // dealt again — losing either is losing it for the round.
+  players[0].skateboard = true;
+  players[1].swordHeld = true;
   // The bots' dice are seeded off the round clock, which a re-simulation
   // cannot reproduce — so a dense demo carries the seeds themselves, and a
   // replayed sim rolls exactly what the live pass rolled. Spawns ride along
@@ -2067,6 +2083,10 @@ function startResim(demo, now) {
     });
   replay = null;
   resetRound(now, true);
+  // Self-play deals the board and the blade at the bell; the rerun must
+  // start from the same table.
+  players[0].skateboard = true;
+  players[1].swordHeld = true;
   if (Array.isArray(demo.botSeeds))
     players.forEach((player, index) => {
       if (demo.botSeeds[index] != null)
@@ -2629,6 +2649,8 @@ function gameBoot() {
   lastCountdownSecond = -1;
   lastIntroSecond = 0;
   resultPulseAt = 0;
+  resultLaughAt = 0;
+  resultLaughStep = 0;
   resultCardStung = false;
   emitSignal("hello", -1, 1, 0);
   shellMode = "MENU";
@@ -2742,6 +2764,7 @@ function resetRound(now, resetMatch = false) {
     player.skateboard = false;
     player.skateVx = 0;
     player.skateWallSide = 0;
+    player.swordHeld = false;
     player.grabHeld = false;
     player.commandStream = [];
     player.hitSegment = -1;
@@ -2809,6 +2832,8 @@ function resetRound(now, resetMatch = false) {
   lastCountdownSecond = -1;
   lastIntroSecond = 0;
   resultPulseAt = 0;
+  resultLaughAt = 0;
+  resultLaughStep = 0;
   resultCardStung = false;
   lastSimAt = now;
   roundStartedAt = now;
@@ -3781,7 +3806,7 @@ function meleePulse(player, now) {
 
 function meleeTarget(player, now) {
   const pulse = meleePulse(player, now);
-  const spec = meleeSpecs[player.attackKind] || meleeSpecs.PUNCH;
+  const spec = meleeSpecFor(player, player.attackKind);
   const lowKick = player.attackKind === "KICK" && player.lowKick;
   return {
     x: player.x + player.facing * (spec.reach + spec.swell * pulse +
@@ -3848,7 +3873,7 @@ function meleeStrike(player, now) {
   const target = meleeTarget(player, now);
   return {
     x: target.x, y: target.y, z: target.z,
-    radius: (meleeSpecs[player.attackKind] || meleeSpecs.PUNCH).radius,
+    radius: meleeSpecFor(player, player.attackKind).radius,
   };
 }
 
@@ -4133,7 +4158,10 @@ function updateBall(ball, dt, now) {
     const bodyDistance = bodyContact.bodyDistance;
     if (Math.min(headDistance, bodyDistance) > ball.radius) continue;
     if (ball.type === "skateboard" && headDistance > ball.radius &&
-        bodyDistance <= ball.radius && !player.skateboard) {
+        bodyDistance <= ball.radius && !player.skateboard &&
+        // A thrown deck is a weapon until it slows down — nobody catches a
+        // board shot out of the air with their shins.
+        Math.hypot(ball.vx, ball.vy) < 900) {
       player.skateboard = true;
       ball.active = false;
       ball.heldBy = -1;
@@ -4181,6 +4209,36 @@ function directionTap(player, direction, now) {
     player.jumpHeld = false;
     emitSignal("ultrajump", player.pad, 1, 0);
   } else if (direction === "DOWN") {
+    if (player.skateboard && !player.grounded) {
+      // Airborne on the board, the second tap is a throw, not a dive: the
+      // deck shoots straight down like a spiked item, and whoever it lands
+      // on takes it like one. The rider pops up off the release.
+      // The one-ball economy: like a dismount, the round's ball is
+      // redressed as the board so exactly one object ever exists.
+      const board = balls.find((item) => item.type === "skateboard") ||
+        balls[0];
+      Object.assign(board,
+        ballKinds.find((kind) => kind.type === "skateboard"));
+      player.skateboard = false;
+      player.skateVx = 0;
+      if (board) {
+        board.active = true;
+        board.heldBy = -1;
+        board.spawnOwner = player.pad;
+        board.lastHitBy = player.pad;
+        board.x = player.x;
+        board.y = player.y + 40;
+        board.z = player.z;
+        board.vx = player.vx * .35;
+        board.vy = Math.max(2600, player.vy + 2600);
+      }
+      player.vy = Math.min(player.vy, -420);
+      player.pendingMoveLabel = "BOARD SHOT";
+      playDrum("whoosh", 1, panPlayer(player));
+      playDrum("kick", .8, panPlayer(player));
+      emitSignal("board-shot", player.pad, 1, 0);
+      return true;
+    }
     if (player.pounding) {
       player.poundLevel = Math.min(3, Math.max(1, player.poundLevel) + 1);
       const cap = poundMaxVelocity * (1 + .5 * (player.poundLevel - 1));
@@ -4360,7 +4418,7 @@ function resolveMelee(now) {
           closest = { ...candidate, separation };
       }
       if (!closest || closest.separation > 3) continue;
-      const spec = meleeSpecs[attacker.attackKind] || meleeSpecs.PUNCH;
+      const spec = meleeSpecFor(attacker, attacker.attackKind);
       fragment.vx += attacker.facing * spec.force * .8;
       fragment.vy -= Math.max(220, spec.lift);
       fragment.owner = attacker.pad;
@@ -4411,7 +4469,7 @@ function resolveMelee(now) {
       // Only a real shield trades. A back-block still just shoves, because it
       // costs nothing to hold a direction.
       if (target.blocking) {
-        const spec = meleeSpecs[attacker.attackKind] || meleeSpecs.PUNCH;
+        const spec = meleeSpecFor(attacker, attacker.attackKind);
         const stun = shieldStunUs(spec.force * (attacker.attackMomentum || 1));
         attacker.hitStunUntil = Math.max(attacker.hitStunUntil, now + stun);
         attacker.attackHit = true;
@@ -4440,7 +4498,7 @@ function resolveMelee(now) {
       emitSignal("decapitate", attacker.pad, target.pad, 1);
     }
     else {
-      const spec = meleeSpecs[attacker.attackKind] || meleeSpecs.PUNCH;
+      const spec = meleeSpecFor(attacker, attacker.attackKind);
       const momentum = attacker.attackMomentum || 1;
       applyBodyHit(target, segmentIndex, attacker.x, attacker.pad, now,
         spec.force * momentum, spec.lift * momentum);
@@ -5018,7 +5076,9 @@ function updatePlayer(player, pad, dt, now) {
     } else controlledVx = 0;
   } else if (player.skateboard && player.grounded && !player.blocking) {
     const skateTarget = input.horizontal * 2700;
-    const turnRate = Math.sign(skateTarget) !== Math.sign(player.skateVx) ? 1.8 : 3.2;
+    const carving = Math.sign(skateTarget) !== 0 &&
+      Math.sign(skateTarget) !== Math.sign(player.skateVx);
+    const turnRate = carving ? 1.8 : 3.2;
     player.skateVx += (skateTarget - player.skateVx) *
       (1 - Math.exp(-dt * turnRate));
     const terrainSlope = clamp(terrainTangentAt(player.x), -2.5, 2.5);
@@ -5026,6 +5086,23 @@ function updatePlayer(player, pad, dt, now) {
     player.skateVx = clamp(player.skateVx, -4200, 4200);
     if (!input.horizontal) player.skateVx *= Math.max(0, 1 - dt * .65);
     controlledVx = player.skateVx;
+    // The board is audible: wheel ticks come faster and harder with speed,
+    // and a carve against the roll scrapes once as it bites.
+    const skateSpeed = Math.abs(player.skateVx);
+    if (skateSpeed > 260 && now >= (player.skateNextRollAt || 0)) {
+      const pace = skateSpeed / 4200;
+      player.skateNextRollAt = now + (260 - 190 * pace) * 1000;
+      playDrum("hat", .1 + pace * .3, panPlayer(player));
+      emitSignal("skate-roll", player.pad, Math.round(pace * 100) / 100, 0);
+    }
+    const carveDir = carving ? Math.sign(skateTarget) : 0;
+    if (carveDir && skateSpeed > 900 && player.skateCarveDir !== carveDir) {
+      playDrum("whoosh", .45 + Math.min(.4, skateSpeed / 4200 * .5),
+        panPlayer(player));
+      emitSignal("skate-carve", player.pad, carveDir,
+        Math.round(skateSpeed / 42) / 100);
+    }
+    player.skateCarveDir = carveDir;
   } else if (!player.skateboard) player.skateVx = 0;
   player.vx = controlledVx + player.windVx + player.knockVx;
   if (inputChanged) telemetry("FIGHT_MOVE", player.name +
@@ -5440,6 +5517,19 @@ function gameSim() {
       resultCardStung = true;
       playDrum("bell", .95, 0);
       emitSignal("result-card", -1, roundResult === "TIE" ? 0 : 1, 0);
+      // The winner gets the last word: a staccato synthesized laugh rides
+      // out of the bell. A tie amuses nobody.
+      if (roundResult !== "TIE") {
+        resultLaughAt = now + 420000;
+        resultLaughStep = 0;
+      }
+    }
+    if (resultLaughAt && resultLaughStep < 5 && now >= resultLaughAt) {
+      playSine([760, 640, 700, 580, 500][resultLaughStep], .09);
+      playDrum("hat", .16, 0);
+      if (resultLaughStep === 0) emitSignal("victory-laugh", -1, 1, 0);
+      resultLaughAt = now + 112000 + resultLaughStep * 24000;
+      resultLaughStep++;
     }
     if (INSTANT_REPLAY && instantReplay) {
       updateInstantReplay(now, dt);
@@ -5980,6 +6070,10 @@ function runnerWorldGeometry(player, t) {
   };
   segment(head.x, head.y + head.radius * .78, neckX, neckY, 10, "neck");
   segment(neckX, neckY, x, hipY, 10, "torso");
+  // An elbow sags downward whichever way the hand actually reaches. Bending
+  // by facing alone flipped the joint whenever a hand crossed behind the
+  // body — the crossed, double-elbowed arms @jeffrey called out.
+  const armBend = (shoulderX, targetX) => targetX >= shoulderX ? 1 : -1;
   const shoulderY = neckY + 11;
   const shoulderSpread = 12;
   const leftShoulderX = neckX - shoulderSpread;
@@ -6074,7 +6168,7 @@ function runnerWorldGeometry(player, t) {
     ];
     for (const hand of hands) {
       const pose = twoBone(hand.shoulderX, shoulderY,
-        hand.x, hand.y, 58, player.facing);
+        hand.x, hand.y, 58, armBend(hand.shoulderX, hand.x));
       segment(hand.shoulderX, shoulderY, pose.jointX, pose.jointY, 12,
         "grab-upper-arm");
       segment(pose.jointX, pose.jointY, pose.targetX, pose.targetY, 12,
@@ -6088,7 +6182,8 @@ function runnerWorldGeometry(player, t) {
     const actionShoulderX = itemOnRight ? rightShoulderX : leftShoulderX;
     const restShoulderX = itemOnRight ? leftShoulderX : rightShoulderX;
     const armPose = twoBone(actionShoulderX, shoulderY, target.x, target.y,
-      (meleeSpecs[player.attackKind] || meleeSpecs.PUNCH).span, player.facing);
+      meleeSpecFor(player, player.attackKind).span,
+      armBend(actionShoulderX, target.x));
     segment(actionShoulderX, shoulderY, armPose.jointX, armPose.jointY, 12,
       "attack-upper-arm");
     segment(armPose.jointX, armPose.jointY,
@@ -6104,7 +6199,7 @@ function runnerWorldGeometry(player, t) {
     const actionShoulderX = itemOnRight ? rightShoulderX : leftShoulderX;
     const restShoulderX = itemOnRight ? leftShoulderX : rightShoulderX;
     const armPose = twoBone(actionShoulderX, shoulderY,
-      target.x, target.y, 58, player.facing);
+      target.x, target.y, 58, armBend(actionShoulderX, target.x));
     segment(actionShoulderX, shoulderY, armPose.jointX, armPose.jointY, 12,
       "item-upper-arm");
     segment(armPose.jointX, armPose.jointY,
@@ -7257,6 +7352,31 @@ function drawInventory(player, now) {
   // A bash keeps the grenade visible in the fist; itemHandTarget already
   // parks both weapons on the swinging hand.
   const bashing = player.attackKind === "BASH" && itemSwinging(player, now);
+  if (player.swordHeld && player.gunAmmo <= 0 && !throwing &&
+      hasPart(player, itemHand(player))) {
+    // The blade rides the same item hand the gun does, so it sweeps with
+    // every swing for free: steel from the hand out past the aim point, a
+    // short cross-guard, a dark grip under the fist.
+    const pose = gunPose(player, now);
+    const hand = projectPoint(pose.hand.x, pose.hand.y, pose.hand.z);
+    const aim = projectPoint(pose.muzzle.x, pose.muzzle.y, pose.muzzle.z);
+    const alongX = aim.x - hand.x;
+    const alongY = aim.y - hand.y;
+    const length = Math.hypot(alongX, alongY) || 1;
+    const tipX = hand.x + alongX / length * 118 * scale;
+    const tipY = hand.y + alongY / length * 118 * scale;
+    const acrossX = -alongY / length;
+    const acrossY = alongX / length;
+    filledCapsule(hand.x, hand.y, tipX, tipY,
+      Math.max(3, 7 * scale), [188, 197, 208]);
+    filledCapsule(hand.x + acrossX * 14 * scale, hand.y + acrossY * 14 * scale,
+      hand.x - acrossX * 14 * scale, hand.y - acrossY * 14 * scale,
+      Math.max(2, 5 * scale), [96, 76, 48]);
+    filledCapsule(hand.x, hand.y,
+      hand.x - alongX / length * 16 * scale,
+      hand.y - alongY / length * 16 * scale,
+      Math.max(2, 5 * scale), [34, 30, 40]);
+  }
   if ((player.gunAmmo > 0 || firing) && !throwing) {
     const pose = gunPose(player, now);
     const hand = projectPoint(pose.hand.x, pose.hand.y, pose.hand.z);

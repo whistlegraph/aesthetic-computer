@@ -72,7 +72,13 @@
     #logout { appearance: none; padding: 7px 11px; border: 2px solid #6e768d;
       border-radius: 8px; background: #b0b8ca; color: #171b28;
       font: 700 15px/1 "Comic Relief", "Comic Sans MS", Arial, sans-serif;
-      box-shadow: 2px 3px 0 rgba(20, 25, 38, .35); }
+      box-shadow: 2px 3px 0 rgba(20, 25, 38, .35); cursor: pointer;
+      transition: transform .12s ease, background .12s ease,
+        box-shadow .12s ease; }
+    #logout:hover { background: #d9dfee; transform: translate(-1px, -2px);
+      box-shadow: 4px 6px 0 rgba(20, 25, 38, .4); }
+    #logout:active { transform: translate(1px, 2px);
+      box-shadow: 1px 1px 0 rgba(20, 25, 38, .35); }
     body:not(.title-open) #account, body.social-preview #account { display: none; }
     body.midi-out #account { display: none; }
     body:not(.title-open) #logout, body.social-preview #logout { display: none; }
@@ -130,9 +136,14 @@
     };
     let audioContext = null;
     const logout = document.querySelector("#logout");
+    // The account door sounds like the rest of the furniture: a soft tick
+    // on approach, a firmer knock on the way through — the curtain manner.
+    logout.addEventListener("pointerenter", () =>
+      globalThis.__oskiewarSfx?.drum?.("hat", .26, 0));
     let accountClient = null;
     let accountSignedIn = false;
     logout.addEventListener("click", async () => {
+      globalThis.__oskiewarSfx?.drum?.("block", .85, 0);
       if (!accountSignedIn) {
         try {
           const client = await getAccountClient();
@@ -1047,6 +1058,7 @@
       if (!socialPreview) readLocalCountry();
       if (!socialPreview) setInterval(readDummyPops, 120000);
       let selectionHoverSoundKey = "";
+      let titleHoverSoundKey = "";
       let previousPieceScreen = "title";
       const tabTitles = ["oskiewar", "oskie war", "os ki ewar", "osk ie war",
         "o skie war", "oskie w ar"];
@@ -1084,6 +1096,13 @@
         if (key && key !== selectionHoverSoundKey && !titleOpen)
           oskiewarSfx.drum("hat", .26, 0);
         selectionHoverSoundKey = key;
+        // The title's start word and grabbable wordmark letters tick on
+        // approach like everything else — they were the one silent hover.
+        const titleKey = titleHover ? "start"
+          : titleGlyph >= 0 ? "glyph:" + titleGlyph : "";
+        if (titleKey && titleKey !== titleHoverSoundKey)
+          oskiewarSfx.drum("hat", .26, 0);
+        titleHoverSoundKey = titleKey;
       };
       const driver = createFrameDriver({
         sample: globalThis.__fightHost.sampleInput,
