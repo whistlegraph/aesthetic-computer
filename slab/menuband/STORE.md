@@ -86,6 +86,9 @@ The standing release process is:
 This ships as a strict subset of the direct-download version from the same
 source tree.
 
+Signed archives and exports are private recovery artifacts, not source. They
+live at `s3://assets-aesthetic-computer/private/build-workspace/slab/menuband/build/`.
+
 ### (c) Both — recommended long-term
 
 Direct download = full version, App Store = sandboxed Pointer-only build for users who only want the menubar piano + DAW MIDI output without the global keystroke capture.

@@ -530,6 +530,7 @@ wave-wizard/samples/
 slab/menuband/.build-mas/
 slab/menuband/build/local-derived/
 slab/menuband/build/*.xcarchive/
+slab/menuband/build/export/
 slab/menuband/build/export-*/
 
 # SwiftPM compiler products are reproducible and never source.
