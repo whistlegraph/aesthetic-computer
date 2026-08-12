@@ -3326,6 +3326,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 }
                 guard self.tilePopulationCandidateSamples >= 2,
                       signature != self.lastTiledWindowSignature else { return }
+                // A single window is nobody's wall. `computeTileLayout` must
+                // fill the visible frame, so one window means one screen-sized
+                // cell at the 18pt font cap — which is how an ordinary shell
+                // opened for one command ends up full screen in huge type.
+                // The automatic path therefore leaves a lone window at
+                // whatever size and font it was born with; "Tile now" (⌘⌥T)
+                // still full-screens it on request.
+                guard signature.count > 1 else { return }
                 self.tileNowImpl(resetZoom: false, expectedSignature: signature)
             }
         }
