@@ -21,7 +21,7 @@ runtime = function acRuntime() {
 };
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 53;
+const buildVersion = 54;
 const floorY = 1800;
 const ceilingY = 0;
 const wallThickness = 80;
@@ -2909,11 +2909,12 @@ const frameFloorWidth = () =>
 function terrainSpan() {
   // A lens sees more floor than its nominal width says — perspective, yaw,
   // and the orbiting killcam all sweep past it, and a close shot's bottom
-  // corners un-project far along the ground plane. Twice the width plus a
-  // fixed apron keeps the sheet under every corner of the frame; the near
-  // clipper has owned the old ±30000 native guard since it learned to cut
-  // faces instead of culling them.
-  const reach = cameraDoll.width * 2 + 2600;
+  // corners un-project far along the ground plane. A fixed apron past the
+  // width keeps the sheet under every corner of the frame without doubling
+  // the whole street's quad count when the camera is wide; the near clipper
+  // has owned the old ±30000 native guard since it learned to cut faces
+  // instead of culling them.
+  const reach = cameraDoll.width + 2600;
   return { left: Math.max(worldLeft, cameraCenter - reach),
     right: Math.min(worldRight, cameraCenter + reach),
     top: Math.max(ceilingY, cameraCenterY - reach),
@@ -5991,15 +5992,21 @@ function runnerWorldGeometry(player, t) {
     segment(x, hipY, x + 48, feet - 12, 11, "right-thigh");
     segment(x + 48, feet - 12, x - 8, feet, 11, "right-shin");
   } else if (player.skateboard && player.grounded) {
+    // The deck is drawn tilted along the terrain, so each foot plants on
+    // the deck's own top at its x — flat foot heights ran the board
+    // through the shins on every slope.
+    const deckAt = (footX) => terrainFloorAt(footX) - 6;
     const plantedX = x + player.facing * 28;
     const push = Math.sin(poseCycle) * 34;
-    segment(x, hipY, plantedX, feet - 27, 11, "lead-thigh");
-    segment(plantedX, feet - 27, plantedX + player.facing * 18,
-      feet - 6, 11, "lead-shin");
+    const leadFootX = plantedX + player.facing * 18;
+    segment(x, hipY, plantedX, deckAt(plantedX) - 21, 11, "lead-thigh");
+    segment(plantedX, deckAt(plantedX) - 21, leadFootX,
+      deckAt(leadFootX), 11, "lead-shin");
     const pushKnee = x - player.facing * (22 + push * .3);
-    segment(x, hipY, pushKnee, feet - 31, 10, "rear-thigh");
-    segment(pushKnee, feet - 31,
-      x - player.facing * (46 + Math.max(0, push)), feet, 10, "rear-shin");
+    const pushFootX = x - player.facing * (46 + Math.max(0, push));
+    segment(x, hipY, pushKnee, deckAt(pushKnee) - 25, 10, "rear-thigh");
+    segment(pushKnee, deckAt(pushKnee) - 25, pushFootX,
+      deckAt(pushFootX), 10, "rear-shin");
   } else if (crouchPose > .08) {
     segment(x, hipY, x - 36, feet - 22, 10, "left-thigh");
     segment(x - 36, feet - 22, x - 4, feet, 10, "left-shin");
