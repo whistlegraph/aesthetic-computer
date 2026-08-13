@@ -15,6 +15,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { resolve, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { createSourceBundle } from "../source-bundle.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const PAPERS_DIR = resolve(HERE, "..");
@@ -47,10 +48,11 @@ function run(cmd, args, cwd) {
   return execFileSync(cmd, args, { cwd, stdio: "pipe", encoding: "utf8" });
 }
 
-function buildOne(dir) {
+async function buildOne(dir) {
   const cwd = join(PAPERS_DIR, dir);
   const base = findBase(dir);
   const t0 = Date.now();
+  await createSourceBundle({ paperDir: cwd, texBase: base });
   try {
     run("xelatex", ["-interaction=nonstopmode", `${base}.tex`], cwd);
     run("bibtex", [base], cwd);
@@ -86,7 +88,7 @@ console.log(`▸ building ${targets.length} dossier(s)`);
 let totalUndef = 0;
 for (const t of targets) {
   try {
-    const r = buildOne(t);
+    const r = await buildOne(t);
     const undefStr = r.undefinedCites.length
       ? ` ⚠ ${r.undefinedCites.length} undefined: ${r.undefinedCites.slice(0, 4).join(", ")}${r.undefinedCites.length > 4 ? "…" : ""}`
       : "";

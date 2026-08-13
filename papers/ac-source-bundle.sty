@@ -1,0 +1,22 @@
+% ac-source-bundle.sty — one machine-readable source attachment at the paper tail
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{ac-source-bundle}[2026/08/11 Aesthetic Computer source bundle]
+\RequirePackage{xcolor}
+\RequirePackage{attachfile2}
+\providecolor{acpink}{RGB}{180,72,135}
+\providecolor{acgray}{RGB}{119,119,119}
+
+\newcommand{\acsourcebundleblock}{%
+  \IfFileExists{\jobname-source.zip}{%
+    \par\vspace{1.4em}%
+    \noindent\rule{\linewidth}{0.35pt}\par\vspace{0.75em}%
+    \noindent{\small\bfseries\color{acpink}%
+      \attachfile[color=0.706 0.282 0.529,icon=Paperclip,mimetype=application/zip,description={Machine-readable paper source bundle}]{\jobname-source.zip}%
+      \hspace{0.45em}Source bundle}\par
+    \vspace{0.45em}%
+    \noindent{\scriptsize\color{acgray}%
+      The attached ZIP contains the paper's machine-readable text sources and a plain-text inventory. It supports accessibility, audit, quotation, and reproducible editing; the PDF remains the canonical reading edition. Private evidence, credentials, raw datasets, generated PDFs, and unlisted assets are excluded.}\par
+  }{}%
+}
+\AtEndDocument{\acsourcebundleblock}
+\endinput

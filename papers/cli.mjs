@@ -30,6 +30,7 @@ import {
   readdirSync,
 } from "fs";
 import { join, basename } from "path";
+import { createSourceBundle } from "./source-bundle.mjs";
 
 const PAPERS_DIR = new URL(".", import.meta.url).pathname;
 const SITE_DIR = join(
@@ -794,7 +795,7 @@ function stampVersion(entry, paperDir) {
   }
 }
 
-function buildOne(entry) {
+async function buildOne(entry) {
   if (!entry.texExists) {
     console.log(`  SKIP ${entry.dir}/${texName(entry.base, entry.lang)}.tex (not found)`);
     return false;
@@ -805,6 +806,7 @@ function buildOne(entry) {
 
   // Stamp the version macros from git before xelatex runs.
   stampVersion(entry, paperDir);
+  await createSourceBundle({ paperDir, texBase: tex });
 
   // Deterministic PDFs: derive SOURCE_DATE_EPOCH from the newest source mtime.
   // xelatex + xdvipdfmx honor this for /CreationDate, /ModDate, and the /ID
@@ -1754,7 +1756,7 @@ if (cmd === "status" || !cmd) {
   const built = [];
   const failed = [];
   for (const entry of toBuild) {
-    if (buildOne(entry)) built.push(entry);
+    if (await buildOne(entry)) built.push(entry);
     else failed.push(entry);
   }
   console.log(`\nDone: ${built.length} built, ${skipped} skipped, ${failed.length} failed.\n`);
@@ -1791,7 +1793,7 @@ if (cmd === "status" || !cmd) {
   const built = [];
   const failed = [];
   for (const entry of toBuild) {
-    if (buildOne(entry)) built.push(entry);
+    if (await buildOne(entry)) built.push(entry);
     else failed.push(entry);
   }
   console.log(`\nBuild: ${built.length} OK, ${skipped} skipped, ${failed.length} failed.\n`);

@@ -28,6 +28,8 @@ Before outlining or designing it, consult the Platter: this score, the rendered 
 
 An arXiv-lane default should include a title, `@jeffrey` byline and date, abstract, introduction/problem, related work or project context, system/method, implementation, evaluation or evidence, ethics/privacy/limitations, conclusion, references, and numbered, captioned figures/tables where they aid the argument. Source, bibliography, figures, and data provenance live beside the paper. Building is followed by Figure-Table-QA-Check and human/model visual inspection; a compiling PDF alone is not finished.
 
+Every new mill-built paper ends with one paperclip linking one embedded ZIP source bundle. The small disclaimer follows the attachment and names both its purpose and exclusions. `cli.mjs`, `papermill.mjs`, and `bin/build-dossier.mjs` create deterministic bundles before LaTeX runs; the shared layout, essay, and cards styles render the tail through `ac-source-bundle.sty`. By default the ZIP contains the primary `.tex`, matching Markdown, bibliography, local styles/classes, and a plain-text inventory. A paper may add specific text sources with `source-bundle.json` (`{"include":["notes.md"]}`), but paths must remain inside its directory. Never include private evidence, credentials, raw datasets, generated PDFs, or whole directories by implication.
+
 ```
 platter (raw material: notes, code, conversations, references)
   → thread (a question or observation worth following)

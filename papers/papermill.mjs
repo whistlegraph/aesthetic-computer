@@ -20,6 +20,7 @@ import {
   mkdirSync,
 } from "fs";
 import { join, basename } from "path";
+import { createSourceBundle } from "./source-bundle.mjs";
 
 const PAPERS_DIR = new URL(".", import.meta.url).pathname;
 const SITE_DIR = join(
@@ -225,7 +226,7 @@ function findCardsFiles() {
   return results;
 }
 
-function buildPaper(entry) {
+async function buildPaper(entry) {
   if (!entry.texExists) {
     console.log(
       `  SKIP ${entry.dir}/${basename(entry.texFile)} (not found)`,
@@ -235,6 +236,7 @@ function buildPaper(entry) {
   const paperDir = join(PAPERS_DIR, entry.dir);
   const texName = basename(entry.texFile, ".tex");
   console.log(`  BUILD ${entry.dir}/${texName}.tex ...`);
+  await createSourceBundle({ paperDir, texBase: texName });
   try {
     // Run xelatex + bibtex + xelatex + xelatex (full 3-pass build for citations)
     execSync(
@@ -475,7 +477,7 @@ if (cmd === "status" || !cmd) {
   let ok = 0,
     fail = 0;
   for (const entry of toBuild) {
-    if (buildPaper(entry)) ok++;
+    if (await buildPaper(entry)) ok++;
     else fail++;
   }
   console.log(`\nDone: ${ok} built, ${fail} failed.\n`);
