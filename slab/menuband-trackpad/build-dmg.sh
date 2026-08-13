@@ -29,6 +29,7 @@ mkdir -p "${BUILD_DIR}" "${MACOS}" "${RESOURCES}"
 
 SOURCES=(
     "${SCRIPT_DIR}/Sources/main.swift"
+    "${SCRIPT_DIR}/Sources/Updater.swift"
     "${MENUBAND_SOURCES}/MultitouchTrackpad.swift"
 )
 
