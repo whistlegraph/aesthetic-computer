@@ -11,16 +11,16 @@
 // it, so anything scored before bar TRIM lands at negative time and is simply
 // never written. Move that one number to give the intro back.
 //
-// The drop is not slammed cold, though: the master swells in over the first
-// four bars, so it reads as the record fading up mid-party. The back half was
-// extended too — the ragga breathes for eight bars, then pushes for sixteen.
+// The record now pops straight in with Prutti saying "aesthetic dot computer".
+// There is only a 6 ms click guard on the master — no audible opening fade.
+// At 0:33.3 a formant-heavy throat bass joins the breakdown's wub.
 //
 // 88 bars × 4 beats × 60 / 144 BPM = 146.67 seconds ≈ 2:27.
 //
 //   node pop/maytrax/bin/render-femrag-plusplus.mjs
 //   node pop/maytrax/bin/render-femrag-plusplus.mjs --out ~/femrag-plusplus.mp3
 
-import { mkdirSync, unlinkSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -147,6 +147,90 @@ function sub(t0, duration, midi, gain, {
     const sample = Math.tanh(Math.sin(p) * drive) * gain * env * wob;
     out[0][i] += sample * .5;
     out[1][i] += sample * .5;
+  }
+}
+
+// A glottal saw/square source through two moving vocal formants. Kept centred
+// and dry so it reads as a throat sharing the wub's pitch, not another lead.
+function throatBass(t0, duration, midi, gain, { wobble = 2.25 } = {}) {
+  EVENTS.push({ i: "throat", t: t0, dur: duration, midi, gain, wobble });
+  const begin = Math.max(0, Math.floor(t0 * SR));
+  const end = Math.min(NS, Math.ceil((t0 + duration) * SR));
+  const freq = hz(midi);
+  let phase = 0;
+  let low1 = 0, band1 = 0, low2 = 0, band2 = 0;
+  voices++;
+  for (let i = begin; i < end; i++) {
+    const elapsed = i / SR - t0;
+    const remaining = duration - elapsed;
+    const attack = Math.min(1, elapsed / .018);
+    const release = Math.min(1, remaining / .1);
+    const env = Math.sin(Math.max(0, attack) * Math.PI / 2) ** 2
+      * Math.sin(Math.max(0, release) * Math.PI / 2) ** 2;
+    const vowel = .5 + .5 * Math.sin(TAU * wobble * elapsed - Math.PI / 2);
+    const formant1 = 360 + vowel * 360;
+    const formant2 = 850 + vowel * 520;
+    phase += freq / SR;
+    phase -= Math.floor(phase);
+    const saw = phase * 2 - 1;
+    const square = phase < .46 ? 1 : -1;
+    const source = saw * .72 + square * .28;
+    const f1 = 2 * Math.sin(Math.PI * formant1 / SR);
+    const high1 = source - low1 - band1 / 2.8;
+    band1 += f1 * high1;
+    low1 += f1 * band1;
+    const f2 = 2 * Math.sin(Math.PI * formant2 / SR);
+    const high2 = source - low2 - band2 / 3.6;
+    band2 += f2 * high2;
+    low2 += f2 * band2;
+    const sample = Math.tanh((band1 * .9 + band2 * .48 + low1 * .18) * 2.2)
+      * gain * env;
+    out[0][i] += sample * .5;
+    out[1][i] += sample * .5;
+  }
+}
+
+function loadWavMono16(path) {
+  const wav = readFileSync(path);
+  if (wav.toString("ascii", 0, 4) !== "RIFF" || wav.toString("ascii", 8, 12) !== "WAVE") {
+    throw new Error(`Not a RIFF/WAVE file: ${path}`);
+  }
+  let format = 0, channels = 0, sampleRate = 0, bits = 0, data = null;
+  for (let offset = 12; offset + 8 <= wav.length;) {
+    const id = wav.toString("ascii", offset, offset + 4);
+    const size = wav.readUInt32LE(offset + 4);
+    if (id === "fmt ") {
+      format = wav.readUInt16LE(offset + 8);
+      channels = wav.readUInt16LE(offset + 10);
+      sampleRate = wav.readUInt32LE(offset + 12);
+      bits = wav.readUInt16LE(offset + 22);
+    } else if (id === "data") {
+      data = wav.subarray(offset + 8, offset + 8 + size);
+    }
+    offset += 8 + size + (size & 1);
+  }
+  if (format !== 1 || channels !== 1 || sampleRate !== SR || bits !== 16 || !data) {
+    throw new Error(`Expected 48 kHz mono PCM16 voice stamp: ${path}`);
+  }
+  const samples = new Float32Array(data.length / 2);
+  for (let i = 0; i < samples.length; i++) samples[i] = data.readInt16LE(i * 2) / 32768;
+  return samples;
+}
+
+function voiceStamp(t0, path, voice, gain = .34) {
+  const samples = loadWavMono16(path);
+  let peak = 0;
+  for (const sample of samples) peak = Math.max(peak, Math.abs(sample));
+  const scale = peak ? gain / peak : 0;
+  const begin = Math.max(0, Math.floor(t0 * SR));
+  const sourceOffset = Math.max(0, -Math.floor(t0 * SR));
+  const count = Math.min(samples.length - sourceOffset, NS - begin);
+  EVENTS.push({ i: "voice", t: t0, dur: count / SR, voice, words: "aesthetic dot computer" });
+  voices++;
+  for (let i = 0; i < count; i++) {
+    const sample = samples[sourceOffset + i] * scale;
+    out[0][begin + i] += sample * .707;
+    out[1][begin + i] += sample * .707;
   }
 }
 
@@ -346,6 +430,13 @@ function wubBar(bar, weight = 1) {
   sub(at(bar, 0), BEAT * 3.6, root + 12, .07 * weight, { drive: 4, wobble: rate });
 }
 
+// Label stamp at frame one. Prutti is the first choice; Jeffrey's tracked
+// hellsine take keeps the renderer portable when that newer take is absent.
+const PRUTTI_STAMP = resolve(HERE, "../../teknull/samples/prutti-aesthetic-dot-computer.wav");
+const JEFFREY_STAMP = resolve(HERE, "../../hellsine/samples/aesthetic-dot-computer.wav");
+const stampPath = existsSync(PRUTTI_STAMP) ? PRUTTI_STAMP : JEFFREY_STAMP;
+voiceStamp(.025, stampPath, stampPath === PRUTTI_STAMP ? "prutti" : "jeffrey");
+
 // ── act one · femrag compressed to a fuse ───────────────────────────────────
 
 // 4–12: the drop's groove — full dnb kit, rag and lead straight-time, sub pips
@@ -401,6 +492,14 @@ for (let bar = 32; bar < 40; bar++) {
   ragBar(bar, .4, bar >= 36 ? 12 : 0);
   if (bar % 2 === 0) leadBar(bar, .5, 0);
   hat(at(bar, 1.5), .03); hat(at(bar, 3.5), .03, bar % 2 === 1);
+  // The throat enters at 0:33.3 (bar 36 after the front trim), under the
+  // recognisable "wub wub" half of the breakdown.
+  if (bar >= 36) {
+    const root = CHORDS[bar % 4].bass - 12;
+    const weight = .72 + (bar - 36) * .09;
+    throatBass(at(bar, 0), BEAT * 1.85, root, .12 * weight, { wobble: 2.25 });
+    throatBass(at(bar, 2), BEAT * 1.85, root, .105 * weight, { wobble: 2.25 });
+  }
 }
 
 // 40–44: second buildup, straight to 16ths then 32nds.
@@ -493,9 +592,8 @@ sub(at(103, 3), BEAT * 1.2, 33, .1, { drive: 2, release: .4 });
 let peak = 0;
 for (const channel of out) for (const sample of channel) peak = Math.max(peak, Math.abs(sample));
 const gain = peak ? .88 / peak : 1;
-// Four bars of swell instead of a click-guard: the drop is already playing
-// when the record fades up, which is the point of cutting the intro.
-const fadeIn = Math.floor(BAR * 4 * SR);
+// Click guard only: the opening should pop in, not audibly fade in.
+const fadeIn = Math.floor(.006 * SR);
 const fadeOut = Math.floor(.55 * SR);
 for (const channel of out) {
   for (let i = 0; i < NS; i++) channel[i] *= gain;
