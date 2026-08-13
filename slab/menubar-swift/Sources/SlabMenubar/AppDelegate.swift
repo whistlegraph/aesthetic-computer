@@ -167,6 +167,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var menuBandPerformanceFocused = false
     /// System-wide ⌃⌥⌘A → toggle Dark Mode across this host + tailscale macs.
     private var appearanceHotkey: GlobalHotkey?
+    /// KVO is the reliable AppKit appearance-change signal for this accessory
+    /// app. Keep the token alive so both the shortcut and System Settings /
+    /// Auto appearance flips repaint Slab immediately.
+    private var appearanceObservation: NSKeyValueObservation?
     /// System-wide ⌘⌥← → ↑ ↓ → walk focus spatially across the tiled terminal
     /// wall (see WindowNav). Four hotkeys, one per arrow; held for the app's
     /// lifetime and unregistered in `applicationWillTerminate`.
@@ -306,6 +310,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                               modifiers: UInt32(controlKey | optionKey | cmdKey)) {
             appearanceHotkey = appHotkey
         }
+        appearanceObservation = NSApp.observe(\.effectiveAppearance, options: [.new]) {
+            [weak self] _, _ in
+            DispatchQueue.main.async { self?.appearanceDidChange() }
+        }
 
         // Global ⌘⌥←/→/↑/↓ walk focus across the tiled terminal wall spatially:
         // each arrow raises the Claude terminal window in that direction. ⌘⌥
@@ -384,6 +392,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         scatterHotkey?.unregister()
         promptRockFocusHotkey?.unregister()
         appearanceHotkey?.unregister()
+        appearanceObservation?.invalidate()
         navHotkeys.forEach { $0.unregister() }
         PromptSigilOverlayController.shared.endKeyboardFocus()
         PromptFocusHighlight.shared.stop()
@@ -445,6 +454,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // the memo is enough: applyDesktopTint takes both branches (tint or
         // restore) from `lastDesktopTint`, so nil-ing it covers either.
         lastDesktopTint = nil
+        applyDesktopTint()
+    }
+
+    private func appearanceDidChange() {
+        // Appearance changes do not alter the session snapshot, so a normal
+        // refresh can otherwise be delayed behind an in-flight gather. Drop
+        // the presentation memos and repaint directly from the current state.
+        lastDesktopTint = nil
+        lastTerminalDecor.removeAll()
+        updateIcon()
+        applyTerminalDecor()
         applyDesktopTint()
     }
 
@@ -2849,12 +2869,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         lastDesktopTint = memoKey
         DesktopTint.publish(color: color, dark: dark)
         let screens = NSScreen.screens
+        let options = DesktopTint.workspaceOptions(color: color)
         DispatchQueue.global(qos: .utility).async {
             guard let path = DesktopTint.ensure(name: name, color: color)
             else { return }
             let url = URL(fileURLWithPath: path)
             for s in screens {
-                try? NSWorkspace.shared.setDesktopImageURL(url, for: s, options: [:])
+                try? NSWorkspace.shared.setDesktopImageURL(url, for: s, options: options)
             }
         }
     }
@@ -2892,12 +2913,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         lastDesktopTint = memoKey
         DesktopTint.publish(color: color, dark: dark)
         let screens = NSScreen.screens
+        let options = DesktopTint.workspaceOptions(color: color)
         DispatchQueue.global(qos: .utility).async {
             guard let path = DesktopTint.ensure(name: name, color: color)
             else { return }
             let url = URL(fileURLWithPath: path)
             for s in screens {
-                try? NSWorkspace.shared.setDesktopImageURL(url, for: s, options: [:])
+                try? NSWorkspace.shared.setDesktopImageURL(url, for: s, options: options)
             }
         }
     }

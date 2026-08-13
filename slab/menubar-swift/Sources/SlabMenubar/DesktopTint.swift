@@ -13,6 +13,26 @@ enum DesktopTint {
     static let didChangeNotification = Notification.Name("computer.aesthetic.slab.desktop-tint.changed")
     static var currentColorFile: String { "\(Paths.desktopWallpaperDir)/current-color.json" }
 
+    /// Desktop-picture options for Slab's generated flat tint. The image is
+    /// deliberately tiny because it is a solid color, so it must be stretched
+    /// to the screen. Supplying the same color as the workspace fill also
+    /// prevents macOS from retaining the previous wallpaper's letterbox color;
+    /// that stale fill is what the translucent menu bar samples on appearance
+    /// flips.
+    static func workspaceOptions(color: (Int, Int, Int))
+        -> [NSWorkspace.DesktopImageOptionKey: Any] {
+        let fill = NSColor(
+            calibratedRed: CGFloat(color.0) / 65535,
+            green: CGFloat(color.1) / 65535,
+            blue: CGFloat(color.2) / 65535,
+            alpha: 1)
+        return [
+            .imageScaling: NSImageScaling.scaleAxesIndependently.rawValue,
+            .allowClipping: true,
+            .fillColor: fill,
+        ]
+    }
+
     /// Share Slab's resolved aggregate prompt colour with companion desktop
     /// surfaces. Persistence gives late starters the current tone; the
     /// distributed notification updates live renderers immediately.
