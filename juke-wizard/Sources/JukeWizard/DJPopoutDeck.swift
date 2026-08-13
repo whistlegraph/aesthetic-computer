@@ -3,10 +3,25 @@ import AVFoundation
 import CoreGraphics
 import JukeDSP
 
+/// A borderless window is key-refusing by default, and that is exactly what
+/// made a dragged-out record unkillable: no title bar, no close button, and
+/// no keystroke could ever reach it. Accepting key gives Escape and ⌘W a
+/// path in.
+final class DJRecordWindow: NSWindow {
+    override var canBecomeKey: Bool { true }
+    override var canBecomeMain: Bool { true }
+}
+
 /// A floating, single-record surface for direct deck play. The platter is the
 /// control: press to stop it under the hand, drag around the groove to scratch,
 /// and release to resume the state it had before the touch.
 final class DJPopoutDeckController: NSWindowController, NSWindowDelegate {
+    /// Every record currently on screen, so any one of them — or the menu bar
+    /// — can sweep the desk clean.
+    private static let live = NSHashTable<DJPopoutDeckController>.weakObjects()
+    static var openRecordCount: Int { live.allObjects.count }
+    static func closeAllRecords() { live.allObjects.forEach { $0.closeRecord() } }
+
     private let recordView: DJRadialRecordView
     private let player: DJDeckPlayer
     private let deckName: String
@@ -27,7 +42,7 @@ final class DJPopoutDeckController: NSWindowController, NSWindowDelegate {
         recordView.accent = accent
         recordView.deckName = name
 
-        let window = NSWindow(
+        let window = DJRecordWindow(
             contentRect: NSRect(x: 0, y: 0, width: 350, height: 350),
             styleMask: [.borderless],
             backing: .buffered,
@@ -45,12 +60,17 @@ final class DJPopoutDeckController: NSWindowController, NSWindowDelegate {
 
         super.init(window: window)
         window.delegate = self
-        recordView.onClose = { [weak window] in window?.performClose(nil) }
+        // `performClose` needs a close button in the style mask, so on a
+        // borderless window it only beeps. `close` is the honest verb.
+        recordView.onClose = { [weak self] in self?.closeRecord() }
+        recordView.onCloseAll = { DJPopoutDeckController.closeAllRecords() }
         player.onStateChange = { [weak self] in self?.onStateChange?() }
     }
 
     required init?(coder: NSCoder) { fatalError() }
     deinit { displayTimer?.invalidate() }
+
+    func closeRecord() { window?.close() }
 
     func show(track: Track?) {
         if let track { recordView.load(track) }
@@ -97,6 +117,9 @@ final class DJPopoutDeckController: NSWindowController, NSWindowDelegate {
     }
 
     private func startDisplay() {
+        // Both `show` overloads land here, so this is where a record counts as
+        // being on the desk. A closed-but-retained popout must not.
+        Self.live.add(self)
         displayTimer?.invalidate()
         displayTimer = DJRunLoopTimer.scheduled(every: 1.0 / 60.0) { [weak self] _ in
             self?.recordView.advanceEffects()
@@ -122,6 +145,7 @@ final class DJPopoutDeckController: NSWindowController, NSWindowDelegate {
     }
 
     func windowWillClose(_ notification: Notification) {
+        Self.live.remove(self)
         player.pause()
         recordView.cancelTrackpadLock()
         displayTimer?.invalidate()
@@ -150,6 +174,15 @@ final class DJRadialRecordView: NSView {
     var accent: NSColor = Palette.teal
     var deckName = "A"
     var onClose: (() -> Void)?
+    var onCloseAll: (() -> Void)?
+
+    // The chrome — a close dot and a caption plate — lives in the corners the
+    // inscribed vinyl leaves empty, so it never covers playable surface.
+    private var hovering = false
+    private var closeHot = false
+    private var captionHot = false
+    private var captionScrubbing = false
+    private var trackArtist = ""
 
     private var trackTitle = "record"
     private var trackDetail = "press · hold · scratch"
@@ -203,6 +236,9 @@ final class DJRadialRecordView: NSView {
 
     override var acceptsFirstResponder: Bool { true }
     override var mouseDownCanMoveWindow: Bool { false }
+    // A record is usually reached from another app; the first click should
+    // act, not merely raise.
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -213,7 +249,8 @@ final class DJRadialRecordView: NSView {
         layer?.masksToBounds = false
         setAccessibilityRole(.slider)
         setAccessibilityLabel("Floating scratch record")
-        setAccessibilityHelp("Press and hold to slow the record. Double-click the vinyl for one-finger trackpad lock; press Escape to exit.")
+        setAccessibilityHelp("Press and hold to slow the record. Drag the caption to scrub. Close with the × in the corner, Escape, or ⌘W. Option-double-click the vinyl for one-finger trackpad lock.")
+        toolTip = "Escape or ⌘W closes this record · right-click for more"
     }
 
     required init?(coder: NSCoder) { fatalError() }
@@ -227,12 +264,43 @@ final class DJRadialRecordView: NSView {
     override func updateTrackingAreas() {
         super.updateTrackingAreas()
         trackingAreas.forEach(removeTrackingArea)
-        addTrackingArea(NSTrackingArea(rect: bounds,
-                                       options: [.activeInKeyWindow, .cursorUpdate],
-                                       owner: self))
+        // `.activeAlways`, because a floating record is usually hovered while
+        // some other app holds focus — that is when its chrome must appear.
+        addTrackingArea(NSTrackingArea(
+            rect: bounds,
+            options: [.activeAlways, .cursorUpdate, .mouseEnteredAndExited, .mouseMoved],
+            owner: self))
     }
 
-    override func cursorUpdate(with event: NSEvent) { NSCursor.openHand.set() }
+    override func cursorUpdate(with event: NSEvent) {
+        (closeHot || captionHot) ? NSCursor.arrow.set() : NSCursor.openHand.set()
+    }
+
+    override func mouseEntered(with event: NSEvent) {
+        hovering = true
+        updateHotZones(for: event)
+        needsDisplay = true
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        hovering = false
+        closeHot = false
+        captionHot = false
+        needsDisplay = true
+    }
+
+    override func mouseMoved(with event: NSEvent) { updateHotZones(for: event) }
+
+    private func updateHotZones(for event: NSEvent) {
+        let point = convert(event.locationInWindow, from: nil)
+        let close = closeRect.contains(point)
+        let caption = captionRect.contains(point)
+        guard close != closeHot || caption != captionHot else { return }
+        closeHot = close
+        captionHot = caption
+        window?.invalidateCursorRects(for: self)
+        needsDisplay = true
+    }
 
     override func setFrameSize(_ newSize: NSSize) {
         super.setFrameSize(newSize)
@@ -257,7 +325,21 @@ final class DJRadialRecordView: NSView {
                        y: center.y + sin(needleAngle) * grooveRadius)
     }
 
+    /// The vinyl is inscribed in the window, so the corners and the strip
+    /// under it are free real estate. The close dot takes the top-right; the
+    /// caption takes the bottom strip.
+    private var closeRect: NSRect {
+        let side = max(16, min(bounds.width, bounds.height) * 0.058)
+        return NSRect(x: bounds.maxX - side - 7, y: bounds.maxY - side - 7,
+                      width: side, height: side)
+    }
+    private var captionRect: NSRect {
+        let height = max(16, min(bounds.width, bounds.height) * 0.056)
+        return NSRect(x: 10, y: 3, width: max(40, bounds.width - 20), height: height)
+    }
+
     func load(_ track: Track) {
+        trackArtist = track.meta?.artist ?? ""
         if let primpat = DJPrimpats.metadata(for: track) {
             trackTitle = "\(deckName) · \(primpat.waveform.rawValue.uppercased())"
             let number = String(format: "%.2f", primpat.frequency)
@@ -417,6 +499,96 @@ final class DJRadialRecordView: NSView {
             lockRing.stroke()
         }
 
+        drawCaption(dark: dark)
+        drawCloseDot()
+    }
+
+    private static func clock(_ seconds: Double) -> String {
+        guard seconds.isFinite, seconds >= 0 else { return "0:00" }
+        let whole = Int(seconds)
+        return String(format: "%d:%02d", whole / 60, whole % 60)
+    }
+
+    /// A readout that earns the space it takes: what is on the platter, how
+    /// far in it is, and — as a draggable underline — where to put it next.
+    private func drawCaption(dark: Bool) {
+        let plate = captionRect
+        let wake = hovering ? 1.0 : 0.62
+        NSColor.black.withAlphaComponent(dark ? 0.52 * wake : 0.34 * wake).setFill()
+        NSBezierPath(roundedRect: plate, xRadius: plate.height / 2,
+                     yRadius: plate.height / 2).fill()
+
+        let playing = deck?.isPlaying == true
+        let ink = NSColor.white.withAlphaComponent(hovering ? 0.95 : 0.72)
+        let size = max(8, plate.height * 0.5)
+        let glyph = ("▶" as NSString)
+        let glyphAttrs: [NSAttributedString.Key: Any] = [
+            .font: NSFont.systemFont(ofSize: size, weight: .bold),
+            .foregroundColor: (playing ? Palette.gold : NSColor.white)
+                .withAlphaComponent(playing ? 0.98 : 0.34)
+        ]
+        let glyphSize = glyph.size(withAttributes: glyphAttrs)
+        glyph.draw(at: NSPoint(x: plate.minX + 8,
+                               y: plate.midY - glyphSize.height / 2 + 0.5),
+                   withAttributes: glyphAttrs)
+
+        let elapsed = Self.clock(deck?.currentTime ?? 0)
+        let total = Self.clock(deck?.duration ?? 0)
+        let time = "\(elapsed) / \(total)" as NSString
+        let timeAttrs: [NSAttributedString.Key: Any] = [
+            .font: NSFont.monospacedDigitSystemFont(ofSize: size * 0.86, weight: .medium),
+            .foregroundColor: ink
+        ]
+        let timeSize = time.size(withAttributes: timeAttrs)
+        time.draw(at: NSPoint(x: plate.maxX - 8 - timeSize.width,
+                              y: plate.midY - timeSize.height / 2),
+                  withAttributes: timeAttrs)
+
+        let name = trackArtist.isEmpty ? trackTitle : "\(trackTitle) · \(trackArtist)"
+        let nameAttrs: [NSAttributedString.Key: Any] = [
+            .font: NSFont.systemFont(ofSize: size * 0.92, weight: .semibold),
+            .foregroundColor: ink
+        ]
+        let left = plate.minX + 12 + glyphSize.width
+        let width = max(10, plate.maxX - 14 - timeSize.width - left)
+        let paragraph = NSMutableParagraphStyle()
+        paragraph.lineBreakMode = .byTruncatingTail
+        NSAttributedString(string: name, attributes: nameAttrs.merging(
+            [.paragraphStyle: paragraph]) { a, _ in a })
+            .draw(in: NSRect(x: left, y: plate.midY - size * 0.66,
+                             width: width, height: size * 1.35))
+
+        // The scrub line only shows itself when the pointer is on the plate,
+        // so at rest the record still reads as a record.
+        guard captionHot || captionScrubbing else { return }
+        let track = NSRect(x: plate.minX + 8, y: plate.minY + 1.5,
+                           width: plate.width - 16, height: 2)
+        NSColor.white.withAlphaComponent(0.24).setFill()
+        NSBezierPath(roundedRect: track, xRadius: 1, yRadius: 1).fill()
+        accent.blended(withFraction: 0.5, of: .white)?.setFill()
+        NSBezierPath(roundedRect: NSRect(x: track.minX, y: track.minY,
+                                         width: track.width * trackProgress,
+                                         height: track.height),
+                     xRadius: 1, yRadius: 1).fill()
+    }
+
+    /// The way out. Hidden until the pointer arrives, because a record that
+    /// always wore a close button would stop looking like vinyl.
+    private func drawCloseDot() {
+        guard hovering else { return }
+        let dot = closeRect
+        NSColor.black.withAlphaComponent(closeHot ? 0.80 : 0.46).setFill()
+        NSBezierPath(ovalIn: dot).fill()
+        NSColor.white.withAlphaComponent(closeHot ? 1 : 0.78).setStroke()
+        let arm = dot.width * 0.24
+        let cross = NSBezierPath()
+        cross.move(to: NSPoint(x: dot.midX - arm, y: dot.midY - arm))
+        cross.line(to: NSPoint(x: dot.midX + arm, y: dot.midY + arm))
+        cross.move(to: NSPoint(x: dot.midX - arm, y: dot.midY + arm))
+        cross.line(to: NSPoint(x: dot.midX + arm, y: dot.midY - arm))
+        cross.lineWidth = max(1.4, dot.width * 0.09)
+        cross.lineCapStyle = .round
+        cross.stroke()
     }
 
     private func drawEnvelopeGroove(center c: NSPoint, radius r: CGFloat) {
@@ -592,6 +764,12 @@ final class DJRadialRecordView: NSView {
 
     override func mouseDown(with event: NSEvent) {
         let point = convert(event.locationInWindow, from: nil)
+        if closeRect.contains(point) { onClose?(); return }
+        if captionRect.contains(point) {
+            captionScrubbing = true
+            seekToCaption(point)
+            return
+        }
         let distance = hypot(point.x - center.x, point.y - center.y)
         // The visible vinyl is the instrument; the translucent surround is
         // the window handle. Keep these hit regions identical to what is drawn.
@@ -646,7 +824,21 @@ final class DJRadialRecordView: NSView {
         }
     }
 
+    private func seekToCaption(_ point: NSPoint) {
+        guard let deck, deck.duration > 0 else { return }
+        let plate = captionRect
+        let travel = max(1, plate.width - 16)
+        let progress = max(0, min(1, (point.x - plate.minX - 8) / travel))
+        deck.seek(to: Double(progress) * deck.duration)
+        invalidateRecordCache()
+        needsDisplay = true
+    }
+
     override func mouseDragged(with event: NSEvent) {
+        if captionScrubbing {
+            seekToCaption(convert(event.locationInWindow, from: nil))
+            return
+        }
         if let startMouse = centerDragMouse, let startOrigin = centerDragOrigin {
             let mouse = NSEvent.mouseLocation
             window?.setFrameOrigin(NSPoint(x: startOrigin.x + mouse.x - startMouse.x,
@@ -680,6 +872,11 @@ final class DJRadialRecordView: NSView {
     }
 
     override func mouseUp(with event: NSEvent) {
+        if captionScrubbing {
+            captionScrubbing = false
+            needsDisplay = true
+            return
+        }
         if let startMouse = centerDragMouse {
             let mouse = NSEvent.mouseLocation
             let travelled = hypot(mouse.x - startMouse.x, mouse.y - startMouse.y)
@@ -1018,10 +1215,50 @@ final class DJRadialRecordView: NSView {
     func cancelTrackpadLock() { releaseTrackpadLock() }
 
     override func keyDown(with event: NSEvent) {
-        if event.keyCode == 53, trackpadLockActive {
-            releaseTrackpadLock()
+        // Escape lets go of the trackpad first; a second press retires the
+        // record itself.
+        if event.keyCode == 53 {
+            trackpadLockActive ? releaseTrackpadLock() : onClose?()
             return
         }
+        if event.keyCode == 49 { deck?.toggle(); needsDisplay = true; return } // space
         super.keyDown(with: event)
     }
+
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        // Menu Band's ⌘W belongs to its own windows; a borderless record has
+        // no menu of its own, so it answers for itself.
+        guard event.modifierFlags.contains(.command),
+              event.charactersIgnoringModifiers?.lowercased() == "w" else {
+            return super.performKeyEquivalent(with: event)
+        }
+        onClose?()
+        return true
+    }
+
+    override func menu(for event: NSEvent) -> NSMenu? {
+        let menu = NSMenu(title: "Record")
+        let heading = NSMenuItem(title: trackTitle, action: nil, keyEquivalent: "")
+        heading.isEnabled = false
+        menu.addItem(heading)
+        menu.addItem(.separator())
+        let toggle = NSMenuItem(title: deck?.isPlaying == true ? "Pause" : "Play",
+                                action: #selector(menuTogglePlay), keyEquivalent: "")
+        toggle.target = self
+        menu.addItem(toggle)
+        menu.addItem(.separator())
+        let close = NSMenuItem(title: "Close Record", action: #selector(menuClose),
+                               keyEquivalent: "w")
+        close.target = self
+        menu.addItem(close)
+        let closeAll = NSMenuItem(title: "Close All Records", action: #selector(menuCloseAll),
+                                  keyEquivalent: "")
+        closeAll.target = self
+        menu.addItem(closeAll)
+        return menu
+    }
+
+    @objc private func menuTogglePlay() { deck?.toggle(); needsDisplay = true }
+    @objc private func menuClose() { onClose?() }
+    @objc private func menuCloseAll() { onCloseAll?() }
 }

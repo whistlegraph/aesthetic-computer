@@ -15,6 +15,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
     /// The spinning album-art disc owned by Menu Band's CDJ Radio deck.
     private var cdjStatusItem: MenuBandCDJStatusItem?
+#if !MAC_APP_STORE
+    /// The Juke's now-playing disc + track text, à la the old standalone
+    /// JukeWizard status item. Lives and dies with Juke playback.
+    private var jukeStatusItem: MenuBandJukeStatusItem?
+#endif
     private let menuBand = MenuBandController()
 #if MAC_APP_STORE
     /// Optional direct-download sensor bridge. It supplies contact frames only;
@@ -1009,6 +1014,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         self.cdjStatusItem = cdjStatusItem
         updateCDJStatusItem()
+#if !MAC_APP_STORE
+        // The Juke's menu-bar disc: cover art spinning beside "artist — title"
+        // whenever the Juke is playing, exactly like the old standalone
+        // JukeWizard. Hidden whenever the Juke has nothing loaded.
+        let jukeStatusItem = MenuBandJukeStatusItem()
+        jukeStatusItem.onClick = { [weak self] in self?.juke.open() }
+        jukeStatusItem.menuProvider = { [weak self] in self?.makeJukeMenu() ?? NSMenu() }
+        self.jukeStatusItem = jukeStatusItem
+        juke.onNowPlayingChange = { [weak self] nowPlaying in
+            guard let item = self?.jukeStatusItem else { return }
+            if let nowPlaying {
+                item.update(
+                    title: nowPlaying.title,
+                    artist: nowPlaying.artist,
+                    disc: nowPlaying.disc,
+                    playing: nowPlaying.playing)
+            } else {
+                item.hide()
+            }
+        }
+#endif
         // Subscribe to mic RMS during sample-voice recording. The
         // sample voice's input tap fires this on the main queue with
         // each block's RMS [0, 1]. We just stash it; the visualizer
@@ -4062,6 +4088,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
 #if !MAC_APP_STORE
+    /// Right-clicking the Juke's disc. Its reason to exist is the last item:
+    /// floating records outlive their mixer window, and quitting Menu Band
+    /// used to be the only way to be rid of them.
+    private func makeJukeMenu() -> NSMenu {
+        let menu = NSMenu(title: "Juke")
+        let open = NSMenuItem(title: "Open Juke", action: #selector(jukeMenuOpen),
+                              keyEquivalent: "")
+        open.target = self
+        menu.addItem(open)
+        let records = juke.openRecordCount
+        guard records > 0 else { return menu }
+        menu.addItem(.separator())
+        let close = NSMenuItem(
+            title: records == 1 ? "Close Floating Record"
+                                : "Close \(records) Floating Records",
+            action: #selector(jukeMenuCloseRecords), keyEquivalent: "")
+        close.target = self
+        menu.addItem(close)
+        return menu
+    }
+
+    @objc private func jukeMenuOpen() { juke.open() }
+    @objc private func jukeMenuCloseRecords() { juke.closeAllRecords() }
+
     @objc private func handleShowJukeNotification(_ note: Notification) {
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
