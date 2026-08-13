@@ -1,1 +1,3 @@
-TrackDrum activation now enters percussion immediately, keeps keyboard focus across physical trackpad clicks, and preserves its click shields between strikes. Command shortcuts no longer trigger the focus gesture accidentally.
+The polyrhythm trainer now gives every rhythm its own circle, side by side, instead of stacking them in one ring. Each finger can hold its own grid: strike the left circle for the threes, the right for the twos, and each strike is scored against that circle's own beat rather than whichever beat happened to be nearest. Press / on the TrackDrum surface to cycle 3:2, 4:3, 5:4, and 3:4:5, and - or = to change tempo. Every circle keeps a distinct click so you can hear the parts apart.
+
+The free TrackDrum companion now keeps itself up to date.

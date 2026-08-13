@@ -66,13 +66,36 @@ async function remove(path) {
   console.log(`deleted ${path}`);
 }
 
-const [cmd, arg] = process.argv.slice(2);
+// Attaching a build to a version is a relationship PATCH with no fastlane
+// equivalent that works headlessly, so the release path needs a raw verb:
+//   asc.mjs patch /v1/appStoreVersions/<id>/relationships/build \
+//     '{"data":{"type":"builds","id":"<buildId>"}}'
+async function patch(path, body) {
+  const res = await fetch(`${API}${path}`, {
+    method: "PATCH",
+    headers: {
+      Authorization: `Bearer ${token()}`,
+      "Content-Type": "application/json",
+    },
+    body,
+  });
+  // Relationship PATCHes answer 204 with no body; only parse when there is one.
+  const text = await res.text();
+  if (!res.ok) throw new Error(`${res.status} ${text}`);
+  console.log(`patched ${path}${text ? `\n${text}` : ""}`);
+}
+
+const [cmd, arg, arg2] = process.argv.slice(2);
 
 if (cmd === "get") {
   console.log(JSON.stringify(await get(arg), null, 2));
 } else if (cmd === "delete") {
   if (!arg?.startsWith("/v1/")) throw new Error("delete path must start with /v1/");
   await remove(arg);
+} else if (cmd === "patch") {
+  if (!arg?.startsWith("/v1/")) throw new Error("patch path must start with /v1/");
+  if (!arg2) throw new Error("patch needs a JSON body as the second argument");
+  await patch(arg, arg2);
 } else if (cmd === "status") {
   const versions = await get(
     `/v1/apps/${APP_ID}/appStoreVersions?limit=8&fields[appStoreVersions]=versionString,appStoreState,createdDate`,
