@@ -5,7 +5,17 @@
 // bass: noise snares and hats, a tanh-driven sub bassline, and the rag
 // bells riding double-time on top.
 //
-// 80 bars × 4 beats × 60 / 144 BPM = 133.33 seconds ≈ 2:13.
+// No intro (@jeffrey, 2026-08-13): the runway, the groove, and the buildup all
+// went — the record now opens ON the first drop, stinger and all. TRIM is how
+// many bars are cut off the front; `at` shifts the whole arrangement back by
+// it, so anything scored before bar TRIM lands at negative time and is simply
+// never written. Move that one number to give the intro back.
+//
+// The drop is not slammed cold, though: the master swells in over the first
+// four bars, so it reads as the record fading up mid-party. The back half was
+// extended too — the ragga breathes for eight bars, then pushes for sixteen.
+//
+// 88 bars × 4 beats × 60 / 144 BPM = 146.67 seconds ≈ 2:27.
 //
 //   node pop/maytrax/bin/render-femrag-plusplus.mjs
 //   node pop/maytrax/bin/render-femrag-plusplus.mjs --out ~/femrag-plusplus.mp3
@@ -23,7 +33,8 @@ const SR = 48_000;
 const BPM = 144;
 const BEAT = 60 / BPM;
 const BAR = BEAT * 4;
-const BARS = 80;
+const TRIM = 16; // bars trimmed off the front — the track opens on the drop
+const BARS = 104 - TRIM;
 const SECONDS = BARS * BAR;
 const NS = Math.ceil(SECONDS * SR);
 const TAU = Math.PI * 2;
@@ -41,7 +52,7 @@ const argv = (flag) => {
 const expandHome = (p) => !p ? p : p === "~" ? homedir()
   : p.startsWith("~/") ? resolve(homedir(), p.slice(2)) : p;
 const hz = (midi) => 440 * 2 ** ((midi - 69) / 12);
-const at = (bar, beat = 0) => bar * BAR + beat * BEAT;
+const at = (bar, beat = 0) => (bar - TRIM) * BAR + beat * BEAT;
 const swung = (beat) => {
   const eighth = beat * 2;
   const whole = Math.floor(eighth + 1e-9);
@@ -337,22 +348,10 @@ function wubBar(bar, weight = 1) {
 
 // ── act one · femrag compressed to a fuse ───────────────────────────────────
 
-// 0–4: the runway — the drop's two-step skeleton arrives FIRST, quiet, with
-// the rag straight-time on top. The whole track lives in one rhythm world.
-for (let bar = 0; bar < 4; bar++) {
-  const rise = .5 + bar * .1;
-  kick(at(bar, 0), .17 * rise);
-  kick(at(bar, 2.5), .16 * rise);
-  snare(at(bar, 1), .09 * rise, { ghost: bar < 2 });
-  snare(at(bar, 3), .09 * rise, { ghost: bar < 2 });
-  if (bar >= 1) ragBar(bar, .45 + bar * .08, 12, { oom: false, straight: true });
-  if (bar >= 2) ticks(bar, .3 + (bar - 2) * .2);
-}
-
-// 4–12: the drop's groove at half power — full dnb kit muted, rag and lead
-// straight-time, sub pips walking the roots. The drop will only turn it up.
+// 4–12: the drop's groove — full dnb kit, rag and lead straight-time, sub pips
+// walking the roots. Opening here means it starts near power and only climbs.
 for (let bar = 4; bar < 12; bar++) {
-  const grow = .55 + (bar - 4) * .04;
+  const grow = .78 + (bar - 4) * .015;
   dnbBar(bar, grow, { fill: bar === 11 });
   ragBar(bar, .82, 12, { oom: false, straight: true });
   leadBar(bar, .7, bar < 8 ? 0 : 12, { straight: true });
@@ -445,33 +444,62 @@ for (let bar = 56; bar < 72; bar++) {
 }
 sub(at(56, 0), BEAT * 3.8, 21, .28, { drive: 4, slideTo: 33 });
 
-// 72–80: outro — the wub winds down and femrag's swing gets the last word.
-for (let bar = 72; bar < 76; bar++) {
-  const fade = 1 - (bar - 72) * .18;
+// 72–80: the ragga breathes — donk pulled back, wub out, the rag and lead
+// carry alone. The room gets its air back before the last push.
+for (let bar = 72; bar < 80; bar++) {
+  const back = bar < 76 ? .45 : .45 + (bar - 76) * .14;
+  raggaBar(bar, back);
+  ragBar(bar, .75, 12, { oom: false });
+  leadBar(bar, .6, bar >= 76 ? 12 : 0);
+  if (bar >= 76) wubBar(bar, (bar - 75) * .22);
+  if (bar % 4 === 3) for (let s = 0; s < 4; s++) {
+    bell(at(bar, 2) + s * BEAT / 2, CHORDS[bar % 4].notes[s % 4] + 24, .03, s % 2 ? .6 : -.6, .12);
+  }
+}
+riser(at(78), BAR * 2 - BEAT * .5, .11);
+
+// 80–96: the last push — everything on, lead every bar, bell runs every four.
+for (let bar = 80; bar < 96; bar++) {
+  const w = bar === 80 ? 1.15 : 1.05;
+  raggaBar(bar, w);
+  wubBar(bar, 1);
+  ragBar(bar, .85, 12, { oom: false });
+  leadBar(bar, .7, 12);
+  if (bar % 4 === 0) for (let s = 0; s < 8; s++) {
+    bell(at(bar, 2) + s * BEAT / 4, CHORDS[bar % 4].notes[s % 4] + 24, .03, s % 2 ? .7 : -.7, .08);
+  }
+}
+sub(at(80, 0), BEAT * 3.8, 21, .28, { drive: 4, slideTo: 33 });
+
+// 96–104: outro — the wub winds down and femrag's swing gets the last word.
+for (let bar = 96; bar < 100; bar++) {
+  const fade = 1 - (bar - 96) * .18;
   raggaBar(bar, .8 * fade);
   wubBar(bar, .75 * fade);
   ragBar(bar, .55 * fade, 12, { oom: false });
 }
-for (let bar = 76; bar < 80; bar++) {
-  const fade = 1 - (bar - 76) * .2;
+for (let bar = 100; bar < 104; bar++) {
+  const fade = 1 - (bar - 100) * .2;
   kickBar(bar, .7 * fade);
   ragBar(bar, .45 * fade);
-  if (bar === 76) leadBar(bar, .5);
-  if (bar === 78) leadBar(bar, .35, -12);
+  if (bar === 100) leadBar(bar, .5);
+  if (bar === 102) leadBar(bar, .35, -12);
 }
-bell(at(79, 3), 45, .085, 0, .42);
-sub(at(79, 3), BEAT * 1.2, 33, .1, { drive: 2, release: .4 });
+bell(at(103, 3), 45, .085, 0, .42);
+sub(at(103, 3), BEAT * 1.2, 33, .1, { drive: 2, release: .4 });
 
 // ── master ─────────────────────────────────────────────────────────────────
 
 let peak = 0;
 for (const channel of out) for (const sample of channel) peak = Math.max(peak, Math.abs(sample));
 const gain = peak ? .88 / peak : 1;
-const fadeIn = Math.floor(.006 * SR);
+// Four bars of swell instead of a click-guard: the drop is already playing
+// when the record fades up, which is the point of cutting the intro.
+const fadeIn = Math.floor(BAR * 4 * SR);
 const fadeOut = Math.floor(.55 * SR);
 for (const channel of out) {
   for (let i = 0; i < NS; i++) channel[i] *= gain;
-  for (let i = 0; i < fadeIn; i++) channel[i] *= i / fadeIn;
+  for (let i = 0; i < fadeIn; i++) channel[i] *= Math.sin(i / fadeIn * Math.PI / 2);
   for (let i = 0; i < fadeOut; i++) channel[NS - 1 - i] *= i / fadeOut;
 }
 
@@ -483,10 +511,10 @@ writeFileSync(outPath.replace(/\.mp3$/, ".events.json"),
 // The arrangement, as the video pipeline reads it. Bar ranges here are the
 // same ones the section loops above use — change one, change both.
 const SECTIONS = [
-  ["runway", 0, 4], ["groove", 4, 12], ["buildup1", 12, 16],
   ["drop1a", 16, 24], ["drop1b", 24, 32], ["breakdown", 32, 40],
   ["buildup2", 40, 44], ["drop2a", 44, 52], ["drop2b", 52, 56],
-  ["ragga-a", 56, 64], ["ragga-b", 64, 72], ["outro", 72, 80],
+  ["ragga-a", 56, 64], ["ragga-b", 64, 72], ["ragga-breathe", 72, 80],
+  ["ragga-push", 80, 88], ["ragga-push-b", 88, 96], ["outro", 96, 104],
 ];
 writeFileSync(outPath.replace(/\.mp3$/, ".struct.json"), JSON.stringify({
   totalSec: SECONDS,

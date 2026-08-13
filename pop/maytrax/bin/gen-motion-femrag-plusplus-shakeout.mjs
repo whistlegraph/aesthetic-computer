@@ -68,11 +68,11 @@ const SHOTS = {
   },
   drop1b: {
     motion:
-`Close on the bunny's head and shoulders, deep in the dance — head thrown back, bead eyes squeezed happy inside their red lenses, his two long ears mid-whip, carving wide S-curves past his head and doubling back with each beat. Loose wool wisps peel off the ears at the ends of their arcs and drift through the light. The camera handholds gently with him, staying tight — never pulling out to a wide.`,
+`THIRD-PERSON VIDEO-GAME CHASE CAM, exactly like Grand Theft Auto or Roblox — the camera floats behind and slightly above the bunny and FOLLOWS him as he dances, holding him in the lower-middle of frame with the A-frame room opening out ahead. He is mid-shakeout on the rug: body twisting, front paws thrown wide, his TWO long ears whipping out to either side, the chains of colored LEDs inside them streaking as they swing. The rainbow light inside his body pulses with the beat and throws moving colored pools onto the rug beneath him. The camera drifts with him like a game camera catching up — smooth, trailing, always behind — never cutting to his face. NO HUD, no crosshair, no interface overlay of any kind: this is still a real photograph of felt.`,
   },
   breakdown: {
     motion:
-`The bunny drops into slow heavy half-time. He stands at the big felted speaker cabinet with one front paw laid flat on its oatmeal wool cone; the cone visibly pushes outward against his paw and relaxes, a slow physical pulse, and his whole body rocks with it — knees bending deep, weight rolling side to side. His two long ears hang low and swing in a lazy pendulum, the two ears out of phase with each other. The camera holds wide and almost still. Enormous and patient.`,
+`FROM OUTSIDE, THROUGH THE GABLE WINDOW, holding almost still on the breakdown. The camera stays out in the cold night looking in through the felted panes, the dark mullions fixed across the frame. Inside, small and distant, the bunny rocks in slow heavy half-time with one paw on the big speaker cone; the cone visibly pushes outward against his paw and relaxes, a slow physical pulse, and his whole body rocks with it. His rainbow glow is the only real light moving in the house — separate colored blooms breathing through his wool, his two long ears hanging low and lit. The camera creeps almost imperceptibly closer to the glass across the shot. Enormous, patient, and heard from far away.`,
   },
   buildup2: {
     morphTo: "drop2a",
@@ -103,15 +103,15 @@ const SHOTS = {
   },
   drop2b: {
     motion:
-`Tight on the bunny's hind paws and the rug, filling the frame at maximum fiber resolution. His felted paws stamp the beat: one paw drives down and compresses the rug's matted pile, the other lifts away trailing wisps, then they trade — over and over, locked to the rhythm. A yarn cable on the floor jumps slightly with each stamp. Above and out of focus, the blurred oatmeal wool of his body keeps moving. The camera stays locked and close.`,
+`TOP-DOWN, straight overhead, locked off. The round green rug holds as a circle in frame and the bunny stamps the beat directly below the camera — seen from above, both hind paws driving down onto the rug and lifting alternately in rhythm, body foreshortened, his TWO long ears splayed flat on the floor to either side and swinging in arcs across the boards with each stamp. The rainbow light inside him spills outward across the rug in overlapping colored pools that PULSE with every impact, and the yarn cables loop flat on the boards and jump slightly when he lands. The camera does not move at all — the whole shot is his motion under a fixed overhead eye.`,
   },
   "ragga-a": {
     motion:
-`The dancehall. The bunny's whole rhythm changes — looser, heavier, deliberately behind the beat. He skanks: leaning forward with his weight low, one shoulder dropped, both front paws swinging across his body in long lazy diagonals, one hind paw kicking back and returning. His two long ears swing in slow wide arcs that lag noticeably behind his body — cool, not frantic. Above him the huge felted speaker cones pulse outward in slow deep pushes, the wool physically bulging and relaxing. The camera drifts slowly in a wide arc around him. Warm amber and deep green.`,
+`THIRD-PERSON GAME CHASE CAM again — behind and above him, following him through the dancehall as he skanks across the room. The camera trails him at a steady distance with the A-frame laid out ahead: the speaker tower rising on the right, the gable window at the far end, cables looping over the plank floor. He is seen from behind, leaning forward with his weight low, one shoulder dropped, both front paws swinging across his body, one hind paw kicking back, his TWO long ears swinging in lazy behind-the-beat arcs and glowing rainbow. The felted speaker cones pulse outward in slow deep pushes as he passes them. Smooth trailing game-camera motion, no HUD, no interface.`,
   },
   "ragga-b": {
     motion:
-`Close and low — the bunny leaning back against the mouth of the biggest felted speaker cone, half-turned to it, still skanking loose and easy. One long ear swings forward across his own face and away again with each bar; the other trails behind. Behind him the enormous oatmeal wool cone visibly pushes outward at its center on every bass note and settles back, and loose fibers around its rim lift away from the surface with each push. His bead eyes stay happy inside the red lenses. The camera holds close, swaying a little with him.`,
+`FIRST PERSON at the speaker cone. The camera is the bunny's own eyes looking straight at the enormous felted cone filling the frame; his own two forepaws are pressed flat against its wool in the bottom of frame. The cone PUSHES OUTWARD against his paws on every bass note and settles back — a real physical pulse in the wool, loose fibers around the rim lifting and falling with it — and the rainbow LEDs under the wool of his own forearms flare brighter with each push, throwing shifting magenta, cyan and lime light onto the cone where he touches it. The camera breathes slightly with his head, small and human. NEVER shows his face or any second bunny.`,
   },
   "ragga-breathe": {
     motion:
@@ -127,7 +127,7 @@ const SHOTS = {
   },
   outro: {
     motion:
-`The bunny finishes. He slows over the first moments — the swinging arcs shortening, his ears sinking lower with each one — then stops entirely at the center of the wrecked rug, standing still, one front paw settling onto his own chest, his sides rising and falling with breath. His two long ears hang all the way down, completely spent. His wool is visibly fluffed and disheveled everywhere, and the last loose wisps drift down and settle onto the rug around him. Behind him the speaker cones go still. The camera drifts slowly back to a wide as the warm little lamp is left the only light. Held, warm, finished.`,
+`TOP-DOWN, straight overhead, the last shot of the film. The bunny lies at the centre of the round green rug, finally still, sprawled with all four paws loose and his TWO long ears splayed flat to either side. His sides rise and fall with breath. The rainbow LEDs inside him fade slowly across the shot — separate colored blooms breathing gently and dimming, one or two winking out entirely — until only a soft slow pulse is left. Loose wool wisps drift down and settle onto the rug around him. The camera RISES very slowly straight up toward the rafter peak, so he grows smaller and the plank floor and looping cables open out around him. Held, warm, finished.`,
   },
 };
 

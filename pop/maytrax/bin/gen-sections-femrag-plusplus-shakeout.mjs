@@ -84,10 +84,24 @@ GLASSES GEOMETRY (CRITICAL): the bunny has exactly TWO eyes. a bunny's eyes sit 
 const ELECTRIC =
 `ELECTRIC FELT — the bunny is WIRED. This is the whole look of the film and it must read in every frame:
 · CIRCUITRY IN THE WOOL — fine enameled COPPER and colored magnet WIRE is needle-felted directly INTO his body, running across his chest, shoulders, back and down his limbs in deliberate looping CIRCUIT TRACES, stitched flush into the fibers like veins under skin. tiny felted solder-blobs and little brass eyelets sit where traces meet. the wire is a craft material here — hand-couched into wool, sometimes lifting a millimeter clear of the surface, never printed-on graphics.
-· LEDS INSIDE HIM — small bright LEDs are embedded UNDERNEATH the felt, inside his body and inside each ear, and they light him FROM WITHIN. wool is translucent when backlit, so the light BLOOMS THROUGH the fibers: his chest and belly glow like a paper lantern, individual fibers over each LED catch fire with light and read as a soft bright halo, and the wool immediately around each LED goes warm and semi-transparent while the wool further away stays matted and opaque. you can see the discrete POINT of each LED as a hot core inside a soft glowing patch — never a flat even wash, never an overlay.
-· HIS EARS LIGHT UP — each ear has a run of LEDs inside it, so when an ear swings past a dark background the whole ear glows through from the inside, the wool going translucent pink-white with the fiber structure visible against the light, like a hand held over a torch.
+· LEDS INSIDE HIM, IN FULL RAINBOW — many small bright LEDs are embedded UNDERNEATH the felt, inside his body and inside each ear, and they light him FROM WITHIN. every LED is a DIFFERENT COLOR — magenta, cyan, lime, hot orange, violet, gold, rose — scattered all through him, so he reads as a RAINBOW MULTIGLOW rather than one warm color. wool is translucent when backlit, so each colored light BLOOMS THROUGH the fibers as its own soft round patch of that hue, and where two colored patches overlap in the wool their colors mix and bleed into a third. you can see the discrete POINT of each LED as a hot colored core inside its own soft glowing patch — never a flat even wash, never a single uniform tint, never an overlay.
+· HIS EARS LIGHT UP IN COLOR — each ear has a run of differently-colored LEDs inside it, so when an ear swings past a dark background the whole ear glows through from the inside as a chain of separate colored blooms — cyan next to magenta next to lime — the wool going translucent with the fiber structure visible against each light, like a hand held over a torch.
 · THE GLASSES CATCH IT — the red felt rims pick up the internal glow from below and read hot red.
+· THE PROPS PERSIST — the felted LAPTOP he made the beat on stays in the room for the WHOLE film. It remains open on the green rug where he left it, screen still lit and glowing, visible somewhere in every wide shot — never cleared away, never closed, never teleported. Same for the amps, the pedal boxes and the yarn cables: once a prop is in the room it stays in the room, in the same place, for the rest of the story.
 · THE TETHER — a slim felted battery pack sits at the small of his back, and a colored wire tail trails off him across the floor to the speaker stack: he is PLUGGED IN to the sound system, part of the circuit.`;
+
+
+// The screen is a REAL interface, not an invented one: the notepat capture in
+// out/notepat-screen-ref.png is passed as a reference on every beat the
+// laptop is visible, and this law describes what it actually shows.
+const SCREEN_LAW =
+`THE LAPTOP SCREEN — it shows the REAL AESTHETIC COMPUTER / NOTEPAT interface from the supplied screen reference, reproduced faithfully in felt and RIGHT-SIDE UP. Read the reference and match its LAYOUT exactly:
+· a pale near-white background, not a dark screen.
+· across the TOP, a stack of thin horizontal PARAMETER ROWS — each a narrow full-width bar with a small label at its left and a colored fill running part-way across it (one bar filled bright green almost end to end, one filled mint-green about half way, the rest mostly empty) — and a row of small dark status chips in the top-right corner.
+· below those, a single row of wide pale INSTRUMENT TABS butted edge to edge, each a different very pale tint — pale blue, mint, peach, lilac, white, cream, ivory, pale cyan — with the leftmost tab highlighted.
+· across the MIDDLE, a wide empty pale area with a thin horizontal line through it and a tiny pixel character standing on that line.
+· across the BOTTOM, the note grid: TWO side-by-side BANKS separated by a narrow white gutter, each bank EXACTLY 4 TILES WIDE and 3 TILES TALL — twelve flat rectangular candy-pastel tiles per bank, packed edge to edge like postage stamps, a small dark letter in each tile's top-left corner and a small faint label in its bottom-left. the top row runs salmon, rust-orange, peach, olive; the middle row yellow, mint-green, teal, cornflower-blue; the bottom row violet, lilac, magenta, orchid. the two banks repeat the same colors. never crop, merge, or duplicate a row or column — always exactly 4 across and 3 down per bank.
+Render all of it as flat hand-felted color fields with fuzzy wool edges — a felted REPRODUCTION of that interface, glowing. The small letters and labels may stay soft and ILLEGIBLE (they are tiny felt marks, not typography), but the layout, the proportions and the tile colors must match the reference. NO invented interface, NO waveform art, NO abstract equalizer, NO logos or wordmarks anywhere.`;
 
 // The room: @jeffrey's old Ashland A-frame, felted.
 const WORLD =
@@ -114,6 +128,19 @@ const FRAME_NOTE =
 `${FRAMING_YT_LANDSCAPE}
 HONOR THE SHOT DIRECTIVE in this beat exactly: a WIDE shot lets the whole room breathe with the bunny comfortably within it; a CLOSE-UP crops in tight and FILLS the frame with the detail (do NOT pull back to a wide); a LOW-ANGLE puts the camera down on the rug looking up.`;
 
+
+// ── camera vocabulary — the film changes viewpoint constantly ────────────
+// @jeffrey's note: he likes the perspective shifts, so no two neighbouring
+// beats share a camera. Four recurring rigs plus the classical wides.
+const CAM_POV =
+`CAMERA — FIRST PERSON. The camera IS the bunny's eyes. The only parts of him in frame are his own front PAWS and forearms reaching in from the bottom edge, seen from behind as his own hands. His head, face and ears are NEVER visible because the camera is inside his head. No mirror, no reflection, no second bunny anywhere.`;
+const CAM_GAME =
+`CAMERA — THIRD-PERSON VIDEO-GAME CHASE CAM, exactly like Grand Theft Auto or Roblox: the camera floats a couple of feet BEHIND and slightly ABOVE the bunny, looking down at him at a shallow angle over his shoulders, with his whole body and both ears held in the lower-middle of the frame and the room opening up ahead of him. The framing is deliberately game-like — the character read from behind, the environment laid out in front — but it is still a real photograph of a felt diorama, NOT a screenshot, NOT a rendered game, with no HUD, no crosshair, no health bar, no interface of any kind overlaid.`;
+const CAM_WINDOW =
+`CAMERA — OUTSIDE THE HOUSE, LOOKING IN THROUGH THE GABLE WINDOW. The camera is out in the cold blue night, level with the A-frame's gable window, shooting through its felted panes into the lit room beyond. The window frame and mullions cross the shot as dark silhouettes in the foreground, the felted exterior wall boards catch a little spill, and everything inside — the bunny, his colored glow, the neon in the rafters, the speaker tower — reads as a warm saturated pocket of light seen from the dark outside. Small in frame, distant, and completely silent-feeling.`;
+const CAM_TOP =
+`CAMERA — DIRECTLY OVERHEAD, TOP-DOWN. The camera hangs at the peak of the A-frame looking straight DOWN, so the round green rug reads as a perfect circle, the plank floor as parallel lines, the bunny as a small figure seen from above with both ears splayed out to the sides against the boards, and the yarn cables as loops drawn flat on the floor. A true plan view — no horizon, no walls, the floor filling the frame.`;
+
 // ── the twelve beats — one per struct section ────────────────────────────
 // Names + order MUST match pop/maytrax/out/femrag-plusplus.struct.json.
 const BEATS = [
@@ -126,19 +153,19 @@ const BEATS = [
   },
       {
     // The film OPENS here — the track starts cold on the drop.
-    name: "drop1a", faceVisible: false, pov: true,
+    name: "drop1a", faceVisible: false, pov: true, screen: true,
     scene:
 `FIRST-PERSON POV, and this is the FIRST SHOT OF THE FILM — the track opens cold on the drop, so this frame is already at full power. The camera is the bunny's own eyes, looking DOWN at the little felted LAPTOP open on the green wool rug in front of him. His own two off-white furry FOREPAWS reach into frame from the bottom, seen from behind as his own hands, both down on the laptop's felted keyboard mid-strike — he is HAMMERING the beat out. The laptop is entirely needle-felted: a soft charcoal-wool clamshell, a keyboard of tiny pale felted keycaps, and a SCREEN that is a flat panel of glowing felt showing only soft abstract blocks and bars of colored light (magenta, cyan, amber) in even rows — a music grid read purely as colored wool light, with NO readable text, numbers or letters anywhere. The screen blazes and throws hard colored light up onto his paws. The copper circuit traces felted into his forearms catch it, and the LEDs under the wool of his arms are at FULL BLAST, glowing hot from inside so his own forearms are lanterns. Beyond the laptop: the plank floor, the speaker tower, and the dark A-frame rafters overhead with the whole neon rig BLASTING ON — magenta, cyan and acid-green tubes at once, colored light raking the beams and pooling on the boards.`,
   },
   {
-    name: "drop1b", faceVisible: true,
+    name: "drop1b", faceVisible: true, cam: CAM_GAME,
     scene:
-`CLOSE-UP, filling the frame — the bunny's head and shoulders in full motion, single fibers and matted clumps resolving. Head thrown back, mouth-line open in delight, bead eyes squeezed into happy closed lash-lines centered inside their red lenses. His TWO long ears are mid-whip in a wide S-curve past his head — exactly two ears, each a separate glowing translucent shape with its internal LEDs visible as bright cores through the wool, fiber structure lit up against the light. The felted copper traces on his shoulders flare where cyan neon rakes across them. Loose wool wisps float free, catching magenta light. Behind, out of focus, the dark rafters and the blazing tubes.`,
+`THIRD-PERSON GAME CAM behind him — the film's first perspective flip, straight after the POV opening. He has shoved back from the laptop and is up dancing on the green rug, seen from behind and slightly above with the whole A-frame opening out ahead of him: the speaker tower down the left, the gable window glowing dark blue at the far end, neon tubes blazing magenta and cyan along both sloped ceiling planes. He is mid-shakeout, body twisted, front paws thrown wide, his TWO long ears whipping out to either side and both blazing with their chains of colored LEDs — magenta beside lime beside cyan — the rainbow glow inside his body throwing real colored light down onto the rug. The felted laptop is still open on the rug behind him, screen still lit. His wire tail runs off toward the stack.`,
   },
   {
-    name: "breakdown", faceVisible: true,
+    name: "breakdown", faceVisible: true, cam: CAM_WINDOW,
     scene:
-`WIDE and still, the room at its darkest. The bunny stands at the largest felted speaker cabinet with one front paw laid flat against its oatmeal wool cone, feeling the bass through his paw. Body low, knees bent, rocking. His TWO long ears hang low and heavy, swinging in a slow lazy pendulum. Almost every neon tube is DARK now — only one cyan tube along a far rafter still burns low, and the dominant light in the entire room is the glow coming OUT of the bunny himself: his chest lantern throws warm light across the speaker cone he is touching, up onto his own chin, and down onto the plank floor around his feet, his ears two soft glowing shapes in the dark. The A-frame rafters recede into blackness above. Enormous, quiet, patient.`,
+`FROM OUTSIDE, THROUGH THE GABLE WINDOW, on the breakdown. The camera is out in the cold blue night looking in through the felted window panes; the dark mullions cross the frame. Inside, the room has gone almost black — nearly every neon tube is out — and the bunny is a small distant figure standing at the big felted speaker cabinet with one front paw laid flat on its wool cone, feeling the bass. He is the brightest thing in the house: his rainbow LEDs glowing through his wool in separate colored blooms, both long ears hanging low and lit from within, the colored light spilling out of him onto the cone, the rug and the plank floor around him. The felted laptop still sits open on the rug, its pale screen glowing. One low cyan tube burns in the rafters. Warm saturated light in a small window, seen from the cold outside.`,
   },
   {
     name: "buildup2", faceVisible: true,
@@ -151,19 +178,19 @@ const BEATS = [
 `WIDE, LOW-ANGLE into the A-frame peak. THE SECOND DROP — bigger than the first. The bunny is at the very top of a leap, higher than before, body arched back, all four paws flung out in a star, tail puff visible. His TWO long ears — exactly two — whip up and back above his head, both blazing translucent. He is at maximum power: his whole body glowing, throwing colored light onto the rug below. The neon rig is at FULL BLAST and there is more of it now — magenta, cyan, acid-green and hot orange tubes running the length of every rafter and down both sloped ceiling planes, the speaker tower stacked up under the beams behind him, hard saturated light everywhere, wool wisps hanging in the colored air where he launched.`,
   },
   {
-    name: "drop2b", faceVisible: true,
+    name: "drop2b", faceVisible: true, cam: CAM_TOP,
     scene:
-`EXTREME CLOSE-UP on the bunny's hind paws and the plank floor, filling the frame — the only beat where his face is not the subject. Wool fibers at maximum resolution: the soft-grey felted pads of his hind paws mid-stamp, one paw planted and compressing the wool of the green rug, the other lifting away with wisps trailing. Right through the frame run the felted-in COPPER CIRCUIT TRACES on his ankles and a thick colored yarn cable snaking across the boards, and an LED under the wool of his lower leg glows hot through the fibers, throwing light onto the plank floor. Magenta and cyan neon rake across the wood from above. Above and out of focus, the blurred glowing mass of his body still moving.`,
+`TOP-DOWN, straight overhead from the peak of the A-frame. The round green rug reads as a perfect circle against the parallel lines of the ochre plank floor, the yarn cables loop flat across the boards, and the felted laptop sits open near the rug's edge with its screen glowing up at the camera. The bunny is directly below, seen from above mid-stamp — body foreshortened, both hind paws planted apart on the rug, front paws flung out, and his TWO long ears splayed out flat to either side against the floor, each one a chain of separate colored glows. The rainbow light inside him spills outward across the rug in overlapping colored pools, and the neon in the rafters rakes hard colored light across the boards from the edges of frame. A plan view of a bunny going off.`,
   },
   {
-    name: "ragga-a", faceVisible: true,
+    name: "ragga-a", faceVisible: true, cam: CAM_GAME,
     scene:
-`WIDE. THE DANCEHALL — the A-frame is now a full sound-system dance. Felted speaker cabinets are stacked in a leaning tower up under the rafters, huge oatmeal wool cones, thick yarn cables looped across the plank floor and up into the beams. The neon has gone warm and heavy for this section: deep amber and forest-green tubes along the rafters, one hot orange run down the sloped ceiling, the wood glowing warm in it. The bunny skanks: leaning forward, weight low, one shoulder dropped, both front paws swinging loosely across his body, one hind paw kicked back. His TWO long ears swing in a lazy behind-the-beat arc, both glowing from within. His internal light has gone warm gold here, and his wire tail runs from his back across the floor into the base of the stack — plugged in.`,
+`THIRD-PERSON GAME CAM, the dancehall. The camera floats behind and above him as he skanks across the room, the whole A-frame laid out ahead: the speaker tower now an enormous leaning stack up under the rafters on the right, the gable window at the far end, thick yarn cables looping across the plank floor, the felted laptop still open and lit on the rug he has danced away from. The neon has gone warm and heavy — deep amber and forest-green tubes along the beams with one hot orange run down the sloped ceiling. He is seen from behind, leaning forward with his weight low, one shoulder dropped, both front paws swinging across his body, one hind paw kicked back, his TWO long ears swinging in lazy behind-the-beat arcs and glowing rainbow from within. His wire tail runs from his back across the floor into the base of the stack.`,
   },
   {
-    name: "ragga-b", faceVisible: true,
+    name: "ragga-b", faceVisible: false, pov: true,
     scene:
-`CLOSE-UP, low — the bunny and the mouth of the biggest felted speaker cone behind him. He has his back half-turned to the cabinet, leaning into it, ONE long ear flung forward across his own face by the swing and the OTHER trailing behind — exactly two ears, both lit from the inside and translucent against the dark cone. Bead eyes happy inside their red lenses. The enormous oatmeal wool cone behind him is visibly pushed outward at its center — the wool physically bulging with a bass note — and loose fibers around its rim lift away from the surface. Amber and forest-green neon rakes across the scene from the rafters above; his own gold internal glow lights the cone's wool where he leans on it.`,
+`FIRST PERSON again, right up at the speaker. The camera is the bunny's own eyes looking at the mouth of the enormous felted speaker cone directly in front of him, filling most of the frame — a vast disc of oatmeal wool with its felted dust-cap at the centre, close enough to see individual fibers. His own two furry FOREPAWS reach in from the bottom of frame and press flat against the cone's wool, and the cone is visibly pushed OUTWARD at its centre against them, bulging with a bass note, loose fibers around its rim lifting off the surface. The rainbow LEDs under the wool of his own forearms throw magenta, cyan and lime light onto the cone where his paws touch it, and the copper traces on his arms catch that light. Amber and forest-green neon rakes in from the rafters above. No face, no second bunny — just his paws, the cone, and the light coming out of him.`,
   },
   {
     name: "ragga-breathe", faceVisible: true,
@@ -181,9 +208,9 @@ const BEATS = [
 `WIDE, LOW-ANGLE from the plank floor looking up into the A-frame peak — the biggest dancehall frame in the film. Every neon tube in the rafters is at FULL BLAST at once: magenta, cyan, acid-green, amber and hot orange running the length of every beam and down both sloped ceiling planes, the whole triangular geometry of the room screaming with saturated color, hard light raking the walnut and pooling across the boards. The bunny is mid-skank at maximum power, body low and turned, one hind paw kicked back, both front paws thrown wide, his TWO long ears — exactly two — whipping out in big arcs, each one blazing translucent. His whole body is a lantern at full output, throwing colored light down onto the rug. The speaker tower rises the full height of the frame beside him, cones bulging, yarn cables everywhere, his wire tail plugged into its base. Loose wool wisps hang lit in the colored air.`,
   },
   {
-    name: "outro", faceVisible: true,
+    name: "outro", faceVisible: true, cam: CAM_TOP,
     scene:
-`WIDE and warm, the A-frame at rest. The bunny has stopped dancing and stands still at the center of the green rug on the plank floor, breathing, one front paw resting on his own chest. His TWO long ears hang all the way down, completely spent, and their internal light has faded to a last dim ember. His wool is visibly fluffed and disheveled all over — he has genuinely shaken his fuzz out — and loose wisps have settled across the rug and boards around him. Every neon tube in the rafters is DARK except one, a low magenta run along the near beam. The LEDs inside his chest have dimmed to a slow soft pulse, the only real light left, glowing gently through the wool. The speaker tower looms quiet behind him. The great rafters rise into the dark. After.`,
+`TOP-DOWN, straight overhead, the last shot. The round green rug is a perfect circle on the ochre plank boards; loose wool wisps have settled all across it and the floor around it. The bunny lies at the centre seen from directly above, finally still, sprawled on his back with all four paws loose and his TWO long ears splayed flat out to either side on the rug — completely spent, his wool visibly fluffed and disheveled everywhere. The rainbow LEDs inside him have dimmed to a slow soft pulse, separate colored blooms breathing gently through the wool, the last real light in the room. The felted laptop still sits open at the rug's edge where he left it, its pale screen still faintly glowing. The yarn cables loop away across the boards to the dark speaker tower. Every neon tube overhead is out but one low magenta run at the frame's edge. After.`,
   },
 ];
 
@@ -198,6 +225,8 @@ const ANCHOR = panelPath(0, "runway");
 // (exposed rafters meeting in a peak, honey plank walls and floor, gable
 // window, round green rug, string lights already strung along the beams).
 const ASHLAND = resolve(REPO, "pop/nullabye/reel/special-sign/refs/ashland-house-platter-contact.jpg");
+// A REAL notepat/AC-native capture — the screen is never invented.
+const NOTEPAT = `${OUT}/notepat-screen-ref.png`;
 
 function build(beat) {
   return [
@@ -209,7 +238,8 @@ function build(beat) {
     WORLD,
     LIGHT,
     PALETTE,
-    beat.pov ? POV_NOTE : null,
+    beat.cam ?? (beat.pov ? CAM_POV : null),
+    beat.screen ? SCREEN_LAW : null,
     `THIS BEAT — ${beat.scene}`,
     AVOID,
   ].filter(Boolean).join("\n\n");
@@ -285,7 +315,7 @@ FAIL if any of these are true:
 2. Any red glasses lens is EMPTY — an eye sitting above/outside its rim while a red circle sits elsewhere on the face. Each visible eye must be centered INSIDE a red lens.
 3. More than TWO eyes read on the face (an eye plus two empty rims counts as this failure).
 4. There is MORE THAN ONE rabbit in the frame, or a human person appears.
-5. There is readable text, a wordmark, letters, or numbers anywhere — including on any screen in frame.
+5. There is a readable WORD, brand name, wordmark or logo anywhere. (Small illegible marks and single letters on interface tiles are FINE and must NOT fail — only actual readable words or brands fail.)
 Otherwise PASS. If the frame is a close-up of paws/floor, or a first-person POV showing only the rabbit's own forepaws with no head visible, then rules 1-3 do not apply — PASS unless rule 4 or 5 is broken.`;
   try {
     const r = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -330,7 +360,11 @@ async function generate(beat, i) {
   // The Ashland sheet carries the ROOM (A-frame geometry, plank wood, gable
   // window); the anchor carries the BUNNY. The anchor itself is generated
   // against Ashland alone, since it is what defines the character.
-  const refs = [existsSync(ASHLAND) ? ASHLAND : null, i > 0 && existsSync(ANCHOR) ? ANCHOR : null].filter(Boolean);
+  const refs = [
+    existsSync(ASHLAND) ? ASHLAND : null,
+    i > 0 && existsSync(ANCHOR) ? ANCHOR : null,
+    beat.screen && existsSync(NOTEPAT) ? NOTEPAT : null,
+  ].filter(Boolean);
   const useEdit = refs.length > 0;
   const needsQA = beat.faceVisible || beat.pov;   // POV still gets the no-text check
   const attempts = needsQA ? QA_ATTEMPTS : 1;
