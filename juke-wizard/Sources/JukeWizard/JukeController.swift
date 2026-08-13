@@ -836,6 +836,7 @@ final class JukeController: NSWindowController, NSWindowDelegate,
         guard playlistName != nil else { return }
         let currentPath = track?.url.standardizedFileURL.path
         library.add(path: fullLibraryPath)
+        applySort()   // fold-ins land in JSON order; honor whatever the popup says
         playlistName = nil
         refreshPlaylistScopeButton()
         if let currentPath,
@@ -1567,10 +1568,34 @@ final class JukeController: NSWindowController, NSWindowDelegate,
         default: return 4
         }
     }
+    /// The moment a track's audio was last rendered: the file's own
+    /// modification date, falling back to the library JSON's `updated`
+    /// stamp for files that have vanished from disk.
+    private static func renderDate(of t: Track) -> Date {
+        if let date = (try? FileManager.default.attributesOfItem(atPath: t.url.path))?[.modificationDate] as? Date {
+            return date
+        }
+        if let stamp = t.meta?.updated {
+            let iso = ISO8601DateFormatter()
+            iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            if let date = iso.date(from: stamp) { return date }
+            iso.formatOptions = [.withInternetDateTime]
+            if let date = iso.date(from: stamp) { return date }
+        }
+        return .distantPast
+    }
     private func applySort() {
         // keep the current track selected across the reorder (match by URL)
         let currentURL = track?.url.standardizedFileURL.path
         let mode = sortMode
+        // "newest/oldest rendered" go by the audio file's real modification
+        // time, not the library JSON's snapshot: fresh renders folded into
+        // the queue after launch carry no meta at all, so a snapshot-string
+        // sort pinned the genuinely newest tracks to the bottom.
+        var renderedAt: [ObjectIdentifier: Date] = [:]
+        if mode == .newest || mode == .oldest {
+            for t in library.tracks { renderedAt[ObjectIdentifier(t)] = Self.renderDate(of: t) }
+        }
         library.reorder { a, b in
             switch mode {
             case .defaultOrder:
@@ -1578,9 +1603,11 @@ final class JukeController: NSWindowController, NSWindowDelegate,
                 if ra != rb { return ra < rb }
                 return (a.meta?.updated ?? "") > (b.meta?.updated ?? "")   // recent first
             case .newest:
-                return (a.meta?.updated ?? "") > (b.meta?.updated ?? "")
+                return renderedAt[ObjectIdentifier(a), default: .distantPast]
+                     > renderedAt[ObjectIdentifier(b), default: .distantPast]
             case .oldest:
-                return (a.meta?.updated ?? "") < (b.meta?.updated ?? "")
+                return renderedAt[ObjectIdentifier(a), default: .distantPast]
+                     < renderedAt[ObjectIdentifier(b), default: .distantPast]
             case .stars:
                 if a.data.stars != b.data.stars { return a.data.stars > b.data.stars }
                 return (a.meta?.updated ?? "") > (b.meta?.updated ?? "")
