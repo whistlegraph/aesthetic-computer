@@ -20,6 +20,7 @@
 //   node pop/maytrax/bin/gen-motion-femrag-plusplus-shakeout.mjs
 //   node pop/maytrax/bin/gen-motion-femrag-plusplus-shakeout.mjs --assemble
 
+import { readdirSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { runMotionCli, parseFlags } from "../../lib/motion-pipeline.mjs";
@@ -42,13 +43,19 @@ const MEDIUM_MOTION = [
 // hanging spent at the end. FUZZ CONTINUITY: his wool gets progressively
 // more disheveled and the room accumulates loose wisps; it never resets.
 const SHOTS = {
+  // `runway` is deliberately not in the struct — @jeffrey trimmed those four
+  // bars off the front of the track (render-femrag-plusplus.mjs TRIM), so the
+  // record opens cold on the groove. Its panel survives as the character
+  // ANCHOR every other panel is generated against; it is simply never a shot.
   runway: {
     motion:
 `The felt bunny starts to move on the rug — a small weight-shift from one hind paw to the other, then a second, finding the pulse. His two long ears hang heavy and swing only slightly, a few degrees, lagging behind each shift. One front paw taps twice against his own chest. The camera holds nearly still and drifts in by a hair. Dim, warm, contained — a dance that has not committed yet.`,
   },
   groove: {
+    // The film's COLD OPEN — the track starts here, hats first, already
+    // moving. He is not finding the groove; he is already in it.
     motion:
-`The bunny settles into a two-step shuffle: one hind paw plants, the other slides across the wool rug and back, hips turning slightly with each step, both front paws bouncing loosely at rib height. His two long ears swing together in a matched arc, lifting further off vertical with each bar. The rug rumples under the planted paw and stays rumpled. The camera tracks slowly sideways with him, staying wide. Confident and easy — the groove is found.`,
+`Open already in motion: the bunny is mid two-step shuffle from the very first frame — one hind paw plants, the other slides across the wool rug and back, hips turning with each step, both front paws bouncing loosely at rib height. His two long ears swing together in a matched arc that widens with each bar. The rug rumples under the planted paw and stays rumpled. The camera tracks slowly sideways with him, staying wide. Confident and easy — no hesitation, no warm-up.`,
   },
   buildup1: {
     // Same-camera escalation into the drop — a legitimate morph.
@@ -131,11 +138,23 @@ const SHOTS = {
   },
 };
 
+// Panels resolve by NAME, not by the index baked into their filename: the
+// arrangement is trimmed from the front (render-femrag-plusplus.mjs TRIM),
+// so a section's position moves while its identity does not.
+function panelFor(name) {
+  const suffix = `-${name}.png`;
+  const hit = readdirSync(OUT)
+    .filter((f) => f.startsWith(`${SLUG}-yt-sec-`) && f.endsWith(suffix))
+    .sort();
+  if (!hit.length) return `${OUT}/${SLUG}-yt-sec-?-${name}.png`; // let the CLI report it missing
+  return `${OUT}/${hit[0]}`;
+}
+
 const cfg = {
   slug: SLUG,
   laneDir: LANE,
   structPath: `${OUT}/${SLUG}.struct.json`,
-  panelFor: (name, i) => `${OUT}/${SLUG}-yt-sec-${i}-${name}.png`,
+  panelFor,
   shots: SHOTS,
   mediumMotion: MEDIUM_MOTION,
   ratio: "16:9",
