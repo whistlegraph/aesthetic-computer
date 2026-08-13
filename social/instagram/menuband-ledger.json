@@ -19,7 +19,43 @@
       "permalink": "https://www.instagram.com/reel/Db7cNlzDsg3/",
       "caption": "Lantern — Menu Band Waltz No. 1. MenuBand.app",
       "source": "pop/menuband/out/menu-band-waltzes/01-lantern/01-lantern.mp4",
-      "voiceover": false
+      "voiceover": false,
+      "insights": {
+        "views": 231,
+        "reach": 207,
+        "likes": 4,
+        "comments": 1,
+        "saved": 0,
+        "shares": 0,
+        "total_interactions": 5,
+        "ig_reels_avg_watch_time": 7148,
+        "ig_reels_video_view_total_time": 1522602,
+        "reels_skip_rate": 40.7
+      },
+      "insightsAt": "2026-08-13T22:02:57.233Z"
+    },
+    {
+      "mediaId": "18098114018458417",
+      "containerId": "18086077667299689",
+      "publishedAt": "2026-08-13T16:29:52.709Z",
+      "permalink": "https://www.instagram.com/reel/Db_KzJkD2AU/",
+      "caption": "Window — Menu Band Waltz No. 2. MenuBand.app",
+      "source": "pop/menuband/out/menu-band-waltzes/02-window/02-window.mp4",
+      "voiceover": false,
+      "audioName": "window-waltz.mbscore",
+      "insights": {
+        "views": 116,
+        "reach": 103,
+        "likes": 0,
+        "comments": 0,
+        "saved": 0,
+        "shares": 0,
+        "total_interactions": 0,
+        "ig_reels_avg_watch_time": 5120,
+        "ig_reels_video_view_total_time": 542752,
+        "reels_skip_rate": 50
+      },
+      "insightsAt": "2026-08-13T22:02:57.637Z"
     }
   ]
 }

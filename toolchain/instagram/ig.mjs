@@ -27,7 +27,9 @@
 //   node toolchain/instagram/ig.mjs --as oskiewar snapshot
 //
 // Every publish writes a sidecar <video>.instagram.json receipt with the
-// media id and the exact metadata that was sent.
+// media id and the exact metadata that was sent, and appends the same post to
+// the account's ledger at social/instagram/<account>-ledger.json — the file
+// Slab's Reels player reads. `insights --refresh` hangs the numbers on it.
 
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
@@ -330,11 +332,22 @@ async function doPost(creds) {
   });
   console.log(`✓ published · ${published.id}`);
 
+  // The permalink is the one field only Meta can supply, and only after the
+  // publish — everything else we already know. A failure here is cosmetic, so
+  // it must not cost us the receipt for a reel that is already live.
+  let permalink = null;
+  try {
+    permalink = (await call(api(
+      `${published.id}?fields=permalink&access_token=${creds.token}`))).permalink ?? null;
+  } catch { /* leave null; `insights --refresh` fills it in later */ }
+
+  const publishedAt = new Date().toISOString();
   const receipt = {
     mediaId: published.id,
     containerId: created.id,
     account: creds.account,
-    publishedAt: new Date().toISOString(),
+    publishedAt,
+    permalink,
     videoUrl: urls.reel,
     coverUrl: urls.cover || null,
     caption,
@@ -345,6 +358,58 @@ async function doPost(creds) {
   const sidecar = videoPath.replace(/\.[^.]+$/, "") + ".instagram.json";
   writeFileSync(sidecar, JSON.stringify(receipt, null, 2) + "\n");
   console.log(`✓ receipt · ${sidecar}`);
+
+  appendLedger(creds.account, {
+    mediaId: published.id,
+    containerId: created.id,
+    publishedAt,
+    permalink,
+    caption,
+    source: relativeToRoot(videoPath),
+    audioName,
+    collaborators,
+    urls: { reel: urls.reel, ...(urls.cover ? { cover: urls.cover } : {}) },
+    insights: null,
+  });
+}
+
+// ── ledger ───────────────────────────────────────────────────────────
+// The sidecar receipt sits next to one mp4 and answers "what did we send?".
+// The ledger is the account's whole publishing history in one file, which is
+// what a dashboard can actually read — Slab's Reels player merges these
+// per-account ledgers alongside the oskiewar factory's own.
+//
+// `insights: null` is deliberate and load-bearing: it means "Meta has not
+// measured this yet", which a reader must render as "—" rather than as a reel
+// that got zero views. `insights --refresh` fills it in on a later pass.
+const LEDGER_FORMAT = "ac.instagram.reel-ledger";
+
+function ledgerPath(account) {
+  return join(root, "social", "instagram", `${account}-ledger.json`);
+}
+
+function relativeToRoot(path) {
+  return path.startsWith(root + "/") ? path.slice(root.length + 1) : path;
+}
+
+function readLedger(account) {
+  const path = ledgerPath(account);
+  if (!existsSync(path)) return { format: LEDGER_FORMAT, version: 1, account, posts: [] };
+  const ledger = JSON.parse(readFileSync(path, "utf8"));
+  ledger.posts ??= [];
+  return ledger;
+}
+
+function writeLedger(account, ledger) {
+  const path = ledgerPath(account);
+  writeFileSync(path, JSON.stringify(ledger, null, 2) + "\n");
+  return path;
+}
+
+function appendLedger(account, entry) {
+  const ledger = readLedger(account);
+  ledger.posts.push(entry);
+  console.log(`✓ ledger · ${writeLedger(account, ledger)} (${ledger.posts.length} posts)`);
 }
 
 // ── insights ─────────────────────────────────────────────────────────
@@ -355,18 +420,70 @@ const reelMetrics = ["views", "reach", "likes", "comments", "saved",
   "shares", "total_interactions", "reposts", "ig_reels_avg_watch_time",
   "ig_reels_video_view_total_time", "reels_skip_rate"];
 
-async function doInsights(creds) {
-  const mediaId = positional[0];
-  if (!mediaId) die(`usage: ig.mjs --as <account> insights <media-id>`);
-  const body = await call(api(`${mediaId}/insights` +
-    `?metric=${reelMetrics.join(",")}&access_token=${creds.token}`));
-  const values = Object.fromEntries((body.data || []).map((row) =>
+// Meta rejects the WHOLE request if any single metric is unsupported, and which
+// ones are supported drifts with the API version and the login path (`reposts`
+// is documented but refused on Instagram Login). The error names the offenders,
+// so drop exactly those and ask again — cheaper than a hardcoded list that rots.
+const UNSUPPORTED = /does not support the metrics:\s*([a-z_,\s]+)/i;
+
+async function pullInsights(mediaId, token, metrics = reelMetrics) {
+  let body;
+  try {
+    body = await call(api(`${mediaId}/insights?metric=${metrics.join(",")}&access_token=${token}`));
+  } catch (error) {
+    const named = UNSUPPORTED.exec(error.message || "");
+    const dropped = (named?.[1] || "").split(",").map((n) => n.trim()).filter(Boolean);
+    const kept = metrics.filter((name) => !dropped.includes(name));
+    // Only retry when the error actually narrowed the set — otherwise this is a
+    // different failure (dead token, deleted post) and it belongs upstream.
+    if (!kept.length || kept.length === metrics.length) throw error;
+    return pullInsights(mediaId, token, kept);
+  }
+  return Object.fromEntries((body.data || []).map((row) =>
     [row.name, row.values?.[0]?.value ?? row.total_value?.value ?? null]));
+}
+
+async function doInsights(creds) {
+  if (flags.refresh) return refreshLedgerInsights(creds);
+  const mediaId = positional[0];
+  if (!mediaId) die(`usage: ig.mjs --as <account> insights <media-id> | insights --refresh`);
+  const values = await pullInsights(mediaId, creds.token);
   console.log(`✓ insights · ${mediaId}`);
   const width = Math.max(...reelMetrics.map((m) => m.length));
   for (const metric of reelMetrics) {
     console.log(`  ${metric.padEnd(width)} · ${values[metric] ?? "—"}`);
   }
+}
+
+// Walk the account's ledger and hang fresh numbers on every post. A post whose
+// pull fails keeps whatever it had — one dead media id must not blank the rest.
+async function refreshLedgerInsights(creds) {
+  const ledger = readLedger(creds.account);
+  if (!ledger.posts.length) die(`no posts in ${ledgerPath(creds.account)} yet`);
+  let updated = 0, failed = 0;
+  for (const post of ledger.posts) {
+    if (!post.mediaId) continue;
+    try {
+      post.insights = await pullInsights(post.mediaId, creds.token);
+      post.insightsAt = new Date().toISOString();
+      // Captions are editable in the app long after publish, so Meta's copy is
+      // the truth and what we sent is only what we sent. Re-sync both it and
+      // the permalink rather than trusting the publish-time record forever.
+      const live = await call(api(
+        `${post.mediaId}?fields=permalink,caption&access_token=${creds.token}`));
+      post.permalink = live.permalink ?? post.permalink ?? null;
+      if (live.caption != null) post.caption = live.caption;
+      updated++;
+      const v = post.insights;
+      console.log(`  ${post.mediaId} · views ${v.views ?? "—"} · reach ${v.reach ?? "—"}` +
+        ` · ♥ ${v.likes ?? "—"} · saved ${v.saved ?? "—"}`);
+    } catch (error) {
+      failed++;
+      console.log(`  ${post.mediaId} · ✗ ${error.message.slice(0, 90)}`);
+    }
+  }
+  console.log(`✓ ledger · ${writeLedger(creds.account, ledger)}` +
+    ` (${updated} refreshed${failed ? `, ${failed} failed` : ""})`);
 }
 
 // ── snapshot ─────────────────────────────────────────────────────────
@@ -416,6 +533,8 @@ commands:
   post <video.mp4> --caption "..." [--cover img.jpg] [--audio-name "..."]
                            publish a reel: Spaces upload → container → poll → publish
   insights <media-id>      per-reel metrics (views, reach, skip rate, …)
+  insights --refresh       pull metrics for every post in the account's ledger
+                           and write them back (social/instagram/<acct>-ledger.json)
   snapshot                 print a social/accounts.json snapshots entry (does not write it)
 
 Tokens are never printed in full. Provisioning a new account:

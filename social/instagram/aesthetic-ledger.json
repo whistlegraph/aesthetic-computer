@@ -2,5 +2,34 @@
   "format": "ac.instagram.reel-ledger",
   "version": 1,
   "account": "aesthetic",
-  "posts": []
+  "posts": [
+    {
+      "mediaId": "18091507286114607",
+      "containerId": "18042395462809746",
+      "publishedAt": "2026-08-13T22:31:00.000Z",
+      "permalink": "https://www.instagram.com/reel/Db_hgi9iNaW/",
+      "caption": "@laerklokken",
+      "source": "marketing/klokkentales/out/reels/1000-lyttere/1000-lyttere-chrome.mp4",
+      "audioName": "laklok.com",
+      "collaborators": [
+        "laerklokken"
+      ],
+      "urls": {
+        "reel": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/ig/aesthetic/2026-08-13/1000-lyttere-chrome.mp4"
+      },
+      "insights": {
+        "views": 230,
+        "reach": 170,
+        "likes": 2,
+        "comments": 0,
+        "saved": 0,
+        "shares": 0,
+        "total_interactions": 2,
+        "ig_reels_avg_watch_time": 5323,
+        "ig_reels_video_view_total_time": 942313,
+        "reels_skip_rate": 51.6
+      },
+      "insightsAt": "2026-08-13T22:06:51.111Z"
+    }
+  ]
 }
