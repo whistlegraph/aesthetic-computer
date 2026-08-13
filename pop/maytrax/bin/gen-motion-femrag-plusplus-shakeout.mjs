@@ -31,8 +31,17 @@ const LANE = resolve(HERE, "..");
 const OUT = `${LANE}/out`;
 const SLUG = "femrag-plusplus";
 
+// EAR COUNT is the failure mode this film actually hits: a fast-swinging ear
+// duplicates across frames and the bunny reads as having three or four. The
+// still prompts guard it too, but a still can only be wrong once — motion has
+// to hold the count every frame, so the contract says so explicitly.
+const EAR_LAW =
+`EAR COUNT — ABSOLUTE, EVERY SINGLE FRAME: the bunny has EXACTLY TWO EARS, attached at two fixed points on the top of his head. TWO. Never three, never four. When an ear swings fast it must stay ONE continuous ear that moves — it must NEVER split into two, echo, ghost, smear into a duplicate, leave a second copy behind at its old position, or grow an extra ear on the far side of his head. If a pose or a fast swing makes the count ambiguous, slow that motion down rather than duplicating geometry. Both ears remain attached to his head at all times; neither detaches, floats free, or passes through his skull.
+LIGHT CONTINUITY — the LEDs inside his body and inside both ears stay lit and stay in the SAME physical places for the whole shot; the internal glow may pulse in brightness with the beat but never migrates, switches off entirely, or turns into a flat overlay. The neon tubes in the rafters are physical fixtures fixed in place — they may change brightness or color on the beat, but they never move, bend, drift, or reposition themselves between frames.`;
+
 const MEDIUM_MOTION = [
   `A needle-felt music video at 144 BPM — every motion is DANCE, driven and rhythmic, landing on beats rather than drifting. The wool bunny never goes limp between moves; he is always either loading or releasing.`,
+  EAR_LAW,
   FRAMING_YT_LANDSCAPE_MOTION,
   NEEDLE_FELT_WOOL_MOTION,
 ].join("\n\n");
@@ -51,39 +60,11 @@ const SHOTS = {
     motion:
 `The felt bunny starts to move on the rug — a small weight-shift from one hind paw to the other, then a second, finding the pulse. His two long ears hang heavy and swing only slightly, a few degrees, lagging behind each shift. One front paw taps twice against his own chest. The camera holds nearly still and drifts in by a hair. Dim, warm, contained — a dance that has not committed yet.`,
   },
-  groove: {
-    // The film's COLD OPEN — the track starts here, hats first, already
-    // moving. He is not finding the groove; he is already in it.
-    motion:
-`Open already in motion: the bunny is mid two-step shuffle from the very first frame — one hind paw plants, the other slides across the wool rug and back, hips turning with each step, both front paws bouncing loosely at rib height. His two long ears swing together in a matched arc that widens with each bar. The rug rumples under the planted paw and stays rumpled. The camera tracks slowly sideways with him, staying wide. Confident and easy — no hesitation, no warm-up.`,
-  },
-  buildup1: {
-    // Same-camera escalation into the drop — a legitimate morph.
-    morphTo: "drop1a",
-    physical: "extreme",
-    contacts: ["both hind paws → rug", "front paws → own chest", "ears → held back under tension"],
-    invariants: ["exactly one bunny in frame at all times", "both long ears visible throughout"],
-    beats: [
-      { at: 0, action: "close on the bunny, shoulders drawing in, chin tucking, front paws pulling to his chest" },
-      { at: .35, action: "his two long ears sweep back behind his head and pull taut, straining — maximum tension" },
-      { at: .7, action: "he compresses further, knees bending, weight sinking onto both hind paws — the coil" },
-      { at: 1, action: "the release begins: hind paws drive against the rug and he starts to rise, ears whipping forward off their tension, camera pulling back and down toward the low angle" },
-    ],
-    motion:
-`One continuous escalation on the SAME bunny — never two figures. He winds up tight in close-up, ears swept back and straining, then explodes: hind paws drive into the rug, he launches, and the camera falls back and down to the low rug-level angle as he goes airborne — landing exactly on the final frame. The room tears open around him as he rises.`,
-  },
   drop1a: {
-    physical: "extreme",
-    contacts: ["hind paws → airborne, no contact", "rug → visibly kicked and rucked where he launched"],
-    invariants: ["both long ears present and extended", "one bunny only"],
-    beats: [
-      { at: 0, action: "the bunny is at the top of his leap, both hind paws off the rug, ears flung horizontal to each side" },
-      { at: .3, action: "he twists through the air, front paws sweeping wide, ears whipping across the turn" },
-      { at: .6, action: "hind paws reach down and strike the rug, wool compressing under the impact, ears snapping downward with the landing" },
-      { at: 1, action: "he rebounds straight back up into the next shake, ears flying out again — the dance is continuous" },
-    ],
+    // The film OPENS here — the track starts cold on the drop, so this POV
+    // is already at full power. No wind-up exists to morph from.
     motion:
-`THE DROP, shot low from the rug looking up. The bunny lands hard, rebounds, and keeps going — a full-body shakeout on the beat: hips whipping, front paws thrown wide, both long ears flying out horizontally and snapping with every direction change. Loose wool wisps lift off him with each impact and hang in the bulb light. The yarn cables on the floor jump slightly when he lands. The camera stays low and holds, letting him dominate the frame.`,
+`FIRST-PERSON POV, opening the film at full power: the camera is the bunny's own eyes looking down at the felted laptop on the rug. His own two forepaws hammer the felted keycaps in rhythm — real strikes, paws lifting and landing on the beat, the wool of the keys compressing under each hit. The colored blocks of light on the felt screen change and pulse as he plays, throwing shifting magenta, cyan and amber light up onto his paws and forearms; the LEDs under his wool flare brighter with each strike. Overhead at the edges of frame the neon rig blasts across the rafters. The camera breathes slightly with his head — small, human, never a smooth mechanical move — and NEVER shows his face or a second bunny.`,
   },
   drop1b: {
     motion:
@@ -131,6 +112,18 @@ const SHOTS = {
   "ragga-b": {
     motion:
 `Close and low — the bunny leaning back against the mouth of the biggest felted speaker cone, half-turned to it, still skanking loose and easy. One long ear swings forward across his own face and away again with each bar; the other trails behind. Behind him the enormous oatmeal wool cone visibly pushes outward at its center on every bass note and settles back, and loose fibers around its rim lift away from the surface with each push. His bead eyes stay happy inside the red lenses. The camera holds close, swaying a little with him.`,
+  },
+  "ragga-breathe": {
+    motion:
+`The room takes a breath. The neon drops away almost entirely and the bunny's own internal glow becomes the light source for the whole shot. He keeps skanking but small and easy — weight low, shoulders rolling, both front paws swinging gently across his body, his TWO long ears swinging in slow behind-the-beat arcs, warm gold and translucent. The light spilling out of his chest visibly moves across the green rug and the plank boards as he sways, and the felted speaker cones beside him pulse outward in slow deep pushes. The camera drifts in slowly and steadily. All glow, no blast.`,
+  },
+  "ragga-push": {
+    motion:
+`The room switches back on around him. Neon tubes along the rafters light one after another through the shot — amber, then forest-green, then hot orange — each one adding hard color to the beams and spilling further down the sloped ceiling onto the floor, so the A-frame builds from near-dark to fully lit across the take. The bunny digs in as it builds: the skank drops lower and gets heavier, paws swinging in bigger diagonals, his TWO long ears carving wider arcs, and his internal LEDs push from warm gold up toward white. The camera pushes in slowly with the build.`,
+  },
+  "ragga-push-b": {
+    motion:
+`Maximum dancehall, shot low from the plank floor looking up into the A-frame peak. Every neon tube is blazing at once and the whole triangular room is saturated with color. The bunny dances at full power — the hardest, widest skanking of the film, body low and turning, hind paw kicking back, front paws thrown wide, his TWO long ears whipping through big arcs and blazing translucent, his whole body a lantern throwing colored light onto the rug. CAMERA: a slow continuous ORBIT around him — the camera arcs steadily sideways through the shot so the speaker tower, the rafter peak and the gable window all sweep past behind him and the parallax reads as a real move around a real room. Loose wool wisps hang lit in the colored air.`,
   },
   outro: {
     motion:
