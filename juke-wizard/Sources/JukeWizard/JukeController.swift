@@ -822,8 +822,27 @@ final class JukeController: NSWindowController, NSWindowDelegate,
 
     // Keep Menu Band Juke's in-window playback surfaces in sync. Application
     // identity and status items remain exclusively owned by Menu Band.
+    /// Fires on every playback-presence change (track select, play/pause, DJ
+    /// or provider state, art arrival). MenuBandJuke forwards this to the
+    /// menu-bar now-playing disc.
+    var onPresenceChange: (() -> Void)?
+
     private func refreshPlaybackPresence() {
         miniPlayer?.refresh()
+        onPresenceChange?()
+    }
+
+    /// Whether anything is actually loaded — the menu-bar disc hides when the
+    /// Juke is just an empty library window.
+    var quickHasContent: Bool { djMode || spotifyMode || appleMusicMode || track != nil }
+
+    var quickArtist: String {
+        if djMode { return "DJ mix" }
+        if spotifyMode { return spotifyState?.artists ?? "Spotify" }
+        if appleMusicMode, appleMusicResults.indices.contains(selectedAppleMusicRow) {
+            return appleMusicResults[selectedAppleMusicRow].artist
+        }
+        return track?.meta?.artist ?? "Aesthetic Dot Computer"
     }
 
     private func refreshPlaylistScopeButton() {
@@ -1640,6 +1659,22 @@ final class JukeController: NSWindowController, NSWindowDelegate,
         case .appleMusic: playAppleMusicResult(at: r)
         }
     }
+    /// Stop audio in every mode at once — DJ decks, providers, and the main
+    /// wave. Safe to call when a mode isn't active; each branch is a no-op
+    /// then. Used by the `stop` control command.
+    func stopEverything() {
+        djMixer.pauseAll()
+        if spotifyMode { spotify.pause() }
+        if appleMusicMode, #available(macOS 14.0, *) {
+            appleMusicPlaying = false
+            appleMusic.pause()
+        }
+        wave.pause()
+        playButton.title = "▶"
+        nowPlaying.setPaused(true)
+        refreshPlaybackPresence()
+    }
+
     @objc private func togglePlay() {
         if djMode {
             djMixer.toggleDominant()
@@ -1787,6 +1822,11 @@ final class JukeController: NSWindowController, NSWindowDelegate,
         case "toggle":
             guard !spotifyMode, !djMode else { return ["ok": false, "error": "toggle is unavailable in Spotify or DJ mode"] }
             togglePlay(); return state()
+        // Silence, whatever is playing it. `pause` deliberately refuses to act
+        // in DJ or provider mode, which leaves the shell with no way to stop
+        // the room; `stop` is that way, and works in every mode.
+        case "stop":
+            stopEverything(); return state()
         case "seek":
             guard !spotifyMode, !djMode, let seconds = request["seconds"] as? Double, seconds.isFinite else {
                 return ["ok": false, "error": "seek requires finite seconds in library mode"]

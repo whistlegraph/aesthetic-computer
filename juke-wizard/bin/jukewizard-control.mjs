@@ -58,7 +58,7 @@ function send(command) {
 
 export function parse(argv) {
   const [name = "status", ...args] = argv;
-  if (["status", "list", "pause", "toggle", "next", "previous", "prev", "detach"].includes(name)) {
+  if (["status", "list", "pause", "stop", "toggle", "next", "previous", "prev", "detach"].includes(name)) {
     return { command: name === "prev" ? "previous" : name, ...(name === "list" && args[0] ? { limit: Number(args[0]) } : {}) };
   }
   if (name === "seek") return { command: "seek", seconds: Number(args[0]) };
@@ -73,7 +73,7 @@ export function parse(argv) {
     if (args[0] === "--index") return { command: name, index: Number(args[1]) };
     return { command: name, path: resolve(args.join(" ")) };
   }
-  throw new Error("usage: jukewizard {status|list [limit]|play [path|--title title|--index n]|select ...|pause|toggle|seek seconds|speed 0.5..1.5|next|previous|source name|detach}");
+  throw new Error("usage: jukewizard {status|list [limit]|play [path|--title title|--index n]|select ...|pause|stop|toggle|seek seconds|speed 0.5..1.5|next|previous|source name|detach}");
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

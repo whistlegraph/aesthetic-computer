@@ -5,8 +5,38 @@
 import AppKit
 
 public final class MenuBandJuke {
+    /// What the menu bar shows while the Juke plays: the printed-CD image
+    /// (nil when the track has no cover yet), the names, and whether the
+    /// disc should spin.
+    public struct NowPlaying {
+        public let title: String
+        public let artist: String
+        public let disc: NSImage?
+        public let playing: Bool
+    }
+
     private var controller: JukeController?
     private var controlServer: JukeControlServer?
+
+    /// Menu Band's hook for the status-item disc. Fires with nil when the
+    /// Juke has nothing loaded (hide the item), otherwise on every presence
+    /// change. Always invoked on the main thread.
+    public var onNowPlayingChange: ((NowPlaying?) -> Void)? {
+        didSet { pushNowPlaying() }
+    }
+
+    private func pushNowPlaying() {
+        guard let callback = onNowPlayingChange else { return }
+        guard let controller, controller.quickHasContent else { callback(nil); return }
+        let disc = controller.currentArt.map {
+            CDArtworkRenderer.disc(from: $0, side: 22)
+        }
+        callback(NowPlaying(
+            title: controller.quickTitle,
+            artist: controller.quickArtist,
+            disc: disc,
+            playing: controller.quickIsPlaying))
+    }
 
     public init() {}
 
@@ -94,6 +124,9 @@ public final class MenuBandJuke {
             fullLibraryPath: aesthetic
         )
         self.controller = controller
+        controller.onPresenceChange = { [weak self] in
+            DispatchQueue.main.async { self?.pushNowPlaying() }
+        }
         let server = JukeControlServer(controller: controller)
         self.controlServer = server
         server.start()
@@ -130,6 +163,11 @@ public final class MenuBandJuke {
         }
         controller.quickToggleFull()
     }
+
+    /// Records dragged off the mixer float above every app, so the menu bar
+    /// keeps a way to sweep them off the desk without quitting Menu Band.
+    public var openRecordCount: Int { DJPopoutDeckController.openRecordCount }
+    public func closeAllRecords() { DJPopoutDeckController.closeAllRecords() }
 
     public func stop() {
         controlServer?.stop()
