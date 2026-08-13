@@ -289,9 +289,10 @@ final class MenuBandSampleVoice {
         }
         // No launch-time hot-mic prewarm: opening the input device here made
         // macOS surface the mic-mode HUD (Standard / Voice Isolation) at
-        // EVERY launch, even when the user never monitors or records. The
-        // mic now opens only when something actually needs it — monitoring
-        // toggled on, or the first record-key press (which pays the
+        // EVERY launch — and lit the orange privacy indicator on an instrument
+        // with no visible input interface — even when the user never monitors
+        // or records. The mic now opens only when something actually needs it:
+        // monitoring toggled on, or the first record-key press (which pays the
         // documented ~50–200 ms cold start once; the mic then stays hot for
         // `hotMicIdleSeconds` so subsequent takes are instant).
     }
@@ -759,6 +760,65 @@ final class MenuBandSampleVoice {
         if hotMicPinReasons.isEmpty && !recording {
             scheduleHotMicStop()
         }
+    }
+
+    /// Stop capture now when no recording consumer still owns it. UI close
+    /// uses this instead of the normal 30-second re-recording grace period.
+    func stopUnpinnedHotMicNow() {
+        guard !recording, hotMicPinReasons.isEmpty else { return }
+        hotMicStopWork?.cancel()
+        hotMicStopWork = nil
+        if inputTapInstalled {
+            recordEngine.inputNode.removeTap(onBus: 0)
+            inputTapInstalled = false
+        }
+        if monitorOutputTapInstalled {
+            recordEngine.mainMixerNode.removeTap(onBus: 0)
+            monitorOutputTapInstalled = false
+        }
+        inputMonitorPlayer.stop()
+        inputMonitorQueueLock.withLock { inputMonitorQueuedBuffers = 0 }
+        recordEngine.stop()
+        inputConverter = nil
+        inputFormat = nil
+        boundInputDeviceID = 0
+        NSLog("MenuBand SampleVoice: unpinned microphone stopped")
+    }
+
+    /// Release microphone ownership immediately during app termination.
+    /// The normal idle path deliberately lingers for fast re-recording, but
+    /// shutdown must not leave that timer, the input tap, or the dedicated
+    /// record engine alive while AppKit is tearing down the process.
+    func shutdown() {
+        hotMicStopWork?.cancel()
+        hotMicStopWork = nil
+        monitorConfigRecovery?.cancel()
+        monitorConfigRecovery = nil
+        hotMicPinReasons.removeAll()
+        recordingRequested = false
+        recording = false
+        onInputBuffer = nil
+        onLevel = nil
+        inputMonitoringEnabled = false
+        inputMonitorPlayer.stop()
+        inputMonitorQueueLock.withLock { inputMonitorQueuedBuffers = 0 }
+        if inputTapInstalled {
+            recordEngine.inputNode.removeTap(onBus: 0)
+            inputTapInstalled = false
+        }
+        if monitorOutputTapInstalled {
+            recordEngine.mainMixerNode.removeTap(onBus: 0)
+            monitorOutputTapInstalled = false
+        }
+        recordEngine.stop()
+        inputConverter = nil
+        inputFormat = nil
+        boundInputDeviceID = 0
+        if let observer = monitorConfigObserver {
+            NotificationCenter.default.removeObserver(observer)
+            monitorConfigObserver = nil
+        }
+        NSLog("MenuBand SampleVoice: microphone shutdown complete")
     }
 
     /// Replace the global Piano Sampler recording with audio supplied by an

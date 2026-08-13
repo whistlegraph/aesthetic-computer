@@ -58,6 +58,11 @@ console.log("rendering real UI surfaces…");
 render(["--render-menubar", "--light"], "menubar.png");   // keys at rest, light theme
 render(["--render-popover", "--lang", "en", "--program", "0"], "popover.png");
 render(["--render-keymap", "--lang", "en", "--program", "0", "--keymap", "milkyTracker"], "keymap.png");  // fullscreen expanded view
+// The polyrhythm trainer at its widest pattern: three separate circles, one
+// per rhythm. Phase is chosen off-beat so every hand sits at a distinct angle
+// — a frozen unison downbeat reads as three identical clocks.
+render(["--render-polyrhythm", "--pattern", "3:4:5", "--phase", "0.41",
+        "--bpm", "75", "--light"], "polyrhythm.png");
 
 // The ♪ status glyph at the strip's right end renders in the system accent
 // (green). For a clean light-mode bar, recolor it to INK. That right slice
@@ -95,6 +100,7 @@ const SHOTS = [
   { file: "00-keyboard-menu", kind: "literal" },
   { file: "01-reel", kind: "reel" },
   { file: "02-midi", kind: "midi" },
+  { file: "03-polyrhythm", kind: "poly" },
 ];
 
 const FILL = "#ffffff";          // solid light-theme backing behind the panels
@@ -155,6 +161,18 @@ const screenCSS = (s) => {
     const w = Math.round(h * d.w / d.h);
     return windowEl({ screen: "keymap", scale,
       left: Math.round((W - w) / 2), top: 104, z: 3 });
+  }
+  // The trainer capture is transparent around the circles, so it gets no
+  // window chrome or white backing — it sits on the desktop as the overlay
+  // panel it actually is, sized to dominate the frame.
+  if (s.kind === "poly") {
+    const d = pngDims("polyrhythm");
+    const h = Math.round((H - BAR_H) * 0.78);
+    const w = Math.round(h * d.w / d.h);
+    const img = uri("polyrhythm.png");
+    return `<img class="poly-surface" style="left:${Math.round((W - w) / 2)}px;
+      top:${BAR_H + Math.round((H - BAR_H - h) * 0.62)}px;
+      width:${w}px;height:${h}px" src="${img}">`;
   }
   if (s.kind === "midi") {
     const d = pngDims("popover");
@@ -248,6 +266,13 @@ const literalStrip = () => {
 
 const scene = (s) => {
   if (s.kind === "literal") return `${literalStrip()}${screenCSS(s)}`;
+  if (s.kind === "poly") return `<div class="keymap-copy">
+      <strong>POLYRHYTHM</strong>
+      <span>One circle per rhythm.</span>
+      <em>Three against four against five — each finger keeps its own grid.</em>
+    </div>
+    <img class="reel-strip" src="${uri('menubar.png')}">
+    ${screenCSS(s)}`;
   if (s.kind === "midi") return `<div class="midi-copy">
       <div class="midi-kicker">VIRTUAL MIDI OUT</div>
       <h1>Your menu bar<br>plays the studio.</h1>
@@ -294,6 +319,8 @@ const html = (s) => `<!doctype html><meta charset="utf8"><style>
   .midi-copy p{margin-top:30px;width:580px;font-size:27px;line-height:1.25;color:rgba(255,255,255,.86)}
   .midi-strip{position:absolute;left:890px;top:27px;height:40px;width:auto;z-index:5;
     filter:drop-shadow(0 8px 14px rgba(0,0,0,.28))}
+  .poly-surface{position:absolute;z-index:4;object-fit:contain;
+    filter:drop-shadow(0 26px 46px rgba(12,6,30,.5))}
 </style>
 ${scene(s)}`;
 
