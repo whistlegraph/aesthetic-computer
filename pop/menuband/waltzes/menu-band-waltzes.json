@@ -80,6 +80,7 @@
         "dashGapPx": 9,
         "dashSpeedPx": 54,
         "guideWidthPx": 2.5,
+        "guideOutsidePx": 4,
         "guideAlpha": 0.72
       }
     }

@@ -328,17 +328,19 @@ function drawNoteHighway(t, activeRig, stripRect) {
     roundRectPath(ctx, x, visibleTop, width, height, radius);
     ctx.fill();
 
-    // The timing marks belong to the feed strip itself: one rail along each
-    // key boundary, with no guide through the lane's center.
+    // The timing marks frame the feed strip: one rail just outside each edge,
+    // leaving the active note body uninterrupted.
     if (highway.guides !== false && height > 4) {
       const guideScale = stripRect.w / (W * 0.94);
       const luminance = color[0] * 0.299 + color[1] * 0.587 + color[2] * 0.114;
       const railAlpha = bounded(highway.guideAlpha ?? 0.68, 0, 1);
+      const guideWidth = positive(highway.guideWidthPx, 2.5) * guideScale;
+      const guideGap = positive(highway.guideOutsidePx, 4) * guideScale;
       ctx.beginPath();
-      ctx.moveTo(x + 2, visibleTop + radius);
-      ctx.lineTo(x + 2, visibleBottom - radius);
-      ctx.moveTo(x + width - 2, visibleTop + radius);
-      ctx.lineTo(x + width - 2, visibleBottom - radius);
+      ctx.moveTo(x - guideGap, visibleTop + radius);
+      ctx.lineTo(x - guideGap, visibleBottom - radius);
+      ctx.moveTo(x + width + guideGap, visibleTop + radius);
+      ctx.lineTo(x + width + guideGap, visibleBottom - radius);
       ctx.setLineDash([
         positive(highway.dotPx, 3) * guideScale,
         positive(highway.dashGapPx, 9) * guideScale,
@@ -347,7 +349,7 @@ function drawNoteHighway(t, activeRig, stripRect) {
       ]);
       ctx.lineDashOffset = -t * positive(highway.dashSpeedPx, 54);
       ctx.lineCap = "round";
-      ctx.lineWidth = positive(highway.guideWidthPx, 2.5) * guideScale;
+      ctx.lineWidth = guideWidth;
       ctx.shadowColor = "transparent";
       ctx.strokeStyle = luminance > 155
         ? `rgba(30,24,42,${railAlpha})`
