@@ -191,16 +191,16 @@ final class MenuBandSynth {
     /// else holds the device at 512). When Menu Band IS the sole client the
     /// device drops to this size.
     ///
-    /// 512 @ 96 kHz ≈ 5.3 ms — a deliberately conservative budget. The full
+    /// 256 @ 96 kHz ≈ 2.7 ms (5.8 ms at 44.1 kHz). The full
     /// synth stack (GM C core + DLS MIDISynth + per-note sample voices +
     /// percussion + fx + limiter) must finish WITHIN this window every cycle
     /// or CoreAudio underruns and you hear a click/pop, in any playback. On a
     /// memory-constrained / few-core machine an ultra-low buffer (we used to
     /// dive to the device minimum, 32 frames / 0.33 ms) can't survive normal
-    /// scheduling jitter, so it popped constantly. 5.3 ms is still well below
-    /// the perceptual threshold for a keyboard instrument; bump it back down
-    /// only on a machine with headroom to spare.
-    private static let targetIOBufferFrames: UInt32 = 512
+    /// scheduling jitter, so it popped constantly. TrackDrum stages sound
+    /// off-main; 256 keeps useful scheduler headroom without accepting the
+    /// 11.6 ms buffer delay of 512 frames at 44.1 kHz.
+    private static let targetIOBufferFrames: UInt32 = 256
     /// True once we've successfully taken hog mode on the active
     /// output device. Tracks the device ID alongside so we can
     /// release the right one on shutdown / device switch.
@@ -433,6 +433,9 @@ final class MenuBandSynth {
     func unpinHotMic(reason: String) {
         sampleVoice.removeHotMicPin(reason)
     }
+    func stopUnpinnedHotMicNow() {
+        sampleVoice.stopUnpinnedHotMicNow()
+    }
 
     // Tap-driven ring buffer for the popover's live waveform display.
     private static let waveformRingSize = 4096
@@ -501,7 +504,9 @@ final class MenuBandSynth {
         // Duplex monitor: attached only when monitoring is actually wanted
         // AND the input/output resolve to the same interface — see
         // `duplexMonitorEligible` for why an unconditional attach kills
-        // the whole engine when they differ.
+        // the whole engine when they differ. Attaching unconditionally also
+        // made CoreAudio hold audio-in (orange privacy indicator) on a
+        // menu-bar instrument that was never monitoring.
         syncInputMonitorGraph()
         // Speech easter egg: same pre-limiter sum bus, so spoken language
         // names ride the bend/space/echo fx. Idle (no player) until `speak`.
@@ -994,17 +999,17 @@ final class MenuBandSynth {
     }
 
     /// Spacebar reverse-replay: play the master-output tape backwards from
-    /// the session's reverse cursor (first press anchors "now"; later
-    /// presses resume where the last one stopped). Returns false if there
+    /// the session anchor (first press anchors "now"; repeated presses dive
+    /// from that same point until a real note re-anchors it). Returns false if there
     /// wasn't enough captured audio to rewind (caller can cue a fallback).
     @discardableResult
     func playReverse() -> Bool {
         return rewindVoice.playReverse()
     }
 
-    /// Spacebar released — bank the reverse playhead into the session
-    /// cursor and stop the voice; the next press resumes from that same
-    /// reverse point. Playing a note resets the cursor to the live head
+    /// Spacebar released — fade and stop the voice, lifting the playhead back
+    /// to the session anchor so the next press repeats the dive. Playing a
+    /// note resets that anchor to the live head
     /// (see the `resetReverseAnchor` call in `noteOn`).
     func releaseReverse() {
         rewindVoice.release()
@@ -1017,6 +1022,9 @@ final class MenuBandSynth {
     /// Reverse playback progress (0…1), or nil if not reversing — for the
     /// strip's exact, drift-free playhead.
     func rewindProgress() -> Double? { rewindVoice.reverseProgress() }
+    func rewindClipProgress() -> Double? { rewindVoice.currentClipProgress() }
+    func rewindPreviewLevels() -> [Float] { rewindVoice.reversePreviewLevels() }
+    func rewindLiveInputPeak() -> Float { rewindVoice.takeLiveInputPeak() }
 
     /// Route the trackpad pitch-bend / echo onto the spacebar tape playback
     /// (its own DRY inserts — see MenuBandRewindVoice), so moving the mouse
@@ -2217,6 +2225,11 @@ final class MenuBandSynth {
 
     func stop() {
         engineLock.lock(); defer { engineLock.unlock() }
+        // The microphone uses SampleVoice's separate input-only engine, so it
+        // must be torn down even if the synth output engine never started or
+        // has already stopped. This is synchronous: application termination
+        // returns only after CoreAudio input ownership has been released.
+        sampleVoice.shutdown()
         guard started else { return }
         if let obs = configChangeObserver {
             NotificationCenter.default.removeObserver(obs)
@@ -2260,6 +2273,11 @@ final class MenuBandSynth {
         // would otherwise leave the engine paused and the hit silent. Wake
         // it (and cancel any pending suspend) before staging the voices.
         _ = resumeAudioEngineIfNeeded()
+        // Percussion prints to the same tape as melodic notes (it joins the
+        // pre-limiter sum), so it re-syncs the reverse clock the same way —
+        // a Space press after drumming dives into the drums just played,
+        // not whatever tape an older session anchored.
+        rewindVoice.resetReverseAnchor()
         let p = max(-1.0, min(1.0, (Double(pan) - 64.0) / 63.0))
         let depth: Float
         let hold: TimeInterval
@@ -2282,6 +2300,7 @@ final class MenuBandSynth {
     func playReverseKick(velocity: UInt8, pan: UInt8) {
         guard started else { return }
         _ = resumeAudioEngineIfNeeded()
+        rewindVoice.resetReverseAnchor()
         let p = max(-1.0, min(1.0, (Double(pan) - 64.0) / 63.0))
         triggerMelodicDuck(depth: 0.38, velocity: velocity, hold: 0.12)
         percussion.playReverseKick(velocity: velocity, pan: p)
@@ -2291,6 +2310,7 @@ final class MenuBandSynth {
     func playDrumSkin(strike: CGPoint, anchors: [CGPoint], velocity: UInt8) {
         guard started else { return }
         _ = resumeAudioEngineIfNeeded()
+        rewindVoice.resetReverseAnchor()
         let zone = MenuBandPercussion.drumSkinZone(at: strike)
         let depth: Float = zone == .kick ? 0.40
             : (zone == .tom ? 0.30 : (zone == .snare ? 0.22 : 0.10))
@@ -2303,6 +2323,7 @@ final class MenuBandSynth {
     func playSynthSurface(strike: CGPoint, anchors: [CGPoint], velocity: UInt8) {
         guard started else { return }
         _ = resumeAudioEngineIfNeeded()
+        rewindVoice.resetReverseAnchor()
         let zone = MenuBandPercussion.drumSkinZone(at: strike)
         triggerMelodicDuck(depth: zone == .kick ? 0.34 : 0.16,
                            velocity: velocity, hold: 0.07)
@@ -2314,6 +2335,7 @@ final class MenuBandSynth {
                          velocity: UInt8, synthetic: Bool) {
         guard started else { return }
         _ = resumeAudioEngineIfNeeded()
+        rewindVoice.resetReverseAnchor()
         triggerMelodicDuck(depth: 0.10, velocity: velocity, hold: 0.04)
         percussion.playSurfaceLift(at: point, anchors: anchors,
                                    velocity: velocity, synthetic: synthetic)

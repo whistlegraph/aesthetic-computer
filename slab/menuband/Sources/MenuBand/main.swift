@@ -47,6 +47,11 @@ if VisualizerCLI.runIfRequested(CommandLine.arguments) {
     exit(0)
 }
 
+// Headless capture of TrackDrum's circle-per-rhythm polyrhythm trainer.
+if PolyrhythmTrainerCLI.runIfRequested(CommandLine.arguments) {
+    exit(0)
+}
+
 // Singleton guard: when MenuBand is spawned by both launchd's
 // KeepAlive (after crash / sleep wake) AND MenuBandLauncher's
 // double-tap path at the same time, we get two instances fighting

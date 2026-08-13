@@ -48,6 +48,27 @@ final class WaveformStripView: NSView {
         didSet { needsDisplay = true }
     }
 
+    /// Momentary reverse HUDs show one exact scheduled clip, so their head
+    /// should cross the whole strip using clip time rather than the broader
+    /// persistent tape-session clock.
+    var usesReverseClipProgress = false
+
+    /// Drive repaints from the display's own clock instead of the 30 fps
+    /// timer. The momentary HUD opts in so its head glides at native refresh
+    /// (120 Hz on ProMotion); the always-on popover strip stays at 30 fps.
+    var usesDisplayLink = false
+
+    /// When set, the strip sweeps THIS signal instead of the synth's
+    /// visualizer capture: a read-and-clear peak per call. Also bypasses the
+    /// reverse freeze — an input meter keeps sweeping while the tape
+    /// reverses, which is the whole point of the HUD's dub bar.
+    var externalLevelSource: (() -> Float)?
+
+    /// Tape speed of the live sweep, in columns per second — independent of
+    /// the repaint rate, so a display-link strip doesn't sweep 4× faster
+    /// than a timer strip.
+    var columnRate: Double = 30
+
     /// Fired when the display is clicked. The popover wires this to open the
     /// full keymap view — same action as the "Keymap" button — so the live
     /// scope doubles as a keymap affordance.
@@ -144,6 +165,23 @@ final class WaveformStripView: NSView {
     /// draw loop allocates nothing.
     private var columnRects: [CGRect] = []
     private var timer: Timer?
+    /// The display-link drive when `usesDisplayLink` is on (macOS 14+). Typed
+    /// `Any` because `CADisplayLink` postdates the deployment target.
+    private var displayLinkObj: Any?
+    /// Wall-clock of the previous tick — every per-tick rate (tape advance,
+    /// head easing) derives from real elapsed time, not from an assumed
+    /// frame interval.
+    private var lastTickTime: Double = 0
+    /// Time accumulated toward the next column advance (see `columnRate`).
+    private var columnAccum: Double = 0
+    /// The in-progress column's running min/max — transients land on screen
+    /// the tick they sound, then the column seals when the tape advances.
+    private var pendingMin: Float = 0
+    private var pendingMax: Float = 0
+    /// Silence does not need a 30 fps Core Graphics repaint. Keep sampling so
+    /// the first transient is caught, but coalesce the empty-grid animation to
+    /// 6 fps until audio becomes visible again.
+    private var quietTicks = 0
     /// While reversing: eased column offset of the playhead back from the
     /// cursor, driven by the audio's actual reverse progress.
     private var scrubOffset: CGFloat = 0
@@ -194,32 +232,69 @@ final class WaveformStripView: NSView {
     }
 
     private func start() {
-        guard timer == nil else { return }
-        menuBand?.setWaveformCaptureEnabled(true)
-        let t = Timer(timeInterval: 1.0 / 30.0, repeats: true) { [weak self] _ in
-            self?.tick()
+        guard timer == nil, displayLinkObj == nil else { return }
+        // An externally-fed strip never touches the shared visualizer
+        // capture, so it can't steal the pin from the scope that owns it.
+        if externalLevelSource == nil { menuBand?.setWaveformCaptureEnabled(true) }
+        lastTickTime = CACurrentMediaTime()
+        columnAccum = 0
+        if usesDisplayLink, #available(macOS 14.0, *) {
+            let link = displayLink(target: self, selector: #selector(displayTick(_:)))
+            link.add(to: .main, forMode: .common)
+            displayLinkObj = link
+        } else {
+            // Display-link opt-in on an older OS still gets a faster clock.
+            let interval = usesDisplayLink ? 1.0 / 60.0 : 1.0 / 30.0
+            let t = Timer(timeInterval: interval, repeats: true) { [weak self] _ in
+                self?.tick()
+            }
+            t.tolerance = interval / 3
+            RunLoop.main.add(t, forMode: .common)
+            timer = t
         }
-        t.tolerance = 1.0 / 90.0
-        RunLoop.main.add(t, forMode: .common)
-        timer = t
     }
 
     private func stop() {
+        // Only release capture ownership if this view actually acquired it.
+        // Hidden pre-warmed views receive viewDidMoveToWindow too; treating
+        // that as a release could steal the pin from another visible scope.
+        guard timer != nil || displayLinkObj != nil else { return }
         timer?.invalidate(); timer = nil
-        menuBand?.setWaveformCaptureEnabled(false)
+        if #available(macOS 14.0, *), let link = displayLinkObj as? CADisplayLink {
+            link.invalidate()
+        }
+        displayLinkObj = nil
+        if externalLevelSource == nil { menuBand?.setWaveformCaptureEnabled(false) }
     }
+
+    @available(macOS 14.0, *)
+    @objc private func displayTick(_ link: CADisplayLink) { tick() }
 
     /// Stop capturing and clear the raster so the display shows the empty
     /// off-grid (used when `isLive` is switched off).
     private func freezeToBaseline() {
         stop()
+        resetRaster()
+    }
+
+    /// Clear the raster and rewind the write cursor — a fresh sweep for a
+    /// momentary panel that just reappeared.
+    func resetRaster() {
         for i in 0..<cols { written[i] = false; gridMin[i] = 0; gridMax[i] = 0 }
         cursor = 0
+        columnAccum = 0
+        pendingMin = 0
+        pendingMax = 0
         scrubOffset = 0
         needsDisplay = true
     }
 
-    deinit { timer?.invalidate() }
+    deinit {
+        timer?.invalidate()
+        if #available(macOS 14.0, *), let link = displayLinkObj as? CADisplayLink {
+            link.invalidate()
+        }
+    }
 
     /// Seed the raster with a believable synthetic note so the display paints
     /// what it really would when a note plays, in the HEADLESS App Store
@@ -247,8 +322,13 @@ final class WaveformStripView: NSView {
         let fillEnd = max(1, min(cols, Int((Double(cols) * cursorAt).rounded())))
         for c in 0..<cols {
             guard c < fillEnd else { written[c] = false; continue }
-            let f = fillEnd > 1 ? Double(c) / Double(fillEnd - 1) : 0
-            let level = levels[min(levels.count - 1, Int(f * Double(levels.count - 1)))]
+            // Max-pool the level range this raster column covers. Nearest
+            // sampling could land between two envelope columns and drop a
+            // short transient — a single drum hit — from the display.
+            let lo = levels.count * c / fillEnd
+            let hi = max(lo + 1, levels.count * (c + 1) / fillEnd)
+            var level: Float = 0
+            for l in lo..<min(levels.count, hi) { level = max(level, levels[l]) }
             // Tiny floor so even silent columns tick the center baseline row,
             // the same way the synthetic seed does.
             gridMax[c] = max(0.012, level)
@@ -301,34 +381,69 @@ final class WaveformStripView: NSView {
 
     private func tick() {
         guard cols > 0 else { updateGridGeometry(); return }
-        let reversing = menuBand?.isRewinding ?? false
+        let now = CACurrentMediaTime()
+        let dt = min(0.25, max(0.0005, now - lastTickTime))
+        lastTickTime = now
+        let reversing = externalLevelSource == nil && (menuBand?.isRewinding ?? false)
         if reversing {
             // Freeze the sweep; position the playhead from the ACTUAL reverse
-            // playback progress (exact, drift-free). The player's progress is
-            // polled at 30 fps and can land unevenly, so ease toward the
-            // audio-derived offset (snap on the first reverse frame) — the
-            // indicator glides while the lit columns stay put.
-            let windowCols = CGFloat(menuBand?.rewindWindowSeconds ?? 1.5) * 30.0
-            let progress = menuBand?.rewindProgress() ?? 0
+            // playback progress (exact, drift-free). Progress lands unevenly
+            // against the repaint clock, so ease toward the audio-derived
+            // offset (snap on the first reverse frame) with a rate-scaled
+            // factor — the glide looks the same at 30 and at 120 Hz.
+            let windowCols = usesReverseClipProgress
+                ? CGFloat(max(1, cols - 1))
+                : CGFloat(menuBand?.rewindWindowSeconds ?? 1.5) * CGFloat(columnRate)
+            let progress = usesReverseClipProgress
+                ? (menuBand?.rewindClipProgress() ?? 0)
+                : (menuBand?.rewindProgress() ?? 0)
             let target = CGFloat(progress) * windowCols
-            scrubOffset = wasReversing ? scrubOffset + (target - scrubOffset) * 0.4 : target
+            let ease = CGFloat(1 - pow(0.6, dt * 30))
+            scrubOffset = wasReversing ? scrubOffset + (target - scrubOffset) * ease : target
+            quietTicks = 0
         } else {
-            // Live sweep: reduce this frame to one min/max column, write it at
-            // the cursor, advance, wrap (overwriting the oldest column).
-            menuBand?.synthSnapshotWaveform(into: &samples)
+            // Live sweep: fold this tick's signal into the column under the
+            // cursor immediately — a transient lights up the frame it sounds
+            // — and advance the cursor on the tape clock (`columnRate`
+            // columns/second) however often the repaint runs.
             var mn: Float = 0, mx: Float = 0
-            for s in samples {
-                if s < mn { mn = s }
-                if s > mx { mx = s }
+            if let source = externalLevelSource {
+                let peak = source()
+                mx = peak
+                mn = -peak * 0.85
+            } else {
+                menuBand?.synthSnapshotWaveform(into: &samples)
+                for s in samples {
+                    if s < mn { mn = s }
+                    if s > mx { mx = s }
+                }
             }
-            gridMin[cursor] = min(-0.012, mn)
-            gridMax[cursor] = max(0.012, mx)
+            pendingMin = min(pendingMin, mn)
+            pendingMax = max(pendingMax, mx)
+            gridMin[cursor] = min(-0.012, pendingMin)
+            gridMax[cursor] = max(0.012, pendingMax)
             written[cursor] = true
-            cursor = (cursor + 1) % cols
+            columnAccum += dt
+            let columnInterval = 1.0 / max(1, columnRate)
+            if columnAccum >= columnInterval {
+                // One advance per crossing; cap the carry so a hitch can't
+                // machine-gun the cursor across the strip.
+                columnAccum = min(columnAccum - columnInterval, columnInterval)
+                cursor = (cursor + 1) % cols
+                pendingMin = 0
+                pendingMax = 0
+            }
             scrubOffset = 0
+            if max(abs(mn), abs(mx)) < 0.002 {
+                quietTicks += 1
+            } else {
+                quietTicks = 0
+            }
         }
         wasReversing = reversing
-        needsDisplay = true
+        if reversing || quietTicks == 0 || quietTicks % 5 == 0 {
+            needsDisplay = true
+        }
     }
 
     // ── Drawing ─────────────────────────────────────────────────────────────
@@ -357,9 +472,17 @@ final class WaveformStripView: NSView {
         guard bounds.width > 6, bounds.height > 6 else { return }
         if cols == 0 { updateGridGeometry() }
         guard cols > 0, let ctx = NSGraphicsContext.current?.cgContext else { return }
-        let reversing = menuBand?.isRewinding ?? false
-        let accent = NSColor.controlAccentColor
-        let tint = tintColor ?? accent
+        // An externally-fed meter is always a live sweep — while the tape
+        // strip above it freezes into reverse styling, this one keeps its
+        // ordinary comet-tail look.
+        let reversing = externalLevelSource == nil && (menuBand?.isRewinding ?? false)
+        // Resolve dynamic AppKit colors once per frame. Calling
+        // `colorWithAlphaComponent` on a dynamic system color inside the
+        // column loop repeatedly enters CoreUI's theme catalog.
+        let accent = NSColor.controlAccentColor.usingColorSpace(.sRGB)
+            ?? NSColor.controlAccentColor
+        let rawTint = tintColor ?? accent
+        let tint = rawTint.usingColorSpace(.sRGB) ?? rawTint
         // The compact and Global Keys graphs opt into this color treatment.
         // The full-screen visualizer uses the same view but opts out; shifting
         // the entire wall as the pointer crosses it would be distracting.

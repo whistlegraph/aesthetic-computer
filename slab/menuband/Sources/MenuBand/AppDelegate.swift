@@ -119,6 +119,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private var isPopoverPanelShown: Bool { popoverPanel?.isVisible == true }
     private lazy var pianoWaveformWindowDelegate = PianoWaveformWindowDelegate(menuBand: menuBand)
+    private lazy var reverseWaveformHUD = ReverseWaveformHUD(menuBand: menuBand)
     private var appBeforePopover: NSRunningApplication?
     private var appBeforeFocusCapture: NSRunningApplication?
     private var keyboardPerformanceFocusActive = false
@@ -448,6 +449,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
     private var trackpadSurfaceEnergy = TrackpadSurfaceEnergy()
     private var trackpadMembrane = TrackpadMembraneSimulation()
+    private var polyrhythmTrainer = PolyrhythmTrainerClock()
     private var trackpadEnergyTimer: Timer?
     private var trackpadOverlayLastDraw: Double = 0
     /// Keep the last percussion surface readable after the final lift, like
@@ -515,6 +517,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         guard self.pitchBendCursorPushed || self.keyboardPerformanceFocusActive
         else { return false }
+
+        let slashAction = Self.trackDrumSlashAction(
+            keyCode: keyCode,
+            flags: NSEvent.ModifierFlags(rawValue: UInt(flags.rawValue))
+        )
+        if let slashAction, isDown, self.trackpadPadMode == .skin {
+            if !isRepeat {
+                DispatchQueue.main.async {
+                    switch slashAction {
+                    case .trainer: self.togglePolyrhythmTrainer()
+                    case .help: Self.openTips()
+                    }
+                }
+            }
+            return true
+        }
+        let rateDelta = Self.trackDrumRateDelta(
+            keyCode: keyCode,
+            flags: NSEvent.ModifierFlags(rawValue: UInt(flags.rawValue))
+        )
+        if let rateDelta, self.trackpadPadMode == .skin,
+           self.polyrhythmTrainer.isActive {
+            if isDown && !isRepeat {
+                DispatchQueue.main.async { self.changePolyrhythmRate(by: rateDelta) }
+            }
+            return true
+        }
 
         // These two ⌥⌘ chords are claimed globally outside Menu Band:
         // D toggles the Dock and X enters Slab's prox-keyboard focus. While
@@ -1098,6 +1127,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
             button.addSubview(dropTarget)
         }
+        menuBand.onRewindChanged = { [weak self] reversing, levels in
+            guard let self else { return }
+            if reversing {
+                let screen = self.pitchBendOverlay?.screen
+                    ?? self.statusItem?.button?.window?.screen
+                    ?? NSScreen.main
+                self.reverseWaveformHUD.show(
+                    levels: levels,
+                    above: self.pitchBendOverlay?.frame,
+                    on: screen
+                )
+            } else {
+                self.reverseWaveformHUD.hide()
+            }
+        }
         updateIcon()
 
         // Pre-build the waveform strip panel so the first note press
@@ -1430,6 +1474,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 }
 #endif
                 self.exitPerformanceFocusFromEscape()
+                return true
+            }
+            let slashAction = Self.trackDrumSlashAction(
+                keyCode: keyCode, flags: flags
+            )
+            if let slashAction, self.trackpadPadMode == .skin,
+               (self.pitchBendCursorPushed || self.keyboardPerformanceFocusActive) {
+                if isDown && !isRepeat {
+                    switch slashAction {
+                    case .trainer: self.togglePolyrhythmTrainer()
+                    case .help: Self.openTips()
+                    }
+                }
+                return true
+            }
+            if let rateDelta = Self.trackDrumRateDelta(keyCode: keyCode, flags: flags),
+               self.trackpadPadMode == .skin, self.polyrhythmTrainer.isActive {
+                if isDown && !isRepeat { self.changePolyrhythmRate(by: rateDelta) }
                 return true
             }
             if isDown && MenuBandShortcutPreferences.layoutShortcut.matches(
@@ -3934,6 +3996,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Closes with a short fade-out (~140 ms) so the popover dissolves
     /// the way standard macOS menu pop-ups do, instead of cutting away.
     private func closePopover(dismissFloatingPanel: Bool = true) {
+        menuBand.closeInputInterface()
         // Tear down monitors immediately so a stray click during the
         // fade can't re-trigger close.
         if let m = clickAwayMonitor { NSEvent.removeMonitor(m); clickAwayMonitor = nil }
@@ -4982,6 +5045,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 + "lifted=\(changes.lifted.count) active=\(changes.active.count)"
             )
         }
+        if polyrhythmTrainer.isActive {
+            for point in changes.began {
+                // Score from the hardware callback clock, not from whenever
+                // the main thread gets around to drawing the result. The
+                // contact's normalized x picks the circle: equal vertical
+                // bands left to right, so each finger individuates a rhythm.
+                polyrhythmTrainer.registerTap(
+                    at: callbackTime, normalizedX: Double(point.x)
+                )
+            }
+        }
         let touches = changes.active.map(\.point)
         let priorTouchCount = mtTouches.count
         mtTouches = touches
@@ -5046,19 +5120,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 if pitchBendOverlay?.isVisible != true {
                     showPitchBendOverlay()
                 }
-                updateTrackpadOverlayIfDue(
-                    force: touches.count != priorTouchCount
-                )
+                // Audio already staged off-main. Let the display clock pick up
+                // contact changes instead of forcing a WindowServer commit for
+                // every rapid down/up edge.
+                updateTrackpadOverlayIfDue()
             } else if priorTouchCount > 0,
                       Self.shouldFadeTrackpadOverlayAfterLift(
                         performanceSessionActive: trackpadPerformanceSessionActive
                       ) {
                 // Preserve the final contact/energy state long enough to read,
                 // then ease it away on the same rhythm as the key-label ghost.
-                pitchBendOverlay?.fadeOut(
-                    after: Self.trackpadOverlayIdleHold,
-                    duration: Self.trackpadOverlayFadeDuration
-                )
+                if !polyrhythmTrainer.isActive {
+                    pitchBendOverlay?.fadeOut(
+                        after: Self.trackpadOverlayIdleHold,
+                        duration: Self.trackpadOverlayFadeDuration
+                    )
+                }
             }
         }
     }
@@ -5427,13 +5504,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
             self.trackpadSurfaceEnergy.decay(to: CACurrentMediaTime())
             if self.trackpadPadMode == .skin || self.trackpadPadMode == .synth {
+                let now = CACurrentMediaTime()
+                // Quiet reference cues: distinct enough to follow, but well
+                // below a played TrackDrum strike. The guide is a clock, not
+                // an accompaniment.
+                for rhythm in self.polyrhythmTrainer.tick(at: now) {
+                    switch rhythm {
+                    case 0: self.menuBand.engineDrum(.block, velocity: 18)
+                    case 1: self.menuBand.engineDrum(.snap, velocity: 14)
+                    default: self.menuBand.engineDrum(.cowbell, velocity: 12)
+                    }
+                }
                 self.trackpadMembrane.advance(
-                    to: CACurrentMediaTime(), touches: self.mtTouches
+                    to: now, touches: self.mtTouches
                 )
                 self.updateTrackpadOverlayIfDue()
             }
         }
-        timer.tolerance = 1.0 / 120.0
+        timer.tolerance = 1.0 / 240.0
         RunLoop.main.add(timer, forMode: .common)
         trackpadEnergyTimer = timer
     }
@@ -5511,6 +5599,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         setTrackpadFighterSuppressed(true)
         #endif
         trackpadPadMode = useTrackDrum ? .skin : .fx
+        polyrhythmTrainer.stop()
         #if MAC_APP_STORE
         trackpadPluginCaptureActive = useTrackDrum
         trackpadPlugin.setCaptureEnabled(useTrackDrum)
@@ -5646,14 +5735,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         activateDefaultTrackpadDrum()
         showPitchBendOverlay()
-        pitchBendOverlay?.fadeOut(
-            after: Self.trackpadOverlayIdleHold,
-            duration: Self.trackpadOverlayFadeDuration
-        )
+        if !polyrhythmTrainer.isActive {
+            pitchBendOverlay?.fadeOut(
+                after: Self.trackpadOverlayIdleHold,
+                duration: Self.trackpadOverlayFadeDuration
+            )
+        }
         debugLog("trackpad pad mode = skin (Tab handoff)")
         return
         #endif
         trackpadFXPrimaryContact.reset()
+        polyrhythmTrainer.stop()
         trackpadPadMode = Self.trackpadPadModeAfterTab(trackpadPadMode)
         if trackpadPadMode != .fx {
             pitchBendEndTimer?.invalidate()
@@ -6160,6 +6252,47 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             && !NSEvent.modifierFlags.contains(.shift)
     }
 
+    private func togglePolyrhythmTrainer() {
+        guard trackpadPadMode == .skin,
+              pitchBendCursorPushed || keyboardPerformanceFocusActive else { return }
+        polyrhythmTrainer.cyclePattern(at: CACurrentMediaTime())
+        if trackpadEnergyTimer == nil { startTrackpadEnergyDisplay() }
+        showPitchBendOverlay()
+        debugLog(polyrhythmTrainer.isActive
+            ? "TrackDrum polyrhythm trainer = \(polyrhythmTrainer.pattern.label)"
+            : "TrackDrum polyrhythm trainer = off")
+    }
+
+    private func changePolyrhythmRate(by delta: Int) {
+        polyrhythmTrainer.changeRate(by: delta, at: CACurrentMediaTime())
+        updateTrackpadOverlayIfDue(force: true)
+        debugLog("TrackDrum polyrhythm rate = \(polyrhythmTrainer.bpm) bpm")
+    }
+
+    enum TrackDrumSlashAction: Equatable { case trainer, help }
+
+    static func trackDrumSlashAction(
+        keyCode: UInt16,
+        flags: NSEvent.ModifierFlags
+    ) -> TrackDrumSlashAction? {
+        guard keyCode == UInt16(kVK_ANSI_Slash),
+              !flags.contains(.command), !flags.contains(.option),
+              !flags.contains(.control) else { return nil }
+        return flags.contains(.shift) ? .help : .trainer
+    }
+
+    static func trackDrumRateDelta(
+        keyCode: UInt16,
+        flags: NSEvent.ModifierFlags
+    ) -> Int? {
+        guard !flags.contains(.command), !flags.contains(.option),
+              !flags.contains(.control) else { return nil }
+        if keyCode == UInt16(kVK_ANSI_Minus) { return -5 }
+        // The same physical key produces = or shifted +; both increase rate.
+        if keyCode == UInt16(kVK_ANSI_Equal) { return 5 }
+        return nil
+    }
+
     private func showPitchBendOverlay() {
         #if MAC_APP_STORE
         guard !trackDrumInstallPromptActive else { return }
@@ -6172,11 +6305,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         let overlay = ensurePitchBendOverlay()
         if showingTracktrampSkin {
+            let rhythm = polyrhythmTrainer.snapshot(at: CACurrentMediaTime())
             overlay.showTracktramp(
                 trackpadMembrane.snapshot(),
                 touches: mtTouches,
+                polyrhythm: rhythm,
                 atScreenPoint: trackpadOverlayAnchor(
-                    imageSize: TracktrampMetalView.logicalSize,
+                    imageSize: PitchBendCursorOverlayWindow.tracktrampSurfaceSize(
+                        polyrhythm: rhythm),
                     fallback: pitchBendLockScreenPoint
                 )
             )
@@ -6310,11 +6446,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard let overlay = pitchBendOverlay, overlay.isVisible else { return }
         trackpadOverlayLastDraw = CACurrentMediaTime()
         if showingTracktrampSkin {
+            let rhythm = polyrhythmTrainer.snapshot(at: CACurrentMediaTime())
             overlay.updateTracktramp(
                 trackpadMembrane.snapshot(),
                 touches: mtTouches,
+                polyrhythm: rhythm,
                 atScreenPoint: trackpadOverlayAnchor(
-                    imageSize: TracktrampMetalView.logicalSize,
+                    imageSize: PitchBendCursorOverlayWindow.tracktrampSurfaceSize(
+                        polyrhythm: rhythm),
                     fallback: pitchBendLockScreenPoint
                 )
             )
@@ -6331,10 +6470,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// from delaying the next input callback by a complete 8 ms touch frame.
     private func updateTrackpadOverlayIfDue(force: Bool = false) {
         let now = CACurrentMediaTime()
-        // Touch and sound stay at the hardware's 125 Hz cadence, but this
-        // decorative thumbnail must not compete with notation/UI animation.
-        // The Metal skin submits at most once per display frame and reuses its
-        // cached texture; input and sound continue independently at 125 Hz.
+        // Keep WindowServer work at a stable 60 Hz even though input and audio
+        // remain at 125 Hz. Motion is elapsed-time based and tap scoring uses
+        // callback timestamps, so this changes neither speed nor accuracy.
         guard force || now - trackpadOverlayLastDraw >= 1.0 / 60.0 else { return }
         updatePitchBendOverlayImage()
     }
@@ -6488,6 +6626,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if keyboardPerformanceFocusActive, trackpadPadMode == .skin {
             releaseTrackpadPercussion()
             trackpadSkinTouches.removeAll()
+            // The guide owns a continuous clock even when the player's hands
+            // lift. Keep its display timer and panel alive between strikes.
+            if polyrhythmTrainer.isActive {
+                showPitchBendOverlay()
+                return
+            }
             trackpadEnergyTimer?.invalidate()
             trackpadEnergyTimer = nil
             startFxRelease()
@@ -6510,6 +6654,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // somehow already cleared.
         pitchBendModeLatched = false
         trackpadPerformanceSessionActive = false
+        polyrhythmTrainer.stop()
         #if !MAC_APP_STORE
         setTrackpadFighterSuppressed(pianoWaveformWindowDelegate.isShown)
         #endif

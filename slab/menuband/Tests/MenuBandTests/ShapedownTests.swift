@@ -468,6 +468,146 @@ final class ShapedownTests: XCTestCase {
         )
     }
 
+    func testPolyrhythmClockStartsTogetherAndDividesOneCycleThreeAgainstTwo() {
+        var clock = PolyrhythmTrainerClock()
+        clock.start(at: 10)
+        XCTAssertEqual(clock.tick(at: 10), [0, 1])
+        XCTAssertEqual(clock.snapshot(at: 10)!.needleFlash, 1)
+        XCTAssertEqual(clock.snapshot(at: 10.12)!.needleFlash, 0, accuracy: 0.000_001)
+        XCTAssertEqual(clock.tick(at: 10.79), [])
+        XCTAssertEqual(clock.tick(at: 10.81), [0])
+        XCTAssertEqual(clock.tick(at: 11.21), [1])
+        XCTAssertEqual(clock.tick(at: 11.61), [0])
+        XCTAssertEqual(clock.tick(at: 12.41), [0, 1])
+    }
+
+    func testSlashCyclesFourPatternsThenTurnsTrainerOff() {
+        var clock = PolyrhythmTrainerClock()
+        clock.cyclePattern(at: 1)
+        XCTAssertEqual(clock.pattern, .init([3, 2]))
+        clock.cyclePattern(at: 2)
+        XCTAssertEqual(clock.pattern, .init([4, 3]))
+        clock.cyclePattern(at: 3)
+        XCTAssertEqual(clock.pattern, .init([5, 4]))
+        clock.cyclePattern(at: 4)
+        XCTAssertEqual(clock.pattern, .init([3, 4, 5]))
+        clock.cyclePattern(at: 5)
+        XCTAssertFalse(clock.isActive)
+    }
+
+    func testThreeRhythmPatternTicksEveryCircleAtCycleStart() {
+        var clock = PolyrhythmTrainerClock()
+        for step in 1...4 { clock.cyclePattern(at: CFTimeInterval(step)) }
+        XCTAssertEqual(clock.pattern.label, "3:4:5")
+        XCTAssertEqual(clock.tick(at: 4), [0, 1, 2])
+        // 75 bpm × 3 primary beats = 2.4 s cycle; the 5-circle subdivides
+        // it every 0.48 s.
+        XCTAssertEqual(clock.tick(at: 4.47), [])
+        XCTAssertEqual(clock.tick(at: 4.49), [2])
+    }
+
+    func testPolyrhythmRateStepsByFiveAndKeepsPhase() {
+        var clock = PolyrhythmTrainerClock()
+        clock.start(at: 10)
+        let before = clock.snapshot(at: 10.6)!.phase
+        clock.changeRate(by: 5, at: 10.6)
+        XCTAssertEqual(clock.bpm, 80)
+        XCTAssertEqual(clock.snapshot(at: 10.6)!.phase, before, accuracy: 0.000_001)
+        clock.changeRate(by: 500, at: 10.6)
+        XCTAssertEqual(clock.bpm, 300)
+    }
+
+    func testTrackpadBandRoutesTapToItsOwnCircle() {
+        // 75 bpm 3:2 → 2.4 s cycle. 10.8 is exactly the 3-circle's second
+        // beat but lands a third of the way between the 2-circle's beats.
+        var clock = PolyrhythmTrainerClock()
+        clock.start(at: 10)
+        clock.registerTap(at: 10.8, normalizedX: 0.1)
+        clock.registerTap(at: 10.8, normalizedX: 0.9)
+        let feedback = clock.snapshot(at: 10.8)!.tapFeedback
+        XCTAssertEqual(feedback.count, 2)
+        XCTAssertEqual(feedback[0].rhythmIndex, 0)
+        XCTAssertGreaterThan(feedback[0].accuracy, 0.95)
+        XCTAssertEqual(feedback[1].rhythmIndex, 1)
+        XCTAssertEqual(feedback[1].accuracy, 1.0 / 3.0, accuracy: 0.000_001)
+        XCTAssertEqual(clock.snapshot(at: 11.5)!.tapFeedback.count, 0)
+    }
+
+    func testTrackpadBandMathSplitsEvenlyAndClamps() {
+        XCTAssertEqual(PolyrhythmTrainerClock.rhythmIndex(
+            forNormalizedX: 0.2, rhythmCount: 3), 0)
+        XCTAssertEqual(PolyrhythmTrainerClock.rhythmIndex(
+            forNormalizedX: 0.5, rhythmCount: 3), 1)
+        XCTAssertEqual(PolyrhythmTrainerClock.rhythmIndex(
+            forNormalizedX: 0.9, rhythmCount: 3), 2)
+        XCTAssertEqual(PolyrhythmTrainerClock.rhythmIndex(
+            forNormalizedX: 1.0, rhythmCount: 3), 2)
+        XCTAssertEqual(PolyrhythmTrainerClock.rhythmIndex(
+            forNormalizedX: -0.5, rhythmCount: 2), 0)
+        XCTAssertEqual(PolyrhythmTrainerClock.rhythmIndex(
+            forNormalizedX: 0.49, rhythmCount: 2), 0)
+        XCTAssertEqual(PolyrhythmTrainerClock.rhythmIndex(
+            forNormalizedX: 0.51, rhythmCount: 2), 1)
+    }
+
+    func testPositionlessTapFallsBackToNearestGrid() {
+        var clock = PolyrhythmTrainerClock()
+        clock.start(at: 10)
+        clock.registerTap(at: 10.82)
+        let feedback = clock.snapshot(at: 10.82)!.tapFeedback
+        XCTAssertEqual(feedback.count, 1)
+        XCTAssertEqual(feedback[0].rhythmIndex, 0)
+        XCTAssertGreaterThan(feedback[0].accuracy, 0.9)
+    }
+
+    func testPolyrhythmOverlayGrowsAboveTrackDrumWithoutClippingCircles() {
+        XCTAssertEqual(
+            PitchBendCursorOverlayWindow.tracktrampSurfaceSize(polyrhythm: nil),
+            TracktrampMetalView.logicalSize
+        )
+        for circles in 2...3 {
+            let surface = PitchBendCursorOverlayWindow.tracktrampSurfaceSize(
+                rhythmCount: circles
+            )
+            let trainer = PolyrhythmTrainerView.logicalSize(rhythmCount: circles)
+            XCTAssertEqual(surface.width,
+                           max(TracktrampMetalView.logicalSize.width,
+                               trainer.width))
+            XCTAssertEqual(
+                surface.height,
+                TracktrampMetalView.logicalSize.height
+                    + PitchBendCursorOverlayWindow.polyrhythmGap
+                    + trainer.height
+            )
+        }
+        // Side-by-side circles: three circles are wider than two.
+        XCTAssertGreaterThan(
+            PolyrhythmTrainerView.logicalSize(rhythmCount: 3).width,
+            PolyrhythmTrainerView.logicalSize(rhythmCount: 2).width
+        )
+    }
+
+    func testTrackDrumSlashAndHelpRemainDistinct() {
+        XCTAssertEqual(
+            AppDelegate.trackDrumSlashAction(keyCode: 44, flags: []),
+            .trainer
+        )
+        XCTAssertEqual(
+            AppDelegate.trackDrumSlashAction(keyCode: 44, flags: [.shift]),
+            .help
+        )
+        XCTAssertNil(
+            AppDelegate.trackDrumSlashAction(keyCode: 44, flags: [.command])
+        )
+        XCTAssertNil(
+            AppDelegate.trackDrumSlashAction(keyCode: 12, flags: [])
+        )
+        XCTAssertEqual(AppDelegate.trackDrumRateDelta(keyCode: 27, flags: []), -5)
+        XCTAssertEqual(AppDelegate.trackDrumRateDelta(keyCode: 24, flags: []), 5)
+        XCTAssertEqual(AppDelegate.trackDrumRateDelta(keyCode: 24, flags: [.shift]), 5)
+        XCTAssertNil(AppDelegate.trackDrumRateDelta(keyCode: 24, flags: [.command]))
+    }
+
     func testTrackDrumClearsVisibleAndRevealedDock() {
         let screen = NSRect(x: 0, y: 0, width: 1200, height: 800)
         let size = NSSize(width: 240, height: 160)

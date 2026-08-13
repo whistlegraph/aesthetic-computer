@@ -1058,9 +1058,11 @@ private final class TrackDrumInstallCard: NSVisualEffectView {
 /// cursor so the chart visibly replaces it.
 final class PitchBendCursorOverlayWindow: NSPanel {
     static let trackDrumInstallSize = NSSize(width: 260, height: 126)
+    static let polyrhythmGap: CGFloat = 12
 
     private let imageView = NSImageView()
     private let tracktrampView = TracktrampMetalView()
+    private let polyrhythmView = PolyrhythmTrainerView()
     private let installCard = TrackDrumInstallCard()
     private let installIcon = NSImageView()
     private let installTagline = NSTextField(
@@ -1096,6 +1098,8 @@ final class PitchBendCursorOverlayWindow: NSPanel {
         tracktrampView.frame = frame
         tracktrampView.isHidden = true
         contentView?.addSubview(tracktrampView)
+        polyrhythmView.isHidden = true
+        contentView?.addSubview(polyrhythmView)
 
         installCard.material = .popover
         installCard.blendingMode = .behindWindow
@@ -1142,6 +1146,7 @@ final class PitchBendCursorOverlayWindow: NSPanel {
         installAction = nil
         installCard.isHidden = true
         tracktrampView.isHidden = true
+        polyrhythmView.isHidden = true
         imageView.isHidden = false
     }
 
@@ -1174,6 +1179,7 @@ final class PitchBendCursorOverlayWindow: NSPanel {
     /// small height field changes between frames; no NSImage is constructed.
     func showTracktramp(_ membrane: TrackpadMembraneSimulation.Snapshot,
                         touches: [CGPoint],
+                        polyrhythm: PolyrhythmTrainerSnapshot? = nil,
                         atScreenPoint screenPoint: NSPoint) {
         fadeTimer?.invalidate()
         fadeTimer = nil
@@ -1181,25 +1187,28 @@ final class PitchBendCursorOverlayWindow: NSPanel {
         ignoresMouseEvents = true
         installAction = nil
         installCard.isHidden = true
-        applyTracktrampFrame()
+        applyTracktrampFrame(polyrhythm: polyrhythm)
         imageView.isHidden = true
         tracktrampView.isHidden = false
         tracktrampView.update(membrane, touches: touches)
+        polyrhythmView.snapshot = polyrhythm
         alphaValue = 1
         if !isVisible { orderFrontRegardless() }
     }
 
     func updateTracktramp(_ membrane: TrackpadMembraneSimulation.Snapshot,
                           touches: [CGPoint],
+                          polyrhythm: PolyrhythmTrainerSnapshot? = nil,
                           atScreenPoint screenPoint: NSPoint) {
         anchorScreenPoint = screenPoint
         ignoresMouseEvents = true
         installAction = nil
         installCard.isHidden = true
-        applyTracktrampFrame()
+        applyTracktrampFrame(polyrhythm: polyrhythm)
         imageView.isHidden = true
         tracktrampView.isHidden = false
         tracktrampView.update(membrane, touches: touches)
+        polyrhythmView.snapshot = polyrhythm
     }
 
     /// Missing-helper state for the Tab-selected percussion surface. This is
@@ -1213,6 +1222,7 @@ final class PitchBendCursorOverlayWindow: NSPanel {
         installAction = onInstall
         imageView.isHidden = true
         tracktrampView.isHidden = true
+        polyrhythmView.isHidden = true
         installCard.isHidden = false
         ignoresMouseEvents = false
 
@@ -1238,12 +1248,46 @@ final class PitchBendCursorOverlayWindow: NSPanel {
         if !isVisible { orderFrontRegardless() }
     }
 
-    private func applyTracktrampFrame() {
-        let size = TracktrampMetalView.logicalSize
-        setFrame(NSRect(x: anchorScreenPoint.x - size.width / 2,
-                        y: anchorScreenPoint.y - size.height / 2,
-                        width: size.width, height: size.height), display: false)
-        tracktrampView.frame = NSRect(origin: .zero, size: size)
+    private func applyTracktrampFrame(polyrhythm: PolyrhythmTrainerSnapshot?) {
+        let size = Self.tracktrampSurfaceSize(polyrhythm: polyrhythm)
+        let panelFrame = NSRect(x: anchorScreenPoint.x - size.width / 2,
+                                y: anchorScreenPoint.y - size.height / 2,
+                                width: size.width, height: size.height)
+        if frame != panelFrame { setFrame(panelFrame, display: false) }
+        let tracktrampFrame = NSRect(
+            x: (size.width - TracktrampMetalView.logicalSize.width) / 2,
+            y: 0,
+            width: TracktrampMetalView.logicalSize.width,
+            height: TracktrampMetalView.logicalSize.height
+        )
+        if tracktrampView.frame != tracktrampFrame { tracktrampView.frame = tracktrampFrame }
+        let trainerSize = PolyrhythmTrainerView.logicalSize(
+            rhythmCount: polyrhythm?.rhythms.count ?? 1
+        )
+        let polyrhythmFrame = NSRect(
+            x: (size.width - trainerSize.width) / 2,
+            y: TracktrampMetalView.logicalSize.height + Self.polyrhythmGap,
+            width: trainerSize.width,
+            height: trainerSize.height
+        )
+        if polyrhythmView.frame != polyrhythmFrame { polyrhythmView.frame = polyrhythmFrame }
+        polyrhythmView.isHidden = polyrhythm == nil
+    }
+
+    static func tracktrampSurfaceSize(polyrhythm: PolyrhythmTrainerSnapshot?) -> NSSize {
+        guard let polyrhythm else { return TracktrampMetalView.logicalSize }
+        return tracktrampSurfaceSize(rhythmCount: polyrhythm.rhythms.count)
+    }
+
+    /// The surface grows sideways with the circle count so the trainer never
+    /// clips, while TrackDrum's own artwork stays centered at its fixed size.
+    static func tracktrampSurfaceSize(rhythmCount: Int) -> NSSize {
+        let trainer = PolyrhythmTrainerView.logicalSize(rhythmCount: rhythmCount)
+        return NSSize(width: max(TracktrampMetalView.logicalSize.width,
+                                 trainer.width),
+                      height: TracktrampMetalView.logicalSize.height
+                        + Self.polyrhythmGap
+                        + trainer.height)
     }
 
     /// A new hardware contact reclaims a surface that is still visible but
@@ -1302,6 +1346,7 @@ final class PitchBendCursorOverlayWindow: NSPanel {
         ignoresMouseEvents = true
         installAction = nil
         installCard.isHidden = true
+        polyrhythmView.isHidden = true
         tracktrampView.pause()
         orderOut(nil)
     }

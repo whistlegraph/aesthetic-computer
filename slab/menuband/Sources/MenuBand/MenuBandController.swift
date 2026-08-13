@@ -71,6 +71,15 @@ final class MenuBandController {
     func setAudioInputDevice(uid: String?) { synth.setPreferredInputDevice(uid: uid) }
     func setAudioOutputDevice(uid: String?) { synth.setPreferredOutputDevice(uid: uid) }
     func setAudioMonitorChannel(_ channel: Int) { synth.setMonitorInputChannel(channel) }
+    /// Closing the input UI is an ownership boundary: monitoring is no longer
+    /// visible, so revoke its persistent preference/pin and release CoreAudio
+    /// input immediately. Tape/sample recording pins still prevent shutdown.
+    func closeInputInterface() {
+        if inputMonitoringEnabled {
+            inputMonitoringEnabled = false
+        }
+        synth.stopUnpinnedHotMicNow()
+    }
     private var keyTap: KeyEventTap?
     private var heldNotes: [UInt16: UInt8] = [:]
     /// Chord EXTENSION voices for a held key, keyed by interval (semitones
@@ -1236,21 +1245,29 @@ final class MenuBandController {
     /// True while the spacebar reverse-replay is sounding — drives the
     /// popover waveform strip's direction indicator (◀ reverse vs ▶ live).
     private(set) var isRewinding = false
+    /// Momentary reverse UI follows the actual controller gesture regardless
+    /// of whether the event arrived through local or global key capture.
+    var onRewindChanged: ((Bool, [Float]) -> Void)?
 
     func rewind() {
         isRewinding = true
         DispatchQueue.main.async { [weak self] in
-            self?.synth.playReverse()
+            guard let self else { return }
+            let didPlay = self.synth.playReverse()
+            self.isRewinding = didPlay
+            self.onRewindChanged?(didPlay, self.synth.rewindPreviewLevels())
         }
     }
 
-    /// Spacebar released — stop reverse playback, banking the playhead so
-    /// the next press resumes from the same reverse point (deeper into the
-    /// tape). Playing a note resets that cursor to the live head.
+    /// Spacebar released — stop reverse playback and lift the needle back to
+    /// the session anchor. Quick presses therefore repeat the same phrase;
+    /// playing a real note drops the anchor so the next dive starts at now.
     func rewindRelease() {
         isRewinding = false
         DispatchQueue.main.async { [weak self] in
-            self?.synth.releaseReverse()
+            guard let self else { return }
+            self.synth.releaseReverse()
+            self.onRewindChanged?(false, [])
         }
     }
 
@@ -1259,6 +1276,11 @@ final class MenuBandController {
 
     /// Reverse playback progress (0…1) or nil — for the strip's playhead.
     func rewindProgress() -> Double? { synth.rewindProgress() }
+    func rewindClipProgress() -> Double? { synth.rewindClipProgress() }
+    /// Live-input peak since last read — what's being played NOW, clean of
+    /// the reverse playback itself (the tape tap sits upstream of the reverse
+    /// player). Drives the HUD's dub bar.
+    func rewindLiveInputPeak() -> Float { synth.rewindLiveInputPeak() }
 
     func setBend(amount: Float, allChannels: Bool = false) {
         // No clamp here — the trackpad accumulator can swing past

@@ -45,10 +45,9 @@ final class MenuBandRewindVoice {
     /// (~37 MB at 96 kHz mono float — fine.) Ring must exceed the reverse
     /// window (`captureSeconds`) with headroom.
     private let bufferSeconds: Double = 96.0
-    /// Reverse window: a session (first press → next real note) can rewind
-    /// at most this far behind its anchor. Presses within a session RESUME
-    /// from where the last one stopped (see `sessionAnchor`/`consumedFrames`)
-    /// — they never re-add time. A new note re-anchors at the live head.
+    /// Reverse window: each held-space dive can reach this far behind the
+    /// session anchor. Releasing lifts the needle back to the anchor, making
+    /// rapid taps repeatable; a real note re-anchors at the live head.
     let captureSeconds: Double = 90.0
     /// Generation token for the in-flight reverse one-shot. Bumped on every
     /// `playReverse` and `release` so a deferred release-fade can tell whether
@@ -103,7 +102,7 @@ final class MenuBandRewindVoice {
     private var ringSampleRate: Double = 0
     private let ringLock = NSLock()
 
-    // MARK: Reverse session (persistent cursor across presses)
+    // MARK: Reverse session (fixed anchor across presses)
 
     /// Absolute frame count (`framesWritten`) at the FIRST press of the
     /// current reverse session — the fixed "now" edge the whole session
@@ -111,15 +110,11 @@ final class MenuBandRewindVoice {
     /// live head. Guarded by `ringLock` (reset can arrive from any thread
     /// via `resetReverseAnchor`).
     private var sessionAnchor: Int? = nil
-    /// Frames already reverse-played this session, banked on release (and
-    /// folded in by `settleInFlightLocked`). Each press resumes
-    /// `consumedFrames` behind the anchor — the same reverse point the last
-    /// press stopped at — never the top of the window again.
+    /// Frames traversed by the current dive. This is folded in if a duplicate
+    /// press arrives without release, then reset to zero when the needle lifts.
     private var consumedFrames = 0
     /// The session's fixed window length in frames (`captureSeconds` at the
-    /// anchor's sample rate). Presses never re-add time: once a session has
-    /// consumed this much tape, further presses are silent until a note
-    /// resets the anchor.
+    /// anchor's sample rate).
     private var sessionWantFrames = 0
     /// Frame length of the in-flight one-shot, for the settle accounting.
     private var lastClipFrames = 0
@@ -139,6 +134,15 @@ final class MenuBandRewindVoice {
     /// (exact, drift-free) instead of a free-running per-frame counter.
     private var playStart: Double = 0
     private var clipDuration: Double = 0
+    /// Display envelope of the exact scheduled reverse clip, ordered as tape
+    /// time (oldest → newest) so the HUD can put now at its right edge.
+    private var latestPreviewLevels: [Float] = []
+    /// Seconds of tape the preview envelope covers — the recent audible span,
+    /// not the whole scheduled clip. The HUD's head clock runs against this.
+    private var previewDuration: Double = 0
+    /// Max-held peak of the live input since the HUD's dub bar last read it.
+    /// Guarded by `ringLock` (written on the IO thread in `feed`).
+    private var liveInputPeakHold: Float = 0
 
     // MARK: Attach
 
@@ -247,6 +251,11 @@ final class MenuBandRewindVoice {
         //
         // Mixed in, not overwritten, so the dub sits ON the existing music
         // instead of erasing it. Clamped because two full-scale signals sum.
+        // Peak of THIS buffer — the live input alone, since this tap sits
+        // upstream of where reverse playback joins. Max-held until the HUD's
+        // dub bar takes it, so a transient can't fall between two UI frames.
+        var livePeak: Float = 0
+
         if reverseActive, let head = reverseReadHeadLocked() {
             // Absolute frame `a` lives at ring index writeIdx-1-(framesWritten-a).
             var idx = (writeIdx - 1 - (framesWritten - head)) % cap
@@ -255,18 +264,22 @@ final class MenuBandRewindVoice {
                 let l = ch[0]
                 let r = ch[1]
                 for i in 0..<frames {
-                    ring[idx] = Swift.max(-1, Swift.min(1, ring[idx] + (l[i] + r[i]) * 0.5))
+                    let s = (l[i] + r[i]) * 0.5
+                    livePeak = Swift.max(livePeak, abs(s))
+                    ring[idx] = Swift.max(-1, Swift.min(1, ring[idx] + s))
                     idx -= 1                       // walk BACKWARD with the needle
                     if idx < 0 { idx += cap }
                 }
             } else {
                 let m = ch[0]
                 for i in 0..<frames {
+                    livePeak = Swift.max(livePeak, abs(m[i]))
                     ring[idx] = Swift.max(-1, Swift.min(1, ring[idx] + m[i]))
                     idx -= 1
                     if idx < 0 { idx += cap }
                 }
             }
+            liveInputPeakHold = Swift.max(liveInputPeakHold, livePeak)
             ringLock.unlock()
             return
         }
@@ -279,21 +292,36 @@ final class MenuBandRewindVoice {
             let l = ch[0]
             let r = ch[1]
             for i in 0..<frames {
-                ring[idx] = (l[i] + r[i]) * 0.5
+                let s = (l[i] + r[i]) * 0.5
+                livePeak = Swift.max(livePeak, abs(s))
+                ring[idx] = s
                 idx += 1
                 if idx >= cap { idx = 0 }
             }
         } else {
             let m = ch[0]
             for i in 0..<frames {
+                livePeak = Swift.max(livePeak, abs(m[i]))
                 ring[idx] = m[i]
                 idx += 1
                 if idx >= cap { idx = 0 }
             }
         }
+        liveInputPeakHold = Swift.max(liveInputPeakHold, livePeak)
         writeIdx = idx
         framesWritten += frames
         ringLock.unlock()
+    }
+
+    /// Max-held live-input peak since the last take — read-and-clear, so the
+    /// HUD's dub bar sees every transient exactly once regardless of how the
+    /// UI frame rate and the audio buffer cadence interleave.
+    func takeLiveInputPeak() -> Float {
+        ringLock.lock()
+        let p = liveInputPeakHold
+        liveInputPeakHold = 0
+        ringLock.unlock()
+        return p
     }
 
     /// Absolute frame the reverse pass is reading right now — the needle. The
@@ -337,9 +365,9 @@ final class MenuBandRewindVoice {
         // Fold any still-in-flight press into the cursor first, so a press
         // that arrives without an intervening release can't lose position.
         settleInFlightLocked()
-        // Session cursor: the first press anchors "now"; every later press
-        // resumes from the same reverse point the last one stopped at
-        // (anchor − consumed). Re-anchor only when there is no session (a
+        // Session cursor: the first press anchors "now". Duplicate downs can
+        // continue an in-flight dive; ordinary release resets consumed to 0,
+        // making the next press repeat from the anchor. Re-anchor only when there is no session (a
         // note reset it — see `resetReverseAnchor`), the ring was
         // reallocated under us (anchor > total), or the tape behind the
         // cursor has been fully overwritten.
@@ -352,8 +380,7 @@ final class MenuBandRewindVoice {
             sessionWantFrames = Int(captureSeconds * rate)
         }
         let cursorAbs = (sessionAnchor ?? total) - consumedFrames
-        // What's left to reverse: bounded by the session window (no re-added
-        // time — the window is fixed at the first press) and by how much
+        // What's left to reverse: bounded by the fixed session window and by how much
         // tape behind the cursor still survives in the ring.
         let count = Swift.min(sessionWantFrames - consumedFrames, cursorAbs - oldest)
         guard count >= 256 else { ringLock.unlock(); return false }
@@ -371,13 +398,27 @@ final class MenuBandRewindVoice {
         }
         ringLock.unlock()
 
+        // Normalize the snapshot to conservative headroom. The captured tape
+        // has already crossed the master limiter, but reverse joins the live
+        // signal downstream of that limiter; 0.68 leaves room for the two to
+        // overlap. Cap upward gain so a nearly-silent tape never turns its
+        // noise floor into a loud reverse wash.
+        var peak: Float = 0
+        for sample in reversed { peak = max(peak, abs(sample)) }
+        if peak > 0.0005 {
+            let gain = min(2.5, 0.68 / peak)
+            if abs(gain - 1) > 0.001 {
+                for i in reversed.indices { reversed[i] *= gain }
+            }
+        }
+
         // Declick: the window begins and ends on an arbitrary mid-waveform
         // sample, so jumping straight from silence to that value (on press)
         // and back (at the tail) snaps a click. A short raised-cosine fade at
         // both ends ramps those discontinuities away — the "very slight fade
         // in when reverse starts" that kills the spacebar pop, plus a matching
         // tail fade so the one-shot lands in silence cleanly.
-        let fade = Swift.min(count / 2, Swift.max(1, Int(rate * 0.006)))
+        let fade = Swift.min(count / 2, Swift.max(1, Int(rate * 0.008)))
         if fade > 1 {
             for i in 0..<fade {
                 // 0→1 half-cosine: smooth (zero-slope) at the silent end.
@@ -386,6 +427,37 @@ final class MenuBandRewindVoice {
                 reversed[count - 1 - i] *= g      // fade out (clip tail)
             }
         }
+
+        // Build the HUD from this exact clip, not from the live visualizer's
+        // much shorter tap window — but scope it to the RECENT AUDIBLE tape.
+        // The scheduled clip legally spans the whole session window (90 s),
+        // which is mostly silence unless you've been playing continuously;
+        // mapping all of it across the strip crushes what you just played
+        // into a sliver at the right edge and the display reads as blank.
+        // `reversed` is newest-first, so the fresh audio sits at the low
+        // indices; scan from the old end for the last frame that sounds.
+        var audibleFrames = 0
+        var scan = count - 1
+        while scan >= 0 {
+            if abs(reversed[scan]) > 0.004 { audibleFrames = scan + 1; break }
+            scan -= 1
+        }
+        // A beat of older silence pads the left edge so the phrase's tail-out
+        // is visible; a silent tape still shows a believable short window.
+        let visibleFrames = audibleFrames > 0
+            ? Swift.min(count, audibleFrames + Int(rate * 0.25))
+            : Swift.min(count, Int(rate * 1.5))
+        let previewColumns = 192
+        var preview = [Float](repeating: 0, count: previewColumns)
+        for column in 0..<previewColumns {
+            let start = column * visibleFrames / previewColumns
+            let end = max(start + 1, (column + 1) * visibleFrames / previewColumns)
+            var level: Float = 0
+            for i in start..<min(visibleFrames, end) { level = max(level, abs(reversed[i])) }
+            preview[previewColumns - 1 - column] = level
+        }
+        latestPreviewLevels = preview
+        let visibleSeconds = Double(visibleFrames) / rate
 
         // --- Build the clip at the RING's capture rate (mono) ---
         // The samples were captured at `rate`; the clip MUST declare that
@@ -422,7 +494,9 @@ final class MenuBandRewindVoice {
         // from a prior press and restores full level (a release fade may have
         // left the mixer ramped down).
         playGeneration &+= 1
-        mixer.outputVolume = 1.0
+        // The clip itself begins at zero and rises over 8 ms. Keeping this
+        // stage below unity adds another little reserve for live+reverse sums.
+        mixer.outputVolume = 0.88
         // One-shot reverse (notepat's loop:false): plays what remains of the
         // session window backward once and falls into silence. Press again
         // to resume from wherever this playback stops.
@@ -433,6 +507,7 @@ final class MenuBandRewindVoice {
         ringLock.lock()
         lastClipFrames = count
         clipDuration = Double(count) / rate
+        previewDuration = visibleSeconds
         playStart = CACurrentMediaTime()
         reverseActive = true
         ringLock.unlock()
@@ -470,10 +545,8 @@ final class MenuBandRewindVoice {
         ringLock.unlock()
     }
 
-    /// Progress (0…1) through the SESSION's reverse window — what earlier
-    /// presses already consumed plus the in-flight clip's wall-clock elapsed
-    /// — so the strip's playhead resumes where the last press left it
-    /// instead of snapping back to the top of the window. Returns nil when
+    /// Progress (0…1) through the current reverse dive — its in-flight
+    /// wall-clock elapsed plus any duplicate-down traversal. Returns nil when
     /// nothing is reverse-playing.
     func reverseProgress() -> Double? {
         guard clipDuration > 0, sessionWantFrames > 0 else { return nil }
@@ -482,6 +555,20 @@ final class MenuBandRewindVoice {
         let frames = Double(consumedFrames) + Swift.min(1, p) * Double(lastClipFrames)
         return Swift.min(1, frames / Double(sessionWantFrames))
     }
+
+    /// Audio-clock position through the HUD's visible span — the recent
+    /// audible tape its envelope covers, not the full scheduled clip. The
+    /// head therefore crosses the strip in exactly the time the audible
+    /// reverse takes, then rests at the far edge while any trailing
+    /// (older, silent) tape plays out.
+    func currentClipProgress() -> Double? {
+        guard playStart > 0 else { return nil }
+        let span = previewDuration > 0 ? previewDuration : clipDuration
+        guard span > 0 else { return nil }
+        return Swift.min(1, Swift.max(0, (CACurrentMediaTime() - playStart) / span))
+    }
+
+    func reversePreviewLevels() -> [Float] { latestPreviewLevels }
 
     /// Space released — the needle snaps back to NOW, and the reverse voice
     /// stops. Space is a momentary excursion: while it's held you dive back
@@ -516,7 +603,7 @@ final class MenuBandRewindVoice {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.02) { [weak self] in
             guard let self = self, self.playGeneration == gen else { return }
             if self.player.isPlaying { self.player.stop() }
-            self.mixer.outputVolume = 1.0
+            self.mixer.outputVolume = 0.88
         }
     }
 
