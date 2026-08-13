@@ -62,11 +62,13 @@ enum DesktopTint {
         let h = 256
         // `renderVersion` is bumped whenever the image design changes so a
         // redesign invalidates the cache instead of serving stale PNGs.
-        let renderVersion = 3
-        var hasher = Hasher()
-        hasher.combine(renderVersion)
-        hasher.combine(color.0); hasher.combine(color.1); hasher.combine(color.2)
-        let key = String(UInt(bitPattern: hasher.finalize()), radix: 36)
+        let renderVersion = 4
+        // Swift's `Hasher` is deliberately randomized between processes. It
+        // made the same color produce a fresh file after every Slab restart,
+        // and meant an obsolete gradient asset could remain selected until
+        // the next status change. RGB components are already a compact,
+        // deterministic content key; the version keeps design changes apart.
+        let key = "v\(renderVersion)-\(color.0)-\(color.1)-\(color.2)"
 
         let dir = Paths.desktopWallpaperDir
         let path = "\(dir)/\(name)-\(key).png"
