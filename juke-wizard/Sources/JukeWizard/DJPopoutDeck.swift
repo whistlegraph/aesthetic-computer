@@ -182,6 +182,10 @@ final class DJRadialRecordView: NSView {
     private var multitouchTravel: Double = 0
     private var trackpadLockActive = false
     private var cursorHiddenByLock = false
+    private var lockGlobalKeyMonitor: Any?
+    private var lockLocalKeyMonitor: Any?
+    private var lockResignObserver: NSObjectProtocol?
+    private var lockWatchdog: Timer?
     private var sparks: [Spark] = []
     private var grooveTrails: [GrooveTrail] = []
     private var lastEffectTime = ProcessInfo.processInfo.systemUptime
@@ -603,8 +607,17 @@ final class DJRadialRecordView: NSView {
             return
         }
         if event.clickCount == 2 {
-            trackpadLockActive ? releaseTrackpadLock() : engageTrackpadLock()
-            return
+            // Releasing is always available on a bare double-click; ENGAGING
+            // needs ⌥ so an ordinary double-click on the platter can't hand
+            // the whole desktop's pointer over by accident.
+            if trackpadLockActive {
+                releaseTrackpadLock()
+                return
+            }
+            if event.modifierFlags.contains(.option) {
+                engageTrackpadLock()
+                return
+            }
         }
         window?.makeFirstResponder(self)
         NSCursor.closedHand.set()
@@ -926,6 +939,13 @@ final class DJRadialRecordView: NSView {
 
     private var requiredTouchCount: Int { trackpadLockActive ? 1 : 2 }
 
+    // The lock disconnects the physical trackpad from the system pointer so
+    // the platter can be scratched like real vinyl. That is a whole-machine
+    // takeover: while it holds, the cursor is frozen and hidden EVERYWHERE,
+    // so every route back out has to survive Juke losing focus. Hence the
+    // belt and braces below — a global Escape monitor, an app-deactivation
+    // release, and a watchdog that lets go the moment our window stops being
+    // key. Without them a stray double-click stranded the whole desktop.
     private func engageTrackpadLock() {
         guard !trackpadLockActive else { return }
         trackpadLockActive = true
@@ -935,9 +955,45 @@ final class DJRadialRecordView: NSView {
             NSCursor.hide()
             cursorHiddenByLock = true
         }
+        installLockEscapeHatches()
         DJFocusFlash.shared.flash(rising: true)
         DJFocusDing.shared.play(rising: true)
         needsDisplay = true
+    }
+
+    private func installLockEscapeHatches() {
+        // Escape works even when the keystroke never reaches our responder
+        // chain (another app is frontmost, focus drifted, the deck window
+        // quietly resigned key).
+        lockGlobalKeyMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.keyDown]) { [weak self] event in
+            guard event.keyCode == 53 else { return }
+            DispatchQueue.main.async { self?.releaseTrackpadLock() }
+        }
+        lockLocalKeyMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown]) { [weak self] event in
+            guard event.keyCode == 53, self?.trackpadLockActive == true else { return event }
+            self?.releaseTrackpadLock()
+            return nil
+        }
+        lockResignObserver = NotificationCenter.default.addObserver(
+            forName: NSApplication.didResignActiveNotification, object: nil, queue: .main
+        ) { [weak self] _ in self?.releaseTrackpadLock() }
+        // Last resort: if our window is no longer key, nothing can deliver a
+        // keystroke to us, so the lock has no way to be dismissed on purpose.
+        lockWatchdog = DJRunLoopTimer.scheduled(every: 0.5) { [weak self] _ in
+            guard let self, self.trackpadLockActive else { return }
+            if self.window?.isKeyWindow != true { self.releaseTrackpadLock() }
+        }
+    }
+
+    private func removeLockEscapeHatches() {
+        if let monitor = lockGlobalKeyMonitor { NSEvent.removeMonitor(monitor) }
+        if let monitor = lockLocalKeyMonitor { NSEvent.removeMonitor(monitor) }
+        lockGlobalKeyMonitor = nil
+        lockLocalKeyMonitor = nil
+        if let observer = lockResignObserver { NotificationCenter.default.removeObserver(observer) }
+        lockResignObserver = nil
+        lockWatchdog?.invalidate()
+        lockWatchdog = nil
     }
 
     private func releaseTrackpadLock() {
@@ -946,6 +1002,7 @@ final class DJRadialRecordView: NSView {
         if multitouchScratching || multitouchArmed { finishMultitouch() }
         touchPositions.removeAll()
         trackpadLockActive = false
+        removeLockEscapeHatches()
         CGAssociateMouseAndMouseCursorPosition(1)
         if cursorHiddenByLock {
             NSCursor.unhide()
