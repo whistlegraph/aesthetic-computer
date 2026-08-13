@@ -22,7 +22,7 @@
 //   node toolchain/instagram/ig.mjs --as oskiewar refresh
 //   node toolchain/instagram/ig.mjs refresh --all         # monthly cron
 //   node toolchain/instagram/ig.mjs --as oskiewar post reel.mp4 \
-//        --caption "..." [--cover cover.jpg]
+//        --caption "..." [--cover cover.jpg] [--audio-name "..."]
 //   node toolchain/instagram/ig.mjs --as oskiewar insights <media-id>
 //   node toolchain/instagram/ig.mjs --as oskiewar snapshot
 //
@@ -263,7 +263,7 @@ async function uploadPublic(creds, files) {
 
 async function doPost(creds) {
   const file = positional[0];
-  if (!file) die(`usage: ig.mjs --as <account> post <video.mp4> --caption "..." [--cover img.jpg]`);
+  if (!file) die(`usage: ig.mjs --as <account> post <video.mp4> --caption "..." [--cover img.jpg] [--audio-name "..."] [--collaborators user1,user2]`);
   const videoPath = resolve(process.cwd(), file);
   if (!existsSync(videoPath)) die(`video not found: ${videoPath}`);
   if (!flags.caption || flags.caption === true) die(`--caption is required`);
@@ -274,6 +274,19 @@ async function doPost(creds) {
     coverPath = resolve(process.cwd(), String(flags.cover));
     if (!existsSync(coverPath)) die(`cover not found: ${coverPath}`);
   }
+  // Renames the reel's original audio track — the name other users see when
+  // they tap the audio. Meta only honors it on the first reel that mints the
+  // audio; it cannot be edited after publish.
+  const audioName = typeof flags["audio-name"] === "string" ? flags["audio-name"] : null;
+  if (flags["audio-name"] === true) die(`--audio-name needs a value`);
+
+  // Invite accounts as collaborators (comma-separated usernames, max 3).
+  // Each invitee must accept before the reel appears on their profile.
+  if (flags.collaborators === true) die(`--collaborators needs a value`);
+  const collaborators = typeof flags.collaborators === "string"
+    ? flags.collaborators.split(",").map((s) => s.trim().replace(/^@/, "")).filter(Boolean)
+    : null;
+  if (collaborators && collaborators.length > 3) die(`Instagram allows at most 3 collaborators`);
 
   // Quota first — a spent budget should stop us before any bytes move.
   const quota = await fetchQuota(creds);
@@ -293,6 +306,8 @@ async function doPost(creds) {
     share_to_feed: true, // a reel that only lives in the Reels tab is invisible to followers
   };
   if (urls.cover) body.cover_url = urls.cover;
+  if (audioName) body.audio_name = audioName;
+  if (collaborators?.length) body.collaborators = collaborators;
   const created = await call(api(`${creds.igUserId}/media?access_token=${creds.token}`), {
     method: "POST", headers: { "content-type": "application/json" },
     body: JSON.stringify(body),
@@ -323,6 +338,8 @@ async function doPost(creds) {
     videoUrl: urls.reel,
     coverUrl: urls.cover || null,
     caption,
+    audioName,
+    collaborators,
     file: videoPath,
   };
   const sidecar = videoPath.replace(/\.[^.]+$/, "") + ".instagram.json";
@@ -396,7 +413,7 @@ commands:
   quota                    content_publishing_limit — posts used/allowed per 24h
   refresh                  refresh the 60-day token, rewrite the vault env file in place
   refresh --all            refresh every provisioned account (monthly cron; no --as needed)
-  post <video.mp4> --caption "..." [--cover img.jpg]
+  post <video.mp4> --caption "..." [--cover img.jpg] [--audio-name "..."]
                            publish a reel: Spaces upload → container → poll → publish
   insights <media-id>      per-reel metrics (views, reach, skip rate, …)
   snapshot                 print a social/accounts.json snapshots entry (does not write it)
