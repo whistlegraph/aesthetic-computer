@@ -1,16 +1,69 @@
-# Whistlegraph presents: *Special Sign* & *MacNeoPolitan* — technical rider
+# AC Presents 2 New Pieces — technical rider
 
-Two works, one evening, nine laptops. They share the room and the Kalio system
-but they are **different machines running different software**, and the patch
-changes between them. Please read both system sections.
+Two public events in the CultureHub LA residency, September 16–25, 2026:
+
+| Date | Event | Shape |
+| --- | --- | --- |
+| Sat Sep 19, 2:00–3:30 p.m. | **Grokaesthetic Workshop** | Participatory, bring your own computer |
+| Thu Sep 24, 7:00 p.m. | **Note(s)pat(ial) Native** & **The MacNeoPolitan Trio** | Performance, conversation, free play |
+
+Dates proposed, pending confirmation. The performance is two works plus a guest
+set to be announced. They share the room and the Kalio system but are
+**different machines running different software**, and the patch changes
+between them — please read both system sections.
 
 ---
 
-## Work one — *Special Sign*, live spatial version
+## Event one — Grokaesthetic Workshop (Saturday)
+
+Ninety minutes, hands-on, free and open to the public. Participants arrive with
+their own laptops and phones, get Aesthetic.Computer running on them, and the
+room finishes by playing together as one ensemble in the surround system.
+
+### Three ways in, all of which need something from the house
+
+1. **Browser** — anyone plays notepat at aesthetic.computer on the device they
+   walked in with. Needs guest Wi-Fi that reaches the open internet.
+2. **Menu Band on a Mac** — a free, signed macOS app, roughly a minute to
+   install. Needs guest Wi-Fi that permits **app downloads**, not a portal that
+   allows browsing only.
+3. **AC OS from a USB stick** — boots a laptop into the operating system
+   without touching its disk. Needs **permission to boot participant machines
+   from USB in the space**; nothing is installed or altered.
+
+### What the workshop needs
+
+- **Guest Wi-Fi sized for roughly 25–35 simultaneous devices**, with app
+  downloads permitted. This is the single highest-risk item: a captive portal
+  or a download block turns the middle path off at the door.
+- **Power for participants** — power strips reaching the seating, enough for
+  ~20 laptops. Assume nobody arrives charged.
+- **Tables or floor seating** for participants plus their machines, arranged so
+  people can see each other rather than a stage.
+- **Loaner fleet positions** — the artist brings spare machines for anyone
+  without a computer; they need power and a place to sit.
+- **Stereo playback at minimum**, ideally the surround system, so the room can
+  hear the group ensemble. Full six-channel routing is welcome but not required
+  for this event.
+- **A snack table** with a nearby bin. This is stated as a real requirement:
+  the workshop is part hangout by design.
+- **A microphone or a room quiet enough to teach in** — the artist is talking
+  the whole time.
+
+### Access
+
+No programming or musical experience is assumed. Loaner machines mean no one
+is turned away for lack of hardware. Please advise on accessible seating and
+whether the space suits participants who cannot sit on the floor.
+
+---
+
+## Event two, work one — *Note(s)pat(ial) Native*
 
 ### System
 
-- Six artist-supplied salvaged laptops booted from six **AC Native** USB drives
+- Six artist-supplied surplus grade-school laptops booted from six **AC OS**
+  USB drives
 - Independent sound bodies distributed among the six laptops
 - Artist control surface for live rotation, trajectory, speed, and voice routing
 - Local wired or isolated Wi-Fi network for clock, transport, and spatial control
@@ -38,7 +91,7 @@ available.
 
 ---
 
-## Work two — *MacNeoPolitan*
+## Event two, work two — *The MacNeoPolitan Trio*
 
 ### System
 
@@ -51,10 +104,10 @@ available.
 
 ### What is different from work one, and why it matters
 
-**These machines do not boot AC Native and must not be asked to.** AC Native is
-x86_64 UEFI only; the MacBook Neo is Apple silicon. *MacNeoPolitan* runs Menu
-Band, a normal signed macOS app, on the machines' own installed systems. Nothing
-is booted from USB for this work.
+**These machines do not boot AC OS and must not be asked to.** AC OS is
+x86_64 UEFI only; the MacBook Neo is Apple silicon. *The MacNeoPolitan Trio*
+runs Menu Band, a normal signed macOS app, on the machines' own installed
+systems. Nothing is booted from USB for this work.
 
 **Sync is by clock, not by cable.** The three machines lock to one downbeat
 through NTP-synced wall clocks — typically tens of milliseconds across the
@@ -83,30 +136,42 @@ how CultureHub prefers to take three line-level feeds.
 
 ---
 
+## Event two — changeover, guest set, and the coda
+
+The move from work one to work two is a **hardware swap, not a patch change** —
+six machines out, three in. The guest set sits between them and covers it;
+please budget its length once the guest is confirmed. After the music there is
+a conversation, and then the instruments stay on for the audience to play, so
+the rig should not be struck until the room clears.
+
+---
+
 ## CultureHub request
 
 ### Audio and network
 
 - Kalio 5.1 system with six independently addressable inputs
 - Audio interface or interfaces providing **six** line-level outputs for
-  *Special Sign* and **three** for *MacNeoPolitan* — six total is sufficient if
-  the patch can be changed between works
+  *Note(s)pat(ial) Native* and **three** for *The MacNeoPolitan Trio* — six
+  total is sufficient if the patch can be changed between works
 - DI boxes, cabling, and adapters appropriate to the confirmed interfaces
 - Dedicated router or switch isolated from public traffic
 - **Outbound NTP reachable**, and confirmation of whether local clients can
   reach each other over ssh on the same subnet
-- **Guest Wi-Fi with internet access in the workshop space** — Menu Band Jam
-  participants install the app on their own machines on the day
+- **Guest Wi-Fi with internet access and app downloads permitted**, sized for
+  25–35 devices on the Saturday
 
 ### Power, room, projection
 
-- **Nine** laptop power positions across the two works, plus conditioned power
-  for audio and network gear
-- Six low tables or plinths for the salvaged laptops, arranged around the
+- **Nine** laptop power positions for the performance, plus conditioned power
+  for audio and network gear, plus **participant power strips for ~20 machines**
+  on the Saturday
+- Six low tables or plinths for the surplus laptops, arranged around the
   audience field, plus **three stable surfaces** for the MacBook Neos
 - Projector, screen or projection wall, and an HDMI input near the performance
   position
 - Central seating for approximately 20–40 people, subject to room capacity
+- Snack table and bin for the workshop
 - Stereo livestream and documentation feed derived separately from the spatial
   mix
 - One technical rehearsal with CultureHub's audio and streaming staff, long
@@ -116,10 +181,11 @@ how CultureHub prefers to take three line-level feeds.
 
 ## Artist brings
 
-- Six tested salvaged laptops and two spares
-- Six AC Native USB drives and two spares
+- Six tested surplus laptops and two spares
+- Six AC OS USB drives and two spares, plus **workshop loaner sticks**
 - Three MacBook Neos, each with Menu Band installed and the score pre-loaded
-- Laptop power supplies for all nine machines
+- **Loaner laptops for workshop participants without a machine**
+- Laptop power supplies for all nine performance machines
 - Primary control laptop
 - USB, HDMI, and network adapters already owned by the artist
 - Software images and offline recovery media
@@ -130,20 +196,25 @@ how CultureHub prefers to take three line-level feeds.
 
 **`neo` — the citrus machine — is the working development Mac and has 8 GB of
 RAM.** It is documented as exhausting memory and hanging under load. A hang
-during *MacNeoPolitan* stops one of three voices with no graceful recovery.
-Mitigation, to be settled before load-out, not on site:
+during *The MacNeoPolitan Trio* stops one of three voices with no graceful
+recovery. Mitigation, to be settled before load-out, not on site:
 
 - perform from a clean boot with nothing else running, no editors, no agents,
   no background sync; or
 - swap in a fourth machine for the performance and keep `neo` as the spare.
 
 **No spare third Neo yet.** The blush machine is unpurchased at the time of
-writing. Until it exists there is no redundancy for *MacNeoPolitan* — losing any
-one of the three loses a voice.
+writing. Until it exists there is no redundancy for *The MacNeoPolitan Trio* —
+losing any one of the three loses a voice.
 
 **Clock drift is the silent failure.** Unlike a dropped cable, a smeared
 downbeat still plays and just sounds wrong. It should be verified at the
 technical rehearsal with all three machines on the room's actual network.
+
+**The workshop depends on someone else's network.** Two of the three ways in
+need working guest Wi-Fi, and the third needs USB-boot permission. If all three
+are blocked the session degrades to the artist's loaner fleet only. Confirm
+early; this is not fixable on the day.
 
 ---
 
@@ -156,10 +227,11 @@ technical rehearsal with all three machines on the room's actual network.
 - Wired network availability and house network policy
 - **Whether outbound NTP is permitted and whether local clients can ssh to each
   other on the house network**
-- **Whether guest Wi-Fi in the workshop space allows app downloads**
+- **Whether guest Wi-Fi permits app downloads, and how many devices it holds**
+- **Whether participant laptops may be booted from USB in the space**
 - Projector resolution, throw, connectors, and screen location
 - Room dimensions, capacity, furniture, and accessible seating route
 - Livestream platform, capture format, archive ownership, and file delivery
 - Load-in, soundcheck, public-program, and strike hours
 - **How much changeover time is available between the two works**
-- Whether the workshop may boot participant laptops from USB
+- Guest performer's own technical needs, once confirmed

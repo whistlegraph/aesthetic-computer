@@ -529,6 +529,7 @@ private final class TrackpadBridgeServer {
 
 private final class TrackpadPluginAppDelegate: NSObject, NSApplicationDelegate {
     private let server = TrackpadBridgeServer()
+    private let updater = TrackDrumUpdater()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         do {
@@ -538,9 +539,14 @@ private final class TrackpadPluginAppDelegate: NSObject, NSApplicationDelegate {
                   error.localizedDescription)
             NSApp.terminate(nil)
         }
+        // A helper with no window can't be told about updates, so it fetches
+        // its own. Started after the bridge so a bad network never delays the
+        // instrument coming up.
+        updater.start()
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        updater.stop()
         server.stop()
     }
 
