@@ -127,10 +127,10 @@
   },
   "velmo": {
     "parent": "varo",
-    "second": "nuxo",
-    "mutation": "cross",
-    "trait": "moir ring-grid interference (varo) x Karplus-Strong harp pluck (nuxo)",
-    "born": "2026-07-21T00:12:39.052Z"
+    "second": null,
+    "mutation": "eye",
+    "trait": "two moons lapping a shared center (conjunction flashes) x detuned pad swell",
+    "born": "2026-08-13T02:11:16.766Z"
   },
   "fraylo": {
     "parent": "wandro",
@@ -220,8 +220,8 @@
     "parent": "ploo",
     "second": null,
     "mutation": "invert",
-    "trait": "imploding shockwave / black-hole bloom x reversed cinematic score",
-    "born": "2026-07-19T20:25:13.389Z"
+    "trait": "imploding void erosion x hushed decaying score",
+    "born": "2026-08-12T03:02:18.824Z"
   },
   "thrum": {
     "parent": "nuxo",
@@ -311,8 +311,8 @@
     "parent": "wandro",
     "second": null,
     "mutation": "voice",
-    "trait": "pendulum-wave visual (wexo) x breath  flute/bubble voice",
-    "born": "2026-07-16T05:10:56.055Z"
+    "trait": "pendulum wave x breath-choir voice (flute + bubble)",
+    "born": "2026-08-12T17:36:19.237Z"
   },
   "harno": {
     "parent": "ploo",
@@ -644,11 +644,11 @@
     "born": "2026-07-18T21:12:21.420Z"
   },
   "ebbro": {
-    "parent": "wandro",
+    "parent": "ploo",
     "second": null,
     "mutation": "invert",
-    "trait": "pendulum row that swings itself to stillness (decaying just-intonation embers) x pluck/bell voice fading to silence between taps",
-    "born": "2026-07-20T18:29:16.884Z"
+    "trait": "contracting sinkwave / withering petal erosion x reverse-envelope hush voice",
+    "born": "2026-08-11T19:01:40.158Z"
   },
   "fizbo": {
     "parent": "ploo",
@@ -729,10 +729,10 @@
   },
   "yarno": {
     "parent": "nuxo",
-    "second": "ploo",
-    "mutation": "cross",
-    "trait": "string-art harp (peg-and-thread bloom) x cinematic riser/drop score",
-    "born": "2026-07-19T17:02:11.566Z"
+    "second": null,
+    "mutation": "push",
+    "trait": "bowed string-art loom x continuous glissando harp",
+    "born": "2026-08-11T22:18:05.382Z"
   },
   "vynko": {
     "parent": null,
@@ -924,11 +924,11 @@
     "born": "2026-07-20T19:39:33.750Z"
   },
   "thrumo": {
-    "parent": "nuxo",
-    "second": null,
-    "mutation": "push",
-    "trait": "bowed string x continuous-pluck harp voice",
-    "born": "2026-07-20T20:48:14.145Z"
+    "parent": "ploo",
+    "second": "varo",
+    "mutation": "cross",
+    "trait": "ploo's radial shockwave/starburst bloom x varo's detuned-pad beating voice",
+    "born": "2026-08-13T16:29:50.264Z"
   },
   "pendro": {
     "parent": "varo",
@@ -989,9 +989,9 @@
   "shimro": {
     "parent": "varo",
     "second": null,
-    "mutation": "push",
-    "trait": "finger-pinned moir grid x continuous glide-pad theremin",
-    "born": "2026-07-21T02:33:12.563Z"
+    "mutation": "voice",
+    "trait": "moir ring-grid interference x plucked 8-against-9 phase drift (harp/bubble pluck duet, no sustain)",
+    "born": "2026-08-12T02:57:51.222Z"
   },
   "vindro": {
     "parent": "ploo",
@@ -1176,11 +1176,11 @@
     "born": "2026-08-10T20:30:42.151Z"
   },
   "fluvo": {
-    "parent": "nuxo",
+    "parent": "wandro",
     "second": null,
     "mutation": "voice",
-    "trait": "string-art harp pegboard (nail+thread web with tension bloom) x breathy flute/bubble legato drone",
-    "born": "2026-08-10T22:43:28.598Z"
+    "trait": "pendulum-wave visual (wexo) x breath-flute/bubble voice",
+    "born": "2026-08-11T04:37:05.570Z"
   },
   "javro": {
     "parent": null,
@@ -1209,5 +1209,138 @@
     "mutation": "invert",
     "trait": "collapsing shockwave / closing iris x sinking arpeggio voice",
     "born": "2026-08-11T03:31:19.913Z"
+  },
+  "drazo": {
+    "parent": "varo",
+    "second": null,
+    "mutation": "push",
+    "trait": "finger-anchored moir lens + comet trail x continuous glide-pad theremin",
+    "born": "2026-08-11T04:34:19.844Z"
+  },
+  "denko": {
+    "parent": null,
+    "second": null,
+    "mutation": "blind",
+    "trait": "Archimedes density-column settling sim (motes sinking/floating to their equilibrium depth in a stratified fluid) x depth-mapped sub/pluck/bubble voice",
+    "born": "2026-08-11T17:50:03.967Z"
+  },
+  "orav": {
+    "parent": "varo",
+    "second": null,
+    "mutation": "invert",
+    "trait": "eroding moir field (retrograde grid convergence) x decaying detuned pluck",
+    "born": "2026-08-11T17:55:15.071Z"
+  },
+  "gonlo": {
+    "parent": "nuxo",
+    "second": "ploo",
+    "mutation": "cross",
+    "trait": "string-art thread loom (nuxo) x cinematic riser/gong score (ploo)",
+    "born": "2026-08-11T20:04:45.589Z"
+  },
+  "shindo": {
+    "parent": "nuxo",
+    "second": null,
+    "mutation": "eye",
+    "trait": "pond ripple rings (stones dropped by every pluck) x same pentatonic harp/bell/sub voices",
+    "born": "2026-08-11T21:15:00.198Z"
+  },
+  "pendo": {
+    "parent": "varo",
+    "second": null,
+    "mutation": "eye",
+    "trait": "dual detuned pendulum-wave rows (top/bottom rails, phase-locking sweep) x same detuned pad swell (sine+triangle beating voices)",
+    "born": "2026-08-11T23:27:47.317Z"
+  },
+  "tumvo": {
+    "parent": null,
+    "second": null,
+    "mutation": "blind",
+    "trait": "tumble-dryer drum physics (blobs riding the spinning wall, peeling off, arcing under gravity, thudding back) x collision-triggered percussion groove  no fixed melody, the drum's own impacts ARE the beat",
+    "born": "2026-08-12T00:38:17.981Z"
+  },
+  "vorka": {
+    "parent": null,
+    "second": null,
+    "mutation": "blind",
+    "trait": "torque-free asymmetric-top tumble (Euler's equations / Dzhanibekov instability) x roottritonefifth chord voiced by live rotational energy, with a clack/sub on every flip",
+    "born": "2026-08-12T00:45:03.494Z"
+  },
+  "borvo": {
+    "parent": null,
+    "second": null,
+    "mutation": "blind",
+    "trait": "gravity-driven pinball table (bumper/flipper collision physics, ball drop + drain) x pentatonic bumper bells with flipper-catch plucks and a sub-thud drain",
+    "born": "2026-08-12T01:51:21.224Z"
+  },
+  "worlo": {
+    "parent": "ploo",
+    "second": "wandro",
+    "mutation": "cross",
+    "trait": "radial starburst/shockwave paint (ploo) x just-intonation pendulum physics (wandro)",
+    "born": "2026-08-12T01:55:05.820Z"
+  },
+  "orvo": {
+    "parent": "varo",
+    "second": null,
+    "mutation": "invert",
+    "trait": "eroding ring grids converging to unison x detuned pad voices collapsing toward a single held tone",
+    "born": "2026-08-12T04:06:27.131Z"
+  },
+  "chorlo": {
+    "parent": "ploo",
+    "second": null,
+    "mutation": "eye",
+    "trait": "pitch-class chord constellation (a 12-node star-clock, wired live by the melody's path) x ploo's cinematic riser/gong/sub score, unchanged",
+    "born": "2026-08-12T05:12:40.840Z"
+  },
+  "orblo": {
+    "parent": "wandro",
+    "second": null,
+    "mutation": "eye",
+    "trait": "concentric just-intonation orrery x pendulum pluck/bell/sub voice",
+    "born": "2026-08-12T05:16:06.061Z"
+  },
+  "swalo": {
+    "parent": "varo",
+    "second": null,
+    "mutation": "eye",
+    "trait": "detuned pendulum-wave field x padChord/flute/sub swell voice",
+    "born": "2026-08-12T17:39:40.370Z"
+  },
+  "zynko": {
+    "parent": null,
+    "second": null,
+    "mutation": "blind",
+    "trait": "FloydSteinberg error-diffusion halftone scanline x dot-matrix printer click/hum voice, pentatonic-mapped by column",
+    "born": "2026-08-12T19:29:56.263Z"
+  },
+  "vendro": {
+    "parent": "wandro",
+    "second": "nuxo",
+    "mutation": "cross",
+    "trait": "pendulum-wave visual (wandro) x harp pluck/bell/sub voice (nuxo)",
+    "born": "2026-08-12T19:32:18.387Z"
+  },
+  "flomo": {
+    "parent": "wandro",
+    "second": null,
+    "mutation": "voice",
+    "trait": "pendulum-wave (wexo) x breath/flute physical-model voice",
+    "born": "2026-08-12T23:57:54.976Z"
+  },
+  "vandro": {
+    "parent": "varo",
+    "second": "wandro",
+    "mutation": "cross",
+    "trait": "moir ring-grid interference (varo) x pendulum-row just-intonation pluck/bell/sub voice (wandro)",
+    "born": "2026-08-13T00:01:10.680Z"
+  },
+  "wavo": {
+    "parent": "varo",
+    "second": null,
+    "mutation": "eye",
+    "trait": "oscilloscope beat-envelope waveform x twin detuned pad swell",
+    "born": "2026-08-13T02:07:30.165Z"
   }
 }
