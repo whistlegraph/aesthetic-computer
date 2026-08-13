@@ -25,6 +25,22 @@ missing. Because text extraction cannot verify color, `prepare` also renders
 `pages-contact.png`; visual inference must confirm the dot color in the
 manifest's `brand` block.
 
+## Presentation extension
+
+Decision decks may add a `presentation` block to the manifest. `prepare` then
+renders `slides-10pct-contact.png`, and every slide receives a literal verdict
+for six room-scale checks:
+
+- `oneClaim` — one decision or claim owns the page;
+- `distanceType` — essential text survives the 10%-scale contact sheet;
+- `evidenceDominance` — visual proof, when available, is larger than explanation;
+- `voteClarity` — the requested decision is unmistakable;
+- `routeOrientation` — the current section is visible while other routes remain available;
+- `qrLegibility` — every action QR has sufficient size, quiet space, contrast, and a direct target.
+
+Use `n/a` only when a check truly does not apply, such as `qrLegibility` on a
+title page. A slide cannot pass when any applicable check fails.
+
 ## The six checks
 
 Every diagram receives all six checks. `design: pass` is valid only when all six

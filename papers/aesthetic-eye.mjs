@@ -14,6 +14,7 @@ import { fileURLToPath } from "node:url";
 
 const exec = promisify(execFile);
 const REQUIRED_CHECKS = ["tangents", "type", "balance", "spaceUse", "hierarchy", "edgeRouting"];
+const PRESENTATION_CHECKS = ["oneClaim", "distanceType", "evidenceDominance", "voteClarity", "routeOrientation", "qrLegibility"];
 const BRAND_NAME = "Aesthetic.Computer";
 const BRAND_DOT_COLOR = "#B44887";
 const BRAND_CHECKS = ["period", "dotColor"];
@@ -53,6 +54,7 @@ export function validateManifest(manifest, currentPdfSha256) {
   const errors = [];
   const diagrams = Array.isArray(manifest?.diagrams) ? manifest.diagrams : [];
   const brand = manifest?.brand;
+  const presentation = manifest?.presentation;
   if (manifest?.schema !== 1) errors.push("schema must be 1");
   if (!manifest?.visualInference) errors.push("visualInference must be true");
   if (manifest?.reviewer?.kind !== "visual-inference") errors.push("reviewer.kind must be visual-inference");
@@ -103,9 +105,33 @@ export function validateManifest(manifest, currentPdfSha256) {
 
   const allDesignPass = diagrams.length === manifest?.expectedDiagrams
     && diagrams.every((diagram) => diagram.design === "pass");
+  if (presentation) {
+    const slides = Array.isArray(presentation.slides) ? presentation.slides : [];
+    if (!Number.isInteger(presentation.expectedSlides) || presentation.expectedSlides < 1) {
+      errors.push("presentation.expectedSlides must be a positive integer");
+    } else if (slides.length !== presentation.expectedSlides) {
+      errors.push(`presentation expected ${presentation.expectedSlides} slide(s), found ${slides.length}`);
+    }
+    const pages = new Set();
+    for (const [index, slide] of slides.entries()) {
+      const prefix = `slide ${slide?.page || index + 1}`;
+      if (!Number.isInteger(slide?.page) || slide.page < 1) errors.push(`${prefix}: page must be >= 1`);
+      else if (pages.has(slide.page)) errors.push(`${prefix}: page must be unique`);
+      else pages.add(slide.page);
+      if (!["pass", "fail"].includes(slide?.design)) errors.push(`${prefix}: design must be pass or fail`);
+      for (const check of PRESENTATION_CHECKS) {
+        if (!["pass", "fail", "n/a"].includes(slide?.checks?.[check])) errors.push(`${prefix}: checks.${check} must be pass, fail, or n/a`);
+      }
+      const failedChecks = PRESENTATION_CHECKS.filter((check) => slide?.checks?.[check] === "fail");
+      if (slide?.design === "pass" && failedChecks.length) errors.push(`${prefix}: design cannot pass while ${failedChecks.join(", ")} fail`);
+    }
+  }
   const brandPass = brand?.design === "pass"
     && BRAND_CHECKS.every((check) => brand?.checks?.[check] === "pass");
-  return { pass: errors.length === 0 && allDesignPass && brandPass, errors, diagrams, brand };
+  const presentationPass = !presentation
+    || (presentation.slides?.length === presentation.expectedSlides
+      && presentation.slides.every((slide) => slide.design === "pass"));
+  return { pass: errors.length === 0 && allDesignPass && brandPass && presentationPass, errors, diagrams, brand, presentation };
 }
 
 export async function findVisibleBrandViolations(pdfPath) {
@@ -125,6 +151,7 @@ async function check(input, manifestArg) {
   const pass = verdict.pass && errors.length === 0;
   console.log(`brand: ${verdict.brand?.design || "missing"}  ${BRAND_NAME}  dot ${BRAND_DOT_COLOR}`);
   for (const diagram of verdict.diagrams) console.log(`design: ${diagram.design}  ${diagram.id}  page ${diagram.page}`);
+  for (const slide of verdict.presentation?.slides || []) console.log(`slide: ${slide.design}  page ${slide.page}`);
   if (errors.length) for (const error of errors) console.error(`FAIL: ${error}`);
   if (!pass && !errors.length) console.error("FAIL: one or more visual verdicts have design: fail");
   console.log(`aesthetic-eye: ${pass ? "PASS" : "FAIL"}  ${basename(review.pdfPath)}`);
@@ -146,6 +173,11 @@ async function prepare(input, manifestArg, outputArg) {
     const pagesContactPath = join(outputDir, "pages-contact.png");
     await exec("magick", ["montage", "-font", CONTACT_FONT, ...pagePaths, "-thumbnail", "360x480", "-tile", "4x", "-geometry", "+16+16", pagesContactPath]);
     console.log(`pages: ${pagesContactPath}`);
+    if (review.manifest.presentation) {
+      const slidesContactPath = join(outputDir, "slides-10pct-contact.png");
+      await exec("magick", ["montage", "-font", CONTACT_FONT, ...pagePaths, "-thumbnail", "10%", "-tile", "5x", "-geometry", "+12+12", slidesContactPath]);
+      console.log(`slides at 10%: ${slidesContactPath}`);
+    }
   }
 
   const crops = [];
