@@ -16,7 +16,7 @@
         "curtainAlpha": 0
       },
       "motion": {
-        "stripWidth": 1.04,
+        "stripWidth": 1.2,
         "centerY": 0.5,
         "breathPx": 5,
         "bouncePx": 28,

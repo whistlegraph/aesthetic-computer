@@ -201,7 +201,7 @@ const percussionRig = await loadStripRig("menubar-frames-percussion-right");
 const fullPercussionRig = await loadStripRig("menubar-frames-percussion-full");
 const particles = makePersistentParticles(ctx, particleSpec, seed);
 
-const stripWidth = W * bounded(motion.stripWidth ?? 0.94, 0.72, 1.0);
+const stripWidth = W * bounded(motion.stripWidth ?? 0.94, 0.72, 1.3);
 const stripHeight = stripWidth / rig.aspect;
 const baseY = H * bounded(motion.centerY ?? 0.50, 0.34, 0.66) - stripHeight / 2;
 const onsetTimes = [...new Set(notes.map((note) => +note.t.toFixed(5)))];
