@@ -34,7 +34,7 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, renameSync } from "node:fs";
 import { resolve, dirname, basename, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { NEEDLE_FELT_WOOL, FRAMING_YT_LANDSCAPE } from "../../lib/mediums.mjs";
+import { NEEDLE_FELT_WOOL, FRAMING_YT_LANDSCAPE, FRAMING_IG_STORY_PORTRAIT } from "../../lib/mediums.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const LANE = resolve(HERE, "..");
@@ -42,7 +42,13 @@ const REPO = resolve(LANE, "..", "..");
 const SLUG = "femrag-plusplus";
 const OUT = `${LANE}/out`;
 const REJECTED = `${OUT}/rejected`;
-const SIZE = "1536x1024"; // 16:9-ish landscape
+// --reel makes the vertical (9:16) cut: the same film, its first five
+// sections, which is exactly the first 60 seconds of the track.
+// Its panels are generated against the LANDSCAPE panel of the same beat, so
+// the reel borrows the illys rather than reinventing them.
+const REEL = process.argv.includes("--reel");
+const REEL_BEATS = ["drop1a", "drop1b", "breakdown", "buildup2", "drop2a"];
+const SIZE = REEL ? "1024x1536" : "1536x1024";
 const QA_MODEL = "gpt-5.5";
 const QA_ATTEMPTS = 3;
 
@@ -125,7 +131,8 @@ const POV_NOTE =
 `POV INTEGRITY — this is the bunny's OWN first-person viewpoint: his eyes ARE the camera. The only parts of him in frame are his own front PAWS and forearms in the near foreground, seen from behind as his own hands would be. ABSOLUTELY NO second bunny, no mirror, no reflection, no face — his head is never visible because the camera is inside it.`;
 
 const FRAME_NOTE =
-`${FRAMING_YT_LANDSCAPE}
+`${REEL ? FRAMING_IG_STORY_PORTRAIT : FRAMING_YT_LANDSCAPE}
+${REEL ? `REFRAME FOR VERTICAL — a landscape frame of this exact same moment is supplied as a reference. Keep its world, its lighting, its props and its character identical, but RECOMPOSE it for a tall 9:16 portrait frame: stack the composition vertically, let the A-frame rafters rise up the tall frame, bring the bunny larger and more central, and keep the action in the middle band. This is the SAME room and the SAME instant, re-shot with a portrait camera — not a crop of the wide, and not a new scene.` : ``}
 HONOR THE SHOT DIRECTIVE in this beat exactly: a WIDE shot lets the whole room breathe with the bunny comfortably within it; a CLOSE-UP crops in tight and FILLS the frame with the detail (do NOT pull back to a wide); a LOW-ANGLE puts the camera down on the rug looking up.`;
 
 
@@ -219,8 +226,17 @@ if (flags.list) {
   process.exit(0);
 }
 
-const panelPath = (i, name) => `${OUT}/${SLUG}-yt-sec-${i}-${name}.png`;
-const ANCHOR = panelPath(0, "runway");
+const panelPath = (i, name) => REEL
+  ? `${OUT}/${SLUG}-reel-sec-${i}-${name}.png`
+  : `${OUT}/${SLUG}-yt-sec-${i}-${name}.png`;
+// The anchor is always the landscape one — it defines the character.
+const ANCHOR = `${OUT}/${SLUG}-yt-sec-0-runway.png`;
+// The landscape panel of the same beat, handed to the reel as its source.
+const landscapeOf = (name) => {
+  const suffix = `-${name}.png`;
+  const hit = readdirSync(OUT).filter((f) => f.startsWith(`${SLUG}-yt-sec-`) && f.endsWith(suffix)).sort();
+  return hit.length ? `${OUT}/${hit[0]}` : null;
+};
 // @jeffrey's old Ashland A-frame — the room is modeled on this contact sheet
 // (exposed rafters meeting in a peak, honey plank walls and floor, gable
 // window, round green rug, string lights already strung along the beams).
@@ -360,9 +376,11 @@ async function generate(beat, i) {
   // The Ashland sheet carries the ROOM (A-frame geometry, plank wood, gable
   // window); the anchor carries the BUNNY. The anchor itself is generated
   // against Ashland alone, since it is what defines the character.
+  const wide = REEL ? landscapeOf(beat.name) : null;
   const refs = [
     existsSync(ASHLAND) ? ASHLAND : null,
-    i > 0 && existsSync(ANCHOR) ? ANCHOR : null,
+    wide,                                            // reel: this exact moment, wide
+    (REEL || i > 0) && existsSync(ANCHOR) ? ANCHOR : null,
     beat.screen && existsSync(NOTEPAT) ? NOTEPAT : null,
   ].filter(Boolean);
   const useEdit = refs.length > 0;
@@ -390,9 +408,17 @@ async function generate(beat, i) {
 }
 
 // The anchor must exist (and go first) before any ref'd beat runs.
-const todo = BEATS.map((b, i) => ({ b, i })).filter(({ b }) => !ONLY || ONLY.includes(b.name));
-const needsAnchor = todo.some(({ i }) => i > 0) && !existsSync(ANCHOR);
-if (needsAnchor && !todo.some(({ i }) => i === 0)) todo.unshift({ b: BEATS[0], i: 0 });
+const todo = REEL
+  ? REEL_BEATS.map((n, i) => ({ b: BEATS.find((x) => x.name === n), i }))
+      .filter(({ b }) => b && (!ONLY || ONLY.includes(b.name)))
+  : BEATS.map((b, i) => ({ b, i })).filter(({ b }) => !ONLY || ONLY.includes(b.name));
+if (!REEL) {
+  const needsAnchor = todo.some(({ i }) => i > 0) && !existsSync(ANCHOR);
+  if (needsAnchor && !todo.some(({ i }) => i === 0)) todo.unshift({ b: BEATS[0], i: 0 });
+} else if (!existsSync(ANCHOR)) {
+  console.error("✗ --reel needs the landscape anchor first (run without --reel)");
+  process.exit(1);
+}
 
 let failed = 0;
 for (const { b, i } of todo) if (!(await generate(b, i))) failed++;

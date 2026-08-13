@@ -207,7 +207,11 @@ export async function runMotionCli(cfg, flags = parseFlags()) {
   const AUDIO = flags.audio ? resolve(process.cwd(), String(flags.audio)) : cfg.audio;
   const FINAL = flags.out ? resolve(process.cwd(), String(flags.out)) : cfg.finalOut;
 
-  console.log("  trimming picked takes to exact section lengths …");
+  // The output frame follows the lane's ratio — a 9:16 lane must not be
+  // squashed into a landscape frame on the way through the trim.
+  const [FW, FH] = (cfg.ratio || "16:9") === "9:16" ? [720, 1280]
+    : (cfg.ratio || "16:9") === "1:1" ? [960, 960] : [1280, 720];
+  console.log(`  trimming picked takes to exact section lengths … (${FW}x${FH})`);
   const clipSeconds = (p) => {
     const r = spawnSync("ffprobe", ["-v", "error", "-show_entries", "format=duration",
       "-of", "default=noprint_wrappers=1:nokey=1", p], { encoding: "utf8" });
@@ -247,7 +251,7 @@ export async function runMotionCli(cfg, flags = parseFlags()) {
         "-y", "-i", picked,
         ...(excess > 0.01 ? ["-ss", excess.toFixed(3)] : []),
         "-t", s.exact.toFixed(3),
-        "-vf", "scale=1280:720,fps=24", "-an",
+        "-vf", `scale=${FW}:${FH},fps=24`, "-an",
         "-c:v", "libx264", "-preset", "medium", "-crf", "17", "-pix_fmt", "yuv420p",
         t,
       ], { stdio: ["ignore", "ignore", "pipe"] });
@@ -257,7 +261,7 @@ export async function runMotionCli(cfg, flags = parseFlags()) {
       console.log(`  ⚠ ${s.name}: no take — Ken Burns fallback (${frames}f)`);
       res = spawnSync("ffmpeg", [
         "-y", "-loop", "1", "-i", s.image,
-        "-vf", `scale=7680:-2,zoompan=z='1+0.10*on/${frames}':x='iw/2-(iw/zoom)/2':y='ih/2-(ih/zoom)/2':d=${frames}:s=1280x720:fps=24`,
+        "-vf", `scale=7680:-2,zoompan=z='1+0.10*on/${frames}':x='iw/2-(iw/zoom)/2':y='ih/2-(ih/zoom)/2':d=${frames}:s=${FW}x${FH}:fps=24`,
         "-frames:v", String(frames), "-an",
         "-c:v", "libx264", "-preset", "medium", "-crf", "17", "-pix_fmt", "yuv420p",
         t,

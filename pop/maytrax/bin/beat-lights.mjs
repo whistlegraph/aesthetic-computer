@@ -41,6 +41,8 @@ for (let i = 2; i < process.argv.length; i++) {
 const FPS = 24;
 const W = 320, H = 180;            // overlay resolution — soft light upscales fine
 const OPACITY = Number(flags.opacity ?? .55);
+// --from trims the overlay to a slice of the track (for the reel cut).
+const FROM = Number(flags.from ?? 0);
 
 const eventsPath = `${OUT}/${SLUG}.events.json`;
 if (!existsSync(eventsPath)) {
@@ -48,7 +50,7 @@ if (!existsSync(eventsPath)) {
   process.exit(1);
 }
 const feed = JSON.parse(readFileSync(eventsPath, "utf8"));
-const DUR = feed.seconds;
+const DUR = Number(flags.dur ?? feed.seconds) ;
 const FRAMES = Math.ceil(DUR * FPS);
 
 // ── the rig ────────────────────────────────────────────────────────────────
@@ -110,7 +112,7 @@ const acc = new Float32Array(W * H * 3);
 
 function renderFrame(fi) {
   acc.fill(0);
-  const t = fi / FPS;
+  const t = fi / FPS + FROM;
   for (const e of perFrame[fi]) {
     const lamp = LAMPS[e.i];
     const span = e.i === "riser" ? (e.dur || 0) : 0;
@@ -175,11 +177,17 @@ if (!over) {
 if (!existsSync(over)) { console.error(`✗ no cut at ${over}`); process.exit(1); }
 const litPath = over.replace(/\.mp4$/, "-lit.mp4");
 console.log(`  compositing over ${over.split("/").pop()} at opacity ${OPACITY} …`);
+// Match the overlay to whatever frame the cut actually is — the same rig
+// serves the landscape film and the 9:16 reel.
+const probe = spawnSync("ffprobe", ["-v", "error", "-select_streams", "v:0",
+  "-show_entries", "stream=width,height", "-of", "csv=p=0:s=x", over], { encoding: "utf8" });
+const [vw, vh] = (probe.stdout || "1280x720").trim().split("x").map(Number);
+console.log(`  target frame ${vw}x${vh}`);
 const mix = spawnSync("ffmpeg", [
   "-hide_banner", "-loglevel", "error", "-y",
   "-i", over, "-i", overlayPath,
   "-filter_complex",
-  `[1:v]format=yuv420p[o];[0:v][o]blend=all_mode=screen:all_opacity=${OPACITY}[v]`,
+  `[1:v]scale=${vw}:${vh}:force_original_aspect_ratio=increase,crop=${vw}:${vh},format=yuv420p[o];[0:v][o]blend=all_mode=screen:all_opacity=${OPACITY}[v]`,
   "-map", "[v]", "-map", "0:a?",
   "-c:v", "libx264", "-preset", "medium", "-crf", "18", "-pix_fmt", "yuv420p",
   "-c:a", "copy", "-movflags", "+faststart", litPath,
