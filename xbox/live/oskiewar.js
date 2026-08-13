@@ -7342,7 +7342,7 @@ function drawFace(player, head, color, t, now = runtime().monotonicUs) {
   triangleDepth = bodyDepth;
 }
 
-function drawInventory(player, now) {
+function drawInventory(player, now, geometry) {
   const scale = cameraScale();
   const gunColor = player.gunMode === "ROCKET LAUNCHER" ? [48, 61, 52]
     : player.gunMode === "RUBBER SMG" ? [38, 53, 72] : [63, 43, 76];
@@ -7354,28 +7354,39 @@ function drawInventory(player, now) {
   const bashing = player.attackKind === "BASH" && itemSwinging(player, now);
   if (player.swordHeld && player.gunAmmo <= 0 && !throwing &&
       hasPart(player, itemHand(player))) {
-    // The blade rides the same item hand the gun does, so it sweeps with
-    // every swing for free: steel from the hand out past the aim point, a
-    // short cross-guard, a dark grip under the fist.
-    const pose = gunPose(player, now);
-    const hand = projectPoint(pose.hand.x, pose.hand.y, pose.hand.z);
-    const aim = projectPoint(pose.muzzle.x, pose.muzzle.y, pose.muzzle.z);
-    const alongX = aim.x - hand.x;
-    const alongY = aim.y - hand.y;
-    const length = Math.hypot(alongX, alongY) || 1;
-    const tipX = hand.x + alongX / length * 118 * scale;
-    const tipY = hand.y + alongY / length * 118 * scale;
-    const acrossX = -alongY / length;
-    const acrossY = alongX / length;
-    filledCapsule(hand.x, hand.y, tipX, tipY,
-      Math.max(3, 7 * scale), [188, 197, 208]);
-    filledCapsule(hand.x + acrossX * 14 * scale, hand.y + acrossY * 14 * scale,
-      hand.x - acrossX * 14 * scale, hand.y - acrossY * 14 * scale,
-      Math.max(2, 5 * scale), [96, 76, 48]);
-    filledCapsule(hand.x, hand.y,
-      hand.x - alongX / length * 16 * scale,
-      hand.y - alongY / length * 16 * scale,
-      Math.max(2, 5 * scale), [34, 30, 40]);
+    // The hilt pins to the hand the silhouette actually draws — the far end
+    // of the item arm's forearm capsule — and the blade lies along that
+    // forearm, so grip and angle ride the limb through idle sway, stride,
+    // whips, freezes, and replays. The gun's aim pose floated here: with no
+    // ammo the arm never presents, leaving steel mid-air at a fixed angle.
+    const limbs = geometry.segments;
+    const forearm = limbs.find((segment) => segment.role === "item-forearm" ||
+        segment.role === "attack-forearm") ||
+      limbs.find((segment) => segment.role?.endsWith("forearm") &&
+        segment.part === itemHand(player)) ||
+      limbs.find((segment) => segment.role?.endsWith("forearm"));
+    if (forearm) {
+      const hand = { x: forearm.x2, y: forearm.y2 };
+      const alongX = hand.x - forearm.x1;
+      // A hanging arm would drive the tip into the dirt, so the fist rolls
+      // the blade skyward at rest; swings still lay steel along the striking
+      // forearm because melee targets sit at shoulder height.
+      const alongY = -Math.abs(hand.y - forearm.y1);
+      const length = Math.hypot(alongX, alongY) || 1;
+      const tipX = hand.x + alongX / length * 118 * scale;
+      const tipY = hand.y + alongY / length * 118 * scale;
+      const acrossX = -alongY / length;
+      const acrossY = alongX / length;
+      filledCapsule(hand.x, hand.y, tipX, tipY,
+        Math.max(3, 7 * scale), [188, 197, 208]);
+      filledCapsule(hand.x + acrossX * 14 * scale, hand.y + acrossY * 14 * scale,
+        hand.x - acrossX * 14 * scale, hand.y - acrossY * 14 * scale,
+        Math.max(2, 5 * scale), [96, 76, 48]);
+      filledCapsule(hand.x, hand.y,
+        hand.x - alongX / length * 16 * scale,
+        hand.y - alongY / length * 16 * scale,
+        Math.max(2, 5 * scale), [34, 30, 40]);
+    }
   }
   if ((player.gunAmmo > 0 || firing) && !throwing) {
     const pose = gunPose(player, now);
@@ -7615,7 +7626,7 @@ function drawRunner(player, t, showLabel = true) {
   if (shellMode !== "MENU" || titleTransitionAt !== null ||
       titleAttractMode === "action" || (player.npc && !player.bot))
     drawFace(player, geometry.head, contrastShadow(color), t, displayNow);
-  drawInventory(player, displayNow);
+  drawInventory(player, displayNow, geometry);
   if (player.blocking) {
     const worldShield = shieldGeometry(player);
     const shield = projectPoint(worldShield.x, worldShield.y, worldShield.z);
@@ -9303,6 +9314,12 @@ function gamePaint() {
   const reelHud = typeof capabilities === "function" &&
     capabilities().reelHud === true;
   const matchHud = !replayOven || reelHud;
+  // A reel is watched at arm's length with no controller in hand, and the
+  // corner furniture a player needs — nameplates, stats, inventory, the
+  // command stream — crowds a 9:16 crop and competes with the fight for the
+  // eye. So a reel carries no HUD at all while the round is live, and states
+  // the outcome afterward in the middle of the frame, one line at a time.
+  const reelMinimal = replayOven && reelHud;
   triangleDepth = -1.4;
   const skyDay = mixColor([176, 215, 245], [255, 160, 112],
     visualTheme.sunset * .7);
@@ -9370,7 +9387,7 @@ function gamePaint() {
   if (WIND_FLAG && shellMode === "GAME") drawWindFlag(t, windInk);
   // The top row is the round's: a clock, and who is watching. The wordmark
   // screen carries its own clock, so this one waits for start.
-  if (matchHud && shellMode === "GAME" && gameplayStarted) {
+  if (matchHud && !reelMinimal && shellMode === "GAME" && gameplayStarted) {
     const timedRound = roundIsTimed();
     const remainingSeconds = roundResult || !timedRound ? 0 : Math.max(0,
       Math.ceil((roundDurationUs - roundElapsedUs) / 1000000));
@@ -9424,7 +9441,7 @@ function gamePaint() {
   for (const pickup of gunPickups) drawGunPickup(pickup, t);
   for (const pickup of grenadePickups) drawGrenadePickup(pickup, t);
   const introAge = run.monotonicUs - roundStartedAt;
-  const showRunnerLabels = matchHud &&
+  const showRunnerLabels = matchHud && !reelMinimal &&
     (Boolean(roundResult) || introAge >= introDurationUs);
   const viewDirection = normalize3({
     x: cameraDoll.target.x - cameraDoll.position.x,
@@ -9477,7 +9494,7 @@ function gamePaint() {
   const counting = !roundResult && introAge < introDurationUs;
   // The matchup card announces two names in the middle of the screen, which
   // is exactly where the wordmark sits. On the entry fight the word wins.
-  if (matchHud && counting && shellMode === "GAME")
+  if (matchHud && !reelMinimal && counting && shellMode === "GAME")
     drawFightIntro(introAge / 1000000, titleInk, statusShadow);
   // The keys belong wherever a newcomer is looking: under the wordmark on the
   // way in, and again while a round counts itself off. Self-play has no
@@ -9487,7 +9504,19 @@ function gamePaint() {
   // self-play and marketing reels have no learner to serve.
   if (!replayOven && !selfPlay) drawControlLegend(titleInk);
   const resultUiReady = cinematicAge < 0 || cinematicAge >= 1.1;
-  if (matchHud && roundResult && resultUiReady) {
+  if (reelMinimal && roundResult && resultUiReady) {
+    // One fact, in the middle of the frame: who won. The recording stops on
+    // the result card, so anything queued behind the name would never survive
+    // the trim — and a name alone is the whole story a reel owes a stranger.
+    const result = resultCardText();
+    const winnerSize = compactLayout() ? 46 : 64;
+    const winnerWidth = handleWidth(result.winner, winnerSize);
+    const centerY = Math.round(viewHeight / 2) - winnerSize;
+    typeWrite(result.winner, viewCenterX() - winnerWidth / 2 + 4, centerY + 5,
+      winnerSize, ...statusShadow);
+    typeWrite(result.winner, viewCenterX() - winnerWidth / 2, centerY,
+      winnerSize, ...titleInk);
+  } else if (matchHud && roundResult && resultUiReady) {
     if (INSTANT_REPLAY && instantReplay) {
       const frame = Math.min(instantReplay.frames.length,
         Math.floor(instantReplay.cursor) + 1);
@@ -9523,7 +9552,8 @@ function gamePaint() {
   }
   // Nameplates and stats wait for the wordmark to lift; the entry frame is
   // the word, the keys, and the two fighters, and nothing else.
-  if (matchHud && shellMode === "GAME" && ((roundResult && resultUiReady) ||
+  if (matchHud && !reelMinimal && shellMode === "GAME" &&
+      ((roundResult && resultUiReady) ||
       (!roundResult && introAge >= introDurationUs))) {
     const hudPlayers = spatialHudPlayers();
     for (let side = 0; side < hudPlayers.length; side++) {
