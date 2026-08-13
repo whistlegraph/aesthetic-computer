@@ -7,7 +7,8 @@ Data edits + copy/loop changes from that thread are already applied to `graphs.j
 
 `/desk` is the private Whistlegraph Desk. It uses the existing Aesthetic Computer
 Auth0 application and authorizes the immutable Auth0 subjects for @jeffrey and
-@minanimals on the server; matching a display handle is never enough. Live edits
+@alexf (formerly @minanimals, renamed 2026-08-13) on the server; matching a
+display handle is never enough. Live edits
 are stored as a MongoDB curation overlay and applied on top of the generated
 `graphs.json` / `posts.json`, so the scraper remains reproducible and an edit can
 be restored to generated data at any time.

@@ -62,7 +62,8 @@ next to the arXiv cover without a seam.
 ## Handles
 
 The one lettering exception: small hand-lettered handle tags floating beside
-each figure's head. `@jeffrey` and `@minanimals` are the two real handles
+each figure's head. `@jeffrey` and `@alexf` (formerly `@minanimals`,
+renamed 2026-08-13) are the two real handles
 (the Whistlegraph Desk pair, per `system/public/whistlegraph.org/NOTES.md`).
 Community figures get neutral invented handles — do **not** guess handles for
 Camille Klein or Adelaide Dalio; if their real ones are wanted, get them from
@@ -85,4 +86,4 @@ Alex first.
 - Panel 5 uses `portraits/jeffrey/ig-archive/whistlegraph/` for identity
   grounding. Confirm which archive frames are cleared for a public page.
 - Do the trio's real handles go in panel 1, or stay at `@jeffrey` +
-  `@minanimals` + two neutrals?
+  `@alexf` + two neutrals?

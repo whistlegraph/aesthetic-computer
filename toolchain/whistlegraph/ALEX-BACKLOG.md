@@ -6,6 +6,12 @@ Reel suggestions live separately in [`REELS-BACKLOG.md`](REELS-BACKLOG.md).
 
 Status: `received` → `verified` → `applied` → `live`
 
+## Received August 13, 2026
+
+| Status | Request |
+|---|---|
+| applied | Alex renamed his AC handle @minanimals → @alexf; update the hand-lettered handle tags in the generated `future/` illustrations (choir-in-the-round, passing-the-marker, workshop-in-the-round) to @ALEXF. Re-edited via illy gpt-image-2; site JPGs updated; Desk copy + brand brief + prompts updated. Not yet deployed to lith. |
+
 ## Received August 10, 2026
 
 | Status | Request |

@@ -2,7 +2,7 @@
 
 export const DEFAULT_WHISTLEGRAPH_ADMIN_SUBS = Object.freeze([
   "auth0|63effeeb2a7d55f8098d62f9", // @jeffrey
-  "auth0|6414a4fb936cc041cfc1f011", // @minanimals
+  "auth0|6414a4fb936cc041cfc1f011", // @alexf (formerly @minanimals)
 ]);
 
 const POST_KINDS = new Set(["performance", "talk", "other"]);
