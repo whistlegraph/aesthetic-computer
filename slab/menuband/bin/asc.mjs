@@ -4,6 +4,11 @@
 //   node bin/asc.mjs status                     version states + latest builds
 //   node bin/asc.mjs get <path>                 raw GET, prints JSON
 //   node bin/asc.mjs delete <path>              DELETE one ASC resource
+//   node bin/asc.mjs patch <path> <json>        raw PATCH (204-safe)
+//   node bin/asc.mjs post <path> <json>         raw POST
+//   node bin/asc.mjs submit [version]           attach newest build + send for
+//                                               review (defaults to whichever
+//                                               version is editable)
 //   node bin/asc.mjs sales [YYYY-MM-DD]         Sales & Trends daily units (gzip TSV)
 //   node bin/asc.mjs analytics                  ensure report requests; list reports
 //   node bin/asc.mjs analytics <reportId>       list a report's instances/segments
@@ -70,19 +75,34 @@ async function remove(path) {
 // equivalent that works headlessly, so the release path needs a raw verb:
 //   asc.mjs patch /v1/appStoreVersions/<id>/relationships/build \
 //     '{"data":{"type":"builds","id":"<buildId>"}}'
-async function patch(path, body) {
+async function send(method, path, body) {
   const res = await fetch(`${API}${path}`, {
-    method: "PATCH",
+    method,
     headers: {
       Authorization: `Bearer ${token()}`,
       "Content-Type": "application/json",
     },
-    body,
+    body: typeof body === "string" ? body : JSON.stringify(body),
   });
-  // Relationship PATCHes answer 204 with no body; only parse when there is one.
+  // Relationship writes answer 204 with no body; only parse when there is one.
   const text = await res.text();
   if (!res.ok) throw new Error(`${res.status} ${text}`);
+  return text;
+}
+
+const patchJSON = (path, body) => send("PATCH", path, body);
+const postJSON = (path, body) => send("POST", path, body);
+
+async function patch(path, body) {
+  const text = await patchJSON(path, body);
   console.log(`patched ${path}${text ? `\n${text}` : ""}`);
+}
+
+// Raw create, for the ASC corners `submit` doesn't cover:
+//   asc.mjs post /v1/reviewSubmissions '{"data":{...}}'
+async function post(path, body) {
+  const text = await postJSON(path, body);
+  console.log(text || `created ${path}`);
 }
 
 const [cmd, arg, arg2] = process.argv.slice(2);
@@ -96,6 +116,91 @@ if (cmd === "get") {
   if (!arg?.startsWith("/v1/")) throw new Error("patch path must start with /v1/");
   if (!arg2) throw new Error("patch needs a JSON body as the second argument");
   await patch(arg, arg2);
+} else if (cmd === "post") {
+  if (!arg?.startsWith("/v1/")) throw new Error("post path must start with /v1/");
+  if (!arg2) throw new Error("post needs a JSON body as the second argument");
+  await post(arg, arg2);
+} else if (cmd === "submit") {
+  // The last mile of every release: attach the build, then create the review
+  // submission + item and flip `submitted`. Done by hand this is four calls
+  // against three resource types, and getting the order wrong leaves a version
+  // that looks ready in the UI but was never actually sent. Idempotent — safe
+  // to re-run after a partial failure.
+  const versions = await get(
+    `/v1/apps/${APP_ID}/appStoreVersions?limit=5&fields[appStoreVersions]=versionString,appStoreState`,
+  );
+  const editable = versions.data.find((v) =>
+    arg
+      ? v.attributes.versionString === arg
+      : v.attributes.appStoreState === "PREPARE_FOR_SUBMISSION",
+  );
+  if (!editable) throw new Error(arg ? `no version ${arg}` : "no editable version");
+  if (editable.attributes.appStoreState !== "PREPARE_FOR_SUBMISSION")
+    throw new Error(
+      `${editable.attributes.versionString} is ${editable.attributes.appStoreState}, not submittable`,
+    );
+  console.log(`submitting ${editable.attributes.versionString} (${editable.id})`);
+
+  const attached = await get(`/v1/appStoreVersions/${editable.id}/build`);
+  if (attached.data) {
+    console.log(`  build ${attached.data.attributes.version} already attached`);
+  } else {
+    const builds = await get(
+      `/v1/builds?filter[app]=${APP_ID}&limit=1&sort=-version&fields[builds]=version,processingState`,
+    );
+    const build = builds.data[0];
+    if (!build) throw new Error("no build to attach");
+    if (build.attributes.processingState !== "VALID")
+      throw new Error(`build ${build.attributes.version} is ${build.attributes.processingState}`);
+    await patch(
+      `/v1/appStoreVersions/${editable.id}/relationships/build`,
+      JSON.stringify({ data: { type: "builds", id: build.id } }),
+    );
+    console.log(`  attached build ${build.attributes.version}`);
+  }
+
+  // A rejected submission stays UNRESOLVED_ISSUES and blocks a new one; say so
+  // plainly rather than failing on an opaque 409 further down.
+  const open = await get(
+    `/v1/reviewSubmissions?filter[app]=${APP_ID}&limit=5&fields[reviewSubmissions]=state,platform`,
+  );
+  const blocking = open.data.find((s) =>
+    ["UNRESOLVED_ISSUES", "WAITING_FOR_REVIEW", "IN_REVIEW"].includes(s.attributes.state),
+  );
+  if (blocking)
+    throw new Error(
+      `submission ${blocking.id} is ${blocking.attributes.state} — resolve or cancel it first`,
+    );
+
+  const created = JSON.parse(
+    await postJSON(`/v1/reviewSubmissions`, {
+      data: {
+        type: "reviewSubmissions",
+        attributes: { platform: "MAC_OS" },
+        relationships: { app: { data: { type: "apps", id: APP_ID } } },
+      },
+    }),
+  );
+  const submissionId = created.data.id;
+  await postJSON(`/v1/reviewSubmissionItems`, {
+    data: {
+      type: "reviewSubmissionItems",
+      relationships: {
+        reviewSubmission: { data: { type: "reviewSubmissions", id: submissionId } },
+        appStoreVersion: { data: { type: "appStoreVersions", id: editable.id } },
+      },
+    },
+  });
+  const done = JSON.parse(
+    await patchJSON(`/v1/reviewSubmissions/${submissionId}`, {
+      data: {
+        id: submissionId,
+        type: "reviewSubmissions",
+        attributes: { submitted: true },
+      },
+    }),
+  );
+  console.log(`  ${done.data.attributes.state} at ${done.data.attributes.submittedDate}`);
 } else if (cmd === "status") {
   const versions = await get(
     `/v1/apps/${APP_ID}/appStoreVersions?limit=8&fields[appStoreVersions]=versionString,appStoreState,createdDate`,

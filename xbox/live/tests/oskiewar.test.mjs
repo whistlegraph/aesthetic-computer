@@ -4314,7 +4314,15 @@ test("the Replay Oven captures match-HUD 60 fps high-quality masters", () => {
   assert.match(webShell, /replayOven/);
   assert.match(webShell, /reelHud/);
   assert.match(source, /const matchHud = !replayOven \|\| reelHud/);
-  assert.match(source, /if \(matchHud && shellMode === "GAME" && gameplayStarted\)/);
+  // A reel carries no in-play furniture. The timer, nameplates, stats,
+  // inventory and command stream all belong to someone holding a controller;
+  // on a phone they crowd the 9:16 crop and compete with the fight. The reel
+  // stays clean until the round is decided, then says who won in the middle
+  // of the frame, one line at a time.
+  assert.match(source, /const reelMinimal = replayOven && reelHud/);
+  assert.match(source,
+    /if \(matchHud && !reelMinimal && shellMode === "GAME" && gameplayStarted\)/);
+  assert.match(source, /if \(reelMinimal && roundResult && resultUiReady\)/);
   assert.match(source, /if \(!replayOven\) drawDebugPerformance/);
   assert.match(source, /if \(!replayOven && !selfPlay\) drawControlLegend/);
   assert.match(reelRenderer, /&reel-hud/);

@@ -226,13 +226,49 @@ final class PolyrhythmTrainerView: NSView {
         )
     }
 
-    /// Left to right: accent, ink, then a blend for a third rhythm — three
-    /// voices that stay apart without adding loud new hues.
-    static func circleColors(accent: NSColor, ink: NSColor,
-                             count: Int) -> [NSColor] {
-        let blend = accent.blended(withFraction: 0.55, of: ink) ?? accent
-        let palette = [accent, ink, blend]
-        return (0..<max(1, count)).map { palette[$0 % palette.count] }
+    /// Each rhythm owns a hue, so a finger can be told by color alone rather
+    /// than by counting dots. The first circle IS the system accent; the rest
+    /// step around the wheel from it, which keeps the set flavored by whatever
+    /// accent the user chose instead of hard-coding a palette beside it.
+    ///
+    /// Even spacing (360/count) collapses to red-vs-cyan at two circles, so the
+    /// steps are fixed and deliberately uneven — far enough apart to separate,
+    /// close enough to read as one family.
+    private static let hueSteps: [CGFloat] = [0, 0.38, 0.62, 0.20, 0.80]
+
+    static func circleColors(accent: NSColor, count: Int,
+                             dark: Bool) -> [NSColor] {
+        guard let base = accent.usingColorSpace(.deviceRGB) else {
+            return Array(repeating: accent, count: max(1, count))
+        }
+        let hue = base.hueComponent
+        // A grey or near-grey accent has no hue to rotate; borrow a blue so the
+        // circles still separate instead of coming out as five identical greys.
+        let saturation = base.saturationComponent < 0.15 ? 0.62 : base.saturationComponent
+        let seed: CGFloat = base.saturationComponent < 0.15 ? 0.58 : hue
+        return (0..<max(1, count)).map { index in
+            let step = hueSteps[index % hueSteps.count]
+            let h = (seed + step).truncatingRemainder(dividingBy: 1)
+            // Dark mode paints on a near-black face and light mode on white, so
+            // the same hue needs opposite treatment to hold equal weight: lift
+            // brightness and ease saturation in the dark, deepen both in light.
+            return NSColor(
+                deviceHue: h,
+                saturation: dark ? min(0.82, saturation * 0.92) : min(1, saturation * 1.08),
+                brightness: dark ? 1.0 : 0.82,
+                alpha: 1
+            )
+        }
+    }
+
+    /// A whisper of the TrackDrum pad under each clock — cream over the light
+    /// skin, dark olive over the dark one — so the trainer reads as part of the
+    /// same instrument sitting right below it, not a panel borrowed from
+    /// somewhere else.
+    static func faceColor(dark: Bool) -> NSColor {
+        dark
+            ? NSColor(srgbRed: 0.10, green: 0.11, blue: 0.09, alpha: 0.90)
+            : NSColor(srgbRed: 0.99, green: 0.98, blue: 0.94, alpha: 0.92)
     }
 
     var snapshot: PolyrhythmTrainerSnapshot? { didSet { needsDisplay = true } }
@@ -243,10 +279,11 @@ final class PolyrhythmTrainerView: NSView {
         guard let snapshot else { return }
         let dark = effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
         let accent = KeyboardIconRenderer.accent
-        let quiet = (dark ? NSColor.white : NSColor.black).withAlphaComponent(0.18)
+
         let ink = dark ? NSColor.white : NSColor.black
-        let colors = Self.circleColors(accent: accent, ink: ink,
-                                       count: snapshot.rhythms.count)
+        let colors = Self.circleColors(accent: accent,
+                                       count: snapshot.rhythms.count,
+                                       dark: dark)
         let size = Self.logicalSize(rhythmCount: snapshot.rhythms.count)
         let originX = bounds.minX + (bounds.width - size.width) / 2
 
@@ -260,10 +297,10 @@ final class PolyrhythmTrainerView: NSView {
             drawCircle(center: center, rhythm: rhythm,
                        phase: snapshot.phase,
                        needleFlash: snapshot.needleFlash,
-                       color: colors[index], quiet: quiet, ink: ink, dark: dark)
+                       color: colors[index], ink: ink, dark: dark)
             drawTapFeedback(
                 snapshot.tapFeedback.filter { $0.rhythmIndex == index },
-                center: center, accent: accent
+                center: center, color: colors[index]
             )
         }
 
@@ -280,7 +317,7 @@ final class PolyrhythmTrainerView: NSView {
 
     private func drawCircle(center: CGPoint, rhythm: PolyrhythmRhythmSnapshot,
                             phase: Double, needleFlash: Double,
-                            color: NSColor, quiet: NSColor, ink: NSColor,
+                            color: NSColor, ink: NSColor,
                             dark: Bool) {
         // The panel floats over arbitrary apps. A near-opaque clock face
         // keeps each voice readable without turning the guide into a card.
@@ -289,9 +326,13 @@ final class PolyrhythmTrainerView: NSView {
                               width: Self.faceRadius * 2,
                               height: Self.faceRadius * 2)
         let face = NSBezierPath(ovalIn: faceRect)
-        (dark ? NSColor.black : NSColor.white).withAlphaComponent(0.86).setFill()
+        Self.faceColor(dark: dark).setFill()
         face.fill()
-        quiet.setStroke(); face.lineWidth = 1; face.stroke()
+        // The rim carries the hue too, so a circle is identifiable before any
+        // beat lands on it.
+        color.withAlphaComponent(0.30).setStroke()
+        face.lineWidth = 1.5
+        face.stroke()
 
         for index in 0..<rhythm.count {
             let angle = CGFloat.pi / 2
@@ -303,7 +344,13 @@ final class PolyrhythmTrainerView: NSView {
                                                   y: point.y - diameter / 2,
                                                   width: diameter,
                                                   height: diameter))
-            (index == rhythm.step ? color : quiet).setFill()
+            // Every dot is the circle's hue — the waiting beats just sit far
+            // back. Grey dots would have made all the circles look alike
+            // between strikes, which is exactly when you need to tell them
+            // apart.
+            (index == rhythm.step
+                ? color
+                : color.withAlphaComponent(dark ? 0.30 : 0.24)).setFill()
             dot.fill()
         }
 
@@ -313,13 +360,16 @@ final class PolyrhythmTrainerView: NSView {
         let hand = NSBezierPath()
         hand.move(to: center); hand.line(to: tip)
         let flash = CGFloat(needleFlash)
-        (flash > 0 ? color : ink).withAlphaComponent(0.78 + flash * 0.22).setStroke()
+        color.withAlphaComponent(0.78 + flash * 0.22).setStroke()
         hand.lineWidth = 1.5 + flash * 2.5
         hand.stroke()
         let hub = NSBezierPath(ovalIn: NSRect(x: center.x - 2.5, y: center.y - 2.5,
                                               width: 5, height: 5))
-        ink.setFill(); hub.fill()
+        color.setFill(); hub.fill()
 
+        // The count sits on ink, not the hue — it is the one thing that must
+        // stay legible at a glance in both appearances, and a saturated digit
+        // this small goes soft.
         let label = "\(rhythm.count)"
         let attrs: [NSAttributedString.Key: Any] = [
             .font: NSFont.monospacedDigitSystemFont(ofSize: 12, weight: .bold),
@@ -331,14 +381,17 @@ final class PolyrhythmTrainerView: NSView {
                    withAttributes: attrs)
     }
 
+    /// A clean strike rings in the circle's OWN hue — the reward for landing it
+    /// is the circle lighting up as itself. Only a late one changes color, so
+    /// orange/red always means "off the grid" and never "different rhythm".
     private func drawTapFeedback(_ feedback: [PolyrhythmTapFeedback],
-                                 center: CGPoint, accent: NSColor) {
+                                 center: CGPoint, color circleColor: NSColor) {
         for tap in feedback {
             let angle = CGFloat.pi / 2 - CGFloat(tap.phase) * 2 * .pi
             let point = CGPoint(x: center.x + cos(angle) * Self.dotRadius,
                                 y: center.y + sin(angle) * Self.dotRadius)
             let color: NSColor = tap.accuracy >= 0.7
-                ? accent : (tap.accuracy >= 0.4 ? .systemOrange : .systemRed)
+                ? circleColor : (tap.accuracy >= 0.4 ? .systemOrange : .systemRed)
             let mark = NSBezierPath(ovalIn: NSRect(x: point.x - 6, y: point.y - 6,
                                                    width: 12, height: 12))
             color.withAlphaComponent(CGFloat(tap.opacity) * 0.9).setStroke()
