@@ -34,3 +34,8 @@ alt/.venv-whisper/
 
 # The source whistlegraph mp4 — re-fetchable from the assets mirror.
 source/
+
+# the reference generator builds these locally
+reference/ref
+reference/*.f32
+reference/*.wav

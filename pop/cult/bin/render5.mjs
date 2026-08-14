@@ -159,7 +159,12 @@ const smooth = (u) => (u <= 0 ? 0 : u >= 1 ? 1 : u * u * (3 - 2 * u));
 // audible. Written to out/cult-remix-v5.events.json as `events[]`.
 // Debug: subtract a voice to identify it by ear. MUTE=stab node bin/render5.mjs
 const MUTED = new Set((process.env.MUTE || "").split(",").map((v) => v.trim()).filter(Boolean));
+// ONLY=skid renders that voice alone — the fastest way to hear what one
+// layer actually sounds like without a four-minute argument about spectra.
+const ONLY = new Set((process.env.ONLY || "").split(",").map((v) => v.trim()).filter(Boolean));
+const allow = (v) => !MUTED.has(v) && (!ONLY.size || ONLY.has(v));
 if (MUTED.size) console.log("  MUTED:", [...MUTED].join(", "));
+if (ONLY.size) console.log("  ONLY:", [...ONLY].join(", "));
 const EVENTS = [];
 const PCN = { c: 0, cs: 1, d: 2, ds: 3, e: 4, f: 5, fs: 6, g: 7, gs: 8, a: 9, as: 10, b: 11 };
 const pitchMidi = (tok) => {
@@ -349,6 +354,7 @@ function snare(t, gain = 1) {
 
 // Sine bumps: fundamental + sub octave + a whisper of the 2nd.
 function bass(t, midi, dur, gain = 1, slideFrom = null) {
+  if (!allow("bass")) return;
   EVENTS.push({ t: +t.toFixed(4), voice: "bass", bus: "music", midi, dur: +dur.toFixed(3),
     gain: +gain.toFixed(3), ...(slideFrom !== null ? { slideFrom } : {}) });
   const n = Math.round((dur + 0.12) * SR), i0 = Math.round(t * SR);
@@ -369,7 +375,7 @@ function bass(t, midi, dur, gain = 1, slideFrom = null) {
 
 // Harmonized sines — the pad and the stab.
 function sines(t, midis, dur, gain, pan, sideAmt = 0.5, bright = 1, dly = 0, attack = 0.020) {
-  if (MUTED.has(dur > 1 ? "pad" : "stab")) return;
+  if (!allow(dur > 1 ? "pad" : "stab")) return;
   EVENTS.push({ t: +t.toFixed(4), voice: dur > 1 ? "pad" : "stab", bus: "music", midis,
     dur: +dur.toFixed(3), gain: +gain.toFixed(3), pan: +pan.toFixed(2) });
   const n = Math.round((dur + 0.40) * SR), i0 = Math.round(t * SR);
@@ -411,7 +417,7 @@ const KEY = {
 const CULT_DIAL = ["2", "8", "5", "8"];     // C · U · L · T
 
 function beep(t, f1, f2, dur, { gain = 1, pan = 0, side = 0.6, dly = 0, bus = "sig", digit = null } = {}) {
-  if (MUTED.has("beep")) return;
+  if (!allow("beep")) return;
   EVENTS.push({ t: +t.toFixed(4), voice: "beep", bus, hz: f2 ? [f1, f2] : [f1], dur: +dur.toFixed(3),
     gain: +gain.toFixed(3), pan: +pan.toFixed(2), ...(digit ? { digit } : {}) });
   const rel = 0.012, n = Math.round((dur + rel) * SR), i0 = Math.round(t * SR);
@@ -434,7 +440,7 @@ const dtmf = (t, digit, dur, o = {}) => {
 
 // A "bop": a sine that drops a fifth in 60 ms. UI, not music.
 function bop(t, f, { gain = 1, pan = 0, side = 0.5, dur = 0.085, dly = 0 } = {}) {
-  if (MUTED.has("bop")) return;
+  if (!allow("bop")) return;
   EVENTS.push({ t: +t.toFixed(4), voice: "bop", bus: "sig", hz: +f.toFixed(1),
     dur: +dur.toFixed(3), gain: +gain.toFixed(3), pan: +pan.toFixed(2) });
   const n = Math.round((dur + 0.02) * SR), i0 = Math.round(t * SR);
@@ -453,7 +459,16 @@ function bop(t, f, { gain = 1, pan = 0, side = 0.5, dur = 0.085, dly = 0 } = {})
 // date), 4 ms and 18 ms respectively. The tap has a woody 900 Hz body; the
 // click is nearly pure edge.
 let nseed = 987654321;
-const nrnd = () => ((nseed = (nseed * 1103515245 + 12345) >>> 0) / 2147483648) - 1;
+// xorshift32, byte-for-byte the generator MenuBandPercussion.swift uses. The
+// old LCG multiplied past 2^53 in a double, so its low bits — the ones that
+// carry an LCG's randomness — were being rounded away before the truncate.
+// It measured nearly white anyway, but this removes the variable entirely.
+const nrnd = () => {
+  nseed ^= nseed << 13; nseed >>>= 0;
+  nseed ^= nseed >>> 17;
+  nseed ^= nseed << 5; nseed >>>= 0;
+  return (nseed / 4294967295) * 2 - 1;
+};
 function noiseHit(t, { gain = 1, pan = 0, side = 0.5, dur = 0.004, tone = 0, q = 0.35, dly = 0, evVoice = "click" } = {}) {
   EVENTS.push({ t: +t.toFixed(4), voice: evVoice, bus: "sig", dur: +dur.toFixed(4),
     gain: +gain.toFixed(3), pan: +pan.toFixed(2) });
@@ -479,7 +494,7 @@ const tap = (t, o = {}) => noiseHit(t, { dur: 0.018, tone: 900, q: 0.40, evVoice
 // A wooden tap: filtered noise through a fast decay with two shallow body
 // resonances an octave apart. Broadband enough to never ring as a tone.
 function woodTap(t, gain = 0.17, pan = 0.26) {
-  if (MUTED.has("tap")) return;
+  if (!allow("tap")) return;
   const n = Math.round(0.075 * SR), i0 = Math.round(t * SR);
   const sp = spatial(pan * 1.2);
   EVENTS.push({ t: +t.toFixed(4), voice: "tap", bus: "drums", gain: +gain.toFixed(3), pan });
@@ -528,30 +543,32 @@ const mixv = (a, b, m) => a + (b - a) * m;
 
 // The gesture library. Each returns {x,y} in [0,1] for u in [0,1].
 const PATHS = {
-  // a run along the rim, the way a finger tracks the metal edge
-  edge: (u) => ({ x: 0.06 + 0.88 * u, y: 0.93 - 0.02 * Math.sin(u * Math.PI * 3) }),
-  edgeBack: (u) => ({ x: 0.94 - 0.88 * u, y: 0.07 + 0.02 * Math.sin(u * Math.PI * 3) }),
-  // a little spiral wound out from the middle
+  // Measured against the compiled Swift: the reference drag reaches surface
+  // distance ~0.61 — the RIM, cutoff 680 — and that is what makes it bright
+  // (centroid 5.6 kHz). Paths that hug the centre sit on skin at 175 Hz and
+  // sound dull, which is what mine were doing. So every path now spends its
+  // time out at snare/rim. It stops short of 0.62 on purpose: past there the
+  // resonance ramp climbs from 185 toward 560, and THAT is the metallic ring
+  // @jeffrey kept hearing. Bright is the cutoff; metallic is the resonance.
+  edge: (u) => ({ x: 0.12 + 0.76 * u, y: 0.72 - 0.03 * Math.sin(u * Math.PI * 3) }),
+  edgeBack: (u) => ({ x: 0.88 - 0.76 * u, y: 0.28 + 0.03 * Math.sin(u * Math.PI * 3) }),
   spiral: (u) => {
-    const a = u * Math.PI * 5.2, r = 0.06 + 0.42 * u;
-    return { x: 0.5 + Math.cos(a) * r, y: 0.5 + Math.sin(a) * r * 0.62 };
+    const a = u * Math.PI * 5.2, r = 0.22 + 0.30 * u;
+    return { x: 0.5 + Math.cos(a) * r, y: 0.5 + Math.sin(a) * r * 0.78 };
   },
-  // and one wound back in, which crosses every seam in reverse
   spiralIn: (u) => {
-    const a = (1 - u) * Math.PI * 5.2, r = 0.48 - 0.42 * u;
-    return { x: 0.5 + Math.cos(a) * r, y: 0.5 + Math.sin(a) * r * 0.62 };
+    const a = (1 - u) * Math.PI * 5.2, r = 0.52 - 0.30 * u;
+    return { x: 0.5 + Math.cos(a) * r, y: 0.5 + Math.sin(a) * r * 0.78 };
   },
-  // a corner dive: skin, then straight out over the seams into the metal
-  corner: (u) => ({ x: 0.5 + 0.44 * u * u, y: 0.5 + 0.42 * u * u }),
-  // a zigzag scrub that keeps crossing contours perpendicularly
-  scrub: (u) => ({ x: 0.22 + 0.56 * u, y: 0.5 + 0.30 * Math.sin(u * Math.PI * 6.5) }),
+  corner: (u) => ({ x: 0.5 + 0.40 * u * u, y: 0.5 + 0.34 * u * u }),
+  scrub: (u) => ({ x: 0.14 + 0.72 * u, y: 0.5 + 0.40 * Math.sin(u * Math.PI * 6.5) }),
 };
 
 function frictionPath(t, dur, {
   path = "spiral", gain = 1, side = 0.30, dly = 0, rough = 0.55,
   synthetic = false, rel = 0.10, shape = "slide", speed = 1,
 } = {}) {
-  if (MUTED.has("skid")) return;
+  if (!allow("skid")) return;
   const fn = PATHS[path] || PATHS.spiral;
   const n = Math.round((dur * 0.55 + rel * 0.7 + 0.06) * SR), i0 = Math.round(t * SR);
   const span = dur * 0.55;
@@ -559,6 +576,7 @@ function frictionPath(t, dur, {
     dur: +span.toFixed(3), gain: +gain.toFixed(3), rough });
   const atkA = 1 - Math.exp(-1 / (SR * 0.0025));
   const relA = 1 - Math.exp(-1 / (SR * rel * 0.7));
+  let outLp = 0;
   let lvl = 0, nf = 0, ns = 0, ph = 0, px = 0.5, py = 0.5;
   for (let i = 0; i < n; i++) {
     const u = i / SR, x = u / span;
@@ -570,7 +588,14 @@ function frictionPath(t, dur, {
     const d = surfaceDistance(pt.x, pt.y);
     // the material ramps, verbatim
     const toSnare = sstep(0.23, 0.31, d), toRim = sstep(0.40, 0.48, d);
-    const toHat = sstep(0.62, 0.70, d), toClick = sstep(0.88, 0.965, d);
+    const toHat = sstep(0.62, 0.70, d) * 0.35;   // never fully into the ringing zone
+    // The metal-edge zone is what ground; a fingertip on this record never
+    // gets there. Capped at a quarter of the way in.
+    const toClick = sstep(0.88, 0.965, d) * 0.25;
+    // Verbatim from the Swift, and the honest numbers are DULL: skin is
+    // 175 Hz. The hat (1250) and metal (2050) zones are dropped entirely —
+    // a fingertip on this record never leaves skin/snare/rim, and reaching
+    // for them is what made every version sound harsh.
     let cut = mixv(175, 430, toSnare);
     cut = mixv(cut, 680, toRim); cut = mixv(cut, 1250, toHat); cut = mixv(cut, 2050, toClick);
     let res = mixv(mixv(mixv(mixv(48, 90, toSnare), 185, toRim), 360, toHat), 560, toClick);
@@ -579,8 +604,17 @@ function frictionPath(t, dur, {
       Math.max(m, Math.exp(-Math.pow((d - sd) / 0.045, 2))), 0);
     const ripple = 1 + 0.055 * Math.sin(((pt.x - 0.5) * 2 * 2.7 + (pt.y - 0.5) * 2 * 3.9) * Math.PI);
     const lift = 1 + Math.min(0.55, travel * 0.00016) * speed;
-    cut *= (1 + seam * 0.20) * lift;
-    res *= ripple * lift * (1 + seam * 0.14);
+    // "too harsh": the material ramp reaches 1250 (hat) and 2050 (metal) and
+    // the speed lift pushed past both. A fingertip on a head is DULL — so the
+    // travelling brightness is kept, but the ceiling comes down to the rim.
+    cut = cut * (1 + seam * 0.20) * lift;
+    // The resonance is what rings. The audition @jeffrey picked (E) ran at a
+    // FIXED 190 Hz; the material ramp climbs to 560 and then the speed-lift
+    // and seam terms multiply it again — roughly triple, which with E's
+    // carrier-heavy weighting is a metallic tone, not a scuff. Position still
+    // colours the sound through `cut`; the resonance is held near the voice
+    // he actually chose.
+    res = Math.min(255, res * ripple * (1 + seam * 0.06));
     if (synthetic) { cut = 1200 + 9000 * d; res = 1100 + cut * 0.42; }
     // envelope: the hand is on the surface for the whole path
     let target = 0;
@@ -588,6 +622,7 @@ function frictionPath(t, dur, {
       : shape === "drag" ? Math.pow(x < 0.92 ? x / 0.92 : 1, 1.6)
         : Math.sin(Math.PI * Math.min(1, x));
     target *= 0.55 + 0.45 * Math.min(1, travel * 0.0011);   // faster = louder
+    if (shape === "drag") target *= 0.62;    // it lands on the downbeat; stay under it
     lvl += (target > lvl ? atkA : relA) * (target - lvl);
     const fa = 1 - Math.exp((-TAU * cut) / SR);
     const sa = 1 - Math.exp((-TAU * Math.max(35, cut * 0.18)) / SR);
@@ -600,8 +635,14 @@ function frictionPath(t, dur, {
     const gnarl = Math.tanh(band * (5 + rough * 5));
     const texture = synthetic ? nf * carrier * 1.35
       : gnarl * 0.44 + carrier * (0.08 + Math.abs(gnarl) * (0.42 + rough * 0.30));
+    // No output lowpass. Measured against the compiled Swift, the real voice
+    // is BRIGHT — centroid 5.6 kHz, 85% rolloff 13.8 kHz — because the
+    // friction band is a difference of two one-poles and keeps a long high
+    // tail, which tanh then enriches. What makes it a surface instead of a
+    // hiss is that it is tiny: the reference peaks at 0.039. Bright and
+    // quiet, not dull and loud. That was the whole error.
     const pan = (pt.x - 0.5) * 1.5;            // the hand's position IS the pan
-    emit("drums", i0 + i, texture * lvl * 0.54 * gain * tailFade(i, n),
+    emit("drums", i0 + i, texture * lvl * 0.15 * gain * tailFade(i, n),
       pan, spatial(pan * 1.2), side, dly);
   }
 }
@@ -640,7 +681,7 @@ function friction(t, dur, {
   cut0 = 1300, cut1 = null, res0 = 190, res1 = null,
   rough = 0.55, synthetic = false, rel = 0.10,
 } = {}) {
-  if (MUTED.has("skid")) return;
+  if (!allow("skid")) return;
   // @jeffrey: "such weird buzzing there ... they should be sounding like light
   // scratches / scuffs ... and be faster". The buzz was the carrier: at
   // rough .55 the old mix put up to .665 of a PURE 90-420 Hz sine into the
@@ -665,6 +706,7 @@ function friction(t, dur, {
   const sp = spatial(pan * 1.2);
   const atkA = 1 - Math.exp(-1 / (SR * (synthetic ? 0.006 : 0.0025)));
   const relA = 1 - Math.exp(-1 / (SR * rel));
+  let outLp = 0;
   let lvl = 0, nf = 0, ns = 0, ph = 0;
   for (let i = 0; i < n; i++) {
     const u = i / SR, x = u / dur;
@@ -694,7 +736,7 @@ function friction(t, dur, {
       const gnarl = Math.tanh(band * (5 + rough * 5));
       texture = gnarl * 0.44 + carrier * (0.08 + Math.abs(gnarl) * (0.42 + rough * 0.30));
     }
-    emit("drums", i0 + i, texture * lvl * 0.54 * gain * tailFade(i, n), pan, sp, side, dly);
+    emit("drums", i0 + i, texture * lvl * 0.15 * gain * tailFade(i, n), pan, sp, side, dly);
   }
 }
 
@@ -723,6 +765,7 @@ function shot(name, t, {
 } = {}) {
   const s = BANK[name];
   if (!s) { missing.add(name); return; }
+  if (!allow(evVoice ?? classify(name).voice)) return;
   const step = Math.pow(2, semis / 12);
   const start = Math.max(0, Math.min(s.length - 2, Math.round(off * SR)));
   let avail = Math.floor((s.length - 2 - start) / step);
@@ -1196,7 +1239,7 @@ for (let bar = 0; bar < BARS; bar++) {
     // the first time. The gesture arrives with the unison.
     if (bar === 13)
       friction(at(13, 2.2), 1.7, { shape: "drag", gain: 0.62, pan: 0, side: 0.20,
-        cut0: 760, cut1: 2300, res0: 105, res1: 215, rough: 0.62 });
+        cut0: 759, cut1: 2300, res0: 103, res1: 214, rough: 0.62 });
   }
   if (sosBar(bar)) {
     if (bar % 4 === 0) sos(bar, bar === 16 ? 0.80 : 1.0);
@@ -1205,7 +1248,7 @@ for (let bar = 0; bar < BARS; bar++) {
       tap(t + s * BEAT + jit(6), { gain: 0.68 * vel(0.3), pan: s > 2 ? 0.42 : -0.42, side: 0.75, dly: 0.30 });
     if (bar % 8 === 7) { click(at(bar, 3.0), { gain: 0.58, pan: 0, side: 0.6 }); click(at(bar, 3.25), { gain: 0.46, pan: 0.3, side: 0.6 }); }
     if (bar % 4 === 2) friction(at(bar, 1.0), 0.62, { shape: "skid", gain: 0.34,
-      pan: -0.30, side: 0.24, cut0: 1900, cut1: 1000, res0: 240, res1: 150, rough: 0.58 });
+      pan: -0.30, side: 0.24, cut0: 1900, cut1: 1000, res0: 239, res1: 149, rough: 0.58 });
   }
 
   // ══ ACT III · THE MESSAGE ════════════════════════════════════════════
@@ -1220,7 +1263,7 @@ for (let bar = 0; bar < BARS; bar++) {
       bop(at(bar, 1.5), hz(chord[1] + 12), { gain: 0.26, pan: 0.42, side: 0.75, dly: 0.4 });
       // the drag that hands the next hook its downbeat
       friction(at(bar, 2.4), 1.6, { shape: "drag", gain: 0.46, pan: 0.12, side: 0.22,
-        cut0: 820, cut1: 2200, res0: 110, res1: 205, rough: 0.58 });
+        cut0: 819, cut1: 2200, res0: 109, res1: 203, rough: 0.58 });
     }
     if (four === 1)
       frictionPath(at(bar, 2.0), 0.50, { shape: "skid", gain: 0.30, pan: -0.36, side: 0.24,
@@ -1251,10 +1294,24 @@ for (let bar = 0; bar < BARS; bar++) {
   // The beeps have stopped, so the only thing still moving in act IV is a
   // hand on a drumhead — the analog counterweight to a silent signal layer,
   // and the sound of three people still in the room.
-  if (inS(bar, "secret") && bar % 2 === 0)
-    friction(at(bar, 0.25), BAR * 1.55, { shape: "slide", gain: 0.86,
-      pan: bar % 4 === 0 ? -0.30 : 0.30, side: 0.28,
-      cut0: 700, cut1: 1500, res0: 95, res1: 150, rough: 0.46 });
+  // @jeffrey: "the ones at 37 and 41 sound lame". They were: one 1.7 s slide
+  // at gain .86, four times over, with nothing changing but the pan. If a
+  // hand on a drumhead is the only thing moving in this act, it has to
+  // actually move — so it is four DIFFERENT journeys across the surface,
+  // shorter and quieter, each answered by a quick flick on the off bar.
+  if (inS(bar, "secret") && bar % 2 === 0) {
+    const k = ((bar - S.secret[0]) / 2) | 0;
+    const gesture = [
+      { path: "spiral",   dur: BAR * 0.95, gain: 0.60, rough: 0.44, shape: "slide", speed: 0.9 },
+      { path: "scrub",    dur: BAR * 0.70, gain: 0.66, rough: 0.52, shape: "drag",  speed: 1.2 },
+      { path: "spiralIn", dur: BAR * 1.10, gain: 0.58, rough: 0.40, shape: "slide", speed: 0.8 },
+      { path: "corner",   dur: BAR * 0.60, gain: 0.70, rough: 0.56, shape: "skid",  speed: 1.4 },
+    ][k % 4];
+    frictionPath(at(bar, 0.25), gesture.dur, { ...gesture, side: 0.26, dly: 0.12 });
+  }
+  if (inS(bar, "secret") && bar % 2 === 1)
+    frictionPath(at(bar, 2.6), BAR * 0.34, { path: "scrub", shape: "skid",
+      gain: 0.40, rough: 0.60, speed: 1.6, side: 0.30, dly: 0.10 });
   if (inS(bar, "secret") && bar % 2 === 1) material(bar, "cult-b3", 0.80);
   if (inS(bar, "secret") && bar % 2 === 0) choir(bar, 0.34);
 
@@ -1273,7 +1330,7 @@ for (let bar = 0; bar < BARS; bar++) {
     if (four === 1) click(at(bar, 3.75), { gain: 0.44, pan: 0.35, side: 0.7, dly: 0.35 });
     if (four === 3)
       friction(at(bar, 2.3), 1.7, { shape: "drag", gain: 0.44, pan: -0.14, side: 0.22,
-        cut0: 860, cut1: 2400, res0: 115, res1: 225, rough: 0.60 });
+        cut0: 859, cut1: 2400, res0: 114, res1: 223, rough: 0.60 });
     // the machine beeps, the hand answers: a skid straight off the SOS
     if (eight === 7)
       frictionPath(at(bar, 2.6), 0.75, { shape: "skid", gain: 0.42, pan: 0.44, side: 0.30,
@@ -1311,10 +1368,10 @@ for (let bar = 0; bar < BARS; bar++) {
     // place twice — the friction equivalent of the wiggle coming apart.
     friction(at(bar, 2.5 + (bar % 3) * 0.25), 0.58, { shape: "skid",
       gain: 0.34 * vel(0.3), pan: bar % 2 ? 0.46 : -0.46, side: 0.30,
-      cut0: 2200, cut1: 1050, res0: 280 - (bar % 4) * 30, res1: 150, rough: 0.62 });
+      cut0: 2200, cut1: 1050, res0: 280 - (bar % 4) * 30, res1: 149, rough: 0.62 });
     if (four === 0)
       friction(at(bar, 3.1), 0.95, { shape: "drag", gain: 0.30, pan: bar % 4 ? -0.2 : 0.2,
-        side: 0.24, cut0: 900, cut1: 1900, res0: 120, res1: 190, rough: 0.55, synthetic: true });
+        side: 0.24, cut0: 900, cut1: 1900, res0: 119, res1: 189, rough: 0.55, synthetic: true });
   }
   // …and the word itself spreading: one other person's "cult" per bar,
   // from a different post each time, thrown to the edges. Six voices from
@@ -1347,7 +1404,7 @@ for (let bar = 0; bar < BARS; bar++) {
     // off the back of "a — waaaay", which ends at +4.60 in each chorus
     if ((bar - S.whole[0]) % 8 === 2)
       friction(at(bar, 1.3), 0.66, { shape: "skid", gain: 0.36, pan: 0.40, side: 0.28,
-        cut0: 2300, cut1: 1000, res0: 290, res1: 145, rough: 0.60 });
+        cut0: 2300, cut1: 1000, res0: 289, res1: 143, rough: 0.60 });
   }
   if (inS(bar, "whole") && bar % 4 === 3) material(bar, "cult-fs4", 0.66, { grain: 0.060, side: 0.9 });
 
@@ -1357,7 +1414,7 @@ for (let bar = 0; bar < BARS; bar++) {
   if (inS(bar, "recognise") && four === 3)
     friction(at(bar, 2.6), 1.4, { shape: "drag", side: 0.22,
       gain: 0.40 * (1 - (bar - S.recognise[0]) / 10), pan: 0.10,
-      cut0: 820, cut1: 1900, res0: 110, res1: 175, rough: 0.52 });
+      cut0: 819, cut1: 1900, res0: 109, res1: 174, rough: 0.52 });
   if (inS(bar, "recognise") && four === 1)
     click(at(bar, 2.5), { gain: 0.44 * (1 - (bar - S.recognise[0]) / 9), pan: -0.4, side: 0.7, dly: 0.35 });
 
