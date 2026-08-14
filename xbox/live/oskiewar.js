@@ -2923,6 +2923,10 @@ function fighterFrameRect() {
 // it here keeps the fight, the containment floor and the result shot agreeing
 // with each other instead of each needing its own factor.
 const portraitPull = () => clamp(cameraAspect / (16 / 9), .52, 1);
+// A reel ends on the win. Nobody is holding a controller, so there is no wide
+// shot to hand back to — the last thing in frame should be the winner's face.
+const reelCamera = () => typeof capabilities === "function" &&
+  capabilities().replayOven === true && capabilities().reelHud === true;
 
 function rectPackWidth(rect) {
   const safe = actionSafeRect();
@@ -3032,7 +3036,11 @@ function updateCameraDoll(dt, now) {
   if (roundResult) {
     updateResultReactions(now);
     const age = Math.max(0, (now - roundOverAt) / 1000000);
-    if (deathCinematic && age < 1.45) {
+    // The cinematic hands back to the wide shot at 1.45s so play can resume.
+    // A reel has no play to resume into, and handing back mid-celebration
+    // pulled the camera off the winner's face just as the hearts arrived, so
+    // there the shot is allowed to hold until the recording stops.
+    if (deathCinematic && (age < 1.45 || (reelCamera() && age < 6))) {
       if (age < .11) return;
       const loser = players[deathCinematic.loserPad];
       const winner = players[deathCinematic.winnerPad];
@@ -3070,6 +3078,19 @@ function updateCameraDoll(dt, now) {
       if (age < .86) {
         cameraDoll.track({ target: focus, position: shoulder,
           width: shotWidth, perspective: 0, fov: 55, roll: 0 }, dt, 11);
+        return;
+      }
+      // Reels celebrate instead of returning. The lens narrows onto the
+      // winner's head rather than the camera dollying toward it: the standoff
+      // above is deliberately outside the arena depth, and flying in would put
+      // the floor and the winner's own limbs back through the near plane.
+      if (reelCamera() && winner) {
+        const push = clamp((age - .86) / .5, 0, 1);
+        const headFocus = { x: winnerHead.x, y: winnerHead.y, z: winnerHead.z };
+        cameraDoll.track({ target: headFocus, position: {
+            x: headFocus.x, y: headFocus.y, z: shoulder.z },
+          width: lerp(shotWidth, 430 * portraitPull(), push),
+          perspective: 0, fov: 55, roll: 0 }, dt, 9);
         return;
       }
       const returnAmount = clamp((age - .86) / .59, 0, 1);
@@ -7322,6 +7343,21 @@ function drawFace(player, head, color, t, now = runtime().monotonicUs) {
       mouthY + grin, lineWidth);
     stroke(faceX, mouthY + grin, faceX + width,
       mouthY - grin * .18, lineWidth);
+    // Hearts off a winner, on the laugh notes' trick: a few glyphs on
+    // staggered loops. A reel carries no HUD to announce the win, so the
+    // celebration has to be legible on the face itself.
+    if (victoryAmount > 0) {
+      const age = deathCinematicAge(now);
+      for (let index = 0; index < 3; index++) {
+        const rise = (age * .6 + index * .34) % 1;
+        const drift = Math.sin(age * 2.2 + index * 2.4) * r * .22;
+        systemWrite("♥",
+          faceX + drift + (index - 1) * r * .42,
+          mouthY - r * (.95 + rise * 2.1),
+          Math.max(7, r * (.46 - rise * .17) * victoryAmount),
+          255, 96 + index * 22, 148);
+      }
+    }
   } else if (player.attackKind && meleePulse(player, now) > 0) {
     filledRing(faceX + direction * r * .12, mouthY,
       Math.max(1.8, r * .13), Math.max(.4, r * .05), color);
@@ -9538,7 +9574,9 @@ function gamePaint() {
     const result = resultCardText();
     const winnerSize = compactLayout() ? 46 : 64;
     const winnerWidth = handleWidth(result.winner, winnerSize);
-    const centerY = Math.round(viewHeight / 2) - winnerSize;
+    // Below the middle, not on it: the celebration push puts the winner's head
+    // in the center of the frame, and the name sat straight across their face.
+    const centerY = Math.round(viewHeight * .72);
     // The name is the fighter, so it wears the fighter: the same per-glyph
     // palette the nameplate uses, rather than the neutral title ink. A tie
     // belongs to nobody and keeps the ink.
