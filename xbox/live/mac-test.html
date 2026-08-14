@@ -589,6 +589,12 @@
     const socialPreview = new URLSearchParams(location.search).has("social-preview");
     const replayOven = new URLSearchParams(location.search).has("replay-oven");
     const reelHud = new URLSearchParams(location.search).has("reel-hud");
+    // Bot self-play from a plain address, so a browser with no puppeteer to
+    // whisper globals — a phone, a spare display, the jasellite preview — can
+    // watch the game fight itself. Still never a button: entering it takes a
+    // deliberately typed address, same as the flag takes a harness.
+    if (new URLSearchParams(location.search).has("self-play"))
+      globalThis.__oskiewarSelfPlay = true;
 
     function capabilities() {
       const mac = navigator.userAgent.includes("Mac");

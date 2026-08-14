@@ -53,7 +53,8 @@ export function fileFor(pathname) {
 //             matches in the store should not be diluted by robot sparring.
 //   "proxy" — GET reaches production so a recorded round can be played back.
 //             POST is still swallowed.
-export async function serveShell({ replays = "stub", log = () => {} } = {}) {
+export async function serveShell({ replays = "stub", log = () => {},
+  port = 0, host = "127.0.0.1" } = {}) {
   let posts = 0;
   // Every round the game finishes POSTs its demo here. The factory reads
   // those to know when a *match* is over — `finalRoundWins` reaching the
@@ -133,8 +134,10 @@ export async function serveShell({ replays = "stub", log = () => {} } = {}) {
       response.writeHead(500); response.end(error.message);
     }
   });
-  await new Promise((ready) => server.listen(0, "127.0.0.1", ready));
-  const origin = `http://127.0.0.1:${server.address().port}`;
+  // Local captures take any free loopback port. A standing preview service
+  // (jasellite) needs a fixed port on a reachable interface instead.
+  await new Promise((ready) => server.listen(port, host, ready));
+  const origin = `http://${host === "0.0.0.0" ? "127.0.0.1" : host}:${server.address().port}`;
   log(`🎪 shell on ${origin} · replays ${replays}`);
   return {
     origin,

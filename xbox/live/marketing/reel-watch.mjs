@@ -13,6 +13,9 @@
 // Judge FEEL here; judge FOOTAGE with `reel.mjs`.
 //
 //   node xbox/live/marketing/reel-watch.mjs              # 9:16, reel dress
+//   node xbox/live/marketing/reel-watch.mjs --play       # drive a fighter
+//                          yourself (keyboard) — spit and dismemberment on
+//                          demand instead of waiting for bots to feel like it
 //   node xbox/live/marketing/reel-watch.mjs --hud        # keep the match HUD
 //   node xbox/live/marketing/reel-watch.mjs --landscape  # 16:9 instead
 //   node xbox/live/marketing/reel-watch.mjs --scale .4   # smaller window
@@ -62,9 +65,11 @@ const shell = await serveShell({ replays: "stub", log: () => {} });
 // `replay-oven` is what silences the player-facing furniture; `reel-hud` is
 // what turns the reel's own dress back on. The factory also passes
 // `offline-render`, which hands the clock to a frame-stepper — exactly what a
-// live preview must not do.
+// live preview must not do. `self-play` boots the bots; --play withholds it
+// so the keyboard drives fighter one instead.
 const address = `${shell.origin}/?social-preview&replay-oven` +
-  (flags.hud === true ? "" : "&reel-hud");
+  (flags.hud === true ? "" : "&reel-hud") +
+  (flags.play === true ? "" : "&self-play");
 
 // `--app` opens a window with no tab strip and no address bar, so the frame on
 // screen is the frame being previewed rather than the frame minus Chrome's
@@ -83,9 +88,6 @@ const browser = await puppeteer.launch({
 
 const [page] = await browser.pages();
 page.on("pageerror", (error) => console.log(`⚠ page ${error.message.slice(0, 160)}`));
-// Before a byte of the game runs. Self-play is deliberately unreachable from
-// any button, so this is the only way in.
-await page.evaluateOnNewDocument(() => { globalThis.__oskiewarSelfPlay = true; });
 await page.goto(address, { waitUntil: "domcontentloaded" });
 // The sign-in button belongs to a page someone is using, not to a preview of
 // footage. Nothing else on the page has chrome of its own — the canvas is
