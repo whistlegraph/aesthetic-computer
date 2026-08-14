@@ -39,6 +39,7 @@
     "instagram:aesthetic": "node toolchain/instagram/aesthetic-ig.mjs",
     "oskiewar:oven": "node toolchain/instagram/oskiewar-oven.mjs",
     "xbox:test:oskiewar:blackbox": "node xbox/live/tests/blackbox-rounds.mjs",
+    "xbox:watch:reel": "node xbox/live/marketing/reel-watch.mjs",
     "xbox:burn:oskiewar-social": "node xbox/live/render-social-preview.mjs",
     "xbox:check:oskiewar-social": "node xbox/live/render-social-preview.mjs --check",
     "oskiewar:mac:build": "sh xbox/tools/build-macos-app.sh",
