@@ -10,7 +10,7 @@ Status: `received` → `verified` → `applied` → `live`
 
 | Status | Request |
 |---|---|
-| applied | Alex renamed his AC handle @minanimals → @alexf; update the hand-lettered handle tags in the generated `future/` illustrations (choir-in-the-round, passing-the-marker, workshop-in-the-round) to @ALEXF. Re-edited via illy gpt-image-2; site JPGs updated; Desk copy + brand brief + prompts updated. Not yet deployed to lith. |
+| live | Alex renamed his AC handle @minanimals → @alexf; update the hand-lettered handle tags in the generated `future/` illustrations (choir-in-the-round, passing-the-marker, workshop-in-the-round) to @ALEXF. Re-edited via illy gpt-image-2; site JPGs, Desk copy, brand brief, and prompts updated. Image URLs are versioned so browsers do not retain the old lettering. |
 
 ## Received August 10, 2026
 
