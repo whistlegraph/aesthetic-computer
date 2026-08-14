@@ -42,13 +42,18 @@ mkdirSync(REEL_DIR, { recursive: true });
 // and packs far more movement into 6–7 seconds, so halving the shots doubles
 // the cut rate AND raises the motion density — at identical billed seconds,
 // and reusing the panel we already generated for that section.
-const REEL_SECTIONS = ["drop1a", "drop1b", "breakdown", "buildup2", "drop2a"];
+// The reel tells its OWN story over the track's quiet-to-loud stretch
+// (breakdown → ragga-a, 53.3s): the bunny finds a tangle of dead fairy
+// lights in a dark A-frame, threads them through his own wool, and they do
+// not come on — until the drop, which is where the whole reel turns.
+// Each track section is split into named story beats.
+const REEL_SECTIONS = ["breakdown", "buildup2", "drop2a", "drop2b", "ragga-a"];
 const SPLITS = {
-  drop1a: ["hands", "grid"],
-  drop1b: ["chase", "spin"],
-  breakdown: ["window", "creep"],
-  buildup2: null,                    // already short — one shot
-  drop2a: ["launch", "hammer"],
+  breakdown: ["find", "thread"],   // dark: finds the lights, threads them in
+  buildup2: ["coil"],              // dark: coiled, one bead flickering
+  drop2a: ["ignite", "hammer"],    // THE LIGHTS COME ON
+  drop2b: ["run"],                 // roblox: bolts around, clatters into things
+  "ragga-a": ["skank", "orbit"],
 };
 
 // Slice the reel's struct out of the film's own struct, rebased to zero, so
@@ -71,10 +76,10 @@ const sections = [];
 for (const s of picked) {
   const parts = SPLITS[s.name];
   const a = s.startSec - t0, b = s.endSec - t0;
-  if (!parts) { sections.push({ name: s.name, startSec: a, endSec: b }); continue; }
+  if (parts.length === 1) { sections.push({ name: parts[0], startSec: a, endSec: b }); continue; }
   const mid = a + (b - a) / 2;
-  sections.push({ name: `${s.name}-${parts[0]}`, startSec: a, endSec: mid });
-  sections.push({ name: `${s.name}-${parts[1]}`, startSec: mid, endSec: b });
+  sections.push({ name: parts[0], startSec: a, endSec: mid });
+  sections.push({ name: parts[1], startSec: mid, endSec: b });
 }
 writeFileSync(structPath, JSON.stringify({ totalSec: REEL_END - t0, sections }, null, 2));
 
@@ -102,68 +107,62 @@ LIGHT CONTINUITY — the many differently-coloured LEDs inside his body and insi
 // Portrait re-framings of the same five moments. Vertical wants the camera
 // closer and the action stacked, so these are tighter than the wide cut.
 const SHOTS = {
-  // Each shot is ~6.7s and must be BUSY end to end — see MOTION DENSITY.
-  "drop1a-hands": {
+  find: {
     motion:
-`FIRST-PERSON POV, opening the reel already at full speed. The camera is the bunny's own eyes looking down at the felted laptop. His own two forepaws HAMMER the felted keycaps — fast, percussive, several distinct strikes per second, paws lifting clear and slamming back down, the wool of the keys visibly compressing under each hit and springing back. The rainbow LEDs under the wool of his forearms FLASH brighter on every strike, so his arms strobe with the rhythm. The camera bobs and jitters slightly with each hit — small, human, never smooth. No face, no second bunny.`,
+`THIRD-PERSON GAME CAM in a nearly DARK room. The bunny — completely UNLIT, plain off-white wool, nothing glowing on him anywhere — paws through a tangled heap of DEAD fairy lights on the plank floor, lifting loops of the wire, turning a dull glass bead over, his two long ears perking and swivelling with curiosity. He tugs a length free and it drags across the boards. The camera drifts slowly in behind him. NOTHING in this shot lights up — no glow on him, no glow in the beads, no neon. Quiet, dark, curious.`,
   },
-  "drop1a-grid": {
+  thread: {
     motion:
-`FIRST-PERSON POV, still hammering, now pushed in CLOSE on the glowing note grid itself. The coloured tiles on the felt screen FIRE in fast rhythmic patterns — different tiles lighting and going dark several times a second, columns and rows flickering on the beat like a sequencer running. His paws keep striking in and out of the bottom of frame at speed, and the light thrown back onto them changes colour with every tile that fires. The camera pushes in steadily on the grid across the shot. Relentless, fast, no pauses.`,
+`CLOSE, still dark, still UNLIT. The bunny THREADS the dead light-string through his own wool — pulling a loop across his chest with both front paws, tucking wire into his fibers, working a bead into place, pressing another down into the felt of one long ear, then tugging the slack through. Continuous busy handwork, several distinct actions across the shot. The wire trails off his back across the floor. Not one bead lights. His eyes stay plain dark beads. The camera holds close and tilts slowly to follow his paws.`,
   },
-  "drop1b-chase": {
-    motion:
-`THIRD-PERSON VIDEO-GAME CHASE CAM, like Grand Theft Auto or Roblox — the camera whips around from behind the laptop to find him already up and dancing, then FOLLOWS him at speed. He is mid-shakeout the whole shot: body twisting hard left and right, front paws thrown wide and snapped back, hind paws stamping, his TWO long ears whipping out and cracking back several times per second, LEDs streaking as they swing. The camera swings and catches up with him repeatedly, never settling. No HUD, no crosshair, no overlay.`,
-  },
-  "drop1b-spin": {
-    motion:
-`THIRD-PERSON GAME CAM, now ORBITING him fast — the camera arcs a full half-circle around the bunny across the shot, so the speaker stack, the gable window and the rafter peak all sweep past behind him with strong parallax. He spins with it, turning on the spot, front paws flung out, his TWO long ears flying horizontally with the rotation and blazing rainbow. Loose wool wisps whip off him. Fast, continuous, dizzying — the camera never stops moving and neither does he.`,
-  },
-  "breakdown-window": {
-    motion:
-`HARD CUT to OUTSIDE, through the gable window, and the energy drops to nothing. The camera sits still out in the cold night, the dark mullions fixed across the tall frame. Inside, small and distant, the bunny rocks in slow heavy half-time with one paw on the big speaker cone — the ONLY slow shot in the reel, and it lands as relief. The cone visibly pushes outward against his paw and relaxes on each bass note, his rainbow glow swelling and dimming with it. Held, patient, almost still.`,
-  },
-  "breakdown-creep": {
-    motion:
-`Still outside looking in, but now the camera CREEPS steadily toward the glass across the whole shot, closing the distance so the window fills more and more of the tall frame and the bunny grows from small to clearly readable. Inside he keeps rocking in half-time, but his rainbow LEDs begin to pulse FASTER and brighter as the shot goes on — the wind-up starting while we are still outside. The pulse rate climbs steadily. Tension building through glass.`,
-  },
-  buildup2: {
+  coil: {
     physical: "extreme",
-    contacts: ["front paws → rug", "hind paws → rug", "ears → pinned flat along his spine"],
-    invariants: ["exactly one bunny throughout", "exactly two ears throughout"],
+    contacts: ["front paws → plank floor", "hind paws → floor", "ears → pinned flat along his spine"],
+    invariants: ["exactly one bunny", "exactly two ears", "no light on him until the very last moment"],
     beats: [
-      { at: 0, action: "hard cut inside, tight on the bunny — he is already crouching down fast, chin dropping toward his knees" },
-      { at: .45, action: "his two ears pin flat back along his spine and lock; his whole body gathers and compresses" },
-      { at: .8, action: "the rainbow LEDs inside him surge and strobe toward white, faster and faster; the rug compresses under his hind paws" },
-      { at: 1, action: "he fires upward off both hind paws and clears the rug, ears tearing up off his spine" },
+      { at: 0, action: "tight and dark: the wired but UNLIT bunny drops into a deep crouch, chin toward his knees, front paws flat on the boards" },
+      { at: .4, action: "his two ears pin flat back along his spine and lock; he gathers and stills, still completely dark" },
+      { at: .75, action: "ONE single bead near his chest flickers faintly — a dim ember, the first light in the reel — then another catches" },
+      { at: 1, action: "the flicker races along the wire through his wool and he begins to fire upward off both hind paws" },
     ],
     motion:
-`The wind-up, tight and fast. He crushes down into the rug with his two ears pinned flat, the rainbow light inside him strobing quicker and quicker as he loads — then FIRES upward and clears frame. The camera pushes in hard as he compresses and drops back as he launches. Short, violent, no drift.`,
+`The wind-up in the dark. He crushes down, ears pinned, everything gathered — and a single dead bead on his chest FLICKERS, catches, and the flicker starts to run along the wire through his wool as he launches. The camera pushes in hard on the flicker. Everything else stays black. This shot is the fuse, not the explosion.`,
   },
-  "drop2a-launch": {
+  ignite: {
     physical: "extreme",
-    contacts: ["hind paws → airborne at the apex", "rug → folded and kicked beneath him"],
-    invariants: ["exactly two ears, both present", "one bunny only"],
+    contacts: ["hind paws → airborne at the apex", "rug → kicked beneath him"],
+    invariants: ["exactly two ears", "one bunny only", "once the lights are on they STAY on"],
     beats: [
-      { at: 0, action: "apex of the leap — body arched, all four paws flung out, both ears whipping up behind his head" },
-      { at: .3, action: "he falls fast, paws gathering under him, ears streaming upward" },
-      { at: .55, action: "hind paws slam the rug, it folds, wool bursts off him and the whole neon rig blasts to full" },
-      { at: 1, action: "he rebounds instantly into hard fast dancing — no pause on the landing at all" },
+      { at: 0, action: "he is rising off the floor, dark, with the flicker racing along the wire through his wool" },
+      { at: .15, action: "EVERY LIGHT ON HIM BLASTS ON AT ONCE in full rainbow — chest, belly, both ears, and his two bead eyes lit RGB" },
+      { at: .35, action: "the light bursting out of him floods the room: the coloured speaker cabinets snap into view in their candy colours, the rafters light, and every neon tube fires on with him" },
+      { at: .6, action: "he reaches the apex of the leap, all four paws flung wide, both ears whipping up behind him, blazing" },
+      { at: 1, action: "he lands hard and rebounds instantly into dancing — felted wave-rings and music notes burst out of the speaker cones on the impact" },
     ],
     motion:
-`THE DROP, low and tall so the A-frame peak and the neon rig fill the top of the frame. He lands hard, folds the rug, and rebounds instantly — no settle, no pause. Loose wool bursts off him on the impact and hangs in the coloured air. The camera shakes on the landing and pushes in.`,
+`THE MOMENT THE LIGHTS COME ON — the turn of the whole reel, shot low looking up into the A-frame peak. He goes from a dark wool animal to a blazing rainbow lantern in a single frame, and the room lights WITH him: the colour-coded speaker wall snapping into colour, neon firing along every rafter, felted sound-waves and stitched music notes bursting out of the cones. He lands and rebounds without pausing. The camera shakes on the ignition and pushes in.`,
   },
-  "drop2a-hammer": {
+  hammer: {
     motion:
-`The hardest, fastest dancing in the reel — full-body shakeout at maximum speed. He changes direction several times per second: hips whipping, front paws thrown wide and snapped back, hind paws stamping the rug, his TWO long ears cracking through big arcs and reversing, blazing rainbow, wool wisps flying off him continuously. The neon rig strobes at full blast across the rafters above. The camera pushes in and shakes with the beat, never still for a frame. Ends still going — no wind-down.`,
+`The hardest, fastest dancing in the reel, low and wide, room fully alive. He changes direction several times per second — hips whipping, front paws thrown wide and snapped back, hind paws stamping, his TWO long ears cracking through big arcs and reversing, blazing rainbow, RGB eyes bright. Concentric felted wave-rings keep pumping out of every coloured cone in that cabinet's own colour and stitched music notes tumble through the air around him. Neon strobes across the rafters. Wool wisps fly off him continuously. The camera pushes in and shakes with the beat, never still.`,
+  },
+  run: {
+    motion:
+`THIRD-PERSON GAME CHASE CAM, pure Roblox slapstick — the camera locks right behind the bunny at running height as he BOLTS forward across the plank floor at full tilt, legs pumping, his TWO long ears streaming straight back and blazing rainbow, glowing wire tail whipping after him. He CLATTERS into a stack of coloured speaker cabinets — the top one knocked askew and toppling, a felted amp tumbling, yarn cables kicked into the air, felted music notes and wave-rings knocked loose and spinning — then he ricochets off, turns hard, and charges off in a NEW direction, only to clip another cabinet and stumble. Multiple hard direction changes and at least two collisions in the shot. The camera swings and lurches to keep up. Fast, clumsy, funny.`,
+  },
+  skank: {
+    motion:
+`The dancehall, wide and full of colour. He skanks — leaning forward with his weight low, one shoulder dropped, both front paws swinging across his body in long lazy diagonals, one hind paw kicking back and returning, his TWO long ears swinging in behind-the-beat arcs and glowing rainbow. Every coloured cone pulses outward on the beat and throws a fresh felted wave-ring in its own colour, and stitched music notes drift and spin through the whole room around him. The camera arcs slowly sideways around him with real parallax.`,
+  },
+  orbit: {
+    motion:
+`Maximum dancehall, low and tall, looking up into the A-frame peak with every neon tube blazing. The camera ORBITS him continuously through the whole shot — a full sweeping arc so the speaker tower, the rafter peak and the gable window all travel past behind him with strong parallax. He dances at full power at the centre, turning with the camera, both front paws thrown wide, his TWO long ears whipping through big arcs and blazing rainbow, RGB eyes lit, his body throwing coloured light across the rug. The air is thick with felted music notes and expanding wave-rings in a dozen colours. Never still for a frame.`,
   },
 };
 
 // Reel panels resolve by NAME, like the wide cut, so renumbering is harmless.
 function panelFor(name) {
-  // "drop1a-grid" and "drop1a-hands" both come from the drop1a panel.
-  const base = Object.keys(SPLITS).find((k) => name === k || name.startsWith(`${k}-`)) || name;
-  const suffix = `-${base}.png`;
+  const suffix = `-${name}.png`;
   const hit = readdirSync(OUT)
     .filter((f) => f.startsWith(`${SLUG}-reel-sec-`) && f.endsWith(suffix))
     .sort();

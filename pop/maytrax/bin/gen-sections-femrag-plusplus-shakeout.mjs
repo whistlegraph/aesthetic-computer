@@ -42,12 +42,14 @@ const REPO = resolve(LANE, "..", "..");
 const SLUG = "femrag-plusplus";
 const OUT = `${LANE}/out`;
 const REJECTED = `${OUT}/rejected`;
-// --reel makes the vertical (9:16) cut: the same film, its first five
-// sections, which is exactly the first 60 seconds of the track.
+// --reel makes the vertical (9:16) cut, and it tells its OWN story across
+// the track's quiet-to-loud stretch (breakdown → ragga-a, 53.3s): the bunny
+// finds a tangle of dead fairy lights in a dark A-frame, threads them
+// through his own wool, and they do not come on — until the drop.
 // Its panels are generated against the LANDSCAPE panel of the same beat, so
 // the reel borrows the illys rather than reinventing them.
 const REEL = process.argv.includes("--reel");
-const REEL_BEATS = ["drop1a", "drop1b", "breakdown", "buildup2", "drop2a"];
+const REEL_BEATS = ["find", "thread", "coil", "ignite", "hammer", "run", "skank", "orbit"];
 const SIZE = REEL ? "1024x1536" : "1536x1024";
 const QA_MODEL = "gpt-5.5";
 const QA_ATTEMPTS = 3;
@@ -121,6 +123,12 @@ SOUND MADE VISIBLE — the music is physically COMING OUT of the cones, as hand-
 · NOTES — small felted MUSIC NOTES tumble and fly out of the cones on those waves and drift through the room — simple stitched quarter-notes and eighth-notes with round heads and little stems and flags, each one a different candy colour, some spinning, some caught mid-tumble, scattered through the air around him and lit by the neon.
 These are REAL FELT OBJECTS in the diorama with fuzzy fibrous edges and their own soft shadows — hand-made props hanging in the air, NOT drawn graphics, NOT glowing 2D overlays, NOT digital effects composited on top.`;
 
+
+// The first half of the reel: he is WIRED but DARK. Same body, same
+// circuitry, no power — so the drop has something to switch on.
+const UNLIT_LAW =
+`POWER IS OFF — CRITICAL FOR THIS BEAT. The bunny is NOT glowing. He is plain off-white needle-felted wool, matted and ordinary, lit ONLY by what little light exists in the room. Every LED on him is DEAD: the little bulbs read as small dull grey-and-clear glass beads sitting against his wool, and the fine copper wire is just wire. There is NO light inside him, NO bloom through the fibers, NO coloured patches, NO glow of any kind anywhere on his body. His two bead eyes are plain dark glossy beads — NOT lit, NOT coloured. The red glasses are just red felt. The room is nearly black around him and he is barely picked out of it. This is the "before" — the whole point is that nothing on him is lit yet.`;
+
 // The room: @jeffrey's old Ashland A-frame, felted.
 const WORLD =
 `THE ROOM — a needle-felted miniature of an A-FRAME HOUSE INTERIOR (modeled on the reference photo sheet): steep TRIANGULAR A-frame geometry is the defining shape of every wide shot — massive exposed timber rafters felted in dark walnut wool running up and meeting in a peak overhead, the sloped ceiling planes closing in on both sides, honey-and-amber WOOD PLANK walls and a wood plank FLOOR felted in warm ochre wool with visible board seams, and a big window set into the gable end. a round green wool rug sits on the floor. the SAME room throughout the film — same rafters, same plank floor, same gable window — progressively taken over by the sound system.
@@ -159,6 +167,51 @@ const CAM_WINDOW =
 `CAMERA — OUTSIDE THE HOUSE, LOOKING IN THROUGH THE GABLE WINDOW. The camera is out in the cold blue night, level with the A-frame's gable window, shooting through its felted panes into the lit room beyond. The window frame and mullions cross the shot as dark silhouettes in the foreground, the felted exterior wall boards catch a little spill, and everything inside — the bunny, his colored glow, the neon in the rafters, the speaker tower — reads as a warm saturated pocket of light seen from the dark outside. Small in frame, distant, and completely silent-feeling.`;
 const CAM_TOP =
 `CAMERA — DIRECTLY OVERHEAD, TOP-DOWN. The camera hangs at the peak of the A-frame looking straight DOWN, so the round green rug reads as a perfect circle, the plank floor as parallel lines, the bunny as a small figure seen from above with both ears splayed out to the sides against the boards, and the yarn cables as loops drawn flat on the floor. A true plan view — no horizon, no walls, the floor filling the frame.`;
+
+
+// ── the reel's own eight beats — the "finds the lights" story ────────────
+const REEL_STORY = [
+  {
+    name: "find", faceVisible: true, unlit: true, cam: CAM_GAME,
+    scene:
+`THIRD-PERSON GAME CAM, and the room is almost DARK. The A-frame is barely readable — rafters as black shapes against a deep blue gable window, the coloured speaker cabinets sitting unlit and colourless in shadow, one small dim bulb somewhere off frame. The bunny, completely UNLIT and ordinary off-white wool, is seen from behind and slightly above, crouched over a tangled heap of DEAD fairy lights on the plank floor: a long snarl of fine copper wire strung with dozens of small dull glass LED beads, none of them lit, coiled like a nest. He has just found it — one front paw is lifting a loop of the wire up off the boards to look at it, his two long ears perked forward with curiosity. Nothing glows anywhere in the frame.`,
+  },
+  {
+    name: "thread", faceVisible: true, unlit: true,
+    scene:
+`CLOSE, still dark. The bunny is THREADING the dead light-string through his own wool — the long copper wire wraps around his chest and over one shoulder, looped and tucked into his fibers, its small dull glass beads pressed into the wool at intervals exactly where his LEDs will be, and he is pulling another loop across his belly with both front paws, concentrating, tongue-tip out. Some of the wire is already needle-felted flush into him; the rest still trails off his back across the floor toward the speaker stack. He is still COMPLETELY UNLIT — the beads are grey glass, his eyes are plain dark beads, no glow anywhere. The room stays nearly black behind him.`,
+  },
+  {
+    name: "coil", faceVisible: true, unlit: true,
+    scene:
+`TIGHT CLOSE-UP, dark. The wiring is done — the light-string is threaded all through his wool now, its dead beads sitting in place across his chest and down both long ears — and he has dropped into a deep crouch, chin near his knees, both front paws pressed flat to the plank floor, his two long ears pinned flat back along his spine, coiled and waiting. Still NOT LIT: the beads are dull glass, his eyes plain dark, no glow. But ONE single bead near his chest has just BARELY begun to flicker — a faint dim ember, the only hint of light in the entire frame, about to catch. Everything else is black.`,
+  },
+  {
+    name: "ignite", faceVisible: true, cam: CAM_TOP,
+    scene:
+`THE MOMENT THE LIGHTS COME ON — the biggest frame in the reel, shot from a LOW angle looking up into the A-frame peak. The bunny is airborne at the top of a leap, body arched back, all four paws flung wide, his TWO long ears whipping up behind his head — and EVERY light on him has just BLASTED ON at once. The whole string threaded through his wool is blazing in full rainbow: magenta, cyan, lime, orange, violet and gold LEDs firing through the fibers, each one a hot coloured core in its own glowing patch, his chest and belly a lantern, both ears glowing translucent from the inside, his two bead eyes now lit RGB. The light bursting out of him ILLUMINATES THE WHOLE ROOM for the first time — the coloured speaker cabinets suddenly readable in their candy colours, the rafters lit, the plank floor washed with colour — and every neon tube overhead has fired on with him. Felted sound-wave rings and little stitched music notes burst out of the speaker cones on the impact.`,
+  },
+  {
+    name: "hammer", faceVisible: true,
+    scene:
+`WIDE and LOW, the room now fully alive. The bunny is mid-shakeout at maximum power on the green rug — body twisted, front paws thrown wide, hind paw kicked, his TWO long ears cracking out sideways and blazing rainbow from within, his RGB eyes bright inside the red rims. The colour-coded speaker wall is fully lit behind him, every cabinet a different candy colour, and concentric felted wave-rings are pushing out of the cones in each cabinet's own colour with little stitched music notes tumbling through the air on them. The neon rig blazes across every rafter. Loose wool wisps hang lit in the coloured air. The felted laptop still sits open and glowing on the rug.`,
+  },
+  {
+    name: "run", faceVisible: true, cam: CAM_GAME,
+    scene:
+`THIRD-PERSON GAME CHASE CAM, comedy beat — pure Roblox. The camera is right behind the bunny at running height as he BOLTS forward across the plank floor, legs blurred mid-stride, his TWO long ears streaming straight back behind him and blazing rainbow, glowing wire tail whipping along the floor after him. He is careering around the room at full tilt and has just CLATTERED into a stack of coloured speaker cabinets — the top cabinet knocked askew and tipping, a felted amp tumbling, yarn cables kicked up into the air, a burst of felted music notes and wave-rings knocked loose and spinning everywhere. His face is turned in a small startled expression. The A-frame opens ahead of him with the next obstacles waiting. Slapstick, fast, ridiculous.`,
+  },
+  {
+    name: "skank", faceVisible: true,
+    scene:
+`WIDE, the dancehall in full colour. The A-frame is packed: the colour-coded speaker tower leaning up under the rafters — every cabinet its own candy colour — thick yarn cables looping over the plank floor, amber and forest-green neon along the beams. The bunny skanks in the middle of it: leaning forward with his weight low, one shoulder dropped, both front paws swinging across his body, one hind paw kicked back, his TWO long ears swinging in lazy behind-the-beat arcs and glowing rainbow, RGB eyes bright. Felted wave-rings pulse out of every cone in that cone's colour and stitched music notes drift through the whole room around him, lit by the neon.`,
+  },
+  {
+    name: "orbit", faceVisible: true,
+    scene:
+`LOW and WIDE, looking up into the A-frame peak — the fullest frame of the reel. Every neon tube blazes at once along both sloped ceiling planes, the colour-coded speaker tower rises the whole height of the frame, and the air is THICK with felted music notes and expanding wave-rings in a dozen colours pushing out of the cones. The bunny dances at the centre at full power, body low and turning, both front paws thrown wide, his TWO long ears whipping through big arcs and blazing rainbow, his whole body a lantern throwing coloured light across the rug and boards, RGB eyes lit. Loose wool wisps hang everywhere in the coloured air.`,
+  },
+];
 
 // ── the twelve beats — one per struct section ────────────────────────────
 // Names + order MUST match pop/maytrax/out/femrag-plusplus.struct.json.
@@ -262,8 +315,8 @@ function build(beat) {
     NEEDLE_FELT_WOOL,
     FRAME_NOTE,
     BUNNY,
-    ELECTRIC,
-    SOUND_LAW,
+    beat.unlit ? UNLIT_LAW : ELECTRIC,
+    beat.unlit ? null : SOUND_LAW,
     WORLD,
     LIGHT,
     PALETTE,
@@ -389,7 +442,7 @@ async function generate(beat, i) {
   // The Ashland sheet carries the ROOM (A-frame geometry, plank wood, gable
   // window); the anchor carries the BUNNY. The anchor itself is generated
   // against Ashland alone, since it is what defines the character.
-  const wide = REEL ? landscapeOf(beat.name) : null;
+  const wide = REEL ? (landscapeOf(beat.name) || landscapeOf(beat.unlit ? 'breakdown' : 'drop2a')) : null;
   const refs = [
     existsSync(ASHLAND) ? ASHLAND : null,
     wide,                                            // reel: this exact moment, wide
@@ -422,7 +475,7 @@ async function generate(beat, i) {
 
 // The anchor must exist (and go first) before any ref'd beat runs.
 const todo = REEL
-  ? REEL_BEATS.map((n, i) => ({ b: BEATS.find((x) => x.name === n), i }))
+  ? REEL_BEATS.map((n, i) => ({ b: REEL_STORY.find((x) => x.name === n), i }))
       .filter(({ b }) => b && (!ONLY || ONLY.includes(b.name)))
   : BEATS.map((b, i) => ({ b, i })).filter(({ b }) => !ONLY || ONLY.includes(b.name));
 if (!REEL) {
