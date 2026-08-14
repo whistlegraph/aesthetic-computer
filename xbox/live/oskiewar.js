@@ -3389,7 +3389,7 @@ function spit(player, heavy = false) {
   bullets.push({
     x: mouthX, y: mouthY, z: player.z,
     previousX: mouthX, previousY: mouthY,
-    vx: direction * (heavy ? 1150 : 1500), vy: heavy ? -760 : -560,
+    vx: direction * (heavy ? 620 : 820), vy: heavy ? -820 : -640,
     owner: player.pad, life: 1, spit: true, heavy,
     safeUntil: now + 90000,
   });
@@ -7658,12 +7658,19 @@ function drawRunner(player, t, showLabel = true) {
     if (["CRY", "WOE", "SULK"].includes(player.resultReaction)) {
       const head = player.frozenGeometry?.head;
       if (head) {
+        // In screen proportion to the head, not in pixels: the celebration
+        // camera can fill the frame with this face, and fixed-size tears on a
+        // huge head read as dust. Ratios match the old look at the old
+        // distance (a ~22px head wore 7/34/3px tears).
         const point = projectPoint(head.x, head.y, head.z);
-        const sway = Math.sin(t * 11) * 5;
+        const edge = projectPoint(head.x + head.radius, head.y, head.z);
+        const r = Math.max(4, Math.hypot(edge.x - point.x, edge.y - point.y));
+        const sway = Math.sin(t * 11) * r * .22;
         for (const side of [-1, 1])
-          filledCapsule(point.x + side * 7 + sway, point.y,
-            point.x + side * 7 - sway, point.y + 34 + (t * 31) % 18,
-            3, [112, 208, 255]);
+          filledCapsule(point.x + side * r * .32 + sway, point.y,
+            point.x + side * r * .32 - sway,
+            point.y + r * 1.5 + (t * 31) % (r * .8),
+            Math.max(1.5, r * .14), [112, 208, 255]);
       }
     }
     return;
@@ -8647,6 +8654,18 @@ function drawBullet(bullet) {
   const scale = cameraScale();
   // Project the complete projectile. The old 2px/4px floors made both the
   // trail and blinking core behave like HUD icons once the street zoomed out.
+  //
+  // Spit is dots, not tracers: the streak between frames is the thing that
+  // says "bullet", so a glob doesn't draw one — just a little ball with a
+  // couple of droplets falling off the arc behind it.
+  if (bullet.spit) {
+    const radius = Math.max(.9, (bullet.heavy ? 7 : 5) * scale);
+    filledDisc(point.x, point.y, radius, core);
+    filledDisc(lerp(point.x, previous.x, .5), lerp(point.y, previous.y, .5),
+      radius * .45, trail);
+    filledDisc(previous.x, previous.y, radius * .25, trail);
+    return;
+  }
   filledCapsule(previous.x, previous.y, point.x, point.y,
     Math.max(.6, (bullet.rubber ? 4 : 3) * scale), trail);
   filledDisc(point.x, point.y, Math.max(.9, 7 * scale), core);
