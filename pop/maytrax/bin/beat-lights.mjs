@@ -53,13 +53,27 @@ const FROM = Number(flags.from ?? 0);
 // The pixel-dissolve punch reads as a glitch on a soft felt film, so it is
 // OPT-IN now (--pixel) rather than on by default.
 const PIXEL = flags.pixel === true;
-
 const eventsPath = `${OUT}/${SLUG}.events.json`;
 if (!existsSync(eventsPath)) {
   console.error(`✗ no event feed at ${eventsPath} — run the renderer first`);
   process.exit(1);
 }
 const feed = JSON.parse(readFileSync(eventsPath, "utf8"));
+function feedBpm() { return feed.bpm; }
+
+// --punch: a camera pulse on every beat. The track is a constant 144 BPM,
+// so the pulse is an exact analytic expression rather than a keyframe list —
+// nothing to drift, nothing to detect.
+const BPM = Number(flags.bpm ?? feedBpm() ?? 144);
+const PUNCH = flags.punch === false || flags["no-punch"] === true ? 0 : Number(flags.punch ?? 0.022);
+// A slow global Ken Burns push across the whole cut, under the beat punch —
+// the piece is never quite still.
+const KENBURNS = Number(flags.kenburns ?? 0.06);
+const SHARPEN = flags.sharpen === false ? 0 : Number(flags.sharpen ?? 0.9);
+// pals: the side watermark our other /pop reels carry.
+const PALS = flags["no-pals"] === true ? null
+  : (typeof flags.pals === "string" ? flags.pals
+     : resolve(LANE, "..", "wattajetta/assets/pals-logo.png"));
 const DUR = Number(flags.dur ?? feed.seconds);
 const FRAMES = Math.ceil(DUR * FPS);
 
@@ -253,17 +267,50 @@ const chain = [
   // layer 2 first (multiply) so the picture sits INSIDE the light,
   // then layers 1+3 (screen) on top.
   `[src][v]blend=all_mode=multiply:all_opacity=0.75[base]`,
-  `[base][g]blend=all_mode=screen:all_opacity=${OPACITY}` +
-    (pixExpr ? `[lit];[lit]pixelize=w=24:h=24:enable='${pixExpr}'[out]` : `[out]`),
+  `[base][g]blend=all_mode=screen:all_opacity=${OPACITY}[lit]`,
 ].join(";");
+// tail: optional pixel punch, then the tempo-locked zoom pulse.
+let tail = "[lit]";
+const steps = [];
+if (pixExpr) { steps.push(`${tail}pixelize=w=24:h=24:enable='${pixExpr}'[pix]`); tail = "[pix]"; }
+if (PUNCH > 0) {
+  const bps = (BPM / 60).toFixed(4);
+  // cos^8 gives a short percussive spike per beat rather than a wobble.
+  const z = `1+${PUNCH}*pow(max(0\,cos(2*PI*(on/${FPS})*${bps}))\,8)`;
+  steps.push(`${tail}zoompan=z='${z}':x='iw/2-(iw/zoom)/2':y='ih/2-(ih/zoom)/2':d=1:s=${vw}x${vh}:fps=${FPS}[pun]`);
+  tail = "[pun]";
+  console.log(`  beat punch @ ${BPM} BPM (${PUNCH}) + ken burns ${KENBURNS}`);
+}
+if (SHARPEN > 0) {
+  // The grade softens the felt; bring the fibre detail back at the end so
+  // the sharpening lands on the finished picture, not on the source.
+  steps.push(`${tail}unsharp=5:5:${SHARPEN}:3:3:0.4[shp]`);
+  tail = "[shp]";
+}
+// (fullChain assembled after the pals step below)
 
 const litPath = over.replace(/\.mp4$/, "-lit.mp4");
 console.log(`  grading ${over.split("/").pop()} · ${vw}x${vh} · opacity ${OPACITY} …`);
+// PALS — the side watermark our other /pop reels carry, one per side,
+// mirrored, sitting in the margins so it never covers the action.
+let palsInputs = [];
+if (PALS && existsSync(PALS)) {
+  const size = Math.round(vw * 0.15);
+  const y = `H*0.5-h/2`;
+  const pad = Math.round(vw * 0.012);
+  steps.push(`[3:v]scale=${size}:-1,format=rgba,colorchannelmixer=aa=0.5[pl]`);
+  steps.push(`[pl]split[pl1][pl2raw];[pl2raw]hflip[pl2]`);
+  steps.push(`${tail}[pl1]overlay=x=${pad}:y=${y}[pw1]`);
+  steps.push(`[pw1][pl2]overlay=x=W-w-${pad}:y=${y}[pals]`);
+  tail = "[pals]";
+  palsInputs = ["-i", PALS];
+  console.log(`  pals watermark on both sides`);
+}
 const mix = spawnSync("ffmpeg", [
   "-hide_banner", "-loglevel", "error", "-y",
-  "-i", over, "-i", glowPath, "-i", vignPath,
-  "-filter_complex", chain,
-  "-map", "[out]", "-map", "0:a?",
+  "-i", over, "-i", glowPath, "-i", vignPath, ...palsInputs,
+  "-filter_complex", steps.length ? `${chain};${steps.join(";")}` : chain,
+  "-map", tail, "-map", "0:a?",
   "-c:v", "libx264", "-preset", "medium", "-crf", "18", "-pix_fmt", "yuv420p",
   "-c:a", "copy", "-movflags", "+faststart", litPath,
 ], { stdio: ["ignore", "inherit", "inherit"] });

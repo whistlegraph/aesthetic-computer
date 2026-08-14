@@ -70,16 +70,22 @@ if (picked.length !== REEL_SECTIONS.length) {
   process.exit(1);
 }
 const t0 = picked[0].startSec;
-const REEL_END = picked.at(-1).endSec;
+// The reel ends ON the downbeat that closes the phrase, not before it: the
+// section boundary is the instant of the hit, so we run one beat past it and
+// let the kick ring. No fade in, no fade out — a hard, solid ending.
+const BEAT = 60 / 144;
+const REEL_END = picked.at(-1).endSec + BEAT;
 const structPath = `${REEL_DIR}/${SLUG}-reel.struct.json`;
 const sections = [];
 for (const s of picked) {
   const parts = SPLITS[s.name];
   const a = s.startSec - t0, b = s.endSec - t0;
-  if (parts.length === 1) { sections.push({ name: parts[0], startSec: a, endSec: b }); continue; }
+  const isLastSection = s === picked.at(-1);
+  const end = isLastSection ? b + BEAT : b;      // the ringing downbeat
+  if (parts.length === 1) { sections.push({ name: parts[0], startSec: a, endSec: end }); continue; }
   const mid = a + (b - a) / 2;
   sections.push({ name: parts[0], startSec: a, endSec: mid });
-  sections.push({ name: parts[1], startSec: mid, endSec: b });
+  sections.push({ name: parts[1], startSec: mid, endSec: end });
 }
 writeFileSync(structPath, JSON.stringify({ totalSec: REEL_END - t0, sections }, null, 2));
 
@@ -89,7 +95,6 @@ if (!existsSync(reelAudio)) {
   const cut = spawnSync("ffmpeg", [
     "-hide_banner", "-loglevel", "error", "-y",
     "-ss", String(t0), "-t", String(REEL_END - t0), "-i", `${OUT}/${SLUG}.mp3`,
-    "-af", "afade=t=out:st=" + (REEL_END - t0 - 1.2).toFixed(2) + ":d=1.2",
     "-c:a", "libmp3lame", "-b:a", "320k", reelAudio,
   ], { stdio: ["ignore", "inherit", "inherit"] });
   if (cut.status !== 0) { console.error("✗ audio slice failed"); process.exit(1); }
@@ -179,7 +184,9 @@ await runMotionCli({
   shots: SHOTS,
   mediumMotion: MEDIUM_MOTION,
   ratio: "9:16",
-  xfade: 0.3,        // soft dissolves — hard cuts read as glitches here
+  // Dissolve length is ONE EIGHTH NOTE at 144 BPM (60/144/2), so even the
+  // hand-off between shots lands on the grid.
+  xfade: 60 / 144 / 2,
   audio: reelAudio,
   finalOut: `${OUT}/${SLUG}-shakeout-reel.mp4`,
 }, parseFlags());
