@@ -1,6 +1,6 @@
 {
-  "generated": "2026-08-09T20:18:17.885Z",
-  "count": 69,
+  "generated": "2026-08-14T03:10:59.036Z",
+  "count": 72,
   "tracks": [
     {
       "path": "/Users/jas/aesthetic-computer/pop/wattajetta/out/wattajetta-stone-club.mp3",
@@ -8,14 +8,14 @@
       "artist": "Aesthetic Dot Computer",
       "lane": "wattajetta",
       "backend": "C engine",
-      "status": "SUBMITTED",
+      "status": "RELEASED",
       "updated": "2026-08-09T19:58:01.016Z",
-      "revisions": 8,
+      "revisions": 9,
       "bytes": 3769570,
       "durationSec": 130.7,
       "bpm": 138,
       "key": null,
-      "releaseDate": null,
+      "releaseDate": "2026-08-09",
       "art": null,
       "media": [],
       "links": {
@@ -56,7 +56,7 @@
       "backend": "C engine",
       "status": "WIP",
       "updated": "2026-07-30T02:43:24.307Z",
-      "revisions": 4,
+      "revisions": 5,
       "bytes": 4801965,
       "durationSec": 120,
       "bpm": 140,
@@ -79,7 +79,7 @@
       "backend": "C engine",
       "status": "WIP",
       "updated": "2026-07-30T02:42:23.935Z",
-      "revisions": 4,
+      "revisions": 5,
       "bytes": 2776461,
       "durationSec": 120,
       "bpm": 140,
@@ -95,6 +95,93 @@
       }
     },
     {
+      "path": "/Users/jas/aesthetic-computer/pop/maytrax/out/femrag-plusplus.mp3",
+      "title": "femrag-plusplus",
+      "artist": "Aesthetic Dot Computer",
+      "lane": "maytrax",
+      "backend": "C engine",
+      "status": "UNRELEASED",
+      "updated": "2026-08-13T23:04:24.718Z",
+      "revisions": 21,
+      "bytes": 5869543,
+      "durationSec": 146.7,
+      "bpm": null,
+      "key": null,
+      "releaseDate": null,
+      "art": null,
+      "media": [
+        {
+          "kind": "video",
+          "path": "/Users/jas/aesthetic-computer/pop/maytrax/out/femrag-plusplus-beat-glow.mp4"
+        },
+        {
+          "kind": "video",
+          "path": "/Users/jas/aesthetic-computer/pop/maytrax/out/femrag-plusplus-beat-lights.mp4"
+        },
+        {
+          "kind": "video",
+          "path": "/Users/jas/aesthetic-computer/pop/maytrax/out/femrag-plusplus-beat-vign.mp4"
+        },
+        {
+          "kind": "video",
+          "path": "/Users/jas/aesthetic-computer/pop/maytrax/out/femrag-plusplus-shakeout-reel-final.mp4"
+        },
+        {
+          "kind": "video",
+          "path": "/Users/jas/aesthetic-computer/pop/maytrax/out/femrag-plusplus-shakeout-reel-lit.mp4"
+        },
+        {
+          "kind": "video",
+          "path": "/Users/jas/aesthetic-computer/pop/maytrax/out/femrag-plusplus-shakeout-reel.mp4"
+        },
+        {
+          "kind": "video",
+          "path": "/Users/jas/aesthetic-computer/pop/maytrax/out/femrag-plusplus-shakeout-yt-lit.mp4"
+        },
+        {
+          "kind": "video",
+          "path": "/Users/jas/aesthetic-computer/pop/maytrax/out/femrag-plusplus-shakeout-yt.mp4"
+        }
+      ],
+      "links": null
+    },
+    {
+      "path": "/Users/jas/aesthetic-computer/pop/wattajetta/out/watjetsto720.mp3",
+      "title": "watjetsto720",
+      "artist": "Aesthetic Dot Computer",
+      "lane": "wattajetta",
+      "backend": "C engine",
+      "status": "UNRELEASED",
+      "updated": "2026-08-13T22:05:56.035Z",
+      "revisions": 9,
+      "bytes": 13261936,
+      "durationSec": 720,
+      "bpm": null,
+      "key": null,
+      "releaseDate": null,
+      "art": null,
+      "media": [],
+      "links": null
+    },
+    {
+      "path": "/Users/jas/aesthetic-computer/pop/cutezen/out/cutezen2.mp3",
+      "title": "cutezen2",
+      "artist": "Aesthetic Dot Computer",
+      "lane": "cutezen",
+      "backend": "JS DSP",
+      "status": "UNRELEASED",
+      "updated": "2026-08-13T20:13:41.383Z",
+      "revisions": 2,
+      "bytes": 3320349,
+      "durationSec": 150,
+      "bpm": null,
+      "key": null,
+      "releaseDate": null,
+      "art": null,
+      "media": [],
+      "links": null
+    },
+    {
       "path": "/Users/jas/aesthetic-computer/pop/maytrax/out/femrag.mp3",
       "title": "femrag",
       "artist": "Aesthetic Dot Computer",
@@ -102,14 +189,47 @@
       "backend": "C engine",
       "status": "UNRELEASED",
       "updated": "2026-07-30T05:11:47.814Z",
-      "revisions": 8,
+      "revisions": 21,
       "bytes": 4802021,
       "durationSec": 120,
       "bpm": null,
       "key": null,
       "releaseDate": null,
       "art": null,
-      "media": [],
+      "media": [
+        {
+          "kind": "video",
+          "path": "/Users/jas/aesthetic-computer/pop/maytrax/out/femrag-plusplus-beat-glow.mp4"
+        },
+        {
+          "kind": "video",
+          "path": "/Users/jas/aesthetic-computer/pop/maytrax/out/femrag-plusplus-beat-lights.mp4"
+        },
+        {
+          "kind": "video",
+          "path": "/Users/jas/aesthetic-computer/pop/maytrax/out/femrag-plusplus-beat-vign.mp4"
+        },
+        {
+          "kind": "video",
+          "path": "/Users/jas/aesthetic-computer/pop/maytrax/out/femrag-plusplus-shakeout-reel-final.mp4"
+        },
+        {
+          "kind": "video",
+          "path": "/Users/jas/aesthetic-computer/pop/maytrax/out/femrag-plusplus-shakeout-reel-lit.mp4"
+        },
+        {
+          "kind": "video",
+          "path": "/Users/jas/aesthetic-computer/pop/maytrax/out/femrag-plusplus-shakeout-reel.mp4"
+        },
+        {
+          "kind": "video",
+          "path": "/Users/jas/aesthetic-computer/pop/maytrax/out/femrag-plusplus-shakeout-yt-lit.mp4"
+        },
+        {
+          "kind": "video",
+          "path": "/Users/jas/aesthetic-computer/pop/maytrax/out/femrag-plusplus-shakeout-yt.mp4"
+        }
+      ],
       "links": null
     },
     {
@@ -120,7 +240,7 @@
       "backend": "C engine",
       "status": "UNRELEASED",
       "updated": "2026-07-30T05:11:44.418Z",
-      "revisions": 8,
+      "revisions": 21,
       "bytes": 4802024,
       "durationSec": 120,
       "bpm": null,
@@ -138,7 +258,7 @@
       "backend": "C engine",
       "status": "UNRELEASED",
       "updated": "2026-07-30T05:11:42.098Z",
-      "revisions": 8,
+      "revisions": 21,
       "bytes": 4578344,
       "durationSec": 114.4,
       "bpm": null,
@@ -156,7 +276,7 @@
       "backend": "C engine",
       "status": "UNRELEASED",
       "updated": "2026-07-30T05:11:36.380Z",
-      "revisions": 8,
+      "revisions": 21,
       "bytes": 4876903,
       "durationSec": 121.9,
       "bpm": null,
@@ -174,7 +294,7 @@
       "backend": "C engine",
       "status": "UNRELEASED",
       "updated": "2026-07-30T05:11:29.707Z",
-      "revisions": 8,
+      "revisions": 21,
       "bytes": 5122663,
       "durationSec": 128,
       "bpm": null,
@@ -210,7 +330,7 @@
       "backend": "C engine",
       "status": "UNRELEASED",
       "updated": "2026-07-30T05:11:22.176Z",
-      "revisions": 8,
+      "revisions": 21,
       "bytes": 4935463,
       "durationSec": 123.3,
       "bpm": null,
@@ -246,7 +366,7 @@
       "backend": "C engine",
       "status": "UNRELEASED",
       "updated": "2026-07-30T05:11:14.399Z",
-      "revisions": 8,
+      "revisions": 21,
       "bytes": 4791464,
       "durationSec": 119.7,
       "bpm": null,
@@ -264,7 +384,7 @@
       "backend": "C engine",
       "status": "UNRELEASED",
       "updated": "2026-07-30T05:11:08.122Z",
-      "revisions": 8,
+      "revisions": 21,
       "bytes": 4578344,
       "durationSec": 114.4,
       "bpm": null,
@@ -300,7 +420,7 @@
       "backend": "C engine",
       "status": "UNRELEASED",
       "updated": "2026-07-30T05:11:00.576Z",
-      "revisions": 8,
+      "revisions": 21,
       "bytes": 4894183,
       "durationSec": 122.3,
       "bpm": null,
@@ -318,7 +438,7 @@
       "backend": "C engine",
       "status": "UNRELEASED",
       "updated": "2026-07-30T05:10:51.845Z",
-      "revisions": 8,
+      "revisions": 21,
       "bytes": 4904744,
       "durationSec": 122.6,
       "bpm": null,
@@ -336,7 +456,7 @@
       "backend": "C engine",
       "status": "UNRELEASED",
       "updated": "2026-07-30T05:10:42.961Z",
-      "revisions": 8,
+      "revisions": 21,
       "bytes": 4890343,
       "durationSec": 122.2,
       "bpm": null,
@@ -354,7 +474,7 @@
       "backend": "C engine",
       "status": "UNRELEASED",
       "updated": "2026-07-30T05:10:34.696Z",
-      "revisions": 8,
+      "revisions": 21,
       "bytes": 5042022,
       "durationSec": 126,
       "bpm": null,
@@ -390,7 +510,7 @@
       "backend": "C engine",
       "status": "UNRELEASED",
       "updated": "2026-07-30T05:10:27.065Z",
-      "revisions": 8,
+      "revisions": 21,
       "bytes": 5522023,
       "durationSec": 138,
       "bpm": null,
@@ -408,7 +528,7 @@
       "backend": "C engine",
       "status": "UNRELEASED",
       "updated": "2026-07-30T05:10:19.928Z",
-      "revisions": 8,
+      "revisions": 21,
       "bytes": 5718822,
       "durationSec": 142.9,
       "bpm": null,
@@ -714,7 +834,7 @@
       "backend": "C engine",
       "status": "UNRELEASED",
       "updated": "2026-07-30T03:08:32.260Z",
-      "revisions": 8,
+      "revisions": 9,
       "bytes": 6900691,
       "durationSec": 172.5,
       "bpm": null,
@@ -732,7 +852,7 @@
       "backend": "C engine",
       "status": "UNRELEASED",
       "updated": "2026-07-30T03:02:58.185Z",
-      "revisions": 8,
+      "revisions": 9,
       "bytes": 3341798,
       "durationSec": 168.1,
       "bpm": null,
