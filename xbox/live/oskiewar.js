@@ -8024,23 +8024,47 @@ function drawFightIntro(introSeconds, titleInk, statusShadow) {
 // and the same cure — trim the segment at the plane rather than letting the
 // far end pin itself to the near distance and rake across the screen. Null is
 // a segment wholly behind the camera.
-// Trimmed at the pin rather than the near plane: a line is handed to the host
-// whole, with no band to catch it, so a pole crossing the plane would draw a
-// streak the length of the guard band. Pulling the cut back to the pin costs
-// nothing visible — nothing in the arena passes within eighty units of the
-// lens — and keeps both ends of every line on the map.
+// The band a face gets, for a line. A segment is two points with no polygon
+// to cut, which is why this used to trim at the pin instead: cutting at the
+// near plane and handing the result over whole let a line crossing the plane
+// rake the length of the guard band. Trimming the PROJECTED segment gives the
+// same protection without throwing the line away, so the cut can move back to
+// the plane where it belongs. Liang–Barsky, carrying depth along t so a capsule
+// still knows how far away its ends are.
+function clipSegmentBand(from, to) {
+  const width = viewWidth();
+  const minX = -width * guardBand, maxX = width * (1 + guardBand);
+  const minY = -viewHeight * guardBand, maxY = viewHeight * (1 + guardBand);
+  const dx = to.x - from.x, dy = to.y - from.y;
+  let enter = 0, exit = 1;
+  for (const [edge, room] of [[-dx, from.x - minX], [dx, maxX - from.x],
+      [-dy, from.y - minY], [dy, maxY - from.y]]) {
+    if (edge === 0) { if (room < 0) return null; continue; }
+    const at = room / edge;
+    if (edge < 0) { if (at > exit) return null; if (at > enter) enter = at; }
+    else { if (at < enter) return null; if (at < exit) exit = at; }
+  }
+  const along = (t) => ({ x: from.x + dx * t, y: from.y + dy * t,
+    z: lerp(from.z, to.z, t) });
+  return { from: along(enter), to: along(exit) };
+}
+// Cut at the real near plane, the same one faces get. The pin is ten times
+// further out, and while nothing in normal play passes within eighty units of
+// the lens, the death cinematic drives the camera right down to the ground —
+// so every limb and blade of grass in front of it was being dropped whole,
+// which is what hollowed out the front of the frame on the zoom.
 function worldSegment(x1, y1, z1, x2, y2, z2) {
   let a = cameraDoll.toView({ x: x1, y: y1, z: z1 });
   let b = cameraDoll.toView({ x: x2, y: y2, z: z2 });
-  if (a.z < cameraPin && b.z < cameraPin) return null;
-  if (a.z < cameraPin)
-    a = mixVertex(a, b, (cameraPin - a.z) / (b.z - a.z));
-  else if (b.z < cameraPin)
-    b = mixVertex(b, a, (cameraPin - b.z) / (a.z - b.z));
+  if (a.z < cameraNear && b.z < cameraNear) return null;
+  if (a.z < cameraNear)
+    a = mixVertex(a, b, (cameraNear - a.z) / (b.z - a.z));
+  else if (b.z < cameraNear)
+    b = mixVertex(b, a, (cameraNear - b.z) / (a.z - b.z));
   const from = cameraDoll.projectView(a);
   const to = cameraDoll.projectView(b);
   return [from.x, from.y, from.z, to.x, to.y, to.z].every(Number.isFinite)
-    ? { from, to } : null;
+    ? clipSegmentBand(from, to) : null;
 }
 
 function worldLine(x1, y1, z1, x2, y2, z2, width, color) {
