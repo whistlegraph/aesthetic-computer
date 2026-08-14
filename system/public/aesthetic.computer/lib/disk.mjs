@@ -9373,12 +9373,18 @@ async function load(
     // https://codepen.io/oceangermanique/pen/LqaPgO
 
     if (videoSwitching === false) {
-      const torchOnly =
+      // Torch and zoom adjust constraints on the live track — the stream
+      // never restarts, so frames keep flowing and there is nothing to wait
+      // for. Only facing/size changes swap the stream and need the
+      // frame-hold (`videoSwitching`) treatment; holding for a zoom tweak
+      // froze the camera preview mid-recording because zoom-only updates
+      // never emit `camera:updated` to release the hold.
+      const keys = options ? Object.keys(options) : [];
+      const constraintOnly =
         type === "camera:update" &&
-        options &&
-        Object.keys(options).length === 1 &&
-        typeof options.torch === "boolean";
-      if (type === "camera:update" && !torchOnly) {
+        keys.length > 0 &&
+        keys.every((key) => key === "torch" || key === "zoom");
+      if (type === "camera:update" && !constraintOnly) {
         lastActiveVideo = activeVideo || lastActiveVideo;
         activeVideo = null;
       }
@@ -9388,7 +9394,7 @@ async function load(
         send({ type: "video", content: { type, options } });
       }, 50);
 
-      if (type === "camera:update" && !torchOnly) videoSwitching = true;
+      if (type === "camera:update" && !constraintOnly) videoSwitching = true;
     }
 
     // Return an object that can grab whatever the most recent frame of
