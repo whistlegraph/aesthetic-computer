@@ -465,7 +465,7 @@ function isDark() {
   const h = getLAHour();
   return h >= 20 || h < 7; // dark after 8pm, light after 7am (LA time)
 }
-let dark = isDark(); // auto: dark after 7pm LA time, light before
+let dark = true; // AC Native Notepat is an instrument surface: always dark.
 
 // Background color — average of active notes, lerped
 let bgColor = [0, 0, 0];
@@ -1851,6 +1851,11 @@ const PAD_ZONE_COLORS = {
 // trackpad shape. Fall back to the 1.64:1 Menu Band tuned against.
 const PAD_FALLBACK_ASPECT = 1.64;
 
+// Trackdrum's short, layered voices need extra input gain to match the
+// perceived loudness of a sustained Notepat tone on the laptop speakers. The
+// dedicated transient-bus compressor still catches hard multi-finger peaks.
+const TRACKDRUM_MIX_GAIN = 1.2;
+
 let padContacts = new Map();   // tracking id -> { x, y }
 let padGeneration = -1;        // last surface generation acted on
 let padStrikes = [];           // { x, y, zone, frame } for paint feedback
@@ -1937,7 +1942,7 @@ function padStrikeVelocity(contact, anchorCount, sx, sy, aspect) {
 // set the same way Menu Band does and hands each one to the native synth.
 function playPadStrike(sound, x, y, anchors, velocity, aspect) {
   if (!sound?.synth) return;
-  const v = padClamp(velocity / 100, 0.1, 2.2);
+  const v = padClamp((velocity / 100) * TRACKDRUM_MIX_GAIN, 0.12, 1.45);
   const { hw, hh } = padHalfExtent(aspect);
   const sx = (x - 0.5) * 2;
   const sy = (y - 0.5) * 2;
@@ -2408,7 +2413,9 @@ function setGmProgram(program, sound, system) {
   console.log(`[gm] select program ${String(program + 1).padStart(3, "0")} ${name}`);
   flashGmNotice(`${program + 1}. ${name}`);
   const recipe = gmRecipe(program);
-  sound?.synth?.({ type: recipe.wave === "sample" ? "sine" : recipe.wave, tone: 523.25, duration: 0.12, volume: 0.18, attack: recipe.attack, decay: 0.1 });
+  // Selection stays visual; spoken instrument announcements were much louder
+  // than the performance mix on the laptop speakers.
+  sound?.synth?.({ type: recipe.wave === "sample" ? "sine" : recipe.wave, tone: 523.25, duration: 0.12, volume: 0.10, attack: recipe.attack, decay: 0.1 });
   // Program Change relay. usbMidi.programChange is optional (no-op until the
   // native binding adds it); UDP carries it as a generic event so the Max
   // device can switch patches.
@@ -2678,6 +2685,23 @@ function noteColor(n) { return NOTE_COLORS[n] || [80, 80, 80]; }
 
 // Hit-test a touch point against the note grid
 function hitTestGrid(x, y, gi) {
+  // The AC-OS performance view uses Menu Band's two-octave piano geometry.
+  // Prefer the exact rendered rectangles so black keys win where they overlap
+  // white keys; retain the legacy grid math below for compact layouts.
+  if (gi?.noteRects?.length) {
+    for (let i = gi.noteRects.length - 1; i >= 0; i--) {
+      const hit = gi.noteRects[i];
+      if (x >= hit.x && x < hit.x + hit.w && y >= hit.y && y < hit.y + hit.h) {
+        return {
+          key: hit.key,
+          letter: hit.letter,
+          octave: hit.octave,
+          gridOffset: hit.gridOffset,
+        };
+      }
+    }
+    return null;
+  }
   const grids = [
     { grid: LEFT_GRID, startX: gi.leftX, sideOffset: leftOctaveOffset },
     { grid: RIGHT_GRID, startX: gi.rightX, sideOffset: rightOctaveOffset },
@@ -2748,9 +2772,7 @@ function setWave(nextWave, sound, { silent = false } = {}) {
   wave = nextWave;
   waveIndex = wavetypes.indexOf(nextWave);
   if (waveIndex < 0) waveIndex = 0;
-  // Announce wave type (skipped when silent — e.g. Home jumps in and records
-  // immediately, so a spoken "sample" or blip would land in the take).
-  if (!silent) sound?.speak?.(nextWave);
+  // Wave selection stays visual; a spoken name overpowered the instrument.
 
   if (wave === "sample") {
     const mic = sound?.microphone || {};
@@ -3158,7 +3180,6 @@ function act({ event: e, sound, wifi, system }) {
       const pan = side === "left" ? -0.4 : 0.4;
       const feedbackPan = side === "left" ? -0.6 : 0.6;
       const next = cycleKit(side);
-      const label = `${side} ${next === "off" ? "notes" : next}`;
       const banner = {
         off:    side === "left" ? `${arrow} notes`  : `notes ${arrow}`,
         perc:   side === "left" ? `${arrow} DRUMS`  : `DRUMS ${arrow}`,
@@ -3168,7 +3189,6 @@ function act({ event: e, sound, wifi, system }) {
         lasers: side === "left" ? `${arrow} LASERS` : `LASERS ${arrow}`,
       }[next];
       flashPercussionNotice(banner);
-      sound?.speak?.(label);
       // Two-tone UI feedback — rising when enabling, falling when off.
       const isOn = next !== "off";
       sound?.synth?.({ type: "triangle", tone: isOn ? 440 : 660, duration: 0.08, volume: 0.18, attack: 0.002, decay: 0.07, pan: feedbackPan });
@@ -7245,26 +7265,29 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   // === NOTEPAT SCREEN: pads, waveform, echo slider ===
   if (activeScreen === "notepat") {
 
-  // === SPLIT GRID: 4x3 left (bottom-left) + 4x3 right (bottom-right) ===
-  const gap = 0;  // marginless — buttons touch for rollover clicking
+  // === PERFORMANCE DECK (below the effects + instrument-picker fold) ===
+  // Menu Band keyboard, waveform, and Trackdrum each own a stable horizontal
+  // region. The controls above finish at y=148; the instrument name occupies
+  // the next line, so performance begins at y=168 on the 1366x768 panel.
+  const gap = 0;
   const cols = 4, rows = 3;
-  // Reserve ~8px on each edge for the per-side master volume sliders that
-  // sit to the left of the left grid and right of the right grid.
   const masterSliderW = 7;
-  const margin = masterSliderW + 2;
-
-  // Small buttons: ~30% of screen height, anchored to bottom corners
-  const maxGridH = Math.floor(h * 0.30);
-  const btnH = Math.floor(maxGridH / rows);
-  const maxBtnW = Math.floor((w / 2 - margin * 2) / cols);
-  const btnW = Math.min(maxBtnW, btnH * 2);
-
-  const gridW = cols * btnW;
-  const gridH = rows * btnH;
-  const gridTop = h - gridH - margin - 8; // anchor near bottom, leave room for echo bar
-
+  const margin = masterSliderW + 4;
+  const foldBottom = topBarH + 12 * 7 + 14 + 16 + 16;
+  const gridTop = Math.min(h - 120, foldBottom + 4);
+  const performanceH = Math.max(120, h - gridTop - 4);
+  // AC-OS paints at 683x384 and presents at 2x on the 1366x768 panel. Keep
+  // these proportions in logical pixels: a slim Menu Band rail, a readable
+  // waveform, then give the largest remaining share to Trackdrum.
+  const gridH = Math.max(52, Math.min(92, Math.floor(performanceH * 0.27)));
+  const keyboardW = w - margin * 2;
+  const gridW = Math.floor(keyboardW / 2);
   const leftX = margin;
-  const rightX = w - gridW - margin;
+  const rightX = leftX + gridW;
+  // Legacy dimensions remain available to inspectors and side sliders; note
+  // hit-testing uses the piano rectangles exposed below.
+  const btnW = Math.floor(gridW / cols);
+  const btnH = Math.floor(gridH / rows);
 
   // Scrolling record-needle strip with continuous-drift playback cursor.
   //
@@ -7280,9 +7303,9 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   // waveViewOffsetSec is advanced/retreated in sim() below based on
   // spaceHeld. The C drawStrip reads the offset and renders accordingly
   // in a single call (no JS peak loop).
-  const recordStripH = 22;
+  const recordStripH = Math.max(24, Math.min(48, Math.floor(performanceH * 0.14)));
   const recordStripSeconds = 4;
-  const recordStripTop = Math.max(topBarH + 1, gridTop - recordStripH - 2);
+  const recordStripTop = gridTop + gridH + 12;
   if (sound?.speaker?.drawStrip) {
     const rsX = margin;
     const rsW = w - margin * 2;
@@ -7311,13 +7334,12 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     }
   }
 
-  // Waveform visualizer bars only in lanes above pad grids (not full-screen).
-  // Shortened so the record-needle strip fits above the pads without
-  // clipping the existing per-lane visualizer.
+  // Live waveform energy shares the waveform component with the history
+  // strip, rather than becoming a fourth region behind the controls.
   const wf = sound?.speaker?.waveforms?.left;
   if (wf && activeCount > 0) {
-    const wfTop = topBarH + 1;
-    const wfBottom = Math.max(wfTop + 6, recordStripTop - 2);
+    const wfTop = recordStripTop + 2;
+    const wfBottom = recordStripTop + recordStripH - 2;
     const wfH = wfBottom - wfTop;
     if (wfH > 2) {
       const wfBottomY = wfTop + wfH;
@@ -7355,24 +7377,9 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     }
   }
 
-  // === BANDMATE CHARACTER (per-wave-type) ===
-  // Each instrument tab gets its own pixel-art bandmate drawn in the
-  // empty center between the left + right grids. Each one has expression
-  // frames keyed to note activity, eyes that track the cursor (so they
-  // address the user), and a mouth/instrument origin for the floating
-  // music-note particles. See CHARACTER_SPRITES near the top of the file
-  // for the per-character sprite tables and palettes.
-  const betweenX0 = leftX + gridW;
-  const betweenX1 = rightX;
-  // When a GM program is active its family character stands in for the AC
-  // wavetype bandmate, so the center figure matches the sounding voice.
-  const bandmateKey = gmProgram !== null ? gmFamilyKey(gmProgram) : wave;
-  const bandmateOrigin = drawBandmate(bandmateKey, ink, box, {
-    dark, frame, activeCount, lastKeyFrame, hoverX, hoverY,
-    centerX: (betweenX0 + betweenX1) / 2,
-    topY: topBarH,
-    bottomY: recordStripTop,
-  });
+  // The lower deck deliberately contains only the three instrument surfaces.
+  // Character art remains available in the global voice chooser overlay.
+  const bandmateOrigin = null;
 
   // === MUSIC-NOTE PARTICLES ===
   // Scan trail[] for freshly-pressed notes (brightness > 0.95). For each
@@ -7406,8 +7413,14 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   updateMusicNotes();
   drawMusicNotes(ink, box);
 
-  // Expose grid layout for touch hit-testing in act()
-  globalThis.__gridInfo = { leftX, rightX, gridTop, btnW, btnH, gap };
+  const trackdrumTop = recordStripTop + recordStripH + 6;
+  const trackdrumH = Math.max(24, h - trackdrumTop - 4);
+  const trackdrumW = Math.min(w - margin * 2, Math.floor(trackdrumH * PAD_FALLBACK_ASPECT));
+  globalThis.__trackdrumLayout = {
+    x: Math.floor((w - trackdrumW) / 2), y: trackdrumTop,
+    w: trackdrumW, h: trackdrumH,
+  };
+  paintPadDrum({ ink, box, write, screen, trackpad });
 
   // Chord-tone HUD highlight: gather every MIDI note that's currently
   // SOUNDING as part of a held chord, so drawGrid can light up the whole
@@ -7593,8 +7606,112 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     }
   }
 
-  drawGrid(LEFT_GRID, leftX, leftOctaveOffset, "left");
-  drawGrid(RIGHT_GRID, rightX, rightOctaveOffset, "right");
+  // Menu Band's keyboard grammar: fourteen broad natural keys with the ten
+  // accidentals floating over their seams. It is still the same QWERTY note
+  // map and the same two independently switchable sides underneath.
+  const noteRects = [];
+  const whiteNames = ["c", "d", "e", "f", "g", "a", "b"];
+  const blackNames = ["c#", "d#", "f#", "g#", "a#"];
+  const blackAt = { "c#": 1, "d#": 2, "f#": 4, "g#": 5, "a#": 6 };
+  const whiteW = keyboardW / 14;
+  const blackW = Math.max(18, Math.floor(whiteW * 0.58));
+  const blackH = Math.floor(gridH * 0.60);
+
+  const pianoMeta = (letter, side) => {
+    const right = side === "right";
+    const noteName = right ? "+" + letter : letter;
+    const key = NOTE_TO_KEY[noteName];
+    const gridOffset = right ? 1 : 0;
+    const noteOctave = octave + (right ? rightOctaveOffset : leftOctaveOffset);
+    const kit = right ? kitRight : kitLeft;
+    const kitNames = kitNamesFor(kit);
+    const kitLabels = kitLabelsFor(kit);
+    const kitColors = kitColorsFor(kit);
+    return {
+      side, letter, key, gridOffset, noteOctave, kit,
+      kitNames, kitLabels, kitColors,
+      isKit: kit !== "off",
+    };
+  };
+
+  const drawPianoKey = (meta, rect, sharp) => {
+    const { letter, key, gridOffset, noteOctave, kitNames, kitLabels, kitColors, isKit } = meta;
+    const directActive = key && sounds[key] !== undefined;
+    const padMidi = isKit ? -1 : noteToMidiNumber(letter, noteOctave);
+    const chordTone = !directActive && padMidi >= 0 && chordToneMidi.has(padMidi);
+    const active = directActive || chordTone;
+    const trailInfo = key && trail[key];
+    const nc = isKit && kitNames?.[letter]
+      ? (kitColors?.[letter] || noteColor(letter))
+      : noteColor(letter);
+
+    if (active) {
+      const scale = chordTone && !chordRootMidi.has(padMidi) ? 0.68 : 1;
+      ink(Math.floor(nc[0] * scale), Math.floor(nc[1] * scale), Math.floor(nc[2] * scale));
+    } else if (trailInfo?.brightness > 0.05) {
+      const glow = Math.min(1, trailInfo.brightness) * 0.55;
+      ink(Math.floor(28 + nc[0] * glow), Math.floor(30 + nc[1] * glow), Math.floor(38 + nc[2] * glow));
+    } else if (sharp) {
+      ink(18, 48, 78);
+    } else {
+      ink(84, 98, 110);
+    }
+    box(rect.x, rect.y, rect.w, rect.h, true);
+
+    // Hardware-like key edge and Menu Band's note-colour footlight.
+    ink(sharp ? 54 : 34, sharp ? 102 : 48, sharp ? 145 : 58, 230);
+    box(rect.x, rect.y, rect.w, rect.h, "outline");
+    ink(nc[0], nc[1], nc[2], active ? 255 : 205);
+    box(rect.x + 1, rect.y + rect.h - (sharp ? 3 : 4), Math.max(1, rect.w - 2), sharp ? 2 : 3, true);
+
+    if (active) ink(255, 255, 255);
+    else ink(sharp ? 220 : 24, sharp ? 232 : 28, sharp ? 245 : 34);
+    const keyLabel = key ? (sharp || !shiftHeld ? key.toLowerCase() : key.toUpperCase()) : "";
+    const keyLabelW = keyLabel.length * 6;
+    write(keyLabel, {
+      x: rect.x + Math.floor((rect.w - keyLabelW) / 2),
+      y: rect.y + Math.floor((rect.h - 10) / 2),
+      size: 1, font: "matrix",
+    });
+
+    // The keyboard already communicates pitch spatially. Only kit mode needs
+    // a second label because its keys name distinct percussion instruments.
+    if (isKit && kitNames?.[letter]) {
+      const name = kitNames[letter] || kitLabels?.[letter] || "";
+      write(String(name).slice(0, Math.max(2, Math.floor((rect.w - 8) / 6))), {
+        x: rect.x + 4, y: rect.y + 5, size: 1, font: "font_1",
+      });
+    }
+
+    if (active && pressures?.[key] !== undefined) {
+      const pressureH = Math.floor(Math.max(0, Math.min(1, pressures[key])) * (rect.h - 2));
+      if (pressureH > 0) {
+        ink(255, 255, 255, 70);
+        box(rect.x + 1, rect.y + rect.h - pressureH - 1, Math.max(1, rect.w - 2), pressureH, true);
+      }
+    }
+    noteRects.push({ ...rect, key, letter, octave: noteOctave, gridOffset, sharp });
+  };
+
+  // Naturals first, then accidentals so both paint and hit order match a piano.
+  for (const side of ["left", "right"]) {
+    const octaveX = leftX + (side === "right" ? whiteW * 7 : 0);
+    for (let i = 0; i < whiteNames.length; i++) {
+      const x0 = Math.round(octaveX + i * whiteW);
+      const x1 = Math.round(octaveX + (i + 1) * whiteW);
+      drawPianoKey(pianoMeta(whiteNames[i], side), { x: x0, y: gridTop, w: x1 - x0, h: gridH }, false);
+    }
+  }
+  for (const side of ["left", "right"]) {
+    const octaveX = leftX + (side === "right" ? whiteW * 7 : 0);
+    for (const letter of blackNames) {
+      drawPianoKey(pianoMeta(letter, side), {
+        x: Math.round(octaveX + blackAt[letter] * whiteW - blackW / 2),
+        y: gridTop, w: blackW, h: blackH,
+      }, true);
+    }
+  }
+  globalThis.__gridInfo = { noteRects, leftX, rightX, gridTop, btnW, btnH, gap };
 
   // Auxiliary-key legend — tiny pads showing the side-keys that aren't
   // in the main 4×3 grid but are still bound to notes:
@@ -9012,36 +9129,38 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     box(W - 2, 0, 2, H, true);    // right
   }
 
-  paintPadDrum({ ink, box, write, screen, trackpad });
 }
 
-// A small map of the drum head in the corner: the five zone rings, every
-// finger currently resting, and a fading mark where each strike landed. The
-// pad is invisible while you play it, so this is the only way to learn where
-// the snare band ends and the hat begins without listening for it.
+// The third performance component: a full-size map of the physical Trackdrum.
+// It preserves the pad's measured aspect and mirrors its five nested materials,
+// live contacts, and fading strikes.
 function paintPadDrum({ ink, box, write, screen, trackpad }) {
-  if (!trackpad?.grabbed) return;
-  const aspect = trackpad.aspect || PAD_FALLBACK_ASPECT;
-  const w = Math.min(84, Math.floor(screen.width * 0.22));
-  const h = Math.max(10, Math.round(w / aspect));
-  const x0 = screen.width - w - 6;
-  const y0 = screen.height - h - 6;
+  const measuredAspect = trackpad?.aspect || 0;
+  const aspect = measuredAspect > 1.05 ? measuredAspect : PAD_FALLBACK_ASPECT;
+  const layout = globalThis.__trackdrumLayout;
+  const availableW = layout?.w || Math.floor(screen.width * 0.55);
+  const availableH = layout?.h || Math.floor(availableW / aspect);
+  const w = Math.max(40, Math.min(availableW, Math.floor(availableH * aspect)));
+  const h = Math.max(24, Math.min(availableH, Math.round(w / aspect)));
+  const x0 = layout ? layout.x + Math.floor((layout.w - w) / 2) : Math.floor((screen.width - w) / 2);
+  const y0 = layout ? layout.y + Math.floor((layout.h - h) / 2) : screen.height - h - 8;
 
-  // Pad body, and a band edge at each zone boundary so the rings read.
-  ink(20, 22, 30, 170);
-  box(x0, y0, w, h, true);
-  for (const [radius, color] of [
-    [0.30, PAD_ZONE_COLORS.kick],
-    [0.46, PAD_ZONE_COLORS.tom],
-    [0.64, PAD_ZONE_COLORS.snare],
-    [0.88, PAD_ZONE_COLORS.hat],
+  // Fill outside-in so the display reads like the Menu Band Trackdrum rather
+  // than a diagnostic contour map.
+  for (const [radius, zone] of [
+    [1.00, "click"],
+    [0.88, "hat"],
+    [0.64, "snare"],
+    [0.46, "tom"],
+    [0.30, "kick"],
   ]) {
-    // Contours are parallel to the perimeter, so an inset rectangle is a
-    // faithful enough sketch of each boundary at this size.
+    const color = PAD_ZONE_COLORS[zone];
     const ix = Math.round((w / 2) * (1 - radius));
     const iy = Math.round((h / 2) * (1 - radius));
-    ink(color[0], color[1], color[2], 70);
-    box(x0 + ix, y0 + iy, w - ix * 2, h - iy * 2, "outline");
+    ink(Math.floor(color[0] * 0.58), Math.floor(color[1] * 0.58), Math.floor(color[2] * 0.58), 245);
+    box(x0 + ix, y0 + iy, Math.max(1, w - ix * 2), Math.max(1, h - iy * 2), true);
+    ink(color[0], color[1], color[2], 210);
+    box(x0 + ix, y0 + iy, Math.max(1, w - ix * 2), Math.max(1, h - iy * 2), "outline");
   }
 
   // Fading strike marks, oldest dimmest.
@@ -9054,23 +9173,45 @@ function paintPadDrum({ ink, box, write, screen, trackpad }) {
     const px = x0 + Math.round(s.x * (w - 1));
     const py = y0 + Math.round(s.y * (h - 1));
     ink(c[0], c[1], c[2], alpha);
-    box(px - 1, py - 1, 3, 3, true);
+    const mark = Math.max(4, Math.floor(h * 0.035));
+    box(px - Math.floor(mark / 2), py - Math.floor(mark / 2), mark, mark, true);
   }
 
   // Live contacts on top, so a resting hand is visible as it damps.
-  const contacts = trackpad.contacts || [];
-  ink(255, 255, 255, 220);
+  const contacts = trackpad?.contacts || [];
+  ink(255, 255, 255, 235);
   for (let i = 0; i < contacts.length; i++) {
     const px = x0 + Math.round(contacts[i].x * (w - 1));
     const py = y0 + Math.round(contacts[i].y * (h - 1));
-    box(px, py, 2, 2, true);
+    const contact = Math.max(5, Math.floor(h * 0.045));
+    box(px - Math.floor(contact / 2), py - Math.floor(contact / 2), contact, contact, "outline");
   }
 
-  // Name the zone the last strike hit — the fastest way to connect a sound
-  // to a place on the pad.
-  if (padLastZone) {
-    ink(200, 205, 220, 150);
-    write(padLastZone, { x: x0, y: y0 - 8, size: 1, font: "font_1" });
+  // Zone names stay outside the playable surface. Alternating sides gives
+  // each concentric material a clear label without stacking text over hits.
+  const zoneLabels = [
+    { zone: "click", side: -1, y: y0 + 2 },
+    { zone: "hat", side: 1, y: y0 + Math.round(h * 0.14) },
+    { zone: "snare", side: -1, y: y0 + Math.round(h * 0.31) },
+    { zone: "tom", side: 1, y: y0 + Math.round(h * 0.48) },
+    { zone: "kick", side: -1, y: y0 + Math.round(h * 0.65) },
+  ];
+  for (const label of zoneLabels) {
+    let newestAge = Infinity;
+    for (let i = padStrikes.length - 1; i >= 0; i--) {
+      if (padStrikes[i].zone !== label.zone) continue;
+      newestAge = frame - padStrikes[i].frame;
+      break;
+    }
+    if (newestAge > 24) continue;
+    const c = PAD_ZONE_COLORS[label.zone];
+    const alpha = Math.max(0, 255 - newestAge * 9);
+    const textW = label.zone.length * 6;
+    const textX = label.side < 0 ? x0 - textW - 8 : x0 + w + 8;
+    const leaderX = label.side < 0 ? x0 - 6 : x0 + w + 1;
+    ink(c[0], c[1], c[2], alpha);
+    box(leaderX, label.y + 4, 5, 1, true);
+    write(label.zone, { x: textX, y: label.y, size: 1, font: "matrix" });
   }
 }
 
@@ -9111,12 +9252,11 @@ function sim({ pressures, sound, trackpad }) {
     waveViewOffsetSec = 0;
     waveDriftSpeed = 1.0;
   }
-  // Update dark/light mode via global theme (every ~5 seconds)
-  if (frame % 300 === 0) {
-    const wasDark = dark;
-    __theme.update();
-    dark = __theme.dark;
-    if (dark !== wasDark) bgTarget = dark ? [20, 20, 25] : [240, 238, 232];
+  // AC Native Notepat stays dark: this is a stage instrument, not the web
+  // page's time-of-day theme.
+  if (!dark) {
+    dark = true;
+    bgTarget = [20, 20, 25];
   }
 
   // === DJ DECK MAINTENANCE ===
