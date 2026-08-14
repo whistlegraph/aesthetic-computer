@@ -66,6 +66,11 @@ const shell = await serveShell({ replays: "stub", log: () => {} });
 const address = `${shell.origin}/?social-preview&replay-oven` +
   (flags.hud === true ? "" : "&reel-hud");
 
+// `--app` opens a window with no tab strip and no address bar, so the frame on
+// screen is the frame being previewed rather than the frame minus Chrome's
+// furniture. It has to start on about:blank: an app window loads its URL
+// immediately at launch, which would be before the self-play flag below could
+// be installed.
 const browser = await puppeteer.launch({
   headless: false, executablePath: chrome, defaultViewport: null,
   args: ["--no-sandbox", "--autoplay-policy=no-user-gesture-required",
@@ -73,7 +78,7 @@ const browser = await puppeteer.launch({
     "--disable-background-timer-throttling", "--disable-backgrounding-occluded-windows",
     "--disable-renderer-backgrounding",
     "--disable-features=CalculateNativeWinOcclusion",
-    `--window-size=${width},${height}`],
+    "--app=about:blank", `--window-size=${width},${height}`],
 });
 
 const [page] = await browser.pages();
@@ -81,8 +86,11 @@ page.on("pageerror", (error) => console.log(`⚠ page ${error.message.slice(0, 1
 // Before a byte of the game runs. Self-play is deliberately unreachable from
 // any button, so this is the only way in.
 await page.evaluateOnNewDocument(() => { globalThis.__oskiewarSelfPlay = true; });
-await page.setViewport({ width, height, deviceScaleFactor: 1 });
 await page.goto(address, { waitUntil: "domcontentloaded" });
+// The sign-in button belongs to a page someone is using, not to a preview of
+// footage. Nothing else on the page has chrome of its own — the canvas is
+// already pinned to the viewport.
+await page.addStyleTag({ content: "#logout { display: none !important; }" });
 
 console.log(`▸ reel watch · ${width}×${height} (${fullWidth}×${fullHeight} at ${scale})`);
 console.log(`  ${address}`);

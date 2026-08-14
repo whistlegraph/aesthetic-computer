@@ -811,6 +811,9 @@ let resultCardStung = false;
 const resultReactionPrevious = [[], []];
 let roundOverAt = 0;
 let roundResult = "";
+// How long a reel holds the opening matchup card. Long enough to read two
+// names on a phone, short enough that the fight plays under a clean frame.
+const REEL_MATCHUP_SECONDS = 2.6;
 let matchOver = false;
 let roundCause = "";
 let deathCinematic = null;
@@ -7830,6 +7833,30 @@ function drawPlayerHandle(player, t, side) {
   }
 }
 
+// One name at reel scale: the fighter's own per-glyph palette, every letter on
+// its own phase, shadow pass under color pass. Shared by the opening matchup
+// and the winner's card, so the only two frames of a reel that carry type
+// carry it identically. Advance is keyed to the flat size, so the swell never
+// walks the letters apart.
+function drawReelName(text, y, size, player, t) {
+  const total = handleWidth(text, size);
+  const pass = (dx, dy, colors, fallback) => {
+    let cursor = viewCenterX() - total / 2 + dx;
+    for (let index = 0; index < text.length; index++) {
+      const character = text[index];
+      const swell = size * (1 + .07 * Math.sin(t * 6 + index * .9));
+      const bob = Math.sin(t * 5.2 + index * .8) * size * .09;
+      typeWrite(character, cursor - (swell - size) * .5,
+        y + dy + bob - (swell - size) * .5, swell,
+        ...glyphColor(colors, index, fallback));
+      cursor += comicGlyphAdvance(character, size);
+    }
+  };
+  const plain = player?.color || [245, 248, 255];
+  pass(4, 5, player?.handleColors?.map(runShadow), runShadow(plain));
+  pass(0, 0, player?.handleColors, plain);
+}
+
 function playerStatLines(player) {
   const pad = inputPads[player.pad] ||
     { connected: false, down: [], leftX: 0, leftY: 0 };
@@ -9567,35 +9594,32 @@ function gamePaint() {
   // self-play and marketing reels have no learner to serve.
   if (!replayOven && !selfPlay) drawControlLegend(titleInk);
   const resultUiReady = cinematicAge < 0 || cinematicAge >= 1.1;
+  // A reel opens on the matchup. Both names, both palettes, stacked up top
+  // where the fighters are not — a stranger scrolling past should know who is
+  // who before the first hit lands. It clears out early so the round itself
+  // still plays under nothing at all.
+  if (reelMinimal && shellMode === "GAME" && !roundResult &&
+      introAge / 1000000 < REEL_MATCHUP_SECONDS) {
+    const nameSize = compactLayout() ? 40 : 54;
+    const top = Math.round(viewHeight * .14);
+    for (let side = 0; side < players.length; side++) {
+      drawReelName(String(players[side].name).toLowerCase(),
+        top + side * Math.round(nameSize * 1.5), nameSize, players[side], t);
+    }
+  }
   if (reelMinimal && roundResult && resultUiReady) {
     // One fact, in the middle of the frame: who won. The recording stops on
     // the result card, so anything queued behind the name would never survive
     // the trim — and a name alone is the whole story a reel owes a stranger.
     const result = resultCardText();
     const winnerSize = compactLayout() ? 46 : 64;
-    const winnerWidth = handleWidth(result.winner, winnerSize);
-    // Below the middle, not on it: the celebration push puts the winner's head
-    // in the center of the frame, and the name sat straight across their face.
-    const centerY = Math.round(viewHeight * .72);
-    // The name is the fighter, so it wears the fighter: the same per-glyph
-    // palette the nameplate uses, rather than the neutral title ink. A tie
-    // belongs to nobody and keeps the ink.
+    // Up top, where the fight is not. The celebration push puts the winner's
+    // head in the middle of the frame, so a name anywhere near center lands on
+    // their face.
     const champion = players.find((player) =>
       String(player.name).toLowerCase() === result.winner) || null;
-    const colors = champion?.handleColors;
-    const fallback = champion?.color || titleInk;
-    const writeGlyphs = (dx, dy, palette, plain) => {
-      let cursor = viewCenterX() - winnerWidth / 2 + dx;
-      for (let index = 0; index < result.winner.length; index++) {
-        const character = result.winner[index];
-        typeWrite(character, cursor, centerY + dy, winnerSize,
-          ...glyphColor(palette, index, plain));
-        cursor += comicGlyphAdvance(character, winnerSize);
-      }
-    };
-    writeGlyphs(4, 5, colors?.map(runShadow), champion
-      ? runShadow(fallback) : statusShadow);
-    writeGlyphs(0, 0, colors, fallback);
+    drawReelName(result.winner, Math.round(viewHeight * .17),
+      winnerSize, champion, t);
   } else if (matchHud && roundResult && resultUiReady) {
     if (INSTANT_REPLAY && instantReplay) {
       const frame = Math.min(instantReplay.frames.length,
