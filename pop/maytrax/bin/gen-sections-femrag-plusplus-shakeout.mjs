@@ -92,6 +92,7 @@ const ELECTRIC =
 · CIRCUITRY IN THE WOOL — fine enameled COPPER and colored magnet WIRE is needle-felted directly INTO his body, running across his chest, shoulders, back and down his limbs in deliberate looping CIRCUIT TRACES, stitched flush into the fibers like veins under skin. tiny felted solder-blobs and little brass eyelets sit where traces meet. the wire is a craft material here — hand-couched into wool, sometimes lifting a millimeter clear of the surface, never printed-on graphics.
 · LEDS INSIDE HIM, IN FULL RAINBOW — many small bright LEDs are embedded UNDERNEATH the felt, inside his body and inside each ear, and they light him FROM WITHIN. every LED is a DIFFERENT COLOR — magenta, cyan, lime, hot orange, violet, gold, rose — scattered all through him, so he reads as a RAINBOW MULTIGLOW rather than one warm color. wool is translucent when backlit, so each colored light BLOOMS THROUGH the fibers as its own soft round patch of that hue, and where two colored patches overlap in the wool their colors mix and bleed into a third. you can see the discrete POINT of each LED as a hot colored core inside its own soft glowing patch — never a flat even wash, never a single uniform tint, never an overlay.
 · HIS EARS LIGHT UP IN COLOR — each ear has a run of differently-colored LEDs inside it, so when an ear swings past a dark background the whole ear glows through from the inside as a chain of separate colored blooms — cyan next to magenta next to lime — the wool going translucent with the fiber structure visible against each light, like a hand held over a torch.
+· HIS EYES ARE RGB — his two bead eyes are no longer plain black beads: they are lit LED eyes, each one a bright saturated RGB colour glowing from inside the bead like a tiny indicator lamp. The two eyes may be DIFFERENT colours from each other (one cyan and one magenta, or lime and violet) and they shift hue with the music. Each glowing eye still sits centred INSIDE its own round red lens — the lit eye makes the rim law easier to read, never an excuse to break it. The glow from his eyes throws a faint coloured cast onto his own cheeks and the inside of the red rims.
 · THE GLASSES CATCH IT — the red felt rims pick up the internal glow from below and read hot red.
 · THE PROPS PERSIST — the felted LAPTOP he made the beat on stays in the room for the WHOLE film. It remains open on the green rug where he left it, screen still lit and glowing, visible somewhere in every wide shot — never cleared away, never closed, never teleported. Same for the amps, the pedal boxes and the yarn cables: once a prop is in the room it stays in the room, in the same place, for the rest of the story.
 · THE TETHER — a slim felted battery pack sits at the small of his back, and a colored wire tail trails off him across the floor to the speaker stack: he is PLUGGED IN to the sound system, part of the circuit.`;
@@ -109,10 +110,21 @@ const SCREEN_LAW =
 · across the BOTTOM, the note grid: TWO side-by-side BANKS separated by a narrow white gutter, each bank EXACTLY 4 TILES WIDE and 3 TILES TALL — twelve flat rectangular candy-pastel tiles per bank, packed edge to edge like postage stamps, a small dark letter in each tile's top-left corner and a small faint label in its bottom-left. the top row runs salmon, rust-orange, peach, olive; the middle row yellow, mint-green, teal, cornflower-blue; the bottom row violet, lilac, magenta, orchid. the two banks repeat the same colors. never crop, merge, or duplicate a row or column — always exactly 4 across and 3 down per bank.
 Render all of it as flat hand-felted color fields with fuzzy wool edges — a felted REPRODUCTION of that interface, glowing. The small letters and labels may stay soft and ILLEGIBLE (they are tiny felt marks, not typography), but the layout, the proportions and the tile colors must match the reference. NO invented interface, NO waveform art, NO abstract equalizer, NO logos or wordmarks anywhere.`;
 
+
+// Sound made physical: the cabinets are a colour-coded wall and the music
+// itself comes OUT of them as felted objects. Same idea as the note-colour
+// palette the marimbaba score uses — pitch has a colour here.
+const SOUND_LAW =
+`THE SPEAKER WALL IS COLOUR-CODED — every single felted speaker cabinet is a DIFFERENT COLOUR. No two cabinets share one. They are dyed-wool candy colours matching the note tiles on his screen — salmon, rust-orange, peach, olive, butter-yellow, mint-green, teal, cornflower-blue, violet, lilac, magenta, orchid — each a solid flat felted body with an oatmeal wool cone in it, stacked and leaning together so the whole wall reads as a bank of coloured blocks, like a chord laid out. Their little indicator lights and knobs pick up the same colours. NOT a wall of black boxes.
+SOUND MADE VISIBLE — the music is physically COMING OUT of the cones, as hand-felted objects in the room:
+· WAVES — concentric RINGS of felt push out of each speaker cone into the air, one inside the next like ripples frozen mid-expansion, getting bigger and thinner and more transparent as they travel out from the cone; each ring is dyed the same colour as the cabinet it came from, so a magenta cabinet throws magenta rings.
+· NOTES — small felted MUSIC NOTES tumble and fly out of the cones on those waves and drift through the room — simple stitched quarter-notes and eighth-notes with round heads and little stems and flags, each one a different candy colour, some spinning, some caught mid-tumble, scattered through the air around him and lit by the neon.
+These are REAL FELT OBJECTS in the diorama with fuzzy fibrous edges and their own soft shadows — hand-made props hanging in the air, NOT drawn graphics, NOT glowing 2D overlays, NOT digital effects composited on top.`;
+
 // The room: @jeffrey's old Ashland A-frame, felted.
 const WORLD =
 `THE ROOM — a needle-felted miniature of an A-FRAME HOUSE INTERIOR (modeled on the reference photo sheet): steep TRIANGULAR A-frame geometry is the defining shape of every wide shot — massive exposed timber rafters felted in dark walnut wool running up and meeting in a peak overhead, the sloped ceiling planes closing in on both sides, honey-and-amber WOOD PLANK walls and a wood plank FLOOR felted in warm ochre wool with visible board seams, and a big window set into the gable end. a round green wool rug sits on the floor. the SAME room throughout the film — same rafters, same plank floor, same gable window — progressively taken over by the sound system.
-THE SOUND SYSTEM GROWS — hand-felted speaker cabinets accumulate along the walls and up under the rafters until they are a leaning tower; thick colored yarn CABLES snake everywhere across the plank floor and up into the beams, plugging into him.`;
+THE SOUND SYSTEM GROWS — the colour-coded felted speaker cabinets accumulate along the walls and up under the rafters until they are a leaning tower; thick colored yarn CABLES snake everywhere across the plank floor and up into the beams, plugging into him.`;
 
 const LIGHT =
 `LIGHT — this is a LIGHT SHOW and it is all PHYSICALLY BUILT, never a filter. The A-frame rafters are strung with practical lighting the way a real party rigs a room:
@@ -122,7 +134,7 @@ const LIGHT =
 · contrast is high and the room is DARK between the lights — deep shadow in the rafter peak, hot saturated color below. every light source is a real fixture visible in frame or just outside it.`;
 
 const PALETTE =
-`PALETTE — off-white and soft-grey wool bunny lit from inside in warm white and amber; round red glasses; copper and enamel-green wire traces; honey, ochre and walnut felted wood; charcoal speaker cabinets with oatmeal cones; and the neon rig in saturated magenta, cyan, acid-green and hot orange. the WOOL stays matted and real — the saturation lives in the light, not in a filter over the image.`;
+`PALETTE — off-white and soft-grey wool bunny lit from inside in warm white and amber; round red glasses; copper and enamel-green wire traces; honey, ochre and walnut felted wood; speaker cabinets in a dozen different candy colours with oatmeal cones, and felted sound-waves and music notes in those same colours; and the neon rig in saturated magenta, cyan, acid-green and hot orange. the WOOL stays matted and real — the saturation lives in the light, not in a filter over the image.`;
 
 const AVOID =
 `AVOID — any 3d-render, clay, plastic, or smooth plush-toy look (this is real matted needle-felted wool, and the light is real fixtures); ANY human person anywhere (the bunny is the only character); a second bunny, a mirror, or any doubled figure; MORE THAN TWO EARS on the bunny (no third ear, no doubled or echoed ear); empty red glasses rims; any readable text, wordmark, signage, band name, or logo of any kind; any post-processing look — no bloom filter over the whole frame, no lens flares, no laser beams as solid cones, no light shafts drawn as objects, no glowing outline traced around the character; motion-blur streaks or drawn speed-lines; the character looking at or acknowledging the camera; any real-world brand.`;
@@ -251,6 +263,7 @@ function build(beat) {
     FRAME_NOTE,
     BUNNY,
     ELECTRIC,
+    SOUND_LAW,
     WORLD,
     LIGHT,
     PALETTE,
