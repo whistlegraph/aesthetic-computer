@@ -2811,6 +2811,7 @@ function resetRound(now, resetMatch = false) {
     delete player.frozenAt;
     delete player.headBustedAt;
     player.headRoll = 0;
+    player.headRollRate = 0;
     // Only a hand can still be leaning on a button across the reset; a bot's
     // presses were just cleared, so inheriting pad two would suppress them.
     player.previous = player.npc || player.bot ? []
@@ -5275,11 +5276,16 @@ function updatePlayer(player, pad, dt, now) {
   player.x += player.vx * dt;
   player.y += player.vy * dt;
   // A bodyless head is a ball, and a ball that slides without turning reads
-  // as a sticker on the floor. Grounded travel rolls it at the true rolling
-  // rate for its 22-unit radius; in the air it keeps the spin it had.
+  // as a sticker on the floor. Ground contact sets the spin to the true
+  // rolling rate for the 22-unit radius; the spin then integrates every
+  // frame, because a head that leaves the floor mid-bounce keeps turning —
+  // spinning only while grounded left the bouncing head (which is how a head
+  // mostly travels) with a face nailed bolt upright between landings.
   // `grounded` still holds last frame's answer here — it resets just below.
-  if (isHeadOnly(player) && player.grounded)
-    player.headRoll = (player.headRoll || 0) + player.vx * dt / 22;
+  if (isHeadOnly(player)) {
+    if (player.grounded) player.headRollRate = player.vx / 22;
+    player.headRoll = (player.headRoll || 0) + (player.headRollRate || 0) * dt;
+  }
   player.grounded = false;
   // A sinking fighter is transparent to the platform but never to the floor.
   if (PLATFORM && now >= player.sinkUntil &&
@@ -9506,8 +9512,16 @@ function gamePaint() {
   const { left: spanLeft, right: spanRight,
     top: spanTop, bottom: spanBottom } = terrainSpan();
   drawRoomSurfaces(spanLeft, spanRight, spanTop, spanBottom, arena);
-  drawTerrainSurface(spanLeft, spanRight, worldNear, worldFar, ground);
-  drawTerrainFrontWall(spanLeft, spanRight, worldNear, ground);
+  // The reel camera stands ~1200 units off the fighters, which puts the
+  // floor's own front edge (worldNear) a few hundred units in front of the
+  // lens — where it crosses the frame as a hard horizontal step with the
+  // skirt showing under it. Extending the slab past the camera hands the cut
+  // to the near plane, which faces already handle correctly, so the ground
+  // reads as ground all the way down the frame. Reels only: on the TV lens
+  // the visible front edge IS the padded-room look.
+  const groundNear = reelCamera() ? worldNear - 4200 : worldNear;
+  drawTerrainSurface(spanLeft, spanRight, groundNear, worldFar, ground);
+  drawTerrainFrontWall(spanLeft, spanRight, groundNear, ground);
   drawTerrainGrass(spanLeft, spanRight, ground);
   drawBoosterPad(t);
   const platformNear = -520;
