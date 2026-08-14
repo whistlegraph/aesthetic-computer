@@ -50,7 +50,9 @@ const FPS = 24;
 const W = 320, H = 180;            // soft light upscales cleanly
 const OPACITY = Number(flags.opacity ?? .55);
 const FROM = Number(flags.from ?? 0);
-const PIXEL = flags["no-pixel"] !== true;
+// The pixel-dissolve punch reads as a glitch on a soft felt film, so it is
+// OPT-IN now (--pixel) rather than on by default.
+const PIXEL = flags.pixel === true;
 
 const eventsPath = `${OUT}/${SLUG}.events.json`;
 if (!existsSync(eventsPath)) {
@@ -239,12 +241,18 @@ if (PIXEL && existsSync(structPath)) {
   }
 }
 const fit = `scale=${vw}:${vh}:force_original_aspect_ratio=increase,crop=${vw}:${vh}`;
+// BLEND IN RGB. ffmpeg's blend operates per PLANE, so blending yuv420p
+// multiplies and screens the CHROMA planes as if they were luma — and
+// chroma is centred at 128, so multiply drags every colour toward green.
+// Planar RGB (gbrp) makes multiply/screen mean what they say; the encoder
+// converts back to yuv at the end.
 const chain = [
-  `[1:v]${fit},format=yuv420p[g]`,
-  `[2:v]${fit},format=yuv420p[v]`,
+  `[0:v]format=gbrp[src]`,
+  `[1:v]${fit},format=gbrp[g]`,
+  `[2:v]${fit},format=gbrp[v]`,
   // layer 2 first (multiply) so the picture sits INSIDE the light,
-  // then layer 1+3 (screen) on top.
-  `[0:v][v]blend=all_mode=multiply:all_opacity=0.9[base]`,
+  // then layers 1+3 (screen) on top.
+  `[src][v]blend=all_mode=multiply:all_opacity=0.75[base]`,
   `[base][g]blend=all_mode=screen:all_opacity=${OPACITY}` +
     (pixExpr ? `[lit];[lit]pixelize=w=24:h=24:enable='${pixExpr}'[out]` : `[out]`),
 ].join(";");

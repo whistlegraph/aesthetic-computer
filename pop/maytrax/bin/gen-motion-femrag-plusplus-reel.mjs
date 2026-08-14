@@ -100,6 +100,7 @@ const MEDIUM_MOTION = [
   `A needle-felt music video at 144 BPM — every motion is DANCE, driven and rhythmic, landing on beats rather than drifting. The wool bunny never goes limp between moves; he is always either loading or releasing.\n\nMOTION DENSITY — this is a SHORT, FAST shot and it must be BUSY from the first frame to the last. Something moves in every single frame. At 144 BPM there are roughly TWO AND A HALF BEATS PER SECOND, so the bunny changes direction, weight or pose several times per second — quick, snappy, percussive movements, not one slow graceful gesture held across the take. Do NOT ease in, do NOT drift, do NOT hold a static pose: the shot opens already at full speed and stays there. The camera also keeps moving throughout.`,
   `EAR COUNT — ABSOLUTE, EVERY SINGLE FRAME: the bunny has EXACTLY TWO EARS, attached at two fixed points on the top of his head. TWO. Never three, never four. When an ear swings fast it must stay ONE continuous ear that moves — it must NEVER split into two, echo, ghost, smear into a duplicate, or leave a second copy behind at its old position.
 LIGHT CONTINUITY — the many differently-coloured LEDs inside his body and inside both ears stay lit and stay in the SAME physical places for the whole shot; the rainbow glow may pulse in brightness with the beat but never migrates, goes out, or turns into a flat overlay. The neon tubes in the rafters are fixed physical fixtures — they may change brightness on the beat but never move or drift.`,
+`RGB EYES, CYCLING FAST — his two bead eyes are lit RGB LEDs and they CHANGE COLOUR RAPIDLY throughout the shot, several times a second, snapping between saturated hues — cyan to magenta to lime to violet to gold — like a fast RGB cycle. The two eyes are often DIFFERENT colours from each other at any instant and they keep shifting independently. The colour change is a hard snap between hues, never a slow lazy fade. Each eye stays centred INSIDE its own round red lens the entire time.`,
   FRAMING_IG_STORY_PORTRAIT_MOTION,
   NEEDLE_FELT_WOOL_MOTION,
 ].join("\n\n");
@@ -178,6 +179,7 @@ await runMotionCli({
   shots: SHOTS,
   mediumMotion: MEDIUM_MOTION,
   ratio: "9:16",
+  xfade: 0.3,        // soft dissolves — hard cuts read as glitches here
   audio: reelAudio,
   finalOut: `${OUT}/${SLUG}-shakeout-reel.mp4`,
 }, parseFlags());

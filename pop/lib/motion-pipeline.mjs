@@ -209,6 +209,7 @@ export async function runMotionCli(cfg, flags = parseFlags()) {
 
   // The output frame follows the lane's ratio — a 9:16 lane must not be
   // squashed into a landscape frame on the way through the trim.
+  const XF = Number(cfg.xfade || 0);   // crossfade seconds, 0 = hard cuts
   const [FW, FH] = (cfg.ratio || "16:9") === "9:16" ? [720, 1280]
     : (cfg.ratio || "16:9") === "1:1" ? [960, 960] : [1280, 720];
   console.log(`  trimming picked takes to exact section lengths … (${FW}x${FH})`);
@@ -239,6 +240,10 @@ export async function runMotionCli(cfg, flags = parseFlags()) {
       }
     }
     const t = `${cfg.motionDir}/trim-${s.i}-${s.name}.mp4`;
+    // With a crossfade, each clip carries XF extra seconds so the overlap
+    // does not shorten the film: total = sum(exact) again after the fades.
+    const isLast = s.i === shots.length - 1;
+    const keep = s.exact + (XF && !isLast ? XF : 0);
     let res;
     if (existsSync(picked)) {
       // Generated clips run ceil(exact) seconds; the excess must go.
@@ -250,14 +255,14 @@ export async function runMotionCli(cfg, flags = parseFlags()) {
       res = spawnSync("ffmpeg", [
         "-y", "-i", picked,
         ...(excess > 0.01 ? ["-ss", excess.toFixed(3)] : []),
-        "-t", s.exact.toFixed(3),
+        "-t", keep.toFixed(3),
         "-vf", `scale=${FW}:${FH},fps=24`, "-an",
         "-c:v", "libx264", "-preset", "medium", "-crf", "17", "-pix_fmt", "yuv420p",
         t,
       ], { stdio: ["ignore", "ignore", "pipe"] });
     } else {
       // No take at all → Ken Burns the panel so the film still completes.
-      const frames = Math.round(s.exact * 24);
+      const frames = Math.round(keep * 24);
       console.log(`  ⚠ ${s.name}: no take — Ken Burns fallback (${frames}f)`);
       res = spawnSync("ffmpeg", [
         "-y", "-loop", "1", "-i", s.image,
@@ -271,16 +276,41 @@ export async function runMotionCli(cfg, flags = parseFlags()) {
     trimmed.push(t);
   }
 
-  const listPath = `${cfg.motionDir}/concat.txt`;
-  writeFileSync(listPath, trimmed.map((t) => `file '${t}'`).join("\n") + "\n");
   archive(FINAL);
-  console.log("  concatenating + muxing audio …");
-  const mux = spawnSync("ffmpeg", [
-    "-y", "-f", "concat", "-safe", "0", "-i", listPath, "-i", AUDIO,
-    "-map", "0:v", "-map", "1:a",
-    "-c:v", "copy", "-c:a", "aac", "-b:a", "256k", "-shortest",
-    "-movflags", "+faststart", FINAL,
-  ], { stdio: ["ignore", "ignore", "pipe"] });
+  let mux;
+  if (XF) {
+    // Crossfade every boundary instead of butt-joining them. Hard cuts on
+    // a 144 BPM track read as glitches; a short dissolve lets each shot
+    // hand off to the next.
+    console.log(`  crossfading ${trimmed.length} clips (${XF}s) + muxing audio …`);
+    const inputs = trimmed.flatMap((t) => ["-i", t]);
+    const parts = [];
+    let prev = "0:v", acc = 0;
+    for (let i = 1; i < trimmed.length; i++) {
+      acc += shots[i - 1].exact;                 // cut lands on the section edge
+      const out = i === trimmed.length - 1 ? "vout" : `x${i}`;
+      parts.push(`[${prev}][${i}:v]xfade=transition=fade:duration=${XF}:offset=${(acc - XF).toFixed(3)}[${out}]`);
+      prev = out;
+    }
+    mux = spawnSync("ffmpeg", [
+      "-y", ...inputs, "-i", AUDIO,
+      "-filter_complex", parts.join(";"),
+      "-map", "[vout]", "-map", `${trimmed.length}:a`,
+      "-c:v", "libx264", "-preset", "medium", "-crf", "17", "-pix_fmt", "yuv420p",
+      "-c:a", "aac", "-b:a", "256k", "-shortest",
+      "-movflags", "+faststart", FINAL,
+    ], { stdio: ["ignore", "ignore", "pipe"] });
+  } else {
+    const listPath = `${cfg.motionDir}/concat.txt`;
+    writeFileSync(listPath, trimmed.map((t) => `file '${t}'`).join("\n") + "\n");
+    console.log("  concatenating + muxing audio …");
+    mux = spawnSync("ffmpeg", [
+      "-y", "-f", "concat", "-safe", "0", "-i", listPath, "-i", AUDIO,
+      "-map", "0:v", "-map", "1:a",
+      "-c:v", "copy", "-c:a", "aac", "-b:a", "256k", "-shortest",
+      "-movflags", "+faststart", FINAL,
+    ], { stdio: ["ignore", "ignore", "pipe"] });
+  }
   if (mux.status !== 0) { console.error(`✗ mux failed: ${mux.stderr.toString().slice(-400)}`); process.exit(1); }
   console.log(`✓ ${FINAL}`);
 }
