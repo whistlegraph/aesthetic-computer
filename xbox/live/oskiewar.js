@@ -2810,6 +2810,7 @@ function resetRound(now, resetMatch = false) {
     delete player.frozenGeometry;
     delete player.frozenAt;
     delete player.headBustedAt;
+    player.headRoll = 0;
     // Only a hand can still be leaning on a button across the reset; a bot's
     // presses were just cleared, so inheriting pad two would suppress them.
     player.previous = player.npc || player.bot ? []
@@ -3377,10 +3378,17 @@ function spit(player, heavy = false) {
   const now = runtime().monotonicUs;
   if (now < (player.nextSpitAt || 0)) return;
   const direction = player.facing || 1;
+  // Spit leaves the mouth — the same mouth the face draws — not the chest, and
+  // it leaves as a lob: slow enough to watch, tossed upward for gravity to
+  // bring back down. A pistol draws a line; a glob draws an arc.
+  const head = runnerWorldGeometry(player,
+    (now - startedAt) / 1000000).head;
+  const mouthX = head.x + direction * head.radius * .68;
+  const mouthY = head.y + head.radius * .28;
   bullets.push({
-    x: player.x + direction * 34, y: player.y - 22, z: player.z,
-    previousX: player.x + direction * 34, previousY: player.y - 22,
-    vx: direction * (heavy ? 3100 : 3900), vy: heavy ? -170 : -45,
+    x: mouthX, y: mouthY, z: player.z,
+    previousX: mouthX, previousY: mouthY,
+    vx: direction * (heavy ? 1150 : 1500), vy: heavy ? -760 : -560,
     owner: player.pad, life: 1, spit: true, heavy,
     safeUntil: now + 90000,
   });
@@ -3549,6 +3557,17 @@ function updateBullets(dt, now, combat = true) {
   for (const bullet of bullets) {
     if (bullet.life <= 0) continue;
     bullet.vx += windAcceleration * .12 * dt;
+    // A glob is a ball, not a round: gravity pulls the toss back down, and it
+    // dries out in flight rather than flying forever.
+    if (bullet.spit) {
+      bullet.vy += 2400 * dt;
+      bullet.life -= dt * .22;
+      if (bullet.life <= 0) {
+        impacts.push({ x: bullet.x, y: bullet.y, z: bullet.z,
+          life: .16, duration: .16, death: false, explosion: false });
+        continue;
+      }
+    }
     bullet.previousX = bullet.x;
     bullet.previousY = bullet.y;
     bullet.x += bullet.vx * dt;
@@ -3567,7 +3586,19 @@ function updateBullets(dt, now, combat = true) {
       bullet.vy = Math.abs(bullet.vy);
     } else if (bullet.y + 24 >= terrainFloorAt(bullet.x) - wallThickness) {
       bullet.y = terrainFloorAt(bullet.x) - wallThickness - 24;
-      bullet.vy = -Math.abs(bullet.vy);
+      if (bullet.spit) {
+        // A bouncing ball, not a ricochet: each bounce keeps half the height
+        // and costs a bite of the glob, and once the bounce is too small to
+        // read it dissipates where it lies instead of buzzing along the floor.
+        bullet.vy = -Math.abs(bullet.vy) * .56;
+        bullet.vx *= .84;
+        bullet.life -= .18;
+        if (Math.abs(bullet.vy) < 150) bullet.life = 0;
+        if (bullet.life <= 0) {
+          impacts.push({ x: bullet.x, y: bullet.y, z: bullet.z,
+            life: .16, duration: .16, death: false, explosion: false });
+        } else playDrum("hat", .3, panAt(bullet.x, bullet.z));
+      } else bullet.vy = -Math.abs(bullet.vy);
     }
   }
   for (let left = 0; left < bullets.length; left++) {
@@ -5243,6 +5274,12 @@ function updatePlayer(player, pad, dt, now) {
       player.vy + poundHoldAcceleration * dt);
   player.x += player.vx * dt;
   player.y += player.vy * dt;
+  // A bodyless head is a ball, and a ball that slides without turning reads
+  // as a sticker on the floor. Grounded travel rolls it at the true rolling
+  // rate for its 22-unit radius; in the air it keeps the spin it had.
+  // `grounded` still holds last frame's answer here — it resets just below.
+  if (isHeadOnly(player) && player.grounded)
+    player.headRoll = (player.headRoll || 0) + player.vx * dt / 22;
   player.grounded = false;
   // A sinking fighter is transparent to the platform but never to the floor.
   if (PLATFORM && now >= player.sinkUntil &&
@@ -7226,8 +7263,31 @@ function drawFace(player, head, color, t, now = runtime().monotonicUs) {
   triangleDepth = bodyDepth - .012;
   const r = head.radius;
   const direction = player.facing || 1;
-  const stroke = (x1, y1, x2, y2, width, ink = color) =>
-    filledCapsule(x1, y1, x2, y2, width, ink);
+  // The whole face turns with a rolling head. Every feature below is placed
+  // in flat face-space and spun around the head's center on the way to the
+  // canvas — eyes, mouth, hair, tears, hearts, all of it — instead of the old
+  // look where the head traveled and the face stayed nailed upright.
+  const roll = isHeadOnly(player) ? player.headRoll || 0 : 0;
+  const cosRoll = Math.cos(roll), sinRoll = Math.sin(roll);
+  const spin = (x, y) => roll === 0 ? { x, y } : {
+    x: head.x + (x - head.x) * cosRoll - (y - head.y) * sinRoll,
+    y: head.y + (x - head.x) * sinRoll + (y - head.y) * cosRoll };
+  const stroke = (x1, y1, x2, y2, width, ink = color) => {
+    const a = spin(x1, y1), b = spin(x2, y2);
+    filledCapsule(a.x, a.y, b.x, b.y, width, ink);
+  };
+  const ring = (x, y, ringRadius, thickness, ink) => {
+    const point = spin(x, y);
+    filledRing(point.x, point.y, ringRadius, thickness, ink);
+  };
+  const disc = (x, y, discRadius, ink) => {
+    const point = spin(x, y);
+    filledDisc(point.x, point.y, discRadius, ink);
+  };
+  const glyph = (text, x, y, size, ...ink) => {
+    const point = spin(x, y);
+    systemWrite(text, point.x, point.y, size, ...ink);
+  };
   const celebrating = ["DANCE", "LAUGH", "POSE", "WIGGLE"]
     .includes(player.resultReaction);
   const grieving = ["CRY", "WOE", "SULK"].includes(player.resultReaction);
@@ -7301,9 +7361,9 @@ function drawFace(player, head, color, t, now = runtime().monotonicUs) {
     const socketInk = [246, 248, 244];
     const pupilInk = [8, 12, 24];
     for (const offset of [-eyeGap, eyeGap]) {
-      filledDisc(faceX + offset, eyeY, socketRadius, socketInk);
+      disc(faceX + offset, eyeY, socketRadius, socketInk);
       triangleDepth = bodyDepth - .02;
-      filledDisc(faceX + offset + pupilX, eyeY + pupilY,
+      disc(faceX + offset + pupilX, eyeY + pupilY,
         pupilRadius, pupilInk);
       triangleDepth = bodyDepth - .012;
     }
@@ -7329,12 +7389,12 @@ function drawFace(player, head, color, t, now = runtime().monotonicUs) {
   if (player.resultReaction === "LAUGH") {
     const age = Math.max(0, (now - player.resultReactionAt) / 1000000);
     const open = .35 + Math.abs(Math.sin(age * 18)) * .65;
-    filledRing(faceX + direction * r * .08, mouthY,
+    ring(faceX + direction * r * .08, mouthY,
       r * (.12 + open * .1), r * .045, color);
     for (let index = 0; index < 3; index++) {
       const noteAge = (age * .72 + index * .27) % 1;
       const note = index % 2 ? "♫" : "♪";
-      systemWrite(note,
+      glyph(note,
         faceX + direction * r * (.34 + noteAge * 1.25) + index * direction * 3,
         mouthY - r * (.25 + noteAge * 1.75),
         Math.max(8, r * (.55 - noteAge * .16)), ...color);
@@ -7354,7 +7414,7 @@ function drawFace(player, head, color, t, now = runtime().monotonicUs) {
       for (let index = 0; index < 3; index++) {
         const rise = (age * .6 + index * .34) % 1;
         const drift = Math.sin(age * 2.2 + index * 2.4) * r * .22;
-        systemWrite("♥",
+        glyph("♥",
           faceX + drift + (index - 1) * r * .42,
           mouthY - r * (.95 + rise * 2.1),
           Math.max(7, r * (.46 - rise * .17) * victoryAmount),
@@ -7362,7 +7422,7 @@ function drawFace(player, head, color, t, now = runtime().monotonicUs) {
       }
     }
   } else if (player.attackKind && meleePulse(player, now) > 0) {
-    filledRing(faceX + direction * r * .12, mouthY,
+    ring(faceX + direction * r * .12, mouthY,
       Math.max(1.8, r * .13), Math.max(.4, r * .05), color);
   } else if (player.blocking) {
     stroke(faceX - r * .26, mouthY, faceX + r * .26, mouthY, lineWidth);
