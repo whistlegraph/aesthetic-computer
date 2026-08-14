@@ -69,6 +69,17 @@ node pop/maytrax/bin/render-femrag.mjs
 # → out/femrag.mp3
 ```
 
+`femrag++` grows femrag into a 2:33 drum-and-bass engine: act one keeps the
+sine-only micro-rag, then a snare-roll buildup (8ths → 32nds under a noise
+riser) drops into straight two-step dnb — noise snares/hats, a tanh-driven
+sub walking the rag's roots, wobble-bass breakdown, and a second, harder drop
+with fills every fourth bar:
+
+```bash
+node pop/maytrax/bin/render-femrag-plusplus.mjs
+# → out/femrag-plusplus.mp3
+```
+
 ## conventions
 
 - bpm: 138–142 (prodigy classic; `firestarter`=140, `breathe`=137)

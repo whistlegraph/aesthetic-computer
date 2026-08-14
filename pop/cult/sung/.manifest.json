@@ -1,0 +1,536 @@
+{
+  "dash-camille-fs4-hold": {
+    "key": "9766eea95fe253bf",
+    "src": "dash-camille",
+    "notes": "F#4:1.50",
+    "line": "sing · F#4 · 62→300 frames (0.31s→1.50s, 4.84x) · voiced 100%  · pyin +8¢"
+  },
+  "dash-camille-d4-hold": {
+    "key": "928be220d6e61c6e",
+    "src": "dash-camille",
+    "notes": "D4:1.50",
+    "line": "sing · D4 · 62→300 frames (0.31s→1.50s, 4.84x) · voiced 100%  · pyin +8¢"
+  },
+  "dash-alex-fs4-hold": {
+    "key": "594ba6b161b5ce44",
+    "src": "dash-alex",
+    "notes": "F#4:1.50",
+    "line": "sing · F#4 · 67→300 frames (0.34s→1.50s, 4.48x) · voiced 98%  · pyin +8¢"
+  },
+  "dash-alex-d4-hold": {
+    "key": "22455fc10457e85b",
+    "src": "dash-alex",
+    "notes": "D4:1.50",
+    "line": "sing · D4 · 67→300 frames (0.34s→1.50s, 4.48x) · voiced 98%  · pyin +8¢"
+  },
+  "dash-jeffrey-fs4-hold": {
+    "key": "ef8619c8dfc1f6db",
+    "src": "dash-jeffrey",
+    "notes": "F#4:1.50",
+    "line": "sing · F#4 · 99→300 frames (0.49s→1.50s, 3.03x) · voiced 91%  · pyin +8¢"
+  },
+  "dash-jeffrey-d4-hold": {
+    "key": "3aaaea889ce00d1f",
+    "src": "dash-jeffrey",
+    "notes": "D4:1.50",
+    "line": "sing · D4 · 99→300 frames (0.49s→1.50s, 3.03x) · voiced 91%  · pyin +8¢"
+  },
+  "iwanna-a-sung": {
+    "key": "b8542778d8ace2c0",
+    "src": "i-wanna-a",
+    "notes": "D4:0.20,E4:0.30",
+    "line": "sing · D4/E4 · 80→100 frames (0.40s→0.50s, 1.25x) · voiced 100%  · pyin +18¢ +8¢"
+  },
+  "iwanna-b-sung": {
+    "key": "69de3e2ce8fa6e90",
+    "src": "i-wanna-b",
+    "notes": "B3:0.20,C#4:0.30",
+    "line": "sing · B3/C#4 · 77→100 frames (0.39s→0.50s, 1.30x) · voiced 99%  · pyin +28¢ +18¢"
+  },
+  "runitfast-sung": {
+    "key": "bc0b6cae2d43ddc1",
+    "src": "run-it-fast",
+    "notes": "G4:0.40,F#4:0.40,D4:1.20",
+    "line": "sing · G4/F#4/D4 · 119→400 frames (0.59s→2.00s, 3.36x) · voiced 91%  · pyin +18¢ -12¢ -2¢"
+  },
+  "dot-b3": {
+    "key": "2c92f954709bda63",
+    "src": "dot-camille",
+    "notes": "B3:0.22",
+    "line": "sing · B3 · 67→44 frames (0.34s→0.22s, 0.66x) · voiced 95%  · pyin +8¢"
+  },
+  "dot-fs3": {
+    "key": "9e9eaec1fdd1a8fa",
+    "src": "dot-alex",
+    "notes": "F#3:0.22",
+    "line": "sing · F#3 · 61→44 frames (0.30s→0.22s, 0.72x) · voiced 95%  · pyin +8¢"
+  },
+  "dot-d4": {
+    "key": "b9f7bd02eed88d39",
+    "src": "dot-camille",
+    "notes": "D4:0.22",
+    "line": "sing · D4 · 67→44 frames (0.34s→0.22s, 0.66x) · voiced 95%  · pyin +8¢"
+  },
+  "dot-a3": {
+    "key": "533f8179328b5c67",
+    "src": "dot-alex",
+    "notes": "A3:0.22",
+    "line": "sing · A3 · 61→44 frames (0.30s→0.22s, 0.72x) · voiced 95%  · pyin +8¢"
+  },
+  "sos-dash-d4": {
+    "key": "75b573c6822eca90",
+    "src": "dash-camille",
+    "notes": "D4:1.20",
+    "line": "sing · D4 · 62→240 frames (0.31s→1.20s, 3.87x) · voiced 100%  · pyin +8¢"
+  },
+  "sos-dash-fs4": {
+    "key": "b4daf93505380ab4",
+    "src": "dash-camille",
+    "notes": "F#4:1.20",
+    "line": "sing · F#4 · 62→240 frames (0.31s→1.20s, 3.87x) · voiced 100%  · pyin +8¢"
+  },
+  "sos-dash-e4": {
+    "key": "852829032ca7959a",
+    "src": "dash-camille",
+    "notes": "E4:1.20",
+    "line": "sing · E4 · 62→240 frames (0.31s→1.20s, 3.87x) · voiced 100%  · pyin +8¢"
+  },
+  "cult-b2": {
+    "key": "61c1d03fb7b453ea",
+    "src": "cult",
+    "notes": "B2:4.00",
+    "line": "sing · B2 · 107→800 frames (0.54s→4.00s, 7.48x) · voiced 95%  · pyin +8¢"
+  },
+  "cult-d3": {
+    "key": "a3a81df3c3ee73a0",
+    "src": "cult",
+    "notes": "D3:4.00",
+    "line": "sing · D3 · 107→800 frames (0.54s→4.00s, 7.48x) · voiced 95%  · pyin +8¢"
+  },
+  "cult-fs3": {
+    "key": "70fa1f46e3b247d7",
+    "src": "cult",
+    "notes": "F#3:4.00",
+    "line": "sing · F#3 · 107→800 frames (0.54s→4.00s, 7.48x) · voiced 95%  · pyin +8¢"
+  },
+  "cult-g3": {
+    "key": "866342ba0e740f68",
+    "src": "cult",
+    "notes": "G3:4.00",
+    "line": "sing · G3 · 107→800 frames (0.54s→4.00s, 7.48x) · voiced 95%  · pyin +8¢"
+  },
+  "cult-a3": {
+    "key": "0d1198e378c840fd",
+    "src": "cult",
+    "notes": "A3:4.00",
+    "line": "sing · A3 · 107→800 frames (0.54s→4.00s, 7.48x) · voiced 95%  · pyin +8¢"
+  },
+  "cult-b3": {
+    "key": "99286718878187e0",
+    "src": "cult",
+    "notes": "B3:4.00",
+    "line": "sing · B3 · 107→800 frames (0.54s→4.00s, 7.48x) · voiced 95%  · pyin +8¢"
+  },
+  "cult-cs4": {
+    "key": "2016aa065d6a4426",
+    "src": "cult",
+    "notes": "C#4:4.00",
+    "line": "sing · C#4 · 107→800 frames (0.54s→4.00s, 7.48x) · voiced 95%  · pyin +8¢"
+  },
+  "cult-d4": {
+    "key": "3a500385697ca280",
+    "src": "cult",
+    "notes": "D4:4.00",
+    "line": "sing · D4 · 107→800 frames (0.54s→4.00s, 7.48x) · voiced 95%  · pyin +8¢"
+  },
+  "cult-e4": {
+    "key": "7f65a0ffc7ccf3f7",
+    "src": "cult",
+    "notes": "E4:4.00",
+    "line": "sing · E4 · 107→800 frames (0.54s→4.00s, 7.48x) · voiced 95%  · pyin +8¢"
+  },
+  "cult-fs4": {
+    "key": "6ff19c91cab9f9c5",
+    "src": "cult",
+    "notes": "F#4:4.00",
+    "line": "sing · F#4 · 107→800 frames (0.54s→4.00s, 7.48x) · voiced 95%  · pyin +8¢"
+  },
+  "cult-g4": {
+    "key": "7679f12a6fdf26f9",
+    "src": "cult",
+    "notes": "G4:4.00",
+    "line": "sing · G4 · 107→800 frames (0.54s→4.00s, 7.48x) · voiced 95%  · pyin +8¢"
+  },
+  "threeofus-rise": {
+    "key": "edffa02212f7f423",
+    "src": "three-of-us",
+    "notes": "B3:0.50,C#4:0.50,D4:0.50,D4:0.50,E4:0.50,F#4:1.50",
+    "line": "sing · B3/C#4/D4/D4/E4/F#4 · 433→800 frames (2.17s→4.00s, 1.85x) · voiced 97%  · pyin +13¢ +18¢ +18¢ +28¢ +18¢ +8¢"
+  },
+  "threeofus-fall": {
+    "key": "7c5e9bcdee2ca754",
+    "src": "three-of-us",
+    "notes": "F#4:0.50,E4:0.50,D4:0.50,D4:0.50,C#4:0.50,B3:1.50",
+    "line": "sing · F#4/E4/D4/D4/C#4/B3 · 433→800 frames (2.17s→4.00s, 1.85x) · voiced 97%  · pyin +18¢ -12¢ -12¢ +23¢ -12¢ -12¢"
+  },
+  "bassdash-b2": {
+    "key": "64338ab4c04929f0",
+    "src": "dash-jeffrey",
+    "notes": "B2:2.00",
+    "line": "sing · B2 · 99→400 frames (0.49s→2.00s, 4.04x) · voiced 95%  · pyin -2¢"
+  },
+  "bassdash-g2": {
+    "key": "0129c5ddd4b365e2",
+    "src": "dash-jeffrey",
+    "notes": "G2:2.00",
+    "line": "sing · G2 · 99→400 frames (0.49s→2.00s, 4.04x) · voiced 95%  · pyin +3¢"
+  },
+  "bassdash-a2": {
+    "key": "150d8174daccb2bf",
+    "src": "dash-jeffrey",
+    "notes": "A2:2.00",
+    "line": "sing · A2 · 99→400 frames (0.49s→2.00s, 4.04x) · voiced 95%  · pyin -2¢"
+  },
+  "bassdash-e2": {
+    "key": "5d8a7100f4c5ebf7",
+    "src": "dash-jeffrey",
+    "notes": "E2:2.00",
+    "line": "sing · E2 · 99→400 frames (0.49s→2.00s, 4.04x) · voiced 95%  · pyin -2¢"
+  },
+  "runrealfast-hi": {
+    "key": "126a10d88d4f09e0",
+    "src": "run-real-fast",
+    "notes": "G4:0.40,F#4:0.40,D4:1.20",
+    "line": "sing · G4/F#4/D4 · 192→400 frames (0.96s→2.00s, 2.08x) · voiced 88%  · pyin +18¢ -12¢ -12¢"
+  },
+  "runrealfast-long-hi": {
+    "key": "3e5adfa782e8af4b",
+    "src": "run-real-fast",
+    "notes": "G4:0.38,F#4:0.88,D4:1.05",
+    "line": "sing · G4/F#4/D4 · 192→462 frames (0.96s→2.31s, 2.41x) · voiced 89%  · pyin +18¢ -2¢ -2¢"
+  },
+  "runrealfast-long-lo": {
+    "key": "347f10e6eb627714",
+    "src": "run-real-fast",
+    "notes": "G3:0.38,F#3:0.88,D3:1.05",
+    "line": "sing · G3/F#3/D3 · 192→462 frames (0.96s→2.31s, 2.41x) · voiced 91%  · pyin +28¢ -12¢ -2¢"
+  },
+  "runrealfast-lo": {
+    "key": "5b037156919e8e3e",
+    "src": "run-real-fast",
+    "notes": "G3:0.40,F#3:0.40,D3:1.20",
+    "line": "sing · G3/F#3/D3 · 192→400 frames (0.96s→2.00s, 2.08x) · voiced 89%  · pyin +18¢ -12¢ -12¢"
+  },
+  "runrealfast-fast-hi": {
+    "key": "7d1129e0864f3b2d",
+    "src": "run-real-fast-b",
+    "notes": "G4:0.20,F#4:0.20,D4:0.60",
+    "line": "sing · G4/F#4/D4 · 174→200 frames (0.87s→1.00s, 1.15x) · voiced 98%  · pyin +18¢ -22¢ -12¢"
+  },
+  "runrealfast-fast-lo": {
+    "key": "bc18a4a06b1ab731",
+    "src": "run-real-fast-b",
+    "notes": "G3:0.20,F#3:0.20,D3:0.60",
+    "line": "sing · G3/F#3/D3 · 174→200 frames (0.87s→1.00s, 1.15x) · voiced 98%  · pyin +18¢ -22¢ -12¢"
+  },
+  "iwannahide-hi": {
+    "key": "5319d7dd213f4a9b",
+    "src": "iwanna-hide",
+    "notes": "D4:0.24,E4:0.36,F#4:0.40",
+    "line": "sing · D4/E4/F#4 · 117→200 frames (0.58s→1.00s, 1.71x) · voiced 98%  · pyin +8¢ +18¢ +8¢"
+  },
+  "iwannahide-lo": {
+    "key": "0b1a642842772b8f",
+    "src": "iwanna-hide",
+    "notes": "D3:0.24,E3:0.36,F#3:0.40",
+    "line": "sing · D3/E3/F#3 · 117→200 frames (0.58s→1.00s, 1.71x) · voiced 98%  · pyin +13¢ +18¢ +8¢"
+  },
+  "away-hi": {
+    "key": "9d7ea7179ebaab82",
+    "src": "away",
+    "notes": "G4:0.28,A4:1.60",
+    "line": "sing · G4/A4 · 113→376 frames (0.56s→1.88s, 3.33x) · voiced 99%  · pyin +8¢ +18¢"
+  },
+  "away-lo": {
+    "key": "161de2908ad1dbc3",
+    "src": "away",
+    "notes": "G3:0.28,A3:1.60",
+    "line": "sing · G3/A3 · 113→376 frames (0.56s→1.88s, 3.33x) · voiced 99%  · pyin +8¢ +18¢"
+  },
+  "hideaway-hi": {
+    "key": "18215040e63335d0",
+    "src": "hide-away",
+    "notes": "F#4:0.40,G4:0.30,A4:1.30",
+    "line": "sing · F#4/G4/A4 · 126→400 frames (0.63s→2.00s, 3.17x) · voiced 98%  · pyin +8¢ +18¢ +18¢"
+  },
+  "iwanna-c-sung": {
+    "key": "3f58c05ff93e3cfc",
+    "src": "iwanna-c",
+    "notes": "B3:0.22,C#4:0.28",
+    "line": "sing · B3/C#4 · 70→100 frames (0.35s→0.50s, 1.43x) · voiced 96%  · pyin +23¢ +8¢"
+  },
+  "dotdotdash-hi": {
+    "key": "7fe476f68291b14c",
+    "src": "dotdotdash",
+    "notes": "B3:0.28,B3:0.28,E4:1.44",
+    "line": "sing · B3/B3/E4 · 184→400 frames (0.92s→2.00s, 2.17x) · voiced 99%  · pyin +18¢ +8¢ +8¢"
+  },
+  "dotdotdash-lo": {
+    "key": "d2a7aa08f1848878",
+    "src": "dotdotdash",
+    "notes": "B2:0.28,B2:0.28,E3:1.44",
+    "line": "sing · B2/B2/E3 · 184→400 frames (0.92s→2.00s, 2.17x) · voiced 93%  · pyin +18¢ +18¢ +8¢"
+  },
+  "dash-camille-b3-hold": {
+    "key": "9f3f82734e03a1dc",
+    "src": "dash-camille",
+    "notes": "B3:1.50",
+    "line": "sing · B3 · 62→300 frames (0.31s→1.50s, 4.84x) · voiced 100%  · pyin +8¢"
+  },
+  "dash-alex-b3-hold": {
+    "key": "e2019a32a434f138",
+    "src": "dash-alex",
+    "notes": "B3:1.50",
+    "line": "sing · B3 · 67→300 frames (0.34s→1.50s, 4.48x) · voiced 98%  · pyin +8¢"
+  },
+  "dash-camille-e4-hold": {
+    "key": "56b3d9c762bb0b53",
+    "src": "dash-camille",
+    "notes": "E4:1.50",
+    "line": "sing · E4 · 62→300 frames (0.31s→1.50s, 4.84x) · voiced 100%  · pyin +8¢"
+  },
+  "dash-alex-e4-hold": {
+    "key": "aeae18e79553ba7b",
+    "src": "dash-alex",
+    "notes": "E4:1.50",
+    "line": "sing · E4 · 67→300 frames (0.34s→1.50s, 4.48x) · voiced 98%  · pyin +8¢"
+  },
+  "dash-camille-g4-hold": {
+    "key": "91349428f497a4a2",
+    "src": "dash-camille",
+    "notes": "G4:1.50",
+    "line": "sing · G4 · 62→300 frames (0.31s→1.50s, 4.84x) · voiced 100%  · pyin +8¢"
+  },
+  "dash-alex-g4-hold": {
+    "key": "e185c3a9adf7fe68",
+    "src": "dash-alex",
+    "notes": "G4:1.50",
+    "line": "sing · G4 · 67→300 frames (0.34s→1.50s, 4.48x) · voiced 98%  · pyin +8¢"
+  },
+  "dash-jeffrey-b2-hold": {
+    "key": "78b1dee0d30a984d",
+    "src": "dash-jeffrey",
+    "notes": "B2:1.50",
+    "line": "sing · B2 · 99→300 frames (0.49s→1.50s, 3.03x) · voiced 93%  · pyin +8¢"
+  },
+  "dash-jeffrey-d3-hold": {
+    "key": "61bdc5fdb668f962",
+    "src": "dash-jeffrey",
+    "notes": "D3:1.50",
+    "line": "sing · D3 · 99→300 frames (0.49s→1.50s, 3.03x) · voiced 93%  · pyin +8¢"
+  },
+  "dash-jeffrey-e3-hold": {
+    "key": "286328f4dfe70d99",
+    "src": "dash-jeffrey",
+    "notes": "E3:1.50",
+    "line": "sing · E3 · 99→300 frames (0.49s→1.50s, 3.03x) · voiced 93%  · pyin +8¢"
+  },
+  "dash-jeffrey-fs3-hold": {
+    "key": "a03cc0cb4845d9c9",
+    "src": "dash-jeffrey",
+    "notes": "F#3:1.50",
+    "line": "sing · F#3 · 99→300 frames (0.49s→1.50s, 3.03x) · voiced 93%  · pyin +8¢"
+  },
+  "dash-jeffrey-g3-hold": {
+    "key": "3f5354e93e1d55b1",
+    "src": "dash-jeffrey",
+    "notes": "G3:1.50",
+    "line": "sing · G3 · 99→300 frames (0.49s→1.50s, 3.03x) · voiced 93%  · pyin +8¢"
+  },
+  "dash-alex-fs3-hold": {
+    "key": "032b6514cc425f9f",
+    "src": "dash-alex",
+    "notes": "F#3:1.50",
+    "line": "sing · F#3 · 67→300 frames (0.34s→1.50s, 4.48x) · voiced 98%  · pyin +8¢"
+  },
+  "dash-jeffrey-b3-hold": {
+    "key": "2e3a69ffecd8f95d",
+    "src": "dash-jeffrey",
+    "notes": "B3:1.50",
+    "line": "sing · B3 · 99→300 frames (0.49s→1.50s, 3.03x) · voiced 93%  · pyin +8¢"
+  },
+  "dashlong-camille-b3": {
+    "key": "7bf42a8f6f759d3f",
+    "src": "dash-camille",
+    "notes": "B3:4.00",
+    "line": "sing · B3 · 62→800 frames (0.31s→4.00s, 12.90x) · voiced 100%  · pyin -2¢"
+  },
+  "dashlong-camille-d4": {
+    "key": "199ff646cc5b1f10",
+    "src": "dash-camille",
+    "notes": "D4:4.00",
+    "line": "sing · D4 · 62→800 frames (0.31s→4.00s, 12.90x) · voiced 100%  · pyin -2¢"
+  },
+  "dashlong-camille-fs4": {
+    "key": "c28f3d1fa23baa4c",
+    "src": "dash-camille",
+    "notes": "F#4:4.00",
+    "line": "sing · F#4 · 62→800 frames (0.31s→4.00s, 12.90x) · voiced 100%  · pyin -2¢"
+  },
+  "dashlong-camille-g4": {
+    "key": "b15ad4e0b4acba46",
+    "src": "dash-camille",
+    "notes": "G4:4.00",
+    "line": "sing · G4 · 62→800 frames (0.31s→4.00s, 12.90x) · voiced 100%  · pyin +8¢"
+  },
+  "dashlong-camille-e4": {
+    "key": "c9a254bc8bcdafa0",
+    "src": "dash-camille",
+    "notes": "E4:4.00",
+    "line": "sing · E4 · 62→800 frames (0.31s→4.00s, 12.90x) · voiced 100%  · pyin -2¢"
+  },
+  "dashlong-jeffrey-b2": {
+    "key": "18410ab06a61f347",
+    "src": "dash-jeffrey",
+    "notes": "B2:4.00",
+    "line": "sing · B2 · 99→800 frames (0.49s→4.00s, 8.08x) · voiced 96%  · pyin +8¢"
+  },
+  "dashlong-jeffrey-d3": {
+    "key": "38e47b1dacd47963",
+    "src": "dash-jeffrey",
+    "notes": "D3:4.00",
+    "line": "sing · D3 · 99→800 frames (0.49s→4.00s, 8.08x) · voiced 96%  · pyin +8¢"
+  },
+  "dashlong-jeffrey-fs3": {
+    "key": "c5f188a0f7a4a74a",
+    "src": "dash-jeffrey",
+    "notes": "F#3:4.00",
+    "line": "sing · F#3 · 99→800 frames (0.49s→4.00s, 8.08x) · voiced 96%  · pyin +8¢"
+  },
+  "dashlong-jeffrey-g3": {
+    "key": "c6483503345bfd61",
+    "src": "dash-jeffrey",
+    "notes": "G3:4.00",
+    "line": "sing · G3 · 99→800 frames (0.49s→4.00s, 8.08x) · voiced 96%  · pyin +8¢"
+  },
+  "dashlong-jeffrey-e3": {
+    "key": "be2ae87b91a6cd4d",
+    "src": "dash-jeffrey",
+    "notes": "E3:4.00",
+    "line": "sing · E3 · 99→800 frames (0.49s→4.00s, 8.08x) · voiced 96%  · pyin +8¢"
+  },
+  "dot-c-b3": {
+    "key": "b9422d612fb34ddd",
+    "src": "dot-camille",
+    "notes": "B3:0.20",
+    "line": "sing · B3 · 67→40 frames (0.34s→0.20s, 0.60x) · voiced 95%  · pyin +8¢"
+  },
+  "dot-c-cs4": {
+    "key": "0382a3c040b01041",
+    "src": "dot-camille",
+    "notes": "C#4:0.20",
+    "line": "sing · C#4 · 67→40 frames (0.34s→0.20s, 0.60x) · voiced 95%  · pyin +8¢"
+  },
+  "dot-c-d4": {
+    "key": "d7f9540df2b3470a",
+    "src": "dot-camille",
+    "notes": "D4:0.20",
+    "line": "sing · D4 · 67→40 frames (0.34s→0.20s, 0.60x) · voiced 95%  · pyin +8¢"
+  },
+  "dot-c-e4": {
+    "key": "72dd009b95633e11",
+    "src": "dot-camille",
+    "notes": "E4:0.20",
+    "line": "sing · E4 · 67→40 frames (0.34s→0.20s, 0.60x) · voiced 95%  · pyin +8¢"
+  },
+  "dot-c-fs4": {
+    "key": "4ffac833fb2c3590",
+    "src": "dot-camille",
+    "notes": "F#4:0.20",
+    "line": "sing · F#4 · 67→40 frames (0.34s→0.20s, 0.60x) · voiced 95%  · pyin +8¢"
+  },
+  "dot-c-g4": {
+    "key": "3ad786b5ac0f2a44",
+    "src": "dot-camille",
+    "notes": "G4:0.20",
+    "line": "sing · G4 · 67→40 frames (0.34s→0.20s, 0.60x) · voiced 95%  · pyin +8¢"
+  },
+  "dot-c-a4": {
+    "key": "df61c73aa5e8e39e",
+    "src": "dot-camille",
+    "notes": "A4:0.20",
+    "line": "sing · A4 · 67→40 frames (0.34s→0.20s, 0.60x) · voiced 95%  · pyin +8¢"
+  },
+  "dot-a-fs3": {
+    "key": "d160d1fd4afd5bf6",
+    "src": "dot-alex",
+    "notes": "F#3:0.20",
+    "line": "sing · F#3 · 61→40 frames (0.30s→0.20s, 0.66x) · voiced 98%  · pyin +8¢"
+  },
+  "dot-a-g3": {
+    "key": "604326533ce1c9fe",
+    "src": "dot-alex",
+    "notes": "G3:0.20",
+    "line": "sing · G3 · 61→40 frames (0.30s→0.20s, 0.66x) · voiced 98%  · pyin +8¢"
+  },
+  "dot-a-a3": {
+    "key": "6b59c423280cd85b",
+    "src": "dot-alex",
+    "notes": "A3:0.20",
+    "line": "sing · A3 · 61→40 frames (0.30s→0.20s, 0.66x) · voiced 98%  · pyin +8¢"
+  },
+  "dot-a-b3": {
+    "key": "5ec37ae403187978",
+    "src": "dot-alex",
+    "notes": "B3:0.20",
+    "line": "sing · B3 · 61→40 frames (0.30s→0.20s, 0.66x) · voiced 98%  · pyin +8¢"
+  },
+  "dot-a-d4": {
+    "key": "0b312e0dd1e27d18",
+    "src": "dot-alex",
+    "notes": "D4:0.20",
+    "line": "sing · D4 · 61→40 frames (0.30s→0.20s, 0.66x) · voiced 98%  · pyin +8¢"
+  },
+  "dot-a-e4": {
+    "key": "cee6db3ee977f664",
+    "src": "dot-alex",
+    "notes": "E4:0.20",
+    "line": "sing · E4 · 61→40 frames (0.30s→0.20s, 0.66x) · voiced 98%  · pyin +8¢"
+  },
+  "dot-j-b2": {
+    "key": "6b035c4496d696d1",
+    "src": "dot-jeffrey",
+    "notes": "B2:0.20",
+    "line": "sing · B2 · 63→40 frames (0.32s→0.20s, 0.63x) · voiced 95%  · pyin +8¢"
+  },
+  "dot-j-d3": {
+    "key": "11a8b094828d004f",
+    "src": "dot-jeffrey",
+    "notes": "D3:0.20",
+    "line": "sing · D3 · 63→40 frames (0.32s→0.20s, 0.63x) · voiced 95%  · pyin +8¢"
+  },
+  "dot-j-e3": {
+    "key": "acd41a6097491bd4",
+    "src": "dot-jeffrey",
+    "notes": "E3:0.20",
+    "line": "sing · E3 · 63→40 frames (0.32s→0.20s, 0.63x) · voiced 95%  · pyin +8¢"
+  },
+  "dot-j-fs3": {
+    "key": "7ff6bde8a7ea9a33",
+    "src": "dot-jeffrey",
+    "notes": "F#3:0.20",
+    "line": "sing · F#3 · 63→40 frames (0.32s→0.20s, 0.63x) · voiced 95%  · pyin +8¢"
+  },
+  "dot-j-g3": {
+    "key": "d996b7e5fd52e32c",
+    "src": "dot-jeffrey",
+    "notes": "G3:0.20",
+    "line": "sing · G3 · 63→40 frames (0.32s→0.20s, 0.63x) · voiced 95%  · pyin +8¢"
+  },
+  "dot-j-a3": {
+    "key": "bc97ad4c793b90d9",
+    "src": "dot-jeffrey",
+    "notes": "A3:0.20",
+    "line": "sing · A3 · 63→40 frames (0.32s→0.20s, 0.63x) · voiced 95%  · pyin +8¢"
+  }
+}

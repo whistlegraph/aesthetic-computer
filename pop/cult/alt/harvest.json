@@ -1,0 +1,3033 @@
+{
+  "7055148270699597103": {
+    "source_mp4": "/Users/jas/aesthetic-computer/pop/cult/alt/raw/7055148270699597103.mp4",
+    "wav": "/Users/jas/aesthetic-computer/pop/cult/alt/wav/7055148270699597103.wav",
+    "duration": 9.27,
+    "speech_found": true,
+    "transcript": "( beat  boxing )  -  Dash .  -  Dash .  -  Dash .  -  Dot .  -  Dot .  -  The  three  of  us  are  in .  -  Uh .  -  Cult .",
+    "transcription_method": "whisper.cpp (whisper-cli) ggml-small.en, word-level -ml 1, plus per-burst re-transcription for alignment",
+    "whistle_detected": false,
+    "whistle_note": "pyin scan 500-3000 Hz found no sustained tonal run >=0.15 s in this clip; the melody here is chanted/spoken, not whistled",
+    "word_timestamps": [
+      {
+        "t": "",
+        "start": 0.0,
+        "end": 0.12
+      },
+      {
+        "t": " (",
+        "start": 0.12,
+        "end": 0.16
+      },
+      {
+        "t": "beat",
+        "start": 0.16,
+        "end": 0.86
+      },
+      {
+        "t": " boxing",
+        "start": 0.86,
+        "end": 1.85
+      },
+      {
+        "t": ")",
+        "start": 1.85,
+        "end": 2.0
+      },
+      {
+        "t": " -",
+        "start": 2.0,
+        "end": 2.6
+      },
+      {
+        "t": " Dash",
+        "start": 2.6,
+        "end": 2.84
+      },
+      {
+        "t": ".",
+        "start": 2.84,
+        "end": 2.84
+      },
+      {
+        "t": " -",
+        "start": 2.84,
+        "end": 3.0
+      },
+      {
+        "t": " Dash",
+        "start": 3.0,
+        "end": 3.68
+      },
+      {
+        "t": ".",
+        "start": 3.68,
+        "end": 3.68
+      },
+      {
+        "t": " -",
+        "start": 3.68,
+        "end": 3.8
+      },
+      {
+        "t": " Dash",
+        "start": 3.8,
+        "end": 4.18
+      },
+      {
+        "t": ".",
+        "start": 4.18,
+        "end": 4.5
+      },
+      {
+        "t": " -",
+        "start": 4.5,
+        "end": 4.62
+      },
+      {
+        "t": " Dot",
+        "start": 4.62,
+        "end": 5.0
+      },
+      {
+        "t": ".",
+        "start": 5.0,
+        "end": 5.34
+      },
+      {
+        "t": " -",
+        "start": 5.34,
+        "end": 5.46
+      },
+      {
+        "t": " Dot",
+        "start": 5.46,
+        "end": 5.84
+      },
+      {
+        "t": ".",
+        "start": 5.84,
+        "end": 6.16
+      },
+      {
+        "t": " -",
+        "start": 6.16,
+        "end": 6.28
+      },
+      {
+        "t": " The",
+        "start": 6.28,
+        "end": 6.39
+      },
+      {
+        "t": " three",
+        "start": 6.39,
+        "end": 6.72
+      },
+      {
+        "t": " of",
+        "start": 6.72,
+        "end": 6.8
+      },
+      {
+        "t": " us",
+        "start": 6.8,
+        "end": 7.02
+      },
+      {
+        "t": " are",
+        "start": 7.02,
+        "end": 7.13
+      },
+      {
+        "t": " in",
+        "start": 7.13,
+        "end": 7.21
+      },
+      {
+        "t": ".",
+        "start": 7.21,
+        "end": 7.42
+      },
+      {
+        "t": " -",
+        "start": 7.42,
+        "end": 7.69
+      },
+      {
+        "t": " Uh",
+        "start": 7.69,
+        "end": 8.26
+      },
+      {
+        "t": ".",
+        "start": 8.26,
+        "end": 8.26
+      },
+      {
+        "t": " -",
+        "start": 8.26,
+        "end": 8.42
+      },
+      {
+        "t": " Cult",
+        "start": 8.42,
+        "end": 9.08
+      },
+      {
+        "t": ".",
+        "start": 9.08,
+        "end": 9.08
+      }
+    ],
+    "bursts": [
+      [
+        0.115,
+        0.283,
+        "Bitch"
+      ],
+      [
+        0.6,
+        0.741,
+        "*scoffs*"
+      ],
+      [
+        1.109,
+        1.189,
+        "Cheers!"
+      ],
+      [
+        1.357,
+        1.941,
+        "*sneezes*"
+      ],
+      [
+        2.064,
+        2.493,
+        "Dash."
+      ],
+      [
+        2.584,
+        2.979,
+        "Dash."
+      ],
+      [
+        3.088,
+        3.883,
+        "DAT"
+      ],
+      [
+        4.077,
+        4.32,
+        "Dot."
+      ],
+      [
+        4.571,
+        4.869,
+        "dot"
+      ],
+      [
+        5.072,
+        5.92,
+        "Dodge the"
+      ],
+      [
+        6.051,
+        7.813,
+        "Three of us are in. Ah."
+      ],
+      [
+        7.939,
+        8.277,
+        "Cold."
+      ]
+    ],
+    "samples": [
+      {
+        "file": "/Users/jas/aesthetic-computer/pop/cult/alt/samples/alt-70551-dash1.wav",
+        "words": "dash",
+        "start": 2.064,
+        "end": 2.496,
+        "dur": 0.444,
+        "median_f0_hz": null,
+        "voiced_frac": 0.0,
+        "whisper_recheck": "Dash."
+      },
+      {
+        "file": "/Users/jas/aesthetic-computer/pop/cult/alt/samples/alt-70551-dash2.wav",
+        "words": "dash",
+        "start": 2.584,
+        "end": 2.989,
+        "dur": 0.417,
+        "median_f0_hz": 291.6,
+        "voiced_frac": 0.67,
+        "whisper_recheck": "Dash."
+      },
+      {
+        "file": "/Users/jas/aesthetic-computer/pop/cult/alt/samples/alt-70551-dash3.wav",
+        "words": "dash",
+        "start": 3.083,
+        "end": 3.931,
+        "dur": 0.86,
+        "median_f0_hz": null,
+        "voiced_frac": 0.0,
+        "whisper_recheck": "DAT"
+      },
+      {
+        "file": "/Users/jas/aesthetic-computer/pop/cult/alt/samples/alt-70551-dot1.wav",
+        "words": "dot",
+        "start": 4.041,
+        "end": 4.329,
+        "dur": 0.3,
+        "median_f0_hz": 139.2,
+        "voiced_frac": 0.64,
+        "whisper_recheck": "Dot."
+      },
+      {
+        "file": "/Users/jas/aesthetic-computer/pop/cult/alt/samples/alt-70551-dot2.wav",
+        "words": "dot",
+        "start": 4.569,
+        "end": 4.878,
+        "dur": 0.321,
+        "median_f0_hz": 264.3,
+        "voiced_frac": 0.77,
+        "whisper_recheck": "Dot."
+      },
+      {
+        "file": "/Users/jas/aesthetic-computer/pop/cult/alt/samples/alt-70551-threeofus.wav",
+        "words": "the three of us are in",
+        "start": 6.054,
+        "end": 7.814,
+        "dur": 1.772,
+        "median_f0_hz": 208.6,
+        "voiced_frac": 0.92,
+        "whisper_recheck": "Three of us are in, ah."
+      },
+      {
+        "file": "/Users/jas/aesthetic-computer/pop/cult/alt/samples/alt-70551-cult.wav",
+        "words": "cult",
+        "start": 7.891,
+        "end": 8.312,
+        "dur": 0.433,
+        "median_f0_hz": 135.6,
+        "voiced_frac": 0.7,
+        "whisper_recheck": "cold."
+      }
+    ]
+  },
+  "7055506210086456622": {
+    "source_mp4": "/Users/jas/aesthetic-computer/pop/cult/alt/raw/7055506210086456622.mp4",
+    "wav": "/Users/jas/aesthetic-computer/pop/cult/alt/wav/7055506210086456622.wav",
+    "duration": 8.85,
+    "speech_found": true,
+    "transcript": "dash  dash  dash  dot  dot  dot  the  three  of  us  are  in  a  cult",
+    "transcription_method": "whisper.cpp (whisper-cli) ggml-small.en, word-level -ml 1, plus per-burst re-transcription for alignment",
+    "whistle_detected": false,
+    "whistle_note": "pyin scan 500-3000 Hz found no sustained tonal run >=0.15 s in this clip; the melody here is chanted/spoken, not whistled",
+    "word_timestamps": [
+      {
+        "t": "",
+        "start": 0.0,
+        "end": 0.2
+      },
+      {
+        "t": " dash",
+        "start": 0.2,
+        "end": 1.4
+      },
+      {
+        "t": " dash",
+        "start": 1.4,
+        "end": 2.02
+      },
+      {
+        "t": " dash",
+        "start": 2.02,
+        "end": 2.63
+      },
+      {
+        "t": " dot",
+        "start": 2.63,
+        "end": 3.33
+      },
+      {
+        "t": " dot",
+        "start": 3.33,
+        "end": 4.02
+      },
+      {
+        "t": " dot",
+        "start": 4.02,
+        "end": 4.55
+      },
+      {
+        "t": " the",
+        "start": 4.55,
+        "end": 5.01
+      },
+      {
+        "t": " three",
+        "start": 5.01,
+        "end": 5.58
+      },
+      {
+        "t": " of",
+        "start": 5.58,
+        "end": 5.83
+      },
+      {
+        "t": " us",
+        "start": 5.83,
+        "end": 6.08
+      },
+      {
+        "t": " are",
+        "start": 6.08,
+        "end": 6.46
+      },
+      {
+        "t": " in",
+        "start": 6.46,
+        "end": 6.83
+      },
+      {
+        "t": " a",
+        "start": 6.83,
+        "end": 7.33
+      },
+      {
+        "t": " cult",
+        "start": 7.33,
+        "end": 9.6
+      }
+    ],
+    "bursts": [
+      [
+        0.32,
+        0.411,
+        "(air whooshing)"
+      ],
+      [
+        0.787,
+        1.235,
+        "Dash."
+      ],
+      [
+        1.4,
+        2.269,
+        "Dash. Dash."
+      ],
+      [
+        2.979,
+        3.264,
+        "dot"
+      ],
+      [
+        3.605,
+        3.872,
+        "dot"
+      ],
+      [
+        4.152,
+        4.368,
+        "Duh."
+      ],
+      [
+        5.011,
+        5.139,
+        "The"
+      ],
+      [
+        5.269,
+        5.683,
+        "three of"
+      ],
+      [
+        5.784,
+        6.723,
+        "us are in."
+      ],
+      [
+        6.824,
+        7.28,
+        "uh"
+      ],
+      [
+        7.371,
+        7.691,
+        "Cold."
+      ]
+    ],
+    "samples": [
+      {
+        "file": "/Users/jas/aesthetic-computer/pop/cult/alt/samples/alt-70555-dash1.wav",
+        "words": "dash",
+        "start": 0.789,
+        "end": 1.247,
+        "dur": 0.471,
+        "median_f0_hz": 128.8,
+        "voiced_frac": 0.41,
+        "whisper_recheck": "-"
+      },
+      {
+        "file": "/Users/jas/aesthetic-computer/pop/cult/alt/samples/alt-70555-dash2.wav",
+        "words": "dash",
+        "start": 1.399,
+        "end": 1.697,
+        "dur": 0.31,
+        "median_f0_hz": 307.1,
+        "voiced_frac": 0.89,
+        "whisper_recheck": "Dash."
+      },
+      {
+        "file": "/Users/jas/aesthetic-computer/pop/cult/alt/samples/alt-70555-dash3.wav",
+        "words": "dash",
+        "start": 1.967,
+        "end": 2.281,
+        "dur": 0.326,
+        "median_f0_hz": 188.5,
+        "voiced_frac": 0.87,
+        "whisper_recheck": "Dash."
+      },
+      {
+        "file": "/Users/jas/aesthetic-computer/pop/cult/alt/samples/alt-70555-dot1.wav",
+        "words": "dot",
+        "start": 2.957,
+        "end": 3.32,
+        "dur": 0.375,
+        "median_f0_hz": 120.5,
+        "voiced_frac": 0.57,
+        "whisper_recheck": "Dot."
+      },
+      {
+        "file": "/Users/jas/aesthetic-computer/pop/cult/alt/samples/alt-70555-dot2.wav",
+        "words": "dot",
+        "start": 3.609,
+        "end": 3.881,
+        "dur": 0.284,
+        "median_f0_hz": 280.0,
+        "voiced_frac": 0.96,
+        "whisper_recheck": "dot"
+      },
+      {
+        "file": "/Users/jas/aesthetic-computer/pop/cult/alt/samples/alt-70555-dot3.wav",
+        "words": "dot",
+        "start": 4.154,
+        "end": 4.378,
+        "dur": 0.236,
+        "median_f0_hz": 179.5,
+        "voiced_frac": 0.95,
+        "whisper_recheck": "Doth."
+      },
+      {
+        "file": "/Users/jas/aesthetic-computer/pop/cult/alt/samples/alt-70555-threeofus.wav",
+        "words": "the three of us are in",
+        "start": 5.009,
+        "end": 6.726,
+        "dur": 1.729,
+        "median_f0_hz": 155.8,
+        "voiced_frac": 0.7,
+        "whisper_recheck": "The three of us are in."
+      },
+      {
+        "file": "/Users/jas/aesthetic-computer/pop/cult/alt/samples/alt-70555-uh.wav",
+        "words": "uh / a",
+        "start": 6.824,
+        "end": 7.283,
+        "dur": 0.471,
+        "median_f0_hz": 217.2,
+        "voiced_frac": 0.93,
+        "whisper_recheck": "Uh..."
+      },
+      {
+        "file": "/Users/jas/aesthetic-computer/pop/cult/alt/samples/alt-70555-cult.wav",
+        "words": "cult",
+        "start": 7.358,
+        "end": 7.715,
+        "dur": 0.369,
+        "median_f0_hz": 119.4,
+        "voiced_frac": 0.76,
+        "whisper_recheck": "Cold."
+      }
+    ]
+  },
+  "7071087615948148010": {
+    "source_mp4": "/Users/jas/aesthetic-computer/pop/cult/alt/raw/7071087615948148010.mp4",
+    "wav": "/Users/jas/aesthetic-computer/pop/cult/alt/wav/7071087615948148010.wav",
+    "duration": 10.57,
+    "speech_found": true,
+    "transcript": "Let 's  do  it  around  the  water y  hole ,  guys .  [ beat boxing ]  He ,  he ,  he ,  ha ,  ha ,  ha !  The  three  of  us  are  in  a  cult !",
+    "transcription_method": "whisper.cpp (whisper-cli) ggml-small.en, word-level -ml 1, plus per-burst re-transcription for alignment",
+    "whistle_detected": false,
+    "whistle_note": "pyin scan 500-3000 Hz found no sustained tonal run >=0.15 s in this clip; the melody here is chanted/spoken, not whistled",
+    "word_timestamps": [
+      {
+        "t": "",
+        "start": 0.0,
+        "end": 0.0
+      },
+      {
+        "t": " Let",
+        "start": 0.0,
+        "end": 0.17
+      },
+      {
+        "t": "'s",
+        "start": 0.17,
+        "end": 0.3
+      },
+      {
+        "t": " do",
+        "start": 0.3,
+        "end": 0.39
+      },
+      {
+        "t": " it",
+        "start": 0.39,
+        "end": 0.5
+      },
+      {
+        "t": " around",
+        "start": 0.5,
+        "end": 0.84
+      },
+      {
+        "t": " the",
+        "start": 0.84,
+        "end": 1.02
+      },
+      {
+        "t": " water",
+        "start": 1.02,
+        "end": 1.31
+      },
+      {
+        "t": "y",
+        "start": 1.31,
+        "end": 1.36
+      },
+      {
+        "t": " hole",
+        "start": 1.36,
+        "end": 1.59
+      },
+      {
+        "t": ",",
+        "start": 1.59,
+        "end": 1.7
+      },
+      {
+        "t": " guys",
+        "start": 1.7,
+        "end": 2.0
+      },
+      {
+        "t": ".",
+        "start": 2.0,
+        "end": 2.0
+      },
+      {
+        "t": " [",
+        "start": 2.0,
+        "end": 2.1
+      },
+      {
+        "t": "beat",
+        "start": 2.1,
+        "end": 2.41
+      },
+      {
+        "t": "boxing",
+        "start": 2.41,
+        "end": 2.9
+      },
+      {
+        "t": "]",
+        "start": 2.9,
+        "end": 3.0
+      },
+      {
+        "t": " He",
+        "start": 3.0,
+        "end": 3.34
+      },
+      {
+        "t": ",",
+        "start": 3.34,
+        "end": 3.67
+      },
+      {
+        "t": " he",
+        "start": 3.67,
+        "end": 4.01
+      },
+      {
+        "t": ",",
+        "start": 4.01,
+        "end": 4.34
+      },
+      {
+        "t": " he",
+        "start": 4.34,
+        "end": 4.7
+      },
+      {
+        "t": ",",
+        "start": 4.7,
+        "end": 4.76
+      },
+      {
+        "t": " ha",
+        "start": 4.76,
+        "end": 5.1
+      },
+      {
+        "t": ",",
+        "start": 5.1,
+        "end": 5.44
+      },
+      {
+        "t": " ha",
+        "start": 5.44,
+        "end": 5.78
+      },
+      {
+        "t": ",",
+        "start": 5.78,
+        "end": 6.18
+      },
+      {
+        "t": " ha",
+        "start": 6.18,
+        "end": 6.5
+      },
+      {
+        "t": "!",
+        "start": 6.5,
+        "end": 6.5
+      },
+      {
+        "t": " The",
+        "start": 6.5,
+        "end": 6.91
+      },
+      {
+        "t": " three",
+        "start": 6.91,
+        "end": 7.6
+      },
+      {
+        "t": " of",
+        "start": 7.6,
+        "end": 7.87
+      },
+      {
+        "t": " us",
+        "start": 7.87,
+        "end": 8.14
+      },
+      {
+        "t": " are",
+        "start": 8.14,
+        "end": 8.55
+      },
+      {
+        "t": " in",
+        "start": 8.55,
+        "end": 8.85
+      },
+      {
+        "t": " a",
+        "start": 8.85,
+        "end": 9.0
+      },
+      {
+        "t": " cult",
+        "start": 9.0,
+        "end": 9.67
+      },
+      {
+        "t": "!",
+        "start": 9.67,
+        "end": 10.0
+      }
+    ],
+    "bursts": [
+      [
+        0.0,
+        1.931,
+        "Let's do it around the watery hole, guys."
+      ],
+      [
+        2.088,
+        2.512,
+        "*DUH DUH*"
+      ],
+      [
+        2.624,
+        2.867,
+        "(clears throat)"
+      ],
+      [
+        3.171,
+        5.285,
+        "Hee hee hee ha!"
+      ],
+      [
+        5.387,
+        5.805,
+        "Ha ha!"
+      ],
+      [
+        5.912,
+        6.315,
+        "Ha ha!"
+      ],
+      [
+        6.752,
+        7.739,
+        "the three of us"
+      ],
+      [
+        7.837,
+        9.549,
+        "Surinacult."
+      ]
+    ],
+    "samples": [
+      {
+        "file": "/Users/jas/aesthetic-computer/pop/cult/alt/samples/alt-70710-intro.wav",
+        "words": "lets do it around the watery hole guys",
+        "start": 0.0,
+        "end": 1.989,
+        "dur": 1.997,
+        "median_f0_hz": 143.3,
+        "voiced_frac": 0.82,
+        "whisper_recheck": "Let's do it around the watery hole, guys."
+      },
+      {
+        "file": "/Users/jas/aesthetic-computer/pop/cult/alt/samples/alt-70710-hehehaha.wav",
+        "words": "he he he ha ha ha",
+        "start": 3.174,
+        "end": 5.286,
+        "dur": 2.124,
+        "median_f0_hz": 155.3,
+        "voiced_frac": 0.86,
+        "whisper_recheck": "\u266a Hee hee hee ha \u266a"
+      },
+      {
+        "file": "/Users/jas/aesthetic-computer/pop/cult/alt/samples/alt-70710-ha1.wav",
+        "words": "ha ha",
+        "start": 5.383,
+        "end": 5.81,
+        "dur": 0.439,
+        "median_f0_hz": null,
+        "voiced_frac": 0.0,
+        "whisper_recheck": "Ah"
+      },
+      {
+        "file": "/Users/jas/aesthetic-computer/pop/cult/alt/samples/alt-70710-ha2.wav",
+        "words": "ha ha",
+        "start": 5.903,
+        "end": 6.341,
+        "dur": 0.449,
+        "median_f0_hz": 124.7,
+        "voiced_frac": 0.69,
+        "whisper_recheck": "Ha!"
+      },
+      {
+        "file": "/Users/jas/aesthetic-computer/pop/cult/alt/samples/alt-70710-threeofus.wav",
+        "words": "the three of us",
+        "start": 6.749,
+        "end": 7.751,
+        "dur": 1.015,
+        "median_f0_hz": 149.2,
+        "voiced_frac": 0.35,
+        "whisper_recheck": "The three of us"
+      },
+      {
+        "file": "/Users/jas/aesthetic-computer/pop/cult/alt/samples/alt-70710-inacult.wav",
+        "words": "are in a cult",
+        "start": 7.804,
+        "end": 9.057,
+        "dur": 1.265,
+        "median_f0_hz": 124.7,
+        "voiced_frac": 0.13,
+        "whisper_recheck": "SIRINNA"
+      },
+      {
+        "file": "/Users/jas/aesthetic-computer/pop/cult/alt/samples/alt-70710-cult.wav",
+        "words": "cult",
+        "start": 9.097,
+        "end": 9.481,
+        "dur": 0.396,
+        "median_f0_hz": null,
+        "voiced_frac": 0.0,
+        "whisper_recheck": "Go f-"
+      }
+    ]
+  },
+  "7071405403367755054": {
+    "source_mp4": "/Users/jas/aesthetic-computer/pop/cult/alt/raw/7071405403367755054.mp4",
+    "wav": "/Users/jas/aesthetic-computer/pop/cult/alt/wav/7071405403367755054.wav",
+    "duration": 7.59,
+    "speech_found": true,
+    "transcript": "He e ,  he e ,  he e ,  ha ,  ha ,  ha ,  the  three  of  us  are  in  our  cult .",
+    "transcription_method": "whisper.cpp (whisper-cli) ggml-small.en, word-level -ml 1, plus per-burst re-transcription for alignment",
+    "whistle_detected": false,
+    "whistle_note": "pyin scan 500-3000 Hz found no sustained tonal run >=0.15 s in this clip; the melody here is chanted/spoken, not whistled",
+    "word_timestamps": [
+      {
+        "t": "",
+        "start": 0.0,
+        "end": 0.0
+      },
+      {
+        "t": " He",
+        "start": 0.0,
+        "end": 0.3
+      },
+      {
+        "t": "e",
+        "start": 0.3,
+        "end": 0.45
+      },
+      {
+        "t": ",",
+        "start": 0.45,
+        "end": 0.75
+      },
+      {
+        "t": " he",
+        "start": 0.75,
+        "end": 1.05
+      },
+      {
+        "t": "e",
+        "start": 1.05,
+        "end": 1.26
+      },
+      {
+        "t": ",",
+        "start": 1.26,
+        "end": 1.5
+      },
+      {
+        "t": " he",
+        "start": 1.5,
+        "end": 1.8
+      },
+      {
+        "t": "e",
+        "start": 1.8,
+        "end": 2.21
+      },
+      {
+        "t": ",",
+        "start": 2.21,
+        "end": 2.29
+      },
+      {
+        "t": " ha",
+        "start": 2.29,
+        "end": 2.59
+      },
+      {
+        "t": ",",
+        "start": 2.59,
+        "end": 2.88
+      },
+      {
+        "t": " ha",
+        "start": 2.88,
+        "end": 3.2
+      },
+      {
+        "t": ",",
+        "start": 3.2,
+        "end": 3.47
+      },
+      {
+        "t": " ha",
+        "start": 3.47,
+        "end": 3.79
+      },
+      {
+        "t": ",",
+        "start": 3.79,
+        "end": 3.99
+      },
+      {
+        "t": " the",
+        "start": 3.99,
+        "end": 4.25
+      },
+      {
+        "t": " three",
+        "start": 4.25,
+        "end": 4.58
+      },
+      {
+        "t": " of",
+        "start": 4.58,
+        "end": 4.74
+      },
+      {
+        "t": " us",
+        "start": 4.74,
+        "end": 5.02
+      },
+      {
+        "t": " are",
+        "start": 5.02,
+        "end": 5.43
+      },
+      {
+        "t": " in",
+        "start": 5.43,
+        "end": 5.77
+      },
+      {
+        "t": " our",
+        "start": 5.77,
+        "end": 6.27
+      },
+      {
+        "t": " cult",
+        "start": 6.27,
+        "end": 6.99
+      },
+      {
+        "t": ".",
+        "start": 6.99,
+        "end": 7.0
+      }
+    ],
+    "bursts": [
+      [
+        0.0,
+        0.069,
+        "(upbeat music)"
+      ],
+      [
+        0.227,
+        1.867,
+        "Hee hee hee!"
+      ],
+      [
+        2.213,
+        3.68,
+        "Ha, ha, ha."
+      ],
+      [
+        3.989,
+        6.861,
+        "The three of us are in our cult."
+      ]
+    ],
+    "samples": [
+      {
+        "file": "/Users/jas/aesthetic-computer/pop/cult/alt/samples/alt-70714-hehe.wav",
+        "words": "hee hee hee",
+        "start": 0.229,
+        "end": 1.871,
+        "dur": 1.655,
+        "median_f0_hz": 111.1,
+        "voiced_frac": 0.52,
+        "whisper_recheck": "Hee hee hee!"
+      },
+      {
+        "file": "/Users/jas/aesthetic-computer/pop/cult/alt/samples/alt-70714-haha.wav",
+        "words": "ha ha ha",
+        "start": 2.214,
+        "end": 3.686,
+        "dur": 1.484,
+        "median_f0_hz": 172.4,
+        "voiced_frac": 0.32,
+        "whisper_recheck": "Ha, ha, ha!"
+      },
+      {
+        "file": "/Users/jas/aesthetic-computer/pop/cult/alt/samples/alt-70714-threeofus.wav",
+        "words": "the three of us",
+        "start": 4.242,
+        "end": 4.976,
+        "dur": 0.746,
+        "median_f0_hz": 78.6,
+        "voiced_frac": 0.19,
+        "whisper_recheck": "Three of us"
+      },
+      {
+        "file": "/Users/jas/aesthetic-computer/pop/cult/alt/samples/alt-70714-inour.wav",
+        "words": "are in our",
+        "start": 4.914,
+        "end": 6.36,
+        "dur": 1.458,
+        "median_f0_hz": 228.7,
+        "voiced_frac": 0.39,
+        "whisper_recheck": "\u266a In a cold \u266a"
+      },
+      {
+        "file": "/Users/jas/aesthetic-computer/pop/cult/alt/samples/alt-70714-cult.wav",
+        "words": "cult",
+        "start": 6.28,
+        "end": 6.709,
+        "dur": 0.441,
+        "median_f0_hz": null,
+        "voiced_frac": 0.0,
+        "whisper_recheck": "- I'm cold."
+      }
+    ]
+  },
+  "7101863800650861866": {
+    "source_mp4": "/Users/jas/aesthetic-computer/pop/cult/alt/raw/7101863800650861866.mp4",
+    "wav": "/Users/jas/aesthetic-computer/pop/cult/alt/wav/7101863800650861866.wav",
+    "duration": 7.22,
+    "speech_found": true,
+    "transcript": "dash  dash  dash  dot  dot  dot  the  three  of  us  are  in  uh  cold",
+    "transcription_method": "whisper.cpp (whisper-cli) ggml-small.en, word-level -ml 1, plus per-burst re-transcription for alignment",
+    "whistle_detected": false,
+    "whistle_note": "pyin scan 500-3000 Hz found no sustained tonal run >=0.15 s in this clip; the melody here is chanted/spoken, not whistled",
+    "word_timestamps": [
+      {
+        "t": "",
+        "start": 0.0,
+        "end": 0.13
+      },
+      {
+        "t": " dash",
+        "start": 0.13,
+        "end": 0.5
+      },
+      {
+        "t": " dash",
+        "start": 0.5,
+        "end": 1.33
+      },
+      {
+        "t": " dash",
+        "start": 1.33,
+        "end": 2.36
+      },
+      {
+        "t": " dot",
+        "start": 2.36,
+        "end": 2.91
+      },
+      {
+        "t": " dot",
+        "start": 2.91,
+        "end": 4.08
+      },
+      {
+        "t": " dot",
+        "start": 4.08,
+        "end": 4.24
+      },
+      {
+        "t": " the",
+        "start": 4.24,
+        "end": 4.52
+      },
+      {
+        "t": " three",
+        "start": 4.52,
+        "end": 4.89
+      },
+      {
+        "t": " of",
+        "start": 4.89,
+        "end": 5.08
+      },
+      {
+        "t": " us",
+        "start": 5.08,
+        "end": 5.31
+      },
+      {
+        "t": " are",
+        "start": 5.31,
+        "end": 5.71
+      },
+      {
+        "t": " in",
+        "start": 5.71,
+        "end": 6.07
+      },
+      {
+        "t": " uh",
+        "start": 6.07,
+        "end": 6.58
+      },
+      {
+        "t": " cold",
+        "start": 6.58,
+        "end": 6.96
+      }
+    ],
+    "bursts": [
+      [
+        0.128,
+        0.581,
+        "DASH."
+      ],
+      [
+        0.701,
+        1.16,
+        "Dash."
+      ],
+      [
+        1.256,
+        1.56,
+        "Dash."
+      ],
+      [
+        2.357,
+        2.555,
+        "Dot."
+      ],
+      [
+        2.907,
+        3.203,
+        "got"
+      ],
+      [
+        3.464,
+        3.795,
+        "dot"
+      ],
+      [
+        4.267,
+        4.397,
+        "The"
+      ],
+      [
+        4.515,
+        5.968,
+        "Three of us are in."
+      ],
+      [
+        6.072,
+        6.408,
+        "uh"
+      ],
+      [
+        6.592,
+        6.829,
+        "cold."
+      ]
+    ],
+    "samples": [
+      {
+        "file": "/Users/jas/aesthetic-computer/pop/cult/alt/samples/alt-71018-dash1.wav",
+        "words": "dash",
+        "start": 0.129,
+        "end": 0.582,
+        "dur": 0.465,
+        "median_f0_hz": 132.1,
+        "voiced_frac": 0.4,
+        "whisper_recheck": "dash."
+      },
+      {
+        "file": "/Users/jas/aesthetic-computer/pop/cult/alt/samples/alt-71018-dash2.wav",
+        "words": "dash",
+        "start": 0.704,
+        "end": 1.168,
+        "dur": 0.476,
+        "median_f0_hz": 284.9,
+        "voiced_frac": 0.61,
+        "whisper_recheck": "Bash"
+      },
+      {
+        "file": "/Users/jas/aesthetic-computer/pop/cult/alt/samples/alt-71018-dash3.wav",
+        "words": "dash",
+        "start": 1.259,
+        "end": 1.573,
+        "dur": 0.327,
+        "median_f0_hz": 124.4,
+        "voiced_frac": 0.73,
+        "whisper_recheck": "Dash."
+      },
+      {
+        "file": "/Users/jas/aesthetic-computer/pop/cult/alt/samples/alt-71018-dot1.wav",
+        "words": "dot",
+        "start": 2.359,
+        "end": 2.556,
+        "dur": 0.209,
+        "median_f0_hz": 130.6,
+        "voiced_frac": 0.58,
+        "whisper_recheck": "Dot."
+      },
+      {
+        "file": "/Users/jas/aesthetic-computer/pop/cult/alt/samples/alt-71018-dot2.wav",
+        "words": "dot",
+        "start": 2.909,
+        "end": 3.207,
+        "dur": 0.311,
+        "median_f0_hz": 238.9,
+        "voiced_frac": 0.83,
+        "whisper_recheck": "got"
+      },
+      {
+        "file": "/Users/jas/aesthetic-computer/pop/cult/alt/samples/alt-71018-dot3.wav",
+        "words": "dot",
+        "start": 3.459,
+        "end": 3.805,
+        "dur": 0.359,
+        "median_f0_hz": 201.5,
+        "voiced_frac": 0.61,
+        "whisper_recheck": "dot"
+      },
+      {
+        "file": "/Users/jas/aesthetic-computer/pop/cult/alt/samples/alt-71018-threeofus.wav",
+        "words": "the three of us are in",
+        "start": 4.519,
+        "end": 5.975,
+        "dur": 1.468,
+        "median_f0_hz": 148.3,
+        "voiced_frac": 0.91,
+        "whisper_recheck": "Three of us are in."
+      },
+      {
+        "file": "/Users/jas/aesthetic-computer/pop/cult/alt/samples/alt-71018-uh.wav",
+        "words": "uh / a",
+        "start": 6.074,
+        "end": 6.421,
+        "dur": 0.359,
+        "median_f0_hz": 198.0,
+        "voiced_frac": 0.94,
+        "whisper_recheck": "Uh..."
+      },
+      {
+        "file": "/Users/jas/aesthetic-computer/pop/cult/alt/samples/alt-71018-cult.wav",
+        "words": "cult",
+        "start": 6.583,
+        "end": 6.861,
+        "dur": 0.289,
+        "median_f0_hz": 112.4,
+        "voiced_frac": 0.78,
+        "whisper_recheck": "Cold."
+      }
+    ]
+  },
+  "7119595740988460330": {
+    "source_mp4": "/Users/jas/aesthetic-computer/pop/cult/alt/raw/7119595740988460330.mp4",
+    "wav": "/Users/jas/aesthetic-computer/pop/cult/alt/wav/7119595740988460330.wav",
+    "duration": 8.52,
+    "speech_found": true,
+    "transcript": "Dash  dash  dash  dot  dot  dot  the  three  of  us  are  in  a  cult",
+    "transcription_method": "whisper.cpp (whisper-cli) ggml-small.en, word-level -ml 1, plus per-burst re-transcription for alignment",
+    "whistle_detected": false,
+    "whistle_note": "pyin scan 500-3000 Hz found no sustained tonal run >=0.15 s in this clip; the melody here is chanted/spoken, not whistled",
+    "word_timestamps": [
+      {
+        "t": "",
+        "start": 0.0,
+        "end": 0.18
+      },
+      {
+        "t": " Dash",
+        "start": 0.18,
+        "end": 0.83
+      },
+      {
+        "t": " dash",
+        "start": 0.83,
+        "end": 1.42
+      },
+      {
+        "t": " dash",
+        "start": 1.42,
+        "end": 1.85
+      },
+      {
+        "t": " dot",
+        "start": 1.85,
+        "end": 3.31
+      },
+      {
+        "t": " dot",
+        "start": 3.31,
+        "end": 4.44
+      },
+      {
+        "t": " dot",
+        "start": 4.44,
+        "end": 4.73
+      },
+      {
+        "t": " the",
+        "start": 4.73,
+        "end": 5.12
+      },
+      {
+        "t": " three",
+        "start": 5.12,
+        "end": 5.51
+      },
+      {
+        "t": " of",
+        "start": 5.51,
+        "end": 5.71
+      },
+      {
+        "t": " us",
+        "start": 5.71,
+        "end": 5.99
+      },
+      {
+        "t": " are",
+        "start": 5.99,
+        "end": 6.21
+      },
+      {
+        "t": " in",
+        "start": 6.21,
+        "end": 6.46
+      },
+      {
+        "t": " a",
+        "start": 6.46,
+        "end": 6.94
+      },
+      {
+        "t": " cult",
+        "start": 6.94,
+        "end": 7.8
+      }
+    ],
+    "bursts": [
+      [
+        0.187,
+        1.861,
+        "Dash. Dash. Dash."
+      ],
+      [
+        2.619,
+        3.005,
+        "dot."
+      ],
+      [
+        3.304,
+        3.659,
+        "dot"
+      ],
+      [
+        3.904,
+        4.171,
+        "dot"
+      ],
+      [
+        4.733,
+        4.955,
+        "the"
+      ],
+      [
+        5.12,
+        5.851,
+        "three of us."
+      ],
+      [
+        5.987,
+        6.781,
+        "are in."
+      ],
+      [
+        6.939,
+        7.44,
+        "uh"
+      ],
+      [
+        7.536,
+        8.0,
+        "cold."
+      ]
+    ],
+    "samples": [
+      {
+        "file": "/Users/jas/aesthetic-computer/pop/cult/alt/samples/alt-71195-dashes.wav",
+        "words": "dash dash dash",
+        "start": 0.178,
+        "end": 1.92,
+        "dur": 1.754,
+        "median_f0_hz": 139.2,
+        "voiced_frac": 0.64,
+        "whisper_recheck": "Dash. Dash. Dash."
+      },
+      {
+        "file": "/Users/jas/aesthetic-computer/pop/cult/alt/samples/alt-71195-dot1.wav",
+        "words": "dot",
+        "start": 2.613,
+        "end": 3.019,
+        "dur": 0.417,
+        "median_f0_hz": 113.7,
+        "voiced_frac": 0.49,
+        "whisper_recheck": "dot."
+      },
+      {
+        "file": "/Users/jas/aesthetic-computer/pop/cult/alt/samples/alt-71195-dot2.wav",
+        "words": "dot",
+        "start": 3.304,
+        "end": 3.667,
+        "dur": 0.375,
+        "median_f0_hz": 270.5,
+        "voiced_frac": 0.89,
+        "whisper_recheck": "Dot."
+      },
+      {
+        "file": "/Users/jas/aesthetic-computer/pop/cult/alt/samples/alt-71195-dot3.wav",
+        "words": "dot",
+        "start": 3.899,
+        "end": 4.192,
+        "dur": 0.305,
+        "median_f0_hz": 121.5,
+        "voiced_frac": 0.86,
+        "whisper_recheck": "Dot."
+      },
+      {
+        "file": "/Users/jas/aesthetic-computer/pop/cult/alt/samples/alt-71195-threeofus.wav",
+        "words": "three of us",
+        "start": 5.124,
+        "end": 5.855,
+        "dur": 0.743,
+        "median_f0_hz": 124.7,
+        "voiced_frac": 0.83,
+        "whisper_recheck": "of us."
+      },
+      {
+        "file": "/Users/jas/aesthetic-computer/pop/cult/alt/samples/alt-71195-arein.wav",
+        "words": "are in",
+        "start": 5.951,
+        "end": 6.794,
+        "dur": 0.855,
+        "median_f0_hz": 167.0,
+        "voiced_frac": 0.78,
+        "whisper_recheck": "are in."
+      },
+      {
+        "file": "/Users/jas/aesthetic-computer/pop/cult/alt/samples/alt-71195-uh.wav",
+        "words": "uh / a",
+        "start": 6.939,
+        "end": 7.461,
+        "dur": 0.535,
+        "median_f0_hz": 213.4,
+        "voiced_frac": 0.96,
+        "whisper_recheck": "Uhh..."
+      },
+      {
+        "file": "/Users/jas/aesthetic-computer/pop/cult/alt/samples/alt-71195-cult.wav",
+        "words": "cult",
+        "start": 7.491,
+        "end": 8.019,
+        "dur": 0.54,
+        "median_f0_hz": 120.5,
+        "voiced_frac": 0.76,
+        "whisper_recheck": "cold."
+      }
+    ]
+  },
+  "7124494165806828842": {
+    "source_mp4": "/Users/jas/aesthetic-computer/pop/cult/alt/raw/7124494165806828842.mp4",
+    "wav": "/Users/jas/aesthetic-computer/pop/cult/alt/wav/7124494165806828842.wav",
+    "duration": 8.43,
+    "speech_found": true,
+    "transcript": "dash  dash  dash  dot  dot  dot  the  three  of  us  are  in  a  cult",
+    "transcription_method": "whisper.cpp (whisper-cli) ggml-small.en, word-level -ml 1, plus per-burst re-transcription for alignment",
+    "whistle_detected": false,
+    "whistle_note": "pyin scan 500-3000 Hz found no sustained tonal run >=0.15 s in this clip; the melody here is chanted/spoken, not whistled",
+    "word_timestamps": [
+      {
+        "t": "",
+        "start": 0.0,
+        "end": 0.5
+      },
+      {
+        "t": " dash",
+        "start": 0.5,
+        "end": 2.05
+      },
+      {
+        "t": " dash",
+        "start": 2.05,
+        "end": 2.32
+      },
+      {
+        "t": " dash",
+        "start": 2.32,
+        "end": 3.01
+      },
+      {
+        "t": " dot",
+        "start": 3.01,
+        "end": 3.52
+      },
+      {
+        "t": " dot",
+        "start": 3.52,
+        "end": 4.35
+      },
+      {
+        "t": " dot",
+        "start": 4.35,
+        "end": 4.74
+      },
+      {
+        "t": " the",
+        "start": 4.74,
+        "end": 4.84
+      },
+      {
+        "t": " three",
+        "start": 4.84,
+        "end": 5.23
+      },
+      {
+        "t": " of",
+        "start": 5.23,
+        "end": 5.4
+      },
+      {
+        "t": " us",
+        "start": 5.4,
+        "end": 5.64
+      },
+      {
+        "t": " are",
+        "start": 5.64,
+        "end": 6.13
+      },
+      {
+        "t": " in",
+        "start": 6.13,
+        "end": 6.49
+      },
+      {
+        "t": " a",
+        "start": 6.49,
+        "end": 7.0
+      },
+      {
+        "t": " cult",
+        "start": 7.0,
+        "end": 9.24
+      }
+    ],
+    "bursts": [
+      [
+        0.525,
+        0.664,
+        "(air whooshing)"
+      ],
+      [
+        1.016,
+        1.944,
+        "- Dash. - Dash."
+      ],
+      [
+        2.045,
+        2.325,
+        "Dash."
+      ],
+      [
+        3.013,
+        3.256,
+        "dot"
+      ],
+      [
+        3.496,
+        3.773,
+        "dot"
+      ],
+      [
+        3.981,
+        4.243,
+        "Dot."
+      ],
+      [
+        4.744,
+        4.923,
+        "The"
+      ],
+      [
+        5.013,
+        6.384,
+        "Three of us are in."
+      ],
+      [
+        6.485,
+        6.813,
+        "uh"
+      ],
+      [
+        6.995,
+        7.36,
+        "Cool."
+      ]
+    ],
+    "samples": [
+      {
+        "file": "/Users/jas/aesthetic-computer/pop/cult/alt/samples/alt-71244-dash1.wav",
+        "words": "dash",
+        "start": 1.522,
+        "end": 1.778,
+        "dur": 0.268,
+        "median_f0_hz": 312.5,
+        "voiced_frac": 1.0,
+        "whisper_recheck": "Dash."
+      },
+      {
+        "file": "/Users/jas/aesthetic-computer/pop/cult/alt/samples/alt-71244-dash2.wav",
+        "words": "dash",
+        "start": 2.033,
+        "end": 2.347,
+        "dur": 0.327,
+        "median_f0_hz": 189.0,
+        "voiced_frac": 0.97,
+        "whisper_recheck": "Dash."
+      },
+      {
+        "file": "/Users/jas/aesthetic-computer/pop/cult/alt/samples/alt-71244-dot1.wav",
+        "words": "dot",
+        "start": 3.014,
+        "end": 3.265,
+        "dur": 0.263,
+        "median_f0_hz": 126.2,
+        "voiced_frac": 0.62,
+        "whisper_recheck": "Dot."
+      },
+      {
+        "file": "/Users/jas/aesthetic-computer/pop/cult/alt/samples/alt-71244-dot2.wav",
+        "words": "dot",
+        "start": 3.499,
+        "end": 3.781,
+        "dur": 0.295,
+        "median_f0_hz": 280.0,
+        "voiced_frac": 0.93,
+        "whisper_recheck": "dot"
+      },
+      {
+        "file": "/Users/jas/aesthetic-computer/pop/cult/alt/samples/alt-71244-dot3.wav",
+        "words": "dot",
+        "start": 3.984,
+        "end": 4.256,
+        "dur": 0.284,
+        "median_f0_hz": 243.8,
+        "voiced_frac": 0.96,
+        "whisper_recheck": "Dot."
+      },
+      {
+        "file": "/Users/jas/aesthetic-computer/pop/cult/alt/samples/alt-71244-threeofus.wav",
+        "words": "the three of us are in",
+        "start": 5.025,
+        "end": 6.379,
+        "dur": 1.367,
+        "median_f0_hz": 177.9,
+        "voiced_frac": 0.8,
+        "whisper_recheck": "Three of us are in."
+      },
+      {
+        "file": "/Users/jas/aesthetic-computer/pop/cult/alt/samples/alt-71244-uh.wav",
+        "words": "uh / a",
+        "start": 6.489,
+        "end": 6.825,
+        "dur": 0.348,
+        "median_f0_hz": 227.4,
+        "voiced_frac": 0.91,
+        "whisper_recheck": "Uh..."
+      },
+      {
+        "file": "/Users/jas/aesthetic-computer/pop/cult/alt/samples/alt-71244-cult.wav",
+        "words": "cult",
+        "start": 6.983,
+        "end": 7.378,
+        "dur": 0.407,
+        "median_f0_hz": 228.7,
+        "voiced_frac": 0.76,
+        "whisper_recheck": "Cold?"
+      }
+    ]
+  },
+  "7143784658172464426": {
+    "source_mp4": "/Users/jas/aesthetic-computer/pop/cult/alt/raw/7143784658172464426.mp4",
+    "wav": "/Users/jas/aesthetic-computer/pop/cult/alt/wav/7143784658172464426.wav",
+    "duration": 22.55,
+    "speech_found": true,
+    "transcript": "Dash ,  dash ,  dot ,  dot ,  the  three  of  us  are  in .  You  guys  might  actually  think  that  we 're  just  a  cult .  No  way  guys .  We 're  filmmakers  now .  And  you  can  find  our  masterpiece  on  YouTube ,  the  longest  whistle  graph  ever .  Gaming  on  Spotify  too  guys .  Spotify .",
+    "transcription_method": "whisper.cpp (whisper-cli) ggml-small.en, word-level -ml 1, plus per-burst re-transcription for alignment",
+    "whistle_detected": false,
+    "whistle_note": "pyin scan 500-3000 Hz found no sustained tonal run >=0.15 s in this clip; the melody here is chanted/spoken, not whistled",
+    "word_timestamps": [
+      {
+        "t": "",
+        "start": 0.0,
+        "end": 0.0
+      },
+      {
+        "t": " Dash",
+        "start": 0.0,
+        "end": 0.74
+      },
+      {
+        "t": ",",
+        "start": 0.74,
+        "end": 0.99
+      },
+      {
+        "t": " dash",
+        "start": 0.99,
+        "end": 1.65
+      },
+      {
+        "t": ",",
+        "start": 1.65,
+        "end": 2.05
+      },
+      {
+        "t": " dot",
+        "start": 2.05,
+        "end": 2.49
+      },
+      {
+        "t": ",",
+        "start": 2.49,
+        "end": 2.8
+      },
+      {
+        "t": " dot",
+        "start": 2.8,
+        "end": 3.31
+      },
+      {
+        "t": ",",
+        "start": 3.31,
+        "end": 3.64
+      },
+      {
+        "t": " the",
+        "start": 3.64,
+        "end": 4.14
+      },
+      {
+        "t": " three",
+        "start": 4.14,
+        "end": 4.98
+      },
+      {
+        "t": " of",
+        "start": 4.98,
+        "end": 5.3
+      },
+      {
+        "t": " us",
+        "start": 5.3,
+        "end": 5.63
+      },
+      {
+        "t": " are",
+        "start": 5.63,
+        "end": 6.13
+      },
+      {
+        "t": " in",
+        "start": 6.13,
+        "end": 6.46
+      },
+      {
+        "t": ".",
+        "start": 6.46,
+        "end": 7.0
+      },
+      {
+        "t": " You",
+        "start": 7.0,
+        "end": 7.25
+      },
+      {
+        "t": " guys",
+        "start": 7.25,
+        "end": 7.6
+      },
+      {
+        "t": " might",
+        "start": 7.6,
+        "end": 8.07
+      },
+      {
+        "t": " actually",
+        "start": 8.07,
+        "end": 8.82
+      },
+      {
+        "t": " think",
+        "start": 8.82,
+        "end": 9.05
+      },
+      {
+        "t": " that",
+        "start": 9.05,
+        "end": 9.38
+      },
+      {
+        "t": " we",
+        "start": 9.38,
+        "end": 9.57
+      },
+      {
+        "t": "'re",
+        "start": 9.57,
+        "end": 9.78
+      },
+      {
+        "t": " just",
+        "start": 9.78,
+        "end": 10.11
+      },
+      {
+        "t": " a",
+        "start": 10.11,
+        "end": 10.19
+      },
+      {
+        "t": " cult",
+        "start": 10.19,
+        "end": 10.52
+      },
+      {
+        "t": ".",
+        "start": 10.52,
+        "end": 10.8
+      },
+      {
+        "t": " No",
+        "start": 10.8,
+        "end": 10.92
+      },
+      {
+        "t": " way",
+        "start": 10.92,
+        "end": 11.16
+      },
+      {
+        "t": " guys",
+        "start": 11.16,
+        "end": 11.49
+      },
+      {
+        "t": ".",
+        "start": 11.49,
+        "end": 11.73
+      },
+      {
+        "t": " We",
+        "start": 11.73,
+        "end": 11.89
+      },
+      {
+        "t": "'re",
+        "start": 11.89,
+        "end": 12.13
+      },
+      {
+        "t": " filmmakers",
+        "start": 12.13,
+        "end": 12.95
+      },
+      {
+        "t": " now",
+        "start": 12.95,
+        "end": 13.19
+      },
+      {
+        "t": ".",
+        "start": 13.19,
+        "end": 13.52
+      },
+      {
+        "t": " And",
+        "start": 13.52,
+        "end": 13.67
+      },
+      {
+        "t": " you",
+        "start": 13.67,
+        "end": 13.91
+      },
+      {
+        "t": " can",
+        "start": 13.91,
+        "end": 14.15
+      },
+      {
+        "t": " find",
+        "start": 14.15,
+        "end": 14.47
+      },
+      {
+        "t": " our",
+        "start": 14.47,
+        "end": 14.72
+      },
+      {
+        "t": " masterpiece",
+        "start": 14.72,
+        "end": 15.63
+      },
+      {
+        "t": " on",
+        "start": 15.63,
+        "end": 15.79
+      },
+      {
+        "t": " YouTube",
+        "start": 15.79,
+        "end": 16.36
+      },
+      {
+        "t": ",",
+        "start": 16.36,
+        "end": 16.54
+      },
+      {
+        "t": " the",
+        "start": 16.54,
+        "end": 16.76
+      },
+      {
+        "t": " longest",
+        "start": 16.76,
+        "end": 17.33
+      },
+      {
+        "t": " whistle",
+        "start": 17.33,
+        "end": 17.9
+      },
+      {
+        "t": " graph",
+        "start": 17.9,
+        "end": 18.31
+      },
+      {
+        "t": " ever",
+        "start": 18.31,
+        "end": 18.64
+      },
+      {
+        "t": ".",
+        "start": 18.64,
+        "end": 19.01
+      },
+      {
+        "t": " Gaming",
+        "start": 19.01,
+        "end": 19.37
+      },
+      {
+        "t": " on",
+        "start": 19.37,
+        "end": 19.53
+      },
+      {
+        "t": " Spotify",
+        "start": 19.53,
+        "end": 20.1
+      },
+      {
+        "t": " too",
+        "start": 20.1,
+        "end": 20.34
+      },
+      {
+        "t": " guys",
+        "start": 20.34,
+        "end": 20.67
+      },
+      {
+        "t": ".",
+        "start": 20.67,
+        "end": 20.91
+      },
+      {
+        "t": " Spotify",
+        "start": 20.91,
+        "end": 21.48
+      },
+      {
+        "t": ".",
+        "start": 21.48,
+        "end": 22.0
+      }
+    ],
+    "bursts": [
+      [
+        0.552,
+        0.619,
+        "Did you"
+      ],
+      [
+        0.744,
+        1.085,
+        "*D-D-D*"
+      ],
+      [
+        1.192,
+        3.021,
+        "DASH! DASH! DASH!"
+      ],
+      [
+        3.224,
+        3.96,
+        "Dot."
+      ],
+      [
+        4.091,
+        4.624,
+        "Dot!"
+      ],
+      [
+        4.973,
+        5.147,
+        "That's"
+      ],
+      [
+        5.237,
+        5.464,
+        "three."
+      ],
+      [
+        5.592,
+        5.853,
+        "of us."
+      ],
+      [
+        6.088,
+        6.648,
+        "Are in!"
+      ],
+      [
+        6.805,
+        7.152,
+        "Oh"
+      ],
+      [
+        7.251,
+        7.464,
+        "Cut."
+      ],
+      [
+        7.597,
+        7.709,
+        "Up!"
+      ],
+      [
+        7.843,
+        7.957,
+        "(dog barks)"
+      ],
+      [
+        8.075,
+        8.203,
+        "Up!"
+      ],
+      [
+        8.299,
+        8.469,
+        "Oh"
+      ],
+      [
+        8.805,
+        10.693,
+        "You guys might actually"
+      ],
+      [
+        10.803,
+        13.269,
+        "I think that we're just a cult. No way, guys."
+      ],
+      [
+        13.563,
+        14.624,
+        "We're filmmakers now."
+      ],
+      [
+        14.72,
+        18.835,
+        "And you can find our masterpiece on YouTube, the longest whistle graph"
+      ],
+      [
+        19.123,
+        19.635,
+        "Ever."
+      ],
+      [
+        19.875,
+        21.931,
+        "Staying on Spotify too, guys. Spotify."
+      ],
+      [
+        22.04,
+        22.189,
+        "Bye."
+      ],
+      [
+        22.315,
+        22.435,
+        "[BLANK_AUDIO]"
+      ]
+    ],
+    "samples": [
+      {
+        "file": "/Users/jas/aesthetic-computer/pop/cult/alt/samples/alt-71437-dash1.wav",
+        "words": "dash",
+        "start": 1.197,
+        "end": 1.927,
+        "dur": 0.742,
+        "median_f0_hz": 316.1,
+        "voiced_frac": 0.58,
+        "whisper_recheck": "Dash!"
+      },
+      {
+        "file": "/Users/jas/aesthetic-computer/pop/cult/alt/samples/alt-71437-dash2.wav",
+        "words": "dash",
+        "start": 2.184,
+        "end": 2.781,
+        "dur": 0.609,
+        "median_f0_hz": 305.3,
+        "voiced_frac": 0.4,
+        "whisper_recheck": "DASH"
+      },
+      {
+        "file": "/Users/jas/aesthetic-computer/pop/cult/alt/samples/alt-71437-dot1.wav",
+        "words": "dot",
+        "start": 3.219,
+        "end": 3.971,
+        "dur": 0.764,
+        "median_f0_hz": 250.9,
+        "voiced_frac": 0.87,
+        "whisper_recheck": "Dot."
+      },
+      {
+        "file": "/Users/jas/aesthetic-computer/pop/cult/alt/samples/alt-71437-dot2.wav",
+        "words": "dot",
+        "start": 4.094,
+        "end": 4.627,
+        "dur": 0.545,
+        "median_f0_hz": 276.8,
+        "voiced_frac": 0.35,
+        "whisper_recheck": "Dot!"
+      },
+      {
+        "file": "/Users/jas/aesthetic-computer/pop/cult/alt/samples/alt-71437-cult.wav",
+        "words": "cult",
+        "start": 11.852,
+        "end": 12.132,
+        "dur": 0.292,
+        "median_f0_hz": 488.9,
+        "voiced_frac": 0.59,
+        "whisper_recheck": "CO!"
+      },
+      {
+        "file": "/Users/jas/aesthetic-computer/pop/cult/alt/samples/alt-71437-noway.wav",
+        "words": "no way guys",
+        "start": 12.18,
+        "end": 13.121,
+        "dur": 0.953,
+        "median_f0_hz": 131.4,
+        "voiced_frac": 1.0,
+        "whisper_recheck": "It's away guys."
+      },
+      {
+        "file": "/Users/jas/aesthetic-computer/pop/cult/alt/samples/alt-71437-filmmakers.wav",
+        "words": "we're filmmakers now",
+        "start": 13.564,
+        "end": 14.631,
+        "dur": 1.079,
+        "median_f0_hz": 155.3,
+        "voiced_frac": 0.7,
+        "whisper_recheck": "We're filmmakers now."
+      },
+      {
+        "file": "/Users/jas/aesthetic-computer/pop/cult/alt/samples/alt-71437-ever.wav",
+        "words": "ever",
+        "start": 19.06,
+        "end": 19.689,
+        "dur": 0.641,
+        "median_f0_hz": 175.4,
+        "voiced_frac": 0.82,
+        "whisper_recheck": "Ever."
+      },
+      {
+        "file": "/Users/jas/aesthetic-computer/pop/cult/alt/samples/alt-71437-spotify.wav",
+        "words": "staying on spotify too guys / spotify",
+        "start": 19.837,
+        "end": 21.981,
+        "dur": 2.156,
+        "median_f0_hz": 122.6,
+        "voiced_frac": 0.64,
+        "whisper_recheck": "- Streaming on Spotify too, guys."
+      }
+    ]
+  },
+  "7144151707113639214": {
+    "source_mp4": "/Users/jas/aesthetic-computer/pop/cult/alt/raw/7144151707113639214.mp4",
+    "wav": "/Users/jas/aesthetic-computer/pop/cult/alt/wav/7144151707113639214.wav",
+    "duration": 13.63,
+    "speech_found": true,
+    "transcript": "One ,  two ,  three ,  du h ,  du h ,  du h ,  du h ,  dash ,  dash ,  dash ,  dot ,  dot ,  dot ,  dot ,  the  three  of  us  are  in  a  call .",
+    "transcription_method": "whisper.cpp (whisper-cli) ggml-small.en, word-level -ml 1, plus per-burst re-transcription for alignment",
+    "whistle_detected": false,
+    "whistle_note": "pyin scan 500-3000 Hz found no sustained tonal run >=0.15 s in this clip; the melody here is chanted/spoken, not whistled",
+    "word_timestamps": [
+      {
+        "t": "",
+        "start": 0.0,
+        "end": 0.01
+      },
+      {
+        "t": " One",
+        "start": 0.01,
+        "end": 0.2
+      },
+      {
+        "t": ",",
+        "start": 0.2,
+        "end": 0.33
+      },
+      {
+        "t": " two",
+        "start": 0.33,
+        "end": 0.52
+      },
+      {
+        "t": ",",
+        "start": 0.52,
+        "end": 0.68
+      },
+      {
+        "t": " three",
+        "start": 0.68,
+        "end": 1.2
+      },
+      {
+        "t": ",",
+        "start": 1.2,
+        "end": 2.0
+      },
+      {
+        "t": " du",
+        "start": 2.0,
+        "end": 2.04
+      },
+      {
+        "t": "h",
+        "start": 2.04,
+        "end": 2.05
+      },
+      {
+        "t": ",",
+        "start": 2.05,
+        "end": 2.08
+      },
+      {
+        "t": " du",
+        "start": 2.08,
+        "end": 2.12
+      },
+      {
+        "t": "h",
+        "start": 2.12,
+        "end": 2.13
+      },
+      {
+        "t": ",",
+        "start": 2.13,
+        "end": 2.2
+      },
+      {
+        "t": " du",
+        "start": 2.2,
+        "end": 2.21
+      },
+      {
+        "t": "h",
+        "start": 2.21,
+        "end": 2.24
+      },
+      {
+        "t": ",",
+        "start": 2.24,
+        "end": 2.27
+      },
+      {
+        "t": " du",
+        "start": 2.27,
+        "end": 2.28
+      },
+      {
+        "t": "h",
+        "start": 2.28,
+        "end": 2.36
+      },
+      {
+        "t": ",",
+        "start": 2.36,
+        "end": 2.38
+      },
+      {
+        "t": " dash",
+        "start": 2.38,
+        "end": 2.66
+      },
+      {
+        "t": ",",
+        "start": 2.66,
+        "end": 2.95
+      },
+      {
+        "t": " dash",
+        "start": 2.95,
+        "end": 3.99
+      },
+      {
+        "t": ",",
+        "start": 3.99,
+        "end": 4.05
+      },
+      {
+        "t": " dash",
+        "start": 4.05,
+        "end": 4.16
+      },
+      {
+        "t": ",",
+        "start": 4.16,
+        "end": 5.05
+      },
+      {
+        "t": " dot",
+        "start": 5.05,
+        "end": 5.45
+      },
+      {
+        "t": ",",
+        "start": 5.45,
+        "end": 5.73
+      },
+      {
+        "t": " dot",
+        "start": 5.73,
+        "end": 6.4
+      },
+      {
+        "t": ",",
+        "start": 6.4,
+        "end": 6.48
+      },
+      {
+        "t": " dot",
+        "start": 6.48,
+        "end": 7.04
+      },
+      {
+        "t": ",",
+        "start": 7.04,
+        "end": 7.13
+      },
+      {
+        "t": " dot",
+        "start": 7.13,
+        "end": 7.41
+      },
+      {
+        "t": ",",
+        "start": 7.41,
+        "end": 7.46
+      },
+      {
+        "t": " the",
+        "start": 7.46,
+        "end": 7.8
+      },
+      {
+        "t": " three",
+        "start": 7.8,
+        "end": 8.0
+      },
+      {
+        "t": " of",
+        "start": 8.0,
+        "end": 8.58
+      },
+      {
+        "t": " us",
+        "start": 8.58,
+        "end": 9.21
+      },
+      {
+        "t": " are",
+        "start": 9.21,
+        "end": 9.99
+      },
+      {
+        "t": " in",
+        "start": 9.99,
+        "end": 10.54
+      },
+      {
+        "t": " a",
+        "start": 10.54,
+        "end": 10.95
+      },
+      {
+        "t": " call",
+        "start": 10.95,
+        "end": 11.98
+      },
+      {
+        "t": ".",
+        "start": 11.98,
+        "end": 12.86
+      }
+    ],
+    "bursts": [
+      [
+        0.227,
+        0.355,
+        "to"
+      ],
+      [
+        0.829,
+        0.979,
+        "3"
+      ],
+      [
+        1.179,
+        1.8,
+        "Duh duh duh."
+      ],
+      [
+        1.899,
+        2.139,
+        "[music ends]"
+      ],
+      [
+        2.267,
+        2.749,
+        "DASH!"
+      ],
+      [
+        2.952,
+        3.376,
+        "DASH"
+      ],
+      [
+        3.595,
+        4.283,
+        "FAST!"
+      ],
+      [
+        4.395,
+        4.536,
+        "*beep*"
+      ],
+      [
+        4.717,
+        4.859,
+        "*beep*"
+      ],
+      [
+        5.048,
+        5.357,
+        "DOT!"
+      ],
+      [
+        5.723,
+        5.936,
+        "DAT"
+      ],
+      [
+        6.408,
+        6.621,
+        "dot"
+      ],
+      [
+        7.112,
+        7.2,
+        "*gasp*"
+      ],
+      [
+        7.459,
+        7.656,
+        "[music]"
+      ],
+      [
+        7.797,
+        10.475,
+        "\u266a Three of us are in the \u266a"
+      ],
+      [
+        10.587,
+        11.485,
+        "- Cool. - Cool."
+      ],
+      [
+        11.616,
+        11.784,
+        "Cool."
+      ],
+      [
+        11.955,
+        12.099,
+        "Cool."
+      ],
+      [
+        12.259,
+        12.427,
+        "Cool."
+      ],
+      [
+        12.608,
+        12.819,
+        "Go!"
+      ]
+    ],
+    "samples": [
+      {
+        "file": "/Users/jas/aesthetic-computer/pop/cult/alt/samples/alt-71441-duhduhduh.wav",
+        "words": "duh duh duh",
+        "start": 1.179,
+        "end": 1.808,
+        "dur": 0.641,
+        "median_f0_hz": 296.6,
+        "voiced_frac": 0.48,
+        "whisper_recheck": "\u266a Da-da \u266a"
+      },
+      {
+        "file": "/Users/jas/aesthetic-computer/pop/cult/alt/samples/alt-71441-dash1.wav",
+        "words": "dash",
+        "start": 2.269,
+        "end": 2.749,
+        "dur": 0.492,
+        "median_f0_hz": 331.1,
+        "voiced_frac": 0.37,
+        "whisper_recheck": "DASH!"
+      },
+      {
+        "file": "/Users/jas/aesthetic-computer/pop/cult/alt/samples/alt-71441-dash2.wav",
+        "words": "dash",
+        "start": 2.954,
+        "end": 3.375,
+        "dur": 0.433,
+        "median_f0_hz": null,
+        "voiced_frac": 0.0,
+        "whisper_recheck": "DASH"
+      },
+      {
+        "file": "/Users/jas/aesthetic-computer/pop/cult/alt/samples/alt-71441-dash3.wav",
+        "words": "dash",
+        "start": 3.594,
+        "end": 4.287,
+        "dur": 0.705,
+        "median_f0_hz": 418.3,
+        "voiced_frac": 0.42,
+        "whisper_recheck": "FASHTOOP"
+      },
+      {
+        "file": "/Users/jas/aesthetic-computer/pop/cult/alt/samples/alt-71441-dot1.wav",
+        "words": "dot",
+        "start": 5.049,
+        "end": 5.363,
+        "dur": 0.327,
+        "median_f0_hz": 303.6,
+        "voiced_frac": 0.3,
+        "whisper_recheck": "DOT!"
+      },
+      {
+        "file": "/Users/jas/aesthetic-computer/pop/cult/alt/samples/alt-71441-dot2.wav",
+        "words": "dot",
+        "start": 5.724,
+        "end": 5.937,
+        "dur": 0.225,
+        "median_f0_hz": 493.2,
+        "voiced_frac": 0.19,
+        "whisper_recheck": "DAT"
+      },
+      {
+        "file": "/Users/jas/aesthetic-computer/pop/cult/alt/samples/alt-71441-dot3.wav",
+        "words": "dot",
+        "start": 6.409,
+        "end": 6.627,
+        "dur": 0.231,
+        "median_f0_hz": 366.3,
+        "voiced_frac": 0.86,
+        "whisper_recheck": "Duh"
+      },
+      {
+        "file": "/Users/jas/aesthetic-computer/pop/cult/alt/samples/alt-71441-threeofus.wav",
+        "words": "three of us (sung)",
+        "start": 7.799,
+        "end": 8.735,
+        "dur": 0.948,
+        "median_f0_hz": 221.0,
+        "voiced_frac": 0.94,
+        "whisper_recheck": "Three of us."
+      },
+      {
+        "file": "/Users/jas/aesthetic-computer/pop/cult/alt/samples/alt-71441-cult.wav",
+        "words": "cult",
+        "start": 10.586,
+        "end": 11.098,
+        "dur": 0.524,
+        "median_f0_hz": 207.4,
+        "voiced_frac": 0.94,
+        "whisper_recheck": "Cool!"
+      }
+    ]
+  },
+  "7144849836880219434": {
+    "source_mp4": "/Users/jas/aesthetic-computer/pop/cult/alt/raw/7144849836880219434.mp4",
+    "wav": "/Users/jas/aesthetic-computer/pop/cult/alt/wav/7144849836880219434.wav",
+    "duration": 13.4,
+    "speech_found": true,
+    "transcript": "[ S ING ING ]",
+    "transcription_method": "whisper.cpp (whisper-cli) ggml-small.en, word-level -ml 1, plus per-burst re-transcription for alignment",
+    "whistle_detected": false,
+    "whistle_note": "pyin scan 500-3000 Hz found no sustained tonal run >=0.15 s in this clip; the melody here is chanted/spoken, not whistled",
+    "word_timestamps": [
+      {
+        "t": "",
+        "start": 0.0,
+        "end": 0.13
+      },
+      {
+        "t": " [",
+        "start": 0.13,
+        "end": 1.44
+      },
+      {
+        "t": "S",
+        "start": 1.44,
+        "end": 2.88
+      },
+      {
+        "t": "ING",
+        "start": 2.88,
+        "end": 7.19
+      },
+      {
+        "t": "ING",
+        "start": 7.19,
+        "end": 11.5
+      },
+      {
+        "t": "]",
+        "start": 11.5,
+        "end": 12.96
+      }
+    ],
+    "bursts": [
+      [
+        0.115,
+        2.557,
+        "\u266a Da, da, da, dash, dash \u266a"
+      ],
+      [
+        2.677,
+        4.419,
+        "\u266b Dash, da, da, da, da, da"
+      ],
+      [
+        4.893,
+        5.208,
+        "Duh!"
+      ],
+      [
+        5.573,
+        5.931,
+        "Dot!"
+      ],
+      [
+        6.483,
+        7.008,
+        "That's"
+      ],
+      [
+        7.184,
+        9.779,
+        "\u266a Three of us are in love \u266a"
+      ],
+      [
+        9.968,
+        10.912,
+        "Cool! Cool!"
+      ],
+      [
+        11.12,
+        11.229,
+        "Okay."
+      ],
+      [
+        11.432,
+        11.541,
+        "Okay."
+      ],
+      [
+        11.776,
+        11.883,
+        "Don't."
+      ]
+    ],
+    "samples": [
+      {
+        "file": "/Users/jas/aesthetic-computer/pop/cult/alt/samples/alt-71448-sungdash.wav",
+        "words": "da da da dash dash (sung)",
+        "start": 0.119,
+        "end": 2.562,
+        "dur": 2.455,
+        "median_f0_hz": 154.4,
+        "voiced_frac": 0.17,
+        "whisper_recheck": "\u266a Da da da dash dash \u266a"
+      },
+      {
+        "file": "/Users/jas/aesthetic-computer/pop/cult/alt/samples/alt-71448-duh.wav",
+        "words": "duh",
+        "start": 4.894,
+        "end": 5.214,
+        "dur": 0.332,
+        "median_f0_hz": 465.5,
+        "voiced_frac": 0.48,
+        "whisper_recheck": "Duh"
+      },
+      {
+        "file": "/Users/jas/aesthetic-computer/pop/cult/alt/samples/alt-71448-dot.wav",
+        "words": "dot",
+        "start": 5.574,
+        "end": 5.937,
+        "dur": 0.375,
+        "median_f0_hz": 348.7,
+        "voiced_frac": 0.34,
+        "whisper_recheck": "Duh!"
+      },
+      {
+        "file": "/Users/jas/aesthetic-computer/pop/cult/alt/samples/alt-71448-threeofus.wav",
+        "words": "three of us (sung)",
+        "start": 7.165,
+        "end": 8.133,
+        "dur": 0.98,
+        "median_f0_hz": 315.2,
+        "voiced_frac": 0.57,
+        "whisper_recheck": "Three of us."
+      },
+      {
+        "file": "/Users/jas/aesthetic-computer/pop/cult/alt/samples/alt-71448-cult.wav",
+        "words": "cult (sung)",
+        "start": 9.969,
+        "end": 10.761,
+        "dur": 0.804,
+        "median_f0_hz": 298.4,
+        "voiced_frac": 0.93,
+        "whisper_recheck": "Cool!"
+      }
+    ]
+  },
+  "7156050516676726062": {
+    "source_mp4": "/Users/jas/aesthetic-computer/pop/cult/alt/raw/7156050516676726062.mp4",
+    "wav": "/Users/jas/aesthetic-computer/pop/cult/alt/wav/7156050516676726062.wav",
+    "duration": 8.94,
+    "speech_found": true,
+    "transcript": "Dash .  Dash .  Dash .  Dot .  Dot .  The  three  of  us  are  in  a ...",
+    "transcription_method": "whisper.cpp (whisper-cli) ggml-small.en, word-level -ml 1, plus per-burst re-transcription for alignment",
+    "whistle_detected": false,
+    "whistle_note": "pyin scan 500-3000 Hz found no sustained tonal run >=0.15 s in this clip; the melody here is chanted/spoken, not whistled",
+    "word_timestamps": [
+      {
+        "t": "",
+        "start": 0.0,
+        "end": 0.45
+      },
+      {
+        "t": " Dash",
+        "start": 0.45,
+        "end": 0.57
+      },
+      {
+        "t": ".",
+        "start": 0.57,
+        "end": 1.0
+      },
+      {
+        "t": " Dash",
+        "start": 1.0,
+        "end": 2.0
+      },
+      {
+        "t": ".",
+        "start": 2.0,
+        "end": 2.0
+      },
+      {
+        "t": " Dash",
+        "start": 2.0,
+        "end": 2.57
+      },
+      {
+        "t": ".",
+        "start": 2.57,
+        "end": 3.0
+      },
+      {
+        "t": " Dot",
+        "start": 3.0,
+        "end": 3.5
+      },
+      {
+        "t": ".",
+        "start": 3.5,
+        "end": 4.0
+      },
+      {
+        "t": " Dot",
+        "start": 4.0,
+        "end": 4.5
+      },
+      {
+        "t": ".",
+        "start": 4.5,
+        "end": 5.0
+      },
+      {
+        "t": " The",
+        "start": 5.0,
+        "end": 5.45
+      },
+      {
+        "t": " three",
+        "start": 5.45,
+        "end": 5.7
+      },
+      {
+        "t": " of",
+        "start": 5.7,
+        "end": 5.87
+      },
+      {
+        "t": " us",
+        "start": 5.87,
+        "end": 6.11
+      },
+      {
+        "t": " are",
+        "start": 6.11,
+        "end": 6.3
+      },
+      {
+        "t": " in",
+        "start": 6.3,
+        "end": 6.49
+      },
+      {
+        "t": " a",
+        "start": 6.49,
+        "end": 7.0
+      },
+      {
+        "t": "...",
+        "start": 7.0,
+        "end": 7.0
+      }
+    ],
+    "bursts": [
+      [
+        0.507,
+        0.677,
+        "Dash."
+      ],
+      [
+        0.792,
+        0.901,
+        "[BLANK_AUDIO]"
+      ],
+      [
+        1.117,
+        1.608,
+        "Dash."
+      ],
+      [
+        2.677,
+        2.88,
+        "dot."
+      ],
+      [
+        3.36,
+        3.661,
+        "God."
+      ],
+      [
+        4.661,
+        4.816,
+        "The"
+      ],
+      [
+        4.944,
+        6.485,
+        "Three of us are in."
+      ],
+      [
+        6.645,
+        7.112,
+        "Ah"
+      ]
+    ],
+    "samples": [
+      {
+        "file": "/Users/jas/aesthetic-computer/pop/cult/alt/samples/alt-71560-dash1.wav",
+        "words": "dash",
+        "start": 0.482,
+        "end": 0.74,
+        "dur": 0.27,
+        "median_f0_hz": 231.4,
+        "voiced_frac": 0.92,
+        "whisper_recheck": "gash"
+      },
+      {
+        "file": "/Users/jas/aesthetic-computer/pop/cult/alt/samples/alt-71560-dash2.wav",
+        "words": "dash",
+        "start": 1.119,
+        "end": 1.604,
+        "dur": 0.497,
+        "median_f0_hz": 284.9,
+        "voiced_frac": 0.67,
+        "whisper_recheck": "Dash."
+      },
+      {
+        "file": "/Users/jas/aesthetic-computer/pop/cult/alt/samples/alt-71560-dot1.wav",
+        "words": "dot",
+        "start": 2.668,
+        "end": 2.892,
+        "dur": 0.236,
+        "median_f0_hz": 195.2,
+        "voiced_frac": 0.91,
+        "whisper_recheck": "dot"
+      },
+      {
+        "file": "/Users/jas/aesthetic-computer/pop/cult/alt/samples/alt-71560-dot2.wav",
+        "words": "dot",
+        "start": 3.375,
+        "end": 3.636,
+        "dur": 0.273,
+        "median_f0_hz": 276.8,
+        "voiced_frac": 1.0,
+        "whisper_recheck": "Gah!"
+      },
+      {
+        "file": "/Users/jas/aesthetic-computer/pop/cult/alt/samples/alt-71560-threeofus.wav",
+        "words": "the three of us are in a",
+        "start": 4.944,
+        "end": 6.491,
+        "dur": 1.559,
+        "median_f0_hz": 307.1,
+        "voiced_frac": 0.89,
+        "whisper_recheck": "Three of us are in."
+      }
+    ]
+  }
+}

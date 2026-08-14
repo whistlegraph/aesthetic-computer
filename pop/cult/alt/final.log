@@ -1,0 +1,82 @@
+alt-70551-dash1                   0.44s f0=   0.0 v=0.00 "dash" | recheck: Dash.
+alt-70551-dash2                   0.42s f0= 291.6 v=0.67 "dash" | recheck: Dash.
+alt-70551-dash3                   0.86s f0=   0.0 v=0.00 "dash" | recheck: DAT
+alt-70551-dot1                    0.30s f0= 139.2 v=0.64 "dot" | recheck: Dot.
+alt-70551-dot2                    0.32s f0= 264.3 v=0.77 "dot" | recheck: Dot.
+alt-70551-threeofus               1.77s f0= 208.6 v=0.92 "the three of us are in" | recheck: Three of us are in, ah.
+alt-70551-cult                    0.43s f0= 135.6 v=0.70 "cult" | recheck: cold.
+alt-70555-dash1                   0.47s f0= 128.8 v=0.41 "dash" | recheck: -
+alt-70555-dash2                   0.31s f0= 307.1 v=0.89 "dash" | recheck: Dash.
+alt-70555-dash3                   0.33s f0= 188.5 v=0.87 "dash" | recheck: Dash.
+alt-70555-dot1                    0.37s f0= 120.5 v=0.57 "dot" | recheck: Dot.
+alt-70555-dot2                    0.28s f0= 280.0 v=0.96 "dot" | recheck: dot
+alt-70555-dot3                    0.24s f0= 179.5 v=0.95 "dot" | recheck: Doth.
+alt-70555-threeofus               1.73s f0= 155.8 v=0.70 "the three of us are in" | recheck: The three of us are in.
+alt-70555-uh                      0.47s f0= 217.2 v=0.93 "uh / a" | recheck: Uh...
+alt-70555-cult                    0.37s f0= 119.4 v=0.76 "cult" | recheck: Cold.
+alt-70710-intro                   2.00s f0= 143.3 v=0.82 "lets do it around the watery hole guys" | recheck: Let's do it around the watery hole, guys.
+alt-70710-hehehaha                2.12s f0= 155.3 v=0.86 "he he he ha ha ha" | recheck: ♪ Hee hee hee ha ♪
+alt-70710-ha1                     0.44s f0=   0.0 v=0.00 "ha ha" | recheck: Ah
+alt-70710-ha2                     0.45s f0= 124.7 v=0.69 "ha ha" | recheck: Ha!
+alt-70710-threeofus               1.01s f0= 149.2 v=0.35 "the three of us" | recheck: The three of us
+alt-70710-inacult                 1.27s f0= 124.7 v=0.13 "are in a cult" | recheck: SIRINNA
+alt-70710-cult                    0.40s f0=   0.0 v=0.00 "cult" | recheck: Go f-
+alt-70714-hehe                    1.65s f0= 111.1 v=0.52 "hee hee hee" | recheck: Hee hee hee!
+alt-70714-haha                    1.48s f0= 172.4 v=0.32 "ha ha ha" | recheck: Ha, ha, ha!
+alt-70714-threeofus               0.75s f0=  78.6 v=0.19 "the three of us" | recheck: Three of us
+alt-70714-inour                   1.46s f0= 228.7 v=0.39 "are in our" | recheck: ♪ In a cold ♪
+alt-70714-cult                    0.44s f0=   0.0 v=0.00 "cult" | recheck: - I'm cold.
+alt-71018-dash1                   0.47s f0= 132.1 v=0.40 "dash" | recheck: dash.
+alt-71018-dash2                   0.48s f0= 284.9 v=0.61 "dash" | recheck: Bash
+alt-71018-dash3                   0.33s f0= 124.4 v=0.73 "dash" | recheck: Dash.
+alt-71018-dot1                    0.21s f0= 130.6 v=0.58 "dot" | recheck: Dot.
+alt-71018-dot2                    0.31s f0= 238.9 v=0.83 "dot" | recheck: got
+alt-71018-dot3                    0.36s f0= 201.5 v=0.61 "dot" | recheck: dot
+alt-71018-threeofus               1.47s f0= 148.3 v=0.91 "the three of us are in" | recheck: Three of us are in.
+alt-71018-uh                      0.36s f0= 198.0 v=0.94 "uh / a" | recheck: Uh...
+alt-71018-cult                    0.29s f0= 112.4 v=0.78 "cult" | recheck: Cold.
+alt-71195-dashes                  1.75s f0= 139.2 v=0.64 "dash dash dash" | recheck: Dash. Dash. Dash.
+alt-71195-dot1                    0.42s f0= 113.7 v=0.49 "dot" | recheck: dot.
+alt-71195-dot2                    0.37s f0= 270.5 v=0.89 "dot" | recheck: Dot.
+alt-71195-dot3                    0.31s f0= 121.5 v=0.86 "dot" | recheck: Dot.
+alt-71195-threeofus               0.74s f0= 124.7 v=0.83 "three of us" | recheck: of us.
+alt-71195-arein                   0.85s f0= 167.0 v=0.78 "are in" | recheck: are in.
+alt-71195-uh                      0.53s f0= 213.4 v=0.96 "uh / a" | recheck: Uhh...
+alt-71195-cult                    0.54s f0= 120.5 v=0.76 "cult" | recheck: cold.
+alt-71244-dash1                   0.27s f0= 312.5 v=1.00 "dash" | recheck: Dash.
+alt-71244-dash2                   0.33s f0= 189.0 v=0.97 "dash" | recheck: Dash.
+alt-71244-dot1                    0.26s f0= 126.2 v=0.62 "dot" | recheck: Dot.
+alt-71244-dot2                    0.29s f0= 280.0 v=0.93 "dot" | recheck: dot
+alt-71244-dot3                    0.28s f0= 243.8 v=0.96 "dot" | recheck: Dot.
+alt-71244-threeofus               1.37s f0= 177.9 v=0.80 "the three of us are in" | recheck: Three of us are in.
+alt-71244-uh                      0.35s f0= 227.4 v=0.91 "uh / a" | recheck: Uh...
+alt-71244-cult                    0.41s f0= 228.7 v=0.76 "cult" | recheck: Cold?
+alt-71437-dash1                   0.74s f0= 316.1 v=0.58 "dash" | recheck: Dash!
+alt-71437-dash2                   0.61s f0= 305.3 v=0.40 "dash" | recheck: DASH
+alt-71437-dot1                    0.76s f0= 250.9 v=0.87 "dot" | recheck: Dot.
+alt-71437-dot2                    0.55s f0= 276.8 v=0.35 "dot" | recheck: Dot!
+alt-71437-cult                    0.29s f0= 488.9 v=0.59 "cult" | recheck: CO!
+alt-71437-noway                   0.95s f0= 131.4 v=1.00 "no way guys" | recheck: It's away guys.
+alt-71437-filmmakers              1.08s f0= 155.3 v=0.70 "we're filmmakers now" | recheck: We're filmmakers now.
+alt-71437-ever                    0.64s f0= 175.4 v=0.82 "ever" | recheck: Ever.
+alt-71437-spotify                 2.16s f0= 122.6 v=0.64 "staying on spotify too guys / spotify" | recheck: - Streaming on Spotify too, guys.
+alt-71441-duhduhduh               0.64s f0= 296.6 v=0.48 "duh duh duh" | recheck: ♪ Da-da ♪
+alt-71441-dash1                   0.49s f0= 331.1 v=0.37 "dash" | recheck: DASH!
+alt-71441-dash2                   0.43s f0=   0.0 v=0.00 "dash" | recheck: DASH
+alt-71441-dash3                   0.71s f0= 418.3 v=0.42 "dash" | recheck: FASHTOOP
+alt-71441-dot1                    0.33s f0= 303.6 v=0.30 "dot" | recheck: DOT!
+alt-71441-dot2                    0.23s f0= 493.2 v=0.19 "dot" | recheck: DAT
+alt-71441-dot3                    0.23s f0= 366.3 v=0.86 "dot" | recheck: Duh
+alt-71441-threeofus               0.95s f0= 221.0 v=0.94 "three of us (sung)" | recheck: Three of us.
+alt-71441-cult                    0.52s f0= 207.4 v=0.94 "cult" | recheck: Cool!
+alt-71448-sungdash                2.45s f0= 154.4 v=0.17 "da da da dash dash (sung)" | recheck: ♪ Da da da dash dash ♪
+alt-71448-duh                     0.33s f0= 465.5 v=0.48 "duh" | recheck: Duh
+alt-71448-dot                     0.37s f0= 348.7 v=0.34 "dot" | recheck: Duh!
+alt-71448-threeofus               0.98s f0= 315.2 v=0.57 "three of us (sung)" | recheck: Three of us.
+alt-71448-cult                    0.80s f0= 298.4 v=0.93 "cult (sung)" | recheck: Cool!
+alt-71560-dash1                   0.27s f0= 231.4 v=0.92 "dash" | recheck: gash
+alt-71560-dash2                   0.50s f0= 284.9 v=0.67 "dash" | recheck: Dash.
+alt-71560-dot1                    0.24s f0= 195.2 v=0.91 "dot" | recheck: dot
+alt-71560-dot2                    0.27s f0= 276.8 v=1.00 "dot" | recheck: Gah!
+alt-71560-threeofus               1.56s f0= 307.1 v=0.89 "the three of us are in a" | recheck: Three of us are in.
+WROTE alt/harvest.json

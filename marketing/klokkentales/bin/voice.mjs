@@ -180,8 +180,39 @@ async function sample() {
   console.log(`review the complete voice sample: ${output}`);
 }
 
+// Speak an arbitrary line in Prutti's voice. Same settings as `sample`, but
+// the text and destination are yours:
+//   node bin/voice.mjs say "aesthetic dot computer" --out ~/stamp.mp3
+async function say() {
+  // The receipt is the source of truth for the voice id; the project .env is
+  // only a convenience pointer and may be absent on a fresh checkout.
+  const voiceId = env.PRUTTI_ELEVENLABS_VOICE_ID || (existsSync(receiptPath)
+    ? JSON.parse(readFileSync(receiptPath, "utf8")).voiceId
+    : null);
+  if (!voiceId) throw new Error("Prutti voice has not been created");
+  const text = argv.find((arg) => !arg.startsWith("--"));
+  if (!text) throw new Error('usage: voice.mjs say "the line" [--out path.mp3]');
+  const outFlag = argv.indexOf("--out");
+  const output = outFlag >= 0 && argv[outFlag + 1]
+    ? resolve(argv[outFlag + 1])
+    : resolve(voiceRoot, "say.mp3");
+  const response = await eleven(`/v1/text-to-speech/${encodeURIComponent(voiceId)}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      text,
+      model_id: "eleven_multilingual_v2",
+      voice_settings: { stability: 0.38, similarity_boost: 0.9, style: 0.48, use_speaker_boost: true, speed: 0.98 },
+    }),
+  });
+  mkdirSync(resolve(output, ".."), { recursive: true });
+  writeFileSync(output, Buffer.from(await response.arrayBuffer()), { mode: 0o600 });
+  console.log(`${output}`);
+}
+
 if (command === "status") await status();
 else if (command === "prepare") prepare();
 else if (command === "create-ivc") await createIvc();
 else if (command === "sample") await sample();
+else if (command === "say") await say();
 else throw new Error("usage: voice.mjs status | prepare <audio> | create-ivc --confirm-rights-and-consent | sample");
