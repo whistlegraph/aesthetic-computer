@@ -18,6 +18,13 @@
 // name — everything downstream (ball kind, round names, the whole physics
 // sim) falls out of that. Replacing `Math.random` with a seeded generator
 // before boot therefore makes an entire match reproducible from a string.
+//
+// The halves are cut on two different clocks, and joining them is this file's
+// one real piece of arithmetic. The picture that ships is NOT the live
+// screencast — that pass is thrown away and the frames are re-rendered offline
+// from the demo, one frame per demo tick, starting at tick zero. The sound is
+// still the live pass, stamped in wall milliseconds. `demoOriginMs` is the
+// bridge between them.
 
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
@@ -129,6 +136,31 @@ async function captureOfflineReplay({ browser, shell, demo, frames, width,
   } finally {
     await page.close();
   }
+}
+
+// The wall time of the demo's tick zero — the instant the shipped picture
+// begins. Every live signal that matches a demo event votes for it: the true
+// origin collects a vote from each of the hundred-odd of them, coincidences
+// scatter, so the densest 33ms window wins and its median is the answer.
+// Aligning the sound to the live screencast's first frame instead put a whole
+// round's head-start between the punch and the noise it makes.
+export function demoOriginMs(rawSignals, events = []) {
+  const tickMs = 1000 / 60;
+  const votes = [];
+  for (const live of rawSignals)
+    for (const [tick, event, player] of events)
+      if (event === live.event && player === live.player)
+        votes.push(live.at - tick * tickMs);
+  votes.sort((a, b) => a - b);
+  let best = null;
+  for (let from = 0, to = 0; from < votes.length; from++) {
+    while (to < votes.length && votes[to] - votes[from] <= 33) to++;
+    if (!best || to - from > best.to - best.from) best = { from, to };
+  }
+  // Eight agreeing votes is far more than coincidence and far fewer than a
+  // real round emits; below it there is no alignment to trust.
+  if (!best || best.to - best.from < 8) return null;
+  return votes[(best.from + best.to - 1) >> 1];
 }
 
 // A fight worth watching, spelled in the keys a person actually holds.
@@ -292,19 +324,18 @@ export async function renderReel(spec, { log = console.log } = {}) {
       const warmup = Date.now() + cap * 1000;
       const already = shell.demos.length;
       while (shell.demos.length === already && Date.now() < warmup) await wait(120);
-      // The POST is the start of that round's result card, so the card still
-      // has to clear before the next round's countdown begins. Waiting it out
-      // is what makes the reel open on "3, 2, 1" instead of on a stale winner.
-      await wait(cardClearMs);
-      log(`   warm-up round cleared (${((Date.now() - started) / 1000).toFixed(0)}s) —` +
-        ` recording opens on the next countdown`);
     }
 
+    // The recorder opens BEFORE the result card is waited out, not after. The
+    // picture begins at the demo's tick zero whether or not anything was
+    // listening, so a recorder that starts even a quarter second late loses
+    // the round's first bell for good and the reel opens on a mute "3". Three
+    // discarded seconds of the previous card is the whole price.
     const audio = await page.evaluate(async () => {
       // Ground truth for the sync verifier: every sound the game asks for,
-      // wall-stamped on the same clock the screencast frames carry. The
-      // verifier compares these against onsets measured in the encoded file,
-      // so a drifting mux gets caught by arithmetic instead of by ear.
+      // wall-stamped. `demoOriginMs` puts these on the picture's clock later;
+      // the verifier then compares them against onsets measured in the encoded
+      // file, so a drifting mux gets caught by arithmetic instead of by ear.
       globalThis.__reelSignals = [];
       addEventListener("oskiewar:signal", ({ detail = {} }) => {
         globalThis.__reelSignals.push(
@@ -333,6 +364,15 @@ export async function renderReel(spec, { log = console.log } = {}) {
         startedAt: Date.now() };
     });
     log(`   audio tee · ${audio.contexts} context(s) · ${audio.tracks} track(s)`);
+
+    // The warm-up round's POST is the START of its result card, so the card
+    // still has to clear before the next round's countdown begins. Waiting it
+    // out is what makes the reel open on "3, 2, 1" instead of a stale winner.
+    if (kind === "self-play") {
+      await wait(cardClearMs);
+      log(`   warm-up round cleared (${((Date.now() - started) / 1000).toFixed(0)}s) —` +
+        ` recording opens on the next countdown`);
+    }
 
     const stamps = [];
     const client = await page.createCDPSession();
@@ -405,6 +445,11 @@ export async function renderReel(spec, { log = console.log } = {}) {
       return btoa(binary);
     });
     if (!stamps.length) throw new Error("no frames captured");
+    // Read the live page out the moment its recorder stops. Self-play starts
+    // another round immediately, and anything stamped after this belongs to a
+    // fight nobody is going to see.
+    const matches = await page.evaluate(() => globalThis.__reelMatches || []);
+    const rawSignals = await page.evaluate(() => globalThis.__reelSignals || []);
 
     const track = join(out, "audio.webm");
     const haveAudio = encoded && encoded.length > 100;
@@ -424,6 +469,12 @@ export async function renderReel(spec, { log = console.log } = {}) {
     // The demo sticks around beside the frames — it is the whole recording,
     // and a re-sim investigation should not need another live pass to get one.
     writeFileSync(join(out, "demo.json"), JSON.stringify(replayDemo));
+    const originMs = demoOriginMs(rawSignals, replayDemo.events);
+    if (originMs === null)
+      throw new Error("cannot place the live recording on the demo's tick clock — " +
+        "sound and picture would be muxed blind");
+    log(`   reel zero = demo tick 0 · the live screencast opened ${
+      Math.round(zero * 1000 - originMs)}ms into the round`);
     const offlineStamps = await captureOfflineReplay({ browser, shell,
       demo: replayDemo, frames, width, height, theme,
       seconds: captured.seconds, hud, debugOverlay: spec.debugOverlay, log });
@@ -438,21 +489,34 @@ export async function renderReel(spec, { log = console.log } = {}) {
     }).join("\n") + `\nfile 'frames/${offlineStamps.at(-1).file}'\n`;
     writeFileSync(join(out, "frames.txt"), list);
 
-    const audioLeadMs = haveAudio && audio.startedAt && zero !== null
-      ? Math.max(0, Math.round(zero * 1000 - audio.startedAt)) : 0;
-    if (audioLeadMs) log("   audio leads video by " + audioLeadMs + "ms - trimming the head");
+    // The reel's t=0 is the demo's tick zero, because that is where the
+    // re-rendered picture begins. A positive lead means the recorder was
+    // already rolling by then and the head gets trimmed; a negative one means
+    // the round opened first, so the sound it made was never captured and the
+    // gap is padded with silence rather than pulling the whole track early.
+    const audioLeadMs = haveAudio && audio.startedAt
+      ? Math.round(originMs - audio.startedAt) : 0;
+    if (audioLeadMs) log(`   audio ${audioLeadMs > 0 ? "trimmed" : "padded"} ${
+      Math.abs(audioLeadMs)}ms at the head to meet the picture`);
 
     const base = join(out, "base.mp4");
     // The Replay Oven keeps the delivery master at Meta's 60 fps ceiling.
     // JPEG 100 source frames plus CRF 14 preserve thin limbs, eyes, trails,
     // and particles before Instagram performs its own unavoidable encode.
+    // @jeffrey 2026-08-13: the old grade lifted blacks (brightness +0.005) and
+    // sharpened softly, which read as a washed-out digital haze. Drop the lift,
+    // push contrast and saturation for punch, and sharpen on a tight 3px matrix
+    // at a much higher amount so pixel edges fling rather than smear.
     const ovenFilter = ovenStyle === "raw" ? null :
-      "eq=contrast=1.035:saturation=1.08:brightness=0.005," +
-      "unsharp=5:5:0.32:3:3:0.12";
+      "eq=contrast=1.14:saturation=1.16:brightness=0.0," +
+      "unsharp=3:3:1.1:3:3:0.5";
     const ffmpeg = spawnSync("ffmpeg", ["-y", "-f", "concat", "-safe", "0",
       "-i", join(out, "frames.txt"),
-      ...(haveAudio ? ["-ss", (audioLeadMs / 1000).toFixed(3), "-i", track] : []),
+      ...(haveAudio ? [...(audioLeadMs > 0
+        ? ["-ss", (audioLeadMs / 1000).toFixed(3)] : []), "-i", track] : []),
       ...(ovenFilter ? ["-vf", ovenFilter] : []),
+      ...(haveAudio && audioLeadMs < 0
+        ? ["-af", `adelay=${-audioLeadMs}:all=1`] : []),
       "-vsync", "cfr", "-r", "60", "-c:v", "libx264", "-preset", "slow",
       "-crf", "14", "-profile:v", "high", "-level", "4.2",
       "-pix_fmt", "yuv420p",
@@ -467,18 +531,18 @@ export async function renderReel(spec, { log = console.log } = {}) {
       "-movflags", "+faststart", base], { encoding: "utf8" });
     if (ffmpeg.status !== 0) throw new Error(ffmpeg.stderr?.slice(-800) || "ffmpeg failed");
 
-    const matches = await page.evaluate(() => globalThis.__reelMatches || []);
-    // Signals mapped onto the reel's own clock: t=0 is the first kept frame,
-    // which is also where the trimmed audio begins. Anything stamped before
-    // the recording window belongs to the warm-up and is dropped.
-    const rawSignals = await page.evaluate(() => globalThis.__reelSignals || []);
+    // Signals mapped onto the reel's own clock — the demo's, the one the
+    // shipped picture is cut on. Stamping them against the discarded live
+    // screencast instead is what let the verifier compare the sound to itself
+    // and call a third of a second of skew perfect. Anything outside the
+    // window belongs to the warm-up or to the round after and is dropped.
     const signals = rawSignals
       .map(({ event, player, at }) =>
-        ({ event, player, t: +((at - zero * 1000) / 1000).toFixed(3) }))
+        ({ event, player, t: +((at - originMs) / 1000).toFixed(3) }))
       .filter(({ t }) => t >= 0 && t <= captured.seconds);
     log(`   signals ${rawSignals.length} raw → ${signals.length} in window` +
       (rawSignals.length && !signals.length
-        ? ` (first at ${((rawSignals[0].at - zero * 1000) / 1000).toFixed(1)}s)` : ""));
+        ? ` (first at ${((rawSignals[0].at - originMs) / 1000).toFixed(1)}s)` : ""));
     const played = shell.demos.slice(-rounds).map((demo) => ({
       round: demo.roundName, winner: demo.winner,
       seconds: +(demo.durationTicks / 60).toFixed(1) }));

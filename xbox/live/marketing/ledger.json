@@ -147,6 +147,46 @@
         "reels_skip_rate": 0
       },
       "insightsAt": "2026-08-11T04:46:31.407Z"
+    },
+    {
+      "mode": "live",
+      "id": "2026-08-13-s0-retro",
+      "slot": 672,
+      "day": "2026-08-13",
+      "index": 0,
+      "segment": "retro",
+      "seed": "2026-08-13#0",
+      "kind": "self-play",
+      "round": "keggy152",
+      "audioName": "keggy152",
+      "publishedAt": "2026-08-13T18:36:54.756Z",
+      "urls": {
+        "reel": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/oskiewar/reels/2026-08-13-s0-retro/reel.mp4",
+        "cover": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/oskiewar/reels/2026-08-13-s0-retro/cover.jpg"
+      },
+      "containerId": "18080417576446357",
+      "mediaId": "17994848552810311",
+      "insights": null
+    },
+    {
+      "mode": "live",
+      "id": "2026-08-13-s2-gen",
+      "slot": 674,
+      "day": "2026-08-13",
+      "index": 2,
+      "segment": "gen",
+      "seed": "2026-08-13#2",
+      "kind": "self-play",
+      "round": "tetta312",
+      "audioName": "tetta312",
+      "publishedAt": "2026-08-13T22:45:00.746Z",
+      "urls": {
+        "reel": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/oskiewar/reels/2026-08-13-s2-gen/reel.mp4",
+        "cover": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/oskiewar/reels/2026-08-13-s2-gen/cover.jpg"
+      },
+      "containerId": "18080473385446357",
+      "mediaId": "18616751710031645",
+      "insights": null
     }
   ]
 }

@@ -104,8 +104,11 @@ async function buildSlot(day, index) {
     sourceFps: render.seconds > 0 ? +(render.frames / render.seconds).toFixed(2) : 0,
   };
   motion.ok = motion.mode === "fixed-step-60" && motion.sourceFps >= 59.5;
-  log(`   sync ${sync.ok ? "✓" : "✗"} · ${sync.expectedSignals} signals expected` +
+  log(`   sync ${sync.ok ? "✓" : "✗"} · ${sync.expectedSignals} signals in` +
+    ` ${sync.signalChords} chords · voiced ${sync.voicedChords}` +
+    ` (${Math.round((sync.coverage ?? 0) * 100)}%)` +
     ` · ${sync.matchedOnsets}/${sync.heardOnsets} onsets` +
+    ` · offset ${sync.offset ?? "—"}s` +
     ` · median ${sync.medianSkew ?? "—"}s · worst ${sync.worstSkew ?? "—"}s` +
     ` · audible ${Math.round((sync.audibleFraction ?? 0) * 100)}%`);
   for (const span of sync.silences || [])
@@ -161,9 +164,17 @@ async function main() {
   if (flags.queue) {
     const queued = listQueue();
     log(`📦 ${queued.length} staged in ${staging}`);
-    for (const item of queued)
+    for (const item of queued) {
+      // A sidecar without files/meta was written by some other hand — say so
+      // and keep listing rather than letting one stray entry crash the queue.
+      if (!item.meta || !item.files) {
+        log(`   ⚠ ${item.id || "(no id)"} · reel.json missing ` +
+          `${!item.meta ? "meta" : "files"} — not a staged reel`);
+        continue;
+      }
       log(`   ${item.id.padEnd(30)} ${String(item.segment).padEnd(9)} ` +
         `${item.meta.seconds.toFixed(1)}s  ${item.files.reel}`);
+    }
     return;
   }
   if (flags.segments) {
