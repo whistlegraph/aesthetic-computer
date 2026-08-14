@@ -5313,7 +5313,12 @@ function updatePlayer(player, pad, dt, now) {
   // mostly travels) with a face nailed bolt upright between landings.
   // `grounded` still holds last frame's answer here — it resets just below.
   if (isHeadOnly(player)) {
-    if (player.grounded) player.headRollRate = player.vx / 22;
+    // Clamped well below the true rolling rate: honest physics for a 22-unit
+    // ball at fight speed is eleven revolutions a second, which on screen is
+    // not a rolling face but a whirl of spinning lines. A lazy tumble — about
+    // a turn per second, capped — keeps the eyes and mouth readable while
+    // still saying which way the head is traveling.
+    if (player.grounded) player.headRollRate = clamp(player.vx / 22, -6, 6);
     player.headRoll = (player.headRoll || 0) + (player.headRollRate || 0) * dt;
   }
   player.grounded = false;
