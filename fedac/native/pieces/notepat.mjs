@@ -1856,7 +1856,7 @@ const PAD_FALLBACK_ASPECT = 1.64;
 // dedicated transient-bus compressor still catches hard multi-finger peaks.
 const TRACKDRUM_MIX_GAIN = 1.2;
 
-let padContacts = new Map();   // tracking id -> { x, y }
+let padContacts = new Map();   // tracking id -> { x, y, strikeX, strikeY, strikeFrame }
 let padGeneration = -1;        // last surface generation acted on
 let padStrikes = [];           // { x, y, zone, frame } for paint feedback
 let padLastZone = null;        // most recent zone, for the readout
@@ -2058,10 +2058,10 @@ function playPadStrike(sound, x, y, anchors, velocity, aspect) {
   if (padStrikes.length > 12) padStrikes.shift();
 }
 
-// Poll the pad once a frame and turn newly-arrived contacts into strikes.
-// A contact is a strike the frame its tracking id first appears; every other
-// live contact is an anchor damping it. Ids are the whole trick — a resting
-// finger keeps its id, so it never re-triggers.
+// Poll the pad once a frame and turn new contacts or deliberate slides into
+// strikes. A resting tracking ID stays quiet; after moving 4.5% of the pad
+// from its last strike point, it can re-strike after a 70ms-ish cooldown. This
+// matches Menu Band's TrackDrum drag contract while rejecting hand jitter.
 function updatePadDrum(trackpad, sound) {
   if (!trackpad) return;
   const contacts = trackpad.contacts || [];
@@ -2073,22 +2073,46 @@ function updatePadDrum(trackpad, sound) {
   padGeneration = trackpad.generation;
   const aspect = trackpad.aspect || PAD_FALLBACK_ASPECT;
 
-  const next = new Map();
   for (let i = 0; i < contacts.length; i++) {
     const c = contacts[i];
-    next.set(c.id, { x: c.x, y: c.y });
-  }
-  for (let i = 0; i < contacts.length; i++) {
-    const c = contacts[i];
-    if (padContacts.has(c.id)) continue; // already resting — not a new strike
+    const previous = padContacts.get(c.id);
+    const strikeX = previous?.strikeX ?? c.x;
+    const strikeY = previous?.strikeY ?? c.y;
+    const distance = previous ? Math.hypot(c.x - strikeX, c.y - strikeY) : Infinity;
+    const framesSinceStrike = frame - (previous?.strikeFrame ?? -999);
+    const isNew = !previous;
+    const isSlideStrike = !!previous && distance > 0.045 && framesSinceStrike >= 5;
+    if (!isNew && !isSlideStrike) continue;
+
     const anchors = [];
     for (let j = 0; j < contacts.length; j++) {
       if (contacts[j].id !== c.id) anchors.push(contacts[j]);
     }
     const sx = (c.x - 0.5) * 2;
     const sy = (c.y - 0.5) * 2;
-    const velocity = padStrikeVelocity(c, anchors.length, sx, sy, aspect);
+    const baseVelocity = padStrikeVelocity(c, anchors.length, sx, sy, aspect);
+    // Slides are gestures, not fresh finger drops: retain their spatial
+    // articulation but soften them in the same 0.28..0.75 range as Menu Band.
+    const slideScale = isSlideStrike ? Math.min(0.75, 0.28 + distance * 3.5) : 1;
+    const velocity = Math.max(1, Math.round(baseVelocity * slideScale));
     playPadStrike(sound, c.x, c.y, anchors, velocity, aspect);
+  }
+
+  const next = new Map();
+  for (let i = 0; i < contacts.length; i++) {
+    const c = contacts[i];
+    const previous = padContacts.get(c.id);
+    const distance = previous
+      ? Math.hypot(c.x - (previous.strikeX ?? previous.x), c.y - (previous.strikeY ?? previous.y))
+      : Infinity;
+    const didStrike = !previous || (distance > 0.045 && frame - (previous.strikeFrame ?? -999) >= 5);
+    next.set(c.id, {
+      x: c.x,
+      y: c.y,
+      strikeX: didStrike ? c.x : (previous?.strikeX ?? c.x),
+      strikeY: didStrike ? c.y : (previous?.strikeY ?? c.y),
+      strikeFrame: didStrike ? frame : (previous?.strikeFrame ?? frame),
+    });
   }
   padContacts = next;
 }
