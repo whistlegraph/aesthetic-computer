@@ -73,6 +73,42 @@ export function escapedIndexMap(str) {
   return map;
 }
 
+// Escape only the backslashes that do NOT open a valid `\code\` pair, so a
+// chatter can dye their own words on purpose while a stray backslash stays a
+// character. `isValid(code)` decides which codes count. Returns `{escaped,
+// map}` where `map` translates raw offsets onto the escaped copy, with the
+// same [start, end) semantics as `escapedIndexMap`.
+export function escapeInvalidColorCodes(str, isValid) {
+  if (!str) return { escaped: str || "", map: [0] };
+  const map = new Array(str.length + 1);
+  let out = "";
+  let i = 0;
+  while (i < str.length) {
+    map[i] = out.length;
+    if (str[i] !== "\\") {
+      out += str[i];
+      i += 1;
+      continue;
+    }
+    const close = str[i + 1] === "\\" ? -1 : str.indexOf("\\", i + 1);
+    const code = close > i ? str.slice(i + 1, close) : null;
+    if (code !== null && isValid(code)) {
+      out += "\\";
+      i += 1;
+      while (i <= close) {
+        map[i] = out.length;
+        out += str[i];
+        i += 1;
+      }
+    } else {
+      out += "\\\\";
+      i += 1;
+    }
+  }
+  map[str.length] = out.length;
+  return { escaped: out, map };
+}
+
 // Rewrite every code in place (shadow passes do this), leaving the text alone.
 // Return `null` from `fn` to drop a code entirely.
 export function mapColorCodes(str, fn) {

@@ -382,6 +382,8 @@ export class ChatManager {
       await this.handleChatMessage(instance, ws, id, msg);
     } else if (msg.type === "chat:delete") {
       await this.handleDeleteMessage(instance, ws, id, msg);
+    } else if (msg.type === "chat:edit") {
+      await this.handleEditMessage(instance, ws, id, msg);
     } else if (msg.type === "chat:heart") {
       await this.handleChatHeart(instance, ws, id, msg);
     }
@@ -622,6 +624,111 @@ export class ChatManager {
 
     // Broadcast deletion to all clients
     this.broadcast(instance, this.pack("message:delete", { id: messageId }));
+  }
+
+  // ✏️ Re-edit your own message in place. Mirrors delete's auth + ownership
+  // checks and message-send's length/profanity rules; DB keeps the raw text
+  // (like handleChatMessage) while the broadcast carries the filtered copy.
+  async handleEditMessage(instance, ws, id, msg) {
+    const { token, sub, id: messageId } = msg.content || {};
+    let text = msg.content?.text;
+    console.log(
+      `💬 [${instance.config.name}] Edit request from ${sub} for message ${messageId}`
+    );
+
+    if (!messageId || typeof text !== "string") {
+      ws.send(this.pack("error", { message: "Missing message id or text." }));
+      return;
+    }
+
+    text = text.replace(/\s+$/, "");
+    if (text.length === 0) {
+      ws.send(this.pack("error", { message: "Nothing to say." }));
+      return;
+    }
+    if (text.length > MAX_CHARS) {
+      ws.send(
+        this.pack("too-long", {
+          message: `Please limit to ${MAX_CHARS} characters.`,
+          maxChars: MAX_CHARS,
+          countedAs: "utf16-code-units",
+          was: text.length,
+        }),
+      );
+      return;
+    }
+
+    if (await this.isMuted(instance, sub)) {
+      ws.send(this.pack("muted", { message: "Your user has been muted." }));
+      return;
+    }
+
+    // Authorize the user
+    let authorized;
+    if (instance.authorizedConnections[id]?.token === token) {
+      authorized = instance.authorizedConnections[id].user;
+    } else {
+      authorized = await this.authorize(instance, token);
+      if (authorized) {
+        instance.authorizedConnections[id] = { token, user: authorized };
+      }
+    }
+
+    if (!authorized || authorized.sub !== sub) {
+      ws.send(this.pack("unauthorized", { message: "Please login." }, id));
+      return;
+    }
+
+    // Find the message in memory and verify ownership
+    const message = instance.messages.find((m) => m.id === messageId);
+    if (!message) {
+      ws.send(this.pack("error", { message: "Message not found." }));
+      return;
+    }
+    if (message.sub !== sub) {
+      ws.send(this.pack("error", { message: "You can only edit your own messages." }));
+      return;
+    }
+    if (message.deleted) {
+      ws.send(this.pack("error", { message: "Deleted messages can't be edited." }));
+      return;
+    }
+
+    const filteredText = profanityFiltered(instance.config.name)
+      ? filter(text, this.filterDebug)
+      : text;
+    const editedWhen = new Date();
+
+    // Update MongoDB (raw text, matching how sends are stored)
+    if (this.db) {
+      try {
+        const collection = this.db.collection(instance.config.name);
+        await collection.updateOne(
+          { _id: new ObjectId(messageId) },
+          { $set: { text, edited: true, editedWhen } }
+        );
+        console.log("💬 Message edited in DB");
+      } catch (err) {
+        console.error("💬 Failed to edit message in DB:", err);
+      }
+    }
+
+    // Update in-memory
+    message.text = filteredText;
+    message.edited = true;
+    message.editedWhen = editedWhen;
+    delete message.redactedText;
+
+    // Broadcast the edit to all clients
+    this.broadcast(
+      instance,
+      this.pack("message:edit", {
+        id: messageId,
+        text: filteredText,
+        edited: true,
+        editedWhen,
+      }),
+    );
   }
 
   async handleChatHeart(instance, ws, id, msg) {
