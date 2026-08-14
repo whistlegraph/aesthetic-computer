@@ -9536,10 +9536,25 @@ function gamePaint() {
     const winnerSize = compactLayout() ? 46 : 64;
     const winnerWidth = handleWidth(result.winner, winnerSize);
     const centerY = Math.round(viewHeight / 2) - winnerSize;
-    typeWrite(result.winner, viewCenterX() - winnerWidth / 2 + 4, centerY + 5,
-      winnerSize, ...statusShadow);
-    typeWrite(result.winner, viewCenterX() - winnerWidth / 2, centerY,
-      winnerSize, ...titleInk);
+    // The name is the fighter, so it wears the fighter: the same per-glyph
+    // palette the nameplate uses, rather than the neutral title ink. A tie
+    // belongs to nobody and keeps the ink.
+    const champion = players.find((player) =>
+      String(player.name).toLowerCase() === result.winner) || null;
+    const colors = champion?.handleColors;
+    const fallback = champion?.color || titleInk;
+    const writeGlyphs = (dx, dy, palette, plain) => {
+      let cursor = viewCenterX() - winnerWidth / 2 + dx;
+      for (let index = 0; index < result.winner.length; index++) {
+        const character = result.winner[index];
+        typeWrite(character, cursor, centerY + dy, winnerSize,
+          ...glyphColor(palette, index, plain));
+        cursor += comicGlyphAdvance(character, winnerSize);
+      }
+    };
+    writeGlyphs(4, 5, colors?.map(runShadow), champion
+      ? runShadow(fallback) : statusShadow);
+    writeGlyphs(0, 0, colors, fallback);
   } else if (matchHud && roundResult && resultUiReady) {
     if (INSTANT_REPLAY && instantReplay) {
       const frame = Math.min(instantReplay.frames.length,
