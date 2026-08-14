@@ -220,16 +220,19 @@ const bloomC = createCanvas(256, 256);
   g.addColorStop(1, "rgba(255,255,255,0)");
   const c = bloomC.getContext("2d"); c.fillStyle = g; c.fillRect(0, 0, 256, 256);
 }
-// rim (layer 3) — ring stamp
-const rimC = createCanvas(256, 256);
-{
-  const c = rimC.getContext("2d");
-  const g = c.createRadialGradient(128, 132, 60, 128, 132, 118);
-  g.addColorStop(0, "rgba(255,255,255,0)");
-  g.addColorStop(.62, "rgba(255,255,255,.85)");
-  g.addColorStop(1, "rgba(255,255,255,0)");
-  c.fillStyle = g; c.fillRect(0, 0, 256, 256);
-}
+// STAINED GLASS (the marimbaba law): the frame is a glass panel. Each
+// pixel's LUMINANCE sets how much backlight passes through — bright wool
+// transmits and glows; dark rafters and shadow act as leaded came and
+// block it. The glow is stamped into an offscreen, GATED by the frame's
+// transmission mask, then composited additively — so the light reads as
+// genuinely behind the picture, never as a ring sitting on top.
+const glowCanvas = createCanvas(W, H);
+const glowCtx = glowCanvas.getContext("2d");
+const maskCanvas = createCanvas(W, H);
+const maskCtx = maskCanvas.getContext("2d");
+const maskData = maskCtx.createImageData(W, H);
+{ const d = maskData.data; for (let i = 0; i < d.length; i += 4) { d[i] = d[i+1] = d[i+2] = 255; } }
+const T_LO = .30, T_HI = .92, T_GAMMA = 1.7, T_FLOOR = .04, T_CAP = .65;
 const tintC = createCanvas(256, 256);
 const tintCtx = tintC.getContext("2d");
 function tinted(stamp, rgb) {
@@ -279,35 +282,61 @@ async function processFrame(raw) {
 
   const [sr, sg, sb] = sectionTcRgb(t);
 
-  // LAYER 1 — bloom rising from behind the figure [screen]
-  const behind = Math.min(1.4, envBehind[fi] ?? 0);
-  if (behind > .02) {
-    ctx.globalCompositeOperation = "screen";
-    ctx.globalAlpha = Math.min(.55, behind * .4);
-    const s = H * (1.0 + .25 * behind);
-    ctx.drawImage(tinted(bloomC, [sr, sg, sb]), W / 2 - s / 2, H * .56 - s / 2, s, s);
-  }
-
-  // LAYER 2 — breathing contrast vignette [multiply]: the separation.
+  // LAYER 1 — warm near-black contrast vignette [multiply], marimbaba
+  // style: a tight pool of light around the figure, deeply dark corners
+  // tinted with the section colour so the surround reads as coloured
+  // shadow, never as a grey blur.
   const squeeze = Math.min(1, (envBehind[fi] ?? 0) * .6 + (envRim[fi] ?? 0) * .4);
   ctx.globalCompositeOperation = "multiply";
   ctx.globalAlpha = 1;
-  const vg = ctx.createRadialGradient(W / 2, H * .5, H * (.34 - .05 * squeeze), W / 2, H * .5, H * (.78 - .08 * squeeze));
+  const vg = ctx.createRadialGradient(W / 2, H * .52, H * (.16 - .03 * squeeze), W / 2, H * .52, H * (.74 - .06 * squeeze));
   vg.addColorStop(0, "rgba(255,255,255,1)");
-  vg.addColorStop(1, "rgba(96,96,110,1)");
+  vg.addColorStop(.5, `rgba(${Math.round(120 + sr * .25)},${Math.round(112 + sg * .25)},${Math.round(118 + sb * .25)},${(.5 + .1 * squeeze).toFixed(3)})`);
+  vg.addColorStop(1, `rgba(${Math.round(sr * .12)},${Math.round(sg * .12)},${Math.round(sb * .14)},.93)`);
   ctx.fillStyle = vg;
   ctx.fillRect(0, 0, W, H);
-
-  // LAYER 3 — rim halo hugging the figure [screen], snare/donk.
-  const rim = Math.min(1.2, envRim[fi] ?? 0);
-  if (rim > .02) {
-    ctx.globalCompositeOperation = "screen";
-    ctx.globalAlpha = Math.min(.5, rim * .4);
-    const hue = ((u * 360 * 4) % 360 + 360) % 360;
-    const s = H * .8;
-    ctx.drawImage(tinted(rimC, hslToRgb(hue, .85, .6)), W / 2 - s / 2, H * .52 - s / 2, s, s);
-  }
   ctx.globalCompositeOperation = "source-over";
+
+  // LAYER 2 — TRANSMITTED backlight (stained glass). Build the frame's
+  // transmission mask from its own luminance, stamp the coloured glow,
+  // gate it by the mask, add it. Kick/sub swell the glow; snare/donk
+  // snap a hotter, hue-spun pulse through the same glass.
+  const behind = Math.min(1.4, envBehind[fi] ?? 0);
+  const rim = Math.min(1.2, envRim[fi] ?? 0);
+  if (behind > .02 || rim > .02) {
+    const img = ctx.getImageData(0, 0, W, H);
+    const px = img.data, md = maskData.data;
+    for (let i = 0; i < px.length; i += 4) {
+      const L = (.2126 * px[i] + .7152 * px[i + 1] + .0722 * px[i + 2]) / 255;
+      let sN = (L - T_LO) / (T_HI - T_LO);
+      sN = sN < 0 ? 0 : sN > 1 ? 1 : sN;
+      sN = sN * sN * (3 - 2 * sN);
+      md[i + 3] = (Math.min(T_CAP, T_FLOOR + (1 - T_FLOOR) * Math.pow(sN, T_GAMMA)) * 255) | 0;
+    }
+    maskCtx.putImageData(maskData, 0, 0);
+    // candle dance — the transmitted light flutters where it falls
+    const jx = 3.5 * Math.sin(t * 17.3) + 1.5 * Math.sin(t * 41);
+    const jy = 3.5 * Math.cos(t * 21.7) + 1.5 * Math.cos(t * 37);
+    glowCtx.globalCompositeOperation = "source-over";
+    glowCtx.clearRect(0, 0, W, H);
+    if (behind > .02) {
+      glowCtx.globalAlpha = Math.min(.85, behind * .55);
+      const sB = H * (1.05 + .3 * behind);
+      glowCtx.drawImage(tinted(bloomC, [sr, sg, sb]), W / 2 - sB / 2 + jx, H * .56 - sB / 2 + jy, sB, sB);
+    }
+    if (rim > .02) {
+      const hue = ((u * 360 * 4) % 360 + 360) % 360;
+      glowCtx.globalAlpha = Math.min(.7, rim * .5);
+      const sR = H * (.7 + .2 * rim);
+      glowCtx.drawImage(tinted(bloomC, hslToRgb(hue, .85, .62)), W / 2 - sR / 2 - jx, H * .5 - sR / 2 - jy, sR, sR);
+    }
+    glowCtx.globalAlpha = 1;
+    glowCtx.globalCompositeOperation = "destination-in";
+    glowCtx.drawImage(maskCanvas, 0, 0);
+    ctx.globalCompositeOperation = "lighter";
+    ctx.drawImage(glowCanvas, 0, 0);
+    ctx.globalCompositeOperation = "source-over";
+  }
   ctx.globalAlpha = 1;
 
   drawWatermark(ctx, fi);

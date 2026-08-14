@@ -212,6 +212,11 @@ export async function runMotionCli(cfg, flags = parseFlags()) {
   const XF = Number(cfg.xfade || 0);   // crossfade seconds, 0 = hard cuts
   const [FW, FH] = (cfg.ratio || "16:9") === "9:16" ? [720, 1280]
     : (cfg.ratio || "16:9") === "1:1" ? [960, 960] : [1280, 720];
+  // beat-align offsets: a per-shot head trim chosen so the take's visual
+  // impacts land on the section's kicks. Written by a lane's beat-align
+  // tool; absent file = no offsets, nothing changes.
+  const offsetsPath = `${cfg.motionDir}/offsets.json`;
+  const offsets = existsSync(offsetsPath) ? JSON.parse(readFileSync(offsetsPath, "utf8")) : {};
   console.log(`  trimming picked takes to exact section lengths … (${FW}x${FH})`);
   const clipSeconds = (p) => {
     const r = spawnSync("ffprobe", ["-v", "error", "-show_entries", "format=duration",
@@ -250,8 +255,10 @@ export async function runMotionCli(cfg, flags = parseFlags()) {
       // MORPH shots arrive at their end-frame in the FINAL frames, so
       // they trim from the HEAD (keep the arrival, it kisses the next
       // section's opening panel). Cut-shots trim the tail as before.
-      const excess = s.endImage ? Math.max(0, clipSeconds(picked) - s.exact) : 0;
-      if (excess > 0.01) console.log(`  ↪ ${s.name}: morph — trimming ${excess.toFixed(2)}s from head`);
+      const align = !s.endImage ? (offsets[s.name] || 0) : 0;
+      const excess = s.endImage ? Math.max(0, clipSeconds(picked) - s.exact) : align;
+      if (s.endImage && excess > 0.01) console.log(`  ↪ ${s.name}: morph — trimming ${excess.toFixed(2)}s from head`);
+      else if (align > 0.001) console.log(`  ♪ ${s.name}: beat-aligned +${align.toFixed(3)}s`);
       res = spawnSync("ffmpeg", [
         "-y", "-i", picked,
         ...(excess > 0.01 ? ["-ss", excess.toFixed(3)] : []),
