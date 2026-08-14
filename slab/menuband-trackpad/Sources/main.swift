@@ -42,6 +42,29 @@ private final class TrackpadInteractionShield {
     private var commandExitArmAfter: CFTimeInterval = 0
     private var lastCommandTap: CFTimeInterval?
 
+    private static let commandKeyCodes: Set<CGKeyCode> = [54, 55]
+
+    /// The permission-free watchdog only receives snapshots, not key events.
+    /// While the first Command tap is pending, sample the keyboard so any
+    /// intervening key turns `Command, key, Command` into a cancelled run.
+    private static func hasNonCommandKeyDown() -> Bool {
+        let flags = CGEventSource.flagsState(.combinedSessionState)
+        let otherModifiers: CGEventFlags = [
+            .maskAlphaShift, .maskShift, .maskControl,
+            .maskAlternate, .maskSecondaryFn,
+        ]
+        if !flags.intersection(otherModifiers).isEmpty { return true }
+
+        for raw in 0..<128 {
+            let key = CGKeyCode(raw)
+            guard !commandKeyCodes.contains(key) else { continue }
+            if CGEventSource.keyState(.combinedSessionState, key: key) {
+                return true
+            }
+        }
+        return false
+    }
+
     var onExitRequested: (() -> Void)?
     var onCommandDoubleTap: (() -> Void)?
 
@@ -101,13 +124,18 @@ private final class TrackpadInteractionShield {
             let escapePressed = escapeDown && !self.escapeWasDown
             var commandDoubleTapped = false
             let now = CACurrentMediaTime()
+            if self.lastCommandTap != nil, Self.hasNonCommandKeyDown() {
+                self.lastCommandTap = nil
+            }
             if !self.commandExitArmed {
                 if !commandDown && now >= self.commandExitArmAfter {
                     self.commandExitArmed = true
                     self.lastCommandTap = nil
                 }
             } else if commandDown && !self.commandWasDown {
-                if let prior = self.lastCommandTap, now - prior <= 0.75 {
+                if Self.hasNonCommandKeyDown() {
+                    self.lastCommandTap = nil
+                } else if let prior = self.lastCommandTap, now - prior <= 0.75 {
                     commandDoubleTapped = true
                     self.lastCommandTap = nil
                 } else {

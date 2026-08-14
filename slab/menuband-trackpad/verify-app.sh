@@ -18,11 +18,12 @@ fi
     echo "helper must be headless (LSUIElement)" >&2; exit 1;
 }
 
-if ! strings "${BIN}" | grep -q 'MultitouchSupport.framework'; then
+BIN_STRINGS="$(strings "${BIN}")"
+if ! grep -q 'MultitouchSupport.framework' <<<"${BIN_STRINGS}"; then
     echo "global trackpad implementation is missing" >&2
     exit 1
 fi
-if strings "${BIN}" | grep -Eq 'AVAudioEngine|TracktrampMetalView|NSWindow'; then
+if grep -Eq 'AVAudioEngine|TracktrampMetalView|NSWindow' <<<"${BIN_STRINGS}"; then
     echo "audio or standalone instrument UI leaked into helper" >&2
     exit 1
 fi
