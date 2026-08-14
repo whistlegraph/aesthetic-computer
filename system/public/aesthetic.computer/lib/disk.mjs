@@ -9363,6 +9363,9 @@ async function load(
    */
 
   let videoTimeout;
+  let constraintTimeout;
+  let lastConstraintSendTime = 0;
+  const CONSTRAINT_SEND_INTERVAL = 60; // ms between zoom/torch tweak sends.
 
   $commonApi.video = function (type, options) {
     // TODO: ❤️‍🔥 Prevent fast multiple taps while camera is updating...
@@ -9384,7 +9387,30 @@ async function load(
         type === "camera:update" &&
         keys.length > 0 &&
         keys.every((key) => key === "torch" || key === "zoom");
-      if (type === "camera:update" && !constraintOnly) {
+
+      if (constraintOnly) {
+        // Leading + trailing throttle on its own timer. A trailing-only
+        // debounce starves a continuous zoom slide — every new touch value
+        // resets the timer, so nothing sends until the finger pauses and the
+        // recorded zoom then lurches in one big step. Sending immediately
+        // (rate-limited) keeps the ramp tracking the finger; the trailing
+        // send delivers the final resting value.
+        const now = performance.now();
+        const since = now - lastConstraintSendTime;
+        clearTimeout(constraintTimeout);
+        if (since >= CONSTRAINT_SEND_INTERVAL) {
+          lastConstraintSendTime = now;
+          send({ type: "video", content: { type, options } });
+        } else {
+          constraintTimeout = setTimeout(() => {
+            lastConstraintSendTime = performance.now();
+            send({ type: "video", content: { type, options } });
+          }, CONSTRAINT_SEND_INTERVAL - since);
+        }
+        return videoFrame;
+      }
+
+      if (type === "camera:update") {
         lastActiveVideo = activeVideo || lastActiveVideo;
         activeVideo = null;
       }
@@ -9394,7 +9420,7 @@ async function load(
         send({ type: "video", content: { type, options } });
       }, 50);
 
-      if (type === "camera:update" && !constraintOnly) videoSwitching = true;
+      if (type === "camera:update") videoSwitching = true;
     }
 
     // Return an object that can grab whatever the most recent frame of

@@ -989,6 +989,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   let recorderGeneration = 0;
   let compactVideoRecording = false;
   let compactRecorderStream = null;
+  let compactZoomCompositor = null; // rAF loop drawing camera → zoom canvas while recording.
+  // Live camera preview zoom/mirror, written by the camera pipeline and read
+  // by the recorder's zoom compositor so screen and tape ramp together.
+  const cameraFeedState = { zoom: 1, mirrored: false };
   let recordedVideoBlob = null;
   let recordedVideoMime = "";
   let recordedVideoSource = "";
@@ -1020,6 +1024,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   }
 
   function clearCompactRecorderStream() {
+    compactZoomCompositor?.stop?.();
+    compactZoomCompositor = null;
     compactRecorderStream?.getTracks?.().forEach((track) => {
       try { track.stop(); } catch {}
     });
@@ -4448,7 +4454,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               if (!response.ok) throw new Error(`HTTP ${response.status}`);
               return response.arrayBuffer();
             })();
-    window.tapeAudioArrayBuffer = arrayBuffer.slice(0);
+    // decodeAudioData detaches the buffer it's given, so hand it a copy and
+    // keep the original for later export/upload reuse — one copy, not two.
+    window.tapeAudioArrayBuffer = arrayBuffer;
     const decodeContext =
       audioContext && audioContext.state !== "closed"
         ? audioContext
@@ -12391,22 +12399,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       video.playsInline = true;
       video.setAttribute("playsinline", "");
       video.loop = true;
+      // Play immediately off the streaming <video>; the scrub-audio decode
+      // below re-downloads and decodes the whole file, which scales with
+      // length and must never gate first playback.
       let tapeAudioReady = false;
-      try {
-        const decoded = await prepareMp4TapeAudio(mp4Url, "posted MP4");
-        tapeAudioReady = true;
-        send({
-          type: "tape:audio-context-state",
-          content: {
-            state: audioContext?.state || "suspended",
-            hasAudio: true,
-            duration: decoded.duration,
-          },
-        });
-      } catch (error) {
-        console.warn("📼 Posted MP4 audio decode failed; using media element audio:", error);
-      }
-      video.muted = tapeAudioReady;
+      video.muted = false; // Falls back to muted if unmuted autoplay is refused.
       video.controls = false;
       video.preload = "auto";
 
@@ -12450,7 +12447,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       resumeTapePlayback = () => {
         const progress = video.duration > 0 ? video.currentTime / video.duration : 0;
         video.play().catch(() => {});
-        if (tapeAudioReady) startPreparedTapeAudio(progress);
+        if (tapeAudioReady && startPreparedTapeAudio(progress)) {
+          video.muted = true; // Web Audio owns the soundtrack from here.
+        }
       };
       seekTapePlayback = (progress, { speedScrub = false } = {}) => {
         if (!Number.isFinite(video.duration) || video.duration <= 0) return;
@@ -12458,16 +12457,44 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         currentTapePosition = clamped;
         video.currentTime = clamped * video.duration;
         if (!speedScrub && tapeAudioReady && !video.paused) {
-          startPreparedTapeAudio(clamped);
+          if (startPreparedTapeAudio(clamped)) video.muted = true;
         }
       };
 
+      // Background scrub-audio decode; hands the soundtrack to Web Audio
+      // mid-play once it lands.
+      prepareMp4TapeAudio(mp4Url, "posted MP4")
+        .then((decoded) => {
+          if (mp4PlaybackVideo !== video) return; // Superseded by a re-present.
+          tapeAudioReady = true;
+          send({
+            type: "tape:audio-context-state",
+            content: {
+              state: audioContext?.state || "suspended",
+              hasAudio: true,
+              duration: decoded.duration,
+            },
+          });
+          if (!video.paused) {
+            const progress =
+              Number.isFinite(video.duration) && video.duration > 0
+                ? video.currentTime / video.duration
+                : 0;
+            if (startPreparedTapeAudio(progress)) video.muted = true;
+          }
+        })
+        .catch((error) => {
+          console.warn("📼 Posted MP4 audio decode failed; using media element audio:", error);
+        });
+
       // Autoplay (best-effort — browsers may block until a user gesture, in
       // which case the first tap in the video piece resumes it).
-      video.play().catch((err) => {
-        console.warn("📼 MP4 autoplay blocked (will resume on tap):", err?.message || err);
+      video.play().catch(() => {
+        video.muted = true; // Retry silent — motion beats silence-with-stillness.
+        video.play().catch((err) => {
+          console.warn("📼 MP4 autoplay blocked (will resume on tap):", err?.message || err);
+        });
       });
-      if (tapeAudioReady) startPreparedTapeAudio(0);
 
       send({ type: "tape:mp4-ready", content: { mp4Url } });
       return;
@@ -15511,7 +15538,62 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                 ?.getVideoTracks?.()
                 ?.find((track) => track.readyState === "live");
               let videoTrack;
-              if (cameraTrack) {
+              if (cameraTrack && cameraVideo.videoWidth > 0) {
+                // 🔍 Zoom compositor: record the camera through a
+                // native-resolution canvas that applies the same digital
+                // center-crop as the preview. Camera zoom constraints are
+                // never touched — on iOS they switch physical lenses
+                // mid-recording (visible jump cuts) and front cameras rarely
+                // expose a zoom range at all — so the tape ramps smoothly
+                // and linearly, exactly like the screen.
+                const zoomCanvas = document.createElement("canvas");
+                zoomCanvas.width = cameraVideo.videoWidth;
+                zoomCanvas.height = cameraVideo.videoHeight;
+                const zoomCtx = zoomCanvas.getContext("2d");
+                cameraFeedState.zoom = 1; // Each take starts unzoomed.
+                let liveZoom = 1;
+                let compositorFrame;
+                const drawCompositorFrame = () => {
+                  const target = Math.max(1, cameraFeedState.zoom || 1);
+                  liveZoom += (target - liveZoom) * 0.25; // Per-frame ease.
+                  if (Math.abs(target - liveZoom) < 0.002) liveZoom = target;
+                  const vw = cameraVideo.videoWidth;
+                  const vh = cameraVideo.videoHeight;
+                  if (vw > 0 && vh > 0) {
+                    if (zoomCanvas.width !== vw || zoomCanvas.height !== vh) {
+                      zoomCanvas.width = vw;
+                      zoomCanvas.height = vh;
+                    }
+                    const cropW = vw / liveZoom;
+                    const cropH = vh / liveZoom;
+                    zoomCtx.save();
+                    if (cameraFeedState.mirrored) {
+                      zoomCtx.translate(zoomCanvas.width, 0);
+                      zoomCtx.scale(-1, 1);
+                    }
+                    zoomCtx.drawImage(
+                      cameraVideo,
+                      (vw - cropW) / 2,
+                      (vh - cropH) / 2,
+                      cropW,
+                      cropH,
+                      0,
+                      0,
+                      zoomCanvas.width,
+                      zoomCanvas.height,
+                    );
+                    zoomCtx.restore();
+                  }
+                  compositorFrame = requestAnimationFrame(drawCompositorFrame);
+                };
+                drawCompositorFrame();
+                compactZoomCompositor = {
+                  stop: () => cancelAnimationFrame(compositorFrame),
+                };
+                const compositorStream = zoomCanvas.captureStream(30);
+                videoTrack = compositorStream.getVideoTracks()[0];
+                recordedVideoSource = "camera-zoom-canvas";
+              } else if (cameraTrack) {
                 videoTrack = cameraTrack.clone();
                 recordedVideoSource = "camera-track";
               } else {
@@ -15944,33 +16026,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
 
       if (recordedVideoBlob) {
+        // Present instantly — audio decoding scales with tape length, so it
+        // runs in the background below and must never gate first playback.
+        // Until the decoded soundtrack lands, the media element carries audio.
         let tapeAudioReady = false;
-        try {
-          const decoded = await prepareMp4TapeAudio(
-            recordedVideoBlob,
-            "fresh compact tape",
-          );
-          tapeAudioReady = true;
-          send({
-            type: "recorder:compact",
-            content: {
-              phase: "audio-ready",
-              duration: decoded.duration,
-              channels: decoded.numberOfChannels,
-              sampleRate: decoded.sampleRate,
-            },
-          });
-          send({
-            type: "tape:audio-context-state",
-            content: {
-              state: audioContext?.state || "suspended",
-              hasAudio: true,
-              duration: decoded.duration,
-            },
-          });
-        } catch (error) {
-          console.warn("📼 Compact tape audio decode failed; using media element audio:", error);
-        }
         stopTapePlayback?.();
         underlayFrame?.remove();
         underlayFrame = document.createElement("div");
@@ -15987,13 +16046,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         video.playsInline = true;
         video.setAttribute("playsinline", "");
         video.loop = true;
-        video.muted = tapeAudioReady;
+        video.muted = false; // Falls back to muted if unmuted autoplay is refused.
         video.controls = false;
         video.preload = "auto";
         video.style.cssText =
           "position: absolute; inset: 0; width: 100%; height: 100%; " +
           `object-fit: contain; image-rendering: ${
-            recordedVideoSource === "camera-track" ? "auto" : "pixelated"
+            recordedVideoSource === "canvas" ? "pixelated" : "auto"
           };`;
 
         let playbackFrame = 0;
@@ -16021,7 +16080,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         resumeTapePlayback = () => {
           const progress = video.duration > 0 ? video.currentTime / video.duration : 0;
           video.play().catch(() => {});
-          if (tapeAudioReady) startPreparedTapeAudio(progress);
+          if (tapeAudioReady && startPreparedTapeAudio(progress)) {
+            video.muted = true; // Web Audio owns the soundtrack from here.
+          }
         };
         seekTapePlayback = (progress, { speedScrub = false } = {}) => {
           if (!Number.isFinite(video.duration) || video.duration <= 0) return;
@@ -16029,7 +16090,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           currentTapePosition = clamped;
           video.currentTime = clamped * video.duration;
           if (!speedScrub && tapeAudioReady && !video.paused) {
-            startPreparedTapeAudio(clamped);
+            if (startPreparedTapeAudio(clamped)) video.muted = true;
           }
         };
 
@@ -16065,6 +16126,44 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           send({ type: "recorder:presented:failure" });
         };
 
+        // Background soundtrack decode for scrub/loop audio. When it lands,
+        // Web Audio takes over from the media element mid-play.
+        prepareMp4TapeAudio(recordedVideoBlob, "fresh compact tape")
+          .then((decoded) => {
+            if (mp4PlaybackVideo !== video) return; // Superseded by a re-present.
+            tapeAudioReady = true;
+            send({
+              type: "recorder:compact",
+              content: {
+                phase: "audio-ready",
+                duration: decoded.duration,
+                channels: decoded.numberOfChannels,
+                sampleRate: decoded.sampleRate,
+              },
+            });
+            send({
+              type: "tape:audio-context-state",
+              content: {
+                state: audioContext?.state || "suspended",
+                hasAudio: true,
+                duration: decoded.duration,
+              },
+            });
+            if (!video.paused) {
+              const progress =
+                Number.isFinite(video.duration) && video.duration > 0
+                  ? video.currentTime / video.duration
+                  : 0;
+              if (startPreparedTapeAudio(progress)) video.muted = true;
+            }
+          })
+          .catch((error) => {
+            console.warn(
+              "📼 Compact tape audio decode failed; using media element audio:",
+              error,
+            );
+          });
+
         underlayFrame.appendChild(video);
         document.body.insertBefore(underlayFrame, document.body.firstChild);
 
@@ -16086,11 +16185,15 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
         send({ type: "recorder:presented" });
         playbackFrame = requestAnimationFrame(transmitProgress);
-        if (!content?.noplay) video.play().catch(() => {
-          send({ type: "recorder:present-paused" });
-        });
-        else send({ type: "recorder:present-paused" });
-        if (!content?.noplay && tapeAudioReady) startPreparedTapeAudio(0);
+        if (!content?.noplay) {
+          video.play().catch(() => {
+            // Unmuted autoplay can be refused once the tap's gesture window
+            // closes. Keep the motion instant; the decoded soundtrack takes
+            // over the audio when it lands.
+            video.muted = true;
+            video.play().catch(() => send({ type: "recorder:present-paused" }));
+          });
+        } else send({ type: "recorder:present-paused" });
         return;
       }
 
@@ -22391,36 +22494,20 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
           try {
             if (Number.isFinite(requestedZoom)) {
-              // Never constrain the live source track on iOS: WebKit can
-              // replace its frames with a solid red surface. Zoom only the
-              // cloned MediaRecorder track; cap keeps its preview zoomed in
-              // the worker so the source stream remains stable.
-              const tracks =
-                recordedVideoSource === "camera-track"
-                  ? compactRecorderStream?.getVideoTracks?.() || []
-                  : [];
-              let appliedZoom = null;
-              let zoomAvailable = false;
-              for (const track of tracks) {
-                const trackZoom = track.getCapabilities?.().zoom;
-                if (!trackZoom) continue;
-                zoomAvailable = true;
-                const target = Math.max(
-                  trackZoom.min ?? 1,
-                  Math.min(trackZoom.max ?? requestedZoom, requestedZoom),
-                );
-                await track.applyConstraints({ advanced: [{ zoom: target }] });
-                appliedZoom = target;
-              }
-              if (appliedZoom !== null) {
-                zoom = appliedZoom;
-              }
+              // Digital zoom only — camera zoom constraints are never
+              // applied. On iOS they switch physical lenses mid-recording
+              // (visible jump cuts) or destabilize the source frames, and
+              // front cameras rarely expose a zoom range at all. The preview
+              // crops in the worker and the recorder's zoom compositor reads
+              // this shared value, so screen and tape ramp together.
+              cameraFeedState.zoom = Math.max(1, requestedZoom);
               send({
                 type: "camera:zoom",
                 content: {
                   requested: requestedZoom,
-                  applied: appliedZoom,
-                  available: zoomAvailable,
+                  applied: cameraFeedState.zoom,
+                  available: true,
+                  digital: true,
                 },
               });
               if (
@@ -22687,6 +22774,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         // Mirror the front camera for selfie framing. Desktop webcams are
         // conventionally mirrored too. Mobile rear camera stays unmirrored.
         const needsMirror = facingMode === "user" || !mobileCamera;
+        cameraFeedState.mirrored = needsMirror; // Recorder compositor matches.
         // EXIF orientation 6 — the convention iPhone (and most Android
         // devices) tag portrait camera captures with — means "rotate 90°
         // CW for display". The raw landscape sensor buffer has the

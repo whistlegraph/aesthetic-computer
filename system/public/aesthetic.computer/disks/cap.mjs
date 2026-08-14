@@ -499,7 +499,10 @@ function act({ event: e, jump, video, cameras, rec, notice, leaving, hud }) {
     const dy = zoomStartY - e.y; // up is positive
     const target = 1 + dy / zoomSensitivity;
     zoom = Math.max(zoomMin, Math.min(zoomMax, target));
-    if (Math.abs(zoom - lastSentZoom) >= 0.04) {
+    // Fine-grained sends — the runtime throttles them (leading + trailing)
+    // and the recorder's compositor eases between values, so the tape's
+    // zoom ramp stays smooth and linear instead of stepping.
+    if (Math.abs(zoom - lastSentZoom) >= 0.02) {
       video("camera:update", { zoom });
       lastSentZoom = zoom;
     }
@@ -515,6 +518,7 @@ function act({ event: e, jump, video, cameras, rec, notice, leaving, hud }) {
     }
     zoomStartY = null;
     zoom = 1;
+    lastSentZoom = 1;
   }
 
   // Keyboard shortcut: space toggles record (useful for desktop testing).
