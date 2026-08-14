@@ -8152,10 +8152,13 @@ function drawRoomSurfaces(left, right, top, bottom, color) {
     for (let column = first; column < last; column++) {
       const x1 = worldLeft + column * step;
       const x2 = worldLeft + (column + 1) * step;
-      // Bury the wall slightly into the floor. Shared coplanar edges can expose
-      // a one-pixel clear-color crescent after perspective rasterization.
-      const floor1 = terrainFloorAt(x1) + 120;
-      const floor2 = terrainFloorAt(x2) + 120;
+      // Bury the wall deep beneath the floor. A coplanar edge exposing a
+      // one-pixel clear-color crescent is the small reason; the frame shape is
+      // the large one. A 9:16 reel sees far below the fighters' feet, and a
+      // wall that stopped a hundred units under the floor let the clear layer
+      // through as a band of sky along the bottom of every reel.
+      const floor1 = terrainFloorAt(x1) + 3000;
+      const floor2 = terrainFloorAt(x2) + 3000;
       const y1Left = lerp(ceilingY, floor1, row / rows);
       const y1Right = lerp(ceilingY, floor2, row / rows);
       const y2Left = lerp(ceilingY, floor1, (row + 1) / rows);
