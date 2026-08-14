@@ -249,7 +249,8 @@ if (flags.remix) {
   let cursor = coilSec.startSec + coilDur + ign.len;
 
   // remix tail: bar grid to the end
-  const remixPool = ["hammer", "orbit", "ignite", "coil", "thread", "find"].filter((n) => lib[n]);
+  // every take in the library except the narrative-only ignite head
+  const remixPool = ["hammer", "run", "skank", "orbit", "ignite", "coil", "thread", "find"].filter((n) => lib[n]);
   const usage = Object.fromEntries(remixPool.map((n) => [n, []]));
   const END = struct.totalSec;
   // bar-mean energy normalized over the remix region → target luma
