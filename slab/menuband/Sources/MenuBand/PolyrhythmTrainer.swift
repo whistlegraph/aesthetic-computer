@@ -20,7 +20,7 @@ struct PolyrhythmTrainerClock {
 
     private(set) var isActive = false
     private(set) var startedAt: CFTimeInterval = 0
-    private(set) var patternIndex = 0
+    private(set) var pattern: Pattern = PolyrhythmTrainerClock.patterns[0]
     private(set) var bpm = 75
     private var lastOrdinals: [Int] = []
     private var lastPulseAt: CFTimeInterval = -.infinity
@@ -31,7 +31,6 @@ struct PolyrhythmTrainerClock {
         let accuracy: Double
     }
     private var recordedTaps: [RecordedTap] = []
-    var pattern: Pattern { Self.patterns[patternIndex] }
     var cycleDuration: TimeInterval {
         60.0 / Double(bpm) * Double(pattern.counts[0])
     }
@@ -52,17 +51,41 @@ struct PolyrhythmTrainerClock {
     }
 
     /// `/` walks a finite loop so the feature remains easy to dismiss:
-    /// off → 3:2 → 4:3 → 5:4 → 3:4:5 → off.
+    /// off → 3:2 → 4:3 → 5:4 → 3:4:5 → off. A typed custom pattern sits
+    /// outside the walk, so from one the next `/` goes straight to off —
+    /// dismissal stays one key away no matter what was entered.
     mutating func cyclePattern(at now: CFTimeInterval) {
         if !isActive {
-            patternIndex = 0
+            pattern = Self.patterns[0]
             start(at: now)
-        } else if patternIndex + 1 < Self.patterns.count {
-            patternIndex += 1
+        } else if let index = Self.patterns.firstIndex(of: pattern),
+                  index + 1 < Self.patterns.count {
+            pattern = Self.patterns[index + 1]
             start(at: now)
         } else {
             stop()
         }
+    }
+
+    /// Typed entry — digits with `/` separators while the circles are out —
+    /// replaces the preset walk with an exact pattern like 7:4 or 2:3:4.
+    /// Divisions clamp to 1…16 and at most five circles (one per finger /
+    /// hue). The shared wheel keeps its phase so retyping mid-play refines
+    /// the grid without restarting the cycle.
+    mutating func setPattern(_ counts: [Int], at now: CFTimeInterval) {
+        let cleaned = counts.filter { $0 >= 1 }.prefix(5).map { min(16, $0) }
+        guard !cleaned.isEmpty else { return }
+        guard isActive else {
+            pattern = Pattern(Array(cleaned))
+            start(at: now)
+            return
+        }
+        let oldPhase = (max(0, now - startedAt) / cycleDuration)
+            .truncatingRemainder(dividingBy: 1)
+        pattern = Pattern(Array(cleaned))
+        startedAt = now - oldPhase * cycleDuration
+        lastOrdinals = Array(repeating: -1, count: pattern.counts.count)
+        recordedTaps.removeAll(keepingCapacity: true)
     }
 
     mutating func changeRate(by delta: Int, at now: CFTimeInterval) {
@@ -153,12 +176,23 @@ struct PolyrhythmTrainerClock {
         return fired
     }
 
+    /// The bpm readout flashes on the primary rhythm's beats only — the
+    /// first circle IS the tempo (cycleDuration divides by its count), so
+    /// its grid is the one the number should breathe with. Derived from
+    /// phase, not wall-clock state, so the headless renderer agrees.
+    static func bpmPulse(phase: Double, primaryCount: Int, bpm: Int) -> Double {
+        let beats = phase * Double(max(1, primaryCount))
+        let sinceBeat = (beats - floor(beats)) * 60.0 / Double(bpm)
+        return max(0, 1 - sinceBeat / 0.16)
+    }
+
     func snapshot(at now: CFTimeInterval) -> PolyrhythmTrainerSnapshot? {
         guard isActive else { return nil }
         let elapsed = max(0, now - startedAt)
         let cycle = elapsed / cycleDuration
+        let phase = cycle - floor(cycle)
         return PolyrhythmTrainerSnapshot(
-            phase: cycle - floor(cycle),
+            phase: phase,
             rhythms: pattern.counts.map {
                 PolyrhythmRhythmSnapshot(
                     count: $0,
@@ -167,6 +201,9 @@ struct PolyrhythmTrainerClock {
             },
             label: pattern.label,
             bpm: bpm,
+            bpmPulse: Self.bpmPulse(phase: phase,
+                                    primaryCount: pattern.counts[0],
+                                    bpm: bpm),
             needleFlash: max(0, 1 - (now - lastPulseAt) / 0.12),
             tapFeedback: recordedTaps.compactMap { tap in
                 let age = now - tap.at
@@ -192,6 +229,7 @@ struct PolyrhythmTrainerSnapshot {
     let rhythms: [PolyrhythmRhythmSnapshot]
     let label: String
     let bpm: Int
+    let bpmPulse: Double
     let needleFlash: Double
     let tapFeedback: [PolyrhythmTapFeedback]
 }
@@ -304,14 +342,19 @@ final class PolyrhythmTrainerView: NSView {
             )
         }
 
+        // The tempo is the metronome's face: big enough to read from
+        // playing distance, and it blinks with the primary rhythm's beats
+        // — bright on the strike, settling between them — so the number
+        // itself is the pulse.
         let rate = "\(snapshot.bpm)"
+        let pulse = CGFloat(max(0, min(1, snapshot.bpmPulse)))
         let rateAttrs: [NSAttributedString.Key: Any] = [
-            .font: NSFont.monospacedDigitSystemFont(ofSize: 8, weight: .medium),
-            .foregroundColor: ink.withAlphaComponent(0.58)
+            .font: NSFont.monospacedDigitSystemFont(ofSize: 15, weight: .bold),
+            .foregroundColor: ink.withAlphaComponent(0.38 + pulse * 0.62)
         ]
         let rateSize = rate.size(withAttributes: rateAttrs)
         rate.draw(at: CGPoint(x: bounds.midX - rateSize.width / 2,
-                              y: bounds.minY + 4),
+                              y: bounds.minY + 1),
                   withAttributes: rateAttrs)
     }
 
@@ -457,6 +500,9 @@ enum PolyrhythmTrainerCLI {
             },
             label: counts.map(String.init).joined(separator: ":"),
             bpm: bpm,
+            bpmPulse: PolyrhythmTrainerClock.bpmPulse(
+                phase: phase, primaryCount: counts[0], bpm: bpm
+            ),
             needleFlash: max(0, 1 - sinceBeat / 0.12),
             tapFeedback: []
         )
