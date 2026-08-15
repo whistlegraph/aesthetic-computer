@@ -33,11 +33,15 @@ final class InstrumentListView: NSView {
     /// board, below the patch grid. Matches the MIDI-OUT row so the two
     /// full-width bands bookend the grid.
     static let stationRowH: CGFloat = midiOutH
+    /// Height of the Fluoddity row below the radio strip — the evolvable
+    /// particle-swarm voice plus its 🎲 (new species) and 🧬 (mutate) cells.
+    static let fluodRowH: CGFloat = midiOutH
 
     static let preferredWidth:  CGFloat = cellW * CGFloat(cols)    // 224
     static let preferredHeight: CGFloat = midiOutH + midiOutGap    // top MIDI row
         + cellH * CGFloat(rows)                                    // patch grid
         + midiOutGap + stationRowH                                 // bottom radio row
+        + midiOutGap + fluodRowH                                   // fluoddity row
 
     var selectedProgram: UInt8 = 0 { didSet { needsDisplay = true } }
     private(set) var hoveredProgram: UInt8?
@@ -51,6 +55,9 @@ final class InstrumentListView: NSView {
         case program(Int)
         case radio(Int)
         case spotify
+        case fluoddity
+        case fluodDice
+        case fluodMutate
     }
     private var hoveredTarget: HoverTarget? {
         didSet {
@@ -111,6 +118,16 @@ final class InstrumentListView: NSView {
     var spotifyActive: Bool = false { didSet { needsDisplay = true } }
     var onSpotifyCommit: (() -> Void)?
 
+    /// True while the Fluoddity ecosystem backend owns melodic notes —
+    /// fills the FLUODDITY cell the way `sampleBackendActive` fills SAMPLE.
+    var fluoddityActive: Bool = false { didSet { needsDisplay = true } }
+    /// Fires when the FLUODDITY cell is clicked (host toggles the backend).
+    var onFluoddityCommit: (() -> Void)?
+    /// Fires when the 🎲 cell is clicked — breed a fresh species (new seed).
+    var onFluoddityReseed: (() -> Void)?
+    /// Fires when the 🧬 cell is clicked — mutate the current species.
+    var onFluoddityMutate: (() -> Void)?
+
     private var trackingArea: NSTrackingArea?
 
     override var isFlipped: Bool { true }   // top-down rows, reading order
@@ -162,6 +179,15 @@ final class InstrumentListView: NSView {
         }
         if isSpotifyHit(point) {
             return "CDJ Radio · Spotify — juked playback through Menu Band effects"
+        }
+        if fluodMainRect.contains(point) {
+            return "Fluoddity — every note is a particle ecosystem scanned as a wavetable; timbre drifts while you hold"
+        }
+        if fluodDiceRect.contains(point) {
+            return "Fluoddity · new species — reroll the 80-parameter rule genome"
+        }
+        if fluodMutateRect.contains(point) {
+            return "Fluoddity · mutate — evolve the current species a step"
         }
         if isMidiOutHit(point) {
             return "0 MIDI OUT - route notes to the virtual MIDI port; local synth is muted"
@@ -227,6 +253,27 @@ final class InstrumentListView: NSView {
         spotifyEnabled && spotifyRect.contains(point)
     }
 
+    /// Fluoddity row — full-width band BELOW the radio strip: the main
+    /// toggle cell, then the 🎲 (new species) and 🧬 (mutate) cells carved
+    /// off the right end, one grid-column wide each.
+    private static var fluodRowY: CGFloat {
+        stationRowY + stationRowH + midiOutGap
+    }
+    private var fluodSmallW: CGFloat { Self.cellW }
+
+    private var fluodMainRect: NSRect {
+        NSRect(x: 0, y: Self.fluodRowY,
+               width: bounds.width - fluodSmallW * 2, height: Self.fluodRowH)
+    }
+    private var fluodDiceRect: NSRect {
+        NSRect(x: bounds.width - fluodSmallW * 2, y: Self.fluodRowY,
+               width: fluodSmallW, height: Self.fluodRowH)
+    }
+    private var fluodMutateRect: NSRect {
+        NSRect(x: bounds.width - fluodSmallW, y: Self.fluodRowY,
+               width: fluodSmallW, height: Self.fluodRowH)
+    }
+
     /// "0 MIDI OUT" cell — a full-width row at the TOP of the board, above
     /// the patch grid. Hit-test is exclusive of the patch grid below and
     /// the radio strip at the bottom.
@@ -284,6 +331,9 @@ final class InstrumentListView: NSView {
         if let program = program(at: point) { return .program(program) }
         if let station = radioStationIndex(at: point) { return .radio(station) }
         if isSpotifyHit(point) { return .spotify }
+        if fluodMainRect.contains(point) { return .fluoddity }
+        if fluodDiceRect.contains(point) { return .fluodDice }
+        if fluodMutateRect.contains(point) { return .fluodMutate }
         return nil
     }
 
@@ -508,6 +558,40 @@ final class InstrumentListView: NSView {
                                    y: rr.midY - size.height / 2))
         }
 
+        // Fluoddity row — full-width band under the radio strip. Indigo so
+        // the ecosystem voice reads distinctly from every other special
+        // cell; main cell fills solid while the backend is active, and the
+        // 🎲/🧬 cells at the right end stay clickable in either state.
+        let fluodTint = NSColor.systemIndigo
+        let fluodCells: [(NSRect, HoverTarget, String, CGFloat)] = [
+            (fluodMainRect, .fluoddity, "FLUODDITY", 10.5),
+            (fluodDiceRect, .fluodDice, "🎲", 11),
+            (fluodMutateRect, .fluodMutate, "🧬", 11),
+        ]
+        for (rr, target, label, fontSize) in fluodCells {
+            guard rr.intersects(dirtyRect) else { continue }
+            let hovered = hoveredTarget == target
+            let cap = NSBezierPath(roundedRect: rr.insetBy(dx: 1.75, dy: 1.5),
+                                   xRadius: 3, yRadius: 3)
+            if fluoddityActive {
+                fluodTint.withAlphaComponent(hovered ? 0.98 : 0.85).setFill(); cap.fill()
+                fluodTint.setStroke(); cap.lineWidth = 1.4; cap.stroke()
+            } else {
+                fluodTint.withAlphaComponent(hovered ? 0.48 : 0.30).setFill(); cap.fill()
+                fluodTint.withAlphaComponent(hovered ? 1.0 : 0.85).setStroke()
+                cap.lineWidth = hovered ? 1.4 : 1.0; cap.stroke()
+            }
+            let labelColor: NSColor = fluoddityActive ? .white : .labelColor
+            let str = NSAttributedString(string: label, attributes: [
+                .font: NSFont.systemFont(ofSize: fontSize, weight: .semibold),
+                .foregroundColor: labelColor,
+                .kern: 0.4,
+            ])
+            let size = str.size()
+            str.draw(at: NSPoint(x: rr.midX - size.width / 2,
+                                 y: rr.midY - size.height / 2))
+        }
+
         let selectedRow = Int(selectedProgram) / Self.cols
         let selectedCol = Int(selectedProgram) % Self.cols
 
@@ -672,6 +756,20 @@ final class InstrumentListView: NSView {
         // SAMPLE cell — switch to the mic-sampler backend. No audible preview.
         if isSampleHit(pt) {
             onSampleCommit?()
+            return
+        }
+        // Fluoddity row — toggle the ecosystem backend / breed / mutate.
+        // Like the other special cells there's no audible drag-preview.
+        if fluodMainRect.contains(pt) {
+            onFluoddityCommit?()
+            return
+        }
+        if fluodDiceRect.contains(pt) {
+            onFluoddityReseed?()
+            return
+        }
+        if fluodMutateRect.contains(pt) {
+            onFluoddityMutate?()
             return
         }
         dragging = true

@@ -30,10 +30,21 @@ let package = Package(
             path: "Sources/CGMSynth",
             publicHeadersPath: "include"
         ),
+        // The Fluoddity voice: an audio port of aphid91/Fluoddity's
+        // generalized-physarum particle system (80-parameter Fourier "Rule"
+        // brains, trail field, chiral symmetry) sonified via scanned
+        // synthesis — each note is a little ecosystem whose trail field is
+        // the wavetable. Swift side is MenuBandFluoddityVoice.swift.
+        .target(
+            name: "CFluoddity",
+            path: "Sources/CFluoddity",
+            publicHeadersPath: "include"
+        ),
         .executableTarget(
             name: "MenuBand",
             dependencies: [
                 "CGMSynth",
+                "CFluoddity",
                 .product(name: "ACMacAudio", package: "macos-audio"),
                 .product(name: "MenuBandJuke", package: "juke-wizard"),
             ],

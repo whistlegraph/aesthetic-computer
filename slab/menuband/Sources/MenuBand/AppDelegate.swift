@@ -1382,6 +1382,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             object: nil
         )
 
+        // Fluoddity ecosystem voice (experimental melodic backend): userInfo
+        // "enabled" (1/0) flips the routing, "seed" (uint) picks a genome,
+        // "mutate" (float) evolves the current one. CLI-drivable while the
+        // voice has no picker cell yet — same JXA posting pattern as `.play`.
+        DistributedNotificationCenter.default().addObserver(
+            self,
+            selector: #selector(handleFluoddityNotification(_:)),
+            name: NSNotification.Name("computer.aestheticcomputer.menuband.fluoddity"),
+            object: nil
+        )
+
         // Live engine: a conductible drone/arp/drum loop that runs
         // indefinitely and morphs on command (see MenuBandEngine). Four
         // verbs — start / chord / pattern / stop — let the fleet evolve a
@@ -3336,9 +3347,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // through to the 1-based GM program number.
         let voiceLabel: String?
         switch menuBand.instrumentBackend {
-        case .sample: voiceLabel = "`"
-        case .kpbj:   voiceLabel = menuBand.radioStation.label
-        default:      voiceLabel = nil
+        case .sample:    voiceLabel = "`"
+        case .kpbj:      voiceLabel = menuBand.radioStation.label
+        case .fluoddity: voiceLabel = "~"
+        default:         voiceLabel = nil
         }
         // Reserve badge width for the actual subscript so 3-digit GM
         // numbers (100–128) don't crop. Must be set BEFORE sizing the slot.
@@ -4273,6 +4285,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func handleStopNotification(_ note: Notification) {
         stopScore(broadcast: true)
+    }
+
+    /// See the `.fluoddity` observer registration for the userInfo contract.
+    /// Order matters: seed/mutate first, then the enable flip, so one posting
+    /// can pick a genome and switch on in the same breath.
+    @objc private func handleFluoddityNotification(_ note: Notification) {
+        let info = note.userInfo as? [String: String] ?? [:]
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            if let s = info["seed"], let seed = UInt32(s) {
+                self.menuBand.setFluodditySeed(seed)
+            }
+            if let m = info["mutate"], let amount = Float(m) {
+                self.menuBand.mutateFluoddity(amount: amount)
+            }
+            if let e = info["enabled"] {
+                self.menuBand.setFluoddityBackend(e == "1" || e.lowercased() == "true")
+            }
+        }
     }
 
     /// Cease the current score: cancel every pending onset, silence all voices,

@@ -534,6 +534,35 @@ final class MenuBandController {
         synth.snapshotWaveform(into: &dest)
     }
 
+    /// Fluoddity ecosystem-voice controls — used by the popover's
+    /// FLUODDITY row and AppDelegate's `…menuband.fluoddity`
+    /// distributed-notification hook. Same privacy rationale as above.
+    func setFluodditySeed(_ seed: UInt32) { synth.fluodVoice.setSeed(seed) }
+    func mutateFluoddity(amount: Float) { synth.fluodVoice.mutate(amount: amount) }
+    /// Breed a fresh species: reroll the rule genome from a random seed.
+    /// Affects future note-ons; sounding notes keep their birth genome.
+    func reseedFluoddity() {
+        synth.fluodVoice.setSeed(UInt32.random(in: 1...UInt32.max))
+    }
+
+    /// Switch the active melodic backend to (or away from) the Fluoddity
+    /// ecosystem voice. Mirrors `setSampleBackend`: persists the pick,
+    /// clears the competing sample flag so routing can't shadow it, and
+    /// restores the last GM voice on the way out.
+    func setFluoddityBackend(_ enabled: Bool) {
+        if enabled {
+            UserDefaults.standard.set("fluod", forKey: instrumentBackendKey)
+            synth.setSampleBackend(false)
+            synth.setFluoddityVoice(true)
+        } else {
+            UserDefaults.standard.set("gm", forKey: instrumentBackendKey)
+            synth.setFluoddityVoice(false)
+            synth.setMelodicProgram(melodicProgram)
+        }
+        onChange?()
+        onInstrumentVisualChange?()
+    }
+
     /// Multiple surfaces can show the live waveform at once (popover,
     /// floating palette, menubar strip). Keep synth capture alive until the
     /// last consumer turns itself off, otherwise one view hiding can blank
@@ -1402,7 +1431,10 @@ final class MenuBandController {
 
     // MARK: - Instrument backend (GM vs GarageBand)
 
-    enum InstrumentBackend: String { case gm, garageBand = "gb", kpbj = "kpbj", sample = "sample" }
+    enum InstrumentBackend: String {
+        case gm, garageBand = "gb", kpbj = "kpbj", sample = "sample",
+             fluoddity = "fluod"
+    }
 
     var instrumentBackend: InstrumentBackend {
         let raw = UserDefaults.standard.string(forKey: instrumentBackendKey) ?? "gm"
@@ -1731,6 +1763,8 @@ final class MenuBandController {
             return "\(radioStation.name) radio"
         case .garageBand:
             return garageBandPatchURL?.deletingPathExtension().lastPathComponent ?? "GarageBand patch"
+        case .fluoddity:
+            return "Fluoddity"
         case .gm:
             let safe = max(0, min(127, Int(effectiveMelodicProgram)))
             return String(format: "%03d %@", safe + 1, GeneralMIDI.programName(safe))
@@ -1757,6 +1791,9 @@ final class MenuBandController {
     func setSampleBackend(_ enabled: Bool) {
         if enabled {
             UserDefaults.standard.set("sample", forKey: instrumentBackendKey)
+            // Mutually exclusive with the Fluoddity backend — clear its
+            // routing flag so it can't resurrect when sample exits later.
+            synth.setFluoddityVoice(false)
             synth.setSampleBackend(true)
         } else {
             UserDefaults.standard.set("gm", forKey: instrumentBackendKey)
@@ -1983,6 +2020,12 @@ final class MenuBandController {
         // reset so a subsequent voice picker click doesn't re-flip.
         if instrumentBackend == .sample {
             UserDefaults.standard.set("gm", forKey: instrumentBackendKey)
+        }
+        // Fluoddity DOES survive relaunch (the genome is seed-derived, no
+        // recording needed) — re-arm the synth-side routing flag the
+        // persisted pick implies.
+        if instrumentBackend == .fluoddity {
+            synth.setFluoddityVoice(true)
         }
         if UserDefaults.standard.object(forKey: midiModeKey) == nil {
             UserDefaults.standard.set(false, forKey: midiModeKey)

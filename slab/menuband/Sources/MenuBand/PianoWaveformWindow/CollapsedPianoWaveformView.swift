@@ -210,6 +210,27 @@ final class CollapsedPianoWaveformView: NSView {
             self?.refresh()
         }
 #endif
+        // FLUODDITY row (below the CDJ strip) — the evolvable particle-swarm
+        // voice. Main cell toggles the backend; 🎲 breeds a fresh species
+        // (new genome seed); 🧬 mutates the current one. Dice/DNA
+        // auto-activate the backend so a single click always makes sound.
+        instrumentList.onFluoddityCommit = { [weak self] in
+            guard let self = self, let m = self.menuBand else { return }
+            m.setFluoddityBackend(m.instrumentBackend != .fluoddity)
+            self.refresh()
+        }
+        instrumentList.onFluoddityReseed = { [weak self] in
+            guard let self = self, let m = self.menuBand else { return }
+            m.reseedFluoddity()
+            if m.instrumentBackend != .fluoddity { m.setFluoddityBackend(true) }
+            self.refresh()
+        }
+        instrumentList.onFluoddityMutate = { [weak self] in
+            guard let self = self, let m = self.menuBand else { return }
+            m.mutateFluoddity(amount: 0.15)
+            if m.instrumentBackend != .fluoddity { m.setFluoddityBackend(true) }
+            self.refresh()
+        }
 
         qwertyMap.translatesAutoresizingMaskIntoConstraints = false
         qwertyMap.scale = 1.0
@@ -522,6 +543,7 @@ final class CollapsedPianoWaveformView: NSView {
             instrumentList.radioBackendActive = false
         }
         instrumentList.sampleBackendActive = (menuBand.instrumentBackend == .sample)
+        instrumentList.fluoddityActive = (menuBand.instrumentBackend == .fluoddity)
         instrumentList.selectedRadioStationID = menuBand.radioStation.id
         instrumentList.spotifyActive = menuBand.spotifyPlayerPresented
         // The 🦜 MIC cell is retired from the sampling row in ALL builds — the
@@ -617,6 +639,9 @@ final class CollapsedPianoWaveformView: NSView {
             case .garageBand:
                 title = "GB  GarageBand"
                 badgeColor = .systemPurple
+            case .fluoddity:
+                title = "~  Fluoddity"
+                badgeColor = .systemIndigo
             case .gm:
                 title = String(format: "%03d  %@",
                                safe + 1,

@@ -70,6 +70,13 @@ final class MenuBandSynth {
     /// doesn't implement fall back to MIDISynth. Always attached; silent
     /// until a note is routed to it.
     let gmSynth = MenuBandGMSynth()
+    /// The Fluoddity voice — aphid91/Fluoddity's physarum particle system
+    /// as an instrument (CFluoddity core + scanned synthesis). Melodic-only
+    /// experimental backend: when `usingFluoddityVoice` is on, melodic notes
+    /// route here; drums keep flowing to GM. Always attached; silent until
+    /// a note is routed to it. Enabled/seeded/mutated via the
+    /// `…menuband.fluoddity` distributed notification (no picker cell yet).
+    let fluodVoice = MenuBandFluoddityVoice()
     /// Spacebar reverse-replay. Continuously records the post-FX master into
     /// a rolling ring (fed from the same `mainMixerNode` tap the visualizer
     /// + tape use — see `ingestWaveformBuffer`), and on `playReverse()` plays
@@ -175,6 +182,9 @@ final class MenuBandSynth {
     /// release — without this a held GM note could hang or a MIDISynth
     /// note-off could be misrouted.
     private var gmRoutedNotes: Set<UInt16> = []
+    /// Same press-time routing record for the Fluoddity voice, so a held
+    /// note releases correctly even if the backend toggle flips mid-hold.
+    private var fluodRoutedNotes: Set<UInt16> = []
     private var idleSuspendWorkItem: DispatchWorkItem?
     /// 60 s instead of 2 s so a short pause between phrases never trips
     /// `engine.pause()`. The pause itself is cheap, but `engine.start()`
@@ -314,6 +324,16 @@ final class MenuBandSynth {
     func setUseACMIDI(_ on: Bool) {
         useACMIDI = on
         if gmSynthEnabled, !on { gmSynth.panic() }
+    }
+
+    /// True while the Fluoddity backend owns melodic notes. Flipped by the
+    /// `…menuband.fluoddity` distributed-notification hook (AppDelegate);
+    /// silences in-flight ecosystem voices on disable like the GM toggle.
+    private(set) var usingFluoddityVoice = false
+
+    func setFluoddityVoice(_ on: Bool) {
+        usingFluoddityVoice = on
+        if !on { fluodVoice.panic() }
     }
 
     /// Feature flag: the AC OS native GM synth (`gmSynth`). Re-enabled now
@@ -531,6 +551,9 @@ final class MenuBandSynth {
             gmSynth.attach(to: engine, output: preLimiterMixer)
             gmSynth.setProgram(currentMelodicProgram)
         }
+        // Fluoddity ecosystem voice: same pre-limiter melodic bus, same
+        // silent-until-routed contract as the GM node.
+        fluodVoice.attach(to: engine, output: preLimiterMixer)
         // Spacebar reverse-replay voice. Plays DRY into mainMixerNode (NOT
         // the pre-limiter bus) so the already-effected captured audio isn't
         // re-processed. Its rolling capture ring is fed from a dedicated tap
@@ -1882,6 +1905,10 @@ final class MenuBandSynth {
         if usingSampleBackend {
             leaveSampleBackend()
         }
+        // And for the Fluoddity ecosystem voice.
+        if usingFluoddityVoice {
+            setFluoddityVoice(false)
+        }
         if midiSynthReady, let au = midiSynth?.audioUnit {
             selectMelodicProgram(au, program: program)
             updateSamplerRoutingForActiveBackend()
@@ -2463,6 +2490,13 @@ final class MenuBandSynth {
             // through to the GM instrument (hybrid kit — instruments per key).
             if sampleVoice.noteOn(midi, velocity: velocity, channel: channel) { return }
         }
+        // Fluoddity ecosystem voice — melodic-only, like the sample backend;
+        // drums (ch 9) still flow to GM below.
+        if usingFluoddityVoice && channel != 9 {
+            fluodVoice.noteOn(midi, velocity: velocity, channel: channel)
+            fluodRoutedNotes.insert(noteKey(midi, channel: channel))
+            return
+        }
         // Drums (channel 9) always route through MIDISynth/drums sampler
         // — drum kits are GM regardless of melodic backend choice.
         if channel == 9 {
@@ -2557,6 +2591,10 @@ final class MenuBandSynth {
     /// pitch-bend — we route the signed amount in-process instead.
     func setGMPitchBend(amount: Float) {
         if gmSynthEnabled { gmSynth.setPitchBend(amount: amount) }
+        // The Fluoddity scanner re-derives phase from the live per-sample
+        // frequency exactly like gm_synth, so it rides the same in-process
+        // bend signal.
+        fluodVoice.setPitchBend(amount: amount)
     }
 
     /// Route the trackpad pitch-bend into the KPBJ radio backend. Like
@@ -2604,6 +2642,10 @@ final class MenuBandSynth {
             gmSynth.noteOff(midi, channel: channel)
             return
         }
+        if fluodRoutedNotes.remove(key) != nil {
+            fluodVoice.noteOff(midi, channel: channel)
+            return
+        }
         if usingPluginInstrument && channel != 9, let au = pluginUnit?.audioUnit {
             sendMIDIEvent(au, status: 0x80 | (channel & 0x0F), data1: midi)
             return
@@ -2638,6 +2680,8 @@ final class MenuBandSynth {
         activeNotes.removeAll()
         gmRoutedNotes.removeAll()
         if gmSynthEnabled { gmSynth.panic() }
+        fluodRoutedNotes.removeAll()
+        fluodVoice.panic()
         defer { scheduleIdleSuspendIfNeeded() }
         if midiSynthReady, let au = midiSynth?.audioUnit {
             for ch: UInt8 in 0..<16 {

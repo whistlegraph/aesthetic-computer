@@ -1093,6 +1093,10 @@ final class ExpandedPianoWaveformView: NSView {
                 title = "GarageBand"
                 numberLabel = "GB"
                 familyColor = .systemPurple
+            case .fluoddity:
+                title = "Fluoddity"
+                numberLabel = "~"
+                familyColor = .systemIndigo
             case .gm:
                 title = GeneralMIDI.programName(safe)
                 numberLabel = String(format: "%03d", safe + 1)

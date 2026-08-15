@@ -1,0 +1,4 @@
+module CFluoddity {
+    header "fluoddity_voice.h"
+    export *
+}
