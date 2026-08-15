@@ -258,6 +258,7 @@ final class DJDeckPlayer: NSObject {
     private(set) var pitchSemitones: Double = 0
     private(set) var motorEnabled = false
     var onStateChange: (() -> Void)?
+    private var routeObserver: NSObjectProtocol?
 
     var duration: Double { pcm.duration }
     var currentTime: Double { pcm.currentTime }
@@ -322,8 +323,34 @@ final class DJDeckPlayer: NSObject {
         engine.mainMixerNode.outputVolume = gain
         engine.prepare()
         try? engine.start()
+        observeRouteChanges(of: engine)
         applyRate()
         onStateChange?()
+    }
+
+    /// The HAL stops an AVAudioEngine when its output route goes away —
+    /// AirPods arriving make the default output a different device. Restart
+    /// on the new route so the deck follows the Mac's output instead of
+    /// staying silently wedged on the old one while the transport spins.
+    private func observeRouteChanges(of engine: AVAudioEngine) {
+        if let routeObserver { NotificationCenter.default.removeObserver(routeObserver) }
+        routeObserver = NotificationCenter.default.addObserver(
+            forName: .AVAudioEngineConfigurationChange, object: engine, queue: .main
+        ) { [weak self] _ in self?.restartAfterRouteChange(engine) }
+    }
+
+    private func restartAfterRouteChange(_ engine: AVAudioEngine) {
+        // Let Core Audio settle the new route, and keep the HAL-blocking
+        // start() off AppKit's main thread — same rules as JukeRoomAudio's
+        // refreshLocalOutputDevice.
+        DispatchQueue.global(qos: .userInitiated).asyncAfter(deadline: .now() + 0.35) { [weak self] in
+            guard let self, engine === self.engine, !engine.isRunning else { return }
+            try? engine.start()
+        }
+    }
+
+    deinit {
+        if let routeObserver { NotificationCenter.default.removeObserver(routeObserver) }
     }
 
     func toggle() { isPlaying ? pause() : play() }

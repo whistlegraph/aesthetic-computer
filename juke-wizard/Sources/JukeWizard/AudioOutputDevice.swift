@@ -137,6 +137,47 @@ enum MacAudioOutput {
     }
 }
 
+extension Notification.Name {
+    /// Posted on the main queue after macOS's default audio output changes
+    /// (AirPods arriving, a cable pulled, a Sound-settings pick) and the HAL
+    /// has had a moment to settle the new route.
+    static let macDefaultOutputDeviceDidChange =
+        Notification.Name("MacAudioOutputDefaultDidChange")
+}
+
+/// Turns Core Audio's default-output property change into a debounced app
+/// notification, so engines pinned to a dead route can follow the Mac's
+/// output the way AVAudioPlayer does on its own.
+final class DefaultOutputWatcher {
+    static let shared = DefaultOutputWatcher()
+    private var pending = 0
+
+    private init() {
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyDefaultOutputDevice,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain)
+        AudioObjectAddPropertyListenerBlock(
+            AudioObjectID(kAudioObjectSystemObject), &address, .main
+        ) { [weak self] _, _ in self?.scheduleNotify() }
+    }
+
+    /// Referencing `shared` starts the listener; this makes call sites read
+    /// as intent instead of a bare property access.
+    func activate() {}
+
+    private func scheduleNotify() {
+        pending += 1
+        let generation = pending
+        // A single AirPods hop produces a burst of property changes, and
+        // Bluetooth/virtual routes settle slowly — coalesce before posting.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
+            guard let self, self.pending == generation else { return }
+            NotificationCenter.default.post(name: .macDefaultOutputDeviceDidChange, object: nil)
+        }
+    }
+}
+
 /// Refreshes the hardware list immediately before AppKit opens the menu, so a
 /// newly connected Bluetooth headset appears without relaunching JukeWizard.
 final class AudioOutputPopUpButton: NSPopUpButton {

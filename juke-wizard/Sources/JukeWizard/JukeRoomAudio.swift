@@ -50,6 +50,17 @@ final class JukeRoomAudio {
     private var spotifyTap: AnyObject?
     private var remoteReceiver: Process?
     private var localOutputGeneration = 0
+    private var routeObserver: NSObjectProtocol?
+
+    init() {
+        // Follow the Mac's default output when it changes under us (AirPods
+        // hop, unplugged interface) — the same reopen the manual picker does.
+        DefaultOutputWatcher.shared.activate()
+        routeObserver = NotificationCenter.default.addObserver(
+            forName: .macDefaultOutputDeviceDidChange, object: nil, queue: .main
+        ) { [weak self] _ in self?.refreshLocalOutputDevice() }
+    }
+
 
     var isDistributing: Bool {
         guard case .live = state else { return false }
@@ -235,7 +246,10 @@ final class JukeRoomAudio {
                         neo: label(mix.local), blueberry: label(mix.remote))
     }
 
-    deinit { stop(notify: false) }
+    deinit {
+        if let routeObserver { NotificationCenter.default.removeObserver(routeObserver) }
+        stop(notify: false)
+    }
 
     private static func jukedPID() -> pid_t? {
         let installed = URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent(".local/bin/juked")
