@@ -15,7 +15,9 @@
     "distance": "Rhythmic similarity and distance geometry — the morphing levers.",
     "canons": "Complementation and tiling rhythmic canons.",
     "perception": "Meter, entrainment, groove, microtiming — where the grid model stops.",
-    "spatial": "Spatial hearing. Secondary shelf: the bracelet track's own thesis rests on it, so it is indexed here rather than assumed."
+    "spatial": "Spatial hearing. Secondary shelf: the bracelet track's own thesis rests on it, so it is indexed here rather than assumed.",
+    "solkattu": "Spoken rhythm: South Indian rhythmic solfège (solkattu/konnakol) as a named, oral rhythm representation.",
+    "timbre": "Timbre as geometry. Secondary shelf: the same dissimilarity-to-space move applied to tone quality, indexed here because it is the platter's method applied off-rhythm."
   },
   "sources": [
     {
@@ -437,6 +439,37 @@
       "checked": false,
       "why": "Onsets under ~1–5 ms fuse and the first arrival wins the position. Two necklace beads closer than that in time will not be heard as two places.",
       "feeds": ["pop/bracelet spatial law"]
+    },
+    {
+      "id": "levin-2011-indian-rhythms",
+      "shelf": "solkattu",
+      "authors": ["Levin, Ben"],
+      "year": 2011,
+      "title": "Indian Rhythms with Dr. Levin",
+      "venue": "YouTube (Ben Levin Guitar Lessons), uploaded 2011-10-29, 478 s, shot/edited by Rob Berry",
+      "media": "video",
+      "open_access": true,
+      "url": "https://www.youtube.com/watch?v=KsvKQhOeQjQ",
+      "fetch": "yt-dlp into sources/ (gitignored); on-screen overlays OCR'd via macOS Vision to sources/levin-2011-indian-rhythms.ocr.txt, auto-captions cleaned to .captions.txt",
+      "checked": true,
+      "why": "The solkattu syllable ladder (1–8), the Tom phrase-end marker, both usage modes (pulse-fixed additive meters incl. 15/16 = 3+5+7 and 17/16 = 5+5+7; beat-fixed tuplet ladder), and the 5+3+3+5 palindromic 4/4. Digest 09 is extracted from its overlays.",
+      "caveat": "Pedagogical demonstration by a guitarist, not a Carnatic primary source; syllable spellings vary across traditions.",
+      "feeds": ["digest/09-solkattu.md", "pop/lib syllable labeling"]
+    },
+    {
+      "id": "wessel-1979-timbre-space",
+      "shelf": "timbre",
+      "authors": ["Wessel, David L."],
+      "year": 1979,
+      "title": "Timbre Space as a Musical Control Structure",
+      "venue": "Computer Music Journal",
+      "volume": "3(2)",
+      "pages": "45–52",
+      "open_access": false,
+      "checked": true,
+      "note": "Also circulated as IRCAM Rapport 12/78. Bibliographic details confirmed against the scan itself; JSTOR stable URL not machine-verifiable (bot challenge). Local copy hand-placed in sources/ from the JSTOR scan shared by Sage Jenson, 2026-08-15 — not fetched by fetch-sources.mjs, since no open-access URL currently resolves.",
+      "why": "The canonical subjective-dissimilarity → geometry → control-lever paper: MDS timbre space (brightness × attack-bite), parallelogram timbral analogies, stream segregation as the perceptual acceptance test, breakpoint-envelope data reduction.",
+      "feeds": ["digest/10-timbre-space.md"]
     }
   ]
 }

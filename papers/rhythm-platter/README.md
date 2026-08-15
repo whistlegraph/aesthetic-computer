@@ -2,7 +2,8 @@
 
 A reading platter for the **geometry of musical rhythm**: Toussaint's corpus and
 the wider field around it (maximal evenness, rhythmic oddity, syncopation
-measures, distance geometry, tiling canons, entrainment). A sub-platter within
+measures, distance geometry, tiling canons, entrainment, spoken solkattu,
+timbre space). A sub-platter within
 the [papers platter](../SCORE.md), parallel to
 [jeffrey-platter](../jeffrey-platter/), [whistlegraph-platter](../whistlegraph-platter/),
 and [corporate-graphics-platter](../corporate-graphics-platter/).
@@ -35,6 +36,14 @@ repo. Specifically:
   locator back into the source. Attribution paragraphs stay in the papers.
 - The `digest/` entries are written in AC's own words and exist to specify code,
   not to summarise reading.
+- The one **video source** (`levin-2011-indian-rhythms`) follows the same rule:
+  the video and captions are fetched into gitignored `sources/` by hand
+  (yt-dlp), its on-screen overlays are OCR'd locally (macOS Vision) to
+  `sources/*.ocr.txt`, and only the digest restatement is committed.
+- `wessel-1979-timbre-space` is a **hand-placed** scan (shared by Sage Jenson,
+  2026-08-15) — no open-access URL currently resolves, so `fetch-sources.mjs`
+  skips it and the local copy stays out of git like everything else in
+  `sources/`.
 
 This mirrors the corporate-graphics-platter's "third-party — research reference
 only" rule.
@@ -51,9 +60,12 @@ only" rule.
 | **canons** | Complementation and tiling rhythmic canons | [06](digest/06-complements-canons.md) |
 | **perception** | Meter, entrainment, groove — where the grid model stops | [07](digest/07-perception-groove.md) |
 | **spatial** | Spatial hearing: the limits the `bracelet` thesis rests on | [08](digest/08-spatial-appendix.md) |
+| **solkattu** | Spoken rhythm: the konnakol syllable system as a representation | [09](digest/09-solkattu.md) |
+| **timbre** | Timbre space: the platter's dissimilarity-to-geometry move, off-rhythm | [10](digest/10-timbre-space.md) |
 
 Full bibliography with fetch URLs and verification status:
-[`sources.json`](sources.json) (31 entries, 9 open-access).
+[`sources.json`](sources.json) (33 entries; 9 open-access papers + 1 open
+video).
 
 ## The catalogue
 
@@ -97,6 +109,11 @@ Four findings that would have gone into code wrong:
 ```bash
 node papers/rhythm-platter/fetch-sources.mjs      # → sources/ (gitignored)
 node papers/rhythm-platter/build-timelines.mjs    # → timelines.json, with cross-check
+
+# the one video source — fetched by hand, then frame-OCR'd (macOS Vision):
+yt-dlp -f "bv*[height<=720]+ba/b" --write-auto-subs --sub-langs en \
+  -o "papers/rhythm-platter/sources/levin-2011-indian-rhythms.%(ext)s" \
+  "https://www.youtube.com/watch?v=KsvKQhOeQjQ"
 ```
 
 `build-timelines.mjs` exits non-zero if any extracted rhythm disagrees with
@@ -106,7 +123,7 @@ Bjorklund.
 
 Open, and deliberately visible rather than smoothed over:
 
-- **21 of 31 sources carry `"checked": false`** — written from working knowledge,
+- **19 of 33 sources carry `"checked": false`** — written from working knowledge,
   citation details not yet confirmed against a publisher record. None may be
   cited in a paper until checked.
 - The 9 `named_timelines` rows carry `"checked": false`. The onset sets are the
