@@ -11404,6 +11404,9 @@ async function makeFrame({ data: { type, content } }) {
     $commonApi.rec.presenting = true;
     $commonApi.rec.presentProgress = 0;
     $commonApi.rec.tapeProgress = 0;
+    // Also surface as an act event — cap uses it to drop its frozen frame
+    // and reveal the already-playing tape underneath while `video` loads.
+    actAlerts.push("recorder:presented");
     return;
   }
 

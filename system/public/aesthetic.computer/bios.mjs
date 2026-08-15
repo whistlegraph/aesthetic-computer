@@ -1129,6 +1129,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         send({ type: "recorder:rolling:ended" });
         rollingEndedSent = true;
 
+        // 🎞️ Present now — the video piece is still loading, but the tape
+        // can already be playing in the underlay beneath the old piece's
+        // frozen frame. The piece's own present() lands on the idempotent
+        // branch and leaves playback running.
+        receivedChange({
+          data: { type: "recorder:present", content: {} },
+        }).catch((err) => console.warn("📼 Auto-present after cut failed:", err));
+
         try {
           await receivedChange({
             data: {
@@ -12451,12 +12459,31 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           video.muted = true; // Web Audio owns the soundtrack from here.
         }
       };
-      seekTapePlayback = (progress, { speedScrub = false } = {}) => {
+      seekTapePlayback = (
+        progress,
+        { scrubbing = false, scrubEnd = false, speedScrub = false } = {},
+      ) => {
         if (!Number.isFinite(video.duration) || video.duration <= 0) return;
         const clamped = Math.max(0, Math.min(1, progress));
         currentTapePosition = clamped;
-        video.currentTime = clamped * video.duration;
-        if (!speedScrub && tapeAudioReady && !video.paused) {
+        const t = clamped * video.duration;
+        if (
+          (speedScrub || scrubbing) &&
+          !scrubEnd &&
+          typeof video.fastSeek === "function"
+        ) {
+          // Mid-scrub: nearest-keyframe seek — constant-time no matter how
+          // long the tape is. The precise seek lands at scrub end.
+          video.fastSeek(t);
+        } else {
+          video.currentTime = t;
+        }
+        if (
+          !speedScrub &&
+          tapeAudioReady &&
+          !video.paused &&
+          (scrubEnd || !scrubbing)
+        ) {
           if (startPreparedTapeAudio(clamped)) video.muted = true;
         }
       };
@@ -15623,6 +15650,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               mediaRecorder = new MediaRecorder(compactRecorderStream, {
                 mimeType: compactMime,
                 videoBitsPerSecond,
+                // Dense keyframes keep scrub seeks ~constant-time however
+                // long the tape runs; browsers without this option ignore it.
+                videoKeyFrameIntervalDuration: 1000,
               });
               compactVideoRecording = true;
               recordedVideoMime = compactMime;
@@ -16025,6 +16055,28 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         }
       }
 
+      // Re-present of the tape that's already on screen (the cut handler
+      // auto-presents before the video piece finishes booting) — keep it
+      // rolling instead of rebuilding and restarting the element.
+      if (
+        recordedVideoBlob &&
+        mp4PlaybackVideo &&
+        mp4PlaybackVideo.isConnected &&
+        compactPlaybackUrl &&
+        mp4PlaybackVideo.src === compactPlaybackUrl
+      ) {
+        if (!content?.noplay && mp4PlaybackVideo.paused) {
+          mp4PlaybackVideo.play().catch(() => {});
+        }
+        send({ type: "recorder:presented" });
+        send({
+          type: mp4PlaybackVideo.paused
+            ? "recorder:present-paused"
+            : "recorder:present-playing",
+        });
+        return;
+      }
+
       if (recordedVideoBlob) {
         // Present instantly — audio decoding scales with tape length, so it
         // runs in the background below and must never gate first playback.
@@ -16084,12 +16136,31 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             video.muted = true; // Web Audio owns the soundtrack from here.
           }
         };
-        seekTapePlayback = (progress, { speedScrub = false } = {}) => {
+        seekTapePlayback = (
+          progress,
+          { scrubbing = false, scrubEnd = false, speedScrub = false } = {},
+        ) => {
           if (!Number.isFinite(video.duration) || video.duration <= 0) return;
           const clamped = Math.max(0, Math.min(1, progress));
           currentTapePosition = clamped;
-          video.currentTime = clamped * video.duration;
-          if (!speedScrub && tapeAudioReady && !video.paused) {
+          const t = clamped * video.duration;
+          if (
+            (speedScrub || scrubbing) &&
+            !scrubEnd &&
+            typeof video.fastSeek === "function"
+          ) {
+            // Mid-scrub: nearest-keyframe seek — constant-time no matter how
+            // long the tape is. The precise seek lands at scrub end.
+            video.fastSeek(t);
+          } else {
+            video.currentTime = t;
+          }
+          if (
+            !speedScrub &&
+            tapeAudioReady &&
+            !video.paused &&
+            (scrubEnd || !scrubbing)
+          ) {
             if (startPreparedTapeAudio(clamped)) video.muted = true;
           }
         };
