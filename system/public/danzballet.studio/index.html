@@ -8,7 +8,7 @@
       name="description"
       content="A new space for movement, artistry, and ballet is taking shape. Danz Ballet Studio is coming soon."
     />
-    <meta name="theme-color" content="#f7f0e9" />
+    <meta name="theme-color" content="#ffffff" />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Danz Ballet Studio" />
     <meta property="og:title" content="Danz Ballet Studio" />
@@ -33,10 +33,10 @@
     <style>
       :root {
         color-scheme: light;
-        --paper: #f8f2eb;
-        --wine: #7e263a;
-        --rose: #d79aa3;
-        --ink: #3d3030;
+        --paper: #ffffff;
+        --magenta: #f30dc8;
+        --blush: #ffb0e9;
+        --ink: #35272f;
       }
 
       * {
@@ -73,8 +73,8 @@
 
       body::after {
         background:
-          linear-gradient(90deg, rgba(248, 242, 235, 0.94) 0%, rgba(248, 242, 235, 0.72) 36%, rgba(248, 242, 235, 0.08) 72%),
-          linear-gradient(0deg, rgba(126, 38, 58, 0.06), transparent 52%);
+          linear-gradient(90deg, rgba(255, 255, 255, 0.96) 0%, rgba(255, 255, 255, 0.78) 36%, rgba(255, 255, 255, 0.1) 72%),
+          linear-gradient(0deg, rgba(243, 13, 200, 0.05), transparent 52%);
       }
 
       canvas {
@@ -89,6 +89,7 @@
         position: relative;
         z-index: 2;
         display: grid;
+        grid-template-columns: minmax(0, 1fr);
         min-height: 100svh;
         align-items: center;
         padding: clamp(28px, 7vw, 84px) clamp(24px, 8vw, 128px);
@@ -96,7 +97,8 @@
       }
 
       .mark {
-        width: min(570px, 52vw);
+        width: min(640px, 56vw);
+        max-width: 100%;
         animation: logo-reveal 1.15s cubic-bezier(0.2, 0.75, 0.25, 1) both;
       }
 
@@ -114,10 +116,8 @@
 
       .brand-logo {
         display: block;
-        width: min(610px, 58vw);
-        max-width: none;
-        margin: clamp(-76px, -5vw, -42px) 0 clamp(-76px, -5vw, -42px) clamp(-86px, -6vw, -46px);
-        filter: drop-shadow(0 18px 28px rgba(126, 38, 58, 0.08));
+        width: 100%;
+        filter: drop-shadow(0 14px 26px rgba(243, 13, 200, 0.16));
         animation: logo-float 7s ease-in-out 1.15s infinite;
         transform-origin: 48% 52%;
       }
@@ -164,8 +164,8 @@
 
         body::after {
           background:
-            linear-gradient(0deg, rgba(248, 242, 235, 0.9), rgba(248, 242, 235, 0.64)),
-            linear-gradient(90deg, rgba(248, 242, 235, 0.8), rgba(248, 242, 235, 0.22));
+            linear-gradient(0deg, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.68)),
+            linear-gradient(90deg, rgba(255, 255, 255, 0.84), rgba(255, 255, 255, 0.26));
         }
 
         main {
@@ -180,7 +180,6 @@
 
         .brand-logo {
           width: 100%;
-          margin: -38px auto;
         }
       }
 
@@ -252,16 +251,16 @@
             height * 0.48,
             Math.min(width, height) * 0.55,
           );
-          glow.addColorStop(0, "rgba(215, 154, 163, 0.16)");
-          glow.addColorStop(0.55, "rgba(215, 154, 163, 0.055)");
-          glow.addColorStop(1, "rgba(215, 154, 163, 0)");
+          glow.addColorStop(0, "rgba(255, 176, 233, 0.2)");
+          glow.addColorStop(0.55, "rgba(255, 176, 233, 0.07)");
+          glow.addColorStop(1, "rgba(255, 176, 233, 0)");
           context.fillStyle = glow;
           context.fillRect(0, 0, width, height);
 
-          ribbon(height * 0.28, 0, "rgba(126, 38, 58, 0.28)", time);
-          ribbon(height * 0.72, Math.PI, "rgba(215, 154, 163, 0.36)", time);
+          ribbon(height * 0.28, 0, "rgba(243, 13, 200, 0.3)", time);
+          ribbon(height * 0.72, Math.PI, "rgba(255, 176, 233, 0.5)", time);
 
-          context.strokeStyle = "rgba(126, 38, 58, 0.18)";
+          context.strokeStyle = "rgba(243, 13, 200, 0.16)";
           context.beginPath();
           context.moveTo(width * 0.12, height * 0.91);
           context.lineTo(width * 0.88, height * 0.91);
