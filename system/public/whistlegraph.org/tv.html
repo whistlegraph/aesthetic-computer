@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Whistlegraph TV</title>
+<meta name="description" content="Whistlegraph performances, back to back. A drawing you sing, on every channel.">
+<meta property="og:title" content="Whistlegraph TV">
+<meta property="og:description" content="Whistlegraph performances, back to back.">
+<meta property="og:image" content="https://assets.aesthetic.computer/whistlegraph/butterfly-cosplayer/butterfly-cosplayer.webp">
+<meta name="theme-color" content="#16122a">
+<link rel="icon" type="image/png" href="/favicon.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<style>
+  /* The TV is whistlegraph.org's paper archive after dark: the room goes ink,
+     the label chip stays paper. Zero chrome; the performance is the page. */
+  :root{
+    --paper:#fffdf6;
+    --ink:#25204a;
+    --margin:#b44887;
+    --room:#16122a;
+    --sans:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    --mono:ui-monospace,"Berkeley Mono Variable",Menlo,"DejaVu Sans Mono",monospace;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%;overflow:hidden}
+  body{background:var(--room);color:var(--paper);font:15px/1.4 var(--sans);cursor:pointer;
+    -webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent;user-select:none}
+  /* two screens, front/back — the next video preloads behind the live one */
+  video{position:fixed;inset:0;width:100%;height:100%;object-fit:contain;background:var(--room);
+    opacity:0;pointer-events:none;transition:opacity .18s ease}
+  video.front{opacity:1}
+  /* the label chip: a paper scrap in the corner, mono code in margin pink */
+  #label{position:fixed;left:12px;bottom:16px;max-width:min(72vw,460px);
+    background:var(--paper);color:var(--ink);padding:7px 12px 8px;border-radius:3px;
+    box-shadow:0 1px 6px rgba(0,0,0,.5);opacity:.92;transition:opacity .5s ease}
+  body.idle #label{opacity:.28}
+  #label .code{font:600 13px var(--mono);color:var(--margin);letter-spacing:.02em}
+  #label .title{font-weight:600;margin-left:6px}
+  #label .meta{display:block;font-size:12px;color:#645e85;margin-top:1px}
+  /* one thin progress hair at the floor, pink like the archive's margin */
+  #bar{position:fixed;left:0;bottom:0;height:3px;width:0;background:var(--margin);opacity:.9}
+  /* tap-for-sound affordance, gone after the first tap */
+  #sound{position:fixed;left:50%;bottom:52px;transform:translateX(-50%);
+    background:var(--ink);color:var(--paper);font:13px var(--mono);
+    padding:8px 16px;border-radius:20px;box-shadow:0 1px 6px rgba(0,0,0,.5);
+    animation:breathe 2.4s ease-in-out infinite}
+  #sound.off{display:none}
+  @keyframes breathe{0%,100%{opacity:.55}50%{opacity:1}}
+  #pause{position:fixed;top:16px;right:16px;font:600 14px var(--mono);color:var(--paper);
+    text-shadow:0 1px 4px rgba(0,0,0,.7);display:none}
+  body.paused #pause{display:block}
+  #err{position:fixed;inset:0;display:none;place-items:center;font:15px var(--mono);color:var(--paper)}
+</style>
+</head>
+<body>
+<video id="a" class="front" muted playsinline preload="auto"></video>
+<video id="b" muted playsinline preload="auto"></video>
+<div id="label"><span class="code"></span><span class="title"></span><span class="meta"></span></div>
+<div id="bar"></div>
+<div id="sound">tap for sound</div>
+<div id="pause">⏸</div>
+<div id="err">tuning…</div>
+<script>
+// Whistlegraph TV — the archive as broadcast. Same data whistlegraph.org reads
+// (graphs.json + live curation + posts.json), played back to back the way
+// top.kidlisp.com runs its slideshow: auto-advance, a shuffle deck that gives
+// every work airtime with the hits recurring, a corner label, a floor bar.
+const CDN="https://assets.aesthetic.computer/whistlegraph";
+const IDX=CDN+"/index";
+const fmtViews=v=>v>=1e6?`${(v/1e6).toFixed(1)}M`:v>=1e3?`${Math.round(v/1e3)}K`:`${v}`;
+
+let WORKS=[];            // playable channel entries: {code,title,by,views,src,poster,dead}
+let deck=[];             // weighted shuffle deck of WORKS indices (popped from the end)
+let history=[];          // played indices, for the ← key
+let at=-1;               // index into WORKS of what's on screen
+let front=document.getElementById("a"), back=document.getElementById("b");
+const label=document.getElementById("label"), bar=document.getElementById("bar");
+const soundChip=document.getElementById("sound");
+
+// Live curation layers over the generated JSON, exactly as index.html does:
+// deletions and the active-code allowlist decide what's on the air at all.
+const curation=fetch("/api/whistlegraph-admin?action=curation",{cache:"no-store"})
+  .then(r=>r.ok?r.json():{}).catch(()=>({}));
+
+// Reach-weighted shuffle: log-compress views so Butterfly Cosplayer's 138M
+// doesn't monopolize the channel, then sample the whole deck without
+// replacement — the tail always airs, the hits just come around sooner.
+function buildDeck(exclude){
+  const pool=WORKS.map((w,i)=>({i,w:1+Math.log10(1+(w.views||0))}))
+    .filter(e=>!WORKS[e.i].dead&&e.i!==exclude);
+  const out=[];
+  while(pool.length){
+    let total=0; for(const e of pool) total+=e.w;
+    let r=Math.random()*total, k=0;
+    while(k<pool.length-1&&(r-=pool[k].w)>0) k++;
+    out.push(pool.splice(k,1)[0].i);
+  }
+  return out.reverse(); // heaviest picks ended up first; pop() plays them first
+}
+
+function nextIndex(){
+  if(deck.length===0) deck=buildDeck(at); // reshuffle, never repeat back to back
+  return deck.pop();
+}
+
+function showLabel(w){
+  label.querySelector(".code").textContent=`[${w.code}]`;
+  label.querySelector(".title").textContent=w.title||"";
+  label.querySelector(".meta").textContent=
+    `${w.by||"Whistlegraph"}${w.views?` · ${fmtViews(w.views)} views`:""}`;
+}
+
+// Front/back swap, the dual-iframe trick from top.kidlisp.com in <video> form:
+// the next work is already buffering behind the live one, so cuts are clean.
+function play(i,push=true){
+  const w=WORKS[i]; if(!w) return;
+  if(push&&at>=0) history.push(at);
+  at=i;
+  bar.style.width="0";
+  if(back.dataset.code!==w.code) back.src=w.src; // preload miss — load fresh
+  [front,back]=[back,front]; // the back screen always becomes the live one
+  front.classList.add("front"); back.classList.remove("front");
+  back.pause();
+  front.muted=document.body.dataset.sound!=="on";
+  front.currentTime=0;
+  front.play().catch(()=>{});
+  showLabel(w);
+  // stage the next pick in the back screen
+  const peek=deck.length?deck[deck.length-1]:null;
+  if(peek!=null&&WORKS[peek]){ back.src=WORKS[peek].src; back.dataset.code=WORKS[peek].code; }
+  else delete back.dataset.code;
+  document.body.classList.remove("paused");
+}
+
+const next=()=>play(nextIndex());
+const prev=()=>{ if(history.length) play(history.pop(),false); };
+
+// A dead channel skips itself — missing CDN files just never come up again.
+function onError(e){
+  const v=e.target;
+  if(v!==front) { delete back.dataset.code; return; } // bad preload; repick at swap
+  if(at>=0){ WORKS[at].dead=true; deck=deck.filter(i=>i!==at); }
+  if(WORKS.every(w=>w.dead)){ document.getElementById("err").style.display="grid"; return; }
+  next();
+}
+
+for(const v of [front,back]){
+  v.addEventListener("error",onError);
+  v.addEventListener("ended",()=>{ if(v===front) next(); });
+  v.addEventListener("timeupdate",()=>{
+    if(v===front&&v.duration) bar.style.width=`${(v.currentTime/v.duration)*100}%`;
+  });
+}
+
+// First tap turns the sound on; after that a tap changes the channel.
+document.body.addEventListener("click",()=>{
+  if(document.body.dataset.sound!=="on"){
+    document.body.dataset.sound="on";
+    front.muted=false; soundChip.classList.add("off");
+    return;
+  }
+  next();
+});
+
+document.addEventListener("keydown",e=>{
+  if(e.key===" "){ e.preventDefault();
+    if(front.paused){ front.play().catch(()=>{}); document.body.classList.remove("paused"); }
+    else { front.pause(); document.body.classList.add("paused"); }
+  }
+  else if(e.key==="ArrowRight") next();
+  else if(e.key==="ArrowLeft") prev();
+  else if(e.key==="m"){
+    const on=document.body.dataset.sound==="on";
+    document.body.dataset.sound=on?"off":"on";
+    front.muted=on; soundChip.classList.toggle("off",!on);
+  }
+  else if(e.key==="f"){
+    if(document.fullscreenElement) document.exitFullscreen();
+    else document.documentElement.requestFullscreen?.();
+  }
+});
+
+// The label dims when the hand leaves the set.
+let idleTimer;
+const wake=()=>{
+  document.body.classList.remove("idle");
+  clearTimeout(idleTimer);
+  idleTimer=setTimeout(()=>document.body.classList.add("idle"),4000);
+};
+["pointermove","pointerdown","keydown"].forEach(ev=>document.addEventListener(ev,wake));
+wake();
+
+Promise.all([
+  fetch("/graphs.json?t="+Date.now(),{cache:"no-cache"}).then(r=>r.json()),
+  curation,
+]).then(([data,cur])=>{
+  const deleted=new Set(cur.deletedWorks||[]);
+  const active=new Set(cur.activeCodes||[]);
+  const overlay=w=>({...w,...(cur.works?.[w.code]||{}),...(cur.materializedWorks?.[w.code]||{})});
+  const generated=(data.works||data.graphs.filter(w=>w.kind==="graph"))
+    .filter(w=>!deleted.has(w.code)&&(!active.size||active.has(w.code))).map(overlay);
+  const created=Object.entries(cur.createdWorks||{})
+    .map(([code,w])=>overlay({code,...w}))
+    .filter(w=>!deleted.has(w.code)&&(!active.size||active.has(w.code)));
+  WORKS=[...generated,...created].map(w=>({
+    code:w.code, title:w.title, by:w.by, views:w.views||0,
+    // curated works air their canonical performance; recovered ones start on
+    // the archive rip and get upgraded to their hero post once posts.json lands
+    src:w.slug?`${CDN}/${w.slug}/${w.slug}-web.mp4`:`${IDX}/${w.asset||w.code}.mp4`,
+    slug:w.slug, featuredPost:w.featuredPost, dead:false,
+  }));
+  if(!WORKS.length){ document.getElementById("err").style.display="grid"; return; }
+  deck=buildDeck();
+  next();
+  // Deep cuts: posts.json knows every take. Recovered works swap to their
+  // featured (or most-seen) video post — the same hero index.html fronts.
+  fetch("/posts.json?t="+Date.now(),{cache:"no-cache"}).then(r=>r.ok?r.json():{posts:[]}).then(pd=>{
+    const byCode={};
+    for(const p of pd.posts||[]){
+      if(p.media==="audio"||!p.src) continue;
+      for(const c of p.works||[]) (byCode[c]||(byCode[c]=[])).push(p);
+    }
+    for(const w of WORKS){
+      if(w.slug) continue; // curated stays canonical
+      const posts=(byCode[w.code]||[]).sort((a,b)=>(b.views||0)-(a.views||0));
+      const hero=posts.find(p=>p.id===w.featuredPost)||posts[0];
+      if(hero){ w.src=hero.src; if(back.dataset.code===w.code) back.src=w.src; }
+    }
+  }).catch(()=>{});
+}).catch(()=>{ document.getElementById("err").style.display="grid"; });
+</script>
+</body>
+</html>

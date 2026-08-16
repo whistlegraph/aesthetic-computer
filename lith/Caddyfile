@@ -298,6 +298,23 @@
         }
     }
 
+    # --- tv.whistlegraph.org (the archive as broadcast) ---
+    # Fullscreen back-to-back playback of the same curated index whistlegraph.org
+    # serves: tv.html reads graphs.json / posts.json straight off this root and
+    # the live curation overlay through the one narrowly-scoped function below.
+    # Nothing else of the API namespace crosses onto this host.
+    @wgtv host tv.whistlegraph.org
+    handle @wgtv {
+        root * /opt/ac/system/public/whistlegraph.org
+        handle /api/whistlegraph-admin* {
+            import lith_proxy
+        }
+        handle {
+            try_files {path} /tv.html
+            file_server
+        }
+    }
+
     # --- data.aesthetic.computer (Linked Open Data / CIDOC CRM) ---
     # Most paths go to lith, which rewrites them to the `crm` function (landing,
     # /@handle, /painting, /piece, /mood, /.well-known/void). /sparql is the one
