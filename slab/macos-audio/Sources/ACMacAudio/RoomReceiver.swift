@@ -17,6 +17,8 @@ private final class ACAudioPacketStore: @unchecked Sendable {
     private let lock = NSLock()
     private var session: UInt32?
     private var chunks: [ACBufferedAudio] = []
+    var onDebug: (@Sendable (String) -> Void)?
+    private var lastDebugNanos: UInt64 = 0
 
     func insert(_ packet: ACRoomAudioPacket) {
         guard packet.sampleRate == UInt32(ACRoomWire.sampleRate), packet.channels == 2 else { return }
@@ -55,6 +57,20 @@ private final class ACAudioPacketStore: @unchecked Sendable {
         rightOutput.initialize(repeating: 0, count: frameCount)
         let renderEnd = serverStartNanos + UInt64(Double(frameCount) * 1_000_000_000 / ACRoomWire.sampleRate)
         lock.lock()
+        // Scheduling truth every ~5 s: where the newest/oldest buffered
+        // chunks sit relative to the render clock. "Signal present" with
+        // silence means this window and those stamps never overlap.
+        if serverStartNanos &- lastDebugNanos > 5_000_000_000 {
+            lastDebugNanos = serverStartNanos
+            if let newest = chunks.last, let oldest = chunks.first {
+                let newestMs = (Double(newest.presentationNanos) - Double(serverStartNanos)) / 1_000_000
+                let oldestMs = (Double(oldest.presentationNanos) - Double(serverStartNanos)) / 1_000_000
+                onDebug?(String(format: "window: %d chunks, oldest %+.0f ms, newest %+.0f ms",
+                                chunks.count, oldestMs, newestMs))
+            } else {
+                onDebug?("window: no chunks buffered")
+            }
+        }
         chunks.removeAll { $0.endNanos + 50_000_000 < serverStartNanos }
         for chunk in chunks {
             if chunk.presentationNanos >= renderEnd { break }
@@ -131,7 +147,10 @@ public final class ACAudioRoomReceiver: @unchecked Sendable {
     private var didLogSignal = false
     private var lastTrafficNanos: UInt64 = 0
 
-    public init(configuration: Configuration) { self.configuration = configuration }
+    public init(configuration: Configuration) {
+        self.configuration = configuration
+        store.onDebug = { [weak self] line in self?.log(line) }
+    }
 
     public func start() throws {
         guard !isRunning else { return }
