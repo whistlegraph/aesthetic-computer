@@ -224,6 +224,16 @@
 
   ul.plain{list-style:none} ul.plain li{padding:3px 0}
   ul.plain li::before{content:"– "; color:var(--margin)}
+  /* long category lists fold to their first few rows; the "…" opens the rest */
+  ul.plain li.morefold{cursor:pointer; color:var(--margin); letter-spacing:3px; font-size:17px; line-height:1}
+  ul.plain li.morefold::before{content:""}
+  ul.plain li.morefold:hover{background:var(--hi)}
+
+  /* the code cloud — every code in the index at once, sized by reach */
+  .codecloud{display:flex; flex-wrap:wrap; gap:1px 11px; align-items:baseline; margin:10px 0 4px;
+    font-family:var(--mono); line-height:1.75}
+  .codecloud a{color:var(--link); text-decoration:none; white-space:nowrap}
+  .codecloud a:hover{background:var(--hi)}
   p.glab{color:var(--margin); font-size:11.5px; letter-spacing:.06em; text-transform:uppercase; margin:12px 0 2px}
   .zine{display:inline-block}
   .zine img{width:118px; height:auto; border:1px solid var(--line); background:var(--art); display:block; margin:5px 0 3px}
@@ -231,22 +241,6 @@
   .rail{margin:6px 0}
   .rail div{padding:3px 0}
   .rail b{color:var(--margin); font-weight:normal; margin-right:8px}
-
-  /* Concept drawings for what comes next. They are colored pencil on white
-     paper, so they keep the paper backing (--art) in either theme rather than
-     floating on the night ground. */
-  .future{display:grid; grid-template-columns:1fr; gap:18px; margin:10px 0 4px}
-  @media (min-width:620px){ .future{grid-template-columns:1fr 1fr; gap:20px} }
-  .future figure{margin:0}
-  /* Landscape panels take the full width instead of sitting beside a portrait,
-     which otherwise leaves a column-height hole under them. */
-  .future figure.wide{grid-column:1/-1}
-  .future img{width:100%; height:auto; display:block; border:1px solid var(--line);
-    background:var(--art); margin:0 0 6px}
-  .future figcaption{color:var(--dim); font-size:12.5px; line-height:1.55}
-  .future figcaption b{color:var(--ink); font-weight:600; display:block; font-size:13px}
-  .future .doc{color:var(--margin); font-family:var(--mono); font-size:10.5px;
-    letter-spacing:.06em; text-transform:uppercase}
 
   footer{margin-top:22px; color:var(--dim); font-size:12px; line-height:1.8}
   footer a{color:var(--dim)}
@@ -404,6 +398,10 @@
     </div>
 
     <hr>
+    <h2>Code cloud</h2>
+    <div class="codecloud" id="codeCloud"></div>
+
+    <hr>
     <h2>Lectures, shows &amp; press</h2>
     <p class="glab">Appearances</p>
     <ul class="plain">
@@ -452,46 +450,6 @@
     <p class="glab">Publication</p>
     <span class="zine"><img src="/sexmag-zine.jpg" alt="The Whistlegraph Zine cover — Sex Magazine, 2023" width="768" height="1023" loading="lazy"></span>
     <p class="dim" style="font-size:12.5px;margin-top:0">The Whistlegraph Zine — Sex Magazine (ed. Asher Penn), 2023. 60pp, 750 copies.</p>
-
-    <hr>
-    <h2>Future</h2>
-    <div class="future">
-      <figure>
-        <img src="/future/wand-lineage.jpg" alt="Colored-pencil drawing: a man in a VR headset in a spare room, whistling, drawing a large striped ribbon creature in the air. A second headset charges on a folding table." width="600" height="900" loading="lazy">
-        <figcaption>
-          <b>Ashland, 2022</b>
-          <span class="doc">Documentary</span> — recorded with <a href="https://aesthetic.computer/wand">Wand</a>
-        </figcaption>
-      </figure>
-      <figure>
-        <img src="/future/choir-in-the-round.jpg?v=alexf-20260813" alt="Colored-pencil drawing: four people standing in a ring in white space, each whistling and drawing a different score in the air, the four ribbons braiding into one knot above them." width="600" height="900" loading="lazy">
-        <figcaption><b>Choir in the round</b></figcaption>
-      </figure>
-      <figure class="wide">
-        <img src="/future/mathic-hall.jpg" alt="Colored-pencil drawing: a small figure inside a large hypercube lattice of ruled pencil lines, their striped ribbon wrapping the edges and leaving through one face." width="900" height="600" loading="lazy">
-        <figcaption><b>More than two dimensions</b></figcaption>
-      </figure>
-      <figure>
-        <img src="/future/visor-self-portrait.jpg" alt="Colored-pencil drawing: a person sitting cross-legged wearing a thin visor, lips pursed mid-whistle, drawing a striped bird in the air — the same bird curving in the visor's reflection." width="600" height="900" loading="lazy">
-        <figcaption><b>What the drawer sees</b></figcaption>
-      </figure>
-      <figure>
-        <img src="/future/passing-the-marker.jpg?v=alexf-20260813" alt="Colored-pencil drawing: two people at different distances in white space, one offering the end of a striped ribbon, the other reaching up to take it, the joint still wet." width="600" height="900" loading="lazy">
-        <figcaption><b>Passing the marker</b></figcaption>
-      </figure>
-      <figure class="wide">
-        <img src="/future/workshop-in-the-round.jpg?v=alexf-20260813" alt="Colored-pencil drawing: nine people of different ages spread through an open volume, each drawing a different ribbon, an older figure walking between them looking at a child's work." width="900" height="600" loading="lazy">
-        <figcaption><b>A workshop, in the round</b></figcaption>
-      </figure>
-      <figure>
-        <img src="/future/walk-around-the-score.jpg" alt="Colored-pencil drawing: a large butterfly whistlegraph built from a striped ribbon hanging in white space, with a small person below looking up at it, and a paper tag tied to the line." width="600" height="900" loading="lazy">
-        <figcaption>
-          <b>Walk around the score</b>
-          <a href="/imab">Butterfly Cosplayer</a>
-        </figcaption>
-      </figure>
-    </div>
-    <p class="dim" style="font-size:12px;margin-top:2px">Colored pencil, 2026.</p>
 
     <hr>
     <h2>Elsewhere</h2>
@@ -582,6 +540,23 @@ document.querySelectorAll("[data-theme-choice]").forEach(button=>button.addEvent
 themeQuery.addEventListener("change",()=>{if(themeChoice()==="auto")applyTheme()});
 setInterval(()=>{if(themeChoice()==="auto")applyTheme()},60_000);
 applyTheme();
+
+// Long category lists fold to their first few rows so more modules fit on the
+// page; the trailing "…" is the rest of the drawer.
+document.querySelectorAll("ul.plain").forEach(ul=>{
+  const items=[...ul.children], FOLD=4;
+  if(items.length<=FOLD+1) return;
+  items.slice(FOLD).forEach(li=>li.style.display="none");
+  const more=document.createElement("li");
+  more.className="morefold"; more.textContent="…";
+  more.setAttribute("role","button");
+  more.setAttribute("aria-label",`Show ${items.length-FOLD} more`);
+  more.tabIndex=0;
+  const openFold=()=>{items.slice(FOLD).forEach(li=>li.style.display="");more.remove()};
+  more.addEventListener("click",openFold);
+  more.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();openFold()}});
+  ul.appendChild(more);
+});
 
 const CDN="https://assets.aesthetic.computer/whistlegraph"; // curated slug assets
 const IDX=CDN+"/index"; // recovered graphs: /index/<code>.{jpg,mp4}
@@ -775,6 +750,19 @@ function buildView(){
   if(q){ VIEW=WORKS.filter(match); return; }
   VIEW=[...WORKS.slice(0,CURATED_N), {divider:true}, ...WORKS.slice(CURATED_N)];
 }
+// The code cloud: every confirmed code at once, sized by the log of its reach,
+// tinted with its own swatch color. One glance shows where the views live.
+function renderCloud(){
+  const el=document.getElementById("codeCloud"); if(!el||!WORKS.length) return;
+  const logs=WORKS.map(w=>Math.log(1+(w.views||0)));
+  const lo=Math.min(...logs), hi=Math.max(...logs);
+  el.innerHTML=WORKS.map((w,i)=>{
+    const t=hi>lo?(logs[i]-lo)/(hi-lo):0;
+    return `<a href="/${w.code}" data-code="${w.code}" title="${esc(w.title)} — ${fmtViews(w.views||0)} views"`+
+      ` style="font-size:${(11+t*15).toFixed(1)}px${w.c?`;color:${w.c}`:""}">${w.code}</a>`;
+  }).join("");
+}
+
 function renderMore(){
   let html="";
   const end=Math.min(SHOWN+PAGE, VIEW.length);
@@ -905,7 +893,11 @@ Promise.all([
     const open=document.getElementById("filterPanel").classList.toggle("open");
     filterToggle.setAttribute("aria-expanded",String(open));
   });
-  renderReset();
+  document.getElementById("codeCloud").addEventListener("click",e=>{
+    const a=e.target.closest("a[data-code]"); if(!a) return;
+    e.preventDefault(); go(a.dataset.code);
+  });
+  renderReset(); renderCloud();
   document.querySelectorAll("#workSortbar button[data-sort]").forEach(b=>b.addEventListener("click",()=>{
     document.querySelectorAll("#workSortbar button[data-sort]").forEach(x=>x.classList.remove("on"));
     b.classList.add("on");
@@ -935,7 +927,7 @@ Promise.all([
   // it immediately when opened.
   // Background reconcile must never scroll — it fires on idle, seconds after
   // load, when the visitor may already be reading partway down the page.
-  const reconcilePosts=()=>loadPosts().then(()=>{if(curSection==="works"&&!document.getElementById("detail").classList.contains("on"))renderReset(false)});
+  const reconcilePosts=()=>loadPosts().then(()=>{renderCloud();if(curSection==="works"&&!document.getElementById("detail").classList.contains("on"))renderReset(false)});
   if("requestIdleCallback" in window)requestIdleCallback(reconcilePosts);else setTimeout(reconcilePosts,0);
 });
 
