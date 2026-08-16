@@ -63,6 +63,11 @@ final class MenuBandFluoddityVoice {
     /// (same genome — the instrument stays the instrument).
     private var seedCounter: UInt32 = 0x517C0FFE
 
+    /// Slot of the most recently triggered note, written by the render
+    /// thread, read by the UI's live field strip. -1 until the first note.
+    /// A torn read is harmless (visual only), so no lock.
+    private var latestSlot: Int32 = -1
+
     /// Trackpad bend target + render-thread glide, same scheme (and time
     /// constant) as MenuBandGMSynth.
     private var pitchScale: Double = 1.0
@@ -142,6 +147,22 @@ final class MenuBandFluoddityVoice {
         pitchScale = pow(2.0, Double(amount))
     }
 
+    /// Copy the most recent ecosystem's flow field (FLUOD_FIELD_H rows ×
+    /// FLUOD_FIELD_W cols × 2 components, row-major) for visualization.
+    /// nil before any note has sounded. The copy may tear against the
+    /// render thread mid-tick — fine for a picture, never used for audio.
+    func fieldSnapshot() -> [Float]? {
+        let slot = Int(latestSlot)
+        guard slot >= 0 && slot < maxVoices else { return nil }
+        let count = Int(FLUOD_FIELD_W) * Int(FLUOD_FIELD_H) * 2
+        var out = [Float](repeating: 0, count: count)
+        let src = fluod_voice_field_ptr(cores + slot)!
+        out.withUnsafeMutableBufferPointer { dst in
+            dst.baseAddress!.update(from: src, count: count)
+        }
+        return out
+    }
+
     func noteOn(_ midi: UInt8, velocity: UInt8, channel: UInt8) {
         lock.lock()
         seedCounter = seedCounter &* 1_664_525 &+ 1_013_904_223
@@ -208,6 +229,7 @@ final class MenuBandFluoddityVoice {
                 voices[slot].env = 0
                 voices[slot].releasing = false
                 voices[slot].active = true
+                latestSlot = Int32(slot)
             case let .noteOff(midi, channel):
                 for i in 0..<maxVoices where
                     voices[i].active && !voices[i].releasing

@@ -539,6 +539,9 @@ final class MenuBandController {
     /// distributed-notification hook. Same privacy rationale as above.
     func setFluodditySeed(_ seed: UInt32) { synth.fluodVoice.setSeed(seed) }
     func mutateFluoddity(amount: Float) { synth.fluodVoice.mutate(amount: amount) }
+    /// Live trail field of the most recent Fluoddity note, for the popover's
+    /// FLUODDITY cell visualization. nil before any note has sounded.
+    func fluoddityFieldSnapshot() -> [Float]? { synth.fluodVoice.fieldSnapshot() }
     /// Breed a fresh species: reroll the rule genome from a random seed.
     /// Affects future note-ons; sounding notes keep their birth genome.
     func reseedFluoddity() {

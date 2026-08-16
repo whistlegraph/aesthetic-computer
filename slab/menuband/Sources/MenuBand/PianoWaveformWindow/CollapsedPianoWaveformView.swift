@@ -211,25 +211,17 @@ final class CollapsedPianoWaveformView: NSView {
         }
 #endif
         // FLUODDITY row (below the CDJ strip) — the evolvable particle-swarm
-        // voice. Main cell toggles the backend; 🎲 breeds a fresh species
-        // (new genome seed); 🧬 mutates the current one. Dice/DNA
-        // auto-activate the backend so a single click always makes sound.
+        // voice. One full-width cell: click toggles the backend, and while
+        // active the cell shows the live trail field of whatever note the
+        // ecosystem played last (breeding/mutation stay on the .fluoddity
+        // distributed notification for now).
         instrumentList.onFluoddityCommit = { [weak self] in
             guard let self = self, let m = self.menuBand else { return }
             m.setFluoddityBackend(m.instrumentBackend != .fluoddity)
             self.refresh()
         }
-        instrumentList.onFluoddityReseed = { [weak self] in
-            guard let self = self, let m = self.menuBand else { return }
-            m.reseedFluoddity()
-            if m.instrumentBackend != .fluoddity { m.setFluoddityBackend(true) }
-            self.refresh()
-        }
-        instrumentList.onFluoddityMutate = { [weak self] in
-            guard let self = self, let m = self.menuBand else { return }
-            m.mutateFluoddity(amount: 0.15)
-            if m.instrumentBackend != .fluoddity { m.setFluoddityBackend(true) }
-            self.refresh()
+        instrumentList.fluodFieldSource = { [weak self] in
+            self?.menuBand?.fluoddityFieldSnapshot()
         }
 
         qwertyMap.translatesAutoresizingMaskIntoConstraints = false

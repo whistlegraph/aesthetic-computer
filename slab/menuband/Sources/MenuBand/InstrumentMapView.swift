@@ -56,8 +56,6 @@ final class InstrumentListView: NSView {
         case radio(Int)
         case spotify
         case fluoddity
-        case fluodDice
-        case fluodMutate
     }
     private var hoveredTarget: HoverTarget? {
         didSet {
@@ -119,14 +117,20 @@ final class InstrumentListView: NSView {
     var onSpotifyCommit: (() -> Void)?
 
     /// True while the Fluoddity ecosystem backend owns melodic notes —
-    /// fills the FLUODDITY cell the way `sampleBackendActive` fills SAMPLE.
-    var fluoddityActive: Bool = false { didSet { needsDisplay = true } }
+    /// fills the FLUODDITY cell the way `sampleBackendActive` fills SAMPLE,
+    /// and starts the live trail-field strip animating inside the cell.
+    var fluoddityActive: Bool = false {
+        didSet { needsDisplay = true; updateFluodAnimTimer() }
+    }
     /// Fires when the FLUODDITY cell is clicked (host toggles the backend).
     var onFluoddityCommit: (() -> Void)?
-    /// Fires when the 🎲 cell is clicked — breed a fresh species (new seed).
-    var onFluoddityReseed: (() -> Void)?
-    /// Fires when the 🧬 cell is clicked — mutate the current species.
-    var onFluoddityMutate: (() -> Void)?
+    /// Supplies the most recent ecosystem's flow field for the live strip:
+    /// FLUOD_FIELD_H rows × FLUOD_FIELD_W cols × 2 floats, row-major, or
+    /// nil before any Fluoddity note has sounded.
+    var fluodFieldSource: (() -> [Float]?)?
+    /// Repaints the FLUODDITY cell while the backend is active so the
+    /// swarm's trail field reads as a living picture, not a still.
+    private var fluodAnimTimer: Timer?
 
     private var trackingArea: NSTrackingArea?
 
@@ -182,12 +186,6 @@ final class InstrumentListView: NSView {
         }
         if fluodMainRect.contains(point) {
             return "Fluoddity — every note is a particle ecosystem scanned as a wavetable; timbre drifts while you hold"
-        }
-        if fluodDiceRect.contains(point) {
-            return "Fluoddity · new species — reroll the 80-parameter rule genome"
-        }
-        if fluodMutateRect.contains(point) {
-            return "Fluoddity · mutate — evolve the current species a step"
         }
         if isMidiOutHit(point) {
             return "0 MIDI OUT - route notes to the virtual MIDI port; local synth is muted"
@@ -259,19 +257,76 @@ final class InstrumentListView: NSView {
     private static var fluodRowY: CGFloat {
         stationRowY + stationRowH + midiOutGap
     }
-    private var fluodSmallW: CGFloat { Self.cellW }
-
     private var fluodMainRect: NSRect {
         NSRect(x: 0, y: Self.fluodRowY,
-               width: bounds.width - fluodSmallW * 2, height: Self.fluodRowH)
+               width: bounds.width, height: Self.fluodRowH)
     }
-    private var fluodDiceRect: NSRect {
-        NSRect(x: bounds.width - fluodSmallW * 2, y: Self.fluodRowY,
-               width: fluodSmallW, height: Self.fluodRowH)
+
+    /// Render the live trail field into a tiny CGImage (one pixel per field
+    /// cell, 128×16). Flow magnitude maps through a dark-indigo→white ramp;
+    /// each frame auto-normalizes to its own peak so quiet ecosystems still
+    /// show their form instead of a black bar.
+    private func fluodFieldImage() -> CGImage? {
+        guard let field = fluodFieldSource?(), field.count >= 128 * 16 * 2
+        else { return nil }
+        let w = 128, h = 16
+        var mags = [Float](repeating: 0, count: w * h)
+        var peak: Float = 1e-6
+        for i in 0..<(w * h) {
+            let fx = field[i * 2], fy = field[i * 2 + 1]
+            let m = (fx * fx + fy * fy).squareRoot()
+            mags[i] = m
+            if m > peak { peak = m }
+        }
+        var rgba = [UInt8](repeating: 0, count: w * h * 4)
+        for i in 0..<(w * h) {
+            let t = (mags[i] / peak).squareRoot()   // lift faint trails
+            let r: Float, g: Float, b: Float
+            if t < 0.6 {                            // dark indigo → indigo
+                let u = t / 0.6
+                r = 24 + u * 70; g = 22 + u * 70; b = 64 + u * 166
+            } else {                                // indigo → lavender-white
+                let u = (t - 0.6) / 0.4
+                r = 94 + u * 146; g = 92 + u * 146; b = 230 + u * 25
+            }
+            rgba[i * 4 + 0] = UInt8(min(255, r))
+            rgba[i * 4 + 1] = UInt8(min(255, g))
+            rgba[i * 4 + 2] = UInt8(min(255, b))
+            rgba[i * 4 + 3] = 255
+        }
+        let cs = CGColorSpaceCreateDeviceRGB()
+        return rgba.withUnsafeMutableBytes { buf -> CGImage? in
+            guard let ctx = CGContext(
+                data: buf.baseAddress, width: w, height: h,
+                bitsPerComponent: 8, bytesPerRow: w * 4, space: cs,
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
+            else { return nil }
+            return ctx.makeImage()
+        }
     }
-    private var fluodMutateRect: NSRect {
-        NSRect(x: bounds.width - fluodSmallW, y: Self.fluodRowY,
-               width: fluodSmallW, height: Self.fluodRowH)
+
+    /// Run a ~12 fps repaint of the FLUODDITY cell only while the backend
+    /// is active and the view is in a window; idle costs nothing.
+    private func updateFluodAnimTimer() {
+        let want = fluoddityActive && window != nil
+        if want, fluodAnimTimer == nil {
+            let t = Timer.scheduledTimer(withTimeInterval: 1.0 / 12.0,
+                                         repeats: true) { [weak self] _ in
+                guard let self else { return }
+                self.setNeedsDisplay(self.fluodMainRect)
+            }
+            t.tolerance = 0.03
+            RunLoop.current.add(t, forMode: .eventTracking)
+            fluodAnimTimer = t
+        } else if !want {
+            fluodAnimTimer?.invalidate()
+            fluodAnimTimer = nil
+        }
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        updateFluodAnimTimer()
     }
 
     /// "0 MIDI OUT" cell — a full-width row at the TOP of the board, above
@@ -332,8 +387,6 @@ final class InstrumentListView: NSView {
         if let station = radioStationIndex(at: point) { return .radio(station) }
         if isSpotifyHit(point) { return .spotify }
         if fluodMainRect.contains(point) { return .fluoddity }
-        if fluodDiceRect.contains(point) { return .fluodDice }
-        if fluodMutateRect.contains(point) { return .fluodMutate }
         return nil
     }
 
@@ -558,35 +611,46 @@ final class InstrumentListView: NSView {
                                    y: rr.midY - size.height / 2))
         }
 
-        // Fluoddity row — full-width band under the radio strip. Indigo so
-        // the ecosystem voice reads distinctly from every other special
-        // cell; main cell fills solid while the backend is active, and the
-        // 🎲/🧬 cells at the right end stay clickable in either state.
-        let fluodTint = NSColor.systemIndigo
-        let fluodCells: [(NSRect, HoverTarget, String, CGFloat)] = [
-            (fluodMainRect, .fluoddity, "FLUODDITY", 10.5),
-            (fluodDiceRect, .fluodDice, "🎲", 11),
-            (fluodMutateRect, .fluodMutate, "🧬", 11),
-        ]
-        for (rr, target, label, fontSize) in fluodCells {
-            guard rr.intersects(dirtyRect) else { continue }
-            let hovered = hoveredTarget == target
+        // Fluoddity row — one full-width indigo band under the radio strip.
+        // Idle it reads like SAMPLE/SPOTIFY; active, the cell becomes a live
+        // picture of the most recent note's trail field — the same swarm the
+        // ear is hearing, one pixel per field cell.
+        if fluodMainRect.intersects(dirtyRect) {
+            let rr = fluodMainRect
+            let fluodTint = NSColor.systemIndigo
+            let hovered = hoveredTarget == .fluoddity
             let cap = NSBezierPath(roundedRect: rr.insetBy(dx: 1.75, dy: 1.5),
                                    xRadius: 3, yRadius: 3)
+            var fieldDrawn = false
             if fluoddityActive {
                 fluodTint.withAlphaComponent(hovered ? 0.98 : 0.85).setFill(); cap.fill()
+                if let img = fluodFieldImage(),
+                   let cg = NSGraphicsContext.current?.cgContext {
+                    NSGraphicsContext.current?.saveGraphicsState()
+                    cap.addClip()
+                    cg.interpolationQuality = .none   // crisp field cells
+                    cg.draw(img, in: rr.insetBy(dx: 1.75, dy: 1.5))
+                    NSGraphicsContext.current?.restoreGraphicsState()
+                    fieldDrawn = true
+                }
                 fluodTint.setStroke(); cap.lineWidth = 1.4; cap.stroke()
             } else {
                 fluodTint.withAlphaComponent(hovered ? 0.48 : 0.30).setFill(); cap.fill()
                 fluodTint.withAlphaComponent(hovered ? 1.0 : 0.85).setStroke()
                 cap.lineWidth = hovered ? 1.4 : 1.0; cap.stroke()
             }
-            let labelColor: NSColor = fluoddityActive ? .white : .labelColor
-            let str = NSAttributedString(string: label, attributes: [
-                .font: NSFont.systemFont(ofSize: fontSize, weight: .semibold),
-                .foregroundColor: labelColor,
+            var attrs: [NSAttributedString.Key: Any] = [
+                .font: NSFont.systemFont(ofSize: 10.5, weight: .semibold),
+                .foregroundColor: fluoddityActive ? NSColor.white : .labelColor,
                 .kern: 0.4,
-            ])
+            ]
+            if fieldDrawn {   // keep the label legible over the living field
+                let shadow = NSShadow()
+                shadow.shadowColor = NSColor.black.withAlphaComponent(0.65)
+                shadow.shadowBlurRadius = 2
+                attrs[.shadow] = shadow
+            }
+            let str = NSAttributedString(string: "FLUODDITY", attributes: attrs)
             let size = str.size()
             str.draw(at: NSPoint(x: rr.midX - size.width / 2,
                                  y: rr.midY - size.height / 2))
@@ -762,14 +826,6 @@ final class InstrumentListView: NSView {
         // Like the other special cells there's no audible drag-preview.
         if fluodMainRect.contains(pt) {
             onFluoddityCommit?()
-            return
-        }
-        if fluodDiceRect.contains(pt) {
-            onFluoddityReseed?()
-            return
-        }
-        if fluodMutateRect.contains(pt) {
-            onFluoddityMutate?()
             return
         }
         dragging = true
