@@ -86,6 +86,12 @@
 
   header{padding:8px 0 4px;position:relative}
   .theme-open{position:absolute;right:0;top:0;border:1px solid var(--line);background:var(--paper);color:var(--ink);font:18px/1 var(--sans);padding:8px;cursor:pointer;z-index:2}
+  /* the settings gear — the exact Feather gear from kidlisp.com, spin and all */
+  .theme-open svg{width:16px;height:16px;display:block}
+  @keyframes gear-spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+  @media (prefers-reduced-motion: no-preference){
+    .theme-open:hover svg{animation:gear-spin 2s linear infinite}
+  }
   .theme-open:hover,.theme-choice:hover,.theme-close:hover{background:var(--hi)}
   .theme-dialog{color:var(--ink);background:var(--paper);border:2px solid var(--line);padding:18px;width:min(340px,calc(100vw - 32px));margin:auto;box-shadow:8px 8px 0 color-mix(in srgb,var(--ink) 22%,transparent)}
   .theme-dialog::backdrop{background:rgba(21,18,43,.58)}
@@ -127,12 +133,23 @@
   }
   h2::before{content:"› "; color:var(--margin)}
 
-  /* index sort chips — legal-pad tabs */
+  /* search row — one bar, one funnel. The old section tabs and sort chips
+     live behind the funnel now. */
+  .searchrow{display:flex; gap:7px; align-items:stretch; margin:12px 0 10px}
   #idxSearch{
     font-family:inherit; font-size:14px; color:var(--ink); background:var(--paper);
-    border:1px solid var(--line); border-radius:2px; padding:6px 9px; width:100%; max-width:340px;
-    margin:8px 0 2px; box-sizing:border-box;
+    border:1px solid var(--line); border-radius:2px; padding:6px 9px; width:auto; flex:1 1 auto;
+    margin:0; box-sizing:border-box; min-width:0;
   }
+  .filter-toggle{
+    flex:0 0 auto; border:1px solid var(--line); border-radius:2px; background:var(--paper);
+    color:var(--ink); padding:6px 10px; cursor:pointer; display:flex; align-items:center;
+  }
+  .filter-toggle svg{width:15px; height:15px; display:block}
+  .filter-toggle:hover{background:var(--tint)}
+  .filter-toggle[aria-expanded="true"]{background:var(--margin); color:var(--paper); border-color:var(--margin)}
+  #filterPanel{display:none; border:1px solid var(--line); background:var(--tint); padding:8px 12px 10px; margin:0 0 12px}
+  #filterPanel.open{display:block}
   #idxSearch:focus{outline:none; border-color:var(--margin); box-shadow:0 0 0 2px rgba(180,72,135,.18)}
   #idxSearch::placeholder{color:var(--dim)}
   #idxSentinel{height:1px}
@@ -169,27 +186,41 @@
      and its facts, each clipped rather than wrapped, so the list stays a ruler
      you can run your eye down. Alternating tint gives that eye something to grip. */
   .wrap{overflow-x:auto}
-  /* fixed layout: the three narrow columns are declared, and whatever is left
-     over is the title's — a finite width is what lets its lines ellipsize. */
-  table.idx{border-collapse:collapse; table-layout:fixed; width:100%; font-size:14px}
-  table.idx td{padding:5px 7px; border-bottom:1px solid var(--hair); vertical-align:middle}
-  tr.row:nth-of-type(odd) td{background:var(--zebra)} /* a warm rung, not a grey one */
-  td.th{width:78px} td.th img{width:64px; height:80px; object-fit:cover; object-position:center 70%; border:1px solid var(--line); display:block; background:var(--art)}
-  td.cd{width:96px; white-space:nowrap; font-family:var(--mono); font-size:15px; overflow:hidden}
+  /* The index is a grid now: each row is its own little four-cell grid, and the
+     tbody flows those rows into one column on paper this narrow, two side by
+     side when the page is wide enough to hold them. */
+  table.idx{display:block; width:100%; font-size:14px; border-collapse:collapse}
+  table.idx tbody{display:grid; grid-template-columns:1fr; column-gap:22px; width:100%}
+  /* the cell widths live in the row's grid tracks now, nowhere else */
+  table.idx tr{display:grid; grid-template-columns:78px 96px minmax(0,1fr) 104px; align-items:center; border-bottom:1px solid var(--hair)}
+  table.idx tr.divider{display:block; grid-column:1/-1; border-bottom:0}
+  table.idx td{display:block; padding:5px 7px; border-bottom:0}
+  tr.row:nth-of-type(odd){background:var(--zebra)} /* a warm rung, not a grey one */
+  @media (min-width:700px){
+    table.idx tbody{grid-template-columns:1fr 1fr}
+    table.idx tr.row{grid-template-columns:78px 88px minmax(0,1fr) 78px}
+    /* zebra becomes a checkerboard so neither column reads as one long stripe */
+    tr.row:nth-of-type(odd){background:none}
+    tr.row:nth-of-type(4n+1), tr.row:nth-of-type(4n){background:var(--zebra)}
+  }
+  td.th img{width:64px; height:80px; object-fit:cover; object-position:center 70%; border:1px solid var(--line); display:block; background:var(--art)}
+  td.cd{white-space:nowrap; font-family:var(--mono); font-size:15px; overflow:hidden}
   .sw{display:inline-block; width:.72em; height:.72em; margin-right:6px; border:1px solid var(--edge); background:var(--c); vertical-align:baseline}
   .sw.quiet{background:transparent; border-color:var(--dim)}
   .sw.noglyph{display:inline-flex; align-items:center; justify-content:center; color:var(--ink); font-size:22px; line-height:1}
   td.th .sw.noglyph{width:64px; height:80px; margin:0; border:1px solid var(--line)}
   td.cd a{font-weight:normal}
-  /* max-width:0 hands the title cell exactly the space the other three leave —
-     which is what gives its two lines something finite to ellipsize against. */
-  td.ti{max-width:0}
+  /* min-width:0 lets the grid's minmax(0,1fr) track actually shrink the title
+     cell — which is what gives its two lines something finite to ellipsize
+     against. */
+  td.ti{min-width:0}
   td.ti a{color:var(--ink); display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
   td.ti .by{display:block; color:var(--dim); font-size:11.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
-  td.yr{width:104px; color:var(--dim); text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums; font-size:12.5px}
+  td.yr{color:var(--dim); text-align:right; white-space:nowrap; overflow:hidden; font-variant-numeric:tabular-nums; font-size:12.5px}
   td.yr .vw{display:block; font-size:11px}
-  @media (min-width:561px){ td.yr .vw::after{content:" views"} }
-  tr.row:hover td{background:var(--rowhi)}
+  /* the " views" suffix only fits while the list is still one column wide */
+  @media (min-width:561px) and (max-width:699px){ td.yr .vw::after{content:" views"} }
+  tr.row:hover{background:var(--rowhi)}
 
   ul.plain{list-style:none} ul.plain li{padding:3px 0}
   ul.plain li::before{content:"– "; color:var(--margin)}
@@ -279,10 +310,10 @@
   @media (max-width:560px){
     .pad{padding-left:11px; padding-right:11px}
     table.idx td{padding:4px 4px}
+    table.idx tr{grid-template-columns:60px 70px minmax(0,1fr) 54px}
     td.cd .sw{display:none}
-    td.cd{width:70px; font-size:14px}
-    td.th{width:60px} td.th img,td.th .sw.noglyph{width:52px; height:65px}
-    td.yr{width:54px}
+    td.cd{font-size:14px}
+    td.th img,td.th .sw.noglyph{width:52px; height:65px}
     td.ti > a{font-size:13.5px}
     td.ti .by{font-size:11px}
     td.yr{font-size:11.5px} td.yr .vw{font-size:10.5px}
@@ -314,7 +345,7 @@
   <!-- ══════════ INDEX ══════════ -->
   <div id="index">
     <header>
-      <button class="theme-open" type="button" aria-label="Appearance settings" title="Appearance settings">⚙</button>
+      <button class="theme-open" type="button" aria-label="Appearance settings" title="Appearance settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
       <div class="logo" role="img" aria-label="Whistlegraph">
         <img src="/letters/00-w.png" alt="" width="164" height="180" style="left:0.066%;top:0.376%;width:10.811%">
         <img src="/letters/01-h.png" alt="" width="125" height="174" style="left:11.668%;top:21.053%;width:8.240%">
@@ -330,12 +361,18 @@
         <img src="/letters/11-h.png" alt="" width="136" height="178" style="left:91.035%;top:32.707%;width:8.965%">
       </div>
     </header>
+    <div class="searchrow">
+      <input id="idxSearch" type="search" placeholder="Search title or code…" autocomplete="off" spellcheck="false"
+        aria-label="Search whistlegraphs">
+      <button class="filter-toggle" id="filterToggle" type="button" aria-expanded="false" aria-label="Filters" title="Filters">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+      </button>
+    </div>
+    <div id="filterPanel">
     <div class="sectionbar" id="sectionbar" aria-label="Archive section">
       <button data-section="works" class="on">Whistlegraphs</button>
       <button data-section="archive">Posts</button>
     </div>
-    <input id="idxSearch" type="search" placeholder="Search title or code…" autocomplete="off" spellcheck="false"
-      aria-label="Search whistlegraphs">
     <div class="sortbar" id="workSortbar">
       <span class="sl">Sort:</span>
       <button data-sort="featured" class="on">Featured</button>
@@ -358,6 +395,7 @@
       <button data-sort="viewed" class="on">Most viewed</button>
       <button data-sort="newest">Newest</button>
       <button data-sort="oldest">Oldest</button>
+    </div>
     </div>
     <div class="wrap">
       <table class="idx" id="idx"><tbody></tbody></table>
@@ -474,7 +512,7 @@
 
   <!-- ══════════ DETAIL ══════════ -->
   <div id="detail">
-    <button class="theme-open" type="button" aria-label="Appearance settings" title="Appearance settings">⚙</button>
+    <button class="theme-open" type="button" aria-label="Appearance settings" title="Appearance settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
     <a href="/" id="homelogo" style="display:block;background:none">
       <div class="logo mini" role="img" aria-label="Whistlegraph">
         <img src="/letters/00-w.png" alt="" width="164" height="180" style="left:0.066%;top:0.376%;width:10.811%">
@@ -861,6 +899,12 @@ Promise.all([
   // Live search filters title / code / author; re-fills from the top.
   const search=document.getElementById("idxSearch");
   search.addEventListener("input",()=>{ curQuery=search.value; renderReset(true); });
+  // The funnel: section + sort + filter controls fold away until asked for.
+  const filterToggle=document.getElementById("filterToggle");
+  filterToggle.addEventListener("click",()=>{
+    const open=document.getElementById("filterPanel").classList.toggle("open");
+    filterToggle.setAttribute("aria-expanded",String(open));
+  });
   renderReset();
   document.querySelectorAll("#workSortbar button[data-sort]").forEach(b=>b.addEventListener("click",()=>{
     document.querySelectorAll("#workSortbar button[data-sort]").forEach(x=>x.classList.remove("on"));
