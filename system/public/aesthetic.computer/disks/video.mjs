@@ -82,6 +82,7 @@ let mp4BackBtn = null; // Back-to-chat/prompt button for MP4 tapes
 
 // Tape info from bios
 let tapeInfo = null; // { frameCount, totalDuration, hasAudio }
+let tapeBytes = null; // Encoded tape size in bytes (compact camera clips).
 const MAX_TAPE_DURATION = 30; // Must match server limit
 
 // API references needed by receive() function
@@ -437,6 +438,7 @@ function boot({ wipe, rec, gizmo, jump, notice, store, params, send, hud }) {
   tapeDraftState = "idle";
   finalizeWhenReady = false;
   tapeInfo = null; // Reset tape info for new recording
+  tapeBytes = null;
   isScrubbing = false;
   inertiaActive = false;
   brakeHolding = false;
@@ -802,6 +804,18 @@ function paint({
     // Request tape info if we don't have it yet
     if (tapeInfo === null) {
       send({ type: "tape:get-info" });
+    }
+
+    // 📏 Encoded tape size, bottom-center of the control rail — so the cost
+    // of an upload is visible before hitting Done.
+    if (tapeBytes && !isPrinting) {
+      const mb = tapeBytes / 1024 / 1024;
+      const sizeLabel = mb >= 10 ? `${mb.toFixed(0)} MB` : `${mb.toFixed(1)} MB`;
+      ink(255, 255, 255, 160).write(sizeLabel, {
+        x: Math.floor(screen.width / 2),
+        y: screen.height - 13,
+        center: "x",
+      });
     }
 
     // Only show POST button if tape hasn't been posted yet AND duration is within limit
@@ -2428,7 +2442,8 @@ function act({
               // Camera clips are already browser-encoded MP4s. Upload the
               // same compressed bytes used for review; no frame ZIP or
               // client-side transcode is needed.
-              exportStatusMessage = "UPLOADING TAPE";
+              tapeBytes = frameData.video.blob.size;
+              exportStatusMessage = `UPLOADING ${(tapeBytes / 1024 / 1024).toFixed(1)} MB`;
               currentExportPhase = "uploading";
               send({
                 type: "upload-video-tape",
@@ -3357,6 +3372,7 @@ function handleSystemMessage({ event: e, rec, needsPaint, jump }) {
 
   if (e.is("recorder:compact")) {
     console.log("🎥 compact:", JSON.stringify(e.content));
+    if (typeof e.content?.bytes === "number") tapeBytes = e.content.bytes;
     requestPaint();
     return true;
   }

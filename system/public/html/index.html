@@ -7,17 +7,74 @@
 <meta name="description" content="Laer Klokken — a fast HTML chat client for the laklok.com community." />
 <meta name="theme-color" content="#b4643c" />
 <style>
-  /* 🎪 laklok HTML chat client — a fast, dependency-free reader/poster for the
-     `chat-clock` instance (Laer Klokken). Mirrors the terracotta theme + token
-     colors of disks/laklok.mjs, but renders in plain DOM so it loads instantly
-     instead of waiting on the AC runtime + worker boot. */
-  :root {
+  /* 🎪 laklok HTML chat client — the "vector" sister of disks/laklok.mjs (the
+     "raster" piece). Same terracotta theme + token colors, plain DOM so it
+     loads instantly instead of waiting on the AC runtime + worker boot.
+     The settings pane (mode / tema / filter) and the theme palettes mirror
+     the raster piece by name — keep them in lockstep; the suite in
+     toolchain/laklok-sisters/ renders both side by side to check. */
+  :root, :root[data-theme="ler"] {
     --bg:        #b4643c;   /* warm terracotta/rust (laklok background) */
     --bg-deep:   #8f4e2e;   /* deeper rust for chrome wells */
     --bg-soft:   #c2734a;   /* lifted panel */
+    --stripe-a:  #7a3c1a;   /* marquee stripes (mirror LAK_THEMES.stripeA/B) */
+    --stripe-b:  #964e22;
     --line:      rgba(220,150,100,.26);
     --text:      #fffff0;   /* cream message text */
     --handle:    #ffa078;   /* coral handles */
+    --time:      #dcb496;   /* light brown timestamps */
+    --input-bg:  #6f3c23;
+    --input-line:#b46e46;
+    --send-bg:   #ff8c50;
+    --send-text: #2a1308;
+  }
+  :root[data-theme="nat"] {
+    --bg:        #1a1e3e;
+    --bg-deep:   #12152e;
+    --bg-soft:   #232a55;
+    --stripe-a:  #141832;
+    --stripe-b:  #20264c;
+    --line:      rgba(90,110,190,.26);
+    --text:      #ebf0ff;
+    --handle:    #96b4ff;
+    --time:      #96a0d2;
+    --input-bg:  #101430;
+    --input-line:#4656a0;
+    --send-bg:   #7890ff;
+    --send-text: #0a0d20;
+  }
+  :root[data-theme="skov"] {
+    --bg:        #183824;
+    --bg-deep:   #10281a;
+    --bg-soft:   #1e462c;
+    --stripe-a:  #122c1c;
+    --stripe-b:  #1e422a;
+    --line:      rgba(90,150,110,.26);
+    --text:      #ebfff0;
+    --handle:    #aae696;
+    --time:      #96bea0;
+    --input-bg:  #0e2416;
+    --input-line:#3c7850;
+    --send-bg:   #82dc96;
+    --send-text: #08180c;
+  }
+  :root[data-theme="lakrids"] {
+    --bg:        #161418;
+    --bg-deep:   #0e0c10;
+    --bg-soft:   #221f26;
+    --stripe-a:  #0e0c10;
+    --stripe-b:  #1e1b22;
+    --line:      rgba(90,80,95,.26);
+    --text:      #f0eef4;
+    --handle:    #f0aabe;
+    --time:      #96919f;
+    --input-bg:  #0c0a0e;
+    --input-line:#4a4452;
+    --send-bg:   #c8bed2;
+    --send-text: #16121a;
+  }
+  :root {
+    /* Token + status colors shared by every theme (mirror the raster piece). */
     --hover:     #fff078;   /* golden yellow hover */
     --log:       #64ffdc;   /* cyan system log */
     --url:       #78dcff;   /* light blue links */
@@ -25,7 +82,6 @@
     --painting:  #ffc88c;   /* peachy paintings */
     --kidlisp:   #ff8cc8;   /* pink kidlisp */
     --clock:     #ffd24b;   /* gold clock refs */
-    --time:      #dcb496;   /* light brown timestamps */
     --heart:     #ffdcf0;   /* light pink hearts */
     --ok:        #64dc8c;   /* connected */
     --warn:      #ffd278;   /* connecting */
@@ -52,14 +108,15 @@
     position: relative;
     border-bottom: 1px solid var(--line);
     background: linear-gradient(180deg, var(--bg-deep), var(--bg));
-    overflow: hidden;
+    overflow: visible;
     user-select: none;
+    z-index: 3;
   }
   /* Barber-pole circus stripes behind the marquee. */
   .stripes {
     position: absolute; inset: 0;
     background: repeating-linear-gradient(90deg,
-      #7a3c1a 0 14px, #964e22 14px 28px);
+      var(--stripe-a) 0 14px, var(--stripe-b) 14px 28px);
     opacity: .5;
     animation: slide 6s linear infinite;
   }
@@ -71,6 +128,8 @@
   }
   .wordmark { font-weight: 800; font-size: 22px; letter-spacing: -.5px; color: #5a2f1c;
     text-shadow: 0 1px 0 rgba(255,230,200,.5); }
+  :root[data-theme="nat"] .wordmark, :root[data-theme="skov"] .wordmark,
+  :root[data-theme="lakrids"] .wordmark { color: rgba(255,255,255,.55); text-shadow: 0 1px 0 rgba(0,0,0,.5); }
   .wordmark sup { font-size: 11px; color: #c06030; font-weight: 700; top: -.7em; }
   .marquee { flex: 1 1 auto; text-align: center; font-weight: 700; font-size: 18px;
     letter-spacing: 1px; white-space: nowrap; overflow: hidden; }
@@ -80,7 +139,7 @@
   .presence {
     position: relative;
     display: flex; align-items: center; gap: 8px;
-    padding: 0 14px 7px; font-size: 12px; color: #ffe8d6;
+    padding: 0 14px 7px; font-size: 12px; color: var(--text);
   }
   .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--warn);
     box-shadow: 0 0 6px currentColor; }
@@ -89,17 +148,53 @@
   .presence .count b { color: #fff; }
   .presence .status { margin-left: auto; opacity: .8; }
 
+  /* ⚙️ Settings toggle — a little hamburger by the wordmark's QR-corner. */
+  #gear {
+    flex: 0 0 auto;
+    width: 26px; height: 22px;
+    border: 1px solid rgba(255,255,255,.6); border-radius: 4px;
+    background: transparent; color: var(--text);
+    font-family: var(--font); font-size: 13px; line-height: 1;
+    cursor: pointer; padding: 0;
+  }
+  #gear:hover, #gear.open { border-color: var(--hover); color: var(--hover); }
+
+  /* ── Settings pane (mode / tema / filter — mirrors the raster pane) ─── */
+  #settings {
+    position: absolute;
+    top: 100%; right: 8px;
+    background: var(--stripe-a);
+    border: 1px solid var(--hover);
+    padding: 8px 10px;
+    font-size: 12px;
+    display: none;
+    min-width: 210px;
+    z-index: 9;
+  }
+  #settings.open { display: block; }
+  #settings h2 { margin: 0 0 6px; font-size: 12px; color: var(--hover); font-weight: 700; }
+  #settings .row { display: flex; align-items: center; gap: 6px; margin: 5px 0; }
+  #settings .row .lbl { width: 40px; opacity: .75; }
+  .chip {
+    border: 1px solid rgba(255,255,255,.5); border-radius: 3px;
+    background: transparent; color: var(--text);
+    font-family: var(--font); font-size: 11px;
+    padding: 2px 7px; cursor: pointer;
+  }
+  .chip.sel { background: var(--hover); border-color: var(--hover); color: #14140a; font-weight: 700; }
+  .chip:hover { border-color: var(--hover); }
+
   /* ── Message list ───────────────────────────────────────────────────── */
   #log {
     flex: 1 1 auto; overflow-y: auto; overflow-x: hidden;
     padding: 10px 14px 4px;
-    scrollbar-color: #ffb464 transparent;
+    scrollbar-color: var(--handle) transparent;
   }
   .loadmore { text-align: center; color: var(--time); font-size: 12px;
     padding: 6px 0 10px; opacity: .7; }
   .msg { padding: 2px 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px;
-    border-radius: 5px; }
-  .msg:hover { background: rgba(255,220,180,.07); }
+    border-radius: 5px; position: relative; }
+  .msg:hover { background: rgba(255,255,255,.06); }
   .from { color: var(--handle); font-weight: 600; }
   .from.me { color: #fff; }
   .body { word-break: break-word; }
@@ -108,9 +203,22 @@
   .sys .body { color: var(--log); }
   .deleted .body { color: #b48c8c; font-style: italic; }
 
+  /* 🔗 media-links filter: when on, only rows carrying a media link show. */
+  body.filter-links .msg:not(.has-media) { display: none; }
+
+  /* ✏️ own-row edit affordance (appears once signed in) */
+  .editbtn {
+    display: none;
+    border: 0; background: transparent; color: var(--time);
+    font-family: var(--font); font-size: 11px; cursor: pointer; padding: 0 2px;
+  }
+  .msg.own:hover .editbtn { display: inline; }
+  .editbtn:hover { color: var(--hover); }
+
   /* token colors */
   .t-handle  { color: var(--handle); cursor: pointer; }
   .t-url     { color: var(--url); text-decoration: none; }
+  .t-url.sensitive { color: #8c8c8c; }
   .t-prompt  { color: var(--prompt); }
   .t-painting{ color: var(--painting); }
   .t-kidlisp { color: var(--kidlisp); }
@@ -126,21 +234,23 @@
   }
   #input {
     flex: 1 1 auto; min-width: 0;
-    background: #6f3c23; color: var(--text);
-    border: 1px solid #b46e46; border-radius: 8px;
+    background: var(--input-bg); color: var(--text);
+    border: 1px solid var(--input-line); border-radius: 8px;
     padding: 9px 11px; font-family: var(--font); font-size: 15px;
     outline: none;
   }
-  #input::placeholder { color: #d8a880; }
+  #input::placeholder { color: var(--time); }
   #input:focus { border-color: var(--clock); }
+  body.editing #input { border-color: var(--warn); }
   #send {
-    flex: 0 0 auto; background: #ff8c50; color: #2a1308;
+    flex: 0 0 auto; background: var(--send-bg); color: var(--send-text);
     border: 0; border-radius: 8px; padding: 9px 16px;
     font-family: var(--font); font-weight: 700; font-size: 15px; cursor: pointer;
   }
-  #send:disabled { background: #8a5a3c; color: #c9a085; cursor: not-allowed; }
-  .gate { font-size: 11px; color: #ffd9bf; padding: 0 14px 8px; text-align: center; }
+  #send:disabled { background: var(--bg-soft); color: var(--time); cursor: not-allowed; }
+  .gate { font-size: 11px; color: var(--text); opacity: .85; padding: 0 14px 8px; text-align: center; }
   .gate a { color: var(--clock); }
+  .gate .cancel { color: var(--bad); cursor: pointer; margin-left: 6px; }
   a { color: var(--url); }
 </style>
 </head>
@@ -150,11 +260,32 @@
     <div class="header-row">
       <div class="wordmark">laklok<sup>.com</sup></div>
       <div class="marquee" id="marquee"></div>
+      <button id="gear" title="indstillinger" aria-label="indstillinger">≡</button>
     </div>
     <div class="presence">
       <span class="dot" id="dot"></span>
       <span class="count"><b id="online">0</b> online · <b id="here">0</b> here</span>
       <span class="status" id="status">connecting…</span>
+    </div>
+    <div id="settings">
+      <h2>indstillinger</h2>
+      <div class="row" data-setting="mode">
+        <span class="lbl">mode</span>
+        <button class="chip" data-mode="raster">raster</button>
+        <button class="chip sel" data-mode="vector">vector</button>
+      </div>
+      <div class="row" data-setting="tema">
+        <span class="lbl">tema</span>
+        <button class="chip" data-tema="ler">ler</button>
+        <button class="chip" data-tema="nat">nat</button>
+        <button class="chip" data-tema="skov">skov</button>
+        <button class="chip" data-tema="lakrids">lakrids</button>
+      </div>
+      <div class="row" data-setting="filter">
+        <span class="lbl">filter</span>
+        <button class="chip" data-links="0">alle</button>
+        <button class="chip" data-links="1">links</button>
+      </div>
     </div>
   </header>
 
@@ -175,8 +306,11 @@
 // ── laklok HTML chat client ────────────────────────────────────────────────
 // Connects to the live `chat-clock` instance (Laer Klokken). History via REST,
 // realtime via WebSocket — same wire protocol as the AC piece, no AC runtime.
+// Posting reuses the Auth0 session the AC piece leaves in localStorage when
+// you sign in at laklok.com — same origin, same token the raster client sends.
 
 const REST = "https://aesthetic.computer/api/chat-messages?instance=clock";
+const HANDLE_API = "https://aesthetic.computer/handle";
 const WS_HOST = "chat-clock.aesthetic.computer";
 
 const $log = document.getElementById("log");
@@ -187,6 +321,9 @@ const $status = document.getElementById("status");
 const $dot = document.getElementById("dot");
 const $input = document.getElementById("input");
 const $send = document.getElementById("send");
+const $gate = document.getElementById("gate");
+const $gear = document.getElementById("gear");
+const $settings = document.getElementById("settings");
 
 // 🎪 Circus marquee — each letter its own color + bounce phase.
 const CIRCUS = ["#ff5050","#ffd246","#78d2ff","#8cf096","#ff96dc","#b496ff"];
@@ -194,6 +331,55 @@ document.getElementById("marquee").innerHTML = [..."Laer Klokken"]
   .map((c, i) => c === " " ? " " :
     `<b style="color:${CIRCUS[i % CIRCUS.length]};animation-delay:${(-i * .13).toFixed(2)}s">${c}</b>`)
   .join("");
+
+// ── Settings (mode / tema / filter) — the raster piece's sister pane ────────
+// Persisted under the same names the raster piece uses; `?theme=`/`?links=`
+// query params override for shareable states and the sisters suite.
+const THEMES = ["ler", "nat", "skov", "lakrids"];
+const query = new URLSearchParams(location.search);
+let theme = query.get("theme") || localStorage.getItem("laklok:theme") || "ler";
+if (!THEMES.includes(theme)) theme = "ler";
+let linksOnly = query.has("links")
+  ? query.get("links") !== "0"
+  : localStorage.getItem("laklok:links") === "1";
+
+function applyTheme(name) {
+  theme = name;
+  document.documentElement.dataset.theme = name;
+  for (const chip of $settings.querySelectorAll("[data-tema]")) {
+    chip.classList.toggle("sel", chip.dataset.tema === name);
+  }
+  localStorage.setItem("laklok:theme", name);
+}
+function applyLinksFilter(on) {
+  linksOnly = on;
+  document.body.classList.toggle("filter-links", on);
+  for (const chip of $settings.querySelectorAll("[data-links]")) {
+    chip.classList.toggle("sel", (chip.dataset.links === "1") === on);
+  }
+  localStorage.setItem("laklok:links", on ? "1" : "0");
+}
+applyTheme(theme);
+applyLinksFilter(linksOnly);
+
+$gear.onclick = (e) => {
+  e.stopPropagation();
+  const open = $settings.classList.toggle("open");
+  $gear.classList.toggle("open", open);
+};
+document.addEventListener("click", (e) => {
+  if (!$settings.contains(e.target) && e.target !== $gear) {
+    $settings.classList.remove("open");
+    $gear.classList.remove("open");
+  }
+});
+$settings.addEventListener("click", (e) => {
+  const chip = e.target.closest(".chip");
+  if (!chip) return;
+  if (chip.dataset.mode === "raster") location.href = "https://laklok.com";
+  if (chip.dataset.tema) applyTheme(chip.dataset.tema);
+  if (chip.dataset.links !== undefined) applyLinksFilter(chip.dataset.links === "1");
+});
 
 // ── Handle tinting ──────────────────────────────────────────────────────────
 // v1: deterministic hue per handle (real per-character /api/handle-colors is a
@@ -204,24 +390,106 @@ function handleColor(name) {
   return `hsl(${h % 360} 75% 72%)`;
 }
 
-// ── Token parsing ─────────────────────────────────────────────────────────────
+// ── Sensitive URLs (mirror lib/chat-highlighting.mjs) ───────────────────────
+const SENSITIVE = [
+  /shit/i, /fuck/i, /cock/i, /dick/i, /pussy/i, /porn/i, /xxx/i,
+  /penis/i, /vagina/i, /anal/i, /sex(?!ton|y)/i, /cum/i, /nude/i,
+  /nigger/i, /nigga/i, /fag/i, /cunt/i, /whore/i, /slut/i,
+  /gore/i, /kill/i, /murder/i, /rape/i, /nazi/i, /hitler/i,
+];
+const isSensitiveUrl = (url) => SENSITIVE.some((p) => p.test(url));
+
+// ── Media links (mirror LAK_MEDIA_LINK in disks/laklok.mjs verbatim) ───────
+const MEDIA_LINK =
+  /(youtube\.com\/(watch|shorts|embed)|youtu\.be\/|vimeo\.com\/|tiktok\.com\/|soundcloud\.com\/|bandcamp\.com|\.(png|jpe?g|gif|webp|mp4|mov|webm|mp3|wav|ogg|m4a)\b)/i;
+const URLISH = /https?:\/\/[^\s]+|www\.[^\s]+/gi;
+function hasMediaLink(text) {
+  if (!text) return false;
+  const urls = text.match(URLISH);
+  return !!urls && urls.some((u) => MEDIA_LINK.test(u));
+}
+
+// ── Inline color codes (mirror lib/color-codes.mjs + chat's validity) ──────
+// A chatter can dye their own words with `\red\…\reset\`; anything that isn't
+// a real color stays literal typing. Same rules as the raster chat.
+const COLOR_KEYWORDS = ["reset", "default", "base", "transparent", "clear"];
+function isChatColorCode(code) {
+  const c = code.trim().toLowerCase();
+  if (!c) return false;
+  if (COLOR_KEYWORDS.includes(c)) return true;
+  if (/^\d{1,3}(,\d{1,3}){2,3}$/.test(c)) return true; // r,g,b(,a)
+  return /^[a-z]+$/.test(c) && CSS.supports("color", c);
+}
+// Split into [text, code, text, code, … text]; invalid codes stay in the text.
+function splitChatColors(str) {
+  const parts = [""];
+  let i = 0;
+  while (i < str.length) {
+    if (str[i] !== "\\") { parts[parts.length - 1] += str[i]; i += 1; continue; }
+    const close = str[i + 1] === "\\" ? -1 : str.indexOf("\\", i + 1);
+    const code = close > i ? str.slice(i + 1, close) : null;
+    if (code !== null && isChatColorCode(code)) {
+      parts.push(code, "");
+      i = close + 1;
+    } else {
+      parts[parts.length - 1] += "\\";
+      i += 1;
+    }
+  }
+  return parts;
+}
+function cssForCode(code) {
+  const c = code.trim().toLowerCase();
+  if (COLOR_KEYWORDS.includes(c)) return null; // back to theme text color
+  if (c.includes(",")) {
+    const p = c.split(",").map((n) => parseInt(n.trim(), 10) || 0);
+    return p.length >= 4 ? `rgba(${p[0]},${p[1]},${p[2]},${p[3] / 255})` : `rgb(${p[0]},${p[1]},${p[2]})`;
+  }
+  return c;
+}
+
+// ── Token parsing ───────────────────────────────────────────────────────────
 // Mirrors lib/chat-highlighting.mjs: @handles, urls, 'prompts', #paintings,
-// $kidlisp, *clock. Order matters — longest/most-specific first.
-const TOKEN = /(@[a-z0-9][a-z0-9._]*|https?:\/\/[^\s]+|'[^']+'|#[a-z0-9]{3,}|\$[a-z0-9]+|\*[a-z0-9]+)/gi;
-function renderBody(text) {
-  const frag = document.createDocumentFragment();
+// $kidlisp, *clock. Prompts require a word boundary before the opening quote
+// so contractions ("it's… i'll…") never read as one long green prompt, and
+// handles can't start mid-word (so emails don't half-match).
+const TOKEN = /((?<=^|[\s([{])'[^']*'|https?:\/\/[^\s]+|www\.[^\s]+|(?<![\w.@])@[a-z0-9][a-z0-9._]*|(?<![\w&])#[a-z0-9]{3,}|(?<!\w)\$[a-z0-9]+|(?<!\w)\*[a-z0-9]+)/gi;
+
+function renderTokens(frag, text, inheritColor) {
   let last = 0, m;
   TOKEN.lastIndex = 0;
+  const textNode = (t) => {
+    if (!t) return;
+    if (inheritColor) {
+      const s = document.createElement("span");
+      s.style.color = inheritColor;
+      s.textContent = t;
+      frag.append(s);
+    } else {
+      frag.append(document.createTextNode(t));
+    }
+  };
   while ((m = TOKEN.exec(text))) {
-    if (m.index > last) frag.append(document.createTextNode(text.slice(last, m.index)));
+    textNode(text.slice(last, m.index));
     const tok = m[0];
     let el;
     if (tok[0] === "@") {
       el = span("t-handle", tok); el.style.color = handleColor(tok.slice(1).toLowerCase());
       el.title = "open " + tok; el.onclick = () => open("https://aesthetic.computer/" + tok);
-    } else if (/^https?:/i.test(tok)) {
-      el = document.createElement("a"); el.className = "t-url"; el.textContent = tok;
-      el.href = tok; el.target = "_blank"; el.rel = "noopener nofollow";
+    } else if (/^(https?:|www\.)/i.test(tok)) {
+      el = document.createElement("a"); el.className = "t-url";
+      const href = /^www\./i.test(tok) ? "https://" + tok : tok;
+      if (isSensitiveUrl(tok)) {
+        el.classList.add("sensitive");
+        el.textContent = "[click to reveal link]";
+        el.title = "sensitive link";
+        el.onclick = (ev) => {
+          if (el.textContent !== tok) { ev.preventDefault(); el.textContent = tok; }
+        };
+      } else {
+        el.textContent = tok;
+      }
+      el.href = href; el.target = "_blank"; el.rel = "noopener nofollow";
     } else if (tok[0] === "'") {
       el = span("t-prompt", tok);
     } else if (tok[0] === "#") {
@@ -235,7 +503,17 @@ function renderBody(text) {
     frag.append(el);
     last = m.index + tok.length;
   }
-  if (last < text.length) frag.append(document.createTextNode(text.slice(last)));
+  textNode(text.slice(last));
+}
+
+function renderBody(text) {
+  const frag = document.createDocumentFragment();
+  const parts = splitChatColors(text || "");
+  let color = null;
+  for (let i = 0; i < parts.length; i++) {
+    if (i % 2 === 0) renderTokens(frag, parts[i], color);
+    else color = cssForCode(parts[i]);
+  }
   return frag;
 }
 function span(cls, txt) { const s = document.createElement("span"); s.className = cls; s.textContent = txt; return s; }
@@ -254,6 +532,19 @@ function ago(when) {
 const seen = new Set();
 function nearBottom() { return $log.scrollHeight - $log.scrollTop - $log.clientHeight < 80; }
 
+// A starred timestamp marks a re-edited message — same as the raster piece.
+function timeLabel(row) {
+  return ago(row.dataset.when) + (row.dataset.edited ? "*" : "");
+}
+
+function decorateRow(row, msg) {
+  row.dataset.when = new Date(msg.when).toISOString();
+  if (msg.edited) row.dataset.edited = "1";
+  row.classList.toggle("has-media", !msg.deleted && hasMediaLink(msg.text || ""));
+  const fromHandle = (msg.from || "").replace(/^@/, "").toLowerCase();
+  row.classList.toggle("own", !!auth.handle && fromHandle === auth.handle);
+}
+
 function rowFor(msg) {
   const row = document.createElement("div");
   row.className = "msg" + (msg.deleted ? " deleted" : "");
@@ -266,10 +557,20 @@ function rowFor(msg) {
   if (msg.deleted) body.textContent = "[deleted]";
   else body.append(renderBody(msg.text || ""));
   const time = document.createElement("span");
-  time.className = "time"; time.textContent = ago(msg.when);
+  time.className = "time";
   time.title = new Date(msg.when).toLocaleString();
   row.append(from, body, time);
   if (msg.hearts > 0) { const h = span("heart", "♥" + msg.hearts); row.append(h); }
+  // ✏️ own messages get an edit affordance once signed in (CSS shows it).
+  if (msg.id && !msg.deleted) {
+    const edit = document.createElement("button");
+    edit.className = "editbtn"; edit.textContent = "✎ ret"; edit.title = "ret beskeden";
+    edit.onclick = () => beginEdit(row);
+    row.append(edit);
+  }
+  decorateRow(row, msg);
+  time.textContent = timeLabel(row);
+  row._text = msg.text || "";
   return row;
 }
 
@@ -325,6 +626,75 @@ function setPresence(online, here) {
   if (Array.isArray(here)) $here.textContent = here.length;
 }
 
+// ── Auth — reuse the Auth0 session the AC runtime cached on this origin ────
+// Signing in at laklok.com (the raster piece) stores the SPA SDK cache under
+// `@@auth0spajs@@…` keys; posting sends the same access token the piece would.
+const auth = { token: null, sub: null, handle: null };
+
+function decodeJwtSub(token) {
+  try {
+    const body = token.split(".")[1];
+    return JSON.parse(atob(body.replace(/-/g, "+").replace(/_/g, "/"))).sub || null;
+  } catch { return null; }
+}
+
+function findAcSession() {
+  const now = Date.now() / 1000;
+  let best = null, expired = false;
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (!key || !key.startsWith("@@auth0spajs@@")) continue;
+    let entry;
+    try { entry = JSON.parse(localStorage.getItem(key)); } catch { continue; }
+    const body = entry?.body;
+    const token = body?.access_token;
+    if (!token) continue;
+    if ((entry.expiresAt || 0) <= now + 30) { expired = true; continue; }
+    const sub =
+      body?.decodedToken?.claims?.sub ||
+      body?.decodedToken?.user?.sub ||
+      decodeJwtSub(token);
+    if (sub) best = { token, sub };
+  }
+  return best || (expired ? { expired: true } : null);
+}
+
+function setGate(html) { $gate.innerHTML = html; }
+
+async function initAuth() {
+  const session = findAcSession();
+  if (!session || session.expired) {
+    $input.disabled = true;
+    $send.disabled = true;
+    setGate(
+      session?.expired
+        ? 'session expired — sign in again at <a href="https://laklok.com" target="_blank" rel="noopener">laklok.com</a>, then reload.'
+        : 'reading live. posting opens when you’re signed in at <a href="https://laklok.com" target="_blank" rel="noopener">laklok.com</a>.',
+    );
+    return;
+  }
+  auth.token = session.token;
+  auth.sub = session.sub;
+  $input.disabled = false;
+  $send.disabled = false;
+  setGate("posting live.");
+  try {
+    const r = await fetch(`${HANDLE_API}?for=${encodeURIComponent(auth.sub)}`);
+    if (r.ok) {
+      const data = await r.json();
+      if (data.handle) {
+        auth.handle = String(data.handle).replace(/^@/, "").toLowerCase();
+        setGate(`posting as <b>@${auth.handle}</b>.`);
+        // Light up the ✏️ affordance on rows that are yours.
+        for (const row of $log.querySelectorAll(".msg")) {
+          const from = row.querySelector(".from")?.textContent?.replace(/^@/, "").toLowerCase();
+          row.classList.toggle("own", from === auth.handle);
+        }
+      }
+    }
+  } catch { /* handle stays unknown; posting still works */ }
+}
+
 // ── Live WebSocket ──────────────────────────────────────────────────────────────
 // Defensive: `content` arrives as a JSON string for most types, already-object
 // for a few (e.g. presence). parse() copes with both.
@@ -351,9 +721,26 @@ function connect() {
       $log.scrollTop = $log.scrollHeight;
     } else if (type === "message") {
       appendMessage(content);
+    } else if (type === "message:edit") {
+      const row = $log.querySelector(`.msg[data-id="${content.id}"]`);
+      if (row) {
+        const body = row.querySelector(".body");
+        body.textContent = "";
+        body.append(renderBody(content.text || ""));
+        row._text = content.text || "";
+        row.dataset.edited = "1";
+        row.classList.toggle("has-media", hasMediaLink(content.text || ""));
+        const t = row.querySelector(".time");
+        if (t) t.textContent = timeLabel(row);
+      }
     } else if (type === "message:delete") {
       const row = $log.querySelector(`.msg[data-id="${content.id}"]`);
-      if (row) { row.classList.add("deleted"); row.querySelector(".body").textContent = "[deleted]"; }
+      if (row) {
+        row.classList.add("deleted");
+        row.classList.remove("has-media");
+        row.querySelector(".body").textContent = "[deleted]";
+        row.querySelector(".editbtn")?.remove();
+      }
     } else if (type === "message:hearts") {
       const row = $log.querySelector(`.msg[data-id="${content.for}"]`);
       if (row) { let h = row.querySelector(".heart"); if (!h) { h = span("heart", ""); row.append(h); } h.textContent = "♥" + content.count; }
@@ -361,27 +748,65 @@ function connect() {
       setPresence(content.online || content.handles, content.here);
     } else if (type === "joined" || type === "left") {
       setPresence(content.chatters ?? content.handles, content.here);
+    } else if (type === "unauthorized") {
+      setGate('not authorized — sign in again at <a href="https://laklok.com" target="_blank" rel="noopener">laklok.com</a>, then reload.');
+    } else if (type === "too-long") {
+      setGate(`too long — max ${content.maxChars ?? 128} characters.`);
+    } else if (type === "muted") {
+      setGate("your user has been muted.");
     }
   };
 }
 function scheduleReconnect() { setTimeout(connect, reconnect); reconnect = Math.min(reconnect * 2, 16000); }
 
-// ── Composer (posting requires an Auth0 token — wired, gated for v1) ───────────
-// The send path below is correct for the protocol; it activates once a token +
-// sub are available (follow-up: pull the AC session token / add a sign-in flow).
-const auth = { token: null, sub: null, handle: null };
+// ── Composer: posting + re-editing ─────────────────────────────────────────
+let editingId = null;
+
+function beginEdit(row) {
+  if (!auth.token) return;
+  editingId = row.dataset.id;
+  document.body.classList.add("editing");
+  $input.value = row._text || "";
+  $send.textContent = "gem";
+  setGate('retter besked… <span class="cancel" id="canceledit">annuller</span>');
+  document.getElementById("canceledit").onclick = cancelEdit;
+  $input.focus();
+}
+function cancelEdit() {
+  editingId = null;
+  document.body.classList.remove("editing");
+  $input.value = "";
+  $send.textContent = "send";
+  setGate(auth.handle ? `posting as <b>@${auth.handle}</b>.` : "posting live.");
+}
+
 function post(text) {
   if (!auth.token || !ws || ws.readyState !== 1) return;
-  ws.send(JSON.stringify({ type: "chat:message", content: { text, token: auth.token, sub: auth.sub, font: "font_1" } }));
+  if (editingId) {
+    ws.send(JSON.stringify({
+      type: "chat:edit",
+      content: { id: editingId, text, token: auth.token, sub: auth.sub },
+    }));
+    cancelEdit();
+  } else {
+    ws.send(JSON.stringify({
+      type: "chat:message",
+      content: { text, token: auth.token, sub: auth.sub, font: "font_1" },
+    }));
+  }
 }
 $send.onclick = () => { const t = $input.value.trim(); if (t) { post(t); $input.value = ""; } };
-$input.addEventListener("keydown", (e) => { if (e.key === "Enter") $send.click(); });
+$input.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") $send.click();
+  if (e.key === "Escape" && editingId) cancelEdit();
+});
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
 loadHistory().then(connect);
+initAuth();
 // keep relative timestamps fresh
 setInterval(() => { document.querySelectorAll(".msg").forEach((r) => {
-  const t = r.querySelector(".time"); if (t && t.title) t.textContent = ago(new Date(t.title).getTime()); }); }, 30000);
+  const t = r.querySelector(".time"); if (t && r.dataset.when) t.textContent = timeLabel(r); }); }, 30000);
 </script>
 </body>
 </html>

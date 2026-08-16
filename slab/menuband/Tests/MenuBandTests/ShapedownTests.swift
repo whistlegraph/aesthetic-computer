@@ -495,6 +495,93 @@ final class ShapedownTests: XCTestCase {
         XCTAssertFalse(clock.isActive)
     }
 
+    func testTypedPatternReplacesPresetsAndKeepsPhase() {
+        var clock = PolyrhythmTrainerClock()
+        clock.cyclePattern(at: 10)  // on: 3:2
+        let phaseBefore = clock.snapshot(at: 11.2)!.phase
+        clock.setPattern([7, 4], at: 11.2)
+        XCTAssertEqual(clock.pattern.label, "7:4")
+        XCTAssertEqual(clock.snapshot(at: 11.2)!.phase, phaseBefore,
+                       accuracy: 0.000_001)
+        // Divisions clamp to 1…16 and five circles; junk is dropped.
+        clock.setPattern([0, 99, 2, 3, 4, 5, 6], at: 11.3)
+        XCTAssertEqual(clock.pattern.counts, [16, 2, 3, 4, 5])
+        // A custom pattern sits outside the preset walk: next `/` = off.
+        clock.cyclePattern(at: 12)
+        XCTAssertFalse(clock.isActive)
+    }
+
+    func testToneTrialsDropResetsPassAndClearAdvances() {
+        let trials = ToneTrials()
+        trials.start(at: 0)
+        XCTAssertEqual(trials.trial.title, "C Major")
+        trials.registerNote(60, at: 1)  // C
+        trials.registerNote(62, at: 2)  // D
+        XCTAssertEqual(trials.progress, 2)
+        trials.registerNote(62, at: 3)  // repeat of the degree just hit — free
+        XCTAssertEqual(trials.progress, 2)
+        trials.registerNote(65, at: 4)  // F when E is due — the combo DROPS
+        XCTAssertEqual(trials.progress, 0)
+        XCTAssertGreaterThan(trials.snapshot(at: 4)!.dropFlash, 0.9)
+        // A clean ascent clears the trial…
+        for midi in [60, 62, 64, 65, 67, 69, 71, 72] {
+            trials.registerNote(midi, at: 5)
+        }
+        XCTAssertEqual(trials.cleared, 1)
+        XCTAssertGreaterThan(trials.snapshot(at: 5)!.clearBanner, 0.9)
+        // …the banner holds (notes ignored, ladder unmoved)…
+        trials.registerNote(60, at: 5.5)
+        trials.update(at: 5.5)
+        XCTAssertEqual(trials.index, 0)
+        // …then the next trial loads once the banner has had its beat.
+        trials.update(at: 5 + ToneTrials.clearBannerDuration + 0.1)
+        XCTAssertEqual(trials.index, 1)
+        XCTAssertEqual(trials.trial.title, "G Major")
+        XCTAssertEqual(trials.progress, 0)
+    }
+
+    func testToneTrialsStepWrapsTheLadder() {
+        let trials = ToneTrials()
+        trials.start(at: 0)
+        trials.step(by: -1)
+        XCTAssertEqual(trials.index, ToneTrials.trials.count - 1)
+        XCTAssertEqual(trials.trial.title, "C Chromatic")
+        trials.step(by: 1)
+        XCTAssertEqual(trials.index, 0)
+        // start(at:) wraps too, so a stale persisted index can't crash.
+        trials.start(at: 99)
+        XCTAssertEqual(trials.index, 99 % ToneTrials.trials.count)
+    }
+
+    func testToneTrialsSnapshotNamesDegreesFromRoot() {
+        let trials = ToneTrials()
+        trials.start(at: 1)  // G major
+        let snapshot = trials.snapshot(at: 0)!
+        XCTAssertEqual(snapshot.trialNumber, 2)
+        XCTAssertEqual(snapshot.title, "G Major")
+        XCTAssertEqual(snapshot.degrees.map(\.name),
+                       ["G", "A", "B", "C", "D", "E", "F♯", "G"])
+        XCTAssertEqual(snapshot.degrees[0].state, .next)
+    }
+
+    func testTrackDrumEntryDigitsAreUnmodifiedNumberRow() {
+        XCTAssertEqual(AppDelegate.trackDrumEntryDigit(keyCode: 26, flags: []), 7)
+        XCTAssertEqual(AppDelegate.trackDrumEntryDigit(keyCode: 29, flags: []), 0)
+        XCTAssertNil(AppDelegate.trackDrumEntryDigit(keyCode: 26, flags: [.command]))
+        XCTAssertNil(AppDelegate.trackDrumEntryDigit(keyCode: 26, flags: [.shift]))
+        XCTAssertNil(AppDelegate.trackDrumEntryDigit(keyCode: 44, flags: []))
+    }
+
+    func testBpmReadoutPulsesOnPrimaryBeats() {
+        XCTAssertEqual(PolyrhythmTrainerClock.bpmPulse(
+            phase: 0, primaryCount: 3, bpm: 75), 1, accuracy: 0.000_001)
+        XCTAssertEqual(PolyrhythmTrainerClock.bpmPulse(
+            phase: 0.5, primaryCount: 4, bpm: 75), 1, accuracy: 0.000_001)
+        // Mid-beat (0.4 s after the strike at 75 bpm) the flash is out.
+        XCTAssertEqual(PolyrhythmTrainerClock.bpmPulse(
+            phase: 0.5 / 3.0, primaryCount: 3, bpm: 75), 0, accuracy: 0.000_001)
+    }
+
     func testThreeRhythmPatternTicksEveryCircleAtCycleStart() {
         var clock = PolyrhythmTrainerClock()
         for step in 1...4 { clock.cyclePattern(at: CFTimeInterval(step)) }
@@ -706,39 +793,42 @@ final class ShapedownTests: XCTestCase {
         ))
     }
 
-    func testAbsoluteTrackpadFXMapsCenterToNeutral() {
-        let values = AppDelegate.absoluteTrackpadFXValues(
-            at: CGPoint(x: 0.5, y: 0.5), bendRange: 2, echoEnabled: true
+    func testRelativeTrackpadFXSlidesByDeltasAndClamps() {
+        // Full-pad travel spans the full range: +0.25 pad-Y at range 2 → +1.
+        let step = AppDelegate.relativeTrackpadFXTargets(
+            from: CGPoint(x: 0.5, y: 0.5), to: CGPoint(x: 0.6, y: 0.75),
+            bendTarget: 0, fxXTarget: 0, bendRange: 2, echoEnabled: true
         )
+        XCTAssertEqual(step.bend, 1, accuracy: 0.000_001)
+        XCTAssertEqual(step.fxX, 0.2, accuracy: 0.000_001)
+        // The accumulator clamps inside the step — no wind-up past the edge.
+        let clamped = AppDelegate.relativeTrackpadFXTargets(
+            from: CGPoint(x: 0.5, y: 0.2), to: CGPoint(x: 0.9, y: 0.9),
+            bendTarget: 1.5, fxXTarget: 0.9, bendRange: 2, echoEnabled: true
+        )
+        XCTAssertEqual(clamped.bend, 2, accuracy: 0.000_001)
+        XCTAssertEqual(clamped.fxX, 1, accuracy: 0.000_001)
+    }
+
+    func testRelativeTrackpadFXHoldsPositionAcrossRegrab() {
+        // A fresh grab contributes no delta (previous == point), so held
+        // values pass through untouched — the slider never jumps to the
+        // new finger's landing spot.
+        let regrab = AppDelegate.relativeTrackpadFXTargets(
+            from: CGPoint(x: 0.1, y: 0.9), to: CGPoint(x: 0.1, y: 0.9),
+            bendTarget: -1.2, fxXTarget: 0.4, bendRange: 2, echoEnabled: true
+        )
+        XCTAssertEqual(regrab.bend, -1.2, accuracy: 0.000_001)
+        XCTAssertEqual(regrab.fxX, 0.4, accuracy: 0.000_001)
+    }
+
+    func testRelativeTrackpadFXKeepsDisabledEchoHalfNeutral() {
+        let values = AppDelegate.relativeTrackpadFXTargets(
+            from: CGPoint(x: 0.2, y: 0.5), to: CGPoint(x: 0.9, y: 0.5),
+            bendTarget: 0, fxXTarget: -0.5, bendRange: 2, echoEnabled: false
+        )
+        XCTAssertEqual(values.fxX, 0, accuracy: 0.000_001)
         XCTAssertEqual(values.bend, 0, accuracy: 0.000_001)
-        XCTAssertEqual(values.fxX, 0, accuracy: 0.000_001)
-        XCTAssertEqual(values.space, 0, accuracy: 0.000_001)
-        XCTAssertEqual(values.echo, 0, accuracy: 0.000_001)
-    }
-
-    func testAbsoluteTrackpadFXMapsCornersToPitchAndEffects() {
-        let upperRight = AppDelegate.absoluteTrackpadFXValues(
-            at: CGPoint(x: 1, y: 1), bendRange: 2, echoEnabled: true
-        )
-        XCTAssertEqual(upperRight.bend, 2, accuracy: 0.000_001)
-        XCTAssertEqual(upperRight.echo, 1, accuracy: 0.000_001)
-        XCTAssertEqual(upperRight.space, 0, accuracy: 0.000_001)
-
-        let lowerLeft = AppDelegate.absoluteTrackpadFXValues(
-            at: CGPoint(x: 0, y: 0), bendRange: 2, echoEnabled: true
-        )
-        XCTAssertEqual(lowerLeft.bend, -2, accuracy: 0.000_001)
-        XCTAssertEqual(lowerLeft.echo, 0, accuracy: 0.000_001)
-        XCTAssertEqual(lowerLeft.space, 1, accuracy: 0.000_001)
-    }
-
-    func testAbsoluteTrackpadFXKeepsDisabledEchoHalfNeutral() {
-        let values = AppDelegate.absoluteTrackpadFXValues(
-            at: CGPoint(x: 1, y: 0.5), bendRange: 2, echoEnabled: false
-        )
-        XCTAssertEqual(values.fxX, 0, accuracy: 0.000_001)
-        XCTAssertEqual(values.echo, 0, accuracy: 0.000_001)
-        XCTAssertEqual(values.space, 0, accuracy: 0.000_001)
     }
 
     func testPitchBendKeepsOnePrimaryTrackpadContact() {

@@ -9363,6 +9363,9 @@ async function load(
    */
 
   let videoTimeout;
+  let constraintTimeout;
+  let lastConstraintSendTime = 0;
+  const CONSTRAINT_SEND_INTERVAL = 60; // ms between zoom/torch tweak sends.
 
   $commonApi.video = function (type, options) {
     // TODO: ❤️‍🔥 Prevent fast multiple taps while camera is updating...
@@ -9373,12 +9376,41 @@ async function load(
     // https://codepen.io/oceangermanique/pen/LqaPgO
 
     if (videoSwitching === false) {
-      const torchOnly =
+      // Torch and zoom adjust constraints on the live track — the stream
+      // never restarts, so frames keep flowing and there is nothing to wait
+      // for. Only facing/size changes swap the stream and need the
+      // frame-hold (`videoSwitching`) treatment; holding for a zoom tweak
+      // froze the camera preview mid-recording because zoom-only updates
+      // never emit `camera:updated` to release the hold.
+      const keys = options ? Object.keys(options) : [];
+      const constraintOnly =
         type === "camera:update" &&
-        options &&
-        Object.keys(options).length === 1 &&
-        typeof options.torch === "boolean";
-      if (type === "camera:update" && !torchOnly) {
+        keys.length > 0 &&
+        keys.every((key) => key === "torch" || key === "zoom");
+
+      if (constraintOnly) {
+        // Leading + trailing throttle on its own timer. A trailing-only
+        // debounce starves a continuous zoom slide — every new touch value
+        // resets the timer, so nothing sends until the finger pauses and the
+        // recorded zoom then lurches in one big step. Sending immediately
+        // (rate-limited) keeps the ramp tracking the finger; the trailing
+        // send delivers the final resting value.
+        const now = performance.now();
+        const since = now - lastConstraintSendTime;
+        clearTimeout(constraintTimeout);
+        if (since >= CONSTRAINT_SEND_INTERVAL) {
+          lastConstraintSendTime = now;
+          send({ type: "video", content: { type, options } });
+        } else {
+          constraintTimeout = setTimeout(() => {
+            lastConstraintSendTime = performance.now();
+            send({ type: "video", content: { type, options } });
+          }, CONSTRAINT_SEND_INTERVAL - since);
+        }
+        return videoFrame;
+      }
+
+      if (type === "camera:update") {
         lastActiveVideo = activeVideo || lastActiveVideo;
         activeVideo = null;
       }
@@ -9388,7 +9420,7 @@ async function load(
         send({ type: "video", content: { type, options } });
       }, 50);
 
-      if (type === "camera:update" && !torchOnly) videoSwitching = true;
+      if (type === "camera:update") videoSwitching = true;
     }
 
     // Return an object that can grab whatever the most recent frame of
@@ -11372,6 +11404,9 @@ async function makeFrame({ data: { type, content } }) {
     $commonApi.rec.presenting = true;
     $commonApi.rec.presentProgress = 0;
     $commonApi.rec.tapeProgress = 0;
+    // Also surface as an act event — cap uses it to drop its frozen frame
+    // and reveal the already-playing tape underneath while `video` loads.
+    actAlerts.push("recorder:presented");
     return;
   }
 

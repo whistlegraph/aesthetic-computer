@@ -32,6 +32,7 @@ let vid,
 let isRecording = false;
 let recordingStarted = false;
 let videoInitialized = false;
+let presented = false; // The cut tape is playing in the DOM underlay.
 
 // UI elements
 let swapBtn, flashBtn, timer, micLevel;
@@ -79,6 +80,7 @@ function boot({ ui, params, colon, system, rec, notice }) {
   isRecording = false;
   recordingStarted = false;
   videoInitialized = false;
+  presented = false;
   swapBtn = undefined;
   flashBtn = undefined;
   mic = undefined;
@@ -126,6 +128,14 @@ function paint({
   recordingUI,
   ui,
 }) {
+  // ✂️ → 🎞️ The cut happened and the tape is already rolling in the DOM
+  // underlay — go transparent so it shows through while the `video` piece
+  // finishes loading. Feels like an instant cut instead of a processing wait.
+  if (presented) {
+    wipe(0, 0, 0, 0);
+    return;
+  }
+
   // Initialize video feed to match screen dimensions (not painting)
   if (!vid) {
     wipe(0);
@@ -391,6 +401,7 @@ function stopRecording(rec, jump) {
   if (!isRecording) return;
 
   isRecording = false;
+  capturing = false; // Freeze the last preview frame over the cut.
   timer.stop();
 
   // Cut the recording and jump to video piece
@@ -479,7 +490,7 @@ function act({ event: e, jump, video, cameras, rec, notice, leaving, hud }) {
 
   // 🎬 Hold-to-record (BakTok pattern): touch anywhere outside the swap
   // button or HUD label starts recording; releasing stops + jumps to video.
-  if (e.is("touch") && !leaving()) {
+  if (e.is("touch") && !leaving() && !presented) {
     const onSwapBtn = swapBtn?.btn?.box?.contains(e);
     const onFlashBtn = flashBtn?.btn?.box?.contains(e);
     const onHud = hud?.currentLabel()?.btn?.down;
@@ -499,7 +510,10 @@ function act({ event: e, jump, video, cameras, rec, notice, leaving, hud }) {
     const dy = zoomStartY - e.y; // up is positive
     const target = 1 + dy / zoomSensitivity;
     zoom = Math.max(zoomMin, Math.min(zoomMax, target));
-    if (Math.abs(zoom - lastSentZoom) >= 0.04) {
+    // Fine-grained sends — the runtime throttles them (leading + trailing)
+    // and the recorder's compositor eases between values, so the tape's
+    // zoom ramp stays smooth and linear instead of stepping.
+    if (Math.abs(zoom - lastSentZoom) >= 0.02) {
       video("camera:update", { zoom });
       lastSentZoom = zoom;
     }
@@ -515,10 +529,11 @@ function act({ event: e, jump, video, cameras, rec, notice, leaving, hud }) {
     }
     zoomStartY = null;
     zoom = 1;
+    lastSentZoom = 1;
   }
 
   // Keyboard shortcut: space toggles record (useful for desktop testing).
-  if (e.is("keyboard:down: ")) {
+  if (e.is("keyboard:down: ") && !presented) {
     if (!isRecording && !pendingRecordStart) {
       startRecording(rec, notice);
     } else {
@@ -562,6 +577,9 @@ function act({ event: e, jump, video, cameras, rec, notice, leaving, hud }) {
     isRecording = false;
     timer?.stop();
   }
+
+  // The cut tape is presented and playing beneath the canvas — reveal it.
+  if (e.is("recorder:presented")) presented = true;
 }
 
 // 💗 Beat - runs after audio context is activated (user interaction)

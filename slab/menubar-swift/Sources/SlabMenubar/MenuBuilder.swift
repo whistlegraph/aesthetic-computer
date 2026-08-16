@@ -99,6 +99,14 @@ enum MenuBuilder {
         media.addItem(buildVideo(target: target))
         media.addItem(buildAudio(target: target))
 
+        // Reels player — the oskiewar reel factory's management window:
+        // play staged renders and read each post's Instagram insights,
+        // all from local JSON (ReelsPlayerView.swift / ReelStats.swift).
+        let reels = item("Reels player",
+                         selector: #selector(AppDelegate.openReelsPlayer), target: target)
+        reels.toolTip = "Preview rendered reels and their per-post insights, read from the local publish ledger + staged queue."
+        media.addItem(reels)
+
         // Request for Audio — sing a /pop melody, one note at a time. The
         // wizard plays the pitch + shows the word per note, records, then
         // recompiles the track and plays it back.

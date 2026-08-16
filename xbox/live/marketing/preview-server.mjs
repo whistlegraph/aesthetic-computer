@@ -14,11 +14,35 @@
 //
 //   PORT=7899 node xbox/live/marketing/preview-server.mjs
 
+import { appendFileSync, mkdirSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { serveShell } from "./shell.mjs";
 
 const port = Number(process.env.PORT) || 7899;
+
+// Every finished round any browser plays against this host lands here, one
+// demo per line, one file per day — bot fights as a dataset. Tally with
+// marketing/tally-demos.mjs to see how the bots actually perform: who wins,
+// what causes, where the stalemates live, what needs mixing up.
+const demoDir = process.env.DEMO_DIR ||
+  resolve(dirname(fileURLToPath(import.meta.url)), "../../../..", "oskiewar-demos");
+mkdirSync(demoDir, { recursive: true });
+let saved = 0;
+const sink = (demo) => {
+  const day = new Date().toISOString().slice(0, 10);
+  appendFileSync(`${demoDir}/${day}.jsonl`,
+    JSON.stringify({ at: Date.now(), ...demo }) + "\n");
+  saved++;
+};
+
 const shell = await serveShell({
-  replays: "stub", port, host: "0.0.0.0", log: console.log });
+  replays: "stub", port, host: "0.0.0.0", log: console.log, onDemo: sink });
 console.log(`oskiewar preview on :${port}`);
 console.log(`  reel mode: /?social-preview&replay-oven&reel-hud&self-play`);
-process.on("SIGTERM", async () => { await shell.close(); process.exit(0); });
+console.log(`  demos → ${demoDir}`);
+process.on("SIGTERM", async () => {
+  console.log(`${saved} demos saved this run`);
+  await shell.close();
+  process.exit(0);
+});

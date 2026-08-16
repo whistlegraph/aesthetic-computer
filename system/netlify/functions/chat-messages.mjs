@@ -77,7 +77,12 @@ export async function handler(event, context) {
 
         const baseFilter = {};
         if (before) baseFilter.when = { $lt: before };
-        if (searching) baseFilter.text = { $regex: escaped, $options: "i" };
+        if (searching) {
+          baseFilter.text = { $regex: escaped, $options: "i" };
+          // Search runs over raw text; a deleted row would confirm its old
+          // contents by turning up masked. Skip them entirely.
+          baseFilter.deleted = { $ne: true };
+        }
         if (fromRaw) {
           const senders = await database.db.collection("@handles").find({
             handle: { $regex: new RegExp(`^${fromRaw.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i") },
@@ -151,10 +156,15 @@ export async function handler(event, context) {
         const messagesWithHandles = messages.map((msg) => ({
           id: msg._id.toString(),
           from: (msg.user && handleMap.get(msg.user)) || "anon",
-          text: msg.text,
+          // Deletes are soft — the flag lives in the row while `text` keeps the
+          // original, so mask here or the REST surface leaks deleted messages.
+          text: msg.deleted ? "[deleted]" : msg.text,
           when: msg.when,
           instance: msg.__instance || instance,
           hearts: heartMap[msg._id.toString()] ?? 0,
+          deleted: msg.deleted || undefined,
+          edited: msg.edited || undefined,
+          font: msg.font || undefined,
         }));
 
         await database.disconnect();

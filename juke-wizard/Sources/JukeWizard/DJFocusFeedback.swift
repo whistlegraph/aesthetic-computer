@@ -42,7 +42,6 @@ final class DJFocusDing {
     private let engine = AVAudioEngine()
     private let player = AVAudioPlayerNode()
     private let sampleRate = 44_100.0
-    private var started = false
 
     private init() {
         engine.attach(player)
@@ -52,9 +51,10 @@ final class DJFocusDing {
     }
 
     func play(rising: Bool) {
-        if !started {
+        // isRunning, not a one-shot flag: the HAL stops this engine whenever
+        // the default output changes, and a dead flag kept it silent forever.
+        if !engine.isRunning {
             guard (try? engine.start()) != nil else { return }
-            started = true
         }
         let frames = AVAudioFrameCount(sampleRate * 0.12)
         guard let format = AVAudioFormat(standardFormatWithSampleRate: sampleRate, channels: 1),

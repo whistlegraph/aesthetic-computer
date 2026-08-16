@@ -1,0 +1,156 @@
+% !TEX program = xelatex
+% Evening program / broadside. DRAFT — dates unconfirmed, guest unnamed, embargoed.
+\documentclass[10pt,letterpaper]{article}
+\usepackage{culturehub-packet}
+\renewcommand{\packetlabel}{DRAFT PROGRAM · EMBARGOED}
+\hypersetup{pdftitle={AC Presents 2 New Pieces — CultureHub LA — Program}}
+
+% Broadside wants its own margins and no running header on page 1.
+\geometry{top=0.4in,bottom=0.35in,left=0.6in,right=0.6in}
+
+% One entry in the set list: number, title, forces, duration, note.
+% Titles set in the main sans — the YWFT faces are reserved for the masthead.
+\newcommand{\setitem}[5]{%
+  \noindent
+  \begin{minipage}[t]{0.055\linewidth}
+    \vspace{0pt}{\bfseries\fontsize{18pt}{18pt}\selectfont\color{acpink}#1}
+  \end{minipage}%
+  \begin{minipage}[t]{0.945\linewidth}
+    \vspace{0pt}
+    {\bfseries\fontsize{13.5pt}{15pt}\selectfont\color{acdark}#2}\par
+    \vspace{0.1em}
+    {\fontsize{9.4pt}{11.2pt}\selectfont\color{acblue}#3\hfill\color{acgray}#4}\par
+    \vspace{0.14em}
+    {\fontsize{9.0pt}{10.8pt}\selectfont\color{acdark}#5}
+  \end{minipage}%
+  \par\vspace{0.16em}
+  {\color{acpale}\rule{\linewidth}{1pt}}\par\vspace{0.16em}}
+
+
+% YWFT display faces lack en/em dash, ellipsis, and have a near-illegible
+% middot and comma. Punctuation inside \acbold/\aclight must come from the
+% main font, and display strings avoid internal commas.
+\newcommand{\dsep}{{\normalfont\;\textperiodcentered\;}}
+\newcommand{\dto}{{\normalfont--}}
+\newcommand{\ddash}{{\normalfont\;---\;}}
+\newcommand{\dellip}{{\normalfont\ldots}}
+
+
+% Local density overrides. The shared .sty is sized for the other packet
+% documents; these two run smaller and tighter without touching it.
+\renewcommand{\packettitle}[2]{%
+  {\acbold\fontsize{22pt}{24pt}\selectfont\color{acdark}#1\par}%
+  \vspace{0.10em}%
+  {\hyphenpenalty=10000\exhyphenpenalty=10000\RaggedRight
+   \aclight\fontsize{11.5pt}{13.5pt}\selectfont\color{acpink}#2\par}%
+  \vspace{0.22em}\color{acpink}\rule{\linewidth}{1pt}\color{black}\vspace{0.14em}%
+}
+\renewcommand{\pageclaim}[1]{%
+  {\hyphenpenalty=10000\exhyphenpenalty=10000\RaggedRight
+   \aclight\fontsize{12.5pt}{15pt}\selectfont\color{acpink}#1\par}\vspace{0.18em}}
+\titleformat{\section}{\bfseries\fontsize{13.5pt}{15pt}\selectfont\color{acdark}}{}{0pt}{}
+\titlespacing{\section}{0pt}{0.4em}{0.18em}
+\titleformat{\subsection}{\bfseries\fontsize{10.5pt}{12pt}\selectfont\color{acdark}}{}{0pt}{}
+\setlength{\parskip}{0.28em}
+\renewcommand{\arraystretch}{1.12}
+\renewcommand{\credit}[1]{{\fontsize{7.8pt}{9.4pt}\selectfont\color{acgray}#1\par}}
+\renewcommand{\palsfooter}{%
+  \begin{center}\includegraphics[height=3.2em]{pals.pdf}\end{center}}
+
+\begin{document}
+
+% ═══════════════════════════════════════════ one sheet, whole evening
+\pagestyle{empty}\thispagestyle{empty}
+
+% ── masthead ──────────────────────────────────────────────────────────
+\begin{center}
+{\fontsize{10pt}{11.5pt}\selectfont\itshape\color{acgray}CultureHub Los Angeles\par}
+\vspace{0.16em}
+{\fontsize{12pt}{13.5pt}\selectfont\color{acpink}\textls[120]{AC PRESENTS 2 NEW PIECES}{\normalfont\fontsize{10.5pt}{12pt}\selectfont\color{acgray}\ \ ·\ \ for AC OS and macOS}\par}
+\vspace{0.14em}
+\includegraphics[width=3.6in]{notespatial-grid-logo.png}\par
+\vspace{0.08em}
+{\normalfont\fontsize{11pt}{12pt}\selectfont\color{acgray}\&\par}
+\vspace{0.08em}
+\includegraphics[width=3.6in]{macneopolitan-wordmark.png}\par
+\vspace{0.2em}
+{\color{acpink}\rule{0.42\linewidth}{1pt}\par}
+\end{center}
+
+\vspace{0.3em}
+{\color{acpale}\rule{\linewidth}{1.4pt}}\par
+\vspace{0.4em}
+
+% ── body: the room on the left, the running order on the right ────────
+% The bare \vrule between the two top-aligned minipages inherits the full
+% height + depth of the line, so it spans both columns exactly.
+\noindent
+\begin{minipage}[t]{0.36\linewidth}
+\hyphenpenalty=10000\exhyphenpenalty=10000\relax
+\vspace{0pt}
+\includegraphics[width=\linewidth]{jeffrey-plane-profile.png}
+
+\vspace{0.35em}
+\includegraphics[width=\linewidth]{jeffrey-plane-hands.png}
+
+\vspace{0.5em}
+{\tighttable
+\begin{tabularx}{\linewidth}{@{}L{0.62in} Y@{}}
+\toprule
+Where & CultureHub Los Angeles · flexible studio · 5:1 Kalio surround \\
+When & Thursday 24 September 2026, 7:00 p.m. \\
+& \emph{proposed, pending confirmation} \\
+Also & Menu Band Jam, Saturday 19 September, 2:00 p.m. — bring a laptop \\
+Played by & Jeffrey Alan Scudder, with one guest to be announced \\
+\bottomrule
+\end{tabularx}}
+\end{minipage}%
+\hfill{\color{acpale}\vrule width 1.4pt}\hfill
+\begin{minipage}[t]{0.58\linewidth}
+\vspace{0pt}
+{\bfseries\fontsize{15pt}{16pt}\selectfont\color{acdark}The Program\par}
+{\fontsize{9.4pt}{11.2pt}\selectfont\itshape\color{acpink}two recitals and a guest set\ \textperiodcentered\ running order provisional\par}
+\vspace{0.28em}
+{\color{acpink}\rule{\linewidth}{1pt}}\par
+\vspace{0.3em}
+
+\setitem{1}{Note(s)pat(ial) Native}{Six surplus grade-school laptops · AC OS · notepat}{${\sim}$15 min}
+{A spatial composition for twelve moving sound bodies, grown live from a fixed
+1:41 recording. Each laptop is a surplus grade-school machine given a second life,
+and each takes one channel of the room. From a live control surface the whole field turns,
+changes speed, and hands its voices between machines. The audience sits inside
+it.}
+
+\setitem{2}{Guest set}{To be confirmed}{${\sim}$15 min}
+{One invited performer, chosen for the room rather than the roster. Held open
+until the invitation is made and accepted — nothing here is promised yet.}
+
+\setitem{3}{The MacNeoPolitan Trio}{Three MacBook Neos · macOS · Menu Band}{${\sim}$15 min}
+{Indigo, citrus, blush — Neapolitan, in a block. Each machine is played through
+Menu Band, where the keyboard sits in the menu bar beside the clock, the network,
+and the battery. A newer work, still taking shape.}
+
+\setitem{4}{Conversation / free play}{Everyone}{30--45 min}
+{The argument the evening is making: an instrument belongs inside a computer the
+way a clock does — not an application you go out and get, but a built-in facility.
+The instruments stay on, and the room is invited to play them.}
+\end{minipage}
+
+\vspace{0.25em}
+{\color{acpale}\rule{\linewidth}{1.4pt}}\par
+\vspace{0.15em}
+{\fontsize{8.8pt}{11pt}\selectfont\color{acdark}%
+\textbf{Notes for the run.} \emph{Note(s)pat(ial) Native} boots AC OS from USB and
+changes nothing on any disk; \emph{The MacNeoPolitan Trio} runs Menu Band, a
+shipping universal macOS app — AC Native is x86\_64 UEFI only and cannot boot on
+Apple hardware. The changeover between sets 1 and 3 is a hardware swap rather
+than a patch change, and the guest set covers it.\par}
+
+\vfill
+\palsfooter
+\credit{Draft program · prepared 11 August 2026, revised 12 August · dates are
+proposals awaiting CultureHub confirmation and the guest slot is unfilled ·
+embargoed until CultureHub's formal resident announcement in late August or early
+September 2026 · photographs: the artist in transit with a MacBook Neo.}
+
+\end{document}

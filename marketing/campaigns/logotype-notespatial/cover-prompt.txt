@@ -1,0 +1,17 @@
+A TYPOGRAPHIC LOGOTYPE CONTACT SHEET. This is a flat graphic-design artboard, not a photograph and not a scene. No people, no rooms, no laptops, no hands, no perspective, no depth — only lettering on a flat surface.
+
+THE WORDMARK, spelled exactly, with its parentheses intact:
+
+Note(s)pat(ial) Native Jam
+
+The joke inside the word must stay readable: "Notepat" is the base word, and the parenthetical letters (s) and (ial) expand it into "Notespatial". In EVERY variant, set the parenthetical fragments "(s)" and "(ial)" in a visibly different treatment from the rest — a second color, a lighter weight, a tint box, or a smaller size — so the eye can read both "Notepat Native Jam" and "Notespatial Native Jam" at once. The parentheses are the whole idea. Never drop, misspell, or merge them.
+
+LAYOUT: a contact sheet of SIX distinct logotype variants, arranged in a strict 2-column by 3-row grid on a plain cream background. Each variant sits centered in its own cell with generous margin. A small plain numeral 1 through 6 in the top-left corner of each cell, tiny and neutral. Thin hairline rules divide the cells. No other decoration, no mockups, no product shots.
+
+VISUAL LANGUAGE — take it from the attached references, which are real screenshots of the notepat instrument and the AC Native operating system:
+- Bitmap and pixel-grid letterforms. Hard aliased pixel edges, visible square pixel steps on diagonals and curves. Monospaced terminal character proportions. Lowercase-leaning, plainspoken, unglamorous.
+- The palette is taken strictly from the references: warm cream paper background, soft charcoal text, and the pastel note-tile swatches — salmon red, terracotta, amber, olive, butter yellow, mint green, teal, cornflower blue, lilac, violet.
+- Devices to vary across the six cells: letters seated inside pastel note-tile blocks like the keyboard grid; a wordmark sitting on a terminal status bar; letters built from a pixel grid with visible cells; a boot-screen style lockup with a blinking-cursor block; a horizontal ribbon of colored key tiles spelling the name; a compact stacked lockup.
+- It should feel like an operating system's own title screen — utilitarian, warm, slightly toy-like, made of pixels and colored keys — not like a corporate tech logo, not glossy, not 3D, no gradients, no bevels, no drop shadows, no lens flare, no chrome.
+
+Render the text crisply and legibly at full size and still readable at 10% scale. Spelling accuracy is the single most important requirement.

@@ -46,6 +46,66 @@ final class FocusCueBeep {
         if !player.isPlaying { player.play() }
     }
 
+    /// The Tab handoff chime — which trackpad page just took over. A low,
+    /// soft-attacked sine in the airport-PA register, deliberately unlike
+    /// the high focus bell so "mode changed" and "focus changed" never blur:
+    /// TrackDrum lands on G4, the pitch slider a fifth below on C4. Pitch
+    /// alone says which surface is now under the fingers.
+    func padSwitch(toTrackDrum: Bool) {
+        guard ensureStarted() else { return }
+        guard let buffer = makePadSwitchBuffer(toTrackDrum: toTrackDrum) else {
+            return
+        }
+        player.scheduleBuffer(buffer, completionHandler: nil)
+        if !player.isPlaying { player.play() }
+    }
+
+    /// The ToneTrials "CLEAR!" fanfare: a quick rising C-major arpeggio in
+    /// soft sines — unmistakably a reward, still small enough to sit under
+    /// whatever the instrument is ringing.
+    func trialClear() {
+        guard ensureStarted() else { return }
+        guard let buffer = makeTrialClearBuffer() else { return }
+        player.scheduleBuffer(buffer, completionHandler: nil)
+        if !player.isPlaying { player.play() }
+    }
+
+    private func makeTrialClearBuffer() -> AVAudioPCMBuffer? {
+        let dur = 0.55
+        let frameCount = AVAudioFrameCount(sampleRate * dur)
+        guard let format = AVAudioFormat(standardFormatWithSampleRate: sampleRate,
+                                         channels: 1),
+              let buffer = AVAudioPCMBuffer(pcmFormat: format,
+                                            frameCapacity: frameCount) else {
+            return nil
+        }
+        buffer.frameLength = frameCount
+        guard let data = buffer.floatChannelData?[0] else { return nil }
+        let total = Int(frameCount)
+        for i in 0..<total { data[i] = 0 }
+        // C5 → E5 → G5, each note overlapping the next by half.
+        let notes: [(freq: Double, start: Double)] = [
+            (523.25, 0.0), (659.25, 0.11), (783.99, 0.22),
+        ]
+        for note in notes {
+            let startFrame = Int(note.start * sampleRate)
+            let noteFrames = min(total - startFrame,
+                                 Int(sampleRate * 0.30))
+            let attack = Int(sampleRate * 0.006)
+            for j in 0..<noteFrames {
+                let t = Double(j) / sampleRate
+                let ramp: Double = j < attack
+                    ? 0.5 - 0.5 * cos(.pi * Double(j) / Double(attack))
+                    : 1
+                let env = ramp * exp(-Double(j) / Double(noteFrames) * 4.0)
+                let phase = 2.0 * Double.pi * note.freq * t
+                let s = sin(phase) + 0.12 * sin(2.0 * phase)
+                data[startFrame + j] += Float(s * env * 0.16)
+            }
+        }
+        return buffer
+    }
+
     private func ensureStarted() -> Bool {
         if started { return true }
         do {
@@ -79,6 +139,37 @@ final class FocusCueBeep {
             let n = Float.random(in: -1...1)
             last = last * 0.6 + n * 0.4
             data[i] = last * env * 0.5
+        }
+        return buffer
+    }
+
+    /// ~0.3s rounded sine "boop": an 8 ms cosine ramp in (no click
+    /// transient — this is the mellow PA chime, not the tick), pure
+    /// fundamental with a whisper of second harmonic for body, then an
+    /// exponential settle.
+    private func makePadSwitchBuffer(toTrackDrum: Bool) -> AVAudioPCMBuffer? {
+        let dur = 0.3
+        let frameCount = AVAudioFrameCount(sampleRate * dur)
+        guard let format = AVAudioFormat(standardFormatWithSampleRate: sampleRate,
+                                         channels: 1),
+              let buffer = AVAudioPCMBuffer(pcmFormat: format,
+                                            frameCapacity: frameCount) else {
+            return nil
+        }
+        buffer.frameLength = frameCount
+        guard let data = buffer.floatChannelData?[0] else { return nil }
+        let freq = toTrackDrum ? 392.0 : 261.6   // G4 drum / C4 slider
+        let total = Int(frameCount)
+        let attack = Int(sampleRate * 0.008)
+        for i in 0..<total {
+            let t = Double(i) / sampleRate
+            let ramp: Double = i < attack
+                ? 0.5 - 0.5 * cos(.pi * Double(i) / Double(attack))
+                : 1
+            let env = ramp * exp(-Double(i) / Double(total) * 4.5)
+            let phase = 2.0 * Double.pi * freq * t
+            let s = sin(phase) + 0.10 * sin(2.0 * phase)
+            data[i] = Float(s * env * 0.20)
         }
         return buffer
     }

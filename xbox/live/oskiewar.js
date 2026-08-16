@@ -3379,17 +3379,36 @@ function spit(player, heavy = false) {
   const now = runtime().monotonicUs;
   if (now < (player.nextSpitAt || 0)) return;
   const direction = player.facing || 1;
-  // Spit leaves the mouth — the same mouth the face draws — not the chest, and
-  // it leaves as a lob: slow enough to watch, tossed upward for gravity to
-  // bring back down. A pistol draws a line; a glob draws an arc.
-  const head = runnerWorldGeometry(player,
-    (now - startedAt) / 1000000).head;
-  const mouthX = head.x + direction * head.radius * .68;
-  const mouthY = head.y + head.radius * .28;
+  // Spit leaves the mouth — not the chest — as a lob: slow enough to watch,
+  // tossed upward for gravity to bring back down. The mouth is derived from
+  // sim state ONLY (feet, ducking, head-only), never from runnerWorldGeometry:
+  // pose geometry follows the wall clock on the live pass and the exact
+  // stepper on the re-sim, and hanging the spawn on it made the same round
+  // play out two different ways — 258 units of re-sim drift from a ±7-unit
+  // breath sway. The fixed numbers are the standing/crouched head heights.
+  const headY = isHeadOnly(player) ? player.y - 22
+    : player.y - (player.ducking ? 108 : 180) + 22;
+  // A rolling head spits WHERE ITS MOUTH POINTS. The lob leaves along the
+  // head's current angle, so aim on a bodyless head is a timing skill — wait
+  // for the roll to face your rival, or spit skyward and let it rain. Bodied
+  // fighters have no roll and lob flat-forward as before. headRoll is sim
+  // state (integrated in updatePlayers), so the re-sim agrees.
+  const roll = isHeadOnly(player) ? player.headRoll || 0 : 0;
+  const cosRoll = Math.cos(roll), sinRoll = Math.sin(roll);
+  const aim = (x, y) => ({ x: x * cosRoll - y * sinRoll,
+    y: x * sinRoll + y * cosRoll });
+  const mouthOffset = aim(direction * 15, 6);
+  const mouthX = player.x + mouthOffset.x;
+  const mouthY = headY + mouthOffset.y;
+  // Inches, not feet, and slow — an analog lob that visibly goes UP, hangs,
+  // and falls on a lazy parabola. A spit fight is something two faces have
+  // up close, not artillery: more height than reach, over a second in the
+  // air, all of it watchable.
+  const toss = aim(direction * (heavy ? 90 : 120), heavy ? -480 : -420);
   bullets.push({
     x: mouthX, y: mouthY, z: player.z,
     previousX: mouthX, previousY: mouthY,
-    vx: direction * (heavy ? 1150 : 1500), vy: heavy ? -760 : -560,
+    vx: toss.x, vy: toss.y,
     owner: player.pad, life: 1, spit: true, heavy,
     safeUntil: now + 90000,
   });
@@ -3559,9 +3578,10 @@ function updateBullets(dt, now, combat = true) {
     if (bullet.life <= 0) continue;
     bullet.vx += windAcceleration * .12 * dt;
     // A glob is a ball, not a round: gravity pulls the toss back down, and it
-    // dries out in flight rather than flying forever.
+    // dries out in flight rather than flying forever. The gravity is soft on
+    // purpose — the lob should hang for over a second, analog and watchable.
     if (bullet.spit) {
-      bullet.vy += 2400 * dt;
+      bullet.vy += 700 * dt;
       bullet.life -= dt * .22;
       if (bullet.life <= 0) {
         impacts.push({ x: bullet.x, y: bullet.y, z: bullet.z,
@@ -3594,11 +3614,21 @@ function updateBullets(dt, now, combat = true) {
         bullet.vy = -Math.abs(bullet.vy) * .56;
         bullet.vx *= .84;
         bullet.life -= .18;
-        if (Math.abs(bullet.vy) < 150) bullet.life = 0;
+        if (Math.abs(bullet.vy) < 90) bullet.life = 0;
         if (bullet.life <= 0) {
           impacts.push({ x: bullet.x, y: bullet.y, z: bullet.z,
             life: .16, duration: .16, death: false, explosion: false });
         } else playDrum("hat", .3, panAt(bullet.x, bullet.z));
+        // A splash bounces any bodyless head standing in it — including the
+        // spitter's own, so spitting straight down is a little hop. Popcorn
+        // physics for the intimate spit fight.
+        for (const target of players) {
+          if (!target?.alive || !isHeadOnly(target)) continue;
+          if (Math.abs(target.x - bullet.x) > 70 ||
+              Math.abs(target.y - bullet.y) > 90) continue;
+          target.vy = Math.min(target.vy, 0) - 240;
+          target.grounded = false;
+        }
       } else bullet.vy = -Math.abs(bullet.vy);
     }
   }
@@ -5283,7 +5313,12 @@ function updatePlayer(player, pad, dt, now) {
   // mostly travels) with a face nailed bolt upright between landings.
   // `grounded` still holds last frame's answer here — it resets just below.
   if (isHeadOnly(player)) {
-    if (player.grounded) player.headRollRate = player.vx / 22;
+    // Clamped well below the true rolling rate: honest physics for a 22-unit
+    // ball at fight speed is eleven revolutions a second, which on screen is
+    // not a rolling face but a whirl of spinning lines. A lazy tumble — about
+    // a turn per second, capped — keeps the eyes and mouth readable while
+    // still saying which way the head is traveling.
+    if (player.grounded) player.headRollRate = clamp(player.vx / 22, -6, 6);
     player.headRoll = (player.headRoll || 0) + (player.headRollRate || 0) * dt;
   }
   player.grounded = false;
@@ -7448,6 +7483,11 @@ function drawFace(player, head, color, t, now = runtime().monotonicUs) {
 }
 
 function drawInventory(player, now, geometry) {
+  // A bodyless head carries nothing visible. The sword rode a phantom
+  // forearm and read as a dark clock hand sweeping through the rolled face —
+  // steel that never turned with the head it was stuck to. The head keeps its
+  // items and can still fire; it just doesn't brandish them.
+  if (isHeadOnly(player)) return;
   const scale = cameraScale();
   const gunColor = player.gunMode === "ROCKET LAUNCHER" ? [48, 61, 52]
     : player.gunMode === "RUBBER SMG" ? [38, 53, 72] : [63, 43, 76];
@@ -7658,12 +7698,19 @@ function drawRunner(player, t, showLabel = true) {
     if (["CRY", "WOE", "SULK"].includes(player.resultReaction)) {
       const head = player.frozenGeometry?.head;
       if (head) {
+        // In screen proportion to the head, not in pixels: the celebration
+        // camera can fill the frame with this face, and fixed-size tears on a
+        // huge head read as dust. Ratios match the old look at the old
+        // distance (a ~22px head wore 7/34/3px tears).
         const point = projectPoint(head.x, head.y, head.z);
-        const sway = Math.sin(t * 11) * 5;
+        const edge = projectPoint(head.x + head.radius, head.y, head.z);
+        const r = Math.max(4, Math.hypot(edge.x - point.x, edge.y - point.y));
+        const sway = Math.sin(t * 11) * r * .22;
         for (const side of [-1, 1])
-          filledCapsule(point.x + side * 7 + sway, point.y,
-            point.x + side * 7 - sway, point.y + 34 + (t * 31) % 18,
-            3, [112, 208, 255]);
+          filledCapsule(point.x + side * r * .32 + sway, point.y,
+            point.x + side * r * .32 - sway,
+            point.y + r * 1.5 + (t * 31) % (r * .8),
+            Math.max(1.5, r * .14), [112, 208, 255]);
       }
     }
     return;
@@ -8248,9 +8295,21 @@ function drawTerrainSurface(left, right, near, far, color) {
 
 function drawTerrainFrontWall(left, right, near, color) {
   // Close the near edge with a terrain-following skirt so camera pitch never
-  // exposes the clear layer beneath the floor.
+  // exposes what lies beneath the floor.
+  //
+  // WHERE the skirt hangs is the whole fix for the reel's under-floor gap.
+  // The reel lens is orthographic, so the floor plane projects to a line and
+  // can never cover the bottom of a 9:16 frame — only a vertical surface can.
+  // The TV skirt at the slab's near edge sits BEHIND the reel camera and gets
+  // near-clipped (tinting it magenta proved it never reached the frame), which
+  // left the buried room wall showing through as purple under the grass. For
+  // reels the skirt hangs just behind the fighters' plane instead, deep enough
+  // that no frame sees under it, and wears the ground color — so everything
+  // below the floor line reads as earth.
   const step = (worldRight - worldLeft) / terrainSamples;
-  const wallBottom = floorY + 720;
+  const reel = reelCamera();
+  const wallZ = reel ? 55 : near - 2;
+  const wallBottom = floorY + (reel ? 9000 : 720);
   const first = clamp(Math.floor((left - worldLeft) / step), 0, terrainSamples - 1);
   const last = clamp(Math.ceil((right - worldLeft) / step), first + 1, terrainSamples);
   for (let index = first; index < last; index++) {
@@ -8261,10 +8320,10 @@ function drawTerrainFrontWall(left, right, near, color) {
     const grain = .5 + .5 * Math.sin(index * 9.71 + terrainPhase * 3.13);
     const wall = mixColor(color, [63, 54, 46], .3 + grain * .12);
     worldQuad(
-      { x: x1, y: y1, z: near - 2 },
-      { x: x2, y: y2, z: near - 2 },
-      { x: x2, y: wallBottom, z: near - 2 },
-      { x: x1, y: wallBottom, z: near - 2 }, wall);
+      { x: x1, y: y1, z: wallZ },
+      { x: x2, y: y2, z: wallZ },
+      { x: x2, y: wallBottom, z: wallZ },
+      { x: x1, y: wallBottom, z: wallZ }, wall);
   }
 }
 
@@ -8647,6 +8706,18 @@ function drawBullet(bullet) {
   const scale = cameraScale();
   // Project the complete projectile. The old 2px/4px floors made both the
   // trail and blinking core behave like HUD icons once the street zoomed out.
+  //
+  // Spit is dots, not tracers: the streak between frames is the thing that
+  // says "bullet", so a glob doesn't draw one — just a little ball with a
+  // couple of droplets falling off the arc behind it.
+  if (bullet.spit) {
+    const radius = Math.max(.9, (bullet.heavy ? 5.5 : 3.5) * scale);
+    filledDisc(point.x, point.y, radius, core);
+    filledDisc(lerp(point.x, previous.x, .5), lerp(point.y, previous.y, .5),
+      radius * .45, trail);
+    filledDisc(previous.x, previous.y, radius * .25, trail);
+    return;
+  }
   filledCapsule(previous.x, previous.y, point.x, point.y,
     Math.max(.6, (bullet.rubber ? 4 : 3) * scale), trail);
   filledDisc(point.x, point.y, Math.max(.9, 7 * scale), core);
@@ -9512,14 +9583,17 @@ function gamePaint() {
   const { left: spanLeft, right: spanRight,
     top: spanTop, bottom: spanBottom } = terrainSpan();
   drawRoomSurfaces(spanLeft, spanRight, spanTop, spanBottom, arena);
-  // The reel camera stands ~1200 units off the fighters, which puts the
-  // floor's own front edge (worldNear) a few hundred units in front of the
-  // lens — where it crosses the frame as a hard horizontal step with the
+  // The reel camera puts the floor's own front edge (worldNear) in front of
+  // the lens, where it crosses the frame as a hard horizontal step with the
   // skirt showing under it. Extending the slab past the camera hands the cut
   // to the near plane, which faces already handle correctly, so the ground
-  // reads as ground all the way down the frame. Reels only: on the TV lens
-  // the visible front edge IS the padded-room look.
-  const groundNear = reelCamera() ? worldNear - 4200 : worldNear;
+  // reads as ground all the way down the frame. Past the camera means PAST
+  // THE CAMERA — a fixed extension was still shy of the wide fight shot,
+  // which stands several thousand units back, and the step came back on
+  // every wide frame. Reels only: on the TV lens the visible front edge IS
+  // the padded-room look.
+  const groundNear = reelCamera()
+    ? Math.min(worldNear, cameraDoll.position.z - 400) : worldNear;
   drawTerrainSurface(spanLeft, spanRight, groundNear, worldFar, ground);
   drawTerrainFrontWall(spanLeft, spanRight, groundNear, ground);
   drawTerrainGrass(spanLeft, spanRight, ground);

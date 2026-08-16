@@ -481,5 +481,306 @@
   "accent": "US",
   "v": 4,
   "fetchedAt": "2026-07-19T20:06:36.065Z"
+ },
+ "i": {
+  "ipa": "/ə/",
+  "source": "wiktionary",
+  "accent": "untagged-usSafe",
+  "v": 4,
+  "fetchedAt": "2026-08-14T08:09:55.894Z"
+ },
+ "don't": {
+  "ipa": "/doʊnt/",
+  "source": "wiktionary",
+  "accent": "US",
+  "v": 4,
+  "fetchedAt": "2026-08-14T08:09:56.011Z"
+ },
+ "believe": {
+  "ipa": "/bɪˈliv/",
+  "source": "wiktionary",
+  "accent": "US",
+  "v": 4,
+  "fetchedAt": "2026-08-14T08:09:56.144Z"
+ },
+ "power": {
+  "ipa": "/ˈpaʊ̯.ɚ/",
+  "source": "wiktionary",
+  "accent": "US",
+  "v": 4,
+  "fetchedAt": "2026-08-14T08:09:56.306Z"
+ },
+ "point": {
+  "ipa": "/pɔɪnt/",
+  "source": "wiktionary",
+  "accent": "US",
+  "v": 4,
+  "fetchedAt": "2026-08-14T08:09:56.428Z"
+ },
+ "when": {
+  "ipa": "/ˈwɛn/",
+  "source": "wiktionary",
+  "accent": "untagged-usSafe",
+  "v": 4,
+  "fetchedAt": "2026-08-14T08:14:01.008Z"
+ },
+ "we": {
+  "ipa": "/wi/",
+  "source": "wiktionary",
+  "accent": "US",
+  "v": 4,
+  "fetchedAt": "2026-08-14T08:14:01.187Z"
+ },
+ "use": {
+  "ipa": "/jus/",
+  "source": "wiktionary",
+  "accent": "US",
+  "v": 4,
+  "fetchedAt": "2026-08-14T08:14:01.298Z"
+ },
+ "project": {
+  "ipa": "/ˈpɹɑˌd͡ʒɛkt/",
+  "source": "wiktionary",
+  "accent": "US",
+  "v": 4,
+  "fetchedAt": "2026-08-14T08:14:01.401Z"
+ },
+ "images": {
+  "ipa": "/ˈɪm.ɪ.d͡ʒɪz/",
+  "source": "wiktionary",
+  "accent": "US",
+  "v": 4,
+  "fetchedAt": "2026-08-14T08:14:02.043Z"
+ },
+ "screen": {
+  "ipa": "/ˈskɹiːn/",
+  "source": "wiktionary",
+  "accent": "untagged-usSafe",
+  "v": 4,
+  "fetchedAt": "2026-08-14T08:14:02.154Z"
+ },
+ "is": {
+  "ipa": "/ɪz/",
+  "source": "wiktionary",
+  "accent": "US",
+  "v": 4,
+  "fetchedAt": "2026-08-14T09:00:41.047Z"
+ },
+ "epitome": {
+  "ipa": "/ɪˈpɪt.ə.mi/",
+  "source": "wiktionary",
+  "accent": "US",
+  "v": 4,
+  "fetchedAt": "2026-08-14T09:00:41.130Z"
+ },
+ "of": {
+  "ipa": "/ʌv/",
+  "source": "wiktionary",
+  "accent": "US",
+  "v": 4,
+  "fetchedAt": "2026-08-14T09:00:41.347Z"
+ },
+ "logic": {
+  "ipa": "/ˈlɑ.d͡ʒɪk/",
+  "source": "wiktionary",
+  "accent": "US",
+  "v": 4,
+  "fetchedAt": "2026-08-14T09:00:41.447Z"
+ },
+ "projection": {
+  "ipa": "/pɹəˈd͡ʒɛkʃən/",
+  "source": "wiktionary",
+  "accent": "untagged-usSafe",
+  "v": 4,
+  "fetchedAt": "2026-08-14T09:00:41.595Z"
+ },
+ "i'm": {
+  "ipa": "/a(ɪ)m/",
+  "source": "wiktionary",
+  "accent": "US",
+  "v": 4,
+  "fetchedAt": "2026-08-14T09:01:06.093Z"
+ },
+ "arguing": {
+  "ipa": "/ˈɑː(ɹ).ɡju.ɪŋ/",
+  "source": "wiktionary",
+  "accent": "untagged-usSafe",
+  "v": 4,
+  "fetchedAt": "2026-08-14T09:01:06.175Z"
+ },
+ "against": {
+  "ipa": "/əˈɡɛnst/",
+  "source": "wiktionary",
+  "accent": "US",
+  "v": 4,
+  "fetchedAt": "2026-08-14T09:01:06.323Z"
+ },
+ "and": {
+  "ipa": "/ˈænd/",
+  "source": "wiktionary",
+  "accent": "US",
+  "v": 4,
+  "fetchedAt": "2026-08-14T09:01:19.496Z"
+ },
+ "reason": {
+  "ipa": "/ˈɹiːzən/",
+  "source": "wiktionary",
+  "accent": "untagged-usSafe",
+  "v": 4,
+  "fetchedAt": "2026-08-14T09:01:19.622Z"
+ },
+ "why": {
+  "ipa": "/ʍaː/",
+  "source": "wiktionary",
+  "accent": "US",
+  "v": 4,
+  "fetchedAt": "2026-08-14T09:01:19.800Z"
+ },
+ "like": {
+  "ipa": "/laɪ̯k/",
+  "source": "wiktionary",
+  "accent": "untagged-usSafe",
+  "v": 4,
+  "fetchedAt": "2026-08-14T09:01:20.004Z"
+ },
+ "black": {
+  "ipa": "/blæk/",
+  "source": "wiktionary",
+  "accent": "US",
+  "v": 4,
+  "fetchedAt": "2026-08-14T09:01:20.148Z"
+ },
+ "boards": {
+  "ipa": "/bɔːɹdz/",
+  "source": "wiktionary",
+  "accent": "US",
+  "v": 4,
+  "fetchedAt": "2026-08-14T09:01:20.246Z"
+ },
+ "board": {
+  "ipa": "/bɔɹd/",
+  "source": "wiktionary",
+  "accent": "US",
+  "v": 4,
+  "fetchedAt": "2026-08-14T09:02:16.127Z"
+ },
+ "process": {
+  "ipa": "/ˈpɹɑ.sɛs/",
+  "source": "wiktionary",
+  "accent": "US",
+  "v": 4,
+  "fetchedAt": "2026-08-14T09:02:16.251Z"
+ },
+ "creativity": {
+  "ipa": "/kri.eɪˈtɪv.ᵻ.ti/",
+  "source": "wiktionary",
+  "accent": "untagged-usSafe",
+  "v": 4,
+  "fetchedAt": "2026-08-14T09:02:16.337Z"
+ },
+ "that's": {
+  "ipa": "/ðæts/",
+  "source": "wiktionary",
+  "accent": "untagged-usSafe",
+  "v": 4,
+  "fetchedAt": "2026-08-14T09:45:14.842Z"
+ },
+ "you": {
+  "ipa": "/jə/",
+  "source": "wiktionary",
+  "accent": "US",
+  "v": 4,
+  "fetchedAt": "2026-08-14T10:44:05.688Z"
+ },
+ "stand": {
+  "ipa": "/ˈstænd/",
+  "source": "wiktionary",
+  "accent": "US",
+  "v": 4,
+  "fetchedAt": "2026-08-14T10:44:05.827Z"
+ },
+ "at": {
+  "ipa": "/æt/",
+  "source": "wiktionary",
+  "accent": "untagged-usSafe",
+  "v": 4,
+  "fetchedAt": "2026-08-14T10:44:05.979Z"
+ },
+ "scrape": {
+  "ipa": "/skɹeɪp/",
+  "source": "wiktionary",
+  "accent": "untagged-usSafe",
+  "v": 4,
+  "fetchedAt": "2026-08-14T10:44:06.073Z"
+ },
+ "line": {
+  "ipa": "/laɪn/",
+  "source": "wiktionary",
+  "accent": "untagged-usSafe",
+  "v": 4,
+  "fetchedAt": "2026-08-14T10:44:06.221Z"
+ },
+ "movement": {
+  "ipa": "/ˈmuːv.mənt/",
+  "source": "wiktionary",
+  "accent": "untagged-usSafe",
+  "v": 4,
+  "fetchedAt": "2026-08-14T11:00:30.456Z"
+ },
+ "awareness": {
+  "ipa": "/əˈwɛɹ.nəs/",
+  "source": "wiktionary",
+  "accent": "US",
+  "v": 4,
+  "fetchedAt": "2026-08-14T11:00:30.534Z"
+ },
+ "trace": {
+  "ipa": "/tɹeɪs/",
+  "source": "wiktionary",
+  "accent": "untagged-usSafe",
+  "v": 4,
+  "fetchedAt": "2026-08-14T11:00:30.669Z"
+ },
+ "materials": {
+  "ipa": "/məˈtɪɹi.əlz/",
+  "source": "wiktionary",
+  "accent": "US",
+  "v": 4,
+  "fetchedAt": "2026-08-14T11:00:31.111Z"
+ },
+ "bound": {
+  "ipa": "/ˈbaʊ̯nd/",
+  "source": "wiktionary",
+  "accent": "US",
+  "v": 4,
+  "fetchedAt": "2026-08-14T11:18:35.818Z"
+ },
+ "that": {
+  "ipa": "/ðˈæt/",
+  "source": "espeak",
+  "accent": "en-us",
+  "v": 4,
+  "fetchedAt": "2026-08-14T11:18:36.550Z"
+ },
+ "performance": {
+  "ipa": "/pɚˈfɔɹ.mən(t)s/",
+  "source": "wiktionary",
+  "accent": "US",
+  "v": 4,
+  "fetchedAt": "2026-08-14T11:18:36.733Z"
+ },
+ "what": {
+  "ipa": "/wɑt/",
+  "source": "wiktionary",
+  "accent": "US",
+  "v": 4,
+  "fetchedAt": "2026-08-14T15:32:20.139Z"
+ },
+ "outcome": {
+  "ipa": "/ˈaʊtkʌm/",
+  "source": "wiktionary",
+  "accent": "untagged-usSafe",
+  "v": 4,
+  "fetchedAt": "2026-08-14T15:32:20.298Z"
  }
 }

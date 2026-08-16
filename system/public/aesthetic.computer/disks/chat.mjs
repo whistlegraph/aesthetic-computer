@@ -40,11 +40,24 @@ import { FIGHT_MANIFEST } from "../lib/fight/protocol.mjs";
 import { createHandleAutocomplete } from "../lib/autocomplete.mjs";
 import {
   escapeColorCodes,
-  escapedIndexMap,
+  escapeInvalidColorCodes,
   mapColorCodes,
   stripColorCodes,
 } from "../lib/color-codes.mjs";
+import { cssColors } from "../lib/num.mjs";
 import { iOS } from "../lib/platform.mjs";
+
+// 🎨 A chatter may dye their own words with `\red\…\reset\` — that's a feature
+// (see chat-clock, 2026-08-14). Only codes the renderer actually understands
+// pass through; anything else stays literal typing.
+const CHAT_COLOR_KEYWORDS = ["reset", "default", "base", "transparent", "clear"];
+function isChatColorCode(code) {
+  const c = code.trim().toLowerCase();
+  if (!c) return false;
+  if (CHAT_COLOR_KEYWORDS.includes(c)) return true;
+  if (/^\d{1,3}(,\d{1,3}){2,3}$/.test(c)) return true; // r,g,b or r,g,b,a
+  return c in cssColors;
+}
 
 // 🎨 Handle Colors System
 // Cache for handle colors: Map<handle, Array<{r, g, b}>>
@@ -279,6 +292,9 @@ let linkConfirmModal = null;
 // 📋 Message copy modal system
 // { message: string, from: string, copied: boolean, error: boolean }
 let messageCopyModal = null;
+// ✏️ While re-editing one of your own messages: { id, opened } — `opened`
+// flips true once the keyboard is up, so closing it cancels the edit.
+let editingMessage = null;
 let deleteAllowed = true; // Delete is allowed by default in all chat contexts
 let fightChallengeSocket = null;
 let fightChallengeReady = false;
@@ -544,6 +560,7 @@ async function boot(
 ) {
   // Clear handle colors cache on each boot so edits are picked up.
   handleColorsCache.clear();
+  editingMessage = null; // A pending re-edit never survives a piece switch.
   chatMaxChars = options?.maxChars || 128;
   send({ type: "keyboard:set-max-chars", content: chatMaxChars });
 
@@ -730,6 +747,23 @@ async function boot(
       send({ type: "keyboard:text:replace", content: { text: "" } });
       console.log("⌨️🔴 [chat.mjs] sending keyboard:close - reason: message sent");
       send({ type: "keyboard:close" });
+
+      // ✏️ Re-edit in flight — this submit rewrites an existing message
+      // instead of posting a new one (and never triggers command words).
+      if (editingMessage) {
+        const editing = editingMessage;
+        editingMessage = null;
+        if (text.length) {
+          client.server.send("chat:edit", {
+            id: editing.id,
+            text,
+            token,
+            sub: user.sub,
+          });
+          notice("EDITED");
+        }
+        return;
+      }
 
       // 📻 Radio command words — type `bj`, `r8dio`, `radio`, or `radio off`
       // to start/stop the mini-player without reaching for the button.
@@ -1201,10 +1235,14 @@ function paint(
         const lineEnd = tempCharPos + line.length;
 
         // Build color-coded version of this line. The line is chat text, so it
-        // gets escaped before any of our own `\…\` codes go near it; `at` moves
+        // gets escaped before any of our own `\…\` codes go near it — except
+        // codes the chatter typed on purpose, which render; `at` moves
         // element offsets onto the escaped copy.
-        const at = escapedIndexMap(line);
-        let colorCodedLine = escapeColorCodes(line);
+        const { escaped: lineEscaped, map: at } = escapeInvalidColorCodes(
+          line,
+          isChatColorCode,
+        );
+        let colorCodedLine = lineEscaped;
 
         // Find elements that overlap with this line and apply colors (in reverse order)
         const lineElements = parsedElements
@@ -1298,8 +1336,16 @@ function paint(
         // text as a code delimiter and corrupt it.
         const shadowLine = mapColorCodes(colorCodedLine, (code) => {
           const rgb = code.match(/^(\d+),(\d+),(\d+)(?:,\d+)?$/);
-          if (!rgb) return code;
-          return `${floor(rgb[1] * 0.25)},${floor(rgb[2] * 0.25)},${floor(rgb[3] * 0.25)}`;
+          if (rgb) {
+            return `${floor(rgb[1] * 0.25)},${floor(rgb[2] * 0.25)},${floor(rgb[3] * 0.25)}`;
+          }
+          // Chatter-typed named colors dim like everything else — a bright
+          // shadow under \red\ text would glow instead of shading.
+          const named = cssColors[code.trim().toLowerCase()];
+          if (named) {
+            return `${floor(named[0] * 0.25)},${floor(named[1] * 0.25)},${floor(named[2] * 0.25)}`;
+          }
+          return code;
         });
 
         cachedLines.push({ colorCodedLine, shadowLine });
@@ -1349,7 +1395,8 @@ function paint(
     // Throttle timeAgo to 1s intervals per message
     const now = Date.now();
     if (!message._agoCache || now - message._agoCacheTime > 1000) {
-      message._agoCache = timeAgo(message.when);
+      // A starred timestamp marks a re-edited message.
+      message._agoCache = timeAgo(message.when) + (message.edited ? "*" : "");
       message._agoCacheTime = now;
     }
     const ago = message._agoCache;
@@ -2391,6 +2438,14 @@ function paint(
     const charCountX = fontBtnX + fontBtnW + gap;
     const charCountY = bottomY + 2; // Vertically align with button text
     ink(input.text.length > len ? "red" : "gray").write(charCountText, { x: charCountX, y: charCountY });
+
+    // ✏️ Editing indicator — this submit will rewrite, not post.
+    if (editingMessage) {
+      ink(255, 210, 110).write("editing", {
+        x: charCountX + charCountWidth + gap,
+        y: charCountY,
+      });
+    }
     
     // 🔤 Font picker panel (when open) - drops UP from button
     if (fontPickerOpen) {
@@ -2626,13 +2681,17 @@ function paint(
     
     // Buttons
     const showDelete = deleteAllowed && messageCopyModal.isOwn && messageCopyModal.id;
-    const btnW = 44;
+    const showEdit = messageCopyModal.isOwn && messageCopyModal.id;
     const btnH = 14;
     const btnY = modalY + modalH - btnH - 8;
-    const btnGap = 6;
-    const btnCount = showDelete ? 4 : 3;
+    const btnCount = 3 + (showEdit ? 1 : 0) + (showDelete ? 1 : 0);
+    // Five buttons only fit the 200px modal if they slim down a little.
+    const btnW = btnCount >= 5 ? 34 : 44;
+    const btnGap = btnCount >= 5 ? 4 : 6;
     const totalBtnW = btnW * btnCount + btnGap * (btnCount - 1);
     const btnStartX = modalX + Math.floor((modalW - totalBtnW) / 2);
+    const labelX = (bx, label) =>
+      bx + Math.max(1, Math.floor((btnW - label.length * 6) / 2));
 
     // Heart button state
     const heartData = client.hearts?.get(messageCopyModal.id) || { count: 0, heartedByMe: false };
@@ -2644,6 +2703,12 @@ function paint(
     nextX += btnW + btnGap;
     messageCopyModal.copyBtn = { x: nextX, y: btnY, w: btnW, h: btnH };
     nextX += btnW + btnGap;
+    if (showEdit) {
+      messageCopyModal.editBtn = { x: nextX, y: btnY, w: btnW, h: btnH };
+      nextX += btnW + btnGap;
+    } else {
+      messageCopyModal.editBtn = null;
+    }
     if (showDelete) {
       messageCopyModal.deleteBtn = { x: nextX, y: btnY, w: btnW, h: btnH };
       nextX += btnW + btnGap;
@@ -2658,14 +2723,23 @@ function paint(
     const heartLabel = alreadyHearted ? "♥" : "<3";
     ink(heartHover || alreadyHearted ? [130, 40, 70] : [90, 30, 50]).box(heartBtnX, btnY, btnW, btnH);
     ink(heartHover || alreadyHearted ? [220, 80, 120] : [160, 60, 90]).box(heartBtnX, btnY, btnW, btnH, "outline");
-    ink(heartHover || alreadyHearted ? [255, 180, 210] : [230, 130, 160]).write(heartLabel, { x: heartBtnX + (alreadyHearted ? 15 : 11), y: btnY + 3 }, undefined, undefined, false, "MatrixChunky8");
+    ink(heartHover || alreadyHearted ? [255, 180, 210] : [230, 130, 160]).write(heartLabel, { x: labelX(heartBtnX, heartLabel), y: btnY + 3 }, undefined, undefined, false, "MatrixChunky8");
 
     // Copy button - cyan theme
     const copyHover = messageCopyModal.hoverCopy;
     const copyX = messageCopyModal.copyBtn.x;
     ink(copyHover ? [40, 100, 130] : [30, 70, 90]).box(copyX, btnY, btnW, btnH);
     ink(copyHover ? [80, 180, 220] : [60, 130, 160]).box(copyX, btnY, btnW, btnH, "outline");
-    ink(copyHover ? [180, 240, 255] : [150, 210, 230]).write("copy", { x: copyX + 8, y: btnY + 3 }, undefined, undefined, false, "MatrixChunky8");
+    ink(copyHover ? [180, 240, 255] : [150, 210, 230]).write("copy", { x: labelX(copyX, "copy"), y: btnY + 3 }, undefined, undefined, false, "MatrixChunky8");
+
+    // Edit button - amber theme (only for own messages)
+    if (showEdit) {
+      const editHover = messageCopyModal.hoverEdit;
+      const editX = messageCopyModal.editBtn.x;
+      ink(editHover ? [130, 100, 30] : [90, 70, 20]).box(editX, btnY, btnW, btnH);
+      ink(editHover ? [220, 180, 70] : [160, 130, 50]).box(editX, btnY, btnW, btnH, "outline");
+      ink(editHover ? [255, 230, 170] : [230, 200, 130]).write("edit", { x: labelX(editX, "edit"), y: btnY + 3 }, undefined, undefined, false, "MatrixChunky8");
+    }
 
     // Delete button - red theme (only for own messages)
     if (showDelete) {
@@ -2673,7 +2747,7 @@ function paint(
       const delX = messageCopyModal.deleteBtn.x;
       ink(delHover ? [130, 40, 40] : [90, 30, 30]).box(delX, btnY, btnW, btnH);
       ink(delHover ? [220, 80, 80] : [160, 60, 60]).box(delX, btnY, btnW, btnH, "outline");
-      ink(delHover ? [255, 180, 180] : [230, 150, 150]).write("del", { x: delX + 9, y: btnY + 3 }, undefined, undefined, false, "MatrixChunky8");
+      ink(delHover ? [255, 180, 180] : [230, 150, 150]).write("del", { x: labelX(delX, "del"), y: btnY + 3 }, undefined, undefined, false, "MatrixChunky8");
     }
 
     // Close button - gray theme
@@ -2681,7 +2755,7 @@ function paint(
     const closeX = messageCopyModal.closeBtn.x;
     ink(closeHover ? [80, 75, 90] : [55, 50, 65]).box(closeX, btnY, btnW, btnH);
     ink(closeHover ? [120, 110, 140] : [90, 80, 110]).box(closeX, btnY, btnW, btnH, "outline");
-    ink(closeHover ? [200, 200, 210] : [170, 170, 180]).write("close", { x: closeX + 5, y: btnY + 3 }, undefined, undefined, false, "MatrixChunky8");
+    ink(closeHover ? [200, 200, 210] : [170, 170, 180]).write("close", { x: labelX(closeX, "close"), y: btnY + 3 }, undefined, undefined, false, "MatrixChunky8");
     
     needsPaint();
   }
@@ -2962,7 +3036,7 @@ function act(
   
   // Message copy modal intercepts all events
   if (messageCopyModal) {
-    const { heartBtn, copyBtn, deleteBtn, closeBtn, message: msgText } = messageCopyModal;
+    const { heartBtn, copyBtn, editBtn, deleteBtn, closeBtn, message: msgText } = messageCopyModal;
 
     // Handle hover states
     if (e.is("move") || e.is("draw")) {
@@ -2978,6 +3052,10 @@ function act(
         if (deleteBtn) {
           messageCopyModal.hoverDelete = pen.x >= deleteBtn.x && pen.x < deleteBtn.x + deleteBtn.w &&
                                           pen.y >= deleteBtn.y && pen.y < deleteBtn.y + deleteBtn.h;
+        }
+        if (editBtn) {
+          messageCopyModal.hoverEdit = pen.x >= editBtn.x && pen.x < editBtn.x + editBtn.w &&
+                                        pen.y >= editBtn.y && pen.y < editBtn.y + editBtn.h;
         }
       }
     }
@@ -2995,8 +3073,22 @@ function act(
         const clickedDelete = deleteBtn &&
                               pen.x >= deleteBtn.x && pen.x < deleteBtn.x + deleteBtn.w &&
                               pen.y >= deleteBtn.y && pen.y < deleteBtn.y + deleteBtn.h;
+        const clickedEdit = editBtn &&
+                            pen.x >= editBtn.x && pen.x < editBtn.x + editBtn.w &&
+                            pen.y >= editBtn.y && pen.y < editBtn.y + editBtn.h;
 
-        if (clickedHeart) {
+        if (clickedEdit) {
+          beep();
+          // ✏️ Load the message into the composer; submit sends `chat:edit`.
+          editingMessage = { id: messageCopyModal.id, opened: false };
+          input.text = msgText;
+          draftMessage = msgText;
+          input.addUserText?.(msgText);
+          input.snap?.();
+          send({ type: "keyboard:text:replace", content: { text: msgText } });
+          send({ type: "keyboard:open" });
+          messageCopyModal = null;
+        } else if (clickedHeart) {
           beep();
           client.sendHeart(messageCopyModal.id, token);
           messageCopyModal = null;
@@ -4116,6 +4208,14 @@ function act(
 }
 
 function sim({ api, num, send, net, store }) {
+  // ✏️ Closing the composer without submitting cancels a pending re-edit.
+  // `opened` waits out the frames between tapping "edit" and the keyboard
+  // actually coming up, so the edit doesn't self-cancel on arrival.
+  if (editingMessage) {
+    if (input?.canType) editingMessage.opened = true;
+    else if (editingMessage.opened) editingMessage = null;
+  }
+
   // 📜 Inertial scroll physics
   if (isFlinging) {
     const max = totalScrollHeight - chatHeight + 5;
@@ -4312,7 +4412,19 @@ function receive({ type, content }) {
 // chat?.kill();
 // }
 
-export { boot, paint, act, sim, receive };
+// Force a full relayout and drop per-message color caches. Pieces that
+// restyle chat live (laklok's theme + filter switches) call this — a theme
+// swap recolors cached lines and a filter swap changes which messages lay out.
+function refresh(system) {
+  messagesNeedLayout = true;
+  system?.messages?.forEach((m) => {
+    delete m._colorLineCache;
+    delete m._colorLineHoverKey;
+    delete m._cachedLastLineWidth;
+  });
+}
+
+export { boot, paint, act, sim, receive, refresh };
 
 // 📚 Library
 //   (Useful functions used throughout the piece)

@@ -140,6 +140,10 @@ The two-monitor arrangement is:
 - **Upper display:** large low-resolution scoreboard, current mission, Git-edition countdown, frontier/energy/aliveness/evaluation bars, UTC musical authority, spectrum, active projection class, health summary, FPS, and memory.
 - **Lower display:** fixed 4×3 population. The substrates remain spatially stable while residents change. Each tile uses square nearest-neighbor pixels and a thin two-part margin rim. Small Quake-like console lines expose current operations, health, holds, reprobes, and algebra promotion.
 
+![The Piecefarm's observatory board on August 9, 2026 — a later PieceVM curriculum mission (G47), not the July season this report documents. Same SDL3 stage: mission line, Git-edition countdown, graft telemetry, and the Musigraph spectrum at 144 FPS.](assets/live-scoreboard-2026-08-09.png)
+
+![The Lisp Wall during the same August 9 mission: the fixed 4×3 stage with margin rims and per-tile telemetry. These tiles hold PieceVM curriculum fields; the July season's temporal-volume soup is preserved only in the jas-nzxt archive.](assets/live-lisp-wall-2026-08-09.png)
+
 The projections include curved Möbius/Poincaré motion, perspective camera rays through temporal volume, rectilinear nested chambers, and oblique height fields. They are blended across frames to avoid abrupt mode jumps.
 
 The final display used two pixel-perfect 640×360 logical uploads scaled 4× to 2560×1440. Both monitors held about 143.6 FPS.

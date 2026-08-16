@@ -1,8 +1,18 @@
 import { readFile } from "node:fs/promises";
+import { readFileSync } from "node:fs";
+import { dirname, extname, resolve } from "node:path";
 import puppeteer from "puppeteer";
 
 const [input, output] = process.argv.slice(2);
 if (!input || !output) throw new Error("usage: node render-piecefarm-report.mjs input.md output.pdf");
+
+const inputDir = dirname(resolve(input));
+const MIME = { ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".gif": "image/gif", ".webp": "image/webp", ".svg": "image/svg+xml" };
+const embedImage = (src) => {
+  const path = resolve(inputDir, src);
+  const mime = MIME[extname(path).toLowerCase()] || "application/octet-stream";
+  return `data:${mime};base64,${readFileSync(path).toString("base64")}`;
+};
 
 const escape = (value) => value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
 const inline = (value) => escape(value)
@@ -40,6 +50,13 @@ function markdown(source) {
     }
     if (line.startsWith("```")) {
       flushParagraph(); flushList(); code = []; codeLanguage = line.slice(3).trim(); continue;
+    }
+    const image = /^!\[([^\]]*)\]\(([^)]+)\)$/.exec(line.trim());
+    if (image) {
+      flushParagraph(); flushList();
+      const caption = image[1] ? `<figcaption>${inline(image[1])}</figcaption>` : "";
+      out.push(`<figure><img src="${embedImage(image[2])}" alt="${escape(image[1])}">${caption}</figure>`);
+      continue;
     }
     const heading = /^(#{1,4})\s+(.+)$/.exec(line);
     if (heading) {
@@ -95,6 +112,9 @@ const html = `<!doctype html><html><head><meta charset="utf-8"><style>
   td { padding:5pt 7pt; border-bottom:1px solid #c9d3ce; }
   td:last-child, th:last-child { text-align:right; }
   a { color:var(--mint); text-decoration:none; }
+  figure { margin:12pt 0 16pt; break-inside:avoid; }
+  figure img { display:block; width:100%; border-radius:4px; }
+  figcaption { color:var(--muted); font-size:8.5pt; line-height:1.4; margin-top:5pt; }
   h2:nth-of-type(3n+1) { border-left:4px solid var(--pink); padding-left:9pt; }
   h2:nth-of-type(3n+2) { border-left:4px solid var(--mint); padding-left:9pt; }
   h2:nth-of-type(3n) { border-left:4px solid var(--gold); padding-left:9pt; }

@@ -31,7 +31,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// presentation only; Tab always toggles this state.
     private var focusedInputMode: FocusedInputMode = .localFX
     private var trackDrumInstallPromptActive = false
-    private static let focusedInputModeDefaultsKey = "focusedTrackpadInputMode"
     private static let trackDrumWebURL = URL(
         string: "https://menuband.app/advanced.html#trackdrum-addon"
     )!
@@ -48,6 +47,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// ungated and break this build in the first place.
     private let focusedInputMode: FocusedInputMode = .localFX
 #endif
+    /// Which trackpad page the player last tabbed into — pitch slider or
+    /// TrackDrum. Both builds persist it under the same key so regaining
+    /// focus reopens the surface the fingers expect, not a default.
+    private static let focusedInputModeDefaultsKey = "focusedTrackpadInputMode"
     /// Live conductible drone/arp/drum loop (see MenuBandEngine + the
     /// `engine.*` distributed-notification handlers).
     private lazy var engine = MenuBandEngine(menuBand: menuBand)
@@ -422,6 +425,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var trackpadSkinTouches: [CGPoint] = []
     private var trackpadContactsByID: [Int32: CGPoint] = [:]
     private var trackpadFXPrimaryContact = TrackpadPrimaryContact()
+    /// Previous frame's primary-finger position on the FX page. nil between
+    /// grabs — the slide is relative, so each fresh grab re-anchors here
+    /// instead of jumping the held values to the new touch point.
+    private var trackpadFXLastPrimaryPoint: CGPoint?
     private var trackpadSkinFrameTimestamp: Double = 0
     /// Stabilized lengths-per-second for membrane friction. Raw per-frame
     /// distances inherit trackpad quantization and callback jitter, which made
@@ -455,6 +462,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var trackpadSurfaceEnergy = TrackpadSurfaceEnergy()
     private var trackpadMembrane = TrackpadMembraneSimulation()
     private var polyrhythmTrainer = PolyrhythmTrainerClock()
+    /// Typed division entry — the digits/`/` string being composed while the
+    /// circles are out ("7/4", "2/3/4"). Applied live on every keystroke;
+    /// goes stale after `polyrhythmEntryTimeout` so `/` returns to walking
+    /// the preset/off loop once the player stops typing.
+    private var polyrhythmEntryBuffer = ""
+    private var polyrhythmEntryLastKeyAt: CFTimeInterval = -.infinity
+    private static let polyrhythmEntryTimeout: CFTimeInterval = 2.0
+    /// `/` off the TrackDrum surface: ToneTrials, the scale combo-trials
+    /// director (trial ladder, drop rules, CLEAR banner — ToneTrials.swift).
+    private let toneTrials = ToneTrials()
+    /// Drives the strip's hit/drop/CLEAR animation between gesture
+    /// repaints; runs only while the trials are up.
+    private var toneTrialsRepaintTimer: Timer?
+    /// Previous lit-note set, so the trials are fed exactly the notes that
+    /// just began (`onLitChanged` itself only reports that the set changed).
+    private var toneTrialsLitNotes: Set<UInt8> = []
+    private static let toneTrialsIndexDefaultsKey = "toneTrialsIndex"
     private var trackpadEnergyTimer: Timer?
     private var trackpadOverlayLastDraw: Double = 0
     /// Keep the last percussion surface readable after the final lift, like
@@ -527,11 +551,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             keyCode: keyCode,
             flags: NSEvent.ModifierFlags(rawValue: UInt(flags.rawValue))
         )
-        if let slashAction, isDown, self.trackpadPadMode == .skin {
+        if let slashAction, isDown,
+           self.trackpadPadMode == .skin || self.trackpadPadMode == .fx {
             if !isRepeat {
                 DispatchQueue.main.async {
                     switch slashAction {
-                    case .trainer: self.togglePolyrhythmTrainer()
+                    // Routed by what's on screen: circles when the
+                    // TrackDrum surface is up, ToneTrials otherwise.
+                    case .trainer: self.handleTrainerSlash()
                     case .help: Self.openTips()
                     }
                 }
@@ -546,6 +573,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
            self.polyrhythmTrainer.isActive {
             if isDown && !isRepeat {
                 DispatchQueue.main.async { self.changePolyrhythmRate(by: rateDelta) }
+            }
+            return true
+        }
+        if let rateDelta, self.trackpadPadMode == .fx,
+           self.toneTrials.isActive {
+            if isDown && !isRepeat {
+                DispatchQueue.main.async {
+                    self.stepToneTrial(by: rateDelta > 0 ? 1 : -1)
+                }
+            }
+            return true
+        }
+        let entryDigit = Self.trackDrumEntryDigit(
+            keyCode: keyCode,
+            flags: NSEvent.ModifierFlags(rawValue: UInt(flags.rawValue))
+        )
+        if let entryDigit, self.trackpadPadMode == .skin,
+           self.polyrhythmTrainer.isActive {
+            if isDown && !isRepeat {
+                DispatchQueue.main.async { self.handlePolyrhythmDigit(entryDigit) }
             }
             return true
         }
@@ -899,6 +946,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         menuBand.onLitChanged = { [weak self] in
             guard let self = self else { return }
+            // Feed ToneTrials exactly the notes that just began — the diff
+            // against the previous lit set — so the trials judge strikes,
+            // not releases.
+            if self.toneTrials.isActive {
+                let lit = Set(self.menuBand.litNotes)
+                let now = CACurrentMediaTime()
+                for note in lit.subtracting(self.toneTrialsLitNotes) {
+                    self.toneTrials.registerNote(Int(note), at: now)
+                }
+                self.toneTrialsLitNotes = lit
+            }
             // Subtle flash on every fresh note hit so the icon
             // pulses with playing activity. Only on count
             // increment — releases don't re-fire the flash.
@@ -1324,6 +1382,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             object: nil
         )
 
+        // Fluoddity ecosystem voice (experimental melodic backend): userInfo
+        // "enabled" (1/0) flips the routing, "seed" (uint) picks a genome,
+        // "mutate" (float) evolves the current one. CLI-drivable while the
+        // voice has no picker cell yet — same JXA posting pattern as `.play`.
+        DistributedNotificationCenter.default().addObserver(
+            self,
+            selector: #selector(handleFluoddityNotification(_:)),
+            name: NSNotification.Name("computer.aestheticcomputer.menuband.fluoddity"),
+            object: nil
+        )
+
         // Live engine: a conductible drone/arp/drum loop that runs
         // indefinitely and morphs on command (see MenuBandEngine). Four
         // verbs — start / chord / pattern / stop — let the fleet evolve a
@@ -1505,11 +1574,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let slashAction = Self.trackDrumSlashAction(
                 keyCode: keyCode, flags: flags
             )
-            if let slashAction, self.trackpadPadMode == .skin,
+            if let slashAction,
+               self.trackpadPadMode == .skin || self.trackpadPadMode == .fx,
                (self.pitchBendCursorPushed || self.keyboardPerformanceFocusActive) {
                 if isDown && !isRepeat {
                     switch slashAction {
-                    case .trainer: self.togglePolyrhythmTrainer()
+                    // Routed by what's on screen: circles when the
+                    // TrackDrum surface is up, ToneTrials otherwise.
+                    case .trainer: self.handleTrainerSlash()
                     case .help: Self.openTips()
                     }
                 }
@@ -1518,6 +1590,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             if let rateDelta = Self.trackDrumRateDelta(keyCode: keyCode, flags: flags),
                self.trackpadPadMode == .skin, self.polyrhythmTrainer.isActive {
                 if isDown && !isRepeat { self.changePolyrhythmRate(by: rateDelta) }
+                return true
+            }
+            if let rateDelta = Self.trackDrumRateDelta(keyCode: keyCode, flags: flags),
+               self.trackpadPadMode == .fx, self.toneTrials.isActive {
+                if isDown && !isRepeat {
+                    self.stepToneTrial(by: rateDelta > 0 ? 1 : -1)
+                }
+                return true
+            }
+            if let entryDigit = Self.trackDrumEntryDigit(keyCode: keyCode, flags: flags),
+               self.trackpadPadMode == .skin, self.polyrhythmTrainer.isActive {
+                if isDown && !isRepeat { self.handlePolyrhythmDigit(entryDigit) }
                 return true
             }
             if isDown && MenuBandShortcutPreferences.layoutShortcut.matches(
@@ -2173,6 +2257,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // release timer restore the cursor, which made the focus watchdog
         // cancel the session before the first strike.
         activateDefaultTrackpadDrum()
+        // …then, if the player had tabbed into the pitch slider last time,
+        // hand the armed session straight over to it — the same flip Tab
+        // performs, minus the chime. Entering through the drum first keeps
+        // the realtime lane / session arming on the one proven path.
+        if UserDefaults.standard.string(forKey: Self.focusedInputModeDefaultsKey)
+            == FocusedInputMode.localFX.rawValue {
+            restoreFocusedPitchSlider()
+        }
         #endif
         // Focus owns the pointer in every mode, and the hidden, pinned cursor
         // is what says so. This lands after the mode branch because local FX
@@ -3255,9 +3347,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // through to the 1-based GM program number.
         let voiceLabel: String?
         switch menuBand.instrumentBackend {
-        case .sample: voiceLabel = "`"
-        case .kpbj:   voiceLabel = menuBand.radioStation.label
-        default:      voiceLabel = nil
+        case .sample:    voiceLabel = "`"
+        case .kpbj:      voiceLabel = menuBand.radioStation.label
+        case .fluoddity: voiceLabel = "~"
+        default:         voiceLabel = nil
         }
         // Reserve badge width for the actual subscript so 3-digit GM
         // numbers (100–128) don't crop. Must be set BEFORE sizing the slot.
@@ -4192,6 +4285,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func handleStopNotification(_ note: Notification) {
         stopScore(broadcast: true)
+    }
+
+    /// See the `.fluoddity` observer registration for the userInfo contract.
+    /// Order matters: seed/mutate first, then the enable flip, so one posting
+    /// can pick a genome and switch on in the same breath.
+    @objc private func handleFluoddityNotification(_ note: Notification) {
+        let info = note.userInfo as? [String: String] ?? [:]
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            if let s = info["seed"], let seed = UInt32(s) {
+                self.menuBand.setFluodditySeed(seed)
+            }
+            if let m = info["mutate"], let amount = Float(m) {
+                self.menuBand.mutateFluoddity(amount: amount)
+            }
+            if let e = info["enabled"] {
+                self.menuBand.setFluoddityBackend(e == "1" || e.lowercased() == "true")
+            }
+        }
     }
 
     /// Cease the current score: cancel every pending onset, silence all voices,
@@ -5136,7 +5248,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                                      performAudio: performAudioOnMain)
         } else if trackpadPadMode == .fx, pitchBendCursorPushed {
             if let primaryTouch = trackpadFXPrimaryContact.update(changes.active) {
-                applyAbsoluteTrackpadFX(at: primaryTouch)
+                applyTrackpadFXSlide(to: primaryTouch)
+            } else {
+                // Primary lifted (or ceded). The slider HOLDS its values —
+                // clearing the anchor is what makes the next grab continue
+                // from them instead of jumping to the new finger's spot.
+                trackpadFXLastPrimaryPoint = nil
             }
         } else if shiftSlides {
             trackpadSkinTouches = touches
@@ -5590,6 +5707,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         localCapture.keepsCaptureArmedOnResign = false
         #endif
         trackpadPadMode = .fx
+        stopToneTrials()
         trackpadPerformanceSessionActive = false
         pitchBendModeLatched = false
         pitchBendCursorPushed = false
@@ -5619,6 +5737,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         releaseTrackpadPercussion()
         trackpadSkinTouches.removeAll()
         trackpadFXPrimaryContact.reset()
+        trackpadFXLastPrimaryPoint = nil
         trackpadEnergyTimer?.invalidate()
         trackpadEnergyTimer = nil
         trackpadPadMode = .fx
@@ -5650,12 +5769,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         #endif
         trackpadPadMode = useTrackDrum ? .skin : .fx
         polyrhythmTrainer.stop()
+        stopToneTrials()
         #if MAC_APP_STORE
         trackpadPluginCaptureActive = useTrackDrum
         trackpadPlugin.setCaptureEnabled(useTrackDrum)
 #endif
         localCapture.keepsCaptureArmedOnResign = useTrackDrum
         trackpadFXPrimaryContact.reset()
+        trackpadFXLastPrimaryPoint = nil
         trackpadSurfaceEnergy.reset(at: CACurrentMediaTime())
         trackpadMembrane.reset(at: CACurrentMediaTime())
         trackpadScratchSpeed = nil
@@ -5737,6 +5858,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         releaseTrackpadPercussion()
         trackpadSkinTouches.removeAll()
         trackpadFXPrimaryContact.reset()
+        trackpadFXLastPrimaryPoint = nil
         trackpadEnergyTimer?.invalidate()
         trackpadEnergyTimer = nil
         cancelFxRelease()
@@ -5769,11 +5891,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             focusedInputMode.rawValue,
             forKey: Self.focusedInputModeDefaultsKey
         )
-        if focusedInputMode == .trackDrum {
-            FocusCueBeep.shared.play(rising: true)
-        } else {
-            FocusCueBeep.shared.click()
-        }
+        FocusCueBeep.shared.padSwitch(
+            toTrackDrum: focusedInputMode == .trackDrum
+        )
         if focusedInputMode == .localFX {
             prepareFocusedLocalFXIdle()
             debugLog("trackpad pad mode = fx (local mouse idle)")
@@ -5795,8 +5915,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return
         #endif
         trackpadFXPrimaryContact.reset()
+        trackpadFXLastPrimaryPoint = nil
         polyrhythmTrainer.stop()
+        stopToneTrials()
         trackpadPadMode = Self.trackpadPadModeAfterTab(trackpadPadMode)
+        // The handoff chime names the destination by pitch, and the choice
+        // is remembered so regaining focus later reopens this same page.
+        FocusCueBeep.shared.padSwitch(toTrackDrum: trackpadPadMode != .fx)
+        UserDefaults.standard.set(
+            (trackpadPadMode == .fx
+                ? FocusedInputMode.localFX : .trackDrum).rawValue,
+            forKey: Self.focusedInputModeDefaultsKey
+        )
         if trackpadPadMode != .fx {
             pitchBendEndTimer?.invalidate()
             pitchBendEndTimer = nil
@@ -5894,6 +6024,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
     #endif
 
+    #if !MAC_APP_STORE
+    /// Regained focus lands on whichever page Tab last chose. Runs right
+    /// after `activateDefaultTrackpadDrum` has armed the session, so this
+    /// only performs the drum→slider handoff — the same moves as the Tab
+    /// branch above, without the chime.
+    private func restoreFocusedPitchSlider() {
+        trackpadFXPrimaryContact.reset()
+        trackpadFXLastPrimaryPoint = nil
+        polyrhythmTrainer.stop()
+        stopToneTrials()
+        trackpadPadMode = .fx
+        releaseTrackpadPercussion()
+        trackpadSkinTouches.removeAll()
+        stopTrackpadPercussionSystemClickShield()
+        updatePitchBendOverlayImage()
+        debugLog("trackpad pad mode = fx (quiet handoff)")
+    }
+    #endif
+
     static func trackpadPadModeAfterTab(_ mode: TrackpadPadMode) -> TrackpadPadMode {
         mode == .fx ? .skin : .fx
     }
@@ -5971,39 +6120,52 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
     }
 
-    static func absoluteTrackpadFXValues(at point: CGPoint,
-                                         bendRange: Float,
-                                         echoEnabled: Bool)
-        -> (bend: Float, fxX: Float, space: Float, echo: Float) {
-        let normalizedX = max(Float(-1), min(Float(1),
-            (Float(point.x) - 0.5) * 2
-        ))
-        let fxX = echoEnabled ? normalizedX : min(Float(0), normalizedX)
+    /// One relative step of the FX-page slide. The slider is a held control,
+    /// not a position sensor: values move by finger DELTAS, with full-pad
+    /// travel still spanning the full range (2×bendRange vertically, the
+    /// whole bipolar fx axis horizontally) so the gesture gain matches the
+    /// old absolute surface. Clamping the accumulator inside the step means
+    /// the edge is the cap — no dead travel unwinding overshoot.
+    static func relativeTrackpadFXTargets(
+        from previous: CGPoint, to point: CGPoint,
+        bendTarget: Float, fxXTarget: Float,
+        bendRange: Float, echoEnabled: Bool
+    ) -> (bend: Float, fxX: Float) {
         let bend = max(-bendRange, min(bendRange,
-            (Float(point.y) - 0.5) * 2 * bendRange
+            bendTarget + (Float(point.y) - Float(previous.y)) * 2 * bendRange
         ))
-        return (
-            bend: bend,
-            fxX: fxX,
-            space: max(Float(0), -fxX),
-            echo: echoEnabled ? max(Float(0), fxX) : 0
-        )
+        let fxMax: Float = echoEnabled ? 1 : 0
+        let fxX = max(Float(-1), min(fxMax,
+            fxXTarget + (Float(point.x) - Float(previous.x)) * 2
+        ))
+        return (bend: bend, fxX: fxX)
     }
 
-    /// The Tab-selected FX page is an absolute trackpad surface: vertical
-    /// position controls pitch and the two horizontal halves select space or
-    /// echo. MultitouchSupport and the App Store NSTouch path both arrive here
-    /// through `handleTrackpadFrame`, so neither build depends on mouse deltas.
-    private func applyAbsoluteTrackpadFX(at point: CGPoint) {
-        let values = Self.absoluteTrackpadFXValues(
-            at: point,
-            bendRange: Self.bendRange,
-            echoEnabled: Self.fxEchoEnabled
-        )
-        bendGestureTarget = values.bend
-        fxXGestureTarget = values.fxX
-        bendEaseAllChannels = false
+    /// The Tab-selected FX page rides the primary finger relatively:
+    /// lifting holds pitch and fx exactly where they were left, and a
+    /// fresh grab catches those held values and slides on from them —
+    /// wherever the new finger happens to land. MultitouchSupport and the
+    /// App Store NSTouch path both arrive here through
+    /// `handleTrackpadFrame`, so neither build depends on mouse deltas.
+    private func applyTrackpadFXSlide(to point: CGPoint) {
         cancelFxRelease()
+        if trackpadFXLastPrimaryPoint == nil, bendEaseTimer == nil {
+            // Fresh grab with the easer settled: sync the accumulators to
+            // the sounding values so the catch is seamless (mirrors the
+            // mouse-delta path's re-grab handling).
+            bendGestureTarget = bendAmount
+            fxXGestureTarget = fxX
+        }
+        let previous = trackpadFXLastPrimaryPoint ?? point
+        trackpadFXLastPrimaryPoint = point
+        let targets = Self.relativeTrackpadFXTargets(
+            from: previous, to: point,
+            bendTarget: bendGestureTarget, fxXTarget: fxXGestureTarget,
+            bendRange: Self.bendRange, echoEnabled: Self.fxEchoEnabled
+        )
+        bendGestureTarget = targets.bend
+        fxXGestureTarget = targets.fxX
+        bendEaseAllChannels = false
         startBendEase()
     }
 
@@ -6286,8 +6448,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         } else if trackpadPadMode == .synth && !momentarySurfaceFx {
             return TrackpadSynthPad.image(touches: mtTouches, energy: energy)
         }
-        return PitchBendCursor.image(forBend: displayBendAmount / Self.bendRange, echo: fxX,
-                                     keyDown: menuBand.keyboardNotesHeld)
+        let chart = PitchBendCursor.image(
+            forBend: displayBendAmount / Self.bendRange, echo: fxX,
+            keyDown: menuBand.keyboardNotesHeld
+        )
+        // The trials strip rides the fx chart image itself, so every path
+        // that shows or refreshes the chart carries it for free.
+        guard trackpadPadMode == .fx,
+              let practice = toneTrials.snapshot(at: CACurrentMediaTime())
+        else { return chart }
+        let dark = NSApp.effectiveAppearance
+            .bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        return ToneTrialsStrip.composite(chart: chart, snapshot: practice,
+                                         dark: dark)
     }
 
     /// Keep the puck attached to the bend that is actually sounding. Drawing
@@ -6313,10 +6486,143 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             : "TrackDrum polyrhythm trainer = off")
     }
 
+    /// `/` is two keys sharing a cap. Mid-entry it is the division
+    /// separator (the `/` in "7/4"); otherwise it walks the trainer's
+    /// enable → presets → off loop. A doubled `/` falls through to the
+    /// walk, so `//` right after typing still reaches off without waiting
+    /// out the entry window.
+    private func polyrhythmSlashKey() {
+        let now = CACurrentMediaTime()
+        if polyrhythmTrainer.isActive, polyrhythmEntryIsLive(at: now),
+           polyrhythmEntryBuffer.last != "/" {
+            polyrhythmEntryBuffer.append("/")
+            polyrhythmEntryLastKeyAt = now
+            return
+        }
+        polyrhythmEntryBuffer = ""
+        togglePolyrhythmTrainer()
+    }
+
+    private func polyrhythmEntryIsLive(at now: CFTimeInterval) -> Bool {
+        !polyrhythmEntryBuffer.isEmpty
+            && now - polyrhythmEntryLastKeyAt < Self.polyrhythmEntryTimeout
+    }
+
+    /// Number keys while the circles are out type the divisions directly —
+    /// each keystroke re-parses the whole buffer and applies it live, so
+    /// "2", "2/3", "2/3/4" grow the circle row as they're typed. A stale
+    /// buffer starts over: the first digit after a pause replaces the
+    /// pattern rather than appending to a forgotten entry.
+    private func handlePolyrhythmDigit(_ digit: Int) {
+        guard trackpadPadMode == .skin, polyrhythmTrainer.isActive else { return }
+        let now = CACurrentMediaTime()
+        if !polyrhythmEntryIsLive(at: now) { polyrhythmEntryBuffer = "" }
+        let segment = polyrhythmEntryBuffer
+            .split(separator: "/", omittingEmptySubsequences: false).last ?? ""
+        // Divisions clamp at 16, so a third digit in one division is noise.
+        guard segment.count < 2 else { return }
+        polyrhythmEntryBuffer.append(String(digit))
+        polyrhythmEntryLastKeyAt = now
+        let counts = polyrhythmEntryBuffer.split(separator: "/")
+            .compactMap { Int($0) }
+        polyrhythmTrainer.setPattern(counts, at: now)
+        // Re-show rather than repaint: the panel's width follows the
+        // circle count, so a new division needs a fresh anchor too.
+        showPitchBendOverlay()
+        debugLog("TrackDrum polyrhythm typed = \(polyrhythmTrainer.pattern.label)")
+    }
+
     private func changePolyrhythmRate(by delta: Int) {
         polyrhythmTrainer.changeRate(by: delta, at: CACurrentMediaTime())
         updateTrackpadOverlayIfDue(force: true)
         debugLog("TrackDrum polyrhythm rate = \(polyrhythmTrainer.bpm) bpm")
+    }
+
+    /// `/` picks its trainer by what's on screen: the polyrhythm circles
+    /// when the TrackDrum surface is actually up (or already training),
+    /// ToneTrials anywhere else — including the skin page before its pad
+    /// art has shown.
+    private func handleTrainerSlash() {
+        if trackpadPadMode == .skin,
+           polyrhythmTrainer.isActive || pitchBendOverlay?.isVisible == true {
+            polyrhythmSlashKey()
+        } else {
+            toneTrialsSlashKey()
+        }
+    }
+
+    /// `/` toggles ToneTrials, hosted on the pitch-slider page — summoning
+    /// it from the skin page hands the pad over first (the quiet Tab flip).
+    /// Ladder position persists across sessions; clearing a trial advances
+    /// it automatically, `-`/`=` skip by hand.
+    private func toneTrialsSlashKey() {
+        guard pitchBendCursorPushed || keyboardPerformanceFocusActive else {
+            return
+        }
+        #if MAC_APP_STORE
+        guard trackpadPadMode == .fx else { return }
+        #else
+        if trackpadPadMode != .fx { restoreFocusedPitchSlider() }
+        #endif
+        if toneTrials.isActive {
+            stopToneTrials()
+            updatePitchBendOverlayImage()
+            // The strip was the reason the overlay stayed up; without a
+            // live gesture, let the bare chart take its leave.
+            pitchBendOverlay?.fadeOut(after: 0.6, duration: 0.4)
+            debugLog("ToneTrials = off")
+        } else {
+            toneTrials.onIndexChange = { index in
+                UserDefaults.standard.set(
+                    index, forKey: Self.toneTrialsIndexDefaultsKey
+                )
+            }
+            toneTrials.start(at: UserDefaults.standard.integer(
+                forKey: Self.toneTrialsIndexDefaultsKey
+            ))
+            toneTrialsLitNotes = Set(menuBand.litNotes)
+            startToneTrialsRepaint()
+            showPitchBendOverlay()
+            debugLog("ToneTrials = trial \(toneTrials.index + 1) "
+                + toneTrials.trial.title)
+        }
+    }
+
+    private func stepToneTrial(by delta: Int) {
+        toneTrials.step(by: delta)
+        updatePitchBendOverlayImage()
+        debugLog("ToneTrials = trial \(toneTrials.index + 1) "
+            + toneTrials.trial.title)
+    }
+
+    /// Everything that tears the slider page down funnels through here so
+    /// the strip, its repaint clock, and the note diff reset together.
+    private func stopToneTrials() {
+        guard toneTrials.isActive || toneTrialsRepaintTimer != nil else {
+            return
+        }
+        toneTrials.stop()
+        stopToneTrialsRepaint()
+        toneTrialsLitNotes = []
+    }
+
+    private func startToneTrialsRepaint() {
+        guard toneTrialsRepaintTimer == nil else { return }
+        let timer = Timer(timeInterval: 1.0 / 30.0, repeats: true) {
+            [weak self] _ in
+            guard let self, self.toneTrials.isActive else { return }
+            // The director owns the CLEAR-banner clock; ticking it here is
+            // what makes a finished trial load the next one.
+            self.toneTrials.update(at: CACurrentMediaTime())
+            self.updatePitchBendOverlayImage()
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        toneTrialsRepaintTimer = timer
+    }
+
+    private func stopToneTrialsRepaint() {
+        toneTrialsRepaintTimer?.invalidate()
+        toneTrialsRepaintTimer = nil
     }
 
     enum TrackDrumSlashAction: Equatable { case trainer, help }
@@ -6341,6 +6647,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // The same physical key produces = or shifted +; both increase rate.
         if keyCode == UInt16(kVK_ANSI_Equal) { return 5 }
         return nil
+    }
+
+    /// Unmodified number-row digits, for typed division entry. Captured
+    /// only while the circles are showing — the moment the trainer cycles
+    /// off (or focus ends and the pad fades), the number keys fall back to
+    /// their ordinary meaning.
+    static func trackDrumEntryDigit(
+        keyCode: UInt16,
+        flags: NSEvent.ModifierFlags
+    ) -> Int? {
+        guard !flags.contains(.command), !flags.contains(.option),
+              !flags.contains(.control), !flags.contains(.shift) else {
+            return nil
+        }
+        switch Int(keyCode) {
+        case kVK_ANSI_0: return 0
+        case kVK_ANSI_1: return 1
+        case kVK_ANSI_2: return 2
+        case kVK_ANSI_3: return 3
+        case kVK_ANSI_4: return 4
+        case kVK_ANSI_5: return 5
+        case kVK_ANSI_6: return 6
+        case kVK_ANSI_7: return 7
+        case kVK_ANSI_8: return 8
+        case kVK_ANSI_9: return 9
+        default: return nil
+        }
     }
 
     private func showPitchBendOverlay() {
@@ -6696,6 +7029,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         pitchBendEndTimer = nil
         pitchBendReleaseGraceUntil = nil
         trackpadFXPrimaryContact.reset()
+        trackpadFXLastPrimaryPoint = nil
         // Stop the bend easer so it can't keep nudging pitch after teardown;
         // the fx spring-back (startFxRelease below) owns `bendAmount` now.
         stopBendEase()
@@ -6705,6 +7039,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         pitchBendModeLatched = false
         trackpadPerformanceSessionActive = false
         polyrhythmTrainer.stop()
+        stopToneTrials()
         #if !MAC_APP_STORE
         setTrackpadFighterSuppressed(pianoWaveformWindowDelegate.isShown)
         #endif

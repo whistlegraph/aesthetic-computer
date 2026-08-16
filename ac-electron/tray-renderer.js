@@ -108,6 +108,14 @@ class TrayRenderer {
     this.watcher = null;
     this.rendering = false;
     this.dirty = false;
+    // Badge/count SVG rasterization goes through librsvg + sharp. These layers
+    // are static across spin frames, so cache their raw pixels by resolved
+    // appearance instead of reparsing SVG at every animation tick.
+    this.badgeCache = new Map();
+    this.countCache = new Map();
+    this.frameCache = new Map();
+    this.lastFrameKey = null;
+    this.renderedFrameKey = null;
   }
 
   // ── Spin frames: a pre-baked transparent turntable, stored as one
@@ -189,6 +197,11 @@ class TrayRenderer {
     fg = resolveColor(fg);
     bg = resolveColor(bg);
     const ol = resolveColor(outline);
+    const cacheKey = JSON.stringify([
+      String(text), fg, bg, ol, outlineWAt1x, ptAt1x, scale,
+      Math.round(opacity * 1000),
+    ]);
+    if (this.badgeCache.has(cacheKey)) return this.badgeCache.get(cacheKey);
     const px = Math.max(1, Math.round(ptAt1x * scale));
     const padX = Math.max(1, Math.round(px * 0.30)); // tighter pill
     const padY = Math.max(1, Math.round(px * 0.15));
@@ -213,7 +226,10 @@ class TrayRenderer {
       `<text x="${W / 2}" y="${baseY}" text-anchor="middle" ` +
       `font-family="SFMono-Regular,Menlo,monospace" font-size="${px}" font-weight="700" ` +
       `fill="${fg}" fill-opacity="${op}">${text}</text></svg>`;
-    return sharp(Buffer.from(svg)).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+    const raster = await sharp(Buffer.from(svg)).ensureAlpha().raw()
+      .toBuffer({ resolveWithObject: true });
+    this.badgeCache.set(cacheKey, raster);
+    return raster;
   }
 
   // Rasterize the top-right superscript count to a tight raw RGBA buffer.
@@ -223,6 +239,8 @@ class TrayRenderer {
   async renderCount(text, fg, ptAt1x, scale, halo) {
     if (!sharp || text == null || text === '') return null;
     fg = resolveColor(fg);
+    const cacheKey = JSON.stringify([String(text), fg, ptAt1x, scale, !!halo]);
+    if (this.countCache.has(cacheKey)) return this.countCache.get(cacheKey);
     const px = Math.max(1, Math.round(ptAt1x * scale));
     const charW = px * 0.66;                        // advance for the system font
     const kern = (-0.4 * scale).toFixed(2);         // tighten like Menuband
@@ -242,7 +260,10 @@ class TrayRenderer {
       `font-family="system-ui,-apple-system,'Helvetica Neue',Helvetica,sans-serif" ` +
       `font-size="${px}" font-weight="800" ` +
       `letter-spacing="${kern}" ${haloAttrs}fill="${fg}">${text}</text></svg>`;
-    return sharp(Buffer.from(svg)).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+    const raster = await sharp(Buffer.from(svg)).ensureAlpha().raw()
+      .toBuffer({ resolveWithObject: true });
+    this.countCache.set(cacheKey, raster);
+    return raster;
   }
 
   // ── PURE render: current state + phase -> nativeImage (multi-scale). ──
@@ -253,6 +274,25 @@ class TrayRenderer {
     let mode = s.logoMode || 'spin';
     if (mode === 'spin') { await this.loadSpin(); if (!this.spin) mode = 'pals'; }
     if (mode !== 'spin' && !(await this.buildMaster())) return null;
+
+    // Quantize the continuous phase to the pre-baked source frame. Multiple
+    // ticker callbacks can legitimately land on the same frame when the gem
+    // turns slowly; return the already-composited nativeImage in that case.
+    const spinFrame = mode === 'spin' && this.spinCount
+      ? Math.floor(this.phase * this.spinCount) % this.spinCount : -1;
+    const stateKey = JSON.stringify([
+      mode, spinFrame, s.show, s.badge, s.logoScale, s.logoColor, s.color,
+      s.bg, s.outline, s.outlineWidth, s.pt, s.badgeYOffset, s.effect,
+      s.showCount, s.count, s.countColor, s.countPt, s.countYOffset,
+      s.countXOffset, s.countGap, s.countHalo,
+      // Pulse has continuous opacity; blink has only two visual states.
+      s.show && s.effect === 'pulse' ? Math.round(this.phase * 60)
+        : (s.show && s.effect === 'blink' ? this.phase < 0.5 : 0),
+    ]);
+    if (this.frameCache.has(stateKey)) {
+      this.renderedFrameKey = stateKey;
+      return this.frameCache.get(stateKey);
+    }
 
     // Animation → a 0..1 multiplier applied to the label (opacity here; easy to
     // extend to position/scale). Static when effect is 'none' or badge hidden.
@@ -271,7 +311,7 @@ class TrayRenderer {
         let logo;
         if (mode === 'spin') {
           const frames = this.spin[scale];
-          const idx = frames.length ? Math.floor(this.phase * frames.length) % frames.length : 0;
+          const idx = frames.length ? spinFrame % frames.length : 0;
           logo = frames[idx];                       // {data, info:{width,height}}
         } else {
           const SHRINK = s.logoScale || 0.94;
@@ -350,7 +390,10 @@ class TrayRenderer {
         out.addRepresentation({ scaleFactor: scale, width: W, height: H, buffer: canvas });
       } catch (e) { /* skip this scale */ }
     }
-    return out.isEmpty() ? null : out;
+    if (out.isEmpty()) return null;
+    this.frameCache.set(stateKey, out);
+    this.renderedFrameKey = stateKey;
+    return out;
   }
 
   async refresh() {
@@ -358,7 +401,11 @@ class TrayRenderer {
     this.rendering = true;
     try {
       const img = await this.render();
-      if (img && this.tray && !this.tray.isDestroyed?.()) this.tray.setImage(img);
+      if (img && this.renderedFrameKey !== this.lastFrameKey
+          && this.tray && !this.tray.isDestroyed?.()) {
+        this.tray.setImage(img);
+        this.lastFrameKey = this.renderedFrameKey;
+      }
     } finally {
       this.rendering = false;
       if (this.dirty) { this.dirty = false; this.refresh(); }
@@ -426,6 +473,13 @@ class TrayRenderer {
 
   setState(partial) {
     this.state = { ...this.state, ...partial };
+    // State changes are rare and may alter text or appearance. Bounded clear
+    // keeps live-edit iteration honest without retaining obsolete rasters.
+    this.badgeCache.clear();
+    this.countCache.clear();
+    this.frameCache.clear();
+    this.lastFrameKey = null;
+    this.renderedFrameKey = null;
     this.syncTicker();
     this.refresh();
   }
@@ -457,7 +511,17 @@ class TrayRenderer {
       console.log('[tray] live-reload watching', STATE_FILE);
     } catch (e) { console.warn('[tray] watch failed:', e.message); }
     // Re-render when the macOS accent color changes (badge uses system colors).
-    try { systemPreferences.on?.('accent-color-changed', () => this.refresh()); } catch (e) {}
+    try {
+      systemPreferences.on?.('accent-color-changed', () => {
+        this.master = null;
+        this.badgeCache.clear();
+        this.countCache.clear();
+        this.frameCache.clear();
+        this.lastFrameKey = null;
+        this.renderedFrameKey = null;
+        this.refresh();
+      });
+    } catch (e) {}
   }
 
   dispose() {

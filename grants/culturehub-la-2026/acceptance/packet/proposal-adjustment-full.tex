@@ -1,0 +1,301 @@
+% !TEX program = xelatex
+% Internal decision brief. Not for CultureHub.
+\documentclass[10pt,letterpaper]{article}
+\usepackage{culturehub-packet}
+\geometry{top=0.52in,bottom=0.55in,left=0.66in,right=0.66in}
+\renewcommand{\packetlabel}{INTERNAL · DECISION BRIEF · LONG FORM}
+\hypersetup{pdftitle={CultureHub LA — The Proposal and the Adjustment}}
+
+\newcommand{\quoteblock}[2]{%
+  \begingroup
+  \setlength{\fboxsep}{10pt}%
+  \noindent\colorbox{acpale}{%
+    \begin{minipage}{\dimexpr\linewidth-2\fboxsep\relax}
+    \fontsize{10.6pt}{13.6pt}\selectfont\color{acdark}#1
+    \par\vspace{0.5em}
+    {\fontsize{8.6pt}{10pt}\selectfont\color{acgray}#2}
+    \end{minipage}}%
+  \endgroup\par\vspace{0.5em}}
+
+
+% YWFT display faces lack en/em dash, ellipsis, and have a near-illegible
+% middot and comma. Punctuation inside \acbold/\aclight must come from the
+% main font, and display strings avoid internal commas.
+\newcommand{\dsep}{{\normalfont\;\textperiodcentered\;}}
+\newcommand{\dto}{{\normalfont--}}
+\newcommand{\ddash}{{\normalfont\;---\;}}
+\newcommand{\dellip}{{\normalfont\ldots}}
+
+
+% Local density overrides. The shared .sty is sized for the other packet
+% documents; these two run smaller and tighter without touching it.
+\renewcommand{\packettitle}[2]{%
+  {\acbold\fontsize{22pt}{24pt}\selectfont\color{acdark}#1\par}%
+  \vspace{0.10em}%
+  {\hyphenpenalty=10000\exhyphenpenalty=10000\RaggedRight
+   \aclight\fontsize{11.5pt}{13.5pt}\selectfont\color{acpink}#2\par}%
+  \vspace{0.22em}\color{acpink}\rule{\linewidth}{1pt}\color{black}\vspace{0.14em}%
+}
+\renewcommand{\pageclaim}[1]{%
+  {\hyphenpenalty=10000\exhyphenpenalty=10000\RaggedRight
+   \aclight\fontsize{12.5pt}{15pt}\selectfont\color{acpink}#1\par}\vspace{0.18em}}
+\titleformat{\section}{\acbold\fontsize{13.5pt}{15pt}\selectfont\color{acdark}}{}{0pt}{}
+\titlespacing{\section}{0pt}{0.4em}{0.18em}
+\titleformat{\subsection}{\bfseries\fontsize{10.5pt}{12pt}\selectfont\color{acdark}}{}{0pt}{}
+\setlength{\parskip}{0.4em}
+\renewcommand{\arraystretch}{1.12}
+\renewcommand{\credit}[1]{{\fontsize{7.8pt}{9.4pt}\selectfont\color{acgray}#1\par}}
+\renewcommand{\palsfooter}{%
+  \begin{center}\includegraphics[height=5.6em]{pals.pdf}\end{center}}
+
+\newcommand{\midtitle}[2]{%
+  \vspace{0.5em}{\color{acpink}\rule{\linewidth}{1pt}}\par\vspace{0.28em}%
+  {\acbold\fontsize{18pt}{20pt}\selectfont\color{acdark}#1\par}%
+  {\hyphenpenalty=10000\exhyphenpenalty=10000\RaggedRight
+   \aclight\fontsize{10.5pt}{12.5pt}\selectfont\color{acpink}#2\par}\vspace{0.2em}}
+
+\begin{document}
+
+% ─────────────────────────────────────────── cover
+\thispagestyle{fancy}
+\packettitle{The Proposal and the Adjustment}{CultureHub LA\dsep residency 16\dto25 September 2026}
+
+\pageclaim{What was submitted in May and what is prepared in August are two
+different programs\ddash this brief puts them side by side}
+
+\imageframe[width=\linewidth,keepaspectratio]{mn-program.jpg}
+\credit{The program as currently drawn: three new MacBook Neos across the
+front, six salvaged laptops ringed behind. Jeffrey Alan Scudder / Aesthetic
+Computer.}
+
+\vfill
+{\tighttable
+\begin{tabularx}{\linewidth}{L{1.15in} Y}
+\toprule
+Submitted & \emph{Notepat Jam} · 21 May 2026 · one work, six salvaged laptops \\
+Accepted & 30 July 2026 · dates 16–25 September · \$2,000 stipend \\
+Prepared now & \textbf{AC PRESENTS 2 NEW PIECES} · \emph{Note(s)pat(ial)} \& \emph{The MacNeoPolitan Trio} · 11 August 2026 \\
+Due today & Artist-page form · seven fields · 11 August 2026 \\
+\bottomrule
+\end{tabularx}}
+
+\credit{Prepared 11 August 2026. Internal only — this document is not part of
+any CultureHub submission.}
+
+% ─────────────────────────────────────────── submitted
+\clearpage
+\packettitle{What was submitted}{\emph{Notepat Jam}\dsep 21 May 2026\dsep the version they accepted}
+
+\pageclaim{One work on six rescued laptops\ddash one laptop per surround
+channel\ddash and an ecological claim made structurally rather than
+rhetorically}
+
+\section{The work and the two public events}
+A six-channel piece performed solo on six aging laptops — donated, thrifted,
+e-waste-bound — each revived into AC Native, each running notepat and voicing one
+discrete channel of the 5:1 Kalio surround. Roughly thirty minutes, the audience
+seated inside the field. Before it, open programming: anyone brings a laptop and
+boots it into AC Native, and a dead machine becomes an instrument in an hour.
+Then the concert, livestreamed.
+
+\section{How it answered the call}
+{\tighttable
+\begin{tabularx}{\linewidth}{L{1.55in} Y}
+\toprule
+\textbf{Old + new tech} & AC Native boots a modern creative-computing OS on old, discarded laptops. \\
+\textbf{Ecological responsibility} & ``The six instruments are revived e-waste. \textbf{No new equipment is fabricated for the show} — the sustainability is structural, not a statement.'' \\
+\textbf{Localized networks} & Six laptops synced over the studio's own local network — ``no internet, no cloud.'' \\
+\textbf{Human connection} & Audience inside the field; the open session hands the method back to the room. \\
+\bottomrule
+\end{tabularx}}
+
+\section{What was also promised}
+The multitrack and the AC Native image released open-source, so the method
+travels past the residency.
+
+% ─────────────────────────────────────────── now (same sheet as submitted)
+\midtitle{What is prepared now}{AC PRESENTS 2 NEW PIECES\dsep titles set 11 August 2026}
+
+\pageclaim{Two works and nine laptops\ddash half the program is hardware
+bought new and a second instrument enters that the application never named}
+
+\section{The two works}
+\textbf{AC OS Special Sign.} The six salvaged laptops remain on AC Native, but
+the piece is now the expanded live version of \emph{Special Sign} — a spatial
+composition for twelve moving sound bodies, grown from a fixed 1:41 recording.
+The field rotates, changes speed, and hands voices between machines.
+
+\textbf{The MacNeoPolitan Trio.} New. Three MacBook Neos — indigo, citrus,
+blush — each played through Menu Band, the menu-bar piano. It runs Menu Band, a
+shipping universal macOS app: AC Native is x86\_64 UEFI only and cannot boot on
+Apple Silicon, and no copy should ever claim otherwise.
+
+\section{The offering and the billing}
+Roughly forty minutes across the two works with a guest slot between them, then a
+conversation. The participation session is now the \textbf{Menu Band Jam} — bring
+a Mac, install Menu Band — with the AC Native USB boot offered as an alternative.
+Billed \textbf{AC PRESENTS 2 NEW PIECES}, replacing the
+\emph{Whistlegraph presents} line of 9 August.
+
+\credit{Sources: \texttt{CultureHub-LA-2026-Submitted-Application.pdf} for the
+left half; \texttt{ARTIST-PAGE.md}, \texttt{EVENT-PAGE.md} and \texttt{README.md}
+for the right. \texttt{PROPOSAL.md} and \texttt{DRAFT.md} are an earlier,
+never-submitted pitch — \emph{The Score Is the Software} / \emph{REPL} — and are
+not the record. Billing and titles set by Jeffrey on 11 August.}
+
+% ─────────────────────────────────────────── the delta
+\clearpage
+\packettitle{The five changes}{what CultureHub graded\dsep what they would now receive}
+
+\pageclaim{Four of these are presentational\ddash the ecological answer is
+the one that reverses a claim the jury read}
+
+{\tighttable
+\begin{tabularx}{\linewidth}{L{0.92in} Y Y}
+\toprule
+& \textbf{Submitted 21 May} & \textbf{Prepared 9 August} \\
+\midrule
+\textbf{Work} &
+\emph{Notepat Jam}, one work, ${\sim}$30 minutes &
+A set list — two works plus a guest slot; neither work is called \emph{Notepat Jam} \\
+\textbf{Hardware} &
+Six salvaged laptops. ``No new equipment is fabricated for the show.'' &
+Nine laptops: six salvaged, three MacBook Neos bought new \\
+\textbf{Instrument} &
+notepat, on AC Native, on all six machines &
+notepat/AC Native for one work; Menu Band on macOS for the other \\
+\textbf{Workshop} &
+Bring \emph{any} laptop, boot AC Native, leave with an instrument &
+Menu Band Jam — requires a Mac; AC Native boot demoted to an alternative \\
+\textbf{Network} &
+Six machines on the studio LAN, ``no internet, no cloud'' &
+NTP clock sync, and guest Wi-Fi requested for the workshop \\
+\bottomrule
+\end{tabularx}}
+
+\section{Two submitted promises are currently unaddressed}
+\begin{itemize}
+\item The livestream, which the application stated flatly, is now written as
+``requested; platform and archive status TBD.''
+\item The open-source release of the multitrack and the AC Native image appears
+nowhere in the acceptance packet.
+\end{itemize}
+
+\section{The ecological answer needs a decision rather than a repair}
+The submitted text made ecology structural: nothing new is built for this show.
+Half the new program is bought-new hardware. \texttt{ARTIST-PAGE.md} already
+answers this deliberately — the two works are ``the same instrument on opposite
+ends of a computer's life'' — which is a strong reading. It is still a revision
+of an answer that was graded, and it is better said than discovered.
+
+\section{The public page still shows the old program}
+\texttt{system/public/culture-hub-2026/} reads \emph{Notepat Jam · submitted} and
+now contradicts the program. The embargo forbids publishing the new one before
+CultureHub's late-August announcement, so this needs a plan, not a push.
+
+% ─────────────────────────────────────────── today
+\clearpage
+\packettitle{What is actually due today}{artist-page form\dsep 11 August 2026}
+
+\pageclaim{A seven-field Google Form with no project image requested\ddash so
+the decision lands entirely inside a 50\dto100 word quotation}
+
+{\tighttable
+\begin{tabularx}{\linewidth}{L{1.62in} Y}
+\toprule
+Name & Jeffrey Alan Scudder \\
+Bio & Third person, 50–100 words. Current draft: 90 words. \\
+Artist statement & \textbf{First person, 50–100 words, printed as a quotation credited to the artist.} Current draft: 143 words — over cap. \\
+Links & Website and social media \\
+Headshot & Presented 3:2. Chosen file is 1800×1200 — no crop needed. \\
+Photo credit & Courtesy of Jeffrey Alan Scudder \\
+Alt text & Written and ready \\
+\bottomrule
+\end{tabularx}}
+
+\credit{Headshot: \texttt{…-headshot-3x2-green-laptop.jpg}, chosen over the
+plain blue-background portrait because it shows him playing a computer rather
+than posing beside one. Courtesy of Jeffrey Alan Scudder.}
+
+% ─────────────────────────────────────────── the statement (same sheet)
+\midtitle{The statement}{the one field where the change is visible\dsep pick one}
+
+\pageclaim{Both fit the cap\ddash the question is only whether the second work
+is named in CultureHub's announcement}
+
+\section{A\ddash recommended\dsep both works with soft edges}
+\quoteblock{At CultureHub I'm presenting two works for laptop ensemble.
+\emph{AC OS Special Sign} spreads a spatial composition across six salvaged
+laptops, each booted into AC Native, the operating system I make; from a live
+control surface I turn the whole sound field through the room. \emph{The
+MacNeoPolitan Trio} is newer and still taking shape — three MacBook Neos, each
+played through Menu Band, my menu-bar piano. One work runs on machines pulled
+back from e-waste, the other on machines bought new.}%
+{81 words. Names both works under the new titles. ``Still taking shape'' does real work:
+it earns the right to change the second half without contradicting a published
+quotation, which matters because the blush Neo is not bought yet. Sets up the
+salvaged-versus-new reading rather than leaving it to be noticed.}
+
+\section{B\ddash fallback\dsep the accepted spine only}
+\quoteblock{At CultureHub I'm turning six salvaged laptops into one instrument.
+Each boots into AC Native, the operating system I make, and takes a single
+channel of the studio's surround system, so the audience sits inside the sound
+rather than facing it. From a live control surface I rotate the whole field
+through the room, change its speed, and move voices between machines. The
+instruments are rescued, not bought — I want a computer to hold an instrument
+the way it holds a clock.}%
+{83 words. Holds the spine they accepted and keeps the ecological answer
+intact. Names no work title at all, so the second half can arrive later. Kept
+here only as a retreat: it hides a decision already made, and the set list would
+then contradict the artist page.}
+
+At this length neither statement can explain the change. That belongs in a short
+separate note to Mattie, or nowhere.
+
+% ─────────────────────────────────────────── open
+\clearpage
+\packettitle{Open items}{ranked by how soon they bite}
+
+\pageclaim{One of these has been sitting for six days and was mistakenly
+logged as waiting on CultureHub}
+
+\section{The corrected LOA is unsigned}
+\statushold{ACTION — SIX DAYS OPEN}\par
+CultureHub sent a corrected LOA on \textbf{5 August}, and the August 3 reply
+had offered to re-sign immediately. It has not been signed or returned, and
+\texttt{README.md} still lists this as awaiting \emph{them}. Clear it alongside
+the form.
+
+\section{Who is the guest on the bill?}
+\statushold{ACTION — NEEDED BEFORE ANY PUBLIC LISTING}\par
+The set list holds a third slot for one invited performer, and nobody has been
+named or asked. A guest changes the running time, the rider, whether a fee is
+owed out of the \$2,000 stipend, and the credit line CultureHub publishes — so it
+stays \emph{to be confirmed}, and nothing public should imply a guest until
+someone accepts.
+
+\section{The third MacBook Neo is not purchased}
+\statushold{HEDGED, NOT BLOCKING}\par
+Blush, indigo and citrus are Apple's own colour names. Do not describe the blush
+finish more specifically until the machine is in hand. Statement A calls the trio
+``still taking shape,'' which is what makes naming it now safe.
+
+\section{Two files to know about, neither due today}
+{\tighttable
+\begin{tabularx}{\linewidth}{L{1.62in} Y}
+\toprule
+\textbf{Program image} & \texttt{macneopolitan/gens/program.png} (1536×1024) is gone. Only the 900×600 \texttt{brief/media/mn-program.jpg} survives — the image on this cover and the broadside. Regenerate from \texttt{program.illy.txt} before any poster send. \\
+\textbf{\texttt{artist-page-packet.pdf}} & Stale: single-work statement, bio without Menu Band, blue-background headshot, old project image. Today is a form, so nothing needs regenerating — but do not attach this file to anything. \\
+\bottomrule
+\end{tabularx}}
+
+\textbf{Still awaiting CultureHub:} confirmation of the proposed
+public-programme dates and times, the technical contact, and the equipment
+inventory. The working technical deadline is \textbf{16 August}, one month out.
+
+\palsfooter
+\credit{Internal decision brief · prepared 11 August 2026 · sources:
+submitted application PDF, the August 3 and August 5 residency emails, and the
+acceptance packet.}
+
+\end{document}

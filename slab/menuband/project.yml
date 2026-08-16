@@ -107,6 +107,11 @@ targets:
       # via SWIFT_INCLUDE_PATHS / HEADER_SEARCH_PATHS below (see settings).
       - path: Sources/CGMSynth/gm_synth.c
 
+      # The Fluoddity voice C core (scanned-swarm ecosystem synth).
+      # MenuBandFluoddityVoice.swift does `import CFluoddity`; same
+      # module-map arrangement as CGMSynth (see settings below).
+      - path: Sources/CFluoddity/fluoddity_voice.c
+
     dependencies:
       - package: ACMacAudio
         product: ACMacAudio
@@ -144,8 +149,8 @@ targets:
         # header live in Sources/CGMSynth/include. SWIFT_INCLUDE_PATHS lets the
         # Swift side find the module; HEADER_SEARCH_PATHS lets gm_synth.c find
         # its own "gm_synth.h".
-        SWIFT_INCLUDE_PATHS: $(SRCROOT)/Sources/CGMSynth/include
-        HEADER_SEARCH_PATHS: $(SRCROOT)/Sources/CGMSynth/include
+        SWIFT_INCLUDE_PATHS: $(SRCROOT)/Sources/CGMSynth/include $(SRCROOT)/Sources/CFluoddity/include
+        HEADER_SEARCH_PATHS: $(SRCROOT)/Sources/CGMSynth/include $(SRCROOT)/Sources/CFluoddity/include
 
     postBuildScripts:
       # Index the copied Help book so Help Viewer search works. We index the

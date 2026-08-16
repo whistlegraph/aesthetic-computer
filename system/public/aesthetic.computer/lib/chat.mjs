@@ -141,6 +141,24 @@ export class Chat {
           }
         }
 
+        if (type === "message:edit") {
+          const editData = JSON.parse(content);
+          if (logs.chat) console.log("💬 Chat message edited:", editData);
+          const msg = this.system.messages.find((m) => m.id === editData.id);
+          if (msg) {
+            msg.text = editData.text;
+            msg.edited = true;
+            msg.editedWhen = editData.editedWhen;
+            delete msg.redactedText;
+            // Stale per-message paint caches would keep drawing the old text.
+            delete msg._colorLineCache;
+            delete msg._colorLineHoverKey;
+            delete msg._cachedLastLineWidth;
+            extra.layoutChanged = true;
+          }
+          content = editData;
+        }
+
         if (type === "message:delete") {
           const deleteData = JSON.parse(content);
           if (logs.chat) console.log("💬 Chat message deleted:", deleteData);

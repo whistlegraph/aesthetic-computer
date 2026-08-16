@@ -54,7 +54,7 @@ export function fileFor(pathname) {
 //   "proxy" — GET reaches production so a recorded round can be played back.
 //             POST is still swallowed.
 export async function serveShell({ replays = "stub", log = () => {},
-  port = 0, host = "127.0.0.1" } = {}) {
+  port = 0, host = "127.0.0.1", onDemo = null } = {}) {
   let posts = 0;
   // Every round the game finishes POSTs its demo here. The factory reads
   // those to know when a *match* is over — `finalRoundWins` reaching the
@@ -87,6 +87,10 @@ export async function serveShell({ replays = "stub", log = () => {},
             roundIndex: demo.roundIndex ?? 0, winner: demo.winner ?? null,
             finalRoundWins: demo.finalRoundWins || [0, 0],
             durationTicks: demo.durationTicks ?? 0 });
+          // The farm's tap: a standing host hands each complete demo to its
+          // own sink (a JSONL on disk) so bot fights become a dataset instead
+          // of vanishing with the tab that played them.
+          onDemo?.(demo);
         } catch {}
         response.writeHead(201, { "content-type": "application/json" });
         response.end(JSON.stringify({ ok: true, stored: false, sink: true }));
