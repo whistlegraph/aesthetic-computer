@@ -173,6 +173,19 @@ public final class ACAudioRoomSender: @unchecked Sendable {
         }
         lastAudioNanos = now
 
+        // Insurance against pacing bugs (a wrong input rate, device quirks):
+        // if the presentation clock drifts more than a second from
+        // wall-clock + latency, resync with a fresh session rather than
+        // keep scheduling audio for a time that never comes.
+        let target = now + configuration.latencyMilliseconds * 1_000_000
+        let drift = Int64(bitPattern: nextPresentationNanos &- target)
+        if abs(drift) > 1_000_000_000 {
+            log(String(format: "presentation clock drifted %+.1f s — resyncing", Double(drift) / 1e9))
+            session = UInt32.random(in: 1...UInt32.max)
+            sequence = 0
+            nextPresentationNanos = target
+        }
+
         var offset = 0
         let total = Int(output.frameLength)
         while offset < total {

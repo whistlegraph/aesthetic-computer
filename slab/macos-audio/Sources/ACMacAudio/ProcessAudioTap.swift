@@ -77,6 +77,24 @@ public final class ACProcessAudioTap: @unchecked Sendable {
             ]
             status = AudioHardwareCreateAggregateDevice(aggregateDescription as CFDictionary, &aggregateID)
             guard status == noErr else { throw ACAudioRoomError.coreAudio("Create tap aggregate", status) }
+            // The IOProc runs on the AGGREGATE's clock (its main subdevice is
+            // the current output device) and drift compensation delivers the
+            // tap's samples AT THAT RATE. On a 96 kHz interface, a tap that
+            // claims 48 kHz would otherwise have its buffers wrapped and
+            // paced as 48 kHz: audio at the wrong pitch and a presentation
+            // clock racing 2× real time, so receivers chase chunks scheduled
+            // for a future that never arrives. Trust the aggregate's rate.
+            if let aggregateRate = try? Self.read(aggregateID,
+                                                  selector: kAudioDevicePropertyNominalSampleRate,
+                                                  defaultValue: Double(0)),
+               aggregateRate > 0, abs(aggregateRate - format.sampleRate) > 1 {
+                var corrected = stream
+                corrected.mSampleRate = aggregateRate
+                if let correctedFormat = AVAudioFormat(streamDescription: &corrected) {
+                    self.format = correctedFormat
+                    onLog?("tap delivers at aggregate rate \(Int(aggregateRate)) Hz (tap claimed \(Int(format.sampleRate)))")
+                }
+            }
             self.handler = handler
             status = AudioDeviceCreateIOProcIDWithBlock(&ioProcID, aggregateID, queue) {
                 [weak self] _, inputData, _, _, _ in
