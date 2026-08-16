@@ -26,16 +26,18 @@ private func emit(_ line: String) {
 
 // Room-guest beacon: a receiver announces itself to the LOCAL Menu Band so
 // its Juke disc can spin while this Mac carries a channel of another Mac's
-// room. Globals because the atexit/signal paths can't capture context.
-var roomGuestInfo: (host: String, channel: String)?
-func postRoomGuest(active: Bool) {
-    guard let info = roomGuestInfo else { return }
-    DistributedNotificationCenter.default().postNotificationName(
-        NSNotification.Name("computer.aestheticcomputer.menuband.roomGuest"),
-        object: nil,
-        userInfo: ["active": active ? "1" : "0",
-                   "host": info.host, "channel": info.channel],
-        deliverImmediately: true)
+// room. A FILE, not a distributed notification: receivers are usually
+// ssh-spawned, and distnoted does not reliably deliver from a login
+// session into the Aqua session. Menu Band polls the file's freshness.
+// Global because the atexit path can't capture context.
+let roomGuestBeacon = "/tmp/ac-room-guest.json"
+var roomGuestPayload: String?
+func writeRoomGuestBeacon() {
+    guard let payload = roomGuestPayload else { return }
+    try? payload.write(toFile: roomGuestBeacon, atomically: true, encoding: .utf8)
+}
+func clearRoomGuestBeacon() {
+    if roomGuestPayload != nil { unlink(roomGuestBeacon) }
 }
 
 let args = Array(CommandLine.arguments.dropFirst())
@@ -58,19 +60,21 @@ do {
         receiver.onLog = { emit("room receive · \($0)") }
         receiver.onStarved = {
             emit("room receive · sender lost — exiting")
-            postRoomGuest(active: false)
+            clearRoomGuestBeacon()
             exit(0)
         }
         try receiver.start()
-        // Announce to the local Menu Band: start, 30 s heartbeat (covers a
-        // SIGKILL that skips the goodbye), and a best-effort exit goodbye.
-        roomGuestInfo = (host.replacingOccurrences(of: ".local", with: ""),
-                         channel.name)
-        postRoomGuest(active: true)
-        atexit { postRoomGuest(active: false) }
+        // Announce to the local Menu Band: beacon on start, touched every
+        // 5 s (freshness = liveness, survives SIGKILL via staleness), and a
+        // best-effort unlink on exit.
+        let shortHost = host.replacingOccurrences(of: ".local", with: "")
+        roomGuestPayload =
+            "{\"host\": \"\(shortHost)\", \"channel\": \"\(channel.name)\", \"pid\": \(getpid())}"
+        writeRoomGuestBeacon()
+        atexit { clearRoomGuestBeacon() }
         let heartbeat = DispatchSource.makeTimerSource()
-        heartbeat.schedule(deadline: .now() + 30, repeating: 30)
-        heartbeat.setEventHandler { postRoomGuest(active: true) }
+        heartbeat.schedule(deadline: .now() + 5, repeating: 5)
+        heartbeat.setEventHandler { writeRoomGuestBeacon() }
         heartbeat.resume()
         dispatchMain()
 

@@ -1394,16 +1394,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
 
 #if !MAC_APP_STORE
-        // A room-audio receiver on THIS Mac (the ac-audio-room CLI, spawned
-        // by another Mac's Juke) announces itself so the Juke disc spins
-        // while this machine carries a channel of someone else's room —
-        // the "part of the performance" light.
-        DistributedNotificationCenter.default().addObserver(
-            self,
-            selector: #selector(handleRoomGuestNotification(_:)),
-            name: NSNotification.Name("computer.aestheticcomputer.menuband.roomGuest"),
-            object: nil
-        )
+        // A room-audio receiver on THIS Mac (the ac-audio-room CLI, usually
+        // ssh-spawned by another Mac's Juke) heartbeats a beacon file —
+        // distnoted doesn't reliably cross from a login session into the
+        // Aqua session, so liveness is the file's freshness. While fresh,
+        // the Juke disc spins as the "part of the performance" light.
+        Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) {
+            [weak self] _ in self?.pollRoomGuestBeacon()
+        }
 #endif
 
         // Live engine: a conductible drone/arp/drum loop that runs
@@ -4312,37 +4310,40 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// rendering a channel of another Mac's room) rather than a real local
     /// Juke session — so we only ever hide what we ourselves showed.
     private var roomGuestShowing = false
-    private var roomGuestExpiry: Timer?
 
-    @objc private func handleRoomGuestNotification(_ note: Notification) {
-        let info = note.userInfo as? [String: String] ?? [:]
-        DispatchQueue.main.async { [weak self] in
-            guard let self, let item = self.jukeStatusItem else { return }
-            if info["active"] == "1" {
-                // Never cover a real Juke display with the guest badge.
-                guard self.roomGuestShowing || !item.isShowing else { return }
-                self.roomGuestShowing = true
-                let channel = info["channel"] ?? "guest"
-                let host = info["host"] ?? "room"
-                item.update(title: "room \(channel) ← \(host)", artist: "",
-                            disc: nil, playing: true)
-                // The receiver heartbeats every 30 s; three missed beats
-                // (SIGKILL, network gone) and the badge retires itself.
-                self.roomGuestExpiry?.invalidate()
-                self.roomGuestExpiry = Timer.scheduledTimer(
-                    withTimeInterval: 90, repeats: false
-                ) { [weak self] _ in
-                    guard let self, self.roomGuestShowing else { return }
-                    self.roomGuestShowing = false
-                    self.jukeStatusItem?.hide()
-                }
-            } else if self.roomGuestShowing {
-                self.roomGuestShowing = false
-                self.roomGuestExpiry?.invalidate()
-                self.roomGuestExpiry = nil
-                item.hide()
+    /// The ac-audio-room receiver touches /tmp/ac-room-guest.json every 5 s
+    /// while it renders; fresh file = this Mac is someone's channel. Stale
+    /// or missing (SIGKILL, network gone, room closed) and the badge
+    /// retires itself within a poll or two.
+    private func pollRoomGuestBeacon() {
+        let path = "/tmp/ac-room-guest.json"
+        let fm = FileManager.default
+        guard let attrs = try? fm.attributesOfItem(atPath: path),
+              let modified = attrs[.modificationDate] as? Date,
+              Date().timeIntervalSince(modified) < 12,
+              let data = fm.contents(atPath: path),
+              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            if roomGuestShowing {
+                roomGuestShowing = false
+                jukeStatusItem?.hide()
             }
+            return
         }
+        guard let item = jukeStatusItem else { return }
+        // Never cover a real Juke display with the guest badge.
+        guard roomGuestShowing || !item.isShowing else { return }
+        let channel = (obj["channel"] as? String ?? "guest").uppercased()
+        let host = obj["host"] as? String ?? "room"
+        if !roomGuestShowing {
+            roomGuestShowing = true
+            // One banner per engagement: which channel this Mac just became.
+            let banner = NSUserNotification()
+            banner.title = "Room audio engaged"
+            banner.informativeText = "This Mac is the \(channel) channel of \(host)'s room."
+            NSUserNotificationCenter.default.deliver(banner)
+        }
+        item.update(title: "room \(channel) ← \(host)", artist: "",
+                    disc: nil, playing: true)
     }
 #endif
 
