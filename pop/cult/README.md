@@ -13,7 +13,7 @@ Camille Klein and Alex Freundlich.
 
 > dash — i wanna — dash — i wanna — run it fast — dot dot
 
-There are five versions in `out/`. **v5 is the current one.**
+There are six versions in `out/`. **v6 is the current one.**
 
 | cut | file | what it is |
 | --- | ---- | ---------- |
@@ -21,9 +21,256 @@ There are five versions in `out/`. **v5 is the current one.**
 | v2 | `out/cult-remix-v2.mp3` | 4:00, 120 BPM. Chill techno, and the words are sung. |
 | v3 | `out/cult-remix-v3.mp3` | Chorus-first: the dictated four-line chorus as the spine. |
 | v4 | `out/cult-remix-v4.mp3` | v2 re-scored — "run REAL fast", a harmonised "cult". 0:50 cut. |
-| **v5** | **`out/cult-remix-v5.mp3`** | **4:03. The whole record given a narrative, in ten acts.** |
-| | `out/cult-remix-v5-50s.mp3` | 0:48 → 1:38 — act III into the turn. |
-| | `out/cult-remix-v5-extended.mp3` | 0:48 → 3:28 — acts III through VII. |
+| v5 | `out/cult-remix-v5.mp3` | 4:03. The whole record given a narrative, in ten acts. |
+| **v6** | **`out/cult-remix-v6.mp3`** | **4:03. v5's ten acts, with the polyrhythms rising as the voices sink and stair-step.** |
+| | `out/cult-remix-v6-50s.mp3` | 0:48 → 1:38 — act III into the turn. |
+| | `out/cult-remix-v6-extended.mp3` | 0:48 → 3:28 — acts III through VII. |
+
+---
+
+# v6 — "the descent"
+
+@jeffrey heard v5 ("way better") and asked for three things:
+
+> 1. as the track progresses can we bring up the polyrhythms a bit
+> 2. and also bring down the vocals / so daaaaash daaaash gets lower in octaves
+> 3. and can we like quantize it more like "bad" autotune it / eiffel 65 style
+
+The acts, the narrative, the kick, the tube pump, the signal layer and the
+skids are all v5's and are unchanged. What v6 adds is that the three notes
+above are **one move seen from either side**: over four minutes the voices
+recede — quieter *and* literally lower, F#4 down to D3 — and the
+cross-rhythms rise into the room they vacate. It is a deliberate crossfade
+of attention. By act VII the lead is a stair-stepped machine near the bottom
+of its range and the thing carrying the record is five rhythms interlocking
+over one 4/4 kick.
+
+`bin/render5.mjs` and `bin/cut-v5.sh` are untouched; v6 lives in
+`bin/render6.mjs`, `bin/cut-v6.sh` and `bin/sing6.mjs`.
+
+## 1. The polyrhythm arc
+
+`polyAmt(bar)` is a single piecewise-linear 0→1 curve across the 120 bars.
+Five cross-rhythm layers switch themselves on as it crosses their own
+thresholds — nothing is scored per act; **the arc is the score**.
+
+| layer | period | enters at | made of |
+| ----- | ------ | --------- | ------- |
+| **L1 · 3:4** | 4⁄3 beat (0.667 s) | act II, one tick | clicks; a closed hat from `a ≥ 0.36`; a ride from `a ≥ 0.66`; **woodTaps** wherever the machines are off |
+| **L2 · dotted eighth (3:16)** | 0.375 s | act III | taps — 5⅓ per bar, so the figure only re-meets the downbeat every **three bars** |
+| **L3 · 5:4** | 4⁄5 beat (0.4 s) | act V | clicks; every other bar until act VII, then every bar |
+| **L4 · 7:16** | 0.875 s | act VI | DTMF off the same C-U-L-T keypad, plus a bop — takes **seven bars** to come back round |
+| **L5 · the interlock skid** | on the 3:4 grid | act VII | the TrackDrum friction voice, snare/rim band, cutoff 1900→1000, carrier 239→149 |
+
+L2 and L4 are counted from **t = 0**, not from the downbeat. That is the
+whole point of them, and it is why the figure lands somewhere new every bar.
+
+The arc, act by act:
+
+| act | `polyAmt` | hits/bar | what it is |
+| --- | --------- | -------- | ---------- |
+| I · carrier | — | 0 | nothing. A channel opening has no pulse, and the rise only reads as a rise if it starts from actual silence. |
+| II · three voices | 0.10 → 0.12 | 1.9 | one 3:4 tick a bar, so the ear files it as colour |
+| III · the message | 0.28 → 0.34 | 7.0 | 3:4 every bar, and the dotted eighth begins to precess |
+| IV · the secret | 0.16 | 0.1 + woodTaps | the transmission has stopped: **3:4 in woodTaps only**, no beeps |
+| V · the reply | 0.40 → 0.52 | 13.3 | 5:4 enters; 3:4 picks up a hat |
+| VI · it spreads | 0.62 → 0.68 | 15.0 | the 7:16 phone figure joins |
+| VII · the whole message | 0.78 → **0.92** | 17.3 | **all five, interlocking**, plus the skid on the 3:4 grid |
+| VIII · recognition | 0.80 → 0.55 | 12.9 | the polyrhythms are the **last** thing to peel off, because by now they are what you are listening to |
+| IX · the humans | 0.18 | 0.1 + woodTaps | under the raw recording, a hand keeping 3:4 and nothing else |
+| X · carrier off | 0.30 → 0 | 2.6 | the beeps outlast the music, as v5's did |
+
+**Why it stays chill techno.** The kick never leaves 4/4 and the hats never
+leave straight eighths. A polyrhythm is hypnotic when the pulse is
+unambiguous and the pattern disagrees with it; it becomes chaos when the
+pulse itself is negotiable. So the 4/4 grid is never touched and the
+disagreement lives entirely in voices small enough to be texture. No drops,
+no risers, no crashes — v5's rule, unchanged.
+
+**The levels were set by measurement, not taste.** The first pass sat 25 dB
+under the bed (poly-only signal stem at −46 dBFS RMS against music at
+−16.8) and simply was not a cross-rhythm you could follow. The shipped
+levels put the layer where the record's *existing* phone voices already
+live — the narrative clicks run 0.44–0.70, the taps 0.38–0.68, the dials
+0.46 — so the polyrhythm is as present as the phone and no more:
+
+| act | poly-only signal stem, RMS | full signal stem | music stem |
+| --- | ------------------------- | ---------------- | ---------- |
+| II | −55.1 dB | −42.4 | −21.0 |
+| III | −39.9 | −36.4 | −16.8 |
+| V | −37.4 | −27.6 | −16.6 |
+| VI | −35.5 | −28.8 | −16.7 |
+| VII | **−33.0** | −27.5 | −16.6 |
+| VIII | −37.1 | −34.5 | −18.1 |
+
+RMS under-reads a 4 ms click badly, so the honest companion figure is peak:
+in act VII the poly-only signal stem **peaks at −1.6 dBFS**, against the
+drums stem's −2.1. Per transient it is fully present; per second it is
+texture. That is the definition of a tick layer.
+
+Debug: `MUTE=poly3,poly5,polydot node pop/cult/bin/render6.mjs` subtracts
+the whole arc; `ONLY=poly3` renders one layer alone. (v6 also added the
+`allow()` gate to `noiseHit`, which was the one voice family `MUTE=` could
+not previously reach.)
+
+## 2. The descent
+
+Two separate moves under one note.
+
+**The ladder.** Every dash in the score names a *rung* — `fs4`, `d4`, `b3` —
+and `rung()` walks that name down by however many steps the narrative has
+taken by this bar. The same written figure sinks an octave and a fourth
+between act III and act VIII without a single note being rewritten.
+
+| stage | from | `fs4` → | `d4` → | `b3` → |
+| ----- | ---- | ------- | ------ | ------ |
+| 0 | bar 0 (acts I–IV) | fs4 | d4 | b3 |
+| 1 | bar 48 (act V) | d4 | b3 | fs3 |
+| 2 | bar 64 (acts VI, VII/1) | b3 | fs3 | d3 |
+| 3 | bar 84 (acts VII/2–X) | fs3 | d3 | d3 |
+
+The rungs below B3 are **real lower takes** of Camille and Alex, rendered
+by `bin/sing6.mjs` — not the same take pitched down. A transposed voice
+keeps the formants of the octave above it and reads as a machine, and the
+machine in this record is supposed to be the autotune, not the descent.
+Jeffrey already had the floor of the ladder from v5.
+
+**The ride.** `VOXG` drops 1.42 → 1.22 and `TUBEG` 1.00 → 0.92 (a static
+−1.3 dB and −0.7 dB), and on top of that both vocal buses ride a
+piecewise-linear curve:
+
+| bar | 0 | 24 | 48 | 64 | 76 | 88–96 | 104 | 120 |
+| --- | - | -- | -- | -- | -- | ----- | --- | --- |
+| gain | 1.00 | 1.00 | 0.94 | 0.90 | 0.86 | **0.83** | 0.96 | 0.90 |
+| dB | 0 | 0 | −0.5 | −0.9 | −1.3 | **−1.6** | −0.4 | −0.9 |
+
+It bottoms exactly where `polyAmt` peaks, and comes back up for act IX
+because the humans are the reveal of the whole record and must not arrive
+shy. The steepest segment moves 0.08 over 12 bars — 0.3 dB every 8 seconds
+— so there is no step anywhere in it, and the side return is scaled by the
+same curve so the space recedes with the voice rather than outliving it.
+
+The tube bus deliberately takes **less** static trim than the vox bus: a
+held dash that is also descending into the pad's register has already lost
+presence before anything touches its fader. Measured on the act VII
+"a—waaaay" window, `TUBEG` 0.86 put it 2.6 dB under the bed; 0.92 keeps it
+where a lead belongs and still reads as quieter than v5.
+
+## 3. Hard autotune — the Eiffel 65 stair-step
+
+`bin/sing.py` grew a real DSP mode, `--autotune hard`. It is not a preset
+name; it is the three settings that make "Blue" sound like "Blue", each
+pushed to its stop.
+
+1. **Snap.** Every frame's target is forced onto the nearest member of a
+   scale (B natural minor: B C# D E F# G A). Nothing lands between scale
+   degrees, ever, so the pitch alphabet is seven letters wide.
+2. **Zero retune time.** No portamento, no legato kernel, no overshoot, no
+   preparation, no vibrato — the four Saitou expression effects that
+   `target_contour()` exists to add are all skipped. The target jumps from
+   one scale tone to the next **inside a single 5 ms WORLD frame**, and
+   that discontinuity is the artifact you hear.
+3. **Rhythmic quantization.** Frames are bucketed onto a note grid
+   (125 ms = a sixteenth at 120 BPM; 62.5 ms for the short syllables) and
+   each bucket is held at ONE pitch, the median of its own contour, so the
+   steps land *in time with the record* rather than wherever the syllable
+   happened to move.
+
+What gets stepped is the **performance's own pitch wander**, not a
+sequenced melody: the source f0 is read along the same warp as the spectral
+envelope, high-passed against its own ~350 ms moving average (keeping the
+micro-wander, dropping the slow glide that is the melody's job), scaled by
+`--autotune-drive`, clamped by `--autotune-range`, and added to the scored
+note. That is why it reads as a *retune of a real take*.
+
+**Formants are never touched.** `cheaptrick`'s envelope goes into
+`pw.synthesize()` unmodified, so it is retuned, not chipmunked, and the
+words stay legible — which was the condition on the ask.
+
+Two failure modes were found by measurement and fixed:
+
+| symptom | cause | fix |
+| ------- | ----- | --- |
+| "run real fast" landing on **A3** instead of D4 | the whole slow pitch fall of a spoken word was being fed to the snapper | high-pass the contour against its own moving average (`--autotune-smooth-ms`) |
+| "i wanna" jumping a **fifth** off the note | a 0.20 s syllable spans 1½ cells at 1/16, so one cell's median decided the whole word | finer grid (1/32) for short words **and** a leash (`--autotune-range`, 2–4 semitones) applied before the snap |
+
+Measured on `run-real-fast` at drive 3.2, pyin reports the notes at
+**+8¢ / +13¢ / −2¢** — the melody is intact — while the frame-by-frame
+contour steps F♯4 → G4 → F♯4 → G4 → F♯4 → G4 → D4 → C♯4 → D4 → C♯4 → D4,
+every step landing on a 125 ms boundary. That is the sound.
+
+`bin/sing6.mjs` renders the `at-` bank: the hook and chorus leads, and
+Camille's and Alex's dashes at every rung of the descent. **Jeffrey and the
+dots stay human** — he is the floor of the unison and the sub-octave under
+it, a stair-stepped bass warbles, and leaving one real person under the
+robot is what stops the stack reading as a synth. The crossover wiggle also
+halves where the autotune is on, because hand vibrato under a hard retune
+is two pitch modulators fighting and the retune wins anyway.
+
+`AUTOTUNE=0 node pop/cult/bin/render6.mjs` renders the whole record with
+the human takes throughout, which is the A/B to reach for if the robot is
+ever too much.
+
+## Run it — v6
+
+```bash
+node pop/cult/bin/slice.mjs             # the sample bank (v1's, unchanged)
+node pop/cult/bin/sing.mjs              # v5's speech-to-singing bank (cached)
+node pop/cult/bin/sing6.mjs             # v6's descent + `at-` bank (cached; 26 renders)
+node pop/cult/bin/render6.mjs --stems   # score → out/cult-remix-v6-full.wav + bus stems
+bash pop/cult/bin/cut-v6.sh             # master once → full + 0:50 + 2:40 mp3s
+node pop/cult/bin/qc.mjs pop/cult/out/cult-remix-v6.mp3
+```
+
+`cut-v6.sh` is `cut-v5.sh`'s method exactly: measure the render **once**,
+apply **one static dB of gain**, limit. Never a second `loudnorm` pass.
+
+## Measured — v6
+
+| check | full | 0:50 cut | 2:40 cut |
+| ----- | ---- | -------- | -------- |
+| duration | 243.2 s | 50.0 s | 160.0 s |
+| integrated loudness | **−14.0 LUFS** | −12.5 | −13.3 |
+| true peak | **−1.3 dBFS** | −1.7 | −1.6 |
+| loudness range | 8.2 LU | 3.1 | 3.2 |
+| max raw sample step | 0.520 | 0.357 | 0.514 |
+| max 2 kHz-band step | **0.135** | 0.112 | 0.133 |
+| full-scale runs ≥ 3 samples | **0** | 0 | 0 |
+| mono fold-down, whole track | **−0.11 dB** | −0.19 | −0.10 |
+| mono fold-down, worst window | −0.86 dB | −0.68 | −0.68 |
+
+The raw-step figure is up on v5's 0.365 for the same reason v5's was up on
+v4's: **there are more clicks in it on purpose** — about a thousand more.
+Muting the three polyrhythm layers drops the count of steps > 0.35 from
+27 to 11, which identifies them as the click voices themselves. The 2 kHz-band
+step is what actually distinguishes a discontinuity from a fast transient
+(a real signal in that band cannot move more than ~0.26 per sample), and it
+is **0.135 against v5's 0.117** — the same order, nowhere near the bound.
+No discontinuities were introduced.
+
+Bus balance, from `--stems` (this is the check every earlier version failed
+at least once, and v6 is the version where it needed the most care, because
+the vocals are being pulled down **on purpose**):
+
+| bus | v5 | v6 | Δ |
+| --- | -- | -- | - |
+| vox (sung words, dots, choir, grains) | −13.9 | **−15.9** | −2.0 |
+| tube (the held dashes) | −16.5 | **−18.2** | −1.7 |
+| drums (kick, hats, perc, skids, poly hats/ride) | −15.9 | −16.0 | — |
+| music (bed, pad, stabs, bass, delay) | −17.5 | −17.5 | — |
+| signal (beeps, bops, clicks, taps, poly ticks) | −25.4 | −25.6 | — |
+
+Whole-file integrated loudness hides what matters, so the check that
+actually answers "is the lead still proud of the bed" is measured **on the
+phrase**, over the 2.4 s a lead line occupies:
+
+| window | v5 vox | v6 vox | music | v6 lead over bed |
+| ------ | ------ | ------ | ----- | ---------------- |
+| "run real fast", act III (0:52) | −12.3 | −13.8 | −16.5 | **+2.6 dB** |
+| "run real fast", act VII (2:32) | −10.8 | −14.3 | −16.4 | **+2.1 dB** |
+
+Two dB rather than v5's four-to-five. That is the ask, and it is still the
+loudest thing in the window.
 
 ---
 
@@ -487,6 +734,9 @@ Different windows: `START=80 DUR=40 SUFFIX=-secret bash pop/cult/bin/cut-v5.sh`.
 
 `bin/render.mjs` (v1), `bin/render2.mjs` (v2), `bin/render3.mjs` (v3) and
 `bin/render4.mjs` (v4) all still build their own outputs and are untouched.
+
+
+---
 
 ## Measured — v5
 

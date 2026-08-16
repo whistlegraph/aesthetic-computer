@@ -32,6 +32,9 @@ cheaptrick runs with an f0_floor tuned per source (§2, kills held-note
 ring), unvoiced regions come from the source (§6), and verification uses
 librosa.pyin rather than naive autocorrelation (§1).
 
+v6 adds --autotune hard: an Eiffel-65 "Blue" retune. See the
+`hard_autotune_contour` docstring for the DSP.
+
   sing.py in.wav out.wav --notes "B3:0.35,D4:1.20" [--vibrato-cents 35] ...
 
 --notes is `NOTE:seconds` pairs. The output is exactly the sum of those
@@ -191,6 +194,120 @@ def target_contour(notes, durs, n_out, args):
     return 2.0 ** (log_t + cent / 1200.0)
 
 
+# ── (v6) HARD AUTOTUNE — the Eiffel 65 "Blue" stair-step ──────────────
+# @jeffrey: "can we like quantize it more like 'bad' autotune it / eiffel 65
+# style". That sound is not a preset, it is three settings pushed to their
+# stop, and all three are implemented here rather than named:
+#
+#   1. SNAP. Every frame's target pitch is forced onto the nearest member of
+#      a scale (B natural minor here). Nothing lands between scale degrees,
+#      ever, so the pitch alphabet is seven letters wide.
+#   2. ZERO RETUNE TIME. There is no portamento, no legato kernel, no
+#      overshoot, no preparation and no vibrato. The target jumps from one
+#      scale tone to the next inside a single 5 ms WORLD frame, which is the
+#      discontinuity you hear as the artifact. (Smooth mode convolves the
+#      target with a Hann kernel; hard mode deliberately does not.)
+#   3. RHYTHMIC QUANTIZATION. The frames are bucketed onto a note grid
+#      (default 125 ms = a sixteenth at 120 BPM) and each bucket is held at
+#      ONE pitch — the median of its own contour — so the steps land in time
+#      with the record instead of wherever the syllable happened to move.
+#
+# The material that gets stepped is the PERFORMANCE's own pitch wander: the
+# source f0, measured relative to its own median, scaled by --autotune-drive
+# and added to the scored note. That is what makes it read as a retune of a
+# real take rather than as a sequenced melody — a spoken "dash" whose pitch
+# falls a tone across the vowel comes back as two audible steps down.
+#
+# Formants are never touched: cheaptrick's envelope goes into synthesize()
+# unmodified, so this is retuned, not chipmunked, and the words stay legible.
+SCALES = {
+    # pitch classes, C = 0
+    "b-minor": [11, 1, 2, 4, 6, 7, 9],          # B C# D E F# G A
+    "b-minor-pentatonic": [11, 2, 4, 6, 9],
+    "b-minor-triad": [11, 2, 6],                # chord tones only — coarsest
+    "chromatic": list(range(12)),
+}
+
+
+def snap_to_scale(midi, pcs):
+    """Nearest member of `pcs` in any octave. Vectorised, no hysteresis —
+    hysteresis is what STOPS the stepping, and here the stepping is the
+    point; the grid median below is what keeps it from trilling."""
+    cand = np.array(pcs, float)
+    out = np.empty_like(midi)
+    for i, m in enumerate(np.atleast_1d(midi)):
+        oct_base = 12 * np.floor(m / 12.0)
+        opts = np.concatenate([cand + oct_base - 12, cand + oct_base,
+                               cand + oct_base + 12])
+        out[i] = opts[np.argmin(np.abs(opts - m))]
+    return out
+
+
+def hard_autotune_contour(notes, durs, n_out, src_log2, args):
+    """Stepped target f0 in Hz. See the block comment above."""
+    fp = FRAME_MS / 1000.0
+    bounds = np.concatenate([[0.0], np.cumsum(durs)])
+    idx = (bounds / fp).round().astype(int).clip(0, n_out)
+    idx[-1] = n_out
+
+    # the score, as a hard staircase — no legato kernel anywhere
+    midis = np.array([note_to_midi(n) for n in notes], float)
+    base = np.zeros(n_out)
+    for k in range(len(notes)):
+        base[idx[k]:idx[k + 1]] = midis[k]
+    if idx[0] > 0:
+        base[:idx[0]] = midis[0]
+
+    # The performance's own wander — but only its FAST part. A spoken word
+    # falls several semitones from start to end; feeding that whole slope to
+    # the snapper walks the melody off the score (measured: "run real fast"
+    # landing on A3 instead of D4). So the contour is high-passed against its
+    # own ~350 ms moving average: the slow glide, which is the melody's job,
+    # is dropped, and the micro-wander that survives is what tips frames
+    # across scale boundaries and makes the staircase.
+    if src_log2 is not None and np.isfinite(src_log2).any():
+        w = max(3, int(round(args.autotune_smooth_ms / FRAME_MS)) | 1)
+        ker = np.hanning(w); ker /= ker.sum()
+        pad = np.pad(np.nan_to_num(src_log2, nan=np.nanmedian(src_log2)),
+                     (w // 2, w // 2), mode="edge")
+        slow = np.convolve(pad, ker, mode="valid")[:n_out]
+        dev = 12.0 * (np.nan_to_num(src_log2) - slow)
+        dev = np.clip(dev, -args.autotune_wander, args.autotune_wander)
+        dev *= args.autotune_drive
+    else:
+        dev = np.zeros(n_out)
+
+    # a breath of jitter BEFORE the snap, so frames sitting on a scale
+    # boundary tip across it — the digital trill that a real bad retune has
+    rng = np.random.default_rng(args.seed + 7)
+    j = rng.standard_normal(n_out)
+    kl = min(21, n_out if n_out % 2 else n_out - 1)
+    k = np.hanning(max(3, kl))
+    j = np.convolve(j, k / k.sum(), mode="same")[:n_out]
+    j /= (np.abs(j).max() + 1e-9)
+    cont = base + dev + j * (args.autotune_jitter_cents / 100.0)
+    # A leash on the steps. Without it a short syllable can hand one grid
+    # cell a wander peak and the snap lands a fifth off the written note
+    # (measured: "i wanna" going D4 → B3). The steps have to be obvious;
+    # they do not have to be wrong. Clamped to a third either side, every
+    # step is still a real in-scale leap and the word stays legible.
+    if args.autotune_range > 0:
+        cont = np.clip(cont, base - args.autotune_range, base + args.autotune_range)
+
+    # rhythmic quantization: one pitch per grid cell, held flat
+    step = max(1, int(round(args.autotune_grid_ms / FRAME_MS)))
+    pcs = SCALES.get(args.autotune_scale, SCALES["b-minor"])
+    out = np.empty(n_out)
+    for a in range(0, n_out, step):
+        b = min(n_out, a + step)
+        out[a:b] = snap_to_scale(np.array([np.median(cont[a:b])]), pcs)[0]
+
+    # retain < 1 walks it back toward the unquantized target; 1.0 = full snap
+    if args.autotune_retain < 1.0:
+        out = cont + args.autotune_retain * (out - cont)
+    return midi_to_hz(out)
+
+
 # ── singer's formant ──────────────────────────────────────────────────
 def singers_formant(sp, fs, fft_size, db, centre=2800.0, width=450.0):
     if db <= 0:
@@ -269,6 +386,26 @@ def main():
     p.add_argument("--deess", type=float, default=0.05)
     p.add_argument("--gain", type=float, default=0.92)
     p.add_argument("--seed", type=int, default=20220120)
+    p.add_argument("--autotune", choices=["off", "hard"], default="off",
+                   help="hard = Eiffel-65 stair-step retune (see SCALES)")
+    p.add_argument("--autotune-scale", default="b-minor", choices=sorted(SCALES))
+    p.add_argument("--autotune-grid-ms", type=float, default=125.0,
+                   help="rhythmic quantization cell; 125 = 1/16 at 120 BPM")
+    p.add_argument("--autotune-drive", type=float, default=2.6,
+                   help="how far the take's own pitch wander is exaggerated "
+                        "before it is snapped — more drive, more steps")
+    p.add_argument("--autotune-smooth-ms", type=float, default=350.0,
+                   help="window of the moving average the take's pitch is "
+                        "high-passed against before it is stepped")
+    p.add_argument("--autotune-wander", type=float, default=2.5,
+                   help="clamp on that wander, in semitones")
+    p.add_argument("--autotune-jitter-cents", type=float, default=26.0)
+    p.add_argument("--autotune-range", type=float, default=3.0,
+                   help="how far, in semitones, a step may land from the "
+                        "written note; 0 disables the leash")
+    p.add_argument("--autotune-retain", type=float, default=1.0,
+                   help="1.0 = full snap; below that it bleeds back toward "
+                        "the unquantized contour")
     p.add_argument("--verify", action="store_true")
     args = p.parse_args()
 
@@ -323,7 +460,20 @@ def main():
     # Continuous through unvoiced gaps (V2 §2): WORLD pops on 0→target
     # jumps, so the synth always sees pitch and the v/uv structure gets
     # re-imposed on the output instead.
-    f0_o = target_contour(notes, durs, n_out, args)
+    if args.autotune == "hard":
+        # the take's own f0, interpolated through its unvoiced gaps and then
+        # read along the SAME warp as the envelope, so the wander that gets
+        # stepped is the one that belongs to this vowel
+        vi = np.nonzero(f0 > 0)[0]
+        if len(vi) >= 2:
+            f0_fill = np.interp(np.arange(n_src), vi, f0[vi])
+        else:
+            f0_fill = np.full(n_src, midi_to_hz(note_to_midi(notes[0])))
+        src_o = np.interp(src_pos, np.arange(n_src), f0_fill)
+        f0_o = hard_autotune_contour(notes, durs, n_out,
+                                     np.log2(np.maximum(src_o, 1e-6)), args)
+    else:
+        f0_o = target_contour(notes, durs, n_out, args)
 
     y = pw.synthesize(np.ascontiguousarray(f0_o),
                       np.ascontiguousarray(sp_o),
@@ -356,7 +506,10 @@ def main():
     msg = (f"  sing · {'/'.join(notes)} · {n_src}→{n_out} frames "
            f"({n_src * FRAME_MS / 1000:.2f}s→{durs.sum():.2f}s, "
            f"{durs.sum() / max(1e-6, n_src * FRAME_MS / 1000):.2f}x) "
-           f"· voiced {100 * voiced_o.mean():.0f}%")
+           f"· voiced {100 * voiced_o.mean():.0f}%"
+           + (f" · AUTOTUNE hard/{args.autotune_scale}/"
+              f"{args.autotune_grid_ms:.0f}ms/drive{args.autotune_drive:.1f}"
+              if args.autotune == "hard" else ""))
 
     # ── verification (V2 §1: pyin, not autocorrelation) ───────────────
     if args.verify and HAS_LIBROSA:

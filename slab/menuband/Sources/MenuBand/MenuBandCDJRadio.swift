@@ -229,6 +229,13 @@ final class MenuBandCDJSpotifyDeck {
         mixer.outputVolume = 1
     }
 
+    /// Seconds of tapped deck audio currently in the ring (capped at the
+    /// ring length) — same meaning as KPBJRadioStream.bufferedSeconds.
+    var bufferedSeconds: Double {
+        audioLock.lock(); defer { audioLock.unlock() }
+        return Double(min(Int64(ringFrames), ringWriteFrame)) / format.sampleRate
+    }
+
     /// Snapshot the newest deck audio for the explicit CDJ → Piano Sampler
     /// handoff. This never changes the active instrument by itself.
     func copyRecentAudio(seconds: Double) -> AVAudioPCMBuffer? {
@@ -304,6 +311,7 @@ final class MenuBandCDJSpotifyDeck {
 /// shipping a sandbox-incompatible process tap.
 final class MenuBandCDJSpotifyDeck {
     var onError: ((String) -> Void)?
+    var bufferedSeconds: Double { 0 }
 
     func attach(to engine: AVAudioEngine, output: AVAudioNode) {}
     func start(processID: pid_t) {

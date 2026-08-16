@@ -1476,7 +1476,7 @@ final class MenuBandController {
         UserDefaults.standard.set(station.id, forKey: radioStationKey)
         cdjRadioSource = .station(station)
         cdjRadioPresented = true
-        spotifyStatus = "LIVE · through Menu Band FX"
+        spotifyStatus = "LIVE"
         spotifyStatusIsError = false
         synth.startCDJRadio(station: station)
         onCDJRadioChange?()
@@ -1580,12 +1580,27 @@ final class MenuBandController {
             spotifyStatus = "Sampled 2.5 s → Piano"
             spotifyStatusIsError = false
             setSampleBackend(true)
+        } else if cdjRadioBufferedSeconds < cdjSampleSeconds {
+            // Not an error state — the meter in the panel shows the fill,
+            // and the SAMPLE button re-enables itself once it's full.
+            spotifyStatus = "buffering…"
+            spotifyStatusIsError = false
         } else {
-            spotifyStatus = "CDJ buffer is still filling — try again"
+            spotifyStatus = "sample capture failed"
             spotifyStatusIsError = true
         }
         onCDJRadioChange?()
         return captured
+    }
+
+    /// Length of the slice SAMPLE → PIANO captures; the panel's buffer
+    /// meter fills toward this.
+    let cdjSampleSeconds: Double = 2.5
+
+    /// Seconds of deck audio currently buffered for the active CDJ source.
+    var cdjRadioBufferedSeconds: Double {
+        guard cdjRadioPresented else { return 0 }
+        return synth.cdjBufferedSeconds(source: cdjRadioSource)
     }
 
     var cdjRadioTitle: String {

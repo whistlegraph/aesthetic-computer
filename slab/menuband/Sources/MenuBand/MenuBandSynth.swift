@@ -1999,6 +1999,15 @@ final class MenuBandSynth {
         }
     }
 
+    /// Seconds of deck audio buffered for the given CDJ source — the
+    /// panel's buffer meter reads this at refresh time.
+    func cdjBufferedSeconds(source: CDJRadioSource) -> Double {
+        switch source {
+        case .station: return radio.bufferedSeconds
+        case .spotify: return spotifyDeck.bufferedSeconds
+        }
+    }
+
     /// Copy a short rolling slice into the global Piano Sampler. The caller
     /// switches the piano backend only after a successful import.
     @discardableResult

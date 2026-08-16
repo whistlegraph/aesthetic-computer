@@ -1,0 +1,184 @@
+{
+  "dash-camille-fs3-hold": {
+    "key": "ddcc3111f973ab91",
+    "src": "dash-camille",
+    "notes": "F#3:1.50",
+    "autotune": "off",
+    "line": "sing · F#3 · 62→300 frames (0.31s→1.50s, 4.84x) · voiced 100%  · pyin +8¢"
+  },
+  "dash-camille-d3-hold": {
+    "key": "9ef2c459064fa765",
+    "src": "dash-camille",
+    "notes": "D3:1.50",
+    "autotune": "off",
+    "line": "sing · D3 · 62→300 frames (0.31s→1.50s, 4.84x) · voiced 100%  · pyin +8¢"
+  },
+  "dash-alex-d3-hold": {
+    "key": "8ae47186d2d749cf",
+    "src": "dash-alex",
+    "notes": "D3:1.50",
+    "autotune": "off",
+    "line": "sing · D3 · 67→300 frames (0.34s→1.50s, 4.48x) · voiced 100%  · pyin +8¢"
+  },
+  "dashlong-camille-fs3": {
+    "key": "7daff3aa051a657d",
+    "src": "dash-camille",
+    "notes": "F#3:4.00",
+    "autotune": "off",
+    "line": "sing · F#3 · 62→800 frames (0.31s→4.00s, 12.90x) · voiced 100%  · pyin +3¢"
+  },
+  "dashlong-alex-d3": {
+    "key": "18c4ab8a7ce58632",
+    "src": "dash-alex",
+    "notes": "D3:4.00",
+    "autotune": "off",
+    "line": "sing · D3 · 67→800 frames (0.34s→4.00s, 11.94x) · voiced 100%  · pyin -2¢"
+  },
+  "at-iwanna-a-sung": {
+    "key": "7829641829c293db",
+    "src": "i-wanna-a",
+    "notes": "D4:0.20,E4:0.30",
+    "autotune": "hard",
+    "line": "sing · D4/E4 · 80→100 frames (0.40s→0.50s, 1.25x) · voiced 100% · AUTOTUNE hard/b-minor/62ms/drive2.4  · pyin -82¢ +153¢"
+  },
+  "at-iwanna-b-sung": {
+    "key": "cff701f015fb33ac",
+    "src": "i-wanna-b",
+    "notes": "B3:0.20,C#4:0.30",
+    "autotune": "hard",
+    "line": "sing · B3/C#4 · 77→100 frames (0.39s→0.50s, 1.30x) · voiced 99% · AUTOTUNE hard/b-minor/62ms/drive2.4  · pyin -92¢ -2¢"
+  },
+  "at-iwanna-c-sung": {
+    "key": "6e644fe925642c09",
+    "src": "iwanna-c",
+    "notes": "B3:0.22,C#4:0.28",
+    "autotune": "hard",
+    "line": "sing · B3/C#4 · 70→100 frames (0.35s→0.50s, 1.43x) · voiced 96% · AUTOTUNE hard/b-minor/62ms/drive2.4  · pyin -192¢ -2¢"
+  },
+  "at-runrealfast-long-hi": {
+    "key": "99b7a46e0b0fae7d",
+    "src": "run-real-fast",
+    "notes": "G4:0.38,F#4:0.88,D4:1.05",
+    "autotune": "hard",
+    "line": "sing · G4/F#4/D4 · 192→462 frames (0.96s→2.31s, 2.41x) · voiced 89% · AUTOTUNE hard/b-minor/125ms/drive3.2  · pyin +8¢ +13¢ -2¢"
+  },
+  "at-runrealfast-long-lo": {
+    "key": "d8f167d7d6bcb7d9",
+    "src": "run-real-fast",
+    "notes": "G3:0.38,F#3:0.88,D3:1.05",
+    "autotune": "hard",
+    "line": "sing · G3/F#3/D3 · 192→462 frames (0.96s→2.31s, 2.41x) · voiced 91% · AUTOTUNE hard/b-minor/125ms/drive3.0  · pyin +8¢ +8¢ -2¢"
+  },
+  "at-runrealfast-fast-hi": {
+    "key": "7ed959b7dfe70abf",
+    "src": "run-real-fast-b",
+    "notes": "G4:0.20,F#4:0.20,D4:0.60",
+    "autotune": "hard",
+    "line": "sing · G4/F#4/D4 · 174→200 frames (0.87s→1.00s, 1.15x) · voiced 98% · AUTOTUNE hard/b-minor/62ms/drive2.6  · pyin -82¢ +8¢ -282¢"
+  },
+  "at-runrealfast-fast-lo": {
+    "key": "ab92803ca2503419",
+    "src": "run-real-fast-b",
+    "notes": "G3:0.20,F#3:0.20,D3:0.60",
+    "autotune": "hard",
+    "line": "sing · G3/F#3/D3 · 174→200 frames (0.87s→1.00s, 1.15x) · voiced 98% · AUTOTUNE hard/b-minor/62ms/drive2.6  · pyin -82¢ +8¢ -272¢"
+  },
+  "at-iwannahide-hi": {
+    "key": "5b6b00f1cd32a36d",
+    "src": "iwanna-hide",
+    "notes": "D4:0.24,E4:0.36,F#4:0.40",
+    "autotune": "hard",
+    "line": "sing · D4/E4/F#4 · 117→200 frames (0.58s→1.00s, 1.71x) · voiced 98% · AUTOTUNE hard/b-minor/125ms/drive3.4  · pyin -32¢ +8¢ -2¢"
+  },
+  "at-iwannahide-lo": {
+    "key": "fd02198c75fe282a",
+    "src": "iwanna-hide",
+    "notes": "D3:0.24,E3:0.36,F#3:0.40",
+    "autotune": "hard",
+    "line": "sing · D3/E3/F#3 · 117→200 frames (0.58s→1.00s, 1.71x) · voiced 98% · AUTOTUNE hard/b-minor/125ms/drive3.2  · pyin -32¢ +8¢ -17¢"
+  },
+  "at-away-hi": {
+    "key": "2bfff66d06f077c8",
+    "src": "away",
+    "notes": "G4:0.28,A4:1.60",
+    "autotune": "hard",
+    "line": "sing · G4/A4 · 113→376 frames (0.56s→1.88s, 3.33x) · voiced 99% · AUTOTUNE hard/b-minor/125ms/drive2.8  · pyin -12¢ -2¢"
+  },
+  "at-away-lo": {
+    "key": "f31d50d298b55d5d",
+    "src": "away",
+    "notes": "G3:0.28,A3:1.60",
+    "autotune": "hard",
+    "line": "sing · G3/A3 · 113→376 frames (0.56s→1.88s, 3.33x) · voiced 99% · AUTOTUNE hard/b-minor/125ms/drive2.6  · pyin -12¢ -2¢"
+  },
+  "at-dash-camille-fs4-hold": {
+    "key": "d4696e463ba11123",
+    "src": "dash-camille",
+    "notes": "F#4:1.50",
+    "autotune": "hard",
+    "line": "sing · F#4 · 62→300 frames (0.31s→1.50s, 4.84x) · voiced 100% · AUTOTUNE hard/b-minor/125ms/drive2.6  · pyin -2¢"
+  },
+  "at-dash-alex-fs4-hold": {
+    "key": "347c6a0361fdf3b4",
+    "src": "dash-alex",
+    "notes": "F#4:1.50",
+    "autotune": "hard",
+    "line": "sing · F#4 · 67→300 frames (0.34s→1.50s, 4.48x) · voiced 98% · AUTOTUNE hard/b-minor/125ms/drive2.6  · pyin -2¢"
+  },
+  "at-dash-camille-d4-hold": {
+    "key": "bac9b86b6735ac28",
+    "src": "dash-camille",
+    "notes": "D4:1.50",
+    "autotune": "hard",
+    "line": "sing · D4 · 62→300 frames (0.31s→1.50s, 4.84x) · voiced 100% · AUTOTUNE hard/b-minor/125ms/drive2.6  · pyin -2¢"
+  },
+  "at-dash-alex-d4-hold": {
+    "key": "8061c0e3587a5d37",
+    "src": "dash-alex",
+    "notes": "D4:1.50",
+    "autotune": "hard",
+    "line": "sing · D4 · 67→300 frames (0.34s→1.50s, 4.48x) · voiced 98% · AUTOTUNE hard/b-minor/125ms/drive2.6  · pyin -2¢"
+  },
+  "at-dash-camille-b3-hold": {
+    "key": "1766e11547cb1d1b",
+    "src": "dash-camille",
+    "notes": "B3:1.50",
+    "autotune": "hard",
+    "line": "sing · B3 · 62→300 frames (0.31s→1.50s, 4.84x) · voiced 100% · AUTOTUNE hard/b-minor/125ms/drive2.6  · pyin -2¢"
+  },
+  "at-dash-alex-b3-hold": {
+    "key": "26fd4af091c410a4",
+    "src": "dash-alex",
+    "notes": "B3:1.50",
+    "autotune": "hard",
+    "line": "sing · B3 · 67→300 frames (0.34s→1.50s, 4.48x) · voiced 98% · AUTOTUNE hard/b-minor/125ms/drive2.6  · pyin -2¢"
+  },
+  "at-dash-camille-fs3-hold": {
+    "key": "e9b175d522a014d2",
+    "src": "dash-camille",
+    "notes": "F#3:1.50",
+    "autotune": "hard",
+    "line": "sing · F#3 · 62→300 frames (0.31s→1.50s, 4.84x) · voiced 100% · AUTOTUNE hard/b-minor/125ms/drive2.6  · pyin -2¢"
+  },
+  "at-dash-alex-fs3-hold": {
+    "key": "f9042c0c140bf2af",
+    "src": "dash-alex",
+    "notes": "F#3:1.50",
+    "autotune": "hard",
+    "line": "sing · F#3 · 67→300 frames (0.34s→1.50s, 4.48x) · voiced 100% · AUTOTUNE hard/b-minor/125ms/drive2.6  · pyin -2¢"
+  },
+  "at-dash-camille-d3-hold": {
+    "key": "084c764d87bcc507",
+    "src": "dash-camille",
+    "notes": "D3:1.50",
+    "autotune": "hard",
+    "line": "sing · D3 · 62→300 frames (0.31s→1.50s, 4.84x) · voiced 100% · AUTOTUNE hard/b-minor/125ms/drive2.6  · pyin -2¢"
+  },
+  "at-dash-alex-d3-hold": {
+    "key": "f2c3a2738fbe23d8",
+    "src": "dash-alex",
+    "notes": "D3:1.50",
+    "autotune": "hard",
+    "line": "sing · D3 · 67→300 frames (0.34s→1.50s, 4.48x) · voiced 100% · AUTOTUNE hard/b-minor/125ms/drive2.6  · pyin -2¢"
+  }
+}

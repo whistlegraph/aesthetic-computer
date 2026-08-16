@@ -48,14 +48,21 @@ mkdirSync(BELL_CACHE, { recursive: true });
 const NEXT = process.argv.includes("--next");
 const INDUSTRIAL = process.argv.includes("--industrial");
 const WORLD = NEXT || process.argv.includes("--world");
-const STONE_CLUB = process.argv.includes("--stone-club");
+// watjetsto720 — the extended mix: the club cut let out three times further
+// again (scale 6, 432 bars) and clamped to exactly 720 s, the way
+// fluttabap360 was back-solved onto its 360 s boundary. 138 BPM and the
+// 72-bar form survive intact; the surplus comes off the long mist coda.
+const STONE_720 = process.argv.includes("--stone-720")
+                || process.argv.includes("--watjetsto720");
+const STONE_CLUB = STONE_720 || process.argv.includes("--stone-club");
 const STONE_STUDY = STONE_CLUB || process.argv.includes("--stone-study");
 // The club cut is the canonical stone form let out to twice its length:
 // every span doubles, so the ensemble introduction unfolds at half the
 // rate and the accelerando has twice as far to climb.
-const STONE_SCALE = STONE_CLUB ? 2 : 1;
+const STONE_SCALE = STONE_720 ? 6 : STONE_CLUB ? 2 : 1;
 const outputStem = INDUSTRIAL ? "wattajetta-industrial"
   : NEXT ? "wattajetta-world-v2" : WORLD ? "wattajetta-world"
+  : STONE_720 ? "watjetsto720"
   : STONE_CLUB ? "wattajetta-stone-club" : "wattajetta";
 
 const SR = 48000;
@@ -123,6 +130,54 @@ const DROPS = STONE_STUDY
   ? STONE_DROPS.map((d) => ({ ...d, a: d.a * STONE_SCALE, z: d.z * STONE_SCALE }))
   : ORIGINAL_DROPS;
 const BREATHS = STONE_STUDY ? [] : [12, 28, 44, 60];
+
+// ── watjetsto720: the wave form ───────────────────────────────────────
+// Suzanne Ciani's Seven Waves was written down, not patched, and her
+// long-form work never lets one identity stand for more than ~5 minutes:
+// eight named scenes, build and release, then back to the ocean. The
+// stone form as inherited is one chord for twelve minutes, so we borrow
+// her machinery — but only the parts that survive at 138 BPM.
+//
+// The bass is the ocean and the chord is the wave: E1/G1/A1/D2 stays
+// exactly as it is and the harmony moves ABOVE it, which buys eight
+// harmonic identities without costing the fuselage its character. All
+// bass motion is hoarded for a single event (wave 7) so that one
+// transposition lands like a wall instead of like a habit.
+//
+// Cool rule, held without exception: no D#. No leading tone, no V-i, no
+// B major. Colour comes from added 9ths, quartal stacks, thirds kept out
+// of the bass, and flat-side motion (bVI, iv, minor v, phrygian bII).
+const WAVE_BARS = 54; // eight waves across 432 bars — about 93 s each
+const WAVES = [
+  { name: "out of the ocean", transpose: 0,
+    chord: ["E2", "B2", "E3", "F#3", "G3"],           // Em(add9) — home
+    pent:  ["E4", "F#4", "G4", "B4", "D5", "E5"] },
+  { name: "glass rising",     transpose: 0,
+    chord: ["E2", "C3", "E3", "G3", "B3"],            // Cmaj9/E — bVI
+    pent:  ["E4", "G4", "B4", "C5", "D5", "E5"] },
+  { name: "the fourths",      transpose: 0,
+    chord: ["E2", "A2", "C3", "G3"],                  // Am11/E — iv, no third on top
+    pent:  ["E4", "G4", "A4", "C5", "D5", "E5"] },
+  { name: "coldest cadence",  transpose: 0,
+    chord: ["E2", "B2", "D3", "F#3"],                 // Bm/E — minor v, no leading tone
+    pent:  ["E4", "F#4", "A4", "B4", "D5", "E5"] },
+  { name: "mixolydian lift",  transpose: 0,
+    chord: ["E2", "D3", "E3", "A3"],                  // Dsus2/E — bVII, lift not dominant
+    pent:  ["E4", "F#4", "A4", "B4", "D5", "E5"] },
+  { name: "phrygian ice",     transpose: 0,
+    chord: ["E2", "F3", "A3", "C4"],                  // F/E — bII, the water hardening
+    pent:  ["E4", "F4", "A4", "C5", "D5", "E5"] },
+  { name: "the wall",         transpose: 3,           // the ONLY bass move in twelve minutes
+    chord: ["G2", "D3", "G3", "A3", "A#3"],           // Gm(add9) — up a minor third
+    pent:  ["E4", "G4", "A4", "A#4", "D5", "E5"] },
+  { name: "back to the ocean", transpose: 0,
+    chord: ["E2", "B2", "E3", "F#3", "G3", "C4", "D4"], // home, carrying what it gathered
+    pent:  ["E4", "G4", "A4", "B4", "D5", "E5"] },
+];
+const waveAt = (b) => WAVES[Math.min(Math.floor(b / WAVE_BARS), WAVES.length - 1)];
+const waveNotes = (b) => (STONE_720 ? waveAt(b).pent : DROP_NOTES);
+const waveShift = (b) => (STONE_720 ? Math.pow(2, waveAt(b).transpose / 12) : 1);
+
 
 // The world audition keeps a pulse in every breath and adds weather without
 // importing samples: rain, thunder, bubbles, hats, and snares are all made by
@@ -264,7 +319,7 @@ function subNote(t, dur, freq, db) {
 }
 for (const d of DROPS)
   for (let b = d.a; b < d.z; b += 2) {
-    const root = ROOTS[((b - d.a) / 2) % 4];
+    const root = ROOTS[((b - d.a) / 2) % 4] * waveShift(b);
     if (STONE_STUDY || d.a >= 48) {
       // trance gallop: offbeat eighth stabs — the sidechain makes the pump
       for (let bb = b; bb < b + 2; bb++)
@@ -298,9 +353,10 @@ function bellRun(b, d) {
       bellDirection *= -1;
     const move = BELL_MOVES[(bellStep + Math.floor(b / MUTATION) * 3) % BELL_MOVES.length];
     bellIndex += move * bellDirection;
-    while (bellIndex < 0 || bellIndex >= DROP_NOTES.length) {
+    const POOL = waveNotes(b);
+    while (bellIndex < 0 || bellIndex >= POOL.length) {
       if (bellIndex < 0) bellIndex = -bellIndex;
-      if (bellIndex >= DROP_NOTES.length) bellIndex = 2 * (DROP_NOTES.length - 1) - bellIndex;
+      if (bellIndex >= POOL.length) bellIndex = 2 * (POOL.length - 1) - bellIndex;
       bellDirection *= -1;
     }
     if (rnd() < d.density * earlyDensity) {
@@ -309,7 +365,7 @@ function bellRun(b, d) {
       const longTail = inSparseOpening && bellStep % 23 === 5;
       bells.push({
         t: bar(b) + e * 0.5 * BEAT,
-        note: DROP_NOTES[bellIndex],
+        note: POOL[bellIndex],
         vel: 0.55 + rnd() * 0.3,
         pan: (rnd() * 2 - 1) * 0.7,
         gain: Math.pow(10, (d.gainDb + (longTail ? -2.5 : 0)) / 20),
@@ -375,6 +431,21 @@ function choirChord(t, dur, db) {
   choirNote(t, dur, 123.47, db - 3, -0.35);  // b2
   choirNote(t, dur, 164.81, db, 0.35);       // e3
   choirNote(t, dur, 196.0, db - 4, -0.15);   // g3 — the minor color
+}
+function choirStack(t, dur, db, notes) {
+  notes.forEach((n, i) =>
+    choirNote(t, dur, noteHz(n), db - (i === 0 ? 2 : i * 1.4),
+              i === 0 ? 0 : ((i % 2 ? 1 : -1) * (0.2 + 0.12 * i))));
+}
+// Each wave is announced by its own chord and held under the whole span,
+// so the harmony reads as a place rather than as an event.
+if (STONE_720) {
+  WAVES.forEach((w, i) => {
+    const a = i * WAVE_BARS;
+    if (a >= BARS) return;
+    choirStack(bar(a), Math.min(WAVE_BARS, BARS - a) * BAR, -21, w.chord);
+    choirStack(bar(a), 6 * BAR, -17, w.chord); // the swell that names it
+  });
 }
 choirChord(bar(28 * STONE_SCALE), 4 * BAR, -19);
 choirChord(bar(44 * STONE_SCALE), 4 * BAR, -17);
@@ -1380,12 +1451,16 @@ writeFileSync(mixedPath, Buffer.from(outputMix.buffer, outputMix.byteOffset, out
 //    but the opening still breathes. The club cut instead masters in the
 //    stone-club-audition-2 lineage: gentler compression, real dynamics
 //    (≈ -13 LUFS, LRA around 5) instead of the canonical's pressed loaf ──
+const CLAMP_720 = 720; // seconds, exact — the name is the spec
 const MASTER = STONE_CLUB ? [
   "highpass=f=24",
   "acompressor=threshold=-16dB:ratio=1.7:attack=12:release=180:makeup=1.2:knee=8",
   "equalizer=f=50:t=q:w=1.2:g=2.5",
   "alimiter=limit=0.94:attack=4:release=80",
   "areverse", "silenceremove=start_periods=1:start_threshold=-70dB", "areverse",
+  // land on the boundary the title promises, fading rather than chopping
+  ...(STONE_720 ? [`afade=t=out:st=${CLAMP_720 - 6}:d=6`,
+                   `atrim=end=${CLAMP_720}`, "asetpts=PTS-STARTPTS"] : []),
 ] : [
   "highpass=f=24",
   "acompressor=threshold=-19dB:ratio=2.8:attack=10:release=150:makeup=2.2:knee=6",
@@ -1399,7 +1474,9 @@ const MASTER = STONE_CLUB ? [
   // vinyl arrangement already owns its ending, so preserve that exact clock.
   ...(!NEXT ? ["areverse", "silenceremove=start_periods=1:start_threshold=-70dB", "areverse"] : []),
 ];
-const mp3 = resolve(OUT, STONE_CLUB
+const mp3 = resolve(OUT, STONE_720
+  ? "watjetsto720.mp3"
+  : STONE_CLUB
   ? "wattajetta-stone-club.mp3"
   : STONE_STUDY
   ? "wattajetta-stone-canonical.mp3"
@@ -1407,7 +1484,7 @@ const mp3 = resolve(OUT, STONE_CLUB
 const ff = spawnSync("ffmpeg", ["-hide_banner", "-y", "-loglevel", "error",
   "-f", "f32le", "-ar", String(SR), "-ac", "2", "-i", mixedPath,
   "-af", MASTER.join(","), "-c:a", "libmp3lame", "-q:a", "2",
-  "-metadata", `title=${STONE_CLUB ? "wattajetta stone club" : STONE_STUDY ? "wattajetta stone canonical" : TINY_BELLS ? "wattajetta tiny bells" : "wattajetta"}`, "-metadata", "album=pixsies",
+  "-metadata", `title=${STONE_720 ? "watjetsto720" : STONE_CLUB ? "wattajetta stone club" : STONE_STUDY ? "wattajetta stone canonical" : TINY_BELLS ? "wattajetta tiny bells" : "wattajetta"}`, "-metadata", "album=pixsies",
   mp3], { stdio: "inherit" });
 if (ff.status !== 0) { console.error("✗ ffmpeg failed"); process.exit(1); }
 if (WORLD) {

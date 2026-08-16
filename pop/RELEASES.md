@@ -75,7 +75,7 @@ Open follow-ups (queued, not blockers):
 
 ---
 
-## Wattajetta Stone Club — SUBMITTED 2026-08-09 (DistroKid, manual upload)
+## Wattajetta Stone Club — RELEASED 2026-08-09 · master swapped 2026-08-13 (DistroKid)
 
 - **Lane:** `pop/wattajetta/` · the canonical 72-bar stone form (bar-64 stone-drop
   vocabulary, 127→138 BPM accelerando, four seamless 18-bar mutations), ~2:11
@@ -85,6 +85,21 @@ Open follow-ups (queued, not blockers):
   the exact chain that produced it was not recovered from the neo session, so the
   mp3→WAV conversion IS the release master. Canonical tagged copy with embedded
   cover: `pop/wattajetta/out/wattajetta-stone-club.mp3`.
+- **Master v2 (LIVE, swapped 2026-08-13):** the release shipped at −13.2 LUFS and read
+  quiet next to americomputadora (−9.0). Diagnosis was not the average but the *shape*:
+  short-term loudness sat at −34.6 LUFS at 8 s and −14.5 at 16 s, i.e. the first ~20 s
+  ran 20–27 dB under the body of the track. Pressing the whole master harder fixed the
+  number and cost the kick — crest factor at the first drop fell 3.29 → 2.26, which reads
+  as the drop "clipping" though nothing clips (flat factor 0.000 throughout). The shipped
+  fix instead LIFTS THE INTRO (+9 dB under 12 s, tapering to unity by 26 s) and presses
+  only +3: **−10.3 LUFS · LRA 8.8 · TP −1.2 dBFS**, intro ~7 dB hotter at 8/16 s, drop
+  transient preserved. Chain: float → 4× oversample → intro ramp → +3 dB → alimiter
+  (−1.2 dBTP, 6 ms attack / 90 ms release, ASC) → 44.1 k/16-bit triangular dither, over
+  the original delivery WAV (do-no-harm, audio otherwise untouched, still 2:10.72).
+  Candidates kept in `pop/wattajetta/out/louder/` (`cand-3db` −10.4, `cand-4.5db` −9.3,
+  `cand-6db` −8.4, `cand-introlift` = shipped). Delivered via **DistroKid's audio-swap**,
+  so the original ISRC, release date and stream history all survive — no re-release.
+  Bundle: `~/Documents/Shelf/wattajetta-stone-club-LOUDER-DISTROKID/`.
 - **DistroKid folder:** `~/Documents/Shelf/wattajetta-stone-club-DISTROKID/`
   (release.json · MASTER.wav · cover-3000.jpg) — validated with
   `node pop/bin/distrokid-submit.mjs ~/Documents/Shelf/wattajetta-stone-club-DISTROKID --dry-run`.

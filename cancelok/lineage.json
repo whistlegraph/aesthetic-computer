@@ -129,8 +129,8 @@
     "parent": "varo",
     "second": null,
     "mutation": "eye",
-    "trait": "two moons lapping a shared center (conjunction flashes) x detuned pad swell",
-    "born": "2026-08-13T02:11:16.766Z"
+    "trait": "traveling wave-interference tank (beat-envelope of two detuned sine traces) x varo's detuned pad swell + sub-bass slide score",
+    "born": "2026-08-13T21:58:19.155Z"
   },
   "fraylo": {
     "parent": "wandro",
@@ -512,10 +512,10 @@
   },
   "welvo": {
     "parent": "varo",
-    "second": "wandro",
-    "mutation": "cross",
-    "trait": "moir ring interference (varo) x pendulum-timed just-intonation pluck/bell voice (wandro)",
-    "born": "2026-07-18T05:20:40.545Z"
+    "second": null,
+    "mutation": "eye",
+    "trait": "woven thread lattice (warp x weft) x detuned pad swell",
+    "born": "2026-08-13T23:00:36.277Z"
   },
   "morlo": {
     "parent": "varo",
@@ -763,11 +763,11 @@
     "born": "2026-07-19T19:15:50.230Z"
   },
   "harmo": {
-    "parent": "ploo",
-    "second": "nuxo",
-    "mutation": "cross",
-    "trait": "concentric shockwave/starburst bloom (ploo) x pentatonic harp pluck score (nuxo)",
-    "born": "2026-07-19T19:18:03.298Z"
+    "parent": "varo",
+    "second": null,
+    "mutation": "eye",
+    "trait": "epicycle rosette (two detuned rotating arms) x detuned pad swell",
+    "born": "2026-08-13T18:36:26.713Z"
   },
   "glindo": {
     "parent": "wandro",
@@ -1342,5 +1342,61 @@
     "mutation": "eye",
     "trait": "oscilloscope beat-envelope waveform x twin detuned pad swell",
     "born": "2026-08-13T02:07:30.165Z"
+  },
+  "quombo": {
+    "parent": null,
+    "second": null,
+    "mutation": "blind",
+    "trait": "sundial gnomon-shadow diorama (circular day/night light arc, elevation-driven shadow trig) x diurnal pentatonic voice (bell at noon, hushed sub at midnight, the sun's height literally picks the note)",
+    "born": "2026-08-13T19:44:26.518Z"
+  },
+  "belfo": {
+    "parent": null,
+    "second": null,
+    "mutation": "blind",
+    "trait": "additive-synthesis drawbar bar-graph (bar heights = live harmonic weights, summed into a phase-scrolling Fourier waveform) x true additive/organ synthesis (each bar IS a sine partial actually sounding)",
+    "born": "2026-08-13T20:48:16.407Z"
+  },
+  "zwoon": {
+    "parent": "ploo",
+    "second": null,
+    "mutation": "push",
+    "trait": "comet-whip drag trail x continuous glissando grains",
+    "born": "2026-08-13T20:50:44.917Z"
+  },
+  "dunko": {
+    "parent": null,
+    "second": null,
+    "mutation": "blind",
+    "trait": "fixed hill-track coasting marble (gravity-driven, beat-powered) x height-to-pitch pluck/bell voice",
+    "born": "2026-08-13T21:54:37.182Z"
+  },
+  "welbo": {
+    "parent": "nuxo",
+    "second": "varo",
+    "mutation": "cross",
+    "trait": "nail-and-thread string art (nuxo) x detuned pad swell (varo)",
+    "born": "2026-08-14T00:05:49.118Z"
+  },
+  "chindo": {
+    "parent": "ploo",
+    "second": null,
+    "mutation": "voice",
+    "trait": "concentric shockwave/starburst bloom x breath  bowed flute+harp duet (no drop, no gong)",
+    "born": "2026-08-14T00:08:15.840Z"
+  },
+  "flaxo": {
+    "parent": null,
+    "second": null,
+    "mutation": "blind",
+    "trait": "semaphore relay  spring-driven signal-flag arms spelling a scrolling telegraph message x pitched flag-landing pluck/bell voice (letter  paired notes, word-gaps  a soft sub pause)",
+    "born": "2026-08-14T01:11:51.130Z"
+  },
+  "drenvo": {
+    "parent": "ploo",
+    "second": null,
+    "mutation": "invert",
+    "trait": "inbound collapse (rings rushing in from beyond the frame, petals pulled to a swallowing core) x hushed falling voice (descending riser drains to near-silence, the drop is a whisper not a gong)",
+    "born": "2026-08-14T01:15:14.681Z"
   }
 }

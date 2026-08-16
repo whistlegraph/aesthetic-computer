@@ -798,6 +798,14 @@ final class KPBJRadioStream: NSObject, URLSessionDataDelegate {
         return out
     }
 
+    /// Seconds of decoded station audio currently held in the ring, capped
+    /// at the ring length. Drives the panel's buffer meter and gates the
+    /// Sample-to-Piano button so it can't fire on an empty ring.
+    var bufferedSeconds: Double {
+        ringLock.lock(); defer { ringLock.unlock() }
+        return Double(min(Int64(ringFrames), ringWriteFrame)) / sampleRate
+    }
+
     /// Copy the newest decoded station audio for CDJ Radio's explicit
     /// Sample-to-Piano handoff. The live deck keeps playing unchanged.
     func copyRecentAudio(seconds: Double) -> AVAudioPCMBuffer? {

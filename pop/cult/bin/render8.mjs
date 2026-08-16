@@ -1,0 +1,2342 @@
+// render7.mjs — "whistlegraph cult --- remix (v7, the long silence)"
+//
+// v6 landed. @jeffrey then gave four notes, and three of them are the same
+// note said from different sides:
+//
+//   1. "the polyrhythms should be like in actual cool percussion / and work
+//       with our percussion / not just click tracks on everything / maybe
+//       the phone tones can be used for that"
+//   2. "for the first minute we should just be all dashes and dots / or
+//       like lets not reveal the main vocal for a bit"
+//   3. "we need a better overall percussion story"
+//   4. "and the hide away part should go"
+//
+// The shared note is PATIENCE. v6 was in a hurry: it had a kit by bar 8, a
+// full cross-rhythm stack by act III, and the hook — the record's actual
+// tune — at 0:48. Everything arrived, and then the remaining three minutes
+// had nowhere left to go but louder. v7 gives the record time to be about
+// morse before it is about a song.
+//
+// ── (1) THE POLYRHYTHM IS PLAYED BY THE BAND ──────────────────────────
+//
+// v6's fault was real and it was mechanical: four of the five cross-rhythm
+// layers were `click` and `tap` — bandpassed noise bursts with no body, all
+// on the signal bus, all at the same level. Five rhythms that were meant to
+// interlock arrived as one undifferentiated tick, and the ear filed the
+// whole thing as a metronome running behind the music.
+//
+// A cross-rhythm is hypnotic only when you can TELL THE LAYERS APART, and
+// you tell them apart by timbre, not by level. So each layer is now a
+// distinct instrument, three of them drums the kit already owns:
+//
+//     L1 · 3:4    THE HAND    woodTaps, tambourine, an open hat on the one
+//     L2 · 3:16   THE PHONE   DTMF digits and answering bops — @jeffrey's
+//                             own suggestion, and the layer that MOVES,
+//                             because a dotted-eighth grid only relines
+//                             with the downbeat every three bars
+//     L3 · 5:4    THE SHAKER  tambourine and one snap
+//     L4 · 7:16   THE SKID    trackdrum friction alternating with wood
+//
+// ── (2) THE FIRST MINUTE IS MORSE ─────────────────────────────────────
+//
+// Act II grows from sixteen bars to twenty-four and the hook moves from
+// 0:48 to 1:04, so nothing in the first minute of the record is a word.
+// The new eight bars are THE DASH GROOVE: the hook's exact frame played in
+// held dashes and dots with the lyric cut out of it. When "run real fast"
+// finally lands it arrives into a shape the ear already knows — which is
+// the difference between a reveal and a start.
+//
+// ── (3) THE PERCUSSION STORY ──────────────────────────────────────────
+//
+// Nine kits instead of one. Hands, then a HALF-TIME kick with offbeat-only
+// hats, then 4/4, then the kit opening, then sixteenth ghosts, then a
+// displaced backbeat, then everything, then one element leaving per bar.
+// The trick of the first minute is that the pulse arrives before the groove
+// does, so bar 24 is an event without a single new sound in it.
+//
+// ── (4) HIDE AWAY IS GONE ─────────────────────────────────────────────
+//
+// The chorus is three lines: run real fast / i wanna DASH / dot dot DASH.
+// The line that used to be a sentence is a held dash, which makes act VII
+// the same shape as the hook rather than a different song.
+//
+// ══ THE NARRATIVE ══════════════════════════════════════════════════════
+//
+// The source is eight seconds of three friends chanting morse at a camera
+// with the caption "dot dot dot dash dash dash dot dot dot (jk)" — SOS,
+// disclaimed. So the story the material tells is:
+//
+//     A SIGNAL GOES OUT, AND IT IS ANSWERED, AND THE JOKE TURNS OUT
+//     TO BE TRUE.
+//
+// Ten acts, 120 bars, 4:00.
+//
+//   I    CARRIER       0:00  DTMF dials C-U-L-T into empty air. No drums.
+//   II   DOTS AND      0:16  A FULL MINUTE of morse. Three registers enter
+//        DASHES              one at a time; they land on one syllable and
+//                            beat before they lock; SOS twice; then the
+//                            dash groove — the hook's rhythm, wordless.
+//   III  THE MESSAGE   1:04  The hook, legible at last. The thick kick.
+//   IV   THE SECRET    1:36  THE TURN. Everything stops. CULT, harmonised.
+//   V    THE REPLY     1:52  Something answers, beeped, in DTMF.
+//   VI   IT SPREADS    2:24  The unison comes apart; the backbeat displaces.
+//   VII  THE WHOLE     2:48  The complete three-line chorus, over the home
+//        MESSAGE             progression the harmony also reaches here.
+//   VIII RECOGNITION   3:12  Elements peel off, one per bar.
+//   IX   THE HUMANS    3:28  Drums out. The original recording, unprocessed.
+//   X    CARRIER OFF   3:44  The drone leaves; a hang-up click is last.
+//
+// Everything v5 and v6 established still holds: the descent through the
+// five-rung dash ladder, hard Eiffel-65 autotune on the leads, the crossover
+// wiggle, the tubular pump on the dash bus, the thick electro kick, 10 ms
+// raised-cosine tails on every voice, ducks that ramp rather than step, no
+// master tanh, mono-safe pans with a band-limited antisymmetric side return.
+//
+//   node pop/cult/bin/sing6.mjs              # the sung bank (cached, shared)
+//   node pop/cult/bin/render7.mjs            # → out/cult-remix-v8-full.wav
+//   node pop/cult/bin/render7.mjs --stems    # + per-bus stems
+//   ./pop/cult/bin/cut-v7.sh                 # master + mp3s
+//
+// Debug: MUTE=poly3,poly5 subtracts cross-rhythms; ONLY=beep hears the
+// phone layer alone; AUTOTUNE=0 renders the human takes throughout.
+
+import { existsSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { readWavMono } from "../../lib/wav.mjs";
+
+const HERE = dirname(fileURLToPath(import.meta.url));
+const LANE = resolve(HERE, "..");
+const REPO = resolve(LANE, "../..");
+const OUT = resolve(LANE, "out");
+mkdirSync(OUT, { recursive: true });
+
+const SR = 48_000;
+const BPM = 120;
+const BEAT = 60 / BPM;               // 0.5 s
+const BAR = 4 * BEAT;                // 2.0 s
+const BARS = 60;                     // 120 s = 2:00
+const TAU = Math.PI * 2;
+const N = Math.round((BARS * BAR + 3.2) * SR);
+
+// Five buses now. Drums never duck. The bed takes the breath. The sung
+// voices take a quarter-depth duck. The TUBE bus — the held dashes — takes
+// the deep kick+snare pump, because that is what @jeffrey asked to pump.
+// The SIGNAL bus (beeps/clicks/taps) takes a half-depth duck so the phone
+// ticks sit inside the groove rather than on top of it.
+const musicL = new Float32Array(N), musicR = new Float32Array(N);
+const drumsL = new Float32Array(N), drumsR = new Float32Array(N);
+const voxL = new Float32Array(N), voxR = new Float32Array(N);
+const tubeL = new Float32Array(N), tubeR = new Float32Array(N);
+const sigL = new Float32Array(N), sigR = new Float32Array(N);
+const sideB = new Float32Array(N);   // bed's side field
+const sideV = new Float32Array(N);   // voices'
+const sideT = new Float32Array(N);   // the tube's — pumps with it
+const sideS = new Float32Array(N);   // the signal layer's
+const dlySend = new Float32Array(N);
+
+// v6 (2): "bring down the vocals". The static trim is -1.3 dB on both
+// vocal buses; the rest of the reduction is voxRide below, which is a
+// curve rather than a number because the ask is a descent, not a level.
+// v8: @jeffrey — "i think we can have some vocals not be so up front /
+// everything should be more in the mix". v5 pushed the vox bus 3 dB proud of
+// the bed on purpose; three versions later the record has a groove worth
+// hearing, and a lead sitting on top of it reads as a demo rather than as a
+// mix. So the vox bus loses another 1.7 dB, the leads roughly double their
+// send to the dub delay (a voice you hear partly as its own tail is IN the
+// room rather than in front of it), and the signal layer comes up 0.6 dB to
+// meet it. Nothing here is a filter: the vocals still have all their top,
+// they are simply no longer the loudest thing in every bar.
+const VOXG = 1.00;                   // 1.22 in v7, 1.42 in v5
+// The tube bus takes LESS static trim than the vox bus (-0.7 dB against
+// -1.3) on purpose: the held dashes are also descending an octave and a
+// fourth, and a note that moves down into the pad's register has already
+// lost presence before anything touches its fader. Measured on the act VII
+// "a—waaaay" window, 0.86 put the dash 2.6 dB under the bed; 0.92 keeps it
+// where a lead belongs while still reading as quieter than v5.
+// v7: @jeffrey — "the 'daaaash daaash daaaash' could be a bit more in the
+// back". Depth in a mix is three things and a fader is only one of them, so
+// this is all three: the bus comes down 1.2 dB (0.92 → 0.80), every held
+// dash roughly DOUBLES its send to the dub delay so more of what you hear
+// is the tail rather than the source, and the two upper voices take a small
+// low-pass. Quiet, wet and slightly dark is what "behind" is made of; just
+// pulling the fader would have made the dashes small instead of distant.
+const TUBEG = 0.74;                  // 0.80 in v7, 0.92 in v6, 1.00 in v5
+const SIGG = 2.78;                   // the signal layer, levelled by stem measurement
+const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+const hz = (midi) => 440 * Math.pow(2, (midi - 69) / 12);
+const at = (bar, beat = 0) => bar * BAR + beat * BEAT;
+const smooth = (u) => (u <= 0 ? 0 : u >= 1 ? 1 : u * u * (3 - 2 * u));
+
+// ── the receipt's event array ─────────────────────────────────────────
+// Every scored hit is pushed here from inside the voice that makes it, so
+// the video renderer can draw the exact same performance the ear hears —
+// including WHO sang each note, because three people on one pitch 28 ms
+// apart is this track's signature and it should be visible, not only
+// audible. Written to out/cult-remix-v5.events.json as `events[]`.
+// Debug: subtract a voice to identify it by ear. MUTE=stab node bin/render5.mjs
+const MUTED = new Set((process.env.MUTE || "").split(",").map((v) => v.trim()).filter(Boolean));
+// ONLY=skid renders that voice alone — the fastest way to hear what one
+// layer actually sounds like without a four-minute argument about spectra.
+const ONLY = new Set((process.env.ONLY || "").split(",").map((v) => v.trim()).filter(Boolean));
+const allow = (v) => !MUTED.has(v) && (!ONLY.size || ONLY.has(v));
+if (MUTED.size) console.log("  MUTED:", [...MUTED].join(", "));
+if (ONLY.size) console.log("  ONLY:", [...ONLY].join(", "));
+const EVENTS = [];
+const PCN = { c: 0, cs: 1, d: 2, ds: 3, e: 4, f: 5, fs: 6, g: 7, gs: 8, a: 9, as: 10, b: 11 };
+const pitchMidi = (tok) => {
+  const m = /^([a-g]s?)(-?\d)$/.exec(tok || "");
+  return m ? PCN[m[1]] + 12 * (+m[2] + 1) : null;
+};
+// The `at-` prefix marks a take from the hard-autotune bank (bin/sing6.mjs).
+// It is stripped before classification so the receipt still says "dash" and
+// still names the performer — with `autotune: true` alongside, so the score
+// video can draw the robot where it is actually singing.
+function classify(name) {
+  let m;
+  if (name.startsWith("at-")) return { ...classify(name.slice(3)), autotune: true };
+  if ((m = /^dash-(camille|alex|jeffrey)-([a-g]s?\d)-hold$/.exec(name)))
+    return { voice: "dash", who: m[1], midi: pitchMidi(m[2]) };
+  if ((m = /^dashlong-(camille|jeffrey)-([a-g]s?\d)$/.exec(name)))
+    return { voice: "dash", who: m[1], midi: pitchMidi(m[2]) };
+  if ((m = /^cult-([a-g]s?\d)$/.exec(name)))
+    return { voice: "cult", who: "camille", midi: pitchMidi(m[1]) };
+  if ((m = /^sos-dash-([a-g]s?\d)$/.exec(name)))
+    return { voice: "sosdash", who: "camille", midi: pitchMidi(m[1]) };
+  if ((m = /^bassdash-([a-g]s?\d)$/.exec(name)))
+    return { voice: "bassdash", who: "jeffrey", midi: pitchMidi(m[1]) };
+  if ((m = /^dot-(c|a|j)-([a-g]s?\d)$/.exec(name)))
+    return { voice: "dot", who: { c: "camille", a: "alex", j: "jeffrey" }[m[1]], midi: pitchMidi(m[2]) };
+  if ((m = /^dot-([a-g]s?\d)$/.exec(name)))
+    return { voice: "dot", who: null, midi: pitchMidi(m[1]) };
+  if (/^(runrealfast|runitfast|iwanna|away|hideaway|dotdotdash|threeofus)/.test(name))
+    return { voice: "lead", who: null, midi: null };
+  if (/^hat[CO]$/.test(name)) return { voice: "hat" };
+  if (/^(clap|snap|snare|block|tambo|ride)$/.test(name)) return { voice: "perc" };
+  if (name === "sweep") return { voice: "sweep" };
+  if (/^(chant-full|tagline|hook-spoken|three-of-us)$/.test(name)) return { voice: "source" };
+  if (name.startsWith("alt-")) return { voice: "alt" };
+  return { voice: "sample" };
+}
+
+// The click amnesty — every voice exits through 10 ms of raised cosine.
+const tailFade = (i, n) => {
+  const u = (n - 1 - i) / (0.010 * SR);
+  return u >= 1 ? 1 : u <= 0 ? 0 : u * u * (3 - 2 * u);
+};
+
+// ── sample bank ───────────────────────────────────────────────────────
+const BANK = {};
+function load(name, path) {
+  if (!existsSync(path)) { console.warn(`  ! missing sample ${path}`); return; }
+  let p = path;
+  if (!path.endsWith(".wav")) {
+    p = join(OUT, `.cache-${name}.wav`);
+    if (!existsSync(p))
+      execFileSync("ffmpeg", ["-y", "-v", "error", "-i", path, "-ac", "1", "-ar", String(SR), p]);
+  }
+  const { samples, sampleRate } = readWavMono(p);
+  if (sampleRate !== SR) {
+    const q = join(OUT, `.cache-${name}-rs.wav`);
+    execFileSync("ffmpeg", ["-y", "-v", "error", "-i", p, "-ac", "1", "-ar", String(SR), q]);
+    BANK[name] = readWavMono(q).samples;
+  } else BANK[name] = samples;
+  const s = BANK[name];
+  let a = 0; while (a < s.length - 1 && Math.abs(s[a]) < 0.008) a++;
+  const t = s.subarray(Math.max(0, a - Math.round(0.002 * SR)));
+  let peak = 0; for (const v of t) peak = Math.max(peak, Math.abs(v));
+  const g = peak > 1e-6 ? 0.95 / peak : 1;
+  const out = new Float32Array(t.length);
+  for (let i = 0; i < t.length; i++) out[i] = t[i] * g;
+  BANK[name] = out;
+}
+
+// samples/ = v1's slices; sung/ = the speech-to-singing renders; alt/samples
+// = anything harvested from the OTHER cult-tagged whistlegraph posts (see
+// alt/harvest.json). alt/ is optional — the score checks before it plays.
+for (const dir of ["samples", "sung", "alt/samples"]) {
+  const d = resolve(LANE, dir);
+  if (!existsSync(d)) continue;
+  for (const f of readdirSync(d)) if (f.endsWith(".wav")) load(f.replace(/\.wav$/, ""), join(d, f));
+}
+const has = (n) => !!BANK[n];
+
+// ── levelling the harmony bank ────────────────────────────────────────
+// @jeffrey: "the harmonies have some weird volume changes in them".
+//
+// load() normalises every sample to a PEAK of 0.95, which is the right thing
+// for a drum and the wrong thing for a sung vowel: a take with one bright
+// consonant peak is quiet all the way through, and a smooth held vowel with
+// the same peak is loud all the way through. The choir picks different chord
+// tones every two bars, so which takes are sounding changes constantly — and
+// with peak normalisation each new pitch arrives at a different loudness.
+// That is the wobble, and it is arithmetic rather than taste.
+//
+// So the whole sung "cult" family is re-levelled to a common RMS measured
+// over the loudest 300 ms of each take (RMS over the whole file would
+// penalise a take with a long tail). Peak is re-checked afterwards so a
+// quiet-but-spiky take cannot be pushed into clipping.
+{
+  const fam = Object.keys(BANK).filter((n) => /^cult-[a-g]s?\d$/.test(n));
+  const win = Math.round(0.30 * SR);
+  const loud = (a) => {
+    let best = 0, sum = 0;
+    for (let i = 0; i < a.length; i++) {
+      sum += a[i] * a[i];
+      if (i >= win) sum -= a[i - win] * a[i - win];
+      if (i >= win && sum > best) best = sum;
+    }
+    return Math.sqrt(best / win);
+  };
+  const rms = fam.map((n) => [n, loud(BANK[n])]).filter(([, r]) => r > 1e-5);
+  if (rms.length > 1) {
+    const target = rms.map(([, r]) => r).sort((a, b) => a - b)[rms.length >> 1];
+    for (const [n, r] of rms) {
+      let peak = 0; for (const v of BANK[n]) peak = Math.max(peak, Math.abs(v));
+      const g = Math.min(target / r, 0.98 / Math.max(peak, 1e-6));
+      const a = BANK[n];
+      for (let i = 0; i < a.length; i++) a[i] *= g;
+    }
+    console.log(`  levelled ${rms.length} cult takes to a common RMS`);
+  }
+}
+
+const DEMOS = resolve(REPO, "pop/demos/samples");
+for (const [n, f] of Object.entries({
+  hatC: "perc-hat-c.mp3", hatO: "perc-hat-o.mp3", clap: "perc-clap.mp3",
+  ride: "perc-ride.mp3", snap: "perc-snap.mp3", snare: "perc-snare.mp3",
+  tambo: "perc-tambo.mp3", block: "perc-block.mp3", sweep: "bed-noise-sweep.mp3",
+})) load(n, join(DEMOS, f));
+
+// ── space ─────────────────────────────────────────────────────────────
+function spatial(az) {
+  const itd = Math.round(0.00027 * SR * Math.sin(az));
+  const shadow = 0.35 * Math.sin(az);
+  return { itd, gl: 1 - shadow, gr: 1 + shadow };
+}
+
+function emit(bus, i, mono, pan, sp, sideAmt, dly = 0) {
+  if (i < 0 || i >= N) return;
+  const a = (Math.PI / 4) * (1 + pan);
+  const cl = Math.cos(a), cr = Math.sin(a);
+  if (bus === "drums") { drumsL[i] += mono * cl; drumsR[i] += mono * cr; }
+  else if (bus === "vox") { voxL[i] += mono * cl; voxR[i] += mono * cr; }
+  else if (bus === "tube") { tubeL[i] += mono * cl; tubeR[i] += mono * cr; }
+  else if (bus === "sig") { sigL[i] += mono * cl; sigR[i] += mono * cr; }
+  else { musicL[i] += mono * cl; musicR[i] += mono * cr; }
+  if (dly) dlySend[i] += mono * dly;
+  if (sp && sideAmt) {
+    const li = i + sp.itd, ri = i - sp.itd;
+    const l = li >= 0 && li < N ? mono * sp.gl : 0;
+    const r = ri >= 0 && ri < N ? mono * sp.gr : 0;
+    const s = 0.5 * (l - r) * sideAmt;
+    if (bus === "vox") sideV[i] += s;
+    else if (bus === "tube") sideT[i] += s;
+    else if (bus === "sig") sideS[i] += s;
+    else sideB[i] += s;
+  }
+}
+
+// ── sidechain ─────────────────────────────────────────────────────────
+// Two envelopes, both built AFTER scoring from the triggers the score
+// pushed, both ramping to the floor over ~9 ms and recovering on a
+// smoothstep. A stepped duck is a click with extra steps.
+const kicks = [], snares = [];
+function buildEnv(triggers) {
+  const e = new Float32Array(N).fill(1);
+  const pre = Math.round(0.010 * SR);
+  for (const { t, depth, atk, rel } of triggers) {
+    const i0 = Math.round(t * SR) - pre;
+    const span = pre + Math.round((atk + rel) * SR);
+    for (let i = 0; i < span; i++) {
+      const j = i0 + i;
+      if (j < 0) continue;
+      if (j >= N) break;
+      const dt = i / SR - 0.010;
+      let g;
+      if (dt < atk) g = 1 - depth * clamp((dt + 0.010) / (0.010 + atk), 0, 1);
+      else { const u = clamp((dt - atk) / rel, 0, 1); g = (1 - depth) + depth * smooth(u); }
+      if (g < e[j]) e[j] = g;
+    }
+  }
+  return e;
+}
+
+// ── (3) THE THICK ELECTRO KICK ────────────────────────────────────────
+// @jeffrey: "want a thicker kick / POW / like a nice electro synth keek".
+//
+// Where it comes from, in order of how much it matters:
+//   · the SWEEP is deeper and faster — 200 Hz down to 47 Hz with a 62/s
+//     decay, so the pitch drop happens inside the first 20 ms and reads as
+//     one event rather than a bloop;
+//   · the ENVELOPE is two-stage: a 34/s slam stacked on a 7/s tail, which
+//     is what makes a kick sound big and short at the same time;
+//   · SATURATION on the kick's own waveform (tanh at drive 2.4, normalised)
+//     folds in the odd harmonics that let a sine kick cut on small speakers.
+//     This is the ONLY tanh in the render and it is nowhere near the master;
+//   · a defined TRANSIENT: two decaying blips at 1.6 k and 3.9 kHz, ~4 ms,
+//     so there is an attack to hear;
+//   · a separate 44 Hz SUB layer with a slow decay for the weight under it.
+//
+// The kick is still not allowed to make the master clip. Everything above
+// is envelope, harmonics and voice-level saturation — the drum bus level is
+// unchanged, and the master still sums clean and gets ONE static trim.
+const SATN = Math.tanh(2.4);
+function kick(t, gain = 1, { weight = 1 } = {}) {
+  kicks.push(t);
+  EVENTS.push({ t: +t.toFixed(4), voice: "kick", bus: "drums", dur: 0.52, gain: +gain.toFixed(3), weight });
+  const n = Math.round(0.52 * SR), i0 = Math.round(t * SR);
+  let ph = 0, sub = 0;
+  for (let i = 0; i < n; i++) {
+    const u = i / SR;
+    const f = 47 + 153 * Math.exp(-u * 62);
+    ph += (TAU * f) / SR;
+    sub += (TAU * 44) / SR;
+    const slam = Math.exp(-u * 34), tail = Math.exp(-u * 7.0);
+    const env = (0.62 * slam + 0.52 * tail) * Math.min(1, u / 0.0009);
+    const body = Math.tanh(Math.sin(ph) * env * 2.4) / SATN;
+    const low = Math.sin(sub) * Math.exp(-u * 5.6) * 0.40 * weight;
+    const click = Math.exp(-u * 300) * 0.13 * Math.sin(TAU * 1600 * u)
+      + Math.exp(-u * 760) * 0.075 * Math.sin(TAU * 3900 * u);
+    emit("drums", i0 + i, (body + low + click) * 0.74 * gain * tailFade(i, n), 0, null, 0);
+  }
+}
+
+// A quiet snare/rim on 3 — mostly there so the tubular pump has a second
+// trigger, which is what makes the pump read as rhythm rather than as the
+// kick's shadow.
+function snare(t, gain = 1) {
+  snares.push(t);
+  // perc-block is a near-pure 2502 Hz sine (tonal prominence x14523). 126 of
+  // them across the record read as one high buzz that never stops — the thing
+  // @jeffrey kept hearing "come in with the harmonies". A tap is a transient,
+  // not a pitch, so this is a short noise burst with a woody body instead.
+  woodTap(t, 0.17 * gain, 0.26);
+}
+
+// Sine bumps: fundamental + sub octave + a whisper of the 2nd.
+function bass(t, midi, dur, gain = 1, slideFrom = null) {
+  if (!allow("bass")) return;
+  EVENTS.push({ t: +t.toFixed(4), voice: "bass", bus: "music", midi, dur: +dur.toFixed(3),
+    gain: +gain.toFixed(3), ...(slideFrom !== null ? { slideFrom } : {}) });
+  const n = Math.round((dur + 0.12) * SR), i0 = Math.round(t * SR);
+  const f1 = hz(midi), f0 = slideFrom !== null ? hz(slideFrom) : f1;
+  let p1 = 0, p2 = 0, p3 = 0, lp = 0;
+  for (let i = 0; i < n; i++) {
+    const u = i / SR;
+    const glide = smooth(clamp(u / 0.075, 0, 1));
+    const f = f0 + (f1 - f0) * glide;
+    p1 += (TAU * f) / SR; p2 += (TAU * f * 0.5) / SR; p3 += (TAU * f * 2) / SR;
+    let env = Math.min(1, u / 0.012);
+    if (u > dur) env *= Math.max(0, 1 - (u - dur) / 0.12);
+    const s = Math.sin(p1) + 0.52 * Math.sin(p2) + 0.10 * Math.sin(p3);
+    lp += 0.50 * (s - lp);
+    emit("music", i0 + i, lp * 0.40 * env * gain * tailFade(i, n), 0, null, 0);
+  }
+}
+
+// Harmonized sines — the pad and the stab.
+function sines(t, midis, dur, gain, pan, sideAmt = 0.5, bright = 1, dly = 0, attack = 0.020) {
+  if (!allow(dur > 1 ? "pad" : "stab")) return;
+  EVENTS.push({ t: +t.toFixed(4), voice: dur > 1 ? "pad" : "stab", bus: "music", midis,
+    dur: +dur.toFixed(3), gain: +gain.toFixed(3), pan: +pan.toFixed(2) });
+  const n = Math.round((dur + 0.40) * SR), i0 = Math.round(t * SR);
+  const sp = spatial(pan * 1.2);
+  const ph = midis.map(() => [0, 0, 0]);
+  let lp = 0;
+  for (let i = 0; i < n; i++) {
+    const u = i / SR;
+    let s = 0;
+    for (let v = 0; v < midis.length; v++) {
+      const f = hz(midis[v]);
+      ph[v][0] += (TAU * f) / SR;
+      ph[v][1] += (TAU * f * 1.0035) / SR;
+      ph[v][2] += (TAU * f * 2) / SR;
+      s += Math.sin(ph[v][0]) + 0.7 * Math.sin(ph[v][1]) + 0.08 * bright * Math.sin(ph[v][2]);
+    }
+    s /= midis.length * 1.8;
+    lp += 0.28 * (s - lp);
+    let env = Math.min(1, u / attack);
+    if (u > dur) env *= Math.max(0, 1 - (u - dur) / 0.40);
+    emit("music", i0 + i, lp * env * gain * tailFade(i, n), pan, sp, sideAmt, dly);
+  }
+}
+
+// ── (4) THE SIGNAL LAYER ──────────────────────────────────────────────
+// "more phone beeps and bops / and clicks and taps".
+//
+// A beep reads as a PHONE when it is two tones, not one — so these are real
+// DTMF pairs off the keypad. The record dials C-U-L-T, which on a phone is
+// 2-8-5-8, in act I. Everything here exits through a 12 ms raised-cosine
+// release and enters over 3 ms, so the busiest sixteenth of taps still
+// cannot make a click.
+const DTMF_ROW = [697, 770, 852, 941];
+const DTMF_COL = [1209, 1336, 1477, 1633];
+const KEY = {
+  1: [0, 0], 2: [0, 1], 3: [0, 2], 4: [1, 0], 5: [1, 1], 6: [1, 2],
+  7: [2, 0], 8: [2, 1], 9: [2, 2], "*": [3, 0], 0: [3, 1], "#": [3, 2],
+};
+const CULT_DIAL = ["2", "8", "5", "8"];     // C · U · L · T
+// v7: @jeffrey — "the phone tones should change pitch / i want all kinds of
+// tones / the standard 12 tone phone tones!". The carrier still dials
+// C-U-L-T because that is the record's first line of information, but the
+// PHONE POLYRHYTHM now walks the whole keypad. Twelve keys, twelve distinct
+// two-tone pairs, in an order that keeps moving: a step of 5 through 12 is
+// coprime with 12, so the figure visits every key exactly once before it
+// repeats, and it never sits on the same row or column twice running.
+const PAD12 = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "*", "0", "#"];
+const padKey = (k) => PAD12[(k * 5) % 12];
+
+function beep(t, f1, f2, dur, { gain = 1, pan = 0, side = 0.6, dly = 0, bus = "sig", digit = null } = {}) {
+  if (!allow("beep")) return;
+  EVENTS.push({ t: +t.toFixed(4), voice: "beep", bus, hz: f2 ? [f1, f2] : [f1], dur: +dur.toFixed(3),
+    gain: +gain.toFixed(3), pan: +pan.toFixed(2), ...(digit ? { digit } : {}) });
+  const rel = 0.012, n = Math.round((dur + rel) * SR), i0 = Math.round(t * SR);
+  const sp = spatial(pan * 1.2);
+  let p1 = 0, p2 = 0;
+  for (let i = 0; i < n; i++) {
+    const u = i / SR;
+    p1 += (TAU * f1) / SR;
+    if (f2) p2 += (TAU * f2) / SR;
+    const atk = 0.5 - 0.5 * Math.cos(Math.PI * clamp(u / 0.003, 0, 1));
+    const off = u > dur ? 0.5 + 0.5 * Math.cos(Math.PI * clamp((u - dur) / rel, 0, 1)) : 1;
+    const s = (Math.sin(p1) + (f2 ? 0.85 * Math.sin(p2) : 0)) * (f2 ? 0.5 : 0.9);
+    emit(bus, i0 + i, s * atk * off * 0.30 * gain * tailFade(i, n), pan, sp, side, dly);
+  }
+}
+const dtmf = (t, digit, dur, o = {}) => {
+  const k = KEY[digit]; if (!k) return;
+  beep(t, DTMF_ROW[k[0]], DTMF_COL[k[1]], dur, { ...o, digit: String(digit) });
+};
+
+// A "bop": a sine that drops a fifth in 60 ms. UI, not music.
+function bop(t, f, { gain = 1, pan = 0, side = 0.5, dur = 0.085, dly = 0 } = {}) {
+  if (!allow("bop")) return;
+  EVENTS.push({ t: +t.toFixed(4), voice: "bop", bus: "sig", hz: +f.toFixed(1),
+    dur: +dur.toFixed(3), gain: +gain.toFixed(3), pan: +pan.toFixed(2) });
+  const n = Math.round((dur + 0.02) * SR), i0 = Math.round(t * SR);
+  const sp = spatial(pan * 1.2);
+  let p = 0;
+  for (let i = 0; i < n; i++) {
+    const u = i / SR;
+    const ff = f * (1 - 0.33 * smooth(clamp(u / 0.060, 0, 1)));
+    p += (TAU * ff) / SR;
+    const env = Math.min(1, u / 0.002) * Math.exp(-u * 26);
+    emit("sig", i0 + i, Math.sin(p) * env * 0.34 * gain * tailFade(i, n), pan, sp, side, dly);
+  }
+}
+
+// Clicks and taps: bandpassed noise, deterministic (the seed is the post
+// date), 4 ms and 18 ms respectively. The tap has a woody 900 Hz body; the
+// click is nearly pure edge.
+let nseed = 987654321;
+// xorshift32, byte-for-byte the generator MenuBandPercussion.swift uses. The
+// old LCG multiplied past 2^53 in a double, so its low bits — the ones that
+// carry an LCG's randomness — were being rounded away before the truncate.
+// It measured nearly white anyway, but this removes the variable entirely.
+const nrnd = () => {
+  nseed ^= nseed << 13; nseed >>>= 0;
+  nseed ^= nseed >>> 17;
+  nseed ^= nseed << 5; nseed >>>= 0;
+  return (nseed / 4294967295) * 2 - 1;
+};
+function noiseHit(t, { gain = 1, pan = 0, side = 0.5, dur = 0.004, tone = 0, q = 0.35, dly = 0, evVoice = "click" } = {}) {
+  // v6: these were the one family of voices MUTE=/ONLY= could not reach,
+  // which matters now that three of the polyrhythm layers are made of them.
+  if (!allow(evVoice)) return;
+  EVENTS.push({ t: +t.toFixed(4), voice: evVoice, bus: "sig", dur: +dur.toFixed(4),
+    gain: +gain.toFixed(3), pan: +pan.toFixed(2) });
+  const n = Math.round((dur + 0.006) * SR), i0 = Math.round(t * SR);
+  const sp = spatial(pan * 1.2);
+  let hp = 0, prev = 0, lp = 0, p = 0;
+  for (let i = 0; i < n; i++) {
+    const u = i / SR;
+    const w = nrnd();
+    hp = 0.86 * (hp + w - prev); prev = w;
+    lp += 0.42 * (hp - lp);
+    let v = lp;
+    if (tone) { p += (TAU * tone) / SR; v = v * (1 - q) + Math.sin(p) * q * Math.exp(-u * 120); }
+    // 0.9 ms of ramp: still reads as a tick, but the raw sample-to-sample
+    // step stays inside what a click scan calls music rather than a fault.
+    const env = Math.min(1, u / 0.0009) * Math.exp(-u * (tone ? 150 : 620));
+    emit("sig", i0 + i, v * env * 1.10 * gain * tailFade(i, n), pan, sp, side, dly);
+  }
+}
+const click = (t, o = {}) => noiseHit(t, { dur: 0.004, tone: 0, evVoice: "click", ...o });
+const tap = (t, o = {}) => noiseHit(t, { dur: 0.018, tone: 900, q: 0.40, evVoice: "tap", ...o });
+
+// A wooden tap: filtered noise through a fast decay with two shallow body
+// resonances an octave apart. Broadband enough to never ring as a tone.
+function woodTap(t, gain = 0.17, pan = 0.26) {
+  if (!allow("tap")) return;
+  const n = Math.round(0.075 * SR), i0 = Math.round(t * SR);
+  const sp = spatial(pan * 1.2);
+  EVENTS.push({ t: +t.toFixed(4), voice: "tap", bus: "drums", gain: +gain.toFixed(3), pan });
+  let lp = 0, b1 = 0, b2 = 0;
+  const a1 = 1 - Math.exp((-TAU * 900) / SR), a2 = 1 - Math.exp((-TAU * 1900) / SR);
+  for (let i = 0; i < n; i++) {
+    const u = i / SR;
+    const env = Math.exp(-u * 105) * Math.min(1, u / 0.0006);
+    const white = nrnd();
+    lp += (1 - Math.exp((-TAU * 5200) / SR)) * (white - lp);
+    b1 += a1 * (lp - b1); b2 += a2 * (lp - b2);
+    const v = b1 * 0.62 + b2 * 0.30 + lp * 0.16;
+    emit("drums", i0 + i, v * env * gain * 1.5 * tailFade(i, n), pan, sp, 0.55, 0);
+  }
+}
+
+// ── TRACKDRUM GEOMETRY — friction that traces a real finger path ──────
+// @jeffrey: "along the edge is nice too ... using the geometry of the
+// trackdrum and making the gestures weirder ... little spirals and so on".
+//
+// Menu Band's `setDrumSkinScratch` does not take a cutoff — it takes a POINT
+// on the trackpad, and derives the timbre from where that point sits on a
+// rounded rectangle: skin in the middle, then snare, rim, hat, and finally
+// the bright metal edge. Ported verbatim from MenuBandPercussion.swift:
+//   cutoff    175 -> 430 -> 680 -> 1250 -> 2050 Hz  across the material zones
+//   resonance  48 ->  90 -> 185 ->  360 ->  560 Hz
+// plus seam activity at distances .30/.46/.64/.88 (the seams you can feel),
+// a path-position ripple, and a speed->pitch lift. So a gesture is now a
+// SHAPE, and the sound follows the hand across the surface.
+// Signed distance to the rounded rectangle, normalized 0 (centre) -> 1 (edge).
+// At the centre the signed distance is exactly -0.5 with these constants, so
+// that is the depth the interior is scaled by.
+const surfaceDistance = (x, y) => {
+  const sx = (x - 0.5) * 2, sy = (y - 0.5) * 2;
+  const hw = 0.82, hh = 0.50, corner = 0.055;
+  const qx = Math.abs(sx) * hw - (hw - corner);
+  const qy = Math.abs(sy) * hh - (hh - corner);
+  const outside = Math.hypot(Math.max(qx, 0), Math.max(qy, 0));
+  const inside = Math.min(Math.max(qx, qy), 0);
+  const signed = outside + inside - corner;         // <0 inside, 0 on the edge
+  const depth = Math.max(0, -signed);               // 0.5 at dead centre
+  return Math.max(0, Math.min(1, 1 - depth / 0.5));
+};
+const sstep = (a, b, v) => { const u = Math.max(0, Math.min(1, (v - a) / (b - a))); return u * u * (3 - 2 * u); };
+const mixv = (a, b, m) => a + (b - a) * m;
+
+// The gesture library. Each returns {x,y} in [0,1] for u in [0,1].
+const PATHS = {
+  // Measured against the compiled Swift: the reference drag reaches surface
+  // distance ~0.61 — the RIM, cutoff 680 — and that is what makes it bright
+  // (centroid 5.6 kHz). Paths that hug the centre sit on skin at 175 Hz and
+  // sound dull, which is what mine were doing. So every path now spends its
+  // time out at snare/rim. It stops short of 0.62 on purpose: past there the
+  // resonance ramp climbs from 185 toward 560, and THAT is the metallic ring
+  // @jeffrey kept hearing. Bright is the cutoff; metallic is the resonance.
+  edge: (u) => ({ x: 0.12 + 0.76 * u, y: 0.72 - 0.03 * Math.sin(u * Math.PI * 3) }),
+  edgeBack: (u) => ({ x: 0.88 - 0.76 * u, y: 0.28 + 0.03 * Math.sin(u * Math.PI * 3) }),
+  spiral: (u) => {
+    const a = u * Math.PI * 5.2, r = 0.22 + 0.30 * u;
+    return { x: 0.5 + Math.cos(a) * r, y: 0.5 + Math.sin(a) * r * 0.78 };
+  },
+  spiralIn: (u) => {
+    const a = (1 - u) * Math.PI * 5.2, r = 0.52 - 0.30 * u;
+    return { x: 0.5 + Math.cos(a) * r, y: 0.5 + Math.sin(a) * r * 0.78 };
+  },
+  corner: (u) => ({ x: 0.5 + 0.40 * u * u, y: 0.5 + 0.34 * u * u }),
+  scrub: (u) => ({ x: 0.14 + 0.72 * u, y: 0.5 + 0.40 * Math.sin(u * Math.PI * 6.5) }),
+};
+
+function frictionPath(t, dur, {
+  path = "spiral", gain = 1, side = 0.30, dly = 0, rough = 0.55,
+  synthetic = false, rel = 0.10, shape = "slide", speed = 1,
+} = {}) {
+  if (!allow("skid")) return;
+  const fn = PATHS[path] || PATHS.spiral;
+  const n = Math.round((dur * 0.55 + rel * 0.7 + 0.06) * SR), i0 = Math.round(t * SR);
+  const span = dur * 0.55;
+  EVENTS.push({ t: +t.toFixed(4), voice: "skid", bus: "drums", shape: `path:${path}`,
+    dur: +span.toFixed(3), gain: +gain.toFixed(3), rough });
+  const atkA = 1 - Math.exp(-1 / (SR * 0.0025));
+  const relA = 1 - Math.exp(-1 / (SR * rel * 0.7));
+  let outLp = 0;
+  let lvl = 0, nf = 0, ns = 0, ph = 0, px = 0.5, py = 0.5;
+  for (let i = 0; i < n; i++) {
+    const u = i / SR, x = u / span;
+    const k = Math.max(0, Math.min(1, x));
+    const pt = fn(k);
+    // travel per sample -> the "speed" the Swift voice is driven by
+    const dx = pt.x - px, dy = pt.y - py; px = pt.x; py = pt.y;
+    const travel = Math.hypot(dx * 1.64, dy) * SR;
+    const d = surfaceDistance(pt.x, pt.y);
+    // the material ramps, verbatim
+    const toSnare = sstep(0.23, 0.31, d), toRim = sstep(0.40, 0.48, d);
+    const toHat = sstep(0.62, 0.70, d) * 0.35;   // never fully into the ringing zone
+    // The metal-edge zone is what ground; a fingertip on this record never
+    // gets there. Capped at a quarter of the way in.
+    const toClick = sstep(0.88, 0.965, d) * 0.25;
+    // Verbatim from the Swift, and the honest numbers are DULL: skin is
+    // 175 Hz. The hat (1250) and metal (2050) zones are dropped entirely —
+    // a fingertip on this record never leaves skin/snare/rim, and reaching
+    // for them is what made every version sound harsh.
+    let cut = mixv(175, 430, toSnare);
+    cut = mixv(cut, 680, toRim); cut = mixv(cut, 1250, toHat); cut = mixv(cut, 2050, toClick);
+    let res = mixv(mixv(mixv(mixv(48, 90, toSnare), 185, toRim), 360, toHat), 560, toClick);
+    // the seams you can feel under a fingertip
+    const seam = [0.30, 0.46, 0.64, 0.88].reduce((m, sd) =>
+      Math.max(m, Math.exp(-Math.pow((d - sd) / 0.045, 2))), 0);
+    const ripple = 1 + 0.055 * Math.sin(((pt.x - 0.5) * 2 * 2.7 + (pt.y - 0.5) * 2 * 3.9) * Math.PI);
+    const lift = 1 + Math.min(0.55, travel * 0.00016) * speed;
+    // "too harsh": the material ramp reaches 1250 (hat) and 2050 (metal) and
+    // the speed lift pushed past both. A fingertip on a head is DULL — so the
+    // travelling brightness is kept, but the ceiling comes down to the rim.
+    cut = cut * (1 + seam * 0.20) * lift;
+    // The resonance is what rings. The audition @jeffrey picked (E) ran at a
+    // FIXED 190 Hz; the material ramp climbs to 560 and then the speed-lift
+    // and seam terms multiply it again — roughly triple, which with E's
+    // carrier-heavy weighting is a metallic tone, not a scuff. Position still
+    // colours the sound through `cut`; the resonance is held near the voice
+    // he actually chose.
+    res = Math.min(255, res * ripple * (1 + seam * 0.06));
+    if (synthetic) { cut = 1200 + 9000 * d; res = 1100 + cut * 0.42; }
+    // envelope: the hand is on the surface for the whole path
+    let target = 0;
+    if (x < 1) target = shape === "skid" ? Math.exp(-x * 4.2)
+      : shape === "drag" ? Math.pow(x < 0.92 ? x / 0.92 : 1, 1.6)
+        : Math.sin(Math.PI * Math.min(1, x));
+    target *= 0.55 + 0.45 * Math.min(1, travel * 0.0011);   // faster = louder
+    if (shape === "drag") target *= 0.62;    // it lands on the downbeat; stay under it
+    lvl += (target > lvl ? atkA : relA) * (target - lvl);
+    const fa = 1 - Math.exp((-TAU * cut) / SR);
+    const sa = 1 - Math.exp((-TAU * Math.max(35, cut * 0.18)) / SR);
+    const white = nrnd();
+    nf += fa * (white - nf); ns += sa * (white - ns);
+    const band = nf - ns;
+    const motion = synthetic ? 1 : 1 + Math.tanh(band * 8) * 0.055;
+    ph += (res * motion) / SR; if (ph >= 1) ph -= Math.floor(ph);
+    const carrier = Math.sin(TAU * ph);
+    const gnarl = Math.tanh(band * (5 + rough * 5));
+    const texture = synthetic ? nf * carrier * 1.35
+      : gnarl * 0.44 + carrier * (0.08 + Math.abs(gnarl) * (0.42 + rough * 0.30));
+    // No output lowpass. Measured against the compiled Swift, the real voice
+    // is BRIGHT — centroid 5.6 kHz, 85% rolloff 13.8 kHz — because the
+    // friction band is a difference of two one-poles and keeps a long high
+    // tail, which tanh then enriches. What makes it a surface instead of a
+    // hiss is that it is tiny: the reference peaks at 0.039. Bright and
+    // quiet, not dull and loud. That was the whole error.
+    const pan = (pt.x - 0.5) * 1.5;            // the hand's position IS the pan
+    emit("drums", i0 + i, texture * lvl * 0.15 * gain * tailFade(i, n),
+      pan, spatial(pan * 1.2), side, dly);
+  }
+}
+
+// ── SKIDS AND SLIDES — Menu Band's TrackDrum friction voice ───────────
+// @jeffrey: "menu band's trackdrum sliding sound could be GREAT to add —
+// some skidding and sliding in the perc".
+//
+// This is a direct port of the "Continuous membrane friction" block in
+// slab/menuband/Sources/MenuBand/MenuBandPercussion.swift (~1296–1338),
+// not an approximation of it. The parts that matter, and why:
+//
+//   · TWO low-pass states over the SAME white sample — one at `cut`, one at
+//     max(35, cut*0.18) — and the friction signal is their DIFFERENCE. That
+//     is a tight moving band, not broadband noise, and the band IS the skid.
+//   · a sine carrier at `res`, frequency-modulated BY THE BAND ITSELF:
+//     pitchMotion = 1 + tanh(band*8)*0.055. That 5.5 % self-modulation is
+//     the whole reason it sounds like a finger dragging rather than like
+//     filtered noise, so it is kept exactly.
+//   · nonlinear grip: gnarl = tanh(band*(5 + rough*5)), then
+//     texture = gnarl*0.44 + carrier*(0.08 + |gnarl|*(0.42 + rough*0.30)).
+//   · a level TARGET through separate attack/release one-poles (0.0025 s
+//     physical, 0.006 s synthetic) — so it swells and releases like a real
+//     drag instead of gating on. The gesture lives in that envelope.
+//
+// What v5 adds on top: `cut` and `res` sweep across the gesture, because a
+// hand that is sliding is also moving, and a static filter reads as a
+// texture rather than a motion. Both stay warm — cutoff 700–2600 Hz,
+// carrier 90–420 Hz — so nothing here brightens the top end, and `side` is
+// kept low (≤0.34) so the friction never smears the mono fold-down.
+//
+// Three gestures: `drag` swells INTO a downbeat, `skid` comes off the back
+// of a hit, `slide` is a slow swell-and-fall under a transition.
+function friction(t, dur, {
+  shape = "drag", gain = 1, pan = 0, side = 0.30, dly = 0,
+  cut0 = 1300, cut1 = null, res0 = 190, res1 = null,
+  rough = 0.55, synthetic = false, rel = 0.10,
+} = {}) {
+  if (!allow("skid")) return;
+  // @jeffrey: "such weird buzzing there ... they should be sounding like light
+  // scratches / scuffs ... and be faster". The buzz was the carrier: at
+  // rough .55 the old mix put up to .665 of a PURE 90-420 Hz sine into the
+  // signal, which reads as a tone, not a surface. A scuff is nearly all
+  // friction band and almost no carrier, brighter, and over quickly. So:
+  // cutoffs up ~2.3x, carrier up ~3.4x (out of the buzz register and into
+  // "scrape"), gestures at 55% length.
+  // @jeffrey picked E: the Swift physical weights VERBATIM at drumhead
+  // frequencies. My earlier "de-buzz" pass was a misdiagnosis — the buzz was
+  // a 2502 Hz near-sine in perc-block (the tap), not this carrier. So the
+  // texture and the frequencies are the original TrackDrum voice again, and
+  // the only thing kept from that pass is "be faster".
+  const SCUFF_CUT = 1.0, SCUFF_RES = 1.0, SCUFF_FAST = 0.55;
+  cut0 *= SCUFF_CUT; if (cut1 !== null) cut1 *= SCUFF_CUT;
+  res0 *= SCUFF_RES; if (res1 !== null) res1 *= SCUFF_RES;
+  dur *= SCUFF_FAST; rel *= 0.7;
+  const c1 = cut1 ?? cut0, r1 = res1 ?? res0;
+  EVENTS.push({ t: +t.toFixed(4), voice: "skid", bus: "drums", shape, dur: +dur.toFixed(3),
+    gain: +gain.toFixed(3), pan: +pan.toFixed(2), cut: [cut0, c1], res: [res0, r1],
+    rough, ...(synthetic ? { synthetic: true } : {}) });
+  const n = Math.round((dur + rel + 0.06) * SR), i0 = Math.round(t * SR);
+  const sp = spatial(pan * 1.2);
+  const atkA = 1 - Math.exp(-1 / (SR * (synthetic ? 0.006 : 0.0025)));
+  const relA = 1 - Math.exp(-1 / (SR * rel));
+  let outLp = 0;
+  let lvl = 0, nf = 0, ns = 0, ph = 0;
+  for (let i = 0; i < n; i++) {
+    const u = i / SR, x = u / dur;
+    let target = 0;
+    if (x < 1) {
+      target = shape === "skid" ? Math.exp(-x * 4.2)
+        : shape === "slide" ? Math.sin(Math.PI * x)
+          : Math.pow(smooth(clamp(x / 0.92, 0, 1)), 1.6);      // drag
+    }
+    lvl += (target > lvl ? atkA : relA) * (target - lvl);
+    const k = clamp(x, 0, 1);
+    const cut = cut0 + (c1 - cut0) * k;
+    const res = res0 + (r1 - res0) * k;
+    const fa = 1 - Math.exp((-TAU * cut) / SR);
+    const sa = 1 - Math.exp((-TAU * Math.max(35, cut * 0.18)) / SR);
+    const white = nrnd();
+    nf += fa * (white - nf);
+    ns += sa * (white - ns);
+    const band = nf - ns;
+    const motion = synthetic ? 1 : 1 + Math.tanh(band * 8) * 0.055;
+    ph += (res * motion) / SR;
+    if (ph >= 1) ph -= Math.floor(ph);
+    const carrier = Math.sin(TAU * ph);
+    let texture;
+    if (synthetic) texture = nf * carrier * 1.35;   // F — the ring-mod mode
+    else {
+      const gnarl = Math.tanh(band * (5 + rough * 5));
+      texture = gnarl * 0.44 + carrier * (0.08 + Math.abs(gnarl) * (0.42 + rough * 0.30));
+    }
+    emit("drums", i0 + i, texture * lvl * 0.15 * gain * tailFade(i, n), pan, sp, side, dly);
+  }
+}
+
+// SOS, beeped. This is act V's answer: the same figure the voices sing,
+// coming back as a machine.
+function beepSOS(t, { gain = 1, pan = 0.5, dly = 0.4, f = 0 } = {}) {
+  const row = DTMF_ROW[1], col = f || DTMF_COL[1];
+  const seq = [[0.00, 0.09], [0.20, 0.09], [0.40, 0.09],
+    [0.70, 0.26], [1.10, 0.26], [1.50, 0.26],
+    [1.95, 0.09], [2.15, 0.09], [2.35, 0.09]];
+  seq.forEach(([o, d], i) =>
+    beep(t + o, row, col, d, { gain: gain * (i < 3 ? 0.9 : i < 6 ? 1.0 : 0.72), pan: pan * (i % 2 ? -1 : 1), side: 0.85, dly }));
+}
+
+// ── the one-shot player, with (1) PITCH WIGGLE ────────────────────────
+// `wig` is the vibrato depth in cents, `wigHz` its rate, `wigPhase` the
+// phase offset that makes three stacked performers beat against each other
+// rather than move together, `wigDrift` a slow detune in cents applied over
+// the note, and `wigIn` how long the depth takes to arrive. wigIn is the
+// whole trick: with the wiggle ramped in, the CONSONANT lands in tune and
+// only the held vowel shimmers, so intelligibility survives the effect.
+function shot(name, t, {
+  gain = 1, pan = 0, semis = 0, bus = "drums", side = 0.35, dark = 0,
+  dur = null, dly = 0, off = 0, evVoice = null,
+  wig = 0, wigHz = 5.0, wigPhase = 0, wigDrift = 0, wigIn = 0.45,
+} = {}) {
+  const s = BANK[name];
+  if (!s) { missing.add(name); return; }
+  if (!allow(evVoice ?? classify(name).voice)) return;
+  const step = Math.pow(2, semis / 12);
+  const start = Math.max(0, Math.min(s.length - 2, Math.round(off * SR)));
+  let avail = Math.floor((s.length - 2 - start) / step);
+  // A wiggling read can run ahead of a flat one, so leave it room: the worst
+  // case here is well under 3 %, and a sample that runs out mid-read would
+  // exit without its tail fade, which is the one thing we never allow.
+  if (wig || wigDrift) avail = Math.floor(avail * 0.965);
+  const n = dur ? Math.min(avail, Math.round(dur * SR)) : avail;
+  if (n <= 4) return;
+  const i0 = Math.round(t * SR);
+  const c = classify(name);
+  EVENTS.push({
+    t: +t.toFixed(4), voice: evVoice ?? c.voice, bus, sample: name,
+    dur: +(n / SR).toFixed(3), gain: +gain.toFixed(3), pan: +pan.toFixed(2),
+    ...(c.who ? { who: c.who } : {}),
+    ...(c.autotune ? { autotune: true } : {}),
+    ...(c.midi != null ? { midi: c.midi + semis } : semis ? { semis } : {}),
+    ...(wig ? { wiggleCents: +wig.toFixed(1), wiggleHz: wigHz, wiggleDriftCents: +wigDrift.toFixed(1) } : {}),
+  });
+  const sp = spatial(pan * 1.2);
+  const span = n / SR;
+  const ramp = Math.max(1e-4, wigIn);
+  let lp = 0, pos = start;
+  for (let i = 0; i < n; i++) {
+    const q = pos | 0;
+    if (q + 1 >= s.length) break;
+    const f = pos - q;
+    let v = s[q] + (s[q + 1] - s[q]) * f;
+    if (dark > 0) { lp += (1 - dark) * (v - lp); v = lp; }
+    const env = Math.min(1, i / (0.0015 * SR));
+    emit(bus, i0 + i, v * env * gain * tailFade(i, n), pan, sp, side, dly);
+    if (wig || wigDrift) {
+      const u = i / SR;
+      const d = smooth(u / ramp);
+      const cents = d * wig * Math.sin(TAU * wigHz * u + wigPhase)
+        + wigDrift * smooth(u / span);
+      pos += step * Math.pow(2, cents / 1200);
+    } else pos += step;
+  }
+}
+const missing = new Set();
+const sung = (name, t, o = {}) => shot(name, t, { bus: "vox", side: 0.6, ...o });
+
+// ── subharmonic doubling ──────────────────────────────────────────────
+// @jeffrey: "pitch some voices down like jeffrey's voice — we could add
+// subharmonic doubling too". The same take read an octave (or a fifth)
+// below itself, darkened and set back, so the voice grows a floor under it
+// rather than a second singer beside it. Jeffrey is already the lowest of
+// the three, so his takes carry it deepest; the upper voices get a lighter
+// touch. `octaves: -12` is the sub, `-19` reaches for the fifth below that.
+function subDouble(name, t, o = {}, { amount = 0.34, semis = -12, dark = 0.42, delay = 0.012 } = {}) {
+  if (amount <= 0) return;
+  sung(name, t + delay, {
+    ...o,
+    gain: (o.gain ?? 1) * amount,
+    semis: (o.semis ?? 0) + semis,
+    dark: Math.max(o.dark ?? 0, dark),
+    side: Math.min(o.side ?? 0.4, 0.30),      // keep the floor near the middle
+    pan: (o.pan ?? 0) * 0.35,
+    evVoice: "sub",
+  });
+}
+// Sing a take and give it its own floor in one call.
+function sungSub(name, t, o = {}, sub = {}) {
+  sung(name, t, o);
+  subDouble(name, t, o, sub);
+}
+// A held dash goes to the tube bus — resonated, saturated, deeply pumped.
+const held = (name, t, o = {}) => shot(name, t, { bus: "tube", side: 0.7, ...o });
+
+// ── voice as material ─────────────────────────────────────────────────
+function material(bar, name, g = 1, {
+  steps = 16, grain = 0.070, dark = 0.18, side = 0.85, dly = 0.22, span = 0.9,
+} = {}) {
+  const src = BANK[name];
+  if (!src) { missing.add(name); return; }
+  const len = src.length / SR;
+  const tri = triad(degAt(bar));
+  for (let k = 0; k < steps; k++) {
+    if ((k * 7 + bar * 3) % 5 === 0) continue;
+    const t = at(bar) + k * (BEAT / 4);
+    const off = ((k * 5 + bar * 3) % 11) / 11 * Math.max(0, len - grain) * span;
+    const semis = tri[(k + bar) % tri.length] - tri[0] + (k % 8 === 4 ? 12 : 0);
+    const accent = k % 4 === 0 ? 1.0 : k % 2 === 0 ? 0.72 : 0.52;
+    shot(name, t, {
+      bus: "vox", gain: 0.30 * g * accent, semis, evVoice: "material",
+      pan: (k % 2 ? 0.55 : -0.55) * (0.6 + 0.4 * ((k % 3) / 2)),
+      side, dark, dly, off, dur: grain * (k % 4 === 0 ? 1.6 : 1),
+    });
+  }
+}
+
+function stretched(name, t, { gain = 1, pan = 0, semis = 0, stretch = 1, dur = 1, side = 0.7, dark = 0.45, bus = "vox", dly = 0 } = {}) {
+  EVENTS.push({ t: +t.toFixed(4), voice: "stretch", bus, sample: name, dur: +dur.toFixed(3),
+    gain: +gain.toFixed(3), pan: +pan.toFixed(2), stretch });
+  const s = BANK[name];
+  if (!s) { missing.add(name); return; }
+  const step = Math.pow(2, semis / 12);
+  const n = Math.round(dur * SR);
+  const grain = Math.round(0.055 * SR), hopOut = grain >> 1, hopIn = (hopOut * step) / stretch;
+  const acc = new Float64Array(n + grain);
+  let read = 0;
+  for (let g = 0; g * hopOut < n; g++) {
+    if (read + grain * step >= s.length - 2) break;
+    for (let k = 0; k < grain; k++) {
+      const o = g * hopOut + k;
+      if (o >= acc.length - 1) break;
+      const pos = read + k * step, q = pos | 0, f = pos - q;
+      acc[o] += (s[q] + (s[q + 1] - s[q]) * f) * (0.5 - 0.5 * Math.cos((TAU * k) / (grain - 1)));
+    }
+    read += hopIn;
+  }
+  const i0 = Math.round(t * SR), sp = spatial(pan * 1.3);
+  let lp = 0;
+  for (let i = 0; i < n; i++) {
+    const u = i / SR;
+    lp += (1 - dark) * (acc[i] - lp);
+    let env = Math.min(1, u / 0.030);
+    const left = (n - i) / SR;
+    if (left < 0.12) env *= left / 0.12;
+    emit(bus, i0 + i, lp * env * gain * tailFade(i, n), pan, sp, side, dly);
+  }
+}
+
+// ── harmony ───────────────────────────────────────────────────────────
+// B natural minor, four rows of PROGRESSIONS_CHILL (recap/bin/trance.mjs),
+// two bars a chord, 32 bars before it comes round.
+//
+// v5 narrative amendment: act VII — "the whole message" — pins the harmony
+// to the home progression Bm · D · G · Em. The chords have been travelling
+// for two and a half minutes; when the complete lyric finally arrives, the
+// harmony arrives with it. That is the only place in the record where the
+// progression stops wandering.
+const SCALE = [0, 2, 3, 5, 7, 8, 10];
+const sd = (i) => SCALE[((i % 7) + 7) % 7] + 12 * Math.floor(i / 7);
+const ROWS = [[0, 5, 2, 6], [0, 6, 3, 5], [0, 4, 5, 3], [0, 2, 5, 3]];
+const HOME = [0, 2, 5, 3];                       // Bm · D · G · Em
+const bassRoot = (deg) => 35 + sd(deg);          // B1 = 35
+const triad = (deg, base = 59) => [sd(deg), sd(deg + 2), sd(deg + 4)].map((s) => base + s);
+
+const CULT_PITCH = { b2: 47, d3: 50, fs3: 54, g3: 55, a3: 57, b3: 59, cs4: 61, d4: 62, e4: 64, fs4: 66, g4: 67 };
+function choirFor(deg) {
+  const pcs = new Set(triad(deg).map((m) => ((m % 12) + 12) % 12));
+  const ok = Object.keys(CULT_PITCH)
+    .filter((n) => pcs.has(CULT_PITCH[n] % 12))
+    .sort((a, b) => CULT_PITCH[a] - CULT_PITCH[b]);
+  if (!ok.length) return ["b3"];
+  const low = ok.filter((n) => CULT_PITCH[n] <= 55);
+  const high = ok.filter((n) => CULT_PITCH[n] >= 57);
+  const pick = [low[0] ?? high[1] ?? high[0], high[0], high[high.length - 1]];
+  return [...new Set(pick.filter(Boolean))];
+}
+
+// ── form: the ten acts ────────────────────────────────────────────────
+const S = {
+  carrier:   [0, 4],      // I    0:00 a channel opens — DTMF dials C-U-L-T
+  three:     [4, 20],     // II   0:08 DOTS AND DASHES — no words for 32 s
+  message:   [20, 28],    // III  0:40 the hook: the message is legible
+  secret:    [28, 32],    // IV   0:56 THE TURN — kick out, beeps out, "cult"
+  reply:     [32, 40],    // V    1:04 something answers, in beeps
+  spread:    [40, 46],    // VI   1:20 it travels; the unison comes apart
+  whole:     [46, 52],    // VII  1:32 the complete chorus, at home
+  recognise: [52, 54],    // VIII 1:44 peel off — two bars, and it is quick
+  humans:    [54, 58],    // IX   1:48 drums out, the original recording
+  carrieroff:[58, 60],    // X    1:56 the drone leaves; the beeps outlast it
+};
+const ACTS = {
+  carrier: "I · CARRIER — a channel opens before anything is said",
+  three: "II · DOTS AND DASHES — a full minute of morse before a single word",
+  message: "III · THE MESSAGE — the hook, finally legible, over the thick kick",
+  secret: "IV · THE SECRET — the turn: everything stops and the word arrives alone",
+  reply: "V · THE REPLY — SOS comes back, beeped, from the other side",
+  spread: "VI · IT SPREADS — the unison comes apart; the wiggle is at its widest",
+  whole: "VII · THE WHOLE MESSAGE — the complete chorus, and the harmony comes home",
+  recognise: "VIII · RECOGNITION — elements peel off one at a time",
+  humans: "IX · THE HUMANS — the original recording: this was all made of eight seconds",
+  carrieroff: "X · CARRIER OFF — the drone leaves, the beeps outlast it, then a hang-up",
+};
+const inS = (bar, k) => bar >= S[k][0] && bar < S[k][1];
+const sectionAt = (bar) => Object.keys(S).find((k) => inS(bar, k)) ?? "carrieroff";
+
+// ══ v7 · THE FIRST MINUTE IS MORSE ═══════════════════════════════════
+// @jeffrey: "for the first minute we should just be all dashes and dots /
+// or like lets not reveal the main vocal for a bit".
+//
+// So act II is no longer sixteen bars of introduction — it is TWENTY-FOUR,
+// 0:16 to 1:04, and nothing in it is a word. Three sub-shapes:
+//
+//   8–16   THE INTRODUCTIONS  one register at a time, then the first unison
+//   16–24  SOS                the figure, twice, dots and dashes only
+//   24–32  THE DASH GROOVE    the hook's RHYTHM played entirely in dashes
+//                             and dots — the shape of the chorus with the
+//                             lyric cut out of it. By the time "run real
+//                             fast" arrives at 1:04 the ear already knows
+//                             where it goes, which is what makes the
+//                             reveal land instead of merely starting.
+const introBar = (b) => b >= 4 && b < 12;
+const sosBar = (b) => b >= 12 && b < 16;
+const dashBar = (b) => b >= 16 && b < 20;
+
+// ══ v7 · THE PERCUSSION STORY ════════════════════════════════════════
+// @jeffrey: "we need a better overall percussion story".
+//
+// v6 had one kit that switched on at bar 8 and stayed. v7 has NINE STAGES,
+// and the kit is a different instrument in each — the drums narrate the
+// same ten acts the voices do:
+//
+//   0  no drums                      acts I, IV, IX, X
+//   1  hands only — woodTaps on 2/4, no kick, no metal
+//   2  the pulse arrives — kick on 1 and 3, offbeat hats, rim on 3
+//   3  the dash groove — 4/4 kick, backbeat rim, a ghost on the "a" of 4
+//   4  the kit opens — clap on the backbeat, open hat into the bar
+//   5  the reply — tambourine eighths, sixteenth ghosts
+//   6  it spreads — the backbeat DISPLACES: an extra clap on the "and" of 4
+//   7  the whole message — everything, plus the pickup into every bar
+//   8  recognition — one element leaves per bar
+function percStage(bar) {
+  if (inS(bar, "carrier") || inS(bar, "secret") || inS(bar, "humans") || inS(bar, "carrieroff")) return 0;
+  if (bar < 8) return 0;          // the roll call's first two voices are ALONE
+  if (bar < 12) return 1;
+  if (bar < 16) return 2;
+  if (bar < 20) return 3;
+  if (inS(bar, "message")) return 4;
+  if (inS(bar, "reply")) return 5;
+  if (inS(bar, "spread")) return 6;
+  if (inS(bar, "whole")) return 7;
+  return 8;
+}
+const kickOn = (b) => percStage(b) >= 2;
+const hatOn = (b) => percStage(b) >= 2 || inS(b, "secret");
+
+function degAt(bar) {
+  if (inS(bar, "whole")) return HOME[Math.floor(((bar - S.whole[0]) % 8) / 2)];
+  return ROWS[Math.floor(bar / 8) % ROWS.length][Math.floor((bar % 8) / 2)];
+}
+
+// ── OTHER PEOPLE'S CULTS ──────────────────────────────────────────────
+// @jeffrey: "get other samples from the other tiktoks / we have many 'cult'
+// tiktok takes". The whistlegraph index (system/public/whistlegraph.org/
+// posts.json) tags TWELVE posts with the `cult` work, not one. The other
+// eleven were pulled from the assets mirror and chopped into alt/samples/
+// (see alt/harvest.json for the transcripts, timings and measured f0).
+//
+// Ten of them contain a fresh utterance of the word. That is a gift to the
+// narrative rather than just extra material: act VI is called IT SPREADS,
+// and what spreads is literally this — the same word, said by different
+// people in different months across 2022, arriving from the edges of the
+// stereo field. Act IX then gives the sung one to the humans.
+//
+// Verified present before use; if alt/ has not been harvested the score
+// simply skips these lines.
+const ALT_CULTS = [
+  ["alt-71018-cult", 0.29, 112], ["alt-70555-cult", 0.37, 119],
+  ["alt-71244-cult", 0.41, 229], ["alt-70551-cult", 0.43, 136],
+  ["alt-71441-cult", 0.52, 207], ["alt-71195-cult", 0.54, 121],
+];
+const ALT_SUNG = "alt-71448-cult";                 // 0.80 s, 298 Hz, actually sung
+const ALT_THREE = "alt-71441-threeofus";           // 0.95 s, 221 Hz, sung
+
+let seed = 20220120;                                   // the cult post date
+const rnd = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296);
+const jit = (ms = 6) => ((rnd() - 0.5) * 2 * ms) / 1000;
+const vel = (spread = 0.20) => 1 - rnd() * spread;
+
+// ══ (2) THE DESCENT ══════════════════════════════════════════════════
+// @jeffrey: "bring down the vocals / so daaaaash daaaash gets lower in
+// octaves". Two separate moves, both here.
+//
+// THE LADDER. Every dash in the score names a rung — "fs4", "d4", "b3" —
+// and rung() walks that name DOWN the ladder by however many steps the
+// narrative has taken by this bar. So the hook at 0:48 and the hook at 3:12
+// are the same written figure, an octave and a fourth apart, without a
+// single note being rewritten.
+//
+//   stage 0  fs4 · d4 · b3     acts I–IV      as v5
+//   stage 1  d4  · b3 · fs3    act V          the reply is already lower
+//   stage 2  b3  · fs3 · d3    act VI         it spreads downward
+//   stage 3  fs3 · d3 · d3     acts VII–X     the floor
+//
+// The rungs below B3 are REAL TAKES of Camille and Alex singing there
+// (bin/sing6.mjs), not the same take pitched down: a transposed voice keeps
+// the formants of the octave above it and reads as a machine, and the
+// machine in this record is supposed to be the autotune, not the descent.
+const LADDER = { fs4: ["fs4", "d4", "b3", "fs3"], d4: ["d4", "b3", "fs3", "d3"],
+  b3: ["b3", "fs3", "d3", "d3"] };
+function descentStage(bar) {
+  if (bar < S.reply[0]) return 0;
+  if (bar < S.spread[0]) return 1;
+  if (bar < S.whole[0]) return 2;
+  if (bar < S.whole[0] + 4) return 2;
+  return 3;
+}
+const rung = (which, bar) => (LADDER[which] ?? [which])[descentStage(bar)] ?? which;
+
+// ══ (3) HARD AUTOTUNE — the router ═══════════════════════════════════
+// bin/sing6.mjs renders a second copy of the hook/chorus leads and of
+// Camille's and Alex's dashes through sing.py's --autotune hard. at() picks
+// that copy when it exists, so the effect is one word in the score rather
+// than a parallel arrangement, and MUTEing it is a one-line experiment.
+//
+// AUTOTUNE = 0 renders v6 with the human takes throughout, which is the
+// A/B @jeffrey will want if the robot is ever too much.
+const AUTOTUNE = process.env.AUTOTUNE === "0" ? 0 : 1;
+const robot = (name) => (AUTOTUNE && has(`at-${name}`) ? `at-${name}` : name);
+
+// ── (1) THE CROSSOVER WIGGLE ──────────────────────────────────────────
+// The depth is a function of WHERE IN THE STORY we are, because the story
+// is a unison coming apart: 4 cents when the three of them first land on
+// the same syllable in act II, 10 through the message, 16 once it has been
+// answered, 22 where it spreads, back to 9 for the last statements.
+function wigDepth(bar) {
+  const s = sectionAt(bar);
+  return { three: 4, message: 10, secret: 7, reply: 16, spread: 22,
+    whole: 14, recognise: 9, humans: 6, carrieroff: 5, carrier: 0 }[s] ?? 10;
+}
+
+// One syllable, three people, one pitch, 28 ms apart — and now each of them
+// wiggling at their own rate and phase, so where they cross they beat.
+// Rates are mutually irrational-ish (4.3 / 5.9 / 3.4 Hz) so the beating
+// never settles into a pattern the ear can predict.
+// v6: `which` is now the rung NAME the score wrote, not the note that
+// sounds — rung() resolves it against the descent, and the two upper voices
+// come from the autotune bank while Jeffrey stays human underneath. The
+// wiggle depth drops as the autotune comes in: hand vibrato under a hard
+// retune is two pitch modulators fighting, and the retune wins anyway.
+function dashStack(t, which, G, bar) {
+  const nm = rung(which, bar);
+  const w = wigDepth(bar) * (AUTOTUNE ? 0.45 : 1);
+  held(robot(`dash-camille-${nm}-hold`), t + 0.000 + jit(3), {
+    gain: 0.50 * G, pan: -0.42, side: 0.70, dly: 0.22, dark: 0.13,
+    wig: w, wigHz: 4.3, wigPhase: 0.0, wigDrift: +0.42 * w, wigIn: 0.50,
+  });
+  held(robot(`dash-alex-${nm}-hold`), t + 0.028 + jit(3), {
+    gain: 0.47 * G, pan: 0.42, side: 0.70, dly: 0.22, dark: 0.13,
+    wig: w * 1.15, wigHz: 5.9, wigPhase: 2.1, wigDrift: -0.5 * w, wigIn: 0.42,
+  });
+  const jOpts = {
+    gain: 0.58 * G, pan: 0.00, side: 0.38, dark: 0.28, dly: 0.18,
+    wig: w * 0.7, wigHz: 3.4, wigPhase: 4.3, wigDrift: +0.3 * w, wigIn: 0.60,
+  };
+  // Jeffrey is never autotuned. He is the floor of the unison and the sub
+  // octave under it; a stair-stepped bass warbles, and one real human under
+  // the robot is what stops the stack reading as a synth.
+  const jn = ["fs4", "d4", "b3", "fs3", "d3"].includes(nm) ? nm : "b3";
+  held(`dash-jeffrey-${has(`dash-jeffrey-${jn}-hold`) ? jn : "b3"}-hold`, t + 0.056 + jit(3), jOpts);
+  // Jeffrey is already the floor of the three; the sub octave under his own
+  // dash is what gives the unison a bottom instead of a fourth singer.
+  held(`dash-jeffrey-${has(`dash-jeffrey-${jn}-hold`) ? jn : "b3"}-hold`, t + 0.068 + jit(3), {
+    ...jOpts, gain: jOpts.gain * 0.40, semis: -12, dark: 0.46,
+    side: 0.24, wig: w * 0.35, evVoice: "sub",
+  });
+}
+
+// ── "i wanna", stretched ──────────────────────────────────────────────
+// @jeffrey: "i think the 'i wanna' could be stretched out at times". AT
+// TIMES is the operative half — a phrase that is always stretched is just a
+// slower phrase. So the hook alternates: the FULL statement says it, the
+// half statement draws it out to 2.1×, which puts a long smeared "i
+// waaaannaaa" exactly where the arrangement thins out and there is room for
+// it. Same granular stretcher the licked "cult"s use, at a gentler ratio so
+// the words stay words.
+function iwanna(name, t, o = {}, stretch = 0) {
+  if (!stretch) { sung(robot(name), t, o); return; }
+  const src = BANK[robot(name)] || BANK[name];
+  if (!src) { missing.add(name); return; }
+  stretched(robot(name), t, {
+    bus: "vox", gain: (o.gain ?? 1) * 0.94, pan: o.pan ?? 0, side: o.side ?? 0.6,
+    dark: 0.22, dly: (o.dly ?? 0.2) + 0.12, stretch,
+    dur: Math.min(BAR * 1.5, (src.length / SR) * stretch * 0.96),
+  });
+}
+
+// ── THE HOOK, SUNG ────────────────────────────────────────────────────
+//   0.00  dash ──────── F#4, 1.50 s   three performers stacked (tube bus)
+//   1.50  i wanna       D4 → E4
+//   2.00  dash ──────── D4,  1.50 s
+//   3.50  i wanna       B3 → C#4
+//   4.00  run REAL fast G4 → F#4(2.00 s) → D4     — the long-"real" take
+//   6.00  dot           B3     ← the held vowel is STILL RINGING here
+//   6.50  dot           F#3
+//   7.00  ── rest ──
+function hook(bar, { full = true } = {}) {
+  const t = at(bar);
+  const G = full ? 1.0 : 0.70;
+  const draw = full ? 0 : 2.1;          // the half statement draws it out
+  dashStack(t + 0.00, "fs4", G, bar);
+  iwanna("iwanna-a-sung", t + 1.50 + jit(4), { gain: 0.82 * G, pan: -0.18, side: 0.50, dly: 0.20 }, draw);
+  dashStack(t + 2.00, "d4", G * 0.95, bar);
+  iwanna("iwanna-b-sung", t + 3.50 + jit(4), { gain: 0.82 * G, pan: 0.18, side: 0.50, dly: 0.20 }, draw);
+  // The long-"real" take — run · reeeeeaaaal (2.0 s) · fast. At 2.80 s it
+  // rings on under the dot answers at +6.00, which is the point.
+  sungSub(robot("runrealfast-long-hi"), t + 4.00 + jit(4), { gain: 0.90 * G, pan: 0.00, side: 0.45, dly: 0.42 }, { amount: 0.30 });
+  sung("dot-b3", t + 6.00 + jit(3), { gain: 0.90 * G, pan: -0.45, side: 0.75, dly: 0.48 });
+  sung("dot-fs3", t + 6.50 + jit(3), { gain: 0.90 * G, pan: 0.45, side: 0.75, dly: 0.48 });
+  if (full) sung("dot-d4", t + 7.00, { gain: 0.34 * G, pan: 0.0, side: 0.60, dly: 0.55 });
+}
+
+// ── ACT VII · THE WHOLE MESSAGE ───────────────────────────────────────
+// The chorus the record has been withholding, arriving at 2:48 over the
+// home progression, which the harmony also reaches here for the first time.
+//
+// v7: @jeffrey — "the hide away part should go". It is gone, and what is
+// left is tighter for it: three lines instead of four, and the middle one
+// is now a DASH where a sentence used to be. The lyric is
+//
+//     run real fast · i wanna DASH ─── · dot · dot · DASH ───
+//
+// which is the same shape as the hook, said once, complete. The "a—waaaay"
+// takes are still in the bank; nothing in the score reaches for them.
+//
+//   0.00  run real fast          G4 → F#4 → D4          (Bm)
+//   3.00  i wanna                B3 → C#4               (D)
+//   3.50  dash ───────────────── D4 held 1.50           (D/G)
+//   5.50  dot · dot              B3 · G3                (G)
+//   6.50  dash ───────────────── B3 held 1.50           (Em)
+function chorus(bar, { octaves = true, fast = false, g = 1 } = {}) {
+  const t = at(bar), G = g;
+  if (fast) {
+    for (const [k, oct] of [[0.00, "hi"], [1.00, "lo"]])
+      sung(robot(`runrealfast-fast-${oct}`), t + k + jit(3),
+        { gain: (oct === "hi" ? 0.86 : 0.66) * G, pan: oct === "hi" ? -0.14 : 0.14, side: 0.5, dly: 0.36 });
+  } else {
+    sungSub(robot("runrealfast-long-hi"), t + jit(4), { gain: 0.90 * G, pan: -0.10, side: 0.5, dly: 0.40 }, { amount: 0.32 });
+    if (octaves) sung(robot("runrealfast-long-lo"), t + 0.022 + jit(4), { gain: 0.54 * G, pan: 0.16, side: 0.45, dly: 0.34 });
+  }
+  iwanna("iwanna-c-sung", t + (fast ? 3.00 : 2.60) + jit(4),
+    { gain: 0.86 * G, pan: 0.18, side: 0.5, dly: 0.20 }, fast ? 0 : 2.4);
+  dashStack(t + 3.50, "d4", G * 0.98, bar);
+  sung("dot-c-b3", t + 5.50 + jit(3), { gain: 0.90 * G, pan: -0.45, side: 0.75, dly: 0.46 });
+  sung("dot-j-g3", t + 6.00 + jit(3), { gain: 0.86 * G, pan: 0.45, side: 0.75, dly: 0.46 });
+  dashStack(t + 6.50, "b3", G * 0.94, bar);
+}
+
+// ── THE SOS FIGURE ────────────────────────────────────────────────────
+function sos(bar, g = 1) {
+  const t = at(bar);
+  for (const [k, n, p] of [[0, "dot-b3", -0.32], [1, "dot-fs3", 0.0], [2, "dot-d4", 0.32]])
+    sung(n, t + k * BEAT + jit(3), { gain: 0.74 * g, pan: p, side: 0.72, dly: 0.30 });
+  const w = wigDepth(bar) * 0.8;
+  held("sos-dash-d4", t + 2.0 + jit(4), { gain: 0.70 * g, pan: -0.26, side: 0.62, dly: 0.32, dark: 0.12, wig: w, wigHz: 4.1, wigDrift: 0.3 * w });
+  held("sos-dash-fs4", t + 3.5 + jit(4), { gain: 0.70 * g, pan: 0.26, side: 0.62, dly: 0.32, dark: 0.12, wig: w, wigHz: 5.5, wigPhase: 2.0, wigDrift: -0.3 * w });
+  held("sos-dash-e4", t + 5.0 + jit(4), { gain: 0.68 * g, pan: 0.00, side: 0.62, dly: 0.32, dark: 0.12, wig: w, wigHz: 3.7, wigPhase: 4.0, wigDrift: 0.25 * w });
+  for (const [k, n, p] of [[0, "dot-d4", 0.32], [1, "dot-a3", 0.0], [2, "dot-b3", -0.32]])
+    sung(n, t + 6.5 + k * BEAT + jit(3), { gain: 0.64 * g, pan: p, side: 0.78, dly: 0.42 });
+}
+
+// The choir: sung "cult" held four seconds at three chord tones, 45 ms
+// apart — which is itself a crossover, so it gets a small slow drift.
+// v7: the second half of the harmony fix. The gains used to be an array
+// indexed by POSITION — [0.46, 0.38, 0.30] — but choirFor() returns one, two
+// or three notes depending on the chord, and the same pitch lands in a
+// different slot on different bars. So a chord change was also a fader
+// change. Gain is now a function of the note's REGISTER, which does not move
+// when the chord does, and a two-note voicing is levelled up to keep the
+// section's weight constant.
+const choirGain = (nm) => (CULT_PITCH[nm] <= 55 ? 0.44 : CULT_PITCH[nm] <= 61 ? 0.38 : 0.31);
+
+// ── "like they are licking ice cream" ─────────────────────────────────
+// @jeffrey: "can all the 'cult's be stretched / so its like they are like
+// licking ice cream". That image is precise and it is an instruction about
+// TIME, not pitch: a lick is one continuous unhurried motion with no attack
+// at either end. So every sung "cult" in the record now goes through the
+// granular stretcher instead of being played — 3.2× by default, which turns
+// a 0.7 s word into a two-and-a-quarter-second one — and the 55 ms Hann
+// grains at 50 % overlap smear the consonants into the vowel, which is the
+// part that actually sounds like licking rather than like a slow tape.
+//
+// The stretcher has no wiggle, and it does not need one: overlapping grains
+// of a real voice already wander, and the drift the wiggle used to supply
+// was half of the level wobble @jeffrey heard in the harmonies.
+function licked(nm, t, { gain = 1, pan = 0, side = 0.7, dark = 0.30, dly = 0.26, stretch = 3.2 } = {}) {
+  const src = BANK[`cult-${nm}`];
+  if (!src) { missing.add(`cult-${nm}`); return; }
+  stretched(`cult-${nm}`, t, { gain, pan, side, dark, dly, stretch,
+    dur: Math.min(BAR * 2.6, (src.length / SR) * stretch * 0.96) });
+}
+
+function choir(bar, g) {
+  const t = at(bar);
+  const picks = choirFor(degAt(bar));
+  const fill = Math.sqrt(3 / Math.max(1, picks.length));   // 2 voices ≈ 3 voices in weight
+  const pans = [0.0, -0.50, 0.50], sides = [0.40, 0.85, 0.85];
+  picks.forEach((nm, i) => licked(nm, t + i * 0.11, {
+    gain: g * choirGain(nm) * fill, pan: pans[i] ?? 0, side: sides[i] ?? 0.7,
+    dark: 0.32, dly: 0.30, stretch: 3.0 + 0.4 * i,
+  }));
+}
+
+// ══ (1) THE POLYRHYTHM ARC ═══════════════════════════════════════════
+// @jeffrey: "as the track progresses can we bring up the polyrhythms a bit".
+// v5 had one — a 3-against-4 switchboard in act VI — and it arrived and left
+// in the same twelve bars. v6 makes it the record's second story line: the
+// cross-rhythms are what RISES as the voices sink, so the two vocal notes
+// and this one are the same gesture seen from either side.
+//
+// polyAmt(bar) is one curve, piecewise-linear through anchors, and the five
+// layers below switch themselves on as it crosses their thresholds. Nothing
+// is scored per-act; the arc is the score.
+//
+//   act  I    0.00  nothing but the dial tone
+//   act  II   0.10  ONE 3:4 tick per bar, so the ear files it as colour
+//   act  III  0.28  3:4 every bar + the dotted-eighth begins to precess
+//   act  IV   0.16  the transmission has stopped: 3:4 in woodTaps only
+//   act  V    0.40→0.52  5:4 enters, 3:4 gets hats
+//   act  VI   0.62  the 7/16 phone figure — seven bars to come back round
+//   act  VII  0.78→0.92  ALL FIVE, interlocking, plus a skid on the 3:4
+//   act  VIII 0.80→0.55  the polyrhythms are the LAST thing to peel off,
+//                        because by now they are what you are listening to
+//   act  IX   0.18  under the humans, a hand keeping 3:4 and nothing else
+//   act  X    0.30→0   the 7/16 beeps outlast the music, as v5's did
+//
+// WHY IT STAYS CHILL: the kick never leaves 4/4, the hats never leave
+// straight eighths, and every cross-rhythm layer is 8–20 dB under them. A
+// polyrhythm is hypnotic when the pulse is unambiguous and the pattern
+// disagrees with it; it is chaos when the pulse is negotiable. So the
+// 4/4 grid is never touched, and the disagreement is entirely in voices
+// small enough to be texture.
+// v7: the anchors follow the new act boundaries, and the first minute now
+// carries a real arc of its own — the morse section has to hold attention
+// for twenty-four bars without a single word, so the cross-rhythms do more
+// of that work than they did when the hook was eight bars away.
+const POLY_ANCHORS = [[0, 0], [4, 0.08], [8, 0.20], [12, 0.34], [16, 0.32],
+  [22, 0.38], [28, 0.16], [32, 0.44], [36, 0.56], [40, 0.66], [44, 0.76],
+  [46, 0.84], [50, 0.94], [52, 0.84], [54, 0.18], [56, 0.10], [58, 0.30],
+  [59, 0.10], [60, 0]];
+function polyAmt(bar) {
+  for (let i = 1; i < POLY_ANCHORS.length; i++) {
+    const [b1, v1] = POLY_ANCHORS[i];
+    if (bar <= b1) {
+      const [b0, v0] = POLY_ANCHORS[i - 1];
+      return v0 + (v1 - v0) * (b1 === b0 ? 1 : (bar - b0) / (b1 - b0));
+    }
+  }
+  return 0;
+}
+// Layers 2 and 4 have periods that do not divide the bar, so they are
+// counted from t=0 rather than from the downbeat — that is the whole point
+// of them, and it is why the figure lands somewhere new every bar. This
+// returns the hits of a global grid that fall inside one bar.
+function gridHits(t, period) {
+  const out = [];
+  let k = Math.ceil((t - 1e-9) / period);
+  while (k * period < t + BAR - 1e-9) { out.push([k, k * period]); k++; }
+  return out;
+}
+
+// v7: @jeffrey — "the polyrhythms should be like in actual cool percussion
+// and work with our percussion, not just click tracks on everything / maybe
+// the phone tones can be used for that".
+//
+// He is describing a real fault. v6 built four of its five cross-rhythm
+// layers out of `click` and `tap` — bandpassed noise bursts with no body,
+// on the signal bus, at the same level as each other — so five rhythms that
+// were meant to interlock arrived as one undifferentiated tick and the ear
+// filed the whole thing as a metronome running behind the music.
+//
+// A cross-rhythm is only hypnotic when you can TELL THE LAYERS APART, and
+// you tell them apart by timbre, not by level. So every layer is now a
+// distinct instrument, and three of the four are drums the kit already
+// owns — which is what "work with our percussion" means: the polyrhythm is
+// played by the band, not by a click track sitting on top of it.
+//
+//   L1 · 3:4   THE HAND       woodTaps on a drumhead, tambourine on the
+//                             outer two, an open hat on the one when it is
+//                             loud. The founding cross-rhythm, and the only
+//                             one that survives acts IV and IX — because a
+//                             hand on a surface does not need a transmitter.
+//   L2 · 3:16  THE PHONE      DTMF, and this is the answer to "maybe the
+//                             phone tones can be used for that". Pitched
+//                             material on a dotted-eighth grid that only
+//                             relines with the downbeat every three bars, so
+//                             the phone is the layer that MOVES — a melody
+//                             that never lands twice in the same place, made
+//                             of the four digits the carrier dialled.
+//   L3 · 5:4   THE SHAKER     tambourine and one snap, five inside the bar,
+//                             agreeing with the downbeat and disagreeing
+//                             with everything between it.
+//   L4 · 7:16  THE SKID       trackdrum friction on a seven, alternating
+//                             with a wood tap so it reads as a hand playing
+//                             a figure rather than as an effect. Seven bars
+//                             to come back round.
+//
+// The kick never leaves 4/4 and the hats never leave straight eighths, which
+// is still the whole reason four simultaneous cross-rhythms read as hypnosis
+// rather than as chaos.
+function polyrhythm(bar, t) {
+  // Act I is a channel opening. No pulse of any kind belongs in it, and the
+  // arc reads as a rise only if it starts from actual silence.
+  if (inS(bar, "carrier")) return;
+  const a = polyAmt(bar);
+  if (a <= 0.001) return;
+  const quiet = inS(bar, "secret") || inS(bar, "humans");   // no drums, no beeps
+  const P3 = (4 / 3) * BEAT;          // three against four
+
+  // ── L1 · THE HAND (3 against 4) ─────────────────────────────────────
+  {
+    const hits = a < 0.20 ? [0] : a < 0.34 ? [0, 2] : [0, 1, 2];
+    for (const k of hits) {
+      const u = t + k * P3 + jit(5);
+      const acc = k === 0 ? 1 : 0.72;
+      woodTap(u, (0.15 + 0.30 * a) * acc * vel(0.3), k === 1 ? 0.0 : k ? 0.40 : -0.40);
+      if (!quiet && a >= 0.42 && k !== 1)
+        shot("tambo", u + 0.006, { gain: 0.075 * a * acc * vel(0.4),
+          pan: k ? 0.44 : -0.44, side: 0.62, dur: 0.10, evVoice: "poly3" });
+      if (!quiet && a >= 0.70 && k === 0)
+        shot("hatO", u + 0.004, { gain: 0.085 * a * vel(0.4), pan: 0.26,
+          side: 0.60, dur: 0.20, evVoice: "poly3" });
+    }
+  }
+
+  // ── L2 · THE PHONE (3 against 16) ───────────────────────────────────
+  // Period 0.375 s: 5⅓ per bar, so it only lines up with the downbeat every
+  // three bars. Below a=0.60 it plays every OTHER hit, which is how a phone
+  // figure enters — sparse, then filling in.
+  if (a >= 0.26 && !quiet)
+    for (const [k, u] of gridHits(t, 0.75 * BEAT)) {
+      if (a < 0.60 && k % 2) continue;
+      const acc = k % 8 === 0 ? 1 : k % 2 === 0 ? 0.76 : 0.52;
+      const g = (0.14 + 0.40 * a) * acc * vel(0.3);
+      const pan = k % 3 === 0 ? -0.44 : k % 3 === 1 ? 0.08 : 0.46;
+      // every fourth hit answers with a bop a chord tone up — the phone
+      // saying something back to itself
+      if (k % 4 === 3)
+        bop(u + jit(5), hz(triad(degAt(bar))[k % 3] + 12),
+          { gain: g * 0.80, pan, side: 0.74, dly: 0.36 });
+      else
+        // the whole keypad, one key per hit, never repeating inside twelve —
+        // offset by the bar so the same grid position dials a new tone each
+        // time round, which is what makes the layer read as a melody
+        dtmf(u + jit(5), padKey(k + bar * 7), 0.044,
+          { gain: g, pan, side: 0.82, dly: 0.32 });
+    }
+
+  // ── L3 · THE SHAKER (5 against 4) ───────────────────────────────────
+  if (a >= 0.40 && !quiet && (a >= 0.70 || bar % 2 === 0))
+    for (let k = 1; k < 5; k++) {
+      const u = t + k * (4 / 5) * BEAT + jit(4);
+      const two = k === 2;
+      shot(two ? "snap" : "tambo", u, {
+        gain: (0.055 + 0.085 * a) * (two ? 1 : 0.66) * vel(0.35),
+        pan: k % 2 ? -0.38 : 0.38, side: 0.66, dur: two ? 0.10 : 0.075,
+        evVoice: "poly5" });
+    }
+
+  // ── L4 · THE SKID (7 sixteenths) ────────────────────────────────────
+  // The friction voice on a 7/16 period counted from the top of the record,
+  // so across act VII you never hear it in the same spot twice. Gesture
+  // parameters are v5's measured snare/rim band — bright and tiny, cutoff
+  // sweeping 1900→1000, carrier 239→149 — and they are not touched here.
+  if (a >= 0.54 && !quiet)
+    for (const [k, u] of gridHits(t, (7 / 16) * BAR)) {
+      if (k % 2 === 0)
+        friction(u - 0.05, 0.44, { shape: "skid", gain: 0.16 + 0.20 * a,
+          pan: k % 4 ? 0.42 : -0.42, side: 0.26,
+          cut0: 1900, cut1: 1000, res0: 239, res1: 149, rough: 0.58 });
+      else
+        woodTap(u, (0.10 + 0.18 * a) * vel(0.3), k % 4 === 1 ? -0.30 : 0.30);
+    }
+}
+
+// ── score ─────────────────────────────────────────────────────────────
+console.log(`→ scoring ${BARS} bars @ ${BPM} BPM · B minor · ten acts · ${(BARS * BAR).toFixed(1)}s`);
+
+for (let bar = 0; bar < BARS; bar++) {
+  const t = at(bar);
+  const deg = degAt(bar);
+  const root = bassRoot(deg);
+  const chord = triad(deg);
+  const four = bar % 4;
+
+  // ══ THE PERCUSSION STORY ═══════════════════════════════════════════
+  // percStage(bar) says which kit is playing; everything below reads it.
+  const PS = percStage(bar);
+
+  // ---- kick ------------------------------------------------------------
+  // Stage 2 is a HALF-TIME kick — one and three only. That is the whole
+  // trick of the first minute: the pulse arrives before the groove does, so
+  // bar 24 (where it fills in to 4/4) is an event without anything new
+  // being added. Stage 7 pushes a sixteenth pickup into every bar.
+  if (PS >= 2) {
+    const g = PS === 2 ? 0.62 + 0.030 * (bar - 16)
+      : PS === 3 ? 0.86
+      : PS === 8 ? 0.90 - 0.06 * (bar - S.recognise[0]) : 0.96;
+    const beats = PS === 2 ? [0, 2] : [0, 1, 2, 3];
+    for (const b of beats)
+      kick(t + b * BEAT + jit(2.5), g * (b === 0 ? 1 : 0.95), { weight: b === 0 ? 1.0 : 0.86 });
+    // it spreads: the kick grows a sixteenth shadow on the "a" of 2
+    if (PS === 6 && bar % 2 === 1) kick(t + 2.75 * BEAT, g * 0.62, { weight: 0.7 });
+    if (PS === 7 && four !== 0) kick(t - 0.25 * BEAT, g * 0.52, { weight: 0.6 });
+  }
+
+  // ---- hats ------------------------------------------------------------
+  // Stage 1 has no metal at all — the first eight bars of act II are hands.
+  // Stage 2 is OFFBEAT eighths only, which is a groove you have to lean
+  // into; the downbeat hats fill in at stage 3.
+  if (PS >= 2) {
+    for (let s2 = 0; s2 < 8; s2++) {
+      const swing = s2 & 1 ? 0.035 : 0;
+      const u = t + (s2 * 0.5 + swing) * BEAT + jit(5);
+      if (s2 & 1) shot("hatC", u, { gain: (PS === 2 ? 0.16 : 0.20) * vel(), pan: 0.20, side: 0.5, dur: 0.085 });
+      else if (PS >= 3 && s2 % 4 === 2) shot("hatC", u, { gain: 0.11 * vel(), pan: -0.18, side: 0.5, dur: 0.065 });
+    }
+    if (PS >= 5 && four >= 2)
+      for (let s2 = 0; s2 < 16; s2++)
+        if (s2 % 4 === 1 || s2 % 4 === 3)
+          shot("hatC", t + (s2 / 16) * BAR + jit(4), { gain: 0.055 * vel(0.5), pan: (s2 & 2 ? 0.35 : -0.35), side: 0.6, dur: 0.045 });
+    if (PS >= 4 && four === 3)
+      shot("hatO", t + 3.5 * BEAT + 0.02, { gain: 0.20, pan: -0.28, side: 0.65, dur: 0.34 });
+  } else if (inS(bar, "secret")) {
+    // act IV keeps a single closed hat on 4 so the room still has a ceiling
+    shot("hatC", t + 3 * BEAT, { gain: 0.075 * vel(), pan: 0.22, side: 0.5, dur: 0.065 });
+  }
+
+  // ---- the backbeat, and the pump's second trigger ---------------------
+  // Stage 1: hands on 2 and 4, no rim, no clap. Stage 3 adds a ghost on the
+  // "a" of 4 — the thing that makes the dash groove lope. Stage 6 DISPLACES
+  // the backbeat: an extra clap on the "and" of 4, so act VI feels like the
+  // bar is being pulled forward while the kick refuses to move.
+  if (PS === 1) {
+    woodTap(t + 1 * BEAT + jit(6), 0.20 * vel(0.3), -0.30);
+    woodTap(t + 3 * BEAT + jit(6), 0.22 * vel(0.3), 0.30);
+  }
+  if (PS >= 2) {
+    snare(t + 2 * BEAT + jit(5), vel());
+    if (PS >= 3) shot("snap", t + 3.75 * BEAT + jit(5), { gain: 0.070 * vel(0.4), pan: 0.34, side: 0.6 });
+    if (PS >= 4) {
+      shot("clap", t + 2 * BEAT + jit(5), { gain: PS >= 5 ? 0.22 : 0.16, pan: -0.12, side: 0.72 });
+      shot("snap", t + 2 * BEAT + 0.012, { gain: 0.09, pan: 0.30, side: 0.55 });
+    }
+    if (PS === 6 && bar % 2 === 0)
+      shot("clap", t + 3.5 * BEAT + jit(5), { gain: 0.15, pan: 0.30, side: 0.75 });
+  }
+  if (PS >= 6)
+    for (let s2 = 0; s2 < 4; s2++)
+      shot("ride", t + (s2 + 0.5) * BEAT + jit(8), { gain: 0.055 * vel(0.4), pan: s2 & 1 ? 0.38 : -0.38, side: 0.7, dur: 0.22 });
+  if (PS >= 2 && PS <= 4)
+    for (let s2 = 0; s2 < 4; s2++)
+      shot("tambo", t + (s2 + 0.5) * BEAT + jit(9), { gain: 0.055 * vel(0.4), pan: s2 & 1 ? 0.42 : -0.42, side: 0.7, dur: 0.09 });
+
+  // ---- (1) the polyrhythm arc -------------------------------------------
+  polyrhythm(bar, t);
+
+  // ---- bass -------------------------------------------------------------
+  // The bass follows the kick's staging: half-time under the half-time kick,
+  // so the low end tells the same story the drums do.
+  if (kickOn(bar) || inS(bar, "secret")) {
+    const g = PS === 2 ? 0.52 : inS(bar, "secret") ? 0.44 : inS(bar, "recognise") ? 0.72 : 0.86;
+    for (const b of (PS === 2 ? [0, 2] : [0, 1, 2, 3])) {
+      const fifth = four === 3 && b === 3;
+      bass(t + (b + 0.5) * BEAT + jit(3), root + (fifth ? 7 : 0), 0.26, g, fifth ? root : null);
+    }
+    if (bar % 2 === 0) bass(t, root - 12, BAR * 0.90, g * 0.42);
+  }
+
+  // ---- pad + stabs ------------------------------------------------------
+  if (bar % 2 === 0 && !inS(bar, "secret"))
+    sines(t, chord.map((m) => m - 12), BAR * 1.85, inS(bar, "carrier") ? 0.055 + 0.012 * bar : 0.085,
+      bar % 4 ? 0.22 : -0.22, 0.75, 0.5, 0, 0.30);
+  if (inS(bar, "message") || inS(bar, "reply") || inS(bar, "whole") || inS(bar, "spread"))
+    for (const b of [0.5, 2.5])
+      sines(t + b * BEAT + jit(4), chord, 0.20, 0.075, b > 1 ? 0.36 : -0.36, 0.7, 0.9, 0.34);
+  if (inS(bar, "spread") && four === 1)
+    sines(t + 3.5 * BEAT, chord.map((m) => m + 12), 0.13, 0.070, rnd() > 0.5 ? 0.5 : -0.5, 0.85, 0.7, 0.70);
+
+  // ══ ACT I · CARRIER ══════════════════════════════════════════════════
+  // The channel opens. DTMF dials C-U-L-T — 2, 8, 5, 8 — one digit every
+  // two bars, wide and slow, with a click before each as the key going
+  // down. Nothing is sung. The listener's first information is that a
+  // machine is trying to reach someone.
+  // v8: @jeffrey — "the intro is too chaotic / lets just like intro each
+  // sample separately". v7's first sixteen seconds ran four things at once:
+  // a dial, a sung choir, the whole original recording, and the tagline. Four
+  // introductions on top of each other is not an introduction, it is a mix.
+  //
+  // So act I is ONE SAMPLE FAMILY, presented alone: the phone. Four bars,
+  // four keys, one key per bar, with its own click as the key goes down and
+  // nothing else in the room but a pad that fades up under the last two. The
+  // choir now waits for act IV (where "cult" is the whole point), the
+  // original recording waits for act IX (where it is the reveal), and the
+  // tagline waits for act X. Nothing has to share its entrance.
+  if (inS(bar, "carrier")) {
+    const digit = CULT_DIAL[bar % 4];
+    click(at(bar, 0.94), { gain: 0.32, pan: bar % 2 ? 0.42 : -0.42, side: 0.8, dly: 0.20 });
+    dtmf(at(bar, 1), digit, 0.20, { gain: 0.58, pan: bar % 2 ? 0.45 : -0.45, side: 0.85, dly: 0.36 });
+    if (bar === 3) tap(at(bar, 3.5), { gain: 0.26, pan: 0.3, side: 0.7, dly: 0.3 });
+  }
+
+  // ══ ACT II · THREE VOICES ════════════════════════════════════════════
+  // Bars 8/10/12: one register at a time, alone, so the ear counts to three.
+  // Bar 14: all three land on the same syllable for the first time — the
+  // first dashStack in the record, and the first wiggle, so you hear them
+  // beating against each other before they lock. Bars 16–24: SOS, twice.
+  // Bars 4/6/8: one register at a time, ALONE — no kit, no ticking, no
+  // gestures underneath. That is the whole of "intro each sample
+  // separately": Jeffrey B2, then Alex F#3, then Camille D4, each with two
+  // bars of nothing but a pad to be heard in. Bar 10 is the first time all
+  // three land on one syllable, and the first thing that happens on top of
+  // any of them is the drag that carries them into it.
+  if (introBar(bar)) {
+    if (bar === 4)
+      held("dash-jeffrey-b2-hold", at(4, 1), { gain: 1.02, pan: 0.0, side: 0.30, dark: 0.20, dly: 0.20,
+        wig: 3, wigHz: 3.4, wigIn: 0.7 });
+    if (bar === 6)
+      held("dash-alex-fs3-hold", at(6, 1), { gain: 0.92, pan: 0.34, side: 0.55, dly: 0.22,
+        wig: 3, wigHz: 5.9, wigIn: 0.7 });
+    if (bar === 8)
+      held("dash-camille-d4-hold", at(8, 1), { gain: 0.86, pan: -0.34, side: 0.55, dly: 0.22,
+        wig: 3, wigHz: 4.3, wigIn: 0.7 });
+    if (bar === 10) {
+      dashStack(at(10, 0.5), "fs4", 1.00, bar);
+      sung("dot-b3", at(10, 3.0), { gain: 0.50, pan: -0.4, side: 0.8, dly: 0.42 });
+      sung("dot-fs3", at(10, 3.5), { gain: 0.50, pan: 0.4, side: 0.8, dly: 0.42 });
+    }
+    // ONE gesture in the whole roll call, and it is the drag into the unison
+    if (bar === 9)
+      friction(at(9, 2.2), 1.7, { shape: "drag", gain: 0.58, pan: 0, side: 0.20,
+        cut0: 759, cut1: 2300, res0: 103, res1: 214, rough: 0.62 });
+  }
+  if (sosBar(bar)) {
+    if (bar % 4 === 0) sos(bar, bar === 16 ? 0.80 : 1.0);
+    // taps mark where the dots will be, one bar ahead of the voices
+    for (const s of [1.5, 3.5])
+      tap(t + s * BEAT + jit(6), { gain: 0.68 * vel(0.3), pan: s > 2 ? 0.42 : -0.42, side: 0.75, dly: 0.30 });
+    if (bar % 4 === 3) { click(at(bar, 3.0), { gain: 0.58, pan: 0, side: 0.6 }); click(at(bar, 3.25), { gain: 0.46, pan: 0.3, side: 0.6 }); }
+    if (bar % 4 === 2) friction(at(bar, 1.0), 0.62, { shape: "skid", gain: 0.34,
+      pan: -0.30, side: 0.24, cut0: 1900, cut1: 1000, res0: 239, res1: 149, rough: 0.58 });
+  }
+
+  // ── ACT II c · THE DASH GROOVE (bars 24–32, 0:48–1:04) ───────────────
+  // The last eight bars before the reveal, and still not one word. This is
+  // the hook's rhythm played entirely in held dashes and dots — the same
+  // 8-beat frame the hook will use at 1:04, with the lyric cut out of it:
+  //
+  //     DASH ─── · · dot dot · DASH ─── · · dot · dot · dot
+  //
+  // So when "run real fast" lands at 1:04 it is not arriving into an empty
+  // room; it is arriving into a shape the ear has already learned, which is
+  // the difference between a reveal and a start. The dashes climb rather
+  // than descend here (F#4 then D4, both stage 0) because the descent is a
+  // later story and this one is still going up.
+  if (dashBar(bar) && bar === 16) {
+    dashStack(at(bar, 0), "fs4", 0.92, bar);
+    sung("dot-b3", at(bar, 2.0) + jit(3), { gain: 0.80, pan: -0.44, side: 0.76, dly: 0.34 });
+    sung("dot-fs3", at(bar, 2.5) + jit(3), { gain: 0.80, pan: 0.44, side: 0.76, dly: 0.34 });
+    dashStack(at(bar, 3.5), "d4", 0.88, bar);
+    sung("dot-d4", at(bar + 1, 1.5) + jit(3), { gain: 0.66, pan: 0.36, side: 0.80, dly: 0.42 });
+    sung("dot-a3", at(bar + 1, 2.0) + jit(3), { gain: 0.66, pan: -0.36, side: 0.80, dly: 0.42 });
+    sung("dot-b3", at(bar + 1, 2.5) + jit(3), { gain: 0.62, pan: 0.00, side: 0.80, dly: 0.48 });
+  }
+  // the off phrase: two dashes answering each other across the field
+  if (dashBar(bar) && bar === 18) {
+    const w = wigDepth(bar) * (AUTOTUNE ? 0.45 : 1);
+    held(robot("dash-camille-d4-hold"), at(bar, 1), { gain: 0.52, pan: -0.46, side: 0.82, dly: 0.42, dark: 0.13,
+      wig: w, wigHz: 4.3, wigDrift: 0.5 * w, wigIn: 0.5 });
+    held(robot("dash-alex-fs3-hold"), at(bar, 3), { gain: 0.50, pan: 0.46, side: 0.82, dly: 0.42, dark: 0.13,
+      wig: w * 1.2, wigHz: 5.9, wigPhase: 2.6, wigDrift: -0.6 * w, wigIn: 0.45 });
+    choir(bar, 0.38);
+  }
+  // and the hand keeps playing under it — one long gesture per two bars
+  if (dashBar(bar) && bar % 2 === 1)
+    frictionPath(at(bar, 2.2), BAR * 0.75, { shape: "drag", gain: 0.44,
+      pan: bar % 4 === 1 ? -0.22 : 0.22, side: 0.24,
+      path: bar % 4 === 1 ? "scrub" : "edge", rough: 0.56 });
+
+  // ══ ACT III · THE MESSAGE ════════════════════════════════════════════
+  if (inS(bar, "message") && (bar - S.message[0]) % 4 === 0)
+    hook(bar, { full: ((bar - S.message[0]) / 4) % 2 === 0 });
+  if (inS(bar, "message")) {
+    // the phone keeps time under the hook: a tap on the "and" of 4 and a
+    // click pair in the hole the hook leaves at bar 3.
+    tap(at(bar, 3.5) + jit(6), { gain: 0.62 * vel(0.3), pan: 0.40, side: 0.7, dly: 0.26 });
+    if (four === 3) {
+      click(at(bar, 1.0), { gain: 0.50, pan: -0.42, side: 0.7, dly: 0.3 });
+      bop(at(bar, 1.5), hz(chord[1] + 12), { gain: 0.26, pan: 0.42, side: 0.75, dly: 0.4 });
+      // the drag that hands the next hook its downbeat
+      friction(at(bar, 2.4), 1.6, { shape: "drag", gain: 0.46, pan: 0.12, side: 0.22,
+        cut0: 819, cut1: 2200, res0: 109, res1: 203, rough: 0.58 });
+    }
+    if (four === 1)
+      frictionPath(at(bar, 2.0), 0.50, { shape: "skid", gain: 0.30, pan: -0.36, side: 0.24,
+        path: "edge", rough: 0.55 });
+  }
+
+  // ══ ACT IV · THE SECRET ══════════════════════════════════════════════
+  // The turn. No kick. No beeps at all — the transmission stops, which is
+  // the loudest thing in the record — except ONE click at the very top,
+  // which is a receiver being picked up.
+  if (bar === S.secret[0]) click(at(bar, 0) - 0.06, { gain: 0.40, pan: 0, side: 0.35 });
+  if (bar === S.secret[0] || bar === S.secret[0] + 2) {
+    const picks = choirFor(degAt(bar));
+    const fill = Math.sqrt(3 / Math.max(1, picks.length));
+    // the longest lick in the record — act IV is where the word arrives
+    picks.forEach((nm, i) => licked(nm, at(bar) + i * 0.13, {
+      gain: choirGain(nm) * 1.30 * fill, pan: [0, -0.46, 0.46][i] ?? 0,
+      side: [0.40, 0.85, 0.85][i] ?? 0.7, dark: 0.30, dly: 0.30, stretch: 4.0 + 0.5 * i,
+    }));
+  }
+  if (bar === S.secret[0] + 1 || bar === S.secret[0] + 3) {
+    const picks = choirFor(degAt(bar));
+    const pans = [0.0, -0.46, 0.46], sides = [0.40, 0.85, 0.85];
+    const fill = Math.sqrt(3 / Math.max(1, picks.length));
+    picks.forEach((nm, i) => licked(nm, at(bar, 2) + i * 0.13, {
+      gain: choirGain(nm) * 1.12 * fill, pan: pans[i] ?? 0, side: sides[i] ?? 0.7,
+      dark: 0.30, dly: 0.30, stretch: 3.6 + 0.5 * i,
+    }));
+  }
+  // The beeps have stopped, so the only thing still moving in act IV is a
+  // hand on a drumhead — the analog counterweight to a silent signal layer,
+  // and the sound of three people still in the room.
+  // @jeffrey: "the ones at 37 and 41 sound lame". They were: one 1.7 s slide
+  // at gain .86, four times over, with nothing changing but the pan. If a
+  // hand on a drumhead is the only thing moving in this act, it has to
+  // actually move — so it is four DIFFERENT journeys across the surface,
+  // shorter and quieter, each answered by a quick flick on the off bar.
+  if (inS(bar, "secret") && bar % 2 === 0) {
+    const k = ((bar - S.secret[0]) / 2) | 0;
+    const gesture = [
+      { path: "spiral",   dur: BAR * 0.95, gain: 0.60, rough: 0.44, shape: "slide", speed: 0.9 },
+      { path: "scrub",    dur: BAR * 0.70, gain: 0.66, rough: 0.52, shape: "drag",  speed: 1.2 },
+      { path: "spiralIn", dur: BAR * 1.10, gain: 0.58, rough: 0.40, shape: "slide", speed: 0.8 },
+      { path: "corner",   dur: BAR * 0.60, gain: 0.70, rough: 0.56, shape: "skid",  speed: 1.4 },
+    ][k % 4];
+    frictionPath(at(bar, 0.25), gesture.dur, { ...gesture, side: 0.26, dly: 0.12 });
+  }
+  if (inS(bar, "secret") && bar % 2 === 1)
+    frictionPath(at(bar, 2.6), BAR * 0.34, { path: "scrub", shape: "skid",
+      gain: 0.40, rough: 0.60, speed: 1.6, side: 0.30, dly: 0.10 });
+  if (inS(bar, "secret") && bar % 2 === 1)
+    licked("b3", at(bar, 1.5), { gain: 0.30, pan: bar % 4 === 1 ? 0.40 : -0.40,
+      side: 0.80, dark: 0.34, dly: 0.38, stretch: 4.6 });
+  if (inS(bar, "secret") && bar % 2 === 0) choir(bar, 0.34);
+
+  // ══ ACT V · THE REPLY ════════════════════════════════════════════════
+  if (inS(bar, "reply") && (bar - S.reply[0]) % 4 === 0)
+    hook(bar, { full: ((bar - S.reply[0]) / 4) % 2 === 0 });
+  if (inS(bar, "reply") && four === 3)
+    for (const [k, n, p] of [[0, "dot-d4", 0.34], [1, "dot-a3", -0.34]])
+      sung(n, t + (2 + k) * BEAT + jit(4), { gain: 0.34, pan: p, side: 0.8, dly: 0.5 });
+  // …and the answer itself: SOS, beeped, in the hole at the end of every
+  // eight bars. The machine has started talking back.
+  if (inS(bar, "reply") && four === 3)
+    beepSOS(at(bar, 1), { gain: 0.52, pan: 0.55, dly: 0.45 });
+  if (inS(bar, "reply")) {
+    for (const s of [0.75, 2.75]) tap(t + s * BEAT + jit(6), { gain: 0.38 * vel(0.3), pan: s > 2 ? -0.4 : 0.4, side: 0.7, dly: 0.24 });
+    if (four === 1) click(at(bar, 3.75), { gain: 0.44, pan: 0.35, side: 0.7, dly: 0.35 });
+    if (four === 3)
+      friction(at(bar, 2.3), 1.7, { shape: "drag", gain: 0.44, pan: -0.14, side: 0.22,
+        cut0: 859, cut1: 2400, res0: 114, res1: 223, rough: 0.60 });
+    // the machine beeps, the hand answers: a skid straight off the SOS
+    if (four === 3)
+      frictionPath(at(bar, 2.6), 0.75, { shape: "skid", gain: 0.42, pan: 0.44, side: 0.30,
+        path: "spiralIn", rough: 0.66 });
+  }
+  if (inS(bar, "reply") && bar % 4 === 2) material(bar, "dash-camille-fs4-hold", 0.62, { grain: 0.055 });
+
+  // ══ ACT VI · IT SPREADS ══════════════════════════════════════════════
+  // No hook. The held dashes become the whole lead, at the widest wiggle in
+  // the record, and the beeps become a switchboard — a 3-against-4 pattern
+  // of DTMF that never lines up with the bar.
+  if (inS(bar, "spread") && bar % 2 === 0) {
+    const nm = rung(["fs4", "d4"][(bar / 2) % 2], bar);
+    const w = wigDepth(bar) * (AUTOTUNE ? 0.45 : 1);
+    held(robot(`dash-camille-${nm}-hold`), at(bar, 1), {
+      gain: 0.40, pan: -0.45, side: 0.85, dly: 0.42, dark: 0.13,
+      wig: w, wigHz: 4.3, wigPhase: 0.4, wigDrift: +0.5 * w, wigIn: 0.5,
+    });
+    held(robot(`dash-alex-${nm}-hold`), at(bar, 1.1), {
+      gain: 0.37, pan: 0.45, side: 0.85, dly: 0.42, dark: 0.13,
+      wig: w * 1.2, wigHz: 5.9, wigPhase: 2.6, wigDrift: -0.6 * w, wigIn: 0.45,
+    });
+    const low = { 0: "b2", 2: "a2", 3: "e2", 4: "b2", 5: "g2", 6: "a2" }[deg] ?? "b2";
+    sung(`bassdash-${low}`, at(bar, 0), { gain: 0.26, pan: 0, side: 0.25, dark: 0.6 });
+  }
+  if (inS(bar, "spread")) {
+    for (let k = 0; k < 3; k++) {
+      const u = t + (k * 4 / 3) * BEAT + jit(8);
+      dtmf(u, padKey(bar * 3 + k), 0.055,
+        { gain: 0.46 * vel(0.3), pan: k === 1 ? 0 : k ? 0.5 : -0.5, side: 0.85, dly: 0.40 });
+    }
+    if (four === 2) bop(at(bar, 3.25), hz(chord[2] + 12), { gain: 0.26, pan: -0.4, side: 0.8, dly: 0.45 });
+    // it spreads: a skid every bar, alternating sides, never in the same
+    // place twice — the friction equivalent of the wiggle coming apart.
+    friction(at(bar, 2.5 + (bar % 3) * 0.25), 0.58, { shape: "skid",
+      gain: 0.34 * vel(0.3), pan: bar % 2 ? 0.46 : -0.46, side: 0.30,
+      cut0: 2200, cut1: 1050, res0: 280 - (bar % 4) * 30, res1: 149, rough: 0.62 });
+    if (four === 0)
+      friction(at(bar, 3.1), 0.95, { shape: "drag", gain: 0.30, pan: bar % 4 ? -0.2 : 0.2,
+        side: 0.24, cut0: 900, cut1: 1900, res0: 119, res1: 189, rough: 0.55, synthetic: true });
+  }
+  // …and the word itself spreading: one other person's "cult" per bar,
+  // from a different post each time, thrown to the edges. Six voices from
+  // six videos across 2022, none of them the take the record is built from.
+  if (inS(bar, "spread")) {
+    const [nm] = ALT_CULTS[(bar - S.spread[0]) % ALT_CULTS.length];
+    if (has(nm))
+      shot(nm, at(bar, 2.5 + ((bar % 3) * 0.25)), {
+        bus: "vox", gain: 0.30 + 0.02 * ((bar - S.spread[0]) % 4),
+        pan: bar % 2 ? 0.62 : -0.62, side: 0.90, dark: 0.16, dly: 0.48,
+      });
+  }
+  if (inS(bar, "spread") && bar === S.spread[0] + 3) sos(bar, 0.70);
+  if (inS(bar, "spread") && bar % 2 === 1) material(bar, "cult-d4", 0.72, { grain: 0.085, dly: 0.30 });
+
+  // ══ ACT VII · THE WHOLE MESSAGE ══════════════════════════════════════
+  // Two full statements of the four-line chorus (bars 76 and 84), then the
+  // hook once more at 92 as the come-down. Statement two doubles line 1 at
+  // half length — the lyric performing itself — which is the only place in
+  // the record anything is said twice as fast.
+  if (bar === S.whole[0]) chorus(bar, { octaves: true, g: 1.0 });
+  if (bar === S.whole[0] + 4) chorus(bar, { octaves: true, fast: true, g: 1.0 });
+  if (inS(bar, "whole")) {
+    for (const s of [0.75, 1.75, 3.25]) tap(t + s * BEAT + jit(6), { gain: 0.52 * vel(0.4), pan: s > 2 ? -0.42 : 0.42, side: 0.7, dly: 0.22 });
+    if (four === 3) beepSOS(at(bar, 1), { gain: 0.34, pan: -0.55, dly: 0.5 });
+    if (four === 3)
+      frictionPath(at(bar, 2.2), 1.8, { shape: "drag", gain: 0.52, pan: 0, side: 0.20,
+        path: "scrub", rough: 0.64 });
+    // off the back of the held dash at +3.50, which ends at +5.00
+    if ((bar - S.whole[0]) % 4 === 2)
+      friction(at(bar, 1.3), 0.66, { shape: "skid", gain: 0.36, pan: 0.40, side: 0.28,
+        cut0: 2300, cut1: 1000, res0: 289, res1: 143, rough: 0.60 });
+  }
+  if (inS(bar, "whole") && bar % 4 === 3) material(bar, "cult-fs4", 0.66, { grain: 0.060, side: 0.9 });
+
+  // ══ ACT VIII · RECOGNITION ═══════════════════════════════════════════
+  if (bar === S.recognise[0]) hook(bar, { full: false });
+  if (inS(bar, "recognise") && bar % 2 === 0) material(bar, "cult-b3", 0.50, { grain: 0.10, dly: 0.34 });
+  if (inS(bar, "recognise") && four === 3)
+    friction(at(bar, 2.6), 1.4, { shape: "drag", side: 0.22,
+      gain: 0.40 * (1 - (bar - S.recognise[0]) / 10), pan: 0.10,
+      cut0: 819, cut1: 1900, res0: 109, res1: 174, rough: 0.52 });
+  if (inS(bar, "recognise") && four === 1)
+    click(at(bar, 2.5), { gain: 0.44 * (1 - (bar - S.recognise[0]) / 9), pan: -0.4, side: 0.7, dly: 0.35 });
+
+  // ══ ACT IX · THE HUMANS ══════════════════════════════════════════════
+  // Drums out. The original recording, unprocessed — the reveal that all of
+  // this was made from eight seconds of three friends. No beeps: the signal
+  // layer has nothing to add to people.
+  if (bar === S.humans[0]) shot("hook-spoken", at(bar, 1), { gain: 0.56, pan: -0.10, bus: "vox", side: 0.6, dly: 0.22 });
+  if (bar === S.humans[0] + 1)
+    stretched("three-of-us", at(bar, 1), { gain: 0.22, pan: 0.35, stretch: 1.8, dur: BAR * 1.6, side: 0.9, dly: 0.3 });
+  if (bar === S.humans[0] + 2) shot("chant-full", at(bar, 1), { gain: 0.48, pan: 0, bus: "vox", side: 0.9, dark: 0.3, dly: 0.34 });
+  // the reveal has a second half: somebody else, months later, SINGING it
+  if (bar === S.humans[0] + 3 && has(ALT_THREE))
+    shot(ALT_THREE, at(bar, 2), { gain: 0.44, pan: 0.28, bus: "vox", side: 0.8, dark: 0.2, dly: 0.36 });
+  if (bar === S.humans[0] + 3 && has(ALT_SUNG))
+    shot(ALT_SUNG, at(bar, 1), { gain: 0.50, pan: -0.22, bus: "vox", side: 0.8, dark: 0.18, dly: 0.42 });
+
+  // ══ ACT X · CARRIER OFF ══════════════════════════════════════════════
+  // the last gesture on the record: a hand leaving the surface, four bars
+  // long, under the drone that is walking out
+  if (bar === S.humans[0] + 3)
+    frictionPath(at(bar, 1.0), BAR * 2.4, { shape: "slide", gain: 0.34, pan: -0.16, side: 0.22,
+      path: "edgeBack", rough: 0.42, rel: 0.30 });
+  if (bar === S.carrieroff[0]) shot("tagline", at(bar, 1), { gain: 0.50, pan: 0, bus: "vox", side: 0.8, dark: 0.35, dly: 0.40 });
+  if (inS(bar, "carrieroff")) {
+    const k = bar - S.carrieroff[0];
+    // the dial walks back out, two keys a bar, thinning as it goes
+    for (const b of [0.5, 2.5]) {
+      const j = k * 2 + (b > 1 ? 1 : 0);
+      dtmf(at(bar, b), CULT_DIAL[j % 4], 0.14,
+        { gain: 0.44 * (1 - j / 6), pan: j % 2 ? 0.5 : -0.5, side: 0.85, dly: 0.44 });
+    }
+    if (k === 1) bop(at(bar, 3), hz(59), { gain: 0.24, pan: 0, side: 0.6, dly: 0.5 });
+    // the last word on the record is somebody else's
+    if (k === 0 && has(ALT_CULTS[3][0]))
+      shot(ALT_CULTS[3][0], at(bar, 2.5), { gain: 0.34, pan: 0, bus: "vox", side: 0.7, dark: 0.22, dly: 0.55 });
+  }
+
+  // ---- the drone, either side of the record ---------------------------
+  if ((inS(bar, "humans") || inS(bar, "carrieroff")) && bar % 2 === 0)
+    choir(bar, inS(bar, "carrieroff") ? 0.48 * (1 - (bar - S.carrieroff[0]) / 3) : 0.46);
+
+  // one very soft noise wash at the act boundaries that need one — never a
+  // riser, never resolving into anything.
+  if ([S.three[0], S.message[0], S.reply[0], S.whole[0], S.humans[0]].includes(bar))
+    shot("sweep", t - 0.9, { gain: 0.055, pan: 0, bus: "music", side: 0.9, dur: 2.2, dark: 0.35 });
+}
+
+// The last sound on the record: a hang-up click, after the music has already
+// gone. The channel closes; the signal is still out there.
+click(at(BARS) + 0.55, { gain: 0.34, pan: 0, side: 0.30 });
+click(at(BARS) + 0.62, { gain: 0.20, pan: 0.2, side: 0.30 });
+
+if (missing.size) console.warn(`  ! missing samples: ${[...missing].join(", ")}`);
+console.log(`  ${kicks.length} kicks · ${snares.length} snares`);
+
+// ── (2) THE TUBULAR COLOUR ────────────────────────────────────────────
+// "pumping them with more tubular vibes".
+//
+// A tube is a delay line with feedback — that is not a metaphor, it is the
+// physics — so the tubular colour here is a bank of four feedback combs
+// tuned to B2 · B3 · F#4 · D5, which are the pitches the held dashes and
+// the Bm harmony actually live on, damped at 2.4 kHz in the loop so the
+// resonance is hollow rather than bright. Each comb is scaled by (1-fb) so
+// it resonates at unity instead of screaming, and the bank is mixed in
+// PARALLEL at 0.26, so the dry dash is still the thing you hear and the
+// ring is what surrounds it.
+//
+// Then a low-drive asymmetric saturation (x + 0.11x²  through tanh at 1.35)
+// with a DC blocker after it: the x² term adds the even harmonics that read
+// as "tube" rather than "fuzz", and the DC blocker is what stops an
+// asymmetric shaper from parking an offset on the bus and eating headroom.
+{
+  const FS = [123.47, 246.94, 369.99, 587.33];        // B2 · B3 · F#4 · D5
+  // @jeffrey: "what is that sawtooth ... after the last dot, on the regular,
+  // after the vocals". It was these. At fb .76-.84 the combs kept ringing
+  // long after the voice that fed them stopped, and a comb ringing on its
+  // own IS a harmonic series — which is what a sawtooth is. Measured: the
+  // tube stem singing 492 Hz, the 4th harmonic of the B2 comb (123.47x4).
+  // Halving the feedback keeps the hollow tube colour on the note but stops
+  // it outliving the note; the heavier damping takes the top off the tail.
+  const FB = [0.46, 0.50, 0.48, 0.42];
+  const MIX = 0.30;
+  const TUBE_COLOUR = 0;      // 0 = dry dashes, no combs, no saturation
+  const damp = 1 - Math.exp((-TAU * 1500) / SR);
+  const combs = FS.map((f, k) => ({
+    d: Math.max(2, Math.round(SR / f)), fb: FB[k], g: (1 - FB[k]) * 1.15,
+    bufL: new Float32Array(Math.round(SR / f) + 2), bufR: new Float32Array(Math.round(SR / f) + 2),
+    iL: 0, iR: 0, zL: 0, zR: 0,
+  }));
+  const dcRc = 1 / (TAU * 18), dcA = dcRc / (dcRc + 1 / SR);
+  let dcL = 0, dcR = 0, pL = 0, pR = 0;
+  const SATT = Math.tanh(1.35);
+  for (let i = 0; i < N; i++) {
+    // The combs run on every sample, silence included — a tube keeps
+    // ringing after the note that excited it has stopped.
+    const xl = tubeL[i], xr = tubeR[i];
+    let rl = 0, rr = 0;
+    for (const c of combs) {
+      const tl = c.bufL[c.iL], tr = c.bufR[c.iR];
+      c.zL += damp * (tl - c.zL);
+      c.zR += damp * (tr - c.zR);
+      c.bufL[c.iL] = xl + c.zL * c.fb;
+      c.bufR[c.iR] = xr + c.zR * c.fb;
+      c.iL = c.iL + 1 >= c.d ? 0 : c.iL + 1;
+      c.iR = c.iR + 1 >= c.d ? 0 : c.iR + 1;
+      rl += tl * c.g; rr += tr * c.g;
+    }
+    // @jeffrey: "i hate the tube bus". The combs and the saturation are out —
+    // the dashes pass through clean. The BUS stays, because the deep pump
+    // keyed off kick and snare lives on it and that part he asked for and
+    // liked. Set TUBE_COLOUR above 0 to bring the tube back.
+    let l = xl + rl * MIX * TUBE_COLOUR, r = xr + rr * MIX * TUBE_COLOUR;
+    if (TUBE_COLOUR > 0) {
+      l = Math.tanh(1.35 * (l + 0.11 * l * l)) / SATT;
+      r = Math.tanh(1.35 * (r + 0.11 * r * r)) / SATT;
+    }
+    dcL = dcA * (dcL + l - pL); pL = l;
+    dcR = dcA * (dcR + r - pR); pR = r;
+    tubeL[i] = dcL; tubeR[i] = dcR;
+  }
+}
+
+// ── dub delay ─────────────────────────────────────────────────────────
+{
+  const D = Math.round(0.75 * BEAT * SR);       // dotted eighth = 0.375 s
+  const FB = 0.42;
+  const damp = 1 - Math.exp((-TAU * 2600) / SR);
+  const hpRc = 1 / (TAU * 180), hpA = hpRc / (hpRc + 1 / SR);
+  const bL = new Float32Array(N + D + 1), bR = new Float32Array(N + D + 1);
+  let dL = 0, dR = 0, hpL = 0, hpR = 0, pL = 0, pR = 0;
+  for (let i = 0; i < N; i++) {
+    const tapL = i >= D ? bL[i - D] : 0;
+    const tapR = i >= D ? bR[i - D] : 0;
+    dL += damp * (tapR - dL);
+    dR += damp * (tapL - dR);
+    bL[i] = dlySend[i] + dR * FB;
+    bR[i] = dL * FB;
+    hpL = hpA * (hpL + bL[i] - pL); pL = bL[i];
+    hpR = hpA * (hpR + bR[i] - pR); pR = bR[i];
+    musicL[i] += hpL * 0.50;
+    musicR[i] += hpR * 0.50;
+  }
+}
+
+// ── the two ducks ─────────────────────────────────────────────────────
+// bedEnv:  kick only, depth 0.50 — v4's breath, unchanged.
+// pumpEnv: kick AND snare, depth 0.72, faster recovery — the tubular pump.
+const bedEnv = buildEnv(kicks.map((t) => ({ t, depth: 0.50, atk: 0.009, rel: 0.31 })));
+const pumpEnv = buildEnv([
+  ...kicks.map((t) => ({ t, depth: 0.72, atk: 0.009, rel: 0.26 })),
+  ...snares.map((t) => ({ t, depth: 0.44, atk: 0.009, rel: 0.20 })),
+]);
+
+// ── (2b) THE VOCAL RIDE ───────────────────────────────────────────────
+// The second half of "bring down the vocals". VOXG and TUBEG already took a
+// static -1.3 dB; this is the part that has to be a curve rather than a
+// number, because the ask is that the voices RECEDE as the record goes on
+// while the cross-rhythms come forward. It bottoms at -3.0 dB in acts
+// VII–VIII, which is exactly where polyAmt peaks, and then comes back up
+// for act IX — the humans are the reveal of the whole record and must not
+// arrive shy.
+//
+// Piecewise-linear through bar anchors and evaluated per sample, so there
+// is no step anywhere in it; the steepest segment moves 0.08 over 12 bars,
+// which is 0.3 dB every 8 seconds.
+const RIDE_ANCHORS = [[0, 1.00], [12, 1.00], [20, 0.97], [28, 0.94],
+  [32, 0.90], [40, 0.86], [46, 0.83], [52, 0.83], [54, 0.96], [58, 0.92],
+  [60, 0.90]];
+const voxRide = new Float32Array(N);
+{
+  let seg = 1;
+  for (let i = 0; i < N; i++) {
+    const bar = (i / SR) / BAR;
+    while (seg < RIDE_ANCHORS.length - 1 && bar > RIDE_ANCHORS[seg][0]) seg++;
+    const [b0, v0] = RIDE_ANCHORS[seg - 1], [b1, v1] = RIDE_ANCHORS[seg];
+    const u = b1 === b0 ? 1 : clamp((bar - b0) / (b1 - b0), 0, 1);
+    voxRide[i] = v0 + (v1 - v0) * u;
+  }
+}
+
+// ── stems ─────────────────────────────────────────────────────────────
+const writeStereo = (path, L, R) => {
+  const bytes = N * 2 * 4;
+  const buf = Buffer.alloc(44 + bytes);
+  buf.write("RIFF", 0, "ascii"); buf.writeUInt32LE(36 + bytes, 4); buf.write("WAVE", 8, "ascii");
+  buf.write("fmt ", 12, "ascii"); buf.writeUInt32LE(16, 16); buf.writeUInt16LE(3, 20);
+  buf.writeUInt16LE(2, 22); buf.writeUInt32LE(SR, 24); buf.writeUInt32LE(SR * 8, 28);
+  buf.writeUInt16LE(8, 32); buf.writeUInt16LE(32, 34);
+  buf.write("data", 36, "ascii"); buf.writeUInt32LE(bytes, 40);
+  for (let i = 0; i < N; i++) {
+    buf.writeFloatLE(L[i], 44 + i * 8);
+    buf.writeFloatLE(R[i], 44 + i * 8 + 4);
+  }
+  writeFileSync(path, buf);
+};
+if (process.argv.includes("--stems")) {
+  const dir = resolve(OUT, "stems");
+  mkdirSync(dir, { recursive: true });
+  // post-duck, post-makeup: this is what each bus actually contributes, so
+  // "is the lead proud of the bed" is answerable by measuring these.
+  const mk = (L, R, env, g) => {
+    const a = new Float32Array(N), b = new Float32Array(N);
+    for (let i = 0; i < N; i++) { a[i] = L[i] * (env ? env[i] : 1) * g; b[i] = R[i] * (env ? env[i] : 1) * g; }
+    return [a, b];
+  };
+  // The two vocal stems carry the ride as well as the duck, so measuring
+  // them answers the question v6 actually has to answer: the lead is
+  // deliberately quieter now, and it still has to be the loudest thing.
+  const voxDuck = new Float32Array(N);
+  const tubeDuck = new Float32Array(N);
+  const sigDuck = new Float32Array(N);
+  for (let i = 0; i < N; i++) {
+    voxDuck[i] = Math.pow(bedEnv[i], 0.25) * voxRide[i];
+    tubeDuck[i] = pumpEnv[i] * voxRide[i];
+    sigDuck[i] = Math.pow(bedEnv[i], 0.5);
+  }
+  writeStereo(resolve(dir, "v8-vox.wav"), ...mk(voxL, voxR, voxDuck, VOXG));
+  writeStereo(resolve(dir, "v8-tube.wav"), ...mk(tubeL, tubeR, tubeDuck, TUBEG));
+  writeStereo(resolve(dir, "v8-music.wav"), ...mk(musicL, musicR, bedEnv, 1));
+  writeStereo(resolve(dir, "v8-drums.wav"), ...mk(drumsL, drumsR, null, 1));
+  writeStereo(resolve(dir, "v8-signal.wav"), ...mk(sigL, sigR, sigDuck, SIGG));
+  console.log(`  stems → ${dir}`);
+}
+
+// ── Special Sign side return ──────────────────────────────────────────
+// Band-limited 80 Hz – 11.5 kHz, handed back antisymmetrically (L=+, R=−)
+// on a slewed send that breathes with the arrangement. Each bus's share of
+// the side field carries that bus's duck, so the tube's side content pumps
+// exactly the way its direct signal does. Mono-safe by construction.
+const sideOut = new Float32Array(N);
+{
+  const hpRc = 1 / (TAU * 80), hpA = hpRc / (hpRc + 1 / SR);
+  const lpK = 1 - Math.exp((-TAU * 11500) / SR);
+  let hp = 0, lp = 0, prev = 0, send = 0.9;
+  for (let i = 0; i < N; i++) {
+    const be = bedEnv[i], pe = pumpEnv[i];
+    const vr = voxRide[i];
+    const s = sideB[i] * be + sideV[i] * Math.pow(be, 0.25) * vr
+      + sideT[i] * pe * TUBEG * vr + sideS[i] * Math.pow(be, 0.5);
+    hp = hpA * (hp + s - prev); prev = s;
+    lp += lpK * (hp - lp);
+    const bar = (i / SR) / BAR;
+    const target =
+      bar < S.three[0] ? 0.92 :
+      bar < S.message[0] ? 0.70 :
+      bar < S.secret[0] ? 0.56 :
+      bar < S.reply[0] ? 0.90 :
+      bar < S.spread[0] ? 0.52 :
+      bar < S.whole[0] ? 0.86 :
+      bar < S.recognise[0] ? 0.46 :
+      bar < S.humans[0] ? 0.60 : 0.90;
+    send += 0.00004 * (target - send);
+    sideOut[i] = lp * send;
+  }
+}
+
+// ── sum ───────────────────────────────────────────────────────────────
+// Clean: duck, fade, measure, ONE linear trim. No master tanh anywhere.
+let peak = 0;
+const L = new Float32Array(N), R = new Float32Array(N);
+for (let i = 0; i < N; i++) {
+  const be = bedEnv[i], pe = pumpEnv[i];
+  const dv = Math.pow(be, 0.25);            // voices only breathe
+  const ds = Math.pow(be, 0.5);             // the signal layer sits in it
+  const fadeIn = Math.min(1, i / (0.014 * SR));
+  const fadeOut = Math.min(1, (N - 1 - i) / (2.6 * SR));
+  const fade = Math.max(0, Math.min(fadeIn, fadeOut));
+  const vr = voxRide[i];                    // (2) the vocals recede
+  const l = (musicL[i] * be + voxL[i] * dv * VOXG * vr + tubeL[i] * pe * TUBEG * vr
+    + sigL[i] * ds * SIGG + drumsL[i] + sideOut[i]) * fade;
+  const r = (musicR[i] * be + voxR[i] * dv * VOXG * vr + tubeR[i] * pe * TUBEG * vr
+    + sigR[i] * ds * SIGG + drumsR[i] - sideOut[i]) * fade;
+  L[i] = l; R[i] = r;
+  if (Math.abs(l) > peak) peak = Math.abs(l);
+  if (Math.abs(r) > peak) peak = Math.abs(r);
+}
+const norm = peak > 1e-9 ? 0.92 / peak : 1;
+for (let i = 0; i < N; i++) { L[i] *= norm; R[i] *= norm; }
+console.error(`# pre-master peak ${peak.toFixed(6)} · linear trim ${norm.toFixed(3)}`);
+
+const outWav = resolve(OUT, "cult-remix-v8-full.wav");
+writeStereo(outWav, L, R);
+
+const usedAlt = [...new Set(EVENTS.map((e) => e.sample).filter((k) => k && k.startsWith("alt-")))];
+EVENTS.sort((a, b) => a.t - b.t || (a.bus < b.bus ? -1 : 1));
+const voiceCounts = {};
+for (const e of EVENTS) voiceCounts[e.voice] = (voiceCounts[e.voice] ?? 0) + 1;
+const clock = (sec) => `${Math.floor(sec / 60)}:${String(Math.floor(sec % 60)).padStart(2, "0")}`;
+console.log(`  ${EVENTS.length} events · ${Object.entries(voiceCounts).map(([k, v]) => `${k} ${v}`).join(" · ")}`);
+writeFileSync(resolve(OUT, "cult-remix-v8.events.json"), JSON.stringify({
+  schema: "aesthetic.computer/pop-events/v1",
+  track: "whistlegraph cult --- remix (v7, the long silence)",
+  renderer: "pop/cult/bin/render6.mjs",
+  narrative: {
+    logline: "A signal goes out, and it is answered, and the joke turns out to be true.",
+    premise: "The source is eight seconds of three friends chanting morse at a camera, captioned "
+      + "\"dot dot dot dash dash dash dot dot dot (jk)\" — SOS, disclaimed. The arrangement takes the "
+      + "disclaimer away over four minutes.",
+    turn: "1:36 — act IV. The kick stops, the beeps stop, one click is a receiver being picked up, "
+      + "and the word arrives on its own, harmonised: CULT. Everything before it is transmission; "
+      + "everything after it is confession.",
+    learning: [
+      "0:00 there is a channel (DTMF dials C-U-L-T = keypad 2-8-5-8)",
+      "0:16 there are three people (one register at a time: B2, F#3, C#4)",
+      "0:28 they can land on one syllable, and they beat before they lock",
+      "0:32 the signal is SOS",
+      "0:48 the morse has a GROOVE — the hook's rhythm, still with no words",
+      "1:04 the message has words",
+      "1:36 the word is 'cult'",
+      "1:52 something answers, in beeps",
+      "2:24 it has spread and it no longer agrees about pitch",
+      "2:48 the complete message, and the harmony comes home",
+      "3:28 it was three friends and one take all along",
+      "3:44 the channel closes; the last sound is a hang-up, after the music",
+    ],
+    acts: Object.fromEntries(Object.entries(S).map(([k, [a, b]]) => [k, {
+      act: ACTS[k], bars: [a, b],
+      seconds: [+at(a).toFixed(2), +at(b).toFixed(2)],
+      clock: [`${Math.floor(at(a) / 60)}:${String(Math.round(at(a) % 60)).padStart(2, "0")}`,
+        `${Math.floor(at(b) / 60)}:${String(Math.round(at(b) % 60)).padStart(2, "0")}`],
+    }])),
+  },
+  v7Changes: {
+    "1-percussionAsPolyrhythm": "v6 built four of five cross-rhythm layers out of `click` and `tap` — "
+      + "bandpassed noise with no body, all on the signal bus at the same level — so five rhythms "
+      + "meant to interlock arrived as one undifferentiated tick. v7 gives each layer its own "
+      + "instrument, three of them from the kit itself: L1 (3:4) is woodTaps on a drumhead with "
+      + "tambourine on the outer two and an open hat on the one; L2 (3:16) is the PHONE — DTMF "
+      + "digits and answering bops on a dotted-eighth grid that relines every three bars, which is "
+      + "the layer that moves; L3 (5:4) is tambourine and a snap; L4 (7:16) alternates a trackdrum "
+      + "friction skid with a wood tap. No naked click layers remain — clicks are narrative "
+      + "punctuation again. Levels are differentiated by timbre, not by fader.",
+    "2-theFirstMinuteIsMorse": "Act II grows from 16 bars to 24 (0:16–1:04) and the hook moves from "
+      + "0:48 to 1:04, so the record spends its entire first minute on dots and dashes with no "
+      + "words at all. The new sub-shape is bars 24–32, THE DASH GROOVE: the hook's exact 8-beat "
+      + "frame played in held dashes and dots with the lyric cut out of it, so 'run real fast' "
+      + "arrives into a shape the ear has already learned.",
+    "3-percussionStory": "percStage(bar) — nine kits across the ten acts instead of one kit that "
+      + "switches on at bar 8. Hands only (woodTaps on 2 and 4, no metal); a HALF-TIME kick with "
+      + "offbeat-only hats; 4/4 with a ghost on the 'a' of 4; the kit opening with clap and open "
+      + "hat; sixteenth ghosts; a DISPLACED backbeat in act VI (extra clap on the 'and' of 4 while "
+      + "the kick refuses to move) plus a kick shadow on the 'a' of 2; a sixteenth pickup into "
+      + "every bar in act VII; then one element leaving per bar. The bass follows the kick's "
+      + "staging, so the low end tells the same story.",
+    "5-dashesFurtherBack": "The tube bus down 1.2 dB (0.92 → 0.80), every held dash's dub-delay "
+      + "send roughly doubled (0.10 → 0.22 on the stack, 0.30 → 0.42 in acts II and VI) and a 0.13 "
+      + "low-pass on the two upper voices. Level, wet/dry and brightness together — a fader alone "
+      + "makes a voice small, not distant.",
+    "4-hideAwayRemoved": "@jeffrey: 'the hide away part should go'. The chorus is three lines now — "
+      + "run real fast / i wanna DASH / dot dot DASH — and the line that used to be a sentence is a "
+      + "held dash, which makes act VII the same shape as the hook rather than a different song. "
+      + "The away-hi/away-lo takes remain in the bank; nothing reaches for them.",
+  },
+  v6Changes: {
+    "1-polyrhythmArc": "One 0→1 curve across 120 bars (polyAmt) with five cross-rhythm layers "
+      + "switching on at their own thresholds: 3:4 clicks/hats/ride from act II, a dotted-eighth "
+      + "(3:16, period 0.375 s) that precesses over three bars from act III, 5:4 clicks from act V, "
+      + "a 7/16 DTMF figure (period 0.875 s, seven bars to come round) from act VI, and a friction "
+      + "skid placed ON the 3:4 grid from act VII. Peaks at 0.92 in act VII, is the LAST thing to "
+      + "peel off in act VIII, survives acts IV and IX as woodTaps only. The kick stays 4/4 and the "
+      + "hats stay straight eighths throughout — the pulse is never negotiable.",
+    "2-descent": "Every dash is looked up through a five-rung ladder (fs4·d4·b3·fs3·d3) by "
+      + "descentStage(bar), so the same written figure sinks an octave and a fourth between act III "
+      + "and act VIII. The rungs below B3 are real lower takes of Camille and Alex from "
+      + "bin/sing6.mjs, not transposed copies. On top of that the vox and tube buses take a static "
+      + "-1.3 dB and ride a piecewise-linear curve to -3.0 dB across acts VII–VIII, recovering to "
+      + "-0.6 dB for act IX so the humans arrive in front.",
+    "3-hardAutotune": "bin/sing.py --autotune hard. The Saitou expression model is replaced by a "
+      + "staircase: the take's own f0 is high-passed against a 350 ms moving average (keeping the "
+      + "micro-wander, dropping the glide that is the melody's job), exaggerated by --autotune-drive, "
+      + "clamped by --autotune-range, added to the scored note, bucketed into 125 ms cells "
+      + "(a sixteenth at 120 BPM) and held FLAT at the median of each cell after snapping to B "
+      + "natural minor. No legato kernel, no overshoot, no preparation, no vibrato — the target "
+      + "jumps between scale tones inside one 5 ms WORLD frame, and that discontinuity is the "
+      + "artifact. cheaptrick's envelope is passed to synthesize() unmodified, so formants are "
+      + "unshifted: retuned, not chipmunked. Applied to the hook and chorus leads and to Camille's "
+      + "and Alex's dashes; Jeffrey and the dots stay human.",
+  },
+  v5Changes: {
+    "1-crossoverWiggle": "Per-performer vibrato + slow detune drift applied ONLY where held voices "
+      + "overlap (dashStack's three-people-one-syllable, the spread section's stacked pads, the "
+      + "'a—waaaay' hold, the choir's 45 ms-offset cults). Depth ramps in over the first third of "
+      + "each note so attacks stay in tune, and grows with the narrative: 4 cents when the three "
+      + "first meet, 22 where it spreads.",
+    "2-tubularPump": "The held dashes have their own bus: four feedback combs tuned B2·B3·F#4·D5 "
+      + "damped at 2.4 kHz (a tube is a delay line with feedback), scaled by (1-fb) so they resonate "
+      + "at unity, mixed in parallel at 0.34; then asymmetric tube saturation (x + 0.11x² through "
+      + "tanh 1.35) with a DC blocker; then a deep pump — depth 0.72 keyed off kick AND snare, "
+      + "against the bed's 0.50.",
+    "3-thickKick": "200→47 Hz sweep at 62/s, two-stage envelope (34/s slam over a 7/s tail), tanh "
+      + "saturation on the kick VOICE at drive 2.4, a real transient (1.6 k + 3.9 kHz blips) and a "
+      + "separate 44 Hz sub layer. Weight and impact per hit — no drop, no riser, no crash.",
+    "4-signalLayer": "A fifth bus of real DTMF pairs, bops, 4 ms clicks and woody taps, ducked at "
+      + "half depth. Dials C-U-L-T in act I, ticks under II–III, GOES SILENT in IV, beeps SOS back "
+      + "in V, becomes a 3-against-4 switchboard in VI, and has the last sound on the record.",
+    "6-trackdrumSkids": "A direct port of the Continuous membrane friction block in "
+      + "slab/menuband/Sources/MenuBand/MenuBandPercussion.swift (~1296–1338): two low-pass states "
+      + "over the same white sample with the friction signal as their DIFFERENCE, a sine carrier "
+      + "self-modulated by that band (1 + tanh(band*8)*0.055), tanh grip, and a level target through "
+      + "separate attack/release one-poles so the gesture lives in the envelope. v5 sweeps cutoff and "
+      + "carrier across each gesture. 49 of them: drag (into a downbeat), skid (off the back of a hit), "
+      + "slide (under a transition). Act IV is the showcase — with the beeps silent, a hand on a "
+      + "drumhead is the only thing still moving.",
+    "7-otherTikToks": "posts.json tags TWELVE posts with the `cult` work, not one. The other eleven "
+      + "were pulled from the assets mirror and chopped into alt/samples/ — 81 excerpts including ten "
+      + "fresh utterances of the word, and (checked with librosa.pyin) no whistles at all. Six of the "
+      + "ten play in act VI, one per bar, from the edges; the sung one and a sung 'the three of us are "
+      + "in a' go to act IX; act X's last word is somebody else's. Receipt: alt/harvest.json.",
+    "5-narrative": "See narrative.acts — ten acts, and every element's entry and exit serves one.",
+  },
+  source: {
+    work: "cult — The Three of Us Are in a Cult (Whistlegraph, 2022)",
+    tiktok: "https://www.tiktok.com/@whistlegraph/video/7055106286232325423",
+    mirror: "https://assets.aesthetic.computer/whistlegraph/index/posts/7055106286232325423.mp4",
+    performers: ["Jeffrey Alan Scudder", "Camille Klein", "Alex Freundlich"],
+    transcript: "Dash, dash, dash, dot, dot, dot. The three of us are in a cult.",
+    caption: "dot dot dot dash dash dash dot dot dot (jk)",
+    measuredRegisters: { jeffrey: "B2 ≈127 Hz", alex: "F#3 ≈193 Hz", camille: "C#4 ≈245 Hz", cult: "B3 ≈247 Hz" },
+    altTakesUsed: usedAlt,
+  },
+  harmony: {
+    key: "B natural minor",
+    source: "PROGRESSIONS_CHILL, recap/bin/trance.mjs — the 8-row pool in pop/dance/cutezenwaltzi.md",
+    rows: ROWS, home: HOME,
+    homeNote: "Act VII pins the harmony to Bm·D·G·Em — the only place the progression stops wandering, "
+      + "and it happens exactly where the complete lyric arrives.",
+    chordBars: 2, cycleBars: 32,
+  },
+  tempoBPM: BPM, bars: BARS, seconds: +(BARS * BAR).toFixed(2),
+  // Absolute-seconds section table, with the narrative line the video can
+  // caption each act with.
+  sections: Object.entries(S).map(([k, [a, b]]) => ({
+    key: k, act: ACTS[k], bars: [a, b],
+    start: +at(a).toFixed(3), end: +at(b).toFixed(3),
+    clock: [clock(at(a)), clock(at(b))],
+  })),
+  buses: {
+    music: "harmonic bed, pad, stabs, bass, dub-delay return — ducks with the kick (depth 0.50)",
+    drums: "kick, hats, perc AND the TrackDrum friction skids — never ducks",
+    vox: "sung words, dots, choir, material grains — light duck (bedEnv^0.25), +3 dB makeup",
+    tube: "the held dashes — comb-resonated, tube-saturated, deep kick+snare pump (depth 0.72)",
+    sig: "beeps, bops, clicks, taps AND the poly3/poly5/polydot/7-16 cross-rhythm layers — "
+      + "half-depth duck (bedEnv^0.5)",
+  },
+  v6Curves: {
+    polyAmt: POLY_ANCHORS.map(([b, v]) => ({ bar: b, clock: clock(at(b)), amount: v })),
+    voxRide: RIDE_ANCHORS.map(([b, v]) => ({ bar: b, clock: clock(at(b)), gain: v,
+      dB: +(20 * Math.log10(v)).toFixed(2) })),
+    descent: [0, 1, 2, 3].map((st) => ({ stage: st,
+      fromBar: [0, S.reply[0], S.spread[0], S.whole[0] + 8][st],
+      rungs: Object.fromEntries(Object.entries(LADDER).map(([k, v]) => [k, v[st]])) })),
+    autotune: AUTOTUNE ? "on — `at-` takes on hook/chorus leads and the upper two dashes" : "off",
+  },
+  eventSchema: {
+    t: "absolute seconds", voice: Object.keys(voiceCounts).sort(),
+    who: "camille | alex | jeffrey, on every performer-specific vocal hit",
+    fields: "dur, gain, pan, bus, midi/midis/hz, sample, wiggleCents, shape/cut/res (skids), digit (DTMF)",
+  },
+  eventCounts: voiceCounts,
+  events: EVENTS,
+  hook: "dash — i wanna — dash — i wanna — run REAL fast — dot dot (four bars, sung)",
+  chorus: ["run real fast", "i wanna dash", "dot dot dash"],
+  sosFigure: "··· ——— ··· sung as a four-bar riff in act II, beeped back in DTMF in acts V and VII",
+  prePeak: +peak.toFixed(6), linearTrim: +norm.toFixed(4),
+  kicks: kicks.length, snares: snares.length,
+}, null, 2));
+
+console.log(`✓ ${outWav}  (${(BARS * BAR).toFixed(1)}s)`);

@@ -2,16 +2,19 @@ import AppKit
 
 /// Menu Band's unified external-audio deck: internet radio and Spotify share
 /// one continuous CDJ channel, with one explicit handoff into Piano Sampler.
+///
+/// Radio mode is deliberately terse — spinning disc, station name, one status
+/// word, a buffer meter that fills toward the sample length, and the single
+/// SAMPLE action. Spotify mode adds transport, seek, and search.
 final class MenuBandCDJRadioView: NSView, NSSearchFieldDelegate {
-    static let preferredSize = NSSize(width: 224, height: 170)
-    static let radioHeight: CGFloat = 116
+    static let preferredSize = NSSize(width: 224, height: 160)
+    static let radioHeight: CGFloat = 104
 
     private weak var menuBand: MenuBandController?
     private let artwork = NSImageView()
-    private let deckLabel = NSTextField(labelWithString: "CDJ RADIO")
     private let titleLabel = NSTextField(labelWithString: "CDJ Radio")
     private let artistLabel = NSTextField(labelWithString: "")
-    private let detailLabel = NSTextField(labelWithString: "juked headless player")
+    private let detailLabel = NSTextField(labelWithString: "")
     private let timeLabel = NSTextField(labelWithString: "")
     private let progress = MenuBandSpotifyProgressView()
     private let previousButton = NSButton(title: "⏮", target: nil, action: nil)
@@ -24,7 +27,10 @@ final class MenuBandCDJRadioView: NSView, NSSearchFieldDelegate {
     private var searchResults: [MenuBandSpotifyTrack] = []
     private var representedArtworkURL: URL?
     private var artworkTask: URLSessionDataTask?
-    private var spinTimer: Timer?
+    /// Ticks while a station is tuned: buffer meter, status word, SAMPLE
+    /// enablement. Radio has no state-change callbacks the way Spotify's
+    /// poll does, so the panel polls its own tiny slice.
+    private var radioStatusTimer: Timer?
 
     override var intrinsicContentSize: NSSize {
         NSSize(width: Self.preferredSize.width,
@@ -44,11 +50,6 @@ final class MenuBandCDJRadioView: NSView, NSSearchFieldDelegate {
         artwork.layer?.cornerRadius = 6
         artwork.layer?.masksToBounds = true
         artwork.image = MenuBandCDArtworkRenderer.fallback(side: 58)
-
-
-        deckLabel.font = .systemFont(ofSize: 8, weight: .bold)
-        deckLabel.textColor = .secondaryLabelColor
-        deckLabel.stringValue = "CDJ RADIO"
 
         titleLabel.font = .systemFont(ofSize: 13, weight: .bold)
         titleLabel.lineBreakMode = .byTruncatingTail
@@ -96,12 +97,13 @@ final class MenuBandCDJRadioView: NSView, NSSearchFieldDelegate {
         progress.onSeek = { [weak self] seconds in
             guard
                 let self,
+                self.menuBand?.cdjRadioSource == .spotify,
                 let state = self.menuBand?.spotifyPlayback
             else { return }
             self.menuBand?.seekSpotify(to: seconds, from: state.position)
         }
 
-        [artwork, deckLabel, titleLabel, artistLabel, detailLabel, timeLabel, progress,
+        [artwork, titleLabel, artistLabel, detailLabel, timeLabel, progress,
          previousButton, playButton, nextButton, sampleButton, closeButton,
          searchField]
             .forEach(addSubview)
@@ -114,37 +116,50 @@ final class MenuBandCDJRadioView: NSView, NSSearchFieldDelegate {
         super.layout()
         let width = bounds.width
         if menuBand?.cdjRadioSource != .spotify {
-            artwork.frame = NSRect(x: 7, y: 51, width: 58, height: 58)
-            closeButton.frame = NSRect(x: width - 25, y: 90, width: 20, height: 20)
+            // Compact radio deck: disc · station · status · buffer · SAMPLE.
+            artwork.frame = NSRect(x: 7, y: 39, width: 58, height: 58)
+            closeButton.frame = NSRect(x: width - 25, y: 78, width: 20, height: 20)
             let textX: CGFloat = 73
-            let textWidth = max(40, width - textX - 25)
-            deckLabel.frame = NSRect(x: textX, y: 101, width: textWidth, height: 10)
-            titleLabel.frame = NSRect(x: textX, y: 84, width: textWidth, height: 18)
-            artistLabel.frame = NSRect(x: textX, y: 66, width: textWidth, height: 15)
-            detailLabel.frame = NSRect(x: textX, y: 49, width: width - textX - 7,
-                                        height: 14)
-            sampleButton.frame = NSRect(x: 49, y: 13, width: 126, height: 26)
+            titleLabel.frame = NSRect(x: textX, y: 77,
+                                      width: max(40, width - textX - 25), height: 18)
+            detailLabel.frame = NSRect(x: textX, y: 61,
+                                       width: width - textX - 7, height: 14)
+            progress.frame = NSRect(x: textX, y: 49, width: width - textX - 9,
+                                    height: 8)
+            sampleButton.frame = NSRect(x: 7, y: 8, width: width - 14, height: 25)
+            centerArtworkAnchor()
             return
         }
-        artwork.frame = NSRect(x: 7, y: 104, width: 58, height: 58)
-        closeButton.frame = NSRect(x: width - 25, y: 144, width: 20, height: 20)
+        artwork.frame = NSRect(x: 7, y: 94, width: 58, height: 58)
+        closeButton.frame = NSRect(x: width - 25, y: 134, width: 20, height: 20)
         let textX: CGFloat = 73
         let textWidth = max(40, width - textX - 25)
-        deckLabel.frame = NSRect(x: textX, y: 157, width: textWidth, height: 10)
-        titleLabel.frame = NSRect(x: textX, y: 141, width: textWidth, height: 18)
-        artistLabel.frame = NSRect(x: textX, y: 123, width: textWidth, height: 15)
+        titleLabel.frame = NSRect(x: textX, y: 133, width: textWidth, height: 18)
+        artistLabel.frame = NSRect(x: textX, y: 115, width: textWidth, height: 15)
         let showsError = menuBand?.spotifyStatusIsError == true
         detailLabel.frame = NSRect(
-            x: textX, y: 106,
+            x: textX, y: 98,
             width: max(30, width - textX - (showsError ? 7 : 73)), height: 14)
-        timeLabel.frame = NSRect(x: width - 73, y: 106,
+        timeLabel.frame = NSRect(x: width - 73, y: 98,
                                  width: showsError ? 0 : 66, height: 14)
-        progress.frame = NSRect(x: 7, y: 89, width: width - 14, height: 10)
-        previousButton.frame = NSRect(x: 49, y: 60, width: 38, height: 24)
-        playButton.frame = NSRect(x: 93, y: 60, width: 38, height: 24)
-        nextButton.frame = NSRect(x: 137, y: 60, width: 38, height: 24)
-        sampleButton.frame = NSRect(x: 49, y: 32, width: 126, height: 24)
+        progress.frame = NSRect(x: 7, y: 84, width: width - 14, height: 10)
+        previousButton.frame = NSRect(x: 49, y: 57, width: 38, height: 24)
+        playButton.frame = NSRect(x: 93, y: 57, width: 38, height: 24)
+        nextButton.frame = NSRect(x: 137, y: 57, width: 38, height: 24)
+        sampleButton.frame = NSRect(x: 49, y: 31, width: 126, height: 24)
         searchField.frame = NSRect(x: 7, y: 5, width: width - 14, height: 22)
+        centerArtworkAnchor()
+    }
+
+    /// AppKit backs views with layers anchored at (0, 0); a rotation about
+    /// that anchor swings the disc around its corner. Re-assert a centered
+    /// anchor (and the matching position) after every frame change so the
+    /// spin animation turns the disc about its own hub.
+    private func centerArtworkAnchor() {
+        guard let layer = artwork.layer else { return }
+        let frame = artwork.frame
+        layer.anchorPoint = CGPoint(x: 0.5, y: 0.5)
+        layer.position = CGPoint(x: frame.midX, y: frame.midY)
     }
 
     override func updateLayer() {
@@ -163,29 +178,79 @@ final class MenuBandCDJRadioView: NSView, NSSearchFieldDelegate {
         let spotifySource = menuBand.cdjRadioSource == .spotify
         titleLabel.stringValue = menuBand.cdjRadioTitle
         artistLabel.stringValue = menuBand.cdjRadioSubtitle
-        if menuBand.spotifyStatusIsError {
-            detailLabel.stringValue = menuBand.spotifyStatus
-            timeLabel.stringValue = ""
-        } else if spotifySource, let state {
-            detailLabel.stringValue = state.album
-            timeLabel.stringValue =
-                "\(Self.mmss(state.position))/\(Self.mmss(state.duration))"
+        if spotifySource {
+            if menuBand.spotifyStatusIsError {
+                detailLabel.stringValue = menuBand.spotifyStatus
+                timeLabel.stringValue = ""
+            } else if let state {
+                detailLabel.stringValue = state.album
+                timeLabel.stringValue =
+                    "\(Self.mmss(state.position))/\(Self.mmss(state.duration))"
+            } else {
+                detailLabel.stringValue = menuBand.spotifyStatus
+                timeLabel.stringValue = ""
+            }
+            detailLabel.textColor = menuBand.spotifyStatusIsError
+                ? .systemRed : .tertiaryLabelColor
+            progress.duration = state?.duration ?? 0
+            progress.position = state?.position ?? 0
+            progress.seekable = true
+            sampleButton.isEnabled = true
+            stopRadioStatusTimer()
         } else {
-            detailLabel.stringValue = menuBand.spotifyStatus
-            timeLabel.stringValue = ""
+            refreshRadioStatus()
+            startRadioStatusTimerIfNeeded()
         }
-        detailLabel.textColor = menuBand.spotifyStatusIsError
-            ? .systemRed : .tertiaryLabelColor
         playButton.title = state?.isPlaying == true ? "❚❚" : "▶"
-        progress.duration = state?.duration ?? 0
-        progress.position = state?.position ?? 0
-        [previousButton, playButton, nextButton, progress, timeLabel,
+        [previousButton, playButton, nextButton, timeLabel, artistLabel,
          searchField].forEach { $0.isHidden = !spotifySource }
         invalidateIntrinsicContentSize()
         updateArtwork(menuBand.cdjRadioArtworkURL)
-        updateSpin(menuBand.cdjRadioPlaying)
+        setSpinning(menuBand.cdjRadioPlaying)
         needsLayout = true
         needsDisplay = true
+    }
+
+    /// Radio-mode status slice: the meter fills toward the sample length and
+    /// the single action arms itself when there is enough audio to take.
+    private func refreshRadioStatus() {
+        guard let menuBand else { return }
+        let target = menuBand.cdjSampleSeconds
+        let buffered = menuBand.cdjRadioBufferedSeconds
+        progress.duration = target
+        progress.position = min(target, buffered)
+        progress.seekable = false
+        let ready = buffered >= target
+        sampleButton.isEnabled = ready
+        if menuBand.spotifyStatusIsError {
+            detailLabel.stringValue = menuBand.spotifyStatus
+            detailLabel.textColor = .systemRed
+        } else {
+            detailLabel.stringValue = ready ? "LIVE" : "TUNING…"
+            detailLabel.textColor = .tertiaryLabelColor
+        }
+    }
+
+    private func startRadioStatusTimerIfNeeded() {
+        guard radioStatusTimer == nil,
+              menuBand?.cdjRadioPresented == true else { return }
+        let timer = Timer(timeInterval: 0.25, repeats: true) { [weak self] _ in
+            guard let self, let menuBand = self.menuBand,
+                  menuBand.cdjRadioPresented,
+                  menuBand.cdjRadioSource != .spotify else {
+                self?.stopRadioStatusTimer()
+                return
+            }
+            self.refreshRadioStatus()
+            self.progress.needsDisplay = true
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        radioStatusTimer = timer
+    }
+
+    private func stopRadioStatusTimer() {
+        radioStatusTimer?.invalidate()
+        radioStatusTimer = nil
     }
 
     private func updateArtwork(_ url: URL?) {
@@ -212,23 +277,25 @@ final class MenuBandCDJRadioView: NSView, NSSearchFieldDelegate {
     @objc private func sampleClicked() { _ = menuBand?.sampleCDJRadioToPiano() }
     @objc private func closeClicked() { menuBand?.deactivateCDJRadio() }
 
-    private func updateSpin(_ playing: Bool) {
-        if playing {
-            guard spinTimer == nil else { return }
-            let timer = Timer(timeInterval: 1.0 / 30.0, repeats: true) {
-                [weak self] _ in
-                guard let self else { return }
-                self.artwork.frameCenterRotation -= 1.5
-                if self.artwork.frameCenterRotation <= -360 {
-                    self.artwork.frameCenterRotation += 360
-                }
-            }
-            RunLoop.main.add(timer, forMode: .common)
-            spinTimer = timer
+    /// Spin the disc about its hub with a repeating layer rotation. The old
+    /// timer nudged `frameCenterRotation`, but `layout()` re-setting `frame`
+    /// on a rotated view (undefined per AppKit) walked the disc off its
+    /// anchor — the visible wobble. A transform animation on a centered
+    /// anchor never touches frame geometry.
+    private func setSpinning(_ spinning: Bool) {
+        guard let layer = artwork.layer else { return }
+        if spinning {
+            guard layer.animation(forKey: "spin") == nil else { return }
+            centerArtworkAnchor()
+            let spin = CABasicAnimation(keyPath: "transform.rotation.z")
+            spin.fromValue = 0
+            spin.toValue = -2 * Double.pi
+            spin.duration = 4
+            spin.repeatCount = .infinity
+            spin.isRemovedOnCompletion = false
+            layer.add(spin, forKey: "spin")
         } else {
-            spinTimer?.invalidate()
-            spinTimer = nil
-            artwork.frameCenterRotation = 0
+            layer.removeAnimation(forKey: "spin")
         }
     }
 
@@ -289,17 +356,20 @@ final class MenuBandCDJRadioView: NSView, NSSearchFieldDelegate {
 
     deinit {
         artworkTask?.cancel()
-        spinTimer?.invalidate()
+        radioStatusTimer?.invalidate()
     }
 }
 
+/// Doubles as Spotify's seek bar and radio's buffer meter — `seekable`
+/// gates the pointer interaction off for the meter.
 private final class MenuBandSpotifyProgressView: NSView {
     var duration: Double = 0 { didSet { needsDisplay = true } }
     var position: Double = 0 { didSet { needsDisplay = true } }
+    var seekable = true
     var onSeek: ((Double) -> Void)?
 
     override func draw(_ dirtyRect: NSRect) {
-        let bar = bounds.insetBy(dx: 1, dy: 3)
+        let bar = bounds.insetBy(dx: 1, dy: bounds.height > 9 ? 3 : 1)
         NSColor.labelColor.withAlphaComponent(0.13).setFill()
         NSBezierPath(roundedRect: bar, xRadius: 2, yRadius: 2).fill()
         guard duration > 0 else { return }
@@ -313,7 +383,7 @@ private final class MenuBandSpotifyProgressView: NSView {
     override func mouseDragged(with event: NSEvent) { seek(event) }
 
     private func seek(_ event: NSEvent) {
-        guard duration > 0 else { return }
+        guard seekable, duration > 0 else { return }
         let x = convert(event.locationInWindow, from: nil).x
         let fraction = Double(min(1, max(0, x / max(1, bounds.width))))
         onSeek?(duration * fraction)
