@@ -159,6 +159,7 @@
     border:1px solid var(--line); border-radius:2px; padding:2px 8px; cursor:pointer; line-height:1.4;
   }
   .sortbar button:hover{background:var(--tint)}
+  .sortbar button svg{width:13px; height:13px; display:block; pointer-events:none}
   .sortbar button.on{background:var(--margin); color:var(--paper); border-color:var(--margin)}
   .sectionbar{display:flex; flex-wrap:wrap; gap:0; margin:7px 0 13px; border-bottom:2px solid var(--line); align-items:flex-end}
   .sectionbar .sl{font-size:11px; color:var(--dim); padding:7px 9px 6px 0; text-transform:uppercase; letter-spacing:.08em}
@@ -298,6 +299,9 @@
      gutter goes narrow and, above all, EQUAL: the column is centred glass. */
   @media (max-width:560px){
     .pad{padding-left:11px; padding-right:11px}
+    /* the gear parks in the header's top-right corner; give the wordmark a
+       lane of its own so the two never overlap on a phone */
+    header{padding-right:46px}
     table.idx td{padding:4px 4px}
     table.idx tr{grid-template-columns:60px 70px minmax(0,1fr) 54px}
     td.cd .sw{display:none}
@@ -363,14 +367,13 @@
       <button data-section="archive">Posts</button>
     </div>
     <div class="sortbar" id="workSortbar">
-      <span class="sl">Sort:</span>
-      <button data-sort="featured" class="on">Featured</button>
+      <button data-sort="viewed">Popularity</button>
+      <button data-sort="duration">Duration</button>
       <button data-sort="videos">Most videos</button>
-      <button data-sort="viewed">Most viewed</button>
       <button data-sort="year">By year</button>
       <button data-sort="title">Title A–Z</button>
       <button data-sort="author">Author A–Z</button>
-      <button id="reverseSort" type="button" aria-pressed="false" hidden>Reverse</button>
+      <button id="reverseSort" type="button" aria-pressed="false" aria-label="Reverse order" title="Reverse order" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21 16-4 4-4-4"/><path d="M17 20V4"/><path d="m3 8 4-4 4 4"/><path d="M7 4v16"/></svg></button>
     </div>
     <div class="sortbar" id="archiveFilterbar" style="display:none">
       <span class="sl">Filter:</span>
@@ -380,8 +383,7 @@
       <button data-kind="other">Other</button>
     </div>
     <div class="sortbar" id="archiveSortbar" style="display:none">
-      <span class="sl">Sort:</span>
-      <button data-sort="viewed" class="on">Most viewed</button>
+      <button data-sort="viewed" class="on">Popularity</button>
       <button data-sort="newest">Newest</button>
       <button data-sort="oldest">Oldest</button>
     </div>
@@ -706,6 +708,9 @@ function sortedWorks(key){
   let sorted=null;
   if(key==="videos") sorted=g.sort((a,b)=>b.perf-a.perf||byViews(a,b));
   if(key==="viewed") sorted=g.sort(byViews);
+  // Duration rides on the hero take's runtime, learned when posts.json lands —
+  // works still waiting on that data sink to the bottom instead of lying.
+  if(key==="duration") sorted=g.sort((a,b)=>(b.dur||0)-(a.dur||0)||byViews(a,b));
   if(key==="year")   sorted=g.sort((a,b)=>a.year-b.year||byViews(a,b)); // oldest first
   if(key==="title")  sorted=g.sort((a,b)=>a.title.localeCompare(b.title));
   if(key==="author") sorted=g.sort((a,b)=>a.by.localeCompare(b.by)||byViews(a,b));
@@ -717,10 +722,11 @@ function sortedWorks(key){
 // (async; thumbnails stay lazy). Search + sort just rebuild VIEW.
 const PAGE=60;
 let curSort=null, sortReversed=false, curQuery="", VIEW=[], SHOWN=0;
-const reversibleSorts=new Set(["year","title","author"]);
+// Every sort reverses now that the control is one small icon — it appears as
+// soon as any sort is chosen.
 function syncReverseSort(){
   const button=document.getElementById("reverseSort");
-  button.hidden=!reversibleSorts.has(curSort);
+  button.hidden=!curSort;
   button.classList.toggle("on",sortReversed);
   button.setAttribute("aria-pressed",String(sortReversed));
 }
@@ -833,6 +839,10 @@ function loadPosts(){
         work.views=related.reduce((sum,p)=>sum+(p.views||0),0);
         const selected=related.find(post=>post.id===work.featuredPost);
         const featured=(selected&&postThumb(selected)?selected:null)||related.find(post=>postThumb(post));
+        // The work's duration is its hero take's runtime — editorial pick first,
+        // then the most-seen post (related is already sorted by reach).
+        const heroTake=selected||related[0];
+        if(heroTake?.duration!=null) work.dur=heroTake.duration;
         if(!work.slug&&postThumb(featured)){
           work.thumb=postThumb(featured);
           work.noGlyph=false;
@@ -896,9 +906,11 @@ Promise.all([
   document.querySelectorAll("#workSortbar button[data-sort]").forEach(b=>b.addEventListener("click",()=>{
     document.querySelectorAll("#workSortbar button[data-sort]").forEach(x=>x.classList.remove("on"));
     b.classList.add("on");
-    curSort=b.dataset.sort==="featured"?null:b.dataset.sort;
+    curSort=b.dataset.sort;
     sortReversed=false; syncReverseSort();
-    renderReset(true);
+    // Duration lives in posts.json; the first duration sort pulls it in.
+    if(curSort==="duration"&&!postsLoaded) loadPosts().then(()=>renderReset(true));
+    else renderReset(true);
   }));
   document.getElementById("reverseSort").addEventListener("click",()=>{
     sortReversed=!sortReversed; syncReverseSort(); renderReset(true);
