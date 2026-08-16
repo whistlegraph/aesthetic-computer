@@ -24,3 +24,7 @@ longest/
 naming-batches/
 # generated local Reels bundle (videos, OCR audit, and review queues)
 reels-shortlist/
+# index-thumb bake cache (bake-thumbs.mjs) — originals mirror the bucket's
+# whistlegraph/index-original/ backup; baked jpgs regenerate from them
+index-thumbs-original/
+index-thumbs-baked/
