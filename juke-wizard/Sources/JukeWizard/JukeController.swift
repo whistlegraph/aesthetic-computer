@@ -1784,6 +1784,12 @@ final class JukeController: NSWindowController, NSWindowDelegate,
             }
             return ["ok": true, "count": library.tracks.count, "tracks": rows, "truncated": rows.count < library.tracks.count]
         case "select", "play":
+            // Asking to play IS asking to be heard: a room that failed
+            // earlier (far Mac slept, receiver killed) re-engages the saved
+            // layout instead of staying silently dark.
+            if case .failed = roomAudio.state {
+                roomAudio.apply(savedRoomLayout(), pan: savedRoomPan())
+            }
             if let path = request["path"] as? String {
                 let url = URL(fileURLWithPath: (path as NSString).expandingTildeInPath)
                 let wanted = url.standardizedFileURL.path

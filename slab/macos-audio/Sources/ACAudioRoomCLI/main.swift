@@ -42,6 +42,10 @@ do {
         let receiver = ACAudioRoomReceiver(configuration: .init(host: host, port: port,
                                                                  name: name, channel: channel, gain: gain))
         receiver.onLog = { emit("room receive · \($0)") }
+        receiver.onStarved = {
+            emit("room receive · sender lost — exiting")
+            exit(0)
+        }
         try receiver.start()
         dispatchMain()
 

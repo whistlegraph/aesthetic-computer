@@ -51,6 +51,13 @@ final class JukeRoomAudio {
     private var remoteReceiver: Process?
     private var localOutputGeneration = 0
     private var routeObserver: NSObjectProtocol?
+    // Remote-leg healing: a receiver that dies (far Mac slept, network
+    // blink, ssh dropped) re-engages instead of killing the whole room; a
+    // leg that keeps dying within a minute gives up after three tries so a
+    // genuinely broken room reads as failed rather than looping forever.
+    private var applyGeneration = 0
+    private var remoteRetries = 0
+    private var remoteSpawnedAt: Date?
 
     init() {
         // Follow the Mac's default output when it changes under us (AirPods
@@ -74,6 +81,12 @@ final class JukeRoomAudio {
     }
 
     func apply(_ nextLayout: Layout, pan nextPan: Float? = nil, remote: String = "blueberry") {
+        remoteRetries = 0   // user intent = fresh grace for the far Mac
+        engage(nextLayout, pan: nextPan, remote: remote)
+    }
+
+    private func engage(_ nextLayout: Layout, pan nextPan: Float? = nil, remote: String = "blueberry") {
+        applyGeneration += 1
         layout = nextLayout
         if let nextPan { pan = max(-1, min(1, nextPan)) }
         stop(notify: false)
@@ -122,22 +135,46 @@ final class JukeRoomAudio {
                 let process = Process()
                 process.executableURL = URL(fileURLWithPath: "/usr/bin/ssh")
                 let gain = String(format: "%.3f", remoteMix.gain)
+                // pkill note: the pattern must match BOTH the ~/.local/bin
+                // symlink and the resolved .build/release binary (the script
+                // execs through readlink now), but must NOT match this bash
+                // wrapper's own command line — hence the anchored first-token
+                // form. Receiver output goes to a log on the far Mac instead
+                // of the void; it self-exits when the sender disappears.
                 process.arguments = [
                     "-o", "BatchMode=yes", remote,
                     "/bin/bash -lc 'receiver=\"$HOME/.local/bin/ac-audio-room\"; " +
-                    "/usr/bin/pkill -f \"^$receiver receive --host neo.local\" 2>/dev/null || true; " +
-                    "exec \"$receiver\" receive --host neo.local --channel \(remoteMix.channel.name) --gain \(gain) --name Blueberry'",
+                    "/usr/bin/pkill -f \"^[^ ]*ac-audio-room receive --host neo.local\" 2>/dev/null || true; " +
+                    "exec \"$receiver\" receive --host neo.local --channel \(remoteMix.channel.name) --gain \(gain) --name Blueberry >> /tmp/ac-audio-room.log 2>&1'",
                 ]
                 process.standardOutput = FileHandle.nullDevice
                 process.standardError = FileHandle.nullDevice
+                let generation = applyGeneration
                 process.terminationHandler = { [weak self] process in
                     DispatchQueue.main.async {
-                        guard let self, case .live = self.state else { return }
-                        self.stop(notify: false)
-                        self.state = .failed("Blueberry exited (status \(process.terminationStatus))")
+                        guard let self, case .live = self.state,
+                              generation == self.applyGeneration else { return }
+                        if let started = self.remoteSpawnedAt,
+                           Date().timeIntervalSince(started) > 60 {
+                            self.remoteRetries = 0   // it ran fine for a while — fresh outage
+                        }
+                        if self.remoteRetries < 3 {
+                            self.remoteRetries += 1
+                            NSLog("Menu Band Juke room: %@ leg exited (status %d) — re-engaging %d/3",
+                                  remote, process.terminationStatus, self.remoteRetries)
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
+                                guard let self, case .live = self.state,
+                                      generation == self.applyGeneration else { return }
+                                self.engage(self.layout, pan: self.pan, remote: remote)
+                            }
+                        } else {
+                            self.stop(notify: false)
+                            self.state = .failed("Blueberry exited (status \(process.terminationStatus))")
+                        }
                     }
                 }
                 try process.run()
+                remoteSpawnedAt = Date()
                 remoteProcess = process
             }
 

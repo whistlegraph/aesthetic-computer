@@ -111,6 +111,11 @@ public final class ACAudioRoomReceiver: @unchecked Sendable {
     }
 
     public var onLog: (@Sendable (String) -> Void)?
+    /// Fires (on the receiver queue, at most every 20 s) when no sender
+    /// traffic — clock replies or audio — has arrived for 20 s. The CLI
+    /// exits on it so fleet Macs never accumulate orphan receivers pointed
+    /// at a dead sender; in-process hosts may ignore it.
+    public var onStarved: (@Sendable () -> Void)?
     public private(set) var isRunning = false
 
     private let configuration: Configuration
@@ -123,6 +128,7 @@ public final class ACAudioRoomReceiver: @unchecked Sendable {
     private let store = ACAudioPacketStore()
     private var nonce: UInt32 = 0
     private var didLogAudio = false
+    private var lastTrafficNanos: UInt64 = 0
 
     public init(configuration: Configuration) { self.configuration = configuration }
 
@@ -147,9 +153,19 @@ public final class ACAudioRoomReceiver: @unchecked Sendable {
         }
         connection.start(queue: queue)
         receive()
+        lastTrafficNanos = ACHostClock.nowNanos()
         let timer = DispatchSource.makeTimerSource(queue: queue)
         timer.schedule(deadline: .now() + 0.25, repeating: 1.0)
-        timer.setEventHandler { [weak self] in self?.sendClockRequest() }
+        timer.setEventHandler { [weak self] in
+            guard let self else { return }
+            self.sendClockRequest()
+            let now = ACHostClock.nowNanos()
+            if self.lastTrafficNanos > 0, now &- self.lastTrafficNanos > 20_000_000_000 {
+                self.lastTrafficNanos = now   // rearm: fire at most every 20 s
+                self.log("no sender traffic for 20 s")
+                self.onStarved?()
+            }
+        }
         timer.resume()
         self.timer = timer
         isRunning = true
@@ -207,6 +223,7 @@ public final class ACAudioRoomReceiver: @unchecked Sendable {
             guard let self else { return }
             let arrived = ACHostClock.nowNanos()
             if let data, let message = ACRoomMessage(data: data) {
+                self.lastTrafficNanos = arrived
                 switch message {
                 case .clockResponse(let response): self.clock.add(response, arrived: arrived)
                 case .audio(let packet):
