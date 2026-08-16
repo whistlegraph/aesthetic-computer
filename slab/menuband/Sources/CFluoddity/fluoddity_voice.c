@@ -25,7 +25,7 @@
 #define FLUOD_SENSE_SCALE 1.0f    // field → black-box input gain
 #define FLUOD_VISUAL_FPS 60.0f    // Fluoddity's frame rate, for slider compensation
 #define FLUOD_WARMUP_TICKS 32     // sim ticks pre-run at note-on
-#define FLUOD_OUT_TARGET 0.35f    // normalized output RMS target
+#define FLUOD_OUT_TARGET 0.50f    // normalized output RMS target
 #define FLUOD_AGC_FLOOR 0.02f     // table RMS below this fades toward silence
 
 // ── Hashing (PCG, uint-domain cousin of fourier4_4.glsl's) ──

@@ -4464,7 +4464,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
             let gen = self.playGeneration   // stop bumps this to cancel onsets
-            self.menuBand.setMelodicProgram(program)
+            // A conducted melody should play THROUGH an active Fluoddity
+            // ecosystem, not silently yank it back to GM — only switch
+            // programs when the post names one explicitly (or nothing
+            // special is active).
+            if info["program"] != nil
+                || self.menuBand.instrumentBackend != .fluoddity {
+                self.menuBand.setMelodicProgram(program)
+            }
             // Surface the instrument change on the menubar chip immediately —
             // a conducted part switching patch should read like a user picking
             // an instrument, not change silently under the hood.

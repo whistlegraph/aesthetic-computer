@@ -543,6 +543,8 @@ final class MenuBandController {
     /// FLUODDITY cell visualization. nil before any note has sounded.
     func fluoddityFieldSnapshot() -> [Float]? { synth.fluodVoice.fieldSnapshot() }
     func fluoddityParticleSnapshot() -> [Float]? { synth.fluodVoice.particleSnapshot() }
+    func fluoddityTableSnapshot() -> [Float]? { synth.fluodVoice.tableSnapshot() }
+    func setFluoddityVisualLiveliness(_ on: Bool) { synth.fluodVoice.visualLiveliness = on }
     /// Breed a fresh species: reroll the rule genome from a random seed.
     /// Affects future note-ons; sounding notes keep their birth genome.
     func reseedFluoddity() {

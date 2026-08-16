@@ -137,6 +137,12 @@ static inline const FluodParticle *fluod_voice_particles_ptr(const FluodVoice *v
     return v->p;
 }
 
+// Same contract, for the sound: the current column-summed scan table — the
+// FLUOD_FIELD_W-sample wavetable the ear is actually hearing.
+static inline const float *fluod_voice_table_ptr(const FluodVoice *v) {
+    return v->tab_cur;
+}
+
 // One output sample. `env` is the host's amplitude envelope (0..1);
 // `frequency` may glide per sample like gm_voice_render's. Output is
 // AGC-normalized and soft-clipped; NaN/Inf is trapped internally (the

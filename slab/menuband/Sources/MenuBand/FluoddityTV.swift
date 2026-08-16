@@ -31,6 +31,7 @@ final class FluoddityTV {
         guard let panel, let screen else { return }
         screen.fieldSource = { [weak menuBand] in menuBand?.fluoddityFieldSnapshot() }
         screen.particleSource = { [weak menuBand] in menuBand?.fluoddityParticleSnapshot() }
+        screen.tableSource = { [weak menuBand] in menuBand?.fluoddityTableSnapshot() }
         if !panel.setFrameUsingName("FluoddityTV") {
             // First run: tuck under the menu bar at the screen's top right.
             if let vis = NSScreen.main?.visibleFrame {
@@ -39,11 +40,13 @@ final class FluoddityTV {
             }
         }
         panel.orderFront(nil)
+        menuBand.setFluoddityVisualLiveliness(true)
         startTimer()
     }
 
     func hide() {
         timer?.invalidate(); timer = nil
+        menuBand?.setFluoddityVisualLiveliness(false)
         panel?.saveFrame(usingName: "FluoddityTV")
         panel?.orderOut(nil)
     }
@@ -141,6 +144,8 @@ final class FluoddityTV {
 final class FluodTVScreenView: NSView {
     var fieldSource: (() -> [Float]?)?
     var particleSource: (() -> [Float]?)?
+    /// The scan table — the wavetable the ear is hearing right now.
+    var tableSource: (() -> [Float]?)?
     private var flashUntil: TimeInterval = 0
 
     /// Brief white blink acknowledging a breeding action (the audible
@@ -202,24 +207,58 @@ final class FluodTVScreenView: NSView {
             else { return nil }
             return ctx.makeImage()
         }
+        // Two zones: the ecosystem strip on top at an honest-ish aspect
+        // (16 transverse rows should read as a ribbon, not be smeared to
+        // fill the screen), and below it the oscilloscope of the scan
+        // table — the very wavetable those trails are being heard as.
+        let stripH = (bounds.height * 0.45).rounded()
+        let strip = NSRect(x: 0, y: bounds.height - stripH,
+                           width: bounds.width, height: stripH)
+        let scope = NSRect(x: 0, y: 0, width: bounds.width,
+                           height: bounds.height - stripH - 1)
+
         if let image, let cg = NSGraphicsContext.current?.cgContext {
             cg.saveGState()
-            cg.interpolationQuality = .none
-            cg.draw(image, in: bounds)
+            cg.interpolationQuality = .low   // organic smoke, not bar-mush
+            cg.draw(image, in: strip)
             cg.restoreGState()
         }
 
         // The swarm itself: px is the scan (x) axis, py transverse.
         if let particles = particleSource?() {
-            NSColor.white.withAlphaComponent(0.85).setFill()
+            NSColor.white.withAlphaComponent(0.9).setFill()
             var i = 0
             while i + 1 < particles.count {
-                let x = CGFloat(particles[i]) * bounds.width
-                let y = CGFloat(particles[i + 1]) * bounds.height
-                NSBezierPath(ovalIn: NSRect(x: x - 1.5, y: y - 1.5,
-                                            width: 3, height: 3)).fill()
+                let x = strip.minX + CGFloat(particles[i]) * strip.width
+                let y = strip.minY + CGFloat(particles[i + 1]) * strip.height
+                NSBezierPath(ovalIn: NSRect(x: x - 1.25, y: y - 1.25,
+                                            width: 2.5, height: 2.5)).fill()
                 i += 2
             }
+        }
+
+        // Oscilloscope: one cycle of the instrument, normalized per frame.
+        if let table = tableSource?(), table.count >= w, scope.height > 8 {
+            var peakT: Float = 1e-6
+            for v in table where abs(v) > peakT { peakT = abs(v) }
+            NSColor.systemIndigo.withAlphaComponent(0.25).setStroke()
+            let mid = NSBezierPath()
+            mid.move(to: NSPoint(x: scope.minX, y: scope.midY))
+            mid.line(to: NSPoint(x: scope.maxX, y: scope.midY))
+            mid.lineWidth = 1
+            mid.stroke()
+            let trace = NSBezierPath()
+            let amp = scope.height * 0.44
+            for i in 0..<w {
+                let x = scope.minX + CGFloat(i) / CGFloat(w - 1) * scope.width
+                let y = scope.midY + CGFloat(table[i] / peakT) * amp
+                if i == 0 { trace.move(to: NSPoint(x: x, y: y)) }
+                else { trace.line(to: NSPoint(x: x, y: y)) }
+            }
+            trace.lineWidth = 1.5
+            NSColor(calibratedRed: 0.78, green: 0.77, blue: 1.0,
+                    alpha: 0.95).setStroke()
+            trace.stroke()
         }
 
         if ProcessInfo.processInfo.systemUptime < flashUntil {
