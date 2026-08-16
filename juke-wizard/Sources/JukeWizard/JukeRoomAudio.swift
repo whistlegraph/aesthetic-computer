@@ -47,6 +47,9 @@ final class JukeRoomAudio {
 
     private var sender: ACAudioRoomSender?
     private var localReceiver: ACAudioRoomReceiver?
+    /// Out-of-process local leg, used when the tap mutes our own process
+    /// (aesthetic source) — see startDistributed.
+    private var localHelper: Process?
     private var spotifyTap: AnyObject?
     private var remoteReceiver: Process?
     private var localOutputGeneration = 0
@@ -121,14 +124,55 @@ final class JukeRoomAudio {
         try sender.start()
 
         var local: ACAudioRoomReceiver?
+        var helperProcess: Process?
         var remoteProcess: Process?
         do {
             if let localMix = mix.local {
-                let receiver = ACAudioRoomReceiver(configuration: .init(
-                    host: "127.0.0.1", name: "Neo", channel: localMix.channel, gain: localMix.gain))
-                receiver.onLog = { NSLog("Menu Band Juke room Neo: \($0)") }
-                try receiver.start()
-                local = receiver
+                if source == .aesthetic {
+                    // The aesthetic tap mutes THIS process — and
+                    // .mutedWhenTapped is process-wide, so an in-process
+                    // receiver renders into the mute and Neo goes silent
+                    // while every log line reads healthy. Neo's leg must
+                    // render from OUTSIDE the muted process: the same CLI
+                    // blueberry runs, minus the ssh.
+                    let helper = Process()
+                    helper.executableURL = URL(fileURLWithPath: "/bin/bash")
+                    let gain = String(format: "%.3f", localMix.gain)
+                    helper.arguments = ["-lc",
+                        "receiver=\"$HOME/.local/bin/ac-audio-room\"; " +
+                        "/usr/bin/pkill -f \"^[^ ]*ac-audio-room receive --host 127.0.0.1\" 2>/dev/null || true; " +
+                        "exec \"$receiver\" receive --host 127.0.0.1 --channel \(localMix.channel.name) --gain \(gain) --name Neo >> /tmp/ac-audio-room.log 2>&1"]
+                    helper.standardOutput = FileHandle.nullDevice
+                    helper.standardError = FileHandle.nullDevice
+                    let generation = applyGeneration
+                    helper.terminationHandler = { [weak self] process in
+                        DispatchQueue.main.async {
+                            guard let self, case .live = self.state,
+                                  generation == self.applyGeneration else { return }
+                            if self.remoteRetries < 3 {
+                                self.remoteRetries += 1
+                                NSLog("Menu Band Juke room: Neo helper exited (status %d) — re-engaging %d/3",
+                                      process.terminationStatus, self.remoteRetries)
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
+                                    guard let self, case .live = self.state,
+                                          generation == self.applyGeneration else { return }
+                                    self.engage(self.layout, pan: self.pan, remote: remote)
+                                }
+                            } else {
+                                self.stop(notify: false)
+                                self.state = .failed("Neo helper exited (status \(process.terminationStatus))")
+                            }
+                        }
+                    }
+                    try helper.run()
+                    helperProcess = helper
+                } else {
+                    let receiver = ACAudioRoomReceiver(configuration: .init(
+                        host: "127.0.0.1", name: "Neo", channel: localMix.channel, gain: localMix.gain))
+                    receiver.onLog = { NSLog("Menu Band Juke room Neo: \($0)") }
+                    try receiver.start()
+                    local = receiver
+                }
             }
 
             if let remoteMix = mix.remote {
@@ -184,11 +228,16 @@ final class JukeRoomAudio {
 
             self.sender = sender
             self.localReceiver = local
+            self.localHelper = helperProcess
             self.remoteReceiver = remoteProcess
             self.spotifyTap = tap
             state = .live(snapshot(for: layout))
         } catch {
             if remoteProcess?.isRunning == true { remoteProcess?.terminate() }
+            if let helperProcess {
+                helperProcess.terminationHandler = nil
+                if helperProcess.isRunning { helperProcess.terminate() }
+            }
             local?.stop(); sender.stop()
             throw error
         }
@@ -199,6 +248,13 @@ final class JukeRoomAudio {
     /// Reopen only Neo's renderer on the newly selected Core Audio output.
     /// The sender, clock, and Blueberry receiver continue uninterrupted.
     func refreshLocalOutputDevice() {
+        if let helper = localHelper {
+            // Helper-process leg: its engine won't follow a device change on
+            // its own — terminate it and let the healing path re-engage the
+            // room on the new output.
+            helper.terminate()
+            return
+        }
         guard isDistributing, let mix = channels(for: layout).local else { return }
         localOutputGeneration += 1
         let generation = localOutputGeneration
@@ -246,6 +302,9 @@ final class JukeRoomAudio {
         if #available(macOS 14.2, *), let tap = spotifyTap as? ACProcessAudioTap { tap.stop() }
         spotifyTap = nil
         localReceiver?.stop(); localReceiver = nil
+        localHelper?.terminationHandler = nil
+        if localHelper?.isRunning == true { localHelper?.terminate() }
+        localHelper = nil
         sender?.stop(); sender = nil
         remoteReceiver?.terminationHandler = nil
         if remoteReceiver?.isRunning == true { remoteReceiver?.terminate() }
