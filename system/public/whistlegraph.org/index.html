@@ -23,11 +23,6 @@
 <link rel="icon" type="image/png" href="/favicon.png">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <style>
-  @font-face{
-    font-family:'YWFTProcessing';
-    src:url('https://aesthetic.computer/type/webfonts/ywft-processing-bold.woff2') format('woff2');
-    font-weight:normal; font-style:normal; font-display:swap;
-  }
   /* Whistlegraph is a paper archive. Auto stays light unless local time and
      the visitor's system appearance both call for the night palette. */
   :root{
@@ -112,8 +107,8 @@
     .logo img:hover{scale:1.14}   /* the letter under the finger, a bit more */
   }
   h1.mark{
-    font-family:'YWFTProcessing',"Arial Black",system-ui,sans-serif;
-    font-weight:normal; font-size:clamp(30px,8vw,52px); line-height:.95;
+    font-family:var(--sans);
+    font-weight:800; font-size:clamp(30px,8vw,52px); line-height:.95;
     letter-spacing:-.01em; color:var(--ink);
   }
   h1.mark b{color:var(--margin); font-weight:normal}
@@ -128,7 +123,7 @@
   p{margin:9px 0}
   .dim{color:var(--dim)}
   h2{
-    font-family:'YWFTProcessing',"Arial Black",system-ui,sans-serif; font-weight:normal;
+    font-family:var(--sans); font-weight:700;
     font-size:20px; letter-spacing:.02em; margin:4px 0 10px;
   }
   h2::before{content:"› "; color:var(--margin)}
