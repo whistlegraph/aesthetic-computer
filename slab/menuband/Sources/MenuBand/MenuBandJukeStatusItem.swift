@@ -15,6 +15,9 @@ final class MenuBandJukeStatusItem {
     private let side: CGFloat = 22
     private static let maxTitleLength = 34
     var onClick: (() -> Void)?
+    /// Whether the item is currently on the menu bar — lets the room-guest
+    /// path avoid covering a real Juke display.
+    var isShowing: Bool { statusItem.isVisible }
     /// Built fresh on each right-click so it can report what is actually on
     /// screen right now.
     var menuProvider: (() -> NSMenu)?

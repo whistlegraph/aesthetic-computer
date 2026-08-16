@@ -24,6 +24,20 @@ private func emit(_ line: String) {
     FileHandle.standardError.write(Data((line + "\n").utf8))
 }
 
+// Room-guest beacon: a receiver announces itself to the LOCAL Menu Band so
+// its Juke disc can spin while this Mac carries a channel of another Mac's
+// room. Globals because the atexit/signal paths can't capture context.
+var roomGuestInfo: (host: String, channel: String)?
+func postRoomGuest(active: Bool) {
+    guard let info = roomGuestInfo else { return }
+    DistributedNotificationCenter.default().postNotificationName(
+        NSNotification.Name("computer.aestheticcomputer.menuband.roomGuest"),
+        object: nil,
+        userInfo: ["active": active ? "1" : "0",
+                   "host": info.host, "channel": info.channel],
+        deliverImmediately: true)
+}
+
 let args = Array(CommandLine.arguments.dropFirst())
 guard let command = args.first else { usage() }
 let port = UInt16(value(after: "--port", in: args) ?? "") ?? ACRoomWire.defaultPort
@@ -44,9 +58,20 @@ do {
         receiver.onLog = { emit("room receive · \($0)") }
         receiver.onStarved = {
             emit("room receive · sender lost — exiting")
+            postRoomGuest(active: false)
             exit(0)
         }
         try receiver.start()
+        // Announce to the local Menu Band: start, 30 s heartbeat (covers a
+        // SIGKILL that skips the goodbye), and a best-effort exit goodbye.
+        roomGuestInfo = (host.replacingOccurrences(of: ".local", with: ""),
+                         channel.name)
+        postRoomGuest(active: true)
+        atexit { postRoomGuest(active: false) }
+        let heartbeat = DispatchSource.makeTimerSource()
+        heartbeat.schedule(deadline: .now() + 30, repeating: 30)
+        heartbeat.setEventHandler { postRoomGuest(active: true) }
+        heartbeat.resume()
         dispatchMain()
 
     case "send":

@@ -1393,6 +1393,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             object: nil
         )
 
+#if !MAC_APP_STORE
+        // A room-audio receiver on THIS Mac (the ac-audio-room CLI, spawned
+        // by another Mac's Juke) announces itself so the Juke disc spins
+        // while this machine carries a channel of someone else's room —
+        // the "part of the performance" light.
+        DistributedNotificationCenter.default().addObserver(
+            self,
+            selector: #selector(handleRoomGuestNotification(_:)),
+            name: NSNotification.Name("computer.aestheticcomputer.menuband.roomGuest"),
+            object: nil
+        )
+#endif
+
         // Live engine: a conductible drone/arp/drum loop that runs
         // indefinitely and morphs on command (see MenuBandEngine). Four
         // verbs — start / chord / pattern / stop — let the fleet evolve a
@@ -4293,6 +4306,45 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func handleStopNotification(_ note: Notification) {
         stopScore(broadcast: true)
     }
+
+#if !MAC_APP_STORE
+    /// True while the Juke disc is showing a room-guest state (this Mac
+    /// rendering a channel of another Mac's room) rather than a real local
+    /// Juke session — so we only ever hide what we ourselves showed.
+    private var roomGuestShowing = false
+    private var roomGuestExpiry: Timer?
+
+    @objc private func handleRoomGuestNotification(_ note: Notification) {
+        let info = note.userInfo as? [String: String] ?? [:]
+        DispatchQueue.main.async { [weak self] in
+            guard let self, let item = self.jukeStatusItem else { return }
+            if info["active"] == "1" {
+                // Never cover a real Juke display with the guest badge.
+                guard self.roomGuestShowing || !item.isShowing else { return }
+                self.roomGuestShowing = true
+                let channel = info["channel"] ?? "guest"
+                let host = info["host"] ?? "room"
+                item.update(title: "room \(channel) ← \(host)", artist: "",
+                            disc: nil, playing: true)
+                // The receiver heartbeats every 30 s; three missed beats
+                // (SIGKILL, network gone) and the badge retires itself.
+                self.roomGuestExpiry?.invalidate()
+                self.roomGuestExpiry = Timer.scheduledTimer(
+                    withTimeInterval: 90, repeats: false
+                ) { [weak self] _ in
+                    guard let self, self.roomGuestShowing else { return }
+                    self.roomGuestShowing = false
+                    self.jukeStatusItem?.hide()
+                }
+            } else if self.roomGuestShowing {
+                self.roomGuestShowing = false
+                self.roomGuestExpiry?.invalidate()
+                self.roomGuestExpiry = nil
+                item.hide()
+            }
+        }
+    }
+#endif
 
     /// See the `.fluoddity` observer registration for the userInfo contract.
     /// Order matters: seed/mutate first, then the enable flip, so one posting
