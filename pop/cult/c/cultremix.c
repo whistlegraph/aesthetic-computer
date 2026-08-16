@@ -275,8 +275,9 @@ static inline double choreoPan(int bus, long i, double pan) {
         return clampd(side * 0.7 + pan * 0.3, -1, 1);
     }
     case BUS_VOX:
-        // The words reach both listeners: center with a gentle lean.
-        return clampd(pan * 0.3 + 0.25 * sin(2 * M_PI * t / (8 * barSec)), -1, 1);
+        // The words reach both listeners: center with the gentlest lean —
+        // the lyric narrative stays planted while the band moves.
+        return clampd(pan * 0.3 + 0.15 * sin(2 * M_PI * t / (8 * barSec)), -1, 1);
     case BUS_TUBE:
         return clampd(pan * 0.3 - 0.8 * sin(2 * M_PI * t / period), -1, 1);
     default:
@@ -495,6 +496,7 @@ static void dtmf(double t, char digit, double dur, double gain, double pan, doub
 
 // A "bop": a sine that drops a fifth in 60 ms. UI, not music.
 static void bop(double t, double f, double gain, double pan, double side, double dur, double dly) {
+    if (SPATIAL) gain *= 0.60;   // room cut: less lyric-layer chatter
     const long n = jsround((dur + 0.02) * SR), i0 = jsround(t * SR);
     const Sp sp = spatial(pan * 1.2);
     double p = 0;
@@ -943,6 +945,8 @@ static const char *ALT_DOT_IDS[9] = {
 // the granular stretch as fallback.
 static void dotDrift(double t, int vid, double gain, double pan, double dur,
                      double stretch, double dly, double dark, double semis) {
+    if (SPATIAL) gain *= 0.55;   // room cut: the drifting dots recede so
+                                 // the worded sentence owns the foreground
     const int gi = ((vid % 9) + 9) % 9;
     const char *takes[3]; int tc = 0;
     for (int i = 0; i < 3; i++)
@@ -967,6 +971,7 @@ static void dotDrift(double t, int vid, double gain, double pan, double dur,
 // …and the aesthetivoxed kind: Camille and Alex only, held at a chord tone.
 static void dotDriftVox(double t, int bar, double gain, double pan, double dur,
                         double stretch, double dly, double dark) {
+    if (SPATIAL) gain *= 0.55;   // room cut: same recession as dotDrift
     int tri[3]; triad_of(degAt(bar), 59, tri);
     int pcs[3]; for (int i = 0; i < 3; i++) pcs[i] = ((tri[i] % 12) + 12) % 12;
     const char *lng[6]; int lc = 0;
@@ -1128,31 +1133,37 @@ static void raga(int bar, double beat, double g) {
 static void hook_fn(int bar, int full) {
     const double t = at(bar, 0);
     const double G = full ? 1.0 : 0.70;
-    dashStack(t + 0.00, "fs4", G, bar);
+    // Room cut: the hook IS the sentence — dash dash · "i wanna run real
+    // fast" · dot dot dot — so the whole arc steps forward together and
+    // its pans tighten (the sentence walks the room as one voice instead
+    // of scattering across it).
+    const double F = SPATIAL ? 1.22 : 1.0;
+    const double P = SPATIAL ? 0.6 : 1.0;
+    dashStack(t + 0.00, "fs4", G * F, bar);
     // v10.1: the pickup is the slowed take when longdots.sh has built it —
     // 1.5x, soft attack, a shade lower and wetter ("sorta rushed" fixed).
-    { Shot o = SHOT_SUNG(); o.gain = 0.70 * G; o.pan = -0.18; o.side = 0.50; o.dly = 0.24; o.atk = 0.05;
+    { Shot o = SHOT_SUNG(); o.gain = 0.70 * G * F; o.pan = -0.18 * P; o.side = 0.50; o.dly = 0.24; o.atk = 0.05;
       shot(has("iwannaslow-a") ? "iwannaslow-a" : "iwanna-a-sung", t + 1.42 + jit(4), o); }
-    dashStack(t + 2.00, "d4", G * 0.95, bar);
-    { Shot o = SHOT_SUNG(); o.gain = 0.70 * G; o.pan = 0.18; o.side = 0.50; o.dly = 0.24; o.atk = 0.05;
+    dashStack(t + 2.00, "d4", G * 0.95 * F, bar);
+    { Shot o = SHOT_SUNG(); o.gain = 0.70 * G * F; o.pan = 0.18 * P; o.side = 0.50; o.dly = 0.24; o.atk = 0.05;
       shot(has("iwannaslow-b") ? "iwannaslow-b" : "iwanna-b-sung", t + 3.42 + jit(4), o); }
     if (wordsIn(bar)) {
         // v10.1 fourth pass: the syllabic take SAYS the line, dry and
         // center; the melisma enters under it as the vowel it always was.
-        { Shot o = SHOT_SUNG(); o.gain = 1.26 * G; o.pan = 0.00; o.side = 0.35; o.dly = 0.10;
+        { Shot o = SHOT_SUNG(); o.gain = 1.26 * G * F; o.pan = 0.00; o.side = 0.35; o.dly = 0.10;
           sungSub("runrealfast-hi", t + 4.00 + jit(4), o, 0.30); }
-        { Shot o = SHOT_SUNG(); o.gain = 0.50 * G; o.pan = -0.10; o.side = 0.60; o.dly = 0.35;
+        { Shot o = SHOT_SUNG(); o.gain = 0.50 * G * F; o.pan = -0.10 * P; o.side = 0.60; o.dly = 0.35;
           shot("runrealfast-long-hi", t + 4.80 + jit(4), o); }
     } else {
         dotDriftVox(t + 4.00 + jit(20), bar, 0.30 * G, 0.10, 1.9, 4.2, 0.35, 0.30);
         int tri[3]; triad_of(degAt(bar), 59, tri);
         bop(t + 5.50 + jit(4), midihz(tri[0] + 12), 0.20 * G, -0.28, 0.7, 0.085, 0.40);
     }
-    { Shot o = SHOT_SUNG(); o.gain = 0.76 * G; o.pan = -0.45; o.side = 0.75; o.dly = 0.38;
+    { Shot o = SHOT_SUNG(); o.gain = 0.76 * G * F; o.pan = -0.45 * P; o.side = 0.75; o.dly = 0.38;
       shot("dot-b3", t + 6.00 + jit(3), o); }
-    { Shot o = SHOT_SUNG(); o.gain = 0.76 * G; o.pan = 0.45; o.side = 0.75; o.dly = 0.38;
+    { Shot o = SHOT_SUNG(); o.gain = 0.76 * G * F; o.pan = 0.45 * P; o.side = 0.75; o.dly = 0.38;
       shot("dot-fs3", t + 6.50 + jit(3), o); }
-    if (full) { Shot o = SHOT_SUNG(); o.gain = 0.34 * G; o.pan = 0.0; o.side = 0.60; o.dly = 0.55;
+    if (full) { Shot o = SHOT_SUNG(); o.gain = 0.34 * G * F; o.pan = 0.0; o.side = 0.60; o.dly = 0.55;
       shot("dot-d4", t + 7.00, o); }
 }
 
@@ -1168,13 +1179,14 @@ static void chorus_fn(int bar, Chorus c) {
     if (!wordsIn(bar)) {
         dotDrift(t + 0.30 + jit(20), bar >> 3, 0.26 * G, -0.30, 1.5, 4.0, 0.40, 0.35, 0);
     } else {
+        const double F = SPATIAL ? 1.22 : 1.0;   // room cut: line 1 forward
         if (c.fast) {
-            { Shot o = SHOT_SUNG(); o.gain = 1.25 * G; o.pan = -0.12; o.side = 0.42; o.dly = 0.12;
+            { Shot o = SHOT_SUNG(); o.gain = 1.25 * G * F; o.pan = -0.12; o.side = 0.42; o.dly = 0.12;
               shot("runrealfast-fast-hi", t + 0.00 + jit(3), o); }
-            { Shot o = SHOT_SUNG(); o.gain = 0.95 * G; o.pan = 0.12; o.side = 0.42; o.dly = 0.12;
+            { Shot o = SHOT_SUNG(); o.gain = 0.95 * G * F; o.pan = 0.12; o.side = 0.42; o.dly = 0.12;
               shot("runrealfast-fast-lo", t + 1.00 + jit(3), o); }
         } else if (lo) {
-            Shot o = SHOT_SUNG(); o.gain = 1.30 * G; o.pan = 0.00; o.side = 0.40; o.dly = 0.12;
+            Shot o = SHOT_SUNG(); o.gain = 1.30 * G * F; o.pan = 0.00; o.side = 0.40; o.dly = 0.12;
             shot("runrealfast-long-lo", t + jit(4), o);
         } else {
             // v10.1 fourth pass ("still can't hear the run real fast
@@ -1182,11 +1194,11 @@ static void chorus_fn(int bar, Chorus c) {
             // a melisma, so every boost boosted a drone. The syllabic take
             // SAYS the line, dry and center; the melisma enters under it a
             // beat later as the vowel it always was.
-            { Shot o = SHOT_SUNG(); o.gain = 1.30 * G; o.pan = 0.00; o.side = 0.35; o.dly = 0.10;
+            { Shot o = SHOT_SUNG(); o.gain = 1.30 * G * F; o.pan = 0.00; o.side = 0.35; o.dly = 0.10;
               sungSub("runrealfast-hi", t + jit(4), o, 0.30); }
-            { Shot o = SHOT_SUNG(); o.gain = 0.55 * G; o.pan = both ? -0.14 : -0.08; o.side = 0.60; o.dly = 0.30;
+            { Shot o = SHOT_SUNG(); o.gain = 0.55 * G * F; o.pan = both ? -0.14 : -0.08; o.side = 0.60; o.dly = 0.30;
               shot("runrealfast-long-hi", t + 0.80 + jit(4), o); }
-            if (both) { Shot p = SHOT_SUNG(); p.gain = 0.44 * G; p.pan = 0.16; p.side = 0.55; p.dly = 0.28;
+            if (both) { Shot p = SHOT_SUNG(); p.gain = 0.44 * G * F; p.pan = 0.16; p.side = 0.55; p.dly = 0.28;
               shot("runrealfast-long-lo", t + 0.84 + jit(4), p); }
         }
     }
