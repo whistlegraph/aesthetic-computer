@@ -1131,16 +1131,20 @@ static void hook_fn(int bar, int full) {
     { Shot o = SHOT_SUNG(); o.gain = 0.70 * G; o.pan = 0.18; o.side = 0.50; o.dly = 0.24; o.atk = 0.05;
       shot(has("iwannaslow-b") ? "iwannaslow-b" : "iwanna-b-sung", t + 3.42 + jit(4), o); }
     if (wordsIn(bar)) {
-        Shot o = SHOT_SUNG(); o.gain = 1.30 * G; o.pan = 0.00; o.side = 0.40; o.dly = 0.14;
-        sungSub("runrealfast-long-hi", t + 4.00 + jit(4), o, 0.30);
+        // v10.1 fourth pass: the syllabic take SAYS the line, dry and
+        // center; the melisma enters under it as the vowel it always was.
+        { Shot o = SHOT_SUNG(); o.gain = 1.26 * G; o.pan = 0.00; o.side = 0.35; o.dly = 0.10;
+          sungSub("runrealfast-hi", t + 4.00 + jit(4), o, 0.30); }
+        { Shot o = SHOT_SUNG(); o.gain = 0.50 * G; o.pan = -0.10; o.side = 0.60; o.dly = 0.35;
+          shot("runrealfast-long-hi", t + 4.80 + jit(4), o); }
     } else {
         dotDriftVox(t + 4.00 + jit(20), bar, 0.30 * G, 0.10, 1.9, 4.2, 0.35, 0.30);
         int tri[3]; triad_of(degAt(bar), 59, tri);
         bop(t + 5.50 + jit(4), midihz(tri[0] + 12), 0.20 * G, -0.28, 0.7, 0.085, 0.40);
     }
-    { Shot o = SHOT_SUNG(); o.gain = 0.90 * G; o.pan = -0.45; o.side = 0.75; o.dly = 0.38;
+    { Shot o = SHOT_SUNG(); o.gain = 0.76 * G; o.pan = -0.45; o.side = 0.75; o.dly = 0.38;
       shot("dot-b3", t + 6.00 + jit(3), o); }
-    { Shot o = SHOT_SUNG(); o.gain = 0.90 * G; o.pan = 0.45; o.side = 0.75; o.dly = 0.38;
+    { Shot o = SHOT_SUNG(); o.gain = 0.76 * G; o.pan = 0.45; o.side = 0.75; o.dly = 0.38;
       shot("dot-fs3", t + 6.50 + jit(3), o); }
     if (full) { Shot o = SHOT_SUNG(); o.gain = 0.34 * G; o.pan = 0.0; o.side = 0.60; o.dly = 0.55;
       shot("dot-d4", t + 7.00, o); }
@@ -1167,10 +1171,17 @@ static void chorus_fn(int bar, Chorus c) {
             Shot o = SHOT_SUNG(); o.gain = 1.30 * G; o.pan = 0.00; o.side = 0.40; o.dly = 0.12;
             shot("runrealfast-long-lo", t + jit(4), o);
         } else {
-            Shot o = SHOT_SUNG(); o.gain = 1.38 * G; o.pan = both ? -0.06 : 0.00; o.side = 0.40; o.dly = 0.12;
-            sungSub("runrealfast-long-hi", t + jit(4), o, 0.32);
-            if (both) { Shot p = SHOT_SUNG(); p.gain = 0.85 * G; p.pan = 0.14; p.side = 0.42; p.dly = 0.12;
-              shot("runrealfast-long-lo", t + 0.022 + jit(4), p); }
+            // v10.1 fourth pass ("still can't hear the run real fast
+            // words"): the level was never the problem — the long take is
+            // a melisma, so every boost boosted a drone. The syllabic take
+            // SAYS the line, dry and center; the melisma enters under it a
+            // beat later as the vowel it always was.
+            { Shot o = SHOT_SUNG(); o.gain = 1.30 * G; o.pan = 0.00; o.side = 0.35; o.dly = 0.10;
+              sungSub("runrealfast-hi", t + jit(4), o, 0.30); }
+            { Shot o = SHOT_SUNG(); o.gain = 0.55 * G; o.pan = both ? -0.14 : -0.08; o.side = 0.60; o.dly = 0.30;
+              shot("runrealfast-long-hi", t + 0.80 + jit(4), o); }
+            if (both) { Shot p = SHOT_SUNG(); p.gain = 0.44 * G; p.pan = 0.16; p.side = 0.55; p.dly = 0.28;
+              shot("runrealfast-long-lo", t + 0.84 + jit(4), p); }
         }
     }
 
