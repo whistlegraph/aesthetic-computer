@@ -2,7 +2,16 @@
 # Repository entry point for AC's shared native Mac room-audio helper.
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "$0")/../macos-audio" && pwd)"
+# Resolve THIS script's real location before walking to the package —
+# fleet installs symlink it into ~/.local/bin, and dirname "$0" would
+# otherwise hunt for macos-audio next to the symlink.
+SELF="${BASH_SOURCE[0]}"
+while [[ -L "$SELF" ]]; do
+  TARGET="$(readlink "$SELF")"
+  [[ "$TARGET" = /* ]] || TARGET="$(dirname "$SELF")/$TARGET"
+  SELF="$TARGET"
+done
+ROOT="$(cd "$(dirname "$SELF")/../macos-audio" && pwd)"
 BIN="$ROOT/.build/release/ac-audio-room"
 if [[ ! -x "$BIN" ]]; then
   swift build -c release --package-path "$ROOT"
