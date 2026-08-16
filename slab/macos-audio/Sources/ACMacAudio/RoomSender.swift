@@ -30,6 +30,7 @@ public final class ACAudioRoomSender: @unchecked Sendable {
     private var sequence: UInt32 = 0
     private var nextPresentationNanos: UInt64 = 0
     private var lastAudioNanos: UInt64 = 0
+    private var lastMeterNanos: UInt64 = 0
 
     public init(configuration: Configuration = .init()) {
         self.configuration = configuration
@@ -145,6 +146,23 @@ public final class ACAudioRoomSender: @unchecked Sendable {
               let channels = output.floatChannelData else {
             log("PCM conversion failed: \(conversionError?.localizedDescription ?? "unknown error")")
             return
+        }
+
+        // Level meter every ~5 s: "locked but silent" downstream is
+        // indistinguishable from success without knowing what the tap
+        // actually carries.
+        let meterNow = ACHostClock.nowNanos()
+        if meterNow &- lastMeterNanos > 5_000_000_000 {
+            lastMeterNanos = meterNow
+            var peak: Float = 0
+            for channel in 0..<2 {
+                for frame in 0..<Int(output.frameLength) {
+                    let v = abs(channels[channel][frame])
+                    if v > peak { peak = v }
+                }
+            }
+            log(String(format: "tap level peak %.4f (%u frames, %d clients)",
+                       peak, output.frameLength, connectedClients.count))
         }
 
         let now = ACHostClock.nowNanos()

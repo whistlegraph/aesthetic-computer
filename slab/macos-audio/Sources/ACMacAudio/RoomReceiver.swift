@@ -128,6 +128,7 @@ public final class ACAudioRoomReceiver: @unchecked Sendable {
     private let store = ACAudioPacketStore()
     private var nonce: UInt32 = 0
     private var didLogAudio = false
+    private var didLogSignal = false
     private var lastTrafficNanos: UInt64 = 0
 
     public init(configuration: Configuration) { self.configuration = configuration }
@@ -231,6 +232,10 @@ public final class ACAudioRoomReceiver: @unchecked Sendable {
                     if !self.didLogAudio {
                         self.didLogAudio = true
                         self.log("audio locked at \(packet.sampleRate) Hz, \(self.configuration.channel.name), gain \(self.configuration.gain)")
+                    }
+                    if !self.didLogSignal, packet.pcm16.contains(where: { $0 > 2 && $0 < 254 }) {
+                        self.didLogSignal = true
+                        self.log("signal present (non-silent audio arriving)")
                     }
                 default: break
                 }
