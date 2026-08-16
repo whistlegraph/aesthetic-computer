@@ -236,6 +236,23 @@ final class Launcher {
         if own.pathExtension == "app" { candidates.append(own) }
 
         let home = NSHomeDirectory()
+
+        // The dev bundle mid-install (install.sh atomically swaps it) can
+        // fail the executable check for a beat — and falling through would
+        // summon the App Store fork BESIDE the dev install, which then
+        // blocks the dev app as a "duplicate instance". If the dev path
+        // exists at all it IS the choice: wait out the swap instead.
+        let devPath = "\(home)/Applications/Menu Band.app"
+        if FileManager.default.fileExists(atPath: devPath) {
+            for _ in 0..<20 {   // up to ~2 s
+                if FileManager.default.isExecutableFile(
+                    atPath: devPath + "/Contents/MacOS/MenuBand") {
+                    return URL(fileURLWithPath: devPath)
+                }
+                usleep(100_000)
+            }
+        }
+
         candidates.append(contentsOf: [
             "\(home)/Applications/Menu Band.app",
             "/Applications/MenuBand.app",
