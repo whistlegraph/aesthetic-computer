@@ -496,7 +496,9 @@ static void dtmf(double t, char digit, double dur, double gain, double pan, doub
 
 // A "bop": a sine that drops a fifth in 60 ms. UI, not music.
 static void bop(double t, double f, double gain, double pan, double side, double dur, double dly) {
-    if (SPATIAL) gain *= 0.60;   // room cut: less lyric-layer chatter
+    if (SPATIAL && t >= 24 * BAR) return; // room cut: once the words are in,
+                                          // the lyric layer is ONLY the sentence
+    if (SPATIAL) gain *= 0.60;   // (intro texture stays, recessed)
     const long n = jsround((dur + 0.02) * SR), i0 = jsround(t * SR);
     const Sp sp = spatial(pan * 1.2);
     double p = 0;
@@ -945,8 +947,8 @@ static const char *ALT_DOT_IDS[9] = {
 // the granular stretch as fallback.
 static void dotDrift(double t, int vid, double gain, double pan, double dur,
                      double stretch, double dly, double dark, double semis) {
-    if (SPATIAL) gain *= 0.55;   // room cut: the drifting dots recede so
-                                 // the worded sentence owns the foreground
+    if (SPATIAL && t >= 24 * BAR) return; // room cut: sentence only
+    if (SPATIAL) gain *= 0.55;   // intro dots stay, recessed
     const int gi = ((vid % 9) + 9) % 9;
     const char *takes[3]; int tc = 0;
     for (int i = 0; i < 3; i++)
@@ -971,7 +973,8 @@ static void dotDrift(double t, int vid, double gain, double pan, double dur,
 // …and the aesthetivoxed kind: Camille and Alex only, held at a chord tone.
 static void dotDriftVox(double t, int bar, double gain, double pan, double dur,
                         double stretch, double dly, double dark) {
-    if (SPATIAL) gain *= 0.55;   // room cut: same recession as dotDrift
+    if (SPATIAL && t >= 24 * BAR) return; // room cut: sentence only
+    if (SPATIAL) gain *= 0.55;   // intro dots stay, recessed
     int tri[3]; triad_of(degAt(bar), 59, tri);
     int pcs[3]; for (int i = 0; i < 3; i++) pcs[i] = ((tri[i] % 12) + 12) % 12;
     const char *lng[6]; int lc = 0;
@@ -1208,7 +1211,9 @@ static void chorus_fn(int bar, Chorus c) {
         dotDriftVox(t + 2.20 + jit(20), bar, 0.22 * G, 0.24, 1.4, 3.8, 0.40, 0.35);
         int tri[3]; triad_of(degAt(bar), 59, tri);
         bop(t + 3.00 + jit(4), midihz(tri[1] + 12), 0.22 * G, -0.20, 0.7, 0.085, 0.40);
-    } else if (!c.drop2) {
+    } else if (!c.drop2 && !SPATIAL) {
+        // (room cut: line 2 is gone entirely — the sentence is dash dash ·
+        // i wanna · dash · i wanna run real fast · dot dot dot, nothing else)
         { Shot o = SHOT_SUNG(); o.gain = 0.94 * G; o.pan = -0.10; o.side = 0.5; o.dly = 0.24;
           sungSub("hideaway-hi", t + 2.00 + jit(4), o, 0.30); }
         { Shot o = SHOT_HELD(); o.gain = 0.80 * G; o.pan = -0.06; o.side = 0.62; o.dly = 0.26;
