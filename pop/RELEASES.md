@@ -7,6 +7,41 @@ Status legend: **RELEASED** · **SUBMITTED** · **MASTERING** · **RENDER** · *
 
 ---
 
+## cult remix — MASTERING (whistlegraph remix, v10.1 iterating)
+
+- **Lane:** `pop/cult/` · signal-narrative dance · B minor · 120 BPM · 3:28 ·
+  "The Three of Us Are in a Cult" (Whistlegraph 2022) rebuilt as nine acts of
+  morse: words withheld until act VII, dot collage from all nine cult-tagged
+  posts, real CC0 phone gestures, aesthetivoxed everything.
+- **Engine:** `bin/render10.mjs` (Node, receipts) + `c/cultremix.c` (C port,
+  bit-parity, ~4.5x faster). Master: `bin/cut-v10.sh` → `out/cult-remix-v10.mp3`.
+
+## season remix — RENDER (whistlegraph remix, v1)
+
+- **Lane:** `pop/season/` · dance · A pedal, thirds open · 122 BPM · 2:56 ·
+  the `h0t` work ("it's too hot / no it's not / now I'm back in season", six
+  posts spring 2022) as a stereo argument — call left, answer right.
+- **Engine:** `bin/render.mjs` → `out/season-remix-v1.mp3`. NOTE: outro uses
+  the unprocessed original take — wants an aesthetivox pass (v2) before release.
+
+## loner remix — RENDER (whistlegraph remix, v2)
+
+- **Lane:** `pop/loner/` · bedroom ballad · A# minor (+30¢, band tuned to
+  Camille's 237 Hz) · 80 BPM · 2:51 · "sitting curled up in myself…" — 19
+  `lonr` posts; v2 = every vocal WORLD-treated (gentle 0.7 correction,
+  spoken asides darkened/compressed, no raw takes).
+- **Engine:** `bin/render2.mjs` + `bin/aesthetivox.py` → `out/loner-remix-v2.mp3`.
+
+## factory remix — RENDER (whistlegraph remix, v2)
+
+- **Lane:** `pop/factory/` · industrial stamp · D minor · 90 BPM · 3:58 ·
+  "factory cookie cutter personalities" (`fact`, 21 posts) — identical pressed
+  copies drifting out of spec; v2 = full aesthetivox press (stamp-act grid
+  deviation 1.3¢) with hysteresis anti-warble, six dies across five years.
+- **Engine:** `bin/render.mjs` + `bin/aesthetivox.py` → `out/factory-remix-v2.mp3`.
+
+---
+
 ## YouTube state — pixsies singles (snapshot 2026-05-29)
 
 All AC YouTube cuts are **1920×1080 landscape only** (vertical = Short, metadata doesn't surface). Titles are **Title Case**; descriptions are **hashtag-only**. Chrome family for all `*-yt.mjs` forks: trancepenta-yt side stamps — pals + rotated-90° title chars climbing UP beside each stamp (movie-poster spine). Pre-render title chars with `shadowColor: null` so the per-frame tint works.
