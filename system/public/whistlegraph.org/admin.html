@@ -39,6 +39,12 @@
     label{display:block;font-size:10.5px;color:var(--margin);text-transform:uppercase;letter-spacing:.06em;margin:16px 0 4px}.field{width:100%;border:1px solid var(--ink);border-radius:2px;background:rgba(255,255,255,.58);padding:7px 9px}.field:focus{outline:none;border-color:var(--margin);box-shadow:0 0 0 2px rgba(180,72,135,.18)}textarea.field{min-height:104px;resize:vertical;line-height:1.55}.hint{font-size:10px;color:var(--dim);margin:4px 0}
     .actions{position:sticky;bottom:-44px;background:linear-gradient(transparent,var(--paper) 25%);display:flex;gap:9px;padding:30px 0 12px;margin-top:6px}.danger{border:1px solid var(--ink);border-radius:2px;background:var(--paper);padding:7px 10px}.danger:hover{background:var(--hi)}.save{margin-left:auto}
     #codexShade{position:fixed;z-index:40;inset:0;background:rgba(40,30,90,.28)}#codexPanel{position:fixed;z-index:41;right:0;top:0;bottom:0;width:min(660px,96vw);overflow:auto;background:repeating-linear-gradient(var(--paper),var(--paper) 26px,var(--rule) 26px,var(--rule) 27px);border-left:2px solid var(--margin);padding:20px 26px 56px}.codex-head{display:flex;gap:14px;align-items:start;border-bottom:2px solid var(--margin);padding-bottom:13px}.codex-head h2{font-family:'YWFTProcessing',"Arial Black",system-ui,sans-serif;font-size:29px;font-weight:normal;line-height:1;margin:2px 0 7px}.codex-head p{margin:0;color:var(--dim);font-size:11.5px}.codex-step{margin:22px 0}.codex-step h3{font-size:11px;color:var(--margin);text-transform:uppercase;letter-spacing:.06em;margin:0 0 6px}.codex-step p{font-size:12px;color:var(--dim)}.command{position:relative;border:1px solid var(--ink);background:rgba(255,255,255,.48);padding:11px 72px 11px 12px;white-space:pre-wrap;overflow-wrap:anywhere;font-size:11px;line-height:1.65}.copy{position:absolute;right:7px;top:7px;border:1px solid var(--margin);background:var(--paper);color:var(--margin);padding:3px 7px;font-size:10px}.copy:hover{background:var(--hi)}.guardrails{border-left:3px solid var(--margin);padding:2px 0 2px 12px;font-size:11px;color:var(--dim)}.deploy-list{margin:0;padding:0;list-style:none;font-size:11px}.deploy-list li{border-top:1px solid rgba(40,30,90,.2);padding:7px 0}.deploy-list code{color:var(--margin)}
+    .pal{display:grid;grid-template-columns:repeat(auto-fill,minmax(36px,1fr));gap:3px;border:1px solid var(--ink);background:rgba(255,255,255,.5);padding:6px;max-height:216px;overflow:auto}
+    .pal button{position:relative;height:32px;border:1px solid rgba(40,30,90,.35);border-radius:2px;padding:0;font-size:8px;line-height:1;overflow:hidden}
+    .pal button.sel{outline:2px solid var(--ink);outline-offset:1px}.pal button.rsv{cursor:not-allowed}
+    .pal button .tag{position:absolute;inset:auto 0 0;background:rgba(255,255,255,.82);color:var(--ink);padding:1px 0;text-align:center;white-space:nowrap;overflow:hidden}
+    .pal-now{display:flex;align-items:center;gap:8px;margin:4px 0 6px;font-size:12px}.pal-chip{width:18px;height:18px;border:1px solid var(--ink);display:inline-block;flex:0 0 auto}
+    .pal-btn{border:1px solid var(--ink);border-radius:2px;background:var(--paper);padding:2px 7px;font-size:11px}.pal-btn:hover{background:var(--hi)}
     #toast{position:fixed;z-index:60;left:50%;bottom:22px;transform:translateX(-50%);background:var(--ink);color:var(--paper);padding:7px 11px;border-bottom:3px solid var(--margin);font-size:11.5px}.empty{padding:50px;text-align:center;color:var(--dim)}
     @media(max-width:760px){body::before{left:20px}header{padding-left:30px}.topline{flex-wrap:wrap}.brand{font-size:24px}.controls{display:flex;flex-wrap:wrap}.controls #mode{order:1}.controls #search{order:2;flex:1 0 100%}.controls #filter{order:3;max-width:100%;overflow-x:auto}.controls #sort{order:4}.controls #count{order:5}.who{display:none}main{padding-left:30px}.tile{grid-template-columns:38px 76px minmax(0,1fr)}.tile img{width:34px;height:34px}.tile-info{display:block}.tile-info small{font-size:9px}#drawer{width:calc(100vw - 12px);padding-inline:18px}.hero{grid-template-columns:104px 1fr}.hero img{width:104px}.actions{flex-wrap:wrap}}
   </style>
@@ -143,6 +149,7 @@
     works=allWorks;
     postById=Object.fromEntries(posts.map(p=>[p.id,p]));workByCode=Object.fromEntries(works.map(w=>[w.code,w]));
     document.getElementById("workCodes").innerHTML=works.map(w=>`<option value="${esc(w.code)}">${esc(w.title)}</option>`).join("");
+    rebuildPaletteWorks(); // fresh overlays can change which call signs are reserved
   }
   async function getJSON(url,options={}){
     let res=await fetch(url,options);
@@ -323,7 +330,116 @@
     <label for="postWorks">Whistlegraph relationships</label><input class="field" id="postWorks" value="${esc((p.works||[]).join(", "))}" placeholder="sos, imab" list="workCodes"><p class="hint">Comma-separated codes. Empty means this post is unfiled.</p>
     <label for="postPlots">Plots / narrative events</label><input class="field" id="postPlots" value="${esc((p.plots||[]).join(", "))}" placeholder="Us Kidnapping You"><p class="hint">Comma-separated plot names.</p>
     <label for="postDesc">Author caption</label><textarea class="field" id="postDesc">${esc(p.desc||"")}</textarea><div id="machineFields">${loadingVisual?'<p class="hint">Loading private machine visual notes…</p>':machineFields(p)}</div>`}
-  function workFields(w,editableCode=false){return `${editableCode?`<label for="editWorkCode">Code</label><input class="field" id="editWorkCode" maxlength="24" value="${esc(w.code||"")}"><p class="hint">Changing this migrates every assigned post and retires the old URL.</p>`:""}<label for="workTitle">Title</label><input class="field" id="workTitle" value="${esc(w.title||"")}"><label for="workBy">Composed by</label><input class="field" id="workBy" value="${esc(w.by||"")}"><label for="workYear">Year</label><input class="field" id="workYear" type="number" min="1900" max="2200" value="${esc(w.year||"")}"><label for="workColor">Archive color</label><input class="field" id="workColor" type="color" value="${esc(w.c||"#b44887")}"><label for="featuredPost">Featured thumbnail post ID</label><input class="field" id="featuredPost" inputmode="numeric" value="${esc(w.featuredPost||"")}" placeholder="automatic: highest-view assigned post"><p class="hint">Optional. Paste an assigned archive post ID to choose its thumbnail.</p>`}
+  // — the standard color map — every whistlegraph can RESERVE one CSS named color, like a call sign:
+  // one color, one work. The 148 CSS keywords are deduped by hex value (gray beats grey, cyan beats
+  // aqua, magenta beats fuchsia — nine alias spellings dropped), then 28 near-whites are culled
+  // (snow, ivory, white, mintcream, seashell, ghostwhite, lavenderblush, whitesmoke, honeydew,
+  // aliceblue, azure, oldlace, linen, lightyellow, cornsilk, beige, lightcyan, mistyrose, lavender,
+  // antiquewhite, lightgoldenrodyellow, papayawhip, lemonchiffon, blanchedalmond, gainsboro, bisque,
+  // moccasin, floralwhite) because they'd vanish as swatches on the site's cream paper #fffdf6 —
+  // anything within RGB distance 70 of the paper is out. 111 colors survive. The head of the list is
+  // the "iconic order": the call signs the most-viewed works should claim first — red, blue, yellow…
+  // — then the long tail walks the hue wheel from grays through reds, earths, greens, blues, purples.
+  const DESK_COLORS=[
+    ["red","#ff0000"],["blue","#0000ff"],["yellow","#ffff00"],["green","#008000"],["orange","#ffa500"],
+    ["purple","#800080"],["pink","#ffc0cb"],["black","#000000"],["cyan","#00ffff"],["magenta","#ff00ff"],
+    ["gold","#ffd700"],["crimson","#dc143c"],["teal","#008080"],["indigo","#4b0082"],["violet","#ee82ee"],
+    ["coral","#ff7f50"],["turquoise","#40e0d0"],["salmon","#fa8072"],["navy","#000080"],["maroon","#800000"],
+    ["olive","#808000"],["lime","#00ff00"],["brown","#a52a2a"],["hotpink","#ff69b4"],["orangered","#ff4500"],
+    ["deeppink","#ff1493"],["royalblue","#4169e1"],["skyblue","#87ceeb"],["tomato","#ff6347"],["chartreuse","#7fff00"],
+    ["gray","#808080"],["silver","#c0c0c0"],["dimgray","#696969"],["darkgray","#a9a9a9"],["lightgray","#d3d3d3"],
+    ["darkred","#8b0000"],["firebrick","#b22222"],["indianred","#cd5c5c"],["rosybrown","#bc8f8f"],["lightcoral","#f08080"],
+    ["darksalmon","#e9967a"],["lightsalmon","#ffa07a"],["sienna","#a0522d"],["saddlebrown","#8b4513"],["chocolate","#d2691e"],
+    ["sandybrown","#f4a460"],["peachpuff","#ffdab9"],["peru","#cd853f"],["darkorange","#ff8c00"],["burlywood","#deb887"],
+    ["tan","#d2b48c"],["navajowhite","#ffdead"],["wheat","#f5deb3"],["darkgoldenrod","#b8860b"],["goldenrod","#daa520"],
+    ["khaki","#f0e68c"],["palegoldenrod","#eee8aa"],["darkkhaki","#bdb76b"],["olivedrab","#6b8e23"],["yellowgreen","#9acd32"],
+    ["darkolivegreen","#556b2f"],["greenyellow","#adff2f"],["lawngreen","#7cfc00"],["darkgreen","#006400"],["forestgreen","#228b22"],
+    ["limegreen","#32cd32"],["darkseagreen","#8fbc8f"],["lightgreen","#90ee90"],["palegreen","#98fb98"],["seagreen","#2e8b57"],
+    ["mediumseagreen","#3cb371"],["springgreen","#00ff7f"],["mediumspringgreen","#00fa9a"],["mediumaquamarine","#66cdaa"],["aquamarine","#7fffd4"],
+    ["lightseagreen","#20b2aa"],["mediumturquoise","#48d1cc"],["darkslategray","#2f4f4f"],["darkcyan","#008b8b"],["paleturquoise","#afeeee"],
+    ["darkturquoise","#00ced1"],["cadetblue","#5f9ea0"],["powderblue","#b0e0e6"],["lightblue","#add8e6"],["deepskyblue","#00bfff"],
+    ["lightskyblue","#87cefa"],["steelblue","#4682b4"],["dodgerblue","#1e90ff"],["slategray","#708090"],["lightslategray","#778899"],
+    ["lightsteelblue","#b0c4de"],["cornflowerblue","#6495ed"],["darkblue","#00008b"],["midnightblue","#191970"],["mediumblue","#0000cd"],
+    ["slateblue","#6a5acd"],["darkslateblue","#483d8b"],["mediumslateblue","#7b68ee"],["mediumpurple","#9370db"],["rebeccapurple","#663399"],
+    ["blueviolet","#8a2be2"],["darkorchid","#9932cc"],["darkviolet","#9400d3"],["mediumorchid","#ba55d3"],["darkmagenta","#8b008b"],
+    ["plum","#dda0dd"],["thistle","#d8bfd8"],["orchid","#da70d6"],["mediumvioletred","#c71585"],["palevioletred","#db7093"],
+    ["lightpink","#ffb6c1"]
+  ];
+  const COLOR_NAME=new Map(DESK_COLORS.map(([name,hex])=>[hex,name]));
+  // Reservations need every work, but the Desk's `works` array is page-loaded per mode — so the
+  // full roster comes from the site's own static /graphs.json, with live curation overlays on top.
+  let paletteBase=null,paletteWorks=[];
+  function rebuildPaletteWorks(){
+    if(!paletteBase)return;
+    const deleted=new Set(curation.deletedWorks||[]);
+    paletteWorks=paletteBase.filter(w=>!deleted.has(w.code)).map(w=>({code:w.code,views:w.views||0,c:String(curation.works?.[w.code]?.c||w.c||"").toLowerCase()}));
+    for(const [code,w] of Object.entries(curation.createdWorks||{}))if(!paletteWorks.some(r=>r.code===code))paletteWorks.push({code,views:0,c:String(w.c||"").toLowerCase()});
+  }
+  (async()=>{try{paletteBase=(await (await fetch("/graphs.json",{cache:"no-store"})).json()).works||[]}catch{paletteBase=[]}rebuildPaletteWorks()})();
+  function reservedColorMap(exceptCode){ // hex → the work code holding it (highest views wins a tie)
+    const map=new Map();
+    for(const w of [...paletteWorks].sort((a,b)=>(b.views||0)-(a.views||0))){
+      if(w.code===exceptCode||!COLOR_NAME.has(w.c)||map.has(w.c))continue;
+      map.set(w.c,w.code);
+    }
+    return map;
+  }
+  function nearestOpenColor(hex,reserved){
+    const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);
+    let best=null,bd=Infinity;
+    for(const [name,candidate] of DESK_COLORS){
+      if(reserved.has(candidate))continue;
+      const d=(r-parseInt(candidate.slice(1,3),16))**2+(g-parseInt(candidate.slice(3,5),16))**2+(b-parseInt(candidate.slice(5,7),16))**2;
+      if(d<bd){bd=d;best=[name,candidate]}
+    }
+    return best;
+  }
+  function suggestStandardColor(code){
+    const reserved=reservedColorMap(code);
+    const current=String(drawer.querySelector("#workColor")?.value||"").toLowerCase();
+    if(COLOR_NAME.has(current)&&!reserved.has(current))return {hex:current,why:`${COLOR_NAME.get(current)} is already this work's own call sign`};
+    if(/^#[0-9a-f]{6}$/.test(current)&&current!=="#b44887"){ // #b44887 is the Desk default, not a choice
+      const pick=nearestOpenColor(current,reserved);
+      if(pick)return {hex:pick[1],why:`nearest open standard to custom ${current}: ${pick[0]}`};
+    }
+    const open=DESK_COLORS.find(([,hex])=>!reserved.has(hex));
+    if(open){
+      const rank=code?[...paletteWorks].sort((a,b)=>(b.views||0)-(a.views||0)).findIndex(w=>w.code===code)+1:0;
+      return {hex:open[1],why:`next open call sign in iconic order: ${open[0]}${rank?` (work ranks #${rank} by views)`:""}`};
+    }
+    return null; // every standard color is spoken for — custom is the only road left
+  }
+  function paletteHTML(w){
+    const current=String(w.c||"#b44887").toLowerCase(),reserved=reservedColorMap(w.code),named=COLOR_NAME.has(current);
+    const swatches=DESK_COLORS.map(([name,hex])=>{
+      const holder=reserved.get(hex),own=hex===current;
+      return `<button type="button" data-swatch="${hex}" class="${own?"sel":""}${holder?" rsv":""}" style="background:${hex}" title="${esc(name)}${holder?` — reserved by [${esc(holder)}]`:""}" ${holder?"disabled":""} aria-label="${esc(name)}">${holder?`<span class="tag">[${esc(holder)}]</span>`:""}</button>`;
+    }).join("");
+    return `<label>Archive color</label><input type="hidden" id="workColor" value="${esc(current)}">
+      <div class="pal-now"><span class="pal-chip" id="palChip" style="background:${esc(current)}"></span><span id="palName">${named?esc(COLOR_NAME.get(current)):`custom ${esc(current)}`}</span><button type="button" class="pal-btn" id="palSuggest">Suggest</button><button type="button" class="pal-btn" id="palCustom">Custom…</button></div>
+      <div class="pal" id="palette">${swatches}</div>
+      <p class="hint" id="palWhy">${named?"One standard color, one work — reserved swatches carry their call sign.":"Non-standard custom color. Suggest finds the nearest open standard."}</p>
+      <div id="palCustomRow" class="hidden"><label for="workColorCustom">Custom color (non-standard)</label><input class="field" id="workColorCustom" type="color" value="${esc(current)}"><p class="hint">Off the standard map — reach for this only when every fitting call sign is taken.</p></div>`;
+  }
+  function setDeskColor(hex,why){
+    const input=drawer.querySelector("#workColor");if(!input)return;hex=hex.toLowerCase();input.value=hex;
+    drawer.querySelector("#palChip").style.background=hex;
+    const name=COLOR_NAME.get(hex);drawer.querySelector("#palName").textContent=name||`custom ${hex}`;
+    drawer.querySelectorAll("#palette [data-swatch]").forEach(b=>b.classList.toggle("sel",b.dataset.swatch===hex));
+    if(why)drawer.querySelector("#palWhy").textContent=why;
+  }
+  drawer.addEventListener("click",event=>{
+    const swatch=event.target.closest("#palette [data-swatch]");
+    if(swatch&&!swatch.disabled)return setDeskColor(swatch.dataset.swatch,`standard: ${COLOR_NAME.get(swatch.dataset.swatch)}`);
+    if(event.target.closest("#palSuggest")){
+      const pick=suggestStandardColor(selected?.type==="work"?selected.key:null);
+      if(!pick)return toast("Every standard color is reserved — go custom");
+      setDeskColor(pick.hex,`Suggested — ${pick.why}`);return;
+    }
+    if(event.target.closest("#palCustom"))drawer.querySelector("#palCustomRow")?.classList.toggle("hidden");
+  });
+  drawer.addEventListener("input",event=>{if(event.target.id==="workColorCustom")setDeskColor(event.target.value,`custom ${event.target.value} — off the standard map`)});
+  function workFields(w,editableCode=false){return `${editableCode?`<label for="editWorkCode">Code</label><input class="field" id="editWorkCode" maxlength="24" value="${esc(w.code||"")}"><p class="hint">Changing this migrates every assigned post and retires the old URL.</p>`:""}<label for="workTitle">Title</label><input class="field" id="workTitle" value="${esc(w.title||"")}"><label for="workBy">Composed by</label><input class="field" id="workBy" value="${esc(w.by||"")}"><label for="workYear">Year</label><input class="field" id="workYear" type="number" min="1900" max="2200" value="${esc(w.year||"")}">${paletteHTML(w)}<label for="featuredPost">Featured thumbnail post ID</label><input class="field" id="featuredPost" inputmode="numeric" value="${esc(w.featuredPost||"")}" placeholder="automatic: highest-view assigned post"><p class="hint">Optional. Paste an assigned archive post ID to choose its thumbnail.</p>`}
   function workPatch(){return {title:drawer.querySelector("#workTitle").value,by:drawer.querySelector("#workBy").value,year:Number(drawer.querySelector("#workYear").value),c:drawer.querySelector("#workColor").value,featuredPost:drawer.querySelector("#featuredPost").value.trim()}}
   async function createWork(){
     const button=drawer.querySelector("#createWork"),code=drawer.querySelector("#workCode").value.trim().toLowerCase();button.disabled=true;button.textContent="Creating…";
