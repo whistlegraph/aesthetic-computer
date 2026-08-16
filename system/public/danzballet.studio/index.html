@@ -8,7 +8,7 @@
       name="description"
       content="A new space for movement, artistry, and ballet is taking shape. Danz Ballet Studio is coming soon."
     />
-    <meta name="theme-color" content="#ffffff" />
+    <meta name="theme-color" content="#f9e3e8" />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Danz Ballet Studio" />
     <meta property="og:title" content="Danz Ballet Studio" />
@@ -33,10 +33,11 @@
     <style>
       :root {
         color-scheme: light;
-        --paper: #ffffff;
-        --magenta: #f30dc8;
-        --blush: #ffb0e9;
-        --ink: #35272f;
+        --paper: #f9e3e8;
+        --paper-deep: #f4d3dc;
+        --rose: #ec7ea1;
+        --pink-soft: #f2a6bc;
+        --ink: #6b4a55;
       }
 
       * {
@@ -48,7 +49,7 @@
         width: 100%;
         min-height: 100%;
         margin: 0;
-        background: var(--paper);
+        background: linear-gradient(215deg, var(--paper) 0%, var(--paper-deep) 100%);
       }
 
       body {
@@ -73,8 +74,9 @@
 
       body::after {
         background:
-          linear-gradient(90deg, rgba(255, 255, 255, 0.96) 0%, rgba(255, 255, 255, 0.78) 36%, rgba(255, 255, 255, 0.1) 72%),
-          linear-gradient(0deg, rgba(243, 13, 200, 0.05), transparent 52%);
+          linear-gradient(90deg, rgba(249, 227, 232, 0.97) 0%, rgba(249, 227, 232, 0.82) 36%, rgba(244, 211, 220, 0.28) 72%),
+          linear-gradient(215deg, rgba(255, 244, 246, 0.5) 0%, transparent 45%),
+          linear-gradient(0deg, rgba(236, 126, 161, 0.08), transparent 52%);
       }
 
       canvas {
@@ -117,7 +119,10 @@
       .brand-logo {
         display: block;
         width: 100%;
-        filter: drop-shadow(0 14px 26px rgba(243, 13, 200, 0.16));
+        /* interim rose grade of the hot-magenta mark — real fix is a two-tone
+           re-export with Fía (see vault/fia/danz-site/VIBES-2026-08-15.md) */
+        filter: hue-rotate(24deg) saturate(0.42) brightness(1.4)
+          drop-shadow(0 14px 26px rgba(236, 126, 161, 0.22));
         animation: logo-float 7s ease-in-out 1.15s infinite;
         transform-origin: 48% 52%;
       }
@@ -164,8 +169,8 @@
 
         body::after {
           background:
-            linear-gradient(0deg, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.68)),
-            linear-gradient(90deg, rgba(255, 255, 255, 0.84), rgba(255, 255, 255, 0.26));
+            linear-gradient(0deg, rgba(249, 227, 232, 0.94), rgba(249, 227, 232, 0.72)),
+            linear-gradient(90deg, rgba(244, 211, 220, 0.86), rgba(244, 211, 220, 0.3));
         }
 
         main {
@@ -251,19 +256,21 @@
             height * 0.48,
             Math.min(width, height) * 0.55,
           );
-          glow.addColorStop(0, "rgba(255, 176, 233, 0.2)");
-          glow.addColorStop(0.55, "rgba(255, 176, 233, 0.07)");
-          glow.addColorStop(1, "rgba(255, 176, 233, 0)");
+          glow.addColorStop(0, "rgba(255, 244, 246, 0.55)");
+          glow.addColorStop(0.55, "rgba(242, 166, 188, 0.12)");
+          glow.addColorStop(1, "rgba(242, 166, 188, 0)");
           context.fillStyle = glow;
           context.fillRect(0, 0, width, height);
 
-          ribbon(height * 0.28, 0, "rgba(243, 13, 200, 0.3)", time);
-          ribbon(height * 0.72, Math.PI, "rgba(255, 176, 233, 0.5)", time);
+          ribbon(height * 0.28, 0, "rgba(236, 126, 161, 0.22)", time * 0.8);
+          ribbon(height * 0.72, Math.PI, "rgba(242, 166, 188, 0.32)", time * 0.8);
 
-          context.strokeStyle = "rgba(243, 13, 200, 0.16)";
+          context.strokeStyle = "rgba(236, 126, 161, 0.28)";
           context.beginPath();
-          context.moveTo(width * 0.12, height * 0.91);
-          context.lineTo(width * 0.88, height * 0.91);
+          context.moveTo(width * 0.12, height * 0.13);
+          context.lineTo(width * 0.88, height * 0.13);
+          context.moveTo(width * 0.12, height * 0.89);
+          context.lineTo(width * 0.88, height * 0.89);
           context.stroke();
 
           if (!reduced) requestAnimationFrame(draw);

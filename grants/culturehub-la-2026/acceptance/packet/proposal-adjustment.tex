@@ -1,0 +1,278 @@
+% !TEX program = xelatex
+% Internal decision brief — one sheet. Long form is proposal-adjustment-full.tex.
+\documentclass[11pt]{article}
+\usepackage{culturehub-packet}
+\usepackage{colortbl}
+\geometry{paperwidth=11in,paperheight=18.6in,top=0.66in,bottom=0.55in,left=0.68in,right=0.68in}
+\pagestyle{empty}
+\hypersetup{pdftitle={CultureHub LA — The Proposal and the Adjustment}}
+
+% YWFT Processing is a title face only — it has no en/em dash or ellipsis and
+% its comma reads as a period. It appears once, on the masthead. Everything
+% else is Latin Modern Sans.
+\newcommand{\dsep}{{\normalfont\;\textperiodcentered\;}}
+\newcommand{\dto}{{\normalfont--}}
+\newcommand{\ddash}{{\normalfont\;---\;}}
+
+\renewcommand{\packettitle}[2]{%
+  {\acbold\fontsize{31pt}{33pt}\selectfont\color{acdark}#1\par}%
+  \vspace{0.42em}%
+  {\normalfont\fontsize{13.5pt}{16pt}\selectfont\color{acpink}#2\par}%
+  \vspace{0.5em}\color{acpink}\rule{\linewidth}{1.2pt}\color{black}}
+\titleformat{\section}{\normalfont\bfseries\fontsize{15pt}{18pt}\selectfont\color{acdark}}{}{0pt}{}
+\titlespacing{\section}{0pt}{1.15em}{0.45em}
+\setlength{\parskip}{0.68em}
+\renewcommand{\arraystretch}{1.34}
+\renewcommand{\credit}[1]{{\fontsize{8.6pt}{10.8pt}\selectfont\color{acgray}#1\par}}
+\renewcommand{\palsfooter}{%
+  \begin{center}\includegraphics[height=4.2em]{pals.pdf}\end{center}}
+
+\newcommand{\quoteblock}[2]{%
+  \begingroup\setlength{\fboxsep}{11pt}%
+  \noindent\colorbox{acpale}{%
+    \begin{minipage}{\dimexpr\linewidth-2\fboxsep\relax}
+    \fontsize{11.2pt}{14.6pt}\selectfont\color{acdark}#1
+    \par\vspace{0.7em}
+    {\fontsize{9pt}{11.4pt}\selectfont\color{acgray}#2}
+    \end{minipage}}%
+  \endgroup\par\vspace{0.7em}}
+
+% ── figures ───────────────────────────────────────────────────────────
+% Milestones are spaced evenly so every label is legible; the real elapsed
+% time is stated as a chip on the track instead, which says "crunch" more
+% plainly than proportional spacing did.
+\newcommand{\tlstop}[4]{% x, date, label, tone (dark|today|future)
+  \fill[#4] (#1,0) circle (3.2pt);
+  \node[anchor=south,inner sep=3.5pt,align=center,text width=1.30in,
+        font=\fontsize{11pt}{12.5pt}\bfseries\selectfont] at (#1,0.13)
+    {\color{acdark}#2};
+  \node[anchor=north,inner sep=3.5pt,align=center,text width=1.30in,
+        font=\fontsize{9pt}{10.8pt}\selectfont] at (#1,-0.13)
+    {\color{acgray}#3};}
+\newcommand{\tlgap}[2]{% x, text
+  \node[anchor=center,inner sep=2.2pt,fill=white,
+        font=\fontsize{7.6pt}{8.4pt}\selectfont] at (#1,0) {\color{acgray!85}#2};}
+
+\newcommand{\timelinefig}{%
+\begin{tikzpicture}[x=\linewidth,y=1cm]
+  % the fortnight everything actually happens in
+  \fill[acpink!12,rounded corners=2pt] (0.275,-1.28) rectangle (0.725,1.30);
+  \draw[acgray!40,line width=1.2pt] (0.05,0) -- (0.95,0);
+  \tlgap{0.125}{70 days}
+  \tlgap{0.275}{4 days}
+  \tlgap{0.425}{6 days}
+  \tlgap{0.575}{5 days}
+  \tlgap{0.725}{31 days}
+  \tlgap{0.875}{9 days}
+  \tlstop{0.05}{21 May}{submitted \emph{Notepat Jam}}{acgray!55}
+  \tlstop{0.20}{30 July}{accepted}{acgray!55}
+  \tlstop{0.35}{3--5 Aug}{LOA exchange\\\textbf{corrected copy unsigned}}{acorange}
+  \tlstop{0.50}{11 Aug}{artist-page form}{acpink}
+  \tlstop{0.65}{16 Aug}{technical deadline}{acorange}
+  \tlstop{0.80}{16 Sep}{residency begins}{acgray!55}
+  \tlstop{0.95}{25 Sep}{load out}{acgray!55}
+  \node[anchor=south,font=\fontsize{9.4pt}{10pt}\bfseries\selectfont,
+        inner sep=2pt] at (0.50,1.32) {\color{acpink}TODAY};
+\end{tikzpicture}}
+
+% Nine laptops: what the room actually holds, before and after.
+\newcommand{\lidglyph}[2]{% x, fill colour
+  \begin{scope}[shift={(#1,0)}]
+    \draw[fill=#2,draw=acdark!55,line width=0.4pt,rounded corners=0.5pt]
+      (0,0.11) rectangle (0.33,0.38);
+    \draw[fill=acdark!12,draw=acdark!55,line width=0.4pt]
+      (-0.05,0.06) -- (0.38,0.06) -- (0.355,0.11) -- (-0.025,0.11) -- cycle;
+  \end{scope}}
+
+\newcommand{\hardwarefig}{%
+\begin{tikzpicture}[y=1cm,x=1cm,font=\fontsize{8pt}{9.6pt}\selectfont]
+  \node[anchor=west,align=left] at (-0.06,0.72)
+    {\color{acgray}\textbf{SUBMITTED} \color{acgray!80}six salvaged};
+  \foreach \i in {0,...,5}{\lidglyph{\i*0.44}{acdark!22}}
+  \node[anchor=west,align=left] at (-0.06,-0.62)
+    {\color{acgray}\textbf{NOW} \color{acgray!80}six salvaged $+$ three bought new};
+  \begin{scope}[shift={(0,-1.32)}]
+    \foreach \i in {0,...,5}{\lidglyph{\i*0.44}{acdark!22}}
+    \lidglyph{2.68}{acblue!62}
+    \lidglyph{3.12}{yellow!58}
+    \lidglyph{3.56}{acpink!42}
+  \end{scope}
+\end{tikzpicture}}
+
+% Where each statement sits against the 50--100 word cap.
+\newcommand{\capgauge}{%
+\begin{tikzpicture}[x=\linewidth,y=1cm,font=\fontsize{8pt}{9.4pt}\selectfont]
+  \fill[acpale] (0,0) rectangle (1,0.2);
+  \fill[acgreen!22] (0.3125,0) rectangle (0.625,0.2);
+  \draw[acgreen!60,line width=0.5pt] (0.3125,0) -- (0.3125,0.2);
+  \draw[acgreen!60,line width=0.5pt] (0.625,0) -- (0.625,0.2);
+  \node[anchor=south,inner sep=1.4pt] at (0.469,0.2) {\color{acgreen}\textbf{50--100 words}};
+  \draw[acdark,line width=1.1pt] (0.5125,-0.02) -- (0.5125,0.22);
+  \node[anchor=north east,inner sep=1.6pt] at (0.512,-0.02) {\color{acdark}\textbf{A 82}};
+  \draw[acdark,line width=1.1pt] (0.519,-0.02) -- (0.519,0.22);
+  \node[anchor=north west,inner sep=1.6pt] at (0.556,-0.02) {\color{acdark}\textbf{B 83}};
+  \draw[acorange,line width=1.1pt] (0.894,-0.02) -- (0.894,0.22);
+  \node[anchor=north east,inner sep=1.6pt] at (0.96,-0.02) {\color{acorange}\textbf{current draft 143}};
+\end{tikzpicture}}
+
+\begin{document}
+
+\packettitle{The Proposal and the Adjustment}{CultureHub LA · residency 16–25 September 2026 · artist-page form due today}
+
+\vspace{0.5em}
+{\hyphenpenalty=10000\RaggedRight
+ \normalfont\fontsize{15pt}{19pt}\selectfont\color{acpink}%
+ What was submitted in May and what is prepared in August are two different
+ programs — and the artist statement is the only field where anyone will see
+ it.\par}
+
+\vspace{2.0em}
+\timelinefig
+\vspace{1.9em}
+
+% ══════════════════════════════════════════════ the delta
+\section{The five changes — what they graded, what they would now receive}
+
+% Colour carries the two states: what was graded (grey) against what would
+% now be received (pink). The hardware row is tinted apart because it is the
+% only one that reverses a claim rather than restating it.
+{\fontsize{10.4pt}{13pt}\selectfont
+\setlength{\arrayrulewidth}{0.5pt}\arrayrulecolor{acgray!45}
+\begin{tabularx}{\linewidth}{@{}L{0.95in} !{\color{acgray!45}\vrule width 0.5pt} >{\columncolor{acgray!9}[0.5\tabcolsep][0.5\tabcolsep]}Y !{\color{acgray!45}\vrule width 0.5pt} >{\columncolor{acpink!9}[0.5\tabcolsep][0.5\tabcolsep]}Y@{}}
+\arrayrulecolor{acdark!55}\hline
+\rowcolor{acdark!11}
+& \textbf{Submitted 21 May} & \textbf{Prepared now} \\
+\arrayrulecolor{acdark!55}\hline
+\textbf{Work} &
+\emph{Notepat Jam}, one work, ${\sim}$30 minutes &
+Two jammies plus a guest set. The first \emph{keeps} the accepted name inside its new one: \emph{Note(s)pat(ial)} \\
+\arrayrulecolor{acgray!45}\hline
+\cellcolor{acorange!20}\textbf{Hardware} &
+\cellcolor{acorange!13}Six salvaged laptops. ``No new equipment is fabricated for the show.'' &
+\cellcolor{acorange!20}Nine laptops: six salvaged, three MacBook Neos bought new \\
+\hline
+\textbf{Instrument} &
+notepat, on AC Native, on all six machines &
+notepat/AC Native for one work; Menu Band on macOS for the other \\
+\hline
+\textbf{Workshop} &
+Bring \emph{any} laptop, boot AC Native, leave with an instrument &
+Menu Band Jam — requires a Mac; AC Native boot demoted to an alternative \\
+\hline
+\textbf{Network} &
+Six machines on the studio LAN, ``no internet, no cloud'' &
+NTP clock sync, and guest Wi-Fi requested for the workshop \\
+\arrayrulecolor{acdark!55}\hline
+\end{tabularx}}
+
+\vspace{0.35em}
+{\fontsize{9pt}{11pt}\selectfont\color{acgray}%
+\raisebox{0.6pt}{\fcolorbox{acgray!30}{acgray!9}{\rule{0pt}{4.4pt}\rule{4.4pt}{0pt}}}~what they graded\qquad
+\raisebox{0.6pt}{\fcolorbox{acpink!35}{acpink!9}{\rule{0pt}{4.4pt}\rule{4.4pt}{0pt}}}~what they would now receive\qquad
+\raisebox{0.6pt}{\fcolorbox{acorange!45}{acorange!20}{\rule{0pt}{4.4pt}\rule{4.4pt}{0pt}}}~reverses a claim rather than restating it\par}
+
+\vspace{0.5em}
+{\fontsize{10.2pt}{13.2pt}\selectfont
+\textbf{The ecological answer is the one that reverses a claim the jury read.}
+The other four are presentational. Two submitted promises are also unaddressed:
+the livestream (now ``requested, TBD'') and the open-source release of the
+multitrack and the AC Native image. \texttt{system/public/culture-hub-2026/}
+still reads \emph{Notepat Jam · submitted} and now contradicts the program.\par}
+
+% ══════════════════════════════════════════════ statement + open items
+\vspace{1.6em}
+\noindent
+\begin{minipage}[t]{0.545\linewidth}
+\vspace{0pt}
+\section{The statement — pick one}
+{\fontsize{10.2pt}{13.2pt}\selectfont First person, 50–100 words, printed as a
+quotation credited to you.\par}
+
+\vspace{1.1em}
+\capgauge
+\vspace{1.8em}
+
+{\normalfont\bfseries\fontsize{12.5pt}{15pt}\selectfont\color{acdark}A — recommended\par}
+\vspace{0.35em}
+\quoteblock{At CultureHub I'm presenting two new pieces, one for AC OS and one
+for macOS. \emph{Note(s)pat(ial)} spreads notepat across six surplus grade-school
+laptops, each booted into AC OS, the operating system I make; from a live control
+surface I turn the whole sound field through the room. \emph{The MacNeoPolitan
+Trio} is newer and still taking shape — three MacBook Neos, each played through
+Menu Band, my menu-bar piano. One runs on machines pulled back from e-waste, the
+other on machines bought new.}%
+{82 words. The first title still contains the one they accepted, so the programme
+reads as an expansion of \emph{Notepat Jam} rather than a replacement for it.
+``Still taking shape'' keeps the second half free to change.}
+
+\vspace{0.9em}
+{\normalfont\bfseries\fontsize{12.5pt}{15pt}\selectfont\color{acdark}B — fallback\par}
+\vspace{0.35em}
+\quoteblock{At CultureHub I'm turning six salvaged laptops into one instrument.
+Each boots into AC Native, the operating system I make, and takes a single
+channel of the studio's surround system, so the audience sits inside the sound
+rather than facing it. From a live control surface I rotate the whole field
+through the room, change its speed, and move voices between machines. The
+instruments are rescued, not bought — I want a computer to hold an instrument
+the way it holds a clock.}%
+{83 words. Keeps the ecological answer intact and names no work title, so the
+second half can arrive later. A retreat: it hides a decision already made, and
+the set list would then contradict the artist page.}
+\end{minipage}%
+\hfill
+\begin{minipage}[t]{0.415\linewidth}
+\vspace{0pt}
+\section{Open items}
+
+{\fontsize{10.4pt}{13.4pt}\selectfont
+\statushold{ACTION — SIX DAYS OPEN}\par
+\vspace{0.4em}
+\textbf{The corrected LOA is unsigned.} CultureHub sent it 5 August and the
+August 3 reply had offered to re-sign immediately. \texttt{README.md} still
+lists this as awaiting \emph{them}. Clear it alongside the form.
+
+\vspace{1.0em}
+\statushold{ACTION — BEFORE ANY PUBLIC LISTING}\par
+\vspace{0.4em}
+\textbf{Who is the guest?} Nobody named or asked. A guest changes the running
+time, the rider, whether a fee is owed out of the \$2,000, and the credit line
+CultureHub publishes.
+
+\vspace{1.0em}
+\statushold{HEDGED, NOT BLOCKING}\par
+\vspace{0.4em}
+\textbf{The third MacBook Neo is not purchased.} Blush, indigo and citrus are
+Apple's own colour names; do not describe the finish further until it is in
+hand. Statement A's ``still taking shape'' is what makes naming it safe now.
+
+\vspace{1.0em}
+\statushold{DO NOT SEND}\par
+\vspace{0.4em}
+\textbf{\texttt{artist-page-packet.pdf} is stale} — single-work statement, bio
+without Menu Band, blue-background headshot, old project image. Today is a form,
+so nothing needs regenerating.
+
+\vspace{1.0em}
+\textbf{The full-res program image is gone.} Only the 900×600
+\texttt{brief/media/mn-program.jpg} survives. Regenerate from
+\texttt{program.illy.txt} before any poster send.
+
+\vspace{1.0em}
+\textbf{Still awaiting CultureHub:} public-programme dates and times, the
+technical contact, the equipment inventory. Working technical deadline
+\textbf{16 August}.\par}
+
+\vspace{1.6em}
+{\color{acpink}\rule{\linewidth}{0.8pt}}\par
+\vspace{1.3em}
+\resizebox{0.78\linewidth}{!}{\hardwarefig}
+\end{minipage}
+
+\vspace{0.9em}
+\palsfooter
+\credit{Internal decision brief · prepared 11 August 2026 · sources: the
+submitted application PDF and the August 3 and August 5 residency emails · the
+long-form version with the full submitted proposal and programme descriptions is
+\texttt{proposal-adjustment-full.pdf}.}
+
+\end{document}

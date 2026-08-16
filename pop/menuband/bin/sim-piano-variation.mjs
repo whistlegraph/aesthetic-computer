@@ -144,6 +144,7 @@ if (unmapped.length) {
   die(`${unmapped.length} events fall outside the MenuBand display range (${sample}); provide displayMidi/keyMidi in ${STRIP_MIDIS.join(",")}`);
 }
 const displayNotes = notes.map((note) => ({ ...note, midi: note.visualMidi }));
+const laneMidis = [...new Set(displayNotes.map((note) => note.visualMidi))].sort((a, b) => a - b);
 
 const PALETTES = {
   lilac: ["rgb(240,235,248)", "rgb(218,205,235)", "rgb(194,176,218)"],
@@ -196,14 +197,27 @@ if (process.argv.includes("--dry-run")) {
 mkdirSync(dirname(outPath), { recursive: true });
 
 const { canvas, ctx } = makeStage();
-const rig = await loadStripRig();
+// `visual.rig` picks which captured strip speaks. The default set lights only
+// the naturals; a set whose idle frame already holds the semitones lit carries
+// the app's own QWERTY caps on the sharps.
+const rig = await loadStripRig(typeof entry.visual.rig === "string" ? entry.visual.rig : undefined);
 const percussionRig = await loadStripRig("menubar-frames-percussion-right");
 const fullPercussionRig = await loadStripRig("menubar-frames-percussion-full");
 const particles = makePersistentParticles(ctx, particleSpec, seed);
 
-const stripWidth = W * bounded(motion.stripWidth ?? 0.94, 0.72, 1.3);
+// The bridge is centered, so whatever it swings, shakes, or springs by is
+// exactly what it needs to give back at each edge. Fit against that total and
+// the whole keyboard — both endcaps — stays in frame for every frame, instead
+// of a stripWidth guess that only happens to clear the sway most of the time.
+const requestedStripWidth = W * bounded(motion.stripWidth ?? 0.94, 0.72, 1.3);
+const swayReach = Math.abs(finite(motion.swayPx, 0)) * (1 + bounded(motion.swayHarmonic ?? 0.18, 0, 0.6))
+  + (transitions.length ? Math.abs(finite(motion.shakePx, 22)) : 0);
+const springGrowth = 1 + Math.abs(finite(motion.bounceScale, 0.020));
+const framePad = Math.max(0, finite(motion.framePaddingPx, 6));
+const stripWidth = motion.fitToFrame === false ? requestedStripWidth
+  : Math.min(requestedStripWidth, (W - 2 * (swayReach + framePad)) / springGrowth);
 const stripHeight = stripWidth / rig.aspect;
-const baseY = H * bounded(motion.centerY ?? 0.50, 0.34, 0.66) - stripHeight / 2;
+const baseY = H * bounded(motion.centerY ?? 0.50, 0.34, 0.82) - stripHeight / 2;
 const onsetTimes = [...new Set(notes.map((note) => +note.t.toFixed(5)))];
 let onsetCursor = 0;
 let mostRecent = -Infinity;
@@ -360,14 +374,44 @@ function drawNoteHighway(t, activeRig, stripRect) {
     }
 
     const label = KEY_LABELS.get(note.visualMidi);
-    const capWidth = Math.max(28, Math.min(width - 10, 58));
-    const capHeight = Math.max(30, Math.min(54, capWidth * 0.88));
-    const labelY = bottom - capHeight / 2 - 8;
-    if (label && labelY - capHeight / 2 >= visibleTop && labelY + capHeight / 2 <= visibleBottom) {
-      drawComputerKeycap(label, x + width / 2, labelY, capWidth, capHeight, false);
+    const glyph = Math.max(22, Math.min(56, width * 0.58));
+    const labelY = bottom - glyph * 0.75;
+    if (label && labelY - glyph / 2 >= visibleTop && labelY + glyph / 2 <= visibleBottom) {
+      drawBlockLetter(label.toLowerCase(), x + width / 2, labelY, glyph);
     }
     ctx.restore();
   }
+  ctx.restore();
+}
+
+// `highway.lanes`: instead of dressing each note with dashes, run the dashes
+// down the column the note falls in — a little lane the note flies along.
+// Only the keys this piece actually plays get one.
+function drawNoteLanes(t, activeRig, stripRect) {
+  if (!highway.enabled || !highway.lanes || highway.layout === "paper-loop-3d") return;
+  const strikeY = stripRect.y + finite(highway.strikeOffsetPx, 2);
+  const startY = finite(highway.startY, -56);
+  const guideScale = stripRect.w / (W * 0.94);
+  ctx.save();
+  ctx.lineCap = "round";
+  ctx.setLineDash([
+    positive(highway.laneDashPx, 16) * guideScale,
+    positive(highway.laneGapPx, 13) * guideScale,
+  ]);
+  ctx.lineDashOffset = -t * positive(highway.dashSpeedPx, 54);
+  ctx.lineWidth = positive(highway.laneWidthPx, 2) * guideScale;
+  for (const midi of laneMidis) {
+    const keyRect = stripKeyRect(activeRig, midi, stripRect);
+    const inset = positive(highway.keyInsetPx, 2) * guideScale;
+    const x = keyRect.x + inset / 2;
+    const width = Math.max(12, keyRect.w - inset);
+    ctx.strokeStyle = rgb(stripKeyColor(activeRig, midi), bounded(highway.laneAlpha ?? 0.26, 0, 1));
+    ctx.beginPath();
+    ctx.moveTo(x + 1, startY); ctx.lineTo(x + 1, strikeY);
+    ctx.moveTo(x + width - 1, startY); ctx.lineTo(x + width - 1, strikeY);
+    ctx.stroke();
+  }
+  ctx.setLineDash([]);
   ctx.restore();
 }
 
@@ -728,8 +772,11 @@ function drawKeyIntakes(t, activeRig, stripRect) {
   ctx.restore();
 }
 
+// The synthetic letter ladder. A rig captured from the app already carries the
+// interface's own lettering, so `visual.keyLadder: false` steps aside for it
+// rather than painting a second alphabet on top in a different typeface.
 function drawKeyboardLabels(t, activeRig, stripRect) {
-  if (!highway.enabled) return;
+  if (!highway.enabled || entry.visual.keyLadder === false) return;
   const held = new Set(displayNotes
     .filter((note) => t >= note.t && t < note.t + positive(note.dur, 0.2))
     .map((note) => note.visualMidi));
@@ -749,6 +796,23 @@ function drawKeyboardLabels(t, activeRig, stripRect) {
     ctx.fillStyle = active ? "rgba(255,255,255,0.96)" : "rgba(24,18,36,0.68)";
     ctx.fillText(label, keyRect.x + keyRect.w / 2, labelY);
   }
+  ctx.restore();
+}
+
+// A falling note wears its letter directly — no keycap plate, no rail. The
+// keycaps belong to the instrument at the bottom of the frame, not to the
+// notes flying toward it.
+function drawBlockLetter(label, cx, cy, size) {
+  ctx.save();
+  ctx.font = `900 ${size}px MBSansRounded`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.lineJoin = "round";
+  ctx.lineWidth = Math.max(3, size * 0.16);
+  ctx.strokeStyle = "rgba(14,10,24,0.45)";
+  ctx.strokeText(label, cx, cy);
+  ctx.fillStyle = "rgba(255,255,255,0.97)";
+  ctx.fillText(label, cx, cy);
   ctx.restore();
 }
 
@@ -862,6 +926,7 @@ function drawFrame(t) {
     ? pose.illumination : pose.revealEase * (1 - pose.exitEase));
   drawPaperLoopScore(t, activeRig, pose);
   drawScoreLoop(t, activeRig, pose);
+  drawNoteLanes(t, activeRig, pose);
   drawNoteHighway(t, activeRig, pose);
 
   if (pose.boardVisible && pose.exitEase < 1) {

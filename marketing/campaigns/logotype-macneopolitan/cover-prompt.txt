@@ -1,0 +1,20 @@
+A TYPOGRAPHIC LOGOTYPE CONTACT SHEET. This is a flat graphic-design artboard, not a photograph and not a scene. No people, no rooms, no hands, no perspective, no depth — only lettering on a flat surface. Laptops may appear ONLY as tiny flat pictogram silhouettes if a variant calls for it, never as rendered products.
+
+THE WORDMARK, spelled exactly:
+
+The MacNeoPolitan Trio
+
+The internal capitals must stay: Mac / Neo / Politan read as three joined parts of one word. In EVERY variant, use the three-part structure — set "Mac", "Neo" and "Politan" so the seams are visible, ideally each part carrying one of the three Neapolitan colorway hues. Never respell it, never insert spaces, never lowercase the internal capitals.
+
+LAYOUT: a contact sheet of SIX distinct logotype variants, arranged in a strict 2-column by 3-row grid on a plain very light warm-grey background. Each variant sits centered in its own cell with generous margin. A small plain numeral 1 through 6 in the top-left corner of each cell, tiny and neutral. Thin hairline rules divide the cells. No other decoration, no product mockups, no packaging.
+
+VISUAL LANGUAGE — modern Apple system design crossed with the Menu Band app, taken from the attached references:
+- Clean geometric humanist sans letterforms in the spirit of a system UI font. Tight even spacing, generous optical balance, medium and semibold weights. Extremely refined, quiet, confident.
+- Rounded-rectangle containers with large soft corner radii, like macOS keycaps and menu-bar pills. Crisp light panels, subtle hairline borders, very restrained soft shadows only where a panel lifts off the surface.
+- The palette is the Neapolitan colorway from the references: deep slate indigo, lemon citrus yellow, dusty blush pink — plus system blue as an accent, near-black text, and clean off-white panels.
+- Devices to vary across the six cells: the wordmark set inside a menu-bar pill with tiny keyboard segment bars beside it; each of the three name-parts in its own rounded keycap; a lockup with three small colored note dots on staff lines; a compact app-icon-style rounded square containing a monogram; the wordmark riding a thin menu bar with a clock; a plain elegant one-line wordmark with tri-color letter grouping.
+- It should feel like software that ships on the Mac App Store — precise, calm, premium, native. Never skeuomorphic, never glossy 90s chrome, no bevels, no gradients on text, no 3D extrusion, no lens flare.
+
+Do NOT use the Apple logo, an apple shape, a bitten-apple silhouette, or the word "Apple" anywhere. The design evokes the platform's typographic conventions only.
+
+Render the text crisply and legibly at full size and still readable at 10% scale. Spelling accuracy is the single most important requirement.
