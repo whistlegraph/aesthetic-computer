@@ -163,6 +163,22 @@ final class MenuBandFluoddityVoice {
         return out
     }
 
+    /// Copy the most recent ecosystem's particle positions — x,y pairs in
+    /// [0,1)², FLUOD_PARTICLES of them. Same tear-tolerant visual-only
+    /// contract as `fieldSnapshot()`.
+    func particleSnapshot() -> [Float]? {
+        let slot = Int(latestSlot)
+        guard slot >= 0 && slot < maxVoices else { return nil }
+        let n = Int(FLUOD_PARTICLES)
+        var out = [Float](repeating: 0, count: n * 2)
+        let p = fluod_voice_particles_ptr(cores + slot)!
+        for i in 0..<n {
+            out[i * 2] = p[i].px
+            out[i * 2 + 1] = p[i].py
+        }
+        return out
+    }
+
     func noteOn(_ midi: UInt8, velocity: UInt8, channel: UInt8) {
         lock.lock()
         seedCounter = seedCounter &* 1_664_525 &+ 1_013_904_223

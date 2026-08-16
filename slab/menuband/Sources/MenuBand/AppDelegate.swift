@@ -4133,6 +4133,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // false synchronously — prevents toggle paths from racing
         // with the in-flight fade.
         popoverPanel = nil
+        // Fluoddity keeps a face while you play: once the popover goes
+        // away with the ecosystem backend still active, the little TV
+        // takes over (skipped for the language-rebuild close/reopen
+        // cycle, which passes dismissFloatingPanel: false).
+        if dismissFloatingPanel, menuBand.instrumentBackend == .fluoddity {
+            FluoddityTV.shared.show(menuBand: menuBand)
+        }
         // The popover's touch sensor goes away with it. Clear the
         // resting-finger flag so a held bend doesn't strand once the
         // sensor that was reporting it is gone (the capture-panel sensor
@@ -4940,6 +4947,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             closePopover()
         } else {
             guard let vc = popoverVC else { return }
+            // The popover's own FLUODDITY strip covers the TV's job while
+            // it's open.
+            FluoddityTV.shared.hide()
             // Force the VC's view to lay out so we have its real
             // preferredContentSize before stuffing it into the panel.
             _ = vc.view

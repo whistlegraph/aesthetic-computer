@@ -542,6 +542,7 @@ final class MenuBandController {
     /// Live trail field of the most recent Fluoddity note, for the popover's
     /// FLUODDITY cell visualization. nil before any note has sounded.
     func fluoddityFieldSnapshot() -> [Float]? { synth.fluodVoice.fieldSnapshot() }
+    func fluoddityParticleSnapshot() -> [Float]? { synth.fluodVoice.particleSnapshot() }
     /// Breed a fresh species: reroll the rule genome from a random seed.
     /// Affects future note-ons; sounding notes keep their birth genome.
     func reseedFluoddity() {

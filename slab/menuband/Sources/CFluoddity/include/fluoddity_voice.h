@@ -131,6 +131,12 @@ static inline const float *fluod_voice_field_ptr(const FluodVoice *v) {
     return &v->field[0][0][0];
 }
 
+// Same contract, for the swarm itself: the FLUOD_PARTICLES particle records
+// (position + velocity, torus coordinates in [0,1)²).
+static inline const FluodParticle *fluod_voice_particles_ptr(const FluodVoice *v) {
+    return v->p;
+}
+
 // One output sample. `env` is the host's amplitude envelope (0..1);
 // `frequency` may glide per sample like gm_voice_render's. Output is
 // AGC-normalized and soft-clipped; NaN/Inf is trapped internally (the
