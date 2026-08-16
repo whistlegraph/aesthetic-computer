@@ -836,7 +836,13 @@ static inline int sosBar(int b) { return b >= 16 && b < 24; }
 static inline int kickOn(int b) { return !(inS(b, S_CARRIER) || inS(b, S_SECRET) || inS(b, S_CARRIEROFF)); }
 static inline int hatOn(int b) { return kickOn(b) || inS(b, S_SECRET); }
 static inline int dense(int b) { return inS(b, S_REPLY) || inS(b, S_WHOLE); }
-static inline int wordsIn(int bar) { return bar >= SB[S_WHOLE][0]; }
+static inline int wordsIn(int bar) {
+    // whistlecultspatial: the room version doesn't withhold — "run real
+    // fast" sings in the loops from act III on, because hearing the words
+    // orbit between the machines IS the piece. The straight render keeps
+    // v10.1's withholding-until-bar-76.
+    return bar >= SB[SPATIAL ? S_MESSAGE : S_WHOLE][0];
+}
 
 static int degAt(int bar) {
     if (inS(bar, S_WHOLE)) return HOME[((bar - SB[S_WHOLE][0]) % 8) / 2];

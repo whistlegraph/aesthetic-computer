@@ -19,6 +19,13 @@ private final class ACAudioPacketStore: @unchecked Sendable {
     private var chunks: [ACBufferedAudio] = []
     var onDebug: (@Sendable (String) -> Void)?
     private var lastDebugNanos: UInt64 = 0
+    /// Sequential render cursor (server-time of the next sample to render).
+    /// The stream position advances sample-exactly per callback, so clock
+    /// wobble can never shift the read position mid-stream — the audible
+    /// pops of re-deriving the window from a moving offset each callback.
+    /// Small clock error is absorbed by a ±1-sample slew, real breaks by a
+    /// hard resync.
+    private var cursorNanos: UInt64?
 
     func insert(_ packet: ACRoomAudioPacket) {
         guard packet.sampleRate == UInt32(ACRoomWire.sampleRate), packet.channels == 2 else { return }
@@ -50,12 +57,28 @@ private final class ACAudioPacketStore: @unchecked Sendable {
         lock.unlock()
     }
 
-    func render(serverStartNanos: UInt64, frameCount: Int, channel: ACRoomWire.Channel,
+    func render(targetNanos: UInt64, frameCount: Int, channel: ACRoomWire.Channel,
                 gain: Float, leftOutput: UnsafeMutablePointer<Float>,
                 rightOutput: UnsafeMutablePointer<Float>) {
         leftOutput.initialize(repeating: 0, count: frameCount)
         rightOutput.initialize(repeating: 0, count: frameCount)
-        let renderEnd = serverStartNanos + UInt64(Double(frameCount) * 1_000_000_000 / ACRoomWire.sampleRate)
+        let sampleNanos = UInt64(1_000_000_000 / ACRoomWire.sampleRate)
+        let frameNanos = UInt64(Double(frameCount) * 1_000_000_000 / ACRoomWire.sampleRate)
+        var serverStartNanos = targetNanos
+        if let cursor = cursorNanos {
+            let error = Int64(bitPattern: cursor &- targetNanos)
+            if abs(error) > 80_000_000 {
+                serverStartNanos = targetNanos           // real break: resync once
+            } else if error > 3_000_000 {
+                serverStartNanos = cursor &- sampleNanos // slew back, 1 sample
+            } else if error < -3_000_000 {
+                serverStartNanos = cursor &+ sampleNanos // slew forward, 1 sample
+            } else {
+                serverStartNanos = cursor                // steady: seamless
+            }
+        }
+        cursorNanos = serverStartNanos &+ frameNanos
+        let renderEnd = serverStartNanos + frameNanos
         lock.lock()
         // Scheduling truth every ~5 s: where the newest/oldest buffered
         // chunks sit relative to the render clock. "Signal present" with
@@ -225,7 +248,7 @@ public final class ACAudioRoomReceiver: @unchecked Sendable {
             }
             let serverSigned = Int64(clamping: localNanos) + offset
             guard serverSigned >= 0 else { return noErr }
-            self.store.render(serverStartNanos: UInt64(serverSigned), frameCount: Int(frames),
+            self.store.render(targetNanos: UInt64(serverSigned), frameCount: Int(frames),
                               channel: self.configuration.channel,
                               gain: self.configuration.gain,
                               leftOutput: left, rightOutput: right)
