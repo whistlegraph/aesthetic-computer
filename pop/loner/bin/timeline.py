@@ -40,9 +40,11 @@ PASSES = [8.0, 8.0 + LINE_BARS * 4]          # study: line at bar 2 and bar 2+li
 KICK_BEATS = int((2 + 2 * LINE_BARS + 1) * 4)
 TOTAL_BEATS = (2 + 2 * LINE_BARS + 1 + 3) * 4
 
-MP3 = os.path.join(OUT, "loner-kickvox.mp3")
+# mux straight from the render WAV — the mp3's LAME/AAC codec-delay
+# padding shifted the audio ~50 ms late against the graphics
+AUD = os.path.join(OUT, "loner-kickvox-full.wav")
 dur = float(subprocess.run(["ffprobe", "-v", "quiet", "-show_entries", "format=duration",
-                            "-of", "default=nw=1:nk=1", MP3],
+                            "-of", "default=nw=1:nk=1", AUD],
                            capture_output=True, text=True).stdout.strip())
 FRAMES = int(math.ceil(dur * FPS))
 
@@ -122,7 +124,7 @@ out_mp4 = os.path.join(OUT, "loner-kickvox-timeline.mp4")
 ff = subprocess.Popen([
     "ffmpeg", "-y", "-v", "error",
     "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{W}x{H}", "-r", str(FPS), "-i", "-",
-    "-i", MP3, "-c:v", "libx264", "-preset", "fast", "-crf", "18",
+    "-i", AUD, "-af", "volume=-0.6dB", "-c:v", "libx264", "-preset", "fast", "-crf", "18",
     "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "256k", "-shortest", out_mp4,
 ], stdin=subprocess.PIPE)
 
