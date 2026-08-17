@@ -26,6 +26,7 @@
   "section.aria": "アーカイブの区分",
   "section.works": "Whistlegraph",
   "section.posts": "投稿",
+  "section.about": "概要",
 
   "sort.viewed": "人気順",
   "sort.duration": "長さ順",
@@ -44,9 +45,6 @@
   "kind.talks": "トーク",
   "kind.other": "その他",
   "kind.post": "投稿",
-
-  "cloud.title": "コード",
-  "cloud.views_title": "{title} — {views} 回視聴",
 
   "headings.lectures": "講演・公演・プレス",
   "headings.elsewhere": "ほかの場所",
@@ -97,7 +95,6 @@
   "legacy.note": "旧アーカイブリンク <code>{code}</code> &nbsp;·&nbsp; 個別の投稿 {n} 件。これは作品コードではありません。",
 
   "divider.more": "— アーカイブより —",
-  "fold.more": "あと{n}件を表示",
 
   "alt.glyph": "{title} の最終グリフ",
   "alt.score": "{title} の図形楽譜",

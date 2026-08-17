@@ -26,6 +26,7 @@
   "section.aria": "Archiefsectie",
   "section.works": "Whistlegraphs",
   "section.posts": "Posts",
+  "section.about": "Over",
 
   "sort.viewed": "Populariteit",
   "sort.duration": "Duur",
@@ -44,9 +45,6 @@
   "kind.talks": "Lezingen",
   "kind.other": "Overig",
   "kind.post": "Post",
-
-  "cloud.title": "Codes",
-  "cloud.views_title": "{title} — {views} weergaven",
 
   "headings.lectures": "Lezingen, optredens & pers",
   "headings.elsewhere": "Elders",
@@ -97,7 +95,6 @@
   "legacy.note": "Voormalige archieflink <code>{code}</code> &nbsp;·&nbsp; {n} losse posts. Dit is geen compositiecode.",
 
   "divider.more": "— meer uit het archief —",
-  "fold.more": "Toon nog {n}",
 
   "alt.glyph": "Eindglyf van {title}",
   "alt.score": "Grafische partituur van {title}",

@@ -26,6 +26,7 @@
   "section.aria": "Arkivsektion",
   "section.works": "Whistlegraphs",
   "section.posts": "Opslag",
+  "section.about": "Om",
 
   "sort.viewed": "Popularitet",
   "sort.duration": "Varighed",
@@ -44,9 +45,6 @@
   "kind.talks": "Foredrag",
   "kind.other": "Andet",
   "kind.post": "Opslag",
-
-  "cloud.title": "Koder",
-  "cloud.views_title": "{title} — {views} visninger",
 
   "headings.lectures": "Foredrag, shows & presse",
   "headings.elsewhere": "Andre steder",
@@ -97,7 +95,6 @@
   "legacy.note": "Tidligere arkivlink <code>{code}</code> &nbsp;·&nbsp; {n} enkelte opslag. Dette er ikke en kompositionskode.",
 
   "divider.more": "— mere fra arkivet —",
-  "fold.more": "Vis {n} mere",
 
   "alt.glyph": "Slutglyf for {title}",
   "alt.score": "Grafisk partitur til {title}",

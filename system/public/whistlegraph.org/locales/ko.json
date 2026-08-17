@@ -26,6 +26,7 @@
   "section.aria": "아카이브 구역",
   "section.works": "Whistlegraph",
   "section.posts": "게시물",
+  "section.about": "소개",
 
   "sort.viewed": "인기순",
   "sort.duration": "길이순",
@@ -44,9 +45,6 @@
   "kind.talks": "강연",
   "kind.other": "기타",
   "kind.post": "게시물",
-
-  "cloud.title": "코드",
-  "cloud.views_title": "{title} — 조회 {views}회",
 
   "headings.lectures": "강연·공연·언론",
   "headings.elsewhere": "다른 곳에서",
@@ -97,7 +95,6 @@
   "legacy.note": "이전 아카이브 링크 <code>{code}</code> &nbsp;·&nbsp; 개별 게시물 {n}개. 이것은 작품 코드가 아닙니다.",
 
   "divider.more": "— 아카이브에서 더 —",
-  "fold.more": "{n}개 더 보기",
 
   "alt.glyph": "{title}의 최종 글리프",
   "alt.score": "{title}의 그래픽 악보",

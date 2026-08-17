@@ -26,6 +26,7 @@
   "section.aria": "Seksyon ng archive",
   "section.works": "Mga Whistlegraph",
   "section.posts": "Mga Post",
+  "section.about": "Tungkol",
 
   "sort.viewed": "Kasikatan",
   "sort.duration": "Tagal",
@@ -44,9 +45,6 @@
   "kind.talks": "Mga talk",
   "kind.other": "Iba pa",
   "kind.post": "Post",
-
-  "cloud.title": "Mga code",
-  "cloud.views_title": "{title} — {views} views",
 
   "headings.lectures": "Mga lektura, palabas at press",
   "headings.elsewhere": "Sa ibang lugar",
@@ -97,7 +95,6 @@
   "legacy.note": "Dating link ng archive na <code>{code}</code> &nbsp;·&nbsp; {n} magkakahiwalay na post. Hindi ito code ng isang obra.",
 
   "divider.more": "— higit pa mula sa archive —",
-  "fold.more": "Magpakita ng {n} pa",
 
   "alt.glyph": "Huling glyph ng {title}",
   "alt.score": "Grapikong partitura ng {title}",

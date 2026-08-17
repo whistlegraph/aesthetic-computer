@@ -26,6 +26,7 @@
   "section.aria": "Section des archives",
   "section.works": "Whistlegraphs",
   "section.posts": "Publications",
+  "section.about": "À propos",
 
   "sort.viewed": "Popularité",
   "sort.duration": "Durée",
@@ -44,9 +45,6 @@
   "kind.talks": "Conférences",
   "kind.other": "Autres",
   "kind.post": "Publication",
-
-  "cloud.title": "Codes",
-  "cloud.views_title": "{title} — {views} vues",
 
   "headings.lectures": "Conférences, spectacles et presse",
   "headings.elsewhere": "Ailleurs",
@@ -97,7 +95,6 @@
   "legacy.note": "Ancien lien d'archive <code>{code}</code> &nbsp;·&nbsp; {n} publications distinctes. Ce n'est pas un code de composition.",
 
   "divider.more": "— plus dans les archives —",
-  "fold.more": "Afficher {n} de plus",
 
   "alt.glyph": "Glyphe final de {title}",
   "alt.score": "Partition graphique de {title}",

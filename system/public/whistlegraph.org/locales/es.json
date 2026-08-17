@@ -26,6 +26,7 @@
   "section.aria": "Sección del archivo",
   "section.works": "Whistlegraphs",
   "section.posts": "Publicaciones",
+  "section.about": "Acerca de",
 
   "sort.viewed": "Popularidad",
   "sort.duration": "Duración",
@@ -44,9 +45,6 @@
   "kind.talks": "Charlas",
   "kind.other": "Otros",
   "kind.post": "Publicación",
-
-  "cloud.title": "Códigos",
-  "cloud.views_title": "{title} — {views} vistas",
 
   "headings.lectures": "Charlas, espectáculos y prensa",
   "headings.elsewhere": "En otros lugares",
@@ -97,7 +95,6 @@
   "legacy.note": "Antiguo enlace de archivo <code>{code}</code> &nbsp;·&nbsp; {n} publicaciones individuales. No es un código de composición.",
 
   "divider.more": "— más del archivo —",
-  "fold.more": "Mostrar {n} más",
 
   "alt.glyph": "Glifo final de {title}",
   "alt.score": "Partitura gráfica de {title}",

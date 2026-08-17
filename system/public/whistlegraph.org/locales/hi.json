@@ -26,6 +26,7 @@
   "section.aria": "संग्रह खंड",
   "section.works": "Whistlegraphs",
   "section.posts": "पोस्ट",
+  "section.about": "परिचय",
 
   "sort.viewed": "लोकप्रियता",
   "sort.duration": "अवधि",
@@ -44,9 +45,6 @@
   "kind.talks": "व्याख्यान",
   "kind.other": "अन्य",
   "kind.post": "पोस्ट",
-
-  "cloud.title": "कोड",
-  "cloud.views_title": "{title} — {views} व्यू",
 
   "headings.lectures": "व्याख्यान, प्रस्तुतियाँ और प्रेस",
   "headings.elsewhere": "अन्यत्र",
@@ -97,7 +95,6 @@
   "legacy.note": "पुराना संग्रह लिंक <code>{code}</code> &nbsp;·&nbsp; {n} अलग-अलग पोस्ट। यह किसी रचना का कोड नहीं है।",
 
   "divider.more": "— संग्रह से और —",
-  "fold.more": "{n} और दिखाएँ",
 
   "alt.glyph": "{title} का अंतिम ग्लिफ़",
   "alt.score": "{title} की ग्राफ़िक स्वरलिपि",

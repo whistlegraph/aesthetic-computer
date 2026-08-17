@@ -26,6 +26,7 @@
   "section.aria": "Archive section",
   "section.works": "Whistlegraphs",
   "section.posts": "Posts",
+  "section.about": "About",
 
   "sort.viewed": "Popularity",
   "sort.duration": "Duration",
@@ -44,9 +45,6 @@
   "kind.talks": "Talks",
   "kind.other": "Other",
   "kind.post": "Post",
-
-  "cloud.title": "Codes",
-  "cloud.views_title": "{title} — {views} views",
 
   "headings.lectures": "Lectures, shows & press",
   "headings.elsewhere": "Elsewhere",
@@ -97,7 +95,6 @@
   "legacy.note": "Former archive link <code>{code}</code> &nbsp;·&nbsp; {n} individual posts. This is not a composition code.",
 
   "divider.more": "— more from the archive —",
-  "fold.more": "Show {n} more",
 
   "alt.glyph": "Final glyph of {title}",
   "alt.score": "Graphic score for {title}",

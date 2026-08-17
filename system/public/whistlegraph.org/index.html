@@ -133,8 +133,8 @@
   }
   h2::before{content:"› "; color:var(--margin)}
 
-  /* search row — one bar, one funnel. The old section tabs and sort chips
-     live behind the funnel now. */
+  /* search row — one bar, one funnel. The sort chips and archive filters
+     live behind the funnel; the section tabs sit above, always visible. */
   .searchrow{display:flex; gap:7px; align-items:stretch; margin:12px 0 10px}
   #idxSearch{
     font-family:inherit; font-size:14px; color:var(--ink); background:var(--paper);
@@ -187,23 +187,16 @@
      and its facts, each clipped rather than wrapped, so the list stays a ruler
      you can run your eye down. Alternating tint gives that eye something to grip. */
   .wrap{overflow-x:auto}
-  /* The index is a grid now: each row is its own little four-cell grid, and the
-     tbody flows those rows into one column on paper this narrow, two side by
-     side when the page is wide enough to hold them. */
+  /* Each row is its own little four-cell grid; the tbody stacks them in ONE
+     column at every width — the archive reads as a single ruler you run your
+     eye down. */
   table.idx{display:block; width:100%; font-size:14px; border-collapse:collapse}
-  table.idx tbody{display:grid; grid-template-columns:1fr; column-gap:22px; width:100%}
+  table.idx tbody{display:grid; grid-template-columns:1fr; width:100%}
   /* the cell widths live in the row's grid tracks now, nowhere else */
   table.idx tr{display:grid; grid-template-columns:78px 96px minmax(0,1fr) 104px; align-items:center; border-bottom:1px solid var(--hair)}
   table.idx tr.divider{display:block; grid-column:1/-1; border-bottom:0}
   table.idx td{display:block; padding:5px 7px; border-bottom:0}
   tr.row:nth-of-type(odd){background:var(--zebra)} /* a warm rung, not a grey one */
-  @media (min-width:700px){
-    table.idx tbody{grid-template-columns:1fr 1fr}
-    table.idx tr.row{grid-template-columns:78px 88px minmax(0,1fr) 78px}
-    /* zebra becomes a checkerboard so neither column reads as one long stripe */
-    tr.row:nth-of-type(odd){background:none}
-    tr.row:nth-of-type(4n+1), tr.row:nth-of-type(4n){background:var(--zebra)}
-  }
   td.th img{width:64px; height:80px; object-fit:cover; object-position:center 70%; border:1px solid var(--line); display:block; background:var(--art)}
   td.cd{white-space:nowrap; font-family:var(--mono); font-size:15px; overflow:hidden}
   .sw{display:inline-block; width:.72em; height:.72em; margin-right:6px; border:1px solid var(--edge); background:var(--c); vertical-align:baseline}
@@ -219,23 +212,17 @@
   td.ti .by{display:block; color:var(--dim); font-size:11.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
   td.yr{color:var(--dim); text-align:right; white-space:nowrap; overflow:hidden; font-variant-numeric:tabular-nums; font-size:12.5px}
   td.yr .vw{display:block; font-size:11px}
-  /* the " views" suffix only fits while the list is still one column wide */
   /* the suffix word rides in a data attribute so the active language owns it */
-  @media (min-width:561px) and (max-width:699px){ td.yr .vw::after{content:" " attr(data-vsuf)} }
+  @media (min-width:561px){ td.yr .vw::after{content:" " attr(data-vsuf)} }
   tr.row:hover{background:var(--rowhi)}
 
   ul.plain{list-style:none} ul.plain li{padding:3px 0}
   ul.plain li::before{content:"– "; color:var(--margin)}
-  /* long category lists fold to their first few rows; the "…" opens the rest */
-  ul.plain li.morefold{cursor:pointer; color:var(--margin); letter-spacing:3px; font-size:17px; line-height:1}
-  ul.plain li.morefold::before{content:""}
-  ul.plain li.morefold:hover{background:var(--hi)}
 
-  /* the code cloud — every code in the index at once, sized by reach */
-  .codecloud{display:flex; flex-wrap:wrap; gap:1px 11px; align-items:baseline; margin:10px 0 4px;
-    font-family:var(--mono); line-height:1.75}
-  .codecloud a{color:var(--link); text-decoration:none; white-space:nowrap}
-  .codecloud a:hover{background:var(--hi)}
+  /* the About tab swaps in for the browse column; only one shows at a time */
+  #about{display:none}
+  #about.on{display:block}
+  #browse.off{display:none}
   p.glab{color:var(--margin); font-size:11.5px; letter-spacing:.06em; text-transform:uppercase; margin:12px 0 2px}
   .zine{display:inline-block}
   .zine img{width:118px; height:auto; border:1px solid var(--line); background:var(--art); display:block; margin:5px 0 3px}
@@ -377,6 +364,13 @@
         <img src="/letters/11-h.png" alt="" width="136" height="178" style="left:91.035%;top:32.707%;width:8.965%">
       </div>
     </header>
+    <!-- the top tabs — always visible, so nothing lives buried at the bottom -->
+    <div class="sectionbar" id="sectionbar" aria-label="Archive section" data-i18n-attrs="aria-label:section.aria">
+      <button data-section="works" class="on" data-i18n="section.works">Whistlegraphs</button>
+      <button data-section="archive" data-i18n="section.posts">Posts</button>
+      <button data-section="about" data-i18n="section.about">About</button>
+    </div>
+    <div id="browse">
     <div class="searchrow">
       <input id="idxSearch" type="search" placeholder="Search title or code…" autocomplete="off" spellcheck="false"
         aria-label="Search whistlegraphs" data-i18n-attrs="placeholder:search.placeholder_works,aria-label:search.aria">
@@ -385,10 +379,6 @@
       </button>
     </div>
     <div id="filterPanel">
-    <div class="sectionbar" id="sectionbar" aria-label="Archive section" data-i18n-attrs="aria-label:section.aria">
-      <button data-section="works" class="on" data-i18n="section.works">Whistlegraphs</button>
-      <button data-section="archive" data-i18n="section.posts">Posts</button>
-    </div>
     <div class="sortbar" id="workSortbar">
       <button data-sort="viewed" data-i18n="sort.viewed">Popularity</button>
       <button data-sort="duration" data-i18n="sort.duration">Duration</button>
@@ -417,11 +407,11 @@
       <p id="idxEmpty" class="dim" style="display:none;font-size:13px;padding:14px 8px" data-i18n="search.empty">Nothing matches that search.</p>
     </div>
 
-    <hr>
-    <h2 data-i18n="cloud.title">Codes</h2>
-    <div class="codecloud" id="codeCloud"></div>
+    </div>
 
-    <hr>
+    <!-- ══════════ ABOUT ══════════ the lectures, shows, press, zine, and
+         elsewhere material — its own tab now, not a basement under the index -->
+    <div id="about">
     <h2 data-i18n="headings.lectures">Lectures, shows &amp; press</h2>
     <p class="glab" data-i18n="cat.appearances">Appearances</p>
     <ul class="plain">
@@ -480,10 +470,11 @@
       <li><a href="https://feralfile.com/artists/Whistlegraph">Feral File</a> · <a href="https://www.youtube.com/watch?v=YXUUCkqv2LY">Kunstverein Hamburg</a> · <a href="https://sites.rhizome.org/the-longest-whistlegraph-ever-so-far/">Rhizome</a> · <a href="https://www.are.na/aesthetic-computer/self-teaching-scores">Are.na</a> · <a href="https://www.youtube.com/watch?v=eD-6j1cNgMo">Galerie Yeche Lange</a></li>
       <li><a href="https://distrokid.com/hyperfollow/whistlegraph/music-2-whistlegraph-2">Music 2 Whistlegraph 2</a></li>
     </ul>
+    </div>
 
     <hr class="thick">
     <footer>
-      <span data-i18n="footer.updated" data-i18n-vars='{"date":"2026.08.12"}'>Last updated 2026.08.12</span><br>
+      <span data-i18n="footer.updated" data-i18n-vars='{"date":"2026.08.17"}'>Last updated 2026.08.17</span><br>
       <span data-i18n-html="footer.media">Media from the <a href="https://aesthetic.computer">aesthetic.computer</a> archive.</span>
     </footer>
   </div>
@@ -559,12 +550,12 @@ const EN={
   "search.aria":"Search whistlegraphs","search.empty":"Nothing matches that search.",
   "filters.toggle":"Filters","filters.label":"Filter:",
   "section.aria":"Archive section","section.works":"Whistlegraphs","section.posts":"Posts",
+  "section.about":"About",
   "sort.viewed":"Popularity","sort.duration":"Duration","sort.videos":"Most videos",
   "sort.year":"By year","sort.title":"Title A–Z","sort.author":"Author A–Z",
   "sort.reverse":"Reverse order","sort.newest":"Newest","sort.oldest":"Oldest",
   "kind.all":"All posts","kind.performance":"Performance","kind.performances":"Performances",
   "kind.talk":"Talk","kind.talks":"Talks","kind.other":"Other","kind.post":"Post",
-  "cloud.title":"Codes","cloud.views_title":"{title} — {views} views",
   "headings.lectures":"Lectures, shows & press","headings.elsewhere":"Elsewhere",
   "cat.appearances":"Appearances","cat.exhibitions":"Exhibitions",
   "cat.workshops":"Workshops & public programs","cat.press":"Press & writing",
@@ -596,7 +587,6 @@ const EN={
   "legacy.grouping":"Legacy archive grouping &nbsp;<b>·</b>&nbsp; {year}",
   "legacy.note":"Former archive link <code>{code}</code> &nbsp;·&nbsp; {n} individual posts. This is not a composition code.",
   "divider.more":"— more from the archive —",
-  "fold.more":"Show {n} more",
   "alt.glyph":"Final glyph of {title}","alt.score":"Graphic score for {title}",
   "alt.audio_only":"Audio-only; no image"
 };
@@ -649,7 +639,6 @@ function rerenderLang(){
     if(!det.classList.contains("on")) document.title=`Whistlegraph — ${t("tagline")}`;
     return;
   }
-  renderCloud();
   if(det.classList.contains("on")) routeLocation();
   else{ renderReset(false); document.title=`Whistlegraph — ${t("tagline")}`; }
 }
@@ -695,23 +684,6 @@ document.querySelectorAll("[data-theme-choice]").forEach(button=>button.addEvent
 themeQuery.addEventListener("change",()=>{if(themeChoice()==="auto")applyTheme()});
 setInterval(()=>{if(themeChoice()==="auto")applyTheme()},60_000);
 applyTheme();
-
-// Long category lists fold to their first few rows so more modules fit on the
-// page; the trailing "…" is the rest of the drawer.
-document.querySelectorAll("ul.plain").forEach(ul=>{
-  const items=[...ul.children], FOLD=4;
-  if(items.length<=FOLD+1) return;
-  items.slice(FOLD).forEach(li=>li.style.display="none");
-  const more=document.createElement("li");
-  more.className="morefold"; more.textContent="…";
-  more.setAttribute("role","button");
-  more.setAttribute("aria-label",t("fold.more",{n:items.length-FOLD}));
-  more.tabIndex=0;
-  const openFold=()=>{items.slice(FOLD).forEach(li=>li.style.display="");more.remove()};
-  more.addEventListener("click",openFold);
-  more.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();openFold()}});
-  ul.appendChild(more);
-});
 
 const CDN="https://assets.aesthetic.computer/whistlegraph"; // curated slug assets
 const IDX=CDN+"/index"; // recovered graphs: /index/<code>.{jpg,mp4}
@@ -911,19 +883,6 @@ function buildView(){
   if(q){ VIEW=WORKS.filter(match); return; }
   VIEW=[...WORKS.slice(0,CURATED_N), {divider:true}, ...WORKS.slice(CURATED_N)];
 }
-// The code cloud: every confirmed code at once, sized by the log of its reach,
-// tinted with its own swatch color. One glance shows where the views live.
-function renderCloud(){
-  const el=document.getElementById("codeCloud"); if(!el||!WORKS.length) return;
-  const logs=WORKS.map(w=>Math.log(1+(w.views||0)));
-  const lo=Math.min(...logs), hi=Math.max(...logs);
-  el.innerHTML=WORKS.map((w,i)=>{
-    const heat=hi>lo?(logs[i]-lo)/(hi-lo):0;
-    return `<a href="/${w.code}" data-code="${w.code}" title="${esc(t("cloud.views_title",{title:w.title,views:fmtViews(w.views||0)}))}"`+
-      ` style="font-size:${(11+heat*15).toFixed(1)}px${w.c?`;color:${w.c}`:""}">${w.code}</a>`;
-  }).join("");
-}
-
 function renderMore(){
   let html="";
   const end=Math.min(SHOWN+PAGE, VIEW.length);
@@ -952,8 +911,14 @@ function renderReset(scrollTop){
 }
 
 function selectSection(section,scrollTop=false){
-  curSection=section==="archive"?"archive":"works";
+  curSection=section==="archive"?"archive":section==="about"?"about":"works";
   document.querySelectorAll("#sectionbar button").forEach(x=>x.classList.toggle("on",x.dataset.section===curSection));
+  // About swaps the whole browse column (search, funnel, list) for the
+  // lectures/press/elsewhere material; the two never share the page.
+  const about=curSection==="about";
+  document.getElementById("browse").classList.toggle("off",about);
+  document.getElementById("about").classList.toggle("on",about);
+  if(about) return;
   const archive=curSection==="archive";
   document.getElementById("workSortbar").style.display=archive?"none":"";
   document.getElementById("archiveFilterbar").style.display=archive?"":"none";
@@ -1058,11 +1023,7 @@ Promise.all([
     const open=document.getElementById("filterPanel").classList.toggle("open");
     filterToggle.setAttribute("aria-expanded",String(open));
   });
-  document.getElementById("codeCloud").addEventListener("click",e=>{
-    const a=e.target.closest("a[data-code]"); if(!a) return;
-    e.preventDefault(); go(a.dataset.code);
-  });
-  renderReset(); renderCloud();
+  renderReset();
   document.querySelectorAll("#workSortbar button[data-sort]").forEach(b=>b.addEventListener("click",()=>{
     document.querySelectorAll("#workSortbar button[data-sort]").forEach(x=>x.classList.remove("on"));
     b.classList.add("on");
@@ -1085,7 +1046,7 @@ Promise.all([
   }));
   document.querySelectorAll("#sectionbar button").forEach(b=>b.addEventListener("click",()=>{
     const section=b.dataset.section;
-    history.pushState({section},"",section==="archive"?"/archive":"/");
+    history.pushState({section},"",section==="archive"?"/archive":section==="about"?"/about":"/");
     selectSection(section);
   }));
   routeLocation();
@@ -1094,7 +1055,7 @@ Promise.all([
   // it immediately when opened.
   // Background reconcile must never scroll — it fires on idle, seconds after
   // load, when the visitor may already be reading partway down the page.
-  const reconcilePosts=()=>loadPosts().then(()=>{renderCloud();if(curSection==="works"&&!document.getElementById("detail").classList.contains("on"))renderReset(false)});
+  const reconcilePosts=()=>loadPosts().then(()=>{if(curSection==="works"&&!document.getElementById("detail").classList.contains("on"))renderReset(false)});
   if("requestIdleCallback" in window)requestIdleCallback(reconcilePosts);else setTimeout(reconcilePosts,0);
 });
 
@@ -1251,6 +1212,7 @@ function routeLocation(){
   const parts=location.pathname.split("/").filter(Boolean);
   if(parts[0]==="post"&&parts[1]) return loadPosts().then(()=>showPost(decodeURIComponent(parts[1])));
   if(parts[0]==="archive"&&!parts[1]){ showIndex(); return selectSection("archive"); }
+  if(parts[0]==="about"&&!parts[1]){ showIndex(); return selectSection("about"); }
   if(parts[0]==="archive"&&parts[1]) return loadPosts().then(()=>showLegacy(decodeURIComponent(parts[1]),false));
   const code=parts.length===1?decodeURIComponent(parts[0]):"";
   if(ALIASES[code]&&BY[ALIASES[code]]){

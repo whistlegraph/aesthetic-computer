@@ -26,6 +26,7 @@
   "section.aria": "Archivbereich",
   "section.works": "Whistlegraphs",
   "section.posts": "Beiträge",
+  "section.about": "Info",
 
   "sort.viewed": "Beliebtheit",
   "sort.duration": "Dauer",
@@ -44,9 +45,6 @@
   "kind.talks": "Vorträge",
   "kind.other": "Sonstiges",
   "kind.post": "Beitrag",
-
-  "cloud.title": "Codes",
-  "cloud.views_title": "{title} — {views} Aufrufe",
 
   "headings.lectures": "Vorträge, Auftritte & Presse",
   "headings.elsewhere": "Anderswo",
@@ -97,7 +95,6 @@
   "legacy.note": "Ehemaliger Archivlink <code>{code}</code> &nbsp;·&nbsp; {n} einzelne Beiträge. Dies ist kein Kompositionscode.",
 
   "divider.more": "— mehr aus dem Archiv —",
-  "fold.more": "{n} weitere anzeigen",
 
   "alt.glyph": "Endglyphe von {title}",
   "alt.score": "Grafische Partitur von {title}",

@@ -26,6 +26,7 @@
   "section.aria": "档案分区",
   "section.works": "Whistlegraph",
   "section.posts": "帖子",
+  "section.about": "关于",
 
   "sort.viewed": "热度",
   "sort.duration": "时长",
@@ -44,9 +45,6 @@
   "kind.talks": "讲座",
   "kind.other": "其他",
   "kind.post": "帖子",
-
-  "cloud.title": "代码",
-  "cloud.views_title": "{title} — {views} 次观看",
 
   "headings.lectures": "讲座、演出与媒体",
   "headings.elsewhere": "其他地方",
@@ -97,7 +95,6 @@
   "legacy.note": "旧档案链接 <code>{code}</code> &nbsp;·&nbsp; {n} 条单独帖子。这不是作品代码。",
 
   "divider.more": "— 更多来自档案 —",
-  "fold.more": "再显示 {n} 项",
 
   "alt.glyph": "{title} 的最终字形",
   "alt.score": "{title} 的图形乐谱",
