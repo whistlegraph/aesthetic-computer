@@ -113,7 +113,7 @@ private final class DJDeckPCMState {
 
     func setPlaying(_ value: Bool) {
         lock.lock()
-        if value, positionFrames >= Double(max(0, (samples.first?.count ?? 1) - 1)) { positionFrames = 0 }
+        if value, positionFrames < 0 || positionFrames >= Double(max(0, (samples.first?.count ?? 1) - 1)) { positionFrames = 0 }
         playing = value
         lock.unlock()
     }
@@ -198,6 +198,14 @@ private final class DJDeckPCMState {
                     let length = Double(total - 1)
                     positionFrames = positionFrames.truncatingRemainder(dividingBy: length)
                     if positionFrames < 0 { positionFrames += length }
+                } else if positionFrames < 0 {
+                    // A hard leftward scratch or throw overshoots the leading
+                    // groove; the start of the record is a wall, not the
+                    // run-out. Halting here used to strand a negative
+                    // position that setPlaying(true) could never recover
+                    // from — park at frame zero and keep rendering instead.
+                    positionFrames = 0
+                    if !scratching, playbackRate < 0 { playbackRate = 0 }
                 } else {
                     playing = false
                     break
