@@ -187,6 +187,26 @@
       "containerId": "18080473385446357",
       "mediaId": "18616751710031645",
       "insights": null
+    },
+    {
+      "mode": "live",
+      "id": "2026-08-17-s2-fgc",
+      "slot": 686,
+      "day": "2026-08-17",
+      "index": 2,
+      "segment": "fgc",
+      "seed": "2026-08-17#2",
+      "kind": "self-play",
+      "round": "shikke660",
+      "audioName": "shikke660",
+      "publishedAt": "2026-08-17T23:16:15.725Z",
+      "urls": {
+        "reel": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/oskiewar/reels/2026-08-17-s2-fgc/reel.mp4",
+        "cover": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/oskiewar/reels/2026-08-17-s2-fgc/cover.jpg"
+      },
+      "containerId": "18081833096446357",
+      "mediaId": "18335840767271722",
+      "insights": null
     }
   ]
 }
