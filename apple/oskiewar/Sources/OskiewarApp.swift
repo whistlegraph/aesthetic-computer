@@ -36,6 +36,26 @@ final class GameSafetyController: UIHostingController<AnyView> {
     }
 }
 
+// Pinning the scroll view (contentInsetAdjustmentBehavior = .never) zeroes
+// env(safe-area-inset-*) inside WKWebView, so the shell cannot see the home
+// indicator or the notch on its own. Report the native insets into the page;
+// mac-test.html takes the deeper of env() and this injection.
+final class InsetReportingWebView: WKWebView {
+    override func safeAreaInsetsDidChange() {
+        super.safeAreaInsetsDidChange()
+        reportSafeAreaInsets()
+    }
+
+    func reportSafeAreaInsets() {
+        let insets = safeAreaInsets
+        evaluateJavaScript(
+            "globalThis.__oskiewarSafeInsets = {top:\(insets.top)," +
+            "right:\(insets.right),bottom:\(insets.bottom)," +
+            "left:\(insets.left)};" +
+            "globalThis.__oskiewarInsetsChanged?.();")
+    }
+}
+
 struct GameSurface: UIViewRepresentable {
     func makeCoordinator() -> Coordinator { Coordinator() }
 
@@ -46,7 +66,8 @@ struct GameSurface: UIViewRepresentable {
         configuration.mediaTypesRequiringUserActionForPlayback = []
         configuration.setURLSchemeHandler(context.coordinator.handler,
                                           forURLScheme: "oskiewar")
-        let view = WKWebView(frame: .zero, configuration: configuration)
+        let view = InsetReportingWebView(frame: .zero,
+                                         configuration: configuration)
         view.isMultipleTouchEnabled = true
         view.isOpaque = false
         view.backgroundColor = UIColor(red: 7/255, green: 8/255, blue: 28/255, alpha: 1)
@@ -91,6 +112,9 @@ struct GameSurface: UIViewRepresentable {
 
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
             webView.evaluateJavaScript("document.documentElement.style.webkitUserSelect='none';document.documentElement.style.webkitTouchCallout='none';")
+            // A fresh page load starts with no injected insets; re-report so
+            // the shell lays out clear of the indicator from its first frame.
+            (webView as? InsetReportingWebView)?.reportSafeAreaInsets()
         }
 
         func webView(_ webView: WKWebView, didFail navigation: WKNavigation!,

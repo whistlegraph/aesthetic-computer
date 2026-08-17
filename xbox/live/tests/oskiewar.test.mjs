@@ -33,6 +33,9 @@ const uiSource = await readFile(new URL(
   "../../../system/public/aesthetic.computer/lib/ui.mjs",
   import.meta.url), "utf8");
 const nativeApp = await readFile(new URL("../../native-bios/App.cpp", import.meta.url), "utf8");
+const nativeShellApp = await readFile(new URL(
+  "../../../apple/oskiewar/Sources/OskiewarApp.swift", import.meta.url),
+  "utf8");
 const pieceLog = await readFile(new URL(
   "../../../system/netlify/functions/piece-log.mjs", import.meta.url), "utf8");
 // Stage furniture rides build flags; its tests sleep while the flags are off
@@ -608,6 +611,40 @@ test("web camera follows landscape, 16:9, and portrait viewports", () => {
   }
 });
 
+test("hardware insets stand the layout off the occluded screen edges", () => {
+  // A phone's home indicator and notch arrive through gameView as insets —
+  // env() in a browser, native injection in the iOS shell. The stage, the
+  // HUD safe frame, and the touch clusters all stand off by them; a control
+  // under the home indicator is a control the system swallows.
+  const flat = createFight(false, false, "touch", null,
+    { width: 499, height: 1080 }).fight;
+  const inset = createFight(false, false, "touch", null,
+    { width: 499, height: 1080,
+      inset: { top: 74, right: 0, bottom: 44, left: 0 } }).fight;
+  const flatState = flat.cameraState();
+  const insetState = inset.cameraState();
+  assert.equal(insetState.stageTop, flatState.stageTop + 74);
+  assert.equal(insetState.stageBottom, flatState.stageBottom - 44);
+  assert.ok(inset.hudSafeRect().top >= 74 + 10);
+  assert.ok(inset.hudSafeRect().bottom <= 1080 - 44 - 10);
+  assert.doesNotThrow(() => inset.paint());
+  // The clusters shift in the game's painter and in the shell's hit test as
+  // one arithmetic — drawn buttons and touched buttons must agree.
+  assert.match(source,
+    /const cy = viewHeight - 140 - viewInset\.bottom/);
+  assert.match(source, /const dpadX = 130 \+ viewInset\.left/);
+  assert.match(source,
+    /const actionX = viewWidth\(\) - 130 - viewInset\.right/);
+  assert.match(webShell,
+    /const cy = logicalHeight - 140 - logicalInset\.bottom/);
+  assert.match(webShell, /\[130 \+ logicalInset\.left,/);
+  assert.match(webShell,
+    /\[logicalWidth - 130 - logicalInset\.right,/);
+  assert.match(webShell, /__oskiewarSafeInsets/);
+  assert.match(nativeShellApp, /safeAreaInsetsDidChange/);
+  assert.match(nativeShellApp, /__oskiewarSafeInsets/);
+});
+
 test("fighters start within a close twelve-foot read", () => {
   assert.match(source, /pad: 0, spawnX: 2240, x: 2240/);
   assert.match(source, /pad: 1, spawnX: 2760, x: 2760/);
@@ -771,10 +808,16 @@ test("close quarters keep both fighters dominant after the opening frame", () =>
     `close framing ${close.state.doll.width.toFixed(0)} against ` +
     `opening ${opening.state.doll.width.toFixed(0)}`);
   // The pair has to genuinely dominate the frame, not merely grow a little.
+  // Which axis they dominate follows the stage: a television has height to
+  // fill, a phone held upright has width — and forcing height-fill on a
+  // phone by cropping their arms off is exactly what the old portrait lens
+  // did wrong.
   const safeHeight = close.safe.bottom - close.safe.top;
-  assert.ok(close.height > safeHeight * .5,
+  const safeWidth = close.safe.right - close.safe.left;
+  assert.ok(Math.max(close.height / safeHeight, close.width / safeWidth) > .5,
     `fighters filled only ${(close.height / safeHeight * 100).toFixed(0)}% ` +
-    `of action-safe height`);
+    `of action-safe height and ` +
+    `${(close.width / safeWidth * 100).toFixed(0)}% of its width`);
   assert.ok(close.height > opening.height * 1.5,
     `close fighters ${close.height.toFixed(0)}px against ` +
     `opening ${opening.height.toFixed(0)}px`);

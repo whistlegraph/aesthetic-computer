@@ -17,7 +17,7 @@
 
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { basename, join, resolve } from "node:path";
 import { pickSource, seed32 } from "./source.mjs";
 import { bakeReplay } from "./replay-oven.mjs";
 import { cover, inspect, thumbnail, writeSidecar } from "./dress.mjs";
@@ -198,6 +198,12 @@ async function main() {
   if (flags.publish) {
     const dir = join(staging, flags.publish);
     const record = JSON.parse(readFileSync(join(dir, "reel.json"), "utf8"));
+    // The sidecar records files.* as absolute paths on the machine that baked
+    // it — an oven job bakes under its own /tmp and ships the sidecar with
+    // those coordinates. The media always travels beside the sidecar, so
+    // re-anchor each path to the directory the sidecar was just read from.
+    for (const [name, path] of Object.entries(record.files || {}))
+      record.files[name] = join(dir, basename(path));
     if (!flags.live) {
       const paths = { reel: record.files.reel, cover: record.files.cover };
       dryRun(record, paths, { igUserId: process.env.OSKIEWAR_IG_USER_ID }, log);

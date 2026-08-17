@@ -275,41 +275,65 @@ const hudSafeInset = () => clamp(
   Math.round(Math.min(stageRight, viewHeight) * .05),
   compactLayout() ? 24 : 48, 72);
 const hudSafeRect = () => {
+  // The title-safe hedge and a hardware occlusion answer different threats,
+  // and only the deeper one matters at each edge: a bezel might hide the
+  // frame's rim, a notch definitely does.
   const inset = hudSafeInset();
-  return { left: stageLeft + inset, top: inset,
-    right: stageRight - inset, bottom: viewHeight - inset };
+  return { left: stageLeft + Math.max(inset, viewInset.left + 14),
+    top: Math.max(inset, viewInset.top + 10),
+    right: stageRight - Math.max(inset, viewInset.right + 14),
+    bottom: viewHeight - Math.max(inset, viewInset.bottom + 10) };
 };
 const actionSafeRect = () => {
   // A television is watched across a room behind a bezel; a reel is held at
   // arm's length with nothing over its edges, so the action-safe frame there is
   // a courtesy rather than a hedge against overscan.
   const portrait = stageBottom - stageTop > stageRight - stageLeft;
-  const marginX = portrait ? 18 : (compactLayout() ? 34 : 64);
+  // A landscape notch bites into the stage's own sides; fighters framed
+  // behind it are as lost as fighters past the edge.
+  const marginX = (portrait ? 18 : (compactLayout() ? 34 : 64)) +
+    Math.max(viewInset.left, viewInset.right);
   const marginY = portrait ? 14 : 26;
   return { left: stageLeft + marginX, top: stageTop + marginY,
     right: stageRight - marginX, bottom: stageBottom - marginY };
 };
 
+// The device's own occlusions, in game units: a phone's home indicator, a
+// notch, rounded corners. The host measures them (env() on the web, native
+// injection in the iOS shell, where a pinned scroll view zeroes env() out)
+// and hands them through gameView; everything drawn against a screen edge —
+// the stage bounds, the HUD safe frame, the touch clusters — stands off by
+// them, because a control under the home indicator is a control the system
+// swallows.
+let viewInset = { top: 0, right: 0, bottom: 0, left: 0 };
+
 function syncGameView() {
   const next = typeof gameView === "function" ? gameView() : null;
   const width = clamp(Math.round(Number(next?.width) || 1920), 480, 2880);
   const height = clamp(Math.round(Number(next?.height) || 1080), 480, 2160);
+  const nextInset = {};
+  for (const edge of ["top", "right", "bottom", "left"])
+    nextInset[edge] = clamp(Math.round(Number(next?.inset?.[edge]) || 0),
+      0, 220);
   const inputFamily = typeof capabilities === "function"
     ? capabilities().inputFamily : "xbox";
   const touch = inputFamily === "touch";
   const compact = width < 1500;
   const inset = compact ? 22 : 30;
-  const nextTop = Math.max(82, inset + hudTypeSize + 16);
-  const bottomReserve = touch
+  const nextTop = Math.max(82, inset + hudTypeSize + 16) + nextInset.top;
+  const bottomReserve = (touch
     ? clamp(height * .36, 300, 390)
-    : clamp(height * .13, 112, 150);
+    : clamp(height * .13, 112, 150)) + nextInset.bottom;
   const nextBottom = Math.max(nextTop + 280, height - bottomReserve);
   if (width === stageRight && height === viewHeight &&
-      nextTop === stageTop && nextBottom === stageBottom) return;
+      nextTop === stageTop && nextBottom === stageBottom &&
+      ["top", "right", "bottom", "left"].every((edge) =>
+        nextInset[edge] === viewInset[edge])) return;
   stageRight = width;
   viewHeight = height;
   stageTop = nextTop;
   stageBottom = nextBottom;
+  viewInset = nextInset;
   cameraAspect = (stageRight - stageLeft) / (stageBottom - stageTop);
   if (typeof cameraDoll !== "undefined") cameraDoll.dirty = true;
 }
@@ -2881,7 +2905,13 @@ function fighterFrameRect() {
     // the frame as they happen; this is standing headroom, not arc room.
     // Rise trimmed 2026-08-11 — @jeffrey read the old headroom as fighters
     // sitting too low in a vertical frame; less sky, more fighter.
-    const reach = isHeadOnly(player) ? 34 : isPogo(player) ? 56 : 104;
+    // Reach is an anticipation margin, not containment — the live-silhouette
+    // floor catches an actual extended limb. On a narrow stage every world
+    // unit of width costs its height times the aspect, so the margin is
+    // priced by the same factor the fixed shot widths already pay; a phone
+    // spends its width on fighters, a television on room to swing.
+    const reach = (isHeadOnly(player) ? 34 : isPogo(player) ? 56 : 104) *
+      portraitPull();
     const rise = isHeadOnly(player) ? 48 : isPogo(player) ? 128 : 150;
     left = Math.min(left, player.x - reach);
     right = Math.max(right, player.x + reach);
@@ -2914,32 +2944,38 @@ function fighterFrameRect() {
   return { left, right, top, bottom };
 }
 
-// Rect-pack: the camera width that makes a world rect exactly fill the
-// action-safe frame. Whichever axis runs out first decides the lens, so a
-// stacked pair frames as tightly as a spread one.
-// Framing is width-driven, which is right for a television and wrong for a
-// phone. A 9:16 frame has height to spare and width to spend, so the pair that
-// fills a 16:9 shot lands in the middle third of a vertical one with empty sky
-// above it and dead ground below — which is exactly how the reels read.
-//
-// Pull the lens in by how far the frame is from 16:9. A wide stage is untouched
-// (the ratio is 1), and the floor stops a very tall frame from closing so far
-// that a jump crops. Every framing path runs through rectPackWidth, so applying
-// it here keeps the fight, the containment floor and the result shot agreeing
-// with each other instead of each needing its own factor.
+// How far this stage is from a 16:9 television, as a lens factor. The fixed
+// shot widths in this file — the framing floor, the killcam stand-off, the
+// intro and result close-ups — are all width constants tuned on a widescreen,
+// and the same width on a narrow stage reads twice as distant because the
+// screen has no width to spare. Multiplying a CONSTANT by this converts it to
+// the stage at hand. Multiplying a packed rect by it is how portrait play used
+// to lose fighters off the screen edges: the pack already knows the aspect,
+// and shrinking its answer shrinks the one axis that was load-bearing.
 const portraitPull = () => clamp(cameraAspect / (16 / 9), .52, 1);
 // A reel ends on the win. Nobody is holding a controller, so there is no wide
 // shot to hand back to — the last thing in frame should be the winner's face.
 const reelCamera = () => typeof capabilities === "function" &&
   capabilities().replayOven === true && capabilities().reelHud === true;
 
+// Rect-pack: the camera width that makes a world rect exactly fill the
+// action-safe frame. Whichever axis runs out first decides the lens, so a
+// stacked pair frames as tightly as a spread one — and because each term
+// carries the live stage aspect, the answer is exact for a phone held
+// upright, a television, and an ultrawide alike.
+//
+// A reel is the one place the pack is allowed to lie. A 9:16 render with
+// nobody steering trades its side margins for bigger fighters on purpose —
+// that is how the reels were tuned to read. Live play never gets that trade:
+// a fighter cropped off a screen edge is a fighter you cannot play.
 function rectPackWidth(rect) {
   const safe = actionSafeRect();
   return Math.max(
     (rect.right - rect.left) * (stageRight - stageLeft) /
       Math.max(1, safe.right - safe.left),
     (rect.bottom - rect.top) * cameraAspect * (stageBottom - stageTop) /
-      Math.max(1, safe.bottom - safe.top)) * portraitPull();
+      Math.max(1, safe.bottom - safe.top)) *
+    (reelCamera() ? portraitPull() : 1);
 }
 // A fighter reduced to a bouncing head is a few dozen units tall. Without a
 // floor the pack would keep closing until one limb filled the screen.
@@ -7227,8 +7263,11 @@ function drawTouchControls() {
     return;
   const held = inputPads[0]?.down || [];
   const spread = 64;
-  const cy = viewHeight - 140;
-  const dpadX = 130;
+  // The clusters stand clear of the home indicator and any notch ear; the
+  // shell's touchKeyAt mirrors this arithmetic, so a shift here must land
+  // there too or the drawing and the hit test come apart.
+  const cy = viewHeight - 140 - viewInset.bottom;
+  const dpadX = 130 + viewInset.left;
   const idle = mixColor([58, 66, 86], [170, 180, 196], visualTheme.light);
   const live = mixColor([110, 220, 150], [38, 128, 88], visualTheme.light);
   const arm = 38;
@@ -7241,7 +7280,7 @@ function drawTouchControls() {
       held.includes(key) ? live : idle);
   filledDisc(dpadX, cy, thick, held.some((key) => key.startsWith("Arrow"))
     ? live : idle);
-  const actionX = viewWidth() - 130;
+  const actionX = viewWidth() - 130 - viewInset.right;
   const commandGlyph = { A: "/", B: "*", X: ")", Y: "+" };
   for (const [dx, dy, key] of [[0, -1, "Y"], [0, 1, "A"],
       [-1, 0, "X"], [1, 0, "B"]])
