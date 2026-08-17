@@ -2,13 +2,13 @@
  "w-whole-line": {
   "slice": "f-whole-line",
   "lead_in": 0.05,
-  "beats": 59.0,
+  "beats": 56.0,
   "renders": {
-   "lead": 29.465,
-   "8ve-a": 29.465,
-   "8ve-b": 29.465,
-   "low3": 29.465,
-   "low5": 29.465
+   "lead": 27.99,
+   "8ve-a": 27.99,
+   "8ve-b": 27.99,
+   "low3": 27.99,
+   "low5": 27.99
   },
   "words": "the whole lyric, one take"
  },

@@ -1,0 +1,410 @@
+{
+ "w-whole-line": {
+  "leadIn": 0.05,
+  "beats": 56.0,
+  "notes": [
+   {
+    "beat": 0.0,
+    "dur": 4.0,
+    "st": 7,
+    "t": "Sitting"
+   },
+   {
+    "beat": 4.0,
+    "dur": 1.5,
+    "st": 3,
+    "t": "cur"
+   },
+   {
+    "beat": 5.5,
+    "dur": 2.0,
+    "st": 2,
+    "t": "led"
+   },
+   {
+    "beat": 7.5,
+    "dur": 0.5,
+    "st": 0,
+    "t": "up"
+   },
+   {
+    "beat": 8.0,
+    "dur": 1.0,
+    "st": 0,
+    "t": "in"
+   },
+   {
+    "beat": 9.0,
+    "dur": 3.0,
+    "st": 5,
+    "t": "myself\u00b7a"
+   },
+   {
+    "beat": 12.0,
+    "dur": 3.0,
+    "st": 5,
+    "t": "myself\u00b7b"
+   },
+   {
+    "beat": 15.0,
+    "dur": 1.0,
+    "st": -2,
+    "t": "I"
+   },
+   {
+    "beat": 16.0,
+    "dur": 2.0,
+    "st": -2,
+    "t": "think"
+   },
+   {
+    "beat": 18.0,
+    "dur": 4.0,
+    "st": 12,
+    "t": "of"
+   },
+   {
+    "beat": 22.0,
+    "dur": 0.5,
+    "st": 12,
+    "t": "a"
+   },
+   {
+    "beat": 22.5,
+    "dur": 3.5,
+    "st": 6,
+    "t": "stone"
+   },
+   {
+    "beat": 26.0,
+    "dur": 3.5,
+    "st": 2,
+    "t": "just"
+   },
+   {
+    "beat": 29.5,
+    "dur": 4.0,
+    "st": 3,
+    "t": "waiting"
+   },
+   {
+    "beat": 33.5,
+    "dur": 3.5,
+    "st": 0,
+    "t": "very"
+   },
+   {
+    "beat": 37.0,
+    "dur": 5.5,
+    "st": 5,
+    "t": "patiently"
+   },
+   {
+    "beat": 42.5,
+    "dur": 2.0,
+    "st": 5,
+    "t": "for"
+   },
+   {
+    "beat": 44.5,
+    "dur": 3.5,
+    "st": 7,
+    "t": "time"
+   },
+   {
+    "beat": 48.0,
+    "dur": 4.0,
+    "st": 3,
+    "t": "to"
+   },
+   {
+    "beat": 52.0,
+    "dur": 4.0,
+    "st": 3,
+    "t": "pass"
+   }
+  ]
+ },
+ "w-sitting-curled": {
+  "leadIn": 0.05,
+  "beats": 11.0,
+  "notes": [
+   {
+    "beat": 0.0,
+    "dur": 3.0,
+    "st": 7,
+    "t": "Sitting"
+   },
+   {
+    "beat": 3.0,
+    "dur": 1.5,
+    "st": 3,
+    "t": "cur"
+   },
+   {
+    "beat": 4.5,
+    "dur": 2.0,
+    "st": 2,
+    "t": "led"
+   },
+   {
+    "beat": 6.5,
+    "dur": 0.5,
+    "st": 0,
+    "t": "up"
+   },
+   {
+    "beat": 7.0,
+    "dur": 1.0,
+    "st": 0,
+    "t": "in"
+   },
+   {
+    "beat": 8.0,
+    "dur": 3.0,
+    "st": 5,
+    "t": "myself"
+   }
+  ]
+ },
+ "w-i-think": {
+  "leadIn": 0.06,
+  "beats": 3.5,
+  "notes": [
+   {
+    "beat": 0.0,
+    "dur": 0.5,
+    "st": -2,
+    "t": "I"
+   },
+   {
+    "beat": 0.5,
+    "dur": 3.0,
+    "st": -2,
+    "t": "think"
+   }
+  ]
+ },
+ "w-of-a-stone": {
+  "leadIn": 0.06,
+  "beats": 8.0,
+  "notes": [
+   {
+    "beat": 0.0,
+    "dur": 1.5,
+    "st": 12,
+    "t": "of"
+   },
+   {
+    "beat": 1.5,
+    "dur": 1.0,
+    "st": 12,
+    "t": "a"
+   },
+   {
+    "beat": 2.5,
+    "dur": 5.5,
+    "st": 6,
+    "t": "stone"
+   }
+  ]
+ },
+ "w-just-waiting": {
+  "leadIn": 0.075,
+  "beats": 6.5,
+  "notes": [
+   {
+    "beat": 0.0,
+    "dur": 3.0,
+    "st": 2,
+    "t": "just"
+   },
+   {
+    "beat": 3.0,
+    "dur": 3.5,
+    "st": 3,
+    "t": "waiting"
+   }
+  ]
+ },
+ "w-very-patiently": {
+  "leadIn": 0.03,
+  "beats": 8.5,
+  "notes": [
+   {
+    "beat": 0.0,
+    "dur": 3.5,
+    "st": 0,
+    "t": "very"
+   },
+   {
+    "beat": 3.5,
+    "dur": 5.0,
+    "st": 5,
+    "t": "patiently"
+   }
+  ]
+ },
+ "w-for-time-to-pass": {
+  "leadIn": 0.04,
+  "beats": 13.0,
+  "notes": [
+   {
+    "beat": 0.0,
+    "dur": 2.0,
+    "st": 5,
+    "t": "for"
+   },
+   {
+    "beat": 2.0,
+    "dur": 3.5,
+    "st": 7,
+    "t": "time"
+   },
+   {
+    "beat": 5.5,
+    "dur": 3.5,
+    "st": 3,
+    "t": "to"
+   },
+   {
+    "beat": 9.0,
+    "dur": 4.0,
+    "st": 3,
+    "t": "pass"
+   }
+  ]
+ },
+ "w-n-getting-curled": {
+  "leadIn": 0.06,
+  "beats": 10.0,
+  "notes": [
+   {
+    "beat": 0.0,
+    "dur": 2.5,
+    "st": 5,
+    "t": "Getting"
+   },
+   {
+    "beat": 2.5,
+    "dur": 1.0,
+    "st": 2,
+    "t": "cur"
+   },
+   {
+    "beat": 3.5,
+    "dur": 1.0,
+    "st": 0,
+    "t": "led"
+   },
+   {
+    "beat": 4.5,
+    "dur": 0.5,
+    "st": 0,
+    "t": "up"
+   },
+   {
+    "beat": 5.0,
+    "dur": 0.5,
+    "st": 5,
+    "t": "in"
+   },
+   {
+    "beat": 5.5,
+    "dur": 2.0,
+    "st": 2,
+    "t": "myself"
+   },
+   {
+    "beat": 7.5,
+    "dur": 0.5,
+    "st": -2,
+    "t": "I"
+   },
+   {
+    "beat": 8.0,
+    "dur": 2.0,
+    "st": -2,
+    "t": "think"
+   }
+  ]
+ },
+ "w-n-stone-waiting": {
+  "leadIn": 0.06,
+  "beats": 16.0,
+  "notes": [
+   {
+    "beat": 0.0,
+    "dur": 1.0,
+    "st": 12,
+    "t": "Of"
+   },
+   {
+    "beat": 1.0,
+    "dur": 0.5,
+    "st": 12,
+    "t": "a"
+   },
+   {
+    "beat": 1.5,
+    "dur": 2.5,
+    "st": 9,
+    "t": "stone"
+   },
+   {
+    "beat": 4.0,
+    "dur": 2.0,
+    "st": 5,
+    "t": "just"
+   },
+   {
+    "beat": 6.0,
+    "dur": 3.5,
+    "st": 3,
+    "t": "waiting"
+   },
+   {
+    "beat": 9.5,
+    "dur": 2.0,
+    "st": 2,
+    "t": "very"
+   },
+   {
+    "beat": 11.5,
+    "dur": 4.5,
+    "st": 5,
+    "t": "patiently"
+   }
+  ]
+ },
+ "w-n-for-time-to-pass": {
+  "leadIn": 0.06,
+  "beats": 6.5,
+  "notes": [
+   {
+    "beat": 0.0,
+    "dur": 1.5,
+    "st": 7,
+    "t": "For"
+   },
+   {
+    "beat": 1.5,
+    "dur": 2.0,
+    "st": 7,
+    "t": "time"
+   },
+   {
+    "beat": 3.5,
+    "dur": 1.0,
+    "st": 3,
+    "t": "to"
+   },
+   {
+    "beat": 4.5,
+    "dur": 2.0,
+    "st": 3,
+    "t": "pass"
+   }
+  ]
+ }
+}

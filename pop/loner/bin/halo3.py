@@ -152,9 +152,22 @@ def dress(y, fs, tip_s=0.004):
 CHART = {
     # stretch: per word-unit index, a duration multiplier on top of the
     # uniform scale — @jeffrey: "'time to pass' sounds well durationed
-    # but sitting and curled up could be longer".
+    # but sitting and curled up could be longer". durs: EXACT beat
+    # lengths, the word-by-word tuning knob ("sitting should take 4
+    # beats") — wins over stretch and quantize.
     "w-whole-line":        { "slice": "f-whole-line",        "beats": 56.0,
-                             "stretch": { 0: 1.45, 1: 1.45, 2: 1.45, 3: 1.3, 4: 1.3 } },
+                             # splits: original unit indices to cut at their
+                             # internal fricative (myself → my·self), so the
+                             # bar map can be: sitting = bar 1 · curled up =
+                             # bar 2 · in my = bar 3 · self i = bar 4 — and
+                             # "think" lands on the bar-5 downbeat. durs are
+                             # POST-split indices.
+                             "splits": [5],
+                             # then: think = 2 · OF (the octave) = 4 ·
+                             # a stone = 4
+                             "durs": { 0: 4.0, 1: 1.5, 2: 2.0, 3: 0.5,
+                                       4: 1.0, 5: 3.0, 6: 3.0, 7: 1.0,
+                                       8: 2.0, 9: 4.0, 10: 0.5, 11: 3.5 } },
     "w-sitting-curled":    { "slice": "f-sitting-curled",    "beats": 11.0 },
     "w-i-think":           { "slice": "f-i-think",           "beats": 3.5 },
     "w-of-a-stone":        { "slice": "f-of-a-stone",        "beats": 8.0 },
@@ -167,8 +180,8 @@ CHART = {
 }
 
 
-def derive_units(words, beats_total, stretch=None):
-    """Uniform scale + per-word stretch + gentle 8th-note quantize."""
+def derive_units(words, beats_total, stretch=None, durs=None):
+    """Uniform scale + per-word stretch/exact durs + 8th-note quantize."""
     on0 = words[0]["start"]
     span = words[-1]["end"] - on0
     k = beats_total * SPB / span
@@ -179,6 +192,8 @@ def derive_units(words, beats_total, stretch=None):
         if stretch and i in stretch:
             d *= stretch[i]
         dq = max(0.5, round(d * 2) / 2.0)       # every word a whole number of 8ths
+        if durs and i in durs:
+            dq = durs[i]                        # the exact override wins
         units.append((acc, dq))                 # onsets land on-grid by construction
         acc += dq
     return units
@@ -321,8 +336,28 @@ for name, ch in CHART.items():
     a = analyze(x, fs)
     F = len(a["f0c"])
     t0_slice = entry["start"]
-    words = entry["word_f0"]
-    ch["units"] = derive_units(words, ch["beats"], ch.get("stretch"))
+    words = list(entry["word_f0"])
+    # sub-split units at their internal fricative (e.g. myself → my·self)
+    for ui in sorted(ch.get("splits", []), reverse=True):
+        w = words[ui]
+        f0 = int(round((w["start"] - t0_slice) / FRAME_S))
+        f1 = int(round((w["end"] - t0_slice) / FRAME_S))
+        lo, run, split_f = f0 + max(3, (f1 - f0) // 4), 0, None
+        for f in range(lo, min(f1, len(a["voiced"]))):
+            if not a["voiced"][f]:
+                run += 1
+                if run >= 3:
+                    split_f = f - run + 1
+                    break
+            else:
+                run = 0
+        if split_f is None:
+            split_f = (f0 + f1) // 2
+        ts = t0_slice + split_f * FRAME_S
+        first = dict(w, end=ts, t=w["t"] + "·a")
+        second = dict(w, start=ts, t=w["t"] + "·b")
+        words[ui:ui + 1] = [first, second]
+    ch["units"] = derive_units(words, ch["beats"], ch.get("stretch"), ch.get("durs"))
 
     # source frame bounds per unit (slice clock)
     unit_src = []
@@ -388,7 +423,7 @@ for name, ch in CHART.items():
     notes = []
     for wd, (beat, durb) in zip(words, ch["units"]):
         st = int(np.round(12.0 * np.log2(wd["f0_hz"] / TONIC))) if wd["f0_hz"] else 0
-        notes.append((beat, durb, st))
+        notes.append((beat, durb, st, wd["t"].strip()))
     chart_c.append((name, lead_in, beats_total, notes))
     manifest[name] = dict(slice=slice_name, lead_in=round(lead_in, 3),
                           beats=beats_total, renders=renders,
@@ -417,7 +452,7 @@ lines = [
 for name, lead_in, beats_total, notes in chart_c:
     ident = name.replace("-", "_")
     lines.append(f"static const ChartNote {ident}_notes[] = {{")
-    for (beat, durb, st) in notes:
+    for (beat, durb, st, _t) in notes:
         lines.append(f"    {{ {beat:.2f}, {durb:.2f}, {st} }},")
     lines.append("};")
 lines.append("")
@@ -430,4 +465,10 @@ lines.append("};")
 lines.append(f"#define CHART_N {len(chart_c)}")
 lines.append("")
 open(os.path.join(CDIR, "loner-chart.h"), "w").write("\n".join(lines))
-print(f"WROTE {VOX4}/.manifest.json + {CDIR}/loner-chart.h ({len(chart_c)} phrases)")
+
+# the labeled chart, for tooling (the timeline video reads this)
+json.dump({name: dict(leadIn=round(li, 3), beats=bt,
+                      notes=[dict(beat=b, dur=d, st=s, t=t) for (b, d, s, t) in ns])
+           for (name, li, bt, ns) in chart_c},
+          open(os.path.join(VOX4, ".chart.json"), "w"), indent=1)
+print(f"WROTE {VOX4}/.manifest.json + .chart.json + {CDIR}/loner-chart.h ({len(chart_c)} phrases)")
