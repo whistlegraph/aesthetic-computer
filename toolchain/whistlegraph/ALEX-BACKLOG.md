@@ -6,6 +6,16 @@ Reel suggestions live separately in [`REELS-BACKLOG.md`](REELS-BACKLOG.md).
 
 Status: `received` → `verified` → `applied` → `live`
 
+## Received August 17, 2026
+
+| Status | Request |
+|---|---|
+| live | Remove the redundant code cloud and return the Whistlegraphs index to one column. |
+| live | Move lectures, exhibitions, press, publications, and external links out of the bottom of the Whistlegraphs index into a top-level route beside Whistlegraphs and Posts. |
+| applied | Name that route “History,” matching its CV/archive contents; retain `/about` as a compatibility route. |
+| applied | Add Alex and Camille's authoritative graphic score to Underpainting `[undr]`, received as `Score.png`. |
+| received | Preserve the two Underpainting digital paintings as archive evidence, but do not publish them by default; Alex said they are not necessary to include. |
+
 ## Received August 13, 2026
 
 | Status | Request |
