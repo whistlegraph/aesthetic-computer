@@ -2058,6 +2058,117 @@ function playPadStrike(sound, x, y, anchors, velocity, aspect) {
   if (padStrikes.length > 12) padStrikes.shift();
 }
 
+// ── Rubbing the head, as opposed to hitting it ──
+//
+// The strike path above is a note: it fires, it decays, it is over. Dragging a
+// finger across the head is not a note — it is a sound that exists exactly as
+// long as the finger keeps moving, and everything about it follows where the
+// finger is. So the piece measures the gesture and re-states it every frame,
+// and `sound.scratch` holds one continuous voice at whatever it was last told.
+// Same split Menu Band uses (MenuBandPercussion.setDrumSkinScratch); the
+// per-sample end lives in native's audio.c.
+//
+// The material contours are the SAME numbers as the strike bands, so rubbing
+// and hitting agree about where the skin stops and the rim starts.
+let padScratchOn = false;      // is a voice currently sounding?
+let padScratchSpeed = 0;       // smoothed pad-lengths per second
+
+// Speed moves the head's pitch in OCTAVES, not hertz — equal additions of
+// gesture speed give equal musical movement, so a brisk drag sweeps a bit over
+// two octaves instead of crowding everything into the top of the range.
+function padScratchPitch(speed, octaveSpan = 2.25) {
+  return Math.pow(2, Math.min(octaveSpan, Math.max(0, speed) * 0.82));
+}
+
+// 0 = travelling along a contour, 1 = crossing it head-on. Normalized by
+// physical travel so gesture speed cannot leak into an orientation measure.
+function padScratchCrossing(x, y, dx, dy, aspect) {
+  const { hw, hh } = padHalfExtent(aspect);
+  const here = padDepth((x - 0.5) * 2, (y - 0.5) * 2, aspect);
+  const there = padDepth((x - dx - 0.5) * 2, (y - dy - 0.5) * 2, aspect);
+  const travel = Math.hypot(dx * (2 / hw), dy * (2 / hh));
+  if (travel < 1e-6) return 0;
+  return Math.min(1, Math.abs(here - there) / travel);
+}
+
+// Map a sliding finger onto the friction voice. `speed` is pad lengths per
+// second; `dx, dy` is this frame's travel.
+function updatePadScratch(sound, c, anchors, speed, dx, dy, aspect) {
+  if (!sound?.scratch) return;
+  const sx = (c.x - 0.5) * 2;
+  const sy = (c.y - 0.5) * 2;
+  const radius = padDepth(sx, sy, aspect);
+
+  // Resting fingers press the head tighter and mute it faster, exactly as
+  // they damp the modes on a strike.
+  const separations = anchors.map((a) =>
+    Math.min(1, Math.hypot((a.x - c.x) * 1.64, a.y - c.y)),
+  );
+  const proximity = separations.length
+    ? separations.reduce((t, s) => t + (1 - s), 0) / separations.length
+    : 0;
+  const tension = 1 + anchors.length * 0.14 + proximity * 0.30;
+
+  // Seams: the boundaries between materials have more tooth than the fields
+  // either side, and crossing one is louder than sliding along it.
+  const seam = [0.30, 0.46, 0.64, 0.88].reduce(
+    (m, edge) => Math.max(m, Math.exp(-Math.pow((radius - edge) / 0.045, 2))),
+    0,
+  );
+  const crossing = padScratchCrossing(c.x, c.y, dx, dy, aspect);
+
+  let level = Math.min(0.14, Math.max(0, speed) * 0.052);
+  level = Math.min(0.14, level * (1 + crossing * (0.12 + seam * 0.24)));
+
+  const mix = (a, b, t) => a + (b - a) * t;
+  const toSnare = padSmoothstep(0.23, 0.31, radius);
+  const toRim = padSmoothstep(0.40, 0.48, radius);
+  const toHat = padSmoothstep(0.62, 0.70, radius);
+  const toClick = padSmoothstep(0.88, 0.965, radius);
+
+  // Skin is dry and covered — mostly low-mid friction. Tooth arrives with the
+  // wires, the rim, and finally the bare metal edge.
+  let cutoff = mix(175, 430, toSnare);
+  cutoff = mix(cutoff, 680, toRim);
+  cutoff = mix(cutoff, 1250, toHat);
+  cutoff = mix(cutoff, 2050, toClick);
+  cutoff *= (0.88 + tension * 0.12) * (1 + crossing * seam * 0.20);
+
+  let resonance = mix(mix(mix(mix(48, 90, toSnare), 185, toRim), 360, toHat), 560, toClick)
+    * tension;
+  const pathVariation = 1 + 0.055 * Math.sin((sx * 2.7 + sy * 3.9) * Math.PI);
+  // Direction uses only the unit vector, never the delta magnitude, so
+  // callback jitter cannot masquerade as acceleration.
+  const dirMag = Math.max(1e-6, Math.hypot(dx, dy));
+  const directionBend = 1 + Math.max(-0.06, Math.min(0.06,
+    (dx * 0.045 + dy * 0.030) / dirMag));
+  resonance *= pathVariation * padScratchPitch(speed) * directionBend
+    * (1 + crossing * seam * 0.14);
+
+  let roughness = mix(0.30, 0.78, toSnare);
+  roughness = mix(roughness, 0.48, toRim);
+  roughness = mix(roughness, 0.70, toHat);
+  roughness = mix(roughness, 0.38, toClick);
+  roughness = Math.min(1, roughness + proximity * 0.26 + crossing * seam * 0.24);
+
+  sound.scratch({
+    level: level * TRACKDRUM_MIX_GAIN,
+    cutoff,
+    resonance,
+    roughness,
+    release: Math.max(0.004, 0.010 - anchors.length * 0.0012 - proximity * 0.003),
+    pan: padClamp((c.x - 0.5) * 1.45, -1, 1),
+  });
+  padScratchOn = true;
+}
+
+function stopPadScratch(sound) {
+  if (!padScratchOn) return;   // idempotent: don't re-cross the JS/C boundary
+  padScratchOn = false;
+  padScratchSpeed = 0;
+  sound?.scratch?.(null);
+}
+
 // Poll the pad once a frame and turn new contacts or deliberate slides into
 // strikes. A resting tracking ID stays quiet; after moving 4.5% of the pad
 // from its last strike point, it can re-strike after a 70ms-ish cooldown. This
@@ -2068,10 +2179,42 @@ function updatePadDrum(trackpad, sound) {
   // `generation` only moves when the contact set actually changed, so an
   // unmoving hand costs one integer compare per frame.
   if (trackpad.generation === padGeneration && contacts.length === padContacts.size) {
+    // A hand that has stopped moving is a hand that has stopped rubbing. The
+    // friction has to be released HERE and not only on lift, or a finger held
+    // still on the head would keep the voice singing forever.
+    stopPadScratch(sound);
     return;
   }
   padGeneration = trackpad.generation;
   const aspect = trackpad.aspect || PAD_FALLBACK_ASPECT;
+  const nowMs = Date.now();
+
+  // Friction first: the fastest-moving finger owns the rub. One head, one
+  // continuous voice — a second finger sliding is more of the same hand, not
+  // a second surface, and mixing two would just be louder rather than richer.
+  let rubber = null;
+  for (let i = 0; i < contacts.length; i++) {
+    const c = contacts[i];
+    const previous = padContacts.get(c.id);
+    if (!previous) continue;                     // a new touch is a strike
+    const dx = c.x - previous.x;
+    const dy = c.y - previous.y;
+    const dt = Math.max(0.001, (nowMs - (previous.at ?? nowMs)) / 1000);
+    const speed = Math.hypot(dx, dy) / dt;
+    if (speed > 0.02 && (!rubber || speed > rubber.speed)) {
+      rubber = { c, dx, dy, speed };
+    }
+  }
+  if (rubber) {
+    // One-pole smoothing: the pad reports in bursts, and unsmoothed speed
+    // makes the head's pitch flicker instead of sweep.
+    padScratchSpeed += 0.35 * (rubber.speed - padScratchSpeed);
+    const anchors = contacts.filter((o) => o.id !== rubber.c.id);
+    updatePadScratch(sound, rubber.c, anchors, padScratchSpeed,
+                     rubber.dx, rubber.dy, aspect);
+  } else {
+    stopPadScratch(sound);
+  }
 
   for (let i = 0; i < contacts.length; i++) {
     const c = contacts[i];
@@ -2109,6 +2252,7 @@ function updatePadDrum(trackpad, sound) {
     next.set(c.id, {
       x: c.x,
       y: c.y,
+      at: nowMs,           // for the next frame's rub speed
       strikeX: didStrike ? c.x : (previous?.strikeX ?? c.x),
       strikeY: didStrike ? c.y : (previous?.strikeY ?? c.y),
       strikeFrame: didStrike ? frame : (previous?.strikeFrame ?? frame),

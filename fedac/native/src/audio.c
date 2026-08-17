@@ -741,6 +741,40 @@ void audio_oneshot_kill(ACAudio *audio, uint64_t id, double fade) {
     pthread_mutex_unlock(&oneshot_lock);
 }
 
+// ── Drum-skin friction ──
+//
+// The DSP lives in scratch_voice.c, dependency-free like gm_synth.c and
+// fluoddity_voice.c, so it can be built and auditioned without ALSA (see
+// tools/scratch-audition.c). This is only the wiring.
+static void mix_scratch(ACAudio *audio, double rate, double *mix_l, double *mix_r) {
+    if (!scratch_voice_active(&audio->scratch)) return;
+    double l = 0.0, r = 0.0;
+    scratch_voice_render(&audio->scratch, rate, &l, &r);
+    *mix_l += l;
+    *mix_r += r;
+}
+
+void audio_scratch_set(ACAudio *audio, double level, double cutoff,
+                       double resonance, double roughness, double release,
+                       double pan, int synthetic) {
+    if (!audio) return;
+    ScratchParams p = {
+        .target = level, .cutoff = cutoff, .resonance = resonance,
+        .roughness = roughness, .release = release, .pan = pan,
+        .synthetic = synthetic,
+    };
+    pthread_mutex_lock(&audio->lock);
+    scratch_voice_set(&audio->scratch, &p);
+    pthread_mutex_unlock(&audio->lock);
+}
+
+void audio_scratch_stop(ACAudio *audio) {
+    if (!audio) return;
+    pthread_mutex_lock(&audio->lock);
+    scratch_voice_stop(&audio->scratch);
+    pthread_mutex_unlock(&audio->lock);
+}
+
 // Mix all active one-shot voices into the (mix_l, mix_r) bus. Called
 // from the audio thread alongside the SampleVoice mixer.
 static void mix_oneshot_voices(double rate, double *mix_l, double *mix_r) {
@@ -1892,6 +1926,10 @@ static void *audio_thread_fn(void *arg) {
             // ONESHOT_MAX_VOICES concurrent.
             mix_oneshot_voices(rate, &mix_l, &mix_r);
 
+            // Drum-skin friction. After the modal strikes, on the same bus, so
+            // a rub and a hit land in the same room.
+            mix_scratch(audio, rate, &mix_l, &mix_r);
+
             // Mix DJ deck audio (lock-free: single consumer = audio thread)
             // Speed control: advance ring read by `speed` samples per output sample
             // with linear interpolation for smooth pitch shifting / scratching.
@@ -2467,6 +2505,10 @@ ACAudio *audio_init(void) {
 
     // Build the sine wavetable used by the GM modal/FM voices (idempotent).
     gm_synth_init();
+
+    // The friction voice's defaults are not all zero (a zero release time is
+    // an instant cut, not a release), and calloc cannot know that.
+    scratch_voice_init(&audio->scratch);
 
     // Load piano sample bank from /samples/piano/. Idempotent: safe to
     // call from both audio_init paths in ac-native.c. Bank is global

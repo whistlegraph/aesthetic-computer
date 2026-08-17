@@ -5,7 +5,8 @@
 #include <stdio.h>
 #include <pthread.h>
 #include "audio-decode.h"
-#include "gm_synth.h"   // standalone GM voice state (GMVoice) + render API
+#include "gm_synth.h"        // standalone GM voice state (GMVoice) + render API
+#include "scratch_voice.h"   // standalone drum-skin friction voice
 
 #define AUDIO_SAMPLE_RATE 192000
 #define AUDIO_CHANNELS 2
@@ -437,6 +438,14 @@ typedef struct {
     void (*rec_callback)(const int16_t *pcm, int frames, void *userdata);
     void *rec_userdata;
 
+    // ── Drum-skin friction ──
+    // Striking the pad is a note; RUBBING it is not. There is no note-off to
+    // wait for and no duration to schedule — the sound exists exactly as long
+    // as a finger is moving. So it is one continuous voice here rather than an
+    // entry in the note-based pool, mixed after the modal strikes.
+    // State and DSP live in scratch_voice.h/.c.
+    ScratchVoice scratch;
+
     // Diagnostic info (exposed to JS via system.hw)
     char audio_device[32];      // ALSA device name that opened successfully
     char audio_status[64];      // human-readable status ("ok", "no card", etc.)
@@ -510,6 +519,24 @@ void audio_set_wobble_mix(ACAudio *audio, float value);
 // 1.0 = max tasteful spread. Default 0.6. Scales every parametric jitter
 // lever (per-partial amp/decay, pitch detune, FM index, attack, pan).
 void audio_set_organic(double amt);
+
+// ── Drum-skin friction ──
+// Rub the pad instead of striking it. Call once per control frame while a
+// finger is sliding; the voice slews to whatever it was last told, so a gap
+// between calls sustains rather than stutters. `level` 0 releases it, and
+// audio_scratch_stop is the same thing said plainly.
+//
+//   level      0..~0.22 amplitude the friction is asking for
+//   cutoff     friction band centre in Hz (material: skin dull, rim bright)
+//   resonance  head carrier in Hz — this is what gesture speed moves
+//   roughness  0..1 grip nonlinearity
+//   release    fall time in seconds once the finger stops
+//   pan        -1..1
+//   synthetic  1 = the broader ring-modulated electro surface
+void audio_scratch_set(ACAudio *audio, double level, double cutoff,
+                       double resonance, double roughness, double release,
+                       double pan, int synthetic);
+void audio_scratch_stop(ACAudio *audio);
 void audio_set_output_history_paused(ACAudio *audio, int paused);
 
 // Microphone — hot-mic mode (device stays open, recording toggles buffering)

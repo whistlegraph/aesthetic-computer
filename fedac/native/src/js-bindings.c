@@ -2888,6 +2888,48 @@ static JSValue js_sound_bpm(JSContext *ctx, JSValueConst this_val, int argc, JSV
     return JS_NewFloat64(ctx, audio->bpm);
 }
 
+// Drum-skin friction: `sound.scratch({level, cutoff, resonance, roughness,
+// release, pan, synthetic})` while a finger slides on the pad, and
+// `sound.scratch(null)` (or level 0) when it lifts. One continuous voice, so
+// the piece re-states it every control frame rather than starting notes.
+//
+// The material mapping — where on the head, how fast, how many fingers — is
+// the piece's job (see padScratch in pieces/notepat.mjs), matching how
+// MenuBandPercussion splits control from render on macOS.
+static JSValue js_sound_scratch(JSContext *ctx, JSValueConst this_val,
+                                int argc, JSValueConst *argv) {
+    (void)this_val;
+    ACAudio *audio = current_rt->audio;
+    if (!audio) return JS_UNDEFINED;
+    if (argc < 1 || !JS_IsObject(argv[0])) {
+        audio_scratch_stop(audio);
+        return JS_UNDEFINED;
+    }
+    double level = 0, cutoff = 1600, resonance = 150, roughness = 0.5;
+    double release = 0.014, pan = 0;
+    int synthetic = 0;
+    JSValue v;
+#define SCRATCH_NUM(name, dest)                                    \
+    v = JS_GetPropertyStr(ctx, argv[0], name);                     \
+    if (JS_IsNumber(v)) JS_ToFloat64(ctx, &dest, v);               \
+    JS_FreeValue(ctx, v);
+    SCRATCH_NUM("level", level)
+    SCRATCH_NUM("cutoff", cutoff)
+    SCRATCH_NUM("resonance", resonance)
+    SCRATCH_NUM("roughness", roughness)
+    SCRATCH_NUM("release", release)
+    SCRATCH_NUM("pan", pan)
+#undef SCRATCH_NUM
+    v = JS_GetPropertyStr(ctx, argv[0], "synthetic");
+    if (!JS_IsUndefined(v)) synthetic = JS_ToBool(ctx, v);
+    JS_FreeValue(ctx, v);
+
+    if (level <= 0.0) audio_scratch_stop(audio);
+    else audio_scratch_set(audio, level, cutoff, resonance, roughness,
+                           release, pan, synthetic);
+    return JS_UNDEFINED;
+}
+
 // --- DJ deck bindings ---
 
 static void blit_argb_nearest(ACFramebuffer *fb, const uint32_t *src,
@@ -3078,6 +3120,7 @@ static JSValue build_sound_obj(JSContext *ctx, ACRuntime *rt) {
     JS_SetPropertyStr(ctx, sound, "kill", JS_NewCFunction(ctx, js_sound_kill, "kill", 2));
     JS_SetPropertyStr(ctx, sound, "update", JS_NewCFunction(ctx, js_sound_update, "update", 2));
     JS_SetPropertyStr(ctx, sound, "bpm", JS_NewCFunction(ctx, js_sound_bpm, "bpm", 1));
+    JS_SetPropertyStr(ctx, sound, "scratch", JS_NewCFunction(ctx, js_sound_scratch, "scratch", 1));
     JS_SetPropertyStr(ctx, sound, "time", JS_NewFloat64(ctx, rt->audio ? rt->audio->time : 0.0));
     JS_SetPropertyStr(ctx, sound, "registerSample", JS_NewCFunction(ctx, js_noop, "registerSample", 3));
 
