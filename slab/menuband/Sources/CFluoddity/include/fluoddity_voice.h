@@ -94,8 +94,24 @@ typedef struct {
     float swap[FLUOD_FIELD_H][FLUOD_FIELD_W][2];  // diffusion scratch
     // Column-summed, DC-removed scan tables; audio interpolates cur↔prev
     // across the tick interval so table evolution never steps audibly.
+    // Three flavors are kept per tick: the blurred x-flow scan (the body of
+    // the tone), the RAW x-flow scan (a bright layer, mixed in hard at note
+    // attack and faded by swarm agitation afterwards — spectral envelope
+    // over time instead of organ-static), and the y-flow scan (a stereo
+    // side layer: the transverse life of the ecosystem becomes width).
     float tab_prev[FLUOD_FIELD_W];
     float tab_cur[FLUOD_FIELD_W];
+    float tabr_prev[FLUOD_FIELD_W];
+    float tabr_cur[FLUOD_FIELD_W];
+    float taby_prev[FLUOD_FIELD_W];
+    float taby_cur[FLUOD_FIELD_W];
+    float raw_gain;    // per-tick level match: bright layer vs body
+    float side_gain;   // per-tick level match: side layer vs body
+    float drift;       // per-tick swarm mean x-velocity (torus units/tick)
+    float agitation;   // per-tick mean speed / cruise speed
+    double drift_smooth;  // render-side smoothed drift → pitch micro-bend
+    double bright_smooth; // render-side smoothed agitation → bright mix
+    double age;        // seconds since note birth (attack-brightness decay)
     double phase;      // scanner phase, 0..1
     int tick_phase;    // samples rendered since last sim tick
     uint32_t rng;      // xorshift state (splat jitter, init scatter)
@@ -112,6 +128,22 @@ void fluod_rule_mutate(FluodRule *r, float amount, uint32_t seed);
 // Interop with Fluoddity saved configs: 80 floats, center-major.
 void fluod_rule_from_floats(FluodRule *r, const float flat[80]);
 void fluod_rule_to_floats(const FluodRule *r, float flat[80]);
+
+// Movement THROUGH the genome, not just around it. Seeding teleports and
+// mutating takes a random step; these three make the 80 floats addressable.
+// `out` may alias any input. See the implementation notes in
+// fluoddity_voice.c for why the blend is linear and what the analogy does
+// and does not claim.
+//
+// Blend two instruments. t = 0 gives `a`, t = 1 gives `b`.
+void fluod_rule_lerp(FluodRule *out, const FluodRule *a, const FluodRule *b,
+                     float t);
+// A is to B as C is to D — the parallelogram model (Rumelhart & Abramson
+// 1973; Ehresman & Wessel 1978). Transposition, for timbre.
+void fluod_rule_analogy(FluodRule *out, const FluodRule *a, const FluodRule *b,
+                        const FluodRule *c);
+// Euclidean distance over the 80 parameters. Genome distance, not timbral.
+float fluod_rule_distance(const FluodRule *a, const FluodRule *b);
 
 void fluod_physics_default(FluodPhysics *p);
 
@@ -143,10 +175,16 @@ static inline const float *fluod_voice_table_ptr(const FluodVoice *v) {
     return v->tab_cur;
 }
 
-// One output sample. `env` is the host's amplitude envelope (0..1);
+// One output sample pair. `env` is the host's amplitude envelope (0..1);
 // `frequency` may glide per sample like gm_voice_render's. Output is
-// AGC-normalized and soft-clipped; NaN/Inf is trapped internally (the
-// swarm re-scatters rather than poisoning the mix).
+// partially AGC-normalized (the ecosystem's own swells stay audible) and
+// soft-clipped per channel; NaN/Inf is trapped internally (the swarm
+// re-scatters rather than poisoning the mix). Stereo width comes from the
+// field's y-flow; the swarm's mean drift micro-bends pitch a few cents.
+void fluod_voice_render_stereo(FluodVoice *v, double sample_rate, double env,
+                               double frequency, float *out_l, float *out_r);
+
+// Mono convenience (mean of the stereo pair) — audition harness etc.
 float fluod_voice_render(FluodVoice *v, double sample_rate, double env,
                          double frequency);
 

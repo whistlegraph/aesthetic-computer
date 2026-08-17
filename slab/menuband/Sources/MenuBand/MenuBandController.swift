@@ -551,6 +551,24 @@ final class MenuBandController {
         synth.fluodVoice.setSeed(UInt32.random(in: 1...UInt32.max))
     }
 
+    /// The current genome, as the 80 floats Fluoddity's configs use. Keep one
+    /// and you can come back to it — reseeding and mutating are both one-way
+    /// doors otherwise.
+    func fluoddityRule() -> [Float] { synth.fluodVoice.rule() }
+    func setFluoddityRule(_ flat: [Float]) { synth.fluodVoice.setRule(flat) }
+    /// Walk the instrument toward a saved genome instead of cutting to it.
+    func blendFluoddity(toward target: [Float], amount: Float) {
+        synth.fluodVoice.blend(toward: target, amount: amount)
+    }
+    /// Apply the change that turned `a` into `b` to the current genome —
+    /// the timbral analogy Wessel tested with the parallelogram model.
+    func fluoddityAnalogy(from a: [Float], to b: [Float]) {
+        synth.fluodVoice.applyAnalogy(from: a, to: b)
+    }
+    func fluoddityDistance(to other: [Float]) -> Float {
+        synth.fluodVoice.distance(to: other)
+    }
+
     /// Switch the active melodic backend to (or away from) the Fluoddity
     /// ecosystem voice. Mirrors `setSampleBackend`: persists the pick,
     /// clears the competing sample flag so routing can't shadow it, and

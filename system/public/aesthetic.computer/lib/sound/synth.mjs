@@ -344,10 +344,19 @@ export default class Synth {
     let value;
     if (this.type === "square") {
       // 🟥 Square Wave
+      // `#wavelength` is a FULL period, so the level flips at every HALF of
+      // it. Flipping on the full period gave a square an octave below its
+      // requested tone — measurably: a `square` asked for 261.63 Hz came out
+      // at 130 Hz, while sine/triangle/sawtooth all landed on pitch. Both
+      // sibling engines already do this right (fedac/native/src/audio.c's
+      // WAVE_SQUARE and MenuBandPercussion.swift both take `phase < 0.5`),
+      // so the web synth was the lone outlier in a drum kit that is supposed
+      // to sound identical across all three.
+      const halfWavelength = this.#wavelength / 2;
       this.#step += 1;
-      if (this.#step >= this.#wavelength) {
+      if (this.#step >= halfWavelength) {
         this.#up = !this.#up;
-        this.#step -= this.#wavelength;
+        this.#step -= halfWavelength;
       }
       value = this.#up ? 1 : -1;
     } else if (this.type === "sine") {

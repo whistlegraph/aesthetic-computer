@@ -22,6 +22,50 @@ final class InstrumentListView: NSView {
     static let rows = 16
     static let cellW: CGFloat = 28
     static let cellH: CGFloat = 14
+
+    // MARK: - Grid layout (catalogue vs. measured timbre)
+
+    /// Where the 128 programs sit in the grid.
+    ///
+    /// `.catalogue` is the original arrangement: cell *n* holds program *n*,
+    /// so each row is one GM family. That ordering is the 1991 spec's
+    /// numbering — cells are neighbours by catalogue number, not by sound.
+    ///
+    /// `.timbre` lays the same 128 cells out on measured coordinates
+    /// (`GMTimbreLayout`, from `bin/gm-timbre-probe.c`): rows are brightness
+    /// bands with the brightest on top, and bite increases left→right,
+    /// following Wessel's Figure 1. Neighbours in the grid are then
+    /// neighbours in the ear, which is the whole point of having a map.
+    /// Family colours stay keyed to the program number, so in this mode the
+    /// palette scatters — that scatter IS the finding.
+    enum GridLayout: String { case catalogue, timbre }
+
+    private static let layoutDefaultsKey = "instrumentGridLayout"
+
+    /// Persisted grid layout. Escape hatch for anyone who wants the old map
+    /// back: `defaults write <bundle-id> instrumentGridLayout catalogue`.
+    static var gridLayout: GridLayout {
+        get {
+            let raw = UserDefaults.standard.string(forKey: layoutDefaultsKey) ?? ""
+            return GridLayout(rawValue: raw) ?? .timbre
+        }
+        set { UserDefaults.standard.set(newValue.rawValue, forKey: layoutDefaultsKey) }
+    }
+
+    /// Grid slot for a program under the active layout.
+    static func slot(forProgram p: Int) -> Int {
+        guard gridLayout == .timbre, p >= 0, p < GMTimbreLayout.slotForProgram.count
+        else { return p }
+        return GMTimbreLayout.slotForProgram[p]
+    }
+
+    /// Program drawn in a grid slot under the active layout. Inverse of
+    /// `slot(forProgram:)`.
+    static func program(inSlot s: Int) -> Int {
+        guard gridLayout == .timbre, s >= 0, s < GMTimbreLayout.programAtSlot.count
+        else { return s }
+        return GMTimbreLayout.programAtSlot[s]
+    }
     /// Special "instrument 0" addressable slot that lives in a full-width
     /// row ABOVE the 1-128 grid. Picking it engages MIDI passthrough mode
     /// (notes go out the virtual port instead of the internal synth).
@@ -193,7 +237,12 @@ final class InstrumentListView: NSView {
         if let program = program(at: point) {
             return "\(program + 1) \(GeneralMIDI.programName(program)) - click to choose, drag to audition"
         }
-        return "1-128 are General MIDI voices; 0 is MIDI OUT"
+        switch Self.gridLayout {
+        case .timbre:
+            return "1-128 are General MIDI voices, laid out by measured timbre — brighter up, more bite right; 0 is MIDI OUT"
+        case .catalogue:
+            return "1-128 are General MIDI voices in catalogue order; 0 is MIDI OUT"
+        }
     }
 
     // MARK: - Geometry
@@ -209,8 +258,9 @@ final class InstrumentListView: NSView {
     }
 
     private func cellRect(program p: Int) -> NSRect {
-        let col = p % Self.cols
-        let row = p / Self.cols
+        let s = Self.slot(forProgram: p)
+        let col = s % Self.cols
+        let row = s / Self.cols
         return NSRect(x: CGFloat(col) * Self.cellW,
                       y: Self.gridYOffset + CGFloat(row) * Self.cellH,
                       width: Self.cellW,
@@ -371,8 +421,8 @@ final class InstrumentListView: NSView {
         let col = Int(point.x / Self.cellW)
         let row = Int(yInGrid / Self.cellH)
         guard col >= 0, col < Self.cols, row >= 0, row < Self.rows else { return nil }
-        let p = row * Self.cols + col
-        return p < 128 ? p : nil
+        let s = row * Self.cols + col
+        return s < 128 ? Self.program(inSlot: s) : nil
     }
 
     private func isMidiOutHit(_ point: NSPoint) -> Bool {
@@ -656,15 +706,19 @@ final class InstrumentListView: NSView {
                                  y: rr.midY - size.height / 2))
         }
 
-        let selectedRow = Int(selectedProgram) / Self.cols
-        let selectedCol = Int(selectedProgram) % Self.cols
+        // Ripple distance is measured in GRID space, not program-number space,
+        // so the highlight radiates from where the selected cell actually is.
+        let selectedSlot = Self.slot(forProgram: Int(selectedProgram))
+        let selectedRow = selectedSlot / Self.cols
+        let selectedCol = selectedSlot % Self.cols
 
         for p in 0..<128 {
             let r = cellRect(program: p)
             guard r.intersects(dirtyRect) else { continue }
             let fam = familyColor(forProgram: p)
-            let row = p / Self.cols
-            let col = p % Self.cols
+            let slot = Self.slot(forProgram: p)
+            let row = slot / Self.cols
+            let col = slot % Self.cols
             let dx = CGFloat(col - selectedCol)
             let dy = CGFloat(row - selectedRow)
             let dist = sqrt(dx * dx + dy * dy)
@@ -880,7 +934,10 @@ final class InstrumentListView: NSView {
     /// retints in real time. Releasing the key commits the cell that's
     /// currently selected (mirrors mouseDown→drag→mouseUp).
     override func keyDown(with event: NSEvent) {
-        let cur = Int(selectedProgram)
+        // Arrows walk the GRID, not the program numbering — under the timbre
+        // layout "→" means "a little more bite", which is the only reading
+        // that makes arrow-browsing musical.
+        let cur = Self.slot(forProgram: Int(selectedProgram))
         var next = cur
         var dir = -1
         // Digit keys address slots directly: '0' picks MIDI OUT, '1'-'9'
@@ -927,12 +984,13 @@ final class InstrumentListView: NSView {
         next = max(0, min(127, next))
         onArrowKey?(dir, true)
         if next != cur {
+            let nextProgram = Self.program(inSlot: next)
             // Update the lit cell + fire hover. The popover's onHover
             // handler already does the heavy lifting: stop the previous
             // preview note, retint chip + visualizer, start a new
             // preview note in the new program.
-            selectedProgram = UInt8(next)
-            onHover?(next)
+            selectedProgram = UInt8(nextProgram)
+            onHover?(nextProgram)
         }
     }
 

@@ -14,6 +14,10 @@ import {
 } from "../lib/pixel-sample.mjs";
 import { playPercussion } from "../lib/percussion.mjs";
 import * as gm from "../lib/gm.mjs";
+import {
+  WAVES_BY_BRIGHTNESS,
+  UNMEASURED_WAVES,
+} from "../lib/sound/wave-timbre.mjs";
 
 // 🎹 NuPhy Air60 HE — WebHID analog pressure support
 // Sends activation commands then reads 0xA0 analog reports with per-key pressure.
@@ -378,22 +382,28 @@ TODO: 💮 Daisy
 // import { Android, iOS } from "../lib/platform.mjs";
 
 let STARTING_OCTAVE = "4";
-const wavetypes = [
-  "gm", // 0 - General MIDI (lib/gm.mjs); number-row digits pick programs 0-127
-  "sine", // 1
-  "triangle", // 2
-  "sawtooth", // 3
-  "square", // 4
-  "harp", // 5 - Karplus-Strong plucked string (Karplus & Strong 1983)
-  "whistle", // 6 - digital waveguide flute (Cook/STK)
-  "composite", // 7
-  "stample", // 8
-  "drum", // 9 - shared 12-drum kit (lib/percussion.mjs), both octaves
-];
+// 🎨 Tab walks the waves in order of MEASURED brightness, darkest first, so
+// the cycle is a ramp you can hear going somewhere instead of the order they
+// happened to get written in. The ordering is not hand-typed: it comes from
+// `toolchain/timbre/wave-probe.mjs`, which renders every wave through this
+// same synth at C4 under one shared amplitude contour, RMS-matches them, and
+// takes the Bark centroid of a Zwicker-style excitation pattern — the
+// acoustic correlate David Wessel used to interpret the vertical axis of his
+// timbre space ("Timbre Space as a Musical Control Structure", CMJ 3(2),
+// 1979). Add a wave, re-run the probe, and the cycle re-sorts itself.
+//
+// The measured ramp is: sine · composite · triangle · square · whistle ·
+// sawtooth · harp. The old hand-written order had square and sawtooth the
+// wrong way round.
+//
+// `gm`, `stample` and `drum` are modes, not waves — a 128-patch picker, a
+// sample loader, and a 12-drum kit keyed by pitch class. They have no single
+// timbre to place on the ramp, so they sit together after it and Tab does
+// not drop you into one halfway up the brightness walk.
+const wavetypes = [...WAVES_BY_BRIGHTNESS, ...UNMEASURED_WAVES];
 // Sine is the instrument notepat opens on — the plainest voice in the list,
-// and the one every other wave is heard against. GM sits at index 0 only
-// because the number-row patch picker wants it first; boot into sine and let
-// a digit press promote the wave switcher to "gm".
+// and the one every other wave is heard against. It is also, as measured, the
+// darkest, so booting here starts the Tab walk at the bottom of the ramp.
 let waveIndex = wavetypes.indexOf("sine");
 const STARTING_WAVE = wavetypes[waveIndex];
 let wave = STARTING_WAVE;
@@ -1828,6 +1838,7 @@ async function boot({
     "noise",
     "harp",
     "whistle",
+    "composite",
     "stample",
     "sample",
     "drum",

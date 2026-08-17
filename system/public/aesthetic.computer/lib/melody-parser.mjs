@@ -1,6 +1,45 @@
 // Melody Parser, 2025.6.28.05.20
 // A shared melody parser for Aesthetic Computer that can parse melody strings
 // and return structured note data. Used by both kidlisp.mjs and clock.mjs.
+
+import { WAVE_TIMBRE, waveDistance } from "./sound/wave-timbre.mjs";
+
+// 🎛️ What a `{…}` brace may name as a voice.
+//
+// One list, because there were two: the `{type:volume}` branch and the
+// `{type}` branch each carried their own copy, and both had drifted behind
+// `lib/sound/synth.mjs`. `harp` (Karplus-Strong) and `whistle` (the Cook/STK
+// waveguide flute) render fine and notepat has offered them for a while, but
+// a melody string asking for either was silently left on the previous voice —
+// no error, just the wrong instrument.
+//
+// `composite` is deliberately absent: it is notepat's own five-oscillator
+// stack, assembled in the piece, not a type `sound.synth()` knows. Naming it
+// here would buy silence.
+const MELODY_WAVE_TYPES = [
+  "sine", "triangle", "sawtooth", "square", "harp", "whistle", "noise-white",
+  // Parser modes rather than oscillators — sample playback, speech, and the
+  // generator/bubble hooks.
+  "sample", "stample", "say", "custom", "bubble",
+];
+
+// Shorthands the synth itself already accepts, normalized here so everything
+// downstream (and every WAVE_TIMBRE lookup) sees one canonical spelling.
+const MELODY_WAVE_ALIASES = {
+  saw: "sawtooth",
+  noise: "noise-white",
+  pluck: "harp",
+  guitar: "harp",
+  string: "harp",
+  flute: "whistle",
+  ocarina: "whistle",
+};
+
+/** Canonical wave-type name for a brace token, or `null` if it names none. */
+function normalizeWaveType(name) {
+  const canonical = MELODY_WAVE_ALIASES[name] || name;
+  return MELODY_WAVE_TYPES.includes(canonical) ? canonical : null;
+}
 //
 // 🎵 NEW: Octave Persistence Feature!
 // You can now write "5cdefg" instead of "5c5d5e5f5g" - the octave persists until changed.
@@ -236,9 +275,8 @@ export function parseMelody(melodyString, startingOctave = 4) {
         // Check for type:volume syntax like {square:0.5} or {saw:0.3}
         else if (contentLower.includes(':')) {
           const [waveType, volumeStr] = contentLower.split(':');
-          // Handle 'saw' as shorthand for 'sawtooth'
-          const normalizedWaveType = waveType === 'saw' ? 'sawtooth' : waveType;
-          if (['sine', 'sawtooth', 'square', 'triangle', 'noise-white', 'sample', 'stample', 'say', 'custom', 'bubble'].includes(normalizedWaveType)) {
+          const normalizedWaveType = normalizeWaveType(waveType);
+          if (normalizedWaveType) {
             currentWaveType = normalizedWaveType;
             currentStampleCode = null; // Clear stample code when switching to explicit waveform
             if (normalizedWaveType !== 'say') currentSayText = null; // Clear say text when switching away from say
@@ -256,15 +294,14 @@ export function parseMelody(melodyString, startingOctave = 4) {
           }
         }
         // Check for waveform-only syntax like {sine} or {saw} or {say}
-        else if (['sine', 'sawtooth', 'saw', 'square', 'triangle', 'noise-white', 'sample', 'stample', 'say', 'custom', 'bubble'].includes(contentLower)) {
-          // Handle 'saw' as shorthand for 'sawtooth'
-          currentWaveType = contentLower === 'saw' ? 'sawtooth' : contentLower;
+        else if (normalizeWaveType(contentLower)) {
+          currentWaveType = normalizeWaveType(contentLower);
           // Clear stample code when switching to default stample or other waveforms
-          if (contentLower !== 'stample' && contentLower !== 'sample') {
+          if (currentWaveType !== 'stample' && currentWaveType !== 'sample') {
             currentStampleCode = null;
           }
           // Clear say text when switching away from say
-          if (contentLower !== 'say') {
+          if (currentWaveType !== 'say') {
             currentSayText = null;
           }
         }
@@ -1649,3 +1686,230 @@ export function buildMelodyState(parsed, { baseTempo = 500 } = {}) {
   };
 }
 
+// ─── Auditory stream segregation ──────────────────────────────────────
+//
+// Wessel's acceptance test, made into a check. Alternate two timbres on a
+// repeating pitch line and something audible and BINARY happens: with a
+// small timbral distance you hear one line, and past a threshold the line
+// splits into two interleaved streams, each with its own timbral identity
+// ("Timbre Space as a Musical Control Structure", CMJ 3(2), 1979, p. 49;
+// the effect is Bregman & Campbell's melodic fission / van Noorden's
+// temporal coherence boundary).
+//
+// A melody string can already alternate `waveType` per note, so AC can write
+// the split without meaning to — or on purpose. This reports which runs will
+// split, and how confidently, rather than calling either outcome an error.
+
+/**
+ * Inter-onset interval that separates "obviously one line" from "obviously
+ * two". Below `SPLIT_FAST_MS` a wide timbral jump segregates readily; past
+ * `SPLIT_SLOW_MS` the notes are far enough apart in time to cohere no matter
+ * how different they sound. Between them the rate factor ramps.
+ */
+const SPLIT_FAST_MS = 150;
+const SPLIT_SLOW_MS = 800;
+
+/**
+ * Brightness separation, in Bark, at which an alternation reliably splits.
+ * Bark is the right unit because segregation tracks critical-band distance,
+ * which is exactly what Wessel's vertical axis was validated against.
+ */
+const SPLIT_BARK = 3.0;
+
+/** Minimum alternating notes before a run is worth reporting. */
+const SPLIT_MIN_RUN = 4;
+
+/**
+ * Find runs of notes whose wave type strictly alternates between two values.
+ * Rests end a run: a gap is exactly the thing that lets a line re-cohere.
+ */
+function alternatingRuns(notes) {
+  const runs = [];
+  let start = null;
+  const sounding = (n) => n && n.note && n.note !== "rest" && n.note !== "_";
+
+  for (let i = 0; i < notes.length; i += 1) {
+    const alternates =
+      sounding(notes[i]) &&
+      sounding(notes[i - 1]) &&
+      sounding(notes[i - 2]) &&
+      notes[i].waveType === notes[i - 2].waveType &&
+      notes[i].waveType !== notes[i - 1].waveType;
+
+    if (alternates) {
+      if (start === null) start = i - 2;
+    } else if (start !== null) {
+      if (i - start >= SPLIT_MIN_RUN) runs.push({ start, end: i - 1 });
+      start = null;
+    }
+  }
+  if (start !== null && notes.length - start >= SPLIT_MIN_RUN) {
+    runs.push({ start, end: notes.length - 1 });
+  }
+  return runs;
+}
+
+/**
+ * Predict auditory stream segregation in a parsed melody track.
+ *
+ * @param {Array} notes - a parsed track (from `parseMelody` / a track of
+ *   `parseSimultaneousMelody`), or a `{ notes }` / `{ tracks }` wrapper.
+ * @param {object} [options]
+ * @param {number} [options.baseTempo=500] - ms per beat, matching
+ *   `buildMelodyState`. Rate is half the story; a slow alternation of very
+ *   different timbres stays one line.
+ * @param {number} [options.threshold=0.5] - report runs at or above this
+ *   risk. Pass 0 to get every alternating run with its score.
+ * @returns {Array} warnings, each `{ start, end, waves, brightnessGap,
+ *   distance, iciMs, risk, splits, reason }`. `splits` is the binary call.
+ */
+export function streamSplitRisk(notes, options = {}) {
+  const { baseTempo = 500, threshold = 0.5 } = options;
+  const track = Array.isArray(notes)
+    ? notes
+    : notes?.notes || notes?.tracks?.[0] || [];
+  if (track.length < SPLIT_MIN_RUN) return [];
+
+  const warnings = [];
+  for (const { start, end } of alternatingRuns(track)) {
+    const a = track[start].waveType;
+    const b = track[start + 1].waveType;
+    const ta = WAVE_TIMBRE[a];
+    const tb = WAVE_TIMBRE[b];
+    // A run through `gm` / `stample` / `drum` has no measured timbre on at
+    // least one side, so there is nothing honest to say about its distance.
+    if (!ta || !tb) continue;
+
+    const brightnessGap = Math.abs(ta.brightness - tb.brightness);
+    const distance = waveDistance(a, b);
+
+    // Mean inter-onset interval across the run.
+    let beats = 0;
+    for (let i = start; i <= end; i += 1) beats += track[i].duration || 1;
+    const iciMs = (beats / (end - start + 1)) * baseTempo;
+
+    const rate =
+      iciMs <= SPLIT_FAST_MS
+        ? 1
+        : iciMs >= SPLIT_SLOW_MS
+          ? 0
+          : (SPLIT_SLOW_MS - iciMs) / (SPLIT_SLOW_MS - SPLIT_FAST_MS);
+
+    // Wessel enlarged the difference "along the spectral energy distribution
+    // axis" to make the line split, so brightness carries the prediction and
+    // the full 2-D distance is reported alongside for context.
+    const risk = Math.min(1, brightnessGap / SPLIT_BARK) * rate;
+    if (risk < threshold) continue;
+
+    warnings.push({
+      start,
+      end,
+      waves: [a, b],
+      brightnessGap,
+      distance,
+      iciMs,
+      risk,
+      splits: risk >= 0.5,
+      reason:
+        `notes ${start}-${end} alternate ${a}/${b} ` +
+        `(${brightnessGap.toFixed(2)} Bark apart) every ${Math.round(iciMs)}ms — ` +
+        (risk >= 0.5
+          ? "expect two interleaved streams, not one line"
+          : "borderline; may read as one line"),
+    });
+  }
+  return warnings;
+}
+
+// ─── Perceptual onset (p-centers) ─────────────────────────────────────
+//
+// Wessel's other rhythmic consequence, and the one he asks synthesis software
+// to fix: "when we alter the properties of the attack of the tone, we are also
+// likely to influence the temporal location of the perceived onset... both the
+// fine tuning of rhythm in music and psychoacoustic research will benefit
+// greatly if the control software of our synthesis systems allows easy and
+// flexible adjustment of physical onset times" (CMJ 3(2), 1979, p. 50, citing
+// Morton, Marcus & Frankish on perceptual centres in speech).
+//
+// A melody string can change wave type note to note, and AC's waves differ in
+// rise time by two orders of magnitude — `square` is instantaneous, `whistle`
+// takes ~46 ms to reach full level. Play them alternately on a metronomic grid
+// and the grid stops sounding metronomic, even though every physical onset is
+// exactly where it was asked to be. The notes are on time; the beats are not.
+
+/**
+ * Where a note's perceived onset sits after its physical one, as a fraction
+ * of the wave's 10→90% rise time. Gordon (1987) found perceptual attack time
+ * tracks rise time closely for musical tones; the exact coefficient is
+ * instrument-dependent, so this is a calibration constant and not a measured
+ * quantity. Raising it makes slow-attack waves pull further forward.
+ */
+const P_CENTER_FRACTION = 0.6;
+
+/** Corrections smaller than this are dropped — see `pCenterShiftsMs`. */
+const P_CENTER_EPSILON_MS = 0.005;
+
+/** How far a wave's perceived onset lags its physical onset, in ms. */
+export function perceivedOnsetLagMs(waveType) {
+  const t = WAVE_TIMBRE[waveType];
+  return t ? t.riseMs * P_CENTER_FRACTION : 0;
+}
+
+/**
+ * Per-note onset corrections, in milliseconds, for a parsed track.
+ *
+ * Each note is pulled EARLIER by its own perceptual lag, so its p-center —
+ * not its physical start — lands on the beat. The corrections are then
+ * re-centred to mean zero, because only the differences between notes are
+ * audible: shifting a whole track by a constant just moves the track.
+ *
+ * Returns an array of shifts (negative = play earlier) parallel to `notes`.
+ */
+export function pCenterShiftsMs(notes) {
+  const track = Array.isArray(notes) ? notes : notes?.notes || notes?.tracks?.[0] || [];
+  if (!track.length) return [];
+
+  const lags = track.map((n) => perceivedOnsetLagMs(n?.waveType));
+  // Rests are not heard, so they must not drag the average around.
+  const sounding = track
+    .map((n, i) => (n && n.note && n.note !== "rest" && n.note !== "_" ? lags[i] : null))
+    .filter((v) => v !== null);
+  if (!sounding.length) return track.map(() => 0);
+
+  const mean = sounding.reduce((a, b) => a + b, 0) / sounding.length;
+  // Snap sub-sample corrections to zero. A uniform-timbre track subtracts a
+  // mean equal to every term and should come out untouched — floating point
+  // leaves ~1e-15 ms behind instead, which is inaudible but means the
+  // "existing music is not disturbed" guarantee would be approximate rather
+  // than exact. P_CENTER_EPSILON_MS is well under one sample at any rate AC
+  // runs at.
+  return lags.map((lag) => {
+    const shift = -(lag - mean);
+    return Math.abs(shift) < P_CENTER_EPSILON_MS ? 0 : shift;
+  });
+}
+
+/**
+ * Apply `pCenterShiftsMs` to a cumulative start-time timeline.
+ *
+ * The total loop length is deliberately untouched — this fixes where notes sit
+ * INSIDE the bar, never how long the bar is, so a corrected loop still lines
+ * up with everything else. Starts are kept non-decreasing and non-negative so
+ * a scheduler that scans for "the last start at or before now" cannot be
+ * walked backwards by a correction.
+ *
+ * @param {number[]} starts - cumulative note start offsets in ms
+ * @param {Array} notes - the parsed track those offsets came from
+ * @returns {number[]} corrected starts, same length
+ */
+export function applyPCenterShifts(starts, notes) {
+  const shifts = pCenterShiftsMs(notes);
+  if (shifts.length !== starts.length) return starts.slice();
+  const out = new Array(starts.length);
+  let floorMs = 0;
+  for (let i = 0; i < starts.length; i += 1) {
+    out[i] = Math.max(floorMs, starts[i] + (shifts[i] || 0));
+    floorMs = out[i];
+  }
+  return out;
+}

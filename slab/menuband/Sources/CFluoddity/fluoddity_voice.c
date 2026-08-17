@@ -25,8 +25,19 @@
 #define FLUOD_SENSE_SCALE 1.0f    // field → black-box input gain
 #define FLUOD_VISUAL_FPS 60.0f    // Fluoddity's frame rate, for slider compensation
 #define FLUOD_WARMUP_TICKS 32     // sim ticks pre-run at note-on
-#define FLUOD_OUT_TARGET 0.50f    // normalized output RMS target
+#define FLUOD_OUT_TARGET 0.42f    // output RMS anchor (see FLUOD_AGC_EXP)
 #define FLUOD_AGC_FLOOR 0.02f     // table RMS below this fades toward silence
+// Partial normalization: gain = (target/(floor+rms))^EXP. EXP 1 would be a
+// hard leveler that irons out the ecosystem's own swells; 0.65 leaves a
+// ±4 dB-ish window of real dynamics while still taming outliers.
+#define FLUOD_AGC_EXP 0.65f
+#define FLUOD_AGC_SMOOTH_S 0.25   // gain one-pole (s); slow enough to let
+                                  // the swarm's 1–8 Hz amplitude life through
+#define FLUOD_VIB_CENTS 4.0f      // max swarm-drift pitch micro-bend
+#define FLUOD_BRIGHT_ATTACK 0.75f // raw-layer mix at note birth…
+#define FLUOD_BRIGHT_TAU 0.10     // …decaying with this time constant (s)
+#define FLUOD_BRIGHT_AGIT 0.22f   // sustained raw-layer mix per unit agitation
+#define FLUOD_SIDE_WIDTH 0.45f    // y-flow side layer gain into L/R
 
 // ── Hashing (PCG, uint-domain cousin of fourier4_4.glsl's) ──
 
@@ -94,6 +105,68 @@ void fluod_rule_from_floats(FluodRule *r, const float flat[80]) {
 
 void fluod_rule_to_floats(const FluodRule *r, float flat[80]) {
     memcpy(flat, r, sizeof(FluodRule));
+}
+
+// ── Moving THROUGH the genome instead of only jumping around it ──
+//
+// Seeding and mutating are the two gestures Fluoddity came with: teleport to
+// a random point, or take a random step from where you are. Neither can
+// answer "put me halfway between these two" or "do to this one what you did
+// to that one" — which is what a space is FOR (Wessel 1979).
+//
+// The genome is 80 floats laid out center-major, so all three operations are
+// component-wise. Frequencies are drawn signed in [-scale, scale], so the
+// interpolation has to be linear: a geometric blend cannot cross zero, and
+// the sign of a frequency is meaningful. Linear is also what Grey (1975)
+// used on envelope breakpoints, where interpolated tones came out
+// perceptually smooth and landed where the geometry predicted.
+
+void fluod_rule_lerp(FluodRule *out, const FluodRule *a, const FluodRule *b,
+                     float t) {
+    for (int i = 0; i < FLUOD_CENTERS; i++) {
+        for (int k = 0; k < 4; k++) {
+            out->centers[i].freq[k] = a->centers[i].freq[k] +
+                (b->centers[i].freq[k] - a->centers[i].freq[k]) * t;
+            out->centers[i].amp[k] = a->centers[i].amp[k] +
+                (b->centers[i].amp[k] - a->centers[i].amp[k]) * t;
+        }
+    }
+}
+
+// Rumelhart & Abramson's parallelogram, the model Ehresman & Wessel (1978)
+// tested on timbre: A is to B as C is to D, so D = C + (B - A).
+//
+// A caveat that belongs in the code and not only in a paper: Wessel's
+// parallelogram predicted listener rankings because his coordinates came out
+// of dissimilarity JUDGMENTS. These coordinates are a genome — the distance
+// between two rules is not known to be the distance between two sounds. So
+// this is a compositional lever with a defensible shape, not a perceptual
+// claim. `bin/fluoddity-timbre-path.c` is where you check what it does.
+void fluod_rule_analogy(FluodRule *out, const FluodRule *a, const FluodRule *b,
+                        const FluodRule *c) {
+    for (int i = 0; i < FLUOD_CENTERS; i++) {
+        for (int k = 0; k < 4; k++) {
+            out->centers[i].freq[k] = c->centers[i].freq[k] +
+                (b->centers[i].freq[k] - a->centers[i].freq[k]);
+            out->centers[i].amp[k] = c->centers[i].amp[k] +
+                (b->centers[i].amp[k] - a->centers[i].amp[k]);
+        }
+    }
+}
+
+// Euclidean distance over the 80 parameters. Genome distance, NOT timbral
+// distance — useful for "how far did that mutation actually move me", which
+// was previously unanswerable.
+float fluod_rule_distance(const FluodRule *a, const FluodRule *b) {
+    float sum = 0.0f;
+    for (int i = 0; i < FLUOD_CENTERS; i++) {
+        for (int k = 0; k < 4; k++) {
+            float df = a->centers[i].freq[k] - b->centers[i].freq[k];
+            float da = a->centers[i].amp[k] - b->centers[i].amp[k];
+            sum += df * df + da * da;
+        }
+    }
+    return sqrtf(sum);
 }
 
 void fluod_physics_default(FluodPhysics *p) {
@@ -186,6 +259,37 @@ static void fluod_scatter(FluodVoice *v) {
     memset(v->field, 0, sizeof(v->field));
     memset(v->tab_prev, 0, sizeof(v->tab_prev));
     memset(v->tab_cur, 0, sizeof(v->tab_cur));
+    memset(v->tabr_prev, 0, sizeof(v->tabr_prev));
+    memset(v->tabr_cur, 0, sizeof(v->tabr_cur));
+    memset(v->taby_prev, 0, sizeof(v->taby_prev));
+    memset(v->taby_cur, 0, sizeof(v->taby_cur));
+}
+
+// Circular 1-2-1 binomial passes over a scan table.
+static void fluod_blur_table(float *t, int passes) {
+    for (int pass = 0; pass < passes; pass++) {
+        float prev = t[FLUOD_FIELD_W - 1];
+        float first = t[0];
+        for (int x = 0; x < FLUOD_FIELD_W; x++) {
+            float next = x + 1 < FLUOD_FIELD_W ? t[x + 1] : first;
+            float c = t[x];
+            t[x] = 0.25f * prev + 0.5f * c + 0.25f * next;
+            prev = c;
+        }
+    }
+}
+
+// Remove a table's DC in place; return its RMS.
+static float fluod_dc_rms(float *t) {
+    float mean = 0.0f;
+    for (int x = 0; x < FLUOD_FIELD_W; x++) mean += t[x];
+    mean /= (float)FLUOD_FIELD_W;
+    float rms = 0.0f;
+    for (int x = 0; x < FLUOD_FIELD_W; x++) {
+        t[x] -= mean;
+        rms += t[x] * t[x];
+    }
+    return sqrtf(rms / (float)FLUOD_FIELD_W);
 }
 
 // ── One simulation tick ──
@@ -294,41 +398,52 @@ static void fluod_tick(FluodVoice *v) {
     }
     memcpy(v->field, v->swap, sizeof(v->field));
 
-    // Scan table: column-summed x-flow, DC removed. The audio scanner
-    // crossfades tab_prev→tab_cur across the tick interval.
+    // Scan tables: column-summed flow, DC removed; the audio scanner
+    // crossfades prev→cur across the tick interval. Three flavors — the
+    // blurred x-scan is the tone's body, the raw x-scan is the bright
+    // attack/agitation layer, the y-scan is the stereo side layer.
     memcpy(v->tab_prev, v->tab_cur, sizeof(v->tab_prev));
+    memcpy(v->tabr_prev, v->tabr_cur, sizeof(v->tabr_prev));
+    memcpy(v->taby_prev, v->taby_cur, sizeof(v->taby_prev));
     for (int x = 0; x < FLUOD_FIELD_W; x++) {
-        float s = 0.0f;
-        for (int y = 0; y < FLUOD_FIELD_H; y++) s += v->field[y][x][0];
-        v->tab_cur[x] = s;
+        float sx = 0.0f, sy = 0.0f;
+        for (int y = 0; y < FLUOD_FIELD_H; y++) {
+            sx += v->field[y][x][0];
+            sy += v->field[y][x][1];
+        }
+        v->tabr_cur[x] = sx;
+        v->tab_cur[x] = sx;
+        v->taby_cur[x] = sy;
     }
-    // Tone: each circular 1-2-1 pass rolls off the table's high spatial
-    // harmonics (the splats are spatial impulses — raw, they scan buzzy and
-    // alias on high notes).
+    // Tone: each circular 1-2-1 pass rolls off high spatial harmonics
+    // (splats are spatial impulses — raw, they scan buzzy on high notes).
+    // The raw table keeps them: that fizz is the attack.
     int blur = ph->tap_blur;
     if (blur > 6) blur = 6;
-    for (int pass = 0; pass < blur; pass++) {
-        float prev = v->tab_cur[FLUOD_FIELD_W - 1];
-        float first = v->tab_cur[0];
-        for (int x = 0; x < FLUOD_FIELD_W; x++) {
-            float next = x + 1 < FLUOD_FIELD_W ? v->tab_cur[x + 1] : first;
-            float c = v->tab_cur[x];
-            v->tab_cur[x] = 0.25f * prev + 0.5f * c + 0.25f * next;
-            prev = c;
-        }
-    }
-    float mean = 0.0f;
-    for (int x = 0; x < FLUOD_FIELD_W; x++) mean += v->tab_cur[x];
-    mean /= (float)FLUOD_FIELD_W;
-    float rms = 0.0f;
-    for (int x = 0; x < FLUOD_FIELD_W; x++) {
-        v->tab_cur[x] -= mean;
-        rms += v->tab_cur[x] * v->tab_cur[x];
-    }
-    rms = sqrtf(rms / (float)FLUOD_FIELD_W);
+    fluod_blur_table(v->tab_cur, blur);
+    fluod_blur_table(v->taby_cur, blur);
+    float rms = fluod_dc_rms(v->tab_cur);
+    float rms_raw = fluod_dc_rms(v->tabr_cur);
+    float rms_y = fluod_dc_rms(v->taby_cur);
+    // Level-match the layers against the body so their MIX ratios (not the
+    // field's arbitrary magnitudes) decide the sound.
+    v->raw_gain = fminf(2.0f, rms / (rms_raw + 1e-9f));
+    v->side_gain = fminf(2.0f, rms / (rms_y + 1e-9f));
 
-    // Saturating normalization: loud ecosystems are leveled, near-silent
-    // ones fade naturally instead of being boosted into noise.
+    // Swarm statistics for the render thread: mean x-drift micro-bends the
+    // scan pitch (the swarm literally sings a few cents sharp or flat as it
+    // travels), mean speed vs cruise is "agitation" and keeps some bright
+    // layer in the sustain of a busy ecosystem.
+    float mvx = 0.0f, mspd = 0.0f;
+    for (int i = 0; i < FLUOD_PARTICLES; i++) {
+        mvx += v->p[i].vx;
+        mspd += sqrtf(v->p[i].vx * v->p[i].vx + v->p[i].vy * v->p[i].vy);
+    }
+    v->drift = mvx / (float)FLUOD_PARTICLES;
+    v->agitation = mspd / (float)FLUOD_PARTICLES / FLUOD_TARGET_SPEED;
+
+    // Partial normalization reference: loud ecosystems are tamed, quiet
+    // ones fade naturally — but FLUOD_AGC_EXP < 1 keeps their swells real.
     v->agc_rms = (double)rms;
 
     // NaN/divergence trap: one poisoned cell would spread through diffusion
@@ -365,17 +480,38 @@ int fluod_voice_init(FluodVoice *v, uint32_t seed, double freq,
 
 // ── Render ──
 
-float fluod_voice_render(FluodVoice *v, double sample_rate, double env,
-                         double frequency) {
-    if (sample_rate <= 0) return 0.0f;
+// Spatial (x0/x1, tx) + temporal (tf) interpolated read of a prev/cur pair.
+static inline float fluod_scan(const float *tp, const float *tc,
+                               int x0, int x1, float tx, float tf) {
+    float cur = tc[x0] * (1 - tx) + tc[x1] * tx;
+    float prev = tp[x0] * (1 - tx) + tp[x1] * tx;
+    return prev * (1 - tf) + cur * tf;
+}
+
+void fluod_voice_render_stereo(FluodVoice *v, double sample_rate, double env,
+                               double frequency, float *out_l, float *out_r) {
+    *out_l = 0.0f;
+    *out_r = 0.0f;
+    if (sample_rate <= 0) return;
     v->sr = sample_rate;
+    v->age += 1.0 / sample_rate;
     v->tick_phase++;
     if (v->tick_phase >= FLUOD_TICK_SAMPLES) {
         fluod_tick(v);
         v->tick_phase = 0;
     }
 
-    v->phase += frequency / sample_rate;
+    // Swarm vibrato: the ecosystem's net drift along the scan axis bends
+    // pitch by up to ±FLUOD_VIB_CENTS. Smoothed ~60 ms so per-tick jumps in
+    // the mean become a slow organic wobble, not FM hash.
+    double drift_n = v->drift / FLUOD_TARGET_SPEED;
+    if (drift_n > 1.0) drift_n = 1.0;
+    if (drift_n < -1.0) drift_n = -1.0;
+    v->drift_smooth += (drift_n - v->drift_smooth) *
+                       (1.0 - exp(-1.0 / (sample_rate * 0.06)));
+    double vib = 1.0 + v->drift_smooth * (FLUOD_VIB_CENTS / 1200.0) * 0.6931472;
+
+    v->phase += frequency * vib / sample_rate;
     v->phase -= floor(v->phase);
 
     float fx = (float)v->phase * FLUOD_FIELD_W;
@@ -383,20 +519,48 @@ float fluod_voice_render(FluodVoice *v, double sample_rate, double env,
     float tx = fx - (float)x0;
     if (x0 >= FLUOD_FIELD_W) x0 = 0;
     int x1 = (x0 + 1) & (FLUOD_FIELD_W - 1);
-    float cur = v->tab_cur[x0] * (1 - tx) + v->tab_cur[x1] * tx;
-    float prev = v->tab_prev[x0] * (1 - tx) + v->tab_prev[x1] * tx;
     float tf = (float)v->tick_phase / (float)FLUOD_TICK_SAMPLES;
-    float raw = prev * (1 - tf) + cur * tf;
 
-    // Saturating normalization, eased with a ~30 ms one-pole so the leveling
-    // never steps at tick rate. First-call state 0 just means a short fade-in.
-    double target = FLUOD_OUT_TARGET / (FLUOD_AGC_FLOOR + v->agc_rms);
+    float body = fluod_scan(v->tab_prev, v->tab_cur, x0, x1, tx, tf);
+    float bright = fluod_scan(v->tabr_prev, v->tabr_cur, x0, x1, tx, tf)
+                   * v->raw_gain;
+    float side = fluod_scan(v->taby_prev, v->taby_cur, x0, x1, tx, tf)
+                 * v->side_gain * FLUOD_SIDE_WIDTH;
+
+    // Spectral envelope over time: hard bright layer at note birth decaying
+    // fast (a pluck/breath transient), plus a sustained remainder that
+    // tracks how agitated the swarm is — busy ecosystems shimmer, calm ones
+    // mellow. This is what separates an instrument from an organ patch.
+    double agit = (double)v->agitation - 0.8;
+    if (agit < 0) agit = 0;
+    if (agit > 1.5) agit = 1.5;
+    v->bright_smooth += (agit - v->bright_smooth) *
+                        (1.0 - exp(-1.0 / (sample_rate * 0.08)));
+    float bmix = FLUOD_BRIGHT_ATTACK * (float)exp(-v->age / FLUOD_BRIGHT_TAU)
+                 + FLUOD_BRIGHT_AGIT * (float)v->bright_smooth;
+    if (bmix > 0.9f) bmix = 0.9f;
+    float mid = body + bright * bmix;
+
+    // Partial normalization, eased slowly enough that the ecosystem's own
+    // 1–8 Hz amplitude life survives. First-call state 0 = short fade-in.
+    double target = pow(FLUOD_OUT_TARGET / (FLUOD_AGC_FLOOR + v->agc_rms),
+                        FLUOD_AGC_EXP);
     v->gain_smooth += (target - v->gain_smooth) *
-                      (1.0 - exp(-1.0 / (sample_rate * 0.03)));
-    float out = tanhf(raw * (float)v->gain_smooth) * (float)env;
-    if (!isfinite(out)) {
+                      (1.0 - exp(-1.0 / (sample_rate * FLUOD_AGC_SMOOTH_S)));
+    float g = (float)(v->gain_smooth * env);
+    float l = tanhf((mid + side) * g);
+    float r = tanhf((mid - side) * g);
+    if (!isfinite(l) || !isfinite(r)) {
         fluod_scatter(v);
-        return 0.0f;
+        return;
     }
-    return out;
+    *out_l = l;
+    *out_r = r;
+}
+
+float fluod_voice_render(FluodVoice *v, double sample_rate, double env,
+                         double frequency) {
+    float l, r;
+    fluod_voice_render_stereo(v, sample_rate, env, frequency, &l, &r);
+    return 0.5f * (l + r);
 }

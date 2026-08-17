@@ -12,6 +12,7 @@ import {
   buildSequenceState,
   sequenceDurationBeats,
   noteToTone,
+  applyPCenterShifts,
 } from "./melody-parser.mjs";
 import { buildColoredMelodyString } from "./melody-highlighter.mjs";
 
@@ -5261,6 +5262,15 @@ class KidLisp {
   }
 
   // Cache a cumulative-start timeline (ms offsets) for a note array on its state.
+  //
+  // The starts then get p-center corrected: a note is pulled earlier by its own
+  // perceptual attack lag, so what lands on the beat is where the note is HEARD
+  // to begin rather than the sample at which it physically starts. Without this
+  // a line that alternates a fast wave with a slow one plays perfectly on the
+  // grid and sounds like it is limping — the effect Wessel describes on p. 50
+  // and asks synthesis software to give composers control over. The correction
+  // is mean-zero and never changes `_loopMs`, so tempo and loop alignment are
+  // untouched; only the spacing inside the bar moves.
   _timeline(st, notes) {
     if (st._starts && st._starts.length === notes.length) return;
     const starts = [];
@@ -5269,7 +5279,7 @@ class KidLisp {
       starts.push(acc);
       acc += (n.duration || 1) * MELODY_BASE_MS;
     }
-    st._starts = starts;
+    st._starts = applyPCenterShifts(starts, notes);
     st._loopMs = acc;
   }
 

@@ -61,7 +61,7 @@ only" rule.
 | **perception** | Meter, entrainment, groove — where the grid model stops | [07](digest/07-perception-groove.md) |
 | **spatial** | Spatial hearing: the limits the `bracelet` thesis rests on | [08](digest/08-spatial-appendix.md) |
 | **solkattu** | Spoken rhythm: the konnakol syllable system as a representation | [09](digest/09-solkattu.md) |
-| **timbre** | Timbre space: the platter's dissimilarity-to-geometry move, off-rhythm | [10](digest/10-timbre-space.md) |
+| **timbre** | Timbre space: the platter's dissimilarity-to-geometry move, off-rhythm | [10](digest/10-timbre-space.md), [10a](digest/10a-timbre-space-in-ac.md) |
 
 Full bibliography with fetch URLs and verification status:
 [`sources.json`](sources.json) (33 entries; 9 open-access papers + 1 open

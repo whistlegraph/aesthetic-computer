@@ -63,6 +63,13 @@ Platter copy (JSTOR scan of *Computer Music Journal* 3(2), pp. 45–52) shared
 by Sage Jenson, 2026-08-15 — hand-placed in `sources/`, not fetched, since no
 open-access URL currently resolves. Cite the journal, not the scan.
 
+## Status
+
+[10a](10a-timbre-space-in-ac.md) audits this shelf against AC, notepat, Menu
+Band and TrackDrum, and builds the tools below in their acoustic-correlate
+form — measured axes, no listeners, no MDS. Read it for what the fleet already
+does with the paper, and for the limits the measurements carry.
+
 ## tools
 
 - `timbre_space(tones, judgments) -> points[]` — MDS embed; judgments may come

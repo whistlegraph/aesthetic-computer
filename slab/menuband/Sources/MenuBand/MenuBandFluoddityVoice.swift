@@ -151,6 +151,60 @@ final class MenuBandFluoddityVoice {
         lock.unlock()
     }
 
+    /// The current genome as 80 floats — the same layout Fluoddity writes to
+    /// its configs, so a bred instrument can be saved, named, and returned to.
+    /// Reseeding used to be the only way out of a genome, which made every
+    /// good accident unrepeatable.
+    func rule() -> [Float] {
+        var flat = [Float](repeating: 0, count: 80)
+        lock.lock()
+        flat.withUnsafeMutableBufferPointer { fluod_rule_to_floats(&genome, $0.baseAddress!) }
+        lock.unlock()
+        return flat
+    }
+
+    /// Move the instrument a fraction of the way toward another genome.
+    /// `amount` 0 changes nothing; 1 arrives. Repeated small steps walk a
+    /// path between two species instead of jumping between them.
+    func blend(toward target: [Float], amount: Float) {
+        guard target.count >= 80, amount > 0 else { return }
+        var other = FluodRule()
+        lock.lock()
+        target.withUnsafeBufferPointer { fluod_rule_from_floats(&other, $0.baseAddress!) }
+        // The C tolerates `out` aliasing an input; Swift's exclusivity rules
+        // do not, so the current genome goes through a local.
+        var from = genome
+        fluod_rule_lerp(&genome, &from, &other, min(1, amount))
+        lock.unlock()
+    }
+
+    /// A is to B as the current genome is to — this. The parallelogram model
+    /// (Ehresman & Wessel 1978): take the change that turned `a` into `b` and
+    /// apply the same change here. Timbral transposition.
+    func applyAnalogy(from a: [Float], to b: [Float]) {
+        guard a.count >= 80, b.count >= 80 else { return }
+        var ra = FluodRule(), rb = FluodRule()
+        lock.lock()
+        a.withUnsafeBufferPointer { fluod_rule_from_floats(&ra, $0.baseAddress!) }
+        b.withUnsafeBufferPointer { fluod_rule_from_floats(&rb, $0.baseAddress!) }
+        var c = genome
+        fluod_rule_analogy(&genome, &ra, &rb, &c)
+        lock.unlock()
+    }
+
+    /// Distance from the current genome to another, over the 80 parameters.
+    /// Genome distance, not timbral distance — it answers "how far did that
+    /// move me", which mutation alone never reported.
+    func distance(to other: [Float]) -> Float {
+        guard other.count >= 80 else { return .infinity }
+        var ro = FluodRule()
+        lock.lock()
+        other.withUnsafeBufferPointer { fluod_rule_from_floats(&ro, $0.baseAddress!) }
+        let d = fluod_rule_distance(&genome, &ro)
+        lock.unlock()
+        return d
+    }
+
     func setPitchBend(amount: Float) {
         pitchScale = pow(2.0, Double(amount))
     }
@@ -306,14 +360,16 @@ final class MenuBandFluoddityVoice {
                     env += attackInc
                     if env > 1.0 { env = 1.0 }
                 }
-                let s = Double(fluod_voice_render(ptr, sampleRate, env, f))
+                var sl: Float = 0
+                var sr: Float = 0
+                fluod_voice_render_stereo(ptr, sampleRate, env, f, &sl, &sr)
                 // The C core traps NaN internally, but never trust a
                 // render-thread value blindly (same belt-and-suspenders as
                 // the GM node).
-                if !s.isFinite { active = false; break }
-                let amp = Float(s * vGain * g)
-                left[i] += amp * 0.707
-                right[i] += amp * 0.707
+                if !sl.isFinite || !sr.isFinite { active = false; break }
+                let vg = Float(vGain * g)
+                left[i] += sl * vg
+                right[i] += sr * vg
             }
             voices[idx].env = env
             voices[idx].active = active
