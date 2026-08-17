@@ -1,93 +1,97 @@
 {
  "w-whole-line": {
   "slice": "f-whole-line",
-  "lead_in": 0.05,
-  "beats": 56.0,
+  "lead_in": 0.02,
+  "beats": 56.5,
   "renders": {
-   "lead": 27.99,
-   "8ve-a": 27.99,
-   "8ve-b": 27.99,
-   "low3": 27.99,
-   "low5": 27.99
+   "lead": 28.315,
+   "8ve-a": 28.315,
+   "8ve-b": 28.315,
+   "low3": 28.315,
+   "low5": 28.315
   },
   "snaps": [
-   "cur +5ms",
-   "led +240ms",
-   "up +30ms",
+   "curled +65ms",
+   "in +80ms",
    "myself -50ms",
-   "I +20ms",
-   "of -95ms",
-   "just +55ms",
-   "waiting -130ms",
-   "very +35ms",
-   "patiently +30ms",
-   "for -30ms",
-   "time -110ms",
-   "to +140ms",
-   "pass +165ms"
+   "i +180ms",
+   "think -45ms",
+   "of +225ms",
+   "a -40ms",
+   "stone -45ms",
+   "just +80ms",
+   "waiting +220ms",
+   "patiently +80ms",
+   "for -35ms",
+   "time +230ms",
+   "to -15ms",
+   "pass +130ms"
   ],
   "trims": [
-   "led \u2212420ms",
+   "up \u2212420ms",
    "myself\u00b7b \u2212265ms",
-   "think \u2212890ms",
+   "think \u2212350ms",
    "stone \u2212675ms",
    "just \u2212335ms",
    "very \u2212520ms",
-   "patiently \u22121295ms",
-   "time \u2212855ms",
-   "to \u2212850ms"
+   "time \u221280ms",
+   "to \u2212615ms"
   ],
   "words": "the whole lyric, one take"
  },
  "w-sitting-curled": {
   "slice": "f-sitting-curled",
-  "lead_in": 0.05,
+  "lead_in": 0.02,
   "beats": 11.0,
   "renders": {
-   "lead": 5.905,
-   "8ve-a": 5.905,
-   "8ve-b": 5.905,
-   "low3": 5.905,
-   "low5": 5.905
+   "lead": 5.735,
+   "8ve-a": 5.735,
+   "8ve-b": 5.735,
+   "low3": 5.735,
+   "low5": 5.735
   },
   "snaps": [
-   "cur +80ms",
-   "led +240ms",
-   "up +30ms",
-   "myself -50ms"
+   "up -20ms",
+   "in +60ms",
+   "myself +130ms"
   ],
   "trims": [
-   "led \u2212400ms"
+   "up \u2212400ms"
   ],
   "words": "sitting curled up in myself"
  },
  "w-i-think": {
   "slice": "f-i-think",
-  "lead_in": 0.06,
+  "lead_in": 0.02,
   "beats": 3.5,
   "renders": {
-   "lead": 2.225,
-   "8ve-a": 2.225,
-   "8ve-b": 2.225,
-   "low3": 2.225,
-   "low5": 2.225
+   "lead": 2.305,
+   "8ve-a": 2.305,
+   "8ve-b": 2.305,
+   "low3": 2.305,
+   "low5": 2.305
   },
-  "snaps": [],
+  "snaps": [
+   "think +80ms"
+  ],
   "trims": [],
   "words": "i think"
  },
  "w-of-a-stone": {
   "slice": "f-of-a-stone",
-  "lead_in": 0.06,
+  "lead_in": 0.0,
   "beats": 8.0,
   "renders": {
-   "lead": 4.395,
-   "8ve-a": 4.395,
-   "8ve-b": 4.395,
-   "low3": 4.395,
-   "low5": 4.395
+   "lead": 4.095,
+   "8ve-a": 4.095,
+   "8ve-b": 4.095,
+   "low3": 4.095,
+   "low5": 4.095
   },
-  "snaps": [],
+  "snaps": [
+   "a -40ms",
+   "stone -40ms"
+  ],
   "trims": [],
   "words": "of a stone"
  },
@@ -103,7 +107,7 @@
    "low5": 3.69
   },
   "snaps": [
-   "waiting -5ms"
+   "waiting +195ms"
   ],
   "trims": [
    "just \u2212340ms"
@@ -112,42 +116,39 @@
  },
  "w-very-patiently": {
   "slice": "f-very-patiently",
-  "lead_in": 0.03,
+  "lead_in": 0.0,
   "beats": 8.5,
   "renders": {
-   "lead": 4.645,
-   "8ve-a": 4.645,
-   "8ve-b": 4.645,
-   "low3": 4.645,
-   "low5": 4.645
+   "lead": 4.615,
+   "8ve-a": 4.615,
+   "8ve-b": 4.615,
+   "low3": 4.615,
+   "low5": 4.615
   },
   "snaps": [
-   "patiently +30ms"
+   "patiently -250ms",
+   "for -75ms"
   ],
-  "trims": [
-   "very \u2212520ms"
-  ],
+  "trims": [],
   "words": "very patiently"
  },
  "w-for-time-to-pass": {
   "slice": "f-for-time-to-pass",
-  "lead_in": 0.04,
+  "lead_in": 0.035,
   "beats": 12.5,
   "renders": {
-   "lead": 6.59,
-   "8ve-a": 6.59,
-   "8ve-b": 6.59,
-   "low3": 6.59,
-   "low5": 6.59
+   "lead": 6.695,
+   "8ve-a": 6.695,
+   "8ve-b": 6.695,
+   "low3": 6.695,
+   "low5": 6.695
   },
   "snaps": [
-   "time -110ms",
-   "to +140ms",
-   "pass +165ms"
+   "time +245ms",
+   "to -75ms"
   ],
   "trims": [
-   "time \u2212850ms",
-   "to \u2212850ms"
+   "to \u2212185ms"
   ],
   "words": "for time to pass"
  },
@@ -202,19 +203,18 @@
  },
  "w-n-for-time-to-pass": {
   "slice": "n-for-time-to-pass",
-  "lead_in": 0.06,
-  "beats": 6.5,
+  "lead_in": 0.0,
+  "beats": 5.5,
   "renders": {
-   "lead": 3.78,
-   "8ve-a": 3.78,
-   "8ve-b": 3.78,
-   "low3": 3.78,
-   "low5": 3.78
+   "lead": 3.13,
+   "8ve-a": 3.13,
+   "8ve-b": 3.13,
+   "low3": 3.13,
+   "low5": 3.13
   },
   "snaps": [
-   "time +240ms",
-   "to -75ms",
-   "pass +240ms"
+   "time +200ms",
+   "pass -150ms"
   ],
   "trims": [],
   "words": "for time to pass"

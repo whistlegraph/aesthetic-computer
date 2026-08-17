@@ -308,6 +308,37 @@ numbered, the kick lane flashing, a live timecode and `bar · beat`
 address in the corner. The active word outlines in pink rather than
 filling, so the waveform stays readable while it plays.
 
+Watching that video is also how **the wrong syllable** got caught —
+@jeffrey: *"hmm ur mistaken, the 'led' is actually the 'up' utterance in
+the data · you need to fix that alignment too · did you try using
+whisper to find the original word boundary · if not we should pass the
+audio to openai for that pls"*. He was right, and it was the deepest bug
+in the lane.
+
+The original receipts came from whisper.cpp ggml-small run with `-ml 1`
+(max one word per segment), which returns **sub-word tokens**: it cut
+*curled* into `cur` + `led`, and every label after that slid by a
+syllable. The span we were calling `led` is where she sings **up**; the
+spans `up` + `in` were both the one word **in**; and `stone` began 1.3 s
+early, inside the held octave of "of a" — which is why the octave kept
+bleeding into stone's block. A note segmentation of the take agrees:
+the first phrase is seven sung notes, F4 · D#4 · C#4 · C4 · A#3 · D#4 ·
+C4, for seven syllables — sit·ting curled up in my·self. There is no
+"led" note; it was the tail of *curled* plus the breath before *up*.
+
+`bin/align.py` re-aligns every slice through **OpenAI whisper-1 with
+word timestamps**, primed with the lyric so short clips aren't misheard
+(*f-sitting-curled* came back as "in my cell phone" without it), and
+repairs whisper-1's occasional zero-width word by finding that word's
+real onset in the audio. Anything it can't align cleanly stays on the
+old receipt and says so. Receipt: `samples/.align.json`.
+
+Two things fixed themselves once the labels were right. **"up" is C4 and
+"in" is A#3** — two different notes, so bar 2 stopped reading as one
+fused tonic. And **"a" is G#4, not A#4**, so it is no longer the same
+pitch as "of": the octave now steps A#4 → G#4 → D#4 across *of a stone*
+instead of holding one unbroken note through all three blocks.
+
 Watching that video is also how **the boundary repair** got found —
 @jeffrey: *"has word boundary wrong · led has up within it · that's
 definitely causing bugs"*. Whisper times a word where the transcript
@@ -344,16 +375,16 @@ of hole inside its block (led's was a full beat). The gate is
 deliberately conservative — at −26 dB it would cut 2.1 s out of
 "stone". Receipt: `trims` in `vox4/.manifest.json`.
 
-Bar 1 and 2 are hand-pinned against that picture: **curled** alone fills
-bar 1 (cur 2 + led 2 — her own split says led ≥ cur), and **"up in"
-owns all of bar 2** (up 1.5 + in 2.5 — in gets the longer hold because
-she sings it twice as long). Those beats came out of "myself", which was
-stretching 1.92× into synthesized tone and now sits at 0.96×, her real
-voice. Worth knowing what that costs: her "up in" is 0.75 s of source
-against a 1.97 s bar, so filling it is a 2.6× stretch — past the 1.8×
-line where the engine stops replaying her and starts holding a
-synthesized grid tone. Both words are the tonic, so bar 2 reads as one
-held A#3 with no seam between them.
+The first half is now one word per bar: **sitting** = bar 0, **curled**
+= bar 1 (@jeffrey: *"curled is too short"* — and with the real alignment
+it is one word, so it simply takes the bar), **"up in"** = bar 2
+(*"'up in' should last a full bar"*; *in* holds longer because she sings
+it twice as long), **my·self·i** = bar 3, so *think* keeps the bar-4
+downbeat and *of*/*a*/*stone* never move.
+
+```bash
+OPENAI_API_KEY=... pop/.venv/bin/python pop/loner/bin/align.py
+```
 
 ```bash
 MINIMAL=1 pop/loner/c/lonerremix       # → out/loner-kickvox-full.wav

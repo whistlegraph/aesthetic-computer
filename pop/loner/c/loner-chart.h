@@ -14,56 +14,55 @@ typedef struct { const char *name; double leadIn; double beats;
 
 static const ChartNote w_whole_line_notes[] = {
     { 0.00, 4.00, 7 },
-    { 4.00, 2.00, 3 },
-    { 6.00, 2.00, 2 },
-    { 8.00, 1.50, 0 },
+    { 4.00, 4.00, 3 },
+    { 8.00, 1.50, 2 },
     { 9.50, 2.50, 0 },
     { 12.00, 1.50, 5 },
     { 13.50, 1.50, 5 },
     { 15.00, 1.00, -2 },
-    { 16.00, 2.00, -2 },
+    { 16.00, 2.00, -5 },
     { 18.00, 4.00, 12 },
-    { 22.00, 0.50, 12 },
-    { 22.50, 3.50, 6 },
-    { 26.00, 3.00, 2 },
-    { 29.00, 4.00, 3 },
-    { 33.00, 3.50, 0 },
-    { 36.50, 5.50, 5 },
-    { 42.00, 2.00, 5 },
-    { 44.00, 4.00, 7 },
-    { 48.00, 4.00, 3 },
-    { 52.00, 4.00, 3 },
+    { 22.00, 0.50, 10 },
+    { 22.50, 3.50, 5 },
+    { 26.00, 3.50, 2 },
+    { 29.50, 3.50, 3 },
+    { 33.00, 4.50, 0 },
+    { 37.50, 2.50, 7 },
+    { 40.00, 5.00, 3 },
+    { 45.00, 2.50, 7 },
+    { 47.50, 5.50, 3 },
+    { 53.00, 3.50, 3 },
 };
 static const ChartNote w_sitting_curled_notes[] = {
-    { 0.00, 3.00, 7 },
+    { 0.00, 3.00, 6 },
     { 3.00, 2.00, 3 },
     { 5.00, 1.50, 2 },
-    { 6.50, 0.50, 0 },
-    { 7.00, 1.00, 0 },
-    { 8.00, 3.00, 5 },
+    { 6.50, 1.50, 0 },
+    { 8.00, 3.00, 4 },
 };
 static const ChartNote w_i_think_notes[] = {
-    { 0.00, 0.50, -2 },
-    { 0.50, 3.00, -2 },
+    { 0.00, 2.50, -2 },
+    { 2.50, 1.00, -5 },
 };
 static const ChartNote w_of_a_stone_notes[] = {
-    { 0.00, 1.50, 12 },
-    { 1.50, 1.00, 12 },
-    { 2.50, 5.50, 6 },
+    { 0.00, 4.00, 12 },
+    { 4.00, 2.00, 10 },
+    { 6.00, 2.00, 5 },
 };
 static const ChartNote w_just_waiting_notes[] = {
-    { 0.00, 3.00, 2 },
-    { 3.00, 3.50, 3 },
+    { 0.00, 3.50, 2 },
+    { 3.50, 3.00, 3 },
 };
 static const ChartNote w_very_patiently_notes[] = {
-    { 0.00, 3.50, 0 },
-    { 3.50, 5.00, 5 },
+    { 0.00, 2.50, 0 },
+    { 2.50, 3.50, 7 },
+    { 6.00, 2.50, 3 },
 };
 static const ChartNote w_for_time_to_pass_notes[] = {
-    { 0.00, 1.50, 5 },
-    { 1.50, 4.00, 7 },
-    { 5.50, 3.50, 3 },
-    { 9.00, 3.50, 3 },
+    { 0.00, 2.00, 5 },
+    { 2.00, 2.50, 7 },
+    { 4.50, 4.00, 3 },
+    { 8.50, 4.00, 3 },
 };
 static const ChartNote w_n_getting_curled_notes[] = {
     { 0.00, 3.00, 5 },
@@ -85,22 +84,22 @@ static const ChartNote w_n_stone_waiting_notes[] = {
     { 11.50, 5.00, 5 },
 };
 static const ChartNote w_n_for_time_to_pass_notes[] = {
-    { 0.00, 2.00, 7 },
-    { 2.00, 1.50, 7 },
-    { 3.50, 1.50, 3 },
-    { 5.00, 1.50, 3 },
+    { 0.00, 0.50, 5 },
+    { 0.50, 1.00, 7 },
+    { 1.50, 2.50, 3 },
+    { 4.00, 1.50, 3 },
 };
 
 static const ChartPhrase CHART[] = {
-    { "w-whole-line", 0.050, 56.00, 20, w_whole_line_notes },
-    { "w-sitting-curled", 0.050, 11.00, 6, w_sitting_curled_notes },
-    { "w-i-think", 0.060, 3.50, 2, w_i_think_notes },
-    { "w-of-a-stone", 0.060, 8.00, 3, w_of_a_stone_notes },
+    { "w-whole-line", 0.020, 56.50, 19, w_whole_line_notes },
+    { "w-sitting-curled", 0.020, 11.00, 5, w_sitting_curled_notes },
+    { "w-i-think", 0.020, 3.50, 2, w_i_think_notes },
+    { "w-of-a-stone", 0.000, 8.00, 3, w_of_a_stone_notes },
     { "w-just-waiting", 0.075, 6.50, 2, w_just_waiting_notes },
-    { "w-very-patiently", 0.030, 8.50, 2, w_very_patiently_notes },
-    { "w-for-time-to-pass", 0.040, 12.50, 4, w_for_time_to_pass_notes },
+    { "w-very-patiently", 0.000, 8.50, 3, w_very_patiently_notes },
+    { "w-for-time-to-pass", 0.035, 12.50, 4, w_for_time_to_pass_notes },
     { "w-n-getting-curled", 0.060, 10.50, 8, w_n_getting_curled_notes },
     { "w-n-stone-waiting", 0.060, 16.50, 7, w_n_stone_waiting_notes },
-    { "w-n-for-time-to-pass", 0.060, 6.50, 4, w_n_for_time_to_pass_notes },
+    { "w-n-for-time-to-pass", 0.000, 5.50, 4, w_n_for_time_to_pass_notes },
 };
 #define CHART_N 10

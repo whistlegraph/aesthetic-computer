@@ -158,26 +158,25 @@ CHART = {
     "w-whole-line":        { "slice": "f-whole-line",        "beats": 56.0,
                              # splits: original unit indices to cut at their
                              # internal fricative (myself → my·self), so the
-                             # bar map can be: sitting = bar 1 · curled up =
-                             # bar 2 · in my = bar 3 · self i = bar 4 — and
-                             # "think" lands on the bar-5 downbeat. durs are
-                             # POST-split indices.
-                             "splits": [5],
-                             # then: think = 2 · OF (the octave) = 4 ·
-                             # a stone = 4. "curled is too short · up
-                             # comes too soon": CURLED alone fills bar 1
-                             # (cur 2 + led 2 — her own 37/50 split says
-                             # led ≥ cur). "up and in should be much
-                             # longer": UP IN now owns the whole of bar
-                             # 2 (1.5 + 2.5 — in gets the longer hold
-                             # because she sings it twice as long), and
-                             # the beats come OUT of myself, which was
-                             # stretching 1.92× into a synthesized tone
-                             # and now sits at 0.96× — her real voice.
-                             # think still lands on the bar-4 downbeat.
-                             "durs": { 0: 4.0, 1: 2.0, 2: 2.0, 3: 1.5,
-                                       4: 2.5, 5: 1.5, 6: 1.5, 7: 1.0,
-                                       8: 2.0, 9: 4.0, 10: 0.5, 11: 3.5 } },
+                             # bar map can be one word per bar. Index 4 is
+                             # "myself" under the OpenAI alignment, where
+                             # "curled" is ONE word — under whisper.cpp's
+                             # sub-word tokens it was cur+led and this was 5.
+                             # durs are POST-split indices.
+                             "splits": [4],
+                             # One word per bar through the first half:
+                             # sitting = bar 0 · CURLED = bar 1 (@jeffrey:
+                             # "curled is too short" — and with the real
+                             # alignment it is one word, so it simply
+                             # takes the bar) · UP IN = bar 2 ("'up in'
+                             # should last a full bar"; in holds longer
+                             # because she sings it twice as long) ·
+                             # my·self·i = bar 3, so think lands on the
+                             # bar-4 downbeat · OF (the octave) = 4 ·
+                             # a stone = 4.
+                             "durs": { 0: 4.0, 1: 4.0, 2: 1.5, 3: 2.5,
+                                       4: 1.5, 5: 1.5, 6: 1.0, 7: 2.0,
+                                       8: 4.0, 9: 0.5, 10: 3.5 } },
     "w-sitting-curled":    { "slice": "f-sitting-curled",    "beats": 11.0 },
     "w-i-think":           { "slice": "f-i-think",           "beats": 3.5 },
     "w-of-a-stone":        { "slice": "f-of-a-stone",        "beats": 8.0 },
@@ -209,6 +208,18 @@ def derive_units(words, beats_total, stretch=None, durs=None):
     return units
 
 SLICES = json.load(open(os.path.join(LANE, "samples", ".manifest.json")))
+
+# ── the alignment — OpenAI's words, not whisper.cpp's sub-word tokens ──
+# The lane's original receipts came from whisper.cpp ggml-small at -ml 1,
+# which returns TOKENS: it cut "curled" into "cur" + "led", and every
+# label after slid by a syllable, so the span we were calling `led` is
+# where she sings **up**, and `stone` started 1.3 s early inside the held
+# octave of "of a". bin/align.py re-aligns each slice through OpenAI
+# whisper-1 with word timestamps; anything it can't align cleanly stays
+# on the old receipt. Times there are slice-relative, so they come back
+# onto the manifest's clock by adding the slice start.
+ALIGN_PATH = os.path.join(LANE, "samples", ".align.json")
+ALIGN = json.load(open(ALIGN_PATH)) if os.path.exists(ALIGN_PATH) else {}
 
 # ── boundary repair — snap whisper's word times to the real note ──────
 # @jeffrey, watching the study: "has word boundary wrong · led has up
@@ -477,7 +488,13 @@ for name, ch in CHART.items():
     a = analyze(x, fs)
     F = len(a["f0c"])
     t0_slice = entry["start"]
-    words = list(entry["word_f0"])
+    aligned = slice_name in ALIGN
+    if aligned:
+        words = [dict(t=w["t"], start=t0_slice + w["start"],
+                      end=t0_slice + w["end"], f0_hz=w["f0_hz"],
+                      note=w["note"]) for w in ALIGN[slice_name]["words"]]
+    else:
+        words = list(entry["word_f0"])
     words, snaps = snap_boundaries(a, words, t0_slice)
     # sub-split units at their internal fricative (e.g. myself → my·self)
     for ui in sorted(ch.get("splits", []), reverse=True):
