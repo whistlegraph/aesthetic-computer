@@ -97,6 +97,11 @@
   .theme-choice{border:1px solid var(--line);background:var(--paper);color:var(--ink);font:14px/1.2 var(--sans);padding:11px 6px;cursor:pointer}
   .theme-choice[aria-pressed="true"]{background:var(--ink);color:var(--paper)}
   .theme-status{color:var(--dim);font-size:12.5px;margin:12px 0 0}
+  /* the language shelf — the label names itself in three scripts so anyone
+     stranded in the wrong tongue can still find the way out */
+  .theme-lang{margin-top:16px;display:flex;flex-direction:column;gap:5px}
+  .theme-lang label{font-size:12.5px;color:var(--dim)}
+  .theme-lang select{font:14px/1.2 var(--sans);color:var(--ink);background:var(--paper);border:1px solid var(--line);border-radius:2px;padding:7px 8px;cursor:pointer}
   /* the real hand-lettered whistlegraph wordmark — cut into 12 letters */
   .logo{display:block; position:relative; width:100%; max-width:520px; aspect-ratio:1517/266; margin:2px 0 0 -3px}
   .logo.mini{max-width:230px; margin-bottom:6px}
@@ -215,7 +220,8 @@
   td.yr{color:var(--dim); text-align:right; white-space:nowrap; overflow:hidden; font-variant-numeric:tabular-nums; font-size:12.5px}
   td.yr .vw{display:block; font-size:11px}
   /* the " views" suffix only fits while the list is still one column wide */
-  @media (min-width:561px) and (max-width:699px){ td.yr .vw::after{content:" views"} }
+  /* the suffix word rides in a data attribute so the active language owns it */
+  @media (min-width:561px) and (max-width:699px){ td.yr .vw::after{content:" " attr(data-vsuf)} }
   tr.row:hover{background:var(--rowhi)}
 
   ul.plain{list-style:none} ul.plain li{padding:3px 0}
@@ -324,21 +330,38 @@
 
   <dialog class="theme-dialog" id="themeDialog" aria-labelledby="themeTitle">
     <div class="theme-head">
-      <h2 id="themeTitle">Appearance</h2>
-      <button class="theme-close" id="themeClose" type="button" aria-label="Close appearance settings">×</button>
+      <h2 id="themeTitle" data-i18n="appearance.title">Appearance</h2>
+      <button class="theme-close" id="themeClose" type="button" aria-label="Close appearance settings" data-i18n-attrs="aria-label:appearance.close">×</button>
     </div>
-    <div class="theme-options" aria-label="Theme">
-      <button class="theme-choice" type="button" data-theme-choice="auto">Auto</button>
-      <button class="theme-choice" type="button" data-theme-choice="light">Light</button>
-      <button class="theme-choice" type="button" data-theme-choice="dark">Dark</button>
+    <div class="theme-options" aria-label="Theme" data-i18n-attrs="aria-label:appearance.theme">
+      <button class="theme-choice" type="button" data-theme-choice="auto" data-i18n="appearance.auto">Auto</button>
+      <button class="theme-choice" type="button" data-theme-choice="light" data-i18n="appearance.light">Light</button>
+      <button class="theme-choice" type="button" data-theme-choice="dark" data-i18n="appearance.dark">Dark</button>
     </div>
     <p class="theme-status" id="themeStatus"></p>
+    <div class="theme-lang">
+      <label for="langSelect">Language / 语言 / 言語</label>
+      <select id="langSelect">
+        <option value="en">English</option>
+        <option value="es">Español</option>
+        <option value="ja">日本語</option>
+        <option value="zh">中文</option>
+        <option value="da">Dansk</option>
+        <option value="ru">Русский</option>
+        <option value="nl">Nederlands</option>
+        <option value="de">Deutsch</option>
+        <option value="ko">한국어</option>
+        <option value="hi">हिन्दी</option>
+        <option value="tl">Tagalog</option>
+        <option value="fr">Français</option>
+      </select>
+    </div>
   </dialog>
 
   <!-- ══════════ INDEX ══════════ -->
   <div id="index">
     <header>
-      <button class="theme-open" type="button" aria-label="Appearance settings" title="Appearance settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
+      <button class="theme-open" type="button" aria-label="Appearance settings" title="Appearance settings" data-i18n-attrs="aria-label:appearance.open,title:appearance.open"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
       <div class="logo" role="img" aria-label="Whistlegraph">
         <img src="/letters/00-w.png" alt="" width="164" height="180" style="left:0.066%;top:0.376%;width:10.811%">
         <img src="/letters/01-h.png" alt="" width="125" height="174" style="left:11.668%;top:21.053%;width:8.240%">
@@ -356,51 +379,51 @@
     </header>
     <div class="searchrow">
       <input id="idxSearch" type="search" placeholder="Search title or code…" autocomplete="off" spellcheck="false"
-        aria-label="Search whistlegraphs">
-      <button class="filter-toggle" id="filterToggle" type="button" aria-expanded="false" aria-label="Filters" title="Filters">
+        aria-label="Search whistlegraphs" data-i18n-attrs="placeholder:search.placeholder_works,aria-label:search.aria">
+      <button class="filter-toggle" id="filterToggle" type="button" aria-expanded="false" aria-label="Filters" title="Filters" data-i18n-attrs="aria-label:filters.toggle,title:filters.toggle">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
       </button>
     </div>
     <div id="filterPanel">
-    <div class="sectionbar" id="sectionbar" aria-label="Archive section">
-      <button data-section="works" class="on">Whistlegraphs</button>
-      <button data-section="archive">Posts</button>
+    <div class="sectionbar" id="sectionbar" aria-label="Archive section" data-i18n-attrs="aria-label:section.aria">
+      <button data-section="works" class="on" data-i18n="section.works">Whistlegraphs</button>
+      <button data-section="archive" data-i18n="section.posts">Posts</button>
     </div>
     <div class="sortbar" id="workSortbar">
-      <button data-sort="viewed">Popularity</button>
-      <button data-sort="duration">Duration</button>
-      <button data-sort="videos">Most videos</button>
-      <button data-sort="year">By year</button>
-      <button data-sort="title">Title A–Z</button>
-      <button data-sort="author">Author A–Z</button>
-      <button id="reverseSort" type="button" aria-pressed="false" aria-label="Reverse order" title="Reverse order" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21 16-4 4-4-4"/><path d="M17 20V4"/><path d="m3 8 4-4 4 4"/><path d="M7 4v16"/></svg></button>
+      <button data-sort="viewed" data-i18n="sort.viewed">Popularity</button>
+      <button data-sort="duration" data-i18n="sort.duration">Duration</button>
+      <button data-sort="videos" data-i18n="sort.videos">Most videos</button>
+      <button data-sort="year" data-i18n="sort.year">By year</button>
+      <button data-sort="title" data-i18n="sort.title">Title A–Z</button>
+      <button data-sort="author" data-i18n="sort.author">Author A–Z</button>
+      <button id="reverseSort" type="button" aria-pressed="false" aria-label="Reverse order" title="Reverse order" data-i18n-attrs="aria-label:sort.reverse,title:sort.reverse" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21 16-4 4-4-4"/><path d="M17 20V4"/><path d="m3 8 4-4 4 4"/><path d="M7 4v16"/></svg></button>
     </div>
     <div class="sortbar" id="archiveFilterbar" style="display:none">
-      <span class="sl">Filter:</span>
-      <button data-kind="all" class="on">All posts</button>
-      <button data-kind="performance">Performances</button>
-      <button data-kind="talk">Talks</button>
-      <button data-kind="other">Other</button>
+      <span class="sl" data-i18n="filters.label">Filter:</span>
+      <button data-kind="all" class="on" data-i18n="kind.all">All posts</button>
+      <button data-kind="performance" data-i18n="kind.performances">Performances</button>
+      <button data-kind="talk" data-i18n="kind.talks">Talks</button>
+      <button data-kind="other" data-i18n="kind.other">Other</button>
     </div>
     <div class="sortbar" id="archiveSortbar" style="display:none">
-      <button data-sort="viewed" class="on">Popularity</button>
-      <button data-sort="newest">Newest</button>
-      <button data-sort="oldest">Oldest</button>
+      <button data-sort="viewed" class="on" data-i18n="sort.viewed">Popularity</button>
+      <button data-sort="newest" data-i18n="sort.newest">Newest</button>
+      <button data-sort="oldest" data-i18n="sort.oldest">Oldest</button>
     </div>
     </div>
     <div class="wrap">
       <table class="idx" id="idx"><tbody></tbody></table>
       <div id="idxSentinel" aria-hidden="true"></div>
-      <p id="idxEmpty" class="dim" style="display:none;font-size:13px;padding:14px 8px">Nothing matches that search.</p>
+      <p id="idxEmpty" class="dim" style="display:none;font-size:13px;padding:14px 8px" data-i18n="search.empty">Nothing matches that search.</p>
     </div>
 
     <hr>
-    <h2>Code cloud</h2>
+    <h2 data-i18n="cloud.title">Code cloud</h2>
     <div class="codecloud" id="codeCloud"></div>
 
     <hr>
-    <h2>Lectures, shows &amp; press</h2>
-    <p class="glab">Appearances</p>
+    <h2 data-i18n="headings.lectures">Lectures, shows &amp; press</h2>
+    <p class="glab" data-i18n="cat.appearances">Appearances</p>
     <ul class="plain">
       <li><a href="https://arsscientia.online/">Ars Scientia Presents</a> — KAJE, Brooklyn, New York — 2023</li>
       <li>Presenting Whistlegraphs — New York Times Building, New York, New York — 2023</li>
@@ -420,7 +443,7 @@
       <li><a href="https://www.youtube.com/watch?v=Q0fRogwoGt0">New Dynamic Graphics — India HCI 2019</a> — 2019</li>
       <li><a href="https://media.ccc.de/v/35c3-9774-radical_digital_painting">Radical Digital Painting — 35c3, Leipzig</a> — 2018</li>
     </ul>
-    <p class="glab">Exhibitions</p>
+    <p class="glab" data-i18n="cat.exhibitions">Exhibitions</p>
     <ul class="plain">
       <li><a href="https://feralfile.com/exhibitions/ten-whistlegraphs-thv">Ten Whistlegraphs</a> — Feral File — 2022</li>
       <li><a href="https://sites.rhizome.org/the-longest-whistlegraph-ever-so-far/about/">The Longest Whistlegraph Ever (So Far)</a> — Rhizome commission / <a href="https://www.newmuseum.org/exhibition/first-look-the-longest-whistlegraph-ever-so-far/">New Museum First Look</a> / FR MoCA, Fall River, Massachusetts — 2022 · <a href="https://www.youtube.com/watch?v=PN0H4fWafMk">trailer</a> · <a href="https://rhizome.org/editorial/2022/sep/13/first-look-the-longest-whistlegraph-ever-so-far/">editorial</a></li>
@@ -428,46 +451,46 @@
       <li><a href="https://www.youtube.com/watch?v=eD-6j1cNgMo">School of Truth</a> — Galerie Yeche Lange — 2022</li>
       <li>Taipei Dangdai — 2022</li>
     </ul>
-    <p class="glab">Workshops &amp; public programs</p>
+    <p class="glab" data-i18n="cat.workshops">Workshops &amp; public programs</p>
     <ul class="plain">
       <li><a href="https://assets.aesthetic.computer/whistlegraph/lectures/art-for-covid-relief-india.mp4">Art Hangout with Whistlegraph</a> — Art for COVID Relief, India, remote — 2021</li>
       <li><a href="https://rhizome.org/editorial/2022/mar/02/apply-to-whistlegraph-workshops/">Write a Whistlegraph</a> with Rhizome — 2022 · <a href="https://rhizome.org/editorial/2022/oct/05/write-a-whistlegraph-workshop-documentation/">documentation</a></li>
       <li><a href="https://sma.sou.edu/free-family-days-with-whistlegraph/">Art Beyond Festival</a> — Schneider Museum of Art, Ashland, Oregon — 2021</li>
     </ul>
-    <p class="glab">Press &amp; writing</p>
+    <p class="glab" data-i18n="cat.press">Press &amp; writing</p>
     <ul class="plain">
       <li><a href="https://dirt.fyi/article/2023/09/whistlegraph">What is a Whistlegraph?</a> — Dirt — 2023</li>
       <li><a href="https://feralfile.com/journal/close-up/whistlegraph-doodling-clockwork-in-lore-and-score">Doodling Clockwork in Lore and Score</a> — Dorothy Howard, Feral File — 2022</li>
     </ul>
-    <p class="glab">Papers</p>
+    <p class="glab" data-i18n="cat.papers">Papers</p>
     <ul class="plain">
       <li><a href="https://papers.aesthetic.computer/whistlegraph-26-arxiv.pdf">Whistlegraph: Drawing, Singing, and the Graphic Score as Viral Form</a> <span class="dim">· <a href="https://papers.aesthetic.computer/whistlegraph-26-arxiv-cards.pdf">cards</a> · <a href="https://papers.aesthetic.computer/whistlegraph-26-arxiv-da.pdf">DA</a> <a href="https://papers.aesthetic.computer/whistlegraph-26-arxiv-es.pdf">ES</a> <a href="https://papers.aesthetic.computer/whistlegraph-26-arxiv-ja.pdf">JA</a> <a href="https://papers.aesthetic.computer/whistlegraph-26-arxiv-zh.pdf">ZH</a></span></li>
       <li>It runs through the <a href="https://papers.aesthetic.computer/">aesthetic.computer papers</a> too — <a href="https://papers.aesthetic.computer/sucking-on-the-complex-26-arxiv.pdf">Sucking on the Complex</a>, <a href="https://papers.aesthetic.computer/repo-archaeology-26-arxiv.pdf">Repository Archaeology</a>, <a href="https://papers.aesthetic.computer/pals-mark-26-arxiv.pdf">The Pals Mark</a>, <a href="https://papers.aesthetic.computer/potter-and-prompt-26-arxiv.pdf">The Potter and the Prompt</a>, <a href="https://papers.aesthetic.computer/folk-songs-26-arxiv.pdf">Playable Folk Songs</a>, <a href="https://papers.aesthetic.computer/notepat-26-arxiv.pdf">notepat.com</a>, <a href="https://papers.aesthetic.computer/url-tradition-26-arxiv.pdf">The URL Tradition</a>.</li>
     </ul>
-    <p class="glab">Publication</p>
+    <p class="glab" data-i18n="cat.publication">Publication</p>
     <span class="zine"><img src="/sexmag-zine.jpg" alt="The Whistlegraph Zine cover — Sex Magazine, 2023" width="768" height="1023" loading="lazy"></span>
     <p class="dim" style="font-size:12.5px;margin-top:0">The Whistlegraph Zine — Sex Magazine (ed. Asher Penn), 2023. 60pp, 750 copies.</p>
 
     <hr>
-    <h2>Elsewhere</h2>
+    <h2 data-i18n="headings.elsewhere">Elsewhere</h2>
     <ul class="plain">
-      <li><a href="https://www.tiktok.com/@whistlegraph">TikTok</a> — where it grew (2.6M, no ads)</li>
-      <li><a href="https://aesthetic.computer/whistlegraph">Record your own</a> — the recorder, on aesthetic.computer</li>
-      <li><a href="https://www.youtube.com/watch?v=yB82tT8INxg">What's Inside Your Heart?</a> — the official music video</li>
+      <li><a href="https://www.tiktok.com/@whistlegraph">TikTok</a> — <span data-i18n="elsewhere.tiktok">where it grew (2.6M, no ads)</span></li>
+      <li><a href="https://aesthetic.computer/whistlegraph" data-i18n="elsewhere.record">Record your own</a> — <span data-i18n="elsewhere.recorder">the recorder, on aesthetic.computer</span></li>
+      <li><a href="https://www.youtube.com/watch?v=yB82tT8INxg">What's Inside Your Heart?</a> — <span data-i18n="elsewhere.musicvideo">the official music video</span></li>
       <li><a href="https://feralfile.com/artists/Whistlegraph">Feral File</a> · <a href="https://www.youtube.com/watch?v=YXUUCkqv2LY">Kunstverein Hamburg</a> · <a href="https://sites.rhizome.org/the-longest-whistlegraph-ever-so-far/">Rhizome</a> · <a href="https://www.are.na/aesthetic-computer/self-teaching-scores">Are.na</a> · <a href="https://www.youtube.com/watch?v=eD-6j1cNgMo">Galerie Yeche Lange</a></li>
       <li><a href="https://distrokid.com/hyperfollow/whistlegraph/music-2-whistlegraph-2">Music 2 Whistlegraph 2</a></li>
     </ul>
 
     <hr class="thick">
     <footer>
-      Last updated 2026.08.12<br>
-      Media from the <a href="https://aesthetic.computer">aesthetic.computer</a> archive.
+      <span data-i18n="footer.updated" data-i18n-vars='{"date":"2026.08.12"}'>Last updated 2026.08.12</span><br>
+      <span data-i18n-html="footer.media">Media from the <a href="https://aesthetic.computer">aesthetic.computer</a> archive.</span>
     </footer>
   </div>
 
   <!-- ══════════ DETAIL ══════════ -->
   <div id="detail">
-    <button class="theme-open" type="button" aria-label="Appearance settings" title="Appearance settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
+    <button class="theme-open" type="button" aria-label="Appearance settings" title="Appearance settings" data-i18n-attrs="aria-label:appearance.open,title:appearance.open"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
     <a href="/" id="homelogo" style="display:block;background:none">
       <div class="logo mini" role="img" aria-label="Whistlegraph">
         <img src="/letters/00-w.png" alt="" width="164" height="180" style="left:0.066%;top:0.376%;width:10.811%">
@@ -484,8 +507,8 @@
         <img src="/letters/11-h.png" alt="" width="136" height="178" style="left:91.035%;top:32.707%;width:8.965%">
       </div>
     </a>
-    <p class="back"><a href="/" id="backlink">← Back to the index</a></p>
-    <nav class="pn" id="dPrevNext" aria-label="Adjacent entries"></nav>
+    <p class="back"><a href="/" id="backlink" data-i18n="detail.back">← Back to the index</a></p>
+    <nav class="pn" id="dPrevNext" aria-label="Adjacent entries" data-i18n-attrs="aria-label:detail.adjacent"></nav>
     <h1 class="mark" id="dTitle" style="font-size:clamp(30px,9vw,54px)"></h1>
     <div class="est" id="dBy"></div>
     <div class="note" style="margin-top:12px">
@@ -507,12 +530,146 @@
     <div id="dPosts" style="display:none;clear:both"></div>
     <div class="clear"></div>
     <hr class="thick">
-    <p class="back"><a href="/">← Back to the index</a></p>
+    <p class="back"><a href="/" data-i18n="detail.back">← Back to the index</a></p>
   </div>
 
 </div>
 
 <script>
+/* ——— i18n ——— the chrome speaks twelve languages; work titles, author names,
+   and citation lines stay English (they are bibliography, not interface).
+   locales/en.json is the canonical key registry; EN below mirrors it so a
+   failed locale fetch never blanks the chrome. Keep the two in sync. */
+const LANG_KEY="whistlegraph-lang";
+const LANGS={en:"English",es:"Español",ja:"日本語",zh:"中文",da:"Dansk",ru:"Русский",
+  nl:"Nederlands",de:"Deutsch",ko:"한국어",hi:"हिन्दी",tl:"Tagalog",fr:"Français"};
+const HTML_LANG={zh:"zh-Hans"}; // the rest map 1:1 onto <html lang>
+const EN={
+  "tagline":"a drawing you sing",
+  "meta.description":"A whistlegraph is a drawing you sing. The finished picture is a score — it teaches you how to play it. An index of the artform.",
+  "meta.og_description":"A drawing you sing. The score teaches you how to play it.",
+  "appearance.title":"Appearance","appearance.open":"Appearance settings",
+  "appearance.close":"Close appearance settings","appearance.theme":"Theme",
+  "appearance.auto":"Auto","appearance.light":"Light","appearance.dark":"Dark",
+  "appearance.mode_light":"light","appearance.mode_dark":"dark",
+  "appearance.status_auto":"Auto: {mode}. Dark requires system dark mode after 6 PM.",
+  "appearance.status_forced":"Forced {mode}.",
+  "search.placeholder_works":"Search title or code…",
+  "search.placeholder_archive":"Search posts, works, or IDs…",
+  "search.aria":"Search whistlegraphs","search.empty":"Nothing matches that search.",
+  "filters.toggle":"Filters","filters.label":"Filter:",
+  "section.aria":"Archive section","section.works":"Whistlegraphs","section.posts":"Posts",
+  "sort.viewed":"Popularity","sort.duration":"Duration","sort.videos":"Most videos",
+  "sort.year":"By year","sort.title":"Title A–Z","sort.author":"Author A–Z",
+  "sort.reverse":"Reverse order","sort.newest":"Newest","sort.oldest":"Oldest",
+  "kind.all":"All posts","kind.performance":"Performance","kind.performances":"Performances",
+  "kind.talk":"Talk","kind.talks":"Talks","kind.other":"Other","kind.post":"Post",
+  "cloud.title":"Code cloud","cloud.views_title":"{title} — {views} views",
+  "headings.lectures":"Lectures, shows & press","headings.elsewhere":"Elsewhere",
+  "cat.appearances":"Appearances","cat.exhibitions":"Exhibitions",
+  "cat.workshops":"Workshops & public programs","cat.press":"Press & writing",
+  "cat.papers":"Papers","cat.publication":"Publication",
+  "elsewhere.tiktok":"where it grew (2.6M, no ads)","elsewhere.record":"Record your own",
+  "elsewhere.recorder":"the recorder, on aesthetic.computer",
+  "elsewhere.musicvideo":"the official music video",
+  "footer.updated":"Last updated {date}",
+  "footer.media":"Media from the <a href=\"https://aesthetic.computer\">aesthetic.computer</a> archive.",
+  "detail.back":"← Back to the index","detail.adjacent":"Adjacent entries",
+  "detail.composed":"Composed by {by} &nbsp;<b>·</b>&nbsp; {year}",
+  "detail.perform_note":"Code <code>{code}</code> &nbsp; — &nbsp; {reach} &nbsp;·&nbsp; type it at <a href=\"https://aesthetic.computer\">aesthetic.computer</a>, or <a href=\"{player}\">perform it in the card player →</a>",
+  "detail.archive_note":"Code <code>{code}</code> &nbsp; — &nbsp; {reach} &nbsp;·&nbsp; from the <a href=\"https://www.tiktok.com/@whistlegraph\">@whistlegraph archive</a>.",
+  "detail.film_note":"Code <code>{code}</code> &nbsp; — &nbsp; {views} TikTok views &nbsp;·&nbsp; archive preview above; the complete ~22-minute <a href=\"https://sites.rhizome.org/the-longest-whistlegraph-ever-so-far/\">Rhizome commission</a> is below.",
+  "detail.film_cap":"Archive preview; complete film and related features below.",
+  "detail.film_features":"Film & features",
+  "posts.count":"{n} post|{n} posts",
+  "posts.audio_takes":"Audio-only take|Audio-only takes",
+  "posts.views":"{views} views","posts.likes":"{likes} likes","posts.open":"open",
+  "posts.plot":"Plot: {plot}","word.views":"views",
+  "post.title_fallback":"Archive post {id}",
+  "post.byline":"Archive post &nbsp;<b>·</b>&nbsp; {platform} &nbsp;<b>·</b>&nbsp; {date}",
+  "post.media":"media","post.date_unknown":"date unknown",
+  "post.open_original":"Open original {platform} ↗","post.source":"source",
+  "post.relationships":"Relationships",
+  "post.no_relationship":"No confirmed work relationship yet.",
+  "post.doc_title":"{title} — Whistlegraph Archive",
+  "legacy.collection":"Archive collection",
+  "legacy.grouping":"Legacy archive grouping &nbsp;<b>·</b>&nbsp; {year}",
+  "legacy.note":"Former archive link <code>{code}</code> &nbsp;·&nbsp; {n} individual posts. This is not a composition code.",
+  "divider.more":"— more from the archive —",
+  "fold.more":"Show {n} more",
+  "alt.glyph":"Final glyph of {title}","alt.score":"Graphic score for {title}",
+  "alt.audio_only":"Audio-only; no image"
+};
+let STRINGS=EN, LANG="en";
+// Plural: values hold forms split on "|". Most languages take one/other;
+// Russian needs one/few/many; French and Hindi treat 0 as singular; the
+// single-form languages (ja, zh, ko, da-count words, tl) just omit the pipe —
+// the index clamps to the last form either way. A rule, not a library.
+const PLURALS={
+  ru:n=>{const a=n%10,b=n%100;return a===1&&b!==11?0:a>=2&&a<=4&&(b<12||b>14)?1:2},
+  fr:n=>n<=1?0:1, hi:n=>n<=1?0:1,
+};
+const pluralIndex=n=>(PLURALS[LANG]||(x=>x===1?0:1))(n);
+const fill=(s,vars)=>vars?s.replace(/\{(\w+)\}/g,(m,k)=>vars[k]??m):s;
+const t=(key,vars)=>fill(STRINGS[key]??EN[key]??key,vars);
+function tp(key,n,vars){
+  const forms=String(STRINGS[key]??EN[key]??key).split("|");
+  return fill(forms[Math.min(pluralIndex(n),forms.length-1)],{n,...vars});
+}
+// Resolution: ?lang= beats the saved choice beats the browser beats English.
+function resolveLang(){
+  const q=new URLSearchParams(location.search).get("lang");
+  if(q&&LANGS[q]) return q;
+  const saved=localStorage.getItem(LANG_KEY);
+  if(saved&&LANGS[saved]) return saved;
+  for(const tag of navigator.languages||[]){const p=tag.toLowerCase().split("-")[0];if(LANGS[p])return p}
+  return "en";
+}
+function applyStatic(){
+  document.documentElement.lang=HTML_LANG[LANG]||LANG;
+  document.documentElement.dir="ltr"; // all twelve read left-to-right
+  document.querySelectorAll("[data-i18n]").forEach(el=>{
+    el.textContent=t(el.dataset.i18n,el.dataset.i18nVars?JSON.parse(el.dataset.i18nVars):null);
+  });
+  document.querySelectorAll("[data-i18n-html]").forEach(el=>el.innerHTML=t(el.dataset.i18nHtml));
+  document.querySelectorAll("[data-i18n-attrs]").forEach(el=>{
+    for(const pair of el.dataset.i18nAttrs.split(",")){
+      const i=pair.indexOf(":"); el.setAttribute(pair.slice(0,i),t(pair.slice(i+1)));
+    }
+  });
+  document.querySelector('meta[name="description"]').content=t("meta.description");
+  document.querySelector('meta[property="og:description"]').content=t("meta.og_description");
+  const sel=document.getElementById("langSelect"); if(sel) sel.value=LANG;
+}
+// After a live switch, redraw what JS already painted — no reload needed.
+function rerenderLang(){
+  document.getElementById("idxSearch").placeholder=
+    t(curSection==="archive"?"search.placeholder_archive":"search.placeholder_works");
+  if(!WORKS.length&&!ARCHIVE_POSTS.length){ // data not landed yet; it renders localized
+    if(!det.classList.contains("on")) document.title=`Whistlegraph — ${t("tagline")}`;
+    return;
+  }
+  renderCloud();
+  if(det.classList.contains("on")) routeLocation();
+  else{ renderReset(false); document.title=`Whistlegraph — ${t("tagline")}`; }
+}
+function setLang(lang,rerender){
+  LANG=LANGS[lang]?lang:"en";
+  const done=()=>{applyStatic(); if(rerender) rerenderLang();};
+  if(LANG==="en"){STRINGS=EN; done(); return Promise.resolve();}
+  return fetch(`/locales/${LANG}.json`).then(r=>r.ok?r.json():EN)
+    .then(strings=>{STRINGS=strings; done();})
+    .catch(()=>{STRINGS=EN; done();}); // offline chrome falls back, never blanks
+}
+const initialLang=resolveLang();
+setLang(initialLang,initialLang!=="en"); // EN paints synchronously; others swap in
+document.getElementById("langSelect").addEventListener("change",e=>{
+  localStorage.setItem(LANG_KEY,e.target.value);
+  const url=new URL(location); url.searchParams.delete("lang");
+  history.replaceState(history.state,"",url); // the saved choice owns the URL now
+  setLang(e.target.value,true);
+});
+
 const THEME_KEY="whistlegraph-theme";
 const themeQuery=matchMedia("(prefers-color-scheme: dark)");
 const themeChoice=()=>localStorage.getItem(THEME_KEY)||"auto";
@@ -524,7 +681,8 @@ function applyTheme(choice=themeChoice()){
   document.querySelector('meta[name="theme-color"]').content=resolved==="dark"?"#15122b":"#fffdf6";
   document.querySelectorAll("[data-theme-choice]").forEach(button=>button.setAttribute("aria-pressed",String(button.dataset.themeChoice===choice)));
   const status=document.getElementById("themeStatus");
-  if(status) status.textContent=choice==="auto"?`Auto: ${resolved}. Dark requires system dark mode after 6 PM.`:`Forced ${resolved}.`;
+  const mode=t(resolved==="dark"?"appearance.mode_dark":"appearance.mode_light");
+  if(status) status.textContent=t(choice==="auto"?"appearance.status_auto":"appearance.status_forced",{mode});
 }
 const themeDialog=document.getElementById("themeDialog");
 document.querySelectorAll(".theme-open").forEach(button=>button.addEventListener("click",()=>{applyTheme();themeDialog.showModal()}));
@@ -547,7 +705,7 @@ document.querySelectorAll("ul.plain").forEach(ul=>{
   const more=document.createElement("li");
   more.className="morefold"; more.textContent="…";
   more.setAttribute("role","button");
-  more.setAttribute("aria-label",`Show ${items.length-FOLD} more`);
+  more.setAttribute("aria-label",t("fold.more",{n:items.length-FOLD}));
   more.tabIndex=0;
   const openFold=()=>{items.slice(FOLD).forEach(li=>li.style.display="");more.remove()};
   more.addEventListener("click",openFold);
@@ -575,7 +733,8 @@ let ALIASES={};         // old recoded/merged slug → canonical confirmed work.
 let POSTS_BY_CODE={};   // confirmed work code → [contributing posts].
 let POSTS_BY_ID={};     // stable archive post id → post.
 let LIVE_CURATION={works:{},posts:{}}; // Auth0-admin edits, stored durably by lith.
-const KIND_LABEL={performance:"Performance",talk:"Talk",other:"Other"};
+const KIND_KEYS={performance:"kind.performance",talk:"kind.talk",other:"kind.other"};
+const kindLabel=kind=>t(KIND_KEYS[kind]||"kind.post");
 const postThumb=p=>p?.thumb||(p?.platform==="tiktok"&&p?.id?`${IDX}/posts/${p.id}.jpg`:"");
 const thumbPost=p=>String(p?.thumbPost||p?.id||"");
 const videoPoster=p=>p?.platform==="tiktok"&&p?.id?`https://aesthetic.computer/api/whistlegraph-thumbnail?id=${encodeURIComponent(p.id)}`:postThumb(p);
@@ -589,7 +748,7 @@ document.addEventListener("error",event=>{
   }
   const fallback=document.createElement("span");
   fallback.className="sw noglyph"; fallback.textContent="♪";
-  fallback.setAttribute("role","img"); fallback.setAttribute("aria-label","Audio-only; no image");
+  fallback.setAttribute("role","img"); fallback.setAttribute("aria-label",t("alt.audio_only"));
   img.replaceWith(fallback);
 },true);
 const esc=s=>String(s||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
@@ -608,17 +767,18 @@ function renderPosts(code){
   const P=D.posts;
   if(!posts.length){ P.style.display="none"; P.innerHTML=""; return; }
   const meta=p=>{
-    const stat=[p.views!=null?fmtViews(p.views)+" views":null,p.likes?fmtViews(p.likes)+" likes":null].filter(Boolean).join(" · ");
+    const stat=[p.views!=null?t("posts.views",{views:fmtViews(p.views)}):null,
+      p.likes?t("posts.likes",{likes:fmtViews(p.likes)}):null].filter(Boolean).join(" · ");
     const plat=p.platform&&p.platform!=="tiktok"?`<span class="pbadge">${esc(p.platform)}</span>`:"";
     return `${plat}<span class="pdate">${p.date||""}</span>`+(stat?` · <span class="pstat">${stat}</span>`:"")+
-      ` &nbsp;<a class="plink" href="${p.url}" target="_blank" rel="noopener">${p.platform==="tiktok"?"TikTok":"open"} ↗</a>`;
+      ` &nbsp;<a class="plink" href="${p.url}" target="_blank" rel="noopener">${p.platform==="tiktok"?"TikTok":t("posts.open")} ↗</a>`;
   };
   // Video posts fill the grid; audio-only posts (no video stream) live in their
   // OWN list below so they never sit between videos in a grid row (that mixed
   // row was the layout snag). Each stays a clean player with its own metadata.
   const vids=posts.filter(p=>p.media!=="audio"), auds=posts.filter(p=>p.media==="audio");
-  const ptag=p=>(p.tags||[]).map(t=>KIND_LABEL[t]?`<span class="ktag">${KIND_LABEL[t]}</span>`:"").join("")+
-    (p.plots||[]).map(t=>`<span class="plottag">Plot: ${esc(t)}</span>`).join("");
+  const ptag=p=>(p.tags||[]).map(tag=>KIND_KEYS[tag]?`<span class="ktag">${t(KIND_KEYS[tag])}</span>`:"").join("")+
+    (p.plots||[]).map(plot=>`<span class="plottag">${t("posts.plot",{plot:esc(plot)})}</span>`).join("");
   // Jukebox rows: a lazy thumbnail + metadata. Clicking a row plays that take in
   // the top player (wired below). No per-row <video>, so even a 39-take record
   // loads only small thumbnails, lazily — nothing heavier until you press play.
@@ -627,9 +787,9 @@ function renderPosts(code){
     `<div class="thm"><img alt="" data-thumb-post="${thumbPost(p)}"${postThumb(p)?` data-src="${postThumb(p)}"`:""}><span class="pl">▶</span></div>`+
     `<div class="pmeta">${ptag(p)}${meta(p)}${p.desc?`<div class="pdesc">${esc(p.desc)}</div>`:""}</div></div>`;
   const arow=p=>`<div class="arow"><span class="aico">♪</span><div class="acol"><audio controls preload="none" src="${p.src}"></audio><div class="pmeta">${meta(p)}</div></div></div>`;
-  let html=`<hr><p class="lbl">${posts.length} post${posts.length>1?"s":""}</p>`;
+  let html=`<hr><p class="lbl">${tp("posts.count",posts.length)}</p>`;
   if(vids.length) html+=`<div class="posts">${vids.map(vcard).join("")}</div>`;
-  if(auds.length) html+=`<p class="lbl albl">Audio-only take${auds.length>1?"s":""}</p><div class="audlist">${auds.map(arow).join("")}</div>`;
+  if(auds.length) html+=`<p class="lbl albl">${tp("posts.audio_takes",auds.length)}</p><div class="audlist">${auds.map(arow).join("")}</div>`;
   P.innerHTML=html;
   P.style.display="";
   const list=P.querySelector(".posts");
@@ -660,14 +820,14 @@ function renderPosts(code){
 
 function rowHTML(w){
   const thumb=!w.thumb
-    ? `<span class="sw noglyph" style="--c:${w.c}" role="img" aria-label="Audio-only; no image">♪</span>`
-    : `<img loading="lazy" alt="Final glyph of ${w.title}" data-thumb-post="${thumbPost(w)}" src="${w.thumb||`${IDX}/${w.asset||w.code}.jpg`}">`;
+    ? `<span class="sw noglyph" style="--c:${w.c}" role="img" aria-label="${esc(t("alt.audio_only"))}">♪</span>`
+    : `<img loading="lazy" alt="${esc(t("alt.glyph",{title:w.title}))}" data-thumb-post="${thumbPost(w)}" src="${w.thumb||`${IDX}/${w.asset||w.code}.jpg`}">`;
   return `<td class="th"><a href="/${w.code}">${thumb}</a></td>`+
     `<td class="cd"><span class="sw${w.c?"":" quiet"}"${w.c?` style="--c:${w.c}"`:""}></span>[<a href="/${w.code}">${w.code}</a>]</td>`+
-    `<td class="ti"><a href="/${w.code}">${w.title}</a><span class="by">${w.by}${w.perf>1?` · ${w.perf} posts`:""}</span></td>`+
+    `<td class="ti"><a href="/${w.code}">${w.title}</a><span class="by">${w.by}${w.perf>1?` · ${tp("posts.count",w.perf)}`:""}</span></td>`+
     // Reach rides in the year column: it is the one number a scanning eye wants
     // aligned, and moving it out keeps the byline to a single unbroken line.
-    `<td class="yr">${w.year}${w.views?`<span class="vw">${fmtViews(w.views)}</span>`:""}</td>`;
+    `<td class="yr">${w.year}${w.views?`<span class="vw" data-vsuf="${esc(t("word.views"))}">${fmtViews(w.views)}</span>`:""}</td>`;
 }
 // The row's own <a href="/code"> is intercepted by one delegated click handler
 // on the tbody (installed once) — thousands of rows share one listener instead of
@@ -679,19 +839,19 @@ const postTitle=p=>{
   if(text) return text.length>120?`${text.slice(0,117)}…`:text;
   const related=(p.works||[]).map(code=>BY[code]?.title).filter(Boolean);
   if(related.length) return related.join(" + ");
-  return `Archive post ${p.id}`;
+  return t("post.title_fallback",{id:p.id});
 };
 const postRowHTML=p=>{
   const thumb=postThumb(p)
     ? `<img loading="lazy" alt="" data-thumb-post="${thumbPost(p)}" src="${postThumb(p)}">`
-    : `<span class="sw noglyph" style="--c:#b44887" role="img" aria-label="Audio-only; no image">♪</span>`;
+    : `<span class="sw noglyph" style="--c:#b44887" role="img" aria-label="${esc(t("alt.audio_only"))}">♪</span>`;
   const related=(p.works||[]).map(code=>`<a href="/${code}" data-work="${code}">[${code}] ${esc(BY[code]?.title||code)}</a>`).join(" · ");
   const postPath=`/post/${encodeURIComponent(p.id)}`;
   return `<td class="th"><a href="${postPath}">${thumb}</a></td>`+
-    `<td class="cd"><span class="archive-kind">${KIND_LABEL[p.kind]||"Post"}</span></td>`+
+    `<td class="cd"><span class="archive-kind">${kindLabel(p.kind)}</span></td>`+
     `<td class="ti"><a class="archive-desc" href="${postPath}">${esc(postTitle(p))}</a>`+
       `<span class="archive-links">${related||esc(p.platform||"archive")}</span></td>`+
-    `<td class="yr">${p.date?p.date.slice(0,4):""}${p.views!=null?`<span class="vw">${fmtViews(p.views)}</span>`:""}</td>`;
+    `<td class="yr">${p.date?p.date.slice(0,4):""}${p.views!=null?`<span class="vw" data-vsuf="${esc(t("word.views"))}">${fmtViews(p.views)}</span>`:""}</td>`;
 };
 const postTR=p=>`<tr class="row archive-row" data-post="${p.id}">${postRowHTML(p)}</tr>`;
 
@@ -730,7 +890,7 @@ function syncReverseSort(){
   button.classList.toggle("on",sortReversed);
   button.setAttribute("aria-pressed",String(sortReversed));
 }
-const divHTML=`<tr class="divider"><td colspan="4" style="padding:12px 8px 6px;color:var(--margin);font-size:12.5px;border-bottom:1px solid var(--margin)">— more from the archive —</td></tr>`;
+const divHTML=()=>`<tr class="divider"><td colspan="4" style="padding:12px 8px 6px;color:var(--margin);font-size:12.5px;border-bottom:1px solid var(--margin)">${t("divider.more")}</td></tr>`;
 
 // Build the ordered VIEW for the active sort + query. Featured splices in the
 // archive divider; any search (or non-featured sort) is a flat filtered list.
@@ -758,9 +918,9 @@ function renderCloud(){
   const logs=WORKS.map(w=>Math.log(1+(w.views||0)));
   const lo=Math.min(...logs), hi=Math.max(...logs);
   el.innerHTML=WORKS.map((w,i)=>{
-    const t=hi>lo?(logs[i]-lo)/(hi-lo):0;
-    return `<a href="/${w.code}" data-code="${w.code}" title="${esc(w.title)} — ${fmtViews(w.views||0)} views"`+
-      ` style="font-size:${(11+t*15).toFixed(1)}px${w.c?`;color:${w.c}`:""}">${w.code}</a>`;
+    const heat=hi>lo?(logs[i]-lo)/(hi-lo):0;
+    return `<a href="/${w.code}" data-code="${w.code}" title="${esc(t("cloud.views_title",{title:w.title,views:fmtViews(w.views||0)}))}"`+
+      ` style="font-size:${(11+heat*15).toFixed(1)}px${w.c?`;color:${w.c}`:""}">${w.code}</a>`;
   }).join("");
 }
 
@@ -768,7 +928,7 @@ function renderMore(){
   let html="";
   const end=Math.min(SHOWN+PAGE, VIEW.length);
   for(let i=SHOWN;i<end;i++){
-    const it=VIEW[i]; html+=it.divider?divHTML:curSection==="archive"?postTR(it):rowTR(it);
+    const it=VIEW[i]; html+=it.divider?divHTML():curSection==="archive"?postTR(it):rowTR(it);
   }
   document.querySelector("#idx tbody").insertAdjacentHTML("beforeend",html);
   SHOWN=end;
@@ -798,7 +958,7 @@ function selectSection(section,scrollTop=false){
   document.getElementById("workSortbar").style.display=archive?"none":"";
   document.getElementById("archiveFilterbar").style.display=archive?"":"none";
   document.getElementById("archiveSortbar").style.display=archive?"":"none";
-  document.getElementById("idxSearch").placeholder=archive?"Search posts, works, or IDs…":"Search title or code…";
+  document.getElementById("idxSearch").placeholder=t(archive?"search.placeholder_archive":"search.placeholder_works");
   if(archive){
     document.querySelector("#idx tbody").innerHTML=""; SHOWN=0;
     loadPosts().then(()=>renderReset(scrollTop));
@@ -950,19 +1110,19 @@ function showDetail(code, keepScroll){
   });
   const posts=POSTS_BY_CODE[code]||[];
   D.t.classList.remove("post-title"); D.t.innerHTML=esc(w.title);
-  D.by.innerHTML=`Composed by ${esc(w.by)} &nbsp;<b>·</b>&nbsp; ${w.year}`;
+  D.by.innerHTML=t("detail.composed",{by:esc(w.by),year:w.year});
   D.code.textContent=w.code;
   D.video.style.display="";
   // One reach line for every record, featured or not: views · posts · span.
   const yrs=posts.map(p=>p.date&&p.date.slice(0,4)).filter(Boolean).sort();
   const span=yrs.length?(yrs[0]===yrs[yrs.length-1]?yrs[0]:`${yrs[0]}–${yrs[yrs.length-1]}`):(w.year||"");
   const n=posts.length||w.perf||0;
-  const reach=`${fmtViews(w.views)} views`+(n>1?` &nbsp;·&nbsp; ${n} posts`:"")+(span?` &nbsp;·&nbsp; ${span}`:"");
+  const reach=t("posts.views",{views:fmtViews(w.views)})+(n>1?` &nbsp;·&nbsp; ${tp("posts.count",n)}`:"")+(span?` &nbsp;·&nbsp; ${span}`:"");
   if(w.slug){ // curated — score sheet + card-player + (maybe) drawn canonical
     D.performNote.style.display=""; D.archiveNote.style.display="none";
-    D.performNote.innerHTML=`Code <code>${w.code}</code> &nbsp; — &nbsp; ${reach} &nbsp;·&nbsp; type it at <a href="https://aesthetic.computer">aesthetic.computer</a>, or <a href="https://aesthetic.computer/wg~${w.code}">perform it in the card player →</a>`;
+    D.performNote.innerHTML=t("detail.perform_note",{code:w.code,reach,player:`https://aesthetic.computer/wg~${w.code}`});
     D.scoreWrap.style.display=""; D.videoRule.style.display="none"; D.glyphCap.style.display="none";
-    D.score.src=`${CDN}/${w.slug}/${w.slug}-score.png`; D.score.alt=`Graphic score for ${w.title}`;
+    D.score.src=`${CDN}/${w.slug}/${w.slug}-score.png`; D.score.alt=t("alt.score",{title:w.title});
     D.video.poster=`${CDN}/${w.slug}/${w.slug}.webp`;
     D.video.src=`${CDN}/${w.slug}/${w.slug}-web.mp4`;
     if(w.canonical){D.canon.src="/canonical/imab.mp4";D.canonWrap.style.display="";}
@@ -978,10 +1138,10 @@ function showDetail(code, keepScroll){
     D.video.poster=hero?videoPoster(hero):(w.noGlyph?"":`${IDX}/${aset}.jpg`);
     D.video.src=hero?hero.src:`${IDX}/${aset}.mp4`;
     if(w.film){ // the archive preview introduces the complete Rhizome film below
-      D.archiveNote.innerHTML=`Code <code>${w.code}</code> &nbsp; — &nbsp; ${fmtViews(w.views)} TikTok views &nbsp;·&nbsp; archive preview above; the complete ~22-minute <a href="https://sites.rhizome.org/the-longest-whistlegraph-ever-so-far/">Rhizome commission</a> is below.`;
-      D.glyphCap.textContent="Archive preview; complete film and related features below."; D.glyphCap.style.display="";
+      D.archiveNote.innerHTML=t("detail.film_note",{code:w.code,views:fmtViews(w.views)});
+      D.glyphCap.textContent=t("detail.film_cap"); D.glyphCap.style.display="";
     }else{
-      D.archiveNote.innerHTML=`Code <code>${w.code}</code> &nbsp; — &nbsp; ${reach} &nbsp;·&nbsp; from the <a href="https://www.tiktok.com/@whistlegraph">@whistlegraph archive</a>.`;
+      D.archiveNote.innerHTML=t("detail.archive_note",{code:w.code,reach});
     }
   }
   renderPosts(code); // the full gallery of appearances, by media type
@@ -996,14 +1156,14 @@ function showDetail(code, keepScroll){
   const dv=document.getElementById("dVersions");
   if(w.versions&&w.versions.length){
     const version=v=>{
-      const title=esc(v.title||v.label||"Performance");
+      const title=esc(v.title||v.label||t("kind.performance"));
       if(v.type==="youtube"&&/^[\w-]{11}$/.test(v.id||"")){
         const source=esc(v.source||`https://www.youtube.com/watch?v=${v.id}`);
         return `<iframe class="ver" loading="lazy" src="https://www.youtube-nocookie.com/embed/${v.id}" title="${title}" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe><p class="dim" style="font-size:12px;margin:2px 0 10px">${title} · <a href="${source}" target="_blank" rel="noopener">YouTube ↗</a></p>`;
       }
       return `<video class="ver" controls playsinline preload="metadata" loop src="${v.url}"></video><p class="dim" style="font-size:12px;margin:2px 0 10px">${title}</p>`;
     };
-    dv.innerHTML=`<hr><p class="lbl">${w.film?"Film & features":"Performances"}</p>`+w.versions.map(version).join("");
+    dv.innerHTML=`<hr><p class="lbl">${w.film?t("detail.film_features"):t("kind.performances")}</p>`+w.versions.map(version).join("");
     dv.style.display="";
   }else{ dv.style.display="none"; dv.innerHTML=""; }
   det.classList.add("on"); idx.classList.add("off");
@@ -1011,7 +1171,8 @@ function showDetail(code, keepScroll){
 }
 
 function postFacts(p){
-  const stats=[p.date,p.views!=null?`${fmtViews(p.views)} views`:null,p.likes?`${fmtViews(p.likes)} likes`:null].filter(Boolean);
+  const stats=[p.date,p.views!=null?t("posts.views",{views:fmtViews(p.views)}):null,
+    p.likes?t("posts.likes",{likes:fmtViews(p.likes)}):null].filter(Boolean);
   return stats.join(" &nbsp;·&nbsp; ");
 }
 
@@ -1022,10 +1183,10 @@ function showPost(id, keepScroll){
   document.getElementById("dPrevNext").style.display="none";
   const related=(p.works||[]).map(code=>BY[code]).filter(Boolean);
   D.t.classList.add("post-title");
-  D.t.innerHTML=esc(postTitle(p))+`<span class="ktag">${KIND_LABEL[p.kind]||"Post"}</span>`;
-  D.by.innerHTML=`Archive post &nbsp;<b>·</b>&nbsp; ${esc(p.platform||"media")} &nbsp;<b>·</b>&nbsp; ${p.date||"date unknown"}`;
+  D.t.innerHTML=esc(postTitle(p))+`<span class="ktag">${kindLabel(p.kind)}</span>`;
+  D.by.innerHTML=t("post.byline",{platform:esc(p.platform||t("post.media")),date:p.date||t("post.date_unknown")});
   D.performNote.style.display="none"; D.archiveNote.style.display="";
-  D.archiveNote.innerHTML=`${postFacts(p)} &nbsp;·&nbsp; <a href="${p.url}" target="_blank" rel="noopener">Open original ${esc(p.platform||"source")} ↗</a>`;
+  D.archiveNote.innerHTML=`${postFacts(p)} &nbsp;·&nbsp; <a href="${p.url}" target="_blank" rel="noopener">${t("post.open_original",{platform:esc(p.platform||t("post.source"))})}</a>`;
   D.scoreWrap.style.display="none"; D.canonWrap.style.display="none"; D.canon.removeAttribute("src");
   D.videoRule.style.display=""; D.glyphCap.style.display="none"; D.glyphCap.textContent="";
   D.video.classList.remove("wide");
@@ -1035,9 +1196,9 @@ function showPost(id, keepScroll){
     D.video.style.display=""; D.video.poster=p.thumb||""; D.video.src=p.src;
   }
   const workLinks=related.map(w=>`<a href="/${w.code}" data-work="${w.code}">[${w.code}] ${esc(w.title)}</a>`).join(" · ");
-  const plots=(p.plots||[]).map(plot=>`<span class="plottag">Plot: ${esc(plot)}</span>`).join("");
-  D.posts.innerHTML=`<hr><p class="lbl">Relationships</p>`+
-    `<p>${workLinks||'<span class="dim">No confirmed work relationship yet.</span>'}</p>`+
+  const plots=(p.plots||[]).map(plot=>`<span class="plottag">${t("posts.plot",{plot:esc(plot)})}</span>`).join("");
+  D.posts.innerHTML=`<hr><p class="lbl">${t("post.relationships")}</p>`+
+    `<p>${workLinks||`<span class="dim">${t("post.no_relationship")}</span>`}</p>`+
     (plots?`<p>${plots}</p>`:"")+
     (p.desc?`<p>${esc(p.desc)}</p>`:"")+
     (p.media==="audio"?`<audio controls preload="metadata" src="${p.src}" style="width:100%"></audio>`:"");
@@ -1045,7 +1206,7 @@ function showPost(id, keepScroll){
   D.posts.querySelectorAll("a[data-work]").forEach(a=>a.addEventListener("click",e=>{e.preventDefault();go(a.dataset.work);}));
   document.getElementById("dVersions").style.display="none";
   det.classList.add("on"); idx.classList.add("off");
-  document.title=`${postTitle(p)} — Whistlegraph Archive`; if(!keepScroll) scrollTo(0,0);
+  document.title=t("post.doc_title",{title:postTitle(p)}); if(!keepScroll) scrollTo(0,0);
 }
 
 // Old talk/other codes stay resolvable, but canonicalize to a post URL (or an
@@ -1061,17 +1222,17 @@ function showLegacy(code, canonicalize=true, keepScroll=false){
   if(canonicalize) history.replaceState({archive:code},"",`/archive/${encodeURIComponent(code)}`);
   document.getElementById("dPrevNext").style.display="none";
   D.t.classList.remove("post-title");
-  D.t.innerHTML=esc(record.title)+`<span class="ktag">Archive collection</span>`;
-  D.by.innerHTML=`Legacy archive grouping &nbsp;<b>·</b>&nbsp; ${record.year||"date unknown"}`;
+  D.t.innerHTML=esc(record.title)+`<span class="ktag">${t("legacy.collection")}</span>`;
+  D.by.innerHTML=t("legacy.grouping",{year:record.year||t("post.date_unknown")});
   D.performNote.style.display="none"; D.archiveNote.style.display="";
-  D.archiveNote.innerHTML=`Former archive link <code>${esc(code)}</code> &nbsp;·&nbsp; ${posts.length} individual posts. This is not a composition code.`;
+  D.archiveNote.innerHTML=t("legacy.note",{code:esc(code),n:posts.length});
   D.scoreWrap.style.display="none"; D.canonWrap.style.display="none"; D.canon.removeAttribute("src");
   D.videoRule.style.display=""; D.video.style.display=""; D.video.classList.remove("wide");
   const hero=posts[0]; D.video.poster=hero?.thumb||""; D.video.src=hero?.src||"";
   POSTS_BY_CODE[code]=posts; renderPosts(code);
   document.getElementById("dVersions").style.display="none";
   det.classList.add("on"); idx.classList.add("off");
-  document.title=`${record.title} — Whistlegraph Archive`; if(!keepScroll) scrollTo(0,0);
+  document.title=t("post.doc_title",{title:record.title}); if(!keepScroll) scrollTo(0,0);
 }
 
 function showIndex(){
@@ -1079,7 +1240,7 @@ function showIndex(){
   D.video.pause(); D.video.removeAttribute("src"); D.video.load();
   D.canon.pause();
   document.querySelectorAll("#dVersions video, #dPosts video, #dPosts audio").forEach(v=>v.pause());
-  document.title="Whistlegraph — a drawing you sing";
+  document.title=`Whistlegraph — ${t("tagline")}`;
 }
 function go(code){ history.pushState({code},"",`/${encodeURIComponent(code)}`); showDetail(code); }
 function goPost(id){ history.pushState({post:id},"",`/post/${encodeURIComponent(id)}`); showPost(id); }
