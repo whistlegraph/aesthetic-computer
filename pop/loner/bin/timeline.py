@@ -50,9 +50,9 @@ BLUE = (92, 118, 180)
 chart = json.load(open(os.path.join(LANE, "vox4", ".chart.json")))["w-whole-line"]
 LINE_BEATS = chart["beats"]
 LINE_BARS = math.ceil(LINE_BEATS / 4.0)
-PASSES = [8.0, 8.0 + LINE_BARS * 4]          # study: line at bar 2 and bar 2+lineBars
-KICK_BEATS = int((2 + 2 * LINE_BARS + 1) * 4)
-TOTAL_BEATS = (2 + 2 * LINE_BARS + 1 + 3) * 4
+PASSES = [8.0]                               # ONE pass — the study, not a loop
+KICK_BEATS = int((2 + LINE_BARS + 1) * 4)
+TOTAL_BEATS = (2 + LINE_BARS + 2) * 4
 
 # mux straight from the render WAV — the mp3's LAME/AAC codec-delay
 # padding shifted the audio ~50 ms late against the graphics

@@ -198,9 +198,19 @@ CHART = {
                              # fill bar 1 exactly, 4→8. The beat goes into
                              # her breath rather than downstream, so every
                              # anchor after it holds.
+                             # …and the back half, which had been left to
+                             # the auto scale: it gave two-syllable VERY
+                             # 4.5 beats and three-syllable PATIENTLY
+                             # only 2.5, so patiently ran at 1.02× while
+                             # everything around it was stretched 1.3–1.5×
+                             # — @jeffrey: "patiently is weird · its too
+                             # squished in time". Swapped to very 3 (1.02×)
+                             # and patiently 4 (1.64×); the pair still
+                             # totals 7 beats, so "for" is untouched.
                              "durs": { 0: 4.0, 1: 2.0, 2: 2.0, 3: 2.0,
                                        4: 2.0, 5: 2.0, 6: 2.0, 7: 1.0,
-                                       8: 4.0, 9: 4.0, 10: 4.0 },
+                                       8: 4.0, 9: 4.0, 10: 4.0,
+                                       13: 3.0, 14: 4.0 },
                              # rest AFTER the given unit, in beats
                              "gaps": { 2: 2.0,   # her breath after "up"
                                        5: 1.0,   # space between self and i

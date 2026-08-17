@@ -581,12 +581,17 @@ static float *duck_env(double depth, double atk, double rel) {
 }
 
 // ═══ main ══════════════════════════════════════════════════════════════
+static int minimal_bars(void) {
+    // 2 bars of kick, the line once, a bar to breathe
+    return (int)(2 + ceil(phrase("w-whole-line")->beats / 4.0) + 2);
+}
+
 int main(void) {
     // MINIMAL=1 → the study pass: kick + the unbroken vocal, nothing
     // else — "lets start with just kick and vocals and get that right".
     int minimal = getenv("MINIMAL") != NULL;
     BEAT = 60.0 / BPM; BAR = 4 * BEAT; STEP = BEAT / 4;
-    N = lround(((minimal ? 36 : BARS) * BAR + TAIL_S) * SR);
+    N = lround(((minimal ? minimal_bars() : BARS) * BAR + TAIL_S) * SR);
     drumsL = calloc(N, 4); drumsR = calloc(N, 4);
     musicL = calloc(N, 4); musicR = calloc(N, 4);
     voxL = calloc(N, 4); voxR = calloc(N, 4);
@@ -599,14 +604,17 @@ int main(void) {
     bank_load_dir("vox3");
 
     if (minimal) {
+        // ONE run of the line — @jeffrey: "lets only render a single run
+        // of the vocals · no need to do anything other than the first
+        // loop". The study is for scrutinising the alignment, and a
+        // second pass only doubles the sitting-through.
         const ChartPhrase *p = phrase("w-whole-line");
         double lineBars = ceil(p->beats / 4.0);
-        int kickBars = (int)(2 + 2 * lineBars + 1);
-        printf("  MINIMAL — kick + vocals only, line %.0f beats\n", p->beats);
-        for (int bar = 0; bar < kickBars && bar < 34; bar++)
+        int kickBars = (int)(2 + lineBars + 1);
+        printf("  MINIMAL — kick + vocals, ONE pass, line %.0f beats\n", p->beats);
+        for (int bar = 0; bar < kickBars; bar++)
             for (int b = 0; b < 4; b++) kick(at(bar) + b * BEAT, 0.95);
         sung("w-whole-line", at(2) - p->leadIn, 0.98, 0, 0.0);   // two bars of kick first
-        sung("w-whole-line", at(2 + lineBars) - p->leadIn, 0.98, 0, 0.0);
         goto mixdown;
     }
 
