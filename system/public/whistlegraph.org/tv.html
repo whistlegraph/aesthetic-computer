@@ -30,14 +30,20 @@
   video{position:fixed;inset:0;width:100%;height:100%;object-fit:contain;background:var(--room);
     opacity:0;pointer-events:none;transition:opacity .18s ease}
   video.front{opacity:1}
-  /* the label chip: a paper scrap in the corner, mono code in margin pink */
-  #label{position:fixed;left:12px;bottom:16px;max-width:min(72vw,460px);
-    background:var(--paper);color:var(--ink);padding:7px 12px 8px;border-radius:3px;
-    box-shadow:0 1px 6px rgba(0,0,0,.5);opacity:.92;transition:opacity .5s ease}
-  body.idle #label{opacity:.28}
-  #label .code{font:600 13px var(--mono);color:var(--margin);letter-spacing:.02em}
-  #label .title{font-weight:600;margin-left:6px}
-  #label .meta{display:block;font-size:12px;color:#645e85;margin-top:1px}
+  /* the corner label, worn the way aesthetic.computer's prompt HUD wears its
+     piece name: plain shadowed text in the top-left, the code in margin pink */
+  #label{position:fixed;left:10px;top:8px;max-width:min(72vw,460px);
+    font:600 15px var(--mono);color:var(--paper);
+    text-shadow:1px 1px 0 rgba(0,0,0,.85);opacity:.95;transition:opacity .5s ease}
+  body.idle #label{opacity:.35}
+  #label .code{color:var(--margin);letter-spacing:.02em}
+  #label .title{margin-left:7px}
+  #label .meta{display:block;font:12px var(--mono);color:rgba(255,253,246,.72);
+    margin-top:2px;text-shadow:1px 1px 0 rgba(0,0,0,.85)}
+  /* the QR scrap: a scannable doorway to the work's record on whistlegraph.org.
+     It never dims — a code you can't scan is furniture. */
+  #qr{position:fixed;right:12px;bottom:16px;width:104px;height:104px;
+    border-radius:3px;box-shadow:0 1px 6px rgba(0,0,0,.5);image-rendering:pixelated}
   /* one thin progress hair at the floor, pink like the archive's margin */
   #bar{position:fixed;left:0;bottom:0;height:3px;width:0;background:var(--margin);opacity:.9}
   /* tap-for-sound affordance, gone after the first tap */
@@ -57,15 +63,17 @@
 <video id="a" class="front" muted playsinline preload="auto"></video>
 <video id="b" muted playsinline preload="auto"></video>
 <div id="label"><span class="code"></span><span class="title"></span><span class="meta"></span></div>
+<canvas id="qr" width="104" height="104" title="Scan for this whistlegraph's record"></canvas>
 <div id="bar"></div>
 <div id="sound">tap for sound</div>
 <div id="pause">⏸</div>
 <div id="err">tuning…</div>
-<script>
+<script type="module">
 // Whistlegraph TV — the archive as broadcast. Same data whistlegraph.org reads
 // (graphs.json + live curation + posts.json), played back to back the way
 // top.kidlisp.com runs its slideshow: auto-advance, a shuffle deck that gives
 // every work airtime with the hits recurring, a corner label, a floor bar.
+import {qrcode, ErrorCorrectLevel} from "/qr.mjs"; // same encoder AC's HUD uses
 const CDN="https://assets.aesthetic.computer/whistlegraph";
 const IDX=CDN+"/index";
 const fmtViews=v=>v>=1e6?`${(v/1e6).toFixed(1)}M`:v>=1e3?`${Math.round(v/1e3)}K`:`${v}`;
@@ -109,6 +117,24 @@ function showLabel(w){
   label.querySelector(".title").textContent=w.title||"";
   label.querySelector(".meta").textContent=
     `${w.by||"Whistlegraph"}${w.views?` · ${fmtViews(w.views)} views`:""}`;
+  showQR(w);
+}
+
+// The QR is the walk-home link: scan the corner and the work's record on
+// whistlegraph.org opens in your hand. Drawn on the archive's cream paper
+// with a real quiet zone, then pixel-scaled up by the CSS.
+const qrCanvas=document.getElementById("qr");
+function showQR(w){
+  const cells=qrcode(`https://whistlegraph.org/${w.code}`,
+    {errorCorrectLevel:ErrorCorrectLevel.M}).modules;
+  const n=cells.length, s=3, pad=12, px=n*s+pad*2;
+  qrCanvas.width=px; qrCanvas.height=px;
+  const ctx=qrCanvas.getContext("2d");
+  ctx.fillStyle="#fffdf6"; ctx.fillRect(0,0,px,px);
+  ctx.fillStyle="#25204a";
+  cells.forEach((row,y)=>row.forEach((dark,x)=>{
+    if(dark) ctx.fillRect(pad+x*s,pad+y*s,s,s);
+  }));
 }
 
 // Front/back swap, the dual-iframe trick from top.kidlisp.com in <video> form:
