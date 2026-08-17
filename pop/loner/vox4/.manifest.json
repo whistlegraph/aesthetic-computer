@@ -52,8 +52,8 @@
   },
   "snaps": [
    "up -20ms",
-   "in +60ms",
-   "myself +130ms"
+   "in +80ms",
+   "myself +30ms"
   ],
   "trims": [
    "up \u2212400ms"
@@ -65,14 +65,14 @@
   "lead_in": 0.02,
   "beats": 3.5,
   "renders": {
-   "lead": 2.305,
-   "8ve-a": 2.305,
-   "8ve-b": 2.305,
-   "low3": 2.305,
-   "low5": 2.305
+   "lead": 2.225,
+   "8ve-a": 2.225,
+   "8ve-b": 2.225,
+   "low3": 2.225,
+   "low5": 2.225
   },
   "snaps": [
-   "think +80ms"
+   "think +160ms"
   ],
   "trims": [],
   "words": "i think"
@@ -100,17 +100,17 @@
   "lead_in": 0.075,
   "beats": 6.5,
   "renders": {
-   "lead": 3.69,
-   "8ve-a": 3.69,
-   "8ve-b": 3.69,
-   "low3": 3.69,
-   "low5": 3.69
+   "lead": 3.71,
+   "8ve-a": 3.71,
+   "8ve-b": 3.71,
+   "low3": 3.71,
+   "low5": 3.71
   },
   "snaps": [
    "waiting +195ms"
   ],
   "trims": [
-   "just \u2212340ms"
+   "Just \u2212340ms"
   ],
   "words": "just waiting"
  },
@@ -119,17 +119,18 @@
   "lead_in": 0.0,
   "beats": 8.5,
   "renders": {
-   "lead": 4.615,
-   "8ve-a": 4.615,
-   "8ve-b": 4.615,
-   "low3": 4.615,
-   "low5": 4.615
+   "lead": 5.435,
+   "8ve-a": 5.435,
+   "8ve-b": 5.435,
+   "low3": 5.435,
+   "low5": 5.435
   },
   "snaps": [
-   "patiently -250ms",
-   "for -75ms"
+   "patiently +240ms"
   ],
-  "trims": [],
+  "trims": [
+   "very \u2212520ms"
+  ],
   "words": "very patiently"
  },
  "w-for-time-to-pass": {
@@ -154,50 +155,51 @@
  },
  "w-n-getting-curled": {
   "slice": "n-getting-curled",
-  "lead_in": 0.06,
-  "beats": 10.5,
+  "lead_in": 0.0,
+  "beats": 11.0,
   "renders": {
-   "lead": 5.67,
-   "8ve-a": 5.67,
-   "8ve-b": 5.67,
-   "low3": 5.67,
-   "low5": 5.67
+   "lead": 5.635,
+   "8ve-a": 5.635,
+   "8ve-b": 5.635,
+   "low3": 5.635,
+   "low5": 5.635
   },
   "snaps": [
-   "cur +170ms",
-   "led +20ms",
-   "up -175ms",
-   "in -20ms",
-   "myself +195ms",
-   "I -95ms"
+   "curled -55ms",
+   "up +245ms",
+   "in -235ms",
+   "myself -40ms",
+   "i -110ms",
+   "think +85ms"
   ],
   "trims": [
-   "myself \u2212145ms"
+   "i \u2212165ms"
   ],
   "words": "getting curled up in myself i think"
  },
  "w-n-stone-waiting": {
   "slice": "n-stone-waiting",
-  "lead_in": 0.06,
-  "beats": 16.5,
+  "lead_in": 0.0,
+  "beats": 17.0,
   "renders": {
-   "lead": 8.645,
-   "8ve-a": 8.645,
-   "8ve-b": 8.645,
-   "low3": 8.645,
-   "low5": 8.645
+   "lead": 8.59,
+   "8ve-a": 8.59,
+   "8ve-b": 8.59,
+   "low3": 8.59,
+   "low5": 8.59
   },
   "snaps": [
-   "a +70ms",
-   "stone +95ms",
-   "just -245ms",
-   "waiting -250ms",
-   "very +95ms",
-   "patiently -250ms"
+   "stone +155ms",
+   "just -215ms",
+   "waiting -225ms",
+   "very +230ms",
+   "patiently +200ms"
   ],
   "trims": [
-   "a \u2212180ms",
-   "waiting \u22121375ms"
+   "A \u2212215ms",
+   "just \u2212265ms",
+   "waiting \u22121260ms",
+   "very \u2212400ms"
   ],
   "words": "of a stone just waiting very patiently"
  },
@@ -214,7 +216,7 @@
   },
   "snaps": [
    "time +200ms",
-   "pass -150ms"
+   "pass +50ms"
   ],
   "trims": [],
   "words": "for time to pass"

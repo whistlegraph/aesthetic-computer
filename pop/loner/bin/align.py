@@ -73,7 +73,18 @@ LYRIC = ("sitting curled up in myself, i think of a stone, "
          "just waiting very patiently for time to pass")
 
 
-def transcribe(path, key):
+def prompt_for(name, manifest):
+    """A slice's own words beat the whole lyric. Priming the n- phrases
+    with the full sentence made whisper-1 hallucinate words that aren't
+    in them ("time" inside "getting curled up in myself i think"); the
+    manifest already records what each slice actually says."""
+    w = (manifest.get(name) or {}).get("words", "")
+    if w and not any(k in w.lower() for k in ("take", "lyric", "spoken", "aside")):
+        return w
+    return LYRIC
+
+
+def transcribe(path, key, prompt):
     """whisper-1 with word-level timestamps. curl keeps the key off the
     process list of anything but this call."""
     out = subprocess.run(
@@ -81,7 +92,7 @@ def transcribe(path, key):
          "-H", f"Authorization: Bearer {key}",
          "-F", f"file=@{path}",
          "-F", "model=whisper-1",
-         "-F", f"prompt={LYRIC}",
+         "-F", f"prompt={prompt}",
          "-F", "response_format=verbose_json",
          "-F", "timestamp_granularities[]=word"],
         capture_output=True, text=True, check=True).stdout
@@ -144,13 +155,14 @@ def measure(x, fs, words):
 
 def main():
     key = api_key()
+    manifest = json.load(open(os.path.join(SAMPLES, ".manifest.json")))
     align = {}
     for name in SLICES:
         path = os.path.join(SAMPLES, f"{name}.wav")
         if not os.path.exists(path):
             print(f"  {name:22s} — missing, skipped")
             continue
-        d = transcribe(path, key)
+        d = transcribe(path, key, prompt_for(name, manifest))
         words = d.get("words") or []
         x, fs = sf.read(path, dtype="float64")
         if x.ndim > 1:
