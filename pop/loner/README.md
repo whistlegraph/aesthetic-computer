@@ -308,6 +308,21 @@ numbered, the kick lane flashing, a live timecode and `bar · beat`
 address in the corner. The active word outlines in pink rather than
 filling, so the waveform stays readable while it plays.
 
+Watching that video is also how **the boundary repair** got found —
+@jeffrey: *"has word boundary wrong · led has up within it · that's
+definitely causing bugs"*. Whisper times a word where the transcript
+hands over, not where the singing changes. It put **led 240 ms late**,
+so led's slot opened inside "cur"'s note and replayed cur's pitch for
+half a beat before the real note arrived. `snap_boundaries()` now pulls
+every word start onto the nearest real acoustic event — a sustained
+pitch step (medians over 120 ms windows either side; 80 ms was too
+narrow to see led's 0.67 st move), or, for words that open on an
+unvoiced consonant like *st-one*, an energy valley — inside a ±250 ms
+search that can never reorder words or starve one below 80 ms. On the
+whole line fourteen boundaries move; the big ones are `led +240 ms ·
+pass +165 ms · to +140 ms · waiting −130 ms · time −110 ms`. Receipt:
+`snaps` in `vox4/.manifest.json`.
+
 Drawing the audio into the blocks is what exposed **the energy trim**.
 Whisper's word boundaries are handoffs, not note ends: it gave "led"
 0.99 s when Camille stops singing after ~0.55 and the rest is decay, and
@@ -316,16 +331,29 @@ the note — "led" sang to 78% of its block and then sat there. Each
 unit's source span now ends where its audio actually ends (5 ms RMS
 against a −36 dB gate of the take's peak, plus a 50 ms release margin),
 and the silence is **dropped rather than warped**, so only sung frames
-stretch. Guards: the last unit is untouched (the tail/release machinery
-owns it), trims under 80 ms aren't worth the surgery, and no unit can
-lose more than 65% of its span. On the whole line exactly two fire —
-`led −390 ms · think −445 ms` — and every word now sings to ≥92% of its
-slot. Receipt: `trims` in `vox4/.manifest.json`.
+stretch. The cut lands at the **start of the first sustained silence**,
+not at the last loud frame — the next word's attack routinely leaks
+across the boundary, and a last-loud-frame search reads that leak as
+"the word runs to the end" and trims nothing (it was exactly what hid
+led's dead half-beat). Requiring 120 ms of quiet also protects a stop
+closure inside a word (patiently's /t/ is ~60 ms). Guards: the last unit
+is untouched (the tail/release machinery owns it), trims under 80 ms
+aren't worth the surgery, and no unit can lose more than 65% of its
+span. Nine fire on the whole line, and no word now has more than 150 ms
+of hole inside its block (led's was a full beat). The gate is
+deliberately conservative — at −26 dB it would cut 2.1 s out of
+"stone". Receipt: `trims` in `vox4/.manifest.json`.
 
-Bar 1 is hand-pinned against that picture: **curled** alone fills it
-(cur 2 + led 2 — her own 0.74/0.99 s split says led ≥ cur), and **up**,
-her 0.25 s tonic release, lands *on* the bar-2 downbeat as an up-in
-pickup pair into "myself".
+Bar 1 and 2 are hand-pinned against that picture: **curled** alone fills
+bar 1 (cur 2 + led 2 — her own split says led ≥ cur), and **"up in"
+owns all of bar 2** (up 1.5 + in 2.5 — in gets the longer hold because
+she sings it twice as long). Those beats came out of "myself", which was
+stretching 1.92× into synthesized tone and now sits at 0.96×, her real
+voice. Worth knowing what that costs: her "up in" is 0.75 s of source
+against a 1.97 s bar, so filling it is a 2.6× stretch — past the 1.8×
+line where the engine stops replaying her and starts holding a
+synthesized grid tone. Both words are the tonic, so bar 2 reads as one
+held A#3 with no seam between them.
 
 ```bash
 MINIMAL=1 pop/loner/c/lonerremix       # → out/loner-kickvox-full.wav

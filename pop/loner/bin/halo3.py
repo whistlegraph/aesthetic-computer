@@ -112,7 +112,7 @@ def analyze(x, fs):
         corr[voiced] = -cents_to_grid(f0[voiced]) * SNAP
     corr = smooth(corr, int(SMOOTH_MS / FRAME_MS))
     f0c = np.where(voiced, f0 * 2.0 ** (corr / 1200.0), 0.0)
-    return dict(x=x, fs=fs, f0c=f0c, sp=sp, ap=ap, voiced=voiced)
+    return dict(x=x, fs=fs, f0=f0, f0c=f0c, sp=sp, ap=ap, voiced=voiced)
 
 
 def vuv_mask(voiced, fs, n):
@@ -167,12 +167,16 @@ CHART = {
                              # a stone = 4. "curled is too short · up
                              # comes too soon": CURLED alone fills bar 1
                              # (cur 2 + led 2 — her own 37/50 split says
-                             # led ≥ cur), and up — her 0.25 s tonic
-                             # release — lands ON the bar-2 downbeat, an
-                             # up-in pickup pair into myself, which
-                             # stays anchored at beat 9.
-                             "durs": { 0: 4.0, 1: 2.0, 2: 2.0, 3: 0.5,
-                                       4: 0.5, 5: 3.0, 6: 3.0, 7: 1.0,
+                             # led ≥ cur). "up and in should be much
+                             # longer": UP IN now owns the whole of bar
+                             # 2 (1.5 + 2.5 — in gets the longer hold
+                             # because she sings it twice as long), and
+                             # the beats come OUT of myself, which was
+                             # stretching 1.92× into a synthesized tone
+                             # and now sits at 0.96× — her real voice.
+                             # think still lands on the bar-4 downbeat.
+                             "durs": { 0: 4.0, 1: 2.0, 2: 2.0, 3: 1.5,
+                                       4: 2.5, 5: 1.5, 6: 1.5, 7: 1.0,
                                        8: 2.0, 9: 4.0, 10: 0.5, 11: 3.5 } },
     "w-sitting-curled":    { "slice": "f-sitting-curled",    "beats": 11.0 },
     "w-i-think":           { "slice": "f-i-think",           "beats": 3.5 },
@@ -206,6 +210,69 @@ def derive_units(words, beats_total, stretch=None, durs=None):
 
 SLICES = json.load(open(os.path.join(LANE, "samples", ".manifest.json")))
 
+# ── boundary repair — snap whisper's word times to the real note ──────
+# @jeffrey, watching the study: "has word boundary wrong · led has up
+# within it · that's definitely causing bugs · also of a stone, the
+# 'stone' seems to include of a too". He was right, and it sat upstream
+# of every dur we'd tuned. Whisper times a word where the TRANSCRIPT
+# hands over, not where the singing changes: it put led 210 ms late (so
+# led's slot opened inside cur's note and replayed cur's pitch for half
+# a beat) and "of" 300 ms early (the octave starts before its own slot,
+# spilling the leap into its neighbours). Every boundary is now pulled
+# to the nearest real acoustic event — a sustained pitch step, or, for
+# words that open on an unvoiced consonant like st-one, an energy
+# valley — inside a ±250 ms search that can never reorder words or
+# starve one below 80 ms.
+SNAP_WIN_S = 0.250          # how far a boundary may travel
+SNAP_MED_S = 0.120          # median window each side; 80 ms missed led's step
+SNAP_STEP_ST = 0.50         # a pitch change this big IS the boundary
+SNAP_MIN_S = 0.080          # no word may be shrunk below this
+SNAP_QUIET = 0.30           # energy valley must be this share of local median
+
+
+def snap_boundaries(a, words, t0):
+    """Pull each word start onto the acoustic event nearest it."""
+    x, fs, f0 = a["x"], a["fs"], a["f0"]
+    n = int(round(fs * FRAME_S))
+    m = min(len(f0), len(x) // n)
+    if m < 8 or len(words) < 2:
+        return words, []
+    rms = np.sqrt((x[:m * n].reshape(m, n) ** 2).mean(axis=1))
+    st = np.where(f0[:m] > 0, 12.0 * np.log2(np.maximum(f0[:m], 1e-6) / TONIC), np.nan)
+    W = max(2, int(round(SNAP_MED_S / FRAME_S)))
+    step = np.zeros(m)
+    for k in range(W, m - W):
+        b_, a_ = st[k - W:k], st[k:k + W]
+        b_, a_ = b_[~np.isnan(b_)], a_[~np.isnan(a_)]
+        if len(b_) >= W // 2 and len(a_) >= W // 2:
+            step[k] = abs(np.median(a_) - np.median(b_))
+    mins = int(round(SNAP_MIN_S / FRAME_S))
+    win = int(round(SNAP_WIN_S / FRAME_S))
+    out = [dict(w) for w in words]
+    log = []
+    for i in range(1, len(out)):
+        k0 = int(round((out[i]["start"] - t0) / FRAME_S))
+        prev = int(round((out[i - 1]["start"] - t0) / FRAME_S))
+        nxt = (int(round((out[i + 1]["start"] - t0) / FRAME_S))
+               if i + 1 < len(out) else m)
+        lo = max(prev + mins, k0 - win, W)
+        hi = min(nxt - mins, k0 + win, m - W)
+        if hi <= lo:
+            continue
+        kk = lo + int(np.argmax(step[lo:hi]))
+        if step[kk] < SNAP_STEP_ST:                 # no note change to grab —
+            seg = rms[lo:hi]                        # try a consonant closure
+            kv = lo + int(np.argmin(seg))
+            kk = kv if seg.min() < SNAP_QUIET * (np.median(seg) or 1.0) else k0
+        if kk == k0:
+            continue
+        ts = t0 + kk * FRAME_S
+        out[i]["start"] = ts
+        out[i - 1]["end"] = ts
+        log.append(f"{out[i]['t']} {(kk - k0) * FRAME_S * 1000:+.0f}ms")
+    return out, log
+
+
 # ── the energy trim — only SUNG frames stretch ────────────────────────
 # @jeffrey, reading the waveforms drawn into the timeline: "check the
 # length of the actual waveforms in the utterances, not just ur trim".
@@ -218,19 +285,41 @@ SLICES = json.load(open(os.path.join(LANE, "samples", ".manifest.json")))
 TRIM_GATE_DB = -36.0        # of the take's peak; keeps quiet fricatives
 TRIM_MARGIN_S = 0.050       # let the release start before we cut
 TRIM_MIN_S = 0.080          # below this, not worth the surgery
+TRIM_QUIET_RUN_S = 0.120    # silence this long means the word is over
 TRIM_KEEP = 0.35            # never leave a unit shorter than this share
 
 
 def energy_end(x, fs, f0, f1, peak):
-    """Last frame in [f0,f1) whose 5 ms RMS clears the gate."""
+    """Where this word's own audio stops — the start of the first long
+    silence after it, NOT the last loud frame in the span. The next
+    word's attack routinely leaks across the boundary (whisper hands
+    over a hair late), and a last-loud-frame search reads that leak as
+    'the word runs to the end' and trims nothing. Requiring a sustained
+    quiet run also protects a stop closure inside a word (the /t/ in
+    patiently is ~60 ms) from being mistaken for the end."""
     n = int(round(fs * FRAME_S))
     seg = x[f0 * n:f1 * n]
     if len(seg) < n:
         return f1
     m = len(seg) // n
     rms = np.sqrt((seg[:m * n].reshape(m, n) ** 2).mean(axis=1))
-    on = np.nonzero(rms > peak * 10.0 ** (TRIM_GATE_DB / 20.0))[0]
-    return f0 + (int(on[-1]) + 1 if len(on) else m)
+    quiet = rms <= peak * 10.0 ** (TRIM_GATE_DB / 20.0)
+    on = np.nonzero(~quiet)[0]
+    if not len(on):
+        return f0 + m
+    run = int(round(TRIM_QUIET_RUN_S / FRAME_S))
+    k = int(on[0])                              # never cut before she starts
+    while k < m:
+        if quiet[k]:
+            j = k
+            while j < m and quiet[j]:
+                j += 1
+            if j - k >= run:
+                return f0 + k
+            k = j
+        else:
+            k += 1
+    return f0 + int(on[-1]) + 1
 
 
 def trim_units(x, fs, unit_src, names=None):
@@ -389,6 +478,7 @@ for name, ch in CHART.items():
     F = len(a["f0c"])
     t0_slice = entry["start"]
     words = list(entry["word_f0"])
+    words, snaps = snap_boundaries(a, words, t0_slice)
     # sub-split units at their internal fricative (e.g. myself → my·self)
     for ui in sorted(ch.get("splits", []), reverse=True):
         w = words[ui]
@@ -481,8 +571,10 @@ for name, ch in CHART.items():
     chart_c.append((name, lead_in, beats_total, notes))
     manifest[name] = dict(slice=slice_name, lead_in=round(lead_in, 3),
                           beats=beats_total, renders=renders,
-                          trims=trims, words=entry["words"])
+                          snaps=snaps, trims=trims, words=entry["words"])
     print(f"  {name:22s} {renders['lead']:5.2f}s  lead·8ve×2·low3·low5  «{entry['words']}»")
+    if snaps:
+        print(f"    boundaries: {' · '.join(snaps)}")
     if trims:
         print(f"    trimmed: {' · '.join(trims)}")
 

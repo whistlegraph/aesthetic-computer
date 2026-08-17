@@ -23,25 +23,25 @@
    },
    {
     "beat": 8.0,
-    "dur": 0.5,
+    "dur": 1.5,
     "st": 0,
     "t": "up"
    },
    {
-    "beat": 8.5,
-    "dur": 0.5,
+    "beat": 9.5,
+    "dur": 2.5,
     "st": 0,
     "t": "in"
    },
    {
-    "beat": 9.0,
-    "dur": 3.0,
+    "beat": 12.0,
+    "dur": 1.5,
     "st": 5,
     "t": "myself\u00b7a"
    },
    {
-    "beat": 12.0,
-    "dur": 3.0,
+    "beat": 13.5,
+    "dur": 1.5,
     "st": 5,
     "t": "myself\u00b7b"
    },
@@ -77,37 +77,37 @@
    },
    {
     "beat": 26.0,
-    "dur": 3.5,
+    "dur": 3.0,
     "st": 2,
     "t": "just"
    },
    {
-    "beat": 29.5,
+    "beat": 29.0,
     "dur": 4.0,
     "st": 3,
     "t": "waiting"
    },
    {
-    "beat": 33.5,
+    "beat": 33.0,
     "dur": 3.5,
     "st": 0,
     "t": "very"
    },
    {
-    "beat": 37.0,
+    "beat": 36.5,
     "dur": 5.5,
     "st": 5,
     "t": "patiently"
    },
    {
-    "beat": 42.5,
+    "beat": 42.0,
     "dur": 2.0,
     "st": 5,
     "t": "for"
    },
    {
-    "beat": 44.5,
-    "dur": 3.5,
+    "beat": 44.0,
+    "dur": 4.0,
     "st": 7,
     "t": "time"
    },
@@ -137,13 +137,13 @@
    },
    {
     "beat": 3.0,
-    "dur": 1.5,
+    "dur": 2.0,
     "st": 3,
     "t": "cur"
    },
    {
-    "beat": 4.5,
-    "dur": 2.0,
+    "beat": 5.0,
+    "dur": 1.5,
     "st": 2,
     "t": "led"
    },
@@ -247,17 +247,17 @@
  },
  "w-for-time-to-pass": {
   "leadIn": 0.04,
-  "beats": 13.0,
+  "beats": 12.5,
   "notes": [
    {
     "beat": 0.0,
-    "dur": 2.0,
+    "dur": 1.5,
     "st": 5,
     "t": "for"
    },
    {
-    "beat": 2.0,
-    "dur": 3.5,
+    "beat": 1.5,
+    "dur": 4.0,
     "st": 7,
     "t": "time"
    },
@@ -269,7 +269,7 @@
    },
    {
     "beat": 9.0,
-    "dur": 4.0,
+    "dur": 3.5,
     "st": 3,
     "t": "pass"
    }
@@ -277,52 +277,52 @@
  },
  "w-n-getting-curled": {
   "leadIn": 0.06,
-  "beats": 10.0,
+  "beats": 10.5,
   "notes": [
    {
     "beat": 0.0,
-    "dur": 2.5,
+    "dur": 3.0,
     "st": 5,
     "t": "Getting"
    },
    {
-    "beat": 2.5,
+    "beat": 3.0,
     "dur": 1.0,
     "st": 2,
     "t": "cur"
    },
    {
-    "beat": 3.5,
-    "dur": 1.0,
+    "beat": 4.0,
+    "dur": 0.5,
     "st": 0,
     "t": "led"
    },
    {
     "beat": 4.5,
-    "dur": 0.5,
+    "dur": 1.0,
     "st": 0,
     "t": "up"
    },
    {
-    "beat": 5.0,
-    "dur": 0.5,
+    "beat": 5.5,
+    "dur": 1.0,
     "st": 5,
     "t": "in"
    },
    {
-    "beat": 5.5,
-    "dur": 2.0,
+    "beat": 6.5,
+    "dur": 1.5,
     "st": 2,
     "t": "myself"
    },
    {
-    "beat": 7.5,
+    "beat": 8.0,
     "dur": 0.5,
     "st": -2,
     "t": "I"
    },
    {
-    "beat": 8.0,
+    "beat": 8.5,
     "dur": 2.0,
     "st": -2,
     "t": "think"
@@ -331,7 +331,7 @@
  },
  "w-n-stone-waiting": {
   "leadIn": 0.06,
-  "beats": 16.0,
+  "beats": 16.5,
   "notes": [
    {
     "beat": 0.0,
@@ -347,31 +347,31 @@
    },
    {
     "beat": 1.5,
-    "dur": 2.5,
+    "dur": 2.0,
     "st": 9,
     "t": "stone"
    },
    {
-    "beat": 4.0,
+    "beat": 3.5,
     "dur": 2.0,
     "st": 5,
     "t": "just"
    },
    {
-    "beat": 6.0,
-    "dur": 3.5,
+    "beat": 5.5,
+    "dur": 4.5,
     "st": 3,
     "t": "waiting"
    },
    {
-    "beat": 9.5,
-    "dur": 2.0,
+    "beat": 10.0,
+    "dur": 1.5,
     "st": 2,
     "t": "very"
    },
    {
     "beat": 11.5,
-    "dur": 4.5,
+    "dur": 5.0,
     "st": 5,
     "t": "patiently"
    }
@@ -383,25 +383,25 @@
   "notes": [
    {
     "beat": 0.0,
-    "dur": 1.5,
+    "dur": 2.0,
     "st": 7,
     "t": "For"
    },
    {
-    "beat": 1.5,
-    "dur": 2.0,
+    "beat": 2.0,
+    "dur": 1.5,
     "st": 7,
     "t": "time"
    },
    {
     "beat": 3.5,
-    "dur": 1.0,
+    "dur": 1.5,
     "st": 3,
     "t": "to"
    },
    {
-    "beat": 4.5,
-    "dur": 2.0,
+    "beat": 5.0,
+    "dur": 1.5,
     "st": 3,
     "t": "pass"
    }
