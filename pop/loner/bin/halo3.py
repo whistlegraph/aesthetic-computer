@@ -181,9 +181,25 @@ CHART = {
                              # hold and becomes her voice at 1.16×.
                              # of·a·stone still spans beats 18–26, so
                              # nothing downstream moves.
-                             "durs": { 0: 4.0, 1: 2.5, 2: 1.5, 3: 2.0,
-                                       4: 2.0, 5: 1.5, 6: 2.5, 7: 2.0,
-                                       8: 4.0, 9: 2.0, 10: 2.0 } },
+                             # curled 3 · up 2 · stone longer · and the
+                             # gaps she actually takes, measured off the
+                             # take: she is silent 13% of this line, and
+                             # her three big breaths are after up (0.79
+                             # beats), after stone (1.31 — the longest
+                             # in the song, exactly where @jeffrey asked
+                             # for "a bar break between end of stone and
+                             # just") and after to. The chart used to
+                             # have no rests at all, so every one of
+                             # those breaths was being stretched into
+                             # the note before it.
+                             "lead": 1.0,        # the /s/ of sitting, as a pickup
+                             "durs": { 0: 4.0, 1: 3.0, 2: 2.0, 3: 2.0,
+                                       4: 2.0, 5: 2.0, 6: 2.0, 7: 1.0,
+                                       8: 4.0, 9: 4.0, 10: 4.0 },
+                             # rest AFTER the given unit, in beats
+                             "gaps": { 2: 1.0,   # her breath after "up"
+                                       5: 1.0,   # space between self and i
+                                       10: 4.0 } },  # the bar break after stone
     "w-sitting-curled":    { "slice": "f-sitting-curled",    "beats": 11.0 },
     "w-i-think":           { "slice": "f-i-think",           "beats": 3.5 },
     "w-of-a-stone":        { "slice": "f-of-a-stone",        "beats": 8.0 },
@@ -196,7 +212,7 @@ CHART = {
 }
 
 
-def derive_units(words, beats_total, stretch=None, durs=None):
+def derive_units(words, beats_total, stretch=None, durs=None, gaps=None):
     """Uniform scale + per-word stretch/exact durs + 8th-note quantize."""
     on0 = words[0]["start"]
     span = words[-1]["end"] - on0
@@ -211,7 +227,7 @@ def derive_units(words, beats_total, stretch=None, durs=None):
         if durs and i in durs:
             dq = durs[i]                        # the exact override wins
         units.append((acc, dq))                 # onsets land on-grid by construction
-        acc += dq
+        acc += dq + (gaps.get(i, 0.0) if gaps else 0.0)
     return units
 
 SLICES = json.load(open(os.path.join(LANE, "samples", ".manifest.json")))
@@ -357,10 +373,10 @@ def trim_units(x, fs, unit_src, names=None):
         elif names:
             log.append(f"{names[u]} −{cut * 1000:.0f}ms")
         out.append((s0, e))
-    return out, log
+    return out, log, [(b, c) for (a_, b), (_, c) in zip(out, unit_src)]
 
 
-def build_warp(a, unit_src, beats, dursb):
+def build_warp(a, unit_src, beats, dursb, gapsb=None, rest_src=None, lead_b=0.0):
     """Frame index map with VOWEL-ON-THE-BEAT alignment.
 
     Each word's voiced onset (its vowel) lands exactly on its chart
@@ -379,18 +395,27 @@ def build_warp(a, unit_src, beats, dursb):
         while v0 < lim and not a["voiced"][v0]:
             v0 += 1
         ants.append(v0 - s0 if a["voiced"][min(v0, F - 1)] else 0)
-    Z = unit_src[0][0] + ants[0]
+    pre = list(range(0, unit_src[0][0] + ants[0]))   # pre + consonant, 1:1
+    rise = None
+    if lead_b > 0.0 and len(pre):
+        want = max(1, int(round(lead_b * SPB / FRAME_S)))
+        pos = np.linspace(0, len(pre) - 1, want)
+        pre = [pre[int(round(p))] for p in pos]
+        rise = (0, want)
+    Z = len(pre)
     T = [Z + int(round(b * SPB / FRAME_S)) for b in beats]
     Tend = [Z + int(round((b + d) * SPB / FRAME_S)) for b, d in zip(beats, dursb)]
-    idx = list(range(0, unit_src[0][0] + ants[0]))  # pre + consonant, 1:1
-    holds = []
+    idx = list(pre)
+    holds, rests = [], []
     for u, (s0, s1) in enumerate(unit_src):
         s0, s1 = max(0, min(s0, F - 1)), max(1, min(s1, F))
         v0 = min(s0 + ants[u], s1 - 1)
         t0 = T[u]
+        gap_fr = (int(round(gapsb[u] * SPB / FRAME_S))
+                  if gapsb and u < len(gapsb) else 0)
         if u + 1 < len(unit_src):
             nxt_a = min(ants[u + 1], max(0, (T[u + 1] - t0) - 2))
-            body_end = T[u + 1] - nxt_a
+            body_end = T[u + 1] - nxt_a - gap_fr
         else:
             nxt_a = 0
             body_end = Tend[u]
@@ -409,6 +434,14 @@ def build_warp(a, unit_src, beats, dursb):
         if ratio > HOLD_RATIO:
             holds.append((len(idx), len(idx) + out_n, v0, s1))
         idx.extend((v0 + np.round(pos).astype(int)).tolist())
+        if gap_fr > 0:                            # THE REST — her own air
+            rests.append((len(idx), len(idx) + gap_fr))
+            ra, rb = (rest_src[u] if rest_src else (s1, s1))
+            span = max(1, rb - ra)
+            for k in range(gap_fr):
+                idx.append(int(np.clip(
+                    ra + (span - 1) - abs((k % max(1, 2 * span - 2)) - (span - 1)),
+                    0, F - 1)))
         if u + 1 < len(unit_src):                 # next word's consonant, 1:1
             ns0 = unit_src[u + 1][0]
             idx.extend(range(ns0, ns0 + nxt_a))
@@ -427,11 +460,11 @@ def build_warp(a, unit_src, beats, dursb):
         for k in range(rel_n):
             p = lo + (span - 1) - abs((k % (2 * span - 2)) - (span - 1))
             idx.append(int(np.clip(p, 0, F - 1)))
-    return np.array(idx, dtype=int), holds, fade, Z, ants
+    return np.array(idx, dtype=int), holds, fade, Z, ants, rise, rests
 
 
 def synth_from(a, idx, f0_o, *, dark=None, breath_x=1.0, vowels_only=False,
-               air=True, formant=True, fade=None):
+               air=True, formant=True, fade=None, rise=None, rests=()):
     fs, x = a["fs"], a["x"]
     sp_o = np.ascontiguousarray(a["sp"][idx])
     ap_o = np.ascontiguousarray(a["ap"][idx])
@@ -472,6 +505,22 @@ def synth_from(a, idx, f0_o, *, dark=None, breath_x=1.0, vowels_only=False,
             blk = x[sf_i * spf:sf_i * spf + (o1 - o0)]
             xw[o0:o0 + len(blk)] = blk
         out = mask * y + (1 - mask) * xw
+    for (q0, q1) in rests:
+        # a long rest is her room tone ping-ponged; without this it
+        # pulses. Let the breath sound, then settle to almost nothing.
+        spf = int(fs * FRAME_S)
+        p0, p1 = q0 * spf, min(q1 * spf, n)
+        if p1 > p0:
+            k = np.linspace(0.0, 1.0, p1 - p0)
+            out[p0:p1] *= 0.15 + 0.85 * np.clip(1.0 - k / 0.35, 0.0, 1.0)
+    if rise is not None:
+        # THE PICKUP swells from nothing — the slice starts mid-sibilant,
+        # so without this "sitting" arrives at full volume, no attack.
+        spf = int(fs * FRAME_S)
+        r0, r1 = rise[0] * spf, min(rise[1] * spf, n)
+        if r1 > r0:
+            k = np.arange(r1 - r0)
+            out[r0:r1] *= (0.5 - 0.5 * np.cos(np.pi * k / max(1, r1 - r0))) ** 1.5
     if fade is not None:
         spf = int(fs * FRAME_S)
         a0, a1 = fade[0] * spf, min(fade[1] * spf, n)
@@ -524,7 +573,8 @@ for name, ch in CHART.items():
         first = dict(w, end=ts, t=w["t"] + "·a")
         second = dict(w, start=ts, t=w["t"] + "·b")
         words[ui:ui + 1] = [first, second]
-    ch["units"] = derive_units(words, ch["beats"], ch.get("stretch"), ch.get("durs"))
+    ch["units"] = derive_units(words, ch["beats"], ch.get("stretch"),
+                               ch.get("durs"), ch.get("gaps"))
 
     # source frame bounds per unit (slice clock)
     unit_src = []
@@ -535,11 +585,12 @@ for name, ch in CHART.items():
             s1 = int(round((words[i + 1]["start"] - t0_slice) / FRAME_S))
         unit_src.append((max(0, s0), min(F, max(s0 + 1, s1))))
 
-    unit_src, trims = trim_units(x, fs, unit_src, [w["t"] for w in words])
+    unit_src, trims, rest_src = trim_units(x, fs, unit_src, [w["t"] for w in words])
 
-    idx, holds, fade, Z, ants = build_warp(a, unit_src,
-                                     [b for (b, d) in ch["units"]],
-                                     [d for (b, d) in ch["units"]])
+    gapsb = [ch.get("gaps", {}).get(i, 0.0) for i in range(len(ch["units"]))]
+    idx, holds, fade, Z, ants, rise, rests = build_warp(
+        a, unit_src, [b for (b, d) in ch["units"]],
+        [d for (b, d) in ch["units"]], gapsb, rest_src, ch.get("lead", 0.0))
     f0_o = a["f0c"][idx].copy()
     voiced_o = a["voiced"][idx]
 
@@ -563,14 +614,14 @@ for name, ch in CHART.items():
                                f0_o[o0:o1] * (1 - blend) + tgt * vib * blend, 0.0)
 
     renders = {}
-    out, _ = synth_from(a, idx, f0_o, fade=fade)
+    out, _ = synth_from(a, idx, f0_o, fade=fade, rise=rise, rests=rests)
     sf.write(os.path.join(VOX4, f"{name}.wav"), out, fs)
     renders["lead"] = round(len(out) / fs, 3)
 
     for tag, cents in (("8ve-a", 1200 + 6), ("8ve-b", 1200 - 7)):
         out, _ = synth_from(a, idx, f0_o * 2.0 ** (cents / 1200.0),
                             dark=HALO_DARK_HZ, breath_x=HALO_BREATH_X,
-                            vowels_only=True, air=False, fade=fade)
+                            vowels_only=True, air=False, fade=fade, rise=rise, rests=rests)
         sf.write(os.path.join(VOX4, f"{name}-{tag}.wav"), out, fs)
         renders[tag] = round(len(out) / fs, 3)
 
@@ -583,7 +634,7 @@ for name, ch in CHART.items():
         delta = smooth(delta, int(60.0 / FRAME_MS))
         out, _ = synth_from(a, idx, f0_o * 2.0 ** ((delta + det) / 1200.0),
                             dark=HALO_DARK_HZ, breath_x=HALO_BREATH_X, air=False,
-                            fade=fade)
+                            fade=fade, rise=rise, rests=rests)
         sf.write(os.path.join(VOX4, f"{name}-{tag}.wav"), out, fs)
         renders[tag] = round(len(out) / fs, 3)
 

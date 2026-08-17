@@ -1,14 +1,14 @@
 {
  "w-whole-line": {
   "slice": "f-whole-line",
-  "lead_in": 0.02,
-  "beats": 56.5,
+  "lead_in": 0.49,
+  "beats": 66.5,
   "renders": {
-   "lead": 28.315,
-   "8ve-a": 28.315,
-   "8ve-b": 28.315,
-   "low3": 28.315,
-   "low5": 28.315
+   "lead": 33.705,
+   "8ve-a": 33.705,
+   "8ve-b": 33.705,
+   "low3": 33.705,
+   "low5": 33.705
   },
   "snaps": [
    "curled +65ms",
