@@ -17,6 +17,7 @@
 		7D438ADCB6BECAD5D0E6C8F7 /* MetalSceneView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 812FA65365747604E58B98E7 /* MetalSceneView.swift */; };
 		82A4DA7DFB26C3E87F9AB609 /* oskiewar.js in Resources */ = {isa = PBXBuildFile; fileRef = AB2FCD0A93F17F907A54302C /* oskiewar.js */; };
 		98991A7AC85B7CAE426E8D15 /* qr.mjs in Resources */ = {isa = PBXBuildFile; fileRef = A50E50A82D3F715FB8B31490 /* qr.mjs */; };
+		B93964796DBF64A171DD9439 /* GlyphAtlas.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59BD48D8076F347B7FF9A774 /* GlyphAtlas.swift */; };
 		C0C46FBB6805F1A1E055FED7 /* OskiewarApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = C43902C050551AD2D6DA0EF9 /* OskiewarApp.swift */; };
 		DE990881EAE44FB2BE4592FF /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = FCECE2875B24DB7356CB0FDC /* Assets.xcassets */; };
 		F10250364FF369A809057B31 /* frame-driver.mjs in Resources */ = {isa = PBXBuildFile; fileRef = 4C7C4D62E6C706C3AB30BB3B /* frame-driver.mjs */; };
@@ -27,6 +28,7 @@
 		26C7F4ADC37CB30558AAE696 /* oskiewar-midi.mjs */ = {isa = PBXFileReference; path = "oskiewar-midi.mjs"; sourceTree = "<group>"; };
 		2E725A92F239CBD5114A9A1E /* oskiewar-sfx.mjs */ = {isa = PBXFileReference; path = "oskiewar-sfx.mjs"; sourceTree = "<group>"; };
 		4C7C4D62E6C706C3AB30BB3B /* frame-driver.mjs */ = {isa = PBXFileReference; path = "frame-driver.mjs"; sourceTree = "<group>"; };
+		59BD48D8076F347B7FF9A774 /* GlyphAtlas.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlyphAtlas.swift; sourceTree = "<group>"; };
 		812FA65365747604E58B98E7 /* MetalSceneView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetalSceneView.swift; sourceTree = "<group>"; };
 		8265144AA3E23B010A51E65A /* mac-test.html */ = {isa = PBXFileReference; lastKnownFileType = text.html; path = "mac-test.html"; sourceTree = "<group>"; };
 		A0AEFE9FB2DD8B296D83443D /* oskiewar-analytics.mjs */ = {isa = PBXFileReference; path = "oskiewar-analytics.mjs"; sourceTree = "<group>"; };
@@ -43,6 +45,7 @@
 		41977401E108AFD8508FEB8B /* Sources */ = {
 			isa = PBXGroup;
 			children = (
+				59BD48D8076F347B7FF9A774 /* GlyphAtlas.swift */,
 				812FA65365747604E58B98E7 /* MetalSceneView.swift */,
 				C43902C050551AD2D6DA0EF9 /* OskiewarApp.swift */,
 			);
@@ -193,6 +196,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B93964796DBF64A171DD9439 /* GlyphAtlas.swift in Sources */,
 				7D438ADCB6BECAD5D0E6C8F7 /* MetalSceneView.swift in Sources */,
 				C0C46FBB6805F1A1E055FED7 /* OskiewarApp.swift in Sources */,
 			);

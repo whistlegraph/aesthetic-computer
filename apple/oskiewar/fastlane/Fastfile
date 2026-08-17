@@ -1,0 +1,159 @@
+# oskiewar — App Store submission for both stores, driven by an App Store
+# Connect API key. Same shape as slab/menuband's Fastfile, and for the same
+# reasons: one lane per irreversible step, screenshots owned by exactly one
+# lane, and nothing that submits for review until `ship` is asked for by name.
+#
+#   fastlane ios create / meta / shots / privacy / ship
+#   fastlane mac  create / meta / shots / build / privacy / upload / ship
+#
+# Only the Mac side carries its own binary here. iOS still archives from
+# Xcode; `mac build` exists because the macOS game has no committed Xcode
+# project to archive from by hand — see apple/oskiewar-mac/project.yml.
+#
+# Both platforms share ONE bundle identifier and therefore one App Store
+# Connect record. That is what makes this a universal purchase: a person who
+# installs oskiewar on a phone finds it already theirs on the Mac. It also
+# means `create` runs once, not twice — the second platform is added to the
+# record that already exists.
+
+API_KEY_ID = "S4TQKG6U99" # Admin role — required for cloud signing.
+API_ISSUER = "69a6de78-fa3c-47e3-e053-5b8c7c11a4d1"
+API_KEY_PATH = File.expand_path("~/.appstoreconnect/private_keys/AuthKey_S4TQKG6U99.p8")
+BUNDLE = "computer.aesthetic.oskiewar"
+VERSION = ENV.fetch("OSKIEWAR_VERSION", "1.0.0")
+BUILD_NUMBER = ENV.fetch("OSKIEWAR_BUILD_NUMBER", "7")
+TEAM = "FB5948YR3S"
+
+# The macOS game's Xcode project is generated from apple/oskiewar-mac/
+# project.yml and git-ignored, so `xcodegen generate` has to have run there
+# before `mac build`. Everything below is anchored to this Fastfile's own
+# location, so the lanes resolve no matter where fastlane is invoked from.
+MAC_DIR = File.expand_path("../../oskiewar-mac", __dir__)
+MAC_PROJECT = File.join(MAC_DIR, "OskiewarMac.xcodeproj")
+# One path, written by `build` and read by `upload`. They must never disagree
+# — an `upload` lane pointed at a directory nobody exports to is a lane that
+# fails the first time anyone runs it.
+# Override for a one-off export: OSKIEWAR_PKG=build/export-1.0.1/oskiewar.pkg
+PKG = File.expand_path(ENV.fetch("OSKIEWAR_PKG", "build/export/oskiewar.pkg"), MAC_DIR)
+
+def asc_key
+  app_store_connect_api_key(
+    key_id: API_KEY_ID,
+    issuer_id: API_ISSUER,
+    key_filepath: API_KEY_PATH,
+    in_house: false,
+  )
+end
+
+# Every deliver call in this file agrees on these: never guess at a review
+# submission, never let precheck's guideline scan gate an upload, and always
+# overwrite rather than fail on an existing draft.
+def deliver_defaults(platform)
+  {
+    api_key: asc_key,
+    platform: platform,
+    app_identifier: BUNDLE,
+    submit_for_review: false,
+    force: true,
+    run_precheck_before_submit: false,
+  }
+end
+
+["ios", "osx"].each do |store|
+  # fastlane's platform names differ from App Store Connect's: the Mac lane is
+  # invoked as `mac` and delivers to the platform spelled `osx`.
+  platform(store == "ios" ? :ios : :mac) do
+    # 1. Create the shared App Store Connect record. Idempotent, and a no-op
+    #    once the other platform has already made it.
+    lane :create do
+      asc_key # seeds the Spaceship token that produce reads
+      produce(
+        app_identifier: BUNDLE,
+        app_name: "oskiewar",
+        language: "en-US",
+        sku: "oskiewar",
+        platform: store,
+      )
+    end
+
+    # 2. Metadata only. Safe to re-run.
+    lane :meta do
+      deliver(**deliver_defaults(store),
+              app_version: VERSION,
+              metadata_path: "./fastlane/metadata/#{store}",
+              skip_screenshots: true,
+              skip_binary_upload: true)
+    end
+
+    # 2b. Screenshots have one owner. Two deliver actions racing the same
+    #     version leave byte-identical duplicates in App Store Connect.
+    lane :shots do
+      deliver(**deliver_defaults(store),
+              app_version: VERSION,
+              screenshots_path: "./fastlane/screenshots/#{store}",
+              skip_metadata: true,
+              skip_binary_upload: true,
+              overwrite_screenshots: true)
+    end
+
+    if store == "osx"
+      # 2c. Archive the macOS game and export a Mac App Store .pkg. Signing is
+      #     automatic and cloud-issued: -allowProvisioningUpdates plus an Admin
+      #     API key is what lets Xcode mint the Mac App Distribution and Mac
+      #     Installer Distribution certificates and the provisioning profile
+      #     without anyone opening the portal.
+      lane :build do
+        UI.user_error!("run `xcodegen generate` in apple/oskiewar-mac first — " \
+                       "#{MAC_PROJECT} does not exist") unless File.exist?(MAC_PROJECT)
+        build_mac_app(
+          project: MAC_PROJECT,
+          scheme: "OskiewarMac",
+          configuration: "Release",
+          export_method: "app-store",
+          export_team_id: TEAM,
+          api_key: asc_key,
+          xcargs: "-allowProvisioningUpdates",
+          output_directory: File.dirname(PKG),
+          output_name: File.basename(PKG, ".pkg"),
+        )
+      end
+
+      # 3. Upload that .pkg and nothing else, which starts App Store
+      #    processing. The version and build it lands under come from
+      #    xbox/macos-native/Info.plist, not from this file.
+      lane :upload do
+        deliver(**deliver_defaults(store),
+                pkg: PKG,
+                skip_metadata: true,
+                skip_screenshots: true)
+      end
+    end
+
+    # 3b. Publish the App Privacy nutrition label. The public API has no
+    #    appDataUsages endpoint, so this drives Apple's private routes with
+    #    the same key. Must agree with PrivacyInfo.xcprivacy in the bundle.
+    lane :privacy do
+      upload_app_privacy_details(
+        api_key: asc_key,
+        app_identifier: BUNDLE,
+        json_path: "./fastlane/app_privacy_details.json",
+      )
+    end
+
+    # 4. Submit for review. The build has to have finished processing, and
+    #    price plus agreements have to be set, or this fails on Apple's side.
+    lane :ship do
+      deliver(**deliver_defaults(store).merge(submit_for_review: true),
+              app_version: VERSION,
+              build_number: BUILD_NUMBER,
+              metadata_path: "./fastlane/metadata/#{store}",
+              skip_screenshots: true,
+              skip_binary_upload: true,
+              automatic_release: true,
+              submission_information: {
+                add_id_info_uses_idfa: false,
+                export_compliance_uses_encryption: false,
+              })
+    end
+  end
+end

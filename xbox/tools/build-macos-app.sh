@@ -10,9 +10,16 @@ if [ "${1:-}" = "--install" ]; then install=1; fi
 
 rm -rf "$app"
 mkdir -p "$contents/MacOS" "$contents/Resources/live"
+# The Metal scene and its glyph atlas are shared with the iOS app under
+# apple/oskiewar — one renderer, compiled into both. main.swift keeps its
+# top-level code as the entry point, which stays legal as long as it is the
+# file literally named main.swift.
 swiftc -swift-version 5 -O "$repo_root/xbox/macos-native/main.swift" \
+  "$repo_root/apple/oskiewar/Sources/MetalSceneView.swift" \
+  "$repo_root/apple/oskiewar/Sources/GlyphAtlas.swift" \
   -framework AppKit -framework AVFoundation -framework CoreVideo \
   -framework GameController -framework JavaScriptCore \
+  -framework Metal -framework MetalKit -framework CoreText \
   -o "$contents/MacOS/oskiewar"
 cp "$repo_root/xbox/macos-native/Info.plist" "$contents/Info.plist"
 cp "$repo_root/xbox/live/oskiewar.js" "$contents/Resources/live/oskiewar.js"
@@ -21,20 +28,14 @@ cp "$repo_root/system/public/aesthetic.computer/dep/@akamfoad/qr/qr.mjs" \
 cp "$repo_root/system/public/papers.aesthetic.computer/foundry/fonts/ComicRelief-Regular.ttf" \
   "$contents/Resources/ComicRelief-Regular.ttf"
 
-iconset="$build_root/Oskiewar.iconset"
-rm -rf "$iconset"
-mkdir -p "$iconset"
-icon_source="$repo_root/xbox/assets/ac-native-icon-master.png"
-for size in 16 32 128 256 512; do
-  sips -s format png -z "$size" "$size" "$icon_source" \
-    --out "$iconset/icon_${size}x${size}.png" >/dev/null
-  double=$((size * 2))
-  sips -s format png -z "$double" "$double" "$icon_source" \
-    --out "$iconset/icon_${size}x${size}@2x.png" >/dev/null
-done
-iconutil -c icns "$iconset" -o "$contents/Resources/Oskiewar.icns"
-rm -rf "$iconset"
-codesign --force --deep --sign - "$app" >/dev/null
+sh "$repo_root/xbox/tools/make-macos-icon.sh" "$contents/Resources/Oskiewar.icns"
+# Ad-hoc, but against the App Store entitlements: the desk build is sandboxed
+# and JIT-enabled exactly like the reviewed one, so a sandbox denial shows up
+# here rather than in review — and JavaScriptCore gets its JIT, which is worth
+# roughly 4x on the game loop.
+codesign --force --deep --options runtime \
+  --entitlements "$repo_root/apple/oskiewar-mac/Oskiewar-macOS.entitlements" \
+  --sign - "$app" >/dev/null
 
 if [ "$install" -eq 1 ]; then
   destination="/Applications/oskiewar.app"

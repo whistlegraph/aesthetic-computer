@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Mac App Store distribution REQUIRES the App Sandbox. The dev bundle
+         from xbox/tools/build-macos-app.sh signs against this same file, so
+         the game you play at your desk is sandboxed exactly like the one a
+         reviewer opens — a sandbox violation has nowhere to hide until
+         review. -->
+    <key>com.apple.security.app-sandbox</key>
+    <true/>
+
+    <!-- Outbound only, three destinations, all of them in main.swift:
+         • NetworkBridge.saveReplay — HTTPS POST of a finished match to
+           aesthetic.computer/api/oskiewar-replays.
+         • NetworkBridge.publishLive — wss:// publisher socket on
+           session-server.aesthetic.computer so spectators can watch a round.
+         • OscSender.send — UDP OSC on 51338, broadcast, so a DAW on the same
+           desk can score the fight from the game's own events.
+         The app never listens for a connection, so network.server stays off.
+         The broadcast is also what NSLocalNetworkUsageDescription in
+         Info.plist explains: macOS 15+ asks the player before the first
+         packet leaves for the LAN, and a denial costs the OSC feed and
+         nothing else. -->
+    <key>com.apple.security.network.client</key>
+    <true/>
+
+    <!-- oskiewar.js IS the game — the whole match loop runs inside
+         JavaScriptCore, every frame. On Apple silicon JSC only gets its JIT
+         when the process carries this key; without it the interpreter takes
+         over. Measured on this machine with a JSC hot loop: 665 ms without,
+         151 ms with — 4.4x. A 60fps fighter cannot pay that. Permitted in
+         Mac App Store builds (unlike its unsigned-memory siblings below). -->
+    <key>com.apple.security.cs.allow-jit</key>
+    <true/>
+
+    <!-- NOT included, and why:
+         • com.apple.security.device.bluetooth — game controllers come in
+           through the high-level GameController framework
+           (GCController.startWirelessControllerDiscovery); there is no
+           CoreBluetooth anywhere in main.swift, so pads pair and read fine
+           without it. Menu Band shipped this key and App Review pulled it
+           under 2.4.5(i) in Jul 2026 for exactly this reason.
+         • com.apple.security.device.audio-input — NativeAudio only ever
+           attaches AVAudioPlayerNodes to the main mixer. The engine's input
+           node is never touched, so there is no microphone to declare.
+         • com.apple.security.files.* — the game writes no files at all. A
+           replay is POSTed, not saved; the only reads are its own bundled
+           oskiewar.js, qr.mjs, the Comic Relief face, and the icon, and a
+           sandboxed app can always read its own bundle.
+         • com.apple.security.network.server — nothing binds or accepts.
+         • com.apple.security.cs.allow-unsigned-executable-memory and
+           com.apple.security.cs.disable-library-validation — JSC needs
+           neither once allow-jit is granted, and both draw review scrutiny
+           that allow-jit does not. -->
+</dict>
+</plist>

@@ -6,40 +6,109 @@ import Foundation
 import GameController
 import JavaScriptCore
 
-private struct Ink {
-    let red: CGFloat
-    let green: CGFloat
-    let blue: CGFloat
+/// Metal draws corners, so every shape the engine names arrives here as
+/// triangles: a box is two faces, a line is a quad struck off the segment's
+/// perpendicular. Colour rides through as 0–255 because MetalSceneView
+/// normalizes at the vertex, and converting on the way in would only do it
+/// twice.
+private final class NativeRenderer {
+    /// Nearer than the nearest face the engine ever projects (-1.445), so
+    /// overlay furniture sits on top of the world.
+    private static let overlay = -1.47
+    /// Behind the far clamp on the engine's projection (1.4), so the sky it
+    /// lays down before the world stays under it.
+    private static let backdrop = 1.45
 
-    init(_ red: Double, _ green: Double, _ blue: Double) {
-        self.red = CGFloat(max(0, min(255, red)) / 255)
-        self.green = CGFloat(max(0, min(255, green)) / 255)
-        self.blue = CGFloat(max(0, min(255, blue)) / 255)
+    let scene: MetalSceneView
+    private var clear = (red: 7.0, green: 8.0, blue: 28.0)
+    private var sawFace = false
+    /// One face's worth of floats, reused. `triangleBatch` wants a pointer and
+    /// a match frame submits a couple of thousand faces; an array per face
+    /// would spend the whole saving on the heap.
+    private var face = [Float](repeating: 0, count: 12)
+
+    init(scene: MetalSceneView) { self.scene = scene }
+
+    var logicalSize: CGSize {
+        get { scene.logicalSize }
+        set { scene.logicalSize = newValue }
     }
 
-    var color: NSColor { NSColor(srgbRed: red, green: green, blue: blue, alpha: 1) }
-}
-
-private enum DrawCommand {
-    case box(CGRect, Ink)
-    case line(CGPoint, CGPoint, CGFloat, Ink)
-    case triangle(CGPoint, CGPoint, CGPoint, Ink)
-    case triangle3d(CGPoint, CGFloat, CGPoint, CGFloat, CGPoint, CGFloat, Ink)
-    case text(String, CGPoint, CGFloat, Ink, String)
-}
-
-private final class NativeRenderer {
-    var logicalSize = CGSize(width: 1920, height: 1080)
-    var backdrop = Ink(7, 8, 28)
-    var commands: [DrawCommand] = []
-
     func beginFrame() {
-        commands.removeAll(keepingCapacity: true)
+        scene.beginFrame(red: clear.red, green: clear.green, blue: clear.blue)
+        sawFace = false
     }
 
     func wipe(_ red: Double, _ green: Double, _ blue: Double) {
-        backdrop = Ink(red, green, blue)
-        commands.removeAll(keepingCapacity: true)
+        clear = (red, green, blue)
+        beginFrame()
+    }
+
+    func box(_ x: Double, _ y: Double, _ width: Double, _ height: Double,
+             _ red: Double, _ green: Double, _ blue: Double) {
+        let z = flat, right = x + width, bottom = y + height
+        emit(x, y, z, right, y, z, right, bottom, z, red, green, blue)
+        emit(x, y, z, right, bottom, z, x, bottom, z, red, green, blue)
+    }
+
+    /// Butt ends, not round. CoreGraphics gave the caps away with
+    /// `setLineCap`; here each one would be another fan per segment, and the
+    /// engine already moved every line that reads as a limb over to
+    /// `filledCapsule`, which draws its own ends.
+    func line(_ x1: Double, _ y1: Double, _ x2: Double, _ y2: Double,
+              _ width: Double, _ red: Double, _ green: Double, _ blue: Double) {
+        let dx = x2 - x1, dy = y2 - y1
+        let span = (dx * dx + dy * dy).squareRoot()
+        guard span > 0 else { return }
+        let reach = max(1, width) / 2 / span
+        let nx = -dy * reach, ny = dx * reach, z = flat
+        emit(x1 + nx, y1 + ny, z, x2 + nx, y2 + ny, z, x2 - nx, y2 - ny, z,
+             red, green, blue)
+        emit(x1 + nx, y1 + ny, z, x2 - nx, y2 - ny, z, x1 - nx, y1 - ny, z,
+             red, green, blue)
+    }
+
+    func triangle(_ x1: Double, _ y1: Double, _ x2: Double, _ y2: Double,
+                  _ x3: Double, _ y3: Double,
+                  _ red: Double, _ green: Double, _ blue: Double) {
+        let z = flat
+        emit(x1, y1, z, x2, y2, z, x3, y3, z, red, green, blue)
+    }
+
+    func triangle3d(_ x1: Double, _ y1: Double, _ z1: Double,
+                    _ x2: Double, _ y2: Double, _ z2: Double,
+                    _ x3: Double, _ y3: Double, _ z3: Double,
+                    _ red: Double, _ green: Double, _ blue: Double) {
+        sawFace = true
+        emit(x1, y1, z1, x2, y2, z2, x3, y3, z3, red, green, blue)
+    }
+
+    func write(_ value: String, family: String, x: Double, y: Double,
+               size: Double, _ red: Double, _ green: Double, _ blue: Double) {
+        scene.write(value, family: family, x: x, y: y, size: max(1, size),
+                    red: red, green: green, blue: blue)
+    }
+
+    /// The flat lane carries two different things under one name: the sky the
+    /// engine lays down before the world, and the keycaps and panels it lays
+    /// over it. Nothing at the boundary tells them apart except when they
+    /// arrive, so the lane splits at the frame's first projected face —
+    /// everything up to it is backdrop, everything after it is overlay.
+    /// Painter's order handed the AppKit host this for free; a depth buffer
+    /// has to be told.
+    private var flat: Double { sawFace ? Self.overlay : Self.backdrop }
+
+    private func emit(_ x1: Double, _ y1: Double, _ z1: Double,
+                      _ x2: Double, _ y2: Double, _ z2: Double,
+                      _ x3: Double, _ y3: Double, _ z3: Double,
+                      _ red: Double, _ green: Double, _ blue: Double) {
+        face[0] = Float(x1); face[1] = Float(y1); face[2] = Float(z1)
+        face[3] = Float(x2); face[4] = Float(y2); face[5] = Float(z2)
+        face[6] = Float(x3); face[7] = Float(y3); face[8] = Float(z3)
+        face[9] = Float(red); face[10] = Float(green); face[11] = Float(blue)
+        face.withUnsafeBufferPointer {
+            _ = scene.triangleBatch($0.baseAddress!, count: 1)
+        }
     }
 }
 
@@ -51,6 +120,26 @@ private final class NativeInput {
         if down { keyboard[mapping.0].insert(mapping.1) }
         else { keyboard[mapping.0].remove(mapping.1) }
     }
+
+    /// Shift and Option never arrive as keyDown — AppKit reports a bare
+    /// modifier as a change of flags and nothing else — so X and Y, the two
+    /// buttons the web shell binds there, were unpressable until this. The
+    /// device-dependent bits are what say *which* key moved; the ordinary
+    /// `.shift`/`.option` flags cannot tell the two sides apart, and the game
+    /// wants them separable. A modifier let go while the app is in the
+    /// background reports its release to whoever has focus instead of here,
+    /// which is what `clear()` on resign is for.
+    func setFlags(_ event: NSEvent) {
+        guard let side = Self.modifierSides[event.keyCode] else { return }
+        setKey(event, down: event.modifierFlags.rawValue & side != 0)
+    }
+
+    private static let modifierSides: [UInt16: UInt] = [
+        56: 0x2,   // shift, left
+        60: 0x4,   // shift, right
+        58: 0x20,  // option, left
+        61: 0x40,  // option, right
+    ]
 
     func pulse(_ button: String, player: Int = 0) {
         keyboard[player].insert(button)
@@ -118,6 +207,10 @@ private final class NativeInput {
         } as NSArray
     }
 
+    // The web shell's keyMap (xbox/live/mac-test.html) is the reference — a
+    // player who learns the game in a browser should not have to relearn it
+    // here, and the engine's own on-screen legend describes that layout. The
+    // extra letters are native-only conveniences that collide with nothing.
     private func keyMapping(_ code: UInt16) -> (Int, String)? {
         switch code {
         case 13: return (0, "ArrowUp")       // W
@@ -125,10 +218,11 @@ private final class NativeInput {
         case 0: return (0, "ArrowLeft")      // A
         case 2: return (0, "ArrowRight")     // D
         case 49, 3: return (0, "A")          // Space / F: kick
-        case 11, 4: return (0, "X")          // B / H: punch
-        case 5, 53, 51: return (0, "B")      // G / Escape / Backspace: defend/back
+        case 36, 5: return (0, "B")          // Return / G: punch
+        case 56, 60, 11, 4: return (0, "X")  // Shift / B / H: shield
+        case 58, 61: return (0, "Y")         // Option: use item
+        case 53, 51: return (0, "Menu")      // Escape / Backspace
         case 48, 12: return (0, "View")      // Tab / Q: debug
-        case 36: return (0, "Menu")          // Return
         case 126: return (1, "ArrowUp")
         case 125: return (1, "ArrowDown")
         case 123: return (1, "ArrowLeft")
@@ -136,6 +230,7 @@ private final class NativeInput {
         case 40: return (1, "A")             // K
         case 37: return (1, "B")             // L
         case 41: return (1, "X")             // ;
+        case 39: return (1, "Y")             // '
         default: return nil
         }
     }
@@ -231,7 +326,17 @@ private final class OscSender {
     private var descriptor: Int32 = -1
     private var sequence: UInt32 = 0
 
+    // Scoring a fight from a DAW is a studio errand, not something every
+    // player is doing, and the web says so already — the MIDI bridge there is
+    // opt-in behind `?midi` rather than on by default. Broadcasting without
+    // being asked has a price on macOS that the web never pays: the first
+    // packet to 255.255.255.255 makes the system demand local-network
+    // permission, and because the title screen's attract fight emits signals,
+    // that demand arrives before anyone has seen the game. A player who opened
+    // a stick-figure brawler should not be answering a network prompt, so the
+    // socket is never opened unless the errand was asked for.
     init() {
+        guard ProcessInfo.processInfo.environment["OSKIEWAR_OSC"] == "1" else { return }
         descriptor = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)
         guard descriptor >= 0 else { return }
         var enabled: Int32 = 1
@@ -316,28 +421,37 @@ private final class NetworkBridge {
     }
 }
 
+/// The window's contentView, and the game's ear. MetalSceneView is final —
+/// one renderer for both Apple apps, no per-platform subclasses — so input
+/// lives on the container that holds the surface rather than on the surface.
 private final class GameView: NSView {
+    let scene = MetalSceneView()
     weak var host: NativeGameHost?
-    var renderer: NativeRenderer!
     private var tracking: NSTrackingArea?
 
-    override var isFlipped: Bool { true }
     override var acceptsFirstResponder: Bool { true }
 
-    override func viewDidMoveToWindow() {
-        super.viewDidMoveToWindow()
-        updateBackingScale()
+    override init(frame: NSRect) {
+        super.init(frame: frame)
+        scene.frame = bounds
+        scene.autoresizingMask = [.width, .height]
+        addSubview(scene)
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) is unsupported") }
+
+    // The scene is furniture, not a control. Left to itself it would take the
+    // hit and the game would never hear the click.
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        bounds.contains(convert(point, from: superview)) ? self : nil
     }
 
     override func viewDidChangeBackingProperties() {
         super.viewDidChangeBackingProperties()
-        updateBackingScale()
-    }
-
-    private func updateBackingScale() {
-        wantsLayer = true
-        layer?.contentsScale = window?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 1
-        needsDisplay = true
+        // The scene only draws when asked, and a move between displays of
+        // different backingScaleFactor hands it a new drawable size. Without a
+        // nudge it sits on the stale one until the game's next frame.
+        scene.present()
     }
 
     override func updateTrackingAreas() {
@@ -357,6 +471,10 @@ private final class GameView: NSView {
         host?.setKey(event, down: false)
     }
 
+    override func flagsChanged(with event: NSEvent) {
+        host?.setFlags(event)
+    }
+
     override func mouseMoved(with event: NSEvent) { updatePointer(event, active: true) }
     override func mouseEntered(with event: NSEvent) { updatePointer(event, active: true) }
     override func mouseExited(with event: NSEvent) { host?.clearPointer() }
@@ -371,63 +489,13 @@ private final class GameView: NSView {
 
     private func logicalPoint(_ event: NSEvent) -> CGPoint {
         let point = convert(event.locationInWindow, from: nil)
-        return CGPoint(x: point.x / max(1, bounds.width) * renderer.logicalSize.width,
-                       y: point.y / max(1, bounds.height) * renderer.logicalSize.height)
-    }
-
-    override func draw(_ dirtyRect: NSRect) {
-        guard let context = NSGraphicsContext.current?.cgContext else { return }
-        renderer.backdrop.color.setFill()
-        context.fill(bounds)
-        let sx = bounds.width / max(1, renderer.logicalSize.width)
-        let sy = bounds.height / max(1, renderer.logicalSize.height)
-        context.saveGState()
-        context.scaleBy(x: sx, y: sy)
-        for command in renderer.commands {
-            switch command {
-            case let .box(rect, ink):
-                ink.color.setFill()
-                context.fill(rect)
-            case let .line(first, second, width, ink):
-                context.beginPath()
-                context.move(to: first)
-                context.addLine(to: second)
-                context.setLineWidth(width)
-                context.setLineCap(.round)
-                context.setStrokeColor(ink.color.cgColor)
-                context.strokePath()
-            case let .triangle(first, second, third, ink):
-                context.beginPath()
-                context.move(to: first)
-                context.addLine(to: second)
-                context.addLine(to: third)
-                context.closePath()
-                context.setFillColor(ink.color.cgColor)
-                context.fillPath()
-            case let .triangle3d(first, _, second, _, third, _, ink):
-                // AppKit remains the compatibility renderer. It deliberately
-                // ignores depth here; Metal/SDL hosts consume the same command
-                // with a real depth attachment instead of erasing z at the JS
-                // boundary as this host did previously.
-                context.beginPath()
-                context.move(to: first)
-                context.addLine(to: second)
-                context.addLine(to: third)
-                context.closePath()
-                context.setFillColor(ink.color.cgColor)
-                context.fillPath()
-            case let .text(text, point, size, ink, family):
-                let font = NSFont(name: family, size: size) ?? NSFont.systemFont(ofSize: size)
-                let attributes: [NSAttributedString.Key: Any] = [
-                    .font: font, .foregroundColor: ink.color,
-                ]
-                for (index, line) in text.components(separatedBy: "\n").enumerated() {
-                    (line as NSString).draw(at: CGPoint(x: point.x,
-                        y: point.y + CGFloat(index) * size * 1.15), withAttributes: attributes)
-                }
-            }
-        }
-        context.restoreGState()
+        let stage = scene.logicalSize
+        // AppKit measures from the bottom left and the engine from the top
+        // left. The CoreGraphics view claimed `isFlipped` to paper over that;
+        // a Metal layer would rather not be told its geometry is upside down,
+        // so the flip happens here where only the pointer can feel it.
+        return CGPoint(x: point.x / max(1, bounds.width) * stage.width,
+                       y: (1 - point.y / max(1, bounds.height)) * stage.height)
     }
 }
 
@@ -441,7 +509,7 @@ private func displayLinkCallback(_ link: CVDisplayLink,
 }
 
 private final class NativeGameHost {
-    let renderer = NativeRenderer()
+    let renderer: NativeRenderer
     let input = NativeInput()
     let audio = NativeAudio()
     let osc = OscSender()
@@ -469,7 +537,7 @@ private final class NativeGameHost {
 
     init(view: GameView) {
         self.view = view
-        view.renderer = renderer
+        renderer = NativeRenderer(scene: view.scene)
         view.host = self
         installBindings()
     }
@@ -524,6 +592,8 @@ private final class NativeGameHost {
 
     func setKey(_ event: NSEvent, down: Bool) { input.setKey(event, down: down) }
 
+    func setFlags(_ event: NSEvent) { input.setFlags(event) }
+
     func updatePointer(point: CGPoint, active: Bool) {
         javascript.evaluateScript("globalThis.__oskiewarTouch.pointer.x=\(point.x);globalThis.__oskiewarTouch.pointer.y=\(point.y);globalThis.__oskiewarTouch.pointer.active=\(active ? "true" : "false");")
     }
@@ -570,18 +640,18 @@ private final class NativeGameHost {
         if perf { reportPerf(paintSeconds: CACurrentMediaTime() - paintStarted) }
         if !javascriptError.isEmpty {
             renderer.wipe(8, 10, 20)
-            renderer.commands.append(.text("aesthetic.computer error", CGPoint(x: 72, y: 72),
-                52, Ink(255, 92, 116), "Comic Relief"))
-            renderer.commands.append(.text(javascriptError, CGPoint(x: 72, y: 150),
-                25, Ink(230, 235, 248), "Comic Relief"))
+            renderer.write("aesthetic.computer error", family: "Comic Relief",
+                x: 72, y: 72, size: 52, 255, 92, 116)
+            renderer.write(javascriptError, family: "Comic Relief",
+                x: 72, y: 150, size: 25, 230, 235, 248)
         }
         syncCursor()
-        view.needsDisplay = true
+        view.scene.present()
     }
 
     // Averaged over a second, because a single frame is noise. `sim+paint` is
-    // the JavaScript half of the budget; everything left over is CoreGraphics
-    // and the display link.
+    // the JavaScript half of the budget; everything left over is Metal and the
+    // display link.
     private func reportPerf(paintSeconds: Double) {
         perfPaintSeconds += paintSeconds
         perfFrames += 1
@@ -644,29 +714,23 @@ private final class NativeGameHost {
         }
         let box: @convention(block) (Double, Double, Double, Double, Double, Double, Double) -> Void =
             { [weak self] x, y, width, height, r, g, b in
-                self?.renderer.commands.append(.box(CGRect(x: x, y: y, width: width, height: height), Ink(r, g, b)))
+                self?.renderer.box(x, y, width, height, r, g, b)
             }
         let line: @convention(block) (Double, Double, Double, Double, Double, Double, Double, Double) -> Void =
             { [weak self] x1, y1, x2, y2, width, r, g, b in
-                self?.renderer.commands.append(.line(CGPoint(x: x1, y: y1), CGPoint(x: x2, y: y2),
-                    CGFloat(max(0, width)), Ink(r, g, b)))
+                self?.renderer.line(x1, y1, x2, y2, width, r, g, b)
             }
         let triangle: @convention(block) (Double, Double, Double, Double, Double, Double, Double, Double, Double) -> Void =
             { [weak self] x1, y1, x2, y2, x3, y3, r, g, b in
-                self?.renderer.commands.append(.triangle(CGPoint(x: x1, y: y1), CGPoint(x: x2, y: y2),
-                    CGPoint(x: x3, y: y3), Ink(r, g, b)))
+                self?.renderer.triangle(x1, y1, x2, y2, x3, y3, r, g, b)
             }
         let triangle3d: @convention(block) (Double, Double, Double, Double, Double, Double, Double, Double, Double, Double, Double, Double) -> Void =
             { [weak self] x1, y1, z1, x2, y2, z2, x3, y3, z3, r, g, b in
-                self?.renderer.commands.append(.triangle3d(
-                    CGPoint(x: x1, y: y1), CGFloat(z1),
-                    CGPoint(x: x2, y: y2), CGFloat(z2),
-                    CGPoint(x: x3, y: y3), CGFloat(z3), Ink(r, g, b)))
+                self?.renderer.triangle3d(x1, y1, z1, x2, y2, z2, x3, y3, z3, r, g, b)
             }
         let text: (String) -> @convention(block) (String, Double, Double, Double, Double, Double, Double) -> Void =
             { family in { [weak self] value, x, y, size, r, g, b in
-                self?.renderer.commands.append(.text(value, CGPoint(x: x, y: y), CGFloat(max(1, size)),
-                    Ink(r, g, b), family))
+                self?.renderer.write(value, family: family, x: x, y: y, size: size, r, g, b)
             }}
         let runtime: @convention(block) () -> NSDictionary = { [weak self] in
             guard let self else { return [:] }
@@ -702,7 +766,7 @@ private final class NativeGameHost {
                 "platform": "macos-native", "inputFamily": hasController ? "xbox" : "keyboard",
                 "colorScheme": light ? "light" : "dark", "productName": "MACOS",
                 "version": Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0",
-                "graphics": "APPKIT NATIVE", "audio": "AVFOUNDATION",
+                "graphics": "METAL NATIVE", "audio": "AVFOUNDATION",
                 "displayScale": self?.view.window?.backingScaleFactor ?? 1,
                 "online": true, "liveLocalState": true,
                 "width": Int(self?.renderer.logicalSize.width ?? 1920),

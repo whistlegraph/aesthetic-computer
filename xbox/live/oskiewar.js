@@ -914,6 +914,14 @@ const titleToys = [];
 const promptToys = [];
 let promptBounce = 0;
 let titleToyAt = -1;
+// Which letter the pointer currently owns. The letters never hold still — each
+// one bobs and drifts a good fraction of its own width — so a bare hit test
+// against a moving cell hands a resting cursor a letter that slides out from
+// under it and back several times a second. That reads as a flickering glyph,
+// a cursor blinking between two shapes, and a hover tick that will not stop.
+// Holding the grab until the pointer leaves a cell grown by the letter's own
+// travel is the same hysteresis the camera uses at the safe-zone edge.
+let titleGlyphHot = -1;
 let navigationPrevious = [[], []];
 // Temporary live combat inspector. Keep this explicit so the production view
 // can return to a clean presentation without changing combat geometry.
@@ -9169,8 +9177,16 @@ function drawTitleScreen(t, ink, transitionAge = -1) {
     const advance = comicGlyphAdvance(character, titleSize);
     // The cell is what the pointer touches, so a letter that has swollen out
     // of it cannot chase the cursor or shove its neighbours along the line.
-    const hot = pointInCell(pointer, cursor + drift, titleY + bob,
-      advance, titleSize);
+    //
+    // The letter the pointer already holds is tested against a cell grown by
+    // exactly how far this letter can travel — the sum of its drift terms
+    // across, its bob down — so the whole of its wander happens without the
+    // grab ever being dropped. Every other letter is tested honestly, or a
+    // held letter would keep stealing the pointer from its neighbours.
+    const slackX = titleGlyphHot === index ? (compact ? 10 : 17) : 0;
+    const slackY = titleGlyphHot === index ? (compact ? 5 : 8) : 0;
+    const hot = pointInCell(pointer, cursor + drift - slackX,
+      titleY + bob - slackY, advance + slackX * 2, titleSize + slackY * 2);
     if (hot) held = index;
     const toy = toyGlyph(titleToys, index, hot, dt);
     const size = titleSize *
@@ -9212,6 +9228,7 @@ function drawTitleScreen(t, ink, transitionAge = -1) {
     globalThis.__oskiewarTouch.titleHover = hovered;
     globalThis.__oskiewarTouch.titleGlyph = held;
   }
+  titleGlyphHot = held;
   promptBounce += ((hovered ? 1 : 0) - promptBounce) *
     (1 - Math.exp(-dt * (hovered ? 14 : 6)));
   const promptPulse = .68 + (Math.sin(t * 3.2) + 1) * .16;

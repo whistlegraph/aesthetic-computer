@@ -19,6 +19,10 @@
   <key>UIStatusBarHidden</key><true/>
   <key>UIViewControllerBasedStatusBarAppearance</key><false/>
   <key>NSLocalNetworkUsageDescription</key><string>Oskiewar can connect to nearby players and music tools.</string>
+  <!-- The game speaks HTTPS and nothing else, which is exempt encryption.
+       Declaring it here answers the export-compliance question once instead of
+       at every upload. -->
+  <key>ITSAppUsesNonExemptEncryption</key><false/>
   <key>UIAppFonts</key><array><string>ComicRelief-Regular.ttf</string></array>
 </dict>
 </plist>

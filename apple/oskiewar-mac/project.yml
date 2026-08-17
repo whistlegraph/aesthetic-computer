@@ -1,0 +1,119 @@
+# XcodeGen spec for the Mac App Store build of oskiewar.
+#
+# The everyday macOS build is still xbox/tools/build-macos-app.sh: one swiftc
+# call, a hand-assembled bundle, ad-hoc signature, straight into /Applications.
+# That stays the dev loop. It just cannot produce what the store wants — a
+# universal binary, a provisioned Distribution signature, and a signed .pkg —
+# so this spec wraps the SAME three source files in an Xcode target that can.
+#
+# It is a separate project from apple/oskiewar (iOS) on purpose. main.swift is
+# top-level code, so it can only ever belong to a target that has no other
+# entry point, and Sources/OskiewarApp.swift is the iOS one. Keeping the specs
+# apart also means generating this one never rewrites the iOS .xcodeproj.
+# Universal purchase comes from the shared bundle id, not from a shared
+# project file.
+#
+# Usage:
+#   brew install xcodegen        # one-time
+#   cd apple/oskiewar-mac
+#   xcodegen generate            # writes OskiewarMac.xcodeproj (git-ignored)
+#   cd ../oskiewar && fastlane mac build   # archive + export the .pkg
+
+name: OskiewarMac
+
+options:
+  bundleIdPrefix: computer.aesthetic
+  deploymentTarget:
+    macOS: "13.0"
+  # Every source here lives outside SRCROOT. With intermediate groups on,
+  # XcodeGen invents a group per `..` segment, two of them collide, and the
+  # file references resolve against the wrong parent — `../oskiewar/…` came out
+  # as apple/aesthetic-computer/apple/oskiewar/…. Flat groups, explicit below.
+  createIntermediateGroups: false
+  groupSortPosition: none
+
+settings:
+  base:
+    DEVELOPMENT_TEAM: FB5948YR3S
+    CODE_SIGN_STYLE: Automatic
+    SWIFT_VERSION: "5.0"
+
+targets:
+  OskiewarMac:
+    type: application
+    platform: macOS
+
+    sources:
+      # The AppKit host: window, menus, CVDisplayLink, JavaScriptCore bridge,
+      # AVFoundation voices, GameController input, the OSC broadcaster. Named
+      # main.swift because it IS top-level code, which Swift only allows in a
+      # file with that name.
+      - path: ../../xbox/macos-native/main.swift
+
+      # The Metal scene and its glyph atlas are shared verbatim with the iOS
+      # app — one renderer compiled into both. Listed file by file rather than
+      # as the Sources/ directory so OskiewarApp.swift (the iOS @main) can't
+      # come along and collide with main.swift.
+      - path: ../oskiewar/Sources/MetalSceneView.swift
+      - path: ../oskiewar/Sources/GlyphAtlas.swift
+
+      # NativeGameHost.start() reads these back as "live/oskiewar.js" and
+      # "live/qr.mjs" off Bundle.main.resourceURL, so they need the subfolder
+      # a plain resources phase would flatten away. Copy Files preserves it.
+      - path: ../../xbox/live/oskiewar.js
+        buildPhase:
+          copyFiles:
+            destination: resources
+            subpath: live
+      - path: ../../system/public/aesthetic.computer/dep/@akamfoad/qr/qr.mjs
+        buildPhase:
+          copyFiles:
+            destination: resources
+            subpath: live
+
+      # Registered at launch with CTFontManagerRegisterFontsForURL — the face
+      # the HUD is drawn in. Flat in Resources/, which is where
+      # Bundle.main.url(forResource:withExtension:) looks.
+      - path: ../../system/public/papers.aesthetic.computer/foundry/fonts/ComicRelief-Regular.ttf
+        buildPhase: resources
+
+      # One privacy manifest for both Apple apps: same engine, same (absent)
+      # collection. If the Swift host ever grows an account or an analytics
+      # call, this file and the App Store Connect nutrition label move
+      # together.
+      - path: ../oskiewar/PrivacyInfo.xcprivacy
+        buildPhase: resources
+
+    settings:
+      base:
+        PRODUCT_NAME: oskiewar
+        # One bundle id across iOS and macOS — that is the whole mechanism of
+        # universal purchase, and the reason both platforms live under a
+        # single App Store Connect record.
+        PRODUCT_BUNDLE_IDENTIFIER: computer.aesthetic.oskiewar
+        # The same plist the shell build copies, so version, category, and
+        # icon name can never drift between the two bundles.
+        INFOPLIST_FILE: ../../xbox/macos-native/Info.plist
+        GENERATE_INFOPLIST_FILE: NO
+        CODE_SIGN_ENTITLEMENTS: Oskiewar-macOS.entitlements
+        ENABLE_HARDENED_RUNTIME: YES
+        COMBINE_HIDPI_IMAGES: YES
+
+    postBuildScripts:
+      # Info.plist declares CFBundleIconFile = Oskiewar, and main.swift also
+      # loads Oskiewar.icns by name to set NSApp.applicationIconImage. Rather
+      # than commit a derived binary, render it from the shared master with
+      # the same recipe the dev build uses. Build phases all run before
+      # Xcode's implicit CodeSign, so the icon lands inside the seal.
+      - name: Render Oskiewar.icns
+        inputFiles:
+          - $(SRCROOT)/../../xbox/tools/make-macos-icon.sh
+          - $(SRCROOT)/../../xbox/assets/ac-native-icon-master.png
+        outputFiles:
+          - $(BUILT_PRODUCTS_DIR)/$(CONTENTS_FOLDER_PATH)/Resources/Oskiewar.icns
+        script: |
+          sh "${SRCROOT}/../../xbox/tools/make-macos-icon.sh" \
+            "${BUILT_PRODUCTS_DIR}/${CONTENTS_FOLDER_PATH}/Resources/Oskiewar.icns"
+
+    scheme:
+      gatherCoverageData: false

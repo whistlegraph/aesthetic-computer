@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!-- The native game keeps no account and carries no analytics SDK: the
+       engine runs in JavaScriptCore against a Metal surface, and the only
+       traffic it makes is the match's own (a replay it saves, a round it
+       publishes for spectators). Nothing here is tied to a person, so nothing
+       is tracked and no data type is collected.
+
+       This file is a promise. If a later build adds sign-in, analytics, or
+       anything that names the player, the declaration below has to grow with
+       it — and so does the nutrition label in App Store Connect. -->
+  <key>NSPrivacyTracking</key>
+  <false/>
+  <key>NSPrivacyTrackingDomains</key>
+  <array/>
+  <key>NSPrivacyCollectedDataTypes</key>
+  <array/>
+  <!-- No required-reason API is called: no UserDefaults, no file timestamps,
+       no disk-space or uptime probes anywhere in the Swift host or the shared
+       Metal core. -->
+  <key>NSPrivacyAccessedAPITypes</key>
+  <array/>
+</dict>
+</plist>
