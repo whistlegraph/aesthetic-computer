@@ -1567,16 +1567,24 @@ static void gm_waveguide_init(GMVoice *v, const GMProgramParams *p, double f0,
         v->wg_lip_b2 = -(1.0 - r);
         v->wg_lip_x1 = v->wg_lip_x2 = v->wg_lip_y1 = v->wg_lip_y2 = 0.0;
         // Lip-formant drive: the program's wg_lip_gain (6-10, sized for the old
-        // quadratic valve) is far too hot for the new reed-table topology — it
-        // only colours the pressure drive here, so scale it right down.
+        // quadratic valve) is far too hot for the reed-table topology — it only
+        // colours the pressure drive, so scale it right down. 0.01 rather than
+        // the former 0.04 because the filter now sits on the excitation: a
+        // heavier hand there narrows the drive toward f0 and costs harmonics
+        // (measured: lip gain 0.1 gives the trumpet 63% of its power above the
+        // fundamental, 0.25 gives 46%, 1.0 gives 26%).
         double lipg = p->wg_lip_gain > 0.0 ? p->wg_lip_gain : 6.0;
-        v->wg_lip_gain = lipg * 0.04;
+        v->wg_lip_gain = lipg * 0.01;
         // Brass embouchure reed-table (reuses the REED offset/slope fields, idle
         // for LIP) — same self-oscillating shape as the conical reed bore, which
-        // locks the bore fundamental reliably. offset ≈ rest reflection, slope ≈
-        // how hard the lips buzz (jittered per voice like a real section).
-        v->wg_reed_offset = 0.6;
-        v->wg_reed_slope  = voice_jitter(v, -0.85, 0.06, mul);
+        // locks the bore fundamental reliably. In the LIP branch the algebra is
+        // `into_bore = refl*(1 - lipRefl) + lipRefl*Pm`, so the offset is the
+        // round-trip LOSS: 0.6 threw away 60% of the bore per pass and left
+        // nothing for the upper partials to live in. A brass bore returns
+        // ~0.85-0.95, hence 0.30 here (still lossy, but a bore rather than a
+        // sponge), with a steeper buzz slope to match.
+        v->wg_reed_offset = 0.30;
+        v->wg_reed_slope  = voice_jitter(v, -3.0, 0.06, mul);
     } else if (p->wg_mode == GM_WG_REED) {
         v->wg_reed_offset = p->wg_reed_offset;
         // Reed slope ≈ brightness/energy lever; jitter like FM index (f, ±6%).
@@ -3049,31 +3057,70 @@ static inline double generate_waveguide_sample(GMVoice *v, double sample_rate,
         // adds a flared-bell BRIGHTNESS colour on top — it does NOT set pitch.
         double pTarget = 0.55 + 0.45 * onset;
         v->wg_breath += (pTarget - v->wg_breath) * 0.01;
-        // Mouth pressure must sit in the reed-table's ACTIVE region (~[0,1]); the
-        // big brass wg_breath_max (2.7-3.2) is a loudness lever (applied at the
-        // output), not a bore-drive — feed it in scaled so pDiff modulates the
-        // lip reflection instead of railing it to a DC value the DC-blocker eats.
-        double Pm = v->wg_breath * (0.22 + 0.05 * v->wg_breath_max)
+        // Mouth pressure must sit in the reed-table's ACTIVE region (~[0,1]).
+        // The old map, (0.22 + 0.05 * wg_breath_max), squashed the whole brass
+        // range 2.7-3.2 into 0.36-0.38 — a fifth of the way in, where the valve
+        // barely modulates and the waveshapers below stay in their linear
+        // stretch. (Its comment called wg_breath_max "a loudness lever applied
+        // at the output"; for LIP the field is used nowhere else, so it was
+        // only ever the bore drive.) Scaling instead puts trumpet at 0.80 and
+        // tuba at 0.68 — in the active region, and still ordered the way the
+        // programs intended.
+        // Pressure tapers with pitch: you do not blow a high note with the
+        // pressure of a pedal tone, and without the taper a short high-register
+        // bore driven at full pressure overblows into a higher regime. Raising
+        // the bore loss alone does NOT fix that (6-10 notes in 792 still jumped
+        // 12-16 semitones sharp at every loss slope tried); tapering the drive
+        // does, at every taper tried. Both are kept because the pair sits on a
+        // contiguous stable plateau, and the boundary is chaotic enough that a
+        // single lucky point is not worth trusting.
+        double Pm = v->wg_breath * (0.25 * v->wg_breath_max)
+                    / (1.0 + 0.80 * (frequency / 1000.0))
                     * (1.0 + v->wg_noise_gain * white * 0.5);
         double bore_out = gm_frac_read(v->ks_buf, N, v->wg_w, delay);
         v->wg_loop_lp = (1.0 - v->wg_loop_damp) * bore_out
                         + v->wg_loop_damp * v->wg_loop_lp;
         double refl = v->wg_loop_lp;                  // brass bell = open, conical-like
         double pDiff = Pm - refl;
+        // Lip resonance shapes the EXCITATION, not the loop signal — the same
+        // place STK's Brass puts it (`lipFilter.tick(deltaPressure)`).
+        //
+        // It used to be added to `into_bore` instead, and that was the bug. The
+        // biquad has pole radius 0.997 with b0 = (1-r), so its gain AT f0 is
+        // ~1/(1-r) x (1-r) = unity, narrowband, centred exactly on the played
+        // note. Adding that back into the loop signal is a fundamental booster,
+        // not the "buzz brightening" it was labelled. Together with a loop that
+        // only returned 40% per round trip it made every brass voice a sine at
+        // the right pitch: 90% of the trumpet's power sat in its fundamental
+        // band, and wg_loop_damp — the per-instrument brightness lever — had no
+        // measurable effect at all, because almost nothing was recirculating for
+        // it to damp.
+        double lf = v->wg_lip_b0 * pDiff + v->wg_lip_b1 * v->wg_lip_x1
+                    + v->wg_lip_b2 * v->wg_lip_x2
+                    - v->wg_lip_a1 * v->wg_lip_y1 - v->wg_lip_a2 * v->wg_lip_y2;
+        v->wg_lip_x2 = v->wg_lip_x1; v->wg_lip_x1 = pDiff;
+        v->wg_lip_y2 = v->wg_lip_y1; v->wg_lip_y1 = lf;
+        double drive = pDiff + v->wg_lip_gain * lf;   // buzz formant on the drive
         // Brass lip reed-table (reuses idle REED offset/slope fields): bounded in
-        // [-1,1] so it can modulate energy but never the loop period.
-        double lipRefl = v->wg_reed_offset + v->wg_reed_slope * pDiff;
+        // [-1,1] so it can modulate energy but never the loop period. Written
+        // out, `into_bore = refl*(1 - lipRefl) + lipRefl*Pm`, so wg_reed_offset
+        // sets the round-trip LOSS — a brass bore wants to return ~0.85-0.95,
+        // i.e. an offset near 0.1, not the 0.6 inherited from the reed branch
+        // where the same field means something else.
+        //
+        // The loss RISES WITH PITCH, which is both physical (a real bore's wall
+        // and radiation losses climb with frequency) and load-bearing: with a
+        // constant loss, a short high-register bore driven this hard overblows
+        // into a higher regime — 3 notes in 264 jumped a full 12-15 semitones
+        // sharp, the same pitch-wander failure this branch was rebuilt to stop.
+        // Sloping the loss removes all of them (0/264) and costs 0.6 points of
+        // upper-partial energy. Clamped so the top of the range still sounds.
+        double loss = v->wg_reed_offset + 0.70 * (frequency / 1000.0);
+        if (loss > 0.75) loss = 0.75;
+        double lipRefl = loss + v->wg_reed_slope * drive;
         if (lipRefl > 1.0) lipRefl = 1.0;
         if (lipRefl < -1.0) lipRefl = -1.0;
         double into_bore = refl + lipRefl * pDiff;
-        // Lip-resonance biquad tracking f0: a gentle brass formant / buzz colour
-        // on the bore signal (brightness), low gain so it never seizes pitch.
-        double lf = v->wg_lip_b0 * into_bore + v->wg_lip_b1 * v->wg_lip_x1
-                    + v->wg_lip_b2 * v->wg_lip_x2
-                    - v->wg_lip_a1 * v->wg_lip_y1 - v->wg_lip_a2 * v->wg_lip_y2;
-        v->wg_lip_x2 = v->wg_lip_x1; v->wg_lip_x1 = into_bore;
-        v->wg_lip_y2 = v->wg_lip_y1; v->wg_lip_y1 = lf;
-        into_bore += v->wg_lip_gain * lf;             // brass buzz brightening
         // Flared-bell brassiness: a gentle uniform cubic adds the odd-harmonic
         // brass edge, then tanh bounds the loop (so brightness never destabilises
         // pitch). Per-instrument brightness is carried by the in-loop loss filter
