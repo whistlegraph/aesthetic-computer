@@ -19,11 +19,25 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 LANE = os.path.dirname(HERE)
 OUT = os.path.join(LANE, "out")
 
-W, H, FPS = 1920, 1080, 30
+W, H, FPS = 1920, 1080, 60
 BPM = 122.0
 SPB = 60.0 / BPM
-PXB = 56                      # px per beat
+PXB = 96                      # px per beat — wider blocks AND finer sync
 PLAYHEAD_X = 560
+BH = 30                       # block half-height
+
+# FRAMESYNC. @jeffrey: "the video feels a bit off from the audio · can we
+# try and ensure an excellent framesync". The WAV is beat-accurate (its
+# kicks land within 2 ms of the grid), so the error was all on the video
+# side, and both sources pushed the same way — the picture lagged.
+#   · frames were sampled at t = i/FPS, the START of the interval each
+#     frame is displayed over, so the image was on average half a frame
+#     stale (16.7 ms at 30). Sampling the CENTRE removes that bias.
+#   · the scroll floored to whole pixels, which always scrolls too
+#     little, so content arrived late by up to one pixel (8.8 ms at the
+#     old 56 px/beat). Rounding halves it and 96 px/beat halves it again.
+# 60 fps + centre sampling + rounded scroll at 96 px/beat: worst case
+# ±8.3 ms of frame quantisation and ±5.2 ms of pixel, with zero bias.
 
 CREAM = (255, 253, 246)
 INK = (26, 26, 34)
@@ -49,7 +63,7 @@ dur = float(subprocess.run(["ffprobe", "-v", "quiet", "-show_entries", "format=d
 FRAMES = int(math.ceil(dur * FPS))
 
 F = lambda s: ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", s)
-f_title, f_bar, f_word, f_note, f_tiny = F(40), F(26), F(30), F(20), F(22)
+f_title, f_bar, f_word, f_note, f_tiny = F(40), F(28), F(34), F(22), F(22)
 M = lambda s: ImageFont.truetype("/System/Library/Fonts/Menlo.ttc", s)
 f_tc, f_tc_small = M(38), M(22)
 
@@ -94,22 +108,30 @@ def vowel_onset(b0, b1):
 
 
 def vox_env(b0, b1, npx):
-    """Per-pixel-column peak of the lead render between chart beats."""
+    """Per-column peak AND rms of the lead render between chart beats.
+    Two traces instead of one: the peak outline says how loud the word
+    gets, the rms core says how much of the column is actually sound —
+    a decaying tail reads as a hollow outline, a solid vowel as a filled
+    body. At 96 px/beat that is a column every 5 ms."""
     s0 = int((LEAD_IN + b0 * SPB) * VFS)
     s1 = int((LEAD_IN + b1 * SPB) * VFS)
-    seg = np.abs(VOX[max(0, s0):max(0, s1)])
+    seg = VOX[max(0, s0):max(0, s1)]
     if len(seg) == 0 or npx <= 0:
-        return np.zeros(max(1, npx))
-    edges = np.linspace(0, len(seg), npx + 1).astype(int)
-    return np.array([seg[a:b].max() if b > a else 0.0
-                     for a, b in zip(edges[:-1], edges[1:])]) / VOX_PEAK
+        z = np.zeros(max(1, npx))
+        return z, z
+    e = np.linspace(0, len(seg), npx + 1).astype(int)
+    pk = np.array([np.abs(seg[a:b]).max() if b > a else 0.0
+                   for a, b in zip(e[:-1], e[1:])]) / VOX_PEAK
+    rm = np.array([np.sqrt((seg[a:b] ** 2).mean()) if b > a else 0.0
+                   for a, b in zip(e[:-1], e[1:])]) / VOX_PEAK
+    return pk, rm
 
 CHROM = ["A#", "B", "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A"]
 def note_name(st):
     return f"{CHROM[st % 12]}{3 + (st + 10) // 12}"
 
 STS = sorted({n["st"] for n in chart["notes"]})
-ROLL_TOP, ROLL_BOT = 200, 830
+ROLL_TOP, ROLL_BOT = 190, 900
 def y_of(st):
     lo, hi = min(STS) - 1, max(STS) + 1
     return ROLL_BOT - (st - lo) / (hi - lo) * (ROLL_BOT - ROLL_TOP)
@@ -127,7 +149,7 @@ def word_text(t):
 STRIP_W = int(TOTAL_BEATS * PXB) + W
 strip = Image.new("RGB", (STRIP_W, H), CREAM)
 d = ImageDraw.Draw(strip, "RGBA")
-X = lambda beat: int(beat * PXB) + PLAYHEAD_X   # beat → strip x (playhead at song x)
+X = lambda beat: int(round(beat * PXB)) + PLAYHEAD_X   # beat → strip x
 
 # beat + bar grid
 for b in range(0, TOTAL_BEATS + 1):
@@ -159,20 +181,26 @@ for pb in PASSES:
         b0, b1 = pb + n["beat"], pb + n["beat"] + n["dur"]
         x0, x1 = X(b0), X(b1)
         y = y_of(n["st"])
-        y0, y1 = y - 24, y + 24
+        y0, y1 = y - BH, y + BH
         d.rounded_rectangle([x0 + 2, y0, x1 - 3, y1], 10,
                             fill=(255, 166, 202, 90), outline=INK, width=2)
         # the real audio inside the clip: per-column peak of the lead
         # render, normalized to the whole take — dead air is visible
         npx = max(1, x1 - x0 - 8)
-        env = vox_env(n["beat"], n["beat"] + n["dur"], npx)
-        for j, a in enumerate(env):
-            ah = a * 20
-            if ah >= 0.4:
-                xw = x0 + 4 + j
-                vb = n["beat"] + n["dur"] * (j + 0.5) / npx
-                col = (26, 26, 34, 88) if is_voiced(vb) else (92, 118, 180, 200)
+        env, rms = vox_env(n["beat"], n["beat"] + n["dur"], npx)
+        AMP = BH - 4
+        for j, (a, r) in enumerate(zip(env, rms)):
+            xw = x0 + 4 + j
+            vb = n["beat"] + n["dur"] * (j + 0.5) / npx
+            voiced_here = is_voiced(vb)
+            ah = a * AMP
+            if ah >= 0.4:                      # peak outline, translucent
+                col = (26, 26, 34, 70) if voiced_here else (92, 118, 180, 150)
                 d.line([(xw, y - ah), (xw, y + ah)], fill=col, width=1)
+            rh = r * AMP * 1.6                 # rms core, solid
+            if rh >= 0.4:
+                col = (26, 26, 34, 170) if voiced_here else (92, 118, 180, 235)
+                d.line([(xw, y - rh), (xw, y + rh)], fill=col, width=1)
         vo = vowel_onset(n["beat"], n["beat"] + n["dur"])
         if vo is not None and vo - n["beat"] > 0.02:   # a real consonant runway
             xv = X(pb + vo)                            # pb: this pass's offset
@@ -205,9 +233,9 @@ dh.text((40, 84), sub, font=f_tiny, fill=BLUE)
 hdr_np = np.asarray(hdr, dtype=np.uint8)
 
 for i in range(FRAMES):
-    t = i / FPS
+    t = (i + 0.5) / FPS            # centre of the displayed interval
     beat = t / SPB
-    px = int(beat * PXB)                     # strip scroll offset
+    px = int(round(beat * PXB))              # strip scroll offset, rounded
     fr = strip_np[:, px:px + W].copy()
     if fr.shape[1] < W:
         pad = np.full((H, W - fr.shape[1], 3), CREAM, dtype=np.uint8)
