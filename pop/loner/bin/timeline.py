@@ -11,7 +11,7 @@
 #   pop/.venv/bin/python pop/loner/bin/timeline.py
 #     → out/loner-kickvox-timeline.mp4
 
-import json, math, os, subprocess
+import json, math, os, subprocess, wave
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
@@ -50,6 +50,31 @@ FRAMES = int(math.ceil(dur * FPS))
 
 F = lambda s: ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", s)
 f_title, f_bar, f_word, f_note, f_tiny = F(40), F(26), F(30), F(20), F(22)
+M = lambda s: ImageFont.truetype("/System/Library/Fonts/Menlo.ttc", s)
+f_tc, f_tc_small = M(38), M(22)
+
+# ── the actual sung waveform, so the eye can audit the trim ───────────
+# @jeffrey: "check the length of the actual waveforms in the utterances,
+# not just ur trim etc — map / render those waveforms directly into the
+# clips". The lead render (vox4/w-whole-line.wav) IS what the study
+# plays; chart beat b lives at leadIn + b·SPB seconds in that file.
+with wave.open(os.path.join(LANE, "vox4", "w-whole-line.wav"), "rb") as wf:
+    VFS = wf.getframerate()
+    VOX = np.frombuffer(wf.readframes(wf.getnframes()),
+                        dtype=np.int16).astype(np.float64) / 32768.0
+VOX_PEAK = np.max(np.abs(VOX)) or 1.0
+LEAD_IN = chart["leadIn"]
+
+def vox_env(b0, b1, npx):
+    """Per-pixel-column peak of the lead render between chart beats."""
+    s0 = int((LEAD_IN + b0 * SPB) * VFS)
+    s1 = int((LEAD_IN + b1 * SPB) * VFS)
+    seg = np.abs(VOX[max(0, s0):max(0, s1)])
+    if len(seg) == 0 or npx <= 0:
+        return np.zeros(max(1, npx))
+    edges = np.linspace(0, len(seg), npx + 1).astype(int)
+    return np.array([seg[a:b].max() if b > a else 0.0
+                     for a, b in zip(edges[:-1], edges[1:])]) / VOX_PEAK
 
 CHROM = ["A#", "B", "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A"]
 def note_name(st):
@@ -109,6 +134,14 @@ for pb in PASSES:
         y0, y1 = y - 24, y + 24
         d.rounded_rectangle([x0 + 2, y0, x1 - 3, y1], 10,
                             fill=(255, 166, 202, 90), outline=INK, width=2)
+        # the real audio inside the clip: per-column peak of the lead
+        # render, normalized to the whole take — dead air is visible
+        env = vox_env(n["beat"], n["beat"] + n["dur"], max(1, x1 - x0 - 8))
+        for j, a in enumerate(env):
+            ah = a * 20
+            if ah >= 0.4:
+                xw = x0 + 4 + j
+                d.line([(xw, y - ah), (xw, y + ah)], fill=(26, 26, 34, 88), width=1)
         txt = word_text(n["t"])
         tw = d.textlength(txt, font=f_word)
         wide = (x1 - x0) > tw + 20
@@ -154,13 +187,22 @@ for i in range(FRAMES):
         if t0 <= t < t1:
             lx0, lx1 = x0 - px, x1 - px
             if lx1 > 0 and lx0 < W:
+                # outline-only: the waveform inside stays scrutinizable
                 d2.rounded_rectangle([lx0 + 2, y0, lx1 - 3, y1], 10,
-                                     fill=(255, 102, 168, 120), outline=PINK, width=3)
+                                     fill=(255, 102, 168, 40), outline=PINK, width=4)
     # kick flash
     kb = int(beat)
     if kb < KICK_BEATS and (beat - kb) < 0.22:
         x = X(kb) - px
         d2.rounded_rectangle([x + 4, KY0, x + PXB - 8, KY1], 6, fill=PINK)
+    # live timecode — song clock + musical address, updating every frame
+    tc = f"{int(t // 60):02d}:{t % 60:05.2f}"
+    bar_no = int(beat) // 4 - 2
+    addr = (f"bar {bar_no} · beat {beat % 4 + 1:3.1f}" if beat >= 8
+            else f"count-in · beat {beat % 8 + 1:3.1f}")
+    d2.text((W - 40 - d2.textlength(tc, font=f_tc), 26), tc, font=f_tc, fill=INK)
+    d2.text((W - 40 - d2.textlength(addr, font=f_tc_small), 78), addr,
+            font=f_tc_small, fill=BLUE)
     # playhead
     d2.line([(PLAYHEAD_X, ROLL_TOP - 44), (PLAYHEAD_X, KY1 + 8)], fill=PINK, width=4)
     d2.polygon([(PLAYHEAD_X - 10, ROLL_TOP - 56), (PLAYHEAD_X + 10, ROLL_TOP - 56),

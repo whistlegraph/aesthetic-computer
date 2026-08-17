@@ -164,9 +164,15 @@ CHART = {
                              # POST-split indices.
                              "splits": [5],
                              # then: think = 2 · OF (the octave) = 4 ·
-                             # a stone = 4
-                             "durs": { 0: 4.0, 1: 1.5, 2: 2.0, 3: 0.5,
-                                       4: 1.0, 5: 3.0, 6: 3.0, 7: 1.0,
+                             # a stone = 4. "curled is too short · up
+                             # comes too soon": CURLED alone fills bar 1
+                             # (cur 2 + led 2 — her own 37/50 split says
+                             # led ≥ cur), and up — her 0.25 s tonic
+                             # release — lands ON the bar-2 downbeat, an
+                             # up-in pickup pair into myself, which
+                             # stays anchored at beat 9.
+                             "durs": { 0: 4.0, 1: 2.0, 2: 2.0, 3: 0.5,
+                                       4: 0.5, 5: 3.0, 6: 3.0, 7: 1.0,
                                        8: 2.0, 9: 4.0, 10: 0.5, 11: 3.5 } },
     "w-sitting-curled":    { "slice": "f-sitting-curled",    "beats": 11.0 },
     "w-i-think":           { "slice": "f-i-think",           "beats": 3.5 },
@@ -199,6 +205,52 @@ def derive_units(words, beats_total, stretch=None, durs=None):
     return units
 
 SLICES = json.load(open(os.path.join(LANE, "samples", ".manifest.json")))
+
+# ── the energy trim — only SUNG frames stretch ────────────────────────
+# @jeffrey, reading the waveforms drawn into the timeline: "check the
+# length of the actual waveforms in the utterances, not just ur trim".
+# Whisper's word boundaries are handoffs, not note ends: it gave "led"
+# 0.99 s when she stops singing after ~0.5 and the rest is decay. Those
+# dead frames were stretching across the slot with the note, so a word
+# could fill 78% of its block and then sit there. Each unit's source
+# span now ends where its audio actually ends (+ a release margin), and
+# the silence is DROPPED rather than warped — the vowel takes the slot.
+TRIM_GATE_DB = -36.0        # of the take's peak; keeps quiet fricatives
+TRIM_MARGIN_S = 0.050       # let the release start before we cut
+TRIM_MIN_S = 0.080          # below this, not worth the surgery
+TRIM_KEEP = 0.35            # never leave a unit shorter than this share
+
+
+def energy_end(x, fs, f0, f1, peak):
+    """Last frame in [f0,f1) whose 5 ms RMS clears the gate."""
+    n = int(round(fs * FRAME_S))
+    seg = x[f0 * n:f1 * n]
+    if len(seg) < n:
+        return f1
+    m = len(seg) // n
+    rms = np.sqrt((seg[:m * n].reshape(m, n) ** 2).mean(axis=1))
+    on = np.nonzero(rms > peak * 10.0 ** (TRIM_GATE_DB / 20.0))[0]
+    return f0 + (int(on[-1]) + 1 if len(on) else m)
+
+
+def trim_units(x, fs, unit_src, names=None):
+    """Pull each unit's end back to its real audio end. Last unit keeps
+    its span (the tail/release machinery owns it). Returns (spans, log)."""
+    peak = np.max(np.abs(x)) or 1.0
+    out, log = [], []
+    for u, (s0, s1) in enumerate(unit_src):
+        if u == len(unit_src) - 1:
+            out.append((s0, s1))
+            continue
+        e = energy_end(x, fs, s0, s1, peak) + int(round(TRIM_MARGIN_S / FRAME_S))
+        e = max(s0 + int(round(TRIM_KEEP * (s1 - s0))), min(e, s1))
+        cut = (s1 - e) * FRAME_S
+        if cut < TRIM_MIN_S:
+            e = s1
+        elif names:
+            log.append(f"{names[u]} −{cut * 1000:.0f}ms")
+        out.append((s0, e))
+    return out, log
 
 
 def build_warp(a, unit_src, beats, dursb):
@@ -368,6 +420,8 @@ for name, ch in CHART.items():
             s1 = int(round((words[i + 1]["start"] - t0_slice) / FRAME_S))
         unit_src.append((max(0, s0), min(F, max(s0 + 1, s1))))
 
+    unit_src, trims = trim_units(x, fs, unit_src, [w["t"] for w in words])
+
     idx, holds, fade, Z = build_warp(a, unit_src,
                                      [b for (b, d) in ch["units"]],
                                      [d for (b, d) in ch["units"]])
@@ -427,8 +481,10 @@ for name, ch in CHART.items():
     chart_c.append((name, lead_in, beats_total, notes))
     manifest[name] = dict(slice=slice_name, lead_in=round(lead_in, 3),
                           beats=beats_total, renders=renders,
-                          words=entry["words"])
+                          trims=trims, words=entry["words"])
     print(f"  {name:22s} {renders['lead']:5.2f}s  lead·8ve×2·low3·low5  «{entry['words']}»")
+    if trims:
+        print(f"    trimmed: {' · '.join(trims)}")
 
 json.dump(manifest, open(os.path.join(VOX4, ".manifest.json"), "w"), indent=1)
 

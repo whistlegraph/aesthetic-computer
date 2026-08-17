@@ -297,6 +297,43 @@ pop/loner/c/lonerremix                        # → out/loner-remix-v4-full.wav 
 bash pop/loner/c/cut-v4.sh                    # → out/loner-remix-v4.mp3 (−14 LUFS)
 ```
 
+### The kick+vocals study, and reading it
+
+`MINIMAL=1 c/lonerremix` renders `out/loner-kickvox` — kick plus the
+unbroken vocal, nothing else — and `bin/timeline.py` draws it: a
+scrolling piano roll where every word is a block at its chart slot and
+sung pitch, **with the word's real waveform drawn inside it** (per-column
+peak of the `vox4/` lead render, normalized to the whole take), bars
+numbered, the kick lane flashing, a live timecode and `bar · beat`
+address in the corner. The active word outlines in pink rather than
+filling, so the waveform stays readable while it plays.
+
+Drawing the audio into the blocks is what exposed **the energy trim**.
+Whisper's word boundaries are handoffs, not note ends: it gave "led"
+0.99 s when Camille stops singing after ~0.55 and the rest is decay, and
+those dead frames were being time-stretched across the slot along with
+the note — "led" sang to 78% of its block and then sat there. Each
+unit's source span now ends where its audio actually ends (5 ms RMS
+against a −36 dB gate of the take's peak, plus a 50 ms release margin),
+and the silence is **dropped rather than warped**, so only sung frames
+stretch. Guards: the last unit is untouched (the tail/release machinery
+owns it), trims under 80 ms aren't worth the surgery, and no unit can
+lose more than 65% of its span. On the whole line exactly two fire —
+`led −390 ms · think −445 ms` — and every word now sings to ≥92% of its
+slot. Receipt: `trims` in `vox4/.manifest.json`.
+
+Bar 1 is hand-pinned against that picture: **curled** alone fills it
+(cur 2 + led 2 — her own 0.74/0.99 s split says led ≥ cur), and **up**,
+her 0.25 s tonic release, lands *on* the bar-2 downbeat as an up-in
+pickup pair into "myself".
+
+```bash
+MINIMAL=1 pop/loner/c/lonerremix       # → out/loner-kickvox-full.wav
+python3 pop/loner/bin/timeline.py      # → out/loner-kickvox-timeline.mp4
+```
+
+`timeline.py` wants system `python3` (PIL), not `pop/.venv`.
+
 ## Measured
 
 | check | v1 | v2 | v3 |

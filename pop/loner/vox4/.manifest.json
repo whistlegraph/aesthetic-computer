@@ -10,6 +10,10 @@
    "low3": 27.99,
    "low5": 27.99
   },
+  "trims": [
+   "led \u2212390ms",
+   "think \u2212445ms"
+  ],
   "words": "the whole lyric, one take"
  },
  "w-sitting-curled": {
@@ -23,6 +27,7 @@
    "low3": 5.905,
    "low5": 5.905
   },
+  "trims": [],
   "words": "sitting curled up in myself"
  },
  "w-i-think": {
@@ -36,6 +41,7 @@
    "low3": 2.225,
    "low5": 2.225
   },
+  "trims": [],
   "words": "i think"
  },
  "w-of-a-stone": {
@@ -49,6 +55,7 @@
    "low3": 4.395,
    "low5": 4.395
   },
+  "trims": [],
   "words": "of a stone"
  },
  "w-just-waiting": {
@@ -62,6 +69,7 @@
    "low3": 3.69,
    "low5": 3.69
   },
+  "trims": [],
   "words": "just waiting"
  },
  "w-very-patiently": {
@@ -75,6 +83,7 @@
    "low3": 4.645,
    "low5": 4.645
   },
+  "trims": [],
   "words": "very patiently"
  },
  "w-for-time-to-pass": {
@@ -88,6 +97,7 @@
    "low3": 6.835,
    "low5": 6.835
   },
+  "trims": [],
   "words": "for time to pass"
  },
  "w-n-getting-curled": {
@@ -101,6 +111,7 @@
    "low3": 5.425,
    "low5": 5.425
   },
+  "trims": [],
   "words": "getting curled up in myself i think"
  },
  "w-n-stone-waiting": {
@@ -114,6 +125,7 @@
    "low3": 8.4,
    "low5": 8.4
   },
+  "trims": [],
   "words": "of a stone just waiting very patiently"
  },
  "w-n-for-time-to-pass": {
@@ -127,6 +139,7 @@
    "low3": 3.78,
    "low5": 3.78
   },
+  "trims": [],
   "words": "for time to pass"
  }
 }
