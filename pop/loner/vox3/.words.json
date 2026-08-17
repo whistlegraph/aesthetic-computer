@@ -1,0 +1,1094 @@
+{
+ "w-f-sitting": {
+  "word": "sitting",
+  "sung": "sitting",
+  "post": "7108062006980201771",
+  "span": [
+   0.295,
+   1.795
+  ],
+  "dur": 1.5,
+  "f0_hz": 346.1,
+  "note": "F4",
+  "cents_dev": -44.6,
+  "grade": "clean",
+  "swapped": false,
+  "trail": [
+   {
+    "take": "71080",
+    "span": [
+     0.295,
+     1.795
+    ],
+    "widened": false,
+    "heard": "sending",
+    "ok": true
+   }
+  ]
+ },
+ "w-f-curled": {
+  "word": "curled",
+  "sung": "curled",
+  "post": "7108062006980201771",
+  "span": [
+   1.765,
+   3.463
+  ],
+  "dur": 1.698,
+  "f0_hz": 277.1,
+  "note": "C#4",
+  "cents_dev": -29.7,
+  "grade": "clean",
+  "swapped": false,
+  "trail": [
+   {
+    "take": "71080",
+    "span": [
+     1.765,
+     3.463
+    ],
+    "widened": false,
+    "heard": "curled up",
+    "ok": true
+   }
+  ]
+ },
+ "w-f-up": {
+  "word": "up",
+  "sung": "up",
+  "post": "7108062006980201771",
+  "span": [
+   3.433,
+   3.738
+  ],
+  "dur": 0.305,
+  "f0_hz": 235.7,
+  "note": "A#3",
+  "cents_dev": -9.7,
+  "grade": "clean",
+  "swapped": false,
+  "trail": [
+   {
+    "take": "71080",
+    "span": [
+     3.433,
+     3.738
+    ],
+    "widened": false,
+    "heard": "(short \u2014 phrase-level check)",
+    "ok": true
+   }
+  ]
+ },
+ "w-f-in": {
+  "word": "in",
+  "sung": "in",
+  "post": "7108062006980201771",
+  "span": [
+   3.708,
+   4.165
+  ],
+  "dur": 0.457,
+  "f0_hz": 238.4,
+  "note": "A#3",
+  "cents_dev": 10.3,
+  "grade": "clean",
+  "swapped": false,
+  "trail": [
+   {
+    "take": "71080",
+    "span": [
+     3.708,
+     4.165
+    ],
+    "widened": false,
+    "heard": "(short \u2014 phrase-level check)",
+    "ok": true
+   }
+  ]
+ },
+ "w-f-myself": {
+  "word": "myself",
+  "sung": "myself",
+  "post": "7108062006980201771",
+  "span": [
+   4.135,
+   5.758
+  ],
+  "dur": 1.623,
+  "f0_hz": 318.3,
+  "note": "D#4",
+  "cents_dev": 10.3,
+  "grade": "clean",
+  "swapped": false,
+  "trail": [
+   {
+    "take": "71080",
+    "span": [
+     4.135,
+     5.758
+    ],
+    "widened": false,
+    "heard": "myself",
+    "ok": true
+   }
+  ]
+ },
+ "w-f-i": {
+  "word": "i",
+  "sung": "i",
+  "post": "7108062006980201771",
+  "span": [
+   5.728,
+   5.95
+  ],
+  "dur": 0.222,
+  "f0_hz": 210.0,
+  "note": "G#3",
+  "cents_dev": -9.7,
+  "grade": "clean",
+  "swapped": false,
+  "trail": [
+   {
+    "take": "71080",
+    "span": [
+     5.728,
+     5.95
+    ],
+    "widened": false,
+    "heard": "(short \u2014 phrase-level check)",
+    "ok": true
+   }
+  ]
+ },
+ "w-f-think": {
+  "word": "think",
+  "sung": "think",
+  "post": "7108062006980201771",
+  "span": [
+   5.92,
+   7.455
+  ],
+  "dur": 1.535,
+  "f0_hz": 211.2,
+  "note": "G#3",
+  "cents_dev": 0.3,
+  "grade": "breathy",
+  "swapped": false,
+  "trail": [
+   {
+    "take": "71080",
+    "span": [
+     5.92,
+     7.455
+    ],
+    "widened": false,
+    "heard": "i think",
+    "ok": true
+   }
+  ]
+ },
+ "w-f-of": {
+  "word": "of",
+  "sung": "of",
+  "post": "7108062006980201771",
+  "span": [
+   7.425,
+   8.05
+  ],
+  "dur": 0.625,
+  "f0_hz": 471.4,
+  "note": "A#4",
+  "cents_dev": -9.7,
+  "grade": "clean",
+  "swapped": false,
+  "trail": [
+   {
+    "take": "71080",
+    "span": [
+     7.425,
+     8.05
+    ],
+    "widened": false,
+    "heard": "(short \u2014 phrase-level check)",
+    "ok": true
+   }
+  ]
+ },
+ "w-f-a": {
+  "word": "a",
+  "sung": "a",
+  "post": "7108062006980201771",
+  "span": [
+   8.02,
+   8.58
+  ],
+  "dur": 0.56,
+  "f0_hz": 471.4,
+  "note": "A#4",
+  "cents_dev": -9.7,
+  "grade": "clean",
+  "swapped": false,
+  "trail": [
+   {
+    "take": "71080",
+    "span": [
+     8.02,
+     8.58
+    ],
+    "widened": false,
+    "heard": "(short \u2014 phrase-level check)",
+    "ok": true
+   }
+  ]
+ },
+ "w-f-stone": {
+  "word": "stone",
+  "sung": "stone",
+  "post": "7108062006980201771",
+  "span": [
+   8.55,
+   11.367
+  ],
+  "dur": 2.817,
+  "f0_hz": 325.7,
+  "note": "D#4",
+  "cents_dev": 50.3,
+  "grade": "clean",
+  "swapped": false,
+  "trail": [
+   {
+    "take": "71080",
+    "span": [
+     8.55,
+     11.367
+    ],
+    "widened": false,
+    "heard": "all the stone",
+    "ok": true
+   }
+  ]
+ },
+ "w-f-just": {
+  "word": "just",
+  "sung": "just",
+  "post": "7108062006980201771",
+  "span": [
+   11.337,
+   13.003
+  ],
+  "dur": 1.666,
+  "f0_hz": 267.6,
+  "note": "C4",
+  "cents_dev": 10.3,
+  "grade": "breathy",
+  "swapped": false,
+  "trail": [
+   {
+    "take": "71080",
+    "span": [
+     11.337,
+     13.003
+    ],
+    "widened": false,
+    "heard": "just",
+    "ok": true
+   }
+  ]
+ },
+ "w-f-waiting": {
+  "word": "waiting",
+  "sung": "waiting",
+  "post": "7108062006980201771",
+  "span": [
+   12.973,
+   14.713
+  ],
+  "dur": 1.74,
+  "f0_hz": 278.7,
+  "note": "C#4",
+  "cents_dev": -19.7,
+  "grade": "clean",
+  "swapped": false,
+  "trail": [
+   {
+    "take": "71080",
+    "span": [
+     12.973,
+     14.713
+    ],
+    "widened": false,
+    "heard": "waiting",
+    "ok": true
+   }
+  ]
+ },
+ "w-f-very": {
+  "word": "very",
+  "sung": "very",
+  "post": "7108062006980201771",
+  "span": [
+   14.683,
+   16.285
+  ],
+  "dur": 1.602,
+  "f0_hz": 237.0,
+  "note": "A#3",
+  "cents_dev": 0.3,
+  "grade": "clean",
+  "swapped": false,
+  "trail": [
+   {
+    "take": "71080",
+    "span": [
+     14.683,
+     16.285
+    ],
+    "widened": false,
+    "heard": "very",
+    "ok": true
+   }
+  ]
+ },
+ "w-f-patiently": {
+  "word": "patiently",
+  "sung": "patiently",
+  "post": "7108062006980201771",
+  "span": [
+   16.255,
+   18.818
+  ],
+  "dur": 2.563,
+  "f0_hz": 318.3,
+  "note": "D#4",
+  "cents_dev": 10.3,
+  "grade": "clean",
+  "swapped": false,
+  "trail": [
+   {
+    "take": "71080",
+    "span": [
+     16.255,
+     18.818
+    ],
+    "widened": false,
+    "heard": "passion please",
+    "ok": true
+   }
+  ]
+ },
+ "w-f-for": {
+  "word": "for",
+  "sung": "for",
+  "post": "7108062006980201771",
+  "span": [
+   18.788,
+   19.758
+  ],
+  "dur": 0.97,
+  "f0_hz": 320.1,
+  "note": "D#4",
+  "cents_dev": 20.3,
+  "grade": "clean",
+  "swapped": false,
+  "trail": [
+   {
+    "take": "71080",
+    "span": [
+     18.788,
+     19.758
+    ],
+    "widened": false,
+    "heard": "(short \u2014 phrase-level check)",
+    "ok": true
+   }
+  ]
+ },
+ "w-f-time": {
+  "word": "time",
+  "sung": "time",
+  "post": "7108062006980201771",
+  "span": [
+   19.648,
+   21.483
+  ],
+  "dur": 1.835,
+  "f0_hz": 357.2,
+  "note": "F4",
+  "cents_dev": 10.3,
+  "grade": "breathy",
+  "swapped": false,
+  "trail": [
+   {
+    "take": "71080",
+    "span": [
+     19.728,
+     21.383
+    ],
+    "widened": false,
+    "heard": "bye",
+    "ok": false
+   },
+   {
+    "take": "71080",
+    "span": [
+     19.648,
+     21.483
+    ],
+    "widened": true,
+    "heard": "time two one",
+    "ok": true
+   }
+  ]
+ },
+ "w-f-to": {
+  "word": "to",
+  "sung": "to",
+  "post": "7108062006980201771",
+  "span": [
+   21.353,
+   23.083
+  ],
+  "dur": 1.73,
+  "f0_hz": 283.5,
+  "note": "C#4",
+  "cents_dev": 10.3,
+  "grade": "breathy",
+  "swapped": false,
+  "trail": [
+   {
+    "take": "71080",
+    "span": [
+     21.353,
+     23.083
+    ],
+    "widened": false,
+    "heard": "(short \u2014 phrase-level check)",
+    "ok": true
+   }
+  ]
+ },
+ "w-f-pass": {
+  "word": "pass",
+  "sung": "pass",
+  "post": "7108062006980201771",
+  "span": [
+   23.053,
+   25.177
+  ],
+  "dur": 2.124,
+  "f0_hz": 281.9,
+  "note": "C#4",
+  "cents_dev": 0.3,
+  "grade": "breathy",
+  "swapped": false,
+  "trail": [
+   {
+    "take": "71080",
+    "span": [
+     23.053,
+     25.177
+    ],
+    "widened": false,
+    "heard": "pass",
+    "ok": true
+   }
+  ]
+ },
+ "w-n-sitting": {
+  "word": "sitting",
+  "sung": "getting",
+  "post": "7021262898479549702",
+  "span": [
+   3.125,
+   4.39
+  ],
+  "dur": 1.265,
+  "f0_hz": 307.4,
+  "note": "D#4",
+  "cents_dev": -49.7,
+  "grade": "clean",
+  "swapped": false,
+  "trail": [
+   {
+    "take": "70212",
+    "span": [
+     3.125,
+     4.39
+    ],
+    "widened": false,
+    "heard": "i think im gonna die",
+    "ok": true
+   }
+  ]
+ },
+ "w-n-curled": {
+  "word": "curled",
+  "sung": "curled",
+  "post": "7021262898479549702",
+  "span": [
+   4.36,
+   5.397
+  ],
+  "dur": 1.037,
+  "f0_hz": 264.5,
+  "note": "C4",
+  "cents_dev": -9.7,
+  "grade": "breathy",
+  "swapped": false,
+  "trail": [
+   {
+    "take": "70212",
+    "span": [
+     4.36,
+     5.397
+    ],
+    "widened": false,
+    "heard": "build up",
+    "ok": true
+   }
+  ]
+ },
+ "w-n-up": {
+  "word": "up",
+  "sung": "up",
+  "post": "7021262898479549702",
+  "span": [
+   5.367,
+   5.85
+  ],
+  "dur": 0.483,
+  "f0_hz": 238.4,
+  "note": "A#3",
+  "cents_dev": 10.3,
+  "grade": "clean",
+  "swapped": false,
+  "trail": [
+   {
+    "take": "70212",
+    "span": [
+     5.367,
+     5.85
+    ],
+    "widened": false,
+    "heard": "(short \u2014 phrase-level check)",
+    "ok": true
+   }
+  ]
+ },
+ "w-n-in": {
+  "word": "in",
+  "sung": "in",
+  "post": "7021262898479549702",
+  "span": [
+   5.82,
+   6.17
+  ],
+  "dur": 0.35,
+  "f0_hz": 311.0,
+  "note": "D#4",
+  "cents_dev": -29.7,
+  "grade": "clean",
+  "swapped": false,
+  "trail": [
+   {
+    "take": "70212",
+    "span": [
+     5.82,
+     6.17
+    ],
+    "widened": false,
+    "heard": "(short \u2014 phrase-level check)",
+    "ok": true
+   }
+  ]
+ },
+ "w-n-myself": {
+  "word": "myself",
+  "sung": "myself",
+  "post": "7021262898479549702",
+  "span": [
+   6.14,
+   7.17
+  ],
+  "dur": 1.03,
+  "f0_hz": 264.5,
+  "note": "C4",
+  "cents_dev": -9.7,
+  "grade": "clean",
+  "swapped": false,
+  "trail": [
+   {
+    "take": "70212",
+    "span": [
+     6.14,
+     7.17
+    ],
+    "widened": false,
+    "heard": "myself",
+    "ok": true
+   }
+  ]
+ },
+ "w-n-i": {
+  "word": "i",
+  "sung": "i",
+  "post": "7021262898479549702",
+  "span": [
+   7.14,
+   7.42
+  ],
+  "dur": 0.28,
+  "f0_hz": 206.4,
+  "note": "G#3",
+  "cents_dev": -39.7,
+  "grade": "clean",
+  "swapped": false,
+  "trail": [
+   {
+    "take": "70212",
+    "span": [
+     7.14,
+     7.42
+    ],
+    "widened": false,
+    "heard": "(short \u2014 phrase-level check)",
+    "ok": true
+   }
+  ]
+ },
+ "w-n-think": {
+  "word": "think",
+  "sung": "think",
+  "post": "7021262898479549702",
+  "span": [
+   7.39,
+   8.427
+  ],
+  "dur": 1.037,
+  "f0_hz": 206.4,
+  "note": "G#3",
+  "cents_dev": -39.7,
+  "grade": "clean",
+  "swapped": false,
+  "trail": [
+   {
+    "take": "70212",
+    "span": [
+     7.39,
+     8.427
+    ],
+    "widened": false,
+    "heard": "i think",
+    "ok": true
+   }
+  ]
+ },
+ "w-n-of": {
+  "word": "of",
+  "sung": "of",
+  "post": "7021262898479549702",
+  "span": [
+   9.16,
+   9.63
+  ],
+  "dur": 0.47,
+  "f0_hz": 468.7,
+  "note": "A#4",
+  "cents_dev": -19.7,
+  "grade": "clean",
+  "swapped": false,
+  "trail": [
+   {
+    "take": "70212",
+    "span": [
+     9.16,
+     9.63
+    ],
+    "widened": false,
+    "heard": "(short \u2014 phrase-level check)",
+    "ok": true
+   }
+  ]
+ },
+ "w-n-a": {
+  "word": "a",
+  "sung": "a",
+  "post": "7021262898479549702",
+  "span": [
+   9.6,
+   9.972
+  ],
+  "dur": 0.372,
+  "f0_hz": 466.0,
+  "note": "A#4",
+  "cents_dev": -29.7,
+  "grade": "breathy",
+  "swapped": false,
+  "trail": [
+   {
+    "take": "70212",
+    "span": [
+     9.6,
+     9.972
+    ],
+    "widened": false,
+    "heard": "(short \u2014 phrase-level check)",
+    "ok": true
+   }
+  ]
+ },
+ "w-n-stone": {
+  "word": "stone",
+  "sung": "stone",
+  "post": "7100768279983181099",
+  "span": [
+   8.55,
+   11.357
+  ],
+  "dur": 2.807,
+  "f0_hz": 325.7,
+  "note": "D#4",
+  "cents_dev": 50.3,
+  "grade": "clean",
+  "swapped": true,
+  "trail": [
+   {
+    "take": "70212",
+    "span": [
+     9.942,
+     11.18
+    ],
+    "widened": false,
+    "heard": "first",
+    "ok": false
+   },
+   {
+    "take": "70212",
+    "span": [
+     9.862,
+     11.28
+    ],
+    "widened": true,
+    "heard": "first of",
+    "ok": false
+   },
+   {
+    "take": "71007",
+    "span": [
+     8.55,
+     11.357
+    ],
+    "widened": false,
+    "heard": "of a stone",
+    "ok": true
+   }
+  ]
+ },
+ "w-n-just": {
+  "word": "just",
+  "sung": "just",
+  "post": "7100768279983181099",
+  "span": [
+   11.327,
+   12.995
+  ],
+  "dur": 1.668,
+  "f0_hz": 267.6,
+  "note": "C4",
+  "cents_dev": 10.3,
+  "grade": "breathy",
+  "swapped": true,
+  "trail": [
+   {
+    "take": "70212",
+    "span": [
+     11.15,
+     12.21
+    ],
+    "widened": false,
+    "heard": "john john",
+    "ok": false
+   },
+   {
+    "take": "70212",
+    "span": [
+     11.07,
+     12.31
+    ],
+    "widened": true,
+    "heard": "john john",
+    "ok": false
+   },
+   {
+    "take": "71007",
+    "span": [
+     11.327,
+     12.995
+    ],
+    "widened": false,
+    "heard": "just",
+    "ok": true
+   }
+  ]
+ },
+ "w-n-waiting": {
+  "word": "waiting",
+  "sung": "waiting",
+  "post": "7021262898479549702",
+  "span": [
+   12.18,
+   13.98
+  ],
+  "dur": 1.8,
+  "f0_hz": 281.9,
+  "note": "C#4",
+  "cents_dev": 0.3,
+  "grade": "breathy",
+  "swapped": false,
+  "trail": [
+   {
+    "take": "70212",
+    "span": [
+     12.18,
+     13.98
+    ],
+    "widened": false,
+    "heard": "wait",
+    "ok": true
+   }
+  ]
+ },
+ "w-n-very": {
+  "word": "very",
+  "sung": "very",
+  "post": "7100768279983181099",
+  "span": [
+   14.675,
+   16.275
+  ],
+  "dur": 1.6,
+  "f0_hz": 237.0,
+  "note": "A#3",
+  "cents_dev": 0.3,
+  "grade": "clean",
+  "swapped": true,
+  "trail": [
+   {
+    "take": "70212",
+    "span": [
+     13.95,
+     15.0
+    ],
+    "widened": false,
+    "heard": "eating this",
+    "ok": false
+   },
+   {
+    "take": "70212",
+    "span": [
+     13.87,
+     15.1
+    ],
+    "widened": true,
+    "heard": "eating this",
+    "ok": false
+   },
+   {
+    "take": "71007",
+    "span": [
+     14.675,
+     16.275
+    ],
+    "widened": false,
+    "heard": "very",
+    "ok": true
+   }
+  ]
+ },
+ "w-n-patiently": {
+  "word": "patiently",
+  "sung": "patiently",
+  "post": "7021262898479549702",
+  "span": [
+   14.97,
+   17.427
+  ],
+  "dur": 2.457,
+  "f0_hz": 311.0,
+  "note": "D#4",
+  "cents_dev": -29.7,
+  "grade": "clean",
+  "swapped": false,
+  "trail": [
+   {
+    "take": "70212",
+    "span": [
+     14.97,
+     17.427
+    ],
+    "widened": false,
+    "heard": "very patient",
+    "ok": true
+   }
+  ]
+ },
+ "w-n-for": {
+  "word": "for",
+  "sung": "for",
+  "post": "7021262898479549702",
+  "span": [
+   18.895,
+   19.65
+  ],
+  "dur": 0.755,
+  "f0_hz": 349.1,
+  "note": "F4",
+  "cents_dev": -29.7,
+  "grade": "clean",
+  "swapped": false,
+  "trail": [
+   {
+    "take": "70212",
+    "span": [
+     18.895,
+     19.65
+    ],
+    "widened": false,
+    "heard": "(short \u2014 phrase-level check)",
+    "ok": true
+   }
+  ]
+ },
+ "w-n-time": {
+  "word": "time",
+  "sung": "time",
+  "post": "7100768279983181099",
+  "span": [
+   19.638,
+   21.475
+  ],
+  "dur": 1.837,
+  "f0_hz": 357.2,
+  "note": "F4",
+  "cents_dev": 10.3,
+  "grade": "breathy",
+  "swapped": true,
+  "trail": [
+   {
+    "take": "70212",
+    "span": [
+     19.62,
+     20.62
+    ],
+    "widened": false,
+    "heard": "",
+    "ok": false
+   },
+   {
+    "take": "70212",
+    "span": [
+     19.54,
+     20.72
+    ],
+    "widened": true,
+    "heard": "to",
+    "ok": false
+   },
+   {
+    "take": "71007",
+    "span": [
+     19.718,
+     21.375
+    ],
+    "widened": false,
+    "heard": "bye",
+    "ok": false
+   },
+   {
+    "take": "71007",
+    "span": [
+     19.638,
+     21.475
+    ],
+    "widened": true,
+    "heard": "time two one",
+    "ok": true
+   }
+  ]
+ },
+ "w-n-to": {
+  "word": "to",
+  "sung": "to",
+  "post": "7021262898479549702",
+  "span": [
+   20.59,
+   21.26
+  ],
+  "dur": 0.67,
+  "f0_hz": 275.5,
+  "note": "C#4",
+  "cents_dev": -39.7,
+  "grade": "clean",
+  "swapped": false,
+  "trail": [
+   {
+    "take": "70212",
+    "span": [
+     20.59,
+     21.26
+    ],
+    "widened": false,
+    "heard": "(short \u2014 phrase-level check)",
+    "ok": true
+   }
+  ]
+ },
+ "w-n-pass": {
+  "word": "pass",
+  "sung": "pass",
+  "post": "7100768279983181099",
+  "span": [
+   23.038,
+   25.168
+  ],
+  "dur": 2.13,
+  "f0_hz": 281.9,
+  "note": "C#4",
+  "cents_dev": 0.3,
+  "grade": "breathy",
+  "swapped": true,
+  "trail": [
+   {
+    "take": "70212",
+    "span": [
+     21.23,
+     22.43
+    ],
+    "widened": false,
+    "heard": "upbeat music",
+    "ok": false
+   },
+   {
+    "take": "70212",
+    "span": [
+     21.15,
+     22.53
+    ],
+    "widened": true,
+    "heard": "poop",
+    "ok": false
+   },
+   {
+    "take": "71007",
+    "span": [
+     23.038,
+     25.168
+    ],
+    "widened": false,
+    "heard": "pass",
+    "ok": true
+   }
+  ]
+ }
+}

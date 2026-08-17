@@ -1,0 +1,819 @@
+{
+  "7108062006980201771": {
+    "source_mp4": "https://assets.aesthetic.computer/whistlegraph/index/posts/7108062006980201771.mp4",
+    "what": "the Ten Whistlegraphs / Feral File recording \u2014 clean solo voice, the whole lyric",
+    "duration": 25.71,
+    "tempo_bpm": 80.4,
+    "key": "A\u266f minor",
+    "key_r": 0.731,
+    "median_f0_hz": 283.7,
+    "median_note": "C\u266f4",
+    "transcription_method": "whisper.cpp (whisper-cli) ggml-small, word-level -ml 1",
+    "word_timestamps": [
+      {
+        "t": "Sitting",
+        "start": 0.33,
+        "end": 1.74,
+        "f0_hz": 348.2,
+        "midi": 64.95,
+        "note": "F4"
+      },
+      {
+        "t": "cur",
+        "start": 1.74,
+        "end": 2.48,
+        "f0_hz": 278.0,
+        "midi": 61.05,
+        "note": "C\u266f4"
+      },
+      {
+        "t": "led",
+        "start": 2.48,
+        "end": 3.47,
+        "f0_hz": 271.6,
+        "midi": 60.65,
+        "note": "C\u266f4"
+      },
+      {
+        "t": "up",
+        "start": 3.47,
+        "end": 3.72,
+        "f0_hz": 236.5,
+        "midi": 58.25,
+        "note": "A\u266f3"
+      },
+      {
+        "t": "in",
+        "start": 3.72,
+        "end": 4.22,
+        "f0_hz": 237.8,
+        "midi": 58.35,
+        "note": "A\u266f3"
+      },
+      {
+        "t": "myself",
+        "start": 4.22,
+        "end": 5.76,
+        "f0_hz": 317.5,
+        "midi": 63.35,
+        "note": "D\u266f4"
+      },
+      {
+        "t": "I",
+        "start": 5.76,
+        "end": 5.96,
+        "f0_hz": 209.5,
+        "midi": 56.15,
+        "note": "G\u266f3"
+      },
+      {
+        "t": "think",
+        "start": 5.96,
+        "end": 7.46,
+        "f0_hz": 210.7,
+        "midi": 56.25,
+        "note": "G\u266f3"
+      },
+      {
+        "t": "of",
+        "start": 7.46,
+        "end": 8.06,
+        "f0_hz": 470.2,
+        "midi": 70.15,
+        "note": "A\u266f4"
+      },
+      {
+        "t": "a",
+        "start": 8.06,
+        "end": 8.59,
+        "f0_hz": 472.9,
+        "midi": 70.25,
+        "note": "A\u266f4"
+      },
+      {
+        "t": "stone",
+        "start": 8.59,
+        "end": 11.29,
+        "f0_hz": 325.8,
+        "midi": 63.8,
+        "note": "E4"
+      },
+      {
+        "t": "just",
+        "start": 11.42,
+        "end": 13.01,
+        "f0_hz": 268.5,
+        "midi": 60.45,
+        "note": "C4"
+      },
+      {
+        "t": "waiting",
+        "start": 13.01,
+        "end": 14.71,
+        "f0_hz": 279.6,
+        "midi": 61.15,
+        "note": "C\u266f4"
+      },
+      {
+        "t": "very",
+        "start": 14.71,
+        "end": 16.29,
+        "f0_hz": 236.5,
+        "midi": 58.25,
+        "note": "A\u266f3"
+      },
+      {
+        "t": "patiently",
+        "start": 16.29,
+        "end": 18.82,
+        "f0_hz": 317.5,
+        "midi": 63.35,
+        "note": "D\u266f4"
+      },
+      {
+        "t": "for",
+        "start": 18.82,
+        "end": 19.78,
+        "f0_hz": 319.3,
+        "midi": 63.45,
+        "note": "D\u266f4"
+      },
+      {
+        "t": "time",
+        "start": 19.78,
+        "end": 21.4,
+        "f0_hz": 358.4,
+        "midi": 65.45,
+        "note": "F4"
+      },
+      {
+        "t": "to",
+        "start": 21.4,
+        "end": 23.12,
+        "f0_hz": 282.8,
+        "midi": 61.35,
+        "note": "C\u266f4"
+      },
+      {
+        "t": "pass",
+        "start": 23.12,
+        "end": 24.99,
+        "f0_hz": 282.8,
+        "midi": 61.35,
+        "note": "C\u266f4"
+      }
+    ]
+  },
+  "7021262898479549702": {
+    "source_mp4": "https://assets.aesthetic.computer/whistlegraph/index/posts/7021262898479549702.mp4",
+    "what": "the 13.8M 'not again!' take \u2014 spoken 'Camille, are you doing emo whistlegraphs again?' then the sung line",
+    "duration": 24.82,
+    "tempo_bpm": 90.7,
+    "key": "G\u266f major",
+    "key_r": 0.718,
+    "median_f0_hz": 279.6,
+    "median_note": "C\u266f4",
+    "transcription_method": "whisper.cpp (whisper-cli) ggml-small, word-level -ml 1",
+    "word_timestamps": [
+      {
+        "t": "Cam",
+        "start": 0.08,
+        "end": 0.26
+      },
+      {
+        "t": "ille",
+        "start": 0.26,
+        "end": 0.4
+      },
+      {
+        "t": "are",
+        "start": 0.51,
+        "end": 0.68,
+        "f0_hz": 206.5,
+        "midi": 55.9,
+        "note": "G\u266f3"
+      },
+      {
+        "t": "you",
+        "start": 0.68,
+        "end": 0.85
+      },
+      {
+        "t": "doing",
+        "start": 0.85,
+        "end": 1.14,
+        "f0_hz": 303.1,
+        "midi": 62.55,
+        "note": "D\u266f4"
+      },
+      {
+        "t": "emo",
+        "start": 1.14,
+        "end": 1.31
+      },
+      {
+        "t": "whistle",
+        "start": 1.31,
+        "end": 1.8,
+        "f0_hz": 167.7,
+        "midi": 52.3,
+        "note": "E3"
+      },
+      {
+        "t": "graphs",
+        "start": 1.8,
+        "end": 2.07,
+        "f0_hz": 149.8,
+        "midi": 50.35,
+        "note": "D3"
+      },
+      {
+        "t": "again",
+        "start": 2.07,
+        "end": 2.36,
+        "f0_hz": 156.9,
+        "midi": 51.15,
+        "note": "D\u266f3"
+      },
+      {
+        "t": "Getting",
+        "start": 3.14,
+        "end": 4.4,
+        "f0_hz": 308.4,
+        "midi": 62.85,
+        "note": "D\u266f4"
+      },
+      {
+        "t": "cur",
+        "start": 4.4,
+        "end": 4.96,
+        "f0_hz": 267.0,
+        "midi": 60.35,
+        "note": "C4"
+      },
+      {
+        "t": "led",
+        "start": 4.96,
+        "end": 5.46,
+        "f0_hz": 236.5,
+        "midi": 58.25,
+        "note": "A\u266f3"
+      },
+      {
+        "t": "up",
+        "start": 5.46,
+        "end": 5.82,
+        "f0_hz": 239.2,
+        "midi": 58.45,
+        "note": "A\u266f3"
+      },
+      {
+        "t": "in",
+        "start": 5.82,
+        "end": 6.18,
+        "f0_hz": 310.2,
+        "midi": 62.95,
+        "note": "D\u266f4"
+      },
+      {
+        "t": "myself",
+        "start": 6.18,
+        "end": 7.25,
+        "f0_hz": 263.9,
+        "midi": 60.15,
+        "note": "C4"
+      },
+      {
+        "t": "I",
+        "start": 7.25,
+        "end": 7.43,
+        "f0_hz": 207.1,
+        "midi": 55.95,
+        "note": "G\u266f3"
+      },
+      {
+        "t": "think",
+        "start": 7.43,
+        "end": 8.36,
+        "f0_hz": 205.9,
+        "midi": 55.85,
+        "note": "G\u266f3"
+      },
+      {
+        "t": "Of",
+        "start": 9.16,
+        "end": 9.67,
+        "f0_hz": 467.5,
+        "midi": 70.05,
+        "note": "A\u266f4"
+      },
+      {
+        "t": "a",
+        "start": 9.67,
+        "end": 9.92,
+        "f0_hz": 463.5,
+        "midi": 69.9,
+        "note": "A\u266f4"
+      },
+      {
+        "t": "stone",
+        "start": 9.92,
+        "end": 11.19,
+        "f0_hz": 409.3,
+        "midi": 67.75,
+        "note": "G\u266f4"
+      },
+      {
+        "t": "just",
+        "start": 11.19,
+        "end": 12.22,
+        "f0_hz": 313.8,
+        "midi": 63.15,
+        "note": "D\u266f4"
+      },
+      {
+        "t": "waiting",
+        "start": 12.22,
+        "end": 13.99,
+        "f0_hz": 281.2,
+        "midi": 61.25,
+        "note": "C\u266f4"
+      },
+      {
+        "t": "very",
+        "start": 13.99,
+        "end": 15.01,
+        "f0_hz": 262.4,
+        "midi": 60.05,
+        "note": "C4"
+      },
+      {
+        "t": "patiently",
+        "start": 15.01,
+        "end": 17.3,
+        "f0_hz": 312.0,
+        "midi": 63.05,
+        "note": "D\u266f4"
+      },
+      {
+        "t": "For",
+        "start": 18.88,
+        "end": 19.66,
+        "f0_hz": 350.2,
+        "midi": 65.05,
+        "note": "F4"
+      },
+      {
+        "t": "time",
+        "start": 19.66,
+        "end": 20.71,
+        "f0_hz": 348.2,
+        "midi": 64.95,
+        "note": "F4"
+      },
+      {
+        "t": "to",
+        "start": 20.71,
+        "end": 21.27,
+        "f0_hz": 276.4,
+        "midi": 60.95,
+        "note": "C\u266f4"
+      },
+      {
+        "t": "pass",
+        "start": 21.27,
+        "end": 22.28,
+        "f0_hz": 281.2,
+        "midi": 61.25,
+        "note": "C\u266f4"
+      },
+      {
+        "t": "I",
+        "start": 23.1,
+        "end": 23.4
+      },
+      {
+        "t": "knew",
+        "start": 23.4,
+        "end": 23.81,
+        "f0_hz": 100.0,
+        "midi": 43.35,
+        "note": "G2"
+      },
+      {
+        "t": "it",
+        "start": 23.81,
+        "end": 24.1
+      }
+    ]
+  },
+  "6988954628167585030": {
+    "source_mp4": "https://assets.aesthetic.computer/whistlegraph/index/posts/6988954628167585030.mp4",
+    "what": "the 1.4M 'loner by @cksuperstore' take \u2014 sung, roomier",
+    "duration": 21.25,
+    "tempo_bpm": 89.3,
+    "key": "G\u266f minor",
+    "key_r": 0.479,
+    "median_f0_hz": 213.1,
+    "median_note": "G\u266f3",
+    "transcription_method": "whisper.cpp (whisper-cli) ggml-small, word-level -ml 1",
+    "word_timestamps": [
+      {
+        "t": "S",
+        "start": 0.0,
+        "end": 0.49
+      },
+      {
+        "t": "ib",
+        "start": 0.49,
+        "end": 0.67,
+        "f0_hz": 278.0,
+        "midi": 61.05,
+        "note": "C\u266f4"
+      },
+      {
+        "t": "bing",
+        "start": 0.67,
+        "end": 1.57,
+        "f0_hz": 276.4,
+        "midi": 60.95,
+        "note": "C\u266f4"
+      },
+      {
+        "t": "cur",
+        "start": 1.57,
+        "end": 2.24,
+        "f0_hz": 247.7,
+        "midi": 59.05,
+        "note": "B3"
+      },
+      {
+        "t": "led",
+        "start": 2.24,
+        "end": 2.91,
+        "f0_hz": 217.5,
+        "midi": 56.8,
+        "note": "A3"
+      },
+      {
+        "t": "up",
+        "start": 2.91,
+        "end": 3.36,
+        "f0_hz": 202.3,
+        "midi": 55.55,
+        "note": "G\u266f3"
+      },
+      {
+        "t": "in",
+        "start": 3.36,
+        "end": 3.81,
+        "f0_hz": 183.4,
+        "midi": 53.85,
+        "note": "F\u266f3"
+      },
+      {
+        "t": "myself",
+        "start": 3.81,
+        "end": 5.27,
+        "f0_hz": 204.7,
+        "midi": 55.75,
+        "note": "G\u266f3"
+      },
+      {
+        "t": "I",
+        "start": 5.48,
+        "end": 5.62,
+        "f0_hz": 164.3,
+        "midi": 51.95,
+        "note": "E3"
+      },
+      {
+        "t": "think",
+        "start": 5.62,
+        "end": 6.6,
+        "f0_hz": 165.3,
+        "midi": 52.05,
+        "note": "E3"
+      },
+      {
+        "t": "of",
+        "start": 6.6,
+        "end": 7.14,
+        "f0_hz": 362.6,
+        "midi": 65.65,
+        "note": "F\u266f4"
+      },
+      {
+        "t": "a",
+        "start": 7.14,
+        "end": 7.53,
+        "f0_hz": 360.5,
+        "midi": 65.55,
+        "note": "F\u266f4"
+      },
+      {
+        "t": "stone",
+        "start": 7.53,
+        "end": 9.48,
+        "f0_hz": 321.2,
+        "midi": 63.55,
+        "note": "E4"
+      },
+      {
+        "t": "Just",
+        "start": 9.48,
+        "end": 10.51,
+        "f0_hz": 202.9,
+        "midi": 55.6,
+        "note": "G\u266f3"
+      },
+      {
+        "t": "waiting",
+        "start": 10.51,
+        "end": 12.31,
+        "f0_hz": 218.1,
+        "midi": 56.85,
+        "note": "A3"
+      },
+      {
+        "t": "very",
+        "start": 12.31,
+        "end": 13.34,
+        "f0_hz": 182.3,
+        "midi": 53.75,
+        "note": "F\u266f3"
+      },
+      {
+        "t": "patiently",
+        "start": 13.34,
+        "end": 16.07,
+        "f0_hz": 169.2,
+        "midi": 52.45,
+        "note": "E3"
+      },
+      {
+        "t": "for",
+        "start": 16.07,
+        "end": 16.76,
+        "f0_hz": 121.7,
+        "midi": 46.75,
+        "note": "B2"
+      },
+      {
+        "t": "time",
+        "start": 16.76,
+        "end": 18.21,
+        "f0_hz": 136.6,
+        "midi": 48.75,
+        "note": "C\u266f3"
+      },
+      {
+        "t": "to",
+        "start": 18.21,
+        "end": 19.33,
+        "f0_hz": 107.8,
+        "midi": 44.65,
+        "note": "A2"
+      },
+      {
+        "t": "pass",
+        "start": 19.33,
+        "end": 20.4,
+        "f0_hz": 107.8,
+        "midi": 44.65,
+        "note": "A2"
+      }
+    ]
+  },
+  "6988619239657622790": {
+    "source_mp4": "https://assets.aesthetic.computer/whistlegraph/index/posts/6988619239657622790.mp4",
+    "what": "the origin take \u2014 'Here's a whistlegraph by Camille called loner, ready?' then the line, performed with jeffrey and alex",
+    "duration": 26.08,
+    "tempo_bpm": 87.9,
+    "key": "G\u266f minor",
+    "key_r": 0.435,
+    "median_f0_hz": 233.8,
+    "median_note": "A\u266f3",
+    "transcription_method": "whisper.cpp (whisper-cli) ggml-small, word-level -ml 1",
+    "word_timestamps": [
+      {
+        "t": "Here",
+        "start": 0.23,
+        "end": 0.24
+      },
+      {
+        "t": "'s",
+        "start": 0.24,
+        "end": 0.34
+      },
+      {
+        "t": "a",
+        "start": 0.34,
+        "end": 0.39,
+        "f0_hz": 208.9,
+        "midi": 56.1,
+        "note": "G\u266f3"
+      },
+      {
+        "t": "whistle",
+        "start": 0.39,
+        "end": 0.8
+      },
+      {
+        "t": "graph",
+        "start": 0.8,
+        "end": 1.09
+      },
+      {
+        "t": "by",
+        "start": 1.09,
+        "end": 1.2
+      },
+      {
+        "t": "Cam",
+        "start": 1.2,
+        "end": 1.37,
+        "f0_hz": 150.7,
+        "midi": 50.45,
+        "note": "D3"
+      },
+      {
+        "t": "ille",
+        "start": 1.37,
+        "end": 1.6,
+        "f0_hz": 155.1,
+        "midi": 50.95,
+        "note": "D\u266f3"
+      },
+      {
+        "t": "called",
+        "start": 1.6,
+        "end": 1.95
+      },
+      {
+        "t": "lon",
+        "start": 1.95,
+        "end": 2.12
+      },
+      {
+        "t": "er",
+        "start": 2.12,
+        "end": 2.31
+      },
+      {
+        "t": "ready",
+        "start": 2.31,
+        "end": 4.6
+      },
+      {
+        "t": "sitting",
+        "start": 4.6,
+        "end": 5.92,
+        "f0_hz": 265.4,
+        "midi": 60.25,
+        "note": "C4"
+      },
+      {
+        "t": "cur",
+        "start": 5.92,
+        "end": 6.44,
+        "f0_hz": 239.2,
+        "midi": 58.45,
+        "note": "A\u266f3"
+      },
+      {
+        "t": "led",
+        "start": 6.44,
+        "end": 6.95,
+        "f0_hz": 214.4,
+        "midi": 56.55,
+        "note": "A3"
+      },
+      {
+        "t": "up",
+        "start": 6.95,
+        "end": 7.65,
+        "f0_hz": 204.7,
+        "midi": 55.75,
+        "note": "G\u266f3"
+      },
+      {
+        "t": "in",
+        "start": 7.65,
+        "end": 8.16,
+        "f0_hz": 180.3,
+        "midi": 53.55,
+        "note": "F\u266f3"
+      },
+      {
+        "t": "myself",
+        "start": 8.16,
+        "end": 9.68,
+        "f0_hz": 205.9,
+        "midi": 55.85,
+        "note": "G\u266f3"
+      },
+      {
+        "t": "I",
+        "start": 9.68,
+        "end": 10.23,
+        "f0_hz": 161.5,
+        "midi": 51.65,
+        "note": "E3"
+      },
+      {
+        "t": "think",
+        "start": 10.23,
+        "end": 11.04,
+        "f0_hz": 141.4,
+        "midi": 49.35,
+        "note": "C\u266f3"
+      },
+      {
+        "t": "of",
+        "start": 11.04,
+        "end": 11.7,
+        "f0_hz": 354.3,
+        "midi": 65.25,
+        "note": "F4"
+      },
+      {
+        "t": "a",
+        "start": 11.7,
+        "end": 12.06,
+        "f0_hz": 352.3,
+        "midi": 65.15,
+        "note": "F4"
+      },
+      {
+        "t": "stone",
+        "start": 12.06,
+        "end": 13.59,
+        "f0_hz": 315.7,
+        "midi": 63.25,
+        "note": "D\u266f4"
+      },
+      {
+        "t": "just",
+        "start": 13.59,
+        "end": 15.68,
+        "f0_hz": 242.0,
+        "midi": 58.65,
+        "note": "B3"
+      },
+      {
+        "t": "waiting",
+        "start": 15.68,
+        "end": 17.24,
+        "f0_hz": 204.1,
+        "midi": 55.7,
+        "note": "G\u266f3"
+      },
+      {
+        "t": "very",
+        "start": 17.24,
+        "end": 18.69,
+        "f0_hz": 165.3,
+        "midi": 52.05,
+        "note": "E3"
+      },
+      {
+        "t": "patiently",
+        "start": 18.69,
+        "end": 21.52,
+        "f0_hz": 242.0,
+        "midi": 58.65,
+        "note": "B3"
+      },
+      {
+        "t": "for",
+        "start": 21.52,
+        "end": 22.51,
+        "f0_hz": 271.6,
+        "midi": 60.65,
+        "note": "C\u266f4"
+      },
+      {
+        "t": "time",
+        "start": 22.51,
+        "end": 23.83,
+        "f0_hz": 219.4,
+        "midi": 56.95,
+        "note": "A3"
+      },
+      {
+        "t": "to",
+        "start": 23.83,
+        "end": 24.49,
+        "f0_hz": 214.4,
+        "midi": 56.55,
+        "note": "A3"
+      },
+      {
+        "t": "pass",
+        "start": 24.49,
+        "end": 25.84
+      }
+    ]
+  }
+}

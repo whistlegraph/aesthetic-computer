@@ -1,0 +1,30 @@
+# The source takes — re-fetchable from the assets mirror posts.json
+# already points at (bin/slice.mjs pulls them).
+source/
+
+# The sample bank is derived — bin/slice.mjs rebuilds it from source/.
+# Media, not source. The manifest IS tracked: it records what every slice
+# is, where it came from, and what pyin measured on each word.
+samples/*.wav
+
+# The aesthetivox bank — bin/aesthetivox.py rebuilds every WORLD render
+# from samples/. Derived media; the manifest (modes, snap strength, the
+# pyin before/after grid deviations) IS tracked.
+vox/*.wav
+
+# The v3 angelic bank — bin/halo.py rebuilds the leads, halos, swell
+# intervals and arp notes from samples/. Same rule: media out, manifest in.
+vox3/*.wav
+
+# out/ is already covered repo-wide by `pop/**/out/`.
+
+# The corpus study bank — bin/corpus.py rebuilds it from source/.
+samples/corpus/*.wav
+
+# The v4 chart bank — bin/halo3.py rebuilds the warped leads, halos and
+# low-3rd/5th backups from samples/ (and emits c/loner-chart.h, which IS
+# tracked — it's the score's melody data).
+vox4/*.wav
+
+# The compiled C engine.
+c/lonerremix

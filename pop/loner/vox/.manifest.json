@@ -1,0 +1,162 @@
+{
+ "f-sitting-curled": {
+  "mode": "sung",
+  "f0_floor": 140.0,
+  "snap_strength": 0.7,
+  "formant_db": 1.6,
+  "grid": "A# natural minor, tonic 237.0 Hz (+30c over A440)",
+  "dur": 5.52,
+  "cents_to_grid_before": 19.8,
+  "cents_to_grid_after": 9.8
+ },
+ "f-think-stone": {
+  "mode": "sung",
+  "f0_floor": 140.0,
+  "snap_strength": 0.7,
+  "formant_db": 1.6,
+  "grid": "A# natural minor, tonic 237.0 Hz (+30c over A440)",
+  "dur": 5.072,
+  "cents_to_grid_before": 10.2,
+  "cents_to_grid_after": 0.2
+ },
+ "f-i-think": {
+  "mode": "sung",
+  "f0_floor": 140.0,
+  "snap_strength": 0.7,
+  "formant_db": 1.6,
+  "grid": "A# natural minor, tonic 237.0 Hz (+30c over A440)",
+  "dur": 1.8,
+  "cents_to_grid_before": 10.2,
+  "cents_to_grid_after": 0.2
+ },
+ "f-of-a-stone": {
+  "mode": "sung",
+  "f0_floor": 140.0,
+  "snap_strength": 0.7,
+  "formant_db": 1.6,
+  "grid": "A# natural minor, tonic 237.0 Hz (+30c over A440)",
+  "dur": 3.315,
+  "cents_to_grid_before": 10.2,
+  "cents_to_grid_after": 0.2
+ },
+ "f-stone": {
+  "mode": "sung",
+  "f0_floor": 140.0,
+  "snap_strength": 0.7,
+  "formant_db": 1.6,
+  "grid": "A# natural minor, tonic 237.0 Hz (+30c over A440)",
+  "dur": 2.222,
+  "cents_to_grid_before": 10.2,
+  "cents_to_grid_after": 0.2
+ },
+ "f-waiting-patiently": {
+  "mode": "sung",
+  "f0_floor": 140.0,
+  "snap_strength": 0.7,
+  "formant_db": 1.6,
+  "grid": "A# natural minor, tonic 237.0 Hz (+30c over A440)",
+  "dur": 7.476,
+  "cents_to_grid_before": 9.8,
+  "cents_to_grid_after": 0.2
+ },
+ "f-for-time-to-pass": {
+  "mode": "sung",
+  "f0_floor": 140.0,
+  "snap_strength": 0.7,
+  "formant_db": 1.6,
+  "grid": "A# natural minor, tonic 237.0 Hz (+30c over A440)",
+  "dur": 5.807,
+  "cents_to_grid_before": 9.8,
+  "cents_to_grid_after": 0.2
+ },
+ "f-pass": {
+  "mode": "sung",
+  "f0_floor": 140.0,
+  "snap_strength": 0.7,
+  "formant_db": 1.6,
+  "grid": "A# natural minor, tonic 237.0 Hz (+30c over A440)",
+  "dur": 1.486,
+  "cents_to_grid_before": 5.0,
+  "cents_to_grid_after": 0.2
+ },
+ "f-whole-line": {
+  "mode": "sung",
+  "f0_floor": 140.0,
+  "snap_strength": 0.7,
+  "formant_db": 1.6,
+  "grid": "A# natural minor, tonic 237.0 Hz (+30c over A440)",
+  "dur": 24.307,
+  "cents_to_grid_before": 10.2,
+  "cents_to_grid_after": 0.2
+ },
+ "n-getting-curled": {
+  "mode": "sung",
+  "f0_floor": 140.0,
+  "snap_strength": 0.7,
+  "formant_db": 1.6,
+  "grid": "A# natural minor, tonic 237.0 Hz (+30c over A440)",
+  "dur": 5.32,
+  "cents_to_grid_before": 30.2,
+  "cents_to_grid_after": 10.2
+ },
+ "n-stone-waiting": {
+  "mode": "sung",
+  "f0_floor": 140.0,
+  "snap_strength": 0.7,
+  "formant_db": 1.6,
+  "grid": "A# natural minor, tonic 237.0 Hz (+30c over A440)",
+  "dur": 8.265,
+  "cents_to_grid_before": 20.2,
+  "cents_to_grid_after": 10.2
+ },
+ "n-of-a-stone": {
+  "mode": "sung",
+  "f0_floor": 140.0,
+  "snap_strength": 0.7,
+  "formant_db": 1.6,
+  "grid": "A# natural minor, tonic 237.0 Hz (+30c over A440)",
+  "dur": 2.15,
+  "cents_to_grid_before": 20.2,
+  "cents_to_grid_after": 10.2
+ },
+ "n-for-time-to-pass": {
+  "mode": "sung",
+  "f0_floor": 140.0,
+  "snap_strength": 0.7,
+  "formant_db": 1.6,
+  "grid": "A# natural minor, tonic 237.0 Hz (+30c over A440)",
+  "dur": 3.58,
+  "cents_to_grid_before": 30.2,
+  "cents_to_grid_after": 10.2
+ },
+ "n-emo-again": {
+  "mode": "spoken",
+  "f0_floor": 75.0,
+  "snap_strength": null,
+  "formant_db": null,
+  "grid": "A# natural minor, tonic 237.0 Hz (+30c over A440)",
+  "dur": 2.533,
+  "cents_to_grid_before": 40.2,
+  "cents_to_grid_after": null
+ },
+ "n-i-knew-it": {
+  "mode": "spoken",
+  "f0_floor": 75.0,
+  "snap_strength": null,
+  "formant_db": null,
+  "grid": "A# natural minor, tonic 237.0 Hz (+30c over A440)",
+  "dur": 1.221,
+  "cents_to_grid_before": 49.8,
+  "cents_to_grid_after": null
+ },
+ "o-heres-loner": {
+  "mode": "spoken",
+  "f0_floor": 75.0,
+  "snap_strength": null,
+  "formant_db": null,
+  "grid": "A# natural minor, tonic 237.0 Hz (+30c over A440)",
+  "dur": 4.32,
+  "cents_to_grid_before": 40.2,
+  "cents_to_grid_after": null
+ }
+}

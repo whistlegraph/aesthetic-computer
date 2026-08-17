@@ -1,0 +1,1028 @@
+{
+ "f-sitting-curled": {
+  "source": "7108062006980201771",
+  "start": 0.28,
+  "end": 5.8,
+  "words": "sitting curled up in myself",
+  "dur": 5.52,
+  "median_f0_hz": 278,
+  "word_f0": [
+   {
+    "t": "Sitting",
+    "start": 0.33,
+    "end": 1.74,
+    "f0_hz": 348.2,
+    "note": "F4"
+   },
+   {
+    "t": "cur",
+    "start": 1.74,
+    "end": 2.48,
+    "f0_hz": 278,
+    "note": "C♯4"
+   },
+   {
+    "t": "led",
+    "start": 2.48,
+    "end": 3.47,
+    "f0_hz": 271.6,
+    "note": "C♯4"
+   },
+   {
+    "t": "up",
+    "start": 3.47,
+    "end": 3.72,
+    "f0_hz": 236.5,
+    "note": "A♯3"
+   },
+   {
+    "t": "in",
+    "start": 3.72,
+    "end": 4.22,
+    "f0_hz": 237.8,
+    "note": "A♯3"
+   },
+   {
+    "t": "myself",
+    "start": 4.22,
+    "end": 5.76,
+    "f0_hz": 317.5,
+    "note": "D♯4"
+   }
+  ]
+ },
+ "f-i-think": {
+  "source": "7108062006980201771",
+  "start": 5.7,
+  "end": 7.5,
+  "words": "i think",
+  "dur": 1.8,
+  "median_f0_hz": 210.7,
+  "word_f0": [
+   {
+    "t": "I",
+    "start": 5.76,
+    "end": 5.96,
+    "f0_hz": 209.5,
+    "note": "G♯3"
+   },
+   {
+    "t": "think",
+    "start": 5.96,
+    "end": 7.46,
+    "f0_hz": 210.7,
+    "note": "G♯3"
+   }
+  ]
+ },
+ "f-of-a-stone": {
+  "source": "7108062006980201771",
+  "start": 7.4,
+  "end": 11.35,
+  "words": "of a stone",
+  "dur": 3.315,
+  "median_f0_hz": 470.2,
+  "word_f0": [
+   {
+    "t": "of",
+    "start": 7.46,
+    "end": 8.06,
+    "f0_hz": 470.2,
+    "note": "A♯4"
+   },
+   {
+    "t": "a",
+    "start": 8.06,
+    "end": 8.59,
+    "f0_hz": 472.9,
+    "note": "A♯4"
+   },
+   {
+    "t": "stone",
+    "start": 8.59,
+    "end": 11.29,
+    "f0_hz": 325.8,
+    "note": "E4"
+   }
+  ]
+ },
+ "f-think-stone": {
+  "source": "7108062006980201771",
+  "start": 5.7,
+  "end": 11.35,
+  "words": "i think of a stone",
+  "dur": 5.072,
+  "median_f0_hz": 325.8,
+  "word_f0": [
+   {
+    "t": "I",
+    "start": 5.76,
+    "end": 5.96,
+    "f0_hz": 209.5,
+    "note": "G♯3"
+   },
+   {
+    "t": "think",
+    "start": 5.96,
+    "end": 7.46,
+    "f0_hz": 210.7,
+    "note": "G♯3"
+   },
+   {
+    "t": "of",
+    "start": 7.46,
+    "end": 8.06,
+    "f0_hz": 470.2,
+    "note": "A♯4"
+   },
+   {
+    "t": "a",
+    "start": 8.06,
+    "end": 8.59,
+    "f0_hz": 472.9,
+    "note": "A♯4"
+   },
+   {
+    "t": "stone",
+    "start": 8.59,
+    "end": 11.29,
+    "f0_hz": 325.8,
+    "note": "E4"
+   }
+  ]
+ },
+ "f-stone": {
+  "source": "7108062006980201771",
+  "start": 8.55,
+  "end": 11.35,
+  "words": "stone",
+  "dur": 2.222,
+  "median_f0_hz": 325.8,
+  "word_f0": [
+   {
+    "t": "stone",
+    "start": 8.59,
+    "end": 11.29,
+    "f0_hz": 325.8,
+    "note": "E4"
+   }
+  ]
+ },
+ "f-waiting-patiently": {
+  "source": "7108062006980201771",
+  "start": 11.35,
+  "end": 18.85,
+  "words": "just waiting very patiently",
+  "dur": 7.476,
+  "median_f0_hz": 279.6,
+  "word_f0": [
+   {
+    "t": "just",
+    "start": 11.42,
+    "end": 13.01,
+    "f0_hz": 268.5,
+    "note": "C4"
+   },
+   {
+    "t": "waiting",
+    "start": 13.01,
+    "end": 14.71,
+    "f0_hz": 279.6,
+    "note": "C♯4"
+   },
+   {
+    "t": "very",
+    "start": 14.71,
+    "end": 16.29,
+    "f0_hz": 236.5,
+    "note": "A♯3"
+   },
+   {
+    "t": "patiently",
+    "start": 16.29,
+    "end": 18.82,
+    "f0_hz": 317.5,
+    "note": "D♯4"
+   }
+  ]
+ },
+ "f-just-waiting": {
+  "source": "7108062006980201771",
+  "start": 11.35,
+  "end": 14.75,
+  "words": "just waiting",
+  "dur": 3.376,
+  "median_f0_hz": 279.6,
+  "word_f0": [
+   {
+    "t": "just",
+    "start": 11.42,
+    "end": 13.01,
+    "f0_hz": 268.5,
+    "note": "C4"
+   },
+   {
+    "t": "waiting",
+    "start": 13.01,
+    "end": 14.71,
+    "f0_hz": 279.6,
+    "note": "C♯4"
+   }
+  ]
+ },
+ "f-very-patiently": {
+  "source": "7108062006980201771",
+  "start": 14.68,
+  "end": 18.85,
+  "words": "very patiently",
+  "dur": 4.17,
+  "median_f0_hz": 317.5,
+  "word_f0": [
+   {
+    "t": "very",
+    "start": 14.71,
+    "end": 16.29,
+    "f0_hz": 236.5,
+    "note": "A♯3"
+   },
+   {
+    "t": "patiently",
+    "start": 16.29,
+    "end": 18.82,
+    "f0_hz": 317.5,
+    "note": "D♯4"
+   }
+  ]
+ },
+ "f-for-time-to-pass": {
+  "source": "7108062006980201771",
+  "start": 18.78,
+  "end": 25.2,
+  "words": "for time to pass",
+  "dur": 5.807,
+  "median_f0_hz": 319.3,
+  "word_f0": [
+   {
+    "t": "for",
+    "start": 18.82,
+    "end": 19.78,
+    "f0_hz": 319.3,
+    "note": "D♯4"
+   },
+   {
+    "t": "time",
+    "start": 19.78,
+    "end": 21.4,
+    "f0_hz": 358.4,
+    "note": "F4"
+   },
+   {
+    "t": "to",
+    "start": 21.4,
+    "end": 23.12,
+    "f0_hz": 282.8,
+    "note": "C♯4"
+   },
+   {
+    "t": "pass",
+    "start": 23.12,
+    "end": 24.99,
+    "f0_hz": 282.8,
+    "note": "C♯4"
+   }
+  ]
+ },
+ "f-pass": {
+  "source": "7108062006980201771",
+  "start": 23.05,
+  "end": 25.4,
+  "words": "pass",
+  "dur": 1.486,
+  "median_f0_hz": 282.8,
+  "word_f0": [
+   {
+    "t": "pass",
+    "start": 23.12,
+    "end": 24.99,
+    "f0_hz": 282.8,
+    "note": "C♯4"
+   }
+  ]
+ },
+ "f-whole-line": {
+  "source": "7108062006980201771",
+  "start": 0.28,
+  "end": 25.45,
+  "words": "the whole lyric, one take",
+  "dur": 24.307,
+  "median_f0_hz": 282.8,
+  "word_f0": [
+   {
+    "t": "Sitting",
+    "start": 0.33,
+    "end": 1.74,
+    "f0_hz": 348.2,
+    "note": "F4"
+   },
+   {
+    "t": "cur",
+    "start": 1.74,
+    "end": 2.48,
+    "f0_hz": 278,
+    "note": "C♯4"
+   },
+   {
+    "t": "led",
+    "start": 2.48,
+    "end": 3.47,
+    "f0_hz": 271.6,
+    "note": "C♯4"
+   },
+   {
+    "t": "up",
+    "start": 3.47,
+    "end": 3.72,
+    "f0_hz": 236.5,
+    "note": "A♯3"
+   },
+   {
+    "t": "in",
+    "start": 3.72,
+    "end": 4.22,
+    "f0_hz": 237.8,
+    "note": "A♯3"
+   },
+   {
+    "t": "myself",
+    "start": 4.22,
+    "end": 5.76,
+    "f0_hz": 317.5,
+    "note": "D♯4"
+   },
+   {
+    "t": "I",
+    "start": 5.76,
+    "end": 5.96,
+    "f0_hz": 209.5,
+    "note": "G♯3"
+   },
+   {
+    "t": "think",
+    "start": 5.96,
+    "end": 7.46,
+    "f0_hz": 210.7,
+    "note": "G♯3"
+   },
+   {
+    "t": "of",
+    "start": 7.46,
+    "end": 8.06,
+    "f0_hz": 470.2,
+    "note": "A♯4"
+   },
+   {
+    "t": "a",
+    "start": 8.06,
+    "end": 8.59,
+    "f0_hz": 472.9,
+    "note": "A♯4"
+   },
+   {
+    "t": "stone",
+    "start": 8.59,
+    "end": 11.29,
+    "f0_hz": 325.8,
+    "note": "E4"
+   },
+   {
+    "t": "just",
+    "start": 11.42,
+    "end": 13.01,
+    "f0_hz": 268.5,
+    "note": "C4"
+   },
+   {
+    "t": "waiting",
+    "start": 13.01,
+    "end": 14.71,
+    "f0_hz": 279.6,
+    "note": "C♯4"
+   },
+   {
+    "t": "very",
+    "start": 14.71,
+    "end": 16.29,
+    "f0_hz": 236.5,
+    "note": "A♯3"
+   },
+   {
+    "t": "patiently",
+    "start": 16.29,
+    "end": 18.82,
+    "f0_hz": 317.5,
+    "note": "D♯4"
+   },
+   {
+    "t": "for",
+    "start": 18.82,
+    "end": 19.78,
+    "f0_hz": 319.3,
+    "note": "D♯4"
+   },
+   {
+    "t": "time",
+    "start": 19.78,
+    "end": 21.4,
+    "f0_hz": 358.4,
+    "note": "F4"
+   },
+   {
+    "t": "to",
+    "start": 21.4,
+    "end": 23.12,
+    "f0_hz": 282.8,
+    "note": "C♯4"
+   },
+   {
+    "t": "pass",
+    "start": 23.12,
+    "end": 24.99,
+    "f0_hz": 282.8,
+    "note": "C♯4"
+   }
+  ]
+ },
+ "n-emo-again": {
+  "source": "7021262898479549702",
+  "start": 0.05,
+  "end": 2.62,
+  "words": "Camille, are you doing emo whistlegraphs again? (spoken)",
+  "dur": 2.533,
+  "median_f0_hz": 167.7,
+  "word_f0": [
+   {
+    "t": "are",
+    "start": 0.51,
+    "end": 0.68,
+    "f0_hz": 206.5,
+    "note": "G♯3"
+   },
+   {
+    "t": "doing",
+    "start": 0.85,
+    "end": 1.14,
+    "f0_hz": 303.1,
+    "note": "D♯4"
+   },
+   {
+    "t": "whistle",
+    "start": 1.31,
+    "end": 1.8,
+    "f0_hz": 167.7,
+    "note": "E3"
+   },
+   {
+    "t": "graphs",
+    "start": 1.8,
+    "end": 2.07,
+    "f0_hz": 149.8,
+    "note": "D3"
+   },
+   {
+    "t": "again",
+    "start": 2.07,
+    "end": 2.36,
+    "f0_hz": 156.9,
+    "note": "D♯3"
+   }
+  ]
+ },
+ "n-getting-curled": {
+  "source": "7021262898479549702",
+  "start": 3.08,
+  "end": 8.4,
+  "words": "getting curled up in myself i think",
+  "dur": 5.32,
+  "median_f0_hz": 263.9,
+  "word_f0": [
+   {
+    "t": "Getting",
+    "start": 3.14,
+    "end": 4.4,
+    "f0_hz": 308.4,
+    "note": "D♯4"
+   },
+   {
+    "t": "cur",
+    "start": 4.4,
+    "end": 4.96,
+    "f0_hz": 267,
+    "note": "C4"
+   },
+   {
+    "t": "led",
+    "start": 4.96,
+    "end": 5.46,
+    "f0_hz": 236.5,
+    "note": "A♯3"
+   },
+   {
+    "t": "up",
+    "start": 5.46,
+    "end": 5.82,
+    "f0_hz": 239.2,
+    "note": "A♯3"
+   },
+   {
+    "t": "in",
+    "start": 5.82,
+    "end": 6.18,
+    "f0_hz": 310.2,
+    "note": "D♯4"
+   },
+   {
+    "t": "myself",
+    "start": 6.18,
+    "end": 7.25,
+    "f0_hz": 263.9,
+    "note": "C4"
+   },
+   {
+    "t": "I",
+    "start": 7.25,
+    "end": 7.43,
+    "f0_hz": 207.1,
+    "note": "G♯3"
+   },
+   {
+    "t": "think",
+    "start": 7.43,
+    "end": 8.36,
+    "f0_hz": 205.9,
+    "note": "G♯3"
+   }
+  ]
+ },
+ "n-of-a-stone": {
+  "source": "7021262898479549702",
+  "start": 9.1,
+  "end": 11.25,
+  "words": "of a stone",
+  "dur": 2.15,
+  "median_f0_hz": 463.5,
+  "word_f0": [
+   {
+    "t": "Of",
+    "start": 9.16,
+    "end": 9.67,
+    "f0_hz": 467.5,
+    "note": "A♯4"
+   },
+   {
+    "t": "a",
+    "start": 9.67,
+    "end": 9.92,
+    "f0_hz": 463.5,
+    "note": "A♯4"
+   },
+   {
+    "t": "stone",
+    "start": 9.92,
+    "end": 11.19,
+    "f0_hz": 409.3,
+    "note": "G♯4"
+   }
+  ]
+ },
+ "n-stone-waiting": {
+  "source": "7021262898479549702",
+  "start": 9.1,
+  "end": 17.4,
+  "words": "of a stone just waiting very patiently",
+  "dur": 8.265,
+  "median_f0_hz": 313.8,
+  "word_f0": [
+   {
+    "t": "Of",
+    "start": 9.16,
+    "end": 9.67,
+    "f0_hz": 467.5,
+    "note": "A♯4"
+   },
+   {
+    "t": "a",
+    "start": 9.67,
+    "end": 9.92,
+    "f0_hz": 463.5,
+    "note": "A♯4"
+   },
+   {
+    "t": "stone",
+    "start": 9.92,
+    "end": 11.19,
+    "f0_hz": 409.3,
+    "note": "G♯4"
+   },
+   {
+    "t": "just",
+    "start": 11.19,
+    "end": 12.22,
+    "f0_hz": 313.8,
+    "note": "D♯4"
+   },
+   {
+    "t": "waiting",
+    "start": 12.22,
+    "end": 13.99,
+    "f0_hz": 281.2,
+    "note": "C♯4"
+   },
+   {
+    "t": "very",
+    "start": 13.99,
+    "end": 15.01,
+    "f0_hz": 262.4,
+    "note": "C4"
+   },
+   {
+    "t": "patiently",
+    "start": 15.01,
+    "end": 17.3,
+    "f0_hz": 312,
+    "note": "D♯4"
+   }
+  ]
+ },
+ "n-for-time-to-pass": {
+  "source": "7021262898479549702",
+  "start": 18.82,
+  "end": 22.4,
+  "words": "for time to pass",
+  "dur": 3.58,
+  "median_f0_hz": 348.2,
+  "word_f0": [
+   {
+    "t": "For",
+    "start": 18.88,
+    "end": 19.66,
+    "f0_hz": 350.2,
+    "note": "F4"
+   },
+   {
+    "t": "time",
+    "start": 19.66,
+    "end": 20.71,
+    "f0_hz": 348.2,
+    "note": "F4"
+   },
+   {
+    "t": "to",
+    "start": 20.71,
+    "end": 21.27,
+    "f0_hz": 276.4,
+    "note": "C♯4"
+   },
+   {
+    "t": "pass",
+    "start": 21.27,
+    "end": 22.28,
+    "f0_hz": 281.2,
+    "note": "C♯4"
+   }
+  ]
+ },
+ "n-i-knew-it": {
+  "source": "7021262898479549702",
+  "start": 23.02,
+  "end": 24.4,
+  "words": "i knew it (spoken)",
+  "dur": 1.221,
+  "median_f0_hz": 100,
+  "word_f0": [
+   {
+    "t": "knew",
+    "start": 23.4,
+    "end": 23.81,
+    "f0_hz": 100,
+    "note": "G2"
+   }
+  ]
+ },
+ "o-heres-loner": {
+  "source": "6988619239657622790",
+  "start": 0.18,
+  "end": 4.5,
+  "words": "here's a whistlegraph by camille called loner — ready? (spoken)",
+  "dur": 4.32,
+  "median_f0_hz": 155.1,
+  "word_f0": [
+   {
+    "t": "a",
+    "start": 0.34,
+    "end": 0.39,
+    "f0_hz": 208.9,
+    "note": "G♯3"
+   },
+   {
+    "t": "Cam",
+    "start": 1.2,
+    "end": 1.37,
+    "f0_hz": 150.7,
+    "note": "D3"
+   },
+   {
+    "t": "ille",
+    "start": 1.37,
+    "end": 1.6,
+    "f0_hz": 155.1,
+    "note": "D♯3"
+   }
+  ]
+ },
+ "o-whole-line": {
+  "source": "6988619239657622790",
+  "start": 4.55,
+  "end": 25.9,
+  "words": "the whole lyric, performed with jeffrey and alex",
+  "dur": 21.35,
+  "median_f0_hz": 219.4,
+  "word_f0": [
+   {
+    "t": "sitting",
+    "start": 4.6,
+    "end": 5.92,
+    "f0_hz": 265.4,
+    "note": "C4"
+   },
+   {
+    "t": "cur",
+    "start": 5.92,
+    "end": 6.44,
+    "f0_hz": 239.2,
+    "note": "A♯3"
+   },
+   {
+    "t": "led",
+    "start": 6.44,
+    "end": 6.95,
+    "f0_hz": 214.4,
+    "note": "A3"
+   },
+   {
+    "t": "up",
+    "start": 6.95,
+    "end": 7.65,
+    "f0_hz": 204.7,
+    "note": "G♯3"
+   },
+   {
+    "t": "in",
+    "start": 7.65,
+    "end": 8.16,
+    "f0_hz": 180.3,
+    "note": "F♯3"
+   },
+   {
+    "t": "myself",
+    "start": 8.16,
+    "end": 9.68,
+    "f0_hz": 205.9,
+    "note": "G♯3"
+   },
+   {
+    "t": "I",
+    "start": 9.68,
+    "end": 10.23,
+    "f0_hz": 161.5,
+    "note": "E3"
+   },
+   {
+    "t": "think",
+    "start": 10.23,
+    "end": 11.04,
+    "f0_hz": 141.4,
+    "note": "C♯3"
+   },
+   {
+    "t": "of",
+    "start": 11.04,
+    "end": 11.7,
+    "f0_hz": 354.3,
+    "note": "F4"
+   },
+   {
+    "t": "a",
+    "start": 11.7,
+    "end": 12.06,
+    "f0_hz": 352.3,
+    "note": "F4"
+   },
+   {
+    "t": "stone",
+    "start": 12.06,
+    "end": 13.59,
+    "f0_hz": 315.7,
+    "note": "D♯4"
+   },
+   {
+    "t": "just",
+    "start": 13.59,
+    "end": 15.68,
+    "f0_hz": 242,
+    "note": "B3"
+   },
+   {
+    "t": "waiting",
+    "start": 15.68,
+    "end": 17.24,
+    "f0_hz": 204.1,
+    "note": "G♯3"
+   },
+   {
+    "t": "very",
+    "start": 17.24,
+    "end": 18.69,
+    "f0_hz": 165.3,
+    "note": "E3"
+   },
+   {
+    "t": "patiently",
+    "start": 18.69,
+    "end": 21.52,
+    "f0_hz": 242,
+    "note": "B3"
+   },
+   {
+    "t": "for",
+    "start": 21.52,
+    "end": 22.51,
+    "f0_hz": 271.6,
+    "note": "C♯4"
+   },
+   {
+    "t": "time",
+    "start": 22.51,
+    "end": 23.83,
+    "f0_hz": 219.4,
+    "note": "A3"
+   },
+   {
+    "t": "to",
+    "start": 23.83,
+    "end": 24.49,
+    "f0_hz": 214.4,
+    "note": "A3"
+   }
+  ]
+ },
+ "s-whole-line": {
+  "source": "6988954628167585030",
+  "start": 0,
+  "end": 20.45,
+  "words": "the whole lyric, roomier and lower",
+  "dur": 20.379,
+  "median_f0_hz": 202.9,
+  "word_f0": [
+   {
+    "t": "ib",
+    "start": 0.49,
+    "end": 0.67,
+    "f0_hz": 278,
+    "note": "C♯4"
+   },
+   {
+    "t": "bing",
+    "start": 0.67,
+    "end": 1.57,
+    "f0_hz": 276.4,
+    "note": "C♯4"
+   },
+   {
+    "t": "cur",
+    "start": 1.57,
+    "end": 2.24,
+    "f0_hz": 247.7,
+    "note": "B3"
+   },
+   {
+    "t": "led",
+    "start": 2.24,
+    "end": 2.91,
+    "f0_hz": 217.5,
+    "note": "A3"
+   },
+   {
+    "t": "up",
+    "start": 2.91,
+    "end": 3.36,
+    "f0_hz": 202.3,
+    "note": "G♯3"
+   },
+   {
+    "t": "in",
+    "start": 3.36,
+    "end": 3.81,
+    "f0_hz": 183.4,
+    "note": "F♯3"
+   },
+   {
+    "t": "myself",
+    "start": 3.81,
+    "end": 5.27,
+    "f0_hz": 204.7,
+    "note": "G♯3"
+   },
+   {
+    "t": "I",
+    "start": 5.48,
+    "end": 5.62,
+    "f0_hz": 164.3,
+    "note": "E3"
+   },
+   {
+    "t": "think",
+    "start": 5.62,
+    "end": 6.6,
+    "f0_hz": 165.3,
+    "note": "E3"
+   },
+   {
+    "t": "of",
+    "start": 6.6,
+    "end": 7.14,
+    "f0_hz": 362.6,
+    "note": "F♯4"
+   },
+   {
+    "t": "a",
+    "start": 7.14,
+    "end": 7.53,
+    "f0_hz": 360.5,
+    "note": "F♯4"
+   },
+   {
+    "t": "stone",
+    "start": 7.53,
+    "end": 9.48,
+    "f0_hz": 321.2,
+    "note": "E4"
+   },
+   {
+    "t": "Just",
+    "start": 9.48,
+    "end": 10.51,
+    "f0_hz": 202.9,
+    "note": "G♯3"
+   },
+   {
+    "t": "waiting",
+    "start": 10.51,
+    "end": 12.31,
+    "f0_hz": 218.1,
+    "note": "A3"
+   },
+   {
+    "t": "very",
+    "start": 12.31,
+    "end": 13.34,
+    "f0_hz": 182.3,
+    "note": "F♯3"
+   },
+   {
+    "t": "patiently",
+    "start": 13.34,
+    "end": 16.07,
+    "f0_hz": 169.2,
+    "note": "E3"
+   },
+   {
+    "t": "for",
+    "start": 16.07,
+    "end": 16.76,
+    "f0_hz": 121.7,
+    "note": "B2"
+   },
+   {
+    "t": "time",
+    "start": 16.76,
+    "end": 18.21,
+    "f0_hz": 136.6,
+    "note": "C♯3"
+   },
+   {
+    "t": "to",
+    "start": 18.21,
+    "end": 19.33,
+    "f0_hz": 107.8,
+    "note": "A2"
+   },
+   {
+    "t": "pass",
+    "start": 19.33,
+    "end": 20.4,
+    "f0_hz": 107.8,
+    "note": "A2"
+   }
+  ]
+ }
+}

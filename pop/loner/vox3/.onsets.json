@@ -1,0 +1,553 @@
+{
+ "f-sitting-curled": {
+  "len": 5.52,
+  "words": [
+   {
+    "w": "sitting",
+    "stamp": 0.004,
+    "onset": 0.0525,
+    "end": 1.474,
+    "dev_ms": 48.5,
+    "flag": true,
+    "f0_hz": 346.1,
+    "note": "F4",
+    "grade": "clean"
+   },
+   {
+    "w": "curled",
+    "stamp": 1.474,
+    "onset": 1.5225,
+    "end": 3.142,
+    "dev_ms": 48.5,
+    "flag": true,
+    "f0_hz": 277.1,
+    "note": "C#4",
+    "grade": "clean"
+   },
+   {
+    "w": "up",
+    "stamp": 3.142,
+    "onset": 3.195,
+    "end": 3.417,
+    "dev_ms": 53.0,
+    "flag": true,
+    "f0_hz": 235.7,
+    "note": "A#3",
+    "grade": "clean"
+   },
+   {
+    "w": "in",
+    "stamp": 3.417,
+    "onset": 3.465,
+    "end": 3.844,
+    "dev_ms": 48.0,
+    "flag": true,
+    "f0_hz": 238.4,
+    "note": "A#3",
+    "grade": "clean"
+   },
+   {
+    "w": "myself",
+    "stamp": 3.844,
+    "onset": 3.8975,
+    "end": 5.437,
+    "dev_ms": 53.5,
+    "flag": true,
+    "f0_hz": 318.3,
+    "note": "D#4",
+    "grade": "clean"
+   },
+   {
+    "w": "i",
+    "stamp": 5.437,
+    "onset": 5.485,
+    "end": 5.52,
+    "dev_ms": 48.0,
+    "flag": true,
+    "f0_hz": 210.0,
+    "note": "G#3",
+    "grade": "clean"
+   }
+  ]
+ },
+ "f-think-stone": {
+  "len": 5.072,
+  "words": [
+   {
+    "w": "i",
+    "stamp": 0.004,
+    "onset": 0.065,
+    "end": 0.196,
+    "dev_ms": 61.0,
+    "flag": true,
+    "f0_hz": 210.0,
+    "note": "G#3",
+    "grade": "clean"
+   },
+   {
+    "w": "think",
+    "stamp": 0.196,
+    "onset": 0.12,
+    "end": 1.701,
+    "dev_ms": -76.0,
+    "flag": true,
+    "f0_hz": 211.2,
+    "note": "G#3",
+    "grade": "breathy"
+   },
+   {
+    "w": "of",
+    "stamp": 1.701,
+    "onset": 1.76,
+    "end": 2.296,
+    "dev_ms": 59.0,
+    "flag": true,
+    "f0_hz": 471.4,
+    "note": "A#4",
+    "grade": "clean"
+   },
+   {
+    "w": "a",
+    "stamp": 2.296,
+    "onset": 2.2875,
+    "end": 2.826,
+    "dev_ms": -8.5,
+    "flag": false,
+    "f0_hz": 471.4,
+    "note": "A#4",
+    "grade": "clean"
+   },
+   {
+    "w": "stone",
+    "stamp": 2.826,
+    "onset": 2.826,
+    "end": 5.0716,
+    "dev_ms": 0.0,
+    "flag": false,
+    "f0_hz": 325.7,
+    "note": "D#4",
+    "grade": "clean"
+   },
+   {
+    "w": "just",
+    "stamp": 5.613,
+    "onset": 5.613,
+    "end": 5.0716,
+    "dev_ms": 0.0,
+    "flag": false,
+    "f0_hz": 267.6,
+    "note": "C4",
+    "grade": "breathy"
+   }
+  ]
+ },
+ "f-of-a-stone": {
+  "len": 3.315,
+  "words": [
+   {
+    "w": "of",
+    "stamp": 0.004,
+    "onset": 0.015,
+    "end": 0.599,
+    "dev_ms": 11.0,
+    "flag": false,
+    "f0_hz": 471.4,
+    "note": "A#4",
+    "grade": "clean"
+   },
+   {
+    "w": "a",
+    "stamp": 0.599,
+    "onset": 0.53,
+    "end": 1.129,
+    "dev_ms": -69.0,
+    "flag": true,
+    "f0_hz": 471.4,
+    "note": "A#4",
+    "grade": "clean"
+   },
+   {
+    "w": "stone",
+    "stamp": 1.129,
+    "onset": 1.129,
+    "end": 3.3152,
+    "dev_ms": 0.0,
+    "flag": false,
+    "f0_hz": 325.7,
+    "note": "D#4",
+    "grade": "clean"
+   },
+   {
+    "w": "just",
+    "stamp": 3.916,
+    "onset": 3.916,
+    "end": 3.3152,
+    "dev_ms": 0.0,
+    "flag": false,
+    "f0_hz": 267.6,
+    "note": "C4",
+    "grade": "breathy"
+   }
+  ]
+ },
+ "f-waiting-patiently": {
+  "len": 7.476,
+  "words": [
+   {
+    "w": "just",
+    "stamp": 0.004,
+    "onset": 0.0175,
+    "end": 1.64,
+    "dev_ms": 13.5,
+    "flag": false,
+    "f0_hz": 267.6,
+    "note": "C4",
+    "grade": "breathy"
+   },
+   {
+    "w": "waiting",
+    "stamp": 1.64,
+    "onset": 1.64,
+    "end": 3.35,
+    "dev_ms": 0.0,
+    "flag": false,
+    "f0_hz": 278.7,
+    "note": "C#4",
+    "grade": "clean"
+   },
+   {
+    "w": "very",
+    "stamp": 3.35,
+    "onset": 3.3475,
+    "end": 4.922,
+    "dev_ms": -2.5,
+    "flag": false,
+    "f0_hz": 237.0,
+    "note": "A#3",
+    "grade": "clean"
+   },
+   {
+    "w": "patiently",
+    "stamp": 4.922,
+    "onset": 4.9225,
+    "end": 7.455,
+    "dev_ms": 0.5,
+    "flag": false,
+    "f0_hz": 318.3,
+    "note": "D#4",
+    "grade": "clean"
+   },
+   {
+    "w": "for",
+    "stamp": 7.455,
+    "onset": 7.4525,
+    "end": 7.4764,
+    "dev_ms": -2.5,
+    "flag": false,
+    "f0_hz": 320.1,
+    "note": "D#4",
+    "grade": "clean"
+   }
+  ]
+ },
+ "f-for-time-to-pass": {
+  "len": 5.807,
+  "words": [
+   {
+    "w": "for",
+    "stamp": 0.004,
+    "onset": 0.045,
+    "end": 0.944,
+    "dev_ms": 41.0,
+    "flag": true,
+    "f0_hz": 320.1,
+    "note": "D#4",
+    "grade": "clean"
+   },
+   {
+    "w": "time",
+    "stamp": 0.944,
+    "onset": 0.9875,
+    "end": 2.569,
+    "dev_ms": 43.5,
+    "flag": true,
+    "f0_hz": 357.2,
+    "note": "F4",
+    "grade": "breathy"
+   },
+   {
+    "w": "to",
+    "stamp": 2.569,
+    "onset": 2.6125,
+    "end": 4.269,
+    "dev_ms": 43.5,
+    "flag": true,
+    "f0_hz": 283.5,
+    "note": "C#4",
+    "grade": "breathy"
+   },
+   {
+    "w": "pass",
+    "stamp": 4.269,
+    "onset": 4.3125,
+    "end": 5.8074,
+    "dev_ms": 43.5,
+    "flag": true,
+    "f0_hz": 281.9,
+    "note": "C#4",
+    "grade": "breathy"
+   }
+  ]
+ },
+ "n-getting-curled": {
+  "len": 5.32,
+  "words": [
+   {
+    "w": "curled",
+    "stamp": 0.004,
+    "onset": 0.0825,
+    "end": 1.011,
+    "dev_ms": 78.5,
+    "flag": true,
+    "f0_hz": 264.5,
+    "note": "C4",
+    "grade": "breathy"
+   },
+   {
+    "w": "up",
+    "stamp": 1.011,
+    "onset": 1.011,
+    "end": 1.464,
+    "dev_ms": 0.0,
+    "flag": false,
+    "f0_hz": 238.4,
+    "note": "A#3",
+    "grade": "clean"
+   },
+   {
+    "w": "in",
+    "stamp": 1.464,
+    "onset": 1.5425,
+    "end": 1.784,
+    "dev_ms": 78.5,
+    "flag": true,
+    "f0_hz": 311.0,
+    "note": "D#4",
+    "grade": "clean"
+   },
+   {
+    "w": "myself",
+    "stamp": 1.784,
+    "onset": 1.784,
+    "end": 2.784,
+    "dev_ms": 0.0,
+    "flag": false,
+    "f0_hz": 264.5,
+    "note": "C4",
+    "grade": "clean"
+   },
+   {
+    "w": "i",
+    "stamp": 2.784,
+    "onset": 2.785,
+    "end": 3.034,
+    "dev_ms": 1.0,
+    "flag": false,
+    "f0_hz": 206.4,
+    "note": "G#3",
+    "grade": "clean"
+   },
+   {
+    "w": "think",
+    "stamp": 3.034,
+    "onset": 3.034,
+    "end": 3.881,
+    "dev_ms": 0.0,
+    "flag": false,
+    "f0_hz": 206.4,
+    "note": "G#3",
+    "grade": "clean"
+   }
+  ]
+ },
+ "n-stone-waiting": {
+  "len": 8.265,
+  "words": [
+   {
+    "w": "of",
+    "stamp": 0.004,
+    "onset": 0.0775,
+    "end": 0.444,
+    "dev_ms": 73.5,
+    "flag": true,
+    "f0_hz": 468.7,
+    "note": "A#4",
+    "grade": "clean"
+   },
+   {
+    "w": "a",
+    "stamp": 0.444,
+    "onset": 0.444,
+    "end": 0.786,
+    "dev_ms": 0.0,
+    "flag": false,
+    "f0_hz": 466.0,
+    "note": "A#4",
+    "grade": "breathy"
+   },
+   {
+    "w": "stone",
+    "stamp": 0.786,
+    "onset": 0.7725,
+    "end": 1.994,
+    "dev_ms": -13.5,
+    "flag": false,
+    "f0_hz": 408.0,
+    "note": "G#4",
+    "grade": "clean"
+   },
+   {
+    "w": "just",
+    "stamp": 1.994,
+    "onset": 1.994,
+    "end": 3.024,
+    "dev_ms": 0.0,
+    "flag": false,
+    "f0_hz": 314.6,
+    "note": "D#4",
+    "grade": "clean"
+   },
+   {
+    "w": "waiting",
+    "stamp": 3.024,
+    "onset": 2.945,
+    "end": 4.794,
+    "dev_ms": -79.0,
+    "flag": true,
+    "f0_hz": 281.9,
+    "note": "C#4",
+    "grade": "breathy"
+   },
+   {
+    "w": "very",
+    "stamp": 4.794,
+    "onset": 4.794,
+    "end": 5.814,
+    "dev_ms": 0.0,
+    "flag": false,
+    "f0_hz": 261.5,
+    "note": "C4",
+    "grade": "clean"
+   },
+   {
+    "w": "patiently",
+    "stamp": 5.814,
+    "onset": 5.814,
+    "end": 8.081,
+    "dev_ms": 0.0,
+    "flag": false,
+    "f0_hz": 311.0,
+    "note": "D#4",
+    "grade": "clean"
+   }
+  ]
+ },
+ "n-of-a-stone": {
+  "len": 2.15,
+  "words": [
+   {
+    "w": "of",
+    "stamp": 0.004,
+    "onset": 0.0775,
+    "end": 0.444,
+    "dev_ms": 73.5,
+    "flag": true,
+    "f0_hz": 468.7,
+    "note": "A#4",
+    "grade": "clean"
+   },
+   {
+    "w": "a",
+    "stamp": 0.444,
+    "onset": 0.444,
+    "end": 0.786,
+    "dev_ms": 0.0,
+    "flag": false,
+    "f0_hz": 466.0,
+    "note": "A#4",
+    "grade": "breathy"
+   },
+   {
+    "w": "stone",
+    "stamp": 0.786,
+    "onset": 0.7725,
+    "end": 1.994,
+    "dev_ms": -13.5,
+    "flag": false,
+    "f0_hz": 408.0,
+    "note": "G#4",
+    "grade": "clean"
+   },
+   {
+    "w": "just",
+    "stamp": 1.994,
+    "onset": 1.994,
+    "end": 2.15,
+    "dev_ms": 0.0,
+    "flag": false,
+    "f0_hz": 314.6,
+    "note": "D#4",
+    "grade": "clean"
+   }
+  ]
+ },
+ "n-for-time-to-pass": {
+  "len": 3.58,
+  "words": [
+   {
+    "w": "for",
+    "stamp": 0.004,
+    "onset": 0.015,
+    "end": 0.729,
+    "dev_ms": 11.0,
+    "flag": false,
+    "f0_hz": 349.1,
+    "note": "F4",
+    "grade": "clean"
+   },
+   {
+    "w": "time",
+    "stamp": 0.729,
+    "onset": 0.729,
+    "end": 1.699,
+    "dev_ms": 0.0,
+    "flag": false,
+    "f0_hz": 348.1,
+    "note": "F4",
+    "grade": "breathy"
+   },
+   {
+    "w": "to",
+    "stamp": 1.699,
+    "onset": 1.62,
+    "end": 2.339,
+    "dev_ms": -79.0,
+    "flag": true,
+    "f0_hz": 275.5,
+    "note": "C#4",
+    "grade": "clean"
+   },
+   {
+    "w": "pass",
+    "stamp": 2.339,
+    "onset": 2.339,
+    "end": 3.349,
+    "dev_ms": 0.0,
+    "flag": false,
+    "f0_hz": 280.3,
+    "note": "C#4",
+    "grade": "breathy"
+   }
+  ]
+ }
+}

@@ -1,0 +1,65 @@
+{
+  "6955972523087416582": {
+    "duration": 22.5,
+    "rms_db": -28.6,
+    "tempo_bpm": 99.4,
+    "voice_f0_hz": 237.0,
+    "voice_frac": 0.46,
+    "whistle_f0_hz": null,
+    "whistle_frac": 0.0
+  },
+  "6974224412614675718": {
+    "duration": 20.5,
+    "rms_db": -25.8,
+    "tempo_bpm": 136.0,
+    "voice_f0_hz": 159.1,
+    "voice_frac": 0.37,
+    "whistle_f0_hz": null,
+    "whistle_frac": 0.0
+  },
+  "6988619239657622790": {
+    "duration": 26.08,
+    "rms_db": -12.2,
+    "tempo_bpm": 89.1,
+    "voice_f0_hz": 226.3,
+    "voice_frac": 0.36,
+    "whistle_f0_hz": null,
+    "whistle_frac": 0.0
+  },
+  "6988954628167585030": {
+    "duration": 21.25,
+    "rms_db": -16.9,
+    "tempo_bpm": 92.3,
+    "voice_f0_hz": 217.4,
+    "voice_frac": 0.43,
+    "whistle_f0_hz": null,
+    "whistle_frac": 0.0
+  },
+  "7021262898479549702": {
+    "duration": 24.82,
+    "rms_db": -13.9,
+    "tempo_bpm": 92.3,
+    "voice_f0_hz": 280.3,
+    "voice_frac": 0.58,
+    "whistle_f0_hz": 500.0,
+    "whistle_frac": 0.01
+  },
+  "7108062006980201771": {
+    "duration": 25.71,
+    "rms_db": -22.7,
+    "tempo_bpm": 80.7,
+    "voice_f0_hz": 283.5,
+    "voice_frac": 0.62,
+    "whistle_f0_hz": 500.0,
+    "whistle_frac": 0.02
+  },
+  "7226226683349798190": {
+    "duration": 22.46,
+    "rms_db": -17.6,
+    "tempo_bpm": 80.7,
+    "voice_f0_hz": 181.2,
+    "voice_frac": 0.01,
+    "whistle_f0_hz": null,
+    "whistle_frac": 0.0
+  }
+}

@@ -24,13 +24,19 @@ Status legend: **RELEASED** · **SUBMITTED** · **MASTERING** · **RENDER** · *
 - **Engine:** `bin/render.mjs` → `out/season-remix-v1.mp3`. NOTE: outro uses
   the unprocessed original take — wants an aesthetivox pass (v2) before release.
 
-## loner remix — RENDER (whistlegraph remix, v2)
+## loner remix — RENDER (whistlegraph remix, v4)
 
-- **Lane:** `pop/loner/` · bedroom ballad · A# minor (+30¢, band tuned to
-  Camille's 237 Hz) · 80 BPM · 2:51 · "sitting curled up in myself…" — 19
-  `lonr` posts; v2 = every vocal WORLD-treated (gentle 0.7 correction,
-  spoken asides darkened/compressed, no raw takes).
-- **Engine:** `bin/render2.mjs` + `bin/aesthetivox.py` → `out/loner-remix-v2.mp3`.
+- **Lane:** `pop/loner/` · dance (four-on-the-floor) · A# minor (+30¢, band
+  tuned to Camille's 237 Hz) · 122 BPM · 2:35 · "sitting curled up in
+  myself…" — 19 `lonr` posts; v4 = the regulation: WORLD snap 0.92, every
+  phrase per-word warped onto the beat chart (vowels absorb the stretch,
+  consonants ride 1:1, tail-less words get a synthesized WORLD release),
+  Camille singing her own full-word low-3rd/5th backup, the band's pluck
+  playing only her measured melody, kicks sidechained into the lyrics.
+  v1–v3 (bedroom ballad → aesthetivox → angelic dnb) kept in out/.
+- **Engine:** `bin/halo3.py` (bank + generated chart header) +
+  `c/lonerremix.c` — the lane's first C-native score (no Node render) →
+  `out/loner-remix-v4.mp3` via `c/cut-v4.sh`.
 
 ## factory remix — RENDER (whistlegraph remix, v2)
 

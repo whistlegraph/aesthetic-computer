@@ -1,0 +1,132 @@
+{
+ "w-whole-line": {
+  "slice": "f-whole-line",
+  "lead_in": 0.05,
+  "beats": 59.0,
+  "renders": {
+   "lead": 29.465,
+   "8ve-a": 29.465,
+   "8ve-b": 29.465,
+   "low3": 29.465,
+   "low5": 29.465
+  },
+  "words": "the whole lyric, one take"
+ },
+ "w-sitting-curled": {
+  "slice": "f-sitting-curled",
+  "lead_in": 0.05,
+  "beats": 11.0,
+  "renders": {
+   "lead": 5.905,
+   "8ve-a": 5.905,
+   "8ve-b": 5.905,
+   "low3": 5.905,
+   "low5": 5.905
+  },
+  "words": "sitting curled up in myself"
+ },
+ "w-i-think": {
+  "slice": "f-i-think",
+  "lead_in": 0.06,
+  "beats": 3.5,
+  "renders": {
+   "lead": 2.225,
+   "8ve-a": 2.225,
+   "8ve-b": 2.225,
+   "low3": 2.225,
+   "low5": 2.225
+  },
+  "words": "i think"
+ },
+ "w-of-a-stone": {
+  "slice": "f-of-a-stone",
+  "lead_in": 0.06,
+  "beats": 8.0,
+  "renders": {
+   "lead": 4.395,
+   "8ve-a": 4.395,
+   "8ve-b": 4.395,
+   "low3": 4.395,
+   "low5": 4.395
+  },
+  "words": "of a stone"
+ },
+ "w-just-waiting": {
+  "slice": "f-just-waiting",
+  "lead_in": 0.075,
+  "beats": 6.5,
+  "renders": {
+   "lead": 3.69,
+   "8ve-a": 3.69,
+   "8ve-b": 3.69,
+   "low3": 3.69,
+   "low5": 3.69
+  },
+  "words": "just waiting"
+ },
+ "w-very-patiently": {
+  "slice": "f-very-patiently",
+  "lead_in": 0.03,
+  "beats": 8.5,
+  "renders": {
+   "lead": 4.645,
+   "8ve-a": 4.645,
+   "8ve-b": 4.645,
+   "low3": 4.645,
+   "low5": 4.645
+  },
+  "words": "very patiently"
+ },
+ "w-for-time-to-pass": {
+  "slice": "f-for-time-to-pass",
+  "lead_in": 0.04,
+  "beats": 13.0,
+  "renders": {
+   "lead": 6.835,
+   "8ve-a": 6.835,
+   "8ve-b": 6.835,
+   "low3": 6.835,
+   "low5": 6.835
+  },
+  "words": "for time to pass"
+ },
+ "w-n-getting-curled": {
+  "slice": "n-getting-curled",
+  "lead_in": 0.06,
+  "beats": 10.0,
+  "renders": {
+   "lead": 5.425,
+   "8ve-a": 5.425,
+   "8ve-b": 5.425,
+   "low3": 5.425,
+   "low5": 5.425
+  },
+  "words": "getting curled up in myself i think"
+ },
+ "w-n-stone-waiting": {
+  "slice": "n-stone-waiting",
+  "lead_in": 0.06,
+  "beats": 16.0,
+  "renders": {
+   "lead": 8.4,
+   "8ve-a": 8.4,
+   "8ve-b": 8.4,
+   "low3": 8.4,
+   "low5": 8.4
+  },
+  "words": "of a stone just waiting very patiently"
+ },
+ "w-n-for-time-to-pass": {
+  "slice": "n-for-time-to-pass",
+  "lead_in": 0.06,
+  "beats": 6.5,
+  "renders": {
+   "lead": 3.78,
+   "8ve-a": 3.78,
+   "8ve-b": 3.78,
+   "low3": 3.78,
+   "low5": 3.78
+  },
+  "words": "for time to pass"
+ }
+}

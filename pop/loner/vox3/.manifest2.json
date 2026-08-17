@@ -1,0 +1,113 @@
+{
+ "ens-du-1": {
+  "post": "7076361738786213166",
+  "span": [
+   3.5,
+   8.4
+  ],
+  "words": "getting curled up in myself i think (duet)",
+  "mode": "crowd",
+  "dur": 4.9
+ },
+ "ens-du-2": {
+  "post": "7076361738786213166",
+  "span": [
+   8.93,
+   18.3
+  ],
+  "words": "of a stone just waiting very patiently (duet)",
+  "mode": "crowd",
+  "dur": 9.37
+ },
+ "ens-du-3": {
+  "post": "7076361738786213166",
+  "span": [
+   18.66,
+   22.6
+  ],
+  "words": "for time to pass (duet)",
+  "mode": "crowd",
+  "dur": 3.94
+ },
+ "ens-o-1": {
+  "post": "6988619239657622790",
+  "span": [
+   4.5,
+   9.6
+  ],
+  "words": "sitting curled up in myself (trio)",
+  "mode": "crowd",
+  "dur": 5.1
+ },
+ "ens-o-2": {
+  "post": "6988619239657622790",
+  "span": [
+   11.0,
+   13.6
+  ],
+  "words": "of a stone (trio)",
+  "mode": "crowd",
+  "dur": 2.6
+ },
+ "ens-o-3": {
+  "post": "6988619239657622790",
+  "span": [
+   21.45,
+   25.6
+  ],
+  "words": "for time to pass (trio)",
+  "mode": "crowd",
+  "dur": 4.15
+ },
+ "stone-long-5": {
+  "source": "f-of-a-stone",
+  "st": 5,
+  "hold_s": 6.5,
+  "dur": 8.07,
+  "mode": "duration-control"
+ },
+ "stone-long-12": {
+  "source": "f-of-a-stone",
+  "st": 12,
+  "hold_s": 5.6,
+  "dur": 6.09,
+  "mode": "duration-control"
+ },
+ "stone-long-17": {
+  "source": "f-of-a-stone",
+  "st": 17,
+  "hold_s": 5.6,
+  "dur": 6.09,
+  "mode": "duration-control"
+ },
+ "stone-long-echo": {
+  "source": "f-of-a-stone",
+  "st": 5,
+  "hold_s": 2.8,
+  "dur": 3.29,
+  "mode": "duration-control"
+ },
+ "pass-long-3": {
+  "source": "f-for-time-to-pass",
+  "st": 3,
+  "hold_s": 1.9,
+  "dur": 2.505,
+  "mode": "duration-control"
+ },
+ "pass-long-15": {
+  "source": "f-for-time-to-pass",
+  "st": 15,
+  "hold_s": 1.9,
+  "dur": 2.505,
+  "mode": "duration-control"
+ },
+ "hk-of-a": {
+  "post": "7100768279983181099",
+  "span": [
+   7.41,
+   8.66
+  ],
+  "words": "of a (A#4, the corpus's best non-f pressing)",
+  "mode": "lead"
+ }
+}
