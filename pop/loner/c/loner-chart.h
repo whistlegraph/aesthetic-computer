@@ -14,8 +14,8 @@ typedef struct { const char *name; double leadIn; double beats;
 
 static const ChartNote w_whole_line_notes[] = {
     { 0.00, 4.00, 7 },
-    { 4.00, 3.00, 3 },
-    { 7.00, 2.00, 2 },
+    { 4.00, 2.00, 3 },
+    { 6.00, 2.00, 2 },
     { 10.00, 2.00, 0 },
     { 12.00, 2.00, 5 },
     { 14.00, 2.00, 5 },

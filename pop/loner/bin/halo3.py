@@ -193,11 +193,16 @@ CHART = {
                              # those breaths was being stretched into
                              # the note before it.
                              "lead": 1.0,        # the /s/ of sitting, as a pickup
-                             "durs": { 0: 4.0, 1: 3.0, 2: 2.0, 3: 2.0,
+                             # curled 2 (one shorter than 3, and 0.94× —
+                             # essentially her own speed): curled + up now
+                             # fill bar 1 exactly, 4→8. The beat goes into
+                             # her breath rather than downstream, so every
+                             # anchor after it holds.
+                             "durs": { 0: 4.0, 1: 2.0, 2: 2.0, 3: 2.0,
                                        4: 2.0, 5: 2.0, 6: 2.0, 7: 1.0,
                                        8: 4.0, 9: 4.0, 10: 4.0 },
                              # rest AFTER the given unit, in beats
-                             "gaps": { 2: 1.0,   # her breath after "up"
+                             "gaps": { 2: 2.0,   # her breath after "up"
                                        5: 1.0,   # space between self and i
                                        10: 4.0 } },  # the bar break after stone
     "w-sitting-curled":    { "slice": "f-sitting-curled",    "beats": 11.0 },
@@ -399,9 +404,10 @@ def build_warp(a, unit_src, beats, dursb, gapsb=None, rest_src=None, lead_b=0.0)
     rise = None
     if lead_b > 0.0 and len(pre):
         want = max(1, int(round(lead_b * SPB / FRAME_S)))
-        pos = np.linspace(0, len(pre) - 1, want)
+        src_n = len(pre)
+        pos = np.linspace(0, src_n - 1, want)
         pre = [pre[int(round(p))] for p in pos]
-        rise = (0, want)
+        rise = (0, want, src_n)     # synth_from rebuilds this range as noise
     Z = len(pre)
     T = [Z + int(round(b * SPB / FRAME_S)) for b in beats]
     Tend = [Z + int(round((b + d) * SPB / FRAME_S)) for b, d in zip(beats, dursb)]
@@ -515,12 +521,41 @@ def synth_from(a, idx, f0_o, *, dark=None, breath_x=1.0, vowels_only=False,
             out[p0:p1] *= 0.15 + 0.85 * np.clip(1.0 - k / 0.35, 0.0, 1.0)
     if rise is not None:
         # THE PICKUP swells from nothing — the slice starts mid-sibilant,
-        # so without this "sitting" arrives at full volume, no attack.
+        # so without this "sitting" arrives at full volume with no attack.
+        # It must be GRANULAR: a fricative is noise, and the warp stretches
+        # by repeating frame indices, which makes the unvoiced path paste
+        # the same 5 ms of waveform over and over — a 200 Hz buzz, the
+        # glitch. Drawing overlapped Hann grains from random offsets in her
+        # real /s/ stretches noise the only way noise can be stretched.
         spf = int(fs * FRAME_S)
-        r0, r1 = rise[0] * spf, min(rise[1] * spf, n)
-        if r1 > r0:
-            k = np.arange(r1 - r0)
-            out[r0:r1] *= (0.5 - 0.5 * np.cos(np.pi * k / max(1, r1 - r0))) ** 1.5
+        r0, r1, src_n = rise
+        a0, a1 = r0 * spf, min(r1 * spf, n)
+        # Her /s/ is only the first ~45 ms of the slice, and WORLD calls
+        # frame 0 voiced, so there is almost no "consonant runway" to
+        # borrow — grains drawn from 5 ms are all the same grain, which
+        # buzzed at 100 Hz. Instead take the SPECTRUM of her real
+        # sibilant and colour white noise with it: aperiodic by
+        # construction, any length, and still her /s/.
+        sib = x[:max(int(0.045 * fs), src_n * spf)]
+        if a1 > a0:
+            N = a1 - a0
+            if vowels_only or len(sib) < 256:
+                out[a0:a1] = 0.0
+            else:
+                w = np.hanning(256)
+                mags = [np.abs(np.fft.rfft(sib[k:k + 256] * w))
+                        for k in range(0, len(sib) - 256, 128)]
+                env = (np.mean(mags, axis=0) if mags
+                       else np.abs(np.fft.rfft(sib[:256] * w)))
+                rng = np.random.default_rng(7)
+                NF = np.fft.rfft(rng.standard_normal(N))
+                shape = np.interp(np.linspace(0, 1, len(NF)),
+                                  np.linspace(0, 1, len(env)), env)
+                g = np.fft.irfft(NF * shape, n=N)
+                rms = np.sqrt((sib ** 2).mean()) or 1.0
+                g *= rms / (np.sqrt((g ** 2).mean()) or 1.0)
+                k = np.arange(N)
+                out[a0:a1] = g * (0.5 - 0.5 * np.cos(np.pi * k / max(1, N))) ** 2.0
     if fade is not None:
         spf = int(fs * FRAME_S)
         a0, a1 = fade[0] * spf, min(fade[1] * spf, n)
