@@ -164,19 +164,26 @@ CHART = {
                              # sub-word tokens it was cur+led and this was 5.
                              # durs are POST-split indices.
                              "splits": [4],
-                             # One word per bar through the first half:
-                             # sitting = bar 0 · CURLED = bar 1 (@jeffrey:
-                             # "curled is too short" — and with the real
-                             # alignment it is one word, so it simply
-                             # takes the bar) · UP IN = bar 2 ("'up in'
-                             # should last a full bar"; in holds longer
-                             # because she sings it twice as long) ·
-                             # my·self·i = bar 3, so think lands on the
-                             # bar-4 downbeat · OF (the octave) = 4 ·
-                             # a stone = 4.
-                             "durs": { 0: 4.0, 1: 4.0, 2: 1.5, 3: 2.5,
-                                       4: 1.5, 5: 1.5, 6: 1.0, 7: 2.0,
-                                       8: 4.0, 9: 0.5, 10: 3.5 } },
+                             # The bar map, one phrase per bar (@jeffrey:
+                             # "curled up should be bar 1 — not bar 1 and
+                             # half of bar 2 · and in my should be bar
+                             # 2"): sitting = bar 0 · CURLED UP = bar 1,
+                             # exactly (2.5 + 1.5) · IN MY = bar 2,
+                             # exactly (2 + 2) · self i = bar 3, so think
+                             # still lands on the bar-4 downbeat · OF
+                             # (the octave) holds its 4 — at 1.01× it is
+                             # her real held octave, and compressing it
+                             # would gut the one loud feeling in the
+                             # lyric · then "a should be at least two
+                             # beats, its too short now": a goes 0.5 → 2,
+                             # paid for by stone, which drops 3.5 → 2 and
+                             # in doing so stops being a 2× synthetic
+                             # hold and becomes her voice at 1.16×.
+                             # of·a·stone still spans beats 18–26, so
+                             # nothing downstream moves.
+                             "durs": { 0: 4.0, 1: 2.5, 2: 1.5, 3: 2.0,
+                                       4: 2.0, 5: 1.5, 6: 2.5, 7: 2.0,
+                                       8: 4.0, 9: 2.0, 10: 2.0 } },
     "w-sitting-curled":    { "slice": "f-sitting-curled",    "beats": 11.0 },
     "w-i-think":           { "slice": "f-i-think",           "beats": 3.5 },
     "w-of-a-stone":        { "slice": "f-of-a-stone",        "beats": 8.0 },
@@ -420,7 +427,7 @@ def build_warp(a, unit_src, beats, dursb):
         for k in range(rel_n):
             p = lo + (span - 1) - abs((k % (2 * span - 2)) - (span - 1))
             idx.append(int(np.clip(p, 0, F - 1)))
-    return np.array(idx, dtype=int), holds, fade, Z
+    return np.array(idx, dtype=int), holds, fade, Z, ants
 
 
 def synth_from(a, idx, f0_o, *, dark=None, breath_x=1.0, vowels_only=False,
@@ -476,7 +483,8 @@ def synth_from(a, idx, f0_o, *, dark=None, breath_x=1.0, vowels_only=False,
 
 
 manifest = {}
-chart_c = []   # (phrase, lead_in_s, beats_total, [(beat, dur, st)])
+chart_c = []   # (phrase, lead_in_s, beats_total, [(beat, dur, st, t, lead)])
+VOICING = {}   # per phrase, voiced runs in beats — vowels vs consonants
 
 for name, ch in CHART.items():
     slice_name = ch["slice"]
@@ -529,7 +537,7 @@ for name, ch in CHART.items():
 
     unit_src, trims = trim_units(x, fs, unit_src, [w["t"] for w in words])
 
-    idx, holds, fade, Z = build_warp(a, unit_src,
+    idx, holds, fade, Z, ants = build_warp(a, unit_src,
                                      [b for (b, d) in ch["units"]],
                                      [d for (b, d) in ch["units"]])
     f0_o = a["f0c"][idx].copy()
@@ -581,11 +589,37 @@ for name, ch in CHART.items():
 
     lead_in = Z * FRAME_S
     beats_total = ch["units"][-1][0] + ch["units"][-1][1]
+
+    # WHERE THE VOWEL STARTS — @jeffrey: "make sure for each sample we
+    # know when the vowel / consonant / voicing starts". On the OUTPUT
+    # timeline (the render the study plays), in beats from beat 0, so
+    # anything reading the chart can draw or cue against it. Voiced runs
+    # are the sung vowels; the gaps between them are consonants and
+    # breaths. Per word, `lead` is how far AHEAD of its beat the
+    # consonant runway starts — build_warp puts the vowel ON the beat
+    # and runs the consonant 1:1 before it, the way a singer leans in.
+    def to_beat(frame):
+        return round((frame * FRAME_S - lead_in) / SPB, 4)
+
+    voiced_runs, k = [], 0
+    while k < len(voiced_o):
+        if voiced_o[k]:
+            j = k
+            while j < len(voiced_o) and voiced_o[j]:
+                j += 1
+            if (j - k) * FRAME_S >= 0.020:      # ignore single-frame flecks
+                voiced_runs.append([to_beat(k), to_beat(j)])
+            k = j
+        else:
+            k += 1
+
     notes = []
-    for wd, (beat, durb) in zip(words, ch["units"]):
+    for u, (wd, (beat, durb)) in enumerate(zip(words, ch["units"])):
         st = int(np.round(12.0 * np.log2(wd["f0_hz"] / TONIC))) if wd["f0_hz"] else 0
-        notes.append((beat, durb, st, wd["t"].strip()))
+        notes.append((beat, durb, st, wd["t"].strip(),
+                      round(ants[u] * FRAME_S / SPB, 4) if u < len(ants) else 0.0))
     chart_c.append((name, lead_in, beats_total, notes))
+    VOICING[name] = voiced_runs
     manifest[name] = dict(slice=slice_name, lead_in=round(lead_in, 3),
                           beats=beats_total, renders=renders,
                           snaps=snaps, trims=trims, words=entry["words"])
@@ -617,7 +651,7 @@ lines = [
 for name, lead_in, beats_total, notes in chart_c:
     ident = name.replace("-", "_")
     lines.append(f"static const ChartNote {ident}_notes[] = {{")
-    for (beat, durb, st, _t) in notes:
+    for (beat, durb, st, _t, _lead) in notes:
         lines.append(f"    {{ {beat:.2f}, {durb:.2f}, {st} }},")
     lines.append("};")
 lines.append("")
@@ -632,8 +666,9 @@ lines.append("")
 open(os.path.join(CDIR, "loner-chart.h"), "w").write("\n".join(lines))
 
 # the labeled chart, for tooling (the timeline video reads this)
-json.dump({name: dict(leadIn=round(li, 3), beats=bt,
-                      notes=[dict(beat=b, dur=d, st=s, t=t) for (b, d, s, t) in ns])
+json.dump({name: dict(leadIn=round(li, 3), beats=bt, voiced=VOICING[name],
+                      notes=[dict(beat=b, dur=d, st=s, t=t, lead=ld)
+                             for (b, d, s, t, ld) in ns])
            for (name, li, bt, ns) in chart_c},
           open(os.path.join(VOX4, ".chart.json"), "w"), indent=1)
 print(f"WROTE {VOX4}/.manifest.json + .chart.json + {CDIR}/loner-chart.h ({len(chart_c)} phrases)")

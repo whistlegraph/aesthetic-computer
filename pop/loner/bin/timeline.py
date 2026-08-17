@@ -65,6 +65,34 @@ with wave.open(os.path.join(LANE, "vox4", "w-whole-line.wav"), "rb") as wf:
 VOX_PEAK = np.max(np.abs(VOX)) or 1.0
 LEAD_IN = chart["leadIn"]
 
+# ── vowel vs consonant, in colour ─────────────────────────────────────
+# @jeffrey: "make sure for each sample we know when the vowel /
+# consonant / voicing starts · and lets mark that in colour in the mp4".
+# halo3 emits the voiced runs of each phrase, in beats on the render's
+# own timeline. Voiced = the sung vowel (drawn in the ink of the roll);
+# everything else inside a word is consonant or breath (drawn in blue),
+# and a blue tick marks the vowel onset — the frame the warp puts ON the
+# beat, with the consonant running 1:1 ahead of it.
+VOICED = chart.get("voiced", [])
+
+
+def is_voiced(beat):
+    for a, b in VOICED:
+        if a <= beat < b:
+            return True
+        if a > beat:
+            break
+    return False
+
+
+def vowel_onset(b0, b1):
+    """First voiced beat inside a word's slot, if it starts on a consonant."""
+    for a, b in VOICED:
+        if b0 - 0.5 <= a < b1:
+            return a
+    return None
+
+
 def vox_env(b0, b1, npx):
     """Per-pixel-column peak of the lead render between chart beats."""
     s0 = int((LEAD_IN + b0 * SPB) * VFS)
@@ -136,12 +164,19 @@ for pb in PASSES:
                             fill=(255, 166, 202, 90), outline=INK, width=2)
         # the real audio inside the clip: per-column peak of the lead
         # render, normalized to the whole take — dead air is visible
-        env = vox_env(n["beat"], n["beat"] + n["dur"], max(1, x1 - x0 - 8))
+        npx = max(1, x1 - x0 - 8)
+        env = vox_env(n["beat"], n["beat"] + n["dur"], npx)
         for j, a in enumerate(env):
             ah = a * 20
             if ah >= 0.4:
                 xw = x0 + 4 + j
-                d.line([(xw, y - ah), (xw, y + ah)], fill=(26, 26, 34, 88), width=1)
+                vb = n["beat"] + n["dur"] * (j + 0.5) / npx
+                col = (26, 26, 34, 88) if is_voiced(vb) else (92, 118, 180, 200)
+                d.line([(xw, y - ah), (xw, y + ah)], fill=col, width=1)
+        vo = vowel_onset(n["beat"], n["beat"] + n["dur"])
+        if vo is not None and vo - n["beat"] > 0.02:   # a real consonant runway
+            xv = X(pb + vo)                            # pb: this pass's offset
+            d.line([(xv, y0 - 5), (xv, y1 + 5)], fill=BLUE, width=3)
         txt = word_text(n["t"])
         tw = d.textlength(txt, font=f_word)
         wide = (x1 - x0) > tw + 20
@@ -164,7 +199,8 @@ ff = subprocess.Popen([
 hdr = Image.new("RGB", (W, ROLL_TOP - 60), CREAM)
 dh = ImageDraw.Draw(hdr)
 dh.text((40, 26), "loner — kick + vocals study", font=f_title, fill=INK)
-sub = "122 BPM · A# minor @ 237 Hz · the unbroken take, charted"
+sub = ("122 BPM · A# minor @ 237 Hz · the unbroken take, charted   —   "
+       "ink = sung vowel · blue = consonant / breath · blue tick = vowel onset")
 dh.text((40, 84), sub, font=f_tiny, fill=BLUE)
 hdr_np = np.asarray(hdr, dtype=np.uint8)
 

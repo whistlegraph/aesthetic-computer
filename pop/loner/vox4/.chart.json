@@ -2,384 +2,626 @@
  "w-whole-line": {
   "leadIn": 0.02,
   "beats": 56.5,
+  "voiced": [
+   [
+    0.0,
+    11.895
+   ],
+   [
+    11.9967,
+    17.7917
+   ],
+   [
+    17.995,
+    23.7493
+   ],
+   [
+    24.0035,
+    29.2393
+   ],
+   [
+    29.5037,
+    39.101
+   ],
+   [
+    39.1315,
+    40.1583
+   ],
+   [
+    40.3312,
+    42.6492
+   ],
+   [
+    42.6898,
+    44.896
+   ],
+   [
+    44.9977,
+    47.4987
+   ],
+   [
+    48.1087,
+    52.643
+   ],
+   [
+    52.9988,
+    56.3843
+   ]
+  ],
   "notes": [
    {
     "beat": 0.0,
     "dur": 4.0,
     "st": 7,
-    "t": "sitting"
+    "t": "sitting",
+    "lead": 0.0407
    },
    {
     "beat": 4.0,
-    "dur": 4.0,
+    "dur": 2.5,
     "st": 3,
-    "t": "curled"
+    "t": "curled",
+    "lead": 0.0
+   },
+   {
+    "beat": 6.5,
+    "dur": 1.5,
+    "st": 2,
+    "t": "up",
+    "lead": 0.0
    },
    {
     "beat": 8.0,
-    "dur": 1.5,
-    "st": 2,
-    "t": "up"
+    "dur": 2.0,
+    "st": 0,
+    "t": "in",
+    "lead": 0.0
    },
    {
-    "beat": 9.5,
-    "dur": 2.5,
-    "st": 0,
-    "t": "in"
+    "beat": 10.0,
+    "dur": 2.0,
+    "st": 5,
+    "t": "myself\u00b7a",
+    "lead": 0.0
    },
    {
     "beat": 12.0,
     "dur": 1.5,
     "st": 5,
-    "t": "myself\u00b7a"
+    "t": "myself\u00b7b",
+    "lead": 0.1017
    },
    {
     "beat": 13.5,
-    "dur": 1.5,
-    "st": 5,
-    "t": "myself\u00b7b"
-   },
-   {
-    "beat": 15.0,
-    "dur": 1.0,
+    "dur": 2.5,
     "st": -2,
-    "t": "i"
+    "t": "i",
+    "lead": 0.0
    },
    {
     "beat": 16.0,
     "dur": 2.0,
     "st": -5,
-    "t": "think"
+    "t": "think",
+    "lead": 0.0
    },
    {
     "beat": 18.0,
     "dur": 4.0,
     "st": 12,
-    "t": "of"
+    "t": "of",
+    "lead": 0.1423
    },
    {
     "beat": 22.0,
-    "dur": 0.5,
+    "dur": 2.0,
     "st": 10,
-    "t": "a"
+    "t": "a",
+    "lead": 0.0
    },
    {
-    "beat": 22.5,
-    "dur": 3.5,
+    "beat": 24.0,
+    "dur": 2.0,
     "st": 5,
-    "t": "stone"
+    "t": "stone",
+    "lead": 0.0508
    },
    {
     "beat": 26.0,
     "dur": 3.5,
     "st": 2,
-    "t": "just"
+    "t": "just",
+    "lead": 0.0
    },
    {
     "beat": 29.5,
     "dur": 3.5,
     "st": 3,
-    "t": "waiting"
+    "t": "waiting",
+    "lead": 0.183
    },
    {
     "beat": 33.0,
     "dur": 4.5,
     "st": 0,
-    "t": "very"
+    "t": "very",
+    "lead": 0.0
    },
    {
     "beat": 37.5,
     "dur": 2.5,
     "st": 7,
-    "t": "patiently"
+    "t": "patiently",
+    "lead": 0.0
    },
    {
     "beat": 40.0,
     "dur": 5.0,
     "st": 3,
-    "t": "for"
+    "t": "for",
+    "lead": 0.0
    },
    {
     "beat": 45.0,
     "dur": 2.5,
     "st": 7,
-    "t": "time"
+    "t": "time",
+    "lead": 0.0712
    },
    {
     "beat": 47.5,
     "dur": 5.5,
     "st": 3,
-    "t": "to"
+    "t": "to",
+    "lead": 0.0
    },
    {
     "beat": 53.0,
     "dur": 3.5,
     "st": 3,
-    "t": "pass"
+    "t": "pass",
+    "lead": 0.3558
    }
   ]
  },
  "w-sitting-curled": {
   "leadIn": 0.02,
   "beats": 11.0,
+  "voiced": [
+   [
+    0.0,
+    9.821
+   ],
+   [
+    9.8413,
+    11.1223
+   ],
+   [
+    11.4477,
+    11.6205
+   ]
+  ],
   "notes": [
    {
     "beat": 0.0,
     "dur": 3.0,
     "st": 6,
-    "t": "Sitting"
+    "t": "Sitting",
+    "lead": 0.0407
    },
    {
     "beat": 3.0,
     "dur": 2.0,
     "st": 3,
-    "t": "curled"
+    "t": "curled",
+    "lead": 0.0
    },
    {
     "beat": 5.0,
     "dur": 1.5,
     "st": 2,
-    "t": "up"
+    "t": "up",
+    "lead": 0.0
    },
    {
     "beat": 6.5,
     "dur": 1.5,
     "st": 0,
-    "t": "in"
+    "t": "in",
+    "lead": 0.0
    },
    {
     "beat": 8.0,
     "dur": 3.0,
     "st": 5,
-    "t": "myself"
+    "t": "myself",
+    "lead": 0.0
    }
   ]
  },
  "w-i-think": {
   "leadIn": 0.02,
   "beats": 3.5,
+  "voiced": [
+   [
+    0.0,
+    3.4465
+   ],
+   [
+    3.7617,
+    3.9345
+   ],
+   [
+    4.3412,
+    4.4835
+   ]
+  ],
   "notes": [
    {
     "beat": 0.0,
     "dur": 2.0,
     "st": -2,
-    "t": "I"
+    "t": "I",
+    "lead": 0.0407
    },
    {
     "beat": 2.0,
     "dur": 1.5,
     "st": -5,
-    "t": "think"
+    "t": "think",
+    "lead": 0.0
    }
   ]
  },
  "w-of-a-stone": {
   "leadIn": 0.0,
   "beats": 8.0,
+  "voiced": [
+   [
+    0.0,
+    5.795
+   ],
+   [
+    5.9983,
+    8.3265
+   ]
+  ],
   "notes": [
    {
     "beat": 0.0,
     "dur": 4.0,
     "st": 12,
-    "t": "of"
+    "t": "of",
+    "lead": 0.0
    },
    {
     "beat": 4.0,
     "dur": 2.0,
     "st": 10,
-    "t": "a"
+    "t": "a",
+    "lead": 0.0
    },
    {
     "beat": 6.0,
     "dur": 2.0,
     "st": 5,
-    "t": "stone"
+    "t": "stone",
+    "lead": 0.0508
    }
   ]
  },
  "w-just-waiting": {
   "leadIn": 0.075,
   "beats": 6.5,
+  "voiced": [
+   [
+    0.0,
+    3.294
+   ],
+   [
+    3.4973,
+    7.3912
+   ]
+  ],
   "notes": [
    {
     "beat": 0.0,
     "dur": 3.5,
     "st": 2,
-    "t": "Just"
+    "t": "Just",
+    "lead": 0.1525
    },
    {
     "beat": 3.5,
     "dur": 3.0,
     "st": 3,
-    "t": "waiting"
+    "t": "waiting",
+    "lead": 0.0
    }
   ]
  },
  "w-very-patiently": {
   "leadIn": 0.0,
   "beats": 8.5,
+  "voiced": [
+   [
+    0.0,
+    7.076
+   ],
+   [
+    7.1065,
+    8.4993
+   ],
+   [
+    9.0992,
+    10.797
+   ],
+   [
+    10.9698,
+    11.0512
+   ]
+  ],
   "notes": [
    {
     "beat": 0.0,
     "dur": 5.0,
     "st": 0,
-    "t": "very"
+    "t": "very",
+    "lead": 0.0
    },
    {
     "beat": 5.0,
     "dur": 3.5,
     "st": 7,
-    "t": "patiently"
+    "t": "patiently",
+    "lead": 0.0
    }
   ]
  },
  "w-for-time-to-pass": {
   "leadIn": 0.035,
   "beats": 12.5,
+  "voiced": [
+   [
+    0.0,
+    1.8707
+   ],
+   [
+    2.0028,
+    4.4835
+   ],
+   [
+    4.9817,
+    8.4993
+   ],
+   [
+    8.8653,
+    12.383
+   ]
+  ],
   "notes": [
    {
     "beat": 0.0,
     "dur": 2.0,
     "st": 5,
-    "t": "for"
+    "t": "for",
+    "lead": 0.0712
    },
    {
     "beat": 2.0,
     "dur": 2.5,
     "st": 7,
-    "t": "time"
+    "t": "time",
+    "lead": 0.122
    },
    {
     "beat": 4.5,
     "dur": 4.0,
     "st": 3,
-    "t": "to"
+    "t": "to",
+    "lead": 0.0
    },
    {
     "beat": 8.5,
     "dur": 4.0,
     "st": 3,
-    "t": "pass"
+    "t": "pass",
+    "lead": 0.0
    }
   ]
  },
  "w-n-getting-curled": {
   "leadIn": 0.0,
   "beats": 11.0,
+  "voiced": [
+   [
+    0.0,
+    1.6572
+   ],
+   [
+    1.6673,
+    4.6563
+   ],
+   [
+    4.7275,
+    7.4318
+   ],
+   [
+    7.4623,
+    8.6722
+   ],
+   [
+    8.7332,
+    11.1427
+   ]
+  ],
   "notes": [
    {
     "beat": 0.0,
     "dur": 1.5,
     "st": 5,
-    "t": "getting"
+    "t": "getting",
+    "lead": 0.0
    },
    {
     "beat": 1.5,
     "dur": 2.5,
     "st": 3,
-    "t": "curled"
+    "t": "curled",
+    "lead": 0.0
    },
    {
     "beat": 4.0,
     "dur": 0.5,
     "st": 2,
-    "t": "up"
+    "t": "up",
+    "lead": 0.0
    },
    {
     "beat": 4.5,
     "dur": 1.5,
     "st": 0,
-    "t": "in"
+    "t": "in",
+    "lead": 0.0
    },
    {
     "beat": 6.0,
     "dur": 2.5,
     "st": 4,
-    "t": "myself"
+    "t": "myself",
+    "lead": 0.0
    },
    {
     "beat": 8.5,
     "dur": 2.0,
     "st": -2,
-    "t": "i"
+    "t": "i",
+    "lead": 0.0
    },
    {
     "beat": 10.5,
     "dur": 0.5,
     "st": -5,
-    "t": "think"
+    "t": "think",
+    "lead": 0.0
    }
   ]
  },
  "w-n-stone-waiting": {
   "leadIn": 0.0,
   "beats": 17.0,
+  "voiced": [
+   [
+    0.0,
+    3.2127
+   ],
+   [
+    3.3347,
+    8.0012
+   ],
+   [
+    9.0483,
+    16.3073
+   ],
+   [
+    16.3277,
+    17.3443
+   ]
+  ],
   "notes": [
    {
     "beat": 0.0,
     "dur": 2.0,
     "st": 12,
-    "t": "A"
+    "t": "A",
+    "lead": 0.0
    },
    {
     "beat": 2.0,
     "dur": 2.0,
     "st": 9,
-    "t": "stone"
+    "t": "stone",
+    "lead": 0.0
    },
    {
     "beat": 4.0,
     "dur": 4.0,
     "st": 4,
-    "t": "just"
+    "t": "just",
+    "lead": 0.0
    },
    {
     "beat": 8.0,
     "dur": 4.0,
     "st": 3,
-    "t": "waiting"
+    "t": "waiting",
+    "lead": 0.0
    },
    {
     "beat": 12.0,
     "dur": 3.0,
     "st": 0,
-    "t": "very"
+    "t": "very",
+    "lead": 0.0
    },
    {
     "beat": 15.0,
     "dur": 2.0,
     "st": 6,
-    "t": "patiently"
+    "t": "patiently",
+    "lead": 0.0
    }
   ]
  },
  "w-n-for-time-to-pass": {
   "leadIn": 0.0,
   "beats": 5.5,
+  "voiced": [
+   [
+    0.0,
+    0.3253
+   ],
+   [
+    0.3762,
+    1.5657
+   ],
+   [
+    1.83,
+    4.1582
+   ],
+   [
+    4.3615,
+    6.3643
+   ]
+  ],
   "notes": [
    {
     "beat": 0.0,
     "dur": 0.5,
     "st": 5,
-    "t": "the"
+    "t": "the",
+    "lead": 0.0
    },
    {
     "beat": 0.5,
     "dur": 1.0,
     "st": 7,
-    "t": "time"
+    "t": "time",
+    "lead": 0.0
    },
    {
     "beat": 1.5,
     "dur": 2.5,
     "st": 3,
-    "t": "to"
+    "t": "to",
+    "lead": 0.0
    },
    {
     "beat": 4.0,
     "dur": 1.5,
     "st": 3,
-    "t": "pass"
+    "t": "pass",
+    "lead": 0.0
    }
   ]
  }
