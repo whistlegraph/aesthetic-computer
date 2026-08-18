@@ -225,12 +225,17 @@ CHART = {
                              # ("of should start sooner, right after
                              # 'think' ends") with no rest needed at all.
                              "durs": { 0: 2.0, 1: 2.0, 2: 2.5, 3: 1.5,
-                                       4: 3.5, 5: 2.0, 6: 2.0, 7: 2.0,
+                                       4: 2.5, 5: 2.0, 6: 2.0,
                                        # think 1 (1.17×, her own speed — at 2
                                        # it was a 2.3× held tone), so OF keeps
                                        # its 4 beats at 1.01×, her real octave,
                                        # "a" keeps 2, and STONE starts on bar 6
                                        # beat 2 as asked.
+                                       # my on bar 2 beat 4; "i" takes the
+                                       # freed beat (1.78×, still her voice)
+                                       # so "of" keeps beat 19 and stone its
+                                       # bar 6 beat 2.
+                                       7: 3.0,
                                        8: 1.0, 9: 4.0, 10: 2.0, 11: 3.0,
                                        # very longer, patiently slower
                                        14: 4.0, 15: 5.0 },
