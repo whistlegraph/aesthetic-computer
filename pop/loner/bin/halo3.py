@@ -213,20 +213,30 @@ CHART = {
                              # four beats, so the split at its internal /t/
                              # lets sit and ting take two beats each and
                              # the second syllable land square on beat 2.
-                             # Then curled 2.5 · up 2.5 · in 3 — "in" on
-                             # bar 2 beat 2 — and my·self still starts on
-                             # bar 3, so no anchor after it moves.
+                             # Then curled 2.5 + up 1.5 fill bar 1 exactly
+                             # and IN owns bar 2 outright — one phrase per
+                             # bar the whole way down: sit·ting 0 · curled
+                             # up 1 · in 2 · my·self 3 · i·think 4 · of 5 ·
+                             # a 6 · stone 7.
                              # curled 3 · up 3. Everything downstream
                              # falls onto bars by itself: my·self is bar 3,
                              # i·think is bar 4, and "think" ends exactly
                              # on 20 — so OF starts the instant think ends
                              # ("of should start sooner, right after
                              # 'think' ends") with no rest needed at all.
-                             "durs": { 0: 2.0, 1: 2.0, 2: 2.5, 3: 2.5,
-                                       4: 3.0, 5: 2.0, 6: 2.0, 7: 2.0,
-                                       8: 2.0, 9: 4.0, 10: 4.0, 11: 3.0,
+                             "durs": { 0: 2.0, 1: 2.0, 2: 2.5, 3: 1.5,
+                                       4: 4.0, 5: 2.0, 6: 2.0, 7: 2.0,
+                                       # think 1 (1.17×, her own speed — at 2
+                                       # it was a 2.3× held tone), so OF keeps
+                                       # its 4 beats at 1.01×, her real octave,
+                                       # "a" keeps 2, and STONE starts on bar 6
+                                       # beat 2 as asked.
+                                       8: 1.0, 9: 4.0, 10: 2.0, 11: 3.0,
                                        # very longer, patiently slower
                                        14: 4.0, 15: 5.0 },
+                             # words whose syllables carry a melody must not
+                             # be flattened to one tone by THE HOLD
+                             "nohold": [15],   # patiently
                              # rest AFTER the given unit, in beats
                              # "the in should start sooner — at start of
                              # bar 2": the rest after up goes entirely, so
@@ -444,7 +454,8 @@ def trim_units(x, fs, unit_src, names=None):
     return out, log, [(b, c) for (a_, b), (_, c) in zip(out, unit_src)]
 
 
-def build_warp(a, unit_src, beats, dursb, gapsb=None, rest_src=None, lead_b=0.0):
+def build_warp(a, unit_src, beats, dursb, gapsb=None, rest_src=None, lead_b=0.0,
+               nohold=()):
     """Frame index map with VOWEL-ON-THE-BEAT alignment.
 
     Each word's voiced onset (its vowel) lands exactly on its chart
@@ -500,7 +511,14 @@ def build_warp(a, unit_src, beats, dursb, gapsb=None, rest_src=None, lead_b=0.0)
         if ratio > 2.2:                                       # read shimmer
             tsec = np.arange(out_n) * FRAME_S
             pos = np.clip(pos + 2.2 * np.sin(2 * np.pi * 0.85 * tsec), 0, src_n - 1)
-        if ratio > HOLD_RATIO:
+        # THE HOLD flattens a long stretch to one grid tone, which is
+        # right for a sustained vowel and WRONG for a word with syllables
+        # in it — @jeffrey: "the notes in 'patiently' seem wrong, it sort
+        # of goes down in pitch each syllable in the proper pronunciation
+        # but not in the current track". Flattening had erased her
+        # descending contour. `nohold` keeps the contour and just stretches
+        # it.
+        if ratio > HOLD_RATIO and u not in nohold:
             holds.append((len(idx), len(idx) + out_n, v0, s1))
         idx.extend((v0 + np.round(pos).astype(int)).tolist())
         if gap_fr > 0:                            # THE REST — her own air
@@ -689,7 +707,8 @@ for name, ch in CHART.items():
     gapsb = [ch.get("gaps", {}).get(i, 0.0) for i in range(len(ch["units"]))]
     idx, holds, fade, Z, ants, rise, rests = build_warp(
         a, unit_src, [b for (b, d) in ch["units"]],
-        [d for (b, d) in ch["units"]], gapsb, rest_src, ch.get("lead", 0.0))
+        [d for (b, d) in ch["units"]], gapsb, rest_src, ch.get("lead", 0.0),
+        set(ch.get("nohold", ())))
     f0_o = a["f0c"][idx].copy()
     voiced_o = a["voiced"][idx]
 
