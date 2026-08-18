@@ -4,8 +4,8 @@
   "pdf": "technical-rider.pdf",
   "expectedDiagrams": 4,
   "visualInference": true,
-  "pdfSha256": "335b8c8237651a0a5db3e60f1423be48c58195636d349635dd98db5b90db941b",
-  "reviewedAt": "2026-08-18T19:40:00Z",
+  "pdfSha256": "22c5904f49a5ea78d03545687d81eaba0d9f8f1444e7bb7af3e03db9fcdb008c",
+  "reviewedAt": "2026-08-18T20:35:00Z",
   "reviewer": {
     "kind": "visual-inference",
     "agent": "Claude"
@@ -25,10 +25,10 @@
       "id": "workshop-routes",
       "page": 1,
       "crop": [
-        0.05,
-        0.255,
+        0.04,
+        0.295,
         0.31,
-        0.1
+        0.145
       ],
       "design": "pass",
       "checks": {
@@ -46,9 +46,9 @@
       "page": 1,
       "crop": [
         0.345,
-        0.255,
-        0.3,
-        0.19
+        0.275,
+        0.31,
+        0.215
       ],
       "design": "pass",
       "checks": {
@@ -66,9 +66,9 @@
       "page": 1,
       "crop": [
         0.645,
-        0.255,
+        0.265,
         0.33,
-        0.222
+        0.235
       ],
       "design": "pass",
       "checks": {
@@ -79,16 +79,16 @@
         "hierarchy": "pass",
         "edgeRouting": "pass"
       },
-      "notes": "Dashed clock lines are arrowed and clear the audience circle; solid arrows carry audio inward."
+      "notes": "Clock feeds all three machines on arrowed dashes; the NTP box now clears indigo so the first arrow reads downward like the other two. Solid arrows carry audio inward."
     },
     {
       "id": "evening-running-order",
       "page": 1,
       "crop": [
         0.06,
-        0.715,
-        0.9,
-        0.058
+        0.745,
+        0.89,
+        0.065
       ],
       "design": "pass",
       "checks": {
