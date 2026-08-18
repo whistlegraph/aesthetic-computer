@@ -208,12 +208,17 @@ CHART = {
                              # and patiently 4 (1.64×); the pair still
                              # totals 7 beats, so "for" is untouched.
                              "durs": { 0: 4.0, 1: 2.0, 2: 2.0, 3: 2.0,
-                                       4: 2.0, 5: 2.0, 6: 2.0, 7: 1.0,
+                                       4: 2.0, 5: 2.0, 6: 2.0, 7: 2.0,
                                        8: 4.0, 9: 4.0, 10: 4.0,
                                        13: 3.0, 14: 4.0 },
                              # rest AFTER the given unit, in beats
-                             "gaps": { 2: 2.0,   # her breath after "up"
-                                       5: 1.0,   # space between self and i
+                             # "the in should start sooner — at start of
+                             # bar 2": the rest after up goes entirely, so
+                             # IN MY is bar 2 exactly (8–12) and self·rest
+                             # is bar 3, i·think bar 4. The freed beats go
+                             # to the self/i rest and to think, so "of"
+                             # still holds bar 5 and nothing after moves.
+                             "gaps": { 5: 2.0,   # space between self and i
                                        10: 4.0 } },  # the bar break after stone
     "w-sitting-curled":    { "slice": "f-sitting-curled",    "beats": 11.0 },
     "w-i-think":           { "slice": "f-i-think",           "beats": 3.5 },
@@ -335,6 +340,28 @@ TRIM_GATE_DB = -36.0        # of the take's peak; keeps quiet fricatives
 TRIM_MARGIN_S = 0.050       # let the release start before we cut
 TRIM_MIN_S = 0.080          # below this, not worth the surgery
 TRIM_QUIET_RUN_S = 0.120    # silence this long means the word is over
+ATTACK_S = 0.030            # pre-roll kept ahead of every word's onset
+
+
+def keep_attacks(unit_src, rest_src):
+    """Pull each unit's start back a little so its ATTACK survives.
+
+    @jeffrey on "in": "just make sure our start of the word in is not
+    like too early, or we have like a nice start of it — feels like it
+    may cut off a bit on the beginning". He was right: her /ɪ/ hits
+    20 ms before the boundary, so the unit opened a hair late and the
+    transient was gone. A word's onset is the loudest, most fragile
+    thing in it; the boundary repair aims at where the NOTE changes,
+    which is a frame or two after where the SOUND starts. Every unit now
+    keeps 30 ms of runway, bounded by where the previous word's audio
+    actually ended so nothing overlaps sung material.
+    """
+    pre = int(round(ATTACK_S / FRAME_S))
+    out = []
+    for u, (s0, s1) in enumerate(unit_src):
+        floor = 0 if u == 0 else unit_src[u - 1][1]
+        out.append((max(floor, s0 - pre), s1))
+    return out
 TRIM_KEEP = 0.35            # never leave a unit shorter than this share
 
 
@@ -631,6 +658,7 @@ for name, ch in CHART.items():
         unit_src.append((max(0, s0), min(F, max(s0 + 1, s1))))
 
     unit_src, trims, rest_src = trim_units(x, fs, unit_src, [w["t"] for w in words])
+    unit_src = keep_attacks(unit_src, rest_src)
 
     gapsb = [ch.get("gaps", {}).get(i, 0.0) for i in range(len(ch["units"]))]
     idx, holds, fade, Z, ants, rise, rests = build_warp(
