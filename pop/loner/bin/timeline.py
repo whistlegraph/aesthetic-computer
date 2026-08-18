@@ -11,7 +11,7 @@
 #   pop/.venv/bin/python pop/loner/bin/timeline.py
 #     → out/loner-kickvox-timeline.mp4
 
-import json, math, os, subprocess, wave
+import datetime, json, math, os, subprocess, wave
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
@@ -39,20 +39,54 @@ BH = 30                       # block half-height
 # 60 fps + centre sampling + rounded scroll at 96 px/beat: worst case
 # ±8.3 ms of frame quantisation and ±5.2 ms of pixel, with zero bias.
 
-# ── the loner theme: lights off ───────────────────────────────────────
-# @jeffrey: "can we start rendering this in a loner theme / dark mode
-# theme now the mp4 please?" The song is someone curled up in a dark
-# room, so the study stops looking like a sheet of paper: near-black with
-# a blue cast, warm white for her voice, and the margin pink kept as the
-# only hot colour — playhead, downbeat, the word being sung.
-CREAM = (14, 13, 20)               # the room, lights off
-INK = (238, 234, 230)              # warm white — her voice, the type
-FAINT = (238, 234, 230, 26)
-SOFT = (238, 234, 230, 92)
-PINK = (255, 92, 162)
-PINK_SOFT = (128, 46, 84)
-BLUE = (132, 158, 236)             # lifted for dark ground
-PINK_HOT = (255, 176, 214)         # word labels, so they clear the waveform
+# ── the theme: it follows the clock ───────────────────────────────────
+# @jeffrey: "render it out in light mode now, cuz its daytime :) · this
+# should be automatic for our score videos, to know if they should be
+# light or dark". A score video is read, not watched, so it wants to
+# match the room. Daylight hours get the paper palette the lane started
+# with; after dark it becomes the loner theme — someone curled up in an
+# unlit room. Override with SCORE_THEME=light|dark.
+THEME = os.environ.get("SCORE_THEME") or (
+    "light" if 7 <= datetime.datetime.now().hour < 19 else "dark")
+
+if THEME == "light":
+    CREAM = (255, 253, 246)            # paper
+    INK = (26, 26, 34)
+    FAINT = (26, 26, 34, 26)
+    SOFT = (26, 26, 34, 74)
+    PINK = (255, 82, 156)
+    PINK_SOFT = (255, 176, 210)
+    BLUE = (72, 100, 172)
+    PINK_HOT = (188, 30, 104)          # word labels, dark enough to read on paper
+    HALO = (255, 253, 246, 232)        # knock-out behind type
+    LABEL_ON = (26, 26, 34)            # the word being sung, over its highlight
+    BLOCK_FILL = (255, 166, 202, 86)
+    GLOW_FILL = (255, 82, 156, 62)
+    WAVE_PK, WAVE_RMS = (26, 26, 34, 74), (26, 26, 34, 185)
+    CONS_PK, CONS_RMS = (72, 100, 172, 150), (72, 100, 172, 235)
+    KICK_FILL = (72, 100, 172, 62)
+    LYRIC_OFF = (26, 26, 34, 104)
+    BEAT_TINT = [(255, 82, 156, 30), (72, 100, 172, 14),
+                 (26, 26, 34, 10), (72, 100, 172, 14)]
+else:
+    CREAM = (14, 13, 20)               # the room, lights off
+    INK = (238, 234, 230)
+    FAINT = (238, 234, 230, 26)
+    SOFT = (238, 234, 230, 92)
+    PINK = (255, 92, 162)
+    PINK_SOFT = (128, 46, 84)
+    BLUE = (132, 158, 236)
+    PINK_HOT = (255, 176, 214)
+    HALO = (6, 5, 10, 235)
+    LABEL_ON = (255, 255, 255)
+    BLOCK_FILL = (255, 92, 162, 46)
+    GLOW_FILL = (255, 92, 162, 58)
+    WAVE_PK, WAVE_RMS = (238, 234, 230, 80), (238, 234, 230, 200)
+    CONS_PK, CONS_RMS = (132, 158, 236, 160), (132, 158, 236, 245)
+    KICK_FILL = (132, 158, 236, 60)
+    LYRIC_OFF = (238, 234, 230, 110)
+    BEAT_TINT = [(255, 92, 162, 34), (132, 158, 236, 14),
+                 (238, 234, 230, 10), (132, 158, 236, 14)]
 
 chart = json.load(open(os.path.join(LANE, "vox4", ".chart.json")))["w-whole-line"]
 LINE_BEATS = chart["beats"]
@@ -141,7 +175,8 @@ def vox_env(b0, b1, npx):
 # labels sit directly on the waveform, which is the same warm white, so
 # they were disappearing into it. Every label is now knocked out with a
 # dark halo first — cheap, and it works over waveform, tint or ground.
-def shadowed(draw, xy, txt, font, fill, halo=(6, 5, 10, 235), r=2):
+def shadowed(draw, xy, txt, font, fill, halo=None, r=2):
+    halo = HALO if halo is None else halo
     x, y = xy
     for dx in (-r, 0, r):
         for dy in (-r, 0, r):
@@ -183,10 +218,7 @@ X = lambda beat: int(round((beat + STRIP_PAD) * PXB)) + PLAYHEAD_X  # beat → s
 # the downbeat reads pink and the others step through the paper palette;
 # every column is numbered under the bar label. Now a note can be named
 # out loud — "bar 3 beat 3" — and found by eye without counting.
-BEAT_TINT = [(255, 92, 162, 34),       # 1 — the downbeat
-             (132, 158, 236, 14),      # 2
-             (238, 234, 230, 10),      # 3
-             (132, 158, 236, 14)]      # 4
+# (BEAT_TINT comes from the theme block above.)
 for b in range(0, TOTAL_BEATS + 1):
     x, xn = X(b), X(b + 1)
     d.rectangle([x, ROLL_TOP, xn - 1, ROLL_BOT], fill=BEAT_TINT[b % 4])
@@ -208,7 +240,7 @@ for st in STS:
 KY0, KY1 = ROLL_BOT + 24, ROLL_BOT + 62
 for b in range(KICK_BEATS):
     x = X(b)
-    d.rounded_rectangle([x, KY0, x + PXB - 4, KY1], 6, fill=(132, 158, 236, 60))
+    d.rounded_rectangle([x, KY0, x + PXB - 4, KY1], 6, fill=KICK_FILL)
 d.text((X(0) - 84, KY0 + 8), "kick", font=f_note, fill=BLUE)
 
 # word blocks, both passes
@@ -224,7 +256,7 @@ for pb in PASSES:
         # it — up to 4 px right of where it sounds, which at 96 px a
         # beat is 20 ms of visible lateness on every single note.
         d.rounded_rectangle([x0, y0, x1 - 1, y1], 10,
-                            fill=(255, 92, 162, 46), outline=INK, width=2)
+                            fill=BLOCK_FILL, outline=INK, width=2)
         # the real audio inside the clip: per-column peak of the lead
         # render, normalized to the whole take — dead air is visible
         npx = max(1, x1 - x0)
@@ -236,11 +268,11 @@ for pb in PASSES:
             voiced_here = is_voiced(vb)
             ah = a * AMP
             if ah >= 0.4:                      # peak outline, translucent
-                col = (238, 234, 230, 80) if voiced_here else (132, 158, 236, 160)
+                col = WAVE_PK if voiced_here else CONS_PK
                 d.line([(xw, y - ah), (xw, y + ah)], fill=col, width=1)
             rh = r * AMP * 1.6                 # rms core, solid
             if rh >= 0.4:
-                col = (238, 234, 230, 200) if voiced_here else (132, 158, 236, 245)
+                col = WAVE_RMS if voiced_here else CONS_RMS
                 d.line([(xw, y - rh), (xw, y + rh)], fill=col, width=1)
         vo = vowel_onset(n["beat"], n["beat"] + n["dur"])
         if vo is not None and vo - n["beat"] > 0.02:   # a real consonant runway
@@ -255,8 +287,7 @@ for pb in PASSES:
         tw = d.textlength(txt, font=f_word)
         lab = (x0 + max(4, (x1 - x0 - tw) / 2), y - 17)
         shadowed(d, lab, txt, f_word, PINK_HOT)
-        shadowed(d, (x0 + 2, y0 - 27), note_name(n["st"]), f_note,
-                 (238, 234, 230, 200), r=1)
+        shadowed(d, (x0 + 2, y0 - 27), note_name(n["st"]), f_note, INK, r=1)
         # media time, not beat time: t=0 is the pickup, beat 0 is LEAD_IN in
         BLOCKS.append((x0, x1, y0, y1, LEAD_IN + b0 * SPB, LEAD_IN + b1 * SPB,
                        txt, lab))
@@ -293,12 +324,21 @@ hdr_np = np.asarray(hdr, dtype=np.uint8)
 for i in range(FRAMES):
     t = (i + 0.5) / FPS            # centre of the displayed interval
     beat = (t - LEAD_IN) / SPB               # t=0 is the pickup, not beat 0
-    px = int(round((beat + STRIP_PAD) * PXB))   # strip scroll offset, rounded
-    fr = strip_np[:, px:px + W].copy()
-    if fr.shape[1] < W:
-        pad = np.full((H, W - fr.shape[1], 3), CREAM, dtype=np.uint8)
+    # SUB-PIXEL SCROLL. Rounding the scroll to a whole pixel left up to
+    # half a pixel of error — 2.6 ms at 96 px a beat — on every frame,
+    # and it is the only part of the geometry that was removable: the
+    # rest is the 60 fps frame grid itself (±8.3 ms). Crop at the floor
+    # and blend the two neighbouring columns by the fraction, so the roll
+    # sits exactly where the clock says it does.
+    fx = (beat + STRIP_PAD) * PXB
+    px = int(math.floor(fx))
+    frac = fx - px
+    fr = strip_np[:, px:px + W + 1].astype(np.float32)
+    if fr.shape[1] < W + 1:
+        pad = np.full((H, W + 1 - fr.shape[1], 3), CREAM, dtype=np.float32)
         fr = np.concatenate([fr, pad], axis=1)
-    img = Image.fromarray(fr)
+    fr = fr[:, :W] * (1.0 - frac) + fr[:, 1:W + 1] * frac
+    img = Image.fromarray(np.clip(fr + 0.5, 0, 255).astype(np.uint8))
     d2 = ImageDraw.Draw(img, "RGBA")
     # header
     img.paste(Image.fromarray(hdr_np), (0, 0))
@@ -311,11 +351,11 @@ for i in range(FRAMES):
             if lx1 > 0 and lx0 < W:
                 # outline-only: the waveform inside stays scrutinizable
                 d2.rounded_rectangle([lx0, y0, lx1 - 1, y1], 10,
-                                     fill=(255, 92, 162, 58), outline=PINK, width=4)
+                                     fill=GLOW_FILL, outline=PINK, width=4)
                 # the highlight paints over the label baked into the strip,
                 # so the word being sung — the one you most want to read —
                 # was the faintest on screen. Put it back on top.
-                shadowed(d2, (lab[0] - px, lab[1]), txt, f_word, (255, 255, 255))
+                shadowed(d2, (lab[0] - px, lab[1]), txt, f_word, LABEL_ON)
     # kick flash
     kb = int(math.floor(beat))
     if 0 <= kb < KICK_BEATS and (beat - kb) < 0.22:
@@ -329,7 +369,7 @@ for i in range(FRAMES):
     d2.text((W - 40 - d2.textlength(addr, font=f_tc_small), 78), addr,
             font=f_tc_small, fill=BLUE)
     # playhead
-    d2.line([(PLAYHEAD_X, ROLL_TOP - 44), (PLAYHEAD_X, KY1 + 8)], fill=PINK, width=4)
+    d2.rectangle([PLAYHEAD_X - 1, ROLL_TOP - 44, PLAYHEAD_X, KY1 + 8], fill=PINK)
     d2.polygon([(PLAYHEAD_X - 10, ROLL_TOP - 56), (PLAYHEAD_X + 10, ROLL_TOP - 56),
                 (PLAYHEAD_X, ROLL_TOP - 40)], fill=PINK)
     # the whistlegraph: the whole lyric, with the sung word lit
@@ -337,9 +377,9 @@ for i in range(FRAMES):
     for (wtxt, wt0, wt1) in LYRIC:
         on = wt0 <= t < wt1
         shadowed(d2, (lx, LYRIC_Y), wtxt, f_lyric,
-                 PINK if on else (238, 234, 230, 110), r=1)
+                 PINK if on else LYRIC_OFF, r=1)
         lx += d2.textlength(wtxt, font=f_lyric) + 11
-    shadowed(d2, (40, LYRIC_Y - 30), CREDIT, f_tiny, (238, 234, 230, 90), r=1)
+    shadowed(d2, (40, LYRIC_Y - 30), CREDIT, f_tiny, SOFT, r=1)
     # progress
     d2.rectangle([0, H - 10, int(W * t / dur), H], fill=PINK_SOFT)
     ff.stdin.write(np.asarray(img, dtype=np.uint8).tobytes())
