@@ -3,3 +3,4 @@ qa/
 packet/*.aux
 packet/*.log
 packet/*.out
+packet/.aesthetic-eye/

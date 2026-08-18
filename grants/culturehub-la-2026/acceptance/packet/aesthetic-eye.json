@@ -1,0 +1,104 @@
+{
+  "schema": 1,
+  "paper": "AC Presents 2 New Pieces \u2014 Technical Rider",
+  "pdf": "technical-rider.pdf",
+  "expectedDiagrams": 4,
+  "visualInference": true,
+  "pdfSha256": "ac03028a52e2ad4266d195d4bf797b551d2468aa2bed46c2cf6a1a2585fd5388",
+  "reviewedAt": "2026-08-18T19:00:00Z",
+  "reviewer": {
+    "kind": "visual-inference",
+    "agent": "Claude"
+  },
+  "brand": {
+    "canonicalName": "Aesthetic.Computer",
+    "dotColor": "#B44887",
+    "design": "pass",
+    "checks": {
+      "period": "pass",
+      "dotColor": "pass"
+    }
+  },
+  "diagrams": [
+    {
+      "id": "workshop-routes",
+      "page": 1,
+      "crop": [
+        0.05,
+        0.255,
+        0.31,
+        0.1
+      ],
+      "design": "pass",
+      "checks": {
+        "tangents": "pass",
+        "type": "pass",
+        "balance": "pass",
+        "spaceUse": "pass",
+        "hierarchy": "pass",
+        "edgeRouting": "pass"
+      },
+      "notes": "Three entry routes converge on one room; arrowheads read at print size."
+    },
+    {
+      "id": "notespatial-field",
+      "page": 1,
+      "crop": [
+        0.345,
+        0.255,
+        0.3,
+        0.19
+      ],
+      "design": "pass",
+      "checks": {
+        "tangents": "pass",
+        "type": "pass",
+        "balance": "pass",
+        "spaceUse": "pass",
+        "hierarchy": "pass",
+        "edgeRouting": "pass"
+      },
+      "notes": "Dashed orbit carries two pink arrowheads, so rotation belongs to the ring rather than floating beside it."
+    },
+    {
+      "id": "macneopolitan-trio",
+      "page": 1,
+      "crop": [
+        0.645,
+        0.255,
+        0.33,
+        0.222
+      ],
+      "design": "pass",
+      "checks": {
+        "tangents": "pass",
+        "type": "pass",
+        "balance": "pass",
+        "spaceUse": "pass",
+        "hierarchy": "pass",
+        "edgeRouting": "pass"
+      },
+      "notes": "Dashed clock lines are arrowed and clear the audience circle; solid arrows carry audio inward."
+    },
+    {
+      "id": "evening-running-order",
+      "page": 1,
+      "crop": [
+        0.06,
+        0.715,
+        0.9,
+        0.058
+      ],
+      "design": "pass",
+      "checks": {
+        "tangents": "pass",
+        "type": "pass",
+        "balance": "pass",
+        "spaceUse": "pass",
+        "hierarchy": "pass",
+        "edgeRouting": "pass"
+      },
+      "notes": "Left-to-right chain; the swap is the only pink node, which is where the decision sits."
+    }
+  ]
+}

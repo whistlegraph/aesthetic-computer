@@ -1,329 +1,203 @@
 % !TEX program = xelatex
-% Working technical rider; venue specifications remain to be confirmed.
-\documentclass[11pt,letterpaper]{article}
+% One-page technical rider; venue specifications remain to be confirmed.
+\documentclass[10pt,letterpaper]{article}
 \usepackage{culturehub-packet}
-\renewcommand{\packetlabel}{TECHNICAL RIDER}
+\geometry{top=0.36in,bottom=0.26in,left=0.42in,right=0.42in}
+\pagestyle{empty}
 \hypersetup{pdftitle={AC Presents 2 New Pieces — Technical Rider}}
 
-% Logotype title for a work, set like a game title.
-\newcommand{\worktype}[3]{%
-  {\aclight\fontsize{11pt}{13pt}\selectfont\color{acpink}#1\par}%
-  \vspace{0.12em}%
-  {\acbold\fontsize{37pt}{38pt}\selectfont\color{acdark}#2\par}%
-  \vspace{0.16em}%
-  {\aclight\fontsize{14pt}{17pt}\selectfont\color{acpurple}#3\par}%
-  \vspace{0.30em}\color{acpink}\rule{\linewidth}{1.15pt}\color{black}\vspace{0.10em}%
-}
-% Header bar for a specification block.
+\setlength{\parskip}{0.26em}
+\setlist[itemize]{leftmargin=0.9em,itemsep=0.07em,topsep=0.08em,parsep=0pt,label=\textcolor{acpink}{\textbullet}}
+
+\newcommand{\acdot}{{\color{acpink}.}}
+\newcommand{\ac}{Aesthetic{\acdot}Computer}
+\newcommand{\spec}[2]{\textbf{#1} — #2}
+% Title graphic set in a soft badge.
+\newcommand{\badge}[1]{%
+  \begin{tikzpicture}
+  \node[draw=acpink!50,line width=0.9pt,rounded corners=7pt,fill=acpale,
+        inner sep=0pt,minimum width=58mm,minimum height=16.5mm]
+       {\includegraphics[width=45mm]{#1}};
+  \end{tikzpicture}}
+\newcommand{\workhead}[3]{%
+  {\fontsize{7.8pt}{8.8pt}\selectfont\color{acpink}#1\par}%
+  \vspace{0.24em}\badge{#2}\par
+  \vspace{0.30em}%
+  {\fontsize{8.2pt}{9.6pt}\selectfont\color{acpurple}#3\par}%
+  \vspace{0.16em}\color{acpink}\rule{\linewidth}{0.9pt}\color{black}\par}
 \newcommand{\specbar}[1]{%
-  \vspace{0.35em}%
-  \begingroup\setlength{\fboxsep}{5pt}%
-  \colorbox{acdark}{\color{white}\acbold\fontsize{11pt}{13pt}\selectfont #1}%
-  \endgroup\vspace{0.15em}\par}
-\newcommand{\spectable}{\fontsize{9.6pt}{12.2pt}\selectfont}
+  \vspace{0.18em}\par%
+  \begingroup\setlength{\fboxsep}{3pt}%
+  \colorbox{acdark}{\color{white}\acbold\fontsize{8pt}{9pt}\selectfont #1}%
+  \endgroup\vspace{0.10em}\par}
 
 \begin{document}
-\packettitle{AC Presents 2 New Pieces}{Technical rider · CultureHub LA · September 16 to 25, 2026}
-\statushold{SEPT 24 CONFIRMED · SEPT 19 PENDING}
+\fontsize{8.1pt}{9.6pt}\selectfont
 
+%% ─── masthead ───────────────────────────────────────────────────────────
+\noindent
+\begin{minipage}[b]{0.70\linewidth}
+{\acbold\fontsize{23pt}{24pt}\selectfont\color{acdark}AC Presents 2 New Pieces\par}
+{\fontsize{10pt}{11.5pt}\selectfont\color{acpink}Technical rider · CultureHub LA · September 16 to 25, 2026\par}
+\end{minipage}\hfill
+\begin{minipage}[b]{0.29\linewidth}
+\raggedleft\statushold{SEPT 24 CONFIRMED · SEPT 19 PENDING}\par
 \vspace{0.45em}
-\pageclaim{Two pieces to install in the room. Each has its own machines, signal plan, and system requirements.}
+{\fontsize{6.8pt}{8.2pt}\selectfont\color{acgray}Jeffrey Alan Scudder · \ac{} \& Pals\\
+technical rider revised 18 August 2026 · aesthetic.computer\par}
+\end{minipage}
 
-\tighttable
-\begin{tabularx}{\linewidth}{L{0.28\linewidth}L{0.28\linewidth}Y}
-\toprule
-\textbf{Date} & \textbf{Event} & \textbf{Shape} \\
-\midrule
-Sat Sep 19, 2:00–3:30 p.m. & Grokaesthetic Workshop & Participatory; bring your own computer \\
-Thu Sep 24, 7:00 p.m. & Piece 1 and Piece 2 & Performance, conversation, free play \\
-\bottomrule
-\end{tabularx}
-\normalsize
+\vspace{0.16em}
+{\color{acpink}\rule{\linewidth}{1.15pt}}
 
-\vspace{0.3em}
-Thursday September 24 is confirmed. Saturday September 19 is still open: the
-guest set has been cut, and with it some of the case for two nights. This rider
-covers both; if they merge, the workshop's requirements move to Thursday
-afternoon and nothing else changes.
+\vspace{0.04em}
+\noindent\textbf{Sat Sep 19, 2:00–3:30 p.m.} Grokaesthetic Workshop, free and
+public.\quad\textbf{Thu Sep 24, 7:00 p.m.} Piece 1, swap, Piece 2, conversation,
+free play.\quad Thursday is confirmed; if Saturday folds into it, the workshop's
+requirements move to Thursday afternoon and nothing else changes.
 
-\section{What gets installed}
-\tighttable
-\begin{tabularx}{\linewidth}{L{0.24\linewidth}L{0.26\linewidth}Y}
-\toprule
-\textbf{System} & \textbf{Machines} & \textbf{What the house provides} \\
-\midrule
-Workshop & Participant laptops and phones, plus loaners & Guest Wi-Fi for 25–35 devices with downloads permitted; participant power; stereo minimum \\
-\textbf{Piece 1} \newline \textit{Note(s)pat(ial) Native} & Six surplus laptops booted from AC OS USB drives & Six discrete inputs to the Kalio system; projection \\
-\textbf{Piece 2} \newline \textit{The MacNeoPolitan Trio} & Three MacBook Neos running Menu Band on macOS & Three discrete full-range positions; outbound NTP \\
-\bottomrule
-\end{tabularx}
-\normalsize
+\vspace{0.28em}
 
-\clearpage
-\worktype{Event one · Saturday}{Grokaesthetic Workshop}{Bring your own computer. Leave playing one.}
+%% ─── three systems ──────────────────────────────────────────────────────
+\noindent
+\begin{minipage}[t]{0.315\linewidth}
+\workhead{Event one · Saturday}{grokaesthetic-wordmark.png}{Bring a computer, leave playing one.}
 
 \begin{center}
-\begin{tikzpicture}[
-  every node/.style={font=\sffamily\bfseries\fontsize{9.5pt}{11pt}\selectfont,align=center},
-  way/.style={draw=accyan,very thick,rounded corners=3pt,fill=accyan!8,minimum width=40mm,minimum height=14mm},
-  need/.style={draw=acpink,very thick,rounded corners=3pt,fill=acpink!8,minimum width=40mm,minimum height=12mm},
-  room/.style={draw=acpurple,very thick,rounded corners=3pt,fill=acpale,minimum width=74mm,minimum height=14mm},
-  flow/.style={-{Stealth[length=3mm]},very thick,draw=acdark}
-]
-\node[way] (a) at (-4.75,0) {browser\\any device};
-\node[way] (b) at (0,0) {Menu Band\\a Mac};
-\node[way] (c) at (4.75,0) {AC OS\\USB stick};
-\node[need] (an) at (-4.75,-1.95) {open internet};
-\node[need] (bn) at (0,-1.95) {app downloads\\permitted};
-\node[need] (cn) at (4.75,-1.95) {permission to\\boot from USB};
-\node[room] (r) at (0,-4.0) {the room plays together\\house surround system};
-\draw[flow] (a) -- (an);
-\draw[flow] (b) -- (bn);
-\draw[flow] (c) -- (cn);
-\draw[flow] (an) -- (r);
-\draw[flow] (bn) -- (r);
-\draw[flow] (cn) -- (r);
+\begin{tikzpicture}[scale=0.88,every node/.style={transform shape},
+  w/.style={draw=accyan,very thick,rounded corners=3pt,fill=accyan!10,minimum width=16mm,minimum height=9mm,font=\bfseries\fontsize{6.8pt}{7.6pt}\selectfont,align=center},
+  r/.style={draw=acpurple,very thick,rounded corners=3pt,fill=acpale,minimum width=54mm,minimum height=9mm,font=\bfseries\fontsize{6.8pt}{7.6pt}\selectfont,align=center},
+  f/.style={-{Stealth[length=2.2mm]},very thick,draw=acdark}]
+\node[w] (a) at (-1.95,0) {browser\\any device};
+\node[w] (b) at (0,0) {Menu Band\\a Mac};
+\node[w] (c) at (1.95,0) {AC OS\\USB stick};
+\node[r] (r) at (0,-1.9) {the room plays together};
+\draw[f] (a) -- (r); \draw[f] (b) -- (r); \draw[f] (c) -- (r);
 \end{tikzpicture}
 \end{center}
-
-Ninety minutes, hands-on, free and open to the public. Participants arrive with
-their own laptops and phones, get Aesthetic.Computer running on them, and the
-room finishes by playing together as one ensemble. The USB route installs
-nothing on a participant's disk and alters nothing.
 
 \specbar{SYSTEM REQUIREMENTS}
-\spectable
-\begin{tabularx}{\linewidth}{L{0.20\linewidth}Y}
-\toprule
-\textbf{Network} & Guest Wi-Fi for 25–35 simultaneous devices \textbf{with app downloads permitted}. The highest-risk item here: a captive portal or a download block turns the middle route off at the door. \\
-\textbf{Permissions} & Participant laptops may be booted from USB in the space. \\
-\textbf{Power} & Strips reaching the seating, enough for about 20 laptops. Assume nobody arrives charged. \\
-\textbf{Audio} & Stereo playback minimum; the surround system preferred. Six-channel routing is welcome but not required. \\
-\textbf{Room} & Tables or floor seating arranged so people can see each other rather than a stage, plus positions for the artist's loaner machines. A microphone, or a room quiet enough to teach in. \\
-\textbf{Catering} & A snack table with a nearby bin. A real requirement: the workshop is part hangout by design. \\
-\bottomrule
-\end{tabularx}
-\normalsize
-
-\section{Access}
-No programming or musical experience is assumed, and loaner machines mean no
-one is turned away for lack of hardware. Please advise on accessible seating
-and whether the space suits participants who cannot sit on the floor.
-
-\clearpage
-\worktype{Piece 1 · Thursday}{Note(s)pat(ial) Native}{Six laptops carry sound around the room while it turns.}
+\begin{itemize}
+\item \spec{Network}{guest Wi-Fi, 25–35 devices, \textbf{app downloads permitted}. A captive portal kills route two at the door.}
+\item \spec{Permissions}{participant laptops may boot from USB.}
+\item \spec{Power}{strips at the seating for about 20 laptops.}
+\item \spec{Audio}{stereo minimum; surround preferred.}
+\item \spec{Room}{face-to-face seating, a microphone, loaner positions.}
+\item \spec{Catering}{snack table and a bin.}
+\end{itemize}
+\end{minipage}\hfill
+%
+\begin{minipage}[t]{0.315\linewidth}
+\workhead{Piece 1 · Thursday}{notespatial-grid-logo.png}{Six laptops carry sound around the room while it turns.}
 
 \begin{center}
-\begin{tikzpicture}[
-  node distance=8mm and 8mm,
-  every node/.style={font=\sffamily\bfseries\fontsize{10pt}{11pt}\selectfont,align=center},
-  box/.style={draw=acpurple,very thick,rounded corners=3pt,fill=acpale,minimum width=34mm,minimum height=14mm},
-  laptop/.style={draw=accyan,very thick,rounded corners=2pt,fill=accyan!8,minimum width=38mm,minimum height=14mm},
-  house/.style={draw=acpink,very thick,rounded corners=3pt,fill=acpink!8,minimum width=39mm,minimum height=15mm},
-  flow/.style={-{Stealth[length=3mm]},very thick,draw=acdark}
-]
-\node[box] (control) {live control\\rotation · speed\\trajectory · routing};
-\node[box,right=8mm of control] (network) {local network\\clock · transport\\spatial state};
-\node[laptop,right=8mm of network] (laptops) {six laptops\\1 · 2 · 3 · 4 · 5 · 6};
-\node[house,below=13mm of laptops] (house) {house spatial path\\verified 5.1 topology};
-\node[house,left=8mm of house] (audience) {audience inside\\the rotating field};
-\draw[flow] (control) -- (network);
-\draw[flow] (network) -- (laptops);
-\draw[flow] (laptops) -- node[right,font=\sffamily\bfseries\fontsize{9pt}{10pt}\selectfont] {six feeds} (house);
-\draw[flow] (house) -- (audience);
+\begin{tikzpicture}[scale=0.88,every node/.style={transform shape}]
+\draw[dashed,thick,draw=acgray] (0,0) circle (1.85);
+\draw[-{Stealth[length=2.8mm]},line width=1.1pt,draw=acpink] (68:1.85) arc (68:46:1.85);
+\draw[-{Stealth[length=2.8mm]},line width=1.1pt,draw=acpink] (248:1.85) arc (248:226:1.85);
+\node[circle,draw=acdark,very thick,fill=white,minimum size=15mm,inner sep=0pt,font=\bfseries\fontsize{7pt}{7.8pt}\selectfont] (aud) at (0,0) {audience};
+\foreach \a/\n in {90/1,150/2,210/3,270/4,330/5,30/6}{
+  \node[circle,draw=accyan,very thick,fill=accyan!12,minimum size=7.4mm,inner sep=0pt,font=\bfseries\fontsize{7pt}{7.6pt}\selectfont] at (\a:1.85) {\n};}
+\node[font=\bfseries\fontsize{7pt}{7.6pt}\selectfont,color=acpink] at (0,-2.62) {the field rotates};
 \end{tikzpicture}
 \end{center}
-
-Six surplus grade-school laptops, each booted from an AC OS USB drive, carry
-independent sound bodies around the audience. The artist drives rotation,
-trajectory, speed, and voice routing live from a control laptop, and the
-spatial score is projected while it plays.
 
 \specbar{SYSTEM REQUIREMENTS}
-\spectable
-\begin{tabularx}{\linewidth}{L{0.20\linewidth}Y}
-\toprule
-\textbf{Machines} & Six surplus laptops booted from AC OS USB drives, plus one control laptop. Artist-supplied, with two spares. \\
-\textbf{Audio} & \textbf{Six discrete inputs} to the Kalio 5.1 system, from an interface providing six line-level outputs, with DI boxes, cabling, and adapters to match. \\
-\textbf{Sixth channel} & Bandwidth confirmed. If it is LFE-only, the field uses the five full-range channels and sends only derived low-frequency material to the LFE, or takes an additional full-range speaker if the venue supplies and approves one. \\
-\textbf{Network} & Dedicated router or switch, isolated from public traffic, carrying clock, transport, and spatial control. \\
-\textbf{Power} & Seven positions: six laptops and the control laptop. \\
-\textbf{Space} & Six low tables or plinths arranged around the audience field, with the audience inside it. \\
-\textbf{Video} & Projector, screen or projection wall, and an HDMI input near the performance position, for the live spatial score. \\
-\textbf{Will not run with} & Routing hard-coded as six stationary voices. The piece performs spatial rotation by moving sound bodies across the available full-range outputs. \\
-\bottomrule
-\end{tabularx}
-\normalsize
-
-\specbar{SIGNAL PLAN}
-\spectable
-\begin{tabularx}{\linewidth}{L{0.24\linewidth}Y}
-\toprule
-\textbf{Source} & \textbf{House destination} \\
-\midrule
-Laptops 1–5 & Discrete full-range house inputs 1–5 \\
-Laptop 6 & Full-range input 6 if available; otherwise a verified alternate route \\
-Control laptop & Network control and projected score; no fixed audience-audio output \\
-Documentation & Separate stereo fold-down, not the spatial performance bus \\
-\bottomrule
-\end{tabularx}
-\normalsize
-
-\clearpage
-\worktype{Piece 2 · Thursday}{The MacNeoPolitan Trio}{Three laptops, one downbeat, held by the clock rather than a cable.}
+\begin{itemize}
+\item \spec{Machines}{six surplus laptops on AC OS drives, plus a control laptop. Artist-supplied.}
+\item \spec{Audio}{\textbf{six discrete inputs} to the Kalio 5.1; six line-level outs, DI and cabling.}
+\item \spec{Sixth channel}{bandwidth confirmed. If LFE-only, five full-range channels carry the field.}
+\item \spec{Network}{dedicated switch, off public traffic.}
+\item \spec{Power, space, video}{seven positions; six plinths around the audience; projector, screen, and HDMI at the performance position.}
+\item \spec{Will not run with}{six stationary voices. The field rotates across the outputs.}
+\end{itemize}
+\end{minipage}\hfill
+%
+\begin{minipage}[t]{0.315\linewidth}
+\workhead{Piece 2 · Thursday}{macneopolitan-wordmark.png}{Three laptops, one downbeat, held by the clock rather than a cable.}
 
 \begin{center}
-\begin{tikzpicture}[
-  every node/.style={font=\sffamily\bfseries\fontsize{9.5pt}{11pt}\selectfont,align=center},
-  clock/.style={draw=acpurple,very thick,rounded corners=3pt,fill=acpale,minimum width=60mm,minimum height=12mm},
-  mac/.style={very thick,rounded corners=3pt,minimum width=32mm,minimum height=13mm},
-  house/.style={draw=acpink,very thick,rounded corners=3pt,fill=acpink!8,minimum width=32mm,minimum height=11mm},
-  aud/.style={draw=acdark,very thick,rounded corners=3pt,fill=white,minimum width=44mm,minimum height=11mm},
-  flow/.style={-{Stealth[length=3mm]},very thick,draw=acdark}
-]
-\node[clock] (ntp) at (0,0.8) {outbound NTP · one shared downbeat};
-\node[mac,draw=acpurple,fill=acpurple!10] (i) at (-4.5,-1.4) {indigo};
-\node[mac,draw=acorange,fill=acorange!10] (c) at (0,-1.4) {citrus};
-\node[mac,draw=acpink,fill=acpink!10] (b) at (4.5,-1.4) {blush};
-\node[house] (h1) at (-4.5,-3.2) {house input 1};
-\node[house] (h2) at (0,-3.2) {house input 2};
-\node[house] (h3) at (4.5,-3.2) {house input 3};
-\node[aud] (a) at (0,-4.9) {audience in the triangle};
-\draw[flow] (ntp) -- (i);
-\draw[flow] (ntp) -- (c);
-\draw[flow] (ntp) -- (b);
-\draw[flow] (i) -- (h1);
-\draw[flow] (c) -- (h2);
-\draw[flow] (b) -- (h3);
-\draw[flow] (h1) -- (a);
-\draw[flow] (h2) -- (a);
-\draw[flow] (h3) -- (a);
+\begin{tikzpicture}[scale=0.88,every node/.style={transform shape},
+  m/.style={circle,very thick,minimum size=9.5mm,inner sep=0pt,font=\bfseries\fontsize{7pt}{7.6pt}\selectfont},
+  f/.style={-{Stealth[length=2.2mm]},very thick,draw=acdark}]
+\node[draw=acpurple,very thick,rounded corners=3pt,fill=acpale,minimum width=44mm,minimum height=7.5mm,font=\bfseries\fontsize{7pt}{7.8pt}\selectfont] (ntp) at (0,2.75) {outbound NTP · one downbeat};
+\node[circle,draw=acdark,very thick,fill=white,minimum size=14mm,inner sep=0pt,font=\bfseries\fontsize{7pt}{7.8pt}\selectfont] (aud) at (0,0) {audience};
+\node[m,draw=acpurple,fill=acpurple!12] (i) at (90:1.72) {indigo};
+\node[m,draw=acorange,fill=acorange!12] (c) at (210:1.72) {citrus};
+\node[m,draw=acpink,fill=acpink!12] (b) at (330:1.72) {blush};
+\draw[dashed,thick,draw=acgray,-{Stealth[length=2mm]}] (ntp) -- (i);
+\draw[dashed,thick,draw=acgray,-{Stealth[length=2mm]}] (ntp.west) to[out=200,in=140] (c.north west);
+\draw[dashed,thick,draw=acgray,-{Stealth[length=2mm]}] (ntp.east) to[out=340,in=40] (b.north east);
+\draw[f] (i) -- (aud); \draw[f] (c) -- (aud); \draw[f] (b) -- (aud);
+\node[font=\bfseries\fontsize{7pt}{7.6pt}\selectfont,color=acpink] at (0,-2.62) {one voice each · inputs 1, 2, 3};
 \end{tikzpicture}
 \end{center}
-
-Three MacBook Neos — indigo, citrus, and blush — each run Menu Band, the
-instrument that lives in the macOS menu bar, and each plays one voice of a
-trio. The piece runs from a \texttt{.mbscore}: a JSON score declaring three
-machines and one voice each; all three fire at a shared start epoch.
 
 \specbar{SYSTEM REQUIREMENTS}
-\spectable
-\begin{tabularx}{\linewidth}{L{0.20\linewidth}Y}
-\toprule
-\textbf{Machines} & Three MacBook Neos running Menu Band on macOS. Artist-supplied, with the score pre-loaded. \\
-\textbf{Audio} & \textbf{Three discrete full-range positions} forming a triangle around the
-audience, as wide as the room allows, and an interface taking three line-level
-feeds from the machines' own outputs: indigo, citrus, and blush to house
-inputs 1, 2, and 3. \\
-\textbf{Network} & \textbf{Outbound NTP must be reachable.} The machines lock to one downbeat
-through synced wall clocks, typically tens of milliseconds across the fleet.
-There is no audio-clock link and no timecode between them, so a network that
-blocks NTP smears the downbeat. \\
-\textbf{Control} & Whether local clients can reach each other over ssh on the house subnet.
-Conducting from one host uses ssh; if clients are isolated, the fallback is
-arming each machine locally, decided before the technical rehearsal rather than
-during it. \\
-\textbf{Power} & Three positions. \\
-\textbf{Space} & Three stable surfaces at the triangle points. \\
-\textbf{Does not use} & USB boot. These machines run macOS from their own disks; AC OS is x86\_64 UEFI only and will not boot on Apple silicon. \\
-\bottomrule
-\end{tabularx}
-\normalsize
+\begin{itemize}
+\item \spec{Machines}{three MacBook Neos on macOS, score pre-loaded. Artist-supplied.}
+\item \spec{Audio}{\textbf{three full-range positions} in a triangle around the audience; indigo, citrus, blush to inputs 1, 2, 3.}
+\item \spec{Network}{\textbf{outbound NTP.} No cable and no timecode between the machines, so blocked NTP smears the downbeat.}
+\item \spec{Control}{client-to-client ssh, or each machine armed locally — decided before the rehearsal.}
+\item \spec{Power and space}{three positions; three stable surfaces.}
+\item \spec{Does not use}{USB boot. macOS on Apple silicon; AC OS is x86\_64 UEFI.}
+\end{itemize}
+\end{minipage}
 
-\clearpage
-\packettitle{The evening}{Running order · changeover · coda}
+\vspace{0.30em}
+{\color{acpink}\rule{\linewidth}{0.9pt}}
 
-\pageclaim{The swap happens in front of the audience.}
+%% ─── the evening ────────────────────────────────────────────────────────
+\vspace{0.16em}
+\noindent{\acbold\fontsize{13pt}{14pt}\selectfont\color{acdark}The evening\par}
+\vspace{0.14em}
 
 \begin{center}
 \begin{tikzpicture}[
-  every node/.style={font=\sffamily\bfseries\fontsize{9pt}{10.5pt}\selectfont,align=center},
-  tlstep/.style={draw=acpurple,very thick,rounded corners=3pt,fill=acpale,minimum width=25mm,minimum height=16mm},
-  tlswap/.style={draw=acpink,very thick,rounded corners=3pt,fill=acpink!10,minimum width=25mm,minimum height=16mm},
-  flow/.style={-{Stealth[length=3mm]},very thick,draw=acdark}
-]
-\node[tlstep] (p1) at (0,0) {\textbf{Piece 1}\\six laptops};
-\node[tlswap] (sw) at (2.9,0) {\textbf{swap}\\5–10 min\\six out, three in};
-\node[tlstep] (p2) at (5.8,0) {\textbf{Piece 2}\\three Neos};
-\node[tlstep] (talk) at (8.7,0) {conversation};
-\node[tlstep] (play) at (11.6,0) {free play\\audience};
-\draw[flow] (p1) -- (sw);
-\draw[flow] (sw) -- (p2);
-\draw[flow] (p2) -- (talk);
-\draw[flow] (talk) -- (play);
+  s/.style={draw=acpurple,very thick,rounded corners=4pt,fill=acpale,minimum width=30mm,minimum height=10.5mm,font=\bfseries\fontsize{7.8pt}{9pt}\selectfont,align=center},
+  sw/.style={draw=acpink,very thick,rounded corners=4pt,fill=acpink!12,minimum width=34mm,minimum height=10.5mm,font=\bfseries\fontsize{7.8pt}{9pt}\selectfont,align=center},
+  f/.style={-{Stealth[length=3mm]},very thick,draw=acdark}]
+\node[s] (p1) at (0,0) {Piece 1\\six laptops};
+\node[sw] (sw) at (3.7,0) {swap · 5–10 min\\six out, three in};
+\node[s] (p2) at (7.4,0) {Piece 2\\three Neos};
+\node[s] (tk) at (10.8,0) {conversation};
+\node[s] (fp) at (14.0,0) {free play\\audience};
+\draw[f] (p1) -- (sw); \draw[f] (sw) -- (p2); \draw[f] (p2) -- (tk); \draw[f] (tk) -- (fp);
 \end{tikzpicture}
 \end{center}
 
-The move between the pieces is a hardware swap, not a patch change: six
-machines out, three in. The guest set that used to cover it has been cut, so it
-needs five to ten budgeted minutes and a decision about what the room does
-meanwhile — house lights and talking, a held drone from the outgoing machines,
-or the score on the projector. Please advise what CultureHub prefers.
+\vspace{0.04em}
+\noindent
+\begin{minipage}[t]{0.485\linewidth}
+The swap is hardware, not a patch, and it happens in front of the audience: it
+needs budgeted minutes and a decision about what the room does meanwhile —
+lights and talking, a held drone, or the score on the projector. Six line-level
+outs cover both pieces if the patch can change during it; nine if not. The
+instruments stay on afterward, so nothing is struck until the room clears.
 
-Six line-level outputs cover both pieces if the patch can be changed during the
-swap. If it cannot, nine discrete paths are needed.
-
-After the music there is a conversation, and then the instruments stay on for
-the audience to play, so the rig should not be struck until the room clears.
-
-\clearpage
-\packettitle{House request}{The combined list}
-
-\section{Audio and network}
+\spec{Also from the house}{one technical rehearsal long enough to change the
+patch and run both; seating for 20–40 with an accessible route; a stereo
+documentation feed separate from the spatial mix.}
+\end{minipage}\hfill
+\begin{minipage}[t]{0.485\linewidth}
+\specbar{CONFIRM WITH CULTUREHUB}
 \begin{itemize}
-\item Kalio 5.1 system with six independently addressable inputs; sixth-channel bandwidth confirmed.
-\item Interface or interfaces providing \textbf{six} line-level outputs, with the patch changed during the swap; \textbf{nine} if it cannot be changed.
-\item DI boxes, cabling, and adapters appropriate to the confirmed interfaces.
-\item Dedicated router or switch isolated from public traffic.
-\item \textbf{Outbound NTP reachable}, and confirmation of client-to-client ssh on the house subnet.
-\item \textbf{Guest Wi-Fi with internet access and app downloads permitted}, sized for 25–35 devices on the Saturday.
+\item Kalio layout and sixth-channel bandwidth. Six discrete inputs, or a house spatializer?
+\item Interface channels, connectors, sample rate — and \textbf{can the patch change during the swap?}
+\item Network: \textbf{outbound NTP}, client-to-client ssh, \textbf{guest Wi-Fi with app downloads} and its device ceiling.
+\item \textbf{May participant laptops boot from USB in the space?}
+\item Projector and screen; room dimensions, capacity, accessible route; livestream platform and archive ownership.
+\item Load-in, soundcheck, strike hours, changeover time — and \textbf{does September 19 stay separate or fold into the 24th?}
 \end{itemize}
+\end{minipage}
 
-\section{Power, room, projection}
-\begin{itemize}
-\item \textbf{Nine} laptop power positions for the performance, one for the control laptop, conditioned power for audio and network gear, and \textbf{participant power strips for about 20 machines} on the Saturday.
-\item Six low tables or plinths around the audience field, plus \textbf{three stable surfaces} for the MacBook Neos.
-\item Projector, screen or projection wall, and an HDMI input near the performance position.
-\item Central seating for approximately 20–40 people, subject to room capacity.
-\item Snack table and bin for the workshop.
-\item Stereo livestream and documentation feed derived separately from the spatial mix.
-\item One technical rehearsal with CultureHub's audio and streaming staff, long enough to change the patch between the pieces and run both.
-\end{itemize}
+\vspace{0.26em}
+{\color{acpink}\rule{\linewidth}{0.9pt}}
+\vspace{0.06em}
 
-\section{Jeffrey brings}
-\begin{itemize}
-\item Six tested surplus laptops and two spares; six AC OS USB drives and two spares, plus workshop loaner sticks.
-\item Three MacBook Neos, each with Menu Band installed and the score pre-loaded.
-\item Loaner laptops for workshop participants without a machine.
-\item Power supplies for all nine performance machines, and the primary control laptop.
-\item Owned USB, HDMI, and network adapters; software images and offline recovery media.
-\end{itemize}
-
-\clearpage
-\packettitle{Open questions}{What CultureHub confirms · what the artist is carrying}
-
-\section{Confirm with CultureHub}
-\begin{itemize}
-\item Exact Kalio speaker layout, sixth-channel bandwidth, and whether the system accepts six discrete inputs or requires a house spatialization interface.
-\item Available interface channel count, connectors, and sample rate, and \textbf{whether the patch can be changed during the swap}.
-\item Wired network availability and house network policy — \textbf{outbound NTP, and client-to-client ssh}.
-\item \textbf{Whether guest Wi-Fi permits app downloads, and how many devices it holds.}
-\item \textbf{Whether participant laptops may be booted from USB in the space.}
-\item Projector resolution, throw, connectors, and screen location.
-\item Room dimensions, capacity, furniture, and accessible seating route.
-\item Livestream platform, capture format, archive ownership, and file delivery.
-\item Load-in, soundcheck, public-program, and strike hours, and how much changeover time is available.
-\item \textbf{Whether September 19 stays a separate event or folds into September 24.}
-\end{itemize}
-
-\section{Risks the artist is carrying}
-\begin{itemize}
-\item \textbf{The citrus machine is the working development Mac and has 8 GB of RAM}, documented as exhausting memory under load. A hang during Piece 2 stops one of three voices. Mitigation before load-in: perform from a clean boot with nothing else running, or swap in a fourth machine and keep citrus as the spare.
-\item \textbf{No spare third Neo yet.} The blush machine is unpurchased at the time of writing; until it exists there is no redundancy for the trio.
-\item \textbf{Clock drift is the silent failure.} Unlike a dropped cable, a smeared downbeat still plays and just sounds wrong. It gets verified at the technical rehearsal, on the room's actual network.
-\item \textbf{The workshop depends on someone else's network.} Two of the three ways in need working guest Wi-Fi and the third needs USB-boot permission. If all three are blocked the session degrades to the artist's loaner fleet. This is not fixable on the day.
-\end{itemize}
-
-\palsfooter
-\credit{Aesthetic Computer \& Pals · rider revised 18 August 2026}
+\enlargethispage{0.8\baselineskip}
+\noindent\textbf{Jeffrey brings} nine machines and spares, AC OS drives, loaner
+laptops, power supplies, adapters, and recovery media. \textbf{Carried risks:}
+citrus is the 8 GB development Mac and performs from a clean boot; there is no
+third Neo yet; clock drift is silent, and is verified at the rehearsal.
 \end{document}
