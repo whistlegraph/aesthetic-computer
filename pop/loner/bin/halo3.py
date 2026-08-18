@@ -163,7 +163,7 @@ CHART = {
                              # "curled" is ONE word — under whisper.cpp's
                              # sub-word tokens it was cur+led and this was 5.
                              # durs are POST-split indices.
-                             "splits": [4],
+                             "splits": [0, 4],
                              # The bar map, one phrase per bar (@jeffrey:
                              # "curled up should be bar 1 — not bar 1 and
                              # half of bar 2 · and in my should be bar
@@ -207,21 +207,26 @@ CHART = {
                              # squished in time". Swapped to very 3 (1.02×)
                              # and patiently 4 (1.64×); the pair still
                              # totals 7 beats, so "for" is untouched.
-                             # curled 2.5 · up 3 · in 2.5 — the half beat
-                             # curled gives up goes to "in", so my·self
-                             # still starts on bar 3 and every anchor after
-                             # it is untouched.
+                             # SITTING is split too — @jeffrey: "any way we
+                             # can snap sitting so the 'ttin' is beat
+                             # aligned?" It is two syllables sung across
+                             # four beats, so the split at its internal /t/
+                             # lets sit and ting take two beats each and
+                             # the second syllable land square on beat 2.
+                             # Then curled 2.5 · up 2.5 · in 3 — "in" on
+                             # bar 2 beat 2 — and my·self still starts on
+                             # bar 3, so no anchor after it moves.
                              # curled 3 · up 3. Everything downstream
                              # falls onto bars by itself: my·self is bar 3,
                              # i·think is bar 4, and "think" ends exactly
                              # on 20 — so OF starts the instant think ends
                              # ("of should start sooner, right after
                              # 'think' ends") with no rest needed at all.
-                             "durs": { 0: 4.0, 1: 2.5, 2: 3.0, 3: 2.5,
-                                       4: 2.0, 5: 2.0, 6: 2.0, 7: 2.0,
-                                       8: 4.0, 9: 4.0, 10: 3.0,
+                             "durs": { 0: 2.0, 1: 2.0, 2: 2.5, 3: 2.5,
+                                       4: 3.0, 5: 2.0, 6: 2.0, 7: 2.0,
+                                       8: 2.0, 9: 4.0, 10: 4.0, 11: 3.0,
                                        # very longer, patiently slower
-                                       13: 4.0, 14: 5.0 },
+                                       14: 4.0, 15: 5.0 },
                              # rest AFTER the given unit, in beats
                              # "the in should start sooner — at start of
                              # bar 2": the rest after up goes entirely, so
@@ -240,7 +245,7 @@ CHART = {
                              # instead of a 2.3× synthesized tone) with a
                              # 1-beat rest, which lands "just" square on the
                              # bar 8 downbeat.
-                             "gaps": { 10: 1.0 } },
+                             "gaps": { 11: 1.0 } },
     "w-sitting-curled":    { "slice": "f-sitting-curled",    "beats": 11.0 },
     "w-i-think":           { "slice": "f-i-think",           "beats": 3.5 },
     "w-of-a-stone":        { "slice": "f-of-a-stone",        "beats": 8.0 },

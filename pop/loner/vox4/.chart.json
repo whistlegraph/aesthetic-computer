@@ -55,10 +55,17 @@
   "notes": [
    {
     "beat": 0.0,
-    "dur": 4.0,
+    "dur": 2.0,
     "st": 7,
-    "t": "sitting",
+    "t": "sitting\u00b7a",
     "lead": 0.0407
+   },
+   {
+    "beat": 2.0,
+    "dur": 2.0,
+    "st": 7,
+    "t": "sitting\u00b7b",
+    "lead": 0.0
    },
    {
     "beat": 4.0,
@@ -69,14 +76,14 @@
    },
    {
     "beat": 6.5,
-    "dur": 3.0,
+    "dur": 2.5,
     "st": 2,
     "t": "up",
     "lead": 0.0
    },
    {
-    "beat": 9.5,
-    "dur": 2.5,
+    "beat": 9.0,
+    "dur": 3.0,
     "st": 0,
     "t": "in",
     "lead": 0.0

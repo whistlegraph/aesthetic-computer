@@ -618,8 +618,20 @@ int main(void) {
         double off = p->leadIn;                 // the pickup sits ahead of beat 0
         printf("  MINIMAL — kick + vocals, ONE pass, no count-in, line %.0f beats\n",
                p->beats);
-        for (int bar = 0; bar < kickBars; bar++)
-            for (int b = 0; b < 4; b++) kick(off + at(bar) + b * BEAT, 0.95);
+        // hats too — @jeffrey: "can we add little hi hats so we can get a
+        // better head on the beat in this monitor video?" Four on the
+        // floor alone tells you where the bar is but not where you are
+        // inside it; offbeat air-hats give the 8ths, and quiet 16th ticks
+        // give the subdivision the words are actually being placed on.
+        for (int bar = 0; bar < kickBars; bar++) {
+            double t = off + at(bar);
+            for (int b = 0; b < 4; b++) kick(t + b * BEAT, 0.95);
+            for (int b = 0; b < 4; b++)
+                airhat(t + (b + 0.5) * BEAT, 0.15, (b % 2) ? 0.3 : -0.3);
+            for (int s = 0; s < 16; s++)
+                tick(t + s * STEP, (s % 4 == 0) ? 0.10 : 0.05,
+                     (s % 2) ? 0.28 : -0.22);
+        }
         sung("w-whole-line", 0.0, 0.98, 0, 0.0);
         goto mixdown;
     }

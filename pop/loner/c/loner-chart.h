@@ -13,10 +13,11 @@ typedef struct { const char *name; double leadIn; double beats;
                  int n; const ChartNote *notes; } ChartPhrase;
 
 static const ChartNote w_whole_line_notes[] = {
-    { 0.00, 4.00, 7 },
+    { 0.00, 2.00, 7 },
+    { 2.00, 2.00, 7 },
     { 4.00, 2.50, 3 },
-    { 6.50, 3.00, 2 },
-    { 9.50, 2.50, 0 },
+    { 6.50, 2.50, 2 },
+    { 9.00, 3.00, 0 },
     { 12.00, 2.00, 5 },
     { 14.00, 2.00, 5 },
     { 16.00, 2.00, -2 },
@@ -88,7 +89,7 @@ static const ChartNote w_n_for_time_to_pass_notes[] = {
 };
 
 static const ChartPhrase CHART[] = {
-    { "w-whole-line", 0.490, 64.50, 19, w_whole_line_notes },
+    { "w-whole-line", 0.490, 64.50, 20, w_whole_line_notes },
     { "w-sitting-curled", 0.020, 11.00, 5, w_sitting_curled_notes },
     { "w-i-think", 0.020, 3.50, 2, w_i_think_notes },
     { "w-of-a-stone", 0.000, 8.00, 3, w_of_a_stone_notes },

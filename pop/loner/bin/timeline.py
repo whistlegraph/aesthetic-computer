@@ -164,9 +164,11 @@ def label_of(t):
     t = t.replace("·a", "").replace("·b", "")
     return {"myself": "my" , }.get(t, t).lower()
 # the split halves get their sung syllables back
+SYLL = {"myself·a": "my", "myself·b": "self",
+        "sitting·a": "sit", "sitting·b": "ting"}
 def word_text(t):
-    if t.endswith("·a"): return {"myself·a": "my"}.get(t, t[:-2].lower())
-    if t.endswith("·b"): return {"myself·b": "self"}.get(t, t[:-2].lower())
+    if t.endswith(("·a", "·b")):
+        return SYLL.get(t, t[:-2].lower())
     return t.lower()
 
 # ── the static roll strip (whole song wide), scrolled per frame ───────
