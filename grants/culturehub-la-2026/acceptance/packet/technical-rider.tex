@@ -36,6 +36,10 @@
   \begingroup\setlength{\fboxsep}{3.4pt}%
   \colorbox{acdark}{\color{white}\bfseries\fontsize{8.6pt}{9.6pt}\selectfont #1}%
   \endgroup\vspace{0.12em}\par}
+\newcommand{\specbartop}[1]{%
+  \begingroup\setlength{\fboxsep}{3.4pt}%
+  \colorbox{acdark}{\color{white}\bfseries\fontsize{8.6pt}{9.6pt}\selectfont #1}%
+  \endgroup\vspace{0.12em}\par}
 \newcommand{\bandhead}[1]{%
   {\bfseries\fontsize{13pt}{14pt}\selectfont\color{acdark}#1\par}}
 
@@ -184,7 +188,7 @@ empties.
 
 \end{minipage}\hfill
 \begin{minipage}[t]{0.485\linewidth}
-\specbar{WHAT I NEED FROM YOU}
+\specbartop{WHAT I NEED FROM YOU}
 \begin{itemize}
 \item Your Kalio layout, and whether the sixth channel is full-range. Six discrete inputs, or does it want a house spatializer? \textbf{Can we repatch during the swap, or do I need nine paths?}
 \item Does the network allow \textbf{outbound NTP}, can clients reach each other over ssh, and does guest Wi-Fi allow \textbf{app downloads}? \textbf{Can people boot from USB in the space?}

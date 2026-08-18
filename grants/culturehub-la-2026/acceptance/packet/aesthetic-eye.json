@@ -4,8 +4,8 @@
   "pdf": "technical-rider.pdf",
   "expectedDiagrams": 4,
   "visualInference": true,
-  "pdfSha256": "48a3810b025bf7d09d86b2976dd2eb673d3a1cdfa4cc4856253df3b0c2c11fa3",
-  "reviewedAt": "2026-08-18T22:05:00Z",
+  "pdfSha256": "1e30687ec06dccc5c5db6cc5ab183a8e771e13768f69227a4fd265525b980aa1",
+  "reviewedAt": "2026-08-18T22:30:00Z",
   "reviewer": {
     "kind": "visual-inference",
     "agent": "Claude"

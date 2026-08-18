@@ -2,48 +2,38 @@
 
 To: Mattie BB <mattie@culturehub.org>
 Cc: Jeonghyeon Joo <jeonghyeonjoo@gmail.com>
-Subject: Technical rider — AC Presents 2 New Pieces, September 16–25
-Attach: `packet/technical-rider.pdf` (7 pp., revised 2026-08-18)
+Subject: Technical rider — AC Presents 2 New Pieces
+Attach: `packet/technical-rider.pdf` (one sheet, 8.5 × 12.1 in)
 
 ---
 
 Hi Mattie,
 
-Technical rider attached — please pass it to whoever runs the room. It covers
-both events, the workshop and the performance, and it accounts for the guest
-cut.
+Rider attached — one sheet. Please pass it to whoever runs the room.
 
-Three of its questions have long lead times, so I want to raise them here
-rather than bury them in a PDF:
+Three things have long lead times, so I'll say them here as well.
 
-**Guest Wi-Fi.** The Saturday workshop needs a network that holds 25–35 devices
-and permits app downloads, not browsing only. Two of the three ways people get
-in that afternoon die at a captive portal, and that is not something we can fix
-on the day.
-
-**USB boot.** Participants boot their own laptops into AC OS from a stick.
-Nothing is installed and nothing on their disks changes, but it needs your
+The Saturday workshop needs guest Wi-Fi that allows app downloads, not just
+browsing. Without downloads nobody installs Menu Band and a third of the room
+can't get in. Same afternoon, people boot their own laptops off my USB sticks —
+nothing is installed and nothing on their disks changes, but I need your
 blessing in advance.
 
-**Outbound NTP.** The three MacBook Neos lock to one downbeat through synced
-clocks — there is no cable between them. If the house network blocks NTP, the
-downbeat smears, and a smeared downbeat still plays, so it fails quietly rather
-than obviously.
+The trio needs outbound NTP. There is no cable and no timecode between those
+three machines; they agree by clock. If the network blocks NTP the downbeat
+smears, and a smeared downbeat still plays, so it fails quietly instead of
+obviously.
 
-Beyond those: the Kalio layout and whether the sixth channel is full-range,
-your available interfaces and channel count, and the projector position. I have
-assumed six discrete inputs for the first work and three for the second, with a
-patch change between them.
+And the swap between the two pieces is a hardware change — six machines off,
+three on. The guest set used to cover it, so now it happens in front of the
+audience and needs five to ten minutes budgeted.
 
-Two scheduling notes. The changeover between the works is a hardware swap, six
-machines out and three in — it was covered by the guest set, so it now needs
-five to ten minutes budgeted in front of the audience. And after the music, the
-instruments stay on for people to play, so the rig should not be struck until
-the room clears.
+The rest is on the sheet: your Kalio layout, whether the sixth channel is
+full-range, and whether we can repatch mid-show or I should plan for nine
+paths.
 
-The rider covers both events as separately scheduled. If Saturday folds into
-Thursday, the workshop's requirements move to Thursday afternoon and nothing
-else changes — I will re-cut it either way.
+Still open on my end is Saturday the 19th, or folding everything into the 24th.
+Tell me which and I'll re-cut the program.
 
 Best,
 
