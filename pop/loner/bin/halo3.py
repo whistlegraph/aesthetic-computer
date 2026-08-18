@@ -236,7 +236,7 @@ CHART = {
                                        # so "of" keeps beat 19 and stone its
                                        # bar 6 beat 2.
                                        7: 3.0,
-                                       8: 1.0, 9: 4.0, 10: 2.0, 11: 2.0,
+                                       8: 2.0, 9: 4.0, 10: 2.0, 11: 2.0,
                                        # very longer, patiently slower
                                        14: 4.0, 15: 5.0 },
                              # words whose syllables carry a melody must not
@@ -269,7 +269,6 @@ CHART = {
                              # 1-beat rest, which lands "just" square on the
                              # bar 8 downbeat.
                              "gaps": { 3: 0.5,   # "in" leans in behind the downbeat
-                                       8: 1.0,   # a breath before the octave
                                        11: 1.0 } },
     "w-sitting-curled":    { "slice": "f-sitting-curled",    "beats": 11.0 },
     "w-i-think":           { "slice": "f-i-think",           "beats": 3.5 },
