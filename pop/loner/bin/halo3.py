@@ -252,10 +252,10 @@ CHART = {
                              "sylls": { 12: [(None, "ve"), (15.05, "ry")],
                                         13: [(None, "pa"), (16.80, "tient"),
                                              (17.70, "ly")] },
-                             # "pa" sings F4, a leap up from very's A#3.
-                             # Down one scale step to D#4 keeps the phrase
-                             # from jumping before it descends.
-                             "shift": { 16: -2 },
+                             # "pa" stays on the F4 she sings — the leap up
+                             # from very's A#3 is the point of the phrase,
+                             # not something to smooth away. (`shift` is
+                             # still there if a unit ever needs moving.)
                              # source seconds, read off her onsets, for the
                              # words whisper-1 mistimed. PRE-split indices.
                              "end": 24.25,
@@ -284,8 +284,6 @@ CHART = {
                              # 1-beat rest, which lands "just" square on the
                              # bar 8 downbeat.
                              "gaps": { 3: 0.5,   # "in" leans in behind the downbeat
-                                       4: 1.0,   # …and a beat before "my",
-                                                 # everything after shifting with it
                                        } },
     "w-sitting-curled":    { "slice": "f-sitting-curled",    "beats": 11.0 },
     "w-i-think":           { "slice": "f-i-think",           "beats": 3.5 },
