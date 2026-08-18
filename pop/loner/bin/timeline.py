@@ -65,7 +65,7 @@ FRAMES = int(math.ceil(dur * FPS))
 F = lambda s: ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", s)
 f_title, f_bar, f_word, f_note, f_tiny = F(40), F(28), F(34), F(22), F(22)
 M = lambda s: ImageFont.truetype("/System/Library/Fonts/Menlo.ttc", s)
-f_tc, f_tc_small = M(38), M(22)
+f_tc, f_tc_small, f_beat = M(38), M(22), M(20)
 
 # ── the actual sung waveform, so the eye can audit the trim ───────────
 # @jeffrey: "check the length of the actual waveforms in the utterances,
@@ -131,7 +131,7 @@ def note_name(st):
     return f"{CHROM[st % 12]}{3 + (st + 10) // 12}"
 
 STS = sorted({n["st"] for n in chart["notes"]})
-ROLL_TOP, ROLL_BOT = 190, 900
+ROLL_TOP, ROLL_BOT = 210, 900
 def y_of(st):
     lo, hi = min(STS) - 1, max(STS) + 1
     return ROLL_BOT - (st - lo) / (hi - lo) * (ROLL_BOT - ROLL_TOP)
@@ -151,15 +151,27 @@ strip = Image.new("RGB", (STRIP_W, H), CREAM)
 d = ImageDraw.Draw(strip, "RGBA")
 X = lambda beat: int(round(beat * PXB)) + PLAYHEAD_X   # beat → strip x
 
-# beat + bar grid
+# beat + bar grid — @jeffrey: "can we add numbers for each beat in each
+# bar in the output · and colour code the columns so we have stronger
+# identifiers". Each beat column gets its own tint, cycling 1-2-3-4, so
+# the downbeat reads pink and the others step through the paper palette;
+# every column is numbered under the bar label. Now a note can be named
+# out loud — "bar 3 beat 3" — and found by eye without counting.
+BEAT_TINT = [(255, 102, 168, 30),      # 1 — the downbeat
+             (92, 118, 180, 15),       # 2
+             (26, 26, 34, 14),         # 3
+             (92, 118, 180, 15)]       # 4
 for b in range(0, TOTAL_BEATS + 1):
-    x = X(b)
+    x, xn = X(b), X(b + 1)
+    d.rectangle([x, ROLL_TOP, xn - 1, ROLL_BOT], fill=BEAT_TINT[b % 4])
     if b % 4 == 0:
-        d.line([(x, ROLL_TOP - 40), (x, ROLL_BOT + 90)], fill=SOFT, width=2)
-        d.text((x + 8, ROLL_TOP - 38), f"bar {b // 4 - 2}" if b >= 8 else
+        d.line([(x, ROLL_TOP - 60), (x, ROLL_BOT + 90)], fill=SOFT, width=3)
+        d.text((x + 8, ROLL_TOP - 58), f"bar {b // 4 - 2}" if b >= 8 else
                ("count-in" if b == 0 else ""), font=f_bar, fill=INK)
     else:
         d.line([(x, ROLL_TOP), (x, ROLL_BOT)], fill=FAINT, width=1)
+    d.text((x + 8, ROLL_TOP - 26), str(b % 4 + 1), font=f_beat,
+           fill=PINK if b % 4 == 0 else SOFT)
 
 # pitch guide rows
 for st in STS:

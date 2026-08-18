@@ -218,7 +218,14 @@ CHART = {
                              # is bar 3, i·think bar 4. The freed beats go
                              # to the self/i rest and to think, so "of"
                              # still holds bar 5 and nothing after moves.
-                             "gaps": { 5: 2.0,   # space between self and i
+                             # "the 'i' should come after self ends — bar
+                             # 3 beat 3": self's audio really stops at
+                             # 13.8, so i takes 14 and "i think" runs
+                             # contiguous 14–18. The two spare beats
+                             # become a rest before the octave instead,
+                             # which is her own gap after "think" (0.36
+                             # beats) opened up into an anticipation.
+                             "gaps": { 7: 2.0,   # air before OF, the octave
                                        10: 4.0 } },  # the bar break after stone
     "w-sitting-curled":    { "slice": "f-sitting-curled",    "beats": 11.0 },
     "w-i-think":           { "slice": "f-i-think",           "beats": 3.5 },
