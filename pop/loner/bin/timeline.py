@@ -244,15 +244,20 @@ for pb in PASSES:
         if vo is not None and vo - n["beat"] > 0.02:   # a real consonant runway
             xv = X(pb + vo)                            # pb: this pass's offset
             d.line([(xv, y0 - 5), (xv, y1 + 5)], fill=BLUE, width=3)
+        # @jeffrey: "the notes should be notated over or after the clips,
+        # not overlapping · and the words maybe should centre in the clip".
+        # The note name used to sit INSIDE the block, on top of the very
+        # waveform the block exists to show. It goes above the clip now,
+        # the way a chord symbol sits over a staff, and the word centres.
         txt = word_text(n["t"])
         tw = d.textlength(txt, font=f_word)
-        wide = (x1 - x0) > tw + 20
-        d.text((x0 + (10 if wide else 4), y - 17), txt, font=f_word, fill=INK)
-        if (x1 - x0) > tw + 70:
-            shadowed(d, (x0 + 14 + tw + 8, y - 10), note_name(n["st"]), f_note,
-                     (238, 234, 230, 190), r=1)
+        lab = (x0 + max(4, (x1 - x0 - tw) / 2), y - 17)
+        shadowed(d, lab, txt, f_word, PINK_HOT)
+        shadowed(d, (x0 + 2, y0 - 27), note_name(n["st"]), f_note,
+                 (238, 234, 230, 200), r=1)
         # media time, not beat time: t=0 is the pickup, beat 0 is LEAD_IN in
-        BLOCKS.append((x0, x1, y0, y1, LEAD_IN + b0 * SPB, LEAD_IN + b1 * SPB))
+        BLOCKS.append((x0, x1, y0, y1, LEAD_IN + b0 * SPB, LEAD_IN + b1 * SPB,
+                       txt, lab))
 
 strip_np = np.asarray(strip, dtype=np.uint8)
 
@@ -298,13 +303,17 @@ for i in range(FRAMES):
     d2.text((40, 26), "loner — kick + vocals study", font=f_title, fill=INK)
     d2.text((40, 84), sub, font=f_tiny, fill=BLUE)
     # active word glow
-    for (x0, x1, y0, y1, t0, t1) in BLOCKS:
+    for (x0, x1, y0, y1, t0, t1, txt, lab) in BLOCKS:
         if t0 <= t < t1:
             lx0, lx1 = x0 - px, x1 - px
             if lx1 > 0 and lx0 < W:
                 # outline-only: the waveform inside stays scrutinizable
                 d2.rounded_rectangle([lx0, y0, lx1 - 1, y1], 10,
                                      fill=(255, 92, 162, 58), outline=PINK, width=4)
+                # the highlight paints over the label baked into the strip,
+                # so the word being sung — the one you most want to read —
+                # was the faintest on screen. Put it back on top.
+                shadowed(d2, (lab[0] - px, lab[1]), txt, f_word, (255, 255, 255))
     # kick flash
     kb = int(math.floor(beat))
     if 0 <= kb < KICK_BEATS and (beat - kb) < 0.22:
