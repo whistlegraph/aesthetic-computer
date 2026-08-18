@@ -21,7 +21,7 @@ runtime = function acRuntime() {
 };
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 73;
+const buildVersion = 74;
 const floorY = 1800;
 // The tower. @jeffrey played the padded room on the console and asked for a
 // tall map: the fight should happen on the way up, not back and forth across
@@ -1011,6 +1011,12 @@ let replayLastCommand = [-1, -1];
 let replayNextCheckpointAt = 0;
 let matchName = "";
 let seriesName = "";
+// The app run's own name, distinct from any round or series: rounds are born
+// and buried every thirty seconds, but the console sitting on the title screen
+// is still a running program somebody may want to attach to. One name from
+// boot to quit, drawn beside the debug bug, carried as sessionId in every live
+// frame, and used as the relay room while no timed round is publishing.
+let sessionName = "";
 let previousRoundName = "";
 let roundReplayFrames = [];
 let roundReplayLastAt = 0;
@@ -1049,6 +1055,9 @@ let navigationPrevious = [[], []];
 // Temporary live combat inspector. Keep this explicit so the production view
 // can return to a clean presentation without changing combat geometry.
 let debugHitboxes = false;
+// One FIGHT_DEBUG_PERF telemetry line per debug toggle, so the console's log
+// can prove the fps row drew without narrating every frame.
+let debugPerfReported = false;
 let nextInputDebugAt = 0;
 let frameTelemetry = [];
 let frameTelemetryFlushAt = 0;
@@ -1056,6 +1065,14 @@ let lastPaintAt = 0;
 let displayFps = 0;
 let liveSequence = 0;
 let liveNextAt = 0;
+// The session room ticks slower than a round room: nobody spectates a title
+// screen at 20Hz, and an agent reading fps is happy at four.
+const sessionSnapshotIntervalUs = 250000;
+let sessionNextAt = 0;
+// Which round the session room was last told about, so the hand-off frame
+// goes out exactly once per round instead of flapping the native shell's
+// single publisher socket every tick.
+let sessionAnnouncedRound = "";
 let spectatorQr = null;
 // Encoding a code costs about 59ms and is the whole 50-100ms tail in the
 // frame histogram: it ran at every round reset, for a URL that changes once
@@ -1174,7 +1191,10 @@ function startReplay(now) {
   };
   replayLastCommand = [-1, -1];
   replayNextCheckpointAt = now;
-  liveSequence = 0;
+  // The sequence counter survives the match: every round room is born empty,
+  // so a fresh room takes any first number — but the session room lives from
+  // boot to quit, and the relay silently drops a frame whose sequence ever
+  // runs backwards. One counter, never rewound, serves them both.
   liveNextAt = now;
   livePublishFailed = false;
   spectatorQr = null;
@@ -1219,17 +1239,23 @@ function spectatorState(now, nextRoundId = "") {
   const run = runtime();
   const introAge = now - roundStartedAt;
   const phase = instantReplay ? "replay" : matchOver ? "match"
-    : roundResult ? "round" : introAge < introDurationUs ? "intro" : "fight";
+    : roundResult ? "round" : selecting ? "select"
+    : introAge < introDurationUs ? "intro" : "fight";
   const timed = roundIsTimed();
-  const remainingMs = roundResult ? 0 : timed ? Math.max(0,
-    Math.round((roundDurationUs - roundElapsedUs) / 1000)) : null;
+  // An untimed frame reports zero rather than null: the relay reads every
+  // remainingMs as an integer, and the title screen's attract fight has no
+  // clock to misreport.
+  const remainingMs = roundResult || !timed ? 0 : Math.max(0,
+    Math.round((roundDurationUs - roundElapsedUs) / 1000));
   const state = {
     format: "ac.oskiewar.live", version: 1, seq: liveSequence++,
     at: run.unixMs || 0, phase,
-    seriesId: "ow-" + seriesName, roundId: "ow-" + matchName,
     previousRoundId: previousRoundName ? "ow-" + previousRoundName : "",
     fighters: players.map((player) => ({
-      name: player.name, nation: player.nation || "", color: player.color,
+      // The title's still variant seats a fighter with no name yet, and the
+      // relay turns away a nameless one — so the empty seat gets called what
+      // it is rather than costing the whole frame.
+      name: player.name || "NOBODY", nation: player.nation || "", color: player.color,
       x: player.x, y: player.y,
       z: player.z, vx: player.vx, vy: player.vy, vz: player.vz,
       facing: player.facing, alive: player.alive,
@@ -1258,8 +1284,16 @@ function spectatorState(now, nextRoundId = "") {
     // already leaves the box, so the frame rate rides out with the round and
     // can be read from anywhere the round can.
     perf: spectatorPerf(run),
-    replayUrl: "/api/oskiewar-replays?id=ow-" + matchName,
   };
+  // A title-screen frame has no series, no round and no demo to link — the
+  // relay rejects an id it cannot parse, so an empty name stays off the wire
+  // entirely rather than riding out as "ow-".
+  if (seriesName) state.seriesId = "ow-" + seriesName;
+  if (matchName) {
+    state.roundId = "ow-" + matchName;
+    state.replayUrl = "/api/oskiewar-replays?id=ow-" + matchName;
+  }
+  if (sessionName) state.sessionId = "ow-" + sessionName;
   if (nextRoundId) state.nextRoundId = nextRoundId;
   return state;
 }
@@ -1276,6 +1310,42 @@ function publishSpectator(now, { target = matchName, nextRoundId = "",
   } catch (error) {
     // A native host with an older room-ID contract must never take down play.
     // Disable only spectator publishing until the next match/host upgrade.
+    livePublishFailed = true;
+    telemetry("OSKIEWAR_LIVE_DISABLED", String(error?.message || error));
+  }
+}
+
+// The session channel. Rounds publish their own rooms, but the app run itself
+// keeps one room under its own name so an agent has somewhere to attach while
+// nothing is being scored — the title screen included. It runs only while the
+// debug bug is lit: every anonymous visitor idling on oskiewar.com would
+// otherwise claim one of the relay's 128 rooms, and this channel exists for a
+// maintainer who asked for it, not for an audience. While a timed round is on
+// the wire the session room instead gets exactly one frame naming that round,
+// which both points any watcher at the fight and retires this room's publisher
+// so the native shell's single socket is free to follow.
+function publishSession(now) {
+  if (!debugHitboxes || !sessionName || livePublishFailed ||
+      typeof publishLive !== "function") return;
+  const liveRound = roundIsTimed() && matchName ? matchName : "";
+  if (liveRound) {
+    if (sessionAnnouncedRound === liveRound) return;
+    sessionAnnouncedRound = liveRound;
+    try {
+      publishLive("ow-" + sessionName,
+        JSON.stringify(spectatorState(now, "ow-" + liveRound)));
+    } catch (error) {
+      livePublishFailed = true;
+      telemetry("OSKIEWAR_LIVE_DISABLED", String(error?.message || error));
+    }
+    return;
+  }
+  sessionAnnouncedRound = "";
+  if (now < sessionNextAt) return;
+  sessionNextAt = now + sessionSnapshotIntervalUs;
+  try {
+    publishLive("ow-" + sessionName, JSON.stringify(spectatorState(now)));
+  } catch (error) {
     livePublishFailed = true;
     telemetry("OSKIEWAR_LIVE_DISABLED", String(error?.message || error));
   }
@@ -2341,6 +2411,7 @@ function consumeSystemButtons(now) {
     const previous = navigationPrevious[index];
     if (down.includes("View") && !previous.includes("View")) {
       debugHitboxes = !debugHitboxes;
+      debugPerfReported = false;
       telemetry("FIGHT_DEBUG", debugHitboxes ? "on" : "off");
     }
     if (down.includes("Menu") && !previous.includes("Menu")) pressed = true;
@@ -2845,6 +2916,13 @@ function gameBoot() {
   // The reel harness may boot with the debug overlay lit — safe-zone crops,
   // stat chassis, input read-outs — to diagnose framing on a rendered reel.
   if (globalThis.__oskiewarDebugOverlay === true) debugHitboxes = true;
+  // Name the session once. A client-error restart re-runs boot inside the
+  // same app run, and whoever attached to the session should not lose it to
+  // a crash the restart exists to paper over.
+  if (!sessionName) {
+    seedNames(Math.floor(Math.random() * 4294967296));
+    sessionName = pronounceableMatchName();
+  }
   startedAt = runtime().monotonicUs;
   roundStartedAt = startedAt;
   lastSimAt = startedAt;
@@ -5906,6 +5984,9 @@ function gameSim() {
     telemetry("FIGHT_INPUT", values.join(" | "));
   }
   recordReplayCommands(now, inputPads);
+  // Session first: the hand-off frame must leave before the round's first
+  // frame walks the native shell's one socket over to the round room.
+  publishSession(now);
   publishSpectator(now);
   if (roundResult) {
     // The scored tail. The killcam dwell used to be the reel's quietest
@@ -9794,6 +9875,14 @@ function drawHudStatusTray(clock, ink, unixMs) {
     const top = safe.bottom - statusCell;
     drawDebugBug(viewCenterX(), top + statusCell / 2 + 2,
       statusCell / 26);
+    // The session's name rides beside the bug: it is what a telemetry agent
+    // attaches to, and debug mode is exactly the moment somebody wants to
+    // read that name off the screen and type it into a terminal.
+    if (sessionName) {
+      const size = Math.max(17, Math.round(statusCell * .4));
+      typeWrite(sessionName, viewCenterX() + statusCell * .62,
+        top + statusCell / 2 + 2 - size / 2, size, ...ink);
+    }
   }
   if (!tray) return;
   const lit = typeof capabilities === "function" &&
@@ -9843,7 +9932,11 @@ function spectatorQrBox() {
 }
 
 function drawDebugPerformance(ink) {
-  if (!debugHitboxes || shellMode !== "GAME" || roundResult) return;
+  // The wordmark screen used to hide this row, but the title is a running
+  // fight with a frame budget of its own — debug mode reads the machine, not
+  // the match, so the numbers stay up wherever the bug is lit. Only a round's
+  // result card still clears the lane, because the card owns it.
+  if (!debugHitboxes || roundResult) return;
   const metaSize = debugReadoutMetaSize();
   const run = runtime();
   // Every line waits for a real measurement. The read-out used to answer with
@@ -9876,6 +9969,15 @@ function drawDebugPerformance(ink) {
   // ammo row keeps its own lane a stat card further up, well clear of this.
   const lane = playerHandleLayout(players[0], 0);
   let y = lane.y - metaSize - 6;
+  // One line of proof per debug toggle: the console renders this read-out
+  // where no devtools can confirm it, so the Device Portal log gets told the
+  // row was actually drawn, with what, and where.
+  if (!debugPerfReported) {
+    debugPerfReported = true;
+    telemetry("FIGHT_DEBUG_PERF", rate + (timing ? " | " + timing : "") +
+      " | lane=" + Math.round(lane.x) + "," + Math.round(y) +
+      " session=" + sessionName);
+  }
   for (const [index, label] of [rate + surface, timing].entries()) {
     if (!label) continue;
     const size = index ? debugReadoutTimingSize() : metaSize;

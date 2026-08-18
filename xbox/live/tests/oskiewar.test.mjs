@@ -87,7 +87,7 @@ function createFight(startImmediately = true, enterGame = true,
   const drawLine = (...values) => lines.push(values);
   const fight = new Function(
     "runtime", "gamepad", "capabilities", "telemetry", "gameSignal", "saveReplay", "publishLive", "analytics", "drum", "wipe", "box", "line", "triangle", "triangle3d", "triangles3d", "write", "systemWrite", "gameView",
-    `${source}\nreturn { boot, sim, paint, playDrum, captureClientError, drawDetachedPart, clientErrorState: () => clientError, clientErrorDetailState: () => clientErrorDetail, errorReportStatus, errorRestartSeconds, combatLegend, commandFade, dummyPopLine, filledDisc, spectatorCode, runShadow, glyphColor, contrastShadow, stateDumpRows, dumpTokens, dumpTokenInk, clientErrorDumpState: () => ({ url: clientErrorDumpUrl, modules: clientErrorQr ? clientErrorQr.getModuleCount() : 0 }), controlLocale, animatedTitleColor, comicGlyphAdvance, handleWidth, displayTheme, players, ball, balls, bullets, grenades, gunPickups, grenadePickups, bodyTrees, treeFruit, detachedParts, runnerWorldGeometry, fighterAnimationPhase, runnerDistanceToPoint, segmentSegmentClosest, meleeLimbContact, damagePart, isPogo, isHeadOnly, resultCardText, pacificTimeLabel, projectedBallRadius, deathCinematicState: () => deathCinematic ? { ...deathCinematic, age: deathCinematicAge() } : null, disableBall: () => { ballEnabled = false; for (const item of balls) item.active = false; }, enableBall: (index = 0) => { ballEnabled = true; const item = balls[index]; item.active = true; item.serveAt = 0; item.safeUntil = 0; item.safePlayers = 0; }, setWind: (value) => { windAcceleration = value; }, setDebugHitboxes: (value) => { debugHitboxes = Boolean(value); }, debugState: () => debugHitboxes, windState: () => ({ direction: windDirection, mph: windMph }), nextRound: () => resetRound(runtime().monotonicUs, false), knockOut: () => killPlayer(players[1], 0, runtime().monotonicUs, "KO"), selfBallDummy: () => killPlayer(players[1], 1, runtime().monotonicUs, "BALLED"), startAttack: (kind) => startMelee(players[0], kind, runtime().monotonicUs), bootFirstBall: () => bootBall(ball, players[0], runtime().monotonicUs), wackBall: () => { players[0].attackKind = "KICK"; returnBall(ball, players[0], runtime().monotonicUs, false); }, shieldBall: () => returnBall(ball, players[0], runtime().monotonicUs, true), crossWackBall: (contact = 1) => crossWackBall(ball, players.map((player) => ({ player, contact })), runtime().monotonicUs), enterGame: () => enterGame(runtime().monotonicUs), shellState: () => ({ mode: shellMode }), startFight: () => { shellMode = "GAME"; selecting = false; players[1].npc = false; players[1].bot = false; applyRoster(players[1], 2); startReplay(runtime().monotonicUs); matchBallType = "soccer"; resetRound(runtime().monotonicUs, true); }, startFightAgainst: (kind) => startFightAgainst(kind, runtime().monotonicUs), palSelect: () => PAL_SELECT, titleToyState: () => ({ title: titleToys.map((toy) => ({ ...toy })), prompt: promptToys.map((toy) => ({ ...toy })), bounce: promptBounce }), selectionState: () => ({ selecting, step: selectionStep, cursor: selectionCursor, ready: selectionReady.slice() }), selectionOptions: () => selectionOptions().map((option) => ({ kind: option.kind, label: option.fighter.handle, disabled: Boolean(option.disabled) })), cameraState: () => ({ cameraWidth, cameraCenter, cameraCenterY, cameraAspect, stageRight, stageTop, stageBottom, viewHeight, cameraContainFloor, doll: { width: cameraDoll.width, target: { ...cameraDoll.target }, position: { ...cameraDoll.position }, perspective: cameraDoll.perspective, roll: cameraDoll.roll } }), screenBounds: () => players.map((player) => runnerScreenBounds(player, runtime().monotonicUs / 1e6)), dumpTokens, dumpTokenInk, drawCornerCrops, playerStatLines, playerHandleLayout, statStackHeight, setBallKind: (type) => { matchBallType = type; resetBalls(runtime().monotonicUs); }, ballTypeState: () => matchBallType, seriesBallType, seriesState: () => seriesName, selectionLayout: selectionTouchLayout, actionSafeRect, hudSafeRect, projectPoint, terrainSpan, stageGeometry: () => ({ platformY, platformLeft, platformRight, floorY, ceilingY, worldLeft, worldRight, worldNear, worldFar }), platformTable: () => platforms.map((rung) => ({ ...rung })), frameRect: () => fighterFrameRect(), roundState: () => ({ roundResult, roundElapsedUs, matchOver }), viewerState: () => ({ active: Boolean(roundViewer), mode: roundViewerMode, status: roundViewerStatus, name: matchName }), instantReplayState: () => instantReplay ? { active: true, paused: instantReplay.paused, cursor: instantReplay.cursor, frames: instantReplay.frames.length, speed: instantReplay.speed, action: instantReplay.action } : { active: false }, replayFrameCount: () => roundReplayFrames.length, inputPadDown: (index) => inputPads[index]?.down?.slice() || [], startSelfPlay: () => startSelfPlay(runtime().monotonicUs), selfPlayState: () => selfPlay, replayActionCurve, replayRampStep, startInstantReplay: (now) => startInstantReplay(now) };`
+    `${source}\nreturn { boot, sim, paint, playDrum, captureClientError, drawDetachedPart, clientErrorState: () => clientError, clientErrorDetailState: () => clientErrorDetail, errorReportStatus, errorRestartSeconds, combatLegend, commandFade, dummyPopLine, filledDisc, spectatorCode, runShadow, glyphColor, contrastShadow, stateDumpRows, dumpTokens, dumpTokenInk, clientErrorDumpState: () => ({ url: clientErrorDumpUrl, modules: clientErrorQr ? clientErrorQr.getModuleCount() : 0 }), controlLocale, animatedTitleColor, comicGlyphAdvance, handleWidth, displayTheme, players, ball, balls, bullets, grenades, gunPickups, grenadePickups, bodyTrees, treeFruit, detachedParts, runnerWorldGeometry, fighterAnimationPhase, runnerDistanceToPoint, segmentSegmentClosest, meleeLimbContact, damagePart, isPogo, isHeadOnly, resultCardText, pacificTimeLabel, projectedBallRadius, deathCinematicState: () => deathCinematic ? { ...deathCinematic, age: deathCinematicAge() } : null, disableBall: () => { ballEnabled = false; for (const item of balls) item.active = false; }, enableBall: (index = 0) => { ballEnabled = true; const item = balls[index]; item.active = true; item.serveAt = 0; item.safeUntil = 0; item.safePlayers = 0; }, setWind: (value) => { windAcceleration = value; }, setDebugHitboxes: (value) => { debugHitboxes = Boolean(value); }, debugState: () => debugHitboxes, windState: () => ({ direction: windDirection, mph: windMph }), nextRound: () => resetRound(runtime().monotonicUs, false), knockOut: () => killPlayer(players[1], 0, runtime().monotonicUs, "KO"), selfBallDummy: () => killPlayer(players[1], 1, runtime().monotonicUs, "BALLED"), startAttack: (kind) => startMelee(players[0], kind, runtime().monotonicUs), bootFirstBall: () => bootBall(ball, players[0], runtime().monotonicUs), wackBall: () => { players[0].attackKind = "KICK"; returnBall(ball, players[0], runtime().monotonicUs, false); }, shieldBall: () => returnBall(ball, players[0], runtime().monotonicUs, true), crossWackBall: (contact = 1) => crossWackBall(ball, players.map((player) => ({ player, contact })), runtime().monotonicUs), enterGame: () => enterGame(runtime().monotonicUs), shellState: () => ({ mode: shellMode }), startFight: () => { shellMode = "GAME"; selecting = false; players[1].npc = false; players[1].bot = false; applyRoster(players[1], 2); startReplay(runtime().monotonicUs); matchBallType = "soccer"; resetRound(runtime().monotonicUs, true); }, startFightAgainst: (kind) => startFightAgainst(kind, runtime().monotonicUs), palSelect: () => PAL_SELECT, titleToyState: () => ({ title: titleToys.map((toy) => ({ ...toy })), prompt: promptToys.map((toy) => ({ ...toy })), bounce: promptBounce }), selectionState: () => ({ selecting, step: selectionStep, cursor: selectionCursor, ready: selectionReady.slice() }), selectionOptions: () => selectionOptions().map((option) => ({ kind: option.kind, label: option.fighter.handle, disabled: Boolean(option.disabled) })), cameraState: () => ({ cameraWidth, cameraCenter, cameraCenterY, cameraAspect, stageRight, stageTop, stageBottom, viewHeight, cameraContainFloor, doll: { width: cameraDoll.width, target: { ...cameraDoll.target }, position: { ...cameraDoll.position }, perspective: cameraDoll.perspective, roll: cameraDoll.roll } }), screenBounds: () => players.map((player) => runnerScreenBounds(player, runtime().monotonicUs / 1e6)), dumpTokens, dumpTokenInk, drawCornerCrops, playerStatLines, playerHandleLayout, statStackHeight, setBallKind: (type) => { matchBallType = type; resetBalls(runtime().monotonicUs); }, ballTypeState: () => matchBallType, seriesBallType, seriesState: () => seriesName, sessionState: () => sessionName, selectionLayout: selectionTouchLayout, actionSafeRect, hudSafeRect, projectPoint, terrainSpan, stageGeometry: () => ({ platformY, platformLeft, platformRight, floorY, ceilingY, worldLeft, worldRight, worldNear, worldFar }), platformTable: () => platforms.map((rung) => ({ ...rung })), frameRect: () => fighterFrameRect(), roundState: () => ({ roundResult, roundElapsedUs, matchOver }), viewerState: () => ({ active: Boolean(roundViewer), mode: roundViewerMode, status: roundViewerStatus, name: matchName }), instantReplayState: () => instantReplay ? { active: true, paused: instantReplay.paused, cursor: instantReplay.cursor, frames: instantReplay.frames.length, speed: instantReplay.speed, action: instantReplay.action } : { active: false }, replayFrameCount: () => roundReplayFrames.length, inputPadDown: (index) => inputPads[index]?.down?.slice() || [], startSelfPlay: () => startSelfPlay(runtime().monotonicUs), selfPlayState: () => selfPlay, replayActionCurve, replayRampStep, startInstantReplay: (now) => startInstantReplay(now) };`
   )(
     () => ({ monotonicUs: now, unixMs: 1785870000000 + Math.floor(now / 1000),
       simCount: Math.floor(now / 16667), paintCount: 0,
@@ -1643,6 +1643,93 @@ test("every round gets a new URL and tells spectators where the room moved", () 
   assert.equal(transition[1].nextRoundId, secondId);
   assert.equal(transition[1].seriesId, liveFrames.at(-1)[1].seriesId);
   assert.equal(liveFrames.at(-1)[1].previousRoundId, firstId);
+});
+
+// @jeffrey: "can every 'session' have an id that we can agentically
+// telemetrically attach to — as opposed to every 'round'". Rounds are named
+// and buried every thirty seconds; the app run keeps one pronounceable name
+// from boot to quit and stamps it into every live frame it publishes.
+test("the app run names itself once and stamps every live frame", () => {
+  const { fight, liveFrames, tick } = createFight();
+  const session = fight.sessionState();
+  assert.match(session, /^[a-z]{4,7}[0-9]{1,3}$/);
+  tick(50000);
+  const [roundId, frame] = liveFrames.at(-1);
+  assert.equal(frame.sessionId, "ow-" + session);
+  assert.notEqual(frame.sessionId, roundId);
+  fight.nextRound();
+  assert.equal(fight.sessionState(), session);
+});
+
+// The session room is a debug facility, not an audience: it only publishes
+// while the bug is lit, so a thousand visitors idling on the title screen
+// cannot drain the relay's room pool — and with the bug lit, the title screen
+// finally has something an agent can attach to.
+test("a lit debug bug feeds the session room while nothing is scored", async () => {
+  const { validateOskiewarLiveState } = await import(
+    "../../../session-server/oskiewar-live-manager.mjs");
+  const { fight, liveFrames, tick } = createFight(false, false);
+  tick(50000);
+  assert.equal(liveFrames.length, 0);
+  fight.setDebugHitboxes(true);
+  tick(50000);
+  const sessionId = "ow-" + fight.sessionState();
+  assert.ok(liveFrames.length > 0);
+  const [room, frame] = liveFrames.at(-1);
+  assert.equal(room, sessionId);
+  assert.equal(frame.sessionId, sessionId);
+  // A title-screen frame carries no series, no round and no demo link — an
+  // empty name must stay off the wire rather than ride out as "ow-".
+  assert.equal(frame.seriesId, undefined);
+  assert.equal(frame.roundId, undefined);
+  assert.equal(frame.replayUrl, undefined);
+  assert.equal(frame.round.timed, false);
+  assert.equal(frame.round.remainingMs, 0);
+  // The relay's own validator is the door this frame has to walk through.
+  assert.equal(validateOskiewarLiveState(frame), null);
+  fight.setDebugHitboxes(false);
+});
+
+// The native shell owns exactly one publisher socket, so the session room and
+// a live round can never publish side by side: the session room gets one
+// hand-off frame naming the round, then goes quiet until the scoring stops.
+test("a live round takes the socket and the session room learns where", () => {
+  const { fight, liveFrames, tick } = createFight(false, false);
+  fight.setDebugHitboxes(true);
+  for (let step = 0; step < 3; step++) tick(260000);
+  const sessionId = "ow-" + fight.sessionState();
+  const idle = liveFrames.filter(([room]) => room === sessionId);
+  assert.ok(idle.length >= 2);
+  const sequences = idle.map(([, frame]) => frame.seq);
+  assert.ok(sequences.every((seq, at) => at === 0 || seq > sequences[at - 1]));
+  fight.enterGame();
+  fight.startFight();
+  for (let step = 0; step < 12; step++) tick(50000);
+  const handoffs = liveFrames.filter(([room, frame]) =>
+    room === sessionId && frame.nextRoundId);
+  assert.equal(handoffs.length, 1);
+  const roundId = handoffs[0][1].nextRoundId;
+  assert.ok(liveFrames.some(([room]) => room === roundId));
+  // Past its single hand-off frame the session room stays silent.
+  assert.equal(liveFrames.filter(([room]) => room === sessionId).at(-1)[1]
+    .nextRoundId, roundId);
+  fight.setDebugHitboxes(false);
+});
+
+// The read-out survives the title screen now — debug mode reads the machine,
+// not the match — and the session's name prints beside the bottom-center bug,
+// where whoever wants to attach a telemetry agent can read it off the screen.
+test("debug fps survives the title and the bug wears the session name", () => {
+  const perf = source.match(/function drawDebugPerformance[\s\S]*?\n}\n/)[0];
+  assert.doesNotMatch(perf, /shellMode/);
+  assert.match(perf, /FIGHT_DEBUG_PERF/);
+  assert.match(source,
+    /typeWrite\(sessionName, viewCenterX\(\) \+ statusCell \* \.62/);
+  const { fight, boxes, tick } = createFight(false, false);
+  fight.setDebugHitboxes(true);
+  tick();
+  fight.paint();
+  assert.ok(boxes.length > 0);
 });
 
 // Dummy play is free and anonymous, so there is no screen in front of it:
