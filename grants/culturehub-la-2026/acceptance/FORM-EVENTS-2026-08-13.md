@@ -169,8 +169,18 @@ prompt.ac/menuband. (+ alt text above.)
 
 ## Notes
 
-- Dates pending Joo's confirmation (Mattie cc'd her Aug 13); Saturday
-  confirmed public+free in the reply.
+- **Aug 17:** Joo confirmed **Thursday Sept 24**; Saturday Sept 19 left
+  unanswered, and deliberately not re-asked (see merge question below).
+- **Aug 17: guest set cut.** Unfilled since the start and promotion begins
+  Sept 1 — decided rather than asked; no suggestion solicited from CultureHub.
+  Told to Joo + Mattie by email; asked them to drop "Guest performer to be
+  announced" from the submitted crediting line. The changeover between sets 1
+  and 2 (six laptops → three MacBook Neos) is now in view of the room.
+- **OPEN — merge question:** raised with Joo + Mattie Aug 17, whether both
+  events want to be a single Sept 24 night. Reasons: the workshop sits mid
+  build-week (`SCHEDULE.md`), Thursday already ends in a 30–45 min open
+  playing hour, and the guest cut freed ~15 min. Saturday's date settles only
+  if two events survive. Program gets re-cut once they answer.
 - Promotion starts beginning of September; embargo holds until CultureHub's
   formal resident announcement.
 - Tech rider due Aug 16 (`SCHEDULE.md`) — include workshop needs: BYOC WiFi,

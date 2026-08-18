@@ -4,7 +4,7 @@
 | --- | --- |
 | Aug 11 | Artist-page copy, links, headshot, credit, and alt text due — **done** |
 | Aug 13 | Event-page forms submitted, both events — **done** |
-| Aug 16 | Send technical rider; confirm room, signal path, network, projection, and streaming |
+| Aug 16 | Send technical rider; confirm room, signal path, network, projection, and streaming — **rider rewritten and rebuilt Aug 18; email drafted at `REPLY-DRAFT-2026-08-18-rider.md`, awaiting approval to send** |
 | Sep 16 | Load in; map the room, network, power, projection, and six-channel signal path |
 | Sep 17–18 | Build, sync, channel tests, live rotation controls, score development, and documentation tests |
 | Sep 19 | **Grokaesthetic Workshop** — BYOC, participant laptop boot, group performance |
@@ -13,8 +13,10 @@
 | Sep 24 | **Performance** — *Note(s)pat(ial) Native*, guest set, *The MacNeoPolitan Trio*, conversation, free play |
 | Sep 25 | Pickup shots, archive handoff, strike, and load out |
 
-Open: confirm the guest performer and their technical needs; buy the blush
-MacBook Neo (no third-voice redundancy until it exists).
+Open: buy the blush MacBook Neo (no third-voice redundancy until it exists).
+Guest performer cut Aug 17 — the Sep 24 bill is the two works only.
+Sep 19 is contingent on the open merge question (see
+`FORM-EVENTS-2026-08-13.md`); if the events merge, Sep 19 returns to build.
 
 Public dates and daily access hours remain provisional until CultureHub confirms
 the venue calendar.

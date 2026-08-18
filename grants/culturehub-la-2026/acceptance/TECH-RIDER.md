@@ -7,8 +7,13 @@ Two public events in the CultureHub LA residency, September 16–25, 2026:
 | Sat Sep 19, 2:00–3:30 p.m. | **Grokaesthetic Workshop** | Participatory, bring your own computer |
 | Thu Sep 24, 7:00 p.m. | **Note(s)pat(ial) Native** & **The MacNeoPolitan Trio** | Performance, conversation, free play |
 
-Dates proposed, pending confirmation. The performance is two works plus a guest
-set to be announced. They share the room and the Kalio system but are
+Thursday September 24 is confirmed. Saturday September 19 is still open: the
+guest set has been cut, and with it some of the case for two nights — whether
+the workshop stays on Saturday or folds into Thursday is the one question
+outstanding. This rider covers both events; if they merge, the workshop's
+requirements move to Thursday afternoon and nothing else changes.
+
+The performance is two works. They share the room and the Kalio system but are
 **different machines running different software**, and the patch changes
 between them — please read both system sections.
 
@@ -136,13 +141,17 @@ how CultureHub prefers to take three line-level feeds.
 
 ---
 
-## Event two — changeover, guest set, and the coda
+## Event two — changeover and the coda
 
 The move from work one to work two is a **hardware swap, not a patch change** —
-six machines out, three in. The guest set sits between them and covers it;
-please budget its length once the guest is confirmed. After the music there is
-a conversation, and then the instruments stay on for the audience to play, so
-the rig should not be struck until the room clears.
+six machines out, three in. The guest set that used to cover it has been cut, so
+the swap now happens in front of the audience. It needs five to ten budgeted
+minutes and a decision about what the room does meanwhile: house lights and
+talking, a held drone from the outgoing machines, or the score on the projector
+while the Neos are placed. Please advise what CultureHub prefers.
+
+After the music there is a conversation, and then the instruments stay on for
+the audience to play, so the rig should not be struck until the room clears.
 
 ---
 
@@ -234,4 +243,4 @@ early; this is not fixable on the day.
 - Livestream platform, capture format, archive ownership, and file delivery
 - Load-in, soundcheck, public-program, and strike hours
 - **How much changeover time is available between the two works**
-- Guest performer's own technical needs, once confirmed
+- Whether September 19 stays a separate event or folds into September 24
