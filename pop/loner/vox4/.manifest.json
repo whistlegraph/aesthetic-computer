@@ -29,13 +29,13 @@
     3.89
    ],
    [
-    "myself\u00b7a",
+    "my",
     3.89,
-    4.67
+    4.715
    ],
    [
-    "myself\u00b7b",
-    4.67,
+    "self",
+    4.715,
     5.235
    ],
    [
@@ -50,7 +50,7 @@
    ],
    [
     "of",
-    7.055,
+    7.12,
     8.76
    ],
    [
@@ -124,17 +124,17 @@
     23.97
    ]
   ],
-  "beats": 59.5,
+  "beats": 60.5,
   "renders": {
-   "lead": 30.17
+   "lead": 30.665
   },
   "snaps": [
    "curled +65ms",
    "in +80ms",
-   "myself -50ms",
+   "my -50ms",
+   "self +215ms",
    "i +180ms",
    "think -45ms",
-   "of +225ms",
    "a -40ms",
    "stone -45ms",
    "just +80ms",
@@ -146,8 +146,8 @@
   ],
   "trims": [
    "up \u2212420ms",
-   "myself\u00b7b \u2212265ms",
-   "think \u2212350ms",
+   "self \u2212265ms",
+   "think \u2212415ms",
    "stone \u2212675ms",
    "just \u2212295ms",
    "ry \u2212520ms",

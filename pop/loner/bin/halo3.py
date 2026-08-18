@@ -187,7 +187,7 @@ CHART = {
                              # "curled" is ONE word — under whisper.cpp's
                              # sub-word tokens it was cur+led and this was 5.
                              # durs are POST-split indices.
-                             "splits": [0, 4],
+                             "splits": [0],
                              # The bar map, one phrase per bar (@jeffrey:
                              # "curled up should be bar 1 — not bar 1 and
                              # half of bar 2 · and in my should be bar
@@ -259,7 +259,7 @@ CHART = {
                                        # half beat (2.0, 1.23×) and my gives it
                                        # back (1.5, 1.07×), so self keeps bar 3
                                        # and nothing downstream moves.
-                                       4: 2.0, 5: 1.5, 6: 2.0,
+                                       4: 2.0, 5: 2.5, 6: 2.0,
                                        # think 1 (1.17×, her own speed — at 2
                                        # it was a 2.3× held tone), so OF keeps
                                        # its 4 beats at 1.01×, her real octave,
@@ -284,7 +284,8 @@ CHART = {
                              # words whose syllables carry a melody must not
                              # be flattened to one tone by THE HOLD
                              # patiently is pa·tient·ly, three notes
-                             "sylls": { 11: [(None, "wait"), (13.70, "ing")],
+                             "sylls": { 4: [(None, "my"), (4.50, "self")],
+                                        11: [(None, "wait"), (13.70, "ing")],
                                         12: [(None, "ve"), (15.05, "ry")],
                                         13: [(None, "pa"), (16.80, "tient"),
                                              (17.70, "ly")] },
@@ -295,7 +296,11 @@ CHART = {
                              # source seconds, read off her onsets, for the
                              # words whisper-1 mistimed. PRE-split indices.
                              "end": 24.25,
-                             "times": { 2: 2.40,    # up — the alignment put this
+                             "times": { 2: 2.40,
+                                        7: 7.15,   # of — her onset is 7.17;
+                                                   # the aligner opened its span
+                                                   # 115 ms of silence early
+    # up — the alignment put this
                                                     # boundary at 2.44, AFTER up's
                                                     # attack had already begun, so
                                                     # curled's block ended on the
