@@ -19,12 +19,12 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 LANE = os.path.dirname(HERE)
 OUT = os.path.join(LANE, "out")
 
-W, H, FPS = 1920, 1080, 60
+W, H, FPS = 1920, 2160, 60   # twice as tall: room for real waveforms
 BPM = 122.0
 SPB = 60.0 / BPM
 PXB = 96                      # px per beat — wider blocks AND finer sync
 PLAYHEAD_X = 560
-BH = 30                       # block half-height
+BH = 62                       # block half-height
 
 # FRAMESYNC. @jeffrey: "the video feels a bit off from the audio · can we
 # try and ensure an excellent framesync". The WAV is beat-accurate (its
@@ -191,7 +191,7 @@ def note_name(st):
     return f"{CHROM[st % 12]}{3 + (st + 10) // 12}"
 
 STS = sorted({n["st"] for n in chart["notes"]})
-ROLL_TOP, ROLL_BOT = 210, 850
+ROLL_TOP, ROLL_BOT = 300, 1900
 def y_of(st):
     lo, hi = min(STS) - 1, max(STS) + 1
     return ROLL_BOT - (st - lo) / (hi - lo) * (ROLL_BOT - ROLL_TOP)
@@ -220,12 +220,15 @@ X = lambda beat: int(round((beat + STRIP_PAD) * PXB)) + PLAYHEAD_X  # beat → s
 # every column is numbered under the bar label. Now a note can be named
 # out loud — "bar 3 beat 3" — and found by eye without counting.
 # (BEAT_TINT comes from the theme block above.)
-for b in range(0, TOTAL_BEATS + 1):
+for b in range(-1, TOTAL_BEATS + 1):   # -1 is the pickup beat
     x, xn = X(b), X(b + 1)
     d.rectangle([x, ROLL_TOP, xn - 1, ROLL_BOT], fill=BEAT_TINT[b % 4])
     if b % 4 == 0:
         d.line([(x, ROLL_TOP - 60), (x, ROLL_BOT + 90)], fill=SOFT, width=3)
         d.text((x + 8, ROLL_TOP - 58), f"bar {b // 4}", font=f_bar, fill=INK)
+    elif b < 0:
+        d.line([(x, ROLL_TOP - 60), (x, ROLL_BOT + 90)], fill=FAINT, width=2)
+        d.text((x + 8, ROLL_TOP - 58), "pickup", font=f_bar, fill=SOFT)
     else:
         d.line([(x, ROLL_TOP), (x, ROLL_BOT)], fill=FAINT, width=1)
     d.text((x + 8, ROLL_TOP - 26), str(b % 4 + 1), font=f_beat,
@@ -238,8 +241,8 @@ for st in STS:
     d.text((X(0) - 84, y - 12), note_name(st), font=f_note, fill=SOFT)
 
 # kick lane
-KY0, KY1 = ROLL_BOT + 24, ROLL_BOT + 62
-for b in range(KICK_BEATS):
+KY0, KY1 = ROLL_BOT + 40, ROLL_BOT + 104
+for b in range(-1, KICK_BEATS):
     x = X(b)
     d.rounded_rectangle([x, KY0, x + PXB - 4, KY1], 6, fill=KICK_FILL)
 d.text((X(0) - 84, KY0 + 8), "kick", font=f_note, fill=BLUE)
@@ -329,7 +332,7 @@ def encode_segment(job):
 # you can always see where in the lyric the playhead is.
 LYRIC = [(word_text(n["t"]), LEAD_IN + n["beat"] * SPB,
           LEAD_IN + (n["beat"] + n["dur"]) * SPB) for n in chart["notes"]]
-LYRIC_Y = H - 52
+LYRIC_Y = H - 64
 CREDIT = "lonr — “Loner” · Camille Klein (@cksuperstore) · the emo whistlegraph"
 
 # Pre-rendered ONCE. Drawing this per frame meant 23 words through
@@ -393,7 +396,7 @@ def render_frame(i):
                 shadowed(d2, (lab[0] - px, lab[1]), txt, f_word, LABEL_ON)
     # kick flash
     kb = int(math.floor(beat))
-    if 0 <= kb < KICK_BEATS and (beat - kb) < 0.22:
+    if -1 <= kb < KICK_BEATS and (beat - kb) < 0.22:
         x = X(kb) - px
         d2.rounded_rectangle([x, KY0, x + PXB - 4, KY1], 6, fill=PINK)
     # live timecode — song clock + musical address, updating every frame

@@ -2,9 +2,9 @@
  "w-whole-line": {
   "slice": "f-whole-line",
   "lead_in": 0.49,
-  "beats": 59.5,
+  "beats": 58.5,
   "renders": {
-   "lead": 30.15
+   "lead": 29.66
   },
   "snaps": [
    "curled +65ms",
