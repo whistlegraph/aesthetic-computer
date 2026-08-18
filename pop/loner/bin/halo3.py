@@ -237,12 +237,16 @@ CHART = {
                                        # so "of" keeps beat 19 and stone its
                                        # bar 6 beat 2.
                                        7: 2.0,
-                                       8: 2.0, 9: 5.0, 10: 2.0, 11: 3.0,
+                                       8: 2.0, 9: 4.0, 10: 3.0, 11: 3.0,
                                        # very longer, patiently slower
-                                       14: 4.0, 15: 5.0 },
+                                       14: 4.0,
+                                       # pa 2 · tient 1.5 · ly 1.5 = the
+                                       # same 5 beats patiently had
+                                       15: 2.0, 16: 1.5, 17: 1.5 },
                              # words whose syllables carry a melody must not
                              # be flattened to one tone by THE HOLD
-                             "nohold": [15],   # patiently
+                             # patiently is pa·tient·ly, three notes
+                             "sylls": { 13: [(None, "pa"), (16.80, "tient"), (17.70, "ly")] },
                              # source seconds, read off her onsets, for the
                              # words whisper-1 mistimed. PRE-split indices.
                              "end": 24.25,
@@ -721,11 +725,29 @@ for name, ch in CHART.items():
                       note=w["note"]) for w in ALIGN[slice_name]["words"]]
     else:
         words = list(entry["word_f0"])
-    for i, ts in (ch.get("times") or {}).items():
-        if 0 <= i < len(words):
-            words[i]["start"] = t0_slice + ts
-            if i:
-                words[i - 1]["end"] = t0_slice + ts
+    for wi, ts in (ch.get("times") or {}).items():
+        if 0 <= wi < len(words):
+            words[wi]["start"] = t0_slice + ts
+            if wi:
+                words[wi - 1]["end"] = t0_slice + ts
+
+    # SYLLABLE SPLITS at explicit source times, applied AFTER the time
+    # pins so those indices still mean what they say. The chart gives one
+    # note per unit, but "patiently" is three syllables on three
+    # DIFFERENT pitches — she descends F4 → D#4 → C#4 across it — so a
+    # single unit made the pluck play one note against three, and left
+    # the word as a lump the bar map could not place. Cutting it into
+    # real syllables gives each its own note, slot and beat.
+    for wi in sorted((ch.get("sylls") or {}), reverse=True):
+        base = words[wi]
+        cuts = ch["sylls"][wi]
+        head = next((c[1] for c in cuts if c[0] is None), base["t"])
+        cuts = [c for c in cuts if c[0] is not None]
+        edges = [base["start"]] + [t0_slice + c[0] for c in cuts] + [base["end"]]
+        labels = [head] + [c[1] for c in cuts]
+        words[wi:wi + 1] = [dict(base, start=edges[k], end=edges[k + 1], t=labels[k])
+                            for k in range(len(labels))]
+
     words, snaps = snap_boundaries(a, words, t0_slice)
     # sub-split units at their internal fricative (e.g. myself → my·self)
     for ui in sorted(ch.get("splits", []), reverse=True):

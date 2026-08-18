@@ -22,7 +22,9 @@
    "just +80ms",
    "waiting -100ms",
    "very +65ms",
-   "patiently +80ms",
+   "pa +80ms",
+   "tient -15ms",
+   "ly -5ms",
    "for -30ms",
    "time -90ms",
    "to +60ms",
@@ -35,6 +37,7 @@
    "stone \u2212675ms",
    "just \u2212195ms",
    "very \u2212520ms",
+   "tient \u2212480ms",
    "time \u2212855ms"
   ],
   "words": "the whole lyric, one take"
