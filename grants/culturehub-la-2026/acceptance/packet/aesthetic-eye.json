@@ -4,8 +4,8 @@
   "pdf": "technical-rider.pdf",
   "expectedDiagrams": 4,
   "visualInference": true,
-  "pdfSha256": "3d443d72d6a185cdf5c65b4f00dce05b334b6955ba5da06a27cc4fa9f0c4a144",
-  "reviewedAt": "2026-08-18T21:40:00Z",
+  "pdfSha256": "48a3810b025bf7d09d86b2976dd2eb673d3a1cdfa4cc4856253df3b0c2c11fa3",
+  "reviewedAt": "2026-08-18T22:05:00Z",
   "reviewer": {
     "kind": "visual-inference",
     "agent": "Claude"
@@ -18,7 +18,7 @@
       "period": "pass",
       "dotColor": "pass"
     },
-    "notes": "Single 8.5 x 12.25 in sheet. The colophon block came off the page at @jeffrey's request, so no wordmark is set in type here."
+    "notes": "Single 8.5 x 12.1 in sheet, height sized to the content."
   },
   "diagrams": [
     {
@@ -26,9 +26,9 @@
       "page": 1,
       "crop": [
         0.04,
-        0.283,
+        0.2865,
         0.32,
-        0.155
+        0.1569
       ],
       "design": "pass",
       "checks": {
@@ -46,9 +46,9 @@
       "page": 1,
       "crop": [
         0.35,
-        0.275,
+        0.2784,
         0.31,
-        0.175
+        0.1772
       ],
       "design": "pass",
       "checks": {
@@ -66,9 +66,9 @@
       "page": 1,
       "crop": [
         0.655,
-        0.272,
+        0.2754,
         0.33,
-        0.198
+        0.2005
       ],
       "design": "pass",
       "checks": {
@@ -86,9 +86,9 @@
       "page": 1,
       "crop": [
         0.05,
-        0.762,
+        0.766,
         0.91,
-        0.048
+        0.055
       ],
       "design": "pass",
       "checks": {
