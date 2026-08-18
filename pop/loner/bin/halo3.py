@@ -207,7 +207,13 @@ CHART = {
                              # squished in time". Swapped to very 3 (1.02×)
                              # and patiently 4 (1.64×); the pair still
                              # totals 7 beats, so "for" is untouched.
-                             "durs": { 0: 4.0, 1: 2.0, 2: 2.0, 3: 2.0,
+                             # curled 3 · up 3. Everything downstream
+                             # falls onto bars by itself: my·self is bar 3,
+                             # i·think is bar 4, and "think" ends exactly
+                             # on 20 — so OF starts the instant think ends
+                             # ("of should start sooner, right after
+                             # 'think' ends") with no rest needed at all.
+                             "durs": { 0: 4.0, 1: 3.0, 2: 3.0, 3: 2.0,
                                        4: 2.0, 5: 2.0, 6: 2.0, 7: 2.0,
                                        8: 4.0, 9: 4.0, 10: 4.0,
                                        13: 3.0, 14: 4.0 },
@@ -218,15 +224,10 @@ CHART = {
                              # is bar 3, i·think bar 4. The freed beats go
                              # to the self/i rest and to think, so "of"
                              # still holds bar 5 and nothing after moves.
-                             # "the 'i' should come after self ends — bar
-                             # 3 beat 3": self's audio really stops at
-                             # 13.8, so i takes 14 and "i think" runs
-                             # contiguous 14–18. The two spare beats
-                             # become a rest before the octave instead,
-                             # which is her own gap after "think" (0.36
-                             # beats) opened up into an anticipation.
-                             "gaps": { 7: 2.0,   # air before OF, the octave
-                                       10: 4.0 } },  # the bar break after stone
+                             # "i should come after self ends": self's
+                             # audio really stops mid-slot, so i follows
+                             # it directly and "i think" runs contiguous.
+                             "gaps": { 10: 4.0 } },  # the bar break after stone
     "w-sitting-curled":    { "slice": "f-sitting-curled",    "beats": 11.0 },
     "w-i-think":           { "slice": "f-i-think",           "beats": 3.5 },
     "w-of-a-stone":        { "slice": "f-of-a-stone",        "beats": 8.0 },

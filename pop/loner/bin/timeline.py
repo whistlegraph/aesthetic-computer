@@ -39,13 +39,19 @@ BH = 30                       # block half-height
 # 60 fps + centre sampling + rounded scroll at 96 px/beat: worst case
 # ±8.3 ms of frame quantisation and ±5.2 ms of pixel, with zero bias.
 
-CREAM = (255, 253, 246)
-INK = (26, 26, 34)
-FAINT = (26, 26, 34, 26)
-SOFT = (26, 26, 34, 64)
-PINK = (255, 102, 168)
-PINK_SOFT = (255, 166, 202)
-BLUE = (92, 118, 180)
+# ── the loner theme: lights off ───────────────────────────────────────
+# @jeffrey: "can we start rendering this in a loner theme / dark mode
+# theme now the mp4 please?" The song is someone curled up in a dark
+# room, so the study stops looking like a sheet of paper: near-black with
+# a blue cast, warm white for her voice, and the margin pink kept as the
+# only hot colour — playhead, downbeat, the word being sung.
+CREAM = (14, 13, 20)               # the room, lights off
+INK = (238, 234, 230)              # warm white — her voice, the type
+FAINT = (238, 234, 230, 26)
+SOFT = (238, 234, 230, 92)
+PINK = (255, 92, 162)
+PINK_SOFT = (128, 46, 84)
+BLUE = (132, 158, 236)             # lifted for dark ground
 
 chart = json.load(open(os.path.join(LANE, "vox4", ".chart.json")))["w-whole-line"]
 LINE_BEATS = chart["beats"]
@@ -157,10 +163,10 @@ X = lambda beat: int(round(beat * PXB)) + PLAYHEAD_X   # beat → strip x
 # the downbeat reads pink and the others step through the paper palette;
 # every column is numbered under the bar label. Now a note can be named
 # out loud — "bar 3 beat 3" — and found by eye without counting.
-BEAT_TINT = [(255, 102, 168, 30),      # 1 — the downbeat
-             (92, 118, 180, 15),       # 2
-             (26, 26, 34, 14),         # 3
-             (92, 118, 180, 15)]       # 4
+BEAT_TINT = [(255, 92, 162, 34),       # 1 — the downbeat
+             (132, 158, 236, 14),      # 2
+             (238, 234, 230, 10),      # 3
+             (132, 158, 236, 14)]      # 4
 for b in range(0, TOTAL_BEATS + 1):
     x, xn = X(b), X(b + 1)
     d.rectangle([x, ROLL_TOP, xn - 1, ROLL_BOT], fill=BEAT_TINT[b % 4])
@@ -183,7 +189,7 @@ for st in STS:
 KY0, KY1 = ROLL_BOT + 34, ROLL_BOT + 78
 for b in range(KICK_BEATS):
     x = X(b)
-    d.rounded_rectangle([x + 4, KY0, x + PXB - 8, KY1], 6, fill=(92, 118, 180, 70))
+    d.rounded_rectangle([x + 4, KY0, x + PXB - 8, KY1], 6, fill=(132, 158, 236, 60))
 d.text((X(0) - 84, KY0 + 8), "kick", font=f_note, fill=BLUE)
 
 # word blocks, both passes
@@ -195,7 +201,7 @@ for pb in PASSES:
         y = y_of(n["st"])
         y0, y1 = y - BH, y + BH
         d.rounded_rectangle([x0 + 2, y0, x1 - 3, y1], 10,
-                            fill=(255, 166, 202, 90), outline=INK, width=2)
+                            fill=(255, 92, 162, 46), outline=INK, width=2)
         # the real audio inside the clip: per-column peak of the lead
         # render, normalized to the whole take — dead air is visible
         npx = max(1, x1 - x0 - 8)
@@ -207,11 +213,11 @@ for pb in PASSES:
             voiced_here = is_voiced(vb)
             ah = a * AMP
             if ah >= 0.4:                      # peak outline, translucent
-                col = (26, 26, 34, 70) if voiced_here else (92, 118, 180, 150)
+                col = (238, 234, 230, 80) if voiced_here else (132, 158, 236, 160)
                 d.line([(xw, y - ah), (xw, y + ah)], fill=col, width=1)
             rh = r * AMP * 1.6                 # rms core, solid
             if rh >= 0.4:
-                col = (26, 26, 34, 170) if voiced_here else (92, 118, 180, 235)
+                col = (238, 234, 230, 200) if voiced_here else (132, 158, 236, 245)
                 d.line([(xw, y - rh), (xw, y + rh)], fill=col, width=1)
         vo = vowel_onset(n["beat"], n["beat"] + n["dur"])
         if vo is not None and vo - n["beat"] > 0.02:   # a real consonant runway
@@ -265,7 +271,7 @@ for i in range(FRAMES):
             if lx1 > 0 and lx0 < W:
                 # outline-only: the waveform inside stays scrutinizable
                 d2.rounded_rectangle([lx0 + 2, y0, lx1 - 3, y1], 10,
-                                     fill=(255, 102, 168, 40), outline=PINK, width=4)
+                                     fill=(255, 92, 162, 58), outline=PINK, width=4)
     # kick flash
     kb = int(beat)
     if kb < KICK_BEATS and (beat - kb) < 0.22:
