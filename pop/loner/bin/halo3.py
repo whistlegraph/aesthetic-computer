@@ -239,14 +239,23 @@ CHART = {
                                        7: 2.0,
                                        8: 2.0, 9: 4.0, 10: 3.0, 11: 3.0,
                                        # very longer, patiently slower
-                                       14: 4.0,
-                                       # pa 2 · tient 1.5 · ly 1.5 = the
-                                       # same 5 beats patiently had
-                                       15: 2.0, 16: 1.5, 17: 1.5 },
+                                       # the tail on bars: just and waiting
+                                       # a bar each (waiting on bar 8:1),
+                                       # very as TWO notes, and "pa" held a
+                                       # full bar because at 2 beats it was
+                                       # too fast and abrupt
+                                       12: 4.0, 13: 4.0, 14: 2.0, 15: 2.0,
+                                       16: 4.0, 17: 1.5, 18: 1.5 },
                              # words whose syllables carry a melody must not
                              # be flattened to one tone by THE HOLD
                              # patiently is pa·tient·ly, three notes
-                             "sylls": { 13: [(None, "pa"), (16.80, "tient"), (17.70, "ly")] },
+                             "sylls": { 12: [(None, "ve"), (15.05, "ry")],
+                                        13: [(None, "pa"), (16.80, "tient"),
+                                             (17.70, "ly")] },
+                             # "pa" sings F4, a leap up from very's A#3.
+                             # Down one scale step to D#4 keeps the phrase
+                             # from jumping before it descends.
+                             "shift": { 16: -2 },
                              # source seconds, read off her onsets, for the
                              # words whisper-1 mistimed. PRE-split indices.
                              "end": 24.25,
@@ -830,6 +839,20 @@ for name, ch in CHART.items():
         f0_o[o0:o1] = np.where(voiced_o[o0:o1],
                                f0_o[o0:o1] * (1 - blend) + tgt * vib * blend, 0.0)
 
+    # PER-SYLLABLE TRANSPOSE. Sometimes the note she sang is not the note
+    # the score wants — @jeffrey: "the pa in patiently should be pitched
+    # down". `shift` moves one unit by N semitones, in her f0 AND in the
+    # chart, so the pluck doubles the new note rather than the old one.
+    for ui, semis in (ch.get("shift") or {}).items():
+        if not (0 <= ui < len(ch["units"])):
+            continue
+        bt, du = ch["units"][ui]
+        o0 = Z + int(round(bt * SPB / FRAME_S))
+        o1 = Z + int(round((bt + du) * SPB / FRAME_S))
+        o0, o1 = max(0, o0), min(len(f0_o), o1)
+        if o1 > o0:
+            f0_o[o0:o1] *= 2.0 ** (semis / 12.0)
+
     renders = {}
     out, _ = synth_from(a, idx, f0_o, fade=fade, rise=rise, rests=rests)
     sf.write(os.path.join(VOX4, f"{name}.wav"), out, fs)
@@ -884,6 +907,7 @@ for name, ch in CHART.items():
     notes = []
     for u, (wd, (beat, durb)) in enumerate(zip(words, ch["units"])):
         st = int(np.round(12.0 * np.log2(wd["f0_hz"] / TONIC))) if wd["f0_hz"] else 0
+        st += int((ch.get("shift") or {}).get(u, 0))
         notes.append((beat, durb, st, wd["t"].strip(),
                       round(ants[u] * FRAME_S / SPB, 4) if u < len(ants) else 0.0))
     chart_c.append((name, lead_in, beats_total, notes))

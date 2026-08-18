@@ -2,13 +2,13 @@
  "w-whole-line": {
   "slice": "f-whole-line",
   "lead_in": 0.49,
-  "beats": 58.5,
+  "beats": 60.5,
   "renders": {
-   "lead": 29.66,
-   "8ve-a": 29.66,
-   "8ve-b": 29.66,
-   "low3": 29.66,
-   "low5": 29.66
+   "lead": 30.645,
+   "8ve-a": 30.645,
+   "8ve-b": 30.645,
+   "low3": 30.645,
+   "low5": 30.645
   },
   "snaps": [
    "curled +65ms",
@@ -21,7 +21,8 @@
    "stone -45ms",
    "just +80ms",
    "waiting -100ms",
-   "very +65ms",
+   "ve +65ms",
+   "ry +160ms",
    "pa +80ms",
    "tient -15ms",
    "ly -5ms",
@@ -36,7 +37,7 @@
    "think \u2212350ms",
    "stone \u2212675ms",
    "just \u2212195ms",
-   "very \u2212520ms",
+   "ry \u2212520ms",
    "tient \u2212480ms",
    "time \u2212855ms"
   ],
