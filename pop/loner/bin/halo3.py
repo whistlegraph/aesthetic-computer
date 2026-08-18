@@ -207,16 +207,21 @@ CHART = {
                              # squished in time". Swapped to very 3 (1.02×)
                              # and patiently 4 (1.64×); the pair still
                              # totals 7 beats, so "for" is untouched.
+                             # curled 2.5 · up 3 · in 2.5 — the half beat
+                             # curled gives up goes to "in", so my·self
+                             # still starts on bar 3 and every anchor after
+                             # it is untouched.
                              # curled 3 · up 3. Everything downstream
                              # falls onto bars by itself: my·self is bar 3,
                              # i·think is bar 4, and "think" ends exactly
                              # on 20 — so OF starts the instant think ends
                              # ("of should start sooner, right after
                              # 'think' ends") with no rest needed at all.
-                             "durs": { 0: 4.0, 1: 3.0, 2: 3.0, 3: 2.0,
+                             "durs": { 0: 4.0, 1: 2.5, 2: 3.0, 3: 2.5,
                                        4: 2.0, 5: 2.0, 6: 2.0, 7: 2.0,
                                        8: 4.0, 9: 4.0, 10: 4.0,
-                                       13: 3.0, 14: 4.0 },
+                                       # very longer, patiently slower
+                                       13: 4.0, 14: 5.0 },
                              # rest AFTER the given unit, in beats
                              # "the in should start sooner — at start of
                              # bar 2": the rest after up goes entirely, so

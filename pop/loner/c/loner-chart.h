@@ -14,9 +14,9 @@ typedef struct { const char *name; double leadIn; double beats;
 
 static const ChartNote w_whole_line_notes[] = {
     { 0.00, 4.00, 7 },
-    { 4.00, 3.00, 3 },
-    { 7.00, 3.00, 2 },
-    { 10.00, 2.00, 0 },
+    { 4.00, 2.50, 3 },
+    { 6.50, 3.00, 2 },
+    { 9.50, 2.50, 0 },
     { 12.00, 2.00, 5 },
     { 14.00, 2.00, 5 },
     { 16.00, 2.00, -2 },
@@ -26,12 +26,12 @@ static const ChartNote w_whole_line_notes[] = {
     { 28.00, 4.00, 5 },
     { 36.00, 3.50, 2 },
     { 39.50, 3.50, 3 },
-    { 43.00, 3.00, 0 },
-    { 46.00, 4.00, 7 },
-    { 50.00, 5.00, 3 },
-    { 55.00, 2.50, 7 },
-    { 57.50, 5.50, 3 },
-    { 63.00, 3.50, 3 },
+    { 43.00, 4.00, 0 },
+    { 47.00, 5.00, 7 },
+    { 52.00, 5.00, 3 },
+    { 57.00, 2.50, 7 },
+    { 59.50, 5.50, 3 },
+    { 65.00, 3.50, 3 },
 };
 static const ChartNote w_sitting_curled_notes[] = {
     { 0.00, 3.00, 6 },
@@ -88,7 +88,7 @@ static const ChartNote w_n_for_time_to_pass_notes[] = {
 };
 
 static const ChartPhrase CHART[] = {
-    { "w-whole-line", 0.490, 66.50, 19, w_whole_line_notes },
+    { "w-whole-line", 0.490, 68.50, 19, w_whole_line_notes },
     { "w-sitting-curled", 0.020, 11.00, 5, w_sitting_curled_notes },
     { "w-i-think", 0.020, 3.50, 2, w_i_think_notes },
     { "w-of-a-stone", 0.000, 8.00, 3, w_of_a_stone_notes },
