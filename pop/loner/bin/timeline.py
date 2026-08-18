@@ -225,7 +225,7 @@ X = lambda beat: int(round((beat + STRIP_PAD) * PXB)) + PLAYHEAD_X  # beat → s
 # every column is numbered under the bar label. Now a note can be named
 # out loud — "bar 3 beat 3" — and found by eye without counting.
 # (BEAT_TINT comes from the theme block above.)
-for b in range(-1, TOTAL_BEATS + 1):   # -1 is the pickup beat
+for b in range(0, TOTAL_BEATS + 1):
     x, xn = X(b), X(b + 1)
     d.rectangle([x, ROLL_TOP, xn - 1, ROLL_BOT], fill=BEAT_TINT[b % 4])
     if b % 4 == 0:
@@ -247,7 +247,7 @@ for st in STS:
 
 # kick lane
 KY0, KY1 = ROLL_BOT + 40, ROLL_BOT + 104
-for b in range(-1, KICK_BEATS):
+for b in range(0, KICK_BEATS):
     x = X(b)
     d.rounded_rectangle([x, KY0, x + PXB - 4, KY1], 6, fill=KICK_FILL)
 d.text((X(0) - 84, KY0 + 8), "kick", font=f_note, fill=BLUE)
@@ -420,7 +420,7 @@ def render_frame(i):
                 shadowed(d2, (lab[0] - px, lab[1]), txt, f_word, LABEL_ON)
     # kick flash
     kb = int(math.floor(beat))
-    if -1 <= kb < KICK_BEATS and (beat - kb) < 0.22:
+    if 0 <= kb < KICK_BEATS and (beat - kb) < 0.22:
         x = X(kb) - px
         d2.rounded_rectangle([x, KY0, x + PXB - 4, KY1], 6, fill=PINK)
     # live timecode — song clock + musical address, updating every frame

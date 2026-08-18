@@ -1,7 +1,7 @@
 {
  "w-whole-line": {
   "slice": "f-whole-line",
-  "lead_in": 0.51,
+  "lead_in": 0.04,
   "spans": [
    [
     "sitting\u00b7a",
@@ -124,9 +124,9 @@
     23.97
    ]
   ],
-  "beats": 60.29,
+  "beats": 59.29,
   "renders": {
-   "lead": 30.56
+   "lead": 29.6
   },
   "snaps": [
    "curled +65ms",

@@ -216,7 +216,12 @@ CHART = {
                              # have no rests at all, so every one of
                              # those breaths was being stretched into
                              # the note before it.
-                             "lead": 1.0,        # the /s/ of sitting, as a pickup
+                             "lead": 0.0,        # no pickup — @jeffrey: "remove the
+                                                 # prelude beat and space so it just
+                                                 # starts immediately". Her /s/ still
+                                                 # plays, 1:1, in the few frames before
+                                                 # the downbeat rather than stretched
+                                                 # across a whole beat of air.
                              # curled 2 (one shorter than 3, and 0.94× —
                              # essentially her own speed): curled + up now
                              # fill bar 1 exactly, 4→8. The beat goes into
@@ -263,7 +268,7 @@ CHART = {
                                        # half beat (2.0, 1.23×) and my gives it
                                        # back (1.5, 1.07×), so self keeps bar 3
                                        # and nothing downstream moves.
-                                       4: 2.5, 5: 1.5, 6: 2.0,
+                                       4: 1.5, 5: 1.5, 6: 2.0,
                                        # think 1 (1.17×, her own speed — at 2
                                        # it was a 2.3× held tone), so OF keeps
                                        # its 4 beats at 1.01×, her real octave,
