@@ -284,6 +284,8 @@ CHART = {
                              # 1-beat rest, which lands "just" square on the
                              # bar 8 downbeat.
                              "gaps": { 3: 0.5,   # "in" leans in behind the downbeat
+                                       4: 1.0,   # …and a beat before "my",
+                                                 # everything after shifting with it
                                        } },
     "w-sitting-curled":    { "slice": "f-sitting-curled",    "beats": 11.0 },
     "w-i-think":           { "slice": "f-i-think",           "beats": 3.5 },
