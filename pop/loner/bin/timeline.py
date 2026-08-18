@@ -92,8 +92,9 @@ chart = json.load(open(os.path.join(LANE, "vox4", ".chart.json")))["w-whole-line
 LINE_BEATS = chart["beats"]
 LINE_BARS = math.ceil(LINE_BEATS / 4.0)
 PASSES = [0.0]                               # ONE pass, and no count-in:
-KICK_BEATS = int((LINE_BARS + 1) * 4)        # the first word IS the downbeat
-TOTAL_BEATS = (LINE_BARS + 2) * 4
+BARS_MAX = 16                                # nothing past bar 16
+KICK_BEATS = int(min(LINE_BARS + 1, BARS_MAX) * 4)   # first word IS the downbeat
+TOTAL_BEATS = min(LINE_BARS + 2, BARS_MAX) * 4
 STRIP_PAD = 2.0                              # beats of strip before beat 0,
                                              # so the pickup has somewhere to live
 

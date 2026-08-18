@@ -277,7 +277,7 @@ CHART = {
                                        # full bar because at 2 beats it was
                                        # too fast and abrupt
                                        12: 4.0, 13: 4.0, 14: 2.0, 15: 2.0,
-                                       16: 3.0, 17: 1.5, 18: 1.5 },
+                                       16: 2.0, 17: 1.5, 18: 1.5 },
                              # words whose syllables carry a melody must not
                              # be flattened to one tone by THE HOLD
                              # patiently is pa·tient·ly, three notes

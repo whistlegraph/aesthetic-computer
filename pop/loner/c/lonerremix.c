@@ -305,21 +305,34 @@ static void voice_line(const char *name, double bar, double gain,
 // ── the kit — four on the floor, synthesized ───────────────────────────
 #define MAX_KICKS 2048
 static double kickT[MAX_KICKS]; static int kickN = 0;
-static const double KSAT_D = 0.955959731045443; // tanh(1.9)
+static const double KSAT_D = 0.999329299739067; // tanh(3.8)
+// A HARDER KICK, for the speakers it will actually be heard on.
+// @jeffrey: "can the kick be harder · so i can hear it better on laptop
+// speakers with the AC on lol". A laptop cannot reproduce 50 Hz at all,
+// so more sub would only eat headroom inaudibly. What reads on a small
+// speaker is MIDRANGE: the beater click, a short 300 Hz knock, and the
+// harmonics that saturation folds up out of the fundamental. So the
+// drive doubles (1.9 → 3.8, which is nearly square), the attack is
+// tighter, the pitch envelope drops faster, and the click is louder,
+// longer and two-toned instead of a 2 ms blip at 0.07.
 static void kick(double t, double gain) {
     if (kickN < MAX_KICKS) kickT[kickN++] = t;
     long n = lround(0.34 * SR), i0 = lround(t * SR);
-    double ph = 0, sub = 0;
+    double ph = 0, sub = 0, knk = 0;
     for (long i = 0; i < n; i++) {
         double u = i / (double)SR;
-        double f = 48 + 107 * exp(-u * 45);
+        double f = 50 + 130 * exp(-u * 58);          // snappier drop
         ph += (TAU * f) / SR;
         sub += (TAU * 45) / SR;
-        double env = (0.6 * exp(-u * 28) + 0.5 * exp(-u * 9)) * fmin(1, u / 0.0012);
-        double body = tanh(sin(ph) * env * 1.9) / KSAT_D;
-        double low = sin(sub) * exp(-u * 7) * 0.22;
-        double blip = exp(-u * 520) * 0.07 * sin(TAU * 2200 * u);
-        emit(BUS_DRUMS, i0 + i, (body + low + blip) * 0.80 * gain * tail_fade(i, n),
+        knk += (TAU * 300) / SR;
+        double env = (0.6 * exp(-u * 30) + 0.5 * exp(-u * 9)) * fmin(1, u / 0.0008);
+        double body = tanh(sin(ph) * env * 3.8) / KSAT_D;
+        double low = sin(sub) * exp(-u * 7) * 0.20;
+        double knock = sin(knk) * exp(-u * 95) * 0.36;   // ~10 ms at 300 Hz
+        double click = exp(-u * 190) * 0.30 *
+                       (sin(TAU * 2400 * u) + 0.7 * sin(TAU * 4300 * u));
+        emit(BUS_DRUMS, i0 + i,
+             (body + low + knock + click) * 0.86 * gain * tail_fade(i, n),
              0, NULL, 0, 0, 0);
     }
 }
@@ -582,8 +595,10 @@ static float *duck_env(double depth, double atk, double rel) {
 
 // ═══ main ══════════════════════════════════════════════════════════════
 static int minimal_bars(void) {
-    // the line once, plus a bar to breathe (no count-in any more)
-    return (int)(ceil(phrase("w-whole-line")->beats / 4.0) + 2);
+    // the line once, plus a bar to breathe — and never past bar 16
+    // (@jeffrey: "no need to go past bar 16"); the line ends inside 15.
+    int b = (int)(ceil(phrase("w-whole-line")->beats / 4.0) + 2);
+    return b < 16 ? b : 16;
 }
 
 int main(void) {
@@ -591,7 +606,10 @@ int main(void) {
     // else — "lets start with just kick and vocals and get that right".
     int minimal = getenv("MINIMAL") != NULL;
     BEAT = 60.0 / BPM; BAR = 4 * BEAT; STEP = BEAT / 4;
-    N = lround(((minimal ? minimal_bars() : BARS) * BAR + TAIL_S) * SR);
+    // the study stops at bar 16 and needs only enough tail for the last
+    // note to ring — six seconds of nothing was six seconds of watching
+    N = lround(((minimal ? minimal_bars() : BARS) * BAR
+                + (minimal ? 2.0 : TAIL_S)) * SR);
     drumsL = calloc(N, 4); drumsR = calloc(N, 4);
     musicL = calloc(N, 4); musicR = calloc(N, 4);
     voxL = calloc(N, 4); voxR = calloc(N, 4);
@@ -615,6 +633,7 @@ int main(void) {
         const ChartPhrase *p = phrase("w-whole-line");
         double lineBars = ceil(p->beats / 4.0);
         int kickBars = (int)(lineBars + 1);
+        if (kickBars > 16) kickBars = 16;
         double off = p->leadIn;                 // the pickup sits ahead of beat 0
         printf("  MINIMAL — kick + vocals, ONE pass, no count-in, line %.0f beats\n",
                p->beats);
@@ -836,8 +855,10 @@ mixdown:
     // ── the pump + the mix ─────────────────────────────────────────────
     // "side chained into the lyrics": every kick ducks the vox 0.34 and
     // the bed 0.52; drums never duck.
-    float *envBed = duck_env(0.52, 0.020, 0.30);
-    float *envVox = duck_env(0.34, 0.020, 0.26);
+    // harsher sidechain — deeper on both buses and a faster grab, so
+    // the pump is something you feel rather than infer
+    float *envBed = duck_env(0.68, 0.008, 0.26);
+    float *envVox = duck_env(0.52, 0.008, 0.22);
     float *L = calloc(N, 4), *R = calloc(N, 4);
     // band-limited antisymmetric side (one-pole at 6 kHz)
     double kSide = 1 - exp((-TAU * 6000) / SR);
