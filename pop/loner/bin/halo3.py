@@ -248,7 +248,7 @@ CHART = {
                              # on 20 — so OF starts the instant think ends
                              # ("of should start sooner, right after
                              # 'think' ends") with no rest needed at all.
-                             "durs": { 0: 2.0, 1: 2.0, 2: 3.5, 3: 1.5,
+                             "durs": { 0: 2.0, 1: 2.0, 2: 6.0, 3: 1.5,
                                        # "my" a beat sooner: the warp is one
                                        # sequential frame map, so units cannot
                                        # truly overlap — "in" simply ends where
@@ -385,7 +385,7 @@ SNAP_MIN_S = 0.080          # no word may be shrunk below this
 SNAP_QUIET = 0.30           # energy valley must be this share of local median
 
 
-def snap_boundaries(a, words, t0):
+def snap_boundaries(a, words, t0, pinned=()):
     """Pull each word start onto the acoustic event nearest it."""
     x, fs, f0 = a["x"], a["fs"], a["f0"]
     n = int(round(fs * FRAME_S))
@@ -412,6 +412,8 @@ def snap_boundaries(a, words, t0):
     out = [dict(w) for w in words]
     log = []
     for i in range(1, len(out)):
+        if i in pinned:          # a measured pin is a decision, not a guess
+            continue
         k0 = int(round((out[i]["start"] - t0) / FRAME_S))
         prev = int(round((out[i - 1]["start"] - t0) / FRAME_S))
         nxt = (int(round((out[i + 1]["start"] - t0) / FRAME_S))
@@ -451,7 +453,7 @@ TRIM_LEAK_S = 0.150         # audio after it that is just the next word bleeding
 ATTACK_S = 0.030            # pre-roll kept ahead of every word's onset
 
 
-def keep_attacks(unit_src, rest_src):
+def keep_attacks(unit_src, rest_src, x=None, fs=None):
     """Pull each unit's start back a little so its ATTACK survives.
 
     @jeffrey on "in": "just make sure our start of the word in is not
@@ -465,10 +467,30 @@ def keep_attacks(unit_src, rest_src):
     actually ended so nothing overlaps sung material.
     """
     pre = int(round(ATTACK_S / FRAME_S))
+    # Borrow ONLY silence. @jeffrey: "feels like 'time' has bits of the
+    # last word in it". The runway was bounded by the previous unit's
+    # span, which is not the same as the previous word's SOUND — where
+    # two words run together with no gap, reaching back 30 ms for an
+    # attack reached into the neighbour's glide, and the audit found
+    # "time" holding 44% of a fragment belonging to "for". Walk back only
+    # across frames under the gate, so a word can pick up its own breath
+    # and never anyone else's voice.
+    quiet = None
+    if x is not None:
+        n = int(round(fs * FRAME_S))
+        m = len(x) // n
+        e = np.sqrt((x[:m * n].reshape(m, n) ** 2).mean(axis=1))
+        quiet = e <= (np.max(np.abs(x)) or 1.0) * 10.0 ** (TRIM_GATE_DB / 20.0)
     out = []
     for u, (s0, s1) in enumerate(unit_src):
         floor = 0 if u == 0 else unit_src[u - 1][1]
-        out.append((max(floor, s0 - pre), s1))
+        lo = max(floor, s0 - pre)
+        if quiet is not None:
+            k = s0
+            while k > lo and k - 1 < len(quiet) and quiet[k - 1]:
+                k -= 1
+            lo = k
+        out.append((lo, s1))
     return out
 TRIM_KEEP = 0.35            # never leave a unit shorter than this share
 
@@ -849,7 +871,15 @@ for name, ch in CHART.items():
         words[wi:wi + 1] = [dict(base, start=edges[k], end=edges[k + 1], t=labels[k])
                             for k in range(len(labels))]
 
-    words, snaps = snap_boundaries(a, words, t0_slice)
+    # words pinned by `times` were measured off her own onsets; the
+    # snapper must not then drag them somewhere else. Indices shift
+    # by the syllable splits inserted before them.
+    pinned = set()
+    for wi in (ch.get("times") or {}):
+        extra = sum(len([c for c in cs if c[0] is not None])
+                    for si, cs in (ch.get("sylls") or {}).items() if si < wi)
+        pinned.add(wi + extra)
+    words, snaps = snap_boundaries(a, words, t0_slice, pinned)
     # sub-split units at their internal fricative (e.g. myself → my·self)
     for ui in sorted(ch.get("splits", []), reverse=True):
         w = words[ui]
@@ -897,7 +927,7 @@ for name, ch in CHART.items():
         unit_src.append((max(0, s0), min(F, max(s0 + 1, s1))))
 
     unit_src, trims, rest_src = trim_units(x, fs, unit_src, [w["t"] for w in words])
-    unit_src = keep_attacks(unit_src, rest_src)
+    unit_src = keep_attacks(unit_src, rest_src, x, fs)
     if ch.get("end"):                      # the last word stops at the cap too
         cap = int(round((ch["end"] - t0_slice) / FRAME_S))
         a0, b0_ = unit_src[-1]
@@ -1004,7 +1034,17 @@ for name, ch in CHART.items():
                       round(ants[u] * FRAME_S / SPB, 4) if u < len(ants) else 0.0))
     chart_c.append((name, lead_in, beats_total, notes))
     VOICING[name] = voiced_runs
+    # THE SPANS ACTUALLY PLAYED — after times, sylls, snapping, attack
+    # pre-roll and the energy trim. bin/audit.py checks these against the
+    # sung events it finds in the audio, so the check is on what the
+    # chart plays rather than on what a transcriber claimed.
+    # SLICE-relative seconds, the same clock the slice wav and the
+    # alignment use — adding the source offset here silently shifted the
+    # audit against the audio it was checking.
+    played = [[w["t"], round(a_ * FRAME_S, 3), round(b_ * FRAME_S, 3)]
+              for w, (a_, b_) in zip(words, unit_src)]
     manifest[name] = dict(slice=slice_name, lead_in=round(lead_in, 3),
+                          spans=played,
                           beats=beats_total, renders=renders,
                           snaps=snaps, trims=trims, words=entry["words"])
     print(f"  {name:22s} {renders['lead']:5.2f}s  lead·8ve×2·low3·low5  «{entry['words']}»")
