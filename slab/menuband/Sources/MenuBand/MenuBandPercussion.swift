@@ -149,6 +149,18 @@ final class MenuBandPercussion {
     private var pending: [Voice] = []
     private let lock = NSLock()
 
+    /// Which surface axis the stereo image follows, as a unit vector over the
+    /// centered coordinates (sx, sy). A Mac trackpad pans along its long axis —
+    /// (1, 0) — because that is how the pad lies under your hands. TrackDrum on
+    /// a phone stands that axis upright and selects (0, -1) instead, so left and
+    /// right on the glass stay left and right in the ears. Default is the Mac's.
+    var panAxis = (x: 1.0, y: 0.0)
+
+    private func stereo(_ sx: Double, _ sy: Double, _ reach: Double) -> Double {
+        max(-1.0, min(1.0, (sx * panAxis.x + sy * panAxis.y) * reach))
+    }
+
+
     /// Monotonic id per key-press, so a key-up can release exactly the held
     /// voices it started (the hi-hat foot-pedal model).
     private var groupCounter: UInt64 = 0
@@ -331,7 +343,7 @@ final class MenuBandPercussion {
         // The elevated fundamental and deliberately quiet (0,1) mode keep a
         // center strike light; the short tails avoid reading as reverb.
         let fundamental = (104.0 + radius * 28.0) * tension
-        let pan = max(-1.0, min(1.0, sx * 0.72))
+        let pan = stereo(sx, sy, 0.72)
         var voices: [Voice] = []
 
         // A compact kick anchors the centroid; the modal membrane immediately
@@ -448,7 +460,7 @@ final class MenuBandPercussion {
         let sy = Double(point.y - 0.5) * 2
         let distance = Self.roundedTrackpadDistance(sx: sx, sy: sy)
         let v = max(0.08, min(1.0, Double(velocity) / 127.0))
-        let pan = max(-1.0, min(1.0, sx * 0.72))
+        let pan = stereo(sx, sy, 0.72)
         let separations = anchors.map {
             min(1.0, hypot(Double($0.x - point.x) * 1.64,
                            Double($0.y - point.y)))
@@ -544,7 +556,7 @@ final class MenuBandPercussion {
         let anchorTension = 1.0 + min(0.75, Double(anchors.count) * 0.16)
         let anchorDamping = min(0.72, Double(anchors.count) * 0.14)
         let edgeGain = 1.0 - 0.32 * smoothstep(0.40, 1.0, distance)
-        let pan = max(-1.0, min(1.0, sx * 0.72))
+        let pan = stereo(sx, sy, 0.72)
         let base = (112.0 + 285.0 * distance) * anchorTension
         let duration = max(0.045, (0.19 - distance * 0.055)
             * (1.0 - anchorDamping * 0.60))
@@ -684,7 +696,8 @@ final class MenuBandPercussion {
                 + crossing * seamActivity * 0.24)
         let release = synthetic ? 0.018
             : max(0.004, 0.010 - Double(anchors.count) * 0.0012 - proximity * 0.003)
-        let pan = max(-1.0, min(1.0, Double(point.x - 0.5) * 1.45))
+        let pan = stereo(Double(point.x - 0.5) * 2,
+                         Double(point.y - 0.5) * 2, 0.725)
         lock.lock()
         scratchTarget = level
         scratchCutoff = cutoff
@@ -767,7 +780,11 @@ final class MenuBandPercussion {
     /// Rounded-rectangle inset coordinate for the physical trackpad. Uses a
     /// 1.64:1 surface and a modest corner radius; standard signed-distance
     /// geometry keeps every contour parallel to the real perimeter.
-    private static func roundedTrackpadDistance(sx: Double, sy: Double) -> Double {
+    ///
+    /// Internal rather than private so a drawing layer can put its zone rings
+    /// exactly where the audio hears them — the phone edition checks its rings
+    /// against this function instead of re-deriving the contours by eye.
+    static func roundedTrackpadDistance(sx: Double, sy: Double) -> Double {
         let halfWidth = 0.82
         let halfHeight = 0.50
         let corner = 0.055

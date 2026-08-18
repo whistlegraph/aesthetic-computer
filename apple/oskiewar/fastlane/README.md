@@ -84,6 +84,22 @@ For _fastlane_ installation instructions, see [Installing _fastlane_](https://do
 
 
 
+### mac build
+
+```sh
+[bundle exec] fastlane mac build
+```
+
+
+
+### mac upload
+
+```sh
+[bundle exec] fastlane mac upload
+```
+
+
+
 ### mac privacy
 
 ```sh

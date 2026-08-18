@@ -11,10 +11,24 @@
   <key>CFBundleDisplayName</key><string>oskiewar</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleShortVersionString</key><string>1.0.0</string>
-  <key>CFBundleVersion</key><string>1</string>
+  <!-- Both platforms answer to one App Store Connect record, and the Fastfile
+       names a single OSKIEWAR_BUILD_NUMBER for `ship`. This has to agree with
+       apple/oskiewar/Info.plist or the mac lane asks the store for a build
+       that was only ever uploaded from the phone side. Bump both together. -->
+  <key>CFBundleVersion</key><string>7</string>
   <key>LSApplicationCategoryType</key><string>public.app-category.games</string>
   <key>LSMinimumSystemVersion</key><string>13.0</string>
   <key>NSHighResolutionCapable</key><true/>
   <key>NSSupportsAutomaticGraphicsSwitching</key><true/>
+  <key>NSHumanReadableCopyright</key><string>© 2026 Aesthetic Computer</string>
+  <!-- OscSender broadcasts the match's own events on UDP 51338 so a DAW
+       across the desk can score the fight. macOS 15 asks before the first
+       packet leaves for the LAN; this is the sentence it shows. Denying it
+       costs the OSC feed and nothing else — the game plays on. -->
+  <key>NSLocalNetworkUsageDescription</key><string>oskiewar sends its match events to music tools on your local network.</string>
+  <!-- The game speaks HTTPS and nothing else, which is exempt encryption.
+       Declaring it here answers the export-compliance question once instead of
+       at every upload. -->
+  <key>ITSAppUsesNonExemptEncryption</key><false/>
 </dict>
 </plist>

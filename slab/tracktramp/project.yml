@@ -23,6 +23,10 @@ targets:
       - path: Sources
       - path: ../menuband/Sources/MenuBand/MenuBandPercussion.swift
       - path: ../menuband/Sources/MenuBand/PitchBendCursor.swift
+      - path: ../menuband/Sources/MenuBand/TrackpadSurfacePhysics.swift
+      # PitchBendCursor's overlay window sizes itself against the polyrhythm
+      # trainer, so this list has not compiled without it since that landed.
+      - path: ../menuband/Sources/MenuBand/PolyrhythmTrainer.swift
       - path: ../menuband/Sources/MenuBand/FocusFlashOverlay.swift
       - path: ../menuband/Sources/MenuBand/FocusCueBeep.swift
       - path: ../menuband/Sources/MenuBand/TracktrampShaders.metalsource

@@ -16,6 +16,8 @@
 # means `create` runs once, not twice — the second platform is added to the
 # record that already exists.
 
+require "shellwords" # the signing key's path reaches xcodebuild as an argument
+
 API_KEY_ID = "S4TQKG6U99" # Admin role — required for cloud signing.
 API_ISSUER = "69a6de78-fa3c-47e3-e053-5b8c7c11a4d1"
 API_KEY_PATH = File.expand_path("~/.appstoreconnect/private_keys/AuthKey_S4TQKG6U99.p8")
@@ -105,14 +107,22 @@ end
       lane :build do
         UI.user_error!("run `xcodegen generate` in apple/oskiewar-mac first — " \
                        "#{MAC_PROJECT} does not exist") unless File.exist?(MAC_PROJECT)
+        # gym has no api_key option — signing is xcodebuild's errand here, not
+        # the App Store Connect API's, so the key reaches it the way xcodebuild
+        # itself asks for one. Without these three, -allowProvisioningUpdates
+        # has no credentials to mint a certificate with and falls back to
+        # whatever is already in the keychain, which on a fresh machine is
+        # nothing.
         build_mac_app(
           project: MAC_PROJECT,
           scheme: "OskiewarMac",
           configuration: "Release",
           export_method: "app-store",
           export_team_id: TEAM,
-          api_key: asc_key,
-          xcargs: "-allowProvisioningUpdates",
+          xcargs: "-allowProvisioningUpdates " \
+            "-authenticationKeyPath #{API_KEY_PATH.shellescape} " \
+            "-authenticationKeyID #{API_KEY_ID} " \
+            "-authenticationKeyIssuerID #{API_ISSUER}",
           output_directory: File.dirname(PKG),
           output_name: File.basename(PKG, ".pkg"),
         )

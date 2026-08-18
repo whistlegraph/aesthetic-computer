@@ -45,6 +45,10 @@ SOURCES=(
     "${SCRIPT_DIR}/Sources/TrackDrumIcon.swift"
     "${MENUBAND_SOURCES}/MenuBandPercussion.swift"
     "${MENUBAND_SOURCES}/PitchBendCursor.swift"
+    "${MENUBAND_SOURCES}/TrackpadSurfacePhysics.swift"
+    # PitchBendCursor's overlay window sizes itself against the polyrhythm
+    # trainer, so this list has not compiled without it since that landed.
+    "${MENUBAND_SOURCES}/PolyrhythmTrainer.swift"
     "${MENUBAND_SOURCES}/FocusFlashOverlay.swift"
     "${MENUBAND_SOURCES}/FocusCueBeep.swift"
 )
