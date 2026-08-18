@@ -226,7 +226,13 @@ CHART = {
                              # ("of should start sooner, right after
                              # 'think' ends") with no rest needed at all.
                              "durs": { 0: 2.0, 1: 2.0, 2: 2.5, 3: 1.5,
-                                       4: 2.5, 5: 2.0, 6: 2.0,
+                                       # "my" a beat sooner: the warp is one
+                                       # sequential frame map, so units cannot
+                                       # truly overlap — "in" simply ends where
+                                       # "my" begins, which is what overlapping
+                                       # would sound like anyway. in lands at
+                                       # 0.92x, her own speed.
+                                       4: 1.5, 5: 2.0, 6: 2.0,
                                        # think 1 (1.17×, her own speed — at 2
                                        # it was a 2.3× held tone), so OF keeps
                                        # its 4 beats at 1.01×, her real octave,
@@ -245,7 +251,7 @@ CHART = {
                                        # full bar because at 2 beats it was
                                        # too fast and abrupt
                                        12: 4.0, 13: 4.0, 14: 2.0, 15: 2.0,
-                                       16: 4.0, 17: 1.5, 18: 1.5 },
+                                       16: 3.0, 17: 1.5, 18: 1.5 },
                              # words whose syllables carry a melody must not
                              # be flattened to one tone by THE HOLD
                              # patiently is pa·tient·ly, three notes
