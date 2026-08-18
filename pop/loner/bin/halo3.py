@@ -66,6 +66,7 @@ HALO_DARK_HZ = 5500.0
 HALO_BREATH_X = 1.5
 UNVOICED_W = 0.18           # consonant share of any stretch
 SILENT_W = 0.04             # a pause inside a word hardly stretches at all
+PEAK_LEAD_MAX_S = 0.09      # how far a word's peak may pull its start early
 HOLD_RATIO = 1.8            # stretch beyond this → flat tone + vibrato
 
 BPM = 122.0
@@ -276,12 +277,15 @@ CHART = {
                                        # very as TWO notes, and "pa" held a
                                        # full bar because at 2 beats it was
                                        # too fast and abrupt
-                                       12: 4.0, 13: 4.0, 14: 2.0, 15: 2.0,
-                                       16: 2.0, 17: 1.5, 18: 1.5 },
+                                       # waiting splits like sitting did, so
+                                       # "ing" lands on the half bar
+                                       12: 4.0, 13: 2.0, 14: 2.0, 15: 2.0,
+                                       16: 2.0, 17: 2.0, 18: 1.5, 19: 1.5 },
                              # words whose syllables carry a melody must not
                              # be flattened to one tone by THE HOLD
                              # patiently is pa·tient·ly, three notes
-                             "sylls": { 12: [(None, "ve"), (15.05, "ry")],
+                             "sylls": { 11: [(None, "wait"), (13.70, "ing")],
+                                        12: [(None, "ve"), (15.05, "ry")],
                                         13: [(None, "pa"), (16.80, "tient"),
                                              (17.70, "ly")] },
                              # "pa" stays on the F4 she sings — the leap up
@@ -558,13 +562,32 @@ def build_warp(a, unit_src, beats, dursb, gapsb=None, rest_src=None, lead_b=0.0,
         e = np.sqrt((xs[:nf * spf].reshape(nf, spf) ** 2).mean(axis=1))
         quiet = e <= (np.max(np.abs(xs)) or 1.0) * 10.0 ** (TRIM_GATE_DB / 20.0)
         w[:nf][quiet] = SILENT_W
-    ants = []                                   # consonant frames per unit
+    # PEAK ON THE BEAT. @jeffrey: "align the peaks". The warp put each
+    # word's voiced ONSET on its slot, which is where the note starts —
+    # but not where the ear hears the hit. A sung syllable swells, and the
+    # beat is felt at the loudest moment, so a word whose peak is 60 ms
+    # into the vowel reads as 60 ms late even though its onset is exact.
+    # The anticipation now runs to the PEAK, with everything before it
+    # playing 1:1 ahead of the beat the way a singer leans in. Capped, so
+    # a late-peaking word cannot drag its start into the word before it.
+    xs, fsr = a["x"], a["fs"]
+    spf = int(round(fsr * FRAME_S))
+    nfr = min(F, len(xs) // spf)
+    fen = np.sqrt((xs[:nfr * spf].reshape(nfr, spf) ** 2).mean(axis=1))
+    lead_cap = int(round(PEAK_LEAD_MAX_S / FRAME_S))
+    ants = []                                   # frames ahead of the beat
     for (s0, s1) in unit_src:
         v0 = s0
         lim = min(s0 + int(0.20 / FRAME_S), s1 - 1, F - 1)
         while v0 < lim and not a["voiced"][v0]:
             v0 += 1
-        ants.append(v0 - s0 if a["voiced"][min(v0, F - 1)] else 0)
+        if not a["voiced"][min(v0, F - 1)]:
+            v0 = s0
+        hi = min(s1, nfr, v0 + int(0.35 / FRAME_S))     # look in the attack
+        if hi > v0:
+            pk = v0 + int(np.argmax(fen[v0:hi]))
+            v0 = min(pk, v0 + lead_cap)
+        ants.append(max(0, v0 - s0))
     pre = list(range(0, unit_src[0][0] + ants[0]))   # pre + consonant, 1:1
     rise = None
     if lead_b > 0.0 and len(pre):
