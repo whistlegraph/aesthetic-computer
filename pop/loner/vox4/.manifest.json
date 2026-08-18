@@ -33,7 +33,7 @@
    "myself\u00b7b \u2212265ms",
    "think \u2212350ms",
    "stone \u2212675ms",
-   "just \u2212335ms",
+   "just \u2212195ms",
    "very \u2212520ms",
    "patiently \u2212480ms",
    "to \u2212855ms"
@@ -199,7 +199,6 @@
   "trims": [
    "A \u2212215ms",
    "just \u2212265ms",
-   "waiting \u22121260ms",
    "very \u2212400ms"
   ],
   "words": "of a stone just waiting very patiently"

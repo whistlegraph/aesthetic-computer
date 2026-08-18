@@ -389,7 +389,8 @@ def snap_boundaries(a, words, t0):
 TRIM_GATE_DB = -36.0        # of the take's peak; keeps quiet fricatives
 TRIM_MARGIN_S = 0.050       # let the release start before we cut
 TRIM_MIN_S = 0.080          # below this, not worth the surgery
-TRIM_QUIET_RUN_S = 0.120    # silence this long means the word is over
+TRIM_QUIET_RUN_S = 0.120    # silence this long may end the word
+TRIM_LEAK_S = 0.150         # audio after it that is just the next word bleeding in
 ATTACK_S = 0.030            # pre-roll kept ahead of every word's onset
 
 
@@ -434,17 +435,26 @@ def energy_end(x, fs, f0, f1, peak):
     if not len(on):
         return f0 + m
     run = int(round(TRIM_QUIET_RUN_S / FRAME_S))
-    k = int(on[0])                              # never cut before she starts
+    leak = int(round(TRIM_LEAK_S / FRAME_S))
+    runs, k = [], int(on[0])                    # never cut before she starts
     while k < m:
         if quiet[k]:
             j = k
             while j < m and quiet[j]:
                 j += 1
             if j - k >= run:
-                return f0 + k
+                runs.append((k, j))
             k = j
         else:
             k += 1
+    # Cut only at TRAILING silence. A long word can hold a pause INSIDE
+    # it — "patiently" has 200 ms between "patient" and "ly" — and
+    # cutting at the first quiet run threw that last syllable away. So
+    # walk the runs from the back and take the first one with nothing
+    # after it but the next word's leak.
+    for (a_, b_) in reversed(runs):
+        if int((~quiet[b_:]).sum()) <= leak:
+            return f0 + a_
     return f0 + int(on[-1]) + 1
 
 
