@@ -6,6 +6,13 @@ Reel suggestions live separately in [`REELS-BACKLOG.md`](REELS-BACKLOG.md).
 
 Status: `received` → `verified` → `applied` → `live`
 
+## Received August 18, 2026
+
+| Status | Request |
+|---|---|
+| live | Extract the Ciocci and Perry essays from the Sex Magazine zine as PDFs under “Press & writing.” Cut from `dropbox:Whistlegraph/Sex Magazine/(FINAL) Print-Ready Whistlegraph Sex Zine.pdf` (PDF pages 16–21 and 12–13) into `press/`; text stays selectable. Jeffrey cleared hosting them directly, 2026-08-18. |
+| live | The Underpainting score sheet rendered full-width; size it like the Feral File featured scores. A recovered work with a `score` no longer gets the full-width class, so it renders in the same 300px floated sheet. |
+
 ## Received August 17, 2026
 
 | Status | Request |

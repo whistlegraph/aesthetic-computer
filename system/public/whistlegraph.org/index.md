@@ -1618,6 +1618,8 @@ drawing one.
 **Press & writing**
 
 - [What is a Whistlegraph?](https://dirt.fyi/article/2023/09/whistlegraph) — Dirt — 2023
+- [The Butterfly Effect / Rules Set You Free](https://whistlegraph.org/press/jacob-ciocci-the-butterfly-effect.pdf) — Jacob Ciocci, The Whistlegraph Zine — 2023
+- [Whistlegraph Essay](https://whistlegraph.org/press/perry-whistlegraph-essay.pdf) — Perry, The Whistlegraph Zine — 2023
 - [Doodling Clockwork in Lore and Score](https://feralfile.com/journal/close-up/whistlegraph-doodling-clockwork-in-lore-and-score) — Dorothy Howard, Feral File — 2022
 
 **Papers**
@@ -1627,7 +1629,7 @@ drawing one.
 
 **Publication**
 
-- The Whistlegraph Zine — Sex Magazine (ed. Asher Penn), 2023. 60pp, 750 copies.
+- [The Whistlegraph Zine](https://sexmag.shop/products/the-whistlegraph-zine) — Sex Magazine (ed. Asher Penn), 2023. 60pp, 750 copies.
 
 ## Future
 

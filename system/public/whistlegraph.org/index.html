@@ -239,7 +239,7 @@
   #detail.on{display:block}
   #index.off{display:none}
   #detail .score{width:300px; max-width:64vw; height:auto; border:1px solid var(--line); background:var(--art); float:left; margin:4px 16px 10px 0}
-  #detail .score.full{width:100%;max-width:100%;float:none;margin:4px 0 14px}
+  #dVideoRule{clear:both} /* a recovered work with a score sheet rules *under* it, not beside the float */
   #detail .post-title{font-size:clamp(24px,6vw,38px)!important; line-height:1.08}
   #detail video{width:300px; max-width:64vw; aspect-ratio:1824/2280; height:auto; border:1px solid var(--line); background:#000; display:block; clear:both; margin-top:6px}
   #detail video.wide{width:560px; max-width:88vw; aspect-ratio:16/9} /* the Longest Whistlegraph film is landscape */
@@ -451,6 +451,8 @@
     <p class="glab" data-i18n="cat.press">Press &amp; writing</p>
     <ul class="plain">
       <li><a href="https://dirt.fyi/article/2023/09/whistlegraph">What is a Whistlegraph?</a> — Dirt — 2023</li>
+      <li><a href="/press/jacob-ciocci-the-butterfly-effect.pdf">The Butterfly Effect / Rules Set You Free</a> — Jacob Ciocci, The Whistlegraph Zine — 2023</li>
+      <li><a href="/press/perry-whistlegraph-essay.pdf">Whistlegraph Essay</a> — Perry, The Whistlegraph Zine — 2023</li>
       <li><a href="https://feralfile.com/journal/close-up/whistlegraph-doodling-clockwork-in-lore-and-score">Doodling Clockwork in Lore and Score</a> — Dorothy Howard, Feral File — 2022</li>
     </ul>
     <p class="glab" data-i18n="cat.papers">Papers</p>
@@ -475,7 +477,7 @@
 
     <hr class="thick">
     <footer>
-      <span data-i18n="footer.updated" data-i18n-vars='{"date":"2026.08.17"}'>Last updated 2026.08.17</span><br>
+      <span data-i18n="footer.updated" data-i18n-vars='{"date":"2026.08.18"}'>Last updated 2026.08.18</span><br>
       <span data-i18n-html="footer.media">Media from the <a href="https://aesthetic.computer">aesthetic.computer</a> archive.</span>
     </footer>
   </div>
@@ -1094,7 +1096,6 @@ function showDetail(code, keepScroll){
   }else{ // recovered — the posts themselves lead; no drawn score sheet
     D.performNote.style.display="none"; D.archiveNote.style.display="";
     D.scoreWrap.style.display=w.score?"":"none"; D.canonWrap.style.display="none"; D.canon.removeAttribute("src");
-    D.score.classList.toggle("full",!!w.score);
     if(w.score){ D.score.src=w.score; D.score.alt=t("alt.score",{title:w.title}); }
     D.videoRule.style.display=""; D.glyphCap.style.display="none"; D.glyphCap.textContent="";
     D.video.classList.toggle("wide",!!w.wide); // the Longest film is landscape
