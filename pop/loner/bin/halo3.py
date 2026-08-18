@@ -248,7 +248,7 @@ CHART = {
                              # on 20 — so OF starts the instant think ends
                              # ("of should start sooner, right after
                              # 'think' ends") with no rest needed at all.
-                             "durs": { 0: 2.0, 1: 2.0, 2: 2.0, 3: 1.5,
+                             "durs": { 0: 2.0, 1: 2.0, 2: 2.0, 3: 2.0,
                                        # "my" a beat sooner: the warp is one
                                        # sequential frame map, so units cannot
                                        # truly overlap — "in" simply ends where
@@ -295,7 +295,14 @@ CHART = {
                              # source seconds, read off her onsets, for the
                              # words whisper-1 mistimed. PRE-split indices.
                              "end": 24.25,
-                             "times": { 11: 12.70,   # waiting
+                             "times": { 2: 2.40,    # up — the alignment put this
+                                                    # boundary at 2.44, AFTER up's
+                                                    # attack had already begun, so
+                                                    # curled's block ended on the
+                                                    # first 20 ms of "up". Her level
+                                                    # valley is 2.38–2.42; the
+                                                    # boundary belongs in it.
+                                        11: 12.70,   # waiting
                                         12: 14.40,   # very
                                         14: 18.54,   # for
                                         15: 19.48,   # time
@@ -319,7 +326,7 @@ CHART = {
                              # instead of a 2.3× synthesized tone) with a
                              # 1-beat rest, which lands "just" square on the
                              # bar 8 downbeat.
-                             "gaps": { 3: 0.5,   # up ends on the bar line, in leans in half a beat later
+                             "gaps": {
                                        } },
     "w-sitting-curled":    { "slice": "f-sitting-curled",    "beats": 11.0 },
     "w-i-think":           { "slice": "f-i-think",           "beats": 3.5 },
