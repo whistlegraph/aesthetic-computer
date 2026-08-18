@@ -248,7 +248,7 @@ CHART = {
                              # on 20 — so OF starts the instant think ends
                              # ("of should start sooner, right after
                              # 'think' ends") with no rest needed at all.
-                             "durs": { 0: 2.0, 1: 2.0, 2: 2.5, 3: 1.5,
+                             "durs": { 0: 2.0, 1: 2.0, 2: 3.5, 3: 1.5,
                                        # "my" a beat sooner: the warp is one
                                        # sequential frame map, so units cannot
                                        # truly overlap — "in" simply ends where
@@ -575,7 +575,7 @@ def build_warp(a, unit_src, beats, dursb, gapsb=None, rest_src=None, lead_b=0.0,
     nfr = min(F, len(xs) // spf)
     fen = np.sqrt((xs[:nfr * spf].reshape(nfr, spf) ** 2).mean(axis=1))
     lead_cap = int(round(PEAK_LEAD_MAX_S / FRAME_S))
-    ants = []                                   # frames ahead of the beat
+    ants, voiced_at = [], []                    # frames ahead of the beat
     for (s0, s1) in unit_src:
         v0 = s0
         lim = min(s0 + int(0.20 / FRAME_S), s1 - 1, F - 1)
@@ -583,19 +583,31 @@ def build_warp(a, unit_src, beats, dursb, gapsb=None, rest_src=None, lead_b=0.0,
             v0 += 1
         if not a["voiced"][min(v0, F - 1)]:
             v0 = s0
+        voiced_at.append(v0)                            # BEFORE the peak search
         hi = min(s1, nfr, v0 + int(0.35 / FRAME_S))     # look in the attack
         if hi > v0:
             pk = v0 + int(np.argmax(fen[v0:hi]))
             v0 = min(pk, v0 + lead_cap)
         ants.append(max(0, v0 - s0))
-    pre = list(range(0, unit_src[0][0] + ants[0]))   # pre + consonant, 1:1
+    # THE PICKUP is the UNVOICED prefix only. Peak alignment made ants[0]
+    # reach into the vowel, and this stretch used to swallow whatever was
+    # in `pre` — so the /s/ window suddenly contained voiced attack, the
+    # noise synthesis got coloured by a vowel, and the take opened on a
+    # strange tone. Split it: the fricative before her first voiced frame
+    # is what stretches across the pickup beat; the peak lead that follows
+    # plays 1:1, the way any other word's runway does.
+    u0 = unit_src[0][0]
+    von = max(u0, min(voiced_at[0], u0 + ants[0]))
+    unv = list(range(0, von))                       # fricative, pre-vowel
+    lead_tail = list(range(von, u0 + ants[0]))      # attack up to the peak, 1:1
     rise = None
-    if lead_b > 0.0 and len(pre):
+    if lead_b > 0.0 and len(unv):
         want = max(1, int(round(lead_b * SPB / FRAME_S)))
-        src_n = len(pre)
-        pos = np.linspace(0, src_n - 1, want)
-        pre = [pre[int(round(p))] for p in pos]
+        pos = np.linspace(0, len(unv) - 1, want)
+        src_n = len(unv)
+        unv = [unv[int(round(p))] for p in pos]
         rise = (0, want, src_n)     # synth_from rebuilds this range as noise
+    pre = unv + lead_tail
     Z = len(pre)
     T = [Z + int(round(b * SPB / FRAME_S)) for b in beats]
     Tend = [Z + int(round((b + d) * SPB / FRAME_S)) for b, d in zip(beats, dursb)]
