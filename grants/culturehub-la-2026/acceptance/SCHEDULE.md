@@ -4,7 +4,7 @@
 | --- | --- |
 | Aug 11 | Artist-page copy, links, headshot, credit, and alt text due — **done** |
 | Aug 13 | Event-page forms submitted, both events — **done** |
-| Aug 16 | Send technical rider; confirm room, signal path, network, projection, and streaming — **rider rewritten and rebuilt Aug 18; email drafted at `REPLY-DRAFT-2026-08-18-rider.md`, awaiting approval to send** |
+| Aug 16 | Send technical rider; confirm room, signal path, network, projection, and streaming — **sent Aug 18** (one-sheet rider, `packet/technical-rider.pdf`) |
 | Sep 16 | Load in; map the room, network, power, projection, and six-channel signal path |
 | Sep 17–18 | Build, sync, channel tests, live rotation controls, score development, and documentation tests |
 | Sep 19 | **Grokaesthetic Workshop** — BYOC, participant laptop boot, group performance |

@@ -1,4 +1,4 @@
-# Rider email draft — August 18, 2026 (NOT SENT — awaiting approval)
+# Rider email — August 18, 2026 (SENT)
 
 To: Mattie BB <mattie@culturehub.org>
 Cc: Jeonghyeon Joo <jeonghyeonjoo@gmail.com>
