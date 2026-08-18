@@ -21,7 +21,7 @@ runtime = function acRuntime() {
 };
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 58;
+const buildVersion = 72;
 const floorY = 1800;
 const ceilingY = 0;
 const wallThickness = 80;
@@ -447,6 +447,12 @@ const cameraDoll = new FightCamDoll();
 const cameraScale = () => (stageRight - stageLeft) / cameraDoll.width;
 let playerCameraYaw = 0;
 let playerCameraPitch = 0;
+// A multiplier on the framed width, so zoom rides on top of automatic framing
+// rather than fighting it: the camera still guarantees both fighters are in
+// shot, and this scales the result. Above 1 is wider. The ceiling is low on
+// purpose -- a wide shot draws a wider span of terrain, and span IS the frame
+// budget on a console whose JS never gets a JIT.
+let playerCameraZoom = 1;
 let triangleDepth = -1.4;
 // A match frame submits ~2100 faces. Buffering them into a Float32Array first
 // cost 5.7ms a frame where handing each one straight over costs 1.8ms —
@@ -487,7 +493,11 @@ function projectedTriangle(a, b, c, color) {
   if (!(triangleSafe(a.x) && triangleSafe(a.y) && triangleSafe(a.z) &&
       triangleSafe(b.x) && triangleSafe(b.y) && triangleSafe(b.z) &&
       triangleSafe(c.x) && triangleSafe(c.y) && triangleSafe(c.z))) return;
-  emitTriangle(a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z, ...color);
+  // Positional, not spread: see the note on emitTriangle above. Every face a
+  // frame submits comes through here, and `...color` built one throwaway
+  // iterator apiece for ~2100 of them.
+  emitTriangle(a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z,
+    color[0], color[1], color[2]);
 }
 // Sutherland-Hodgman, one plane at a time. Both clips below are the same walk:
 // step the polygon's edges, keep the vertices that are inside, and whenever an
@@ -859,6 +869,11 @@ let selecting = false;
 // Self-play is a harness mode: both fighters run the bot, no pad can enter or
 // leave it, and rounds roll over on their own.
 let selfPlay = false;
+// Which kind the round on screen was opened against. Training and the bot door
+// seat the same fighter with the same brain now, so `players[1].bot` can no
+// longer say which door a round came through — and only one of those doors is
+// allowed on the wire.
+let fightOpponent = "";
 let hudLeftPad = 0;
 // The title is also the attract screen. Half of sessions get the quiet,
 // cross-legged tableau; half get a standing face-off. Both remain still so
@@ -866,11 +881,21 @@ let hudLeftPad = 0;
 // Hashing the already-created round name keeps the split stable for a visit
 // without spending a second Math.random call (reel seeding relies on one).
 let titleAttractMode = "still";
+// What a fresh session is dealt. @jeffrey, playtesting: "can we switch dummy
+// to bot now?" — the free front door was a post that never hit back, so a solo
+// visit was target practice rather than a fight. `trainingbot` is that same
+// fighter with the bot's brain switched on, carrying its own kind name so the
+// wire gate in `roundIsTimed` can still tell the free door from the one a
+// handle buys. The inert dummy and the spider stay reachable by name, because
+// damage, geometry and sync work all want a target that stands still.
 let trainingOpponent = "";
 function trainingOpponentKind() {
   const requested = String(globalThis.__oskiewarOpponent || "").toLowerCase();
-  if (requested === "spiderdummy") return requested;
-  if (!trainingOpponent) trainingOpponent = "dummy";
+  if (requested === "dummy" || requested === "spiderdummy" ||
+      requested === "trainingbot") return requested;
+  // One kind for the whole visit: a title returned to after a knockout must
+  // not re-deal the opponent out from under the player.
+  if (!trainingOpponent) trainingOpponent = "trainingbot";
   return trainingOpponent;
 }
 const selectionReady = [false, false];
@@ -1058,14 +1083,20 @@ function startReplay(now) {
   trackMatchStarted();
 }
 
+// Whether the round on screen is on the wire: clocked, named, recorded,
+// published, counted. The free training round never is, whatever its opponent
+// does. An opponent with no bot AI used to be a safe stand-in for "nobody is
+// watching this" — the day training started sparring back, that stand-in would
+// have put every anonymous session on a series, a demo and a live feed, so the
+// gate reads the door the round came through instead.
 function roundIsTimed() {
-  // Training against the dummy runs without a clock — except under the reel
-  // harness, where a scripted dummy bout wants the full round apparatus
-  // (clock, demo, result card) so it can be recorded and repainted like any
-  // match.
+  // Training runs without a clock — except under the reel harness, where a
+  // scripted dummy bout wants the full round apparatus (clock, demo, result
+  // card) so it can be recorded and repainted like any match.
   if (globalThis.__oskiewarTimedTraining === true) return true;
   // Every round that reaches a re-simulation was a timed, recorded round.
   if (resimActive) return true;
+  if (fightOpponent === "trainingbot") return false;
   return !(players[1].npc && !players[1].bot);
 }
 
@@ -1898,15 +1929,19 @@ function applyRoster(player, index) {
   player.handleColors = profile.colors;
 }
 
-// The one door into a fight, and the seam auth will attach to. Dummy is free
-// and anonymous — it is the front door and must never ask for anything. Bot
-// and ppl are what a handle buys, because they persist: a series, a published
-// match, a replay, a ranking. Sign-in belongs on this call, not in front of
-// the game. Nothing opens those doors yet, so only training reaches here.
+// The one door into a fight, and the seam auth will attach to. Training is
+// free and anonymous — it is the front door and must never ask for anything,
+// and `trainingbot` is that door's sparring partner: the bot's brain in a
+// round that stays off the wire. Bot and ppl are what a handle buys, because
+// they persist: a series, a published match, a replay, a ranking. Sign-in
+// belongs on this call, not in front of the game. Nothing opens those doors
+// yet, so only training reaches here.
 function startFightAgainst(kind, now) {
   const opponent = players[1];
-  opponent.npc = kind === "dummy" || kind === "spiderdummy" || kind === "bot";
-  opponent.bot = kind === "bot";
+  fightOpponent = kind;
+  opponent.npc = kind === "dummy" || kind === "spiderdummy" ||
+    kind === "bot" || kind === "trainingbot";
+  opponent.bot = kind === "bot" || kind === "trainingbot";
   opponent.spiderDummy = kind === "spiderdummy";
   // Pad two is @OSKIE until ppl arrives carrying a handle of its own.
   applyRoster(opponent, opponent.npc ? -1 : 2);
@@ -1980,6 +2015,7 @@ function returnToTitle(now, reason = "back") {
   // right-stick diorama angle before the very first title frame is painted.
   playerCameraYaw = 0;
   playerCameraPitch = 0;
+  playerCameraZoom = 1;
   cameraCenter = (players[0].x + players[1].x) / 2;
   cameraCenterY = (players[0].y + players[1].y) / 2 - 90;
   cameraWidth = Math.max(980, Math.abs(players[1].x - players[0].x) + 760);
@@ -2004,6 +2040,10 @@ function returnToTitle(now, reason = "back") {
 // so normal play cannot fall into it.
 function startSelfPlay(now) {
   selfPlay = true;
+  // The harness is not the free door. A self-play run armed from a live title
+  // inherits whatever training was seated, and leaving that behind would keep
+  // the whole mechanical test off the wire — no demo, no rollover.
+  fightOpponent = "";
   shellMode = "GAME";
   gameplayStarted = true;
   selecting = false;
@@ -2199,11 +2239,16 @@ function enterGame(now) {
     players[0].bot = false;
     players[0].spiderDummy = false;
     applyRoster(players[0], Math.max(0, players[0].rosterIndex));
-    // Attract mode may borrow two bots to demonstrate motion, but Start always
-    // opens the anonymous front door: one player versus an inert dummy.
+    // Attract keeps a cool neutral body in the second chair so the tableau
+    // reads as a matchup rather than two identical red bots. Start hands the
+    // first seat back and re-seats whichever sparring partner this session was
+    // actually dealt: hardcoding the inert dummy here left every session the
+    // clock dealt the action tableau — half of them — still punching a post
+    // after training switched to the bot.
+    const training = trainingOpponentKind();
     players[1].npc = true;
-    players[1].bot = false;
-    players[1].spiderDummy = false;
+    players[1].bot = training === "trainingbot";
+    players[1].spiderDummy = training === "spiderdummy";
     applyRoster(players[1], -1);
   }
   shellMode = "GAME";
@@ -3241,7 +3286,8 @@ function updateCameraDoll(dt, now) {
     const release = 1 - Math.exp(-Math.max(0, dt) * 1.6);
     cameraContainFloor = lerp(cameraContainFloor, naturalWidth, release);
   }
-  const framedWidth = Math.max(naturalWidth, cameraContainFloor);
+  const framedWidth = Math.max(naturalWidth, cameraContainFloor) *
+    (reelCamera() ? 1 : playerCameraZoom);
   // Automatic framing stays orthographic, preventing camera movement from
   // bending the arena. The right stick may still rotate the diorama explicitly.
   const tilt = .026 + playerCameraPitch;
@@ -4456,11 +4502,14 @@ function killPlayer(target, killerPad, now, cause = "KO") {
   playDrum("whoosh", 1.15, panPlayer(target));
   emitSignal("killcam", killerPad, target.pad, 1);
   playDrum("snare", 1.15, panPlayer(target));
-  // The dummy is the opponent everybody gets for free, and its fight is
+  // The training opponent is the one everybody gets for free, and its fight is
   // already running under the title screen — so its head is the one number
-  // the whole site can share without anybody signing in. Balling yourself
-  // does not count; somebody has to have popped it.
-  if (target.npc && !target.bot && killerPad !== target.pad)
+  // the whole site can share without anybody signing in. The count follows the
+  // free door rather than the missing AI: once training started sparring back,
+  // an `!target.bot` gate would have silenced the site's only shared number.
+  // Balling yourself does not count; somebody has to have popped it.
+  if (target.npc && killerPad !== target.pad &&
+      (!target.bot || fightOpponent === "trainingbot"))
     emitSignal("dummy-popped", killerPad, target.pad, 1);
 }
 
@@ -5620,6 +5669,16 @@ function gameSim() {
     playerCameraYaw = clamp(playerCameraYaw + cameraX * dt * 1.15, -.62, .62);
   if (Math.abs(cameraY) > .08)
     playerCameraPitch = clamp(playerCameraPitch + cameraY * dt * .72, -.24, .28);
+  // Triggers zoom, but only on a pad whose triggers are analog -- on anything
+  // else the shell is still aliasing them to A and X, and stealing those two
+  // buttons would cost a small pad its item and shield.
+  if (cameraPad.analogTriggers) {
+    // Right pulls in, left pushes out, and they cancel when both are held.
+    const push = (Number(cameraPad.leftTrigger) || 0) -
+      (Number(cameraPad.rightTrigger) || 0);
+    if (Math.abs(push) > .08)
+      playerCameraZoom = clamp(playerCameraZoom + push * dt * .9, .55, 1.9);
+  }
   if (!selecting && Array.isArray(globalThis.__oskiewarTouch?.taps))
     globalThis.__oskiewarTouch.taps.length = 0;
   if (consumeSystemButtons(now)) return;
@@ -6165,7 +6224,12 @@ function runnerWorldGeometry(player, t) {
     : { x: neckX + lean * .2,
       y: feet - height + 22 - breath * 1.6 + formDrop, z, radius: 22 };
   const segments = [];
-  const actionArm = player.facing > 0 ? "right-arm" : "left-arm";
+  // `startMelee` and `heldItem` both gate on `itemHand`, so the drawn striking
+  // arm has to name that same part. Naming it by facing alone tagged the
+  // reaching capsules with the opposite arm the moment a fighter turned around
+  // while armed — shooting off one arm then erased the other one's limb.
+  const actionArm = itemHand(player) ||
+    (player.facing > 0 ? "right-arm" : "left-arm");
   const rearArm = actionArm === "right-arm" ? "left-arm" : "right-arm";
   const actionLeg = player.facing > 0 ? "right-leg" : "left-leg";
   const rearLeg = actionLeg === "right-leg" ? "left-leg" : "right-leg";
@@ -6224,6 +6288,14 @@ function runnerWorldGeometry(player, t) {
   const shoulderSpread = 12;
   const leftShoulderX = neckX - shoulderSpread;
   const rightShoulderX = neckX + shoulderSpread;
+  // The working hand always reaches out front and the idle one always trails
+  // behind, so both shoulders follow facing. Anchoring them on the arm that
+  // owns the item instead meant a fighter who armed himself facing right and
+  // then turned around hung his reaching arm off the rear shoulder and his
+  // trailing arm off the front one: the pair crossed once at the neck and
+  // again past the elbows, boxing the double diamond @jeffrey called out.
+  const actionShoulderX = neckX + player.facing * shoulderSpread;
+  const restShoulderX = neckX - player.facing * shoulderSpread;
   segment(leftShoulderX, shoulderY, rightShoulderX, shoulderY, 10,
     "shoulders");
   if (player.attackKind === "KICK" && attackPulse > 0) {
@@ -6324,9 +6396,6 @@ function runnerWorldGeometry(player, t) {
     // The striking arm outranks the carry pose: a whip or bash has to publish
     // attack capsules or an armed fighter could never land a hand strike.
     const target = meleeTarget(player, poseNow);
-    const itemOnRight = itemHand(player) === "right-arm";
-    const actionShoulderX = itemOnRight ? rightShoulderX : leftShoulderX;
-    const restShoulderX = itemOnRight ? leftShoulderX : rightShoulderX;
     const armPose = twoBone(actionShoulderX, shoulderY, target.x, target.y,
       meleeSpecFor(player, player.attackKind).span,
       armBend(actionShoulderX, target.x));
@@ -6341,9 +6410,6 @@ function runnerWorldGeometry(player, t) {
   } else if ((player.itemAction && actionNow < player.itemActionUntil) ||
       (player.gunAmmo > 0 && player.itemAction !== "THROW")) {
     const target = itemHandTarget(player, actionNow);
-    const itemOnRight = itemHand(player) === "right-arm";
-    const actionShoulderX = itemOnRight ? rightShoulderX : leftShoulderX;
-    const restShoulderX = itemOnRight ? leftShoulderX : rightShoulderX;
     const armPose = twoBone(actionShoulderX, shoulderY,
       target.x, target.y, 58, armBend(actionShoulderX, target.x));
     segment(actionShoulderX, shoulderY, armPose.jointX, armPose.jointY, 12,
@@ -7259,6 +7325,41 @@ function drawControlLegend(ink) {
     if (action) typeWrite(action, x + width + 10,
       y + Math.round(size * .25), size, ...ink);
   }
+  drawStickGate(x, safe.top + controls.length * step, size, pad, ink);
+}
+
+// The legend named the stick's directions but never its ANGLE, so a fighter
+// walking on a half-tilted stick looked identical to one at full lean, and
+// the camera stick had no read-out at all. Only drawn while a stick is off
+// center: an always-present gate would be one more permanently-lit widget in
+// a corner that is already busy.
+function drawStickGate(x, y, size, pad, ink) {
+  const gate = (label, dx, dy, column) => {
+    const radius = Math.round(size * .82);
+    const cx = x + radius + column * Math.round(radius * 2.6);
+    const cy = y + radius;
+    const idle = mixColor([58, 66, 86], [170, 180, 196], visualTheme.light);
+    // The gate ring is drawn as a disc under a smaller ground-colored disc:
+    // filledDisc is the only circle primitive the piece owns, and two of them
+    // cost less than an arc walked out of line segments.
+    filledDisc(cx, cy, radius, idle);
+    filledDisc(cx, cy, radius - 3,
+      mixColor([7, 8, 28], [230, 239, 247], visualTheme.light));
+    // Screen y grows downward while the pad reports up as positive.
+    const knobX = cx + dx * (radius - 5);
+    const knobY = cy - dy * (radius - 5);
+    filledDisc(knobX, knobY, Math.max(3, Math.round(size * .26)), ink);
+    typeWrite(label, cx - radius, cy + radius + 2,
+      Math.round(size * .62), ...ink);
+  };
+  const live = (dx, dy) => Math.abs(dx) > .12 || Math.abs(dy) > .12;
+  const leftX = Number(pad.leftX) || 0;
+  const leftY = Number(pad.leftY) || 0;
+  const rightX = Number(pad.rightX) || 0;
+  const rightY = Number(pad.rightY) || 0;
+  let column = 0;
+  if (live(leftX, leftY)) gate("move", leftX, leftY, column++);
+  if (live(rightX, rightY)) gate("cam", rightX, rightY, column++);
 }
 
 const controlRailWidth = () => compactLayout() ? 138 : 188;
@@ -7822,8 +7923,14 @@ function drawRunner(player, t, showLabel = true) {
         segment.width + Math.max(3, 5 * cameraScale()), [255, 238, 102]);
     }
   }
+  // The sparring partner keeps its face on the still tableau. This used to read
+  // `npc && !bot`, which meant "the inert dummy" — but training spars against a
+  // real bot now, so that test went false and the title screen lost a face
+  // entirely rather than swapping which one it wore. Ask the door instead.
+  const sparringPartner = player.npc &&
+    (!player.bot || fightOpponent === "trainingbot");
   if (shellMode !== "MENU" || titleTransitionAt !== null ||
-      titleAttractMode === "action" || (player.npc && !player.bot))
+      titleAttractMode === "action" || sparringPartner)
     drawFace(player, geometry.head, contrastShadow(color), t, displayNow);
   drawInventory(player, displayNow, geometry);
   if (player.blocking) {
@@ -8364,6 +8471,40 @@ function drawTerrainFrontWall(left, right, near, color) {
     const x2 = worldLeft + (index + 1) * step;
     const y1 = terrainFloorAt(x1);
     const y2 = terrainFloorAt(x2);
+    const grain = .5 + .5 * Math.sin(index * 9.71 + terrainPhase * 3.13);
+    const wall = mixColor(color, [63, 54, 46], .3 + grain * .12);
+    worldQuad(
+      { x: x1, y: y1, z: wallZ },
+      { x: x2, y: y2, z: wallZ },
+      { x: x2, y: wallBottom, z: wallZ },
+      { x: x1, y: wallBottom, z: wallZ }, wall);
+  }
+}
+
+function drawTerrainBackWall(left, right, far, color) {
+  // The far edge was simply open. Yaw clamps at +/-.62rad, which is more than
+  // enough to swing the diorama around and look straight through the back of
+  // the slab into the buried room wall. The near edge has hung a skirt since
+  // the reel work; this is its mirror, and it exists for the ordinary TV lens
+  // where the right stick can actually reach around.
+  //
+  // Reels return early. That lens already hangs its single skirt just behind
+  // the fighters at z=55, and a second wall out at worldFar would sit behind
+  // that one where no reel frame ever looks -- pure cost, and a change to
+  // footage whose framing is test-enshrined.
+  if (reelCamera()) return;
+  const step = (worldRight - worldLeft) / terrainSamples;
+  const wallZ = far + 2;
+  const wallBottom = floorY + 720;
+  const first = clamp(Math.floor((left - worldLeft) / step), 0, terrainSamples - 1);
+  const last = clamp(Math.ceil((right - worldLeft) / step), first + 1, terrainSamples);
+  for (let index = first; index < last; index++) {
+    const x1 = worldLeft + index * step;
+    const x2 = worldLeft + (index + 1) * step;
+    const y1 = terrainFloorAt(x1);
+    const y2 = terrainFloorAt(x2);
+    // Same grain walk as the front skirt, so the two edges read as one solid
+    // block of earth rather than two differently-eroded walls.
     const grain = .5 + .5 * Math.sin(index * 9.71 + terrainPhase * 3.13);
     const wall = mixColor(color, [63, 54, 46], .3 + grain * .12);
     worldQuad(
@@ -9650,6 +9791,7 @@ function gamePaint() {
   // the padded-room look.
   const groundNear = reelCamera()
     ? Math.min(worldNear, cameraDoll.position.z - 400) : worldNear;
+  drawTerrainBackWall(spanLeft, spanRight, worldFar, ground);
   drawTerrainSurface(spanLeft, spanRight, groundNear, worldFar, ground);
   drawTerrainFrontWall(spanLeft, spanRight, groundNear, ground);
   drawTerrainGrass(spanLeft, spanRight, ground);

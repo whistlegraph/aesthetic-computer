@@ -1226,13 +1226,18 @@ test("the round timer cannot leak through the start screen", () => {
   assert.match(source, /if \(shellMode === "GAME" && gameplayStarted\) \{/);
 });
 
-test("starting after action attract becomes player versus dummy", () => {
+// Was "becomes player versus dummy": the second chair is no longer a fixed
+// inert dummy but whichever sparring partner the session was dealt, so what
+// this pins is that Start asks rather than assumes. The live hand-off is
+// exercised in the fresh-training-session test above.
+test("starting after action attract re-seats the dealt sparring partner", () => {
   const enter = source.slice(source.indexOf("function enterGame"),
     source.indexOf("function updateShell"));
   assert.match(enter, /players\[0\]\.bot = false/);
   assert.match(enter, /players\[1\]\.npc = true/);
-  assert.match(enter, /players\[1\]\.bot = false/);
-  assert.match(enter, /players\[1\]\.spiderDummy = false/);
+  assert.match(enter, /const training = trainingOpponentKind\(\)/);
+  assert.match(enter, /players\[1\]\.bot = training === "trainingbot"/);
+  assert.match(enter, /players\[1\]\.spiderDummy = training === "spiderdummy"/);
 });
 
 test("raw left stick gives pupils subtle pre-deadzone gaze", () => {
@@ -2494,13 +2499,56 @@ test("spiderdummy remains directly reachable while pal select is retired", () =>
   assert.match(webShell, /get\("opponent"\)/);
 });
 
-test("fresh training sessions choose only dummy or spiderdummy 50/50", () => {
+// Replaces the 50/50 dummy-or-spiderdummy deal this test used to pin.
+// @jeffrey, playtesting: "can we switch dummy to bot now?" A solo session is a
+// fight rather than target practice, so the free opponent thinks — and the
+// thing that then has to be held down is the wire: a sparring partner with the
+// bot's brain must still buy no series, no demo, no live frame and no
+// analytics, because the front door never asks anybody to sign in. Both inert
+// targets stay reachable by name for damage, geometry and sync work.
+test("a fresh training session spars against the bot and stays off the wire",
+  () => {
+  const previousOpponent = globalThis.__oskiewarOpponent;
+  // An empty string is a real answer — "nothing was asked for" — so the
+  // harness leaves it alone instead of substituting its usual dummy.
+  globalThis.__oskiewarOpponent = "";
+  let fresh;
+  try {
+    fresh = createFight(false, false);
+  } finally {
+    if (previousOpponent === undefined) delete globalThis.__oskiewarOpponent;
+    else globalThis.__oskiewarOpponent = previousOpponent;
+  }
+  const { fight, replays, liveFrames, analyticsEvents, tap, tick } = fresh;
+  assert.equal(fight.players[1].npc, true);
+  assert.equal(fight.players[1].bot, true, "the free opponent hits back");
+  assert.equal(fight.players[1].spiderDummy, false);
+  assert.equal(fight.players[1].name, "BOT");
+  fight.enterGame();
+  for (let frame = 0; frame < 60; frame++) tick();
+  assert.equal(fight.seriesState(), "", "training carries no series");
+  assert.deepEqual(replays, []);
+  assert.deepEqual(liveFrames, []);
+  assert.deepEqual(analyticsEvents, []);
+
+  // Half of sessions open on the standing face-off, where attract borrows the
+  // first seat and keeps a cool neutral body opposite it so the matchup reads.
+  // Start has to hand that seat back AND re-seat the sparring partner: while
+  // it hardcoded an inert dummy, exactly those sessions kept punching a post.
+  globalThis.__oskiewarAttractVariant = "action";
+  tap(0, "Menu");
+  delete globalThis.__oskiewarAttractVariant;
+  assert.equal(fight.shellState().mode, "MENU");
+  assert.equal(fight.players[0].bot, true, "attract borrowed the first seat");
+  assert.equal(fight.players[1].name, "DUMMY", "the tableau stays legible");
+  fight.enterGame();
+  assert.equal(fight.players[0].bot, false, "start hands the seat back");
+  assert.equal(fight.players[1].bot, true, "start re-seats the sparring bot");
+
   const choice = source.slice(source.indexOf("function trainingOpponentKind"),
     source.indexOf("const selectionReady"));
   assert.match(choice, /requested === "dummy" \|\| requested === "spiderdummy"/);
-  assert.match(choice, /hashUnit\("training-opponent:"/);
-  assert.match(choice, /< \.5\s*\? "dummy" : "spiderdummy"/);
-  assert.doesNotMatch(choice, /\bbot\b/);
+  assert.match(choice, /trainingOpponent = "trainingbot"/);
 });
 
 test("skateboard is a deterministic physical match prop with native geometry", () => {
