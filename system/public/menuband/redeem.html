@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Menu Band — Redeem</title>
+<meta name="description" content="Redeem a Menu Band promo code on the Mac App Store.">
+<meta name="robots" content="noindex">
+<link rel="canonical" href="https://menuband.app/redeem.html">
+<link rel="icon" href="/menuband/icon.png">
+<style>
+  :root {
+    --aqua-sky-top: #dfe9f2;
+    --aqua-sky-bot: #b9cfe6;
+    --aqua-blue:    #3d7fd6;
+    --panel-bg:     #ededed;
+    --panel-edge:   #c4ccd4;
+    --titlebar-top: #e8e8e8;
+    --titlebar-bot: #c8c8c8;
+    --ink-body:     #2b2b2b;
+    --ink-head:     #1a1a1a;
+    --ink-soft:     #5a5f66;
+  }
+  * { box-sizing: border-box; }
+  html { cursor: url("/aesthetic.computer/cursors/precise.svg") 12 12, auto; }
+  html, body {
+    margin: 0; padding: 0;
+    color: var(--ink-body);
+    font-family: "Lucida Grande", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-size: 14px; line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+  body {
+    background: linear-gradient(to bottom, var(--aqua-sky-top), var(--aqua-sky-bot)) fixed;
+    min-height: 100vh;
+    padding: 36px 16px 64px;
+  }
+  .window {
+    max-width: 520px; margin: 0 auto;
+    background: #fff;
+    border-radius: 8px 8px 6px 6px;
+    border: 1px solid var(--panel-edge);
+    box-shadow: 0 1px 0 rgba(255,255,255,0.5) inset, 0 10px 40px rgba(40,60,90,0.18);
+    overflow: hidden;
+  }
+  .titlebar {
+    height: 22px;
+    background: linear-gradient(to bottom, var(--titlebar-top), var(--titlebar-bot));
+    border-bottom: 1px solid var(--panel-edge);
+    box-shadow: 0 1px 0 rgba(255,255,255,0.7) inset;
+    display: flex; align-items: center; padding: 0 9px;
+    position: relative; user-select: none;
+  }
+  .lights { display: flex; gap: 7px; }
+  .light {
+    width: 11px; height: 11px; border-radius: 50%;
+    box-shadow: 0 1px 0 rgba(255,255,255,0.55) inset, 0 0 0 0.5px rgba(0,0,0,0.25);
+  }
+  .light.r { background: radial-gradient(circle at 35% 35%, #ff8a85, #ff5f57); }
+  .light.y { background: radial-gradient(circle at 35% 35%, #ffd68a, #febc2e); }
+  .light.g { background: radial-gradient(circle at 35% 35%, #6fe89d, #28c840); }
+  .titlebar h1 {
+    margin: 0 0 0 10px; font-size: 11px; font-weight: 500;
+    letter-spacing: 0.02em;
+  }
+  .titlebar h1 a, .titlebar h1 a:visited {
+    color: #4a4a4a; text-decoration: none;
+    text-shadow: 0 1px 0 rgba(255,255,255,0.7); cursor: inherit;
+  }
+  .titlebar h1 a:hover { color: var(--aqua-blue); }
+  .content { padding: 28px 32px 32px; text-align: center; }
+  .appicon { width: 96px; height: 96px; margin: 4px auto 10px; display: block; }
+  h2 {
+    margin: 0 0 4px;
+    font-size: 26px; font-weight: 500; letter-spacing: -0.012em;
+    color: var(--ink-head);
+  }
+  .tagline {
+    margin: 0 0 20px;
+    font-style: italic;
+    font-family: Georgia, "Times New Roman", serif;
+    color: var(--ink-soft);
+  }
+  .codebox {
+    margin: 0 auto 14px; padding: 14px 18px;
+    max-width: 340px;
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-edge);
+    border-radius: 6px;
+    font-family: "SF Mono", Monaco, monospace;
+    font-size: 24px; letter-spacing: 0.08em;
+    color: var(--ink-head);
+    user-select: all;
+  }
+  .btn {
+    display: inline-block;
+    margin: 2px 4px 6px;
+    padding: 8px 18px;
+    border-radius: 999px;
+    border: 1px solid #2c66b8;
+    background: linear-gradient(to bottom, #7fb2f0, #3d7fd6);
+    color: #fff !important;
+    font-size: 13px; font-weight: 500;
+    text-shadow: 0 -1px 0 rgba(0,0,0,0.25);
+    box-shadow: 0 1px 0 rgba(255,255,255,0.6) inset, 0 1px 2px rgba(40,60,90,0.25);
+    text-decoration: none !important;
+    cursor: inherit;
+  }
+  .btn.secondary {
+    background: linear-gradient(to bottom, #fdfdfd, #dcdcdc);
+    border-color: var(--panel-edge);
+    color: var(--ink-head) !important;
+    text-shadow: 0 1px 0 rgba(255,255,255,0.7);
+  }
+  .steps {
+    margin: 18px auto 0; max-width: 400px;
+    text-align: left;
+    font-size: 13px;
+    color: var(--ink-soft);
+  }
+  .steps b { color: var(--ink-body); font-weight: 500; }
+  .fine { margin-top: 16px; font-size: 11px; color: var(--ink-soft); }
+  a { color: var(--aqua-blue); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  footer {
+    margin: 18px auto 0;
+    max-width: 520px;
+    text-align: center;
+    font-size: 11px;
+    color: var(--ink-soft);
+    text-shadow: 0 1px 0 rgba(255,255,255,0.7);
+  }
+  footer a { color: var(--ink-soft); }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --aqua-sky-top: #0e1a2e;
+      --aqua-sky-bot: #04070d;
+      --aqua-blue:    #4a93ff;
+      --panel-bg:     #2c2c2e;
+      --panel-edge:   #2c2c2e;
+      --titlebar-top: #2c2c2e;
+      --titlebar-bot: #1f1f21;
+      --ink-body:     #ebebf0;
+      --ink-head:     #ffffff;
+      --ink-soft:     #98989d;
+    }
+    .window {
+      background: #1c1c1e;
+      box-shadow: 0 1px 0 rgba(255,255,255,0.06) inset, 0 10px 40px rgba(0,0,0,0.55);
+    }
+    .titlebar h1 a, .titlebar h1 a:visited { color: #d0d0d2; text-shadow: 0 -1px 0 rgba(0,0,0,0.5); }
+    .codebox { background: #232325; border-color: #3a3a3c; }
+    .btn.secondary {
+      background: linear-gradient(to bottom, #3a3a3c, #2c2c2e);
+      border-color: #3a3a3c;
+      color: var(--ink-head) !important;
+      text-shadow: none;
+    }
+  }
+</style>
+</head>
+<body>
+
+<article class="window">
+  <header class="titlebar" aria-hidden="true">
+    <div class="lights">
+      <div class="light r"></div>
+      <div class="light y"></div>
+      <div class="light g"></div>
+    </div>
+    <h1><a href="/menuband">menuband</a> — redeem</h1>
+  </header>
+
+  <div class="content">
+    <img class="appicon" src="/menuband/icon.png" alt="Menu Band app icon">
+    <h2 id="greet">A free copy of Menu Band</h2>
+    <p class="tagline">A tiny piano in your menu bar, on the Mac App Store.</p>
+
+    <div class="codebox" id="codebox" hidden></div>
+
+    <p id="actions" hidden>
+      <a class="btn" id="redeemlink" href="https://apps.apple.com/redeem?ctx=promocodes&id=6767311903">Redeem in the App&nbsp;Store</a>
+      <a class="btn secondary" id="copybtn" href="#" role="button">Copy code</a>
+    </p>
+
+    <div class="steps">
+      <p><b>On your Mac:</b> click the button above, or open the <b>App Store</b> app, click your name at the bottom of the sidebar, choose <b>Redeem Gift Card or Code</b>, and enter the code. Menu Band installs free.</p>
+      <p id="phone-note"><b>On your phone right now?</b> Menu Band is a Mac app — keep this page or the code handy and redeem when you're at your Mac.</p>
+    </div>
+
+    <p class="fine" id="fine">Promo codes are single-use and expire 28 days after they were minted. macOS 11 or later, Apple&nbsp;silicon and Intel.</p>
+  </div>
+</article>
+
+<footer>
+  © <a href="https://aesthetic.computer">aesthetic.computer</a> · 2026 · <a href="/menuband">about Menu Band</a>
+</footer>
+
+<script>
+  const params = new URLSearchParams(location.search);
+  const rawCode = (params.get("code") || "").trim().toUpperCase();
+  const code = /^[A-Z0-9]{6,20}$/.test(rawCode) ? rawCode : "";
+  const rawTo = (params.get("to") || "").trim();
+  const to = /^[a-zA-Z][a-zA-Z '-]{0,30}$/.test(rawTo) ? rawTo : "";
+
+  if (to) {
+    const pretty = to.charAt(0).toUpperCase() + to.slice(1);
+    document.getElementById("greet").textContent = `${pretty} — a free copy of Menu Band`;
+  }
+
+  if (code) {
+    const box = document.getElementById("codebox");
+    box.textContent = code;
+    box.hidden = false;
+    document.getElementById("actions").hidden = false;
+    const link = document.getElementById("redeemlink");
+    link.href = `https://apps.apple.com/redeem?ctx=promocodes&id=6767311903&code=${encodeURIComponent(code)}`;
+    const copy = document.getElementById("copybtn");
+    copy.addEventListener("click", (e) => {
+      e.preventDefault();
+      const done = () => { copy.textContent = "Copied!"; setTimeout(() => (copy.textContent = "Copy code"), 1600); };
+      if (navigator.clipboard?.writeText) navigator.clipboard.writeText(code).then(done, done);
+      else {
+        const r = document.createRange();
+        r.selectNodeContents(box);
+        const sel = getSelection();
+        sel.removeAllRanges(); sel.addRange(r);
+        document.execCommand("copy"); sel.removeAllRanges(); done();
+      }
+    });
+  }
+</script>
+
+</body>
+</html>
