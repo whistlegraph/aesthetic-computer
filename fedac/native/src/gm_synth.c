@@ -756,9 +756,15 @@ static const GMSynthBassRow gm_synthbass_programs[] = {
             .sb_cut0 = 3200.0, .sb_cut1 = 360.0, .sb_cut_ms = 110.0,
             .sb_res = 0.6, .sb_psweep = 1.10, .sb_psweep_ms = 7.0,
             .sb_sustained = 0 } },
+    // 110 Bagpipe -- the drone tracks an octave under the chanter
+    // (sb_drone_inc = fc * 0.5). At 0.5 mix that is not a drone, it is an
+    // octave doubler, and above C4 it takes the pitch outright (-1202 cents).
+    // 0.25 keeps the weight and leaves the chanter the melody. Worth saying
+    // plainly: a real bagpipe drone is a FIXED pitch, not one following the
+    // tune -- that is a musical fix, not a tuning one, and it is not this one.
     { 109, { .engine = GM_ENGINE_SYNTHBASS, .sb_o2_cents = 4.0, .sb_o2_mix = 0.5,
              .sb_cut0 = 4200.0, .sb_cut1 = 4200.0, .sb_cut_ms = 5.0, .sb_res = 0.3,
-             .sb_psweep = 1.0, .sb_sustained = 1, .sb_drone_mix = 0.5,
+             .sb_psweep = 1.0, .sb_sustained = 1, .sb_drone_mix = 0.25,
              .sb_breath = 0.10 } },
     { 110, { .engine = GM_ENGINE_SYNTHBASS, .sb_o2_cents = 3.0, .sb_o2_mix = 0.4,
              .sb_cut0 = 3200.0, .sb_cut1 = 3000.0, .sb_cut_ms = 40.0, .sb_res = 0.4,
@@ -1047,24 +1053,61 @@ static const double GM_ORGAN_RATIOS[9] =
     { 0.5, 1.5, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 8.0 };
 #define GM_ORGAN_FIRST 16
 static const GMProgramParams gm_organ_programs[8] = {
-    // 17 Drawbar — classic jazz registration 80 8800 008. The 8′ (unison) carries
-    // the pitch; the 16′ adds a HALF-strength sub for body, NOT the fundamental.
-    // (Audit latches the 16′ → reads octave-low; by-design, the pitch sounds right.)
+    // 17 Drawbar — classic jazz registration. The 8′ (unison) carries the pitch;
+    // the 16′ adds a sub for body.
+    //
+    // It did NOT carry the pitch before, whatever the old comment here claimed.
+    // The registration was {16′ .45, 5⅓′ .30, 8′ .90, 4′ .55, 2′ .30} — ratios
+    // 0.5, 1.5, 1.0, 2.0, 4.0, which relative to the 16′ are harmonics 1, 2, 3,
+    // 4, 8 of f0/2. A complete harmonic series with a strong first partial is
+    // the textbook condition for hearing THAT as the fundamental, so a listener
+    // heard C3 for a played C4, not merely a detector "latching the 16′".
+    // Measured by subharmonic summation (the virtual-pitch model, not a
+    // lowest-partial reader): -1205 cents.
+    //
+    // The 5⅓′ was the real culprit — at ratio 1.5 it is the sub's THIRD harmonic
+    // and no harmonic of f0 at all, which is exactly what makes f0/2 credible.
+    // Trimming it and adding a 2⅔′ (ratio 3.0 = f0's own third) lets the 16′ stay
+    // audible at 0.25 instead of having to fall to 0.05: the percept now snaps
+    // only past 0.34, so this sits with margin. Reads -8 cents.
     { .engine = GM_ENGINE_ORGAN,
-      .org_amps = {0.45,0.30,0.90,0.55,0.0,0.30,0.0,0.0,0.0},
+      .org_amps = {0.25,0.10,0.95,0.55,0.25,0.30,0.0,0.0,0.0},
       .org_click_amp = 0.05, .org_click_ms = 3.0,
       .org_leslie_hz = 0.85, .org_leslie_depth = 0.12 },
-    // 18 Percussive — B3 88 8000 000, 8′ dominant + 2nd-harmonic (4′) ping, slow
-    // chorale Leslie. 16′ kept faint so the unison reads as the played note.
+    // 18 Percussive — B3, 8′ dominant + 2nd-harmonic (4′) ping, slow chorale
+    // Leslie. The 16′ was NOT faint enough for the unison to read as the played
+    // note: 0.5/1.0/2.0 is harmonics 1, 2, 4 of f0/2, and that was heard at
+    // -1209 cents. Same repair as the Drawbar above — trim the sub, add a 2⅔′
+    // to reinforce f0's own third. This voice is the more fragile of the two
+    // (it breaks again by 0.34 where the Drawbar survives to 0.40), because it
+    // has fewer upper bars to anchor the percept.
     { .engine = GM_ENGINE_ORGAN,
-      .org_amps = {0.35,0.0,0.95,0.45,0.0,0.0,0.0,0.0,0.0},
+      .org_amps = {0.25,0.0,0.95,0.45,0.20,0.0,0.0,0.0,0.0},
       .org_perc_amp = 0.6, .org_perc_ms = 200.0, .org_perc_ratio = 2.0,
       .org_click_amp = 0.07, .org_click_ms = 2.5,
       .org_leslie_hz = 0.85, .org_leslie_depth = 0.12 },
     // 19 Rock — full bright drawbars + overdrive + fast Leslie. 16′ trimmed under
     // the 8′ so the gritty unison stays the pitch through the tanh stage.
+
+    //
+    // It was NOT trimmed enough, and this one hid: at C4 the percept sits on
+    // the unison, so a single-note check passes. From F#4 upward it drops to
+    // f0/2. The sub only has to win in the ear's dominance region (~500-2000
+    // Hz) to take the pitch, and the higher the note the better placed f0/2 is
+    // to do that -- so the register that sounded fine was the register being
+    // sampled, not the instrument being right. 16' 0.55 -> 0.40 and 5 1/3'
+    // 0.65 -> 0.35; measured clean C2-C6, and the percept only falls somewhere
+    // past 0.50/0.45.
+    //
+    // pitch-audit still reports this one FAIL octave and is wrong about it
+    // now: its two detectors split 523/131 -- the 2nd harmonic and the sub --
+    // and neither picks the fundamental that actually dominates. Measured at
+    // C4, f0 carries 28.9% of the power and f0/2 carries 1.9%. Overdrive puts
+    // this voice squarely in the rich/noisy category the audit's own header
+    // warns time-domain detectors about. Judge it by the spectrum, not the
+    // verdict.
     { .engine = GM_ENGINE_ORGAN,
-      .org_amps = {0.55,0.65,0.95,0.85,0.55,0.70,0.40,0.30,0.60},
+      .org_amps = {0.40,0.35,0.95,0.85,0.55,0.70,0.40,0.30,0.60},
       .org_drive = 0.55, .org_click_amp = 0.06, .org_click_ms = 2.0,
       .org_leslie_hz = 6.9, .org_leslie_depth = 0.20 },
     // 20 Church (Pipe) — principal chorus 8+4+2⅔+2+mixtures, no 16′ bourdon weight
