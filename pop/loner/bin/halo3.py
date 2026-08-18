@@ -257,7 +257,7 @@ CHART = {
                                        # 0.71 beats into its slot, so the slot has
                                        # to open at 6.29 for the peak to land on
                                        # the bar 1 beat 4 line.
-                                       "durs": { 0: 2.0, 1: 2.0, 2: 2.41, 3: 1.88,
+                                       "durs": { 0: 2.0, 1: 2.0, 2: 1.91, 3: 2.09,
                                        # "my" a beat sooner: the warp is one
                                        # sequential frame map, so units cannot
                                        # truly overlap — "in" simply ends where
@@ -305,7 +305,14 @@ CHART = {
                              # source seconds, read off her onsets, for the
                              # words whisper-1 mistimed. PRE-split indices.
                              "end": 24.25,
-                             "times": { 2: 2.40,
+                             "times": { 1: 1.51,   # curled — the aligner cut at 1.465,
+                                                   # inside ting's decay (18% there,
+                                                   # 8% at 1.48), so curled opened
+                                                   # holding the end of "sitting".
+                                                   # Her /k/ closure is 1.52–1.58 and
+                                                   # belongs to curled; ting's decay
+                                                   # bottoms out at 1.50.
+                                        2: 2.40,
                                         7: 7.15,   # of — her onset is 7.17;
                                                    # the aligner opened its span
                                                    # 115 ms of silence early
