@@ -248,7 +248,11 @@ CHART = {
                              # on 20 — so OF starts the instant think ends
                              # ("of should start sooner, right after
                              # 'think' ends") with no rest needed at all.
-                             "durs": { 0: 2.0, 1: 2.0, 2: 2.0, 3: 1.5,
+                             # curled 2.29 is not a grid value on purpose: up's peak sits
+                                       # 0.71 beats into its slot, so the slot has
+                                       # to open at 6.29 for the peak to land on
+                                       # the bar 1 beat 4 line.
+                                       "durs": { 0: 2.0, 1: 2.0, 2: 2.29, 3: 2.5,
                                        # "my" a beat sooner: the warp is one
                                        # sequential frame map, so units cannot
                                        # truly overlap — "in" simply ends where
