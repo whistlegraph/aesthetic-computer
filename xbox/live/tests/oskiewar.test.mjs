@@ -4612,7 +4612,10 @@ test("the Oskiewar wordmark remains visible with start", () => {
 
 test("title keeps QR in the top-right HUD, version after title, and pops beneath", () => {
   assert.doesNotMatch(source, /drawTitleQr|qrTarget/);
-  assert.match(source, /return \{ left: safe\.right - size, top: safe\.top/);
+  // Still the top-right HUD corner — except under debug, where the code
+  // steps below the safe-rect's yellow corner crop instead of covering it.
+  assert.match(source,
+    /const top = safe\.top \+ \(debugHitboxes \? 52 : 0\);\n  return \{ left: safe\.right - size, top/);
   assert.match(source, /const versionX = titleX \+ titleWidth \+ lockupGap/);
   assert.match(source, /drawDummyPopLine\(titleY, titleSize, transitionInk\)/);
   assert.doesNotMatch(source, /if \(!placement && shellMode === "MENU"\) return/);

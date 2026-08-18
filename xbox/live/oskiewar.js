@@ -21,7 +21,7 @@ runtime = function acRuntime() {
 };
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 75;
+const buildVersion = 76;
 const floorY = 1800;
 // The tower. @jeffrey played the padded room on the console and asked for a
 // tall map: the fight should happen on the way up, not back and forth across
@@ -9945,7 +9945,12 @@ function spectatorQrBox() {
   const cell = Math.max(2,
     Math.floor((compactLayout() ? 108 : 158) / (count + quiet * 2)));
   const size = (count + quiet * 2) * cell;
-  return { left: safe.right - size, top: safe.top, size, cell, count, quiet };
+  // The QR anchors on the safe rect's top-right corner — the exact spot the
+  // debug overlay draws its yellow corner crop. With the bug lit the
+  // instrument wins: the code steps below the crop instead of covering it,
+  // and every lane that asks this box (the clock included) follows it down.
+  const top = safe.top + (debugHitboxes ? 52 : 0);
+  return { left: safe.right - size, top, size, cell, count, quiet };
 }
 
 function drawDebugPerformance(ink) {
