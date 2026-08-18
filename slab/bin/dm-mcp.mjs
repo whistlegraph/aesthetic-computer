@@ -295,8 +295,6 @@ async function toolSend({
   image,
   attachments,
   linkPreview,
-  mediaTransport = "auto",
-  visibleTitle,
   decorativeReply,
   confirm,
   machine,
@@ -348,9 +346,6 @@ async function toolSend({
   }
 
   if (ch === "imessage" || ch === "imsg") {
-    if (!new Set(["auto", "backend", "ui"]).has(String(mediaTransport))) {
-      throw new Error('`mediaTransport` must be "auto", "backend", or "ui"');
-    }
     const hasDistinctText = message && message.trim() !== String(linkPreview || "").trim();
     const sendParts = files.length + (linkPreview ? 1 : 0) + (hasDistinctText ? 1 : 0);
     if (sendParts > 1) {
@@ -370,8 +365,6 @@ async function toolSend({
         "PREVIEW — not sent. Re-call with confirm:true to send.",
         `channel: Messages (iMessage/RCS/SMS)   machine: ${isLocal(machine) ? "local" : machine}`,
         `to: ${rcpt.displayName}  [requested: "${to}"]`,
-        `UI fallback recipient guard: ${visibleTitle || rcpt.displayName}`,
-        ...(files.length ? [`Messages media transport: ${mediaTransport}`] : []),
         ...files.map((file) => `attachment: ${file.path} (${file.bytes} bytes, sha256 ${file.sha256})`),
         ...(linkPreview ? [`rich link preview: ${linkPreview}`] : []),
         ...(message ? ["--- message ---", message] : []),
@@ -380,13 +373,11 @@ async function toolSend({
         previewLines.join("\n"),
       );
     }
-    const guardArgs = ["--expected-title", String(visibleTitle || rcpt.displayName)];
-    const transportArgs = ["--media-transport", String(mediaTransport)];
     const receipts = [];
     for (const file of files) {
       const { stdout } = await runBridge(
         IMSG,
-        ["send", "--media", file.path, ...transportArgs, ...guardArgs, ...toArgs],
+        ["send", "--media", file.path, ...toArgs],
         machine,
         { timeoutMs: 60000 },
       );
@@ -395,7 +386,7 @@ async function toolSend({
     if (linkPreview) {
       const { stdout } = await runBridge(
         IMSG,
-        ["send", "--link-preview", String(linkPreview), ...guardArgs, ...toArgs],
+        ["send", "--link-preview", String(linkPreview), ...toArgs],
         machine,
         { timeoutMs: 60000 },
       );
@@ -560,8 +551,6 @@ const TOOLS = [
         image: { type: "string", description: "Optional image or file path to attach." },
         attachments: { type: "array", items: { type: "string" }, description: "Optional local file paths to attach." },
         linkPreview: { type: "string", description: "iMessage only: URL to send as a rich link preview." },
-        mediaTransport: { type: "string", enum: ["auto", "backend", "ui"], description: "iMessage attachment transport (default auto)." },
-        visibleTitle: { type: "string", description: "iMessage UI fallback recipient-title guard." },
         decorativeReply: { anyOf: [{ type: "boolean" }, { type: "string" }], description: "decorative-reply: lead the text with a flourish. true = the whistlegraph pen (🖋️〰️); a string is a custom motif. Shown in the preview." },
         confirm: { type: "boolean", description: "Must be true to actually send. Omit/false = preview only." },
         machine: { type: "string", description: "Machine (default local; signal-cli sends route over ssh for remote)." },

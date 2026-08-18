@@ -21,14 +21,17 @@
 //   imsg index         incrementally refresh the private local FTS index
 //   imsg use <name>    switch the notification/default contact safely
 //   imsg send <text>   send to an explicitly selected contact via Messages.app
+//                      (--media <path> attaches a file, --link-preview <url>)
 //   imsg react <kind>  classic Tapback on that contact's latest incoming message
 //   imsg tail          live terminal client (prints + BEL on new inbound)
 //   imsg open          open the Messages.app conversation
 //   imsg config        print the resolved config path (and create a stub)
 
 import { spawnSync } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import {
   chmodSync,
+  copyFileSync,
   existsSync,
   mkdirSync,
   readFileSync,
@@ -36,7 +39,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { homedir } from "node:os";
-import { join, dirname } from "node:path";
+import { join, dirname, basename } from "node:path";
 
 const HOME = homedir();
 const CONFIG_PATH =
@@ -556,6 +559,15 @@ function ringBell(cfg) {
 
 // ─── send ────────────────────────────────────────────────────────────────
 
+// osascript parses everything after the script as its OWN options, so an
+// argument that starts with "-" dies as `illegal option -- -`. The `--`
+// separator ends option parsing; every send below routes through here.
+function osascript(script, args) {
+  return spawnSync("/usr/bin/osascript", ["-e", script, "--", ...args], {
+    encoding: "utf8",
+  });
+}
+
 function sendMessage(handles, body) {
   const to = String(handles[0]);
   // buddy-of-first-service path is the most reliable across macOS versions.
@@ -569,23 +581,90 @@ on run argv
     send msg to bud
   end tell
 end run`;
-  const r = spawnSync(
-    "/usr/bin/osascript",
-    ["-e", script, body, to],
-    { encoding: "utf8" },
-  );
+  const r = osascript(script, [body, to]);
   if (r.status !== 0) {
     // Fallback: SMS/last-used service via the generic `buddy` form.
     const fb = `on run argv
   tell application "Messages" to send (item 1 of argv) to buddy (item 2 of argv)
 end run`;
-    const r2 = spawnSync("/usr/bin/osascript", ["-e", fb, body, to], {
-      encoding: "utf8",
-    });
+    const r2 = osascript(fb, [body, to]);
     if (r2.status !== 0) {
       throw new Error((r.stderr || r2.stderr || "send failed").trim());
     }
   }
+}
+
+// ─── send: media ─────────────────────────────────────────────────────────
+//
+// Sending a file by AppleScript looks like it works — osascript exits 0 and a
+// message row appears — but the row lands `error=25` with the attachment stuck
+// at `transfer_state=6` (failed). The reason is where the file *is*:
+// IMTransferAgent is sandboxed to the Messages attachment store, so it cannot
+// read /tmp, ~/Desktop, or a repo path, and the upload dies after the row is
+// already written. Staging a copy inside the store first — the same place a
+// manual drag-and-drop puts it — makes the identical `send` succeed with
+// `transfer_state=5`. Verified on macOS 26 (Tahoe), 2026-08-18.
+//
+// Nothing here touches the UI: no Messages window, no clipboard, no keystrokes.
+
+const ATTACHMENT_STORE = join(HOME, "Library", "Messages", "Attachments");
+
+function stageAttachment(path) {
+  if (!existsSync(path)) throw new Error(`attachment does not exist: ${path}`);
+  const uuid = randomUUID().toUpperCase();
+  // Messages buckets its store two levels deep under short hex names; the
+  // names carry no meaning, so any stable pair drawn from our own UUID works.
+  const dir = join(ATTACHMENT_STORE, uuid.slice(0, 2).toLowerCase(), uuid.slice(2, 4).toLowerCase(), uuid);
+  mkdirSync(dir, { recursive: true });
+  const staged = join(dir, basename(path));
+  copyFileSync(path, staged);
+  return staged;
+}
+
+// The receipt has to come from chat.db, not from osascript's exit code — a
+// failed transfer exits 0 too. Poll for the row this send created.
+function awaitTransfer(staged, timeoutMs = 25000) {
+  const started = Date.now();
+  const where = `a.filename = ${sqlString(staged.replace(HOME, "~"))}`;
+  while (Date.now() - started < timeoutMs) {
+    const rows = sqlite(
+      `SELECT m.ROWID AS id, m.is_sent, m.error, a.total_bytes, a.transfer_state
+         FROM message m
+         JOIN message_attachment_join maj ON maj.message_id = m.ROWID
+         JOIN attachment a ON a.ROWID = maj.attachment_id
+        WHERE ${where}
+        ORDER BY m.ROWID DESC LIMIT 1`,
+    );
+    const row = rows[0];
+    // 5 = transferred. 6 = failed. Anything else is still in flight.
+    if (row && (row.transfer_state === 5 || row.error)) return row;
+    spawnSync("/bin/sleep", ["0.5"]);
+  }
+  return null;
+}
+
+function sendMedia(handles, path) {
+  const to = String(handles[0]);
+  const staged = stageAttachment(path);
+  const script = `
+on run argv
+  set f to POSIX file (item 1 of argv)
+  set dest to item 2 of argv
+  tell application "Messages"
+    set svc to 1st account whose service type = iMessage
+    send f to participant dest of svc
+  end tell
+end run`;
+  const r = osascript(script, [staged, to]);
+  if (r.status !== 0) throw new Error((r.stderr || "media send failed").trim());
+  const row = awaitTransfer(staged);
+  if (!row) throw new Error(`attachment did not finish transferring: ${staged}`);
+  if (row.error || row.transfer_state !== 5) {
+    throw new Error(
+      `Messages rejected the attachment (error ${row.error}, transfer_state ${row.transfer_state}): ${staged}`,
+    );
+  }
+  return { staged, bytes: row.total_bytes, messageId: row.id };
 }
 
 const TAPBACKS = new Map([
@@ -1005,17 +1084,40 @@ try {
         process.exit(1);
       }
       // Optional `--to <name|handle>` selects a contact; default otherwise.
+      // `--media <path>` sends a file, `--link-preview <url>` sends a URL for
+      // Messages to unfurl; anything left over is the plain text body.
       const args = [...rest];
-      let toArg = null;
-      const ti = args.indexOf("--to");
-      if (ti >= 0) { toArg = args[ti + 1]; args.splice(ti, 2); }
+      const take = (flag) => {
+        const i = args.indexOf(flag);
+        if (i < 0) return null;
+        const value = args[i + 1];
+        args.splice(i, 2);
+        return value ?? null;
+      };
+      const toArg = take("--to");
+      const media = take("--media");
+      const linkPreview = take("--link-preview");
+      // dm-mcp.mjs guards the recipient before it calls us; the UI transport it
+      // once needed is gone, so the flag is accepted and ignored.
+      take("--expected-title");
+      take("--media-transport");
       const body = args.join(" ").trim();
-      if (!body) {
-        console.error("usage: imsg send <text> [--to <name|handle>]");
+      if (!media && !linkPreview && !body) {
+        console.error(
+          "usage: imsg send <text> [--to <name|handle>] [--media <path>] [--link-preview <url>]",
+        );
         process.exit(1);
       }
+      // Every branch prints a JSON receipt — dm-mcp.mjs parses stdout, and an
+      // empty one read as "Unexpected end of JSON input", i.e. a sent message
+      // reported as a failure.
       const rcpt = resolveRecipient(cfg, toArg);
-      sendMessage(rcpt.handles, body);
+      if (media) {
+        print({ displayName: rcpt.displayName, kind: "media", ...sendMedia(rcpt.handles, media) });
+      } else {
+        sendMessage(rcpt.handles, linkPreview || body);
+        print({ displayName: rcpt.displayName, kind: linkPreview ? "link-preview" : "text" });
+      }
       const watched = defaultContact(cfg);
       if (watched && rcpt.handles.some((h) => watched.handles.includes(h))) {
         acknowledge(cfg);
@@ -1062,7 +1164,7 @@ try {
       break;
     default:
       console.error(
-        "usage: imsg status|chats [N]|read [N] [--to <name|handle>]|search <text> [--to <name|handle>] [--limit N]|index [--all] [--rebuild]|use <contact>|ack|resolve [--to] <name|handle>|send <text> [--to <name|handle>]|react <kind> --to <name|handle>|tail|open|config",
+        "usage: imsg status|chats [N]|read [N] [--to <name|handle>]|search <text> [--to <name|handle>] [--limit N]|index [--all] [--rebuild]|use <contact>|ack|resolve [--to] <name|handle>|send <text> [--to <name|handle>] [--media <path>] [--link-preview <url>]|react <kind> --to <name|handle>|tail|open|config",
       );
       process.exit(1);
   }
