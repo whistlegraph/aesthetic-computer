@@ -248,7 +248,7 @@ CHART = {
                              # on 20 — so OF starts the instant think ends
                              # ("of should start sooner, right after
                              # 'think' ends") with no rest needed at all.
-                             "durs": { 0: 2.0, 1: 2.0, 2: 6.0, 3: 1.5,
+                             "durs": { 0: 2.0, 1: 2.0, 2: 1.0, 3: 1.5,
                                        # "my" a beat sooner: the warp is one
                                        # sequential frame map, so units cannot
                                        # truly overlap — "in" simply ends where
