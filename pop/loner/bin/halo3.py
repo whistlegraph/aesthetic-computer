@@ -65,6 +65,7 @@ BREATH = 0.14
 HALO_DARK_HZ = 5500.0
 HALO_BREATH_X = 1.5
 UNVOICED_W = 0.18           # consonant share of any stretch
+SILENT_W = 0.04             # a pause inside a word hardly stretches at all
 HOLD_RATIO = 1.8            # stretch beyond this → flat tone + vibrato
 
 BPM = 122.0
@@ -236,7 +237,7 @@ CHART = {
                                        # so "of" keeps beat 19 and stone its
                                        # bar 6 beat 2.
                                        7: 2.0,
-                                       8: 2.0, 9: 4.0, 10: 2.0, 11: 3.0,
+                                       8: 2.0, 9: 5.0, 10: 2.0, 11: 3.0,
                                        # very longer, patiently slower
                                        14: 4.0, 15: 5.0 },
                              # words whose syllables carry a melody must not
@@ -244,15 +245,13 @@ CHART = {
                              "nohold": [15],   # patiently
                              # source seconds, read off her onsets, for the
                              # words whisper-1 mistimed. PRE-split indices.
-                             # nothing after this in the slice belongs to
-                             # the line — she goes again at 23.0 s
-                             "end": 22.45,
+                             "end": 24.25,
                              "times": { 11: 12.70,   # waiting
                                         12: 14.40,   # very
-                                        14: 17.66,   # for
-                                        15: 18.54,   # time
-                                        16: 19.48,   # to
-                                        17: 21.20 },  # pass
+                                        14: 18.54,   # for
+                                        15: 19.48,   # time
+                                        16: 21.20,   # to
+                                        17: 23.00 },  # pass
                              # rest AFTER the given unit, in beats
                              # "the in should start sooner — at start of
                              # bar 2": the rest after up goes entirely, so
@@ -272,7 +271,6 @@ CHART = {
                              # 1-beat rest, which lands "just" square on the
                              # bar 8 downbeat.
                              "gaps": { 3: 0.5,   # "in" leans in behind the downbeat
-                                       8: 1.0,   # air after think, before the octave
                                        } },
     "w-sitting-curled":    { "slice": "f-sitting-curled",    "beats": 11.0 },
     "w-i-think":           { "slice": "f-i-think",           "beats": 3.5 },
@@ -494,7 +492,21 @@ def build_warp(a, unit_src, beats, dursb, gapsb=None, rest_src=None, lead_b=0.0,
     of the phrase's beat 0 (the lead-in the C engine subtracts).
     """
     F = len(a["f0c"])
+    # Stretch weights: a vowel absorbs it (1.0), a consonant rides near
+    # 1:1 (0.18) — and SILENCE inside a word barely moves at all. Her
+    # 0.20 s pause between "patient" and "ly" was being stretched to
+    # 0.40 s along with the singing, which detached the last syllable so
+    # it read as a word of its own sitting next to "for". A pause is not
+    # a phoneme; lengthening it does not lengthen the word, it just
+    # breaks it in half.
     w = np.where(a["voiced"], 1.0, UNVOICED_W)
+    xs, fsr = a["x"], a["fs"]
+    spf = int(round(fsr * FRAME_S))
+    nf = min(F, len(xs) // spf)
+    if nf > 0:
+        e = np.sqrt((xs[:nf * spf].reshape(nf, spf) ** 2).mean(axis=1))
+        quiet = e <= (np.max(np.abs(xs)) or 1.0) * 10.0 ** (TRIM_GATE_DB / 20.0)
+        w[:nf][quiet] = SILENT_W
     ants = []                                   # consonant frames per unit
     for (s0, s1) in unit_src:
         v0 = s0
@@ -735,6 +747,20 @@ for name, ch in CHART.items():
         first = dict(w, end=ts, t=w["t"] + "·a")
         second = dict(w, start=ts, t=w["t"] + "·b")
         words[ui:ui + 1] = [first, second]
+    # RE-MEASURE THE NOTE. f0_hz came from the aligner, over the span the
+    # aligner thought the word had. Once `times` repins a boundary or a
+    # split cuts a word in two, that number describes the wrong audio —
+    # which is how "for" kept its old pitch after being moved a whole
+    # word later. Read every note off her voice, over the span the chart
+    # will actually play.
+    for wd in words:
+        f_a = int(round((wd["start"] - t0_slice) / FRAME_S))
+        f_b = int(round((wd["end"] - t0_slice) / FRAME_S))
+        seg = a["f0"][max(0, f_a):max(1, min(f_b, len(a["f0"])))]
+        seg = seg[seg > 0]
+        if len(seg):
+            wd["f0_hz"] = float(np.median(seg))
+
     ch["units"] = derive_units(words, ch["beats"], ch.get("stretch"),
                                ch.get("durs"), ch.get("gaps"))
 

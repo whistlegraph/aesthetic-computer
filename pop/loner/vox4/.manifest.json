@@ -2,13 +2,13 @@
  "w-whole-line": {
   "slice": "f-whole-line",
   "lead_in": 0.49,
-  "beats": 60.5,
+  "beats": 58.5,
   "renders": {
-   "lead": 30.645,
-   "8ve-a": 30.645,
-   "8ve-b": 30.645,
-   "low3": 30.645,
-   "low5": 30.645
+   "lead": 29.66,
+   "8ve-a": 29.66,
+   "8ve-b": 29.66,
+   "low3": 29.66,
+   "low5": 29.66
   },
   "snaps": [
    "curled +65ms",
@@ -23,10 +23,10 @@
    "waiting -100ms",
    "very +65ms",
    "patiently +80ms",
-   "for +35ms",
-   "time -30ms",
-   "to -90ms",
-   "pass +60ms"
+   "for -30ms",
+   "time -90ms",
+   "to +60ms",
+   "pass +5ms"
   ],
   "trims": [
    "up \u2212420ms",
@@ -35,8 +35,7 @@
    "stone \u2212675ms",
    "just \u2212195ms",
    "very \u2212520ms",
-   "patiently \u2212480ms",
-   "to \u2212855ms"
+   "time \u2212855ms"
   ],
   "words": "the whole lyric, one take"
  },
