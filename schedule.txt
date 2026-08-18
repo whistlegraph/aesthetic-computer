@@ -7,6 +7,64 @@ Newest week on top. Move items to a "✓ done" line in-place, archive whole
 weeks downward when stale.
 
 ═════════════════════════════════════════════════════════════════════════
+ Week of 2026-08-16 — Sun → Sat
+═════════════════════════════════════════════════════════════════════════
+
+ ⏳ blocked / waiting
+ - CultureHub owes two answers on the rider sent 08-18: whether Sep 19 stays
+   its own event or folds into Sep 24, and the room itself — Kalio layout,
+   sixth-channel bandwidth, whether we can repatch during the swap, and whether
+   the network allows outbound NTP, client-to-client ssh, app downloads, and
+   booting participant laptops from USB.
+
+ ☐ this week
+ - 08-20 SIGGRAPH Asia Real-Time Live! (23:59 AoE) — GO/NO-GO, and it expires
+   Thursday. Nothing drafted, and the six-laptop rig is not a proven stage demo
+   until CultureHub runs it. Default answer is no-go; take the 2027 round.
+ - CALI Futures ($5,000, due 08-28 at 11:59 **a.m.** PT — late morning, not
+   midnight) — complete Submittable identity verification NOW. It wants a photo
+   of a government ID plus a live camera photo, and it is the one step that can
+   lock a finished application out at the cutoff.
+ - CALI Futures — ask both references. CCI explicitly wants a beneficiary
+   voice, so: one device-library participant (JS names them) plus Casey Reas.
+   Each must be able to take a 15-minute phone call from CCI staff.
+ - CALI Futures — build the one-page budget PDF from the table in the vault
+   draft (it lands at exactly $5,000), trim the CV to two pages foregrounding
+   current sector roles, and name the two California activations with venues.
+ - James Castle House (two months, $4,000 + housing, due 08-28 23:59 MST) —
+   pick the 2027 period. Recommend Mar 1–Apr 30; alternates Jun–Jul, Sep–Oct.
+   Decide the two hard parts first: it is a solo residency with no companions,
+   and it requires passing a background check. Then line up references and
+   settle whether a resulting work must be donated.
+ - Two rows have said "Verify" since April — ACM C&C 2026 and ICCC 2026. Log
+   into the portals, confirm whether those submissions actually went, and sync
+   grants/SCORE.md and the deadlines page to the answer.
+ - mail@sotce.net is bouncing — eight-plus Delivery Status Notification
+   failures since April, several re-referencing the same message-ids. Newsletter
+   sends are not landing.
+
+ ⚠ due before build week — load-in is Sep 16
+ - 09-07 Platform Dalí (€7,500 fee + up to €25,000 production) — the biggest
+   purse in the cluster, and the draft is still the 08-09 v0.
+ - 08-31 SAT × LAB7 (CAD $10,000, 17:00) — draft v0 from 08-09, not yet trimmed
+   to the form.
+ - 09-15 Embassy of Foreign Artists (CHF 1,400/month) — lands the day before
+   load-in, so it has to be finished before build week starts.
+ - 09-01 ICLC 2027 papers, performances, workshops (extended from 08-15).
+
+ ✓ done
+ - 08-18  CultureHub technical rider rebuilt as a one sheet (8.5 × 12.1 in):
+          a page per system with its own title graphic and system requirements,
+          a diagram each, rewritten in the voice from papers/VOICE.md, and
+          passing aesthetic-eye. Emailed to Mattie, cc Joo, with the PDF.
+ - 08-18  CALI Futures draft rewritten against CCI's published application
+          preview — nine sections, every capped field counted under. Guidelines,
+          FAQ, budget template, and competitive-applicant examples cached in
+          the vault at grants/cci-cali-futures-2026/reference/.
+ - 08-18  James Castle House research + draft v0 written from scratch in the
+          vault at grants/james-castle-house-2027/.
+
+═════════════════════════════════════════════════════════════════════════
  Week of 2026-05-03 — Sun → Sat
 ═════════════════════════════════════════════════════════════════════════
 
