@@ -219,7 +219,7 @@ CHART = {
                              # 'think' ends") with no rest needed at all.
                              "durs": { 0: 4.0, 1: 2.5, 2: 3.0, 3: 2.5,
                                        4: 2.0, 5: 2.0, 6: 2.0, 7: 2.0,
-                                       8: 4.0, 9: 4.0, 10: 4.0,
+                                       8: 4.0, 9: 4.0, 10: 3.0,
                                        # very longer, patiently slower
                                        13: 4.0, 14: 5.0 },
                              # rest AFTER the given unit, in beats
@@ -232,7 +232,15 @@ CHART = {
                              # "i should come after self ends": self's
                              # audio really stops mid-slot, so i follows
                              # it directly and "i think" runs contiguous.
-                             "gaps": { 10: 4.0 } },  # the bar break after stone
+                             # The bar break after stone was leaving 4.25
+                             # beats of audible silence — her own gap there
+                             # is 1.31, the longest in the song but nothing
+                             # like that. stone 4 → 3 (and at 1.7× it drops
+                             # under the hold line, so it plays as her voice
+                             # instead of a 2.3× synthesized tone) with a
+                             # 1-beat rest, which lands "just" square on the
+                             # bar 8 downbeat.
+                             "gaps": { 10: 1.0 } },
     "w-sitting-curled":    { "slice": "f-sitting-curled",    "beats": 11.0 },
     "w-i-think":           { "slice": "f-i-think",           "beats": 3.5 },
     "w-of-a-stone":        { "slice": "f-of-a-stone",        "beats": 8.0 },
