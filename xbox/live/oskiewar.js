@@ -21,7 +21,7 @@ runtime = function acRuntime() {
 };
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 74;
+const buildVersion = 75;
 const floorY = 1800;
 // The tower. @jeffrey played the padded room on the console and asked for a
 // tall map: the fight should happen on the way up, not back and forth across
@@ -4235,11 +4235,16 @@ function meleeTarget(player, now) {
   const pulse = meleePulse(player, now);
   const spec = meleeSpecFor(player, player.attackKind);
   const lowKick = player.attackKind === "KICK" && player.lowKick;
+  const reachX = player.x + player.facing * (spec.reach + spec.swell * pulse);
+  // A low kick sweeps the ground in front of the kicker — the ground he is
+  // standing on. The bare terrain probe read the arena floor, so a low kick
+  // thrown on a rung aimed a storey down through the rung it stood on.
+  const sweepY = lowKick
+    ? Math.min(surfaceYAt(reachX, player.y), player.y + 20) - 5 : 0;
   return {
     x: player.x + player.facing * (spec.reach + spec.swell * pulse +
       (lowKick ? 34 * pulse : 0)),
-    y: lowKick ? terrainFloorAt(player.x + player.facing *
-      (spec.reach + spec.swell * pulse)) - 5 : player.y - spec.height,
+    y: lowKick ? sweepY : player.y - spec.height,
     z: player.z,
   };
 }
@@ -6561,6 +6566,13 @@ function runnerWorldGeometry(player, t) {
       jointY: middleY + dx / distance * height * bend,
       targetX, targetY };
   };
+  // Where a grounded foot may actually plant. The bare terrain probe reads
+  // the arena floor, so a fighter standing on a rung planted his feet a
+  // storey down and the shins stretched to reach — the long legs @jeffrey
+  // called out. The probe now asks for the surface the fighter is actually
+  // standing on, and a foot hanging past a rung's lip stops at the leg's own
+  // reach — a short dangle — instead of the floor below.
+  const footPlant = (footX) => Math.min(surfaceYAt(footX, feet), feet + 20);
   segment(head.x, head.y + head.radius * .78, neckX, neckY, 10, "neck");
   segment(neckX, neckY, x, hipY, 10, "torso");
   // An elbow sags downward whichever way the hand actually reaches. Bending
@@ -6603,7 +6615,7 @@ function runnerWorldGeometry(player, t) {
     // The deck is drawn tilted along the terrain, so each foot plants on
     // the deck's own top at its x — flat foot heights ran the board
     // through the shins on every slope.
-    const deckAt = (footX) => terrainFloorAt(footX) - 6;
+    const deckAt = (footX) => footPlant(footX) - 6;
     const plantedX = x + player.facing * 28;
     const push = Math.sin(poseCycle) * 34;
     const leadFootX = plantedX + player.facing * 18;
@@ -6627,9 +6639,9 @@ function runnerWorldGeometry(player, t) {
     const rearKnee = x - player.facing * 16 - stride * .38;
     const rearFoot = x - player.facing * 28 - stride;
     // The animation phase still chooses the discrete stride; ground probes
-    // constrain that frame onto the heightfield without adding new sim steps.
-    const leadGround = terrainFloorAt(leadFoot);
-    const rearGround = terrainFloorAt(rearFoot);
+    // constrain that frame onto the surface underfoot without new sim steps.
+    const leadGround = footPlant(leadFoot);
+    const rearGround = footPlant(rearFoot);
     segment(x, hipY, leadKnee, leadGround - 30, 10, "lead-thigh");
     segment(leadKnee, leadGround - 30, leadFoot, leadGround, 10, "lead-shin");
     segment(x, hipY, rearKnee, rearGround - 30, 10, "rear-thigh");
@@ -8179,14 +8191,19 @@ function drawRunner(player, t, showLabel = true) {
   const displayNow = player.frozenAt || runtime().monotonicUs;
   if (player.skateboard) {
     const board = projectPoint(player.x, player.y + 5, player.z);
+    // The tilt probes ask for the surface the rider is actually on: bare
+    // terrain reads the arena floor, which would pitch a rung-riding board
+    // toward the storey below the moment the ground under it sloped.
+    const boardSurface = (probeX) =>
+      Math.min(surfaceYAt(probeX, player.y), player.y + 20);
     const leftEdge = player.skateWallSide
       ? projectPoint(player.x, player.y - 67, player.z)
       : projectPoint(player.x - 72,
-        terrainFloorAt(player.x - 72) + 5, player.z);
+        boardSurface(player.x - 72) + 5, player.z);
     const boardEdge = player.skateWallSide
       ? projectPoint(player.x, player.y + 77, player.z)
       : projectPoint(player.x + 72,
-        terrainFloorAt(player.x + 72) + 5, player.z);
+        boardSurface(player.x + 72) + 5, player.z);
     const reach = Math.max(.5, Math.hypot(boardEdge.x - leftEdge.x,
       boardEdge.y - leftEdge.y) / 2);
     const rotation = Math.atan2(boardEdge.y - leftEdge.y,

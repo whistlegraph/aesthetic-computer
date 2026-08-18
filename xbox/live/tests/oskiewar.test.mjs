@@ -1119,8 +1119,12 @@ test("hilly terrain shares one deterministic surface with physics and foot IK", 
   assert.match(source, /const detail = Math\.sin/);
   assert.match(source, /function drawTerrainSurface\(/);
   assert.match(source, /player\.y >= terrainFloorAt\(player\.x\)/);
-  assert.match(source, /const leadGround = terrainFloorAt\(leadFoot\)/);
-  assert.match(source, /const rearGround = terrainFloorAt\(rearFoot\)/);
+  // Foot IK reads the same surface physics stands on — terrain plus rungs —
+  // through one probe, clamped at the leg's own reach past a lip.
+  assert.match(source,
+    /const footPlant = \(footX\) => Math\.min\(surfaceYAt\(footX, feet\), feet \+ 20\)/);
+  assert.match(source, /const leadGround = footPlant\(leadFoot\)/);
+  assert.match(source, /const rearGround = footPlant\(rearFoot\)/);
   assert.match(source, /terrainFloorAt\(ball\.x\) - ball\.radius/);
   assert.match(source, /terrainPhase = terrainSeed\("oskiewar-physics-1-hills"\)/);
 });
@@ -1293,6 +1297,47 @@ test("debug off hides safe-zone boxes including frozen round impacts", () => {
   // gates it first and the round-result freeze only decides how long it lasts.
   assert.match(source,
     /const impactDebug = debugHitboxes && !roundResult && now < impactHitboxesUntil/);
+});
+
+// @jeffrey: "legs seem to get rly long when jumping on platforms". The
+// grounded pose planted its feet with the bare terrain probe — the arena
+// floor — so a fighter standing on a rung six storeys up stretched his shins
+// all the way down to it. Feet now plant on the surface underfoot and a foot
+// past a rung's lip dangles at the leg's own reach; these capsules double as
+// hitboxes, so a leg is no longer shootable a storey below its owner.
+test("feet plant on the rung underfoot instead of the storey below", () => {
+  const { fight } = createFight();
+  const player = fight.players[0];
+  const stage = fight.stageGeometry();
+  const rung = fight.platformTable()[0];
+  const legs = (x, y) => {
+    player.x = x;
+    player.y = y;
+    player.vx = 0;
+    player.grounded = true;
+    const pieces = fight.runnerWorldGeometry(player, 0).segments
+      .filter((piece) => piece.part.endsWith("-leg"));
+    assert.ok(pieces.length >= 4);
+    return pieces;
+  };
+  const span = (piece) => Math.hypot(piece.x2 - piece.x1, piece.y2 - piece.y1);
+  const longestOnFloor = Math.max(
+    ...legs(1500, stage.floorY).map(span));
+  // Standing mid-rung: same silhouette as the floor, one storey up.
+  for (const piece of legs((rung.left + rung.right) / 2, rung.y)) {
+    assert.ok(span(piece) <= longestOnFloor + 1,
+      `${piece.role} stretched to ${Math.round(span(piece))}`);
+    assert.ok(Math.max(piece.y1, piece.y2) <= rung.y + 21,
+      `${piece.role} reached below the rung`);
+  }
+  // Standing on the lip: the forward foot hangs at the leg's reach instead
+  // of planting on the floor below.
+  for (const piece of legs(rung.right, rung.y))
+    assert.ok(Math.max(piece.y1, piece.y2) <= rung.y + 21,
+      `${piece.role} reached past the lip`);
+  // The low kick sweeps the ground underfoot, not the arena floor.
+  assert.match(source,
+    /const sweepY = lowKick\n\s*\? Math\.min\(surfaceYAt\(reachX, player\.y\), player\.y \+ 20\) - 5 : 0;/);
 });
 
 test("fighter geometry connects the head and renders solid capsule joints", () => {
