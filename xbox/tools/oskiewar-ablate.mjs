@@ -31,8 +31,9 @@ if (!match) {
 }
 const room = "ow-" + match[1];
 
+// res 0 is not "no pixels" — it hands the dial back to the shell's governor.
 const FULL = { sky: true, grass: true, shadows: true, dust: true, keys: true,
-  bands: 6, hud: true, res: 1 };
+  bands: 6, hud: true, res: 0 };
 // The first pass taught us the decorative layers barely matter (+3 fps all
 // off together), so this walk prices the two suspects that pass exonerated:
 // the debug scaffolding itself, and raw raster area — the resolution dial

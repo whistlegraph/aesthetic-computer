@@ -21,7 +21,7 @@ runtime = function acRuntime() {
 };
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 81;
+const buildVersion = 82;
 const floorY = 1800;
 // The tower. @jeffrey played the padded room on the console and asked for a
 // tall map: the fight should happen on the way up, not back and forth across
@@ -10206,6 +10206,9 @@ function gamePaint() {
   const couchVersus = !players[1].npc && !players[1].bot && !selfPlay;
   globalThis.__oskiewarPlayerPans = couchVersus ? [0, 0]
     : [panPlayer(players[0]), panPlayer(players[1])];
+  // The shell's resolution governor steers by this — the game's own measured
+  // rate, because the host's profile numbers never made it off the Xbox.
+  globalThis.__oskiewarDisplayFps = displayFps;
   if (lastPaintAt > 0 && run.monotonicUs > lastPaintAt) {
     const sample = clamp(1000000 / (run.monotonicUs - lastPaintAt), 1, 240);
     displayFps = displayFps ? lerp(displayFps, sample, .12) : sample;

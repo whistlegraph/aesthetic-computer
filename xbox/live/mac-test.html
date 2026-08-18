@@ -241,6 +241,7 @@
     let logicalWidth = 1920;
     let logicalHeight = 1080;
     let resolutionScale = 1;
+    let manualResolution = null;
     // Hardware occlusions in logical units: home indicator, notch, rounded
     // corners. env() covers the browsers; the iOS shell pins its scroll view
     // so env() reads zero there, and the app injects the real insets as
@@ -285,6 +286,24 @@
       }
     }
     resizeCanvas();
+    // The sliding performance default: measured on the Xbox, the frame is
+    // substantially raster-area-bound — res .66 alone held 60 fps — so the
+    // shell watches the game's own measured rate and trades backing-store
+    // resolution for frames, a step at a time. Struggling frames also drag
+    // the fixed-step simulation into catch-up work that deepens the hole,
+    // so cheaper pixels pay that debt off too. A manual res flag from the
+    // experiment lane pins the dial; zero hands it back.
+    setInterval(() => {
+      if (manualResolution !== null) return;
+      const fps = Number(globalThis.__oskiewarDisplayFps) || 60;
+      if (fps < 52 && resolutionScale > .62) {
+        resolutionScale = Math.max(.62, resolutionScale - .12);
+        resizeCanvas();
+      } else if (fps >= 58 && resolutionScale < 1) {
+        resolutionScale = Math.min(1, resolutionScale + .06);
+        resizeCanvas();
+      }
+    }, 2000);
     globalThis.__oskiewarInsetsChanged = resizeCanvas;
     addEventListener("resize", resizeCanvas, { passive: true });
     window.visualViewport?.addEventListener("resize", resizeCanvas,
@@ -969,7 +988,11 @@
             globalThis.__oskiewarRenderFlags = {
               ...globalThis.__oskiewarRenderFlags, ...message.content };
             if (typeof message.content.res === "number") {
-              resolutionScale = Math.max(.3, Math.min(1, message.content.res));
+              // A positive res pins the dial by hand; zero hands it back to
+              // the governor.
+              manualResolution = message.content.res > 0
+                ? Math.max(.3, Math.min(1, message.content.res)) : null;
+              if (manualResolution !== null) resolutionScale = manualResolution;
               resizeCanvas();
             }
           }
