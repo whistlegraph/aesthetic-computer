@@ -1340,6 +1340,39 @@ test("feet plant on the rung underfoot instead of the storey below", () => {
     /const sweepY = lowKick\n\s*\? Math\.min\(surfaceYAt\(reachX, player\.y\), player\.y \+ 20\) - 5 : 0;/);
 });
 
+// The remote profiling loop @jeffrey asked for: flip layers off on a live
+// session through the relay, price each one in the machine's own fps, then
+// choose defaults from data. The flags arrive via the shell's publisher
+// socket; the game reads them once per painted frame and defaults every
+// missing flag to the full picture.
+test("render experiment flags thin the frame and default to everything", () => {
+  const { fight, lines, triangles, tick } = createFight(false, false);
+  try {
+    tick();
+    fight.paint();
+    const fullLines = lines.length, fullTriangles = triangles.length;
+    lines.length = triangles.length = 0;
+    globalThis.__oskiewarRenderFlags = { grass: false, shadows: false,
+      dust: false, keys: false, bands: 1 };
+    fight.paint();
+    assert.ok(lines.length < fullLines,
+      `grass and dust off should shed lines (${lines.length} vs ${fullLines})`);
+    assert.ok(triangles.length < fullTriangles,
+      `shadows, keys and bands off should shed faces ` +
+      `(${triangles.length} vs ${fullTriangles})`);
+    lines.length = triangles.length = 0;
+    globalThis.__oskiewarRenderFlags = {};
+    fight.paint();
+    assert.equal(lines.length, fullLines);
+    assert.equal(triangles.length, fullTriangles);
+  } finally {
+    delete globalThis.__oskiewarRenderFlags;
+    delete globalThis.__oskiewarPlayerPans;
+  }
+  assert.match(webShell, /message\.type === "oskiewar:flags"/);
+  assert.match(webShell, /globalThis\.__oskiewarRenderFlags = \{\n              \.\.\.globalThis\.__oskiewarRenderFlags, \.\.\.message\.content \}/);
+});
+
 test("fighter geometry connects the head and renders solid capsule joints", () => {
   const { fight } = createFight(false, false);
   const geometry = fight.runnerWorldGeometry(fight.players[0], 0);
@@ -3779,7 +3812,9 @@ test("persistent controls teach the two-button hold chord", () => {
 
 test("handle palette gradients survive on detached limbs and anchor the head at @", () => {
   assert.match(source, /function drawPaletteCapsule\(/);
-  assert.match(source, /const bands = colors\?\.length > 1 \? 6 : 1/);
+  // Six bands is the look; the experiment dial can flatten it remotely.
+  assert.match(source,
+    /const bands = colors\?\.length > 1\n\s*\? clamp\(Math\.round\(renderFlags\.bands \?\? 6\), 1, 6\) : 1/);
   assert.match(source, /player\.handleColors\[0\] : color/);
   assert.match(source, /colors: player\.npc \? \[\] : player\.handleColors/);
   assert.match(source, /paletteCoordinate/);
@@ -4652,7 +4687,8 @@ test("the Replay Oven captures match-HUD 60 fps high-quality masters", () => {
     /if \(matchHud && !reelMinimal && shellMode === "GAME" && gameplayStarted\)/);
   assert.match(source, /if \(reelMinimal && roundResult && resultUiReady\)/);
   assert.match(source, /if \(!replayOven\) drawDebugPerformance/);
-  assert.match(source, /if \(!replayOven && !selfPlay\) drawControlLegend/);
+  assert.match(source,
+    /if \(!replayOven && !selfPlay && renderFlags\.keys !== false\)\n\s*drawControlLegend/);
   assert.match(reelRenderer, /&reel-hud/);
   assert.match(reelRenderer, /quality: 100/);
   assert.match(reelRenderer, /"-r", "60"/);

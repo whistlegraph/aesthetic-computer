@@ -35,6 +35,7 @@
     "oskiewar:parity": "node xbox/tools/oskiewar-release.mjs status",
     "oskiewar:reconcile": "node xbox/tools/oskiewar-release.mjs reconcile",
     "oskiewar:agent": "node xbox/tools/oskiewar-agent.mjs",
+    "oskiewar:ablate": "node xbox/tools/oskiewar-ablate.mjs",
     "instagram:accounts": "node toolchain/instagram/ig.mjs accounts",
     "instagram:whistlegraph": "node toolchain/instagram/whistlegraph-ig.mjs",
     "instagram:aesthetic": "node toolchain/instagram/aesthetic-ig.mjs",

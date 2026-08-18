@@ -215,6 +215,41 @@ test("an agent can nudge the publisher to reload, gently and only agents", () =>
   assert.equal(host.sent.length, settled);
 });
 
+// The render experiment lane: an agent flips one layer of the picture off,
+// reads the fps out of the telemetry, and restores it — so what each layer
+// costs is measured on the machine that is struggling. The relay forwards
+// only a closed dictionary shape and no faster than four a second.
+test("an agent can pass render experiment flags, shaped and paced", () => {
+  let now = 100;
+  const manager = new OskiewarLiveManager({ now: () => now });
+  const host = new FakeSocket(), agent = new FakeSocket();
+  const url = "/oskiewar-live?match=bafegu-dorimi-kunapo";
+  manager.handleConnection(host, { url: `${url}&role=publisher&surface=web` });
+  manager.handleConnection(agent, { url: `${url}&role=agent` });
+  const flags = (content) => agent.emit("message",
+    Buffer.from(JSON.stringify({ type: "oskiewar:flags", content })));
+  flags({ grass: false, bands: 1 });
+  assert.deepEqual(host.sent.at(-1),
+    { type: "oskiewar:flags", content: { grass: false, bands: 1 } });
+  // Paced: a second batch inside 250ms is swallowed, after it flows.
+  const delivered = host.sent.length;
+  now += 100;
+  flags({ sky: false });
+  assert.equal(host.sent.length, delivered);
+  now += 251;
+  flags({ sky: false });
+  assert.deepEqual(host.sent.at(-1),
+    { type: "oskiewar:flags", content: { sky: false } });
+  // Shaped: bad names, huge numbers, strings and empty batches all die here.
+  const settled = host.sent.length;
+  now += 1000;
+  flags({ "Bad-Name": true });
+  flags({ grass: "off" });
+  flags({ bands: 1e9 });
+  flags({});
+  assert.equal(host.sent.length, settled);
+});
+
 // A room packed with spectators must never lock a maintainer out of the
 // telemetry, and a stuck agent must never eat the spectator allowance.
 test("agents hold their own small allowance beside the 64 viewer seats", () => {

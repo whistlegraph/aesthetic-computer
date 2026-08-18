@@ -165,7 +165,7 @@ export class OskiewarLiveManager {
       }
       room = { matchId, publisher: null, publisherSurface: "unknown",
         viewers: new Set(), agents: new Set(), state: null, liveStarted: false,
-        updatedAt: this.now(), publishedAt: 0, nudgedAt: 0 };
+        updatedAt: this.now(), publishedAt: 0, nudgedAt: 0, flaggedAt: 0 };
       this.rooms.set(matchId, room);
     }
     if (role === "publisher") this.addPublisher(room, ws, surface);
@@ -266,14 +266,35 @@ export class OskiewarLiveManager {
   }
 
   nudge(room, data) {
-    if (Buffer.byteLength(data) > 256) return;
+    if (Buffer.byteLength(data) > 512) return;
     let message;
     try { message = JSON.parse(data.toString()); } catch { return; }
-    if (message.type !== "oskiewar:reload") return;
+    if (message.type === "oskiewar:reload") {
+      const now = this.now();
+      if (room.nudgedAt && now - room.nudgedAt < 5000) return;
+      room.nudgedAt = now;
+      send(room.publisher, "oskiewar:reload", {});
+      return;
+    }
+    // Render experiment flags: a closed little dictionary — short lowercase
+    // names, booleans or small numbers, a handful at a time — forwarded to
+    // the publishing game so an agent can measure what each layer costs on
+    // the real machine. Four a second is faster than any experiment needs
+    // and slow enough that a runaway probe cannot strobe somebody's screen.
+    if (message.type !== "oskiewar:flags") return;
+    const flags = message.content;
+    if (!flags || typeof flags !== "object" || Array.isArray(flags)) return;
+    const entries = Object.entries(flags);
+    if (entries.length < 1 || entries.length > 8) return;
+    for (const [key, value] of entries) {
+      if (!/^[a-z][a-zA-Z0-9]{0,23}$/.test(key)) return;
+      if (typeof value !== "boolean" &&
+          !(Number.isFinite(value) && Math.abs(value) <= 64)) return;
+    }
     const now = this.now();
-    if (room.nudgedAt && now - room.nudgedAt < 5000) return;
-    room.nudgedAt = now;
-    send(room.publisher, "oskiewar:reload", {});
+    if (room.flaggedAt && now - room.flaggedAt < 250) return;
+    room.flaggedAt = now;
+    send(room.publisher, "oskiewar:flags", flags);
   }
 
   publish(room, ws, data) {

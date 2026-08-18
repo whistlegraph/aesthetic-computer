@@ -21,7 +21,7 @@ runtime = function acRuntime() {
 };
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 79;
+const buildVersion = 80;
 const floorY = 1800;
 // The tower. @jeffrey played the padded room on the console and asked for a
 // tall map: the fight should happen on the way up, not back and forth across
@@ -1091,6 +1091,13 @@ let titleToyAt = -1;
 // travel is the same hysteresis the camera uses at the safe-zone edge.
 let titleGlyphHot = -1;
 let navigationPrevious = [[], []];
+// Remote render experiment flags. An attached agent can flip these through
+// the relay — the shell merges oskiewar:flags into the global and the paint
+// below reads it once per frame — so what each layer costs can be measured
+// on the machine that is actually struggling, not a workstation imitating
+// it. Every flag missing means the full picture; xbox/tools/oskiewar-ablate
+// walks them and reads the price back out of the live fps telemetry.
+let renderFlags = {};
 // Temporary live combat inspector. Keep this explicit so the production view
 // can return to a clean presentation without changing combat geometry.
 let debugHitboxes = false;
@@ -6344,7 +6351,10 @@ function paletteColorAt(colors, coordinate, fallback) {
 }
 
 function drawPaletteCapsule(segment, colors, coordinate, fallback, player = null) {
-  const bands = colors?.length > 1 ? 6 : 1;
+  // The gradient's resolution is an experiment dial: six bands is the look,
+  // one band is a flat capsule at a third of the faces.
+  const bands = colors?.length > 1
+    ? clamp(Math.round(renderFlags.bands ?? 6), 1, 6) : 1;
   if (bands === 1) {
     filledCapsule(segment.x1, segment.y1, segment.x2, segment.y2,
       segment.width, damagedPartColor(fallback, player, segment.part));
@@ -9673,7 +9683,7 @@ function drawTitleScreen(t, ink, transitionAge = -1) {
 
   // Air fuzzies: sparse motes drifting the whole frame, no panels or stripes
   // behind the wordmark.
-  if (transitionAge < 0)
+  if (transitionAge < 0 && renderFlags.dust !== false)
     for (let index = 0; index < (compact ? 10 : 16); index++) {
       const phase = index * 2.39996;
       const x = stageLeft + (stageRight - stageLeft) *
@@ -10240,8 +10250,9 @@ function gamePaint() {
   const menuArena = mixColor([7, 10, 26], [235, 241, 248], visualTheme.light);
   const menuPanel = mixColor([20, 28, 56], [215, 225, 239], visualTheme.light);
   const menuInk = mixColor([245, 248, 255], [24, 35, 72], visualTheme.light);
+  renderFlags = globalThis.__oskiewarRenderFlags || renderFlags;
   wipe(...outside);
-  drawSkyAtmosphere(sky, arena);
+  if (renderFlags.sky !== false) drawSkyAtmosphere(sky, arena);
   if (PAL_SELECT && selecting) {
     box(0, 0, viewWidth(), viewHeight, ...menuArena);
     drawSelectionScreen(t, menuInk, menuPanel);
@@ -10267,7 +10278,7 @@ function gamePaint() {
   drawTerrainBackWall(spanLeft, spanRight, worldFar, ground);
   drawTerrainSurface(spanLeft, spanRight, groundNear, worldFar, ground);
   drawTerrainFrontWall(spanLeft, spanRight, groundNear, ground);
-  drawTerrainGrass(spanLeft, spanRight, ground);
+  if (renderFlags.grass !== false) drawTerrainGrass(spanLeft, spanRight, ground);
   drawBoosterPad(t);
   const platformNear = -520;
   const platformFar = 520;
@@ -10297,13 +10308,15 @@ function gamePaint() {
   }
   const shadowInk = mixColor([3, 5, 14], [92, 99, 101],
     visualTheme.light * .72);
-  for (const player of players)
-    if (player.alive || roundResult)
-      drawSpotShadow(player.x, player.y, player.z, player.ducking ? 52 : 64,
-        shadowInk);
-  for (const item of balls)
-    if (item.active)
-      drawSpotShadow(item.x, item.y, item.z, item.radius * 1.18, shadowInk);
+  if (renderFlags.shadows !== false) {
+    for (const player of players)
+      if (player.alive || roundResult)
+        drawSpotShadow(player.x, player.y, player.z, player.ducking ? 52 : 64,
+          shadowInk);
+    for (const item of balls)
+      if (item.active)
+        drawSpotShadow(item.x, item.y, item.z, item.radius * 1.18, shadowInk);
+  }
   const windInk = windDirection < 0
     ? mixColor([72, 174, 255], [28, 88, 188], visualTheme.light)
     : mixColor([255, 92, 132], [184, 35, 62], visualTheme.light);
@@ -10425,7 +10438,8 @@ function gamePaint() {
   // The legend is the stable key for the score written beneath it. Keep it
   // present throughout every player-controlled screen; only unattended bot
   // self-play and marketing reels have no learner to serve.
-  if (!replayOven && !selfPlay) drawControlLegend(titleInk);
+  if (!replayOven && !selfPlay && renderFlags.keys !== false)
+    drawControlLegend(titleInk);
   const resultUiReady = cinematicAge < 0 || cinematicAge >= 1.1;
   // A reel opens on the matchup. Both names, both palettes, stacked up top
   // where the fighters are not — a stranger scrolling past should know who is

@@ -955,6 +955,14 @@
           // poll: on the title it happens now, mid-fight it arms and waits
           // for the title — an agent must never yank a round out from under
           // whoever is actually holding the controller.
+          // Render experiment flags from an attached agent: merged shallow so
+          // one probe can flip one layer without resetting the others. The
+          // game reads the global once per painted frame.
+          if (message.type === "oskiewar:flags" && message.content &&
+              typeof message.content === "object") {
+            globalThis.__oskiewarRenderFlags = {
+              ...globalThis.__oskiewarRenderFlags, ...message.content };
+          }
           if (message.type === "oskiewar:reload") {
             if (globalThis.__oskiewarTouch?.screen === "title") {
               document.querySelector("#status").textContent = "updating";
