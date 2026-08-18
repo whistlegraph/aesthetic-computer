@@ -95,7 +95,10 @@ PASSES = [0.0]                               # ONE pass, and no count-in:
 BARS_MAX = 16                                # nothing past bar 16
 KICK_BEATS = int(min(LINE_BARS + 1, BARS_MAX) * 4)   # first word IS the downbeat
 TOTAL_BEATS = min(LINE_BARS + 2, BARS_MAX) * 4
-SYNC_MS = float(os.environ.get("SYNC_MS", "45"))   # display-latency lead
+SYNC_MS = float(os.environ.get("SYNC_MS", "25"))   # display-latency lead —
+                                                  # 25 ms read right on the
+                                                  # calibration clip, so it is
+                                                  # measured now, not guessed
 STRIP_PAD = 2.0                              # beats of strip before beat 0,
                                              # so the pickup has somewhere to live
 
