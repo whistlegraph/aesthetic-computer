@@ -4,8 +4,8 @@
   "pdf": "technical-rider.pdf",
   "expectedDiagrams": 4,
   "visualInference": true,
-  "pdfSha256": "22c5904f49a5ea78d03545687d81eaba0d9f8f1444e7bb7af3e03db9fcdb008c",
-  "reviewedAt": "2026-08-18T20:35:00Z",
+  "pdfSha256": "3d443d72d6a185cdf5c65b4f00dce05b334b6955ba5da06a27cc4fa9f0c4a144",
+  "reviewedAt": "2026-08-18T21:40:00Z",
   "reviewer": {
     "kind": "visual-inference",
     "agent": "Claude"
@@ -18,7 +18,7 @@
       "period": "pass",
       "dotColor": "pass"
     },
-    "notes": "Badge fills match each wordmark raster's own background (#FFFFFF, #FAF7F2, #F8F7F5), so no inner rectangle shows."
+    "notes": "Single 8.5 x 12.25 in sheet. The colophon block came off the page at @jeffrey's request, so no wordmark is set in type here."
   },
   "diagrams": [
     {
@@ -26,9 +26,9 @@
       "page": 1,
       "crop": [
         0.04,
-        0.295,
-        0.31,
-        0.145
+        0.283,
+        0.32,
+        0.155
       ],
       "design": "pass",
       "checks": {
@@ -39,16 +39,16 @@
         "hierarchy": "pass",
         "edgeRouting": "pass"
       },
-      "notes": "Three entry routes converge on one room; arrowheads read at print size."
+      "notes": "Three ways in, converging on the room. Arrowheads read at print size."
     },
     {
       "id": "notespatial-field",
       "page": 1,
       "crop": [
-        0.345,
+        0.35,
         0.275,
         0.31,
-        0.215
+        0.175
       ],
       "design": "pass",
       "checks": {
@@ -59,16 +59,16 @@
         "hierarchy": "pass",
         "edgeRouting": "pass"
       },
-      "notes": "Dashed orbit carries two pink arrowheads, so rotation belongs to the ring rather than floating beside it."
+      "notes": "Dashed orbit carries the rotation arrows, so the movement belongs to the ring."
     },
     {
       "id": "macneopolitan-trio",
       "page": 1,
       "crop": [
-        0.645,
-        0.265,
+        0.655,
+        0.272,
         0.33,
-        0.235
+        0.198
       ],
       "design": "pass",
       "checks": {
@@ -79,16 +79,16 @@
         "hierarchy": "pass",
         "edgeRouting": "pass"
       },
-      "notes": "Clock feeds all three machines on arrowed dashes; the NTP box now clears indigo so the first arrow reads downward like the other two. Solid arrows carry audio inward."
+      "notes": "Clock reaches all three machines on arrowed dashes that clear the audience circle; solid arrows carry audio inward."
     },
     {
       "id": "evening-running-order",
       "page": 1,
       "crop": [
-        0.06,
-        0.745,
-        0.89,
-        0.065
+        0.05,
+        0.762,
+        0.91,
+        0.048
       ],
       "design": "pass",
       "checks": {
@@ -99,7 +99,7 @@
         "hierarchy": "pass",
         "edgeRouting": "pass"
       },
-      "notes": "Left-to-right chain; the swap is the only pink node, which is where the decision sits."
+      "notes": "Five steps left to right, every arrow forward, the swap the only pink node."
     }
   ]
 }

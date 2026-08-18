@@ -2,7 +2,7 @@
 % One-page technical rider; venue specifications remain to be confirmed.
 \documentclass[10pt,letterpaper]{article}
 \usepackage{culturehub-packet}
-\geometry{top=0.34in,bottom=0.26in,left=0.40in,right=0.40in}
+\geometry{paperwidth=8.5in,paperheight=12.25in,top=0.42in,bottom=0.42in,left=0.45in,right=0.45in}
 \pagestyle{empty}
 \hypersetup{pdftitle={AC Presents 2 New Pieces — Technical Rider}}
 
@@ -21,7 +21,7 @@
 \newcommand{\badge}[2]{%
   \begin{tikzpicture}
   \node[draw=acpink!50,line width=1pt,rounded corners=8pt,fill=#2,
-        inner sep=0pt,minimum width=60mm,minimum height=18mm]
+        inner sep=0pt,minimum width=60mm,minimum height=19mm]
        {\includegraphics[width=50mm]{#1}};
   \end{tikzpicture}}
 \newcommand{\workhead}[4]{%
@@ -29,7 +29,7 @@
   \vspace{0.24em}\badge{#2}{#3}\par
   \vspace{0.32em}%
   {\fontsize{9pt}{10.6pt}\selectfont\color{acpurple}%
-   \begin{minipage}[t][21.2pt][t]{\linewidth}#4\end{minipage}\par}%
+   \begin{minipage}[t][22pt][t]{\linewidth}#4\end{minipage}\par}%
   \vspace{0.16em}\color{acpink}\rule{\linewidth}{1pt}\color{black}\par}
 \newcommand{\specbar}[1]{%
   \vspace{0.20em}\par%
@@ -40,31 +40,23 @@
   {\bfseries\fontsize{13pt}{14pt}\selectfont\color{acdark}#1\par}}
 
 \begin{document}
-\fontsize{9pt}{10.7pt}\selectfont
+\fontsize{9.2pt}{11pt}\selectfont
 
 %% ─── masthead ───────────────────────────────────────────────────────────
-\noindent
-\begin{minipage}[b]{0.70\linewidth}
-{\acbold\fontsize{24pt}{25pt}\selectfont\color{acdark}AC Presents 2 New Pieces\par}
-{\fontsize{11pt}{12.5pt}\selectfont\color{acpink}Technical rider · CultureHub LA · September 16 to 25, 2026\par}
-\end{minipage}\hfill
-\begin{minipage}[b]{0.29\linewidth}
-\raggedleft\statushold{SEPT 24 CONFIRMED · SEPT 19 PENDING}\par
-\vspace{0.45em}
-{\fontsize{7.4pt}{8.8pt}\selectfont\color{acgray}Jeffrey Alan Scudder · \ac{} \& Pals\\
-technical rider revised 18 August 2026 · aesthetic.computer\par}
-\end{minipage}
+\noindent{\acbold\fontsize{24pt}{25pt}\selectfont\color{acdark}AC Presents 2 New Pieces\par}
+{\fontsize{11pt}{12.5pt}\selectfont\color{acpink}Technical rider · CultureHub LA\par}
 
 \vspace{0.16em}
 {\color{acpink}\rule{\linewidth}{1.15pt}}
 
 \vspace{0.04em}
-\noindent\textbf{Sat Sep 19, 2:00–3:30 p.m.} Grokaesthetic Workshop, free and
-public.\quad\textbf{Thu Sep 24, 7:00 p.m.} Piece 1, swap, Piece 2, conversation,
-free play.\quad Thursday is confirmed; if Saturday folds into it, the workshop
-moves to Thursday afternoon and nothing else changes.
+\noindent\textbf{Sat Sep 19, 2:00–3:30 p.m.} Grokaesthetic Workshop. Free, open
+to anyone.\quad\textbf{Thu Sep 24, 7:00 p.m.} Piece 1, the swap, Piece 2, then
+talking, then everyone plays.\quad Thursday is set. Saturday isn't — I cut the
+guest set, which was half the argument for two nights. Tell me which you want
+and I'll re-cut the program.
 
-\vspace{0.26em}
+\vspace{0.40em}
 
 %% ─── three systems ──────────────────────────────────────────────────────
 %  Every diagram declares the same 5.85-unit bounding box, centred on its own
@@ -78,7 +70,7 @@ moves to Thursday afternoon and nothing else changes.
   w/.style={draw=accyan,very thick,rounded corners=3pt,fill=accyan!10,minimum width=17mm,minimum height=10mm,font=\bfseries\fontsize{7.6pt}{8.6pt}\selectfont,align=center},
   r/.style={draw=acpurple,very thick,rounded corners=3pt,fill=acpale,minimum width=56mm,minimum height=10mm,font=\bfseries\fontsize{7.6pt}{8.6pt}\selectfont,align=center},
   f/.style={-{Stealth[length=2.4mm]},very thick,draw=acdark}]
-\useasboundingbox (-2.9,-3.68) rectangle (2.9,1.72);
+\useasboundingbox (-2.9,-3.73) rectangle (2.9,1.77);
 \node[w] (a) at (-2.05,0) {browser\\any device};
 \node[w] (b) at (0,0) {Menu Band\\a Mac};
 \node[w] (c) at (2.05,0) {AC OS\\USB stick};
@@ -89,75 +81,75 @@ moves to Thursday afternoon and nothing else changes.
 
 \specbar{SYSTEM REQUIREMENTS}
 \begin{itemize}
-\item \spec{Network}{guest Wi-Fi, 25–35 devices, \textbf{app downloads permitted}. A captive portal kills route two at the door.}
-\item \spec{Permissions}{participant laptops may boot from USB.}
-\item \spec{Power}{strips at the seating for about 20 laptops.}
-\item \spec{Audio}{stereo minimum; surround preferred.}
-\item \spec{Room}{face-to-face seating, a microphone, loaner positions.}
-\item \spec{Catering}{snack table and a bin.}
+\item \spec{Network}{guest Wi-Fi for 25–35 devices, and it has to allow \textbf{app downloads}. Without them nobody installs Menu Band and a third of the room is out.}
+\item \spec{Permissions}{people can boot their own laptops off my USB sticks. Nothing touches their disks.}
+\item \spec{Power}{strips at the seating for about 20 laptops. Nobody arrives charged.}
+\item \spec{Audio}{stereo is enough. Surround if it's free that afternoon.}
+\item \spec{Room}{seating where people face each other, not a stage. A mic, or a quiet room. Somewhere to put my loaners.}
+\item \spec{Catering}{snacks and a bin. People stay when there's food.}
 \end{itemize}
 \end{minipage}\hfill
 %
 \begin{minipage}[t]{0.315\linewidth}
-\workhead{Piece 1 · Thursday}{notespatial-grid-logo.png}{bgnote}{Six laptops carry sound around the room while it turns.}
+\workhead{Piece 1 · Thursday}{notespatial-grid-logo.png}{bgnote}{Six laptops. The sound moves around the room. The laptops don't.}
 
 \begin{center}
 \begin{tikzpicture}
-\useasboundingbox (-2.9,-2.98) rectangle (2.9,2.42);
+\useasboundingbox (-2.9,-2.94) rectangle (2.9,2.56);
 \draw[dashed,thick,draw=acgray] (0,0) circle (1.9);
 \draw[-{Stealth[length=3mm]},line width=1.2pt,draw=acpink] (68:1.9) arc (68:46:1.9);
 \draw[-{Stealth[length=3mm]},line width=1.2pt,draw=acpink] (248:1.9) arc (248:226:1.9);
 \node[circle,draw=acdark,very thick,fill=white,minimum size=16mm,inner sep=0pt,font=\bfseries\fontsize{7.8pt}{8.6pt}\selectfont] (aud) at (0,0) {audience};
 \foreach \a/\n in {90/1,150/2,210/3,270/4,330/5,30/6}{
   \node[circle,draw=accyan,very thick,fill=accyan!12,minimum size=8mm,inner sep=0pt,font=\bfseries\fontsize{7.8pt}{8.4pt}\selectfont] at (\a:1.9) {\n};}
-\node[font=\bfseries\fontsize{7.8pt}{8.4pt}\selectfont,color=acpink] at (0,-2.72) {the field rotates};
+\node[font=\bfseries\fontsize{7.8pt}{8.4pt}\selectfont,color=acpink] at (0,-2.55) {the field rotates};
 \end{tikzpicture}
 \end{center}
 
 \specbar{SYSTEM REQUIREMENTS}
 \begin{itemize}
-\item \spec{Machines}{six surplus laptops on AC OS drives, plus a control laptop. Artist-supplied.}
-\item \spec{Audio}{\textbf{six discrete inputs} to the Kalio 5.1; six line-level outs, DI and cabling.}
-\item \spec{Sixth channel}{bandwidth confirmed. If LFE-only, five full-range channels carry the field.}
-\item \spec{Network}{dedicated switch, off public traffic.}
-\item \spec{Power, space, video}{seven positions; six plinths around the audience; projector, screen, HDMI.}
-\item \spec{Will not run with}{six stationary voices. The field rotates across the outputs.}
+\item \spec{Machines}{six surplus laptops running AC OS off USB, plus my control laptop. I bring all of it and two spares.}
+\item \spec{Audio}{\textbf{six discrete inputs} to the Kalio, off an interface with six line outs. DI and cable to match.}
+\item \spec{Sixth channel}{tell me if it's full-range or LFE-only. If LFE-only I build the field from five and send it low end.}
+\item \spec{Network}{a switch of my own, off the public traffic.}
+\item \spec{Power, space, video}{seven outlets, six low tables around the audience, and a projector I can reach with HDMI.}
+\item \spec{Won't work as}{six fixed voices. The sound moves, so nothing gets hard-patched.}
 \end{itemize}
 \end{minipage}\hfill
 %
 \begin{minipage}[t]{0.315\linewidth}
-\workhead{Piece 2 · Thursday}{macneopolitan-wordmark.png}{bgmacneo}{Three laptops, one downbeat, held by the clock rather than a cable.}
+\workhead{Piece 2 · Thursday}{macneopolitan-wordmark.png}{bgmacneo}{Three laptops that were never cabled together, hitting one downbeat.}
 
 \begin{center}
 \begin{tikzpicture}[
-  m/.style={circle,very thick,minimum size=10.5mm,inner sep=0pt,font=\bfseries\fontsize{7.8pt}{8.4pt}\selectfont},
+  m/.style={circle,very thick,minimum size=9.5mm,inner sep=0pt,font=\bfseries\fontsize{7.8pt}{8.4pt}\selectfont},
   f/.style={-{Stealth[length=2.4mm]},very thick,draw=acdark}]
-\useasboundingbox (-2.9,-2.53) rectangle (2.9,2.87);
-\node[draw=acpurple,very thick,rounded corners=3pt,fill=acpale,minimum width=48mm,minimum height=7mm,font=\bfseries\fontsize{7.6pt}{8.4pt}\selectfont] (ntp) at (0,2.75) {outbound NTP · one downbeat};
-\node[circle,draw=acdark,very thick,fill=white,minimum size=15mm,inner sep=0pt,font=\bfseries\fontsize{7.8pt}{8.6pt}\selectfont] (aud) at (0,0) {audience};
-\node[m,draw=acpurple,fill=acpurple!12] (i) at (90:1.58) {indigo};
-\node[m,draw=acorange,fill=acorange!12] (c) at (210:1.58) {citrus};
-\node[m,draw=acpink,fill=acpink!12] (b) at (330:1.58) {blush};
+\useasboundingbox (-2.9,-2.67) rectangle (2.9,2.83);
+\node[draw=acpurple,very thick,rounded corners=3pt,fill=acpale,minimum width=48mm,minimum height=6.5mm,font=\bfseries\fontsize{7.6pt}{8.4pt}\selectfont] (ntp) at (0,2.50) {outbound NTP · one downbeat};
+\node[circle,draw=acdark,very thick,fill=white,minimum size=13mm,inner sep=0pt,font=\bfseries\fontsize{7.8pt}{8.6pt}\selectfont] (aud) at (0,0) {audience};
+\node[m,draw=acpurple,fill=acpurple!12] (i) at (90:1.40) {indigo};
+\node[m,draw=acorange,fill=acorange!12] (c) at (210:1.40) {citrus};
+\node[m,draw=acpink,fill=acpink!12] (b) at (330:1.40) {blush};
 \draw[dashed,thick,draw=acgray,-{Stealth[length=2.2mm]}] (ntp) -- (i);
 \draw[dashed,thick,draw=acgray,-{Stealth[length=2.2mm]}] (ntp.west) to[out=200,in=140] (c.north west);
 \draw[dashed,thick,draw=acgray,-{Stealth[length=2.2mm]}] (ntp.east) to[out=340,in=40] (b.north east);
 \draw[f] (i) -- (aud); \draw[f] (c) -- (aud); \draw[f] (b) -- (aud);
-\node[font=\bfseries\fontsize{7.8pt}{8.4pt}\selectfont,color=acpink] at (0,-2.72) {one voice each · inputs 1, 2, 3};
+\node[font=\bfseries\fontsize{7.8pt}{8.4pt}\selectfont,color=acpink] at (0,-2.55) {one voice each · inputs 1, 2, 3};
 \end{tikzpicture}
 \end{center}
 
 \specbar{SYSTEM REQUIREMENTS}
 \begin{itemize}
-\item \spec{Machines}{three MacBook Neos on macOS, score pre-loaded. Artist-supplied.}
-\item \spec{Audio}{\textbf{three full-range positions} in a triangle around the audience; indigo, citrus, blush to inputs 1, 2, 3.}
-\item \spec{Network}{\textbf{outbound NTP.} No cable and no timecode between the machines, so blocked NTP smears the downbeat.}
-\item \spec{Control}{client-to-client ssh, or each machine armed locally.}
-\item \spec{Power and space}{three positions; three stable surfaces.}
-\item \spec{Does not use}{USB boot. macOS on Apple silicon; AC OS is x86\_64 UEFI.}
+\item \spec{Machines}{three MacBook Neos on macOS with the score already loaded. Mine.}
+\item \spec{Audio}{\textbf{three full-range positions} in as wide a triangle as the room allows. Indigo, citrus, blush to inputs 1, 2, 3.}
+\item \spec{Network}{\textbf{outbound NTP has to work.} No cable, no timecode — the machines agree by clock. Block it and the downbeat smears.}
+\item \spec{Control}{I conduct over ssh if clients can see each other. If not I arm them by hand — tell me before the rehearsal.}
+\item \spec{Power and space}{three outlets, three steady surfaces.}
+\item \spec{Doesn't use}{USB boot. These are Apple silicon and AC OS is x86\_64, so don't plan on it.}
 \end{itemize}
 \end{minipage}
 
-\vspace{0.20em}
+\vspace{0.40em}
 {\color{acpink}\rule{\linewidth}{1pt}}
 
 %% ─── the evening ────────────────────────────────────────────────────────
@@ -167,14 +159,14 @@ moves to Thursday afternoon and nothing else changes.
 
 \begin{center}
 \begin{tikzpicture}[
-  s/.style={draw=acpurple,very thick,rounded corners=4pt,fill=acpale,minimum width=32mm,minimum height=11mm,font=\bfseries\fontsize{8.6pt}{10pt}\selectfont,align=center},
-  sw/.style={draw=acpink,very thick,rounded corners=4pt,fill=acpink!12,minimum width=36mm,minimum height=11mm,font=\bfseries\fontsize{8.6pt}{10pt}\selectfont,align=center},
+  s/.style={draw=acpurple,very thick,rounded corners=4pt,fill=acpale,minimum width=33mm,minimum height=12mm,font=\bfseries\fontsize{8.8pt}{10.4pt}\selectfont,align=center},
+  sw/.style={draw=acpink,very thick,rounded corners=4pt,fill=acpink!12,minimum width=37mm,minimum height=12mm,font=\bfseries\fontsize{8.8pt}{10.4pt}\selectfont,align=center},
   f/.style={-{Stealth[length=3.2mm]},very thick,draw=acdark}]
 \node[s] (p1) at (0,0) {Piece 1\\six laptops};
-\node[sw] (sw) at (3.85,0) {swap · 5–10 min\\six out, three in};
-\node[s] (p2) at (7.7,0) {Piece 2\\three Neos};
-\node[s] (tk) at (11.2,0) {conversation};
-\node[s] (fp) at (14.5,0) {free play\\audience};
+\node[sw] (sw) at (3.95,0) {swap · 5–10 min\\six out, three in};
+\node[s] (p2) at (7.90,0) {Piece 2\\three Neos};
+\node[s] (tk) at (11.65,0) {conversation};
+\node[s] (fp) at (15.40,0) {free play\\audience};
 \draw[f] (p1) -- (sw); \draw[f] (sw) -- (p2); \draw[f] (p2) -- (tk); \draw[f] (tk) -- (fp);
 \end{tikzpicture}
 \end{center}
@@ -182,19 +174,27 @@ moves to Thursday afternoon and nothing else changes.
 \vspace{0.06em}
 \noindent
 \begin{minipage}[t]{0.485\linewidth}
-The swap is hardware, not a patch, and it happens in front of the audience: it
-needs budgeted minutes and a decision about what the room does meanwhile —
-lights and talking, a held drone, or the score on the projector. Six line-level
-outs cover both pieces if the patch can change during it; nine if not. The
-instruments stay on afterward, so nothing is struck until the room clears.
+I take six machines off and put three on, in front of everyone. The guest set
+used to hide that, and I cut the guest. Give it five to ten minutes and tell me
+what the room should be doing while it happens — house lights and talking is
+fine, or I leave a drone running, or the score goes up on the projector. Six
+line outs are enough if we can repatch mid-show. Nine if we can't. Afterward
+people play the instruments themselves, so don't strike anything until the room
+empties.
+
+\vspace{0.20em}
+\textbf{What I'm worried about.} Citrus is my development machine, 8 GB, and it
+will hang if I let it, so it performs from a clean boot or I bring a fourth Neo.
+There is no third Neo yet. And drift doesn't announce itself — a smeared
+downbeat still plays, it just sounds wrong, so we check it at the rehearsal on
+your real network.
 \end{minipage}\hfill
 \begin{minipage}[t]{0.485\linewidth}
-\specbar{CONFIRM WITH CULTUREHUB}
+\specbar{WHAT I NEED FROM YOU}
 \begin{itemize}
-\item Kalio layout and sixth-channel bandwidth; six discrete inputs, or a house spatializer? \textbf{Can the patch change during the swap?}
-\item Network: \textbf{outbound NTP}, client-to-client ssh, \textbf{guest Wi-Fi with app downloads} — and \textbf{may participant laptops boot from USB in the space?}
-\item Projector, capacity, accessible route, livestream and archive; load-in, strike, changeover — and one rehearsal long enough to run both pieces.
-\item \textbf{Does September 19 stay separate, or fold into the 24th?}
+\item Your Kalio layout, and whether the sixth channel is full-range. Six discrete inputs, or does it want a house spatializer? \textbf{Can we repatch during the swap, or do I need nine paths?}
+\item Does the network allow \textbf{outbound NTP}, can clients reach each other over ssh, and does guest Wi-Fi allow \textbf{app downloads}? \textbf{Can people boot from USB in the space?}
+\item \textbf{Saturday the 19th, or fold it into the 24th?} Everything else — projector specs, load-in hours, who keeps the archive — I'll settle with you over email.
 \end{itemize}
 \end{minipage}
 \end{document}
