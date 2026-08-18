@@ -3899,7 +3899,10 @@ test("native terrain and actors carry real depth with computed face normals", ()
   const depths = triangles.flatMap((values) => [values[2], values[5], values[8]]);
   assert.ok(new Set(depths.map((value) => value.toFixed(4))).size > 3);
   assert.ok(depths.every((value) => value >= -1.5 && value <= 1.5));
-  assert.match(source, /const normal = normalize3\(cross3\(ab, ac\)\)/);
+  // The quad normal runs in scalars now — same cross, normalize and dot,
+  // without the per-panel vector objects the interpreter was paying for.
+  assert.match(source, /const nx = aby \* acz - abz \* acy/);
+  assert.match(source, /const magnitude = Math\.hypot\(nx, ny, nz\) \|\| 1/);
   assert.match(source, /typeof triangle3d === "function"/);
   assert.doesNotMatch(source, /worldLine\(worldLeft, floorY/);
 });

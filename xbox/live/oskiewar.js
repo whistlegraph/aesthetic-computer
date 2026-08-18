@@ -21,7 +21,7 @@ runtime = function acRuntime() {
 };
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 76;
+const buildVersion = 77;
 const floorY = 1800;
 // The tower. @jeffrey played the padded room on the console and asked for a
 // tall map: the fight should happen on the way up, not back and forth across
@@ -58,6 +58,10 @@ function terrainSeed(value) {
   return (hash >>> 0) / 4294967296 * Math.PI * 2;
 }
 function terrainFloorAt(x) {
+  // The tower's floor is flat — amplitude zero — and this runs for every
+  // grass blade and every foot every frame. The constant answers first; the
+  // heightfield math below wakes the day the amplitude does.
+  if (!terrainAmplitude) return floorY;
   const nx = clamp((x - worldLeft) / (worldRight - worldLeft), 0, 1);
   const edge = Math.sin(nx * Math.PI) ** 2;
   const broad = Math.sin(nx * Math.PI * 3 + terrainPhase);
@@ -613,17 +617,24 @@ const clipViewNear = (polygon) =>
 // at this lens — so a legitimately visible floor can still ask for coordinates
 // far outside anything the rasterizer will take. Cut it to a band a viewport
 // wide instead of dropping the face and leaving a hole in the ground.
+// The four band edges live at module scope over mutable bounds instead of
+// being rebuilt as an array of closures per face — the walls cross the band
+// every frame, and that little array was steady interpreter garbage.
+let bandMinX = 0, bandMaxX = 0, bandMinY = 0, bandMaxY = 0;
+const bandEdges = [
+  (vertex) => vertex.x - bandMinX,
+  (vertex) => bandMaxX - vertex.x,
+  (vertex) => vertex.y - bandMinY,
+  (vertex) => bandMaxY - vertex.y,
+];
 function clipScreenBand(polygon) {
   const width = viewWidth();
-  const margin = guardBand;
-  const edges = [
-    (vertex) => vertex.x + width * margin,
-    (vertex) => width * (1 + margin) - vertex.x,
-    (vertex) => vertex.y + viewHeight * margin,
-    (vertex) => viewHeight * (1 + margin) - vertex.y,
-  ];
+  bandMinX = -width * guardBand;
+  bandMaxX = width * (1 + guardBand);
+  bandMinY = -viewHeight * guardBand;
+  bandMaxY = viewHeight * (1 + guardBand);
   let clipped = polygon;
-  for (const distance of edges) {
+  for (const distance of bandEdges) {
     if (clipped.length < 3) return [];
     clipped = clipPolygon(clipped, distance, mixVertex);
   }
@@ -633,9 +644,37 @@ function clipScreenBand(polygon) {
 // plane, projected, cut to the guard band, then fanned into whatever triangles
 // are left. Zero of them is a face entirely behind the camera, which is a
 // perfectly good answer.
+// Whether a projected vertex already sits inside the guard band. A NaN fails
+// every compare, so a broken projection falls through to the clipper.
+function bandContains(vertex) {
+  const width = viewWidth();
+  return vertex.x >= -width * guardBand && vertex.x <= width * (1 + guardBand) &&
+    vertex.y >= -viewHeight * guardBand &&
+    vertex.y <= viewHeight * (1 + guardBand);
+}
 function worldTriangle(a, b, c, color) {
-  const near = clipViewNear([cameraDoll.toView(a), cameraDoll.toView(b),
-    cameraDoll.toView(c)]);
+  const viewA = cameraDoll.toView(a);
+  const viewB = cameraDoll.toView(b);
+  const viewC = cameraDoll.toView(c);
+  // Nearly every face a frame submits sits whole in front of the lens and
+  // whole inside the guard band, and the console's interpreter was paying
+  // for six array allocations per face on the way to discovering that.
+  // Plain compares decide the common case; only a face that actually
+  // crosses a plane pays for the Sutherland-Hodgman walk.
+  if (viewA.z >= cameraNear && viewB.z >= cameraNear && viewC.z >= cameraNear) {
+    const pa = cameraDoll.projectView(viewA);
+    const pb = cameraDoll.projectView(viewB);
+    const pc = cameraDoll.projectView(viewC);
+    if (bandContains(pa) && bandContains(pb) && bandContains(pc)) {
+      projectedTriangle(pa, pb, pc, color);
+      return;
+    }
+    const banded = clipScreenBand([pa, pb, pc]);
+    for (let corner = 2; corner < banded.length; corner++)
+      projectedTriangle(banded[0], banded[corner - 1], banded[corner], color);
+    return;
+  }
+  const near = clipViewNear([viewA, viewB, viewC]);
   if (near.length < 3) return;
   const projected = near.map((vertex) => cameraDoll.projectView(vertex));
   if (projected.some((point) => !Number.isFinite(point.x) ||
@@ -8679,6 +8718,12 @@ function clipSegmentBand(from, to) {
   const width = viewWidth();
   const minX = -width * guardBand, maxX = width * (1 + guardBand);
   const minY = -viewHeight * guardBand, maxY = viewHeight * (1 + guardBand);
+  // Most segments sit whole inside the band — every grass blade, most limbs.
+  // Plain compares answer those; only a segment that actually crosses an
+  // edge pays for the parametric walk and its rebuilt endpoints.
+  if (from.x >= minX && from.x <= maxX && from.y >= minY && from.y <= maxY &&
+      to.x >= minX && to.x <= maxX && to.y >= minY && to.y <= maxY)
+    return { from, to };
   const dx = to.x - from.x, dy = to.y - from.y;
   let enter = 0, exit = 1;
   for (const [edge, room] of [[-dx, from.x - minX], [dx, maxX - from.x],
@@ -8707,7 +8752,10 @@ function worldSegment(x1, y1, z1, x2, y2, z2) {
     b = mixVertex(b, a, (cameraNear - b.z) / (a.z - b.z));
   const from = cameraDoll.projectView(a);
   const to = cameraDoll.projectView(b);
-  return [from.x, from.y, from.z, to.x, to.y, to.z].every(Number.isFinite)
+  // Six plain checks instead of an array built per segment per frame.
+  return Number.isFinite(from.x) && Number.isFinite(from.y) &&
+    Number.isFinite(from.z) && Number.isFinite(to.x) &&
+    Number.isFinite(to.y) && Number.isFinite(to.z)
     ? clipSegmentBand(from, to) : null;
 }
 
@@ -8731,13 +8779,21 @@ function worldCapsule(x1, y1, z1, x2, y2, z2, width, color,
 
 function worldQuad(a, b, c, d, color) {
   // Lighting is decided in world space, off the surface the quad names, so it
-  // is the same shade however the clipper ends up cutting the face up.
-  const ab = { x: b.x - a.x, y: b.y - a.y, z: b.z - a.z };
-  const ac = { x: c.x - a.x, y: c.y - a.y, z: c.z - a.z };
-  const normal = normalize3(cross3(ab, ac));
-  const light = { x: -globalLight.x, y: -globalLight.y, z: -globalLight.z };
-  const illumination = .72 + Math.max(0, dot3(normal, light)) * .28;
-  const lit = color.map((channel) => Math.round(channel * illumination));
+  // is the same shade however the clipper ends up cutting the face up. The
+  // cross, normalize and dot run in scalars: this is every wall panel every
+  // frame, and the vector objects were pure interpreter garbage.
+  const abx = b.x - a.x, aby = b.y - a.y, abz = b.z - a.z;
+  const acx = c.x - a.x, acy = c.y - a.y, acz = c.z - a.z;
+  const nx = aby * acz - abz * acy;
+  const ny = abz * acx - abx * acz;
+  const nz = abx * acy - aby * acx;
+  const magnitude = Math.hypot(nx, ny, nz) || 1;
+  const toward = (nx * -globalLight.x + ny * -globalLight.y +
+    nz * -globalLight.z) / magnitude;
+  const illumination = .72 + Math.max(0, toward) * .28;
+  const lit = [Math.round(color[0] * illumination),
+    Math.round(color[1] * illumination),
+    Math.round(color[2] * illumination)];
   worldTriangle(a, b, c, lit);
   worldTriangle(a, c, d, lit);
 }
