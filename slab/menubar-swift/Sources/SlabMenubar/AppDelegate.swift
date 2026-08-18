@@ -66,6 +66,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// or "" meaning "restored to the user's original"), so the per-tick
     /// refresh only re-sets the wallpaper when the aggregate status changed.
     private var lastDesktopTint: String?
+    /// Appearance the last wallpaper Slab actually pushed was rendered for.
+    /// Starts nil so the first push after launch is never mistaken for a
+    /// dark↔light flip. See `pushDesktopPicture`.
+    private var lastAppliedDark: Bool?
     /// Base font size from the most recent `tileNow()` pass. `applyTerminalDecor`
     /// scales typography off this — `.awaiting` ("orange") tiles get bumped
     /// up so focus reads typographically while the cell geometry stays put.
@@ -2868,6 +2872,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if lastDesktopTint == memoKey { return }
         lastDesktopTint = memoKey
         DesktopTint.publish(color: color, dark: dark)
+        pushDesktopPicture(name: name, color: color, dark: dark)
+    }
+
+    /// Push the resolved flat tint to every screen's desktop picture, then
+    /// repair the menu bar if the appearance just flipped.
+    ///
+    /// macOS derives the translucent menu bar's own light/dark treatment by
+    /// sampling the desktop picture, and that derivation wedges: after an
+    /// appearance flip the bar keeps the OLD appearance's treatment. Measured
+    /// 2026-08-18 — system in Dark, wallpaper a near-black green, every window
+    /// on screen dark, yet the empty menu bar sampled RGB 115,137,151 (light
+    /// gray, black text). Pushing a fresh wallpaper does NOT dislodge it:
+    /// slab had already set several dark tints across that day and the bar
+    /// stayed light. Re-applying the identical URL+options does nothing
+    /// either. Restarting the Dock is the only thing that makes WindowServer
+    /// re-derive it — the same sample then read 30,52,66, dark with white text.
+    ///
+    /// So nudge the Dock, but ONLY on a genuine dark↔light flip. The tint
+    /// color itself changes on every task state change (it re-averages the
+    /// live palettes); restarting the Dock that often would be intolerable.
+    private func pushDesktopPicture(name: String, color: (Int, Int, Int), dark: Bool) {
+        let flipped = lastAppliedDark != nil && lastAppliedDark != dark
+        lastAppliedDark = dark
         let screens = NSScreen.screens
         let options = DesktopTint.workspaceOptions(color: color)
         DispatchQueue.global(qos: .utility).async {
@@ -2877,6 +2904,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             for s in screens {
                 try? NSWorkspace.shared.setDesktopImageURL(url, for: s, options: options)
             }
+            if flipped { DesktopTint.resyncMenuBar() }
         }
     }
 
@@ -2912,16 +2940,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if lastDesktopTint == memoKey { return }
         lastDesktopTint = memoKey
         DesktopTint.publish(color: color, dark: dark)
-        let screens = NSScreen.screens
-        let options = DesktopTint.workspaceOptions(color: color)
-        DispatchQueue.global(qos: .utility).async {
-            guard let path = DesktopTint.ensure(name: name, color: color)
-            else { return }
-            let url = URL(fileURLWithPath: path)
-            for s in screens {
-                try? NSWorkspace.shared.setDesktopImageURL(url, for: s, options: options)
-            }
-        }
+        pushDesktopPicture(name: name, color: color, dark: dark)
     }
 
     /// Which terminal app to spawn restored sessions into. Honor whatever

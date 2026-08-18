@@ -33,6 +33,16 @@ enum DesktopTint {
         ]
     }
 
+    /// Force macOS to re-derive the translucent menu bar's light/dark
+    /// treatment from the current desktop picture. Nothing gentler works —
+    /// see `AppDelegate.pushDesktopPicture` for the measurements. Restarting
+    /// the Dock leaves windows, spaces and the wallpaper itself untouched;
+    /// it costs a brief flicker of the Dock, so callers must gate this on a
+    /// real appearance flip rather than every tint change.
+    static func resyncMenuBar() {
+        _ = ShellRunner.run("/usr/bin/killall", args: ["Dock"], timeout: 5)
+    }
+
     /// Share Slab's resolved aggregate prompt colour with companion desktop
     /// surfaces. Persistence gives late starters the current tone; the
     /// distributed notification updates live renderers immediately.
