@@ -236,7 +236,7 @@ CHART = {
                                        # so "of" keeps beat 19 and stone its
                                        # bar 6 beat 2.
                                        7: 3.0,
-                                       8: 1.0, 9: 4.0, 10: 2.0, 11: 3.0,
+                                       8: 1.0, 9: 4.0, 10: 2.0, 11: 2.0,
                                        # very longer, patiently slower
                                        14: 4.0, 15: 5.0 },
                              # words whose syllables carry a melody must not

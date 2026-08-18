@@ -24,15 +24,15 @@ static const ChartNote w_whole_line_notes[] = {
     { 18.00, 1.00, -5 },
     { 19.00, 4.00, 12 },
     { 23.00, 2.00, 10 },
-    { 25.00, 3.00, 5 },
-    { 29.00, 3.50, 2 },
-    { 32.50, 3.50, 3 },
-    { 36.00, 4.00, 0 },
-    { 40.00, 5.00, 7 },
-    { 45.00, 5.00, 3 },
-    { 50.00, 2.50, 7 },
-    { 52.50, 5.50, 3 },
-    { 58.00, 3.50, 3 },
+    { 25.00, 2.00, 5 },
+    { 28.00, 3.50, 2 },
+    { 31.50, 3.50, 3 },
+    { 35.00, 4.00, 0 },
+    { 39.00, 5.00, 7 },
+    { 44.00, 5.00, 3 },
+    { 49.00, 2.50, 7 },
+    { 51.50, 5.50, 3 },
+    { 57.00, 3.50, 3 },
 };
 static const ChartNote w_sitting_curled_notes[] = {
     { 0.00, 3.00, 6 },
@@ -89,7 +89,7 @@ static const ChartNote w_n_for_time_to_pass_notes[] = {
 };
 
 static const ChartPhrase CHART[] = {
-    { "w-whole-line", 0.490, 61.50, 20, w_whole_line_notes },
+    { "w-whole-line", 0.490, 60.50, 20, w_whole_line_notes },
     { "w-sitting-curled", 0.020, 11.00, 5, w_sitting_curled_notes },
     { "w-i-think", 0.020, 3.50, 2, w_i_think_notes },
     { "w-of-a-stone", 0.000, 8.00, 3, w_of_a_stone_notes },
