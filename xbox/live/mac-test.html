@@ -1280,6 +1280,14 @@
           // The last run of faces has nobody behind it to trip the flush, and
           // the next frame opens with a wipe that would erase it unpainted.
           globalThis.__fightHost.flushFaces();
+          // The game publishes where each fighter stands on screen; the bank
+          // pans that player's cues to match. Centered pairs mean couch
+          // multiplayer, and the bank is told so rather than left stale.
+          const pans = globalThis.__oskiewarPlayerPans;
+          if (pans && globalThis.__oskiewarSfx) {
+            globalThis.__oskiewarSfx.setPlayerPan(0, pans[0]);
+            globalThis.__oskiewarSfx.setPlayerPan(1, pans[1]);
+          }
           syncTabTitle();
           syncSelectionCursor();
         },

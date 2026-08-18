@@ -21,7 +21,7 @@ runtime = function acRuntime() {
 };
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 78;
+const buildVersion = 79;
 const floorY = 1800;
 // The tower. @jeffrey played the padded room on the console and asked for a
 // tall map: the fight should happen on the way up, not back and forth across
@@ -8886,68 +8886,45 @@ function drawTerrainBackWall(left, right, far, color) {
 }
 
 function drawRoomSurfaces(left, right, top, bottom, color) {
-  // The old six columns were rebuilt between the current visible edges. That
-  // made every camera pan bend and recolor the room. Thirty global columns
-  // preserve the former density across the five-times-long street.
-  const columns = 30;
-  const rows = 2;
-  const step = (worldRight - worldLeft) / columns;
-  const first = clamp(Math.floor((left - worldLeft) / step), 0, columns - 1);
-  const last = clamp(Math.ceil((right - worldLeft) / step), first + 1, columns);
-  for (let row = 0; row < rows; row++) {
-    for (let column = first; column < last; column++) {
-      const x1 = worldLeft + column * step;
-      const x2 = worldLeft + (column + 1) * step;
-      // Bury the wall deep beneath the floor. A coplanar edge exposing a
-      // one-pixel clear-color crescent is the small reason; the frame shape is
-      // the large one. A 9:16 reel sees far below the fighters' feet, and a
-      // wall that stopped a hundred units under the floor let the clear layer
-      // through as a band of sky along the bottom of every reel.
-      const floor1 = terrainFloorAt(x1) + 3000;
-      const floor2 = terrainFloorAt(x2) + 3000;
-      const y1Left = lerp(ceilingY, floor1, row / rows);
-      const y1Right = lerp(ceilingY, floor2, row / rows);
-      const y2Left = lerp(ceilingY, floor1, (row + 1) / rows);
-      const y2Right = lerp(ceilingY, floor2, (row + 1) / rows);
-      const grain = .5 + .5 * Math.sin(column * 17.7 + row * 43.1 +
-        terrainPhase * 2.4);
-      const plaster = mixColor([255, 198, 151], [198, 146, 184], grain);
-      const checker = (row + column) % 2 ? .12 : .06;
-      const shade = mixColor(color, plaster, checker + grain * .1);
-      worldQuad({ x: x1, y: y1Left, z: worldFar },
-        { x: x2, y: y1Right, z: worldFar },
-        { x: x2, y: y2Right, z: worldFar },
-        { x: x1, y: y2Left, z: worldFar }, shade);
-    }
-  }
+  // One plain sheet — @jeffrey: "can the level background be plain colored?
+  // not stripey?" The sixty checkered plaster panels went with the request,
+  // and the hundred-odd faces they cost every frame went with them. The tint
+  // folds the old checker's average plaster into the theme color, so neither
+  // theme shifts, only flattens. Buried deep beneath the floor for the same
+  // reason the panels were: a 9:16 reel sees far below the fighters' feet,
+  // and a wall that stops short lets the clear layer through as sky.
+  const wallBottom = floorY + 3000;
+  const shade = mixColor(color, [226, 172, 168], .12);
+  worldQuad({ x: worldLeft, y: ceilingY, z: worldFar },
+    { x: worldRight, y: ceilingY, z: worldFar },
+    { x: worldRight, y: wallBottom, z: worldFar },
+    { x: worldLeft, y: wallBottom, z: worldFar }, shade);
   // The left side is a real wall, but only occupies the rear half of the room.
   // Segmenting it keeps the diorama corner visible without recreating the old
   // full-depth opaque slab that could pass in front of the camera and blackout
   // the fight during an orbit.
   const sideFloor = terrainFloorAt(worldLeft) + 120;
+  // The side wall keeps its four-quad segmentation — that is what stops a
+  // full-depth slab passing in front of an orbiting camera and blacking out
+  // the fight — but wears one plain pigment now, the old checker's average.
+  const sideShade = mixColor(color, [232, 170, 153], .13);
   for (let row = 0; row < 2; row++) {
     for (let depth = 0; depth < 2; depth++) {
       const y1 = lerp(ceilingY, sideFloor, row / 2);
       const y2 = lerp(ceilingY, sideFloor, (row + 1) / 2);
       const z1 = lerp(0, worldFar, depth / 2);
       const z2 = lerp(0, worldFar, (depth + 1) / 2);
-      const pigment = (row + depth) % 2 ? [218, 151, 163] : [247, 188, 143];
-      const shade = mixColor(color, pigment, .13);
       worldQuad({ x: worldLeft, y: y1, z: z1 },
         { x: worldLeft, y: y1, z: z2 },
         { x: worldLeft, y: y2, z: z2 },
-        { x: worldLeft, y: y2, z: z1 }, shade);
+        { x: worldLeft, y: y2, z: z1 }, sideShade);
     }
   }
   const edge = mixColor(color, [64, 78, 72], .24);
-  for (let column = first; column < last; column++) {
-    const x1 = worldLeft + column * step;
-    const x2 = worldLeft + (column + 1) * step;
-    worldQuad({ x: x1, y: ceilingY, z: worldNear },
-      { x: x1, y: ceilingY, z: worldFar },
-      { x: x2, y: ceilingY, z: worldFar },
-      { x: x2, y: ceilingY, z: worldNear }, edge);
-  }
+  worldQuad({ x: worldLeft, y: ceilingY, z: worldNear },
+    { x: worldLeft, y: ceilingY, z: worldFar },
+    { x: worldRight, y: ceilingY, z: worldFar },
+    { x: worldRight, y: ceilingY, z: worldNear }, edge);
   worldLine(worldLeft, top, worldFar - 4, worldLeft, bottom, worldFar - 4,
     9, edge);
   worldLine(worldRight, top, worldFar - 4, worldRight, bottom, worldFar - 4,
@@ -10205,6 +10182,14 @@ function gamePaint() {
       ? titleTransitionAt !== null ? "title-transition" : "title"
       : selecting ? "select" : "game";
   }
+  // Each fighter's cues sit where the fighter stands — @jeffrey: "can audio
+  // be mixed according to the player's position, stereo, for each player, if
+  // its not local multiplayer". Two humans on one couch share one speaker
+  // image, so their mix stays centered; against the machine, the stage pans.
+  // The shell reads this every frame and hands it to the sound bank.
+  const couchVersus = !players[1].npc && !players[1].bot && !selfPlay;
+  globalThis.__oskiewarPlayerPans = couchVersus ? [0, 0]
+    : [panPlayer(players[0]), panPlayer(players[1])];
   if (lastPaintAt > 0 && run.monotonicUs > lastPaintAt) {
     const sample = clamp(1000000 / (run.monotonicUs - lastPaintAt), 1, 240);
     displayFps = displayFps ? lerp(displayFps, sample, .12) : sample;

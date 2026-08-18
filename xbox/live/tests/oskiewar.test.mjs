@@ -4710,10 +4710,40 @@ test("camera bounds only cull an immutable globally mapped arena", () => {
     /const step = \(worldRight - worldLeft\) \/ terrainSamples/);
   assert.doesNotMatch(source,
     /const step = \(right - left\) \/ terrainSamples/);
-  assert.match(source, /const columns = 30/);
+  // The wall is one plain full-arena sheet now — the most immutable mapping
+  // there is. @jeffrey: "can the level background be plain colored? not
+  // stripey?" — so the checkered plaster columns are gone entirely.
+  assert.match(source,
+    /worldQuad\(\{ x: worldLeft, y: ceilingY, z: worldFar \},\n    \{ x: worldRight, y: ceilingY, z: worldFar \}/);
+  assert.doesNotMatch(source, /const checker =/);
   assert.match(source,
     /const x = lerp\(worldLeft, worldRight, \(index \+ \.5\) \/ count\)/);
   assert.match(source, /terrainFloorAt\(worldLeft\) \+ 120/);
+});
+
+// @jeffrey: "can audio be mixed according to the player's position, like
+// stereo mixed, for each player, if its not local multiplayer". The game
+// publishes each fighter's screen pan every painted frame; the shell hands
+// the pair to the sound bank, whose per-player pan map was sitting exported
+// and uncalled. Couch multiplayer keeps one centered image on purpose.
+test("solo fights pan each fighter's audio to where they stand", () => {
+  const { fight } = createFight(false, false);
+  try {
+    fight.paint();
+    const pans = globalThis.__oskiewarPlayerPans;
+    assert.ok(Array.isArray(pans) && pans.length === 2);
+    // Training seats the dummy opposite the fighter: distinct stereo seats.
+    assert.ok(pans.every((pan) => pan >= -1 && pan <= 1));
+    assert.notEqual(pans[0], pans[1]);
+    // Two humans on one couch share a centered image.
+    fight.startFight();
+    fight.paint();
+    assert.deepEqual(globalThis.__oskiewarPlayerPans, [0, 0]);
+  } finally {
+    delete globalThis.__oskiewarPlayerPans;
+  }
+  assert.match(webShell,
+    /__oskiewarSfx\.setPlayerPan\(0, pans\[0\]\);\n            globalThis\.__oskiewarSfx\.setPlayerPan\(1, pans\[1\]\)/);
 });
 
 test("skateboard deck trucks and wheels scale together with camera zoom", () => {
