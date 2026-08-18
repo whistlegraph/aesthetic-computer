@@ -243,6 +243,26 @@
         "reels_skip_rate": 56.7
       },
       "insightsAt": "2026-08-18T01:41:07.160Z"
+    },
+    {
+      "mode": "live",
+      "id": "2026-08-18-s0-gamedev",
+      "slot": 687,
+      "day": "2026-08-18",
+      "index": 0,
+      "segment": "gamedev",
+      "seed": "2026-08-18#0",
+      "kind": "self-play",
+      "round": "kirri990",
+      "audioName": "kirri990",
+      "publishedAt": "2026-08-18T13:16:19.341Z",
+      "urls": {
+        "reel": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/oskiewar/reels/2026-08-18-s0-gamedev/reel.mp4",
+        "cover": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/oskiewar/reels/2026-08-18-s0-gamedev/cover.jpg"
+      },
+      "containerId": "18081995123446357",
+      "mediaId": "18038027192820215",
+      "insights": null
     }
   ]
 }
