@@ -231,8 +231,12 @@ CHART = {
                                        # truly overlap — "in" simply ends where
                                        # "my" begins, which is what overlapping
                                        # would sound like anyway. in lands at
-                                       # 0.92x, her own speed.
-                                       4: 1.5, 5: 2.0, 6: 2.0,
+                                       # 0.92x, her own speed. Then "my" moves
+                                       # to halfway past beat 3 — in takes the
+                                       # half beat (2.0, 1.23×) and my gives it
+                                       # back (1.5, 1.07×), so self keeps bar 3
+                                       # and nothing downstream moves.
+                                       4: 2.0, 5: 1.5, 6: 2.0,
                                        # think 1 (1.17×, her own speed — at 2
                                        # it was a 2.3× held tone), so OF keeps
                                        # its 4 beats at 1.01×, her real octave,
