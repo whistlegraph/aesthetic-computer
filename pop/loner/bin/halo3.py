@@ -263,7 +263,7 @@ CHART = {
                                        # half beat (2.0, 1.23×) and my gives it
                                        # back (1.5, 1.07×), so self keeps bar 3
                                        # and nothing downstream moves.
-                                       4: 2.5, 5: 0.5, 6: 2.0,
+                                       4: 2.5, 5: 1.5, 6: 2.0,
                                        # think 1 (1.17×, her own speed — at 2
                                        # it was a 2.3× held tone), so OF keeps
                                        # its 4 beats at 1.01×, her real octave,
