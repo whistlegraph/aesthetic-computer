@@ -56,9 +56,11 @@ BLUE = (132, 158, 236)             # lifted for dark ground
 chart = json.load(open(os.path.join(LANE, "vox4", ".chart.json")))["w-whole-line"]
 LINE_BEATS = chart["beats"]
 LINE_BARS = math.ceil(LINE_BEATS / 4.0)
-PASSES = [8.0]                               # ONE pass — the study, not a loop
-KICK_BEATS = int((2 + LINE_BARS + 1) * 4)
-TOTAL_BEATS = (2 + LINE_BARS + 2) * 4
+PASSES = [0.0]                               # ONE pass, and no count-in:
+KICK_BEATS = int((LINE_BARS + 1) * 4)        # the first word IS the downbeat
+TOTAL_BEATS = (LINE_BARS + 2) * 4
+STRIP_PAD = 2.0                              # beats of strip before beat 0,
+                                             # so the pickup has somewhere to live
 
 # mux straight from the render WAV — the mp3's LAME/AAC codec-delay
 # padding shifted the audio ~50 ms late against the graphics
@@ -152,10 +154,10 @@ def word_text(t):
     return t.lower()
 
 # ── the static roll strip (whole song wide), scrolled per frame ───────
-STRIP_W = int(TOTAL_BEATS * PXB) + W
+STRIP_W = int((TOTAL_BEATS + STRIP_PAD) * PXB) + W
 strip = Image.new("RGB", (STRIP_W, H), CREAM)
 d = ImageDraw.Draw(strip, "RGBA")
-X = lambda beat: int(round(beat * PXB)) + PLAYHEAD_X   # beat → strip x
+X = lambda beat: int(round((beat + STRIP_PAD) * PXB)) + PLAYHEAD_X  # beat → strip x
 
 # beat + bar grid — @jeffrey: "can we add numbers for each beat in each
 # bar in the output · and colour code the columns so we have stronger
@@ -172,8 +174,7 @@ for b in range(0, TOTAL_BEATS + 1):
     d.rectangle([x, ROLL_TOP, xn - 1, ROLL_BOT], fill=BEAT_TINT[b % 4])
     if b % 4 == 0:
         d.line([(x, ROLL_TOP - 60), (x, ROLL_BOT + 90)], fill=SOFT, width=3)
-        d.text((x + 8, ROLL_TOP - 58), f"bar {b // 4 - 2}" if b >= 8 else
-               ("count-in" if b == 0 else ""), font=f_bar, fill=INK)
+        d.text((x + 8, ROLL_TOP - 58), f"bar {b // 4}", font=f_bar, fill=INK)
     else:
         d.line([(x, ROLL_TOP), (x, ROLL_BOT)], fill=FAINT, width=1)
     d.text((x + 8, ROLL_TOP - 26), str(b % 4 + 1), font=f_beat,
@@ -229,7 +230,8 @@ for pb in PASSES:
         d.text((x0 + (10 if wide else 4), y - 17), txt, font=f_word, fill=INK)
         if (x1 - x0) > tw + 70:
             d.text((x0 + 14 + tw + 8, y - 10), note_name(n["st"]), font=f_note, fill=SOFT)
-        BLOCKS.append((x0, x1, y0, y1, b0 * SPB, b1 * SPB))
+        # media time, not beat time: t=0 is the pickup, beat 0 is LEAD_IN in
+        BLOCKS.append((x0, x1, y0, y1, LEAD_IN + b0 * SPB, LEAD_IN + b1 * SPB))
 
 strip_np = np.asarray(strip, dtype=np.uint8)
 
@@ -252,8 +254,8 @@ hdr_np = np.asarray(hdr, dtype=np.uint8)
 
 for i in range(FRAMES):
     t = (i + 0.5) / FPS            # centre of the displayed interval
-    beat = t / SPB
-    px = int(round(beat * PXB))              # strip scroll offset, rounded
+    beat = (t - LEAD_IN) / SPB               # t=0 is the pickup, not beat 0
+    px = int(round((beat + STRIP_PAD) * PXB))   # strip scroll offset, rounded
     fr = strip_np[:, px:px + W].copy()
     if fr.shape[1] < W:
         pad = np.full((H, W - fr.shape[1], 3), CREAM, dtype=np.uint8)
@@ -273,15 +275,14 @@ for i in range(FRAMES):
                 d2.rounded_rectangle([lx0 + 2, y0, lx1 - 3, y1], 10,
                                      fill=(255, 92, 162, 58), outline=PINK, width=4)
     # kick flash
-    kb = int(beat)
-    if kb < KICK_BEATS and (beat - kb) < 0.22:
+    kb = int(math.floor(beat))
+    if 0 <= kb < KICK_BEATS and (beat - kb) < 0.22:
         x = X(kb) - px
         d2.rounded_rectangle([x + 4, KY0, x + PXB - 8, KY1], 6, fill=PINK)
     # live timecode — song clock + musical address, updating every frame
     tc = f"{int(t // 60):02d}:{t % 60:05.2f}"
-    bar_no = int(beat) // 4 - 2
-    addr = (f"bar {bar_no} · beat {beat % 4 + 1:3.1f}" if beat >= 8
-            else f"count-in · beat {beat % 8 + 1:3.1f}")
+    addr = (f"bar {int(beat) // 4} · beat {beat % 4 + 1:3.1f}" if beat >= 0
+            else "pickup")
     d2.text((W - 40 - d2.textlength(tc, font=f_tc), 26), tc, font=f_tc, fill=INK)
     d2.text((W - 40 - d2.textlength(addr, font=f_tc_small), 78), addr,
             font=f_tc_small, fill=BLUE)

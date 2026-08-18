@@ -582,8 +582,8 @@ static float *duck_env(double depth, double atk, double rel) {
 
 // ═══ main ══════════════════════════════════════════════════════════════
 static int minimal_bars(void) {
-    // 2 bars of kick, the line once, a bar to breathe
-    return (int)(2 + ceil(phrase("w-whole-line")->beats / 4.0) + 2);
+    // the line once, plus a bar to breathe (no count-in any more)
+    return (int)(ceil(phrase("w-whole-line")->beats / 4.0) + 2);
 }
 
 int main(void) {
@@ -608,13 +608,19 @@ int main(void) {
         // of the vocals · no need to do anything other than the first
         // loop". The study is for scrutinising the alignment, and a
         // second pass only doubles the sitting-through.
+        // NO COUNT-IN — the file opens on her pickup. The render starts
+        // at the /s/ of "sitting"; the phrase's beat 0, and the first
+        // kick with it, land one lead-in later, so the downbeat IS the
+        // first word rather than the third bar of waiting.
         const ChartPhrase *p = phrase("w-whole-line");
         double lineBars = ceil(p->beats / 4.0);
-        int kickBars = (int)(2 + lineBars + 1);
-        printf("  MINIMAL — kick + vocals, ONE pass, line %.0f beats\n", p->beats);
+        int kickBars = (int)(lineBars + 1);
+        double off = p->leadIn;                 // the pickup sits ahead of beat 0
+        printf("  MINIMAL — kick + vocals, ONE pass, no count-in, line %.0f beats\n",
+               p->beats);
         for (int bar = 0; bar < kickBars; bar++)
-            for (int b = 0; b < 4; b++) kick(at(bar) + b * BEAT, 0.95);
-        sung("w-whole-line", at(2) - p->leadIn, 0.98, 0, 0.0);   // two bars of kick first
+            for (int b = 0; b < 4; b++) kick(off + at(bar) + b * BEAT, 0.95);
+        sung("w-whole-line", 0.0, 0.98, 0, 0.0);
         goto mixdown;
     }
 
