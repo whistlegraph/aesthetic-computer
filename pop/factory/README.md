@@ -57,7 +57,7 @@ There are three versions in `out/`. **v3 is the current one.**
 | --- | ---- | ---------- |
 | v1 | `out/factory-remix-v1.mp3` | 3:34 at 100 BPM. Raw stamps on principle. Kept for reference. |
 | v2 | `out/factory-remix-v2.mp3` | 3:58 at 90. Every vocal machine-pressed through the aesthetivox; six dies; the stamps breathe. |
-| **v3** | **`out/factory-remix-v3.mp3`** | **2:40 at 100, D minor, scored in C. The words are ON THE BEAT — every boundary pinned to a measured sung event, and the machine plays only the melody she sang.** |
+| **v3** | **`out/factory-remix-v3.mp3`** | **2:40 at 100 BPM in D minor, engine written in C. The words are ON THE BEAT — every boundary pinned to a measured sung event, and the machine plays only the melody she sang.** |
 
 ---
 
