@@ -101,6 +101,28 @@ def shelf(freqs, centre, width):
     return 1.0 / (1.0 + np.exp(-(freqs - centre) / width))
 
 
+CACHE = os.path.join(VOX4, ".cache")
+
+
+def analyze_cached(path, x, fs):
+    """WORLD analysis is 2.3 s a slice and depends only on the audio and
+    the analysis constants — never on the chart. Tuning a bar re-ran it
+    every time. Cached on disk, keyed by the file's mtime and the
+    parameters, so an edit pays for synthesis only."""
+    key = f"{os.path.basename(path)}-{int(os.path.getmtime(path))}-{FRAME_MS}-{FLOOR}-{SNAP}-{SMOOTH_MS}"
+    dest = os.path.join(CACHE, key + ".npz")
+    if os.path.exists(dest):
+        z = np.load(dest)
+        return dict(x=x, fs=fs, f0=z["f0"], f0c=z["f0c"],
+                    sp=z["sp"].astype(np.float64), ap=z["ap"].astype(np.float64),
+                    voiced=z["voiced"])
+    a = analyze(x, fs)
+    os.makedirs(CACHE, exist_ok=True)
+    np.savez(dest, f0=a["f0"], f0c=a["f0c"], voiced=a["voiced"],
+             sp=a["sp"].astype(np.float32), ap=a["ap"].astype(np.float32))
+    return a
+
+
 def analyze(x, fs):
     f0_raw, t = pw.harvest(x, fs, f0_floor=FLOOR, f0_ceil=600.0, frame_period=FRAME_MS)
     f0 = pw.stonemask(x, f0_raw, t, fs)
@@ -236,7 +258,7 @@ CHART = {
                                        # half beat (2.0, 1.23×) and my gives it
                                        # back (1.5, 1.07×), so self keeps bar 3
                                        # and nothing downstream moves.
-                                       4: 2.0, 5: 1.5, 6: 2.0,
+                                       4: 2.0, 5: 2.5, 6: 2.0,
                                        # think 1 (1.17×, her own speed — at 2
                                        # it was a 2.3× held tone), so OF keeps
                                        # its 4 beats at 1.01×, her real octave,
@@ -369,12 +391,18 @@ def snap_boundaries(a, words, t0):
     rms = np.sqrt((x[:m * n].reshape(m, n) ** 2).mean(axis=1))
     st = np.where(f0[:m] > 0, 12.0 * np.log2(np.maximum(f0[:m], 1e-6) / TONIC), np.nan)
     W = max(2, int(round(SNAP_MED_S / FRAME_S)))
+    # sliding-window medians instead of a Python loop with two np.median
+    # calls per frame — same numbers, a fraction of the time
     step = np.zeros(m)
-    for k in range(W, m - W):
-        b_, a_ = st[k - W:k], st[k:k + W]
-        b_, a_ = b_[~np.isnan(b_)], a_[~np.isnan(a_)]
-        if len(b_) >= W // 2 and len(a_) >= W // 2:
-            step[k] = abs(np.median(a_) - np.median(b_))
+    if m > 2 * W:
+        win = np.lib.stride_tricks.sliding_window_view(st, W)      # m-W+1 x W
+        med = np.nanmedian(win, axis=1)                            # per start k
+        cnt = (~np.isnan(win)).sum(axis=1)
+        lo, hi = med[:m - 2 * W + 1], med[W:m - W + 1]
+        okl, okh = cnt[:m - 2 * W + 1] >= W // 2, cnt[W:m - W + 1] >= W // 2
+        d = np.abs(hi - lo)
+        d[~(okl & okh) | np.isnan(d)] = 0.0
+        step[W:m - W + 1] = d
     mins = int(round(SNAP_MIN_S / FRAME_S))
     win = int(round(SNAP_WIN_S / FRAME_S))
     out = [dict(w) for w in words]
@@ -650,15 +678,19 @@ def synth_from(a, idx, f0_o, *, dark=None, breath_x=1.0, vowels_only=False,
     if vowels_only:
         out = mask * y
     else:
-        # full words: rebuild a warped copy of the source for the consonants
+        # full words: rebuild a warped copy of the source for the
+        # consonants. This was a Python loop over every 5 ms frame of
+        # every render — the single slowest thing in the build. It is one
+        # gather: each output frame reads spf consecutive source samples,
+        # so the sample indices are idx*spf + arange(spf), raveled.
         spf = int(fs * FRAME_S)
+        nf = min(len(idx), (n + spf - 1) // spf)
+        pos = (np.asarray(idx[:nf], dtype=np.int64)[:, None] * spf
+               + np.arange(spf, dtype=np.int64)[None, :]).ravel()
+        np.clip(pos, 0, len(x) - 1, out=pos)
         xw = np.zeros(n)
-        for j, sf_i in enumerate(idx):
-            o0, o1 = j * spf, min((j + 1) * spf, n)
-            if o0 >= n:
-                break
-            blk = x[sf_i * spf:sf_i * spf + (o1 - o0)]
-            xw[o0:o0 + len(blk)] = blk
+        take = min(n, pos.size)
+        xw[:take] = x[pos[:take]]
         out = mask * y + (1 - mask) * xw
     for (q0, q1) in rests:
         # a long rest is her room tone ping-ponged; without this it
@@ -715,18 +747,33 @@ def synth_from(a, idx, f0_o, *, dark=None, breath_x=1.0, vowels_only=False,
     return dress(out, fs), fs
 
 
-manifest = {}
+# A partial build (PHRASES=...) must not drop the phrases it skipped from
+# the receipts or the generated header — the C engine looks every phrase
+# up by name. Seed from what is already on disk and overwrite in place.
+def _seed(path):
+    try:
+        return json.load(open(path))
+    except Exception:
+        return {}
+
+_old_chart = _seed(os.path.join(VOX4, ".chart.json"))
+manifest = _seed(os.path.join(VOX4, ".manifest.json"))
 chart_c = []   # (phrase, lead_in_s, beats_total, [(beat, dur, st, t, lead)])
 VOICING = {}   # per phrase, voiced runs in beats — vowels vs consonants
 
+ONLY = {p for p in os.environ.get("PHRASES", "").split(",") if p}
+LEAD_ONLY = os.environ.get("LEAD_ONLY") is not None
+
 for name, ch in CHART.items():
+    if ONLY and name not in ONLY:
+        continue
     slice_name = ch["slice"]
     entry = SLICES[slice_name]
     src = os.path.join(LANE, "samples", f"{slice_name}.wav")
     x, fs = sf.read(src, dtype="float64")
     if x.ndim > 1:
         x = x.mean(axis=1)
-    a = analyze(x, fs)
+    a = analyze_cached(src, x, fs)
     F = len(a["f0c"])
     t0_slice = entry["start"]
     # MEASURED OVERRIDES — @jeffrey: "ly in patiently is stuck in for ·
@@ -868,7 +915,7 @@ for name, ch in CHART.items():
     sf.write(os.path.join(VOX4, f"{name}.wav"), out, fs)
     renders["lead"] = round(len(out) / fs, 3)
 
-    for tag, cents in (("8ve-a", 1200 + 6), ("8ve-b", 1200 - 7)):
+    for tag, cents in () if LEAD_ONLY else (("8ve-a", 1200 + 6), ("8ve-b", 1200 - 7)):
         out, _ = synth_from(a, idx, f0_o * 2.0 ** (cents / 1200.0),
                             dark=HALO_DARK_HZ, breath_x=HALO_BREATH_X,
                             vowels_only=True, air=False, fade=fade, rise=rise, rests=rests)
@@ -876,7 +923,7 @@ for name, ch in CHART.items():
         renders[tag] = round(len(out) / fs, 3)
 
     # THE BACKUP — full words at the 3rd and 5th below, darker, ±det
-    for tag, deg, det in (("low3", -2, 5.0), ("low5", -4, -6.0)):
+    for tag, deg, det in () if LEAD_ONLY else (("low3", -2, 5.0), ("low5", -4, -6.0)):
         delta = np.zeros_like(f0_o)
         v = voiced_o & (f0_o > 0)
         if v.any():
@@ -931,6 +978,12 @@ for name, ch in CHART.items():
     if trims:
         print(f"    trimmed: {' · '.join(trims)}")
 
+_new_chart = dict(_old_chart)
+_new_chart.update({name: dict(leadIn=round(li, 3), beats=bt, voiced=VOICING[name],
+                              notes=[dict(beat=b, dur=d, st=s, t=t, lead=ld)
+                                     for (b, d, s, t, ld) in ns])
+                   for (name, li, bt, ns) in chart_c})
+
 json.dump(manifest, open(os.path.join(VOX4, ".manifest.json"), "w"), indent=1)
 
 # ── the generated header — her melody, for the band ───────────────────
@@ -950,7 +1003,10 @@ lines = [
     "                 int n; const ChartNote *notes; } ChartPhrase;",
     "",
 ]
-for name, lead_in, beats_total, notes in chart_c:
+_all = [(nm, _new_chart[nm]["leadIn"], _new_chart[nm]["beats"],
+         [(q["beat"], q["dur"], q["st"], q["t"], q.get("lead", 0.0))
+          for q in _new_chart[nm]["notes"]]) for nm in _new_chart]
+for name, lead_in, beats_total, notes in _all:
     ident = name.replace("-", "_")
     lines.append(f"static const ChartNote {ident}_notes[] = {{")
     for (beat, durb, st, _t, _lead) in notes:
@@ -958,19 +1014,15 @@ for name, lead_in, beats_total, notes in chart_c:
     lines.append("};")
 lines.append("")
 lines.append("static const ChartPhrase CHART[] = {")
-for name, lead_in, beats_total, notes in chart_c:
+for name, lead_in, beats_total, notes in _all:
     ident = name.replace("-", "_")
     lines.append(f'    {{ "{name}", {lead_in:.3f}, {beats_total:.2f}, '
                  f"{len(notes)}, {ident}_notes }},")
 lines.append("};")
-lines.append(f"#define CHART_N {len(chart_c)}")
+lines.append(f"#define CHART_N {len(_all)}")
 lines.append("")
 open(os.path.join(CDIR, "loner-chart.h"), "w").write("\n".join(lines))
 
 # the labeled chart, for tooling (the timeline video reads this)
-json.dump({name: dict(leadIn=round(li, 3), beats=bt, voiced=VOICING[name],
-                      notes=[dict(beat=b, dur=d, st=s, t=t, lead=ld)
-                             for (b, d, s, t, ld) in ns])
-           for (name, li, bt, ns) in chart_c},
-          open(os.path.join(VOX4, ".chart.json"), "w"), indent=1)
+json.dump(_new_chart, open(os.path.join(VOX4, ".chart.json"), "w"), indent=1)
 print(f"WROTE {VOX4}/.manifest.json + .chart.json + {CDIR}/loner-chart.h ({len(chart_c)} phrases)")

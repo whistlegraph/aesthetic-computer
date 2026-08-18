@@ -28,3 +28,5 @@ vox4/*.wav
 
 # The compiled C engine.
 c/lonerremix
+out/.segments/
+vox4/.cache/

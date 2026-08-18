@@ -11,7 +11,7 @@
 #   pop/.venv/bin/python pop/loner/bin/timeline.py
 #     → out/loner-kickvox-timeline.mp4
 
-import datetime, json, math, os, subprocess, wave
+import datetime, json, math, multiprocessing, os, subprocess, wave
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
@@ -294,14 +294,32 @@ for pb in PASSES:
 
 strip_np = np.asarray(strip, dtype=np.uint8)
 
-# ── frames → ffmpeg rawvideo pipe ─────────────────────────────────────
+# ── frames → parallel ffmpeg segments ─────────────────────────────────
 out_mp4 = os.path.join(OUT, "loner-kickvox-timeline.mp4")
-ff = subprocess.Popen([
-    "ffmpeg", "-y", "-v", "error",
-    "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{W}x{H}", "-r", str(FPS), "-i", "-",
-    "-i", AUD, "-af", "volume=-0.6dB", "-c:v", "libx264", "-preset", "fast", "-crf", "18",
-    "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "256k", "-shortest", out_mp4,
-], stdin=subprocess.PIPE)
+SEGDIR = os.path.join(OUT, ".segments")
+
+
+def encode_segment(job):
+    """Render a contiguous run of frames and encode it to its own file.
+
+    Handing frames back to the parent to write meant piping ~15 GB of raw
+    RGB through IPC, and the parent could only write it one core's worth
+    at a time — so adding workers stopped helping. Each worker owns an
+    ffmpeg now; nothing crosses a process boundary but a filename, and
+    the ENCODE parallelises along with the drawing.
+    """
+    k, a, b = job
+    seg = os.path.join(SEGDIR, f"seg{k:03d}.mp4")
+    p = subprocess.Popen(
+        ["ffmpeg", "-y", "-v", "error", "-f", "rawvideo", "-pix_fmt", "rgb24",
+         "-s", f"{W}x{H}", "-r", str(FPS), "-i", "-", "-c:v", "libx264",
+         "-preset", "veryfast", "-crf", "19", "-pix_fmt", "yuv420p",
+         "-threads", "1", seg], stdin=subprocess.PIPE)
+    for i in range(a, b):
+        p.stdin.write(render_frame(i))
+    p.stdin.close()
+    p.wait()
+    return seg
 
 # ── the whistlegraph, in the corner ───────────────────────────────────
 # @jeffrey: "can we also print the whistlegraph in the corner of the
@@ -313,6 +331,19 @@ LYRIC = [(word_text(n["t"]), LEAD_IN + n["beat"] * SPB,
 LYRIC_Y = H - 52
 CREDIT = "lonr — “Loner” · Camille Klein (@cksuperstore) · the emo whistlegraph"
 
+# Pre-rendered ONCE. Drawing this per frame meant 23 words through
+# shadowed(), which is nine text passes each — 200+ draw calls a frame,
+# for a strip that only ever changes which single word is lit.
+LYR_X, _lx = [], 40
+_lyr = Image.new("RGB", (W, 96), CREAM)
+_ld = ImageDraw.Draw(_lyr, "RGBA")
+_ld.text((0, 0), CREDIT, font=f_tiny, fill=SOFT)
+for (_w, _a, _b) in [(word_text(n["t"]), 0, 0) for n in chart["notes"]]:
+    LYR_X.append(_lx)
+    _ld.text((_lx - 40, 30), _w, font=f_lyric, fill=LYRIC_OFF)
+    _lx += _ld.textlength(_w, font=f_lyric) + 11
+LYR_NP = np.asarray(_lyr, dtype=np.uint8)
+
 hdr = Image.new("RGB", (W, ROLL_TOP - 60), CREAM)
 dh = ImageDraw.Draw(hdr)
 dh.text((40, 26), "loner — kick + vocals study", font=f_title, fill=INK)
@@ -321,7 +352,7 @@ sub = ("122 BPM · A# minor @ 237 Hz · the unbroken take, charted   —   "
 dh.text((40, 84), sub, font=f_tiny, fill=BLUE)
 hdr_np = np.asarray(hdr, dtype=np.uint8)
 
-for i in range(FRAMES):
+def render_frame(i):
     t = (i + 0.5) / FPS            # centre of the displayed interval
     beat = (t - LEAD_IN) / SPB               # t=0 is the pickup, not beat 0
     # SUB-PIXEL SCROLL. Rounding the scroll to a whole pixel left up to
@@ -333,17 +364,20 @@ for i in range(FRAMES):
     fx = (beat + STRIP_PAD) * PXB
     px = int(math.floor(fx))
     frac = fx - px
-    fr = strip_np[:, px:px + W + 1].astype(np.float32)
-    if fr.shape[1] < W + 1:
-        pad = np.full((H, W + 1 - fr.shape[1], 3), CREAM, dtype=np.float32)
-        fr = np.concatenate([fr, pad], axis=1)
-    fr = fr[:, :W] * (1.0 - frac) + fr[:, 1:W + 1] * frac
-    img = Image.fromarray(np.clip(fr + 0.5, 0, 255).astype(np.uint8))
+    seg = strip_np[:, px:px + W + 1]
+    if seg.shape[1] < W + 1:
+        pad = np.full((H, W + 1 - seg.shape[1], 3), CREAM, dtype=np.uint8)
+        seg = np.concatenate([seg, pad], axis=1)
+    # fixed-point blend: int16 is half the memory traffic of float32, and
+    # this loop is bandwidth-bound at 1920x1080x3 a frame
+    f8 = int(frac * 256.0 + 0.5)
+    a16 = seg[:, :W].astype(np.int16)
+    fr = a16 if f8 == 0 else (
+        a16 + (((seg[:, 1:W + 1].astype(np.int16) - a16) * f8) >> 8))
+    img = Image.fromarray(fr.astype(np.uint8))
     d2 = ImageDraw.Draw(img, "RGBA")
     # header
     img.paste(Image.fromarray(hdr_np), (0, 0))
-    d2.text((40, 26), "loner — kick + vocals study", font=f_title, fill=INK)
-    d2.text((40, 84), sub, font=f_tiny, fill=BLUE)
     # active word glow
     for (x0, x1, y0, y1, t0, t1, txt, lab) in BLOCKS:
         if t0 <= t < t1:
@@ -372,18 +406,48 @@ for i in range(FRAMES):
     d2.rectangle([PLAYHEAD_X - 1, ROLL_TOP - 44, PLAYHEAD_X, KY1 + 8], fill=PINK)
     d2.polygon([(PLAYHEAD_X - 10, ROLL_TOP - 56), (PLAYHEAD_X + 10, ROLL_TOP - 56),
                 (PLAYHEAD_X, ROLL_TOP - 40)], fill=PINK)
-    # the whistlegraph: the whole lyric, with the sung word lit
-    lx = 40
-    for (wtxt, wt0, wt1) in LYRIC:
-        on = wt0 <= t < wt1
-        shadowed(d2, (lx, LYRIC_Y), wtxt, f_lyric,
-                 PINK if on else LYRIC_OFF, r=1)
-        lx += d2.textlength(wtxt, font=f_lyric) + 11
-    shadowed(d2, (40, LYRIC_Y - 30), CREDIT, f_tiny, SOFT, r=1)
+    # the whistlegraph: paste the pre-rendered strip, then light one word
+    img.paste(Image.fromarray(LYR_NP), (40, LYRIC_Y - 30))
+    for k, (wtxt, wt0, wt1) in enumerate(LYRIC):
+        if wt0 <= t < wt1:
+            d2.text((LYR_X[k], LYRIC_Y), wtxt, font=f_lyric, fill=PINK)
+            break
     # progress
     d2.rectangle([0, H - 10, int(W * t / dur), H], fill=PINK_SOFT)
-    ff.stdin.write(np.asarray(img, dtype=np.uint8).tobytes())
+    return np.asarray(img, dtype=np.uint8).tobytes()
 
-ff.stdin.close()
-ff.wait()
-print(f"✓ {out_mp4} · {FRAMES} frames · {dur:.1f}s")
+
+
+# PARALLEL FRAMES. Every frame is independent — it reads the shared strip
+# and writes bytes — so the only reason this was serial was that it was
+# written as a loop. A pool over the cores turns a two-minute render into
+# a walk, which matters when the whole workflow is: change one beat, look
+# at it, change it again. imap keeps them in order.
+if __name__ == "__main__":
+    # fork, not spawn. macOS defaults to spawn, which re-imports this
+    # module in every worker — and importing it BUILDS THE WHOLE STRIP,
+    # so eight workers each redrew the song before rendering a frame.
+    # Forking shares the finished strip copy-on-write and workers start
+    # instantly.
+    try:
+        multiprocessing.set_start_method("fork", force=True)
+    except RuntimeError:
+        pass
+    workers = max(1, min(os.cpu_count() or 4, 8))
+    os.makedirs(SEGDIR, exist_ok=True)
+    for f in os.listdir(SEGDIR):
+        os.remove(os.path.join(SEGDIR, f))
+    edges = [round(FRAMES * k / workers) for k in range(workers + 1)]
+    jobs = [(k, edges[k], edges[k + 1]) for k in range(workers)
+            if edges[k + 1] > edges[k]]
+    with multiprocessing.Pool(len(jobs)) as pool:
+        segs = pool.map(encode_segment, jobs)
+    lst = os.path.join(SEGDIR, "segs.txt")
+    with open(lst, "w") as fh:
+        for sgm in segs:
+            fh.write(f"file '{os.path.basename(sgm)}'\n")
+    subprocess.run(["ffmpeg", "-y", "-v", "error", "-f", "concat", "-safe", "0",
+                    "-i", lst, "-i", AUD, "-af", "volume=-0.6dB",
+                    "-c:v", "copy", "-c:a", "aac", "-b:a", "256k",
+                    "-shortest", out_mp4], check=True)
+    print(f"✓ {out_mp4} · {FRAMES} frames · {dur:.1f}s")
