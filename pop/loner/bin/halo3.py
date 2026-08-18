@@ -225,7 +225,7 @@ CHART = {
                              # ("of should start sooner, right after
                              # 'think' ends") with no rest needed at all.
                              "durs": { 0: 2.0, 1: 2.0, 2: 2.5, 3: 1.5,
-                                       4: 2.5, 5: 2.0, 6: 2.0,
+                                       4: 1.5, 5: 2.0, 6: 2.0,
                                        # think 1 (1.17×, her own speed — at 2
                                        # it was a 2.3× held tone), so OF keeps
                                        # its 4 beats at 1.01×, her real octave,
@@ -235,13 +235,21 @@ CHART = {
                                        # freed beat (1.78×, still her voice)
                                        # so "of" keeps beat 19 and stone its
                                        # bar 6 beat 2.
-                                       7: 3.0,
+                                       7: 4.0,
                                        8: 1.0, 9: 4.0, 10: 2.0, 11: 2.0,
                                        # very longer, patiently slower
                                        14: 4.0, 15: 5.0 },
                              # words whose syllables carry a melody must not
                              # be flattened to one tone by THE HOLD
                              "nohold": [15],   # patiently
+                             # source seconds, read off her onsets, for the
+                             # words whisper-1 mistimed. PRE-split indices.
+                             "times": { 11: 12.70,   # waiting
+                                        12: 14.40,   # very
+                                        14: 17.66,   # for
+                                        15: 18.54,   # time
+                                        16: 19.48,   # to
+                                        17: 21.20 },  # pass
                              # rest AFTER the given unit, in beats
                              # "the in should start sooner — at start of
                              # bar 2": the rest after up goes entirely, so
@@ -667,6 +675,14 @@ for name, ch in CHART.items():
     a = analyze(x, fs)
     F = len(a["f0c"])
     t0_slice = entry["start"]
+    # MEASURED OVERRIDES — @jeffrey: "ly in patiently is stuck in for ·
+    # like the lyrics are badly mapped". He was right, and the boundary
+    # snap could not save it: whisper-1's word times drift at the END of
+    # this take, by 0.6 s on "time", 1.0 s on "to" and 1.4 s on "pass" —
+    # far outside the ±250 ms the snap is allowed to travel. A word
+    # labelled a second late means the word BEFORE it swallows it whole,
+    # which is the extra syllable heard inside "for". These are read off
+    # her own onsets in the source and pinned.
     aligned = slice_name in ALIGN
     if aligned:
         words = [dict(t=w["t"], start=t0_slice + w["start"],
@@ -674,6 +690,11 @@ for name, ch in CHART.items():
                       note=w["note"]) for w in ALIGN[slice_name]["words"]]
     else:
         words = list(entry["word_f0"])
+    for i, ts in (ch.get("times") or {}).items():
+        if 0 <= i < len(words):
+            words[i]["start"] = t0_slice + ts
+            if i:
+                words[i - 1]["end"] = t0_slice + ts
     words, snaps = snap_boundaries(a, words, t0_slice)
     # sub-split units at their internal fricative (e.g. myself → my·self)
     for ui in sorted(ch.get("splits", []), reverse=True):

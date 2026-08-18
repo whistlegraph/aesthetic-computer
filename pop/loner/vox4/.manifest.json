@@ -20,12 +20,13 @@
    "a -40ms",
    "stone -45ms",
    "just +80ms",
-   "waiting +220ms",
+   "waiting -100ms",
+   "very +65ms",
    "patiently +80ms",
-   "for -35ms",
-   "time +230ms",
-   "to -15ms",
-   "pass +130ms"
+   "for +35ms",
+   "time -30ms",
+   "to -90ms",
+   "pass +60ms"
   ],
   "trims": [
    "up \u2212420ms",
@@ -34,8 +35,8 @@
    "stone \u2212675ms",
    "just \u2212335ms",
    "very \u2212520ms",
-   "time \u221280ms",
-   "to \u2212615ms"
+   "patiently \u2212480ms",
+   "to \u2212855ms"
   ],
   "words": "the whole lyric, one take"
  },
