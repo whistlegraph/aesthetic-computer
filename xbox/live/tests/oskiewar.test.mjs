@@ -1291,7 +1291,8 @@ test("web UI drums route through the unlocked procedural sound bank", () => {
 });
 
 test("debug off hides safe-zone boxes including frozen round impacts", () => {
-  assert.match(source, /function drawSafeZones\(\) \{\n  if \(!debugHitboxes\) return;/);
+  assert.match(source,
+    /function drawSafeZones\(\) \{\n  if \(!debugHitboxes \|\| renderFlags\.hud === false\) return;/);
   // Two sessions left two different spellings of this line behind, neither of
   // them the one that shipped. The impact flash is debug-only, so `debugHitboxes`
   // gates it first and the round-result freeze only decides how long it lasts.

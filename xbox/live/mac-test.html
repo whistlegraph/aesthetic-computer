@@ -240,6 +240,7 @@
     // instead of a letterboxed landscape image.
     let logicalWidth = 1920;
     let logicalHeight = 1080;
+    let resolutionScale = 1;
     // Hardware occlusions in logical units: home indicator, notch, rounded
     // corners. env() covers the browsers; the iOS shell pins its scroll view
     // so env() reads zero there, and the app injects the real insets as
@@ -267,7 +268,12 @@
         document.documentElement.style.setProperty("--inset-" + edge,
           measured + "px");
       }
-      const density = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
+      // The remote resolution dial: the experiment lane can shrink the
+      // canvas's backing store while CSS keeps the on-screen size, to price
+      // raster area against primitive count on a machine suspected of
+      // software-rasterizing the frame.
+      const density = Math.max(1, Math.min(3, window.devicePixelRatio || 1)) *
+        resolutionScale;
       const pixelWidth = Math.round(logicalWidth * density);
       const pixelHeight = Math.round(logicalHeight * density);
       if (canvas.width !== pixelWidth || canvas.height !== pixelHeight) {
@@ -962,6 +968,10 @@
               typeof message.content === "object") {
             globalThis.__oskiewarRenderFlags = {
               ...globalThis.__oskiewarRenderFlags, ...message.content };
+            if (typeof message.content.res === "number") {
+              resolutionScale = Math.max(.3, Math.min(1, message.content.res));
+              resizeCanvas();
+            }
           }
           if (message.type === "oskiewar:reload") {
             if (globalThis.__oskiewarTouch?.screen === "title") {

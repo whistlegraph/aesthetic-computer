@@ -32,17 +32,20 @@ if (!match) {
 const room = "ow-" + match[1];
 
 const FULL = { sky: true, grass: true, shadows: true, dust: true, keys: true,
-  bands: 6 };
+  bands: 6, hud: true, res: 1 };
+// The first pass taught us the decorative layers barely matter (+3 fps all
+// off together), so this walk prices the two suspects that pass exonerated:
+// the debug scaffolding itself, and raw raster area — the resolution dial
+// shrinks the canvas backing store while everything else stays identical.
 const EXPERIMENTS = [
   ["baseline", {}],
-  ["sky off", { sky: false }],
+  ["hud off", { hud: false }],
+  ["res .66", { res: .66 }],
+  ["res .5", { res: .5 }],
   ["grass off", { grass: false }],
-  ["shadows off", { shadows: false }],
   ["dust off", { dust: false }],
-  ["keys off", { keys: false }],
-  ["bands 1", { bands: 1 }],
   ["everything off", { sky: false, grass: false, shadows: false, dust: false,
-    keys: false, bands: 1 }],
+    keys: false, bands: 1, hud: false, res: .5 }],
 ];
 
 const socket = new WebSocket(`${RELAY}?match=${encodeURIComponent(room)}&role=agent`);

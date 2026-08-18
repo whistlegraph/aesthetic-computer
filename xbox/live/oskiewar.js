@@ -21,7 +21,7 @@ runtime = function acRuntime() {
 };
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 80;
+const buildVersion = 81;
 const floorY = 1800;
 // The tower. @jeffrey played the padded room on the console and asked for a
 // tall map: the fight should happen on the way up, not back and forth across
@@ -8334,6 +8334,11 @@ function drawDoubleJumpMotion(player, t) {
 // them — `impactHitboxesUntil` still times the flash, but only for someone
 // who has already asked to see the geometry.
 function drawDebugHitboxes(player, t) {
+  // The hud experiment flag prices the debug geometry itself — boxes, crops
+  // and skeletal overlays — while the fps read-out, bug and session name
+  // stay up, because the instrument that measures must not vanish with the
+  // scaffolding it is measuring.
+  if (renderFlags.hud === false) return;
   const now = runtime().monotonicUs;
   const impactDebug = debugHitboxes && !roundResult && now < impactHitboxesUntil;
   if ((!debugHitboxes && !impactDebug) || (!player.alive && !roundResult)) return;
@@ -9187,6 +9192,7 @@ function drawBall(ball) {
 }
 
 function drawBallHitboxes() {
+  if (renderFlags.hud === false) return;
   if (!debugHitboxes) return;
   for (const item of balls) {
     if (!item.active) continue;
@@ -9698,8 +9704,8 @@ function drawTitleScreen(t, ink, transitionAge = -1) {
   let cursor = titleX;
   // Kerning scaffold: one cell per glyph, taken from the same advance the
   // layout walks, so drift and bob read against their own metrics.
-  const glyphCells = debugHitboxes && transitionAge < 0 && !socialPreview
-    ? [] : null;
+  const glyphCells = debugHitboxes && transitionAge < 0 && !socialPreview &&
+    renderFlags.hud !== false ? [] : null;
   const flashPalette = [[255, 226, 48], [70, 224, 92], [181, 255, 48]];
   const flash = transitionAge >= 0
     ? flashPalette[Math.floor(transitionAge / .065) % flashPalette.length] : null;
@@ -10179,7 +10185,7 @@ function drawDetachedPart(fragment) {
 }
 
 function drawSafeZones() {
-  if (!debugHitboxes) return;
+  if (!debugHitboxes || renderFlags.hud === false) return;
   drawCornerCrops(hudSafeRect(), 46, 3, [255, 214, 84]);
   drawCornerCrops(actionSafeRect(), 34, 2, [105, 255, 118]);
 }
