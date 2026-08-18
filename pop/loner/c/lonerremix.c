@@ -642,7 +642,9 @@ int main(void) {
         // floor alone tells you where the bar is but not where you are
         // inside it; offbeat air-hats give the 8ths, and quiet 16th ticks
         // give the subdivision the words are actually being placed on.
-        // (no kick on the pickup — the /s/ has it to itself)
+        // a kick on the PICKUP beat — @jeffrey: "lets have the prelude
+        // kick sound too · a kick before the first beat i mean"
+        kick(fmax(0.0, off - BEAT), 0.95);
         for (int bar = 0; bar < kickBars; bar++) {
             double t = off + at(bar);
             for (int b = 0; b < 4; b++) kick(t + b * BEAT, 0.95);

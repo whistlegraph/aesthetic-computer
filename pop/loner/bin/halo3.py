@@ -252,7 +252,7 @@ CHART = {
                                        # 0.71 beats into its slot, so the slot has
                                        # to open at 6.29 for the peak to land on
                                        # the bar 1 beat 4 line.
-                                       "durs": { 0: 2.0, 1: 2.0, 2: 2.29, 3: 2.5,
+                                       "durs": { 0: 2.0, 1: 2.0, 2: 2.41, 3: 1.88,
                                        # "my" a beat sooner: the warp is one
                                        # sequential frame map, so units cannot
                                        # truly overlap — "in" simply ends where
