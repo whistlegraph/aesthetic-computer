@@ -25,6 +25,7 @@ SPB = 60.0 / BPM
 PXB = 96                      # px per beat — wider blocks AND finer sync
 PLAYHEAD_X = 560
 BH = 62                       # block half-height
+CONS_BOOST = 5.0              # consonants drawn out of proportion, to be seen
 
 # FRAMESYNC. @jeffrey: "the video feels a bit off from the audio · can we
 # try and ensure an excellent framesync". The WAV is beat-accurate (its
@@ -274,6 +275,13 @@ for pb in PASSES:
             xw = x0 + j
             vb = n["beat"] + n["dur"] * (j + 0.5) / npx
             voiced_here = is_voiced(vb)
+            # CONSONANTS ARE BOOSTED. @jeffrey: "i don't feel the 'f' at
+            # the end · can we visualize that also?" Her /f/ is 1–2% of
+            # peak — one pixel at linear scale, invisible next to a vowel
+            # at 30%. A consonant matters to the ear out of all proportion
+            # to its amplitude, so it is drawn out of proportion too.
+            boost = 1.0 if voiced_here else CONS_BOOST
+            a, r = min(1.0, a * boost), min(1.0, r * boost)
             ah = a * AMP
             if ah >= 0.4:                      # peak outline, translucent
                 col = WAVE_PK if voiced_here else CONS_PK
@@ -356,7 +364,8 @@ hdr = Image.new("RGB", (W, ROLL_TOP - 60), CREAM)
 dh = ImageDraw.Draw(hdr)
 dh.text((40, 26), "loner — kick + vocals study", font=f_title, fill=INK)
 sub = ("122 BPM · A# minor @ 237 Hz · the unbroken take, charted   —   "
-       "ink = sung vowel · blue = consonant / breath · blue tick = vowel onset")
+       "ink = sung vowel · blue = consonant (drawn 5x, they are quiet) · "
+       "blue tick = vowel onset")
 dh.text((40, 84), sub, font=f_tiny, fill=BLUE)
 hdr_np = np.asarray(hdr, dtype=np.uint8)
 

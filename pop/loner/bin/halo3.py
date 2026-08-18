@@ -248,7 +248,7 @@ CHART = {
                              # on 20 — so OF starts the instant think ends
                              # ("of should start sooner, right after
                              # 'think' ends") with no rest needed at all.
-                             "durs": { 0: 2.0, 1: 2.0, 2: 2.0, 3: 2.0,
+                             "durs": { 0: 2.0, 1: 2.0, 2: 2.0, 3: 1.5,
                                        # "my" a beat sooner: the warp is one
                                        # sequential frame map, so units cannot
                                        # truly overlap — "in" simply ends where
@@ -259,7 +259,7 @@ CHART = {
                                        # half beat (2.0, 1.23×) and my gives it
                                        # back (1.5, 1.07×), so self keeps bar 3
                                        # and nothing downstream moves.
-                                       4: 2.0, 5: 2.5, 6: 2.0,
+                                       4: 2.5, 5: 0.5, 6: 2.0,
                                        # think 1 (1.17×, her own speed — at 2
                                        # it was a 2.3× held tone), so OF keeps
                                        # its 4 beats at 1.01×, her real octave,
@@ -460,6 +460,7 @@ def snap_boundaries(a, words, t0, pinned=()):
 TRIM_GATE_DB = -36.0        # of the take's peak; keeps quiet fricatives
 TRIM_MARGIN_S = 0.050       # let the release start before we cut
 TRIM_MIN_S = 0.080          # below this, not worth the surgery
+TRIM_HF_DB = -30.0          # …and dull: a fricative is dim but BRIGHT
 TRIM_QUIET_RUN_S = 0.120    # silence this long may end the word
 TRIM_LEAK_S = 0.150         # audio after it that is just the next word bleeding in
 ATTACK_S = 0.030            # pre-roll kept ahead of every word's onset
@@ -521,7 +522,18 @@ def energy_end(x, fs, f0, f1, peak):
         return f1
     m = len(seg) // n
     rms = np.sqrt((seg[:m * n].reshape(m, n) ** 2).mean(axis=1))
-    quiet = rms <= peak * 10.0 ** (TRIM_GATE_DB / 20.0)
+    # A frame is silence only if it is quiet AND dull. @jeffrey: "self
+    # feels like i don't feel the 'f' at the end". Her /f/ sits at 1–2%
+    # of peak — below the broadband gate — so the trim read the quietest
+    # fricative in the language as silence and cut it off the word. But
+    # a fricative is not silent, it is DIM AND BRIGHT: little energy,
+    # nearly all of it high. Differencing the samples is a crude 6 dB/oct
+    # high-pass, and that is enough to tell an /f/ from room tone.
+    d = np.diff(seg[:m * n + 1]) if len(seg) > m * n else np.diff(
+        np.concatenate([seg[:m * n], seg[-1:]]))
+    hf = np.sqrt((d[:m * n].reshape(m, n) ** 2).mean(axis=1))
+    quiet = (rms <= peak * 10.0 ** (TRIM_GATE_DB / 20.0)) & \
+            (hf <= (np.max(hf) or 1.0) * 10.0 ** (TRIM_HF_DB / 20.0))
     on = np.nonzero(~quiet)[0]
     if not len(on):
         return f0 + m
