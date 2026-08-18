@@ -95,6 +95,7 @@ PASSES = [0.0]                               # ONE pass, and no count-in:
 BARS_MAX = 16                                # nothing past bar 16
 KICK_BEATS = int(min(LINE_BARS + 1, BARS_MAX) * 4)   # first word IS the downbeat
 TOTAL_BEATS = min(LINE_BARS + 2, BARS_MAX) * 4
+SYNC_MS = float(os.environ.get("SYNC_MS", "45"))   # display-latency lead
 STRIP_PAD = 2.0                              # beats of strip before beat 0,
                                              # so the pickup has somewhere to live
 
@@ -357,7 +358,18 @@ dh.text((40, 84), sub, font=f_tiny, fill=BLUE)
 hdr_np = np.asarray(hdr, dtype=np.uint8)
 
 def render_frame(i):
-    t = (i + 0.5) / FPS            # centre of the displayed interval
+    # SYNC_MS — display latency compensation, not a file fix.
+    # @jeffrey: "the audio still comes sooner than visuals". The file is
+    # exact: both streams start at PTS 0, the pickup kick sits at 0.0010 s
+    # in the render WAV and at 0.0010 s decoded back out of the MP4, and
+    # the roll's geometry measures +3.0 ms mean against the beat grid. The
+    # remaining offset is downstream of the file — an LCD and a compositor
+    # and a player buffer put the picture on the retina one to three
+    # frames after the sound reaches the ear, so sound always arrives
+    # first. Drawing the state of (t + SYNC_MS) at media time t hands the
+    # picture that head start back. Tune with SYNC_MS=0 to see the raw
+    # file, or a larger number on a slower display.
+    t = (i + 0.5) / FPS + SYNC_MS / 1000.0
     beat = (t - LEAD_IN) / SPB               # t=0 is the pickup, not beat 0
     # SUB-PIXEL SCROLL. Rounding the scroll to a whole pixel left up to
     # half a pixel of error — 2.6 ms at 96 px a beat — on every frame,
