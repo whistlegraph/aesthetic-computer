@@ -4,8 +4,8 @@
   "pdf": "technical-rider.pdf",
   "expectedDiagrams": 4,
   "visualInference": true,
-  "pdfSha256": "ac03028a52e2ad4266d195d4bf797b551d2468aa2bed46c2cf6a1a2585fd5388",
-  "reviewedAt": "2026-08-18T19:00:00Z",
+  "pdfSha256": "335b8c8237651a0a5db3e60f1423be48c58195636d349635dd98db5b90db941b",
+  "reviewedAt": "2026-08-18T19:40:00Z",
   "reviewer": {
     "kind": "visual-inference",
     "agent": "Claude"
@@ -17,7 +17,8 @@
     "checks": {
       "period": "pass",
       "dotColor": "pass"
-    }
+    },
+    "notes": "Badge fills match each wordmark raster's own background (#FFFFFF, #FAF7F2, #F8F7F5), so no inner rectangle shows."
   },
   "diagrams": [
     {

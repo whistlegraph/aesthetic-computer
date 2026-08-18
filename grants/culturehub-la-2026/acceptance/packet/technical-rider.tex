@@ -13,17 +13,22 @@
 \newcommand{\ac}{Aesthetic{\acdot}Computer}
 \newcommand{\spec}[2]{\textbf{#1} — #2}
 % Title graphic set in a soft badge.
-\newcommand{\badge}[1]{%
+% Each badge is filled with the background color of the raster it frames,
+% so the wordmark sits in the panel instead of on a visible inner rectangle.
+\definecolor{bggrok}{HTML}{FFFFFF}
+\definecolor{bgnote}{HTML}{FAF7F2}
+\definecolor{bgmacneo}{HTML}{F8F7F5}
+\newcommand{\badge}[2]{%
   \begin{tikzpicture}
-  \node[draw=acpink!50,line width=0.9pt,rounded corners=7pt,fill=acpale,
+  \node[draw=acpink!50,line width=0.9pt,rounded corners=7pt,fill=#2,
         inner sep=0pt,minimum width=58mm,minimum height=16.5mm]
        {\includegraphics[width=45mm]{#1}};
   \end{tikzpicture}}
-\newcommand{\workhead}[3]{%
+\newcommand{\workhead}[4]{%
   {\fontsize{7.8pt}{8.8pt}\selectfont\color{acpink}#1\par}%
-  \vspace{0.24em}\badge{#2}\par
+  \vspace{0.24em}\badge{#2}{#3}\par
   \vspace{0.30em}%
-  {\fontsize{8.2pt}{9.6pt}\selectfont\color{acpurple}#3\par}%
+  {\fontsize{8.2pt}{9.6pt}\selectfont\color{acpurple}#4\par}%
   \vspace{0.16em}\color{acpink}\rule{\linewidth}{0.9pt}\color{black}\par}
 \newcommand{\specbar}[1]{%
   \vspace{0.18em}\par%
@@ -61,7 +66,7 @@ requirements move to Thursday afternoon and nothing else changes.
 %% ─── three systems ──────────────────────────────────────────────────────
 \noindent
 \begin{minipage}[t]{0.315\linewidth}
-\workhead{Event one · Saturday}{grokaesthetic-wordmark.png}{Bring a computer, leave playing one.}
+\workhead{Event one · Saturday}{grokaesthetic-wordmark.png}{bggrok}{Bring a computer, leave playing one.}
 
 \begin{center}
 \begin{tikzpicture}[scale=0.88,every node/.style={transform shape},
@@ -88,7 +93,7 @@ requirements move to Thursday afternoon and nothing else changes.
 \end{minipage}\hfill
 %
 \begin{minipage}[t]{0.315\linewidth}
-\workhead{Piece 1 · Thursday}{notespatial-grid-logo.png}{Six laptops carry sound around the room while it turns.}
+\workhead{Piece 1 · Thursday}{notespatial-grid-logo.png}{bgnote}{Six laptops carry sound around the room while it turns.}
 
 \begin{center}
 \begin{tikzpicture}[scale=0.88,every node/.style={transform shape}]
@@ -114,7 +119,7 @@ requirements move to Thursday afternoon and nothing else changes.
 \end{minipage}\hfill
 %
 \begin{minipage}[t]{0.315\linewidth}
-\workhead{Piece 2 · Thursday}{macneopolitan-wordmark.png}{Three laptops, one downbeat, held by the clock rather than a cable.}
+\workhead{Piece 2 · Thursday}{macneopolitan-wordmark.png}{bgmacneo}{Three laptops, one downbeat, held by the clock rather than a cable.}
 
 \begin{center}
 \begin{tikzpicture}[scale=0.88,every node/.style={transform shape},
