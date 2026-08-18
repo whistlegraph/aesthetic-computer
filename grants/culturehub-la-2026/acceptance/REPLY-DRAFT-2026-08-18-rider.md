@@ -9,7 +9,9 @@ Attach: `packet/technical-rider.pdf` (one sheet, 8.5 × 12.1 in)
 
 Hi Mattie,
 
-Rider attached — one sheet. Please pass it to whoever runs the room.
+Here's a one-sheet rider — the requirements for each piece as I'm seeing them,
+based on what I know about the space so far. Please pass it to whoever runs the
+room, and correct me where I've guessed wrong.
 
 Three things have long lead times, so I'll say them here as well.
 
