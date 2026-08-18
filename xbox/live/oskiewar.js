@@ -21,25 +21,33 @@ runtime = function acRuntime() {
 };
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 72;
+const buildVersion = 73;
 const floorY = 1800;
-const ceilingY = 0;
-const wallThickness = 80;
+// The tower. @jeffrey played the padded room on the console and asked for a
+// tall map: the fight should happen on the way up, not back and forth across
+// a floor. The room stands 3400 above its floor and the lattice climbs 2320 of
+// that in rungs a plain jump apart, so height — not distance — is what a
+// fighter now spends a round crossing.
+const ceilingY = -1600;
+// Thin walls. Eighty was the padded room's bumper, and against a 3000-wide
+// room it ate a fifth of the lowest ledge on each side. Forty is a lip you can
+// be pinned against rather than a cushion.
+const wallThickness = 40;
 const worldLeft = 0;
-// The padded room. The long street gave the skateboard a runway and gave a
-// stray camera twenty thousand empty units to get lost in — @jeffrey wants
-// the fight in a room again. Every piece of furniture (platform, pickups,
-// spawns, both wall trees) already lived inside the first five thousand
-// units, and a room this size caps the worst-case draw span, which the
-// console's interpreter pays for directly.
-const worldRight = 5000;
+// Narrower on purpose. Five thousand was tuned so two fighters could run at
+// each other; in a tower the horizontal axis is only there to hold rungs side
+// by side, and every unit of extra width costs the console's interpreter
+// another column of room wall to submit.
+const worldRight = 3000;
 const worldNear = -900;
 const worldFar = 900;
-// A padded room is flat: the rolling hills were tuned for the street and
-// compressed fivefold they put real slopes under the spawn marks. The
-// quarter-pipe wall transitions are the padding, and they stay.
+// The floor stays flat wall to wall — see terrainFloorAt for why the ramps
+// went. Twenty-four samples across 3000 units is 125 a quad, the same spacing
+// the old street had at 48 across 5000, and a floor with no slope in it has
+// nothing finer to say. The 24 quads that buys back pay for the whole lattice
+// three times over.
 const terrainAmplitude = 0;
-const terrainSamples = 48;
+const terrainSamples = 24;
 let terrainPhase = 0;
 function terrainSeed(value) {
   let hash = 2166136261;
@@ -54,17 +62,14 @@ function terrainFloorAt(x) {
   const edge = Math.sin(nx * Math.PI) ** 2;
   const broad = Math.sin(nx * Math.PI * 3 + terrainPhase);
   const detail = Math.sin(nx * Math.PI * 7 - terrainPhase * .63) * .34;
-  // Two circular quarter-pipes meet the floor tangentially and approach a
-  // vertical tangent at each coping: an actual half-pipe cross-section.
-  const transitionRadius = 720;
-  const wallDistance = Math.min(x - worldLeft, worldRight - x);
-  const transition = clamp((transitionRadius - wallDistance) /
-    transitionRadius, 0, 1);
-  const halfPipeRise = transitionRadius *
-    (1 - Math.sqrt(Math.max(0, 1 - transition * transition)));
-  const terrainNoise = (broad + detail) * terrainAmplitude * edge *
-    (1 - transition);
-  return floorY - terrainNoise - halfPipeRise;
+  // No side skate ramps — @jeffrey asked for them gone. The two quarter-pipes
+  // met the floor tangentially and carried a fighter 720 up each wall, which
+  // in a tower is a free rung nobody placed and a slope under the two lowest
+  // ledges. The floor is flat wall to wall now and the walls stand square out
+  // of it; `resolveRunnerBounds` is what keeps a body off them, and the
+  // skateboard's wall-ride was already its own rule rather than the ramp's.
+  const terrainNoise = (broad + detail) * terrainAmplitude * edge;
+  return floorY - terrainNoise;
 }
 function terrainTangentAt(x, span = 12) {
   const left = terrainFloorAt(clamp(x - span, worldLeft, worldRight));
@@ -79,18 +84,96 @@ let stageTop = 112;
 let stageBottom = 930;
 let viewHeight = 1080;
 let cameraAspect = (stageRight - stageLeft) / (stageBottom - stageTop);
-// The stage furniture is flagged out for now — @jeffrey wants the arena to
-// read as one floor. Flip PLATFORM true and the ledge comes back whole:
+// The stage furniture is back on, and it is a lattice rather than one ledge:
 // drawing, collision, pickup lanes, grenade and ball bounces, the bot's
-// sink-and-chase play. The wind flag rides its own switch the same way.
-const PLATFORM = false;
+// sink-and-chase play all read `platforms` below. The wind flag rides its own
+// switch and is still off.
+const PLATFORM = true;
 const WIND_FLAG = false;
-const platformLeft = 650;
-const platformRight = 1350;
-// A jump apexes 290 above the floor, so the ledge sits inside a single hop and
-// inside the tight opening frame. At its old 1600 only an ultra jump reached
-// it, which put every platform powerup out of play and off screen.
-const platformY = 1560;
+// The rung spacing is the jump, not a guess. A jump leaves the ground at 1760
+// against a rise gravity of 4800, so it apexes 1760^2/(2*4800) = 322 above
+// whatever it left. A rung 260 up sits inside that with 62 to spare, and the
+// fighter stays above its lip for .27s — sixteen simulation ticks, 630 units
+// of run — which is what makes a rung landable instead of a pixel-perfect
+// stab. Crouch-jumping buys 400 and a double jump 645, so ordinary climbing is
+// never gated on precision; those are the margin for a miss.
+const platformRise = 260;
+// One rung breaks the rule and it is the point of the roof. The crow's nest is
+// 760 above the highest thing under it — past a double jump's 645 — so an
+// ultra jump (3960, reaching 1633) is the only way in. The rocket launcher
+// lives up there because of it.
+const crowsNestRise = 760;
+// Two columns run clear from the floor to the roof, 920..1120 on the left and
+// 1880..2080 on the right. Every span below is cut to leave them open, because
+// a tower with no shaft is a tower where a popped ball never comes back to the
+// floor and a falling fighter always lands on somebody else's rung.
+const shaftLeftX = 1020;
+const shaftRightX = 1980;
+// Six rungs, one plain jump apart, counted up from the floor.
+const rungY = (tier) => floorY - platformRise * tier;
+// Rungs alternate side, center, side so a climb reads as a switchback instead
+// of a column of steps and neither fighter owns a single vertical line. No
+// climbing rung is under 520 wide, because a run covers 630 units inside the
+// landing window and anything narrower could be over-run at speed; the crow's
+// nest is a 360 perch on purpose, since standing on it is the reward and
+// fighting on it should feel like standing on a diving board. No step up is
+// more than 340 of open air, which a walk crosses inside the same window.
+const platforms = [
+  { left: 240, right: 920, y: rungY(1) },
+  { left: 2080, right: 2760, y: rungY(1) },
+  { left: 1120, right: 1880, y: rungY(2) },
+  { left: 180, right: 820, y: rungY(3) },
+  { left: 2180, right: 2820, y: rungY(3) },
+  { left: 1160, right: 1840, y: rungY(4) },
+  { left: 300, right: 900, y: rungY(5) },
+  { left: 2100, right: 2700, y: rungY(5) },
+  { left: 240, right: 760, y: rungY(6) },
+  { left: 1220, right: 1780, y: rungY(6) },
+  { left: 2240, right: 2760, y: rungY(6) },
+  { left: 1320, right: 1680, y: rungY(6) - crowsNestRise },
+];
+// Version-one furniture — the wind flag's pole, the store's demos, the tests —
+// still asks for "the platform" by name. It is the first rung on the left: the
+// one a fighter on a spawn mark can see, one plain hop off the floor, with
+// nothing but floor underneath it to sink onto.
+const platformLeft = platforms[0].left;
+const platformRight = platforms[0].right;
+const platformY = platforms[0].y;
+// The surface a thing at (x, y) is standing over: the nearest rung at or below
+// it, and the floor when there is no rung. Shadows, pickups and the bot all
+// ask this, so a rung that moves takes its furniture with it.
+function surfaceYAt(x, y) {
+  let surface = terrainFloorAt(x);
+  if (PLATFORM) for (const ledge of platforms)
+    if (ledge.y < surface && ledge.y >= y - 1 &&
+      x >= ledge.left && x <= ledge.right) surface = ledge.y;
+  return surface;
+}
+// Which rung a falling thing just crossed, or null. `rise` lifts the contact
+// line off the rung by an object's radius and `inset` keeps its edges on the
+// span, so one answer serves fighters, grenades and the ball alike — and a
+// lattice change lands in all three at once. The highest crossed rung wins,
+// because that is the one a fall meets first.
+function ledgeCrossed(x, previousY, y, rise = 0, inset = 0) {
+  if (!PLATFORM) return null;
+  let hit = null;
+  for (const ledge of platforms) {
+    const top = ledge.y - rise;
+    if (previousY > top || y < top) continue;
+    if (x < ledge.left + inset || x > ledge.right - inset) continue;
+    if (!hit || ledge.y < hit.y) hit = ledge;
+  }
+  return hit;
+}
+// Resting on a rung rather than falling through one: the ball asks this to
+// know whether it is supported and whether it may be booted.
+function ledgeSupports(x, y, radius = 0) {
+  if (!PLATFORM) return false;
+  for (const ledge of platforms)
+    if (x >= ledge.left + radius && x <= ledge.right - radius &&
+      Math.abs(y - (ledge.y - radius)) <= 2) return true;
+  return false;
+}
 const doubleTapUs = 280000;
 const doubleTapReleaseUs = 40000;
 const roundDurationUs = 30000000;
@@ -709,7 +792,10 @@ function displayTheme() {
 }
 const players = [
   { name: "@JEFFREY", rosterIndex: 0, handleColors: fighterRoster[0].colors,
-    pad: 0, spawnX: 2240, x: 2240, y: floorY, z: 0,
+    // Spawn marks stand 520 apart astride the room's center, between the two
+    // shafts. Neither one is under a rung, so the opening exchange happens on
+    // open floor and the first decision of a round is which side to climb.
+    pad: 0, spawnX: 1240, x: 1240, y: floorY, z: 0,
     vx: 0, vy: 0, vz: 0, facing: 1,
     grounded: true, ducking: false, previous: [], lastButton: "NONE",
     lastButtonAt: 0, color: [190, 42, 58], hit: 0,
@@ -724,7 +810,8 @@ const players = [
     shieldLocked: false, shieldBrokenAt: 0,
     shieldCrouched: false, shieldAimX: 0, shieldAimY: 0,
     windVx: 0, knockVx: 0, gunAmmo: 0, grenadeAmmo: 0,
-    gunAimX: 1, gunAimY: 0, gunMode: "HANDGUN", nextGunShotAt: 0,
+    gunAimX: 1, gunAimY: 0, gunAimLive: false, gunMode: "HANDGUN",
+    nextGunShotAt: 0,
     stance: "NEUTRAL",
     heldBall: -1, heldPart: -1, heldPlayer: -1, grabbedBy: -1,
     grabHeld: false, crouchBlend: 0, standingOn: -1,
@@ -734,10 +821,11 @@ const players = [
     botPresses: {},
     jumpLaunchAt: 0, jumpPoseUntil: 0, landPoseUntil: 0,
     jumpHeld: false, airJumpsUsed: 0, hopUntil: 0, sinkUntil: 0,
+    sinkFrom: 0,
     crouchJump: false, attackMomentum: 1 },
   { name: "@OSKIE", rosterIndex: 2, handleColors: fighterRoster[2].colors,
     npc: false, bot: false,
-    pad: 1, spawnX: 2760, x: 2760, y: floorY, z: 0,
+    pad: 1, spawnX: 1760, x: 1760, y: floorY, z: 0,
     vx: 0, vy: 0, vz: 0, facing: -1,
     grounded: true, ducking: false, previous: [], lastButton: "NONE",
     lastButtonAt: 0, color: [38, 82, 176], hit: 0,
@@ -752,7 +840,8 @@ const players = [
     shieldLocked: false, shieldBrokenAt: 0,
     shieldCrouched: false, shieldAimX: 0, shieldAimY: 0,
     windVx: 0, knockVx: 0, gunAmmo: 0, grenadeAmmo: 0,
-    gunAimX: -1, gunAimY: 0, gunMode: "HANDGUN", nextGunShotAt: 0,
+    gunAimX: -1, gunAimY: 0, gunAimLive: false, gunMode: "HANDGUN",
+    nextGunShotAt: 0,
     stance: "NEUTRAL",
     heldBall: -1, heldPart: -1, heldPlayer: -1, grabbedBy: -1,
     grabHeld: false, crouchBlend: 0, standingOn: -1,
@@ -762,25 +851,30 @@ const players = [
     botPresses: {},
     jumpLaunchAt: 0, jumpPoseUntil: 0, landPoseUntil: 0,
     jumpHeld: false, airJumpsUsed: 0, hopUntil: 0, sinkUntil: 0,
+    sinkFrom: 0,
     crouchJump: false, attackMomentum: 1 },
 ];
 const impacts = [];
 const detachedParts = [];
 const bullets = [];
 const grenades = [];
-// Pickups belong to a surface the player can actually see. When the optional
-// ledge is gone they sit just above the floor instead of floating at its old
-// invisible height.
+// Pickups belong to a surface the player can actually see, and in a tower the
+// surface is a rung — so height is what prices a weapon. The handgun and the
+// grenades sit on the two first rungs, one hop off either spawn mark. The SMG
+// is four rungs up. The rocket launcher lives in the crow's nest, which is the
+// one place on the map an ultra jump is the only way in, and it is worth the
+// climb precisely because everything else is not. Each `y` names the rung it
+// belongs to; the loop below drops it onto that rung's surface.
 const gunPickups = [
-  { kind: "HANDGUN", amount: 6, x: 2050, startsActive: true,
-    y: PLATFORM ? platformY - 70 : floorY - 35, z: 0 },
-  { kind: "RUBBER SMG", amount: 18, x: 850, startsActive: true,
-    airborne: true, y: ceilingY + 240, z: 0 },
-  { kind: "ROCKET LAUNCHER", amount: 3, x: 4150, startsActive: true,
-    airborne: true, y: ceilingY + 240, z: 0 },
+  { kind: "HANDGUN", amount: 6, x: 2420, startsActive: true,
+    y: rungY(1), z: 0 },
+  { kind: "RUBBER SMG", amount: 18, x: 1500, startsActive: true,
+    y: rungY(4), z: 0 },
+  { kind: "ROCKET LAUNCHER", amount: 3, x: 1500, startsActive: true,
+    y: rungY(6) - crowsNestRise, z: 0 },
 ];
 const grenadePickups = [
-  { amount: 2, x: 2950, y: PLATFORM ? platformY - 70 : floorY - 35, z: 0 },
+  { amount: 2, x: 580, y: rungY(1), z: 0 },
 ];
 // Two trees grow out of the side walls, one per side, and they are the only
 // thing in the round that gives a body back. A fighter who has been taken
@@ -789,8 +883,10 @@ const grenadePickups = [
 // clock. They take the whole round to ripen, so each one is picked at most
 // once and the walk has to be timed.
 const bodyTrees = [
-  { x: worldLeft + wallThickness, y: floorY - 60, z: 0, growth: 0 },
-  { x: worldRight - wallThickness, y: floorY - 60, z: 0, growth: 0 },
+  { x: worldLeft + wallThickness, y: floorY - 60, z: 0, growth: 0,
+    spent: false },
+  { x: worldRight - wallThickness, y: floorY - 60, z: 0, growth: 0,
+    spent: false },
 ];
 const treeRipenUs = 18000000;
 const treeTimeBonusUs = 15000000;
@@ -798,8 +894,10 @@ const airParticles = [];
 for (const pickup of [...gunPickups, ...grenadePickups]) {
   pickup.active = Boolean(pickup.startsActive);
   pickup.respawnAt = 0;
-  pickup.y = pickup.airborne ? ceilingY + 330
-    : PLATFORM ? platformY - 70 : terrainFloorAt(pickup.x) - 35;
+  // A pickup names its rung and lands on that rung's surface. Seventy above it
+  // is the same float the single ledge always used, and it keeps a real-sized
+  // weapon from reading as a decal painted on the plank.
+  pickup.y = surfaceYAt(pickup.x, pickup.y) - 70;
 }
 // Every kind carries a gravity factor so redressing the match ball in place
 // can never leave a previous kind's float behind.
@@ -1100,7 +1198,25 @@ function roundIsTimed() {
   return !(players[1].npc && !players[1].bot);
 }
 
+// The frame numbers the debug HUD already prints, packed for the wire. Only
+// stages the host actually measured go in — a console reports a real frame and
+// present time, a browser reports its rAF span and its own paint cost and
+// nothing else — because a zeroed field on a public feed reads as a stall
+// rather than as silence. Two decimals is the resolution AC_NATIVE_PROFILE
+// prints at, and it holds the whole block under sixty bytes.
+function spectatorPerf(run) {
+  const perf = { fps: Math.round(displayFps || 0) };
+  const frameMs = Number(run.frameMs) || 0;
+  const renderMs = Number(run.renderCpuMs) || 0;
+  const hz = Number(run.refreshHz) || 0;
+  if (frameMs) perf.frameMs = Math.round(frameMs * 100) / 100;
+  if (renderMs) perf.renderMs = Math.round(renderMs * 100) / 100;
+  if (hz) perf.hz = Math.round(hz);
+  return perf;
+}
+
 function spectatorState(now, nextRoundId = "") {
+  const run = runtime();
   const introAge = now - roundStartedAt;
   const phase = instantReplay ? "replay" : matchOver ? "match"
     : roundResult ? "round" : introAge < introDurationUs ? "intro" : "fight";
@@ -1109,7 +1225,7 @@ function spectatorState(now, nextRoundId = "") {
     Math.round((roundDurationUs - roundElapsedUs) / 1000)) : null;
   const state = {
     format: "ac.oskiewar.live", version: 1, seq: liveSequence++,
-    at: runtime().unixMs || 0, phase,
+    at: run.unixMs || 0, phase,
     seriesId: "ow-" + seriesName, roundId: "ow-" + matchName,
     previousRoundId: previousRoundName ? "ow-" + previousRoundName : "",
     fighters: players.map((player) => ({
@@ -1136,6 +1252,12 @@ function spectatorState(now, nextRoundId = "") {
     wind: { direction: windDirection, mph: windMph },
     round: { remainingMs, timed, result: roundResult || "",
       cause: roundCause || "" },
+    // @jeffrey plays oskiewar.com in Edge on an Xbox, where there are no
+    // devtools and the console's own AC_NATIVE_PROFILE line only reaches a
+    // Device Portal on the same LAN. The live socket is the one channel that
+    // already leaves the box, so the frame rate rides out with the round and
+    // can be read from anywhere the round can.
+    perf: spectatorPerf(run),
     replayUrl: "/api/oskiewar-replays?id=ow-" + matchName,
   };
   if (nextRoundId) state.nextRoundId = nextRoundId;
@@ -2478,11 +2600,12 @@ function resetBalls(now) {
     ballKinds.find((kind) => kind.type === matchBallType) || ballKinds[0]);
   for (const item of balls) {
     const owner = item.spawnOwner >= 0 ? players[item.spawnOwner] : null;
-    item.x = owner ? owner.spawnX + owner.facing * 180 : platformRight + 820;
+    item.x = owner ? owner.spawnX + owner.facing * 180 : shaftLeftX;
     item.y = owner ? terrainFloorAt(item.x) - item.radius
       : terrainFloorAt(item.x) - 920;
-    // The beach ball begins airborne beyond the platform edge, so its first
-    // landing is in the open arena rather than on the center platform.
+    // An unowned ball begins airborne, and in a tower it has to begin over a
+    // shaft: every other column catches it on a rung halfway down and the
+    // round opens with a ball nobody on the floor can reach.
     item.z = owner ? owner.z : 0;
     item.vx = 0;
     item.vy = 0;
@@ -2825,6 +2948,7 @@ function resetRound(now, resetMatch = false) {
     player.grenadeAmmo = 0;
     player.gunAimX = player.facing;
     player.gunAimY = 0;
+    player.gunAimLive = false;
     player.gunMode = "HANDGUN";
     player.itemArm = "";
     player.nextGunShotAt = 0;
@@ -2902,8 +3026,11 @@ function resetRound(now, resetMatch = false) {
     pickup.active = Boolean(pickup.startsActive);
     pickup.respawnAt = 0;
   }
-  for (const tree of bodyTrees) tree.growth = 0;
-  for (const tree of bodyTrees) tree.y = terrainFloorAt(tree.x) - 60;
+  for (const tree of bodyTrees) {
+    tree.growth = 0;
+    tree.spent = false;
+    tree.y = terrainFloorAt(tree.x) - 60;
+  }
   nextPowerupAtUs = powerupIntervalUs;
   powerupSequence = 0;
   roundResult = "";
@@ -3590,6 +3717,14 @@ function treeFruit(tree) {
 function updateBodyTrees(dt, now) {
   const poseTime = (now - startedAt) / 1000000;
   for (const tree of bodyTrees) {
+    // One harvest a round, said out loud. Eighteen seconds of ripening against
+    // a thirty second round used to say it on its own, and the padded room's
+    // quarter-pipe said it again by holding the fruit a wall's height above a
+    // standing fighter. The tower's floor is flat, which put the fruit back
+    // inside arm's reach — and two fighters then stood at the wall winding
+    // fifteen seconds off the clock every eighteen, so the round could not
+    // end. A round that cannot end is worse than a body that stays broken.
+    if (tree.spent) continue;
     if (tree.growth < 1) {
       tree.growth = Math.min(1, tree.growth + dt * 1000000 / treeRipenUs);
       continue;
@@ -3600,6 +3735,7 @@ function updateBodyTrees(dt, now) {
       if (runnerDistanceToPoint(player, poseTime, fruit.x, fruit.y, fruit.z) > 320)
         continue;
       tree.growth = 0;
+      tree.spent = true;
       player.removedParts = [];
       player.partDamage = {};
       player.fallenBodyGeometry = null;
@@ -3647,11 +3783,13 @@ function updatePowerups(now) {
       const choices = [...gunPickups, grenadePickups[0]];
       const pickup = choices[powerupSequence % choices.length];
       pickup.active = true;
-      // The flag owns exact center. Alternating pickup lanes keep a real-sized
-      // weapon from reading as hardware attached to its pole.
-      pickup.x = (platformLeft + platformRight) / 2 +
-        (powerupSequence % 2 ? 1400 : -1400);
-      pickup.y = PLATFORM ? platformY - 70 : terrainFloorAt(pickup.x) - 35;
+      // The two first rungs are the powerup lanes. Alternating sides keeps a
+      // real-sized weapon from always landing at the same spot, and a first
+      // rung is one hop off either spawn mark, so neither fighter starts
+      // nearer the gun than the other.
+      const lane = platforms[powerupSequence % 2];
+      pickup.x = (lane.left + lane.right) / 2;
+      pickup.y = lane.y - 70;
       pickup.z = 0;
       powerupSequence += 1;
       emitSignal("powerup", -1, powerupSequence, nextPowerupAtUs / 1000000);
@@ -3661,6 +3799,30 @@ function updatePowerups(now) {
   }
   updateGunPickups(now);
   updateGrenadePickups(now);
+}
+
+// Ghost trails map a ricochet's whole path. The fixed length is the entire
+// point: shots here have no clock-based expiry, they bounce until they hit
+// somebody, so a trail that grew with flight time would be the eleven-frames-a
+// -second stray all over again — measured in line segments instead of terrain
+// span. A ring buffer costs the same on the thousandth bounce as on the first.
+//
+// Sampling every third tick buys three times the arc for the same sixteen
+// points, and a bounce records out of turn so the corner lands on the wall
+// rather than being chorded through it.
+const bulletTrailPoints = 12;
+const bulletTrailStride = 4;
+
+function recordBulletTrail(bullet) {
+  if (!bullet.trail) {
+    // One allocation at birth, never per frame.
+    bullet.trail = new Array(bulletTrailPoints * 2).fill(0);
+    bullet.trailCount = 0;
+  }
+  const slot = (bullet.trailCount % bulletTrailPoints) * 2;
+  bullet.trail[slot] = bullet.x;
+  bullet.trail[slot + 1] = bullet.y;
+  bullet.trailCount++;
 }
 
 function updateBullets(dt, now, combat = true) {
@@ -3683,6 +3845,9 @@ function updateBullets(dt, now, combat = true) {
     bullet.previousY = bullet.y;
     bullet.x += bullet.vx * dt;
     bullet.y += bullet.vy * dt;
+    // Held so the ricochets below can be spotted by the sign they flip.
+    const enteredVx = bullet.vx;
+    const enteredVy = bullet.vy;
     // Shots have no clock-based expiry. Arena surfaces ricochet them so a
     // long-travelling round remains part of the fight until contact.
     if (bullet.x - 24 <= worldLeft + wallThickness) {
@@ -3721,6 +3886,14 @@ function updateBullets(dt, now, combat = true) {
         }
       } else bullet.vy = -Math.abs(bullet.vy);
     }
+    // A bounce is worth a point of its own: on the stride alone the segment
+    // spanning a ricochet would cut the corner straight through the wall.
+    if (bullet.vx !== enteredVx || bullet.vy !== enteredVy ||
+        bullet.trailTick === undefined) {
+      bullet.trailTick = 0;
+      recordBulletTrail(bullet);
+    } else if (++bullet.trailTick % bulletTrailStride === 0)
+      recordBulletTrail(bullet);
   }
   for (let left = 0; left < bullets.length; left++) {
     const a = bullets[left];
@@ -3897,10 +4070,10 @@ function updateGrenades(dt, now, combat = true) {
       grenade.vy = Math.abs(grenade.vy) * .65;
       if (grenade.rocket) grenade.fuse = 0;
     }
-    if (PLATFORM && grenade.vy >= 0 && previousY <= platformY - 30 &&
-        grenade.y >= platformY - 30 && grenade.x >= platformLeft &&
-        grenade.x <= platformRight) {
-      grenade.y = platformY - 30;
+    const ledge = grenade.vy >= 0 &&
+      ledgeCrossed(grenade.x, previousY, grenade.y, 30);
+    if (ledge) {
+      grenade.y = ledge.y - 30;
       grenade.vy = -Math.abs(grenade.vy) * .55;
       grenade.vx *= .82;
     } else if (grenade.y >= terrainFloorAt(grenade.x) - 30) {
@@ -4015,7 +4188,7 @@ function itemHandTarget(player, now) {
     x: player.x + player.facing * (42 + 52 * pulse),
     y: player.y - 118 - 52 * pulse, z: player.z,
   };
-  if (player.itemAimLocked ||
+  if (player.itemAimLocked || player.gunAimLive ||
       (player.itemAction === "FIRE" && now < player.itemActionUntil)) {
     const aimX = player.gunAimX || player.facing;
     const aimY = player.gunAimY || 0;
@@ -4030,7 +4203,7 @@ function itemHandTarget(player, now) {
 function gunPose(player, now, input = null) {
   let aimX = input?.horizontal || player.facing;
   let aimY = input ? -input.vertical : 0;
-  if (!input && (player.itemAimLocked ||
+  if (!input && (player.itemAimLocked || player.gunAimLive ||
       (player.itemAction === "FIRE" && now < player.itemActionUntil))) {
     aimX = player.gunAimX || player.facing;
     aimY = player.gunAimY || 0;
@@ -4213,7 +4386,11 @@ function updateBall(ball, dt, now) {
   // serve time comes round.
   if (!ball.active && ballEnabled && ball.serveAt && now >= ball.serveAt) {
     ball.active = true;
-    ball.x = (platformLeft + platformRight) / 2;
+    // Re-inflate over a shaft and let it rain the whole tower back down: over
+    // a rung it would land four storeys above the fight and stay there. The
+    // far shaft from wherever it popped, so a fighter camped under one column
+    // does not also own the ball's return.
+    ball.x = ball.x > (worldLeft + worldRight) / 2 ? shaftLeftX : shaftRightX;
     ball.y = ceilingY + ball.radius + 120;
     ball.z = 0;
     ball.vx = 0;
@@ -4238,10 +4415,7 @@ function updateBall(ball, dt, now) {
       return;
     }
   }
-  const platformSupported = PLATFORM && ball.x >= platformLeft + ball.radius &&
-    ball.x <= platformRight - ball.radius &&
-    ball.y >= platformY - ball.radius - 2 &&
-    ball.y <= platformY - ball.radius + 2;
+  const platformSupported = ledgeSupports(ball.x, ball.y, ball.radius);
   const floorSupported = ball.y >= terrainFloorAt(ball.x) - ball.radius - 2;
   const grounded = (platformSupported || floorSupported) && Math.abs(ball.vy) < 180;
   if (!grounded) ball.vx += windAcceleration * (ball.windFactor || .45) * dt;
@@ -4263,11 +4437,10 @@ function updateBall(ball, dt, now) {
     ball.y = ceilingY + inset;
     ball.vy = Math.abs(ball.vy);
   }
-  const platformTop = platformY - ball.radius;
-  if (PLATFORM && ball.vy >= 0 && previous.y <= platformTop && ball.y >= platformTop &&
-      ball.x >= platformLeft + ball.radius &&
-      ball.x <= platformRight - ball.radius) {
-    ball.y = platformTop;
+  const ledge = ball.vy >= 0 &&
+    ledgeCrossed(ball.x, previous.y, ball.y, ball.radius, ball.radius);
+  if (ledge) {
+    ball.y = ledge.y - ball.radius;
     ball.vy = Math.abs(ball.vy) > 180
       ? -Math.abs(ball.vy) * (ball.bounce || .58) : 0;
     ball.vx *= ball.drag || .992;
@@ -4277,9 +4450,7 @@ function updateBall(ball, dt, now) {
       ? -Math.abs(ball.vy) * (ball.bounce || .62) : 0;
     ball.vx *= ball.drag || .992;
   }
-  const onSurface = ((PLATFORM && ball.x >= platformLeft + ball.radius &&
-    ball.x <= platformRight - ball.radius &&
-    Math.abs(ball.y - (platformY - ball.radius)) <= 2) ||
+  const onSurface = (ledgeSupports(ball.x, ball.y, ball.radius) ||
     ball.y >= terrainFloorAt(ball.x) - ball.radius - 2) && Math.abs(ball.vy) < 180;
   const poseTime = (now - startedAt) / 1000000;
   const hitters = [];
@@ -4457,6 +4628,8 @@ function directionTap(player, direction, now) {
 
 function sink(player, now) {
   player.sinkUntil = now + sinkDurationUs;
+  // The rung being dropped through, so the sink cannot also eat the next one.
+  player.sinkFrom = player.y;
   player.grounded = false;
   player.jumpHeld = false;
   player.vy = Math.max(player.vy, 260);
@@ -5087,6 +5260,18 @@ function updatePlayer(player, pad, dt, now) {
     player.gunAimY = -rawInput.vertical;
     if (rawInput.horizontal) player.facing = rawInput.horizontal;
   }
+  // A held gun used to point dead ahead unless you also held X, so the one
+  // thing a player is plainly doing with it — pointing it somewhere — never
+  // reached the fighter. A vertical direction now tilts the hand on its own.
+  // The X lock still earns its keep: it pins an aim while you stand still and
+  // it turns you. This does neither, deliberately — steering the drawn arm
+  // must not steer the walk, or every upward shot would rewrite your footing.
+  player.gunAimLive = false;
+  if (!aimLocked && player.gunAmmo > 0 && rawInput.vertical) {
+    player.gunAimX = rawInput.horizontal || player.facing;
+    player.gunAimY = -rawInput.vertical;
+    player.gunAimLive = true;
+  }
   // A broken shield stays down until X is let go, so the opening it bought is
   // spent on attacking rather than on re-guarding by reflex.
   if (player.shieldLocked && !pad.down.includes("X")) player.shieldLocked = false;
@@ -5143,6 +5328,14 @@ function updatePlayer(player, pad, dt, now) {
       (input.horizontal || input.vertical))
     emitSignal("move", player.pad, input.horizontal, input.vertical);
   player.pendingMoveLabel = "";
+  // An ultra jump IS a second press of UP, so the air-jump gate below used to
+  // see the same press the double-tap had just spent: the ultra fired, a
+  // double jump launched on top of it a tick later, the move read-out said
+  // DOUBLE JUMP, and the air jump the fighter never asked for was gone. The
+  // horizontal branch has always honored the "tap was spent" answer; this is
+  // the vertical one doing the same. It matters more in a tower, where the
+  // crow's nest is the one rung an ultra jump is the only way onto.
+  let verticalTapSpent = false;
   const upPressed = input.vertical > 0 && !player.previous.includes("MOVE_UP");
   const downPressed = input.vertical < 0 && player.inputY >= 0;
   const wasCrouched = player.ducking || player.crouchBlend >= .35;
@@ -5174,7 +5367,7 @@ function updatePlayer(player, pad, dt, now) {
   if (input.vertical && input.vertical !== player.inputY) {
     const direction = input.vertical > 0 ? "UP" : "DOWN";
     recordCommand(player, direction, now);
-    directionTap(player, direction, now);
+    verticalTapSpent = directionTap(player, direction, now);
     if (headOnly) {
       const alternating = player.headPumpDirection &&
         player.headPumpDirection !== input.vertical &&
@@ -5302,7 +5495,8 @@ function updatePlayer(player, pad, dt, now) {
     player.vy *= jumpCutScale;
     player.jumpHeld = false;
   }
-  if (!aimLocked && !headOnly && upPressed && !player.jumpLaunchAt &&
+  if (!aimLocked && !headOnly && upPressed && !verticalTapSpent &&
+      !player.jumpLaunchAt &&
       (player.grounded || player.airJumpsUsed < 1)) {
     const airJump = !player.grounded;
     player.jumpLaunchAt = now + (airJump ? 1 : jumpAnticipationUs);
@@ -5415,17 +5609,23 @@ function updatePlayer(player, pad, dt, now) {
     player.headRoll = (player.headRoll || 0) + (player.headRollRate || 0) * dt;
   }
   player.grounded = false;
-  // A sinking fighter is transparent to the platform but never to the floor.
-  if (PLATFORM && now >= player.sinkUntil &&
-      player.vy >= 0 && previousY <= platformY && player.y >= platformY &&
-      player.x >= platformLeft && player.x <= platformRight) {
-    player.y = platformY;
+  // A sinking fighter is transparent to the rung it left and to nothing else.
+  // A window long enough to clear one lip — .25s, 290 units of fall — is
+  // already long enough to fall past the next rung 260 below, and a
+  // double-tap that dropped two storeys read as a fall rather than a step
+  // down. Remembering where the sink started is what keeps it one storey.
+  // The floor is never transparent, which is why it stays in the else.
+  const ledge = player.vy >= 0 && ledgeCrossed(player.x, previousY, player.y);
+  const sinking = now < player.sinkUntil &&
+    ledge && ledge.y <= player.sinkFrom + 4;
+  if (ledge && !sinking) {
+    player.y = ledge.y;
     if (headOnly) {
       player.vy = 0;
       player.grounded = true;
       player.stance = input.horizontal ? "ROLL" : "HEAD ONLY";
     } else if (pogo && player.pogoDive) {
-      bouncePogoOnSurface(player, platformY, now);
+      bouncePogoOnSurface(player, ledge.y, now);
     } else {
       player.vy = 0;
       player.grounded = true;
@@ -6206,7 +6406,8 @@ function runnerWorldGeometry(player, t) {
     landingRecovery * .45, noLegs ? .45 : 0), 0, 1);
   const height = lerp(180, 108, crouchPose);
   const formDrop = pogo ? 54 : noLegs ? 31 : 0;
-  const aimPose = player.itemAimLocked ? player.gunAimX || player.facing : 0;
+  const aimPose = player.itemAimLocked || player.gunAimLive
+    ? player.gunAimX || player.facing : 0;
   const lean = player.facing * (idle ? 5 : 3 + speed * 10) + aimPose * 7;
   const x = player.x;
   const feet = player.y;
@@ -6217,7 +6418,8 @@ function runnerWorldGeometry(player, t) {
     : feet - lerp(58, 40, crouchPose) + formDrop;
   const neckX = x + lean;
   const neckY = feet - height + 54 - breath + formDrop +
-    (player.itemAimLocked ? (player.gunAimY || 0) * 8 : 0);
+    (player.itemAimLocked || player.gunAimLive
+      ? (player.gunAimY || 0) * 8 : 0);
   const attackPulse = meleePulse(player, poseNow);
   const head = headOnly
     ? { x, y: feet - 22, z, radius: 22 }
@@ -8165,8 +8367,22 @@ const playerStatPanelHeight = () => {
   return 16 + 3 * (size + 7) + 10;
 };
 
+const debugReadoutMetaSize = () => compactLayout() ? 19 : 24;
+const debugReadoutTimingSize = () =>
+  Math.max(17, Math.round(debugReadoutMetaSize() * .76));
+// The band the measured-performance read-out owns, just above the nameplate.
+// Everything that stacks over a handle reserves it rather than sharing it: the
+// console has always printed a second timing row there and it landed exactly on
+// the state card's `anim::` line, and the browser started printing one the day
+// it began timing its own frames. Both rows are reserved whether or not the
+// host fills the second — the card above must not breathe when a measurement
+// finally arrives, the same fixed-chassis rule the card itself follows.
+const debugReadoutHeight = () => debugHitboxes
+  ? debugReadoutMetaSize() + 6 + debugReadoutTimingSize() + 5 : 0;
+
 // The state trace owns a fixed stack over each handle without a container.
-const statStackHeight = () => debugHitboxes ? playerStatPanelHeight() + 8 : 0;
+const statStackHeight = () => debugHitboxes
+  ? debugReadoutHeight() + playerStatPanelHeight() + 8 : 0;
 
 function drawPlayerStats(player, side, t) {
   if (!debugHitboxes) return;
@@ -8185,7 +8401,7 @@ function drawPlayerStats(player, side, t) {
   const height = playerStatPanelHeight();
   const handle = playerHandleLayout(player, side);
   const x = side === 0 ? safe.left : safe.right - width;
-  const y = handle.y - height - 12;
+  const y = handle.y - debugReadoutHeight() - height - 12;
   const previousDepth = triangleDepth;
   triangleDepth = -1.445;
   for (let row = 0; row < lines.length; row++) {
@@ -8642,8 +8858,7 @@ function drawSkyAtmosphere(sky, arena) {
 }
 
 function shadowSurfaceY(x, y) {
-  return PLATFORM && x >= platformLeft && x <= platformRight && y <= platformY + 1
-    ? platformY : terrainFloorAt(x);
+  return surfaceYAt(x, y);
 }
 
 function drawSpotShadow(x, y, z, radius, color) {
@@ -8906,9 +9121,56 @@ function drawBullet(bullet) {
     filledDisc(previous.x, previous.y, radius * .25, trail);
     return;
   }
+  drawBulletTrail(bullet, trail, scale);
   filledCapsule(previous.x, previous.y, point.x, point.y,
     Math.max(.6, (bullet.rubber ? 4 : 3) * scale), trail);
   filledDisc(point.x, point.y, Math.max(.9, 7 * scale), core);
+}
+
+// The ghost of where a round has been. Walked oldest to newest so the fade
+// runs the right way down the path, and drawn thin: the live tracer is the
+// bullet, this is only the shape its bounces have written.
+//
+// Bare quads, NOT filledCapsule. A capsule is two triangles plus two discs and
+// a small disc is a six-sided fan, so it costs ten faces — at the 24-bullet cap
+// that is 3,600 faces of ghost against a ~2,100-face frame, which is the eleven
+// -frames-a-second stray wearing a different hat. Two faces a segment caps the
+// worst case at 528, and a trail wants no round caps anyway.
+function drawBulletTrail(bullet, ink, scale) {
+  const stored = Math.min(bullet.trailCount || 0, bulletTrailPoints);
+  if (stored < 2) return;
+  // The same leash the camera uses. A round that has sailed out of the fight
+  // is off screen, and its ghost should not be paid for either.
+  if (!players.some((player) =>
+    Math.abs(bullet.x - player.x) < 5200 &&
+    Math.abs(bullet.y - player.y) < 5200)) return;
+  const ground = mixColor([7, 8, 28], [230, 239, 247], visualTheme.light);
+  const oldest = (bullet.trailCount || 0) - stored;
+  let previous = null;
+  for (let step = 0; step < stored; step++) {
+    const slot = ((oldest + step) % bulletTrailPoints) * 2;
+    const here = projectPoint(bullet.trail[slot], bullet.trail[slot + 1],
+      bullet.z);
+    if (previous) {
+      // Newer segments carry more of the tracer's weight and colour, so the
+      // tail thins toward nothing rather than stopping on a hard edge.
+      const age = step / stored;
+      const radius = Math.max(.4, (bullet.rubber ? 3 : 2.2) * scale * age) / 2;
+      const dx = here.x - previous.x;
+      const dy = here.y - previous.y;
+      const length = Math.hypot(dx, dy);
+      if (length > .001) {
+        const nx = -dy / length * radius;
+        const ny = dx / length * radius;
+        const [r, g, b] = mixColor(ground, ink, .18 + age * .55);
+        screenTriangle(previous.x + nx, previous.y + ny,
+          previous.x - nx, previous.y - ny, here.x + nx, here.y + ny, r, g, b);
+        screenTriangle(previous.x - nx, previous.y - ny,
+          here.x - nx, here.y - ny, here.x + nx, here.y + ny, r, g, b);
+      }
+    }
+    previous = here;
+  }
 }
 
 function drawGrenadePickup(pickup, t) {
@@ -9582,14 +9844,15 @@ function spectatorQrBox() {
 
 function drawDebugPerformance(ink) {
   if (!debugHitboxes || shellMode !== "GAME" || roundResult) return;
-  const metaSize = compactLayout() ? 19 : 24;
+  const metaSize = debugReadoutMetaSize();
   const run = runtime();
-  // Only the console fills in a refresh rate, a render surface, and per-stage
-  // timings. The browser reports none of them, and the read-out used to answer
-  // with the logical stage size, the measured frame rate wearing a Hz label,
-  // and a row of zeroed milliseconds — three numbers that looked like
-  // instruments and were not. Each line waits for a real measurement now, so
-  // the web build says the one true thing it knows: how fast it is drawing.
+  // Every line waits for a real measurement. The read-out used to answer with
+  // the logical stage size, the measured frame rate wearing a Hz label, and a
+  // row of zeroed milliseconds — three numbers that looked like instruments and
+  // were not. The browser now times its own frame span and its own paint, so it
+  // fills the rate and two of the three stages honestly; the render surface is
+  // still the console's alone, and a browser can never time the compositor's
+  // present, so that stage stays out of the row rather than reading 0.00ms.
   const refreshHz = Number(run.refreshHz) || 0;
   // Measured first, always — the display's refresh rate is a constant, not
   // an instrument, so it rides behind the number that actually moves.
@@ -9602,10 +9865,12 @@ function drawDebugPerformance(ink) {
     ? "  ·  " + renderWidth + "x" + renderHeight + "  ·  " +
       String(run.antialiasingMode || (aa + "x")) : "";
   const frameMs = Number(run.frameMs) || 0;
+  const presentMs = Number(run.presentMs) || 0;
   const timing = frameMs
     ? "frame " + frameMs.toFixed(2) + "ms  render " +
-      (Number(run.renderCpuMs) || 0).toFixed(2) + "ms  present " +
-      (Number(run.presentMs) || 0).toFixed(2) + "ms" : "";
+      (Number(run.renderCpuMs) || 0).toFixed(2) + "ms" +
+      (presentMs ? "  present " + presentMs.toFixed(2) + "ms" : "") : "";
+  const agents = linkedAgents();
   // The bottom-left corner belongs to a fighter's nameplate, so the read-out
   // stacks upward from just above it instead of printing across a handle. The
   // ammo row keeps its own lane a stat card further up, well clear of this.
@@ -9613,10 +9878,50 @@ function drawDebugPerformance(ink) {
   let y = lane.y - metaSize - 6;
   for (const [index, label] of [rate + surface, timing].entries()) {
     if (!label) continue;
-    const size = index ? Math.max(17, Math.round(metaSize * .76)) : metaSize;
+    const size = index ? debugReadoutTimingSize() : metaSize;
     typeWrite(label, lane.x, y, size, ...ink);
+    // The link mark rides the end of the measured-rate row rather than taking a
+    // lane of its own: what it reports on is those numbers, not the round.
+    if (!index && agents)
+      drawAgentLink(lane.x + handleWidth(label.toLowerCase(), size) + size * .8,
+        y + size * .52, size / 22, agents);
     y -= size + 5;
   }
+}
+
+// How many telemetry watchers are reading this round. The relay counts
+// `role=agent` sockets apart from phone spectators and tells the publishing
+// game; a host that has not wired that up answers nothing and the mark stays
+// off. Note this can only ever see the live socket: the console's
+// AC_NATIVE_PROFILE line goes out one way through OutputDebugStringA, so a
+// Device Portal reading it is invisible from in here.
+function linkedAgents() {
+  if (typeof capabilities !== "function") return 0;
+  return Math.max(0, Math.round(Number(capabilities().liveAgents) || 0));
+}
+
+// @jeffrey: "if we are in debug mode and reading telemetry on a device can we
+// show a little agent icon to show our linked in connection on the telemetry of
+// that round". An antenna'd head, so it cannot be read as the debug bug beside
+// it or as one more human in the grandstand — a phone that scanned the round QR
+// is a viewer and lights nothing here. The mark means a machine is reading
+// these numbers right now.
+function drawAgentLink(x, y, scale = 1, count = 1) {
+  const shell = [120, 226, 255];
+  const detail = [10, 16, 30];
+  // Antenna first so the head caps its stalk: the bulb on the air is the
+  // "linked" half of the mark and the head is the "agent" half.
+  filledCapsule(x, y - 5 * scale, x, y - 10 * scale, 1.6 * scale, shell);
+  filledDisc(x, y - 11 * scale, 2.2 * scale, shell);
+  filledCapsule(x - 4 * scale, y, x + 4 * scale, y, 12 * scale, shell);
+  filledDisc(x - 3 * scale, y - 1.5 * scale, 1.7 * scale, detail);
+  filledDisc(x + 3 * scale, y - 1.5 * scale, 1.7 * scale, detail);
+  filledCapsule(x - 3 * scale, y + 3 * scale, x + 3 * scale, y + 3 * scale,
+    1.6 * scale, detail);
+  // A second watcher is rare enough to say plainly rather than by stacking
+  // heads sideways across a read-out that has no room for them.
+  if (count > 1) typeWrite(String(count), x + 13 * scale, y - 6 * scale,
+    Math.max(12, Math.round(13 * scale)), ...shell);
 }
 
 function drawSpectatorQr(ink, placement = null) {
@@ -9798,16 +10103,30 @@ function gamePaint() {
   drawBoosterPad(t);
   const platformNear = -520;
   const platformFar = 520;
-  const ledgeLeft = Math.max(platformLeft, spanLeft);
-  const ledgeRight = Math.min(platformRight, spanRight);
-  // The platform wants to be a slab, but the stage paints in order with no
-  // depth buffer — the volume's faces landed over the fighters on console.
-  // Back to the plane until the volume can be drawn behind them properly.
-  if (PLATFORM && ledgeLeft < ledgeRight) worldQuad(
-    { x: ledgeLeft, y: platformY, z: platformNear },
-    { x: ledgeRight, y: platformY, z: platformNear },
-    { x: ledgeRight, y: platformY, z: platformFar },
-    { x: ledgeLeft, y: platformY, z: platformFar }, platformColor);
+  // A rung wants to be a slab, but the stage paints in order with no depth
+  // buffer — the volume's faces landed over the fighters on console. So each
+  // one is a plane plus a front-edge line: the plane is the deck a fighter
+  // stands on, and the line is the lip, which is what keeps a rung readable
+  // when the camera happens to sit at its height and the deck goes edge-on.
+  // The line rides the line layer, so twelve rungs cost twenty-four faces and
+  // the lips cost none. The span clamp is the same one the terrain uses, and
+  // in a room this size its 2600-unit apron usually covers everything — it is
+  // here to bound the worst case, not because it culls much today.
+  const ledgeInk = mixColor(platformColor, [26, 24, 34], .42);
+  if (PLATFORM) for (const ledge of platforms) {
+    if (ledge.right < spanLeft || ledge.left > spanRight) continue;
+    if (ledge.y < spanTop || ledge.y > spanBottom) continue;
+    const ledgeLeft = Math.max(ledge.left, spanLeft);
+    const ledgeRight = Math.min(ledge.right, spanRight);
+    if (ledgeLeft >= ledgeRight) continue;
+    worldQuad(
+      { x: ledgeLeft, y: ledge.y, z: platformNear },
+      { x: ledgeRight, y: ledge.y, z: platformNear },
+      { x: ledgeRight, y: ledge.y, z: platformFar },
+      { x: ledgeLeft, y: ledge.y, z: platformFar }, platformColor);
+    worldLine(ledgeLeft, ledge.y, platformNear,
+      ledgeRight, ledge.y, platformNear, 5, ledgeInk);
+  }
   const shadowInk = mixColor([3, 5, 14], [92, 99, 101],
     visualTheme.light * .72);
   for (const player of players)

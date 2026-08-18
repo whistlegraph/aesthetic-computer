@@ -37,7 +37,48 @@ export function createFrameDriver({
     lastSimulationAt: 0,
     lastRenderCostMs: 0,
     lastSimulationCostMs: 0,
+    // Averaged frame timing, named to match what App.cpp already puts on the
+    // native runtime object (`frame_ms`, `render_cpu_ms`, `refresh_hz`), so a
+    // browser read-out and an AC_NATIVE_PROFILE line can be compared without
+    // translating. Zero until the first window closes: a number nobody has
+    // measured yet is absent, never reported as 0.00.
+    frameMs: 0,
+    renderCpuMs: 0,
+    refreshHz: 0,
   };
+
+  // @jeffrey plays in a browser on an Xbox, where there are no devtools, so the
+  // frame rate the console is actually drawing had no way out of the page. The
+  // window is the same 120 frames App.cpp averages over. Both inputs are
+  // measurements this driver already takes -- the rAF timestamp it is handed,
+  // and the paint cost it already clocks -- so a profiled frame costs two adds
+  // and a compare and never asks for another clock reading.
+  const profileWindow = 120;
+  let profileFrames = 0;
+  let profileSpanMs = 0;
+  let profileRenderMs = 0;
+  let profileAt = 0;
+
+  const profileFrame = (current) => {
+    if (profileAt) {
+      profileSpanMs += current - profileAt;
+      profileRenderMs += stats.lastRenderCostMs;
+      profileFrames++;
+    }
+    profileAt = current;
+    if (profileFrames < profileWindow) return;
+    stats.frameMs = profileSpanMs / profileFrames;
+    stats.renderCpuMs = profileRenderMs / profileFrames;
+    stats.refreshHz = stats.frameMs > 0 ? 1000 / stats.frameMs : 0;
+    profileFrames = 0;
+    profileSpanMs = 0;
+    profileRenderMs = 0;
+  };
+
+  // A hidden tab stops receiving frames, and the one span that bridges the gap
+  // is minutes long. Dropping the anchor throws that span away instead of
+  // letting a backgrounded tab report a two-second frame.
+  const forgetProfileFrame = () => { profileAt = 0; };
 
   const sampleInput = () => {
     sample();
@@ -102,6 +143,7 @@ export function createFrameDriver({
       stats.renderFrames++;
       stats.lastRenderAt = current;
       stats.lastRenderCostMs = Math.max(0, now() - started);
+      profileFrame(current);
     }
     rafHandle = requestFrame(rafTick);
   };
@@ -133,6 +175,7 @@ export function createFrameDriver({
       if (running) return;
       running = true;
       visible = true;
+      forgetProfileFrame();
       stats.startedAt = now();
       simulationTime = stats.startedAt;
       nextSimulationAt = stats.startedAt;
@@ -145,12 +188,14 @@ export function createFrameDriver({
     stop() {
       if (!running) return;
       running = false;
+      forgetProfileFrame();
       clearSimulationTimer();
       if (rafHandle !== null) cancelFrame(rafHandle);
       rafHandle = null;
     },
     setVisible(value) {
       visible = Boolean(value);
+      forgetProfileFrame();
       clearSimulationTimer();
       if (!running || !visible) return;
       nextSimulationAt = now();

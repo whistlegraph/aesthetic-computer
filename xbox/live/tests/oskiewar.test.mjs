@@ -87,7 +87,7 @@ function createFight(startImmediately = true, enterGame = true,
   const drawLine = (...values) => lines.push(values);
   const fight = new Function(
     "runtime", "gamepad", "capabilities", "telemetry", "gameSignal", "saveReplay", "publishLive", "analytics", "drum", "wipe", "box", "line", "triangle", "triangle3d", "triangles3d", "write", "systemWrite", "gameView",
-    `${source}\nreturn { boot, sim, paint, playDrum, captureClientError, drawDetachedPart, clientErrorState: () => clientError, clientErrorDetailState: () => clientErrorDetail, errorReportStatus, errorRestartSeconds, combatLegend, commandFade, dummyPopLine, filledDisc, spectatorCode, runShadow, glyphColor, contrastShadow, stateDumpRows, dumpTokens, dumpTokenInk, clientErrorDumpState: () => ({ url: clientErrorDumpUrl, modules: clientErrorQr ? clientErrorQr.getModuleCount() : 0 }), controlLocale, animatedTitleColor, comicGlyphAdvance, handleWidth, displayTheme, players, ball, balls, bullets, grenades, gunPickups, grenadePickups, bodyTrees, treeFruit, detachedParts, runnerWorldGeometry, fighterAnimationPhase, runnerDistanceToPoint, segmentSegmentClosest, meleeLimbContact, damagePart, isPogo, isHeadOnly, resultCardText, pacificTimeLabel, projectedBallRadius, deathCinematicState: () => deathCinematic ? { ...deathCinematic, age: deathCinematicAge() } : null, disableBall: () => { ballEnabled = false; for (const item of balls) item.active = false; }, enableBall: (index = 0) => { ballEnabled = true; const item = balls[index]; item.active = true; item.serveAt = 0; item.safeUntil = 0; item.safePlayers = 0; }, setWind: (value) => { windAcceleration = value; }, setDebugHitboxes: (value) => { debugHitboxes = Boolean(value); }, debugState: () => debugHitboxes, windState: () => ({ direction: windDirection, mph: windMph }), nextRound: () => resetRound(runtime().monotonicUs, false), knockOut: () => killPlayer(players[1], 0, runtime().monotonicUs, "KO"), selfBallDummy: () => killPlayer(players[1], 1, runtime().monotonicUs, "BALLED"), startAttack: (kind) => startMelee(players[0], kind, runtime().monotonicUs), bootFirstBall: () => bootBall(ball, players[0], runtime().monotonicUs), wackBall: () => { players[0].attackKind = "KICK"; returnBall(ball, players[0], runtime().monotonicUs, false); }, shieldBall: () => returnBall(ball, players[0], runtime().monotonicUs, true), crossWackBall: (contact = 1) => crossWackBall(ball, players.map((player) => ({ player, contact })), runtime().monotonicUs), enterGame: () => enterGame(runtime().monotonicUs), shellState: () => ({ mode: shellMode }), startFight: () => { shellMode = "GAME"; selecting = false; players[1].npc = false; players[1].bot = false; applyRoster(players[1], 2); startReplay(runtime().monotonicUs); matchBallType = "soccer"; resetRound(runtime().monotonicUs, true); }, startFightAgainst: (kind) => startFightAgainst(kind, runtime().monotonicUs), palSelect: () => PAL_SELECT, titleToyState: () => ({ title: titleToys.map((toy) => ({ ...toy })), prompt: promptToys.map((toy) => ({ ...toy })), bounce: promptBounce }), selectionState: () => ({ selecting, step: selectionStep, cursor: selectionCursor, ready: selectionReady.slice() }), selectionOptions: () => selectionOptions().map((option) => ({ kind: option.kind, label: option.fighter.handle, disabled: Boolean(option.disabled) })), cameraState: () => ({ cameraWidth, cameraCenter, cameraCenterY, cameraAspect, stageRight, stageTop, stageBottom, viewHeight, cameraContainFloor, doll: { width: cameraDoll.width, target: { ...cameraDoll.target }, position: { ...cameraDoll.position }, perspective: cameraDoll.perspective, roll: cameraDoll.roll } }), screenBounds: () => players.map((player) => runnerScreenBounds(player, runtime().monotonicUs / 1e6)), dumpTokens, dumpTokenInk, drawCornerCrops, playerStatLines, playerHandleLayout, statStackHeight, setBallKind: (type) => { matchBallType = type; resetBalls(runtime().monotonicUs); }, ballTypeState: () => matchBallType, seriesBallType, seriesState: () => seriesName, selectionLayout: selectionTouchLayout, actionSafeRect, hudSafeRect, projectPoint, terrainSpan, stageGeometry: () => ({ platformY, platformLeft, platformRight, floorY, ceilingY, worldLeft, worldRight, worldNear, worldFar }), frameRect: () => fighterFrameRect(), roundState: () => ({ roundResult, roundElapsedUs, matchOver }), viewerState: () => ({ active: Boolean(roundViewer), mode: roundViewerMode, status: roundViewerStatus, name: matchName }), instantReplayState: () => instantReplay ? { active: true, paused: instantReplay.paused, cursor: instantReplay.cursor, frames: instantReplay.frames.length, speed: instantReplay.speed, action: instantReplay.action } : { active: false }, replayFrameCount: () => roundReplayFrames.length, inputPadDown: (index) => inputPads[index]?.down?.slice() || [], startSelfPlay: () => startSelfPlay(runtime().monotonicUs), selfPlayState: () => selfPlay, replayActionCurve, replayRampStep, startInstantReplay: (now) => startInstantReplay(now) };`
+    `${source}\nreturn { boot, sim, paint, playDrum, captureClientError, drawDetachedPart, clientErrorState: () => clientError, clientErrorDetailState: () => clientErrorDetail, errorReportStatus, errorRestartSeconds, combatLegend, commandFade, dummyPopLine, filledDisc, spectatorCode, runShadow, glyphColor, contrastShadow, stateDumpRows, dumpTokens, dumpTokenInk, clientErrorDumpState: () => ({ url: clientErrorDumpUrl, modules: clientErrorQr ? clientErrorQr.getModuleCount() : 0 }), controlLocale, animatedTitleColor, comicGlyphAdvance, handleWidth, displayTheme, players, ball, balls, bullets, grenades, gunPickups, grenadePickups, bodyTrees, treeFruit, detachedParts, runnerWorldGeometry, fighterAnimationPhase, runnerDistanceToPoint, segmentSegmentClosest, meleeLimbContact, damagePart, isPogo, isHeadOnly, resultCardText, pacificTimeLabel, projectedBallRadius, deathCinematicState: () => deathCinematic ? { ...deathCinematic, age: deathCinematicAge() } : null, disableBall: () => { ballEnabled = false; for (const item of balls) item.active = false; }, enableBall: (index = 0) => { ballEnabled = true; const item = balls[index]; item.active = true; item.serveAt = 0; item.safeUntil = 0; item.safePlayers = 0; }, setWind: (value) => { windAcceleration = value; }, setDebugHitboxes: (value) => { debugHitboxes = Boolean(value); }, debugState: () => debugHitboxes, windState: () => ({ direction: windDirection, mph: windMph }), nextRound: () => resetRound(runtime().monotonicUs, false), knockOut: () => killPlayer(players[1], 0, runtime().monotonicUs, "KO"), selfBallDummy: () => killPlayer(players[1], 1, runtime().monotonicUs, "BALLED"), startAttack: (kind) => startMelee(players[0], kind, runtime().monotonicUs), bootFirstBall: () => bootBall(ball, players[0], runtime().monotonicUs), wackBall: () => { players[0].attackKind = "KICK"; returnBall(ball, players[0], runtime().monotonicUs, false); }, shieldBall: () => returnBall(ball, players[0], runtime().monotonicUs, true), crossWackBall: (contact = 1) => crossWackBall(ball, players.map((player) => ({ player, contact })), runtime().monotonicUs), enterGame: () => enterGame(runtime().monotonicUs), shellState: () => ({ mode: shellMode }), startFight: () => { shellMode = "GAME"; selecting = false; players[1].npc = false; players[1].bot = false; applyRoster(players[1], 2); startReplay(runtime().monotonicUs); matchBallType = "soccer"; resetRound(runtime().monotonicUs, true); }, startFightAgainst: (kind) => startFightAgainst(kind, runtime().monotonicUs), palSelect: () => PAL_SELECT, titleToyState: () => ({ title: titleToys.map((toy) => ({ ...toy })), prompt: promptToys.map((toy) => ({ ...toy })), bounce: promptBounce }), selectionState: () => ({ selecting, step: selectionStep, cursor: selectionCursor, ready: selectionReady.slice() }), selectionOptions: () => selectionOptions().map((option) => ({ kind: option.kind, label: option.fighter.handle, disabled: Boolean(option.disabled) })), cameraState: () => ({ cameraWidth, cameraCenter, cameraCenterY, cameraAspect, stageRight, stageTop, stageBottom, viewHeight, cameraContainFloor, doll: { width: cameraDoll.width, target: { ...cameraDoll.target }, position: { ...cameraDoll.position }, perspective: cameraDoll.perspective, roll: cameraDoll.roll } }), screenBounds: () => players.map((player) => runnerScreenBounds(player, runtime().monotonicUs / 1e6)), dumpTokens, dumpTokenInk, drawCornerCrops, playerStatLines, playerHandleLayout, statStackHeight, setBallKind: (type) => { matchBallType = type; resetBalls(runtime().monotonicUs); }, ballTypeState: () => matchBallType, seriesBallType, seriesState: () => seriesName, selectionLayout: selectionTouchLayout, actionSafeRect, hudSafeRect, projectPoint, terrainSpan, stageGeometry: () => ({ platformY, platformLeft, platformRight, floorY, ceilingY, worldLeft, worldRight, worldNear, worldFar }), platformTable: () => platforms.map((rung) => ({ ...rung })), frameRect: () => fighterFrameRect(), roundState: () => ({ roundResult, roundElapsedUs, matchOver }), viewerState: () => ({ active: Boolean(roundViewer), mode: roundViewerMode, status: roundViewerStatus, name: matchName }), instantReplayState: () => instantReplay ? { active: true, paused: instantReplay.paused, cursor: instantReplay.cursor, frames: instantReplay.frames.length, speed: instantReplay.speed, action: instantReplay.action } : { active: false }, replayFrameCount: () => roundReplayFrames.length, inputPadDown: (index) => inputPads[index]?.down?.slice() || [], startSelfPlay: () => startSelfPlay(runtime().monotonicUs), selfPlayState: () => selfPlay, replayActionCurve, replayRampStep, startInstantReplay: (now) => startInstantReplay(now) };`
   )(
     () => ({ monotonicUs: now, unixMs: 1785870000000 + Math.floor(now / 1000),
       simCount: Math.floor(now / 16667), paintCount: 0,
@@ -646,8 +646,9 @@ test("hardware insets stand the layout off the occluded screen edges", () => {
 });
 
 test("fighters start within a close twelve-foot read", () => {
-  assert.match(source, /pad: 0, spawnX: 2240, x: 2240/);
-  assert.match(source, /pad: 1, spawnX: 2760, x: 2760/);
+  // Still 520 apart; the marks moved with the tower's center at 1500.
+  assert.match(source, /pad: 0, spawnX: 1240, x: 1240/);
+  assert.match(source, /pad: 1, spawnX: 1760, x: 1760/);
   assert.match(source, /cameraWidth = 960;/);
 });
 
@@ -772,11 +773,14 @@ test("camera zoom-out remains continuous as fighters approach safe edges", () =>
 
 // Settle a live fight into a given horizontal separation and report the frame.
 function settleFraming(fight, tick, separation, frames = 420) {
-  // Mid-room on the padded floor — the old 6000 was mid-street and now
-  // sits outside the right wall.
-  const left = 2500 - separation / 2;
-  const right = 2500 + separation / 2;
-  const floorY = fight.stageGeometry().floorY;
+  // Mid-room on the arena floor, read from the arena rather than written
+  // down: a separation straddling a stale center clamps against a wall and
+  // silently measures a narrower pair than the caller asked for.
+  const stage = fight.stageGeometry();
+  const middle = (stage.worldLeft + stage.worldRight) / 2;
+  const left = middle - separation / 2;
+  const right = middle + separation / 2;
+  const floorY = stage.floorY;
   for (let frame = 0; frame < frames; frame++) {
     for (const [player, x] of [[fight.players[0], left], [fight.players[1], right]]) {
       player.x = x;
@@ -1558,6 +1562,73 @@ test("active matches publish bounded phone spectator snapshots", () => {
   assert.ok(JSON.stringify(frame).length < 7168);
 });
 
+// @jeffrey plays oskiewar.com in Edge on an Xbox, where there are no devtools
+// and the console's own AC_NATIVE_PROFILE line only reaches a Device Portal on
+// the same LAN. The live socket is the one channel that already leaves the box,
+// so the frame numbers ride out with the round — and have to stay small enough
+// that they never crowd the relay's 8 KiB message cap.
+test("live rounds carry the frame numbers the debug HUD prints", () => {
+  const { liveFrames, tick } = createFight();
+  tick(50000);
+  const frame = liveFrames.at(-1)[1];
+  assert.ok(Number.isInteger(frame.perf.fps));
+  // This harness's host times no stages, and an unmeasured stage is left out
+  // rather than published as a zero a reader would mistake for a stall.
+  assert.deepEqual(Object.keys(frame.perf), ["fps"]);
+  const measured = { ...frame,
+    perf: { fps: 59, frameMs: 16.72, renderMs: 3.41, hz: 60 } };
+  const cost = JSON.stringify(measured).length -
+    JSON.stringify({ ...frame, perf: undefined }).length;
+  assert.ok(cost <= 64, `the whole read-out costs ${cost} bytes on the wire`);
+  assert.ok(JSON.stringify(measured).length < 7168);
+});
+
+// The browser used to answer every timing question with a zero, so the read-out
+// printed nothing at all on the surface @jeffrey actually plays on. Both inputs
+// are measurements the driver already takes — the rAF timestamp it is handed,
+// and the paint cost it already clocks — so nothing here asks for a new reading.
+test("the web shell times its own frames from the driver's profile", () => {
+  const driver = String(frameDriverSource);
+  assert.match(driver, /const profileWindow = 120/);
+  assert.match(driver, /profileSpanMs \+= current - profileAt/);
+  assert.match(driver, /profileRenderMs \+= stats\.lastRenderCostMs/);
+  assert.match(driver, /stats\.refreshHz = stats\.frameMs > 0/);
+  // A backgrounded tab returns with one span minutes long; the anchor is
+  // dropped so that span is thrown away rather than averaged in.
+  assert.match(driver, /const forgetProfileFrame = \(\) => \{ profileAt = 0; \}/);
+  // The offline lane steps by hand, so its frame span means nothing and a reel
+  // burn must never feed the profile.
+  const offline = driver.slice(driver.indexOf("stepOffline()"),
+    driver.indexOf("    start()"));
+  assert.doesNotMatch(offline, /profileFrame\(/);
+  assert.match(webShell, /frameMs: frames\?\.frameMs \|\| 0/);
+  assert.match(webShell, /renderCpuMs: frames\?\.renderCpuMs \|\| 0/);
+  assert.match(webShell, /refreshHz: frames\?\.refreshHz \|\| 0/);
+  // A browser cannot time the compositor's present, so that stage stays out of
+  // the row instead of printing a measured-looking 0.00ms.
+  const perf = source.match(/function drawDebugPerformance[\s\S]*?\n}\n/)[0];
+  assert.match(perf, /presentMs \? "  present "/);
+});
+
+// @jeffrey: "if we are in debug mode and reading telemetry on a device can we
+// show a little agent icon to show our linked in connection on the telemetry of
+// that round". Only a `role=agent` socket reaches the count — a phone that
+// scanned the round QR is a viewer and lights nothing.
+test("a linked telemetry agent marks the read-out it is reading", () => {
+  const perf = source.match(/function drawDebugPerformance[\s\S]*?\n}\n/)[0];
+  assert.match(perf, /const agents = linkedAgents\(\)/);
+  assert.match(perf, /if \(!index && agents\)\n\s*drawAgentLink\(/);
+  assert.match(source,
+    /function linkedAgents\(\)[\s\S]{0,220}capabilities\(\)\.liveAgents/);
+  assert.match(source, /function drawAgentLink\(x, y, scale = 1, count = 1\)/);
+  // The shell keeps the count the relay hands the publisher, and clears it when
+  // the room closes: every round is its own room, so a watcher has to rejoin.
+  assert.match(webShell, /liveAgents: globalThis\.__oskiewarLiveAgents \|\| 0/);
+  assert.match(webShell, /message\.type === "oskiewar:viewers"/);
+  assert.match(webShell, /Number\(message\.content\?\.agents\) \|\| 0/);
+  assert.match(webShell, /globalThis\.__oskiewarLiveAgents = 0/);
+});
+
 test("every round gets a new URL and tells spectators where the room moved", () => {
   const { fight, liveFrames, tick } = createFight();
   tick(50000);
@@ -1752,16 +1823,17 @@ test("a bot holds its jump long enough to land on the platform it chases", { ski
   const stage = fight.stageGeometry();
   const bot = fight.players[1];
   const chased = fight.players[0];
+  const ledge = (stage.platformLeft + stage.platformRight) / 2;
   bot.npc = true;
   bot.bot = true;
   bot.name = "BOT";
-  bot.x = 6000;
+  bot.x = ledge;
   bot.botJumpAt = 0;
   let upFrames = 0;
   let landed = false;
   for (let frame = 0; frame < 90; frame++) {
     // Park the chased fighter on the ledge so the bot has a reason to climb.
-    chased.x = 6000;
+    chased.x = ledge;
     chased.y = stage.platformY;
     chased.vy = 0;
     chased.grounded = true;
@@ -2179,8 +2251,12 @@ test("gun drops grant ammo and Y fires in the quantized aim direction", () => {
   assert.ok(fight.bullets[0].vy < 0);
   const aimLength = Math.sqrt(2);
   const frameSeconds = 16667 / 1000000;
-  const muzzleX = fireX + 108 + 54 / aimLength;
-  const muzzleY = fireY - 115 - 54 / aimLength;
+  // The hand follows the aim now, so the muzzle rides a diagonal arm rather
+  // than sitting off the end of a forward-pointing one. Both the 108 reach and
+  // the 54 of barrel are measured along the aim; the resting -115 shoulder
+  // height gives way to the aimed pose's -102 plus its own 92 of lift.
+  const muzzleX = fireX + (108 + 54) / aimLength;
+  const muzzleY = fireY - 102 - (92 + 54) / aimLength;
   assert.ok(Math.abs(fight.bullets[0].x -
     (muzzleX + fight.bullets[0].vx * frameSeconds)) < .001);
   assert.ok(Math.abs(fight.bullets[0].y -
@@ -2683,7 +2759,7 @@ test("player lands on the center platform", { skip: !PLATFORM }, () => {
   const { fight, tick } = createFight();
   const stage = fight.stageGeometry();
   const player = fight.players[0];
-  player.x = 6000;
+  player.x = (stage.platformLeft + stage.platformRight) / 2;
   player.y = stage.platformY - 200;
   player.vy = 300;
   player.grounded = false;
@@ -2819,8 +2895,9 @@ function jumpArc(harness, pad = 0, holdFrames = 200) {
   const player = harness.fight.players[pad];
   // Clear of the ledge: it now sits inside a plain jump's arc, and landing on
   // it mid-measurement would truncate both the apex and the airtime.
-  const stage = harness.fight.stageGeometry();
-  if (PLATFORM) player.x = stage.platformLeft - 900;
+  // The shaft is the one column with no rung over it, so an arc measured
+  // there is the arc itself rather than an arc truncated by a landing.
+  if (PLATFORM) player.x = 1020;
   const floor = player.y;
   const startedAt = harness.now();
   let liftAt = 0;
@@ -2862,14 +2939,16 @@ test("holding up jumps high while a tapped up becomes a short hop", () => {
 
 test("the ultra jump still clears the platform after the gravity retune", { skip: !PLATFORM }, () => {
   const { fight, tap, tick } = createFight();
+  const stage = fight.stageGeometry();
   const player = fight.players[0];
-  player.x = 6000;
+  player.x = (stage.platformLeft + stage.platformRight) / 2;
   tap(0, "ArrowUp");
   tap(0, "ArrowUp");
   assert.equal(player.lastButton, "ULTRA JUMP");
   for (let frame = 0; frame < 200 && !player.grounded; frame++) tick();
   assert.ok(player.grounded);
-  assert.ok(player.y < 12000, `an ultra jump landed back on the floor at ${player.y}`);
+  assert.ok(player.y < stage.floorY,
+    `an ultra jump landed back on the floor at ${player.y}`);
 });
 
 test("a direction flick out of crouch becomes a low crouch hop", () => {
@@ -2919,14 +2998,16 @@ test("a crouch hop stays lower and shorter than a crouch jump", () => {
 
 test("double-tapping crouch sinks through the platform but never the floor", { skip: !PLATFORM }, () => {
   const { fight, tick, tap, signals } = createFight();
+  const stage = fight.stageGeometry();
   const player = fight.players[1];
-  player.x = 2500;
-  player.y = 4000;
+  player.x = (stage.platformLeft + stage.platformRight) / 2;
+  player.y = stage.platformY - 400;
   player.vy = 0;
   player.grounded = false;
   for (let frame = 0; frame < 200 && !player.grounded; frame++) tick();
   const platformY = player.y;
-  assert.ok(platformY < 12000, "the fighter should be resting on the platform");
+  assert.equal(platformY, stage.platformY,
+    "the fighter should be resting on the platform");
   tap(1, "ArrowDown");
   tap(1, "ArrowDown");
   assert.equal(player.lastButton, "SINK");
@@ -2936,15 +3017,17 @@ test("double-tapping crouch sinks through the platform but never the floor", { s
   assert.equal(player.grounded, false);
   assert.ok(player.y > platformY);
   for (let frame = 0; frame < 200 && !player.grounded; frame++) tick();
-  assert.equal(player.y, 12000);
+  // One rung down, and the rung below the first one is the floor.
+  assert.equal(player.y, stage.floorY);
   assert.notEqual(player.stance, "SINK");
 });
 
 test("a lone crouch tap on the platform never sinks", () => {
   const { fight, tick, tap } = createFight();
+  const stage = fight.stageGeometry();
   const player = fight.players[0];
-  player.x = 2500;
-  player.y = 4000;
+  player.x = (stage.platformLeft + stage.platformRight) / 2;
+  player.y = stage.platformY - 400;
   player.grounded = false;
   for (let frame = 0; frame < 200 && !player.grounded; frame++) tick();
   const platformY = player.y;
@@ -2966,14 +3049,15 @@ test("double-tapping crouch on the floor still fast-drops instead of sinking", (
 
 test("a bot stranded on the platform sinks back into reach", { skip: !PLATFORM }, () => {
   const { fight, tick } = createFight();
+  const stage = fight.stageGeometry();
   const bot = fight.players[1];
   bot.bot = true;
-  bot.x = 6000;
-  bot.y = 4000;
+  bot.x = (stage.platformLeft + stage.platformRight) / 2;
+  bot.y = stage.platformY - 400;
   bot.grounded = false;
   for (let frame = 0; frame < 200 && !bot.grounded; frame++) tick();
   const platformY = bot.y;
-  assert.ok(platformY < 12000);
+  assert.equal(platformY, stage.platformY);
   // The sink is a double-tap, so it has to arrive as two separate presses
   // with a gap `lastRelease` can see — not one long hold.
   const taps = [];
@@ -3227,10 +3311,11 @@ test("a served ball stays in the player's lane and can be approached", () => {
 
 test("running into a center-platform ball boots it", { skip: !PLATFORM }, () => {
   const { fight, pads, tick } = createFight();
-  const platformY = fight.stageGeometry().platformY;
+  const stage = fight.stageGeometry();
+  const platformY = stage.platformY;
   const player = fight.players[0];
   fight.enableBall();
-  player.x = 6000;
+  player.x = (stage.platformLeft + stage.platformRight) / 2;
   player.y = platformY;
   player.grounded = true;
   fight.ball.x = player.x + 36;
@@ -4423,11 +4508,49 @@ test("the Replay Oven captures match-HUD 60 fps high-quality masters", () => {
   assert.match(replayOven, /hud: true/);
 });
 
-test("the padded room keeps its size, flat floor, and quarter-pipe padding", () => {
-  assert.match(source, /const worldRight = 5000/);
-  assert.match(source, /const terrainSamples = 48/);
-  assert.match(source, /const transitionRadius = 720/);
+test("the tower keeps its size, flat floor, and thin walls", () => {
+  assert.match(source, /const worldRight = 3000/);
+  assert.match(source, /const ceilingY = -1600/);
+  assert.match(source, /const wallThickness = 40/);
+  // A flat floor has nothing finer to say than 125 units a quad.
+  assert.match(source, /const terrainSamples = 24/);
   assert.match(source, /const terrainAmplitude = 0/);
+  // The side skate ramps are gone: no quarter-pipe rise anywhere.
+  assert.doesNotMatch(source, /transitionRadius/);
+  assert.doesNotMatch(source, /halfPipeRise/);
+});
+
+// The lattice is the map. Every rung is one plain jump above the last, which
+// is what makes the tower climbable without a chart.
+test("the platform lattice is spaced by the jump it is climbed with", () => {
+  const { fight } = createFight(false, false, "web");
+  const stage = fight.stageGeometry();
+  const rungs = fight.platformTable();
+  assert.ok(rungs.length >= 10, `only ${rungs.length} rungs`);
+  // Apex of a plain jump: v^2 / 2g with the piece's own numbers.
+  const apex = 1760 ** 2 / (2 * 4800);
+  const doubleApex = apex * 2;
+  const ultraApex = 3960 ** 2 / (2 * 4800);
+  const levels = [...new Set(rungs.map((rung) => rung.y))]
+    .sort((a, b) => b - a);
+  // Everything but the crow's nest is one ordinary hop off the thing below.
+  const climbable = levels.filter((y) => y > Math.min(...levels));
+  let below = stage.floorY;
+  for (const y of climbable) {
+    assert.ok(below - y <= apex,
+      `a ${below - y} rise at ${y} is past a jump's ${apex.toFixed(0)}`);
+    below = y;
+  }
+  const nest = Math.min(...levels);
+  assert.ok(below - nest > doubleApex,
+    `the crow's nest at ${nest} is inside a double jump`);
+  assert.ok(below - nest < ultraApex,
+    `the crow's nest at ${nest} is past an ultra jump`);
+  // Two columns run clear from floor to roof so a popped ball comes back.
+  for (const shaft of [1020, 1980])
+    for (const rung of rungs)
+      assert.ok(shaft < rung.left || shaft > rung.right,
+        `a rung at ${rung.y} blocks the shaft at ${shaft}`);
 });
 
 test("camera bounds only cull an immutable globally mapped arena", () => {
@@ -4498,8 +4621,11 @@ test("crouched shield aim latches the pose and keeps directional eyes open", () 
 test("held-item shield aim previews the same eight-way body and muzzle vector", () => {
   assert.match(source, /player\.gunAimX = rawInput\.horizontal/);
   assert.match(source, /player\.gunAimY = -rawInput\.vertical/);
-  assert.match(source, /player\.itemAimLocked \? player\.gunAimX/);
+  // The lock is no longer the only thing that aims: a held vertical direction
+  // tilts the hand on its own, so every aim site reads the pair.
+  assert.match(source, /player\.itemAimLocked \|\| player\.gunAimLive/);
   assert.match(source, /if \(player\.itemAimLocked \|\|/);
+  assert.match(source, /player\.gunAimX = rawInput\.horizontal \|\| player\.facing/);
 });
 
 test("a primary web click maps to use item after the title", () => {

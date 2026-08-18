@@ -1,5 +1,6 @@
 // oskiewar Live Manager, 26.08.04
-// Small, public, match-id-scoped relay for phone spectators.
+// Small, public, match-id-scoped relay for phone spectators and, since the
+// frame numbers started riding in the payload, for telemetry agents too.
 
 import {
   oskiewarEvent,
@@ -15,6 +16,10 @@ const MATCH_ID = new RegExp(
 const PHASES = new Set(["select", "intro", "fight", "round", "match", "replay"]);
 const MAX_MESSAGE_BYTES = 8192;
 const MAX_VIEWERS = 64;
+// Agents watch the same fan-out as a phone but are counted and capped on their
+// own, so a room full of spectators can never lock a maintainer out of the
+// telemetry, and a stuck agent can never eat the spectator allowance.
+const MAX_AGENTS = 4;
 const MAX_ROOMS = 128;
 const ROOM_TTL_MS = 10 * 60 * 1000;
 const MIN_PUBLISH_INTERVAL_MS = 25;
@@ -52,6 +57,23 @@ function ball(value) {
     finite(value.y) && finite(value.z) && finite(value.radius, 10000);
 }
 
+// How fast the publishing client is actually drawing. @jeffrey plays in a
+// browser on an Xbox, which has no devtools, so this is the only way to read a
+// console's frame rate from anywhere else. Every field is optional because a
+// host publishes only the stages it measured, and the closed key list keeps a
+// public payload from growing a channel nobody reviewed.
+const PERF_KEYS = new Set(["fps", "frameMs", "renderMs", "hz"]);
+
+function perf(value) {
+  if (value === undefined) return true;
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  if (Object.keys(value).some((key) => !PERF_KEYS.has(key))) return false;
+  return (value.fps === undefined || integer(value.fps, 0, 1000)) &&
+    (value.hz === undefined || integer(value.hz, 0, 1000)) &&
+    (value.frameMs === undefined || finite(value.frameMs, 10000)) &&
+    (value.renderMs === undefined || finite(value.renderMs, 10000));
+}
+
 export function validateOskiewarLiveState(value) {
   if (!value || value.format !== "ac.oskiewar.live" || value.version !== 1)
     return "Unsupported live state";
@@ -83,6 +105,7 @@ export function validateOskiewarLiveState(value) {
       !integer(value.round.remainingMs, 0, 3600000) ||
       typeof value.round.result !== "string" || value.round.result.length > 80)
     return "Invalid round";
+  if (!perf(value.perf)) return "Invalid performance";
   if (value.replayUrl !== undefined &&
       !/^\/api\/oskiewar-replays\?id=ow-[a-z0-9-]+$/.test(value.replayUrl))
     return "Invalid replay URL";
@@ -120,7 +143,12 @@ export class OskiewarLiveManager {
     ws.on("pong", () => { ws.isAlive = true; });
     const url = new URL(req.url, "http://session");
     const matchId = canonicalMatchId(url.searchParams.get("match"));
-    const role = url.searchParams.get("role") === "publisher" ? "publisher" : "viewer";
+    // Three roles, and everything unrecognized still watches. A phone that
+    // scanned the round QR sends no role at all, and an older client that sends
+    // one this build has never heard of must not be turned away at the door.
+    const requestedRole = url.searchParams.get("role");
+    const role = requestedRole === "publisher" ? "publisher"
+      : requestedRole === "agent" ? "agent" : "viewer";
     const surface = oskiewarSurface(url.searchParams.get("surface"));
     if (!matchId) {
       send(ws, "oskiewar:error", { message: "Invalid match ID" });
@@ -136,13 +164,25 @@ export class OskiewarLiveManager {
         return true;
       }
       room = { matchId, publisher: null, publisherSurface: "unknown",
-        viewers: new Set(), state: null, liveStarted: false,
+        viewers: new Set(), agents: new Set(), state: null, liveStarted: false,
         updatedAt: this.now(), publishedAt: 0 };
       this.rooms.set(matchId, room);
     }
     if (role === "publisher") this.addPublisher(room, ws, surface);
+    else if (role === "agent") this.addAgent(room, ws);
     else this.addViewer(room, ws, surface);
     return true;
+  }
+
+  // Who is in the room, split by what they came for. The publishing game draws
+  // an agent mark from `agents` alone, so a packed grandstand must never make
+  // it claim a maintainer is linked in.
+  audience(room) {
+    return { count: room.viewers.size, agents: room.agents.size };
+  }
+
+  announceAudience(room) {
+    send(room.publisher, "oskiewar:viewers", this.audience(room));
   }
 
   addPublisher(room, ws, surface) {
@@ -155,7 +195,8 @@ export class OskiewarLiveManager {
     room.publisherSurface = surface;
     room.updatedAt = this.now();
     send(ws, "oskiewar:ready", { matchId: room.matchId,
-      viewers: room.viewers.size, maxHz: Math.floor(1000 / MIN_PUBLISH_INTERVAL_MS) });
+      viewers: room.viewers.size, agents: room.agents.size,
+      maxHz: Math.floor(1000 / MIN_PUBLISH_INTERVAL_MS) });
     this.broadcastStatus(room);
     ws.on("message", (data) => this.publish(room, ws, data));
     ws.on("close", () => {
@@ -182,11 +223,36 @@ export class OskiewarLiveManager {
     });
     send(ws, "oskiewar:status", this.status(room));
     if (room.state) send(ws, "oskiewar:state", room.state);
-    send(room.publisher, "oskiewar:viewers", { count: room.viewers.size });
+    this.announceAudience(room);
     const remove = () => {
       room.viewers.delete(ws);
       room.updatedAt = this.now();
-      send(room.publisher, "oskiewar:viewers", { count: room.viewers.size });
+      this.announceAudience(room);
+    };
+    ws.on("close", remove);
+    ws.on("error", remove);
+  }
+
+  // A telemetry watcher: same fan-out as a phone, because the frame numbers
+  // ride in the state payload, but counted apart so the game can tell a machine
+  // reading its performance from somebody watching the fight. Deliberately no
+  // analytics — a maintainer attaching a debugger is not a spectator, and
+  // filing it as one would quietly inflate the audience metric.
+  addAgent(room, ws) {
+    if (room.agents.size >= MAX_AGENTS) {
+      send(ws, "oskiewar:error", { message: "This match has reached 4 agents" });
+      ws.close?.(4429, "Agent capacity reached");
+      return;
+    }
+    room.agents.add(ws);
+    room.updatedAt = this.now();
+    send(ws, "oskiewar:status", this.status(room));
+    if (room.state) send(ws, "oskiewar:state", room.state);
+    this.announceAudience(room);
+    const remove = () => {
+      room.agents.delete(ws);
+      room.updatedAt = this.now();
+      this.announceAudience(room);
     };
     ws.on("close", remove);
     ws.on("error", remove);
@@ -222,28 +288,38 @@ export class OskiewarLiveManager {
         phase: state.phase,
       });
     }
-    for (const viewer of room.viewers) send(viewer, "oskiewar:state", state);
+    for (const watcher of this.watchers(room))
+      send(watcher, "oskiewar:state", state);
+  }
+
+  // Agents read the frame numbers out of the same state payload a phone gets,
+  // so the fan-out is one list; only the counting is split.
+  *watchers(room) {
+    yield* room.viewers;
+    yield* room.agents;
   }
 
   status(room) {
     return { matchId: room.matchId, live: room.publisher?.readyState === 1,
-      viewers: room.viewers.size, hasState: Boolean(room.state),
-      updatedAt: room.updatedAt };
+      viewers: room.viewers.size, agents: room.agents.size,
+      hasState: Boolean(room.state), updatedAt: room.updatedAt };
   }
 
   broadcastStatus(room) {
     const status = this.status(room);
-    for (const viewer of room.viewers) send(viewer, "oskiewar:status", status);
+    for (const watcher of this.watchers(room))
+      send(watcher, "oskiewar:status", status);
   }
 
   prune() {
     const oldest = this.now() - ROOM_TTL_MS;
     for (const [matchId, room] of this.rooms) {
-      if (!room.publisher && room.viewers.size === 0 && room.updatedAt < oldest)
+      if (!room.publisher && room.viewers.size === 0 &&
+          room.agents.size === 0 && room.updatedAt < oldest)
         this.rooms.delete(matchId);
     }
   }
 }
 
 export const OSKIEWAR_LIVE_LIMITS = Object.freeze({ MAX_MESSAGE_BYTES,
-  MAX_VIEWERS, MAX_ROOMS, ROOM_TTL_MS, MIN_PUBLISH_INTERVAL_MS });
+  MAX_VIEWERS, MAX_AGENTS, MAX_ROOMS, ROOM_TTL_MS, MIN_PUBLISH_INTERVAL_MS });

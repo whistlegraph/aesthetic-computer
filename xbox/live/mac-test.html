@@ -536,11 +536,21 @@
     let simulationMonotonicMs = null;
     let lastSimulationMonotonicMs = null;
     function runtime() {
+      // Frame timing comes from the driver's own profile rather than a second
+      // clock in here: those are measurements it already takes, and the names
+      // are the console's (App.cpp fills the same three), so the debug read-out
+      // and the live payload read identically on either surface. A browser
+      // cannot time the compositor's present, so that stage stays absent rather
+      // than being reported as a measured zero.
+      const frames = globalThis.__oskiewarFrameStats;
       return { monotonicUs: (simulationMonotonicMs ?? performance.now()) * 1000,
         simMonotonicUs: (simulationMonotonicMs ?? lastSimulationMonotonicMs ??
           performance.now()) * 1000,
         unixMs: Date.now(),
         audioLatencyMs: audioContext?.baseLatency ? audioContext.baseLatency * 1000 : 0,
+        frameMs: frames?.frameMs || 0,
+        renderCpuMs: frames?.renderCpuMs || 0,
+        refreshHz: frames?.refreshHz || 0,
         frameRate: 60, clientErrorReportStatus };
     }
     function telemetry(kind, message) {
@@ -725,6 +735,13 @@
         // without the host needing a new sandbox function to say so.
         midi: document.body.classList.contains("midi-out"),
         midiPulse: globalThis.__oskiewarMidiPulse || 0,
+        // How many telemetry watchers are linked to the round on screen. This
+        // is the only reader the game can ever see: AC_NATIVE_PROFILE leaves
+        // the box one way, so a Device Portal reading it is invisible from in
+        // here. The relay counts `role=agent` sockets apart from phone
+        // spectators and tells the publisher, so the debug HUD can say a
+        // machine is watching without lighting up for every QR scan.
+        liveAgents: globalThis.__oskiewarLiveAgents || 0,
         // The shared dummy count. Null until the first fetch answers, and the
         // title screen simply says nothing while it is.
         pops: dummyPops,
@@ -924,7 +941,24 @@
           state.pending = "";
           if (state.retire) setTimeout(() => socket.close(1000, "next round"), 0);
         });
-        socket.addEventListener("close", () => liveSockets.delete(matchId));
+        // The relay has always told the publishing game who joined its room and
+        // the game has always dropped it on the floor. It is the only inbound
+        // word this socket carries, and it is what lets the debug HUD show that
+        // a telemetry watcher is reading THIS round.
+        socket.addEventListener("message", (event) => {
+          let message;
+          try { message = JSON.parse(event.data); } catch { return; }
+          if (message.type === "oskiewar:viewers")
+            globalThis.__oskiewarLiveAgents =
+              Math.max(0, Number(message.content?.agents) || 0);
+        });
+        socket.addEventListener("close", () => {
+          liveSockets.delete(matchId);
+          // Each round is its own room, so a closed socket means whoever was
+          // linked is linked to a room that no longer exists. They have to
+          // rejoin the next round's ID, and until they do the mark is off.
+          globalThis.__oskiewarLiveAgents = 0;
+        });
         return;
       }
       state.retire ||= retiresRoom;

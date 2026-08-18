@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
 import { canonicalMatchId, validateOskiewarLiveState,
-  OskiewarLiveManager } from "./oskiewar-live-manager.mjs";
+  OskiewarLiveManager, OSKIEWAR_LIVE_LIMITS } from "./oskiewar-live-manager.mjs";
 
 class FakeSocket extends EventEmitter {
   constructor() { super(); this.readyState = 1; this.sent = []; this.closed = null; }
@@ -153,4 +153,81 @@ test("live rooms emit minimized server milestones once", () => {
   ]);
   assert.ok(captured.every(([, properties]) =>
     !Object.hasOwn(properties, "matchId")));
+});
+
+// @jeffrey: "if we are in debug mode and reading telemetry on a device can we
+// show a little agent icon to show our linked in connection". The game can only
+// draw that mark if the relay tells it a machine — rather than one more phone
+// that scanned the round QR — is on the wire.
+test("an agent link is counted apart from the phone grandstand", () => {
+  let now = 100;
+  const manager = new OskiewarLiveManager({ now: () => now });
+  const host = new FakeSocket(), viewer = new FakeSocket();
+  const agent = new FakeSocket();
+  const url = "/oskiewar-live?match=bafegu-dorimi-kunapo";
+  manager.handleConnection(host, { url: `${url}&role=publisher&surface=web` });
+  manager.handleConnection(viewer, { url });
+  assert.deepEqual(host.sent.at(-1),
+    { type: "oskiewar:viewers", content: { count: 1, agents: 0 } });
+  manager.handleConnection(agent, { url: `${url}&role=agent` });
+  assert.deepEqual(host.sent.at(-1),
+    { type: "oskiewar:viewers", content: { count: 1, agents: 1 } });
+  now += 30;
+  host.emit("message", Buffer.from(JSON.stringify({ type: "oskiewar:state",
+    content: { ...state(), perf: { fps: 58, frameMs: 17.2 } } })));
+  // An agent reads the frame numbers out of the same payload a phone gets, so
+  // the split is in the counting only, never in the fan-out.
+  assert.equal(agent.sent.at(-1).type, "oskiewar:state");
+  assert.deepEqual(agent.sent.at(-1).content.perf, { fps: 58, frameMs: 17.2 });
+  agent.close(1000, "done");
+  assert.deepEqual(host.sent.at(-1),
+    { type: "oskiewar:viewers", content: { count: 1, agents: 0 } });
+});
+
+// A room packed with spectators must never lock a maintainer out of the
+// telemetry, and a stuck agent must never eat the spectator allowance.
+test("agents hold their own small allowance beside the 64 viewer seats", () => {
+  const manager = new OskiewarLiveManager();
+  const host = new FakeSocket();
+  const url = "/oskiewar-live?match=bafegu-dorimi-kunapo";
+  manager.handleConnection(host, { url: `${url}&role=publisher` });
+  const agents = Array.from({ length: OSKIEWAR_LIVE_LIMITS.MAX_AGENTS },
+    () => new FakeSocket());
+  for (const agent of agents)
+    manager.handleConnection(agent, { url: `${url}&role=agent` });
+  assert.ok(agents.every((agent) => agent.closed === null));
+  const extra = new FakeSocket();
+  manager.handleConnection(extra, { url: `${url}&role=agent` });
+  assert.equal(extra.closed?.code, 4429);
+  // The grandstand is untouched by a full agent bench.
+  const viewer = new FakeSocket();
+  manager.handleConnection(viewer, { url });
+  assert.deepEqual(host.sent.at(-1).content,
+    { count: 1, agents: OSKIEWAR_LIVE_LIMITS.MAX_AGENTS });
+});
+
+// A phone that scanned the QR sends no role at all, and a client built against
+// a later vocabulary must not be turned away at the door.
+test("an unrecognized role still watches as an ordinary spectator", () => {
+  const manager = new OskiewarLiveManager();
+  const host = new FakeSocket(), stranger = new FakeSocket();
+  const url = "/oskiewar-live?match=bafegu-dorimi-kunapo";
+  manager.handleConnection(host, { url: `${url}&role=publisher` });
+  manager.handleConnection(stranger, { url: `${url}&role=telemetry-probe` });
+  assert.equal(stranger.closed, null);
+  assert.deepEqual(host.sent.at(-1).content, { count: 1, agents: 0 });
+});
+
+// The frame numbers are the reason an agent connects at all, and they land on a
+// public feed, so the block is a closed list of bounded numbers.
+test("published frame timing is bounded and closed to unknown keys", () => {
+  assert.equal(validateOskiewarLiveState({ ...state(),
+    perf: { fps: 59, frameMs: 16.72, renderMs: 3.41, hz: 60 } }), null);
+  assert.equal(validateOskiewarLiveState({ ...state(), perf: { fps: 59 } }), null);
+  assert.equal(validateOskiewarLiveState({ ...state(),
+    perf: { fps: 59, handle: "@jeffrey" } }), "Invalid performance");
+  assert.equal(validateOskiewarLiveState({ ...state(), perf: { fps: 1000000 } }),
+    "Invalid performance");
+  assert.equal(validateOskiewarLiveState({ ...state(), perf: [59] }),
+    "Invalid performance");
 });

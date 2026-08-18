@@ -194,10 +194,50 @@ function visible(command) {
 }
 
 const drawn = commands.filter(visible);
-const body = drawn.map((command) => {
-  if (command.kind === "triangle")
-    return `<polygon points="${command.points.map(([x, y]) =>
-      `${round(x)},${round(y)}`).join(" ")}" fill="${ink(command.ink)}"/>`;
+
+// One polygon per triangle draws every interior seam. An SVG renderer computes
+// coverage per element and composites it, so two faces meeting on a shared edge
+// each cover about half the pixels along it and the backdrop survives at a
+// quarter — the same conflation that put fan spokes across a fighter's head in
+// the canvas shell. The geometry is watertight; the compositor is what leaks.
+//
+// So a run of same-coloured faces becomes ONE path with many subpaths, filled
+// once. Under the nonzero rule the union fills solid and the shared edges are
+// never composited at all. The faces arrive wound both ways, so each is turned
+// the same direction on the way in or nonzero would punch holes where an
+// opposite-wound neighbour overlaps.
+function facePath(run) {
+  const d = run.map(({ points }) => {
+    const [[x1, y1], [x2, y2], [x3, y3]] = points;
+    const ordered = (x2 - x1) * (y3 - y1) - (y2 - y1) * (x3 - x1) < 0
+      ? [points[0], points[2], points[1]] : points;
+    return "M" + ordered.map(([x, y]) => `${round(x)},${round(y)}`).join("L") + "Z";
+  }).join("");
+  return `<path d="${d}" fill="${ink(run[0].ink)}" fill-rule="nonzero"/>`;
+}
+
+const elements = [];
+let faceRun = [];
+// A run only survives while the colour holds and nothing else is drawn between:
+// flushing before every non-triangle keeps the painter's order the game chose.
+const flushFaces = () => {
+  if (faceRun.length) elements.push(facePath(faceRun));
+  faceRun = [];
+};
+for (const command of drawn) {
+  if (command.kind === "triangle") {
+    if (faceRun.length && ink(faceRun[0].ink) !== ink(command.ink)) flushFaces();
+    faceRun.push(command);
+    continue;
+  }
+  flushFaces();
+  elements.push(render(command));
+}
+flushFaces();
+
+const body = elements.join("\n  ");
+
+function render(command) {
   if (command.kind === "line")
     return `<line x1="${round(command.x1)}" y1="${round(command.y1)}"` +
       ` x2="${round(command.x2)}" y2="${round(command.y2)}"` +
@@ -206,7 +246,7 @@ const body = drawn.map((command) => {
   return `<rect x="${round(command.x)}" y="${round(command.y)}"` +
     ` width="${round(command.width)}" height="${round(command.height)}"` +
     ` fill="${ink(command.ink)}"/>`;
-}).join("\n  ");
+}
 
 const backdrop = flags.get("bg") === "none" ? ""
   : `<rect x="${round(frame.x)}" y="${round(frame.y)}" width="${round(frame.width)}"` +
