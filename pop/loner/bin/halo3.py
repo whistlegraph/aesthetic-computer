@@ -280,7 +280,7 @@ CHART = {
                                        # waiting splits like sitting did, so
                                        # "ing" lands on the half bar
                                        12: 4.0, 13: 2.0, 14: 2.0, 15: 2.0,
-                                       16: 2.0, 17: 2.0, 18: 1.5, 19: 1.5 },
+                                       16: 2.0, 17: 2.0, 18: 2.5, 19: 2.5 },
                              # words whose syllables carry a melody must not
                              # be flattened to one tone by THE HOLD
                              # patiently is pa·tient·ly, three notes
@@ -613,10 +613,19 @@ def build_warp(a, unit_src, beats, dursb, gapsb=None, rest_src=None, lead_b=0.0,
         if not a["voiced"][min(v0, F - 1)]:
             v0 = s0
         voiced_at.append(v0)                            # BEFORE the peak search
+        # The lead may not exceed the word's own CONSONANT runway.
+        # @jeffrey: "the end of up still has the start of in — clip
+        # bleed". He is describing peak alignment doing what it was told:
+        # pulling a word's start ahead of its beat so the peak lands on
+        # it. But "in" opens on a vowel, so there was no consonant to
+        # lean with — the 90 ms it borrowed was the vowel itself, sounding
+        # inside the previous word's block. A singer leans in with the
+        # consonant. A vowel-initial word starts ON the beat.
+        cons = max(0, v0 - s0)                          # unvoiced runway
         hi = min(s1, nfr, v0 + int(0.35 / FRAME_S))     # look in the attack
-        if hi > v0:
+        if hi > v0 and cons > 0:
             pk = v0 + int(np.argmax(fen[v0:hi]))
-            v0 = min(pk, v0 + lead_cap)
+            v0 = min(pk, v0 + min(lead_cap, cons))
         ants.append(max(0, v0 - s0))
     # THE PICKUP is the UNVOICED prefix only. Peak alignment made ants[0]
     # reach into the vowel, and this stretch used to swallow whatever was
