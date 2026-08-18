@@ -20,18 +20,18 @@
       "containerId": "18079051220446357",
       "mediaId": "18349296478171889",
       "insights": {
-        "views": 1369,
-        "reach": 1077,
+        "views": 1375,
+        "reach": 1081,
         "likes": 7,
         "comments": 1,
         "saved": 1,
         "shares": 0,
         "total_interactions": 9,
-        "ig_reels_avg_watch_time": 7101,
-        "ig_reels_video_view_total_time": 7584534,
-        "reels_skip_rate": 48
+        "ig_reels_avg_watch_time": 7098,
+        "ig_reels_video_view_total_time": 7616666,
+        "reels_skip_rate": 47.9
       },
-      "insightsAt": "2026-08-14T01:41:05.882Z"
+      "insightsAt": "2026-08-18T01:41:04.743Z"
     },
     {
       "mode": "live",
@@ -166,7 +166,19 @@
       },
       "containerId": "18080417576446357",
       "mediaId": "17994848552810311",
-      "insights": null
+      "insights": {
+        "views": 1378,
+        "reach": 1108,
+        "likes": 2,
+        "comments": 0,
+        "saved": 1,
+        "shares": 0,
+        "total_interactions": 3,
+        "ig_reels_avg_watch_time": 7534,
+        "ig_reels_video_view_total_time": 8370739,
+        "reels_skip_rate": 51.5
+      },
+      "insightsAt": "2026-08-18T01:41:05.721Z"
     },
     {
       "mode": "live",
@@ -186,7 +198,19 @@
       },
       "containerId": "18080473385446357",
       "mediaId": "18616751710031645",
-      "insights": null
+      "insights": {
+        "views": 176,
+        "reach": 155,
+        "likes": 1,
+        "comments": 0,
+        "saved": 0,
+        "shares": 0,
+        "total_interactions": 1,
+        "ig_reels_avg_watch_time": 3812,
+        "ig_reels_video_view_total_time": 598590,
+        "reels_skip_rate": 79.1
+      },
+      "insightsAt": "2026-08-18T01:41:06.825Z"
     },
     {
       "mode": "live",
@@ -206,7 +230,19 @@
       },
       "containerId": "18081833096446357",
       "mediaId": "18335840767271722",
-      "insights": null
+      "insights": {
+        "views": 170,
+        "reach": 145,
+        "likes": 3,
+        "comments": 0,
+        "saved": 0,
+        "shares": 0,
+        "total_interactions": 3,
+        "ig_reels_avg_watch_time": 6563,
+        "ig_reels_video_view_total_time": 977928,
+        "reels_skip_rate": 56.7
+      },
+      "insightsAt": "2026-08-18T01:41:07.160Z"
     }
   ]
 }
