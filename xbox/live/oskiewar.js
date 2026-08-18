@@ -21,7 +21,7 @@ runtime = function acRuntime() {
 };
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 77;
+const buildVersion = 78;
 const floorY = 1800;
 // The tower. @jeffrey played the padded room on the console and asked for a
 // tall map: the fight should happen on the way up, not back and forth across
@@ -9956,6 +9956,15 @@ function drawHudStatusTray(clock, ink, unixMs) {
       typeWrite(sessionName, viewCenterX() + statusCell * .62,
         top + statusCell / 2 + 2 - size / 2, size, ...ink);
     }
+    // And the linked-agent mark keeps the bug company on its other side —
+    // @jeffrey: "can the little agent icon be near the debug ladybug, not by
+    // the fps". The name says where to attach; the antenna says who has.
+    const agents = linkedAgents();
+    if (agents) {
+      const scale = statusCell / 34;
+      drawAgentLink(viewCenterX() - statusCell * .62 - 14 * scale,
+        top + statusCell / 2 + 2, scale, agents);
+    }
   }
   if (!tray) return;
   const lit = typeof capabilities === "function" &&
@@ -10041,7 +10050,6 @@ function drawDebugPerformance(ink) {
     ? "frame " + frameMs.toFixed(2) + "ms  render " +
       (Number(run.renderCpuMs) || 0).toFixed(2) + "ms" +
       (presentMs ? "  present " + presentMs.toFixed(2) + "ms" : "") : "";
-  const agents = linkedAgents();
   // The bottom-left corner belongs to a fighter's nameplate, so the read-out
   // stacks upward from just above it instead of printing across a handle. The
   // ammo row keeps its own lane a stat card further up, well clear of this.
@@ -10060,11 +10068,6 @@ function drawDebugPerformance(ink) {
     if (!label) continue;
     const size = index ? debugReadoutTimingSize() : metaSize;
     typeWrite(label, lane.x, y, size, ...ink);
-    // The link mark rides the end of the measured-rate row rather than taking a
-    // lane of its own: what it reports on is those numbers, not the round.
-    if (!index && agents)
-      drawAgentLink(lane.x + handleWidth(label.toLowerCase(), size) + size * .8,
-        y + size * .52, size / 22, agents);
     y -= size + 5;
   }
 }

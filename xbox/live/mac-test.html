@@ -951,6 +951,19 @@
           if (message.type === "oskiewar:viewers")
             globalThis.__oskiewarLiveAgents =
               Math.max(0, Number(message.content?.agents) || 0);
+          // A linked agent asked for a reload. Same safety as the update
+          // poll: on the title it happens now, mid-fight it arms and waits
+          // for the title — an agent must never yank a round out from under
+          // whoever is actually holding the controller.
+          if (message.type === "oskiewar:reload") {
+            if (globalThis.__oskiewarTouch?.screen === "title") {
+              document.querySelector("#status").textContent = "updating";
+              location.reload();
+              return;
+            }
+            updateAvailable = true;
+            document.querySelector("#status").textContent = "update is ready";
+          }
         });
         socket.addEventListener("close", () => {
           liveSockets.delete(matchId);

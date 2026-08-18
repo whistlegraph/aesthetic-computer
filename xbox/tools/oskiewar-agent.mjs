@@ -5,13 +5,15 @@
 // relay counts a `role=agent` socket apart from phone spectators, so attaching
 // lights the antenna mark on the game's own debug read-out.
 //
-//   node xbox/tools/oskiewar-agent.mjs <session-or-round-name> [--json] [--once]
+//   node xbox/tools/oskiewar-agent.mjs <session-or-round-name> [--json] [--once] [--reload]
 //
 // A session room hands off to each round with one nextRoundId frame and takes
 // the socket back when the scoring stops, so this follows: it walks forward to
 // every announced round and falls back to the session room whenever a round
 // room goes quiet. --json streams raw frames one per line; --once prints the
-// first frame and exits.
+// first frame and exits. --reload asks the publishing game to reload itself —
+// it obliges immediately on the title screen and at the next title otherwise —
+// then waits to see the publisher drop before exiting.
 
 const RELAY = process.env.OSKIEWAR_RELAY ||
   "wss://session-server.aesthetic.computer/oskiewar-live";
@@ -20,6 +22,7 @@ const NAME = /^(?:ow-)?((?:[a-z]{4,7}[0-9]{1,3})|(?:(?:[bdfgklmnprstvz][aeiou]){
 const args = process.argv.slice(2);
 const json = args.includes("--json");
 const once = args.includes("--once");
+const reload = args.includes("--reload");
 const target = args.find((value) => !value.startsWith("--")) || "";
 const match = target.toLowerCase().match(NAME);
 if (!match) {
@@ -34,6 +37,8 @@ let sessionRoom = "";
 let socket = null;
 let generation = 0;
 let quietTimer = null;
+// --reload only reports success once a live publisher actually went away.
+let sawLive = false;
 
 function line(frame) {
   const perf = frame.perf || {};
@@ -73,8 +78,19 @@ function open() {
   clearTimeout(quietTimer);
   try { socket?.close(); } catch {}
   socket = new WebSocket(`${RELAY}?match=${encodeURIComponent(room)}&role=agent`);
-  socket.addEventListener("open", () =>
-    console.error(`agent attached to ${room}`));
+  socket.addEventListener("open", () => {
+    console.error(`agent attached to ${room}`);
+    if (reload) {
+      socket.send(JSON.stringify({ type: "oskiewar:reload" }));
+      console.error("reload requested — waiting for the publisher to drop " +
+        "(a game mid-fight reloads at its next title screen)");
+      setTimeout(() => {
+        console.error("still live after 60s; the reload is armed and will " +
+          "land at the next title screen");
+        process.exit(0);
+      }, 60000);
+    }
+  });
   socket.addEventListener("message", (event) => {
     if (mine !== generation) return;
     let message;
@@ -86,6 +102,11 @@ function open() {
     if (message.type === "oskiewar:status") {
       if (!json) console.error(`status: live=${message.content?.live} ` +
         `viewers=${message.content?.viewers} agents=${message.content?.agents}`);
+      if (message.content?.live === true) sawLive = true;
+      else if (reload && sawLive) {
+        console.error("publisher dropped — the page is reloading");
+        process.exit(0);
+      }
       return;
     }
     if (message.type !== "oskiewar:state") return;

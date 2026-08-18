@@ -1660,9 +1660,13 @@ test("the web shell times its own frames from the driver's profile", () => {
 // that round". Only a `role=agent` socket reaches the count — a phone that
 // scanned the round QR is a viewer and lights nothing.
 test("a linked telemetry agent marks the read-out it is reading", () => {
+  // @jeffrey: "can the little agent icon be near the debug ladybug, not by
+  // the fps" — the antenna keeps the bug company bottom-center, opposite the
+  // session name it reports on, and the fps row carries numbers alone.
   const perf = source.match(/function drawDebugPerformance[\s\S]*?\n}\n/)[0];
-  assert.match(perf, /const agents = linkedAgents\(\)/);
-  assert.match(perf, /if \(!index && agents\)\n\s*drawAgentLink\(/);
+  assert.doesNotMatch(perf, /drawAgentLink/);
+  assert.match(source,
+    /const agents = linkedAgents\(\);\n    if \(agents\) \{\n      const scale = statusCell \/ 34;\n      drawAgentLink\(viewCenterX\(\) - statusCell \* \.62 - 14 \* scale/);
   assert.match(source,
     /function linkedAgents\(\)[\s\S]{0,220}capabilities\(\)\.liveAgents/);
   assert.match(source, /function drawAgentLink\(x, y, scale = 1, count = 1\)/);
@@ -1672,6 +1676,16 @@ test("a linked telemetry agent marks the read-out it is reading", () => {
   assert.match(webShell, /message\.type === "oskiewar:viewers"/);
   assert.match(webShell, /Number\(message\.content\?\.agents\) \|\| 0/);
   assert.match(webShell, /globalThis\.__oskiewarLiveAgents = 0/);
+  // The publisher socket also carries the one instruction an agent may send
+  // back — reload — and the shell obliges with the update poll's own safety:
+  // now on the title, armed for the next title otherwise.
+  assert.match(webShell, /message\.type === "oskiewar:reload"/);
+  const reloadBranch = webShell.slice(
+    webShell.indexOf('message.type === "oskiewar:reload"'),
+    webShell.indexOf('socket.addEventListener("close"'));
+  assert.match(reloadBranch,
+    /__oskiewarTouch\?\.screen === "title"[\s\S]{0,140}location\.reload\(\)/);
+  assert.match(reloadBranch, /updateAvailable = true/);
 });
 
 test("every round gets a new URL and tells spectators where the room moved", () => {

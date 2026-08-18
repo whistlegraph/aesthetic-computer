@@ -165,7 +165,7 @@ export class OskiewarLiveManager {
       }
       room = { matchId, publisher: null, publisherSurface: "unknown",
         viewers: new Set(), agents: new Set(), state: null, liveStarted: false,
-        updatedAt: this.now(), publishedAt: 0 };
+        updatedAt: this.now(), publishedAt: 0, nudgedAt: 0 };
       this.rooms.set(matchId, room);
     }
     if (role === "publisher") this.addPublisher(room, ws, surface);
@@ -249,6 +249,13 @@ export class OskiewarLiveManager {
     send(ws, "oskiewar:status", this.status(room));
     if (room.state) send(ws, "oskiewar:state", room.state);
     this.announceAudience(room);
+    // The one lever an agent may pull: ask the publishing game to reload
+    // itself. @jeffrey plays in Edge on an Xbox, where "refresh the page"
+    // means finding a controller-driven address bar — so the deploy loop
+    // wants a remote nudge. The relay forwards the bare instruction and
+    // nothing else, at most once per five seconds per room, and the shell
+    // decides when reloading is actually safe.
+    ws.on("message", (data) => this.nudge(room, data));
     const remove = () => {
       room.agents.delete(ws);
       room.updatedAt = this.now();
@@ -256,6 +263,17 @@ export class OskiewarLiveManager {
     };
     ws.on("close", remove);
     ws.on("error", remove);
+  }
+
+  nudge(room, data) {
+    if (Buffer.byteLength(data) > 256) return;
+    let message;
+    try { message = JSON.parse(data.toString()); } catch { return; }
+    if (message.type !== "oskiewar:reload") return;
+    const now = this.now();
+    if (room.nudgedAt && now - room.nudgedAt < 5000) return;
+    room.nudgedAt = now;
+    send(room.publisher, "oskiewar:reload", {});
   }
 
   publish(room, ws, data) {

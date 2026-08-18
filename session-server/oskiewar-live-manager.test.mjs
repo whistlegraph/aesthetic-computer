@@ -184,6 +184,37 @@ test("an agent link is counted apart from the phone grandstand", () => {
     { type: "oskiewar:viewers", content: { count: 1, agents: 0 } });
 });
 
+// @jeffrey plays in Edge on an Xbox, where "refresh the page" means driving
+// an address bar with a controller — so an attached agent may ask the game to
+// reload itself. The relay forwards the bare instruction to the publisher,
+// rate-limited, and nothing a spectator sends goes anywhere at all.
+test("an agent can nudge the publisher to reload, gently and only agents", () => {
+  let now = 100;
+  const manager = new OskiewarLiveManager({ now: () => now });
+  const host = new FakeSocket(), viewer = new FakeSocket();
+  const agent = new FakeSocket();
+  const url = "/oskiewar-live?match=bafegu-dorimi-kunapo";
+  manager.handleConnection(host, { url: `${url}&role=publisher&surface=web` });
+  manager.handleConnection(viewer, { url });
+  manager.handleConnection(agent, { url: `${url}&role=agent` });
+  const reload = JSON.stringify({ type: "oskiewar:reload" });
+  agent.emit("message", Buffer.from(reload));
+  assert.deepEqual(host.sent.at(-1), { type: "oskiewar:reload", content: {} });
+  // A second nudge inside the five-second window is swallowed.
+  const delivered = host.sent.length;
+  now += 3000;
+  agent.emit("message", Buffer.from(reload));
+  assert.equal(host.sent.length, delivered);
+  now += 5001;
+  agent.emit("message", Buffer.from(reload));
+  assert.deepEqual(host.sent.at(-1), { type: "oskiewar:reload", content: {} });
+  // Anything else an agent says — and anything a viewer says — is dropped.
+  const settled = host.sent.length;
+  agent.emit("message", Buffer.from(JSON.stringify({ type: "oskiewar:state" })));
+  viewer.emit("message", Buffer.from(reload));
+  assert.equal(host.sent.length, settled);
+});
+
 // A room packed with spectators must never lock a maintainer out of the
 // telemetry, and a stuck agent must never eat the spectator allowance.
 test("agents hold their own small allowance beside the 64 viewer seats", () => {
