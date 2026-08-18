@@ -235,8 +235,8 @@ CHART = {
                                        # freed beat (1.78×, still her voice)
                                        # so "of" keeps beat 19 and stone its
                                        # bar 6 beat 2.
-                                       7: 3.0,
-                                       8: 2.0, 9: 4.0, 10: 2.0, 11: 2.0,
+                                       7: 2.0,
+                                       8: 2.0, 9: 4.0, 10: 2.0, 11: 3.0,
                                        # very longer, patiently slower
                                        14: 4.0, 15: 5.0 },
                              # words whose syllables carry a melody must not
@@ -244,6 +244,9 @@ CHART = {
                              "nohold": [15],   # patiently
                              # source seconds, read off her onsets, for the
                              # words whisper-1 mistimed. PRE-split indices.
+                             # nothing after this in the slice belongs to
+                             # the line — she goes again at 23.0 s
+                             "end": 22.45,
                              "times": { 11: 12.70,   # waiting
                                         12: 14.40,   # very
                                         14: 17.66,   # for
@@ -269,7 +272,8 @@ CHART = {
                              # 1-beat rest, which lands "just" square on the
                              # bar 8 downbeat.
                              "gaps": { 3: 0.5,   # "in" leans in behind the downbeat
-                                       11: 1.0 } },
+                                       8: 1.0,   # air after think, before the octave
+                                       } },
     "w-sitting-curled":    { "slice": "f-sitting-curled",    "beats": 11.0 },
     "w-i-think":           { "slice": "f-i-think",           "beats": 3.5 },
     "w-of-a-stone":        { "slice": "f-of-a-stone",        "beats": 8.0 },
@@ -479,7 +483,7 @@ def trim_units(x, fs, unit_src, names=None):
 
 
 def build_warp(a, unit_src, beats, dursb, gapsb=None, rest_src=None, lead_b=0.0,
-               nohold=()):
+               nohold=(), tail_end=None):
     """Frame index map with VOWEL-ON-THE-BEAT alignment.
 
     Each word's voiced onset (its vowel) lands exactly on its chart
@@ -556,13 +560,18 @@ def build_warp(a, unit_src, beats, dursb, gapsb=None, rest_src=None, lead_b=0.0,
         if u + 1 < len(unit_src):                 # next word's consonant, 1:1
             ns0 = unit_src[u + 1][0]
             idx.extend(range(ns0, ns0 + nxt_a))
+    # The tail plays 1:1 after the last word — but only to `tail_end`.
+    # This take carries a second utterance after "pass" (she goes again at
+    # 23.0 s), and without a cap the tail played it too, which is the
+    # extra syllable heard at the end of the line.
+    Fend = min(F, tail_end) if tail_end else F
     tail0 = unit_src[-1][1]
-    idx += list(range(min(tail0, F), F))                      # tail, 1:1
+    idx += list(range(min(tail0, Fend), Fend))                # tail, 1:1
     # THE RELEASE — when the source has no tail (she flows straight into
     # the next phrase in the take), synthesize one: a ping-pong read of
     # the final unit's last 120 ms, faded to nothing by the caller.
     fade = None
-    if (F - tail0) * FRAME_S < 0.15:
+    if (Fend - tail0) * FRAME_S < 0.15:
         rel_n = int(0.40 / FRAME_S)
         s0, s1 = unit_src[-1]
         lo = max(s0, s1 - int(0.12 / FRAME_S))
@@ -740,12 +749,17 @@ for name, ch in CHART.items():
 
     unit_src, trims, rest_src = trim_units(x, fs, unit_src, [w["t"] for w in words])
     unit_src = keep_attacks(unit_src, rest_src)
+    if ch.get("end"):                      # the last word stops at the cap too
+        cap = int(round((ch["end"] - t0_slice) / FRAME_S))
+        a0, b0_ = unit_src[-1]
+        unit_src[-1] = (a0, min(b0_, max(a0 + 1, cap)))
 
     gapsb = [ch.get("gaps", {}).get(i, 0.0) for i in range(len(ch["units"]))]
     idx, holds, fade, Z, ants, rise, rests = build_warp(
         a, unit_src, [b for (b, d) in ch["units"]],
         [d for (b, d) in ch["units"]], gapsb, rest_src, ch.get("lead", 0.0),
-        set(ch.get("nohold", ())))
+        set(ch.get("nohold", ())),
+        int(round((ch["end"] - t0_slice) / FRAME_S)) if ch.get("end") else None)
     f0_o = a["f0c"][idx].copy()
     voiced_o = a["voiced"][idx]
 
