@@ -882,6 +882,7 @@ for name, ch in CHART.items():
     # single unit made the pluck play one note against three, and left
     # the word as a lump the bar map could not place. Cutting it into
     # real syllables gives each its own note, slot and beat.
+    syll_pins = set()
     for wi in sorted((ch.get("sylls") or {}), reverse=True):
         base = words[wi]
         cuts = ch["sylls"][wi]
@@ -891,11 +892,16 @@ for name, ch in CHART.items():
         labels = [head] + [c[1] for c in cuts]
         words[wi:wi + 1] = [dict(base, start=edges[k], end=edges[k + 1], t=labels[k])
                             for k in range(len(labels))]
+        syll_pins.update(labels[1:])   # a measured cut is a measurement too
 
     # words pinned by `times` were measured off her own onsets; the
     # snapper must not then drag them somewhere else. Indices shift
     # by the syllable splits inserted before them.
-    pinned = set()
+    # Boundaries we MEASURED — `times` pins and syllable cuts alike — must
+    # survive the snapper. It moved the my/self cut from the 4.50 s start
+    # of her /s/ to 4.715, back inside the fricative, which is the bug it
+    # was supposed to fix.
+    pinned = {i for i, w in enumerate(words) if w["t"] in syll_pins}
     for wi in (ch.get("times") or {}):
         extra = sum(len([c for c in cs if c[0] is not None])
                     for si, cs in (ch.get("sylls") or {}).items() if si < wi)
