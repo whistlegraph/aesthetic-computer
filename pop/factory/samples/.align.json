@@ -1,0 +1,609 @@
+{
+ "chant-full": {
+  "model": "whisper-1 (openai, word timestamps)",
+  "text": "to read cookie cutter personalities, we must break free from the states that we're in, spinning away, i hear a bird",
+  "words": [
+   {
+    "t": "to",
+    "start": 0.0,
+    "end": 0.14,
+    "f0_hz": 140.7,
+    "note": "C#3"
+   },
+   {
+    "t": "read",
+    "start": 0.14,
+    "end": 0.96,
+    "f0_hz": 149.2,
+    "note": "D3"
+   },
+   {
+    "t": "cookie",
+    "start": 0.96,
+    "end": 1.58,
+    "f0_hz": 150.5,
+    "note": "D3"
+   },
+   {
+    "t": "cutter",
+    "start": 1.58,
+    "end": 2.1,
+    "f0_hz": 238.2,
+    "note": "A#3"
+   },
+   {
+    "t": "personalities",
+    "start": 2.1,
+    "end": 3.7,
+    "f0_hz": 150.6,
+    "note": "D3"
+   },
+   {
+    "t": "we",
+    "start": 3.7,
+    "end": 4.6,
+    "f0_hz": 134.3,
+    "note": "C3"
+   },
+   {
+    "t": "must",
+    "start": 4.6,
+    "end": 5.22,
+    "f0_hz": 223.7,
+    "note": "A3"
+   },
+   {
+    "t": "break",
+    "start": 5.22,
+    "end": 5.94,
+    "f0_hz": 144.2,
+    "note": "C#3"
+   },
+   {
+    "t": "free",
+    "start": 5.94,
+    "end": 6.38,
+    "f0_hz": 147.2,
+    "note": "D3"
+   },
+   {
+    "t": "from",
+    "start": 6.38,
+    "end": 6.96,
+    "f0_hz": 234.4,
+    "note": "A#3"
+   },
+   {
+    "t": "the",
+    "start": 6.96,
+    "end": 7.36,
+    "f0_hz": 257.4,
+    "note": "B3"
+   },
+   {
+    "t": "states",
+    "start": 7.36,
+    "end": 7.84,
+    "f0_hz": 222.0,
+    "note": "A3"
+   },
+   {
+    "t": "that",
+    "start": 7.84,
+    "end": 8.34,
+    "f0_hz": 218.9,
+    "note": "A3"
+   },
+   {
+    "t": "we're",
+    "start": 8.34,
+    "end": 9.02,
+    "f0_hz": 179.6,
+    "note": "F3"
+   },
+   {
+    "t": "in",
+    "start": 9.02,
+    "end": 9.94,
+    "f0_hz": 155.7,
+    "note": "D#3"
+   },
+   {
+    "t": "spinning",
+    "start": 9.96,
+    "end": 10.84,
+    "f0_hz": 171.8,
+    "note": "F3"
+   },
+   {
+    "t": "away",
+    "start": 10.84,
+    "end": 12.14,
+    "f0_hz": 145.3,
+    "note": "D3"
+   },
+   {
+    "t": "i",
+    "start": 12.14,
+    "end": 12.92,
+    "f0_hz": 221.5,
+    "note": "A3"
+   },
+   {
+    "t": "hear",
+    "start": 12.92,
+    "end": 13.6,
+    "f0_hz": 296.3,
+    "note": "D4"
+   },
+   {
+    "t": "a",
+    "start": 13.6,
+    "end": 14.7,
+    "f0_hz": 221.3,
+    "note": "A3"
+   },
+   {
+    "t": "bird",
+    "start": 14.7,
+    "end": 15.26,
+    "f0_hz": 116.5,
+    "note": "A#2"
+   }
+  ],
+  "audit": {
+   "events": 34,
+   "syllables": 29,
+   "octave_folds": 10
+  }
+ },
+ "line1": {
+  "model": "whisper-1 (openai, word timestamps)",
+  "text": "Cookie Cutter Personalities",
+  "words": [
+   {
+    "t": "Cookie",
+    "start": 0.0,
+    "end": 1.58,
+    "f0_hz": 148.7,
+    "note": "D3"
+   },
+   {
+    "t": "Cutter",
+    "start": 1.58,
+    "end": 2.2,
+    "f0_hz": 236.2,
+    "note": "A#3"
+   },
+   {
+    "t": "Personalities",
+    "start": 2.2,
+    "end": 3.98,
+    "f0_hz": 152.0,
+    "note": "D3"
+   }
+  ],
+  "audit": {
+   "events": 10,
+   "syllables": 9,
+   "octave_folds": 4
+  }
+ },
+ "line2": {
+  "model": "whisper-1 (openai, word timestamps)",
+  "text": "We must break free from the states that we're in",
+  "words": [
+   {
+    "t": "We",
+    "start": 0.0,
+    "end": 0.14,
+    "f0_hz": 132.0,
+    "note": "C3"
+   },
+   {
+    "t": "must",
+    "start": 0.14,
+    "end": 0.8,
+    "f0_hz": 223.4,
+    "note": "A3"
+   },
+   {
+    "t": "break",
+    "start": 0.8,
+    "end": 1.46,
+    "f0_hz": 146.4,
+    "note": "D3"
+   },
+   {
+    "t": "free",
+    "start": 1.46,
+    "end": 1.98,
+    "f0_hz": 146.5,
+    "note": "D3"
+   },
+   {
+    "t": "from",
+    "start": 1.98,
+    "end": 2.58,
+    "f0_hz": 232.0,
+    "note": "A#3"
+   },
+   {
+    "t": "the",
+    "start": 2.58,
+    "end": 2.98,
+    "f0_hz": 257.5,
+    "note": "B3"
+   },
+   {
+    "t": "states",
+    "start": 2.98,
+    "end": 3.48,
+    "f0_hz": 226.1,
+    "note": "A3"
+   },
+   {
+    "t": "that",
+    "start": 3.48,
+    "end": 3.96,
+    "f0_hz": 218.9,
+    "note": "A3"
+   },
+   {
+    "t": "we're",
+    "start": 3.96,
+    "end": 4.32,
+    "f0_hz": 194.5,
+    "note": "G3"
+   },
+   {
+    "t": "in",
+    "start": 4.32,
+    "end": 4.76,
+    "f0_hz": 173.4,
+    "note": "F3"
+   }
+  ],
+  "audit": {
+   "events": 14,
+   "syllables": 10,
+   "octave_folds": 3
+  }
+ },
+ "line3": {
+  "model": "whisper-1 (openai, word timestamps)",
+  "text": "Spinning away, I hear a bird",
+  "words": [
+   {
+    "t": "Spinning",
+    "start": 0.0,
+    "end": 0.5,
+    "f0_hz": 198.2,
+    "note": "G3"
+   },
+   {
+    "t": "away",
+    "start": 0.5,
+    "end": 1.48,
+    "f0_hz": 144.9,
+    "note": "D3"
+   },
+   {
+    "t": "I",
+    "start": 1.48,
+    "end": 2.36,
+    "f0_hz": 221.7,
+    "note": "A3"
+   },
+   {
+    "t": "hear",
+    "start": 2.36,
+    "end": 3.04,
+    "f0_hz": 297.3,
+    "note": "D4"
+   },
+   {
+    "t": "a",
+    "start": 3.04,
+    "end": 4.14,
+    "f0_hz": 217.3,
+    "note": "A3"
+   },
+   {
+    "t": "bird",
+    "start": 4.14,
+    "end": 4.5,
+    "f0_hz": 229.2,
+    "note": "A3"
+   }
+  ],
+  "audit": {
+   "events": 9,
+   "syllables": 8,
+   "octave_folds": 0
+  }
+ },
+ "line1-b": {
+  "model": "whisper-1 (openai, word timestamps)",
+  "text": "Factory cookie cutter personalities",
+  "words": [
+   {
+    "t": "Factory",
+    "start": 0.0,
+    "end": 1.24,
+    "f0_hz": 258.9,
+    "note": "C4"
+   },
+   {
+    "t": "cookie",
+    "start": 1.24,
+    "end": 2.0,
+    "f0_hz": 145.0,
+    "note": "D3"
+   },
+   {
+    "t": "cutter",
+    "start": 2.0,
+    "end": 2.64,
+    "f0_hz": 115.4,
+    "note": "A#2"
+   },
+   {
+    "t": "personalities",
+    "start": 2.64,
+    "end": 4.02,
+    "f0_hz": 140.3,
+    "note": "C#3"
+   }
+  ],
+  "audit": {
+   "events": 8,
+   "syllables": 12,
+   "octave_folds": 8
+  }
+ },
+ "line2-b": {
+  "model": "whisper-1 (openai, word timestamps)",
+  "text": "Yes, we must break free from the states that we're in",
+  "words": [
+   {
+    "t": "Yes",
+    "start": 0.0,
+    "end": 0.28,
+    "f0_hz": 172.2,
+    "note": "F3"
+   },
+   {
+    "t": "we",
+    "start": 0.28,
+    "end": 0.66,
+    "f0_hz": 121.4,
+    "note": "A#2"
+   },
+   {
+    "t": "must",
+    "start": 0.66,
+    "end": 1.38,
+    "f0_hz": 201.5,
+    "note": "G3"
+   },
+   {
+    "t": "break",
+    "start": 1.38,
+    "end": 1.98,
+    "f0_hz": 145.5,
+    "note": "D3"
+   },
+   {
+    "t": "free",
+    "start": 1.98,
+    "end": 2.62,
+    "f0_hz": 137.4,
+    "note": "C#3"
+   },
+   {
+    "t": "from",
+    "start": 2.62,
+    "end": 3.14,
+    "f0_hz": 139.5,
+    "note": "C#3"
+   },
+   {
+    "t": "the",
+    "start": 3.14,
+    "end": 3.54,
+    "f0_hz": 246.4,
+    "note": "B3"
+   },
+   {
+    "t": "states",
+    "start": 3.54,
+    "end": 4.04,
+    "f0_hz": 216.7,
+    "note": "A3"
+   },
+   {
+    "t": "that",
+    "start": 4.04,
+    "end": 4.54,
+    "f0_hz": 108.9,
+    "note": "A2"
+   },
+   {
+    "t": "we're",
+    "start": 4.54,
+    "end": 4.92,
+    "f0_hz": 183.8,
+    "note": "F#3"
+   },
+   {
+    "t": "in",
+    "start": 4.92,
+    "end": 5.26,
+    "f0_hz": 160.6,
+    "note": "D#3"
+   }
+  ],
+  "audit": {
+   "events": 12,
+   "syllables": 11,
+   "octave_folds": 7
+  }
+ },
+ "line3-d": {
+  "model": "whisper-1 (openai, word timestamps)",
+  "text": "spinning away, i hear a bird",
+  "words": [
+   {
+    "t": "spinning",
+    "start": 0.0,
+    "end": 0.98,
+    "f0_hz": 279.0,
+    "note": "C#4"
+   },
+   {
+    "t": "away",
+    "start": 0.98,
+    "end": 2.0,
+    "f0_hz": 306.0,
+    "note": "D4"
+   },
+   {
+    "t": "i",
+    "start": 2.0,
+    "end": 2.78,
+    "f0_hz": 246.8,
+    "note": "B3"
+   },
+   {
+    "t": "hear",
+    "start": 2.78,
+    "end": 3.34,
+    "f0_hz": 311.4,
+    "note": "D#4"
+   },
+   {
+    "t": "a",
+    "start": 3.34,
+    "end": 4.52,
+    "f0_hz": 244.4,
+    "note": "B3"
+   },
+   {
+    "t": "bird",
+    "start": 4.52,
+    "end": 5.0,
+    "f0_hz": 243.4,
+    "note": "B3"
+   }
+  ],
+  "audit": {
+   "events": 9,
+   "syllables": 8,
+   "octave_folds": 4
+  }
+ },
+ "line3-e": {
+  "model": "whisper-1 (openai, word timestamps)",
+  "text": "spinning away, i hear a bird",
+  "words": [
+   {
+    "t": "spinning",
+    "start": 0.0,
+    "end": 1.24,
+    "f0_hz": 155.6,
+    "note": "D#3"
+   },
+   {
+    "t": "away",
+    "start": 1.24,
+    "end": 2.36,
+    "f0_hz": 164.2,
+    "note": "E3"
+   },
+   {
+    "t": "i",
+    "start": 2.36,
+    "end": 3.5,
+    "f0_hz": 126.7,
+    "note": "B2"
+   },
+   {
+    "t": "hear",
+    "start": 3.5,
+    "end": 4.12,
+    "f0_hz": 165.9,
+    "note": "E3"
+   },
+   {
+    "t": "a",
+    "start": 4.12,
+    "end": 5.02,
+    "f0_hz": 132.3,
+    "note": "C3"
+   },
+   {
+    "t": "bird",
+    "start": 5.02,
+    "end": 5.5,
+    "f0_hz": 137.2,
+    "note": "C#3"
+   }
+  ],
+  "audit": {
+   "events": 9,
+   "syllables": 8,
+   "octave_folds": 6
+  }
+ },
+ "spinning-away": {
+  "model": "whisper-1 (openai, word timestamps)",
+  "text": "I hear",
+  "words": [
+   {
+    "t": "I",
+    "start": 0.0,
+    "end": 0.96,
+    "f0_hz": 143.9,
+    "note": "C#3"
+   },
+   {
+    "t": "hear",
+    "start": 0.96,
+    "end": 2.0,
+    "f0_hz": 148.1,
+    "note": "D3"
+   }
+  ],
+  "audit": {
+   "events": 5,
+   "syllables": 2,
+   "octave_folds": 0
+  }
+ },
+ "break-free": {
+  "model": "whisper-1 (openai, word timestamps)",
+  "text": "Break free",
+  "words": [
+   {
+    "t": "Break",
+    "start": 0.0,
+    "end": 0.52,
+    "f0_hz": 150.5,
+    "note": "D3"
+   },
+   {
+    "t": "free",
+    "start": 0.52,
+    "end": 1.0,
+    "f0_hz": 146.6,
+    "note": "D3"
+   }
+  ],
+  "audit": {
+   "events": 3,
+   "syllables": 2,
+   "octave_folds": 1
+  }
+ }
+}

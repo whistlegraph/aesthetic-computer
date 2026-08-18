@@ -1,0 +1,34 @@
+# Source mp4s and their 48k decodes — re-fetchable from the assets mirror
+# that whistlegraph.org's posts.json already points at, and rebuilt by
+# bin/harvest.py. The whisper word JSONs in source/txt are derived too;
+# harvest.json (tracked) carries the word timestamps that matter.
+# (out/ is already covered repo-wide by `pop/**/out/`.)
+source/
+
+# The sample bank is derived — bin/harvest.py rebuilds it from source/.
+# Media, not source. The manifest lives in harvest.json, which IS tracked:
+# it records every cut's span, duration and measured f0.
+# .align.json is the exception: it is a RECEIPT, not media — OpenAI
+# whisper-1's word timestamps and this run's event-vs-syllable audit — and
+# regenerating it costs an API call per slice.
+samples/*
+!samples/.align.json
+
+# The aesthetivox bank — bin/aesthetivox.py regenerates every WAV from
+# samples/ through WORLD. Derived media; the manifest IS tracked: it
+# records each render's mode, grid, drift offset and pyin before/after.
+vox/*.wav
+!vox/.manifest.json
+
+# The v3 chart bank — bin/chart.py regenerates every WAV from samples/
+# through WORLD, and .cache is just the WORLD analysis memoized so a beat
+# edit pays for synthesis only. Derived media; the receipts ARE tracked:
+# .chart.json is the beat chart the C engine and the timeline both read,
+# and .manifest.json records, per word, where its boundary came from
+# (whisper.cpp / whisper-1 / pinned), how far the transcriber had drifted,
+# which detected events it holds, and its stretch.
+vox3/*.wav
+vox3/.cache/
+
+# The compiled engine.
+c/factoryremix

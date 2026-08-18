@@ -1,0 +1,534 @@
+{
+ "f-whole-poem": {
+  "slice": "chant-full",
+  "lead_in": 0.09,
+  "beats": 31.5,
+  "bpm": 100.0,
+  "tonic": 148.73,
+  "renders": {
+   "lead": 19.405,
+   "8ve-a": 19.405,
+   "8ve-b": 19.405,
+   "low3": 19.405,
+   "low5": 19.405
+  },
+  "snaps": [],
+  "trims": [
+   "in \u2212200ms",
+   "hear \u2212110ms"
+  ],
+  "octave_folds": 10,
+  "words": [
+   {
+    "t": "fac",
+    "src": "pinned (event; whisper-1 was -0 ms) \u00b7 split",
+    "src_span": [
+     0.0,
+     0.295
+    ],
+    "start": 0.0,
+    "beat": 0.0,
+    "dur": 0.5,
+    "st": -2,
+    "f0_hz": 138.6,
+    "stretch": 1.024,
+    "hold": false,
+    "events": [
+     0
+    ],
+    "sung": 1.0,
+    "peak_ms": 90
+   },
+   {
+    "t": "to",
+    "src": "pinned (event; whisper-1 was -0 ms) \u00b7 split",
+    "src_span": [
+     0.295,
+     0.665
+    ],
+    "start": 0.295,
+    "beat": 0.5,
+    "dur": 0.5,
+    "st": 0,
+    "f0_hz": 149.3,
+    "stretch": 1.036,
+    "hold": false,
+    "events": [
+     1
+    ],
+    "sung": 1.0,
+    "peak_ms": 145
+   },
+   {
+    "t": "ry",
+    "src": "pinned (event; whisper-1 was -0 ms) \u00b7 split",
+    "src_span": [
+     0.665,
+     0.85
+    ],
+    "start": 0.665,
+    "beat": 1.0,
+    "dur": 0.5,
+    "st": 12,
+    "f0_hz": 282.1,
+    "stretch": 1.2,
+    "hold": false,
+    "events": [
+     2
+    ],
+    "sung": 1.0,
+    "peak_ms": 10
+   },
+   {
+    "t": "cook",
+    "src": "pinned (event; whisper-1 was +110 ms) \u00b7 split",
+    "src_span": [
+     0.85,
+     1.195
+    ],
+    "start": 0.85,
+    "beat": 1.5,
+    "dur": 0.5,
+    "st": 0,
+    "f0_hz": 150.0,
+    "stretch": 0.824,
+    "hold": false,
+    "events": [
+     3
+    ],
+    "sung": 1.0,
+    "peak_ms": 200
+   },
+   {
+    "t": "ie",
+    "src": "pinned (event; whisper-1 was +110 ms) \u00b7 split",
+    "src_span": [
+     1.195,
+     1.53
+    ],
+    "start": 1.195,
+    "beat": 2.0,
+    "dur": 0.5,
+    "st": 10,
+    "f0_hz": 268.5,
+    "stretch": 0.857,
+    "hold": false,
+    "events": [
+     4
+    ],
+    "sung": 0.75,
+    "peak_ms": 155
+   },
+   {
+    "t": "cut",
+    "src": "pinned (event; whisper-1 was +50 ms) \u00b7 split",
+    "src_span": [
+     1.53,
+     1.835
+    ],
+    "start": 1.53,
+    "beat": 2.5,
+    "dur": 0.5,
+    "st": 8,
+    "f0_hz": 234.4,
+    "stretch": 0.977,
+    "hold": false,
+    "events": [
+     5
+    ],
+    "sung": 0.9,
+    "peak_ms": 170
+   },
+   {
+    "t": "ter",
+    "src": "pinned (event; whisper-1 was +50 ms) \u00b7 split",
+    "src_span": [
+     1.835,
+     2.17
+    ],
+    "start": 1.835,
+    "beat": 3.0,
+    "dur": 0.5,
+    "st": 10,
+    "f0_hz": 273.9,
+    "stretch": 0.857,
+    "hold": false,
+    "events": [
+     6
+    ],
+    "sung": 0.88,
+    "peak_ms": 195
+   },
+   {
+    "t": "personalities",
+    "src": "pinned (event; whisper-1 was -68 ms)",
+    "src_span": [
+     2.17,
+     4.0
+    ],
+    "start": 2.168,
+    "beat": 3.5,
+    "dur": 3.0,
+    "st": 0,
+    "f0_hz": 147.9,
+    "stretch": 1.012,
+    "hold": false,
+    "events": [
+     7,
+     8,
+     9,
+     10
+    ],
+    "sung": 0.94,
+    "peak_ms": 685
+   },
+   {
+    "t": "we",
+    "src": "pinned (event; whisper-1 was -300 ms)",
+    "src_span": [
+     4.0,
+     4.55
+    ],
+    "start": 4.0,
+    "beat": 8.0,
+    "dur": 1.0,
+    "st": -2,
+    "f0_hz": 132.8,
+    "stretch": 1.109,
+    "hold": false,
+    "events": [
+     11
+    ],
+    "sung": 0.95,
+    "peak_ms": 355
+   },
+   {
+    "t": "must",
+    "src": "pinned (event; whisper-1 was +50 ms)",
+    "src_span": [
+     4.55,
+     5.31
+    ],
+    "start": 4.55,
+    "beat": 9.0,
+    "dur": 1.5,
+    "st": 7,
+    "f0_hz": 228.0,
+    "stretch": 1.209,
+    "hold": false,
+    "events": [
+     12,
+     13
+    ],
+    "sung": 0.85,
+    "peak_ms": 265
+   },
+   {
+    "t": "break",
+    "src": "pinned (event; whisper-1 was -90 ms)",
+    "src_span": [
+     5.31,
+     5.885
+    ],
+    "start": 5.31,
+    "beat": 10.5,
+    "dur": 1.0,
+    "st": 0,
+    "f0_hz": 152.3,
+    "stretch": 1.052,
+    "hold": false,
+    "events": [
+     14
+    ],
+    "sung": 0.71,
+    "peak_ms": 235
+   },
+   {
+    "t": "free",
+    "src": "pinned (event; whisper-1 was +55 ms)",
+    "src_span": [
+     5.885,
+     6.36
+    ],
+    "start": 5.885,
+    "beat": 11.5,
+    "dur": 1.0,
+    "st": 0,
+    "f0_hz": 148.5,
+    "stretch": 1.325,
+    "hold": false,
+    "events": [
+     15
+    ],
+    "sung": 0.75,
+    "peak_ms": 190
+   },
+   {
+    "t": "from",
+    "src": "pinned (event; whisper-1 was +20 ms)",
+    "src_span": [
+     6.36,
+     6.965
+    ],
+    "start": 6.36,
+    "beat": 12.5,
+    "dur": 1.0,
+    "st": -4,
+    "f0_hz": 115.1,
+    "stretch": 0.99,
+    "hold": false,
+    "events": [
+     16,
+     17
+    ],
+    "sung": 0.74,
+    "peak_ms": 450
+   },
+   {
+    "t": "the",
+    "src": "pinned (event; whisper-1 was -5 ms)",
+    "src_span": [
+     6.965,
+     7.35
+    ],
+    "start": 6.965,
+    "beat": 13.5,
+    "dur": 0.5,
+    "st": 10,
+    "f0_hz": 257.8,
+    "stretch": 0.923,
+    "hold": false,
+    "events": [
+     18
+    ],
+    "sung": 0.91,
+    "peak_ms": 115
+   },
+   {
+    "t": "states",
+    "src": "pinned (event; whisper-1 was +12 ms)",
+    "src_span": [
+     7.35,
+     7.905
+    ],
+    "start": 7.348,
+    "beat": 14.0,
+    "dur": 1.0,
+    "st": 7,
+    "f0_hz": 227.8,
+    "stretch": 1.125,
+    "hold": false,
+    "events": [
+     19,
+     20
+    ],
+    "sung": 0.78,
+    "peak_ms": 55
+   },
+   {
+    "t": "that",
+    "src": "pinned (event; whisper-1 was -63 ms)",
+    "src_span": [
+     7.905,
+     8.27
+    ],
+    "start": 7.903,
+    "beat": 15.0,
+    "dur": 0.5,
+    "st": 7,
+    "f0_hz": 220.4,
+    "stretch": 0.875,
+    "hold": false,
+    "events": [
+     21
+    ],
+    "sung": 0.7,
+    "peak_ms": 215
+   },
+   {
+    "t": "we're",
+    "src": "pinned (event; whisper-1 was +72 ms)",
+    "src_span": [
+     8.27,
+     8.595
+    ],
+    "start": 8.268,
+    "beat": 15.5,
+    "dur": 0.5,
+    "st": 5,
+    "f0_hz": 195.4,
+    "stretch": 0.894,
+    "hold": false,
+    "events": [
+     22
+    ],
+    "sung": 0.97,
+    "peak_ms": 185
+   },
+   {
+    "t": "in",
+    "src": "pinned (event; whisper-1 was +425 ms)",
+    "src_span": [
+     8.595,
+     9.69
+    ],
+    "start": 8.595,
+    "beat": 16.0,
+    "dur": 2.0,
+    "st": 3,
+    "f0_hz": 174.6,
+    "stretch": 1.101,
+    "hold": false,
+    "events": [
+     23
+    ],
+    "sung": 0.67,
+    "peak_ms": 155
+   },
+   {
+    "t": "spin",
+    "src": "pinned (event; whisper-1 was +70 ms) \u00b7 split",
+    "src_span": [
+     9.86,
+     10.495
+    ],
+    "start": 9.89,
+    "beat": 20.0,
+    "dur": 1.0,
+    "st": 2,
+    "f0_hz": 169.0,
+    "stretch": 1.186,
+    "hold": false,
+    "events": [
+     24
+    ],
+    "sung": 0.91,
+    "peak_ms": 205
+   },
+   {
+    "t": "ning",
+    "src": "pinned (event; whisper-1 was +70 ms) \u00b7 split",
+    "src_span": [
+     10.495,
+     10.915
+    ],
+    "start": 10.495,
+    "beat": 21.0,
+    "dur": 1.0,
+    "st": 5,
+    "f0_hz": 200.5,
+    "stretch": 1.545,
+    "hold": false,
+    "events": [
+     25
+    ],
+    "sung": 1.0,
+    "peak_ms": 110
+   },
+   {
+    "t": "away",
+    "src": "pinned (event; whisper-1 was -75 ms)",
+    "src_span": [
+     10.915,
+     12.015
+    ],
+    "start": 10.915,
+    "beat": 22.0,
+    "dur": 2.0,
+    "st": 0,
+    "f0_hz": 144.1,
+    "stretch": 1.099,
+    "hold": false,
+    "events": [
+     26
+    ],
+    "sung": 1.0,
+    "peak_ms": 620
+   },
+   {
+    "t": "i",
+    "src": "pinned (event; whisper-1 was +125 ms)",
+    "src_span": [
+     12.015,
+     13.015
+    ],
+    "start": 12.015,
+    "beat": 24.0,
+    "dur": 2.0,
+    "st": 7,
+    "f0_hz": 219.9,
+    "stretch": 1.22,
+    "hold": false,
+    "events": [
+     27,
+     28
+    ],
+    "sung": 1.0,
+    "peak_ms": 165
+   },
+   {
+    "t": "hear",
+    "src": "pinned (event; whisper-1 was -95 ms)",
+    "src_span": [
+     13.015,
+     13.79
+    ],
+    "start": 13.015,
+    "beat": 26.0,
+    "dur": 1.5,
+    "st": 12,
+    "f0_hz": 297.2,
+    "stretch": 0.978,
+    "hold": false,
+    "events": [
+     29
+    ],
+    "sung": 0.85,
+    "peak_ms": 350
+   },
+   {
+    "t": "a",
+    "src": "pinned (event; whisper-1 was -300 ms)",
+    "src_span": [
+     13.87,
+     14.69
+    ],
+    "start": 13.9,
+    "beat": 27.5,
+    "dur": 1.5,
+    "st": 8,
+    "f0_hz": 230.1,
+    "stretch": 1.552,
+    "hold": false,
+    "events": [
+     30,
+     31
+    ],
+    "sung": 0.76,
+    "peak_ms": 280
+   },
+   {
+    "t": "bird",
+    "src": "pinned (event; whisper-1 was +10 ms) \u00b7 end pinned (-545 ms)",
+    "src_span": [
+     14.69,
+     15.805
+    ],
+    "start": 14.69,
+    "beat": 29.0,
+    "dur": 2.5,
+    "st": -4,
+    "f0_hz": 116.5,
+    "stretch": 1.345,
+    "hold": false,
+    "events": [
+     32,
+     33
+    ],
+    "sung": 1.0,
+    "peak_ms": 410
+   }
+  ],
+  "flags": []
+ }
+}

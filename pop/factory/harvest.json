@@ -1,0 +1,2554 @@
+{
+  "work": "fact",
+  "poem": "factory / cookie cutter / personalities / we must break free from the states that we're in / spinning away, I hear a bird",
+  "measured": {
+    "bpm": 100,
+    "key": "D minor",
+    "chant_root_hz": 147.0,
+    "note": "syllables are eighths at 100.3 BPM (median IOI 0.299 s); each poem line spans ~2 bars at 100; pitch set D F G A Bb C on D3"
+  },
+  "takes": {
+    "6925546179275099397": {
+      "source_mp4": "https://assets.aesthetic.computer/whistlegraph/index/posts/6925546179275099397.mp4",
+      "duration": 19.67,
+      "beat_track_bpm": 101.4,
+      "median_onset_ioi_s": 0.299,
+      "ioi_as_eighths_bpm": 100.4,
+      "transcript": "A  one ,  two ,  ready ,  and ...  \u266b  Factory  cookie  cutter  personalities  \u266b  \u266b  We  must  break  free  from  the  states  that  we 're  in  \u266b  \u266b  Spin ning  away ,  I  hear  a  bird  \u266b",
+      "transcription_method": "whisper.cpp (whisper-cli) ggml-small, word-level -ml 1",
+      "word_timestamps": [
+        {
+          "t": " A",
+          "start": 0.13,
+          "end": 0.2
+        },
+        {
+          "t": " one",
+          "start": 0.2,
+          "end": 0.53
+        },
+        {
+          "t": ",",
+          "start": 0.53,
+          "end": 0.91
+        },
+        {
+          "t": " two",
+          "start": 0.91,
+          "end": 1.19
+        },
+        {
+          "t": ",",
+          "start": 1.19,
+          "end": 1.5
+        },
+        {
+          "t": " ready",
+          "start": 1.5,
+          "end": 2.17
+        },
+        {
+          "t": ",",
+          "start": 2.17,
+          "end": 2.37
+        },
+        {
+          "t": " and",
+          "start": 2.37,
+          "end": 2.8
+        },
+        {
+          "t": "...",
+          "start": 2.8,
+          "end": 2.8
+        },
+        {
+          "t": " \u266b",
+          "start": 2.8,
+          "end": 3.13
+        },
+        {
+          "t": " Factory",
+          "start": 3.13,
+          "end": 3.91
+        },
+        {
+          "t": " cookie",
+          "start": 3.91,
+          "end": 4.58
+        },
+        {
+          "t": " cutter",
+          "start": 4.58,
+          "end": 5.28
+        },
+        {
+          "t": " personalities",
+          "start": 5.28,
+          "end": 7.23
+        },
+        {
+          "t": " \u266b",
+          "start": 7.23,
+          "end": 7.28
+        },
+        {
+          "t": " \u266b",
+          "start": 7.28,
+          "end": 7.65
+        },
+        {
+          "t": " We",
+          "start": 7.65,
+          "end": 8.19
+        },
+        {
+          "t": " must",
+          "start": 8.19,
+          "end": 8.4
+        },
+        {
+          "t": " break",
+          "start": 8.4,
+          "end": 9.02
+        },
+        {
+          "t": " free",
+          "start": 9.02,
+          "end": 9.52
+        },
+        {
+          "t": " from",
+          "start": 9.52,
+          "end": 10.13
+        },
+        {
+          "t": " the",
+          "start": 10.13,
+          "end": 10.46
+        },
+        {
+          "t": " states",
+          "start": 10.46,
+          "end": 11.14
+        },
+        {
+          "t": " that",
+          "start": 11.14,
+          "end": 11.72
+        },
+        {
+          "t": " we",
+          "start": 11.72,
+          "end": 11.89
+        },
+        {
+          "t": "'re",
+          "start": 11.89,
+          "end": 12.26
+        },
+        {
+          "t": " in",
+          "start": 12.26,
+          "end": 12.51
+        },
+        {
+          "t": " \u266b",
+          "start": 12.51,
+          "end": 12.94
+        },
+        {
+          "t": " \u266b",
+          "start": 12.94,
+          "end": 13.85
+        },
+        {
+          "t": " Spin",
+          "start": 13.85,
+          "end": 14.45
+        },
+        {
+          "t": "ning",
+          "start": 14.45,
+          "end": 15.28
+        },
+        {
+          "t": " away",
+          "start": 15.28,
+          "end": 16.13
+        },
+        {
+          "t": ",",
+          "start": 16.13,
+          "end": 16.55
+        },
+        {
+          "t": " I",
+          "start": 16.55,
+          "end": 16.76
+        },
+        {
+          "t": " hear",
+          "start": 16.76,
+          "end": 17.68
+        },
+        {
+          "t": " a",
+          "start": 17.68,
+          "end": 17.82
+        },
+        {
+          "t": " bird",
+          "start": 17.82,
+          "end": 18.67
+        },
+        {
+          "t": " \u266b",
+          "start": 18.67,
+          "end": 19.36
+        }
+      ],
+      "samples": [
+        {
+          "file": "samples/count-in.wav",
+          "words": "a one, two, ready, and",
+          "start": 0.2,
+          "end": 3.171,
+          "dur": 2.995,
+          "median_f0_hz": 265.8,
+          "note": "C4",
+          "voiced_frac": 0.69
+        },
+        {
+          "file": "samples/a-one.wav",
+          "words": "a one",
+          "start": 0.2,
+          "end": 0.867,
+          "dur": 0.691,
+          "median_f0_hz": 219.1,
+          "note": "A3",
+          "voiced_frac": 0.63
+        },
+        {
+          "file": "samples/two.wav",
+          "words": "two",
+          "start": 0.911,
+          "end": 1.487,
+          "dur": 0.6,
+          "median_f0_hz": 278.4,
+          "note": "C\u266f4",
+          "voiced_frac": 0.93
+        },
+        {
+          "file": "samples/ready.wav",
+          "words": "ready",
+          "start": 1.511,
+          "end": 2.559,
+          "dur": 1.071,
+          "median_f0_hz": 270.5,
+          "note": "C\u266f4",
+          "voiced_frac": 0.76
+        },
+        {
+          "file": "samples/and.wav",
+          "words": "and",
+          "start": 2.28,
+          "end": 3.171,
+          "dur": 0.915,
+          "median_f0_hz": 154.4,
+          "note": "D\u266f3",
+          "voiced_frac": 0.62
+        },
+        {
+          "file": "samples/factory.wav",
+          "words": "factory",
+          "start": 3.081,
+          "end": 4.13,
+          "dur": 1.073,
+          "median_f0_hz": 146.6,
+          "note": "D3",
+          "voiced_frac": 0.94
+        },
+        {
+          "file": "samples/cookie.wav",
+          "words": "cookie",
+          "start": 3.85,
+          "end": 4.72,
+          "dur": 0.894,
+          "median_f0_hz": 146.6,
+          "note": "D3",
+          "voiced_frac": 0.99
+        },
+        {
+          "file": "samples/cutter.wav",
+          "words": "cutter",
+          "start": 4.52,
+          "end": 5.373,
+          "dur": 0.877,
+          "median_f0_hz": 235.5,
+          "note": "A\u266f3",
+          "voiced_frac": 0.8
+        },
+        {
+          "file": "samples/personalities.wav",
+          "words": "personalities",
+          "start": 5.22,
+          "end": 7.415,
+          "dur": 2.219,
+          "median_f0_hz": 150.9,
+          "note": "D3",
+          "voiced_frac": 0.76
+        },
+        {
+          "file": "samples/line1.wav",
+          "words": "factory cookie cutter personalities",
+          "start": 3.182,
+          "end": 7.415,
+          "dur": 4.257,
+          "median_f0_hz": 150.0,
+          "note": "D3",
+          "voiced_frac": 0.82
+        },
+        {
+          "file": "samples/we.wav",
+          "words": "we",
+          "start": 7.56,
+          "end": 8.319,
+          "dur": 0.783,
+          "median_f0_hz": 261.2,
+          "note": "C4",
+          "voiced_frac": 0.81
+        },
+        {
+          "file": "samples/must.wav",
+          "words": "must",
+          "start": 8.13,
+          "end": 8.477,
+          "dur": 0.371,
+          "median_f0_hz": null,
+          "note": null,
+          "voiced_frac": 0.0
+        },
+        {
+          "file": "samples/break.wav",
+          "words": "break",
+          "start": 8.52,
+          "end": 9.171,
+          "dur": 0.675,
+          "median_f0_hz": 152.7,
+          "note": "D\u266f3",
+          "voiced_frac": 0.66
+        },
+        {
+          "file": "samples/free.wav",
+          "words": "free",
+          "start": 8.976,
+          "end": 9.851,
+          "dur": 0.899,
+          "median_f0_hz": 152.2,
+          "note": "D\u266f3",
+          "voiced_frac": 0.67
+        },
+        {
+          "file": "samples/break-free.wav",
+          "words": "break free",
+          "start": 8.52,
+          "end": 9.851,
+          "dur": 1.355,
+          "median_f0_hz": 152.7,
+          "note": "D\u266f3",
+          "voiced_frac": 0.81
+        },
+        {
+          "file": "samples/from-the-states.wav",
+          "words": "from the states",
+          "start": 9.46,
+          "end": 11.424,
+          "dur": 1.988,
+          "median_f0_hz": 226.1,
+          "note": "A3",
+          "voiced_frac": 0.66
+        },
+        {
+          "file": "samples/that-were-in.wav",
+          "words": "that we're in",
+          "start": 11.149,
+          "end": 12.456,
+          "dur": 1.331,
+          "median_f0_hz": 186.3,
+          "note": "F\u266f3",
+          "voiced_frac": 0.83
+        },
+        {
+          "file": "samples/line2.wav",
+          "words": "we must break free from the states that we're in",
+          "start": 7.56,
+          "end": 12.456,
+          "dur": 4.92,
+          "median_f0_hz": 195.7,
+          "note": "G3",
+          "voiced_frac": 0.72
+        },
+        {
+          "file": "samples/spinning.wav",
+          "words": "spinning",
+          "start": 13.79,
+          "end": 15.639,
+          "dur": 1.873,
+          "median_f0_hz": 145.8,
+          "note": "D3",
+          "voiced_frac": 0.9
+        },
+        {
+          "file": "samples/away.wav",
+          "words": "away",
+          "start": 15.22,
+          "end": 16.539,
+          "dur": 1.343,
+          "median_f0_hz": 149.2,
+          "note": "D3",
+          "voiced_frac": 0.87
+        },
+        {
+          "file": "samples/spinning-away.wav",
+          "words": "spinning away",
+          "start": 13.79,
+          "end": 16.539,
+          "dur": 2.773,
+          "median_f0_hz": 146.6,
+          "note": "D3",
+          "voiced_frac": 0.9
+        },
+        {
+          "file": "samples/i-hear.wav",
+          "words": "I hear",
+          "start": 16.46,
+          "end": 17.787,
+          "dur": 1.351,
+          "median_f0_hz": 117.7,
+          "note": "A\u266f2",
+          "voiced_frac": 0.65
+        },
+        {
+          "file": "samples/a-bird.wav",
+          "words": "a bird",
+          "start": 17.62,
+          "end": 19.037,
+          "dur": 1.441,
+          "median_f0_hz": 116.4,
+          "note": "A\u266f2",
+          "voiced_frac": 0.99
+        },
+        {
+          "file": "samples/bird.wav",
+          "words": "bird",
+          "start": 17.76,
+          "end": 19.037,
+          "dur": 1.301,
+          "median_f0_hz": 116.4,
+          "note": "A\u266f2",
+          "voiced_frac": 1.0
+        },
+        {
+          "file": "samples/line3.wav",
+          "words": "spinning away, I hear a bird",
+          "start": 13.79,
+          "end": 19.037,
+          "dur": 5.271,
+          "median_f0_hz": 136.0,
+          "note": "C\u266f3",
+          "voiced_frac": 0.86
+        },
+        {
+          "file": "samples/chant-full.wav",
+          "words": "the whole poem",
+          "start": 3.182,
+          "end": 19.037,
+          "dur": 15.879,
+          "median_f0_hz": 150.0,
+          "note": "D3",
+          "voiced_frac": 0.75
+        }
+      ]
+    },
+    "6928682624529485062": {
+      "source_mp4": "https://assets.aesthetic.computer/whistlegraph/index/posts/6928682624529485062.mp4",
+      "duration": 17.21,
+      "beat_track_bpm": 100.4,
+      "median_onset_ioi_s": 0.317,
+      "ioi_as_eighths_bpm": 94.5,
+      "transcript": "Factory  cookie  cutter  personalities  We  must  break  free  from  the  states  that  we 're  in  Spin ning  away  I  hear  a  bird",
+      "transcription_method": "whisper.cpp (whisper-cli) ggml-small, word-level -ml 1",
+      "word_timestamps": [
+        {
+          "t": " Factory",
+          "start": 0.22,
+          "end": 1.0
+        },
+        {
+          "t": " cookie",
+          "start": 1.0,
+          "end": 1.94
+        },
+        {
+          "t": " cutter",
+          "start": 1.94,
+          "end": 2.74
+        },
+        {
+          "t": " personalities",
+          "start": 2.74,
+          "end": 4.72
+        },
+        {
+          "t": " We",
+          "start": 4.72,
+          "end": 5.07
+        },
+        {
+          "t": " must",
+          "start": 5.07,
+          "end": 5.77
+        },
+        {
+          "t": " break",
+          "start": 5.77,
+          "end": 6.66
+        },
+        {
+          "t": " free",
+          "start": 6.66,
+          "end": 7.36
+        },
+        {
+          "t": " from",
+          "start": 7.36,
+          "end": 7.72
+        },
+        {
+          "t": " the",
+          "start": 7.72,
+          "end": 8.05
+        },
+        {
+          "t": " states",
+          "start": 8.05,
+          "end": 8.72
+        },
+        {
+          "t": " that",
+          "start": 8.72,
+          "end": 9.38
+        },
+        {
+          "t": " we",
+          "start": 9.38,
+          "end": 9.71
+        },
+        {
+          "t": "'re",
+          "start": 9.71,
+          "end": 10.2
+        },
+        {
+          "t": " in",
+          "start": 10.2,
+          "end": 10.56
+        },
+        {
+          "t": " Spin",
+          "start": 10.56,
+          "end": 11.36
+        },
+        {
+          "t": "ning",
+          "start": 11.36,
+          "end": 12.15
+        },
+        {
+          "t": " away",
+          "start": 12.15,
+          "end": 12.96
+        },
+        {
+          "t": " I",
+          "start": 12.96,
+          "end": 13.32
+        },
+        {
+          "t": " hear",
+          "start": 13.32,
+          "end": 14.77
+        },
+        {
+          "t": " a",
+          "start": 14.77,
+          "end": 15.23
+        },
+        {
+          "t": " bird",
+          "start": 15.23,
+          "end": 17.12
+        }
+      ],
+      "samples": [
+        {
+          "file": "samples/factory-b.wav",
+          "words": "factory",
+          "start": 0.219,
+          "end": 1.359,
+          "dur": 1.164,
+          "median_f0_hz": 148.3,
+          "note": "D3",
+          "voiced_frac": 0.84
+        },
+        {
+          "file": "samples/cookie-b.wav",
+          "words": "cookie",
+          "start": 0.94,
+          "end": 2.203,
+          "dur": 1.287,
+          "median_f0_hz": 142.4,
+          "note": "C\u266f3",
+          "voiced_frac": 0.92
+        },
+        {
+          "file": "samples/cutter-b.wav",
+          "words": "cutter",
+          "start": 1.928,
+          "end": 2.907,
+          "dur": 1.003,
+          "median_f0_hz": 123.3,
+          "note": "B2",
+          "voiced_frac": 0.95
+        },
+        {
+          "file": "samples/personalities-b.wav",
+          "words": "personalities",
+          "start": 2.68,
+          "end": 4.801,
+          "dur": 2.145,
+          "median_f0_hz": 157.2,
+          "note": "D\u266f3",
+          "voiced_frac": 0.86
+        },
+        {
+          "file": "samples/line1-b.wav",
+          "words": "factory cookie cutter personalities",
+          "start": 0.219,
+          "end": 4.801,
+          "dur": 4.607,
+          "median_f0_hz": 142.4,
+          "note": "C\u266f3",
+          "voiced_frac": 0.89
+        },
+        {
+          "file": "samples/line2-b.wav",
+          "words": "we must break free from the states that we're in",
+          "start": 4.66,
+          "end": 9.993,
+          "dur": 5.357,
+          "median_f0_hz": 159.9,
+          "note": "D\u266f3",
+          "voiced_frac": 0.75
+        },
+        {
+          "file": "samples/bird-b.wav",
+          "words": "bird (long, low)",
+          "start": 15.17,
+          "end": 16.845,
+          "dur": 1.699,
+          "median_f0_hz": 103.7,
+          "note": "G\u266f2",
+          "voiced_frac": 0.88
+        }
+      ]
+    },
+    "7030651123325308165": {
+      "source_mp4": "https://assets.aesthetic.computer/whistlegraph/index/posts/7030651123325308165.mp4",
+      "duration": 16.56,
+      "beat_track_bpm": 109.2,
+      "median_onset_ioi_s": 0.301,
+      "ioi_as_eighths_bpm": 99.6,
+      "transcript": "\u266a  Factory  cookie  cutter  personalities  \u266a  \u266a  We  must  break  free  from  the  states  that  we 're  in  \u266a  \u266a  Spin ning  away ,  I  hear  a  bird  \u266a",
+      "transcription_method": "whisper.cpp (whisper-cli) ggml-small, word-level -ml 1",
+      "word_timestamps": [
+        {
+          "t": " \u266a",
+          "start": 0.28,
+          "end": 0.33
+        },
+        {
+          "t": " Factory",
+          "start": 0.33,
+          "end": 1.11
+        },
+        {
+          "t": " cookie",
+          "start": 1.11,
+          "end": 1.78
+        },
+        {
+          "t": " cutter",
+          "start": 1.78,
+          "end": 2.45
+        },
+        {
+          "t": " personalities",
+          "start": 2.45,
+          "end": 3.9
+        },
+        {
+          "t": " \u266a",
+          "start": 3.9,
+          "end": 4.26
+        },
+        {
+          "t": " \u266a",
+          "start": 4.26,
+          "end": 4.57
+        },
+        {
+          "t": " We",
+          "start": 4.57,
+          "end": 4.87
+        },
+        {
+          "t": " must",
+          "start": 4.87,
+          "end": 5.2
+        },
+        {
+          "t": " break",
+          "start": 5.2,
+          "end": 5.72
+        },
+        {
+          "t": " free",
+          "start": 5.72,
+          "end": 6.14
+        },
+        {
+          "t": " from",
+          "start": 6.14,
+          "end": 6.57
+        },
+        {
+          "t": " the",
+          "start": 6.57,
+          "end": 6.87
+        },
+        {
+          "t": " states",
+          "start": 6.87,
+          "end": 7.5
+        },
+        {
+          "t": " that",
+          "start": 7.5,
+          "end": 7.92
+        },
+        {
+          "t": " we",
+          "start": 7.92,
+          "end": 8.13
+        },
+        {
+          "t": "'re",
+          "start": 8.13,
+          "end": 8.44
+        },
+        {
+          "t": " in",
+          "start": 8.44,
+          "end": 8.65
+        },
+        {
+          "t": " \u266a",
+          "start": 8.65,
+          "end": 9.0
+        },
+        {
+          "t": " \u266a",
+          "start": 9.0,
+          "end": 9.63
+        },
+        {
+          "t": " Spin",
+          "start": 9.63,
+          "end": 10.47
+        },
+        {
+          "t": "ning",
+          "start": 10.47,
+          "end": 11.31
+        },
+        {
+          "t": " away",
+          "start": 11.31,
+          "end": 12.15
+        },
+        {
+          "t": ",",
+          "start": 12.15,
+          "end": 12.57
+        },
+        {
+          "t": " I",
+          "start": 12.57,
+          "end": 12.86
+        },
+        {
+          "t": " hear",
+          "start": 12.86,
+          "end": 13.62
+        },
+        {
+          "t": " a",
+          "start": 13.62,
+          "end": 13.83
+        },
+        {
+          "t": " bird",
+          "start": 13.83,
+          "end": 14.67
+        },
+        {
+          "t": " \u266a",
+          "start": 14.67,
+          "end": 15.36
+        }
+      ],
+      "samples": [
+        {
+          "file": "samples/factory-c.wav",
+          "words": "factory",
+          "start": 0.275,
+          "end": 1.447,
+          "dur": 1.196,
+          "median_f0_hz": 276.8,
+          "note": "C\u266f4",
+          "voiced_frac": 0.81
+        },
+        {
+          "file": "samples/cutter-c.wav",
+          "words": "cutter",
+          "start": 1.725,
+          "end": 2.627,
+          "dur": 0.926,
+          "median_f0_hz": 265.8,
+          "note": "C4",
+          "voiced_frac": 0.72
+        },
+        {
+          "file": "samples/personalities-c.wav",
+          "words": "personalities",
+          "start": 2.39,
+          "end": 4.259,
+          "dur": 1.893,
+          "median_f0_hz": 301.8,
+          "note": "D4",
+          "voiced_frac": 0.76
+        },
+        {
+          "file": "samples/line1-c.wav",
+          "words": "factory cookie cutter personalities",
+          "start": 0.281,
+          "end": 4.259,
+          "dur": 4.002,
+          "median_f0_hz": 289.9,
+          "note": "D4",
+          "voiced_frac": 0.8
+        },
+        {
+          "file": "samples/spinning-away-c.wav",
+          "words": "spinning away",
+          "start": 9.597,
+          "end": 12.509,
+          "dur": 2.936,
+          "median_f0_hz": 272.0,
+          "note": "C\u266f4",
+          "voiced_frac": 0.96
+        },
+        {
+          "file": "samples/bird-c.wav",
+          "words": "bird",
+          "start": 13.77,
+          "end": 15.029,
+          "dur": 1.283,
+          "median_f0_hz": 232.7,
+          "note": "A\u266f3",
+          "voiced_frac": 0.94
+        }
+      ]
+    },
+    "7029459939408006405": {
+      "source_mp4": "https://assets.aesthetic.computer/whistlegraph/index/posts/7029459939408006405.mp4",
+      "duration": 15.63,
+      "beat_track_bpm": 111.4,
+      "median_onset_ioi_s": 0.283,
+      "ioi_as_eighths_bpm": 106.1,
+      "transcript": "Factory  Cookie  Cut ter  personalities  We  must  break  free  from  the  states  that  we 're  in  Spin ning  away  I  hear  a  bird",
+      "transcription_method": "whisper.cpp (whisper-cli) ggml-small, word-level -ml 1",
+      "word_timestamps": [
+        {
+          "t": " Factory",
+          "start": 0.31,
+          "end": 0.87
+        },
+        {
+          "t": " Cookie",
+          "start": 0.87,
+          "end": 1.62
+        },
+        {
+          "t": " Cut",
+          "start": 1.62,
+          "end": 1.99
+        },
+        {
+          "t": "ter",
+          "start": 1.99,
+          "end": 2.36
+        },
+        {
+          "t": " personalities",
+          "start": 2.36,
+          "end": 4.0
+        },
+        {
+          "t": " We",
+          "start": 4.0,
+          "end": 4.31
+        },
+        {
+          "t": " must",
+          "start": 4.31,
+          "end": 4.79
+        },
+        {
+          "t": " break",
+          "start": 4.79,
+          "end": 5.45
+        },
+        {
+          "t": " free",
+          "start": 5.45,
+          "end": 6.0
+        },
+        {
+          "t": " from",
+          "start": 6.0,
+          "end": 6.53
+        },
+        {
+          "t": " the",
+          "start": 6.53,
+          "end": 6.84
+        },
+        {
+          "t": " states",
+          "start": 6.84,
+          "end": 7.5
+        },
+        {
+          "t": " that",
+          "start": 7.5,
+          "end": 8.04
+        },
+        {
+          "t": " we",
+          "start": 8.04,
+          "end": 8.31
+        },
+        {
+          "t": "'re",
+          "start": 8.31,
+          "end": 8.71
+        },
+        {
+          "t": " in",
+          "start": 8.71,
+          "end": 9.0
+        },
+        {
+          "t": " Spin",
+          "start": 9.0,
+          "end": 9.66
+        },
+        {
+          "t": "ning",
+          "start": 9.66,
+          "end": 10.4
+        },
+        {
+          "t": " away",
+          "start": 10.4,
+          "end": 11.0
+        },
+        {
+          "t": " I",
+          "start": 11.0,
+          "end": 11.24
+        },
+        {
+          "t": " hear",
+          "start": 11.24,
+          "end": 12.0
+        },
+        {
+          "t": " a",
+          "start": 12.0,
+          "end": 12.7
+        },
+        {
+          "t": " bird",
+          "start": 12.7,
+          "end": 15.0
+        }
+      ],
+      "samples": [
+        {
+          "file": "samples/factory-d.wav",
+          "words": "factory",
+          "start": 0.309,
+          "end": 1.229,
+          "dur": 0.944,
+          "median_f0_hz": 312.5,
+          "note": "D\u266f4",
+          "voiced_frac": 0.87
+        },
+        {
+          "file": "samples/cookie-d.wav",
+          "words": "cookie",
+          "start": 0.81,
+          "end": 1.888,
+          "dur": 1.102,
+          "median_f0_hz": 312.5,
+          "note": "D\u266f4",
+          "voiced_frac": 0.79
+        },
+        {
+          "file": "samples/cutter-d.wav",
+          "words": "cutter",
+          "start": 1.624,
+          "end": 2.5,
+          "dur": 0.9,
+          "median_f0_hz": 265.1,
+          "note": "C4",
+          "voiced_frac": 0.8
+        },
+        {
+          "file": "samples/personalities-d.wav",
+          "words": "personalities",
+          "start": 2.3,
+          "end": 4.209,
+          "dur": 1.933,
+          "median_f0_hz": 317.0,
+          "note": "D\u266f4",
+          "voiced_frac": 0.78
+        },
+        {
+          "file": "samples/line2-d.wav",
+          "words": "we must break free from the states that we're in",
+          "start": 3.94,
+          "end": 8.724,
+          "dur": 4.808,
+          "median_f0_hz": 258.2,
+          "note": "C4",
+          "voiced_frac": 0.66
+        },
+        {
+          "file": "samples/line3-d.wav",
+          "words": "spinning away I hear a bird (held)",
+          "start": 9.148,
+          "end": 15.025,
+          "dur": 5.901,
+          "median_f0_hz": 249.5,
+          "note": "B3",
+          "voiced_frac": 0.84
+        }
+      ]
+    },
+    "7427774349865700639": {
+      "source_mp4": "https://assets.aesthetic.computer/whistlegraph/index/posts/7427774349865700639.mp4",
+      "duration": 19.44,
+      "beat_track_bpm": 116.0,
+      "median_onset_ioi_s": 0.347,
+      "ioi_as_eighths_bpm": 86.5,
+      "transcript": "Factory  cookie  cutter  personality ,  we  must  break  free  from  the  states  that  we 're  in .  Spin ning  away ,  I  hear  a  bird .",
+      "transcription_method": "whisper.cpp (whisper-cli) ggml-small, word-level -ml 1",
+      "word_timestamps": [
+        {
+          "t": " Factory",
+          "start": 0.48,
+          "end": 2.0
+        },
+        {
+          "t": " cookie",
+          "start": 2.0,
+          "end": 2.72
+        },
+        {
+          "t": " cutter",
+          "start": 2.72,
+          "end": 3.44
+        },
+        {
+          "t": " personality",
+          "start": 3.44,
+          "end": 5.76
+        },
+        {
+          "t": ",",
+          "start": 5.76,
+          "end": 6.14
+        },
+        {
+          "t": " we",
+          "start": 6.14,
+          "end": 6.52
+        },
+        {
+          "t": " must",
+          "start": 6.52,
+          "end": 7.28
+        },
+        {
+          "t": " break",
+          "start": 7.28,
+          "end": 8.25
+        },
+        {
+          "t": " free",
+          "start": 8.25,
+          "end": 9.11
+        },
+        {
+          "t": " from",
+          "start": 9.11,
+          "end": 9.28
+        },
+        {
+          "t": " the",
+          "start": 9.28,
+          "end": 9.5
+        },
+        {
+          "t": " states",
+          "start": 9.5,
+          "end": 10.0
+        },
+        {
+          "t": " that",
+          "start": 10.0,
+          "end": 10.64
+        },
+        {
+          "t": " we",
+          "start": 10.64,
+          "end": 10.88
+        },
+        {
+          "t": "'re",
+          "start": 10.88,
+          "end": 11.23
+        },
+        {
+          "t": " in",
+          "start": 11.23,
+          "end": 12.0
+        },
+        {
+          "t": ".",
+          "start": 12.0,
+          "end": 12.32
+        },
+        {
+          "t": " Spin",
+          "start": 12.32,
+          "end": 13.28
+        },
+        {
+          "t": "ning",
+          "start": 13.28,
+          "end": 14.3
+        },
+        {
+          "t": " away",
+          "start": 14.3,
+          "end": 15.19
+        },
+        {
+          "t": ",",
+          "start": 15.19,
+          "end": 15.66
+        },
+        {
+          "t": " I",
+          "start": 15.66,
+          "end": 15.98
+        },
+        {
+          "t": " hear",
+          "start": 15.98,
+          "end": 16.86
+        },
+        {
+          "t": " a",
+          "start": 16.86,
+          "end": 17.1
+        },
+        {
+          "t": " bird",
+          "start": 17.1,
+          "end": 18.06
+        },
+        {
+          "t": ".",
+          "start": 18.06,
+          "end": 18.8
+        }
+      ],
+      "samples": [
+        {
+          "file": "samples/factory-e.wav",
+          "words": "factory (long)",
+          "start": 0.479,
+          "end": 2.073,
+          "dur": 1.619,
+          "median_f0_hz": 141.6,
+          "note": "C\u266f3",
+          "voiced_frac": 0.67
+        },
+        {
+          "file": "samples/cookie-e.wav",
+          "words": "cookie",
+          "start": 1.977,
+          "end": 2.807,
+          "dur": 0.853,
+          "median_f0_hz": 143.3,
+          "note": "D3",
+          "voiced_frac": 0.42
+        },
+        {
+          "file": "samples/cutter-e.wav",
+          "words": "cutter",
+          "start": 2.719,
+          "end": 3.561,
+          "dur": 0.867,
+          "median_f0_hz": 129.1,
+          "note": "C3",
+          "voiced_frac": 0.85
+        },
+        {
+          "file": "samples/personalities-e.wav",
+          "words": "personality",
+          "start": 3.38,
+          "end": 6.119,
+          "dur": 2.763,
+          "median_f0_hz": 154.4,
+          "note": "D\u266f3",
+          "voiced_frac": 0.92
+        },
+        {
+          "file": "samples/line3-e.wav",
+          "words": "spinning away, I hear a bird (low)",
+          "start": 12.447,
+          "end": 18.265,
+          "dur": 5.843,
+          "median_f0_hz": 150.0,
+          "note": "D3",
+          "voiced_frac": 0.86
+        }
+      ]
+    },
+    "7637680702124805407": {
+      "source_mp4": "https://assets.aesthetic.computer/whistlegraph/index/posts/7637680702124805407.mp4",
+      "duration": 23.24,
+      "beat_track_bpm": 132.4,
+      "median_onset_ioi_s": 0.32,
+      "ioi_as_eighths_bpm": 93.7,
+      "transcript": "Factory  cookie  cutter  personality  we  must  break  free  from  the  states  that  we 're  in .  Spin ning  away  I  hear  a  bird .",
+      "transcription_method": "whisper.cpp (whisper-cli) ggml-small, word-level -ml 1",
+      "word_timestamps": [
+        {
+          "t": " Factory",
+          "start": 1.23,
+          "end": 1.84
+        },
+        {
+          "t": " cookie",
+          "start": 1.84,
+          "end": 3.49
+        },
+        {
+          "t": " cutter",
+          "start": 3.49,
+          "end": 5.0
+        },
+        {
+          "t": " personality",
+          "start": 5.0,
+          "end": 7.8
+        },
+        {
+          "t": " we",
+          "start": 7.8,
+          "end": 8.3
+        },
+        {
+          "t": " must",
+          "start": 8.3,
+          "end": 9.31
+        },
+        {
+          "t": " break",
+          "start": 9.31,
+          "end": 10.73
+        },
+        {
+          "t": " free",
+          "start": 10.73,
+          "end": 11.71
+        },
+        {
+          "t": " from",
+          "start": 11.71,
+          "end": 12.0
+        },
+        {
+          "t": " the",
+          "start": 12.0,
+          "end": 12.24
+        },
+        {
+          "t": " states",
+          "start": 12.24,
+          "end": 13.42
+        },
+        {
+          "t": " that",
+          "start": 13.42,
+          "end": 13.68
+        },
+        {
+          "t": " we",
+          "start": 13.68,
+          "end": 13.85
+        },
+        {
+          "t": "'re",
+          "start": 13.85,
+          "end": 14.08
+        },
+        {
+          "t": " in",
+          "start": 14.08,
+          "end": 16.0
+        },
+        {
+          "t": ".",
+          "start": 16.0,
+          "end": 16.0
+        },
+        {
+          "t": " Spin",
+          "start": 16.0,
+          "end": 17.27
+        },
+        {
+          "t": "ning",
+          "start": 17.27,
+          "end": 18.53
+        },
+        {
+          "t": " away",
+          "start": 18.53,
+          "end": 19.87
+        },
+        {
+          "t": " I",
+          "start": 19.87,
+          "end": 20.12
+        },
+        {
+          "t": " hear",
+          "start": 20.12,
+          "end": 21.39
+        },
+        {
+          "t": " a",
+          "start": 21.39,
+          "end": 21.71
+        },
+        {
+          "t": " bird",
+          "start": 21.71,
+          "end": 23.0
+        },
+        {
+          "t": ".",
+          "start": 23.0,
+          "end": 23.0
+        }
+      ],
+      "samples": [
+        {
+          "file": "samples/factory-f.wav",
+          "words": "factoreyy",
+          "start": 1.234,
+          "end": 1.948,
+          "dur": 0.738,
+          "median_f0_hz": 504.7,
+          "note": "B4",
+          "voiced_frac": 1.0
+        },
+        {
+          "file": "samples/cookie-f.wav",
+          "words": "cookay",
+          "start": 1.78,
+          "end": 3.731,
+          "dur": 1.975,
+          "median_f0_hz": 481.9,
+          "note": "B4",
+          "voiced_frac": 0.9
+        },
+        {
+          "file": "samples/cutter-f.wav",
+          "words": "cubber",
+          "start": 3.489,
+          "end": 5.177,
+          "dur": 1.713,
+          "median_f0_hz": 431.8,
+          "note": "A4",
+          "voiced_frac": 0.95
+        },
+        {
+          "file": "samples/personalities-f.wav",
+          "words": "personality",
+          "start": 4.94,
+          "end": 8.127,
+          "dur": 3.211,
+          "median_f0_hz": 481.9,
+          "note": "B4",
+          "voiced_frac": 0.93
+        }
+      ]
+    },
+    "7079083421674343722": {
+      "source_mp4": "https://assets.aesthetic.computer/whistlegraph/index/posts/7079083421674343722.mp4",
+      "duration": 31.19,
+      "beat_track_bpm": 114.8,
+      "median_onset_ioi_s": 0.331,
+      "ioi_as_eighths_bpm": 90.7,
+      "transcript": "Here 's  the  factory  factory  cookie  cutter  personalities  we  must  break  free  from  the  states  that  we 're  in   spinning  away  i  hear  a  bird  a  bird  a  bird  a  bird  a  bird",
+      "transcription_method": "whisper.cpp (whisper-cli) ggml-small, word-level -ml 1",
+      "word_timestamps": [
+        {
+          "t": " Here",
+          "start": 0.17,
+          "end": 0.5
+        },
+        {
+          "t": "'s",
+          "start": 0.5,
+          "end": 0.74
+        },
+        {
+          "t": " the",
+          "start": 0.74,
+          "end": 1.1
+        },
+        {
+          "t": " factory",
+          "start": 1.1,
+          "end": 2.23
+        },
+        {
+          "t": " factory",
+          "start": 2.23,
+          "end": 4.23
+        },
+        {
+          "t": " cookie",
+          "start": 4.23,
+          "end": 5.31
+        },
+        {
+          "t": " cutter",
+          "start": 5.31,
+          "end": 6.36
+        },
+        {
+          "t": " personalities",
+          "start": 6.36,
+          "end": 9.5
+        },
+        {
+          "t": " we",
+          "start": 9.5,
+          "end": 10.4
+        },
+        {
+          "t": " must",
+          "start": 10.4,
+          "end": 11.63
+        },
+        {
+          "t": " break",
+          "start": 11.63,
+          "end": 12.66
+        },
+        {
+          "t": " free",
+          "start": 12.66,
+          "end": 13.72
+        },
+        {
+          "t": " from",
+          "start": 13.72,
+          "end": 14.08
+        },
+        {
+          "t": " the",
+          "start": 14.08,
+          "end": 14.4
+        },
+        {
+          "t": " states",
+          "start": 14.4,
+          "end": 15.6
+        },
+        {
+          "t": " that",
+          "start": 15.6,
+          "end": 16.21
+        },
+        {
+          "t": " we",
+          "start": 16.21,
+          "end": 16.38
+        },
+        {
+          "t": "'re",
+          "start": 16.38,
+          "end": 16.72
+        },
+        {
+          "t": " in",
+          "start": 16.72,
+          "end": 16.96
+        },
+        {
+          "t": " spinning",
+          "start": 18.89,
+          "end": 22.35
+        },
+        {
+          "t": " away",
+          "start": 22.35,
+          "end": 24.16
+        },
+        {
+          "t": " i",
+          "start": 24.16,
+          "end": 24.61
+        },
+        {
+          "t": " hear",
+          "start": 24.61,
+          "end": 26.42
+        },
+        {
+          "t": " a",
+          "start": 26.42,
+          "end": 26.87
+        },
+        {
+          "t": " bird",
+          "start": 26.87,
+          "end": 28.72
+        },
+        {
+          "t": " a",
+          "start": 28.72,
+          "end": 28.87
+        },
+        {
+          "t": " bird",
+          "start": 28.87,
+          "end": 29.48
+        },
+        {
+          "t": " a",
+          "start": 29.48,
+          "end": 29.57
+        },
+        {
+          "t": " bird",
+          "start": 29.57,
+          "end": 30.35
+        },
+        {
+          "t": " a",
+          "start": 30.35,
+          "end": 30.39
+        },
+        {
+          "t": " bird",
+          "start": 30.39,
+          "end": 30.9
+        },
+        {
+          "t": " a",
+          "start": 30.9,
+          "end": 31.04
+        },
+        {
+          "t": " bird",
+          "start": 31.04,
+          "end": 31.04
+        }
+      ],
+      "samples": [
+        {
+          "file": "samples/heres-the-factory.wav",
+          "words": "here's the factory",
+          "start": 0.163,
+          "end": 2.589,
+          "dur": 2.449,
+          "median_f0_hz": 165.5,
+          "note": "E3",
+          "voiced_frac": 0.73
+        },
+        {
+          "file": "samples/spinning-g.wav",
+          "words": "spinning (stretched)",
+          "start": 18.83,
+          "end": 22.709,
+          "dur": 3.903,
+          "median_f0_hz": 150.0,
+          "note": "D3",
+          "voiced_frac": 0.8
+        },
+        {
+          "file": "samples/bird-chain-g.wav",
+          "words": "a bird, a bird, a bird, a bird",
+          "start": 26.36,
+          "end": 30.483,
+          "dur": 4.147,
+          "median_f0_hz": 148.3,
+          "note": "D3",
+          "voiced_frac": 0.56
+        }
+      ]
+    },
+    "7079471062013988139": {
+      "source_mp4": "https://assets.aesthetic.computer/whistlegraph/index/posts/7079471062013988139.mp4",
+      "duration": 29.14,
+      "beat_track_bpm": 114.8,
+      "median_onset_ioi_s": 0.469,
+      "ioi_as_eighths_bpm": 63.9,
+      "transcript": "factory  cookie  cutter  personalities  we  must  break  free  from  the  states  that  we 're  in  spinning  away  I  hear  a  bird ,  a  bird ,  a  bird ,  a  bird",
+      "transcription_method": "whisper.cpp (whisper-cli) ggml-small, word-level -ml 1",
+      "word_timestamps": [
+        {
+          "t": " factory",
+          "start": 0.41,
+          "end": 2.0
+        },
+        {
+          "t": " cookie",
+          "start": 2.0,
+          "end": 3.2
+        },
+        {
+          "t": " cutter",
+          "start": 3.2,
+          "end": 4.51
+        },
+        {
+          "t": " personalities",
+          "start": 4.51,
+          "end": 7.0
+        },
+        {
+          "t": " we",
+          "start": 7.0,
+          "end": 8.0
+        },
+        {
+          "t": " must",
+          "start": 8.0,
+          "end": 9.27
+        },
+        {
+          "t": " break",
+          "start": 9.27,
+          "end": 10.59
+        },
+        {
+          "t": " free",
+          "start": 10.59,
+          "end": 11.85
+        },
+        {
+          "t": " from",
+          "start": 11.85,
+          "end": 12.0
+        },
+        {
+          "t": " the",
+          "start": 12.0,
+          "end": 12.44
+        },
+        {
+          "t": " states",
+          "start": 12.44,
+          "end": 13.19
+        },
+        {
+          "t": " that",
+          "start": 13.19,
+          "end": 14.04
+        },
+        {
+          "t": " we",
+          "start": 14.04,
+          "end": 14.37
+        },
+        {
+          "t": "'re",
+          "start": 14.37,
+          "end": 14.76
+        },
+        {
+          "t": " in",
+          "start": 14.76,
+          "end": 16.88
+        },
+        {
+          "t": " spinning",
+          "start": 16.88,
+          "end": 19.27
+        },
+        {
+          "t": " away",
+          "start": 19.27,
+          "end": 20.3
+        },
+        {
+          "t": " I",
+          "start": 20.3,
+          "end": 20.65
+        },
+        {
+          "t": " hear",
+          "start": 20.65,
+          "end": 22.44
+        },
+        {
+          "t": " a",
+          "start": 22.44,
+          "end": 22.85
+        },
+        {
+          "t": " bird",
+          "start": 22.85,
+          "end": 24.54
+        },
+        {
+          "t": ",",
+          "start": 24.54,
+          "end": 25.1
+        },
+        {
+          "t": " a",
+          "start": 25.1,
+          "end": 25.41
+        },
+        {
+          "t": " bird",
+          "start": 25.41,
+          "end": 26.68
+        },
+        {
+          "t": ",",
+          "start": 26.68,
+          "end": 27.28
+        },
+        {
+          "t": " a",
+          "start": 27.28,
+          "end": 27.7
+        },
+        {
+          "t": " bird",
+          "start": 27.7,
+          "end": 28.88
+        },
+        {
+          "t": ",",
+          "start": 28.88,
+          "end": 28.95
+        },
+        {
+          "t": " a",
+          "start": 28.95,
+          "end": 28.99
+        },
+        {
+          "t": " bird",
+          "start": 28.99,
+          "end": 29.16
+        }
+      ],
+      "samples": [
+        {
+          "file": "samples/bird-chain-h.wav",
+          "words": "a bird, a bird, a bird",
+          "start": 22.567,
+          "end": 28.647,
+          "dur": 6.104,
+          "median_f0_hz": 146.6,
+          "note": "D3",
+          "voiced_frac": 0.67
+        }
+      ]
+    },
+    "7019362782122380550": {
+      "source_mp4": "https://assets.aesthetic.computer/whistlegraph/index/posts/7019362782122380550.mp4",
+      "duration": 58.03,
+      "beat_track_bpm": 118.4,
+      "median_onset_ioi_s": 0.277,
+      "ioi_as_eighths_bpm": 108.2,
+      "transcript": "Some  of  you  are  probably  wondering  what  a  whistle graph  is .  Well  a  whistle graph  is  a  form  of  gener ative  art  that  you  can  do  by  hand .  Factory  cookie  cutter  personalities  we  must  break  free  from  the  states  that  we 're  in .  Spin ning  away  I  hear  a  bird .  So  this  is  a  single  whistle graph  piece  and  it  has  a  score  and  it  can  be  performed  the  same  way  every  time .  Factory  cookie  cutter   personalities  we  must  break  free  from  the  states  that  we 're  in .  Spin ning  away  I  hear  a  bird .  And  parameters  of  it  can  even  be  bent .  Factory  cookie  cutter  personalities  we  must  break  free   from  the  states  that  we 're  in .  Spin ning  away  I  hear  a  bird .  It 's  param etric .",
+      "transcription_method": "whisper.cpp (whisper-cli) ggml-small, word-level -ml 1",
+      "word_timestamps": [
+        {
+          "t": " Some",
+          "start": 0.07,
+          "end": 0.17
+        },
+        {
+          "t": " of",
+          "start": 0.17,
+          "end": 0.25
+        },
+        {
+          "t": " you",
+          "start": 0.25,
+          "end": 0.38
+        },
+        {
+          "t": " are",
+          "start": 0.38,
+          "end": 0.51
+        },
+        {
+          "t": " probably",
+          "start": 0.51,
+          "end": 0.86
+        },
+        {
+          "t": " wondering",
+          "start": 0.86,
+          "end": 1.28
+        },
+        {
+          "t": " what",
+          "start": 1.28,
+          "end": 1.49
+        },
+        {
+          "t": " a",
+          "start": 1.49,
+          "end": 1.54
+        },
+        {
+          "t": " whistle",
+          "start": 1.54,
+          "end": 1.92
+        },
+        {
+          "t": "graph",
+          "start": 1.92,
+          "end": 2.19
+        },
+        {
+          "t": " is",
+          "start": 2.19,
+          "end": 2.4
+        },
+        {
+          "t": ".",
+          "start": 2.4,
+          "end": 2.42
+        },
+        {
+          "t": " Well",
+          "start": 2.42,
+          "end": 2.52
+        },
+        {
+          "t": " a",
+          "start": 2.52,
+          "end": 2.56
+        },
+        {
+          "t": " whistle",
+          "start": 2.56,
+          "end": 2.89
+        },
+        {
+          "t": "graph",
+          "start": 2.89,
+          "end": 3.14
+        },
+        {
+          "t": " is",
+          "start": 3.14,
+          "end": 3.2
+        },
+        {
+          "t": " a",
+          "start": 3.2,
+          "end": 3.28
+        },
+        {
+          "t": " form",
+          "start": 3.28,
+          "end": 3.52
+        },
+        {
+          "t": " of",
+          "start": 3.52,
+          "end": 3.68
+        },
+        {
+          "t": " gener",
+          "start": 3.68,
+          "end": 4.05
+        },
+        {
+          "t": "ative",
+          "start": 4.05,
+          "end": 4.42
+        },
+        {
+          "t": " art",
+          "start": 4.42,
+          "end": 4.64
+        },
+        {
+          "t": " that",
+          "start": 4.64,
+          "end": 4.93
+        },
+        {
+          "t": " you",
+          "start": 4.93,
+          "end": 5.15
+        },
+        {
+          "t": " can",
+          "start": 5.15,
+          "end": 5.37
+        },
+        {
+          "t": " do",
+          "start": 5.37,
+          "end": 5.52
+        },
+        {
+          "t": " by",
+          "start": 5.52,
+          "end": 5.73
+        },
+        {
+          "t": " hand",
+          "start": 5.73,
+          "end": 6.1
+        },
+        {
+          "t": ".",
+          "start": 6.1,
+          "end": 6.3
+        },
+        {
+          "t": " Factory",
+          "start": 6.3,
+          "end": 7.14
+        },
+        {
+          "t": " cookie",
+          "start": 7.14,
+          "end": 7.63
+        },
+        {
+          "t": " cutter",
+          "start": 7.63,
+          "end": 8.24
+        },
+        {
+          "t": " personalities",
+          "start": 8.24,
+          "end": 9.78
+        },
+        {
+          "t": " we",
+          "start": 9.78,
+          "end": 10.12
+        },
+        {
+          "t": " must",
+          "start": 10.12,
+          "end": 10.56
+        },
+        {
+          "t": " break",
+          "start": 10.56,
+          "end": 11.1
+        },
+        {
+          "t": " free",
+          "start": 11.1,
+          "end": 11.52
+        },
+        {
+          "t": " from",
+          "start": 11.52,
+          "end": 12.04
+        },
+        {
+          "t": " the",
+          "start": 12.04,
+          "end": 12.43
+        },
+        {
+          "t": " states",
+          "start": 12.43,
+          "end": 13.21
+        },
+        {
+          "t": " that",
+          "start": 13.21,
+          "end": 13.76
+        },
+        {
+          "t": " we",
+          "start": 13.76,
+          "end": 13.99
+        },
+        {
+          "t": "'re",
+          "start": 13.99,
+          "end": 14.38
+        },
+        {
+          "t": " in",
+          "start": 14.38,
+          "end": 14.66
+        },
+        {
+          "t": ".",
+          "start": 14.66,
+          "end": 15.03
+        },
+        {
+          "t": " Spin",
+          "start": 15.03,
+          "end": 15.55
+        },
+        {
+          "t": "ning",
+          "start": 15.55,
+          "end": 16.07
+        },
+        {
+          "t": " away",
+          "start": 16.07,
+          "end": 16.59
+        },
+        {
+          "t": " I",
+          "start": 16.59,
+          "end": 16.72
+        },
+        {
+          "t": " hear",
+          "start": 16.72,
+          "end": 17.14
+        },
+        {
+          "t": " a",
+          "start": 17.14,
+          "end": 17.62
+        },
+        {
+          "t": " bird",
+          "start": 17.62,
+          "end": 17.96
+        },
+        {
+          "t": ".",
+          "start": 17.96,
+          "end": 18.32
+        },
+        {
+          "t": " So",
+          "start": 18.32,
+          "end": 18.46
+        },
+        {
+          "t": " this",
+          "start": 18.46,
+          "end": 18.75
+        },
+        {
+          "t": " is",
+          "start": 18.75,
+          "end": 18.94
+        },
+        {
+          "t": " a",
+          "start": 18.94,
+          "end": 18.97
+        },
+        {
+          "t": " single",
+          "start": 18.97,
+          "end": 19.44
+        },
+        {
+          "t": " whistle",
+          "start": 19.44,
+          "end": 20.18
+        },
+        {
+          "t": "graph",
+          "start": 20.18,
+          "end": 20.72
+        },
+        {
+          "t": " piece",
+          "start": 20.72,
+          "end": 21.14
+        },
+        {
+          "t": " and",
+          "start": 21.14,
+          "end": 21.39
+        },
+        {
+          "t": " it",
+          "start": 21.39,
+          "end": 21.56
+        },
+        {
+          "t": " has",
+          "start": 21.56,
+          "end": 21.81
+        },
+        {
+          "t": " a",
+          "start": 21.81,
+          "end": 21.89
+        },
+        {
+          "t": " score",
+          "start": 21.89,
+          "end": 22.33
+        },
+        {
+          "t": " and",
+          "start": 22.33,
+          "end": 22.56
+        },
+        {
+          "t": " it",
+          "start": 22.56,
+          "end": 22.77
+        },
+        {
+          "t": " can",
+          "start": 22.77,
+          "end": 23.0
+        },
+        {
+          "t": " be",
+          "start": 23.0,
+          "end": 23.15
+        },
+        {
+          "t": " performed",
+          "start": 23.15,
+          "end": 23.9
+        },
+        {
+          "t": " the",
+          "start": 23.9,
+          "end": 24.18
+        },
+        {
+          "t": " same",
+          "start": 24.18,
+          "end": 24.5
+        },
+        {
+          "t": " way",
+          "start": 24.5,
+          "end": 24.8
+        },
+        {
+          "t": " every",
+          "start": 24.8,
+          "end": 25.11
+        },
+        {
+          "t": " time",
+          "start": 25.11,
+          "end": 25.36
+        },
+        {
+          "t": ".",
+          "start": 25.36,
+          "end": 25.93
+        },
+        {
+          "t": " Factory",
+          "start": 25.93,
+          "end": 27.28
+        },
+        {
+          "t": " cookie",
+          "start": 27.28,
+          "end": 27.82
+        },
+        {
+          "t": " cutter",
+          "start": 27.82,
+          "end": 28.24
+        },
+        {
+          "t": " personalities",
+          "start": 28.37,
+          "end": 29.79
+        },
+        {
+          "t": " we",
+          "start": 29.79,
+          "end": 30.01
+        },
+        {
+          "t": " must",
+          "start": 30.01,
+          "end": 30.49
+        },
+        {
+          "t": " break",
+          "start": 30.49,
+          "end": 31.08
+        },
+        {
+          "t": " free",
+          "start": 31.08,
+          "end": 31.55
+        },
+        {
+          "t": " from",
+          "start": 31.55,
+          "end": 32.02
+        },
+        {
+          "t": " the",
+          "start": 32.02,
+          "end": 32.37
+        },
+        {
+          "t": " states",
+          "start": 32.37,
+          "end": 33.09
+        },
+        {
+          "t": " that",
+          "start": 33.09,
+          "end": 33.55
+        },
+        {
+          "t": " we",
+          "start": 33.55,
+          "end": 33.74
+        },
+        {
+          "t": "'re",
+          "start": 33.74,
+          "end": 34.34
+        },
+        {
+          "t": " in",
+          "start": 34.34,
+          "end": 34.36
+        },
+        {
+          "t": ".",
+          "start": 34.36,
+          "end": 34.71
+        },
+        {
+          "t": " Spin",
+          "start": 34.71,
+          "end": 35.18
+        },
+        {
+          "t": "ning",
+          "start": 35.18,
+          "end": 35.66
+        },
+        {
+          "t": " away",
+          "start": 35.66,
+          "end": 36.36
+        },
+        {
+          "t": " I",
+          "start": 36.36,
+          "end": 36.52
+        },
+        {
+          "t": " hear",
+          "start": 36.52,
+          "end": 37.68
+        },
+        {
+          "t": " a",
+          "start": 37.68,
+          "end": 37.88
+        },
+        {
+          "t": " bird",
+          "start": 37.88,
+          "end": 38.13
+        },
+        {
+          "t": ".",
+          "start": 38.13,
+          "end": 38.4
+        },
+        {
+          "t": " And",
+          "start": 38.4,
+          "end": 38.75
+        },
+        {
+          "t": " parameters",
+          "start": 38.75,
+          "end": 39.91
+        },
+        {
+          "t": " of",
+          "start": 39.91,
+          "end": 40.14
+        },
+        {
+          "t": " it",
+          "start": 40.14,
+          "end": 40.45
+        },
+        {
+          "t": " can",
+          "start": 40.45,
+          "end": 40.82
+        },
+        {
+          "t": " even",
+          "start": 40.82,
+          "end": 41.18
+        },
+        {
+          "t": " be",
+          "start": 41.18,
+          "end": 41.41
+        },
+        {
+          "t": " bent",
+          "start": 41.41,
+          "end": 41.87
+        },
+        {
+          "t": ".",
+          "start": 41.87,
+          "end": 42.22
+        },
+        {
+          "t": " Factory",
+          "start": 42.22,
+          "end": 43.03
+        },
+        {
+          "t": " cookie",
+          "start": 43.03,
+          "end": 43.73
+        },
+        {
+          "t": " cutter",
+          "start": 43.73,
+          "end": 44.52
+        },
+        {
+          "t": " personalities",
+          "start": 44.52,
+          "end": 46.01
+        },
+        {
+          "t": " we",
+          "start": 46.01,
+          "end": 46.56
+        },
+        {
+          "t": " must",
+          "start": 46.56,
+          "end": 47.2
+        },
+        {
+          "t": " break",
+          "start": 47.2,
+          "end": 47.84
+        },
+        {
+          "t": " free",
+          "start": 47.84,
+          "end": 48.4
+        },
+        {
+          "t": " from",
+          "start": 48.51,
+          "end": 49.05
+        },
+        {
+          "t": " the",
+          "start": 49.05,
+          "end": 49.48
+        },
+        {
+          "t": " states",
+          "start": 49.48,
+          "end": 50.45
+        },
+        {
+          "t": " that",
+          "start": 50.45,
+          "end": 51.03
+        },
+        {
+          "t": " we",
+          "start": 51.03,
+          "end": 51.34
+        },
+        {
+          "t": "'re",
+          "start": 51.34,
+          "end": 51.86
+        },
+        {
+          "t": " in",
+          "start": 51.86,
+          "end": 52.18
+        },
+        {
+          "t": ".",
+          "start": 52.18,
+          "end": 52.6
+        },
+        {
+          "t": " Spin",
+          "start": 52.6,
+          "end": 53.19
+        },
+        {
+          "t": "ning",
+          "start": 53.19,
+          "end": 53.81
+        },
+        {
+          "t": " away",
+          "start": 53.81,
+          "end": 54.51
+        },
+        {
+          "t": " I",
+          "start": 54.51,
+          "end": 54.58
+        },
+        {
+          "t": " hear",
+          "start": 54.58,
+          "end": 55.2
+        },
+        {
+          "t": " a",
+          "start": 55.2,
+          "end": 55.35
+        },
+        {
+          "t": " bird",
+          "start": 55.35,
+          "end": 55.97
+        },
+        {
+          "t": ".",
+          "start": 55.97,
+          "end": 56.52
+        },
+        {
+          "t": " It",
+          "start": 56.52,
+          "end": 56.67
+        },
+        {
+          "t": "'s",
+          "start": 56.67,
+          "end": 56.9
+        },
+        {
+          "t": " param",
+          "start": 56.9,
+          "end": 57.34
+        },
+        {
+          "t": "etric",
+          "start": 57.34,
+          "end": 57.84
+        },
+        {
+          "t": ".",
+          "start": 57.84,
+          "end": 57.84
+        }
+      ],
+      "samples": [
+        {
+          "file": "samples/intercom-wondering.wav",
+          "words": "some of you are probably wondering what a whistlegraph is",
+          "start": 0.111,
+          "end": 2.609,
+          "dur": 2.522,
+          "median_f0_hz": 144.5,
+          "note": "D3",
+          "voiced_frac": 0.77
+        },
+        {
+          "file": "samples/intercom-sameway.wav",
+          "words": "it has a score and it can be performed the same way every time",
+          "start": 21.347,
+          "end": 25.516,
+          "dur": 4.193,
+          "median_f0_hz": 136.4,
+          "note": "C\u266f3",
+          "voiced_frac": 0.62
+        }
+      ]
+    }
+  }
+}
