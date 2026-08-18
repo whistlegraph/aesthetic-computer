@@ -225,7 +225,7 @@ CHART = {
                              # ("of should start sooner, right after
                              # 'think' ends") with no rest needed at all.
                              "durs": { 0: 2.0, 1: 2.0, 2: 2.5, 3: 1.5,
-                                       4: 4.0, 5: 2.0, 6: 2.0, 7: 2.0,
+                                       4: 3.5, 5: 2.0, 6: 2.0, 7: 2.0,
                                        # think 1 (1.17×, her own speed — at 2
                                        # it was a 2.3× held tone), so OF keeps
                                        # its 4 beats at 1.01×, her real octave,
@@ -255,7 +255,8 @@ CHART = {
                              # instead of a 2.3× synthesized tone) with a
                              # 1-beat rest, which lands "just" square on the
                              # bar 8 downbeat.
-                             "gaps": { 11: 1.0 } },
+                             "gaps": { 3: 0.5,   # "in" leans in behind the downbeat
+                                       11: 1.0 } },
     "w-sitting-curled":    { "slice": "f-sitting-curled",    "beats": 11.0 },
     "w-i-think":           { "slice": "f-i-think",           "beats": 3.5 },
     "w-of-a-stone":        { "slice": "f-of-a-stone",        "beats": 8.0 },
