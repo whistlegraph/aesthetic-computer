@@ -283,6 +283,26 @@
       "containerId": "18082079978446357",
       "mediaId": "18136952719588441",
       "insights": null
+    },
+    {
+      "mode": "live",
+      "id": "2026-08-19-s1-gamedev",
+      "slot": 691,
+      "day": "2026-08-19",
+      "index": 1,
+      "segment": "gamedev",
+      "seed": "2026-08-19#1",
+      "kind": "self-play",
+      "round": "lulla415",
+      "audioName": "lulla415",
+      "publishedAt": "2026-08-19T18:21:55.572Z",
+      "urls": {
+        "reel": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/oskiewar/reels/2026-08-19-s1-gamedev/reel.mp4",
+        "cover": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/oskiewar/reels/2026-08-19-s1-gamedev/cover.jpg"
+      },
+      "containerId": "18082501298446357",
+      "mediaId": "17917782852221849",
+      "insights": null
     }
   ]
 }
