@@ -30,3 +30,10 @@ vox4/*.wav
 c/lonerremix
 out/.segments/
 vox4/.cache/
+
+# The dub/take bank — bin/singdub.py rebuilds every warped line from
+# samples/ (a translation) or samples/corpus/ (another take). Derived
+# media, same rule as vox4/: 37 MB of it, and none of it is a source.
+# The ElevenLabs mp3s beside them ARE kept — those came from a paid API
+# call against her cloned voice and cannot be regenerated for free.
+vox-dub/sung-*.wav

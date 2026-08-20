@@ -1,26 +1,288 @@
 {
  "w-whole-line": {
   "slice": "f-whole-line",
-  "lead_in": 0.04,
+  "lead_in": 0.33,
   "spans": [
    [
     "sitting\u00b7a",
     0.0,
-    0.755
+    1.0
    ],
    [
     "sitting\u00b7b",
-    0.755,
-    1.51
+    1.0,
+    1.73
    ],
    [
     "curled",
-    1.51,
-    2.4
+    1.73,
+    2.62
    ],
    [
     "up",
-    2.4,
+    2.62,
+    3.215
+   ],
+   [
+    "in",
+    3.44,
+    4.11
+   ],
+   [
+    "my",
+    4.11,
+    4.72
+   ],
+   [
+    "self",
+    4.72,
+    5.72
+   ],
+   [
+    "i",
+    5.72,
+    6.44
+   ],
+   [
+    "think",
+    6.44,
+    7.37
+   ],
+   [
+    "of",
+    7.37,
+    8.98
+   ],
+   [
+    "a",
+    8.98,
+    9.41
+   ],
+   [
+    "stone",
+    9.41,
+    10.74
+   ],
+   [
+    "just",
+    11.285,
+    12.645
+   ],
+   [
+    "wait",
+    12.89,
+    13.92
+   ],
+   [
+    "ing",
+    13.92,
+    14.62
+   ],
+   [
+    "ve",
+    14.62,
+    15.39
+   ],
+   [
+    "ry",
+    15.39,
+    16.12
+   ],
+   [
+    "pa",
+    16.12,
+    16.875
+   ],
+   [
+    "tient",
+    16.875,
+    17.92
+   ],
+   [
+    "ly",
+    17.92,
+    18.76
+   ],
+   [
+    "for",
+    18.76,
+    19.535
+   ],
+   [
+    "time",
+    19.535,
+    20.625
+   ],
+   [
+    "to",
+    21.42,
+    22.38
+   ],
+   [
+    "pass",
+    23.0,
+    24.55
+   ]
+  ],
+  "pins": [
+   {
+    "t": "sitting\u00b7a",
+    "pin": 0,
+    "cut": null
+   },
+   {
+    "t": "sitting\u00b7b",
+    "pin": 0,
+    "cut": 1
+   },
+   {
+    "t": "curled",
+    "pin": 1,
+    "cut": null
+   },
+   {
+    "t": "up",
+    "pin": 2,
+    "cut": null
+   },
+   {
+    "t": "in",
+    "pin": 3,
+    "cut": null
+   },
+   {
+    "t": "my",
+    "pin": 4,
+    "cut": null
+   },
+   {
+    "t": "self",
+    "pin": 4,
+    "cut": 1
+   },
+   {
+    "t": "i",
+    "pin": 5,
+    "cut": null
+   },
+   {
+    "t": "think",
+    "pin": 6,
+    "cut": null
+   },
+   {
+    "t": "of",
+    "pin": 7,
+    "cut": null
+   },
+   {
+    "t": "a",
+    "pin": 8,
+    "cut": null
+   },
+   {
+    "t": "stone",
+    "pin": 9,
+    "cut": null
+   },
+   {
+    "t": "just",
+    "pin": 10,
+    "cut": null
+   },
+   {
+    "t": "wait",
+    "pin": 11,
+    "cut": null
+   },
+   {
+    "t": "ing",
+    "pin": 11,
+    "cut": 1
+   },
+   {
+    "t": "ve",
+    "pin": 12,
+    "cut": null
+   },
+   {
+    "t": "ry",
+    "pin": 12,
+    "cut": 1
+   },
+   {
+    "t": "pa",
+    "pin": 13,
+    "cut": null
+   },
+   {
+    "t": "tient",
+    "pin": 13,
+    "cut": 1
+   },
+   {
+    "t": "ly",
+    "pin": 13,
+    "cut": 2
+   },
+   {
+    "t": "for",
+    "pin": 14,
+    "cut": null
+   },
+   {
+    "t": "time",
+    "pin": 15,
+    "cut": null
+   },
+   {
+    "t": "to",
+    "pin": 16,
+    "cut": null
+   },
+   {
+    "t": "pass",
+    "pin": 17,
+    "cut": null
+   }
+  ],
+  "beats": 60.0,
+  "renders": {
+   "lead": 30.24
+  },
+  "snaps": [
+   "in +80ms",
+   "my -50ms",
+   "i +180ms",
+   "think -40ms",
+   "a -40ms"
+  ],
+  "trims": [
+   "up \u2212225ms",
+   "stone \u2212575ms",
+   "just \u2212275ms",
+   "time \u2212795ms",
+   "to \u2212650ms"
+  ],
+  "words": "the whole lyric, one take"
+ },
+ "w-sitting-curled": {
+  "slice": "f-sitting-curled",
+  "lead_in": 0.04,
+  "spans": [
+   [
+    "Sitting",
+    0.0,
+    1.54
+   ],
+   [
+    "curled",
+    1.54,
+    2.44
+   ],
+   [
+    "up",
+    2.44,
     2.995
    ],
    [
@@ -29,133 +291,41 @@
     3.89
    ],
    [
-    "my",
+    "myself",
     3.89,
-    4.5
-   ],
-   [
-    "self",
-    4.5,
-    5.5
-   ],
-   [
-    "i",
-    5.5,
-    6.215
-   ],
-   [
-    "think",
-    6.215,
-    7.15
-   ],
-   [
-    "of",
-    7.15,
-    8.76
-   ],
-   [
-    "a",
-    8.76,
-    9.555
-   ],
-   [
-    "stone",
-    9.555,
-    10.52
-   ],
-   [
-    "just",
-    11.195,
-    12.425
-   ],
-   [
-    "wait",
-    12.67,
-    13.7
-   ],
-   [
-    "ing",
-    13.7,
-    14.4
-   ],
-   [
-    "ve",
-    14.4,
-    15.05
-   ],
-   [
-    "ry",
-    15.05,
-    16.04
-   ],
-   [
-    "pa",
-    16.04,
-    16.8
-   ],
-   [
-    "tient",
-    16.8,
-    17.7
-   ],
-   [
-    "ly",
-    17.7,
-    18.54
-   ],
-   [
-    "for",
-    18.54,
-    19.48
-   ],
-   [
-    "time",
-    19.48,
-    20.405
-   ],
-   [
-    "to",
-    21.2,
-    23.0
-   ],
-   [
-    "pass",
-    23.0,
-    23.97
+    5.22
    ]
   ],
-  "beats": 59.0,
-  "renders": {
-   "lead": 29.455
-  },
-  "snaps": [
-   "in +80ms",
-   "my -50ms",
-   "i +180ms",
-   "think -45ms",
-   "a -40ms",
-   "stone -45ms",
-   "just +80ms",
-   "pa +80ms"
+  "pins": [
+   {
+    "t": "Sitting",
+    "pin": 0,
+    "cut": null
+   },
+   {
+    "t": "curled",
+    "pin": 1,
+    "cut": null
+   },
+   {
+    "t": "up",
+    "pin": 2,
+    "cut": null
+   },
+   {
+    "t": "in",
+    "pin": 3,
+    "cut": null
+   },
+   {
+    "t": "myself",
+    "pin": 4,
+    "cut": null
+   }
   ],
-  "trims": [
-   "up \u2212225ms",
-   "stone \u2212675ms",
-   "just \u2212275ms",
-   "time \u2212795ms"
-  ],
-  "words": "the whole lyric, one take"
- },
- "w-sitting-curled": {
-  "slice": "f-sitting-curled",
-  "lead_in": 0.02,
   "beats": 11.0,
   "renders": {
-   "lead": 5.735,
-   "8ve-a": 5.735,
-   "8ve-b": 5.735,
-   "low3": 5.735,
-   "low5": 5.735
+   "lead": 5.755
   },
   "snaps": [
    "up -20ms",
@@ -163,20 +333,40 @@
    "myself +30ms"
   ],
   "trims": [
-   "up \u2212400ms"
+   "up \u2212225ms"
   ],
   "words": "sitting curled up in myself"
  },
  "w-i-think": {
   "slice": "f-i-think",
-  "lead_in": 0.02,
+  "lead_in": 0.04,
+  "spans": [
+   [
+    "I",
+    0.0,
+    0.8
+   ],
+   [
+    "think",
+    0.8,
+    1.32
+   ]
+  ],
+  "pins": [
+   {
+    "t": "I",
+    "pin": 0,
+    "cut": null
+   },
+   {
+    "t": "think",
+    "pin": 1,
+    "cut": null
+   }
+  ],
   "beats": 3.5,
   "renders": {
-   "lead": 2.225,
-   "8ve-a": 2.225,
-   "8ve-b": 2.225,
-   "low3": 2.225,
-   "low5": 2.225
+   "lead": 2.245
   },
   "snaps": [
    "think +160ms"
@@ -187,13 +377,43 @@
  "w-of-a-stone": {
   "slice": "f-of-a-stone",
   "lead_in": 0.0,
+  "spans": [
+   [
+    "of",
+    0.0,
+    1.58
+   ],
+   [
+    "a",
+    1.58,
+    2.38
+   ],
+   [
+    "stone",
+    2.38,
+    3.16
+   ]
+  ],
+  "pins": [
+   {
+    "t": "of",
+    "pin": 0,
+    "cut": null
+   },
+   {
+    "t": "a",
+    "pin": 1,
+    "cut": null
+   },
+   {
+    "t": "stone",
+    "pin": 2,
+    "cut": null
+   }
+  ],
   "beats": 8.0,
   "renders": {
-   "lead": 4.095,
-   "8ve-a": 4.095,
-   "8ve-b": 4.095,
-   "low3": 4.095,
-   "low5": 4.095
+   "lead": 4.095
   },
   "snaps": [
    "a -40ms",
@@ -204,72 +424,220 @@
  },
  "w-just-waiting": {
   "slice": "f-just-waiting",
-  "lead_in": 0.075,
+  "lead_in": 0.15,
+  "spans": [
+   [
+    "Just",
+    0.0,
+    1.33
+   ],
+   [
+    "waiting",
+    1.655,
+    2.94
+   ]
+  ],
+  "pins": [
+   {
+    "t": "Just",
+    "pin": 0,
+    "cut": null
+   },
+   {
+    "t": "waiting",
+    "pin": 1,
+    "cut": null
+   }
+  ],
   "beats": 6.5,
   "renders": {
-   "lead": 3.71,
-   "8ve-a": 3.71,
-   "8ve-b": 3.71,
-   "low3": 3.71,
-   "low5": 3.71
+   "lead": 3.785
   },
   "snaps": [
    "waiting +195ms"
   ],
   "trims": [
-   "Just \u2212340ms"
+   "Just \u2212325ms"
   ],
   "words": "just waiting"
  },
  "w-very-patiently": {
   "slice": "f-very-patiently",
   "lead_in": 0.0,
+  "spans": [
+   [
+    "very",
+    0.0,
+    1.64
+   ],
+   [
+    "patiently",
+    1.64,
+    2.92
+   ]
+  ],
+  "pins": [
+   {
+    "t": "very",
+    "pin": 0,
+    "cut": null
+   },
+   {
+    "t": "patiently",
+    "pin": 1,
+    "cut": null
+   }
+  ],
   "beats": 8.5,
   "renders": {
-   "lead": 5.435,
-   "8ve-a": 5.435,
-   "8ve-b": 5.435,
-   "low3": 5.435,
-   "low5": 5.435
+   "lead": 5.435
   },
   "snaps": [
    "patiently +240ms"
   ],
-  "trims": [
-   "very \u2212520ms"
-  ],
+  "trims": [],
   "words": "very patiently"
  },
  "w-for-time-to-pass": {
   "slice": "f-for-time-to-pass",
-  "lead_in": 0.035,
+  "lead_in": 0.07,
+  "spans": [
+   [
+    "for",
+    0.0,
+    0.865
+   ],
+   [
+    "time",
+    0.865,
+    1.985
+   ],
+   [
+    "to",
+    1.985,
+    3.66
+   ],
+   [
+    "pass",
+    3.81,
+    5.7
+   ]
+  ],
+  "pins": [
+   {
+    "t": "for",
+    "pin": 0,
+    "cut": null
+   },
+   {
+    "t": "time",
+    "pin": 1,
+    "cut": null
+   },
+   {
+    "t": "to",
+    "pin": 2,
+    "cut": null
+   },
+   {
+    "t": "pass",
+    "pin": 3,
+    "cut": null
+   }
+  ],
   "beats": 12.5,
   "renders": {
-   "lead": 6.695,
-   "8ve-a": 6.695,
-   "8ve-b": 6.695,
-   "low3": 6.695,
-   "low5": 6.695
+   "lead": 6.73
   },
   "snaps": [
    "time +245ms",
    "to -75ms"
   ],
   "trims": [
-   "to \u2212185ms"
+   "to \u2212180ms"
   ],
   "words": "for time to pass"
  },
  "w-n-getting-curled": {
   "slice": "n-getting-curled",
   "lead_in": 0.0,
+  "spans": [
+   [
+    "getting",
+    0.0,
+    0.725
+   ],
+   [
+    "curled",
+    0.725,
+    1.825
+   ],
+   [
+    "up",
+    1.825,
+    1.905
+   ],
+   [
+    "in",
+    1.905,
+    2.72
+   ],
+   [
+    "myself",
+    2.72,
+    3.89
+   ],
+   [
+    "i",
+    3.89,
+    4.865
+   ],
+   [
+    "think",
+    4.865,
+    5.1
+   ]
+  ],
+  "pins": [
+   {
+    "t": "getting",
+    "pin": 0,
+    "cut": null
+   },
+   {
+    "t": "curled",
+    "pin": 1,
+    "cut": null
+   },
+   {
+    "t": "up",
+    "pin": 2,
+    "cut": null
+   },
+   {
+    "t": "in",
+    "pin": 3,
+    "cut": null
+   },
+   {
+    "t": "myself",
+    "pin": 4,
+    "cut": null
+   },
+   {
+    "t": "i",
+    "pin": 5,
+    "cut": null
+   },
+   {
+    "t": "think",
+    "pin": 6,
+    "cut": null
+   }
+  ],
   "beats": 11.0,
   "renders": {
-   "lead": 5.635,
-   "8ve-a": 5.635,
-   "8ve-b": 5.635,
-   "low3": 5.635,
-   "low5": 5.635
+   "lead": 5.635
   },
   "snaps": [
    "curled -55ms",
@@ -279,21 +647,79 @@
    "i -110ms",
    "think +85ms"
   ],
-  "trims": [
-   "i \u2212165ms"
-  ],
+  "trims": [],
   "words": "getting curled up in myself i think"
  },
  "w-n-stone-waiting": {
   "slice": "n-stone-waiting",
   "lead_in": 0.0,
+  "spans": [
+   [
+    "A",
+    0.0,
+    0.915
+   ],
+   [
+    "stone",
+    0.915,
+    1.845
+   ],
+   [
+    "just",
+    1.845,
+    3.715
+   ],
+   [
+    "waiting",
+    3.715,
+    5.65
+   ],
+   [
+    "very",
+    5.65,
+    7.06
+   ],
+   [
+    "patiently",
+    7.06,
+    8.04
+   ]
+  ],
+  "pins": [
+   {
+    "t": "A",
+    "pin": 0,
+    "cut": null
+   },
+   {
+    "t": "stone",
+    "pin": 1,
+    "cut": null
+   },
+   {
+    "t": "just",
+    "pin": 2,
+    "cut": null
+   },
+   {
+    "t": "waiting",
+    "pin": 3,
+    "cut": null
+   },
+   {
+    "t": "very",
+    "pin": 4,
+    "cut": null
+   },
+   {
+    "t": "patiently",
+    "pin": 5,
+    "cut": null
+   }
+  ],
   "beats": 17.0,
   "renders": {
-   "lead": 8.59,
-   "8ve-a": 8.59,
-   "8ve-b": 8.59,
-   "low3": 8.59,
-   "low5": 8.59
+   "lead": 8.59
   },
   "snaps": [
    "stone +155ms",
@@ -302,23 +728,59 @@
    "very +230ms",
    "patiently +200ms"
   ],
-  "trims": [
-   "A \u2212215ms",
-   "just \u2212265ms",
-   "very \u2212400ms"
-  ],
+  "trims": [],
   "words": "of a stone just waiting very patiently"
  },
  "w-n-for-time-to-pass": {
   "slice": "n-for-time-to-pass",
   "lead_in": 0.0,
+  "spans": [
+   [
+    "the",
+    0.0,
+    0.36
+   ],
+   [
+    "time",
+    0.36,
+    1.1
+   ],
+   [
+    "to",
+    1.1,
+    2.69
+   ],
+   [
+    "pass",
+    2.69,
+    3.56
+   ]
+  ],
+  "pins": [
+   {
+    "t": "the",
+    "pin": 0,
+    "cut": null
+   },
+   {
+    "t": "time",
+    "pin": 1,
+    "cut": null
+   },
+   {
+    "t": "to",
+    "pin": 2,
+    "cut": null
+   },
+   {
+    "t": "pass",
+    "pin": 3,
+    "cut": null
+   }
+  ],
   "beats": 5.5,
   "renders": {
-   "lead": 3.13,
-   "8ve-a": 3.13,
-   "8ve-b": 3.13,
-   "low3": 3.13,
-   "low5": 3.13
+   "lead": 3.13
   },
   "snaps": [
    "time +200ms",
@@ -326,5 +788,2190 @@
   ],
   "trims": [],
   "words": "for time to pass"
+ },
+ "w-rq": {
+  "slice": "rq-line",
+  "lead_in": 0.43,
+  "spans": [
+   [
+    "sitting\u00b7a",
+    0.37,
+    1.615
+   ],
+   [
+    "sitting\u00b7b",
+    1.615,
+    1.845
+   ],
+   [
+    "curled",
+    2.015,
+    3.86
+   ],
+   [
+    "up",
+    4.03,
+    4.345
+   ],
+   [
+    "in",
+    4.515,
+    5.14
+   ],
+   [
+    "my",
+    5.31,
+    6.09
+   ],
+   [
+    "self",
+    6.09,
+    7.02
+   ],
+   [
+    "i",
+    7.19,
+    7.605
+   ],
+   [
+    "think",
+    7.775,
+    8.8
+   ],
+   [
+    "of",
+    8.97,
+    9.865
+   ],
+   [
+    "a",
+    10.035,
+    10.66
+   ],
+   [
+    "stone",
+    10.83,
+    13.25
+   ],
+   [
+    "just",
+    13.42,
+    15.035
+   ],
+   [
+    "wait",
+    15.205,
+    16.16
+   ],
+   [
+    "ing",
+    16.16,
+    16.88
+   ],
+   [
+    "ve",
+    17.05,
+    18.495
+   ],
+   [
+    "ry",
+    18.495,
+    18.765
+   ],
+   [
+    "pa",
+    18.935,
+    19.8
+   ],
+   [
+    "tient",
+    19.8,
+    20.34
+   ],
+   [
+    "ly",
+    20.34,
+    21.21
+   ],
+   [
+    "for",
+    21.38,
+    22.105
+   ],
+   [
+    "time",
+    22.275,
+    24.39
+   ],
+   [
+    "to",
+    24.56,
+    25.205
+   ],
+   [
+    "pass",
+    25.375,
+    26.975
+   ]
+  ],
+  "pins": [
+   {
+    "t": "sitting\u00b7a",
+    "pin": 0,
+    "cut": null
+   },
+   {
+    "t": "sitting\u00b7b",
+    "pin": 0,
+    "cut": 1
+   },
+   {
+    "t": "curled",
+    "pin": 1,
+    "cut": null
+   },
+   {
+    "t": "up",
+    "pin": 2,
+    "cut": null
+   },
+   {
+    "t": "in",
+    "pin": 3,
+    "cut": null
+   },
+   {
+    "t": "my",
+    "pin": 4,
+    "cut": null
+   },
+   {
+    "t": "self",
+    "pin": 4,
+    "cut": 1
+   },
+   {
+    "t": "i",
+    "pin": 5,
+    "cut": null
+   },
+   {
+    "t": "think",
+    "pin": 6,
+    "cut": null
+   },
+   {
+    "t": "of",
+    "pin": 7,
+    "cut": null
+   },
+   {
+    "t": "a",
+    "pin": 8,
+    "cut": null
+   },
+   {
+    "t": "stone",
+    "pin": 9,
+    "cut": null
+   },
+   {
+    "t": "just",
+    "pin": 10,
+    "cut": null
+   },
+   {
+    "t": "wait",
+    "pin": 11,
+    "cut": null
+   },
+   {
+    "t": "ing",
+    "pin": 11,
+    "cut": 1
+   },
+   {
+    "t": "ve",
+    "pin": 12,
+    "cut": null
+   },
+   {
+    "t": "ry",
+    "pin": 12,
+    "cut": 1
+   },
+   {
+    "t": "pa",
+    "pin": 13,
+    "cut": null
+   },
+   {
+    "t": "tient",
+    "pin": 13,
+    "cut": 1
+   },
+   {
+    "t": "ly",
+    "pin": 13,
+    "cut": 2
+   },
+   {
+    "t": "for",
+    "pin": 14,
+    "cut": null
+   },
+   {
+    "t": "time",
+    "pin": 15,
+    "cut": null
+   },
+   {
+    "t": "to",
+    "pin": 16,
+    "cut": null
+   },
+   {
+    "t": "pass",
+    "pin": 17,
+    "cut": null
+   }
+  ],
+  "beats": 60.0,
+  "renders": {
+   "lead": 30.34
+  },
+  "snaps": [],
+  "trims": [
+   "sitting\u00b7b \u2212200ms",
+   "curled \u2212200ms",
+   "up \u2212200ms",
+   "in \u2212200ms",
+   "self \u2212200ms",
+   "i \u2212200ms",
+   "think \u2212200ms",
+   "of \u2212200ms",
+   "a \u2212200ms",
+   "stone \u2212200ms",
+   "just \u2212200ms",
+   "ing \u2212200ms",
+   "ry \u2212200ms",
+   "ly \u2212200ms",
+   "for \u2212200ms",
+   "time \u2212200ms",
+   "to \u2212200ms"
+  ],
+  "words": "the whole lyric, assembled from corpus"
+ },
+ "w-sh": {
+  "slice": "sh-line",
+  "lead_in": 0.84,
+  "spans": [
+   [
+    "sitting\u00b7a",
+    0.37,
+    1.48
+   ],
+   [
+    "sitting\u00b7b",
+    1.48,
+    2.095
+   ],
+   [
+    "curled",
+    2.265,
+    3.84
+   ],
+   [
+    "up",
+    4.01,
+    4.56
+   ],
+   [
+    "in",
+    4.73,
+    5.45
+   ],
+   [
+    "my",
+    5.62,
+    6.98
+   ],
+   [
+    "self",
+    6.98,
+    7.245
+   ],
+   [
+    "i",
+    7.415,
+    7.785
+   ],
+   [
+    "think",
+    7.955,
+    8.995
+   ],
+   [
+    "of",
+    9.165,
+    9.875
+   ],
+   [
+    "a",
+    10.045,
+    10.46
+   ],
+   [
+    "stone",
+    10.63,
+    12.765
+   ],
+   [
+    "just",
+    12.935,
+    14.605
+   ],
+   [
+    "wait",
+    14.775,
+    15.08
+   ],
+   [
+    "ing",
+    15.08,
+    16.575
+   ],
+   [
+    "ve",
+    16.745,
+    17.765
+   ],
+   [
+    "ry",
+    17.765,
+    18.0
+   ],
+   [
+    "pa",
+    18.17,
+    18.535
+   ],
+   [
+    "tient",
+    18.535,
+    19.815
+   ],
+   [
+    "ly",
+    19.815,
+    20.67
+   ],
+   [
+    "for",
+    20.84,
+    21.835
+   ],
+   [
+    "time",
+    22.005,
+    23.325
+   ],
+   [
+    "to",
+    23.495,
+    24.675
+   ],
+   [
+    "pass",
+    24.845,
+    26.975
+   ]
+  ],
+  "pins": [
+   {
+    "t": "sitting\u00b7a",
+    "pin": 0,
+    "cut": null
+   },
+   {
+    "t": "sitting\u00b7b",
+    "pin": 0,
+    "cut": 1
+   },
+   {
+    "t": "curled",
+    "pin": 1,
+    "cut": null
+   },
+   {
+    "t": "up",
+    "pin": 2,
+    "cut": null
+   },
+   {
+    "t": "in",
+    "pin": 3,
+    "cut": null
+   },
+   {
+    "t": "my",
+    "pin": 4,
+    "cut": null
+   },
+   {
+    "t": "self",
+    "pin": 4,
+    "cut": 1
+   },
+   {
+    "t": "i",
+    "pin": 5,
+    "cut": null
+   },
+   {
+    "t": "think",
+    "pin": 6,
+    "cut": null
+   },
+   {
+    "t": "of",
+    "pin": 7,
+    "cut": null
+   },
+   {
+    "t": "a",
+    "pin": 8,
+    "cut": null
+   },
+   {
+    "t": "stone",
+    "pin": 9,
+    "cut": null
+   },
+   {
+    "t": "just",
+    "pin": 10,
+    "cut": null
+   },
+   {
+    "t": "wait",
+    "pin": 11,
+    "cut": null
+   },
+   {
+    "t": "ing",
+    "pin": 11,
+    "cut": 1
+   },
+   {
+    "t": "ve",
+    "pin": 12,
+    "cut": null
+   },
+   {
+    "t": "ry",
+    "pin": 12,
+    "cut": 1
+   },
+   {
+    "t": "pa",
+    "pin": 13,
+    "cut": null
+   },
+   {
+    "t": "tient",
+    "pin": 13,
+    "cut": 1
+   },
+   {
+    "t": "ly",
+    "pin": 13,
+    "cut": 2
+   },
+   {
+    "t": "for",
+    "pin": 14,
+    "cut": null
+   },
+   {
+    "t": "time",
+    "pin": 15,
+    "cut": null
+   },
+   {
+    "t": "to",
+    "pin": 16,
+    "cut": null
+   },
+   {
+    "t": "pass",
+    "pin": 17,
+    "cut": null
+   }
+  ],
+  "beats": 60.0,
+  "renders": {
+   "lead": 30.75
+  },
+  "snaps": [],
+  "trims": [
+   "sitting\u00b7b \u2212200ms",
+   "curled \u2212200ms",
+   "up \u2212200ms",
+   "in \u2212200ms",
+   "self \u2212200ms",
+   "i \u2212200ms",
+   "think \u2212200ms",
+   "of \u2212200ms",
+   "a \u2212200ms",
+   "stone \u2212200ms",
+   "just \u2212200ms",
+   "ing \u2212200ms",
+   "ry \u2212200ms",
+   "ly \u2212200ms",
+   "for \u2212200ms",
+   "time \u2212200ms",
+   "to \u2212200ms"
+  ],
+  "words": "the whole lyric, assembled from corpus"
+ },
+ "w-lg": {
+  "slice": "lg-line",
+  "lead_in": 0.575,
+  "spans": [
+   [
+    "sitting\u00b7a",
+    0.37,
+    1.345
+   ],
+   [
+    "sitting\u00b7b",
+    1.345,
+    2.025
+   ],
+   [
+    "curled",
+    2.195,
+    3.71
+   ],
+   [
+    "up",
+    3.88,
+    4.495
+   ],
+   [
+    "in",
+    4.665,
+    5.335
+   ],
+   [
+    "my",
+    5.505,
+    7.005
+   ],
+   [
+    "self",
+    7.005,
+    7.3
+   ],
+   [
+    "i",
+    7.47,
+    7.75
+   ],
+   [
+    "think",
+    7.915,
+    8.855
+   ],
+   [
+    "of",
+    9.025,
+    9.985
+   ],
+   [
+    "a",
+    10.155,
+    10.725
+   ],
+   [
+    "stone",
+    10.895,
+    13.455
+   ],
+   [
+    "just",
+    13.66,
+    15.105
+   ],
+   [
+    "wait",
+    15.275,
+    16.19
+   ],
+   [
+    "ing",
+    16.19,
+    17.08
+   ],
+   [
+    "ve",
+    17.25,
+    18.36
+   ],
+   [
+    "ry",
+    18.36,
+    18.575
+   ],
+   [
+    "pa",
+    18.745,
+    19.645
+   ],
+   [
+    "tient",
+    19.645,
+    20.245
+   ],
+   [
+    "ly",
+    20.245,
+    21.035
+   ],
+   [
+    "for",
+    21.205,
+    22.255
+   ],
+   [
+    "time",
+    22.425,
+    23.7
+   ],
+   [
+    "to",
+    23.87,
+    24.91
+   ],
+   [
+    "pass",
+    25.08,
+    26.81
+   ]
+  ],
+  "pins": [
+   {
+    "t": "sitting\u00b7a",
+    "pin": 0,
+    "cut": null
+   },
+   {
+    "t": "sitting\u00b7b",
+    "pin": 0,
+    "cut": 1
+   },
+   {
+    "t": "curled",
+    "pin": 1,
+    "cut": null
+   },
+   {
+    "t": "up",
+    "pin": 2,
+    "cut": null
+   },
+   {
+    "t": "in",
+    "pin": 3,
+    "cut": null
+   },
+   {
+    "t": "my",
+    "pin": 4,
+    "cut": null
+   },
+   {
+    "t": "self",
+    "pin": 4,
+    "cut": 1
+   },
+   {
+    "t": "i",
+    "pin": 5,
+    "cut": null
+   },
+   {
+    "t": "think",
+    "pin": 6,
+    "cut": null
+   },
+   {
+    "t": "of",
+    "pin": 7,
+    "cut": null
+   },
+   {
+    "t": "a",
+    "pin": 8,
+    "cut": null
+   },
+   {
+    "t": "stone",
+    "pin": 9,
+    "cut": null
+   },
+   {
+    "t": "just",
+    "pin": 10,
+    "cut": null
+   },
+   {
+    "t": "wait",
+    "pin": 11,
+    "cut": null
+   },
+   {
+    "t": "ing",
+    "pin": 11,
+    "cut": 1
+   },
+   {
+    "t": "ve",
+    "pin": 12,
+    "cut": null
+   },
+   {
+    "t": "ry",
+    "pin": 12,
+    "cut": 1
+   },
+   {
+    "t": "pa",
+    "pin": 13,
+    "cut": null
+   },
+   {
+    "t": "tient",
+    "pin": 13,
+    "cut": 1
+   },
+   {
+    "t": "ly",
+    "pin": 13,
+    "cut": 2
+   },
+   {
+    "t": "for",
+    "pin": 14,
+    "cut": null
+   },
+   {
+    "t": "time",
+    "pin": 15,
+    "cut": null
+   },
+   {
+    "t": "to",
+    "pin": 16,
+    "cut": null
+   },
+   {
+    "t": "pass",
+    "pin": 17,
+    "cut": null
+   }
+  ],
+  "beats": 60.0,
+  "renders": {
+   "lead": 30.485
+  },
+  "snaps": [],
+  "trims": [
+   "sitting\u00b7b \u2212200ms",
+   "curled \u2212200ms",
+   "up \u2212200ms",
+   "in \u2212200ms",
+   "self \u2212200ms",
+   "i \u2212195ms",
+   "think \u2212200ms",
+   "of \u2212200ms",
+   "a \u2212200ms",
+   "stone \u2212205ms",
+   "just \u2212200ms",
+   "ing \u2212200ms",
+   "ry \u2212200ms",
+   "ly \u2212200ms",
+   "for \u2212200ms",
+   "time \u2212200ms",
+   "to \u2212200ms"
+  ],
+  "words": "the whole lyric, assembled from corpus"
+ },
+ "w-pf": {
+  "slice": "pf-line",
+  "lead_in": 0.765,
+  "spans": [
+   [
+    "sitting\u00b7a",
+    0.37,
+    0.945
+   ],
+   [
+    "sitting\u00b7b",
+    0.945,
+    2.015
+   ],
+   [
+    "curled",
+    2.185,
+    3.765
+   ],
+   [
+    "up",
+    3.935,
+    4.54
+   ],
+   [
+    "in",
+    4.71,
+    5.425
+   ],
+   [
+    "my",
+    5.595,
+    6.395
+   ],
+   [
+    "self",
+    6.395,
+    7.165
+   ],
+   [
+    "i",
+    7.37,
+    7.62
+   ],
+   [
+    "think",
+    7.79,
+    8.915
+   ],
+   [
+    "of",
+    9.085,
+    9.905
+   ],
+   [
+    "a",
+    10.075,
+    10.48
+   ],
+   [
+    "stone",
+    10.65,
+    12.705
+   ],
+   [
+    "just",
+    12.88,
+    14.23
+   ],
+   [
+    "wait",
+    14.4,
+    14.635
+   ],
+   [
+    "ing",
+    14.635,
+    16.005
+   ],
+   [
+    "ve",
+    16.175,
+    17.26
+   ],
+   [
+    "ry",
+    17.26,
+    17.505
+   ],
+   [
+    "pa",
+    17.675,
+    18.095
+   ],
+   [
+    "tient",
+    18.095,
+    19.375
+   ],
+   [
+    "ly",
+    19.375,
+    20.225
+   ],
+   [
+    "for",
+    20.395,
+    21.39
+   ],
+   [
+    "time",
+    21.56,
+    22.88
+   ],
+   [
+    "to",
+    23.05,
+    24.105
+   ],
+   [
+    "pass",
+    24.305,
+    26.53
+   ]
+  ],
+  "pins": [
+   {
+    "t": "sitting\u00b7a",
+    "pin": 0,
+    "cut": null
+   },
+   {
+    "t": "sitting\u00b7b",
+    "pin": 0,
+    "cut": 1
+   },
+   {
+    "t": "curled",
+    "pin": 1,
+    "cut": null
+   },
+   {
+    "t": "up",
+    "pin": 2,
+    "cut": null
+   },
+   {
+    "t": "in",
+    "pin": 3,
+    "cut": null
+   },
+   {
+    "t": "my",
+    "pin": 4,
+    "cut": null
+   },
+   {
+    "t": "self",
+    "pin": 4,
+    "cut": 1
+   },
+   {
+    "t": "i",
+    "pin": 5,
+    "cut": null
+   },
+   {
+    "t": "think",
+    "pin": 6,
+    "cut": null
+   },
+   {
+    "t": "of",
+    "pin": 7,
+    "cut": null
+   },
+   {
+    "t": "a",
+    "pin": 8,
+    "cut": null
+   },
+   {
+    "t": "stone",
+    "pin": 9,
+    "cut": null
+   },
+   {
+    "t": "just",
+    "pin": 10,
+    "cut": null
+   },
+   {
+    "t": "wait",
+    "pin": 11,
+    "cut": null
+   },
+   {
+    "t": "ing",
+    "pin": 11,
+    "cut": 1
+   },
+   {
+    "t": "ve",
+    "pin": 12,
+    "cut": null
+   },
+   {
+    "t": "ry",
+    "pin": 12,
+    "cut": 1
+   },
+   {
+    "t": "pa",
+    "pin": 13,
+    "cut": null
+   },
+   {
+    "t": "tient",
+    "pin": 13,
+    "cut": 1
+   },
+   {
+    "t": "ly",
+    "pin": 13,
+    "cut": 2
+   },
+   {
+    "t": "for",
+    "pin": 14,
+    "cut": null
+   },
+   {
+    "t": "time",
+    "pin": 15,
+    "cut": null
+   },
+   {
+    "t": "to",
+    "pin": 16,
+    "cut": null
+   },
+   {
+    "t": "pass",
+    "pin": 17,
+    "cut": null
+   }
+  ],
+  "beats": 60.0,
+  "renders": {
+   "lead": 30.675
+  },
+  "snaps": [],
+  "trims": [
+   "sitting\u00b7b \u2212200ms",
+   "curled \u2212200ms",
+   "up \u2212200ms",
+   "in \u2212200ms",
+   "self \u2212205ms",
+   "i \u2212200ms",
+   "think \u2212200ms",
+   "of \u2212200ms",
+   "a \u2212200ms",
+   "stone \u2212205ms",
+   "just \u2212200ms",
+   "ing \u2212200ms",
+   "ry \u2212200ms",
+   "ly \u2212200ms",
+   "for \u2212200ms",
+   "time \u2212200ms",
+   "to \u2212200ms"
+  ],
+  "words": "the whole lyric, assembled from corpus"
+ },
+ "w-rd": {
+  "slice": "rd-line",
+  "lead_in": 0.405,
+  "spans": [
+   [
+    "sitting\u00b7a",
+    0.37,
+    1.665
+   ],
+   [
+    "sitting\u00b7b",
+    1.665,
+    2.09
+   ],
+   [
+    "curled",
+    2.255,
+    3.765
+   ],
+   [
+    "up",
+    3.935,
+    4.555
+   ],
+   [
+    "in",
+    4.725,
+    5.175
+   ],
+   [
+    "my",
+    5.345,
+    6.605
+   ],
+   [
+    "self",
+    6.605,
+    6.98
+   ],
+   [
+    "i",
+    7.18,
+    7.445
+   ],
+   [
+    "think",
+    7.615,
+    8.385
+   ],
+   [
+    "of",
+    8.555,
+    9.41
+   ],
+   [
+    "a",
+    9.58,
+    9.84
+   ],
+   [
+    "stone",
+    10.01,
+    11.68
+   ],
+   [
+    "just",
+    11.85,
+    13.12
+   ],
+   [
+    "wait",
+    13.29,
+    13.675
+   ],
+   [
+    "ing",
+    13.675,
+    15.37
+   ],
+   [
+    "ve",
+    15.54,
+    16.315
+   ],
+   [
+    "ry",
+    16.315,
+    16.745
+   ],
+   [
+    "pa",
+    16.915,
+    18.03
+   ],
+   [
+    "tient",
+    18.03,
+    18.62
+   ],
+   [
+    "ly",
+    18.62,
+    19.65
+   ],
+   [
+    "for",
+    19.82,
+    20.725
+   ],
+   [
+    "time",
+    20.89,
+    22.19
+   ],
+   [
+    "to",
+    22.36,
+    23.17
+   ],
+   [
+    "pass",
+    23.37,
+    24.505
+   ]
+  ],
+  "pins": [
+   {
+    "t": "sitting\u00b7a",
+    "pin": 0,
+    "cut": null
+   },
+   {
+    "t": "sitting\u00b7b",
+    "pin": 0,
+    "cut": 1
+   },
+   {
+    "t": "curled",
+    "pin": 1,
+    "cut": null
+   },
+   {
+    "t": "up",
+    "pin": 2,
+    "cut": null
+   },
+   {
+    "t": "in",
+    "pin": 3,
+    "cut": null
+   },
+   {
+    "t": "my",
+    "pin": 4,
+    "cut": null
+   },
+   {
+    "t": "self",
+    "pin": 4,
+    "cut": 1
+   },
+   {
+    "t": "i",
+    "pin": 5,
+    "cut": null
+   },
+   {
+    "t": "think",
+    "pin": 6,
+    "cut": null
+   },
+   {
+    "t": "of",
+    "pin": 7,
+    "cut": null
+   },
+   {
+    "t": "a",
+    "pin": 8,
+    "cut": null
+   },
+   {
+    "t": "stone",
+    "pin": 9,
+    "cut": null
+   },
+   {
+    "t": "just",
+    "pin": 10,
+    "cut": null
+   },
+   {
+    "t": "wait",
+    "pin": 11,
+    "cut": null
+   },
+   {
+    "t": "ing",
+    "pin": 11,
+    "cut": 1
+   },
+   {
+    "t": "ve",
+    "pin": 12,
+    "cut": null
+   },
+   {
+    "t": "ry",
+    "pin": 12,
+    "cut": 1
+   },
+   {
+    "t": "pa",
+    "pin": 13,
+    "cut": null
+   },
+   {
+    "t": "tient",
+    "pin": 13,
+    "cut": 1
+   },
+   {
+    "t": "ly",
+    "pin": 13,
+    "cut": 2
+   },
+   {
+    "t": "for",
+    "pin": 14,
+    "cut": null
+   },
+   {
+    "t": "time",
+    "pin": 15,
+    "cut": null
+   },
+   {
+    "t": "to",
+    "pin": 16,
+    "cut": null
+   },
+   {
+    "t": "pass",
+    "pin": 17,
+    "cut": null
+   }
+  ],
+  "beats": 60.0,
+  "renders": {
+   "lead": 30.315
+  },
+  "snaps": [],
+  "trims": [
+   "sitting\u00b7b \u2212195ms",
+   "curled \u2212200ms",
+   "up \u2212200ms",
+   "in \u2212200ms",
+   "self \u2212200ms",
+   "i \u2212200ms",
+   "think \u2212200ms",
+   "of \u2212200ms",
+   "a \u2212200ms",
+   "stone \u2212200ms",
+   "just \u2212200ms",
+   "ing \u2212200ms",
+   "ry \u2212200ms",
+   "ly \u2212200ms",
+   "for \u2212195ms",
+   "time \u2212200ms",
+   "to \u2212200ms"
+  ],
+  "words": "the whole lyric, assembled from corpus"
+ },
+ "w-cp": {
+  "slice": "cp-line",
+  "lead_in": 0.43,
+  "spans": [
+   [
+    "sitting\u00b7a",
+    0.37,
+    0.825
+   ],
+   [
+    "sitting\u00b7b",
+    0.825,
+    1.35
+   ],
+   [
+    "curled",
+    1.52,
+    2.58
+   ],
+   [
+    "up",
+    2.75,
+    3.2
+   ],
+   [
+    "in",
+    3.37,
+    3.695
+   ],
+   [
+    "my",
+    3.865,
+    4.845
+   ],
+   [
+    "self",
+    4.845,
+    5.055
+   ],
+   [
+    "i",
+    5.225,
+    5.625
+   ],
+   [
+    "think",
+    5.795,
+    6.57
+   ],
+   [
+    "of",
+    6.74,
+    7.885
+   ],
+   [
+    "a",
+    8.055,
+    8.505
+   ],
+   [
+    "stone",
+    8.675,
+    9.36
+   ],
+   [
+    "just",
+    9.53,
+    10.755
+   ],
+   [
+    "wait",
+    10.925,
+    11.58
+   ],
+   [
+    "ing",
+    11.635,
+    13.44
+   ],
+   [
+    "ve",
+    13.64,
+    14.35
+   ],
+   [
+    "ry",
+    14.35,
+    14.495
+   ],
+   [
+    "pa",
+    14.665,
+    15.67
+   ],
+   [
+    "tient",
+    15.67,
+    16.875
+   ],
+   [
+    "ly",
+    16.875,
+    17.48
+   ],
+   [
+    "for",
+    17.65,
+    18.435
+   ],
+   [
+    "time",
+    18.605,
+    19.82
+   ],
+   [
+    "to",
+    19.99,
+    20.71
+   ],
+   [
+    "pass",
+    20.88,
+    22.06
+   ]
+  ],
+  "pins": [
+   {
+    "t": "sitting\u00b7a",
+    "pin": 0,
+    "cut": null
+   },
+   {
+    "t": "sitting\u00b7b",
+    "pin": 0,
+    "cut": 1
+   },
+   {
+    "t": "curled",
+    "pin": 1,
+    "cut": null
+   },
+   {
+    "t": "up",
+    "pin": 2,
+    "cut": null
+   },
+   {
+    "t": "in",
+    "pin": 3,
+    "cut": null
+   },
+   {
+    "t": "my",
+    "pin": 4,
+    "cut": null
+   },
+   {
+    "t": "self",
+    "pin": 4,
+    "cut": 1
+   },
+   {
+    "t": "i",
+    "pin": 5,
+    "cut": null
+   },
+   {
+    "t": "think",
+    "pin": 6,
+    "cut": null
+   },
+   {
+    "t": "of",
+    "pin": 7,
+    "cut": null
+   },
+   {
+    "t": "a",
+    "pin": 8,
+    "cut": null
+   },
+   {
+    "t": "stone",
+    "pin": 9,
+    "cut": null
+   },
+   {
+    "t": "just",
+    "pin": 10,
+    "cut": null
+   },
+   {
+    "t": "wait",
+    "pin": 11,
+    "cut": null
+   },
+   {
+    "t": "ing",
+    "pin": 11,
+    "cut": 1
+   },
+   {
+    "t": "ve",
+    "pin": 12,
+    "cut": null
+   },
+   {
+    "t": "ry",
+    "pin": 12,
+    "cut": 1
+   },
+   {
+    "t": "pa",
+    "pin": 13,
+    "cut": null
+   },
+   {
+    "t": "tient",
+    "pin": 13,
+    "cut": 1
+   },
+   {
+    "t": "ly",
+    "pin": 13,
+    "cut": 2
+   },
+   {
+    "t": "for",
+    "pin": 14,
+    "cut": null
+   },
+   {
+    "t": "time",
+    "pin": 15,
+    "cut": null
+   },
+   {
+    "t": "to",
+    "pin": 16,
+    "cut": null
+   },
+   {
+    "t": "pass",
+    "pin": 17,
+    "cut": null
+   }
+  ],
+  "beats": 60.0,
+  "renders": {
+   "lead": 30.34
+  },
+  "snaps": [],
+  "trims": [
+   "sitting\u00b7b \u2212200ms",
+   "curled \u2212200ms",
+   "up \u2212200ms",
+   "in \u2212200ms",
+   "self \u2212200ms",
+   "i \u2212200ms",
+   "think \u2212200ms",
+   "of \u2212200ms",
+   "a \u2212200ms",
+   "stone \u2212200ms",
+   "just \u2212200ms",
+   "wait \u221285ms",
+   "ing \u2212200ms",
+   "ry \u2212200ms",
+   "ly \u2212200ms",
+   "for \u2212200ms",
+   "time \u2212200ms",
+   "to \u2212200ms"
+  ],
+  "words": "the whole lyric, assembled from corpus"
+ },
+ "w-s": {
+  "slice": "s-line",
+  "lead_in": 0.37,
+  "spans": [
+   [
+    "sitting\u00b7a",
+    0.37,
+    0.665
+   ],
+   [
+    "sitting\u00b7b",
+    0.665,
+    2.005
+   ],
+   [
+    "curled",
+    2.175,
+    3.615
+   ],
+   [
+    "up",
+    3.815,
+    4.375
+   ],
+   [
+    "in",
+    4.54,
+    5.105
+   ],
+   [
+    "my",
+    5.275,
+    6.145
+   ],
+   [
+    "self",
+    6.145,
+    6.86
+   ],
+   [
+    "i",
+    7.03,
+    7.275
+   ],
+   [
+    "think",
+    7.445,
+    8.505
+   ],
+   [
+    "of",
+    8.675,
+    9.39
+   ],
+   [
+    "a",
+    9.56,
+    10.07
+   ],
+   [
+    "stone",
+    10.24,
+    12.215
+   ],
+   [
+    "just",
+    12.385,
+    13.5
+   ],
+   [
+    "wait",
+    13.67,
+    14.375
+   ],
+   [
+    "ing",
+    14.375,
+    15.705
+   ],
+   [
+    "ve",
+    15.875,
+    16.13
+   ],
+   [
+    "ry",
+    16.13,
+    16.92
+   ],
+   [
+    "pa",
+    17.085,
+    17.595
+   ],
+   [
+    "tient",
+    17.595,
+    18.375
+   ],
+   [
+    "ly",
+    18.375,
+    19.92
+   ],
+   [
+    "for",
+    20.09,
+    20.965
+   ],
+   [
+    "time",
+    21.13,
+    22.61
+   ],
+   [
+    "to",
+    22.78,
+    24.075
+   ],
+   [
+    "pass",
+    24.245,
+    25.34
+   ]
+  ],
+  "pins": [
+   {
+    "t": "sitting\u00b7a",
+    "pin": 0,
+    "cut": null
+   },
+   {
+    "t": "sitting\u00b7b",
+    "pin": 0,
+    "cut": 1
+   },
+   {
+    "t": "curled",
+    "pin": 1,
+    "cut": null
+   },
+   {
+    "t": "up",
+    "pin": 2,
+    "cut": null
+   },
+   {
+    "t": "in",
+    "pin": 3,
+    "cut": null
+   },
+   {
+    "t": "my",
+    "pin": 4,
+    "cut": null
+   },
+   {
+    "t": "self",
+    "pin": 4,
+    "cut": 1
+   },
+   {
+    "t": "i",
+    "pin": 5,
+    "cut": null
+   },
+   {
+    "t": "think",
+    "pin": 6,
+    "cut": null
+   },
+   {
+    "t": "of",
+    "pin": 7,
+    "cut": null
+   },
+   {
+    "t": "a",
+    "pin": 8,
+    "cut": null
+   },
+   {
+    "t": "stone",
+    "pin": 9,
+    "cut": null
+   },
+   {
+    "t": "just",
+    "pin": 10,
+    "cut": null
+   },
+   {
+    "t": "wait",
+    "pin": 11,
+    "cut": null
+   },
+   {
+    "t": "ing",
+    "pin": 11,
+    "cut": 1
+   },
+   {
+    "t": "ve",
+    "pin": 12,
+    "cut": null
+   },
+   {
+    "t": "ry",
+    "pin": 12,
+    "cut": 1
+   },
+   {
+    "t": "pa",
+    "pin": 13,
+    "cut": null
+   },
+   {
+    "t": "tient",
+    "pin": 13,
+    "cut": 1
+   },
+   {
+    "t": "ly",
+    "pin": 13,
+    "cut": 2
+   },
+   {
+    "t": "for",
+    "pin": 14,
+    "cut": null
+   },
+   {
+    "t": "time",
+    "pin": 15,
+    "cut": null
+   },
+   {
+    "t": "to",
+    "pin": 16,
+    "cut": null
+   },
+   {
+    "t": "pass",
+    "pin": 17,
+    "cut": null
+   }
+  ],
+  "beats": 60.0,
+  "renders": {
+   "lead": 30.28
+  },
+  "snaps": [],
+  "trims": [
+   "sitting\u00b7b \u2212200ms",
+   "curled \u2212200ms",
+   "up \u2212195ms",
+   "in \u2212200ms",
+   "self \u2212200ms",
+   "i \u2212200ms",
+   "think \u2212200ms",
+   "of \u2212200ms",
+   "a \u2212200ms",
+   "stone \u2212200ms",
+   "just \u2212200ms",
+   "ing \u2212200ms",
+   "ry \u2212195ms",
+   "ly \u2212200ms",
+   "for \u2212195ms",
+   "time \u2212200ms",
+   "to \u2212200ms"
+  ],
+  "words": "the whole lyric, assembled from corpus"
+ },
+ "w-o": {
+  "slice": "o-line",
+  "lead_in": 0.55,
+  "spans": [
+   [
+    "sitting\u00b7a",
+    0.37,
+    1.445
+   ],
+   [
+    "sitting\u00b7b",
+    1.445,
+    1.805
+   ],
+   [
+    "curled",
+    1.975,
+    3.2
+   ],
+   [
+    "up",
+    3.37,
+    4.165
+   ],
+   [
+    "in",
+    4.335,
+    4.93
+   ],
+   [
+    "my",
+    5.1,
+    5.875
+   ],
+   [
+    "self",
+    5.875,
+    6.77
+   ],
+   [
+    "i",
+    6.94,
+    7.665
+   ],
+   [
+    "think",
+    7.835,
+    8.725
+   ],
+   [
+    "of",
+    8.895,
+    9.665
+   ],
+   [
+    "a",
+    9.835,
+    10.255
+   ],
+   [
+    "stone",
+    10.455,
+    12.16
+   ],
+   [
+    "just",
+    12.33,
+    14.515
+   ],
+   [
+    "wait",
+    14.685,
+    15.895
+   ],
+   [
+    "ing",
+    15.895,
+    16.3
+   ],
+   [
+    "ve",
+    16.47,
+    17.675
+   ],
+   [
+    "ry",
+    17.675,
+    18.055
+   ],
+   [
+    "pa",
+    18.22,
+    20.06
+   ],
+   [
+    "tient",
+    20.06,
+    20.67
+   ],
+   [
+    "ly",
+    20.67,
+    21.15
+   ],
+   [
+    "for",
+    21.32,
+    22.43
+   ],
+   [
+    "time",
+    22.6,
+    23.985
+   ],
+   [
+    "to",
+    24.155,
+    24.905
+   ],
+   [
+    "pass",
+    25.075,
+    26.59
+   ]
+  ],
+  "pins": [
+   {
+    "t": "sitting\u00b7a",
+    "pin": 0,
+    "cut": null
+   },
+   {
+    "t": "sitting\u00b7b",
+    "pin": 0,
+    "cut": 1
+   },
+   {
+    "t": "curled",
+    "pin": 1,
+    "cut": null
+   },
+   {
+    "t": "up",
+    "pin": 2,
+    "cut": null
+   },
+   {
+    "t": "in",
+    "pin": 3,
+    "cut": null
+   },
+   {
+    "t": "my",
+    "pin": 4,
+    "cut": null
+   },
+   {
+    "t": "self",
+    "pin": 4,
+    "cut": 1
+   },
+   {
+    "t": "i",
+    "pin": 5,
+    "cut": null
+   },
+   {
+    "t": "think",
+    "pin": 6,
+    "cut": null
+   },
+   {
+    "t": "of",
+    "pin": 7,
+    "cut": null
+   },
+   {
+    "t": "a",
+    "pin": 8,
+    "cut": null
+   },
+   {
+    "t": "stone",
+    "pin": 9,
+    "cut": null
+   },
+   {
+    "t": "just",
+    "pin": 10,
+    "cut": null
+   },
+   {
+    "t": "wait",
+    "pin": 11,
+    "cut": null
+   },
+   {
+    "t": "ing",
+    "pin": 11,
+    "cut": 1
+   },
+   {
+    "t": "ve",
+    "pin": 12,
+    "cut": null
+   },
+   {
+    "t": "ry",
+    "pin": 12,
+    "cut": 1
+   },
+   {
+    "t": "pa",
+    "pin": 13,
+    "cut": null
+   },
+   {
+    "t": "tient",
+    "pin": 13,
+    "cut": 1
+   },
+   {
+    "t": "ly",
+    "pin": 13,
+    "cut": 2
+   },
+   {
+    "t": "for",
+    "pin": 14,
+    "cut": null
+   },
+   {
+    "t": "time",
+    "pin": 15,
+    "cut": null
+   },
+   {
+    "t": "to",
+    "pin": 16,
+    "cut": null
+   },
+   {
+    "t": "pass",
+    "pin": 17,
+    "cut": null
+   }
+  ],
+  "beats": 60.0,
+  "renders": {
+   "lead": 30.46
+  },
+  "snaps": [],
+  "trims": [
+   "sitting\u00b7b \u2212200ms",
+   "curled \u2212200ms",
+   "up \u2212200ms",
+   "in \u2212200ms",
+   "self \u2212200ms",
+   "i \u2212200ms",
+   "think \u2212200ms",
+   "of \u2212200ms",
+   "a \u2212200ms",
+   "stone \u2212200ms",
+   "just \u2212200ms",
+   "ing \u2212200ms",
+   "ry \u2212195ms",
+   "ly \u2212200ms",
+   "for \u2212200ms",
+   "time \u2212200ms",
+   "to \u2212200ms"
+  ],
+  "words": "the whole lyric, assembled from corpus"
  }
 }

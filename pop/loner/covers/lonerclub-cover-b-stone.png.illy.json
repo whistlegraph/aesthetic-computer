@@ -1,0 +1,43 @@
+{
+  "schema": "illy/v1",
+  "createdAt": "2026-08-19T16:20:54.630Z",
+  "pipeline": "pop-cover",
+  "provider": "openai",
+  "model": "gpt-image-2",
+  "mode": "edit",
+  "size": "1024x1024",
+  "quality": "high",
+  "output": "/Users/jas/aesthetic-computer/pop/loner/covers/lonerclub-cover-b-stone.png",
+  "promptPath": "/Users/jas/aesthetic-computer/pop/loner/covers/stone.illy.txt",
+  "promptHash": "6518f5a93c9032240f38d4483b6656b5b25e575b6c6ae996c09e64bc6bb95f95",
+  "references": [
+    "/Users/jas/aesthetic-computer/pop/loner/covers/refs/loner-curl-row.png"
+  ],
+  "contracts": [
+    "physical-accuracy"
+  ],
+  "stages": [
+    "resolve-inputs",
+    "apply-contracts",
+    "select-provider",
+    "generate",
+    "archive",
+    "provenance"
+  ],
+  "durationSeconds": 129.524,
+  "archived": null,
+  "requestId": null,
+  "usage": {
+    "input_tokens": 1297,
+    "input_tokens_details": {
+      "image_tokens": 660,
+      "text_tokens": 637
+    },
+    "output_tokens": 7024,
+    "output_tokens_details": {
+      "image_tokens": 7024,
+      "text_tokens": 0
+    },
+    "total_tokens": 8321
+  }
+}

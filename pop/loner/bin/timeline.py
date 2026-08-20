@@ -89,7 +89,12 @@ else:
     BEAT_TINT = [(255, 92, 162, 34), (132, 158, 236, 14),
                  (238, 234, 230, 10), (132, 158, 236, 14)]
 
-chart = json.load(open(os.path.join(LANE, "vox4", ".chart.json")))["w-whole-line"]
+# WHICH TAKE IS BEING SCRUTINISED. Every take has its own chart now, with
+# its own boundaries and its own consonant runways, so drawing f-'s blocks
+# over another take's audio would be a picture of the wrong performance.
+PHRASE = os.environ.get("TAKE") or "w-whole-line"
+LEADWAV = os.environ.get("TAKE_WAV") or PHRASE
+chart = json.load(open(os.path.join(LANE, "vox4", ".chart.json")))[PHRASE]
 LINE_BEATS = chart["beats"]
 LINE_BARS = math.ceil(LINE_BEATS / 4.0)
 PASSES = [0.0]                               # ONE pass, and no count-in:
@@ -122,7 +127,7 @@ f_lyric = F(30)
 # not just ur trim etc — map / render those waveforms directly into the
 # clips". The lead render (vox4/w-whole-line.wav) IS what the study
 # plays; chart beat b lives at leadIn + b·SPB seconds in that file.
-with wave.open(os.path.join(LANE, "vox4", "w-whole-line.wav"), "rb") as wf:
+with wave.open(os.path.join(LANE, "vox4", f"{LEADWAV}.wav"), "rb") as wf:
     VFS = wf.getframerate()
     VOX = np.frombuffer(wf.readframes(wf.getnframes()),
                         dtype=np.int16).astype(np.float64) / 32768.0

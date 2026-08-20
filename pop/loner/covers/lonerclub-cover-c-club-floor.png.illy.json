@@ -1,0 +1,44 @@
+{
+  "schema": "illy/v1",
+  "createdAt": "2026-08-19T16:28:06.947Z",
+  "pipeline": "pop-cover",
+  "provider": "openai",
+  "model": "gpt-image-2",
+  "mode": "edit",
+  "size": "1024x1024",
+  "quality": "high",
+  "output": "/Users/jas/aesthetic-computer/pop/loner/covers/lonerclub-cover-c-club-floor.png",
+  "promptPath": "/Users/jas/aesthetic-computer/pop/loner/covers/club-floor.illy.txt",
+  "promptHash": "59e9cc2d66cb07f0e1cdfbeaa5da8e321e99a1a24260a3b1c7d5bf0b6f1bb6e8",
+  "references": [
+    "/Users/jas/aesthetic-computer/pop/loner/covers/refs/loner-curl-row.png",
+    "/Users/jas/aesthetic-computer/pop/loner/covers/refs/loner-score-small.png"
+  ],
+  "contracts": [
+    "physical-accuracy"
+  ],
+  "stages": [
+    "resolve-inputs",
+    "apply-contracts",
+    "select-provider",
+    "generate",
+    "archive",
+    "provenance"
+  ],
+  "durationSeconds": 162.591,
+  "archived": null,
+  "requestId": null,
+  "usage": {
+    "input_tokens": 2816,
+    "input_tokens_details": {
+      "image_tokens": 2156,
+      "text_tokens": 660
+    },
+    "output_tokens": 7024,
+    "output_tokens_details": {
+      "image_tokens": 7024,
+      "text_tokens": 0
+    },
+    "total_tokens": 9840
+  }
+}

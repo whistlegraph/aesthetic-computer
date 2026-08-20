@@ -1,0 +1,625 @@
+{
+ "a": [
+  {
+   "cents": -471,
+   "dur": 0.8,
+   "end": 2.42,
+   "note": "G#3",
+   "peak_db": -7.1,
+   "slice": "f-of-a-stone",
+   "st": 10.29,
+   "start": 1.62,
+   "take": "f"
+  },
+  {
+   "cents": -469,
+   "dur": 0.8,
+   "end": 9.82,
+   "note": "G#3",
+   "peak_db": -8.0,
+   "slice": "f-whole-line",
+   "st": 10.31,
+   "start": 9.02,
+   "take": "f"
+  },
+  {
+   "cents": -521,
+   "dur": 0.76,
+   "end": 0.76,
+   "note": "A#4",
+   "peak_db": -11.6,
+   "slice": "n-stone-waiting",
+   "st": 11.79,
+   "start": 0.0,
+   "take": "n"
+  }
+ ],
+ "curled": [
+  {
+   "cents": -524,
+   "dur": 0.92,
+   "end": 2.46,
+   "note": "C#3",
+   "peak_db": -7.8,
+   "slice": "f-sitting-curled",
+   "st": 2.76,
+   "start": 1.54,
+   "take": "f"
+  },
+  {
+   "cents": -523,
+   "dur": 1.04,
+   "end": 2.66,
+   "note": "C#3",
+   "peak_db": -9.2,
+   "slice": "f-whole-line",
+   "st": 2.77,
+   "start": 1.62,
+   "take": "f"
+  },
+  {
+   "cents": -537,
+   "dur": 0.8,
+   "end": 1.58,
+   "note": "C#3",
+   "peak_db": -9.3,
+   "slice": "n-getting-curled",
+   "st": 2.63,
+   "start": 0.78,
+   "take": "n"
+  }
+ ],
+ "for": [
+  {
+   "cents": -480,
+   "dur": 0.62,
+   "end": 0.62,
+   "note": "D#3",
+   "peak_db": -6.5,
+   "slice": "f-for-time-to-pass",
+   "st": 5.2,
+   "start": 0.0,
+   "take": "f"
+  },
+  {
+   "cents": -487,
+   "dur": 1.9,
+   "end": 19.38,
+   "note": "C#3",
+   "peak_db": -7.0,
+   "slice": "f-whole-line",
+   "st": 3.13,
+   "start": 17.48,
+   "take": "f"
+  }
+ ],
+ "getting": [
+  {
+   "cents": -534,
+   "dur": 0.78,
+   "end": 0.78,
+   "note": "D#3",
+   "peak_db": -12.9,
+   "slice": "n-getting-curled",
+   "st": 4.66,
+   "start": 0.0,
+   "take": "n"
+  }
+ ],
+ "i": [
+  {
+   "cents": -501,
+   "dur": 0.64,
+   "end": 0.64,
+   "note": "G#2",
+   "peak_db": -8.2,
+   "slice": "f-i-think",
+   "st": -2.01,
+   "start": 0.0,
+   "take": "f"
+  },
+  {
+   "cents": -501,
+   "dur": 0.94,
+   "end": 6.48,
+   "note": "G#2",
+   "peak_db": -13.3,
+   "slice": "f-whole-line",
+   "st": -2.01,
+   "start": 5.54,
+   "take": "f"
+  },
+  {
+   "cents": -540,
+   "dur": 0.78,
+   "end": 4.78,
+   "note": "G#2",
+   "peak_db": -7.1,
+   "slice": "n-getting-curled",
+   "st": -2.4,
+   "start": 4.0,
+   "take": "n"
+  }
+ ],
+ "in": [
+  {
+   "cents": -499,
+   "dur": 0.72,
+   "end": 3.86,
+   "note": "A#3",
+   "peak_db": -9.5,
+   "slice": "f-sitting-curled",
+   "st": 0.01,
+   "start": 3.14,
+   "take": "f"
+  },
+  {
+   "cents": -498,
+   "dur": 0.8,
+   "end": 4.16,
+   "note": "A#3",
+   "peak_db": -7.4,
+   "slice": "f-whole-line",
+   "st": 0.02,
+   "start": 3.36,
+   "take": "f"
+  },
+  {
+   "cents": -496,
+   "dur": 0.62,
+   "end": 2.76,
+   "note": "A#3",
+   "peak_db": -13.2,
+   "slice": "n-getting-curled",
+   "st": 0.04,
+   "start": 2.14,
+   "take": "n"
+  }
+ ],
+ "just": [
+  {
+   "cents": -586,
+   "dur": 1.46,
+   "end": 1.46,
+   "note": "C3",
+   "peak_db": -5.9,
+   "slice": "f-just-waiting",
+   "st": 2.14,
+   "start": 0.0,
+   "take": "f"
+  },
+  {
+   "cents": -585,
+   "dur": 1.265,
+   "end": 12.6,
+   "note": "C3",
+   "peak_db": -8.4,
+   "slice": "f-whole-line",
+   "st": 2.15,
+   "start": 11.335,
+   "take": "f"
+  },
+  {
+   "cents": -583,
+   "dur": 1.88,
+   "end": 3.94,
+   "note": "D3",
+   "peak_db": -10.2,
+   "slice": "n-stone-waiting",
+   "st": 4.17,
+   "start": 2.06,
+   "take": "n"
+  }
+ ],
+ "myself": [
+  {
+   "cents": -538,
+   "dur": 1.36,
+   "end": 5.22,
+   "note": "D#3",
+   "peak_db": -6.0,
+   "slice": "f-sitting-curled",
+   "st": 4.62,
+   "start": 3.86,
+   "take": "f"
+  },
+  {
+   "cents": -542,
+   "dur": 1.38,
+   "end": 5.54,
+   "note": "D#3",
+   "peak_db": -9.0,
+   "slice": "f-whole-line",
+   "st": 4.58,
+   "start": 4.16,
+   "take": "f"
+  },
+  {
+   "cents": -401,
+   "dur": 1.24,
+   "end": 4.0,
+   "note": "D3",
+   "peak_db": -6.0,
+   "slice": "n-getting-curled",
+   "st": 3.99,
+   "start": 2.76,
+   "take": "n"
+  }
+ ],
+ "of": [
+  {
+   "cents": -511,
+   "dur": 1.62,
+   "end": 1.62,
+   "note": "A#4",
+   "peak_db": -6.4,
+   "slice": "f-of-a-stone",
+   "st": 11.89,
+   "start": 0.0,
+   "take": "f"
+  },
+  {
+   "cents": -513,
+   "dur": 1.94,
+   "end": 9.02,
+   "note": "A#4",
+   "peak_db": -7.4,
+   "slice": "f-whole-line",
+   "st": 11.87,
+   "start": 7.08,
+   "take": "f"
+  }
+ ],
+ "pass": [
+  {
+   "cents": -499,
+   "dur": 1.86,
+   "end": 5.7,
+   "note": "C#3",
+   "peak_db": -8.2,
+   "slice": "f-for-time-to-pass",
+   "st": 3.01,
+   "start": 3.84,
+   "take": "f"
+  },
+  {
+   "cents": -498,
+   "dur": 1.56,
+   "end": 24.42,
+   "note": "C#3",
+   "peak_db": -8.7,
+   "slice": "f-whole-line",
+   "st": 3.02,
+   "start": 22.86,
+   "take": "f"
+  },
+  {
+   "cents": -524,
+   "dur": 0.92,
+   "end": 3.56,
+   "note": "C#3",
+   "peak_db": -5.9,
+   "slice": "n-for-time-to-pass",
+   "st": 2.76,
+   "start": 2.64,
+   "take": "n"
+  }
+ ],
+ "patiently": [
+  {
+   "cents": -490,
+   "dur": 1.52,
+   "end": 2.92,
+   "note": "F3",
+   "peak_db": -5.3,
+   "slice": "f-very-patiently",
+   "st": 7.1,
+   "start": 1.4,
+   "take": "f"
+  },
+  {
+   "cents": -490,
+   "dur": 1.3,
+   "end": 17.48,
+   "note": "F3",
+   "peak_db": -5.3,
+   "slice": "f-whole-line",
+   "st": 7.1,
+   "start": 16.18,
+   "take": "f"
+  },
+  {
+   "cents": -580,
+   "dur": 1.18,
+   "end": 8.04,
+   "note": "E3",
+   "peak_db": -5.7,
+   "slice": "n-stone-waiting",
+   "st": 6.2,
+   "start": 6.86,
+   "take": "n"
+  }
+ ],
+ "sitting": [
+  {
+   "cents": -570,
+   "dur": 1.54,
+   "end": 1.54,
+   "note": "E3",
+   "peak_db": -5.2,
+   "slice": "f-sitting-curled",
+   "st": 6.3,
+   "start": 0.0,
+   "take": "f"
+  },
+  {
+   "cents": -531,
+   "dur": 1.4,
+   "end": 1.62,
+   "note": "F3",
+   "peak_db": -6.6,
+   "slice": "f-whole-line",
+   "st": 6.69,
+   "start": 0.22,
+   "take": "f"
+  }
+ ],
+ "stone": [
+  {
+   "cents": -497,
+   "dur": 0.74,
+   "end": 3.16,
+   "note": "D#3",
+   "peak_db": -7.6,
+   "slice": "f-of-a-stone",
+   "st": 5.03,
+   "start": 2.42,
+   "take": "f"
+  },
+  {
+   "cents": -494,
+   "dur": 0.88,
+   "end": 10.7,
+   "note": "D#3",
+   "peak_db": -8.5,
+   "slice": "f-whole-line",
+   "st": 5.06,
+   "start": 9.82,
+   "take": "f"
+  },
+  {
+   "cents": -595,
+   "dur": 1.3,
+   "end": 2.06,
+   "note": "G3",
+   "peak_db": -4.5,
+   "slice": "n-stone-waiting",
+   "st": 9.05,
+   "start": 0.76,
+   "take": "n"
+  }
+ ],
+ "the": [
+  {
+   "cents": -533,
+   "dur": 0.16,
+   "end": 0.16,
+   "note": "D#3",
+   "peak_db": -8.8,
+   "slice": "n-for-time-to-pass",
+   "st": 4.67,
+   "start": 0.0,
+   "take": "n"
+  }
+ ],
+ "think": [
+  {
+   "cents": -477,
+   "dur": 0.68,
+   "end": 1.32,
+   "note": "F2",
+   "peak_db": -10.5,
+   "slice": "f-i-think",
+   "st": -4.77,
+   "start": 0.64,
+   "take": "f"
+  },
+  {
+   "cents": -490,
+   "dur": 0.6,
+   "end": 7.08,
+   "note": "F2",
+   "peak_db": -15.6,
+   "slice": "f-whole-line",
+   "st": -4.9,
+   "start": 6.48,
+   "take": "f"
+  },
+  {
+   "cents": -537,
+   "dur": 0.32,
+   "end": 5.1,
+   "note": "F2",
+   "peak_db": -14.0,
+   "slice": "n-getting-curled",
+   "st": -5.37,
+   "start": 4.78,
+   "take": "n"
+  }
+ ],
+ "time": [
+  {
+   "cents": -489,
+   "dur": 1.44,
+   "end": 2.06,
+   "note": "F3",
+   "peak_db": -7.4,
+   "slice": "f-for-time-to-pass",
+   "st": 7.11,
+   "start": 0.62,
+   "take": "f"
+  },
+  {
+   "cents": -488,
+   "dur": 1.34,
+   "end": 20.72,
+   "note": "F3",
+   "peak_db": -7.9,
+   "slice": "f-whole-line",
+   "st": 7.12,
+   "start": 19.38,
+   "take": "f"
+  },
+  {
+   "cents": -528,
+   "dur": 0.94,
+   "end": 1.1,
+   "note": "F3",
+   "peak_db": -7.9,
+   "slice": "n-for-time-to-pass",
+   "st": 6.72,
+   "start": 0.16,
+   "take": "n"
+  }
+ ],
+ "to": [
+  {
+   "cents": -496,
+   "dur": 1.78,
+   "end": 3.84,
+   "note": "C#3",
+   "peak_db": -11.5,
+   "slice": "f-for-time-to-pass",
+   "st": 3.04,
+   "start": 2.06,
+   "take": "f"
+  },
+  {
+   "cents": -496,
+   "dur": 2.14,
+   "end": 22.86,
+   "note": "C#3",
+   "peak_db": -12.0,
+   "slice": "f-whole-line",
+   "st": 3.04,
+   "start": 20.72,
+   "take": "f"
+  },
+  {
+   "cents": -539,
+   "dur": 1.54,
+   "end": 2.64,
+   "note": "C#3",
+   "peak_db": -8.9,
+   "slice": "n-for-time-to-pass",
+   "st": 2.61,
+   "start": 1.1,
+   "take": "n"
+  }
+ ],
+ "up": [
+  {
+   "cents": -506,
+   "dur": 0.68,
+   "end": 3.14,
+   "note": "C3",
+   "peak_db": -8.5,
+   "slice": "f-sitting-curled",
+   "st": 1.94,
+   "start": 2.46,
+   "take": "f"
+  },
+  {
+   "cents": -504,
+   "dur": 0.7,
+   "end": 3.36,
+   "note": "C3",
+   "peak_db": -10.0,
+   "slice": "f-whole-line",
+   "st": 1.96,
+   "start": 2.66,
+   "take": "f"
+  },
+  {
+   "cents": -526,
+   "dur": 0.56,
+   "end": 2.14,
+   "note": "C3",
+   "peak_db": -12.9,
+   "slice": "n-getting-curled",
+   "st": 1.74,
+   "start": 1.58,
+   "take": "n"
+  }
+ ],
+ "very": [
+  {
+   "cents": -505,
+   "dur": 1.4,
+   "end": 1.4,
+   "note": "A#3",
+   "peak_db": -10.2,
+   "slice": "f-very-patiently",
+   "st": -0.05,
+   "start": 0.0,
+   "take": "f"
+  },
+  {
+   "cents": -498,
+   "dur": 1.92,
+   "end": 16.18,
+   "note": "A#3",
+   "peak_db": -10.2,
+   "slice": "f-whole-line",
+   "st": 0.02,
+   "start": 14.26,
+   "take": "f"
+  },
+  {
+   "cents": -541,
+   "dur": 1.44,
+   "end": 6.86,
+   "note": "A#3",
+   "peak_db": -10.3,
+   "slice": "n-stone-waiting",
+   "st": -0.41,
+   "start": 5.42,
+   "take": "n"
+  }
+ ],
+ "waiting": [
+  {
+   "cents": -510,
+   "dur": 1.48,
+   "end": 2.94,
+   "note": "C#3",
+   "peak_db": -5.4,
+   "slice": "f-just-waiting",
+   "st": 2.9,
+   "start": 1.46,
+   "take": "f"
+  },
+  {
+   "cents": -511,
+   "dur": 1.66,
+   "end": 14.26,
+   "note": "C#3",
+   "peak_db": -7.9,
+   "slice": "f-whole-line",
+   "st": 2.89,
+   "start": 12.6,
+   "take": "f"
+  },
+  {
+   "cents": -513,
+   "dur": 1.48,
+   "end": 5.42,
+   "note": "C#3",
+   "peak_db": -5.7,
+   "slice": "n-stone-waiting",
+   "st": 2.87,
+   "start": 3.94,
+   "take": "n"
+  }
+ ]
+}

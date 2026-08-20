@@ -19,35 +19,35 @@
     "start": 1.74,
     "end": 2.48,
     "f0_hz": 278,
-    "note": "C♯4"
+    "note": "C\u266f4"
    },
    {
     "t": "led",
     "start": 2.48,
     "end": 3.47,
     "f0_hz": 271.6,
-    "note": "C♯4"
+    "note": "C\u266f4"
    },
    {
     "t": "up",
     "start": 3.47,
     "end": 3.72,
     "f0_hz": 236.5,
-    "note": "A♯3"
+    "note": "A\u266f3"
    },
    {
     "t": "in",
     "start": 3.72,
     "end": 4.22,
     "f0_hz": 237.8,
-    "note": "A♯3"
+    "note": "A\u266f3"
    },
    {
     "t": "myself",
     "start": 4.22,
     "end": 5.76,
     "f0_hz": 317.5,
-    "note": "D♯4"
+    "note": "D\u266f4"
    }
   ]
  },
@@ -64,14 +64,14 @@
     "start": 5.76,
     "end": 5.96,
     "f0_hz": 209.5,
-    "note": "G♯3"
+    "note": "G\u266f3"
    },
    {
     "t": "think",
     "start": 5.96,
     "end": 7.46,
     "f0_hz": 210.7,
-    "note": "G♯3"
+    "note": "G\u266f3"
    }
   ]
  },
@@ -88,14 +88,14 @@
     "start": 7.46,
     "end": 8.06,
     "f0_hz": 470.2,
-    "note": "A♯4"
+    "note": "A\u266f4"
    },
    {
     "t": "a",
     "start": 8.06,
     "end": 8.59,
     "f0_hz": 472.9,
-    "note": "A♯4"
+    "note": "A\u266f4"
    },
    {
     "t": "stone",
@@ -119,28 +119,28 @@
     "start": 5.76,
     "end": 5.96,
     "f0_hz": 209.5,
-    "note": "G♯3"
+    "note": "G\u266f3"
    },
    {
     "t": "think",
     "start": 5.96,
     "end": 7.46,
     "f0_hz": 210.7,
-    "note": "G♯3"
+    "note": "G\u266f3"
    },
    {
     "t": "of",
     "start": 7.46,
     "end": 8.06,
     "f0_hz": 470.2,
-    "note": "A♯4"
+    "note": "A\u266f4"
    },
    {
     "t": "a",
     "start": 8.06,
     "end": 8.59,
     "f0_hz": 472.9,
-    "note": "A♯4"
+    "note": "A\u266f4"
    },
    {
     "t": "stone",
@@ -188,21 +188,21 @@
     "start": 13.01,
     "end": 14.71,
     "f0_hz": 279.6,
-    "note": "C♯4"
+    "note": "C\u266f4"
    },
    {
     "t": "very",
     "start": 14.71,
     "end": 16.29,
     "f0_hz": 236.5,
-    "note": "A♯3"
+    "note": "A\u266f3"
    },
    {
     "t": "patiently",
     "start": 16.29,
     "end": 18.82,
     "f0_hz": 317.5,
-    "note": "D♯4"
+    "note": "D\u266f4"
    }
   ]
  },
@@ -226,7 +226,7 @@
     "start": 13.01,
     "end": 14.71,
     "f0_hz": 279.6,
-    "note": "C♯4"
+    "note": "C\u266f4"
    }
   ]
  },
@@ -243,14 +243,14 @@
     "start": 14.71,
     "end": 16.29,
     "f0_hz": 236.5,
-    "note": "A♯3"
+    "note": "A\u266f3"
    },
    {
     "t": "patiently",
     "start": 16.29,
     "end": 18.82,
     "f0_hz": 317.5,
-    "note": "D♯4"
+    "note": "D\u266f4"
    }
   ]
  },
@@ -267,7 +267,7 @@
     "start": 18.82,
     "end": 19.78,
     "f0_hz": 319.3,
-    "note": "D♯4"
+    "note": "D\u266f4"
    },
    {
     "t": "time",
@@ -281,14 +281,14 @@
     "start": 21.4,
     "end": 23.12,
     "f0_hz": 282.8,
-    "note": "C♯4"
+    "note": "C\u266f4"
    },
    {
     "t": "pass",
     "start": 23.12,
     "end": 24.99,
     "f0_hz": 282.8,
-    "note": "C♯4"
+    "note": "C\u266f4"
    }
   ]
  },
@@ -305,150 +305,150 @@
     "start": 23.12,
     "end": 24.99,
     "f0_hz": 282.8,
-    "note": "C♯4"
+    "note": "C\u266f4"
    }
   ]
  },
  "f-whole-line": {
   "source": "7108062006980201771",
-  "start": 0.28,
+  "start": 0.06,
   "end": 25.45,
   "words": "the whole lyric, one take",
-  "dur": 24.307,
+  "dur": 24.527,
   "median_f0_hz": 282.8,
   "word_f0": [
    {
     "t": "Sitting",
-    "start": 0.33,
-    "end": 1.74,
+    "start": 0.55,
+    "end": 1.96,
     "f0_hz": 348.2,
     "note": "F4"
    },
    {
     "t": "cur",
-    "start": 1.74,
-    "end": 2.48,
+    "start": 1.96,
+    "end": 2.7,
     "f0_hz": 278,
-    "note": "C♯4"
+    "note": "C\u266f4"
    },
    {
     "t": "led",
-    "start": 2.48,
-    "end": 3.47,
+    "start": 2.7,
+    "end": 3.69,
     "f0_hz": 271.6,
-    "note": "C♯4"
+    "note": "C\u266f4"
    },
    {
     "t": "up",
-    "start": 3.47,
-    "end": 3.72,
+    "start": 3.69,
+    "end": 3.94,
     "f0_hz": 236.5,
-    "note": "A♯3"
+    "note": "A\u266f3"
    },
    {
     "t": "in",
-    "start": 3.72,
-    "end": 4.22,
+    "start": 3.94,
+    "end": 4.44,
     "f0_hz": 237.8,
-    "note": "A♯3"
+    "note": "A\u266f3"
    },
    {
     "t": "myself",
-    "start": 4.22,
-    "end": 5.76,
+    "start": 4.44,
+    "end": 5.98,
     "f0_hz": 317.5,
-    "note": "D♯4"
+    "note": "D\u266f4"
    },
    {
     "t": "I",
-    "start": 5.76,
-    "end": 5.96,
+    "start": 5.98,
+    "end": 6.18,
     "f0_hz": 209.5,
-    "note": "G♯3"
+    "note": "G\u266f3"
    },
    {
     "t": "think",
-    "start": 5.96,
-    "end": 7.46,
+    "start": 6.18,
+    "end": 7.68,
     "f0_hz": 210.7,
-    "note": "G♯3"
+    "note": "G\u266f3"
    },
    {
     "t": "of",
-    "start": 7.46,
-    "end": 8.06,
+    "start": 7.68,
+    "end": 8.28,
     "f0_hz": 470.2,
-    "note": "A♯4"
+    "note": "A\u266f4"
    },
    {
     "t": "a",
-    "start": 8.06,
-    "end": 8.59,
+    "start": 8.28,
+    "end": 8.81,
     "f0_hz": 472.9,
-    "note": "A♯4"
+    "note": "A\u266f4"
    },
    {
     "t": "stone",
-    "start": 8.59,
-    "end": 11.29,
+    "start": 8.81,
+    "end": 11.51,
     "f0_hz": 325.8,
     "note": "E4"
    },
    {
     "t": "just",
-    "start": 11.42,
-    "end": 13.01,
+    "start": 11.64,
+    "end": 13.23,
     "f0_hz": 268.5,
     "note": "C4"
    },
    {
     "t": "waiting",
-    "start": 13.01,
-    "end": 14.71,
+    "start": 13.23,
+    "end": 14.93,
     "f0_hz": 279.6,
-    "note": "C♯4"
+    "note": "C\u266f4"
    },
    {
     "t": "very",
-    "start": 14.71,
-    "end": 16.29,
+    "start": 14.93,
+    "end": 16.51,
     "f0_hz": 236.5,
-    "note": "A♯3"
+    "note": "A\u266f3"
    },
    {
     "t": "patiently",
-    "start": 16.29,
-    "end": 18.82,
+    "start": 16.51,
+    "end": 19.04,
     "f0_hz": 317.5,
-    "note": "D♯4"
+    "note": "D\u266f4"
    },
    {
     "t": "for",
-    "start": 18.82,
-    "end": 19.78,
+    "start": 19.04,
+    "end": 20.0,
     "f0_hz": 319.3,
-    "note": "D♯4"
+    "note": "D\u266f4"
    },
    {
     "t": "time",
-    "start": 19.78,
-    "end": 21.4,
+    "start": 20.0,
+    "end": 21.62,
     "f0_hz": 358.4,
     "note": "F4"
    },
    {
     "t": "to",
-    "start": 21.4,
-    "end": 23.12,
+    "start": 21.62,
+    "end": 23.34,
     "f0_hz": 282.8,
-    "note": "C♯4"
+    "note": "C\u266f4"
    },
    {
     "t": "pass",
-    "start": 23.12,
-    "end": 24.99,
+    "start": 23.34,
+    "end": 25.21,
     "f0_hz": 282.8,
-    "note": "C♯4"
+    "note": "C\u266f4"
    }
   ]
  },
@@ -465,14 +465,14 @@
     "start": 0.51,
     "end": 0.68,
     "f0_hz": 206.5,
-    "note": "G♯3"
+    "note": "G\u266f3"
    },
    {
     "t": "doing",
     "start": 0.85,
     "end": 1.14,
     "f0_hz": 303.1,
-    "note": "D♯4"
+    "note": "D\u266f4"
    },
    {
     "t": "whistle",
@@ -493,7 +493,7 @@
     "start": 2.07,
     "end": 2.36,
     "f0_hz": 156.9,
-    "note": "D♯3"
+    "note": "D\u266f3"
    }
   ]
  },
@@ -510,7 +510,7 @@
     "start": 3.14,
     "end": 4.4,
     "f0_hz": 308.4,
-    "note": "D♯4"
+    "note": "D\u266f4"
    },
    {
     "t": "cur",
@@ -524,21 +524,21 @@
     "start": 4.96,
     "end": 5.46,
     "f0_hz": 236.5,
-    "note": "A♯3"
+    "note": "A\u266f3"
    },
    {
     "t": "up",
     "start": 5.46,
     "end": 5.82,
     "f0_hz": 239.2,
-    "note": "A♯3"
+    "note": "A\u266f3"
    },
    {
     "t": "in",
     "start": 5.82,
     "end": 6.18,
     "f0_hz": 310.2,
-    "note": "D♯4"
+    "note": "D\u266f4"
    },
    {
     "t": "myself",
@@ -552,14 +552,14 @@
     "start": 7.25,
     "end": 7.43,
     "f0_hz": 207.1,
-    "note": "G♯3"
+    "note": "G\u266f3"
    },
    {
     "t": "think",
     "start": 7.43,
     "end": 8.36,
     "f0_hz": 205.9,
-    "note": "G♯3"
+    "note": "G\u266f3"
    }
   ]
  },
@@ -576,21 +576,21 @@
     "start": 9.16,
     "end": 9.67,
     "f0_hz": 467.5,
-    "note": "A♯4"
+    "note": "A\u266f4"
    },
    {
     "t": "a",
     "start": 9.67,
     "end": 9.92,
     "f0_hz": 463.5,
-    "note": "A♯4"
+    "note": "A\u266f4"
    },
    {
     "t": "stone",
     "start": 9.92,
     "end": 11.19,
     "f0_hz": 409.3,
-    "note": "G♯4"
+    "note": "G\u266f4"
    }
   ]
  },
@@ -607,35 +607,35 @@
     "start": 9.16,
     "end": 9.67,
     "f0_hz": 467.5,
-    "note": "A♯4"
+    "note": "A\u266f4"
    },
    {
     "t": "a",
     "start": 9.67,
     "end": 9.92,
     "f0_hz": 463.5,
-    "note": "A♯4"
+    "note": "A\u266f4"
    },
    {
     "t": "stone",
     "start": 9.92,
     "end": 11.19,
     "f0_hz": 409.3,
-    "note": "G♯4"
+    "note": "G\u266f4"
    },
    {
     "t": "just",
     "start": 11.19,
     "end": 12.22,
     "f0_hz": 313.8,
-    "note": "D♯4"
+    "note": "D\u266f4"
    },
    {
     "t": "waiting",
     "start": 12.22,
     "end": 13.99,
     "f0_hz": 281.2,
-    "note": "C♯4"
+    "note": "C\u266f4"
    },
    {
     "t": "very",
@@ -649,7 +649,7 @@
     "start": 15.01,
     "end": 17.3,
     "f0_hz": 312,
-    "note": "D♯4"
+    "note": "D\u266f4"
    }
   ]
  },
@@ -680,14 +680,14 @@
     "start": 20.71,
     "end": 21.27,
     "f0_hz": 276.4,
-    "note": "C♯4"
+    "note": "C\u266f4"
    },
    {
     "t": "pass",
     "start": 21.27,
     "end": 22.28,
     "f0_hz": 281.2,
-    "note": "C♯4"
+    "note": "C\u266f4"
    }
   ]
  },
@@ -712,7 +712,7 @@
   "source": "6988619239657622790",
   "start": 0.18,
   "end": 4.5,
-  "words": "here's a whistlegraph by camille called loner — ready? (spoken)",
+  "words": "here's a whistlegraph by camille called loner \u2014 ready? (spoken)",
   "dur": 4.32,
   "median_f0_hz": 155.1,
   "word_f0": [
@@ -721,7 +721,7 @@
     "start": 0.34,
     "end": 0.39,
     "f0_hz": 208.9,
-    "note": "G♯3"
+    "note": "G\u266f3"
    },
    {
     "t": "Cam",
@@ -735,7 +735,7 @@
     "start": 1.37,
     "end": 1.6,
     "f0_hz": 155.1,
-    "note": "D♯3"
+    "note": "D\u266f3"
    }
   ]
  },
@@ -759,7 +759,7 @@
     "start": 5.92,
     "end": 6.44,
     "f0_hz": 239.2,
-    "note": "A♯3"
+    "note": "A\u266f3"
    },
    {
     "t": "led",
@@ -773,21 +773,21 @@
     "start": 6.95,
     "end": 7.65,
     "f0_hz": 204.7,
-    "note": "G♯3"
+    "note": "G\u266f3"
    },
    {
     "t": "in",
     "start": 7.65,
     "end": 8.16,
     "f0_hz": 180.3,
-    "note": "F♯3"
+    "note": "F\u266f3"
    },
    {
     "t": "myself",
     "start": 8.16,
     "end": 9.68,
     "f0_hz": 205.9,
-    "note": "G♯3"
+    "note": "G\u266f3"
    },
    {
     "t": "I",
@@ -801,7 +801,7 @@
     "start": 10.23,
     "end": 11.04,
     "f0_hz": 141.4,
-    "note": "C♯3"
+    "note": "C\u266f3"
    },
    {
     "t": "of",
@@ -822,7 +822,7 @@
     "start": 12.06,
     "end": 13.59,
     "f0_hz": 315.7,
-    "note": "D♯4"
+    "note": "D\u266f4"
    },
    {
     "t": "just",
@@ -836,7 +836,7 @@
     "start": 15.68,
     "end": 17.24,
     "f0_hz": 204.1,
-    "note": "G♯3"
+    "note": "G\u266f3"
    },
    {
     "t": "very",
@@ -857,7 +857,7 @@
     "start": 21.52,
     "end": 22.51,
     "f0_hz": 271.6,
-    "note": "C♯4"
+    "note": "C\u266f4"
    },
    {
     "t": "time",
@@ -888,14 +888,14 @@
     "start": 0.49,
     "end": 0.67,
     "f0_hz": 278,
-    "note": "C♯4"
+    "note": "C\u266f4"
    },
    {
     "t": "bing",
     "start": 0.67,
     "end": 1.57,
     "f0_hz": 276.4,
-    "note": "C♯4"
+    "note": "C\u266f4"
    },
    {
     "t": "cur",
@@ -916,21 +916,21 @@
     "start": 2.91,
     "end": 3.36,
     "f0_hz": 202.3,
-    "note": "G♯3"
+    "note": "G\u266f3"
    },
    {
     "t": "in",
     "start": 3.36,
     "end": 3.81,
     "f0_hz": 183.4,
-    "note": "F♯3"
+    "note": "F\u266f3"
    },
    {
     "t": "myself",
     "start": 3.81,
     "end": 5.27,
     "f0_hz": 204.7,
-    "note": "G♯3"
+    "note": "G\u266f3"
    },
    {
     "t": "I",
@@ -951,14 +951,14 @@
     "start": 6.6,
     "end": 7.14,
     "f0_hz": 362.6,
-    "note": "F♯4"
+    "note": "F\u266f4"
    },
    {
     "t": "a",
     "start": 7.14,
     "end": 7.53,
     "f0_hz": 360.5,
-    "note": "F♯4"
+    "note": "F\u266f4"
    },
    {
     "t": "stone",
@@ -972,7 +972,7 @@
     "start": 9.48,
     "end": 10.51,
     "f0_hz": 202.9,
-    "note": "G♯3"
+    "note": "G\u266f3"
    },
    {
     "t": "waiting",
@@ -986,7 +986,7 @@
     "start": 12.31,
     "end": 13.34,
     "f0_hz": 182.3,
-    "note": "F♯3"
+    "note": "F\u266f3"
    },
    {
     "t": "patiently",
@@ -1007,7 +1007,7 @@
     "start": 16.76,
     "end": 18.21,
     "f0_hz": 136.6,
-    "note": "C♯3"
+    "note": "C\u266f3"
    },
    {
     "t": "to",

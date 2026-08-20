@@ -1,0 +1,29 @@
+{
+ "da": {
+  "consent": "Camille Klein (@cksuperstore), via @jeffrey",
+  "dubbing_id": "RGpvxSGiNvpqkm40Ivcn",
+  "engine": "elevenlabs/dubbing",
+  "language": "Danish",
+  "note": "SYNTHETIC VOICE \u2014 her voice model singing a translation; not a take she performed. Label on any release.",
+  "source": "samples/f-whole-line.wav",
+  "synthetic": true
+ },
+ "es": {
+  "consent": "Camille Klein (@cksuperstore), via @jeffrey",
+  "dubbing_id": "hvb44SHj5ZVljGDuzQGY",
+  "engine": "elevenlabs/dubbing",
+  "language": "Spanish",
+  "note": "SYNTHETIC VOICE \u2014 her voice model singing a translation; not a take she performed. Label on any release.",
+  "source": "samples/f-whole-line.wav",
+  "synthetic": true
+ },
+ "fr": {
+  "consent": "Camille Klein (@cksuperstore), via @jeffrey",
+  "dubbing_id": "XoHEYSdVJyHdfciUMNSH",
+  "engine": "elevenlabs/dubbing",
+  "language": "French",
+  "note": "SYNTHETIC VOICE \u2014 her voice model singing a translation; not a take she performed. Label on any release.",
+  "source": "samples/f-whole-line.wav",
+  "synthetic": true
+ }
+}

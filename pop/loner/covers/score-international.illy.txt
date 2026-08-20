@@ -1,0 +1,36 @@
+a photograph of a hand-drawn graphic score on white paper. square, 1:1.
+
+the reference image is the score this is made from — copy its line exactly.
+one figure, drawn in ONE continuous grey marker stroke, curling from standing
+to a ball: upright, then a bend at the waist, then the knees rise, then the
+arms wrap the shins, then the head goes down onto the knees and long thin
+lines trail past the feet. wobbling, un-erased, mid-grey, every overlap left
+visible. no shading, no fill, no outline weight changes — just the one line.
+
+six rows. five figures per row. the same curl runs left to right in every row,
+so the whole page is one person sitting down thirty times. even spacing,
+generous white margin on all four sides, no border, no frame, no box.
+
+what changes row to row is the handwriting underneath. under each row, ONE
+word, small, lowercase, hand-lettered in soft pencil in the same hand as the
+drawing:
+
+  row 1 — sitting
+  row 2 — assise
+  row 3 — sentada
+  row 4 — sidder
+  row 5 — сижу
+  row 6 — बैठी
+
+one word per row, centred under the row, nothing else. the drawing is the
+language everybody already reads — the words are just the annotation.
+
+the remix lives in the colour. five of the thirty figures are drawn in
+saturated marker instead of grey — magenta, cyan, chartreuse, orange, violet —
+one per row, stepping diagonally down the page from top-left to bottom-right,
+so a pulse walks through the sentence. every other figure stays grey.
+
+NO title lettering, NO artist name, NO band or label logo, NO barcode, NO url,
+NO @handle, NO brand signage, NO flags, NO country names, NO emblems. the six
+words above are the only text in the picture. the drawing dissolves to plain
+white paper at the edges.

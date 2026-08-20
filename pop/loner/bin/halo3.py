@@ -40,13 +40,15 @@
 #
 #   pop/.venv/bin/python pop/loner/bin/halo3.py
 
-import json, os
+import json, os, sys
 import numpy as np
 import soundfile as sf
 import pyworld as pw
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 LANE = os.path.dirname(HERE)
+sys.path.insert(0, os.path.join(os.path.dirname(LANE), "lib"))
+from nervox import waver as nervox_waver, flange as nervox_flange
 VOX4 = os.path.join(LANE, "vox4")
 CDIR = os.path.join(LANE, "c")
 os.makedirs(VOX4, exist_ok=True)
@@ -59,9 +61,28 @@ FRAME_S = FRAME_MS / 1000.0
 FLOOR = 140.0
 SNAP = 0.92                 # THE REGULATION (v3 was 0.70)
 SMOOTH_MS = 45.0
+GLIDE_ST_S = 18.0           # above this rate of change she is SLIDING, not
+                            # holding a note — and a slide is not out of tune
 FORMANT_DB = 1.6
 AIR_DB = 2.5
 BREATH = 0.14
+# THE SIBILANT RESTORE — @jeffrey: "the opening 's' is not hearable".
+# It was never missing. In her source the /s/ of "sitting" runs 15 dB under
+# the vowel that follows it; in the render that gap opens to 19, because
+# the voiced half gets the formant lift, the air shelf and the breath and
+# the unvoiced half — which is copied straight from the warped source —
+# gets none of them. Four dB does not sound like much until the floor is
+# under it, and then the consonant is simply gone.
+#
+# So: find the frames that are UNVOICED AND BRIGHT (a fricative is dim but
+# bright — the same test audit.py uses to call an event FRIC) and give them
+# back the level the voiced frames were given, plus a little more, because
+# a sung sibilant in a mix needs to beat a hi-hat and not just itself.
+# Ramped over 30 ms so it lifts the consonant rather than gating it.
+SIB_DB = 8.0                # the lift on an unvoiced bright frame
+SIB_HI_HZ = 3000.0          # "bright" is measured above here…
+SIB_SHARE = 0.45            # …and means this much of the frame's energy
+SIB_RAMP_S = 0.030
 HALO_DARK_HZ = 5500.0
 HALO_BREATH_X = 1.5
 UNVOICED_W = 0.18           # consonant share of any stretch
@@ -110,33 +131,82 @@ def analyze_cached(path, x, fs):
     the analysis constants — never on the chart. Tuning a bar re-ran it
     every time. Cached on disk, keyed by the file's mtime and the
     parameters, so an edit pays for synthesis only."""
-    key = f"{os.path.basename(path)}-{int(os.path.getmtime(path))}-{FRAME_MS}-{FLOOR}-{SNAP}-{SMOOTH_MS}"
+    key = (f"{os.path.basename(path)}-{int(os.path.getmtime(path))}"
+           f"-{FRAME_MS}-{FLOOR}-{SNAP}-{SMOOTH_MS}-{GLIDE_ST_S}-nervox1-fitfloor1")
     dest = os.path.join(CACHE, key + ".npz")
     if os.path.exists(dest):
         z = np.load(dest)
         return dict(x=x, fs=fs, f0=z["f0"], f0c=z["f0c"],
                     sp=z["sp"].astype(np.float64), ap=z["ap"].astype(np.float64),
-                    voiced=z["voiced"])
+                    voiced=z["voiced"], rate=z["rate"])
     a = analyze(x, fs)
     os.makedirs(CACHE, exist_ok=True)
-    np.savez(dest, f0=a["f0"], f0c=a["f0c"], voiced=a["voiced"],
+    np.savez(dest, f0=a["f0"], f0c=a["f0c"], voiced=a["voiced"], rate=a["rate"],
              sp=a["sp"].astype(np.float32), ap=a["ap"].astype(np.float32))
     return a
 
 
 def analyze(x, fs):
-    f0_raw, t = pw.harvest(x, fs, f0_floor=FLOOR, f0_ceil=600.0, frame_period=FRAME_MS)
+    # THE FLOOR HAS TO FIT THE VOICE. FLOOR was set for Camille's take,
+    # which sits at 283 Hz; harvest below its floor does not return a low
+    # note, it returns a wrong one — usually the second harmonic — or
+    # nothing. Half the bank sings lower than she does. rq, sh and pf are
+    # all around 121 Hz, well UNDER the 140 Hz floor, so every one of them
+    # was analysed from a broken pitch track and everything downstream —
+    # the snap, the melody lock, THE HOLD — was reading it. @jeffrey: "it
+    # sounds so glitchy". That is what it was.
+    #
+    # So the range is measured before it is used: one wide probe to find
+    # where this voice actually lives, then the real analysis bracketed
+    # around it. Wide-open on every take would be worse than a fixed
+    # floor — the lower you let harvest look, the more freely it picks a
+    # subharmonic on a bright voice — so the bracket is snug.
+    # …and it only ever WIDENS. The spine is the record, and a bracket
+    # recomputed from a probe would have moved her ceiling from 600 to 849
+    # on the next rebuild for no reason at all. Nothing moves unless the
+    # voice does not fit: FLOOR/600 stands for anyone it already suits.
+    probe, _t = pw.harvest(x, fs, f0_floor=55.0, f0_ceil=900.0,
+                           frame_period=FRAME_MS)
+    voiced_probe = probe[probe > 0]
+    med = float(np.median(voiced_probe)) if len(voiced_probe) else TONIC
+    floor, ceil = FLOOR, 600.0
+    if med * 0.55 < floor:                      # a voice lower than hers
+        floor = max(55.0, med * 0.55)
+    if med * 2.0 > ceil:                        # …or higher
+        ceil = min(1000.0, med * 3.0)
+    f0_raw, t = pw.harvest(x, fs, f0_floor=floor, f0_ceil=ceil, frame_period=FRAME_MS)
     f0 = pw.stonemask(x, f0_raw, t, fs)
-    fft = pw.get_cheaptrick_fft_size(fs, f0_floor=FLOOR)
-    sp = pw.cheaptrick(x, f0, t, fs, fft_size=fft, f0_floor=FLOOR)
+    fft = pw.get_cheaptrick_fft_size(fs, f0_floor=floor)
+    sp = pw.cheaptrick(x, f0, t, fs, fft_size=fft, f0_floor=floor)
     ap = pw.d4c(x, f0, t, fs, fft_size=fft)
     voiced = f0 > 0
     corr = np.zeros_like(f0)
     if voiced.any():
         corr[voiced] = -cents_to_grid(f0[voiced]) * SNAP
+        # A SLIDE IS NOT OUT OF TUNE. Smoothing the correction keeps a glide
+        # SMOOTH but still drags it onto the grid tone by tone, so a fast
+        # scoop comes out as a staircase — @jeffrey on the leap into "pa":
+        # "it feels a little extreme · maybe we need better auto tune on
+        # it". That leap is 8.4 semitones in 30 ms. So the snap now fades
+        # out wherever her pitch is genuinely MOVING. f0 is smoothed over
+        # 60 ms before the derivative, so vibrato (±0.5 st at ~5 Hz, ~16
+        # st/s instantaneous) averages away and only a real transition
+        # survives; unvoiced gaps are interpolated across first, or their
+        # edges would read as infinite glides and disable the snap at every
+        # onset.
+        st = 12.0 * np.log2(np.maximum(f0, 1e-6) / TONIC)
+        idx = np.arange(len(f0))
+        st = np.interp(idx, idx[voiced], st[voiced])
+        rate = np.abs(np.gradient(smooth(st, int(60.0 / FRAME_MS)),
+                                  FRAME_MS / 1000.0))
+        corr *= np.clip(1.0 - (rate - GLIDE_ST_S) / GLIDE_ST_S, 0.0, 1.0)
+    else:
+        rate = np.zeros_like(f0)
     corr = smooth(corr, int(SMOOTH_MS / FRAME_MS))
     f0c = np.where(voiced, f0 * 2.0 ** (corr / 1200.0), 0.0)
-    return dict(x=x, fs=fs, f0=f0, f0c=f0c, sp=sp, ap=ap, voiced=voiced)
+    # `rate` travels with the analysis so nervox wavers exactly the frames
+    # the snap regulated, and lets go exactly where the snap let go.
+    return dict(x=x, fs=fs, f0=f0, f0c=f0c, sp=sp, ap=ap, voiced=voiced, rate=rate)
 
 
 def vuv_mask(voiced, fs, n):
@@ -187,7 +257,6 @@ CHART = {
                              # "curled" is ONE word — under whisper.cpp's
                              # sub-word tokens it was cur+led and this was 5.
                              # durs are POST-split indices.
-                             "splits": [0],
                              # The bar map, one phrase per bar (@jeffrey:
                              # "curled up should be bar 1 — not bar 1 and
                              # half of bar 2 · and in my should be bar
@@ -268,7 +337,18 @@ CHART = {
                                        # half beat (2.0, 1.23×) and my gives it
                                        # back (1.5, 1.07×), so self keeps bar 3
                                        # and nothing downstream moves.
-                                       4: 1.5, 5: 1.5, 6: 2.0,
+                                       # IN takes two full beats — @jeffrey:
+                                       # "'in' should last two full beats and my
+                                       # should start on bar 2:3 now". At 1.5 it
+                                       # ran 1.10× and handed "my" the 2:2.5 line;
+                                       # at 2 it is 1.47×, still her voice and
+                                       # nowhere near the 1.8 hold, and "my" opens
+                                       # square on bar 2 beat 3.
+                                       # SELF grows so "i" opens on bar 3:3 —
+                                       # @jeffrey: "'i' should move so it starts
+                                       # on bar 3:3 now". self goes 2 → 2.5
+                                       # (1.02× → 1.23×), which lands i on 14.0.
+                                       4: 2.0, 5: 1.5, 6: 2.5,
                                        # think 1 (1.17×, her own speed — at 2
                                        # it was a 2.3× held tone), so OF keeps
                                        # its 4 beats at 1.01×, her real octave,
@@ -278,8 +358,99 @@ CHART = {
                                        # freed beat (1.78×, still her voice)
                                        # so "of" keeps beat 19 and stone its
                                        # bar 6 beat 2.
+                                       # …and "i" pays for it. Giving IN its
+                                       # second beat pushed the whole back half
+                                       # off its lines — self 2:4.5, think 3:4.5,
+                                       # stone 6:1.5. "i" was the one word with
+                                       # slack anywhere near it: 0.71 s stretched
+                                       # over 2 beats at 1.39×. At 1.5 it runs
+                                       # 1.04×, her own speed, and think · of · a ·
+                                       # stone are all back on the lines they were
+                                       # tuned to. Only self and i sit a half beat
+                                       # later than before.
+                                       # THINK on bar 4:1 — @jeffrey: "and think
+                                       # should start on bar 4:1". "i" takes its
+                                       # second beat back (1.04× → 1.39×, still
+                                       # well under the 1.8 hold) so it ends on
+                                       # 16.0 and think opens the bar.
+                                       # 2.0, and it must STAY a beat value.
+                                       # The +0.22 slice shift caught this one
+                                       # by accident — it is the only `durs`
+                                       # entry that sits alone on a line before
+                                       # a comment, which is exactly the shape
+                                       # the times-bumping pass looked for — so
+                                       # "i" became 2.22 and every word after it
+                                       # sat 0.22 of a beat late: @jeffrey,
+                                       # "these boundaries are still off · check
+                                       # the rest of the words too". durs are
+                                       # BEATS; times are SECONDS. Nothing in
+                                       # here shifts with the slice.
                                        7: 2.0,
-                                       8: 2.0, 9: 4.0, 10: 3.0, 11: 3.0,
+                                       # …and "a" pays this one, for free. Once
+                                       # stone took back its own /s/, "a" was
+                                       # 0.43 s of audio over 3 beats — 3.4×, far
+                                       # past the 1.8 hold line, so it is already
+                                       # a synthesized grid tone rather than her
+                                       # voice. 2.5 beats is 2.9×: the same
+                                       # synthetic hold, half a beat shorter, and
+                                       # stone is back on bar 6:1 with everything
+                                       # after it.
+                                       # "a" pays again — and this is the last
+                                       # half beat it has. @jeffrey set its floor
+                                       # at two ("a should be at least two beats,
+                                       # its too short now"), so anything after
+                                       # this has to come from "of" or run
+                                       # downstream.
+                                       # STONE'S PEAK ON THE BAR 6 EDGE —
+                                       # @jeffrey: "'stone' should shift just a
+                                       # little · so its peak lands on the bar 6
+                                       # edge". The block was already on 6:1, but
+                                       # the block now opens with the /s/ it took
+                                       # back, and a consonant rides 1:1 through
+                                       # the warp — so her NOTE arrived 0.75 of a
+                                       # beat late and her peak 1.24 beats late.
+                                       # PEAK_LEAD_MAX_S is 90 ms, a lean, so this
+                                       # is the grid's job. Aligning the RMS PEAK
+                                       # was wrong — @jeffrey: "whoa now stone
+                                       # starts too soon". The peak sits 0.21 s
+                                       # after her vowel, so peak-on-the-beat
+                                       # opened the block 1.24 beats early and the
+                                       # /s/ arrived most of a bar before 6. Her
+                                       # VOWEL is the anchor a listener hears: it
+                                       # starts 0.37 s in, consonants ride ~1:1,
+                                       # so the slot opens 0.75 of a beat early at
+                                       # 23.25 and the note lands on 24.0 with the
+                                       # sibilant leading into it. stone holds
+                                       # 3.75 (1.39×) and still hands "just" the
+                                       # bar 6:4 line; of keeps its 4, and "a"
+                                       # takes 1.25 — 1.43×, her own voice rather
+                                       # than the 2.3× synthetic hold it was at 2
+                                       # beats.
+                                       # …and then right a bit more — @jeffrey:
+                                       # "it should move to the right a bit
+                                       # more". Half a beat, bought from "of"
+                                       # (4 → 4.5, 1.37×; it is the held octave
+                                       # and takes the extra) rather than from
+                                       # "a", which at 1.75 would tip back over
+                                       # the 1.8 hold and go synthetic again.
+                                       # stone opens 23.75, its /t/ lands 24.51.
+                                       # JUST ON BAR 7 — @jeffrey: "and 'just'
+                                       # should start on bar 7 now". stone holds
+                                       # the extra beat itself (3.25 → 4.25,
+                                       # 1.57×, still under the 1.8 hold) rather
+                                       # than moving, so its /t/ stays on 24.51
+                                       # and only what follows "just" shifts.
+                                       # OF ENDS ON BAR 5:3 — @jeffrey: "'of'
+                                       # should end at bar 5:3 start, and 'a'
+                                       # should start there". of back to 4
+                                       # (18–22, 1.22×). That pins BOTH of a's
+                                       # edges — 22 to stone's 23.75 — so it is
+                                       # 1.75 beats, 2.0×, just over the hold: "a"
+                                       # is a sustained grid tone again rather
+                                       # than her voice. That is the cost of the
+                                       # two placements, and it is the connective
+                                       # in "of a stone", so it holds well.
+                                       8: 2.0, 9: 4.0, 10: 1.75, 11: 4.25,
                                        # very longer, patiently slower
                                        # the tail on bars: just and waiting
                                        # a bar each (waiting on bar 8:1),
@@ -289,31 +460,100 @@ CHART = {
                                        # waiting splits like sitting did, so
                                        # "ing" lands on the half bar
                                        12: 4.0, 13: 2.0, 14: 2.0, 15: 2.0,
-                                       16: 2.0, 17: 2.0, 18: 2.5, 19: 2.5 },
+                                       # BAR 10 HOLDS pa AND tient, BAR 11 OPENS
+                                       # WITH ly — @jeffrey: "can pa and tient be
+                                       # just within bar 10?" · "and ly should be
+                                       # bar 11 first three beats". tient 2.5 → 2
+                                       # ends it on 44.0 (0.94×, a hair quicker
+                                       # than she sang it) so pa·tient fill bar 10
+                                       # exactly, and ly takes the freed half beat
+                                       # itself — 3 beats, 44–47, at 1.76×, just
+                                       # under the 1.8 hold, which is right for
+                                       # the held last syllable of the word. "for"
+                                       # keeps bar 11:4 and nothing downstream
+                                       # moves.
+                                       16: 2.0, 17: 2.0, 18: 2.0, 19: 2.0,
+                                       # for and time were still the auto scale's
+                                       # — @jeffrey: "and for is two beats too" ·
+                                       # "and time is 4 beats". Pinning them ends
+                                       # the auto scale on this line entirely:
+                                       # every unit's length is now a decision.
+                                       # time at 4 is 1.80×, right on the hold
+                                       # line, so it sustains as a grid tone —
+                                       # which is what a held "time" wants.
+                                       # …then @jeffrey squared the tail off:
+                                       # "'ly' should be two beats" · "'for'
+                                       # should be two beats" · "and time to pass
+                                       # each of those is 1 full bar". ly 3 → 2
+                                       # pulls for back to 11:3, and from there
+                                       # the last three words own a bar each —
+                                       # time bar 12, to bar 13, pass bar 14.
+                                       # "to" at 4 beats is 2.05×, over the hold,
+                                       # so it sustains as a grid tone; "pass"
+                                       # lands at 1.65× and stays her voice.
+                                       20: 2.0, 21: 4.0, 22: 4.0, 23: 4.0 },
                              # words whose syllables carry a melody must not
                              # be flattened to one tone by THE HOLD
                              # patiently is pa·tient·ly, three notes
-                             "sylls": { 4: [(None, "my"), (4.50, "self")],
-                                        11: [(None, "wait"), (13.70, "ing")],
-                                        12: [(None, "ve"), (15.05, "ry")],
-                                        13: [(None, "pa"), (16.80, "tient"),
-                                             (17.70, "ly")] },
+                             # ve|ry and pa|tient were both cut off the
+                             # brightness column (audit's zoom), not by ear.
+                             # very is legato — no level dip anywhere, because
+                             # /r/ is an approximant — so the only edge is the
+                             # note: she holds A#3 flat to 15.165 and only then
+                             # glides to G#3. The old 15.05 opened "ry" 115 ms
+                             # inside "ve"'s pitch, so ry sang ve's note first.
+                             # patiently's /ʃ/ runs 16.655–16.825 (hf 0.9+, level
+                             # −30); the old 16.80 left 145 ms of it in "pa" and
+                             # gave "tient" the last 25 ms of its own consonant.
+                             # sit|ting is MEASURED now, not found. The
+                             # automatic fricative split put it at 0.865,
+                             # 140 ms inside her "sit" vowel while it was
+                             # still at −7 dB — it had been fine until unit 0
+                             # reached back for the /s/, which moved every
+                             # landmark the search leans on. Her vowel holds
+                             # to 0.945, decays into the /t/ closure and
+                             # bottoms at 1.015; the burst is 1.025 and "ting"
+                             # arrives 1.035 on its own note. The closure
+                             # belongs to the syllable it opens.
+                             "sylls": { 0: [(None, "sitting·a"), (1.00, "sitting·b")],
+                                        4: [(None, "my"), (4.72, "self")],
+                                        11: [(None, "wait"), (13.92, "ing")],
+                                        12: [(None, "ve"), (15.39, "ry")],
+                                        13: [(None, "pa"), (16.875, "tient"),
+                                             (17.92, "ly")] },
                              # "pa" stays on the F4 she sings — the leap up
                              # from very's A#3 is the point of the phrase,
                              # not something to smooth away. (`shift` is
                              # still there if a unit ever needs moving.)
                              # source seconds, read off her onsets, for the
                              # words whisper-1 mistimed. PRE-split indices.
-                             "end": 24.25,
-                             "times": { 1: 1.51,   # curled — the aligner cut at 1.465,
+                             # 24.33 — her /s/ tapers out at 24.30. In the
+                             # slice's clock (see the cap below).
+                             "end": 24.55,
+                             # THE S OF SITTING — @jeffrey: "id love a stronger
+                             # 'ssss' sound at start of first english
+                             # 'sittting too'". Her sibilant runs 0.065–0.295
+                             # in the SOURCE and the slice used to open at
+                             # 0.280, so 215 ms of a 230 ms /s/ was thrown
+                             # away before anything here ever saw it. The
+                             # slice now starts at 0.06 — and every
+                             # slice-relative time in this chart moved +0.22
+                             # with it — so the whole sibilant exists; this
+                             # pin is what makes unit 0 actually HOLD it,
+                             # rather than opening at the aligner's word start
+                             # 220 ms later. With lead 0 it plays 1:1 as the
+                             # pre-roll, so the record opens on her ssss and
+                             # lands on the downbeat.
+                             "times": { 0: 0.0,
+                                        1: 1.73,   # curled — the aligner cut at 1.465,
                                                    # inside ting's decay (18% there,
                                                    # 8% at 1.48), so curled opened
                                                    # holding the end of "sitting".
                                                    # Her /k/ closure is 1.52–1.58 and
                                                    # belongs to curled; ting's decay
                                                    # bottoms out at 1.50.
-                                        2: 2.40,
-                                        7: 7.15,   # of — her onset is 7.17;
+                                        2: 2.62,
+                                        7: 7.37,   # of — her onset is 7.17;
                                                    # the aligner opened its span
                                                    # 115 ms of silence early
     # up — the alignment put this
@@ -323,12 +563,47 @@ CHART = {
                                                     # first 20 ms of "up". Her level
                                                     # valley is 2.38–2.42; the
                                                     # boundary belongs in it.
-                                        11: 12.70,   # waiting
-                                        12: 14.40,   # very
-                                        14: 18.54,   # for
-                                        15: 19.48,   # time
-                                        16: 21.20,   # to
-                                        17: 23.00 },  # pass
+                                        # A CONSONANT BELONGS TO THE NOTE IT
+                                        # LEADS INTO. The aligner hands a word
+                                        # over where the transcript does, which
+                                        # is at the vowel — so four words were
+                                        # opening after their own mouth had
+                                        # already played inside the word before.
+                                        # Each of these is the brightness column
+                                        # (audit's zoom), not a guess.
+                                        9: 9.41,     # stone — her /s/ is 290 ms
+                                                     # of hf 0.99 running
+                                                     # 9.19–9.48, then the /t/
+                                                     # closure to 9.56 and the
+                                                     # vowel at 9.60. Opening at
+                                                     # 9.555 put the WHOLE
+                                                     # sibilant in "a" and let
+                                                     # stone enter as "-tone".
+                                        10: 11.315,  # just — the /dʒ/ affricate
+                                                     # steps up at 11.095 and
+                                                     # brightens to 0.9 by 11.115;
+                                                     # opening at 11.195 caught
+                                                     # its last 20 ms and dropped
+                                                     # the rest on the floor.
+                                        11: 12.92,   # waiting
+                                        12: 14.62,   # very
+                                        13: 16.12,   # patiently — her /p/ and the
+                                                     # breath into it run
+                                                     # 15.90–15.98 and her voice
+                                                     # arrives at 15.98; "ry" was
+                                                     # holding all of it.
+                                        14: 18.76,   # for
+                                        15: 19.535,  # time — the /t/ burst is
+                                                     # 30 ms of hf 0.97 at 19.315
+                                                     # with its aspiration to
+                                                     # 19.42. At 19.48 the word
+                                                     # started on its vowel and
+                                                     # "for" said the t.
+                                        16: 21.42,   # to
+                                        17: 23.03 },  # pass — /p/ + breath from
+                                                     # 22.81, voice from 22.945.
+                                                     # 23.00 was 55 ms into her
+                                                     # own attack.
                              # rest AFTER the given unit, in beats
                              # "the in should start sooner — at start of
                              # bar 2": the rest after up goes entirely, so
@@ -640,7 +915,24 @@ def build_warp(a, unit_src, beats, dursb, gapsb=None, rest_src=None, lead_b=0.0,
     ants, voiced_at = [], []                    # frames ahead of the beat
     for (s0, s1) in unit_src:
         v0 = s0
-        lim = min(s0 + int(0.20 / FRAME_S), s1 - 1, F - 1)
+        # TWO MECHANISMS, TWO WINDOWS. 0.20 s cannot see a real sibilant —
+        # "sitting" opens on 235 ms of /s/ — so for the FIRST unit the
+        # search gave up mid-fricative, decided the word had no unvoiced
+        # runway, and set Z = 0. The render then carried 330 ms of pre-roll
+        # that lead_in never reported and the engine placed the whole vocal
+        # that late: @jeffrey, "seems like all other utterances got bumped".
+        #
+        # But widening it for EVERY unit is a different change, and a worse
+        # one. `ants` also decides how far a word leans back into the word
+        # before it, and the back half of this line is almost all
+        # consonant-initial — just /dʒ/, for /f/, time /t/, to /t/, pass
+        # /p/. At 0.40 they all started leaning at once and the whole
+        # second half moved: "just waiting very patiently for time to pass
+        # is all offset". The pickup is about the take's opening; the lean
+        # is a per-word gesture with its own calibration. Wide window for
+        # unit 0 only.
+        wide = 0.40 if len(voiced_at) == 0 else 0.20
+        lim = min(s0 + int(wide / FRAME_S), s1 - 1, F - 1)
         while v0 < lim and not a["voiced"][v0]:
             v0 += 1
         if not a["voiced"][min(v0, F - 1)]:
@@ -798,6 +1090,17 @@ def synth_from(a, idx, f0_o, *, dark=None, breath_x=1.0, vowels_only=False,
         take = min(n, pos.size)
         xw[:take] = x[pos[:take]]
         out = mask * y + (1 - mask) * xw
+        # …and now give the fricatives back what the voiced half was given.
+        # sp_o is already the post-lift envelope, so the brightness test
+        # reads the frame as it will be heard.
+        band = freqs > SIB_HI_HZ
+        share = sp_o[:, band].sum(1) / (sp_o.sum(1) + 1e-12)
+        fric = (~voiced_o) & (share > SIB_SHARE)
+        if fric.any():
+            gf = np.where(fric, 10.0 ** (SIB_DB / 20.0), 1.0)
+            gf = smooth(gf, max(1, int(SIB_RAMP_S / FRAME_S)))
+            g = np.repeat(gf, int(fs * FRAME_S))
+            out *= g[:n] if len(g) >= n else np.pad(g, (0, n - len(g)), constant_values=1.0)
     for (q0, q1) in rests:
         # a long rest is her room tone ping-ponged; without this it
         # pulses. Let the breath sound, then settle to almost nothing.
@@ -867,6 +1170,64 @@ manifest = _seed(os.path.join(VOX4, ".manifest.json"))
 chart_c = []   # (phrase, lead_in_s, beats_total, [(beat, dur, st, t, lead)])
 VOICING = {}   # per phrase, voiced runs in beats — vowels vs consonants
 
+# TAKECHARTS — a chart per take, not one chart lent around.
+# @jeffrey: "our envelopes etc are still fitting like the original samples ·
+# we need to like restart the whole process for each actual take · or it
+# will sound wonky". bin/takechart.py assembles a take's line from its
+# per-word corpus files and measures its OWN onsets, syllable seams and
+# notes; it keeps only `durs` from w-whole-line, because unit lengths in
+# beats are the song and everything else in that entry is f- on one day.
+# Registering the result here rather than warping afterwards is the whole
+# point: the take then goes through this file's real pipeline — consonant
+# runway, boundary snap, energy trim, note re-measurement, THE HOLD,
+# nervox, the sibilant restore — and gets an envelope of its own.
+# OPT-IN. These are a BENCH, not the record — @jeffrey: "sounds bad i think
+# we should stick to our original". Registered unconditionally they would
+# join every bare halo3 run, get built into the bank, and be loaded as
+# samples by an engine that never asks for them. bin/tryout-takes.sh sets
+# TAKES=1; nothing else does, so the record's pipeline is untouched.
+_takes_path = os.path.join(LANE, "samples", ".takecharts.json")
+if os.environ.get("TAKES") and os.path.exists(_takes_path):
+    _takes = json.load(open(_takes_path))
+    for _name, _r in _takes.items():
+        SLICES[_r["chart"]["slice"]] = _r["slice"]
+        ALIGN[_r["chart"]["slice"]] = _r["align"]
+        _c = dict(_r["chart"])
+        for _k in ("durs", "times"):
+            _c[_k] = {int(_i): _v for _i, _v in (_c.get(_k) or {}).items()}
+        _c["sylls"] = {int(_i): [(None if _c0 is None else float(_c0), _l)
+                                 for _c0, _l in _cuts]
+                       for _i, _cuts in (_c.get("sylls") or {}).items()}
+        CHART[_name] = _c
+    print(f"→ .takecharts.json registered {len(_takes)} take(s): "
+          f"{' '.join(sorted(_takes))}")
+
+# CHART-EDITS — what ChartWizard dragged. The CHART literal above stays the
+# score, with its reasons written next to every number; the GUI writes only
+# the numbers, into a sidecar merged over the top. Two authors, one file
+# each, so a drag can never eat a paragraph explaining why a boundary is
+# where it is — and `git diff chart-edits.json` is a readable list of what
+# a session moved by hand.
+_edits_path = os.path.join(LANE, "chart-edits.json")
+if os.path.exists(_edits_path):
+    _edits = json.load(open(_edits_path))
+    for _name, _e in _edits.items():
+        if _name not in CHART:
+            continue
+        _ch = CHART[_name]
+        for _k in ("times", "durs", "gaps", "stretch"):
+            if _k in _e:
+                _ch[_k] = {**(_ch.get(_k) or {}),
+                           **{int(_i): _v for _i, _v in _e[_k].items()}}
+        if "sylls" in _e:                      # [[null|seconds, label], …]
+            _ch["sylls"] = {**(_ch.get("sylls") or {}),
+                            **{int(_i): [(None if _c[0] is None else float(_c[0]), _c[1])
+                                         for _c in _cuts]
+                               for _i, _cuts in _e["sylls"].items()}}
+        if "end" in _e:
+            _ch["end"] = _e["end"]
+    print(f"→ chart-edits.json merged over {len(_edits)} phrase(s)")
+
 ONLY = {p for p in os.environ.get("PHRASES", "").split(",") if p}
 LEAD_ONLY = os.environ.get("LEAD_ONLY") is not None
 
@@ -891,12 +1252,20 @@ for name, ch in CHART.items():
     # which is the extra syllable heard inside "for". These are read off
     # her own onsets in the source and pinned.
     aligned = slice_name in ALIGN
+    # PROVENANCE. Every unit's left edge is owned by exactly one knob in
+    # the CHART, and ChartWizard has to write a drag back to that knob and
+    # no other: `pin` is the pre-split word index, `cut` is None for the
+    # word's own start (times[pin]) or k for its k-th syllable cut
+    # (sylls[pin][k-1]). The fricative sub-split makes a ·b edge that no
+    # knob owns — halo3 finds it in the audio — so it carries cut="auto"
+    # and the GUI refuses to drag it.
     if aligned:
         words = [dict(t=w["t"], start=t0_slice + w["start"],
                       end=t0_slice + w["end"], f0_hz=w["f0_hz"],
-                      note=w["note"]) for w in ALIGN[slice_name]["words"]]
+                      note=w["note"], pin=i, cut=None)
+                 for i, w in enumerate(ALIGN[slice_name]["words"])]
     else:
-        words = list(entry["word_f0"])
+        words = [dict(w, pin=i, cut=None) for i, w in enumerate(entry["word_f0"])]
     for wi, ts in (ch.get("times") or {}).items():
         if 0 <= wi < len(words):
             words[wi]["start"] = t0_slice + ts
@@ -918,7 +1287,8 @@ for name, ch in CHART.items():
         cuts = [c for c in cuts if c[0] is not None]
         edges = [base["start"]] + [t0_slice + c[0] for c in cuts] + [base["end"]]
         labels = [head] + [c[1] for c in cuts]
-        words[wi:wi + 1] = [dict(base, start=edges[k], end=edges[k + 1], t=labels[k])
+        words[wi:wi + 1] = [dict(base, start=edges[k], end=edges[k + 1],
+                                 t=labels[k], pin=wi, cut=(None if k == 0 else k))
                             for k in range(len(labels))]
         syll_pins.update(labels[1:])   # a measured cut is a measurement too
 
@@ -940,7 +1310,17 @@ for name, ch in CHART.items():
         w = words[ui]
         f0 = int(round((w["start"] - t0_slice) / FRAME_S))
         f1 = int(round((w["end"] - t0_slice) / FRAME_S))
-        lo, run, split_f = f0 + max(3, (f1 - f0) // 4), 0, None
+        # AN ONSET CONSONANT IS NOT AN INTERNAL ONE. The search used to
+        # start a quarter of the way into the unit, which was fine while
+        # "sitting" began at its vowel — once the block reached back to
+        # take her 220 ms /s/, that quarter-point landed INSIDE the
+        # sibilant and split sit·ting 110 ms early, inside the first
+        # syllable. Skip the word's own opening unvoiced run first, then
+        # look a quarter of the way through what is left.
+        v0 = f0
+        while v0 < f1 - 1 and v0 < len(a["voiced"]) and not a["voiced"][v0]:
+            v0 += 1
+        lo, run, split_f = v0 + max(3, (f1 - v0) // 4), 0, None
         for f in range(lo, min(f1, len(a["voiced"]))):
             if not a["voiced"][f]:
                 run += 1
@@ -953,7 +1333,7 @@ for name, ch in CHART.items():
             split_f = (f0 + f1) // 2
         ts = t0_slice + split_f * FRAME_S
         first = dict(w, end=ts, t=w["t"] + "·a")
-        second = dict(w, start=ts, t=w["t"] + "·b")
+        second = dict(w, start=ts, t=w["t"] + "·b", cut="auto")
         words[ui:ui + 1] = [first, second]
     # RE-MEASURE THE NOTE. f0_hz came from the aligner, over the span the
     # aligner thought the word had. Once `times` repins a boundary or a
@@ -983,10 +1363,19 @@ for name, ch in CHART.items():
 
     unit_src, trims, rest_src = trim_units(x, fs, unit_src, [w["t"] for w in words])
     unit_src = keep_attacks(unit_src, rest_src, x, fs)
+    # ONE CLOCK. `end` used to subtract the slice offset while `times` and
+    # `sylls` add it, so an `end` written in the same seconds you read off
+    # the zoom landed 280 ms early — @jeffrey: "i can't hear the s in
+    # pass". Her /s/ is 24.03–24.30 and the cap was falling at 23.97, in
+    # the gap before it, so the sibilant was cut every render. It is the
+    # slice's clock now, like every other time in this chart.
     if ch.get("end"):                      # the last word stops at the cap too
-        cap = int(round((ch["end"] - t0_slice) / FRAME_S))
-        a0, b0_ = unit_src[-1]
-        unit_src[-1] = (a0, min(b0_, max(a0 + 1, cap)))
+        # …and it SETS the last unit's end rather than only clipping it.
+        # The aligner stopped "pass" at 24.20, inside her /s/, and a cap
+        # that can only shorten could never give the rest back.
+        cap = int(round(ch["end"] / FRAME_S))
+        a0, _ = unit_src[-1]
+        unit_src[-1] = (a0, min(F, max(a0 + 1, cap)))
 
     gapsb = [ch.get("gaps", {}).get(i, 0.0) for i in range(len(ch["units"]))]
     idx, holds, fade, Z, ants, rise, rests = build_warp(
@@ -997,9 +1386,82 @@ for name, ch in CHART.items():
     f0_o = a["f0c"][idx].copy()
     voiced_o = a["voiced"][idx]
 
-    # THE HOLD — long stretches flatten to the unit's median grid tone
+    # THE MELODY LOCK — another take, HER tune.
+    # @jeffrey: "whoa the pitches are way off now". A take chart keeps the
+    # composition and re-measures the performance, and the first cut of it
+    # counted only `durs` as composition. But the snap regulates a voice
+    # toward the nearest degree of the A#-minor grid, not toward a NOTE —
+    # so with its own notes re-measured, every take sang its own tune, in
+    # its own octave. Melody is the song exactly as much as rhythm is.
+    #
+    # Each unit is moved onto the spine's semitone by an OFFSET rather than
+    # by rewriting f0 flat, so the take keeps its own vibrato, scoops and
+    # glides inside the note and only the note itself is hers. The line is
+    # folded by WHOLE OCTAVES to wherever the take actually sings — several
+    # of these voices sit an octave below her — because forcing her
+    # register on a low voice is a different song, not the same one.
+    #
+    # THE OFFSET IS A CURVE, NOT A STAIRCASE. The first version multiplied
+    # each unit by a constant and stopped there — @jeffrey: "it sounds so
+    # glitchy". It did: the pitch stepped instantly at every unit boundary,
+    # by up to several semitones, and WORLD renders a hard f0 step as a
+    # click. rq came out with 425 frames jumping more than 2 st against the
+    # spine's 132. So the offsets are laid on a per-frame track and
+    # smoothed with the same window the snap uses — which is why a real
+    # melodic leap survives: it is the CORRECTION that is smoothed, and the
+    # octave jump on "of" lives in the take's own contour underneath.
+    melody = ch.get("melody")
+    locked = None
+    if melody and len(melody) == len(ch["units"]):
+        want, have = np.array(melody, dtype=float), np.full(len(melody), np.nan)
+        bounds = []
+        for u, (bt, du) in enumerate(ch["units"]):
+            o0 = Z + int(round(bt * SPB / FRAME_S))
+            o1 = Z + int(round((bt + du) * SPB / FRAME_S))
+            o0, o1 = max(0, o0), min(len(f0_o), o1)
+            bounds.append((o0, o1))
+            seg = f0_o[o0:o1][voiced_o[o0:o1]]
+            seg = seg[seg > 0]
+            if len(seg):
+                have[u] = 12.0 * np.log2(float(np.median(seg)) / TONIC)
+        ok = ~np.isnan(have)
+        if ok.any():
+            octs = round(float(np.median((have - want)[ok])) / 12.0)
+            locked = want + 12.0 * octs
+            # a unit with no usable voiced median gets its neighbours'
+            # correction rather than a cliff back to zero
+            delta_u = np.where(ok, locked - have, np.nan)
+            idxs = np.arange(len(delta_u))
+            delta_u = np.interp(idxs, idxs[ok], delta_u[ok])
+            track = np.zeros(len(f0_o))
+            for u, (o0, o1) in enumerate(bounds):
+                if o1 > o0:
+                    track[o0:o1] = delta_u[u]
+            if bounds:
+                track[:bounds[0][0]] = delta_u[0]
+                track[bounds[-1][1]:] = delta_u[-1]
+            track = smooth(track, int(SMOOTH_MS / FRAME_MS))
+            f0_o = np.where(voiced_o, f0_o * 2.0 ** (track / 12.0), 0.0)
+            print(f"    melody locked: {int(ok.sum())}/{len(want)} units onto the "
+                  f"spine, {octs:+d} octave{'' if abs(octs) == 1 else 's'}, "
+                  f"median move {np.median(np.abs(delta_u)):.1f} st")
+
+    # THE HOLD — long stretches flatten to the unit's median grid tone.
+    # It reads the SOURCE analysis, which is right for the take the chart
+    # was measured from and wrong for any other: with a melody lock in
+    # front of it, every held note was being flattened back onto the pitch
+    # the singer originally sang and the lock silently undone. That is why
+    # rq's seven bad units were all its LONG ones, and why "of" — the one
+    # octave leap in the lyric — came out 16 semitones under the chart.
+    # Where the melody is locked, the hold sustains the note as it will be
+    # SUNG. Without a lock it reads the source exactly as before, so the
+    # spine is untouched.
     for (o0, o1, s0, s1) in holds:
-        seg = a["f0c"][s0:s1][a["voiced"][s0:s1]]
+        if locked is not None:
+            seg = f0_o[o0:o1][voiced_o[o0:o1]]
+            seg = seg[seg > 0]
+        else:
+            seg = a["f0c"][s0:s1][a["voiced"][s0:s1]]
         if not len(seg):
             continue
         med = np.median(seg)
@@ -1031,7 +1493,15 @@ for name, ch in CHART.items():
             f0_o[o0:o1] *= 2.0 ** (semis / 12.0)
 
     renders = {}
-    out, _ = synth_from(a, idx, f0_o, fade=fade, rise=rise, rests=rests)
+    # NERVOX — @jeffrey: "i think wavering notes too / flanging and wiggling
+    # the pitches · so the voice sounds more nervous · lets call this
+    # 'nervox' technique". The snap is what makes her notes NOTES; this is
+    # what stops them being a machine's notes. Held frames only — the same
+    # glide test the snap uses, so the two never fight. pop/lib/nervox.py.
+    rate_o = a["rate"][idx]
+    f0_n = nervox_waver(f0_o, FRAME_S, rate=rate_o, voiced=voiced_o)
+    out, _ = synth_from(a, idx, f0_n, fade=fade, rise=rise, rests=rests)
+    out = nervox_flange(out, a["fs"])
     sf.write(os.path.join(VOX4, f"{name}.wav"), out, fs)
     renders["lead"] = round(len(out) / fs, 3)
 
@@ -1081,12 +1551,27 @@ for name, ch in CHART.items():
         else:
             k += 1
 
-    notes = []
+    # WHICH LYRIC WORD IS THIS UNIT. The chart plays 24 units but the
+    # lyric has 18 words — "patiently" is three units, "sitting" and
+    # "myself" and "waiting" and "very" are two each. Anything warping a
+    # DIFFERENT take onto this chart has to know that grouping, or it
+    # maps 18 source words onto 24 slots by index and sings six of them
+    # twice. Both split mechanisms mark a continuation with `cut`, so a
+    # unit opens a new word exactly when `cut` is None.
+    notes, wi = [], -1
     for u, (wd, (beat, durb)) in enumerate(zip(words, ch["units"])):
-        st = int(np.round(12.0 * np.log2(wd["f0_hz"] / TONIC))) if wd["f0_hz"] else 0
+        if wd.get("cut") is None:
+            wi += 1
+        # what the band doubles is what the voice SINGS — the locked note
+        # where there is one, the measured note otherwise.
+        if locked is not None:
+            st = int(round(locked[u]))
+        else:
+            st = int(np.round(12.0 * np.log2(wd["f0_hz"] / TONIC))) if wd["f0_hz"] else 0
         st += int((ch.get("shift") or {}).get(u, 0))
         notes.append((beat, durb, st, wd["t"].strip(),
-                      round(ants[u] * FRAME_S / SPB, 4) if u < len(ants) else 0.0))
+                      round(ants[u] * FRAME_S / SPB, 4) if u < len(ants) else 0.0,
+                      wi))
     chart_c.append((name, lead_in, beats_total, notes))
     VOICING[name] = voiced_runs
     # THE SPANS ACTUALLY PLAYED — after times, sylls, snapping, attack
@@ -1098,8 +1583,9 @@ for name, ch in CHART.items():
     # audit against the audio it was checking.
     played = [[w["t"], round(a_ * FRAME_S, 3), round(b_ * FRAME_S, 3)]
               for w, (a_, b_) in zip(words, unit_src)]
+    pins = [dict(t=w["t"], pin=w.get("pin"), cut=w.get("cut")) for w in words]
     manifest[name] = dict(slice=slice_name, lead_in=round(lead_in, 3),
-                          spans=played,
+                          spans=played, pins=pins,
                           beats=beats_total, renders=renders,
                           snaps=snaps, trims=trims, words=entry["words"])
     print(f"  {name:22s} {renders['lead']:5.2f}s  lead·8ve×2·low3·low5  «{entry['words']}»")
@@ -1110,8 +1596,8 @@ for name, ch in CHART.items():
 
 _new_chart = dict(_old_chart)
 _new_chart.update({name: dict(leadIn=round(li, 3), beats=bt, voiced=VOICING[name],
-                              notes=[dict(beat=b, dur=d, st=s, t=t, lead=ld)
-                                     for (b, d, s, t, ld) in ns])
+                              notes=[dict(beat=b, dur=d, st=s, t=t, lead=ld, w=wi)
+                                     for (b, d, s, t, ld, wi) in ns])
                    for (name, li, bt, ns) in chart_c})
 
 json.dump(manifest, open(os.path.join(VOX4, ".manifest.json"), "w"), indent=1)
@@ -1128,19 +1614,21 @@ lines = [
     f"#define CHART_BPM {BPM}",
     f"#define CHART_TONIC {TONIC}",
     "",
-    "typedef struct { double beat, dur; int st; } ChartNote;",
+    "// `t` is the unit's label — the C addresses a word by name so a",
+    "// treatment can be written against \"pa\" rather than against unit 17.",
+    "typedef struct { double beat, dur; int st; const char *t; } ChartNote;",
     "typedef struct { const char *name; double leadIn; double beats;",
     "                 int n; const ChartNote *notes; } ChartPhrase;",
     "",
 ]
 _all = [(nm, _new_chart[nm]["leadIn"], _new_chart[nm]["beats"],
-         [(q["beat"], q["dur"], q["st"], q["t"], q.get("lead", 0.0))
-          for q in _new_chart[nm]["notes"]]) for nm in _new_chart]
+         [(q["beat"], q["dur"], q["st"], q["t"], q.get("lead", 0.0), q.get("w", i))
+          for i, q in enumerate(_new_chart[nm]["notes"])]) for nm in _new_chart]
 for name, lead_in, beats_total, notes in _all:
     ident = name.replace("-", "_")
     lines.append(f"static const ChartNote {ident}_notes[] = {{")
-    for (beat, durb, st, _t, _lead) in notes:
-        lines.append(f"    {{ {beat:.2f}, {durb:.2f}, {st} }},")
+    for (beat, durb, st, _t, _lead, _w) in notes:
+        lines.append(f'    {{ {beat:.2f}, {durb:.2f}, {st}, "{_t}" }},')
     lines.append("};")
 lines.append("")
 lines.append("static const ChartPhrase CHART[] = {")
