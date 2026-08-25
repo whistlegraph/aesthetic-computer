@@ -12,7 +12,9 @@ export const replayOvenProfile = Object.freeze({
   videoCodec: "h264",
   crf: 14,
   hud: true,
-  offlinePasses: Object.freeze(["fixed-step", "contrast", "color", "detail"]),
+  offlinePasses: Object.freeze([
+    "simulation", "audio", "fixed-step", "contrast", "color", "detail",
+  ]),
 });
 
 export function bakeReplay(spec, options) {

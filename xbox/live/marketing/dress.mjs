@@ -63,7 +63,8 @@ export function loudness(reel) {
 export function inspect(reel) {
   const probe = spawnSync("ffprobe", ["-v", "error", "-show_entries",
     "format=duration,size:stream=codec_type,codec_name,width,height,r_frame_rate," +
-    "bit_rate,sample_rate,channels", "-of", "json", reel], { encoding: "utf8" });
+    "avg_frame_rate,nb_frames,bit_rate,sample_rate,channels", "-of", "json", reel],
+    { encoding: "utf8" });
   const data = JSON.parse(probe.stdout || "{}");
   const video = (data.streams || []).find((s) => s.codec_type === "video") || {};
   const audio = (data.streams || []).find((s) => s.codec_type === "audio") || {};
@@ -71,6 +72,8 @@ export function inspect(reel) {
   const megabytes = Number(data.format?.size || 0) / 1e6;
   const [num, den] = String(video.r_frame_rate || "0/1").split("/").map(Number);
   const fps = den ? num / den : 0;
+  const frames = Number(video.nb_frames || 0);
+  const authoredFps = seconds > 0 ? frames / seconds : 0;
   const aspect = video.width && video.height ? video.width / video.height : 0;
   const checks = {
     container: { ok: /\.mp4$/.test(reel), value: "mp4" },
@@ -79,7 +82,11 @@ export function inspect(reel) {
     sampleRate: { ok: Number(audio.sample_rate) <= 48000, value: audio.sample_rate },
     channels: { ok: [1, 2].includes(Number(audio.channels)), value: audio.channels },
     frameRate: { ok: fps >= 23 && fps <= 60, value: fps.toFixed(2) },
+    authoredFrameRate: { ok: authoredFps >= 59.5 && authoredFps <= 60.5,
+      value: authoredFps.toFixed(2) },
     columns: { ok: Number(video.width) <= 1920, value: video.width },
+    reelResolution: { ok: Number(video.width) === 1080 &&
+      Number(video.height) === 1920, value: `${video.width}×${video.height}` },
     // 9:16 exactly, because the capture is 9:16 — a drift here means
     // something scaled the video, which is the thing this stage must not do.
     aspect: { ok: Math.abs(aspect - 9 / 16) < 0.001, value: aspect.toFixed(4) },
@@ -101,6 +108,7 @@ export function inspect(reel) {
     })(),
   };
   return { width: video.width, height: video.height, seconds, megabytes, fps,
+    frames, authoredFps,
     checks, ok: Object.values(checks).every((check) => check.ok) };
 }
 

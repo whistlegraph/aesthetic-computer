@@ -7,10 +7,10 @@ videos and say yes.
 
 Code: `xbox/live/marketing/`. Staged output: `tmp/oskiewar-reels/queue/`.
 Every Reel passes through the Oskiewar Replay Oven
-(`marketing/replay-oven.mjs`): deterministic demo playback, the game-native
-match HUD, 60 fps, JPEG-100 source frames, a CRF-14 H.264 master, and
-offline-only color/detail passes. Controls, debug meters, touch UI, and QR stay
-out. Future ray/depth treatments belong at that seam, never in live play.
+(`marketing/replay-oven.mjs`): deterministic offline simulation and audio,
+the full game UI, 60 authored frames per second, JPEG-100 source
+frames, and a CRF-14 H.264 master. Controls, debug meters, touch UI, and QR
+stay out.
 Account ledger row: `social/accounts.json` → `oskiewar-ig`.
 
 **Nothing posts to Instagram without `--live` and a token in the environment.**
@@ -33,39 +33,39 @@ Each runs and verifies on its own.
 ### 1 · Source — mechanical, never taste-based
 
 `slot = daysSince(2026-01-01) × slotsPerDay + index`. The slot picks the market
-out of a fixed rotation and the seed string is `YYYY-MM-DD#index`. One slot in
-five (`slot % 5 === 4`) pulls a **real recorded round** from
+out of a fixed rotation and the seed string is `YYYY-MM-DD#index`. The explicit
+`--replays` review lane can pull a **real recorded round** from
 `/api/oskiewar-replays` instead of a synthetic one, so the feed is not only
 robots sparring; which round is still arithmetic — the seed indexes the
 filtered list. If the store is unreachable or has nothing over seven seconds,
 it falls back to self-play and says so.
+
+Scheduled posts stay on self-play until human replay envelopes carry every
+authored drum cue. This keeps production on the complete offline renderer.
 
 Seeding works because `oskiewar.js` calls `Math.random` **exactly once**, to seed
 the match name; everything downstream — round names, ball kind, the fighters —
 falls out of it. `render.mjs` replaces `Math.random` with a seeded generator
 before the game boots.
 
-**What a seed does and does not buy.** Verified by rendering the same seed
-twice: the match identity reproduces (`ow-chetty900` both times), the **frames
-do not** (different MD5 at t=8s). The browser advances the sim on the wall
-clock, so tick alignment jitters. The copy in `segments.mjs` is written to
-claim only the first. Do not upgrade it to "same seed, same frames" unless the
-renderer is moved onto a fixed timestep.
+The offline renderer advances the seeded match on a fixed tick clock. Machine
+speed changes only how long the bake takes, never the delivered timing. An
+explicit `--speed` changes authored game time instead: `--speed 0.25` holds
+each exact simulation tick across four 60 fps presentation frames.
 
 ### 2 · Render — the real game, at the real shape
 
 The remote Replay Oven runs `mac-test.html` + `oskiewar.js` from an immutable
-`origin/main` commit. A latest-build bot fight produces the authoritative
-replay and audio; then the replay is painted again through the same renderer at
+`origin/main` commit. One offline driver advances the latest-build bot fight at
 an exact fixed 60 Hz.
 
-- **Video** — the live pass is never publication footage. Its replay is stepped
-  offline and captured once per simulation tick. A sparse browser screencast
-  can no longer be disguised as 60 fps by duplicated frames.
-- **Audio** — `AudioNode.prototype.connect` is patched before boot so anything
-  routed to `ctx.destination` also tees into a `MediaStreamDestination` an
-  in-page `MediaRecorder` records. This is the established AC technique; there
-  is no second audio path.
+- **Video** — physics stays on an exact 60 Hz lattice. At 1× every tick paints
+  one frame; at fractional speed, presentation remains 60 fps and holds ticks
+  for the required number of frames. Browser repaint cadence and render wall
+  time cannot change playback speed.
+- **Audio** — each cue is stamped on presentation time. `OfflineAudioContext`
+  renders the complete 48 kHz stereo score after the round, including slowed
+  timelines. There is no `MediaRecorder` or alignment pass.
 
 Capture is **1080×1920 natively** — recorded at 9:16, never cropped or scaled
 into it. The game lays itself out for the viewport it is handed and goes
@@ -74,19 +74,15 @@ version captured 1:1 and composed it into a letterbox; that is gone, and
 `inspect()` now *fails the build* if the aspect drifts off 9:16, because a
 drift means something rescaled the video.
 
-**A reel is one whole match, uncut.** Recording waits out whatever round was
-already running so it can begin on a round's own first frame, then stops on the
-result card. Head and tail are trimmed; nothing inside is cut.
+Reels default to the daylight palette. `--theme dark` remains available for
+deliberate night tests.
 
-> **The trim boundary is subtle and was wrong at first.** A round announces its
-> end by POSTing its replay, and that POST lands at the *start* of the result
-> card — `roundResultUs` of card still has to play before the next round
-> begins. Treating the POST as the end of the round put ~3 s of the previous
-> round's card on the front of every reel and ~0.6 s of the next round's intro
-> on the back: about 8% of a 40 s reel was a neighbouring round. `cardClearMs`
-> waits the card out before recording; `tailHoldMs` stops just short of it.
-> Verified by eye on the first and last frames — the reel opens on its own
-> countdown and closes on its own card.
+Time scale is bounded to `0.05×–4×`; `0` is available through the live driver
+as pause. In a browser, use `?time-scale=0.25` or call
+`__oskiewarSetTimeScale(0.25)`. The factory spelling is `--speed 0.25`.
+
+**A reel is one whole match, uncut.** Offline simulation starts on the round's
+first tick and stops on its result card. Nothing inside is cut.
 
 > **What "a match" means here.** `oskiewar.js` carries `matchWins = 5`, but
 > nothing accumulates round wins toward it — self-play calls `startSelfPlay`
@@ -148,26 +144,26 @@ Remote production starts with `npm run oskiewar:oven -- --day YYYY-MM-DD
 --index 0`. Oven checks out the requested commit, forces bot-only source, and
 returns the mp4, cover, thumbnail, and sidecar. It has no Instagram credentials.
 The local publish command remains the only road to Instagram. The motion gate
-requires `fixed-step-60` and at least 59.5 source frames per second.
+requires `offline-demo-60` and at least 59.5 authored frames per second.
 
 ---
 
 ## Measured throughput, and the slot grid it justifies
 
-Latest fixed-step proof on an M-series laptop, Chrome headless:
+Latest offline proof on an M-series laptop, Chrome headless:
 
 | | |
 |---|---|
-| Source cadence | **60 fixed-step frames/s** at 1080×1920 |
-| Proof Reel | 11.2 s, 674 source frames |
-| Render wall clock | 161 s, including live bot fight, offline replay, and encode |
-| Audio sync | 23/23 onsets, 4 ms median skew, 30 ms worst skew |
-| Output | 1080×1920, H.264/AAC, 1.6 MB |
+| Source cadence | **60 offline-authored frames/s** at 1080×1920 |
+| Proof Reel | 35.2 s, 2,112 source frames |
+| Render wall clock | 158 s; delivered duration remains exactly 35.2 s |
+| Audio sync | 73/73 onsets, 17 ms median skew, 133 ms worst skew |
+| Output | 1080×1920, H.264/AAC, 10.1 MB |
 
 **Three slots a day.** The defence is arithmetic, not vibes:
 
-- Three reels cost ~5 minutes of machine time, most of it the warm-up round
-  each one waits out. A day's output still fits in the gap between two builds.
+- Three reels cost several minutes of offline machine time. Render speed does
+  not affect delivered speed.
 - Meta's published ceiling is 50 API posts per rolling 24 hours (the docs also
   say 100 in one place — read `content_publishing_limit` at runtime and believe
   the account). Three is under it by a factor of sixteen, so the grid can triple
@@ -206,7 +202,9 @@ else moves.
 node xbox/live/marketing/reel.mjs                       # today's slot 0
 node xbox/live/marketing/reel.mjs --day 2026-08-09 --slots 3
 node xbox/live/marketing/reel.mjs --segment fgc         # force a market (review only)
-node xbox/live/marketing/reel.mjs --seconds 20 --no-replays
+node xbox/live/marketing/reel.mjs --cap 45
+node xbox/live/marketing/reel.mjs --speed 0.25          # 60 fps quarter-speed master
+node xbox/live/marketing/reel.mjs --replays                 # legacy review lane
 node xbox/live/marketing/reel.mjs --queue               # what is staged
 node xbox/live/marketing/reel.mjs --segments            # the market table
 node xbox/live/marketing/reel.mjs --report              # per-market performance
@@ -225,7 +223,7 @@ slot each at 9:00, 14:00 and 19:00 Pacific:
 ```
 
 `--auto` posts only when all three gates pass — Meta's spec table, the sync
-meter, and fixed-step motion. A reel that fails any gate is held in the queue
+meter, and offline-authored motion. A reel that fails any gate is held in the queue
 for a human, loudly, and the day goes on. @jeffrey lifted the human-per-post
 review on 2026-08-09, after approving the pipeline reel by reel; `--publish
 <id> --live` remains the manual override, and `ledger.json` records every

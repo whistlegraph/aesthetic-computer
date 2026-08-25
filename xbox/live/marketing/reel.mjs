@@ -53,24 +53,25 @@ function listQueue() {
     .map((name) => JSON.parse(readFileSync(join(staging, name, "reel.json"), "utf8")));
 }
 
-// The game's HUD carries a live Los Angeles clock, so the reel's palette
-// follows the same clock: render in daylight and the reel is light, render
-// at night and it is dark. Coherence, not preference — a HUD that says
-// 11pm over a light theme reads as a mistake. --theme overrides for review.
+// Reels default to the daylight palette for legibility on a phone. Dark mode
+// remains an explicit review option.
 function themeNow() {
   if (flags.theme === "light" || flags.theme === "dark") return flags.theme;
-  const hour = Number(new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/Los_Angeles", hour: "numeric", hourCycle: "h23",
-  }).format(new Date()));
-  return hour >= 7 && hour < 19 ? "light" : "dark";
+  return "light";
 }
 
 async function buildSlot(day, index) {
   const spec = await pickSource({ date: new Date(`${day}T12:00:00Z`), index,
     slotsPerDay, cap: Number(flags.cap || 600),
-    allowReplays: flags["no-replays"] !== true, log });
+    // Published video must come from the single-clock offline demo renderer.
+    // Human replay envelopes do not yet carry every authored drum cue, so
+    // they remain an explicit review lane until that format is complete.
+    allowReplays: flags.replays === true, log });
   spec.theme = themeNow();
   spec.hud = flags["no-hud"] !== true;
+  spec.timeScale = flags.speed === undefined ? 1 : Number(flags.speed);
+  if (!Number.isFinite(spec.timeScale) || spec.timeScale <= 0)
+    throw new Error("--speed must be a positive number (for example 0.25)");
   // Forcing a market is a review affordance, not part of the grid. The slot
   // keeps its number so the ledger stays honest about which slot ran.
   if (flags.segment && spec.segment !== flags.segment) {
@@ -81,7 +82,7 @@ async function buildSlot(day, index) {
     log(`   forced market → ${spec.segmentName}`);
   }
 
-  log(`   theme ${spec.theme} (LA clock)`);
+  log(`   theme ${spec.theme} · ${spec.timeScale}× time`);
   const dir = queueDir(staging, spec);
   const work = join(dir, "work");
   mkdirSync(work, { recursive: true });
@@ -96,14 +97,17 @@ async function buildSlot(day, index) {
   const spec1080 = inspect(reel);
   // The feedback loop: the game stamped every sound it asked for; measure
   // what the encoded file actually plays and hold the two together.
-  const sync = verifySync(reel, render.signals || []);
+  const sync = verifySync(reel, render.signals || [],
+    { timeScale: spec.timeScale });
   const motion = {
     mode: render.frameCadence || "unknown",
     frames: render.frames,
+    encodedFrames: spec1080.frames,
     seconds: render.seconds,
     sourceFps: render.seconds > 0 ? +(render.frames / render.seconds).toFixed(2) : 0,
   };
-  motion.ok = motion.mode === "fixed-step-60" && motion.sourceFps >= 59.5;
+  motion.ok = ["fixed-step-60", "offline-demo-60"].includes(motion.mode) &&
+    motion.sourceFps >= 59.5 && motion.encodedFrames === motion.frames;
   log(`   sync ${sync.ok ? "✓" : "✗"} · ${sync.expectedSignals} signals in` +
     ` ${sync.signalChords} chords · voiced ${sync.voicedChords}` +
     ` (${Math.round((sync.coverage ?? 0) * 100)}%)` +

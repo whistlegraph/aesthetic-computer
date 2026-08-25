@@ -13,11 +13,25 @@ export function createFrameDriver({
   setTimer = (callback, delay) => setTimeout(callback, delay),
   clearTimer = (handle) => clearTimeout(handle),
   fallbackGraceMs = 2,
+  timeScale = 1,
 } = {}) {
   if (typeof simulate !== "function")
     throw new TypeError("simulate callback required");
   if (typeof paint !== "function") throw new TypeError("paint callback required");
   const interval = 1000 / simulationFps;
+  const normalizeTimeScale = (value) => {
+    const number = Number(value);
+    if (!Number.isFinite(number)) return 1;
+    if (number === 0) return 0;
+    return Math.max(.05, Math.min(4, number));
+  };
+  let currentTimeScale = normalizeTimeScale(timeScale);
+  // Offline capture can wait on fonts, Puppeteer, or a reviewer before its
+  // first step. Anchor its authored clock when the driver is created beside
+  // piece.boot(), otherwise that wait silently skips the beginning of a round.
+  const offlineOrigin = now();
+  const wallInterval = () => currentTimeScale > 0
+    ? interval / currentTimeScale : Infinity;
   const earlyTolerance = .35;
   let running = false;
   let visible = true;
@@ -26,8 +40,11 @@ export function createFrameDriver({
   let timerHandle = null;
   let rafHandle = null;
   let offlineStarted = false;
+  let offlinePresentationTime = 0;
+  let offlineAccumulator = 0;
   const stats = {
     simulationFps,
+    timeScale: currentTimeScale,
     renderFrames: 0,
     simulationTicks: 0,
     inputSamples: 0,
@@ -85,10 +102,10 @@ export function createFrameDriver({
     stats.inputSamples++;
   };
 
-  const runSimulation = (sampleFirst) => {
+  const runSimulation = (sampleFirst, presentationTime = now()) => {
     if (sampleFirst) sampleInput();
     const started = now();
-    simulate(simulationTime);
+    simulate(simulationTime, presentationTime);
     stats.simulationTicks++;
     stats.lastSimulationAt = simulationTime;
     stats.lastSimulationCostMs = Math.max(0, now() - started);
@@ -102,7 +119,7 @@ export function createFrameDriver({
 
   const armSimulationTimer = () => {
     clearSimulationTimer();
-    if (!running || !visible) return;
+    if (!running || !visible || currentTimeScale === 0) return;
     // A timely animation frame gets first refusal. The timer preserves the
     // fixed simulation rate on displays running below 60 Hz.
     const delay = Math.max(0, nextSimulationAt + fallbackGraceMs - now());
@@ -113,19 +130,20 @@ export function createFrameDriver({
   };
 
   const pumpSimulation = (current, sampleEachTick) => {
-    if (!running || !visible) return;
+    if (!running || !visible || currentTimeScale === 0) return;
+    const dueEvery = wallInterval();
     let ticks = 0;
     while (current + earlyTolerance >= nextSimulationAt &&
       ticks < maxCatchUpTicks) {
       simulationTime += interval;
-      runSimulation(sampleEachTick);
-      nextSimulationAt += interval;
+      runSimulation(sampleEachTick, current);
+      nextSimulationAt += dueEvery;
       ticks++;
     }
     if (current + earlyTolerance >= nextSimulationAt) {
-      const dropped = Math.floor((current - nextSimulationAt) / interval) + 1;
+      const dropped = Math.floor((current - nextSimulationAt) / dueEvery) + 1;
       stats.droppedSimulationTicks += Math.max(1, dropped);
-      nextSimulationAt = current + interval;
+      nextSimulationAt = current + dueEvery;
     }
     armSimulationTimer();
   };
@@ -137,9 +155,11 @@ export function createFrameDriver({
       sampleInput();
       pumpSimulation(current, false);
       const started = now();
-      const alpha = Math.max(0, Math.min(1,
-        (current - nextSimulationAt + interval) / interval));
-      paint(current, alpha);
+      const dueEvery = wallInterval();
+      const alpha = currentTimeScale === 0 ? 0 : Math.max(0, Math.min(1,
+        (current - nextSimulationAt + dueEvery) / dueEvery));
+      paint(current, alpha,
+        simulationTime - interval * (1 - alpha));
       stats.renderFrames++;
       stats.lastRenderAt = current;
       stats.lastRenderCostMs = Math.max(0, now() - started);
@@ -158,18 +178,35 @@ export function createFrameDriver({
       if (running) throw new Error("cannot step offline while frame driver is running");
       if (!offlineStarted) {
         offlineStarted = true;
-        stats.startedAt = now();
+        stats.startedAt = offlineOrigin;
         simulationTime = stats.startedAt - interval;
+        offlinePresentationTime = stats.startedAt - interval;
+        offlineAccumulator = 1;
         sampleInput();
       }
-      simulationTime += interval;
-      runSimulation(false);
+      offlinePresentationTime += interval;
+      offlineAccumulator += stats.renderFrames ? currentTimeScale : 0;
+      let simulationTicks = 0;
+      while (offlineAccumulator >= 1) {
+        simulationTime += interval;
+        runSimulation(false, offlinePresentationTime);
+        offlineAccumulator -= 1;
+        simulationTicks++;
+      }
       const started = now();
-      paint(simulationTime, 0);
+      // At fractional speed, walk monotonically from the state entering the
+      // latest authored tick to the state leaving it. Starting the first
+      // frame at 1 and the next at .5 made the opening visibly step backward.
+      const alpha = currentTimeScale >= 1 ? 1
+        : Math.max(0, Math.min(1, offlineAccumulator + currentTimeScale));
+      paint(offlinePresentationTime, alpha,
+        simulationTime - interval * (1 - alpha));
       stats.renderFrames++;
       stats.lastRenderAt = simulationTime;
       stats.lastRenderCostMs = Math.max(0, now() - started);
-      return { frame: stats.renderFrames, simulationTime };
+      return { frame: stats.renderFrames, simulationTime,
+        presentationTime: offlinePresentationTime, simulationTicks,
+        timeScale: currentTimeScale };
     },
     start() {
       if (running) return;
@@ -181,7 +218,7 @@ export function createFrameDriver({
       nextSimulationAt = stats.startedAt;
       sampleInput();
       runSimulation(false);
-      nextSimulationAt += interval;
+      nextSimulationAt += wallInterval();
       armSimulationTimer();
       rafHandle = requestFrame(rafTick);
     },
@@ -201,10 +238,21 @@ export function createFrameDriver({
       nextSimulationAt = now();
       sampleInput();
       simulationTime += interval;
-      runSimulation(false);
-      nextSimulationAt += interval;
+      runSimulation(false, nextSimulationAt);
+      nextSimulationAt += wallInterval();
       armSimulationTimer();
     },
+    setTimeScale(value) {
+      currentTimeScale = normalizeTimeScale(value);
+      stats.timeScale = currentTimeScale;
+      clearSimulationTimer();
+      if (running && visible && currentTimeScale > 0) {
+        nextSimulationAt = now() + wallInterval();
+        armSimulationTimer();
+      }
+      return currentTimeScale;
+    },
+    getTimeScale() { return currentTimeScale; },
   };
 }
 

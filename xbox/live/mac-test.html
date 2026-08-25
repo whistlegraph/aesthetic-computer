@@ -560,6 +560,8 @@
 
     let simulationMonotonicMs = null;
     let lastSimulationMonotonicMs = null;
+    let presentationMonotonicMs = null;
+    let renderAlpha = 1;
     function runtime() {
       // Frame timing comes from the driver's own profile rather than a second
       // clock in here: those are measurements it already takes, and the names
@@ -571,6 +573,9 @@
       return { monotonicUs: (simulationMonotonicMs ?? performance.now()) * 1000,
         simMonotonicUs: (simulationMonotonicMs ?? lastSimulationMonotonicMs ??
           performance.now()) * 1000,
+        presentationMonotonicUs: (presentationMonotonicMs ??
+          simulationMonotonicMs ?? performance.now()) * 1000,
+        renderAlpha,
         unixMs: Date.now(),
         audioLatencyMs: audioContext?.baseLatency ? audioContext.baseLatency * 1000 : 0,
         frameMs: frames?.frameMs || 0,
@@ -731,6 +736,7 @@
     const socialPreview = new URLSearchParams(location.search).has("social-preview");
     const replayOven = new URLSearchParams(location.search).has("replay-oven");
     const reelHud = new URLSearchParams(location.search).has("reel-hud");
+    const reelFullUi = new URLSearchParams(location.search).has("reel-full-ui");
     // Bot self-play from a plain address, so a browser with no puppeteer to
     // whisper globals — a phone, a spare display, the jasellite preview — can
     // watch the game fight itself. Still never a button: entering it takes a
@@ -752,6 +758,7 @@
         // The Reel lane keeps the match's own timer, names, stats and command
         // stream without admitting controls, debug meters, touch UI or QR.
         reelHud,
+        reelFullUi,
         country: localCountry,
         updateReady: updateAvailable,
         // Scoring sessions are anonymous dummy play; the seam auth attaches to
@@ -819,6 +826,13 @@
     }
 
     function drum(name, amount = 1, pan = 0) {
+      if (Array.isArray(globalThis.__oskiewarOfflineAudioEvents)) {
+        globalThis.__oskiewarOfflineAudioEvents.push({
+          kind: "drum", name, amount, pan,
+          at: runtime().presentationMonotonicUs / 1000,
+        });
+        return;
+      }
       // The signal-routed AC mock bank is primary after unlock. This legacy
       // inline kit remains the first-gesture/offline fallback.
       if (globalThis.__oskiewarSfx?.unlocked &&
@@ -933,8 +947,18 @@
 
     function gameSignal(event, player = -1, value = 0, value2 = 0) {
       if (event === "dummy-popped") reportDummyPop();
+      const run = runtime();
+      const at = Array.isArray(globalThis.__oskiewarOfflineAudioEvents)
+        ? run.presentationMonotonicUs / 1000 : run.monotonicUs / 1000;
+      if (Array.isArray(globalThis.__oskiewarOfflineAudioEvents)) {
+        const pans = globalThis.__oskiewarPlayerPans;
+        globalThis.__oskiewarOfflineAudioEvents.push({
+          kind: "signal", event, player, value, value2, at,
+          pan: player === 0 || player === 1 ? pans?.[player] : 0,
+        });
+      }
       dispatchEvent(new CustomEvent("oskiewar:signal", {
-        detail: { event, player, value, value2, at: performance.now() },
+        detail: { event, player, value, value2, at },
       }));
     }
 
@@ -1309,15 +1333,35 @@
         titleHoverSoundKey = titleKey;
       };
       const driver = createFrameDriver({
+        // `time-scale` is the public spelling; `speed` remains a compact URL
+        // alias for render/review scripts. Physics always advances in exact
+        // 60 Hz ticks—the scale changes how often those ticks are consumed.
+        timeScale: (() => {
+          const params = new URLSearchParams(location.search);
+          return globalThis.__oskiewarTimeScale ??
+            params.get("time-scale") ?? params.get("speed") ?? 1;
+        })(),
         sample: globalThis.__fightHost.sampleInput,
-        simulate(simulationAt) {
+        simulate(simulationAt, presentationAt) {
           simulationMonotonicMs = simulationAt;
           lastSimulationMonotonicMs = simulationAt;
+          presentationMonotonicMs = presentationAt;
           try { piece.sim(); }
-          finally { simulationMonotonicMs = null; }
+          finally {
+            simulationMonotonicMs = null;
+            presentationMonotonicMs = null;
+          }
         },
-        paint() {
-          piece.paint();
+        paint(presentationAt, alpha, renderSimulationAt) {
+          simulationMonotonicMs = renderSimulationAt;
+          presentationMonotonicMs = presentationAt;
+          renderAlpha = alpha;
+          try { piece.paint(); }
+          finally {
+            simulationMonotonicMs = null;
+            presentationMonotonicMs = null;
+            renderAlpha = 1;
+          }
           // The last run of faces has nobody behind it to trip the flush, and
           // the next frame opens with a wipe that would erase it unpainted.
           globalThis.__fightHost.flushFaces();
@@ -1334,6 +1378,12 @@
         },
       });
       globalThis.__oskiewarFrameStats = driver.stats;
+      globalThis.__oskiewarSetTimeScale = (value) => {
+        const scale = driver.setTimeScale(value);
+        globalThis.__oskiewarTimeScale = scale;
+        return scale;
+      };
+      globalThis.__oskiewarGetTimeScale = () => driver.getTimeScale();
       const offlineRender = new URLSearchParams(location.search).has("offline-render");
       if (offlineRender) {
         globalThis.__oskiewarOfflineStep = () => driver.stepOffline();

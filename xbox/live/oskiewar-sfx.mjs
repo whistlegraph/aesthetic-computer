@@ -334,11 +334,13 @@ export function createOskiewarSfx(options = {}) {
       gain: 0.09 * gain, delay: delay + 0.004 });
   };
 
-  function playRecipe(recipe, meta = {}) {
+  function playRecipe(recipe, meta = {}, scheduledAt = null) {
     const random = seeded(hashText(`${recipe}:${eventCounter++}:${meta.player ?? -1}`));
     const variation = 0.97 + random() * 0.06;
     const cue = {
-      at: context.currentTime + 0.002,
+      at: Number.isFinite(scheduledAt)
+        ? Math.max(0, scheduledAt)
+        : context.currentTime + 0.002,
       pan: clamp(meta.pan ?? 0, -1, 1),
       gain: clamp((meta.intensity ?? 1) * (muted ? 0 : 1), 0, 2),
       pitch: variation,
@@ -429,11 +431,14 @@ export function createOskiewarSfx(options = {}) {
   async function unlock() {
     if (!context) context = contextFactory();
     if (!context) return false;
-    if (typeof context.resume === "function" && context.state === "suspended")
+    // OfflineAudioContext must be completely scheduled before startRendering;
+    // calling resume() before that render starts throws InvalidStateError.
+    if (!options.offline && typeof context.resume === "function" &&
+        context.state === "suspended")
       await context.resume();
     if (!output) buildOutput();
     if (!noiseBuffer) buildNoiseBuffer();
-    unlocked = context.state !== "suspended";
+    unlocked = options.offline || context.state !== "suspended";
     return unlocked;
   }
 
@@ -448,12 +453,37 @@ export function createOskiewarSfx(options = {}) {
     return playRecipe(described.recipe, described);
   }
 
+  // The Replay Oven schedules every cue on the demo's fixed tick clock, then
+  // asks OfflineAudioContext to render the whole score in one pass. Keeping
+  // this beside signal() guarantees offline and interactive play use the same
+  // recipes, seeded variation, mixer, and limiter.
+  function signalAt(at, event, player = -1, value = 0, value2 = 0,
+      signalOptions = {}) {
+    if (!unlocked || !context || !output || !Number.isFinite(at)) return false;
+    const described = describeOskiewarSignal(event, player, value, value2, {
+      ...signalOptions,
+      pan: Number.isFinite(signalOptions.pan) ? signalOptions.pan
+        : playerPans.get(player) ?? 0,
+    });
+    if (!described) return false;
+    return playRecipe(described.recipe, described, at);
+  }
+
   function drum(name, amount = 1, pan = 0) {
     if (!unlocked || !context || !output || !DRUM_ROUTES[name]) return false;
     return playRecipe(DRUM_ROUTES[name], {
       player: -1, pan: clamp(Number(pan) || 0, -1, 1),
       intensity: clamp(Number(amount) || 0, 0, 2), value: 0, value2: 0,
     });
+  }
+
+  function drumAt(at, name, amount = 1, pan = 0) {
+    if (!unlocked || !context || !output || !DRUM_ROUTES[name] ||
+        !Number.isFinite(at)) return false;
+    return playRecipe(DRUM_ROUTES[name], {
+      player: -1, pan: clamp(Number(pan) || 0, -1, 1),
+      intensity: clamp(Number(amount) || 0, 0, 2), value: 0, value2: 0,
+    }, at);
   }
 
   function connectSignals(target = globalThis) {
@@ -487,7 +517,8 @@ export function createOskiewarSfx(options = {}) {
   }
 
   return Object.freeze({
-    unlock, signal, drum, connectSignals, setPlayerPan, setVolume, destroy,
+    unlock, signal, signalAt, drum, drumAt, connectSignals,
+    setPlayerPan, setVolume, destroy,
     mute(value = true) { muted = Boolean(value); },
     get context() { return context; },
     get unlocked() { return unlocked; },

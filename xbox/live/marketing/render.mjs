@@ -1,30 +1,14 @@
 // Stage 2 — burn a source spec into a 1080x1920 mp4 with the game's own audio.
 //
-// The renderer is the real game in a real browser: `oskiewar.js` under
-// `mac-test.html`, painted at 60 Hz by the same frame driver a player gets.
-// Two halves, muxed by ffmpeg, both borrowed from `marketing/av-reels`:
+// Scheduled self-play uses separate fixed simulation and presentation clocks.
+// At 1× each output frame advances one complete simulation tick; fractional
+// time holds that state across multiple distinct 60 fps presentation frames.
+// Procedural audio cues are stamped on presentation time, rendered offline,
+// and muxed with those frames. Browser repaint speed, MediaRecorder, and wall
+// time cannot change the delivered match.
 //
-//   VIDEO ← CDP `Page.startScreencast` → timestamped JPEG frames. A frame
-//           arrives whenever the page repaints, so the concat list carries
-//           per-frame durations and playback comes out at true speed.
-//   AUDIO ← `AudioNode.prototype.connect` is patched before the page boots so
-//           anything routed to `ctx.destination` also tees into a
-//           MediaStreamDestination an in-page MediaRecorder is listening to.
-//           Audio worklets run on the audio thread, which is why this survives
-//           the headless rAF throttle that leaves `canvas.captureStream()`
-//           empty.
-//
-// Determinism: `oskiewar.js` calls `Math.random` exactly once, to seed the match
-// name — everything downstream (ball kind, round names, the whole physics
-// sim) falls out of that. Replacing `Math.random` with a seeded generator
-// before boot therefore makes an entire match reproducible from a string.
-//
-// The halves are cut on two different clocks, and joining them is this file's
-// one real piece of arithmetic. The picture that ships is NOT the live
-// screencast — that pass is thrown away and the frames are re-rendered offline
-// from the demo, one frame per demo tick, starting at tick zero. The sound is
-// still the live pass, stamped in wall milliseconds. `demoOriginMs` is the
-// bridge between them.
+// The older live-capture lane remains below only for explicit legacy replay
+// and training review. It is not eligible for the scheduled self-play feed.
 
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
@@ -80,9 +64,11 @@ async function loadPuppeteer() {
   return (await import(`${dir}/lib/esm/puppeteer/puppeteer.js`)).default;
 }
 
-export function offlineReplayAddress(origin, round, { hud = true } = {}) {
+export function offlineReplayAddress(origin, round,
+  { hud = true, timeScale = 1 } = {}) {
   return `${origin}/${round}?social-preview&replay-oven&offline-render` +
-    (hud ? "&reel-hud" : "");
+    (hud ? "&reel-hud" : "") +
+    (Number(timeScale) === 1 ? "" : `&time-scale=${encodeURIComponent(timeScale)}`);
 }
 
 async function captureOfflineReplay({ browser, shell, demo, frames, width,
@@ -133,6 +119,215 @@ async function captureOfflineReplay({ browser, shell, demo, frames, width,
           : ", never over 4") + ")");
     }
     return stamps;
+  } finally {
+    await page.close();
+  }
+}
+
+async function renderOfflineSoundtrack(page, events, zeroMs, seconds) {
+  return page.evaluate(async ({ events, zeroMs, seconds }) => {
+    const sampleRate = 48000;
+    const duration = Math.max(.1, seconds + .5);
+    const context = new OfflineAudioContext(2,
+      Math.ceil(duration * sampleRate), sampleRate);
+    const { default: createOskiewarSfx } = await import("/oskiewar-sfx.mjs");
+    const bank = createOskiewarSfx({ context, destination: context.destination,
+      offline: true, volume: .64, maxVoices: 4096 });
+    await bank.unlock();
+    for (const cue of events) {
+      const at = (cue.at - zeroMs) / 1000;
+      if (at < 0 || at > seconds) continue;
+      if (cue.kind === "drum")
+        bank.drumAt(at, cue.name, cue.amount, cue.pan);
+      else if (cue.kind === "signal")
+        bank.signalAt(at, cue.event, cue.player, cue.value, cue.value2,
+          { pan: cue.pan });
+    }
+    const rendered = await context.startRendering();
+    const frames = Math.min(rendered.length, Math.ceil(seconds * sampleRate));
+    const bytes = new Uint8Array(44 + frames * 4);
+    const view = new DataView(bytes.buffer);
+    const text = (at, value) => {
+      for (let index = 0; index < value.length; index++)
+        view.setUint8(at + index, value.charCodeAt(index));
+    };
+    text(0, "RIFF"); view.setUint32(4, 36 + frames * 4, true);
+    text(8, "WAVEfmt "); view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true); view.setUint16(22, 2, true);
+    view.setUint32(24, sampleRate, true); view.setUint32(28, sampleRate * 4, true);
+    view.setUint16(32, 4, true); view.setUint16(34, 16, true);
+    text(36, "data"); view.setUint32(40, frames * 4, true);
+    const left = rendered.getChannelData(0);
+    const right = rendered.getChannelData(1);
+    let offset = 44;
+    for (let index = 0; index < frames; index++) {
+      view.setInt16(offset, Math.round(Math.max(-1, Math.min(1, left[index])) * 32767), true);
+      view.setInt16(offset + 2,
+        Math.round(Math.max(-1, Math.min(1, right[index])) * 32767), true);
+      offset += 4;
+    }
+    let binary = "";
+    for (let at = 0; at < bytes.length; at += 0x8000)
+      binary += String.fromCharCode.apply(null, bytes.subarray(at, at + 0x8000));
+    return btoa(binary);
+  }, { events, zeroMs, seconds });
+}
+
+function encodeOfflineMaster({ out, frames, stamps, soundtrack, ovenStyle,
+  width, height }) {
+  const list = stamps.map((stamp) =>
+    `file 'frames/${stamp.file}'\nduration ${(1 / 60).toFixed(6)}`)
+    .join("\n") + `\nfile 'frames/${stamps.at(-1).file}'\n`;
+  writeFileSync(join(out, "frames.txt"), list);
+  const track = join(out, "audio.wav");
+  writeFileSync(track, soundtrack);
+  const base = join(out, "base.mp4");
+  const scale = `scale=${width}:${height}:flags=lanczos,setsar=1`;
+  const ovenFilter = ovenStyle === "raw" ? scale : scale +
+    ",eq=contrast=1.14:saturation=1.16:brightness=0.0," +
+    "unsharp=3:3:1.1:3:3:0.5";
+  const ffmpeg = spawnSync("ffmpeg", ["-y", "-f", "concat", "-safe", "0",
+    "-i", join(out, "frames.txt"), "-i", track,
+    "-vf", ovenFilter,
+    "-fps_mode", "cfr", "-r", "60", "-c:v", "libx264", "-preset", "slow",
+    "-crf", "14", "-profile:v", "high", "-level", "4.2",
+    "-pix_fmt", "yuv420p", "-map", "0:v", "-map", "1:a",
+    ...(process.platform === "darwin"
+      ? ["-c:a", "aac_at", "-aac_at_mode", "cbr"] : ["-c:a", "aac"]),
+    "-b:a", "128k", "-ar", "48000", "-ac", "2", "-shortest",
+    "-movflags", "+faststart", base], { encoding: "utf8" });
+  if (ffmpeg.status !== 0)
+    throw new Error(ffmpeg.stderr?.slice(-800) || "offline encode failed");
+  return base;
+}
+
+async function renderOfflineSelfPlay({ browser, shell, spec, frames, started,
+  log }) {
+  const { id, seed, cap, width, height, theme, ovenStyle, hud,
+    timeScale = 1 } = spec;
+  const page = await browser.newPage();
+  try {
+    await page.setViewport({ width, height, deviceScaleFactor: 1 });
+    await page.emulateMediaFeatures([
+      { name: "prefers-color-scheme", value: theme === "light" ? "light" : "dark" }]);
+    page.on("pageerror", (error) => log(`  ⚠ page ${error.message.slice(0, 140)}`));
+    await page.evaluateOnNewDocument((seedValue, wardrobe, opponent) => {
+      if (wardrobe) globalThis.__oskiewarWardrobe = wardrobe;
+      if (opponent) globalThis.__oskiewarSelfPlayOpponent = opponent;
+      let state = seedValue >>> 0;
+      Math.random = () => {
+        state = (state + 0x6d2b79f5) >>> 0;
+        let value = state;
+        value = Math.imul(value ^ (value >>> 15), value | 1);
+        value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
+        return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
+      };
+      globalThis.__oskiewarSelfPlay = true;
+      globalThis.__oskiewarDenseReplay = true;
+      globalThis.__oskiewarOfflineAudioEvents = [];
+      const realFetch = globalThis.fetch;
+      globalThis.fetch = function (input, init) {
+        const address = String(input?.url || input);
+        if (address.includes("/api/oskiewar-replays")) {
+          const url = new URL(address);
+          return realFetch(url.pathname + url.search, init);
+        }
+        return realFetch(input, init);
+      };
+      globalThis.WebSocket = function () {
+        return { readyState: 3, send() {}, close() {},
+          addEventListener() {}, removeEventListener() {} };
+      };
+    }, seed32(seed), spec.wardrobe || "", spec.opponent || "");
+    const address = `${shell.origin}/?social-preview&replay-oven&offline-render` +
+      (hud ? "&reel-hud&reel-full-ui" : "") +
+      (timeScale === 1 ? "" : `&time-scale=${encodeURIComponent(timeScale)}`);
+    log(`🎬 ${id} · offline demo · seed "${seed}" · ${width}×${height}` +
+      ` · ${timeScale}× time · cap ${cap}s`);
+    await page.goto(address, { waitUntil: "domcontentloaded", timeout: 45000 });
+    await page.evaluate(() => document.fonts.ready);
+    await page.waitForFunction(() => globalThis.__oskiewarOfflineReady === true,
+      { timeout: 15000 });
+
+    // `cap` and the result hold are authored simulation durations. A slow
+    // presentation gets proportionally more 60 fps output frames rather than
+    // losing the end of the match to a wall-time ceiling.
+    const tailFrames = Math.round(tailHoldMs / 1000 / timeScale * 60);
+    const limit = Math.max(1, Math.ceil(cap / timeScale * 60));
+
+    // Forecast pass: deterministic self-play can reveal its whole impact map
+    // before we write frame one. Run it quickly in browser-sized chunks with
+    // no canvas reads, then reload the same seed and hand that schedule to the
+    // visible pass. Future ticks begin muted and brighten under the playhead.
+    for (let index = 0; index < limit && !shell.demos.length; index += 120) {
+      const count = Math.min(120, limit - index);
+      await page.evaluate((steps) => {
+        for (let step = 0; step < steps; step++)
+          globalThis.__oskiewarOfflineStep();
+      }, count);
+      await wait(5);
+    }
+    if (!shell.demos.length)
+      throw new Error(`offline demo forecast exceeded ${cap}s cap`);
+    const hitForecast = await page.evaluate(() =>
+      (globalThis.__oskiewarFightHitMarks || []).map((mark) => ({
+        at: mark.at, color: mark.color, decisive: mark.decisive === true,
+      })));
+    log(`   forecast ${hitForecast.length} fight hits`);
+    shell.resetCapturedReplays();
+    await page.evaluateOnNewDocument((forecast) => {
+      globalThis.__oskiewarFightHitForecast = forecast;
+    }, hitForecast);
+    await page.goto(address, { waitUntil: "domcontentloaded", timeout: 45000 });
+    await page.evaluate(() => document.fonts.ready);
+    await page.waitForFunction(() => globalThis.__oskiewarOfflineReady === true,
+      { timeout: 15000 });
+
+    const stamps = [];
+    let zeroMs = null;
+    let completedAt = -1;
+    for (let index = 0; index < limit; index++) {
+      const stepped = await page.evaluate(() => globalThis.__oskiewarOfflineStep());
+      if (zeroMs === null) zeroMs = stepped.presentationTime;
+      const file = `frame-${String(index).padStart(5, "0")}.jpg`;
+      // Read the canvas, not Chrome's compositor. A screenshot can race a GPU
+      // surface swap and return an isolated clear-color frame even though the
+      // simulation and canvas are complete; toDataURL reads the finished
+      // backing store owned by this exact tick.
+      const encodedFrame = await page.evaluate(() =>
+        document.querySelector("canvas").toDataURL("image/jpeg", 1));
+      writeFileSync(join(frames, file),
+        Buffer.from(encodedFrame.slice(encodedFrame.indexOf(",") + 1), "base64"));
+      stamps.push({ file, at: index / 60 });
+      if (completedAt < 0 && shell.demos.length) completedAt = index;
+      if (completedAt >= 0 && index >= completedAt + tailFrames) break;
+      if ((index + 1) % 120 === 0)
+        log(`   offline ${index + 1} exact frames · ${shell.demos.length ? "result" : "fight"}`);
+    }
+    if (!stamps.length) throw new Error("offline demo produced no frames");
+    if (!shell.demos.length) throw new Error(`offline demo exceeded ${cap}s cap`);
+    const events = await page.evaluate(() => globalThis.__oskiewarOfflineAudioEvents || []);
+    const seconds = stamps.length / 60;
+    const encoded = await renderOfflineSoundtrack(page, events, zeroMs, seconds);
+    const soundtrack = Buffer.from(encoded, "base64");
+    const base = encodeOfflineMaster({ out: spec.out, frames, stamps,
+      soundtrack, ovenStyle, width, height });
+    const demo = shell.replayBodies.get(shell.demos.at(-1).roundName);
+    if (!demo) throw new Error("offline demo payload is missing");
+    writeFileSync(join(spec.out, "demo.json"), JSON.stringify(demo));
+    const signals = events.filter((cue) => cue.kind === "signal")
+      .map((cue) => ({ event: cue.event, player: cue.player,
+        t: +((cue.at - zeroMs) / 1000).toFixed(3) }))
+      .filter(({ t }) => t >= 0 && t <= seconds);
+    const round = shell.demos.at(-1);
+    const wall = (Date.now() - started) / 1000;
+    log(`✓ ${base} [${wall.toFixed(0)}s wall · ${stamps.length} authored frames` +
+      ` · ${events.length} offline audio cues]`);
+    return { base, wall, frames: stamps.length, liveFrames: 0,
+      frameCadence: "offline-demo-60", seconds, matches: [],
+      rounds: [{ round: round.roundName, winner: round.winner,
+        seconds: +(round.durationTicks / 60 / timeScale).toFixed(1) }], complete: true,
+      hasAudio: soundtrack.length > 44, replayPosts: shell.replayPosts, signals };
   } finally {
     await page.close();
   }
@@ -198,6 +393,9 @@ export async function renderReel(spec, { log = console.log } = {}) {
   // match is over, and only runs out the clock if something has gone wrong.
   const { id, kind, seed, cap = 240, rounds = 1, width = 1080, height = 1920,
     theme = "dark", ovenStyle = "cinematic", hud = true, out } = spec;
+  const requestedScale = Number(spec.timeScale ?? 1);
+  const timeScale = requestedScale === 0 ? 0
+    : Math.max(.05, Math.min(4, Number.isFinite(requestedScale) ? requestedScale : 1));
   const started = Date.now();
   rmSync(out, { recursive: true, force: true });
   const frames = join(out, "frames");
@@ -217,6 +415,12 @@ export async function renderReel(spec, { log = console.log } = {}) {
 
   let captured = { frames: 0, seconds: 0, audioBytes: 0 };
   try {
+    if (kind === "self-play")
+      return await renderOfflineSelfPlay({ browser, shell,
+        spec: { ...spec, id, seed, cap, width, height, theme, ovenStyle, hud,
+          timeScale },
+        frames, started, log });
+
     const page = await browser.newPage();
     await page.setViewport({ width, height, deviceScaleFactor: 1 });
     await page.emulateMediaFeatures([

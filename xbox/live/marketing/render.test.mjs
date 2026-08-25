@@ -12,10 +12,23 @@ test("the Replay Oven keeps the match HUD on fixed-step burns", () => {
   );
 });
 
+test("the Replay Oven owns offline simulation and audio", () => {
+  assert.ok(replayOvenProfile.offlinePasses.includes("simulation"));
+  assert.ok(replayOvenProfile.offlinePasses.includes("audio"));
+});
+
 test("reviewers can still request a world-only burn", () => {
   assert.equal(
     offlineReplayAddress("http://oven.test", "tizze50", { hud: false }),
     "http://oven.test/tizze50?social-preview&replay-oven&offline-render",
+  );
+});
+
+test("offline replay addresses carry fractional time without changing output fps", () => {
+  assert.equal(
+    offlineReplayAddress("http://oven.test", "tizze50",
+      { timeScale: .25 }),
+    "http://oven.test/tizze50?social-preview&replay-oven&offline-render&reel-hud&time-scale=0.25",
   );
 });
 

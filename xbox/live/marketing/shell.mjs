@@ -148,6 +148,11 @@ export async function serveShell({ replays = "stub", log = () => {},
     demos,
     replayBodies,
     get replayPosts() { return posts; },
+    resetCapturedReplays() {
+      posts = 0;
+      demos.length = 0;
+      replayBodies.clear();
+    },
     close: () => new Promise((closed) => server.close(closed)),
   };
 }

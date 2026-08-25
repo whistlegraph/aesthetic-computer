@@ -9,10 +9,14 @@ function harness(options = {}) {
   const timers = new Map();
   const paints = [];
   const simulations = [];
+  const presentations = [];
   const samples = [];
   const driver = createFrameDriver({
     paint: (at, alpha) => paints.push([time, at, alpha]),
-    simulate: (at) => simulations.push(at),
+    simulate: (at, presentationAt) => {
+      simulations.push(at);
+      presentations.push(presentationAt);
+    },
     sample: () => samples.push(time),
     now: () => time,
     requestFrame(callback) {
@@ -32,6 +36,7 @@ function harness(options = {}) {
     driver,
     paints,
     simulations,
+    presentations,
     samples,
     setTime(value) { time = value; },
     fireRaf(value) {
@@ -127,4 +132,49 @@ test("offline stepping produces one fixed simulation tick and paint per frame", 
     [0, 16.67, 33.33, 50, 66.67, 83.33]);
   h.driver.start();
   assert.throws(() => h.driver.stepOffline(), /cannot step offline/);
+});
+
+test("offline capture keeps tick zero while the capture client gets ready", () => {
+  const h = harness({ timeScale: .5 });
+  h.setTime(2500);
+  const first = h.driver.stepOffline();
+
+  assert.equal(first.simulationTime, 0);
+  assert.equal(first.presentationTime, 0);
+  assert.equal(h.paints[0][1], 0);
+});
+
+test("quarter-speed offline capture blends between 60 Hz authored ticks", () => {
+  const h = harness({ timeScale: .25 });
+  const steps = [];
+  for (let frame = 0; frame < 9; frame++) steps.push(h.driver.stepOffline());
+
+  assert.equal(h.paints.length, 9);
+  assert.equal(h.simulations.length, 3);
+  assert.deepEqual(h.simulations.map((at) => Math.round(at * 100) / 100),
+    [0, 16.67, 33.33]);
+  assert.deepEqual(steps.map((step) => step.simulationTicks),
+    [1, 0, 0, 0, 1, 0, 0, 0, 1]);
+  assert.deepEqual(h.paints.map((paint) => paint[2]),
+    [.25, .5, .75, 1, .25, .5, .75, 1, .25]);
+  assert.equal(h.driver.stats.timeScale, .25);
+});
+
+test("live time scale changes tick cadence without changing the fixed sim step", () => {
+  const h = harness({ timeScale: .5 });
+  h.driver.start();
+  h.fireRaf(1000 / 60);
+  assert.equal(h.simulations.length, 1, "half speed holds the opening state");
+  h.fireRaf(1000 / 30);
+  assert.equal(h.simulations.length, 2);
+  assert.equal(Math.round((h.simulations[1] - h.simulations[0]) * 100) / 100,
+    16.67, "simulation time remains a 60 Hz lattice");
+
+  assert.equal(h.driver.setTimeScale(0), 0);
+  assert.equal(h.timerCount(), 0, "zero pauses simulation timers");
+  h.fireRaf(50);
+  assert.equal(h.simulations.length, 2);
+  assert.equal(h.paints.length, 3, "paused games still repaint");
+  assert.equal(h.driver.setTimeScale(99), 4, "fast motion is bounded");
+  assert.equal(h.driver.getTimeScale(), 4);
 });

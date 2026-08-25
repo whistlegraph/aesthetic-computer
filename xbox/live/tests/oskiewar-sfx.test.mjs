@@ -122,6 +122,21 @@ test("every signal and legacy drum route schedules bounded WebAudio voices", asy
   assert.equal(bank.signal("unknown"), false);
 });
 
+test("offline bank schedules cues on the demo clock without resuming", async () => {
+  const context = new FakeAudioContext();
+  let resumed = false;
+  context.resume = async () => { resumed = true; context.state = "running"; };
+  const bank = createOskiewarSfx({ context, offline: true });
+  assert.equal(await bank.unlock(), true);
+  assert.equal(resumed, false);
+  assert.equal(bank.drumAt(1.25, "kick", 1, -.2), true);
+  assert.equal(bank.signalAt(2.5, "punch", 0, 0, 0, { pan: -.4 }), true);
+  const starts = [...context.oscillators, ...context.bufferSources]
+    .flatMap((source) => source.started.map(([at]) => at));
+  assert.ok(starts.includes(1.25));
+  assert.ok(starts.includes(2.5));
+});
+
 test("event listener bridge forwards signal details and detaches", async () => {
   const context = new FakeAudioContext();
   const bank = createOskiewarSfx({ context });

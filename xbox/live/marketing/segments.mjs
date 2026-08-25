@@ -74,14 +74,14 @@ export const segments = {
   },
   gen: {
     name: "generative / computational art",
-    why: "the whole match falls out of one seed; the audio is synthesized live",
+    why: "the whole match falls out of one seed; the audio shares its offline clock",
     source: "self-play",
-    hooks: ["one seed, one fight", "the audio is synthesized",
+    hooks: ["one seed, one fight", "the audio is synthesized offline",
       "named by arithmetic", "no samples", "seeded by the date"],
     tail: "oskiewar.com",
     captions: [
       "Today's date is the seed. It names the match, picks the ball and sets the fighters — the whole bout falls out of one string.",
-      "Nothing you hear is a sample. Every hit, step and bell is synthesized in the browser at the moment it happens.",
+      "Nothing you hear is a sample. Every hit, step and bell is synthesized from the same offline demo clock as the frames.",
       "A date goes in, a match comes out. The reel you are watching was chosen by arithmetic, not by me.",
     ],
     tags: ["generativeart", "creativecoding", "computationalart", "webaudio",

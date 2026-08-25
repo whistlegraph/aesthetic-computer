@@ -95,7 +95,9 @@ function silences(windows, floor = -55) {
   return spans;
 }
 
-export function verifySync(reel, signals) {
+export function verifySync(reel, signals, { timeScale = 1 } = {}) {
+  const scale = Math.max(.05, Math.min(4,
+    Number.isFinite(Number(timeScale)) ? Number(timeScale) : 1));
   const windows = rmsWindows(reel);
   if (!windows.length) return { ok: false, why: "no audio stream to measure" };
   const heard = onsets(windows);
@@ -152,6 +154,7 @@ export function verifySync(reel, signals) {
     medianSkew: median,
     worstSkew: worst,
     audibleFraction: +audible.toFixed(2),
+    timeScale: scale,
     silences: unvoiced,
     // The gate: the whole track sits within 80ms of the picture, per-onset
     // jitter stays inside 150ms at the median and 400ms at worst, three
@@ -172,6 +175,9 @@ export function verifySync(reel, signals) {
     ok: median !== null && Math.abs(offset) <= 0.08 &&
       Math.abs(median) <= 0.15 && Math.abs(worst ?? 0) <= 0.4 &&
       coverage >= 0.75 &&
-      !quiet.some((span) => span.to - span.from >= 2.5),
+      // Silence is measured in authored game time. At quarter speed, a valid
+      // two-second neutral pause occupies eight presentation seconds; judging
+      // it against the 1× wall threshold would reject deliberate slow motion.
+      !quiet.some((span) => span.to - span.from >= 2.5 / scale),
   };
 }
