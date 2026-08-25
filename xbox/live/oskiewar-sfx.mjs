@@ -78,6 +78,7 @@ const ROUTES = Object.freeze({
   ko: "ko",
   killcam: "killcam",
   laugh: "atonal-laugh",
+  "victory-laugh": "victory-laugh",
 });
 
 const DRUM_ROUTES = Object.freeze({
@@ -379,6 +380,20 @@ export function createOskiewarSfx(options = {}) {
         bubble(cue, .68, .085, 241, .71);
         bubble(cue, .62, .19, 137, 1.83);
         hat(cue, .18, .11);
+        break;
+      case "victory-laugh":
+        // The round-card gloat. On console the piece plays five staccato
+        // sine steps itself; the web host has no synth() at all, so this
+        // bank IS the laugh here — five syllables on the native sequence's
+        // own cadence, in the chuckle's detuned bubble language rather than
+        // its tonal ladder.
+        bubble(cue, .66, 0, 262, 1.31);
+        bubble(cue, .72, .112, 221, .74);
+        bubble(cue, .64, .248, 243, 1.62);
+        bubble(cue, .7, .408, 199, .81);
+        bubble(cue, .58, .592, 168, 1.9);
+        hat(cue, .14, .09);
+        hat(cue, .12, .33);
         break;
       case "step": block(cue, .15, 0); break;
       case "jump": bubble(cue, .68, 0, 220, 3.2); break;

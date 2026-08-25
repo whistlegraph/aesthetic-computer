@@ -21,11 +21,11 @@ runtime = function acRuntime() {
 };
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 83;
+const buildVersion = 84;
 const floorY = 1800;
 // The cube. @jeffrey climbed the tower and asked for the opposite: a small
 // closed box — "like a 10ft by 10ft cube" — with nothing in it but two
-// fighters, a blade, and a pistol. The map is now a lattice of square tiles
+// fighters and a pistol. The map is now a lattice of square tiles
 // rather than a pile of hand numbers: ten tiles wide, ten tiles tall, each
 // tile 90 units on a side, which makes a fighter (180 tall) exactly two
 // tiles and the room exactly the phrase that asked for it. Simulation stays
@@ -816,10 +816,10 @@ function displayTheme() {
 const players = [
   { name: "@JEFFREY", rosterIndex: 0, handleColors: fighterRoster[0].colors,
     // Spawn marks stand on the centers of tiles 3 and 6 — mirrored across
-    // the cube's middle, three tiles from each corner weapon. Three matters:
-    // a pickup takes any limb within 90, a standing fighter's arms reach
-    // most of a tile past the mark, and two tiles of gap was close enough
-    // that the bell handed out both weapons before anyone moved.
+    // the cube's middle, three tiles from the pistol's corner. Three
+    // matters: a pickup takes any limb within 90, a standing fighter's arms
+    // reach most of a tile past the mark, and two tiles of gap was close
+    // enough that the bell handed the weapon out before anyone moved.
     pad: 0, spawnX: tileCenterX(3), x: tileCenterX(3), y: floorY, z: 0,
     vx: 0, vy: 0, vz: 0, facing: 1,
     grounded: true, ducking: false, previous: [], lastButton: "NONE",
@@ -883,20 +883,18 @@ const impacts = [];
 const detachedParts = [];
 const bullets = [];
 const grenades = [];
-// The cube's whole arsenal, said out loud: one blade, one pistol, nothing
-// else. The SMG, the rocket launcher and the grenades belonged to a tower
-// where height priced a weapon; a one-room box has no shelf to price them
-// on, and a 900-wide fight gives a spray weapon nothing to miss. Both
-// pickups sit on the floor in the corner tiles — the sword on tile 0, the
-// pistol on tile 9 — three tiles behind either spawn mark, so the bell
-// opens with a choice instead of a handout: turn your back on the other
-// fighter to arm up, or rush the middle bare-handed.
+// The cube's whole arsenal, said out loud: one pistol, nothing else. The
+// SMG, the rocket launcher and the grenades belonged to a tower where
+// height priced a weapon; a one-room box has no shelf to price them on,
+// and a 900-wide fight gives a spray weapon nothing to miss. The blade
+// came and went inside one build — @jeffrey tried the sword-and-pistol
+// standoff and asked for fists and one gun instead. The pistol sits on a
+// corner tile, three tiles behind the far spawn mark, so the bell opens
+// with a choice instead of a handout: turn your back on the other fighter
+// to arm up, or rush the middle bare-handed.
 const gunPickups = [
   { kind: "HANDGUN", amount: 6, x: tileCenterX(9), startsActive: true,
     y: floorY, z: 0 },
-];
-const swordPickups = [
-  { x: tileCenterX(0), startsActive: true, y: floorY, z: 0 },
 ];
 const grenadePickups = [];
 // Two trees grow out of the side walls, one per side, and they are the only
@@ -914,7 +912,7 @@ const bodyTrees = [
 const treeRipenUs = 18000000;
 const treeTimeBonusUs = 15000000;
 const airParticles = [];
-for (const pickup of [...gunPickups, ...swordPickups, ...grenadePickups]) {
+for (const pickup of [...gunPickups, ...grenadePickups]) {
   pickup.active = Boolean(pickup.startsActive);
   pickup.respawnAt = 0;
   // A pickup names its tile and floats seventy above that tile's surface —
@@ -942,7 +940,11 @@ const balls = [{ ...ballKinds[0], z: 0, vx: 0, vy: 0, rotation: 0,
   heldBy: -1 }];
 // Version-one replay/spectator consumers still read the first ball by name.
 const ball = balls[0];
-let ballEnabled = true;
+// The ball is out of the round — @jeffrey asked for the cube bare. All of
+// the ball's machinery (serve, boot, carry, cross-wack, the BALLED death)
+// sleeps behind this switch exactly as it always did for the test harness;
+// flipping it back on is the whole re-installation.
+let ballEnabled = false;
 // Physics remains an exact 60 Hz story. Rendering may happen between those
 // authored instants—especially during slow motion—so retain the state that
 // entered each tick and blend only presentation coordinates toward the state
@@ -2796,7 +2798,8 @@ function resetBalls(now) {
     item.lastHitBy = owner ? owner.pad : -1;
     item.safeUntil = item.serveAt;
     item.safePlayers = owner ? 1 << owner.pad : 0;
-    emitSignal("ballserve", owner ? owner.pad : -1,
+    // A serve call for a ball that will never inflate is a sound cue lying.
+    if (ballEnabled) emitSignal("ballserve", owner ? owner.pad : -1,
       owner ? owner.facing : 0, windMph);
   }
 }
@@ -3211,7 +3214,7 @@ function resetRound(now, resetMatch = false) {
     player.lastButton = "NONE";
     player.lastButtonAt = 0;
   }
-  for (const pickup of [...gunPickups, ...swordPickups, ...grenadePickups]) {
+  for (const pickup of [...gunPickups, ...grenadePickups]) {
     pickup.active = Boolean(pickup.startsActive);
     pickup.respawnAt = 0;
   }
@@ -3928,28 +3931,6 @@ function updateGrenadePickups(now) {
   }
 }
 
-// The blade is taken by walking over it, like every other weapon — but it is
-// not ammo, so there is no amount and no top-up: one sword a round, and once
-// a hand closes on it the only way to hold it is to still be holding it.
-// (The STOLE table below can move it between fighters; the floor cannot.)
-function updateSwordPickups(now) {
-  const poseTime = (now - startedAt) / 1000000;
-  for (const pickup of swordPickups) {
-    if (!pickup.active) continue;
-    for (const player of players) {
-      if (!player.alive || player.swordHeld || !availableArm(player) ||
-        runnerDistanceToPoint(player, poseTime,
-          pickup.x, pickup.y, pickup.z) > 90) continue;
-      player.swordHeld = true;
-      pickup.active = false;
-      remember(player, "SWORD");
-      playDrum("clap", 1.1, panPlayer(player));
-      emitSignal("pickup", player.pad, 3, 1);
-      break;
-    }
-  }
-}
-
 // Ripe fruit is a new body and fifteen seconds. The clock is `roundElapsedUs`
 // counting up toward `roundDurationUs`, so winding it back is what "adds
 // time" means here — and it is clamped at zero, because a tree cannot make
@@ -4042,13 +4023,11 @@ function drawBodyTree(tree, t) {
 
 function updatePowerups(now) {
   while (roundElapsedUs >= nextPowerupAtUs) {
-    const occupied = [...gunPickups, ...swordPickups]
-      .some((pickup) => pickup.active);
+    const occupied = gunPickups.some((pickup) => pickup.active);
     if (!occupied) {
-      // Only the pistol comes back. The sword is a round-long commitment
-      // once lifted, so the cycle's job is just to keep six more rounds of
-      // ammo appearing somewhere worth crossing the cube for — the corner
-      // tiles, alternating, so the reload never lives on one fighter's side.
+      // The cycle's whole job is to keep six more rounds of ammo appearing
+      // somewhere worth crossing the cube for — the corner tiles,
+      // alternating, so the reload never lives on one fighter's side.
       const pickup = gunPickups[0];
       pickup.active = true;
       pickup.x = tileCenterX(powerupSequence % 2 === 0 ? 0 : 9);
@@ -4061,7 +4040,6 @@ function updatePowerups(now) {
     nextPowerupAtUs += powerupIntervalUs;
   }
   updateGunPickups(now);
-  updateSwordPickups(now);
   updateGrenadePickups(now);
 }
 
@@ -5351,10 +5329,6 @@ function stealHeldObject(player, now) {
     player.itemArm = availableArm(player);
     target.itemArm = "";
     label = "GRENADES";
-  } else if (target.swordHeld && !player.swordHeld) {
-    target.swordHeld = false;
-    player.swordHeld = true;
-    label = "SWORD";
   }
   if (!label) return false;
   target.lastButton = label + " TAKEN";
@@ -6195,12 +6169,32 @@ function gameSim() {
     if (!resultCardStung && now - roundOverAt >= 1100000) {
       resultCardStung = true;
       playDrum("bell", .95, 0);
+      // The card's own line rides a global for whichever shell can speak:
+      // the web shell reads it back through speech synthesis on this same
+      // signal. Signals carry numbers, and the sentence is presentation.
+      // The anonymous seat wears a blank nameplate, and a blank name read
+      // aloud is a stumble — but only the local first seat can be nameless,
+      // so a nameless winner is always "you".
+      const card = resultCardText();
+      const spokenWinner = card.winner.replace(/^@/, "");
+      globalThis.__oskiewarResultLine = roundResult === "TIE" ? "tie!"
+        : (spokenWinner ? spokenWinner + " wins the " : "you win the ") +
+          (matchOver ? "match" : "round");
       emitSignal("result-card", -1, roundResult === "TIE" ? 0 : 1, 0);
       // The winner gets the last word: a staccato synthesized laugh rides
       // out of the bell. A tie amuses nobody.
       if (roundResult !== "TIE") {
         resultLaughAt = now + 420000;
         resultLaughStep = 0;
+        // The mouth opens on the sting and the laugh lands in it — the same
+        // open-ring LAUGH face the A+B chord earns, dealt automatically to
+        // the winner unless they have already chosen their own gloat.
+        const winner = players[0].score === players[1].score ? null
+          : players[players[0].score > players[1].score ? 0 : 1];
+        if (winner?.alive && !winner.resultReaction) {
+          winner.resultReaction = "LAUGH";
+          winner.resultReactionAt = now;
+        }
       }
     }
     if (resultLaughAt && resultLaughStep < 5 && now >= resultLaughAt) {
@@ -9523,26 +9517,6 @@ function drawGunPickup(pickup, t) {
   }
 }
 
-// The blade waits planted tip-down in its tile, wearing the same steel,
-// guard and grip the held sword draws in drawInventory, so what you cross
-// the cube for is recognizably the thing you then hold. Capsules for the
-// same reason the gun uses them: the line stratum sinks beneath the world's
-// triangles on console.
-function drawSwordPickup(pickup, t) {
-  if (!pickup.active) return;
-  const bobY = pickup.y + Math.sin(t * 2.8 + pickup.x * .001) * 8;
-  const scale = cameraScale();
-  const steel = mixColor([188, 197, 208], [104, 112, 126], visualTheme.light);
-  const guard = mixColor([148, 118, 74], [96, 76, 48], visualTheme.light);
-  worldCapsule(pickup.x, bobY - 96, pickup.z, pickup.x, bobY + 42, pickup.z,
-    Math.max(3, 7 * scale), steel, -.02);
-  worldCapsule(pickup.x - 22, bobY - 92, pickup.z,
-    pickup.x + 22, bobY - 92, pickup.z,
-    Math.max(2, 5 * scale), guard, -.02);
-  worldCapsule(pickup.x, bobY - 96, pickup.z, pickup.x, bobY - 118, pickup.z,
-    Math.max(2, 5 * scale), [34, 30, 40], -.02);
-}
-
 function drawBullet(bullet) {
   const previous = projectPoint(bullet.previousX ?? bullet.x,
     bullet.previousY ?? bullet.y, bullet.z);
@@ -10699,7 +10673,6 @@ function gamePaint() {
   }
   for (const tree of bodyTrees) drawBodyTree(tree, t);
   for (const pickup of gunPickups) drawGunPickup(pickup, t);
-  for (const pickup of swordPickups) drawSwordPickup(pickup, t);
   for (const pickup of grenadePickups) drawGrenadePickup(pickup, t);
   const showRunnerLabels = matchHud && !reelMinimal &&
     (Boolean(roundResult) || introAge >= introDurationUs);

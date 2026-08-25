@@ -1182,6 +1182,27 @@
     globalThis.__oskiewarSfx = oskiewarSfx;
     oskiewarSfx.connectSignals(globalThis);
 
+    // The result card speaks. The piece publishes the card's sentence on a
+    // global and stamps the moment with its `result-card` signal; the
+    // browser reads it aloud through its own speech synthesis — the one
+    // voice this shell has that the console lacks. Preview burns and
+    // offline reel renders stay mute: the farm must never narrate itself.
+    addEventListener("oskiewar:signal", ({ detail }) => {
+      if (detail?.event !== "result-card") return;
+      if (socialPreview ||
+        Array.isArray(globalThis.__oskiewarOfflineAudioEvents)) return;
+      const line = String(globalThis.__oskiewarResultLine || "");
+      if (!line || typeof speechSynthesis === "undefined") return;
+      try {
+        speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(line);
+        utterance.rate = .95;
+        utterance.pitch = .55;
+        utterance.volume = .95;
+        speechSynthesis.speak(utterance);
+      } catch (_) {}
+    });
+
     // Web MIDI out, so a DAW on the same machine can score the fight instead of
     // the procedural bank. Opt-in, because it takes the bank's place: `?midi`
     // sends every signal to the IAC bus and silences the built-in voices,
