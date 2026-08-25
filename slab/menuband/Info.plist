@@ -36,9 +36,9 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.6.5</string>
+	<string>1.6.12</string>
 	<key>CFBundleVersion</key>
-	<string>165</string>
+	<string>172</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>LSApplicationCategoryType</key>
@@ -47,6 +47,8 @@
 	<string>12.0</string>
 	<key>LSUIElement</key>
 	<true/>
+	<key>NSAppleMusicUsageDescription</key>
+	<string>Menu Band lets you browse and play your Apple Music library on its main deck.</string>
 	<key>NSBluetoothAlwaysUsageDescription</key>
 	<string>Menu Band uses Bluetooth to discover and sync with nearby Menu Bands for multi-machine performances.</string>
 	<key>NSBonjourServices</key>
@@ -60,8 +62,6 @@
 	<string>By aesthetic.computer</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Menu Band finds nearby Menu Bands so two machines can play together in sync over peer-to-peer Wi-Fi and Bluetooth, no router needed.</string>
-	<key>NSAppleMusicUsageDescription</key>
-	<string>Menu Band lets you browse and play your Apple Music library on its main deck.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Menu Band records short clips from your microphone when you hold ` so you can play them back as a sampling voice.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
