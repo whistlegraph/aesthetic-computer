@@ -56,8 +56,12 @@ final class FocusCueBeep {
         guard let buffer = makePadSwitchBuffer(toTrackDrum: toTrackDrum) else {
             return
         }
+        // Flush anything still queued: `scheduleBuffer` appends, so rapid
+        // Tab presses would otherwise stack 0.3 s chimes back-to-back and
+        // the ear falls behind the page that's actually under the fingers.
+        player.stop()
         player.scheduleBuffer(buffer, completionHandler: nil)
-        if !player.isPlaying { player.play() }
+        player.play()
     }
 
     /// The ToneTrials "CLEAR!" fanfare: a quick rising C-major arpeggio in

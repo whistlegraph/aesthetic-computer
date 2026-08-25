@@ -738,6 +738,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// X axis is clamped to its left/space (reverb) half only; flip to
     /// `false` again to temporarily disable echo.
     private static let fxEchoEnabled = true
+    /// Idle-page rub sensitivity for the trackpad path, whose per-frame
+    /// travel arrives normalized (a brisk scrub moves ~0.02/frame). Scaled
+    /// so casual rubbing sits low and only a fast scratch approaches the
+    /// cue's ceiling.
+    private static let fxRubTrackpadGain: Float = 14
+    /// Same feel for the focused-pointer path, whose deltas arrive in
+    /// points (~2–15/event).
+    private static let fxRubPointerGain: Float = 1.0 / 30.0
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         debugLog("applicationDidFinishLaunching pid=\(ProcessInfo.processInfo.processIdentifier)")
@@ -5961,9 +5969,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             focusedInputMode.rawValue,
             forKey: Self.focusedInputModeDefaultsKey
         )
-        FocusCueBeep.shared.padSwitch(
+        // Prefer the fx-bus chime — it sounds at the bent pitch and blooms
+        // with the live echo/space, previewing the page it names. The
+        // isolated beep stays as the fallback while the engine is down.
+        if !menuBand.playPadSwitchCue(
             toTrackDrum: focusedInputMode == .trackDrum
-        )
+        ) {
+            FocusCueBeep.shared.padSwitch(
+                toTrackDrum: focusedInputMode == .trackDrum
+            )
+        }
         if focusedInputMode == .localFX {
             prepareFocusedLocalFXIdle()
             debugLog("trackpad pad mode = fx (local mouse idle)")
@@ -5991,7 +6006,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         trackpadPadMode = Self.trackpadPadModeAfterTab(trackpadPadMode)
         // The handoff chime names the destination by pitch, and the choice
         // is remembered so regaining focus later reopens this same page.
-        FocusCueBeep.shared.padSwitch(toTrackDrum: trackpadPadMode != .fx)
+        // Through the fx bus when it's up: the chime arrives bent and
+        // echoed exactly as the next note would — a preview, not a label.
+        if !menuBand.playPadSwitchCue(toTrackDrum: trackpadPadMode != .fx) {
+            FocusCueBeep.shared.padSwitch(toTrackDrum: trackpadPadMode != .fx)
+        }
         UserDefaults.standard.set(
             (trackpadPadMode == .fx
                 ? FocusedInputMode.localFX : .trackDrum).rawValue,
@@ -6003,6 +6022,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             pitchBendReleaseGraceUntil = nil
             stopBendEase()
             cancelFxRelease()
+            // The percussion skin owns the surface now — cut any rub tail
+            // so its noise can't linger under the first strike.
+            menuBand.stopFXSurfaceRub()
             // Freeze the melodic gesture where the player left it. Re-entering
             // the FX page resumes from this exact sounding state; percussion
             // continues through its separate post-FX bus below.
@@ -6228,6 +6250,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         let previous = trackpadFXLastPrimaryPoint ?? point
         trackpadFXLastPrimaryPoint = point
+        // With no note held the pitch page is otherwise mute — rubbing it
+        // sounds a soft friction cue through the live bend/echo/space, so
+        // the surface previews its own state. Held notes already sonify
+        // the gesture; the rub stays out of their way.
+        if !menuBand.keyboardNotesHeld, !menuBand.isRewinding {
+            let travel = hypot(Float(point.x - previous.x),
+                               Float(point.y - previous.y))
+            if travel > 0 {
+                menuBand.rubFXSurface(
+                    intensity: min(1, travel * Self.fxRubTrackpadGain)
+                )
+            }
+        }
         let targets = Self.relativeTrackpadFXTargets(
             from: previous, to: point,
             bendTarget: bendGestureTarget, fxXTarget: fxXGestureTarget,
@@ -6284,6 +6319,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let momentarySurfaceFx = (trackpadPadMode == .skin
             || trackpadPadMode == .synth) && shift
         if trackpadPadMode != .fx && !momentarySurfaceFx { return }
+        // Idle-page rub, mirroring the trackpad path: only when nothing is
+        // sounding by hand — a held key or Shift-warped tail is already the
+        // audible version of this gesture.
+        if !menuBand.keyboardNotesHeld, !shift, !menuBand.isRewinding {
+            menuBand.rubFXSurface(
+                intensity: min(1, hypot(dx, dy) * Self.fxRubPointerGain)
+            )
+        }
         if !pitchBendCursorLocked,
            !pianoWaveformWindowDelegate.isShown {
             CGAssociateMouseAndMouseCursorPosition(0)
@@ -7103,6 +7146,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Stop the bend easer so it can't keep nudging pitch after teardown;
         // the fx spring-back (startFxRelease below) owns `bendAmount` now.
         stopBendEase()
+        menuBand.stopFXSurfaceRub()
         // Clear the latched mode regardless of cursor-lock state so an
         // Esc / focus-loss always fully exits, even if the lock flag was
         // somehow already cleared.

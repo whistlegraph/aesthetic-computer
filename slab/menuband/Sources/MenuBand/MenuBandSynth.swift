@@ -59,6 +59,9 @@ final class MenuBandSynth {
     /// Speaks a language's own name (About-window easter egg) through the
     /// same pre-limiter fx bus, so the spoken voice picks up bend/space/echo.
     private let speechVoice = MenuBandSpeechVoice()
+    /// Tab handoff chime + FX-page rub, on the fx bus so both preview the
+    /// live bend/space/echo. See `MenuBandSurfaceCue`.
+    private let surfaceCue = MenuBandSurfaceCue()
     /// Right-hand percussion split — the AC-native 12-drum kit, synthesized
     /// live. Always attached; only sounds when the controller fires hits.
     let percussion = MenuBandPercussion()
@@ -533,6 +536,9 @@ final class MenuBandSynth {
         speechVoice.attach(
             to: engine, output: preLimiterMixer, dryOutput: postFxMixer
         )
+        // Surface cues: same pre-limiter sum bus, so the Tab chime and the
+        // pitch-page rub bloom with whatever space/echo the gesture holds.
+        surfaceCue.attach(to: engine, output: preLimiterMixer)
         // Percussion: same pre-limiter sum bus. Renders silence until the
         // right-hand split fires a drum, so it's free while inactive.
         // Percussion routes to the DRY post-fx mixer, NOT preLimiterMixer —
@@ -1078,6 +1084,28 @@ final class MenuBandSynth {
     /// in pitch alongside every other voice.
     func setSpeechPitchBend(amount: Float) {
         speechVoice.setBend(amount: amount)
+    }
+
+    /// Keep the surface cues speaking at the sounding pitch — fed from the
+    /// controller's single bend funnel alongside the other bus voices.
+    func setSurfaceCueBend(amount: Float) {
+        surfaceCue.setBend(amount: amount)
+    }
+
+    /// Tab handoff chime through the fx bus, at the bent pitch. False when
+    /// the engine isn't sounding yet — the caller falls back to the
+    /// isolated `FocusCueBeep` so the handoff always says something.
+    func playPadSwitchCue(toTrackDrum: Bool) -> Bool {
+        surfaceCue.playPadSwitch(toTrackDrum: toTrackDrum)
+    }
+
+    /// One movement's worth of idle-page friction, 0…1.
+    func rubSurface(intensity: Float) {
+        surfaceCue.rub(intensity: intensity)
+    }
+
+    func stopSurfaceRub() {
+        surfaceCue.stopRub()
     }
 
     private func connectMelodicSamplerIfNeeded() {

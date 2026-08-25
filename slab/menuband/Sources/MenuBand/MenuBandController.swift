@@ -1289,6 +1289,22 @@ final class MenuBandController {
         synth.playEasterEggDrum()
     }
 
+    /// Tab handoff chime through the fx bus — bent, echoed, spaced like the
+    /// instrument, so the switch previews the page it lands on. False when
+    /// the engine can't sound it yet; the caller keeps the dry fallback.
+    func playPadSwitchCue(toTrackDrum: Bool) -> Bool {
+        synth.playPadSwitchCue(toTrackDrum: toTrackDrum)
+    }
+
+    /// Scratching the idle pitch page: one movement's friction, 0…1.
+    func rubFXSurface(intensity: Float) {
+        synth.rubSurface(intensity: intensity)
+    }
+
+    func stopFXSurfaceRub() {
+        synth.stopSurfaceRub()
+    }
+
     /// Spacebar reverse-replay (notepat-native parity). Plays the most-recent
     /// few seconds of what just sounded, backwards. The synth keeps a rolling
     /// ring of its post-FX output at all times; this snapshots + reverses it.
@@ -1388,6 +1404,9 @@ final class MenuBandController {
         // Speech easter-egg voice slides too — applied regardless of
         // midiMode since it always sounds locally through the fx bus.
         synth.setSpeechPitchBend(amount: amount)
+        // Surface cues (Tab chime + FX-page rub) track the sounding bend so
+        // they preview it honestly.
+        synth.setSurfaceCueBend(amount: amount)
         // Spacebar tape playback bends too (its own source-side pitch insert),
         // so moving the mouse while space is held slides the reverse audio.
         synth.setRewindBend(amount: amount)
