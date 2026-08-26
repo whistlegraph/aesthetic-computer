@@ -19,8 +19,7 @@
 //   node toolchain/instagram/reelboy.mjs routes          list routes + state
 //
 // Cron arms it (the pass is silent when nothing is new):
-//   */15 * * * * /usr/local/bin/node <repo>/toolchain/instagram/reelboy.mjs \
-//     >> ~/.local/state/reelboy/reelboy.log 2>&1
+//   */15 * * * * $HOME/.local/bin/reelboy-cron  (see reelboy-cron.sh)
 //
 // Config lives outside the public repo, like all of Loopboy's routes:
 //   ~/.config/slab/reelboy.json          routes (media id → rock + account)

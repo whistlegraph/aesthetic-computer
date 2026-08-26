@@ -40,10 +40,13 @@ reel N published ──► reelboy pass (cron, ~15m)
 ```
 node toolchain/instagram/reelboy.mjs bind <media-id> neo:oskiewar-reelboy \
   --account oskiewar --note "gen 1"
-crontab: */15 * * * * /usr/local/bin/node \
-  /Users/jas/aesthetic-computer/toolchain/instagram/reelboy.mjs \
-  >> ~/.local/state/reelboy/reelboy.log 2>&1
+cp toolchain/instagram/reelboy-cron.sh ~/.local/bin/reelboy-cron
+crontab: */15 * * * * $HOME/.local/bin/reelboy-cron
 ```
+
+Cron goes through the wrapper, never `bash -lc node`: cron's bash has no
+fnm hook, so bare `node` does not exist there — the exact trap the
+oskiewar clockwork wrapper was born from, re-learned here on day one.
 
 A pass is silent when nothing is new. Words always wake the rock; numbers
 wake it only when views grow by a quarter and at least fifty since the last
