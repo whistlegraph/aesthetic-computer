@@ -62,7 +62,11 @@ export function validateDemo(value) {
       value.durationTicks > 216000) return "Invalid timing";
   if (!Array.isArray(value.fighters) || value.fighters.length !== 2 ||
       value.fighters.some((fighter) => typeof fighter !== "string" ||
-        !/^@?[A-Z0-9_-]{1,24}$/i.test(fighter))) return "Invalid fighters";
+        // The signed-out seat wears a blank nameplate on purpose, so the
+        // empty string is a legitimate fighter — rejecting it silently
+        // discarded every anonymous player's round for seventeen days.
+        (fighter !== "" && !/^@?[A-Z0-9_-]{1,24}$/i.test(fighter))))
+    return "Invalid fighters";
   // Optional for compatibility with every demo recorded before nations were
   // introduced. The server replaces this field at write time, but validating
   // its shape keeps the version-1 document contract bounded.
