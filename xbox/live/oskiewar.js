@@ -35,7 +35,7 @@ runtime = function acRuntime() {
 };
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 85;
+const buildVersion = 86;
 const floorY = 1800;
 // The cube. @jeffrey climbed the tower and asked for the opposite: a small
 // closed box — "like a 10ft by 10ft cube" — with nothing in it but two
@@ -911,18 +911,13 @@ const gunPickups = [
     y: floorY, z: 0 },
 ];
 const grenadePickups = [];
-// Two trees grow out of the side walls, one per side, and they are the only
-// thing in the round that gives a body back. A fighter who has been taken
-// apart limb by limb can walk to the wall and be whole again — which is worth
-// crossing the stage for, and worth the fifteen seconds it puts back on the
-// clock. They take the whole round to ripen, so each one is picked at most
-// once and the walk has to be timed.
-const bodyTrees = [
-  { x: worldLeft + wallThickness, y: floorY - 60, z: 0, growth: 0,
-    spent: false },
-  { x: worldRight - wallThickness, y: floorY - 60, z: 0, growth: 0,
-    spent: false },
-];
+// No trees. Two grew out of the tower's side walls and were the only thing
+// in a round that gave a body back; in the cube their ripe fruit read as a
+// coconut hanging over the fight, and @jeffrey asked for it gone. The
+// consequence is the point now: a fighter taken apart limb by limb stays
+// that way until the bell. The grower/harvest machinery below sleeps on
+// this empty list.
+const bodyTrees = [];
 const treeRipenUs = 18000000;
 const treeTimeBonusUs = 15000000;
 const airParticles = [];
@@ -10127,17 +10122,19 @@ function drawTitleScreen(t, ink, transitionAge = -1) {
       typeWrite(character, x, y, size, ...litInk);
       promptCursor += advance;
     }
-    // The pace tag. Quiet unless the clock is off its default — or was just
-    // touched, so stepping back to one still answers the keypress — a small
-    // line under the start word saying what +/- have dialed in.
+    // The pace dial. Quiet unless the clock is off its default — or was just
+    // touched, so stepping back to one still answers the keypress — and it
+    // lives large in the bottom-right corner, a dashboard readout rather
+    // than a footnote under the start word.
     const paceNow = runtime().monotonicUs;
     if (gameSpeed !== 1 || (gameSpeedChangedAt &&
         paceNow - gameSpeedChangedAt < 2400000)) {
-      const pace = "speed ×" + gameSpeed;
-      const paceSize = Math.max(14, Math.round(button.textSize * .34));
-      const paceX = button.x + (button.width - handleWidth(pace, paceSize)) / 2;
-      const paceY = button.y + button.height + Math.round(paceSize * .4);
-      typeWrite(pace, paceX + 2, paceY + 3, paceSize, ...shadowInk);
+      const pace = "×" + gameSpeed;
+      const paceSize = Math.max(30, Math.round(button.textSize * .8));
+      const hud = hudSafeRect();
+      const paceX = hud.right - handleWidth(pace, paceSize);
+      const paceY = hud.bottom - paceSize;
+      typeWrite(pace, paceX + 3, paceY + 4, paceSize, ...shadowInk);
       typeWrite(pace, paceX, paceY, paceSize, ...promptInk);
     }
   }

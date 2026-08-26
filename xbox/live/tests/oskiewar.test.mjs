@@ -5061,33 +5061,18 @@ test("a ground pound from a standing start is spent, not sold cheap", () => {
 });
 
 // The wall trees are the only thing in a round that gives a body back.
-test("a ripe wall tree returns a body and fifteen seconds", () => {
+test("the wall trees are retired and a broken body stays broken", () => {
+  // The tower's trees gave a body back; in the cube their ripe fruit read
+  // as a coconut over the fight and came out. The machinery sleeps on an
+  // empty list, so a fighter who loses a limb keeps the loss to the bell.
   const { fight, tick } = createFight();
+  assert.equal(fight.bodyTrees.length, 0);
+  assert.match(source, /const bodyTrees = \[\];/);
   const [player] = fight.players;
-  const tree = fight.bodyTrees[0];
   player.removedParts = ["left-arm", "right-leg"];
-  assert.ok(player.removedParts.length > 0, "the fighter starts this broken");
-  // Real frames, not one-second jumps: the sim clamps a long delta, so a
-  // coarse tick would never actually spend eighteen seconds of growth.
-  for (let frame = 0; frame < 1400 && tree.growth < 1; frame++) tick();
-  assert.equal(tree.growth, 1, "the tree ripens inside the round");
-  // Ripening takes eighteen of the round's thirty seconds, which leaves the
-  // clock sitting right on the fifteen-second clamp. Spend a few more so the
-  // bonus has somewhere to go and the assertion means something.
-  for (let frame = 0; frame < 420; frame++) tick();
-  const before = fight.roundState().roundElapsedUs;
-  assert.ok(before > 15000000, "there is more than the bonus left to wind back");
-  const fruit = fight.treeFruit(tree);
-  player.x = fruit.x;
-  player.y = fruit.y + 90;
-  tick();
-  assert.deepEqual(player.removedParts, [], "the fruit is a whole new body");
-  // Give or take the frame the harvest landed on, which advances the clock
-  // in the same tick that winds it back.
-  const wound = before - fight.roundState().roundElapsedUs;
-  assert.ok(Math.abs(wound - 15000000) < 20000,
-    `fifteen seconds back onto the clock, got ${wound}us`);
-  assert.equal(tree.growth, 0, "the tree starts over rather than being farmed");
+  for (let frame = 0; frame < 600; frame++) tick();
+  assert.deepEqual(player.removedParts, ["left-arm", "right-leg"],
+    "nothing on the map returns a body");
 });
 
 // Replay slow-motion reads the footage rather than being told where the action
