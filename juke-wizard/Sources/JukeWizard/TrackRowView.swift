@@ -44,9 +44,11 @@ final class TrackRowView: NSView {
             thumb.image = TrackRowView.placeholder(for: t.lane)
         }
         let cc = t.data.comments.count
+        let stamp = TrackRowView.renderedStamp(t.renderedAt)
         titleField.stringValue = t.title
         titleField.textColor = TrackRowView.titleColor(t)
         artistField.stringValue = (t.liveStatus.map { "● \($0) · " } ?? "") + (t.meta?.artist ?? "Aesthetic Dot Computer")
+            + (stamp.isEmpty ? "" : " · \(stamp)")
             + (cc > 0 ? "   💬\(cc)" : "")
         artistField.textColor = t.liveStatus == nil ? .secondaryLabelColor : Palette.gold
         badges.attributedStringValue = TrackRowView.badgeString(t)
@@ -106,6 +108,21 @@ final class TrackRowView: NSView {
         add("◆", NSColor(srgbRed: 0.55, green: 0.75, blue: 0.95, alpha: 1), on: l?.distrokid != nil)
         return out
     }
+    /// When the track was rendered, tiny: "42m" / "3h" / "2d" under a week,
+    /// then "Aug 26". Empty for `.distantPast` (vanished file, no stamp).
+    static func renderedStamp(_ date: Date) -> String {
+        guard date > .distantPast else { return "" }
+        let age = Date().timeIntervalSince(date)
+        if age < 3600 { return "\(max(1, Int(age / 60)))m" }
+        if age < 86_400 { return "\(Int(age / 3600))h" }
+        if age < 7 * 86_400 { return "\(Int(age / 86_400))d" }
+        return stampFormatter.string(from: date)
+    }
+    private static let stampFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "MMM d"
+        return f
+    }()
     static func placeholder(for lane: String) -> NSImage {
         let side: CGFloat = 40
         let img = NSImage(size: NSSize(width: side, height: side))

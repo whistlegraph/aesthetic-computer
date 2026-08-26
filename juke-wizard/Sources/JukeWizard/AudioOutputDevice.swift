@@ -60,6 +60,24 @@ enum MacAudioOutput {
                selector: kAudioHardwarePropertyDefaultOutputDevice)
     }
 
+    /// How far a render callback's write position leads the speaker on the
+    /// current default output: one HAL IO buffer plus the device's safety
+    /// offset and its device/stream latencies, in seconds. Built-in output
+    /// reports tens of milliseconds; Bluetooth reports hundreds.
+    static func outputLatencySeconds() -> Double {
+        guard let id = defaultDeviceID(),
+              let sampleRate = float64(id, selector: kAudioDevicePropertyNominalSampleRate),
+              sampleRate > 0 else { return 0 }
+        let output = kAudioObjectPropertyScopeOutput
+        var frames = Double(uint32(id, selector: kAudioDevicePropertyLatency, scope: output) ?? 0)
+        frames += Double(uint32(id, selector: kAudioDevicePropertySafetyOffset, scope: output) ?? 0)
+        frames += Double(uint32(id, selector: kAudioDevicePropertyBufferFrameSize) ?? 0)
+        if let stream = outputStreams(id)?.first {
+            frames += Double(uint32(stream, selector: kAudioStreamPropertyLatency) ?? 0)
+        }
+        return frames / sampleRate
+    }
+
     static func select(_ device: Device) throws {
         try setSystemDevice(device.id, selector: kAudioHardwarePropertyDefaultOutputDevice,
                             action: "select \(device.name)")
@@ -112,15 +130,44 @@ enum MacAudioOutput {
     }
 
     private static func uint32(_ id: AudioObjectID,
-                               selector: AudioObjectPropertySelector) -> UInt32? {
+                               selector: AudioObjectPropertySelector,
+                               scope: AudioObjectPropertyScope = kAudioObjectPropertyScopeGlobal) -> UInt32? {
         var address = AudioObjectPropertyAddress(
             mSelector: selector,
-            mScope: kAudioObjectPropertyScopeGlobal,
+            mScope: scope,
             mElement: kAudioObjectPropertyElementMain)
         var value: UInt32 = 0
         var size = UInt32(MemoryLayout<UInt32>.size)
         let status = AudioObjectGetPropertyData(id, &address, 0, nil, &size, &value)
         return status == noErr ? value : nil
+    }
+
+    private static func float64(_ id: AudioObjectID,
+                                selector: AudioObjectPropertySelector) -> Double? {
+        var address = AudioObjectPropertyAddress(
+            mSelector: selector,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain)
+        var value: Float64 = 0
+        var size = UInt32(MemoryLayout<Float64>.size)
+        let status = AudioObjectGetPropertyData(id, &address, 0, nil, &size, &value)
+        return status == noErr ? value : nil
+    }
+
+    private static func outputStreams(_ id: AudioDeviceID) -> [AudioStreamID]? {
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyStreams,
+            mScope: kAudioObjectPropertyScopeOutput,
+            mElement: kAudioObjectPropertyElementMain)
+        var size: UInt32 = 0
+        guard AudioObjectGetPropertyDataSize(id, &address, 0, nil, &size) == noErr,
+              size > 0 else { return nil }
+        var output = [AudioStreamID](repeating: 0,
+                                     count: Int(size) / MemoryLayout<AudioStreamID>.size)
+        let status = output.withUnsafeMutableBytes { bytes in
+            AudioObjectGetPropertyData(id, &address, 0, nil, &size, bytes.baseAddress!)
+        }
+        return status == noErr ? output : nil
     }
 
     private static func deviceIDs(address original: AudioObjectPropertyAddress) -> [AudioDeviceID]? {

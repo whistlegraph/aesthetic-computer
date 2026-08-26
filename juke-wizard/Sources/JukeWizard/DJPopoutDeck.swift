@@ -315,9 +315,16 @@ final class DJRadialRecordView: NSView {
     private var center: NSPoint { NSPoint(x: bounds.midX, y: bounds.midY) }
     private var radius: CGFloat { max(1, min(bounds.width, bounds.height) * 0.44) }
     private var needleAngle: CGFloat { .pi * 0.257 }
+    /// Position for everything drawn. A caption drag seeks directly rather
+    /// than scratching, so while the hand is on the plate the surface must
+    /// track the drag itself — the compensated clock would trail the pointer.
+    private var drawnTime: Double {
+        guard let deck else { return 0 }
+        return captionScrubbing ? deck.currentTime : deck.displayTime
+    }
     private var trackProgress: CGFloat {
         guard let deck, deck.duration > 0 else { return 0 }
-        return CGFloat(max(0, min(1, deck.currentTime / deck.duration)))
+        return CGFloat(max(0, min(1, drawnTime / deck.duration)))
     }
     private var needleTip: NSPoint {
         let grooveRadius = radius * (0.82 - trackProgress * 0.48)
@@ -425,7 +432,7 @@ final class DJRadialRecordView: NSView {
         let state = deck.visualState
         guard abs(state.motion) >= 0.002 else { return }
         let energy = min(1, max(Double(state.energy), abs(state.motion) * 0.10))
-        let rotation = CGFloat(-deck.currentTime / DJPlatterGeometry.secondsPerRevolution * Double.pi * 2)
+        let rotation = CGFloat(-drawnTime / DJPlatterGeometry.secondsPerRevolution * Double.pi * 2)
         if energy > 0.035, now - lastTrailTime > 0.035 {
             grooveTrails.append(GrooveTrail(rotation: rotation, life: 0.20,
                                              energy: CGFloat(energy)))
@@ -454,7 +461,7 @@ final class DJRadialRecordView: NSView {
 
         let c = center
         let r = radius
-        let rotation = CGFloat(-(deck?.currentTime ?? 0) /
+        let rotation = CGFloat(-drawnTime /
             DJPlatterGeometry.secondsPerRevolution * Double.pi * 2)
         let visual = deck?.visualState ?? (motion: 0.0, energy: Float(0))
         let energy = min(CGFloat(1), max(CGFloat(visual.energy), CGFloat(abs(visual.motion)) * 0.10))
@@ -532,7 +539,7 @@ final class DJRadialRecordView: NSView {
                                y: plate.midY - glyphSize.height / 2 + 0.5),
                    withAttributes: glyphAttrs)
 
-        let elapsed = Self.clock(deck?.currentTime ?? 0)
+        let elapsed = Self.clock(drawnTime)
         let total = Self.clock(deck?.duration ?? 0)
         let time = "\(elapsed) / \(total)" as NSString
         let timeAttrs: [NSAttributedString.Key: Any] = [

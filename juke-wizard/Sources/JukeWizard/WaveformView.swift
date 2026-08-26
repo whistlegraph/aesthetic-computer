@@ -28,6 +28,9 @@ final class WaveformView: NSView {
     private var isScratching = false
     var duration: Double { deck.duration }
     var currentTime: Double { deck.currentTime }
+    /// Latency-compensated twin of `currentTime` for anything drawn or
+    /// displayed; seeks and reported positions stay on `currentTime`.
+    var displayTime: Double { deck.displayTime }
     var isPlaying: Bool { deck.isPlaying }
     var playbackRate: Double {
         get { deck.rate }
@@ -142,7 +145,7 @@ final class WaveformView: NSView {
     // ── drawing ──────────────────────────────────────────────────────────
     override func draw(_ dirtyRect: NSRect) {
         let w = bounds.width, h = bounds.height, mid = h / 2
-        let frac = duration > 0 ? CGFloat(currentTime / duration) : 0
+        let frac = duration > 0 ? CGFloat(displayTime / duration) : 0
         let progX = w * frac
 
         if peaks.isEmpty {

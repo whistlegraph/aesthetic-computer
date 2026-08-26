@@ -88,6 +88,10 @@ private final class DJDeckPCMState {
         lock.lock(); defer { lock.unlock() }
         return playing
     }
+    var isScratching: Bool {
+        lock.lock(); defer { lock.unlock() }
+        return scratching
+    }
     var visualState: (motion: Double, energy: Float) {
         lock.lock(); defer { lock.unlock() }
         let energy = lastOutput.isEmpty
@@ -267,9 +271,24 @@ final class DJDeckPlayer: NSObject {
     private(set) var motorEnabled = false
     var onStateChange: (() -> Void)?
     private var routeObserver: NSObjectProtocol?
+    private var outputLatency: Double = 0
 
     var duration: Double { pcm.duration }
     var currentTime: Double { pcm.currentTime }
+    /// `currentTime` is the render callback's write position, which leads
+    /// the speaker by the whole output chain — ~20 ms on built-in output,
+    /// hundreds on Bluetooth. Anything DRAWN reads this compensated clock
+    /// instead; transport logic (seeks, scratch targets, sync) stays on the
+    /// write clock. A scratch in progress tracks the hand, so it draws
+    /// uncompensated.
+    // When the room pipeline carries the audible signal (deck output muted,
+    // ACAudioRoomSender presenting 700 ms ahead), the local device latency is
+    // no longer the whole story — JukeController sets this from room state.
+    static var roomDisplayLatency: Double = 0
+    var displayTime: Double {
+        pcm.isScratching ? currentTime
+            : max(0, currentTime - outputLatency - Self.roomDisplayLatency)
+    }
     var isPlaying: Bool { motorEnabled }
     var visualState: (motion: Double, energy: Float) { pcm.visualState }
     var rate: Double { sourceBPM > 0 ? targetBPM / sourceBPM : 1 }
@@ -331,6 +350,7 @@ final class DJDeckPlayer: NSObject {
         engine.mainMixerNode.outputVolume = gain
         engine.prepare()
         try? engine.start()
+        refreshOutputLatency()
         observeRouteChanges(of: engine)
         applyRate()
         onStateChange?()
@@ -352,9 +372,25 @@ final class DJDeckPlayer: NSObject {
         // start() off AppKit's main thread — same rules as JukeRoomAudio's
         // refreshLocalOutputDevice.
         DispatchQueue.global(qos: .userInitiated).asyncAfter(deadline: .now() + 0.35) { [weak self] in
-            guard let self, engine === self.engine, !engine.isRunning else { return }
-            try? engine.start()
+            guard let self, engine === self.engine else { return }
+            if !engine.isRunning { try? engine.start() }
+            // An AirPods hop can swing output latency by hundreds of
+            // milliseconds, so the drawn playhead must remeasure here.
+            DispatchQueue.main.async { [weak self] in
+                guard let self, engine === self.engine else { return }
+                self.refreshOutputLatency()
+            }
         }
+    }
+
+    /// Cached at engine (re)start: the device chain reported by Core Audio
+    /// plus the pitch unit's own processing delay. Clamped so a device
+    /// reporting nonsense can't shove the drawn playhead backwards through
+    /// the start of the track.
+    private func refreshOutputLatency() {
+        let chain = MacAudioOutput.outputLatencySeconds()
+            + (pitchNode?.auAudioUnit.latency ?? 0)
+        outputLatency = max(0, min(0.5, chain))
     }
 
     deinit {
@@ -365,7 +401,10 @@ final class DJDeckPlayer: NSObject {
 
     func play() {
         guard sourceNode != nil else { return }
-        if !engine.isRunning { try? engine.start() }
+        if !engine.isRunning {
+            try? engine.start()
+            refreshOutputLatency()
+        }
         motorEnabled = true
         pcm.setRate(rate)
         pcm.setPlaying(true)
@@ -595,7 +634,7 @@ final class DJPlatterView: NSView {
         Palette.gold.setFill()
         NSBezierPath(ovalIn: NSRect(x: c.x - 4, y: c.y - 4, width: 8, height: 8)).fill()
 
-        let seconds = deck?.currentTime ?? 0
+        let seconds = deck?.displayTime ?? 0
         let angle = CGFloat(-seconds / DJPlatterGeometry.secondsPerRevolution * Double.pi * 2) + .pi / 2
         let marker = NSBezierPath()
         marker.move(to: NSPoint(x: c.x + cos(angle) * r * 0.42,
@@ -608,7 +647,7 @@ final class DJPlatterView: NSView {
         marker.stroke()
 
         if let deck, deck.duration > 0 {
-            let progress = max(0, min(1, deck.currentTime / deck.duration))
+            let progress = max(0, min(1, deck.displayTime / deck.duration))
             let ring = NSBezierPath()
             ring.appendArc(withCenter: c, radius: r - 2, startAngle: 90,
                            endAngle: 90 - CGFloat(progress) * 360, clockwise: true)
@@ -826,7 +865,7 @@ final class DJWaveformOutputView: NSView {
         guard let deck else { return }
         let centerX = bounds.midX
         let centerY = bounds.midY
-        let current = deck.currentTime
+        let current = deck.displayTime
         let sourceSpan = visibleSourceSpan
         let startTime = current - sourceSpan / 2
         let axisLength = vertical ? bounds.height : bounds.width
@@ -1354,7 +1393,7 @@ final class DJDeckView: NSView {
         playButton.title = deck.isPlaying ? "❚❚" : "▶"
         bpmLabel.stringValue = hasTrack ? String(format: "%.1f BPM", deck.targetBPM) : "— BPM"
         bpmSlider.doubleValue = deck.targetBPM
-        timeLabel.stringValue = "\(JukeController.mmss(deck.currentTime)) / \(JukeController.mmss(deck.duration))"
+        timeLabel.stringValue = "\(JukeController.mmss(deck.displayTime)) / \(JukeController.mmss(deck.duration))"
         playButton.isEnabled = hasTrack
         bpmSlider.isEnabled = hasTrack
         syncButton.isEnabled = hasTrack

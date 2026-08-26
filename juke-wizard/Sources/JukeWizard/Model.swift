@@ -47,12 +47,34 @@ final class Track {
     var data: JukeData
     var meta: TrackMeta?
     var liveStatus: String?
+    // Cached so row drawing never stats the disk; refreshed by the
+    // newest/oldest sorts so the displayed stamp always matches the order.
+    var renderedAt: Date = .distantPast
 
     init(url: URL, lane: String, title: String? = nil) {
         self.url = url
         self.lane = lane
         self.title = title ?? url.deletingPathExtension().lastPathComponent
         self.data = Track.loadSidecar(for: url)
+        refreshRenderedAt()
+    }
+
+    /// The moment this track's audio was last rendered: the file's own
+    /// modification date, falling back to the library JSON's `updated`
+    /// stamp for files that have vanished from disk.
+    func refreshRenderedAt() {
+        if let date = (try? FileManager.default.attributesOfItem(atPath: url.path))?[.modificationDate] as? Date {
+            renderedAt = date
+            return
+        }
+        if let stamp = meta?.updated {
+            let iso = ISO8601DateFormatter()
+            iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            if let date = iso.date(from: stamp) { renderedAt = date; return }
+            iso.formatOptions = [.withInternetDateTime]
+            if let date = iso.date(from: stamp) { renderedAt = date; return }
+        }
+        renderedAt = .distantPast
     }
 
     var sidecarURL: URL { url.deletingPathExtension().appendingPathExtension("juke.json") }

@@ -24,6 +24,25 @@ Status legend: **RELEASED** · **SUBMITTED** · **MASTERING** · **RENDER** · *
 - **Engine:** `bin/render.mjs` → `out/season-remix-v1.mp3`. NOTE: outro uses
   the unprocessed original take — wants an aesthetivox pass (v2) before release.
 
+## lonerclub (v4pid) — SUBMITTED (Whistlegraph Dot Org)
+
+- **Lane:** `pop/loner/` · club cut of the loner v4 regulation · A# minor ·
+  122 BPM · 1:34 · the preferred v4 audio itself, spliced: opens on the sung
+  "sitting" (v4's 0:31 pickup), one 30 ms crossfade excises the floorless
+  break so the beat never stops, then v4's back half through its natural
+  ring-out (dead tail trimmed at 92.6 s). Overlays on top of the untouched
+  v4 fabric: 16th-note pitch-staircase vocal flourishes on "tiiiime" (up)
+  and "passsss" (down) with dotted-8th dub echoes, restated wider on the
+  second utterance; femrag-style wub sub (tanh A#1, 4/6 Hz bar-alternating
+  wobble, kick-ducked) under the big pass.
+- **Master:** `c/cut-wax.sh` — the wax/FM chain (bass mono <120 Hz, side
+  lift + 0.06 Hz drifting pan, vinyl wow ±0.12%, tanh saturation + 7.5 k
+  exciter, Optimod-style density, 15 kHz FM ceiling) → measure → one static
+  dB → limiter. **−9.7 LUFS · −1.5 dBTP · LRA 2.3** →
+  `out/lonerclub-v4pid.mp3` (ID3: Whistlegraph Dot Org / pixsies / lonerclub).
+- **First release under the artist name "Whistlegraph Dot Org."** Covers:
+  three candidates in `covers/` (score-international / stone / club-floor).
+
 ## loner remix — RENDER (whistlegraph remix, v4)
 
 - **Lane:** `pop/loner/` · dance (four-on-the-floor) · A# minor (+30¢, band

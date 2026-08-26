@@ -908,6 +908,11 @@ final class JukeController: NSWindowController, NSWindowDelegate,
     }
 
     private func renderRoomState(_ state: JukeRoomAudio.State) {
+        // The room sender presents audio 700 ms in the future (RoomSender
+        // latencyMilliseconds) and mutes the deck's direct output — so while
+        // the room is live, every drawn playhead must lag by that much too.
+        if case .live = state { DJDeckPlayer.roomDisplayLatency = 0.7 }
+        else { DJDeckPlayer.roomDisplayLatency = 0 }
         switch state {
         case .idle:
             roomButton.state = .off
@@ -1587,22 +1592,6 @@ final class JukeController: NSWindowController, NSWindowDelegate,
         default: return 4
         }
     }
-    /// The moment a track's audio was last rendered: the file's own
-    /// modification date, falling back to the library JSON's `updated`
-    /// stamp for files that have vanished from disk.
-    private static func renderDate(of t: Track) -> Date {
-        if let date = (try? FileManager.default.attributesOfItem(atPath: t.url.path))?[.modificationDate] as? Date {
-            return date
-        }
-        if let stamp = t.meta?.updated {
-            let iso = ISO8601DateFormatter()
-            iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-            if let date = iso.date(from: stamp) { return date }
-            iso.formatOptions = [.withInternetDateTime]
-            if let date = iso.date(from: stamp) { return date }
-        }
-        return .distantPast
-    }
     private func applySort() {
         // keep the current track selected across the reorder (match by URL)
         let currentURL = track?.url.standardizedFileURL.path
@@ -1610,10 +1599,10 @@ final class JukeController: NSWindowController, NSWindowDelegate,
         // "newest/oldest rendered" go by the audio file's real modification
         // time, not the library JSON's snapshot: fresh renders folded into
         // the queue after launch carry no meta at all, so a snapshot-string
-        // sort pinned the genuinely newest tracks to the bottom.
-        var renderedAt: [ObjectIdentifier: Date] = [:]
+        // sort pinned the genuinely newest tracks to the bottom. Refreshing
+        // the cached stamp here keeps the row timestamps in step.
         if mode == .newest || mode == .oldest {
-            for t in library.tracks { renderedAt[ObjectIdentifier(t)] = Self.renderDate(of: t) }
+            for t in library.tracks { t.refreshRenderedAt() }
         }
         library.reorder { a, b in
             switch mode {
@@ -1622,11 +1611,9 @@ final class JukeController: NSWindowController, NSWindowDelegate,
                 if ra != rb { return ra < rb }
                 return (a.meta?.updated ?? "") > (b.meta?.updated ?? "")   // recent first
             case .newest:
-                return renderedAt[ObjectIdentifier(a), default: .distantPast]
-                     > renderedAt[ObjectIdentifier(b), default: .distantPast]
+                return a.renderedAt > b.renderedAt
             case .oldest:
-                return renderedAt[ObjectIdentifier(a), default: .distantPast]
-                     < renderedAt[ObjectIdentifier(b), default: .distantPast]
+                return a.renderedAt < b.renderedAt
             case .stars:
                 if a.data.stars != b.data.stars { return a.data.stars > b.data.stars }
                 return (a.meta?.updated ?? "") > (b.meta?.updated ?? "")
