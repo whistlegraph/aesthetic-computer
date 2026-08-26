@@ -11,6 +11,9 @@
 // do — the sim really is deterministic, the replays really are addressable,
 // the whole thing really is one 264 KB file.
 
+import { execFileSync } from "node:child_process";
+import { repo } from "./shell.mjs";
+
 export const segments = {
   fgc: {
     name: "fighting game / FGC",
@@ -115,23 +118,31 @@ export function share() {
     [key, `${count}/${rotation.length}`]));
 }
 
-// A caption is three hashtags and nothing else. No prose — the fight speaks
-// and the bio carries the link. The three are each market's biggest-traffic
-// tags, the ones people actually browse, so a post spends its whole caption
-// on being findable.
-export const bigTags = {
-  fgc: ["fgc", "fightinggame", "indiegame"],
-  gamedev: ["gamedev", "indiedev", "indiegame"],
-  homebrew: ["xbox", "homebrew", "indiegame"],
-  retro: ["retrogaming", "pixelart", "arcade"],
-  gen: ["generativeart", "creativecoding", "digitalart"],
-};
+export function changelogCaption(subject) {
+  const match = String(subject).trim().match(/^oskiewar v(\d+):\s*(.+)$/i);
+  if (!match) throw new Error("no oskiewar changelog commit found");
+  const change = match[2].trim().toLowerCase();
+  const versionLine = `oskiewar v${match[1]} — ${change}` +
+    (/[.!?]$/.test(change) ? "" : ".");
+  const caption = `${versionLine}\n\ntell reelboy what to change.`;
+  if (caption.length > 2200) throw new Error("oskiewar changelog caption exceeds 2200 characters");
+  return caption;
+}
+
+export function latestChangelogSubject() {
+  try {
+    return execFileSync("git", ["log", "--grep", "^oskiewar v", "-1", "--format=%s"],
+      { cwd: repo, encoding: "utf8" }).trim();
+  } catch {
+    throw new Error("could not read the latest oskiewar changelog commit");
+  }
+}
 
 export function dress(segmentKey, pick, facts) {
   const segment = segments[segmentKey];
   const hook = segment.hooks[pick % segment.hooks.length];
-  const tags = bigTags[segmentKey] || segment.tags.slice(0, 3);
-  const caption = tags.map((tag) => "#" + tag).join(" ");
+  const tags = [];
+  const caption = changelogCaption(latestChangelogSubject());
   return { hook, tail: segment.tail, caption, tags,
     lines: { hook, under: facts.under } };
 }
