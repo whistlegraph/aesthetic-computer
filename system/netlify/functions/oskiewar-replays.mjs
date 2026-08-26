@@ -72,7 +72,10 @@ export function validateDemo(value) {
   // its shape keeps the version-1 document contract bounded.
   if (value.nations !== undefined &&
       (!Array.isArray(value.nations) || value.nations.length !== 2 ||
-       value.nations.some((country) => country !== null &&
+       // The piece writes `player.nation || ""` — an unresolved country
+       // arrives as the empty string, the same unknown null spells. The
+       // server rewrites this field at write time anyway.
+       value.nations.some((country) => country !== null && country !== "" &&
          normalizeCountry(country) === null))) return "Invalid nations";
   if (value.winner !== null && value.winner !== undefined &&
       !value.fighters.includes(value.winner)) return "Invalid winner";
