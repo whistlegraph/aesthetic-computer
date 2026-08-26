@@ -296,9 +296,11 @@ function paint(api) {
     write(title, { x, y, size });
     ink(120, 96, 130);
     write("a girl who eats flowers", { center: "x", y: y + size * 10 + 6 });
+    // The prompt lives in the dirt strip beneath the ground line, where
+    // nothing else ever stands — mid-screen put it through her torso.
     const pulse = 0.55 + (sin(titleT * 3.4) + 1) * 0.22;
     ink(196 * pulse, 120 * pulse, 60 * pulse);
-    write("tap to eat", { center: "x", y: floor(screen.height * 0.62) });
+    write("tap to eat", { center: "x", y: ground + 14 });
     return;
   }
 
