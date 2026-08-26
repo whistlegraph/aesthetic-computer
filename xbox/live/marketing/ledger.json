@@ -339,6 +339,26 @@
         "reels_skip_rate": 51.3
       },
       "insightsAt": "2026-08-21T01:41:08.829Z"
+    },
+    {
+      "mode": "live",
+      "id": "2026-08-23-s0-retro",
+      "slot": 702,
+      "day": "2026-08-23",
+      "index": 0,
+      "segment": "retro",
+      "seed": "2026-08-23#0",
+      "kind": "self-play",
+      "round": "tessu94",
+      "audioName": "tessu94",
+      "publishedAt": "2026-08-23T13:25:46.922Z",
+      "urls": {
+        "reel": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/oskiewar/reels/2026-08-23-s0-retro/reel.mp4",
+        "cover": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/oskiewar/reels/2026-08-23-s0-retro/cover.jpg"
+      },
+      "containerId": "18083386520446357",
+      "mediaId": "17968831422070689",
+      "insights": null
     }
   ]
 }
