@@ -57,6 +57,10 @@ p.dim { color: var(--fg2); font-size: 12px; }
 .grid a:hover { border-color: var(--accent2); }
 .grid img { width: 100%; display: block; aspect-ratio: 3 / 2; object-fit: cover; }
 .grid.cards img { aspect-ratio: auto; object-fit: contain; background: #fff; }
+.grid.works { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+.grid.works img { aspect-ratio: 4 / 5; }
+.grid.works .cap { font-size: 11px; padding: 5px 6px 6px; line-height: 1.35; }
+.grid.works .cap em { color: var(--fg); font-style: italic; }
 .grid.photos { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 5px; }
 .grid.photos img { aspect-ratio: 1; }
 .grid.fuser { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 4px; }
@@ -97,6 +101,12 @@ footer { margin-top: 50px; padding-top: 12px; border-top: 1px solid var(--border
   <h1>SCORES FOR SOCIAL SOFTWARE <span class="accent">·</span> CYCLE 2</h1>
   <div class="sub">Jeffrey Scudder / <a href="https://aesthetic.computer">Aesthetic Computer</a> — every asset from the ten weeks, in one place · part of the <a href="/platter.html">research platter</a></div>
 </header>
+
+<section id="works">
+  <h2>The Works — eleven contributions, edition of 64</h2>
+  <p>One canonical plate per contribution, photographed July 16 from publication copy 51. The order follows the colophon card.</p>
+  <div class="grid works" id="works-grid"></div>
+</section>
 
 <section id="photos">
   <h2>The Photographs — July 16 documentation shoot</h2>
@@ -239,14 +249,84 @@ const SHOOT_GROUPS = [["IMG_4753_edited.jpg", "IMG_4754_edited.jpg", "IMG_4755_e
 const FUSER_GROUPS = [["PXL_20260613_174837784.jpg", "PXL_20260613_174838366.jpg"], ["PXL_20260613_174843920.jpg", "PXL_20260613_174845561.jpg", "PXL_20260613_174847596.jpg", "PXL_20260613_174848815.jpg"], ["PXL_20260613_174947062.jpg"], ["PXL_20260613_181248080.jpg"], ["PXL_20260613_191259163.jpg", "PXL_20260613_191259634.jpg"], ["PXL_20260613_191313806.jpg"], ["PXL_20260613_191316422.jpg", "PXL_20260613_191317786.jpg", "PXL_20260613_191324133.jpg", "PXL_20260613_191325934.jpg", "PXL_20260613_191326548.jpg"], ["PXL_20260613_191440048.jpg", "PXL_20260613_191440834.jpg"], ["PXL_20260613_191609675.jpg", "PXL_20260613_191611006.jpg"], ["PXL_20260613_191613569.jpg"], ["PXL_20260613_191616663.jpg"], ["PXL_20260613_193610871.jpg", "PXL_20260613_193612206.jpg", "PXL_20260613_193613912.jpg", "PXL_20260613_193615022.jpg"], ["PXL_20260613_194002870.jpg", "PXL_20260613_194004087.jpg"], ["PXL_20260613_194013010.jpg", "PXL_20260613_194018768.jpg", "PXL_20260613_194021823.jpg", "PXL_20260613_194022885.jpg"], ["PXL_20260613_194029110.jpg", "PXL_20260613_194034972.jpg"], ["PXL_20260613_194043069.jpg", "PXL_20260613_194044742.jpg", "PXL_20260613_194045330.jpg", "PXL_20260613_200959869.jpg"], ["PXL_20260613_201002736.jpg", "PXL_20260613_201004038.jpg"], ["PXL_20260613_201009709.jpg"], ["PXL_20260613_201101588.jpg"], ["PXL_20260613_201236535.jpg", "PXL_20260613_201237778.jpg", "PXL_20260613_201238494.jpg"], ["PXL_20260613_201613524.jpg", "PXL_20260613_201615157.jpg"], ["PXL_20260613_202338629.jpg", "PXL_20260613_202339484.jpg"], ["PXL_20260613_202346166.jpg"], ["PXL_20260613_202347418.jpg"], ["PXL_20260613_202350454.jpg"], ["PXL_20260613_202357298.jpg", "PXL_20260613_202358529.jpg"], ["PXL_20260613_202705988.jpg"], ["PXL_20260613_202709175.jpg"], ["PXL_20260613_202901950.jpg"], ["PXL_20260613_202903392.jpg"], ["PXL_20260613_202911736.jpg", "PXL_20260613_202913013.jpg"], ["PXL_20260613_202919153.jpg", "PXL_20260613_202921081.jpg", "PXL_20260613_202922302.jpg"], ["PXL_20260613_202945591.jpg"], ["PXL_20260613_202951867.jpg", "PXL_20260613_202953418.jpg", "PXL_20260613_202957391.jpg", "PXL_20260613_203001164.jpg"], ["PXL_20260613_203005020.jpg", "PXL_20260613_203010713.jpg"], ["PXL_20260613_203012080.jpg", "PXL_20260613_203013346.jpg", "PXL_20260613_203014085.jpg", "PXL_20260613_203021417.jpg", "PXL_20260613_203022483.jpg", "PXL_20260613_203023975.jpg", "PXL_20260613_203024614.jpg", "PXL_20260613_203025277.jpg"]];
 const SHOOT_BASE = "https://assets.aesthetic.computer/sosoft/photos";
 
+// Canonical plates, colophon order. [file, artist, title]
+const WORKS = [
+  ["IMG_4753_edited.jpg", "Scores for Social Software", "the delivery folder"],
+  ["IMG_4808.jpg", "Scores for Social Software", "colophon card — spring 2026, edition of 64"],
+  ["IMG_4829.jpg", "Jeffrey Alan Scudder", "Notepat"],
+  ["IMG_4825.jpg", "\u00c6ther Cavendish", "Vigil Score"],
+  ["IMG_4835.jpg", "Chelly Jin", "Software as a Choreography"],
+  ["IMG_4840.jpg", "Jordan Silver", "Sonic Architecture"],
+  ["IMG_4855.jpg", "Em Lugo", "Cues for Losing Direction"],
+  ["IMG_4861.jpg", "Darlyn Phan", "Line Piece 1"],
+  ["biophonia-plate.jpg", "Thomas Noya", "Biophon\u00eda"],
+  ["IMG_4870.jpg", "Banyi Huang", "A Cosmographic Score for Folding Back into the Kernel"],
+  ["IMG_4937.jpg", "Alex Espinosa", "Music for World Computers"],
+  ["IMG_4879.jpg", "Mavyn Vu", "The Radio Is an Altar : Portal"],
+  ["IMG_4883.jpg", "Lauren Lee McCarthy and Casey Reas", "Auto Tune"],
+];
+
+// July 16 shoot: IMG-number ranges -> work label (colophon-confirmed).
+const LABELS = [
+  [4753, 4776, "the delivery folder"],
+  [4777, 4781, "unboxing \u2014 inside the folder"],
+  [4782, 4803, "contents spread"],
+  [4804, 4811, "colophon card"],
+  [4812, 4820, "Jeffrey Alan Scudder \u2014 Notepat"],
+  [4821, 4827, "\u00c6ther Cavendish \u2014 Vigil Score"],
+  [4828, 4828, "Chelly Jin \u2014 Software as a Choreography"],
+  [4829, 4830, "Jeffrey Alan Scudder \u2014 Notepat"],
+  [4831, 4831, "colophon card"],
+  [4832, 4834, "\u00c6ther Cavendish \u2014 Vigil Score"],
+  [4835, 4839, "Chelly Jin \u2014 Software as a Choreography"],
+  [4840, 4844, "Jordan Silver \u2014 Sonic Architecture"],
+  [4845, 4860, "Em Lugo \u2014 Cues for Losing Direction"],
+  [4861, 4867, "Darlyn Phan \u2014 Line Piece 1"],
+  [4868, 4869, "Thomas Noya \u2014 Biophon\u00eda (signed verso)"],
+  [4870, 4873, "Banyi Huang \u2014 A Cosmographic Score for Folding Back into the Kernel"],
+  [4874, 4878, "Alex Espinosa \u2014 Music for World Computers"],
+  [4879, 4882, "Mavyn Vu \u2014 The Radio Is an Altar : Portal"],
+  [4883, 4888, "Lauren Lee McCarthy and Casey Reas \u2014 Auto Tune"],
+  [4889, 4900, "full contents spread"],
+  [4901, 4916, "the edition of 64"],
+  [4917, 4922, "Chelly Jin \u2014 Software as a Choreography, held in the light"],
+  [4923, 4935, "Jeffrey Alan Scudder \u2014 Notepat, held in the light"],
+  [4936, 4941, "Alex Espinosa \u2014 Music for World Computers, held in the light"],
+  [4942, 4945, "Jordan Silver \u2014 Sonic Architecture, held in the light"],
+  [4946, 4954, "Chelly Jin \u2014 Software as a Choreography, held in the light"],
+  [4955, 4966, "Jordan Silver \u2014 Sonic Architecture, held in the light"],
+];
+function shootLabel(f) {
+  const n = parseInt(stem(f).slice(4), 10);
+  const r = LABELS.find(([a, b]) => n >= a && n <= b);
+  return r ? r[2] : "";
+}
+
+// June 13 Fuser: filename-time (UTC) ranges -> activity label. People are not
+// identified from appearance; labels describe the observed activity only.
+const FUSER_SEGMENTS = [
+  [174800, 175100, "the space, before"],
+  [191200, 191700, "presentations"],
+  [193600, 194100, "presentations & performances"],
+  [200900, 202500, "the gathering"],
+  [202600, 203100, "movement performance"],
+];
+function fuserLabel(f) {
+  const t = parseInt(f.slice(13, 19), 10);
+  const r = FUSER_SEGMENTS.find(([a, b]) => t >= a && t <= b);
+  return r ? r[2] : "closing at fuser";
+}
+
+
 const stem = f => f.replace("_edited", "").replace(/\.jpg$/, "");
 function shootCap(f, i, n) {
   const t = TIMES[stem(f)];
-  return `${stem(f)} — july 16${t ? ", " + t : ""} · frame ${i + 1} of ${n}${f.includes("_edited") ? " · edited" : ""}`;
+  const w = shootLabel(f);
+  return `${w ? w + " \u00b7 " : ""}${stem(f)} \u2014 july 16${t ? ", " + t : ""} \u00b7 frame ${i + 1} of ${n}${f.includes("_edited") ? " \u00b7 edited" : ""}`;
 }
 function fuserCap(f, i, n) {
   const t = TIMES[f.replace(/\.jpg$/, "")];
-  return `june 13${t ? ", " + t : ""} · closing at fuser · ${i + 1} of ${n}`;
+  return `${fuserLabel(f)} \u2014 june 13${t ? ", " + t : ""} \u00b7 closing at fuser \u00b7 ${i + 1} of ${n}`;
 }
 
 // One flat viewer sequence per section: every frame, groups intact.
@@ -265,9 +345,21 @@ function buildGrid(el, groups, thumbSrc, fullHref, capFn) {
       return `<a class="tile hidden-frame" data-seq="${hi}" style="display:none"><img src="${thumbSrc(h)}" loading="lazy" alt=""></a>`;
     }).join("");
     const badge = g.length > 1 ? `<span class="badge" data-n="${g.length - 1}">+${g.length - 1}</span>` : "";
-    return `<a class="tile" data-seq="${at}"><img src="${thumbSrc(f)}" loading="lazy" alt="">${badge}</a>${rest}`;
+    return `<a class="tile" data-seq="${at}" title="${capFn(f, frames.indexOf(f), n)}"><img src="${thumbSrc(f)}" loading="lazy" alt="">${badge}</a>${rest}`;
   }).join("");
 }
+
+// works plates: own SEQ block so the viewer steps plate-to-plate
+const worksStart = SEQ.length;
+WORKS.forEach(([f, artist, title], i) => SEQ.push({
+  section: "works-grid",
+  thumb: `${SHOOT_BASE}/web/${f}`,
+  full: `${SHOOT_BASE}/full/${f}`,
+  cap: `${artist} \u2014 ${title} \u00b7 plate ${i + 1} of ${WORKS.length}`,
+}));
+document.getElementById("works-grid").innerHTML = WORKS.map(([f, artist, title], i) =>
+  `<a class="tile" data-seq="${worksStart + i}"><img src="${SHOOT_BASE}/web/${f}" loading="lazy" alt="${artist} \u2014 ${title}"><span class="cap">${artist}<br><em>${title}</em></span></a>`
+).join("");
 
 buildGrid(document.getElementById("shoot-grid"), SHOOT_GROUPS,
   f => `${SHOOT_BASE}/web/${f}`, f => `${SHOOT_BASE}/full/${f}`, shootCap);
