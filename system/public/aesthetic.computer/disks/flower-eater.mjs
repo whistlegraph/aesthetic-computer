@@ -165,50 +165,122 @@ function act({ event: e, sound }) {
   chomp(sound);
 }
 
-// ── drawing ──────────────────────────────────────────────────────────
+// ── drawing: the diorama ─────────────────────────────────────────────
+// Xbox-level in this house means what oskiewar does: a staged world with
+// depth, thick capsule limbs, spot shadows, and a lens that reacts. The
+// sim above stays flat and pure — only this layer knows about z. Depth is
+// three deterministic background meadow rows and one dark foreground row,
+// each scrolling at its own parallax rate; nothing back there is edible.
+
 const INK = [28, 26, 32];
+const hash01 = (n) => { const s = sin(n) * 43758.5453; return s - floor(s); };
+const mix = (a, b, t) => [
+  a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t,
+  a[2] + (b[2] - a[2]) * t];
 
 function paperColor() {
   const warm = (mood + 1) / 2;
-  return [
-    224 + warm * 26, 214 - abs(mood) * 10 + warm * 4, 200 - warm * 40];
+  return [224 + warm * 26, 214 - abs(mood) * 10 + warm * 4, 200 - warm * 40];
 }
 
-function drawStars({ ink, line }, screen) {
-  for (const star of stars) {
-    const x = floor(star.x * screen.width);
-    const y = floor(star.y * (screen.height - 8));
-    ink(196, 168, 96);
-    line(x - 2, y, x + 2, y); line(x, y - 2, x, y + 2);
-    ink(160, 138, 84);
-    line(x - 1, y - 1, x + 1, y + 1);
+function drawSky({ ink, box, circle }, screen, horizon) {
+  // Two translucent bands settle the paper toward the horizon, and the
+  // mood hangs its own light in the corner: a pale moon in grief, a hot
+  // sun in fury.
+  ink(255, 252, 240, 26); box(0, horizon - 44, screen.width, 26);
+  ink(255, 248, 228, 40); box(0, horizon - 18, screen.width, 18);
+  const warm = (mood + 1) / 2;
+  const glow = mix([210, 214, 226], [255, 172, 92], warm);
+  const sunX = floor(screen.width * 0.82);
+  const sunY = floor(horizon - screen.height * 0.42);
+  ink(...glow, 36); circle(sunX, sunY, 26, true);
+  ink(...glow, 70); circle(sunX, sunY, 17, true);
+  ink(...mix(glow, [255, 255, 250], 0.5)); circle(sunX, sunY, 11, true);
+}
+
+function drawGround({ ink, box, shape }, screen, horizon, ground) {
+  const paper = paperColor();
+  ink(...mix([150, 168, 118], paper, 0.55));
+  box(0, horizon, screen.width, ground - horizon); // the far field
+  ink(...mix([104, 138, 86], paper, 0.25));
+  box(0, ground - 8, screen.width, 8); // near turf
+  ink(...mix([96, 74, 56], paper, 0.2));
+  box(0, ground, screen.width, screen.height - ground); // dirt
+  ink(...INK, 180);
+  box(0, ground, screen.width, 1); // the ruled ground line
+}
+
+// One decorative flower, scaled for its row and faded toward the paper.
+function drawBloom({ ink, line, circle }, x, baseY, s, fade, worldPhase,
+  petalColor, centerColor, petalCount, size) {
+  const paper = paperColor();
+  const stemColor = mix([74, 112, 62], paper, fade);
+  const sway = sin(worldPhase) * 3 * s;
+  const top = baseY - (26 + size * 2) * s;
+  ink(...stemColor);
+  line(x, baseY, x + sway, top, max(1, floor(2 * s)));
+  const petal = mix(petalColor, paper, fade);
+  for (let index = 0; index < petalCount; index++) {
+    const angle = (index / petalCount) * PI * 2 + worldPhase * 0.5;
+    const px = x + sway + cos(angle) * size * s;
+    const py = top + sin(angle) * size * s;
+    ink(...petal);
+    line(x + sway, top, px, py, max(1, floor(2 * s)));
+    circle(px, py, max(1, 1.8 * s), true);
+  }
+  ink(...mix(centerColor, paper, fade));
+  circle(x + sway, top, max(1, 2.8 * s), true);
+}
+
+// The deterministic background meadows: each row conjures its blooms from
+// a hash of the column index, so depth costs no simulation state at all.
+function drawMeadowRow(api, screen, horizon, ground, s, fade) {
+  const baseY = floor(horizon + (ground - horizon) * (s * s * 0.92 + 0.08));
+  const spacing = floor(150 / s);
+  const scroll = walked * s * 0.8;
+  const first = floor(scroll / spacing) - 1;
+  const count = floor(screen.width / spacing) + 3;
+  for (let k = first; k < first + count; k++) {
+    const h = hash01(k * 127.1 + s * 311.7);
+    if (h < 0.35) continue; // gaps keep the meadow breathing
+    const x = floor(k * spacing - scroll + h * spacing * 0.6);
+    const kind = SPECIES[h < 0.68 ? 0 : h < 0.92 ? 1 : 2];
+    drawBloom(api, x, baseY, s, fade, walked * 0.02 + k,
+      kind.petal || mysteryPetal(k), kind.center, kind.petals, kind.size);
   }
 }
 
-function drawFlower({ ink, line, circle }, flower, x, ground) {
+function drawShadow({ ink, oval }, x, y, rx) {
+  ink(40, 36, 40, 46);
+  oval(x, y + 2, rx, max(1, floor(rx * 0.3)), true);
+}
+
+function drawFlower(api, flower, x, ground) {
+  const { ink, line, circle } = api;
   const wilt = flower.eaten ? min(1, flower.eaten / 40) : 0;
   const sway = sin(flower.sway + walked * 0.02) * 3 * (1 - wilt);
   const top = ground - flower.height * (1 - wilt * 0.5);
-  ink(74, 112, 62);
-  line(x, ground, x + sway, top); // stem
+  drawShadow(api, x, ground, 7);
+  ink(64, 104, 58);
+  line(x, ground, x + sway, top, 2); // stem
   const { species } = flower;
   if (!flower.eaten) {
     const petal = species.petal || mysteryPetal(frame / 60);
     for (let index = 0; index < species.petals; index++) {
       const angle = (index / species.petals) * PI * 2 + walked * 0.01;
+      const px = x + sway + cos(angle) * species.size;
+      const py = top + sin(angle) * species.size;
       ink(...petal);
-      line(x + sway, top, x + sway + cos(angle) * species.size,
-        top + sin(angle) * species.size);
-      circle(x + sway + cos(angle) * species.size,
-        top + sin(angle) * species.size, 1.6, true);
+      line(x + sway, top, px, py, 2);
+      circle(px, py, 2.2, true);
     }
     ink(...species.center);
-    circle(x + sway, top, 2.6, true);
+    circle(x + sway, top, 3, true);
     if (species.name === "mystery") {
       ink(240, 236, 240);
       circle(x + sway - 2, top - 1, 0.8, true);
       circle(x + sway + 2, top - 1, 0.8, true);
-      line(x + sway - 2, top + 3, x + sway + 2, top + 3);
+      line(x + sway - 2, top + 3, x + sway + 2, top + 3, 1);
     }
   } else {
     ink(130, 126, 122);
@@ -216,58 +288,100 @@ function drawFlower({ ink, line, circle }, flower, x, ground) {
   }
 }
 
-function drawGirl({ ink, line, circle }, girlX, ground, idle) {
+function drawGirl(api, girlX, ground, idle) {
+  const { ink, line, circle, shape } = api;
   const phase = idle ? frame * 0.03 : walked * 0.11;
   const pace = idle ? 0 : stride;
   const bob = abs(sin(phase)) * (idle ? 1 : 2);
-  const headY = ground - 44 - bob;
+  const headY = ground - 46 - bob;
   const jaw = max(0, 8 - (frame - chompAt)) / 8;
   const stumble = stumbleAt > frame - 20;
+  const lean = stumble ? 4 : -2;
+  const hipY = ground - 22;
+  drawShadow(api, girlX, ground, 13);
+  // hair first, behind the head, streaming with her pace
   ink(...INK);
-  circle(girlX, headY, 8); // head
-  ink(60, 44, 80);
-  circle(girlX + 3, headY - 1, 2.5); // the big eye
+  for (let strand = 0; strand < 4; strand++)
+    line(girlX - 4, headY - 6 + strand * 2.5,
+      girlX - 15 - pace * 5 - strand * 3,
+      headY - 5 + strand * 4 + sin(phase + strand) * 2, 2);
+  // legs scissor under the skirt
+  const kick = idle ? 3 : sin(phase) * 9;
+  line(girlX - lean, hipY, girlX + kick, ground, 3);
+  line(girlX - lean, hipY, girlX - kick, ground, 3);
+  // the skirt: a filled ink kite with paper cross-stitches, from the
+  // Tall Flower Eater's dress
+  shape([[girlX - 7, headY + 16], [girlX + 6, headY + 16],
+    [girlX + 9 - lean, hipY + 3], [girlX - 10 - lean, hipY + 3]]);
+  const paper = paperColor();
+  ink(...mix(paper, [255, 255, 255], 0.3));
+  line(girlX - 4, headY + 21, girlX - 1, headY + 25, 1);
+  line(girlX - 1, headY + 21, girlX - 4, headY + 25, 1);
+  line(girlX + 2, hipY - 5, girlX + 5, hipY - 1, 1);
+  line(girlX + 5, hipY - 5, girlX + 2, hipY - 1, 1);
+  // torso and the reaching arm
   ink(...INK);
-  circle(girlX + 3.6, headY - 1.4, 1, true); // its pupil
-  // mouth: open with the bite
-  line(girlX + 6, headY + 3, girlX + 10 + jaw * 5, headY + 3 - jaw * 4);
-  line(girlX + 6, headY + 3, girlX + 10 + jaw * 5, headY + 3 + jaw * 3);
-  // hair, flowing back harder the faster she goes
-  for (let strand = 0; strand < 3; strand++)
-    line(girlX - 4, headY - 6 + strand * 3,
-      girlX - 14 - pace * 5 - strand * 3,
-      headY - 4 + strand * 4 + sin(phase + strand) * 2);
+  line(girlX, headY + 8, girlX - lean, headY + 17, 4);
+  line(girlX - 1, headY + 13, girlX + 12, headY + 11 + sin(phase) * 3, 3);
+  // head: a filled paper face inside her ink line
+  ink(...mix(paper, [255, 246, 234], 0.6));
+  circle(girlX, headY, 8, true);
+  ink(...INK);
+  circle(girlX, headY, 8);
+  // the big eye, its lashes, and the pupil
+  ink(252, 250, 246);
+  circle(girlX + 3, headY - 1, 3, true);
+  ink(...INK);
+  circle(girlX + 3, headY - 1, 3);
+  circle(girlX + 3.8, headY - 1.2, 1.2, true);
+  line(girlX + 3, headY - 5, girlX + 4, headY - 8, 1);
+  line(girlX + 6, headY - 4, girlX + 8, headY - 7, 1);
+  line(girlX + 1, headY - 5, girlX + 1, headY - 8, 1);
+  // mouth opens with the bite
+  line(girlX + 6, headY + 3, girlX + 10 + jaw * 5, headY + 3 - jaw * 4, 2);
+  line(girlX + 6, headY + 3, girlX + 10 + jaw * 5, headY + 3 + jaw * 3, 2);
   // she wears the last flower she ate
   if (lastEaten) {
     const worn = lastEaten.petal || mysteryPetal(frame / 60);
     ink(...worn);
-    circle(girlX - 5, headY - 7, 2.4, true);
+    circle(girlX - 5, headY - 7, 2.6, true);
     ink(...(lastEaten.center || INK));
     circle(girlX - 5, headY - 7, 1, true);
   }
-  ink(...INK);
-  const hipY = ground - 22;
-  line(girlX, headY + 8, girlX - (stumble ? 4 : -2), hipY); // torso
-  line(girlX - 1, headY + 14, girlX + 12, headY + 12 + sin(phase) * 3); // arm
-  const kick = idle ? 3 : sin(phase) * 9;
-  line(girlX - (stumble ? 4 : -2), hipY, girlX + kick, ground);
-  line(girlX - (stumble ? 4 : -2), hipY, girlX - kick, ground);
+  // the bite rings outward for a beat
+  if (jaw > 0) {
+    ink(255, 240, 200, floor(jaw * 120));
+    circle(girlX + 14, headY + 3, 6 + (1 - jaw) * 10);
+  }
+}
+
+function drawStars({ ink, line }, screen) {
+  for (const star of stars) {
+    const depth = star.fall; // slower stars sit further back
+    const x = floor(star.x * screen.width);
+    const y = floor(star.y * (screen.height - 8));
+    const gold = mix(paperColor(), [196, 158, 66], 0.3 + depth);
+    ink(...gold);
+    line(x - 2, y, x + 2, y, 1); line(x, y - 2, x, y + 2, 1);
+  }
 }
 
 function paint(api) {
   const { wipe, ink, line, circle, write, screen } = api;
   wipe(...paperColor());
-  const ground = floor(screen.height * 0.78);
-  const girlX = floor(screen.width * (mode === "title" ? 0.5 : 0.3));
+  const ground = floor(screen.height * 0.8);
+  const horizon = ground - floor(screen.height * 0.16);
+  const shake = stumbleAt > frame - 8 ? floor(sin(frame * 2.2) * 1.5) : 0;
+  const girlX = floor(screen.width * (mode === "title" ? 0.5 : 0.3)) + shake;
 
+  drawSky(api, screen, horizon);
   drawStars(api, screen);
+  drawGround(api, screen, horizon, ground);
 
-  // Ground: an ink rule with grass ticks in green.
-  ink(...INK);
-  line(0, ground, screen.width, ground);
-  ink(96, 138, 82);
-  for (let x = -(floor(walked) % 24); x < screen.width; x += 24)
-    line(x, ground + 2, x + 7, ground + 5);
+  // Depth: three meadow rows behind the fight, faded toward the paper.
+  drawMeadowRow(api, screen, horizon, ground, 0.4, 0.7);
+  drawMeadowRow(api, screen, horizon, ground, 0.58, 0.52);
+  drawMeadowRow(api, screen, horizon, ground, 0.78, 0.32);
 
   for (const flower of flowers) {
     const x = floor(flower.x - walked + floor(screen.width * 0.3));
@@ -278,34 +392,42 @@ function paint(api) {
   for (const petal of petals) {
     const x = floor(petal.x - walked + floor(screen.width * 0.3));
     ink(...petal.color);
-    circle(x, floor(ground - 30 + petal.y), 1.4, true);
+    circle(x, floor(ground - 30 + petal.y), 1.6, true);
   }
 
   drawGirl(api, girlX, ground, mode === "title");
 
+  // The dark foreground row: grass silhouettes sweeping past the lens.
+  const fgScroll = walked * 1.6;
+  ink(...mix(INK, paperColor(), 0.24), 200);
+  for (let k = floor(fgScroll / 46) - 1;
+    k < floor(fgScroll / 46) + screen.width / 46 + 2; k++) {
+    const h = hash01(k * 91.7);
+    if (h < 0.45) continue;
+    const x = floor(k * 46 - fgScroll + h * 30);
+    const tall = 14 + h * 16;
+    line(x, screen.height, x - 4, screen.height - tall, 2);
+    line(x, screen.height, x + 3, screen.height - tall * 0.8, 2);
+  }
+
   if (mode === "title") {
-    // The title floats over her head in her own ink, with a paper shadow.
     const title = "FLOWER EATER";
     const size = screen.width > 500 ? 3 : 2;
     const width = title.length * 6 * size;
     const x = floor((screen.width - width) / 2);
-    const y = floor(screen.height * 0.22);
+    const y = floor(screen.height * 0.2);
     ink(180, 150, 120);
     write(title, { x: x + 2, y: y + 2, size });
     ink(...INK);
     write(title, { x, y, size });
     ink(120, 96, 130);
     write("a girl who eats flowers", { center: "x", y: y + size * 10 + 6 });
-    // The prompt lives in the dirt strip beneath the ground line, where
-    // nothing else ever stands — mid-screen put it through her torso.
     const pulse = 0.55 + (sin(titleT * 3.4) + 1) * 0.22;
     ink(196 * pulse, 120 * pulse, 60 * pulse);
-    write("tap to eat", { center: "x", y: ground + 14 });
+    write("tap to eat", { center: "x", y: ground + 12 });
     return;
   }
 
-  // HUD lives in the bottom-right corner, out of the runtime's own label,
-  // in the mood's ink with a paper shadow.
   const label = `${eaten} · ${moodWord()}`;
   const labelX = screen.width - label.length * 6 - 8;
   const labelY = screen.height - 16;
