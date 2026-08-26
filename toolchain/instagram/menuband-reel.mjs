@@ -91,9 +91,12 @@ const WORDS = [
   "yarrow", "zinnia", "bellows", "cistern", "dovecote", "embers",
 ]; // names repeat after 60 waltzes; the number keeps them distinct
 
-// The audio renderer knows these three; anything else falls back to major.
-const MODES = ["major", "major", "minor", "dorian"];
-const TONICS = ["C", "G", "D", "A", "E", "F"];
+// The audio renderer draws only the white Menu Band keys and fatals on any
+// accidental, so mode DECIDES tonic — these are the three all-natural
+// pairings it can play (its tonic table maps exactly A, D, and default-C).
+const MODES = [
+  ["major", "C"], ["major", "C"], ["minor", "A"], ["dorian", "D"],
+];
 // GM programs that read as "a small instrument in a room" on this renderer.
 const INSTRUMENTS = [
   [0, "Acoustic Grand Piano"], [4, "Electric Piano 1"], [8, "Celesta"],
@@ -151,10 +154,11 @@ function generateVariation(n) {
   const id = `${String(n).padStart(2, "0")}-${name}`;
   const dir = `pop/menuband/out/menu-band-waltzes/${id}`;
   const [instrumentProgram, instrumentName] = pick(INSTRUMENTS);
+  const [mode, tonic] = pick(MODES);
   return {
     id, name: name[0].toUpperCase() + name.slice(1),
     seed: 1009 * n + 7, bpm, bars: bpm / 3,
-    tonic: pick(TONICS), mode: pick(MODES),
+    tonic, mode,
     instrumentProgram, instrumentName,
     development: n % 2 ? "lift" : "mirror",
     harmonyDegrees: pick(PROGRESSIONS),
