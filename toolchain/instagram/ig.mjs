@@ -448,11 +448,49 @@ async function doInsights(creds) {
   const mediaId = positional[0];
   if (!mediaId) die(`usage: ig.mjs --as <account> insights <media-id> | insights --refresh`);
   const values = await pullInsights(mediaId, creds.token);
+  // --json prints the object and nothing else, so a machine (reelboy) can
+  // read the same numbers a person does without scraping the table.
+  if (flags.json) { console.log(JSON.stringify(values)); return; }
   console.log(`✓ insights · ${mediaId}`);
   const width = Math.max(...reelMetrics.map((m) => m.length));
   for (const metric of reelMetrics) {
     console.log(`  ${metric.padEnd(width)} · ${values[metric] ?? "—"}`);
   }
+}
+
+// ── comments ─────────────────────────────────────────────────────────
+// The other half of a reel's feedback: what people actually typed under it.
+// Replies ride along flattened — a nested answer is still feedback — and
+// rows come back oldest-first so a digest reads as a conversation.
+// Reelboy (reelboy.mjs beside this file) polls this and wakes an agent on
+// new rows; it is also a plain CLI verb for reading a post's thread.
+async function pullComments(mediaId, token, limit = 50) {
+  const fields = "id,text,username,timestamp,like_count," +
+    "replies{id,text,username,timestamp,like_count}";
+  const body = await call(api(`${mediaId}/comments?fields=${fields}` +
+    `&limit=${Math.min(50, limit)}&access_token=${token}`));
+  const rows = [];
+  for (const row of body.data || []) {
+    rows.push({ id: row.id, text: row.text || "", username: row.username || "",
+      at: row.timestamp || "", likes: row.like_count || 0 });
+    for (const reply of row.replies?.data || [])
+      rows.push({ id: reply.id, text: reply.text || "",
+        username: reply.username || "", at: reply.timestamp || "",
+        likes: reply.like_count || 0, replyTo: row.id });
+  }
+  rows.sort((a, b) => String(a.at).localeCompare(String(b.at)));
+  return rows;
+}
+
+async function doComments(creds) {
+  const mediaId = positional[0];
+  if (!mediaId) die(`usage: ig.mjs --as <account> comments <media-id> [--json]`);
+  const rows = await pullComments(mediaId, creds.token);
+  if (flags.json) { console.log(JSON.stringify(rows)); return; }
+  console.log(`✓ comments · ${mediaId} · ${rows.length}`);
+  for (const row of rows)
+    console.log(`  ${row.at} @${row.username}${row.replyTo ? " ↳" : ""}` +
+      ` · ${row.text}${row.likes ? ` (♥${row.likes})` : ""}`);
 }
 
 // Walk the account's ledger and hang fresh numbers on every post. A post whose
@@ -515,6 +553,7 @@ const COMMANDS = {
   refresh: doRefresh,
   post: doPost,
   insights: doInsights,
+  comments: doComments,
   snapshot: doSnapshot,
 };
 
@@ -532,8 +571,9 @@ commands:
   refresh --all            refresh every provisioned account (monthly cron; no --as needed)
   post <video.mp4> --caption "..." [--cover img.jpg] [--audio-name "..."]
                            publish a reel: Spaces upload → container → poll → publish
-  insights <media-id>      per-reel metrics (views, reach, skip rate, …)
+  insights <media-id>      per-reel metrics (views, reach, skip rate, …; --json for machines)
   insights --refresh       pull metrics for every post in the account's ledger
+  comments <media-id>      the post's comment thread, replies flattened (--json for machines)
                            and write them back (social/instagram/<acct>-ledger.json)
   snapshot                 print a social/accounts.json snapshots entry (does not write it)
 
