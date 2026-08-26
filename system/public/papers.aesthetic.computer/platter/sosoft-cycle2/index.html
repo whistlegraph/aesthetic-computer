@@ -57,6 +57,10 @@ p.dim { color: var(--fg2); font-size: 12px; }
 .grid a:hover { border-color: var(--accent2); }
 .grid img { width: 100%; display: block; aspect-ratio: 3 / 2; object-fit: cover; }
 .grid.cards img { aspect-ratio: auto; object-fit: contain; background: #fff; }
+.grid.photos { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 5px; }
+.grid.photos img { aspect-ratio: 1; }
+.grid.fuser { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 4px; }
+.grid.fuser img { aspect-ratio: 1; }
 .grid .cap { font-size: 10px; color: var(--fg2); padding: 3px 5px; display: block; }
 video { width: 100%; max-width: 420px; border: 1px solid var(--border); background: #000; display: block; }
 iframe { width: 100%; height: 560px; border: 1px solid var(--border); background: #fff; }
@@ -69,6 +73,24 @@ footer { margin-top: 50px; padding-top: 12px; border-top: 1px solid var(--border
   <h1>SCORES FOR SOCIAL SOFTWARE <span class="accent">·</span> CYCLE 2</h1>
   <div class="sub">Jeffrey Scudder / <a href="https://aesthetic.computer">Aesthetic Computer</a> — every asset from the ten weeks, in one place · part of the <a href="/platter.html">research platter</a></div>
 </header>
+
+<section id="photos">
+  <h2>The Photographs — July 16 documentation shoot</h2>
+  <p>The full documentation shoot of the collated edition — every page, object, and detail of publication copy 51, photographed one by one. Click any image for full resolution.</p>
+  <ul class="links">
+    <li><span class="file">zip</span><a href="https://assets.aesthetic.computer/sosoft/photos/july-16-documentation-shoot.zip">download all originals</a> — <span id="shoot-count"></span> photographs, full resolution</li>
+  </ul>
+  <div class="grid photos" id="shoot-grid"></div>
+</section>
+
+<section id="fuser">
+  <h2>The Photographs — June 13 closing at Fuser</h2>
+  <p>The 78 photographs of the closing event at Fuser, 1811 Blake Ave — cohort performances and the edition's collation day. Index view; the masters live in the program's own shared archive, cataloged below with SHA-256 identities.</p>
+  <div class="grid fuser" id="fuser-grid"></div>
+  <ul class="links" style="margin-top:10px;">
+    <li><span class="file">md</span><a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/social-software/scores-for-social-software/CATALOG.md">CATALOG.md</a> · <a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/social-software/scores-for-social-software/SOURCES.md">SOURCES.md</a> — provenance, descriptions, hashes</li>
+  </ul>
+</section>
 
 <section id="doc">
   <h2>The Doc — live on sosoft.arts.ucla.edu</h2>
@@ -178,6 +200,18 @@ const ILLYS = [
 ];
 document.getElementById("illy-grid").innerHTML = ILLYS.map(([name, cap]) =>
   `<a href="img/illys/${name}.jpg"><img src="img/illys/${name}.jpg" loading="lazy" alt="${cap}"><span class="cap">${cap}</span></a>`
+).join("");
+
+const FUSER = ["PXL_20260613_174837784.jpg", "PXL_20260613_174838366.jpg", "PXL_20260613_174843920.jpg", "PXL_20260613_174845561.jpg", "PXL_20260613_174847596.jpg", "PXL_20260613_174848815.jpg", "PXL_20260613_174947062.jpg", "PXL_20260613_181248080.jpg", "PXL_20260613_191259163.jpg", "PXL_20260613_191259634.jpg", "PXL_20260613_191313806.jpg", "PXL_20260613_191316422.jpg", "PXL_20260613_191317786.jpg", "PXL_20260613_191324133.jpg", "PXL_20260613_191325934.jpg", "PXL_20260613_191326548.jpg", "PXL_20260613_191440048.jpg", "PXL_20260613_191440834.jpg", "PXL_20260613_191609675.jpg", "PXL_20260613_191611006.jpg", "PXL_20260613_191613569.jpg", "PXL_20260613_191616663.jpg", "PXL_20260613_193610871.jpg", "PXL_20260613_193612206.jpg", "PXL_20260613_193613912.jpg", "PXL_20260613_193615022.jpg", "PXL_20260613_194002870.jpg", "PXL_20260613_194004087.jpg", "PXL_20260613_194013010.jpg", "PXL_20260613_194018768.jpg", "PXL_20260613_194021823.jpg", "PXL_20260613_194022885.jpg", "PXL_20260613_194029110.jpg", "PXL_20260613_194034972.jpg", "PXL_20260613_194043069.jpg", "PXL_20260613_194044742.jpg", "PXL_20260613_194045330.jpg", "PXL_20260613_200959869.jpg", "PXL_20260613_201002736.jpg", "PXL_20260613_201004038.jpg", "PXL_20260613_201009709.jpg", "PXL_20260613_201101588.jpg", "PXL_20260613_201236535.jpg", "PXL_20260613_201237778.jpg", "PXL_20260613_201238494.jpg", "PXL_20260613_201613524.jpg", "PXL_20260613_201615157.jpg", "PXL_20260613_202338629.jpg", "PXL_20260613_202339484.jpg", "PXL_20260613_202346166.jpg", "PXL_20260613_202347418.jpg", "PXL_20260613_202350454.jpg", "PXL_20260613_202357298.jpg", "PXL_20260613_202358529.jpg", "PXL_20260613_202705988.jpg", "PXL_20260613_202709175.jpg", "PXL_20260613_202901950.jpg", "PXL_20260613_202903392.jpg", "PXL_20260613_202911736.jpg", "PXL_20260613_202913013.jpg", "PXL_20260613_202919153.jpg", "PXL_20260613_202921081.jpg", "PXL_20260613_202922302.jpg", "PXL_20260613_202945591.jpg", "PXL_20260613_202951867.jpg", "PXL_20260613_202953418.jpg", "PXL_20260613_202957391.jpg", "PXL_20260613_203001164.jpg", "PXL_20260613_203005020.jpg", "PXL_20260613_203010713.jpg", "PXL_20260613_203012080.jpg", "PXL_20260613_203013346.jpg", "PXL_20260613_203014085.jpg", "PXL_20260613_203021417.jpg", "PXL_20260613_203022483.jpg", "PXL_20260613_203023975.jpg", "PXL_20260613_203024614.jpg", "PXL_20260613_203025277.jpg"];
+document.getElementById("fuser-grid").innerHTML = FUSER.map(f =>
+  `<a href="img/fuser/${f}"><img src="img/fuser/${f}" loading="lazy" alt="Fuser closing photograph"></a>`
+).join("");
+
+const SHOOT_BASE = "https://assets.aesthetic.computer/sosoft/photos";
+const SHOOT = ["IMG_4753_edited.jpg", "IMG_4754_edited.jpg", "IMG_4755_edited.jpg", "IMG_4756.jpg", "IMG_4757.jpg", "IMG_4758.jpg", "IMG_4759.jpg", "IMG_4760.jpg", "IMG_4761.jpg", "IMG_4762.jpg", "IMG_4763.jpg", "IMG_4764.jpg", "IMG_4765_edited.jpg", "IMG_4766_edited.jpg", "IMG_4767_edited.jpg", "IMG_4768_edited.jpg", "IMG_4769_edited.jpg", "IMG_4770_edited.jpg", "IMG_4771_edited.jpg", "IMG_4772_edited.jpg", "IMG_4773.jpg", "IMG_4774.jpg", "IMG_4775.jpg", "IMG_4776.jpg", "IMG_4777.jpg", "IMG_4778.jpg", "IMG_4779.jpg", "IMG_4780.jpg", "IMG_4781.jpg", "IMG_4782.jpg", "IMG_4783.jpg", "IMG_4784.jpg", "IMG_4785.jpg", "IMG_4786.jpg", "IMG_4787.jpg", "IMG_4788.jpg", "IMG_4789.jpg", "IMG_4790_edited.jpg", "IMG_4791_edited.jpg", "IMG_4792_edited.jpg", "IMG_4793_edited.jpg", "IMG_4794_edited.jpg", "IMG_4795_edited.jpg", "IMG_4796_edited.jpg", "IMG_4797_edited.jpg", "IMG_4798_edited.jpg", "IMG_4799_edited.jpg", "IMG_4800_edited.jpg", "IMG_4801.jpg", "IMG_4802.jpg", "IMG_4803.jpg", "IMG_4804.jpg", "IMG_4805.jpg", "IMG_4806.jpg", "IMG_4807.jpg", "IMG_4808_edited.jpg", "IMG_4809_edited.jpg", "IMG_4810_edited.jpg", "IMG_4811_edited.jpg", "IMG_4812_edited.jpg", "IMG_4813_edited.jpg", "IMG_4814_edited.jpg", "IMG_4815_edited.jpg", "IMG_4816_edited.jpg", "IMG_4817_edited.jpg", "IMG_4818_edited.jpg", "IMG_4819_edited.jpg", "IMG_4820_edited.jpg", "IMG_4821_edited.jpg", "IMG_4822_edited.jpg", "IMG_4823_edited.jpg", "IMG_4824_edited.jpg", "IMG_4825_edited.jpg", "IMG_4826.jpg", "IMG_4827.jpg", "IMG_4828.jpg", "IMG_4829.jpg", "IMG_4830.jpg", "IMG_4831.jpg", "IMG_4832.jpg", "IMG_4833.jpg", "IMG_4834.jpg", "IMG_4835.jpg", "IMG_4836.jpg", "IMG_4837.jpg", "IMG_4838.jpg", "IMG_4839.jpg", "IMG_4840.jpg", "IMG_4841.jpg", "IMG_4842.jpg", "IMG_4843.jpg", "IMG_4844.jpg", "IMG_4845.jpg", "IMG_4846.jpg", "IMG_4847.jpg", "IMG_4848.jpg", "IMG_4849.jpg", "IMG_4850.jpg", "IMG_4851.jpg", "IMG_4852.jpg", "IMG_4853.jpg", "IMG_4854.jpg", "IMG_4855.jpg", "IMG_4856.jpg", "IMG_4857.jpg", "IMG_4858.jpg", "IMG_4859.jpg", "IMG_4860.jpg", "IMG_4861.jpg", "IMG_4862.jpg", "IMG_4863.jpg", "IMG_4864.jpg", "IMG_4865.jpg", "IMG_4866.jpg", "IMG_4867.jpg", "IMG_4868.jpg", "IMG_4869.jpg", "IMG_4870.jpg", "IMG_4871.jpg", "IMG_4872.jpg", "IMG_4873.jpg", "IMG_4874_edited.jpg", "IMG_4875_edited.jpg", "IMG_4876_edited.jpg", "IMG_4877_edited.jpg", "IMG_4878.jpg", "IMG_4879.jpg", "IMG_4880.jpg", "IMG_4881.jpg", "IMG_4882.jpg", "IMG_4883.jpg", "IMG_4884.jpg", "IMG_4885.jpg", "IMG_4886.jpg", "IMG_4887.jpg", "IMG_4888.jpg", "IMG_4890.jpg", "IMG_4891.jpg", "IMG_4892.jpg", "IMG_4893.jpg", "IMG_4894.jpg", "IMG_4895.jpg", "IMG_4896.jpg", "IMG_4897.jpg", "IMG_4898.jpg", "IMG_4899.jpg", "IMG_4900.jpg", "IMG_4901.jpg", "IMG_4902.jpg", "IMG_4903.jpg", "IMG_4904.jpg", "IMG_4905.jpg", "IMG_4906.jpg", "IMG_4907.jpg", "IMG_4908.jpg", "IMG_4909.jpg", "IMG_4910.jpg", "IMG_4911.jpg", "IMG_4912.jpg", "IMG_4913.jpg", "IMG_4914.jpg", "IMG_4915.jpg", "IMG_4916.jpg", "IMG_4917.jpg", "IMG_4918.jpg", "IMG_4919.jpg", "IMG_4920.jpg", "IMG_4921.jpg", "IMG_4922.jpg", "IMG_4923.jpg", "IMG_4924.jpg", "IMG_4925.jpg", "IMG_4926.jpg", "IMG_4927.jpg", "IMG_4928.jpg", "IMG_4929.jpg", "IMG_4930.jpg", "IMG_4931.jpg", "IMG_4932.jpg", "IMG_4933.jpg", "IMG_4934.jpg", "IMG_4935.jpg", "IMG_4936.jpg", "IMG_4937.jpg", "IMG_4938.jpg", "IMG_4939.jpg", "IMG_4940.jpg", "IMG_4941.jpg", "IMG_4942.jpg", "IMG_4943.jpg", "IMG_4944.jpg", "IMG_4945.jpg", "IMG_4946.jpg", "IMG_4947.jpg", "IMG_4948.jpg", "IMG_4949.jpg", "IMG_4950.jpg", "IMG_4951.jpg", "IMG_4952.jpg", "IMG_4953.jpg", "IMG_4954.jpg", "IMG_4955.jpg", "IMG_4956.jpg", "IMG_4957.jpg", "IMG_4958.jpg", "IMG_4959.jpg", "IMG_4960.jpg", "IMG_4961.jpg", "IMG_4962.jpg", "IMG_4963.jpg", "IMG_4964.jpg", "IMG_4965.jpg", "IMG_4966.jpg"];
+document.getElementById("shoot-count").textContent = SHOOT.length || "…";
+document.getElementById("shoot-grid").innerHTML = SHOOT.map(f =>
+  `<a href="${SHOOT_BASE}/full/${f}"><img src="${SHOOT_BASE}/web/${f}" loading="lazy" alt="documentation shoot photograph"></a>`
 ).join("");
 </script>
 
