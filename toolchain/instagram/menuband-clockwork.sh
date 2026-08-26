@@ -20,6 +20,8 @@ STATE="${MENUBAND_CLOCKWORK_STATE:-$HOME/.local/state}"
 LOG="$STATE/menuband-reels.log"
 BEAT="$STATE/menuband-clockwork.json"
 LEDGER="social/instagram/menuband-ledger.json"
+# The generator appends new waltzes here; the commit carries them home too.
+LANE="pop/menuband/waltzes/reel-lane.json"
 # The renderer's rig: captured menu-bar frames that live outside git. The
 # main working tree keeps the canonical copy (synced from blueberry).
 RIG_SRC="$HOME/aesthetic-computer/pop/menuband/out"
@@ -28,9 +30,28 @@ mkdir -p "$STATE"
 STARTED="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 say() { printf '%s %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$*" | tee -a "$LOG"; }
 
+# An hourly cadence with a quarter-hour render means a slow slot can still be
+# running when the next one fires. The lock makes overlap a quiet skip — the
+# lane self-throttles instead of stacking two renders on an 8 GB machine.
+LOCK="$STATE/menuband-clockwork.lock"
+if [ "$MODE" = "publish" ]; then
+  if mkdir "$LOCK" 2>/dev/null; then
+    echo $$ > "$LOCK/pid"
+  else
+    HOLDER="$(cat "$LOCK/pid" 2>/dev/null || echo unknown)"
+    if [ "$HOLDER" != "unknown" ] && kill -0 "$HOLDER" 2>/dev/null; then
+      say "previous publish (pid $HOLDER) still running — skipping this slot"
+      exit 0
+    fi
+    say "stale lock (pid $HOLDER gone) — taking over"
+    echo $$ > "$LOCK/pid"
+  fi
+fi
+
 STAGE="starting"
 finish() {
   local code=$?
+  [ "$MODE" = "publish" ] && rm -rf "$LOCK"
   printf '{"format":"ac.menuband.clockwork","mode":"%s","startedAt":"%s","finishedAt":"%s","exitCode":%d,"stage":"%s","ok":%s}\n' \
     "$MODE" "$STARTED" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$code" "$STAGE" \
     "$([ $code -eq 0 ] && echo true || echo false)" > "$BEAT"
@@ -83,7 +104,7 @@ set -a
 set +a
 
 cd "$CHECKOUT" || exit 1
-BEFORE="$(git -C "$CHECKOUT" hash-object "$LEDGER" 2>/dev/null || echo none)"
+BEFORE="$(git -C "$CHECKOUT" hash-object "$LEDGER" "$LANE" 2>/dev/null || echo none)"
 
 case "$MODE" in
   publish)
@@ -104,14 +125,14 @@ esac
 
 # --- close the loop in git: the ledger is the record a human reads ---
 STAGE="publishing the ledger"
-AFTER="$(git -C "$CHECKOUT" hash-object "$LEDGER" 2>/dev/null || echo none)"
+AFTER="$(git -C "$CHECKOUT" hash-object "$LEDGER" "$LANE" 2>/dev/null || echo none)"
 if [ "$BEFORE" = "$AFTER" ]; then
   say "ledger unchanged"
 else
-  git -C "$CHECKOUT" add "$LEDGER"
+  git -C "$CHECKOUT" add "$LEDGER" "$LANE"
   git -C "$CHECKOUT" -c user.name="menuband clockwork" \
     -c user.email="clockwork@aesthetic.computer" \
-    commit -q -m "Record menuband reel $MODE" -- "$LEDGER" || {
+    commit -q -m "Record menuband reel $MODE" -- "$LEDGER" "$LANE" || {
       say "nothing to commit"; exit 0; }
   pushed=0
   for attempt in 1 2 3; do

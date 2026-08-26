@@ -10,6 +10,8 @@
 //   node toolchain/instagram/menuband-reel.mjs queue          lane state
 //   node toolchain/instagram/menuband-reel.mjs next           dry-run the pick
 //   node toolchain/instagram/menuband-reel.mjs next --auto    render + publish
+//   node toolchain/instagram/menuband-reel.mjs generate       mint the next
+//                                                             variation, no post
 //   node toolchain/instagram/menuband-reel.mjs insights       refresh ledger
 //
 // Publishing rides ig.mjs (credentials, Spaces upload, ledger append) and
@@ -18,7 +20,7 @@
 // so — publishing never fails on the feedback loop's absence.
 
 import { execFileSync, spawnSync } from "node:child_process";
-import { existsSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 
 const ROOT = resolve(import.meta.dirname, "../..");
@@ -70,6 +72,114 @@ function mp4Path(entry) {
   return resolve(dirname(MANIFEST), manifest.baseDir || ".", entry.outPath);
 }
 
+// ── the generator ────────────────────────────────────────────────────
+// An hourly cadence outruns any hand-written queue, so when every
+// variation is posted the lane writes the next one itself. Waltz no. N is
+// a pure function of N — every checkout that generates it agrees, so the
+// manifest append is a record, not a coordination point. The rock's charter
+// is exactly this function's taste: it may reshape any of these choices.
+
+const WORDS = [
+  "attic", "orchard", "harbor", "meadow", "copper", "satchel", "sparrow",
+  "teacup", "ribbon", "chimney", "garden", "pillow", "mirror", "bicycle",
+  "umbrella", "kettle", "lighthouse", "postcard", "marble", "clover",
+  "fountain", "drawer", "blanket", "compass", "sailboat", "thimble",
+  "walnut", "ivy", "parlor", "gramophone", "saucer", "tangerine", "awning",
+  "brook", "candle", "dormer", "easel", "foyer", "gazebo", "hallway",
+  "inkwell", "jasmine", "knoll", "lattice", "mantel", "napkin", "oriel",
+  "pantry", "quill", "rafter", "shutter", "trellis", "veranda", "wharf",
+  "yarrow", "zinnia", "bellows", "cistern", "dovecote", "embers",
+]; // names repeat after 60 waltzes; the number keeps them distinct
+
+// The audio renderer knows these three; anything else falls back to major.
+const MODES = ["major", "major", "minor", "dorian"];
+const TONICS = ["C", "G", "D", "A", "E", "F"];
+// GM programs that read as "a small instrument in a room" on this renderer.
+const INSTRUMENTS = [
+  [0, "Acoustic Grand Piano"], [4, "Electric Piano 1"], [8, "Celesta"],
+  [9, "Glockenspiel"], [10, "Music Box"], [11, "Vibraphone"],
+  [12, "Marimba"], [21, "Accordion"], [24, "Nylon Guitar"], [46, "Harp"],
+  [71, "Clarinet"], [73, "Flute"],
+];
+const PROGRESSIONS = [
+  [0, 3, 4, 0, 5, 3, 4, 0], [0, 5, 3, 4, 0, 3, 4, 0],
+  [0, 3, 0, 4, 5, 3, 4, 0], [0, 4, 5, 3, 0, 5, 4, 0],
+];
+// bars × 3 beats at this bpm = exactly 60 s, the lane's fixed form.
+const BPMS = [66, 69, 72, 75, 78, 81, 84, 87, 90, 93, 96, 99, 102];
+
+function mulberry32(seed) {
+  let a = seed >>> 0;
+  return () => {
+    a |= 0; a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function hex(h, s, l) {
+  const f = (n) => {
+    const k = (n + h / 30) % 12;
+    const c = l / 100 - (s / 100) * Math.min(l / 100, 1 - l / 100) *
+      Math.max(-1, Math.min(k - 3, 9 - k, 1));
+    return Math.round(255 * c).toString(16).padStart(2, "0");
+  };
+  return `#${f(0)}${f(8)}${f(4)}`;
+}
+
+function generateVariation(n) {
+  const rand = mulberry32(1009 * n + 7);
+  const pick = (list) => list[Math.floor(rand() * list.length)];
+  const name = WORDS[(n - 5 + WORDS.length * 100) % WORDS.length];
+  const bpm = pick(BPMS);
+  // A melody of eight bar-groups: a small random walk over the scale
+  // ladder, 2–4 notes a group, always landing home. It starts mid-ladder
+  // and reflects off the ends — clamping there parks whole phrases on the
+  // floor and everything comes out bass and drone.
+  let degree = 3 + Math.floor(rand() * 5);
+  const melodyBars = Array.from({ length: 8 }, (_, group) => {
+    const notes = Array.from({ length: 2 + Math.floor(rand() * 3) }, () => {
+      const step = [-2, -1, 1, 1, 2][Math.floor(rand() * 5)];
+      degree += degree + step < 0 || degree + step > 11 ? -step : step;
+      return degree;
+    });
+    if (group === 7) notes[notes.length - 1] = 0;
+    return notes;
+  });
+  const hue = (n * 137.508) % 360;
+  const id = `${String(n).padStart(2, "0")}-${name}`;
+  const dir = `pop/menuband/out/menu-band-waltzes/${id}`;
+  const [instrumentProgram, instrumentName] = pick(INSTRUMENTS);
+  return {
+    id, name: name[0].toUpperCase() + name.slice(1),
+    seed: 1009 * n + 7, bpm, bars: bpm / 3,
+    tonic: pick(TONICS), mode: pick(MODES),
+    instrumentProgram, instrumentName,
+    development: n % 2 ? "lift" : "mirror",
+    harmonyDegrees: pick(PROGRESSIONS),
+    melodyBars,
+    notesPath: `${dir}/${id}.notes.json`,
+    audioPath: `${dir}/${id}.wav`,
+    outPath: `${dir}/${id}.mp4`,
+    visual: { palette: [hex(hue, 30, 93), hex(hue, 35, 65), hex(hue, 40, 30)] },
+  };
+}
+
+// When the queue is dry, append waltz no. (highest + 1) to the manifest and
+// hand it back as the next thing to post.
+function ensureQueue() {
+  const open = manifest.variations.find((entry) => !published(entry));
+  if (open) return open;
+  const next = 1 + Math.max(...manifest.variations.map(waltzNumber));
+  const entry = generateVariation(next);
+  manifest.variations.push(entry);
+  writeFileSync(MANIFEST, JSON.stringify(manifest, null, 2) + "\n");
+  console.log(`✎ generated waltz no. ${next} — ${entry.id} · ` +
+    `${entry.bpm} BPM ${entry.tonic} ${entry.mode} · ${entry.instrumentName}`);
+  return entry;
+}
+
 function renderIfNeeded(entry) {
   const out = mp4Path(entry);
   if (existsSync(out) && statSync(out).size > 100_000) return out;
@@ -108,13 +218,15 @@ if (cmd === "queue") {
   for (const entry of manifest.variations)
     console.log(`${published(entry) ? "✓ posted " : "· pending"} ${entry.id} · ` +
       `${entry.name} · ${entry.bpm} BPM · ${entry.instrumentName}`);
+} else if (cmd === "generate") {
+  // Force-mint the next variation without posting — for inspection, and for
+  // the rock to see what the house generator would have done.
+  const before = manifest.variations.length;
+  const entry = ensureQueue();
+  if (manifest.variations.length === before)
+    console.log(`queue is not dry — next up is ${entry.id}, nothing generated`);
 } else if (cmd === "next") {
-  const entry = manifest.variations.find((candidate) => !published(candidate));
-  if (!entry) {
-    console.log(`lane is empty — every variation in ${basename(MANIFEST)} is ` +
-      `posted; the rock owes the next one`);
-    process.exit(0);
-  }
+  const entry = ensureQueue();
   if (!auto) {
     console.log(`would post ${entry.id} · audio "${audioName(entry)}" · caption:`);
     console.log(caption(entry).replace(/^/gm, "  "));
@@ -127,4 +239,4 @@ if (cmd === "queue") {
     [IG, "--as", "menuband", "insights", "--refresh"],
     { cwd: ROOT, stdio: "inherit" });
   process.exit(refresh.status ?? 1);
-} else die(`unknown command "${cmd}" — queue | next [--auto] | insights`);
+} else die(`unknown command "${cmd}" — queue | next [--auto] | generate | insights`);
