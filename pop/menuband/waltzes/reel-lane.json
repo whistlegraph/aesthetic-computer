@@ -71,6 +71,63 @@
   },
   "variations": [
     {
+      "id": "03-ferry",
+      "name": "Ferry",
+      "seed": 3089,
+      "bpm": 96,
+      "bars": 32,
+      "tonic": "D",
+      "mode": "dorian",
+      "instrumentProgram": 21,
+      "instrumentName": "Accordion",
+      "development": "mirror",
+      "harmonyDegrees": [0, 3, 0, 4, 5, 3, 4, 0],
+      "melodyBars": [
+        [0, 1, 2], [3, 4, 5], [6, 7, 8], [9, 10],
+        [10, 9, 8], [7, 6, 5], [4, 3, 2], [1, 0]
+      ],
+      "notesPath": "pop/menuband/out/menu-band-waltzes/03-ferry/03-ferry.notes.json",
+      "audioPath": "pop/menuband/out/menu-band-waltzes/03-ferry/03-ferry.wav",
+      "outPath": "pop/menuband/out/menu-band-waltzes/03-ferry/03-ferry.mp4",
+      "visual": {
+        "palette": ["#e7f1f0", "#91b8b5", "#315f72"],
+        "rig": "menubar-frames-qwerty",
+        "keyLadder": false,
+        "highway": {
+          "enabled": true,
+          "travelSec": 3.6,
+          "startY": -56,
+          "keyInsetPx": 3,
+          "radiusPx": 10,
+          "alpha": 0.94,
+          "glowAlpha": 0.4,
+          "glowPx": 16,
+          "guides": false,
+          "lanes": false,
+          "laneAlpha": 0.26,
+          "laneWidthPx": 2,
+          "laneDashPx": 16,
+          "laneGapPx": 13,
+          "dashSpeedPx": 54
+        },
+        "motion": {
+          "stripWidth": 1.2,
+          "centerY": 0.72,
+          "framePaddingPx": 5,
+          "bounceScale": 0.012,
+          "floatFrequency": 0.5,
+          "floatTilt": 0.0034,
+          "swayPx": 10,
+          "swayFrequency": 2.15,
+          "swayHarmonic": 0.28,
+          "swayTilt": 0.01
+        },
+        "particles": {
+          "density": 1.0
+        }
+      }
+    },
+    {
       "id": "04-stairwell",
       "name": "Stairwell",
       "seed": 4111,
