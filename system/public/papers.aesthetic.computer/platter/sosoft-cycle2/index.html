@@ -30,7 +30,16 @@ body {
 }
 a { color: var(--accent2); text-decoration: none; }
 a:hover { color: var(--accent); text-decoration: underline; }
-header { padding: 22px 0 14px; border-bottom: 1px solid var(--border); }
+header { padding: 22px 0 14px; border-bottom: 1px solid var(--border); position: relative; }
+.dl-all {
+  position: absolute; right: 0; top: 24px;
+  font-size: 11px; border: 1px solid var(--border); padding: 5px 10px;
+  color: var(--accent2);
+}
+.dl-all:hover { border-color: var(--accent); text-decoration: none; }
+@media (max-width: 720px) {
+  .dl-all { position: static; display: inline-block; margin-top: 8px; }
+}
 h1 { font-size: 18px; font-weight: normal; letter-spacing: 3px; }
 h1 .accent { color: var(--accent); }
 .sub { font-size: 11px; color: var(--fg2); margin-top: 4px; }
@@ -61,6 +70,11 @@ p.dim { color: var(--fg2); font-size: 12px; }
 .grid.works img { aspect-ratio: 4 / 5; }
 .grid.works .cap { font-size: 11px; padding: 5px 6px 6px; line-height: 1.35; }
 .grid.works .cap em { color: var(--fg); font-style: italic; }
+.bucket-label {
+  font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase;
+  color: var(--fg2); margin: 18px 0 2px;
+}
+.bucket-label em { color: var(--fg); font-style: italic; text-transform: none; letter-spacing: 0; }
 .grid.photos { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 5px; }
 .grid.photos img { aspect-ratio: 1; }
 .grid.fuser { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 4px; }
@@ -100,6 +114,7 @@ footer { margin-top: 50px; padding-top: 12px; border-top: 1px solid var(--border
 <header>
   <h1>SCORES FOR SOCIAL SOFTWARE <span class="accent">·</span> CYCLE 2</h1>
   <div class="sub">Jeffrey Scudder / <a href="https://aesthetic.computer">Aesthetic Computer</a> — every asset from the ten weeks, in one place · part of the <a href="/platter.html">research platter</a></div>
+  <a class="dl-all" href="https://assets.aesthetic.computer/sosoft/scores-for-social-software-cycle2-assets.zip">&#8595; everything.zip · 500&nbsp;MB</a>
 </header>
 
 <section id="works">
@@ -114,7 +129,7 @@ footer { margin-top: 50px; padding-top: 12px; border-top: 1px solid var(--border
   <ul class="links">
     <li><span class="file">zip</span><a href="https://assets.aesthetic.computer/sosoft/photos/july-16-documentation-shoot.zip">download all originals</a> — <span id="shoot-count"></span> photographs, full resolution</li>
   </ul>
-  <div class="grid photos" id="shoot-grid"></div>
+  <div id="shoot-buckets"></div>
 </section>
 
 <section id="fuser">
@@ -361,14 +376,56 @@ document.getElementById("works-grid").innerHTML = WORKS.map(([f, artist, title],
   `<a class="tile" data-seq="${worksStart + i}"><img src="${SHOOT_BASE}/web/${f}" loading="lazy" alt="${artist} \u2014 ${title}"><span class="cap">${artist}<br><em>${title}</em></span></a>`
 ).join("");
 
-buildGrid(document.getElementById("shoot-grid"), SHOOT_GROUPS,
-  f => `${SHOOT_BASE}/web/${f}`, f => `${SHOOT_BASE}/full/${f}`, shootCap);
+// Documentation shoot, sorted by artist / piece (colophon order).
+const BUCKETS = [
+  ["folder", [[4753, 4776]], "the delivery folder"],
+  ["unboxing", [[4777, 4781]], "unboxing"],
+  ["colophon", [[4804, 4811], [4831, 4831]], "colophon card"],
+  ["scudder", [[4812, 4820], [4829, 4830], [4923, 4935]], "Jeffrey Alan Scudder — <em>Notepat</em>"],
+  ["cavendish", [[4821, 4827], [4832, 4834]], "Æther Cavendish — <em>Vigil Score</em>"],
+  ["jin", [[4828, 4828], [4835, 4839], [4917, 4922], [4946, 4954]], "Chelly Jin — <em>Software as a Choreography</em>"],
+  ["silver", [[4840, 4844], [4942, 4945], [4955, 4966]], "Jordan Silver — <em>Sonic Architecture</em>"],
+  ["lugo", [[4845, 4860]], "Em Lugo — <em>Cues for Losing Direction</em>"],
+  ["phan", [[4861, 4867]], "Darlyn Phan — <em>Line Piece 1</em>"],
+  ["noya", [[4868, 4869]], "Thomas Noya — <em>Biophonía</em> (signed verso)"],
+  ["huang", [[4870, 4873]], "Banyi Huang — <em>A Cosmographic Score for Folding Back into the Kernel</em>"],
+  ["espinosa", [[4874, 4878], [4936, 4941]], "Alex Espinosa — <em>Music for World Computers</em>"],
+  ["vu", [[4879, 4882]], "Mavyn Vu — <em>The Radio Is an Altar : Portal</em>"],
+  ["autotune", [[4883, 4888]], "Lauren Lee McCarthy and Casey Reas — <em>Auto Tune</em>"],
+  ["spreads", [[4782, 4803], [4889, 4900]], "contents spreads"],
+  ["edition", [[4901, 4916]], "the edition of 64"],
+];
+const frameNum = f => parseInt(stem(f).slice(4), 10);
+function bucketOf(f) {
+  const n = frameNum(f);
+  return BUCKETS.find(([, ranges]) => ranges.some(([a, b]) => n >= a && n <= b));
+}
+const holder = document.getElementById("shoot-buckets");
+for (const [key, , title] of BUCKETS) {
+  // split dedup groups at bucket boundaries, keep chronological order inside
+  const groups = [];
+  for (const g of SHOOT_GROUPS) {
+    const mine = g.filter(f => bucketOf(f) && bucketOf(f)[0] === key);
+    if (mine.length) groups.push(mine);
+  }
+  if (!groups.length) continue;
+  const label = document.createElement("div");
+  label.className = "bucket-label";
+  label.innerHTML = `${title} · ${groups.flat().length}`;
+  holder.appendChild(label);
+  const grid = document.createElement("div");
+  grid.className = "grid photos";
+  grid.id = `bucket-${key}`;
+  holder.appendChild(grid);
+  buildGrid(grid, groups,
+    f => `${SHOOT_BASE}/web/${f}`, f => `${SHOOT_BASE}/full/${f}`, shootCap);
+}
 buildGrid(document.getElementById("fuser-grid"), FUSER_GROUPS,
   f => `img/fuser/${f}`, f => `img/fuser/${f}`, fuserCap);
 document.getElementById("shoot-count").textContent = SHOOT_GROUPS.flat().length;
 
 // grid interactions: badge expands the burst, tile opens the viewer
-document.querySelectorAll(".grid").forEach(grid => grid.addEventListener("click", e => {
+document.addEventListener("click", e => {
   const badge = e.target.closest(".badge");
   if (badge) {
     e.preventDefault(); e.stopPropagation();
@@ -383,7 +440,7 @@ document.querySelectorAll(".grid").forEach(grid => grid.addEventListener("click"
   }
   const tile = e.target.closest(".tile");
   if (tile && tile.dataset.seq !== undefined) { e.preventDefault(); openLb(Number(tile.dataset.seq)); }
-}));
+});
 
 // lightbox
 const lb = document.getElementById("lightbox");
