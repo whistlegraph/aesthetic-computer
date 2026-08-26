@@ -31,6 +31,7 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync }
 import { homedir, hostname } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { enqueueLoopboyEvent } from "../../slab/lib/loopboy-inbox.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const IG = join(HERE, "ig.mjs");
@@ -70,11 +71,17 @@ const readRoutes = () => readJson(CONFIG, { version: 1, routes: {} });
 function doBind() {
   const [mediaId, handle] = positional;
   if (!mediaId || !handle?.includes(":"))
-    die(`usage: reelboy.mjs bind <media-id> <host:name> [--account oskiewar] [--note …]`);
+    die(`usage: reelboy.mjs bind <media-id> <host:name> [--account oskiewar] ` +
+      `[--contact reelboy] [--note …]`);
   const config = readRoutes();
   config.routes[mediaId] = {
     account: String(flags.account || "oskiewar"),
     handle,
+    // The Loopboy contact key this reel's rock was launched under. When a
+    // guarded Loopboy holds that route, digests ride the durable bus and
+    // deliveries wake it properly; without one, reelboy falls back to the
+    // inbox file plus a poke.
+    contact: String(flags.contact || "reelboy"),
     note: typeof flags.note === "string" ? flags.note : "",
     boundAt: new Date().toISOString(),
   };
@@ -140,6 +147,38 @@ function digestText(mediaId, route, freshComments, insights, previous) {
   return lines.join("\n") + "\n";
 }
 
+// ── loopboy bus ──────────────────────────────────────────────────────
+// When the route's rock is a guarded Loopboy (launched with a contact key),
+// its session id sits in loopboy.json and the durable bus delivers to it the
+// way a client's iMessage would: a heartbeat every pass so the overlay shows
+// the loop alive, and a message event carrying the digest itself. The bus
+// write never replaces the archive file or the poke — it adds the delivery.
+function loopboySessionId(contact) {
+  if (!contact) return null;
+  const config = readJson(join(HOME, ".config", "slab", "loopboy.json"), null);
+  return config?.loops?.[contact]?.sessionId || null;
+}
+
+async function busDeliver(route, { kind, excerpt, prompt }) {
+  const sessionId = loopboySessionId(route.contact);
+  if (!sessionId) return false;
+  try {
+    await enqueueLoopboyEvent({
+      sessionId,
+      contact: route.contact,
+      channel: "reel",
+      displayName: `reelboy · @${route.account}`,
+      kind,
+      excerpt,
+      prompt: prompt || "",
+    });
+    return true;
+  } catch (error) {
+    console.error(`✗ bus delivery (${route.contact}): ${error.message}`);
+    return false;
+  }
+}
+
 // ── poke ─────────────────────────────────────────────────────────────
 // The same ledger Loopboy pokes through: local.json plus every peer file,
 // one row per rock, each ledger carrying the tailnet ip a poke posts to.
@@ -198,6 +237,11 @@ async function doPass() {
     const seen = new Set(state.seenComments);
     const fresh = comments.filter((row) => !seen.has(row.id));
     const statsMoved = statTrigger(state.insights, insights);
+    // Every pass leaves a heartbeat on the rock's bus — the overlay's pulse
+    // that says the loop is alive — whether or not anything else happens.
+    await busDeliver(route, { kind: "heartbeat",
+      excerpt: `${mediaId} · views ${insights.views ?? "—"} · ` +
+        `${state.seenComments.length + fresh.length} comment(s) seen` });
     if (!fresh.length && !statsMoved) {
       // Quiet reel: remember the numbers, say nothing, wake nobody.
       state.insights = insights;
@@ -207,15 +251,20 @@ async function doPass() {
     mkdirSync(INBOX, { recursive: true });
     const stamp = new Date().toISOString().replace(/[:.]/g, "-");
     const digestPath = join(INBOX, `${mediaId}-${stamp}.md`);
-    writeFileSync(digestPath,
-      digestText(mediaId, route, fresh, insights, state.insights));
+    const digest = digestText(mediaId, route, fresh, insights, state.insights);
+    writeFileSync(digestPath, digest);
     state.seenComments = [...seen, ...fresh.map((row) => row.id)];
     state.insights = insights;
     state.lastDigestAt = new Date().toISOString();
     writeJson(statePath, state);
+    const delivered = await busDeliver(route, { kind: "message",
+      excerpt: `${fresh.length} new comment(s)` +
+        `${statsMoved ? ", stats moved" : ""} on ${mediaId}`,
+      prompt: digest.slice(0, 6000) });
     const poked = await poke(route.handle);
     console.log(`✓ ${mediaId}: ${fresh.length} new comment(s)` +
-      `${statsMoved ? ", stats moved" : ""} → ${digestPath} · ${poked}`);
+      `${statsMoved ? ", stats moved" : ""} → ${digestPath}` +
+      `${delivered ? " · bus delivered" : ""} · ${poked}`);
   }
 }
 

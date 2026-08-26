@@ -367,8 +367,13 @@ async function toolLaunch({ host, agent, cwd, prompt = "", by, loopboyContact = 
     if (String(target.host).toLowerCase() !== String(self).toLowerCase()) {
       throw new Error("Loopboy contact routes can only be launched on this local iMessage host");
     }
-    if (!result.nudgeScreen) {
-      throw new Error("Loopboy launch did not return a nudge screen; prompt host needs the updated Slab build");
+    // Loopboys live on the real Terminal PTY now — the ledger stopped
+    // wrapping them in GNU Screen (focus-report sequences leaked into the
+    // agent as literal input) and returns `nudgeScreen` as an empty string.
+    // The field's PRESENCE is still the version handshake with the prompt
+    // host; the marker poll below is the actual proof of launch.
+    if (!("nudgeScreen" in result)) {
+      throw new Error("Loopboy launch reply is missing nudgeScreen; prompt host needs the updated Slab build");
     }
     let marker = null;
     for (let attempt = 0; attempt < 20 && !marker; attempt++) {
