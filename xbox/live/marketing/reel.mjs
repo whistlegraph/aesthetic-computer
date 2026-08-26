@@ -168,7 +168,7 @@ async function goLive(record) {
   try {
     const bound = execFileSync(process.execPath,
       [join(repo, "toolchain", "instagram", "reelboy.mjs"),
-        "autobind", String(posted.mediaId)],
+        "autobind", String(posted.mediaId), "--account", "oskiewar"],
       { encoding: "utf8", timeout: 20000 }).trim();
     log(`   ${bound}`);
   } catch (error) {

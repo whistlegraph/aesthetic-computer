@@ -1,0 +1,97 @@
+{
+  "schema": "menu-band-waltzes/v1",
+  "title": "Menu Band Waltzes — reel lane",
+  "comment": "The autoposting continuation of the waltz series. menuband-clockwork publishes the first variation here that the @menuband.app ledger has not seen, oldest first; the reelboy rock proposes the next variation in response to reel feedback. Defaults carry the flat vertical play-along treatment (Waltz No. 3's ferry rig) — the paper-loop-3d sheet stays out of this lane.",
+  "baseDir": "../../..",
+  "defaults": {
+    "durationSec": 60,
+    "meter": "3/4",
+    "melodyOnly": true,
+    "startsOnScreen": true,
+    "revealAtSec": 0.5,
+    "revealDurationSec": 1.2,
+    "exitAtSec": 58.2,
+    "exitDurationSec": 1.4,
+    "visual": {
+      "reveal": {
+        "curtainAlpha": 0
+      },
+      "rig": "menubar-frames-qwerty",
+      "keyLadder": false,
+      "highway": {
+        "enabled": true,
+        "travelSec": 3.6,
+        "startY": -56,
+        "keyInsetPx": 3,
+        "radiusPx": 10,
+        "alpha": 0.94,
+        "glowAlpha": 0.4,
+        "glowPx": 16,
+        "guides": false,
+        "lanes": false,
+        "laneAlpha": 0.26,
+        "laneWidthPx": 2,
+        "laneDashPx": 16,
+        "laneGapPx": 13,
+        "dashSpeedPx": 54
+      },
+      "motion": {
+        "stripWidth": 1.2,
+        "centerY": 0.72,
+        "framePaddingPx": 5,
+        "bounceScale": 0.012,
+        "breathPx": 5,
+        "bouncePx": 28,
+        "bounceDecay": 6.2,
+        "bounceFrequency": 16,
+        "floatFrequency": 0.5,
+        "floatTilt": 0.0034,
+        "swayPx": 10,
+        "swayFrequency": 2.15,
+        "swayHarmonic": 0.28,
+        "swayTilt": 0.01,
+        "shadowAlpha": 0.16,
+        "shadowBlur": 18
+      },
+      "particles": {
+        "density": 1.0,
+        "gravity": 315,
+        "drift": 38,
+        "spin": 0.55,
+        "size": 0.92
+      },
+      "lighting": {
+        "strength": 0.9,
+        "radius": 340,
+        "globalAlpha": 0.09,
+        "hold": 0.2,
+        "keyHold": 0.18
+      }
+    }
+  },
+  "variations": [
+    {
+      "id": "04-stairwell",
+      "name": "Stairwell",
+      "seed": 4111,
+      "bpm": 78,
+      "bars": 26,
+      "tonic": "G",
+      "mode": "major",
+      "instrumentProgram": 11,
+      "instrumentName": "Vibraphone",
+      "development": "lift",
+      "harmonyDegrees": [0, 3, 4, 0, 3, 5, 4, 0],
+      "melodyBars": [
+        [0, 2, 4], [5, 7, 9], [11, 9, 7], [9, 7, 5],
+        [4, 5, 7], [7, 5, 4], [2, 4, 5], [4, 2, 0]
+      ],
+      "notesPath": "pop/menuband/out/menu-band-waltzes/04-stairwell/04-stairwell.notes.json",
+      "audioPath": "pop/menuband/out/menu-band-waltzes/04-stairwell/04-stairwell.wav",
+      "outPath": "pop/menuband/out/menu-band-waltzes/04-stairwell/04-stairwell.mp4",
+      "visual": {
+        "palette": ["#f6efe4", "#d9b98c", "#8c6a4f"]
+      }
+    }
+  ]
+}

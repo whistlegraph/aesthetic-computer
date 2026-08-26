@@ -14,8 +14,8 @@
 //   node toolchain/instagram/reelboy.mjs                 one pass, all routes
 //   node toolchain/instagram/reelboy.mjs bind <media-id> <host:name>
 //        [--account oskiewar] [--note "gen 1"]           create/replace route
-//   node toolchain/instagram/reelboy.mjs autobind <media-id>
-//        inherit the newest route's rock (the publish lane calls this)
+//   node toolchain/instagram/reelboy.mjs autobind <media-id> [--account …]
+//        inherit the account's newest route (the publish lanes call this)
 //   node toolchain/instagram/reelboy.mjs routes          list routes + state
 //
 // Cron arms it (the pass is silent when nothing is new):
@@ -97,19 +97,27 @@ function doBind() {
 // generations keep their routes for a while — late comments on last week's
 // reel are still feedback — but only the newest three stay watched, so the
 // pass never grows into a crawl of the whole back catalog.
+//
+// Several lanes share this file, one route family per Instagram account, so
+// inheritance and pruning both stay inside the caller's family: an oskiewar
+// publish must neither inherit the menuband rock nor age menuband's routes
+// out of the watch.
 function doAutobind() {
   const [mediaId] = positional;
-  if (!mediaId) die(`usage: reelboy.mjs autobind <media-id>`);
+  if (!mediaId) die(`usage: reelboy.mjs autobind <media-id> [--account oskiewar]`);
+  const account = typeof flags.account === "string" ? flags.account : null;
   const config = readRoutes();
-  const entries = Object.entries(config.routes);
-  if (!entries.length)
-    die(`no existing route to inherit — reelboy is not armed on this machine`);
+  const family = Object.entries(config.routes)
+    .filter(([, route]) => !account || route.account === account);
+  if (!family.length)
+    die(`no existing ${account ? `@${account} ` : ""}route to inherit — ` +
+      `reelboy is not armed for this lane on this machine`);
   if (config.routes[mediaId]) {
     console.log(`✓ reelboy already watches ${mediaId}`);
     return;
   }
   const byAge = (a, b) => String(a[1].boundAt).localeCompare(String(b[1].boundAt));
-  const [, newest] = entries.sort(byAge).at(-1);
+  const [, newest] = family.sort(byAge).at(-1);
   config.routes[mediaId] = {
     account: newest.account,
     handle: newest.handle,
@@ -117,11 +125,17 @@ function doAutobind() {
     note: "auto-bound on publish",
     boundAt: new Date().toISOString(),
   };
+  const siblings = Object.entries(config.routes)
+    .filter(([, route]) => route.account === newest.account)
+    .sort(byAge);
+  const aged = new Set(siblings.slice(0, -3).map(([id]) => id));
   config.routes = Object.fromEntries(
-    Object.entries(config.routes).sort(byAge).slice(-3));
+    Object.entries(config.routes).filter(([id]) => !aged.has(id)));
   writeJson(CONFIG, config);
+  const watched = Object.values(config.routes)
+    .filter((route) => route.account === newest.account).length;
   console.log(`✓ reelboy auto-bound ${mediaId} → ${newest.handle} ` +
-    `(${Object.keys(config.routes).length} generation(s) watched)`);
+    `(${watched} @${newest.account} generation(s) watched)`);
 }
 
 function doRoutes() {

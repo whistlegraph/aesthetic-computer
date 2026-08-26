@@ -65,8 +65,8 @@ function parse(argv) {
 function loadCollection(path) {
   if (!existsSync(path)) throw new Error(`manifest is missing: ${path}`);
   const root = JSON.parse(readFileSync(path, "utf8"));
-  if (!Array.isArray(root.variations) || root.variations.length !== 3) {
-    throw new Error("Menu Band Waltzes must contain exactly three pieces");
+  if (!Array.isArray(root.variations) || root.variations.length < 1) {
+    throw new Error("a waltz manifest must contain at least one piece");
   }
   const defaults = root.defaults || {};
   return root.variations.map((entry) => ({ ...defaults, ...entry, visual: { ...(defaults.visual || {}), ...(entry.visual || {}) } }));
