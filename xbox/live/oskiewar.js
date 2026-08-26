@@ -10,18 +10,32 @@
 // that copy rather than allocating another.
 const hostRuntime = runtime;
 let clockEpoch = null;
+// Game speed is the clock, not a patch on top of it. Every deadline, spring,
+// bot die-roll and animation in this piece reads one monotonic stream, so
+// scaling the stream's increments scales the whole game coherently — physics,
+// input windows, round timers, all in step. Set from the title screen with
+// +/- on a keyboard, in quarter steps between a quarter and double speed;
+// the offline reel harness drives simMonotonicUs itself and never touches
+// this, so recordings always run at one.
+let gameSpeed = 1;
+let gameSpeedChangedAt = 0;
+let scaledClockUs = 0;
+let lastRawClockUs = null;
 runtime = function acRuntime() {
   const info = hostRuntime();
   const raw = Number(info.monotonicUs) || 0;
   if (clockEpoch === null) clockEpoch = raw;
-  info.monotonicUs = raw - clockEpoch;
+  if (lastRawClockUs === null) lastRawClockUs = raw;
+  scaledClockUs += (raw - lastRawClockUs) * gameSpeed;
+  lastRawClockUs = raw;
+  info.monotonicUs = Math.round(scaledClockUs);
   if (typeof info.simMonotonicUs === "number")
     info.simMonotonicUs -= clockEpoch;
   return info;
 };
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 84;
+const buildVersion = 85;
 const floorY = 1800;
 // The cube. @jeffrey climbed the tower and asked for the opposite: a small
 // closed box — "like a 10ft by 10ft cube" — with nothing in it but two
@@ -1126,6 +1140,7 @@ let replayOfferPrevious = [];
 let shellMode = "MENU";
 let gameplayStarted = false;
 let shellPrevious = [];
+let shellRawPrevious = [];
 // Whether the stick was already leaned last frame, so a held lean reads as
 // one gesture at the title rather than a machine-gun of entries.
 let shellStickLive = false;
@@ -2565,11 +2580,31 @@ function enterGame(now) {
 
 function updateShell(now) {
   const pad = padSnapshots[0] || {};
+  // The title screen is where the game's pace is set: +/- on a keyboard
+  // step the clock a quarter at a time, from a quarter speed to double.
+  // Handled before anything else so a speed tap can never read as "start",
+  // and edge-detected against the unfiltered pad so holding the key steps
+  // exactly once.
+  const rawDown = pad.down || [];
+  const speedTap = (button) => rawDown.includes(button) &&
+    !shellRawPrevious.includes(button);
+  if (speedTap("SpeedUp") || speedTap("SpeedDown")) {
+    const stepped = gameSpeed + (speedTap("SpeedUp") ? .25 : -.25);
+    const next = clamp(stepped, .25, 2);
+    if (next !== gameSpeed) {
+      gameSpeed = next;
+      gameSpeedChangedAt = now;
+      playDrum("hat", .55, speedTap("SpeedUp") ? .35 : -.35);
+      emitSignal("game-speed", -1, gameSpeed, 0);
+    } else playDrum("block", .3, 0);
+  }
+  shellRawPrevious = rawDown.slice();
   // View and Menu are the system's buttons — View toggles the debug HUD and
   // must not double as "start the game". Everything else, and a real lean on
   // the analog stick, says the player wants in.
-  const down = (pad.down || [])
-    .filter((button) => button !== "View" && button !== "Menu");
+  const down = rawDown
+    .filter((button) => button !== "View" && button !== "Menu" &&
+      button !== "SpeedUp" && button !== "SpeedDown");
   const stickLive = Math.abs(pad.leftX || 0) > .5 || Math.abs(pad.leftY || 0) > .5;
   if (titleTransitionAt !== null) {
     if (now - titleTransitionAt >= 700000) {
@@ -10091,6 +10126,19 @@ function drawTitleScreen(t, ink, transitionAge = -1) {
         typeWrite(character, x + offset, y + offset, size, ...shadowInk);
       typeWrite(character, x, y, size, ...litInk);
       promptCursor += advance;
+    }
+    // The pace tag. Quiet unless the clock is off its default — or was just
+    // touched, so stepping back to one still answers the keypress — a small
+    // line under the start word saying what +/- have dialed in.
+    const paceNow = runtime().monotonicUs;
+    if (gameSpeed !== 1 || (gameSpeedChangedAt &&
+        paceNow - gameSpeedChangedAt < 2400000)) {
+      const pace = "speed ×" + gameSpeed;
+      const paceSize = Math.max(14, Math.round(button.textSize * .34));
+      const paceX = button.x + (button.width - handleWidth(pace, paceSize)) / 2;
+      const paceY = button.y + button.height + Math.round(paceSize * .4);
+      typeWrite(pace, paceX + 2, paceY + 3, paceSize, ...shadowInk);
+      typeWrite(pace, paceX, paceY, paceSize, ...promptInk);
     }
   }
   // Touch play keeps its thumbs in the bottom corners, and the fight is live
