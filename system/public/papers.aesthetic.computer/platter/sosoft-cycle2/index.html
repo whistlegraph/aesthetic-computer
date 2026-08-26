@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>scores for social software · cycle 2 · platter</title>
+<meta name="description" content="Canonical index of Jeffrey Scudder's assets for UCLA Social Software Cycle 2 — the keymaps paper and edition, the doc, header illustrations, KidLisp score cards, the proposal, and the reel.">
+<link rel="icon" href="https://aesthetic.computer/icon/128x128/prompt.png" type="image/png">
+<link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/berkeley-mono-variable.css">
+<style>
+:root {
+  color-scheme: dark light;
+  --bg: #111; --bg2: #1a1a1a; --fg: #ddd; --fg2: #888;
+  --accent: #ff6b9d; --accent2: #4ecdc4; --gold: #ffd93d;
+  --border: #333; --hover: #222;
+}
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: #fafafa; --bg2: #fff; --fg: #222; --fg2: #666;
+    --accent: #d63384; --accent2: #0a8a82; --gold: #b8860b;
+    --border: #ddd; --hover: #f0f0f0;
+  }
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { background: var(--bg); color: var(--fg); }
+body {
+  font-family: 'Berkeley Mono Variable', ui-monospace, monospace;
+  font-size: 13px; line-height: 1.5;
+  max-width: 1000px; margin: 0 auto; padding: 0 14px 80px;
+}
+a { color: var(--accent2); text-decoration: none; }
+a:hover { color: var(--accent); text-decoration: underline; }
+header { padding: 22px 0 14px; border-bottom: 1px solid var(--border); }
+h1 { font-size: 18px; font-weight: normal; letter-spacing: 3px; }
+h1 .accent { color: var(--accent); }
+.sub { font-size: 11px; color: var(--fg2); margin-top: 4px; }
+section { margin-top: 34px; }
+h2 {
+  font-size: 13px; font-weight: normal; letter-spacing: 2px;
+  text-transform: uppercase; color: var(--gold);
+  border-bottom: 1px solid var(--border); padding-bottom: 6px; margin-bottom: 12px;
+}
+p { margin-bottom: 10px; max-width: 72ch; }
+p.dim { color: var(--fg2); font-size: 12px; }
+.links { list-style: none; margin: 8px 0; }
+.links li { padding: 3px 0; }
+.links .file {
+  display: inline-block; min-width: 52px; margin-right: 8px;
+  color: var(--fg2); font-size: 11px; text-transform: uppercase;
+}
+.hero { width: 100%; border: 1px solid var(--border); display: block; }
+.duo { display: flex; gap: 14px; flex-wrap: wrap; margin: 12px 0; }
+.duo .col { flex: 1 1 300px; }
+.thumb { max-width: 220px; border: 1px solid var(--border); display: block; margin-bottom: 8px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 8px; margin-top: 10px; }
+.grid a { display: block; background: var(--bg2); border: 1px solid var(--border); }
+.grid a:hover { border-color: var(--accent2); }
+.grid img { width: 100%; display: block; aspect-ratio: 3 / 2; object-fit: cover; }
+.grid.cards img { aspect-ratio: auto; object-fit: contain; background: #fff; }
+.grid .cap { font-size: 10px; color: var(--fg2); padding: 3px 5px; display: block; }
+video { width: 100%; max-width: 420px; border: 1px solid var(--border); background: #000; display: block; }
+iframe { width: 100%; height: 560px; border: 1px solid var(--border); background: #fff; }
+footer { margin-top: 50px; padding-top: 12px; border-top: 1px solid var(--border); font-size: 11px; color: var(--fg2); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>SCORES FOR SOCIAL SOFTWARE <span class="accent">·</span> CYCLE 2</h1>
+  <div class="sub">Jeffrey Scudder / <a href="https://aesthetic.computer">Aesthetic Computer</a> — every asset from the ten weeks, in one place · part of the <a href="/platter.html">research platter</a></div>
+</header>
+
+<section id="doc">
+  <h2>The Doc — live on sosoft.arts.ucla.edu</h2>
+  <p>The plain-spoken companion to the paper, published on the Social Software site, revised through Casey's anchored copy-edits.</p>
+  <ul class="links">
+    <li><span class="file">live</span><a href="https://sosoft.arts.ucla.edu/keymaps-as-social-software/">The Keymap Is the Score — sosoft.arts.ucla.edu</a></li>
+    <li><span class="file">md</span><a href="files/keymaps-doc.md">keymaps-doc.md</a> — canonical source text</li>
+    <li><span class="file">md</span><a href="files/casey-edit-log.md">casey-edit-log.md</a> — comment-by-comment record of Casey's copy-edits and how each was resolved</li>
+    <li><span class="file">docx</span><a href="files/keymaps-final-with-edit-log.docx">keymaps-final-with-edit-log.docx</a> — final text with the edit log appended</li>
+  </ul>
+</section>
+
+<section id="paper">
+  <h2>The Paper — the edition score</h2>
+  <p>“Keymaps as Social Software” — the research paper printed as sixty-four copies for the collated Cycle 2 publication, with a mobile cards format and five translations.</p>
+  <div class="duo">
+    <div class="col">
+      <a href="/keymaps-social-software-26-arxiv.pdf"><img class="thumb" src="/thumbs/keymaps-social-software-26-arxiv.jpg" alt="Keymaps as Social Software — first page"></a>
+      <ul class="links">
+        <li><span class="file">pdf</span><a href="/keymaps-social-software-26-arxiv.pdf">Keymaps as Social Software</a></li>
+        <li><span class="file">cards</span><a href="/keymaps-social-software-26-arxiv-cards.pdf">single-sheet cards format</a></li>
+        <li><span class="file">lang</span><a href="/keymaps-social-software-26-arxiv-da.pdf">DA</a> · <a href="/keymaps-social-software-26-arxiv-es.pdf">ES</a> · <a href="/keymaps-social-software-26-arxiv-zh.pdf">ZH</a> · <a href="/keymaps-social-software-26-arxiv-ja.pdf">JA</a> · <a href="/keymaps-social-software-26-arxiv-ru.pdf">RU</a></li>
+      </ul>
+    </div>
+    <div class="col">
+      <a href="/the-keymap-is-the-score-essay.pdf"><img class="thumb" src="/thumbs/the-keymap-is-the-score-essay.jpg" alt="The Keymap Is the Score — essay first page"></a>
+      <ul class="links">
+        <li><span class="file">pdf</span><a href="/the-keymap-is-the-score-essay.pdf">The Keymap Is the Score</a> — the essay that follows the argument into the hand-assembled edition</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section id="keymap">
+  <h2>Interactive Keymap</h2>
+  <p>The p5.js notepat keymap embedded at the foot of the doc — press the keys.</p>
+  <iframe src="notepat.html" title="notepat keymap — interactive"></iframe>
+</section>
+
+<section id="illys">
+  <h2>Header Illustration Study</h2>
+  <p>Colored-pencil illustrations for the doc header. The chosen image: a circle of listeners gathered outdoors around a laptop of keymap tiles, notes in the air.</p>
+  <a href="img/keymaps-header-full.png"><img class="hero" src="img/keymaps-header.jpg" alt="Chosen doc header — house-show illustration"></a>
+  <p class="dim" style="margin-top:6px;">Click for full resolution. Below, the full study — house-show variants (v2), studio variants (v1), and the earlier header explorations.</p>
+  <div class="grid" id="illy-grid"></div>
+</section>
+
+<section id="proposal">
+  <h2>Cycle 2 Proposal &amp; KidLisp Score Cards — March 2026</h2>
+  <p>The opening proposal — Aesthetic Computer submitted as a social software project in active development — and the KidLisp score cards with QR codes that accompanied it.</p>
+  <ul class="links">
+    <li><span class="file">pdf</span><a href="files/cycle2-proposal.pdf">Aesthetic Computer: Open Development — Cycle 2 proposal</a></li>
+    <li><span class="file">pdf</span><a href="files/session-5.pdf">session 5 handout</a></li>
+    <li><span class="file">pdf</span>cards: <a href="files/kidlisp-card.pdf">card</a> · <a href="files/kidlisp-kl1.pdf">$kl1</a> · <a href="files/kidlisp-24m.pdf">$24m</a> · <a href="files/kidlisp-duv.pdf">$duv</a> · <a href="files/kidlisp-berz.pdf">$berz</a></li>
+  </ul>
+  <div class="grid cards">
+    <a href="img/cards/card.png"><img src="img/cards/card.png" alt="KidLisp score card"><span class="cap">card</span></a>
+    <a href="img/cards/kl1.png"><img src="img/cards/kl1.png" alt="$kl1 score card"><span class="cap">$kl1</span></a>
+    <a href="img/cards/24m.png"><img src="img/cards/24m.png" alt="$24m score card"><span class="cap">$24m</span></a>
+    <a href="img/cards/duv.png"><img src="img/cards/duv.png" alt="$duv score card"><span class="cap">$duv</span></a>
+    <a href="img/cards/berz.png"><img src="img/cards/berz.png" alt="$berz score card"><span class="cap">$berz</span></a>
+  </div>
+</section>
+
+<section id="reel">
+  <h2>The Reel — unboxing the edition</h2>
+  <p>A narrated vertical reel built from the July 16 unboxing/page-through of the collated publication and the June 13 Fuser documentation. Two cuts: the video page-through and a stills-driven edit.</p>
+  <div class="duo">
+    <div class="col">
+      <video controls preload="none" poster="img/reel-poster.jpg" src="https://assets.aesthetic.computer/sosoft/scores-for-social-software-review-vertical.mp4"></video>
+      <p class="dim">page-through cut</p>
+    </div>
+    <div class="col">
+      <video controls preload="none" poster="img/reel-poster.jpg" src="https://assets.aesthetic.computer/sosoft/scores-for-social-software-stills-review-vertical.mp4"></video>
+      <p class="dim">stills cut</p>
+    </div>
+  </div>
+  <ul class="links">
+    <li><span class="file">srt</span><a href="files/reel-captions.srt">captions</a></li>
+    <li><span class="file">src</span><a href="https://github.com/whistlegraph/aesthetic-computer/tree/main/marketing/sosoft-reel">production workspace</a> — scripts, screenplay, revision receipts</li>
+  </ul>
+</section>
+
+<section id="archive">
+  <h2>Media Archive</h2>
+  <p>Working catalog of the cycle's documentation: 78 photographs from the June 13 closing at Fuser, the 174-photo July 16 documentation shoot, and the presentation recordings. Masters stay offline; the catalog records provenance, descriptions, and SHA-256 identities.</p>
+  <ul class="links">
+    <li><span class="file">md</span><a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/social-software/scores-for-social-software/CATALOG.md">CATALOG.md</a></li>
+    <li><span class="file">md</span><a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/social-software/scores-for-social-software/SOURCES.md">SOURCES.md</a></li>
+    <li><span class="file">md</span><a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/social-software/scores-for-social-software/README.md">README.md</a></li>
+  </ul>
+</section>
+
+<footer>
+  <a href="https://papers.aesthetic.computer/platter/sosoft-cycle2/">papers.aesthetic.computer/platter/sosoft-cycle2</a> · UCLA DESMA Social Software · Cycle 2 · Scores for Social Software · <a href="/platter.html">← the platter</a>
+</footer>
+
+<script>
+const ILLYS = [
+  ["v2a", "house-show — chosen"], ["v2b", "house-show alt"], ["v2c", "house-show alt"],
+  ["v1a", "studio"], ["v1b", "studio alt"], ["v1c", "studio alt"],
+  ["hr1-header-padded", "padded paper cover"], ["hr1", "hr1"], ["hr2", "hr2"], ["hr3", "hr3"],
+  ["hk1", "hk1"], ["hk1-fixed", "hk1 fixed"], ["hk1-realscreen", "hk1 real screen"], ["hk2", "hk2"], ["hk3", "hk3"],
+  ["hf1", "hf1"], ["hf2", "hf2"], ["hf3", "hf3"],
+  ["hd1", "hd1"], ["hd2", "hd2"], ["hd3", "hd3"],
+  ["h1", "h1"], ["h1s", "h1s"], ["h3", "h3"], ["h3s", "h3s"],
+];
+document.getElementById("illy-grid").innerHTML = ILLYS.map(([name, cap]) =>
+  `<a href="img/illys/${name}.jpg"><img src="img/illys/${name}.jpg" loading="lazy" alt="${cap}"><span class="cap">${cap}</span></a>`
+).join("");
+</script>
+
+</body>
+</html>

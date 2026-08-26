@@ -1,0 +1,255 @@
+1
+00:00:00,000 --> 00:00:01,753
+This blue folder just arrived from Social
+
+2
+00:00:01,800 --> 00:00:03,506
+Software at UCLA.
+
+3
+00:00:03,796 --> 00:00:07,024
+Inside is Scores for Social Software, a
+
+4
+00:00:07,082 --> 00:00:11,703
+spring 2026 edition of 64 hand-produced artist
+
+5
+00:00:11,784 --> 00:00:12,423
+scores.
+
+6
+00:00:12,806 --> 00:00:15,882
+This is copy #51, assembled after ten
+
+7
+00:00:15,952 --> 00:00:19,946
+weeks of making, testing, and performing together.
+
+8
+00:00:20,480 --> 00:00:21,676
+I’m Jeffrey Alan Scudder.
+
+9
+00:00:22,489 --> 00:00:24,753
+My contribution is Notepat, a folded white
+
+10
+00:00:24,788 --> 00:00:27,597
+research paper that combines an illustrated player,
+
+11
+00:00:27,771 --> 00:00:32,241
+a QR code, instructions, and circular keyboard
+
+12
+00:00:32,450 --> 00:00:33,402
+diagrams.
+
+13
+00:00:34,215 --> 00:00:36,827
+Æther Cavendish’s Vigil Score arrives as a
+
+14
+00:00:36,885 --> 00:00:39,672
+matte-black folded packet, closed with a small
+
+15
+00:00:39,753 --> 00:00:41,134
+circular silver seal.
+
+16
+00:00:41,738 --> 00:00:45,035
+Chelly Jin’s Software as a Choreography presents
+
+17
+00:00:45,105 --> 00:00:48,437
+a grid of silhouetted hands and arms,
+
+18
+00:00:48,611 --> 00:00:51,641
+pairing each gesture with marks for timing
+
+19
+00:00:51,966 --> 00:00:53,069
+and movement.
+
+20
+00:00:53,673 --> 00:00:56,784
+Jordan Silver’s Sonic Architecture is a single
+
+21
+00:00:56,819 --> 00:00:59,791
+sheet of printed columns, large numbers, and
+
+22
+00:00:59,861 --> 00:01:03,170
+typewritten commands, anchored by a looping spiral
+
+23
+00:01:03,553 --> 00:01:07,117
+diagram for inhabiting and measuring space through
+
+24
+00:01:07,721 --> 00:01:08,290
+sound.
+
+25
+00:01:09,103 --> 00:01:12,214
+Em Lugo’s Cues for Losing Direction fits
+
+26
+00:01:12,284 --> 00:01:14,966
+on a small black card, its title
+
+27
+00:01:14,989 --> 00:01:17,555
+set in pale condensed type like a
+
+28
+00:01:17,671 --> 00:01:19,610
+portable instruction carried in the hand.
+
+29
+00:01:19,993 --> 00:01:22,988
+Darlyn Phan’s Line Piece 1 begins on
+
+30
+00:01:23,046 --> 00:01:24,834
+translucent white paper.
+
+31
+00:01:25,206 --> 00:01:27,922
+Its faint rainbow cast and minimal title
+
+32
+00:01:28,131 --> 00:01:30,627
+let the page behave like a line
+
+33
+00:01:30,790 --> 00:01:31,556
+or veil.
+
+34
+00:01:32,369 --> 00:01:34,853
+Thomas Noya’s Biophonía is a branching field
+
+35
+00:01:35,236 --> 00:01:38,917
+of blue, yellow, black, and beige organic
+
+36
+00:01:38,975 --> 00:01:39,567
+forms.
+
+37
+00:01:40,171 --> 00:01:43,329
+In the video, these cell-like clusters drift
+
+38
+00:01:43,503 --> 00:01:44,594
+and reorganize.
+
+39
+00:01:45,035 --> 00:01:47,822
+Banyi Huang’s A Cosmographic Score for Folding
+
+40
+00:01:47,868 --> 00:01:49,796
+Back into the Kernel centers a luminous
+
+41
+00:01:49,842 --> 00:01:52,269
+circle and a small diagram of connected
+
+42
+00:01:52,327 --> 00:01:54,974
+nodes inside a lavender field.
+
+43
+00:01:55,659 --> 00:01:58,933
+Alexander Espinosa’s Music for World Computers is
+
+44
+00:01:58,979 --> 00:02:03,496
+a white typographic score: awake, expand, decrease,
+
+45
+00:02:03,809 --> 00:02:08,000
+oxygen, forest, junk, cinnamon, hammer.
+
+46
+00:02:08,442 --> 00:02:11,286
+Mavyn Vu’s The Radio Is an Altar:
+
+47
+00:02:11,669 --> 00:02:13,759
+Portal combines translucent blue and white score
+
+48
+00:02:13,794 --> 00:02:16,847
+cards, a target-like radio image, small figures,
+
+49
+00:02:16,963 --> 00:02:18,995
+and instructions arranged around their edges.
+
+50
+00:02:19,378 --> 00:02:22,083
+Casey Reas facilitated the cycle, with Lauren
+
+51
+00:02:22,118 --> 00:02:24,243
+Lee McCarthy and the Social Software community.
+
+52
+00:02:24,684 --> 00:02:28,353
+Together, the contributions open many paths through
+
+53
+00:02:28,446 --> 00:02:32,695
+a question: if software organizes behavior, what
+
+54
+00:02:32,764 --> 00:02:34,877
+else can we ask it to organize?
+
+55
+00:02:35,481 --> 00:02:36,769
+If you’re watching this and know any
+
+56
+00:02:36,816 --> 00:02:38,499
+of the artists involved, feel free to
+
+57
+00:02:38,557 --> 00:02:39,893
+ask them to see their envelope.
+
+58
+00:02:40,334 --> 00:02:42,632
+Each artist received two editions as part
+
+59
+00:02:42,667 --> 00:02:45,013
+of the project: one to keep and
+
+60
+00:02:45,094 --> 00:02:46,057
+one to distribute.
+
+61
+00:02:46,499 --> 00:02:47,334
+This is Jeffrey.
+
+62
+00:02:47,776 --> 00:02:50,190
+Thanks for watching, and a friendly goodbye
+
+63
+00:02:50,248 --> 00:02:52,036
+from me and the Social Software Cohort
+
+64
+00:02:52,071 --> 00:02:52,663
+2.
