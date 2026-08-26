@@ -88,9 +88,9 @@ function publish(entry) {
     video, "--caption", caption(entry), "--audio-name", audioName(entry)],
     { cwd: ROOT, stdio: "inherit" });
   if (post.status !== 0) die(`ig.mjs post failed for ${entry.id}`);
-  // ig.mjs leaves the receipt beside the video; the media id in it is what
-  // reelboy watches.
-  const receipt = readJson(`${video}.instagram.json`, null);
+  // ig.mjs leaves the receipt beside the video (extension swapped for
+  // .instagram.json); the media id in it is what reelboy watches.
+  const receipt = readJson(video.replace(/\.[^.]+$/, "") + ".instagram.json", null);
   const mediaId = receipt?.mediaId;
   if (!mediaId) { console.log(`⚠ no receipt media id — skipping autobind`); return; }
   try {

@@ -56,6 +56,20 @@
         "reels_skip_rate": 50
       },
       "insightsAt": "2026-08-13T22:02:57.637Z"
+    },
+    {
+      "mediaId": "17978454938900766",
+      "containerId": "18090942992299689",
+      "publishedAt": "2026-08-26T21:50:08.231Z",
+      "permalink": "https://www.instagram.com/reel/DchN0lCDWxH/",
+      "caption": "ferry — menu band waltz no. 3\nplay along in the mac menu bar · menuband.app\ntell the band what to change\n#mbscore #menubar #waltz",
+      "source": "pop/menuband/out/menu-band-waltzes/03-ferry/03-ferry.mp4",
+      "audioName": "ferry-waltz.mbscore",
+      "collaborators": null,
+      "urls": {
+        "reel": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/ig/menuband/2026-08-26/03-ferry.mp4"
+      },
+      "insights": null
     }
   ]
 }
