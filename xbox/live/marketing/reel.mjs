@@ -161,6 +161,20 @@ async function goLive(record) {
     kind: record.kind, round: audioName, audioName,
     publishedAt: new Date().toISOString(),
     urls, ...posted, insights: null });
+  // Reelboy follows its own output: the reel that just went live becomes the
+  // loop's newest intake, inherited onto whatever rock the previous
+  // generation used. A machine with no reelboy routes just says so —
+  // publishing must never fail on the feedback loop's absence.
+  try {
+    const bound = execFileSync(process.execPath,
+      [join(repo, "toolchain", "instagram", "reelboy.mjs"),
+        "autobind", String(posted.mediaId)],
+      { encoding: "utf8", timeout: 20000 }).trim();
+    log(`   ${bound}`);
+  } catch (error) {
+    log(`   reelboy autobind skipped: ` +
+      `${String(error.stderr || error.message || error).split("\n")[0]}`);
+  }
   return posted;
 }
 

@@ -14,6 +14,8 @@
 //   node toolchain/instagram/reelboy.mjs                 one pass, all routes
 //   node toolchain/instagram/reelboy.mjs bind <media-id> <host:name>
 //        [--account oskiewar] [--note "gen 1"]           create/replace route
+//   node toolchain/instagram/reelboy.mjs autobind <media-id>
+//        inherit the newest route's rock (the publish lane calls this)
 //   node toolchain/instagram/reelboy.mjs routes          list routes + state
 //
 // Cron arms it (the pass is silent when nothing is new):
@@ -87,6 +89,39 @@ function doBind() {
   };
   writeJson(CONFIG, config);
   console.log(`✓ reelboy bound ${mediaId} → ${handle} (${config.routes[mediaId].account})`);
+}
+
+// The publish lane calls this with each freshly posted reel: the new
+// generation inherits the newest route's rock, contact and account, so the
+// loop follows its own output without anyone retyping a media id. Old
+// generations keep their routes for a while — late comments on last week's
+// reel are still feedback — but only the newest three stay watched, so the
+// pass never grows into a crawl of the whole back catalog.
+function doAutobind() {
+  const [mediaId] = positional;
+  if (!mediaId) die(`usage: reelboy.mjs autobind <media-id>`);
+  const config = readRoutes();
+  const entries = Object.entries(config.routes);
+  if (!entries.length)
+    die(`no existing route to inherit — reelboy is not armed on this machine`);
+  if (config.routes[mediaId]) {
+    console.log(`✓ reelboy already watches ${mediaId}`);
+    return;
+  }
+  const byAge = (a, b) => String(a[1].boundAt).localeCompare(String(b[1].boundAt));
+  const [, newest] = entries.sort(byAge).at(-1);
+  config.routes[mediaId] = {
+    account: newest.account,
+    handle: newest.handle,
+    contact: newest.contact || "reelboy",
+    note: "auto-bound on publish",
+    boundAt: new Date().toISOString(),
+  };
+  config.routes = Object.fromEntries(
+    Object.entries(config.routes).sort(byAge).slice(-3));
+  writeJson(CONFIG, config);
+  console.log(`✓ reelboy auto-bound ${mediaId} → ${newest.handle} ` +
+    `(${Object.keys(config.routes).length} generation(s) watched)`);
 }
 
 function doRoutes() {
@@ -269,6 +304,7 @@ async function doPass() {
 }
 
 if (cmd === "bind") doBind();
+else if (cmd === "autobind") doAutobind();
 else if (cmd === "routes") doRoutes();
 else if (cmd === "pass" || cmd === undefined) await doPass();
-else die(`unknown command "${cmd}" — pass | bind | routes`);
+else die(`unknown command "${cmd}" — pass | bind | autobind | routes`);

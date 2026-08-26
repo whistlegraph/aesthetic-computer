@@ -69,7 +69,10 @@ On waking, read the newest digests in `~/.config/slab/reelboy-inbox/`, then:
    charter; full-auto is earned by a track record, not assumed.
 5. **Never touch Instagram.** No replies, no likes, no posts from the rock.
    Publishing the next reel belongs to the clockwork lane and its own
-   approvals; after it publishes, rebind reelboy to the new media id.
+   approvals. The lane closes the loop itself: `goLive` calls
+   `reelboy.mjs autobind <media-id>` after every live publish, so each new
+   generation inherits the newest route's rock automatically and only the
+   newest three generations stay watched.
 
 ## Why the throttle
 
