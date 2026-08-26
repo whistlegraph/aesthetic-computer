@@ -93,8 +93,14 @@ export function validateDemo(value) {
         !/^[a-z0-9_-]{1,32}$/.test(row[1]) ||
         !finite(row[2]) || !finite(row[3]) || !finite(row[4])))
     return "Invalid events";
+  // Two checkpoint generations: 26 columns from tower-era clients, and 32
+  // once the full camera-doll pose started riding along (position, fov,
+  // perspective, roll) so replays could stand the lens where the live pass
+  // stood it. That growth on 2026-08-10 is what silently 400'd every upload
+  // for seventeen days — the row got richer and the contract never heard.
   if (!Array.isArray(value.checkpoints) || value.checkpoints.length > 4000 ||
-      value.checkpoints.some((row) => !numericRow(row, 26)))
+      value.checkpoints.some((row) => !numericRow(row, 26) &&
+        !numericRow(row, 32)))
     return "Invalid checkpoints";
   if (!Array.isArray(value.rounds) || value.rounds.length > 128 ||
       value.rounds.some((row) => !numericRow(row, 4))) return "Invalid rounds";
