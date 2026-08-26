@@ -62,6 +62,30 @@ p.dim { color: var(--fg2); font-size: 12px; }
 .grid.fuser { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 4px; }
 .grid.fuser img { aspect-ratio: 1; }
 .grid .cap { font-size: 10px; color: var(--fg2); padding: 3px 5px; display: block; }
+.grid .tile { position: relative; cursor: pointer; }
+.grid .badge {
+  position: absolute; right: 4px; bottom: 4px;
+  background: rgba(0,0,0,0.72); color: #fff; font-size: 10px;
+  padding: 2px 6px; border-radius: 8px; cursor: pointer;
+}
+.grid .badge:hover { background: var(--accent); }
+#lightbox {
+  display: none; position: fixed; inset: 0; z-index: 50;
+  background: rgba(0,0,0,0.93); flex-direction: column;
+  align-items: center; justify-content: center; padding: 20px;
+}
+#lightbox.open { display: flex; }
+#lightbox img { max-width: 92vw; max-height: 82vh; object-fit: contain; border: 1px solid #444; }
+#lb-cap { color: #ccc; font-size: 12px; margin-top: 10px; text-align: center; }
+#lb-cap a { color: var(--accent2); }
+.lb-nav {
+  position: fixed; top: 50%; transform: translateY(-50%);
+  color: #888; font-size: 34px; cursor: pointer; padding: 18px; user-select: none;
+}
+.lb-nav:hover { color: #fff; }
+#lb-prev { left: 0; } #lb-next { right: 0; }
+#lb-close { position: fixed; top: 8px; right: 16px; color: #888; font-size: 26px; cursor: pointer; padding: 8px; }
+#lb-close:hover { color: #fff; }
 video { width: 100%; max-width: 420px; border: 1px solid var(--border); background: #000; display: block; }
 iframe { width: 100%; height: 560px; border: 1px solid var(--border); background: #fff; }
 footer { margin-top: 50px; padding-top: 12px; border-top: 1px solid var(--border); font-size: 11px; color: var(--fg2); }
@@ -76,7 +100,7 @@ footer { margin-top: 50px; padding-top: 12px; border-top: 1px solid var(--border
 
 <section id="photos">
   <h2>The Photographs — July 16 documentation shoot</h2>
-  <p>The full documentation shoot of the collated edition — every page, object, and detail of publication copy 51, photographed one by one. Click any image for full resolution.</p>
+  <p>The full documentation shoot of the collated edition — every page, object, and detail of publication copy 51. Burst frames are folded behind their lead image (<b>+N</b> reveals them); click any image to view with captions and step through every frame.</p>
   <ul class="links">
     <li><span class="file">zip</span><a href="https://assets.aesthetic.computer/sosoft/photos/july-16-documentation-shoot.zip">download all originals</a> — <span id="shoot-count"></span> photographs, full resolution</li>
   </ul>
@@ -85,7 +109,7 @@ footer { margin-top: 50px; padding-top: 12px; border-top: 1px solid var(--border
 
 <section id="fuser">
   <h2>The Photographs — June 13 closing at Fuser</h2>
-  <p>The 78 photographs of the closing event at Fuser, 1811 Blake Ave — cohort performances and the edition's collation day. Index view; the masters live in the program's own shared archive, cataloged below with SHA-256 identities.</p>
+  <p>The 78 photographs of the closing event at Fuser, 1811 Blake Ave — cohort performances and the edition's collation day, folded the same way. Index view; the masters live in the program's own shared archive, cataloged below with SHA-256 identities.</p>
   <div class="grid fuser" id="fuser-grid"></div>
   <ul class="links" style="margin-top:10px;">
     <li><span class="file">md</span><a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/social-software/scores-for-social-software/CATALOG.md">CATALOG.md</a> · <a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/social-software/scores-for-social-software/SOURCES.md">SOURCES.md</a> — provenance, descriptions, hashes</li>
@@ -188,6 +212,14 @@ footer { margin-top: 50px; padding-top: 12px; border-top: 1px solid var(--border
   <a href="https://papers.aesthetic.computer/platter/sosoft-cycle2/">papers.aesthetic.computer/platter/sosoft-cycle2</a> · UCLA DESMA Social Software · Cycle 2 · Scores for Social Software · <a href="/platter.html">← the platter</a>
 </footer>
 
+<div id="lightbox">
+  <div id="lb-close">&times;</div>
+  <div class="lb-nav" id="lb-prev">&#8249;</div>
+  <div class="lb-nav" id="lb-next">&#8250;</div>
+  <img id="lb-img" alt="">
+  <div id="lb-cap"></div>
+</div>
+
 <script>
 const ILLYS = [
   ["v2a", "house-show — chosen"], ["v2b", "house-show alt"], ["v2c", "house-show alt"],
@@ -202,17 +234,92 @@ document.getElementById("illy-grid").innerHTML = ILLYS.map(([name, cap]) =>
   `<a href="img/illys/${name}.jpg"><img src="img/illys/${name}.jpg" loading="lazy" alt="${cap}"><span class="cap">${cap}</span></a>`
 ).join("");
 
-const FUSER = ["PXL_20260613_174837784.jpg", "PXL_20260613_174838366.jpg", "PXL_20260613_174843920.jpg", "PXL_20260613_174845561.jpg", "PXL_20260613_174847596.jpg", "PXL_20260613_174848815.jpg", "PXL_20260613_174947062.jpg", "PXL_20260613_181248080.jpg", "PXL_20260613_191259163.jpg", "PXL_20260613_191259634.jpg", "PXL_20260613_191313806.jpg", "PXL_20260613_191316422.jpg", "PXL_20260613_191317786.jpg", "PXL_20260613_191324133.jpg", "PXL_20260613_191325934.jpg", "PXL_20260613_191326548.jpg", "PXL_20260613_191440048.jpg", "PXL_20260613_191440834.jpg", "PXL_20260613_191609675.jpg", "PXL_20260613_191611006.jpg", "PXL_20260613_191613569.jpg", "PXL_20260613_191616663.jpg", "PXL_20260613_193610871.jpg", "PXL_20260613_193612206.jpg", "PXL_20260613_193613912.jpg", "PXL_20260613_193615022.jpg", "PXL_20260613_194002870.jpg", "PXL_20260613_194004087.jpg", "PXL_20260613_194013010.jpg", "PXL_20260613_194018768.jpg", "PXL_20260613_194021823.jpg", "PXL_20260613_194022885.jpg", "PXL_20260613_194029110.jpg", "PXL_20260613_194034972.jpg", "PXL_20260613_194043069.jpg", "PXL_20260613_194044742.jpg", "PXL_20260613_194045330.jpg", "PXL_20260613_200959869.jpg", "PXL_20260613_201002736.jpg", "PXL_20260613_201004038.jpg", "PXL_20260613_201009709.jpg", "PXL_20260613_201101588.jpg", "PXL_20260613_201236535.jpg", "PXL_20260613_201237778.jpg", "PXL_20260613_201238494.jpg", "PXL_20260613_201613524.jpg", "PXL_20260613_201615157.jpg", "PXL_20260613_202338629.jpg", "PXL_20260613_202339484.jpg", "PXL_20260613_202346166.jpg", "PXL_20260613_202347418.jpg", "PXL_20260613_202350454.jpg", "PXL_20260613_202357298.jpg", "PXL_20260613_202358529.jpg", "PXL_20260613_202705988.jpg", "PXL_20260613_202709175.jpg", "PXL_20260613_202901950.jpg", "PXL_20260613_202903392.jpg", "PXL_20260613_202911736.jpg", "PXL_20260613_202913013.jpg", "PXL_20260613_202919153.jpg", "PXL_20260613_202921081.jpg", "PXL_20260613_202922302.jpg", "PXL_20260613_202945591.jpg", "PXL_20260613_202951867.jpg", "PXL_20260613_202953418.jpg", "PXL_20260613_202957391.jpg", "PXL_20260613_203001164.jpg", "PXL_20260613_203005020.jpg", "PXL_20260613_203010713.jpg", "PXL_20260613_203012080.jpg", "PXL_20260613_203013346.jpg", "PXL_20260613_203014085.jpg", "PXL_20260613_203021417.jpg", "PXL_20260613_203022483.jpg", "PXL_20260613_203023975.jpg", "PXL_20260613_203024614.jpg", "PXL_20260613_203025277.jpg"];
-document.getElementById("fuser-grid").innerHTML = FUSER.map(f =>
-  `<a href="img/fuser/${f}"><img src="img/fuser/${f}" loading="lazy" alt="Fuser closing photograph"></a>`
-).join("");
-
+const TIMES = {"IMG_4753": "11:51 am", "IMG_4754": "11:51 am", "IMG_4755": "11:51 am", "IMG_4756": "11:51 am", "IMG_4757": "11:51 am", "IMG_4758": "11:51 am", "IMG_4759": "11:56 am", "IMG_4760": "11:56 am", "IMG_4761": "11:56 am", "IMG_4762": "11:56 am", "IMG_4763": "11:56 am", "IMG_4764": "11:56 am", "IMG_4766": "11:57 am", "IMG_4767": "11:57 am", "IMG_4768": "11:57 am", "IMG_4769": "11:57 am", "IMG_4770": "11:57 am", "IMG_4771": "11:58 am", "IMG_4772": "11:58 am", "IMG_4773": "11:58 am", "IMG_4774": "11:58 am", "IMG_4775": "11:58 am", "IMG_4776": "11:59 am", "IMG_4777": "11:59 am", "IMG_4778": "11:59 am", "IMG_4779": "11:59 am", "IMG_4780": "11:59 am", "IMG_4781": "11:59 am", "IMG_4782": "12:00 pm", "IMG_4783": "12:00 pm", "IMG_4784": "12:01 pm", "IMG_4785": "12:01 pm", "IMG_4786": "12:01 pm", "IMG_4787": "12:01 pm", "IMG_4788": "12:01 pm", "IMG_4789": "12:01 pm", "IMG_4790": "12:02 pm", "IMG_4791": "12:02 pm", "IMG_4792": "12:02 pm", "IMG_4793": "12:02 pm", "IMG_4794": "12:02 pm", "IMG_4795": "12:03 pm", "IMG_4796": "12:03 pm", "IMG_4797": "12:03 pm", "IMG_4798": "12:03 pm", "IMG_4799": "12:04 pm", "IMG_4800": "12:04 pm", "IMG_4801": "12:05 pm", "IMG_4802": "12:05 pm", "IMG_4803": "12:05 pm", "IMG_4804": "12:06 pm", "IMG_4805": "12:06 pm", "IMG_4806": "12:07 pm", "IMG_4807": "12:07 pm", "IMG_4808": "12:07 pm", "IMG_4809": "12:07 pm", "IMG_4810": "12:07 pm", "IMG_4811": "12:07 pm", "IMG_4812": "12:13 pm", "IMG_4813": "12:14 pm", "IMG_4814": "12:17 pm", "IMG_4815": "12:17 pm", "IMG_4816": "12:17 pm", "IMG_4817": "12:17 pm", "IMG_4818": "12:18 pm", "IMG_4819": "12:18 pm", "IMG_4820": "12:18 pm", "IMG_4821": "12:18 pm", "IMG_4822": "12:18 pm", "IMG_4823": "12:18 pm", "IMG_4824": "12:18 pm", "IMG_4825": "12:19 pm", "IMG_4826": "12:19 pm", "IMG_4827": "12:19 pm", "IMG_4828": "12:20 pm", "IMG_4829": "12:21 pm", "IMG_4830": "12:22 pm", "IMG_4831": "12:22 pm", "IMG_4832": "12:23 pm", "IMG_4833": "12:23 pm", "IMG_4834": "12:23 pm", "IMG_4835": "12:23 pm", "IMG_4836": "12:24 pm", "IMG_4837": "12:24 pm", "IMG_4838": "12:26 pm", "IMG_4839": "12:26 pm", "IMG_4840": "12:26 pm", "IMG_4841": "12:26 pm", "IMG_4842": "12:26 pm", "IMG_4844": "12:27 pm", "IMG_4845": "12:54 pm", "IMG_4846": "12:54 pm", "IMG_4847": "12:54 pm", "IMG_4848": "12:54 pm", "IMG_4849": "12:55 pm", "IMG_4850": "12:55 pm", "IMG_4851": "12:55 pm", "IMG_4852": "12:55 pm", "IMG_4853": "12:56 pm", "IMG_4854": "12:56 pm", "IMG_4855": "12:57 pm", "IMG_4856": "12:57 pm", "IMG_4857": "12:57 pm", "IMG_4858": "12:57 pm", "IMG_4859": "12:57 pm", "IMG_4860": "12:57 pm", "IMG_4861": "12:58 pm", "IMG_4862": "12:58 pm", "IMG_4863": "12:59 pm", "IMG_4864": "12:59 pm", "IMG_4865": "12:59 pm", "IMG_4866": "12:59 pm", "IMG_4867": "1:00 pm", "IMG_4868": "1:00 pm", "IMG_4869": "1:00 pm", "IMG_4870": "1:00 pm", "IMG_4871": "1:01 pm", "IMG_4872": "1:01 pm", "IMG_4873": "1:01 pm", "IMG_4874": "1:02 pm", "IMG_4875": "1:02 pm", "IMG_4876": "1:02 pm", "IMG_4877": "1:02 pm", "IMG_4878": "1:03 pm", "IMG_4879": "1:03 pm", "IMG_4880": "1:03 pm", "IMG_4881": "1:03 pm", "IMG_4882": "1:03 pm", "IMG_4883": "1:04 pm", "IMG_4884": "1:04 pm", "IMG_4885": "1:04 pm", "IMG_4886": "1:04 pm", "IMG_4887": "1:04 pm", "IMG_4926": "2:23 pm", "IMG_4927": "2:24 pm", "IMG_4928": "2:24 pm", "IMG_4929": "2:24 pm", "IMG_4930": "2:24 pm", "IMG_4931": "2:24 pm", "IMG_4932": "2:24 pm", "IMG_4933": "2:24 pm", "IMG_4934": "2:24 pm", "IMG_4935": "2:24 pm", "IMG_4936": "2:25 pm", "IMG_4937": "2:25 pm", "IMG_4938": "2:25 pm", "IMG_4939": "2:25 pm", "IMG_4940": "2:25 pm", "IMG_4941": "2:25 pm", "IMG_4942": "2:26 pm", "IMG_4943": "2:26 pm", "IMG_4944": "2:26 pm", "IMG_4945": "2:26 pm", "IMG_4946": "2:26 pm", "IMG_4947": "2:26 pm", "IMG_4948": "2:26 pm", "IMG_4949": "2:26 pm", "IMG_4950": "2:26 pm", "IMG_4951": "2:27 pm", "IMG_4952": "2:27 pm", "IMG_4953": "2:27 pm", "IMG_4954": "2:27 pm", "IMG_4955": "2:29 pm", "IMG_4956": "2:29 pm", "IMG_4957": "2:29 pm", "IMG_4958": "2:29 pm", "IMG_4959": "2:29 pm", "IMG_4960": "2:29 pm", "IMG_4961": "2:30 pm", "IMG_4962": "2:30 pm", "IMG_4963": "2:30 pm", "IMG_4964": "2:30 pm", "IMG_4965": "2:30 pm", "PXL_20260613_174837784": "10:48 am", "PXL_20260613_174838366": "10:48 am", "PXL_20260613_174843920": "10:48 am", "PXL_20260613_174845561": "10:48 am", "PXL_20260613_174847596": "10:48 am", "PXL_20260613_174848815": "10:48 am", "PXL_20260613_174947062": "10:49 am", "PXL_20260613_181248080": "11:12 am", "PXL_20260613_191259163": "12:12 pm", "PXL_20260613_191259634": "12:12 pm", "PXL_20260613_191313806": "12:13 pm", "PXL_20260613_191316422": "12:13 pm", "PXL_20260613_191317786": "12:13 pm", "PXL_20260613_191324133": "12:13 pm", "PXL_20260613_191325934": "12:13 pm", "PXL_20260613_191326548": "12:13 pm", "PXL_20260613_191440048": "12:14 pm", "PXL_20260613_191440834": "12:14 pm", "PXL_20260613_191609675": "12:16 pm", "PXL_20260613_191611006": "12:16 pm", "PXL_20260613_191613569": "12:16 pm", "PXL_20260613_191616663": "12:16 pm", "PXL_20260613_193610871": "12:36 pm", "PXL_20260613_193612206": "12:36 pm", "PXL_20260613_193613912": "12:36 pm", "PXL_20260613_193615022": "12:36 pm", "PXL_20260613_194002870": "12:40 pm", "PXL_20260613_194004087": "12:40 pm", "PXL_20260613_194013010": "12:40 pm", "PXL_20260613_194018768": "12:40 pm", "PXL_20260613_194021823": "12:40 pm", "PXL_20260613_194022885": "12:40 pm", "PXL_20260613_194029110": "12:40 pm", "PXL_20260613_194034972": "12:40 pm", "PXL_20260613_194043069": "12:40 pm", "PXL_20260613_194044742": "12:40 pm", "PXL_20260613_194045330": "12:40 pm", "PXL_20260613_200959869": "1:09 pm", "PXL_20260613_201002736": "1:10 pm", "PXL_20260613_201004038": "1:10 pm", "PXL_20260613_201009709": "1:10 pm", "PXL_20260613_201101588": "1:11 pm", "PXL_20260613_201236535": "1:12 pm", "PXL_20260613_201237778": "1:12 pm", "PXL_20260613_201238494": "1:12 pm", "PXL_20260613_201613524": "1:16 pm", "PXL_20260613_201615157": "1:16 pm", "PXL_20260613_202338629": "1:23 pm", "PXL_20260613_202339484": "1:23 pm", "PXL_20260613_202346166": "1:23 pm", "PXL_20260613_202347418": "1:23 pm", "PXL_20260613_202350454": "1:23 pm", "PXL_20260613_202357298": "1:23 pm", "PXL_20260613_202358529": "1:23 pm", "PXL_20260613_202705988": "1:27 pm", "PXL_20260613_202709175": "1:27 pm", "PXL_20260613_202901950": "1:29 pm", "PXL_20260613_202903392": "1:29 pm", "PXL_20260613_202911736": "1:29 pm", "PXL_20260613_202913013": "1:29 pm", "PXL_20260613_202919153": "1:29 pm", "PXL_20260613_202921081": "1:29 pm", "PXL_20260613_202922302": "1:29 pm", "PXL_20260613_202945591": "1:29 pm", "PXL_20260613_202951867": "1:29 pm", "PXL_20260613_202953418": "1:29 pm", "PXL_20260613_202957391": "1:29 pm", "PXL_20260613_203001164": "1:30 pm", "PXL_20260613_203005020": "1:30 pm", "PXL_20260613_203010713": "1:30 pm", "PXL_20260613_203012080": "1:30 pm", "PXL_20260613_203013346": "1:30 pm", "PXL_20260613_203014085": "1:30 pm", "PXL_20260613_203021417": "1:30 pm", "PXL_20260613_203022483": "1:30 pm", "PXL_20260613_203023975": "1:30 pm", "PXL_20260613_203024614": "1:30 pm", "PXL_20260613_203025277": "1:30 pm"};
+const SHOOT_GROUPS = [["IMG_4753_edited.jpg", "IMG_4754_edited.jpg", "IMG_4755_edited.jpg"], ["IMG_4756.jpg"], ["IMG_4757.jpg", "IMG_4758.jpg"], ["IMG_4759.jpg"], ["IMG_4760.jpg", "IMG_4761.jpg", "IMG_4762.jpg", "IMG_4763.jpg", "IMG_4764.jpg"], ["IMG_4765_edited.jpg"], ["IMG_4766_edited.jpg", "IMG_4767_edited.jpg"], ["IMG_4768_edited.jpg", "IMG_4769_edited.jpg", "IMG_4770_edited.jpg", "IMG_4771_edited.jpg", "IMG_4772_edited.jpg"], ["IMG_4773.jpg", "IMG_4774.jpg"], ["IMG_4775.jpg"], ["IMG_4776.jpg"], ["IMG_4777.jpg"], ["IMG_4778.jpg"], ["IMG_4779.jpg"], ["IMG_4780.jpg"], ["IMG_4781.jpg"], ["IMG_4782.jpg", "IMG_4783.jpg"], ["IMG_4784.jpg", "IMG_4785.jpg", "IMG_4786.jpg", "IMG_4787.jpg", "IMG_4788.jpg"], ["IMG_4789.jpg"], ["IMG_4790_edited.jpg"], ["IMG_4791_edited.jpg"], ["IMG_4792_edited.jpg", "IMG_4793_edited.jpg", "IMG_4794_edited.jpg", "IMG_4795_edited.jpg", "IMG_4796_edited.jpg"], ["IMG_4797_edited.jpg"], ["IMG_4798_edited.jpg"], ["IMG_4799_edited.jpg", "IMG_4800_edited.jpg"], ["IMG_4801.jpg"], ["IMG_4802.jpg", "IMG_4803.jpg"], ["IMG_4804.jpg", "IMG_4805.jpg", "IMG_4806.jpg", "IMG_4807.jpg"], ["IMG_4808_edited.jpg", "IMG_4809_edited.jpg", "IMG_4810_edited.jpg"], ["IMG_4811_edited.jpg"], ["IMG_4812_edited.jpg"], ["IMG_4813_edited.jpg", "IMG_4814_edited.jpg", "IMG_4815_edited.jpg"], ["IMG_4816_edited.jpg", "IMG_4817_edited.jpg"], ["IMG_4818_edited.jpg", "IMG_4819_edited.jpg", "IMG_4820_edited.jpg"], ["IMG_4821_edited.jpg", "IMG_4822_edited.jpg", "IMG_4823_edited.jpg", "IMG_4824_edited.jpg"], ["IMG_4825_edited.jpg", "IMG_4826.jpg", "IMG_4827.jpg"], ["IMG_4828.jpg"], ["IMG_4829.jpg", "IMG_4830.jpg"], ["IMG_4831.jpg"], ["IMG_4832.jpg", "IMG_4833.jpg", "IMG_4834.jpg"], ["IMG_4835.jpg", "IMG_4836.jpg", "IMG_4837.jpg", "IMG_4838.jpg", "IMG_4839.jpg"], ["IMG_4840.jpg", "IMG_4841.jpg", "IMG_4842.jpg", "IMG_4843.jpg"], ["IMG_4844.jpg"], ["IMG_4845.jpg"], ["IMG_4846.jpg", "IMG_4847.jpg", "IMG_4848.jpg", "IMG_4849.jpg", "IMG_4850.jpg", "IMG_4851.jpg", "IMG_4852.jpg", "IMG_4853.jpg", "IMG_4854.jpg"], ["IMG_4855.jpg", "IMG_4856.jpg", "IMG_4857.jpg"], ["IMG_4858.jpg", "IMG_4859.jpg", "IMG_4860.jpg"], ["IMG_4861.jpg", "IMG_4862.jpg", "IMG_4863.jpg", "IMG_4864.jpg", "IMG_4865.jpg", "IMG_4866.jpg", "IMG_4867.jpg"], ["IMG_4868.jpg"], ["IMG_4869.jpg"], ["IMG_4870.jpg"], ["IMG_4871.jpg", "IMG_4872.jpg", "IMG_4873.jpg", "IMG_4874_edited.jpg", "IMG_4875_edited.jpg", "IMG_4876_edited.jpg"], ["IMG_4877_edited.jpg"], ["IMG_4878.jpg"], ["IMG_4879.jpg", "IMG_4880.jpg"], ["IMG_4881.jpg"], ["IMG_4882.jpg"], ["IMG_4883.jpg"], ["IMG_4884.jpg", "IMG_4885.jpg"], ["IMG_4886.jpg", "IMG_4887.jpg"], ["IMG_4888.jpg"], ["IMG_4890.jpg", "IMG_4891.jpg"], ["IMG_4892.jpg"], ["IMG_4893.jpg", "IMG_4894.jpg", "IMG_4895.jpg"], ["IMG_4896.jpg", "IMG_4897.jpg"], ["IMG_4898.jpg", "IMG_4899.jpg", "IMG_4900.jpg"], ["IMG_4901.jpg"], ["IMG_4902.jpg", "IMG_4903.jpg", "IMG_4904.jpg", "IMG_4905.jpg", "IMG_4906.jpg", "IMG_4907.jpg", "IMG_4908.jpg"], ["IMG_4909.jpg", "IMG_4910.jpg", "IMG_4911.jpg"], ["IMG_4912.jpg", "IMG_4913.jpg"], ["IMG_4914.jpg"], ["IMG_4915.jpg", "IMG_4916.jpg"], ["IMG_4917.jpg"], ["IMG_4918.jpg"], ["IMG_4919.jpg"], ["IMG_4920.jpg", "IMG_4921.jpg", "IMG_4922.jpg"], ["IMG_4923.jpg", "IMG_4924.jpg", "IMG_4925.jpg"], ["IMG_4926.jpg", "IMG_4927.jpg"], ["IMG_4928.jpg", "IMG_4929.jpg", "IMG_4930.jpg"], ["IMG_4931.jpg", "IMG_4932.jpg"], ["IMG_4933.jpg"], ["IMG_4934.jpg"], ["IMG_4935.jpg"], ["IMG_4936.jpg"], ["IMG_4937.jpg"], ["IMG_4938.jpg", "IMG_4939.jpg", "IMG_4940.jpg", "IMG_4941.jpg"], ["IMG_4942.jpg"], ["IMG_4943.jpg", "IMG_4944.jpg"], ["IMG_4945.jpg"], ["IMG_4946.jpg"], ["IMG_4947.jpg"], ["IMG_4948.jpg"], ["IMG_4949.jpg"], ["IMG_4950.jpg"], ["IMG_4951.jpg"], ["IMG_4952.jpg"], ["IMG_4953.jpg", "IMG_4954.jpg"], ["IMG_4955.jpg"], ["IMG_4956.jpg", "IMG_4957.jpg"], ["IMG_4958.jpg"], ["IMG_4959.jpg", "IMG_4960.jpg"], ["IMG_4961.jpg"], ["IMG_4962.jpg"], ["IMG_4963.jpg"], ["IMG_4964.jpg"], ["IMG_4965.jpg"], ["IMG_4966.jpg"]];
+const FUSER_GROUPS = [["PXL_20260613_174837784.jpg", "PXL_20260613_174838366.jpg"], ["PXL_20260613_174843920.jpg", "PXL_20260613_174845561.jpg", "PXL_20260613_174847596.jpg", "PXL_20260613_174848815.jpg"], ["PXL_20260613_174947062.jpg"], ["PXL_20260613_181248080.jpg"], ["PXL_20260613_191259163.jpg", "PXL_20260613_191259634.jpg"], ["PXL_20260613_191313806.jpg"], ["PXL_20260613_191316422.jpg", "PXL_20260613_191317786.jpg", "PXL_20260613_191324133.jpg", "PXL_20260613_191325934.jpg", "PXL_20260613_191326548.jpg"], ["PXL_20260613_191440048.jpg", "PXL_20260613_191440834.jpg"], ["PXL_20260613_191609675.jpg", "PXL_20260613_191611006.jpg"], ["PXL_20260613_191613569.jpg"], ["PXL_20260613_191616663.jpg"], ["PXL_20260613_193610871.jpg", "PXL_20260613_193612206.jpg", "PXL_20260613_193613912.jpg", "PXL_20260613_193615022.jpg"], ["PXL_20260613_194002870.jpg", "PXL_20260613_194004087.jpg"], ["PXL_20260613_194013010.jpg", "PXL_20260613_194018768.jpg", "PXL_20260613_194021823.jpg", "PXL_20260613_194022885.jpg"], ["PXL_20260613_194029110.jpg", "PXL_20260613_194034972.jpg"], ["PXL_20260613_194043069.jpg", "PXL_20260613_194044742.jpg", "PXL_20260613_194045330.jpg", "PXL_20260613_200959869.jpg"], ["PXL_20260613_201002736.jpg", "PXL_20260613_201004038.jpg"], ["PXL_20260613_201009709.jpg"], ["PXL_20260613_201101588.jpg"], ["PXL_20260613_201236535.jpg", "PXL_20260613_201237778.jpg", "PXL_20260613_201238494.jpg"], ["PXL_20260613_201613524.jpg", "PXL_20260613_201615157.jpg"], ["PXL_20260613_202338629.jpg", "PXL_20260613_202339484.jpg"], ["PXL_20260613_202346166.jpg"], ["PXL_20260613_202347418.jpg"], ["PXL_20260613_202350454.jpg"], ["PXL_20260613_202357298.jpg", "PXL_20260613_202358529.jpg"], ["PXL_20260613_202705988.jpg"], ["PXL_20260613_202709175.jpg"], ["PXL_20260613_202901950.jpg"], ["PXL_20260613_202903392.jpg"], ["PXL_20260613_202911736.jpg", "PXL_20260613_202913013.jpg"], ["PXL_20260613_202919153.jpg", "PXL_20260613_202921081.jpg", "PXL_20260613_202922302.jpg"], ["PXL_20260613_202945591.jpg"], ["PXL_20260613_202951867.jpg", "PXL_20260613_202953418.jpg", "PXL_20260613_202957391.jpg", "PXL_20260613_203001164.jpg"], ["PXL_20260613_203005020.jpg", "PXL_20260613_203010713.jpg"], ["PXL_20260613_203012080.jpg", "PXL_20260613_203013346.jpg", "PXL_20260613_203014085.jpg", "PXL_20260613_203021417.jpg", "PXL_20260613_203022483.jpg", "PXL_20260613_203023975.jpg", "PXL_20260613_203024614.jpg", "PXL_20260613_203025277.jpg"]];
 const SHOOT_BASE = "https://assets.aesthetic.computer/sosoft/photos";
-const SHOOT = ["IMG_4753_edited.jpg", "IMG_4754_edited.jpg", "IMG_4755_edited.jpg", "IMG_4756.jpg", "IMG_4757.jpg", "IMG_4758.jpg", "IMG_4759.jpg", "IMG_4760.jpg", "IMG_4761.jpg", "IMG_4762.jpg", "IMG_4763.jpg", "IMG_4764.jpg", "IMG_4765_edited.jpg", "IMG_4766_edited.jpg", "IMG_4767_edited.jpg", "IMG_4768_edited.jpg", "IMG_4769_edited.jpg", "IMG_4770_edited.jpg", "IMG_4771_edited.jpg", "IMG_4772_edited.jpg", "IMG_4773.jpg", "IMG_4774.jpg", "IMG_4775.jpg", "IMG_4776.jpg", "IMG_4777.jpg", "IMG_4778.jpg", "IMG_4779.jpg", "IMG_4780.jpg", "IMG_4781.jpg", "IMG_4782.jpg", "IMG_4783.jpg", "IMG_4784.jpg", "IMG_4785.jpg", "IMG_4786.jpg", "IMG_4787.jpg", "IMG_4788.jpg", "IMG_4789.jpg", "IMG_4790_edited.jpg", "IMG_4791_edited.jpg", "IMG_4792_edited.jpg", "IMG_4793_edited.jpg", "IMG_4794_edited.jpg", "IMG_4795_edited.jpg", "IMG_4796_edited.jpg", "IMG_4797_edited.jpg", "IMG_4798_edited.jpg", "IMG_4799_edited.jpg", "IMG_4800_edited.jpg", "IMG_4801.jpg", "IMG_4802.jpg", "IMG_4803.jpg", "IMG_4804.jpg", "IMG_4805.jpg", "IMG_4806.jpg", "IMG_4807.jpg", "IMG_4808_edited.jpg", "IMG_4809_edited.jpg", "IMG_4810_edited.jpg", "IMG_4811_edited.jpg", "IMG_4812_edited.jpg", "IMG_4813_edited.jpg", "IMG_4814_edited.jpg", "IMG_4815_edited.jpg", "IMG_4816_edited.jpg", "IMG_4817_edited.jpg", "IMG_4818_edited.jpg", "IMG_4819_edited.jpg", "IMG_4820_edited.jpg", "IMG_4821_edited.jpg", "IMG_4822_edited.jpg", "IMG_4823_edited.jpg", "IMG_4824_edited.jpg", "IMG_4825_edited.jpg", "IMG_4826.jpg", "IMG_4827.jpg", "IMG_4828.jpg", "IMG_4829.jpg", "IMG_4830.jpg", "IMG_4831.jpg", "IMG_4832.jpg", "IMG_4833.jpg", "IMG_4834.jpg", "IMG_4835.jpg", "IMG_4836.jpg", "IMG_4837.jpg", "IMG_4838.jpg", "IMG_4839.jpg", "IMG_4840.jpg", "IMG_4841.jpg", "IMG_4842.jpg", "IMG_4843.jpg", "IMG_4844.jpg", "IMG_4845.jpg", "IMG_4846.jpg", "IMG_4847.jpg", "IMG_4848.jpg", "IMG_4849.jpg", "IMG_4850.jpg", "IMG_4851.jpg", "IMG_4852.jpg", "IMG_4853.jpg", "IMG_4854.jpg", "IMG_4855.jpg", "IMG_4856.jpg", "IMG_4857.jpg", "IMG_4858.jpg", "IMG_4859.jpg", "IMG_4860.jpg", "IMG_4861.jpg", "IMG_4862.jpg", "IMG_4863.jpg", "IMG_4864.jpg", "IMG_4865.jpg", "IMG_4866.jpg", "IMG_4867.jpg", "IMG_4868.jpg", "IMG_4869.jpg", "IMG_4870.jpg", "IMG_4871.jpg", "IMG_4872.jpg", "IMG_4873.jpg", "IMG_4874_edited.jpg", "IMG_4875_edited.jpg", "IMG_4876_edited.jpg", "IMG_4877_edited.jpg", "IMG_4878.jpg", "IMG_4879.jpg", "IMG_4880.jpg", "IMG_4881.jpg", "IMG_4882.jpg", "IMG_4883.jpg", "IMG_4884.jpg", "IMG_4885.jpg", "IMG_4886.jpg", "IMG_4887.jpg", "IMG_4888.jpg", "IMG_4890.jpg", "IMG_4891.jpg", "IMG_4892.jpg", "IMG_4893.jpg", "IMG_4894.jpg", "IMG_4895.jpg", "IMG_4896.jpg", "IMG_4897.jpg", "IMG_4898.jpg", "IMG_4899.jpg", "IMG_4900.jpg", "IMG_4901.jpg", "IMG_4902.jpg", "IMG_4903.jpg", "IMG_4904.jpg", "IMG_4905.jpg", "IMG_4906.jpg", "IMG_4907.jpg", "IMG_4908.jpg", "IMG_4909.jpg", "IMG_4910.jpg", "IMG_4911.jpg", "IMG_4912.jpg", "IMG_4913.jpg", "IMG_4914.jpg", "IMG_4915.jpg", "IMG_4916.jpg", "IMG_4917.jpg", "IMG_4918.jpg", "IMG_4919.jpg", "IMG_4920.jpg", "IMG_4921.jpg", "IMG_4922.jpg", "IMG_4923.jpg", "IMG_4924.jpg", "IMG_4925.jpg", "IMG_4926.jpg", "IMG_4927.jpg", "IMG_4928.jpg", "IMG_4929.jpg", "IMG_4930.jpg", "IMG_4931.jpg", "IMG_4932.jpg", "IMG_4933.jpg", "IMG_4934.jpg", "IMG_4935.jpg", "IMG_4936.jpg", "IMG_4937.jpg", "IMG_4938.jpg", "IMG_4939.jpg", "IMG_4940.jpg", "IMG_4941.jpg", "IMG_4942.jpg", "IMG_4943.jpg", "IMG_4944.jpg", "IMG_4945.jpg", "IMG_4946.jpg", "IMG_4947.jpg", "IMG_4948.jpg", "IMG_4949.jpg", "IMG_4950.jpg", "IMG_4951.jpg", "IMG_4952.jpg", "IMG_4953.jpg", "IMG_4954.jpg", "IMG_4955.jpg", "IMG_4956.jpg", "IMG_4957.jpg", "IMG_4958.jpg", "IMG_4959.jpg", "IMG_4960.jpg", "IMG_4961.jpg", "IMG_4962.jpg", "IMG_4963.jpg", "IMG_4964.jpg", "IMG_4965.jpg", "IMG_4966.jpg"];
-document.getElementById("shoot-count").textContent = SHOOT.length || "…";
-document.getElementById("shoot-grid").innerHTML = SHOOT.map(f =>
-  `<a href="${SHOOT_BASE}/full/${f}"><img src="${SHOOT_BASE}/web/${f}" loading="lazy" alt="documentation shoot photograph"></a>`
-).join("");
+
+const stem = f => f.replace("_edited", "").replace(/\.jpg$/, "");
+function shootCap(f, i, n) {
+  const t = TIMES[stem(f)];
+  return `${stem(f)} — july 16${t ? ", " + t : ""} · frame ${i + 1} of ${n}${f.includes("_edited") ? " · edited" : ""}`;
+}
+function fuserCap(f, i, n) {
+  const t = TIMES[f.replace(/\.jpg$/, "")];
+  return `june 13${t ? ", " + t : ""} · closing at fuser · ${i + 1} of ${n}`;
+}
+
+// One flat viewer sequence per section: every frame, groups intact.
+const SEQ = [];
+function buildGrid(el, groups, thumbSrc, fullHref, capFn) {
+  const n = groups.flat().length;
+  let idx = SEQ.length ? SEQ.filter(s => s.section === el.id).length : 0;
+  const frames = groups.flat();
+  const seqStart = SEQ.length;
+  frames.forEach((f, i) => SEQ.push({ section: el.id, thumb: thumbSrc(f), full: fullHref(f), cap: capFn(f, i, n) }));
+  el.innerHTML = groups.map(g => {
+    const f = g[0];
+    const at = seqStart + frames.indexOf(f);
+    const rest = g.slice(1).map(h => {
+      const hi = seqStart + frames.indexOf(h);
+      return `<a class="tile hidden-frame" data-seq="${hi}" style="display:none"><img src="${thumbSrc(h)}" loading="lazy" alt=""></a>`;
+    }).join("");
+    const badge = g.length > 1 ? `<span class="badge" data-n="${g.length - 1}">+${g.length - 1}</span>` : "";
+    return `<a class="tile" data-seq="${at}"><img src="${thumbSrc(f)}" loading="lazy" alt="">${badge}</a>${rest}`;
+  }).join("");
+}
+
+buildGrid(document.getElementById("shoot-grid"), SHOOT_GROUPS,
+  f => `${SHOOT_BASE}/web/${f}`, f => `${SHOOT_BASE}/full/${f}`, shootCap);
+buildGrid(document.getElementById("fuser-grid"), FUSER_GROUPS,
+  f => `img/fuser/${f}`, f => `img/fuser/${f}`, fuserCap);
+document.getElementById("shoot-count").textContent = SHOOT_GROUPS.flat().length;
+
+// grid interactions: badge expands the burst, tile opens the viewer
+document.querySelectorAll(".grid").forEach(grid => grid.addEventListener("click", e => {
+  const badge = e.target.closest(".badge");
+  if (badge) {
+    e.preventDefault(); e.stopPropagation();
+    let el = badge.closest(".tile").nextElementSibling;
+    const show = el && el.style.display === "none";
+    while (el && el.classList.contains("hidden-frame")) {
+      el.style.display = show ? "" : "none";
+      el = el.nextElementSibling;
+    }
+    badge.textContent = show ? "–" : `+${badge.dataset.n}`;
+    return;
+  }
+  const tile = e.target.closest(".tile");
+  if (tile && tile.dataset.seq !== undefined) { e.preventDefault(); openLb(Number(tile.dataset.seq)); }
+}));
+
+// lightbox
+const lb = document.getElementById("lightbox");
+const lbImg = document.getElementById("lb-img");
+const lbCap = document.getElementById("lb-cap");
+let lbAt = 0;
+function openLb(i) {
+  lbAt = i;
+  const s = SEQ[i];
+  lbImg.src = s.thumb;
+  lbCap.innerHTML = `${s.cap} &nbsp;·&nbsp; <a href="${s.full}" target="_blank">full res &#8599;</a>`;
+  lb.classList.add("open");
+  if (SEQ[i + 1]) new Image().src = SEQ[i + 1].thumb;
+}
+function stepLb(d) {
+  const j = lbAt + d;
+  if (SEQ[j] && SEQ[j].section === SEQ[lbAt].section) openLb(j);
+}
+document.getElementById("lb-prev").onclick = () => stepLb(-1);
+document.getElementById("lb-next").onclick = () => stepLb(1);
+document.getElementById("lb-close").onclick = () => lb.classList.remove("open");
+lb.addEventListener("click", e => { if (e.target === lb) lb.classList.remove("open"); });
+document.addEventListener("keydown", e => {
+  if (!lb.classList.contains("open")) return;
+  if (e.key === "ArrowLeft") stepLb(-1);
+  else if (e.key === "ArrowRight") stepLb(1);
+  else if (e.key === "Escape") lb.classList.remove("open");
+});
 </script>
 
 </body>
