@@ -1205,6 +1205,9 @@ function rgb(color, alpha = 1) {
 }
 
 function roundRectPath(context, x, y, width, height, radius) {
+  // Zero-through sizes appear at reveal/exit edges; Linux cairo aborts on
+  // the degenerate arcs they produce.
+  if (!(width > 0) || !(height > 0)) { context.beginPath(); return; }
   const r = Math.max(0, Math.min(radius, width / 2, height / 2));
   context.beginPath();
   context.moveTo(x + r, y);
