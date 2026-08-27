@@ -8,14 +8,14 @@
 #   SPLICE   v4 31.11–62.951 + 94.426→end, 30 ms crossfade, trimmed to 94.2 s
 #   SEPARATE htdemucs, two-stem (vocals) and four-stem (drums/bass/other)
 #   STEMS    drums→club kick, other→pads/pluck/bells, plus the composed layers:
-#            wub, piano, eager percussion, fills, glass bowls, voice stamp
-#   VOCAL    f- take at pass 2, swung gate, doubles, bandmate harmonies
+#            wub, piano, eager percussion, fills, glass bowl, voice stamp
+#   VOCAL    f- take at pass 2, held as one direct centered foreground
 #   STAGE    assemble.py places everything by ITD/ILD and gates the space
 #   MASTER   cut-wax.sh — the wax/FM material chain, then the lane's law
 #
 # Usage:  bash pop/loner/bin/v4pid/run.sh [dest.mp3]
 #   SPLICE=0  reuse the existing splice        STEMS=0  reuse the stems
-#   VOX=0     reuse the vocal                  TARGET   master LUFS (-11.5)
+#   VOX=0     reuse the vocal                  TARGET   master LUFS (-13.5)
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -25,7 +25,7 @@ cd "$REPO"
 export V4PID_WORK="${V4PID_WORK:-$HOME/.cache/ac/v4pid}"
 S="$V4PID_WORK"
 mkdir -p "$S"
-DEST="${1:-pop/loner/out/lonerclub-v4pid.mp3}"
+DEST="${1:-pop/loner/out/lonerclub-v4pid-release.mp3}"
 PY="${PY:-python3}"
 
 if [ "${SPLICE:-1}" = "1" ]; then
@@ -54,14 +54,11 @@ if [ "${STEMS:-1}" = "1" ]; then
   ffmpeg -y -v error -i "$O" -af "highpass=f=2800"               -f f32le "$S/st-bells.raw"
 
   echo "→ instruments"
-  $PY "$HERE/gen-wub.py"
   $PY "$HERE/gen-piano.py"     # also lays a hat pattern…
   $PY "$HERE/gen-swing.py"     # …which this supersedes with the eager hand
 
   # the glass meditation bowls come out of the physical-model bell engine
   [ -x /tmp/bell ] || { bash pop/bell/c/build.sh >/dev/null && cp pop/bell/c/bell /tmp/bell; }
-  /tmp/bell --note "A#5" --material glass --geometry bowl --dur 9 --vel 0.30 --sr 48000 --out "$S/bowlA.wav" >/dev/null
-  /tmp/bell --note "F5"  --material glass --geometry bowl --dur 9 --vel 0.28 --sr 48000 --out "$S/bowlF.wav" >/dev/null
   /tmp/bell --note "D#6" --material glass --geometry bowl --dur 9 --vel 0.26 --sr 48000 --out "$S/bowlD.wav" >/dev/null
   $PY "$HERE/gen-fills.py"
 
@@ -77,15 +74,16 @@ fi
 
 if [ "${VOX:-1}" = "1" ]; then
   echo "→ vocal"
-  # the bandmates' takes join gently autotuned, never robotic
-  for t in cp o lg s sh rd; do
-    [ -f "$S/at-w-$t.wav" ] || pop/.venv/bin/python pop/bin/autotune.py \
-      "pop/loner/vox4/w-$t.wav" "$S/at-w-$t.wav" \
-      --key A# --scale minor --mode note --strength 0.55 --glide-ms 90 >/dev/null
-  done
   $PY "$HERE/build-vocal.py"
   ffmpeg -y -v error -f f32le -ar 48000 -ac 2 -i "$S/vox-arped.raw" -c:a pcm_s24le "$S/vox-arped.wav"
   $PY "$HERE/steppan.py" "$S/vox-arped.wav" "$S/vocalsFX.wav" >/dev/null
+fi
+
+# The club wub keys its envelope from the finished direct vocal, so regenerate
+# it after either the instrument or vocal side of the arrangement changes.
+if [ "${STEMS:-1}" = "1" ] || [ "${VOX:-1}" = "1" ]; then
+  echo "→ vocal-keyed club wub"
+  $PY "$HERE/gen-wub.py"
 fi
 
 echo "→ assemble"
@@ -93,7 +91,7 @@ $PY "$HERE/assemble.py"
 ffmpeg -y -v error -f f32le -ar 48000 -ac 2 -i "$S/premaster.raw" -c:a pcm_s24le "$S/premaster.wav"
 
 echo "→ master"
-TARGET="${TARGET:--11.5}" bash pop/loner/c/cut-wax.sh "$S/premaster.wav" "$DEST" 2>&1 | tail -2
+TARGET="${TARGET:--13.5}" bash pop/loner/c/cut-wax.sh "$S/premaster.wav" "$DEST" 2>&1 | tail -2
 ffmpeg -y -v error -i "$DEST" -c copy \
   -metadata title="lonerclub" -metadata artist="Whistlegraph Dot Org" -metadata album="pixsies" "$S/t.mp3"
 mv "$S/t.mp3" "$DEST"

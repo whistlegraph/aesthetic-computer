@@ -3,7 +3,8 @@ import os
 S=os.environ.get("V4PID_WORK") or os.path.expanduser("~/.cache/ac/v4pid")
 os.makedirs(S,exist_ok=True)
 sr=48000; BEAT=60.0/122; BAR=4*BEAT; SIX=BEAT/4
-NT=int(97.2*sr)
+DURATION=94.2
+NT=int(DURATION*sr)
 CH={'i':[0,3,7,10],'III':[3,7,10,14],'VI':[-4,0,3,6],'VII':[-2,2,5,9]}
 VERSE=['i','i','VI','VI','III','III','VII','VII']
 HOOK=['VI','VII','i','i','VI','VII','III','VII']

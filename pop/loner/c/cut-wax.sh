@@ -19,6 +19,8 @@
 #      glue (ratio 2.4, 8 ms attack) — the Optimod always-loud feel.
 #   6. FM CEILING — lowpass at 15 kHz (what stereo FM actually transmits),
 #      highpass at 28 Hz.
+#   7. DROP INHALE — from 61.55–63.30, side level folds to 18% around the
+#      centered spoken tag; the full club width returns on the downbeat.
 #
 # Then the law, unchanged from the lane: MEASURE → one static dB →
 # true-peak limiter at 0.82. Never a second loudnorm.
@@ -43,7 +45,8 @@ volume=1.1dB,asoftclip=type=tanh,volume=-0.8dB,\
 acompressor=threshold=0.28:ratio=1.8:attack=10:release=200:makeup=1.2:knee=8,\
 equalizer=f=90:t=q:w=0.9:g=1.0,\
 equalizer=f=2800:t=q:w=1.6:g=0.8,\
-highpass=f=28,lowpass=f=15000"
+highpass=f=28,lowpass=f=15000,\
+stereotools=slev=0.18:enable='between(t,61.55,63.30)'"
 
 WAX="$OUT/.wax-pre.wav"
 ffmpeg -y -v error -i "$FULL" -filter_complex "[0:a]$MATERIAL[out]" \

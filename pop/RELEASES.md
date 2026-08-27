@@ -7,7 +7,13 @@ Status legend: **RELEASED** · **SUBMITTED** · **MASTERING** · **RENDER** · *
 
 ---
 
-## Femrag++ — SUBMITTED (2026-08-26 · DistroKid uuid 6AC3B59B-BF20-48D9-9813CB10B86C62B7)
+## Femrag++ — RELEASED (2026-08-27 · DistroKid uuid 6AC3B59B-BF20-48D9-9813CB10B86C62B7)
+
+- **Live:** https://open.spotify.com/track/2v7LcVM38kpiIYd0RWQJzm ·
+  album https://open.spotify.com/album/2WtItmJXqsnCvequqtPBzd · artist
+  https://open.spotify.com/artist/7hqUS0ZErVZ3JzdeBEEgDr (Aesthetic Dot
+  Computer). Submitted 2026-08-26, live the next day. Canvas uploaded to
+  Spotify for Artists by @jeffrey 2026-08-27.
 
 - **Lane:** `pop/maytrax/` · FEM-bell micro-rag → drum and bass · A major ·
   144 BPM · 2:27 · femrag's bowl/FEM-shell-mode rag grown into a two-step dnb
@@ -43,6 +49,19 @@ Status legend: **RELEASED** · **SUBMITTED** · **MASTERING** · **RENDER** · *
   3 px apart for a frame. Wrap-frame delta 0.153 RMSE vs 0.132 for an
   ordinary adjacent pair — seamless. Not yet uploaded to Spotify for Artists
   (needs the release live).
+- **Piece:** `aesthetic.computer/femrag++` (and `femrag-plusplus`, same
+  manifest) — a `lib/pop.mjs` slideshow. With no illy campaign behind it, the
+  twelve section stills are twelve crops of the cover photograph, cut by
+  `bin/stage-femrag-plusplus-assets.sh`: fight stick, the fighting game, the
+  laptop screen, the coffee, the keyboard, the DAW, the books, the fig, the
+  lamp, the Xbox pad, the blanket, then the wide room. The plusses survive
+  the parser, lith and Caddy; `femrag-plusplus` exists only as insurance.
+  **A disk cannot `import` a sibling disk** — the loader hands modules a
+  non-hierarchical base and `./other.mjs` throws — so the two names are two
+  full wrappers, not a re-export.
+- **CDN:** `pop/femrag-plusplus.mp3` (the 320 release print), `.jpg` (cover
+  at 1200², since pop.mjs preloads it and 3000² is a ~36 MB decode), and
+  `pop/femrag-plusplus/sec-0..11.jpg`. Announced in chat-clock 2026-08-27.
 - **Genres:** Electronic / Drum & Bass (+ Dance secondary).
 
 ## cult remix — MASTERING (whistlegraph remix, v10.1 iterating)
@@ -62,50 +81,50 @@ Status legend: **RELEASED** · **SUBMITTED** · **MASTERING** · **RENDER** · *
 - **Engine:** `bin/render.mjs` → `out/season-remix-v1.mp3`. NOTE: outro uses
   the unprocessed original take — wants an aesthetivox pass (v2) before release.
 
-## lonerclub (v4pid) — MASTERING (Whistlegraph Dot Org)
+## lonerclub v4pid — SUBMITTING (Whistlegraph Dot Org)
 
 - **Lane:** `pop/loner/` · club cut of the loner v4 regulation · A# minor ·
-  122 BPM · 1:37 · the preferred v4 audio itself, spliced: opens on the sung
+  122 BPM · 1:34 · the preferred v4 audio itself, spliced: opens on the sung
   "sitting" (v4's 0:31 pickup), one 30 ms crossfade excises the floorless
   break so the beat never stops, then v4's back half through its natural
   ring-out. The splice is then separated with htdemucs and rebuilt around
   her voice — the base audio is sacred (v4's own source was lost and every
   engine reconstruction was rejected), so everything is stem work on top of
   it: a thick round club kick, pitched-around hats, an eager humanized hand
-  (swing, ±25% velocity, timing pulled 6 ms early), a continuous low piano
-  following her melody, a chord-following wub sidechained to her vocal,
-  glass meditation bowls at three of the four doors, bandmate harmonies
-  (gently autotuned, A# minor, strength 0.55) held back to the finale, and
-  jeffrey's ElevenLabs stamp WORLD-snapped onto F2/C#2/A#1 at 1:33.
-  **No vocal arpeggiation** — tried, and retired: her held notes stay hers.
-- **Space (2026-08-27):** the run into each door is a *click* rush, not a
-  snare rush — a tick that eases in and stops short of a roll, quietest and
-  widest-spaced at the last door; no bowl at all on that last door, so the
-  ending belongs to her voice and the stamp. The arrangement now rests: the
-  decorative layers go silent for the last half-bar of each 8-bar phrase
+  (swing, ±25% velocity, timing pulled 6 ms early), and a continuous low
+  piano following her melody. The lead is one direct, centered foreground;
+  chopped repeats, reverse fragments, phrase-long harmonies, step-panning,
+  and phasing were tried and retired.
+- **Final arrangement (2026-08-27):** body → clock → club. One centered,
+  filtered click identifies the clock door. The club door has no click: a
+  1.37-second Whistlegraph Dot Org tag enters at 1:01.78, after the final
+  “pass,” and clears 150 ms before the drop. It is WORLD-snapped onto
+  F2/C#2/A#1, resampled slightly upward, and held dead center while the image
+  collapses around it; the wub and glass bowl open the club pass. The wub
+  ducks about 2.8 dB under the singer with a 230 ms release. The decorative
+  layers go silent for the last half-bar of each 8-bar phrase
   (the doors clear by ~10 dB in the high band), the eager hand and the piano
-  sit out the verse's first four bars, and the pads take a bar off before
-  the finale's last push. Kick, bass and her voice are never gated — the
-  beat never stops.
+  sit out the clock's first four bars, and the pads take a bar off before the
+  finale's last push. Kick, bass and her voice are never gated.
 - **Build:** `bin/v4pid/run.sh` — splice → demucs → stems → vocal → spatial
-  stage → master, reproducible from the sacred mp3 with one command. (The
+  stage → master, reproducible from the sacred mp3 with one command.
+  `bin/v4pid/measure.py` reports section and door descriptors. (The
   original build lived only in a /tmp scratchpad and was lost to a system
   clean on 2026-08-27; it was recovered out of the session transcript and
   committed here so that cannot happen twice.)
 - **Master:** `c/cut-wax.sh` — the wax/FM chain (bass mono <120 Hz, side
   lift + 0.06 Hz drifting pan, vinyl wow ±0.12%, tanh saturation + 7.5 k
   exciter, Optimod-style density, 15 kHz FM ceiling) → measure → one static
-  dB → limiter. Two prints: the loud one at **−11.8 LUFS · −1.6 dBTP**
-  (`out/lonerclub-v4pid.mp3`, what juke plays) and the release print at the
-  house law, **−13.5 LUFS · −1.7 dBTP · LRA 8.3**
-  (`out/lonerclub-v4pid-release.mp3`, 320k — this is the DistroKid file).
-  ID3 on both: Whistlegraph Dot Org / pixsies / lonerclub.
+  dB → limiter. The release print follows the house law at
+  **−13.5 LUFS · −1.7 dBTP · LRA 1.7**
+  (`out/lonerclub-v4pid-release.mp3`, 320k — the DistroKid file).
+  ID3: Whistlegraph Dot Org / pixsies / lonerclub.
 - **First release under the artist name "Whistlegraph Dot Org."** Covers:
   five candidates in `covers/` — score-international / stone / club-floor,
   plus `last-lamps` (the room emptying, five lamps still burning) and
   `room-to-move` (seven people on a floor built for thirty, one of them
-  starting to come uncurled). All 1024² and want an upscale to 3000² before
-  upload. Cover pick is @jeffrey's.
+  starting to come uncurled). DistroKid-ready 3000² exports live in
+  `covers/distrokid/`. Cover pick is @jeffrey's.
 
 ## loner remix — RENDER (whistlegraph remix, v4)
 

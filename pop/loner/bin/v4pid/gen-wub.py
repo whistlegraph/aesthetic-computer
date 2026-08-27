@@ -4,10 +4,11 @@ S=os.environ.get("V4PID_WORK") or os.path.expanduser("~/.cache/ac/v4pid")
 os.makedirs(S,exist_ok=True)
 sr=48000
 BEAT=60.0/122; BAR=4*BEAT
-NT=int(97.2*sr)
+DURATION=94.2
+NT=int(DURATION*sr)
 root0=58.27
 ROW=[0,0,-4,-4,3,3,-2,-2]
-t_start,t_end=31.826,63.30
+t_start,t_end=63.30,93.20
 a,b=int(t_start*sr),int(t_end*sr)
 n=b-a
 t=np.arange(n)/sr
@@ -29,14 +30,14 @@ sub*=duck*0.16
 r=subprocess.run(["ffmpeg","-v","error","-i",f"{S}/vocalsFX.wav","-ac","1","-ar",str(sr),"-f","f32le","-"],capture_output=True).stdout
 vx=np.frombuffer(r,np.float32).astype(np.float64)
 env=np.abs(vx[a:b]) if len(vx)>=b else np.abs(np.pad(vx,(0,b-len(vx)))[a:b])
-atk=1-np.exp(-1/(0.015*sr)); rel=1-np.exp(-1/(0.25*sr))
+atk=1-np.exp(-1/(0.015*sr)); rel=1-np.exp(-1/(0.23*sr))
 f=0.0; fo=np.empty(n)
 for i in range(n):
     c=atk if env[i]>f else rel
     f+=c*(env[i]-f); fo[i]=f
 fo/=max(1e-9,np.percentile(fo,98))
 fo=np.clip(fo,0,1)
-sub*=(1-0.58*fo)
+sub*=(1-0.28*fo)  # about 2.8 dB down under voiced frames
 e=int(BAR*sr)
 sub[:e]*=np.linspace(0,1,e); sub[-e:]*=np.linspace(1,0,e)
 out=np.zeros((NT,2))

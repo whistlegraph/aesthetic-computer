@@ -4,7 +4,8 @@ S=os.environ.get("V4PID_WORK") or os.path.expanduser("~/.cache/ac/v4pid")
 os.makedirs(S,exist_ok=True)
 sr=48000
 BEAT=60.0/122; BAR=4*BEAT
-NT=int(97.2*sr)
+DURATION=94.2
+NT=int(DURATION*sr)
 def raw2(p): return np.fromfile(p,np.float32).reshape(-1,2).astype(np.float64)
 def wav2(p):
     r=subprocess.run(["ffmpeg","-v","error","-i",p,"-ar",str(sr),"-ac","2","-f","f32le","-"],capture_output=True).stdout
@@ -38,12 +39,12 @@ def place(x, deg=0.0, depth=0.0):
 
 P2,P3=31.83,63.30
 ENVS={
- "st-kick":[(0,0.72),(29.9,0.77),(31.83,0.9),(97.2,0.9)],
- "st-hats":[(0,0),(15.7,0),(19.7,0.55),(P2,0.55),(P2+2*BAR,0.75),(97.2,0.75)],
- "bass":[(0,0.7),(P2,0.75),(P2+2*BAR,1),(97.2,1)],
- "st-pluck":[(0,0.18),(15.7,0.18),(19.7,0.6),(P2,0.6),(P2+2*BAR,1),(97.2,1)],
- "st-pads":[(0,0.24),(P2-2*BAR,0.26),(P2,0.9),(47.6,1),(97.2,1)],
- "st-bells":[(0,0),(45.6,0),(49.6,0.42),(P3,0.42),(P3+2*BAR,0.60),(97.2,0.60)],
+ "st-kick":[(0,0.72),(29.9,0.77),(P2,0.84),(P3,0.84),(P3+2*BAR,0.90),(DURATION,0.90)],
+ "st-hats":[(0,0),(15.7,0),(19.7,0.50),(P2,0.55),(P3,0.55),(P3+2*BAR,0.72),(DURATION,0.72)],
+ "bass":[(0,0.70),(P2,0.75),(P3,0.75),(P3+2*BAR,0.95),(DURATION,0.95)],
+ "st-pluck":[(0,0.18),(15.7,0.18),(19.7,0.55),(P2,0.58),(P3,0.58),(P3+2*BAR,0.90),(DURATION,0.90)],
+ "st-pads":[(0,0.22),(P2-2*BAR,0.25),(P2,0.78),(P3,0.78),(P3+2*BAR,0.92),(DURATION,0.92)],
+ "st-bells":[(0,0),(P3-0.05,0),(P3+2*BAR,0.52),(DURATION,0.52)],
 }
 # SPACE — the beat never stops (kick, bass and her voice are never gated), but
 # everything decorative is allowed to shut up. Two kinds of hole:
@@ -68,7 +69,9 @@ def gate(windows, floor=0.0, ramp_s=0.05):
 RESTS=[]
 t8=GRID0+8*BAR; k=0
 while t8<93.0:
-    RESTS.append((t8-BAR, t8-BAR/2, 0.0 if k%2==0 else 0.22))
+    # a floor, not a hole: muting these layers outright left nothing above
+    # 1.2 kHz between kick hits, which read as the top dropping out
+    RESTS.append((t8-BAR, t8-BAR/2, 0.34 if k%2==0 else 0.52))
     t8+=8*BAR; k+=1
 BREATH=gate(RESTS)
 
@@ -91,7 +94,7 @@ add(place(wav2(f"{S}/sep4/htdemucs/v4pid-trim/bass.wav"),0,0),envelope(ENVS["bas
 add(place(raw2(f"{S}/st-pluck.raw"),-25,0.15),envelope(ENVS["st-pluck"])*BREATH*THIN_TOP)
 add(place(raw2(f"{S}/st-pads.raw"),0,0.35),envelope(ENVS["st-pads"])*BREATH*THIN_PADS,0.95)
 add(place(raw2(f"{S}/st-bells.raw"),+30,0.25),envelope(ENVS["st-bells"]))
-VOXENV=[(0,0.86),(29.9,0.9),(31.83,1.0),(97.2,1.0)]   # close to the mic   # quiet, calm entrance
+VOXENV=[(0,0.92),(DURATION,0.92)]
 add(wav2(f"{S}/vocalsFX.wav"),envelope(VOXENV),1.02)   # she stays center, forward
 add(place(raw2(f"{S}/st-piano.raw"),-15,0.20),BREATH*THIN_VERSE)
 add(place(raw2(f"{S}/st-swing.raw"),+12,0.05),BREATH*THIN_VERSE)

@@ -4,7 +4,8 @@ S=os.environ.get("V4PID_WORK") or os.path.expanduser("~/.cache/ac/v4pid")
 os.makedirs(S,exist_ok=True)
 sr=48000
 BEAT=60.0/122; BAR=4*BEAT; SIX=BEAT/4
-NT=int(97.2*sr)
+DURATION=94.2
+NT=int(DURATION*sr)
 rng=np.random.default_rng(21)
 def eager():
     # ahead of the beat: mean -6ms, sd 7ms — an excited hand, never late-lazy
