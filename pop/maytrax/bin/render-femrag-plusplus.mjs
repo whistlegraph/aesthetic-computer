@@ -27,7 +27,7 @@ import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const TITLE = "femrag++";
+const TITLE = "Femrag++";
 const SLUG = "femrag-plusplus";
 const SR = 48_000;
 const BPM = 144;
@@ -248,6 +248,25 @@ function bell(t0, midi, gain = .06, pan = 0, length = .22) {
   }));
 }
 
+// The same six partials as bell(), played backwards: each swells out of
+// silence and every partial LANDS together at tLand — a strike that arrives
+// where it ends. High partials start later, so the swell brightens as it comes.
+function reverseBell(tLand, midi, gain = .06, pan = 0, length = .5) {
+  EVENTS.push({ i: "rbell", t: tLand - length, midi, gain, pan, length });
+  const f = hz(midi);
+  const partials = [
+    [.461, .22, 1.35], [.688, .25, 1.18], [1, 1, 1],
+    [3.479, .17, .54], [3.559, .14, .48], [4.81, .08, .34],
+  ];
+  partials.forEach(([ratio, level, frac], i) => {
+    const duration = length * frac;
+    oscillator(tLand - duration, duration, f * ratio, gain * level, {
+      attack: duration * .82, release: duration * .14,
+      pan: pan + (i - 1) * .04, phase: i * 1.1,
+    });
+  });
+}
+
 function boom(t0, gain = .18) {
   EVENTS.push({ i: "boom", t: t0, gain });
   oscillator(t0, .34, 148, gain, {
@@ -318,13 +337,32 @@ const LEAD = [
   [[76, 0], [73, 1], [71, 2], [68, 2.75], [69, 3.5]],
 ];
 
+// The back half leaves the home loop for the axis lift — vi IV I V — so the
+// last minute lands somewhere new without leaving A major. PROG/TUNE are what
+// every voice actually reads; the breathe flips them and never flips back, so
+// the outro's last word is the new tune and only the final bell resolves home.
+const CHORDS2 = [
+  { bass: 42, notes: [57, 61, 66, 69] }, // F#m
+  { bass: 38, notes: [57, 62, 66, 69] }, // D
+  { bass: 45, notes: [57, 61, 64, 69] }, // A
+  { bass: 40, notes: [56, 59, 64, 68] }, // E
+];
+const LEAD2 = [
+  [[78, 0], [81, .75], [83, 1.5], [85, 2.25], [83, 3], [81, 3.5]],
+  [[86, 0], [85, 1], [83, 2], [81, 2.75], [80, 3.5]],
+  [[85, 0], [83, .75], [81, 1.5], [78, 2.25], [76, 3], [74, 3.5]],
+  [[76, 0], [80, 1], [83, 2], [80, 2.75], [76, 3.5]],
+];
+let PROG = CHORDS;
+let TUNE = LEAD;
+
 function kickBar(bar, weight = 1, pickup = false) {
   for (let beat = 0; beat < 4; beat++) boom(at(bar, beat), .16 * weight * (beat === 0 ? 1.08 : 1));
   if (pickup) boom(at(bar, 3.75), .075 * weight);
 }
 
 function ragBar(bar, density = 1, octave = 0, { pattern = true, oom = true, straight = false } = {}) {
-  const chord = CHORDS[bar % 4];
+  const chord = PROG[bar % 4];
   const step = (beat) => straight ? beat * BEAT : swung(beat);
   if (pattern) for (let e = 0; e < 8; e++) {
     if (density < .7 && e % 2) continue;
@@ -341,7 +379,7 @@ function ragBar(bar, density = 1, octave = 0, { pattern = true, oom = true, stra
 
 function leadBar(bar, amount = 1, octave = 0, { straight = false } = {}) {
   const step = (beat) => straight ? beat * BEAT : swung(beat);
-  LEAD[bar % 4].forEach(([midi, beat], i) => {
+  TUNE[bar % 4].forEach(([midi, beat], i) => {
     const tt = at(bar) + step(beat);
     bell(tt, midi + octave, .075 * amount, .18 + (i % 2) * .35, .24);
     if (i % 2 === 0) bell(tt + BEAT * .25, midi + 12 + octave, .025 * amount, -.58, .1);
@@ -351,7 +389,7 @@ function leadBar(bar, amount = 1, octave = 0, { straight = false } = {}) {
 // High bells in a regular 3-over-2 cross-rhythm — six even hits per bar —
 // voiced from the current chord so the shimmer always agrees with the harmony.
 function ticks(bar, amount = 1) {
-  const notes = CHORDS[bar % 4].notes;
+  const notes = PROG[bar % 4].notes;
   for (let s = 1; s < 6; s++) {
     const note = notes[[0, 2, 1, 3, 2, 1][s]] + 24;
     bell(at(bar, s * 2 / 3), note, .012 * amount * (s % 2 ? 1 : .7), s % 2 ? .82 : -.82, .06);
@@ -382,7 +420,7 @@ function dnbBar(bar, weight = 1, { fill = false, doubleKick = false } = {}) {
 
 // The dnb bassline walks the rag's roots an octave down, sliding and wobbling.
 function bassBar(bar, weight = 1, { wobble = false } = {}) {
-  const root = CHORDS[bar % 4].bass - 12;
+  const root = PROG[bar % 4].bass - 12;
   if (wobble) {
     sub(at(bar, 0), BEAT * 3.4, root, .21 * weight, {
       drive: 3.2, wobble: bar % 2 ? 6 : 4.5,
@@ -424,7 +462,7 @@ function raggaBar(bar, weight = 1) {
 // The deep wub: slow quarter-note wobble an octave under the dnb bassline,
 // with a driven octave doubling so the wub reads on small speakers.
 function wubBar(bar, weight = 1) {
-  const root = CHORDS[bar % 4].bass - 12;
+  const root = PROG[bar % 4].bass - 12;
   const rate = bar % 4 === 3 ? 3 : 2.25;
   sub(at(bar, 0), BEAT * 3.6, root, .2 * weight, { drive: 3.6, wobble: rate });
   sub(at(bar, 0), BEAT * 3.6, root + 12, .07 * weight, { drive: 4, wobble: rate });
@@ -447,7 +485,7 @@ for (let bar = 4; bar < 12; bar++) {
   ragBar(bar, .82, 12, { oom: false, straight: true });
   leadBar(bar, .7, bar < 8 ? 0 : 12, { straight: true });
   ticks(bar, .5);
-  if (bar >= 6) sub(at(bar, 0), BEAT * 1.6, CHORDS[bar % 4].bass - 12, .08 + (bar - 6) * .015, { drive: 2 });
+  if (bar >= 6) sub(at(bar, 0), BEAT * 1.6, PROG[bar % 4].bass - 12, .08 + (bar - 6) * .015, { drive: 2 });
 }
 
 // ── the buildup · snare roll 8ths → 32nds in four bars ─────────────────────
@@ -495,7 +533,7 @@ for (let bar = 32; bar < 40; bar++) {
   // The throat enters at 0:33.3 (bar 36 after the front trim), under the
   // recognisable "wub wub" half of the breakdown.
   if (bar >= 36) {
-    const root = CHORDS[bar % 4].bass - 12;
+    const root = PROG[bar % 4].bass - 12;
     const weight = .72 + (bar - 36) * .09;
     throatBass(at(bar, 0), BEAT * 1.85, root, .12 * weight, { wobble: 2.25 });
     throatBass(at(bar, 2), BEAT * 1.85, root, .105 * weight, { wobble: 2.25 });
@@ -538,13 +576,17 @@ for (let bar = 56; bar < 72; bar++) {
   ragBar(bar, .8, 12, { oom: false });
   if (bar % 4 >= 2) leadBar(bar, .6, 12);
   if (bar % 8 === 4) for (let s = 0; s < 8; s++) {
-    bell(at(bar, 2) + s * BEAT / 4, CHORDS[bar % 4].notes[s % 4] + 24, .028, s % 2 ? .7 : -.7, .08);
+    bell(at(bar, 2) + s * BEAT / 4, PROG[bar % 4].notes[s % 4] + 24, .028, s % 2 ? .7 : -.7, .08);
   }
 }
 sub(at(56, 0), BEAT * 3.8, 21, .28, { drive: 4, slideTo: 33 });
 
 // 72–80: the ragga breathes — donk pulled back, wub out, the rag and lead
-// carry alone. The room gets its air back before the last push.
+// carry alone. The room gets its air back before the last push — and the
+// harmony quietly moves house: the axis lift arrives here with the air, so
+// the push lands on chords the ear has only just met.
+PROG = CHORDS2;
+TUNE = LEAD2;
 for (let bar = 72; bar < 80; bar++) {
   const back = bar < 76 ? .45 : .45 + (bar - 76) * .14;
   raggaBar(bar, back);
@@ -552,30 +594,53 @@ for (let bar = 72; bar < 80; bar++) {
   leadBar(bar, .6, bar >= 76 ? 12 : 0);
   if (bar >= 76) wubBar(bar, (bar - 75) * .22);
   if (bar % 4 === 3) for (let s = 0; s < 4; s++) {
-    bell(at(bar, 2) + s * BEAT / 2, CHORDS[bar % 4].notes[s % 4] + 24, .03, s % 2 ? .6 : -.6, .12);
+    bell(at(bar, 2) + s * BEAT / 2, PROG[bar % 4].notes[s % 4] + 24, .03, s % 2 ? .6 : -.6, .12);
   }
 }
 riser(at(78), BAR * 2 - BEAT * .5, .11);
 
 // 80–96: the last push — everything on, lead every bar, bell runs every four.
+// The back half breaks the floor open: bars 90 and 94 drop to a skeleton with
+// the tune exposed, reverse bells swell into every 4-bar seam, and from 84 on
+// the top line trails reversed pre-echoes of its own notes.
 for (let bar = 80; bar < 96; bar++) {
   const w = bar === 80 ? 1.15 : 1.05;
-  raggaBar(bar, w);
-  wubBar(bar, 1);
-  ragBar(bar, .85, 12, { oom: false });
-  leadBar(bar, .7, 12);
-  if (bar % 4 === 0) for (let s = 0; s < 8; s++) {
-    bell(at(bar, 2) + s * BEAT / 4, CHORDS[bar % 4].notes[s % 4] + 24, .03, s % 2 ? .7 : -.7, .08);
+  const cut = bar === 90 || bar === 94;
+  if (cut) {
+    kick(at(bar, 0), .18);
+    snare(at(bar, 1), .14);
+    reverseBell(at(bar + 1), TUNE[(bar + 1) % 4][0][0] + 12, .055, -.4, BEAT * 2.6);
+  } else {
+    raggaBar(bar, w);
+    wubBar(bar, 1);
+    ragBar(bar, .85, 12, { oom: false });
+  }
+  leadBar(bar, cut ? .85 : .7, 12);
+  if (bar >= 84) TUNE[bar % 4].forEach(([midi, beat], i) => {
+    if (i % 2 === 0) reverseBell(at(bar) + swung(beat), midi + 12, .02, i % 4 ? .7 : -.7, BEAT * .9);
+  });
+  if (bar % 4 === 3) reverseBell(at(bar + 1), TUNE[0][0][0] + 12, .045, .5, BEAT * 1.6);
+  if (bar % 4 === 0 && !cut) for (let s = 0; s < 8; s++) {
+    bell(at(bar, 2) + s * BEAT / 4, PROG[bar % 4].notes[s % 4] + 24, .03, s % 2 ? .7 : -.7, .08);
   }
 }
 sub(at(80, 0), BEAT * 3.8, 21, .28, { drive: 4, slideTo: 33 });
 
 // 96–104: outro — the wub winds down and femrag's swing gets the last word.
+// Bar 98 stumbles to a lone kick and a swell; bar 101 says the new tune
+// BACKWARDS — the phrase retrograded into reverse bells, each swelling to
+// where its note would have struck — and one long reverse swell carries the
+// whole last bar into the final home strike.
 for (let bar = 96; bar < 100; bar++) {
   const fade = 1 - (bar - 96) * .18;
-  raggaBar(bar, .8 * fade);
-  wubBar(bar, .75 * fade);
-  ragBar(bar, .55 * fade, 12, { oom: false });
+  if (bar === 98) {
+    kick(at(bar, 0), .15);
+    reverseBell(at(99), TUNE[3][0][0] + 12, .05, -.5, BEAT * 2.4);
+  } else {
+    raggaBar(bar, .8 * fade);
+    wubBar(bar, .75 * fade);
+    ragBar(bar, .55 * fade, 12, { oom: false });
+  }
 }
 for (let bar = 100; bar < 104; bar++) {
   const fade = 1 - (bar - 100) * .2;
@@ -584,6 +649,9 @@ for (let bar = 100; bar < 104; bar++) {
   if (bar === 100) leadBar(bar, .5);
   if (bar === 102) leadBar(bar, .35, -12);
 }
+TUNE[1].slice().reverse().forEach(([midi, beat], i) =>
+  reverseBell(at(101) + (3.75 - beat) * BEAT, midi + 12, .034, i % 2 ? .6 : -.6, BEAT * .85));
+reverseBell(at(103, 3), 81, .065, 0, BEAT * 3);
 bell(at(103, 3), 45, .085, 0, .42);
 sub(at(103, 3), BEAT * 1.2, 33, .1, { drive: 2, release: .4 });
 
@@ -632,10 +700,10 @@ const ffmpeg = spawnSync("ffmpeg", [
   "-f", "f32le", "-ar", String(SR), "-ac", "2", "-i", rawPath,
   "-af", "acompressor=threshold=-16dB:ratio=2.4:attack=12:release=90:makeup=2:knee=6,alimiter=limit=.96:attack=4:release=70",
   "-c:a", "libmp3lame", "-b:a", "320k",
-  "-metadata", `title=${TITLE}`, "-metadata", "artist=jeffrey", "-metadata", "album=pixsies",
+  "-metadata", `title=${TITLE}`, "-metadata", "artist=Aesthetic Dot Computer", "-metadata", "album=pixsies",
   outPath,
 ], { stdio: "inherit" });
-try { unlinkSync(rawPath); } catch {}
+if (!process.argv.includes("--keep-raw")) try { unlinkSync(rawPath); } catch {}
 if (ffmpeg.status !== 0) {
   console.error("✗ ffmpeg failed");
   process.exit(1);

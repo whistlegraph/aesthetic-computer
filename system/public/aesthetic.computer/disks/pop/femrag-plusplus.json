@@ -1,0 +1,28 @@
+{
+  "slug": "femrag-plusplus",
+  "title": "Femrag++",
+  "artist": "Aesthetic Dot Computer",
+  "album": "pixsies",
+  "bpm": 144,
+  "key": "A major",
+  "meter": "4/4",
+  "duration": 146.666689,
+  "audio": "/assets/pop/femrag-plusplus.mp3",
+  "cover": "/assets/pop/femrag-plusplus.jpg",
+  "sections": [
+    { "name": "drop1a",        "t": 0,                  "illy": "/assets/pop/femrag-plusplus/sec-0.jpg",  "code": "a" },
+    { "name": "drop1b",        "t": 13.333333333333334, "illy": "/assets/pop/femrag-plusplus/sec-1.jpg",  "code": "b" },
+    { "name": "breakdown",     "t": 26.666666666666668, "illy": "/assets/pop/femrag-plusplus/sec-2.jpg",  "code": "c" },
+    { "name": "buildup2",      "t": 40,                 "illy": "/assets/pop/femrag-plusplus/sec-3.jpg",  "code": "d" },
+    { "name": "drop2a",        "t": 46.66666666666667,  "illy": "/assets/pop/femrag-plusplus/sec-4.jpg",  "code": "e" },
+    { "name": "drop2b",        "t": 60,                 "illy": "/assets/pop/femrag-plusplus/sec-5.jpg",  "code": "f" },
+    { "name": "ragga-a",       "t": 66.66666666666667,  "illy": "/assets/pop/femrag-plusplus/sec-6.jpg",  "code": "g" },
+    { "name": "ragga-b",       "t": 80,                 "illy": "/assets/pop/femrag-plusplus/sec-7.jpg",  "code": "h" },
+    { "name": "ragga-breathe", "t": 93.33333333333334,  "illy": "/assets/pop/femrag-plusplus/sec-8.jpg",  "code": "i" },
+    { "name": "ragga-push",    "t": 106.66666666666667, "illy": "/assets/pop/femrag-plusplus/sec-9.jpg",  "code": "j" },
+    { "name": "ragga-push-b",  "t": 120,                "illy": "/assets/pop/femrag-plusplus/sec-10.jpg", "code": "k" },
+    { "name": "outro",         "t": 133.33333333333334, "illy": "/assets/pop/femrag-plusplus/sec-11.jpg", "code": "l" }
+  ],
+  "links": {},
+  "credits": "FEM bell modes from pop/bell. Label stamp spoken by Prutti."
+}

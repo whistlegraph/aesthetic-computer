@@ -75,3 +75,10 @@ reading `out/<slug>.struct.json` + the campaign gens dir.
 - `trancenwaltz` ✓
 - `trancepenta` ✓
 - `fluttabap360` ✓
+- `femrag++` ✓ (also `femrag-plusplus`; manifest slug is the punctuation-free
+  one, since it names the asset paths. Its section stills are twelve crops of
+  the cover photograph rather than an illy campaign —
+  `pop/maytrax/bin/stage-femrag-plusplus-assets.sh` cuts them. A disk cannot
+  `import` a sibling disk to share a wrapper: the loader hands modules a
+  non-hierarchical base and `./other.mjs` fails to resolve, so the two names
+  are two full wrappers over one manifest.)

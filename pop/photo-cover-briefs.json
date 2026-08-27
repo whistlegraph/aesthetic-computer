@@ -4,6 +4,13 @@
   "contract": "A cover candidate must be a photograph from Jeffrey's own library whose subject, light, place, or incident has a real relationship to the track. Literal matches are optional; lived specificity is required.",
   "songs": [
     {
+      "slug": "femrag-plusplus",
+      "title": "Femrag++",
+      "claim": "Physics-simulated bells play a tiny rag until drum and bass tears the floor out.",
+      "primaryTerms": ["bell", "drum"],
+      "terms": ["bell", "bowl", "drum", "piano", "clock", "machine", "dance", "night"]
+    },
+    {
       "slug": "americomputadora",
       "title": "americomputadora",
       "released": "2026-07-04",

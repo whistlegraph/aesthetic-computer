@@ -90,4 +90,15 @@ node pop/maytrax/bin/render-femrag-plusplus.mjs
 ## status
 
 scaffold + minimal bed. vocal score lives in `maytrax.np` (placeholder).
-not yet released; not yet in `pop/RELEASES.md`.
+maytrax itself not yet released. **Femrag++ SUBMITTED to DistroKid
+2026-08-26** (axis-lift back half, reverse-bell outro) —
+`bin/cut-femrag-plusplus.sh` cuts `out/femrag-plusplus-master.wav` +
+`-release.mp3`; full record in `pop/RELEASES.md`.
+
+its Spotify Canvas comes off the cover photo:
+
+```bash
+node pop/bin/photo-canvas.mjs \
+  --photo pop/maytrax/covers/femrag-plusplus-cover.jpg --bpm 144 --bars 4 \
+  --out pop/maytrax/out/femrag-plusplus-canvas.mp4
+```
