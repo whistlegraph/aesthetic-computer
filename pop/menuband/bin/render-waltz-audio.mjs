@@ -84,6 +84,7 @@ const tonic = tonicMidi(spec.tonic ?? "C");
 const intervals = scaleIntervals(spec.mode ?? "major");
 const program = Math.trunc(Number(spec.instrumentProgram ?? 0));
 const development = spec.development ?? "lift";
+const singleOctave = spec.singleOctave === true;
 const harmony = spec.harmonyDegrees;
 const melodyBars = spec.melodyBars;
 if (!harmony?.length || !melodyBars?.length)
@@ -121,7 +122,9 @@ function melodyOffsets(count) {
 function developed(source, barIndex) {
   const section = Math.floor(barIndex / 8);
   if (barIndex >= bars - 4) {
-    const cadences = [[11, 9, 7], [10, 8], [9, 8], [7]];
+    const cadences = singleOctave
+      ? [[4, 6, 4], [2, 4, 2], [4, 2, 1], [2, 1, 0]]
+      : [[11, 9, 7], [10, 8], [9, 8], [7]];
     return cadences[barIndex - (bars - 4)];
   }
   if (section <= 0) return source;
@@ -129,7 +132,8 @@ function developed(source, barIndex) {
     case "mirror": {
       // Swift's integer division truncates; keep that, not a float mean.
       const center = Math.trunc(source.reduce((a, b) => a + b, 0) / Math.max(1, source.length));
-      return source.map((d) => Math.max(0, Math.min(13, center - (d - center) + (section === 2 ? 1 : 0))));
+      const ceiling = singleOctave ? 6 : 13;
+      return source.map((d) => Math.max(0, Math.min(ceiling, center - (d - center) + (section === 2 ? 1 : 0))));
     }
     case "turn":
       if (section % 2 === 1) return [...source.slice(1), source[0]];

@@ -154,6 +154,7 @@ let intervals = scaleIntervals(mode)
 let program = Int(number(spec, "instrumentProgram", fallback: 0))
 let instrumentName = string(spec, "instrumentName", fallback: "Acoustic Grand Piano")
 let development = string(spec, "development", fallback: "lift")
+let singleOctave = (spec["singleOctave"] as? Bool) == true
 guard let harmony = spec["harmonyDegrees"] as? [Int], !harmony.isEmpty,
       let melodyBars = spec["melodyBars"] as? [[Int]], !melodyBars.isEmpty else {
     fatalError("waltz requires harmonyDegrees and melodyBars")
@@ -191,14 +192,17 @@ func melodyOffsets(count: Int) -> [Double] {
 func developed(_ source: [Int], barIndex: Int) -> [Int] {
     let section = barIndex / 8
     if barIndex >= bars - 4 {
-        let cadences = [[11, 9, 7], [10, 8], [9, 8], [7]]
+        let cadences = singleOctave
+            ? [[4, 6, 4], [2, 4, 2], [4, 2, 1], [2, 1, 0]]
+            : [[11, 9, 7], [10, 8], [9, 8], [7]]
         return cadences[barIndex - (bars - 4)]
     }
     guard section > 0 else { return source }
     switch development {
     case "mirror":
         let center = source.reduce(0, +) / max(1, source.count)
-        return source.map { max(0, min(13, center - ($0 - center) + (section == 2 ? 1 : 0))) }
+        let ceiling = singleOctave ? 6 : 13
+        return source.map { max(0, min(ceiling, center - ($0 - center) + (section == 2 ? 1 : 0))) }
     case "turn":
         if section % 2 == 1 { return Array(source.dropFirst()) + source.prefix(1) }
         return source.enumerated().map { $0.offset % 2 == 0 ? min(13, $0.element + 1) : $0.element }

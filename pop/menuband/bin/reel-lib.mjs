@@ -295,6 +295,43 @@ export async function loadStripRig(directory = "menubar-frames") {
   return { idle, keys, imageFor, aspect: w / h };
 }
 
+/// Restrict a captured strip to a contiguous set of keys. The pixels remain
+/// the app's native capture; only the unused octave is cropped away so the
+/// played octave can render at twice the scale without interpolation blur.
+export function cropStripRig(rig, midis, paddingPx = 0) {
+  const selected = midis.map((midi) => rig.keys.get(midi)).filter(Boolean);
+  if (!selected.length) return rig;
+  const x0 = Math.max(0, Math.min(...selected.map((key) => key.x0)) - paddingPx);
+  const x1 = Math.min(rig.idle.width, Math.max(...selected.map((key) => key.x1)) + paddingPx);
+  const width = x1 - x0;
+  const height = rig.idle.height;
+  const crop = (image) => {
+    const canvas = createCanvas(width, height);
+    canvas.getContext("2d").drawImage(image, x0, 0, width, height, 0, 0, width, height);
+    return canvas;
+  };
+  const idle = crop(rig.idle);
+  const keys = new Map();
+  for (const midi of midis) {
+    const key = rig.keys.get(midi);
+    if (!key) continue;
+    keys.set(midi, {
+      ...key,
+      x0: key.x0 - x0,
+      x1: key.x1 - x0,
+      cx: ((key.x0 + key.x1) / 2 - x0) / width,
+    });
+  }
+  const composites = new Map();
+  function imageFor(litMidis) {
+    const key = [...new Set(litMidis)].sort((a, b) => a - b).join(",");
+    if (!key) return idle;
+    if (!composites.has(key)) composites.set(key, crop(rig.imageFor(litMidis)));
+    return composites.get(key);
+  }
+  return { idle, keys, imageFor, aspect: width / height };
+}
+
 /// Draw the strip in a rect; returns nothing — callers own placement.
 export function drawStrip(ctx, rig, midis, x, y, w, alpha = 1) {
   const img = rig.imageFor(midis);
@@ -458,10 +495,10 @@ export function makeOnsets(lead) {
 }
 
 // ── the frame pump: drawFrame(t) → ffmpeg, muxed with the jingle ───────────
-export async function renderVideo({ canvas, audioPath, outPath, total, drawFrame, label = "sim", fps = FPS }) {
+export async function renderVideo({ canvas, audioPath, outPath, total, drawFrame, label = "sim", fps = FPS, crf = 18 }) {
   const FRAMES = Math.round(total * fps);
   console.log(`▸ ${label} · ${FRAMES} frames · ${total.toFixed(1)}s · ${W}x${H}@${fps}`);
-  const enc = spawnFFmpegEncode({ audioPath, w: W, h: H, fps, outPath, crf: 18 });
+  const enc = spawnFFmpegEncode({ audioPath, w: W, h: H, fps, outPath, crf });
   const t0 = Date.now();
   for (let fi = 0; fi < FRAMES; fi++) {
     drawFrame(fi / fps);

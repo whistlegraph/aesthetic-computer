@@ -7,13 +7,17 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
-  W, H, OUT, STRIP_MIDIS, makeStage, loadStripRig, drawStrip,
+  W, H, OUT, STRIP_MIDIS, makeStage, loadStripRig, cropStripRig, drawStrip,
   stripKeyX, stripKeyRect, stripKeyColor, litAt, renderVideo,
 } from "./reel-lib.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, "../../..");
 const FPS = 60;
+const SINGLE_OCTAVE_MIDIS = [60, 62, 64, 65, 67, 69, 71];
+const SINGLE_OCTAVE_BY_PITCH_CLASS = new Map(
+  SINGLE_OCTAVE_MIDIS.map((midi) => [midi % 12, midi]),
+);
 const KEY_LABELS = new Map([
   [60, "C"], [62, "D"], [64, "E"], [65, "F"], [67, "G"], [69, "A"], [71, "B"],
   [72, "H"], [74, "I"], [76, "J"], [77, "K"], [79, "L"], [81, "M"], [83, "N"],
@@ -132,7 +136,9 @@ const total = totalOverride == null ? duration : Math.min(duration, Math.max(0.1
 if (!Number.isFinite(total)) die("--total must be a number");
 
 function visualMidi(note) {
-  return Number(note.displayMidi ?? note.keyMidi ?? note.visualMidi ?? note.midi);
+  const midi = Number(note.displayMidi ?? note.keyMidi ?? note.visualMidi ?? note.midi);
+  if (entry.singleOctave !== true) return midi;
+  return SINGLE_OCTAVE_BY_PITCH_CLASS.get(((midi % 12) + 12) % 12) ?? midi;
 }
 const notes = (score.notes || [])
   .map((note, eventIndex) => ({ ...note, eventIndex, visualMidi: visualMidi(note) }))
@@ -200,7 +206,8 @@ const { canvas, ctx } = makeStage();
 // `visual.rig` picks which captured strip speaks. The default set lights only
 // the naturals; a set whose idle frame already holds the semitones lit carries
 // the app's own QWERTY caps on the sharps.
-const rig = await loadStripRig(typeof entry.visual.rig === "string" ? entry.visual.rig : undefined);
+let rig = await loadStripRig(typeof entry.visual.rig === "string" ? entry.visual.rig : undefined);
+if (entry.singleOctave === true) rig = cropStripRig(rig, SINGLE_OCTAVE_MIDIS);
 const percussionRig = await loadStripRig("menubar-frames-percussion-right");
 const fullPercussionRig = await loadStripRig("menubar-frames-percussion-full");
 const particles = makePersistentParticles(ctx, particleSpec, seed);
@@ -985,6 +992,7 @@ await renderVideo({
   canvas, audioPath, outPath, total, drawFrame,
   label: `MenuBand variation ${index + 1}/${manifest.variations.length} · ${id}`,
   fps: FPS,
+  crf: bounded(entry.visual.video?.crf ?? 18, 8, 28),
 });
 
 function makePersistentParticles(context, spec, variationSeed) {
