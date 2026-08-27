@@ -36,9 +36,15 @@ export const W = IS_WEB ? 1440 : 1080;
 export const H = IS_WEB ? 1080 : 1920;
 export const FPS = 30;
 
-// macOS system fonts — registered before any canvas is created.
-try { registerFont("/System/Library/Fonts/SFNS.ttf", { family: "MBSans" }); } catch {}
-try { registerFont("/System/Library/Fonts/SFNSRounded.ttf", { family: "MBSansRounded" }); } catch {}
+// System fonts — registered before any canvas is created. Off-Mac the
+// /System paths don't exist, so a copy under ~/.local/share/fonts keeps
+// Linux renders in the same face instead of whatever fontconfig picks.
+const FONT_HOME = `${process.env.HOME}/.local/share/fonts`;
+for (const [family, file] of [["MBSans", "SFNS.ttf"], ["MBSansRounded", "SFNSRounded.ttf"]]) {
+  for (const path of [`/System/Library/Fonts/${file}`, `${FONT_HOME}/${file}`]) {
+    try { registerFont(path, { family }); break; } catch {}
+  }
+}
 
 // The exact Menu Band icon keyboard palette (AboutWindow.swift).
 export const KEY_COLORS = [
