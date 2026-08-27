@@ -101,27 +101,19 @@ function doBind() {
 // inheritance and pruning both stay inside the caller's family: an oskiewar
 // publish must neither inherit the menuband rock nor age menuband's routes
 // out of the watch.
-function doAutobind() {
-  const [mediaId] = positional;
-  if (!mediaId) die(`usage: reelboy.mjs autobind <media-id> [--account oskiewar]`);
-  const account = typeof flags.account === "string" ? flags.account : null;
+function autobindMedia(mediaId, account, note) {
   const config = readRoutes();
+  if (config.routes[mediaId]) return null;
   const family = Object.entries(config.routes)
     .filter(([, route]) => !account || route.account === account);
-  if (!family.length)
-    die(`no existing ${account ? `@${account} ` : ""}route to inherit — ` +
-      `reelboy is not armed for this lane on this machine`);
-  if (config.routes[mediaId]) {
-    console.log(`✓ reelboy already watches ${mediaId}`);
-    return;
-  }
+  if (!family.length) return null;
   const byAge = (a, b) => String(a[1].boundAt).localeCompare(String(b[1].boundAt));
   const [, newest] = family.sort(byAge).at(-1);
   config.routes[mediaId] = {
     account: newest.account,
     handle: newest.handle,
     contact: newest.contact || "reelboy",
-    note: "auto-bound on publish",
+    note,
     boundAt: new Date().toISOString(),
   };
   const siblings = Object.entries(config.routes)
@@ -135,6 +127,52 @@ function doAutobind() {
     .filter((route) => route.account === newest.account).length;
   console.log(`✓ reelboy auto-bound ${mediaId} → ${newest.handle} ` +
     `(${watched} @${newest.account} generation(s) watched)`);
+  return newest;
+}
+
+function doAutobind() {
+  const [mediaId] = positional;
+  if (!mediaId) die(`usage: reelboy.mjs autobind <media-id> [--account oskiewar]`);
+  const account = typeof flags.account === "string" ? flags.account : null;
+  if (readRoutes().routes[mediaId]) {
+    console.log(`✓ reelboy already watches ${mediaId}`);
+    return;
+  }
+  if (!autobindMedia(mediaId, account, "auto-bound on publish"))
+    die(`no existing ${account ? `@${account} ` : ""}route to inherit — ` +
+      `reelboy is not armed for this lane on this machine`);
+}
+
+// ── ledger follow ────────────────────────────────────────────────────
+// Publishing happens wherever the clockwork lives (neo today, jasellite
+// tomorrow), but the watcher and its rock live here. The pushed account
+// ledger is the meeting point: each pass peeks at origin/main's copy —
+// `git show`, no working-tree mutation — and inherits any reel this
+// machine's route families haven't met. A machine with no route for the
+// account stays deaf to it, same as autobind.
+function followLedgers() {
+  const accounts = [...new Set(Object.values(readRoutes().routes)
+    .map((route) => route.account))];
+  if (!accounts.length) return;
+  const repo = join(HERE, "..", "..");
+  try {
+    execFileSync("git", ["-C", repo, "fetch", "origin", "main", "--quiet"],
+      { timeout: 30000 });
+  } catch { return; } // offline is fine; the pass still covers known routes
+  for (const account of accounts) {
+    let ledger;
+    try {
+      ledger = JSON.parse(execFileSync("git",
+        ["-C", repo, "show", `origin/main:social/instagram/${account}-ledger.json`],
+        // Not every account keeps its ledger here (oskiewar's lives in
+        // xbox/live/marketing) — a miss is quiet, not a log line per pass.
+        { encoding: "utf8", timeout: 15000, stdio: ["ignore", "pipe", "pipe"] }));
+    } catch { continue; }
+    for (const post of (ledger.posts || []).slice(-3)) {
+      const mediaId = String(post.mediaId || "");
+      if (mediaId) autobindMedia(mediaId, account, "auto-bound from ledger");
+    }
+  }
 }
 
 function doRoutes() {
@@ -319,5 +357,5 @@ async function doPass() {
 if (cmd === "bind") doBind();
 else if (cmd === "autobind") doAutobind();
 else if (cmd === "routes") doRoutes();
-else if (cmd === "pass" || cmd === undefined) await doPass();
+else if (cmd === "pass" || cmd === undefined) { followLedgers(); await doPass(); }
 else die(`unknown command "${cmd}" — pass | bind | autobind | routes`);
