@@ -1,0 +1,29 @@
+{
+  "schema": "illy/v1",
+  "createdAt": "2026-08-27T16:49:39.145Z",
+  "pipeline": "pop-cover",
+  "provider": "fal",
+  "model": "fal-ai/flux/dev",
+  "mode": "generate",
+  "size": "1024x1024",
+  "quality": "high",
+  "output": "/Users/jas/aesthetic-computer/pop/loner/covers/lonerclub-cover-t-girl-huge.png",
+  "promptPath": "/Users/jas/aesthetic-computer/pop/loner/covers/real-girl-huge.illy.txt",
+  "promptHash": "a13e2502795965e52902c5034c7aeedc771615480aaabf6965f50269de803c05",
+  "references": [],
+  "contracts": [
+    "physical-accuracy"
+  ],
+  "stages": [
+    "resolve-inputs",
+    "apply-contracts",
+    "select-provider",
+    "generate",
+    "archive",
+    "provenance"
+  ],
+  "durationSeconds": 7.331,
+  "archived": null,
+  "requestId": "01a04420-71b5-75d1-a2c1-a7a6a1ca27de",
+  "seed": 1165866757
+}

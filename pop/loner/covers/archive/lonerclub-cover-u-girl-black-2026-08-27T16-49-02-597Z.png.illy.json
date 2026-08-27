@@ -1,0 +1,29 @@
+{
+  "schema": "illy/v1",
+  "createdAt": "2026-08-27T16:48:16.132Z",
+  "pipeline": "pop-cover",
+  "provider": "fal",
+  "model": "fal-ai/flux/dev",
+  "mode": "generate",
+  "size": "1024x1024",
+  "quality": "high",
+  "output": "/Users/jas/aesthetic-computer/pop/loner/covers/lonerclub-cover-u-girl-black.png",
+  "promptPath": "/Users/jas/aesthetic-computer/pop/loner/covers/real-girl-black.illy.txt",
+  "promptHash": "93dbe6e5131f3d5ef27113963016b003c25e0b6d83e91fda482d327a8690f10b",
+  "references": [],
+  "contracts": [
+    "physical-accuracy"
+  ],
+  "stages": [
+    "resolve-inputs",
+    "apply-contracts",
+    "select-provider",
+    "generate",
+    "archive",
+    "provenance"
+  ],
+  "durationSeconds": 7.506,
+  "archived": null,
+  "requestId": "01a0441f-2c8e-73c1-98cf-a92f6234f762",
+  "seed": 671058542
+}
