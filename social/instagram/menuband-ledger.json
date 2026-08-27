@@ -21,18 +21,18 @@
       "source": "pop/menuband/out/menu-band-waltzes/01-lantern/01-lantern.mp4",
       "voiceover": false,
       "insights": {
-        "views": 231,
-        "reach": 207,
+        "views": 232,
+        "reach": 208,
         "likes": 4,
         "comments": 1,
         "saved": 0,
         "shares": 0,
         "total_interactions": 5,
-        "ig_reels_avg_watch_time": 7148,
-        "ig_reels_video_view_total_time": 1522602,
-        "reels_skip_rate": 40.7
+        "ig_reels_avg_watch_time": 7263,
+        "ig_reels_video_view_total_time": 1568837,
+        "reels_skip_rate": 41
       },
-      "insightsAt": "2026-08-13T22:02:57.233Z"
+      "insightsAt": "2026-08-27T01:21:00.825Z"
     },
     {
       "mediaId": "18098114018458417",
@@ -44,18 +44,18 @@
       "voiceover": false,
       "audioName": "window-waltz.mbscore",
       "insights": {
-        "views": 116,
-        "reach": 103,
+        "views": 123,
+        "reach": 111,
         "likes": 0,
         "comments": 0,
         "saved": 0,
         "shares": 0,
         "total_interactions": 0,
-        "ig_reels_avg_watch_time": 5120,
-        "ig_reels_video_view_total_time": 542752,
-        "reels_skip_rate": 50
+        "ig_reels_avg_watch_time": 5092,
+        "ig_reels_video_view_total_time": 585618,
+        "reels_skip_rate": 49.6
       },
-      "insightsAt": "2026-08-13T22:02:57.637Z"
+      "insightsAt": "2026-08-27T01:21:01.405Z"
     },
     {
       "mediaId": "17978454938900766",
@@ -69,7 +69,19 @@
       "urls": {
         "reel": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/ig/menuband/2026-08-26/03-ferry.mp4"
       },
-      "insights": null
+      "insights": {
+        "views": 144,
+        "reach": 135,
+        "likes": 1,
+        "comments": 0,
+        "saved": 0,
+        "shares": 0,
+        "total_interactions": 1,
+        "ig_reels_avg_watch_time": 7329,
+        "ig_reels_video_view_total_time": 1011478,
+        "reels_skip_rate": 42.3
+      },
+      "insightsAt": "2026-08-27T01:21:01.922Z"
     },
     {
       "mediaId": "18040507055816535",
@@ -83,7 +95,19 @@
       "urls": {
         "reel": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/ig/menuband/2026-08-27/04-stairwell.mp4"
       },
-      "insights": null
+      "insights": {
+        "views": 39,
+        "reach": 15,
+        "likes": 1,
+        "comments": 0,
+        "saved": 0,
+        "shares": 0,
+        "total_interactions": 1,
+        "ig_reels_avg_watch_time": 7150,
+        "ig_reels_video_view_total_time": 107255,
+        "reels_skip_rate": 22.9
+      },
+      "insightsAt": "2026-08-27T01:21:02.466Z"
     }
   ]
 }
