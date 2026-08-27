@@ -1058,6 +1058,76 @@
           "#2e6b33"
         ]
       }
+    },
+    {
+      "id": "15-garden",
+      "name": "Garden",
+      "seed": 15142,
+      "bpm": 69,
+      "bars": 23,
+      "tonic": "D",
+      "mode": "dorian",
+      "instrumentProgram": 78,
+      "instrumentName": "Whistle",
+      "development": "lift",
+      "harmonyDegrees": [
+        0,
+        3,
+        4,
+        0,
+        5,
+        3,
+        4,
+        0
+      ],
+      "melodyBars": [
+        [
+          8,
+          9
+        ],
+        [
+          10,
+          8,
+          6
+        ],
+        [
+          4,
+          5
+        ],
+        [
+          6,
+          7
+        ],
+        [
+          6,
+          4
+        ],
+        [
+          5,
+          4,
+          3,
+          5
+        ],
+        [
+          4,
+          5,
+          6
+        ],
+        [
+          7,
+          0
+        ]
+      ],
+      "notesPath": "pop/menuband/out/menu-band-waltzes/15-garden/15-garden.notes.json",
+      "audioPath": "pop/menuband/out/menu-band-waltzes/15-garden/15-garden.wav",
+      "outPath": "pop/menuband/out/menu-band-waltzes/15-garden/15-garden.mp4",
+      "visual": {
+        "palette": [
+          "#ece8f3",
+          "#9e87c5",
+          "#452e6b"
+        ]
+      }
     }
   ]
 }
