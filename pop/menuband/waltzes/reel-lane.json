@@ -149,6 +149,66 @@
       "visual": {
         "palette": ["#f6efe4", "#d9b98c", "#8c6a4f"]
       }
+    },
+    {
+      "id": "05-attic",
+      "name": "Attic",
+      "seed": 5052,
+      "bpm": 99,
+      "bars": 33,
+      "tonic": "C",
+      "mode": "major",
+      "instrumentProgram": 12,
+      "instrumentName": "Marimba",
+      "development": "turn",
+      "harmonyDegrees": [0, 4, 5, 3, 0, 5, 4, 0],
+      "melodyBars": [
+        [7, 9, 7, 4], [5, 7, 5, 2], [4, 7, 9, 7], [5, 4, 2],
+        [7, 9, 11, 9], [7, 5, 4, 2], [4, 5, 7, 4], [2, 1, 0]
+      ],
+      "notesPath": "pop/menuband/out/menu-band-waltzes/05-attic/05-attic.notes.json",
+      "audioPath": "pop/menuband/out/menu-band-waltzes/05-attic/05-attic.wav",
+      "outPath": "pop/menuband/out/menu-band-waltzes/05-attic/05-attic.mp4",
+      "revealAtSec": 0.05,
+      "revealDurationSec": 0.35,
+      "visual": {
+        "palette": ["#fff3a6", "#ff6f91", "#273469"],
+        "highway": {
+          "enabled": true,
+          "travelSec": 2.55,
+          "startY": -42,
+          "keyInsetPx": 3,
+          "radiusPx": 10,
+          "alpha": 0.98,
+          "glowAlpha": 0.48,
+          "glowPx": 18,
+          "guides": false,
+          "lanes": false
+        },
+        "motion": {
+          "stripWidth": 1.2,
+          "centerY": 0.7,
+          "framePaddingPx": 5,
+          "bounceScale": 0.016,
+          "breathPx": 4,
+          "bouncePx": 34,
+          "bounceDecay": 5.4,
+          "bounceFrequency": 20,
+          "floatFrequency": 0.72,
+          "floatTilt": 0.004,
+          "swayPx": 14,
+          "swayFrequency": 2.7,
+          "swayHarmonic": 0.32,
+          "swayTilt": 0.012
+        },
+        "particles": {
+          "density": 1.2,
+          "gravity": 340,
+          "drift": 46,
+          "spin": 0.72,
+          "size": 0.96
+        }
+      }
     }
   ]
 }
