@@ -46,7 +46,7 @@
 // Unconfigured, every paid route answers 503. It must never fall open and serve
 // paid data for free just because an env var is missing.
 
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHmac, createPrivateKey, randomBytes, sign, timingSafeEqual } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { respond } from "../../backend/http.mjs";
@@ -59,6 +59,8 @@ const X402_VERSION = 1;
 const NETWORK = process.env.WHISTLEGRAPH_X402_NETWORK || "base";
 const FACILITATOR = process.env.WHISTLEGRAPH_X402_FACILITATOR || "https://x402.org/facilitator";
 const FACILITATOR_TOKEN = process.env.WHISTLEGRAPH_X402_FACILITATOR_TOKEN || "";
+const CDP_API_KEY_ID = process.env.CDP_API_KEY_ID || "";
+const CDP_API_KEY_SECRET = process.env.CDP_API_KEY_SECRET || "";
 const PAY_TO = process.env.WHISTLEGRAPH_X402_PAY_TO || "";
 const ASSET = process.env.WHISTLEGRAPH_X402_ASSET || "";
 const LICENSE_SECRET = process.env.WHISTLEGRAPH_LICENSE_SECRET || "";
@@ -291,13 +293,66 @@ function decodePayment(header) {
 }
 
 const facilitatorURL = (path) => `${FACILITATOR.replace(/\/$/, "")}/${path}`;
-const facilitatorAuth = () =>
-  FACILITATOR_TOKEN ? { Authorization: `Bearer ${FACILITATOR_TOKEN}` } : {};
+
+const b64url = (input) => Buffer.from(input).toString("base64url");
+
+// CDP will not take a fixed bearer token. Each call carries its own JWT, signed
+// with the account's Ed25519 key and bound to the exact method and URI it is
+// for, so a token lifted from one request cannot be replayed against another.
+// They are minted per call and expire in two minutes; there is nothing to cache.
+const CDP_PKCS8_PREFIX = Buffer.from("302e020100300506032b657004220420", "hex");
+
+function cdpKey() {
+  // CDP hands back 64 bytes: a 32-byte seed followed by its public half. Node
+  // wants PKCS8, so wrap the seed and let it derive the rest.
+  const raw = Buffer.from(CDP_API_KEY_SECRET, "base64");
+  if (raw.length !== 64 && raw.length !== 32) {
+    throw new Error(`CDP private key is ${raw.length} bytes; expected 32 or 64`);
+  }
+  return createPrivateKey({
+    key: Buffer.concat([CDP_PKCS8_PREFIX, raw.subarray(0, 32)]),
+    format: "der",
+    type: "pkcs8",
+  });
+}
+
+function cdpToken(method, path) {
+  const { host, pathname } = new URL(facilitatorURL(path));
+  const now = Math.floor(Date.now() / 1000);
+  const header = b64url(
+    JSON.stringify({
+      alg: "EdDSA",
+      typ: "JWT",
+      kid: CDP_API_KEY_ID,
+      nonce: randomBytes(16).toString("hex"),
+    }),
+  );
+  const payload = b64url(
+    JSON.stringify({
+      iss: "cdp",
+      sub: CDP_API_KEY_ID,
+      aud: ["cdp_service"],
+      nbf: now,
+      exp: now + 120,
+      uris: [`${method} ${host}${pathname}`],
+    }),
+  );
+  const signature = sign(null, Buffer.from(`${header}.${payload}`), cdpKey());
+  return `${header}.${payload}.${b64url(signature)}`;
+}
+
+function facilitatorAuth(method, path) {
+  if (CDP_API_KEY_ID && CDP_API_KEY_SECRET) {
+    return { Authorization: `Bearer ${cdpToken(method, path)}` };
+  }
+  // Other facilitators (PayAI and friends) do take a plain token.
+  return FACILITATOR_TOKEN ? { Authorization: `Bearer ${FACILITATOR_TOKEN}` } : {};
+}
 
 async function facilitate(path, body) {
   const res = await fetch(facilitatorURL(path), {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...facilitatorAuth() },
+    headers: { "Content-Type": "application/json", ...facilitatorAuth("POST", path) },
     body: JSON.stringify(body),
   });
   if (!res.ok) throw new Error(`facilitator ${path} responded ${res.status}`);
@@ -314,7 +369,9 @@ const CHAIN_IDS = { base: "eip155:8453", "base-sepolia": "eip155:84532" };
 let supportedCache;
 async function settles(network) {
   if (supportedCache === undefined) {
-    const res = await fetch(facilitatorURL("supported"), { headers: facilitatorAuth() });
+    const res = await fetch(facilitatorURL("supported"), {
+      headers: facilitatorAuth("GET", "supported"),
+    });
     if (!res.ok) throw new Error(`facilitator supported responded ${res.status}`);
     const body = await res.json();
     supportedCache = new Set((body?.kinds || []).map((k) => k.network).filter(Boolean));
