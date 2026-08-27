@@ -1,0 +1,15 @@
+# Downloaded and derived media — everything here rebuilds from the assets
+# mirror plus the tracked scripts and receipts. (out/ is already covered
+# repo-wide by `pop/**/out/`.)
+
+# the six h0t source mp4s — re-fetchable from the mirror posts.json points at
+source/
+
+# ffmpeg's 48k mono decodes + whisper's word-level JSON — bin/slice.mjs and
+# whisper-cli regenerate both
+wav/
+txt/
+
+# the sample bank is derived — bin/slice.mjs rebuilds it. The manifest IS
+# tracked: it records every cut's span and what pyin measured there.
+samples/*.wav

@@ -1,0 +1,231 @@
+{
+  "work": "h0t — it's too hot / no it's not / now I'm back in season (Whistlegraph, spring 2022)",
+  "mirror": "https://assets.aesthetic.computer/whistlegraph/index/posts",
+  "f0_provenance": "librosa.pyin over whisper word spans — analysis/harvest.json + analysis/melody.json",
+  "slices": {
+    "its-too-hot": {
+      "take": "7079639110025088298",
+      "span": [
+        0.08,
+        2.1
+      ],
+      "dur": 2.02,
+      "note": "spoken chant, one bar at 122"
+    },
+    "its": {
+      "take": "7079639110025088298",
+      "span": [
+        0.08,
+        0.8
+      ],
+      "dur": 0.72
+    },
+    "too": {
+      "take": "7079639110025088298",
+      "span": [
+        0.76,
+        1.5
+      ],
+      "dur": 0.74
+    },
+    "hot": {
+      "take": "7079639110025088298",
+      "span": [
+        1.48,
+        2.1
+      ],
+      "dur": 0.62,
+      "median_f0_hz": 178.4,
+      "note": "F3-ish shout"
+    },
+    "no-its-not": {
+      "take": "7079639110025088298",
+      "span": [
+        2.08,
+        2.6
+      ],
+      "dur": 0.52,
+      "median_f0_hz": 134.5,
+      "note": "≈C#3"
+    },
+    "no": {
+      "take": "7079639110025088298",
+      "span": [
+        2.08,
+        2.22
+      ],
+      "dur": 0.14
+    },
+    "not": {
+      "take": "7079639110025088298",
+      "span": [
+        2.3,
+        2.6
+      ],
+      "dur": 0.3
+    },
+    "chant-full": {
+      "take": "7079639110025088298",
+      "span": [
+        0.08,
+        2.6
+      ],
+      "dur": 2.52,
+      "note": "the whole argument"
+    },
+    "doo-run": {
+      "take": "7079639110025088298",
+      "span": [
+        2.7,
+        4.95
+      ],
+      "dur": 2.25,
+      "note": "F4 F4 G4 G4 E4 D4 C4"
+    },
+    "doo-f": {
+      "take": "7079639110025088298",
+      "span": [
+        2.72,
+        3.31
+      ],
+      "dur": 0.59,
+      "median_f0_hz": 345,
+      "note": "F4"
+    },
+    "doo-g": {
+      "take": "7079639110025088298",
+      "span": [
+        3.31,
+        3.9
+      ],
+      "dur": 0.59,
+      "median_f0_hz": 385,
+      "note": "G4"
+    },
+    "doo-ed": {
+      "take": "7079639110025088298",
+      "span": [
+        3.9,
+        4.45
+      ],
+      "dur": 0.55,
+      "median_f0_hz": 286.7,
+      "note": "E4→D4 fall"
+    },
+    "doo-c": {
+      "take": "7079639110025088298",
+      "span": [
+        4.45,
+        4.9
+      ],
+      "dur": 0.45,
+      "median_f0_hz": 258.4,
+      "note": "C4"
+    },
+    "season-line": {
+      "take": "7079639110025088298",
+      "span": [
+        5.55,
+        8.62
+      ],
+      "dur": 3.07,
+      "note": "E4 D4 C#4 B3 A3, lands on A"
+    },
+    "now-im": {
+      "take": "7079639110025088298",
+      "span": [
+        5.6,
+        6.4
+      ],
+      "dur": 0.8,
+      "median_f0_hz": 339,
+      "note": "E4"
+    },
+    "back-in": {
+      "take": "7079639110025088298",
+      "span": [
+        6.45,
+        7.6
+      ],
+      "dur": 1.15,
+      "median_f0_hz": 280,
+      "note": "C#4 territory"
+    },
+    "season": {
+      "take": "7079639110025088298",
+      "span": [
+        7.55,
+        8.62
+      ],
+      "dur": 1.07,
+      "median_f0_hz": 252.5,
+      "note": "B3 falling to A3"
+    },
+    "its-too-hot-yell": {
+      "take": "7080453509149134126",
+      "span": [
+        0.12,
+        3.42
+      ],
+      "dur": 3.23,
+      "note": "the long shouted version"
+    },
+    "hot-yell": {
+      "take": "7080453509149134126",
+      "span": [
+        2.3,
+        3.42
+      ],
+      "dur": 1.12
+    },
+    "no-its-not-high": {
+      "take": "7080453509149134126",
+      "span": [
+        3.38,
+        4.1
+      ],
+      "dur": 0.72,
+      "median_f0_hz": 449.6,
+      "note": "the A4 answer"
+    },
+    "season-b": {
+      "take": "7080453509149134126",
+      "span": [
+        8.1,
+        10.4
+      ],
+      "dur": 2.3,
+      "median_f0_hz": 160.8,
+      "note": "low season, E3-ish"
+    },
+    "no-its-not-mid": {
+      "take": "7087134943930846506",
+      "span": [
+        1.24,
+        2.26
+      ],
+      "dur": 1.02,
+      "median_f0_hz": 167,
+      "note": "E3 falling to C3"
+    },
+    "doo-run-b": {
+      "take": "7087134943930846506",
+      "span": [
+        2.48,
+        4.3
+      ],
+      "dur": 1.82,
+      "note": "C#4 D#4 A#3 walk"
+    },
+    "season-line-b": {
+      "take": "7087134943930846506",
+      "span": [
+        4.9,
+        7.95
+      ],
+      "dur": 3.05,
+      "median_f0_hz": 270.5,
+      "note": "C#4 down to G3"
+    }
+  }
+}
