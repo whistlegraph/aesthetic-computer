@@ -370,7 +370,17 @@
         "ig_reels_video_view_total_time": 14335048,
         "reels_skip_rate": 33.3
       },
-      "insightsAt": "2026-08-27T01:41:11.171Z"
+      "insightsAt": "2026-08-27T01:41:11.171Z",
+      "platforms": {
+        "youtube": {
+          "videoId": "BkG6coEZSWc",
+          "url": "https://youtube.com/shorts/BkG6coEZSWc",
+          "publishedAt": "2026-08-27T04:03:37.667Z",
+          "privacy": "public",
+          "short": true,
+          "stats": null
+        }
+      }
     },
     {
       "mode": "live",

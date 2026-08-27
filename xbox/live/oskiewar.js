@@ -35,7 +35,7 @@ runtime = function acRuntime() {
 };
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 86;
+const buildVersion = 87;
 const floorY = 1800;
 // The cube. @jeffrey climbed the tower and asked for the opposite: a small
 // closed box — "like a 10ft by 10ft cube" — with nothing in it but two
