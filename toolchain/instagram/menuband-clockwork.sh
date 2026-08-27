@@ -85,6 +85,15 @@ say "▸ $MODE · node $("$NODE" --version) · $(git -C "$CHECKOUT" rev-parse --
 
 [ -d "$CHECKOUT/node_modules" ] || say "warning: $CHECKOUT/node_modules is missing; deps may fail"
 
+# A machine that can post but cannot push the ledger is a trap: the next
+# run's reset --hard erases the local record and the lane reposts the same
+# waltz forever. Refuse up front, before anything reaches Instagram.
+if [ "$MODE" = "publish" ]; then
+  STAGE="verifying the ledger has a home"
+  git -C "$CHECKOUT" push --dry-run origin HEAD:main --quiet 2>/dev/null || {
+    say "no push access to origin — refusing to publish without a ledger home"; exit 1; }
+fi
+
 # --- rig frames: untracked capture artifacts the video renderer requires ---
 STAGE="staging rig frames"
 if [ -d "$RIG_SRC" ]; then
