@@ -58,11 +58,13 @@
   body { font-family: var(--font); color: var(--text); overflow: hidden; }
   ::selection { background: var(--highlight); color: var(--bg); }
 
-  /* ── Stage: the hosted runtime. Hidden + inert while the DOM prompt owns
-     the screen, so the iframe can never steal keystrokes at the prompt. ── */
+  /* ── Stage: the hosted runtime. While the DOM prompt owns the screen the
+     stage stays inert underneath the opaque #screen — never visibility:hidden,
+     because Chrome throttles rendering for hidden cross-origin iframes and
+     the runtime's boot/load loop would stall (same-origin dev masks this). ── */
   .stage { position: absolute; inset: 0; background: #000; }
   iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; display: block; }
-  body[data-mode="prompt"] .stage { visibility: hidden; pointer-events: none; }
+  body[data-mode="prompt"] .stage { pointer-events: none; }
 
   /* ── The prompt screen ─────────────────────────────────────────────── */
   #screen {
@@ -396,6 +398,14 @@ window.addEventListener("keydown", (e) => {
 $screen.addEventListener("pointerdown", (e) => {
   if (e.target.closest("button, a, input")) return;
   requestAnimationFrame(() => $cmd.focus());
+});
+
+// The stage keeps rendering beneath the prompt screen; if the runtime grabs
+// focus (its keyboard textarea does on boot), hand typing straight back.
+window.addEventListener("blur", () => {
+  if (currentPiece === "prompt" && document.activeElement === $ac) {
+    setTimeout(() => $cmd.focus(), 0);
+  }
 });
 
 // ── MOTD — the same mood feed the raster prompt cycles every 8s. ──────────
