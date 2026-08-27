@@ -987,6 +987,77 @@
           "#6b2e3b"
         ]
       }
+    },
+    {
+      "id": "14-chimney",
+      "name": "Chimney",
+      "seed": 14133,
+      "bpm": 84,
+      "bars": 28,
+      "tonic": "C",
+      "mode": "major",
+      "instrumentProgram": 78,
+      "instrumentName": "Whistle",
+      "development": "mirror",
+      "harmonyDegrees": [
+        0,
+        4,
+        5,
+        3,
+        0,
+        5,
+        4,
+        0
+      ],
+      "melodyBars": [
+        [
+          6,
+          7,
+          5
+        ],
+        [
+          4,
+          6
+        ],
+        [
+          5,
+          6,
+          4,
+          3
+        ],
+        [
+          4,
+          2
+        ],
+        [
+          3,
+          2,
+          4
+        ],
+        [
+          6,
+          5
+        ],
+        [
+          3,
+          4
+        ],
+        [
+          3,
+          2,
+          0
+        ]
+      ],
+      "notesPath": "pop/menuband/out/menu-band-waltzes/14-chimney/14-chimney.notes.json",
+      "audioPath": "pop/menuband/out/menu-band-waltzes/14-chimney/14-chimney.wav",
+      "outPath": "pop/menuband/out/menu-band-waltzes/14-chimney/14-chimney.mp4",
+      "visual": {
+        "palette": [
+          "#e8f3e9",
+          "#87c58c",
+          "#2e6b33"
+        ]
+      }
     }
   ]
 }
