@@ -54,7 +54,7 @@
         "shadowBlur": 18
       },
       "particles": {
-        "density": 1.0,
+        "density": 1,
         "gravity": 315,
         "drift": 38,
         "spin": 0.55,
@@ -81,16 +81,65 @@
       "instrumentProgram": 21,
       "instrumentName": "Accordion",
       "development": "mirror",
-      "harmonyDegrees": [0, 3, 0, 4, 5, 3, 4, 0],
+      "harmonyDegrees": [
+        0,
+        3,
+        0,
+        4,
+        5,
+        3,
+        4,
+        0
+      ],
       "melodyBars": [
-        [0, 1, 2], [3, 4, 5], [6, 7, 8], [9, 10],
-        [10, 9, 8], [7, 6, 5], [4, 3, 2], [1, 0]
+        [
+          0,
+          1,
+          2
+        ],
+        [
+          3,
+          4,
+          5
+        ],
+        [
+          6,
+          7,
+          8
+        ],
+        [
+          9,
+          10
+        ],
+        [
+          10,
+          9,
+          8
+        ],
+        [
+          7,
+          6,
+          5
+        ],
+        [
+          4,
+          3,
+          2
+        ],
+        [
+          1,
+          0
+        ]
       ],
       "notesPath": "pop/menuband/out/menu-band-waltzes/03-ferry/03-ferry.notes.json",
       "audioPath": "pop/menuband/out/menu-band-waltzes/03-ferry/03-ferry.wav",
       "outPath": "pop/menuband/out/menu-band-waltzes/03-ferry/03-ferry.mp4",
       "visual": {
-        "palette": ["#e7f1f0", "#91b8b5", "#315f72"],
+        "palette": [
+          "#e7f1f0",
+          "#91b8b5",
+          "#315f72"
+        ],
         "rig": "menubar-frames-qwerty",
         "keyLadder": false,
         "highway": {
@@ -123,7 +172,7 @@
           "swayTilt": 0.01
         },
         "particles": {
-          "density": 1.0
+          "density": 1
         }
       }
     },
@@ -138,16 +187,67 @@
       "instrumentProgram": 11,
       "instrumentName": "Vibraphone",
       "development": "lift",
-      "harmonyDegrees": [0, 3, 4, 0, 3, 5, 4, 0],
+      "harmonyDegrees": [
+        0,
+        3,
+        4,
+        0,
+        3,
+        5,
+        4,
+        0
+      ],
       "melodyBars": [
-        [0, 2, 4], [5, 7, 9], [11, 9, 7], [9, 7, 5],
-        [4, 5, 7], [7, 5, 4], [2, 4, 5], [4, 2, 0]
+        [
+          0,
+          2,
+          4
+        ],
+        [
+          5,
+          7,
+          9
+        ],
+        [
+          11,
+          9,
+          7
+        ],
+        [
+          9,
+          7,
+          5
+        ],
+        [
+          4,
+          5,
+          7
+        ],
+        [
+          7,
+          5,
+          4
+        ],
+        [
+          2,
+          4,
+          5
+        ],
+        [
+          4,
+          2,
+          0
+        ]
       ],
       "notesPath": "pop/menuband/out/menu-band-waltzes/04-stairwell/04-stairwell.notes.json",
       "audioPath": "pop/menuband/out/menu-band-waltzes/04-stairwell/04-stairwell.wav",
       "outPath": "pop/menuband/out/menu-band-waltzes/04-stairwell/04-stairwell.mp4",
       "visual": {
-        "palette": ["#f6efe4", "#d9b98c", "#8c6a4f"]
+        "palette": [
+          "#f6efe4",
+          "#d9b98c",
+          "#8c6a4f"
+        ]
       }
     },
     {
@@ -158,13 +258,61 @@
       "bars": 33,
       "tonic": "C",
       "mode": "major",
-      "instrumentProgram": 12,
-      "instrumentName": "Marimba",
-      "development": "turn",
-      "harmonyDegrees": [0, 4, 5, 3, 0, 5, 4, 0],
+      "instrumentProgram": 78,
+      "instrumentName": "Whistle",
+      "development": "mirror",
+      "singleOctave": true,
+      "harmonyDegrees": [
+        0,
+        4,
+        5,
+        3,
+        0,
+        5,
+        4,
+        0
+      ],
       "melodyBars": [
-        [7, 9, 7, 4], [5, 7, 5, 2], [4, 7, 9, 7], [5, 4, 2],
-        [7, 9, 11, 9], [7, 5, 4, 2], [4, 5, 7, 4], [2, 1, 0]
+        [
+          4,
+          6,
+          4
+        ],
+        [
+          2,
+          4,
+          2
+        ],
+        [
+          4,
+          6,
+          4
+        ],
+        [
+          2,
+          1,
+          0
+        ],
+        [
+          4,
+          6,
+          4
+        ],
+        [
+          2,
+          4,
+          2
+        ],
+        [
+          4,
+          2,
+          1
+        ],
+        [
+          2,
+          1,
+          0
+        ]
       ],
       "notesPath": "pop/menuband/out/menu-band-waltzes/05-attic/05-attic.notes.json",
       "audioPath": "pop/menuband/out/menu-band-waltzes/05-attic/05-attic.wav",
@@ -172,7 +320,14 @@
       "revealAtSec": 0.05,
       "revealDurationSec": 0.35,
       "visual": {
-        "palette": ["#fff3a6", "#ff6f91", "#273469"],
+        "palette": [
+          "#fff3a6",
+          "#ff6f91",
+          "#273469"
+        ],
+        "video": {
+          "crf": 14
+        },
         "highway": {
           "enabled": true,
           "travelSec": 2.55,
