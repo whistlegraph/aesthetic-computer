@@ -364,6 +364,113 @@
           "size": 0.96
         }
       }
+    },
+    {
+      "id": "06-orchard",
+      "name": "Orchard",
+      "seed": 6061,
+      "bpm": 84,
+      "bars": 28,
+      "tonic": "C",
+      "mode": "major",
+      "instrumentProgram": 78,
+      "instrumentName": "Whistle",
+      "development": "mirror",
+      "singleOctave": true,
+      "harmonyDegrees": [
+        0,
+        3,
+        4,
+        0,
+        5,
+        3,
+        4,
+        0
+      ],
+      "melodyBars": [
+        [
+          0,
+          2
+        ],
+        [
+          2,
+          4
+        ],
+        [
+          4,
+          2
+        ],
+        [
+          2,
+          0
+        ],
+        [
+          0,
+          2
+        ],
+        [
+          2,
+          4
+        ],
+        [
+          4,
+          2
+        ],
+        [
+          1,
+          0
+        ]
+      ],
+      "notesPath": "pop/menuband/out/menu-band-waltzes/06-orchard/06-orchard.notes.json",
+      "audioPath": "pop/menuband/out/menu-band-waltzes/06-orchard/06-orchard.wav",
+      "outPath": "pop/menuband/out/menu-band-waltzes/06-orchard/06-orchard.mp4",
+      "revealAtSec": 0.05,
+      "revealDurationSec": 0.35,
+      "visual": {
+        "palette": [
+          "#f5ffd8",
+          "#87c95f",
+          "#392f5a"
+        ],
+        "video": {
+          "crf": 14
+        },
+        "highway": {
+          "enabled": true,
+          "travelSec": 3,
+          "startY": -42,
+          "keyInsetPx": 4,
+          "radiusPx": 10,
+          "alpha": 0.98,
+          "glowAlpha": 0.42,
+          "glowPx": 16,
+          "guides": false,
+          "lanes": false
+        },
+        "motion": {
+          "stripWidth": 1.2,
+          "centerY": 0.7,
+          "framePaddingPx": 5,
+          "bounceScale": 0.01,
+          "breathPx": 3,
+          "bouncePx": 22,
+          "bounceDecay": 6.4,
+          "bounceFrequency": 15,
+          "floatFrequency": 0.42,
+          "floatTilt": 0.0024,
+          "swayPx": 6,
+          "swayFrequency": 1.35,
+          "swayHarmonic": 0.12,
+          "swayTilt": 0.004
+        },
+        "particles": {
+          "density": 0.72,
+          "gravity": 310,
+          "drift": 30,
+          "spin": 0.42,
+          "size": 1
+        }
+      }
     }
   ]
 }
