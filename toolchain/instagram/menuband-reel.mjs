@@ -173,9 +173,23 @@ function ensureQueue() {
   return entry;
 }
 
+function complete(path, durationSec) {
+  // A killed render can leave a VALID but truncated mp4 (its ffmpeg child
+  // finalizes on pipe EOF) — size alone once let a 12-second fragment reach
+  // Instagram. Only a probe that matches the score's duration counts.
+  if (!existsSync(path) || statSync(path).size < 100_000) return false;
+  const ffprobe = existsSync(join(process.env.HOME ?? "", ".local/bin/ffprobe"))
+    ? join(process.env.HOME, ".local/bin/ffprobe") : "ffprobe";
+  const probe = spawnSync(ffprobe, ["-v", "error", "-show_entries",
+    "format=duration", "-of", "default=nw=1:nk=1", path], { encoding: "utf8" });
+  const actual = Number(probe.stdout?.trim());
+  return probe.status === 0 && Number.isFinite(actual) &&
+    Math.abs(actual - durationSec) < 0.1;
+}
+
 function renderIfNeeded(entry) {
   const out = mp4Path(entry);
-  if (existsSync(out) && statSync(out).size > 100_000) return out;
+  if (complete(out, entry.durationSec ?? manifest.defaults?.durationSec ?? 60)) return out;
   console.log(`▸ rendering ${entry.id} (${entry.bpm} BPM, ${entry.bars} bars)`);
   const render = spawnSync("nice", ["-n", "19", process.execPath, RENDERER,
     "--manifest", MANIFEST, "--ids", entry.id], { cwd: ROOT, stdio: "inherit" });
