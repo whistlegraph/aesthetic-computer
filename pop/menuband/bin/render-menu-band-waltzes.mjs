@@ -9,6 +9,12 @@ import { fileURLToPath } from "node:url";
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 const DEFAULT_MANIFEST = resolve(ROOT, "pop/menuband/waltzes/menu-band-waltzes.json");
 const AUDIO_RENDERER = resolve(ROOT, "pop/menuband/bin/render-menu-band-waltz.swift");
+// Off-Mac (or with AC_WALTZ_SYNTH=fluid) the audio leg runs the FluidSynth
+// transliteration instead of AVFoundation — same manifest in, same
+// notes.json + raw WAV out.
+const AUDIO_PORTABLE = resolve(ROOT, "pop/menuband/bin/render-waltz-audio.mjs");
+const USE_PORTABLE_AUDIO =
+  process.platform !== "darwin" || process.env.AC_WALTZ_SYNTH === "fluid";
 const VIDEO_RENDERER = resolve(ROOT, "pop/menuband/bin/sim-piano-variation.mjs");
 const SWIFT = existsSync(resolve(homedir(), ".local/bin/swift"))
   ? resolve(homedir(), ".local/bin/swift") : "/usr/bin/swift";
@@ -104,12 +110,16 @@ async function renderOne(entry, options) {
   const outDir = dirname(outPath);
   const artifacts = [];
   if (!options.videoOnly) {
-    await run(SWIFT, [AUDIO_RENDERER, "--manifest", options.manifest, "--id", entry.id, "--out-dir", outDir], `${entry.id}:audio`);
+    if (USE_PORTABLE_AUDIO)
+      await run(process.execPath, [AUDIO_PORTABLE, "--manifest", options.manifest, "--id", entry.id, "--out-dir", outDir], `${entry.id}:audio`);
+    else
+      await run(SWIFT, [AUDIO_RENDERER, "--manifest", options.manifest, "--id", entry.id, "--out-dir", outDir], `${entry.id}:audio`);
     const rawAudio = resolve(outDir, `${entry.id}.raw.wav`);
     const masteredAudio = resolve(baseDir, entry.audioPath);
     await run(FFMPEG, [
       "-hide_banner", "-y", "-loglevel", "error", "-i", rawAudio,
       "-af", "highpass=f=28,loudnorm=I=-18:TP=-1.5:LRA=8",
+      "-t", String(entry.durationSec ?? 60),
       "-ar", "48000", "-c:a", "pcm_s24le", masteredAudio,
     ], `${entry.id}:master`);
     artifacts.push(masteredAudio);
