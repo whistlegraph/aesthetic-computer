@@ -1,0 +1,545 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+
+\usepackage[top=0.75in, bottom=0.75in, left=0.75in, right=0.75in]{geometry}
+\usepackage{fontspec}
+\usepackage{unicode-math}
+\setmainfont{Latin Modern Roman}[
+  Extension=.otf,
+  UprightFont=lmroman10-regular,
+  BoldFont=lmroman10-bold,
+  ItalicFont=lmroman10-italic,
+  BoldItalicFont=lmroman10-bolditalic,
+]
+\setsansfont{Latin Modern Sans}[
+  Extension=.otf,
+  UprightFont=lmsans10-regular,
+  BoldFont=lmsans10-bold,
+  ItalicFont=lmsans10-oblique,
+  BoldItalicFont=lmsans10-boldoblique,
+]
+\newfontfamily\acbold{ywft-processing-bold}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\setmonofont{Latin Modern Mono}[
+  Extension=.otf,
+  UprightFont=lmmono10-regular,
+  ItalicFont=lmmono10-italic,
+  Scale=0.85,
+]
+
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{xurl}
+\usepackage{graphicx}
+\graphicspath{{figures/}{../arxiv-ac/figures/}}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{natbib}
+
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{119,119,119}
+
+\hypersetup{colorlinks=true,linkcolor=acpurple,urlcolor=acpurple,citecolor=acpurple,
+  pdftitle={Turnstiles for Machines},
+  pdfauthor={Jeffrey Scudder}}
+
+\titleformat{\section}{\normalfont\bfseries\normalsize\uppercase}{\thesection.}{0.5em}{}
+\titlespacing{\section}{0pt}{1.2em}{0.3em}
+\titleformat{\subsection}{\normalfont\bfseries\small}{\thesubsection}{0.5em}{}
+\titlespacing{\subsection}{0pt}{0.8em}{0.2em}
+
+\pagestyle{fancy}\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{acpink}\textit{Field report --- Aesthetic Computer papers}}
+\fancyfoot[C]{\footnotesize\thepage}
+
+\newcommand{\ac}{\textsc{Aesthetic.Computer}}
+\newcommand{\wg}{\textsc{Whistlegraph}}
+\newcommand{\code}[1]{\texttt{#1}}
+
+\setlist[itemize]{nosep, leftmargin=1.2em, itemsep=0.1em}
+\setlist[enumerate]{nosep, leftmargin=1.4em, itemsep=0.1em}
+\setlength{\columnsep}{1.8em}
+\setlength{\parindent}{1em}
+\setlength{\parskip}{0.3em}
+
+\tolerance=800
+\emergencystretch=1em
+\hyphenpenalty=50
+
+\begin{document}
+
+\twocolumn[{%
+\begin{center}
+\includegraphics[height=4em]{pals}\par\vspace{0.5em}
+{\acbold\fontsize{21pt}{25pt}\selectfont\color{acdark} Turnstiles for Machines}\par
+\vspace{0.45em}
+{\normalfont\itshape\fontsize{11pt}{13pt}\selectfont\color{acpink} Instrumenting an art archive with x402, and the three defects found before it could take a dollar}\par
+\vspace{0.3em}
+{\normalfont\fontsize{9pt}{11pt}\selectfont\color{acgray} The payment rail was the easy part. Scarcity and discovery were the whole problem.}\par
+\vspace{0.6em}
+{\normalsize\href{https://prompt.ac/@jeffrey}{@jeffrey}}\par
+{\small\color{acgray} Aesthetic.Computer / Whistlegraph.org --- August 27, 2026}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.3em}
+{\small\color{acpurple} \url{https://whistlegraph.org}}\par
+\vspace{0.6em}
+\rule{\textwidth}{1.5pt}
+\vspace{0.5em}
+\end{center}
+
+\begin{quote}
+\small\noindent\textbf{Abstract.}
+The \wg{} archive---291 works and 2{,}483 published appearances totalling
+1.53 billion views---was fitted with a machine-facing paywall built on
+x402~\citep{x402spec}, the HTTP \code{402 Payment Required} protocol for
+agent payments in USDC. Three endpoints were priced between \$0.10 and
+\$5.00 and advertised to crawlers through \code{robots.txt} and
+\code{llms.txt}~\citep{llmstxt}. This report audits that integration and finds
+three defects, of descending fixability. First, the configured settlement
+facilitator served testnets only, so the mainnet prices being quoted could
+never have been paid: a buyer would have signed an authorization, been
+refused, and received a 502. Second, the license-verification endpoint was
+advertised inside every receipt, implemented nowhere, and unimplementable as
+specified, because its signature covered fields the verification URL did not
+carry. Both were repaired; settlement now runs through an account-holding
+facilitator, verified against Base mainnet from the production host. The
+third defect resists engineering: two of the three priced endpoints compute
+their answers entirely from JSON files the same site publishes for free, and
+links to from the very index that advertises the prices. A rational agent
+never pays. Across the retained request logs, no agent ever asked---not for
+the paid routes and not for the free machine index either---and the receiving
+address has never taken a genuine payment. We conclude that the binding
+constraints on machine commerce are substitutability and discovery, not
+payment infrastructure, and we evaluate six monetization strategies against
+those constraints. The strongest candidate sells something an agent cannot
+compute for itself at any price: a name.
+\end{quote}
+\vspace{0.5em}
+}]
+
+\section{Introduction}
+
+A recurring question in this practice is where cultural value, once
+accumulated, can actually be captured. A companion RFC answers it for human
+collectors by making each whistlegraph a purchasable code that shares in the
+music derived from it~\citep{scudder2026funding}. This report asks the same
+question of a different buyer. Language-model agents crawl archives
+constantly, and a payment protocol now exists that would let them pay for what
+they take. If an art archive can sell itself to machines, the whistlegraph
+corpus---large, structured, already machine-legible---is a reasonable place to
+test it.
+
+The test was built and shipped. This report is the audit, and it is largely a
+negative result. That framing is deliberate: the integration compiled,
+deployed, returned correct-looking HTTP, and advertised itself competently for
+months while being incapable of earning a single dollar for reasons that no
+amount of further polish would have fixed. The interesting content is in
+\emph{why} the failure was invisible, because each defect was individually
+plausible and collectively fatal.
+
+Section~\ref{sec:system} describes what was built. Section~\ref{sec:impl}
+covers the repairs. Section~\ref{sec:evidence} reports six measurements,
+each independently checkable. Section~\ref{sec:market} places the result in
+the wider x402 economy and examines which turnstiles in that economy actually
+earn. Section~\ref{sec:strategy} evaluates what to do next.
+
+\section{Context}
+
+\subsection{x402}
+
+HTTP reserved status code \code{402 Payment Required} for future
+use~\citep{rfc9110}; for thirty years the future did not
+arrive. x402~\citep{x402spec} claims it. A client requests a resource, receives
+a \code{402} carrying machine-readable terms---amount, asset contract,
+receiving address, network, timeout---signs a stablecoin transfer
+authorization~\citep{eip3009}, and repeats the request with an
+\code{X-PAYMENT} header. A \emph{facilitator} verifies and settles that
+authorization on chain.
+
+Two properties make it attractive for an archive. There is no account,
+API key, or signup, so a buyer that is not a person needs no onboarding. And
+asking is free: an unpaid request returns the terms rather than an error, so
+the paywall is self-documenting to anything that speaks HTTP.
+
+\subsection{The corpus}
+
+\wg{}~\citep{scudder2026whistlegraph} is a graphic-score form where every drawn
+line is a sung line. The index behind \code{whistlegraph.org} holds 291 works,
+294 candidates, 793 legacy codes, and 2{,}483 published appearances carrying
+1{,}526{,}032{,}122 views. It is generated, versioned, and published in three
+machine-readable forms: \code{llms.txt} as a map, \code{index.md} as the whole
+archive in Markdown, and \code{graphs.json} plus \code{posts.json} as
+structured data. This matters for what follows: \emph{the free tier was
+designed to be generous, and that generosity was never reconciled against what
+the paid tier was later asked to sell.}
+
+\section{System}
+\label{sec:system}
+
+Three resources were priced, routed at \code{/api/wg/*} through a single
+serverless handler, with a fourth added during this audit
+(Table~\ref{tab:endpoints}).
+
+\begin{table}[t]
+\centering
+\footnotesize
+\begin{tabularx}{\columnwidth}{@{}lrX@{}}
+\toprule
+\textbf{Endpoint} & \textbf{USDC} & \textbf{Sells} \\
+\midrule
+\code{/bulk} & 5.00 & Whole dataset, one document \\
+\code{/sources/<code>} & 0.10 & Source videos behind one work \\
+\code{/license/<code>} & 1.00 & Signed redistribution license \\
+\code{/verify} & free & Checks a license receipt \\
+\bottomrule
+\end{tabularx}
+\caption{The priced surface. Prices are quoted in atomic units of Circle USDC
+on Base (six decimals) and mirrored between the handler that enforces them and
+the generator that advertises them.}
+\label{tab:endpoints}
+\end{table}
+
+The license endpoint is the design's most careful piece. It does not pretend
+to gate the artwork: the score images and videos are already public on the
+CDN, and the receipt says so in its own payload. What it sells is a signed,
+time-bounded grant of reuse rights---an HMAC-SHA256~\citep{rfc2104} over the
+whole receipt, naming the work, the author, the payer, and an expiry.
+
+\section{Implementation and Repairs}
+\label{sec:impl}
+
+\subsection{Settlement}
+
+The original configuration pointed at the protocol's reference facilitator
+while quoting prices in mainnet USDC. Those are incompatible, as
+\S\ref{sec:evidence} shows by measurement. Settlement was moved to an
+account-holding facilitator (Coinbase CDP), which required replacing a static
+bearer token with per-request authentication: an EdDSA~\citep{rfc8032} JSON
+Web Token signed with the account's Ed25519 key, bound by a \code{uris} claim
+to the exact method and URI being called, expiring in 120 seconds. The
+credential arrives as 64 bytes---a 32-byte seed followed by its public
+half---which must be wrapped as PKCS8 before a standard library will load it.
+
+\subsection{A preflight that distinguishes its failures}
+
+The handler now asks the facilitator what it can settle before quoting any
+price, and---this is the part worth generalizing---keeps the two negative
+answers apart. A facilitator that answers \emph{no} yields one \code{503}; a
+facilitator that does not answer at all yields another. Collapsing them was a
+real bug during this work: an early version logged the lookup failure and
+quoted anyway, which made a successful \code{402} and a silently broken one
+indistinguishable from outside. For a public endpoint the HTTP response is
+frequently the only diagnostic channel available, so distinct failures must
+not share a status code.
+
+\subsection{Verification that carries its own evidence}
+
+Every license advertised a verification link of the form
+\code{/verify?code=\&sig=}. The endpoint did not exist. It also could not have
+worked, because the signature covers the entire receipt---licensee and
+issue timestamp included---so a work code and a signature are jointly
+insufficient to recompute the digest. No amount of implementation would have
+closed that gap; the specification was wrong, not the code.
+
+The repair keeps verification stateless, which the design requires, by making
+the receipt travel inside its own link as a base64url token checked against
+the exact bytes that were signed. Nothing is stored, so the archive keeps no
+record of who bought what. Edited receipts fail; genuine receipts past their
+term report \code{expired} rather than quietly passing. Checking a license is
+free, on the reasoning that charging to confirm a license already bought would
+make the signature worth less than the paper it is printed on.
+
+\section{Evidence}
+\label{sec:evidence}
+
+Six measurements, taken 2026-08-27. Each is reproducible by a reader with
+network access; the first two require no credentials at all.
+
+\subsection{M1: the facilitator settled testnets only}
+
+\code{GET https://x402.org/facilitator/supported} returns the networks the
+reference facilitator will settle. Base mainnet is absent
+(Table~\ref{tab:facilitators}). The endpoint was quoting \$5.00 in real Circle
+USDC on a chain its own facilitator could not touch. The failure mode is
+worse than an outage: the buyer signs a payment authorization first and is
+refused after.
+
+\begin{table}[t]
+\centering
+\footnotesize
+\begin{tabularx}{\columnwidth}{@{}l>{\RaggedRight}X@{}}
+\toprule
+\textbf{Facilitator} & \textbf{Settles} \\
+\midrule
+\code{x402.org} (reference) & base-sepolia, solana-devnet, hedera:testnet, stellar:testnet, algorand, aptos, xrpl \\
+\addlinespace
+Coinbase CDP & \textbf{base}, base-sepolia, Polygon, Arbitrum, World Chain, Solana \\
+\bottomrule
+\end{tabularx}
+\caption{Measured facilitator capability. The reference facilitator carries no
+mainnet at all; every network it settles is a test network. Verified by
+unauthenticated \code{GET} and, for CDP, by authenticated \code{GET} from the
+production host.}
+\label{tab:facilitators}
+\end{table}
+
+\subsection{M2: the advertised verification was unsatisfiable}
+
+Shown by construction in \S\ref{sec:impl}: the signed message includes the
+licensee address and issue timestamp; the verification URL carries neither.
+
+\subsection{M3: two of three products are free}
+
+\code{posts.json} is public, returns HTTP 200, and is linked from
+\code{llms.txt}. It contains all 2{,}483 posts, of which 1{,}332 carry the
+\code{contributes} relationship edges spanning 290 of the 291 works. Those
+edges are precisely what the \$0.10 \code{/sources} endpoint computes. The
+\$5.00 \code{/bulk} endpoint is that same file plus \code{graphs.json}
+(401\,KB) with media URLs resolved. Both inputs are free, both are 1.8\,MB
+combined, and the machine index tells any agent where they are.
+
+The paid tier therefore sold, at \$5.00, a convenience over two files it was
+simultaneously giving away and advertising. Only the license sells something
+unobtainable elsewhere, because a signature cannot be forged from public data.
+
+\subsection{M4: nobody ever asked}
+
+Across the retained Caddy access logs, requests to \code{/api/wg/*} number
+zero. Requests to the free machine index---\code{llms.txt},
+\code{index.md}---also number zero. \emph{Caveat:} these logs rotate by size
+every few minutes under production traffic, so the window is hours, not the
+lifetime of the deployment. The measurement establishes that no agent asked
+during a busy contemporary window; it does not establish that none ever did.
+
+\subsection{M5: no payment has ever settled}
+
+The receiving address holds no USDC. Its entire ERC-20 history is four
+unsolicited airdrops---a counterfeit token whose ticker spells ``USDC'' with
+Cyrillic characters, a phishing SHIB variant, and two others---none of them a
+payment. This is consistent with M1 and M4 and independently confirms them.
+
+\subsection{M6: the repaired rail works}
+
+Queried from the production host, whose address the credential is pinned to,
+the CDP facilitator authenticates the signed JWT and reports Base mainnet
+among its settleable networks. All three paid routes now return \code{402}
+responses a buyer could act on. The rail is live; what it sells is still
+wrong.
+
+\section{Market Context}
+\label{sec:market}
+
+\subsection{Aggregate}
+
+Reported x402 volume peaked near \$5.15M/month in November 2025 and fell
+roughly 77\% to \$1.1--1.2M/month across about 3.7M transactions by
+mid-2026---an average near \$0.30 per transaction, indicating high-frequency,
+low-ticket usage~\citep{coindesk2026}. A meaningful share of the 2025 peak was
+not utility: a pay-to-mint memecoin experiment alone processed over 150{,}000
+transactions in its first month by requiring a 1 USDC payment to
+mint~\citep{chainalysis2026}. Analyses of that period attribute much of the
+growth to token farming rather than services being bought.
+
+\subsection{Which turnstiles earn}
+
+Category-level analysis of settled receipts consistently ranks four kinds of
+seller, and the ranking is instructive because none of them sell an archive:
+
+\begin{enumerate}
+\item \textbf{Data and search APIs} --- the highest call volume, serving
+research agents making many cheap requests.
+\item \textbf{Inference and model routing} --- the largest payment sizes,
+fewer calls.
+\item \textbf{Web automation} --- browser-as-a-service and scraping; steady
+volume, minimal unit price.
+\item \textbf{Specialized analytics} --- chain explorers and market data
+feeding trading agents.
+\end{enumerate}
+
+Every category sells \emph{live compute or live data}: something that did not
+exist before the request and cannot be fetched from a static file. The common
+factor is not subject matter but non-substitutability at the moment of
+purchase. An archive is the opposite: static by definition, and cheapest to
+serve by publishing once.
+
+\subsection{The absent category}
+
+We could not identify an established x402 seller of identity, namespaces,
+handles, or agent-to-agent messaging access. That absence is reported as a
+finding rather than an oversight, and it cuts both ways: it may indicate an
+unserved niche, or it may indicate that nobody has found buyers for one.
+Section~\ref{sec:strategy} treats it as the former while noting the risk.
+
+\section{Strategy}
+\label{sec:strategy}
+
+The audit reduces to two constraints that any candidate product must satisfy.
+\textbf{Non-substitutability:} a rational agent must be unable to obtain the
+good more cheaply elsewhere, including from the seller's own free tier.
+\textbf{Discoverability:} per M4, a correct and well-priced endpoint that
+nothing finds earns exactly as much as a broken one. Table~\ref{tab:strategy}
+scores six options.
+
+\begin{table}[t]
+\centering
+\footnotesize
+\begin{tabularx}{\columnwidth}{@{}Xccc@{}}
+\toprule
+\textbf{Strategy} & \textbf{Sub.} & \textbf{Disc.} & \textbf{Ready} \\
+\midrule
+A. Derived data (status quo) & fail & fail & yes \\
+B. Metered rendering & pass & fail & part \\
+C. Agent handles & pass & pass & part \\
+D. Paid agent chatroom & pass & pass & part \\
+E. Provenance receipts & pass & weak & yes \\
+F. Exit x402 & --- & --- & --- \\
+\bottomrule
+\end{tabularx}
+\caption{Options against the two binding constraints. \emph{Sub.} asks whether
+the buyer can get it free elsewhere; \emph{Disc.} whether the thing can
+plausibly be found; \emph{Ready} whether the infrastructure exists today.}
+\label{tab:strategy}
+\end{table}
+
+\textbf{A. Derived data} fails both constraints and is the status quo. It
+should be withdrawn or repriced to zero, since a price nobody should rationally
+pay is worse than no price.
+
+\textbf{B. Metered rendering} would sell what the \ac{} runtime uniquely
+does---evaluating KidLisp, rendering pieces to frames and tapes. It is
+genuinely non-substitutable compute and sits in the highest-volume market
+category. Its weakness is demand: no agent currently knows it wants a KidLisp
+render, so the seller must create the demand it serves.
+
+\textbf{C. Agent handles} sells a name in the \ac{} namespace. This is the
+strongest fit, for a reason worth stating plainly: a namespace is
+server-authoritative and therefore \emph{constitutively} non-substitutable. An
+agent cannot compute \code{@name} for itself at any price, from any dataset,
+with any amount of inference. Unlike rendering, the scarcity is structural
+rather than economic. The infrastructure substantially exists---handle
+registration, permanent-handle allocation, and chat all run in production
+today---and the receipt-signing code repaired in \S\ref{sec:impl} generalizes
+almost unchanged from license ownership to handle ownership.
+
+\textbf{D. A paid agents-only chatroom} extends C, and inverts a problem into
+a product: every agent-accessible commons has a flooding problem, and pricing
+messages is simultaneously the moderation mechanism and the revenue. One
+engineering caution: settlement is a network round trip with a 120-second
+timeout in our own quoted terms, so per-message settlement would put a
+blockchain confirmation in the conversational hot path. The workable shapes
+are a one-time handle purchase with unmetered speech, a prepaid message
+balance decremented locally, or admission priced per session.
+
+Options C and D also address discovery in a way A and B cannot. A priced
+dataset is not a story; a room where machines pay to talk to each other is
+one, and per M4 the shortage was never buyers' willingness but their
+attention.
+
+\textbf{E. Provenance receipts} generalizes the one component that already
+works: selling signed, verifiable statements about artifacts. Real, but small.
+
+\subsection{A concrete proposal}
+
+Combining C and D while respecting the settlement-latency constraint yields a
+design with one payment and no per-message blockchain confirmation:
+
+\begin{enumerate}
+\item \textbf{A handle is bought once.} An agent requests
+\code{/api/agent/@name}, receives a \code{402} with the price, pays, and
+receives a signed ownership receipt---the \S\ref{sec:impl} receipt structure
+with \code{work} replaced by \code{handle}. Verification stays free and
+stateless.
+\item \textbf{The name is the admission.} Holding a handle grants speech in
+the agents' room; the chat layer checks the signature, not a balance, so the
+conversational path touches no chain.
+\item \textbf{Scarcity is priced, not rationed.} Short and dictionary-word
+handles cost more, exactly as every namespace in history has worked.
+\end{enumerate}
+
+Pricing should sit near the ecosystem's demonstrated tolerance rather than
+this archive's previous guesses: the \$5.00 \code{/bulk} price was set against
+no comparable and, per M4, tested against no buyer. A first handle price in
+the low single-dollar range is defensible as roughly ten times the median
+per-transaction value in \S\ref{sec:market}, justified by permanence.
+
+The honest failure mode is a room that agents visit once. The version with
+durable value gives them something absent from the current landscape---a
+neutral, persistent place to leave messages for other agents across
+sessions---which is coordination infrastructure rather than novelty. The
+cheapest decisive test costs nothing: register handles for agents this
+practice already runs, let them talk for free, and observe whether the
+transcript is worth reading. If it is not interesting unpriced, no price
+improves it.
+
+\textbf{F. Exit} deserves explicit statement. The entire x402 economy moves
+roughly \$1.1M/month and is contracting. A new niche seller should expect a
+negligible share of it. Measured strictly as revenue, every option above is
+outperformed by the practice's existing grant and client lanes, and any
+decision to continue should be justified by positioning, research value, or
+artistic interest rather than by projected income. This report recommends
+continuing on those grounds, and recommends against continuing on financial
+ones.
+
+\section{Ethics, Privacy, and Limitations}
+
+\textbf{Honest paywalls.} The license endpoint states in its own payload that
+the assets it licenses are publicly reachable. A paywall that implies it gates
+what it does not gate is a lie the buyer discovers in one request, and the
+same standard condemns \S\ref{sec:evidence}'s M3: charging for derived free
+data was not fraud, but it was not defensible either, and it is documented
+here rather than quietly repriced.
+
+\textbf{No purchase records.} Verification is stateless by construction, so
+the archive holds no ledger of which agent licensed which work.
+
+\textbf{Credential scope.} The settlement credential carries read-only
+permissions---no trade, transfer, or withdrawal authority---and is pinned to
+the production host's address. A consequence worth recording: rebuilding that
+host on a new address silently breaks payment.
+
+\textbf{Limitations.} M4's log window is hours, not months
+(\S\ref{sec:evidence}). The market figures in \S\ref{sec:market} are
+secondhand from published analyses, not independently derived from chain data,
+and dashboards in this sector go stale. No end-to-end mainnet purchase has
+been executed: the rail is verified to the point of settlement capability, not
+through a completed sale. Until one buyer pays once, M6 establishes
+capability rather than function.
+
+\section{Conclusion}
+
+An archive was wired for machine payment, advertised properly, and could not
+have earned a dollar---first because its facilitator settled only test
+networks, then because its verification link asked for a proof it had not
+been given, and finally because most of what it sold was already free next
+door. Two of those were bugs. The third was a category error, and it is the
+one that generalizes: the work of selling to machines is not building the
+turnstile but finding something on the other side of it that the buyer cannot
+simply compute.
+
+Everything the archive knows can be recomputed from files it publishes. A name
+cannot. That asymmetry, rather than any property of the payment protocol, is
+where the next version of this experiment should begin.
+
+\vspace{0.5em}
+\noindent{\small\color{acgray}\textit{Platter consulted: the whistlegraph
+machine-index generator and its notes, the paid-access handler and its route
+configuration, production access and service logs, on-chain history of the
+receiving address, live facilitator capability endpoints, the x402 and CDP
+specifications, and the companion Funding Codes RFC.}}
+
+\vspace{0.5em}
+\noindent\textbf{ORCID:} \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}
+
+\def\bibfont{\footnotesize}
+\setlength{\bibsep}{0.25em}
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}
