@@ -219,6 +219,20 @@ function publish(entry) {
     console.log(`   reelboy autobind skipped: ` +
       `${String(error.stderr || error.message || error).split("\n")[0]}`);
   }
+  // Secondary platforms (YouTube now, TikTok post-audit); a skip or failure
+  // there is a log line, never this publish's problem.
+  try {
+    const lines = execFileSync(process.execPath,
+      [join(ROOT, "toolchain/social/syndicate.mjs"), video,
+        "--account", "menuband", "--media-id", String(mediaId),
+        "--caption", `${entry.name.toLowerCase()} — menu band waltz no. ${waltzNumber(entry)} · menuband.app`,
+        "--seconds", String(entry.durationSec ?? 60)],
+      { encoding: "utf8", timeout: 15 * 60_000 }).trim();
+    console.log(lines.replace(/^/gm, "   "));
+  } catch (error) {
+    console.log(`   syndication skipped: ` +
+      `${String(error.stderr || error.message || error).split("\n")[0]}`);
+  }
 }
 
 if (cmd === "queue") {

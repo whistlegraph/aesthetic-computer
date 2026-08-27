@@ -175,6 +175,22 @@ async function goLive(record) {
     log(`   reelboy autobind skipped: ` +
       `${String(error.stderr || error.message || error).split("\n")[0]}`);
   }
+  // Secondary platforms ride behind the ledger write: YouTube now, TikTok
+  // when its audit clears. Syndication exits 0 by contract — an unauthed
+  // channel or a failed upload is that platform's line in the log, never
+  // this publish's problem.
+  try {
+    execFileSync(process.execPath,
+      [join(repo, "toolchain", "social", "syndicate.mjs"), record.files.reel,
+        "--account", "oskiewar", "--media-id", String(posted.mediaId),
+        "--caption", String(record.caption || ""),
+        "--seconds", String(record.render?.seconds || 0)],
+      { encoding: "utf8", timeout: 15 * 60_000, stdio: ["ignore", "pipe", "pipe"] })
+      .trim().split("\n").forEach((line) => log(`   ${line}`));
+  } catch (error) {
+    log(`   syndication skipped: ` +
+      `${String(error.stderr || error.message || error).split("\n")[0]}`);
+  }
   return posted;
 }
 
