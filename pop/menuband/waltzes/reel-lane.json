@@ -697,6 +697,80 @@
           "#2e6b54"
         ]
       }
+    },
+    {
+      "id": "10-satchel",
+      "name": "Satchel",
+      "seed": 10097,
+      "bpm": 78,
+      "bars": 26,
+      "tonic": "A",
+      "mode": "minor",
+      "instrumentProgram": 78,
+      "instrumentName": "Whistle",
+      "development": "mirror",
+      "harmonyDegrees": [
+        0,
+        4,
+        5,
+        3,
+        0,
+        5,
+        4,
+        0
+      ],
+      "melodyBars": [
+        [
+          5,
+          6
+        ],
+        [
+          7,
+          9,
+          8,
+          10
+        ],
+        [
+          9,
+          11,
+          9
+        ],
+        [
+          11,
+          9,
+          10
+        ],
+        [
+          8,
+          9,
+          7,
+          6
+        ],
+        [
+          4,
+          2,
+          1,
+          0
+        ],
+        [
+          1,
+          0
+        ],
+        [
+          2,
+          0
+        ]
+      ],
+      "notesPath": "pop/menuband/out/menu-band-waltzes/10-satchel/10-satchel.notes.json",
+      "audioPath": "pop/menuband/out/menu-band-waltzes/10-satchel/10-satchel.wav",
+      "outPath": "pop/menuband/out/menu-band-waltzes/10-satchel/10-satchel.mp4",
+      "visual": {
+        "palette": [
+          "#f2e8f3",
+          "#c087c5",
+          "#662e6b"
+        ]
+      }
     }
   ]
 }
