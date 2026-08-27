@@ -1,0 +1,44 @@
+{
+  "schema": "illy/v1",
+  "createdAt": "2026-08-27T15:20:50.567Z",
+  "pipeline": "pop-cover",
+  "provider": "openai",
+  "model": "gpt-image-2",
+  "mode": "edit",
+  "size": "1024x1024",
+  "quality": "high",
+  "output": "/Users/jas/aesthetic-computer/pop/loner/covers/lonerclub-cover-d-last-lamps.png",
+  "promptPath": "/Users/jas/aesthetic-computer/pop/loner/covers/last-lamps.illy.txt",
+  "promptHash": "e7a58ea9cae080749bf151e915b09c5f7cd4ea031b113dcc60193fdc2394e401",
+  "references": [
+    "/Users/jas/aesthetic-computer/pop/loner/covers/refs/loner-curl-row.png",
+    "/Users/jas/aesthetic-computer/pop/loner/covers/refs/loner-score-small.png"
+  ],
+  "contracts": [
+    "physical-accuracy"
+  ],
+  "stages": [
+    "resolve-inputs",
+    "apply-contracts",
+    "select-provider",
+    "generate",
+    "archive",
+    "provenance"
+  ],
+  "durationSeconds": 143.86,
+  "archived": null,
+  "requestId": null,
+  "usage": {
+    "input_tokens": 2850,
+    "input_tokens_details": {
+      "image_tokens": 2156,
+      "text_tokens": 694
+    },
+    "output_tokens": 7024,
+    "output_tokens_details": {
+      "image_tokens": 7024,
+      "text_tokens": 0
+    },
+    "total_tokens": 9874
+  }
+}

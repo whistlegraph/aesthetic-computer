@@ -1,0 +1,44 @@
+{
+  "schema": "illy/v1",
+  "createdAt": "2026-08-27T15:22:52.608Z",
+  "pipeline": "pop-cover",
+  "provider": "openai",
+  "model": "gpt-image-2",
+  "mode": "edit",
+  "size": "1024x1024",
+  "quality": "high",
+  "output": "/Users/jas/aesthetic-computer/pop/loner/covers/lonerclub-cover-e-room-to-move.png",
+  "promptPath": "/Users/jas/aesthetic-computer/pop/loner/covers/room-to-move.illy.txt",
+  "promptHash": "01611156d3b603ba35909b2735d3df9b24526e83df232fd10b4704a501947a3d",
+  "references": [
+    "/Users/jas/aesthetic-computer/pop/loner/covers/refs/loner-curl-row.png",
+    "/Users/jas/aesthetic-computer/pop/loner/covers/refs/loner-score-small.png"
+  ],
+  "contracts": [
+    "physical-accuracy"
+  ],
+  "stages": [
+    "resolve-inputs",
+    "apply-contracts",
+    "select-provider",
+    "generate",
+    "archive",
+    "provenance"
+  ],
+  "durationSeconds": 139.666,
+  "archived": null,
+  "requestId": null,
+  "usage": {
+    "input_tokens": 2856,
+    "input_tokens_details": {
+      "image_tokens": 2156,
+      "text_tokens": 700
+    },
+    "output_tokens": 7024,
+    "output_tokens_details": {
+      "image_tokens": 7024,
+      "text_tokens": 0
+    },
+    "total_tokens": 9880
+  }
+}

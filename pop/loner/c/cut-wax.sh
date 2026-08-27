@@ -36,11 +36,11 @@ MATERIAL="\
 acrossover=split=120:order=4th[low][high];\
 [low]pan=stereo|c0=0.5*c0+0.5*c1|c1=0.5*c0+0.5*c1[lowm];\
 [high]stereotools=slev=1.3,apulsator=hz=0.06:amount=0.14:mode=sine,\
-aexciter=amount=1.6:drive=8:blend=0:freq=7500[hip];\
+aexciter=amount=0.8:drive=6:blend=0:freq=7500[hip];\
 [lowm][hip]amix=inputs=2:normalize=0,\
 vibrato=f=0.4:d=0.0012,\
-volume=2.4dB,asoftclip=type=tanh,volume=-1.8dB,\
-acompressor=threshold=0.24:ratio=2.4:attack=8:release=180:makeup=1.6:knee=8,\
+volume=1.1dB,asoftclip=type=tanh,volume=-0.8dB,\
+acompressor=threshold=0.28:ratio=1.8:attack=10:release=200:makeup=1.2:knee=8,\
 equalizer=f=90:t=q:w=0.9:g=1.0,\
 equalizer=f=2800:t=q:w=1.6:g=0.8,\
 highpass=f=28,lowpass=f=15000"
@@ -63,6 +63,7 @@ alimiter=limit=0.82:attack=5:release=100:level=disabled" \
 
 ffmpeg -y -v error -i "$OUT/.wax-master.wav" -c:a libmp3lame -b:a 320k \
   "$DEST"
+cp "$OUT/.wax-master.wav" "${DEST%.mp3}.wav"   # the master wav rides along
 rm -f "$WAX" "$OUT/.wax-master.wav"
 
 ffmpeg -hide_banner -nostats -i "$DEST" -af ebur128=peak=true -f null - 2>&1 \
