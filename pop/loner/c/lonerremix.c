@@ -70,7 +70,7 @@ static const double TONIC = CHART_TONIC;  // 237 Hz — Camille's frame
 // it is the right answer for this song: three minutes of one sentence does
 // not need announcing. The first sound on the record is her /s/.
 #define INTRO 0
-#define BARS (INTRO + 96)   // Lonerclub — six passes after the intro
+#define BARS (INTRO + 48)   // Lonerclub v4pid — three passes, one long build
 // the passes, addressed by number rather than by remembering an offset
 #define L(n) (INTRO + (n) * 16)
 #define TAIL_S 6.0
@@ -344,9 +344,25 @@ static const ChartPhrase *phrase_of(const char *name) {
 // ONE VOICE. The halo and the backup 3rd/5th used to hang off every call
 // here; @jeffrey: "lets not have background vocals anymore". There is
 // nothing to fade down to zero — the layers are not built and not sung.
+//
+// THE TRIM. The take banks in vox4/ are halo3's renders, and they arrive
+// from different rooms: measured against the f- spine's −16.2 LUFS, cp and
+// o sit almost 7 dB under it, the rest one or two. stage-takes.sh's law —
+// MEASURE, then one static dB — applied at the point of use, so a gain in
+// this file means the same thing whichever take it is applied to.
+static double take_trim_db(const char *name) {
+    static const struct { const char *take; double db; } TRIM[] = {
+        { "w-lg", 1.7 }, { "w-cp", 6.7 }, { "w-pf", 1.0 }, { "w-o", 6.3 },
+        { "w-s", 1.8 },  { "w-rq", 3.8 }, { "w-sh", 5.6 }, { "w-rd", 2.7 },
+    };
+    for (unsigned i = 0; i < sizeof TRIM / sizeof *TRIM; i++)
+        if (!strcmp(TRIM[i].take, name)) return TRIM[i].db;
+    return 0.0;
+}
 static void voice_line(const char *name, double bar, double gain) {
     const ChartPhrase *p = phrase_of(name);
-    sung(name, at(bar) - p->leadIn, gain, 0, 0.13);
+    double g = gain * pow(10.0, take_trim_db(name) / 20.0);
+    sung(name, at(bar) - p->leadIn, g, 0, 0.13);
 }
 // ── the vibraphone ────────────────────────────────────────────────────
 // @jeffrey: "maybe we should add more instruments · more vibes". Taken
@@ -933,7 +949,8 @@ static const Chord *chord_at(int bar) {
     return ROW_BREAK[b % 8];
 }
 static int kick_on(int bar) {           // the strict floor: where it runs
-    return !(bar >= L(2) && bar < L(3)) && bar < BARS - 4;
+    // v4pid: there is always a beat — the walking bass runs to the tail
+    return bar < BARS - 4;
 }
 
 // A bell RUN — chord tones climbing from the tonic, swung a little so it
@@ -1263,7 +1280,7 @@ int main(void) {
     for (int bar = 0; bar < BARS - 4; bar++) {
         const Chord *c = chord_at(bar);
         double lows[3] = { c->root - 24, c->root - 12, c->tones[1] - 12 };
-        int brk = (bar >= L(2) && bar < L(3)), outro = bar >= L(5);
+        int brk = 0, outro = 0;   // v4pid: no break, no outro — one build
         if (bar % 2 == 0) {
             double g = brk ? 0.15 : outro ? 0.13 : 0.16;
             pad(at(bar) + 0.02, lows, 3, 2 * BAR - 0.1, g,
@@ -1314,16 +1331,16 @@ int main(void) {
     // harmony thinning, the riser back in — is still there.
     // THE VOCAL BREAKS clear the kit for their two bars — no claps, hats
     // right down — while the kick keeps running. See vocal_break().
+    // v4pid: @jeffrey — "i prefer there to always be a beat". The floor runs
+    // every bar of the record, and the build lives in its WEIGHT: each pass
+    // brings the kick up a step, the vocal breaks clear the kit for two bars
+    // while the kick keeps running, and claps arrive with the second pass.
     for (int bar = 0; bar < BARS; bar++) {
-        int brk = (bar >= L(2) && bar < L(3));
-        int vb = (bar >= L(1) - 2 && bar < L(1)) || (bar >= L(2) - 2 && bar < L(2)) ||
-                 (bar >= L(4) - 2 && bar < L(4)) || (bar >= L(5) - 2 && bar < L(5));
+        int vb = (bar >= L(1) - 2 && bar < L(1)) || (bar >= L(2) - 2 && bar < L(2));
         double kg = vb ? 0.82
-                  : brk ? 0.72
-                  : bar < L(1) ? 0.88 : bar < L(2) ? 0.95
-                  : bar < L(5) ? 1.0 : 0.84;
-        double hg = vb ? 0.03 : brk ? 0.05 : bar < L(1) ? 0.10 : 0.15;
-        int claps = (bar >= L(1)) && !brk && !vb;
+                  : bar < L(1) ? 0.90 : bar < L(2) ? 0.96 : 1.0;
+        double hg = vb ? 0.03 : bar < L(1) ? 0.11 : 0.15;
+        int claps = (bar >= L(1)) && !vb;
         floor_bar(bar, kg, hg, claps);
     }
     {   // the words each break is built from — the scoop, the low held
@@ -1332,9 +1349,8 @@ int main(void) {
         static const char *W2[] = { "pa", "stone", "pass" };
         static const char *W3[] = { "pa", "think", "stone", "pass" };
         vocal_break("w-whole-line", L(1) - 2, W1, 2, 0.34);
-        vocal_break("w-whole-line", L(2) - 2, W2, 3, 0.44);
-        vocal_break("w-whole-line", L(4) - 2, W3, 4, 0.50);
-        vocal_break("w-whole-line", L(5) - 2, W2, 3, 0.38);
+        vocal_break("w-whole-line", L(2) - 2, W3, 4, 0.48);
+        (void)W2;
     }
     // ── LONERCLUB — SIX PASSES OF ONE SENTENCE, ONE VOICE ─────────────
     // @jeffrey: "i want to try and just get a real clean track for now...
@@ -1347,19 +1363,27 @@ int main(void) {
     // apart by what the band does — the pluck thickening, the bells
     // arriving, the floor thinning — and nothing else.
     //
-    // ONE TAKE THROUGHOUT — @jeffrey: "stick with our original mapped
-    // take". f- is the one that was charted by hand, word by word, over a
-    // whole session; the others are warped onto ITS chart by singdub and
-    // are auditioned separately (bin/tryout-takes.sh) rather than dropped
-    // into the record. alt_line() is still here and still correct for
-    // when one of them earns a pass.
+    // THE TAKES ROTATE — @jeffrey (2026-08-24): voice the passes with the
+    // auditioned takes, each pass a different performance of the sentence.
+    // ("Stick with our original mapped take" was the rule while the others
+    // were still borrowing f-'s chart; takechart.py gave each its own, the
+    // batch was auditioned in out/takes/, and now they earn passes.)
     //
-    //   L1  0–16  f-  alone. Kick and one hat.
-    //   L2 16–32  f-  clap on 2 and 4; the bells arrive
-    //   L3 32–48  f-  the floor thins to the kick; the pads open
-    //   L4 48–64  f-  everything the band has
-    //   L5 64–80  f-  widest, bells running every bar
-    //   L6 80–96  f-  the ghost. thinning back to the pluck alone.
+    // The order is the club filling and emptying. f- opens — hers is the
+    // hand-charted take the PREROLL math is built around. Then the sentence
+    // is handed around the room: lg, the stranger nearest her register; cp,
+    // Camille an octave down for the bare pass; pf carries the drop at her
+    // octave; o — the group take, jeffrey and alex in it — sings the widest
+    // pass; and s, her roomier lower take, is the ghost. The band and every
+    // sampled gesture (scratches, throws, the breaks) stay f- throughout:
+    // the club changes singers, the thread stays hers.
+    //
+    //   L1  0–16  f-  her pickup opens the file, kick from bar 0, lean band
+    //   L2 16–32  lg  claps arrive, the stab still muffled — the build
+    //   L3 32–48  o   the drop lands everything at once, widest, bells every bar
+    //
+    // (v4pid, final shape: @jeffrey — start on the sung "sitting", always a
+    // beat, one build, ~1:40. Three passes; cp/pf/s sit this cut out.)
 
     // THE DOWNBEAT still gets its bell, but it rings UNDER her first word
     // now rather than in front of it — the record opens on a note and a
@@ -1378,37 +1402,31 @@ int main(void) {
     //
     // The turnaround closes each eight-bar row underneath all of it.
     {
-        static const struct { int voice, oct; double gain; } SAYS[6] = {
-            { VOICE_PLUCK, 0,   0.30 },     // L1  the music box, alone
+        static const struct { int voice, oct; double gain; } SAYS[3] = {
+            { VOICE_PLUCK, 0,   0.30 },     // L1  the music box opens it
             { VOICE_VIBE,  0,   0.34 },     // L2  the vibraphone takes it
-            { VOICE_BELL,  0,   0.24 },     // L3  bare section: bells only
-            { VOICE_VIBE,  12,  0.30 },     // L4  up an octave, the drop
-            { VOICE_PLUCK, 12,  0.28 },     // L5  widest — pluck and vibe
-            { VOICE_VIBE,  0,   0.22 },     // L6  the vibraphone, last
+            { VOICE_PLUCK, 12,  0.28 },     // L3  widest — pluck and vibe
         };
-        for (int pass = 0; pass < 6; pass++) {
+        for (int pass = 0; pass < 3; pass++) {
             double b0 = L(pass);
             double g = SAYS[pass].gain;
             hook_say(at(b0 + 1),  HOOK,     SAYS[pass].oct, SAYS[pass].voice, g, 0.32);
             hook_say(at(b0 + 5),  HOOK_ANS, SAYS[pass].oct, SAYS[pass].voice, g * 0.9, -0.32);
             hook_say(at(b0 + 13), HOOK_ANS, SAYS[pass].oct, SAYS[pass].voice, g * 0.8, 0.28);
-            if (pass == 4)      // the widest pass says it in two voices
+            if (pass == 2)      // the widest pass says it in two voices
                 hook_say(at(b0 + 5) + 0.5 * BEAT, HOOK_ANS, 0, VOICE_VIBE,
                          g * 0.7, -0.36);
             for (int row = 0; row < 2; row++)
-                turnaround(b0 + row * 8 + 7, pass == 2 ? 0.16 : 0.26);
+                turnaround(b0 + row * 8 + 7, 0.26);
         }
     }
 
-    // ── L1 — alone ───────────────────────────────────────────────────
-    // @jeffrey: "the vocal coming in should be softer". She was arriving
-    // at 0.96, the same level she holds for the rest of the record, which
-    // makes the first word an announcement. It is the softest take in the
-    // bank and the intro has just spent sixteen bars getting quiet for it;
-    // 0.62 lets her be heard rather than delivered, and the next pass is
-    // where she comes up to full.
-    voice_line("w-whole-line", L(0), 0.62);
-    pluck_line("w-whole-line", L(0), 0.44, 0, 0.3);
+    // ── L1 0–16 — her pickup, the kick, and a lean band ──────────────
+    // The file opens on the sung "sitting" (PREROLL is exactly her lead-in)
+    // and the kick is under her from beat one. Lean on purpose — this is
+    // the bottom of the build, not the record being shy.
+    voice_line("w-whole-line", L(0), 0.90);
+    pluck_line("w-whole-line", L(0), 0.48, 0, 0.3);
     bell_run(at(L(0) + 6), &CH_VI, 3, 0.30, 0.13, 1, 0.35);
     bell_run(at(L(0) + 13), &CH_VII, 3, 0.28, 0.12, 0, -0.35);
 
@@ -1419,10 +1437,9 @@ int main(void) {
     // gaps the singer leaves.
     {
         const ChartPhrase *pp = phrase_of("w-whole-line");
-        for (int pass = 1; pass < 6; pass++) {
-            if (pass == 2) continue;                 // L3 stays bare
+        for (int pass = 1; pass < 3; pass++) {
             double base = L(pass);
-            double g = (pass == 1) ? 0.26 : (pass == 5) ? 0.20 : 0.34;
+            double g = (pass == 1) ? 0.26 : 0.34;
             for (int i = 0; i < pp->n; i++) {
                 const ChartNote *nn = &pp->notes[i];
                 if (nn->dur < 4.0) continue;
@@ -1451,12 +1468,6 @@ int main(void) {
         stab(at(bar) + sw(7) + lean(bar, 3.5), v, 4, 0.30, 0.22, 0.22, -0.30);
     }
 
-    // ── L3 32–48 — the floor thins ───────────────────────────────────
-    voice_line("w-whole-line", L(2), 0.98);
-    pluck_line("w-whole-line", L(2), 0.40, 0, 0.3);
-    for (int bar = L(2) + 1; bar < L(2) + 14; bar += 3)
-        fembell(at(bar), chord_at(bar)->root, 2.2, 0.22, (bar % 6) ? 0.3 : -0.3);
-
     // ── THE DROP ─────────────────────────────────────────────────────
     // @jeffrey: "and more epic drop". Four bars of preparation instead of
     // none: the riser runs the whole way, the scratches answer each other
@@ -1465,62 +1476,31 @@ int main(void) {
     // out from under the room. Then the floor returns at tempo, and a bell
     // is struck on the downbeat itself so the drop arrives on a note and
     // not only on a kick.
-    riser(at(L(3) - 4), 4 * BAR, 0.20);
-    scratch("w-whole-line", "pa", at(L(3) - 4) + 2 * BEAT, 4, 0.34, 0.40);
-    scratch("w-whole-line", "pass", at(L(3) - 3) + 2 * BEAT, 5, 0.36, -0.40);
-    scratch("w-whole-line", "pa", at(L(3) - 2) + 1 * BEAT, 6, 0.40, 0.42);
-    screw_down("w-whole-line", "stone", at(L(3) - 1), 1.5 * BAR, 0.62);
-    fembell(at(L(3)), 0, 3.4, 0.62, 0);
-    fembell(at(L(3)) + 0.012, 12, 3.4, 0.34, 0.25);
+    riser(at(L(2) - 4), 4 * BAR, 0.20);
+    scratch("w-whole-line", "pa", at(L(2) - 4) + 2 * BEAT, 4, 0.34, 0.40);
+    scratch("w-whole-line", "pass", at(L(2) - 3) + 2 * BEAT, 5, 0.36, -0.40);
+    scratch("w-whole-line", "pa", at(L(2) - 2) + 1 * BEAT, 6, 0.40, 0.42);
+    screw_down("w-whole-line", "stone", at(L(2) - 1), 1.5 * BAR, 0.62);
+    fembell(at(L(2)), 0, 3.4, 0.62, 0);
+    fembell(at(L(2)) + 0.012, 12, 3.4, 0.34, 0.25);
     // the floor already puts a kick on this downbeat; these are the three
     // 16ths AFTER it, so the drop stutters in rather than doubling a hit
     for (int b = 1; b < 4; b++)
-        kick(at(L(3)) + b * (BEAT / 4.0), 0.54 - 0.12 * b);
+        kick(at(L(2)) + b * (BEAT / 4.0), 0.54 - 0.12 * b);
 
-    // ── L4 48–64 — everything the band has ───────────────────────────
-    voice_line("w-whole-line", L(3), 0.98);
-    pluck_line("w-whole-line", L(3), 0.55, 0, 0.3);
-    pluck_line("w-whole-line", L(3), 0.28, 12, -0.3);
-    for (int bar = L(3); bar < L(4); bar += 2)
-        bell_run(at(bar) + 1.0 * BEAT, chord_at(bar), 5, 0.24, 0.20,
-                 (bar / 2) % 2, (bar % 4) ? 0.42 : -0.42);
-    for (int bar = L(3); bar < L(4); bar++) {
-        // THE STAB RESTS WHERE THE HOOK SPEAKS. Two ideas on the offbeat
-        // at once is not counterpoint, it is a pile; the arrangement reads
-        // as deliberate the moment something stops to let something else
-        // through.
-        int said = (bar == L(3) + 1 || bar == L(3) + 5 || bar == L(3) + 13);
-        if (said) continue;
-        const Chord *c = chord_at(bar);
-        double v[4] = { c->tones[0], c->tones[1], c->tones[2], c->sev };
-        stab(at(bar) + sw(3) + lean(bar, 1.5), v, 4, 0.36, 0.34, 0.58, 0.32);
-        stab(at(bar) + sw(7) + lean(bar, 3.5), v, 4, 0.32, 0.30, 0.58, -0.32);
-        if (bar % 4 == 3)
-            stab(at(bar) + sw(5.5) + lean(bar, 2.75), v, 4, 0.18, 0.24, 0.72, 0.0);
-    }
-    // PA — announced, then answered. @jeffrey: "can 'patiently' especially
-    // 'pa' be cooler". The stutter runs three 16ths into it so the scoop is
-    // heard coming; the throw is the same word an octave later, off the
-    // beat, gone into the delay.
-    word_stutter("w-whole-line", "pa", L(3), 0.40, 0.34);
-    word_throw("w-whole-line", "pa", L(3), 0.52, 0.75 * BEAT, -0.36);
-
-    // …and the door the last pass comes through
-    riser(at(L(4) - 3), 3 * BAR, 0.17);
-    scratch("w-whole-line", "think", at(L(4) - 2) + 2 * BEAT, 5, 0.32, -0.38);
-    screw_down("w-whole-line", "pa", at(L(4) - 1) + 2 * BEAT, 0.9 * BAR, 0.52);
-    fembell(at(L(4)), -4, 3.2, 0.46, -0.2);
-
-    // ── L5 64–80 — widest ────────────────────────────────────────────
-    voice_line("w-whole-line", L(4), 0.98);
-    pluck_line("w-whole-line", L(4), 0.52, 0, 0.3);
-    pluck_line("w-whole-line", L(4), 0.30, 12, -0.3);
-    pluck_line("w-whole-line", L(4), 0.18, -12, 0.15);
-    for (int bar = L(4); bar < L(5); bar += 2)
+    // ── L3 32–48 — the drop lands everything at once ─────────────────
+    // THE STAB RESTS WHERE THE HOOK SPEAKS. Two ideas on the offbeat at
+    // once is not counterpoint, it is a pile; the arrangement reads as
+    // deliberate the moment something stops to let something else through.
+    voice_line("w-whole-line", L(2), 0.98);
+    pluck_line("w-whole-line", L(2), 0.52, 0, 0.3);
+    pluck_line("w-whole-line", L(2), 0.30, 12, -0.3);
+    pluck_line("w-whole-line", L(2), 0.18, -12, 0.15);
+    for (int bar = L(2); bar < L(3); bar += 2)
         bell_run(at(bar) + 1.0 * BEAT, chord_at(bar), 5, 0.22, 0.22,
                  (bar / 2) % 2, (bar % 4) ? 0.44 : -0.44);
-    for (int bar = L(4); bar < L(5); bar++) {
-        int said = (bar == L(4) + 1 || bar == L(4) + 5 || bar == L(4) + 13);
+    for (int bar = L(2); bar < L(3); bar++) {
+        int said = (bar == L(2) + 1 || bar == L(2) + 5 || bar == L(2) + 13);
         if (said) continue;
         const Chord *c = chord_at(bar);
         double v[4] = { c->tones[0], c->tones[1], c->tones[2], c->sev };
@@ -1529,17 +1509,15 @@ int main(void) {
         if (bar % 2 == 1)
             stab(at(bar) + sw(5.5) + lean(bar, 2.75), v, 4, 0.18, 0.26, 0.95, 0.0);
     }
-    word_stutter("w-whole-line", "pa", L(4), 0.46, 0.36);
-    word_throw("w-whole-line", "pa", L(4), 0.58, 0.75 * BEAT, 0.38);
-    word_throw("w-whole-line", "pa", L(4), 0.30, 2.25 * BEAT, -0.42);
-
-    // ── L6 80–96 — the ghost. she is the last one left ───────────────
-    voice_line("w-whole-line", L(5), 0.72);
-    pluck_line("w-whole-line", L(5), 0.50, 0, 0.3);
-    pluck_line("w-whole-line", L(5), 0.20, 12, -0.3);
-    bell_run(at(L(5) + 2), &CH_i, 4, 0.30, 0.16, 0, 0.35);
-    bell_run(at(L(5) + 6), &CH_VI, 3, 0.32, 0.12, 0, -0.35);
-    fembell(at(L(5) + 10), 0, 3.0, 0.12, 0.2);
+    // PA — announced, then answered. @jeffrey: "can 'patiently' especially
+    // 'pa' be cooler". The stutter runs three 16ths into it so the scoop is
+    // heard coming; the throws are the same word an octave later, off the
+    // beat, gone into the delay.
+    word_stutter("w-whole-line", "pa", L(2), 0.46, 0.36);
+    word_throw("w-whole-line", "pa", L(2), 0.58, 0.75 * BEAT, 0.38);
+    word_throw("w-whole-line", "pa", L(2), 0.30, 2.25 * BEAT, -0.42);
+    // the record's last word gets a low bell under it, and the tail rings
+    fembell(at(L(3) - 1), -4, 3.2, 0.30, -0.2);
 
 mixdown:
     if (missingN) fprintf(stderr, "  ! %d missing samples\n", missingN);

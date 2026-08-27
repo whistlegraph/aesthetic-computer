@@ -1,31 +1,21 @@
-This is XeTeX, Version 3.141592653-2.6-0.999998 (TeX Live 2026) (INITEX)  14 MAY 2026 14:46
+This is XeTeX, Version 3.141592653-2.6-0.999998 (TeX Live 2026) (preloaded format=xelatex 2026.3.1)  18 AUG 2026 12:52
+entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
-**\nopagenumbers \font\test="Latin Modern Roman" \test hello \bye
-! Font \test="Latin Modern Roman" not loadable: Metric (TFM) file or installed 
-font not found.
-<to be read again> 
-                   \test 
-<*> ...mbers \font\test="Latin Modern Roman" \test
-                                                   hello \bye
-I wasn't able to read the size data for this font,
-so I will ignore the font specification.
-[Wizards can fix TFM files using TFtoPL/PLtoTF.]
-You might try inserting a different font spec;
-e.g., type `I\font<same font id>=<substitute font name>'.
-
-! Undefined control sequence.
-<*> ...\test="Latin Modern Roman" \test hello \bye
-                                                  
-The control sequence at the end of the top line
-of your error message was never \def'ed. If you have
-misspelled it (e.g., `\hobx'), type `I' and the correct
-spelling (e.g., `I\hbox'). Otherwise just continue,
-and I'll forget about whatever was undefined.
+**technical-rider.tex
 
 ! Emergency stop.
-<*> ...\test="Latin Modern Roman" \test hello \bye
-                                                  
-*** (job aborted, no legal \end found)
+<*> technical-rider.tex
+                       
+*** (job aborted, file error in nonstop mode)
 
+ 
+Here is how much of TeX's memory you used:
+ 2 strings out of 469709
+ 25 string characters out of 5466024
+ 426408 words of memory out of 5000000
+ 28735 multiletter control sequences out of 15000+600000
+ 627721 words of font info for 40 fonts, out of 8000000 for 9000
+ 319 hyphenation exceptions out of 8191
+ 0i,0n,0p,1b,6s stack positions out of 10000i,1000n,20000p,200000b,200000s
 No pages of output.
