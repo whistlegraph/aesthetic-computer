@@ -1430,6 +1430,83 @@
           "#4a6b2e"
         ]
       }
+    },
+    {
+      "id": "20-kettle",
+      "name": "Kettle",
+      "seed": 20187,
+      "bpm": 75,
+      "bars": 25,
+      "tonic": "A",
+      "mode": "minor",
+      "instrumentProgram": 78,
+      "instrumentName": "Whistle",
+      "development": "mirror",
+      "harmonyDegrees": [
+        0,
+        3,
+        0,
+        4,
+        5,
+        3,
+        4,
+        0
+      ],
+      "melodyBars": [
+        [
+          7,
+          8,
+          10,
+          9
+        ],
+        [
+          8,
+          9,
+          11,
+          9
+        ],
+        [
+          11,
+          9,
+          10
+        ],
+        [
+          11,
+          10
+        ],
+        [
+          11,
+          10,
+          8,
+          6
+        ],
+        [
+          8,
+          9,
+          8
+        ],
+        [
+          9,
+          10,
+          8
+        ],
+        [
+          9,
+          8,
+          9,
+          0
+        ]
+      ],
+      "notesPath": "pop/menuband/out/menu-band-waltzes/20-kettle/20-kettle.notes.json",
+      "audioPath": "pop/menuband/out/menu-band-waltzes/20-kettle/20-kettle.wav",
+      "outPath": "pop/menuband/out/menu-band-waltzes/20-kettle/20-kettle.mp4",
+      "visual": {
+        "palette": [
+          "#e8eaf3",
+          "#8791c5",
+          "#2e386b"
+        ]
+      }
     }
   ]
 }
