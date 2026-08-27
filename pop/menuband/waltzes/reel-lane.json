@@ -471,6 +471,79 @@
           "size": 1
         }
       }
+    },
+    {
+      "id": "07-harbor",
+      "name": "Harbor",
+      "seed": 7070,
+      "bpm": 99,
+      "bars": 33,
+      "tonic": "A",
+      "mode": "minor",
+      "instrumentProgram": 78,
+      "instrumentName": "Whistle",
+      "development": "lift",
+      "harmonyDegrees": [
+        0,
+        3,
+        4,
+        0,
+        5,
+        3,
+        4,
+        0
+      ],
+      "melodyBars": [
+        [
+          5,
+          7,
+          8
+        ],
+        [
+          10,
+          9,
+          11
+        ],
+        [
+          9,
+          10
+        ],
+        [
+          11,
+          10,
+          8,
+          7
+        ],
+        [
+          8,
+          9
+        ],
+        [
+          10,
+          9
+        ],
+        [
+          8,
+          9,
+          11
+        ],
+        [
+          10,
+          8,
+          9,
+          0
+        ]
+      ],
+      "notesPath": "pop/menuband/out/menu-band-waltzes/07-harbor/07-harbor.notes.json",
+      "audioPath": "pop/menuband/out/menu-band-waltzes/07-harbor/07-harbor.wav",
+      "outPath": "pop/menuband/out/menu-band-waltzes/07-harbor/07-harbor.mp4",
+      "visual": {
+        "palette": [
+          "#e8e8f3",
+          "#8987c5",
+          "#312e6b"
+        ]
+      }
     }
   ]
 }
