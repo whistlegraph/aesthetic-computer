@@ -19,11 +19,18 @@
 
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { homedir } from "node:os";
 import { basename, join, resolve } from "node:path";
 
 const ROOT = resolve(import.meta.dirname, "../..");
 const YT = join(ROOT, "toolchain/youtube/yt.mjs");
-const VAULT_YT = join(ROOT, "aesthetic-computer-vault/youtube");
+// Automation checkouts don't carry the vault; the canonical clone sits at
+// ~/aesthetic-computer-vault (a symlink on neo, absent on appliances —
+// there, YT_CLIENT_JSON/YT_TOKEN_JSON point wherever the creds landed).
+const VAULT_YT = [
+  join(ROOT, "aesthetic-computer-vault/youtube"),
+  join(homedir(), "aesthetic-computer-vault/youtube"),
+].find(existsSync) ?? join(homedir(), ".config/ac/youtube");
 
 // Per-account, per-platform policy. `sample` posts only every Nth numbered
 // video (parsed from a leading NN- in the filename) — an hourly lane
@@ -112,8 +119,14 @@ function youtube(policy) {
     "--privacy", policy.privacy, "--category", policy.category,
     "--tags", policy.tags.join(",")];
   if (dry) { console.log(`· youtube dry-run: yt.mjs ${args.slice(1).join(" ")}`); return; }
-  const run = spawnSync(process.execPath, args,
-    { cwd: ROOT, stdio: "inherit", timeout: 15 * 60_000 });
+  const run = spawnSync(process.execPath, args, {
+    cwd: ROOT, stdio: "inherit", timeout: 15 * 60_000,
+    env: {
+      ...process.env,
+      YT_CLIENT_JSON: process.env.YT_CLIENT_JSON || join(VAULT_YT, "client.json"),
+      YT_TOKEN_JSON: tokenPath,
+    },
+  });
   if (run.status !== 0) { console.log(`⚠ youtube: upload exited ${run.status}`); return; }
   const receipt = (() => {
     try {
