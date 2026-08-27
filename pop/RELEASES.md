@@ -81,7 +81,7 @@ Status legend: **RELEASED** · **SUBMITTED** · **MASTERING** · **RENDER** · *
 - **Engine:** `bin/render.mjs` → `out/season-remix-v1.mp3`. NOTE: outro uses
   the unprocessed original take — wants an aesthetivox pass (v2) before release.
 
-## lonerclub v4pid — SUBMITTING (Whistlegraph Dot Org)
+## lonerclub v4pid — SUBMITTED (2026-08-27 · DistroKid uuid 61394BC5-FE8A-4839-AB7CE99747305CEC)
 
 - **Lane:** `pop/loner/` · club cut of the loner v4 regulation · A# minor ·
   122 BPM · 1:34 · the preferred v4 audio itself, spliced: opens on the sung
@@ -119,13 +119,34 @@ Status legend: **RELEASED** · **SUBMITTED** · **MASTERING** · **RENDER** · *
   **−13.5 LUFS · −1.7 dBTP · LRA 1.7**
   (`out/lonerclub-v4pid-release.mp3`, 320k — the DistroKid file).
   ID3: Whistlegraph Dot Org / pixsies / lonerclub.
-- **First release under the artist name "Whistlegraph Dot Org."** Covers:
-  five candidates in `covers/` — score-international / stone / club-floor,
-  plus `last-lamps` (the room emptying, five lamps still burning) and
-  `room-to-move` (seven people on a floor built for thirty, one of them
-  starting to come uncurled). DistroKid-ready 3000² exports live in
-  `covers/distrokid/`. Cover pick is @jeffrey's.
-
+- **First release under the artist name "Whistlegraph Dot Org."** Released as
+  **lonerclub v4pid (feat. Aesthetic Dot Computer)** so it lands on both artist
+  pages — DistroKid's featured-artist credit is what does that, and the
+  featured artist is mapped to the real existing profiles
+  (`spotify:artist:7hqUS0ZErVZ3JzdeBEEgDr`, Apple `6770592645`, YouTube
+  `UCBFyg4JF3tnW-kVoO1GU1yA`) rather than left as "new", which would have
+  spawned a duplicate page. Whistlegraph Dot Org itself is new on every store.
+  Electronic / House. The file DistroKid got is the **FLAC**
+  (`out/lonerclub-v4pid-release.flac`, 16-bit/44.1, 7.7 MB, lossless) — the
+  browser upload path caps around 10 MB, so FLAC rides where a 27 MB WAV
+  cannot and beats the 320k mp3 Femrag++ shipped with.
+- **Songwriters:** Camille Klein (lyrics), legal name on the DistroKid form
+  (music). Credits: Camille Klein — singing & vocals; the same legal name —
+  producer. "Whistlegraph" was tried as a third songwriter and **rejected**:
+  stores require a real person's first *and* last name, so entity and band
+  names cannot be listed. It stays the artist and label identity only.
+- **Cover:** `covers/lonerclub-cover-ah-crispy.png` — the blue felt-tip
+  lonergraphic shot clinically sharp, generated from the real drawing rather
+  than cropped from it, because the recordings are TikTok-sourced (1080×1920)
+  and a crop of the drawing is only ~390 px across. All candidates and the
+  upload JPEGs are in `covers/`; `covers/bin/` holds the three generators
+  (`cells.py` cuts all 23 score states, `crops.py` frames the score itself,
+  `lonergraphics.py` pulls each recording's last frame).
+- **Spotify Canvas:** `canvas/lonerclub-v4pid-canvas.mp4` — 720×1280, 8 s, the
+  left panel of the blue-marker recording cropped to 9:16 so the whole drawing
+  appears from head-circle to finished figure with the nib in frame. Needs a
+  Spotify for Artists claim on the new Whistlegraph Dot Org page before it can
+  be uploaded; the page itself is created automatically on delivery.
 ## loner remix — RENDER (whistlegraph remix, v4)
 
 - **Lane:** `pop/loner/` · dance (four-on-the-floor) · A# minor (+30¢, band
