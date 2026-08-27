@@ -21,18 +21,18 @@
       "source": "pop/menuband/out/menu-band-waltzes/01-lantern/01-lantern.mp4",
       "voiceover": false,
       "insights": {
-        "views": 232,
-        "reach": 208,
+        "views": 233,
+        "reach": 209,
         "likes": 4,
         "comments": 1,
         "saved": 0,
         "shares": 0,
         "total_interactions": 5,
-        "ig_reels_avg_watch_time": 7263,
-        "ig_reels_video_view_total_time": 1568837,
-        "reels_skip_rate": 41
+        "ig_reels_avg_watch_time": 7240,
+        "ig_reels_video_view_total_time": 1571239,
+        "reels_skip_rate": 41.2
       },
-      "insightsAt": "2026-08-27T01:21:00.825Z"
+      "insightsAt": "2026-08-27T21:51:07.099Z"
     },
     {
       "mediaId": "18098114018458417",
@@ -44,18 +44,18 @@
       "voiceover": false,
       "audioName": "window-waltz.mbscore",
       "insights": {
-        "views": 123,
-        "reach": 111,
+        "views": 124,
+        "reach": 112,
         "likes": 0,
         "comments": 0,
         "saved": 0,
         "shares": 0,
         "total_interactions": 0,
-        "ig_reels_avg_watch_time": 5092,
-        "ig_reels_video_view_total_time": 585618,
-        "reels_skip_rate": 49.6
+        "ig_reels_avg_watch_time": 5059,
+        "ig_reels_video_view_total_time": 586888,
+        "reels_skip_rate": 50
       },
-      "insightsAt": "2026-08-27T01:21:01.405Z"
+      "insightsAt": "2026-08-27T21:51:07.657Z"
     },
     {
       "mediaId": "17978454938900766",
@@ -70,18 +70,18 @@
         "reel": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/ig/menuband/2026-08-26/03-ferry.mp4"
       },
       "insights": {
-        "views": 144,
-        "reach": 135,
+        "views": 202,
+        "reach": 179,
         "likes": 1,
         "comments": 0,
         "saved": 0,
         "shares": 0,
         "total_interactions": 1,
-        "ig_reels_avg_watch_time": 7329,
-        "ig_reels_video_view_total_time": 1011478,
-        "reels_skip_rate": 42.3
+        "ig_reels_avg_watch_time": 7888,
+        "ig_reels_video_view_total_time": 1435687,
+        "reels_skip_rate": 42.4
       },
-      "insightsAt": "2026-08-27T01:21:01.922Z"
+      "insightsAt": "2026-08-27T21:51:08.225Z"
     },
     {
       "mediaId": "18040507055816535",
@@ -96,18 +96,18 @@
         "reel": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/ig/menuband/2026-08-27/04-stairwell.mp4"
       },
       "insights": {
-        "views": 39,
-        "reach": 15,
-        "likes": 1,
+        "views": 245,
+        "reach": 224,
+        "likes": 2,
         "comments": 0,
         "saved": 0,
         "shares": 0,
-        "total_interactions": 1,
-        "ig_reels_avg_watch_time": 7150,
-        "ig_reels_video_view_total_time": 107255,
-        "reels_skip_rate": 22.9
+        "total_interactions": 2,
+        "ig_reels_avg_watch_time": 10064,
+        "ig_reels_video_view_total_time": 2234402,
+        "reels_skip_rate": 40.1
       },
-      "insightsAt": "2026-08-27T01:21:02.466Z"
+      "insightsAt": "2026-08-27T21:51:08.728Z"
     },
     {
       "mediaId": "17982400746066706",
@@ -118,7 +118,19 @@
       "source": "pop/menuband/out/menu-band-waltzes/05-attic/05-attic.mp4",
       "voiceover": false,
       "audioName": "attic.mbscore",
-      "insights": null
+      "insights": {
+        "views": 141,
+        "reach": 134,
+        "likes": 0,
+        "comments": 0,
+        "saved": 0,
+        "shares": 0,
+        "total_interactions": 0,
+        "ig_reels_avg_watch_time": 7316,
+        "ig_reels_video_view_total_time": 958449,
+        "reels_skip_rate": 51.1
+      },
+      "insightsAt": "2026-08-27T21:51:09.254Z"
     },
     {
       "mediaId": "18561015826073357",
@@ -132,7 +144,19 @@
       "urls": {
         "reel": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/ig/menuband/2026-08-27/06-orchard.mp4"
       },
-      "insights": null
+      "insights": {
+        "views": 126,
+        "reach": 120,
+        "likes": 2,
+        "comments": 0,
+        "saved": 0,
+        "shares": 0,
+        "total_interactions": 2,
+        "ig_reels_avg_watch_time": 5424,
+        "ig_reels_video_view_total_time": 656417,
+        "reels_skip_rate": 55.8
+      },
+      "insightsAt": "2026-08-27T21:51:09.939Z"
     },
     {
       "mediaId": "18067782809757885",
@@ -146,7 +170,19 @@
       "urls": {
         "reel": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/ig/menuband/2026-08-27/07-harbor.mp4"
       },
-      "insights": null
+      "insights": {
+        "views": 203,
+        "reach": 184,
+        "likes": 2,
+        "comments": 0,
+        "saved": 0,
+        "shares": 0,
+        "total_interactions": 2,
+        "ig_reels_avg_watch_time": 6372,
+        "ig_reels_video_view_total_time": 1178974,
+        "reels_skip_rate": 58.3
+      },
+      "insightsAt": "2026-08-27T21:51:10.509Z"
     },
     {
       "mediaId": "17962168542181172",
@@ -160,7 +196,19 @@
       "urls": {
         "reel": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/ig/menuband/2026-08-27/08-meadow.mp4"
       },
-      "insights": null
+      "insights": {
+        "views": 129,
+        "reach": 122,
+        "likes": 0,
+        "comments": 0,
+        "saved": 1,
+        "shares": 0,
+        "total_interactions": 1,
+        "ig_reels_avg_watch_time": 5340,
+        "ig_reels_video_view_total_time": 646237,
+        "reels_skip_rate": 62.8
+      },
+      "insightsAt": "2026-08-27T21:51:10.939Z"
     },
     {
       "mediaId": "18018975254873652",
@@ -174,7 +222,19 @@
       "urls": {
         "reel": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/ig/menuband/2026-08-27/09-copper.mp4"
       },
-      "insights": null
+      "insights": {
+        "views": 155,
+        "reach": 145,
+        "likes": 1,
+        "comments": 0,
+        "saved": 0,
+        "shares": 0,
+        "total_interactions": 1,
+        "ig_reels_avg_watch_time": 3777,
+        "ig_reels_video_view_total_time": 536435,
+        "reels_skip_rate": 73.8
+      },
+      "insightsAt": "2026-08-27T21:51:11.248Z"
     },
     {
       "mediaId": "18069239396741304",
@@ -188,7 +248,19 @@
       "urls": {
         "reel": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/ig/menuband/2026-08-27/10-satchel.mp4"
       },
-      "insights": null
+      "insights": {
+        "views": 127,
+        "reach": 122,
+        "likes": 2,
+        "comments": 0,
+        "saved": 0,
+        "shares": 0,
+        "total_interactions": 2,
+        "ig_reels_avg_watch_time": 3833,
+        "ig_reels_video_view_total_time": 467676,
+        "reels_skip_rate": 67.2
+      },
+      "insightsAt": "2026-08-27T21:51:12.085Z"
     },
     {
       "mediaId": "18107493991888897",
@@ -202,7 +274,19 @@
       "urls": {
         "reel": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/ig/menuband/2026-08-27/11-sparrow.mp4"
       },
-      "insights": null
+      "insights": {
+        "views": 134,
+        "reach": 118,
+        "likes": 1,
+        "comments": 0,
+        "saved": 0,
+        "shares": 0,
+        "total_interactions": 1,
+        "ig_reels_avg_watch_time": 6919,
+        "ig_reels_video_view_total_time": 837223,
+        "reels_skip_rate": 57
+      },
+      "insightsAt": "2026-08-27T21:51:12.559Z"
     },
     {
       "mediaId": "18556221070072189",
@@ -216,7 +300,19 @@
       "urls": {
         "reel": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/ig/menuband/2026-08-27/12-teacup.mp4"
       },
-      "insights": null
+      "insights": {
+        "views": 130,
+        "reach": 120,
+        "likes": 0,
+        "comments": 0,
+        "saved": 0,
+        "shares": 0,
+        "total_interactions": 0,
+        "ig_reels_avg_watch_time": 5733,
+        "ig_reels_video_view_total_time": 693805,
+        "reels_skip_rate": 55
+      },
+      "insightsAt": "2026-08-27T21:51:13.231Z"
     },
     {
       "mediaId": "18121087927849385",
@@ -230,7 +326,19 @@
       "urls": {
         "reel": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/ig/menuband/2026-08-27/13-ribbon.mp4"
       },
-      "insights": null
+      "insights": {
+        "views": 137,
+        "reach": 124,
+        "likes": 0,
+        "comments": 0,
+        "saved": 0,
+        "shares": 0,
+        "total_interactions": 0,
+        "ig_reels_avg_watch_time": 5174,
+        "ig_reels_video_view_total_time": 651968,
+        "reels_skip_rate": 64.8
+      },
+      "insightsAt": "2026-08-27T21:51:13.825Z"
     },
     {
       "mediaId": "17945970147295866",
@@ -244,7 +352,19 @@
       "urls": {
         "reel": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/ig/menuband/2026-08-27/14-chimney.mp4"
       },
-      "insights": null
+      "insights": {
+        "views": 129,
+        "reach": 121,
+        "likes": 0,
+        "comments": 0,
+        "saved": 0,
+        "shares": 0,
+        "total_interactions": 0,
+        "ig_reels_avg_watch_time": 4564,
+        "ig_reels_video_view_total_time": 561492,
+        "reels_skip_rate": 69.1
+      },
+      "insightsAt": "2026-08-27T21:51:14.343Z"
     },
     {
       "mediaId": "17904715068550044",
@@ -258,7 +378,19 @@
       "urls": {
         "reel": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/ig/menuband/2026-08-27/15-garden.mp4"
       },
-      "insights": null
+      "insights": {
+        "views": 125,
+        "reach": 116,
+        "likes": 0,
+        "comments": 0,
+        "saved": 0,
+        "shares": 0,
+        "total_interactions": 0,
+        "ig_reels_avg_watch_time": 6005,
+        "ig_reels_video_view_total_time": 696677,
+        "reels_skip_rate": 56
+      },
+      "insightsAt": "2026-08-27T21:51:14.719Z"
     },
     {
       "mediaId": "18079783349686958",
@@ -272,7 +404,19 @@
       "urls": {
         "reel": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/ig/menuband/2026-08-27/16-pillow.mp4"
       },
-      "insights": null
+      "insights": {
+        "views": 145,
+        "reach": 131,
+        "likes": 0,
+        "comments": 0,
+        "saved": 0,
+        "shares": 0,
+        "total_interactions": 0,
+        "ig_reels_avg_watch_time": 8111,
+        "ig_reels_video_view_total_time": 1070717,
+        "reels_skip_rate": 53
+      },
+      "insightsAt": "2026-08-27T21:51:15.110Z"
     },
     {
       "mediaId": "18094845755109448",
@@ -286,7 +430,19 @@
       "urls": {
         "reel": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/ig/menuband/2026-08-27/17-mirror.mp4"
       },
-      "insights": null
+      "insights": {
+        "views": 130,
+        "reach": 124,
+        "likes": 0,
+        "comments": 0,
+        "saved": 0,
+        "shares": 0,
+        "total_interactions": 0,
+        "ig_reels_avg_watch_time": 7301,
+        "ig_reels_video_view_total_time": 890749,
+        "reels_skip_rate": 56.5
+      },
+      "insightsAt": "2026-08-27T21:51:16.456Z"
     },
     {
       "mediaId": "17929680444146664",
@@ -300,7 +456,19 @@
       "urls": {
         "reel": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/ig/menuband/2026-08-27/18-bicycle.mp4"
       },
-      "insights": null
+      "insights": {
+        "views": 116,
+        "reach": 101,
+        "likes": 0,
+        "comments": 0,
+        "saved": 0,
+        "shares": 0,
+        "total_interactions": 0,
+        "ig_reels_avg_watch_time": 8277,
+        "ig_reels_video_view_total_time": 844347,
+        "reels_skip_rate": 67.6
+      },
+      "insightsAt": "2026-08-27T21:51:17.043Z"
     },
     {
       "mediaId": "17914507257452918",
@@ -314,7 +482,19 @@
       "urls": {
         "reel": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/ig/menuband/2026-08-27/19-umbrella.mp4"
       },
-      "insights": null
+      "insights": {
+        "views": 122,
+        "reach": 116,
+        "likes": 0,
+        "comments": 0,
+        "saved": 0,
+        "shares": 0,
+        "total_interactions": 0,
+        "ig_reels_avg_watch_time": 6190,
+        "ig_reels_video_view_total_time": 718102,
+        "reels_skip_rate": 55.2
+      },
+      "insightsAt": "2026-08-27T21:51:17.612Z"
     },
     {
       "mediaId": "18108959711031833",
@@ -328,7 +508,19 @@
       "urls": {
         "reel": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/ig/menuband/2026-08-27/20-kettle.mp4"
       },
-      "insights": null
+      "insights": {
+        "views": 131,
+        "reach": 130,
+        "likes": 0,
+        "comments": 0,
+        "saved": 0,
+        "shares": 0,
+        "total_interactions": 0,
+        "ig_reels_avg_watch_time": 5014,
+        "ig_reels_video_view_total_time": 651864,
+        "reels_skip_rate": 65.1
+      },
+      "insightsAt": "2026-08-27T21:51:18.034Z"
     },
     {
       "mediaId": "18119524090897892",
@@ -342,7 +534,19 @@
       "urls": {
         "reel": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/ig/menuband/2026-08-27/21-lighthouse.mp4"
       },
-      "insights": null
+      "insights": {
+        "views": 88,
+        "reach": 46,
+        "likes": 0,
+        "comments": 0,
+        "saved": 0,
+        "shares": 0,
+        "total_interactions": 0,
+        "ig_reels_avg_watch_time": 4491,
+        "ig_reels_video_view_total_time": 202136,
+        "reels_skip_rate": 27.1
+      },
+      "insightsAt": "2026-08-27T21:51:18.461Z"
     }
   ]
 }
