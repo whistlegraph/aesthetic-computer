@@ -1824,6 +1824,20 @@ function receive(event) {
       },
     });
     return;
+  } else if (event.data?.type === "ac:user?") {
+    // An HTML shell (prompt.ac) asks who is signed in, to mirror the raster
+    // prompt's login/profile buttons in DOM. `handle` arrives via a background
+    // /user fetch after auth resolves, so shells may re-ask a few times.
+    event.source?.postMessage(
+      {
+        type: "ac:user",
+        user: window.acUSER
+          ? { sub: window.acUSER.sub, handle: window.acUSER.handle || null }
+          : null,
+      },
+      "*",
+    );
+    return;
   } else if (event.data?.type === "kidlisp-reload") {
     // Live reload from kidlisp.com editor
     const code = event.data.code;

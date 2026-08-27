@@ -10303,7 +10303,16 @@ async function makeFrame({ data: { type, content } }) {
   // as the source of truth while leaving their low-resolution composition off.
   if (type === "prompt:dom-input") {
     const promptInput = $commonApi?.system?.prompt?.input;
-    if (!promptInput || $commonApi?.slug !== "prompt") return;
+    if (!promptInput || $commonApi?.slug !== "prompt") {
+      // The bridge comes up before the prompt piece is current, so a submit
+      // sent in that window must not vanish — reroute it through an autorun
+      // prompt load, which executes the command once the piece is ready.
+      const text = String(content?.text ?? "").trim();
+      if (content?.submit === true && text) {
+        $commonApi?.jump?.(`prompt~${text}~!autorun`);
+      }
+      return;
+    }
 
     const text = String(content?.text ?? "");
     promptInput.text = text;

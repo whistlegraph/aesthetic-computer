@@ -4,90 +4,213 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
 <title>prompt.ac</title>
-<meta name="description" content="prompt.ac — a fast HTML prompt for Aesthetic Computer." />
-<meta name="theme-color" content="#0a0a0c" />
+<meta name="description" content="prompt.ac — the HTML prompt for Aesthetic Computer." />
+<meta name="theme-color" content="#463264" />
 <link rel="icon" href="https://assets.aesthetic.computer/favicon.png" />
 <style>
-  /* prompt.ac — one continuous AC stage with a crisp DOM prompt above it.
-     Commands drive in-place piece swaps through ACFrame; the iframe never
-     changes, and the runtime's pixel-buffer prompt/HUD stays disabled. */
-  :root {
-    --bg: #0a0a0c; --panel: #131318; --edge: #26262e;
-    --text: #eaeaf0; --dim: #8a8a98; --accent: #ff8c50; --ok: #64dc8c; --warn: #ffd278; --bad: #ff8c78;
-    --font: "Berkeley Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  /* prompt.ac — the HTML prompt, sister of disks/prompt.mjs (the raster
+     prompt) the way laklok.com's vector client sisters its raster piece.
+     At the prompt the DOM owns the whole screen: crisp typed line + block
+     caret, MOTD ticker from the same mood feed, login state. The AC runtime
+     stays booted in a hidden iframe as the command brain (prompt.mjs still
+     parses, aliases, and halts every command via the prompt:dom-input
+     bridge); it becomes visible only while a piece is on stage. The palettes
+     mirror `scheme` in disks/prompt.mjs — keep them in lockstep. */
+
+  @font-face {
+    font-family: "Berkeley Mono Web";
+    src: url("https://aesthetic.computer/type/webfonts/BerkeleyMonoVariable-Regular.woff2") format("woff2");
+    font-display: swap;
   }
+
+  :root { /* prompt.mjs scheme.dark */
+    --bg:        rgb(70, 50, 100);
+    --text:      #fff;
+    --ghost:     rgba(200, 30, 100, .78);  /* scheme.prompt */
+    --block:     rgb(200, 30, 100);        /* the blinking block caret */
+    --highlight: rgb(255, 100, 0);         /* selection */
+    --dim:       rgba(255, 255, 255, .45);
+    --scrim:     rgba(70, 50, 100, .82);   /* prompt-over-piece curtain */
+    --star:      rgba(255, 255, 255, .5);
+    --login-bg:  rgb(0, 0, 64);    --login-edge:  #fff;
+    --signup-bg: rgb(0, 64, 0);    --signup-edge: #fff;
+    --profile-bg: rgb(64, 0, 64);  --profile-text: rgb(255, 100, 255);
+    --font: "Berkeley Mono", "Berkeley Mono Web", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: light) {
+    :root { /* prompt.mjs scheme.light — legal pad */
+      --bg:        rgb(252, 247, 197);
+      --text:      rgb(40, 30, 90);
+      --ghost:     rgba(60, 40, 120, .6);
+      --block:     rgb(56, 122, 223);
+      --highlight: rgb(255, 207, 105);
+      --dim:       rgba(40, 30, 90, .5);
+      --scrim:     rgba(252, 247, 197, .88);
+      --star:      rgba(40, 30, 90, .35);
+      --login-bg:  rgb(0, 0, 128);
+      --signup-bg: rgb(0, 128, 0);
+      --profile-bg: rgb(128, 0, 128);
+    }
+  }
+
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body { height: 100%; margin: 0; background: var(--bg); }
   body { font-family: var(--font); color: var(--text); overflow: hidden; }
+  ::selection { background: var(--highlight); color: var(--bg); }
 
-  /* ── Hosted runtime: full viewport, including behind the DOM prompt ─── */
-  .stage { position: relative; width: 100%; height: 100%; background: #000; }
+  /* ── Stage: the hosted runtime. Hidden + inert while the DOM prompt owns
+     the screen, so the iframe can never steal keystrokes at the prompt. ── */
+  .stage { position: absolute; inset: 0; background: #000; }
   iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; display: block; }
+  body[data-mode="prompt"] .stage { visibility: hidden; pointer-events: none; }
 
-  /* ── Prompt layer: the stage-mode editor, not a separate layout row ─── */
-  .prompt-layer {
+  /* ── The prompt screen ─────────────────────────────────────────────── */
+  #screen {
     position: absolute; inset: 0; z-index: 3;
-    pointer-events: none; opacity: 0; visibility: hidden;
-    transition: opacity 90ms linear, visibility 0s linear 90ms;
+    display: none; flex-direction: column;
+    align-items: center; justify-content: center;
+    background: var(--bg);
   }
-  .prompt-layer.on,
-  .prompt-layer.editing {
-    opacity: 1; visibility: visible;
-    transition: opacity 90ms linear;
+  body[data-mode="prompt"] #screen { display: flex; }
+  /* Slash-prompt over a running piece: same screen as a translucent curtain. */
+  body[data-mode="piece"] #screen.overlay { display: flex; background: var(--scrim); }
+  body[data-mode="piece"] #screen.overlay .motd,
+  body[data-mode="piece"] #screen.overlay .auth,
+  body[data-mode="piece"] #screen.overlay .flair { display: none; }
+
+  /* Drifting star flecks — a whisper of the raster prompt's flair. */
+  .flair, .flair::after {
+    content: ""; position: absolute; inset: -60px; pointer-events: none;
+    background-image:
+      radial-gradient(1.5px 1.5px at 12% 22%, var(--star) 50%, transparent 51%),
+      radial-gradient(1px 1px at 78% 12%, var(--star) 50%, transparent 51%),
+      radial-gradient(1px 1px at 34% 68%, var(--star) 50%, transparent 51%),
+      radial-gradient(1.5px 1.5px at 88% 74%, var(--star) 50%, transparent 51%),
+      radial-gradient(1px 1px at 55% 38%, var(--star) 50%, transparent 51%);
+    opacity: .35;
+    animation: drift 80s linear infinite;
+  }
+  .flair::after { animation-duration: 130s; animation-direction: reverse; transform: scale(1.6); }
+  @keyframes drift { from { transform: translate(0, 0); } to { transform: translate(60px, 60px); } }
+
+  /* ── Typed line — top-left like the raster TextInput, crisp DOM text. ── */
+  .line {
+    position: absolute;
+    top: max(8px, env(safe-area-inset-top));
+    left: max(8px, env(safe-area-inset-left));
+    right: max(8px, env(safe-area-inset-right));
   }
   #cmd {
-    position: absolute;
-    top: max(6px, env(safe-area-inset-top));
-    left: max(6px, env(safe-area-inset-left));
-    width: calc(100% - max(12px, env(safe-area-inset-left)) - env(safe-area-inset-right));
-    min-width: 0; padding: 0;
-    pointer-events: auto;
+    width: 100%; min-width: 0; padding: 0; margin: 0;
     background: transparent; border: 0; outline: 0;
-    color: #fff; font-family: var(--font);
-    font-size: clamp(18px, 2.2vw, 28px); line-height: 1.25;
-    caret-color: var(--accent);
-    text-shadow: 0 1px 2px #000, 0 0 5px rgba(0, 0, 0, .9);
+    color: var(--text); font-family: var(--font);
+    font-size: clamp(20px, 2.6vw, 30px); line-height: 1.3;
+    caret-color: transparent; /* the block caret below replaces the bar */
   }
-  #cmd::placeholder { color: rgba(255, 255, 255, .42); }
-  .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+  /* Chrome draws a dropdown arrow for list-bound inputs — the wg command
+     datalist still opens, but the arrow doesn't belong on the prompt. */
+  #cmd::-webkit-calendar-picker-indicator { display: none !important; }
+  #caret {
+    position: absolute; top: 0; left: 0; height: 1.3em; width: .62em;
+    background: var(--block); pointer-events: none;
+    font-size: clamp(20px, 2.6vw, 30px);
+    animation: blink 1s steps(2, start) infinite;
+  }
+  body:not([data-mode="prompt"]) #screen:not(.overlay) #caret { display: none; }
+  @keyframes blink { 50% { opacity: 0; } }
+  #measure {
+    position: absolute; visibility: hidden; white-space: pre;
+    font-family: var(--font); font-size: clamp(20px, 2.6vw, 30px);
+  }
+
+  /* ── MOTD — the mood of the day ticker, centered like the raster's. ── */
+  .motd {
+    max-width: min(72ch, 86vw); text-align: center;
+    font-size: clamp(15px, 1.8vw, 21px); line-height: 1.5;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, .25);
+    transition: opacity .35s;
+    cursor: default; user-select: none;
+  }
+  .motd.faded, body.typing .motd { opacity: 0; }
+  .motd .by { display: block; margin-top: .4em; font-size: .72em; color: var(--dim); }
+  .motd .by b { cursor: pointer; }
+  .motd .by b:hover { color: var(--highlight); }
+  .t-handle, .t-kidlisp, .t-clock, .t-painting, .t-prompt, .t-url { color: var(--highlight); }
+
+  /* ── Login / I'm new / profile — ui.TextButton, vectorized. ─────────── */
+  .auth { display: flex; gap: 14px; margin-top: 34px; }
+  body.typing .auth { opacity: 0; transition: opacity .35s; }
+  .auth button {
+    font-family: var(--font); font-size: clamp(14px, 1.6vw, 18px);
+    color: #fff; padding: 7px 16px; cursor: pointer;
+    border: 1px solid var(--login-edge);
+    box-shadow: 2px 2px 0 rgba(0, 0, 0, .55);
+    background: var(--login-bg);
+  }
+  .auth button:hover { filter: brightness(1.6); }
+  .auth button:active { transform: translate(2px, 2px); box-shadow: none; }
+  .auth #signup { background: var(--signup-bg); }
+  .auth #profile { background: var(--profile-bg); color: var(--profile-text); border-color: var(--profile-text); }
+  .auth button[hidden] { display: none; }
+
+  /* ── Corner chip — the DOM twin of the composited HUD label. ────────── */
+  .corner {
+    position: absolute; z-index: 4;
+    top: max(8px, env(safe-area-inset-top));
+    left: max(8px, env(safe-area-inset-left));
+    display: none; align-items: center; gap: 6px;
+    padding: 4px 10px; cursor: pointer; user-select: none;
+    background: rgba(0, 0, 0, .55); border: 1px solid rgba(255, 255, 255, .3);
+    border-radius: 6px; color: #fff; font-family: var(--font); font-size: 14px;
+    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, .6);
+  }
+  body[data-mode="piece"] .corner { display: flex; }
+  body[data-mode="piece"] #screen.overlay ~ .corner { display: none; }
+  .corner:hover { border-color: var(--highlight); }
+  .corner .back { color: var(--highlight); font-weight: 700; }
+
+  /* ── Boot loader — only when deep-linking straight into a piece. ────── */
   .loading {
-    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    position: absolute; inset: 0; z-index: 5; display: none;
+    align-items: center; justify-content: center;
     color: var(--dim); font-size: 13px; letter-spacing: .5px; pointer-events: none;
     transition: opacity .4s; background: var(--bg);
   }
+  .loading.on { display: flex; }
   .loading.gone { opacity: 0; }
-
-  /* ── DOM corner overlay — the crisp return-to-prompt chip that replaces the
-     runtime's composited corner label while in shellhtml mode. ───────────── */
-  .corner {
-    position: absolute; top: 8px; left: 8px; z-index: 2;
-    display: none; align-items: center; gap: 6px;
-    padding: 4px 9px; cursor: pointer; user-select: none;
-    background: color-mix(in srgb, var(--panel) 82%, transparent);
-    border: 1px solid var(--edge); border-radius: 6px;
-    color: var(--text); font-family: var(--font); font-size: 13px;
-    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
-    text-shadow: 0 1px 2px rgba(0,0,0,.6);
-  }
-  .corner.on { display: flex; }
-  .corner:hover { border-color: var(--accent); }
-  .corner .back { color: var(--accent); font-weight: 700; }
-
-  /* token colors (for the suggestion/echo line, shared class names with moat) */
-  .t-handle { color: #ffb0a0; } .t-kidlisp { color: #ff8cc8; } .t-clock { color: #ffd24b; }
+  .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 </style>
 </head>
-<body>
+<body data-mode="prompt">
   <div class="stage">
     <iframe id="ac" title="Aesthetic Computer" allow="microphone; camera; midi; autoplay; clipboard-read; clipboard-write; fullscreen; xr-spatial-tracking"></iframe>
-    <div class="prompt-layer on" id="promptLayer">
-      <input id="cmd" aria-label="Aesthetic Computer prompt" list="wgCommands" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="go" />
+  </div>
+
+  <div id="screen">
+    <div class="flair"></div>
+    <div class="line">
+      <input id="cmd" aria-label="Aesthetic Computer prompt" list="wgCommands"
+             autocomplete="off" autocapitalize="off" autocorrect="off"
+             spellcheck="false" enterkeyhint="go" />
+      <span id="caret"></span>
+      <span id="measure"></span>
       <datalist id="wgCommands"></datalist>
     </div>
-    <div class="corner" id="corner" title="back to prompt"><span class="back">&lsaquo;</span><span id="cornerName"></span></div>
-    <div class="loading" id="loading">booting aesthetic computer…</div>
-    <span class="sr-only" id="dot" role="status">runtime booting</span>
+    <div class="motd" id="motd" hidden>
+      <span id="motdText"></span>
+      <span class="by" id="motdBy" hidden>— <b id="motdHandle"></b></span>
+    </div>
+    <div class="auth" id="auth" hidden>
+      <button id="login">Log in</button>
+      <button id="signup">I'm new</button>
+      <button id="profile" hidden></button>
+    </div>
   </div>
+
+  <div class="corner" id="corner" title="back to prompt"><span class="back">&lsaquo;</span><span id="cornerName"></span></div>
+  <div class="loading" id="loading">booting aesthetic computer&hellip;</div>
+  <span class="sr-only" id="dot" role="status">runtime booting</span>
 
 <script type="module">
 const localRuntime = ["localhost", "127.0.0.1", "::1"].includes(location.hostname);
@@ -97,25 +220,258 @@ const runtimeOverride = localRuntime
 const runtimeOrigin = runtimeOverride || (localRuntime
   ? location.origin
   : "https://aesthetic.computer");
-const moatUrl = localRuntime
-  ? `${location.origin}/html/lib/moat.mjs`
-  : `${runtimeOrigin}/html/lib/moat.mjs`;
-const { ACFrame } = await import(moatUrl);
+const { ACFrame, renderBody, handleColor } = await import(
+  `${runtimeOrigin}/html/lib/moat.mjs`
+);
 
-const $cmd = document.getElementById("cmd");
-const $dot = document.getElementById("dot");
-const $loading = document.getElementById("loading");
-const $promptLayer = document.getElementById("promptLayer");
-const $corner = document.getElementById("corner");
-const $cornerName = document.getElementById("cornerName");
-const $ac = document.getElementById("ac");
+const $ = (id) => document.getElementById(id);
+const $cmd = $("cmd"), $caret = $("caret"), $measure = $("measure");
+const $screen = $("screen"), $corner = $("corner"), $cornerName = $("cornerName");
+const $motd = $("motd"), $motdText = $("motdText"), $motdBy = $("motdBy"), $motdHandle = $("motdHandle");
+const $auth = $("auth"), $login = $("login"), $signup = $("signup"), $profile = $("profile");
+const $loading = $("loading"), $dot = $("dot");
+const $ac = $("ac");
 const frame = new ACFrame($ac, { origin: runtimeOrigin });
 let pendingJump = null;
 
-// Live Whistlegraph command feed. Non-conflicting codes work bare; collisions
+// Deep-link support that doesn't fight Caddy: prompt.ac/#clock stays on the
+// shell (hash never reaches the server), while prompt.ac/clock 301s to AC.
+const initial = decodeURIComponent(location.hash.slice(1)) || "prompt";
+let currentPiece = initial;
+const frameParams = "nogap=true&nolabel=true&shellhtml=true";
+
+function setMode(piece) {
+  currentPiece = piece;
+  const onPiece = piece !== "prompt";
+  document.body.dataset.mode = onPiece ? "piece" : "prompt";
+  document.body.dataset.piece = piece;
+  document.title = onPiece ? piece + " · prompt.ac" : "prompt.ac";
+  $screen.classList.remove("overlay");
+  $cornerName.textContent = piece;
+  const h = "#" + piece;
+  if (onPiece && location.hash !== h) history.replaceState(null, "", h);
+  else if (!onPiece && location.hash) history.replaceState(null, "", location.pathname);
+  if (onPiece) { $cmd.blur(); $ac.focus(); }
+  else { $cmd.focus(); syncCaret(); }
+}
+setMode(initial);
+if (initial !== "prompt") $loading.classList.add("on");
+
+// shellhtml keeps disk.mjs's composited prompt and corner HUD off for the
+// iframe's entire lifetime; the DOM above is the visible prompt.
+$dot.textContent = "runtime booting";
+frame.boot(initial, frameParams);
+
+frame.onReady(() => {
+  $dot.textContent = "runtime live";
+  $loading.classList.add("gone");
+});
+frame.onBridgeReady(() => {
+  askUser();
+  if (pendingJump) {
+    const destination = pendingJump;
+    pendingJump = null;
+    jumpPiece(destination);
+  }
+});
+frame.onPiece((slug) => setMode(slug || "prompt"));
+
+// Corner chip → back to the prompt (the DOM twin of the composited label).
+$corner.addEventListener("click", () => jumpPiece("prompt"));
+
+function jumpPiece(value) {
+  const v = String(value || "").trim();
+  if (!v) return;
+  // Queue early commands until the runtime bridge is up, then use the
+  // ac:navigate path proven by top.kidlisp.com; the iframe src stays put.
+  if (frame.bridgeReady) {
+    $ac.contentWindow.postMessage({ type: "ac:navigate", to: v }, "*");
+  } else {
+    pendingJump = v;
+  }
+}
+
+function submitCommand(value, { remember = true } = {}) {
+  const v = String(value || "").trim();
+  if (!v) return;
+  if (remember) pushHistory(v);
+  const work = whistlegraphFromInput(v);
+  if (work) { location.assign(work.url); return; }
+
+  if (frame.bridgeReady && currentPiece === "prompt") {
+    // Seed and execute the real prompt TextInput. The DOM only supplies data;
+    // command parsing, aliases, and halt() stay inside the prompt system.
+    $ac.contentWindow.postMessage({
+      type: "prompt:dom-input", text: v, active: true, submit: true,
+    }, "*");
+  } else {
+    // From a running piece (or during boot), route through a fresh prompt
+    // load with autorun so non-piece commands still use prompt.halt().
+    jumpPiece(`prompt~${v}~!autorun`);
+  }
+  setTyped("");
+  if (currentPiece !== "prompt") { $screen.classList.remove("overlay"); $cmd.blur(); $ac.focus(); }
+}
+
+// ── Block caret — the raster prompt's blinking block, in DOM. ──────────────
+// A mirror span measures the text before the caret so the block lands exactly
+// on the glyph grid, whatever font actually loaded.
+function syncCaret() {
+  const at = $cmd.selectionStart ?? $cmd.value.length;
+  $measure.textContent = $cmd.value.slice(0, at) || "";
+  const x = $measure.offsetWidth - $cmd.scrollLeft;
+  $caret.style.transform = `translateX(${Math.max(0, x)}px)`;
+  $caret.style.animation = "none";
+  void $caret.offsetWidth; // restart the blink at full opacity on movement
+  $caret.style.animation = "";
+  document.body.classList.toggle("typing", $cmd.value.length > 0);
+}
+for (const ev of ["input", "click", "keyup", "focus"]) $cmd.addEventListener(ev, syncCaret);
+document.addEventListener("selectionchange", () => {
+  if (document.activeElement === $cmd) syncCaret();
+});
+document.fonts?.ready?.then(syncCaret);
+
+function setTyped(text) {
+  $cmd.value = text;
+  $cmd.setSelectionRange(text.length, text.length);
+  syncCaret();
+}
+
+// ── Keyboard ───────────────────────────────────────────────────────────────
+$cmd.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") {
+    submitCommand($cmd.value);
+  } else if (e.key === "ArrowUp") {
+    e.preventDefault(); recall(-1);
+  } else if (e.key === "ArrowDown") {
+    e.preventDefault(); recall(1);
+  } else if (e.key === "Escape") {
+    setTyped("");
+    if (currentPiece !== "prompt") {
+      $screen.classList.remove("overlay");
+      $cmd.blur(); $ac.focus();
+    }
+  }
+});
+
+// At the prompt the line always owns typing (the stage is hidden + inert);
+// over a piece, "/" or any printable key raises the slash-prompt curtain.
+window.addEventListener("keydown", (e) => {
+  if (document.activeElement === $cmd) return;
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  const printable = e.key.length === 1;
+  if (e.key === "/" || printable) {
+    e.preventDefault();
+    if (currentPiece !== "prompt") $screen.classList.add("overlay");
+    $cmd.focus();
+    if (printable && e.key !== "/") setTyped($cmd.value + e.key);
+    else syncCaret();
+  }
+});
+
+// Tapping anywhere on the prompt screen summons the keyboard (mobile).
+$screen.addEventListener("pointerdown", (e) => {
+  if (e.target.closest("button, a, input")) return;
+  requestAnimationFrame(() => $cmd.focus());
+});
+
+// ── MOTD — the same mood feed the raster prompt cycles every 8s. ──────────
+const MOTD_CYCLE_MS = 8000;
+let moods = [], moodAt = 0;
+function showMood(m) {
+  $motdText.textContent = "";
+  // Token-colored like chat: @handles and $codes inside moods jump in place.
+  $motdText.append(renderBody(m.mood, (slug) => jumpPiece(slug)));
+  const by = m.handle ? (m.handle.startsWith("@") ? m.handle : "@" + m.handle) : null;
+  $motdBy.hidden = !by;
+  if (by) {
+    $motdHandle.textContent = by;
+    $motdHandle.style.color = handleColor(by.slice(1).toLowerCase());
+    $motdHandle.onclick = () => jumpPiece(by);
+  }
+  $motd.hidden = false;
+}
+fetch(`${runtimeOrigin}/api/mood/all?limit=20`)
+  .then((r) => r.ok ? r.json() : null)
+  .then((data) => {
+    moods = (data?.moods || []).filter((m) => m?.mood?.trim());
+    if (!moods.length && data?.mood) moods = [data];
+    if (!moods.length) return;
+    showMood(moods[0]);
+    if (moods.length > 1) setInterval(() => {
+      $motd.classList.add("faded");
+      setTimeout(() => {
+        moodAt = (moodAt + 1) % moods.length;
+        showMood(moods[moodAt]);
+        $motd.classList.remove("faded");
+      }, 360);
+    }, MOTD_CYCLE_MS);
+  })
+  .catch(() => {});
+
+// ── Auth — the runtime (same origin as aesthetic.computer sessions) knows
+// who's signed in; ask it over the bridge and mirror the raster buttons.
+// Embedded login is delegated up to this shell by bios.mjs, so the buttons
+// open the real site to authenticate, then the shell reloads to pick it up.
+let userKnown = false, awaitingLogin = false;
+function askUser(attempt = 0) {
+  if (userKnown || !$ac.contentWindow) return;
+  $ac.contentWindow.postMessage({ type: "ac:user?" }, "*");
+  if (attempt < 4) setTimeout(() => askUser(attempt + 1), 2500 * (attempt + 1));
+}
+function beginLogin(mode) {
+  awaitingLogin = true;
+  window.open(`${runtimeOrigin}/prompt~${mode}~!autorun`, "_blank", "noopener");
+}
+$login.onclick = () => beginLogin("login");
+$signup.onclick = () => beginLogin("imnew");
+document.addEventListener("visibilitychange", () => {
+  // Back from the login tab: reload so the runtime reboots with the session.
+  if (awaitingLogin && document.visibilityState === "visible") location.reload();
+});
+
+window.addEventListener("message", (event) => {
+  const data = event.data || {};
+  if (event.source === $ac.contentWindow) {
+    if (data.type === "ac:user") {
+      userKnown = true;
+      const user = data.user;
+      $auth.hidden = false;
+      if (user) {
+        $login.hidden = $signup.hidden = true;
+        $profile.hidden = false;
+        $profile.textContent = user.handle
+          ? (user.handle.startsWith("@") ? user.handle : "@" + user.handle)
+          : "profile";
+        $profile.onclick = () => jumpPiece("profile");
+      } else {
+        $login.hidden = $signup.hidden = false;
+        $profile.hidden = true;
+      }
+    } else if (data.type === "login") {
+      beginLogin("login"); // bios delegates embedded login up to the shell
+    } else if (data.type === "logout") {
+      location.reload();
+    }
+    return;
+  }
+  // Controller/protool-compatible remote jumps use the same persistent iframe.
+  const destination = data.type === "ac:navigate"
+    ? data.to
+    : data.type === "promptac:load-piece"
+      ? (data.slug || data.to)
+      : null;
+  if (typeof destination === "string" && destination.trim()) {
+    jumpPiece(destination);
+  }
+});
+window.promptAC = { load: jumpPiece };
+
+// ── Whistlegraph command feed. Non-conflicting codes work bare; collisions
 // such as `line` keep their AC meaning and are exposed as `wg line` instead.
 const wgByCode = new Map();
-const $wgCommands = document.getElementById("wgCommands");
+const $wgCommands = $("wgCommands");
 const wgFeed = fetch("https://whistlegraph.org/api/commands")
   .then((res) => res.ok ? res.json() : null)
   .then((data) => {
@@ -138,155 +494,12 @@ function whistlegraphFromInput(input) {
   const entry = wgByCode.get(value);
   return entry?.bare ? entry : null;
 }
-
-// Deep-link support that doesn't fight Caddy: prompt.ac/#clock stays on the
-// shell (hash never reaches the server), while prompt.ac/clock 301s to AC.
-const initial = decodeURIComponent(location.hash.slice(1)) || "prompt";
-let currentPiece = initial;
-const frameParams = "nogap=true&nolabel=true&shellhtml=true";
-document.body.dataset.piece = initial;
-$promptLayer.classList.toggle("on", initial === "prompt");
-
 wgFeed.then(() => {
   const work = whistlegraphFromInput(initial);
   if (work) location.replace(work.url);
 });
 
-$dot.textContent = "runtime booting";
-// shellhtml keeps disk.mjs's composited prompt and corner HUD off for this
-// iframe's entire lifetime. The DOM layer remains crisp above the AC stage.
-frame.boot(initial, frameParams);
-
-frame.onReady(() => {
-  $dot.textContent = "runtime live";
-  $loading.classList.add("gone");
-  if (currentPiece === "prompt") $cmd.focus();
-});
-
-frame.onBridgeReady(() => {
-  if (pendingJump) {
-    const destination = pendingJump;
-    pendingJump = null;
-    jumpPiece(destination);
-  }
-});
-
-// Keep the DOM prompt + URL hash + return chip in sync with the live runtime.
-frame.onPiece((slug) => {
-  const name = slug || "prompt";
-  currentPiece = name;
-  document.body.dataset.piece = name;
-  document.title = name === "prompt" ? "prompt.ac" : name + " · prompt.ac";
-  const onPiece = name !== "prompt";
-  $promptLayer.classList.toggle("on", !onPiece);
-  $promptLayer.classList.remove("editing");
-  $corner.classList.toggle("on", onPiece); // chip only overlays pieces
-  $cornerName.textContent = name;
-  const h = "#" + name;
-  if (location.hash !== h && onPiece) history.replaceState(null, "", h);
-  else if (!onPiece && location.hash) history.replaceState(null, "", location.pathname);
-  if (!onPiece) $cmd.focus();
-});
-
-// Corner chip → back to the prompt (the DOM twin of the composited label).
-$corner.addEventListener("click", () => {
-  jumpPiece("prompt");
-});
-
-function jumpPiece(value) {
-  const v = String(value || "").trim();
-  if (!v) return;
-  $promptLayer.classList.remove("editing", "on");
-  // Queue early commands until the initial runtime is ready. Then use the
-  // ac:navigate bridge proven by top.kidlisp.com; the iframe src stays put.
-  if (frame.bridgeReady) {
-    $ac.contentWindow.postMessage({ type: "ac:navigate", to: v }, "*");
-  } else {
-    pendingJump = v;
-  }
-}
-
-function submitCommand(value, { remember = true } = {}) {
-  const v = String(value || "").trim();
-  if (!v) return;
-  if (remember) pushHistory(v);
-  const work = whistlegraphFromInput(v);
-  if (work) {
-    location.assign(work.url);
-    return;
-  }
-
-  if (frame.bridgeReady && currentPiece === "prompt") {
-    // Seed and execute the real prompt TextInput. The DOM only supplies data;
-    // command behavior remains inside the prompt system.
-    $ac.contentWindow.postMessage({
-      type: "prompt:dom-input",
-      text: v,
-      active: true,
-      submit: true,
-    }, "*");
-  } else {
-    // From a running piece (or during boot), route through a fresh prompt boot
-    // with autorun so aliases and non-piece commands still use prompt.halt().
-    jumpPiece(`prompt~${v}~!autorun`);
-  }
-
-  $ac.focus();
-  $cmd.value = "";
-  if (currentPiece !== "prompt") {
-    $promptLayer.classList.remove("editing");
-    $cmd.blur();
-  }
-}
-
-// DOM prompt → in-place piece load.
-$cmd.addEventListener("keydown", (e) => {
-  if (e.key === "Enter") {
-    submitCommand($cmd.value);
-  } else if (e.key === "ArrowUp") {
-    e.preventDefault(); recall(-1);
-  } else if (e.key === "ArrowDown") {
-    e.preventDefault(); recall(1);
-  } else if (e.key === "Escape") {
-    $cmd.value = "";
-    $promptLayer.classList.remove("editing");
-    if (currentPiece !== "prompt") {
-      $cmd.blur();
-      $ac.focus();
-    }
-  }
-});
-
-function syncPromptInput() {
-  if (!frame.bridgeReady || currentPiece !== "prompt") return;
-  $ac.contentWindow.postMessage({
-    type: "prompt:dom-input",
-    text: $cmd.value,
-    active: document.activeElement === $cmd,
-    submit: false,
-  }, "*");
-}
-$cmd.addEventListener("input", syncPromptInput);
-$cmd.addEventListener("focus", syncPromptInput);
-
-// Controller/protool-compatible remote jumps use the same persistent iframe.
-// `ac:navigate` mirrors top.kidlisp.com; `promptac:load-piece` is explicit for
-// shells embedding or opening prompt.ac.
-window.addEventListener("message", (event) => {
-  if (event.source === $ac.contentWindow) return;
-  const data = event.data || {};
-  const destination = data.type === "ac:navigate"
-    ? data.to
-    : data.type === "promptac:load-piece"
-      ? (data.slug || data.to)
-      : null;
-  if (typeof destination === "string" && destination.trim()) {
-    jumpPiece(destination);
-  }
-});
-window.promptAC = { load: jumpPiece };
-
-// Tiny local command history (up/down recall).
+// ── Tiny local command history (up/down recall). ───────────────────────────
 const HKEY = "promptac:history";
 let hist = []; try { hist = JSON.parse(localStorage.getItem(HKEY) || "[]"); } catch {}
 let hi = hist.length;
@@ -299,33 +512,11 @@ function pushHistory(v) {
 function recall(dir) {
   if (!hist.length) return;
   hi = Math.max(0, Math.min(hist.length, hi + dir));
-  $cmd.value = hist[hi] ?? "";
-  $cmd.setSelectionRange($cmd.value.length, $cmd.value.length);
+  setTyped(hist[hi] ?? "");
 }
 
-// While on the prompt, the bar owns typing — if the iframe steals focus
-// (a canvas click), hand it straight back so keystrokes never vanish into
-// the runtime. Pieces keep iframe focus; this only guards the prompt.
-window.addEventListener("blur", () => {
-  if (currentPiece === "prompt" && document.activeElement === $ac) {
-    setTimeout(() => $cmd.focus(), 0);
-  }
-});
-
-// A press of "/" or typing from the shell reveals the prompt over the current
-// piece, so it can jump elsewhere without replacing the iframe.
-window.addEventListener("keydown", (e) => {
-  if (document.activeElement === $cmd) return;
-  if (e.key === "/" || (e.key.length === 1 && !e.metaKey && !e.ctrlKey && !e.altKey)) {
-    e.preventDefault();
-    $promptLayer.classList.add("editing");
-    $cmd.focus();
-    if (e.key !== "/") $cmd.value += e.key;
-  }
-});
-
-// Fallback: if the runtime never signals ready (old build / slow boot), reveal
-// the canvas anyway after a beat so the shell is never stuck on the loader.
+// Fallback: if the runtime never signals ready (old build / slow boot), lift
+// the piece loader anyway so a deep-link is never stuck on it.
 setTimeout(() => { if (!frame.ready) { $loading.classList.add("gone"); $dot.textContent = "runtime slow to respond"; } }, 12000);
 </script>
 </body>
