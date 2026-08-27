@@ -117,9 +117,14 @@ never pays. Across the retained request logs, no agent ever asked---not for
 the paid routes and not for the free machine index either---and the receiving
 address has never taken a genuine payment. We conclude that the binding
 constraints on machine commerce are substitutability and discovery, not
-payment infrastructure, and we evaluate six monetization strategies against
-those constraints. The strongest candidate sells something an agent cannot
-compute for itself at any price: a name.
+payment infrastructure. A census of the surrounding economy sharpens that
+conclusion: x402 volume is down roughly 96\% from a \$28.8M peak, the top ten
+sellers hold 72.5\% of what remains, and the \emph{discoverable} service
+layer---what a new seller can actually compete for---is about \$9{,}850 per
+month. Six strategies are evaluated against those constraints. The strongest
+sells what an agent cannot compute for itself at any price, a name; we also
+report that three operators already sell precisely that and have earned,
+between them, under \$60.
 \end{quote}
 \vspace{0.5em}
 }]
@@ -336,46 +341,136 @@ wrong.
 \section{Market Context}
 \label{sec:market}
 
+\subsection{A note on sources}
+
+Figures in this section come from the x402scan indexer's open tRPC endpoint,
+corroborated independently by x402station, which agrees with it on
+service-layer call counts to within two calls. Three widely-cited sources were
+examined and rejected: one aggregator's last entry predates 2026 by months,
+another's headline metrics are materially wrong, and---the trap worth
+naming---the protocol's own homepage displays a \emph{frozen} counter. That
+snapshot, roughly \$24M across 72M transactions, was captured in June 2026 and
+has been reprinted since as though current, including by trade press. An
+earlier draft of this paper repeated a similarly stale figure. Anyone
+sizing this market should pull it from an indexer's API and check that the
+number moves.
+
 \subsection{Aggregate}
 
-Reported x402 volume peaked near \$5.15M/month in November 2025 and fell
-roughly 77\% to \$1.1--1.2M/month across about 3.7M transactions by
-mid-2026---an average near \$0.30 per transaction, indicating high-frequency,
-low-ticket usage~\citep{coindesk2026}. A meaningful share of the 2025 peak was
-not utility: a pay-to-mint memecoin experiment alone processed over 150{,}000
-transactions in its first month by requiring a 1 USDC payment to
-mint~\citep{chainalysis2026}. Analyses of that period attribute much of the
-growth to token farming rather than services being bought.
+x402 volume peaked in November 2025 at \textbf{\$28.8M} across 68.6M
+transactions and has fallen roughly \textbf{96\%} since
+(Table~\ref{tab:volume}). August 2026 records \$1.18M across 14.9M
+transactions.
+
+The shape of that decline matters more than its depth. Transaction \emph{count}
+has recovered to 12--15M/month, close to the December 2025 level, while the
+average payment collapsed from \$0.42 to \$0.079. Activity returned; revenue
+did not. A recovery visible only in transaction counts is farm-shaped, not
+demand-shaped.
+
+\begin{table}[t]
+\centering
+\footnotesize
+\begin{tabularx}{\columnwidth}{@{}lrrr@{}}
+\toprule
+\textbf{Month} & \textbf{Txns} & \textbf{USDC} & \textbf{Avg} \\
+\midrule
+2025-10 & 4.1M & \$4.01M & \$0.97 \\
+\textbf{2025-11} & 68.6M & \textbf{\$28.79M} & \$0.42 \\
+2025-12 & 65.0M & \$8.41M & \$0.13 \\
+2026-03 & 2.9M & \$2.42M & \$0.83 \\
+2026-06 & 13.4M & \$1.00M & \$0.075 \\
+2026-07 & 12.7M & \$0.73M & \$0.058 \\
+2026-08$^{*}$ & 14.9M & \$1.18M & \$0.079 \\
+\bottomrule
+\end{tabularx}
+\caption{Monthly x402 volume. $^{*}$August 1--27, 2026. Counts recover while
+average payment size collapses.}
+\label{tab:volume}
+\end{table}
+
+\subsection{How much of it is real}
+
+Several structural signals indicate that a large share of this volume is not
+commerce. The second-largest all-time buyer address is also the largest
+all-time seller, at \$11.5M in each direction. A single counterparty pair
+accounts for 26.5M transactions. Of 5{,}480 registered origins only 3{,}832
+ever transacted, and 17 of the 40 highest all-time earners have recorded no
+transaction since 2025. The 2025 peak also carried outright non-utility: a
+pay-to-mint memecoin required 1 USDC per mint and processed over 150{,}000
+transactions in its first month~\citep{chainalysis2026}.
+
+The consequential figure for a prospective seller is therefore not total
+volume but the \emph{discoverable service layer}: endpoints an agent could
+find and buy from. That layer is 290{,}806 calls---about \textbf{1.7\%} of all
+transactions---worth roughly \textbf{\$9{,}850 per month}. Everything above it
+is inference routing, stablecoin conversion, and self-dealing. \$9{,}850 per
+month, not \$1.18M, is the market a new listed seller is entering.
 
 \subsection{Which turnstiles earn}
 
-Category-level analysis of settled receipts consistently ranks four kinds of
-seller, and the ranking is instructive because none of them sell an archive:
+Earnings are severely concentrated. The top ten sellers hold \textbf{72.5\%}
+of all volume. Against 22{,}556 sellers active in a 30-day window sharing
+\$1.31M, the mean is about \$58/month and the median is certainly under a
+dollar. Table~\ref{tab:sellers} names the leaders.
 
-\begin{enumerate}
-\item \textbf{Data and search APIs} --- the highest call volume, serving
-research agents making many cheap requests.
-\item \textbf{Inference and model routing} --- the largest payment sizes,
-fewer calls.
-\item \textbf{Web automation} --- browser-as-a-service and scraping; steady
-volume, minimal unit price.
-\item \textbf{Specialized analytics} --- chain explorers and market data
-feeding trading agents.
-\end{enumerate}
+\begin{table}[t]
+\centering
+\footnotesize
+\begin{tabularx}{\columnwidth}{@{}Xr@{}}
+\toprule
+\textbf{Seller (30-day)} & \textbf{USDC} \\
+\midrule
+\code{laso.finance} & 210{,}431 \\
+\code{blockrun.ai} & 176{,}185 \\
+\code{mcp.x402.boats} & 173{,}312 \\
+\code{api.clusterprotocol.ai} & 107{,}234 \\
+\code{sol.blockrun.ai} & 78{,}161 \\
+\code{x402.dtelecom.org} & 29{,}780 \\
+\bottomrule
+\end{tabularx}
+\caption{Leading x402 sellers by 30-day volume. All sell inference routing,
+model access, compute, or bandwidth. None sells an archive.}
+\label{tab:sellers}
+\end{table}
 
-Every category sells \emph{live compute or live data}: something that did not
-exist before the request and cannot be fetched from a static file. The common
-factor is not subject matter but non-substitutability at the moment of
-purchase. An archive is the opposite: static by definition, and cheapest to
+Every leading category sells \emph{live compute or live data}: something that
+did not exist before the request and cannot be fetched from a static file. The
+common factor is not subject matter but non-substitutability at the moment of
+purchase. An archive is the opposite---static by definition, and cheapest to
 serve by publishing once.
 
-\subsection{The absent category}
+Prices cluster tightly. The median listed call is \$0.02, with modes at
+\$0.001, \$0.005, \$0.01, and \$0.10; the effective clearing price is
+\textbf{\$0.01} and the floor is \$0.001. The \$5.00 charged by this archive's
+\code{/bulk} endpoint sat two to three orders of magnitude above the market
+without a corresponding claim to uniqueness.
 
-We could not identify an established x402 seller of identity, namespaces,
-handles, or agent-to-agent messaging access. That absence is reported as a
-finding rather than an oversight, and it cuts both ways: it may indicate an
-unserved niche, or it may indicate that nobody has found buyers for one.
-Section~\ref{sec:strategy} treats it as the former while noting the risk.
+\subsection{The identity category is occupied, and it is not paying}
+
+An earlier draft of this report stated that no x402 seller of identity,
+namespaces, or agent messaging could be found, and treated the gap as an
+unserved niche. That was wrong, and the correction matters because
+\S\ref{sec:strategy} rests on it. Such sellers exist:
+
+\begin{itemize}
+\item \textbf{Palmyr} sells social handles at \$0.005 and domains at
+\$10--\$100. Earnings: roughly \textbf{\$53} over ten weeks.
+\item \textbf{Agent Exchange Lounge} sells admission to an agent social
+network at \$0.05--\$0.09. Earnings: \textbf{\$4.22} from 30 payers.
+\item \textbf{shizu.me} runs an agent mailbox. Earnings: \textbf{\$1.79} from
+37 payers.
+\end{itemize}
+
+So the category has been built, priced, and tested by at least three operators,
+and it earns in the tens of dollars. No comparable seller of ENS or Basename
+registrations, XMTP messaging, or social-protocol writes was found, so the
+upper end of the identity market remains genuinely untested---but the low end
+is occupied and unremunerative. The honest reading is that these are small
+unknown operators without audience, which bounds what the mechanism earns
+\emph{absent distribution}; it does not establish what it earns \emph{with}
+distribution. That distinction is the entire remaining case for the strategy
+below, and it should be held loosely.
 
 \section{Strategy}
 \label{sec:strategy}
@@ -396,15 +491,17 @@ scores six options.
 \midrule
 A. Derived data (status quo) & fail & fail & yes \\
 B. Metered rendering & pass & fail & part \\
-C. Agent handles & pass & pass & part \\
-D. Paid agent chatroom & pass & pass & part \\
+C. Agent handles & pass & untested & part \\
+D. Paid agent chatroom & pass & untested & part \\
 E. Provenance receipts & pass & weak & yes \\
 F. Exit x402 & --- & --- & --- \\
 \bottomrule
 \end{tabularx}
 \caption{Options against the two binding constraints. \emph{Sub.} asks whether
 the buyer can get it free elsewhere; \emph{Disc.} whether the thing can
-plausibly be found; \emph{Ready} whether the infrastructure exists today.}
+plausibly be found; \emph{Ready} whether the infrastructure exists today. C and
+D score \emph{untested} rather than \emph{pass}: comparable services exist and
+earn tens of dollars, but none has been run with an audience attached.}
 \label{tab:strategy}
 \end{table}
 
@@ -440,7 +537,12 @@ balance decremented locally, or admission priced per session.
 Options C and D also address discovery in a way A and B cannot. A priced
 dataset is not a story; a room where machines pay to talk to each other is
 one, and per M4 the shortage was never buyers' willingness but their
-attention.
+attention. This is now the \emph{only} remaining argument for C and D, since
+\S\ref{sec:market} shows the mechanism itself has been tried and earns in the
+tens of dollars. The claim being made is narrow and falsifiable: that those
+operators lacked an audience, and that the same mechanism attached to an
+existing practice performs differently. If that is wrong, C and D earn what
+Palmyr earns.
 
 \textbf{E. Provenance receipts} generalizes the one component that already
 works: selling signed, verifiable statements about artifacts. Real, but small.
@@ -463,11 +565,15 @@ conversational path touches no chain.
 handles cost more, exactly as every namespace in history has worked.
 \end{enumerate}
 
-Pricing should sit near the ecosystem's demonstrated tolerance rather than
-this archive's previous guesses: the \$5.00 \code{/bulk} price was set against
-no comparable and, per M4, tested against no buyer. A first handle price in
-the low single-dollar range is defensible as roughly ten times the median
-per-transaction value in \S\ref{sec:market}, justified by permanence.
+Pricing should sit near demonstrated tolerance rather than this archive's
+previous guesses: the \$5.00 \code{/bulk} price was set against no comparable
+and, per M4, tested against no buyer. The observed clearing price is \$0.01,
+and the one comparable handle seller charges \$0.005. Permanence justifies
+some premium over a per-call price, but not the low-single-dollar figure an
+earlier draft proposed---that would be two orders of magnitude above the only
+handle price the market has actually seen. A defensible range is \$0.10 to
+\$1.00, with the caveat that the seller charging \$0.005 earned \$53, so price
+is evidently not the binding variable at this scale.
 
 The honest failure mode is a room that agents visit once. The version with
 durable value gives them something absent from the current landscape---a
@@ -478,14 +584,17 @@ practice already runs, let them talk for free, and observe whether the
 transcript is worth reading. If it is not interesting unpriced, no price
 improves it.
 
-\textbf{F. Exit} deserves explicit statement. The entire x402 economy moves
-roughly \$1.1M/month and is contracting. A new niche seller should expect a
-negligible share of it. Measured strictly as revenue, every option above is
-outperformed by the practice's existing grant and client lanes, and any
-decision to continue should be justified by positioning, research value, or
-artistic interest rather than by projected income. This report recommends
-continuing on those grounds, and recommends against continuing on financial
-ones.
+\textbf{F. Exit} deserves explicit statement, and \S\ref{sec:market}
+strengthens it considerably. The addressable market is not the \$1.18M/month
+headline but the \$9{,}850/month discoverable service layer, shared among tens
+of thousands of sellers with a median under a dollar, in an economy down 96\%
+from its peak and carrying visible wash traffic. A new niche seller should
+expect a negligible share of a small number. Measured strictly as revenue,
+every option above is outperformed by the practice's existing grant and client
+lanes, and any decision to continue should be justified by positioning,
+research value, or artistic interest rather than by projected income. This
+report recommends continuing on those grounds, and recommends against
+continuing on financial ones.
 
 \section{Ethics, Privacy, and Limitations}
 
@@ -505,12 +614,21 @@ the production host's address. A consequence worth recording: rebuilding that
 host on a new address silently breaks payment.
 
 \textbf{Limitations.} M4's log window is hours, not months
-(\S\ref{sec:evidence}). The market figures in \S\ref{sec:market} are
-secondhand from published analyses, not independently derived from chain data,
-and dashboards in this sector go stale. No end-to-end mainnet purchase has
-been executed: the rail is verified to the point of settlement capability, not
-through a completed sale. Until one buyer pays once, M6 establishes
-capability rather than function.
+(\S\ref{sec:evidence}). No end-to-end mainnet purchase has been executed: the
+rail is verified to the point of settlement capability, not through a completed
+sale, so M6 establishes capability rather than function until one buyer pays
+once.
+
+The market figures come from a single indexer's API, corroborated on the
+service layer by one independent index but not otherwise cross-checked against
+raw chain data; one prominent dashboard could not be reached at all. Given the
+wash-trading signals in \S\ref{sec:market}, headline volume should be read as
+an upper bound on real commerce rather than a measurement of it. Two drafts of
+this paper carried wrong ecosystem figures---first a peak understated by more
+than fivefold, then a stale counter---which is recorded here because the
+failure is instructive rather than embarrassing: in this sector, reputable
+secondary sources reprint frozen numbers, and a figure should not be trusted
+until it is observed to change.
 
 \section{Conclusion}
 
@@ -525,7 +643,13 @@ simply compute.
 
 Everything the archive knows can be recomputed from files it publishes. A name
 cannot. That asymmetry, rather than any property of the payment protocol, is
-where the next version of this experiment should begin.
+where the next version of this experiment should begin---tempered by the
+finding that three operators already sell names to agents and have earned
+under \$60 between them. The asymmetry is real; that it converts into revenue
+is a hypothesis, and the surrounding economy gives no encouragement about its
+size. What the census does settle is that this was never a plumbing problem.
+The turnstile now works perfectly, and the room behind it is still the
+question.
 
 \vspace{0.5em}
 \noindent{\small\color{acgray}\textit{Platter consulted: the whistlegraph
