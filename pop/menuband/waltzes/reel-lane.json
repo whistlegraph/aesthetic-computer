@@ -918,6 +918,75 @@
           "#2e4c6b"
         ]
       }
+    },
+    {
+      "id": "13-ribbon",
+      "name": "Ribbon",
+      "seed": 13124,
+      "bpm": 84,
+      "bars": 28,
+      "tonic": "C",
+      "mode": "major",
+      "instrumentProgram": 78,
+      "instrumentName": "Whistle",
+      "development": "lift",
+      "harmonyDegrees": [
+        0,
+        3,
+        4,
+        0,
+        5,
+        3,
+        4,
+        0
+      ],
+      "melodyBars": [
+        [
+          5,
+          3,
+          5
+        ],
+        [
+          6,
+          5
+        ],
+        [
+          6,
+          8
+        ],
+        [
+          10,
+          8
+        ],
+        [
+          9,
+          10
+        ],
+        [
+          8,
+          6
+        ],
+        [
+          8,
+          6
+        ],
+        [
+          8,
+          10,
+          8,
+          0
+        ]
+      ],
+      "notesPath": "pop/menuband/out/menu-band-waltzes/13-ribbon/13-ribbon.notes.json",
+      "audioPath": "pop/menuband/out/menu-band-waltzes/13-ribbon/13-ribbon.wav",
+      "outPath": "pop/menuband/out/menu-band-waltzes/13-ribbon/13-ribbon.mp4",
+      "visual": {
+        "palette": [
+          "#f3e8ea",
+          "#c58793",
+          "#6b2e3b"
+        ]
+      }
     }
   ]
 }
