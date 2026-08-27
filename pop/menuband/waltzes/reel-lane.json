@@ -1507,6 +1507,82 @@
           "#2e386b"
         ]
       }
+    },
+    {
+      "id": "21-lighthouse",
+      "name": "Lighthouse",
+      "seed": 21196,
+      "bpm": 81,
+      "bars": 27,
+      "tonic": "C",
+      "mode": "major",
+      "instrumentProgram": 78,
+      "instrumentName": "Whistle",
+      "development": "lift",
+      "harmonyDegrees": [
+        0,
+        5,
+        3,
+        4,
+        0,
+        3,
+        4,
+        0
+      ],
+      "melodyBars": [
+        [
+          5,
+          6,
+          8
+        ],
+        [
+          7,
+          8,
+          9,
+          8
+        ],
+        [
+          6,
+          4,
+          5
+        ],
+        [
+          6,
+          7,
+          8
+        ],
+        [
+          9,
+          7
+        ],
+        [
+          6,
+          4,
+          2,
+          1
+        ],
+        [
+          3,
+          4,
+          5,
+          6
+        ],
+        [
+          7,
+          8,
+          0
+        ]
+      ],
+      "notesPath": "pop/menuband/out/menu-band-waltzes/21-lighthouse/21-lighthouse.notes.json",
+      "audioPath": "pop/menuband/out/menu-band-waltzes/21-lighthouse/21-lighthouse.wav",
+      "outPath": "pop/menuband/out/menu-band-waltzes/21-lighthouse/21-lighthouse.mp4",
+      "visual": {
+        "palette": [
+          "#f3e9e8",
+          "#c58e87",
+          "#6b362e"
+        ]
+      }
     }
   ]
 }
