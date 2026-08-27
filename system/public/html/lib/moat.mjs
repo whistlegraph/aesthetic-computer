@@ -153,8 +153,13 @@ export class ACFrame {
       }
     });
   }
-  // First boot — set the iframe src with chrome suppressed.
+  // Boot (or reboot — e.g. after login) — set the iframe src with chrome
+  // suppressed. Flags reset so ready/bridge/piece callbacks fire again for
+  // the fresh runtime.
   boot(slug = "prompt", params = "nogap=true&nolabel=true") {
+    this.ready = false;
+    this.bridgeReady = false;
+    this.piece = null;
     this.iframe.src = `${this.origin}/${slug}?${params}`;
   }
   // Navigate. Fast path posts `load-piece`; reload path swaps the src.

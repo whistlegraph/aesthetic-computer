@@ -13408,6 +13408,32 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
 
+    // 🐚 Relay worker → hosting shell (prompt.ac): DOM notices + the prompt's
+    // mirrored reply text, since the shell covers the pixel buffer.
+    if (type === "notice:shell") {
+      if (window.parent !== window) {
+        window.parent.postMessage(
+          { type: "ac:notice", text: content?.text, color: content?.color },
+          "*",
+        );
+      }
+      return;
+    }
+
+    if (type === "prompt:text:shell") {
+      if (window.parent !== window) {
+        window.parent.postMessage(
+          {
+            type: "ac:prompt-text",
+            text: content?.text || "",
+            thinking: !!content?.thinking,
+          },
+          "*",
+        );
+      }
+      return;
+    }
+
     // Authenticate / signup or login a user.
     if (type === "login") {
       if (window.self !== window.top) {

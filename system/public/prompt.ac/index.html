@@ -125,6 +125,25 @@
     font-family: var(--font); font-size: clamp(20px, 2.6vw, 30px);
   }
 
+  /* ── Reply + notice — the prompt's answer line and error flashes, DOM'd. ── */
+  .reply, .notice {
+    position: absolute;
+    top: calc(max(8px, env(safe-area-inset-top)) + clamp(32px, 4vw, 46px));
+    left: max(8px, env(safe-area-inset-left));
+    right: max(8px, env(safe-area-inset-right));
+    font-size: clamp(16px, 2vw, 22px); line-height: 1.4;
+  }
+  .reply { color: var(--text); opacity: .92; white-space: pre-wrap; word-break: break-word; }
+  .reply .dots { display: none; color: var(--block); letter-spacing: 2px; }
+  body.thinking .reply .dots { display: inline; animation: think 1.2s steps(4) infinite; }
+  @keyframes think { 0% { clip-path: inset(0 100% 0 0); } 100% { clip-path: inset(0 -10% 0 0); } }
+  .notice {
+    right: auto; max-width: 80vw;
+    padding: 2px 10px; font-weight: 700;
+    transition: opacity .5s;
+  }
+  .notice.gone { opacity: 0; }
+
   /* ── MOTD — the mood of the day ticker, centered like the raster's. ── */
   .motd {
     max-width: min(72ch, 86vw); text-align: center;
@@ -199,6 +218,8 @@
       <span id="measure"></span>
       <datalist id="wgCommands"></datalist>
     </div>
+    <div class="reply" id="reply" hidden><span class="dots">▪▪▪</span><span id="replyText"></span></div>
+    <div class="notice" id="notice" hidden></div>
     <div class="motd" id="motd" hidden>
       <span id="motdText"></span>
       <span class="by" id="motdBy" hidden>— <b id="motdHandle"></b></span>
@@ -231,12 +252,15 @@ const $cmd = $("cmd"), $caret = $("caret"), $measure = $("measure");
 const $screen = $("screen"), $corner = $("corner"), $cornerName = $("cornerName");
 const $motd = $("motd"), $motdText = $("motdText"), $motdBy = $("motdBy"), $motdHandle = $("motdHandle");
 const $auth = $("auth"), $login = $("login"), $signup = $("signup"), $profile = $("profile");
+const $reply = $("reply"), $replyText = $("replyText"), $notice = $("notice");
 const $loading = $("loading"), $dot = $("dot");
 const $ac = $("ac");
 const frame = new ACFrame($ac, { origin: runtimeOrigin });
 let pendingJump = null;
 let pendingSubmit = null; // command typed before the runtime's prompt was live
 let promptLive = false; // the runtime's prompt piece is loaded + interactive
+let lastSubmitted = ""; // suppress the runtime echoing a command back as a "reply"
+let noticeTimer;
 
 // Deep-link support that doesn't fight Caddy: prompt.ac/#clock stays on the
 // shell (hash never reaches the server), while prompt.ac/clock 301s to AC.
@@ -251,6 +275,7 @@ function setMode(piece) {
   document.body.dataset.piece = piece;
   document.title = onPiece ? piece + " · prompt.ac" : "prompt.ac";
   $screen.classList.remove("overlay");
+  if (onPiece) { clearReply(); $notice.hidden = true; }
   $cornerName.textContent = piece;
   const h = "#" + piece;
   if (onPiece && location.hash !== h) history.replaceState(null, "", h);
@@ -309,9 +334,38 @@ function jumpPiece(value) {
 }
 
 function sendSubmit(text) {
+  lastSubmitted = text;
   $ac.contentWindow.postMessage({
     type: "prompt:dom-input", text, active: true, submit: true,
   }, "*");
+}
+
+// ── Reply + notice — DOM renditions of the raster prompt's feedback. ──────
+// The runtime mirrors its TextInput out whenever it changes (LLM replies to
+// unknown words, command confirmations, the thinking state); notices arrive
+// as colored flashes.
+function showReply(text, thinking) {
+  const t = String(text || "");
+  const fresh = t && t !== lastSubmitted ? t : "";
+  document.body.classList.toggle("thinking", thinking);
+  $replyText.textContent = fresh;
+  $reply.hidden = !fresh && !thinking;
+}
+function clearReply() {
+  lastSubmitted = "";
+  document.body.classList.remove("thinking");
+  $replyText.textContent = "";
+  $reply.hidden = true;
+}
+function showNotice(text, color) {
+  if (!text) return;
+  $notice.textContent = String(text);
+  $notice.style.color = color?.[0] || "white";
+  $notice.style.background = color?.[1] || "maroon";
+  $notice.hidden = false;
+  $notice.classList.remove("gone");
+  clearTimeout(noticeTimer);
+  noticeTimer = setTimeout(() => $notice.classList.add("gone"), 2600);
 }
 
 function submitCommand(value, { remember = true } = {}) {
@@ -351,6 +405,7 @@ function syncCaret() {
   document.body.classList.toggle("typing", $cmd.value.length > 0);
 }
 for (const ev of ["input", "click", "keyup", "focus"]) $cmd.addEventListener(ev, syncCaret);
+$cmd.addEventListener("input", clearReply); // typing dismisses the last answer
 document.addEventListener("selectionchange", () => {
   if (document.activeElement === $cmd) syncCaret();
 });
@@ -372,6 +427,7 @@ $cmd.addEventListener("keydown", (e) => {
     e.preventDefault(); recall(1);
   } else if (e.key === "Escape") {
     setTyped("");
+    clearReply();
     if (currentPiece !== "prompt") {
       $screen.classList.remove("overlay");
       $cmd.blur(); $ac.focus();
@@ -452,14 +508,28 @@ function askUser(attempt = 0) {
   $ac.contentWindow.postMessage({ type: "ac:user?" }, "*");
   if (attempt < 4) setTimeout(() => askUser(attempt + 1), 2500 * (attempt + 1));
 }
+// In-place login: a named popup runs the Auth0 dance on the runtime origin
+// (window.name survives the redirect round-trip); when the session lands,
+// boot.mjs posts ac:login-complete back and the popup closes itself. Falls
+// back to a tab + reload-on-return if the popup is blocked.
 function beginLogin(mode) {
-  awaitingLogin = true;
-  window.open(`${runtimeOrigin}/prompt~${mode}~!autorun`, "_blank", "noopener");
+  const url = `${runtimeOrigin}/prompt~${mode}~!autorun`;
+  const popup = window.open(url, "ac-login-popup",
+    "width=480,height=760,menubar=no,toolbar=no,status=no");
+  if (!popup) {
+    awaitingLogin = true;
+    window.open(url, "_blank", "noopener");
+  }
+}
+function rebootRuntime() {
+  userKnown = false;
+  promptLive = false;
+  frame.boot("prompt", frameParams);
 }
 $login.onclick = () => beginLogin("login");
 $signup.onclick = () => beginLogin("imnew");
 document.addEventListener("visibilitychange", () => {
-  // Back from the login tab: reload so the runtime reboots with the session.
+  // Blocked-popup fallback: back from the login tab, reload for the session.
   if (awaitingLogin && document.visibilityState === "visible") location.reload();
 });
 
@@ -485,7 +555,17 @@ window.addEventListener("message", (event) => {
       beginLogin("login"); // bios delegates embedded login up to the shell
     } else if (data.type === "logout") {
       location.reload();
+    } else if (data.type === "ac:prompt-text") {
+      showReply(data.text, data.thinking === true);
+    } else if (data.type === "ac:notice") {
+      showNotice(data.text, data.color);
     }
+    return;
+  }
+  // The login popup reports its completed session; reboot the hidden runtime
+  // so it picks the fresh Auth0 cache up (no shell reload needed).
+  if (data.type === "ac:login-complete" && event.origin === runtimeOrigin) {
+    rebootRuntime();
     return;
   }
   // Controller/protool-compatible remote jumps use the same persistent iframe.

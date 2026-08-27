@@ -984,6 +984,24 @@ const projectionMode = location.search.indexOf("nolabel") > -1; // Skip loading 
 // buffer. The composited typable prompt and corner label stand down here.
 const shellHTMLMode = location.search.indexOf("shellhtml") > -1;
 
+// Mirror the prompt TextInput out to the shell whenever it changes, so LLM
+// replies, command confirmations, and the thinking state render in DOM even
+// though the composited prompt never paints. Runs from the prompt system's
+// sim in place of prompt_sim.
+let shellPromptLast = null;
+function shellPromptSync($) {
+  const input = $.system?.prompt?.input;
+  if (!input) return;
+  const thinking = !!$.system.prompt.thinking;
+  const state = (input.text || "") + " " + thinking;
+  if (state === shellPromptLast) return;
+  shellPromptLast = state;
+  send({
+    type: "prompt:text:shell",
+    content: { text: input.text || "", thinking },
+  });
+}
+
 import { setDebug } from "../disks/common/debug.mjs";
 import { customAlphabet } from "../dep/nanoid/nanoid.js";
 import { setPackMode, getPackMode, checkPackMode } from "./pack-mode.mjs";
@@ -3184,6 +3202,11 @@ const $commonApi = {
     const sound = {};
     if (color[0] === "yellow" && color[1] === "red") sound.tone = 300;
     noticeBell(cachedAPI, sound);
+    // The host shell (prompt.ac) covers the pixel buffer with its DOM, so
+    // notices also travel up to render as crisp DOM flashes.
+    if (shellHTMLMode) {
+      send({ type: "notice:shell", content: { text: msg, color } });
+    }
   },
   // 🪟 A crisp vector overlay, drawn on the native UI canvas (uiCtx) above the pixel
   // buffer. Hand it a display-list of ops each frame and bios replays them with
@@ -9742,6 +9765,7 @@ async function load(
       sim = ($) => {
         module.sim?.($);
         if (!shellHTMLMode) prompt.prompt_sim($);
+        else shellPromptSync($); // mirror reply text / thinking to the shell
       };
 
       paint = ($) => {

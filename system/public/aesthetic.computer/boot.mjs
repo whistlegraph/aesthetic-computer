@@ -1696,6 +1696,17 @@ if (!sandboxed && !skipAuth) {
           content: { user: window.acUSER },
         });
 
+        // 🐚 prompt.ac login popup: the shell opened this window named
+        // "ac-login-popup" (window.name survives the Auth0 round-trip).
+        // Report the completed session to the opener and close — the shell
+        // reboots its hidden runtime to pick the session up.
+        if (window.name === "ac-login-popup" && window.opener) {
+          try {
+            window.opener.postMessage({ type: "ac:login-complete" }, "*");
+          } catch (err) { /* opener gone — nothing to report to */ }
+          setTimeout(() => window.close(), 250);
+        }
+
         // 🔔 If the native iOS app handed us a push token before login, register it now.
         window.iOSTryRegisterPushToken?.();
 
