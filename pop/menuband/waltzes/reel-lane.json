@@ -1354,6 +1354,82 @@
           "#6b2e5c"
         ]
       }
+    },
+    {
+      "id": "19-umbrella",
+      "name": "Umbrella",
+      "seed": 19178,
+      "bpm": 72,
+      "bars": 24,
+      "tonic": "D",
+      "mode": "dorian",
+      "instrumentProgram": 78,
+      "instrumentName": "Whistle",
+      "development": "lift",
+      "harmonyDegrees": [
+        0,
+        3,
+        0,
+        4,
+        5,
+        3,
+        4,
+        0
+      ],
+      "melodyBars": [
+        [
+          6,
+          7
+        ],
+        [
+          8,
+          9
+        ],
+        [
+          10,
+          8,
+          7
+        ],
+        [
+          6,
+          4,
+          5,
+          7
+        ],
+        [
+          6,
+          5,
+          6,
+          8
+        ],
+        [
+          7,
+          8,
+          7,
+          8
+        ],
+        [
+          9,
+          7,
+          9
+        ],
+        [
+          8,
+          10,
+          11,
+          0
+        ]
+      ],
+      "notesPath": "pop/menuband/out/menu-band-waltzes/19-umbrella/19-umbrella.notes.json",
+      "audioPath": "pop/menuband/out/menu-band-waltzes/19-umbrella/19-umbrella.wav",
+      "outPath": "pop/menuband/out/menu-band-waltzes/19-umbrella/19-umbrella.mp4",
+      "visual": {
+        "palette": [
+          "#edf3e8",
+          "#a3c587",
+          "#4a6b2e"
+        ]
+      }
     }
   ]
 }
