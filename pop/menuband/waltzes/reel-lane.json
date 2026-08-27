@@ -1583,6 +1583,81 @@
           "#6b362e"
         ]
       }
+    },
+    {
+      "id": "22-postcard",
+      "name": "Postcard",
+      "seed": 22205,
+      "bpm": 84,
+      "bars": 28,
+      "tonic": "D",
+      "mode": "dorian",
+      "instrumentProgram": 78,
+      "instrumentName": "Whistle",
+      "development": "mirror",
+      "harmonyDegrees": [
+        0,
+        3,
+        4,
+        0,
+        5,
+        3,
+        4,
+        0
+      ],
+      "melodyBars": [
+        [
+          8,
+          10,
+          8
+        ],
+        [
+          7,
+          6
+        ],
+        [
+          7,
+          8,
+          9,
+          8
+        ],
+        [
+          9,
+          11,
+          10
+        ],
+        [
+          11,
+          9,
+          10,
+          8
+        ],
+        [
+          9,
+          7,
+          8
+        ],
+        [
+          10,
+          8,
+          6,
+          5
+        ],
+        [
+          4,
+          0
+        ]
+      ],
+      "notesPath": "pop/menuband/out/menu-band-waltzes/22-postcard/22-postcard.notes.json",
+      "audioPath": "pop/menuband/out/menu-band-waltzes/22-postcard/22-postcard.wav",
+      "outPath": "pop/menuband/out/menu-band-waltzes/22-postcard/22-postcard.mp4",
+      "visual": {
+        "palette": [
+          "#e8f3ec",
+          "#87c5a1",
+          "#2e6b48"
+        ]
+      }
     }
   ]
 }
