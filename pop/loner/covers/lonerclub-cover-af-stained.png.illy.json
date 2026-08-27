@@ -1,0 +1,43 @@
+{
+  "schema": "illy/v1",
+  "createdAt": "2026-08-27T17:36:45.256Z",
+  "pipeline": "pop-cover",
+  "provider": "openai",
+  "model": "gpt-image-2",
+  "mode": "edit",
+  "size": "1024x1024",
+  "quality": "high",
+  "output": "/Users/jas/aesthetic-computer/pop/loner/covers/lonerclub-cover-af-stained.png",
+  "promptPath": "/Users/jas/aesthetic-computer/pop/loner/covers/glass-stained.illy.txt",
+  "promptHash": "1a28d93cd713c6a1d59cb20daeba0cdf3c8184f9960e4b8135665156fac60add",
+  "references": [
+    "/Users/jas/aesthetic-computer/pop/loner/covers/lonerclub-cover-v-blue.png"
+  ],
+  "contracts": [
+    "physical-accuracy"
+  ],
+  "stages": [
+    "resolve-inputs",
+    "apply-contracts",
+    "select-provider",
+    "generate",
+    "archive",
+    "provenance"
+  ],
+  "durationSeconds": 155.869,
+  "archived": null,
+  "requestId": null,
+  "usage": {
+    "input_tokens": 2108,
+    "input_tokens_details": {
+      "image_tokens": 1521,
+      "text_tokens": 587
+    },
+    "output_tokens": 7024,
+    "output_tokens_details": {
+      "image_tokens": 7024,
+      "text_tokens": 0
+    },
+    "total_tokens": 9132
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "schema": "illy/v1",
+  "createdAt": "2026-08-27T17:38:23.338Z",
+  "pipeline": "pop-cover",
+  "provider": "openai",
+  "model": "gpt-image-2",
+  "mode": "edit",
+  "size": "1024x1024",
+  "quality": "high",
+  "output": "/Users/jas/aesthetic-computer/pop/loner/covers/lonerclub-cover-ag-crystal.png",
+  "promptPath": "/Users/jas/aesthetic-computer/pop/loner/covers/glass-crystal.illy.txt",
+  "promptHash": "8dc9b794c0c4127e26013d1b6c00c51b0739496a0f5589bd95b511048d616347",
+  "references": [
+    "/Users/jas/aesthetic-computer/pop/loner/covers/lonerclub-cover-v-blue.png"
+  ],
+  "contracts": [
+    "physical-accuracy"
+  ],
+  "stages": [
+    "resolve-inputs",
+    "apply-contracts",
+    "select-provider",
+    "generate",
+    "archive",
+    "provenance"
+  ],
+  "durationSeconds": 124.062,
+  "archived": null,
+  "requestId": null,
+  "usage": {
+    "input_tokens": 2088,
+    "input_tokens_details": {
+      "image_tokens": 1521,
+      "text_tokens": 567
+    },
+    "output_tokens": 7024,
+    "output_tokens_details": {
+      "image_tokens": 7024,
+      "text_tokens": 0
+    },
+    "total_tokens": 9112
+  }
+}
