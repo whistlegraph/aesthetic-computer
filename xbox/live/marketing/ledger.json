@@ -401,6 +401,26 @@
       "containerId": "18084322931446357",
       "mediaId": "18111249968003981",
       "insights": null
+    },
+    {
+      "mode": "live",
+      "id": "2026-08-27-s2-fgc",
+      "slot": 716,
+      "day": "2026-08-27",
+      "index": 2,
+      "segment": "fgc",
+      "seed": "2026-08-27#2",
+      "kind": "self-play",
+      "round": "ruffi297",
+      "audioName": "ruffi297",
+      "publishedAt": "2026-08-27T23:12:45.871Z",
+      "urls": {
+        "reel": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/oskiewar/reels/2026-08-27-s2-fgc/reel.mp4",
+        "cover": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/oskiewar/reels/2026-08-27-s2-fgc/cover.jpg"
+      },
+      "containerId": "18084365057446357",
+      "mediaId": "18092249315540613",
+      "insights": null
     }
   ]
 }
