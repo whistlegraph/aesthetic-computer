@@ -109,6 +109,14 @@ enum MenuBandAudioDevices {
         all().first { $0.uid == uid }
     }
 
+    /// UID for a live AudioDeviceID. IDs renumber across replug — and a
+    /// USB re-enumeration briefly lists the dying and fresh entries for
+    /// the same interface side by side — so identity comparisons between
+    /// devices must go through the UID, never the raw ID.
+    static func uid(for id: AudioDeviceID) -> String? {
+        deviceUID(id)
+    }
+
     static func systemDefaultInputID() -> AudioDeviceID? {
         var address = AudioObjectPropertyAddress(
             mSelector: kAudioHardwarePropertyDefaultInputDevice,

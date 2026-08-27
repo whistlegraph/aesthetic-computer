@@ -412,17 +412,24 @@ final class MenuBandSynth {
     /// binds anywhere happily — and the microphone is never opened unless
     /// the user is actually monitoring or recording, so the macOS
     /// mic-mode HUD stays away.
+    /// Same-hardware is judged by UID, not AudioDeviceID: IDs renumber on
+    /// every USB re-enumeration, and mid-replug the dying and fresh entries
+    /// for one interface coexist in the device list — a raw-ID compare then
+    /// calls the same Scarlett two different devices and refuses a monitor
+    /// toggle that should succeed.
     private func duplexMonitorEligible() -> Bool {
-        guard let input = MenuBandAudioDevices.systemDefaultInputID() else { return false }
-        let output: AudioDeviceID?
+        guard let input = MenuBandAudioDevices.systemDefaultInputID(),
+              let inputUID = MenuBandAudioDevices.uid(for: input) else { return false }
+        let outputUID: String?
         if let uid = MenuBandAudioDevices.pinnedOutputUID,
            let pinned = MenuBandAudioDevices.device(uid: uid),
            pinned.outputChannels > 0 {
-            output = pinned.id
+            outputUID = pinned.uid
         } else {
-            output = MenuBandAudioDevices.systemDefaultOutputID()
+            outputUID = MenuBandAudioDevices.systemDefaultOutputID()
+                .flatMap { MenuBandAudioDevices.uid(for: $0) }
         }
-        return output == input
+        return outputUID == inputUID
     }
 
     /// Attach or detach the duplex monitor to match `inputMonitoringWanted`
