@@ -133,26 +133,49 @@ case "$MODE" in
 esac
 
 # --- close the loop in git: the ledger is the record a human reads ---
+# Not rebase: a 30-minute render leaves plenty of time for origin to move,
+# and one conflict once stranded a LIVE reel off the record (repost trap).
+# The files are append-only registries, so the durable move is: save what
+# this run added, reset to fresh origin, merge back in by id, push.
 STAGE="publishing the ledger"
 AFTER="$(git -C "$CHECKOUT" hash-object "$LEDGER" "$LANE" 2>/dev/null || echo none)"
 if [ "$BEFORE" = "$AFTER" ]; then
   say "ledger unchanged"
 else
-  git -C "$CHECKOUT" add "$LEDGER" "$LANE"
-  git -C "$CHECKOUT" -c user.name="menuband clockwork" \
-    -c user.email="clockwork@aesthetic.computer" \
-    commit -q -m "Record menuband reel $MODE" -- "$LEDGER" "$LANE" || {
-      say "nothing to commit"; exit 0; }
+  cp "$CHECKOUT/$LEDGER" "$STATE/menuband-pending-ledger.json"
+  cp "$CHECKOUT/$LANE" "$STATE/menuband-pending-lane.json"
   pushed=0
   for attempt in 1 2 3; do
     git -C "$CHECKOUT" fetch origin main --quiet
-    git -C "$CHECKOUT" rebase origin/main --quiet >/dev/null 2>&1 || {
-      git -C "$CHECKOUT" rebase --abort >/dev/null 2>&1 || true
-      say "rebase onto origin/main failed"; break; }
-    if git -C "$CHECKOUT" push origin HEAD:main --quiet 2>/dev/null; then
-      pushed=1; say "ledger pushed ($(git -C "$CHECKOUT" rev-parse --short HEAD))"; break
+    git -C "$CHECKOUT" reset --hard origin/main --quiet
+    "$NODE" -e '
+      const { readFileSync, writeFileSync } = await import("node:fs");
+      const read = (p) => JSON.parse(readFileSync(p, "utf8"));
+      const write = (p, v) => writeFileSync(p, JSON.stringify(v, null, 2) + "\n");
+      const merge = (target, pending, list, key) => {
+        const ours = read(target), theirs = read(pending);
+        const known = new Set((ours[list] || []).map((x) => String(x[key])));
+        for (const item of theirs[list] || [])
+          if (!known.has(String(item[key]))) ours[list].push(item);
+        write(target, ours);
+      };
+      merge(process.argv[1], process.argv[3], "posts", "mediaId");
+      merge(process.argv[2], process.argv[4], "variations", "id");
+    ' "$CHECKOUT/$LEDGER" "$CHECKOUT/$LANE" \
+      "$STATE/menuband-pending-ledger.json" "$STATE/menuband-pending-lane.json" \
+      || { say "ledger merge failed"; break; }
+    git -C "$CHECKOUT" add "$LEDGER" "$LANE"
+    if git -C "$CHECKOUT" -c user.name="menuband clockwork" \
+      -c user.email="clockwork@aesthetic.computer" \
+      commit -q -m "Record menuband reel $MODE" -- "$LEDGER" "$LANE" 2>/dev/null; then
+      if git -C "$CHECKOUT" push origin HEAD:main --quiet 2>/dev/null; then
+        pushed=1; say "ledger pushed ($(git -C "$CHECKOUT" rev-parse --short HEAD))"; break
+      fi
+      say "push race on attempt $attempt, retrying"
+    else
+      # Nothing to commit after the merge: origin already carries this run.
+      pushed=1; say "ledger already on origin"; break
     fi
-    say "push race on attempt $attempt, retrying"
   done
   [ "$pushed" -eq 1 ] || { say "could not push the ledger"; exit 1; }
 fi
