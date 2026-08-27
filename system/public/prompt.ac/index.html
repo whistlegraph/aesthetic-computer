@@ -233,6 +233,8 @@ const $loading = $("loading"), $dot = $("dot");
 const $ac = $("ac");
 const frame = new ACFrame($ac, { origin: runtimeOrigin });
 let pendingJump = null;
+let pendingSubmit = null; // command typed before the runtime's prompt was live
+let promptLive = false; // the runtime's prompt piece is loaded + interactive
 
 // Deep-link support that doesn't fight Caddy: prompt.ac/#clock stays on the
 // shell (hash never reaches the server), while prompt.ac/clock 301s to AC.
@@ -274,7 +276,20 @@ frame.onBridgeReady(() => {
     jumpPiece(destination);
   }
 });
-frame.onPiece((slug) => setMode(slug || "prompt"));
+// The runtime reports every load via ac:piece (older builds: url:updated).
+// A `prompt~…~!autorun` load is the prompt mid-execution — treat it as the
+// prompt visually, but only a bare `prompt` accepts dom-input submits.
+frame.onPiece((slug) => {
+  const name = slug || "prompt";
+  const atPrompt = name === "prompt" || name.startsWith("prompt~");
+  promptLive = name === "prompt";
+  setMode(atPrompt ? "prompt" : name);
+  if (promptLive && pendingSubmit) {
+    const queued = pendingSubmit;
+    pendingSubmit = null;
+    sendSubmit(queued);
+  }
+});
 
 // Corner chip → back to the prompt (the DOM twin of the composited label).
 $corner.addEventListener("click", () => jumpPiece("prompt"));
@@ -291,6 +306,12 @@ function jumpPiece(value) {
   }
 }
 
+function sendSubmit(text) {
+  $ac.contentWindow.postMessage({
+    type: "prompt:dom-input", text, active: true, submit: true,
+  }, "*");
+}
+
 function submitCommand(value, { remember = true } = {}) {
   const v = String(value || "").trim();
   if (!v) return;
@@ -298,15 +319,16 @@ function submitCommand(value, { remember = true } = {}) {
   const work = whistlegraphFromInput(v);
   if (work) { location.assign(work.url); return; }
 
-  if (frame.bridgeReady && currentPiece === "prompt") {
+  if (currentPiece === "prompt") {
     // Seed and execute the real prompt TextInput. The DOM only supplies data;
     // command parsing, aliases, and halt() stay inside the prompt system.
-    $ac.contentWindow.postMessage({
-      type: "prompt:dom-input", text: v, active: true, submit: true,
-    }, "*");
+    // Until the runtime's prompt reports live, hold the command — sending
+    // mid-boot wedges the piece loader.
+    if (promptLive && frame.bridgeReady) sendSubmit(v);
+    else pendingSubmit = v;
   } else {
-    // From a running piece (or during boot), route through a fresh prompt
-    // load with autorun so non-piece commands still use prompt.halt().
+    // From a running piece, route through a fresh prompt load with autorun
+    // so non-piece commands still use prompt.halt().
     jumpPiece(`prompt~${v}~!autorun`);
   }
   setTyped("");

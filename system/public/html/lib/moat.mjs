@@ -130,7 +130,14 @@ export class ACFrame {
     window.addEventListener("message", (e) => {
       if (e.source !== iframe.contentWindow) return;
       const d = e.data || {};
-      if (d.type === "url:updated" && typeof d.slug === "string") {
+      // `ac:piece` fires for every load including the boot piece; `url:updated`
+      // covers older runtimes that only report post-boot slug changes. Loads
+      // report through both, so repeat slugs are collapsed.
+      if (
+        (d.type === "url:updated" || d.type === "ac:piece") &&
+        typeof d.slug === "string"
+      ) {
+        if (d.slug === this.piece) return;
         this.piece = d.slug;
         this._onPiece.forEach((cb) => cb(d.slug));
       } else if (d.type === "ready" || d.type === "kidlisp-ready") {

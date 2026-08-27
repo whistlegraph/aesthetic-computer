@@ -14281,6 +14281,20 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // Unload some already initialized stuff if this wasn't the first load.
     if (type === "disk-loaded") {
       // console.log(`🔍 BIOS: Received disk-loaded for "${content.text}", path="${content.path}"`);
+
+      // 🐚 Tell a hosting shell (prompt.ac) about every load, including the
+      // boot piece — the url:updated below skips first loads and history
+      // replays, but the shell needs them all to track the stage and to know
+      // when the prompt is actually ready for dom-input submits.
+      if (window.parent !== window) {
+        const shellSlug =
+          content.text === "/prompt"
+            ? "prompt"
+            : typeof content.text === "string"
+              ? content.text.replace(/^\//, "")
+              : "";
+        window.parent.postMessage({ type: "ac:piece", slug: shellSlug }, "*");
+      }
       
       // 🧹 Clean up any GPU/stats/glaze state from previous piece
       // This ensures cleanup even if the previous piece's leave() failed

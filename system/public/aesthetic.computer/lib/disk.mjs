@@ -10307,8 +10307,11 @@ async function makeFrame({ data: { type, content } }) {
       // The bridge comes up before the prompt piece is current, so a submit
       // sent in that window must not vanish — reroute it through an autorun
       // prompt load, which executes the command once the piece is ready.
+      // Never jump mid-load though: interrupting an in-flight load wedges the
+      // loader ("Already loading"), and the shell re-sends once ac:piece says
+      // the prompt is live.
       const text = String(content?.text ?? "").trim();
-      if (content?.submit === true && text) {
+      if (content?.submit === true && text && !loading && !leaving) {
         $commonApi?.jump?.(`prompt~${text}~!autorun`);
       }
       return;
