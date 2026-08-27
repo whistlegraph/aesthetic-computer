@@ -6,7 +6,9 @@
   The raster piece and the vector client (`/html/` on laklok.com, source at
   `system/public/html/index.html`) are sisters — the settings pane (mode,
   tema, filter) exists on both and any change here should land there too.
-  `toolchain/laklok-sisters/` renders them side by side to keep it honest.
+  The update path lives in `toolchain/laklok-sisters/PARITY.md`:
+  `parity.mjs` diffs the mirrored constants (run it after touching either
+  side) and `sisters.mjs` renders them side by side for the visual half.
  */
 
 import { Chat } from "../lib/chat.mjs"; // TODO: Eventually expand to `net.Socket`

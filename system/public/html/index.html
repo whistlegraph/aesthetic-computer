@@ -11,8 +11,10 @@
      "raster" piece). Same terracotta theme + token colors, plain DOM so it
      loads instantly instead of waiting on the AC runtime + worker boot.
      The settings pane (mode / tema / filter) and the theme palettes mirror
-     the raster piece by name — keep them in lockstep; the suite in
-     toolchain/laklok-sisters/ renders both side by side to check. */
+     the raster piece by name — keep them in lockstep. The update path lives
+     in toolchain/laklok-sisters/PARITY.md: parity.mjs diffs the mirrored
+     constants (run it after touching either sister) and sisters.mjs renders
+     both side by side for the visual half. */
   :root, :root[data-theme="ler"] {
     --bg:        #b4643c;   /* warm terracotta/rust (laklok background) */
     --bg-deep:   #8f4e2e;   /* deeper rust for chrome wells */
@@ -82,6 +84,7 @@
     --painting:  #ffc88c;   /* peachy paintings */
     --kidlisp:   #ff8cc8;   /* pink kidlisp */
     --clock:     #ffd24b;   /* gold clock refs */
+    --yt:        #ff5050;   /* red youtube links (theme.youtube 255,80,80) */
     --heart:     #ffdcf0;   /* light pink hearts */
     --ok:        #64dc8c;   /* connected */
     --warn:      #ffd278;   /* connecting */
@@ -124,7 +127,7 @@
   .header-row {
     position: relative;
     display: flex; align-items: center; gap: 12px;
-    padding: 9px 14px;
+    padding: 9px 66px 9px 14px; /* right gutter clears the corner QR */
   }
   .wordmark { font-weight: 800; font-size: 22px; letter-spacing: -.5px; color: #5a2f1c;
     text-shadow: 0 1px 0 rgba(255,230,200,.5); }
@@ -139,7 +142,7 @@
   .presence {
     position: relative;
     display: flex; align-items: center; gap: 8px;
-    padding: 0 14px 7px; font-size: 12px; color: var(--text);
+    padding: 0 66px 7px 14px; font-size: 12px; color: var(--text);
   }
   .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--warn);
     box-shadow: 0 0 6px currentColor; }
@@ -147,6 +150,14 @@
   .dot.bad { background: var(--bad); color: var(--bad); }
   .presence .count b { color: #fff; }
   .presence .status { margin-left: auto; opacity: .8; }
+
+  /* 📱 laklok.com QR — pinned top-right with a white quiet zone, spanning both
+     header rows, same as the raster piece's paintQR. The gear sits to its left. */
+  #qrlink {
+    position: absolute; top: 6px; right: 6px; z-index: 4;
+    display: none; background: #fff; padding: 3px; line-height: 0;
+  }
+  #qr { display: block; image-rendering: pixelated; width: 50px; height: 50px; }
 
   /* ⚙️ Settings toggle — a little hamburger by the wordmark's QR-corner. */
   #gear {
@@ -214,6 +225,7 @@
   }
   .msg.own:hover .editbtn { display: inline; }
   .editbtn:hover { color: var(--hover); }
+  .editbtn.slet:hover, .editbtn.armed { color: var(--bad); display: inline; }
 
   /* token colors */
   .t-handle  { color: var(--handle); cursor: pointer; }
@@ -223,7 +235,49 @@
   .t-painting{ color: var(--painting); }
   .t-kidlisp { color: var(--kidlisp); }
   .t-clock   { color: var(--clock); }
+  .t-url.yt  { color: var(--yt); }  /* YouTube links read red, like theme.youtube */
   .t-handle:hover, .t-url:hover { color: var(--hover); }
+
+  /* ── Media embeds (mirror chat.mjs previews) ────────────────────────────
+     #painting → 64px pixel preview · YouTube → 16:9 thumb linking out ·
+     direct image/video/audio files → native tags · other links → OG cards. */
+  .embeds { flex: 1 0 100%; display: flex; flex-wrap: wrap; gap: 6px; padding: 2px 0 4px; }
+  .embed { display: block; }
+  .embed.painting {
+    width: 64px; height: 64px; object-fit: cover; image-rendering: pixelated;
+    border: 1px solid var(--painting); cursor: zoom-in;
+  }
+  /* Fixed frames (like raster's preview boxes) so late image loads don't
+     reflow the scroll position. */
+  .embed.img { width: 220px; height: 150px; object-fit: cover; border-radius: 4px; cursor: zoom-in; background: rgba(0,0,0,.2); }
+  .embed.yt { position: relative; width: 180px; height: 101px; } /* LINK_PREVIEW 16:9 */
+  .embed.yt img { width: 100%; height: 100%; object-fit: cover; border-radius: 4px; }
+  .embed.yt .play {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    color: #fff; font-size: 26px; text-shadow: 0 1px 4px rgba(0,0,0,.8); pointer-events: none;
+  }
+  .embed.vid { width: 260px; height: 150px; object-fit: contain; border-radius: 4px; background: #000; }
+  .embed.aud { width: 240px; height: 32px; }
+  .embed.og {
+    display: none; gap: 8px; align-items: center; text-decoration: none;
+    border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px;
+    background: rgba(0,0,0,.15); color: var(--text); max-width: 320px;
+  }
+  .embed.og.ready { display: flex; }
+  .embed.og .thumb { width: 90px; height: 51px; object-fit: cover; border-radius: 3px; flex: 0 0 auto; }
+  .embed.og .fav { width: 16px; height: 16px; flex: 0 0 auto; }
+  .embed.og .t { font-size: 12px; line-height: 1.3; overflow: hidden; }
+  .embed.og .t .site { color: var(--time); font-size: 10px; display: block; }
+  .embed.og:hover { border-color: var(--hover); }
+
+  /* 🔍 Lightbox — the vector's take on chat.mjs's fullscreen painting modal. */
+  #lightbox {
+    position: fixed; inset: 0; z-index: 99; display: none;
+    background: rgba(10,6,4,.88); cursor: zoom-out;
+    align-items: center; justify-content: center; padding: 20px;
+  }
+  #lightbox.open { display: flex; }
+  #lightbox img { max-width: 92vw; max-height: 88vh; image-rendering: pixelated; }
 
   /* ── Composer ───────────────────────────────────────────────────────── */
   footer {
@@ -262,6 +316,8 @@
       <div class="marquee" id="marquee"></div>
       <button id="gear" title="indstillinger" aria-label="indstillinger">≡</button>
     </div>
+    <a id="qrlink" href="https://laklok.com" title="laklok.com — scan, or click for the raster piece"
+       aria-label="laklok.com QR code"><canvas id="qr"></canvas></a>
     <div class="presence">
       <span class="dot" id="dot"></span>
       <span class="count"><b id="online">0</b> online · <b id="here">0</b> here</span>
@@ -302,6 +358,8 @@
     <button id="send" disabled>send</button>
   </footer>
 
+  <div id="lightbox"><img alt="" /></div>
+
 <script type="module">
 // ── laklok HTML chat client ────────────────────────────────────────────────
 // Connects to the live `chat-clock` instance (Laer Klokken). History via REST,
@@ -331,6 +389,26 @@ document.getElementById("marquee").innerHTML = [..."Laer Klokken"]
   .map((c, i) => c === " " ? " " :
     `<b style="color:${CIRCUS[i % CIRCUS.length]};animation-delay:${(-i * .13).toFixed(2)}s">${c}</b>`)
   .join("");
+
+// 📱 laklok.com QR — same generator dep the raster piece uses (paintQR), served
+// from this origin, so both sisters encode the identical code. Fails quiet.
+import("/aesthetic.computer/dep/@akamfoad/qr/qr.mjs")
+  .then(({ qrcode, ErrorCorrectLevel }) => {
+    const cells = qrcode("https://laklok.com", {
+      errorCorrectLevel: ErrorCorrectLevel.L,
+    }).modules;
+    const size = cells.length;
+    const canvas = document.getElementById("qr");
+    canvas.width = size; canvas.height = size; // 1 canvas px per cell, CSS scales up
+    const ctx = canvas.getContext("2d");
+    ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, size, size);
+    ctx.fillStyle = "#000";
+    for (let y = 0; y < size; y++)
+      for (let x = 0; x < size; x++)
+        if (cells[y][x]) ctx.fillRect(x, y, 1, 1);
+    document.getElementById("qrlink").style.display = "block";
+  })
+  .catch((e) => console.warn("laklok QR generation failed:", e));
 
 // ── Settings (mode / tema / filter) — the raster piece's sister pane ────────
 // Persisted under the same names the raster piece uses; `?theme=`/`?links=`
@@ -409,6 +487,177 @@ function hasMediaLink(text) {
   return !!urls && urls.some((u) => MEDIA_LINK.test(u));
 }
 
+// ── Media embeds — the vector's take on chat.mjs's inline previews ─────────
+// #painting → 64px preview (confirmed via /api/painting-code, image from
+// /media/paintings/<code>.png); YouTube → mqdefault thumb linking out (the
+// raster jumps out to youtube.com too); direct image/video/audio files →
+// native tags; every other non-sensitive URL → an OG card via
+// /api/og-preview + the /api/og-image proxy. All three endpoints send
+// Access-Control-Allow-Origin: *, so cross-origin from laklok.com is fine.
+const AC_API = "https://aesthetic.computer";
+const YT_LINK = /(?:youtube\.com\/(?:watch\?v=|shorts\/|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/; // mirror lib/chat-highlighting.mjs
+const FILE_IMG = /\.(png|jpe?g|gif|webp)([?#]|$)/i;
+const FILE_VID = /\.(mp4|mov|webm)([?#]|$)/i;
+const FILE_AUD = /\.(mp3|wav|ogg|m4a)([?#]|$)/i;
+const PAINTING_TOKEN = /(?<![\w&])#([a-z0-9]{3,})\b/gi; // mirror TOKEN's #painting arm
+
+const ogCache = new Map(); // url → metadata | null (failed — never retried, like ogPreviewCache)
+const paintingCache = new Map(); // code → true | false (confirmed / not-a-painting)
+
+// Rows hydrate their OG cards + painting confirms only once scrolled into
+// view, so a 40-message history seed doesn't fire 40 API calls at boot.
+const lazyRows = new IntersectionObserver(
+  (entries) => {
+    for (const entry of entries) {
+      if (!entry.isIntersecting) continue;
+      lazyRows.unobserve(entry.target);
+      entry.target._hydrateEmbeds?.();
+    }
+  },
+  { root: $log, rootMargin: "200px" },
+);
+
+const normalizeUrl = (tok) =>
+  (/^www\./i.test(tok) ? "https://" + tok : tok).replace(/[),.;!?]+$/, "");
+
+function ytEmbed(id) {
+  const a = document.createElement("a");
+  a.className = "embed yt";
+  a.href = "https://www.youtube.com/watch?v=" + id; // same jump-out as openYoutubeModal
+  a.target = "_blank"; a.rel = "noopener nofollow";
+  const img = document.createElement("img");
+  img.loading = "lazy"; img.alt = "YouTube";
+  img.src = `https://i.ytimg.com/vi/${id}/mqdefault.jpg`; // same thumb chat.mjs loads
+  img.onerror = () => a.remove();
+  a.append(img, span("play", "▶"));
+  return a;
+}
+
+function fileEmbed(url, kind) {
+  let el;
+  if (kind === "img") {
+    el = document.createElement("img");
+    el.loading = "lazy"; el.alt = url;
+    el.onclick = () => lightbox(url);
+  } else if (kind === "vid") {
+    el = document.createElement("video");
+    el.controls = true; el.playsInline = true; el.preload = "metadata";
+  } else {
+    el = document.createElement("audio");
+    el.controls = true; el.preload = "none";
+  }
+  el.className = "embed " + kind;
+  el.src = url;
+  el.onerror = () => el.remove();
+  return el;
+}
+
+function ogEmbed(url) {
+  const a = document.createElement("a");
+  a.className = "embed og";
+  a.href = url; a.target = "_blank"; a.rel = "noopener nofollow";
+  a._hydrate = async () => {
+    let meta = ogCache.get(url);
+    if (meta === undefined) {
+      try {
+        const r = await fetch(`${AC_API}/api/og-preview?url=${encodeURIComponent(url)}`);
+        meta = r.ok ? await r.json() : null;
+      } catch { meta = null; }
+      ogCache.set(url, meta);
+    }
+    if (!meta || (!meta.title && !meta.image)) return; // no card — the plain link already shows
+    if (meta.image) {
+      const img = document.createElement("img");
+      img.className = "thumb"; img.loading = "lazy"; img.alt = "";
+      img.src = `${AC_API}/api/og-image?url=${encodeURIComponent(meta.image)}`;
+      img.onerror = () => img.remove();
+      a.append(img);
+    } else if (meta.favicon) {
+      const fav = document.createElement("img");
+      fav.className = "fav"; fav.loading = "lazy"; fav.alt = "";
+      fav.src = `${AC_API}/api/og-image?url=${encodeURIComponent(meta.favicon)}`;
+      fav.onerror = () => fav.remove();
+      a.append(fav);
+    }
+    const t = span("t", "");
+    let host = url; try { host = new URL(url).hostname; } catch {}
+    t.append(span("site", meta.siteName || host), document.createTextNode(meta.title || url));
+    a.append(t);
+    a.classList.add("ready");
+  };
+  return a;
+}
+
+function paintingEmbed(code) {
+  const img = document.createElement("img");
+  img.className = "embed painting";
+  img.alt = "#" + code; img.title = "painting #" + code;
+  img.style.display = "none";
+  img.onclick = () => lightbox(img.src);
+  img._hydrate = async () => {
+    let ok = paintingCache.get(code);
+    if (ok === undefined) {
+      try {
+        const r = await fetch(`${AC_API}/api/painting-code?code=${code}`);
+        ok = r.ok; // 404 → ordinary hashtag, not a painting (nonPaintingCodeCache)
+      } catch { ok = false; }
+      paintingCache.set(code, ok);
+    }
+    if (!ok) return;
+    img.src = `${AC_API}/media/paintings/${code}.png`; // short-code path chat.mjs resolves
+    img.onerror = () => img.remove(); // broken load sticks, no per-frame retry
+    img.style.display = "block";
+  };
+  return img;
+}
+
+function buildEmbeds(text) {
+  const wrap = document.createElement("div");
+  wrap.className = "embeds";
+  const seenUrl = new Set();
+  for (const tok of text.match(URLISH) || []) {
+    const url = normalizeUrl(tok);
+    if (seenUrl.has(url) || isSensitiveUrl(url)) continue;
+    seenUrl.add(url);
+    const yt = url.match(YT_LINK);
+    if (yt) wrap.append(ytEmbed(yt[1]));
+    else if (FILE_IMG.test(url)) wrap.append(fileEmbed(url, "img"));
+    else if (FILE_VID.test(url)) wrap.append(fileEmbed(url, "vid"));
+    else if (FILE_AUD.test(url)) wrap.append(fileEmbed(url, "aud"));
+    else wrap.append(ogEmbed(url));
+  }
+  PAINTING_TOKEN.lastIndex = 0;
+  const seenCode = new Set();
+  let m;
+  while ((m = PAINTING_TOKEN.exec(text))) {
+    const code = m[1].toLowerCase();
+    if (!seenCode.has(code)) { seenCode.add(code); wrap.append(paintingEmbed(code)); }
+  }
+  return wrap.childElementCount ? wrap : null;
+}
+
+function attachEmbeds(row, text) {
+  row.querySelector(".embeds")?.remove();
+  const wrap = buildEmbeds(text || "");
+  if (!wrap) return;
+  row.append(wrap);
+  row._hydrateEmbeds = () => { for (const el of wrap.children) el._hydrate?.(); };
+  lazyRows.observe(row);
+}
+
+// 🔍 Lightbox for paintings + direct images.
+const $lightbox = document.getElementById("lightbox");
+const $lightboxImg = $lightbox.querySelector("img");
+function lightbox(src) {
+  if (!src) return;
+  $lightboxImg.src = src;
+  $lightbox.classList.add("open");
+}
+$lightbox.onclick = () => { $lightbox.classList.remove("open"); $lightboxImg.src = ""; };
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") $lightbox.classList.remove("open");
+});
+
 // ── Inline color codes (mirror lib/color-codes.mjs + chat's validity) ──────
 // A chatter can dye their own words with `\red\…\reset\`; anything that isn't
 // a real color stays literal typing. Same rules as the raster chat.
@@ -478,6 +727,7 @@ function renderTokens(frag, text, inheritColor) {
       el.title = "open " + tok; el.onclick = () => open("https://aesthetic.computer/" + tok);
     } else if (/^(https?:|www\.)/i.test(tok)) {
       el = document.createElement("a"); el.className = "t-url";
+      if (YT_LINK.test(tok)) el.classList.add("yt"); // red youtube links, like raster
       const href = /^www\./i.test(tok) ? "https://" + tok : tok;
       if (isSensitiveUrl(tok)) {
         el.classList.add("sensitive");
@@ -561,16 +811,29 @@ function rowFor(msg) {
   time.title = new Date(msg.when).toLocaleString();
   row.append(from, body, time);
   if (msg.hearts > 0) { const h = span("heart", "♥" + msg.hearts); row.append(h); }
-  // ✏️ own messages get an edit affordance once signed in (CSS shows it).
+  // ✏️ own messages get edit + delete affordances once signed in (CSS shows
+  // them). Delete arms on first click ("sikker?") — the raster confirms via
+  // its copy modal; both end in the same chat:delete wire message.
   if (msg.id && !msg.deleted) {
     const edit = document.createElement("button");
     edit.className = "editbtn"; edit.textContent = "✎ ret"; edit.title = "ret beskeden";
     edit.onclick = () => beginEdit(row);
-    row.append(edit);
+    const del = document.createElement("button");
+    del.className = "editbtn slet"; del.textContent = "✕ slet"; del.title = "slet beskeden";
+    del.onclick = () => {
+      if (del.classList.contains("armed")) {
+        postDelete(row.dataset.id);
+      } else {
+        del.classList.add("armed"); del.textContent = "sikker?";
+        setTimeout(() => { del.classList.remove("armed"); del.textContent = "✕ slet"; }, 2500);
+      }
+    };
+    row.append(edit, del);
   }
   decorateRow(row, msg);
   time.textContent = timeLabel(row);
   row._text = msg.text || "";
+  if (!msg.deleted) attachEmbeds(row, msg.text);
   return row;
 }
 
@@ -730,6 +993,7 @@ function connect() {
         row._text = content.text || "";
         row.dataset.edited = "1";
         row.classList.toggle("has-media", hasMediaLink(content.text || ""));
+        attachEmbeds(row, content.text);
         const t = row.querySelector(".time");
         if (t) t.textContent = timeLabel(row);
       }
@@ -739,7 +1003,8 @@ function connect() {
         row.classList.add("deleted");
         row.classList.remove("has-media");
         row.querySelector(".body").textContent = "[deleted]";
-        row.querySelector(".editbtn")?.remove();
+        row.querySelectorAll(".editbtn").forEach((b) => b.remove());
+        row.querySelector(".embeds")?.remove();
       }
     } else if (type === "message:hearts") {
       const row = $log.querySelector(`.msg[data-id="${content.for}"]`);
@@ -795,6 +1060,16 @@ function post(text) {
     }));
   }
 }
+// 🗑 Same payload the raster's copy-modal delete sends; the server answers
+// with a message:delete broadcast that redraws the row.
+function postDelete(id) {
+  if (!auth.token || !ws || ws.readyState !== 1 || !id) return;
+  ws.send(JSON.stringify({
+    type: "chat:delete",
+    content: { id, token: auth.token, sub: auth.sub },
+  }));
+}
+
 $send.onclick = () => { const t = $input.value.trim(); if (t) { post(t); $input.value = ""; } };
 $input.addEventListener("keydown", (e) => {
   if (e.key === "Enter") $send.click();

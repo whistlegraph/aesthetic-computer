@@ -16,6 +16,8 @@
     "pop:site": "node pop/bin/publish-release-records.mjs",
     "doctor": "node toolchain/doctor.mjs",
     "domain": "node toolchain/domains/domain.mjs",
+    "laklok:parity": "node toolchain/laklok-sisters/parity.mjs",
+    "laklok:sisters": "node toolchain/laklok-sisters/sisters.mjs",
     "sitemap:update": "node utilities/update-sitemap.mjs",
     "sitemap:check": "node utilities/update-sitemap.mjs --check",
     "api-docs:check": "node utilities/check-api-docs.mjs",
