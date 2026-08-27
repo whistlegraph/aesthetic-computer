@@ -171,7 +171,7 @@ checked against the exact bytes that were signed. An edited receipt fails, and
 a genuine receipt past its term reports `valid: false` with `expired: true`
 rather than pretending the grant still stands.
 
-### Before it can take money
+### What it takes to take money
 
 The function **fails closed** — unconfigured, every paid route answers 503
 rather than serving paid data for free. It needs, in the lith environment:
@@ -180,32 +180,67 @@ rather than serving paid data for free. It needs, in the lith environment:
 - `WHISTLEGRAPH_X402_ASSET` — the USDC contract on the chosen network
   (**verify this address against the network's own docs before going live**)
 - `WHISTLEGRAPH_X402_NETWORK` — defaults to `base`
-- `WHISTLEGRAPH_X402_FACILITATOR` — defaults to `https://x402.org/facilitator`
-- `WHISTLEGRAPH_X402_FACILITATOR_TOKEN` — bearer token, if the facilitator wants one
+- `WHISTLEGRAPH_X402_FACILITATOR` — `https://api.cdp.coinbase.com/platform/v2/x402`
+- `CDP_API_KEY_ID` / `CDP_API_KEY_SECRET` — the Coinbase CDP credential it signs with
+- `WHISTLEGRAPH_X402_FACILITATOR_TOKEN` — plain bearer, for facilitators that take one
 - `WHISTLEGRAPH_LICENSE_SECRET` — HMAC key for signing license receipts
 
-**The default facilitator cannot settle Base mainnet.** Ask it yourself:
+**The default facilitator settles testnets only, which is why we do not use it.**
+Ask it yourself:
 
 ```
 curl -s https://x402.org/facilitator/supported
 ```
 
-It advertises testnets only — `base-sepolia`, `solana-devnet`, `hedera:testnet`
-and friends. Base mainnet (`eip155:8453`) is not among them, and it speaks x402
-`v2` with CAIP-2 network names while this function speaks `v1` with `"base"`.
-So the pairing shipped here quotes a mainnet price in real Circle USDC that its
-own facilitator has no way to take: the buyer signs, `verify` is refused, and
-the request dies at 502 having promised a settlement that was never possible.
+`https://x402.org/facilitator` advertises `base-sepolia`, `solana-devnet`,
+`hedera:testnet` and friends. Base mainnet (`eip155:8453`) is not among them.
+Pointing mainnet terms at it quotes a price in real Circle USDC that the
+facilitator has no way to take: the buyer signs, `verify` is refused, and the
+request dies at 502 having promised a settlement that was never possible. That
+is what shipped here originally, and it is the reason nothing could ever have
+been earned.
 
-Real money needs a facilitator that holds an account — Coinbase CDP (fee-free on
-Base) or PayAI — set through `WHISTLEGRAPH_X402_FACILITATOR` and its token. The
-function asks `/supported` before it quotes, so until that swap happens the paid
-routes answer **503 saying exactly that**, which is the honest failure: a price
-nobody can pay is worse than no price at all.
+Real money needs a facilitator holding an account. We use **Coinbase CDP**,
+which is fee-free on Base and settles `base`, `base-sepolia`, Polygon,
+Arbitrum, World Chain and Solana. It will not take a fixed bearer token: every
+request carries its own JWT, signed with the account's Ed25519 key and bound to
+the exact method and URI, expiring in two minutes. The key arrives as 64 base64
+bytes — a 32-byte seed then its public half — and node wants PKCS8, so the seed
+is wrapped and node derives the rest.
+
+The function asks `/supported` before it quotes, and keeps the two ways of not
+knowing apart: a facilitator that answers *no* gives one 503, a facilitator that
+does not answer at all gives another. A lane that reports those identically
+cannot be diagnosed from outside, which matters because the public HTTP response
+is often the only signal available.
+
+**The CDP key is pinned to lith's IP (`209.38.133.33`) and carries read-only
+permissions** — no trade, transfer, receive, export, or manage. Two consequences:
+it cannot be tested from a laptop, so verification runs against the deployed
+endpoint or from lith itself; and **if lith's droplet is ever rebuilt on a new
+IP, the facilitator starts failing authentication** and every paid route drops to
+the "did not answer" 503. That is the first thing to check if this lane goes
+quiet after infrastructure work.
+
+To confirm the pairing is live, from lith:
+
+```
+curl -s https://whistlegraph.org/api/wg/bulk | head -c 80   # 402 = settleable
+```
 
 Open: listing in the [x402 Bazaar](https://docs.cdp.coinbase.com/x402/seller/get-discovered),
 the catalog buying agents actually browse, requires the CDP facilitator, per-route
 metadata (a ≤500-character description of *when* to call the endpoint, input and
 output schemas, `METHOD /path` keys), a `POST` to
 `https://api.cdp.coinbase.com/platform/v2/x402/validate`, and one real settlement
-to activate. Nothing gets discovered until the facilitator swap lands.
+to activate. The facilitator half of that is done; the metadata and the first
+settlement are not.
+
+Open, and larger than the plumbing: **two of the three paid endpoints sell what
+is already given away.** `posts.json` is public and carries all 1,332 posts with
+`contributes` edges across 290 of the 291 works — which is exactly what
+`/api/wg/sources/<code>` computes — and `/api/wg/bulk` is that file plus
+`graphs.json` with URLs resolved. Both are linked from `llms.txt`, so an agent
+that reads the map has no reason to pay for either. Only the license sells
+something unobtainable elsewhere. A working payment rail pointed at free data
+earns nothing; the inventory is the thing to fix, not the plumbing.

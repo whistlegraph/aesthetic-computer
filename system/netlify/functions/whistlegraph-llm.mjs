@@ -438,18 +438,25 @@ export async function handler(event) {
     }, HEADERS);
   }
 
-  // Never quote a price on a network this facilitator cannot settle. Only an
-  // affirmative "no" refuses: if the lookup itself fails we still quote, since
-  // verify and settle remain in the way of any money actually moving.
+  // Never quote a price without knowing the facilitator can settle it. The two
+  // ways of not knowing are kept apart on purpose: "it says no" and "it did not
+  // answer" are different faults, and a lane that reports them identically
+  // cannot be diagnosed from outside.
+  let settleable;
   try {
-    if (!(await settles(NETWORK))) {
-      return respond(503, {
-        message: `Paid access is configured for "${NETWORK}", which its payment facilitator does not settle. Nothing can be charged until that pairing is fixed.`,
-        free: `${SITE_URL}/index.md`,
-      }, HEADERS);
-    }
+    settleable = await settles(NETWORK);
   } catch (error) {
     console.error("Whistlegraph x402 supported lookup failed:", error?.message || error);
+    return respond(503, {
+      message: "The payment facilitator did not answer, so what it can settle is unknown. Quoting a price we cannot stand behind would be worse than saying so.",
+      free: `${SITE_URL}/index.md`,
+    }, HEADERS);
+  }
+  if (!settleable) {
+    return respond(503, {
+      message: `Paid access is configured for "${NETWORK}", which its payment facilitator does not settle. Nothing can be charged until that pairing is fixed.`,
+      free: `${SITE_URL}/index.md`,
+    }, HEADERS);
   }
 
   const accepts = requirements(resource, price, description);
