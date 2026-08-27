@@ -149,15 +149,18 @@ else
     git -C "$CHECKOUT" fetch origin main --quiet
     git -C "$CHECKOUT" reset --hard origin/main --quiet
     "$NODE" -e '
+      // This run is the single writer for both registries, so its copies
+      // win — insights passes REWRITE existing posts, and the generator or
+      // rock rewrites lane entries. Rows that exist only on origin are
+      // still preserved.
       const { readFileSync, writeFileSync } = await import("node:fs");
       const read = (p) => JSON.parse(readFileSync(p, "utf8"));
-      const write = (p, v) => writeFileSync(p, JSON.stringify(v, null, 2) + "\n");
-      const merge = (target, pending, list, key) => {
-        const ours = read(target), theirs = read(pending);
-        const known = new Set((ours[list] || []).map((x) => String(x[key])));
-        for (const item of theirs[list] || [])
-          if (!known.has(String(item[key]))) ours[list].push(item);
-        write(target, ours);
+      const merge = (target, pendingPath, list, key) => {
+        const origin = read(target), pending = read(pendingPath);
+        const mine = new Set((pending[list] || []).map((x) => String(x[key])));
+        for (const item of origin[list] || [])
+          if (!mine.has(String(item[key]))) pending[list].push(item);
+        writeFileSync(target, JSON.stringify(pending, null, 2) + "\n");
       };
       merge(process.argv[1], process.argv[3], "posts", "mediaId");
       merge(process.argv[2], process.argv[4], "variations", "id");

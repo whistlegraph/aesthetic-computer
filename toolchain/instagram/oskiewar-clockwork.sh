@@ -87,7 +87,13 @@ STAGE="loading credentials"
 set -a
 # shellcheck disable=SC1090
 . "$IG_ENV"
-[ -f "$HOME/aesthetic-computer-vault/oskiewar/wall.env" ] && . "$HOME/aesthetic-computer-vault/oskiewar/wall.env"
+WALL_ENV="${OSKIEWAR_WALL_ENV:-$HOME/aesthetic-computer-vault/oskiewar/wall.env}"
+# shellcheck disable=SC1090
+[ -f "$WALL_ENV" ] && . "$WALL_ENV"
+# Hosts without the vault carry the oven key as a plain file instead.
+if [ -z "${OS_BUILD_ADMIN_KEY:-}" ] && [ -f "${OSKIEWAR_OVEN_KEY_FILE:-}" ]; then
+  OS_BUILD_ADMIN_KEY="$(cat "$OSKIEWAR_OVEN_KEY_FILE")"
+fi
 set +a
 
 cd "$CHECKOUT" || exit 1
@@ -136,24 +142,40 @@ else
 fi
 
 # --- close the loop in git too: the ledger is the record a human reads ---
+# Not rebase: one conflict during a slow slot once stranded a live menuband
+# reel off its record (repost trap). The ledger is an append-only registry,
+# so the durable publish is: save this run's copy, reset to fresh origin,
+# merge the new posts back in by id, push.
 STAGE="publishing the ledger"
 AFTER="$(git -C "$CHECKOUT" hash-object "$LEDGER" 2>/dev/null || echo none)"
 if [ "$BEFORE" = "$AFTER" ]; then
   say "ledger unchanged"
 else
-  git -C "$CHECKOUT" add "$LEDGER"
-  git -C "$CHECKOUT" -c user.name="oskiewar clockwork" \
-    -c user.email="clockwork@aesthetic.computer" \
-    commit -q -m "Record oskiewar reel $MODE $INDEX" -- "$LEDGER" || {
-      say "nothing to commit"; exit 0; }
-  # The knot takes pushes from several machines, so losing a race here is normal
-  # and worth retrying rather than failing the whole run over.
+  cp "$CHECKOUT/$LEDGER" "$STATE/oskiewar-pending-ledger.json"
   pushed=0
   for attempt in 1 2 3; do
     git -C "$CHECKOUT" fetch origin main --quiet
-    git -C "$CHECKOUT" rebase origin/main --quiet >/dev/null 2>&1 || {
-      git -C "$CHECKOUT" rebase --abort >/dev/null 2>&1 || true
-      say "rebase onto origin/main failed"; break; }
+    git -C "$CHECKOUT" reset --hard origin/main --quiet
+    "$NODE" -e '
+      // This run is the account ledger single writer, so its copy wins —
+      // insights passes REWRITE existing posts, not just append. Posts that
+      // exist only on origin (another writer) are still preserved.
+      const { readFileSync, writeFileSync } = await import("node:fs");
+      const read = (p) => JSON.parse(readFileSync(p, "utf8"));
+      const origin = read(process.argv[1]), pending = read(process.argv[2]);
+      const key = (post) => `${post.mediaId ?? ""}·${post.id ?? ""}·${post.mode ?? ""}`;
+      const mine = new Set((pending.posts || []).map(key));
+      for (const post of origin.posts || [])
+        if (!mine.has(key(post))) pending.posts.push(post);
+      writeFileSync(process.argv[1], JSON.stringify(pending, null, 2) + "\n");
+    ' "$CHECKOUT/$LEDGER" "$STATE/oskiewar-pending-ledger.json" \
+      || { say "ledger merge failed"; break; }
+    git -C "$CHECKOUT" add "$LEDGER"
+    if ! git -C "$CHECKOUT" -c user.name="oskiewar clockwork" \
+      -c user.email="clockwork@aesthetic.computer" \
+      commit -q -m "Record oskiewar reel $MODE $INDEX" -- "$LEDGER" 2>/dev/null; then
+      pushed=1; say "ledger already on origin"; break
+    fi
     if git -C "$CHECKOUT" push origin HEAD:main --quiet 2>/dev/null; then
       pushed=1; say "ledger pushed ($(git -C "$CHECKOUT" rev-parse --short HEAD))"; break
     fi
