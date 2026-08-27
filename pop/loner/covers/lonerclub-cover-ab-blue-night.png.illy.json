@@ -1,0 +1,43 @@
+{
+  "schema": "illy/v1",
+  "createdAt": "2026-08-27T17:24:10.095Z",
+  "pipeline": "pop-cover",
+  "provider": "openai",
+  "model": "gpt-image-2",
+  "mode": "edit",
+  "size": "1024x1024",
+  "quality": "high",
+  "output": "/Users/jas/aesthetic-computer/pop/loner/covers/lonerclub-cover-ab-blue-night.png",
+  "promptPath": "/Users/jas/aesthetic-computer/pop/loner/covers/blue-night.illy.txt",
+  "promptHash": "9e11e62b7250ea7b3be106f357bc197832b410a2251adc98807f9668f335dc9b",
+  "references": [
+    "/Users/jas/aesthetic-computer/pop/loner/covers/lonerclub-cover-v-blue.png"
+  ],
+  "contracts": [
+    "physical-accuracy"
+  ],
+  "stages": [
+    "resolve-inputs",
+    "apply-contracts",
+    "select-provider",
+    "generate",
+    "archive",
+    "provenance"
+  ],
+  "durationSeconds": 131.982,
+  "archived": null,
+  "requestId": null,
+  "usage": {
+    "input_tokens": 2074,
+    "input_tokens_details": {
+      "image_tokens": 1521,
+      "text_tokens": 553
+    },
+    "output_tokens": 7024,
+    "output_tokens_details": {
+      "image_tokens": 7024,
+      "text_tokens": 0
+    },
+    "total_tokens": 9098
+  }
+}

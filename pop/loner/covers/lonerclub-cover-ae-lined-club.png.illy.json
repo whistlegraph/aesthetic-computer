@@ -1,0 +1,43 @@
+{
+  "schema": "illy/v1",
+  "createdAt": "2026-08-27T17:31:44.174Z",
+  "pipeline": "pop-cover",
+  "provider": "openai",
+  "model": "gpt-image-2",
+  "mode": "edit",
+  "size": "1024x1024",
+  "quality": "high",
+  "output": "/Users/jas/aesthetic-computer/pop/loner/covers/lonerclub-cover-ae-lined-club.png",
+  "promptPath": "/Users/jas/aesthetic-computer/pop/loner/covers/lined-club.illy.txt",
+  "promptHash": "81bf67aa33089c28763edf7635d5d262f26fe440a01077f2f498a952a57120a1",
+  "references": [
+    "/Users/jas/aesthetic-computer/pop/loner/covers/lonerclub-cover-aa-lined.png"
+  ],
+  "contracts": [
+    "physical-accuracy"
+  ],
+  "stages": [
+    "resolve-inputs",
+    "apply-contracts",
+    "select-provider",
+    "generate",
+    "archive",
+    "provenance"
+  ],
+  "durationSeconds": 151.33,
+  "archived": null,
+  "requestId": null,
+  "usage": {
+    "input_tokens": 2067,
+    "input_tokens_details": {
+      "image_tokens": 1521,
+      "text_tokens": 546
+    },
+    "output_tokens": 7024,
+    "output_tokens_details": {
+      "image_tokens": 7024,
+      "text_tokens": 0
+    },
+    "total_tokens": 9091
+  }
+}
