@@ -23,6 +23,6 @@
     { "name": "ragga-push-b",  "t": 120,                "illy": "/assets/pop/femrag-plusplus/sec-10.jpg", "code": "k" },
     { "name": "outro",         "t": 133.33333333333334, "illy": "/assets/pop/femrag-plusplus/sec-11.jpg", "code": "l" }
   ],
-  "links": {},
+  "links": { "spotify": "https://open.spotify.com/track/2v7LcVM38kpiIYd0RWQJzm" },
   "credits": "FEM bell modes from pop/bell. Label stamp spoken by Prutti."
 }

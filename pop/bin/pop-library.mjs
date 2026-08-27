@@ -33,7 +33,7 @@ function parseReleases() {
     const laneM = b.match(/\*\*Lane:\*\*\s*`?pop\/([\w/-]+?)\/?`?[\s·]/i) || b.match(/`pop\/([\w/-]+?)\/`/);
     const lane = laneM ? laneM[1] : null;
     const grab = (re) => { const m = b.match(re); return m ? m[1] : null; };
-    out[name.toLowerCase()] = {
+    const info = {
       name, status, lane,
       bpm: grab(/(\d{2,3})\s*BPM/i),
       key: grab(/·\s*([A-G][#b]?\s*(?:major|minor))/i),
@@ -43,6 +43,13 @@ function parseReleases() {
       youtube: grab(/(https:\/\/youtu\.be\/\S+)/),
       distrokid: grab(/(https:\/\/distrokid\.com\/\S+)/),
     };
+    // A header can be spelled with punctuation a filename cannot carry —
+    // "Femrag++" ships as femrag-plusplus.mp3 — so each block also answers
+    // to the spellings a stem is likely to use.
+    const l = name.toLowerCase();
+    const keys = new Set([l, l.replace(/-/g, " "), l.replace(/\s+/g, "-")]);
+    if (l.endsWith("+")) keys.add(l.replace(/\++$/, (m) => "-" + "plus".repeat(m.length)));
+    for (const k of keys) out[k] = info;
   }
   return out;
 }
@@ -148,6 +155,7 @@ for (const p of files) {
   if (!isCanonical(title, laneTop, laneDirRel, releases)) continue;
   const st = statSync(p);
   const relInfo = releases[title.toLowerCase()] || releases[title.toLowerCase().replace(/-/g, " ")]
+    || releases[title.toLowerCase().replace(/-release$/, "")]   // the master print
     || releases[laneTop.toLowerCase()] || null;
   const laneAbs = `pop/${laneDirRel}`;
   if (gitCache[laneAbs] === undefined) gitCache[laneAbs] = gitCount(laneAbs);
