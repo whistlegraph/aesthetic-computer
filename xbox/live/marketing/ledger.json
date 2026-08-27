@@ -371,6 +371,26 @@
         "reels_skip_rate": 33.3
       },
       "insightsAt": "2026-08-27T01:41:11.171Z"
+    },
+    {
+      "mode": "live",
+      "id": "2026-08-27-s1-homebrew",
+      "slot": 715,
+      "day": "2026-08-27",
+      "index": 1,
+      "segment": "homebrew",
+      "seed": "2026-08-27#1",
+      "kind": "self-play",
+      "round": "nammi31",
+      "audioName": "nammi31",
+      "publishedAt": "2026-08-27T18:13:39.830Z",
+      "urls": {
+        "reel": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/oskiewar/reels/2026-08-27-s1-homebrew/reel.mp4",
+        "cover": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/oskiewar/reels/2026-08-27-s1-homebrew/cover.jpg"
+      },
+      "containerId": "18084322931446357",
+      "mediaId": "18111249968003981",
+      "insights": null
     }
   ]
 }
