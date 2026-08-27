@@ -52,21 +52,12 @@ const published = (entry) => posted.has(basename(entry.outPath));
 // The series numbering lives in the id — "04-stairwell" is waltz no. 4.
 const waltzNumber = (entry) => Number.parseInt(entry.id, 10);
 
-// The account's register: lowercase, simple cryptic hashes plus basic info,
-// and a comment bait line because reelboy is listening.
-function caption(entry) {
-  const name = String(entry.name).toLowerCase();
-  return [
-    `${name} — menu band waltz no. ${waltzNumber(entry)}`,
-    `play along in the mac menu bar · menuband.app`,
-    `tell the band what to change`,
-    `#mbscore #menubar #waltz`,
-  ].join("\n");
-}
+// Let the score and its file name carry the reel; the caption is only routing.
+function caption() { return "#menuband #mac #apple"; }
 
 // Every reel's Instagram audio is named as a playable score file — .mbscore
 // is Menu Band's real format, and the name is the marketing.
-const audioName = (entry) => `${String(entry.name).toLowerCase()}-waltz.mbscore`;
+const audioName = (entry) => `${String(entry.name).toLowerCase()}.mbscore`;
 
 function mp4Path(entry) {
   return resolve(dirname(MANIFEST), manifest.baseDir || ".", entry.outPath);
@@ -97,13 +88,11 @@ const WORDS = [
 const MODES = [
   ["major", "C"], ["major", "C"], ["minor", "A"], ["dorian", "D"],
 ];
-// GM programs that read as "a small instrument in a room" on this renderer.
-const INSTRUMENTS = [
-  [0, "Acoustic Grand Piano"], [4, "Electric Piano 1"], [8, "Celesta"],
-  [9, "Glockenspiel"], [10, "Music Box"], [11, "Vibraphone"],
-  [12, "Marimba"], [21, "Accordion"], [24, "Nylon Guitar"], [46, "Harp"],
-  [71, "Clarinet"], [73, "Flute"],
-];
+// The lane's voice is GM patch 79, Whistle (0-indexed program 78) — every
+// Menu Band reel whistles (@jeffrey, 2026-08-26). The one-element list
+// keeps pick()'s rand() consumption, so already-minted waltz numbers keep
+// their melodies.
+const INSTRUMENTS = [[78, "Whistle"]];
 const PROGRESSIONS = [
   [0, 3, 4, 0, 5, 3, 4, 0], [0, 5, 3, 4, 0, 3, 4, 0],
   [0, 3, 0, 4, 5, 3, 4, 0], [0, 4, 5, 3, 0, 5, 4, 0],
