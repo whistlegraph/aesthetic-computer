@@ -39,3 +39,7 @@ source/
 reference/ref
 reference/*.f32
 reference/*.wav
+
+# phone/ — real telephone gestures decoded from the vault freesound cache
+# (all CC0; bin/phones.sh rebuilds them; the manifest IS tracked)
+phone/*.wav

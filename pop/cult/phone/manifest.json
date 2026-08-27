@@ -1,0 +1,17 @@
+{
+  "note": "Real telephone gestures for the signal layer — the sounds the record's synthesized clicks and DTMF have been impersonating. All freesound.org, all CC0 (public domain), so they may sit in a release master. bin/phones.sh rebuilds phone/*.wav from the vault freesound cache (~/aesthetic-computer-vault/personal/pop/freesound-cache); attributions are ledgered there in _attributions.json.",
+  "samples": {
+    "phone-pickup-a": { "id": 531058, "by": "HaleyReeseCalhoun", "title": "Sneaky Phone Pick Up - HRC.m4a" },
+    "phone-pickup-b": { "id": 634525, "by": "DexD73", "title": "House Phone Pick Up and Put Down" },
+    "phone-pickup-hangup": { "id": 699159, "by": "Mr.Epic777", "title": "Telephone Pick Up And Hang Up" },
+    "phone-hangup-a": { "id": 406240, "by": "_stubb", "title": "telephone_hang up_near.wav" },
+    "phone-hangup-b": { "id": 467200, "by": "ThunderQuads", "title": "Phone Hangup.wav" },
+    "phone-hangup-c": { "id": 121758, "by": "ondrosik", "title": "hang-up6.wav" },
+    "phone-hangup-d": { "id": 240681, "by": "mariiao2", "title": "hang up.mp3" },
+    "phone-rotary-a": { "id": 556484, "by": "cookies+policy", "title": "Rotary Dial 1" },
+    "phone-rotary-b": { "id": 556483, "by": "cookies+policy", "title": "Rotary Dial 2" },
+    "phone-busy-us": { "id": 178820, "by": "Felfa", "title": "busy signal_us.mp3" },
+    "phone-busy-eu": { "id": 178821, "by": "Felfa", "title": "busy signal_europe.mp3" },
+    "phone-offhook": { "id": 455409, "by": "AnthonyRamirez", "title": "Phone Off-Hook Tone.wav" }
+  }
+}

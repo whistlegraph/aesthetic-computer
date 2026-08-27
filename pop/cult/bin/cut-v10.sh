@@ -40,6 +40,6 @@ fi
 ffmpeg -y -v error -i "$SRC" -c:a libmp3lame -b:a 320k \
   -metadata title="whistlegraph cult --- remix (v10, kicks first)" \
   -metadata artist="Whistlegraph" -metadata album="pop / cult" \
-  -metadata comment="v9's steady loop, re-entered: opens on the kick, no voice until 'run real fast' at bar 24, the morse follows." \
+  -metadata comment="v9's steady loop with the words withheld: opens on the kick and a crowd of dots from every video, the loop runs morse-only, and 'run real fast / i wanna hide away' arrive at the whole message. Real phone: pickup, rotary, hang-up, busy." \
   "$OUT/cult-remix-v10.mp3"
 echo "✓ $OUT/cult-remix-v10.mp3"

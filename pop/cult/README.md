@@ -771,3 +771,40 @@ version failed at least once):
 
 The lead sits ~4 dB proud of the bed, which is the whole point of the
 measurement.
+
+## v10.1 — the words withheld, the dots everywhere, the phone made real
+
+Three asks from @jeffrey, one revision (`bin/render10.mjs`, gate:
+`wordsIn()`): **"run real fast"** and **"i wanna hide away"** are removed
+from every chorus statement and hook until act VII — before bar 76 the
+steady loop runs morse-only, with dot figures standing exactly where the
+worded lines will land. The shipped opening (bars 8–24) is now a **dot
+collage from all nine harvested posts** — each bar one video speaks a
+morse S into the dial's echo (raw `alt/samples` takes), answered by the
+aesthetivoxed `sung/` dots in chord tones, both riding the signal layer's
+pans and delay so human dots and phone tones read as one transmission.
+
+And the signal layer grew a **real telephone**: `phone/` holds CC0
+freesound gestures (receiver pickups, hang-ups, rotary dials, busy
+signals — ids + credits in `phone/manifest.json`, tracked). Rebuild after
+a fresh checkout with `bash bin/phones.sh` (decodes from the vault
+freesound cache; re-fetch via `pop/bin/freesound-fetch.mjs` if the cache
+is cold). The record now opens with a handset lifted under the first
+kick, act IV's "receiver picked up" click is an actual receiver, the
+act-VI switchboard has a rotary dial in it, and the last sound is a real
+hang-up with a distant US busy signal after it.
+
+Second pass, same day, all from @jeffrey listening back: the opening
+collage was "too chaotic … wayyyy less of them … all extended a lot …
+more in the background" — so it became **one dot at a time**, each of the
+nine posts appearing exactly once, its longest take granular-stretched
+~4.5× into a dark two-second sigh deep in the dial's echo. The arriving
+line lost its pickup ("no need for 'i wanna' before hide away") and got
+"sung much longerrrrr": `sung/hideaway-hi` stretched 1.9× across 3.8 s
+with an octave-down ghost and the tube "away"s moved late. And **THE
+HUMANS act is cut** ("remove the ending section at 3:00 where it's no
+longer sung … i don't like when vocals skip aesthetivox and feel too
+raw") — 120 bars → 112, the peel-off walks straight into CARRIER OFF,
+and no vocal on the record skips the aesthetivox anymore.
+
+Shipped master: −14.0 LUFS integrated target, ~3:29.

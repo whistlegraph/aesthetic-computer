@@ -11,6 +11,24 @@
 // AROUND a message that never stops looping — and the one place the loop
 // breaks (act IV, the turn) is now the loudest thing in the record.
 //
+// v10.1, @jeffrey again, four asks in one breath: "remove 'i wanna hide
+// away' and 'i wanna run real fast' until the end" · "in the opening we
+// should have lots of the 'dot dot dot'" · "from all the videos — samples
+// and aesthetivoxed" · "to blend in with the phone tones — and any way we
+// can find hang up sounds, phone hang up click and other standard sounds,
+// as samples?" So: the loop still never stops, but its two WORDED lines
+// are withheld until act VII — before that every statement is morse-only,
+// dots standing where the words will land (wordsIn() is the gate). The
+// shipped opening carries the dots from all nine posts — after a second
+// pass ("too chaotic … wayyyy less … all extended a lot … more in the
+// background"), as ONE granular-stretched dot at a time drifting behind
+// the dial, each video appearing exactly once. And the signal layer grows a REAL
+// phone alongside its synthesized one — CC0 freesound gestures in phone/
+// (bin/phones.sh rebuilds; manifest tracked): a receiver picked up under
+// the first kick and again at the turn, a rotary dial in the switchboard,
+// and the record now ends on an actual handset meeting an actual cradle,
+// with a distant busy signal after it.
+//
 // Everything below this paragraph that talks about v5 still applies to the
 // bed, the busses and the acts; only the vocal plan changed.
 //
@@ -37,8 +55,8 @@
 //     A SIGNAL GOES OUT, AND IT IS ANSWERED, AND THE JOKE TURNS OUT
 //     TO BE TRUE.
 //
-// Ten acts, 120 bars, 4:00. Nothing in the track exists that does not
-// belong to one of them.
+// Nine acts (v10.1 — THE HUMANS is cut), 112 bars, 3:44 full / 3:28
+// shipped. Nothing in the track exists that does not belong to one of them.
 //
 //   I    CARRIER      0:00  A channel opens before anything is said. DTMF
 //                          tones dial C-U-L-T (keypad 2-8-5-8) into empty
@@ -70,12 +88,12 @@
 //                          — over the home progression, which the harmony
 //                          also arrives at here for the first time.
 //   VIII RECOGNITION  3:12  Elements peel off, one per bar.
-//   IX   THE HUMANS   3:28  Drums out. The ORIGINAL recording returns,
-//                          unprocessed: three friends, one take, laughing.
-//                          Everything you just heard was made of this.
-//   X    CARRIER OFF  3:44  The drone walks out. The beeps outlast it, and
+//   IX   CARRIER OFF  3:28  The drone walks out. The beeps outlast it, and
 //                          the last sound on the record is a hang-up click,
-//                          after the music has already stopped.
+//                          after the music has already stopped. (v10.1:
+//                          THE HUMANS — the unprocessed original take —
+//                          is cut; no vocal on the record skips the
+//                          aesthetivox anymore.)
 //
 // ══ THE FOUR SOUND-DESIGN ASKS ═════════════════════════════════════════
 //
@@ -136,7 +154,7 @@ const SR = 48_000;
 const BPM = 120;
 const BEAT = 60 / BPM;               // 0.5 s
 const BAR = 4 * BEAT;                // 2.0 s
-const BARS = 120;                    // 240 s = 4:00
+const BARS = 112;                    // 224 s = 3:44 full · 3:28 shipped
 const TAU = Math.PI * 2;
 const N = Math.round((BARS * BAR + 3.2) * SR);
 
@@ -190,8 +208,11 @@ function classify(name) {
     return { voice: "dash", who: m[1], midi: pitchMidi(m[2]) };
   if ((m = /^dashlong-(camille|jeffrey)-([a-g]s?\d)$/.exec(name)))
     return { voice: "dash", who: m[1], midi: pitchMidi(m[2]) };
-  if ((m = /^cult-([a-g]s?\d)$/.exec(name)))
+  if ((m = /^cult(?:long)?-([a-g]s?\d)$/.exec(name)))
     return { voice: "cult", who: "camille", midi: pitchMidi(m[1]) };
+  if ((m = /^voxdot-(c|a|j)-([a-g]s?\d)$/.exec(name)))
+    return { voice: "dot", who: { c: "camille", a: "alex", j: "jeffrey" }[m[1]], midi: pitchMidi(m[2]) };
+  if (/^altdot-\d+-long$/.test(name)) return { voice: "dot", who: null, midi: null };
   if ((m = /^sos-dash-([a-g]s?\d)$/.exec(name)))
     return { voice: "sosdash", who: "camille", midi: pitchMidi(m[1]) };
   if ((m = /^bassdash-([a-g]s?\d)$/.exec(name)))
@@ -207,6 +228,7 @@ function classify(name) {
   if (name === "sweep") return { voice: "sweep" };
   if (/^(chant-full|tagline|hook-spoken|three-of-us)$/.test(name)) return { voice: "source" };
   if (name.startsWith("alt-")) return { voice: "alt" };
+  if (name.startsWith("phone-")) return { voice: "phone" };
   return { voice: "sample" };
 }
 
@@ -244,8 +266,10 @@ function load(name, path) {
 
 // samples/ = v1's slices; sung/ = the speech-to-singing renders; alt/samples
 // = anything harvested from the OTHER cult-tagged whistlegraph posts (see
-// alt/harvest.json). alt/ is optional — the score checks before it plays.
-for (const dir of ["samples", "sung", "alt/samples"]) {
+// alt/harvest.json); phone/ = real telephone gestures, CC0 from freesound
+// (bin/phones.sh rebuilds them from the manifest). alt/ and phone/ are
+// optional — the score checks before it plays.
+for (const dir of ["samples", "sung", "alt/samples", "phone"]) {
   const d = resolve(LANE, dir);
   if (!existsSync(d)) continue;
   for (const f of readdirSync(d)) if (f.endsWith(".wav")) load(f.replace(/\.wav$/, ""), join(d, f));
@@ -356,6 +380,77 @@ function kick(t, gain = 1, { weight = 1 } = {}) {
 // A quiet snare/rim on 3 — mostly there so the tubular pump has a second
 // trigger, which is what makes the pump read as rhythm rather than as the
 // kick's shadow.
+// v10.1: @jeffrey — "bring in kick reverse wub wub kicks too, like we
+// have on other /pop tracks at times". Two re-entry voices: revKick is
+// the thick kick's sweep run BACKWARDS — pitch and amplitude rising into
+// the downbeat it announces — and wub is the root's sub octave pumped by
+// a 4 Hz amplitude-and-lowpass LFO, the kick's tail learning to talk.
+function revKick(t, dur = 0.9, gain = 0.5) {
+  if (!allow("kick")) return;
+  EVENTS.push({ t: +(t - dur).toFixed(4), voice: "revkick", bus: "drums",
+    dur: +dur.toFixed(3), gain: +gain.toFixed(3), pan: 0 });
+  const n = Math.round(dur * SR), i0 = Math.round((t - dur) * SR);
+  let p = 0;
+  for (let i = 0; i < n; i++) {
+    const u = i / n;
+    const f = 47 + (200 - 47) * u * u;
+    p += (TAU * f) / SR;
+    const env = Math.pow(u, 2.4);
+    const v = Math.tanh(Math.sin(p) * (1 + 1.5 * u)) * 0.5;
+    emit("drums", i0 + i, v * env * gain * tailFade(i, n), 0, null, 0.2);
+  }
+}
+function wub(t, midi, bars = 1, gain = 0.30, rate = 4) {
+  if (!allow("bass")) return;
+  EVENTS.push({ t: +t.toFixed(4), voice: "wub", bus: "music", midi,
+    dur: +(bars * BAR).toFixed(3), gain: +gain.toFixed(3), pan: 0 });
+  const n = Math.round(bars * BAR * SR), i0 = Math.round(t * SR);
+  const f = hz(midi);
+  let p = 0, lp = 0;
+  for (let i = 0; i < n; i++) {
+    const u = i / SR;
+    p += (TAU * f) / SR;
+    const lfo = 0.5 - 0.5 * Math.cos(TAU * rate * u);
+    const raw = Math.tanh(Math.sin(p) * (1.2 + 2.2 * lfo));
+    const k = 0.12 + 0.55 * lfo;
+    lp += k * (raw - lp);
+    const env = Math.min(1, u / 0.02);
+    emit("music", i0 + i, lp * env * 0.5 * gain * tailFade(i, n), 0, null, 0.2);
+  }
+}
+
+// v10.1: @jeffrey — "more bass in the 1:10 chants, like heavier bass —
+// maybe we can even bring in some electric guitar long decay there". So
+// act IV grows the record's only stringed thing: a Karplus-Strong pluck
+// through a soft tanh drive, feedback high enough to ring for seconds
+// under the flanged chant. Synthesized like everything else — the guitar
+// is a wavetable of noise the string forgets slowly.
+function guitar(t, midi, dur, gain = 0.5, pan = 0, fb = 0.9965) {
+  if (!allow("guitar")) return;
+  EVENTS.push({ t: +t.toFixed(4), voice: "guitar", bus: "music", midi,
+    dur: +dur.toFixed(3), gain: +gain.toFixed(3), pan: +pan.toFixed(2) });
+  const period = Math.max(2, Math.round(SR / hz(midi)));
+  const n = Math.round(dur * SR), i0 = Math.round(t * SR);
+  const line = new Float32Array(period);
+  for (let k = 0; k < period; k++) line[k] = nrnd();
+  const sp = spatial(pan * 1.2);
+  let idx = 0, prev = 0;
+  let lp = 0;
+  for (let i = 0; i < n; i++) {
+    const v = line[idx];
+    line[idx] = fb * 0.5 * (v + prev);
+    prev = v;
+    idx = (idx + 1) % period;
+    // two-stage asymmetric drive (real distortion, even harmonics), then
+    // a dark one-pole so the fuzz reads as weight rather than edge
+    const d1 = Math.tanh(v * 6.5 + 0.35) - Math.tanh(0.35);
+    const d2 = Math.tanh(d1 * 1.8) * 0.5;
+    lp += 0.16 * (d2 - lp);
+    const env = Math.min(1, i / (0.002 * SR));
+    emit("music", i0 + i, lp * env * gain * tailFade(i, n), pan, sp, 0.4, 0.20);
+  }
+}
+
 function snare(t, gain = 1) {
   snares.push(t);
   // perc-block is a near-pure 2502 Hz sine (tonal prominence x14523). 126 of
@@ -771,11 +866,27 @@ function beepSOS(t, { gain = 1, pan = 0.5, dly = 0.4, f = 0 } = {}) {
 // the note, and `wigIn` how long the depth takes to arrive. wigIn is the
 // whole trick: with the wiggle ramped in, the CONSONANT lands in tune and
 // only the held vowel shimmers, so intelligibility survives the effect.
+// v10.1: @jeffrey — "the vocal amplitude should slowly rise … it gets a
+// bit too loud sometimes … like it needs to stay deep, thick in the
+// sounds". A macro arc on the whole vox bus: every sung thing starts at
+// ~0.72 of its written gain with a darkness floor, and earns its full
+// level and light only as the record approaches the whole message at 76.
+// Applied inside shot() so no vocal can escape it; the events receipt
+// records the post-arc gain the ear actually gets.
+function voxArc(t) {
+  const u = smooth(clamp((t / BAR - 8) / (S.whole[0] - 8), 0, 1));
+  return { g: 0.72 + 0.28 * u, dark: 0.26 * (1 - u) };
+}
 function shot(name, t, {
   gain = 1, pan = 0, semis = 0, bus = "drums", side = 0.35, dark = 0,
-  dur = null, dly = 0, off = 0, evVoice = null,
+  dur = null, dly = 0, off = 0, evVoice = null, atk = 0.0015,
   wig = 0, wigHz = 5.0, wigPhase = 0, wigDrift = 0, wigIn = 0.45,
 } = {}) {
+  if (bus === "vox") {
+    const arc = voxArc(t);
+    gain *= arc.g;
+    dark = Math.max(dark, arc.dark);
+  }
   const s = BANK[name];
   if (!s) { missing.add(name); return; }
   if (!allow(evVoice ?? classify(name).voice)) return;
@@ -807,7 +918,7 @@ function shot(name, t, {
     const f = pos - q;
     let v = s[q] + (s[q + 1] - s[q]) * f;
     if (dark > 0) { lp += (1 - dark) * (v - lp); v = lp; }
-    const env = Math.min(1, i / (0.0015 * SR));
+    const env = smooth(Math.min(1, i / (atk * SR)));
     emit(bus, i0 + i, v * env * gain * tailFade(i, n), pan, sp, side, dly);
     if (wig || wigDrift) {
       const u = i / SR;
@@ -941,8 +1052,11 @@ const S = {
   spread:    [64, 76],    // VI   it travels; the unison comes apart
   whole:     [76, 96],    // VII  the complete four-line chorus, at home
   recognise: [96, 104],   // VIII peel off
-  humans:    [104, 112],  // IX   drums out, the original recording returns
-  carrieroff:[112, 120],  // X    the drone leaves; the beeps outlast it
+  carrieroff:[104, 112],  // IX   the drone leaves; the beeps outlast it
+  // (v10.1: THE HUMANS is gone — @jeffrey: "remove the ending section at
+  // 3:00 where it's no longer sung … i don't like when vocals skip
+  // aesthetivox and feel too raw". The reveal act was the one place the
+  // record played the untreated recording; the record no longer does.)
 };
 const ACTS = {
   carrier: "I · CARRIER — a channel opens before anything is said",
@@ -953,8 +1067,7 @@ const ACTS = {
   spread: "VI · IT SPREADS — the unison comes apart; the wiggle is at its widest",
   whole: "VII · THE WHOLE MESSAGE — the complete chorus, and the harmony comes home",
   recognise: "VIII · RECOGNITION — elements peel off one at a time",
-  humans: "IX · THE HUMANS — the original recording: this was all made of eight seconds",
-  carrieroff: "X · CARRIER OFF — the drone leaves, the beeps outlast it, then a hang-up",
+  carrieroff: "IX · CARRIER OFF — the drone leaves, the beeps outlast it, then a hang-up",
 };
 const inS = (bar, k) => bar >= S[k][0] && bar < S[k][1];
 const sectionAt = (bar) => Object.keys(S).find((k) => inS(bar, k)) ?? "carrieroff";
@@ -963,7 +1076,7 @@ const sectionAt = (bar) => Object.keys(S).find((k) => inS(bar, k)) ?? "carrierof
 const introBar = (b) => b >= 8 && b < 16;
 const sosBar = (b) => b >= 16 && b < 24;
 
-const kickOn = (b) => !(inS(b, "carrier") || inS(b, "secret") || inS(b, "humans") || inS(b, "carrieroff"));
+const kickOn = (b) => !(inS(b, "carrier") || inS(b, "secret") || inS(b, "carrieroff"));
 const hatOn = (b) => kickOn(b) || inS(b, "secret");
 const dense = (b) => inS(b, "reply") || inS(b, "whole");
 const hookSection = (b) => inS(b, "message") || inS(b, "reply") || inS(b, "recognise");
@@ -984,7 +1097,7 @@ function degAt(bar) {
 // narrative rather than just extra material: act VI is called IT SPREADS,
 // and what spreads is literally this — the same word, said by different
 // people in different months across 2022, arriving from the edges of the
-// stereo field. Act IX then gives the sung one to the humans.
+// stereo field.
 //
 // Verified present before use; if alt/ has not been harvested the score
 // simply skips these lines.
@@ -993,8 +1106,126 @@ const ALT_CULTS = [
   ["alt-71244-cult", 0.41, 229], ["alt-70551-cult", 0.43, 136],
   ["alt-71441-cult", 0.52, 207], ["alt-71195-cult", 0.54, 121],
 ];
-const ALT_SUNG = "alt-71448-cult";                 // 0.80 s, 298 Hz, actually sung
-const ALT_THREE = "alt-71441-threeofus";           // 0.95 s, 221 Hz, sung
+// (v10.1: ALT_SUNG / ALT_THREE left with THE HUMANS act — the raw takes
+// they pointed at are exactly the "skips aesthetivox, feels too raw"
+// vocals the revision removes.)
+
+// ── THE DOTS, FROM EVERYWHERE ─────────────────────────────────────────
+// v10.1: @jeffrey — "in the opening we should have lots of the 'dot dot
+// dot' … from all the videos … samples and aesthetivoxed … to blend in
+// with the phone tones". Every harvested post that says "dot" is here,
+// grouped BY POST so one video can speak a whole morse S in its own voice
+// — nine posts, twenty-two takes — and the aesthetivox bank answers with
+// the same syllable resynthesized to a pitch. That pairing is how a human
+// dot blends into a machine's: the raw take carries the room, the sung
+// take carries the chord, and both ride the signal layer's echo and its
+// dial-tone pan positions.
+const ALT_DOTS = [
+  ["alt-70551-dot1", "alt-70551-dot2"],
+  ["alt-70555-dot1", "alt-70555-dot2", "alt-70555-dot3"],
+  ["alt-71018-dot1", "alt-71018-dot2", "alt-71018-dot3"],
+  ["alt-71195-dot1", "alt-71195-dot2", "alt-71195-dot3"],
+  ["alt-71244-dot1", "alt-71244-dot2", "alt-71244-dot3"],
+  ["alt-71437-dot1", "alt-71437-dot2"],
+  ["alt-71441-dot1", "alt-71441-dot2", "alt-71441-dot3"],
+  ["alt-71448-dot"],
+  ["alt-71560-dot1", "alt-71560-dot2"],
+];
+
+// The aesthetivoxed dots — bin/sing.mjs's WORLD renders, one syllable at
+// a real pitch per performer — keyed the way choirFor keys the choir:
+// keep the bank names whose pitch class sits in the current triad.
+const DOT_PITCH = {
+  "dot-j-b2": 47, "dot-j-d3": 50, "dot-j-e3": 52, "dot-j-fs3": 54,
+  "dot-j-g3": 55, "dot-j-a3": 57,
+  "dot-a-fs3": 54, "dot-a-g3": 55, "dot-a-a3": 57, "dot-a-b3": 59,
+  "dot-a-d4": 62, "dot-a-e4": 64,
+  "dot-c-b3": 59, "dot-c-cs4": 61, "dot-c-d4": 62, "dot-c-e4": 64,
+  "dot-c-fs4": 66, "dot-c-g4": 67, "dot-c-a4": 69,
+};
+function dotsFor(deg) {
+  const pcs = new Set(triad(deg).map((m) => ((m % 12) + 12) % 12));
+  const ok = Object.keys(DOT_PITCH)
+    .filter((n) => has(n) && pcs.has(DOT_PITCH[n] % 12))
+    .sort((a, b) => DOT_PITCH[a] - DOT_PITCH[b]);
+  return ok.length ? ok : ["dot-b3"];
+}
+
+// One video says ONE dot, held long. @jeffrey heard the first pass
+// (three-dot morse figures, two or three a bar, DTMF shadows) and called
+// it: "too chaotic … wayyyy less of them … all extended a lot … more in
+// the background" — then heard the granular stretch and called that too:
+// "more smoooooth … lessss choppy in their slowness". So the long dots
+// are now REAL held notes: bin/longdots.sh runs each video's take through
+// the WORLD chain (sing.py duration control — the vowel sustains, the
+// consonant stays a consonant) at its own measured pitch snapped into
+// B minor, and this function simply plays that render with a slow wiggle.
+// The granular stretch survives only as the fallback for an unbuilt bank.
+// Per-video pitch of the altdot-*-long renders (longdots.sh's snap), so
+// callers can deepen register-aware: `deep` drops any take above B3 by an
+// octave — same pitch class, key-safe, twice the length, half the light.
+const ALT_DOT_MIDI = [59, 47, 55, 47, 61, 59, 62, 66, 61];
+function dotDrift(t, vid, {
+  gain = 0.16, pan = 0, dur = 1.6, stretch = 4.5, dly = 0.5, dark = 0.45, semis = 0, deep = false,
+} = {}) {
+  const takes = ALT_DOTS[((vid % ALT_DOTS.length) + ALT_DOTS.length) % ALT_DOTS.length].filter(has);
+  if (!takes.length) return;
+  const long = `altdot-${takes[0].split("-")[1]}-long`;
+  const vi = ((vid % ALT_DOTS.length) + ALT_DOTS.length) % ALT_DOTS.length;
+  const dsemis = semis + (deep && ALT_DOT_MIDI[vi] >= 59 ? -12 : 0);
+  if (has(long)) {
+    sung(long, t, {
+      gain: gain * 1.15 * vel(0.12), pan, semis: dsemis, side: 0.85, dark, dly,
+      wig: 6, wigHz: 0.5 + 0.3 * (vid % 3), wigPhase: vid * 1.9, wigDrift: (vid % 2 ? -4 : 4), wigIn: 0.8,
+    });
+    return;
+  }
+  let pick = takes[0];
+  for (const nm of takes) if (BANK[nm].length > BANK[pick].length) pick = nm;
+  stretched(pick, t, { gain: gain * vel(0.12), pan, semis, stretch, dur, side: 0.85, dark, dly });
+}
+
+// …and the aesthetivoxed kind: one performer's dot held at a chord tone.
+// The 0.2 s staccato sung/dot-* bank chops when slowed, so longdots.sh
+// renders voxdot-* — the same takes through the WORLD chain, held 1.7 s —
+// and this picks whichever sits in the current triad. @jeffrey: "lets
+// start with just camille and alex on dots … no jeffrey voice" — so the
+// drift is Camille and Alex only, everywhere. Stretch fallback only for
+// an unbuilt bank.
+const VOXDOT_PITCH = {
+  "voxdot-j-b2": 47, "voxdot-j-fs3": 54, "voxdot-a-a3": 57,
+  "voxdot-a-d4": 62, "voxdot-c-b3": 59, "voxdot-c-fs4": 66,
+};
+function dotDriftVox(t, bar, {
+  gain = 0.14, pan = 0, dur = 1.4, stretch = 3.8, dly = 0.45, dark = 0.35, semis = 0,
+} = {}) {
+  const pcs = new Set(triad(degAt(bar)).map((m) => ((m % 12) + 12) % 12));
+  const long = Object.keys(VOXDOT_PITCH)
+    .filter((n) => has(n) && pcs.has(VOXDOT_PITCH[n] % 12))
+    .filter((n) => !n.startsWith("voxdot-j"))
+    .flatMap((n) => (n.startsWith("voxdot-c") ? [n, n] : [n]));   // "more camille dots"
+  if (long.length) {
+    const nm = long[Math.abs(bar * 7 + 3) % long.length];
+    sung(nm, t, {
+      gain: gain * 1.15 * vel(0.12), pan, semis, side: 0.8, dark, dly,
+      wig: 5, wigHz: 0.45, wigPhase: bar * 1.3, wigDrift: (bar % 2 ? -3 : 3), wigIn: 0.8,
+    });
+    return;
+  }
+  const bank = dotsFor(degAt(bar));
+  const nm = bank[Math.min(bank.length - 1, bank.length >> 1)];
+  stretched(nm, t, { gain: gain * vel(0.12), pan, stretch, dur, side: 0.8, dark, dly });
+}
+
+// v10.1's other ask: @jeffrey — "remove 'i wanna hide away' and 'i wanna
+// run real fast' until the end". The loop keeps looping, but before act
+// VII its two WORDED lines are withheld: every early statement is
+// morse-only — the dash lines, the dot lines — with dot figures standing
+// exactly where the words will land. Act VII was always titled "the whole
+// message the record has been withholding"; now the record actually
+// withholds it, and the first time anyone says what they wanna do is the
+// moment the harmony comes home at bar 76.
+const wordsIn = (bar) => bar >= S.whole[0];
 
 let seed = 20220120;                                   // the cult post date
 const rnd = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296);
@@ -1009,7 +1240,7 @@ const vel = (spread = 0.20) => 1 - rnd() * spread;
 function wigDepth(bar) {
   const s = sectionAt(bar);
   return { three: 4, message: 10, secret: 7, reply: 16, spread: 22,
-    whole: 14, recognise: 9, humans: 6, carrieroff: 5, carrier: 0 }[s] ?? 10;
+    whole: 14, recognise: 9, carrieroff: 5, carrier: 0 }[s] ?? 10;
 }
 
 // One syllable, three people, one pitch, 28 ms apart — and now each of them
@@ -1052,14 +1283,25 @@ function hook(bar, { full = true } = {}) {
   const t = at(bar);
   const G = full ? 1.0 : 0.70;
   dashStack(t + 0.00, "fs4", G, bar);
-  sung("iwanna-a-sung", t + 1.50 + jit(4), { gain: 0.82 * G, pan: -0.18, side: 0.50, dly: 0.20 });
+  sung(has("iwannaslow-a") ? "iwannaslow-a" : "iwanna-a-sung", t + 1.42 + jit(4), { gain: 0.70 * G, pan: -0.18, side: 0.50, dly: 0.24, atk: 0.05 });
   dashStack(t + 2.00, "d4", G * 0.95, bar);
-  sung("iwanna-b-sung", t + 3.50 + jit(4), { gain: 0.82 * G, pan: 0.18, side: 0.50, dly: 0.20 });
+  sung(has("iwannaslow-b") ? "iwannaslow-b" : "iwanna-b-sung", t + 3.42 + jit(4), { gain: 0.70 * G, pan: 0.18, side: 0.50, dly: 0.24, atk: 0.05 });
   // The long-"real" take — run · reeeeeaaaal (2.0 s) · fast. At 2.80 s it
   // rings on under the dot answers at +6.00, which is the point.
-  sungSub("runrealfast-long-hi", t + 4.00 + jit(4), { gain: 0.96 * G, pan: 0.00, side: 0.45, dly: 0.26 }, { amount: 0.30 });
-  sung("dot-b3", t + 6.00 + jit(3), { gain: 0.90 * G, pan: -0.45, side: 0.75, dly: 0.38 });
-  sung("dot-fs3", t + 6.50 + jit(3), { gain: 0.90 * G, pan: 0.45, side: 0.75, dly: 0.38 });
+  // Withheld before act VII: one aesthetivoxed dot stretched across the
+  // slot instead — the length of the line with none of its words.
+  if (wordsIn(bar)) {
+    // same diction fix as the chorus: syllabic take first, melisma under
+    sungSub("runrealfast-hi", t + 4.00 + jit(4), { gain: 1.26 * G, pan: 0.00, side: 0.35, dly: 0.10 }, { amount: 0.30 });
+    sung("runrealfast-long-hi", t + 4.80 + jit(4), { gain: 0.50 * G, pan: -0.10, side: 0.60, dly: 0.35 });
+  }
+  else {
+    dotDriftVox(t + 4.00 + jit(20), bar, { gain: 0.30 * G, pan: 0.10, dur: 1.9, stretch: 4.2, dly: 0.35, dark: 0.30 });
+    bop(t + 5.50 + jit(4), hz(triad(degAt(bar))[0] + 12),
+      { gain: 0.20 * G, pan: -0.28, side: 0.7, dly: 0.40 });
+  }
+  sung("dot-b3", t + 6.00 + jit(3), { gain: 0.76 * G, pan: -0.45, side: 0.75, dly: 0.38, atk: 0.025 });
+  sung("dot-fs3", t + 6.50 + jit(3), { gain: 0.76 * G, pan: 0.45, side: 0.75, dly: 0.38, atk: 0.025 });
   if (full) sung("dot-d4", t + 7.00, { gain: 0.34 * G, pan: 0.0, side: 0.60, dly: 0.55 });
 }
 
@@ -1090,29 +1332,55 @@ function chorus(bar, {
   const both = lead === "both", lo = lead === "lo";
 
   // ── line 1 · "run real fast" ──────────────────────────────────────────
-  if (!gone.has(1)) {
+  // (withheld before act VII: one stranger's dot, stretched across the
+  // slot where the words will land — background, not statement)
+  if (!gone.has(1) && !wordsIn(bar)) {
+    dotDrift(t + 0.30 + jit(20), bar >> 3, {
+      gain: 0.26 * G, pan: -0.30, dur: 1.5, stretch: 4.0, dly: 0.40, dark: 0.35,
+    });
+  } else if (!gone.has(1)) {
     if (fast) {
       for (const [k, oct] of [[0.00, "hi"], [1.00, "lo"]])
         sung(`runrealfast-fast-${oct}`, t + k + jit(3),
-          { gain: (oct === "hi" ? 0.92 : 0.70) * G, pan: oct === "hi" ? -0.14 : 0.14, side: 0.5, dly: 0.22 });
+          { gain: (oct === "hi" ? 1.25 : 0.95) * G, pan: oct === "hi" ? -0.12 : 0.12, side: 0.42, dly: 0.12 });
     } else if (lo) {
-      sung("runrealfast-long-lo", t + jit(4), { gain: 0.94 * G, pan: 0.00, side: 0.45, dly: 0.22 });
+      sung("runrealfast-long-lo", t + jit(4), { gain: 1.30 * G, pan: 0.00, side: 0.40, dly: 0.12 });
     } else {
-      sungSub("runrealfast-long-hi", t + jit(4), { gain: 0.96 * G, pan: both ? -0.10 : 0.00, side: 0.5, dly: 0.24 }, { amount: 0.32 });
-      if (both) sung("runrealfast-long-lo", t + 0.022 + jit(4), { gain: 0.58 * G, pan: 0.16, side: 0.45, dly: 0.20 });
+      // v10.1 fourth pass. @jeffrey, three listens running: "still can't
+      // hear the run real fast words". The level was never the problem —
+      // the LONG take is a melisma ("run reeeeaaal faaast", 2.3 s of held
+      // vowel, barely a consonant in it), so every boost was boosting a
+      // drone. The syllabic take SAYS the line now, dry and center, and
+      // the melisma enters under it a beat later as the vowel it always
+      // was.
+      sungSub("runrealfast-hi", t + jit(4), { gain: 1.30 * G, pan: 0.00, side: 0.35, dly: 0.10 }, { amount: 0.30 });
+      sung("runrealfast-long-hi", t + 0.80 + jit(4), { gain: 0.55 * G, pan: both ? -0.14 : -0.08, side: 0.60, dly: 0.30 });
+      if (both) sung("runrealfast-long-lo", t + 0.84 + jit(4), { gain: 0.44 * G, pan: 0.16, side: 0.55, dly: 0.28 });
     }
   }
 
   // ── line 2 · "i wanna hide a — waaaay" ────────────────────────────────
-  if (!gone.has(2)) {
-    sung(lo ? "iwannahide-lo" : "iwannahide-hi", t + 2.00 + jit(4), { gain: 0.86 * G, pan: -0.14, side: 0.5, dly: 0.20 });
-    if (both) sung("iwannahide-lo", t + 2.022 + jit(4), { gain: 0.52 * G, pan: 0.18, side: 0.45, dly: 0.20 });
-    // the held vowel the line was written for: tube bus, deep pump
-    held(lo ? "away-lo" : "away-hi", t + 3.00 + jit(3), {
-      gain: 0.86 * G, pan: -0.06, side: 0.62, dly: 0.26,
+  // (withheld before act VII: one aesthetivoxed dot, stretched where the
+  // held vowel would have been, and a bop takes the vowel's peak)
+  if (!gone.has(2) && !wordsIn(bar)) {
+    dotDriftVox(t + 2.20 + jit(20), bar, { gain: 0.22 * G, pan: 0.24, dur: 1.4, stretch: 3.8, dly: 0.40 });
+    bop(t + 3.00 + jit(4), hz(triad(degAt(bar))[1] + 12),
+      { gain: 0.22 * G, pan: -0.20, side: 0.7, dly: 0.40 });
+  } else if (!gone.has(2)) {
+    // v10.1 third pass. The granular stretch smeared the words ("feels
+    // broken … kept the 'i wanna', lost the hide away") — so no stretcher
+    // anywhere near this line. The hideaway take (no pickup: F#4→G4→A4,
+    // its own 1.3 s held tail) sings CLEAN with a resampled sub floor,
+    // and the "much longerrrrr" comes from real vowels relaying under it:
+    // away-hi picks the vowel up mid-ring, away-lo hands it down the
+    // octave, so the waaaay carries four-plus seconds into the dash line
+    // without a single grain.
+    sungSub("hideaway-hi", t + 2.00 + jit(4), { gain: 0.94 * G, pan: -0.10, side: 0.5, dly: 0.24 }, { amount: 0.30 });
+    held("away-hi", t + 3.45 + jit(3), {
+      gain: 0.80 * G, pan: -0.06, side: 0.62, dly: 0.26,
       wig: wigDepth(bar) * 0.8, wigHz: 4.9, wigPhase: 1.1, wigDrift: 0.3 * wigDepth(bar), wigIn: 0.55,
     });
-    if (both) held("away-lo", t + 3.026 + jit(3), {
+    if (both) held("away-lo", t + 4.20 + jit(3), {
       gain: 0.52 * G, pan: 0.22, side: 0.62, dly: 0.26,
       wig: wigDepth(bar) * 0.9, wigHz: 6.3, wigPhase: 3.4, wigDrift: -0.35 * wigDepth(bar), wigIn: 0.48,
     });
@@ -1120,7 +1388,14 @@ function chorus(bar, {
 
   // ── line 3 · "i wanna dash" ───────────────────────────────────────────
   if (!gone.has(3)) {
-    sung("iwanna-c-sung", t + 4.00 + jit(4), { gain: 0.84 * G, pan: 0.18, side: 0.5, dly: 0.20 });
+    // v10.1: "no 'i wanna' until after 0:40" — the first statement (bar 24
+    // lands at 0:32 shipped) keeps only its dash; the pickup starts
+    // singing from the first hook at 0:41 on. And the pickup itself is
+    // the slowed take: "could be slowed a bit more, like faded … its
+    // sorta rushed" (longdots.sh renders iwannaslow-* 1.5x with a soft
+    // attack; faded = a shade lower, a shade wetter).
+    if (at(bar) >= 54)
+      sung(has("iwannaslow-c") ? "iwannaslow-c" : "iwanna-c-sung", t + 3.92 + jit(4), { gain: 0.72 * G, pan: 0.18, side: 0.5, dly: 0.24, atk: 0.05 });
     dashStack(t + 4.50, "d4", G * 0.98, bar);
   } else {
     // dropped: the bar becomes one long dash — v3's chorus4 move
@@ -1129,30 +1404,38 @@ function chorus(bar, {
 
   // ── line 4 · "dot dot dash" ───────────────────────────────────────────
   if (!gone.has(4)) {
-    sung("dot-c-b3", t + 6.00 + jit(3), { gain: 0.90 * G, pan: -0.45, side: 0.75, dly: 0.36 });
-    sung("dot-j-g3", t + 6.50 + jit(3), { gain: 0.86 * G, pan: 0.45, side: 0.75, dly: 0.36 });
+    // "the dot dot at 32 is too abrupt" — the staccato dots enter on a
+    // 30 ms cosine instead of a cliff, a shade lower
+    sung("dot-c-b3", t + 6.00 + jit(3), { gain: 0.74 * G, pan: -0.45, side: 0.75, dly: 0.36, atk: 0.03 });
+    sung("dot-j-g3", t + 6.50 + jit(3), { gain: 0.70 * G, pan: 0.45, side: 0.75, dly: 0.36, atk: 0.03 });
     dashStack(t + 7.00, "b3", G * 0.92, bar);
   }
 
   // ── the answer figure — a different one each statement ────────────────
   if (answer === "dots") {
-    for (const [k, nm, pan] of [[1.30, "dot-c-b3", 0.38], [1.65, "dot-j-g3", -0.38]])
-      sung(nm, t + k + jit(4), { gain: 0.30 * G, pan, side: 0.8, dly: 0.5 });
+    sung("dot-c-b3", t + 1.30 + jit(4), { gain: 0.30 * G, pan: 0.38, side: 0.8, dly: 0.5, atk: 0.02 });
+    sung(has("voxdot-c-b3") ? "voxdot-c-b3" : "dot-c-d4", t + 1.65 + jit(4),
+      { gain: 0.26 * G, pan: -0.38, side: 0.8, dly: 0.5, atk: 0.03 });
   } else if (answer === "sos") {
     for (const [k, nm] of [[0, "dot-b3"], [1, "dot-fs3"], [2, "dot-d4"]])
       sung(nm, t + 1.20 + k * 0.25 + jit(3),
         { gain: 0.26 * G, pan: k === 1 ? 0 : k ? 0.4 : -0.4, side: 0.85, dly: 0.55 });
   }
 
-  // a tag in the last bar: the double-time line as punctuation
-  if (tag === "fast")
-    for (const [k, oct] of [[0.00, "hi"], [0.50, "lo"]])
-      sung(`runrealfast-fast-${oct}`, t + 7.0 + k + jit(3), {
-        gain: (oct === "hi" ? 0.44 : 0.34) * G, pan: oct === "hi" ? 0.3 : -0.3,
-        side: 0.7, dly: 0.45,
-      });
+  // a tag in the last bar: the double-time line as punctuation — or, while
+  // the words are withheld, one quiet drifting dot closing the statement
+  if (tag === "fast") {
+    if (wordsIn(bar))
+      for (const [k, oct] of [[0.00, "hi"], [0.50, "lo"]])
+        sung(`runrealfast-fast-${oct}`, t + 7.0 + k + jit(3), {
+          gain: (oct === "hi" ? 0.54 : 0.42) * G, pan: oct === "hi" ? 0.3 : -0.3,
+          side: 0.7, dly: 0.45,
+        });
+    else
+      dotDrift(t + 7.0 + jit(20), bar >> 2, { gain: 0.18 * G, pan: 0.30, dur: 0.95, stretch: 3.0, dly: 0.45, dark: 0.40 });
+  }
 
-  if (choirUnder) choir(bar, 0.30 * G);
+  if (choirUnder) choir(bar, 0.18 * G);
 }
 
 // ── THE SOS FIGURE ────────────────────────────────────────────────────
@@ -1168,21 +1451,151 @@ function sos(bar, g = 1) {
     sung(n, t + 6.5 + k * BEAT + jit(3), { gain: 0.64 * g, pan: p, side: 0.78, dly: 0.42 });
 }
 
-// The choir: sung "cult" held four seconds at three chord tones, 45 ms
-// apart — which is itself a crossover, so it gets a small slow drift.
+// The choir: sung "cult" held at three chord tones, 45 ms apart — which
+// is itself a crossover, so it gets a small slow drift. v10.1: prefers
+// the cultlong-* renders (5 s + 900 ms release, longdots.sh) so the chord
+// decays under whatever comes next instead of stopping at four seconds —
+// @jeffrey: "much longer decay … so they don't cut off when the perc and
+// kicks come back".
+const cultTake = (nm) => (has(`cultlong-${nm}`) ? `cultlong-${nm}` : `cult-${nm}`);
 function choir(bar, g) {
   const t = at(bar);
   const picks = choirFor(degAt(bar));
   const gains = [0.46, 0.38, 0.30], pans = [0.0, -0.50, 0.50], sides = [0.40, 0.85, 0.85];
   const w = Math.min(7, wigDepth(bar) * 0.4);
-  picks.forEach((nm, i) => sung(`cult-${nm}`, t + i * 0.045, {
+  picks.forEach((nm, i) => sung(cultTake(nm), t + i * 0.045, {
     gain: g * (gains[i] ?? 0.28), pan: pans[i] ?? 0, side: sides[i] ?? 0.7, dark: 0.32,
     wig: w, wigHz: 0.7 + 0.25 * i, wigPhase: i * 2.3, wigDrift: (i % 2 ? -1 : 1) * w * 0.6, wigIn: 1.2,
   }));
+  // v10.1: "downpitched / lower octaves … maybe get chordal" — the slow
+  // harmonies grow a floor: the root take an octave below itself, dark
+  // and centered, so the chord stands on something.
+  sung(cultTake(picks[0]), t + 0.09, {
+    gain: g * 0.55, semis: -12, dark: 0.52, side: 0.28, pan: 0,
+    wig: w * 0.5, wigHz: 0.5, wigIn: 1.6, evVoice: "sub",
+  });
+}
+
+// v10.1: @jeffrey — "flange the harmonies more around 1:15 … have them
+// sit much deeper in the mix". The act-IV cult stacks: each voice gets a
+// twin seven milliseconds behind itself carrying a slow deep wiggle the
+// original doesn't share — two copies of one take drifting through each
+// other IS a tape flange — and the whole stack drops ~4 dB, darker and
+// wetter, so the sweep happens BEHIND the record instead of in front.
+function secretChoir(bar, beat, gains, phase = 0) {
+  const picks = choirFor(degAt(bar));
+  const pans = [0, -0.46, 0.46], sides = [0.40, 0.85, 0.85];
+  picks.forEach((nm, i) => {
+    const o = {
+      gain: (gains[i] ?? 0.30) * 0.62, pan: pans[i] ?? 0,
+      side: sides[i] ?? 0.7, dark: 0.45, dly: 0.42,
+    };
+    sung(cultTake(nm), at(bar, beat) + i * 0.045, {
+      ...o, wig: 5, wigHz: 0.6 + 0.2 * i, wigPhase: phase + i * 2.3, wigDrift: (i % 2 ? -3 : 3), wigIn: 1.4,
+    });
+    sung(cultTake(nm), at(bar, beat) + i * 0.045 + 0.007, {
+      ...o, gain: o.gain * 0.85,
+      wig: 11, wigHz: 0.33, wigPhase: phase + 2.4 + i * 1.7, wigDrift: (i % 2 ? 9 : -9), wigIn: 0.8,
+    });
+  });
+  sung(cultTake(picks[0]), at(bar, beat) + 0.09, {
+    gain: (gains[0] ?? 0.5) * 0.38, semis: -12, dark: 0.55, side: 0.28, pan: 0, dly: 0.42,
+    evVoice: "sub",
+  });
+}
+
+// v10.1: @jeffrey — "can the distant blips and such change in their
+// melody and counterpoint". The bops stop repeating one chord tone and
+// walk a counterline: a per-bar degree chosen against the bass root in
+// loose contrary motion, rotated a step every eight bars, so the phone's
+// little answers form a tune of their own across the record.
+const BLIP_LINE = [2, 4, 6, 4, 2, 0, 5, 3];
+const blipMidi = (bar, k = 0) =>
+  71 + sd(degAt(bar) + ((BLIP_LINE[(bar + k * 3) % 8] + (bar >> 3)) % 7));
+
+// …and the phone knows the song: the four-line chorus melody as single
+// sine beeps on the signal bus — "dance the 'original cult melody' with
+// the phone, as a decoration. thatd be cute". Two bars, up an octave,
+// swung wide across the field.
+const PHONE_TUNE = [
+  [0.00, 67], [0.50, 66], [1.00, 62],       // run real fast
+  [2.00, 62], [2.50, 64], [3.00, 66],       // i wanna hide
+  [4.00, 67], [4.75, 69],                   // a — waaay
+  [6.00, 59], [6.50, 55], [7.00, 59],       // dot · dot · dash
+];
+function phoneTune(bar, g = 0.26) {
+  PHONE_TUNE.forEach(([k, m], i) =>
+    beep(at(bar) + k * BEAT + jit(6), hz(m + 12), 0, 0.11,
+      { gain: g * vel(0.2), pan: i % 2 ? 0.4 : -0.4, side: 0.85, dly: 0.45 }));
+}
+
+// v10.1: @jeffrey heard the reply's deep-wiggled dash line at 1:42 and
+// called it "an awesome almost 'indian' sounding vocal — any way we can
+// examine that technique / stretch it". What he heard was the crossover
+// wiggle at depth 16 bending a held dash: vibrato wide enough to read as
+// ornament — a gamaka, near enough. raga() leans in: the LONG dash take
+// at a chord tone, wiggle twice as deep and slower, with a drift that
+// slides it toward the next scale tone and back — the bend made melody.
+const DASHLONG_PITCH = { b3: 59, d4: 62, e4: 64, fs4: 66 };
+function raga(bar, beat, g = 0.42) {
+  const pcs = new Set(triad(degAt(bar)).map((m) => ((m % 12) + 12) % 12));
+  const ok = Object.keys(DASHLONG_PITCH)
+    .filter((n) => has(`dashlong-camille-${n}`) && pcs.has(DASHLONG_PITCH[n] % 12));
+  const nm = ok.length ? ok[bar % ok.length] : "b3";
+  const w = Math.max(24, wigDepth(bar) * 1.8);
+  held(`dashlong-camille-${nm}`, at(bar, beat) + jit(8), {
+    gain: g, pan: bar % 2 ? 0.24 : -0.24, side: 0.7, dly: 0.30,
+    wig: w, wigHz: 3.1, wigPhase: bar * 1.7, wigDrift: (bar % 2 ? -1 : 1) * w * 1.4, wigIn: 0.35,
+  });
+}
+
+// v10.1: @jeffrey stopped at 1:37 — the reply statement's line-4 dots
+// colliding with the stranger's sung F#4, a voxdot, and jeffrey's low
+// dot-j-g3 — "whats the jeffrey vocal? can we try extending that
+// crazyness for like 10 seconds or so?" So the collision becomes a
+// passage: dotCloud() keeps the cluster alive — held stranger dots,
+// camille/alex voxdots, and jeffrey's g3 answering every ~0.7–0.9 s,
+// each wiggling at its own rate. Ten seconds of the chord being said
+// as people.
+function dotCloud(t0, dur = 10) {
+  const picks = [
+    ["altdot-71448-long", 0.26], ["voxdot-c-fs4", 0.22], ["dot-j-g3", 0.30],
+    ["altdot-71437-long", 0.24], ["voxdot-a-d4", 0.22], ["dot-c-b3", 0.26],
+    ["altdot-70551-long", 0.22], ["voxdot-c-b3", 0.22], ["dot-j-g3", 0.26],
+    ["altdot-71441-long", 0.22], ["voxdot-a-a3", 0.20], ["dot-c-b3", 0.24],
+  ];
+  let u = 0;
+  for (let k = 0; u < dur; k++) {
+    const [nm, g] = picks[k % picks.length];
+    if (has(nm)) sung(nm, t0 + u + jit(30), {
+      gain: g * vel(0.2), pan: ((k * 5) % 7 - 3) / 4, side: 0.8, dark: 0.25, dly: 0.38,
+      wig: 8 + (k % 3) * 4, wigHz: 0.4 + (k % 4) * 0.9, wigPhase: k * 1.7,
+      wigDrift: (k % 2 ? -6 : 6), wigIn: 0.5,
+    });
+    u += 0.7 + ((k * 37) % 5) * 0.05;
+  }
+}
+
+// v10.1: @jeffrey — "i want more camille dots … dots should be more
+// extended usually … and i think some arpeggiated dot dot dot dot dot
+// dot would be fun, like full scaled at times". Camille's sung dot bank
+// happens to hold the entire B natural minor scale from B3 to A4 —
+// seven takes, one per degree — so dotArp() literally runs the scale as
+// syllables, up or down, lightly swung, softened attacks.
+const CAM_SCALE = ["b3", "cs4", "d4", "e4", "fs4", "g4", "a4"];
+function dotArp(t, { count = 5, up = true, gap = 0.16, gain = 0.34, pan = 0.2, dly = 0.34 } = {}) {
+  for (let k = 0; k < count; k++) {
+    const nm = `dot-c-${CAM_SCALE[up ? k % 7 : 6 - (k % 7)]}`;
+    if (!has(nm)) continue;
+    sung(nm, t + k * gap + jit(4) + (k % 2 ? 0.012 : 0), {
+      gain: gain * (1 - 0.05 * k) * vel(0.15), pan: pan * (k % 2 ? -1 : 1),
+      side: 0.7, dly, atk: 0.012,
+    });
+  }
 }
 
 // ── score ─────────────────────────────────────────────────────────────
-console.log(`→ scoring ${BARS} bars @ ${BPM} BPM · B minor · ten acts · ${(BARS * BAR).toFixed(1)}s`);
+console.log(`→ scoring ${BARS} bars @ ${BPM} BPM · B minor · ${Object.keys(S).length} acts · ${(BARS * BAR).toFixed(1)}s`);
 
 for (let bar = 0; bar < BARS; bar++) {
   const t = at(bar);
@@ -1231,9 +1644,36 @@ for (let bar = 0; bar < BARS; bar++) {
     for (let s = 0; s < 4; s++)
       shot("tambo", t + (s + 0.5) * BEAT + jit(9), { gain: 0.055 * vel(0.4), pan: s & 1 ? 0.42 : -0.42, side: 0.7, dur: 0.09 });
 
+  // ---- v10.1: "i want more perc play" — ghosts, blocks, a turnaround ---
+  // The kit stops just keeping time and starts commenting on it: ghost
+  // snares off the beat, a woodblock conversation through the dense acts,
+  // and a climbing three-hit fill into every eighth bar.
+  if (kickOn(bar)) {
+    if (D || eight >= 4) {
+      snare(t + 1.25 * BEAT + jit(6), 0.22 * vel(0.3));
+      if (bar % 2) snare(t + 2.75 * BEAT + jit(6), 0.16 * vel(0.3));
+    }
+    if (D)
+      for (const s of [0.75, 1.5, 3.25])
+        if ((bar + s * 4) % 3 < 2)
+          shot("block", t + s * BEAT + jit(8), { gain: 0.10 * vel(0.4), pan: s > 2 ? 0.5 : -0.34, side: 0.7, dur: 0.09 });
+    if (eight === 7) {
+      for (let k = 0; k < 3; k++)
+        snare(t + (3 + k / 3) * BEAT + jit(4), (0.30 + 0.14 * k) * vel(0.2));
+      shot("hatO", t + 3.9 * BEAT, { gain: 0.16, pan: 0.2, side: 0.6, dur: 0.3 });
+    }
+  }
+
+  // ---- v10.1: the re-entries announce themselves — a reversed kick
+  // rising into the downbeat, then two bars of wub under the groove.
+  if (bar === S.reply[0] || bar === S.whole[0])
+    revKick(t, 0.9, bar === S.whole[0] ? 0.55 : 0.48);
+  if ((inS(bar, "reply") && bar - S.reply[0] < 2) || bar === S.whole[0] - 2 || bar === S.whole[0] - 1)
+    wub(t, bassRoot(deg), 1, 0.26, 4);   // whole: the wub BUILDS INTO the words, then clears out for them
+
   // ---- bass -------------------------------------------------------------
   if (kickOn(bar) || inS(bar, "secret")) {
-    const g = introBar(bar) ? 0.52 : inS(bar, "secret") ? 0.44 : inS(bar, "recognise") ? 0.72 : 0.86;
+    const g = introBar(bar) ? 0.52 : inS(bar, "secret") ? 0.62 : inS(bar, "recognise") ? 0.72 : 0.86;
     for (let b = 0; b < 4; b++) {
       const fifth = four === 3 && b === 3;
       bass(t + (b + 0.5) * BEAT + jit(3), root + (fifth ? 7 : 0), 0.26, g, fifth ? root : null);
@@ -1265,10 +1705,32 @@ for (let bar = 0; bar < BARS; bar++) {
     if (bar % 4 === 3) tap(at(bar, 3.5), { gain: 0.30, pan: 0.3, side: 0.7, dly: 0.3 });
   }
 
-  // ══ ACT II · THE MACHINE ALONE ═══════════════════════════════════════
-  // v10: no words, no voices — sixteen bars of kick, ticking and dial.
-  // The channel dials C-U-L-T over the groove (act I's idea, relocated),
-  // and the ear gets nothing human to hold until "run real fast" at 24.
+  // ══ ACT II · THE MACHINE ALONE — AND A DOT DRIFTING THROUGH ══════════
+  // v10.1 second pass. The first cut of this opening was a morse crowd —
+  // two or three three-dot figures a bar, from every video at once — and
+  // @jeffrey called it: "too chaotic … wayyyy less of them … all extended
+  // a lot … more in the background". So now: sixteen bars of kick, ticking
+  // and dial, with ONE dot at a time drifting behind them — each of the
+  // nine harvested posts gets exactly one appearance across the opening,
+  // its longest take stretched to a two-second sigh, dark, wide, deep in
+  // the dial's echo. You still hear everyone before you hear anyone; you
+  // just hear them the way you hear weather. The words stay withheld
+  // until act VII.
+  if (bar === 8 && has("phone-pickup-a"))
+    // the first gesture on the shipped record: a hand picking up a real
+    // receiver, right under the first kick
+    shot("phone-pickup-a", at(8) + 0.02, { bus: "vox", gain: 0.20, pan: -0.12, side: 0.5, dark: 0.35, dur: 1.4, atk: 0.05, wig: 6, wigHz: 0.8, wigIn: 0.4 });
+  if (bar === 12) phoneTune(bar, 0.20);   // the phone hums the song before anyone sings it
+  if (introBar(bar) && bar % 2 === 0) {
+    const k = (bar - 8) / 2;                       // videos 0–3, one per two bars
+    dotDrift(at(bar, 2.0) + jit(30), k, {
+      gain: 0.09 + 0.007 * k, pan: k % 2 ? 0.40 : -0.40,
+      dur: BAR * 0.85, stretch: 4.5, dly: 0.52, dark: 0.62, deep: true,
+    });
+  }
+  // one aesthetivoxed answer in the whole intro, under the bar-14 unison
+  if (bar === 13)
+    dotDriftVox(at(bar, 2.5) + jit(30), bar, { gain: 0.085, pan: 0.28, dur: BAR * 0.8, stretch: 4.0, dly: 0.5, dark: 0.55, semis: -12 });
   if (introBar(bar)) {
     if (bar % 2 === 0) {
       const digit = CULT_DIAL[(bar / 2) % 4];
@@ -1278,7 +1740,7 @@ for (let bar = 0; bar < BARS; bar++) {
     // ticking: the machine is still on. Clicks on the "e" of every beat.
     for (let s = 0; s < 4; s++)
       if ((s + bar) % 2 === 0) click(t + (s + 0.25) * BEAT + jit(6), { gain: 0.70 * vel(0.4), pan: s & 1 ? 0.4 : -0.4, side: 0.7 });
-    if (bar % 4 === 2) bop(at(bar, 3.5), hz(chord[0] + 12), { gain: 0.30, pan: 0.35, side: 0.7, dly: 0.35 });
+    if (bar % 4 === 2) bop(at(bar, 3.5), hz(blipMidi(bar)), { gain: 0.30, pan: 0.35, side: 0.7, dly: 0.35 });
     // A hand on a surface while the voices arrive: one slow slide per
     // introduction, panned to the performer who is about to speak.
     if (bar % 2 === 0)
@@ -1292,9 +1754,22 @@ for (let bar = 0; bar < BARS; bar++) {
         cut0: 759, cut1: 2300, res0: 103, res1: 214, rough: 0.62 });
   }
   if (sosBar(bar)) {
-    // v10: still nobody speaks. The machine beeps SOS into its own groove
-    // — the question the hook at bar 24 walks in and answers. The sung
-    // morse waits for the voices; the dots exist only as taps and beeps.
+    // v10.1 second pass: the SOS bars keep the drift going — videos 4–7,
+    // still one at a time, one per two bars, a shade closer than the intro
+    // ones so the opening leans forward without ever crowding. The ninth
+    // video speaks last, at bar 23, right before the first chorus: the
+    // final stranger arriving as the loop begins. The machine's beeped SOS
+    // at 20/22 stays the loudest signal in the act.
+    const k = bar - 16;
+    if (bar % 2 === 0)
+      dotDrift(at(bar, 1.5) + jit(30), 4 + k / 2, {
+        gain: 0.12, pan: (k / 2) % 2 ? -0.42 : 0.42,
+        dur: BAR * 0.9, stretch: 4.2, dly: 0.48, dark: 0.58, deep: true,
+      });
+    if (bar === 19)
+      dotDriftVox(at(bar, 2.5) + jit(30), bar, { gain: 0.09, pan: -0.26, dur: BAR * 0.8, stretch: 4.0, dly: 0.5, dark: 0.55, semis: -12 });
+    if (bar === 23)
+      dotDrift(at(bar, 2.0) + jit(30), 8, { gain: 0.13, pan: 0.0, dur: BAR * 0.9, stretch: 4.2, dly: 0.5, dark: 0.55, deep: true });
     if (bar === 20 || bar === 22) beepSOS(at(bar, 1), { gain: 0.50, pan: bar === 20 ? 0.55 : -0.55, dly: 0.40 });
     // taps mark where the dots will be, one bar ahead of the voices
     for (const s of [1.5, 3.5])
@@ -1318,9 +1793,10 @@ for (let bar = 0; bar < BARS; bar++) {
     // the phone keeps time under the hook: a tap on the "and" of 4 and a
     // click pair in the hole the hook leaves at bar 3.
     tap(at(bar, 3.5) + jit(6), { gain: 0.62 * vel(0.3), pan: 0.40, side: 0.7, dly: 0.26 });
+    if (four === 3) dotArp(at(bar, 2.0) + jit(8), { count: 5, up: (bar >> 2) % 2 === 0, gain: 0.30, pan: 0.30 });
     if (four === 3) {
       click(at(bar, 1.0), { gain: 0.50, pan: -0.42, side: 0.7, dly: 0.3 });
-      bop(at(bar, 1.5), hz(chord[1] + 12), { gain: 0.26, pan: 0.42, side: 0.75, dly: 0.4 });
+      bop(at(bar, 1.5), hz(blipMidi(bar, 1)), { gain: 0.26, pan: 0.42, side: 0.75, dly: 0.4 });
       // the drag that hands the next hook its downbeat
       friction(at(bar, 2.4), 1.6, { shape: "drag", gain: 0.46, pan: 0.12, side: 0.22,
         cut0: 819, cut1: 2200, res0: 109, res1: 203, rough: 0.58 });
@@ -1333,24 +1809,17 @@ for (let bar = 0; bar < BARS; bar++) {
   // ══ ACT IV · THE SECRET ══════════════════════════════════════════════
   // The turn. No kick. No beeps at all — the transmission stops, which is
   // the loudest thing in the record — except ONE click at the very top,
-  // which is a receiver being picked up.
-  if (bar === S.secret[0]) click(at(bar, 0) - 0.06, { gain: 0.40, pan: 0, side: 0.35 });
-  if (bar === S.secret[0] || bar === S.secret[0] + 4) {
-    const picks = choirFor(degAt(bar));
-    picks.forEach((nm, i) => sung(`cult-${nm}`, at(bar) + i * 0.045, {
-      gain: [0.62, 0.50, 0.40][i] ?? 0.32, pan: [0, -0.46, 0.46][i] ?? 0,
-      side: [0.40, 0.85, 0.85][i] ?? 0.7, dark: 0.30, dly: 0.26,
-      wig: 5, wigHz: 0.6 + 0.2 * i, wigPhase: i * 2.3, wigDrift: (i % 2 ? -3 : 3), wigIn: 1.4,
-    }));
+  // which is a receiver being picked up. v10.1: it IS one now — a real
+  // handset lifted off a real cradle, with the synth click as its edge.
+  if (bar === S.secret[0]) {
+    click(at(bar, 0) - 0.06, { gain: 0.40, pan: 0, side: 0.35 });
+    if (has("phone-pickup-b"))
+      shot("phone-pickup-b", at(bar, 0) - 0.10, { bus: "vox", gain: 0.17, pan: 0.10, side: 0.45, dark: 0.40, dur: 1.2, atk: 0.04, wig: 6, wigHz: 0.7, wigIn: 0.4 });
   }
-  if (bar === S.secret[0] + 2 || bar === S.secret[0] + 6) {
-    const picks = choirFor(degAt(bar));
-    const gains = [0.52, 0.44, 0.36], pans = [0.0, -0.46, 0.46], sides = [0.40, 0.85, 0.85];
-    picks.forEach((nm, i) => sung(`cult-${nm}`, at(bar, 2) + i * 0.045, {
-      gain: gains[i] ?? 0.30, pan: pans[i] ?? 0, side: sides[i] ?? 0.7, dark: 0.30, dly: 0.26,
-      wig: 5, wigHz: 0.6 + 0.2 * i, wigPhase: 1 + i * 2.3, wigDrift: (i % 2 ? 3 : -3), wigIn: 1.4,
-    }));
-  }
+  if (bar === S.secret[0] || bar === S.secret[0] + 4)
+    secretChoir(bar, 0, [0.62, 0.50, 0.40]);
+  if (bar === S.secret[0] + 2 || bar === S.secret[0] + 6)
+    secretChoir(bar, 2, [0.52, 0.44, 0.36], 1);
   // The beeps have stopped, so the only thing still moving in act IV is a
   // hand on a drumhead — the analog counterweight to a silent signal layer,
   // and the sound of three people still in the room.
@@ -1372,8 +1841,20 @@ for (let bar = 0; bar < BARS; bar++) {
   if (inS(bar, "secret") && bar % 2 === 1)
     frictionPath(at(bar, 2.6), BAR * 0.34, { path: "scrub", shape: "skid",
       gain: 0.40, rough: 0.60, speed: 1.6, side: 0.30, dly: 0.10 });
-  if (inS(bar, "secret") && bar % 2 === 1) material(bar, "cult-b3", 0.80);
-  if (inS(bar, "secret") && bar % 2 === 0) choir(bar, 0.34);
+  // v10.1: heavier low end under the chant — the bass keeps walking at a
+  // fuller gain (0.44 → 0.62 in the bass block's law) and each chord gets
+  // a deep guitar pluck: root two octaves down on the even bars, a chord
+  // tone answering on the odd, both ringing across the bar line.
+  if (inS(bar, "secret")) {
+    const gch = triad(degAt(bar));
+    // "much much deeper and quieter": root three octaves down (~31 Hz
+    // fundamental, the fuzz carries it), answers one octave lower too
+    if (bar % 2 === 0) guitar(at(bar, 0.5) + jit(6), gch[0] - 36, BAR * 2.3, 0.34, -0.14);
+    else guitar(at(bar, 1.5) + jit(6), gch[(bar >> 1) % 3] - 24, BAR * 1.8, 0.24, 0.20);
+    bass(at(bar, 0) + jit(3), bassRoot(degAt(bar)) - 12, BAR * 0.92, 0.50);
+  }
+  if (inS(bar, "secret") && bar % 2 === 1) material(bar, "cult-b3", 0.62);
+  if (inS(bar, "secret") && bar % 2 === 0) choir(bar, 0.22);
 
   // ══ ACT V · THE REPLY ════════════════════════════════════════════════
   // v9: the loop comes back from the turn an octave down — the same words,
@@ -1390,8 +1871,11 @@ for (let bar = 0; bar < BARS; bar++) {
       sung(n, t + (2 + k) * BEAT + jit(4), { gain: 0.34, pan: p, side: 0.8, dly: 0.5 });
   // …and the answer itself: SOS, beeped, in the hole at the end of every
   // eight bars. The machine has started talking back.
-  if (inS(bar, "reply") && eight === 7)
+  if (bar === S.reply[0] + 12) phoneTune(bar, 0.24);
+  if (inS(bar, "reply") && eight === 7) {
     beepSOS(at(bar, 1), { gain: 0.52, pan: 0.55, dly: 0.45 });
+    dotArp(at(bar, 2.5) + jit(8), { count: 7, up: false, gap: 0.18, gain: 0.26, pan: -0.25 });
+  }
   if (inS(bar, "reply")) {
     for (const s of [0.75, 2.75]) tap(t + s * BEAT + jit(6), { gain: 0.38 * vel(0.3), pan: s > 2 ? -0.4 : 0.4, side: 0.7, dly: 0.24 });
     if (four === 1) click(at(bar, 3.75), { gain: 0.44, pan: 0.35, side: 0.7, dly: 0.35 });
@@ -1404,6 +1888,12 @@ for (let bar = 0; bar < BARS; bar++) {
         path: "spiralIn", rough: 0.66 });
   }
   if (inS(bar, "reply") && bar % 4 === 2) material(bar, "dash-camille-fs4-hold", 0.62, { grain: 0.055 });
+  // the 1:37 collision, extended: ten seconds of dot cloud off the back
+  // of the second reply statement
+  if (bar === S.reply[0] + 8) dotCloud(at(bar) + 5.5, 10);
+  // the 1:42 ornament, featured: twice in the reply, twice where it spreads
+  if (bar === S.reply[0] + 10 || bar === S.reply[0] + 14) raga(bar, 1.5, 0.44);
+  if (bar === S.spread[0] + 3 || bar === S.spread[0] + 7) raga(bar, 2.0, 0.38);
 
   // ══ ACT VI · IT SPREADS ══════════════════════════════════════════════
   // The held dashes become the whole lead, at the widest wiggle in the
@@ -1439,7 +1929,14 @@ for (let bar = 0; bar < BARS; bar++) {
       dtmf(u, digits[(bar * 3 + k) % digits.length], 0.055,
         { gain: 0.46 * vel(0.3), pan: k === 1 ? 0 : k ? 0.5 : -0.5, side: 0.85, dly: 0.40 });
     }
-    if (four === 2) bop(at(bar, 3.25), hz(chord[2] + 12), { gain: 0.26, pan: -0.4, side: 0.8, dly: 0.45 });
+    if (four === 2) bop(at(bar, 3.25), hz(blipMidi(bar, 2)), { gain: 0.26, pan: -0.4, side: 0.8, dly: 0.45 });
+    if (four === 1) dotArp(at(bar, 1.5) + jit(8), { count: 6, up: bar % 8 < 4, gap: 0.15, gain: 0.24, pan: 0.35, dly: 0.42 });
+    // v10.1: somebody in the switchboard is on a ROTARY phone — one real
+    // dial pass per half of the act, thrown to the edges like the cults
+    if (bar === S.spread[0] + 4 && has("phone-rotary-a"))
+      shot("phone-rotary-a", at(bar, 0.5), { bus: "vox", gain: 0.14, pan: -0.55, side: 0.85, dark: 0.45, dly: 0.45, atk: 0.08, wig: 9, wigHz: 0.35, wigIn: 0.6 });
+    if (bar === S.spread[0] + 9 && has("phone-rotary-b"))
+      shot("phone-rotary-b", at(bar, 1.0), { bus: "vox", gain: 0.13, pan: 0.55, side: 0.85, dark: 0.45, dly: 0.45, atk: 0.08, wig: 9, wigHz: 0.30, wigPhase: 2.1, wigIn: 0.6 });
     // it spreads: a skid every bar, alternating sides, never in the same
     // place twice — the friction equivalent of the wiggle coming apart.
     friction(at(bar, 2.5 + (bar % 3) * 0.25), 0.58, { shape: "skid",
@@ -1449,6 +1946,34 @@ for (let bar = 0; bar < BARS; bar++) {
       friction(at(bar, 3.1), 0.95, { shape: "drag", gain: 0.30, pan: bar % 4 ? -0.2 : 0.2,
         side: 0.24, cut0: 900, cut1: 1900, res0: 119, res1: 189, rough: 0.55, synthetic: true });
   }
+  // v10.1: @jeffrey — "around 1:57 the 'cult' should be extended alot, so
+  // its more angelic from alex". Twice in the act (bars 66 and 70, 1:56
+  // and 2:04 shipped) the top chord-tone take stretches to eight airy
+  // seconds — bright, wide, mostly delay — with the take a third under it
+  // drifting behind: an angel hanging over the switchboard while the raw
+  // cults keep arriving beneath her.
+  if (bar === S.spread[0] + 2 || bar === S.spread[0] + 6) {
+    const picks = choirFor(degAt(bar));
+    const hi = picks[picks.length - 1], mid = picks[Math.max(0, picks.length - 2)];
+    if (has(`cultlong-${hi}`)) {
+      sung(`cultlong-${hi}`, at(bar, 1) + jit(10), {
+        gain: 0.36, pan: 0.30, side: 0.92, dark: 0.05, dly: 0.55, atk: 0.35,
+        wig: 7, wigHz: 0.4, wigPhase: 0.6, wigDrift: 4, wigIn: 1.2,
+      });
+      sung(`cultlong-${mid}`, at(bar, 1.5) + jit(10), {
+        gain: 0.23, pan: -0.34, side: 0.92, dark: 0.12, dly: 0.55, atk: 0.45,
+        wig: 8, wigHz: 0.31, wigPhase: 2.8, wigDrift: -5, wigIn: 1.0,
+      });
+    } else {
+      stretched(`cult-${hi}`, at(bar, 1) + jit(10), {
+        gain: 0.34, pan: 0.30, stretch: 2.3, dur: 8.0, side: 0.92, dark: 0.05, dly: 0.55,
+      });
+      stretched(`cult-${mid}`, at(bar, 1.5) + jit(10), {
+        gain: 0.22, pan: -0.34, stretch: 2.6, dur: 8.0, side: 0.92, dark: 0.12, dly: 0.55,
+      });
+    }
+  }
+
   // …and the word itself spreading: one other person's "cult" per bar,
   // from a different post each time, thrown to the edges. Six voices from
   // six videos across 2022, none of them the take the record is built from.
@@ -1468,6 +1993,9 @@ for (let bar = 0; bar < BARS; bar++) {
   // hook once more at 92 as the come-down. Statement two doubles line 1 at
   // half length — the lyric performing itself — which is the only place in
   // the record anything is said twice as fast.
+  // the full scale runs straight into the arrival: seven camille dots
+  // climbing B3→A4 across the last bar before the words land
+  if (bar === S.whole[0] - 1) dotArp(at(bar, 2.0), { count: 7, up: true, gap: 0.20, gain: 0.40, pan: 0.15, dly: 0.28 });
   if (bar === S.whole[0]) chorus(bar, { lead: "both", g: 1.0, answer: "dots", choirUnder: true });
   if (bar === S.whole[0] + 8) chorus(bar, { lead: "both", fast: true, g: 1.0, tag: "fast", choirUnder: true });
   if (bar === S.whole[0] + 16) hook(bar, { full: true });
@@ -1489,6 +2017,7 @@ for (let bar = 0; bar < BARS; bar++) {
   // already gone — then the hook fragment, then people.
   if (bar === S.recognise[0]) chorus(bar, { lead: "hi", g: 0.62, drop: [2] });
   if (bar === S.recognise[0] + 4) hook(bar, { full: false });
+  if (bar === S.recognise[0] + 6) phoneTune(bar, 0.22);
   if (inS(bar, "recognise") && bar % 2 === 0) material(bar, "cult-b3", 0.50, { grain: 0.10, dly: 0.34 });
   if (inS(bar, "recognise") && four === 3)
     friction(at(bar, 2.6), 1.4, { shape: "drag", side: 0.22,
@@ -1497,52 +2026,48 @@ for (let bar = 0; bar < BARS; bar++) {
   if (inS(bar, "recognise") && four === 1)
     click(at(bar, 2.5), { gain: 0.44 * (1 - (bar - S.recognise[0]) / 9), pan: -0.4, side: 0.7, dly: 0.35 });
 
-  // ══ ACT IX · THE HUMANS ══════════════════════════════════════════════
-  // Drums out. The original recording, unprocessed — the reveal that all of
-  // this was made from eight seconds of three friends. No beeps: the signal
-  // layer has nothing to add to people.
-  if (bar === S.humans[0]) shot("hook-spoken", at(bar, 1), { gain: 0.56, pan: -0.10, bus: "vox", side: 0.6, dly: 0.22 });
-  if (bar === S.humans[0] + 2)
-    stretched("three-of-us", at(bar, 1), { gain: 0.22, pan: 0.35, stretch: 1.8, dur: BAR * 1.6, side: 0.9, dly: 0.3 });
-  if (bar === S.humans[0] + 4) shot("chant-full", at(bar, 1), { gain: 0.48, pan: 0, bus: "vox", side: 0.9, dark: 0.3, dly: 0.34 });
-  // the reveal has a second half: somebody else, months later, SINGING it
-  if (bar === S.humans[0] + 5 && has(ALT_THREE))
-    shot(ALT_THREE, at(bar, 2), { gain: 0.44, pan: 0.28, bus: "vox", side: 0.8, dark: 0.2, dly: 0.36 });
-  if (bar === S.humans[0] + 6 && has(ALT_SUNG))
-    shot(ALT_SUNG, at(bar, 1), { gain: 0.50, pan: -0.22, bus: "vox", side: 0.8, dark: 0.18, dly: 0.42 });
-
-  // ══ ACT X · CARRIER OFF ══════════════════════════════════════════════
-  // the last gesture on the record: a hand leaving the surface, four bars
-  // long, under the drone that is walking out
-  if (bar === S.humans[0] + 6)
+  // ══ ACT IX · CARRIER OFF ═════════════════════════════════════════════
+  // v10.1: THE HUMANS act is gone — the untreated recording with it — so
+  // the record steps straight from the peel-off into the walk-out. Every
+  // voice left on the record has been through the aesthetivox.
+  // The last gesture: a hand leaving the surface, four bars long, starting
+  // under the final drums and ending under the drone that is walking out.
+  if (bar === S.carrieroff[0] - 2)
     frictionPath(at(bar, 1.0), BAR * 3.2, { shape: "slide", gain: 0.34, pan: -0.16, side: 0.22,
       path: "edgeBack", rough: 0.42, rel: 0.30 });
-  if (bar === S.carrieroff[0] + 2) shot("tagline", at(bar, 1), { gain: 0.50, pan: 0, bus: "vox", side: 0.8, dark: 0.35, dly: 0.40 });
   if (inS(bar, "carrieroff")) {
     const k = bar - S.carrieroff[0];
     if (k % 2 === 0 && k <= 6)
       dtmf(at(bar, 1), CULT_DIAL[(k / 2) % 4], 0.14,
         { gain: 0.44 * (1 - k / 10), pan: k % 4 ? 0.5 : -0.5, side: 0.85, dly: 0.42 });
+    if (k === 2) phoneTune(bar, 0.16);    // hums it once more on the way out
     if (k === 6) bop(at(bar, 3), hz(59), { gain: 0.24, pan: 0, side: 0.6, dly: 0.5 });
-    // the last word on the record is somebody else's
-    if (k === 4 && has(ALT_CULTS[3][0]))
-      shot(ALT_CULTS[3][0], at(bar, 2), { gain: 0.34, pan: 0, bus: "vox", side: 0.7, dark: 0.22, dly: 0.55 });
+    // the last voice on the record is a stranger's dot, stretched to vapor
+    if (k === 4)
+      dotDrift(at(bar, 2) + jit(30), 8, { gain: 0.16, pan: 0, dur: BAR * 0.9, stretch: 4.5, dly: 0.55, dark: 0.45 });
   }
 
-  // ---- the drone, either side of the record ---------------------------
-  if ((inS(bar, "humans") || inS(bar, "carrieroff")) && bar % 2 === 0)
-    choir(bar, inS(bar, "carrieroff") ? 0.48 * (1 - (bar - S.carrieroff[0]) / 11) : 0.46);
+  // ---- the drone walking out ------------------------------------------
+  if (inS(bar, "carrieroff") && bar % 2 === 0)
+    choir(bar, 0.48 * (1 - (bar - S.carrieroff[0]) / 11));
 
   // one very soft noise wash at the act boundaries that need one — never a
   // riser, never resolving into anything.
-  if ([S.three[0], S.message[0], S.reply[0], S.whole[0], S.humans[0]].includes(bar))
+  if ([S.three[0], S.message[0], S.reply[0], S.whole[0], S.carrieroff[0]].includes(bar))
     shot("sweep", t - 0.9, { gain: 0.055, pan: 0, bus: "music", side: 0.9, dur: 2.2, dark: 0.35 });
 }
 
-// The last sound on the record: a hang-up click, after the music has already
-// gone. The channel closes; the signal is still out there.
+// The last sound on the record: the hang-up, after the music has already
+// gone — and v10.1 makes it a REAL one, a handset meeting a cradle, with
+// the two synth clicks the record has always ended on riding its edge.
+// Then, very far away, one second of busy signal: the far end is still
+// trying. The channel closes; the signal is still out there.
+if (has("phone-hangup-a"))
+  shot("phone-hangup-a", at(BARS) + 0.50, { bus: "vox", gain: 0.26, pan: 0, side: 0.35, dark: 0.20, atk: 0.012, wig: 5, wigHz: 0.9, wigIn: 0.3 });
 click(at(BARS) + 0.55, { gain: 0.34, pan: 0, side: 0.30 });
 click(at(BARS) + 0.62, { gain: 0.20, pan: 0.2, side: 0.30 });
+if (has("phone-busy-us"))
+  shot("phone-busy-us", at(BARS) + 1.35, { bus: "vox", gain: 0.06, pan: 0.30, side: 0.85, dark: 0.55, dly: 0.55, atk: 0.15, wig: 10, wigHz: 0.25, wigIn: 0.8 });
 
 if (missing.size) console.warn(`  ! missing samples: ${[...missing].join(", ")}`);
 console.log(`  ${kicks.length} kicks · ${snares.length} snares`);
@@ -1705,7 +2230,7 @@ const sideOut = new Float32Array(N);
       bar < S.spread[0] ? 0.52 :
       bar < S.whole[0] ? 0.86 :
       bar < S.recognise[0] ? 0.46 :
-      bar < S.humans[0] ? 0.60 : 0.90;
+      bar < S.carrieroff[0] ? 0.60 : 0.90;
     send += 0.00004 * (target - send);
     sideOut[i] = lp * send;
   }
