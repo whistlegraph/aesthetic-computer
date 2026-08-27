@@ -471,6 +471,737 @@
           "size": 1
         }
       }
+    },
+    {
+      "id": "07-harbor",
+      "name": "Harbor",
+      "seed": 7070,
+      "bpm": 99,
+      "bars": 33,
+      "tonic": "A",
+      "mode": "minor",
+      "instrumentProgram": 78,
+      "instrumentName": "Whistle",
+      "development": "lift",
+      "harmonyDegrees": [
+        0,
+        3,
+        4,
+        0,
+        5,
+        3,
+        4,
+        0
+      ],
+      "melodyBars": [
+        [
+          5,
+          7,
+          8
+        ],
+        [
+          10,
+          9,
+          11
+        ],
+        [
+          9,
+          10
+        ],
+        [
+          11,
+          10,
+          8,
+          7
+        ],
+        [
+          8,
+          9
+        ],
+        [
+          10,
+          9
+        ],
+        [
+          8,
+          9,
+          11
+        ],
+        [
+          10,
+          8,
+          9,
+          0
+        ]
+      ],
+      "notesPath": "pop/menuband/out/menu-band-waltzes/07-harbor/07-harbor.notes.json",
+      "audioPath": "pop/menuband/out/menu-band-waltzes/07-harbor/07-harbor.wav",
+      "outPath": "pop/menuband/out/menu-band-waltzes/07-harbor/07-harbor.mp4",
+      "visual": {
+        "palette": [
+          "#e8e8f3",
+          "#8987c5",
+          "#312e6b"
+        ]
+      }
+    },
+    {
+      "id": "08-meadow",
+      "name": "Meadow",
+      "seed": 8079,
+      "bpm": 84,
+      "bars": 28,
+      "tonic": "D",
+      "mode": "dorian",
+      "instrumentProgram": 78,
+      "instrumentName": "Whistle",
+      "development": "mirror",
+      "harmonyDegrees": [
+        0,
+        5,
+        3,
+        4,
+        0,
+        3,
+        4,
+        0
+      ],
+      "melodyBars": [
+        [
+          4,
+          6,
+          7,
+          8
+        ],
+        [
+          9,
+          7,
+          9
+        ],
+        [
+          7,
+          8,
+          9,
+          7
+        ],
+        [
+          9,
+          11
+        ],
+        [
+          9,
+          10,
+          11,
+          9
+        ],
+        [
+          10,
+          8,
+          7,
+          5
+        ],
+        [
+          4,
+          2
+        ],
+        [
+          0,
+          1,
+          3,
+          0
+        ]
+      ],
+      "notesPath": "pop/menuband/out/menu-band-waltzes/08-meadow/08-meadow.notes.json",
+      "audioPath": "pop/menuband/out/menu-band-waltzes/08-meadow/08-meadow.wav",
+      "outPath": "pop/menuband/out/menu-band-waltzes/08-meadow/08-meadow.mp4",
+      "visual": {
+        "palette": [
+          "#f3ebe8",
+          "#c59b87",
+          "#6b422e"
+        ]
+      }
+    },
+    {
+      "id": "09-copper",
+      "name": "Copper",
+      "seed": 9088,
+      "bpm": 96,
+      "bars": 32,
+      "tonic": "D",
+      "mode": "dorian",
+      "instrumentProgram": 78,
+      "instrumentName": "Whistle",
+      "development": "lift",
+      "harmonyDegrees": [
+        0,
+        3,
+        0,
+        4,
+        5,
+        3,
+        4,
+        0
+      ],
+      "melodyBars": [
+        [
+          5,
+          3,
+          1,
+          3
+        ],
+        [
+          5,
+          3
+        ],
+        [
+          4,
+          5
+        ],
+        [
+          4,
+          5,
+          6,
+          7
+        ],
+        [
+          6,
+          4,
+          2
+        ],
+        [
+          4,
+          5,
+          7,
+          8
+        ],
+        [
+          6,
+          5,
+          7,
+          5
+        ],
+        [
+          4,
+          6,
+          0
+        ]
+      ],
+      "notesPath": "pop/menuband/out/menu-band-waltzes/09-copper/09-copper.notes.json",
+      "audioPath": "pop/menuband/out/menu-band-waltzes/09-copper/09-copper.wav",
+      "outPath": "pop/menuband/out/menu-band-waltzes/09-copper/09-copper.mp4",
+      "visual": {
+        "palette": [
+          "#e8f3ef",
+          "#87c5ae",
+          "#2e6b54"
+        ]
+      }
+    },
+    {
+      "id": "10-satchel",
+      "name": "Satchel",
+      "seed": 10097,
+      "bpm": 78,
+      "bars": 26,
+      "tonic": "A",
+      "mode": "minor",
+      "instrumentProgram": 78,
+      "instrumentName": "Whistle",
+      "development": "mirror",
+      "harmonyDegrees": [
+        0,
+        4,
+        5,
+        3,
+        0,
+        5,
+        4,
+        0
+      ],
+      "melodyBars": [
+        [
+          5,
+          6
+        ],
+        [
+          7,
+          9,
+          8,
+          10
+        ],
+        [
+          9,
+          11,
+          9
+        ],
+        [
+          11,
+          9,
+          10
+        ],
+        [
+          8,
+          9,
+          7,
+          6
+        ],
+        [
+          4,
+          2,
+          1,
+          0
+        ],
+        [
+          1,
+          0
+        ],
+        [
+          2,
+          0
+        ]
+      ],
+      "notesPath": "pop/menuband/out/menu-band-waltzes/10-satchel/10-satchel.notes.json",
+      "audioPath": "pop/menuband/out/menu-band-waltzes/10-satchel/10-satchel.wav",
+      "outPath": "pop/menuband/out/menu-band-waltzes/10-satchel/10-satchel.mp4",
+      "visual": {
+        "palette": [
+          "#f2e8f3",
+          "#c087c5",
+          "#662e6b"
+        ]
+      }
+    },
+    {
+      "id": "11-sparrow",
+      "name": "Sparrow",
+      "seed": 11106,
+      "bpm": 78,
+      "bars": 26,
+      "tonic": "C",
+      "mode": "major",
+      "instrumentProgram": 78,
+      "instrumentName": "Whistle",
+      "development": "lift",
+      "harmonyDegrees": [
+        0,
+        3,
+        4,
+        0,
+        5,
+        3,
+        4,
+        0
+      ],
+      "melodyBars": [
+        [
+          4,
+          3
+        ],
+        [
+          2,
+          3,
+          1,
+          3
+        ],
+        [
+          4,
+          5
+        ],
+        [
+          6,
+          4,
+          5
+        ],
+        [
+          7,
+          6,
+          5,
+          4
+        ],
+        [
+          5,
+          6,
+          7
+        ],
+        [
+          5,
+          3
+        ],
+        [
+          4,
+          6,
+          0
+        ]
+      ],
+      "notesPath": "pop/menuband/out/menu-band-waltzes/11-sparrow/11-sparrow.notes.json",
+      "audioPath": "pop/menuband/out/menu-band-waltzes/11-sparrow/11-sparrow.wav",
+      "outPath": "pop/menuband/out/menu-band-waltzes/11-sparrow/11-sparrow.mp4",
+      "visual": {
+        "palette": [
+          "#f0f3e8",
+          "#b8c587",
+          "#5e6b2e"
+        ]
+      }
+    },
+    {
+      "id": "12-teacup",
+      "name": "Teacup",
+      "seed": 12115,
+      "bpm": 69,
+      "bars": 23,
+      "tonic": "A",
+      "mode": "minor",
+      "instrumentProgram": 78,
+      "instrumentName": "Whistle",
+      "development": "mirror",
+      "harmonyDegrees": [
+        0,
+        3,
+        0,
+        4,
+        5,
+        3,
+        4,
+        0
+      ],
+      "melodyBars": [
+        [
+          6,
+          7
+        ],
+        [
+          8,
+          9
+        ],
+        [
+          7,
+          6,
+          7,
+          8
+        ],
+        [
+          9,
+          11
+        ],
+        [
+          10,
+          8,
+          10,
+          8
+        ],
+        [
+          10,
+          8,
+          9,
+          10
+        ],
+        [
+          11,
+          9,
+          7
+        ],
+        [
+          8,
+          6,
+          0
+        ]
+      ],
+      "notesPath": "pop/menuband/out/menu-band-waltzes/12-teacup/12-teacup.notes.json",
+      "audioPath": "pop/menuband/out/menu-band-waltzes/12-teacup/12-teacup.wav",
+      "outPath": "pop/menuband/out/menu-band-waltzes/12-teacup/12-teacup.mp4",
+      "visual": {
+        "palette": [
+          "#e8edf3",
+          "#87a6c5",
+          "#2e4c6b"
+        ]
+      }
+    },
+    {
+      "id": "13-ribbon",
+      "name": "Ribbon",
+      "seed": 13124,
+      "bpm": 84,
+      "bars": 28,
+      "tonic": "C",
+      "mode": "major",
+      "instrumentProgram": 78,
+      "instrumentName": "Whistle",
+      "development": "lift",
+      "harmonyDegrees": [
+        0,
+        3,
+        4,
+        0,
+        5,
+        3,
+        4,
+        0
+      ],
+      "melodyBars": [
+        [
+          5,
+          3,
+          5
+        ],
+        [
+          6,
+          5
+        ],
+        [
+          6,
+          8
+        ],
+        [
+          10,
+          8
+        ],
+        [
+          9,
+          10
+        ],
+        [
+          8,
+          6
+        ],
+        [
+          8,
+          6
+        ],
+        [
+          8,
+          10,
+          8,
+          0
+        ]
+      ],
+      "notesPath": "pop/menuband/out/menu-band-waltzes/13-ribbon/13-ribbon.notes.json",
+      "audioPath": "pop/menuband/out/menu-band-waltzes/13-ribbon/13-ribbon.wav",
+      "outPath": "pop/menuband/out/menu-band-waltzes/13-ribbon/13-ribbon.mp4",
+      "visual": {
+        "palette": [
+          "#f3e8ea",
+          "#c58793",
+          "#6b2e3b"
+        ]
+      }
+    },
+    {
+      "id": "14-chimney",
+      "name": "Chimney",
+      "seed": 14133,
+      "bpm": 84,
+      "bars": 28,
+      "tonic": "C",
+      "mode": "major",
+      "instrumentProgram": 78,
+      "instrumentName": "Whistle",
+      "development": "mirror",
+      "harmonyDegrees": [
+        0,
+        4,
+        5,
+        3,
+        0,
+        5,
+        4,
+        0
+      ],
+      "melodyBars": [
+        [
+          6,
+          7,
+          5
+        ],
+        [
+          4,
+          6
+        ],
+        [
+          5,
+          6,
+          4,
+          3
+        ],
+        [
+          4,
+          2
+        ],
+        [
+          3,
+          2,
+          4
+        ],
+        [
+          6,
+          5
+        ],
+        [
+          3,
+          4
+        ],
+        [
+          3,
+          2,
+          0
+        ]
+      ],
+      "notesPath": "pop/menuband/out/menu-band-waltzes/14-chimney/14-chimney.notes.json",
+      "audioPath": "pop/menuband/out/menu-band-waltzes/14-chimney/14-chimney.wav",
+      "outPath": "pop/menuband/out/menu-band-waltzes/14-chimney/14-chimney.mp4",
+      "visual": {
+        "palette": [
+          "#e8f3e9",
+          "#87c58c",
+          "#2e6b33"
+        ]
+      }
+    },
+    {
+      "id": "15-garden",
+      "name": "Garden",
+      "seed": 15142,
+      "bpm": 69,
+      "bars": 23,
+      "tonic": "D",
+      "mode": "dorian",
+      "instrumentProgram": 78,
+      "instrumentName": "Whistle",
+      "development": "lift",
+      "harmonyDegrees": [
+        0,
+        3,
+        4,
+        0,
+        5,
+        3,
+        4,
+        0
+      ],
+      "melodyBars": [
+        [
+          8,
+          9
+        ],
+        [
+          10,
+          8,
+          6
+        ],
+        [
+          4,
+          5
+        ],
+        [
+          6,
+          7
+        ],
+        [
+          6,
+          4
+        ],
+        [
+          5,
+          4,
+          3,
+          5
+        ],
+        [
+          4,
+          5,
+          6
+        ],
+        [
+          7,
+          0
+        ]
+      ],
+      "notesPath": "pop/menuband/out/menu-band-waltzes/15-garden/15-garden.notes.json",
+      "audioPath": "pop/menuband/out/menu-band-waltzes/15-garden/15-garden.wav",
+      "outPath": "pop/menuband/out/menu-band-waltzes/15-garden/15-garden.mp4",
+      "visual": {
+        "palette": [
+          "#ece8f3",
+          "#9e87c5",
+          "#452e6b"
+        ]
+      }
+    },
+    {
+      "id": "16-pillow",
+      "name": "Pillow",
+      "seed": 16151,
+      "bpm": 99,
+      "bars": 33,
+      "tonic": "D",
+      "mode": "dorian",
+      "instrumentProgram": 78,
+      "instrumentName": "Whistle",
+      "development": "mirror",
+      "harmonyDegrees": [
+        0,
+        4,
+        5,
+        3,
+        0,
+        5,
+        4,
+        0
+      ],
+      "melodyBars": [
+        [
+          6,
+          4
+        ],
+        [
+          6,
+          7
+        ],
+        [
+          9,
+          10,
+          11
+        ],
+        [
+          10,
+          9,
+          10,
+          11
+        ],
+        [
+          10,
+          8,
+          10
+        ],
+        [
+          8,
+          10,
+          8
+        ],
+        [
+          7,
+          9,
+          10
+        ],
+        [
+          8,
+          9,
+          10,
+          0
+        ]
+      ],
+      "notesPath": "pop/menuband/out/menu-band-waltzes/16-pillow/16-pillow.notes.json",
+      "audioPath": "pop/menuband/out/menu-band-waltzes/16-pillow/16-pillow.wav",
+      "outPath": "pop/menuband/out/menu-band-waltzes/16-pillow/16-pillow.mp4",
+      "visual": {
+        "palette": [
+          "#f3efe8",
+          "#c5b087",
+          "#6b572e"
+        ]
+      }
     }
   ]
 }
