@@ -157,10 +157,19 @@ because the buyer is usually not a person. Asking unpaid is always free.
 | `/api/wg/bulk` | 5.00 USDC | The whole normalized dataset in one document |
 | `/api/wg/sources/<code>` | 0.10 USDC | The source videos behind one work — the audit trail published nowhere else |
 | `/api/wg/license/<code>` | 1.00 USDC | A signed, verifiable redistribution license |
+| `/api/wg/verify` | free | Checks a receipt's signature and term |
 
 The license endpoint is honest that the CDN assets are already publicly
 reachable: what it sells is the licence and the signed receipt, not access.
 Claiming otherwise is a lie the buyer discovers in one request.
+
+Verification is free and stateless. The signature covers the entire receipt —
+licensee and issue date included — so a work code can never re-derive it, and
+nothing here keeps a database of who bought what. The receipt therefore travels
+inside its own `verify` link as a base64url token: `?receipt=<token>&sig=<hex>`,
+checked against the exact bytes that were signed. An edited receipt fails, and
+a genuine receipt past its term reports `valid: false` with `expired: true`
+rather than pretending the grant still stands.
 
 ### Before it can take money
 
@@ -172,8 +181,31 @@ rather than serving paid data for free. It needs, in the lith environment:
   (**verify this address against the network's own docs before going live**)
 - `WHISTLEGRAPH_X402_NETWORK` — defaults to `base`
 - `WHISTLEGRAPH_X402_FACILITATOR` — defaults to `https://x402.org/facilitator`
+- `WHISTLEGRAPH_X402_FACILITATOR_TOKEN` — bearer token, if the facilitator wants one
 - `WHISTLEGRAPH_LICENSE_SECRET` — HMAC key for signing license receipts
 
-Open: `/api/wg/verify?code&sig` is advertised in each license receipt but is
-**not implemented yet** — a buyer following that link today gets the site's
-index.html fallback. Either build it or drop the field before announcing.
+**The default facilitator cannot settle Base mainnet.** Ask it yourself:
+
+```
+curl -s https://x402.org/facilitator/supported
+```
+
+It advertises testnets only — `base-sepolia`, `solana-devnet`, `hedera:testnet`
+and friends. Base mainnet (`eip155:8453`) is not among them, and it speaks x402
+`v2` with CAIP-2 network names while this function speaks `v1` with `"base"`.
+So the pairing shipped here quotes a mainnet price in real Circle USDC that its
+own facilitator has no way to take: the buyer signs, `verify` is refused, and
+the request dies at 502 having promised a settlement that was never possible.
+
+Real money needs a facilitator that holds an account — Coinbase CDP (fee-free on
+Base) or PayAI — set through `WHISTLEGRAPH_X402_FACILITATOR` and its token. The
+function asks `/supported` before it quotes, so until that swap happens the paid
+routes answer **503 saying exactly that**, which is the honest failure: a price
+nobody can pay is worse than no price at all.
+
+Open: listing in the [x402 Bazaar](https://docs.cdp.coinbase.com/x402/seller/get-discovered),
+the catalog buying agents actually browse, requires the CDP facilitator, per-route
+metadata (a ≤500-character description of *when* to call the endpoint, input and
+output schemas, `METHOD /path` keys), a `POST` to
+`https://api.cdp.coinbase.com/platform/v2/x402/validate`, and one real settlement
+to activate. Nothing gets discovered until the facilitator swap lands.

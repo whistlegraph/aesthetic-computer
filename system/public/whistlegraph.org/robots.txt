@@ -21,3 +21,5 @@ Allow: /
 #   https://whistlegraph.org/api/wg/bulk             5.00 USDC
 #   https://whistlegraph.org/api/wg/sources/<code>   0.10 USDC
 #   https://whistlegraph.org/api/wg/license/<code>   1.00 USDC
+#
+#   https://whistlegraph.org/api/wg/verify           free — check a license receipt

@@ -40,5 +40,6 @@ redistribution, or commercial reuse.
 - [Bulk dataset](https://whistlegraph.org/api/wg/bulk): Every work and post in one document. 5.00 USDC via [x402](https://x402.org) — request it unpaid to read the terms.
 - [Per-work sources](https://whistlegraph.org/api/wg/sources/imab): `/api/wg/sources/<code>` — the source videos behind one work's numbers. 0.10 USDC.
 - [Redistribution license](https://whistlegraph.org/api/wg/license/imab): `/api/wg/license/<code>` — a signed, verifiable license to reuse one work. 1.00 USDC.
+- [Verify a license](https://whistlegraph.org/api/wg/verify): `/api/wg/verify?receipt=<token>&sig=<signature>` — checks a receipt was issued here and is still in term. Free.
 
 Generated 2026-07-22.

@@ -12,6 +12,12 @@
 //                                aggregate numbers, published nowhere else
 //   GET /api/wg/license/<code>   a signed redistribution license receipt plus
 //                                resolved full-resolution asset URLs
+//   GET /api/wg/verify           free: checks a license receipt's signature
+//
+// Verification is stateless and therefore carries its own evidence. The
+// signature covers the whole receipt — licensee and issue date included — so a
+// code alone can never re-derive it; the receipt travels in the link as a
+// base64url token and is checked against the same bytes that were signed.
 //
 // x402 (https://x402.org) is the HTTP 402 flow: ask for a resource, get back a
 // 402 that says exactly what it costs and where to pay, pay, then repeat the
@@ -25,12 +31,22 @@
 //   WHISTLEGRAPH_X402_ASSET        payment token contract (USDC on the network)
 //   WHISTLEGRAPH_X402_NETWORK      default "base"
 //   WHISTLEGRAPH_X402_FACILITATOR  default "https://x402.org/facilitator"
+//   WHISTLEGRAPH_X402_FACILITATOR_TOKEN  bearer token, if the facilitator wants one
 //   WHISTLEGRAPH_LICENSE_SECRET    HMAC key for signing license receipts
+//
+// The default facilitator settles TESTNETS ONLY (base-sepolia, solana-devnet,
+// and friends) — it does not carry Base mainnet. Pointing mainnet terms at it
+// quotes a price nobody can pay: the buyer signs, verify is refused, and the
+// request dies at 502 having promised a settlement that was never possible.
+// Taking real USDC means an account-holding facilitator (Coinbase CDP, PayAI),
+// which is why the facilitator takes a bearer token here. `supported()` checks
+// the pairing at request time so the mismatch surfaces as an honest 503 to the
+// asker instead of a broken payment to the payer.
 //
 // Unconfigured, every paid route answers 503. It must never fall open and serve
 // paid data for free just because an env var is missing.
 
-import { createHmac } from "node:crypto";
+import { createHmac, timingSafeEqual } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { respond } from "../../backend/http.mjs";
@@ -42,6 +58,7 @@ const SITE_URL = "https://whistlegraph.org";
 const X402_VERSION = 1;
 const NETWORK = process.env.WHISTLEGRAPH_X402_NETWORK || "base";
 const FACILITATOR = process.env.WHISTLEGRAPH_X402_FACILITATOR || "https://x402.org/facilitator";
+const FACILITATOR_TOKEN = process.env.WHISTLEGRAPH_X402_FACILITATOR_TOKEN || "";
 const PAY_TO = process.env.WHISTLEGRAPH_X402_PAY_TO || "";
 const ASSET = process.env.WHISTLEGRAPH_X402_ASSET || "";
 const LICENSE_SECRET = process.env.WHISTLEGRAPH_LICENSE_SECRET || "";
@@ -173,14 +190,16 @@ function license(code, payer) {
     expires: expires.toISOString(),
     grant: "Non-exclusive worldwide right to reproduce and redistribute this work's score image and video, with attribution to the named author and a link to its record. Not a grant to train generative models, sublicense, or sell.",
   };
-  const signature = createHmac("sha256", LICENSE_SECRET)
-    .update(JSON.stringify(receipt))
-    .digest("hex");
+  // Sign the exact bytes that travel, so verification never has to reproduce
+  // this object's key order to get the same digest back.
+  const signed = JSON.stringify(receipt);
+  const signature = createHmac("sha256", LICENSE_SECRET).update(signed).digest("hex");
+  const token = Buffer.from(signed, "utf8").toString("base64url");
 
   return {
     receipt,
     signature,
-    verify: `${SITE_URL}/api/wg/verify?code=${work.code}&sig=${signature}`,
+    verify: `${SITE_URL}/api/wg/verify?receipt=${token}&sig=${signature}`,
     assets: {
       // These URLs are public on the CDN — what is being sold is the license and
       // the signed receipt, not access. Saying otherwise would be a lie the
@@ -190,6 +209,55 @@ function license(code, payer) {
       record: `${SITE_URL}/${work.code}`,
       note: "These assets are publicly reachable. This receipt licenses their reuse; it does not gate their delivery.",
     },
+  };
+}
+
+// Checking a receipt is free. Charging to confirm a license someone already
+// bought would make the signature worth less than the paper it is printed on.
+function verifyLicense(token, signature) {
+  if (!token || !signature) {
+    return {
+      valid: false,
+      reason: "Pass the whole receipt: /api/wg/verify?receipt=<token>&sig=<signature>, both taken verbatim from the `verify` link in a license.",
+    };
+  }
+
+  let signed;
+  try {
+    signed = Buffer.from(String(token), "base64url").toString("utf8");
+  } catch {
+    return { valid: false, reason: "The receipt token is not valid base64url." };
+  }
+
+  const expected = createHmac("sha256", LICENSE_SECRET).update(signed).digest("hex");
+  const given = String(signature).toLowerCase();
+  const match =
+    given.length === expected.length &&
+    timingSafeEqual(Buffer.from(expected, "utf8"), Buffer.from(given, "utf8"));
+  if (!match) {
+    return { valid: false, reason: "Signature does not match this receipt. It was not issued here, or it has been edited since." };
+  }
+
+  let receipt;
+  try {
+    receipt = JSON.parse(signed);
+  } catch {
+    return { valid: false, reason: "The receipt carries a valid signature but is not readable JSON." };
+  }
+
+  // A signature stays good forever; the grant it describes does not. Report
+  // both, and never call an expired license valid.
+  const expires = Date.parse(receipt?.expires);
+  const expired = Number.isFinite(expires) && expires < Date.now();
+  return {
+    valid: !expired,
+    signature: "valid",
+    expired,
+    receipt,
+    record: receipt?.code ? `${SITE_URL}/${receipt.code}` : undefined,
+    note: expired
+      ? "This receipt was genuinely issued here, but its term has run out."
+      : "This receipt was issued here and has not been altered.",
   };
 }
 
@@ -222,14 +290,36 @@ function decodePayment(header) {
   }
 }
 
+const facilitatorURL = (path) => `${FACILITATOR.replace(/\/$/, "")}/${path}`;
+const facilitatorAuth = () =>
+  FACILITATOR_TOKEN ? { Authorization: `Bearer ${FACILITATOR_TOKEN}` } : {};
+
 async function facilitate(path, body) {
-  const res = await fetch(`${FACILITATOR.replace(/\/$/, "")}/${path}`, {
+  const res = await fetch(facilitatorURL(path), {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...facilitatorAuth() },
     body: JSON.stringify(body),
   });
   if (!res.ok) throw new Error(`facilitator ${path} responded ${res.status}`);
   return res.json();
+}
+
+// Networks are named two ways in the wild — "base" and the CAIP-2 "eip155:8453"
+// that means the same chain — and a facilitator may advertise either.
+const CHAIN_IDS = { base: "eip155:8453", "base-sepolia": "eip155:84532" };
+
+// Ask the facilitator whether it can actually settle what we are about to quote.
+// Cached for the life of the process: it is a fact about a deployment pairing,
+// not about a request, and a failed lookup must not be cached as a refusal.
+let supportedCache;
+async function settles(network) {
+  if (supportedCache === undefined) {
+    const res = await fetch(facilitatorURL("supported"), { headers: facilitatorAuth() });
+    if (!res.ok) throw new Error(`facilitator supported responded ${res.status}`);
+    const body = await res.json();
+    supportedCache = new Set((body?.kinds || []).map((k) => k.network).filter(Boolean));
+  }
+  return supportedCache.has(network) || supportedCache.has(CHAIN_IDS[network]);
 }
 
 // --- handler ---------------------------------------------------------------
@@ -242,6 +332,15 @@ export async function handler(event) {
   const kind = String(params.resource || "").trim();
   const code = cleanCode(params.code);
   const resource = `${SITE_URL}/api/wg/${kind}${code ? `/${code}` : ""}`;
+
+  // Free, and deliberately ahead of every paywalled branch below.
+  if (kind === "verify") {
+    if (!LICENSE_SECRET) {
+      return respond(503, { message: "License verification is not configured." }, HEADERS);
+    }
+    const checked = verifyLicense(params.receipt, params.sig);
+    return respond(checked.valid ? 200 : 400, checked, HEADERS);
+  }
 
   let price;
   let description;
@@ -265,6 +364,7 @@ export async function handler(event) {
         "/api/wg/license/<code>": `${PRICES.license.display} USDC — a signed redistribution license`,
       },
       free: {
+        [`${SITE_URL}/api/wg/verify`]: "Check a license receipt: ?receipt=<token>&sig=<signature>.",
         [`${SITE_URL}/llms.txt`]: "Where to start.",
         [`${SITE_URL}/index.md`]: "The complete index as Markdown.",
         [`${SITE_URL}/graphs.json`]: "Works, candidates, legacy, aliases.",
@@ -279,6 +379,20 @@ export async function handler(event) {
       message: "Paid access is not accepting payment yet.",
       free: `${SITE_URL}/index.md`,
     }, HEADERS);
+  }
+
+  // Never quote a price on a network this facilitator cannot settle. Only an
+  // affirmative "no" refuses: if the lookup itself fails we still quote, since
+  // verify and settle remain in the way of any money actually moving.
+  try {
+    if (!(await settles(NETWORK))) {
+      return respond(503, {
+        message: `Paid access is configured for "${NETWORK}", which its payment facilitator does not settle. Nothing can be charged until that pairing is fixed.`,
+        free: `${SITE_URL}/index.md`,
+      }, HEADERS);
+    }
+  } catch (error) {
+    console.error("Whistlegraph x402 supported lookup failed:", error?.message || error);
   }
 
   const accepts = requirements(resource, price, description);

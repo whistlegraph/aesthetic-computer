@@ -221,6 +221,14 @@
         handle /api/whistlegraph-query* {
             import lith_proxy
         }
+        # Free license verification. It comes first and keeps the original query
+        # instead of rebuilding it, because the receipt being checked travels in
+        # that query — the rewrite below would throw it away.
+        @wgverify path /api/wg/verify /api/wg/verify/
+        handle @wgverify {
+            rewrite * /api/whistlegraph-llm?resource=verify&{query}
+            import lith_proxy
+        }
         # Paid machine access, metered with x402. /api/wg/<resource>[/<code>]
         # flattens onto the one function; an unpaid GET returns 402 with the
         # terms, so asking always works. See whistlegraph-llm.mjs.

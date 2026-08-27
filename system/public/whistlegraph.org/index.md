@@ -1678,10 +1678,11 @@ what it costs and where to pay; pay, repeat the request with an
 | [`GET /api/wg/bulk`](https://whistlegraph.org/api/wg/bulk) | 5.00 | The entire normalized dataset — works, candidates, legacy, aliases, all posts and their relationship edges — as one document, with every media URL resolved. |
 | `GET /api/wg/sources/<code>` | 0.10 | Every source video behind one whistlegraph, each with its own view count and date — the audit trail behind the aggregate numbers. |
 | `GET /api/wg/license/<code>` | 1.00 | A signed, verifiable redistribution license for one work, with its resolved asset URLs. Those assets are already public on the CDN — what this buys is the licence to reuse them, not access to them. |
+| [`GET /api/wg/verify`](https://whistlegraph.org/api/wg/verify) | free | Checks a license receipt: `?receipt=<token>&sig=<signature>`, both copied from the `verify` link inside a license. Confirms the receipt was issued here, is unedited, and is still in term. |
 
 A `402` from any of these carries the machine-readable terms. `GET
 https://whistlegraph.org/api/wg/bulk` with no payment to read the current offer —
-asking is always free.
+asking is always free, and so is checking a license you already hold.
 
 For anything larger — the full media archive, a training license, or a
 commercial arrangement — write to the address on
