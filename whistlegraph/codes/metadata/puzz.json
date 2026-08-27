@@ -1,0 +1,37 @@
+{
+  "name": "Puzzle [puzz]",
+  "description": "“Puzzle” (2021) by Camille Klein — a whistlegraph: a graphic score in which every drawn line is a sung line, and the finished drawing teaches you how to perform it. This token is the code itself — the same string is the work's URL (whistlegraph.org/puzz) and its name (puzz.whistlegraph.eth). When Whistlegraph Dot Org releases music derived from this graph, its holder receives the first edition and a royalty split. The matching 2022 Feral File video edition remains a distinct historical artifact of the Ten Whistlegraphs exhibition.",
+  "image": "https://whistlegraph.org/glyphs/puzz.jpg",
+  "external_url": "https://whistlegraph.org/puzz",
+  "attributes": [
+    {
+      "trait_type": "code",
+      "value": "puzz"
+    },
+    {
+      "trait_type": "year",
+      "value": 2021
+    },
+    {
+      "trait_type": "composed by",
+      "value": "Camille Klein"
+    },
+    {
+      "trait_type": "views (at mint)",
+      "display_type": "number",
+      "value": 19973100
+    },
+    {
+      "trait_type": "exhibition",
+      "value": "Ten Whistlegraphs (Feral File, 2022)"
+    },
+    {
+      "trait_type": "drop",
+      "value": "one: the homecoming"
+    },
+    {
+      "trait_type": "score",
+      "value": "https://assets.aesthetic.computer/whistlegraph/puzzle/puzzle-score.png"
+    }
+  ]
+}
