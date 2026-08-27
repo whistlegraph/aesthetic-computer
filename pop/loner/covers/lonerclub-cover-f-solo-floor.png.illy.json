@@ -1,0 +1,43 @@
+{
+  "schema": "illy/v1",
+  "createdAt": "2026-08-27T15:50:14.851Z",
+  "pipeline": "pop-cover",
+  "provider": "openai",
+  "model": "gpt-image-2",
+  "mode": "edit",
+  "size": "1024x1024",
+  "quality": "high",
+  "output": "/Users/jas/aesthetic-computer/pop/loner/covers/lonerclub-cover-f-solo-floor.png",
+  "promptPath": "/Users/jas/aesthetic-computer/pop/loner/covers/solo-floor.illy.txt",
+  "promptHash": "a32e563b239798ebd7dc35566f1ec8c926f83408fddeeb3c5b65eb738911a9a2",
+  "references": [
+    "/Users/jas/aesthetic-computer/pop/loner/covers/refs/loner-final-figure-square.png"
+  ],
+  "contracts": [
+    "physical-accuracy"
+  ],
+  "stages": [
+    "resolve-inputs",
+    "apply-contracts",
+    "select-provider",
+    "generate",
+    "archive",
+    "provenance"
+  ],
+  "durationSeconds": 139.96,
+  "archived": null,
+  "requestId": null,
+  "usage": {
+    "input_tokens": 1831,
+    "input_tokens_details": {
+      "image_tokens": 1225,
+      "text_tokens": 606
+    },
+    "output_tokens": 7024,
+    "output_tokens_details": {
+      "image_tokens": 7024,
+      "text_tokens": 0
+    },
+    "total_tokens": 8855
+  }
+}
