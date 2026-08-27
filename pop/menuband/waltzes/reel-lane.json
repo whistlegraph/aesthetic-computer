@@ -1202,6 +1202,83 @@
           "#6b572e"
         ]
       }
+    },
+    {
+      "id": "17-mirror",
+      "name": "Mirror",
+      "seed": 17160,
+      "bpm": 96,
+      "bars": 32,
+      "tonic": "D",
+      "mode": "dorian",
+      "instrumentProgram": 78,
+      "instrumentName": "Whistle",
+      "development": "lift",
+      "harmonyDegrees": [
+        0,
+        5,
+        3,
+        4,
+        0,
+        3,
+        4,
+        0
+      ],
+      "melodyBars": [
+        [
+          8,
+          6,
+          5,
+          4
+        ],
+        [
+          6,
+          8,
+          9
+        ],
+        [
+          8,
+          9,
+          11,
+          9
+        ],
+        [
+          10,
+          8,
+          9
+        ],
+        [
+          10,
+          8
+        ],
+        [
+          10,
+          8,
+          10,
+          8
+        ],
+        [
+          9,
+          8,
+          10
+        ],
+        [
+          11,
+          10,
+          8,
+          0
+        ]
+      ],
+      "notesPath": "pop/menuband/out/menu-band-waltzes/17-mirror/17-mirror.notes.json",
+      "audioPath": "pop/menuband/out/menu-band-waltzes/17-mirror/17-mirror.wav",
+      "outPath": "pop/menuband/out/menu-band-waltzes/17-mirror/17-mirror.mp4",
+      "visual": {
+        "palette": [
+          "#e8f3f2",
+          "#87c5c3",
+          "#2e6b69"
+        ]
+      }
     }
   ]
 }
