@@ -1,12 +1,11 @@
 {
   "schema": "menu-band-waltzes/v1",
   "title": "Menu Band Waltzes — reel lane",
-  "comment": "The autoposting continuation of the waltz series. menuband-clockwork publishes the first variation here that the @menuband.app ledger has not seen, oldest first; the reelboy rock proposes the next variation in response to reel feedback. Defaults carry the flat vertical play-along treatment (Waltz No. 3's ferry rig) — the paper-loop-3d sheet stays out of this lane. Every reel is a single-octave piece (@jeffrey, 2026-08-28).",
+  "comment": "The autoposting continuation of the waltz series. menuband-clockwork publishes the first variation here that the @menuband.app ledger has not seen, oldest first; the reelboy rock proposes the next variation in response to reel feedback. Defaults carry the flat vertical play-along treatment (Waltz No. 3's ferry rig) — the paper-loop-3d sheet stays out of this lane.",
   "baseDir": "../../..",
   "defaults": {
     "durationSec": 60,
     "meter": "3/4",
-    "singleOctave": true,
     "melodyOnly": true,
     "startsOnScreen": true,
     "revealAtSec": 0.5,
@@ -2775,7 +2774,6 @@
       "bars": 22,
       "tonic": "C",
       "mode": "major",
-      "singleOctave": true,
       "instrumentProgram": 78,
       "instrumentName": "Whistle",
       "development": "mirror",
@@ -2791,43 +2789,43 @@
       ],
       "melodyBars": [
         [
-          5,
-          4,
-          5
+          8,
+          7,
+          8
+        ],
+        [
+          9,
+          10,
+          9,
+          10
+        ],
+        [
+          11,
+          9,
+          8,
+          9
+        ],
+        [
+          10,
+          8
+        ],
+        [
+          10,
+          8
+        ],
+        [
+          7,
+          6,
+          8
         ],
         [
           6,
-          5,
-          4,
-          5
-        ],
-        [
+          7,
           6,
-          4,
-          3,
           4
         ],
         [
-          5,
-          3
-        ],
-        [
-          5,
-          3
-        ],
-        [
-          2,
-          1,
-          3
-        ],
-        [
-          1,
-          2,
-          1,
-          3
-        ],
-        [
-          2,
+          3,
           0
         ]
       ],
