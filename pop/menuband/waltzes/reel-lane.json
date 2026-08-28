@@ -2993,6 +2993,78 @@
           "#426b2e"
         ]
       }
+    },
+    {
+      "id": "41-easel",
+      "name": "Easel",
+      "seed": 41376,
+      "bpm": 102,
+      "bars": 34,
+      "tonic": "A",
+      "mode": "minor",
+      "singleOctave": true,
+      "instrumentProgram": 78,
+      "instrumentName": "Whistle",
+      "development": "mirror",
+      "harmonyDegrees": [
+        0,
+        3,
+        0,
+        4,
+        5,
+        3,
+        4,
+        0
+      ],
+      "melodyBars": [
+        [
+          3,
+          2,
+          3
+        ],
+        [
+          1,
+          2,
+          4
+        ],
+        [
+          2,
+          1,
+          0
+        ],
+        [
+          1,
+          2
+        ],
+        [
+          3,
+          4
+        ],
+        [
+          2,
+          3
+        ],
+        [
+          5,
+          3,
+          5,
+          3
+        ],
+        [
+          4,
+          0
+        ]
+      ],
+      "notesPath": "pop/menuband/out/menu-band-waltzes/41-easel/41-easel.notes.json",
+      "audioPath": "pop/menuband/out/menu-band-waltzes/41-easel/41-easel.wav",
+      "outPath": "pop/menuband/out/menu-band-waltzes/41-easel/41-easel.mp4",
+      "visual": {
+        "palette": [
+          "#e8e8f3",
+          "#8789c5",
+          "#2e306b"
+        ]
+      }
     }
   ]
 }
