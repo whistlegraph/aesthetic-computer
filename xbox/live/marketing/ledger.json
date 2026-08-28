@@ -445,6 +445,26 @@
         "reels_skip_rate": 62.4
       },
       "insightsAt": "2026-08-28T01:41:09.888Z"
+    },
+    {
+      "mode": "live",
+      "id": "2026-08-28-s0-gamedev",
+      "slot": 717,
+      "day": "2026-08-28",
+      "index": 0,
+      "segment": "gamedev",
+      "seed": "2026-08-28#0",
+      "kind": "self-play",
+      "round": "bemma62",
+      "audioName": "bemma62",
+      "publishedAt": "2026-08-28T13:13:53.395Z",
+      "urls": {
+        "reel": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/oskiewar/reels/2026-08-28-s0-gamedev/reel.mp4",
+        "cover": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/oskiewar/reels/2026-08-28-s0-gamedev/cover.jpg"
+      },
+      "containerId": "18084503078446357",
+      "mediaId": "17995255350008751",
+      "insights": null
     }
   ]
 }
