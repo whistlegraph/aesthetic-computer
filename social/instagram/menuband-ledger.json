@@ -1093,6 +1093,20 @@
         "reels_skip_rate": 34.1
       },
       "insightsAt": "2026-08-28T21:51:29.059Z"
+    },
+    {
+      "mediaId": "18117327883732085",
+      "containerId": "18091633379299689",
+      "publishedAt": "2026-08-28T22:24:16.645Z",
+      "permalink": "https://www.instagram.com/reel/DcmbRk8jf_Q/",
+      "caption": "#menuband #mac #apple",
+      "source": "pop/menuband/out/menu-band-waltzes/42-foyer/42-foyer.mp4",
+      "audioName": "foyer.mbscore",
+      "collaborators": null,
+      "urls": {
+        "reel": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/ig/menuband/2026-08-28/42-foyer.mp4"
+      },
+      "insights": null
     }
   ]
 }

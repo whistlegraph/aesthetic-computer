@@ -3065,6 +3065,83 @@
           "#2e306b"
         ]
       }
+    },
+    {
+      "id": "42-foyer",
+      "name": "Foyer",
+      "seed": 42385,
+      "bpm": 75,
+      "bars": 25,
+      "tonic": "A",
+      "mode": "minor",
+      "singleOctave": true,
+      "instrumentProgram": 78,
+      "instrumentName": "Whistle",
+      "development": "mirror",
+      "harmonyDegrees": [
+        0,
+        5,
+        3,
+        4,
+        0,
+        3,
+        4,
+        0
+      ],
+      "melodyBars": [
+        [
+          0,
+          1,
+          0
+        ],
+        [
+          1,
+          2,
+          4,
+          6
+        ],
+        [
+          4,
+          5,
+          4
+        ],
+        [
+          5,
+          3
+        ],
+        [
+          4,
+          5
+        ],
+        [
+          3,
+          5,
+          3,
+          1
+        ],
+        [
+          3,
+          4,
+          2,
+          3
+        ],
+        [
+          4,
+          5,
+          3,
+          0
+        ]
+      ],
+      "notesPath": "pop/menuband/out/menu-band-waltzes/42-foyer/42-foyer.notes.json",
+      "audioPath": "pop/menuband/out/menu-band-waltzes/42-foyer/42-foyer.wav",
+      "outPath": "pop/menuband/out/menu-band-waltzes/42-foyer/42-foyer.mp4",
+      "visual": {
+        "palette": [
+          "#f3ebe8",
+          "#c59687",
+          "#6b3e2e"
+        ]
+      }
     }
   ]
 }
