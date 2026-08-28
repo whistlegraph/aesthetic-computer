@@ -2247,6 +2247,77 @@
           "#2e6b5c"
         ]
       }
+    },
+    {
+      "id": "31-walnut",
+      "name": "Walnut",
+      "seed": 31286,
+      "bpm": 75,
+      "bars": 25,
+      "tonic": "D",
+      "mode": "dorian",
+      "instrumentProgram": 78,
+      "instrumentName": "Whistle",
+      "development": "lift",
+      "harmonyDegrees": [
+        0,
+        3,
+        4,
+        0,
+        5,
+        3,
+        4,
+        0
+      ],
+      "melodyBars": [
+        [
+          4,
+          6,
+          7,
+          8
+        ],
+        [
+          10,
+          11,
+          10
+        ],
+        [
+          8,
+          9,
+          8
+        ],
+        [
+          6,
+          8
+        ],
+        [
+          6,
+          7
+        ],
+        [
+          9,
+          11,
+          10
+        ],
+        [
+          8,
+          9
+        ],
+        [
+          10,
+          0
+        ]
+      ],
+      "notesPath": "pop/menuband/out/menu-band-waltzes/31-walnut/31-walnut.notes.json",
+      "audioPath": "pop/menuband/out/menu-band-waltzes/31-walnut/31-walnut.wav",
+      "outPath": "pop/menuband/out/menu-band-waltzes/31-walnut/31-walnut.mp4",
+      "visual": {
+        "palette": [
+          "#f3e8f2",
+          "#c587c2",
+          "#6b2e68"
+        ]
+      }
     }
   ]
 }
