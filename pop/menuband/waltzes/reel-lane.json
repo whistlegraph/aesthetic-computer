@@ -2689,6 +2689,82 @@
           "#4d2e6b"
         ]
       }
+    },
+    {
+      "id": "37-awning",
+      "name": "Awning",
+      "seed": 37340,
+      "bpm": 72,
+      "bars": 24,
+      "tonic": "C",
+      "mode": "major",
+      "instrumentProgram": 78,
+      "instrumentName": "Whistle",
+      "development": "lift",
+      "harmonyDegrees": [
+        0,
+        5,
+        3,
+        4,
+        0,
+        3,
+        4,
+        0
+      ],
+      "melodyBars": [
+        [
+          6,
+          7
+        ],
+        [
+          8,
+          9,
+          10
+        ],
+        [
+          8,
+          10,
+          9,
+          11
+        ],
+        [
+          9,
+          10,
+          9,
+          10
+        ],
+        [
+          9,
+          8,
+          9
+        ],
+        [
+          8,
+          7,
+          8,
+          6
+        ],
+        [
+          4,
+          5
+        ],
+        [
+          7,
+          6,
+          5,
+          0
+        ]
+      ],
+      "notesPath": "pop/menuband/out/menu-band-waltzes/37-awning/37-awning.notes.json",
+      "audioPath": "pop/menuband/out/menu-band-waltzes/37-awning/37-awning.wav",
+      "outPath": "pop/menuband/out/menu-band-waltzes/37-awning/37-awning.mp4",
+      "visual": {
+        "palette": [
+          "#f3f0e8",
+          "#c5b887",
+          "#6b5f2e"
+        ]
+      }
     }
   ]
 }
