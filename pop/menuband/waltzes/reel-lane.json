@@ -3142,6 +3142,81 @@
           "#6b3e2e"
         ]
       }
+    },
+    {
+      "id": "43-gazebo",
+      "name": "Gazebo",
+      "seed": 43394,
+      "bpm": 99,
+      "bars": 33,
+      "tonic": "A",
+      "mode": "minor",
+      "singleOctave": true,
+      "instrumentProgram": 78,
+      "instrumentName": "Whistle",
+      "development": "mirror",
+      "harmonyDegrees": [
+        0,
+        3,
+        4,
+        0,
+        5,
+        3,
+        4,
+        0
+      ],
+      "melodyBars": [
+        [
+          5,
+          3,
+          2,
+          3
+        ],
+        [
+          1,
+          2,
+          0
+        ],
+        [
+          2,
+          4
+        ],
+        [
+          5,
+          6
+        ],
+        [
+          5,
+          6,
+          5
+        ],
+        [
+          3,
+          4
+        ],
+        [
+          5,
+          6,
+          5,
+          6
+        ],
+        [
+          5,
+          6,
+          5,
+          0
+        ]
+      ],
+      "notesPath": "pop/menuband/out/menu-band-waltzes/43-gazebo/43-gazebo.notes.json",
+      "audioPath": "pop/menuband/out/menu-band-waltzes/43-gazebo/43-gazebo.wav",
+      "outPath": "pop/menuband/out/menu-band-waltzes/43-gazebo/43-gazebo.mp4",
+      "visual": {
+        "palette": [
+          "#e8f3ee",
+          "#87c5a9",
+          "#2e6b4f"
+        ]
+      }
     }
   ]
 }
