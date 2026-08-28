@@ -2026,6 +2026,83 @@
           "#356b2e"
         ]
       }
+    },
+    {
+      "id": "28-compass",
+      "name": "Compass",
+      "seed": 28259,
+      "bpm": 69,
+      "bars": 23,
+      "tonic": "A",
+      "mode": "minor",
+      "instrumentProgram": 78,
+      "instrumentName": "Whistle",
+      "development": "mirror",
+      "harmonyDegrees": [
+        0,
+        4,
+        5,
+        3,
+        0,
+        5,
+        4,
+        0
+      ],
+      "melodyBars": [
+        [
+          6,
+          5,
+          6,
+          7
+        ],
+        [
+          8,
+          6,
+          5
+        ],
+        [
+          3,
+          4,
+          5,
+          6
+        ],
+        [
+          7,
+          5,
+          6,
+          8
+        ],
+        [
+          6,
+          7
+        ],
+        [
+          5,
+          6,
+          8,
+          9
+        ],
+        [
+          10,
+          11
+        ],
+        [
+          10,
+          8,
+          9,
+          0
+        ]
+      ],
+      "notesPath": "pop/menuband/out/menu-band-waltzes/28-compass/28-compass.notes.json",
+      "audioPath": "pop/menuband/out/menu-band-waltzes/28-compass/28-compass.wav",
+      "outPath": "pop/menuband/out/menu-band-waltzes/28-compass/28-compass.mp4",
+      "visual": {
+        "palette": [
+          "#eae8f3",
+          "#9187c5",
+          "#382e6b"
+        ]
+      }
     }
   ]
 }
