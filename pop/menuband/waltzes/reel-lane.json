@@ -1812,6 +1812,76 @@
           "#6b6b2e"
         ]
       }
+    },
+    {
+      "id": "25-fountain",
+      "name": "Fountain",
+      "seed": 25232,
+      "bpm": 87,
+      "bars": 29,
+      "tonic": "C",
+      "mode": "major",
+      "instrumentProgram": 78,
+      "instrumentName": "Whistle",
+      "development": "lift",
+      "harmonyDegrees": [
+        0,
+        3,
+        4,
+        0,
+        5,
+        3,
+        4,
+        0
+      ],
+      "melodyBars": [
+        [
+          8,
+          6
+        ],
+        [
+          4,
+          6,
+          4
+        ],
+        [
+          5,
+          7
+        ],
+        [
+          6,
+          8,
+          6
+        ],
+        [
+          8,
+          10
+        ],
+        [
+          11,
+          9,
+          11
+        ],
+        [
+          9,
+          10
+        ],
+        [
+          8,
+          9,
+          0
+        ]
+      ],
+      "notesPath": "pop/menuband/out/menu-band-waltzes/25-fountain/25-fountain.notes.json",
+      "audioPath": "pop/menuband/out/menu-band-waltzes/25-fountain/25-fountain.wav",
+      "outPath": "pop/menuband/out/menu-band-waltzes/25-fountain/25-fountain.mp4",
+      "visual": {
+        "palette": [
+          "#e8eff3",
+          "#87b3c5",
+          "#2e596b"
+        ]
+      }
     }
   ]
 }
