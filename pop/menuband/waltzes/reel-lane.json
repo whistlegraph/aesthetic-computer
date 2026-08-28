@@ -2537,6 +2537,84 @@
           "#6b2e33"
         ]
       }
+    },
+    {
+      "id": "35-saucer",
+      "name": "Saucer",
+      "seed": 35322,
+      "bpm": 72,
+      "bars": 24,
+      "tonic": "D",
+      "mode": "dorian",
+      "instrumentProgram": 78,
+      "instrumentName": "Whistle",
+      "development": "lift",
+      "harmonyDegrees": [
+        0,
+        3,
+        0,
+        4,
+        5,
+        3,
+        4,
+        0
+      ],
+      "melodyBars": [
+        [
+          8,
+          9
+        ],
+        [
+          10,
+          11,
+          10,
+          8
+        ],
+        [
+          6,
+          7,
+          5
+        ],
+        [
+          3,
+          4,
+          3,
+          1
+        ],
+        [
+          3,
+          5,
+          6
+        ],
+        [
+          8,
+          6,
+          5,
+          4
+        ],
+        [
+          5,
+          7,
+          8,
+          9
+        ],
+        [
+          11,
+          9,
+          7,
+          0
+        ]
+      ],
+      "notesPath": "pop/menuband/out/menu-band-waltzes/35-saucer/35-saucer.notes.json",
+      "audioPath": "pop/menuband/out/menu-band-waltzes/35-saucer/35-saucer.wav",
+      "outPath": "pop/menuband/out/menu-band-waltzes/35-saucer/35-saucer.mp4",
+      "visual": {
+        "palette": [
+          "#e8f3ea",
+          "#87c594",
+          "#2e6b3b"
+        ]
+      }
     }
   ]
 }
