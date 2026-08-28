@@ -1953,6 +1953,79 @@
           "#6b2e47"
         ]
       }
+    },
+    {
+      "id": "27-blanket",
+      "name": "Blanket",
+      "seed": 27250,
+      "bpm": 102,
+      "bars": 34,
+      "tonic": "C",
+      "mode": "major",
+      "instrumentProgram": 78,
+      "instrumentName": "Whistle",
+      "development": "lift",
+      "harmonyDegrees": [
+        0,
+        5,
+        3,
+        4,
+        0,
+        3,
+        4,
+        0
+      ],
+      "melodyBars": [
+        [
+          4,
+          5
+        ],
+        [
+          4,
+          5
+        ],
+        [
+          4,
+          5
+        ],
+        [
+          3,
+          5,
+          6,
+          7
+        ],
+        [
+          8,
+          7,
+          6,
+          7
+        ],
+        [
+          8,
+          9,
+          10,
+          9
+        ],
+        [
+          10,
+          9
+        ],
+        [
+          10,
+          9,
+          0
+        ]
+      ],
+      "notesPath": "pop/menuband/out/menu-band-waltzes/27-blanket/27-blanket.notes.json",
+      "audioPath": "pop/menuband/out/menu-band-waltzes/27-blanket/27-blanket.wav",
+      "outPath": "pop/menuband/out/menu-band-waltzes/27-blanket/27-blanket.mp4",
+      "visual": {
+        "palette": [
+          "#e9f3e8",
+          "#8ec587",
+          "#356b2e"
+        ]
+      }
     }
   ]
 }
