@@ -1882,6 +1882,77 @@
           "#2e596b"
         ]
       }
+    },
+    {
+      "id": "26-drawer",
+      "name": "Drawer",
+      "seed": 26241,
+      "bpm": 81,
+      "bars": 27,
+      "tonic": "D",
+      "mode": "dorian",
+      "instrumentProgram": 78,
+      "instrumentName": "Whistle",
+      "development": "mirror",
+      "harmonyDegrees": [
+        0,
+        4,
+        5,
+        3,
+        0,
+        5,
+        4,
+        0
+      ],
+      "melodyBars": [
+        [
+          7,
+          9
+        ],
+        [
+          10,
+          11
+        ],
+        [
+          10,
+          11,
+          10
+        ],
+        [
+          8,
+          9,
+          11
+        ],
+        [
+          9,
+          10,
+          8
+        ],
+        [
+          9,
+          10
+        ],
+        [
+          9,
+          10
+        ],
+        [
+          11,
+          10,
+          11,
+          0
+        ]
+      ],
+      "notesPath": "pop/menuband/out/menu-band-waltzes/26-drawer/26-drawer.notes.json",
+      "audioPath": "pop/menuband/out/menu-band-waltzes/26-drawer/26-drawer.wav",
+      "outPath": "pop/menuband/out/menu-band-waltzes/26-drawer/26-drawer.mp4",
+      "visual": {
+        "palette": [
+          "#f3e8ec",
+          "#c587a0",
+          "#6b2e47"
+        ]
+      }
     }
   ]
 }
