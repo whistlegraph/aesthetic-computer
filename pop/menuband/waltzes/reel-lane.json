@@ -2391,6 +2391,80 @@
           "#566b2e"
         ]
       }
+    },
+    {
+      "id": "33-parlor",
+      "name": "Parlor",
+      "seed": 33304,
+      "bpm": 93,
+      "bars": 31,
+      "tonic": "A",
+      "mode": "minor",
+      "instrumentProgram": 78,
+      "instrumentName": "Whistle",
+      "development": "lift",
+      "harmonyDegrees": [
+        0,
+        4,
+        5,
+        3,
+        0,
+        5,
+        4,
+        0
+      ],
+      "melodyBars": [
+        [
+          5,
+          7
+        ],
+        [
+          8,
+          9,
+          10
+        ],
+        [
+          11,
+          10,
+          8
+        ],
+        [
+          9,
+          8,
+          9,
+          11
+        ],
+        [
+          10,
+          11,
+          9
+        ],
+        [
+          8,
+          9,
+          8,
+          6
+        ],
+        [
+          4,
+          5,
+          6
+        ],
+        [
+          4,
+          0
+        ]
+      ],
+      "notesPath": "pop/menuband/out/menu-band-waltzes/33-parlor/33-parlor.notes.json",
+      "audioPath": "pop/menuband/out/menu-band-waltzes/33-parlor/33-parlor.wav",
+      "outPath": "pop/menuband/out/menu-band-waltzes/33-parlor/33-parlor.mp4",
+      "visual": {
+        "palette": [
+          "#e8ecf3",
+          "#879ec5",
+          "#2e456b"
+        ]
+      }
     }
   ]
 }
