@@ -1734,6 +1734,84 @@
           "#592e6b"
         ]
       }
+    },
+    {
+      "id": "24-clover",
+      "name": "Clover",
+      "seed": 24223,
+      "bpm": 99,
+      "bars": 33,
+      "tonic": "A",
+      "mode": "minor",
+      "instrumentProgram": 78,
+      "instrumentName": "Whistle",
+      "development": "mirror",
+      "harmonyDegrees": [
+        0,
+        3,
+        4,
+        0,
+        5,
+        3,
+        4,
+        0
+      ],
+      "melodyBars": [
+        [
+          8,
+          9
+        ],
+        [
+          11,
+          10,
+          11,
+          10
+        ],
+        [
+          8,
+          6,
+          4,
+          5
+        ],
+        [
+          7,
+          5,
+          4
+        ],
+        [
+          3,
+          4,
+          6,
+          4
+        ],
+        [
+          3,
+          2,
+          1,
+          0
+        ],
+        [
+          1,
+          2,
+          1
+        ],
+        [
+          2,
+          1,
+          2,
+          0
+        ]
+      ],
+      "notesPath": "pop/menuband/out/menu-band-waltzes/24-clover/24-clover.notes.json",
+      "audioPath": "pop/menuband/out/menu-band-waltzes/24-clover/24-clover.wav",
+      "outPath": "pop/menuband/out/menu-band-waltzes/24-clover/24-clover.mp4",
+      "visual": {
+        "palette": [
+          "#f2f3e8",
+          "#c5c587",
+          "#6b6b2e"
+        ]
+      }
     }
   ]
 }
