@@ -2615,6 +2615,80 @@
           "#2e6b3b"
         ]
       }
+    },
+    {
+      "id": "36-tangerine",
+      "name": "Tangerine",
+      "seed": 36331,
+      "bpm": 75,
+      "bars": 25,
+      "tonic": "D",
+      "mode": "dorian",
+      "instrumentProgram": 78,
+      "instrumentName": "Whistle",
+      "development": "mirror",
+      "harmonyDegrees": [
+        0,
+        3,
+        0,
+        4,
+        5,
+        3,
+        4,
+        0
+      ],
+      "melodyBars": [
+        [
+          2,
+          1,
+          2
+        ],
+        [
+          3,
+          1,
+          3
+        ],
+        [
+          1,
+          3,
+          5
+        ],
+        [
+          7,
+          6,
+          4
+        ],
+        [
+          3,
+          4
+        ],
+        [
+          6,
+          7
+        ],
+        [
+          8,
+          7,
+          9,
+          10
+        ],
+        [
+          11,
+          10,
+          8,
+          0
+        ]
+      ],
+      "notesPath": "pop/menuband/out/menu-band-waltzes/36-tangerine/36-tangerine.notes.json",
+      "audioPath": "pop/menuband/out/menu-band-waltzes/36-tangerine/36-tangerine.wav",
+      "outPath": "pop/menuband/out/menu-band-waltzes/36-tangerine/36-tangerine.mp4",
+      "visual": {
+        "palette": [
+          "#ede8f3",
+          "#a687c5",
+          "#4d2e6b"
+        ]
+      }
     }
   ]
 }
