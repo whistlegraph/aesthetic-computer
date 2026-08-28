@@ -2465,6 +2465,78 @@
           "#2e456b"
         ]
       }
+    },
+    {
+      "id": "34-gramophone",
+      "name": "Gramophone",
+      "seed": 34313,
+      "bpm": 84,
+      "bars": 28,
+      "tonic": "C",
+      "mode": "major",
+      "instrumentProgram": 78,
+      "instrumentName": "Whistle",
+      "development": "mirror",
+      "harmonyDegrees": [
+        0,
+        5,
+        3,
+        4,
+        0,
+        3,
+        4,
+        0
+      ],
+      "melodyBars": [
+        [
+          9,
+          8
+        ],
+        [
+          6,
+          4
+        ],
+        [
+          3,
+          1,
+          3
+        ],
+        [
+          5,
+          6,
+          4,
+          3
+        ],
+        [
+          2,
+          3
+        ],
+        [
+          2,
+          3,
+          1
+        ],
+        [
+          0,
+          1
+        ],
+        [
+          2,
+          4,
+          3,
+          0
+        ]
+      ],
+      "notesPath": "pop/menuband/out/menu-band-waltzes/34-gramophone/34-gramophone.notes.json",
+      "audioPath": "pop/menuband/out/menu-band-waltzes/34-gramophone/34-gramophone.wav",
+      "outPath": "pop/menuband/out/menu-band-waltzes/34-gramophone/34-gramophone.mp4",
+      "visual": {
+        "palette": [
+          "#f3e8e9",
+          "#c5878b",
+          "#6b2e33"
+        ]
+      }
     }
   ]
 }
