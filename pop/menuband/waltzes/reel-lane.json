@@ -2103,6 +2103,77 @@
           "#382e6b"
         ]
       }
+    },
+    {
+      "id": "29-sailboat",
+      "name": "Sailboat",
+      "seed": 29268,
+      "bpm": 99,
+      "bars": 33,
+      "tonic": "D",
+      "mode": "dorian",
+      "instrumentProgram": 78,
+      "instrumentName": "Whistle",
+      "development": "lift",
+      "harmonyDegrees": [
+        0,
+        3,
+        0,
+        4,
+        5,
+        3,
+        4,
+        0
+      ],
+      "melodyBars": [
+        [
+          4,
+          6,
+          7
+        ],
+        [
+          6,
+          5,
+          6
+        ],
+        [
+          7,
+          8,
+          9
+        ],
+        [
+          7,
+          8
+        ],
+        [
+          9,
+          11,
+          10
+        ],
+        [
+          11,
+          9
+        ],
+        [
+          10,
+          11,
+          10
+        ],
+        [
+          11,
+          0
+        ]
+      ],
+      "notesPath": "pop/menuband/out/menu-band-waltzes/29-sailboat/29-sailboat.notes.json",
+      "audioPath": "pop/menuband/out/menu-band-waltzes/29-sailboat/29-sailboat.wav",
+      "outPath": "pop/menuband/out/menu-band-waltzes/29-sailboat/29-sailboat.mp4",
+      "visual": {
+        "palette": [
+          "#f3ede8",
+          "#c5a387",
+          "#6b4a2e"
+        ]
+      }
     }
   ]
 }
