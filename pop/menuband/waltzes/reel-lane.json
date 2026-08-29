@@ -3737,6 +3737,79 @@
           "#6b522e"
         ]
       }
+    },
+    {
+      "id": "51-oriel",
+      "name": "Oriel",
+      "seed": 51466,
+      "bpm": 69,
+      "bars": 23,
+      "tonic": "A",
+      "mode": "minor",
+      "singleOctave": true,
+      "instrumentProgram": 78,
+      "instrumentName": "Whistle",
+      "development": "mirror",
+      "harmonyDegrees": [
+        0,
+        4,
+        5,
+        3,
+        0,
+        5,
+        4,
+        0
+      ],
+      "melodyBars": [
+        [
+          5,
+          6
+        ],
+        [
+          5,
+          4,
+          6,
+          5
+        ],
+        [
+          4,
+          6
+        ],
+        [
+          4,
+          6,
+          4
+        ],
+        [
+          2,
+          3
+        ],
+        [
+          4,
+          5,
+          4
+        ],
+        [
+          2,
+          3,
+          5
+        ],
+        [
+          6,
+          4,
+          0
+        ]
+      ],
+      "notesPath": "pop/menuband/out/menu-band-waltzes/51-oriel/51-oriel.notes.json",
+      "audioPath": "pop/menuband/out/menu-band-waltzes/51-oriel/51-oriel.wav",
+      "outPath": "pop/menuband/out/menu-band-waltzes/51-oriel/51-oriel.mp4",
+      "visual": {
+        "palette": [
+          "#e8f3f1",
+          "#87c5be",
+          "#2e6b64"
+        ]
+      }
     }
   ]
 }
