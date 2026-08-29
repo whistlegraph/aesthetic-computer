@@ -4565,6 +4565,84 @@
           "#3a6b2e"
         ]
       }
+    },
+    {
+      "id": "62-cistern",
+      "name": "Cistern",
+      "seed": 62565,
+      "bpm": 81,
+      "bars": 27,
+      "tonic": "A",
+      "mode": "minor",
+      "singleOctave": true,
+      "instrumentProgram": 78,
+      "instrumentName": "Whistle",
+      "development": "mirror",
+      "harmonyDegrees": [
+        0,
+        5,
+        3,
+        4,
+        0,
+        3,
+        4,
+        0
+      ],
+      "melodyBars": [
+        [
+          5,
+          3,
+          1
+        ],
+        [
+          2,
+          4,
+          5,
+          3
+        ],
+        [
+          5,
+          6,
+          5
+        ],
+        [
+          6,
+          5,
+          6
+        ],
+        [
+          4,
+          6,
+          5,
+          6
+        ],
+        [
+          5,
+          6,
+          4,
+          5
+        ],
+        [
+          3,
+          5,
+          6
+        ],
+        [
+          4,
+          3,
+          0
+        ]
+      ],
+      "notesPath": "pop/menuband/out/menu-band-waltzes/62-cistern/62-cistern.notes.json",
+      "audioPath": "pop/menuband/out/menu-band-waltzes/62-cistern/62-cistern.wav",
+      "outPath": "pop/menuband/out/menu-band-waltzes/62-cistern/62-cistern.mp4",
+      "visual": {
+        "palette": [
+          "#e9e8f3",
+          "#8c87c5",
+          "#342e6b"
+        ]
+      }
     }
   ]
 }
