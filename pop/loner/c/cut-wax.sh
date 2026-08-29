@@ -46,7 +46,7 @@ acompressor=threshold=0.28:ratio=1.8:attack=10:release=200:makeup=1.2:knee=8,\
 equalizer=f=90:t=q:w=0.9:g=1.0,\
 equalizer=f=2800:t=q:w=1.6:g=0.8,\
 highpass=f=28,lowpass=f=15000,\
-stereotools=slev=0.18:enable='between(t,61.55,63.30)'"
+stereotools=slev=0.18:enable='${INHALE:-between(t,61.55,63.30)}'"
 
 WAX="$OUT/.wax-pre.wav"
 ffmpeg -y -v error -i "$FULL" -filter_complex "[0:a]$MATERIAL[out]" \
