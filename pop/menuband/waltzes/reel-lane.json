@@ -3217,6 +3217,84 @@
           "#2e6b4f"
         ]
       }
+    },
+    {
+      "id": "44-hallway",
+      "name": "Hallway",
+      "seed": 44403,
+      "bpm": 81,
+      "bars": 27,
+      "tonic": "D",
+      "mode": "dorian",
+      "singleOctave": true,
+      "instrumentProgram": 78,
+      "instrumentName": "Whistle",
+      "development": "mirror",
+      "harmonyDegrees": [
+        0,
+        5,
+        3,
+        4,
+        0,
+        3,
+        4,
+        0
+      ],
+      "melodyBars": [
+        [
+          4,
+          6,
+          5,
+          3
+        ],
+        [
+          5,
+          6
+        ],
+        [
+          5,
+          6,
+          4,
+          5
+        ],
+        [
+          6,
+          5,
+          6
+        ],
+        [
+          5,
+          3,
+          4,
+          5
+        ],
+        [
+          6,
+          5,
+          3,
+          4
+        ],
+        [
+          5,
+          6
+        ],
+        [
+          4,
+          2,
+          4,
+          0
+        ]
+      ],
+      "notesPath": "pop/menuband/out/menu-band-waltzes/44-hallway/44-hallway.notes.json",
+      "audioPath": "pop/menuband/out/menu-band-waltzes/44-hallway/44-hallway.wav",
+      "outPath": "pop/menuband/out/menu-band-waltzes/44-hallway/44-hallway.mp4",
+      "visual": {
+        "palette": [
+          "#f1e8f3",
+          "#bb87c5",
+          "#612e6b"
+        ]
+      }
     }
   ]
 }
