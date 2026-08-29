@@ -126,14 +126,16 @@ function generateVariation(n) {
   const name = WORDS[(n - 5 + WORDS.length * 100) % WORDS.length];
   const bpm = pick(BPMS);
   // A melody of eight bar-groups: a small random walk over the scale
-  // ladder, 2–4 notes a group, always landing home. It starts mid-ladder
-  // and reflects off the ends — clamping there parks whole phrases on the
-  // floor and everything comes out bass and drone.
-  let degree = 3 + Math.floor(rand() * 5);
+  // ladder, 2–4 notes a group, always landing home. Every reel is a
+  // single-octave piece (@jeffrey, 2026-08-28), so the ladder is one
+  // octave — degrees 0–6 — and the walk starts mid-ladder and reflects
+  // off the ends; clamping there parks whole phrases on the floor and
+  // everything comes out bass and drone.
+  let degree = 2 + Math.floor(rand() * 3);
   const melodyBars = Array.from({ length: 8 }, (_, group) => {
     const notes = Array.from({ length: 2 + Math.floor(rand() * 3) }, () => {
       const step = [-2, -1, 1, 1, 2][Math.floor(rand() * 5)];
-      degree += degree + step < 0 || degree + step > 11 ? -step : step;
+      degree += degree + step < 0 || degree + step > 6 ? -step : step;
       return degree;
     });
     if (group === 7) notes[notes.length - 1] = 0;
@@ -147,9 +149,11 @@ function generateVariation(n) {
   return {
     id, name: name[0].toUpperCase() + name.slice(1),
     seed: 1009 * n + 7, bpm, bars: bpm / 3,
-    tonic, mode,
+    tonic, mode, singleOctave: true,
     instrumentProgram, instrumentName,
-    development: n % 2 ? "lift" : "mirror",
+    // Of the developments only mirror keeps its ceiling octave-gated in
+    // the renderers — lift's +7 is an octave leap — so every waltz mirrors.
+    development: "mirror",
     harmonyDegrees: pick(PROGRESSIONS),
     melodyBars,
     notesPath: `${dir}/${id}.notes.json`,
