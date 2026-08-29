@@ -3447,6 +3447,76 @@
           "#2e516b"
         ]
       }
+    },
+    {
+      "id": "47-knoll",
+      "name": "Knoll",
+      "seed": 47430,
+      "bpm": 75,
+      "bars": 25,
+      "tonic": "C",
+      "mode": "major",
+      "singleOctave": true,
+      "instrumentProgram": 78,
+      "instrumentName": "Whistle",
+      "development": "mirror",
+      "harmonyDegrees": [
+        0,
+        3,
+        4,
+        0,
+        5,
+        3,
+        4,
+        0
+      ],
+      "melodyBars": [
+        [
+          3,
+          4,
+          3
+        ],
+        [
+          1,
+          2
+        ],
+        [
+          3,
+          2
+        ],
+        [
+          1,
+          2
+        ],
+        [
+          4,
+          5
+        ],
+        [
+          4,
+          6
+        ],
+        [
+          5,
+          4,
+          5
+        ],
+        [
+          6,
+          4,
+          0
+        ]
+      ],
+      "notesPath": "pop/menuband/out/menu-band-waltzes/47-knoll/47-knoll.notes.json",
+      "audioPath": "pop/menuband/out/menu-band-waltzes/47-knoll/47-knoll.wav",
+      "outPath": "pop/menuband/out/menu-band-waltzes/47-knoll/47-knoll.mp4",
+      "visual": {
+        "palette": [
+          "#f3e8eb",
+          "#c58798",
+          "#6b2e3f"
+        ]
+      }
     }
   ]
 }
