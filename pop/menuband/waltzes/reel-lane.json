@@ -4186,6 +4186,82 @@
           "#2e6b43"
         ]
       }
+    },
+    {
+      "id": "57-veranda",
+      "name": "Veranda",
+      "seed": 57520,
+      "bpm": 90,
+      "bars": 30,
+      "tonic": "A",
+      "mode": "minor",
+      "singleOctave": true,
+      "instrumentProgram": 78,
+      "instrumentName": "Whistle",
+      "development": "mirror",
+      "harmonyDegrees": [
+        0,
+        4,
+        5,
+        3,
+        0,
+        5,
+        4,
+        0
+      ],
+      "melodyBars": [
+        [
+          2,
+          3,
+          2,
+          3
+        ],
+        [
+          2,
+          3
+        ],
+        [
+          2,
+          3
+        ],
+        [
+          4,
+          5,
+          3,
+          4
+        ],
+        [
+          2,
+          4,
+          3,
+          4
+        ],
+        [
+          5,
+          6,
+          4
+        ],
+        [
+          3,
+          2
+        ],
+        [
+          3,
+          4,
+          6,
+          0
+        ]
+      ],
+      "notesPath": "pop/menuband/out/menu-band-waltzes/57-veranda/57-veranda.notes.json",
+      "audioPath": "pop/menuband/out/menu-band-waltzes/57-veranda/57-veranda.wav",
+      "outPath": "pop/menuband/out/menu-band-waltzes/57-veranda/57-veranda.mp4",
+      "visual": {
+        "palette": [
+          "#efe8f3",
+          "#ae87c5",
+          "#552e6b"
+        ]
+      }
     }
   ]
 }
