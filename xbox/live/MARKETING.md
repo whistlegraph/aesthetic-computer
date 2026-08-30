@@ -82,7 +82,9 @@ as pause. In a browser, use `?time-scale=0.25` or call
 `__oskiewarSetTimeScale(0.25)`. The factory spelling is `--speed 0.25`.
 
 **A reel is one whole match, uncut.** Offline simulation starts on the round's
-first tick and stops on its result card. Nothing inside is cut.
+first tick and stops on its result card. Nothing inside is cut. Its opening
+face-off is 0.65 seconds; live play keeps the three-second portrait intro, but
+the unattended reel reaches moving fighters inside the first swipe second.
 
 > **What "a match" means here.** `oskiewar.js` carries `matchWins = 5`, but
 > nothing accumulates round wins toward it — self-play calls `startSelfPlay`

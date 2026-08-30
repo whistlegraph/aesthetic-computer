@@ -178,6 +178,18 @@ const roundDurationUs = 30000000;
 const roundResultUs = 3000000;
 const matchResultUs = 5000000;
 const introDurationUs = 3000000;
+// A reel gets one branded beat, then motion. Three portrait seconds cost the
+// swipe decision before either fighter could move; the live game keeps that
+// introduction, while the unattended 9:16 lane reaches the fight inside the
+// first second without changing a combat rule.
+const reelIntroDurationUs = 650000;
+// Keep the close face-off lens through the first exchange. The seeded bots
+// meet at about .81s; releasing at the bell made that hit happen as two tiny
+// figures at the foot of an empty portrait wall.
+const reelOpeningHoldUs = 1350000;
+function roundIntroDurationUs() {
+  return reelGroundCamera() ? reelIntroDurationUs : introDurationUs;
+}
 const dummyGuideDurationUs = 150000000;
 const matchWins = 5;
 const errorRestartUs = 16000000;
@@ -1359,7 +1371,7 @@ function spectatorState(now, nextRoundId = "") {
   const introAge = now - roundStartedAt;
   const phase = instantReplay ? "replay" : matchOver ? "match"
     : roundResult ? "round" : selecting ? "select"
-    : introAge < introDurationUs ? "intro" : "fight";
+    : introAge < roundIntroDurationUs() ? "intro" : "fight";
   const timed = roundIsTimed();
   // An untimed frame reports zero rather than null: the relay reads every
   // remainingMs as an integer, and the title screen's attract fight has no
@@ -2272,7 +2284,7 @@ function beginTraining(now) {
   startFightAgainst(trainingOpponentKind(), now);
   shellMode = "MENU";
   gameplayStarted = false;
-  roundStartedAt = now - introDurationUs;
+  roundStartedAt = now - roundIntroDurationUs();
   const forcedAttract = globalThis.__oskiewarAttractVariant;
   titleAttractMode = forcedAttract === "still" || forcedAttract === "action"
     ? forcedAttract : hashUnit(matchName) < .5 ? "still" : "action";
@@ -2485,7 +2497,7 @@ function startResim(demo, now) {
   // each pass, so replayed inputs land exactly where they were pressed.
   const fightOpen = demo.checkpoints?.[0]?.[0];
   if (fightOpen) roundStartedAt = now + fightOpen * 16667 -
-    introDurationUs - 8000;
+    roundIntroDurationUs() - 8000;
   if (demo.posePhaseUs != null) startedAt = now - demo.posePhaseUs;
 }
 
@@ -2824,7 +2836,7 @@ function resetBalls(now) {
     item.rotation = 0;
     item.heldBy = -1;
     item.active = ballEnabled;
-    item.serveAt = now + introDurationUs + 150000;
+    item.serveAt = now + roundIntroDurationUs() + 150000;
     item.lastHitBy = owner ? owner.pad : -1;
     item.safeUntil = item.serveAt;
     item.safePlayers = owner ? 1 << owner.pad : 0;
@@ -2971,7 +2983,7 @@ function applyRoundViewerState(state, now, dt = 1 / 60) {
     (roundResult.includes("BALLED") ? "BALLED" : roundResult ? "ROUND" : "");
   roundElapsedUs = Math.max(0, roundDurationUs - state.round.remainingMs * 1000);
   matchOver = state.phase === "match";
-  roundStartedAt = now - introDurationUs - roundElapsedUs;
+  roundStartedAt = now - roundIntroDurationUs() - roundElapsedUs;
   if (roundResult && !hadResult) roundOverAt = now;
   const target = state.camera.target || { x: cameraCenter, y: cameraCenterY, z: 0 };
   cameraDoll.track({ target,
@@ -3091,7 +3103,7 @@ function gameBoot() {
     matchName = roundViewer.name || "";
     spectatorQr = typeof qrcode === "function"
       ? spectatorCode("https://oskiewar.com/" + matchName) : spectatorQr;
-    roundStartedAt = startedAt - introDurationUs;
+    roundStartedAt = startedAt - roundIntroDurationUs();
     roundViewerStop = roundViewer.start(handleRoundViewer);
     return;
   }
@@ -3274,23 +3286,36 @@ function resetRound(now, resetMatch = false) {
   resetBalls(now);
   if (replay) replay.rounds.push([demoTick(now), windDirection, windMph,
     balls.length]);
-  // Frame one belongs to fighter one. Starting from the wide game camera made
-  // the first portrait spend its whole beat zooming in instead of arriving as
-  // a portrait; snap to the head, then let the authored sequence cross to the
-  // other fighter and pull out.
+  // Live frame one belongs to fighter one: snap to the head, then let the
+  // authored sequence cross to the other fighter and pull out. A reel has a
+  // shorter contract and takes the whole face-off on frame zero below.
   cameraCenter = (players[0].x + players[1].x) / 2;
   cameraWidth = 960;
   cameraCenterY = (players[0].y + players[1].y) / 2 - 90;
   cameraContainFloor = 0;
   const poseTime = (now - startedAt) / 1000000;
-  const firstHead = runnerWorldGeometry(players[0], poseTime).head;
-  const portraitWidth = Math.max(96, firstHead.radius * 6.5);
-  const portraitTarget = { x: firstHead.x, y: firstHead.y, z: firstHead.z };
-  cameraDoll.snap({ target: portraitTarget,
-    position: { x: portraitTarget.x, y: portraitTarget.y,
-      z: portraitTarget.z - Math.max(portraitWidth * 1.35,
-        Math.abs(worldNear) + 400) },
-    width: portraitWidth, perspective: 0, fov: 55, roll: 0 });
+  if (reelGroundCamera()) {
+    // Frame zero is the face-off, not one isolated portrait. The short reel
+    // intro cannot afford to spend half of itself finding the other fighter.
+    const target = { x: (players[0].x + players[1].x) / 2,
+      y: (players[0].y + players[1].y) / 2 - 90,
+      z: (players[0].z + players[1].z) / 2 };
+    const width = Math.max(980,
+      Math.abs(players[1].x - players[0].x) + 760) * portraitPull();
+    cameraDoll.snap({ target,
+      position: { x: target.x, y: target.y,
+        z: target.z - Math.max(width * 1.35, Math.abs(worldNear) + 400) },
+      width, perspective: 0, fov: 55, roll: 0 });
+  } else {
+    const firstHead = runnerWorldGeometry(players[0], poseTime).head;
+    const portraitWidth = Math.max(96, firstHead.radius * 6.5);
+    const portraitTarget = { x: firstHead.x, y: firstHead.y, z: firstHead.z };
+    cameraDoll.snap({ target: portraitTarget,
+      position: { x: portraitTarget.x, y: portraitTarget.y,
+        z: portraitTarget.z - Math.max(portraitWidth * 1.35,
+          Math.abs(worldNear) + 400) },
+      width: portraitWidth, perspective: 0, fov: 55, roll: 0 });
+  }
 }
 
 // The box the camera packs. It is a fighting-game pushbox rather than the
@@ -3581,7 +3606,19 @@ function updateCameraDoll(dt, now) {
       roll: 0 }, dt, 7);
     return;
   }
-  if (introAge < introDurationUs) {
+  if (reelGroundCamera() && introAge < reelOpeningHoldUs) {
+    const target = { x: (players[0].x + players[1].x) / 2,
+      y: (players[0].y + players[1].y) / 2 - 90,
+      z: (players[0].z + players[1].z) / 2 };
+    const width = Math.max(980,
+      Math.abs(players[1].x - players[0].x) + 760) * portraitPull();
+    cameraDoll.track({ target,
+      position: { x: target.x, y: target.y,
+        z: target.z - Math.max(width * 1.35, Math.abs(worldNear) + 400) },
+      width, perspective: 0, fov: 55, roll: 0 }, dt, 12);
+    return;
+  }
+  if (introAge < roundIntroDurationUs()) {
     // One elapsed-time story: first fighter, second fighter, title pullback,
     // then the fight.
     // Nothing is counted in rendered frames, so live variable speed and an
@@ -3611,7 +3648,7 @@ function updateCameraDoll(dt, now) {
       width = faceWidth(head);
     } else {
       const out = clamp((age - secondEnd) /
-        (introDurationUs / 1000000 - secondEnd), 0, 1);
+        (roundIntroDurationUs() / 1000000 - secondEnd), 0, 1);
       const eased = out * out * (3 - out * 2);
       const head = headOf(players[1]);
       target = { x: lerp(head.x, opening.x, eased),
@@ -6268,13 +6305,13 @@ function gameSim() {
     updateSelect(now);
     return;
   }
-  if (now - roundStartedAt < introDurationUs) {
+  if (now - roundStartedAt < roundIntroDurationUs()) {
     // The intro used to pass in silence — a reel that opens on the countdown
     // opened on three mute seconds, and a player heard the round begin with
     // nothing. Ring the "3, 2, 1" on the same two channels the round clock
     // uses: the drum for the ear, the signal for the record.
     const introSecond = Math.ceil(
-      (introDurationUs - (now - roundStartedAt)) / 1000000);
+      (roundIntroDurationUs() - (now - roundStartedAt)) / 1000000);
     if (introSecond !== lastIntroSecond) {
       lastIntroSecond = introSecond;
       // playDrum is the voice, the signal is the record — the "countdown"
@@ -7093,7 +7130,7 @@ function fighterContainmentRequiredWidth(t) {
 // back far enough for landscape, portrait, live, and replay projection alike.
 function containFighters(t) {
   const gameplayContainment = !roundResult &&
-    runtime().monotonicUs - roundStartedAt >= introDurationUs;
+    runtime().monotonicUs - roundStartedAt >= roundIntroDurationUs();
   if (gameplayContainment) {
     cameraContainFloor = Math.max(cameraContainFloor,
       fighterContainmentRequiredWidth(t) * 1.11);
@@ -8900,11 +8937,11 @@ function drawFightIntro(introSeconds, titleInk, statusShadow) {
     drawFloatingHandle(player, point.x - width / 2,
       point.y - radius - flashingSize * 1.28, flashingSize);
   };
-  if (introSeconds < 1) {
+  if (!reelGroundCamera() && introSeconds < 1) {
     drawHeadName(players[0]);
     return;
   }
-  if (introSeconds < 2) {
+  if (!reelGroundCamera() && introSeconds < 2) {
     drawHeadName(players[1]);
     return;
   }
@@ -8935,9 +8972,10 @@ function drawReelSectionProgress(now, titleInk) {
   const available = safe.right - safe.left - gap * 2;
   const resultDuration = matchOver ? matchResultUs : roundResultUs;
   const introAge = Math.max(0, now - roundStartedAt);
-  const section = roundResult ? 2 : introAge < introDurationUs ? 0 : 1;
+  const introLimit = roundIntroDurationUs();
+  const section = roundResult ? 2 : introAge < introLimit ? 0 : 1;
   const progress = section === 0
-    ? clamp(introAge / introDurationUs, 0, 1)
+    ? clamp(introAge / introLimit, 0, 1)
     : section === 1
       ? clamp(roundElapsedUs / roundDurationUs, 0, 1)
       : clamp((now - roundOverAt) / resultDuration, 0, 1);
@@ -10599,7 +10637,7 @@ function gamePaint() {
   const cinematicAge = deathCinematicAge(run.monotonicUs);
   const introAge = run.monotonicUs - roundStartedAt;
   const inRoundIntro = !roundResult && introAge >= 0 &&
-    introAge < introDurationUs;
+    introAge < roundIntroDurationUs();
   // The intro deliberately owns its lens: wide title, two face portraits,
   // then a pullback. Final-frame containment would widen every portrait until
   // both fighters fitted, erasing the zoom story it was meant to protect.
@@ -10720,7 +10758,7 @@ function gamePaint() {
   for (const pickup of gunPickups) drawGunPickup(pickup, t);
   for (const pickup of grenadePickups) drawGrenadePickup(pickup, t);
   const showRunnerLabels = matchHud && !reelMinimal &&
-    (Boolean(roundResult) || introAge >= introDurationUs);
+    (Boolean(roundResult) || introAge >= roundIntroDurationUs());
   const viewDirection = normalize3({
     x: cameraDoll.target.x - cameraDoll.position.x,
     y: cameraDoll.target.y - cameraDoll.position.y,
@@ -10769,7 +10807,7 @@ function gamePaint() {
   drawSafeZones();
   triangleDepth = -1.42;
   drawImpacts();
-  const counting = !roundResult && introAge < introDurationUs;
+  const counting = !roundResult && introAge < roundIntroDurationUs();
   // The matchup card announces two names in the middle of the screen, which
   // is exactly where the wordmark sits. On the entry fight the word wins.
   if (matchHud && !reelMinimal && counting && shellMode === "GAME")
@@ -10847,7 +10885,7 @@ function gamePaint() {
   // the word, the keys, and the two fighters, and nothing else.
   if (matchHud && !reelMinimal && shellMode === "GAME" &&
       ((roundResult && resultUiReady) ||
-      (!roundResult && introAge >= introDurationUs))) {
+      (!roundResult && introAge >= roundIntroDurationUs()))) {
     const hudPlayers = spatialHudPlayers();
     for (let side = 0; side < hudPlayers.length; side++) {
       const player = hudPlayers[side];

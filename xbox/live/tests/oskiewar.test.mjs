@@ -51,7 +51,8 @@ const limbPartsForTest = ["left-arm", "right-arm", "left-leg", "right-leg"];
 function createFight(startImmediately = true, enterGame = true,
   platform = "xbox-uwp", roundBridge = null,
   viewport = { width: 1920, height: 1080 }, livePublisher = null,
-  drumVoice = null, triangleHost = "triangle3d", startUs = 0) {
+  drumVoice = null, triangleHost = "triangle3d", startUs = 0,
+  capabilityOverrides = {}) {
   let now = startUs;
   const signals = [];
   const replays = [];
@@ -95,7 +96,7 @@ function createFight(startImmediately = true, enterGame = true,
     (index = 0) => ({ ...pads[index], down: pads[index].down.slice() }),
     () => ({ platform, inputFamily: platform === "xbox-uwp" ? "xbox"
       : platform === "touch" ? "touch"
-      : platform === "mouse" ? "mouse" : "keyboard" }),
+      : platform === "mouse" ? "mouse" : "keyboard", ...capabilityOverrides }),
     (event, detail) => telemetryEvents.push([event, detail]),
     (...signal) => signals.push(signal), (payload) => {
       replays.push(payload);
@@ -991,7 +992,30 @@ test("gameplay camera has no procedural viewport shake", () => {
   assert.doesNotMatch(source, /cameraContainTouchedAt/);
   assert.match(source, /const gameplayContainment = !roundResult &&/);
   assert.match(source,
-    /runtime\(\)\.monotonicUs - roundStartedAt >= introDurationUs/);
+    /runtime\(\)\.monotonicUs - roundStartedAt >= roundIntroDurationUs\(\)/);
+});
+
+test("a reel reaches the fight inside its first second", () => {
+  const { fight, tick } = createFight(false, false, "web", null,
+    { width: 1080, height: 1920 }, null, null, "triangle3d", 0,
+    { replayOven: true, reelHud: true, reelFullUi: true });
+  fight.startFight();
+  const middle = (fight.players[0].x + fight.players[1].x) / 2;
+  assert.ok(Math.abs(fight.cameraState().doll.target.x - middle) < 1,
+    "frame zero contains the face-off rather than one isolated portrait");
+  tick(633333);
+  assert.equal(fight.roundState().roundElapsedUs, 0,
+    "the brand beat still owns its final frame");
+  tick(33334);
+  assert.ok(fight.roundState().roundElapsedUs > 0,
+    "the fight is live before the first second is over");
+  tick(300000);
+  assert.ok(fight.cameraState().doll.width < 700,
+    "the close lens holds through the opening exchange");
+  assert.match(source, /const reelIntroDurationUs = 650000/);
+  assert.match(source, /const reelOpeningHoldUs = 1350000/);
+  assert.match(source,
+    /if \(reelGroundCamera\(\)\) \{\s*\/\/ Frame zero is the face-off/);
 });
 
 test("intro camera introduces both faces before returning to the fight", () => {
@@ -1029,8 +1053,10 @@ test("intro camera introduces both faces before returning to the fight", () => {
   assert.match(source, /point\.y - radius - flashingSize \* 1\.28/);
   assert.match(source, /animatedTitleColor\(index, titleTime\)/);
   assert.match(source, /const inRoundIntro = !roundResult/);
-  assert.match(source, /if \(introSeconds < 1\) \{\s*drawHeadName\(players\[0\]\)/);
-  assert.match(source, /if \(introSeconds < 2\) \{\s*drawHeadName\(players\[1\]\)/);
+  assert.match(source,
+    /if \(!reelGroundCamera\(\) && introSeconds < 1\) \{\s*drawHeadName\(players\[0\]\)/);
+  assert.match(source,
+    /if \(!reelGroundCamera\(\) && introSeconds < 2\) \{\s*drawHeadName\(players\[1\]\)/);
   assert.doesNotMatch(source, /const andText = "and"/);
   assert.match(source, /function visibleHandle\(player\)/);
   assert.match(source, /return player\.name\.toLowerCase\(\)/);
