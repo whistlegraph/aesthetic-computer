@@ -52,8 +52,15 @@ const published = (entry) => posted.has(basename(entry.outPath));
 // The series numbering lives in the id — "04-stairwell" is waltz no. 4.
 const waltzNumber = (entry) => Number.parseInt(entry.id, 10);
 
-// Let the score and its file name carry the reel; the caption is only routing.
-function caption() { return "#menuband #mac #apple"; }
+// The only purchase path analytics has ever attributed is App Store search,
+// so the caption's job is to teach that search: plain name, price, url.
+function caption() {
+  return "menu band · $4.99 on the mac app store · menuband.app\n#menuband #mac #apple";
+}
+
+// Invited on every reel; a pending invite costs nothing, and accepting from
+// the other account's app puts the reel in front of its followers.
+const COLLABORATORS = "aesthetic.computer,whistlegraph";
 
 // Every reel's Instagram audio is named as a playable score file — .mbscore
 // is Menu Band's real format, and the name is the marketing.
@@ -206,7 +213,8 @@ function publish(entry) {
   const video = renderIfNeeded(entry);
   console.log(`▸ posting ${entry.id} as @menuband`);
   const post = spawnSync(process.execPath, [IG, "--as", "menuband", "post",
-    video, "--caption", caption(entry), "--audio-name", audioName(entry)],
+    video, "--caption", caption(entry), "--audio-name", audioName(entry),
+    "--collaborators", COLLABORATORS],
     { cwd: ROOT, stdio: "inherit" });
   if (post.status !== 0) die(`ig.mjs post failed for ${entry.id}`);
   // ig.mjs leaves the receipt beside the video (extension swapped for
