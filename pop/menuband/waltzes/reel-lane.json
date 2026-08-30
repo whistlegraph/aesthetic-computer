@@ -5012,6 +5012,80 @@
           "#2e496b"
         ]
       }
+    },
+    {
+      "id": "68-meadow",
+      "name": "Meadow",
+      "seed": 68619,
+      "bpm": 87,
+      "bars": 29,
+      "tonic": "C",
+      "mode": "major",
+      "singleOctave": true,
+      "instrumentProgram": 78,
+      "instrumentName": "Whistle",
+      "development": "mirror",
+      "harmonyDegrees": [
+        0,
+        3,
+        0,
+        4,
+        5,
+        3,
+        4,
+        0
+      ],
+      "melodyBars": [
+        [
+          5,
+          3,
+          2
+        ],
+        [
+          4,
+          2,
+          1
+        ],
+        [
+          0,
+          1,
+          0,
+          2
+        ],
+        [
+          4,
+          3
+        ],
+        [
+          4,
+          6
+        ],
+        [
+          4,
+          6
+        ],
+        [
+          5,
+          3,
+          2,
+          3
+        ],
+        [
+          5,
+          6,
+          0
+        ]
+      ],
+      "notesPath": "pop/menuband/out/menu-band-waltzes/68-meadow/68-meadow.notes.json",
+      "audioPath": "pop/menuband/out/menu-band-waltzes/68-meadow/68-meadow.wav",
+      "outPath": "pop/menuband/out/menu-band-waltzes/68-meadow/68-meadow.mp4",
+      "visual": {
+        "palette": [
+          "#f3e8e9",
+          "#c58790",
+          "#6b2e38"
+        ]
+      }
     }
   ]
 }
