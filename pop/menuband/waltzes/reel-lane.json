@@ -5317,6 +5317,77 @@
           "#6b5a2e"
         ]
       }
+    },
+    {
+      "id": "72-teacup",
+      "name": "Teacup",
+      "seed": 72655,
+      "bpm": 87,
+      "bars": 29,
+      "tonic": "A",
+      "mode": "minor",
+      "singleOctave": true,
+      "instrumentProgram": 78,
+      "instrumentName": "Whistle",
+      "development": "mirror",
+      "harmonyDegrees": [
+        0,
+        3,
+        4,
+        0,
+        5,
+        3,
+        4,
+        0
+      ],
+      "melodyBars": [
+        [
+          1,
+          3,
+          2,
+          0
+        ],
+        [
+          1,
+          3
+        ],
+        [
+          4,
+          5,
+          6,
+          4
+        ],
+        [
+          6,
+          5
+        ],
+        [
+          3,
+          1
+        ],
+        [
+          3,
+          4
+        ],
+        [
+          5,
+          3
+        ],
+        [
+          2,
+          0
+        ]
+      ],
+      "notesPath": "pop/menuband/out/menu-band-waltzes/72-teacup/72-teacup.notes.json",
+      "audioPath": "pop/menuband/out/menu-band-waltzes/72-teacup/72-teacup.wav",
+      "outPath": "pop/menuband/out/menu-band-waltzes/72-teacup/72-teacup.mp4",
+      "visual": {
+        "palette": [
+          "#e8f2f3",
+          "#87c4c5",
+          "#2e6b6b"
+        ]
+      }
     }
   ]
 }
