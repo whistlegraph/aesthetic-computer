@@ -338,6 +338,21 @@ async function toolLaunch({ host, agent, cwd, prompt = "", by, loopboyContact = 
     throw new Error("`agent` must be `claude` or `codex`.");
   }
   if (String(prompt).length > 4000) throw new Error("`prompt` exceeds 4000 characters.");
+  const contactKey = String(loopboyContact || "").trim().toLowerCase();
+
+  // Snapshot the live markers before launching so the poll below can tell
+  // the newborn Loopboy's marker apart from every session already running.
+  const existingMarkerIds = new Set();
+  if (contactKey) {
+    for (const dir of MARKER_DIRS) {
+      let names = [];
+      try { names = await readdir(dir); } catch {}
+      for (const name of names) {
+        const value = await readJson(join(dir, name));
+        existingMarkerIds.add(value?.session_id || name);
+      }
+    }
+  }
 
   const ledgers = await allLedgers();
   const target = ledgers.find((l) => String(l.host || "").toLowerCase() === wanted);
@@ -349,7 +364,7 @@ async function toolLaunch({ host, agent, cwd, prompt = "", by, loopboyContact = 
     agent: agentName,
     prompt: String(prompt),
     ...(cwd ? { cwd: String(cwd) } : {}),
-    ...(loopboyContact ? { loopboyContact: String(loopboyContact).toLowerCase() } : {}),
+    ...(contactKey ? { loopboyContact: contactKey } : {}),
     by: launcher,
   });
   const res = await fetch(`http://${target.ip}:${PORT}/launch`, {
@@ -363,7 +378,7 @@ async function toolLaunch({ host, agent, cwd, prompt = "", by, loopboyContact = 
   try { result = JSON.parse(text); } catch { throw new Error(`launch on ${target.host} returned invalid JSON (HTTP ${res.status}).`); }
   if (!res.ok || !result.ok) throw new Error(`launch on ${target.host} failed: ${result.error || `HTTP ${res.status}`}`);
   let binding = "";
-  if (loopboyContact) {
+  if (contactKey) {
     if (String(target.host).toLowerCase() !== String(self).toLowerCase()) {
       throw new Error("Loopboy contact routes can only be launched on this local iMessage host");
     }

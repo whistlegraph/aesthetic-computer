@@ -50,7 +50,11 @@ oskiewar clockwork wrapper was born from, re-learned here on day one.
 
 A pass is silent when nothing is new. Words always wake the rock; numbers
 wake it only when views grow by a quarter and at least fifty since the last
-digest.
+digest. Words the API withholds still count as words: Instagram's comment
+count can exceed what the comments edge returns (private-account commenters
+are counted but never returned), and a rise in those unreadable comments
+wakes the rock too — the digest names how many exist and that the app is
+the only place to read them.
 
 ## The rock's charter
 
