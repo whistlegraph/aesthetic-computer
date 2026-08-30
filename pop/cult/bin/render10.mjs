@@ -882,6 +882,13 @@ function shot(name, t, {
   dur = null, dly = 0, off = 0, evVoice = null, atk = 0.0015,
   wig = 0, wigHz = 5.0, wigPhase = 0, wigDrift = 0, wigIn = 0.45,
 } = {}) {
+  // @jeffrey: "lets lose all vocals until we get to 0:40" — the voice bus
+  // is silent until the sentence's first dash at the bar-28 hook. (The
+  // watery-hole dink rides the drum bus, so it survives.)
+  if (bus === "vox" && t < 28 * BAR - 0.02) return;
+  // The door (both critics): 400 ms of negative space before the sentence —
+  // decorations step aside, the kick keeps the floor.
+  if (t >= 28 * BAR - 0.42 && t < 28 * BAR - 0.02) return;
   if (bus === "vox") {
     const arc = voxArc(t);
     gain *= arc.g;
@@ -982,6 +989,7 @@ function material(bar, name, g = 1, {
 }
 
 function stretched(name, t, { gain = 1, pan = 0, semis = 0, stretch = 1, dur = 1, side = 0.7, dark = 0.45, bus = "vox", dly = 0 } = {}) {
+  if (bus === "vox" && t < 28 * BAR - 0.02) return;  // same hold as shot()
   EVENTS.push({ t: +t.toFixed(4), voice: "stretch", bus, sample: name, dur: +dur.toFixed(3),
     gain: +gain.toFixed(3), pan: +pan.toFixed(2), stretch });
   const s = BANK[name];
@@ -1225,7 +1233,11 @@ function dotDriftVox(t, bar, {
 // message the record has been withholding"; now the record actually
 // withholds it, and the first time anyone says what they wanna do is the
 // moment the harmony comes home at bar 76.
-const wordsIn = (bar) => bar >= S.whole[0];
+// The withholding is over, but the lyrics hold until the first hook: the
+// loop runs morse-only through bar 27, and the first words are the whole
+// sentence at bar 28 (0:40) — dash · i wanna · dash · i wanna · run real
+// fast · dot dot dot.
+const wordsIn = (bar) => bar >= S.message[0] + 4;
 
 let seed = 20220120;                                   // the cult post date
 const rnd = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296);
@@ -1362,7 +1374,9 @@ function chorus(bar, {
   // ── line 2 · "i wanna hide a — waaaay" ────────────────────────────────
   // (withheld before act VII: one aesthetivoxed dot, stretched where the
   // held vowel would have been, and a bop takes the vowel's peak)
-  if (!gone.has(2) && !wordsIn(bar)) {
+  // line 2 is not in the dictated sentence: it stays withheld until
+  // act VII, so bar 76 keeps a lexical payoff (critic's finding).
+  if (!gone.has(2) && bar < S.whole[0]) {
     dotDriftVox(t + 2.20 + jit(20), bar, { gain: 0.22 * G, pan: 0.24, dur: 1.4, stretch: 3.8, dly: 0.40 });
     bop(t + 3.00 + jit(4), hz(triad(degAt(bar))[1] + 12),
       { gain: 0.22 * G, pan: -0.20, side: 0.7, dly: 0.40 });
@@ -1597,6 +1611,12 @@ function dotArp(t, { count = 5, up = true, gap = 0.16, gain = 0.34, pan = 0.2, d
 // ── score ─────────────────────────────────────────────────────────────
 console.log(`→ scoring ${BARS} bars @ ${BPM} BPM · B minor · ${Object.keys(S).length} acts · ${(BARS * BAR).toFixed(1)}s`);
 
+// The first sound. From the watery-hole post (7071087615948148010): just
+// the metallic ring-down that precedes the spoken invitation — the line
+// itself stays on the wall. It rings at the cut's very top, 50 ms before
+// bar 8's first kick. No jit() here: the parity RNG stream must not shift.
+shot("waterhole", 8 * BAR - 0.05, { bus: "drums", gain: 1.35, pan: 0.0, side: 0.30, dly: 0.20 });
+
 for (let bar = 0; bar < BARS; bar++) {
   const t = at(bar);
   const deg = degAt(bar);
@@ -1668,6 +1688,8 @@ for (let bar = 0; bar < BARS; bar++) {
   // rising into the downbeat, then two bars of wub under the groove.
   if (bar === S.reply[0] || bar === S.whole[0])
     revKick(t, 0.9, bar === S.whole[0] ? 0.55 : 0.48);
+  if (bar === S.message[0] + 4)   // the sentence gets a door too
+    revKick(t, 0.9, 0.48);
   if ((inS(bar, "reply") && bar - S.reply[0] < 2) || bar === S.whole[0] - 2 || bar === S.whole[0] - 1)
     wub(t, bassRoot(deg), 1, 0.26, 4);   // whole: the wub BUILDS INTO the words, then clears out for them
 

@@ -3,8 +3,8 @@
 #
 # v10 starts when the kicks start: the full render still scores the eight
 # carrier bars (their drone and dial tails ring under the entrance), and
-# the cut begins 50 ms before bar 8's downbeat with a 20 ms fade so the
-# first thing that lands is the kick. Trim FIRST, then measure — loudnorm's
+# the cut begins 50 ms before bar 8's downbeat with a 20 ms fade, so the
+# first thing that lands is the watery-hole metallic ring, then the kick. Trim FIRST, then measure — loudnorm's
 # integrated reading must not include sixteen seconds we don't ship.
 #
 # Same mastering law as v3/v5/v9: MEASURE → one static dB → true-peak
@@ -38,8 +38,8 @@ if [ ! -f "$SRC" ] || [ "$TRIM" -nt "$SRC" ]; then
 fi
 
 ffmpeg -y -v error -i "$SRC" -c:a libmp3lame -b:a 320k \
-  -metadata title="whistlegraph cult --- remix (v10, kicks first)" \
+  -metadata title="whistlegraph cult --- remix (v10.2, sentence first)" \
   -metadata artist="Whistlegraph" -metadata album="pop / cult" \
-  -metadata comment="v9's steady loop with the words withheld: opens on the kick and a crowd of dots from every video, the loop runs morse-only, and 'run real fast / i wanna hide away' arrive at the whole message. Real phone: pickup, rotary, hang-up, busy." \
+  -metadata comment="v10.2: the withholding is over — from the first hook the voice says the whole sentence: dash, i wanna, dash, i wanna, run real fast, dot dot dot. Opens on the kick and the dot crowd; real phone: pickup, rotary, hang-up, busy." \
   "$OUT/cult-remix-v10.mp3"
 echo "✓ $OUT/cult-remix-v10.mp3"

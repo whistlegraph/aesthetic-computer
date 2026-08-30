@@ -699,6 +699,13 @@ static Shot shot_def(int bus, double side) {
 #define SHOT_HELD() shot_def(BUS_TUBE, 0.7)
 
 static void shot(const char *name, double t, Shot o) {
+    // @jeffrey: "lets lose all vocals until we get to 0:40" — the voice
+    // bus is silent until the sentence's first dash at the bar-28 hook.
+    // (The watery-hole dink rides the drum bus, so it survives.)
+    if (o.bus == BUS_VOX && t < 28 * BAR - 0.02) return;
+    // The door (both critics): 400 ms of negative space before the
+    // sentence — decorations step aside, the kick keeps the floor.
+    if (t >= 28 * BAR - 0.42 && t < 28 * BAR - 0.02) return;
     Sample *smp = bank_get(name);
     if (!smp) { bank_missing(name); return; }
     const float *s = smp->s; const long len = smp->n;
@@ -780,6 +787,7 @@ static void material(int bar, const char *name, double g,
 static void stretched(const char *name, double t, double gain, double pan,
                       double semis, double stretch, double dur, double side,
                       double dark, int bus, double dly) {
+    if (bus == BUS_VOX && t < 28 * BAR - 0.02) return;  // same hold as shot()
     Sample *smp = bank_get(name);
     if (!smp) { bank_missing(name); return; }
     const float *s = smp->s; const long len = smp->n;
@@ -841,11 +849,14 @@ static inline int kickOn(int b) { return !(inS(b, S_CARRIER) || inS(b, S_SECRET)
 static inline int hatOn(int b) { return kickOn(b) || inS(b, S_SECRET); }
 static inline int dense(int b) { return inS(b, S_REPLY) || inS(b, S_WHOLE); }
 static inline int wordsIn(int bar) {
-    // whistlecultspatial: the room version doesn't withhold — "run real
-    // fast" sings in the loops from act III on, because hearing the words
-    // orbit between the machines IS the piece. The straight render keeps
-    // v10.1's withholding-until-bar-76.
-    return bar >= SB[SPATIAL ? S_MESSAGE : S_WHOLE][0];
+    // The withholding is over, but the lyrics hold until the first hook.
+    // v10.1 held the words until bar 76 and the first utterance came out
+    // truncated; opening at bar 24 let the chorus leak "run real fast" at
+    // 0:32, ahead of the sentence. @jeffrey: "hold all lyrics until 0:40" —
+    // so the loop runs morse-only through bar 27, and the first words are
+    // the whole sentence at the bar-28 hook: dash · i wanna · dash ·
+    // i wanna · run real fast · dot dot dot.
+    return bar >= SB[S_MESSAGE][0] + 4;
 }
 
 static int degAt(int bar) {
@@ -1207,7 +1218,9 @@ static void chorus_fn(int bar, Chorus c) {
     }
 
     // line 2 · "i wanna hide a — waaaay"
-    if (!c.drop2 && !wordsIn(bar)) {
+    // line 2 is not in the dictated sentence: it stays withheld until
+    // act VII, so bar 76 keeps a lexical payoff (critic's finding).
+    if (!c.drop2 && bar < SB[S_WHOLE][0]) {
         dotDriftVox(t + 2.20 + jit(20), bar, 0.22 * G, 0.24, 1.4, 3.8, 0.40, 0.35);
         int tri[3]; triad_of(degAt(bar), 59, tri);
         bop(t + 3.00 + jit(4), midihz(tri[1] + 12), 0.22 * G, -0.20, 0.7, 0.085, 0.40);
@@ -1279,6 +1292,13 @@ static void chorus_fn(int bar, Chorus c) {
 // The 112-bar loop, translated block-for-block from render10.mjs with the
 // SAME evaluation order — every jit()/vel()/nrnd() lands on the same draw.
 static void score(void) {
+    // The first sound. From the watery-hole post (7071087615948148010):
+    // just the metallic ring-down that precedes the spoken invitation —
+    // the line itself stays on the wall. It rings at the cut's very top,
+    // 50 ms before bar 8's first kick. No jit() here: the parity RNG
+    // stream must not shift.
+    { Shot o = SHOT_DRUM(); o.gain = 1.35; o.pan = 0.0; o.side = 0.30; o.dly = 0.20;
+      shot("waterhole", 8 * BAR - 0.05, o); }
     for (int bar = 0; bar < BARS; bar++) {
         const double t = at(bar, 0);
         const int deg = degAt(bar);
@@ -1369,6 +1389,8 @@ static void score(void) {
         // ---- the re-entries announce themselves ------------------------
         if (bar == SB[S_REPLY][0] || bar == SB[S_WHOLE][0])
             revKick(t, 0.9, bar == SB[S_WHOLE][0] ? 0.55 : 0.48);
+        if (bar == SB[S_MESSAGE][0] + 4)   // the sentence gets a door too
+            revKick(t, 0.9, 0.48);
         if ((inS(bar, S_REPLY) && bar - SB[S_REPLY][0] < 2) || bar == SB[S_WHOLE][0] - 2 || bar == SB[S_WHOLE][0] - 1)
             wub(t, bassRoot(deg), 1, 0.26, 4);
 
