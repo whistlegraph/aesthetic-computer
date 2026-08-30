@@ -4790,6 +4790,78 @@
           "#2e6b57"
         ]
       }
+    },
+    {
+      "id": "65-attic",
+      "name": "Attic",
+      "seed": 65592,
+      "bpm": 102,
+      "bars": 34,
+      "tonic": "D",
+      "mode": "dorian",
+      "singleOctave": true,
+      "instrumentProgram": 78,
+      "instrumentName": "Whistle",
+      "development": "mirror",
+      "harmonyDegrees": [
+        0,
+        3,
+        0,
+        4,
+        5,
+        3,
+        4,
+        0
+      ],
+      "melodyBars": [
+        [
+          0,
+          1
+        ],
+        [
+          2,
+          0
+        ],
+        [
+          2,
+          3,
+          5
+        ],
+        [
+          6,
+          5
+        ],
+        [
+          3,
+          2,
+          3
+        ],
+        [
+          4,
+          3
+        ],
+        [
+          5,
+          3,
+          4,
+          3
+        ],
+        [
+          4,
+          6,
+          0
+        ]
+      ],
+      "notesPath": "pop/menuband/out/menu-band-waltzes/65-attic/65-attic.notes.json",
+      "audioPath": "pop/menuband/out/menu-band-waltzes/65-attic/65-attic.wav",
+      "outPath": "pop/menuband/out/menu-band-waltzes/65-attic/65-attic.mp4",
+      "visual": {
+        "palette": [
+          "#f2e8f3",
+          "#c387c5",
+          "#692e6b"
+        ]
+      }
     }
   ]
 }
