@@ -5764,6 +5764,82 @@
           "#2e6b4b"
         ]
       }
+    },
+    {
+      "id": "78-bicycle",
+      "name": "Bicycle",
+      "seed": 78709,
+      "bpm": 75,
+      "bars": 25,
+      "tonic": "A",
+      "mode": "minor",
+      "singleOctave": true,
+      "instrumentProgram": 78,
+      "instrumentName": "Whistle",
+      "development": "mirror",
+      "harmonyDegrees": [
+        0,
+        3,
+        0,
+        4,
+        5,
+        3,
+        4,
+        0
+      ],
+      "melodyBars": [
+        [
+          4,
+          3,
+          4,
+          2
+        ],
+        [
+          1,
+          3,
+          5,
+          6
+        ],
+        [
+          4,
+          5,
+          3
+        ],
+        [
+          4,
+          5,
+          3
+        ],
+        [
+          4,
+          5,
+          6
+        ],
+        [
+          4,
+          6
+        ],
+        [
+          5,
+          3
+        ],
+        [
+          2,
+          3,
+          4,
+          0
+        ]
+      ],
+      "notesPath": "pop/menuband/out/menu-band-waltzes/78-bicycle/78-bicycle.notes.json",
+      "audioPath": "pop/menuband/out/menu-band-waltzes/78-bicycle/78-bicycle.wav",
+      "outPath": "pop/menuband/out/menu-band-waltzes/78-bicycle/78-bicycle.mp4",
+      "visual": {
+        "palette": [
+          "#f0e8f3",
+          "#b687c5",
+          "#5c2e6b"
+        ]
+      }
     }
   ]
 }
