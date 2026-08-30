@@ -5616,6 +5616,77 @@
           "#2e356b"
         ]
       }
+    },
+    {
+      "id": "76-pillow",
+      "name": "Pillow",
+      "seed": 76691,
+      "bpm": 72,
+      "bars": 24,
+      "tonic": "D",
+      "mode": "dorian",
+      "singleOctave": true,
+      "instrumentProgram": 78,
+      "instrumentName": "Whistle",
+      "development": "mirror",
+      "harmonyDegrees": [
+        0,
+        3,
+        4,
+        0,
+        5,
+        3,
+        4,
+        0
+      ],
+      "melodyBars": [
+        [
+          4,
+          5
+        ],
+        [
+          3,
+          2
+        ],
+        [
+          4,
+          5
+        ],
+        [
+          4,
+          2
+        ],
+        [
+          1,
+          2
+        ],
+        [
+          4,
+          6
+        ],
+        [
+          5,
+          6,
+          5,
+          3
+        ],
+        [
+          4,
+          5,
+          6,
+          0
+        ]
+      ],
+      "notesPath": "pop/menuband/out/menu-band-waltzes/76-pillow/76-pillow.notes.json",
+      "audioPath": "pop/menuband/out/menu-band-waltzes/76-pillow/76-pillow.wav",
+      "outPath": "pop/menuband/out/menu-band-waltzes/76-pillow/76-pillow.mp4",
+      "visual": {
+        "palette": [
+          "#f3eae8",
+          "#c59287",
+          "#6b392e"
+        ]
+      }
     }
   ]
 }
