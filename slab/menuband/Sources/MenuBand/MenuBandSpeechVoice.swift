@@ -88,11 +88,13 @@ final class MenuBandSpeechVoice {
                 // SwiftPM's `.process` flattens this resource directory in a
                 // command-line app bundle; Xcode preserves the subdirectory.
                 // Accept both so development and signed installs load the
-                // identical offline bank.
-                let url = Bundle.module.url(
+                // identical offline bank. `appResources`, never `Bundle.module`:
+                // the installed .app has no nested bundle and the generated
+                // accessor fatalErrors once the .build fallback dir is cleaned.
+                let url = Bundle.appResources.url(
                     forResource: String(number), withExtension: "mp3",
                     subdirectory: "voice-numbers"
-                ) ?? Bundle.module.url(
+                ) ?? Bundle.appResources.url(
                     forResource: String(number), withExtension: "mp3"
                 )
                 guard let url,

@@ -1067,6 +1067,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // [v1 cutoff] KidLisp TV amp-envelope stamp removed with the TV.
         }
         menuBand.bootstrap()
+        debugLog("didFinishLaunching: post-bootstrap")
         let cdjStatusItem = MenuBandCDJStatusItem()
         cdjStatusItem.onClick = { [weak self] in self?.showPopover() }
         cdjStatusItem.onScratchBegin = { [weak self] in
