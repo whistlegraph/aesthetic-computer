@@ -538,6 +538,7 @@ final class MenuBandSynth {
         // made CoreAudio hold audio-in (orange privacy indicator) on a
         // menu-bar instrument that was never monitoring.
         syncInputMonitorGraph()
+        debugLog("synth.start: post-syncInputMonitorGraph")
         // Speech easter egg: same pre-limiter sum bus, so spoken language
         // names ride the bend/space/echo fx. Idle (no player) until `speak`.
         speechVoice.attach(
@@ -592,14 +593,25 @@ final class MenuBandSynth {
             NSLog("MenuBand synth engine start failed: \(error)")
             return
         }
+        debugLog("synth.start: engine started")
         // Dedicated rewind-capture tap on the limiter (pre-mainMixer, so the
         // reverse playback is excluded). Always-on: the ring keeps recording
         // everything the user plays, even while a reverse is sounding.
-        let rewindFmt = limiter.outputFormat(forBus: 0)
-        limiter.installTap(onBus: 0, bufferSize: 256, format: rewindFmt) { [weak self] buffer, _ in
+        // Tap format MUST be nil, not outputFormat(forBus:): when the duplex
+        // monitor joins inputNode to the graph, engine.start() renegotiates
+        // this bus to the hardware rate (44.1k → 48k on the Scarlett) while
+        // outputFormat(forBus:) still reports the stale connection format.
+        // Installing with that mismatched format throws an NSException that
+        // unwinds clean out of applicationDidFinishLaunching — the app comes
+        // up headless (audio alive, no status item). nil adopts the live bus
+        // format; feed() already handles tap-format changes.
+        debugLog("synth.start: pre-rewind-tap fmt=\(limiter.outputFormat(forBus: 0).sampleRate)/\(limiter.outputFormat(forBus: 0).channelCount)")
+        limiter.installTap(onBus: 0, bufferSize: 256, format: nil) { [weak self] buffer, _ in
             self?.rewindVoice.feed(buffer)
         }
+        debugLog("synth.start: rewind tap installed")
         applyOutputDeviceOverride()
+        debugLog("synth.start: output override applied")
         // Hog mode + buffer-size lowering on AVAudioEngine doesn't pan
         // out on macOS: even with `kAudioDevicePropertyHogMode` held by
         // us (verified via external query) and our 64-frame set call
@@ -612,8 +624,11 @@ final class MenuBandSynth {
         // acquire/release helpers are kept available in case a future
         // backend bypasses AVAudioEngine and can actually benefit.
         lowerOutputBufferSizeIfNeeded()
+        debugLog("synth.start: second buffer-lower done")
         loadDefaultPatches()
+        debugLog("synth.start: patches loaded")
         primeForLowLatency()
+        debugLog("synth.start: primed")
         // Report the output-latency budget once the device has settled.
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
             self?.measuredOutputLatency()
@@ -632,6 +647,7 @@ final class MenuBandSynth {
         // switching. If it doesn't, the user keeps the sampler fallback.
         startMIDISynthBackend()
         scheduleIdleSuspendIfNeeded()
+        debugLog("synth.start: end")
     }
 
     private func observeEngineConfigurationChanges() {
@@ -1556,11 +1572,20 @@ final class MenuBandSynth {
         // scheduling jitter on a constrained machine and underruns into
         // constant pops. Clamp the target UP to the device min only if the
         // hardware can't go as small as our target.
-        var target = Self.targetIOBufferFrames
+        // With the duplex monitor pulling inputNode inside the same render
+        // cycle, the input side occasionally delivers one frame over the IO
+        // size (drift compensation), and any node whose maxFramesPerSlice
+        // equals the IO size then fails EVERY such cycle with -10874
+        // (observed as constant kAudioUnitErr_TooManyFramesToProcess spam,
+        // inFramesToProcess=257 vs mMaxFramesPerSlice=256). Double the
+        // budget while monitoring so the occasional long pull still fits.
+        var desired = Self.targetIOBufferFrames
+        if inputMonitor.isAttached { desired *= 2 }
+        var target = desired
         if rangeStatus == noErr {
             let lo = UInt32(range.mMinimum)
             let hi = UInt32(range.mMaximum)
-            target = min(hi, max(lo, Self.targetIOBufferFrames))
+            target = min(hi, max(lo, desired))
         }
 
         var currAddr = AudioObjectPropertyAddress(
@@ -1571,7 +1596,13 @@ final class MenuBandSynth {
         var currSize = UInt32(MemoryLayout<UInt32>.size)
         let currStatus = AudioObjectGetPropertyData(
             deviceID, &currAddr, 0, nil, &currSize, &current)
-        if currStatus == noErr, current > 0, current <= target {
+        // While monitoring, `target` is a FLOOR, not just a ceiling: a
+        // buffer left at the non-monitor 256 makes the duplex input's
+        // occasional one-frame-over pull fail every cycle (-10874 fuzz),
+        // so a smaller current buffer must be RAISED. Without monitoring,
+        // keep the old lower-only semantics.
+        let mustRaise = inputMonitor.isAttached && current < target
+        if currStatus == noErr, current > 0, current <= target, !mustRaise {
             return  // already at-or-below target, leave it alone
         }
 

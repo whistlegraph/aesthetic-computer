@@ -71,13 +71,12 @@ final class MenuBandController {
     func setAudioInputDevice(uid: String?) { synth.setPreferredInputDevice(uid: uid) }
     func setAudioOutputDevice(uid: String?) { synth.setPreferredOutputDevice(uid: uid) }
     func setAudioMonitorChannel(_ channel: Int) { synth.setMonitorInputChannel(channel) }
-    /// Closing the input UI is an ownership boundary: monitoring is no longer
-    /// visible, so revoke its persistent preference/pin and release CoreAudio
-    /// input immediately. Tape/sample recording pins still prevent shutdown.
+    /// Closing the input UI releases the mic ONLY when nothing pins it.
+    /// Monitoring itself is a persistent mode (the Scarlett studio-monitor
+    /// setup) that survives popover closes and relaunches — the macOS
+    /// orange mic indicator is its always-on visibility cue. It turns off
+    /// only by the explicit toggle (or its device eligibility lapsing).
     func closeInputInterface() {
-        if inputMonitoringEnabled {
-            inputMonitoringEnabled = false
-        }
         synth.stopUnpinnedHotMicNow()
     }
     private var keyTap: KeyEventTap?
@@ -2015,6 +2014,7 @@ final class MenuBandController {
             UserDefaults.standard.set(78, forKey: melodicProgramKey)
         }
         synth.start()
+        debugLog("bootstrap: post-synth.start")
         synth.setMelodicProgram(melodicProgram)
         // Physical USB/Bluetooth MIDI input is always available and does not
         // depend on the DAW-facing MIDI output toggle. CoreMIDI invokes us on
@@ -2039,8 +2039,11 @@ final class MenuBandController {
             self?.synth.ingestMonitoredInput(buffer)
         }
         if inputMonitoringEnabled {
+            debugLog("bootstrap: monitor-enable begin")
             synth.setInputMonitoringEnabled(true)
+            debugLog("bootstrap: monitor-enable set, pinning hot mic")
             _ = synth.pinHotMic(reason: inputMonitorPinReason)
+            debugLog("bootstrap: monitor-enable done")
         }
         // Capture the note performance as MIDI alongside the audio, so a take
         // carries editable notes (a .mid drops onto an Ableton MIDI track).
@@ -2096,6 +2099,7 @@ final class MenuBandController {
         // dormant scaffolding.
         // (enableMIDIMode triggers a loopback self-test; result lands in
         // /tmp/menuband-debug.log and updates the popover's status row.)
+        debugLog("bootstrap: end")
     }
 
     func toggleMIDIMode() {
