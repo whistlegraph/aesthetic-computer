@@ -5086,6 +5086,82 @@
           "#6b2e38"
         ]
       }
+    },
+    {
+      "id": "69-copper",
+      "name": "Copper",
+      "seed": 69628,
+      "bpm": 96,
+      "bars": 32,
+      "tonic": "C",
+      "mode": "major",
+      "singleOctave": true,
+      "instrumentProgram": 78,
+      "instrumentName": "Whistle",
+      "development": "mirror",
+      "harmonyDegrees": [
+        0,
+        4,
+        5,
+        3,
+        0,
+        5,
+        4,
+        0
+      ],
+      "melodyBars": [
+        [
+          3,
+          4,
+          5,
+          3
+        ],
+        [
+          4,
+          5
+        ],
+        [
+          6,
+          4,
+          5,
+          6
+        ],
+        [
+          5,
+          3,
+          4
+        ],
+        [
+          3,
+          5,
+          3,
+          4
+        ],
+        [
+          5,
+          6
+        ],
+        [
+          4,
+          6,
+          5,
+          4
+        ],
+        [
+          2,
+          0
+        ]
+      ],
+      "notesPath": "pop/menuband/out/menu-band-waltzes/69-copper/69-copper.notes.json",
+      "audioPath": "pop/menuband/out/menu-band-waltzes/69-copper/69-copper.wav",
+      "outPath": "pop/menuband/out/menu-band-waltzes/69-copper/69-copper.mp4",
+      "visual": {
+        "palette": [
+          "#e8f3e9",
+          "#87c58f",
+          "#2e6b36"
+        ]
+      }
     }
   ]
 }
