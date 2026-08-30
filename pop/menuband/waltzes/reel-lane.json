@@ -5687,6 +5687,83 @@
           "#6b392e"
         ]
       }
+    },
+    {
+      "id": "77-mirror",
+      "name": "Mirror",
+      "seed": 77700,
+      "bpm": 81,
+      "bars": 27,
+      "tonic": "C",
+      "mode": "major",
+      "singleOctave": true,
+      "instrumentProgram": 78,
+      "instrumentName": "Whistle",
+      "development": "mirror",
+      "harmonyDegrees": [
+        0,
+        3,
+        4,
+        0,
+        5,
+        3,
+        4,
+        0
+      ],
+      "melodyBars": [
+        [
+          5,
+          6,
+          5,
+          6
+        ],
+        [
+          4,
+          5,
+          3
+        ],
+        [
+          2,
+          1,
+          3,
+          4
+        ],
+        [
+          6,
+          4,
+          2
+        ],
+        [
+          1,
+          3,
+          5
+        ],
+        [
+          3,
+          4,
+          3,
+          4
+        ],
+        [
+          2,
+          3
+        ],
+        [
+          2,
+          3,
+          0
+        ]
+      ],
+      "notesPath": "pop/menuband/out/menu-band-waltzes/77-mirror/77-mirror.notes.json",
+      "audioPath": "pop/menuband/out/menu-band-waltzes/77-mirror/77-mirror.wav",
+      "outPath": "pop/menuband/out/menu-band-waltzes/77-mirror/77-mirror.mp4",
+      "visual": {
+        "palette": [
+          "#e8f3ed",
+          "#87c5a4",
+          "#2e6b4b"
+        ]
+      }
     }
   ]
 }
