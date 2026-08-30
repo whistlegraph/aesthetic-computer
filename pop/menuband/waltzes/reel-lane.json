@@ -4717,6 +4717,79 @@
           "#6b452e"
         ]
       }
+    },
+    {
+      "id": "64-embers",
+      "name": "Embers",
+      "seed": 64583,
+      "bpm": 66,
+      "bars": 22,
+      "tonic": "C",
+      "mode": "major",
+      "singleOctave": true,
+      "instrumentProgram": 78,
+      "instrumentName": "Whistle",
+      "development": "mirror",
+      "harmonyDegrees": [
+        0,
+        5,
+        3,
+        4,
+        0,
+        3,
+        4,
+        0
+      ],
+      "melodyBars": [
+        [
+          3,
+          2,
+          3
+        ],
+        [
+          1,
+          0,
+          2
+        ],
+        [
+          4,
+          5,
+          6
+        ],
+        [
+          5,
+          4,
+          5,
+          4
+        ],
+        [
+          5,
+          3,
+          1
+        ],
+        [
+          2,
+          3
+        ],
+        [
+          2,
+          0
+        ],
+        [
+          1,
+          0
+        ]
+      ],
+      "notesPath": "pop/menuband/out/menu-band-waltzes/64-embers/64-embers.notes.json",
+      "audioPath": "pop/menuband/out/menu-band-waltzes/64-embers/64-embers.wav",
+      "outPath": "pop/menuband/out/menu-band-waltzes/64-embers/64-embers.mp4",
+      "visual": {
+        "palette": [
+          "#e8f3ef",
+          "#87c5b1",
+          "#2e6b57"
+        ]
+      }
     }
   ]
 }
