@@ -28,6 +28,7 @@ const SR = 48_000, BPM = 124, BEAT = 60 / BPM, BAR = 4 * BEAT;
 const BARS = 96, NT = Math.ceil((BARS * BAR + 4) * SR);
 const T = (b) => b * BAR;
 const mixL = new Float32Array(NT);
+const EV = [];                                     // score receipt events
 
 const VOX = `${OUT}/imab-holyvox.wav`;
 if (!existsSync(VOX)) { console.error("✗ run holyvox.mjs first"); process.exit(1); }
@@ -53,6 +54,7 @@ for (let bar = 0; bar < BARS; bar++) {
   for (let vi = 0; vi < chord.length; vi++) {
     const f = 440 * 2 ** ((chord[vi] - 69) / 12);
     const g = 0.042 * (1 - vi * 0.1);
+    if (vi === 0) EV.push({ t: +T(bar).toFixed(3), voice: "sines", dur: +BAR.toFixed(3), midi: chord[0], gain: 0.5 + 0.08 * chord.length });
     const lfo = 0.11 + 0.02 * vi;
     for (let j = 0; j < n && a + j < NT; j++) {
       const t = j / SR;
@@ -86,6 +88,7 @@ for (let b = 4 * 4; b < 95 * 4; b++) {
   if (bar >= KICKLESS[0] && bar < KICKLESS[1]) continue;
   const at = Math.floor(b * BEAT * SR);
   const g = (bar < 16 ? 0.5 : bar < 64 ? 0.6 : 0.66) * (b % 4 === 0 ? 1.05 : 1.0);
+  EV.push({ t: +(b * BEAT).toFixed(3), voice: "kick", dur: 0.12, gain: g });
   for (let j = 0; j < kn && at + j < NT; j++) mixL[at + j] += K[j] * g;
   for (let j = 0; j < Math.floor(0.5 * SR) && at + j < NT; j++)
     duck[at + j] = Math.min(duck[at + j], 1 - 0.35 * Math.exp(-j / (0.09 * SR)));
@@ -97,6 +100,7 @@ for (let b = 8 * 4; b < 92 * 4; b++) {
   const bar = Math.floor(b / 4);
   if (bar >= KICKLESS[0] && bar < KICKLESS[1]) continue;
   const f = 440 * 2 ** ((ROOT[MAP16[bar % 16]] - 12 - 69) / 12);   // C1 region
+  EV.push({ t: +(b * BEAT + BEAT / 2).toFixed(3), voice: "bass", dur: +(0.34 * BEAT).toFixed(3), midi: ROOT[MAP16[bar % 16]] - 12, gain: 0.55 });
   const at = Math.floor((b * BEAT + BEAT / 2) * SR), n = Math.floor(0.34 * BEAT * SR);
   for (let j = 0; j < n && at + j < NT; j++) {
     const t = j / SR;
@@ -126,6 +130,7 @@ for (let b = 0; b < 92 * 8; b++) {                    // eighth grid
   const at = Math.floor((t + (Math.abs(rnd()) * 0.008 - 0.005)) * SR);
   const src = (b % 2 === 1 && bar >= 64 && !inBreak) ? HO : HC;
   const g = (b % 2 === 1 ? 0.16 : 0.09) * (inBreak ? 0.3 : 1);
+  if (b % 2 === 1) EV.push({ t: +t.toFixed(3), voice: "hat", dur: 0.1, gain: g * 3 });
   for (let j = 0; j < src.length && at + j < NT; j++) mixL[at + j] += src[j] * g;
 }
 for (let b = 0; b < 92 * 16; b++) {                   // sixteenth shaker
@@ -150,6 +155,7 @@ for (const door of DOORS) {
   for (let i = 0; i < N; i++) {
     const frac = (i / (N - 1)) ** 1.6;
     tick(T(door) - span * (1 - frac) - 0.02, 2600, (door === 56 ? 0.07 : 0.1) * (0.5 + 0.5 * frac));
+    EV.push({ t: +(T(door) - span * (1 - frac) - 0.02).toFixed(3), voice: "click", dur: 0.04, gain: 0.5 + 0.5 * frac });
   }
 }
 
@@ -158,10 +164,27 @@ sh(PY, [`${REPO}/spinging/lib/vocal_bus.py`, "reverb", VOX, `${WORK}/club-halo.w
 const vox = readF32(`${WORK}/club-halo.wav`);
 const rms = (a) => { let s = 0, n = 0; for (let i = 0; i < a.length; i++) if (Math.abs(a[i]) > 1e-4) { s += a[i] * a[i]; n++; } return Math.sqrt(s / Math.max(1, n)); };
 const vg = Math.min(8, (rms(mixL) * 2.1) / Math.max(1e-9, rms(vox)));
+const HT = JSON.parse(readFileSync(`${WORK}/holy-targets.json`, "utf8"));
 for (const door of PASS) {
   const off = Math.floor((T(door) + 0.05) * SR);
   for (let j = 0; j < vox.length; j++) { const d = off + j; if (d < NT) mixL[d] += vox[j] * vg; }
+  for (const h of HT) EV.push({ t: +(T(door) + 0.05 + h.t).toFixed(3), voice: "vox", dur: h.dur, gain: 0.85, who: "jeffrey", word: h.label, note: h.note });
 }
+EV.push({ t: +(T(64) - 2).toFixed(3), voice: "skid", dur: 2, gain: 0.8 });
+if (existsSync(`${WORK}/piano.events.json`))
+  for (const e of JSON.parse(readFileSync(`${WORK}/piano.events.json`, "utf8"))) EV.push(e);
+const receipt = {
+  track: "imabclub draft1", tempoBPM: BPM, seconds: NT / SR,
+  harmony: { key: "C MAJOR" },
+  sections: [
+    { name: "intro", start: 0, end: T(16) }, { name: "pass1", start: T(16), end: T(32) },
+    { name: "lift", start: T(32), end: T(40) }, { name: "pass2", start: T(40), end: T(56) },
+    { name: "break", start: T(56), end: T(64) }, { name: "drop·pass3", start: T(64), end: T(80) },
+    { name: "outro", start: T(80), end: T(96) }],
+  events: EV.sort((a, b) => a.t - b.t),
+};
+writeFileSync(`${OUT}/imabclub-draft1.events.json`, JSON.stringify(receipt));
+console.log(`  receipt: ${EV.length} events`);
 { // riser: the vocal's last 2 s reversed, swelling into the drop
   const nR = Math.floor(2 * SR), tail = vox.slice(-nR).reverse();
   const at = Math.floor((T(64) - 2) * SR);

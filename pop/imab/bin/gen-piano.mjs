@@ -19,9 +19,12 @@ const MAP16 = ["C", "C", "C", "C", "C", "F", "F", "G", "C", "C", "C", "C", "C", 
 const act = (b) => (b < 16 ? "arp" : b < 56 ? "chords" : b < 64 ? "arp-high" : b < 80 ? "full" : "sparse");
 
 const ev = [];                                     // {tick, bytes[]}
+const scoreEv = [];                                // receipt for the score video
 const on = (t, n, v) => ev.push({ t, b: [0x90, n, v] });
 const off = (t, n) => ev.push({ t, b: [0x80, n, 0] });
-const note = (tick, n, durTicks, vel) => { on(tick, n, vel); off(tick + durTicks, n); };
+const SPB = 60 / BPM / TPQN;                       // seconds per tick
+const note = (tick, n, durTicks, vel) => { on(tick, n, vel); off(tick + durTicks, n);
+  scoreEv.push({ t: +(tick * SPB).toFixed(3), voice: "pad", dur: +(durTicks * SPB).toFixed(3), midi: n, gain: vel / 100 }); };
 const B = 4 * TPQN;                                 // one bar in ticks
 for (let bar = 0; bar < BARS; bar++) {
   const chord = CH[MAP16[bar % 16]];
@@ -61,4 +64,5 @@ const r = spawnSync("fluidsynth", ["-ni", "-g", "0.7", "-F", `${WORK}/piano-raw.
 if (r.status !== 0) { console.error("✗ fluidsynth failed"); process.exit(1); }
 spawnSync("ffmpeg", ["-hide_banner", "-loglevel", "error", "-y", "-i", `${WORK}/piano-raw.wav`,
   "-ac", "1", "-ar", "48000", "-af", "highpass=f=60", `${WORK}/piano.wav`], { stdio: ["ignore", "ignore", "inherit"] });
-console.log(`✓ ${WORK}/piano.wav`);
+writeFileSync(`${WORK}/piano.events.json`, JSON.stringify(scoreEv));
+console.log(`✓ ${WORK}/piano.wav (+${scoreEv.length} events)`);
