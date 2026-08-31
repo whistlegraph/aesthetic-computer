@@ -1,11 +1,9 @@
 #!/usr/bin/env bash
 # cut-v10.sh — master the v10 render and cut the mp3.
 #
-# v10 starts when the kicks start: the full render still scores the eight
-# carrier bars (their drone and dial tails ring under the entrance), and
-# the cut begins 50 ms before bar 8's downbeat with a 20 ms fade, so the
-# first thing that lands is the watery-hole metallic ring, then the kick. Trim FIRST, then measure — loudnorm's
-# integrated reading must not include sixteen seconds we don't ship.
+# v10 starts when the kicks start, keeps four bars of the three-voice intro,
+# then cuts render bars 12–23 so THE MESSAGE arrives at 0:08 instead of 0:32.
+# The full renderer and receipt remain archival; this is the release edit.
 #
 # Same mastering law as v3/v5/v9: MEASURE → one static dB → true-peak
 # limiter. Never a second loudnorm (it rides gain and manufactures clicks).
@@ -19,10 +17,13 @@ FULL="$OUT/cult-remix-v10-full.wav"
 TRIM="$OUT/cult-remix-v10-full-trim.wav"
 SRC="$OUT/cult-remix-v10-full-master.wav"
 
-if [ ! -f "$TRIM" ] || [ "$FULL" -nt "$TRIM" ]; then
-  echo "→ trim to bar 8 (15.95 s in, 20 ms fade)"
-  ffmpeg -y -v error -ss 15.95 -i "$FULL" \
-    -af "afade=t=in:st=0:d=0.02" -c:a pcm_s24le "$TRIM"
+if [ ! -f "$TRIM" ] || [ "$FULL" -nt "$TRIM" ] || [ "$0" -nt "$TRIM" ]; then
+  echo "→ four-bar intro edit (keep bars 8–11, cut bars 12–23)"
+  ffmpeg -y -v error -i "$FULL" -filter_complex \
+    "[0:a]atrim=start=15.95:end=24,asetpts=PTS-STARTPTS[a];\
+[0:a]atrim=start=48,asetpts=PTS-STARTPTS[b];\
+[a][b]concat=n=2:v=0:a=1,afade=t=in:st=0:d=0.02[out]" \
+    -map "[out]" -c:a pcm_s24le "$TRIM"
 fi
 
 SPACE="$OUT/.v10-space.wav"

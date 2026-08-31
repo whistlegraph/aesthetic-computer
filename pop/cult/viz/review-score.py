@@ -13,7 +13,8 @@
 #   · out/cult-remix-v10.events.json — the score receipt (regenerate with
 #     `node pop/cult/bin/render10.mjs`); word mapping ported from
 #     bin/transcript.mjs. Receipt times are FULL-render seconds; the
-#     shipped cut starts TRIM=15.95 s in (bar 8 of the render = 0:00).
+#     release edit starts TRIM=15.95 s in, keeps render bars 8–11, then
+#     removes bars 12–23 so bar 24 (THE MESSAGE) lands at about 0:08.
 #   · out/stems/v10-*.wav — TRUE per-bus stems from
 #     `node pop/cult/bin/render10.mjs --stems` (vox / tube / music /
 #     drums / signal). The music and drums buses are band-split into
@@ -81,6 +82,26 @@ EIGHTH = BEAT / 2
 TRIM = 15.95                    # shipped t = full-render t − TRIM
 GRID0 = 8 * BAR - TRIM          # 0.05 — bar 8's downbeat in shipped time
 BAR0 = 8                        # ruler numbers speak render bars (hook = 29)
+INTRO_CUT = (12 * BAR, 24 * BAR)  # remove full-render bars 12–23 (24 s)
+
+def ship_time(full_t):
+    """Map full-render receipt time into the four-bar-intro release edit."""
+    if full_t < INTRO_CUT[0]:
+        return full_t - TRIM
+    if full_t < INTRO_CUT[1]:
+        return None
+    return full_t - TRIM - (INTRO_CUT[1] - INTRO_CUT[0])
+
+def ship_span(full_t, dur):
+    """Map one event, preserving only the portions outside the intro cut."""
+    full_end = full_t + dur
+    if full_t < INTRO_CUT[0]:
+        return full_t - TRIM, min(full_end, INTRO_CUT[0]) - TRIM
+    if full_t < INTRO_CUT[1]:
+        if full_end <= INTRO_CUT[1]:
+            return None
+        return ship_time(INTRO_CUT[1]), ship_time(full_end)
+    return ship_time(full_t), ship_time(full_end)
 
 # ---------------------------------------------------------------- audio in
 def load(path, af=None, ss=None):
@@ -106,14 +127,20 @@ def fit(sig):
         sig = np.concatenate([sig, np.zeros(N - len(sig), np.float32)])
     return sig[:N]
 
-def stem(name, af=None):        # bus stem, trimmed to the shipped cut
-    return fit(load(os.path.join(STEMS, f"v10-{name}.wav"), af=af, ss=TRIM))
+def intro_cut(sig):
+    a = int(round((INTRO_CUT[0] - TRIM) * sr))
+    b = int(round((INTRO_CUT[1] - TRIM) * sr))
+    return np.concatenate([sig[:a], sig[b:]])
+
+def stem(name, af=None):        # bus stem, trimmed + four-bar-intro edit
+    sig = load(os.path.join(STEMS, f"v10-{name}.wav"), af=af, ss=TRIM)
+    return fit(intro_cut(sig))
 
 # ---------------------------------------------------------------- receipt
 receipt = json.load(open(EVENTS_JSON))
 EVENTS = receipt["events"]
-EXPLOSIONS = [{**e, "t": e["t"] - TRIM} for e in EVENTS
-              if e.get("voice") == "spatial-explosion" and e["t"] >= TRIM]
+EXPLOSIONS = [{**e, "t": ship_time(e["t"])} for e in EVENTS
+              if e.get("voice") == "spatial-explosion" and ship_time(e["t"]) is not None]
 
 WHO_COL = {"camille": (255, 140, 190), "alex": (150, 225, 130),
            "jeffrey": (130, 175, 255), None: (225, 222, 230)}
@@ -147,11 +174,12 @@ for e in EVENTS:
     w = words_of(s)
     if w is None:
         continue
-    t0 = e["t"] - TRIM
-    if t0 < -0.3:
-        continue
     dur = float(e.get("dur", 0.3)) or 0.3
-    WORDS.append({"t0": max(0.0, t0), "t1": max(0.0, t0) + dur, "word": w,
+    span = ship_span(e["t"], dur)
+    if span is None or span[1] < -0.3:
+        continue
+    t0, t1 = span
+    WORDS.append({"t0": max(0.0, t0), "t1": max(0.0, t1), "word": w,
                   "who": e.get("who"), "midi": e.get("midi"),
                   "voice": e["voice"], "prio": PRIO.get(e["voice"], 1)})
 WORDS.sort(key=lambda e: e["t0"])
@@ -187,10 +215,11 @@ for e in EVENTS:
         lbl = "guitar"
     if lbl is None:
         continue
-    t0 = e["t"] - TRIM
-    if t0 < -0.3:
-        continue
     dur = float(e.get("dur", 0.3)) or 0.3
+    span = ship_span(e["t"], dur)
+    if span is None or span[1] < -0.3:
+        continue
+    t0, t1 = span
     m = INSTR_MIDI.get(lbl, 56)
     if lbl == "accordion":
         m = CHORD_MIDI.get(s.split("-")[-1], m)
@@ -200,7 +229,7 @@ for e in EVENTS:
         m = min(69, max(43, e["midi"] + 19))    # spread the low notes in-lane
     if INSTR and INSTR[-1]["word"] == lbl and abs(INSTR[-1]["t0"] - max(0.0, t0)) < 0.12:
         continue                                # unison doubles draw once
-    INSTR.append({"t0": max(0.0, t0), "t1": max(0.0, t0) + dur, "word": lbl,
+    INSTR.append({"t0": max(0.0, t0), "t1": max(0.0, t1), "word": lbl,
                   "who": None, "midi": m, "voice": "instr", "prio": 0})
 INSTR.sort(key=lambda e: e["t0"])
 print(f"{len(INSTR)} instrument events (violin / guitars / boings / accordion / watery-hole)",
@@ -212,7 +241,7 @@ print(f"{len(INSTR)} instrument events (violin / guitars / boings / accordion / 
 print("decoding stems...", flush=True)
 EV_WORDS = [e for e in WORDS
             if e["voice"] in ("lead", "dot", "cult", "alt", "stretch", "material")]
-KARAOKE = [e for e in WORDS if e["voice"] != "material"]   # grains are texture
+KARAOKE = [e for e in WORDS if e["voice"] not in ("material", "sub")]
 EV_DASH = [e for e in WORDS if e["voice"] in ("dash", "bassdash", "sosdash")]
 
 # ---------------------------------------------------------------- tokens
@@ -272,6 +301,19 @@ for tk in TOKENS:
             }
     else:
         tk["rail_spans"][None] = {"t0": tk["t0"], "t1": tk["t1"]}
+    if tk["word"] == "dot":
+        max_hold = 0.48
+    elif tk["display_whos"]:
+        # The pitched samples include long ringing tails. Those tails belong
+        # in the sound, but keeping the colored word active for all of them
+        # makes the singer appear to hold text after the utterance is over.
+        max_hold = 2.20 if " " in tk["word"] else 1.25
+    else:
+        max_hold = None
+    if max_hold is not None:
+        for span in tk["rail_spans"].values():
+            span["t1"] = min(span["t1"], span["t0"] + max_hold)
+        tk["t1"] = max(span["t1"] for span in tk["rail_spans"].values())
 print(f"{len(TOKENS)} lyric tokens "
       f"({sum(1 for tk in TOKENS if len(tk['whos']) > 1)} multi-voice)", flush=True)
 
@@ -519,20 +561,20 @@ PAD_L = PLAY_X - GUT
 PAD_R = W - PLAY_X
 STRIP_W = SWm + PAD_L + PAD_R
 
-# Acts in shipped time (render bar 8 = 0:00; receipt narrative − TRIM).
+# Acts in release time. Render bars 12–23 are absent from this edit.
 ACTS = [
     (0.00,   "II THREE VOICES",       (64, 190, 180)),
-    (32.05,  "III THE MESSAGE",       (235, 150, 70)),
-    (64.05,  "IV THE SECRET",         (205, 75, 85)),
-    (80.05,  "V THE REPLY",           (120, 200, 120)),
-    (112.05, "VI IT SPREADS",         (170, 130, 230)),
-    (136.05, "VII THE WHOLE MESSAGE", (255, 210, 90)),
-    (176.05, "VIII RECOGNITION",      (150, 160, 200)),
-    (192.05, "IX CARRIER OFF",        (150, 150, 155)),
+    (ship_time(24 * BAR),  "III THE MESSAGE",       (235, 150, 70)),
+    (ship_time(40 * BAR),  "IV THE SECRET",         (205, 75, 85)),
+    (ship_time(48 * BAR),  "V THE REPLY",           (120, 200, 120)),
+    (ship_time(64 * BAR),  "VI IT SPREADS",         (170, 130, 230)),
+    (ship_time(76 * BAR),  "VII THE WHOLE MESSAGE", (255, 210, 90)),
+    (ship_time(96 * BAR),  "VIII RECOGNITION",      (150, 160, 200)),
+    (ship_time(104 * BAR), "IX CARRIER OFF",        (150, 150, 155)),
 ]
 ACT_END = [a[0] for a in ACTS[1:]] + [DUR]
-MARKS = [(0.05, "watery-hole"), (20.30, "whistlegraph.org"),
-         (42.05, "bar 29: the sentence lands")]
+MARKS = [(0.05, "watery-hole"),
+         (ship_time(29 * BAR), "bar 29: the sentence lands")]
 
 f_title = ImageFont.truetype(FONT_B, 48)
 f_lbl   = ImageFont.truetype(FONT_B, 24)
@@ -573,22 +615,26 @@ for li in range(NLANE):
     y0 = LBL_BAND + lane_y[li]
     sd.rectangle([x0m, y0, x1m, y0 + LANE_DEFS[li][4] - 1], fill=LANE_BG)
 
-# beat grid + ruler (bar numbers speak RENDER bars: shipped 0:00 = bar 8)
+# Beat grid + ruler. Spacing stays continuous while the labels jump from
+# render bar 11 to bar 24 at the release edit.
 ry = STRIP_H - RULER_H
-k = 0
+render_bar = BAR0
 while True:
-    bt = GRID0 + k * BAR
+    bt = ship_time(render_bar * BAR)
+    if bt is None:
+        render_bar += 1
+        continue
     if bt >= DUR:
         break
     x = sx(bt)
-    heavy = (k % 4 == 0)
+    heavy = (render_bar % 4 == 0)
     gcol = GRID_HVY if heavy else GRID_LT
     sd.line([x, LBL_BAND, x, ry - 1], fill=gcol)
     tick = TICK_HVY if heavy else TICK_LT
     sd.line([x, ry, x, ry + (12 if heavy else 8)], fill=tick, width=2 if heavy else 1)
-    sd.text((x + 4, ry + 8), str(k + BAR0), font=f_bar,
+    sd.text((x + 4, ry + 8), str(render_bar), font=f_bar,
             fill=BNUM_HVY if heavy else BNUM_LT)
-    k += 1
+    render_bar += 1
 
 # act boundaries: heavy colored line + act name in the label band
 for (t0, name, col) in ACTS:
@@ -781,7 +827,7 @@ SCR_LABEL = {"camille": "CAMILLE", "alex": "ALEX",
              "jeffrey": "JEFFREY", None: "WORDS"}
 LPPS = 150.0
 SCR_LOOK = (SCR_X1 - NOW_X) / LPPS      # ≈ 7.0 s of upcoming lyric
-SCR_FADE = 1.6                          # seconds to fall away after t1
+SCR_FADE = 0.65                         # release promptly after the sung tail
 
 _meas = ImageDraw.Draw(Image.new("RGB", (8, 8)))
 SCR_FONT_SIZES = (38, 34, 30, 26, 22, 19)
