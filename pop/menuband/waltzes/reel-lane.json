@@ -6749,6 +6749,78 @@
           "#2e6b3e"
         ]
       }
+    },
+    {
+      "id": "91-walnut",
+      "name": "Walnut",
+      "seed": 91826,
+      "bpm": 99,
+      "bars": 33,
+      "tonic": "C",
+      "mode": "major",
+      "singleOctave": true,
+      "instrumentProgram": 78,
+      "instrumentName": "Whistle",
+      "development": "mirror",
+      "harmonyDegrees": [
+        0,
+        3,
+        4,
+        0,
+        5,
+        3,
+        4,
+        0
+      ],
+      "melodyBars": [
+        [
+          3,
+          5
+        ],
+        [
+          3,
+          4,
+          5,
+          6
+        ],
+        [
+          5,
+          4,
+          6
+        ],
+        [
+          4,
+          5,
+          6
+        ],
+        [
+          5,
+          3
+        ],
+        [
+          4,
+          3,
+          4
+        ],
+        [
+          5,
+          4
+        ],
+        [
+          2,
+          0
+        ]
+      ],
+      "notesPath": "pop/menuband/out/menu-band-waltzes/91-walnut/91-walnut.notes.json",
+      "audioPath": "pop/menuband/out/menu-band-waltzes/91-walnut/91-walnut.wav",
+      "outPath": "pop/menuband/out/menu-band-waltzes/91-walnut/91-walnut.mp4",
+      "visual": {
+        "palette": [
+          "#eee8f3",
+          "#a987c5",
+          "#502e6b"
+        ]
+      }
     }
   ]
 }
