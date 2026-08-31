@@ -69,10 +69,9 @@
         file_server
     }
 
-    @rdp host rdp.aesthetic.computer
-    handle @rdp {
+    @rdpmeta host rdp.aesthetic.computer
+    handle @rdpmeta {
         root * /opt/ac/system/public/rdp.aesthetic.computer
-        header /json/* Access-Control-Allow-Origin "*"
         file_server
     }
 
