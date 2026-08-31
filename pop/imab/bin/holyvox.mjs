@@ -72,18 +72,41 @@ mapLines.push(`${Math.round((t1 - t0) * SR)} ${Math.round(outCursor * SR)}`);
 writeFileSync(`${WORK}/holy-map.txt`, mapLines.join("\n") + "\n");
 sh("rubberband", ["-M", `${WORK}/holy-map.txt`, "-F", "-c", "6", trim, str]);
 
-// ── targets: absolute melody on the mapped timeline ───────────────────
+// ── targets: absolute melody on the mapped timeline; note changes land
+// on the REAL vowel onsets inside each word (the PING flare starts where
+// the sung vowel actually starts, not at an even split)
 const noteNames = [], noteStarts = [], targets = [];
+const sylByIdx = {};
+{
+  let ti2 = 0;
+  for (const w of doc.words)
+    if (ti2 < TMPL.length && fuzzy(TMPL[ti2], norm(w.text))) sylByIdx[ti2++] = w;
+}
 for (const wo of wordsOut) {
   const notes = GT[wo.i].split(",");
-  const per = wo.outDur / notes.length;
+  const b = BOUNDS[wo.i];
+  const srcDur = (b.toMs - b.fromMs) / 1000;
+  const toOut = (srcSec) => wo.outStart + Math.max(0, Math.min(1, (srcSec - b.fromMs / 1000) / srcDur)) * wo.outDur;
+  const nucs = (sylByIdx[wo.i]?.nuclei ?? [])
+    .filter((n) => n.startSec >= b.fromMs / 1000 - 0.05 && n.startSec <= b.toMs / 1000)
+    .sort((x, y) => x.startSec - y.startSec);
+  let ats;
+  if (wo.i === 3)                      // flap-PING: the flare owns the word —
+    ats = [wo.outStart + 0.03,         // "flap" is one floor beat, C5 after
+           wo.outStart + Math.min(BEAT, wo.outDur * 0.3)];
+  else if (notes.length === 1) ats = [wo.outStart + 0.03];
+  else if (nucs.length >= notes.length)
+    ats = nucs.slice(0, notes.length).map((n) => toOut(n.startSec));
+  else if (nucs.length === notes.length - 1)
+    ats = [wo.outStart + 0.03, ...nucs.map((n) => toOut(n.startSec))];
+  else ats = notes.map((_, k) => wo.outStart + (k * wo.outDur) / notes.length + (k === 0 ? 0.03 : 0));
   for (let k = 0; k < notes.length; k++) {
     const midi = toMidi(notes[k]);
-    const at = wo.outStart + k * per + (k === 0 ? 0.03 : 0);
+    const end = k + 1 < notes.length ? ats[k + 1] : wo.outStart + wo.outDur;
     noteNames.push(nname(midi));
-    noteStarts.push(at.toFixed(3));
-    targets.push({ label: wo.text + (notes.length > 1 ? `·${k + 1}` : ""), t: +at.toFixed(3),
-                   dur: +(per - (k === 0 ? 0.03 : 0)).toFixed(3), note: nname(midi) });
+    noteStarts.push(ats[k].toFixed(3));
+    targets.push({ label: wo.text + (notes.length > 1 ? `·${k + 1}` : ""), t: +ats[k].toFixed(3),
+                   dur: +Math.max(0.1, end - ats[k]).toFixed(3), note: nname(midi) });
   }
 }
 console.log(`→ WORLD snap: ${noteNames.join(" ")}`);

@@ -62,6 +62,12 @@ for (let bar = 0; bar < BARS; bar++) {
   }
 }
 
+// ── grand piano accompaniment (gen-piano.mjs → FluidSynth GM grand) ───
+if (existsSync(`${WORK}/piano.wav`)) {
+  const piano = readF32(`${WORK}/piano.wav`);
+  for (let j = 0; j < piano.length && j < NT; j++) mixL[j] += piano[j] * 0.5;
+} else console.log("  (no piano stem — run gen-piano.mjs)");
+
 // ── kick5 ─────────────────────────────────────────────────────────────
 const kn = Math.floor(0.42 * SR), K = new Float32Array(kn);
 {
