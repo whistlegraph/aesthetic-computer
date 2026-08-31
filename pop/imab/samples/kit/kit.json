@@ -1,0 +1,175 @@
+{
+  "lane": "imab",
+  "sampleRate": 48000,
+  "source": "AC engines (marimba.mjs, perc.mjs) — sample-free",
+  "samples": [
+    {
+      "file": "kick.wav",
+      "engine": "renderKick",
+      "params": "defaults"
+    },
+    {
+      "file": "kick-deep.wav",
+      "engine": "renderKick",
+      "params": "fEnd 40, ampDecay 0.5"
+    },
+    {
+      "file": "snare.wav",
+      "engine": "renderSnare",
+      "params": "defaults"
+    },
+    {
+      "file": "hat-closed.wav",
+      "engine": "renderHat",
+      "params": "closed"
+    },
+    {
+      "file": "hat-open.wav",
+      "engine": "renderHat",
+      "params": "open"
+    },
+    {
+      "file": "shaker.wav",
+      "engine": "renderShaker",
+      "params": "defaults"
+    },
+    {
+      "file": "reverse-bell.wav",
+      "engine": "renderReverseBell",
+      "params": "defaults"
+    },
+    {
+      "file": "reverse-kick.wav",
+      "engine": "renderReverseKick",
+      "params": "defaults"
+    },
+    {
+      "file": "bassperc-A1.wav",
+      "engine": "renderBassPerc",
+      "midi": 33,
+      "note": "A1"
+    },
+    {
+      "file": "bassperc-A2.wav",
+      "engine": "renderBassPerc",
+      "midi": 45,
+      "note": "A2"
+    },
+    {
+      "file": "xylo-A4.wav",
+      "engine": "renderMarimba",
+      "preset": "xylophone",
+      "midi": 69,
+      "note": "A4"
+    },
+    {
+      "file": "xylo-C5.wav",
+      "engine": "renderMarimba",
+      "preset": "xylophone",
+      "midi": 72,
+      "note": "C5"
+    },
+    {
+      "file": "xylo-D5.wav",
+      "engine": "renderMarimba",
+      "preset": "xylophone",
+      "midi": 74,
+      "note": "D5"
+    },
+    {
+      "file": "xylo-E5.wav",
+      "engine": "renderMarimba",
+      "preset": "xylophone",
+      "midi": 76,
+      "note": "E5"
+    },
+    {
+      "file": "xylo-G5.wav",
+      "engine": "renderMarimba",
+      "preset": "xylophone",
+      "midi": 79,
+      "note": "G5"
+    },
+    {
+      "file": "xylo-A5.wav",
+      "engine": "renderMarimba",
+      "preset": "xylophone",
+      "midi": 81,
+      "note": "A5"
+    },
+    {
+      "file": "xylo-B5.wav",
+      "engine": "renderMarimba",
+      "preset": "xylophone",
+      "midi": 83,
+      "note": "B5"
+    },
+    {
+      "file": "xylo-C6.wav",
+      "engine": "renderMarimba",
+      "preset": "xylophone",
+      "midi": 84,
+      "note": "C6"
+    },
+    {
+      "file": "xylo-D6.wav",
+      "engine": "renderMarimba",
+      "preset": "xylophone",
+      "midi": 86,
+      "note": "D6"
+    },
+    {
+      "file": "xylo-E6.wav",
+      "engine": "renderMarimba",
+      "preset": "xylophone",
+      "midi": 88,
+      "note": "E6"
+    },
+    {
+      "file": "bass-A2.wav",
+      "engine": "renderMarimba",
+      "preset": "bass",
+      "midi": 45,
+      "note": "A2"
+    },
+    {
+      "file": "bass-G2.wav",
+      "engine": "renderMarimba",
+      "preset": "bass",
+      "midi": 43,
+      "note": "G2"
+    },
+    {
+      "file": "bass-C3.wav",
+      "engine": "renderMarimba",
+      "preset": "bass",
+      "midi": 48,
+      "note": "C3"
+    },
+    {
+      "file": "bass-F2.wav",
+      "engine": "renderMarimba",
+      "preset": "bass",
+      "midi": 41,
+      "note": "F2"
+    },
+    {
+      "file": "click-hi.wav",
+      "engine": "tick",
+      "freq": 1700,
+      "role": "beat-1 accent"
+    },
+    {
+      "file": "click-lo.wav",
+      "engine": "tick",
+      "freq": 1100,
+      "role": "sub-beat"
+    },
+    {
+      "file": "click-door.wav",
+      "engine": "tick",
+      "freq": 2600,
+      "role": "8-bar phrase door"
+    }
+  ]
+}

@@ -46,6 +46,11 @@ for (let i = 0; i < argv.length; i++) {
 const ACCOUNT = typeof flags.account === "string" ? flags.account.replace(/^@/, "") : "whistlegraph";
 const REDO    = !!flags.redo;
 
+// TikTok IP-blocks anonymous yt-dlp; WG_COOKIES=chrome (or another browser)
+// threads --cookies-from-browser through every yt-dlp call.
+const COOKIES = process.env.WG_COOKIES ? ["--cookies-from-browser", process.env.WG_COOKIES] : [];
+const ytdlp = (args) => ["yt-dlp", [...COOKIES, ...args]];
+
 function run(cmd, args, opts = {}) {
   const r = spawnSync(cmd, args, { stdio: "inherit", ...opts });
   if (r.status !== 0) throw new Error(`${cmd} ${args.join(" ")} → exit ${r.status}`);
@@ -77,12 +82,12 @@ if (url) {
 } else if (flags.latest) {
   const n = Number.isFinite(+flags.latest) && +flags.latest > 0 ? +flags.latest : 1;
   console.log(`→ fetching newest ${n} from @${ACCOUNT}…`);
-  const ids = capture("yt-dlp", [
+  const ids = capture(...ytdlp([
     "--flat-playlist", "--no-warnings",
     "--playlist-end", String(n),
     "--print", "url",
     `https://www.tiktok.com/@${ACCOUNT}`,
-  ]).trim().split("\n").filter(Boolean);
+  ])).trim().split("\n").filter(Boolean);
   urls = ids;
 } else {
   console.error("usage: grab.mjs <tiktok-url> | --latest [N] [--account @handle] | --list");
@@ -92,7 +97,7 @@ if (url) {
 // ── per-clip pipeline ──────────────────────────────────────────────────
 function grabOne(clipUrl) {
   console.log(`\n→ ${clipUrl}`);
-  const meta = JSON.parse(capture("yt-dlp", ["-J", "--no-warnings", "--no-playlist", clipUrl]));
+  const meta = JSON.parse(capture(...ytdlp(["-J", "--no-warnings", "--no-playlist", clipUrl])));
   const id    = meta.id;
   const title = (meta.title || meta.description || "untitled").replace(/\s+/g, " ").trim();
   const base  = resolve(DOWNLOADS, `${ACCOUNT}-${id}`);
@@ -104,7 +109,7 @@ function grabOne(clipUrl) {
   console.log(`  title : ${title}`);
 
   if (!existsSync(mp4) || REDO) {
-    run("yt-dlp", ["--no-warnings", "--no-playlist", "-o", mp4, clipUrl]);
+    run(...ytdlp(["--no-warnings", "--no-playlist", "-o", mp4, clipUrl]));
   } else {
     console.log(`  mp4   : present, reusing (--redo to refetch)`);
   }

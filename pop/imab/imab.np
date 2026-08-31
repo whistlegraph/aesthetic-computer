@@ -1,0 +1,31 @@
+# imab — "i'm a butterfly" · dance record, hook score.
+#
+# The club cousin of flutterbap: A minor verses, C major hook, 4/4 at
+# 124 BPM (beat ≈ 0.4839 s, bar ≈ 1.9355 s). This file is the melody's
+# source of truth; the click/guide renders in bin/gen-click.mjs read
+# from the same table.
+#
+# Harmony (8-bar hook loop):  Am | Am | G | G | C | C | F | G
+# Bass roots:                 A2   A2   G2   G2   C3   C3   F2   G2
+#
+# ── the hook, one line per bar (CAPS = held) ──────────────────────────
+#
+# [i'm-a-butterfly]  (bars 1–4 — call and answer, flutterbap cells)
+#   1  i'm  a    BUT       ter   fly     (E5@1  G5@1.5  C6@2·1.5b  B5@3.5  G5@4)
+#   2  —                   i     MAB     (rest              A4@4    E5@4.5)
+#   3  i'm  a    BUT       ter   fly     (D5@1  G5@1.5  B5@2·1.5b  A5@3.5  G5@4)
+#   4  —                   i     MAB     (rest              A4@4    E5@4.5)
+#
+# [the-lift]  (bars 5–8 — climbs to E6, chants home)
+#   5  i'm  a    BUT       ter   fly     (E5@1  G5@1.5  C6@2·1.5b  D6@3.5  E6@4)
+#   6  FLY            →              (E6@1·2b  →  C6@3·1.5b)
+#   7  no   thing holds me  DOWN        (E6@1  D6@1.5  C6@2  G5@2.5  A5@3·1.5b)
+#   8  i    MAB   i    MAB              (A4@1  E5@1.5·held   A4@3  E5@3.5·held)
+#
+# Lineage: bars 1/5 = flutterbap bar 1 (E5 G5 C6) · bar 3 = flutterbap
+# bar 3 (D5 G5 B5) · bar 7 = lately-when-i-fly "nothing holds me"
+# (E6 D6 C6 G5) · the i-MAB stamp (A4→E5) is imab's own.
+#
+# Form (planned, ~183 bars at 124 if it goes six minutes — see
+# README "the dance track"): palindrome floor, hook passes at act
+# doors, kickless break, drop that answers a slow smear of the hook.

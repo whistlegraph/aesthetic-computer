@@ -1,0 +1,29 @@
+{
+  "lane": "imab",
+  "bpm": 124,
+  "key": "A minor / C major",
+  "clickTrack": "out/imab-click-124.mp3",
+  "guideTrack": "out/imab-guide-124.mp3",
+  "schema": {
+    "id": "take number, two digits",
+    "file": "performances/imab-take-NN-<desc>.wav (48 kHz)",
+    "date": "ISO date recorded",
+    "kind": "vocal | whistle | clap | beatbox | other",
+    "content": "what was performed (hook bars, chant, freestyle…)",
+    "clickUsed": "click | guide | none",
+    "keeper": "true once a take is comp material",
+    "notes": "anything the next session needs"
+  },
+  "takes": [
+    {
+      "id": "01",
+      "file": "out/imab-hook-vocal.mp3",
+      "date": "2026-08-31",
+      "kind": "other",
+      "content": "aesthetivox TTS source — full hook lyric (imab-hook.sing.txt) spoken by jeffrey's ElevenLabs voice via spinging say; whisper words sidecar imab-hook-vocal-words.json; sung derivative out/imab-hookvox.mp3 (bin/sing-hook.mjs, WORLD-snapped, transpose -12)",
+      "clickUsed": "none",
+      "keeper": true,
+      "notes": "hash c181725e2034d814 — cached, never re-spend the say call"
+    }
+  ]
+}
