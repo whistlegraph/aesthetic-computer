@@ -1,0 +1,143 @@
+{
+ "source": "whistlegraph-6947410861677890822.wav",
+ "sr": 22050,
+ "words": [
+  {
+   "text": "One,",
+   "fromMs": 200,
+   "toMs": 640,
+   "nuclei": []
+  },
+  {
+   "text": "two,",
+   "fromMs": 640,
+   "toMs": 1200,
+   "nuclei": [
+    {
+     "midi": 65,
+     "note": "F4",
+     "cents": 38.7,
+     "startSec": 0.801,
+     "durSec": 0.302,
+     "rms": 0.0326
+    }
+   ]
+  },
+  {
+   "text": "ready,",
+   "fromMs": 1200,
+   "toMs": 2110,
+   "nuclei": []
+  },
+  {
+   "text": "and",
+   "fromMs": 2110,
+   "toMs": 2410,
+   "nuclei": []
+  },
+  {
+   "text": "I'm...",
+   "fromMs": 2410,
+   "toMs": 2920,
+   "nuclei": []
+  },
+  {
+   "text": "Aah!",
+   "fromMs": 2920,
+   "toMs": 3840,
+   "nuclei": []
+  },
+  {
+   "text": "Butterfly!",
+   "fromMs": 3840,
+   "toMs": 5640,
+   "nuclei": []
+  },
+  {
+   "text": "Flapping",
+   "fromMs": 5640,
+   "toMs": 7750,
+   "nuclei": []
+  },
+  {
+   "text": "for",
+   "fromMs": 7750,
+   "toMs": 8170,
+   "nuclei": []
+  },
+  {
+   "text": "you",
+   "fromMs": 8170,
+   "toMs": 8620,
+   "nuclei": []
+  },
+  {
+   "text": "guys!",
+   "fromMs": 8620,
+   "toMs": 9240,
+   "nuclei": []
+  },
+  {
+   "text": "It's",
+   "fromMs": 9240,
+   "toMs": 9920,
+   "nuclei": []
+  },
+  {
+   "text": "just",
+   "fromMs": 9920,
+   "toMs": 10610,
+   "nuclei": []
+  },
+  {
+   "text": "a",
+   "fromMs": 10610,
+   "toMs": 10870,
+   "nuclei": []
+  },
+  {
+   "text": "costume",
+   "fromMs": 10870,
+   "toMs": 12840,
+   "nuclei": []
+  },
+  {
+   "text": "I",
+   "fromMs": 12840,
+   "toMs": 13190,
+   "nuclei": []
+  },
+  {
+   "text": "put",
+   "fromMs": 13190,
+   "toMs": 13970,
+   "nuclei": []
+  },
+  {
+   "text": "on",
+   "fromMs": 13970,
+   "toMs": 14640,
+   "nuclei": []
+  },
+  {
+   "text": "in",
+   "fromMs": 14640,
+   "toMs": 14920,
+   "nuclei": []
+  },
+  {
+   "text": "my",
+   "fromMs": 14920,
+   "toMs": 15280,
+   "nuclei": []
+  },
+  {
+   "text": "room!",
+   "fromMs": 15280,
+   "toMs": 16080,
+   "nuclei": []
+  }
+ ],
+ "wordCount": 21,
+ "nucleusCount": 1
+}

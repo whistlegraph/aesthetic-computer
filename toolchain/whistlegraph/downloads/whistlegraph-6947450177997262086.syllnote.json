@@ -1,0 +1,134 @@
+{
+ "source": "whistlegraph-6947450177997262086.wav",
+ "sr": 22050,
+ "words": [
+  {
+   "text": "One,",
+   "fromMs": 160,
+   "toMs": 530,
+   "nuclei": []
+  },
+  {
+   "text": "two,",
+   "fromMs": 530,
+   "toMs": 1040,
+   "nuclei": []
+  },
+  {
+   "text": "ready,",
+   "fromMs": 1040,
+   "toMs": 1900,
+   "nuclei": []
+  },
+  {
+   "text": "go!",
+   "fromMs": 1900,
+   "toMs": 2530,
+   "nuclei": []
+  },
+  {
+   "text": "I'm",
+   "fromMs": 2530,
+   "toMs": 3060,
+   "nuclei": []
+  },
+  {
+   "text": "a",
+   "fromMs": 3060,
+   "toMs": 3250,
+   "nuclei": []
+  },
+  {
+   "text": "butterfly!",
+   "fromMs": 3250,
+   "toMs": 5250,
+   "nuclei": []
+  },
+  {
+   "text": "Flapping!",
+   "fromMs": 5250,
+   "toMs": 6990,
+   "nuclei": []
+  },
+  {
+   "text": "For",
+   "fromMs": 6990,
+   "toMs": 7200,
+   "nuclei": []
+  },
+  {
+   "text": "you",
+   "fromMs": 7200,
+   "toMs": 7680,
+   "nuclei": []
+  },
+  {
+   "text": "guys,",
+   "fromMs": 7680,
+   "toMs": 8480,
+   "nuclei": []
+  },
+  {
+   "text": "it's",
+   "fromMs": 8480,
+   "toMs": 8650,
+   "nuclei": []
+  },
+  {
+   "text": "just",
+   "fromMs": 8650,
+   "toMs": 8870,
+   "nuclei": []
+  },
+  {
+   "text": "a",
+   "fromMs": 8870,
+   "toMs": 10160,
+   "nuclei": []
+  },
+  {
+   "text": "costume",
+   "fromMs": 10160,
+   "toMs": 11040,
+   "nuclei": []
+  },
+  {
+   "text": "I",
+   "fromMs": 11040,
+   "toMs": 12080,
+   "nuclei": []
+  },
+  {
+   "text": "put",
+   "fromMs": 12080,
+   "toMs": 12400,
+   "nuclei": []
+  },
+  {
+   "text": "on",
+   "fromMs": 12400,
+   "toMs": 13200,
+   "nuclei": []
+  },
+  {
+   "text": "in",
+   "fromMs": 13200,
+   "toMs": 13600,
+   "nuclei": []
+  },
+  {
+   "text": "my",
+   "fromMs": 13600,
+   "toMs": 14000,
+   "nuclei": []
+  },
+  {
+   "text": "room!",
+   "fromMs": 14000,
+   "toMs": 15040,
+   "nuclei": []
+  }
+ ],
+ "wordCount": 21,
+ "nucleusCount": 0
+}

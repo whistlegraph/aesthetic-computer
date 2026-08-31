@@ -1,0 +1,396 @@
+{
+ "source": "whistlegraph-7132008443774291243.wav",
+ "sr": 22050,
+ "words": [
+  {
+   "text": "Jumping",
+   "fromMs": 350,
+   "toMs": 1260,
+   "nuclei": [
+    {
+     "midi": 50,
+     "note": "D3",
+     "cents": 28.7,
+     "startSec": 0.453,
+     "durSec": 0.372,
+     "rms": 0.0449
+    },
+    {
+     "midi": 49,
+     "note": "C#3",
+     "cents": -41.3,
+     "startSec": 0.929,
+     "durSec": 0.36,
+     "rms": 0.0451
+    }
+   ]
+  },
+  {
+   "text": "up",
+   "fromMs": 1260,
+   "toMs": 1870,
+   "nuclei": [
+    {
+     "midi": 51,
+     "note": "D#3",
+     "cents": -41.3,
+     "startSec": 1.242,
+     "durSec": 0.418,
+     "rms": 0.0417
+    }
+   ]
+  },
+  {
+   "text": "and",
+   "fromMs": 1870,
+   "toMs": 2160,
+   "nuclei": [
+    {
+     "midi": 53,
+     "note": "F3",
+     "cents": 48.7,
+     "startSec": 1.904,
+     "durSec": 0.29,
+     "rms": 0.0663
+    }
+   ]
+  },
+  {
+   "text": "down's",
+   "fromMs": 2160,
+   "toMs": 3240,
+   "nuclei": [
+    {
+     "midi": 56,
+     "note": "G#3",
+     "cents": -11.3,
+     "startSec": 2.148,
+     "durSec": 0.697,
+     "rms": 0.06
+    },
+    {
+     "midi": 55,
+     "note": "G3",
+     "cents": 38.7,
+     "startSec": 2.937,
+     "durSec": 0.337,
+     "rms": 0.0673
+    }
+   ]
+  },
+  {
+   "text": "no",
+   "fromMs": 3240,
+   "toMs": 3600,
+   "nuclei": [
+    {
+     "midi": 55,
+     "note": "G3",
+     "cents": 28.7,
+     "startSec": 3.228,
+     "durSec": 0.104,
+     "rms": 0.0434
+    },
+    {
+     "midi": 53,
+     "note": "F3",
+     "cents": 28.7,
+     "startSec": 3.483,
+     "durSec": 0.151,
+     "rms": 0.0546
+    }
+   ]
+  },
+  {
+   "text": "fun",
+   "fromMs": 3600,
+   "toMs": 4420,
+   "nuclei": [
+    {
+     "midi": 53,
+     "note": "F3",
+     "cents": 28.7,
+     "startSec": 3.587,
+     "durSec": 0.522,
+     "rms": 0.0356
+    }
+   ]
+  },
+  {
+   "text": "when",
+   "fromMs": 4420,
+   "toMs": 4920,
+   "nuclei": [
+    {
+     "midi": 50,
+     "note": "D3",
+     "cents": -21.3,
+     "startSec": 4.609,
+     "durSec": 0.348,
+     "rms": 0.0764
+    }
+   ]
+  },
+  {
+   "text": "you're",
+   "fromMs": 4920,
+   "toMs": 6060,
+   "nuclei": [
+    {
+     "midi": 53,
+     "note": "F3",
+     "cents": 48.7,
+     "startSec": 4.911,
+     "durSec": 0.488,
+     "rms": 0.0824
+    },
+    {
+     "midi": 51,
+     "note": "D#3",
+     "cents": 28.7,
+     "startSec": 5.608,
+     "durSec": 0.418,
+     "rms": 0.0882
+    }
+   ]
+  },
+  {
+   "text": "feeling",
+   "fromMs": 6060,
+   "toMs": 7400,
+   "nuclei": [
+    {
+     "midi": 49,
+     "note": "C#3",
+     "cents": 28.7,
+     "startSec": 6.142,
+     "durSec": 1.289,
+     "rms": 0.0535
+    }
+   ]
+  },
+  {
+   "text": "low.",
+   "fromMs": 7400,
+   "toMs": 8000,
+   "nuclei": [
+    {
+     "midi": 50,
+     "note": "D3",
+     "cents": -21.3,
+     "startSec": 7.384,
+     "durSec": 0.313,
+     "rms": 0.0227
+    }
+   ]
+  },
+  {
+   "text": "Kneeled",
+   "fromMs": 8000,
+   "toMs": 8920,
+   "nuclei": [
+    {
+     "midi": 56,
+     "note": "G#3",
+     "cents": -21.3,
+     "startSec": 8.533,
+     "durSec": 0.418,
+     "rms": 0.167
+    }
+   ]
+  },
+  {
+   "text": "with",
+   "fromMs": 8920,
+   "toMs": 9450,
+   "nuclei": [
+    {
+     "midi": 56,
+     "note": "G#3",
+     "cents": -41.3,
+     "startSec": 8.905,
+     "durSec": 0.43,
+     "rms": 0.1137
+    },
+    {
+     "midi": 52,
+     "note": "E3",
+     "cents": 18.7,
+     "startSec": 9.427,
+     "durSec": 0.058,
+     "rms": 0.0899
+    }
+   ]
+  },
+  {
+   "text": "bows",
+   "fromMs": 9450,
+   "toMs": 9980,
+   "nuclei": [
+    {
+     "midi": 53,
+     "note": "F3",
+     "cents": -21.3,
+     "startSec": 9.439,
+     "durSec": 0.197,
+     "rms": 0.0759
+    },
+    {
+     "midi": 51,
+     "note": "D#3",
+     "cents": 28.7,
+     "startSec": 9.822,
+     "durSec": 0.197,
+     "rms": 0.1071
+    }
+   ]
+  },
+  {
+   "text": "like",
+   "fromMs": 9980,
+   "toMs": 10510,
+   "nuclei": [
+    {
+     "midi": 51,
+     "note": "D#3",
+     "cents": 28.7,
+     "startSec": 9.961,
+     "durSec": 0.244,
+     "rms": 0.0853
+    },
+    {
+     "midi": 48,
+     "note": "C3",
+     "cents": -31.3,
+     "startSec": 10.403,
+     "durSec": 0.139,
+     "rms": 0.0591
+    }
+   ]
+  },
+  {
+   "text": "butterflies",
+   "fromMs": 10510,
+   "toMs": 11990,
+   "nuclei": [
+    {
+     "midi": 48,
+     "note": "C3",
+     "cents": -21.3,
+     "startSec": 10.495,
+     "durSec": 0.081,
+     "rms": 0.0425
+    },
+    {
+     "midi": 50,
+     "note": "D3",
+     "cents": 8.7,
+     "startSec": 10.855,
+     "durSec": 0.441,
+     "rms": 0.0703
+    },
+    {
+     "midi": 47,
+     "note": "B2",
+     "cents": 48.7,
+     "startSec": 11.378,
+     "durSec": 0.279,
+     "rms": 0.0606
+    },
+    {
+     "midi": 50,
+     "note": "D3",
+     "cents": -31.3,
+     "startSec": 11.889,
+     "durSec": 0.139,
+     "rms": 0.0677
+    }
+   ]
+  },
+  {
+   "text": "and",
+   "fromMs": 11990,
+   "toMs": 12420,
+   "nuclei": [
+    {
+     "midi": 49,
+     "note": "C#3",
+     "cents": 48.7,
+     "startSec": 11.981,
+     "durSec": 0.313,
+     "rms": 0.0603
+    }
+   ]
+  },
+  {
+   "text": "hair",
+   "fromMs": 12420,
+   "toMs": 13000,
+   "nuclei": [
+    {
+     "midi": 52,
+     "note": "E3",
+     "cents": 8.7,
+     "startSec": 12.446,
+     "durSec": 0.302,
+     "rms": 0.0482
+    },
+    {
+     "midi": 54,
+     "note": "F#3",
+     "cents": -1.3,
+     "startSec": 12.875,
+     "durSec": 0.163,
+     "rms": 0.0811
+    }
+   ]
+  },
+  {
+   "text": "in",
+   "fromMs": 13000,
+   "toMs": 13600,
+   "nuclei": [
+    {
+     "midi": 54,
+     "note": "F#3",
+     "cents": 8.7,
+     "startSec": 12.992,
+     "durSec": 0.313,
+     "rms": 0.0578
+    }
+   ]
+  },
+  {
+   "text": "your",
+   "fromMs": 13600,
+   "toMs": 14790,
+   "nuclei": [
+    {
+     "midi": 50,
+     "note": "D3",
+     "cents": -31.3,
+     "startSec": 13.99,
+     "durSec": 0.836,
+     "rms": 0.0712
+    }
+   ]
+  },
+  {
+   "text": "eyes.",
+   "fromMs": 14790,
+   "toMs": 16000,
+   "nuclei": [
+    {
+     "midi": 49,
+     "note": "C#3",
+     "cents": 48.7,
+     "startSec": 14.78,
+     "durSec": 0.534,
+     "rms": 0.0646
+    }
+   ]
+  }
+ ],
+ "wordCount": 20,
+ "nucleusCount": 31
+}

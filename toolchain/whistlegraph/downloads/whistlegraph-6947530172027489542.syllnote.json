@@ -1,0 +1,155 @@
+{
+ "source": "whistlegraph-6947530172027489542.wav",
+ "sr": 22050,
+ "words": [
+  {
+   "text": "One,",
+   "fromMs": 100,
+   "toMs": 490,
+   "nuclei": []
+  },
+  {
+   "text": "two,",
+   "fromMs": 490,
+   "toMs": 980,
+   "nuclei": []
+  },
+  {
+   "text": "ready,",
+   "fromMs": 980,
+   "toMs": 1660,
+   "nuclei": []
+  },
+  {
+   "text": "and",
+   "fromMs": 1660,
+   "toMs": 2000,
+   "nuclei": []
+  },
+  {
+   "text": "I'm,",
+   "fromMs": 2000,
+   "toMs": 3510,
+   "nuclei": []
+  },
+  {
+   "text": "uh,",
+   "fromMs": 3510,
+   "toMs": 4200,
+   "nuclei": []
+  },
+  {
+   "text": "butterfly,",
+   "fromMs": 4200,
+   "toMs": 5400,
+   "nuclei": []
+  },
+  {
+   "text": "the",
+   "fromMs": 5400,
+   "toMs": 6010,
+   "nuclei": []
+  },
+  {
+   "text": "flat,",
+   "fromMs": 6010,
+   "toMs": 7020,
+   "nuclei": []
+  },
+  {
+   "text": "big,",
+   "fromMs": 7020,
+   "toMs": 7720,
+   "nuclei": [
+    {
+     "midi": 54,
+     "note": "F#3",
+     "cents": 38.7,
+     "startSec": 7.012,
+     "durSec": 0.07,
+     "rms": 0.2344
+    }
+   ]
+  },
+  {
+   "text": "four,",
+   "fromMs": 7720,
+   "toMs": 8230,
+   "nuclei": []
+  },
+  {
+   "text": "you",
+   "fromMs": 8230,
+   "toMs": 8550,
+   "nuclei": []
+  },
+  {
+   "text": "guys,",
+   "fromMs": 8550,
+   "toMs": 9250,
+   "nuclei": []
+  },
+  {
+   "text": "it's",
+   "fromMs": 9250,
+   "toMs": 9700,
+   "nuclei": []
+  },
+  {
+   "text": "just,",
+   "fromMs": 9700,
+   "toMs": 10450,
+   "nuclei": []
+  },
+  {
+   "text": "uh,",
+   "fromMs": 10450,
+   "toMs": 11110,
+   "nuclei": []
+  },
+  {
+   "text": "costume,",
+   "fromMs": 11110,
+   "toMs": 12880,
+   "nuclei": []
+  },
+  {
+   "text": "I",
+   "fromMs": 12880,
+   "toMs": 13060,
+   "nuclei": []
+  },
+  {
+   "text": "put",
+   "fromMs": 13060,
+   "toMs": 13610,
+   "nuclei": []
+  },
+  {
+   "text": "on,",
+   "fromMs": 13610,
+   "toMs": 14450,
+   "nuclei": []
+  },
+  {
+   "text": "in",
+   "fromMs": 14450,
+   "toMs": 14850,
+   "nuclei": []
+  },
+  {
+   "text": "my",
+   "fromMs": 14850,
+   "toMs": 15160,
+   "nuclei": []
+  },
+  {
+   "text": "room.",
+   "fromMs": 15160,
+   "toMs": 16000,
+   "nuclei": []
+  }
+ ],
+ "wordCount": 23,
+ "nucleusCount": 1
+}

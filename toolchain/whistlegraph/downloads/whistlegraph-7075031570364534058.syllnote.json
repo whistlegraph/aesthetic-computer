@@ -1,0 +1,833 @@
+{
+ "source": "whistlegraph-7075031570364534058.wav",
+ "sr": 22050,
+ "words": [
+  {
+   "text": "I",
+   "fromMs": 0,
+   "toMs": 210,
+   "nuclei": []
+  },
+  {
+   "text": "see,",
+   "fromMs": 210,
+   "toMs": 320,
+   "nuclei": []
+  },
+  {
+   "text": "so",
+   "fromMs": 320,
+   "toMs": 430,
+   "nuclei": []
+  },
+  {
+   "text": "you're",
+   "fromMs": 430,
+   "toMs": 750,
+   "nuclei": []
+  },
+  {
+   "text": "looking",
+   "fromMs": 750,
+   "toMs": 1140,
+   "nuclei": []
+  },
+  {
+   "text": "at",
+   "fromMs": 1140,
+   "toMs": 1250,
+   "nuclei": []
+  },
+  {
+   "text": "the",
+   "fromMs": 1250,
+   "toMs": 1410,
+   "nuclei": []
+  },
+  {
+   "text": "whistle",
+   "fromMs": 1410,
+   "toMs": 1800,
+   "nuclei": []
+  },
+  {
+   "text": "graphs",
+   "fromMs": 1800,
+   "toMs": 2190,
+   "nuclei": []
+  },
+  {
+   "text": "and",
+   "fromMs": 2190,
+   "toMs": 2300,
+   "nuclei": []
+  },
+  {
+   "text": "you're",
+   "fromMs": 2300,
+   "toMs": 2500,
+   "nuclei": []
+  },
+  {
+   "text": "thinking",
+   "fromMs": 2500,
+   "toMs": 2880,
+   "nuclei": []
+  },
+  {
+   "text": "there's",
+   "fromMs": 2880,
+   "toMs": 3040,
+   "nuclei": []
+  },
+  {
+   "text": "like",
+   "fromMs": 3040,
+   "toMs": 3200,
+   "nuclei": []
+  },
+  {
+   "text": "an",
+   "fromMs": 3200,
+   "toMs": 3280,
+   "nuclei": []
+  },
+  {
+   "text": "X",
+   "fromMs": 3280,
+   "toMs": 3490,
+   "nuclei": []
+  },
+  {
+   "text": "axis",
+   "fromMs": 3490,
+   "toMs": 4360,
+   "nuclei": []
+  },
+  {
+   "text": "and",
+   "fromMs": 4360,
+   "toMs": 4480,
+   "nuclei": []
+  },
+  {
+   "text": "a",
+   "fromMs": 4480,
+   "toMs": 4610,
+   "nuclei": []
+  },
+  {
+   "text": "Y",
+   "fromMs": 4610,
+   "toMs": 4740,
+   "nuclei": []
+  },
+  {
+   "text": "axis",
+   "fromMs": 4740,
+   "toMs": 5280,
+   "nuclei": []
+  },
+  {
+   "text": "and",
+   "fromMs": 5280,
+   "toMs": 5660,
+   "nuclei": [
+    {
+     "midi": 40,
+     "note": "E2",
+     "cents": 8.7,
+     "startSec": 5.468,
+     "durSec": 0.058,
+     "rms": 0.1189
+    }
+   ]
+  },
+  {
+   "text": "then",
+   "fromMs": 5660,
+   "toMs": 5700,
+   "nuclei": []
+  },
+  {
+   "text": "up",
+   "fromMs": 5700,
+   "toMs": 5900,
+   "nuclei": []
+  },
+  {
+   "text": "here",
+   "fromMs": 5900,
+   "toMs": 6260,
+   "nuclei": []
+  },
+  {
+   "text": "the",
+   "fromMs": 6260,
+   "toMs": 6480,
+   "nuclei": [
+    {
+     "midi": 51,
+     "note": "D#3",
+     "cents": -1.3,
+     "startSec": 6.281,
+     "durSec": 0.07,
+     "rms": 0.2037
+    }
+   ]
+  },
+  {
+   "text": "notes",
+   "fromMs": 6480,
+   "toMs": 6690,
+   "nuclei": []
+  },
+  {
+   "text": "have",
+   "fromMs": 6690,
+   "toMs": 6900,
+   "nuclei": []
+  },
+  {
+   "text": "to",
+   "fromMs": 6900,
+   "toMs": 7040,
+   "nuclei": []
+  },
+  {
+   "text": "be",
+   "fromMs": 7040,
+   "toMs": 7380,
+   "nuclei": []
+  },
+  {
+   "text": "high",
+   "fromMs": 7380,
+   "toMs": 8320,
+   "nuclei": [
+    {
+     "midi": 51,
+     "note": "D#3",
+     "cents": -11.3,
+     "startSec": 8.208,
+     "durSec": 0.081,
+     "rms": 0.0859
+    }
+   ]
+  },
+  {
+   "text": "and",
+   "fromMs": 8320,
+   "toMs": 8400,
+   "nuclei": []
+  },
+  {
+   "text": "down",
+   "fromMs": 8400,
+   "toMs": 8780,
+   "nuclei": []
+  },
+  {
+   "text": "here",
+   "fromMs": 8780,
+   "toMs": 9000,
+   "nuclei": []
+  },
+  {
+   "text": "the",
+   "fromMs": 9000,
+   "toMs": 9280,
+   "nuclei": []
+  },
+  {
+   "text": "notes",
+   "fromMs": 9280,
+   "toMs": 9750,
+   "nuclei": [
+    {
+     "midi": 47,
+     "note": "B2",
+     "cents": 8.7,
+     "startSec": 9.52,
+     "durSec": 0.186,
+     "rms": 0.1096
+    }
+   ]
+  },
+  {
+   "text": "have",
+   "fromMs": 9750,
+   "toMs": 10120,
+   "nuclei": []
+  },
+  {
+   "text": "to",
+   "fromMs": 10120,
+   "toMs": 10300,
+   "nuclei": []
+  },
+  {
+   "text": "be",
+   "fromMs": 10300,
+   "toMs": 10480,
+   "nuclei": [
+    {
+     "midi": 47,
+     "note": "B2",
+     "cents": -1.3,
+     "startSec": 10.426,
+     "durSec": 0.07,
+     "rms": 0.1814
+    }
+   ]
+  },
+  {
+   "text": "low",
+   "fromMs": 10480,
+   "toMs": 10800,
+   "nuclei": [
+    {
+     "midi": 47,
+     "note": "B2",
+     "cents": -1.3,
+     "startSec": 10.565,
+     "durSec": 0.058,
+     "rms": 0.0851
+    }
+   ]
+  },
+  {
+   "text": "and",
+   "fromMs": 10800,
+   "toMs": 10920,
+   "nuclei": []
+  },
+  {
+   "text": "then",
+   "fromMs": 10920,
+   "toMs": 11100,
+   "nuclei": []
+  },
+  {
+   "text": "if",
+   "fromMs": 11100,
+   "toMs": 11150,
+   "nuclei": []
+  },
+  {
+   "text": "you",
+   "fromMs": 11150,
+   "toMs": 11220,
+   "nuclei": []
+  },
+  {
+   "text": "were",
+   "fromMs": 11220,
+   "toMs": 11340,
+   "nuclei": []
+  },
+  {
+   "text": "to",
+   "fromMs": 11340,
+   "toMs": 11410,
+   "nuclei": []
+  },
+  {
+   "text": "take",
+   "fromMs": 11410,
+   "toMs": 11550,
+   "nuclei": []
+  },
+  {
+   "text": "a",
+   "fromMs": 11550,
+   "toMs": 11600,
+   "nuclei": []
+  },
+  {
+   "text": "whistle",
+   "fromMs": 11600,
+   "toMs": 11830,
+   "nuclei": []
+  },
+  {
+   "text": "graph",
+   "fromMs": 11830,
+   "toMs": 12000,
+   "nuclei": []
+  },
+  {
+   "text": "like",
+   "fromMs": 12000,
+   "toMs": 12360,
+   "nuclei": []
+  },
+  {
+   "text": "this",
+   "fromMs": 12360,
+   "toMs": 12720,
+   "nuclei": []
+  },
+  {
+   "text": "one",
+   "fromMs": 12720,
+   "toMs": 13000,
+   "nuclei": []
+  },
+  {
+   "text": "I'm",
+   "fromMs": 13000,
+   "toMs": 13330,
+   "nuclei": []
+  },
+  {
+   "text": "a",
+   "fromMs": 13330,
+   "toMs": 13440,
+   "nuclei": []
+  },
+  {
+   "text": "butterfly",
+   "fromMs": 13440,
+   "toMs": 14480,
+   "nuclei": [
+    {
+     "midi": 54,
+     "note": "F#3",
+     "cents": 8.7,
+     "startSec": 13.711,
+     "durSec": 0.221,
+     "rms": 0.1473
+    }
+   ]
+  },
+  {
+   "text": "flapping",
+   "fromMs": 14480,
+   "toMs": 15500,
+   "nuclei": []
+  },
+  {
+   "text": "for",
+   "fromMs": 15500,
+   "toMs": 15600,
+   "nuclei": []
+  },
+  {
+   "text": "you",
+   "fromMs": 15600,
+   "toMs": 15770,
+   "nuclei": []
+  },
+  {
+   "text": "guys",
+   "fromMs": 15770,
+   "toMs": 16000,
+   "nuclei": []
+  },
+  {
+   "text": "it's",
+   "fromMs": 16000,
+   "toMs": 16200,
+   "nuclei": []
+  },
+  {
+   "text": "just",
+   "fromMs": 16200,
+   "toMs": 16600,
+   "nuclei": []
+  },
+  {
+   "text": "a",
+   "fromMs": 16600,
+   "toMs": 16730,
+   "nuclei": [
+    {
+     "midi": 51,
+     "note": "D#3",
+     "cents": 38.7,
+     "startSec": 16.649,
+     "durSec": 0.116,
+     "rms": 0.2471
+    }
+   ]
+  },
+  {
+   "text": "costume",
+   "fromMs": 16730,
+   "toMs": 17700,
+   "nuclei": [
+    {
+     "midi": 51,
+     "note": "D#3",
+     "cents": 48.7,
+     "startSec": 16.718,
+     "durSec": 0.058,
+     "rms": 0.2342
+    }
+   ]
+  },
+  {
+   "text": "I",
+   "fromMs": 17700,
+   "toMs": 17770,
+   "nuclei": []
+  },
+  {
+   "text": "put",
+   "fromMs": 17770,
+   "toMs": 18000,
+   "nuclei": []
+  },
+  {
+   "text": "on",
+   "fromMs": 18000,
+   "toMs": 18500,
+   "nuclei": []
+  },
+  {
+   "text": "in",
+   "fromMs": 18500,
+   "toMs": 18700,
+   "nuclei": []
+  },
+  {
+   "text": "my",
+   "fromMs": 18700,
+   "toMs": 18900,
+   "nuclei": []
+  },
+  {
+   "text": "room",
+   "fromMs": 18900,
+   "toMs": 19000,
+   "nuclei": []
+  },
+  {
+   "text": "then",
+   "fromMs": 19000,
+   "toMs": 19500,
+   "nuclei": []
+  },
+  {
+   "text": "somehow",
+   "fromMs": 19500,
+   "toMs": 19880,
+   "nuclei": []
+  },
+  {
+   "text": "you",
+   "fromMs": 19880,
+   "toMs": 20000,
+   "nuclei": []
+  },
+  {
+   "text": "should",
+   "fromMs": 20000,
+   "toMs": 20100,
+   "nuclei": []
+  },
+  {
+   "text": "be",
+   "fromMs": 20100,
+   "toMs": 20160,
+   "nuclei": []
+  },
+  {
+   "text": "able",
+   "fromMs": 20160,
+   "toMs": 20280,
+   "nuclei": []
+  },
+  {
+   "text": "to",
+   "fromMs": 20280,
+   "toMs": 20560,
+   "nuclei": []
+  },
+  {
+   "text": "map",
+   "fromMs": 20560,
+   "toMs": 21000,
+   "nuclei": []
+  },
+  {
+   "text": "this",
+   "fromMs": 21000,
+   "toMs": 21500,
+   "nuclei": []
+  },
+  {
+   "text": "onto",
+   "fromMs": 21500,
+   "toMs": 22000,
+   "nuclei": []
+  },
+  {
+   "text": "like",
+   "fromMs": 22000,
+   "toMs": 22280,
+   "nuclei": []
+  },
+  {
+   "text": "a",
+   "fromMs": 22280,
+   "toMs": 22350,
+   "nuclei": []
+  },
+  {
+   "text": "pitch",
+   "fromMs": 22350,
+   "toMs": 22700,
+   "nuclei": []
+  },
+  {
+   "text": "grid.",
+   "fromMs": 22700,
+   "toMs": 23000,
+   "nuclei": [
+    {
+     "midi": 47,
+     "note": "B2",
+     "cents": 8.7,
+     "startSec": 22.709,
+     "durSec": 0.267,
+     "rms": 0.1261
+    }
+   ]
+  },
+  {
+   "text": "But",
+   "fromMs": 23000,
+   "toMs": 23250,
+   "nuclei": []
+  },
+  {
+   "text": "that's",
+   "fromMs": 23250,
+   "toMs": 23490,
+   "nuclei": []
+  },
+  {
+   "text": "not",
+   "fromMs": 23490,
+   "toMs": 23650,
+   "nuclei": []
+  },
+  {
+   "text": "what",
+   "fromMs": 23650,
+   "toMs": 23870,
+   "nuclei": []
+  },
+  {
+   "text": "whistle",
+   "fromMs": 23870,
+   "toMs": 24250,
+   "nuclei": []
+  },
+  {
+   "text": "graphing",
+   "fromMs": 24250,
+   "toMs": 24680,
+   "nuclei": []
+  },
+  {
+   "text": "is",
+   "fromMs": 24680,
+   "toMs": 24790,
+   "nuclei": []
+  },
+  {
+   "text": "about",
+   "fromMs": 24790,
+   "toMs": 25060,
+   "nuclei": []
+  },
+  {
+   "text": "because",
+   "fromMs": 25060,
+   "toMs": 25440,
+   "nuclei": []
+  },
+  {
+   "text": "the",
+   "fromMs": 25440,
+   "toMs": 25600,
+   "nuclei": []
+  },
+  {
+   "text": "sounds",
+   "fromMs": 25600,
+   "toMs": 25930,
+   "nuclei": []
+  },
+  {
+   "text": "are",
+   "fromMs": 25930,
+   "toMs": 26090,
+   "nuclei": []
+  },
+  {
+   "text": "totally",
+   "fromMs": 26090,
+   "toMs": 26470,
+   "nuclei": []
+  },
+  {
+   "text": "arbitrary",
+   "fromMs": 26470,
+   "toMs": 26960,
+   "nuclei": []
+  },
+  {
+   "text": "with",
+   "fromMs": 26960,
+   "toMs": 27180,
+   "nuclei": []
+  },
+  {
+   "text": "the",
+   "fromMs": 27180,
+   "toMs": 27340,
+   "nuclei": []
+  },
+  {
+   "text": "lines",
+   "fromMs": 27340,
+   "toMs": 27610,
+   "nuclei": []
+  },
+  {
+   "text": "and",
+   "fromMs": 27610,
+   "toMs": 27770,
+   "nuclei": []
+  },
+  {
+   "text": "it's",
+   "fromMs": 27770,
+   "toMs": 27990,
+   "nuclei": []
+  },
+  {
+   "text": "all",
+   "fromMs": 27990,
+   "toMs": 28150,
+   "nuclei": []
+  },
+  {
+   "text": "about",
+   "fromMs": 28150,
+   "toMs": 28420,
+   "nuclei": []
+  },
+  {
+   "text": "what",
+   "fromMs": 28420,
+   "toMs": 28640,
+   "nuclei": []
+  },
+  {
+   "text": "happens",
+   "fromMs": 28640,
+   "toMs": 29020,
+   "nuclei": []
+  },
+  {
+   "text": "in",
+   "fromMs": 29020,
+   "toMs": 29130,
+   "nuclei": []
+  },
+  {
+   "text": "the",
+   "fromMs": 29130,
+   "toMs": 29290,
+   "nuclei": []
+  },
+  {
+   "text": "imagination",
+   "fromMs": 29290,
+   "toMs": 30000,
+   "nuclei": []
+  },
+  {
+   "text": "when",
+   "fromMs": 30000,
+   "toMs": 30380,
+   "nuclei": [
+    {
+     "midi": 47,
+     "note": "B2",
+     "cents": -11.3,
+     "startSec": 30.267,
+     "durSec": 0.058,
+     "rms": 0.0699
+    }
+   ]
+  },
+  {
+   "text": "you",
+   "fromMs": 30380,
+   "toMs": 30440,
+   "nuclei": []
+  },
+  {
+   "text": "compose",
+   "fromMs": 30440,
+   "toMs": 30880,
+   "nuclei": []
+  },
+  {
+   "text": "different",
+   "fromMs": 30880,
+   "toMs": 31450,
+   "nuclei": [
+    {
+     "midi": 48,
+     "note": "C3",
+     "cents": -31.3,
+     "startSec": 30.906,
+     "durSec": 0.128,
+     "rms": 0.1775
+    }
+   ]
+  },
+  {
+   "text": "sounds",
+   "fromMs": 31450,
+   "toMs": 31830,
+   "nuclei": []
+  },
+  {
+   "text": "with",
+   "fromMs": 31830,
+   "toMs": 32080,
+   "nuclei": []
+  },
+  {
+   "text": "different",
+   "fromMs": 32080,
+   "toMs": 32650,
+   "nuclei": []
+  },
+  {
+   "text": "lines.",
+   "fromMs": 32650,
+   "toMs": 34000,
+   "nuclei": [
+    {
+     "midi": 40,
+     "note": "E2",
+     "cents": 8.7,
+     "startSec": 33.367,
+     "durSec": 0.174,
+     "rms": 0.0607
+    }
+   ]
+  }
+ ],
+ "wordCount": 118,
+ "nucleusCount": 13
+}

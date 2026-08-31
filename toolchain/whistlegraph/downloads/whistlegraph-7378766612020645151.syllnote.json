@@ -1,0 +1,175 @@
+{
+ "source": "whistlegraph-7378766612020645151.wav",
+ "sr": 22050,
+ "words": [
+  {
+   "text": "Hey,",
+   "fromMs": 230,
+   "toMs": 420,
+   "nuclei": []
+  },
+  {
+   "text": "I'm",
+   "fromMs": 420,
+   "toMs": 670,
+   "nuclei": [
+    {
+     "midi": 48,
+     "note": "C3",
+     "cents": 8.7,
+     "startSec": 0.65,
+     "durSec": 0.058,
+     "rms": 0.0244
+    }
+   ]
+  },
+  {
+   "text": "Jeffrey.",
+   "fromMs": 670,
+   "toMs": 1480,
+   "nuclei": [
+    {
+     "midi": 48,
+     "note": "C3",
+     "cents": 8.7,
+     "startSec": 0.65,
+     "durSec": 0.058,
+     "rms": 0.0244
+    },
+    {
+     "midi": 49,
+     "note": "C#3",
+     "cents": -11.3,
+     "startSec": 0.871,
+     "durSec": 0.128,
+     "rms": 0.0284
+    }
+   ]
+  },
+  {
+   "text": "Hey,",
+   "fromMs": 1480,
+   "toMs": 1780,
+   "nuclei": [
+    {
+     "midi": 56,
+     "note": "G#3",
+     "cents": -21.3,
+     "startSec": 1.73,
+     "durSec": 0.07,
+     "rms": 0.0251
+    }
+   ]
+  },
+  {
+   "text": "I'm",
+   "fromMs": 1780,
+   "toMs": 1960,
+   "nuclei": [
+    {
+     "midi": 54,
+     "note": "F#3",
+     "cents": 8.7,
+     "startSec": 1.881,
+     "durSec": 0.116,
+     "rms": 0.0238
+    }
+   ]
+  },
+  {
+   "text": "Julia.",
+   "fromMs": 1960,
+   "toMs": 2510,
+   "nuclei": [
+    {
+     "midi": 52,
+     "note": "E3",
+     "cents": 38.7,
+     "startSec": 1.95,
+     "durSec": 0.383,
+     "rms": 0.0163
+    }
+   ]
+  },
+  {
+   "text": "And",
+   "fromMs": 2510,
+   "toMs": 2580,
+   "nuclei": []
+  },
+  {
+   "text": "this",
+   "fromMs": 2580,
+   "toMs": 2760,
+   "nuclei": [
+    {
+     "midi": 50,
+     "note": "D3",
+     "cents": -41.3,
+     "startSec": 2.566,
+     "durSec": 0.104,
+     "rms": 0.0428
+    }
+   ]
+  },
+  {
+   "text": "is",
+   "fromMs": 2760,
+   "toMs": 2830,
+   "nuclei": []
+  },
+  {
+   "text": "the",
+   "fromMs": 2830,
+   "toMs": 2950,
+   "nuclei": [
+    {
+     "midi": 50,
+     "note": "D3",
+     "cents": -21.3,
+     "startSec": 2.821,
+     "durSec": 0.058,
+     "rms": 0.0344
+    }
+   ]
+  },
+  {
+   "text": "butterfly",
+   "fromMs": 2950,
+   "toMs": 3350,
+   "nuclei": [
+    {
+     "midi": 46,
+     "note": "A#2",
+     "cents": -11.3,
+     "startSec": 3.1,
+     "durSec": 0.081,
+     "rms": 0.0276
+    }
+   ]
+  },
+  {
+   "text": "whistle",
+   "fromMs": 3350,
+   "toMs": 3660,
+   "nuclei": [
+    {
+     "midi": 44,
+     "note": "G#2",
+     "cents": 18.7,
+     "startSec": 3.437,
+     "durSec": 0.081,
+     "rms": 0.0179
+    }
+   ]
+  },
+  {
+   "text": "graph.",
+   "fromMs": 3660,
+   "toMs": 4880,
+   "nuclei": []
+  }
+ ],
+ "wordCount": 13,
+ "nucleusCount": 10
+}

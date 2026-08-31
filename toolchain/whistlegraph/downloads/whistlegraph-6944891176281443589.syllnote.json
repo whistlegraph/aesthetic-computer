@@ -1,0 +1,95 @@
+{
+ "source": "whistlegraph-6944891176281443589.wav",
+ "sr": 22050,
+ "words": [
+  {
+   "text": "Okay,",
+   "fromMs": 50,
+   "toMs": 430,
+   "nuclei": []
+  },
+  {
+   "text": "Butterflies",
+   "fromMs": 430,
+   "toMs": 1240,
+   "nuclei": []
+  },
+  {
+   "text": "with",
+   "fromMs": 1240,
+   "toMs": 1530,
+   "nuclei": [
+    {
+     "midi": 66,
+     "note": "F#4",
+     "cents": 38.7,
+     "startSec": 1.509,
+     "durSec": 0.058,
+     "rms": 0.1634
+    }
+   ]
+  },
+  {
+   "text": "a",
+   "fromMs": 1530,
+   "toMs": 1630,
+   "nuclei": [
+    {
+     "midi": 66,
+     "note": "F#4",
+     "cents": 38.7,
+     "startSec": 1.521,
+     "durSec": 0.058,
+     "rms": 0.1484
+    }
+   ]
+  },
+  {
+   "text": "beat",
+   "fromMs": 1630,
+   "toMs": 1890,
+   "nuclei": [
+    {
+     "midi": 65,
+     "note": "F4",
+     "cents": 28.7,
+     "startSec": 1.718,
+     "durSec": 0.139,
+     "rms": 0.2116
+    }
+   ]
+  },
+  {
+   "text": "in",
+   "fromMs": 1890,
+   "toMs": 2030,
+   "nuclei": []
+  },
+  {
+   "text": "the",
+   "fromMs": 2030,
+   "toMs": 2250,
+   "nuclei": []
+  },
+  {
+   "text": "background,",
+   "fromMs": 2250,
+   "toMs": 3120,
+   "nuclei": []
+  },
+  {
+   "text": "let's",
+   "fromMs": 3120,
+   "toMs": 3320,
+   "nuclei": []
+  },
+  {
+   "text": "go!",
+   "fromMs": 3320,
+   "toMs": 3660,
+   "nuclei": []
+  }
+ ],
+ "wordCount": 10,
+ "nucleusCount": 3
+}

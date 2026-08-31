@@ -1,0 +1,163 @@
+{
+ "source": "whistlegraph-7212040837406985515.wav",
+ "sr": 22050,
+ "words": [
+  {
+   "text": "Ah,",
+   "fromMs": 0,
+   "toMs": 280,
+   "nuclei": []
+  },
+  {
+   "text": "I'm",
+   "fromMs": 280,
+   "toMs": 560,
+   "nuclei": []
+  },
+  {
+   "text": "a",
+   "fromMs": 560,
+   "toMs": 570,
+   "nuclei": []
+  },
+  {
+   "text": "cute",
+   "fromMs": 570,
+   "toMs": 850,
+   "nuclei": [
+    {
+     "midi": 64,
+     "note": "E4",
+     "cents": -31.3,
+     "startSec": 0.697,
+     "durSec": 0.139,
+     "rms": 0.2269
+    }
+   ]
+  },
+  {
+   "text": "little",
+   "fromMs": 850,
+   "toMs": 1290,
+   "nuclei": [
+    {
+     "midi": 64,
+     "note": "E4",
+     "cents": 48.7,
+     "startSec": 1.138,
+     "durSec": 0.163,
+     "rms": 0.3953
+    }
+   ]
+  },
+  {
+   "text": "butterfly.",
+   "fromMs": 1290,
+   "toMs": 2340,
+   "nuclei": [
+    {
+     "midi": 64,
+     "note": "E4",
+     "cents": -31.3,
+     "startSec": 1.405,
+     "durSec": 0.639,
+     "rms": 0.3132
+    },
+    {
+     "midi": 63,
+     "note": "D#4",
+     "cents": -21.3,
+     "startSec": 2.136,
+     "durSec": 0.081,
+     "rms": 0.237
+    }
+   ]
+  },
+  {
+   "text": "Oh",
+   "fromMs": 2340,
+   "toMs": 2490,
+   "nuclei": [
+    {
+     "midi": 65,
+     "note": "F4",
+     "cents": -21.3,
+     "startSec": 2.38,
+     "durSec": 0.139,
+     "rms": 0.3376
+    }
+   ]
+  },
+  {
+   "text": "my",
+   "fromMs": 2490,
+   "toMs": 2690,
+   "nuclei": [
+    {
+     "midi": 65,
+     "note": "F4",
+     "cents": -41.3,
+     "startSec": 2.473,
+     "durSec": 0.139,
+     "rms": 0.3095
+    }
+   ]
+  },
+  {
+   "text": "god.",
+   "fromMs": 2690,
+   "toMs": 3160,
+   "nuclei": []
+  },
+  {
+   "text": "Oh,",
+   "fromMs": 3160,
+   "toMs": 3370,
+   "nuclei": []
+  },
+  {
+   "text": "it's",
+   "fromMs": 3370,
+   "toMs": 3580,
+   "nuclei": []
+  },
+  {
+   "text": "the",
+   "fromMs": 3580,
+   "toMs": 3730,
+   "nuclei": []
+  },
+  {
+   "text": "big",
+   "fromMs": 3730,
+   "toMs": 3900,
+   "nuclei": []
+  },
+  {
+   "text": "red",
+   "fromMs": 3900,
+   "toMs": 4070,
+   "nuclei": []
+  },
+  {
+   "text": "brush",
+   "fromMs": 4070,
+   "toMs": 4330,
+   "nuclei": []
+  },
+  {
+   "text": "coming",
+   "fromMs": 4330,
+   "toMs": 4650,
+   "nuclei": []
+  },
+  {
+   "text": "down.",
+   "fromMs": 4650,
+   "toMs": 4960,
+   "nuclei": []
+  }
+ ],
+ "wordCount": 17,
+ "nucleusCount": 6
+}

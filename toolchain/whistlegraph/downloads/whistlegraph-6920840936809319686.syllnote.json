@@ -1,0 +1,346 @@
+{
+ "source": "whistlegraph-6920840936809319686.wav",
+ "sr": 22050,
+ "words": [
+  {
+   "text": "Do",
+   "fromMs": 120,
+   "toMs": 120,
+   "nuclei": []
+  },
+  {
+   "text": "you",
+   "fromMs": 120,
+   "toMs": 300,
+   "nuclei": [
+    {
+     "midi": 53,
+     "note": "F3",
+     "cents": -1.3,
+     "startSec": 0.197,
+     "durSec": 0.139,
+     "rms": 0.0366
+    }
+   ]
+  },
+  {
+   "text": "want",
+   "fromMs": 300,
+   "toMs": 540,
+   "nuclei": [
+    {
+     "midi": 53,
+     "note": "F3",
+     "cents": 8.7,
+     "startSec": 0.29,
+     "durSec": 0.07,
+     "rms": 0.0329
+    },
+    {
+     "midi": 54,
+     "note": "F#3",
+     "cents": 8.7,
+     "startSec": 0.511,
+     "durSec": 0.058,
+     "rms": 0.0303
+    }
+   ]
+  },
+  {
+   "text": "to",
+   "fromMs": 540,
+   "toMs": 660,
+   "nuclei": [
+    {
+     "midi": 54,
+     "note": "F#3",
+     "cents": -21.3,
+     "startSec": 0.522,
+     "durSec": 0.174,
+     "rms": 0.0318
+    }
+   ]
+  },
+  {
+   "text": "see",
+   "fromMs": 660,
+   "toMs": 890,
+   "nuclei": [
+    {
+     "midi": 54,
+     "note": "F#3",
+     "cents": 28.7,
+     "startSec": 0.65,
+     "durSec": 0.174,
+     "rms": 0.0313
+    }
+   ]
+  },
+  {
+   "text": "another",
+   "fromMs": 890,
+   "toMs": 1190,
+   "nuclei": [
+    {
+     "midi": 57,
+     "note": "A3",
+     "cents": -31.3,
+     "startSec": 0.998,
+     "durSec": 0.174,
+     "rms": 0.0251
+    }
+   ]
+  },
+  {
+   "text": "pose?",
+   "fromMs": 1190,
+   "toMs": 1680,
+   "nuclei": []
+  },
+  {
+   "text": "Sure,",
+   "fromMs": 1680,
+   "toMs": 2150,
+   "nuclei": []
+  },
+  {
+   "text": "sure.",
+   "fromMs": 2150,
+   "toMs": 2560,
+   "nuclei": []
+  },
+  {
+   "text": "The",
+   "fromMs": 2560,
+   "toMs": 3530,
+   "nuclei": []
+  },
+  {
+   "text": "butterfly",
+   "fromMs": 3530,
+   "toMs": 6320,
+   "nuclei": []
+  },
+  {
+   "text": "attacks",
+   "fromMs": 6320,
+   "toMs": 8510,
+   "nuclei": []
+  },
+  {
+   "text": "you.",
+   "fromMs": 8510,
+   "toMs": 10400,
+   "nuclei": [
+    {
+     "midi": 54,
+     "note": "F#3",
+     "cents": -11.3,
+     "startSec": 9.474,
+     "durSec": 0.07,
+     "rms": 0.0772
+    },
+    {
+     "midi": 52,
+     "note": "E3",
+     "cents": 18.7,
+     "startSec": 9.973,
+     "durSec": 0.116,
+     "rms": 0.0466
+    }
+   ]
+  },
+  {
+   "text": "That",
+   "fromMs": 10400,
+   "toMs": 10870,
+   "nuclei": []
+  },
+  {
+   "text": "was",
+   "fromMs": 10870,
+   "toMs": 11150,
+   "nuclei": []
+  },
+  {
+   "text": "off",
+   "fromMs": 11150,
+   "toMs": 11470,
+   "nuclei": []
+  },
+  {
+   "text": "part",
+   "fromMs": 11470,
+   "toMs": 11900,
+   "nuclei": []
+  },
+  {
+   "text": "of",
+   "fromMs": 11900,
+   "toMs": 12110,
+   "nuclei": []
+  },
+  {
+   "text": "your",
+   "fromMs": 12110,
+   "toMs": 12550,
+   "nuclei": []
+  },
+  {
+   "text": "ghost.",
+   "fromMs": 12550,
+   "toMs": 13440,
+   "nuclei": [
+    {
+     "midi": 55,
+     "note": "G3",
+     "cents": 28.7,
+     "startSec": 12.55,
+     "durSec": 0.058,
+     "rms": 0.0566
+    },
+    {
+     "midi": 51,
+     "note": "D#3",
+     "cents": 28.7,
+     "startSec": 12.875,
+     "durSec": 0.29,
+     "rms": 0.0543
+    },
+    {
+     "midi": 50,
+     "note": "D3",
+     "cents": 28.7,
+     "startSec": 13.317,
+     "durSec": 0.081,
+     "rms": 0.0698
+    }
+   ]
+  },
+  {
+   "text": "These",
+   "fromMs": 13440,
+   "toMs": 13690,
+   "nuclei": []
+  },
+  {
+   "text": "surfaces",
+   "fromMs": 13690,
+   "toMs": 14090,
+   "nuclei": [
+    {
+     "midi": 50,
+     "note": "D3",
+     "cents": 8.7,
+     "startSec": 13.735,
+     "durSec": 0.058,
+     "rms": 0.0465
+    }
+   ]
+  },
+  {
+   "text": "become",
+   "fromMs": 14090,
+   "toMs": 14380,
+   "nuclei": []
+  },
+  {
+   "text": "physical.",
+   "fromMs": 14380,
+   "toMs": 14960,
+   "nuclei": [
+    {
+     "midi": 51,
+     "note": "D#3",
+     "cents": 38.7,
+     "startSec": 14.524,
+     "durSec": 0.058,
+     "rms": 0.0752
+    }
+   ]
+  },
+  {
+   "text": "What?",
+   "fromMs": 14960,
+   "toMs": 15840,
+   "nuclei": []
+  },
+  {
+   "text": "This",
+   "fromMs": 15840,
+   "toMs": 16480,
+   "nuclei": []
+  },
+  {
+   "text": "is",
+   "fromMs": 16480,
+   "toMs": 16800,
+   "nuclei": []
+  },
+  {
+   "text": "hard",
+   "fromMs": 16800,
+   "toMs": 17430,
+   "nuclei": []
+  },
+  {
+   "text": "little",
+   "fromMs": 17430,
+   "toMs": 18510,
+   "nuclei": [
+    {
+     "midi": 55,
+     "note": "G3",
+     "cents": 38.7,
+     "startSec": 18.019,
+     "durSec": 0.128,
+     "rms": 0.1097
+    }
+   ]
+  },
+  {
+   "text": "scabby.",
+   "fromMs": 18510,
+   "toMs": 19360,
+   "nuclei": []
+  },
+  {
+   "text": "I",
+   "fromMs": 19360,
+   "toMs": 19480,
+   "nuclei": []
+  },
+  {
+   "text": "don't",
+   "fromMs": 19480,
+   "toMs": 19830,
+   "nuclei": []
+  },
+  {
+   "text": "want",
+   "fromMs": 19830,
+   "toMs": 20080,
+   "nuclei": []
+  },
+  {
+   "text": "to",
+   "fromMs": 20080,
+   "toMs": 20250,
+   "nuclei": []
+  },
+  {
+   "text": "be",
+   "fromMs": 20250,
+   "toMs": 20360,
+   "nuclei": []
+  },
+  {
+   "text": "physical.",
+   "fromMs": 20360,
+   "toMs": 21200,
+   "nuclei": []
+  }
+ ],
+ "wordCount": 36,
+ "nucleusCount": 14
+}

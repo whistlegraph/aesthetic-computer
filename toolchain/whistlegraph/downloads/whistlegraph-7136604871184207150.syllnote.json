@@ -1,0 +1,391 @@
+{
+ "source": "whistlegraph-7136604871184207150.wav",
+ "sr": 22050,
+ "words": [
+  {
+   "text": "Love",
+   "fromMs": 0,
+   "toMs": 1250,
+   "nuclei": []
+  },
+  {
+   "text": "used",
+   "fromMs": 1250,
+   "toMs": 1460,
+   "nuclei": []
+  },
+  {
+   "text": "to",
+   "fromMs": 1460,
+   "toMs": 1820,
+   "nuclei": [
+    {
+     "midi": 49,
+     "note": "C#3",
+     "cents": -41.3,
+     "startSec": 1.625,
+     "durSec": 0.081,
+     "rms": 0.0381
+    }
+   ]
+  },
+  {
+   "text": "feel",
+   "fromMs": 1820,
+   "toMs": 2550,
+   "nuclei": []
+  },
+  {
+   "text": "like",
+   "fromMs": 2550,
+   "toMs": 3360,
+   "nuclei": []
+  },
+  {
+   "text": "happy",
+   "fromMs": 3360,
+   "toMs": 4360,
+   "nuclei": [
+    {
+     "midi": 51,
+     "note": "D#3",
+     "cents": -41.3,
+     "startSec": 3.483,
+     "durSec": 0.232,
+     "rms": 0.0944
+    },
+    {
+     "midi": 54,
+     "note": "F#3",
+     "cents": -41.3,
+     "startSec": 3.855,
+     "durSec": 0.36,
+     "rms": 0.1049
+    }
+   ]
+  },
+  {
+   "text": "flapping",
+   "fromMs": 4360,
+   "toMs": 5000,
+   "nuclei": [
+    {
+     "midi": 55,
+     "note": "G3",
+     "cents": -31.3,
+     "startSec": 4.4,
+     "durSec": 0.348,
+     "rms": 0.1045
+    },
+    {
+     "midi": 56,
+     "note": "G#3",
+     "cents": 48.7,
+     "startSec": 4.865,
+     "durSec": 0.174,
+     "rms": 0.105
+    }
+   ]
+  },
+  {
+   "text": "butterflies,",
+   "fromMs": 5000,
+   "toMs": 6640,
+   "nuclei": [
+    {
+     "midi": 56,
+     "note": "G#3",
+     "cents": 38.7,
+     "startSec": 4.981,
+     "durSec": 1.115,
+     "rms": 0.1141
+    },
+    {
+     "midi": 54,
+     "note": "F#3",
+     "cents": -21.3,
+     "startSec": 6.316,
+     "durSec": 0.36,
+     "rms": 0.1274
+    }
+   ]
+  },
+  {
+   "text": "and",
+   "fromMs": 6640,
+   "toMs": 7040,
+   "nuclei": [
+    {
+     "midi": 53,
+     "note": "F3",
+     "cents": 48.7,
+     "startSec": 6.629,
+     "durSec": 0.058,
+     "rms": 0.079
+    },
+    {
+     "midi": 49,
+     "note": "C#3",
+     "cents": 38.7,
+     "startSec": 6.815,
+     "durSec": 0.255,
+     "rms": 0.0562
+    }
+   ]
+  },
+  {
+   "text": "now",
+   "fromMs": 7040,
+   "toMs": 7440,
+   "nuclei": [
+    {
+     "midi": 50,
+     "note": "D3",
+     "cents": -31.3,
+     "startSec": 7.024,
+     "durSec": 0.197,
+     "rms": 0.0535
+    },
+    {
+     "midi": 54,
+     "note": "F#3",
+     "cents": -11.3,
+     "startSec": 7.372,
+     "durSec": 0.104,
+     "rms": 0.101
+    }
+   ]
+  },
+  {
+   "text": "it's",
+   "fromMs": 7440,
+   "toMs": 8090,
+   "nuclei": [
+    {
+     "midi": 54,
+     "note": "F#3",
+     "cents": -11.3,
+     "startSec": 7.43,
+     "durSec": 0.151,
+     "rms": 0.0985
+    },
+    {
+     "midi": 52,
+     "note": "E3",
+     "cents": -1.3,
+     "startSec": 7.686,
+     "durSec": 0.221,
+     "rms": 0.0875
+    }
+   ]
+  },
+  {
+   "text": "like",
+   "fromMs": 8090,
+   "toMs": 8460,
+   "nuclei": [
+    {
+     "midi": 52,
+     "note": "E3",
+     "cents": 8.7,
+     "startSec": 8.139,
+     "durSec": 0.36,
+     "rms": 0.0994
+    }
+   ]
+  },
+  {
+   "text": "hopping",
+   "fromMs": 8460,
+   "toMs": 9720,
+   "nuclei": [
+    {
+     "midi": 53,
+     "note": "F3",
+     "cents": -21.3,
+     "startSec": 8.44,
+     "durSec": 0.081,
+     "rms": 0.0549
+    },
+    {
+     "midi": 53,
+     "note": "F3",
+     "cents": 38.7,
+     "startSec": 9.404,
+     "durSec": 0.058,
+     "rms": 0.0718
+    },
+    {
+     "midi": 51,
+     "note": "D#3",
+     "cents": 18.7,
+     "startSec": 9.613,
+     "durSec": 0.139,
+     "rms": 0.0907
+    }
+   ]
+  },
+  {
+   "text": "on",
+   "fromMs": 9720,
+   "toMs": 10080,
+   "nuclei": [
+    {
+     "midi": 51,
+     "note": "D#3",
+     "cents": 48.7,
+     "startSec": 9.706,
+     "durSec": 0.093,
+     "rms": 0.0828
+    }
+   ]
+  },
+  {
+   "text": "one",
+   "fromMs": 10080,
+   "toMs": 10740,
+   "nuclei": [
+    {
+     "midi": 49,
+     "note": "C#3",
+     "cents": 38.7,
+     "startSec": 10.066,
+     "durSec": 0.325,
+     "rms": 0.0527
+    },
+    {
+     "midi": 53,
+     "note": "F3",
+     "cents": 18.7,
+     "startSec": 10.461,
+     "durSec": 0.313,
+     "rms": 0.103
+    }
+   ]
+  },
+  {
+   "text": "foot.",
+   "fromMs": 10740,
+   "toMs": 12000,
+   "nuclei": [
+    {
+     "midi": 54,
+     "note": "F#3",
+     "cents": -31.3,
+     "startSec": 10.728,
+     "durSec": 0.093,
+     "rms": 0.0779
+    },
+    {
+     "midi": 52,
+     "note": "E3",
+     "cents": 8.7,
+     "startSec": 10.96,
+     "durSec": 0.267,
+     "rms": 0.0919
+    }
+   ]
+  },
+  {
+   "text": "Wings",
+   "fromMs": 12000,
+   "toMs": 13250,
+   "nuclei": [
+    {
+     "midi": 49,
+     "note": "C#3",
+     "cents": 18.7,
+     "startSec": 12.04,
+     "durSec": 0.348,
+     "rms": 0.0654
+    },
+    {
+     "midi": 53,
+     "note": "F3",
+     "cents": 28.7,
+     "startSec": 12.91,
+     "durSec": 0.372,
+     "rms": 0.1453
+    }
+   ]
+  },
+  {
+   "text": "heavy",
+   "fromMs": 13250,
+   "toMs": 14260,
+   "nuclei": [
+    {
+     "midi": 53,
+     "note": "F3",
+     "cents": 18.7,
+     "startSec": 13.235,
+     "durSec": 0.882,
+     "rms": 0.1137
+    }
+   ]
+  },
+  {
+   "text": "won't",
+   "fromMs": 14260,
+   "toMs": 15390,
+   "nuclei": [
+    {
+     "midi": 50,
+     "note": "D3",
+     "cents": -11.3,
+     "startSec": 14.257,
+     "durSec": 0.209,
+     "rms": 0.0812
+    },
+    {
+     "midi": 50,
+     "note": "D3",
+     "cents": 18.7,
+     "startSec": 14.768,
+     "durSec": 0.43,
+     "rms": 0.0604
+    }
+   ]
+  },
+  {
+   "text": "fly",
+   "fromMs": 15390,
+   "toMs": 16070,
+   "nuclei": [
+    {
+     "midi": 52,
+     "note": "E3",
+     "cents": 8.7,
+     "startSec": 15.662,
+     "durSec": 0.441,
+     "rms": 0.1106
+    }
+   ]
+  },
+  {
+   "text": "away.",
+   "fromMs": 16070,
+   "toMs": 17000,
+   "nuclei": [
+    {
+     "midi": 53,
+     "note": "F3",
+     "cents": -21.3,
+     "startSec": 16.057,
+     "durSec": 0.406,
+     "rms": 0.0589
+    },
+    {
+     "midi": 50,
+     "note": "D3",
+     "cents": 38.7,
+     "startSec": 16.66,
+     "durSec": 0.29,
+     "rms": 0.0815
+    }
+   ]
+  }
+ ],
+ "wordCount": 21,
+ "nucleusCount": 30
+}

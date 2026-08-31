@@ -115,6 +115,32 @@ def main():
     if not takes:
         print("✗ no takes matched the template"); sys.exit(1)
 
+    # ── iterative register refinement ─────────────────────────────────
+    # A take's median pitch is a crude register anchor (he sings this low,
+    # high and in falsetto across the years). Refit each take's offset
+    # against the corpus skeleton, folding per-syllable octave errors
+    # toward it, until the skeleton stops moving.
+    nslots = len(syl_labels)
+    for _ in range(3):
+        skel = []
+        for si in range(nslots):
+            rels = [t["syls"][si]["rel"] for t in takes if t["syls"][si]]
+            skel.append(float(np.median(rels)) if rels else None)
+        for t in takes:
+            for s in t["syls"]:
+                if not s: continue
+            diffs = [t["syls"][si]["rel"] - skel[si]
+                     for si in range(nslots) if t["syls"][si] and skel[si] is not None]
+            if not diffs: continue
+            off = float(np.median(diffs))
+            for si in range(nslots):
+                s = t["syls"][si]
+                if not s: continue
+                s["rel"] = round(s["rel"] - off, 2)
+                if skel[si] is not None:                 # fold octave errors
+                    while s["rel"] - skel[si] > 7:  s["rel"] = round(s["rel"] - 12, 2)
+                    while s["rel"] - skel[si] < -7: s["rel"] = round(s["rel"] + 12, 2)
+
     stats = []
     for si, label in enumerate(syl_labels):
         rels = [t["syls"][si]["rel"] for t in takes if t["syls"][si]]

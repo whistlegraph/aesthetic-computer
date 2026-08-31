@@ -1,0 +1,212 @@
+{
+ "source": "whistlegraph-6922359455686397189.wav",
+ "sr": 22050,
+ "words": [
+  {
+   "text": "One,",
+   "fromMs": 20,
+   "toMs": 530,
+   "nuclei": []
+  },
+  {
+   "text": "two,",
+   "fromMs": 530,
+   "toMs": 1060,
+   "nuclei": [
+    {
+     "midi": 66,
+     "note": "F#4",
+     "cents": -21.3,
+     "startSec": 0.906,
+     "durSec": 0.081,
+     "rms": 0.4747
+    }
+   ]
+  },
+  {
+   "text": "ready,",
+   "fromMs": 1060,
+   "toMs": 1850,
+   "nuclei": [
+    {
+     "midi": 52,
+     "note": "E3",
+     "cents": -21.3,
+     "startSec": 1.207,
+     "durSec": 0.07,
+     "rms": 0.1712
+    }
+   ]
+  },
+  {
+   "text": "and",
+   "fromMs": 1850,
+   "toMs": 2000,
+   "nuclei": []
+  },
+  {
+   "text": "I'm",
+   "fromMs": 2000,
+   "toMs": 3470,
+   "nuclei": [
+    {
+     "midi": 64,
+     "note": "E4",
+     "cents": -1.3,
+     "startSec": 2.752,
+     "durSec": 0.07,
+     "rms": 0.2538
+    }
+   ]
+  },
+  {
+   "text": "a",
+   "fromMs": 3470,
+   "toMs": 4000,
+   "nuclei": []
+  },
+  {
+   "text": "butterfly",
+   "fromMs": 4000,
+   "toMs": 5520,
+   "nuclei": [
+    {
+     "midi": 69,
+     "note": "A4",
+     "cents": -31.3,
+     "startSec": 3.982,
+     "durSec": 0.139,
+     "rms": 0.1275
+    }
+   ]
+  },
+  {
+   "text": "Flapping",
+   "fromMs": 5520,
+   "toMs": 8160,
+   "nuclei": [
+    {
+     "midi": 62,
+     "note": "D4",
+     "cents": 8.7,
+     "startSec": 5.538,
+     "durSec": 0.163,
+     "rms": 0.2701
+    },
+    {
+     "midi": 62,
+     "note": "D4",
+     "cents": 8.7,
+     "startSec": 6.803,
+     "durSec": 0.163,
+     "rms": 0.2029
+    },
+    {
+     "midi": 69,
+     "note": "A4",
+     "cents": -31.3,
+     "startSec": 7.721,
+     "durSec": 0.406,
+     "rms": 0.1924
+    }
+   ]
+  },
+  {
+   "text": "for",
+   "fromMs": 8160,
+   "toMs": 8580,
+   "nuclei": []
+  },
+  {
+   "text": "you",
+   "fromMs": 8580,
+   "toMs": 9000,
+   "nuclei": []
+  },
+  {
+   "text": "guys.",
+   "fromMs": 9000,
+   "toMs": 10010,
+   "nuclei": [
+    {
+     "midi": 63,
+     "note": "D#4",
+     "cents": -41.3,
+     "startSec": 9.009,
+     "durSec": 0.267,
+     "rms": 0.2348
+    },
+    {
+     "midi": 63,
+     "note": "D#4",
+     "cents": -1.3,
+     "startSec": 9.776,
+     "durSec": 0.093,
+     "rms": 0.12
+    }
+   ]
+  },
+  {
+   "text": "It's",
+   "fromMs": 10010,
+   "toMs": 10380,
+   "nuclei": []
+  },
+  {
+   "text": "just",
+   "fromMs": 10380,
+   "toMs": 10860,
+   "nuclei": []
+  },
+  {
+   "text": "a",
+   "fromMs": 10860,
+   "toMs": 11480,
+   "nuclei": []
+  },
+  {
+   "text": "Costume",
+   "fromMs": 11480,
+   "toMs": 14480,
+   "nuclei": []
+  },
+  {
+   "text": "I",
+   "fromMs": 14480,
+   "toMs": 14950,
+   "nuclei": []
+  },
+  {
+   "text": "put",
+   "fromMs": 14950,
+   "toMs": 15160,
+   "nuclei": []
+  },
+  {
+   "text": "on",
+   "fromMs": 15160,
+   "toMs": 15520,
+   "nuclei": []
+  },
+  {
+   "text": "in",
+   "fromMs": 15520,
+   "toMs": 16080,
+   "nuclei": []
+  },
+  {
+   "text": "my",
+   "fromMs": 16080,
+   "toMs": 16540,
+   "nuclei": []
+  },
+  {
+   "text": "room",
+   "fromMs": 16540,
+   "toMs": 17480,
+   "nuclei": []
+  }
+ ],
+ "wordCount": 21,
+ "nucleusCount": 9
+}

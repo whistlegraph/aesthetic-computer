@@ -1,0 +1,238 @@
+{
+  "durationSec": 17.21,
+  "tempoBPM": 143.6,
+  "key": "C# minor",
+  "keyConfidence": 0.297,
+  "beatCount": 33,
+  "onsetCount": 46,
+  "noteCount": 25,
+  "pitchRange": [
+    "G3",
+    "F5"
+  ],
+  "melody": [
+    {
+      "note": "E4",
+      "midi": 64,
+      "startSec": 0.859,
+      "durSec": 0.081,
+      "centsOff": -6.3
+    },
+    {
+      "note": "F4",
+      "midi": 65,
+      "startSec": 0.946,
+      "durSec": 0.058,
+      "centsOff": 15.0
+    },
+    {
+      "note": "G4",
+      "midi": 67,
+      "startSec": 1.062,
+      "durSec": 0.104,
+      "centsOff": -18.7
+    },
+    {
+      "note": "F#4",
+      "midi": 66,
+      "startSec": 1.173,
+      "durSec": 0.081,
+      "centsOff": 31.0
+    },
+    {
+      "note": "G4",
+      "midi": 67,
+      "startSec": 1.741,
+      "durSec": 0.093,
+      "centsOff": -2.7
+    },
+    {
+      "note": "F#4",
+      "midi": 66,
+      "startSec": 1.84,
+      "durSec": 0.075,
+      "centsOff": 33.6
+    },
+    {
+      "note": "F4",
+      "midi": 65,
+      "startSec": 2.229,
+      "durSec": 0.075,
+      "centsOff": -0.0
+    },
+    {
+      "note": "E4",
+      "midi": 64,
+      "startSec": 2.328,
+      "durSec": 0.122,
+      "centsOff": -16.8
+    },
+    {
+      "note": "D#4",
+      "midi": 63,
+      "startSec": 2.548,
+      "durSec": 0.284,
+      "centsOff": 12.0
+    },
+    {
+      "note": "G3",
+      "midi": 55,
+      "startSec": 3.228,
+      "durSec": 0.116,
+      "centsOff": 35.9
+    },
+    {
+      "note": "G#3",
+      "midi": 56,
+      "startSec": 3.349,
+      "durSec": 0.116,
+      "centsOff": -26.4
+    },
+    {
+      "note": "E5",
+      "midi": 76,
+      "startSec": 5.567,
+      "durSec": 0.128,
+      "centsOff": 17.6
+    },
+    {
+      "note": "F5",
+      "midi": 77,
+      "startSec": 5.7,
+      "durSec": 0.064,
+      "centsOff": -10.8
+    },
+    {
+      "note": "G3",
+      "midi": 55,
+      "startSec": 6.629,
+      "durSec": 0.058,
+      "centsOff": 35.0
+    },
+    {
+      "note": "G3",
+      "midi": 55,
+      "startSec": 6.722,
+      "durSec": 0.157,
+      "centsOff": 35.0
+    },
+    {
+      "note": "G3",
+      "midi": 55,
+      "startSec": 7.686,
+      "durSec": 0.139,
+      "centsOff": 35.0
+    },
+    {
+      "note": "C#5",
+      "midi": 73,
+      "startSec": 7.982,
+      "durSec": 0.221,
+      "centsOff": -5.8
+    },
+    {
+      "note": "G4",
+      "midi": 67,
+      "startSec": 12.04,
+      "durSec": 0.058,
+      "centsOff": -6.8
+    },
+    {
+      "note": "C#5",
+      "midi": 73,
+      "startSec": 12.144,
+      "durSec": 0.081,
+      "centsOff": -6.3
+    },
+    {
+      "note": "C#5",
+      "midi": 73,
+      "startSec": 12.266,
+      "durSec": 0.104,
+      "centsOff": 13.4
+    },
+    {
+      "note": "G3",
+      "midi": 55,
+      "startSec": 13.125,
+      "durSec": 0.075,
+      "centsOff": 36.4
+    },
+    {
+      "note": "G3",
+      "midi": 55,
+      "startSec": 16.155,
+      "durSec": 0.122,
+      "centsOff": 35.0
+    },
+    {
+      "note": "G3",
+      "midi": 55,
+      "startSec": 16.289,
+      "durSec": 0.064,
+      "centsOff": 35.0
+    },
+    {
+      "note": "G3",
+      "midi": 55,
+      "startSec": 16.37,
+      "durSec": 0.383,
+      "centsOff": 35.0
+    },
+    {
+      "note": "G3",
+      "midi": 55,
+      "startSec": 16.805,
+      "durSec": 0.401,
+      "centsOff": 35.0
+    }
+  ],
+  "onsetsSec": [
+    0.116,
+    0.209,
+    0.639,
+    1.115,
+    1.358,
+    1.614,
+    1.672,
+    1.974,
+    2.101,
+    2.972,
+    3.936,
+    4.528,
+    4.632,
+    4.667,
+    5.817,
+    5.933,
+    6.873,
+    7.895,
+    8.51,
+    9.172,
+    9.346,
+    9.497,
+    9.601,
+    9.938,
+    10.252,
+    11.146,
+    11.343,
+    11.529,
+    11.738,
+    11.981,
+    12.016,
+    12.597,
+    12.945,
+    13.061,
+    13.456,
+    13.537,
+    14.338,
+    14.733,
+    14.733,
+    14.826,
+    15.139,
+    15.232,
+    15.476,
+    16.149,
+    16.463,
+    16.765
+  ]
+}

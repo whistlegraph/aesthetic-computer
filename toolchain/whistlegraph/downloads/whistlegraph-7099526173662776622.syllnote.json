@@ -1,0 +1,251 @@
+{
+ "source": "whistlegraph-7099526173662776622.wav",
+ "sr": 22050,
+ "words": [
+  {
+   "text": "I'm",
+   "fromMs": 0,
+   "toMs": 980,
+   "nuclei": []
+  },
+  {
+   "text": "a",
+   "fromMs": 980,
+   "toMs": 1270,
+   "nuclei": []
+  },
+  {
+   "text": "butterfly,",
+   "fromMs": 1270,
+   "toMs": 4240,
+   "nuclei": [
+    {
+     "midi": 55,
+     "note": "G3",
+     "cents": 8.7,
+     "startSec": 2.577,
+     "durSec": 0.325,
+     "rms": 0.2829
+    }
+   ]
+  },
+  {
+   "text": "would",
+   "fromMs": 4240,
+   "toMs": 4570,
+   "nuclei": []
+  },
+  {
+   "text": "you",
+   "fromMs": 4570,
+   "toMs": 4770,
+   "nuclei": []
+  },
+  {
+   "text": "like",
+   "fromMs": 4770,
+   "toMs": 5030,
+   "nuclei": []
+  },
+  {
+   "text": "to",
+   "fromMs": 5030,
+   "toMs": 5180,
+   "nuclei": []
+  },
+  {
+   "text": "come",
+   "fromMs": 5180,
+   "toMs": 5480,
+   "nuclei": []
+  },
+  {
+   "text": "down",
+   "fromMs": 5480,
+   "toMs": 5780,
+   "nuclei": []
+  },
+  {
+   "text": "the",
+   "fromMs": 5780,
+   "toMs": 6000,
+   "nuclei": []
+  },
+  {
+   "text": "stairs?",
+   "fromMs": 6000,
+   "toMs": 6840,
+   "nuclei": []
+  },
+  {
+   "text": "I",
+   "fromMs": 6840,
+   "toMs": 6950,
+   "nuclei": []
+  },
+  {
+   "text": "don't",
+   "fromMs": 6950,
+   "toMs": 7520,
+   "nuclei": []
+  },
+  {
+   "text": "want",
+   "fromMs": 7520,
+   "toMs": 7980,
+   "nuclei": []
+  },
+  {
+   "text": "to,",
+   "fromMs": 7980,
+   "toMs": 8440,
+   "nuclei": [
+    {
+     "midi": 53,
+     "note": "F3",
+     "cents": -41.3,
+     "startSec": 8.243,
+     "durSec": 0.07,
+     "rms": 0.253
+    }
+   ]
+  },
+  {
+   "text": "cause",
+   "fromMs": 8440,
+   "toMs": 9020,
+   "nuclei": [
+    {
+     "midi": 57,
+     "note": "A3",
+     "cents": -1.3,
+     "startSec": 8.615,
+     "durSec": 0.255,
+     "rms": 0.2038
+    }
+   ]
+  },
+  {
+   "text": "I'm",
+   "fromMs": 9020,
+   "toMs": 9360,
+   "nuclei": [
+    {
+     "midi": 60,
+     "note": "C4",
+     "cents": 18.7,
+     "startSec": 9.021,
+     "durSec": 0.163,
+     "rms": 0.3254
+    }
+   ]
+  },
+  {
+   "text": "too",
+   "fromMs": 9360,
+   "toMs": 9700,
+   "nuclei": []
+  },
+  {
+   "text": "flapping",
+   "fromMs": 9700,
+   "toMs": 10680,
+   "nuclei": [
+    {
+     "midi": 63,
+     "note": "D#4",
+     "cents": 28.7,
+     "startSec": 10.124,
+     "durSec": 0.418,
+     "rms": 0.2557
+    }
+   ]
+  },
+  {
+   "text": "for",
+   "fromMs": 10680,
+   "toMs": 11070,
+   "nuclei": [
+    {
+     "midi": 48,
+     "note": "C3",
+     "cents": -1.3,
+     "startSec": 10.983,
+     "durSec": 0.116,
+     "rms": 0.2654
+    }
+   ]
+  },
+  {
+   "text": "you",
+   "fromMs": 11070,
+   "toMs": 11460,
+   "nuclei": [
+    {
+     "midi": 47,
+     "note": "B2",
+     "cents": 38.7,
+     "startSec": 11.053,
+     "durSec": 0.383,
+     "rms": 0.2223
+    }
+   ]
+  },
+  {
+   "text": "guys,",
+   "fromMs": 11460,
+   "toMs": 12080,
+   "nuclei": [
+    {
+     "midi": 48,
+     "note": "C3",
+     "cents": -11.3,
+     "startSec": 11.831,
+     "durSec": 0.209,
+     "rms": 0.1636
+    }
+   ]
+  },
+  {
+   "text": "it's",
+   "fromMs": 12080,
+   "toMs": 12260,
+   "nuclei": [
+    {
+     "midi": 52,
+     "note": "E3",
+     "cents": 8.7,
+     "startSec": 12.144,
+     "durSec": 0.116,
+     "rms": 0.2827
+    }
+   ]
+  },
+  {
+   "text": "raw",
+   "fromMs": 12260,
+   "toMs": 12890,
+   "nuclei": []
+  },
+  {
+   "text": "raw",
+   "fromMs": 12890,
+   "toMs": 13510,
+   "nuclei": []
+  },
+  {
+   "text": "raw",
+   "fromMs": 13510,
+   "toMs": 14160,
+   "nuclei": []
+  },
+  {
+   "text": "raw!",
+   "fromMs": 14160,
+   "toMs": 14760,
+   "nuclei": []
+  }
+ ],
+ "wordCount": 27,
+ "nucleusCount": 9
+}

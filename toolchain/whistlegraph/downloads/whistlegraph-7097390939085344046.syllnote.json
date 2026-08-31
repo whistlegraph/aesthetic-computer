@@ -1,0 +1,158 @@
+{
+ "source": "whistlegraph-7097390939085344046.wav",
+ "sr": 22050,
+ "words": [
+  {
+   "text": "But",
+   "fromMs": 110,
+   "toMs": 330,
+   "nuclei": []
+  },
+  {
+   "text": "one,",
+   "fromMs": 330,
+   "toMs": 1020,
+   "nuclei": []
+  },
+  {
+   "text": "two,",
+   "fromMs": 1020,
+   "toMs": 1430,
+   "nuclei": []
+  },
+  {
+   "text": "ready!",
+   "fromMs": 1430,
+   "toMs": 2220,
+   "nuclei": []
+  },
+  {
+   "text": "I'm",
+   "fromMs": 2220,
+   "toMs": 2860,
+   "nuclei": []
+  },
+  {
+   "text": "a",
+   "fromMs": 2860,
+   "toMs": 3070,
+   "nuclei": []
+  },
+  {
+   "text": "butterfly",
+   "fromMs": 3070,
+   "toMs": 5040,
+   "nuclei": []
+  },
+  {
+   "text": "flapping",
+   "fromMs": 5040,
+   "toMs": 6800,
+   "nuclei": [
+    {
+     "midi": 72,
+     "note": "C5",
+     "cents": -11.3,
+     "startSec": 6.525,
+     "durSec": 0.058,
+     "rms": 0.1716
+    }
+   ]
+  },
+  {
+   "text": "for",
+   "fromMs": 6800,
+   "toMs": 7170,
+   "nuclei": []
+  },
+  {
+   "text": "you",
+   "fromMs": 7170,
+   "toMs": 7690,
+   "nuclei": []
+  },
+  {
+   "text": "guys.",
+   "fromMs": 7690,
+   "toMs": 8040,
+   "nuclei": []
+  },
+  {
+   "text": "It's",
+   "fromMs": 8040,
+   "toMs": 8810,
+   "nuclei": []
+  },
+  {
+   "text": "just",
+   "fromMs": 8810,
+   "toMs": 9590,
+   "nuclei": []
+  },
+  {
+   "text": "a",
+   "fromMs": 9590,
+   "toMs": 9810,
+   "nuclei": []
+  },
+  {
+   "text": "costume",
+   "fromMs": 9810,
+   "toMs": 11160,
+   "nuclei": []
+  },
+  {
+   "text": "I",
+   "fromMs": 11160,
+   "toMs": 11320,
+   "nuclei": []
+  },
+  {
+   "text": "put",
+   "fromMs": 11320,
+   "toMs": 11960,
+   "nuclei": []
+  },
+  {
+   "text": "more",
+   "fromMs": 11960,
+   "toMs": 12440,
+   "nuclei": []
+  },
+  {
+   "text": "in",
+   "fromMs": 12440,
+   "toMs": 12760,
+   "nuclei": []
+  },
+  {
+   "text": "my",
+   "fromMs": 12760,
+   "toMs": 13510,
+   "nuclei": []
+  },
+  {
+   "text": "room.",
+   "fromMs": 13510,
+   "toMs": 14240,
+   "nuclei": []
+  },
+  {
+   "text": "Yay!",
+   "fromMs": 14240,
+   "toMs": 15220,
+   "nuclei": [
+    {
+     "midi": 72,
+     "note": "C5",
+     "cents": -1.3,
+     "startSec": 14.501,
+     "durSec": 0.209,
+     "rms": 0.2769
+    }
+   ]
+  }
+ ],
+ "wordCount": 22,
+ "nucleusCount": 2
+}

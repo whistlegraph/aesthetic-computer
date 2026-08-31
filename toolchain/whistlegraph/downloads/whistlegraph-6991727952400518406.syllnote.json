@@ -1,0 +1,278 @@
+{
+ "source": "whistlegraph-6991727952400518406.wav",
+ "sr": 22050,
+ "words": [
+  {
+   "text": "I'm",
+   "fromMs": 0,
+   "toMs": 890,
+   "nuclei": []
+  },
+  {
+   "text": "all",
+   "fromMs": 890,
+   "toMs": 1780,
+   "nuclei": [
+    {
+     "midi": 71,
+     "note": "B4",
+     "cents": -31.3,
+     "startSec": 1.324,
+     "durSec": 0.302,
+     "rms": 0.1299
+    }
+   ]
+  },
+  {
+   "text": "about",
+   "fromMs": 1780,
+   "toMs": 3280,
+   "nuclei": [
+    {
+     "midi": 68,
+     "note": "G#4",
+     "cents": 28.7,
+     "startSec": 2.752,
+     "durSec": 0.093,
+     "rms": 0.0563
+    }
+   ]
+  },
+  {
+   "text": "our",
+   "fromMs": 3280,
+   "toMs": 3750,
+   "nuclei": [
+    {
+     "midi": 59,
+     "note": "B3",
+     "cents": -11.3,
+     "startSec": 3.274,
+     "durSec": 0.267,
+     "rms": 0.1746
+    }
+   ]
+  },
+  {
+   "text": "flight",
+   "fromMs": 3750,
+   "toMs": 4740,
+   "nuclei": [
+    {
+     "midi": 66,
+     "note": "F#4",
+     "cents": -41.3,
+     "startSec": 4.632,
+     "durSec": 0.104,
+     "rms": 0.0689
+    }
+   ]
+  },
+  {
+   "text": "Flapping",
+   "fromMs": 4740,
+   "toMs": 6900,
+   "nuclei": [
+    {
+     "midi": 67,
+     "note": "G4",
+     "cents": -41.3,
+     "startSec": 4.888,
+     "durSec": 0.116,
+     "rms": 0.0287
+    },
+    {
+     "midi": 73,
+     "note": "C#5",
+     "cents": 18.7,
+     "startSec": 5.364,
+     "durSec": 0.337,
+     "rms": 0.3264
+    },
+    {
+     "midi": 74,
+     "note": "D5",
+     "cents": -11.3,
+     "startSec": 6.06,
+     "durSec": 0.128,
+     "rms": 0.175
+    },
+    {
+     "midi": 67,
+     "note": "G4",
+     "cents": -31.3,
+     "startSec": 6.385,
+     "durSec": 0.546,
+     "rms": 0.3197
+    }
+   ]
+  },
+  {
+   "text": "for",
+   "fromMs": 6900,
+   "toMs": 7630,
+   "nuclei": [
+    {
+     "midi": 66,
+     "note": "F#4",
+     "cents": -41.3,
+     "startSec": 6.885,
+     "durSec": 0.383,
+     "rms": 0.1226
+    },
+    {
+     "midi": 59,
+     "note": "B3",
+     "cents": -11.3,
+     "startSec": 7.407,
+     "durSec": 0.244,
+     "rms": 0.3201
+    }
+   ]
+  },
+  {
+   "text": "you",
+   "fromMs": 7630,
+   "toMs": 8260,
+   "nuclei": [
+    {
+     "midi": 59,
+     "note": "B3",
+     "cents": 18.7,
+     "startSec": 7.779,
+     "durSec": 0.07,
+     "rms": 0.2499
+    },
+    {
+     "midi": 54,
+     "note": "F#3",
+     "cents": 38.7,
+     "startSec": 7.941,
+     "durSec": 0.093,
+     "rms": 0.2533
+    }
+   ]
+  },
+  {
+   "text": "guys",
+   "fromMs": 8260,
+   "toMs": 9180,
+   "nuclei": []
+  },
+  {
+   "text": "It's",
+   "fromMs": 9180,
+   "toMs": 10250,
+   "nuclei": [
+    {
+     "midi": 73,
+     "note": "C#5",
+     "cents": 48.7,
+     "startSec": 9.752,
+     "durSec": 0.348,
+     "rms": 0.0999
+    }
+   ]
+  },
+  {
+   "text": "just",
+   "fromMs": 10250,
+   "toMs": 11330,
+   "nuclei": [
+    {
+     "midi": 65,
+     "note": "F4",
+     "cents": 28.7,
+     "startSec": 11.088,
+     "durSec": 0.279,
+     "rms": 0.1158
+    }
+   ]
+  },
+  {
+   "text": "a",
+   "fromMs": 11330,
+   "toMs": 11600,
+   "nuclei": [
+    {
+     "midi": 66,
+     "note": "F#4",
+     "cents": -11.3,
+     "startSec": 11.32,
+     "durSec": 0.197,
+     "rms": 0.0938
+    }
+   ]
+  },
+  {
+   "text": "costume",
+   "fromMs": 11600,
+   "toMs": 13500,
+   "nuclei": [
+    {
+     "midi": 58,
+     "note": "A#3",
+     "cents": 18.7,
+     "startSec": 11.912,
+     "durSec": 0.372,
+     "rms": 0.1396
+    },
+    {
+     "midi": 56,
+     "note": "G#3",
+     "cents": 38.7,
+     "startSec": 12.55,
+     "durSec": 0.499,
+     "rms": 0.2307
+    }
+   ]
+  },
+  {
+   "text": "I",
+   "fromMs": 13500,
+   "toMs": 14060,
+   "nuclei": []
+  },
+  {
+   "text": "put",
+   "fromMs": 14060,
+   "toMs": 14950,
+   "nuclei": []
+  },
+  {
+   "text": "on",
+   "fromMs": 14950,
+   "toMs": 15700,
+   "nuclei": []
+  },
+  {
+   "text": "in",
+   "fromMs": 15700,
+   "toMs": 16160,
+   "nuclei": []
+  },
+  {
+   "text": "my",
+   "fromMs": 16160,
+   "toMs": 16620,
+   "nuclei": []
+  },
+  {
+   "text": "room",
+   "fromMs": 16620,
+   "toMs": 17540,
+   "nuclei": [
+    {
+     "midi": 59,
+     "note": "B3",
+     "cents": 18.7,
+     "startSec": 16.846,
+     "durSec": 0.534,
+     "rms": 0.1695
+    }
+   ]
+  }
+ ],
+ "wordCount": 19,
+ "nucleusCount": 18
+}

@@ -1,0 +1,270 @@
+{
+ "source": "whistlegraph-6896684638098574597.wav",
+ "sr": 22050,
+ "words": [
+  {
+   "text": "I'm",
+   "fromMs": 0,
+   "toMs": 3480,
+   "nuclei": [
+    {
+     "midi": 68,
+     "note": "G#4",
+     "cents": 18.7,
+     "startSec": 0.0,
+     "durSec": 0.093,
+     "rms": 0.0604
+    },
+    {
+     "midi": 64,
+     "note": "E4",
+     "cents": -1.3,
+     "startSec": 3.309,
+     "durSec": 0.058,
+     "rms": 0.0783
+    }
+   ]
+  },
+  {
+   "text": "a",
+   "fromMs": 3480,
+   "toMs": 4160,
+   "nuclei": [
+    {
+     "midi": 63,
+     "note": "D#4",
+     "cents": -1.3,
+     "startSec": 3.564,
+     "durSec": 0.058,
+     "rms": 0.0447
+    },
+    {
+     "midi": 65,
+     "note": "F4",
+     "cents": -1.3,
+     "startSec": 3.785,
+     "durSec": 0.29,
+     "rms": 0.0705
+    }
+   ]
+  },
+  {
+   "text": "butterfly",
+   "fromMs": 4160,
+   "toMs": 10680,
+   "nuclei": [
+    {
+     "midi": 67,
+     "note": "G4",
+     "cents": -41.3,
+     "startSec": 4.18,
+     "durSec": 0.116,
+     "rms": 0.0682
+    },
+    {
+     "midi": 59,
+     "note": "B3",
+     "cents": -21.3,
+     "startSec": 5.399,
+     "durSec": 0.093,
+     "rms": 0.0366
+    },
+    {
+     "midi": 57,
+     "note": "A3",
+     "cents": 38.7,
+     "startSec": 5.619,
+     "durSec": 0.313,
+     "rms": 0.0432
+    },
+    {
+     "midi": 58,
+     "note": "A#3",
+     "cents": 38.7,
+     "startSec": 8.173,
+     "durSec": 0.058,
+     "rms": 0.0434
+    }
+   ]
+  },
+  {
+   "text": "flap",
+   "fromMs": 10680,
+   "toMs": 12840,
+   "nuclei": [
+    {
+     "midi": 53,
+     "note": "F3",
+     "cents": 18.7,
+     "startSec": 10.786,
+     "durSec": 0.081,
+     "rms": 0.0322
+    },
+    {
+     "midi": 65,
+     "note": "F4",
+     "cents": 28.7,
+     "startSec": 12.713,
+     "durSec": 0.163,
+     "rms": 0.1029
+    }
+   ]
+  },
+  {
+   "text": "being",
+   "fromMs": 12840,
+   "toMs": 13870,
+   "nuclei": [
+    {
+     "midi": 65,
+     "note": "F4",
+     "cents": -21.3,
+     "startSec": 12.829,
+     "durSec": 0.569,
+     "rms": 0.1001
+    }
+   ]
+  },
+  {
+   "text": "for",
+   "fromMs": 13870,
+   "toMs": 13930,
+   "nuclei": []
+  },
+  {
+   "text": "you",
+   "fromMs": 13930,
+   "toMs": 14380,
+   "nuclei": [
+    {
+     "midi": 55,
+     "note": "G3",
+     "cents": 48.7,
+     "startSec": 13.967,
+     "durSec": 0.07,
+     "rms": 0.1273
+    }
+   ]
+  },
+  {
+   "text": "guys",
+   "fromMs": 14380,
+   "toMs": 14990,
+   "nuclei": [
+    {
+     "midi": 54,
+     "note": "F#3",
+     "cents": -1.3,
+     "startSec": 14.385,
+     "durSec": 0.104,
+     "rms": 0.0894
+    },
+    {
+     "midi": 54,
+     "note": "F#3",
+     "cents": 18.7,
+     "startSec": 14.919,
+     "durSec": 0.058,
+     "rms": 0.0603
+    }
+   ]
+  },
+  {
+   "text": "it's",
+   "fromMs": 14990,
+   "toMs": 15890,
+   "nuclei": []
+  },
+  {
+   "text": "just",
+   "fromMs": 15890,
+   "toMs": 16600,
+   "nuclei": []
+  },
+  {
+   "text": "a",
+   "fromMs": 16600,
+   "toMs": 16730,
+   "nuclei": []
+  },
+  {
+   "text": "costume",
+   "fromMs": 16730,
+   "toMs": 19960,
+   "nuclei": [
+    {
+     "midi": 58,
+     "note": "A#3",
+     "cents": -1.3,
+     "startSec": 18.204,
+     "durSec": 0.058,
+     "rms": 0.0461
+    },
+    {
+     "midi": 57,
+     "note": "A3",
+     "cents": 8.7,
+     "startSec": 18.889,
+     "durSec": 0.302,
+     "rms": 0.1296
+    }
+   ]
+  },
+  {
+   "text": "I",
+   "fromMs": 19960,
+   "toMs": 20000,
+   "nuclei": []
+  },
+  {
+   "text": "put",
+   "fromMs": 20000,
+   "toMs": 20590,
+   "nuclei": []
+  },
+  {
+   "text": "on",
+   "fromMs": 20590,
+   "toMs": 21000,
+   "nuclei": []
+  },
+  {
+   "text": "in",
+   "fromMs": 21000,
+   "toMs": 22320,
+   "nuclei": [
+    {
+     "midi": 53,
+     "note": "F3",
+     "cents": 8.7,
+     "startSec": 21.037,
+     "durSec": 0.221,
+     "rms": 0.0875
+    }
+   ]
+  },
+  {
+   "text": "my",
+   "fromMs": 22320,
+   "toMs": 22620,
+   "nuclei": []
+  },
+  {
+   "text": "room",
+   "fromMs": 22620,
+   "toMs": 23080,
+   "nuclei": [
+    {
+     "midi": 54,
+     "note": "F#3",
+     "cents": -1.3,
+     "startSec": 22.895,
+     "durSec": 0.221,
+     "rms": 0.1253
+    }
+   ]
+  }
+ ],
+ "wordCount": 18,
+ "nucleusCount": 18
+}

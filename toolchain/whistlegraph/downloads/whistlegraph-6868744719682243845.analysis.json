@@ -1,0 +1,256 @@
+{
+  "durationSec": 15.81,
+  "tempoBPM": 60.1,
+  "key": "D# minor",
+  "keyConfidence": 0.52,
+  "beatCount": 15,
+  "onsetCount": 43,
+  "noteCount": 28,
+  "pitchRange": [
+    "G3",
+    "E4"
+  ],
+  "melody": [
+    {
+      "note": "G3",
+      "midi": 55,
+      "startSec": 0.151,
+      "durSec": 0.853,
+      "centsOff": 35.1
+    },
+    {
+      "note": "G3",
+      "midi": 55,
+      "startSec": 1.167,
+      "durSec": 0.093,
+      "centsOff": 36.8
+    },
+    {
+      "note": "A3",
+      "midi": 57,
+      "startSec": 1.318,
+      "durSec": 0.052,
+      "centsOff": -4.0
+    },
+    {
+      "note": "A#3",
+      "midi": 58,
+      "startSec": 1.376,
+      "durSec": 0.087,
+      "centsOff": -40.0
+    },
+    {
+      "note": "A3",
+      "midi": 57,
+      "startSec": 1.469,
+      "durSec": 0.255,
+      "centsOff": 37.4
+    },
+    {
+      "note": "A3",
+      "midi": 57,
+      "startSec": 1.747,
+      "durSec": 0.139,
+      "centsOff": 36.6
+    },
+    {
+      "note": "A#3",
+      "midi": 58,
+      "startSec": 1.892,
+      "durSec": 0.052,
+      "centsOff": -31.0
+    },
+    {
+      "note": "A3",
+      "midi": 57,
+      "startSec": 1.95,
+      "durSec": 0.058,
+      "centsOff": 5.0
+    },
+    {
+      "note": "G3",
+      "midi": 55,
+      "startSec": 2.235,
+      "durSec": 0.575,
+      "centsOff": 35.0
+    },
+    {
+      "note": "G3",
+      "midi": 55,
+      "startSec": 2.937,
+      "durSec": 0.72,
+      "centsOff": 35.0
+    },
+    {
+      "note": "G3",
+      "midi": 55,
+      "startSec": 4.22,
+      "durSec": 0.389,
+      "centsOff": 35.0
+    },
+    {
+      "note": "C#4",
+      "midi": 61,
+      "startSec": 5.37,
+      "durSec": 0.052,
+      "centsOff": 28.0
+    },
+    {
+      "note": "D#4",
+      "midi": 63,
+      "startSec": 5.468,
+      "durSec": 0.081,
+      "centsOff": -3.0
+    },
+    {
+      "note": "D#4",
+      "midi": 63,
+      "startSec": 5.567,
+      "durSec": 0.342,
+      "centsOff": 9.8
+    },
+    {
+      "note": "G3",
+      "midi": 55,
+      "startSec": 6.496,
+      "durSec": 0.65,
+      "centsOff": 35.0
+    },
+    {
+      "note": "G3",
+      "midi": 55,
+      "startSec": 7.221,
+      "durSec": 0.569,
+      "centsOff": 35.0
+    },
+    {
+      "note": "G3",
+      "midi": 55,
+      "startSec": 8.144,
+      "durSec": 0.093,
+      "centsOff": 35.0
+    },
+    {
+      "note": "A#3",
+      "midi": 58,
+      "startSec": 8.452,
+      "durSec": 0.238,
+      "centsOff": -15.0
+    },
+    {
+      "note": "G3",
+      "midi": 55,
+      "startSec": 9.294,
+      "durSec": 0.052,
+      "centsOff": 40.0
+    },
+    {
+      "note": "G#3",
+      "midi": 56,
+      "startSec": 9.387,
+      "durSec": 0.238,
+      "centsOff": -30.7
+    },
+    {
+      "note": "G#3",
+      "midi": 56,
+      "startSec": 9.654,
+      "durSec": 0.186,
+      "centsOff": -32.3
+    },
+    {
+      "note": "G3",
+      "midi": 55,
+      "startSec": 10.548,
+      "durSec": 0.418,
+      "centsOff": 35.0
+    },
+    {
+      "note": "G3",
+      "midi": 55,
+      "startSec": 11.32,
+      "durSec": 0.598,
+      "centsOff": 35.0
+    },
+    {
+      "note": "G3",
+      "midi": 55,
+      "startSec": 12.469,
+      "durSec": 0.058,
+      "centsOff": 36.8
+    },
+    {
+      "note": "G3",
+      "midi": 55,
+      "startSec": 12.539,
+      "durSec": 0.308,
+      "centsOff": 35.2
+    },
+    {
+      "note": "G3",
+      "midi": 55,
+      "startSec": 12.974,
+      "durSec": 0.116,
+      "centsOff": 35.5
+    },
+    {
+      "note": "G3",
+      "midi": 55,
+      "startSec": 13.201,
+      "durSec": 0.557,
+      "centsOff": 35.0
+    },
+    {
+      "note": "G3",
+      "midi": 55,
+      "startSec": 14.385,
+      "durSec": 1.254,
+      "centsOff": 35.0
+    }
+  ],
+  "onsetsSec": [
+    0.023,
+    0.104,
+    0.139,
+    1.149,
+    1.892,
+    2.101,
+    2.659,
+    2.786,
+    2.961,
+    4.017,
+    4.238,
+    5.294,
+    5.341,
+    6.2,
+    6.374,
+    6.455,
+    6.711,
+    6.769,
+    7.163,
+    7.233,
+    7.581,
+    7.744,
+    8.127,
+    8.243,
+    8.371,
+    8.464,
+    8.696,
+    9.195,
+    9.567,
+    10.379,
+    10.461,
+    10.96,
+    11.262,
+    11.877,
+    12.458,
+    12.829,
+    12.922,
+    12.992,
+    13.189,
+    14.385,
+    14.838,
+    15.163,
+    15.65
+  ]
+}

@@ -1,0 +1,201 @@
+{
+ "source": "whistlegraph-7043361761784892718.wav",
+ "sr": 22050,
+ "words": [
+  {
+   "text": "It's",
+   "fromMs": 0,
+   "toMs": 920,
+   "nuclei": []
+  },
+  {
+   "text": "just",
+   "fromMs": 920,
+   "toMs": 1760,
+   "nuclei": [
+    {
+     "midi": 56,
+     "note": "G#3",
+     "cents": 28.7,
+     "startSec": 1.126,
+     "durSec": 0.058,
+     "rms": 0.1535
+    },
+    {
+     "midi": 61,
+     "note": "C#4",
+     "cents": -11.3,
+     "startSec": 1.649,
+     "durSec": 0.151,
+     "rms": 0.389
+    }
+   ]
+  },
+  {
+   "text": "a...",
+   "fromMs": 1760,
+   "toMs": 6140,
+   "nuclei": [
+    {
+     "midi": 61,
+     "note": "C#4",
+     "cents": 8.7,
+     "startSec": 1.741,
+     "durSec": 0.395,
+     "rms": 0.3766
+    },
+    {
+     "midi": 52,
+     "note": "E3",
+     "cents": 8.7,
+     "startSec": 3.135,
+     "durSec": 0.186,
+     "rms": 0.2443
+    },
+    {
+     "midi": 65,
+     "note": "F4",
+     "cents": -11.3,
+     "startSec": 3.564,
+     "durSec": 0.279,
+     "rms": 0.1405
+    },
+    {
+     "midi": 51,
+     "note": "D#3",
+     "cents": -1.3,
+     "startSec": 3.971,
+     "durSec": 0.07,
+     "rms": 0.3695
+    },
+    {
+     "midi": 51,
+     "note": "D#3",
+     "cents": -31.3,
+     "startSec": 4.795,
+     "durSec": 0.441,
+     "rms": 0.2242
+    }
+   ]
+  },
+  {
+   "text": "oh",
+   "fromMs": 6140,
+   "toMs": 6620,
+   "nuclei": []
+  },
+  {
+   "text": "yeah,",
+   "fromMs": 6620,
+   "toMs": 8670,
+   "nuclei": [
+    {
+     "midi": 51,
+     "note": "D#3",
+     "cents": -41.3,
+     "startSec": 7.303,
+     "durSec": 0.232,
+     "rms": 0.1551
+    },
+    {
+     "midi": 51,
+     "note": "D#3",
+     "cents": -11.3,
+     "startSec": 7.651,
+     "durSec": 0.116,
+     "rms": 0.0689
+    },
+    {
+     "midi": 50,
+     "note": "D3",
+     "cents": 38.7,
+     "startSec": 8.522,
+     "durSec": 0.174,
+     "rms": 0.3642
+    }
+   ]
+  },
+  {
+   "text": "I",
+   "fromMs": 8670,
+   "toMs": 8950,
+   "nuclei": []
+  },
+  {
+   "text": "put",
+   "fromMs": 8950,
+   "toMs": 9360,
+   "nuclei": [
+    {
+     "midi": 51,
+     "note": "D#3",
+     "cents": -31.3,
+     "startSec": 9.091,
+     "durSec": 0.116,
+     "rms": 0.2292
+    }
+   ]
+  },
+  {
+   "text": "bond",
+   "fromMs": 9360,
+   "toMs": 10080,
+   "nuclei": [
+    {
+     "midi": 49,
+     "note": "C#3",
+     "cents": -31.3,
+     "startSec": 9.613,
+     "durSec": 0.418,
+     "rms": 0.2037
+    }
+   ]
+  },
+  {
+   "text": "in",
+   "fromMs": 10080,
+   "toMs": 10600,
+   "nuclei": []
+  },
+  {
+   "text": "my",
+   "fromMs": 10600,
+   "toMs": 10960,
+   "nuclei": [
+    {
+     "midi": 49,
+     "note": "C#3",
+     "cents": -31.3,
+     "startSec": 10.751,
+     "durSec": 0.244,
+     "rms": 0.3099
+    }
+   ]
+  },
+  {
+   "text": "room.",
+   "fromMs": 10960,
+   "toMs": 12000,
+   "nuclei": [
+    {
+     "midi": 48,
+     "note": "C3",
+     "cents": 48.7,
+     "startSec": 10.948,
+     "durSec": 0.186,
+     "rms": 0.2452
+    },
+    {
+     "midi": 49,
+     "note": "C#3",
+     "cents": -21.3,
+     "startSec": 11.517,
+     "durSec": 0.29,
+     "rms": 0.34
+    }
+   ]
+  }
+ ],
+ "wordCount": 11,
+ "nucleusCount": 15
+}

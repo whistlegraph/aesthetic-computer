@@ -1,0 +1,235 @@
+{
+ "source": "whistlegraph-6821971475868699910.wav",
+ "sr": 22050,
+ "words": [
+  {
+   "text": "Hey",
+   "fromMs": 160,
+   "toMs": 210,
+   "nuclei": [
+    {
+     "midi": 58,
+     "note": "A#3",
+     "cents": 18.7,
+     "startSec": 0.174,
+     "durSec": 0.07,
+     "rms": 0.2476
+    }
+   ]
+  },
+  {
+   "text": "there,",
+   "fromMs": 210,
+   "toMs": 700,
+   "nuclei": [
+    {
+     "midi": 58,
+     "note": "A#3",
+     "cents": 8.7,
+     "startSec": 0.197,
+     "durSec": 0.128,
+     "rms": 0.2971
+    },
+    {
+     "midi": 52,
+     "note": "E3",
+     "cents": -11.3,
+     "startSec": 0.557,
+     "durSec": 0.174,
+     "rms": 0.1963
+    }
+   ]
+  },
+  {
+   "text": "little",
+   "fromMs": 700,
+   "toMs": 1120,
+   "nuclei": [
+    {
+     "midi": 52,
+     "note": "E3",
+     "cents": -41.3,
+     "startSec": 0.685,
+     "durSec": 0.186,
+     "rms": 0.1932
+    },
+    {
+     "midi": 52,
+     "note": "E3",
+     "cents": 8.7,
+     "startSec": 1.01,
+     "durSec": 0.139,
+     "rms": 0.211
+    }
+   ]
+  },
+  {
+   "text": "frozen",
+   "fromMs": 1120,
+   "toMs": 1540,
+   "nuclei": [
+    {
+     "midi": 52,
+     "note": "E3",
+     "cents": -11.3,
+     "startSec": 1.103,
+     "durSec": 0.279,
+     "rms": 0.1356
+    }
+   ]
+  },
+  {
+   "text": "sister!",
+   "fromMs": 1540,
+   "toMs": 2240,
+   "nuclei": [
+    {
+     "midi": 54,
+     "note": "F#3",
+     "cents": 18.7,
+     "startSec": 1.765,
+     "durSec": 0.151,
+     "rms": 0.1384
+    }
+   ]
+  },
+  {
+   "text": "I'm",
+   "fromMs": 2240,
+   "toMs": 2510,
+   "nuclei": []
+  },
+  {
+   "text": "gonna",
+   "fromMs": 2510,
+   "toMs": 2960,
+   "nuclei": [
+    {
+     "midi": 56,
+     "note": "G#3",
+     "cents": 8.7,
+     "startSec": 2.543,
+     "durSec": 0.058,
+     "rms": 0.1004
+    },
+    {
+     "midi": 52,
+     "note": "E3",
+     "cents": -41.3,
+     "startSec": 2.728,
+     "durSec": 0.267,
+     "rms": 0.1664
+    }
+   ]
+  },
+  {
+   "text": "do",
+   "fromMs": 2960,
+   "toMs": 3230,
+   "nuclei": [
+    {
+     "midi": 52,
+     "note": "E3",
+     "cents": -31.3,
+     "startSec": 2.949,
+     "durSec": 0.163,
+     "rms": 0.203
+    }
+   ]
+  },
+  {
+   "text": "a",
+   "fromMs": 3230,
+   "toMs": 3230,
+   "nuclei": []
+  },
+  {
+   "text": "show",
+   "fromMs": 3230,
+   "toMs": 3590,
+   "nuclei": [
+    {
+     "midi": 54,
+     "note": "F#3",
+     "cents": 48.7,
+     "startSec": 3.262,
+     "durSec": 0.139,
+     "rms": 0.1223
+    }
+   ]
+  },
+  {
+   "text": "for",
+   "fromMs": 3590,
+   "toMs": 3850,
+   "nuclei": []
+  },
+  {
+   "text": "you.",
+   "fromMs": 3850,
+   "toMs": 4450,
+   "nuclei": []
+  },
+  {
+   "text": "Okay,",
+   "fromMs": 4450,
+   "toMs": 5160,
+   "nuclei": [
+    {
+     "midi": 51,
+     "note": "D#3",
+     "cents": -1.3,
+     "startSec": 4.586,
+     "durSec": 0.058,
+     "rms": 0.1075
+    }
+   ]
+  },
+  {
+   "text": "here",
+   "fromMs": 5160,
+   "toMs": 5470,
+   "nuclei": [
+    {
+     "midi": 52,
+     "note": "E3",
+     "cents": -31.3,
+     "startSec": 5.201,
+     "durSec": 0.302,
+     "rms": 0.1461
+    }
+   ]
+  },
+  {
+   "text": "we",
+   "fromMs": 5470,
+   "toMs": 5760,
+   "nuclei": [
+    {
+     "midi": 54,
+     "note": "F#3",
+     "cents": -21.3,
+     "startSec": 5.457,
+     "durSec": 0.058,
+     "rms": 0.1591
+    },
+    {
+     "midi": 52,
+     "note": "E3",
+     "cents": -41.3,
+     "startSec": 5.584,
+     "durSec": 0.116,
+     "rms": 0.1036
+    }
+   ]
+  },
+  {
+   "text": "go.",
+   "fromMs": 5760,
+   "toMs": 6000,
+   "nuclei": []
+  }
+ ],
+ "wordCount": 16,
+ "nucleusCount": 15
+}

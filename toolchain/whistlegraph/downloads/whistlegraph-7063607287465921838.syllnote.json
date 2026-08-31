@@ -1,0 +1,205 @@
+{
+ "source": "whistlegraph-7063607287465921838.wav",
+ "sr": 22050,
+ "words": [
+  {
+   "text": "One,",
+   "fromMs": 150,
+   "toMs": 660,
+   "nuclei": []
+  },
+  {
+   "text": "two,",
+   "fromMs": 660,
+   "toMs": 1320,
+   "nuclei": [
+    {
+     "midi": 58,
+     "note": "A#3",
+     "cents": 48.7,
+     "startSec": 0.906,
+     "durSec": 0.116,
+     "rms": 0.1046
+    }
+   ]
+  },
+  {
+   "text": "ready?",
+   "fromMs": 1320,
+   "toMs": 2420,
+   "nuclei": [
+    {
+     "midi": 57,
+     "note": "A3",
+     "cents": 18.7,
+     "startSec": 1.335,
+     "durSec": 0.255,
+     "rms": 0.2387
+    },
+    {
+     "midi": 58,
+     "note": "A#3",
+     "cents": -31.3,
+     "startSec": 1.974,
+     "durSec": 0.232,
+     "rms": 0.1363
+    }
+   ]
+  },
+  {
+   "text": "I'm",
+   "fromMs": 2420,
+   "toMs": 3230,
+   "nuclei": []
+  },
+  {
+   "text": "a",
+   "fromMs": 3230,
+   "toMs": 3600,
+   "nuclei": []
+  },
+  {
+   "text": "butterfly,",
+   "fromMs": 3600,
+   "toMs": 6130,
+   "nuclei": []
+  },
+  {
+   "text": "Shafi'a,",
+   "fromMs": 6130,
+   "toMs": 7920,
+   "nuclei": [
+    {
+     "midi": 59,
+     "note": "B3",
+     "cents": -31.3,
+     "startSec": 7.558,
+     "durSec": 0.163,
+     "rms": 0.1165
+    }
+   ]
+  },
+  {
+   "text": "a",
+   "fromMs": 7920,
+   "toMs": 7960,
+   "nuclei": []
+  },
+  {
+   "text": "pig,",
+   "fromMs": 7960,
+   "toMs": 8620,
+   "nuclei": [
+    {
+     "midi": 66,
+     "note": "F#4",
+     "cents": 28.7,
+     "startSec": 8.487,
+     "durSec": 0.081,
+     "rms": 0.092
+    }
+   ]
+  },
+  {
+   "text": "for",
+   "fromMs": 8620,
+   "toMs": 9170,
+   "nuclei": []
+  },
+  {
+   "text": "you",
+   "fromMs": 9170,
+   "toMs": 9450,
+   "nuclei": []
+  },
+  {
+   "text": "guys,",
+   "fromMs": 9450,
+   "toMs": 10330,
+   "nuclei": []
+  },
+  {
+   "text": "it's",
+   "fromMs": 10330,
+   "toMs": 11190,
+   "nuclei": []
+  },
+  {
+   "text": "just",
+   "fromMs": 11190,
+   "toMs": 11650,
+   "nuclei": []
+  },
+  {
+   "text": "self-costing.",
+   "fromMs": 11650,
+   "toMs": 14380,
+   "nuclei": [
+    {
+     "midi": 63,
+     "note": "D#4",
+     "cents": 48.7,
+     "startSec": 14.141,
+     "durSec": 0.116,
+     "rms": 0.1822
+    }
+   ]
+  },
+  {
+   "text": "I",
+   "fromMs": 14380,
+   "toMs": 15020,
+   "nuclei": []
+  },
+  {
+   "text": "put",
+   "fromMs": 15020,
+   "toMs": 15220,
+   "nuclei": []
+  },
+  {
+   "text": "eyes",
+   "fromMs": 15220,
+   "toMs": 16090,
+   "nuclei": [
+    {
+     "midi": 47,
+     "note": "B2",
+     "cents": -21.3,
+     "startSec": 15.36,
+     "durSec": 0.197,
+     "rms": 0.3317
+    }
+   ]
+  },
+  {
+   "text": "in",
+   "fromMs": 16090,
+   "toMs": 16480,
+   "nuclei": []
+  },
+  {
+   "text": "my",
+   "fromMs": 16480,
+   "toMs": 17130,
+   "nuclei": [
+    {
+     "midi": 52,
+     "note": "E3",
+     "cents": -31.3,
+     "startSec": 16.486,
+     "durSec": 0.093,
+     "rms": 0.0912
+    }
+   ]
+  },
+  {
+   "text": "room.",
+   "fromMs": 17130,
+   "toMs": 18380,
+   "nuclei": []
+  }
+ ],
+ "wordCount": 21,
+ "nucleusCount": 8
+}

@@ -1,0 +1,37 @@
+{
+ "source": "whistlegraph-6926660830524230917.wav",
+ "sr": 22050,
+ "words": [
+  {
+   "text": "One,",
+   "fromMs": 60,
+   "toMs": 350,
+   "nuclei": []
+  },
+  {
+   "text": "two...",
+   "fromMs": 350,
+   "toMs": 1200,
+   "nuclei": [
+    {
+     "midi": 64,
+     "note": "E4",
+     "cents": -41.3,
+     "startSec": 0.453,
+     "durSec": 0.093,
+     "rms": 0.0329
+    },
+    {
+     "midi": 64,
+     "note": "E4",
+     "cents": -11.3,
+     "startSec": 0.975,
+     "durSec": 0.174,
+     "rms": 0.0789
+    }
+   ]
+  }
+ ],
+ "wordCount": 2,
+ "nucleusCount": 2
+}

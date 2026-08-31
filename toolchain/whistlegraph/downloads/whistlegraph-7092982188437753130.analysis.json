@@ -1,0 +1,329 @@
+{
+  "durationSec": 18.69,
+  "tempoBPM": 152.0,
+  "key": "A major",
+  "keyConfidence": 0.619,
+  "beatCount": 48,
+  "onsetCount": 60,
+  "noteCount": 36,
+  "pitchRange": [
+    "G3",
+    "B3"
+  ],
+  "melody": [
+    {
+      "note": "G3",
+      "midi": 55,
+      "startSec": 0.819,
+      "durSec": 0.157,
+      "centsOff": 35.0
+    },
+    {
+      "note": "G3",
+      "midi": 55,
+      "startSec": 1.033,
+      "durSec": 0.18,
+      "centsOff": 35.0
+    },
+    {
+      "note": "A3",
+      "midi": 57,
+      "startSec": 1.358,
+      "durSec": 0.064,
+      "centsOff": -14.2
+    },
+    {
+      "note": "G#3",
+      "midi": 56,
+      "startSec": 1.527,
+      "durSec": 0.238,
+      "centsOff": -34.3
+    },
+    {
+      "note": "G#3",
+      "midi": 56,
+      "startSec": 1.782,
+      "durSec": 0.139,
+      "centsOff": -37.8
+    },
+    {
+      "note": "G3",
+      "midi": 55,
+      "startSec": 1.927,
+      "durSec": 0.238,
+      "centsOff": 35.0
+    },
+    {
+      "note": "A3",
+      "midi": 57,
+      "startSec": 4.185,
+      "durSec": 0.052,
+      "centsOff": -5.0
+    },
+    {
+      "note": "A3",
+      "midi": 57,
+      "startSec": 5.863,
+      "durSec": 0.377,
+      "centsOff": 20.6
+    },
+    {
+      "note": "A#3",
+      "midi": 58,
+      "startSec": 6.246,
+      "durSec": 0.11,
+      "centsOff": -38.0
+    },
+    {
+      "note": "A#3",
+      "midi": 58,
+      "startSec": 6.415,
+      "durSec": 0.163,
+      "centsOff": -26.4
+    },
+    {
+      "note": "G3",
+      "midi": 55,
+      "startSec": 6.763,
+      "durSec": 0.052,
+      "centsOff": 35.0
+    },
+    {
+      "note": "A3",
+      "midi": 57,
+      "startSec": 7.471,
+      "durSec": 0.192,
+      "centsOff": 36.5
+    },
+    {
+      "note": "A3",
+      "midi": 57,
+      "startSec": 8.086,
+      "durSec": 0.11,
+      "centsOff": 20.5
+    },
+    {
+      "note": "G3",
+      "midi": 55,
+      "startSec": 8.969,
+      "durSec": 0.11,
+      "centsOff": 35.5
+    },
+    {
+      "note": "G3",
+      "midi": 55,
+      "startSec": 9.276,
+      "durSec": 0.075,
+      "centsOff": 35.0
+    },
+    {
+      "note": "G#3",
+      "midi": 56,
+      "startSec": 9.358,
+      "durSec": 0.052,
+      "centsOff": 2.0
+    },
+    {
+      "note": "G#3",
+      "midi": 56,
+      "startSec": 9.427,
+      "durSec": 0.075,
+      "centsOff": -12.9
+    },
+    {
+      "note": "G3",
+      "midi": 55,
+      "startSec": 9.601,
+      "durSec": 0.104,
+      "centsOff": 35.0
+    },
+    {
+      "note": "G#3",
+      "midi": 56,
+      "startSec": 9.723,
+      "durSec": 0.052,
+      "centsOff": -34.0
+    },
+    {
+      "note": "G3",
+      "midi": 55,
+      "startSec": 10.304,
+      "durSec": 0.07,
+      "centsOff": 35.0
+    },
+    {
+      "note": "G3",
+      "midi": 55,
+      "startSec": 10.519,
+      "durSec": 0.058,
+      "centsOff": 35.0
+    },
+    {
+      "note": "G3",
+      "midi": 55,
+      "startSec": 10.797,
+      "durSec": 0.319,
+      "centsOff": 35.0
+    },
+    {
+      "note": "G3",
+      "midi": 55,
+      "startSec": 11.749,
+      "durSec": 0.139,
+      "centsOff": 35.0
+    },
+    {
+      "note": "G3",
+      "midi": 55,
+      "startSec": 11.9,
+      "durSec": 0.151,
+      "centsOff": 35.7
+    },
+    {
+      "note": "G3",
+      "midi": 55,
+      "startSec": 12.318,
+      "durSec": 0.168,
+      "centsOff": 35.0
+    },
+    {
+      "note": "G3",
+      "midi": 55,
+      "startSec": 12.591,
+      "durSec": 0.238,
+      "centsOff": 35.0
+    },
+    {
+      "note": "G3",
+      "midi": 55,
+      "startSec": 12.904,
+      "durSec": 0.197,
+      "centsOff": 35.0
+    },
+    {
+      "note": "G3",
+      "midi": 55,
+      "startSec": 13.131,
+      "durSec": 0.052,
+      "centsOff": 35.0
+    },
+    {
+      "note": "G3",
+      "midi": 55,
+      "startSec": 13.456,
+      "durSec": 0.087,
+      "centsOff": 35.0
+    },
+    {
+      "note": "G3",
+      "midi": 55,
+      "startSec": 13.926,
+      "durSec": 0.145,
+      "centsOff": 35.0
+    },
+    {
+      "note": "G3",
+      "midi": 55,
+      "startSec": 14.298,
+      "durSec": 0.087,
+      "centsOff": 35.0
+    },
+    {
+      "note": "G3",
+      "midi": 55,
+      "startSec": 14.408,
+      "durSec": 0.134,
+      "centsOff": 35.0
+    },
+    {
+      "note": "B3",
+      "midi": 59,
+      "startSec": 15.052,
+      "durSec": 0.139,
+      "centsOff": 10.6
+    },
+    {
+      "note": "G3",
+      "midi": 55,
+      "startSec": 15.377,
+      "durSec": 0.192,
+      "centsOff": 35.0
+    },
+    {
+      "note": "G3",
+      "midi": 55,
+      "startSec": 15.644,
+      "durSec": 0.221,
+      "centsOff": 35.0
+    },
+    {
+      "note": "G3",
+      "midi": 55,
+      "startSec": 15.981,
+      "durSec": 2.432,
+      "centsOff": 35.0
+    }
+  ],
+  "onsetsSec": [
+    0.023,
+    0.081,
+    0.139,
+    1.01,
+    1.219,
+    2.09,
+    2.403,
+    2.972,
+    3.297,
+    3.367,
+    3.669,
+    4.342,
+    4.714,
+    4.783,
+    5.654,
+    5.851,
+    6.409,
+    6.815,
+    6.92,
+    6.989,
+    7.43,
+    7.755,
+    8.406,
+    8.568,
+    8.673,
+    8.916,
+    9.137,
+    9.218,
+    9.288,
+    9.543,
+    9.706,
+    9.961,
+    10.054,
+    10.112,
+    10.414,
+    11.029,
+    11.273,
+    11.32,
+    11.366,
+    11.447,
+    11.97,
+    12.179,
+    12.318,
+    13.108,
+    13.235,
+    13.549,
+    13.595,
+    13.63,
+    14.153,
+    14.211,
+    14.269,
+    14.768,
+    15.79,
+    15.882,
+    15.929,
+    16.405,
+    16.544,
+    18.042,
+    18.437,
+    18.611
+  ]
+}

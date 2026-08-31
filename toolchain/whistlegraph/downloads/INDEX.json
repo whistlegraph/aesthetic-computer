@@ -2,6 +2,23 @@
   "version": 1,
   "clips": [
     {
+      "id": "7656469190517263646",
+      "title": "imagine a butterfly",
+      "account": "whistlegraph",
+      "url": "https://www.tiktok.com/@whistlegraph/video/7656469190517263646",
+      "durationSec": 24.13,
+      "tempoBPM": 87.6,
+      "key": "A minor",
+      "keyConfidence": 0.396,
+      "noteCount": 84,
+      "pitchRange": [
+        "G3",
+        "F5"
+      ],
+      "mp4": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-7656469190517263646.mp4",
+      "analysis": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-7656469190517263646.analysis.json"
+    },
+    {
       "id": "7652887182692207903",
       "title": "imab",
       "account": "whistlegraph",
@@ -9,8 +26,8 @@
       "durationSec": 21.06,
       "tempoBPM": 103.4,
       "key": "A# minor",
-      "keyConfidence": 0.697,
-      "noteCount": 78,
+      "keyConfidence": 0.687,
+      "noteCount": 77,
       "pitchRange": [
         "G3",
         "F#5"
@@ -34,6 +51,1400 @@
       ],
       "mp4": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-7651341048442047775.mp4",
       "analysis": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-7651341048442047775.analysis.json"
+    },
+    {
+      "id": "7601670541833014558",
+      "title": "good ol' meta-x butterfly #emacs",
+      "account": "whistlegraph",
+      "url": "https://www.tiktok.com/@whistlegraph/video/7601670541833014558",
+      "durationSec": 23.96,
+      "tempoBPM": 78.3,
+      "key": "A# minor",
+      "keyConfidence": 0.477,
+      "noteCount": 78,
+      "pitchRange": [
+        "G3",
+        "G#5"
+      ],
+      "mp4": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-7601670541833014558.mp4",
+      "analysis": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-7601670541833014558.analysis.json"
+    },
+    {
+      "id": "7427025009693986079",
+      "title": "imab",
+      "account": "whistlegraph",
+      "url": "https://www.tiktok.com/@whistlegraph/video/7427025009693986079",
+      "durationSec": 20.64,
+      "tempoBPM": 99.4,
+      "key": "C minor",
+      "keyConfidence": 0.42,
+      "noteCount": 47,
+      "pitchRange": [
+        "G3",
+        "D#4"
+      ],
+      "mp4": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-7427025009693986079.mp4",
+      "analysis": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-7427025009693986079.analysis.json"
+    },
+    {
+      "id": "7383913518862503198",
+      "title": "kinda like catching a snitch #witches #broom #caltech #summer",
+      "account": "whistlegraph",
+      "url": "https://www.tiktok.com/@whistlegraph/video/7383913518862503198",
+      "durationSec": 18.99,
+      "tempoBPM": 129.2,
+      "key": "G minor",
+      "keyConfidence": 0.252,
+      "noteCount": 85,
+      "pitchRange": [
+        "G3",
+        "D4"
+      ],
+      "mp4": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-7383913518862503198.mp4",
+      "analysis": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-7383913518862503198.analysis.json"
+    },
+    {
+      "id": "7383883096917167391",
+      "title": "witch w/ fía",
+      "account": "whistlegraph",
+      "url": "https://www.tiktok.com/@whistlegraph/video/7383883096917167391",
+      "durationSec": 18.67,
+      "tempoBPM": 112.3,
+      "key": "G minor",
+      "keyConfidence": 0.333,
+      "noteCount": 88,
+      "pitchRange": [
+        "G3",
+        "C#4"
+      ],
+      "mp4": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-7383883096917167391.mp4",
+      "analysis": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-7383883096917167391.analysis.json"
+    },
+    {
+      "id": "7378766612020645151",
+      "title": "TikTok video #7378766612020645151",
+      "account": "whistlegraph",
+      "url": "https://www.tiktok.com/@whistlegraph/video/7378766612020645151",
+      "durationSec": 25.1,
+      "tempoBPM": 101.3,
+      "key": "A minor",
+      "keyConfidence": 0.504,
+      "noteCount": 76,
+      "pitchRange": [
+        "G3",
+        "D#4"
+      ],
+      "mp4": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-7378766612020645151.mp4",
+      "analysis": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-7378766612020645151.analysis.json"
+    },
+    {
+      "id": "7378679504249589022",
+      "title": "with julia 🦋",
+      "account": "whistlegraph",
+      "url": "https://www.tiktok.com/@whistlegraph/video/7378679504249589022",
+      "durationSec": 19.69,
+      "tempoBPM": 99.4,
+      "key": "A minor",
+      "keyConfidence": 0.535,
+      "noteCount": 55,
+      "pitchRange": [
+        "G3",
+        "E4"
+      ],
+      "mp4": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-7378679504249589022.mp4",
+      "analysis": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-7378679504249589022.analysis.json"
+    },
+    {
+      "id": "7336488251144015150",
+      "title": "butterflies is all i have",
+      "account": "whistlegraph",
+      "url": "https://www.tiktok.com/@whistlegraph/video/7336488251144015150",
+      "durationSec": 23.59,
+      "tempoBPM": 101.3,
+      "key": "C major",
+      "keyConfidence": 0.439,
+      "noteCount": 52,
+      "pitchRange": [
+        "G3",
+        "B3"
+      ],
+      "mp4": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-7336488251144015150.mp4",
+      "analysis": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-7336488251144015150.analysis.json"
+    },
+    {
+      "id": "7335667959647456555",
+      "title": "got a new glockenspiel 🦋",
+      "account": "whistlegraph",
+      "url": "https://www.tiktok.com/@whistlegraph/video/7335667959647456555",
+      "durationSec": 19.85,
+      "tempoBPM": 53.3,
+      "key": "G minor",
+      "keyConfidence": 0.384,
+      "noteCount": 47,
+      "pitchRange": [
+        "G3",
+        "F#6"
+      ],
+      "mp4": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-7335667959647456555.mp4",
+      "analysis": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-7335667959647456555.analysis.json"
+    },
+    {
+      "id": "7311185009245818143",
+      "title": "butterfly cosplayer",
+      "account": "whistlegraph",
+      "url": "https://www.tiktok.com/@whistlegraph/video/7311185009245818143",
+      "durationSec": 22.69,
+      "tempoBPM": 99.4,
+      "key": "C major",
+      "keyConfidence": 0.759,
+      "noteCount": 62,
+      "pitchRange": [
+        "G3",
+        "G#4"
+      ],
+      "mp4": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-7311185009245818143.mp4",
+      "analysis": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-7311185009245818143.analysis.json"
+    },
+    {
+      "id": "7311159624588070175",
+      "title": "TikTok video #7311159624588070175",
+      "account": "whistlegraph",
+      "url": "https://www.tiktok.com/@whistlegraph/video/7311159624588070175",
+      "durationSec": 18.85,
+      "tempoBPM": 103.4,
+      "key": "C major",
+      "keyConfidence": 0.794,
+      "noteCount": 51,
+      "pitchRange": [
+        "G3",
+        "B4"
+      ],
+      "mp4": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-7311159624588070175.mp4",
+      "analysis": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-7311159624588070175.analysis.json"
+    },
+    {
+      "id": "7297261750406155551",
+      "title": "worlds best graphics 🤤🖋️",
+      "account": "whistlegraph",
+      "url": "https://www.tiktok.com/@whistlegraph/video/7297261750406155551",
+      "durationSec": 89.81,
+      "tempoBPM": 143.6,
+      "key": "A minor",
+      "keyConfidence": 0.397,
+      "noteCount": 245,
+      "pitchRange": [
+        "G3",
+        "A#6"
+      ],
+      "mp4": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-7297261750406155551.mp4",
+      "analysis": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-7297261750406155551.analysis.json"
+    },
+    {
+      "id": "7221209691689602350",
+      "title": "Replying to @mattmgk here’s one way to consider it practically and co...",
+      "account": "whistlegraph",
+      "url": "https://www.tiktok.com/@whistlegraph/video/7221209691689602350",
+      "durationSec": 58.63,
+      "tempoBPM": 114.8,
+      "key": "A# minor",
+      "keyConfidence": 0.378,
+      "noteCount": 107,
+      "pitchRange": [
+        "G3",
+        "C#5"
+      ],
+      "mp4": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-7221209691689602350.mp4",
+      "analysis": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-7221209691689602350.analysis.json"
+    },
+    {
+      "id": "7217625878359199022",
+      "title": "Replying to @.void.rat pages 0-13 how’s that? 📖 #sketchbooktour",
+      "account": "whistlegraph",
+      "url": "https://www.tiktok.com/@whistlegraph/video/7217625878359199022",
+      "durationSec": 81.36,
+      "tempoBPM": 147.7,
+      "key": "A minor",
+      "keyConfidence": 0.255,
+      "noteCount": 103,
+      "pitchRange": [
+        "G3",
+        "E5"
+      ],
+      "mp4": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-7217625878359199022.mp4",
+      "analysis": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-7217625878359199022.analysis.json"
+    },
+    {
+      "id": "7215351443652627758",
+      "title": "butterflies need human rights! 🦋 #ukelele #fountainpen #cute",
+      "account": "whistlegraph",
+      "url": "https://www.tiktok.com/@whistlegraph/video/7215351443652627758",
+      "durationSec": 25.87,
+      "tempoBPM": 57.4,
+      "key": "F major",
+      "keyConfidence": 0.547,
+      "noteCount": 113,
+      "pitchRange": [
+        "G3",
+        "D#5"
+      ],
+      "mp4": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-7215351443652627758.mp4",
+      "analysis": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-7215351443652627758.analysis.json"
+    },
+    {
+      "id": "7215324513767099690",
+      "title": "we got a ukelele now! 🦋",
+      "account": "whistlegraph",
+      "url": "https://www.tiktok.com/@whistlegraph/video/7215324513767099690",
+      "durationSec": 21.36,
+      "tempoBPM": 54.4,
+      "key": "F minor",
+      "keyConfidence": 0.766,
+      "noteCount": 94,
+      "pitchRange": [
+        "G3",
+        "D5"
+      ],
+      "mp4": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-7215324513767099690.mp4",
+      "analysis": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-7215324513767099690.analysis.json"
+    },
+    {
+      "id": "7212040837406985515",
+      "title": "butterfly w/ red brush attack #aesthetic #brush",
+      "account": "whistlegraph",
+      "url": "https://www.tiktok.com/@whistlegraph/video/7212040837406985515",
+      "durationSec": 12.31,
+      "tempoBPM": 178.2,
+      "key": "A# major",
+      "keyConfidence": 0.338,
+      "noteCount": 35,
+      "pitchRange": [
+        "G3",
+        "E5"
+      ],
+      "mp4": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-7212040837406985515.mp4",
+      "analysis": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-7212040837406985515.analysis.json"
+    },
+    {
+      "id": "7167111381907442987",
+      "title": "U can learn it 🫵🦋 #cute #drawing",
+      "account": "whistlegraph",
+      "url": "https://www.tiktok.com/@whistlegraph/video/7167111381907442987",
+      "durationSec": 13.98,
+      "tempoBPM": 105.5,
+      "key": "B major",
+      "keyConfidence": 0.432,
+      "noteCount": 57,
+      "pitchRange": [
+        "G3",
+        "C5"
+      ],
+      "mp4": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-7167111381907442987.mp4",
+      "analysis": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-7167111381907442987.analysis.json"
+    },
+    {
+      "id": "7136785278995352878",
+      "title": "bullet with butterfly wings 🦋🫂 #fountainpen #art #aesthetic",
+      "account": "whistlegraph",
+      "url": "https://www.tiktok.com/@whistlegraph/video/7136785278995352878",
+      "durationSec": 19.41,
+      "tempoBPM": 112.3,
+      "key": "A# major",
+      "keyConfidence": 0.522,
+      "noteCount": 40,
+      "pitchRange": [
+        "G3",
+        "C#4"
+      ],
+      "mp4": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-7136785278995352878.mp4",
+      "analysis": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-7136785278995352878.analysis.json"
+    },
+    {
+      "id": "7136604871184207150",
+      "title": "happy flapping u guys 🫂",
+      "account": "whistlegraph",
+      "url": "https://www.tiktok.com/@whistlegraph/video/7136604871184207150",
+      "durationSec": 18.23,
+      "tempoBPM": 126,
+      "key": "A# major",
+      "keyConfidence": 0.644,
+      "noteCount": 41,
+      "pitchRange": [
+        "G3",
+        "D4"
+      ],
+      "mp4": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-7136604871184207150.mp4",
+      "analysis": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-7136604871184207150.analysis.json"
+    },
+    {
+      "id": "7132008443774291243",
+      "title": "butterfly bows 🦋🎀",
+      "account": "whistlegraph",
+      "url": "https://www.tiktok.com/@whistlegraph/video/7132008443774291243",
+      "durationSec": 17.28,
+      "tempoBPM": 126,
+      "key": "A# major",
+      "keyConfidence": 0.592,
+      "noteCount": 45,
+      "pitchRange": [
+        "G3",
+        "E4"
+      ],
+      "mp4": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-7132008443774291243.mp4",
+      "analysis": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-7132008443774291243.analysis.json"
+    },
+    {
+      "id": "7104843827768282410",
+      "title": "Butterfly Cosplayer from Ten Whistlegraphs 🦋💃 #feralfile",
+      "account": "whistlegraph",
+      "url": "https://www.tiktok.com/@whistlegraph/video/7104843827768282410",
+      "durationSec": 19.09,
+      "tempoBPM": 129.2,
+      "key": "B major",
+      "keyConfidence": 0.699,
+      "noteCount": 48,
+      "pitchRange": [
+        "G3",
+        "F#4"
+      ],
+      "mp4": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-7104843827768282410.mp4",
+      "analysis": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-7104843827768282410.analysis.json"
+    },
+    {
+      "id": "7099526173662776622",
+      "title": "chopped and screwed imab with sofs between ✒️🎶",
+      "account": "whistlegraph",
+      "url": "https://www.tiktok.com/@whistlegraph/video/7099526173662776622",
+      "durationSec": 15.56,
+      "tempoBPM": 156.6,
+      "key": "B minor",
+      "keyConfidence": 0.641,
+      "noteCount": 22,
+      "pitchRange": [
+        "G3",
+        "D#6"
+      ],
+      "mp4": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-7099526173662776622.mp4",
+      "analysis": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-7099526173662776622.analysis.json"
+    },
+    {
+      "id": "7097927757480348974",
+      "title": "we love these butterfly cosplayers @_av3ri3 and @not bipolar",
+      "account": "whistlegraph",
+      "url": "https://www.tiktok.com/@whistlegraph/video/7097927757480348974",
+      "durationSec": 13.75,
+      "tempoBPM": 152,
+      "key": "A# major",
+      "keyConfidence": 0.42,
+      "noteCount": 43,
+      "pitchRange": [
+        "G3",
+        "C#5"
+      ],
+      "mp4": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-7097927757480348974.mp4",
+      "analysis": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-7097927757480348974.analysis.json"
+    },
+    {
+      "id": "7097390939085344046",
+      "title": "butterfly cosplayer quintet w/ @imtotallynotbipolar, @_av3ri3",
+      "account": "whistlegraph",
+      "url": "https://www.tiktok.com/@whistlegraph/video/7097390939085344046",
+      "durationSec": 15.65,
+      "tempoBPM": 161.5,
+      "key": "A# major",
+      "keyConfidence": 0.576,
+      "noteCount": 35,
+      "pitchRange": [
+        "G3",
+        "C6"
+      ],
+      "mp4": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-7097390939085344046.mp4",
+      "analysis": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-7097390939085344046.analysis.json"
+    },
+    {
+      "id": "7092982188437753130",
+      "title": "came out too cute 🥹",
+      "account": "whistlegraph",
+      "url": "https://www.tiktok.com/@whistlegraph/video/7092982188437753130",
+      "durationSec": 18.69,
+      "tempoBPM": 152,
+      "key": "A major",
+      "keyConfidence": 0.619,
+      "noteCount": 36,
+      "pitchRange": [
+        "G3",
+        "B3"
+      ],
+      "mp4": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-7092982188437753130.mp4",
+      "analysis": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-7092982188437753130.analysis.json"
+    },
+    {
+      "id": "7086245218277674283",
+      "title": "butterfly w/ the rain 🦋🌧",
+      "account": "whistlegraph",
+      "url": "https://www.tiktok.com/@whistlegraph/video/7086245218277674283",
+      "durationSec": 16.88,
+      "tempoBPM": 112.3,
+      "key": "A# major",
+      "keyConfidence": 0.575,
+      "noteCount": 43,
+      "pitchRange": [
+        "G3",
+        "F#4"
+      ],
+      "mp4": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-7086245218277674283.mp4",
+      "analysis": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-7086245218277674283.analysis.json"
+    },
+    {
+      "id": "7079307726697811242",
+      "title": "Reply to @mossfaerie grafikal scorez yo",
+      "account": "whistlegraph",
+      "url": "https://www.tiktok.com/@whistlegraph/video/7079307726697811242",
+      "durationSec": 34.34,
+      "tempoBPM": 206.7,
+      "key": "A# minor",
+      "keyConfidence": 0.356,
+      "noteCount": 66,
+      "pitchRange": [
+        "G3",
+        "A#4"
+      ],
+      "mp4": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-7079307726697811242.mp4",
+      "analysis": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-7079307726697811242.analysis.json"
+    },
+    {
+      "id": "7075031570364534058",
+      "title": "Reply to @xerion256",
+      "account": "whistlegraph",
+      "url": "https://www.tiktok.com/@whistlegraph/video/7075031570364534058",
+      "durationSec": 33.58,
+      "tempoBPM": 139.7,
+      "key": "E major",
+      "keyConfidence": 0.739,
+      "noteCount": 81,
+      "pitchRange": [
+        "G3",
+        "C5"
+      ],
+      "mp4": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-7075031570364534058.mp4",
+      "analysis": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-7075031570364534058.analysis.json"
+    },
+    {
+      "id": "7071807898887720235",
+      "title": "test one #chalk #choreography",
+      "account": "whistlegraph",
+      "url": "https://www.tiktok.com/@whistlegraph/video/7071807898887720235",
+      "durationSec": 18.09,
+      "tempoBPM": 114.8,
+      "key": "B minor",
+      "keyConfidence": 0.571,
+      "noteCount": 58,
+      "pitchRange": [
+        "G3",
+        "D7"
+      ],
+      "mp4": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-7071807898887720235.mp4",
+      "analysis": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-7071807898887720235.analysis.json"
+    },
+    {
+      "id": "7064672896316394799",
+      "title": "we made hoodies! 🥵 link in our bio 📬",
+      "account": "whistlegraph",
+      "url": "https://www.tiktok.com/@whistlegraph/video/7064672896316394799",
+      "durationSec": 20.15,
+      "tempoBPM": 114.8,
+      "key": "A major",
+      "keyConfidence": 0.732,
+      "noteCount": 43,
+      "pitchRange": [
+        "G3",
+        "F4"
+      ],
+      "mp4": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-7064672896316394799.mp4",
+      "analysis": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-7064672896316394799.analysis.json"
+    },
+    {
+      "id": "7064305080757128495",
+      "title": "🦋🧑‍🏫",
+      "account": "whistlegraph",
+      "url": "https://www.tiktok.com/@whistlegraph/video/7064305080757128495",
+      "durationSec": 17,
+      "tempoBPM": 139.7,
+      "key": "D major",
+      "keyConfidence": 0.482,
+      "noteCount": 45,
+      "pitchRange": [
+        "G3",
+        "G#4"
+      ],
+      "mp4": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-7064305080757128495.mp4",
+      "analysis": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-7064305080757128495.analysis.json"
+    },
+    {
+      "id": "7063607287465921838",
+      "title": "🦋 cosplayer hoodies 4 sale (we made 50)",
+      "account": "whistlegraph",
+      "url": "https://www.tiktok.com/@whistlegraph/video/7063607287465921838",
+      "durationSec": 19.34,
+      "tempoBPM": 126,
+      "key": "B major",
+      "keyConfidence": 0.437,
+      "noteCount": 61,
+      "pitchRange": [
+        "G3",
+        "F5"
+      ],
+      "mp4": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-7063607287465921838.mp4",
+      "analysis": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-7063607287465921838.analysis.json"
+    },
+    {
+      "id": "7043361761784892718",
+      "title": "#butterfly #cosplay 🦋🎭",
+      "account": "whistlegraph",
+      "url": "https://www.tiktok.com/@whistlegraph/video/7043361761784892718",
+      "durationSec": 12.49,
+      "tempoBPM": 107.7,
+      "key": "G# major",
+      "keyConfidence": 0.643,
+      "noteCount": 26,
+      "pitchRange": [
+        "G3",
+        "F#4"
+      ],
+      "mp4": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-7043361761784892718.mp4",
+      "analysis": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-7043361761784892718.analysis.json"
+    },
+    {
+      "id": "7039395250632150278",
+      "title": "always flapping for u guys 🦋♾ #butterfly #drawing",
+      "account": "whistlegraph",
+      "url": "https://www.tiktok.com/@whistlegraph/video/7039395250632150278",
+      "durationSec": 17.74,
+      "tempoBPM": 105.5,
+      "key": "C# major",
+      "keyConfidence": 0.652,
+      "noteCount": 46,
+      "pitchRange": [
+        "G3",
+        "F#4"
+      ],
+      "mp4": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-7039395250632150278.mp4",
+      "analysis": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-7039395250632150278.analysis.json"
+    },
+    {
+      "id": "7039110777563024687",
+      "title": "butterfly cosplayer ✒️🎶🦋",
+      "account": "whistlegraph",
+      "url": "https://www.tiktok.com/@whistlegraph/video/7039110777563024687",
+      "durationSec": 19.13,
+      "tempoBPM": 105.5,
+      "key": "C# major",
+      "keyConfidence": 0.641,
+      "noteCount": 44,
+      "pitchRange": [
+        "G3",
+        "G5"
+      ],
+      "mp4": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-7039110777563024687.mp4",
+      "analysis": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-7039110777563024687.analysis.json"
+    },
+    {
+      "id": "7019783802054659334",
+      "title": "Reply to @gabebenson1 they're graphical scores so anyone can perform...",
+      "account": "whistlegraph",
+      "url": "https://www.tiktok.com/@whistlegraph/video/7019783802054659334",
+      "durationSec": 41.77,
+      "tempoBPM": 105.5,
+      "key": "C minor",
+      "keyConfidence": 0.274,
+      "noteCount": 89,
+      "pitchRange": [
+        "G3",
+        "F#4"
+      ],
+      "mp4": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-7019783802054659334.mp4",
+      "analysis": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-7019783802054659334.analysis.json"
+    },
+    {
+      "id": "7014513064250707206",
+      "title": "🦋 butterfly cosplayer or 🍄 sad mushroom? AND TELL ME WHY #quiz #art #...",
+      "account": "whistlegraph",
+      "url": "https://www.tiktok.com/@whistlegraph/video/7014513064250707206",
+      "durationSec": 18.2,
+      "tempoBPM": 105.5,
+      "key": "B minor",
+      "keyConfidence": 0.351,
+      "noteCount": 31,
+      "pitchRange": [
+        "G3",
+        "B3"
+      ],
+      "mp4": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-7014513064250707206.mp4",
+      "analysis": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-7014513064250707206.analysis.json"
+    },
+    {
+      "id": "7010679883282058502",
+      "title": "these two whistelgraphs go so well together 🐙☑️🦋 #doodle #cute #sleep...",
+      "account": "whistlegraph",
+      "url": "https://www.tiktok.com/@whistlegraph/video/7010679883282058502",
+      "durationSec": 24.26,
+      "tempoBPM": 120.2,
+      "key": "A major",
+      "keyConfidence": 0.452,
+      "noteCount": 74,
+      "pitchRange": [
+        "G3",
+        "D#4"
+      ],
+      "mp4": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-7010679883282058502.mp4",
+      "analysis": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-7010679883282058502.analysis.json"
+    },
+    {
+      "id": "7009681448709917958",
+      "title": "orange butterfly cosplayer’s pose tho 🕺🎃#duet #growingup #singer #hyp...",
+      "account": "whistlegraph",
+      "url": "https://www.tiktok.com/@whistlegraph/video/7009681448709917958",
+      "durationSec": 20.32,
+      "tempoBPM": 117.5,
+      "key": "A major",
+      "keyConfidence": 0.549,
+      "noteCount": 55,
+      "pitchRange": [
+        "G3",
+        "D#4"
+      ],
+      "mp4": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-7009681448709917958.mp4",
+      "analysis": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-7009681448709917958.analysis.json"
+    },
+    {
+      "id": "6996537505377963269",
+      "title": "dubble butterfly cosplayer w/ a scared of stars first verse (feat. al...",
+      "account": "whistlegraph",
+      "url": "https://www.tiktok.com/@whistlegraph/video/6996537505377963269",
+      "durationSec": 17.25,
+      "tempoBPM": 126,
+      "key": "F# major",
+      "keyConfidence": 0.646,
+      "noteCount": 63,
+      "pitchRange": [
+        "G3",
+        "B4"
+      ],
+      "mp4": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-6996537505377963269.mp4",
+      "analysis": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-6996537505377963269.analysis.json"
+    },
+    {
+      "id": "6992976173118639365",
+      "title": "every tiktoker is like the butterfly cosplayer in their own way ✒️🎶🦋 ...",
+      "account": "whistlegraph",
+      "url": "https://www.tiktok.com/@whistlegraph/video/6992976173118639365",
+      "durationSec": 18.65,
+      "tempoBPM": 126,
+      "key": "F# minor",
+      "keyConfidence": 0.428,
+      "noteCount": 42,
+      "pitchRange": [
+        "G3",
+        "C5"
+      ],
+      "mp4": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-6992976173118639365.mp4",
+      "analysis": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-6992976173118639365.analysis.json"
+    },
+    {
+      "id": "6991894275386510598",
+      "title": "Follow and sing along with a pen if you wanna learn! 🦋 #arttutorial #...",
+      "account": "whistlegraph",
+      "url": "https://www.tiktok.com/@whistlegraph/video/6991894275386510598",
+      "durationSec": 38.29,
+      "tempoBPM": 82,
+      "key": "F# minor",
+      "keyConfidence": 0.474,
+      "noteCount": 89,
+      "pitchRange": [
+        "G3",
+        "B6"
+      ],
+      "mp4": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-6991894275386510598.mp4",
+      "analysis": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-6991894275386510598.analysis.json"
+    },
+    {
+      "id": "6991727952400518406",
+      "title": "what do u guys think of my new girlfriend lucia? ✒️🦋 @rareearthmine 💙",
+      "account": "whistlegraph",
+      "url": "https://www.tiktok.com/@whistlegraph/video/6991727952400518406",
+      "durationSec": 18.04,
+      "tempoBPM": 112.3,
+      "key": "F# major",
+      "keyConfidence": 0.616,
+      "noteCount": 79,
+      "pitchRange": [
+        "G3",
+        "A5"
+      ],
+      "mp4": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-6991727952400518406.mp4",
+      "analysis": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-6991727952400518406.analysis.json"
+    },
+    {
+      "id": "6989208651135274245",
+      "title": "always more butterfliez 🦋",
+      "account": "whistlegraph",
+      "url": "https://www.tiktok.com/@whistlegraph/video/6989208651135274245",
+      "durationSec": 16.37,
+      "tempoBPM": 123,
+      "key": "A minor",
+      "keyConfidence": 0.582,
+      "noteCount": 60,
+      "pitchRange": [
+        "G3",
+        "C#5"
+      ],
+      "mp4": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-6989208651135274245.mp4",
+      "analysis": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-6989208651135274245.analysis.json"
+    },
+    {
+      "id": "6988285041067461893",
+      "title": "we did two 🦋 BUTTERFLY COSPLAYERS 👯‍♀️ with a 😱 SCARED OF STAIRS 🏠 b...",
+      "account": "whistlegraph",
+      "url": "https://www.tiktok.com/@whistlegraph/video/6988285041067461893",
+      "durationSec": 19.09,
+      "tempoBPM": 117.5,
+      "key": "A major",
+      "keyConfidence": 0.533,
+      "noteCount": 64,
+      "pitchRange": [
+        "G3",
+        "C#5"
+      ],
+      "mp4": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-6988285041067461893.mp4",
+      "analysis": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-6988285041067461893.analysis.json"
+    },
+    {
+      "id": "6988238100984106246",
+      "title": "Reply to @spotifyismysanctuary u can just go to whistlegraph dot com ...",
+      "account": "whistlegraph",
+      "url": "https://www.tiktok.com/@whistlegraph/video/6988238100984106246",
+      "durationSec": 29.65,
+      "tempoBPM": 152,
+      "key": "A# minor",
+      "keyConfidence": 0.386,
+      "noteCount": 61,
+      "pitchRange": [
+        "G3",
+        "B4"
+      ],
+      "mp4": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-6988238100984106246.mp4",
+      "analysis": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-6988238100984106246.analysis.json"
+    },
+    {
+      "id": "6964689309886696709",
+      "title": "gonna start speaking em normally now that i hit a million!",
+      "account": "whistlegraph",
+      "url": "https://www.tiktok.com/@whistlegraph/video/6964689309886696709",
+      "durationSec": 22.85,
+      "tempoBPM": 97.5,
+      "key": "A# minor",
+      "keyConfidence": 0.343,
+      "noteCount": 58,
+      "pitchRange": [
+        "G3",
+        "C4"
+      ],
+      "mp4": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-6964689309886696709.mp4",
+      "analysis": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-6964689309886696709.analysis.json"
+    },
+    {
+      "id": "6964457094598724869",
+      "title": "#duet with @kiralise we'll stay flapping 🦋",
+      "account": "whistlegraph",
+      "url": "https://www.tiktok.com/@whistlegraph/video/6964457094598724869",
+      "durationSec": 26.28,
+      "tempoBPM": 103.4,
+      "key": "A# major",
+      "keyConfidence": 0.855,
+      "noteCount": 93,
+      "pitchRange": [
+        "G3",
+        "C#4"
+      ],
+      "mp4": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-6964457094598724869.mp4",
+      "analysis": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-6964457094598724869.analysis.json"
+    },
+    {
+      "id": "6957958164885163270",
+      "title": "butterfly with kubrick stare! #art",
+      "account": "whistlegraph",
+      "url": "https://www.tiktok.com/@whistlegraph/video/6957958164885163270",
+      "durationSec": 18.97,
+      "tempoBPM": 105.5,
+      "key": "G major",
+      "keyConfidence": 0.473,
+      "noteCount": 69,
+      "pitchRange": [
+        "G3",
+        "G4"
+      ],
+      "mp4": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-6957958164885163270.mp4",
+      "analysis": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-6957958164885163270.analysis.json"
+    },
+    {
+      "id": "6957365935162363141",
+      "title": "wait for camille's spray (more butterfliez)",
+      "account": "whistlegraph",
+      "url": "https://www.tiktok.com/@whistlegraph/video/6957365935162363141",
+      "durationSec": 18.97,
+      "tempoBPM": 105.5,
+      "key": "G major",
+      "keyConfidence": 0.473,
+      "noteCount": 69,
+      "pitchRange": [
+        "G3",
+        "G4"
+      ],
+      "mp4": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-6957365935162363141.mp4",
+      "analysis": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-6957365935162363141.analysis.json"
+    },
+    {
+      "id": "6957100573912993030",
+      "title": "butterfly on glass ✒️🪞 #art",
+      "account": "whistlegraph",
+      "url": "https://www.tiktok.com/@whistlegraph/video/6957100573912993030",
+      "durationSec": 18.97,
+      "tempoBPM": 105.5,
+      "key": "G major",
+      "keyConfidence": 0.473,
+      "noteCount": 69,
+      "pitchRange": [
+        "G3",
+        "G4"
+      ],
+      "mp4": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-6957100573912993030.mp4",
+      "analysis": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-6957100573912993030.analysis.json"
+    },
+    {
+      "id": "6954510532921560325",
+      "title": "🆕 Butterfly Cosplayer whistlegraph type beat produced by @sodrove, ou...",
+      "account": "whistlegraph",
+      "url": "https://www.tiktok.com/@whistlegraph/video/6954510532921560325",
+      "durationSec": 18.88,
+      "tempoBPM": 107.7,
+      "key": "G minor",
+      "keyConfidence": 0.506,
+      "noteCount": 71,
+      "pitchRange": [
+        "G3",
+        "G4"
+      ],
+      "mp4": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-6954510532921560325.mp4",
+      "analysis": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-6954510532921560325.analysis.json"
+    },
+    {
+      "id": "6953071560001359109",
+      "title": "🍎🔄🦋 apple quarter turn to imab! w/ @applinfreundlich & @cksuperstore ...",
+      "account": "whistlegraph",
+      "url": "https://www.tiktok.com/@whistlegraph/video/6953071560001359109",
+      "durationSec": 16.46,
+      "tempoBPM": 126,
+      "key": "G major",
+      "keyConfidence": 0.639,
+      "noteCount": 52,
+      "pitchRange": [
+        "G3",
+        "G#4"
+      ],
+      "mp4": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-6953071560001359109.mp4",
+      "analysis": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-6953071560001359109.analysis.json"
+    },
+    {
+      "id": "6953058670695517446",
+      "title": "we are practicing every day preparing for our big tour! #doodle #band...",
+      "account": "whistlegraph",
+      "url": "https://www.tiktok.com/@whistlegraph/video/6953058670695517446",
+      "durationSec": 32.55,
+      "tempoBPM": 126,
+      "key": "F minor",
+      "keyConfidence": 0.631,
+      "noteCount": 118,
+      "pitchRange": [
+        "G3",
+        "G#4"
+      ],
+      "mp4": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-6953058670695517446.mp4",
+      "analysis": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-6953058670695517446.analysis.json"
+    },
+    {
+      "id": "6947542589394390278",
+      "title": "Reply to @casspentaghast @applinfreundlich version",
+      "account": "whistlegraph",
+      "url": "https://www.tiktok.com/@whistlegraph/video/6947542589394390278",
+      "durationSec": 18.48,
+      "tempoBPM": 120.2,
+      "key": "D# minor",
+      "keyConfidence": 0.506,
+      "noteCount": 25,
+      "pitchRange": [
+        "G3",
+        "E4"
+      ],
+      "mp4": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-6947542589394390278.mp4",
+      "analysis": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-6947542589394390278.analysis.json"
+    },
+    {
+      "id": "6947530172027489542",
+      "title": "@cksuperstore 🦋 unleashed 😳⚔️",
+      "account": "whistlegraph",
+      "url": "https://www.tiktok.com/@whistlegraph/video/6947530172027489542",
+      "durationSec": 17,
+      "tempoBPM": 132.5,
+      "key": "D major",
+      "keyConfidence": 0.404,
+      "noteCount": 25,
+      "pitchRange": [
+        "G3",
+        "D7"
+      ],
+      "mp4": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-6947530172027489542.mp4",
+      "analysis": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-6947530172027489542.analysis.json"
+    },
+    {
+      "id": "6947450177997262086",
+      "title": "Reply to @casspentaghast *whispers caption unintelligibly*",
+      "account": "whistlegraph",
+      "url": "https://www.tiktok.com/@whistlegraph/video/6947450177997262086",
+      "durationSec": 15.19,
+      "tempoBPM": 152,
+      "key": "A# minor",
+      "keyConfidence": 0.613,
+      "noteCount": 4,
+      "pitchRange": [
+        "A6",
+        "D7"
+      ],
+      "mp4": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-6947450177997262086.mp4",
+      "analysis": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-6947450177997262086.analysis.json"
+    },
+    {
+      "id": "6947410861677890822",
+      "title": "what does this butterfly symbolize 😳",
+      "account": "whistlegraph",
+      "url": "https://www.tiktok.com/@whistlegraph/video/6947410861677890822",
+      "durationSec": 17.21,
+      "tempoBPM": 143.6,
+      "key": "C# minor",
+      "keyConfidence": 0.297,
+      "noteCount": 25,
+      "pitchRange": [
+        "G3",
+        "F5"
+      ],
+      "mp4": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-6947410861677890822.mp4",
+      "analysis": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-6947410861677890822.analysis.json"
+    },
+    {
+      "id": "6945489833032699142",
+      "title": "let's go! #butterfly",
+      "account": "whistlegraph",
+      "url": "https://www.tiktok.com/@whistlegraph/video/6945489833032699142",
+      "durationSec": 16,
+      "tempoBPM": 132.5,
+      "key": "D major",
+      "keyConfidence": 0.443,
+      "noteCount": 60,
+      "pitchRange": [
+        "B3",
+        "G#5"
+      ],
+      "mp4": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-6945489833032699142.mp4",
+      "analysis": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-6945489833032699142.analysis.json"
+    },
+    {
+      "id": "6945218935767846149",
+      "title": "🦋 butterflies with a beat in the background let's go! @thewhistlegrap...",
+      "account": "whistlegraph",
+      "url": "https://www.tiktok.com/@whistlegraph/video/6945218935767846149",
+      "durationSec": 19.9,
+      "tempoBPM": 132.5,
+      "key": "D major",
+      "keyConfidence": 0.403,
+      "noteCount": 83,
+      "pitchRange": [
+        "A#3",
+        "G#5"
+      ],
+      "mp4": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-6945218935767846149.mp4",
+      "analysis": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-6945218935767846149.analysis.json"
+    },
+    {
+      "id": "6944891176281443589",
+      "title": "@thewhistlegrapher 🦋✒️ thank you for the fantastic beats! please make...",
+      "account": "whistlegraph",
+      "url": "https://www.tiktok.com/@whistlegraph/video/6944891176281443589",
+      "durationSec": 19.46,
+      "tempoBPM": 132.5,
+      "key": "G minor",
+      "keyConfidence": 0.413,
+      "noteCount": 78,
+      "pitchRange": [
+        "A#3",
+        "G#5"
+      ],
+      "mp4": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-6944891176281443589.mp4",
+      "analysis": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-6944891176281443589.analysis.json"
+    },
+    {
+      "id": "6940704303527038213",
+      "title": "dubble butterfliez 🦋",
+      "account": "whistlegraph",
+      "url": "https://www.tiktok.com/@whistlegraph/video/6940704303527038213",
+      "durationSec": 10.36,
+      "tempoBPM": 82,
+      "key": "A minor",
+      "keyConfidence": 0.737,
+      "noteCount": 28,
+      "pitchRange": [
+        "G3",
+        "F4"
+      ],
+      "mp4": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-6940704303527038213.mp4",
+      "analysis": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-6940704303527038213.analysis.json"
+    },
+    {
+      "id": "6940368029305916678",
+      "title": "camille & jeffrey do an ambidextrous abbreviate of butterfly cosplayer",
+      "account": "whistlegraph",
+      "url": "https://www.tiktok.com/@whistlegraph/video/6940368029305916678",
+      "durationSec": 8.54,
+      "tempoBPM": 90.7,
+      "key": "F# minor",
+      "keyConfidence": 0.522,
+      "noteCount": 29,
+      "pitchRange": [
+        "G3",
+        "F#4"
+      ],
+      "mp4": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-6940368029305916678.mp4",
+      "analysis": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-6940368029305916678.analysis.json"
+    },
+    {
+      "id": "6932573867336535302",
+      "title": "here's how to teach your friends! 🙂 #doodle #howto #whistlegraph #dra...",
+      "account": "whistlegraph",
+      "url": "https://www.tiktok.com/@whistlegraph/video/6932573867336535302",
+      "durationSec": 27.52,
+      "tempoBPM": 123,
+      "key": "G# major",
+      "keyConfidence": 0.635,
+      "noteCount": 105,
+      "pitchRange": [
+        "G3",
+        "A4"
+      ],
+      "mp4": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-6932573867336535302.mp4",
+      "analysis": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-6932573867336535302.analysis.json"
+    },
+    {
+      "id": "6926660830524230917",
+      "title": "Thanks Apple, for sending over the iPad ✍️(Sponsored) 🍎 I’m in love w...",
+      "account": "whistlegraph",
+      "url": "https://www.tiktok.com/@whistlegraph/video/6926660830524230917",
+      "durationSec": 14.49,
+      "tempoBPM": 79.5,
+      "key": "E minor",
+      "keyConfidence": 0.306,
+      "noteCount": 47,
+      "pitchRange": [
+        "G3",
+        "C#5"
+      ],
+      "mp4": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-6926660830524230917.mp4",
+      "analysis": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-6926660830524230917.analysis.json"
+    },
+    {
+      "id": "6924026674040294661",
+      "title": "pov: alex @poempainter 🦋",
+      "account": "whistlegraph",
+      "url": "https://www.tiktok.com/@whistlegraph/video/6924026674040294661",
+      "durationSec": 18.88,
+      "tempoBPM": 114.8,
+      "key": "E minor",
+      "keyConfidence": 0.489,
+      "noteCount": 77,
+      "pitchRange": [
+        "G3",
+        "E5"
+      ],
+      "mp4": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-6924026674040294661.mp4",
+      "analysis": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-6924026674040294661.analysis.json"
+    },
+    {
+      "id": "6923795451846184197",
+      "title": "keep flappin' whistlegraphers",
+      "account": "whistlegraph",
+      "url": "https://www.tiktok.com/@whistlegraph/video/6923795451846184197",
+      "durationSec": 21.55,
+      "tempoBPM": 123,
+      "key": "G# major",
+      "keyConfidence": 0.403,
+      "noteCount": 80,
+      "pitchRange": [
+        "G3",
+        "E5"
+      ],
+      "mp4": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-6923795451846184197.mp4",
+      "analysis": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-6923795451846184197.analysis.json"
+    },
+    {
+      "id": "6923432011273227526",
+      "title": "here are three simultaneous butterfly cosplayers we graphed this even...",
+      "account": "whistlegraph",
+      "url": "https://www.tiktok.com/@whistlegraph/video/6923432011273227526",
+      "durationSec": 23.31,
+      "tempoBPM": 123,
+      "key": "D major",
+      "keyConfidence": 0.409,
+      "noteCount": 92,
+      "pitchRange": [
+        "G3",
+        "E5"
+      ],
+      "mp4": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-6923432011273227526.mp4",
+      "analysis": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-6923432011273227526.analysis.json"
+    },
+    {
+      "id": "6922582753372392710",
+      "title": "tutorial on how to do the butterfly cosplayer wg with each step ✒️❓ f...",
+      "account": "whistlegraph",
+      "url": "https://www.tiktok.com/@whistlegraph/video/6922582753372392710",
+      "durationSec": 38.99,
+      "tempoBPM": 129.2,
+      "key": "B major",
+      "keyConfidence": 0.692,
+      "noteCount": 99,
+      "pitchRange": [
+        "G3",
+        "F#4"
+      ],
+      "mp4": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-6922582753372392710.mp4",
+      "analysis": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-6922582753372392710.analysis.json"
+    },
+    {
+      "id": "6922359455686397189",
+      "title": "more butterfliez ✒️🎶",
+      "account": "whistlegraph",
+      "url": "https://www.tiktok.com/@whistlegraph/video/6922359455686397189",
+      "durationSec": 18.76,
+      "tempoBPM": 126,
+      "key": "A major",
+      "keyConfidence": 0.42,
+      "noteCount": 69,
+      "pitchRange": [
+        "G3",
+        "A#4"
+      ],
+      "mp4": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-6922359455686397189.mp4",
+      "analysis": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-6922359455686397189.analysis.json"
+    },
+    {
+      "id": "6922286202909396230",
+      "title": "Do you wanna build a snowgraph? #voiceeffects #art #doodle #snowangel...",
+      "account": "whistlegraph",
+      "url": "https://www.tiktok.com/@whistlegraph/video/6922286202909396230",
+      "durationSec": 18.88,
+      "tempoBPM": 120.2,
+      "key": "A major",
+      "keyConfidence": 0.582,
+      "noteCount": 68,
+      "pitchRange": [
+        "G3",
+        "B4"
+      ],
+      "mp4": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-6922286202909396230.mp4",
+      "analysis": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-6922286202909396230.analysis.json"
+    },
+    {
+      "id": "6920840936809319686",
+      "title": "welcome to my twitch page where we make rpgs 🙂 #twitch #rpg #doodle #...",
+      "account": "whistlegraph",
+      "url": "https://www.tiktok.com/@whistlegraph/video/6920840936809319686",
+      "durationSec": 21.34,
+      "tempoBPM": 161.5,
+      "key": "E minor",
+      "keyConfidence": 0.321,
+      "noteCount": 38,
+      "pitchRange": [
+        "G3",
+        "E6"
+      ],
+      "mp4": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-6920840936809319686.mp4",
+      "analysis": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-6920840936809319686.analysis.json"
+    },
+    {
+      "id": "6898918283290971398",
+      "title": "This is what a concert of ours would sound like. ✒️🎶🎶🎶 w/ @songhopesp...",
+      "account": "whistlegraph",
+      "url": "https://www.tiktok.com/@whistlegraph/video/6898918283290971398",
+      "durationSec": 17,
+      "tempoBPM": 53.3,
+      "key": "D minor",
+      "keyConfidence": 0.528,
+      "noteCount": 59,
+      "pitchRange": [
+        "G3",
+        "E4"
+      ],
+      "mp4": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-6898918283290971398.mp4",
+      "analysis": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-6898918283290971398.analysis.json"
+    },
+    {
+      "id": "6896890505016134918",
+      "title": "\"Butterfly Cosplayer\" with @hippiethoughts and @cksuperstore ✒️🎶 #doo...",
+      "account": "whistlegraph",
+      "url": "https://www.tiktok.com/@whistlegraph/video/6896890505016134918",
+      "durationSec": 19.99,
+      "tempoBPM": 117.5,
+      "key": "D# minor",
+      "keyConfidence": 0.31,
+      "noteCount": 54,
+      "pitchRange": [
+        "G3",
+        "E4"
+      ],
+      "mp4": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-6896890505016134918.mp4",
+      "analysis": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-6896890505016134918.analysis.json"
+    },
+    {
+      "id": "6896684638098574597",
+      "title": "Join us on the 🦋 path #doodle #butterfly #cosplay #asmr",
+      "account": "whistlegraph",
+      "url": "https://www.tiktok.com/@whistlegraph/video/6896684638098574597",
+      "durationSec": 24.4,
+      "tempoBPM": 117.5,
+      "key": "F minor",
+      "keyConfidence": 0.618,
+      "noteCount": 61,
+      "pitchRange": [
+        "G3",
+        "A#5"
+      ],
+      "mp4": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-6896684638098574597.mp4",
+      "analysis": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-6896684638098574597.analysis.json"
+    },
+    {
+      "id": "6887757144477781253",
+      "title": "Here are the steps to the \"Butterfly Cosplayer\" ✒️🎶 #HalloweenIsHere ...",
+      "account": "whistlegraph",
+      "url": "https://www.tiktok.com/@whistlegraph/video/6887757144477781253",
+      "durationSec": 34.85,
+      "tempoBPM": 97.5,
+      "key": "B major",
+      "keyConfidence": 0.348,
+      "noteCount": 117,
+      "pitchRange": [
+        "G3",
+        "G4"
+      ],
+      "mp4": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-6887757144477781253.mp4",
+      "analysis": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-6887757144477781253.analysis.json"
+    },
+    {
+      "id": "6873220171662658821",
+      "title": "i love this shirt i made with my friend alex",
+      "account": "whistlegraph",
+      "url": "https://www.tiktok.com/@whistlegraph/video/6873220171662658821",
+      "durationSec": 22.06,
+      "tempoBPM": 76,
+      "key": "C# minor",
+      "keyConfidence": 0.303,
+      "noteCount": 63,
+      "pitchRange": [
+        "G3",
+        "D5"
+      ],
+      "mp4": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-6873220171662658821.mp4",
+      "analysis": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-6873220171662658821.analysis.json"
+    },
+    {
+      "id": "6872243045111254278",
+      "title": "i don't remember making this video",
+      "account": "whistlegraph",
+      "url": "https://www.tiktok.com/@whistlegraph/video/6872243045111254278",
+      "durationSec": 19.02,
+      "tempoBPM": 120.2,
+      "key": "G# major",
+      "keyConfidence": 0.435,
+      "noteCount": 66,
+      "pitchRange": [
+        "G3",
+        "A#4"
+      ],
+      "mp4": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-6872243045111254278.mp4",
+      "analysis": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-6872243045111254278.analysis.json"
+    },
+    {
+      "id": "6868744719682243845",
+      "title": "butterfly cosplayer ✒️🎶 🦋",
+      "account": "whistlegraph",
+      "url": "https://www.tiktok.com/@whistlegraph/video/6868744719682243845",
+      "durationSec": 15.81,
+      "tempoBPM": 60.1,
+      "key": "D# minor",
+      "keyConfidence": 0.52,
+      "noteCount": 28,
+      "pitchRange": [
+        "G3",
+        "E4"
+      ],
+      "mp4": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-6868744719682243845.mp4",
+      "analysis": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-6868744719682243845.analysis.json"
+    },
+    {
+      "id": "6831023986374151429",
+      "title": "Reply to @butterflycliplady whistlegraphs are a little art form I cam...",
+      "account": "whistlegraph",
+      "url": "https://www.tiktok.com/@whistlegraph/video/6831023986374151429",
+      "durationSec": 55.54,
+      "tempoBPM": 126,
+      "key": "C minor",
+      "keyConfidence": 0.283,
+      "noteCount": 122,
+      "pitchRange": [
+        "G3",
+        "C#4"
+      ],
+      "mp4": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-6831023986374151429.mp4",
+      "analysis": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-6831023986374151429.analysis.json"
+    },
+    {
+      "id": "6821971475868699910",
+      "title": "A little drawing show for my frozen sister Jibbitz.✒️🎶 #aesthetic #ar...",
+      "account": "whistlegraph",
+      "url": "https://www.tiktok.com/@whistlegraph/video/6821971475868699910",
+      "durationSec": 23.1,
+      "tempoBPM": 110,
+      "key": "D# minor",
+      "keyConfidence": 0.467,
+      "noteCount": 47,
+      "pitchRange": [
+        "G3",
+        "E4"
+      ],
+      "mp4": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-6821971475868699910.mp4",
+      "analysis": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-6821971475868699910.analysis.json"
+    },
+    {
+      "id": "6796439524323888389",
+      "title": "this drawing goes out to all the lovely cosplayers in our world 💛✍️😻",
+      "account": "whistlegraph",
+      "url": "https://www.tiktok.com/@whistlegraph/video/6796439524323888389",
+      "durationSec": 32.58,
+      "tempoBPM": 105.5,
+      "key": "C# major",
+      "keyConfidence": 0.536,
+      "noteCount": 74,
+      "pitchRange": [
+        "G3",
+        "C#4"
+      ],
+      "mp4": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-6796439524323888389.mp4",
+      "analysis": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-6796439524323888389.analysis.json"
     }
   ]
 }

@@ -1,0 +1,546 @@
+{
+ "source": "whistlegraph-6922582753372392710.wav",
+ "sr": 22050,
+ "words": [
+  {
+   "text": "Hey,",
+   "fromMs": 150,
+   "toMs": 270,
+   "nuclei": []
+  },
+  {
+   "text": "you",
+   "fromMs": 270,
+   "toMs": 430,
+   "nuclei": [
+    {
+     "midi": 54,
+     "note": "F#3",
+     "cents": 28.7,
+     "startSec": 0.279,
+     "durSec": 0.093,
+     "rms": 0.1339
+    }
+   ]
+  },
+  {
+   "text": "guys.",
+   "fromMs": 430,
+   "toMs": 890,
+   "nuclei": []
+  },
+  {
+   "text": "If",
+   "fromMs": 890,
+   "toMs": 920,
+   "nuclei": []
+  },
+  {
+   "text": "you",
+   "fromMs": 920,
+   "toMs": 1050,
+   "nuclei": []
+  },
+  {
+   "text": "want",
+   "fromMs": 1050,
+   "toMs": 1220,
+   "nuclei": []
+  },
+  {
+   "text": "to",
+   "fromMs": 1220,
+   "toMs": 1300,
+   "nuclei": []
+  },
+  {
+   "text": "learn",
+   "fromMs": 1300,
+   "toMs": 1510,
+   "nuclei": [
+    {
+     "midi": 53,
+     "note": "F3",
+     "cents": 28.7,
+     "startSec": 1.382,
+     "durSec": 0.163,
+     "rms": 0.1385
+    }
+   ]
+  },
+  {
+   "text": "how",
+   "fromMs": 1510,
+   "toMs": 1640,
+   "nuclei": [
+    {
+     "midi": 53,
+     "note": "F3",
+     "cents": 38.7,
+     "startSec": 1.498,
+     "durSec": 0.174,
+     "rms": 0.1364
+    }
+   ]
+  },
+  {
+   "text": "to",
+   "fromMs": 1640,
+   "toMs": 1720,
+   "nuclei": [
+    {
+     "midi": 53,
+     "note": "F3",
+     "cents": -31.3,
+     "startSec": 1.625,
+     "durSec": 0.128,
+     "rms": 0.1377
+    }
+   ]
+  },
+  {
+   "text": "do",
+   "fromMs": 1720,
+   "toMs": 1830,
+   "nuclei": [
+    {
+     "midi": 52,
+     "note": "E3",
+     "cents": 48.7,
+     "startSec": 1.707,
+     "durSec": 0.163,
+     "rms": 0.1107
+    }
+   ]
+  },
+  {
+   "text": "the",
+   "fromMs": 1830,
+   "toMs": 2030,
+   "nuclei": [
+    {
+     "midi": 52,
+     "note": "E3",
+     "cents": 38.7,
+     "startSec": 1.846,
+     "durSec": 0.081,
+     "rms": 0.0864
+    }
+   ]
+  },
+  {
+   "text": "butterfly",
+   "fromMs": 2030,
+   "toMs": 2630,
+   "nuclei": [
+    {
+     "midi": 52,
+     "note": "E3",
+     "cents": -1.3,
+     "startSec": 2.241,
+     "durSec": 0.07,
+     "rms": 0.1079
+    }
+   ]
+  },
+  {
+   "text": "cosplayer",
+   "fromMs": 2630,
+   "toMs": 3200,
+   "nuclei": []
+  },
+  {
+   "text": "whistle",
+   "fromMs": 3200,
+   "toMs": 3460,
+   "nuclei": []
+  },
+  {
+   "text": "graph,",
+   "fromMs": 3460,
+   "toMs": 3920,
+   "nuclei": []
+  },
+  {
+   "text": "here's",
+   "fromMs": 3920,
+   "toMs": 4290,
+   "nuclei": [
+    {
+     "midi": 53,
+     "note": "F3",
+     "cents": -1.3,
+     "startSec": 4.214,
+     "durSec": 0.058,
+     "rms": 0.1072
+    }
+   ]
+  },
+  {
+   "text": "the",
+   "fromMs": 4290,
+   "toMs": 4480,
+   "nuclei": []
+  },
+  {
+   "text": "steps",
+   "fromMs": 4480,
+   "toMs": 4820,
+   "nuclei": []
+  },
+  {
+   "text": "that",
+   "fromMs": 4820,
+   "toMs": 5050,
+   "nuclei": []
+  },
+  {
+   "text": "you",
+   "fromMs": 5050,
+   "toMs": 5240,
+   "nuclei": []
+  },
+  {
+   "text": "can",
+   "fromMs": 5240,
+   "toMs": 5430,
+   "nuclei": []
+  },
+  {
+   "text": "take",
+   "fromMs": 5430,
+   "toMs": 5670,
+   "nuclei": []
+  },
+  {
+   "text": "a",
+   "fromMs": 5670,
+   "toMs": 5740,
+   "nuclei": []
+  },
+  {
+   "text": "screenshot",
+   "fromMs": 5740,
+   "toMs": 6380,
+   "nuclei": [
+    {
+     "midi": 51,
+     "note": "D#3",
+     "cents": -1.3,
+     "startSec": 5.735,
+     "durSec": 0.139,
+     "rms": 0.0784
+    }
+   ]
+  },
+  {
+   "text": "of.",
+   "fromMs": 6380,
+   "toMs": 6710,
+   "nuclei": []
+  },
+  {
+   "text": "Take",
+   "fromMs": 6710,
+   "toMs": 6930,
+   "nuclei": []
+  },
+  {
+   "text": "a",
+   "fromMs": 6930,
+   "toMs": 6970,
+   "nuclei": []
+  },
+  {
+   "text": "screenshot",
+   "fromMs": 6970,
+   "toMs": 7500,
+   "nuclei": [
+    {
+     "midi": 53,
+     "note": "F3",
+     "cents": -11.3,
+     "startSec": 7.105,
+     "durSec": 0.081,
+     "rms": 0.1057
+    }
+   ]
+  },
+  {
+   "text": "now.",
+   "fromMs": 7500,
+   "toMs": 7680,
+   "nuclei": []
+  },
+  {
+   "text": "And",
+   "fromMs": 7680,
+   "toMs": 7950,
+   "nuclei": []
+  },
+  {
+   "text": "those",
+   "fromMs": 7950,
+   "toMs": 8390,
+   "nuclei": []
+  },
+  {
+   "text": "of",
+   "fromMs": 8390,
+   "toMs": 8580,
+   "nuclei": []
+  },
+  {
+   "text": "you",
+   "fromMs": 8580,
+   "toMs": 8850,
+   "nuclei": []
+  },
+  {
+   "text": "who",
+   "fromMs": 8850,
+   "toMs": 9120,
+   "nuclei": []
+  },
+  {
+   "text": "don't",
+   "fromMs": 9120,
+   "toMs": 9570,
+   "nuclei": []
+  },
+  {
+   "text": "know",
+   "fromMs": 9570,
+   "toMs": 9930,
+   "nuclei": [
+    {
+     "midi": 52,
+     "note": "E3",
+     "cents": 8.7,
+     "startSec": 9.694,
+     "durSec": 0.128,
+     "rms": 0.1593
+    },
+    {
+     "midi": 52,
+     "note": "E3",
+     "cents": 28.7,
+     "startSec": 9.903,
+     "durSec": 0.058,
+     "rms": 0.0877
+    }
+   ]
+  },
+  {
+   "text": "it,",
+   "fromMs": 9930,
+   "toMs": 10310,
+   "nuclei": [
+    {
+     "midi": 52,
+     "note": "E3",
+     "cents": 18.7,
+     "startSec": 9.938,
+     "durSec": 0.116,
+     "rms": 0.0938
+    }
+   ]
+  },
+  {
+   "text": "it",
+   "fromMs": 10310,
+   "toMs": 10470,
+   "nuclei": []
+  },
+  {
+   "text": "goes",
+   "fromMs": 10470,
+   "toMs": 10830,
+   "nuclei": []
+  },
+  {
+   "text": "like",
+   "fromMs": 10830,
+   "toMs": 11210,
+   "nuclei": [
+    {
+     "midi": 52,
+     "note": "E3",
+     "cents": -31.3,
+     "startSec": 11.146,
+     "durSec": 0.081,
+     "rms": 0.1056
+    }
+   ]
+  },
+  {
+   "text": "this.",
+   "fromMs": 11210,
+   "toMs": 11840,
+   "nuclei": []
+  },
+  {
+   "text": "Stu,",
+   "fromMs": 30160,
+   "toMs": 32000,
+   "nuclei": [
+    {
+     "midi": 55,
+     "note": "G3",
+     "cents": 28.7,
+     "startSec": 30.372,
+     "durSec": 0.499,
+     "rms": 0.0798
+    },
+    {
+     "midi": 56,
+     "note": "G#3",
+     "cents": -31.3,
+     "startSec": 31.057,
+     "durSec": 0.058,
+     "rms": 0.0192
+    }
+   ]
+  },
+  {
+   "text": "I",
+   "fromMs": 32000,
+   "toMs": 32480,
+   "nuclei": [
+    {
+     "midi": 59,
+     "note": "B3",
+     "cents": 8.7,
+     "startSec": 32.253,
+     "durSec": 0.058,
+     "rms": 0.0101
+    }
+   ]
+  },
+  {
+   "text": "put",
+   "fromMs": 32480,
+   "toMs": 34060,
+   "nuclei": [
+    {
+     "midi": 55,
+     "note": "G3",
+     "cents": 8.7,
+     "startSec": 32.543,
+     "durSec": 0.488,
+     "rms": 0.082
+    },
+    {
+     "midi": 55,
+     "note": "G3",
+     "cents": 28.7,
+     "startSec": 33.564,
+     "durSec": 0.163,
+     "rms": 0.0489
+    },
+    {
+     "midi": 53,
+     "note": "F3",
+     "cents": 48.7,
+     "startSec": 34.006,
+     "durSec": 0.093,
+     "rms": 0.0839
+    }
+   ]
+  },
+  {
+   "text": "on",
+   "fromMs": 34060,
+   "toMs": 34970,
+   "nuclei": [
+    {
+     "midi": 54,
+     "note": "F#3",
+     "cents": -21.3,
+     "startSec": 34.04,
+     "durSec": 0.395,
+     "rms": 0.0575
+    },
+    {
+     "midi": 54,
+     "note": "F#3",
+     "cents": -1.3,
+     "startSec": 34.644,
+     "durSec": 0.07,
+     "rms": 0.0392
+    }
+   ]
+  },
+  {
+   "text": "in",
+   "fromMs": 34970,
+   "toMs": 35870,
+   "nuclei": [
+    {
+     "midi": 59,
+     "note": "B3",
+     "cents": 18.7,
+     "startSec": 35.201,
+     "durSec": 0.232,
+     "rms": 0.0151
+    },
+    {
+     "midi": 52,
+     "note": "E3",
+     "cents": -31.3,
+     "startSec": 35.619,
+     "durSec": 0.29,
+     "rms": 0.084
+    }
+   ]
+  },
+  {
+   "text": "my",
+   "fromMs": 35870,
+   "toMs": 36840,
+   "nuclei": [
+    {
+     "midi": 52,
+     "note": "E3",
+     "cents": -1.3,
+     "startSec": 35.852,
+     "durSec": 0.279,
+     "rms": 0.0499
+    },
+    {
+     "midi": 52,
+     "note": "E3",
+     "cents": 8.7,
+     "startSec": 36.328,
+     "durSec": 0.546,
+     "rms": 0.0602
+    }
+   ]
+  },
+  {
+   "text": "room.",
+   "fromMs": 36840,
+   "toMs": 38800,
+   "nuclei": [
+    {
+     "midi": 52,
+     "note": "E3",
+     "cents": 18.7,
+     "startSec": 36.827,
+     "durSec": 0.604,
+     "rms": 0.0473
+    },
+    {
+     "midi": 59,
+     "note": "B3",
+     "cents": 8.7,
+     "startSec": 37.64,
+     "durSec": 0.128,
+     "rms": 0.0108
+    }
+   ]
+  }
+ ],
+ "wordCount": 49,
+ "nucleusCount": 28
+}

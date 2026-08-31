@@ -1,31 +1,45 @@
 # imab — "i'm a butterfly" · dance record, hook score.
 #
-# The club cousin of flutterbap: A minor verses, C major hook, 4/4 at
-# 124 BPM (beat ≈ 0.4839 s, bar ≈ 1.9355 s). This file is the melody's
-# source of truth; the click/guide renders in bin/gen-click.mjs read
-# from the same table.
+# THE MELODY IS MEASURED, NOT COMPOSED. Derived statistically from 35
+# matched performances (2020–2026) of the butterfly-cosplayer song on
+# @whistlegraph via toolchain/whistlegraph/melody-stats.py (plosive-safe
+# syllable→note nuclei, per-take register refit, octave folding):
+# downloads/imab.melody-stats.json is the evidence; this file is the
+# quantized reading.
 #
-# Harmony (8-bar hook loop):  Am | Am | G | G | C | C | F | G
-# Bass roots:                 A2   A2   G2   G2   C3   C3   F2   G2
+# Shape: a TONIC CHANT with one octave flare — the whole first line sits
+# on the tonic; "flap-PING" leaps +12 (sung ~+11.6, a hair flat — keep
+# the flare); "just a costume" enters on the 4th and walks down
+# 4th→maj3rd→2nd (the major third puts it in MAJOR); "i put on" bumps
+# the 2nd; "in my room" comes home, "room" held longest.
 #
-# ── the hook, one line per bar (CAPS = held) ──────────────────────────
+# Key: A major (corpus key consensus clusters on A/A#; tonic A).
+# Sung register: tonic ≈ A3. Source tempo median ≈ 115 BPM; the DANCE
+# cut runs the lane's 124.
 #
-# [i'm-a-butterfly]  (bars 1–4 — call and answer, flutterbap cells)
-#   1  i'm  a    BUT       ter   fly     (E5@1  G5@1.5  C6@2·1.5b  B5@3.5  G5@4)
-#   2  —                   i     MAB     (rest              A4@4    E5@4.5)
-#   3  i'm  a    BUT       ter   fly     (D5@1  G5@1.5  B5@2·1.5b  A5@3.5  G5@4)
-#   4  —                   i     MAB     (rest              A4@4    E5@4.5)
+# ── the hook, quantized to 4/4 (T = tonic; beats in parens) ───────────
 #
-# [the-lift]  (bars 5–8 — climbs to E6, chants home)
-#   5  i'm  a    BUT       ter   fly     (E5@1  G5@1.5  C6@2·1.5b  D6@3.5  E6@4)
-#   6  FLY            →              (E6@1·2b  →  C6@3·1.5b)
-#   7  no   thing holds me  DOWN        (E6@1  D6@1.5  C6@2  G5@2.5  A5@3·1.5b)
-#   8  i    MAB   i    MAB              (A4@1  E5@1.5·held   A4@3  E5@3.5·held)
+#   bar 1   i'm(T @1)  a(T @1.75)  BUT(T @2)  ter(T @3)  fly(T @4)
+#   bar 2   flap(T @1.5)  PING(T+12 @2.5, held)  for(T @3.5)  you(T @4)  guys(T @4.5)
+#   bar 3   —  just(T+5 @2.5)  a(T+5 @4)  cos(T+4 @4.5)
+#   bar 4   TUME(T+2 @1, held 1.5)  —  i(T+2 @3)  put(T+2 @3.5)  on(T @4)  in(T @4.5)
+#   bar 5   my(T-0..-1 @1)  ROOM(T @1.5, held ~1.5)  —
+#   bar 6   —  (breath / turnaround)
 #
-# Lineage: bars 1/5 = flutterbap bar 1 (E5 G5 C6) · bar 3 = flutterbap
-# bar 3 (D5 G5 B5) · bar 7 = lately-when-i-fly "nothing holds me"
-# (E6 D6 C6 G5) · the i-MAB stamp (A4→E5) is imab's own.
+# In A: T=A3(57) · T+2=B3(59) · T+4=C#4(61) · T+5=D4(62) · T+12=A4(69).
+# Fuzzy slots per the stats (write them, then let the ear rule): "on"
+# median +0.8 (could be T or T+2); "my" −0.5 (T or a lower-neighbor
+# G#3); costume·2/put sit at +2.5 (between 2nd and minor 3rd — the maj
+# 2nd reading fits the major mode).
 #
-# Form (planned, ~183 bars at 124 if it goes six minutes — see
-# README "the dance track"): palindrome floor, hook passes at act
-# doors, kickless break, drop that answers a slow smear of the hook.
+# Rhythm evidence (median inter-onset units ≈ beats): i'm 0 · a 0.72 ·
+# but 1.05 · ter 1.88 · fly 2.9 · flap 4.7 · PING 5.83 · for 6.54 ·
+# you 6.82 · guys 7.56 · just 9.63 · a 10.9 · cos 11.45 · tume 12.12 ·
+# i 14.19 · put 14.5 · on ~14.5 · in 15.4 · my 15.92 · room 16.32.
+#
+# Harmony (the source is a-cappella — chant implies it): A drone under
+# the chant; D (IV) under "just a costume"; back to A for the landing.
+# Dance-cut progression proposal: A | A | D | D→A | A | A.
+#
+# Form (planned): the clubber360 palindrome — hook passes at act doors,
+# kickless break, drop answering a slow smear. See README.
