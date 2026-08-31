@@ -158,6 +158,8 @@ let siblingWizards = [
                 blurb: "play, rate, and annotate the whole /pop library", needsSpec: false),
     WizardEntry(dir: "shot-wizard", exe: "ShotWizard",
                 blurb: "storyboard shots and watch the sequence play through", needsSpec: false),
+    WizardEntry(dir: "sylla-wizard", exe: "SyllaWizard",
+                blurb: "draw syllable boundaries on a take's spectrogram by hand", needsSpec: false),
     WizardEntry(dir: "wave-wizard", exe: "WaveWizard",
                 blurb: "record labelled audio samples from a spec", needsSpec: true),
 ]
