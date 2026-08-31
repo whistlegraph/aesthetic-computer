@@ -82,9 +82,11 @@ def main():
         matched = sum(1 for h in hit if h is not None)
         if matched < 0.65 * len(tmpl): continue
         # per template word → nuclei of its matched take word
-        per_word = []
+        per_word, per_win = [], []
         for wi, h in enumerate(hit):
             per_word.append(doc["words"][h]["nuclei"] if h is not None else [])
+            per_win.append((doc["words"][h]["fromMs"] / 1000, doc["words"][h]["toMs"] / 1000)
+                           if h is not None else None)
         # per-take pitch center: weighted median over all matched nuclei
         allm = [(n["midi"] + n["cents"] / 100, n["rms"] * n["durSec"]) for ns in per_word for n in ns]
         if len(allm) < 8: continue
@@ -100,8 +102,14 @@ def main():
                 keep = sorted(sorted(ns, key=lambda n: -(n["rms"] * n["durSec"]))[:need],
                               key=lambda n: n["startSec"])
             else: keep = ns
+            win = per_win[wi]
+            share = (win[1] - win[0]) / need if win else None
             for k in range(need):
-                syls.append(keep[k] if k < len(keep) else None)
+                if k < len(keep):
+                    nuc = dict(keep[k])
+                    if share: nuc["durSec"] = max(nuc["durSec"], share)  # whisper window rules
+                    syls.append(nuc)
+                else: syls.append(None)
         onsets = [s["startSec"] for s in syls if s]
         if len(onsets) < 8: continue
         t0 = min(onsets)
@@ -137,15 +145,20 @@ def main():
                 s = t["syls"][si]
                 if not s: continue
                 s["rel"] = round(s["rel"] - off, 2)
-                if skel[si] is not None:                 # fold octave errors
-                    while s["rel"] - skel[si] > 7:  s["rel"] = round(s["rel"] - 12, 2)
-                    while s["rel"] - skel[si] < -7: s["rel"] = round(s["rel"] + 12, 2)
+
+    for t in takes:                       # contour: step from previous syllable
+        prev = None
+        for s in t["syls"]:
+            if not s: continue
+            s["step"] = round(s["rel"] - prev, 2) if prev is not None else None
+            prev = s["rel"]
 
     stats = []
     for si, label in enumerate(syl_labels):
         rels = [t["syls"][si]["rel"] for t in takes if t["syls"][si]]
         beats = [t["syls"][si]["beat"] for t in takes if t["syls"][si]]
         durs = [t["syls"][si]["dur"] for t in takes if t["syls"][si]]
+        steps = [t["syls"][si]["step"] for t in takes if t["syls"][si] and t["syls"][si].get("step") is not None]
         if not rels:
             stats.append({"syl": label, "phrase": phrase_of[min(si, len(phrase_of)-1)], "n": 0}); continue
         stats.append({"syl": label, "phrase": phrase_of[sum(n_syll[:next(i for i in range(len(tmpl)) if sum(n_syll[:i+1]) > si)])] if False else None,
@@ -153,7 +166,10 @@ def main():
                       "rel": round(float(np.median(rels)), 2),
                       "relIQR": [round(float(np.percentile(rels, 25)), 2), round(float(np.percentile(rels, 75)), 2)],
                       "beat": round(float(np.median(beats)), 2),
-                      "dur": round(float(np.median(durs)), 2)})
+                      "dur": round(float(np.median(durs)), 2),
+                      "step": round(float(np.median(steps)), 2) if steps else None,
+                      "stepIQR": [round(float(np.percentile(steps, 25)), 2),
+                                  round(float(np.percentile(steps, 75)), 2)] if steps else None})
     # phrase index per syllable slot
     k = 0
     for wi, w in enumerate(tmpl):
@@ -166,10 +182,11 @@ def main():
     out_path = os.path.join(DL, f"{slug}.melody-stats.json")
     json.dump(out, open(out_path, "w"), indent=1)
     print(f"✓ {out_path} · {len(takes)} takes matched")
-    print(f"{'syllable':<14}{'n':>4}{'rel':>7}{'IQR':>15}{'beat':>7}{'dur':>6}")
+    print(f"{'syllable':<14}{'n':>4}{'rel':>7}{'IQR':>15}{'step':>7}{'stepIQR':>15}{'beat':>7}{'dur':>6}")
     for s in stats:
         if s["n"] == 0: print(f"{s['syl']:<14}{0:>4}      —"); continue
-        print(f"{s['syl']:<14}{s['n']:>4}{s['rel']:>7}{str(s['relIQR']):>15}{s['beat']:>7}{s['dur']:>6}")
+        st = s.get("step"); si_ = s.get("stepIQR")
+        print(f"{s['syl']:<14}{s['n']:>4}{s['rel']:>7}{str(s['relIQR']):>15}{str(st):>7}{str(si_):>15}{s['beat']:>7}{s['dur']:>6}")
 
 if __name__ == "__main__":
     main()
