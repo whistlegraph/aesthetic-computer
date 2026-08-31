@@ -21,10 +21,13 @@ REDACTED — client/confidential lanes never reach the model), write a
 Buzzsprout. `daily-YYYY-MM-DD` slugs are pattern-cleared in `lib/hosted.mjs`;
 the content guard is daily.mjs's redaction filter + prompt rules + word-count
 and leak checks (it refuses to produce on any violation). One episode per day
-(Buzzsprout receipt = done). Clockwork: launchd
-`computer.aesthetic.podcast-daily` on neo, 8:00 PM daily, log at
-`~/Library/Logs/ac-podcast-daily.log`. `--stage` publishes private for
-review; `--dry` writes the script only.
+(Buzzsprout receipt = done). Clockwork: **jasellite** cron `30 0 * * *` UTC
+(~8:30 PM ET) via `~/.local/bin/podcast-daily` — sources
+`~/.config/ac/buzzsprout.env`, sets `TZ=America/New_York`, ff-merges the
+checkout, logs to `~/.podcast-daily.log`. Dailies wear one committed static
+cover (`assets/the-daily-cover*.png`) so the appliance needs no xelatex; the
+commit log is read from `FETCH_HEAD` after a best-effort fetch. `--stage`
+publishes private for review; `--dry` writes the script only.
 
 ## The shape of an episode
 
