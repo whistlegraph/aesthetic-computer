@@ -6974,6 +6974,85 @@
           "#2e636b"
         ]
       }
+    },
+    {
+      "id": "94-gramophone",
+      "name": "Gramophone",
+      "seed": 94853,
+      "bpm": 99,
+      "bars": 33,
+      "tonic": "A",
+      "mode": "minor",
+      "singleOctave": true,
+      "instrumentProgram": 78,
+      "instrumentName": "Whistle",
+      "development": "mirror",
+      "harmonyDegrees": [
+        0,
+        5,
+        3,
+        4,
+        0,
+        3,
+        4,
+        0
+      ],
+      "melodyBars": [
+        [
+          1,
+          2,
+          3
+        ],
+        [
+          1,
+          2,
+          1
+        ],
+        [
+          3,
+          1,
+          2,
+          1
+        ],
+        [
+          2,
+          3,
+          5,
+          3
+        ],
+        [
+          5,
+          3,
+          4,
+          6
+        ],
+        [
+          5,
+          3,
+          2,
+          1
+        ],
+        [
+          2,
+          3
+        ],
+        [
+          4,
+          6,
+          4,
+          0
+        ]
+      ],
+      "notesPath": "pop/menuband/out/menu-band-waltzes/94-gramophone/94-gramophone.notes.json",
+      "audioPath": "pop/menuband/out/menu-band-waltzes/94-gramophone/94-gramophone.wav",
+      "outPath": "pop/menuband/out/menu-band-waltzes/94-gramophone/94-gramophone.mp4",
+      "visual": {
+        "palette": [
+          "#f3e8ee",
+          "#c587aa",
+          "#6b2e51"
+        ]
+      }
     }
   ]
 }
