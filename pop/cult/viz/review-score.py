@@ -13,8 +13,8 @@
 #   · out/cult-remix-v10.events.json — the score receipt (regenerate with
 #     `node pop/cult/bin/render10.mjs`); word mapping ported from
 #     bin/transcript.mjs. Receipt times are FULL-render seconds; the
-#     release edit starts TRIM=15.95 s in, keeps render bars 8–11, then
-#     removes bars 12–23 so bar 24 (THE MESSAGE) lands at about 0:08.
+#     release edit starts TRIM=15.95 s in, keeps render bars 8–9, then
+#     removes bars 10–28 so bar 29 (the sentence) lands at about 0:04.
 #   · out/stems/v10-*.wav — TRUE per-bus stems from
 #     `node pop/cult/bin/render10.mjs --stems` (vox / tube / music /
 #     drums / signal). The music and drums buses are band-split into
@@ -81,10 +81,10 @@ EIGHTH = BEAT / 2
 TRIM = 15.95                    # shipped t = full-render t − TRIM
 GRID0 = 8 * BAR - TRIM          # 0.05 — bar 8's downbeat in shipped time
 BAR0 = 8                        # ruler numbers speak render bars (hook = 29)
-INTRO_CUT = (12 * BAR, 24 * BAR)  # remove full-render bars 12–23 (24 s)
+INTRO_CUT = (10 * BAR, 29 * BAR)  # remove full-render bars 10–28 (38 s)
 
 def ship_time(full_t):
-    """Map full-render receipt time into the four-bar-intro release edit."""
+    """Map full-render receipt time into the two-bar-intro release edit."""
     if full_t < INTRO_CUT[0]:
         return full_t - TRIM
     if full_t < INTRO_CUT[1]:
@@ -131,7 +131,7 @@ def intro_cut(sig):
     b = int(round((INTRO_CUT[1] - TRIM) * sr))
     return np.concatenate([sig[:a], sig[b:]])
 
-def stem(name, af=None):        # bus stem, trimmed + four-bar-intro edit
+def stem(name, af=None):        # bus stem, trimmed + two-bar-intro edit
     sig = load(os.path.join(STEMS, f"v10-{name}.wav"), af=af, ss=TRIM)
     return fit(intro_cut(sig))
 
@@ -560,10 +560,10 @@ PAD_L = PLAY_X - GUT
 PAD_R = W - PLAY_X
 STRIP_W = SWm + PAD_L + PAD_R
 
-# Acts in release time. Render bars 12–23 are absent from this edit.
+# Acts in release time. Render bars 10–28 are absent from this edit.
 ACTS = [
     (0.00,   "II THREE VOICES",       (64, 190, 180)),
-    (ship_time(24 * BAR),  "III THE MESSAGE",       (235, 150, 70)),
+    (ship_time(29 * BAR),  "III THE MESSAGE",       (235, 150, 70)),
     (ship_time(40 * BAR),  "IV THE SECRET",         (205, 75, 85)),
     (ship_time(48 * BAR),  "V THE REPLY",           (120, 200, 120)),
     (ship_time(64 * BAR),  "VI IT SPREADS",         (170, 130, 230)),

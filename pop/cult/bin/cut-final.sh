@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # cut-final.sh — the release master (pop / DistroKid), proper loudness.
 #
-# Chain: fresh render → four-bar intro edit → the Peep-pass space (bass shelf +
+# Chain: fresh render → two-bar intro edit → the Peep-pass space (bass shelf +
 # cathedral convolution, same as cut-v10) → MEASURE → one static dB to
 # −11.5 LUFS integrated → true-peak limiter with a −1.0 dBTP ceiling.
 # Never a second loudnorm. Deliverables:
@@ -21,10 +21,10 @@ FULL="$OUT/cult-remix-v10-full.wav"
 TRIM="$OUT/.final-trim.wav"
 SPACE="$OUT/.final-space.wav"
 
-echo "→ four-bar intro edit (keep bars 8–11, cut bars 12–23)"
+echo "→ two-bar intro edit (keep bars 8–9, cut bars 10–28)"
 ffmpeg -y -v error -i "$FULL" -filter_complex \
-  "[0:a]atrim=start=15.95:end=24,asetpts=PTS-STARTPTS[a];\
-[0:a]atrim=start=48,asetpts=PTS-STARTPTS[b];\
+  "[0:a]atrim=start=15.95:end=20,asetpts=PTS-STARTPTS[a];\
+[0:a]atrim=start=58,asetpts=PTS-STARTPTS[b];\
 [a][b]concat=n=2:v=0:a=1,afade=t=in:st=0:d=0.02[out]" \
   -map "[out]" -c:a pcm_s24le "$TRIM"
 
