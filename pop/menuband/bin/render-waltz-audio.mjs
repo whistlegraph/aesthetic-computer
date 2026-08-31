@@ -97,14 +97,17 @@ function scaleMidi(degree, octaveShift = 0) {
 }
 
 const notes = [];
-function add(at, dur, soundMidi, velocity) {
+function add(at, dur, soundMidi, _velocity) {
   if (!(at >= 0 && at < duration - 0.05)) return;
+  // Menu Band's keyboard path sends every melodic note at MIDI velocity 100.
+  // Keep the portable renderer byte-identical in dynamics to the Mac renderer.
+  const menuBandVelocity = 100 / 127;
   notes.push({
     t: at,
     dur: Math.min(dur, duration - at - 0.02),
     midi: displayMidi(soundMidi),
     soundMidi,
-    vel: Math.max(0.06, Math.min(0.9, velocity)),
+    vel: menuBandVelocity,
     lane: "tone",
   });
 }

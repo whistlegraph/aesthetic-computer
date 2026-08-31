@@ -167,14 +167,18 @@ func scaleMidi(_ degree: Int, octaveShift: Int = 0) -> Int {
 }
 
 var notes: [Note] = []
-func add(_ at: Double, _ dur: Double, _ soundMidi: Int, _ velocity: Double) {
+func add(_ at: Double, _ dur: Double, _ soundMidi: Int, _ _: Double) {
     guard at >= 0, at < duration - 0.05 else { return }
+    // Menu Band's keyboard path sends every melodic note at MIDI velocity 100.
+    // Keep generated scores faithful to the instrument instead of introducing
+    // arranger-style accents that the app itself does not produce.
+    let menuBandVelocity = 100.0 / 127.0
     notes.append(Note(
         t: at,
         dur: min(dur, duration - at - 0.02),
         midi: displayMidi(for: soundMidi),
         soundMidi: soundMidi,
-        vel: max(0.06, min(0.9, velocity)),
+        vel: menuBandVelocity,
         lane: "tone"
     ))
 }
