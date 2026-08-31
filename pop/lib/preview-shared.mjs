@@ -508,7 +508,7 @@ export function drawEventWaveform(ctx, audio, audioSr, audioPeak, x, y, w, h, t0
 // Spawns ffmpeg expecting raw BGRA frames on stdin at (W,H,fps) plus
 // an audio input from `audioPath`. Returns the child process — caller
 // writes BGRA buffers to .stdin and calls .stdin.end() when done.
-export function spawnFFmpegEncode({ audioPath, w, h, fps, outPath, crf = 20 }) {
+export function spawnFFmpegEncode({ audioPath, w, h, fps, outPath, crf = 20, videoFilter = null }) {
   return spawn("ffmpeg", [
     "-hide_banner", "-loglevel", "error", "-y",
     "-f", "rawvideo",
@@ -517,6 +517,7 @@ export function spawnFFmpegEncode({ audioPath, w, h, fps, outPath, crf = 20 }) {
     "-r", String(fps),
     "-i", "-",
     "-i", audioPath,
+    ...(videoFilter ? ["-vf", videoFilter] : []),
     "-c:v", "libx264", "-preset", "faster", "-crf", String(crf),
     "-threads", "0",
     "-c:a", "aac", "-b:a", "192k",

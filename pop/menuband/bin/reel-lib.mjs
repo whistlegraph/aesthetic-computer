@@ -495,10 +495,10 @@ export function makeOnsets(lead) {
 }
 
 // ── the frame pump: drawFrame(t) → ffmpeg, muxed with the jingle ───────────
-export async function renderVideo({ canvas, audioPath, outPath, total, drawFrame, label = "sim", fps = FPS, crf = 18 }) {
+export async function renderVideo({ canvas, audioPath, outPath, total, drawFrame, label = "sim", fps = FPS, crf = 18, videoFilter = null }) {
   const FRAMES = Math.round(total * fps);
   console.log(`▸ ${label} · ${FRAMES} frames · ${total.toFixed(1)}s · ${W}x${H}@${fps}`);
-  const enc = spawnFFmpegEncode({ audioPath, w: W, h: H, fps, outPath, crf });
+  const enc = spawnFFmpegEncode({ audioPath, w: W, h: H, fps, outPath, crf, videoFilter });
   const t0 = Date.now();
   for (let fi = 0; fi < FRAMES; fi++) {
     drawFrame(fi / fps);

@@ -981,6 +981,9 @@ await renderVideo({
   label: `MenuBand variation ${index + 1}/${manifest.variations.length} · ${id}`,
   fps: FPS,
   crf: bounded(entry.visual.video?.crf ?? 18, 8, 28),
+  videoFilter: entry.visual.monochrome === true
+    ? "hue=s=0,eq=contrast=1.15:brightness=-0.04"
+    : null,
 });
 
 function makePersistentParticles(context, spec, variationSeed) {
