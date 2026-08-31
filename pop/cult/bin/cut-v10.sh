@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # cut-v10.sh — master the v10 render and cut the mp3.
 #
-# v10 starts when the kicks start, keeps two bars of the three-voice intro,
-# then cuts render bars 10–28 so the sentence itself arrives at about 0:04.
+# v10 starts when the kicks start, keeps two bars of intro, then removes the
+# withheld opening and one redundant phrase from each late dense act. Every
+# narrative act and impact survives; the release lands near 2:21.
 # The full renderer and receipt remain archival; this is the release edit.
 #
 # Same mastering law as v3/v5/v9: MEASURE → one static dB → true-peak
@@ -18,11 +19,14 @@ TRIM="$OUT/cult-remix-v10-full-trim.wav"
 SRC="$OUT/cult-remix-v10-full-master.wav"
 
 if [ ! -f "$TRIM" ] || [ "$FULL" -nt "$TRIM" ] || [ "$0" -nt "$TRIM" ]; then
-  echo "→ two-bar intro edit (keep bars 8–9, cut bars 10–28)"
+  echo "→ 2:21 discovery edit (cut bars 10–28, 60–63, 68–71, 84–91)"
   ffmpeg -y -v error -i "$FULL" -filter_complex \
     "[0:a]atrim=start=15.95:end=20,asetpts=PTS-STARTPTS[a];\
-[0:a]atrim=start=58,asetpts=PTS-STARTPTS[b];\
-[a][b]concat=n=2:v=0:a=1,afade=t=in:st=0:d=0.02[out]" \
+[0:a]atrim=start=58:end=120,asetpts=PTS-STARTPTS[b];\
+[0:a]atrim=start=128:end=136,asetpts=PTS-STARTPTS[c];\
+[0:a]atrim=start=144:end=168,asetpts=PTS-STARTPTS[d];\
+[0:a]atrim=start=184,asetpts=PTS-STARTPTS[e];\
+[a][b][c][d][e]concat=n=5:v=0:a=1,afade=t=in:st=0:d=0.02[out]" \
     -map "[out]" -c:a pcm_s24le "$TRIM"
 fi
 

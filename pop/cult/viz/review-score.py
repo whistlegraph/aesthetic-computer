@@ -13,8 +13,8 @@
 #   · out/cult-remix-v10.events.json — the score receipt (regenerate with
 #     `node pop/cult/bin/render10.mjs`); word mapping ported from
 #     bin/transcript.mjs. Receipt times are FULL-render seconds; the
-#     release edit starts TRIM=15.95 s in, keeps render bars 8–9, then
-#     removes bars 10–28 so bar 29 (the sentence) lands at about 0:04.
+#     release edit starts TRIM=15.95 s in, then removes render bars 10–28,
+#     60–63, 68–71 and 84–91. Every act remains; repeated late phrases do not.
 #   · out/stems/v10-*.wav — TRUE per-bus stems from
 #     `node pop/cult/bin/render10.mjs --stems` (vox / tube / music /
 #     drums / signal). The music and drums buses are band-split into
@@ -81,26 +81,50 @@ EIGHTH = BEAT / 2
 TRIM = 15.95                    # shipped t = full-render t − TRIM
 GRID0 = 8 * BAR - TRIM          # 0.05 — bar 8's downbeat in shipped time
 BAR0 = 8                        # ruler numbers speak render bars (hook = 29)
-INTRO_CUT = (10 * BAR, 29 * BAR)  # remove full-render bars 10–28 (38 s)
+CUTS = [
+    (10 * BAR, 29 * BAR),         # withheld opening
+    (60 * BAR, 64 * BAR),         # reply repetition
+    (68 * BAR, 72 * BAR),         # middle of spread
+    (84 * BAR, 92 * BAR),         # repeated whole-message statement
+]
 
 def ship_time(full_t):
-    """Map full-render receipt time into the two-bar-intro release edit."""
-    if full_t < INTRO_CUT[0]:
-        return full_t - TRIM
-    if full_t < INTRO_CUT[1]:
-        return None
-    return full_t - TRIM - (INTRO_CUT[1] - INTRO_CUT[0])
+    """Map one full-render time through every release cut."""
+    removed = 0.0
+    for cut0, cut1 in CUTS:
+        if full_t < cut0:
+            break
+        if full_t < cut1:
+            return None
+        removed += cut1 - cut0
+    return full_t - TRIM - removed
+
+def ship_end_time(full_t):
+    """Map an event's right edge; a cut start belongs to the kept left side."""
+    removed = 0.0
+    for cut0, cut1 in CUTS:
+        if full_t <= cut0:
+            break
+        if full_t < cut1:
+            return None
+        removed += cut1 - cut0
+    return full_t - TRIM - removed
 
 def ship_span(full_t, dur):
-    """Map one event, preserving only the portions outside the intro cut."""
+    """Map the first surviving portion of an event through all cuts."""
     full_end = full_t + dur
-    if full_t < INTRO_CUT[0]:
-        return full_t - TRIM, min(full_end, INTRO_CUT[0]) - TRIM
-    if full_t < INTRO_CUT[1]:
-        if full_end <= INTRO_CUT[1]:
-            return None
-        return ship_time(INTRO_CUT[1]), ship_time(full_end)
-    return ship_time(full_t), ship_time(full_end)
+    visible_start = full_t
+    for cut0, cut1 in CUTS:
+        if cut0 <= visible_start < cut1:
+            visible_start = cut1
+    if visible_start >= full_end:
+        return None
+    visible_end = full_end
+    for cut0, _cut1 in CUTS:
+        if visible_start < cut0 < visible_end:
+            visible_end = cut0
+            break
+    return ship_time(visible_start), ship_end_time(visible_end)
 
 # ---------------------------------------------------------------- audio in
 def load(path, af=None, ss=None):
@@ -126,14 +150,19 @@ def fit(sig):
         sig = np.concatenate([sig, np.zeros(N - len(sig), np.float32)])
     return sig[:N]
 
-def intro_cut(sig):
-    a = int(round((INTRO_CUT[0] - TRIM) * sr))
-    b = int(round((INTRO_CUT[1] - TRIM) * sr))
-    return np.concatenate([sig[:a], sig[b:]])
+def release_cut(sig):
+    parts, cursor = [], 0
+    for cut0, cut1 in CUTS:
+        a = int(round((cut0 - TRIM) * sr))
+        b = int(round((cut1 - TRIM) * sr))
+        parts.append(sig[cursor:a])
+        cursor = b
+    parts.append(sig[cursor:])
+    return np.concatenate(parts)
 
-def stem(name, af=None):        # bus stem, trimmed + two-bar-intro edit
+def stem(name, af=None):        # bus stem, trimmed + discovery edit
     sig = load(os.path.join(STEMS, f"v10-{name}.wav"), af=af, ss=TRIM)
-    return fit(intro_cut(sig))
+    return fit(release_cut(sig))
 
 # ---------------------------------------------------------------- receipt
 receipt = json.load(open(EVENTS_JSON))
@@ -602,7 +631,7 @@ PAD_L = PLAY_X - GUT
 PAD_R = W - PLAY_X
 STRIP_W = SWm + PAD_L + PAD_R
 
-# Acts in release time. Render bars 10–28 are absent from this edit.
+# Acts in release time after the four deliberate phrase cuts above.
 ACTS = [
     (0.00,   "II THREE VOICES",       (64, 190, 180)),
     (ship_time(29 * BAR),  "III THE MESSAGE",       (235, 150, 70)),
@@ -640,8 +669,8 @@ for li in range(NLANE):
     y0 = LBL_BAND + lane_y[li]
     sd.rectangle([x0m, y0, x1m, y0 + LANE_DEFS[li][4] - 1], fill=LANE_BG)
 
-# Beat grid + ruler. Spacing stays continuous while the labels jump from
-# render bar 11 to bar 24 at the release edit.
+# Beat grid + ruler. Spacing stays continuous while render-bar labels jump
+# across each removed phrase.
 ry = STRIP_H - RULER_H
 render_bar = BAR0
 while True:

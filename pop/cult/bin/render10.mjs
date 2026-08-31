@@ -1134,7 +1134,7 @@ const introBar = (b) => b >= 8 && b < 16;
 const sosBar = (b) => b >= 16 && b < 24;
 
 const kickOn = (b) => !(inS(b, "carrier") || inS(b, "secret") || inS(b, "carrieroff"));
-const hatOn = (b) => kickOn(b) || inS(b, "secret");
+const hatOn = (b) => kickOn(b);
 const dense = (b) => inS(b, "reply") || inS(b, "whole");
 const hookSection = (b) => inS(b, "message") || inS(b, "reply") || inS(b, "recognise");
 
@@ -1565,31 +1565,19 @@ function choir(bar, g) {
   });
 }
 
-// v10.1: @jeffrey — "flange the harmonies more around 1:15 … have them
-// sit much deeper in the mix". The act-IV cult stacks: each voice gets a
-// twin seven milliseconds behind itself carrying a slow deep wiggle the
-// original doesn't share — two copies of one take drifting through each
-// other IS a tape flange — and the whole stack drops ~4 dB, darker and
-// wetter, so the sweep happens BEHIND the record instead of in front.
-function secretChoir(bar, beat, gains, phase = 0) {
+// ACT IV is the perceptual reset: one Camille take at a time, never a chord
+// stack. Four phrases cross the chord tones while the gravity impact bends
+// their space. The rest of the ensemble has somewhere dramatic to return.
+function secretCamille(bar, beat, gain, phase = 0) {
   const picks = choirFor(degAt(bar));
-  const pans = [0, -0.46, 0.46], sides = [0.40, 0.85, 0.85];
-  picks.forEach((nm, i) => {
-    const o = {
-      gain: (gains[i] ?? 0.30) * 0.62, pan: pans[i] ?? 0,
-      side: sides[i] ?? 0.7, dark: 0.45, dly: 0.42,
-    };
-    sung(cultTake(nm), at(bar, beat) + i * 0.045, {
-      ...o, wig: 5, wigHz: 0.6 + 0.2 * i, wigPhase: phase + i * 2.3, wigDrift: (i % 2 ? -3 : 3), wigIn: 1.4,
-    });
-    sung(cultTake(nm), at(bar, beat) + i * 0.045 + 0.007, {
-      ...o, gain: o.gain * 0.85,
-      wig: 11, wigHz: 0.33, wigPhase: phase + 2.4 + i * 1.7, wigDrift: (i % 2 ? 9 : -9), wigIn: 0.8,
-    });
-  });
-  sung(cultTake(picks[0]), at(bar, beat) + 0.09, {
-    gain: (gains[0] ?? 0.5) * 0.38, semis: -12, dark: 0.55, side: 0.28, pan: 0, dly: 0.42,
-    evVoice: "sub",
+  const phrase = ((bar - S.secret[0]) / 2) | 0;
+  const nm = picks[(phrase + 1) % picks.length];
+  const take = has(`cult-${nm}`) ? `cult-${nm}` : cultTake(nm);
+  const pans = [-0.18, 0.14, -0.06, 0.22];
+  sung(take, at(bar, beat), {
+    gain, pan: pans[phrase % pans.length], side: 0.58, dark: 0.24, dly: 0.46,
+    atk: 0.16, wig: 7 + phrase * 1.5, wigHz: 0.44 + phrase * 0.07,
+    wigPhase: phase + phrase * 1.7, wigDrift: phrase % 2 ? -4 : 4, wigIn: 0.9,
   });
 }
 
@@ -1720,19 +1708,10 @@ for (const [k, db] of [10, 14, 16, 22].entries()) {
   shot("dot-fs3", u + 3.5 * BEAT, { bus: "tube", gain: g, pan: 0.45, side: 0.75, dly: 0.45, dark: 0.20 });
   shot("dot-d4", u + 4.0 * BEAT, { bus: "tube", gain: g * 0.45, pan: 0.0, side: 0.60, dly: 0.60, dark: 0.25 });
 }
-// The violin, for the cuuuuult passage: D5 - C#5 - B4 swelling from 1:13
-// into the act V drop at 1:20.
-// (complected: three desks, detuned and staggered — a section, not a
-// soloist — set back in the dark of the room.)
-shot("violin-secret", 44.4 * BAR, { bus: "tube", gain: 0.32, pan: 0.10, side: 0.60, dly: 0.48, dark: 0.30 });
-shot("violin-secret", 44.4 * BAR + 0.045, { bus: "tube", gain: 0.23, pan: -0.26, side: 0.70, dly: 0.55, dark: 0.38, semis: 0.05 });
-shot("violin-secret", 44.4 * BAR + 0.085, { bus: "tube", gain: 0.19, pan: 0.34, side: 0.70, dly: 0.60, dark: 0.42, semis: -0.07 });
-// The accordion breathes in: a 12 s musette swell under the kickless
-// secret act beside the violin, and push/pull chords doubling the act-VII
-// wall (B D G Em, one bellows each). Fixed emits.
-shot("accordion-secret", 41 * BAR, { bus: "tube", gain: 0.32, pan: -0.08, side: 0.70, dly: 0.40, dark: 0.25 });
-shot("accordion-secret", 41 * BAR + 0.070, { bus: "tube", gain: 0.14, pan: 0.32,
-  side: 0.78, dly: 0.52, dark: 0.38, semis: -12 });
+// Camille's clearing reveals these colors one at a time: one accordion
+// breath in its first half, one violin line in its second. No doubles.
+shot("accordion-secret", 41 * BAR, { bus: "tube", gain: 0.22, pan: -0.08, side: 0.70, dly: 0.44, dark: 0.30 });
+shot("violin-secret", 44.4 * BAR, { bus: "tube", gain: 0.24, pan: 0.10, side: 0.64, dly: 0.52, dark: 0.34 });
 {
   const AN = ["accordion-b", "accordion-d", "accordion-g", "accordion-e"];
   // The bellows begin answering in IT SPREADS, then become a continuous
@@ -1879,8 +1858,8 @@ for (let bar = 0; bar < BARS; bar++) {
     wub(t, bassRoot(deg), 1, 0.26, 4);   // whole: the wub BUILDS INTO the words, then clears out for them
 
   // ---- bass -------------------------------------------------------------
-  if (kickOn(bar) || inS(bar, "secret")) {
-    const g = introBar(bar) ? 0.52 : inS(bar, "secret") ? 0.62 : inS(bar, "recognise") ? 0.72 : 0.86;
+  if (kickOn(bar)) {
+    const g = introBar(bar) ? 0.52 : inS(bar, "recognise") ? 0.72 : 0.86;
     for (let b = 0; b < 4; b++) {
       const fifth = four === 3 && b === 3;
       bass(t + (b + 0.5) * BEAT + jit(3), root + (fifth ? 7 : 0), 0.26, g, fifth ? root : null);
@@ -2025,45 +2004,20 @@ for (let bar = 0; bar < BARS; bar++) {
     if (has("phone-pickup-b"))
       shot("phone-pickup-b", at(bar, 0) - 0.10, { bus: "vox", gain: 0.17, pan: 0.10, side: 0.45, dark: 0.40, dur: 1.2, atk: 0.04, wig: 6, wigHz: 0.7, wigIn: 0.4 });
   }
-  if (bar === S.secret[0] || bar === S.secret[0] + 4)
-    secretChoir(bar, 0, [0.62, 0.50, 0.40]);
-  if (bar === S.secret[0] + 2 || bar === S.secret[0] + 6)
-    secretChoir(bar, 2, [0.52, 0.44, 0.36], 1);
-  // The beeps have stopped, so the only thing still moving in act IV is a
-  // hand on a drumhead — the analog counterweight to a silent signal layer,
-  // and the sound of three people still in the room.
-  // @jeffrey: "the ones at 37 and 41 sound lame". They were: one 1.7 s slide
-  // at gain .86, four times over, with nothing changing but the pan. If a
-  // hand on a drumhead is the only thing moving in this act, it has to
-  // actually move — so it is four DIFFERENT journeys across the surface,
-  // shorter and quieter, each answered by a quick flick on the off bar.
-  if (inS(bar, "secret") && bar % 2 === 0) {
-    const k = ((bar - S.secret[0]) / 2) | 0;
-    const gesture = [
-      { path: "spiral",   dur: BAR * 0.95, gain: 0.60, rough: 0.44, shape: "slide", speed: 0.9 },
-      { path: "scrub",    dur: BAR * 0.70, gain: 0.66, rough: 0.52, shape: "drag",  speed: 1.2 },
-      { path: "spiralIn", dur: BAR * 1.10, gain: 0.58, rough: 0.40, shape: "slide", speed: 0.8 },
-      { path: "corner",   dur: BAR * 0.60, gain: 0.70, rough: 0.56, shape: "skid",  speed: 1.4 },
-    ][k % 4];
-    frictionPath(at(bar, 0.25), gesture.dur, { ...gesture, side: 0.26, dly: 0.12 });
+  if (inS(bar, "secret") && (bar - S.secret[0]) % 2 === 0) {
+    const phrase = (bar - S.secret[0]) / 2;
+    secretCamille(bar, 0.15, [0.46, 0.52, 0.56, 0.50][phrase], phrase * 0.7);
   }
-  if (inS(bar, "secret") && bar % 2 === 1)
-    frictionPath(at(bar, 2.6), BAR * 0.34, { path: "scrub", shape: "skid",
-      gain: 0.40, rough: 0.60, speed: 1.6, side: 0.30, dly: 0.10 });
-  // v10.1: heavier low end under the chant — the bass keeps walking at a
-  // fuller gain (0.44 → 0.62 in the bass block's law) and each chord gets
-  // a deep guitar pluck: root two octaves down on the even bars, a chord
-  // tone answering on the odd, both ringing across the bar line.
-  if (inS(bar, "secret")) {
+  // One hand gesture and two distant low strings are the entire accompaniment.
+  if (bar === S.secret[0] + 3)
+    frictionPath(at(bar, 2.2), BAR * 0.72, { path: "spiralIn", shape: "slide",
+      gain: 0.28, rough: 0.42, speed: 0.8, side: 0.24, dly: 0.16 });
+  if (bar === S.secret[0] || bar === S.secret[0] + 4) {
     const gch = triad(degAt(bar));
-    // "much much deeper and quieter": root three octaves down (~31 Hz
-    // fundamental, the fuzz carries it), answers one octave lower too
-    if (bar % 2 === 0) guitar(at(bar, 0.5) + jit(6), gch[0] - 36, BAR * 2.3, 0.34, -0.14);
-    else guitar(at(bar, 1.5) + jit(6), gch[(bar >> 1) % 3] - 24, BAR * 1.8, 0.24, 0.20);
-    bass(at(bar, 0) + jit(3), bassRoot(degAt(bar)) - 12, BAR * 0.92, 0.50);
+    const phrase = (bar - S.secret[0]) / 4;
+    guitar(at(bar, 0.65) + jit(6), gch[phrase ? 1 : 0] - 24,
+      BAR * 2.6, phrase ? 0.14 : 0.16, phrase ? 0.20 : -0.14, 0.9974);
   }
-  if (inS(bar, "secret") && bar % 2 === 1) material(bar, "cult-b3", 0.62);
-  if (inS(bar, "secret") && bar % 2 === 0) choir(bar, 0.22);
 
   // ══ ACT V · THE REPLY ════════════════════════════════════════════════
   // v9: the loop comes back from the turn an octave down — the same words,

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # cut-final.sh — the release master (pop / DistroKid), proper loudness.
 #
-# Chain: fresh render → two-bar intro edit → the Peep-pass space (bass shelf +
+# Chain: fresh render → 2:21 discovery edit → the Peep-pass space (bass shelf +
 # cathedral convolution, same as cut-v10) → MEASURE → one static dB to
 # −11.5 LUFS integrated → true-peak limiter with a −1.0 dBTP ceiling.
 # Never a second loudnorm. Deliverables:
@@ -21,11 +21,14 @@ FULL="$OUT/cult-remix-v10-full.wav"
 TRIM="$OUT/.final-trim.wav"
 SPACE="$OUT/.final-space.wav"
 
-echo "→ two-bar intro edit (keep bars 8–9, cut bars 10–28)"
+echo "→ 2:21 discovery edit (cut bars 10–28, 60–63, 68–71, 84–91)"
 ffmpeg -y -v error -i "$FULL" -filter_complex \
   "[0:a]atrim=start=15.95:end=20,asetpts=PTS-STARTPTS[a];\
-[0:a]atrim=start=58,asetpts=PTS-STARTPTS[b];\
-[a][b]concat=n=2:v=0:a=1,afade=t=in:st=0:d=0.02[out]" \
+[0:a]atrim=start=58:end=120,asetpts=PTS-STARTPTS[b];\
+[0:a]atrim=start=128:end=136,asetpts=PTS-STARTPTS[c];\
+[0:a]atrim=start=144:end=168,asetpts=PTS-STARTPTS[d];\
+[0:a]atrim=start=184,asetpts=PTS-STARTPTS[e];\
+[a][b][c][d][e]concat=n=5:v=0:a=1,afade=t=in:st=0:d=0.02[out]" \
   -map "[out]" -c:a pcm_s24le "$TRIM"
 
 echo "→ cathedral + low shelf"
