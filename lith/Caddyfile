@@ -890,6 +890,14 @@
             root * /opt/ac/system/public
             file_server
         }
+        # Apex → Mac App Store product page (the store listing is the
+        # converting front door; @jeffrey, 2026-08-31). Only the bare root
+        # forwards — /privacy.html, /support.html, /redeem.html, /advanced.html
+        # must stay served here because App Review points at them. 302, not
+        # 301, so the front door can move back without fighting browser caches.
+        handle / {
+            redir https://apps.apple.com/app/id6767311903 302
+        }
         handle {
             root * /opt/ac/system/public/menuband
             try_files {path} {path}.html /index.html
