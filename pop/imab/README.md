@@ -59,6 +59,16 @@ node pop/imab/bin/gen-kit.mjs          # one-shot sample kit → samples/kit/
 4. Raw takes never ship: vocal comps go through the aesthetivox chain
    (`pop/bin/autotune.py`, A minor) before they touch a mix.
 
+## aesthetivox-alignment-video
+
+`bin/aesthetivox-alignment-video.py` — the named feature: a piano-roll
+study mp4 (syllable blocks at sung pitch with their own waveform
+envelopes printed inside, numbered bars, per-beat tinted grid, kick
+floor, scrolling waveform, fixed playhead) over the click+kick+vocal
+study audio. The alignment scrutiny instrument for every aesthetivox
+vocal. Display latency is calibrated with loner's synccal.mp4; set
+SYNC_MS to the value that locks.
+
 ## samples
 
 `samples/kit/` — sample-free one-shots rendered from the AC engines
