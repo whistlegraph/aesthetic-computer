@@ -22,7 +22,7 @@
 //   node toolchain/instagram/ig.mjs --as oskiewar refresh
 //   node toolchain/instagram/ig.mjs refresh --all         # monthly cron
 //   node toolchain/instagram/ig.mjs --as oskiewar post reel.mp4 \
-//        --caption "..." [--cover cover.jpg] [--audio-name "..."]
+//        [--caption "..."] [--cover cover.jpg] [--audio-name "..."]
 //   node toolchain/instagram/ig.mjs --as oskiewar insights <media-id>
 //   node toolchain/instagram/ig.mjs --as oskiewar snapshot
 //
@@ -265,12 +265,12 @@ async function uploadPublic(creds, files) {
 
 async function doPost(creds) {
   const file = positional[0];
-  if (!file) die(`usage: ig.mjs --as <account> post <video.mp4> --caption "..." [--cover img.jpg] [--audio-name "..."] [--collaborators user1,user2]`);
+  if (!file) die(`usage: ig.mjs --as <account> post <video.mp4> [--caption "..."] [--cover img.jpg] [--audio-name "..."] [--collaborators user1,user2]`);
   const videoPath = resolve(process.cwd(), file);
   if (!existsSync(videoPath)) die(`video not found: ${videoPath}`);
-  if (!flags.caption || flags.caption === true) die(`--caption is required`);
-  const caption = String(flags.caption);
-  if (caption.length > 2200) die(`caption is ${caption.length} chars — Meta's limit is 2200`);
+  if (flags.caption === true) die(`--caption needs a value`);
+  const caption = typeof flags.caption === "string" ? flags.caption : null;
+  if (caption && caption.length > 2200) die(`caption is ${caption.length} chars — Meta's limit is 2200`);
   let coverPath = null;
   if (flags.cover) {
     coverPath = resolve(process.cwd(), String(flags.cover));
@@ -304,9 +304,9 @@ async function doPost(creds) {
   const body = {
     media_type: "REELS",
     video_url: urls.reel,
-    caption,
     share_to_feed: true, // a reel that only lives in the Reels tab is invisible to followers
   };
+  if (caption) body.caption = caption;
   if (urls.cover) body.cover_url = urls.cover;
   if (audioName) body.audio_name = audioName;
   if (collaborators?.length) body.collaborators = collaborators;
@@ -569,7 +569,7 @@ commands:
   quota                    content_publishing_limit — posts used/allowed per 24h
   refresh                  refresh the 60-day token, rewrite the vault env file in place
   refresh --all            refresh every provisioned account (monthly cron; no --as needed)
-  post <video.mp4> --caption "..." [--cover img.jpg] [--audio-name "..."]
+  post <video.mp4> [--caption "..."] [--cover img.jpg] [--audio-name "..."]
                            publish a reel: Spaces upload → container → poll → publish
   insights <media-id>      per-reel metrics (views, reach, skip rate, …; --json for machines)
   insights --refresh       pull metrics for every post in the account's ledger

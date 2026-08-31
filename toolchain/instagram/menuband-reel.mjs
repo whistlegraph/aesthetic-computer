@@ -52,12 +52,6 @@ const published = (entry) => posted.has(basename(entry.outPath));
 // The series numbering lives in the id — "04-stairwell" is waltz no. 4.
 const waltzNumber = (entry) => Number.parseInt(entry.id, 10);
 
-// The only purchase path analytics has ever attributed is App Store search,
-// so the caption's job is to teach that search: plain name, price, url.
-function caption() {
-  return "menu band · $4.99 on the mac app store · menuband.app\n#menuband #mac #apple";
-}
-
 // Invited on every reel; a pending invite costs nothing, and accepting from
 // the other account's app puts the reel in front of its followers.
 const COLLABORATORS = "aesthetic.computer,whistlegraph";
@@ -95,11 +89,39 @@ const WORDS = [
 const MODES = [
   ["major", "C"], ["major", "C"], ["minor", "A"], ["dorian", "D"],
 ];
-// The lane's voice is GM patch 79, Whistle (0-indexed program 78) — every
-// Menu Band reel whistles (@jeffrey, 2026-08-26). The one-element list
+// The lane's voice is GM patch 1, Acoustic Grand Piano (0-indexed program 0).
+// The one-element list
 // keeps pick()'s rand() consumption, so already-minted waltz numbers keep
 // their melodies.
-const INSTRUMENTS = [[78, "Whistle"]];
+const INSTRUMENTS = [[0, "Acoustic Grand Piano"]];
+const CONCERT_VISUAL = {
+  monochrome: true,
+  palette: {
+    stops: ["#050505", "#161616", "#000000"],
+    sheen: false,
+  },
+  motion: {
+    bounceScale: 0.004,
+    breathPx: 0,
+    bouncePx: 8,
+    floatTilt: 0,
+    swayPx: 0,
+    swayTilt: 0,
+    shadowAlpha: 0.28,
+    shadowBlur: 24,
+    shadowColor: "#000000",
+  },
+  particles: {
+    density: 0.45,
+    drift: 16,
+    spin: 0.12,
+    size: 0.78,
+  },
+  lighting: {
+    strength: 0.5,
+    globalAlpha: 0.06,
+  },
+};
 const PROGRESSIONS = [
   [0, 3, 4, 0, 5, 3, 4, 0], [0, 5, 3, 4, 0, 3, 4, 0],
   [0, 3, 0, 4, 5, 3, 4, 0], [0, 4, 5, 3, 0, 5, 4, 0],
@@ -115,16 +137,6 @@ function mulberry32(seed) {
     t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
-}
-
-function hex(h, s, l) {
-  const f = (n) => {
-    const k = (n + h / 30) % 12;
-    const c = l / 100 - (s / 100) * Math.min(l / 100, 1 - l / 100) *
-      Math.max(-1, Math.min(k - 3, 9 - k, 1));
-    return Math.round(255 * c).toString(16).padStart(2, "0");
-  };
-  return `#${f(0)}${f(8)}${f(4)}`;
 }
 
 function generateVariation(n) {
@@ -148,7 +160,6 @@ function generateVariation(n) {
     if (group === 7) notes[notes.length - 1] = 0;
     return notes;
   });
-  const hue = (n * 137.508) % 360;
   const id = `${String(n).padStart(2, "0")}-${name}`;
   const dir = `pop/menuband/out/menu-band-waltzes/${id}`;
   const [instrumentProgram, instrumentName] = pick(INSTRUMENTS);
@@ -166,7 +177,7 @@ function generateVariation(n) {
     notesPath: `${dir}/${id}.notes.json`,
     audioPath: `${dir}/${id}.wav`,
     outPath: `${dir}/${id}.mp4`,
-    visual: { palette: [hex(hue, 30, 93), hex(hue, 35, 65), hex(hue, 40, 30)] },
+    visual: CONCERT_VISUAL,
   };
 }
 
@@ -213,7 +224,7 @@ function publish(entry) {
   const video = renderIfNeeded(entry);
   console.log(`▸ posting ${entry.id} as @menuband`);
   const post = spawnSync(process.execPath, [IG, "--as", "menuband", "post",
-    video, "--caption", caption(entry), "--audio-name", audioName(entry),
+    video, "--audio-name", audioName(entry),
     "--collaborators", COLLABORATORS],
     { cwd: ROOT, stdio: "inherit" });
   if (post.status !== 0) die(`ig.mjs post failed for ${entry.id}`);
@@ -261,8 +272,7 @@ if (cmd === "queue") {
 } else if (cmd === "next") {
   const entry = ensureQueue();
   if (!auto) {
-    console.log(`would post ${entry.id} · audio "${audioName(entry)}" · caption:`);
-    console.log(caption(entry).replace(/^/gm, "  "));
+    console.log(`would post ${entry.id} · audio "${audioName(entry)}" · no caption`);
     console.log(`(pass --auto to render and publish)`);
     process.exit(0);
   }

@@ -7,12 +7,14 @@
     "durationSec": 60,
     "meter": "3/4",
     "melodyOnly": true,
+    "singleOctave": true,
     "startsOnScreen": true,
     "revealAtSec": 0.5,
     "revealDurationSec": 1.2,
     "exitAtSec": 58.2,
     "exitDurationSec": 1.4,
     "visual": {
+      "monochrome": true,
       "reveal": {
         "curtainAlpha": 0
       },
@@ -7052,6 +7054,101 @@
           "#c587aa",
           "#6b2e51"
         ]
+      }
+    },
+    {
+      "id": "95-saucer",
+      "name": "Saucer",
+      "seed": 95862,
+      "bpm": 84,
+      "bars": 28,
+      "tonic": "C",
+      "mode": "major",
+      "singleOctave": true,
+      "instrumentProgram": 0,
+      "instrumentName": "Acoustic Grand Piano",
+      "development": "mirror",
+      "harmonyDegrees": [
+        0,
+        3,
+        0,
+        4,
+        5,
+        3,
+        4,
+        0
+      ],
+      "melodyBars": [
+        [
+          5,
+          3
+        ],
+        [
+          2,
+          1
+        ],
+        [
+          2,
+          4,
+          5
+        ],
+        [
+          3,
+          1
+        ],
+        [
+          2,
+          3,
+          5
+        ],
+        [
+          6,
+          4,
+          5
+        ],
+        [
+          6,
+          4
+        ],
+        [
+          2,
+          0
+        ]
+      ],
+      "notesPath": "pop/menuband/out/menu-band-waltzes/95-saucer/95-saucer.notes.json",
+      "audioPath": "pop/menuband/out/menu-band-waltzes/95-saucer/95-saucer.wav",
+      "outPath": "pop/menuband/out/menu-band-waltzes/95-saucer/95-saucer.mp4",
+      "visual": {
+        "monochrome": true,
+        "palette": {
+          "stops": [
+            "#050505",
+            "#161616",
+            "#000000"
+          ],
+          "sheen": false
+        },
+        "motion": {
+          "bounceScale": 0.004,
+          "breathPx": 0,
+          "bouncePx": 8,
+          "floatTilt": 0,
+          "swayPx": 0,
+          "swayTilt": 0,
+          "shadowAlpha": 0.28,
+          "shadowBlur": 24,
+          "shadowColor": "#000000"
+        },
+        "particles": {
+          "density": 0.45,
+          "drift": 16,
+          "spin": 0.12,
+          "size": 0.78
+        },
+        "lighting": {
+          "strength": 0.5,
+          "globalAlpha": 0.06
+        }
       }
     }
   ]
