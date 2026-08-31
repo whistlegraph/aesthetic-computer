@@ -97,6 +97,7 @@ const INSTRUMENTS = [[0, "Acoustic Grand Piano"]];
 const CONCERT_VISUAL = {
   monochrome: true,
   keyIntakes: false,
+  keyLadder: true,
   palette: {
     stops: ["#050505", "#161616", "#000000"],
     sheen: false,
@@ -128,7 +129,7 @@ const PROGRESSIONS = [
   [0, 3, 0, 4, 5, 3, 4, 0], [0, 4, 5, 3, 0, 5, 4, 0],
 ];
 // bars × 3 beats at this bpm = exactly 60 s, the lane's fixed form.
-const BPMS = [66, 69, 72, 75, 78, 81, 84, 87, 90, 93, 96, 99, 102];
+const BPMS = [108, 114, 120, 126, 132];
 
 function mulberry32(seed) {
   let a = seed >>> 0;
@@ -146,15 +147,15 @@ function generateVariation(n) {
   const name = WORDS[(n - 5 + WORDS.length * 100) % WORDS.length];
   const bpm = pick(BPMS);
   // A melody of eight bar-groups: a small random walk over the scale
-  // ladder, 2–4 notes a group, always landing home. Every reel is a
+  // ladder, 4–6 notes a group, always landing home. Every reel is a
   // single-octave piece (@jeffrey, 2026-08-28), so the ladder is one
   // octave — degrees 0–6 — and the walk starts mid-ladder and reflects
   // off the ends; clamping there parks whole phrases on the floor and
   // everything comes out bass and drone.
   let degree = 2 + Math.floor(rand() * 3);
   const melodyBars = Array.from({ length: 8 }, (_, group) => {
-    const notes = Array.from({ length: 2 + Math.floor(rand() * 3) }, () => {
-      const step = [-2, -1, 1, 1, 2][Math.floor(rand() * 5)];
+    const notes = Array.from({ length: 4 + Math.floor(rand() * 3) }, () => {
+      const step = [-3, -2, -1, 1, 2, 3][Math.floor(rand() * 6)];
       degree += degree + step < 0 || degree + step > 6 ? -step : step;
       return degree;
     });
@@ -168,7 +169,7 @@ function generateVariation(n) {
   return {
     id, name: name[0].toUpperCase() + name.slice(1),
     seed: 1009 * n + 7, bpm, bars: bpm / 3,
-    tonic, mode, singleOctave: true,
+    tonic, mode, singleOctave: true, oneNoteAtATime: true, swing: true,
     instrumentProgram, instrumentName,
     // Of the developments only mirror keeps its ceiling octave-gated in
     // the renderers — lift's +7 is an octave leap — so every waltz mirrors.

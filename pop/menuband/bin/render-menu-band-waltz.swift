@@ -155,6 +155,8 @@ let program = Int(number(spec, "instrumentProgram", fallback: 0))
 let instrumentName = string(spec, "instrumentName", fallback: "Acoustic Grand Piano")
 let development = string(spec, "development", fallback: "lift")
 let singleOctave = (spec["singleOctave"] as? Bool) == true
+let oneNoteAtATime = (spec["oneNoteAtATime"] as? Bool) == true
+let swing = (spec["swing"] as? Bool) == true
 guard let harmony = spec["harmonyDegrees"] as? [Int], !harmony.isEmpty,
       let melodyBars = spec["melodyBars"] as? [[Int]], !melodyBars.isEmpty else {
     fatalError("waltz requires harmonyDegrees and melodyBars")
@@ -184,6 +186,17 @@ func add(_ at: Double, _ dur: Double, _ soundMidi: Int, _ _: Double) {
 }
 
 func melodyOffsets(count: Int) -> [Double] {
+    if swing {
+        switch count {
+        case 1: return [0]
+        case 2: return [0, 5.0 / 3.0]
+        case 3: return [0, 1, 2]
+        case 4: return [0, 2.0 / 3.0, 5.0 / 3.0, 8.0 / 3.0]
+        case 5: return [0, 2.0 / 3.0, 1, 5.0 / 3.0, 8.0 / 3.0]
+        case 6: return [0, 2.0 / 3.0, 1, 5.0 / 3.0, 2, 8.0 / 3.0]
+        default: break
+        }
+    }
     switch count {
     case 1: return [0]
     case 2: return [0, 1.5]
@@ -221,13 +234,15 @@ for barIndex in 0..<bars {
     let barStart = Double(barIndex) * bar
     let rootDegree = barIndex >= bars - 2 ? 0 : harmony[barIndex % harmony.count]
 
-    // Beat one is the bass; beats two and three are the same quiet triad.
-    add(barStart, beat * 0.78, scaleMidi(rootDegree), 0.30)
-    for chordBeat in [1.0, 2.0] {
-        for (voice, chordDegree) in [rootDegree, rootDegree + 2, rootDegree + 4].enumerated() {
-            add(barStart + chordBeat * beat, beat * 0.62,
-                scaleMidi(chordDegree, octaveShift: 1),
-                0.14 + Double(voice) * 0.018)
+    if !oneNoteAtATime {
+        // Beat one is the bass; beats two and three are the same quiet triad.
+        add(barStart, beat * 0.78, scaleMidi(rootDegree), 0.30)
+        for chordBeat in [1.0, 2.0] {
+            for (voice, chordDegree) in [rootDegree, rootDegree + 2, rootDegree + 4].enumerated() {
+                add(barStart + chordBeat * beat, beat * 0.62,
+                    scaleMidi(chordDegree, octaveShift: 1),
+                    0.14 + Double(voice) * 0.018)
+            }
         }
     }
 
@@ -245,6 +260,12 @@ for barIndex in 0..<bars {
 
 notes.sort { $0.t == $1.t ? $0.soundMidi < $1.soundMidi : $0.t < $1.t }
 precondition(!notes.isEmpty, "empty waltz")
+if oneNoteAtATime {
+    for (before, after) in zip(notes, notes.dropFirst()) {
+        precondition(before.t + before.dur <= after.t + 0.000_001,
+                     "one-note-at-a-time score contains overlapping notes")
+    }
+}
 precondition(notes.allSatisfy { visibleMIDIs.contains($0.midi) }, "visual note escaped Menu Band")
 precondition(notes.allSatisfy { $0.t >= 0 && $0.t + $0.dur <= duration + 0.001 }, "note escaped duration")
 

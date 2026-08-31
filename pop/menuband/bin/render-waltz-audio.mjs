@@ -85,6 +85,8 @@ const intervals = scaleIntervals(spec.mode ?? "major");
 const program = Math.trunc(Number(spec.instrumentProgram ?? 0));
 const development = spec.development ?? "lift";
 const singleOctave = spec.singleOctave === true;
+const oneNoteAtATime = spec.oneNoteAtATime === true;
+const swing = spec.swing === true;
 const harmony = spec.harmonyDegrees;
 const melodyBars = spec.melodyBars;
 if (!harmony?.length || !melodyBars?.length)
@@ -113,6 +115,16 @@ function add(at, dur, soundMidi, _velocity) {
 }
 
 function melodyOffsets(count) {
+  if (swing) {
+    switch (count) {
+      case 1: return [0];
+      case 2: return [0, 5 / 3];
+      case 3: return [0, 1, 2];
+      case 4: return [0, 2 / 3, 5 / 3, 8 / 3];
+      case 5: return [0, 2 / 3, 1, 5 / 3, 8 / 3];
+      case 6: return [0, 2 / 3, 1, 5 / 3, 2, 8 / 3];
+    }
+  }
   switch (count) {
     case 1: return [0];
     case 2: return [0, 1.5];
@@ -151,13 +163,15 @@ for (let barIndex = 0; barIndex < bars; barIndex++) {
   const barStart = barIndex * bar;
   const rootDegree = barIndex >= bars - 2 ? 0 : harmony[barIndex % harmony.length];
 
-  // Beat one is the bass; beats two and three are the same quiet triad.
-  add(barStart, beat * 0.78, scaleMidi(rootDegree), 0.30);
-  for (const chordBeat of [1.0, 2.0]) {
-    [rootDegree, rootDegree + 2, rootDegree + 4].forEach((chordDegree, voice) => {
-      add(barStart + chordBeat * beat, beat * 0.62,
-        scaleMidi(chordDegree, 1), 0.14 + voice * 0.018);
-    });
+  if (!oneNoteAtATime) {
+    // Beat one is the bass; beats two and three are the same quiet triad.
+    add(barStart, beat * 0.78, scaleMidi(rootDegree), 0.30);
+    for (const chordBeat of [1.0, 2.0]) {
+      [rootDegree, rootDegree + 2, rootDegree + 4].forEach((chordDegree, voice) => {
+        add(barStart + chordBeat * beat, beat * 0.62,
+          scaleMidi(chordDegree, 1), 0.14 + voice * 0.018);
+      });
+    }
   }
 
   const melody = developed(melodyBars[barIndex % melodyBars.length], barIndex);
@@ -173,6 +187,12 @@ for (let barIndex = 0; barIndex < bars; barIndex++) {
 
 notes.sort((a, b) => (a.t === b.t ? a.soundMidi - b.soundMidi : a.t - b.t));
 if (!notes.length) throw new Error("empty waltz");
+if (oneNoteAtATime) {
+  for (let index = 1; index < notes.length; index += 1) {
+    if (notes[index - 1].t + notes[index - 1].dur > notes[index].t + 0.000001)
+      throw new Error("one-note-at-a-time score contains overlapping notes");
+  }
+}
 for (const note of notes) {
   if (!VISIBLE_MIDIS.includes(note.midi)) throw new Error("visual note escaped Menu Band");
   if (!(note.t >= 0 && note.t + note.dur <= duration + 0.001)) throw new Error("note escaped duration");

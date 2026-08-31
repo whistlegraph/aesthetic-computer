@@ -44,6 +44,7 @@ options:
   --still-out <file.png>    destination for --still
   --total <seconds>         bounded QA render override (does not alter score)
   --out <file.mp4>          alternate video destination for QA
+  --presentation <name>     override visual presentation (columns | letter-ribbon)
 `);
 }
 
@@ -103,6 +104,8 @@ const entry = {
       : { ...objectOrEmpty(defaultVisual.lighting), ...objectOrEmpty(rawVisual.lighting) },
   },
 };
+const presentationOverride = valueAfter("--presentation");
+if (presentationOverride) entry.visual.presentation = presentationOverride;
 const id = entry.id || entry.slug;
 if (!id || !/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/.test(id)) die("variation id must be a filesystem-safe string");
 
@@ -172,6 +175,7 @@ const revealSpec = objectOrEmpty(entry.visual.reveal);
 const particleSpec = normalizeParticles(entry.visual.particles, seed, entry.density);
 const lighting = normalizeLighting(entry.visual.lighting, seed);
 const highway = normalizeHighway(entry.visual.highway);
+const letterRibbon = entry.visual.presentation === "letter-ribbon";
 
 const revealAt = finite(entry.revealAtSec ?? revealSpec.at ?? score.revealAtSec, 3.2);
 const revealDuration = positive(entry.revealDurationSec ?? revealSpec.duration ?? score.revealDurationSec, 1.15);
@@ -194,6 +198,7 @@ const plan = {
   fps: FPS, size: `${W}x${H}`, events: notes.length, seed,
   palette: stops, revealAt, revealDuration, exitAt, exitDuration,
   startsOnScreen, melodyOnly, transitions, highway,
+  presentation: letterRibbon ? "letter-ribbon" : "columns",
 };
 if (process.argv.includes("--dry-run")) {
   console.log(JSON.stringify(plan, null, 2));
@@ -321,7 +326,8 @@ function drawNoteHighway(t, activeRig, stripRect) {
     // The leading edge reaches the key on onset. The duration-sized body keeps
     // feeding into the key until its trailing edge is ingested on note-off.
     const bottom = strikeY - until * speed;
-    const top = bottom - duration * speed;
+    const visualHeight = Math.max(duration * speed, positive(highway.minNoteHeightPx, 0));
+    const top = bottom - visualHeight;
     const visibleTop = Math.max(startY, top);
     const visibleBottom = Math.min(strikeY, bottom);
     if (visibleBottom <= visibleTop) continue;
@@ -374,11 +380,62 @@ function drawNoteHighway(t, activeRig, stripRect) {
     }
 
     const label = KEY_LABELS.get(note.visualMidi);
-    const glyph = Math.max(22, Math.min(56, width * 0.58));
-    const labelY = bottom - glyph * 0.75;
-    if (label && labelY - glyph / 2 >= visibleTop && labelY + glyph / 2 <= visibleBottom) {
+    const glyph = Math.max(22, Math.min(50, width * 0.54, height * 0.52));
+    const labelY = visibleTop + height / 2;
+    if (label && height >= 30) {
       drawBlockLetter(label.toLowerCase(), x + width / 2, labelY, glyph);
     }
+    ctx.restore();
+  }
+  ctx.restore();
+}
+
+// A second learning view: the score reads as a horizontal sentence. Notes
+// move right-to-left through the center of the frame; crossing center is the
+// onset, so the letter in the middle is the key to play now.
+function drawLetterRibbon(t) {
+  if (!letterRibbon) return;
+  const spec = objectOrEmpty(entry.visual.letterRibbon);
+  const y = H * bounded(spec.centerY ?? 0.39, 0.2, 0.65);
+  const size = positive(spec.fontPx, 96);
+  const spacing = positive(spec.spacingPx, 154);
+  let currentIndex = displayNotes.findLastIndex((note) => note.t <= t);
+  currentIndex = Math.max(0, currentIndex);
+  let playheadIndex = currentIndex;
+  const next = displayNotes[currentIndex + 1];
+  if (next) {
+    const moveDuration = Math.min(0.2, Math.max(0.08, (next.t - displayNotes[currentIndex].t) * 0.45));
+    const moveStart = next.t - moveDuration;
+    const progress = clamp01((t - moveStart) / moveDuration);
+    playheadIndex += progress * progress * (3 - 2 * progress);
+  }
+  const visibleSlots = Math.ceil(W / (2 * spacing)) + 2;
+
+  ctx.save();
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  for (let index = Math.max(0, currentIndex - visibleSlots);
+    index < Math.min(displayNotes.length, currentIndex + visibleSlots + 2); index += 1) {
+    const note = displayNotes[index];
+    const label = KEY_LABELS.get(note.visualMidi);
+    if (!label) continue;
+    const slot = index - playheadIndex;
+    const x = W / 2 + slot * spacing;
+    const atPlayhead = Math.abs(slot) < 0.04;
+    const edgeFade = clamp01((W / 2 - Math.abs(x - W / 2)) / (W * 0.22));
+    const scale = atPlayhead ? 1.2 : 1;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(scale, scale);
+    ctx.font = `${atPlayhead ? 900 : 760} ${size}px MBSansRounded`;
+    ctx.shadowColor = atPlayhead ? "rgba(255,255,255,0.65)" : "transparent";
+    ctx.shadowBlur = atPlayhead ? 20 : 0;
+    ctx.fillStyle = atPlayhead
+      ? "rgba(255,255,255,1)"
+      : slot > 0
+        ? `rgba(190,190,190,${0.38 + edgeFade * 0.48})`
+        : `rgba(105,105,105,${0.22 + edgeFade * 0.32})`;
+    ctx.fillText(label, 0, 0);
     ctx.restore();
   }
   ctx.restore();
@@ -780,20 +837,27 @@ function drawKeyboardLabels(t, activeRig, stripRect) {
   const held = new Set(displayNotes
     .filter((note) => t >= note.t && t < note.t + positive(note.dur, 0.2))
     .map((note) => note.visualMidi));
-  const labelY = stripRect.y + stripRect.h * 0.72;
+  const labelY = stripRect.y + stripRect.h * 0.79;
   ctx.save();
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   for (const midi of STRIP_MIDIS) {
+    if (!activeRig.keys.has(midi)) continue;
     const label = KEY_LABELS.get(midi);
     if (!label) continue;
     const keyRect = stripKeyRect(activeRig, midi, stripRect);
     const active = held.has(midi);
-    const size = Math.max(20, Math.min(31, keyRect.w * 0.46));
+    const keyColor = active ? stripKeyColor(activeRig, midi) : [244, 244, 244];
+    const luminance = keyColor[0] * 0.299 + keyColor[1] * 0.587 + keyColor[2] * 0.114;
+    const patchInset = Math.max(3, keyRect.w * 0.05);
+    ctx.fillStyle = rgb(keyColor, 0.98);
+    ctx.fillRect(keyRect.x + patchInset, stripRect.y + stripRect.h * 0.58,
+      keyRect.w - patchInset * 2, stripRect.h * 0.38);
+    const size = Math.max(19, Math.min(25, keyRect.w * 0.36));
     ctx.font = `${active ? 900 : 800} ${size}px MBSansRounded`;
     ctx.shadowColor = active ? "rgba(255,255,255,0.9)" : "transparent";
     ctx.shadowBlur = active ? 7 : 0;
-    ctx.fillStyle = active ? "rgba(255,255,255,0.96)" : "rgba(24,18,36,0.68)";
+    ctx.fillStyle = luminance > 150 ? "rgba(20,20,20,0.9)" : "rgba(255,255,255,0.96)";
     ctx.fillText(label, keyRect.x + keyRect.w / 2, labelY);
   }
   ctx.restore();
@@ -924,10 +988,14 @@ function drawFrame(t) {
   ctx.translate(-camera.cx, -camera.cy);
   drawPerformanceLight(t, activeRig, pose, startsOnScreen
     ? pose.illumination : pose.revealEase * (1 - pose.exitEase));
-  drawPaperLoopScore(t, activeRig, pose);
-  drawScoreLoop(t, activeRig, pose);
-  drawNoteLanes(t, activeRig, pose);
-  drawNoteHighway(t, activeRig, pose);
+  if (letterRibbon) {
+    drawLetterRibbon(t);
+  } else {
+    drawPaperLoopScore(t, activeRig, pose);
+    drawScoreLoop(t, activeRig, pose);
+    drawNoteLanes(t, activeRig, pose);
+    drawNoteHighway(t, activeRig, pose);
+  }
 
   if (pose.boardVisible && pose.exitEase < 1) {
     const scale = 1 + pose.spring * finite(motion.bounceScale, 0.020);
@@ -952,18 +1020,20 @@ function drawFrame(t) {
   }
 
   for (const note of onsetsThrough(t)) {
-    const eventRig = rigFor(note.t, note);
-    const x = stripKeyX(eventRig, note.visualMidi, pose);
-    const y = pose.y + pose.h + 8;
-    const color = stripKeyColor(eventRig, note.visualMidi);
-    particles.spawn({
-      x, y, color, midi: note.soundMidi ?? note.midi, drum: isDrum(note), eventIndex: note.eventIndex,
-    });
+    if (!letterRibbon) {
+      const eventRig = rigFor(note.t, note);
+      const x = stripKeyX(eventRig, note.visualMidi, pose);
+      const y = pose.y + pose.h + 8;
+      const color = stripKeyColor(eventRig, note.visualMidi);
+      particles.spawn({
+        x, y, color, midi: note.soundMidi ?? note.midi, drum: isDrum(note), eventIndex: note.eventIndex,
+      });
+    }
   }
   // The departing board pulls the existing stream down with it. Marks remain
   // fully opaque and are never cleared; the stronger exit gravity only makes
   // sure they cross the bottom naturally before the empty final frame.
-  particles.stepAndDraw(1 / FPS, 1 + pose.exitEase * 10);
+  if (!letterRibbon) particles.stepAndDraw(1 / FPS, 1 + pose.exitEase * 10);
   ctx.restore();
   drawCurtain(pose);
 }
