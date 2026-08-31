@@ -416,8 +416,21 @@ if (flags.nomaster) {
 }
 
 // 5b. Cover art (square, on-brand) → embed as ID3 album art + keep the file.
-console.log("Rendering cover…");
-const { full: coverFull, embed: coverEmbed } = renderCover(script, resolve(ROOT, "out"));
+// Dailies share ONE static cover (assets/the-daily-cover*.png) so the lane
+// runs on hosts without xelatex; it's copied under the slug so the artwork
+// contract (out/<slug>-cover-1400.png) holds for buzzsprout.mjs.
+let coverFull, coverEmbed;
+const dailyCoverEmbed = resolve(ROOT, "assets", "the-daily-cover-1400.png");
+if (FRAME === "daily" && existsSync(dailyCoverEmbed)) {
+  console.log("Cover: shared daily identity");
+  coverFull = resolve(ROOT, "out", `${script.slug}-cover.png`);
+  coverEmbed = resolve(ROOT, "out", `${script.slug}-cover-1400.png`);
+  execFileSync("cp", [resolve(ROOT, "assets", "the-daily-cover.png"), coverFull]);
+  execFileSync("cp", [dailyCoverEmbed, coverEmbed]);
+} else {
+  console.log("Rendering cover…");
+  ({ full: coverFull, embed: coverEmbed } = renderCover(script, resolve(ROOT, "out")));
+}
 
 execFileSync("ffmpeg", [
   "-y", "-i", audioTmp, "-i", coverEmbed,

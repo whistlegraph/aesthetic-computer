@@ -63,7 +63,14 @@ const REDACT = [
 const range = typeof flags.date === "string"
   ? ["--since", `${date}T00:00:00`, "--until", `${date}T23:59:59`]
   : ["--since", "24 hours ago"];
-const raw = execFileSync("git", ["log", ...range, "--pretty=format:%s"], { cwd: REPO }).toString();
+// Read the log from a fresh fetch when the network allows — an always-on
+// appliance's working tree can lag the day it's narrating.
+let logRef = "HEAD";
+try {
+  execFileSync("git", ["fetch", "origin", "main"], { cwd: REPO, stdio: "ignore", timeout: 90000 });
+  logRef = "FETCH_HEAD";
+} catch { /* offline is fine; HEAD still tells a story */ }
+const raw = execFileSync("git", ["log", logRef, ...range, "--pretty=format:%s"], { cwd: REPO }).toString();
 const seen = new Set();
 const subjects = raw.split("\n")
   .map((s) => s.trim())
