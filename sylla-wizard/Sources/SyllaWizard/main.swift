@@ -207,6 +207,23 @@ final class App: NSObject, NSApplicationDelegate {
     }
 
     func seed() {
+        // work already drawn wins over machine guesses, and it is saved on
+        // every change — closing the window must never lose an adjustment
+        if let data = try? Data(contentsOf: outURL),
+           let j = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+           let sylls = j["sylls"] as? [[String: Any]] {
+            for s in sylls {
+                guard let lab = s["label"] as? String, let wi = s["wi"] as? Int,
+                      let a = s["fromMs"] as? Int, let b = s["toMs"] as? Int else { continue }
+                if let i = SYLS.firstIndex(where: { $0.0 == lab && $0.1 == wi }),
+                   view.rects[i] == nil {
+                    view.rects[i] = Rect(fromMs: a, toMs: b,
+                                         fLo: (s["fLo"] as? Double) ?? 0.12,
+                                         fHi: (s["fHi"] as? Double) ?? 0.9)
+                }
+            }
+            return
+        }
         let bp = work.appendingPathComponent("bounds-\(take).json")
         guard let data = try? Data(contentsOf: bp),
               let j = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
@@ -232,11 +249,14 @@ final class App: NSObject, NSApplicationDelegate {
                                         : NSColor.secondaryLabelColor)
         }
         let done = view.rects.compactMap { $0 }.count
-        status.stringValue = "\(done)/\(SYLS.count) · → \(SYLS[view.cur].0)"
+        status.stringValue = "\(done)/\(SYLS.count) · → \(SYLS[view.cur].0) · autosaved"
         view.needsDisplay = true
+        save()                                  // every adjustment persists
     }
 
-    @objc func doExport() {
+    @objc func doExport() { save(); status.stringValue = "✓ wrote \(outURL.lastPathComponent)" }
+
+    func save() {
         var sylls: [[String: Any]] = []
         for (i, r) in view.rects.enumerated() {
             guard let r = r else { continue }
@@ -247,10 +267,10 @@ final class App: NSObject, NSApplicationDelegate {
                                   "tool": "SyllaWizard", "sylls": sylls]
         if let data = try? JSONSerialization.data(withJSONObject: doc, options: [.prettyPrinted, .sortedKeys]) {
             try? data.write(to: outURL)
-            status.stringValue = "✓ wrote \(outURL.lastPathComponent)"
         }
     }
 
+    func applicationWillTerminate(_ n: Notification) { save() }
     func applicationShouldTerminateAfterLastWindowClosed(_ s: NSApplication) -> Bool { true }
 }
 
